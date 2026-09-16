@@ -1433,9 +1433,17 @@ export interface AstrolabePoint {
   name: string;
   label: string;
   longitude: number;
+  /** 底层星历位置的黄道纬度，单位为度；仅实体星体有真实值，节点、莉莉丝和衍生点不填。 */
+  latitude?: number;
+  /** 底层星历位置的地心距离，单位为 AU；仅实体星体有真实值，节点、莉莉丝和衍生点不填。 */
+  distance?: number;
+  /** 底层星历位置的黄经日运动，单位为度/日；仅底层提供运动速度的点位有此字段。 */
+  longitudeSpeed?: number;
   sign: string;
   degree: number;
   minute: number;
+  /** 位置度分秒中的角秒，单位为角秒；四轴与宫头也可提供。 */
+  second?: number;
   house: number;
   formatted: string;
   retrograde?: boolean;

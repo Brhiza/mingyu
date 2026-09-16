@@ -84,6 +84,10 @@ function assertSamePoint(
     signName: string;
     degree: number;
     minute: number;
+    second?: number;
+    latitude?: number;
+    distance?: number;
+    longitudeSpeed?: number;
     house?: number;
     isRetrograde?: boolean;
   },
@@ -94,6 +98,18 @@ function assertSamePoint(
   assert.equal(actual.sign, chineseSign(expected.signName), `${label}星座`);
   assert.equal(actual.degree, expected.degree, `${label}度`);
   assert.equal(actual.minute, expected.minute, `${label}分`);
+  if (expected.second !== undefined) {
+    assert.equal(actual.second, expected.second, `${label}秒`);
+  }
+  if (expected.latitude !== undefined) {
+    assert.equal(actual.latitude, expected.latitude, `${label}黄纬`);
+  }
+  if (expected.distance !== undefined) {
+    assert.equal(actual.distance, expected.distance, `${label}距离`);
+  }
+  if (expected.longitudeSpeed !== undefined) {
+    assert.equal(actual.longitudeSpeed, expected.longitudeSpeed, `${label}黄经速度`);
+  }
   if (expected.house !== undefined) {
     assert.equal(actual.house, expected.house, `${label}宫位`);
   }
@@ -327,32 +343,44 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现统一星历适配
       signName: string;
       degree: number;
       minute: number;
+      second?: number;
+      latitude?: number;
+      distance?: number;
+      longitudeSpeed?: number;
       house?: number;
       isRetrograde?: boolean;
     }> = [
       ...chart.planets.map((planet) => ({
         name: planet.name,
         longitude: planet.longitude,
+        latitude: planet.latitude,
+        distance: planet.distance,
+        longitudeSpeed: planet.longitudeSpeed,
         signName: planet.signName,
         degree: planet.degree,
         minute: planet.minute,
+        second: planet.second,
         house: planet.house,
         isRetrograde: planet.isRetrograde,
       })),
       ...chart.nodes.map((node) => ({
         name: node.name,
         longitude: node.longitude,
+        longitudeSpeed: node.longitudeSpeed,
         signName: node.signName,
         degree: node.degree,
         minute: node.minute,
+        second: node.second,
         house: node.house,
       })),
       ...chart.lilith.map((lilith) => ({
         name: lilith.name,
         longitude: lilith.longitude,
+        longitudeSpeed: lilith.longitudeSpeed,
         signName: lilith.signName,
         degree: lilith.degree,
         minute: lilith.minute,
+        second: lilith.second,
         house: lilith.house,
       })),
       ...chart.lots.map((lot) => ({
@@ -361,6 +389,7 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现统一星历适配
         signName: lot.signName,
         degree: lot.degree,
         minute: lot.minute,
+        second: lot.second,
         house: lot.house,
       })),
     ];
@@ -399,6 +428,7 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现统一星历适配
       assert.equal(actual.sign, chineseSign(cusp.signName), `${sample.scope}宫头星座`);
       assert.equal(actual.degree, cusp.degree, `${sample.scope}宫头度`);
       assert.equal(actual.minute, cusp.minute, `${sample.scope}宫头分`);
+      assert.equal(actual.second, cusp.second, `${sample.scope}宫头秒`);
       assert.equal(actual.house, cusp.house, `${sample.scope}宫序号`);
       houseChecked += 1;
     }
@@ -434,4 +464,26 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现统一星历适配
   assert.equal(pointChecked, 432);
   assert.equal(houseChecked, 216);
   assert.equal(aspectChecked, 731);
+});
+
+test('星盘扩展位置字段只在底层适用点位出现', () => {
+  const result = generateAstrolabe({ ...SAMPLES[1].input, second: '37' });
+  const sun = result.planets.find((point) => point.name === 'Sun');
+  const northNode = result.planets.find((point) => point.name === 'North Node');
+  const fortune = result.planets.find((point) => point.name === 'Part of Fortune');
+
+  assert.equal(typeof sun?.latitude, 'number');
+  assert.equal(typeof sun?.distance, 'number');
+  assert.equal(typeof sun?.longitudeSpeed, 'number');
+  assert.equal(typeof sun?.second, 'number');
+  assert.equal(typeof northNode?.longitudeSpeed, 'number');
+  assert.equal(northNode?.latitude, undefined);
+  assert.equal(northNode?.distance, undefined);
+  assert.equal(fortune?.longitudeSpeed, undefined);
+  assert.equal(fortune?.latitude, undefined);
+  assert.equal(fortune?.distance, undefined);
+  assert.ok(result.angles.every((point) => typeof point.second === 'number'));
+  assert.ok(result.angles.every((point) => point.longitudeSpeed === undefined));
+  assert.ok(result.houses.every((point) => typeof point.second === 'number'));
+  assert.ok(result.houses.every((point) => point.longitudeSpeed === undefined));
 });

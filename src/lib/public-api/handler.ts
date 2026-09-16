@@ -103,6 +103,8 @@ import {
   buildAstrolabeFullScopeContexts,
   buildAstrolabeScopeContext,
   getDefaultAstrolabeScopeDate,
+  type AstrolabeFullScopeContexts,
+  type AstrolabeScopeContext,
 } from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
@@ -5729,8 +5731,7 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
   });
 }
 
-function buildAstrolabeFullScopePromptText(data: AstrolabeData, referenceDateStr: string) {
-  const fullContexts = buildAstrolabeFullScopeContexts(data, referenceDateStr);
+function buildAstrolabeFullScopePromptText(fullContexts: AstrolabeFullScopeContexts) {
   const contexts = [
     fullContexts.natal,
     fullContexts.yearly,
@@ -5745,43 +5746,26 @@ function buildAstrolabeFullScopePromptText(data: AstrolabeData, referenceDateStr
   return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
 }
 
-function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
-  const customText = readString(input, 'astrolabeScopeText', '').trim();
-  if (customText) return customText;
+type AstrolabeScopeEvidence =
+  | { scope: 'custom'; promptText: string }
+  | { scope: 'full'; referenceDate: string; contexts: AstrolabeFullScopeContexts }
+  | AstrolabeScopeContext;
 
-  const hasExplicitScope = input.astrolabeScope !== undefined;
-  const scope = readEnum(
-    input,
-    'astrolabeScope',
-    ASTROLABE_PROMPT_SCOPES,
-    hasExplicitScope ? 'natal' : 'yearly',
-  ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  const dateStr =
-    scope === 'natal'
-      ? ''
-      : hasExplicitScope
-        ? readRequiredString(input, 'astrolabeScopeDate')
-        : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
+type AstrolabeScopeArtifacts = {
+  promptText: string;
+  scopeEvidence: AstrolabeScopeEvidence;
+};
 
-  try {
-    if (scope === 'full') {
-      return buildAstrolabeFullScopePromptText(data, dateStr);
-    }
-
-    return buildAstrolabeScopeContext(data, scope, dateStr).promptText;
-  } catch (error) {
-    throw new ApiError(
-      400,
-      'BAD_REQUEST',
-      error instanceof Error ? error.message : '星盘行运日期无效。',
-    );
-  }
-}
-
-function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
+function buildAstrolabeScopeArtifacts(
+  input: JsonRecord,
+  data: AstrolabeData,
+): AstrolabeScopeArtifacts {
   const customText = readString(input, 'astrolabeScopeText', '').trim();
   if (customText) {
-    return { scope: 'custom' as const, promptText: customText };
+    return {
+      promptText: customText,
+      scopeEvidence: { scope: 'custom', promptText: customText },
+    };
   }
 
   const hasExplicitScope = input.astrolabeScope !== undefined;
@@ -5797,16 +5781,22 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
       : hasExplicitScope
         ? readRequiredString(input, 'astrolabeScopeDate')
         : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
+
   try {
     if (scope === 'full') {
+      const contexts = buildAstrolabeFullScopeContexts(data, dateStr);
       return {
-        scope: 'full' as const,
-        referenceDate: dateStr,
-        contexts: buildAstrolabeFullScopeContexts(data, dateStr),
+        promptText: buildAstrolabeFullScopePromptText(contexts),
+        scopeEvidence: {
+          scope: 'full',
+          referenceDate: dateStr,
+          contexts,
+        },
       };
     }
 
-    return buildAstrolabeScopeContext(data, scope, dateStr);
+    const context = buildAstrolabeScopeContext(data, scope, dateStr);
+    return { promptText: context.promptText, scopeEvidence: context };
   } catch (error) {
     throw new ApiError(
       400,
@@ -5850,6 +5840,10 @@ function buildDivinationPromptResult(
   const promptInput = method === 'astrolabe' ? resolveAstrolabePromptScopeInput(input) : input;
   const promptData =
     method === 'almanac' ? shapeAlmanacPromptData(rawData as AlmanacData, input) : rawData;
+  const astrolabeScopeArtifacts =
+    method === 'astrolabe'
+      ? buildAstrolabeScopeArtifacts(promptInput, rawData as AstrolabeData)
+      : undefined;
   const fullResult =
     method === 'almanac'
       ? shapeAlmanacResult(rawData as AlmanacData, input)
@@ -5858,12 +5852,18 @@ function buildDivinationPromptResult(
         : method === 'astrolabe'
           ? {
               ...(rawData as AstrolabeData),
-              scopeEvidence: buildAstrolabeScopeEvidence(promptInput, rawData as AstrolabeData),
+              scopeEvidence: astrolabeScopeArtifacts!.scopeEvidence,
             }
           : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
   const promptSelection = readDivinationPromptSelection(method, promptInput);
-  const prompt = buildDivinationPromptText(method, question, promptData, promptInput);
+  const prompt = buildDivinationPromptText(
+    method,
+    question,
+    promptData,
+    promptInput,
+    astrolabeScopeArtifacts?.promptText,
+  );
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -5935,6 +5935,7 @@ function buildDivinationPromptText(
   question: string,
   data: unknown,
   input: JsonRecord,
+  astrolabeScopeText?: string,
 ) {
   const baseSupplementaryInfo = readSupplementaryInfo(input);
   const supplementaryInfo =
@@ -5974,10 +5975,7 @@ function buildDivinationPromptText(
       method === 'astrolabe'
         ? readEnum(input, 'astrolabeTopic', ASTROLABE_PROMPT_TOPICS, 'life')
         : undefined,
-    astrolabeScopeText:
-      method === 'astrolabe'
-        ? buildAstrolabePromptScopeText(input, data as AstrolabeData)
-        : undefined,
+    astrolabeScopeText: method === 'astrolabe' ? astrolabeScopeText : undefined,
     schools,
     topicId,
     subtopicId,
