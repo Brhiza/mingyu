@@ -1,3 +1,4 @@
+import { formatLiurenJudgmentFacts } from '../prompt/liuren-judgment';
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { DivinationMethodId } from './config';
 import { generateAlmanacSelection } from './algorithms/almanac';
@@ -189,47 +190,6 @@ function buildDivinationAiPrompt(options: {
       buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
     ]),
   );
-}
-
-function formatLiurenJudgmentFacts(data: LiurenData): string[] {
-  const lines: string[] = [];
-  if (data.transmissionDetail) {
-    const sourceMarker = '；古籍依据依次为：';
-    const sourceIndex = data.transmissionDetail.indexOf(sourceMarker);
-    const transmissionBasis =
-      sourceIndex >= 0 ? data.transmissionDetail.slice(0, sourceIndex) : data.transmissionDetail;
-    if (transmissionBasis) lines.push(`取传说明：${transmissionBasis}`);
-  }
-
-  const classicalRules = (data.classicalRules ?? [])
-    .map((item) => `${item.category}：${item.summary}`)
-    .filter(Boolean);
-  if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
-
-  const guaTiFacts = (data.guaTiFacts ?? [])
-    .map((item) => `${item.name}（${item.matchedConditions.join('、')}）`)
-    .filter(Boolean);
-  if (guaTiFacts.length) lines.push(`课体条件：${guaTiFacts.join('；')}`);
-
-  const focusEvidence = (data.focusEvidence ?? [])
-    .map((item) => {
-      const evidence = item.evidence.filter(Boolean).join('、');
-      return `${item.target}${item.role ? `（${item.role}）` : ''}，${item.level}：${evidence || '未列依据'}${item.limitations.length ? `；适用条件：${item.limitations.join('、')}` : ''}`;
-    })
-    .filter(Boolean);
-  if (focusEvidence.length) lines.push(`重点依据：${focusEvidence.join('；')}`);
-
-  const timingEvidence = (data.timingEvidence ?? []).filter(Boolean);
-  if (timingEvidence.length) lines.push(`时令依据：${timingEvidence.join('；')}`);
-  const analysis = data.evidenceAnalysis;
-  if (analysis) {
-    const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
-    lines.push(
-      `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
-      '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
-    );
-  }
-  return lines;
 }
 
 function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
