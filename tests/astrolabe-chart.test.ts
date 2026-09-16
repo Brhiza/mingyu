@@ -66,7 +66,8 @@ test('高纬度实际整宫制贯通星盘、解读资料和页面标签', () =>
     const html = renderToStaticMarkup(
       createElement(AstrolabeBoard, { title: '本命星盘', name: '宫位用例', data }),
     );
-    assert.ok(html.includes(label));
+    assert.ok(html.includes(polar ? '整宫制' : '普拉西德斯宫制'));
+    assert.doesNotMatch(html, /Placidus/);
     if (polar) {
       assert.equal(data.houses.length, 12);
       for (const house of data.houses)
