@@ -2051,7 +2051,7 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   assert.match(ziping, /八字流派：子平派（传统）/);
   assert.match(ziping, /月令与节候：/);
   assert.match(ziping, /《子平真诠》/);
-  assert.match(ziping, /流派任务：先以月令定格/);
+  assert.match(ziping, /流派任务：依据已给出的月令、旺衰、格局成败及制化条件/);
 
   const mangpai = buildBaziPromptForResult({
     result,
