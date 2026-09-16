@@ -117,6 +117,12 @@ import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { normalizeChartInputForSource, preserveResultContextParams } from '@/lib/case-navigation';
+import {
+  parseQizhengFlowTarget,
+  QIZHENG_FLOW_TARGET_PARAM,
+  type QizhengFlowTarget,
+} from '@/lib/qizheng-flow-target';
+import { QizhengFlowTargetForm } from './components/QizhengFlowTargetForm';
 import { isInstantChartType, readInstantTimeStandard } from '@/lib/instant-chart';
 import {
   buildInstantAstrolabePrompt,
@@ -429,9 +435,20 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),
     [promptState.promptSource, searchParams],
   );
+  const qizhengFlowQuery = searchParams.get(QIZHENG_FLOW_TARGET_PARAM);
+  const qizhengFlowSelection = useMemo(() => {
+    try {
+      return { target: parseQizhengFlowTarget(qizhengFlowQuery), error: '' };
+    } catch (error) {
+      return {
+        target: {} as QizhengFlowTarget,
+        error: error instanceof Error ? error.message : '流曜目标无效。',
+      };
+    }
+  }, [qizhengFlowQuery]);
   const readingSubject = useMemo(
-    () => buildReadingSubject(inputState, promptState),
-    [inputState, promptState],
+    () => buildReadingSubject(inputState, promptState, qizhengFlowSelection.target),
+    [inputState, promptState, qizhengFlowSelection.target],
   );
   const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
   const isCombinedResult =
@@ -1194,34 +1211,53 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
   }, [inputState.birthReverseSource]);
   const qizhengRangeMode = !isInstantResult && qizhengBirthSource.requested;
+  const qizhengInput = useMemo(
+    () =>
+      sharedBirthData
+        ? {
+            ...sharedBirthData,
+            ...(!isInstantResult ? qizhengFlowSelection.target : {}),
+          }
+        : null,
+    [sharedBirthData, isInstantResult, qizhengFlowSelection.target],
+  );
+  const qizhengSelectionKey = `${inputSearch}:${qizhengFlowQuery ?? ''}`;
+  const applyQizhengFlowTarget = (target: QizhengFlowTarget) => {
+    const next = new URLSearchParams(searchParams);
+    if (target.flowYear === undefined) next.delete(QIZHENG_FLOW_TARGET_PARAM);
+    else next.set(QIZHENG_FLOW_TARGET_PARAM, JSON.stringify(target));
+    setSearchParams(next, { replace: true });
+  };
   const qizhengRangeState = useQizhengBirthRange(
-    sharedBirthData,
+    qizhengInput,
     qizhengBirthSource.source,
-    shouldCalculateQizheng && qizhengRangeMode,
+    shouldCalculateQizheng && qizhengRangeMode && !qizhengFlowSelection.error,
   );
   const qizhengRangeError =
     qizhengRangeMode && !qizhengBirthSource.source
       ? '出生区间资料不完整，请重新选择四柱候选日期。'
-      : qizhengRangeState.error || '';
+      : qizhengFlowSelection.error || qizhengRangeState.error || '';
   const [qizhengBranchSelection, setQizhengBranchSelection] = useState({ key: '', index: 0 });
   const qizhengBranchIndex =
-    qizhengBranchSelection.key === inputSearch ? qizhengBranchSelection.index : 0;
+    qizhengBranchSelection.key === qizhengSelectionKey ? qizhengBranchSelection.index : 0;
   const qizhengRangePrompt = useMemo(
     () => (qizhengRangeState.range ? formatQizhengBirthRangePrompt(qizhengRangeState.range) : ''),
     [qizhengRangeState.range],
   );
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
-    if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
+    if (!shouldCalculateQizheng || !qizhengInput) return { data: null, error: '' };
+    if (!isInstantResult && qizhengFlowSelection.error)
+      return { data: null, error: qizhengFlowSelection.error };
     if (qizhengRangeMode)
       return {
         data: qizhengRangeState.range?.branches[0]?.representative ?? null,
         error: qizhengRangeError,
       };
     try {
-      const cacheKey = JSON.stringify(sharedBirthData);
+      const cacheKey = JSON.stringify(qizhengInput);
       let data = qizhengResultCache.get(cacheKey);
       if (!data) {
-        data = generateQizheng(sharedBirthData);
+        data = generateQizheng(qizhengInput);
         qizhengResultCache.set(cacheKey, data);
       }
       return {
@@ -1235,7 +1271,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       };
     }
   }, [
-    sharedBirthData,
+    qizhengInput,
+    isInstantResult,
+    qizhengFlowSelection.error,
     shouldCalculateQizheng,
     qizhengRangeMode,
     qizhengRangeState.range,
@@ -2099,7 +2137,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     const source = parseBaziReverseSource(value);
     if (source && qizhengRangeMode && (activeChartTab === 'qizheng' || isQizhengPromptSource)) {
       return [
-        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；七政本命按整秒核对并分段呈现。`,
+        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；七政按出生整秒核对并分段呈现。`,
       ];
     }
     return source ? [formatBirthTimeInterval(source, label)] : [];
@@ -2116,7 +2154,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     if (!showAssistantPane) return '';
 
     if (isQizhengPromptSource && qizhengRangeMode) {
-      return '请依据随后提供的七政四余本命出生区间资料，结合用户问题比较各时段与共同成立的判断。';
+      return '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。';
     }
 
     if (isQimenLifetimePromptSource) {
@@ -2169,7 +2207,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         resources: [
           {
             key,
-            title: '七政四余本命出生区间',
+            title: '七政四余出生区间',
             text: qizhengRangePrompt,
             usable: true,
             structured: qizhengRangeState.range as unknown as Record<string, unknown>,
@@ -2205,7 +2243,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   const workflowPrompt = useMemo(() => {
     if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
-      return '依据随后提供的七政四余本命出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
+      return '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
     }
     if (
       isInstantResult ||
@@ -2645,6 +2683,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           }`}
           aria-hidden={isAssistantPage || activeChartTab !== 'qizheng'}
         >
+          {hasAstrolabeChart && mountedTabs.qizheng && !isInstantResult ? (
+            <QizhengFlowTargetForm
+              key={qizhengFlowQuery ?? 'natal'}
+              target={qizhengFlowSelection.target}
+              onApply={applyQizhengFlowTarget}
+            />
+          ) : null}
           {hasAstrolabeChart && mountedTabs.qizheng ? (
             qizhengRangeMode ? (
               <>
@@ -2652,11 +2697,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   {...qizhengRangeState}
                   error={qizhengRangeError}
                   selectedIndex={qizhengBranchIndex}
-                  onSelect={(index) => setQizhengBranchSelection({ key: inputSearch, index })}
+                  onSelect={(index) =>
+                    setQizhengBranchSelection({ key: qizhengSelectionKey, index })
+                  }
                 />
                 {qizhengRangeState.range?.branches[qizhengBranchIndex] ? (
                   <QizhengBoard
-                    title="七政四余本命分段盘"
+                    title="七政四余出生区间分段盘"
                     name={inputState.name || '本人'}
                     data={qizhengRangeState.range.branches[qizhengBranchIndex].representative}
                     representativeTime={formatQizhengRangeTime(

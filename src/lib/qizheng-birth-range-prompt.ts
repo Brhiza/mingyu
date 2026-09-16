@@ -1,6 +1,8 @@
 import {
   getQizhengSignBranch,
   type QizhengBirthRange,
+  type QizhengFlowBirthRange,
+  type QizhengFlowBirthRangeBranch,
   type QizhengResult,
 } from 'mingyu-core/qizheng';
 
@@ -39,16 +41,62 @@ function formatNatalFacts(data: QizhengResult): string[] {
   ];
 }
 
-/** 将逐秒分段事实写成可独立阅读的中文本命资料。 */
-export function formatQizhengBirthRangePrompt(range: QizhengBirthRange): string {
+/** 流曜离散事实适用于整个分段，事件时刻由连续量给出整段极值。 */
+export function formatQizhengFlowRangeFacts(
+  data: QizhengResult,
+  period?: QizhengFlowBirthRangeBranch['periodEvents'],
+): string[] {
+  const flow = data.flowingStars;
+  if (!flow) return [];
+  const limits = data.timeLords;
+  return [
+    '流曜落宫落宿：',
+    ...flow.stars.map(
+      (star) =>
+        `${star.name}：${star.signBranch}宫${star.palace}，${star.xiu}宿${star.retrograde === undefined ? '' : `，${star.retrograde ? '逆行' : '顺行'}`}；${star.precisionClass}。`,
+    ),
+    `流曜与本命吊照：${flow.transits.length ? flow.transits.map((item) => `${item.star1}与${item.star2}${item.type}，${item.closeness}，目标角${item.exactAngle}度、容许偏差${item.allowedOrb}度，${item.precisionClass}`).join('；') : '容许度内无主要吊照'}。`,
+    ...(limits
+      ? [
+          `行限：${limits.gender === 'male' ? '男命' : '女命'}，生年干${limits.yearStem}属${limits.yearStemYinYang}，${limits.direction}，虚岁${limits.nominalAge}；${limits.ageNote}。`,
+          `大限：虚岁${limits.currentMajorLimit.startNominalAge}至${limits.currentMajorLimit.endNominalAge}，${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}；小限：${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；太岁${limits.annualBranch}入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}。`,
+          `大限次序：${limits.majorLimits.map((item) => `${item.startNominalAge}至${item.endNominalAge}虚岁${item.signBranch}宫${item.palace}`).join('；')}。`,
+        ]
+      : ['行限：性别未提供。']),
+    '周期事件（北京时间；按本段出生秒核对）：',
+    ...(period
+      ? period.events.length
+        ? period.events.map(
+            (event, index) =>
+              `事件${index + 1}：${event.movingStar}${event.kind}${event.targetStar ? `本命${event.targetStar}` : ''}${event.aspectType || ''}${event.aspectDirection ? `（黄经差${event.aspectDirection}）` : ''}${event.signBranch ? `，${event.signBranch}宫` : ''}${event.palace || ''}${event.stationDirection ? `，转${event.stationDirection}` : ''}；${formatValue(event.minUtcMs, '毫秒时间戳')}${event.minUtcMs === event.maxUtcMs ? '' : ` 至 ${formatValue(event.maxUtcMs, '毫秒时间戳')}`}；覆盖本段${event.sampleCount}个出生秒。`,
+          )
+        : ['本段出生时刻对应的目标周期内未见上述事件。']
+      : []),
+  ];
+}
+
+/** 将逐秒分段事实写成可独立阅读的中文资料。 */
+export function formatQizhengBirthRangePrompt(
+  range: QizhengBirthRange | QizhengFlowBirthRange,
+): string {
   const first = range.branches[0].representative;
   const context = first.calculationContext;
+  const flow = first.flowingStars;
   return [
-    '【七政四余本命出生区间】',
+    flow ? '【七政四余流曜与出生区间】' : '【七政四余本命出生区间】',
     `出生范围（北京时间）：${formatQizhengRangeTime(range.source.startTimestamp)} 至 ${formatQizhengRangeTime(range.source.endTimestamp)}，起点含、终点不含。`,
     `区间按整秒核对，共${range.sampleCount}个时刻、${range.branches.length}段。各段列出保持一致的命身宫、星曜落宫落宿、吊照与恩难关系，并汇总连续量。`,
     '【任务】',
-    '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系解读本命根基。区分整个出生范围均成立的结论与仅在部分时段成立的结论，逐项写明适用时间。流年与行限属于另外的时段资料。',
+    flow
+      ? '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系，结合目标时段的流曜与行限解读。区分整个出生范围共同成立的判断与各出生分段的差异，逐项写明出生时段和目标周期。周期事件的时刻范围表示出生时间不确定带来的变化。'
+      : '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系解读本命根基。区分整个出生范围均成立的结论与仅在部分时段成立的结论，逐项写明适用时间。流年与行限属于另外的时段资料。',
+    ...(flow
+      ? [
+          '【流曜目标】',
+          `${flow.timestampNote}；代表时刻${flow.localDateTime}。`,
+          `周期事件窗口：${flow.periodEvents!.startDateTime} 至 ${flow.periodEvents!.endDateTime}（起点含、终点不含），${flow.periodEvents!.mode === 'yearly' ? '流年' : flow.periodEvents!.mode === 'monthly' ? '流月' : '流日'}。`,
+        ]
+      : []),
     '【时间与地点】',
     `东八区；纬度${context.latitude}、经度${context.longitude}；${context.locationSource}；传统宫位采用${context.palaceTimeMode || '民用时间'}。`,
     '【计算口径】',
@@ -58,6 +106,10 @@ export function formatQizhengBirthRangePrompt(range: QizhengBirthRange): string 
       `【时段${index + 1}】`,
       `${formatQizhengRangeTime(branch.startTimestamp)} 至 ${formatQizhengRangeTime(branch.endTimestamp)}（起点含、终点不含），共${branch.sampleCount}秒。`,
       ...formatNatalFacts(branch.representative),
+      ...formatQizhengFlowRangeFacts(
+        branch.representative,
+        'periodEvents' in branch ? branch.periodEvents : undefined,
+      ),
       '连续量（最小至最大）：',
       ...branch.continuous.map(
         (item) =>

@@ -1,12 +1,13 @@
 import { memo } from 'react';
-import type { QizhengBirthRange, QizhengResult } from 'mingyu-core/qizheng';
+import type { QizhengBirthRange, QizhengFlowBirthRange, QizhengResult } from 'mingyu-core/qizheng';
+import { formatQizhengFlowRangeFacts } from '@/lib/qizheng-birth-range-prompt';
 import type {
   QizhengBirthRangeProgress,
   UseQizhengBirthRangeResult,
 } from '@/hooks/useQizhengBirthRange';
 
 const BEIJING_OFFSET_MILLISECONDS = 8 * 60 * 60 * 1_000;
-type QizhengBirthRangeBranch = QizhengBirthRange['branches'][number];
+type QizhengBirthRangeBranch = (QizhengBirthRange | QizhengFlowBirthRange)['branches'][number];
 
 export type QizhengBirthRangePanelProps = Pick<
   UseQizhengBirthRangeResult,
@@ -98,6 +99,44 @@ function getEnNanChanges(first: QizhengResult, last: QizhengResult): string {
   return formatComparison(first.enNan, last.enNan, formatEnNan);
 }
 
+function getFlowChanges(previous: QizhengResult, current: QizhengResult): string {
+  const facts = (result: QizhengResult) => {
+    const flow = result.flowingStars;
+    if (!flow) return [];
+    const limits = result.timeLords;
+    return [
+      ...flow.stars.map(
+        (star) => `流曜${star.name}在${star.signBranch}宫${star.palace}、${star.xiu}宿`,
+      ),
+      ...flow.transits.map(formatAspectFact),
+      ...(limits
+        ? [
+            `虚岁${limits.nominalAge}、${limits.direction}、大限${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}、小限${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}、太岁入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}`,
+          ]
+        : []),
+      ...flow.periodEvents!.events.map(
+        (event) =>
+          `${event.movingStar}${event.kind}${event.targetStar || ''}${event.aspectType || ''}${event.aspectDirection || ''}${event.signBranch || ''}${event.palace || ''}${event.stationDirection || ''}`,
+      ),
+    ];
+  };
+  const count = (items: string[]) => {
+    const result = new Map<string, number>();
+    for (const item of items) result.set(item, (result.get(item) ?? 0) + 1);
+    return result;
+  };
+  const before = count(facts(previous));
+  const after = count(facts(current));
+  const changes = [...new Set([...before.keys(), ...after.keys()])].filter(
+    (key) => before.get(key) !== after.get(key),
+  );
+  return changes.length
+    ? changes
+        .map((key) => `${key}（${before.get(key) ?? 0}项 → ${after.get(key) ?? 0}项）`)
+        .join('；')
+    : '流曜落宫、吊照、行限与周期事件成员保持一致';
+}
+
 function renderSegmentBoundaryChanges(previous: QizhengResult | undefined, current: QizhengResult) {
   if (!previous) {
     return <p style={{ margin: 0 }}>这是第一段，没有上一段可供对照；以下事实构成本段分段起点。</p>;
@@ -132,6 +171,12 @@ function renderSegmentBoundaryChanges(previous: QizhengResult | undefined, curre
         <span>吊照增删</span>
         <strong>{getAspectChanges(previous, current)}</strong>
       </div>
+      {current.flowingStars ? (
+        <div>
+          <span>流曜与行限分界</span>
+          <strong>{getFlowChanges(previous, current)}</strong>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -156,7 +201,7 @@ function renderProgress(
     <div className="result-side-card" style={{ display: 'grid', gap: '0.75rem' }}>
       <div className="result-side-head">
         <h3>{error ? '七政四余出生区间计算未完成' : '正在核对出生区间'}</h3>
-        <p>{error || '页面按每秒一个本命样本计算。'}</p>
+        <p>{error || '页面按每秒一个出生时刻计算。'}</p>
       </div>
       {loading ? (
         <div
@@ -200,7 +245,8 @@ function renderProgress(
   );
 }
 
-function renderRangeSummary(range: QizhengBirthRange) {
+function renderRangeSummary(range: QizhengBirthRange | QizhengFlowBirthRange) {
+  const flow = range.branches[0].representative.flowingStars;
   return (
     <>
       <div className="result-summary-grid">
@@ -215,7 +261,7 @@ function renderRangeSummary(range: QizhengBirthRange) {
           <small>起点含、终点不含</small>
         </div>
         <div className="result-stat-card">
-          <span>本命覆盖</span>
+          <span>分段事实</span>
           <strong>{range.status === 'stable' ? '全段一致' : '存在变化'}</strong>
           <small>按离散事实分段</small>
         </div>
@@ -230,7 +276,11 @@ function renderRangeSummary(range: QizhengBirthRange) {
         style={{ background: 'var(--surface-subtle, #f8fafc)', lineHeight: 1.7 }}
       >
         <strong>结果范围</strong>
-        <p style={{ margin: '0.35rem 0 0' }}>本次展示本命变化，流年与行限不在此次结果中。</p>
+        <p style={{ margin: '0.35rem 0 0' }}>
+          {flow
+            ? `出生区间逐秒核对本命、流曜与行限。流曜代表时刻 ${flow.localDateTime}；周期事件窗口 ${flow.periodEvents!.startDateTime} 至 ${flow.periodEvents!.endDateTime}（终点不含）。`
+            : '本次展示本命变化。选择流年、流月或流日可查看对应的流曜与行限。'}
+        </p>
       </div>
     </>
   );
@@ -315,7 +365,7 @@ function renderBranchDetail(
       <div className="result-side-card">
         <div className="result-side-head">
           <h3>与上一段的分界对照</h3>
-          <p>分段按离散本命事实变化形成；连续量变化在下方单独展开。</p>
+          <p>分段按离散事实变化形成；连续量变化在下方单独展开。</p>
         </div>
         {renderSegmentBoundaryChanges(previousBranch?.last, first)}
       </div>
@@ -349,6 +399,19 @@ function renderBranchDetail(
           </div>
         </div>
       </div>
+      {first.flowingStars ? (
+        <details className="result-side-card" open>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>本段流曜、行限与周期事件</summary>
+          {formatQizhengFlowRangeFacts(
+            first,
+            'periodEvents' in branch ? branch.periodEvents : undefined,
+          ).map((text, index) => (
+            <p key={index} style={{ overflowWrap: 'anywhere' }}>
+              {text}
+            </p>
+          ))}
+        </details>
+      ) : null}
       <details className="result-side-card">
         <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
           连续量（{branch.continuous.length} 项）
@@ -404,12 +467,12 @@ export const QizhengBirthRangePanel = memo(function QizhengBirthRangePanel({
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">七政四余出生区间</p>
-          <h2>本命时刻边界核对</h2>
+          <h2>出生时刻边界核对</h2>
         </div>
         <div className="result-chip-row">
           <span className="result-chip">固定东八区</span>
           <span className="result-chip result-chip-highlight">整秒扫描</span>
-          {range ? <span className="result-chip">本命 {range.sampleCount} 秒</span> : null}
+          {range ? <span className="result-chip">出生区间 {range.sampleCount} 秒</span> : null}
         </div>
       </div>
       {renderProgress(loading, error, progress, cancel, retry)}
@@ -417,7 +480,7 @@ export const QizhengBirthRangePanel = memo(function QizhengBirthRangePanel({
       {range && range.branches.length ? (
         <div className="result-side-card" style={{ display: 'grid', gap: '1rem' }}>
           <div className="result-side-head">
-            <h3>本命分段</h3>
+            <h3>出生区间分段</h3>
             <p>选择分段查看该段首末命身宫与事实变化。</p>
           </div>
           {renderBranchSelector(range.branches, activeIndex, onSelect)}
@@ -426,7 +489,7 @@ export const QizhengBirthRangePanel = memo(function QizhengBirthRangePanel({
       ) : null}
       {!range && !loading && !error ? (
         <div className="result-side-card">
-          <p style={{ margin: 0 }}>准备好完整的四柱反推区间后，将在此按整秒核对七政四余本命盘。</p>
+          <p style={{ margin: 0 }}>准备好完整的四柱反推区间后，将在此按整秒核对七政四余盘。</p>
         </div>
       ) : null}
     </section>

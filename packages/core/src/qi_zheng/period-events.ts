@@ -48,6 +48,7 @@ export interface QizhengPeriodEvent {
   movingStar: string;
   targetStar?: string;
   aspectType?: string;
+  aspectDirection?: '正向' | '逆向';
   palace?: string;
   signBranch?: QizhengSignBranch;
   stationDirection?: '逆行' | '顺行';
@@ -86,6 +87,22 @@ function normalizeLongitude(value: number) {
 function wrap180(value: number) {
   const normalized = normalizeLongitude(value);
   return normalized > 180 ? normalized - 360 : normalized;
+}
+
+/** 只吸收浮点舍入误差，不把真正接近端点的事件扩展成端点事件。 */
+function isNumericallyZero(value: number): boolean {
+  return value === 0 || Math.abs(value) <= Number.EPSILON * Math.max(1, Math.abs(value));
+}
+
+function isLongitudeBoundary(value: number): boolean {
+  const quotient = normalizeLongitude(value) / 30;
+  return (
+    Math.abs(quotient - Math.round(quotient)) <= Number.EPSILON * Math.max(1, Math.abs(quotient))
+  );
+}
+
+function isWithinHalfOpenWindow(utcMs: number, startUtcMs: number, endUtcMs: number): boolean {
+  return utcMs >= startUtcMs && utcMs < endUtcMs;
 }
 
 function formatUtc(utcMs: number, timezone: number, timeZoneId?: string) {
@@ -196,23 +213,37 @@ export function scanQizhengPeriodEvents(params: {
       if (before === undefined || after === undefined) continue;
       const beforeSign = signIndexOf(before);
       const afterSign = signIndexOf(after);
-      if (beforeSign !== afterSign) {
-        const crossing = refineCrossing(previousUtc, currentUtc, (value) => {
-          const sample = mapByName(params.sampleLongitudes(value)).get(name);
-          if (sample === undefined) return 0;
-          return signIndexOf(sample) === beforeSign ? -1 : 1;
-        });
-        const palace = palaceBySign.get(afterSign);
-        events.push({
-          key: `ingress:${name}:${afterSign}:${Math.round(crossing)}`,
-          kind: '换宫',
-          utcMs: crossing,
-          dateTime: formatEventTime(crossing),
-          movingStar: name,
-          palace: palace?.palace,
-          signBranch: palace?.signBranch ?? getQizhengSignBranch(afterSign),
-          promptText: `${formatEventTime(crossing)} 换宫：流曜${name}换入本命${palace?.signBranch ?? getQizhengSignBranch(afterSign)}宫${palace?.palace ?? ''}`,
-        });
+      const startsAtBoundary = isLongitudeBoundary(before);
+      const entersBoundaryAtStart =
+        startsAtBoundary && beforeSign === afterSign && wrap180(after - before) > 0;
+      if (beforeSign !== afterSign || entersBoundaryAtStart) {
+        // 终点样本可以用于发现跨越，但终点本身属于下一个半开区间；
+        // 内部采样点仍须在当前窗口记录一次，下一段只依靠唯一键去重。
+        const atExclusiveEnd = currentUtc === params.endUtcMs && isLongitudeBoundary(after);
+        if (!atExclusiveEnd) {
+          const crossing = isLongitudeBoundary(before)
+            ? previousUtc
+            : isLongitudeBoundary(after)
+              ? currentUtc
+              : refineCrossing(previousUtc, currentUtc, (value) => {
+                  const sample = mapByName(params.sampleLongitudes(value)).get(name);
+                  if (sample === undefined) return 0;
+                  return signIndexOf(sample) === beforeSign ? -1 : 1;
+                });
+          const palace = palaceBySign.get(afterSign);
+          if (isWithinHalfOpenWindow(crossing, params.startUtcMs, params.endUtcMs)) {
+            events.push({
+              key: `ingress:${name}:${afterSign}:${Math.round(crossing)}`,
+              kind: '换宫',
+              utcMs: crossing,
+              dateTime: formatEventTime(crossing),
+              movingStar: name,
+              palace: palace?.palace,
+              signBranch: palace?.signBranch ?? getQizhengSignBranch(afterSign),
+              promptText: `${formatEventTime(crossing)} 换宫：流曜${name}换入本命${palace?.signBranch ?? getQizhengSignBranch(afterSign)}宫${palace?.palace ?? ''}`,
+            });
+          }
+        }
       }
       const previousVelocity = velocityAt(previousUtc, name);
       const currentVelocity = velocityAt(currentUtc, name);
@@ -240,7 +271,7 @@ export function scanQizhengPeriodEvents(params: {
                     if (velocity === undefined) throw new Error(`停逆求根缺少${name}的黄经采样。`);
                     return velocity;
                   });
-          if (crossing < params.endUtcMs) {
+          if (isWithinHalfOpenWindow(crossing, params.startUtcMs, params.endUtcMs)) {
             events.push({
               key: `station:${name}:${direction}:${Math.round(crossing)}`,
               kind: '停逆',
@@ -262,27 +293,37 @@ export function scanQizhengPeriodEvents(params: {
           for (const target of targets) {
             const beforeWrapped = wrap180(wrap180(before - natal.longitude) - target);
             const afterWrapped = wrap180(wrap180(after - natal.longitude) - target);
+            const startsAtBoundary = isNumericallyZero(beforeWrapped);
+            const endsAtBoundary = isNumericallyZero(afterWrapped);
             if (
               Math.sign(beforeWrapped) === Math.sign(afterWrapped) ||
-              beforeWrapped === 0 ||
+              (currentUtc === params.endUtcMs && endsAtBoundary) ||
               Math.abs(afterWrapped - beforeWrapped) >= 180
             )
               continue;
-            const crossing = refineCrossing(previousUtc, currentUtc, (value) => {
-              const sample = mapByName(params.sampleLongitudes(value)).get(name);
-              if (sample === undefined) return 0;
-              return wrap180(wrap180(sample - natal.longitude) - target);
-            });
-            events.push({
-              key: `aspect:${name}:${natal.name}:${aspect.type}:${Math.round(crossing)}`,
-              kind: '精确吊照',
-              utcMs: crossing,
-              dateTime: formatEventTime(crossing),
-              movingStar: name,
-              targetStar: natal.name,
-              aspectType: aspect.type,
-              promptText: `${formatEventTime(crossing)} 精确吊照：流曜${name}与本命${natal.name}成${aspect.type === '同宫' ? '合相' : aspect.type}，目标角${aspect.angle}°`,
-            });
+            const crossing = startsAtBoundary
+              ? previousUtc
+              : endsAtBoundary
+                ? currentUtc
+                : refineCrossing(previousUtc, currentUtc, (value) => {
+                    const sample = mapByName(params.sampleLongitudes(value)).get(name);
+                    if (sample === undefined) return 0;
+                    return wrap180(wrap180(sample - natal.longitude) - target);
+                  });
+            if (isWithinHalfOpenWindow(crossing, params.startUtcMs, params.endUtcMs)) {
+              const aspectDirection = target >= 0 ? '正向' : '逆向';
+              events.push({
+                key: `aspect:${name}:${natal.name}:${aspect.type}:${aspectDirection}:${Math.round(crossing)}`,
+                kind: '精确吊照',
+                utcMs: crossing,
+                dateTime: formatEventTime(crossing),
+                movingStar: name,
+                targetStar: natal.name,
+                aspectType: aspect.type,
+                aspectDirection,
+                promptText: `${formatEventTime(crossing)} 精确吊照：流曜${name}与本命${natal.name}成${aspect.type === '同宫' ? '合相' : aspect.type}（${aspectDirection}），目标角${aspect.angle}°`,
+              });
+            }
           }
         }
       }
@@ -373,7 +414,7 @@ function formatAxisSummary(events: QizhengPeriodEvent[], total: number) {
     if (item.kind === '换宫') {
       return `${item.dateTime}换宫${item.movingStar}入${item.signBranch ?? ''}宫${item.palace ?? '宫位未记录'}`;
     }
-    return `${item.dateTime}吊照${item.movingStar}与${item.targetStar ?? '本命目标'}${item.aspectType ? `成${item.aspectType}` : ''}`;
+    return `${item.dateTime}吊照${item.movingStar}与${item.targetStar ?? '本命目标'}${item.aspectType ? `成${item.aspectType}` : ''}${item.aspectDirection ? `（${item.aspectDirection}）` : ''}`;
   });
   const suffix =
     labels.length < unique.length

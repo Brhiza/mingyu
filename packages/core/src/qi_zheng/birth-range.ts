@@ -313,6 +313,14 @@ function fingerprint(result: QizhengResult): string {
   return JSON.stringify(projectDiscreteFacts(result));
 }
 
+/**
+ * 流曜出生区间复用的本命离散事实指纹。
+ * 这里必须沿用本命范围的完整投影，避免流曜范围自行缩减七曜、太阳交界和证据字段。
+ */
+export function getQizhengBirthRangeDiscreteFingerprint(result: QizhengResult): string {
+  return fingerprint(result);
+}
+
 function addSample(
   samples: ContinuousSample[],
   path: string,
@@ -623,6 +631,15 @@ function collectContinuousSamples(result: QizhengResult): ContinuousSample[] {
   }
 
   return samples;
+}
+
+export type QizhengBirthRangeContinuousSample = ContinuousSample;
+
+/** 流曜出生区间复用本命连续事实的采样集合。 */
+export function collectQizhengBirthRangeContinuousSamples(
+  result: QizhengResult,
+): QizhengBirthRangeContinuousSample[] {
+  return collectContinuousSamples(result);
 }
 
 function unwrap(value: number, reference: number, period: number): number {

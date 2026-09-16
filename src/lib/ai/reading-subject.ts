@@ -4,6 +4,7 @@ import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
 import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
+import type { QizhengFlowTarget } from '@/lib/qizheng-flow-target';
 import {
   buildResidentialCoreInput,
   resolveResidentialBirthDate,
@@ -254,6 +255,7 @@ export function buildQimenLifetimeInputs(
 export function buildReadingSubject(
   input: QueryInputState,
   prompt: QueryPromptState,
+  qizhengFlowTarget?: QizhengFlowTarget,
 ): ReadingSubjectSnapshot {
   const lockedInputs: Record<string, Record<string, unknown>> = {};
   const allowedMethods: string[] = [];
@@ -311,6 +313,9 @@ export function buildReadingSubject(
     qimenLifetimeStageModel: prompt.qimenLifetimeStageModel,
   };
   const primaryBirthTimeRange = parseBaziReverseSource(input.birthReverseSource);
+  if (prompt.promptSource === 'qizheng' && qizhengFlowTarget?.flowYear !== undefined) {
+    Object.assign(range, { qizhengFlowTarget });
+  }
   const partnerBirthTimeRange =
     input.analysisMode === 'compatibility'
       ? parseBaziReverseSource(input.partnerBirthReverseSource)

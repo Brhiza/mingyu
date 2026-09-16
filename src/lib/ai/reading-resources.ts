@@ -16,13 +16,13 @@ import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
 import { parseBaziReverseSource, formatBirthTimeInterval } from '../bazi-reverse-input';
 import {
   executeQizhengBirthRangeWorker,
-  generateQizhengBirthRange,
+  generateQizhengDateRange,
   hasQizhengBirthRangeSource,
   isQizhengBirthRangeSource,
 } from '../qizheng-birth-range';
 import { formatQizhengBirthRangePrompt } from '../qizheng-birth-range-prompt';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt';
-import type { QizhengBirthRange, QizhengInput } from 'mingyu-core/qizheng';
+import type { QizhengBirthRange, QizhengFlowBirthRange, QizhengInput } from 'mingyu-core/qizheng';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -1016,6 +1016,7 @@ function assertQizhengBirthRangeResult(
   data: Record<string, unknown>,
   locked: Record<string, unknown>,
   source: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
 ) {
   const result = data.result;
   if (!record(result) || !Array.isArray(result.branches) || result.branches.length === 0) {
@@ -1034,6 +1035,35 @@ function assertQizhengBirthRangeResult(
   if (!record(context)) throw new Error('补算返回的七政出生区间缺少计算口径。');
   for (const field of ['latitude', 'longitude']) {
     assertStructuredField(`qi-zheng.birthRange.${field}`, locked[field], context[field]);
+  }
+  const hasFlow = QIZHENG_BIRTH_RANGE_FLOW_FIELDS.some(
+    (field) => calculationInput[field] !== undefined,
+  );
+  if (hasFlow) {
+    if (result.coverage === 'natal') throw new Error('流曜补算返回了本命区间，缺少目标时段。');
+    for (const item of result.branches) {
+      if (!record(item) || !record(item.representative)) throw new Error('流曜分段缺少代表盘。');
+      const flow = item.representative.flowingStars;
+      if (!record(flow) || !record(flow.periodEvents))
+        throw new Error('流曜分段缺少周期事件资料。');
+      for (const field of QIZHENG_BIRTH_RANGE_FLOW_FIELDS) {
+        assertStructuredField(
+          `qi-zheng.${field}`,
+          calculationInput[field],
+          flow[field.replace('flow', '').toLowerCase()],
+        );
+      }
+      if (locked.gender !== undefined) {
+        if (!record(item.representative.timeLords)) throw new Error('流曜分段缺少行限资料。');
+        assertStructuredField(
+          'qi-zheng.timeLords.gender',
+          locked.gender,
+          item.representative.timeLords.gender,
+        );
+      }
+    }
+  } else if (result.coverage !== 'natal') {
+    throw new Error('本命补算返回了未请求的流曜时段。');
   }
 }
 
@@ -1821,14 +1851,6 @@ export async function executeReadingAction(
     requestInput.astrolabeScope = 'yearly';
     requestInput.astrolabeScopeDate ??= getDefaultAstrolabeScopeDate('yearly');
   }
-  if (qizhengBirthRangeSource) {
-    const flowField = QIZHENG_BIRTH_RANGE_FLOW_FIELDS.find((field) =>
-      Object.hasOwn(requestInput, field),
-    );
-    if (flowField) {
-      throw new Error(`七政四余出生区间只支持本命，不能包含${flowField}字段。`);
-    }
-  }
   const requestLocked = Object.fromEntries(
     Object.entries(locked ?? {}).filter(([key]) => !key.startsWith('_')),
   );
@@ -1847,7 +1869,7 @@ export async function executeReadingAction(
     delete calculationRequest.timeIndex;
   }
   let data: Record<string, unknown>;
-  let qizhengBirthRangeResult: QizhengBirthRange | undefined;
+  let qizhengBirthRangeResult: QizhengBirthRange | QizhengFlowBirthRange | undefined;
   if (qizhengBirthRangeSource) {
     const {
       question: _question,
@@ -1864,7 +1886,7 @@ export async function executeReadingAction(
     qizhengBirthRangeResult =
       typeof Worker !== 'undefined'
         ? await executeQizhengBirthRangeWorker(qizhengInput, qizhengBirthRangeSource, signal)
-        : generateQizhengBirthRange(qizhengInput, qizhengBirthRangeSource, { signal });
+        : generateQizhengDateRange(qizhengInput, qizhengBirthRangeSource, { signal });
     const rangeFacts = formatQizhengBirthRangePrompt(qizhengBirthRangeResult);
     const prompt = question
       ? buildMetaphysicsPrompt(rangeFacts, question, { method: 'qizheng' })
@@ -1895,7 +1917,7 @@ export async function executeReadingAction(
     action.method === 'wuyun'
   ) {
     if (qizhengBirthRangeResult) {
-      assertQizhengBirthRangeResult(data, locked ?? {}, qizhengBirthRangeSource!);
+      assertQizhengBirthRangeResult(data, locked ?? {}, qizhengBirthRangeSource!, requestInput);
     } else {
       verifyStructuredCalculation(action.method, data, locked ?? {}, requestInput);
     }

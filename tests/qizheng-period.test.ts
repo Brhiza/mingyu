@@ -122,18 +122,34 @@ test('流年立春按目标 IANA 时区反解且不沿用出生时刻偏移', ()
   const flow = result.flowingStars;
   assert.ok(flow);
   const lichunUtc = calculateSolarTermEvidence(2024, 3).utcTimestamp;
+  const [localDate, localTime] = flow.localDateTime.split('T');
+  const [localYear, localMonth, localDay] = localDate!.split('-').map(Number);
+  const [localHour, localMinute, localSecond] = localTime!.split(':').map(Number);
   const flowUtc = resolveCivilTime({
-    year: flow.year,
-    month: flow.month,
-    day: flow.day,
-    hour: flow.hour,
-    minute: flow.minute,
-    second: 0,
+    year: localYear!,
+    month: localMonth!,
+    day: localDay!,
+    hour: localHour!,
+    minute: localMinute!,
+    second: localSecond!,
     timeZoneId: NEW_YORK_SUMMER_BIRTH.timeZoneId,
   }).utcTimestamp;
-  // 流曜输入目前只有分钟精度，允许立春证据与墙钟输入相差不足一分钟。
-  assert.ok(Math.abs(flowUtc - lichunUtc) < 60_000, `${flowUtc} !== ${lichunUtc}`);
-  assert.equal(flow.localDateTime, '2024-02-04T03:27:00');
+  assert.equal(flowUtc, lichunUtc);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: NEW_YORK_SUMMER_BIRTH.timeZoneId,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(lichunUtc));
+  const part = (type: string) => parts.find((item) => item.type === type)?.value;
+  assert.equal(
+    flow.localDateTime,
+    `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`,
+  );
 });
 
 test('出生时刻的 IANA 与固定偏移冲突仍然拒绝排盘', () => {

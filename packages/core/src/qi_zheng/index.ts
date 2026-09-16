@@ -1727,6 +1727,7 @@ type QizhengCivilMinute = {
   day: number;
   hour: number;
   minute: number;
+  second: number;
 };
 
 /** 将流曜输入按目标时刻的时区偏移反解为当地墙钟字段。 */
@@ -1745,6 +1746,7 @@ function utcMsToTimezoneParts(
     day: shifted.day,
     hour: shifted.hour,
     minute: shifted.minute,
+    second: shifted.second,
   };
 }
 
@@ -1755,6 +1757,7 @@ function utcMsToTimezoneParts(
  */
 function buildQizhengFlowInput(natal: QizhengInput, parts: QizhengCivilMinute): QizhengInput {
   const { timezone, ...withoutBirthTimezone } = natal;
+  delete withoutBirthTimezone.second;
   return {
     ...withoutBirthTimezone,
     ...(natal.timeZoneId || timezone === undefined ? {} : { timezone }),
@@ -1779,6 +1782,7 @@ function resolveQizhengFlowCivilInput(natal: QizhengInput):
         day: natal.flowDay,
         hour,
         minute,
+        second: 0,
       }),
       timestampNote:
         natal.flowHour === undefined
@@ -1794,6 +1798,7 @@ function resolveQizhengFlowCivilInput(natal: QizhengInput):
         day: 15,
         hour: 12,
         minute: 0,
+        second: 0,
       }),
       timestampNote: `未指定流日时，流曜周期按${natal.flowYear}年${natal.flowMonth}月整月扫描；落宫取月中 15日 12:00，不代替整月`,
     };
@@ -1912,7 +1917,7 @@ function resolveQizhengLocalTimestamp(parts: QizhengCivilMinute, natal: QizhengI
   const timezoneInput = natal.timeZoneId
     ? { timeZoneId: natal.timeZoneId }
     : { timezone: natal.timezone ?? 8 };
-  return resolveCivilTime({ ...parts, second: 0, ...timezoneInput }).utcTimestamp;
+  return resolveCivilTime({ ...parts, ...timezoneInput }).utcTimestamp;
 }
 
 /**
@@ -1959,9 +1964,10 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
       day: natal.flowDay,
       hour: 0,
       minute: 0,
+      second: 0,
     };
     const endDate = nextQizhengCivilDate(startParts.year, startParts.month, startParts.day);
-    const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0 };
+    const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
       startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
       endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
@@ -1971,10 +1977,17 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
   if (natal.flowMonth !== undefined) {
     const year = natal.flowYear as number;
     const month = natal.flowMonth;
-    const startParts: QizhengCivilMinute = { year, month, day: 1, hour: 0, minute: 0 };
+    const startParts: QizhengCivilMinute = {
+      year,
+      month,
+      day: 1,
+      hour: 0,
+      minute: 0,
+      second: 0,
+    };
     const endDate =
       month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 };
-    const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0 };
+    const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
       startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
       endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
@@ -1986,13 +1999,98 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
   return { startUtcMs: start, endUtcMs: end, mode: 'yearly' };
 }
 
+/**
+ * 出生区间扫描共享的流曜上下文。
+ * 目标星轨迹与周期窗口只由流曜目标决定；本命盘仍由每个出生秒独立生成。
+ */
+type QizhengFlowRangeContext = {
+  flow: {
+    flowInput: QizhengInput;
+    timestampNote: string;
+  };
+  target: ReturnType<typeof collectQizhengStars>;
+  window: ReturnType<typeof resolveQizhengPeriodWindow>;
+  sampleLongitudes: (utcMs: number) => Array<{ name: string; longitude: number }>;
+};
+
+const MAX_FLOW_RANGE_TARGET_SAMPLES = 100_000;
+
+function getQizhengFlowRangeInvariant(input: QizhengInput): string {
+  return JSON.stringify({
+    latitude: input.latitude ?? 39.9,
+    longitude: input.longitude ?? 116.4,
+    timezone: input.timezone ?? 8,
+    timeZoneId: input.timeZoneId ?? null,
+    useTrueSolarTime: input.useTrueSolarTime ?? false,
+    gender: input.gender ?? null,
+    flowYear: input.flowYear ?? null,
+    flowMonth: input.flowMonth ?? null,
+    flowDay: input.flowDay ?? null,
+    flowHour: input.flowHour ?? null,
+    flowMinute: input.flowMinute ?? null,
+  });
+}
+
+function createQizhengFlowRangeContext(input: QizhengInput): QizhengFlowRangeContext {
+  validateQizhengInput(input, true);
+  const flow = resolveQizhengFlowCivilInput(input);
+  if (!flow) throw new Error('七政出生区间流曜目标必须提供 flowYear。');
+  const target = collectQizhengStars(flow.flowInput);
+  const window = resolveQizhengPeriodWindow(input);
+  const cache = new Map<number, Array<{ name: string; longitude: number }>>();
+  return {
+    flow,
+    target,
+    window,
+    sampleLongitudes: (utcMs) => {
+      const cached = cache.get(utcMs);
+      if (cached) return cached;
+      if (cache.size >= MAX_FLOW_RANGE_TARGET_SAMPLES) {
+        const oldest = cache.keys().next().value as number | undefined;
+        if (oldest !== undefined) cache.delete(oldest);
+      }
+      const sampled = sampleQizhengLongitudes(utcMs);
+      cache.set(utcMs, sampled);
+      return sampled;
+    },
+  };
+}
+
+/**
+ * 流曜出生区间专用计算器。
+ * 公开的单点 generateQizheng 保持原有单参数契约；范围扫描只能通过此工厂复用
+ * 已锁定的流曜目标与有界采样缓存，不能从单点入口注入任意上下文。
+ */
+export type QizhengFlowRangeCalculator = {
+  flow: QizhengFlowRangeContext['flow'];
+  window: QizhengFlowRangeContext['window'];
+  generate: (input: QizhengInput) => QizhengResult;
+};
+
+export function createQizhengFlowRangeCalculator(input: QizhengInput): QizhengFlowRangeCalculator {
+  const context = createQizhengFlowRangeContext(input);
+  const invariant = getQizhengFlowRangeInvariant(input);
+  return {
+    flow: { flowInput: { ...context.flow.flowInput }, timestampNote: context.flow.timestampNote },
+    window: { ...context.window },
+    generate: (sampleInput) => {
+      validateQizhengInput(sampleInput, true);
+      if (getQizhengFlowRangeInvariant(sampleInput) !== invariant) {
+        throw new Error('七政流曜范围计算器只允许改变出生年月日时分秒。');
+      }
+      return generateQizhengInternal(sampleInput, context);
+    },
+  };
+}
+
 function overlayQizhengFlowingStars(
   natalStars: QizhengStar[],
   twelvePalaces: QizhengResult['twelvePalaces'],
   natal: QizhengInput,
   flow: { flowInput: QizhengInput; timestampNote: string },
+  flowContext?: QizhengFlowRangeContext,
 ): QizhengFlowingStarsResult {
-  const collected = collectQizhengStars(flow.flowInput);
+  const collected = flowContext?.target ?? collectQizhengStars(flow.flowInput);
   const palaceBySign = new Map(twelvePalaces.map((item) => [item.signIndex, item]));
   const stars: QizhengFlowingStar[] = collected.stars.map((star) => {
     const palace = palaceBySign.get(star.signIndex);
@@ -2045,7 +2143,7 @@ function overlayQizhengFlowingStars(
     }
   }
   transits.sort((a, b) => a.orbRatio - b.orbRatio || a.orb - b.orb);
-  const window = resolveQizhengPeriodWindow(natal);
+  const window = flowContext?.window ?? resolveQizhengPeriodWindow(natal);
   const periodEvents = scanQizhengPeriodEvents({
     natalStars: natalStars.map((star) => ({ name: star.name, longitude: star.longitude })),
     twelvePalaces,
@@ -2054,7 +2152,7 @@ function overlayQizhengFlowingStars(
     timezone: natal.timezone ?? 8,
     timeZoneId: natal.timeZoneId,
     mode: window.mode,
-    sampleLongitudes: sampleQizhengLongitudes,
+    sampleLongitudes: flowContext?.sampleLongitudes ?? sampleQizhengLongitudes,
   });
   return {
     year: flow.flowInput.year,
@@ -2108,6 +2206,13 @@ function splitPrimaryAppendix(items: string[], primaryLimit: number) {
 
 /** 生成七政四余盘 */
 export function generateQizheng(input: QizhengInput): QizhengResult {
+  return generateQizhengInternal(input);
+}
+
+function generateQizhengInternal(
+  input: QizhengInput,
+  flowRangeContext?: QizhengFlowRangeContext,
+): QizhengResult {
   validateQizhengInput(input, true);
   if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
     throw new Error('useTrueSolarTime 必须是布尔值。');
@@ -2215,9 +2320,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     ziqiModel: ZIQI_MODEL_INFO,
   });
 
-  const flowCivil = resolveQizhengFlowCivilInput(input);
+  const flowCivil = flowRangeContext?.flow ?? resolveQizhengFlowCivilInput(input);
   const flowingStars = flowCivil
-    ? overlayQizhengFlowingStars(stars, twelvePalaces, input, flowCivil)
+    ? overlayQizhengFlowingStars(stars, twelvePalaces, input, flowCivil, flowRangeContext)
     : undefined;
   let timeLords: QizhengTimeLordResult | undefined;
   if (input.gender && flowCivil) {
@@ -2321,6 +2426,15 @@ export type {
   QizhengBirthRangeOptions,
   QizhengBirthRangeSource,
 } from './birth-range';
+export { generateQizhengFlowBirthRange } from './flow-birth-range';
+export type {
+  QizhengFlowBirthRange,
+  QizhengFlowBirthRangeBranch,
+  QizhengFlowBirthRangeContinuousFact,
+  QizhengFlowBirthRangeEventFact,
+  QizhengFlowBirthRangeOptions,
+  QizhengFlowBirthRangeSource,
+} from './flow-birth-range';
 export type { QizhengEnNanProfile } from './en-nan';
 
 export {

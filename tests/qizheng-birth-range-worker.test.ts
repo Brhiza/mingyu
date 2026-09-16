@@ -5,7 +5,9 @@ import type { QizhengBirthRange, QizhengInput } from 'mingyu-core/qizheng';
 import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
 import {
   executeQizhengBirthRangeWorker,
+  generateQizhengDateRange,
   hasQizhengBirthRangeSource,
+  hasQizhengFlowInput,
   isQizhengBirthRangeSource,
 } from '../src/lib/qizheng-birth-range';
 
@@ -31,6 +33,7 @@ function sourceFor(startText: string, endText: string): BaziReverseSource {
 }
 
 const SOURCE = sourceFor('2024-02-19 11:00:00', '2024-02-19 13:00:00');
+const FLOW_SOURCE = sourceFor('2024-02-19 11:00:00', '2024-02-19 11:00:01');
 const INPUT: QizhengInput = {
   year: 2024,
   month: 2,
@@ -41,6 +44,15 @@ const INPUT: QizhengInput = {
   latitude: 39.9042,
   longitude: 116.4074,
   timezone: 8,
+};
+
+const FLOW_INPUT: QizhengInput = {
+  ...INPUT,
+  flowYear: 2024,
+  flowMonth: 2,
+  flowDay: 19,
+  flowHour: 12,
+  flowMinute: 0,
 };
 
 const FAKE_RESULT = {
@@ -177,6 +189,36 @@ test('七政四余出生 Worker 按请求 ID隔离进度和结果并在成功后
     SOURCE.startTimestamp,
   );
   assert.equal(FakeWorker.instances[0]?.terminated, true);
+});
+
+test('七政四余出生 Worker 保留完整流曜输入并按流曜路由标记', async () => {
+  assert.equal(hasQizhengFlowInput(INPUT), false);
+  assert.equal(hasQizhengFlowInput(FLOW_INPUT), true);
+  const result = await withFakeWorker(
+    (worker, message) => {
+      worker.emit({ id: message.id, type: 'progress', completed: 1, total: 2 });
+      worker.emit({ id: message.id, type: 'result', result: FAKE_RESULT });
+    },
+    () => executeQizhengBirthRangeWorker(FLOW_INPUT, SOURCE),
+  );
+
+  assert.equal(result, FAKE_RESULT);
+  assert.deepEqual(FakeWorker.instances[0]?.postedMessage?.input, FLOW_INPUT);
+});
+
+test('七政四余无 Worker 入口按流曜字段实际生成流日范围', () => {
+  const result = generateQizhengDateRange(FLOW_INPUT, FLOW_SOURCE);
+  assert.equal(result.coverage, 'flow');
+  if (result.coverage !== 'flow') return;
+  assert.equal(result.target.mode, 'daily');
+  assert.equal(result.target.year, FLOW_INPUT.flowYear);
+  assert.equal(result.target.month, FLOW_INPUT.flowMonth);
+  assert.equal(result.target.day, FLOW_INPUT.flowDay);
+  assert.ok(result.branches[0]?.representative.flowingStars);
+  assert.throws(
+    () => generateQizhengDateRange({ ...FLOW_INPUT, flowYear: undefined }, FLOW_SOURCE),
+    /必须明确 flowYear/u,
+  );
 });
 
 test('七政四余出生 Worker 取消后终止并忽略迟到消息', async () => {
