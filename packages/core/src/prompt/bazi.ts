@@ -1,3 +1,4 @@
+import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
 import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
@@ -174,20 +175,7 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
           `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
         ]
       : []),
-    ...(fulfillment
-      ? [
-          `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}`,
-          fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
-          ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
-          ...(fulfillment.conditionFacts ?? [])
-            .filter((item) => !item.key.startsWith('path.'))
-            .map((item) => `条件核验：${item.status}；${item.detail}`),
-          ...(fulfillment.pathEvaluations ?? []).map(
-            (item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`,
-          ),
-          ...(fulfillment.conditions ?? []).map((item) => `成立条件：${item}`),
-        ]
-      : []),
+    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
   ]
     .filter(Boolean)
     .join('\n');
