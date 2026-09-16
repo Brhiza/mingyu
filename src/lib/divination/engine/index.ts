@@ -21,6 +21,13 @@ import type {
 } from '../../../types/divination';
 import { isBaziReverseSource } from '../time-input';
 import {
+  formatLiuyaoRangeContext,
+  formatLiuyaoRangeFacts,
+  generateLiuyaoRange,
+  isLiuyaoRangeSource,
+  type LiuyaoRange,
+} from '../liuyao-range';
+import {
   formatQimenRangeContext,
   formatQimenRangeFacts,
   generateQimenRange,
@@ -227,6 +234,7 @@ export type DivinationSession = {
   jinkoujueRange?: JinkoujueRange;
   meihuaRange?: MeihuaRange;
   qimenRange?: QimenRange;
+  liuyaoRange?: LiuyaoRange;
   selection?: PromptSelection;
 };
 
@@ -257,6 +265,7 @@ export type BuildDivinationPromptOptions = {
   jinkoujueRange?: JinkoujueRange;
   meihuaRange?: MeihuaRange;
   qimenRange?: QimenRange;
+  liuyaoRange?: LiuyaoRange;
   omitCurrentTime?: boolean;
   almanacParticipantTimeContextText?: string;
   topicId?: string;
@@ -317,19 +326,21 @@ export function buildDivinationPrompt(
     ? formatJinkoujueRangeFacts(conditionalJinkoujueRange)
     : undefined;
   const infoText =
-    method === 'qimen' && options.qimenRange
-      ? formatQimenRangeFacts(options.qimenRange, supplementaryInfo)
-      : method === 'meihua' && options.meihuaRange?.status === 'conditional'
-        ? formatMeihuaRangeFacts(options.meihuaRange)
-        : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
-          ? options.xiaoliurenRangeText.trim()
-          : method === 'liuren' && liurenRangeText
-            ? liurenRangeText
-            : method === 'jinkoujue' && jinkoujueRangeText
-              ? jinkoujueRangeText
-              : method === 'liuren'
-                ? [defaultInfoText, ...formatLiurenJudgmentFacts(data as LiurenData)].join('\n')
-                : defaultInfoText;
+    method === 'liuyao' && options.liuyaoRange
+      ? formatLiuyaoRangeFacts(options.liuyaoRange, supplementaryInfo, { liuyaoTemplate })
+      : method === 'qimen' && options.qimenRange
+        ? formatQimenRangeFacts(options.qimenRange, supplementaryInfo)
+        : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+          ? formatMeihuaRangeFacts(options.meihuaRange)
+          : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
+            ? options.xiaoliurenRangeText.trim()
+            : method === 'liuren' && liurenRangeText
+              ? liurenRangeText
+              : method === 'jinkoujue' && jinkoujueRangeText
+                ? jinkoujueRangeText
+                : method === 'liuren'
+                  ? [defaultInfoText, ...formatLiurenJudgmentFacts(data as LiurenData)].join('\n')
+                  : defaultInfoText;
   const currentTimeSection = options.omitCurrentTime ? '' : buildSection('【当前时间】', timeInfo);
   if (method === 'ssgw') {
     if (selection) {
@@ -367,38 +378,43 @@ export function buildDivinationPrompt(
       : '';
   const baseTaskText = isSignPrompt
     ? ''
-    : method === 'qimen' && options.qimenRange
+    : method === 'liuyao' && options.liuyaoRange
       ? buildPromptTask(
-          '依据各时间段的定局、九宫、值符值使、用神和节令资料，区分共有事实与随时间变化的条件，结合标明时刻的月相参照回答【问题】。',
-          'qimen',
+          '依据本次起卦的主变卦、世应、用神、动变、旬空与逐爻日月事实，结合候选时间范围内各段时令背景回答【问题】。',
+          'liuyao',
         )
-      : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+      : method === 'qimen' && options.qimenRange
         ? buildPromptTask(
-            '依据各时间段的起卦数、主互变卦、动爻、体用与月令旺衰，比较分支条件后回答【问题】。',
-            'meihua',
+            '依据各时间段的定局、九宫、值符值使、用神和节令资料，区分共有事实与随时间变化的条件，结合标明时刻的月相参照回答【问题】。',
+            'qimen',
           )
-        : method === 'astrolabe' && !isCustomQuestion
-          ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
-          : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
-            ? buildPromptTask(
-                '依据各时间段的顺数结果、时宫与歌诀，比较分支条件后回答【问题】。',
-                'xiaoliuren',
-              )
-            : method === 'liuren' && liurenRangeText
+        : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+          ? buildPromptTask(
+              '依据各时间段的起卦数、主互变卦、动爻、体用与月令旺衰，比较分支条件后回答【问题】。',
+              'meihua',
+            )
+          : method === 'astrolabe' && !isCustomQuestion
+            ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
+            : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
               ? buildPromptTask(
-                  '依据各时间段的月将、四课、三传与时令判断事实，比较分支条件后回答【问题】。',
-                  'liuren',
+                  '依据各时间段的顺数结果、时宫与歌诀，比较分支条件后回答【问题】。',
+                  'xiaoliuren',
                 )
-              : method === 'jinkoujue' && jinkoujueRangeText
+              : method === 'liuren' && liurenRangeText
                 ? buildPromptTask(
-                    '依据各时间段的月将、四位、阴阳发用与五动三动，比较分支条件后回答【问题】。',
-                    'jinkoujue',
+                    '依据各时间段的月将、四课、三传与时令判断事实，比较分支条件后回答【问题】。',
+                    'liuren',
                   )
-                : method === 'tarot'
-                  ? buildTarotSpreadTask(data as TarotData)
-                  : method === 'lenormand' && (data as LenormandData).cards.length === 1
-                    ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
-                    : buildTaskText(method, data);
+                : method === 'jinkoujue' && jinkoujueRangeText
+                  ? buildPromptTask(
+                      '依据各时间段的月将、四位、阴阳发用与五动三动，比较分支条件后回答【问题】。',
+                      'jinkoujue',
+                    )
+                  : method === 'tarot'
+                    ? buildTarotSpreadTask(data as TarotData)
+                    : method === 'lenormand' && (data as LenormandData).cards.length === 1
+                      ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
+                      : buildTaskText(method, data);
   const taskText = isSignPrompt
     ? buildPromptTask('', method)
     : selection
@@ -1213,6 +1229,22 @@ export async function generateDivinationSession(
     ...draft,
     method,
   });
+  const liuyaoMethod = draft.liuyaoMethod ?? 'time';
+  const liuyaoRange =
+    method === 'liuyao' &&
+    draft.divinationTimeMode === 'pillars' &&
+    isBaziReverseSource(draft.divinationReverseSource) &&
+    isLiuyaoRangeSource(draft.divinationReverseSource)
+      ? generateLiuyaoRange({
+          source: draft.divinationReverseSource,
+          representativeDate: calculationDate ?? new Date(Number.NaN),
+          options: {
+            method: liuyaoMethod,
+            ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
+            ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
+          },
+        })
+      : undefined;
   const qimenRange =
     method === 'qimen' &&
     draft.divinationTimeMode === 'pillars' &&
@@ -1245,12 +1277,13 @@ export async function generateDivinationSession(
   switch (method) {
     case 'liuyao': {
       const module = await import('mingyu-core/divination/liuyao');
-      const liuyaoMethod = draft.liuyaoMethod ?? 'time';
-      data = module.generateLiuyao(calculationDate, {
-        method: liuyaoMethod,
-        ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
-        ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
-      });
+      data =
+        liuyaoRange?.branches[0]?.data ??
+        module.generateLiuyao(calculationDate, {
+          method: liuyaoMethod,
+          ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
+          ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
+        });
       break;
     }
     case 'meihua': {
@@ -1443,17 +1476,19 @@ export async function generateDivinationSession(
           scope: draft.promptScope,
         })
       : undefined;
-  const rangeContext = qimenRange
-    ? formatQimenRangeContext(qimenRange)
-    : meihuaRange
-      ? formatMeihuaRangeContext(meihuaRange)
-      : jinkoujueRange
-        ? formatJinkoujueRangeContext(jinkoujueRange)
-        : liurenRange
-          ? formatLiurenRangeContext(liurenRange)
-          : xiaoliurenRange
-            ? formatXiaoliurenRangeContext(xiaoliurenRange)
-            : '';
+  const rangeContext = liuyaoRange
+    ? formatLiuyaoRangeContext(liuyaoRange)
+    : qimenRange
+      ? formatQimenRangeContext(qimenRange)
+      : meihuaRange
+        ? formatMeihuaRangeContext(meihuaRange)
+        : jinkoujueRange
+          ? formatJinkoujueRangeContext(jinkoujueRange)
+          : liurenRange
+            ? formatLiurenRangeContext(liurenRange)
+            : xiaoliurenRange
+              ? formatXiaoliurenRangeContext(xiaoliurenRange)
+              : '';
   const effectiveTimeContext =
     rangeContext && timing
       ? {
@@ -1484,8 +1519,14 @@ export async function generateDivinationSession(
           jinkoujueRange,
           meihuaRange,
           qimenRange,
+          liuyaoRange,
           omitCurrentTime: Boolean(
-            xiaoliurenRange || liurenRange || jinkoujueRange || meihuaRange || qimenRange,
+            xiaoliurenRange ||
+            liurenRange ||
+            jinkoujueRange ||
+            meihuaRange ||
+            qimenRange ||
+            liuyaoRange,
           ),
           almanacParticipantTimeContextText,
           topicId: draft.promptTopicId,
@@ -1504,6 +1545,7 @@ export async function generateDivinationSession(
     ...(jinkoujueRange ? { jinkoujueRange } : {}),
     ...(meihuaRange ? { meihuaRange } : {}),
     ...(qimenRange ? { qimenRange } : {}),
+    ...(liuyaoRange ? { liuyaoRange } : {}),
     ...(selection ? { selection } : {}),
   };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatQimenRangeInterval } from '@/lib/divination/qimen-range';
+import { formatLiuyaoRangeInterval } from '@/lib/divination/liuyao-range';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TAROT_SPREAD_OPTIONS } from 'mingyu-core/divination/config';
 import {
@@ -381,12 +382,17 @@ export function DivinationPanel({
           question={session.question || draft.question}
           methodName={methodLabelMap[session.method] || methodLabelMap[draft.method]}
           timeLabel={
-            session.qimenRange
-              ? formatQimenRangeInterval(
-                  session.qimenRange.source.startTimestamp,
-                  session.qimenRange.source.endTimestamp,
+            session.liuyaoRange
+              ? formatLiuyaoRangeInterval(
+                  session.liuyaoRange.source.startTimestamp,
+                  session.liuyaoRange.source.endTimestamp,
                 )
-              : session.timeContext?.clockDateTime
+              : session.qimenRange
+                ? formatQimenRangeInterval(
+                    session.qimenRange.source.startTimestamp,
+                    session.qimenRange.source.endTimestamp,
+                  )
+                : session.timeContext?.clockDateTime
           }
           onClose={() => setIsShareModalOpen(false)}
         />

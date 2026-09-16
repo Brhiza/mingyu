@@ -15,6 +15,11 @@ import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range
 import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
+import {
+  formatLiuyaoRangeInterval,
+  formatLiuyaoRangeBackground,
+  formatLiuyaoRangeOrigin,
+} from '@/lib/divination/liuyao-range';
 import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from '@/lib/divination/qimen-range';
 import {
   formatHuangjiCivilYear,
@@ -101,6 +106,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'liuyao' && session.liuyaoRange) {
+    const { startTimestamp, endTimestamp } = session.liuyaoRange.source;
+    return formatLiuyaoRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'qimen' && session.qimenRange) {
     const { startTimestamp, endTimestamp } = session.qimenRange.source;
     return formatQimenRangeInterval(startTimestamp, endTimestamp);
@@ -588,9 +597,13 @@ function LiuyaoCategoryClassicsSection() {
 function LiuyaoTraditionalBoard({
   data,
   session,
+  dateLabel,
+  backgroundLabel,
 }: {
   data: LiuyaoData;
   session?: DivinationSession;
+  dateLabel?: string;
+  backgroundLabel?: string;
 }) {
   const changing = data.changingYaos
     ?.filter((item) => item.isChanging)
@@ -794,10 +807,10 @@ function LiuyaoTraditionalBoard({
       subtitle={`纳甲六爻 · ${data.palace?.name || ''}宫${data.palaceStage || ''}`}
       className="traditional-liuyao-board"
     >
+      <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session)],
           [
             '四柱',
             `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`,
@@ -815,6 +828,7 @@ function LiuyaoTraditionalBoard({
           ],
         ]}
       />
+      {backgroundLabel ? <p className="traditional-note-row">{backgroundLabel}</p> : null}
       <TraditionalFacts
         items={[
           ['本卦定局', data.hexagramRelations?.original || '本卦'],
@@ -3818,13 +3832,20 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
     lines.push(`${session.method === 'qimen' ? '起局时间' : '起卦时间'}：${displayDate}`);
 
   if (session.method === 'liuyao') {
-    const d = session.data as LiuyaoData;
-    lines.push(`本卦：${d.originalName}`);
-    if (d.changedName) lines.push(`变卦：${d.changedName}`);
-    const worldYao = d.yaosDetail.find((item) => item.isWorld);
-    if (worldYao) lines.push(`世爻：第${worldYao.position}爻 ${worldYao.sixRelative}`);
-    lines.push(`四柱：${d.ganzhi.year} ${d.ganzhi.month} ${d.ganzhi.day} ${d.ganzhi.hour}`);
-    lines.push(`旬空：${d.voidBranches?.join('、') || '无'}`);
+    if (session.liuyaoRange) lines.push(formatLiuyaoRangeOrigin(session.liuyaoRange));
+    for (const branch of session.liuyaoRange?.branches ?? [{ data: session.data as LiuyaoData }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatLiuyaoRangeInterval(branch.startTimestamp, branch.endTimestamp));
+        lines.push(formatLiuyaoRangeBackground(branch));
+      }
+      const d = branch.data;
+      lines.push(`本卦：${d.originalName}`);
+      if (d.changedName) lines.push(`变卦：${d.changedName}`);
+      const worldYao = d.yaosDetail.find((item) => item.isWorld);
+      if (worldYao) lines.push(`世爻：第${worldYao.position}爻 ${worldYao.sixRelative}`);
+      lines.push(`四柱：${d.ganzhi.year} ${d.ganzhi.month} ${d.ganzhi.day} ${d.ganzhi.hour}`);
+      lines.push(`旬空：${d.voidBranches?.join('、') || '无'}`);
+    }
   } else if (session.method === 'meihua') {
     for (const branch of session.meihuaRange?.branches ?? [{ data: session.data as MeihuaData }]) {
       if ('startTimestamp' in branch) {
@@ -3933,7 +3954,22 @@ export function TraditionalDivinationBoard({
   let boardContent: ReactNode;
   switch (session.method) {
     case 'liuyao':
-      boardContent = <LiuyaoTraditionalBoard data={session.data as LiuyaoData} session={session} />;
+      boardContent = session.liuyaoRange ? (
+        <section aria-label="六爻时间分段结果">
+          <p className="traditional-note-row">{formatLiuyaoRangeOrigin(session.liuyaoRange)}</p>
+          {session.liuyaoRange.branches.map((branch) => (
+            <LiuyaoTraditionalBoard
+              key={branch.startTimestamp}
+              data={branch.data}
+              session={session}
+              dateLabel={formatLiuyaoRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+              backgroundLabel={formatLiuyaoRangeBackground(branch)}
+            />
+          ))}
+        </section>
+      ) : (
+        <LiuyaoTraditionalBoard data={session.data as LiuyaoData} session={session} />
+      );
       break;
     case 'meihua':
       boardContent =
