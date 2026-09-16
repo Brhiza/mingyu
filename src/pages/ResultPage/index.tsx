@@ -2455,7 +2455,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ) : null}
 
       {!isAssistantPage && birthTimeIntervals.length > 0 ? (
-        <div className="workspace-ui-form-case-hint" role="note">
+        <div className="workspace-ui-form-case-hint" role="note" aria-label="出生时间范围">
           {birthTimeIntervals.map((text) => (
             <p key={text}>{text}</p>
           ))}
@@ -2559,6 +2559,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 title={isInstantResult ? '七政四余即时盘' : '七政四余本命盘'}
                 name={isInstantResult ? '当前时刻' : inputState.name || '本人'}
                 data={qizhengCalculation.data}
+                birthTimeRange={parseBaziReverseSource(inputState.birthReverseSource)}
                 isInstant={isInstantResult}
                 timeBasisLabel={instantTimeBasisLabel}
               />
@@ -2685,6 +2686,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         : astrolabeCalculation.data.birth.name || inputState.name || '当前命盘'
                     }
                     data={astrolabeCalculation.data}
+                    birthTimeRange={parseBaziReverseSource(inputState.birthReverseSource)}
                     isInstant={isInstantResult}
                     timeBasisLabel={instantTimeBasisLabel}
                     periodEvents={astrolabePeriodEvents}

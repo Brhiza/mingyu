@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type {
   AstrolabePeriodAxisItem,
@@ -22,6 +23,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   data: AstrolabeData;
   isInstant?: boolean;
   timeBasisLabel?: string;
+  birthTimeRange?: BaziReverseSource | null;
   periodEvents?: AstrolabePeriodEvent[];
   periodRangeLabel?: string;
   periodAxis?: AstrolabePeriodAxisItem[];
@@ -34,12 +36,14 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     data,
     isInstant = false,
     timeBasisLabel,
+    birthTimeRange,
     periodEvents = [],
     periodRangeLabel,
     periodAxis = [],
     periodWindows = [],
     periodGroups = [],
   } = props;
+  const range = isInstant ? null : birthTimeRange;
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
@@ -55,7 +59,10 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
           {isInstant && timeBasisLabel ? (
             <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
           ) : null}
-          <span className="result-chip">{data.birth.dateTime}</span>
+          <span className="result-chip">
+            {range ? '代表时刻：' : ''}
+            {range?.intervalStart ?? data.birth.dateTime}
+          </span>
           <span className="result-chip">{data.birth.location}</span>
           {data.houseSystem && (
             <span className="result-chip">
@@ -116,8 +123,8 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
             </div>
             <div className="result-meta-lines">
               <div>
-                <span>{isInstant ? '起盘时间' : '出生信息'}</span>
-                <strong>{data.birth.dateTime}</strong>
+                <span>{isInstant ? '起盘时间' : range ? '代表时刻' : '出生信息'}</span>
+                <strong>{range?.intervalStart ?? data.birth.dateTime}</strong>
               </div>
               <div>
                 <span>{isInstant ? '观测地点' : '出生地'}</span>

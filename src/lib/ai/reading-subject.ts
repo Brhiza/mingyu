@@ -3,6 +3,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
+import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 import {
   buildResidentialCoreInput,
   resolveResidentialBirthDate,
@@ -309,6 +310,19 @@ export function buildReadingSubject(
     residentialFlowDay: prompt.residentialFlowDay,
     qimenLifetimeStageModel: prompt.qimenLifetimeStageModel,
   };
+  const primaryBirthTimeRange = parseBaziReverseSource(input.birthReverseSource);
+  const partnerBirthTimeRange =
+    input.analysisMode === 'compatibility'
+      ? parseBaziReverseSource(input.partnerBirthReverseSource)
+      : null;
+  if (primaryBirthTimeRange || partnerBirthTimeRange) {
+    Object.assign(range, {
+      birthTimeRanges: {
+        ...(primaryBirthTimeRange ? { primary: primaryBirthTimeRange } : {}),
+        ...(partnerBirthTimeRange ? { partner: partnerBirthTimeRange } : {}),
+      },
+    });
+  }
   const fingerprint = stableStringify({ source: prompt.promptSource, lockedInputs, range });
   return {
     id: `subject-${hashText(fingerprint)}`,
