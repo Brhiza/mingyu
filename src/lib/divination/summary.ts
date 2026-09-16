@@ -4,11 +4,33 @@ import { formatXiaoliurenRangeInterval } from './xiaoliuren-range';
 import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
 import { formatMeihuaRangeInterval } from './meihua-range';
+import {
+  formatLiuyaoRangeInterval,
+  formatLiuyaoRangeBackground,
+  formatLiuyaoRangeOrigin,
+} from './liuyao-range';
 import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from './qimen-range';
 
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
+  if (session.method === 'liuyao' && session.liuyaoRange) {
+    return {
+      title: '六爻时段排盘结果',
+      tags: [
+        session.liuyaoRange.status === 'stable'
+          ? '时令背景稳定'
+          : `时令背景分为${session.liuyaoRange.branches.length}段`,
+      ],
+      lines: [
+        formatLiuyaoRangeOrigin(session.liuyaoRange),
+        ...session.liuyaoRange.branches.map(
+          (branch) =>
+            `${formatLiuyaoRangeInterval(branch.startTimestamp, branch.endTimestamp)}：本卦${branch.data.originalName}，变卦${branch.data.changedName || '无'}；${formatLiuyaoRangeBackground(branch)}`,
+        ),
+      ],
+    };
+  }
   if (session.method === 'qimen' && session.qimenRange) {
     return {
       title: '奇门遁甲时段排盘结果',
