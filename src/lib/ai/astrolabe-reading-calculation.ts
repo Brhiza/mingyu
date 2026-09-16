@@ -81,7 +81,7 @@ function enumValue<const T extends readonly string[]>(
   throw new Error(`${key} 必须是以下值之一：${values.join('、')}。`);
 }
 
-function toAstrolabeInput(input: JsonRecord): AstrolabeBirthInput {
+export function toAstrolabeInput(input: JsonRecord): AstrolabeBirthInput {
   const requiredNumber = (key: string, min: number, max: number) => {
     const value = input[key];
     if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min || value > max) {

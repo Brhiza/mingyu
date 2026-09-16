@@ -16,6 +16,7 @@ import {
   DEFAULT_CHINA_TIMEZONE_HOURS,
   getTimeIndexFromClock,
   resolveCivilTime,
+  TimeManager,
 } from 'mingyu-core/calendar';
 import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
 import { parseBaziReverseSource, formatBirthTimeInterval } from '../bazi-reverse-input';
@@ -26,6 +27,15 @@ import {
   isQizhengBirthRangeSource,
 } from '../qizheng-birth-range';
 import { formatQizhengBirthRangePrompt } from '../qizheng-birth-range-prompt';
+import {
+  executeAstrolabeBirthRangeWorker,
+  generateAstrolabeBirthRange,
+  hasAstrolabeBirthRangeSource,
+  isAstrolabeBirthRangeSource,
+  type AstrolabeBirthRange,
+  type AstrolabeBirthRangeSource,
+} from '../astrolabe-birth-range';
+import { formatAstrolabeBirthRangePrompt } from '../astrolabe-birth-range-prompt';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt';
 import type { QizhengBirthRange, QizhengFlowBirthRange, QizhengInput } from 'mingyu-core/qizheng';
 import {
@@ -1026,6 +1036,53 @@ function assertQizhengResult(
   }
 }
 
+function assertAstrolabeBirthRangeResult(
+  result: AstrolabeBirthRange,
+  locked: Record<string, unknown>,
+  source: AstrolabeBirthRangeSource,
+) {
+  if (result.coverage !== 'natal' || !result.branches?.length || !result.source) {
+    throw new Error('补算未返回完整西占本命出生区间。');
+  }
+  for (const field of [
+    'startTimestamp',
+    'endTimestamp',
+    'endExclusive',
+    'timezone',
+    'offsetHours',
+  ] as const) {
+    assertStructuredField(`astrolabe.birthRange.${field}`, source[field], result.source[field]);
+  }
+  const expectedSamples = (source.endTimestamp - source.startTimestamp) / 1000;
+  if (result.resolutionSeconds !== 1 || result.sampleCount !== expectedSamples) {
+    throw new Error('西占本命出生区间未覆盖全部整秒。');
+  }
+  let nextStart = source.startTimestamp;
+  for (const branch of result.branches) {
+    if (
+      branch.startTimestamp !== nextStart ||
+      branch.endExclusive !== true ||
+      branch.endTimestamp <= branch.startTimestamp ||
+      branch.sampleCount !== (branch.endTimestamp - branch.startTimestamp) / 1000
+    ) {
+      throw new Error('西占本命出生区间分段不连续或样本数不完整。');
+    }
+    for (const [sample, timestamp] of [
+      [branch.representative, branch.startTimestamp],
+      [branch.last, branch.endTimestamp - 1000],
+    ] as const) {
+      const time = TimeManager.getWallClockParts(new Date(timestamp), 480);
+      assertAstrolabeResult(
+        { result: sample },
+        { ...locked, ...time },
+        { astrolabeScope: 'natal' },
+      );
+    }
+    nextStart = branch.endTimestamp;
+  }
+  if (nextStart !== source.endTimestamp) throw new Error('西占本命出生区间缺少末段。');
+}
+
 function assertQizhengBirthRangeResult(
   data: Record<string, unknown>,
   locked: Record<string, unknown>,
@@ -1969,6 +2026,16 @@ export async function executeReadingAction(
     ? parseBaziReverseSource(JSON.stringify(rawBirthTimeRange))
     : null;
   let qizhengBirthRangeSource: typeof birthTimeRange = null;
+  let astrolabeBirthRangeSource: AstrolabeBirthRangeSource | undefined;
+  if (action.method === 'astrolabe' && rawBirthTimeRange !== undefined && !birthTimeRange) {
+    throw new Error('西占星盘出生区间来源无效，不能退回单点补算。');
+  }
+  if (action.method === 'astrolabe' && hasAstrolabeBirthRangeSource(rawBirthTimeRange)) {
+    if (!birthTimeRange || !isAstrolabeBirthRangeSource(birthTimeRange)) {
+      throw new Error('西占星盘出生区间来源无效，不能退回单点补算。');
+    }
+    astrolabeBirthRangeSource = birthTimeRange;
+  }
   if (action.method === 'qi-zheng' && hasQizhengBirthRangeSource(rawBirthTimeRange)) {
     if (!birthTimeRange || !isQizhengBirthRangeSource(birthTimeRange)) {
       throw new Error('七政四余出生区间来源无效，不能退回单点补算。');
@@ -1979,6 +2046,14 @@ export async function executeReadingAction(
   if (action.method === 'astrolabe' && requestInput.astrolabeScope === undefined) {
     requestInput.astrolabeScope = 'yearly';
     requestInput.astrolabeScopeDate ??= getDefaultAstrolabeScopeDate('yearly');
+  }
+  if (
+    astrolabeBirthRangeSource &&
+    (requestInput.astrolabeScope !== 'natal' ||
+      (typeof requestInput.astrolabeScopeText === 'string' &&
+        requestInput.astrolabeScopeText.trim()))
+  ) {
+    throw new Error('出生时间区间的行运资料尚未就绪，请选择本命范围查看完整区间。');
   }
   const requestLocked = Object.fromEntries(
     Object.entries(locked ?? {}).filter(([key]) => !key.startsWith('_')),
@@ -2002,8 +2077,43 @@ export async function executeReadingAction(
   }
   let data: Record<string, unknown>;
   let astrolabeLocalComplete = false;
+  let astrolabeBirthRangeResult: AstrolabeBirthRange | undefined;
   let qizhengBirthRangeResult: QizhengBirthRange | QizhengFlowBirthRange | undefined;
-  if (qizhengBirthRangeSource) {
+  if (astrolabeBirthRangeSource) {
+    for (const key of ['question', 'topicId', 'subtopicId', 'astrolabeScopeText']) {
+      if (requestInput[key] !== undefined && typeof requestInput[key] !== 'string') {
+        throw new Error(`${key} 必须是字符串。`);
+      }
+    }
+    if (
+      requestInput.schools !== undefined &&
+      (!Array.isArray(requestInput.schools) ||
+        requestInput.schools.some((value) => typeof value !== 'string'))
+    ) {
+      throw new Error('解读口径必须是字符串数组。');
+    }
+    const { toAstrolabeInput } = await import('./astrolabe-reading-calculation');
+    const input = toAstrolabeInput(calculationRequest);
+    astrolabeBirthRangeResult =
+      typeof Worker !== 'undefined'
+        ? await executeAstrolabeBirthRangeWorker(input, astrolabeBirthRangeSource, signal)
+        : generateAstrolabeBirthRange(input, astrolabeBirthRangeSource, { signal });
+    assertAstrolabeBirthRangeResult(
+      astrolabeBirthRangeResult,
+      requestLocked,
+      astrolabeBirthRangeSource,
+    );
+    const prompt = formatAstrolabeBirthRangePrompt(astrolabeBirthRangeResult, {
+      question: typeof requestInput.question === 'string' ? requestInput.question : undefined,
+      topicId: typeof requestInput.topicId === 'string' ? requestInput.topicId : undefined,
+      subtopicId: typeof requestInput.subtopicId === 'string' ? requestInput.subtopicId : undefined,
+      schools: Array.isArray(requestInput.schools)
+        ? requestInput.schools.filter((value): value is string => typeof value === 'string')
+        : undefined,
+    });
+    data = { prompt, result: astrolabeBirthRangeResult };
+    astrolabeLocalComplete = true;
+  } else if (qizhengBirthRangeSource) {
     const {
       question: _question,
       responseMode: _responseMode,
@@ -2055,10 +2165,11 @@ export async function executeReadingAction(
     data = await completeAstrolabePeriodData(data, calculationRequest, signal);
   }
   if (
-    locked ||
-    action.method === 'taiyi' ||
-    action.method === 'huangji' ||
-    action.method === 'wuyun'
+    !astrolabeBirthRangeResult &&
+    (locked ||
+      action.method === 'taiyi' ||
+      action.method === 'huangji' ||
+      action.method === 'wuyun')
   ) {
     if (qizhengBirthRangeResult) {
       assertQizhengBirthRangeResult(data, locked ?? {}, qizhengBirthRangeSource!, requestInput);
@@ -2068,14 +2179,15 @@ export async function executeReadingAction(
   }
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
-  if (qizhengBirthRangeResult) {
+  const completeBirthRange = astrolabeBirthRangeResult ?? qizhengBirthRangeResult;
+  if (completeBirthRange) {
     return {
       key: '',
       title: buildCalculationResourceTitle(action.method, target, locked, requestInput, data),
       text: data.prompt,
       usable: true,
       structured: {
-        ...qizhengBirthRangeResult,
+        ...completeBirthRange,
         birthTimeRange: birthTimeRange!,
       },
     };

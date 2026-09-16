@@ -38,6 +38,10 @@ import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
+import { hasAstrolabeBirthRangeSource } from '@/lib/astrolabe-birth-range';
+import { formatAstrolabeBirthRangePrompt } from '@/lib/astrolabe-birth-range-prompt';
+import { useAstrolabeBirthRange } from '@/hooks/useAstrolabeBirthRange';
+import { AstrolabeBirthRangePanel } from './components/AstrolabeBirthRangePanel';
 import { hasQizhengBirthRangeSource } from '@/lib/qizheng-birth-range';
 import {
   formatQizhengBirthRangePrompt,
@@ -1131,11 +1135,47 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       (mountedTabs.prompt && isAstrolabePromptSource) ||
       isAstrolabeScopeModalOpen);
 
+  const astrolabeInput = useMemo<Parameters<typeof generateAstrolabe>[0] | null>(() => {
+    if (!hasAstrolabeChart) return null;
+    return {
+      name: inputState.name || '本人',
+      gender: isInstantResult ? '' : inputState.gender === 'female' ? '女' : '男',
+      year: inputState.year,
+      month: inputState.month,
+      day: inputState.day,
+      hour: inputState.birthHour,
+      minute: inputState.birthMinute,
+      second: inputState.birthSecond || undefined,
+      latitude: inputState.birthLatitude,
+      longitude: inputState.birthLongitude,
+      ...getFrontendBirthTimeZone(inputState.birthReverseSource),
+      timezone: parseBaziReverseSource(inputState.birthReverseSource) ? '8' : undefined,
+      locationName: inputState.birthPlace,
+      useTrueSolarTime: inputState.useTrueSolarTime,
+    };
+  }, [
+    hasAstrolabeChart,
+    inputState.birthHour,
+    inputState.birthLatitude,
+    inputState.birthLongitude,
+    inputState.birthMinute,
+    inputState.birthPlace,
+    inputState.birthReverseSource,
+    inputState.birthSecond,
+    inputState.day,
+    inputState.gender,
+    inputState.month,
+    inputState.name,
+    inputState.useTrueSolarTime,
+    inputState.year,
+    isInstantResult,
+  ]);
+
   const astrolabeCalculation = useMemo<{
     data: AstrolabeData | null;
     error: string;
   }>(() => {
-    if (!shouldCalculateAstrolabe) {
+    if (!shouldCalculateAstrolabe || !astrolabeInput) {
       return { data: null, error: '' };
     }
 
@@ -1147,22 +1187,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         throw new Error('星盘需要出生地，请返回输入页选择出生地。');
       }
 
-      const astrolabeInput: Parameters<typeof generateAstrolabe>[0] = {
-        name: inputState.name || '本人',
-        gender: isInstantResult ? '' : inputState.gender === 'female' ? '女' : '男',
-        year: inputState.year,
-        month: inputState.month,
-        day: inputState.day,
-        hour: inputState.birthHour,
-        minute: inputState.birthMinute,
-        second: inputState.birthSecond || undefined,
-        latitude: inputState.birthLatitude,
-        longitude: inputState.birthLongitude,
-        ...getFrontendBirthTimeZone(inputState.birthReverseSource),
-        timezone: parseBaziReverseSource(inputState.birthReverseSource) ? '8' : undefined,
-        locationName: inputState.birthPlace,
-        useTrueSolarTime: inputState.useTrueSolarTime,
-      };
       const cacheKey = JSON.stringify(astrolabeInput);
       let data = astrolabeResultCache.get(cacheKey);
       if (!data) {
@@ -1194,9 +1218,52 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.name,
     inputState.useTrueSolarTime,
     inputState.year,
+    astrolabeInput,
     isInstantResult,
     shouldCalculateAstrolabe,
   ]);
+  const astrolabeBirthSource = useMemo(() => {
+    const source = parseBaziReverseSource(inputState.birthReverseSource);
+    try {
+      const raw: unknown = inputState.birthReverseSource
+        ? JSON.parse(inputState.birthReverseSource)
+        : null;
+      return {
+        source,
+        requested:
+          hasAstrolabeBirthRangeSource(raw) || Boolean(inputState.birthReverseSource && !source),
+      };
+    } catch {
+      return { source: null, requested: Boolean(inputState.birthReverseSource) };
+    }
+  }, [inputState.birthReverseSource]);
+  const astrolabeBirthRangeMode = !isInstantResult && astrolabeBirthSource.requested;
+  const astrolabeBirthRangeUnsupported =
+    astrolabeBirthRangeMode && promptState.astrolabeScope !== 'natal';
+  const astrolabeBirthRangeState = useAstrolabeBirthRange(
+    astrolabeInput,
+    astrolabeBirthSource.source,
+    shouldCalculateAstrolabe && astrolabeBirthRangeMode && !astrolabeBirthRangeUnsupported,
+  );
+  const astrolabeBirthRangeError = astrolabeBirthRangeMode
+    ? astrolabeBirthRangeUnsupported
+      ? '西占出生区间目前只支持本命盘；请选择“本命总览”查看完整出生区间。'
+      : !astrolabeBirthSource.source
+        ? '出生区间资料不完整，请重新选择四柱候选日期。'
+        : astrolabeCalculation.error || astrolabeBirthRangeState.error || ''
+    : '';
+  const astrolabeVisibleError = astrolabeBirthRangeMode
+    ? astrolabeBirthRangeError
+    : astrolabeCalculation.error;
+  const astrolabeRangeSelectionKey = `${inputSearch}:${promptState.astrolabeScope}`;
+  const [astrolabeBranchSelection, setAstrolabeBranchSelection] = useState({
+    key: '',
+    index: 0,
+  });
+  const astrolabeBranchIndex =
+    astrolabeBranchSelection.key === astrolabeRangeSelectionKey
+      ? astrolabeBranchSelection.index
+      : 0;
   const shouldCalculateQizheng =
     hasAstrolabeChart && (mountedTabs.qizheng || (mountedTabs.prompt && isQizhengPromptSource));
   const qizhengBirthSource = useMemo(() => {
@@ -1327,14 +1394,23 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(
-        astrolabeCalculation.data,
+        astrolabeBirthRangeMode ? null : astrolabeCalculation.data,
         promptState.astrolabeScope,
         promptState.astrolabeScopeDate,
       ),
-    [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate],
+    [
+      astrolabeBirthRangeMode,
+      astrolabeCalculation.data,
+      promptState.astrolabeScope,
+      promptState.astrolabeScopeDate,
+    ],
   );
   const astrolabeFullScopeContexts = useMemo(() => {
-    if (!astrolabeCalculation.data || promptState.astrolabeScope !== 'full') {
+    if (
+      astrolabeBirthRangeMode ||
+      !astrolabeCalculation.data ||
+      promptState.astrolabeScope !== 'full'
+    ) {
       return null;
     }
 
@@ -1342,7 +1418,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       astrolabeCalculation.data,
       promptState.astrolabeScopeDate,
     );
-  }, [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate]);
+  }, [
+    astrolabeBirthRangeMode,
+    astrolabeCalculation.data,
+    promptState.astrolabeScope,
+    promptState.astrolabeScopeDate,
+  ]);
   const astrolabeFullScopeContext = useMemo(
     () =>
       astrolabeFullScopeContexts
@@ -1366,6 +1447,61 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const astrolabePeriodRangeLabel = astrolabePeriodCollection
     ? `${astrolabePeriodCollection.startDateTime}至${astrolabePeriodCollection.endDateTime}`
     : undefined;
+  const astrolabeBirthRangePrompt = useMemo(() => {
+    if (
+      !astrolabeBirthRangeMode ||
+      astrolabeBirthRangeUnsupported ||
+      !astrolabeBirthRangeState.range
+    ) {
+      return '';
+    }
+    return formatAstrolabeBirthRangePrompt(astrolabeBirthRangeState.range, {
+      question: effectiveAstrolabeQuickQuestion,
+      ...(promptState.astrolabeTopicId
+        ? {
+            topicId: promptState.astrolabeTopicId,
+            subtopicId: promptState.astrolabeSubtopicId || undefined,
+          }
+        : {}),
+    });
+  }, [
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangeState.range,
+    astrolabeBirthRangeUnsupported,
+    effectiveAstrolabeQuickQuestion,
+    promptState.astrolabeSubtopicId,
+    promptState.astrolabeTopicId,
+  ]);
+  const previewAstrolabeBirthRangePrompt = useMemo(() => {
+    if (deferredAstrolabeQuestion === effectiveAstrolabeQuickQuestion) {
+      return astrolabeBirthRangePrompt;
+    }
+    if (
+      !astrolabeBirthRangeMode ||
+      astrolabeBirthRangeUnsupported ||
+      !astrolabeBirthRangeState.range
+    ) {
+      return '';
+    }
+    return formatAstrolabeBirthRangePrompt(astrolabeBirthRangeState.range, {
+      question: deferredAstrolabeQuestion,
+      ...(promptState.astrolabeTopicId
+        ? {
+            topicId: promptState.astrolabeTopicId,
+            subtopicId: promptState.astrolabeSubtopicId || undefined,
+          }
+        : {}),
+    });
+  }, [
+    astrolabeBirthRangePrompt,
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangeState.range,
+    astrolabeBirthRangeUnsupported,
+    deferredAstrolabeQuestion,
+    effectiveAstrolabeQuickQuestion,
+    promptState.astrolabeSubtopicId,
+    promptState.astrolabeTopicId,
+  ]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -1818,13 +1954,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
 
   const latestAstrolabePromptText = useMemo(() => {
-    if (
-      promptState.promptSource !== 'astrolabe' ||
-      !showAssistantPane ||
-      !astrolabeCalculation.data
-    ) {
+    if (promptState.promptSource !== 'astrolabe' || !showAssistantPane) {
       return '';
     }
+
+    if (astrolabeBirthRangeMode) {
+      return astrolabeBirthRangePrompt;
+    }
+
+    if (!astrolabeCalculation.data) return '';
 
     if (isInstantResult) {
       return buildInstantAstrolabePrompt(
@@ -1854,6 +1992,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     );
   }, [
     activeAstrolabeShortcutMode,
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangePrompt,
     astrolabeFullScopeContext,
     astrolabeScopeContext.promptText,
     astrolabeCalculation.data,
@@ -1874,6 +2014,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     if (deferredAstrolabeQuestion === effectiveAstrolabeQuickQuestion) {
       return latestAstrolabePromptText;
+    }
+
+    if (astrolabeBirthRangeMode) {
+      return previewAstrolabeBirthRangePrompt;
     }
 
     if (!showAssistantPane || !astrolabeCalculation.data) {
@@ -1908,12 +2052,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     );
   }, [
     activeAstrolabeShortcutMode,
+    astrolabeBirthRangeMode,
     astrolabeFullScopeContext,
     astrolabeScopeContext.promptText,
     astrolabeCalculation.data,
     deferredAstrolabeQuestion,
     effectiveAstrolabeQuickQuestion,
     latestAstrolabePromptText,
+    previewAstrolabeBirthRangePrompt,
     instantTimeBasisLabel,
     isInstantResult,
     promptState.astrolabeTopic,
@@ -2135,6 +2281,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       : []),
   ].flatMap(({ value, label }) => {
     const source = parseBaziReverseSource(value);
+    if (
+      source &&
+      astrolabeBirthRangeMode &&
+      (activeChartTab === 'astrolabe' || isAstrolabePromptSource)
+    ) {
+      return [
+        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；西占本命按出生整秒核对并分段呈现。`,
+      ];
+    }
     if (source && qizhengRangeMode && (activeChartTab === 'qizheng' || isQizhengPromptSource)) {
       return [
         `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；七政按出生整秒核对并分段呈现。`,
@@ -2153,6 +2308,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const aiContextPrompt = useMemo(() => {
     if (!showAssistantPane) return '';
 
+    if (isAstrolabePromptSource && astrolabeBirthRangeMode) {
+      return astrolabeBirthRangeUnsupported
+        ? ''
+        : '请依据随后提供的西洋占星本命出生时间区间资料，结合用户问题区分共同事实与分段事实。';
+    }
+
     if (isQizhengPromptSource && qizhengRangeMode) {
       return '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。';
     }
@@ -2163,6 +2324,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     return previewActivePromptText;
   }, [
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangeUnsupported,
+    isAstrolabePromptSource,
     isQimenLifetimePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
@@ -2198,6 +2362,35 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
     if (!readingSubject.id) return undefined;
+    if (isAstrolabePromptSource && astrolabeBirthRangeMode) {
+      if (
+        astrolabeBirthRangeUnsupported ||
+        !astrolabeBirthRangeState.range ||
+        !astrolabeBirthRangePrompt
+      ) {
+        return undefined;
+      }
+      const key = `astrolabe-birth-range:${JSON.stringify([
+        readingSubject.id,
+        astrolabeRangeSelectionKey,
+        effectiveAstrolabeQuickQuestion,
+        promptState.astrolabeTopicId,
+        promptState.astrolabeSubtopicId,
+      ])}`;
+      return {
+        subjectId: readingSubject.id,
+        key,
+        resources: [
+          {
+            key,
+            title: '西洋占星本命出生区间',
+            text: astrolabeBirthRangePrompt,
+            usable: true,
+            structured: astrolabeBirthRangeState.range as unknown as Record<string, unknown>,
+          },
+        ],
+      };
+    }
     if (isQizhengPromptSource && qizhengRangeMode) {
       if (!qizhengRangeState.range || !qizhengRangePrompt) return undefined;
       const key = `qizheng-birth-range:${readingSubject.id}`;
@@ -2230,6 +2423,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       resources: ziweiReadingResources,
     };
   }, [
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangePrompt,
+    astrolabeBirthRangeState.range,
+    astrolabeBirthRangeUnsupported,
+    astrolabeRangeSelectionKey,
+    effectiveAstrolabeQuickQuestion,
+    promptState.astrolabeTopicId,
+    promptState.astrolabeSubtopicId,
+    isAstrolabePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
     qizhengRangeState.range,
@@ -2242,6 +2444,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const workflowPrompt = useMemo(() => {
+    if (!isInstantResult && isAstrolabePromptSource && astrolabeBirthRangeMode) {
+      return astrolabeBirthRangeUnsupported
+        ? ''
+        : '依据随后提供的西洋占星本命出生时间区间资料，结合用户问题解读，先说明整个区间共同成立的判断，再区分各出生时段的差异。';
+    }
     if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
       return '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
     }
@@ -2263,6 +2470,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    astrolabeBirthRangeMode,
+    astrolabeBirthRangeUnsupported,
+    isAstrolabePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
     promptState.promptSource,
@@ -2297,7 +2507,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
   const readingResourceRequired =
     !isInstantResult &&
-    ((isQizhengPromptSource && qizhengRangeMode) ||
+    ((isAstrolabePromptSource && astrolabeBirthRangeMode) ||
+      (isQizhengPromptSource && qizhengRangeMode) ||
       isQimenLifetimePromptSource ||
       (promptState.ziweiScope === 'full' &&
         (promptState.promptSource === 'ziwei' ||
@@ -2566,8 +2777,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ziweiError ? (
         <p className="error-text">{ziweiError}</p>
       ) : null}
-      {isAstrolabePromptSource && astrolabeCalculation.error ? (
-        <p className="error-text">{astrolabeCalculation.error}</p>
+      {isAstrolabePromptSource && astrolabeVisibleError ? (
+        <p className="error-text">{astrolabeVisibleError}</p>
       ) : null}
     </>
   );
@@ -2834,10 +3045,22 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           {mountedTabs.astrolabe ? (
             <div className="single-panel-shell">
               <section className="panel result-panel result-panel-astrolabe">
-                {astrolabeCalculation.error ? (
+                {astrolabeBirthRangeMode ? (
+                  <AstrolabeBirthRangePanel
+                    {...astrolabeBirthRangeState}
+                    error={astrolabeBirthRangeError || astrolabeBirthRangeState.error}
+                    selectedIndex={astrolabeBranchIndex}
+                    onSelect={(index) =>
+                      setAstrolabeBranchSelection({
+                        key: astrolabeRangeSelectionKey,
+                        index,
+                      })
+                    }
+                  />
+                ) : astrolabeCalculation.error ? (
                   <p className="error-text">{astrolabeCalculation.error}</p>
                 ) : null}
-                {astrolabeCalculation.data ? (
+                {!astrolabeBirthRangeMode && astrolabeCalculation.data ? (
                   <AstrolabeBoard
                     title={isInstantResult ? '星盘即时盘' : '星盘总览'}
                     name={
@@ -2917,27 +3140,33 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   readingResourceSeed={workflowPrompt.trim() ? readingResourceSeed : undefined}
                   readingResourceRequired={readingResourceRequired}
                   readingResourceError={
-                    (isQizhengPromptSource && qizhengRangeMode
-                      ? qizhengRangeError
-                      : isQimenLifetimePromptSource
-                        ? qimenLifetimeCalculation.error
-                        : ziweiReadingResourceError) || undefined
+                    (isAstrolabePromptSource && astrolabeBirthRangeMode
+                      ? astrolabeBirthRangeError
+                      : isQizhengPromptSource && qizhengRangeMode
+                        ? qizhengRangeError
+                        : isQimenLifetimePromptSource
+                          ? qimenLifetimeCalculation.error
+                          : ziweiReadingResourceError) || undefined
                   }
                   onRetryReadingResources={
-                    isQizhengPromptSource && qizhengRangeMode
-                      ? qizhengRangeState.retry
-                      : isQimenLifetimePromptSource
-                        ? reloadQimenLifetimeCalculation
-                        : reloadZiweiReadingResources
+                    isAstrolabePromptSource && astrolabeBirthRangeMode
+                      ? astrolabeBirthRangeState.retry
+                      : isQizhengPromptSource && qizhengRangeMode
+                        ? qizhengRangeState.retry
+                        : isQimenLifetimePromptSource
+                          ? reloadQimenLifetimeCalculation
+                          : reloadZiweiReadingResources
                   }
                   historyKey={getChartChatHistoryContext(
-                    isQizhengPromptSource && qizhengRangeMode
-                      ? `${aiContextPrompt}\n${readingSubject.id}`
-                      : isQimenLifetimePromptSource
-                        ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
-                        : aiContextPrompt,
+                    isAstrolabePromptSource && astrolabeBirthRangeMode
+                      ? `${aiContextPrompt}\n${readingResourceSeed?.key ?? readingSubject.id}`
+                      : isQizhengPromptSource && qizhengRangeMode
+                        ? `${aiContextPrompt}\n${readingSubject.id}`
+                        : isQimenLifetimePromptSource
+                          ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
+                          : aiContextPrompt,
                   )}
-                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.qimenLifetimeStageModel}`}
+                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}
                   aiConfig={aiRequestConfig}
@@ -3006,8 +3235,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   ziweiError ? (
                     <p className="error-text">{ziweiError}</p>
                   ) : null}
-                  {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                    <p className="error-text">{astrolabeCalculation.error}</p>
+                  {isAstrolabePromptSource && astrolabeVisibleError ? (
+                    <p className="error-text">{astrolabeVisibleError}</p>
                   ) : null}
                 </PromptWorkbenchPanel>
               </div>

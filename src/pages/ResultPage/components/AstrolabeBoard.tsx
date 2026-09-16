@@ -24,6 +24,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   isInstant?: boolean;
   timeBasisLabel?: string;
   birthTimeRange?: BaziReverseSource | null;
+  representativeTime?: string;
   periodEvents?: AstrolabePeriodEvent[];
   periodRangeLabel?: string;
   periodAxis?: AstrolabePeriodAxisItem[];
@@ -37,6 +38,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     isInstant = false,
     timeBasisLabel,
     birthTimeRange,
+    representativeTime,
     periodEvents = [],
     periodRangeLabel,
     periodAxis = [],
@@ -44,6 +46,10 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     periodGroups = [],
   } = props;
   const range = isInstant ? null : birthTimeRange;
+  const hasRepresentativeTime = !isInstant && Boolean(range || representativeTime);
+  const displayedTime = isInstant
+    ? data.birth.dateTime
+    : (representativeTime ?? range?.intervalStart ?? data.birth.dateTime);
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
@@ -60,13 +66,13 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
             <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
           ) : null}
           <span className="result-chip">
-            {range ? '代表时刻：' : ''}
-            {range?.intervalStart ?? data.birth.dateTime}
+            {hasRepresentativeTime ? '代表时刻：' : ''}
+            {displayedTime}
           </span>
           <span className="result-chip">{data.birth.location}</span>
           {data.houseSystem && (
             <span className="result-chip">
-              {data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}
+              {data.houseSystem === 'whole_sign' ? '整宫制' : '普拉西德斯宫制'}
             </span>
           )}
         </div>
@@ -123,8 +129,10 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
             </div>
             <div className="result-meta-lines">
               <div>
-                <span>{isInstant ? '起盘时间' : range ? '代表时刻' : '出生信息'}</span>
-                <strong>{range?.intervalStart ?? data.birth.dateTime}</strong>
+                <span>
+                  {isInstant ? '起盘时间' : hasRepresentativeTime ? '代表时刻' : '出生信息'}
+                </span>
+                <strong>{displayedTime}</strong>
               </div>
               <div>
                 <span>{isInstant ? '观测地点' : '出生地'}</span>
