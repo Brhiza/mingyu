@@ -20,6 +20,13 @@ import type {
   MeihuaDivinationMethod,
 } from '../../../types/divination';
 import { isBaziReverseSource } from '../time-input';
+import {
+  formatQimenRangeContext,
+  formatQimenRangeFacts,
+  generateQimenRange,
+  isQimenRangeSource,
+  type QimenRange,
+} from '../qimen-range';
 import type { DivinationAlmanacParticipant, DivinationTimeMode } from '../time-input';
 import { formatBirthTimeInterval } from '@/lib/bazi-reverse-input';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
@@ -219,6 +226,7 @@ export type DivinationSession = {
   liurenRange?: LiurenRange;
   jinkoujueRange?: JinkoujueRange;
   meihuaRange?: MeihuaRange;
+  qimenRange?: QimenRange;
   selection?: PromptSelection;
 };
 
@@ -248,6 +256,7 @@ export type BuildDivinationPromptOptions = {
   liurenRange?: LiurenRange;
   jinkoujueRange?: JinkoujueRange;
   meihuaRange?: MeihuaRange;
+  qimenRange?: QimenRange;
   omitCurrentTime?: boolean;
   almanacParticipantTimeContextText?: string;
   topicId?: string;
@@ -308,17 +317,19 @@ export function buildDivinationPrompt(
     ? formatJinkoujueRangeFacts(conditionalJinkoujueRange)
     : undefined;
   const infoText =
-    method === 'meihua' && options.meihuaRange?.status === 'conditional'
-      ? formatMeihuaRangeFacts(options.meihuaRange)
-      : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
-        ? options.xiaoliurenRangeText.trim()
-        : method === 'liuren' && liurenRangeText
-          ? liurenRangeText
-          : method === 'jinkoujue' && jinkoujueRangeText
-            ? jinkoujueRangeText
-            : method === 'liuren'
-              ? [defaultInfoText, ...formatLiurenJudgmentFacts(data as LiurenData)].join('\n')
-              : defaultInfoText;
+    method === 'qimen' && options.qimenRange
+      ? formatQimenRangeFacts(options.qimenRange, supplementaryInfo)
+      : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+        ? formatMeihuaRangeFacts(options.meihuaRange)
+        : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
+          ? options.xiaoliurenRangeText.trim()
+          : method === 'liuren' && liurenRangeText
+            ? liurenRangeText
+            : method === 'jinkoujue' && jinkoujueRangeText
+              ? jinkoujueRangeText
+              : method === 'liuren'
+                ? [defaultInfoText, ...formatLiurenJudgmentFacts(data as LiurenData)].join('\n')
+                : defaultInfoText;
   const currentTimeSection = options.omitCurrentTime ? '' : buildSection('【当前时间】', timeInfo);
   if (method === 'ssgw') {
     if (selection) {
@@ -356,33 +367,38 @@ export function buildDivinationPrompt(
       : '';
   const baseTaskText = isSignPrompt
     ? ''
-    : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+    : method === 'qimen' && options.qimenRange
       ? buildPromptTask(
-          '依据各时间段的起卦数、主互变卦、动爻、体用与月令旺衰，比较分支条件后回答【问题】。',
-          'meihua',
+          '依据各时间段的定局、九宫、值符值使、用神和节令资料，区分共有事实与随时间变化的条件，结合标明时刻的月相参照回答【问题】。',
+          'qimen',
         )
-      : method === 'astrolabe' && !isCustomQuestion
-        ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
-        : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
-          ? buildPromptTask(
-              '依据各时间段的顺数结果、时宫与歌诀，比较分支条件后回答【问题】。',
-              'xiaoliuren',
-            )
-          : method === 'liuren' && liurenRangeText
+      : method === 'meihua' && options.meihuaRange?.status === 'conditional'
+        ? buildPromptTask(
+            '依据各时间段的起卦数、主互变卦、动爻、体用与月令旺衰，比较分支条件后回答【问题】。',
+            'meihua',
+          )
+        : method === 'astrolabe' && !isCustomQuestion
+          ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
+          : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
             ? buildPromptTask(
-                '依据各时间段的月将、四课、三传与时令判断事实，比较分支条件后回答【问题】。',
-                'liuren',
+                '依据各时间段的顺数结果、时宫与歌诀，比较分支条件后回答【问题】。',
+                'xiaoliuren',
               )
-            : method === 'jinkoujue' && jinkoujueRangeText
+            : method === 'liuren' && liurenRangeText
               ? buildPromptTask(
-                  '依据各时间段的月将、四位、阴阳发用与五动三动，比较分支条件后回答【问题】。',
-                  'jinkoujue',
+                  '依据各时间段的月将、四课、三传与时令判断事实，比较分支条件后回答【问题】。',
+                  'liuren',
                 )
-              : method === 'tarot'
-                ? buildTarotSpreadTask(data as TarotData)
-                : method === 'lenormand' && (data as LenormandData).cards.length === 1
-                  ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
-                  : buildTaskText(method, data);
+              : method === 'jinkoujue' && jinkoujueRangeText
+                ? buildPromptTask(
+                    '依据各时间段的月将、四位、阴阳发用与五动三动，比较分支条件后回答【问题】。',
+                    'jinkoujue',
+                  )
+                : method === 'tarot'
+                  ? buildTarotSpreadTask(data as TarotData)
+                  : method === 'lenormand' && (data as LenormandData).cards.length === 1
+                    ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
+                    : buildTaskText(method, data);
   const taskText = isSignPrompt
     ? buildPromptTask('', method)
     : selection
@@ -1197,6 +1213,19 @@ export async function generateDivinationSession(
     ...draft,
     method,
   });
+  const qimenRange =
+    method === 'qimen' &&
+    draft.divinationTimeMode === 'pillars' &&
+    isBaziReverseSource(draft.divinationReverseSource) &&
+    isQimenRangeSource(draft.divinationReverseSource)
+      ? generateQimenRange({
+          source: draft.divinationReverseSource,
+          representativeDate: calculationDate ?? new Date(Number.NaN),
+          method: draft.qimenMethod,
+          scope: draft.qimenScope,
+          juMethod: draft.qimenJuMethod,
+        })
+      : undefined;
   const meihuaRange =
     method === 'meihua' &&
     draft.divinationTimeMode === 'pillars' &&
@@ -1258,12 +1287,14 @@ export async function generateDivinationSession(
     }
     case 'qimen': {
       const module = await import('mingyu-core/divination/qimen');
-      data = module.generateQimen(
-        calculationDate,
-        draft.qimenMethod ?? 'zhuanpan',
-        draft.qimenScope ?? 'hour',
-        draft.qimenJuMethod ?? 'chaibu',
-      );
+      data =
+        qimenRange?.branches[0]?.data ??
+        module.generateQimen(
+          calculationDate,
+          draft.qimenMethod ?? 'zhuanpan',
+          draft.qimenScope ?? 'hour',
+          draft.qimenJuMethod ?? 'chaibu',
+        );
       break;
     }
     case 'liuren': {
@@ -1412,15 +1443,17 @@ export async function generateDivinationSession(
           scope: draft.promptScope,
         })
       : undefined;
-  const rangeContext = meihuaRange
-    ? formatMeihuaRangeContext(meihuaRange)
-    : jinkoujueRange
-      ? formatJinkoujueRangeContext(jinkoujueRange)
-      : liurenRange
-        ? formatLiurenRangeContext(liurenRange)
-        : xiaoliurenRange
-          ? formatXiaoliurenRangeContext(xiaoliurenRange)
-          : '';
+  const rangeContext = qimenRange
+    ? formatQimenRangeContext(qimenRange)
+    : meihuaRange
+      ? formatMeihuaRangeContext(meihuaRange)
+      : jinkoujueRange
+        ? formatJinkoujueRangeContext(jinkoujueRange)
+        : liurenRange
+          ? formatLiurenRangeContext(liurenRange)
+          : xiaoliurenRange
+            ? formatXiaoliurenRangeContext(xiaoliurenRange)
+            : '';
   const effectiveTimeContext =
     rangeContext && timing
       ? {
@@ -1450,7 +1483,10 @@ export async function generateDivinationSession(
           liurenRange,
           jinkoujueRange,
           meihuaRange,
-          omitCurrentTime: Boolean(xiaoliurenRange || liurenRange || jinkoujueRange || meihuaRange),
+          qimenRange,
+          omitCurrentTime: Boolean(
+            xiaoliurenRange || liurenRange || jinkoujueRange || meihuaRange || qimenRange,
+          ),
           almanacParticipantTimeContextText,
           topicId: draft.promptTopicId,
           subtopicId: draft.promptSubtopicId,
@@ -1467,6 +1503,7 @@ export async function generateDivinationSession(
     ...(liurenRange ? { liurenRange } : {}),
     ...(jinkoujueRange ? { jinkoujueRange } : {}),
     ...(meihuaRange ? { meihuaRange } : {}),
+    ...(qimenRange ? { qimenRange } : {}),
     ...(selection ? { selection } : {}),
   };
 }

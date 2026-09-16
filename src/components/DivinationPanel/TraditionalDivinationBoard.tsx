@@ -15,6 +15,7 @@ import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range
 import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
+import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from '@/lib/divination/qimen-range';
 import {
   formatHuangjiCivilYear,
   type HuangjiDerivedHexagram,
@@ -100,6 +101,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'qimen' && session.qimenRange) {
+    const { startTimestamp, endTimestamp } = session.qimenRange.source;
+    return formatQimenRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'meihua' && session.meihuaRange) {
     const { startTimestamp, endTimestamp } = session.meihuaRange.source;
     return formatMeihuaRangeInterval(startTimestamp, endTimestamp);
@@ -1876,9 +1881,13 @@ function getQimenYongShenSummary(
 function QimenTraditionalBoard({
   data,
   session,
+  dateLabel,
+  moonPhaseLabel,
 }: {
   data: QimenData;
   session?: DivinationSession;
+  dateLabel?: string;
+  moonPhaseLabel?: string;
 }) {
   const [selectedGong, setSelectedGong] = useState<number | null>(null);
   const [showChangSheng, setShowChangSheng] = useState<boolean>(false);
@@ -1992,10 +2001,10 @@ function QimenTraditionalBoard({
       subtitle={`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局 · ${data.method === 'feipan' ? '飞盘' : '转盘'}${data.juMethod === 'zhirun' ? ' · 置闰' : ' · 拆补'}`}
       className="traditional-qimen-board"
     >
+      <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session)],
           [
             '干支',
             `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
@@ -2007,6 +2016,7 @@ function QimenTraditionalBoard({
           ['马星', data.horseStar ? `${data.horseStar.branch}·${data.horseStar.name}` : undefined],
         ]}
       />
+      {moonPhaseLabel ? <p className="traditional-note-row">{moonPhaseLabel}</p> : null}
       <TraditionalFacts
         items={[
           [
@@ -2015,6 +2025,12 @@ function QimenTraditionalBoard({
           ],
           ['特殊时格', specialConditions || '常局'],
           ['盘局特征', patternNames || '平局'],
+          [
+            '节令背景',
+            data.seasonality
+              ? `${data.seasonality.currentJieQi}，交节后${data.seasonality.jieQiPhase.phase}阶段；${data.seasonality.dayStem}${data.seasonality.seasonRelation}；月相${data.seasonality.lunarPhaseDetail}；建除${data.seasonality.dayOfficer}`
+              : undefined,
+          ],
         ]}
       />
 
@@ -3798,7 +3814,8 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
   lines.push(`【${label} 排盘】`);
   if (session.question) lines.push(`所问之事：${session.question}`);
   const displayDate = getSessionDisplayDate(session);
-  if (displayDate) lines.push(`起卦时间：${displayDate}`);
+  if (displayDate)
+    lines.push(`${session.method === 'qimen' ? '起局时间' : '起卦时间'}：${displayDate}`);
 
   if (session.method === 'liuyao') {
     const d = session.data as LiuyaoData;
@@ -3820,9 +3837,21 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
       );
     }
   } else if (session.method === 'qimen') {
-    const d = session.data as QimenData;
-    lines.push(`局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局`);
-    lines.push(`值符：${d.zhiFu}  值使：${d.zhiShi}`);
+    for (const branch of session.qimenRange?.branches ?? [{ data: session.data as QimenData }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatQimenRangeInterval(branch.startTimestamp, branch.endTimestamp));
+        lines.push(formatQimenRangeMoonPhase(branch));
+      }
+      const d = branch.data;
+      lines.push(
+        `局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局；节气${d.timeInfo.solarTerm}；定局${d.timeInfo.juTerm ?? d.timeInfo.solarTerm}${d.timeInfo.epoch}`,
+      );
+      lines.push(`值符：${d.zhiFu}  值使：${d.zhiShi}`);
+      if (d.seasonality)
+        lines.push(
+          `节令阶段：${d.seasonality.jieQiPhase.phase}；月相${d.seasonality.lunarPhaseDetail}；建除${d.seasonality.dayOfficer}`,
+        );
+    }
   } else if (session.method === 'liuren') {
     for (const branch of session.liurenRange?.branches ?? [{ data: session.data as LiurenData }]) {
       if ('startTimestamp' in branch) {
@@ -3966,7 +3995,26 @@ export function TraditionalDivinationBoard({
         );
       break;
     case 'qimen':
-      boardContent = <QimenTraditionalBoard data={session.data as QimenData} session={session} />;
+      boardContent = session.qimenRange ? (
+        <section aria-label="奇门遁甲时间分段结果">
+          <p className="traditional-note-row">
+            {session.qimenRange.status === 'conditional'
+              ? '所选时间范围内盘面或节令背景有变化，请按实际时间对应下列结果。'
+              : '所选时间范围内盘面与节令背景一致，月相列出起止时刻的参照值。'}
+          </p>
+          {session.qimenRange.branches.map((branch) => (
+            <QimenTraditionalBoard
+              key={branch.startTimestamp}
+              data={branch.data}
+              session={session}
+              dateLabel={formatQimenRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+              moonPhaseLabel={formatQimenRangeMoonPhase(branch)}
+            />
+          ))}
+        </section>
+      ) : (
+        <QimenTraditionalBoard data={session.data as QimenData} session={session} />
+      );
       break;
     case 'tarot':
       boardContent = <TarotTraditionalBoard data={session.data as TarotData} session={session} />;
