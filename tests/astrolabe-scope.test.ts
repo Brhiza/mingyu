@@ -10,6 +10,7 @@ import {
   getDefaultAstrolabeScopeDate,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { calculatePlanets } from '../packages/core/src/astrology/engine';
 import type { AstrolabeData } from 'mingyu-core/types';
 
 const astrolabeData = generateAstrolabe({
@@ -26,10 +27,93 @@ const astrolabeData = generateAstrolabe({
   locationName: '北京',
 });
 
+const secondPrecisionAstrolabeData = generateAstrolabe({
+  name: '本人',
+  gender: '女',
+  year: '1995',
+  month: '5',
+  day: '20',
+  hour: '12',
+  minute: '30',
+  second: '37',
+  latitude: '39.9042',
+  longitude: '116.4074',
+  timezone: '8',
+  locationName: '北京',
+});
+
 type AdvancedEvidence =
   | ReturnType<typeof calculateSolarReturnEvidence>
   | ReturnType<typeof calculateSecondaryProgressionEvidence>
   | ReturnType<typeof calculateSolarArcEvidence>;
+
+const SCOPE_PLANET_OPTIONS = {
+  includeAsteroids: false,
+  includeChiron: false,
+  includeLilith: false,
+  includeNodes: true,
+  includeLots: false,
+};
+
+function normalizeLongitude(value: number) {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function longitudeDistance(first: number, second: number) {
+  const raw = Math.abs(normalizeLongitude(first) - normalizeLongitude(second));
+  return raw > 180 ? 360 - raw : raw;
+}
+
+function calculateIndependentPlanets(data: AstrolabeData, pseudoUtcDate: Date, timezone: number) {
+  return calculatePlanets(
+    {
+      year: pseudoUtcDate.getUTCFullYear(),
+      month: pseudoUtcDate.getUTCMonth() + 1,
+      day: pseudoUtcDate.getUTCDate(),
+      hour: pseudoUtcDate.getUTCHours(),
+      minute: pseudoUtcDate.getUTCMinutes(),
+      second: pseudoUtcDate.getUTCSeconds(),
+      timezone,
+      latitude: data.birth.latitude!,
+      longitude: data.birth.longitude!,
+    },
+    SCOPE_PLANET_OPTIONS,
+  );
+}
+
+function calculateIndependentPlanetsAtIso(data: AstrolabeData, dateTime: string) {
+  const date = new Date(dateTime);
+  assert.equal(Number.isNaN(date.getTime()), false, `无效的推进时间：${dateTime}`);
+  return calculateIndependentPlanets(data, date, data.birth.timezone);
+}
+
+function parseWallClockDateTime(dateTime: string) {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(dateTime);
+  if (!matched) throw new Error(`无效的返照当地时间：${dateTime}`);
+  return {
+    year: Number(matched[1]),
+    month: Number(matched[2]),
+    day: Number(matched[3]),
+    hour: Number(matched[4]),
+    minute: Number(matched[5]),
+    second: Number(matched[6]),
+  };
+}
+
+function calculateIndependentPlanetsAtWallClock(
+  data: AstrolabeData,
+  dateTime: string,
+  timezone: number,
+  offsetSeconds = 0,
+) {
+  const parts = parseWallClockDateTime(dateTime);
+  const pseudoUtcDate = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) +
+      offsetSeconds * 1000,
+  );
+  return calculateIndependentPlanets(data, pseudoUtcDate, timezone);
+}
 
 function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   const stepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
@@ -155,10 +239,10 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   const evidence = calculateSolarReturnEvidence(astrolabeData, 2028);
 
   assert.equal(evidence.status, 'exact');
-  assert.match(evidence.dateTime ?? '', /^2028-05-\d{2} \d{2}:\d{2}$/);
+  assert.match(evidence.dateTime ?? '', /^2028-05-\d{2} \d{2}:\d{2}:\d{2}$/);
   assert.ok((evidence.residualDegrees ?? 1) < 0.001);
   assert.equal(evidence.coarseStepHours, 2);
-  assert.equal(evidence.refinementToleranceMinutes, 1);
+  assert.equal(evidence.refinementToleranceMinutes, 1 / 60);
   assert.ok(evidence.refinementIterations > 0);
   assert.match(evidence.source, /二分法/);
   assert.equal(evidence.timeScale?.utcDateTime.endsWith('Z'), true);
@@ -179,6 +263,122 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
     ],
   );
   assertAdvancedEvidenceReferences(evidence);
+});
+
+test('秒级出生时间应由独立星历位置验证次限、太阳弧和太阳返照', () => {
+  const targetYear = 1995;
+  const minuteSecondary = calculateSecondaryProgressionEvidence(astrolabeData, targetYear);
+  const secondSecondary = calculateSecondaryProgressionEvidence(
+    secondPrecisionAstrolabeData,
+    targetYear,
+  );
+  const minuteSecondaryPlanets = calculateIndependentPlanetsAtIso(
+    astrolabeData,
+    minuteSecondary.progressedDateTime!,
+  );
+  const secondSecondaryPlanets = calculateIndependentPlanetsAtIso(
+    secondPrecisionAstrolabeData,
+    secondSecondary.progressedDateTime!,
+  );
+  assert.match(secondSecondary.progressedDateTime ?? '', /T12:30:37\.000Z$/);
+  const minuteSecondarySun = minuteSecondaryPlanets.find((planet) => planet.name === 'Sun');
+  const secondSecondarySun = secondSecondaryPlanets.find((planet) => planet.name === 'Sun');
+  const minuteSecondaryMoon = minuteSecondaryPlanets.find((planet) => planet.name === 'Moon');
+  const secondSecondaryMoon = secondSecondaryPlanets.find((planet) => planet.name === 'Moon');
+  if (!minuteSecondarySun || !secondSecondarySun || !minuteSecondaryMoon || !secondSecondaryMoon) {
+    throw new Error('独立次限星体位置缺少太阳或月亮。');
+  }
+  assert.ok(longitudeDistance(secondSecondarySun.longitude, minuteSecondarySun.longitude) > 0.0001);
+  assert.ok(
+    longitudeDistance(secondSecondaryMoon.longitude, minuteSecondaryMoon.longitude) > 0.0001,
+  );
+
+  const secondNatalSun = secondPrecisionAstrolabeData.planets.find(
+    (planet) => planet.name === 'Sun',
+  );
+  const secondSunFact = secondSecondary.aspectFacts.find(
+    (fact) =>
+      fact.movingPoint === '太阳' && fact.natalPoint === '太阳' && fact.aspectName === '合相',
+  );
+  if (!secondNatalSun || !secondSunFact) {
+    throw new Error('年龄为零的次限应保留太阳与本命太阳的合相事实。');
+  }
+  assert.ok(
+    Math.abs(
+      secondSunFact.actualAngle -
+        longitudeDistance(secondSecondarySun.longitude, secondNatalSun.longitude),
+    ) <= 0.000001,
+  );
+
+  const minuteSolarArc = calculateSolarArcEvidence(astrolabeData, targetYear);
+  const secondSolarArc = calculateSolarArcEvidence(secondPrecisionAstrolabeData, targetYear);
+  const minuteSolarArcPlanets = calculateIndependentPlanetsAtIso(
+    astrolabeData,
+    minuteSolarArc.progressedDateTime!,
+  );
+  const secondSolarArcPlanets = calculateIndependentPlanetsAtIso(
+    secondPrecisionAstrolabeData,
+    secondSolarArc.progressedDateTime!,
+  );
+  assert.match(secondSolarArc.progressedDateTime ?? '', /T12:30:37\.000Z$/);
+  const minuteSolarArcSun = minuteSolarArcPlanets.find((planet) => planet.name === 'Sun');
+  const secondSolarArcSun = secondSolarArcPlanets.find((planet) => planet.name === 'Sun');
+  if (!minuteSolarArcSun || !secondSolarArcSun || !secondNatalSun) {
+    throw new Error('独立太阳弧星体位置缺少太阳。');
+  }
+  const expectedSolarArc = normalizeLongitude(
+    secondSolarArcSun.longitude - secondNatalSun.longitude,
+  );
+  assert.equal(secondSolarArc.arcDegrees, Number(expectedSolarArc.toFixed(6)));
+  assert.ok(longitudeDistance(secondSolarArcSun.longitude, minuteSolarArcSun.longitude) > 0.0001);
+
+  const solarReturn = calculateSolarReturnEvidence(secondPrecisionAstrolabeData, 2028);
+  if (!solarReturn.dateTime || solarReturn.residualDegrees === undefined || !secondNatalSun) {
+    throw new Error('秒级太阳返照缺少时间或太阳残差。');
+  }
+  const returnSun = calculateIndependentPlanetsAtWallClock(
+    secondPrecisionAstrolabeData,
+    solarReturn.dateTime,
+    solarReturn.timezone,
+  ).find((planet) => planet.name === 'Sun');
+  const previousReturnSun = calculateIndependentPlanetsAtWallClock(
+    secondPrecisionAstrolabeData,
+    solarReturn.dateTime,
+    solarReturn.timezone,
+    -1,
+  ).find((planet) => planet.name === 'Sun');
+  const nextReturnSun = calculateIndependentPlanetsAtWallClock(
+    secondPrecisionAstrolabeData,
+    solarReturn.dateTime,
+    solarReturn.timezone,
+    1,
+  ).find((planet) => planet.name === 'Sun');
+  if (!returnSun || !previousReturnSun || !nextReturnSun) {
+    throw new Error('独立太阳返照回算缺少太阳位置。');
+  }
+  const returnResidual = longitudeDistance(returnSun.longitude, secondNatalSun.longitude);
+  const previousResidual = longitudeDistance(previousReturnSun.longitude, secondNatalSun.longitude);
+  const nextResidual = longitudeDistance(nextReturnSun.longitude, secondNatalSun.longitude);
+  const returnLocal = parseWallClockDateTime(solarReturn.dateTime);
+  const expectedReturnUtc = new Date(
+    Date.UTC(
+      returnLocal.year,
+      returnLocal.month - 1,
+      returnLocal.day,
+      returnLocal.hour,
+      returnLocal.minute,
+      returnLocal.second,
+    ) -
+      solarReturn.timezone * 3600000,
+  ).toISOString();
+  assert.equal(solarReturn.timeScale?.localDateTime, solarReturn.dateTime);
+  assert.equal(
+    solarReturn.timeScale?.utcDateTime,
+    expectedReturnUtc.replace('T', ' ').replace('.000Z', 'Z'),
+  );
+  assert.equal(solarReturn.residualDegrees, Number(returnResidual.toFixed(6)));
+  assert.ok(returnResidual <= previousResidual + 0.000000001);
+  assert.ok(returnResidual <= nextResidual + 0.000000001);
 });
 
 test('次限与太阳弧应返回稳定键、计算链、相位事实和限制对象', () => {

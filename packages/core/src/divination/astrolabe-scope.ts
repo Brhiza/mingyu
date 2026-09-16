@@ -497,9 +497,18 @@ function resolveAdvancedAspect(first: number, second: number) {
     .sort((a, b) => a.deviation / a.orb - b.deviation / b.orb)[0];
 }
 
-function parseBirthDateTime(data: AstrolabeData) {
+type ScopeDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second?: number;
+};
+
+function parseBirthDateTime(data: AstrolabeData): ScopeDateParts | null {
   const text = data.birth.standardDateTime || data.birth.dateTime;
-  const matched = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/.exec(text);
+  const matched = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/.exec(text);
   if (!matched) return null;
   return {
     year: Number(matched[1]),
@@ -507,16 +516,14 @@ function parseBirthDateTime(data: AstrolabeData) {
     day: Number(matched[3]),
     hour: Number(matched[4]),
     minute: Number(matched[5]),
+    second: matched[6] === undefined ? 0 : Number(matched[6]),
   };
 }
 
-function resolveScopeTimezone(
-  data: AstrolabeData,
-  date: { year: number; month: number; day: number; hour: number; minute: number },
-) {
+function resolveScopeTimezone(data: AstrolabeData, date: ScopeDateParts) {
   return resolveCivilTime({
     ...date,
-    second: 0,
+    second: date.second ?? 0,
     ...getScopeTimeZoneInput(data),
   }).timezone;
 }
@@ -529,16 +536,13 @@ function getScopeTimeZoneInput(data: AstrolabeData): CivilTimeZoneInput {
   return { timezone: data.birth.timezone };
 }
 
-function calculateScopePlanets(
-  data: AstrolabeData,
-  date: { year: number; month: number; day: number; hour: number; minute: number },
-) {
+function calculateScopePlanets(data: AstrolabeData, date: ScopeDateParts) {
   const coordinates = parseBirthCoordinates(data);
   const timezone = resolveScopeTimezone(data, date);
   return calculatePlanets(
     {
       ...date,
-      second: 0,
+      second: date.second ?? 0,
       timezone,
       latitude: coordinates.latitude,
       longitude: coordinates.longitude,
@@ -819,7 +823,8 @@ export function calculateSecondaryProgressionEvidence(
     };
   }
   const progressedDate = new Date(
-    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute) + age * 86400000,
+    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute, birth.second ?? 0) +
+      age * 86400000,
   );
   try {
     const progressed = calculateScopePlanets(data, {
@@ -828,6 +833,7 @@ export function calculateSecondaryProgressionEvidence(
       day: progressedDate.getUTCDate(),
       hour: progressedDate.getUTCHours(),
       minute: progressedDate.getUTCMinutes(),
+      second: progressedDate.getUTCSeconds(),
     }).filter((planet) => ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'].includes(planet.name));
     const inputStepKey = `${techniqueKey}:calculation:input`;
     const dateStepKey = `${techniqueKey}:calculation:progressed-date`;
@@ -1088,7 +1094,7 @@ export function calculateSolarArcEvidence(
     };
   }
   const progressedDate = new Date(
-    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute) +
+    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute, birth.second ?? 0) +
       Math.max(0, age) * 86400000,
   );
   try {
@@ -1098,6 +1104,7 @@ export function calculateSolarArcEvidence(
       day: progressedDate.getUTCDate(),
       hour: progressedDate.getUTCHours(),
       minute: progressedDate.getUTCMinutes(),
+      second: progressedDate.getUTCSeconds(),
     }).find((planet) => planet.name === 'Sun');
     if (!progressedSun) throw new Error('未取得推进太阳位置。');
     const arc = normalizeLongitude(progressedSun.longitude - natalSun.longitude);
@@ -1279,12 +1286,13 @@ function datePartsFromWallClockTimestamp(timestamp: number) {
     day: date.getUTCDate(),
     hour: date.getUTCHours(),
     minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
   };
 }
 
 function formatWallClockDateTime(timestamp: number) {
   const date = datePartsFromWallClockTimestamp(timestamp);
-  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} ${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}`;
+  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} ${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}:${String(date.second).padStart(2, '0')}`;
 }
 
 export function calculateSolarReturnEvidence(
@@ -1303,6 +1311,7 @@ export function calculateSolarReturnEvidence(
         day: Math.min(birth.day, daysInAstrolabeScopeMonth(targetYear, birth.month)),
         hour: birth.hour,
         minute: birth.minute,
+        second: birth.second ?? 0,
       })
     : data.birth.timezone;
   const baseEvidence = {
@@ -1311,9 +1320,9 @@ export function calculateSolarReturnEvidence(
     timezone: targetTimezone,
     searchWindowHours: 48,
     coarseStepHours: 2,
-    refinementToleranceMinutes: 1,
+    refinementToleranceMinutes: 1 / 60,
     refinementIterations: 0,
-    source: 'Caelus 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化返照时刻',
+    source: 'Caelus 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化至秒级返照时刻',
   };
   const unavailableEvidence = (
     message: string,
@@ -1394,6 +1403,7 @@ export function calculateSolarReturnEvidence(
     centerDay,
     birth.hour,
     birth.minute,
+    birth.second ?? 0,
   );
   try {
     let previous: { timestamp: number; difference: number } | undefined;
@@ -1432,8 +1442,8 @@ export function calculateSolarReturnEvidence(
     let iterations = 0;
     if (bracket) {
       let { left, right, leftDifference } = bracket;
-      while (right - left > 60000 && iterations < 32) {
-        const middle = Math.round((left + right) / 2);
+      while (right - left > 1000 && iterations < 40) {
+        const middle = Math.floor((left + right) / 2000) * 1000;
         const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(middle)).find(
           (planet) => planet.name === 'Sun',
         );
@@ -1447,7 +1457,15 @@ export function calculateSolarReturnEvidence(
         }
         iterations += 1;
       }
-      finalTimestamp = Math.round((left + right) / 2 / 60000) * 60000;
+      const rightSun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(right)).find(
+        (planet) => planet.name === 'Sun',
+      );
+      finalTimestamp =
+        rightSun &&
+        Math.abs(signedLongitudeDifference(rightSun.longitude, natalSun.longitude)) <
+          Math.abs(leftDifference)
+          ? right
+          : left;
     }
     const finalDate = datePartsFromWallClockTimestamp(finalTimestamp);
     const returnPlanets = calculateScopePlanets(data, finalDate).filter((planet) =>
@@ -1499,13 +1517,13 @@ export function calculateSolarReturnEvidence(
         stage: '数值细化',
         status: bracket ? '已计算' : '近似',
         dependsOnStepKeys: [coarseStepKey],
-        inputs: { refinementToleranceMinutes: 1 },
+        inputs: { refinementToleranceMinutes: 1 / 60 },
         result: {
           refinementIterations: iterations,
           finalDateTime: formatWallClockDateTime(finalTimestamp),
         },
         promptText: bracket
-          ? `对过零区间二分${iterations}次，细化到1分钟内`
+          ? `对过零区间二分${iterations}次，细化到1秒内`
           : '没有过零区间，不执行二分细化',
         sources: ['太阳黄经差二分求根'],
         limitation: ADVANCED_STEP_LIMITATION,
@@ -1549,13 +1567,13 @@ export function calculateSolarReturnEvidence(
     const aspects = aspectFacts.map((item) => item.promptText);
     const timeScale = buildAstronomicalTimeEvidence({
       ...finalDate,
-      second: 0,
+      second: finalDate.second ?? 0,
       ...getScopeTimeZoneInput(data),
     });
     const limitations = bracket
       ? [
           '返照时刻按出生地历史时区或明确固定偏移的当地钟表时间表达。',
-          '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
+          '秒级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
           '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
         ]
       : [
@@ -1584,7 +1602,7 @@ export function calculateSolarReturnEvidence(
       additionalFactKeys: [timeScale.key, timeScale.summaryFact.key],
     });
     const precision = bracket
-      ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至${baseEvidence.refinementToleranceMinutes}分钟内，共${iterations}次迭代`
+      ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至1秒内，共${iterations}次迭代`
       : `仅取得${baseEvidence.coarseStepHours}小时步长的近似取样点`;
     const dateTime = formatWallClockDateTime(finalTimestamp);
     return {
