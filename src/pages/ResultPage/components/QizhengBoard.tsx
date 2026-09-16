@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
@@ -136,12 +137,14 @@ export const QizhengBoard = memo(function QizhengBoard({
   data,
   isInstant = false,
   timeBasisLabel,
+  birthTimeRange,
 }: {
   title: string;
   name: string;
   data: QizhengResult;
   isInstant?: boolean;
   timeBasisLabel?: string;
+  birthTimeRange?: BaziReverseSource | null;
 }) {
   const [classicsExpanded, setClassicsExpanded] = useState(false);
   const strongestAspects = data.aspects.slice(0, 8);
@@ -154,6 +157,9 @@ export const QizhengBoard = memo(function QizhengBoard({
           <h2>{name}</h2>
         </div>
         <div className="result-chip-row">
+          {!isInstant && birthTimeRange ? (
+            <span className="result-chip">代表时刻：{birthTimeRange.intervalStart}</span>
+          ) : null}
           {isInstant && timeBasisLabel ? (
             <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
           ) : null}

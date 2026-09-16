@@ -13,6 +13,7 @@ import {
   resolveCivilTime,
 } from 'mingyu-core/calendar';
 import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
+import { parseBaziReverseSource, formatBirthTimeInterval } from '../bazi-reverse-input';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -1812,12 +1813,21 @@ export async function executeReadingAction(
   }
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
+  const birthTimeRanges = subject?.range.birthTimeRanges;
+  const birthTimeRange = record(birthTimeRanges)
+    ? parseBaziReverseSource(JSON.stringify(birthTimeRanges[target]))
+    : null;
+  const intervalText = birthTimeRange
+    ? `【出生时间范围】\n${formatBirthTimeInterval(birthTimeRange, target === 'partner' ? '对方出生时间' : '本人出生时间')}`
+    : '';
   return {
     key: '',
     title: buildCalculationResourceTitle(action.method, target, locked, requestInput, data),
-    text: data.prompt,
+    text: intervalText ? `${data.prompt}\n\n${intervalText}` : data.prompt,
     usable: true,
-    structured: record(data.result) ? data.result : undefined,
+    structured: record(data.result)
+      ? { ...data.result, ...(birthTimeRange ? { birthTimeRange } : {}) }
+      : undefined,
   };
 }
 
