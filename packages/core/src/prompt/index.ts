@@ -38,3 +38,4 @@ export {
   type CombinedZiweiCompatibilityPromptOptions,
   type CombinedZiweiPromptOptions,
 } from '../ziwei/prompt/combined';
+export * from './liuren-judgment';

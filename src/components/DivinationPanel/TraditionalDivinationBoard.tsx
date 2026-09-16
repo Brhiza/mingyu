@@ -12,6 +12,7 @@ import { getLiuyaoTermContext } from '@/lib/chart-term-context';
 import { ChartShareModal } from '@/components/ChartShareModal';
 import type { DivinationSession } from '@/lib/divination/engine';
 import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range';
+import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import {
   formatHuangjiCivilYear,
   type HuangjiDerivedHexagram,
@@ -97,6 +98,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'liuren' && session.liurenRange) {
+    const { startTimestamp, endTimestamp } = session.liurenRange.source;
+    return formatLiurenRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'xiaoliuren' && session.xiaoliurenRange) {
     const { startTimestamp, endTimestamp } = session.xiaoliurenRange.source;
     return formatXiaoliurenRangeInterval(startTimestamp, endTimestamp);
@@ -3566,9 +3571,11 @@ function LiurenCompactMatrix({ data }: { data: LiurenData }) {
 export function LiurenTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: LiurenData;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const transmissionText = data.threeTransmissions
     .map((item) => `${item.stage.replace('传', '')}${item.branch}`)
@@ -3617,10 +3624,10 @@ export function LiurenTraditionalBoard({
       subtitle={`${data.ganzhi.day}日 · ${data.ganzhi.hour}时 · 月将${data.monthLeader}加${data.divinationBranch}`}
       className="traditional-liuren-board"
     >
+      <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session)],
           [
             '干支',
             `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
@@ -3798,11 +3805,19 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
     lines.push(`局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局`);
     lines.push(`值符：${d.zhiFu}  值使：${d.zhiShi}`);
   } else if (session.method === 'liuren') {
-    const d = session.data as LiurenData;
-    const [initial, middle, final] = d.threeTransmissions;
-    lines.push(
-      `三传：初传【${initial?.branch || ''}】 中传【${middle?.branch || ''}】 末传【${final?.branch || ''}】`,
-    );
+    for (const branch of session.liurenRange?.branches ?? [{ data: session.data as LiurenData }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatLiurenRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      }
+      const d = branch.data;
+      lines.push(`月将：${d.monthLeader}加${d.divinationBranch}；${d.dayNight ?? ''}`);
+      lines.push(
+        `四课：${d.fourLessons.map((lesson) => `${lesson.name}${lesson.upper}临${lesson.lower}`).join('；')}`,
+      );
+      lines.push(
+        `三传：${d.threeTransmissions.map((item) => `${item.stage}【${item.branch}】`).join(' ')}`,
+      );
+    }
   } else if (session.method === 'xiaoliuren') {
     const branches = session.xiaoliurenRange?.branches;
     for (const branch of branches ?? [{ data: session.data as XiaoliurenData }]) {
@@ -3942,7 +3957,22 @@ export function TraditionalDivinationBoard({
       );
       break;
     case 'liuren':
-      boardContent = <LiurenTraditionalBoard data={session.data as LiurenData} session={session} />;
+      boardContent =
+        session.liurenRange?.status === 'conditional' ? (
+          <section aria-label="大六壬时间分段结果">
+            <p>所选时间范围内课盘有变化，请按实际时间对应下列结果。</p>
+            {session.liurenRange.branches.map((branch) => (
+              <LiurenTraditionalBoard
+                key={branch.startTimestamp}
+                data={branch.data}
+                session={session}
+                dateLabel={formatLiurenRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+              />
+            ))}
+          </section>
+        ) : (
+          <LiurenTraditionalBoard data={session.data as LiurenData} session={session} />
+        );
       break;
     default:
       return null;
