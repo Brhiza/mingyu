@@ -3,6 +3,7 @@ import { TIAN_GAN_HE } from '../ganzhi/relations';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import type { HarmonyTransformProfile } from '../types/analysis';
 import type { Pillars } from './baziTypes';
+import { collectSameElementRootFacts, type SameElementRootFact } from './baziRootFacts';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
@@ -25,6 +26,8 @@ export interface PatternStemEvidence {
   rootType: '本根' | '同类根' | '无根';
   rootPositions: string[];
   clashedRootPositions: string[];
+  /** 直接六冲的实际来源柱位与地支；不把受冲根来源误当成冲方。 */
+  clashSourcePositions?: string[];
 }
 
 export interface PatternInteractionEvidence {
@@ -68,6 +71,8 @@ export interface PatternFulfillmentResult {
   contradiction: string;
   remedies: PatternRemedy[];
   summary: string;
+  /** 本次成败裁决的具体理由，与通用规则依据分别保留。 */
+  decisionDetail?: string;
   evidence?: string[];
   conditions?: string[];
   conditionFacts?: PatternConditionFact[];
@@ -123,6 +128,7 @@ interface RootInfo {
   rootType: PatternStemEvidence['rootType'];
   rootPositions: string[];
   clashedRootPositions: string[];
+  clashSourcePositions: string[];
 }
 
 interface GodGroup {
@@ -219,16 +225,14 @@ function formatPathPosition(evidence: PathPositionEvidence): string {
   return `${evidence.position}（${evidence.pairs.join('；')}）`;
 }
 
-function formatRootPosition(item: ObservedStem): string {
-  return `${PILLAR_NAMES[item.pillar]}${item.branch}藏${item.stem}${item.hiddenRole ? `（${item.hiddenRole}）` : ''}`;
+function formatRootFactPosition(root: SameElementRootFact): string {
+  return (
+    PILLAR_NAMES[root.position] + root.branch + '藏' + root.stem + '（' + root.hiddenRole + '）'
+  );
 }
 
-function isBranchClashed(branch: string, pillars: Pillars, ownPillar: PillarPosition): boolean {
-  const clash = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
-  return Boolean(
-    clash &&
-    POSITIONS.some((position) => position !== ownPillar && pillars[position].zhi === clash),
-  );
+function formatClashSourcePosition(source: SameElementRootFact['clashSources'][number]): string {
+  return PILLAR_NAMES[source.position] + source.branch;
 }
 
 const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, number> = {
@@ -237,7 +241,9 @@ const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, numb
   余气: 1,
 };
 
-function resolveRootQuality(roots: ObservedStem[]): RootInfo['rootQuality'] {
+function resolveRootQuality(
+  roots: Array<{ hiddenRole?: PatternStemEvidence['hiddenRole'] }>,
+): RootInfo['rootQuality'] {
   if (!roots.length) return '无根';
   return roots.reduce<Exclude<RootInfo['rootQuality'], '无根'>>((best, root) => {
     const quality = root.hiddenRole ?? '余气';
@@ -258,19 +264,25 @@ function getMonthPrincipalControl(item: ObservedStem, pillars: Pillars): string 
   return `月令${pillars.month.zhi}本气${principal}（${principalWuxing}）克${item.stem}（${itemWuxing}）`;
 }
 
-function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pillars): RootInfo {
+function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const itemWuxing = getWuxing(item.stem);
-  const roots = observed.filter(
-    (candidate) => candidate.placement === '藏干' && getWuxing(candidate.stem) === itemWuxing,
-  );
+  if (itemWuxing === '未知') throw new Error(`根气天干五行无效：${item.stem}`);
+  const hiddenStems = {
+    year: HIDDEN_STEMS[pillars.year.zhi],
+    month: HIDDEN_STEMS[pillars.month.zhi],
+    day: HIDDEN_STEMS[pillars.day.zhi],
+    hour: HIDDEN_STEMS[pillars.hour.zhi],
+  };
+  const roots = collectSameElementRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
   const exactRoots = roots.filter((candidate) => candidate.stem === item.stem);
-  const rootPositions = roots.map(formatRootPosition);
+  const rootPositions = roots.map(formatRootFactPosition);
   const clashedRootPositions = roots
-    .filter((candidate) => isBranchClashed(candidate.branch, pillars, candidate.pillar))
-    .map(formatRootPosition);
-  const stableRoots = roots.filter(
-    (candidate) => !isBranchClashed(candidate.branch, pillars, candidate.pillar),
-  );
+    .filter((candidate) => candidate.clashSources.length > 0)
+    .map(formatRootFactPosition);
+  const clashSourcePositions = [
+    ...new Set(roots.flatMap((root) => root.clashSources.map(formatClashSourcePosition))),
+  ];
+  const stableRoots = roots.filter((candidate) => candidate.stable);
   const rootQuality = resolveRootQuality(stableRoots.length ? stableRoots : roots);
   const stable = stableRoots.some((candidate) => candidate.hiddenRole !== '余气');
   const monthPrincipalControl = getMonthPrincipalControl(item, pillars);
@@ -284,6 +296,7 @@ function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pill
     rootType: exactRoots.length ? '本根' : roots.length ? '同类根' : '无根',
     rootPositions,
     clashedRootPositions,
+    clashSourcePositions,
   };
 }
 
@@ -296,8 +309,8 @@ function getGodGroup(
   const visible = entries.filter((item) => item.placement === '透干');
   const hidden = entries.filter((item) => item.placement === '藏干');
   const rootInfos = visible.length
-    ? visible.map((item) => getRootInfo(item, observed, pillars))
-    : hidden.map((item) => getRootInfo(item, observed, pillars));
+    ? visible.map((item) => getRootInfo(item, pillars))
+    : hidden.map((item) => getRootInfo(item, pillars));
   return {
     entries,
     visible,
@@ -307,12 +320,8 @@ function getGodGroup(
   };
 }
 
-function toStemEvidence(
-  item: ObservedStem,
-  observed: ObservedStem[],
-  pillars: Pillars,
-): PatternStemEvidence {
-  const root = getRootInfo(item, observed, pillars);
+function toStemEvidence(item: ObservedStem, pillars: Pillars): PatternStemEvidence {
+  const root = getRootInfo(item, pillars);
   return {
     stem: item.stem,
     tenGod: item.tenGod,
@@ -325,6 +334,9 @@ function toStemEvidence(
     rootType: root.rootType,
     rootPositions: root.rootPositions,
     clashedRootPositions: root.clashedRootPositions,
+    ...(root.clashSourcePositions.length
+      ? { clashSourcePositions: root.clashSourcePositions }
+      : {}),
   };
 }
 
@@ -360,7 +372,6 @@ function isStemBlocked(item: ObservedStem, profiles: HarmonyTransformProfile[]):
 function assessGroupUsability(
   label: string,
   group: GodGroup,
-  observed: ObservedStem[],
   pillars: Pillars,
   harmonyProfiles: HarmonyTransformProfile[],
 ): GroupUsability {
@@ -375,7 +386,7 @@ function assessGroupUsability(
 
   const roots = group.visible.map((item) => ({
     item,
-    root: getRootInfo(item, observed, pillars),
+    root: getRootInfo(item, pillars),
   }));
   const stable = roots.filter(({ root }) => root.actionable);
   const available = stable.filter(({ item }) => !isStemBlocked(item, harmonyProfiles));
@@ -473,11 +484,7 @@ function formatGroup(group: GodGroup): string {
   return group.entries.length ? group.entries.map(formatObserved).join('、') : '未见';
 }
 
-function buildRootEvidence(
-  groups: readonly GodGroup[],
-  observed: ObservedStem[],
-  pillars: Pillars,
-): PatternStemEvidence[] {
+function buildRootEvidence(groups: readonly GodGroup[], pillars: Pillars): PatternStemEvidence[] {
   const keys = new Set<string>();
   return groups
     .flatMap((group) => group.entries)
@@ -487,7 +494,7 @@ function buildRootEvidence(
       keys.add(key);
       return true;
     })
-    .map((item) => toStemEvidence(item, observed, pillars));
+    .map((item) => toStemEvidence(item, pillars));
 }
 
 function buildGroupCondition(
@@ -512,7 +519,7 @@ function buildGroupCondition(
   }
   if (!group.stable) {
     if (requireVisible && pillars && observed.length) {
-      const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
+      const usability = assessGroupUsability(label, group, pillars, harmonyProfiles);
       return {
         key,
         status: usability.status,
@@ -522,7 +529,7 @@ function buildGroupCondition(
     return { key, status: '资料不足', detail: `${label}根气层次不足以直接视为稳定作用。` };
   }
   if (requireVisible && pillars && observed.length) {
-    const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
+    const usability = assessGroupUsability(label, group, pillars, harmonyProfiles);
     if (!usability.effective) {
       return {
         key,
@@ -558,24 +565,29 @@ function evaluatePath(
   const targetGroup = getGodGroup(targetGods, observed, pillars);
   const source = sourceGroup.visible;
   const target = targetGroup.visible;
-  const positionEvidence = getPathPositionEvidence(source, target);
   const createResult = (
     status: PatternConditionStatus,
     detail: string,
     sourceItems: ObservedStem[] = sourceGroup.entries,
     targetItems: ObservedStem[] = targetGroup.entries,
-  ): PatternPathEvaluation => ({
-    key,
-    label,
-    status,
-    source: sourceItems.map(formatObserved),
-    target: targetItems.map(formatObserved),
-    sourceStems: sourceItems.map((item) => item.stem),
-    targetStems: targetItems.map((item) => item.stem),
-    position: positionEvidence.position,
-    positionPairs: positionEvidence.pairs,
-    detail,
-  });
+  ): PatternPathEvaluation => {
+    const positionEvidence = getPathPositionEvidence(
+      sourceItems.filter((item) => item.placement === '透干'),
+      targetItems.filter((item) => item.placement === '透干'),
+    );
+    return {
+      key,
+      label,
+      status,
+      source: sourceItems.map(formatObserved),
+      target: targetItems.map(formatObserved),
+      sourceStems: sourceItems.map((item) => item.stem),
+      targetStems: targetItems.map((item) => item.stem),
+      position: positionEvidence.position,
+      positionPairs: positionEvidence.pairs,
+      detail,
+    };
+  };
 
   if (!sourceGroup.entries.length || !targetGroup.entries.length) {
     return createResult(
@@ -583,40 +595,41 @@ function evaluatePath(
       `${label}缺少${!sourceGroup.entries.length ? '来源' : '作用对象'}；仅凭未出现的十神不能认定制化。`,
     );
   }
-  if (!source.length || !target.length) {
+  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, pillars) }));
+  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, pillars) }));
+  const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const sourceUncertain = sourceRoots.some(
+    ({ root }) =>
+      root.rooted &&
+      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+  );
+  const targetUncertain = targetRoots.some(
+    ({ root }) =>
+      root.rooted &&
+      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+  );
+  const sourceFailed = source.length > 0 && !rootedSource.length && !sourceUncertain;
+  const targetFailed = target.length > 0 && !rootedTarget.length && !targetUncertain;
+  if ((!source.length || !target.length) && !sourceFailed && !targetFailed) {
     return createResult(
       '资料不足',
       `${label}的${!source.length ? '来源' : '作用对象'}仅藏不透，位置条件不足，不能认定有效作用。`,
     );
   }
-
-  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
-  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
-  const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
-  const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   if (!rootedSource.length || !rootedTarget.length) {
-    const sourceUncertain = sourceRoots.some(
-      ({ root }) =>
-        root.rooted &&
-        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
-    );
-    const targetUncertain = targetRoots.some(
-      ({ root }) =>
-        root.rooted &&
-        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
-    );
-    const status: PatternConditionStatus =
-      sourceUncertain || targetUncertain ? '资料不足' : '不满足';
+    // 两端根气是同时成立的必要条件；任一端明确失效便不能由另一端待核转为未定。
+    const status: PatternConditionStatus = sourceFailed || targetFailed ? '不满足' : '资料不足';
     return createResult(
       status,
-      `${label}要求双方有稳定根气；${!rootedSource.length ? '来源无稳定根' : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? '作用对象无稳定根' : ''}。${[
+      `${label}要求双方有稳定根气；${!rootedSource.length ? (source.length ? '来源无稳定根' : '来源仅藏不透') : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? (target.length ? '作用对象无稳定根' : '作用对象仅藏不透') : ''}。${[
         ...sourceRoots.filter(({ root }) => !root.actionable),
         ...targetRoots.filter(({ root }) => !root.actionable),
       ]
         .map(({ item, root }) => describeRootLimitation(item, root))
         .join('；')}`,
-      source,
-      target,
+      source.length ? source : sourceGroup.entries,
+      target.length ? target : targetGroup.entries,
     );
   }
 
@@ -659,19 +672,20 @@ function evaluatePath(
 }
 
 /**
- * 以日主本干作为明确作用对象评估“印生身”。日主不属于外透十神，
- * 不能用任意一枚比肩代替，否则会把比劫透干误当成印星已经生身。
+ * 以日主本干作为明确作用端点。日主不属于外透十神，
+ * 生身、制身、泄秀与承财均不能用任意一枚外透比肩代替。
  */
-function evaluatePathToDayMaster(
+function evaluatePathWithDayMaster(
   key: string,
   label: string,
-  sourceGods: readonly string[],
+  externalGods: readonly string[],
   observed: ObservedStem[],
   pillars: Pillars,
   dayMaster: string,
   harmonyProfiles: HarmonyTransformProfile[],
+  direction: 'to' | 'from',
 ): PatternPathEvaluation {
-  const dayMasterTarget: ObservedStem = {
+  const dayMasterEndpoint: ObservedStem = {
     stem: dayMaster,
     tenGod: '日主',
     pillar: 'day',
@@ -681,9 +695,9 @@ function evaluatePathToDayMaster(
   return evaluatePath(
     key,
     label,
-    sourceGods,
-    ['日主'],
-    [...observed, dayMasterTarget],
+    direction === 'to' ? externalGods : ['日主'],
+    direction === 'to' ? ['日主'] : externalGods,
+    [...observed, dayMasterEndpoint],
     pillars,
     harmonyProfiles,
   );
@@ -778,7 +792,6 @@ function buildMonthPrincipalControlFact(
   key: string,
   label: string,
   visible: ObservedStem[],
-  observed: ObservedStem[],
   pillars: Pillars,
   dayMaster: string,
   getTenGod: GetTenGodFn,
@@ -789,7 +802,7 @@ function buildMonthPrincipalControlFact(
   if (!['正财', '偏财'].includes(principalGod)) return undefined;
 
   const controlled = visible
-    .map((item) => ({ item, root: getRootInfo(item, observed, pillars) }))
+    .map((item) => ({ item, root: getRootInfo(item, pillars) }))
     .filter(({ root }) => root.monthPrincipalControl);
   if (!controlled.length) return undefined;
 
@@ -876,19 +889,12 @@ function evaluateStatusForOrdinaryPattern(params: {
     targetCondition,
     breakerGroups,
     basis,
-    observed,
     pillars,
     harmonyProfiles,
     conditionFacts,
   } = params;
   const assessedBreakers = breakerGroups.map((item, index) => {
-    const usability = assessGroupUsability(
-      item.label,
-      item.group,
-      observed,
-      pillars,
-      harmonyProfiles,
-    );
+    const usability = assessGroupUsability(item.label, item.group, pillars, harmonyProfiles);
     conditionFacts.push({
       key: `pattern.breaker.${index + 1}`,
       status: usability.status,
@@ -1030,19 +1036,21 @@ export function evaluatePatternFulfillment(
     return path;
   };
 
-  const addPathToDayMaster = (
+  const addPathWithDayMaster = (
     key: string,
     label: string,
-    sourceGods: readonly string[],
+    externalGods: readonly string[],
+    direction: 'to' | 'from' = 'to',
   ): PatternPathEvaluation => {
-    const path = evaluatePathToDayMaster(
+    const path = evaluatePathWithDayMaster(
       key,
       label,
-      sourceGods,
+      externalGods,
       observed,
       pillars,
       dayMaster,
       harmonyProfiles,
+      direction,
     );
     pathEvaluations.push(path);
     addPathInteraction(path, interactions);
@@ -1243,7 +1251,6 @@ export function evaluatePatternFulfillment(
       'pattern.month-principal-control',
       '印星',
       targetGroup.visible,
-      observed,
       pillars,
       dayMaster,
       getTenGod,
@@ -1310,14 +1317,13 @@ export function evaluatePatternFulfillment(
     const targetCondition = registerTarget('七杀', ['七杀']);
     const foodPath = addPath('食神制杀', '食神制七杀', ['食神'], ['七杀']);
     const killToSealPath = addPath('七杀生印', '七杀生印', ['七杀'], ['正印', '偏印']);
-    const sealToSelfPath = addPathToDayMaster('印生身', '印星生身', ['正印', '偏印']);
+    const sealToSelfPath = addPathWithDayMaster('印生身', '印星生身', ['正印', '偏印']);
     const sealPath = addPathChain('印化杀', '七杀→印→身', [killToSealPath, sealToSelfPath]);
     const sealGroup = getGodGroup(['正印', '偏印'], observed, pillars);
     const monthPrincipalControl = buildMonthPrincipalControlFact(
       'pattern.month-principal-control',
       '印星',
       sealGroup.visible,
-      observed,
       pillars,
       dayMaster,
       getTenGod,
@@ -1464,20 +1470,15 @@ export function evaluatePatternFulfillment(
             pillars,
           );
     conditionFacts.push(targetCondition);
-    const officerPath = addPath('官杀制比劫', '官杀制比劫', ['正官', '七杀'], ['比肩', '劫财']);
-    const outputPath = addPath('食伤泄秀', '食伤泄身发秀', ['食神', '伤官'], ['比肩', '劫财']);
-    const wealthPath = addPath('财星承禄劫', '财星承接禄劫', ['正财', '偏财'], ['比肩', '劫财']);
-    addCandidate(remedies, observed, ['正官', '七杀'], '官杀制比劫，并核对官杀根气与食伤牵制');
+    const officerPath = addPathWithDayMaster('官杀制比劫', '官杀制身', ['正官', '七杀']);
+    const outputPath = addPathWithDayMaster('食伤泄秀', '日主生食伤泄秀', ['食神', '伤官'], 'from');
+    const wealthPath = addPathWithDayMaster('财星承禄劫', '日主克财承载', ['正财', '偏财'], 'from');
+    addCandidate(remedies, observed, ['正官', '七杀'], '官杀制身，并核对官杀根气与食伤牵制');
     addCandidate(remedies, observed, ['食神', '伤官'], '泄秀或生财，并核对食伤根气与财星承接');
-    addCandidate(remedies, observed, ['正财', '偏财'], '财星承禄劫，并核对比劫是否夺财');
-    const validPath = isRen
-      ? officerPath.status === '满足'
-        ? officerPath
-        : undefined
-      : [officerPath, outputPath, wealthPath].find((path) => path.status === '满足');
-    const hasUncertainPath = [officerPath, outputPath, wealthPath].some(
-      (path) => path.status === '资料不足',
-    );
+    addCandidate(remedies, observed, ['正财', '偏财'], '日主克财承载，并核对比劫是否夺财');
+    const candidatePaths = isRen ? [officerPath] : [officerPath, outputPath, wealthPath];
+    const validPath = candidatePaths.find((path) => path.status === '满足');
+    const hasUncertainPath = candidatePaths.some((path) => path.status === '资料不足');
     if (!monthGate) {
       decision = {
         status: '平常',
@@ -1516,7 +1517,19 @@ export function evaluatePatternFulfillment(
     getGodGroup(['食神', '伤官'], observed, pillars),
     getGodGroup(['比肩', '劫财'], observed, pillars),
   ];
-  const rootEvidence = buildRootEvidence(allGroups, observed, pillars);
+  const rootEvidence = buildRootEvidence(allGroups, pillars);
+  rootEvidence.push(
+    toStemEvidence(
+      {
+        stem: dayMaster,
+        tenGod: '日主',
+        pillar: 'day',
+        branch: pillars.day.zhi,
+        placement: '透干',
+      },
+      pillars,
+    ),
+  );
 
   if (options.strengthStatus) {
     const strengthDataStatus = isKnownStrengthStatus(options.strengthStatus) ? '满足' : '资料不足';
@@ -1576,6 +1589,7 @@ export function evaluatePatternFulfillment(
   return {
     patternName,
     status: decision.status,
+    decisionDetail: decision.detail,
     basis,
     contradiction: conflicts.join('；'),
     remedies,

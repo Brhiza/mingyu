@@ -333,6 +333,12 @@ export interface VisibleStemRootItem {
   tenGod: string;
   status: '有本根' | '有同气根' | '无根';
   summary: string;
+  /** 同类藏干根的来源柱位；不参与强弱计分。 */
+  rootPositions?: string[];
+  /** 被直接六冲的根来源柱位；与 rootPositions 分开保留。 */
+  clashedRootPositions?: string[];
+  /** 直接六冲实际来源柱位与地支。 */
+  clashSourcePositions?: string[];
 }
 export interface StemRootProfile {
   items: VisibleStemRootItem[];

@@ -1,5 +1,6 @@
 import { BASIC_MAPPINGS } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
+import { collectSameElementRootFacts, getDirectClashSources } from './baziRootFacts';
 import type {
   ConstraintAnalysis,
   DayMasterStrengthAnalysis,
@@ -45,6 +46,13 @@ export interface FormationAnalysis {
 
 type GetWuxingFn = (ganOrZhi: string) => Wuxing;
 type GetSeasonStatusFn = (zhi: string) => Record<string, string>;
+
+const ROOT_PILLAR_LABELS = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+} as const;
 
 function assertValidWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
@@ -132,36 +140,8 @@ function isDirectEvidence(value: string): boolean {
  * 与格局根气证据复用同一六冲边界：外支冲到承载根的地支时，
  * 仍可登记为“见根”，但不能把该根作为未受破坏的本气强根。
  */
-function isRootBranchClashed(branch: string, pillars: Pillars, ownPosition: string): boolean {
-  const clash = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
-  return Boolean(
-    clash &&
-    Object.entries(pillars).some(
-      ([position, pillar]) => position !== ownPosition && pillar.zhi === clash,
-    ),
-  );
-}
-
-/**
- * 只有支或藏干中的同类根未被六冲时，才把透干印比视为有根帮扶。
- * 透干本身仍是盘面事实；这里仅避免“浮干有扶、等同于得势”的过度简化。
- */
-function hasStableElementRoot(
-  element: Wuxing,
-  pillars: Pillars,
-  hiddenStems: HiddenStems,
-  getWuxing: GetWuxingFn,
-): boolean {
-  return Object.entries(pillars).some(([position, pillar]) => {
-    if (isRootBranchClashed(pillar.zhi, pillars, position)) return false;
-
-    const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
-    if (branchWuxing === element) return true;
-
-    return hiddenStems[position as keyof HiddenStems].some(
-      (stem) => resolveWuxing(getWuxing, stem, `${position}柱藏干`) === element,
-    );
-  });
+function formatClashSources(sources: ReturnType<typeof getDirectClashSources>): string[] {
+  return [...new Set(sources.map((source) => ROOT_PILLAR_LABELS[source.position] + source.branch))];
 }
 
 function compareEvidenceCount(supporting: number, constraining: number): StrengthTendency {
@@ -216,27 +196,45 @@ export function analyzeRoot(
   assertStrengthPillars(dayMaster, pillars);
   assertHiddenStemsMatchPillars(pillars, hiddenStems);
 
-  const roots: { position: string; branch: string; stable: boolean; strength: number }[] = [];
+  const roots: {
+    position: string;
+    branch: string;
+    stable: boolean;
+    clashSources?: string[];
+    strength: number;
+  }[] = [];
   let totalStrength = 0;
   const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
+  const rootFacts = collectSameElementRootFacts(pillars, hiddenStems, dayMasterWuxing, getWuxing);
 
-  Object.entries(pillars).forEach(([position, pillar]) => {
-    const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
-    const hasMainQiRoot = branchWuxing === dayMasterWuxing;
-    const stable = !isRootBranchClashed(pillar.zhi, pillars, position);
-    if (branchWuxing === dayMasterWuxing) {
-      roots.push({ position, branch: pillar.zhi, stable, strength: 2 });
+  rootFacts.forEach((root) => {
+    const branchWuxing = resolveWuxing(
+      getWuxing,
+      pillars[root.position].zhi,
+      root.position + '柱地支',
+    );
+    const isMainQiRoot = branchWuxing === dayMasterWuxing && root.hiddenIndex === 0;
+    const clashSources = formatClashSources(root.clashSources);
+    if (isMainQiRoot) {
+      roots.push({
+        position: root.position,
+        branch: root.branch,
+        stable: root.stable,
+        ...(clashSources.length ? { clashSources } : {}),
+        strength: 2,
+      });
       totalStrength += 2;
+      return;
     }
-    hiddenStems[position as keyof HiddenStems].forEach((stem, index) => {
-      if (hasMainQiRoot && index === 0) {
-        return;
-      }
-      if (resolveWuxing(getWuxing, stem, `${position}柱藏干`) === dayMasterWuxing) {
-        roots.push({ position, branch: `${pillar.zhi}(${stem})`, stable, strength: 1 });
-        totalStrength += 1;
-      }
+
+    roots.push({
+      position: root.position,
+      branch: root.branch + '(' + root.stem + ')',
+      stable: root.stable,
+      ...(clashSources.length ? { clashSources } : {}),
+      strength: 1,
     });
+    totalStrength += 1;
   });
 
   return {
@@ -264,8 +262,20 @@ export function analyzeSupport(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
-  const addSupport = (position: string, stem: string, strength: number, stable = true) => {
-    supporters.push({ position, stem, stable, strength });
+  const addSupport = (
+    position: string,
+    stem: string,
+    strength: number,
+    stable = true,
+    clashSources: string[] = [],
+  ) => {
+    supporters.push({
+      position,
+      stem,
+      stable,
+      ...(clashSources.length ? { clashSources } : {}),
+      strength,
+    });
     totalStrength += strength;
   };
 
@@ -278,21 +288,28 @@ export function analyzeSupport(
       // 透干印比先核四支是否存在未被冲破的同类根；浮干仍保留事实，
       // 但以 stable=false 标记，避免只因“见印/比”便抬高身强。
       if (isCompanion || isResource) {
+        const rootFacts = collectSameElementRootFacts(pillars, hiddenStems, stemWuxing, getWuxing);
         addSupport(
           position,
           pillar.gan,
           1,
-          hasStableElementRoot(stemWuxing, pillars, hiddenStems, getWuxing),
+          rootFacts.some((root) => root.stable),
+          formatClashSources(rootFacts.flatMap((root) => root.clashSources)),
         );
       }
     }
 
-    const branchStable = !isRootBranchClashed(pillar.zhi, pillars, position);
+    const branchClashSources = getDirectClashSources(
+      pillar.zhi,
+      position as keyof Pillars,
+      pillars,
+    );
+    const branchStable = branchClashSources.length === 0;
     if (
       generatingElement &&
       resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`) === generatingElement
     ) {
-      addSupport(position, pillar.zhi, 1, branchStable);
+      addSupport(position, pillar.zhi, 1, branchStable, formatClashSources(branchClashSources));
     }
 
     const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
@@ -310,7 +327,13 @@ export function analyzeSupport(
         return;
       }
 
-      addSupport(position, `${pillar.zhi}(${stem})`, 0.5, branchStable);
+      addSupport(
+        position,
+        `${pillar.zhi}(${stem})`,
+        0.5,
+        branchStable,
+        formatClashSources(branchClashSources),
+      );
     });
   });
 
@@ -339,8 +362,20 @@ export function analyzeConstraint(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
-  const addConstraint = (position: string, stem: string, strength: number, stable = true) => {
-    constraints.push({ position, stem, stable, strength });
+  const addConstraint = (
+    position: string,
+    stem: string,
+    strength: number,
+    stable = true,
+    clashSources: string[] = [],
+  ) => {
+    constraints.push({
+      position,
+      stem,
+      stable,
+      ...(clashSources.length ? { clashSources } : {}),
+      strength,
+    });
     totalStrength += strength;
   };
 
@@ -373,15 +408,33 @@ export function analyzeConstraint(
       const stemWuxing = resolveWuxing(getWuxing, pillar.gan, `${position}柱天干`);
       const stemStrength = resolveConstraintStrength(stemWuxing, 1, 1.2);
       if (stemStrength > 0) {
-        addConstraint(position, pillar.gan, stemStrength);
+        const rootFacts = collectSameElementRootFacts(pillars, hiddenStems, stemWuxing, getWuxing);
+        addConstraint(
+          position,
+          pillar.gan,
+          stemStrength,
+          rootFacts.some((root) => root.stable),
+          formatClashSources(rootFacts.flatMap((root) => root.clashSources)),
+        );
       }
     }
 
-    const branchStable = !isRootBranchClashed(pillar.zhi, pillars, position);
+    const branchClashSources = getDirectClashSources(
+      pillar.zhi,
+      position as keyof Pillars,
+      pillars,
+    );
+    const branchStable = branchClashSources.length === 0;
     const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
     const branchStrength = resolveConstraintStrength(branchWuxing, 1, 1.2);
     if (branchStrength > 0) {
-      addConstraint(position, pillar.zhi, branchStrength, branchStable);
+      addConstraint(
+        position,
+        pillar.zhi,
+        branchStrength,
+        branchStable,
+        formatClashSources(branchClashSources),
+      );
     }
 
     hiddenStems[position as keyof HiddenStems].forEach((stem, index) => {
@@ -391,7 +444,13 @@ export function analyzeConstraint(
       }
       const hiddenStrength = resolveConstraintStrength(hiddenWuxing, 0.5, 0.6);
       if (hiddenStrength > 0) {
-        addConstraint(position, `${pillar.zhi}(${stem})`, hiddenStrength, branchStable);
+        addConstraint(
+          position,
+          pillar.zhi + '(' + stem + ')',
+          hiddenStrength,
+          branchStable,
+          formatClashSources(branchClashSources),
+        );
       }
     });
   });
@@ -530,14 +589,9 @@ export function analyzeFormation(
 /**
  * 日主强弱综合分析。
  *
- * 【古典依据与算法口径】
- * 1. 严格遵从《渊海子平》《穷通宝鉴》《滴天髓》论日主旺衰之“得令、得地、得势”三维结构定性法：
- *    - 得令（monthTendency）：以月令当旺、得长生建禄印比司权为扶身，休囚死绝为克泄；
- *    - 得地（rootTendency）：以四柱地支本气同气通根、逢冲逢合判定通根稳固度；
- *    - 得势（structureTendency）：以三合三会成局生扶比助、干支党众为增力。
- * 2. 澄清说明：本系统的正式旺衰分档（极强/偏强/身强/中和/身弱/偏弱/极弱）完全由上述三维定性
- *    条件组合裁定；成局分析对象中附带的 strength/totalStrength 浮点分值仅为旧版接口保留的
- *    参考性诊断数值（已在类型中声明为 @deprecated），不参与核心强弱分档与用神取用。
+ * 月令与司令、根气、透藏与成局分别形成倾向，再由下方条件组合分档。
+ * 透干两方使用相同的根气核验口径，存在与有效作用分别记录。
+ * strength/totalStrength 为旧接口诊断数据，不参与正式旺衰分档与取用。
  */
 export function analyzeDayMasterStrength(
   seasonalStatus: SeasonalStatusAnalysis,
@@ -569,6 +623,9 @@ export function analyzeDayMasterStrength(
   );
   const effectiveSupporters = supportAnalysis.supporters.filter(isStableEvidence);
   const effectiveConstraints = constraintAnalysis.constraints.filter(isStableEvidence);
+  const hasExposedConstraint = constraintAnalysis.constraints.some((item) =>
+    (BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).includes(item.stem),
+  );
 
   let status: DayMasterStrengthAnalysis['status'] = '中和';
   if (
@@ -576,6 +633,7 @@ export function analyzeDayMasterStrength(
     rootAnalysis.strongRoot &&
     structureTendency === '扶身' &&
     effectiveConstraints.length === 0 &&
+    !hasExposedConstraint &&
     !hasConstrainingFormation
   ) {
     status = '极强';
@@ -627,6 +685,7 @@ export function analyzeDayMasterStrength(
       ruleBasis: [
         `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、明根明透及中余气合看为${structureTendency}（明干本气优先，藏气次级）`,
         '先看得令，再看地支明根，随后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分',
+        '生扶与克泄耗的透干均核对同类根气；浮干保留可见事实，得势另看有根作用，透干异党尚在时不据此晋为极强。',
       ],
     },
   };

@@ -47,6 +47,7 @@ import type {
   JinkoujueDivinationMethod,
   LenormandData,
   LenormandSpreadType,
+  LiurenData,
   LiuyaoData,
   MeihuaSettings,
   QimenData,
@@ -190,6 +191,80 @@ function buildDivinationAiPrompt(options: {
   );
 }
 
+function formatLiurenJudgmentFacts(data: LiurenData): string[] {
+  const lines: string[] = [];
+  if (data.transmissionDetail) {
+    const sourceMarker = '；古籍依据依次为：';
+    const sourceIndex = data.transmissionDetail.indexOf(sourceMarker);
+    const transmissionBasis =
+      sourceIndex >= 0 ? data.transmissionDetail.slice(0, sourceIndex) : data.transmissionDetail;
+    if (transmissionBasis) lines.push(`取传说明：${transmissionBasis}`);
+  }
+
+  const classicalRules = (data.classicalRules ?? [])
+    .map((item) => `${item.category}：${item.summary}`)
+    .filter(Boolean);
+  if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
+
+  const guaTiFacts = (data.guaTiFacts ?? [])
+    .map((item) => `${item.name}（${item.matchedConditions.join('、')}）`)
+    .filter(Boolean);
+  if (guaTiFacts.length) lines.push(`课体条件：${guaTiFacts.join('；')}`);
+
+  const focusEvidence = (data.focusEvidence ?? [])
+    .map((item) => {
+      const evidence = item.evidence.filter(Boolean).join('、');
+      return `${item.target}${item.role ? `（${item.role}）` : ''}，${item.level}：${evidence || '未列依据'}${item.limitations.length ? `；适用条件：${item.limitations.join('、')}` : ''}`;
+    })
+    .filter(Boolean);
+  if (focusEvidence.length) lines.push(`重点依据：${focusEvidence.join('；')}`);
+
+  const timingEvidence = (data.timingEvidence ?? []).filter(Boolean);
+  if (timingEvidence.length) lines.push(`时令依据：${timingEvidence.join('；')}`);
+  const analysis = data.evidenceAnalysis;
+  if (analysis) {
+    const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
+    lines.push(
+      `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
+      '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
+    );
+  }
+  return lines;
+}
+
+function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
+  const conditions = data.conditions;
+  const lines = [
+    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
+    `将参：主大将${data.lordGeneral}宫、主参将${data.lordAssistant}宫；客大将${data.guestGeneral}宫、客参将${data.guestAssistant}宫；定大将${data.setGeneral}宫、定参将${data.setAssistant}宫`,
+  ];
+
+  if (conditions) {
+    const threeGates = conditions.threeGates;
+    lines.push(
+      `三门：${threeGates.status}；直使${threeGates.directGate}${threeGates.blockedRoles.length ? `；受限${threeGates.blockedRoles.join('、')}` : ''}`,
+    );
+
+    const fiveGenerals = conditions.fiveGenerals;
+    const relations = fiveGenerals.relations
+      .map((item) => `${item.kind}：${item.left}${item.relation}${item.right}`)
+      .join('；');
+    lines.push(
+      `五将：${fiveGenerals.launched ? '发' : '不发'}；始击${fiveGenerals.shiJiNoCoverOrHit ? '无掩击' : '有掩击'}；文昌${fiveGenerals.wenChangNoImprisonOrPressure ? '无囚迫' : '有囚迫'}；主客四将${fiveGenerals.hostGuestNoSamePalaceRelation ? '无同宫关' : '有同宫关'}${relations ? `；${relations}` : ''}`,
+    );
+    lines.push(
+      `阴阳和：${conditions.yinYangHarmony.matched ? '和' : '不和'}${conditions.yinYangHarmony.pairFacts.length ? `；${conditions.yinYangHarmony.pairFacts.map((item) => `${item.role}${item.polarity}${item.count}${item.countPolarity}${item.matched ? '和' : '不和'}`).join('、')}` : ''}`,
+    );
+    const relation = fiveGenerals.hostGuestElementRelation;
+    lines.push(
+      `二目五行（位置关系）：文昌${relation.hostPosition}属${relation.hostElement ?? '未列'}，始击${relation.guestPosition}属${relation.guestElement ?? '未列'}；${relation.relation}；主客相关的日计纳音另论，五将发不发依同宫关等条件另判。`,
+    );
+  }
+
+  if (data.tacticGuidance) lines.push(`攻守参考：${data.tacticGuidance}`);
+  return lines;
+}
+
 function formatAiChart(
   method: DivinationSessionMethod,
   data: DivinationData,
@@ -233,6 +308,10 @@ function formatAiChart(
       `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
       item.pathomechanism?.summary ?? '',
     );
+  } else if (method === 'liuren') {
+    base.push('六壬判断依据：', ...formatLiurenJudgmentFacts(data as LiurenData));
+  } else if (method === 'taiyi') {
+    base.push('太乙判断依据：', ...formatTaiyiJudgmentFacts(data as TaiyiResult));
   }
   return base.join('\n');
 }
