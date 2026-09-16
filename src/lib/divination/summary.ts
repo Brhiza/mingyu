@@ -4,10 +4,28 @@ import { formatXiaoliurenRangeInterval } from './xiaoliuren-range';
 import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
 import { formatMeihuaRangeInterval } from './meihua-range';
+import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from './qimen-range';
 
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
+  if (session.method === 'qimen' && session.qimenRange) {
+    return {
+      title: '奇门遁甲时段排盘结果',
+      tags: [
+        session.qimenRange.status === 'stable'
+          ? '盘面与节令背景稳定'
+          : `时间范围内分为${session.qimenRange.branches.length}段`,
+      ],
+      lines: session.qimenRange.branches.flatMap((branch) => {
+        const { startTimestamp, endTimestamp, data } = branch;
+        return [
+          `${formatQimenRangeInterval(startTimestamp, endTimestamp)}：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；节气${data.timeInfo.solarTerm}；值符${data.zhiFu}、值使${data.zhiShi}${data.seasonality ? `；节令阶段${data.seasonality.jieQiPhase.phase}，月相${data.seasonality.lunarPhaseDetail}，建除${data.seasonality.dayOfficer}` : ''}`,
+          formatQimenRangeMoonPhase(branch),
+        ];
+      }),
+    };
+  }
   if (session.method === 'meihua' && session.meihuaRange?.status === 'conditional') {
     return {
       title: '梅花易数分时起卦结果',
