@@ -1775,6 +1775,13 @@ export function getPublicApiOpenApiDocument(
             day: { type: 'integer', minimum: 1, maximum: 31 },
             hour: { type: 'integer', minimum: 0, maximum: 23 },
             minute: { type: 'integer', minimum: 0, maximum: 59 },
+            second: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              default: 0,
+              description: '太乙月、日、时计的秒数；省略时按 00 秒计算。',
+            },
             ganZhi: { type: 'string', description: '可选本计干支，必须与所给日期一致（太乙）' },
             latitude: {
               type: 'number',
@@ -3814,11 +3821,12 @@ function calculateTaiyiApi(input: JsonRecord) {
     if (scope !== 'year') {
       const month = readInteger(input, 'month', 1, 12);
       const day = readInteger(input, 'day', 1, 31);
-      // 月计/日计也允许明确时分（默认中午 12:00），便于核对交节前后的局数差异
+      // 月计/日计也允许明确时分秒（默认中午 12:00:00），便于核对交节前后的局数差异
       const hour = readInteger(input, 'hour', 0, 23, scope === 'hour' ? undefined : 12);
       const minute = readInteger(input, 'minute', 0, 59, 0);
+      const second = readInteger(input, 'second', 0, 59, 0);
       date = new Date(
-        resolveCivilTime({ year, month, day, hour, minute, second: 0, timezone: 8 }).utcTimestamp,
+        resolveCivilTime({ year, month, day, hour, minute, second, timezone: 8 }).utcTimestamp,
       );
     }
     return taiyi.generateTaiyi({

@@ -697,7 +697,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
   const scopeInfo = SCOPE_LABELS[scope];
   const civil = readCivilParts(date);
-  const dateTime = `${civil.year}-${String(civil.month).padStart(2, '0')}-${String(civil.day).padStart(2, '0')} ${String(civil.hour).padStart(2, '0')}:${String(civil.minute).padStart(2, '0')}`;
+  const dateTime = `${civil.year}-${String(civil.month).padStart(2, '0')}-${String(civil.day).padStart(2, '0')} ${String(civil.hour).padStart(2, '0')}:${String(civil.minute).padStart(2, '0')}:${String(civil.second).padStart(2, '0')}`;
   const evidenceAnalysis = buildTaiyiEvidence({
     scope,
     dateTime,

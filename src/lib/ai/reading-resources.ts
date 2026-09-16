@@ -253,6 +253,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'day',
       'hour',
       'minute',
+      'second',
       'ganZhi',
       'question',
       'topicId',
@@ -1209,7 +1210,7 @@ function assertTaiyiResult(
   }
   const dateTimeParts = readDateTimeParts(result.dateTime);
   if (!dateTimeParts) throw new Error('补算返回缺少太乙实际目标时刻。');
-  for (const field of ['year', 'month', 'day', 'hour', 'minute'] as const) {
+  for (const field of ['year', 'month', 'day', 'hour', 'minute', 'second'] as const) {
     if (calculationInput[field] !== undefined) {
       assertStructuredField(`taiyi.${field}`, calculationInput[field], dateTimeParts[field]);
     }
