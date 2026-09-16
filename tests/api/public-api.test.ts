@@ -4168,6 +4168,83 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   }
 });
 
+test('公开 API 星盘范围事实在各 responseMode 中保持一致', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-16T04:00:00Z') });
+  const base = {
+    name: '本人',
+    gender: '女',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    second: 37,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    question: '请分析2028年的阶段重点。',
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: '2028',
+  };
+  const request = (responseMode: 'prompt-only' | 'summary' | 'full') =>
+    callApi('divination/astrolabe/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...base, responseMode }),
+    });
+
+  const promptOnly = await request('prompt-only');
+  const summary = await request('summary');
+  const full = await request('full');
+
+  assert.equal(promptOnly.response.status, 200);
+  assert.equal(summary.response.status, 200);
+  assert.equal(full.response.status, 200);
+  assert.equal(promptOnly.body.data.prompt, summary.body.data.prompt);
+  assert.equal(summary.body.data.prompt, full.body.data.prompt);
+  assert.equal(promptOnly.body.data.result, undefined);
+  assert.equal(summary.body.data.result, undefined);
+  assert.ok(full.body.data.result);
+
+  const evidence = full.body.data.result.scopeEvidence;
+  assert.equal(evidence.scope, 'yearly');
+  assert.ok(full.body.data.prompt.includes(evidence.promptText));
+  assert.ok(summary.body.data.prompt.includes(evidence.promptText));
+  assert.ok(promptOnly.body.data.prompt.includes(evidence.promptText));
+
+  const fullScope = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...base,
+      astrolabeScope: 'full',
+      astrolabeScopeDate: '2028-06-12',
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(fullScope.response.status, 200);
+  const fullEvidence = fullScope.body.data.result.scopeEvidence;
+  assert.equal(fullEvidence.scope, 'full');
+  assert.equal(fullEvidence.referenceDate, '2028-06-12');
+  for (const scope of ['natal', 'yearly', 'monthly', 'daily']) {
+    assert.equal(fullEvidence.contexts[scope].scope, scope);
+    assert.ok(fullScope.body.data.prompt.includes(fullEvidence.contexts[scope].promptText));
+  }
+
+  const customText = '仅依据本次自定义的星盘范围资料分析。';
+  const customRequest = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, astrolabeScopeText: customText, responseMode: 'full' }),
+  });
+  assert.equal(customRequest.response.status, 200);
+  assert.deepEqual(customRequest.body.data.result.scopeEvidence, {
+    scope: 'custom',
+    promptText: customText,
+  });
+  assert.ok(customRequest.body.data.prompt.includes(customText));
+});
+
 test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {
   const base = {
     name: '本人',
