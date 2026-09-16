@@ -305,7 +305,7 @@ export const PersonForm = memo(function PersonForm({
             已选日期（四柱输入）：{Object.values(reverseSource.pillars).join(' ')}；候选区间{' '}
             {reverseSource.intervalStart} 至 {reverseSource.intervalEnd}（起点含、终点不含）。
             采用区间起点 {birthTimeValue || '代表时刻'}
-            （北京时间）。其他术数将使用该代表时刻，完整区间仍予保留。
+            （北京时间）。完整区间会随日期保留，具体排盘采用的分段范围或代表时刻见结果页。
           </div>
         ) : null}
       </div>

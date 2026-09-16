@@ -31,6 +31,17 @@ function createPublicSource(intervalStart: string, intervalEnd: string) {
 
 const primarySource = createPublicSource('2032-03-01 10:30:00', '2032-03-01 10:45:00');
 const partnerSource = createPublicSource('2031-09-12 08:00:00', '2031-09-12 08:20:00');
+
+const astrolabePrimaryLegacySource = {
+  pillars: primarySource.pillars,
+  intervalStart: primarySource.intervalStart,
+  intervalEnd: primarySource.intervalEnd,
+};
+const astrolabePartnerLegacySource = {
+  pillars: partnerSource.pillars,
+  intervalStart: partnerSource.intervalStart,
+  intervalEnd: partnerSource.intervalEnd,
+};
 const qizhengLegacySource = {
   pillars: primarySource.pillars,
   intervalStart: primarySource.intervalStart,
@@ -68,7 +79,7 @@ const qizhengInputs = {
 };
 
 function createAstrolabeSubject(
-  range: Record<string, unknown> = { primary: primarySource },
+  range: Record<string, unknown> = { primary: astrolabePrimaryLegacySource },
 ): ReadingSubjectSnapshot {
   return {
     id: `birth-range-astrolabe-${Object.keys(range).join('-') || 'none'}`,
@@ -103,7 +114,12 @@ function createCompatibilityAstrolabeSubject(): ReadingSubjectSnapshot {
       },
     },
     allowedMethods: ['astrolabe'],
-    range: { birthTimeRanges: { primary: primarySource, partner: partnerSource } },
+    range: {
+      birthTimeRanges: {
+        primary: astrolabePrimaryLegacySource,
+        partner: astrolabePartnerLegacySource,
+      },
+    },
   };
 }
 
@@ -132,7 +148,7 @@ async function withPublicApi<T>(callback: () => Promise<T>) {
   }
 }
 
-test('星盘补算资源保留代表时刻、出生区间文本与结构化范围', async () => {
+test('旧文本星盘出生范围兼容代表时刻与结构化范围', async () => {
   await withPublicApi(async () => {
     const resource = await executeReadingAction(
       {
@@ -146,7 +162,7 @@ test('星盘补算资源保留代表时刻、出生区间文本与结构化范�
 
     assert.match(resource.text, /【出生时间范围】/u);
     assert.match(resource.text, /2032-03-01 10:30:00 至 2032-03-01 10:45:00/u);
-    assert.deepEqual(resource.structured?.birthTimeRange, primarySource);
+    assert.deepEqual(resource.structured?.birthTimeRange, astrolabePrimaryLegacySource);
     const birth = resource.structured?.birth as Record<string, unknown>;
     assert.match(String(birth.standardDateTime ?? birth.dateTime), /2032-03-01 10:30/u);
   });
@@ -188,7 +204,7 @@ test('合盘补算只消费目标对象的出生区间，不能串用本人来�
     assert.match(resource.text, /对方出生时间范围/u);
     assert.match(resource.text, /2031-09-12 08:00:00 至 2031-09-12 08:20:00/u);
     assert.doesNotMatch(resource.text, /2032-03-01 10:30:00 至 2032-03-01 10:45:00/u);
-    assert.deepEqual(resource.structured?.birthTimeRange, partnerSource);
+    assert.deepEqual(resource.structured?.birthTimeRange, astrolabePartnerLegacySource);
     const birth = resource.structured?.birth as Record<string, unknown>;
     assert.match(String(birth.standardDateTime ?? birth.dateTime), /2031-09-12 08:00/u);
   });

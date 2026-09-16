@@ -9,6 +9,10 @@ import {
   formatQizhengRangeTime,
 } from '../qizheng-birth-range-prompt';
 import {
+  formatAstrolabeBirthRangeFacts,
+  formatAstrolabeBirthRangeTime,
+} from '../astrolabe-birth-range-prompt';
+import {
   formatZiweiFortuneTimelinePhase,
   formatZiweiPayloadForPrompt,
   formatZiweiTargetLowerScopeFacts,
@@ -18,6 +22,7 @@ import {
 } from 'mingyu-core/prompt';
 import { buildLifetimePrompt } from 'mingyu-core/divination/qimen';
 import type { QizhengBirthRange, QizhengFlowBirthRange } from 'mingyu-core/qizheng';
+import type { AstrolabeBirthRange } from 'mingyu-core/divination/astrolabe-birth-range';
 import type { QimenLifetimeData } from 'mingyu-core/types';
 
 export type ReadingTarget = 'primary' | 'partner';
@@ -73,6 +78,17 @@ type QimenPhaseMemory = {
     answer?: string;
   }>;
 };
+type BirthRangePhaseRecord = {
+  index: number;
+  resourceKey: string;
+  subjectTitle: string;
+  coverageLabel: string;
+  coverageKeys: string[];
+  resourceContext: string;
+  facts: string;
+  status: ZiweiPhaseStatus;
+  answer?: string;
+};
 type QizhengPhaseMemory = {
   resourceKey: string;
   resourceText: string;
@@ -81,17 +97,17 @@ type QizhengPhaseMemory = {
   question: string;
   guide: string;
   currentTimeContext: string;
-  phases: Array<{
-    index: number;
-    resourceKey: string;
-    subjectTitle: string;
-    coverageLabel: string;
-    coverageKeys: string[];
-    resourceContext: string;
-    facts: string;
-    status: ZiweiPhaseStatus;
-    answer?: string;
-  }>;
+  phases: BirthRangePhaseRecord[];
+};
+type AstrolabePhaseMemory = {
+  resourceKey: string;
+  resourceText: string;
+  structuredText: string;
+  subjectId: string;
+  question: string;
+  guide: string;
+  currentTimeContext: string;
+  phases: BirthRangePhaseRecord[];
 };
 export type ReadingMemory = {
   resources: ReadingResource[];
@@ -99,6 +115,7 @@ export type ReadingMemory = {
   ziweiPhaseReading?: ZiweiPhaseMemory;
   qimenPhaseReading?: QimenPhaseMemory;
   qizhengPhaseReading?: QizhengPhaseMemory;
+  astrolabePhaseReading?: AstrolabePhaseMemory;
 };
 export type ReadingMemorySeed = {
   subjectId: string;
@@ -447,11 +464,691 @@ type PhaseAnswer = {
   answer: string;
 };
 
+type BirthRangePhase = {
+  resourceKey: string;
+  subjectTitle: string;
+  summaryLabel: string;
+  coverageLabel: string;
+  coverageKeys: string[];
+  resourceContext: string;
+  facts: string;
+};
+
+type BirthRangePhaseMemory = {
+  phases: BirthRangePhaseRecord[];
+};
+
+type BirthRangePhaseDialect = {
+  phaseHeading: string;
+  phaseInstruction: string;
+  mergeInstruction: string;
+  summaryHeading: string;
+  summaryCoverage: string;
+  summaryInstruction: string;
+  phaseProgressLabel: string;
+  finalProgressLabel: string;
+  emptyPhaseLabel: string;
+  overflowSummaryLabel: string;
+  finalEmptyLabel: string;
+};
+
+const ASTROLABE_PHASE_DIALECT: BirthRangePhaseDialect = {
+  phaseHeading: '西洋占星本命出生区间阶段资料',
+  phaseInstruction:
+    '请依据本阶段列出的西洋占星本命盘事实回答问题；先说明主判断，再保留直接支持它的盘面事实、成立条件、反向证据和未决事项，明确出生分段。',
+  mergeInstruction:
+    '请保留每个西洋占星出生分段和连续事实的适用边界，依据各阶段已列事实归并判断；阶段间有差异时保留各自适用范围。',
+  summaryHeading: '西洋占星本命出生区间阶段覆盖核对',
+  summaryCoverage:
+    '每个阶段列出的本命星体、四轴、宫头、相位、元素与模式分布、逆行状态、格局、尊贵标记和连续事实均已参与分析。',
+  summaryInstruction:
+    '请综合全部西洋占星本命出生分段阶段分析回答本轮问题；结论需对应出生分段，保留主判断、直接原始依据、成立条件、反向证据和未决事项。',
+  phaseProgressLabel: '正在分析西洋占星本命',
+  finalProgressLabel: '正在综合全部西洋占星本命出生分段解读',
+  emptyPhaseLabel: '西洋占星本命出生区间阶段',
+  overflowSummaryLabel: '西洋占星本命出生区间阶段归并',
+  finalEmptyLabel: '西洋占星本命出生区间最终汇总返回空结果，请重试。',
+};
+
+const QIZHENG_PHASE_DIALECT: BirthRangePhaseDialect = {
+  phaseHeading: '七政四余出生区间阶段资料',
+  phaseInstruction:
+    '请依据本阶段标明的七政四余本命盘、目标时段、周期事件和连续量回答问题；先说明主判断，再保留直接支持它的盘面事实、成立条件、反向证据和未决事项，明确出生分段与目标时段。',
+  mergeInstruction:
+    '请保留每个七政四余出生分段、目标时段、周期事件和连续量的适用边界，依据各阶段已列事实归并判断；阶段间有差异时保留各自适用范围。',
+  summaryHeading: '七政四余出生区间阶段覆盖核对',
+  summaryCoverage: '每个阶段列出的七政四余本命、流曜、行限、周期事件和连续量均已参与分析。',
+  summaryInstruction:
+    '请综合全部七政四余出生分段阶段分析回答本轮问题；结论需对应出生分段与目标时段，保留主判断、直接原始依据、成立条件、反向证据和未决事项。',
+  phaseProgressLabel: '正在分析七政四余',
+  finalProgressLabel: '正在综合全部七政四余出生分段解读',
+  emptyPhaseLabel: '七政四余出生区间阶段',
+  overflowSummaryLabel: '七政四余出生区间阶段归并',
+  finalEmptyLabel: '七政四余出生区间最终汇总返回空结果，请重试。',
+};
+
+function buildBirthRangePhaseAddition(
+  dialect: BirthRangePhaseDialect,
+  guide: string,
+  currentTimeContext: string,
+  resourceContext: string,
+  facts: string,
+  supplementalText: string,
+  question: string,
+  intermediate: boolean,
+) {
+  const context = [guide + currentTimeContext, resourceContext]
+    .filter((item) => item.trim())
+    .join('\n\n');
+  return `${context}\n\n【${dialect.phaseHeading}】\n${facts}\n\n【本轮问题】${question}${
+    supplementalText ? `\n\n【其他已取得资料】\n${supplementalText}` : ''
+  }\n\n${intermediate ? `【阶段归并】${dialect.mergeInstruction}` : `【阶段解读】${dialect.phaseInstruction}`}`;
+}
+
+function birthRangePhaseFits(
+  dialect: BirthRangePhaseDialect,
+  messages: ChatMessage[],
+  facts: string,
+  guide: string,
+  currentTimeContext: string,
+  resourceContext: string,
+  supplementalText: string,
+  question: string,
+  intermediate = false,
+) {
+  try {
+    fitReadingMessages(
+      messages,
+      buildBirthRangePhaseAddition(
+        dialect,
+        guide,
+        currentTimeContext,
+        resourceContext,
+        facts,
+        supplementalText,
+        question,
+        intermediate,
+      ),
+    );
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('解读容量')) return false;
+    throw error;
+  }
+}
+
+function buildBirthRangePhaseSummaryAddition(
+  dialect: BirthRangePhaseDialect,
+  guide: string,
+  currentTimeContext: string,
+  resourceContexts: readonly string[],
+  entries: readonly PhaseAnswer[],
+  phaseCount: number,
+  targetRange: string,
+  intermediate: boolean,
+) {
+  const covered = [...new Set(entries.flatMap((entry) => entry.indices))].sort((a, b) => a - b);
+  const resourceContext = [...new Set(resourceContexts.filter((item) => item.trim()))].join('\n\n');
+  let facts = entries
+    .map((entry) => `【${entry.labels.join('；')}分析】\n${entry.answer}`)
+    .join('\n\n');
+  if (resourceContext) facts = resourceContext + '\n\n' + facts;
+  return `${guide}${currentTimeContext}\n\n【${dialect.summaryHeading}】出生范围：${targetRange}；已纳入阶段：${covered
+    .map((index) => `${index + 1}/${phaseCount}`)
+    .join('、')}；${dialect.summaryCoverage}\n\n${
+    intermediate
+      ? `【阶段归并】${dialect.mergeInstruction}`
+      : `【最终解读】${dialect.summaryInstruction}`
+  }\n\n${facts}`;
+}
+
+function assertBirthRangePhaseAnswerCoverage(
+  dialect: BirthRangePhaseDialect,
+  entries: readonly PhaseAnswer[],
+  phaseCount: number,
+) {
+  for (const entry of entries) {
+    if (!entry.answer.trim()) {
+      throw new Error(
+        `${dialect.emptyPhaseLabel}${entry.indices
+          .map((index) => `${index + 1}/${phaseCount}`)
+          .join('、')}返回空结果，请重试。`,
+      );
+    }
+  }
+  const covered = new Set(entries.flatMap((entry) => entry.indices));
+  for (let index = 0; index < phaseCount; index += 1) {
+    if (!covered.has(index)) {
+      throw new Error(`${dialect.emptyPhaseLabel}${index + 1}/${phaseCount}未参与汇总。`);
+    }
+  }
+}
+
+function packBirthRangePhaseAnswers(
+  dialect: BirthRangePhaseDialect,
+  messages: ChatMessage[],
+  entries: readonly PhaseAnswer[],
+  guide: string,
+  currentTimeContext: string,
+  resourceContexts: readonly string[],
+  phaseCount: number,
+  targetRange: string,
+) {
+  const groups: PhaseAnswer[][] = [];
+  let current: PhaseAnswer[] = [];
+  for (const entry of entries) {
+    const candidate = [...current, entry];
+    try {
+      fitReadingMessages(
+        messages,
+        buildBirthRangePhaseSummaryAddition(
+          dialect,
+          guide,
+          currentTimeContext,
+          resourceContexts,
+          candidate,
+          phaseCount,
+          targetRange,
+          false,
+        ),
+      );
+      current = candidate;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('解读容量')) throw error;
+      if (!current.length) {
+        throw new Error(
+          `${dialect.overflowSummaryLabel}${entry.indices[0]! + 1}/${phaseCount}结果超出汇总容量。`,
+          { cause: error },
+        );
+      }
+      groups.push(current);
+      current = [entry];
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+function selectBirthRangeSupplementalResources(
+  dialect: BirthRangePhaseDialect,
+  messages: ChatMessage[],
+  phases: readonly BirthRangePhase[],
+  resources: readonly ReadingResource[],
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+) {
+  const fits = (selected: readonly ReadingResource[]) => {
+    const supplementalText = formatReadingResources([...selected]);
+    return phases.every((phase) =>
+      birthRangePhaseFits(
+        dialect,
+        messages,
+        phase.facts,
+        guide,
+        currentTimeContext,
+        phase.resourceContext,
+        supplementalText,
+        question,
+      ),
+    );
+  };
+  if (fits(resources)) return { selected: [...resources], omitted: [] as ReadingResource[] };
+  const selected: ReadingResource[] = [];
+  const omitted: ReadingResource[] = [];
+  for (const resource of resources) {
+    if (fits([...selected, resource])) selected.push(resource);
+    else omitted.push(resource);
+  }
+  return { selected, omitted };
+}
+
+async function collectBirthRangePhaseSummary(
+  dialect: BirthRangePhaseDialect,
+  messages: ChatMessage[],
+  phases: readonly BirthRangePhase[],
+  memory: BirthRangePhaseMemory,
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  guide: string,
+  currentTimeContext: string,
+  supplementalText: string,
+  question: string,
+  targetRange: string,
+) {
+  const resourceContexts = phases.map((phase) => phase.resourceContext);
+  const entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
+    indices: [index],
+    labels: [phases[index]!.summaryLabel],
+    answer: '',
+  }));
+  for (let index = 0; index < phases.length; index += 1) {
+    const phase = phases[index]!;
+    const record = memory.phases[index];
+    if (
+      record?.status === 'succeeded' &&
+      record.resourceKey === phase.resourceKey &&
+      record.subjectTitle === phase.subjectTitle &&
+      record.coverageLabel === phase.coverageLabel &&
+      JSON.stringify(record.coverageKeys) === JSON.stringify(phase.coverageKeys) &&
+      record.resourceContext === phase.resourceContext &&
+      record.facts === phase.facts &&
+      record.answer?.trim()
+    ) {
+      entries[index]!.answer = record.answer;
+      continue;
+    }
+    const prepared = fitReadingMessages(
+      messages,
+      buildBirthRangePhaseAddition(
+        dialect,
+        guide,
+        currentTimeContext,
+        phase.resourceContext,
+        phase.facts,
+        supplementalText,
+        question,
+        false,
+      ),
+    );
+    options.onProgress({
+      stage: 'writing',
+      text: `${dialect.phaseProgressLabel} ${phase.summaryLabel.split('｜').at(-1)}`,
+    });
+    memory.phases[index] = {
+      index,
+      resourceKey: phase.resourceKey,
+      subjectTitle: phase.subjectTitle,
+      coverageLabel: phase.coverageLabel,
+      coverageKeys: phase.coverageKeys,
+      facts: phase.facts,
+      status: 'pending',
+      resourceContext: phase.resourceContext,
+    };
+    try {
+      const answer = requirePhaseAnswer(
+        await collectResponse(prepared, options, deps.stream),
+        `${dialect.emptyPhaseLabel}${index + 1}/${phases.length}`,
+      );
+      entries[index]!.answer = answer;
+      memory.phases[index] = {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        coverageLabel: phase.coverageLabel,
+        coverageKeys: phase.coverageKeys,
+        facts: phase.facts,
+        status: 'succeeded',
+        resourceContext: phase.resourceContext,
+        answer,
+      };
+    } catch (error) {
+      memory.phases[index] = {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        coverageLabel: phase.coverageLabel,
+        coverageKeys: phase.coverageKeys,
+        facts: phase.facts,
+        status: options.signal?.aborted ? 'cancelled' : 'failed',
+        resourceContext: phase.resourceContext,
+      };
+      throw error;
+    }
+  }
+  assertBirthRangePhaseAnswerCoverage(dialect, entries, phases.length);
+
+  let currentEntries = entries;
+  let reductionRound = 0;
+  while (true) {
+    const groups = packBirthRangePhaseAnswers(
+      dialect,
+      messages,
+      currentEntries,
+      guide,
+      currentTimeContext,
+      resourceContexts,
+      phases.length,
+      targetRange,
+    );
+    if (groups.length === 1) {
+      assertBirthRangePhaseAnswerCoverage(dialect, groups[0]!, phases.length);
+      return fitReadingMessages(
+        messages,
+        buildBirthRangePhaseSummaryAddition(
+          dialect,
+          guide,
+          currentTimeContext,
+          resourceContexts,
+          groups[0]!,
+          phases.length,
+          targetRange,
+          false,
+        ),
+      );
+    }
+    reductionRound += 1;
+    if (reductionRound > 8)
+      throw new Error(`${dialect.overflowSummaryLabel}超过可控归并层数，请重试。`);
+    const nextEntries: PhaseAnswer[] = [];
+    for (const group of groups) {
+      assertPhaseIndices(group, phases.length);
+      const prepared = fitReadingMessages(
+        messages,
+        buildBirthRangePhaseSummaryAddition(
+          dialect,
+          guide,
+          currentTimeContext,
+          resourceContexts,
+          group,
+          phases.length,
+          targetRange,
+          true,
+        ),
+      );
+      const answer = await collectResponse(prepared, options, deps.stream);
+      requirePhaseAnswer(
+        answer,
+        `${dialect.overflowSummaryLabel}（${group
+          .map((entry) => entry.indices.map((index) => index + 1).join('、'))
+          .join('、')}）`,
+      );
+      nextEntries.push({
+        indices: [...new Set(group.flatMap((entry) => entry.indices))].sort((a, b) => a - b),
+        labels: [...new Set(group.flatMap((entry) => entry.labels))],
+        answer,
+      });
+    }
+    assertBirthRangePhaseAnswerCoverage(dialect, nextEntries, phases.length);
+    currentEntries = nextEntries;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 type QizhengBirthRangeResult = QizhengBirthRange | QizhengFlowBirthRange;
+
+function getAstrolabeBirthRangeResult(resource: ReadingResource): AstrolabeBirthRange | undefined {
+  const structured = resource.structured;
+  if (
+    !structured ||
+    structured.coverage !== 'natal' ||
+    !isRecord(structured.source) ||
+    !Array.isArray(structured.branches) ||
+    !structured.branches.length
+  ) {
+    return undefined;
+  }
+  const firstBranch = structured.branches[0];
+  if (
+    !isRecord(firstBranch) ||
+    !isRecord(firstBranch.representative) ||
+    !isRecord(firstBranch.representative.birth) ||
+    !Array.isArray(firstBranch.representative.planets) ||
+    !Array.isArray(firstBranch.representative.angles) ||
+    !Array.isArray(firstBranch.representative.houses) ||
+    !Array.isArray(firstBranch.representative.aspects) ||
+    !Array.isArray(firstBranch.continuous)
+  ) {
+    return undefined;
+  }
+  return structured as unknown as AstrolabeBirthRange;
+}
+
+/** 保留西占原始任务书正文前后的包装，阶段事实由结构化区间重新切分。 */
+function getAstrolabeResourceContext(text: string, range: AstrolabeBirthRange): string {
+  const normalized = text.trim();
+  const canonicalFacts = formatAstrolabeBirthRangeFacts(range).trim();
+  const rangeStart = normalized.indexOf(canonicalFacts);
+  if (rangeStart < 0) {
+    throw new Error('西洋占星原始资料未包含完整结构化正文，不能安全拆分阶段。');
+  }
+  const rangeEnd = rangeStart + canonicalFacts.length;
+  return [normalized.slice(0, rangeStart).trim(), normalized.slice(rangeEnd).trim()]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function getAstrolabePromptSections(range: AstrolabeBirthRange) {
+  const lines = formatAstrolabeBirthRangeFacts(range).split('\n');
+  const starts = lines
+    .map((line, index) => (/^【时段\d+】$/u.test(line.trim()) ? index : -1))
+    .filter((index) => index >= 0);
+  const firstStart = starts[0];
+  if (starts.length !== range.branches.length || firstStart === undefined) {
+    throw new Error('西洋占星出生区间资料缺少完整分段。');
+  }
+  const common = lines.slice(0, firstStart).join('\n').trim();
+  const branches = starts.map((start, index) =>
+    lines
+      .slice(start, starts[index + 1] ?? lines.length)
+      .join('\n')
+      .trim(),
+  );
+  return { common, branches };
+}
+
+type AstrolabePhaseUnit = {
+  key: string;
+  line: string;
+};
+
+type AstrolabeBranchFacts = {
+  baseLines: string[];
+  units: AstrolabePhaseUnit[];
+};
+
+function splitAstrolabeBranchFacts(block: string, branchIndex: number): AstrolabeBranchFacts {
+  const lines = block.split('\n');
+  const continuousHeadingIndex = lines.findIndex((line) => line.startsWith('连续事实范围：'));
+  if (continuousHeadingIndex < 0) return { baseLines: lines, units: [] };
+  const baseLines = lines.slice(0, continuousHeadingIndex);
+  const continuousLines = lines.slice(continuousHeadingIndex + 1).filter((line) => line.trim());
+  return {
+    baseLines,
+    units: continuousLines.map((line, index) => ({
+      key: `${branchIndex}:continuous:${index}`,
+      line,
+    })),
+  };
+}
+
+function formatAstrolabePhaseFacts(
+  common: string,
+  branchIndex: number,
+  branchCount: number,
+  baseLines: readonly string[],
+  units: readonly AstrolabePhaseUnit[],
+) {
+  return [
+    common,
+    `【出生分段${branchIndex + 1}/${branchCount}西洋占星本命阶段资料】`,
+    baseLines.join('\n'),
+    units.length ? ['连续事实范围：', ...units.map((unit) => unit.line)].join('\n') : '',
+  ]
+    .filter((item) => item.trim())
+    .join('\n\n');
+}
+
+function buildAstrolabePhasePlan(
+  messages: ChatMessage[],
+  range: AstrolabeBirthRange,
+  resourceKey: string,
+  subjectTitle: string,
+  guide: string,
+  currentTimeContext: string,
+  resourceContext: string,
+  supplementalText: string,
+  question: string,
+): BirthRangePhase[] {
+  const { common, branches } = getAstrolabePromptSections(range);
+  const coverageKeyPrefix = `${resourceKey}:${subjectTitle}:natal`;
+  const phases: BirthRangePhase[] = [];
+  for (let branchIndex = 0; branchIndex < range.branches.length; branchIndex += 1) {
+    const branch = range.branches[branchIndex]!;
+    const parsed = splitAstrolabeBranchFacts(branches[branchIndex]!, branchIndex);
+    const wholeFacts = formatAstrolabePhaseFacts(
+      common,
+      branchIndex,
+      range.branches.length,
+      parsed.baseLines,
+      parsed.units,
+    );
+    const coverageLabel = `出生分段${branchIndex + 1}（${formatAstrolabeBirthRangeTime(
+      branch.startTimestamp,
+    )}至${formatAstrolabeBirthRangeTime(branch.endTimestamp)}）`;
+    if (
+      birthRangePhaseFits(
+        ASTROLABE_PHASE_DIALECT,
+        messages,
+        wholeFacts,
+        guide,
+        currentTimeContext,
+        resourceContext,
+        supplementalText,
+        question,
+      )
+    ) {
+      phases.push({
+        resourceKey,
+        subjectTitle,
+        summaryLabel: `${subjectTitle}｜${coverageLabel}`,
+        coverageLabel,
+        coverageKeys: [`${coverageKeyPrefix}:${branchIndex}:full`],
+        resourceContext,
+        facts: wholeFacts,
+      });
+      continue;
+    }
+    const baseFacts = formatAstrolabePhaseFacts(
+      common,
+      branchIndex,
+      range.branches.length,
+      parsed.baseLines,
+      [],
+    );
+    if (
+      !birthRangePhaseFits(
+        ASTROLABE_PHASE_DIALECT,
+        messages,
+        baseFacts,
+        guide,
+        currentTimeContext,
+        resourceContext,
+        supplementalText,
+        question,
+      )
+    ) {
+      throw new Error(`西洋占星${coverageLabel}的本命盘上下文超出单阶段容量。`);
+    }
+    let current: AstrolabePhaseUnit[] = [];
+    const emit = (units: AstrolabePhaseUnit[]) => {
+      phases.push({
+        resourceKey,
+        subjectTitle,
+        summaryLabel: `${subjectTitle}｜${coverageLabel}｜资料部分${
+          phases.filter((phase) => phase.coverageLabel === coverageLabel).length + 1
+        }`,
+        coverageLabel,
+        coverageKeys: units.map((unit) => `${coverageKeyPrefix}:${unit.key}`),
+        resourceContext,
+        facts: formatAstrolabePhaseFacts(
+          common,
+          branchIndex,
+          range.branches.length,
+          parsed.baseLines,
+          units,
+        ),
+      });
+    };
+    for (const unit of parsed.units) {
+      const candidate = [...current, unit];
+      const candidateFacts = formatAstrolabePhaseFacts(
+        common,
+        branchIndex,
+        range.branches.length,
+        parsed.baseLines,
+        candidate,
+      );
+      if (
+        birthRangePhaseFits(
+          ASTROLABE_PHASE_DIALECT,
+          messages,
+          candidateFacts,
+          guide,
+          currentTimeContext,
+          resourceContext,
+          supplementalText,
+          question,
+        )
+      ) {
+        current = candidate;
+        continue;
+      }
+      if (!current.length) {
+        throw new Error(`西洋占星${coverageLabel}的一条连续事实超出单阶段容量。`);
+      }
+      emit(current);
+      const unitFacts = formatAstrolabePhaseFacts(
+        common,
+        branchIndex,
+        range.branches.length,
+        parsed.baseLines,
+        [unit],
+      );
+      if (
+        !birthRangePhaseFits(
+          ASTROLABE_PHASE_DIALECT,
+          messages,
+          unitFacts,
+          guide,
+          currentTimeContext,
+          resourceContext,
+          supplementalText,
+          question,
+        )
+      ) {
+        throw new Error(`西洋占星${coverageLabel}的一条连续事实超出单阶段容量。`);
+      }
+      current = [unit];
+    }
+    if (current.length) emit(current);
+    if (!parsed.units.length) {
+      throw new Error(`西洋占星${coverageLabel}缺少可拆分的完整事实。`);
+    }
+  }
+  const expectedKeys = range.branches.flatMap((_, branchIndex) => {
+    const parsed = splitAstrolabeBranchFacts(branches[branchIndex]!, branchIndex);
+    return birthRangePhaseFits(
+      ASTROLABE_PHASE_DIALECT,
+      messages,
+      formatAstrolabePhaseFacts(
+        common,
+        branchIndex,
+        range.branches.length,
+        parsed.baseLines,
+        parsed.units,
+      ),
+      guide,
+      currentTimeContext,
+      resourceContext,
+      supplementalText,
+      question,
+    )
+      ? [`${coverageKeyPrefix}:${branchIndex}:full`]
+      : parsed.units.map((unit) => `${coverageKeyPrefix}:${unit.key}`);
+  });
+  const actualKeys = phases.flatMap((phase) => phase.coverageKeys);
+  if (
+    actualKeys.length !== new Set(actualKeys).size ||
+    JSON.stringify([...actualKeys].sort()) !== JSON.stringify([...expectedKeys].sort())
+  ) {
+    throw new Error('西洋占星出生区间阶段资料未完整覆盖全部分段事实。');
+  }
+  return phases;
+}
 
 function getQizhengBirthRangeResult(
   resource: ReadingResource,
@@ -596,67 +1293,6 @@ function formatQizhengPhaseFacts(
     .join('\n\n');
 }
 
-function buildQizhengPhaseAddition(
-  guide: string,
-  currentTimeContext: string,
-  resourceContext: string,
-  facts: string,
-  supplementalText: string,
-  question: string,
-  intermediate: boolean,
-) {
-  const context = [guide + currentTimeContext, resourceContext]
-    .filter((item) => item.trim())
-    .join('\n\n');
-  return `${context}\n\n【七政四余出生区间阶段资料】\n${facts}\n\n【本轮问题】${question}${
-    supplementalText ? `\n\n【其他已取得资料】\n${supplementalText}` : ''
-  }\n\n${
-    intermediate
-      ? '【阶段归并】请保留每个出生分段、目标时段、周期事件和连续量的适用边界，依据已列事实归并判断；阶段间有差异时保留各自适用范围。'
-      : '【阶段解读】请依据本阶段标明的本命盘、目标时段、周期事件和连续量回答问题；先说明主判断，再保留直接支持它的盘面事实、成立条件、反向证据和未决事项，明确出生分段与目标时段。'
-  }`;
-}
-
-function qizhengPhaseFits(
-  messages: ChatMessage[],
-  facts: string,
-  guide: string,
-  currentTimeContext: string,
-  resourceContext: string,
-  supplementalText: string,
-  question: string,
-  intermediate = false,
-) {
-  try {
-    fitReadingMessages(
-      messages,
-      buildQizhengPhaseAddition(
-        guide,
-        currentTimeContext,
-        resourceContext,
-        facts,
-        supplementalText,
-        question,
-        intermediate,
-      ),
-    );
-    return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('解读容量')) return false;
-    throw error;
-  }
-}
-
-type QizhengPhase = {
-  resourceKey: string;
-  subjectTitle: string;
-  summaryLabel: string;
-  coverageLabel: string;
-  coverageKeys: string[];
-  resourceContext: string;
-  facts: string;
-};
-
 function getQizhengTargetIdentity(range: QizhengBirthRangeResult) {
   if (range.coverage === 'natal') return 'natal';
   const target = range.target;
@@ -673,10 +1309,10 @@ function buildQizhengPhasePlan(
   resourceContext: string,
   supplementalText: string,
   question: string,
-): QizhengPhase[] {
+): BirthRangePhase[] {
   const { common, branches } = getQizhengPromptSections(range);
   const coverageKeyPrefix = `${resourceKey}:${subjectTitle}`;
-  const phases: QizhengPhase[] = [];
+  const phases: BirthRangePhase[] = [];
   for (let branchIndex = 0; branchIndex < range.branches.length; branchIndex += 1) {
     const branch = range.branches[branchIndex]!;
     const parsed = splitQizhengBranchFacts(branches[branchIndex]!, branchIndex);
@@ -691,7 +1327,8 @@ function buildQizhengPhasePlan(
       branch.startTimestamp,
     )}至${formatQizhengRangeTime(branch.endTimestamp)}）`;
     if (
-      qizhengPhaseFits(
+      birthRangePhaseFits(
+        QIZHENG_PHASE_DIALECT,
         messages,
         wholeFacts,
         guide,
@@ -720,7 +1357,8 @@ function buildQizhengPhasePlan(
       [],
     );
     if (
-      !qizhengPhaseFits(
+      !birthRangePhaseFits(
+        QIZHENG_PHASE_DIALECT,
         messages,
         baseFacts,
         guide,
@@ -763,7 +1401,8 @@ function buildQizhengPhasePlan(
         candidate,
       );
       if (
-        qizhengPhaseFits(
+        birthRangePhaseFits(
+          QIZHENG_PHASE_DIALECT,
           messages,
           candidateFacts,
           guide,
@@ -787,7 +1426,8 @@ function buildQizhengPhasePlan(
         [unit],
       );
       if (
-        !qizhengPhaseFits(
+        !birthRangePhaseFits(
+          QIZHENG_PHASE_DIALECT,
           messages,
           unitFacts,
           guide,
@@ -805,7 +1445,8 @@ function buildQizhengPhasePlan(
   }
   const expectedKeys = range.branches.flatMap((_, branchIndex) => {
     const parsed = splitQizhengBranchFacts(branches[branchIndex]!, branchIndex);
-    return qizhengPhaseFits(
+    return birthRangePhaseFits(
+      QIZHENG_PHASE_DIALECT,
       messages,
       formatQizhengPhaseFacts(
         common,
@@ -1500,281 +2141,6 @@ async function runQimenPhasedReading(
   });
 }
 
-function buildQizhengPhaseSummaryAddition(
-  guide: string,
-  currentTimeContext: string,
-  resourceContexts: readonly string[],
-  entries: readonly PhaseAnswer[],
-  phaseCount: number,
-  targetRange: string,
-  intermediate: boolean,
-) {
-  const covered = [...new Set(entries.flatMap((entry) => entry.indices))].sort((a, b) => a - b);
-  const resourceContext = [...new Set(resourceContexts.filter((item) => item.trim()))].join('\n\n');
-  let facts = entries
-    .map((entry) => `【${entry.labels.join('；')}分析】\n${entry.answer}`)
-    .join('\n\n');
-  if (resourceContext) facts = resourceContext + '\n\n' + facts;
-  return `${guide}${currentTimeContext}\n\n【七政四余出生区间阶段覆盖核对】出生范围：${targetRange}；已纳入阶段：${covered
-    .map((index) => `${index + 1}/${phaseCount}`)
-    .join('、')}；每个阶段列出的本命、流曜、行限、周期事件和连续量均已参与分析。\n\n${
-    intermediate
-      ? '【阶段归并】请保留每个出生分段、目标时段、周期事件和连续量的适用边界，依据各阶段已列事实归并分析；阶段间有差异时保留各自适用范围。'
-      : '【最终解读】请综合全部七政四余出生分段阶段分析回答本轮问题；结论需对应出生分段与目标时段，保留主判断、直接原始依据、成立条件、反向证据和未决事项。'
-  }\n\n${facts}`;
-}
-
-function assertQizhengPhaseAnswerCoverage(entries: readonly PhaseAnswer[], phaseCount: number) {
-  for (const entry of entries) {
-    if (!entry.answer.trim()) {
-      throw new Error(
-        `七政四余出生区间阶段${entry.indices.map((index) => `${index + 1}/${phaseCount}`).join('、')}返回空结果，请重试。`,
-      );
-    }
-  }
-  const covered = new Set(entries.flatMap((entry) => entry.indices));
-  for (let index = 0; index < phaseCount; index += 1) {
-    if (!covered.has(index))
-      throw new Error(`七政四余出生区间阶段${index + 1}/${phaseCount}未参与汇总。`);
-  }
-}
-
-function packQizhengPhaseAnswers(
-  messages: ChatMessage[],
-  entries: readonly PhaseAnswer[],
-  guide: string,
-  currentTimeContext: string,
-  resourceContexts: readonly string[],
-  phaseCount: number,
-  targetRange: string,
-) {
-  const groups: PhaseAnswer[][] = [];
-  let current: PhaseAnswer[] = [];
-  for (const entry of entries) {
-    const candidate = [...current, entry];
-    try {
-      fitReadingMessages(
-        messages,
-        buildQizhengPhaseSummaryAddition(
-          guide,
-          currentTimeContext,
-          resourceContexts,
-          candidate,
-          phaseCount,
-          targetRange,
-          false,
-        ),
-      );
-      current = candidate;
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes('解读容量')) throw error;
-      if (!current.length)
-        throw new Error(
-          `七政四余出生区间阶段${entry.indices[0]! + 1}/${phaseCount}结果超出汇总容量。`,
-          {
-            cause: error,
-          },
-        );
-      groups.push(current);
-      current = [entry];
-    }
-  }
-  if (current.length) groups.push(current);
-  return groups;
-}
-
-function selectQizhengSupplementalResources(
-  messages: ChatMessage[],
-  phases: readonly QizhengPhase[],
-  resources: readonly ReadingResource[],
-  guide: string,
-  currentTimeContext: string,
-  question: string,
-) {
-  const fits = (selected: readonly ReadingResource[]) => {
-    const supplementalText = formatReadingResources([...selected]);
-    return phases.every((phase) =>
-      qizhengPhaseFits(
-        messages,
-        phase.facts,
-        guide,
-        currentTimeContext,
-        phase.resourceContext,
-        supplementalText,
-        question,
-      ),
-    );
-  };
-  if (fits(resources)) return { selected: [...resources], omitted: [] as ReadingResource[] };
-  const selected: ReadingResource[] = [];
-  const omitted: ReadingResource[] = [];
-  for (const resource of resources) {
-    if (fits([...selected, resource])) selected.push(resource);
-    else omitted.push(resource);
-  }
-  return { selected, omitted };
-}
-
-async function collectQizhengPhaseSummary(
-  messages: ChatMessage[],
-  phases: readonly QizhengPhase[],
-  options: ReadingOptions,
-  deps: ReadingDependencies,
-  guide: string,
-  currentTimeContext: string,
-  supplementalText: string,
-  question: string,
-  targetRange: string,
-) {
-  const resourceContexts = phases.map((phase) => phase.resourceContext);
-  const entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
-    indices: [index],
-    labels: [phases[index]!.summaryLabel],
-    answer: '',
-  }));
-  const cached = options.memory.qizhengPhaseReading;
-  for (let index = 0; index < phases.length; index += 1) {
-    const phase = phases[index]!;
-    const record = cached?.phases[index];
-    if (
-      record?.status === 'succeeded' &&
-      record.resourceKey === phase.resourceKey &&
-      record.subjectTitle === phase.subjectTitle &&
-      record.coverageLabel === phase.coverageLabel &&
-      JSON.stringify(record.coverageKeys) === JSON.stringify(phase.coverageKeys) &&
-      record.resourceContext === phase.resourceContext &&
-      record.facts === phase.facts &&
-      record.answer?.trim()
-    ) {
-      entries[index]!.answer = record.answer;
-      continue;
-    }
-    const prepared = fitReadingMessages(
-      messages,
-      buildQizhengPhaseAddition(
-        guide,
-        currentTimeContext,
-        phase.resourceContext,
-        phase.facts,
-        supplementalText,
-        question,
-        false,
-      ),
-    );
-    options.onProgress({
-      stage: 'writing',
-      text: `正在分析${phase.subjectTitle} ${phase.summaryLabel.split('｜').at(-1)}`,
-    });
-    if (cached) {
-      cached.phases[index] = {
-        index,
-        resourceKey: phase.resourceKey,
-        subjectTitle: phase.subjectTitle,
-        coverageLabel: phase.coverageLabel,
-        coverageKeys: phase.coverageKeys,
-        resourceContext: phase.resourceContext,
-        facts: phase.facts,
-        status: 'pending',
-      };
-    }
-    try {
-      const answer = requirePhaseAnswer(
-        await collectResponse(prepared, options, deps.stream),
-        `七政四余出生区间阶段${index + 1}/${phases.length}`,
-      );
-      entries[index]!.answer = answer;
-      if (cached)
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          coverageLabel: phase.coverageLabel,
-          coverageKeys: phase.coverageKeys,
-          facts: phase.facts,
-          status: 'succeeded',
-          resourceContext: phase.resourceContext,
-          answer,
-        };
-    } catch (error) {
-      if (cached) {
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          coverageLabel: phase.coverageLabel,
-          coverageKeys: phase.coverageKeys,
-          facts: phase.facts,
-          status: options.signal?.aborted ? 'cancelled' : 'failed',
-          resourceContext: phase.resourceContext,
-        };
-      }
-      throw error;
-    }
-  }
-  assertQizhengPhaseAnswerCoverage(entries, phases.length);
-
-  let currentEntries = entries;
-  let reductionRound = 0;
-  while (true) {
-    const groups = packQizhengPhaseAnswers(
-      messages,
-      currentEntries,
-      guide,
-      currentTimeContext,
-      resourceContexts,
-      phases.length,
-      targetRange,
-    );
-    if (groups.length === 1) {
-      assertQizhengPhaseAnswerCoverage(groups[0]!, phases.length);
-      return fitReadingMessages(
-        messages,
-        buildQizhengPhaseSummaryAddition(
-          guide,
-          currentTimeContext,
-          resourceContexts,
-          groups[0]!,
-          phases.length,
-          targetRange,
-          false,
-        ),
-      );
-    }
-    reductionRound += 1;
-    if (reductionRound > 8) throw new Error('七政四余出生区间阶段汇总超过可控归并层数，请重试。');
-    const nextEntries: PhaseAnswer[] = [];
-    for (const group of groups) {
-      assertPhaseIndices(group, phases.length);
-      const prepared = fitReadingMessages(
-        messages,
-        buildQizhengPhaseSummaryAddition(
-          guide,
-          currentTimeContext,
-          resourceContexts,
-          group,
-          phases.length,
-          targetRange,
-          true,
-        ),
-      );
-      const answer = await collectResponse(prepared, options, deps.stream);
-      requirePhaseAnswer(
-        answer,
-        `七政四余出生区间阶段归并（${group
-          .map((entry) => entry.indices.map((index) => index + 1).join('、'))
-          .join('、')}）`,
-      );
-      nextEntries.push({
-        indices: [...new Set(group.flatMap((entry) => entry.indices))].sort((a, b) => a - b),
-        labels: [...new Set(group.flatMap((entry) => entry.labels))],
-        answer,
-      });
-    }
-    assertQizhengPhaseAnswerCoverage(nextEntries, phases.length);
-    currentEntries = nextEntries;
-  }
-}
-
 async function runQizhengPhasedReading(
   messages: ChatMessage[],
   options: ReadingOptions,
@@ -1800,7 +2166,8 @@ async function runQizhengPhasedReading(
       question,
     );
   });
-  const supplementalSelection = selectQizhengSupplementalResources(
+  const supplementalSelection = selectBirthRangeSupplementalResources(
+    QIZHENG_PHASE_DIALECT,
     messages,
     initialPhases,
     supplementalResources,
@@ -1888,9 +2255,11 @@ async function runQizhengPhasedReading(
     });
   }
   options.memory.qizhengPhaseReading = phaseMemory;
-  const finalMessages = await collectQizhengPhaseSummary(
+  const finalMessages = await collectBirthRangePhaseSummary(
+    QIZHENG_PHASE_DIALECT,
     messages,
     phases,
+    phaseMemory,
     options,
     deps,
     guide,
@@ -1912,6 +2281,159 @@ async function runQizhengPhasedReading(
     onDone: () => {
       if (!answer.trim()) {
         options.onError('七政四余出生区间最终汇总返回空结果，请重试。');
+        return;
+      }
+      options.onProgress({ stage: 'checking', text: '正在核对关键事实' });
+      for (const issue of verifyReadingAnswer(messages[0]!.content, answer, [
+        ...fullResources.map(({ resource }) => resource),
+        ...supplementalSelection.selected,
+      ]))
+        options.onNotice(`回答中有一处需要核对：${issue}`);
+      options.onDone();
+    },
+  });
+}
+
+async function runAstrolabePhasedReading(
+  messages: ChatMessage[],
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  fullResources: readonly { resource: ReadingResource; result: AstrolabeBirthRange }[],
+  supplementalResources: ReadingResource[],
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+) {
+  if (!fullResources.length) throw new Error('西洋占星本命出生区间资料缺少主体。');
+  const initialPhases = fullResources.flatMap(({ resource, result }, resourceIndex) => {
+    const resourceContext = getAstrolabeResourceContext(resource.text, result);
+    return buildAstrolabePhasePlan(
+      messages,
+      result,
+      `${resource.key}:${resource.title}:natal:${resourceIndex}`,
+      resource.title,
+      guide,
+      currentTimeContext,
+      resourceContext,
+      '',
+      question,
+    );
+  });
+  const supplementalSelection = selectBirthRangeSupplementalResources(
+    ASTROLABE_PHASE_DIALECT,
+    messages,
+    initialPhases,
+    supplementalResources,
+    guide,
+    currentTimeContext,
+    question,
+  );
+  if (supplementalSelection.omitted.length) {
+    options.onNotice(
+      `本轮西洋占星分段解读未纳入以下资料：${supplementalSelection.omitted
+        .map((item) => item.title)
+        .join('、')}。`,
+    );
+  }
+  const supplementalText = formatReadingResources(supplementalSelection.selected);
+  const phases = initialPhases;
+  const targetRange = fullResources
+    .map(({ result }) => {
+      const start = formatAstrolabeBirthRangeTime(result.source.startTimestamp);
+      const end = formatAstrolabeBirthRangeTime(result.source.endTimestamp);
+      return `${start}至${end}`;
+    })
+    .join('；');
+  const resourceKey = fullResources
+    .map(({ resource }) => `${resource.key}:${resource.title}`)
+    .join('\u0000');
+  const resourceText = [
+    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+    supplementalText,
+  ].join('\u0000');
+  const structuredText = fullResources
+    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
+    .join('\u0000');
+  const previous = options.memory.astrolabePhaseReading;
+  const reusable =
+    previous?.resourceKey === resourceKey &&
+    previous.resourceText === resourceText &&
+    previous.structuredText === structuredText &&
+    previous.subjectId === (options.subject?.id ?? '') &&
+    previous.question === question &&
+    previous.guide === guide &&
+    previous.currentTimeContext === currentTimeContext &&
+    previous.phases.length === phases.length;
+  const phaseMemory: AstrolabePhaseMemory = reusable
+    ? previous!
+    : {
+        resourceKey,
+        resourceText,
+        structuredText,
+        subjectId: options.subject?.id ?? '',
+        question,
+        guide,
+        currentTimeContext,
+        phases: phases.map((phase, index) => ({
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          coverageLabel: phase.coverageLabel,
+          coverageKeys: phase.coverageKeys,
+          resourceContext: phase.resourceContext,
+          facts: phase.facts,
+          status: 'pending',
+        })),
+      };
+  if (reusable) {
+    phaseMemory.phases = phases.map((phase, index) => {
+      const old = previous!.phases[index];
+      return old?.resourceKey === phase.resourceKey &&
+        old.subjectTitle === phase.subjectTitle &&
+        old.coverageLabel === phase.coverageLabel &&
+        JSON.stringify(old.coverageKeys) === JSON.stringify(phase.coverageKeys) &&
+        old.resourceContext === phase.resourceContext &&
+        old.facts === phase.facts
+        ? old
+        : {
+            index,
+            resourceKey: phase.resourceKey,
+            subjectTitle: phase.subjectTitle,
+            coverageLabel: phase.coverageLabel,
+            coverageKeys: phase.coverageKeys,
+            resourceContext: phase.resourceContext,
+            facts: phase.facts,
+            status: 'pending' as const,
+          };
+    });
+  }
+  options.memory.astrolabePhaseReading = phaseMemory;
+  const finalMessages = await collectBirthRangePhaseSummary(
+    ASTROLABE_PHASE_DIALECT,
+    messages,
+    phases,
+    phaseMemory,
+    options,
+    deps,
+    guide,
+    currentTimeContext,
+    supplementalText,
+    question,
+    targetRange,
+  );
+  if (finalMessages.length < messages.length)
+    options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');
+  options.onProgress({ stage: 'writing', text: ASTROLABE_PHASE_DIALECT.finalProgressLabel });
+  let answer = '';
+  await deps.stream(finalMessages, {
+    ...options,
+    onChunk: (chunk) => {
+      answer += chunk;
+      options.onChunk(chunk);
+    },
+    onDone: () => {
+      if (!answer.trim()) {
+        options.onError(ASTROLABE_PHASE_DIALECT.finalEmptyLabel);
         return;
       }
       options.onProgress({ stage: 'checking', text: '正在核对关键事实' });
@@ -2710,6 +3232,16 @@ export async function runReadingWorkflow(
       return `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`;
     };
     const finalSelection = selectResourcesForMessages(messages, finalResources, buildFinalAddition);
+    const astrolabeFullResources = finalResources.flatMap((resource) => {
+      const result = getAstrolabeBirthRangeResult(resource);
+      return result ? [{ resource, result }] : [];
+    });
+    const astrolabeFullResourceSet = new Set(
+      astrolabeFullResources.map(({ resource }) => resource),
+    );
+    const omittedAstrolabeFullResources = finalSelection.omitted.filter((resource) =>
+      astrolabeFullResourceSet.has(resource),
+    );
     const qizhengFullResources = finalResources.flatMap((resource) => {
       const result = getQizhengBirthRangeResult(resource);
       return result ? [{ resource, result }] : [];
@@ -2734,6 +3266,38 @@ export async function runReadingWorkflow(
     const omittedZiweiFullResources = finalSelection.omitted.filter((resource) =>
       ziweiFullResourceSet.has(resource),
     );
+    if (omittedAstrolabeFullResources.length && omittedQizhengFullResources.length) {
+      throw new Error('西洋占星与七政四余出生区间完整资料同时超出解读容量，请分开解读。');
+    }
+    if (omittedAstrolabeFullResources.length && omittedQimenFullResources.length) {
+      throw new Error('西洋占星与奇门终身局完整资料同时超出解读容量，请分开解读。');
+    }
+    if (omittedAstrolabeFullResources.length && omittedZiweiFullResources.length) {
+      throw new Error('西洋占星与紫微完整资料同时超出解读容量，请分开解读。');
+    }
+    if (omittedAstrolabeFullResources.length && astrolabeFullResources.length) {
+      const omittedOtherResources = finalSelection.omitted.filter(
+        (resource) => !astrolabeFullResourceSet.has(resource),
+      );
+      if (omittedOtherResources.length) {
+        options.onNotice(
+          `本轮解读资料容量不足，以下资料未纳入西洋占星出生区间阶段判断：${omittedOtherResources
+            .map((item) => item.title)
+            .join('、')}。`,
+        );
+      }
+      await runAstrolabePhasedReading(
+        messages,
+        options,
+        deps,
+        astrolabeFullResources,
+        finalSelection.selected.filter((resource) => !astrolabeFullResourceSet.has(resource)),
+        guide,
+        currentTimeContext,
+        latestUserQuestion,
+      );
+      return;
+    }
     if (omittedQizhengFullResources.length && omittedQimenFullResources.length) {
       throw new Error('七政四余与奇门终身局完整资料同时超出解读容量，请分开解读。');
     }
