@@ -16,6 +16,7 @@ import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
 import { formatTaiyiRangeInterval } from '@/lib/divination/taiyi-range';
+import { formatHuangjiRangeInterval } from '@/lib/divination/huangji-range';
 import {
   formatLiuyaoRangeInterval,
   formatLiuyaoRangeBackground,
@@ -107,6 +108,12 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'huangji' && session.huangjiRange) {
+    return formatHuangjiRangeInterval(
+      session.huangjiRange.source.startTimestamp,
+      session.huangjiRange.source.endTimestamp,
+    );
+  }
   if (session?.method === 'taiyi' && session.taiyiRange) {
     const { startTimestamp, endTimestamp } = session.taiyiRange.source;
     return formatTaiyiRangeInterval(startTimestamp, endTimestamp);
@@ -3195,9 +3202,11 @@ function HuangjiDateTimeCell(props: {
 function HuangjiTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: HuangjiJingshiResult;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const annualCycleClassic = useMemo(() => getHuangjiCycleClassic('年'), []);
   const shiCycleClassic = useMemo(() => getHuangjiCycleClassic('世'), []);
@@ -3223,7 +3232,7 @@ function HuangjiTraditionalBoard({
         sixDayCycle
           ? `${sixDayCycle.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
           : dateTimeForecast
-            ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+            ? `${dateLabel ?? dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
             : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
       }
       className="traditional-huangji-board"
@@ -3233,7 +3242,8 @@ function HuangjiTraditionalBoard({
           ['占事', session?.question],
           [
             '日期',
-            sixDayCycle?.civilTime.dateTime ??
+            dateLabel ??
+              sixDayCycle?.civilTime.dateTime ??
               getSessionDisplayDate(session) ??
               dateTimeForecast?.civilTime.dateTime ??
               `${formatHuangjiCivilYear(annual.year)}`,
@@ -3841,7 +3851,7 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
   const displayDate = getSessionDisplayDate(session);
   if (displayDate)
     lines.push(
-      `${session.method === 'qimen' || session.method === 'taiyi' ? '起局时间' : '起卦时间'}：${displayDate}`,
+      `${session.method === 'huangji' ? '起盘时间' : session.method === 'qimen' || session.method === 'taiyi' ? '起局时间' : '起卦时间'}：${displayDate}`,
     );
 
   if (session.method === 'liuyao') {
@@ -3940,6 +3950,24 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
         `主算${d.lordCount}；客算${d.guestCount}；定算${d.setCount}`,
         ...d.judgments,
       );
+    }
+  } else if (session.method === 'huangji' && session.huangjiRange) {
+    for (const branch of session.huangjiRange.branches) {
+      lines.push(formatHuangjiRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      const { dateTimeForecast: timing, forecast } = branch.data;
+      if (timing) {
+        const { calendar, hexagrams } = timing;
+        lines.push(
+          `${calendar.activeSolarTerm}后第${calendar.actualDayInSolarTerm}日；皇极年内第${calendar.dayOfYear}日；${calendar.hourRange}`,
+          `月经卦${hexagrams.monthJing.name}；旬纬卦${hexagrams.xunWei.name}；日卦${hexagrams.daily.name}；时经卦${hexagrams.hourJing.name}`,
+        );
+      }
+      if (forecast) {
+        const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+        lines.push(
+          `${formatHuangjiCivilYear(annual.year)}值年卦${annual.name}；十年卦${decade.hexagram.name}；六十年统卦${sixtyYear.hexagram.name}；运卦${yun.hexagram.name}；会内统卦${governing.hexagram.name}`,
+        );
+      }
     }
   } else if (session.method === 'wuyun') {
     const d = session.data as WuyunLiuqiResult;
@@ -4128,7 +4156,18 @@ export function TraditionalDivinationBoard({
       );
       break;
     case 'huangji':
-      boardContent = (
+      boardContent = session.huangjiRange ? (
+        <section aria-label="皇极时间分段结果">
+          {session.huangjiRange.branches.map((branch) => (
+            <HuangjiTraditionalBoard
+              key={branch.startTimestamp}
+              data={branch.data}
+              session={session}
+              dateLabel={formatHuangjiRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+            />
+          ))}
+        </section>
+      ) : (
         <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} session={session} />
       );
       break;

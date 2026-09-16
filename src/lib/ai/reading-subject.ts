@@ -348,6 +348,19 @@ function buildTaiyiRangeSnapshot(range: NonNullable<DivinationSession['taiyiRang
   };
 }
 
+function buildHuangjiRangeSnapshot(range: NonNullable<DivinationSession['huangjiRange']>) {
+  return {
+    source: { ...range.source },
+    status: range.status,
+    branches: range.branches.map((branch) => ({
+      startTimestamp: branch.startTimestamp,
+      endTimestamp: branch.endTimestamp,
+      endExclusive: branch.endExclusive,
+      data: branch.data,
+    })),
+  };
+}
+
 export function buildDivinationReadingSubject(
   _draft: DivinationDraft,
   session: DivinationSession,
@@ -382,25 +395,30 @@ export function buildDivinationReadingSubject(
       lockedInputs.huangji.epochYear = result.input.epochYear;
     }
     range.huangjiMode = mode;
-    range.huangjiInput = result.input;
-    if (result.sixDayCycle) {
-      const cycle = result.sixDayCycle;
-      const usesExplicitEpoch = cycle.calendar.model === 'six-day-explicit-epoch';
-      lockedInputs.huangji = {
-        _mode: mode,
-        ...(usesExplicitEpoch ? { sixDayEpochDateTime: cycle.anchor.dateTime } : {}),
-        calendarModel: cycle.calendar.model,
-        timezone: cycle.civilTime.timezone,
-        ...(cycle.civilTime.timeZoneId ? { timeZoneId: cycle.civilTime.timeZoneId } : {}),
-      };
-      range.huangjiSixDayDateTime = cycle.civilTime.dateTime;
-      range.huangjiSixDayAnchorDateTime = cycle.anchor.dateTime;
-      if (usesExplicitEpoch) range.huangjiSixDayEpochDateTime = cycle.anchor.dateTime;
-      range.huangjiSixDayTimezone = cycle.civilTime.timezone;
-      range.huangjiCalendarModel = cycle.calendar.model;
-      range.huangjiDateTime = cycle.civilTime.dateTime;
-    } else if (result.dateTimeForecast?.civilTime?.dateTime) {
-      range.huangjiDateTime = result.dateTimeForecast.civilTime.dateTime;
+    if (session.huangjiRange) {
+      // 区间主题由完整分支快照表达，不能用首段时刻或首段 input 冒充唯一目标。
+      range.huangjiRange = buildHuangjiRangeSnapshot(session.huangjiRange);
+    } else {
+      range.huangjiInput = result.input;
+      if (result.sixDayCycle) {
+        const cycle = result.sixDayCycle;
+        const usesExplicitEpoch = cycle.calendar.model === 'six-day-explicit-epoch';
+        lockedInputs.huangji = {
+          _mode: mode,
+          ...(usesExplicitEpoch ? { sixDayEpochDateTime: cycle.anchor.dateTime } : {}),
+          calendarModel: cycle.calendar.model,
+          timezone: cycle.civilTime.timezone,
+          ...(cycle.civilTime.timeZoneId ? { timeZoneId: cycle.civilTime.timeZoneId } : {}),
+        };
+        range.huangjiSixDayDateTime = cycle.civilTime.dateTime;
+        range.huangjiSixDayAnchorDateTime = cycle.anchor.dateTime;
+        if (usesExplicitEpoch) range.huangjiSixDayEpochDateTime = cycle.anchor.dateTime;
+        range.huangjiSixDayTimezone = cycle.civilTime.timezone;
+        range.huangjiCalendarModel = cycle.calendar.model;
+        range.huangjiDateTime = cycle.civilTime.dateTime;
+      } else if (result.dateTimeForecast?.civilTime?.dateTime) {
+        range.huangjiDateTime = result.dateTimeForecast.civilTime.dateTime;
+      }
     }
   } else {
     const result = session.data as WuyunLiuqiResult;

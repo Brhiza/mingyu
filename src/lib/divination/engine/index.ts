@@ -21,6 +21,13 @@ import type {
 } from '../../../types/divination';
 import { isBaziReverseSource } from '../time-input';
 import {
+  buildHuangjiRangePrompt,
+  formatHuangjiRangeContext,
+  generateHuangjiRange,
+  isHuangjiRangeSource,
+  type HuangjiRange,
+} from '../huangji-range';
+import {
   formatTaiyiRangeContext,
   formatTaiyiRangeFacts,
   generateTaiyiRange,
@@ -243,6 +250,7 @@ export type DivinationSession = {
   qimenRange?: QimenRange;
   liuyaoRange?: LiuyaoRange;
   taiyiRange?: TaiyiRange;
+  huangjiRange?: HuangjiRange;
   selection?: PromptSelection;
 };
 
@@ -1244,6 +1252,7 @@ export async function generateDivinationSession(
             : {}),
         })
       : undefined;
+  const inputQuestion = draft.question.trim();
   const supplementaryInfo = buildSupplementaryInfo({
     ...draft,
     method,
@@ -1264,6 +1273,18 @@ export async function generateDivinationSession(
           source: draft.divinationReverseSource,
           representativeDate: calculationDate ?? new Date(Number.NaN),
           scope: taiyiScope,
+        })
+      : undefined;
+  const huangjiRange =
+    method === 'huangji' &&
+    !isHuangjiSixDay &&
+    draft.divinationTimeMode === 'pillars' &&
+    isBaziReverseSource(draft.divinationReverseSource) &&
+    isHuangjiRangeSource(draft.divinationReverseSource)
+      ? generateHuangjiRange({
+          source: draft.divinationReverseSource,
+          representativeDate: calculationDate ?? new Date(Number.NaN),
+          question: inputQuestion,
         })
       : undefined;
   const liuyaoRange =
@@ -1307,8 +1328,6 @@ export async function generateDivinationSession(
       : undefined;
   const almanacParticipantTimeContextText =
     method === 'almanac' ? buildAlmanacParticipantTimeContextText(draft.almanacParticipants) : '';
-  const inputQuestion = draft.question.trim();
-
   let data: DivinationData;
   switch (method) {
     case 'liuyao': {
@@ -1405,10 +1424,12 @@ export async function generateDivinationSession(
           question: inputQuestion,
         });
       } else {
-        data = module.calculateHuangjiJingshi({
-          date: calculationDate ?? new Date(),
-          question: inputQuestion,
-        });
+        data =
+          huangjiRange?.branches[0]?.data ??
+          module.calculateHuangjiJingshi({
+            date: calculationDate ?? new Date(),
+            question: inputQuestion,
+          });
       }
       break;
     }
@@ -1514,21 +1535,23 @@ export async function generateDivinationSession(
           scope: promptScope,
         })
       : undefined;
-  const rangeContext = taiyiRange
-    ? formatTaiyiRangeContext(taiyiRange)
-    : liuyaoRange
-      ? formatLiuyaoRangeContext(liuyaoRange)
-      : qimenRange
-        ? formatQimenRangeContext(qimenRange)
-        : meihuaRange
-          ? formatMeihuaRangeContext(meihuaRange)
-          : jinkoujueRange
-            ? formatJinkoujueRangeContext(jinkoujueRange)
-            : liurenRange
-              ? formatLiurenRangeContext(liurenRange)
-              : xiaoliurenRange
-                ? formatXiaoliurenRangeContext(xiaoliurenRange)
-                : '';
+  const rangeContext = huangjiRange
+    ? formatHuangjiRangeContext(huangjiRange)
+    : taiyiRange
+      ? formatTaiyiRangeContext(taiyiRange)
+      : liuyaoRange
+        ? formatLiuyaoRangeContext(liuyaoRange)
+        : qimenRange
+          ? formatQimenRangeContext(qimenRange)
+          : meihuaRange
+            ? formatMeihuaRangeContext(meihuaRange)
+            : jinkoujueRange
+              ? formatJinkoujueRangeContext(jinkoujueRange)
+              : liurenRange
+                ? formatLiurenRangeContext(liurenRange)
+                : xiaoliurenRange
+                  ? formatXiaoliurenRangeContext(xiaoliurenRange)
+                  : '';
   const effectiveTimeContext =
     rangeContext && timing
       ? {
@@ -1542,12 +1565,20 @@ export async function generateDivinationSession(
       : undefined;
   const prompt =
     method === 'huangji'
-      ? timing
-        ? insertTimeContextIntoPrompt(
-            applyPromptSelectionToExistingPrompt((data as HuangjiJingshiResult).prompt, selection),
-            effectiveTimeContext?.promptText ?? timing.context.promptText,
+      ? huangjiRange
+        ? applyPromptSelectionToExistingPrompt(
+            buildHuangjiRangePrompt(huangjiRange, inputQuestion),
+            selection,
           )
-        : applyPromptSelectionToExistingPrompt((data as HuangjiJingshiResult).prompt, selection)
+        : timing
+          ? insertTimeContextIntoPrompt(
+              applyPromptSelectionToExistingPrompt(
+                (data as HuangjiJingshiResult).prompt,
+                selection,
+              ),
+              effectiveTimeContext?.promptText ?? timing.context.promptText,
+            )
+          : applyPromptSelectionToExistingPrompt((data as HuangjiJingshiResult).prompt, selection)
       : buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
           isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
           liuyaoTemplate: draft.liuyaoTemplate,
@@ -1589,6 +1620,7 @@ export async function generateDivinationSession(
     ...(qimenRange ? { qimenRange } : {}),
     ...(liuyaoRange ? { liuyaoRange } : {}),
     ...(taiyiRange ? { taiyiRange } : {}),
+    ...(huangjiRange ? { huangjiRange } : {}),
     ...(selection ? { selection } : {}),
   };
 }
