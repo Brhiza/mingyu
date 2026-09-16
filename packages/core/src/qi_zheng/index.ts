@@ -2312,6 +2312,15 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 }
 
 export { evaluateQizhengEnNan } from './en-nan';
+export { generateQizhengBirthRange } from './birth-range';
+export type {
+  QizhengBirthRange,
+  QizhengBirthRangeBranch,
+  QizhengBirthRangeContinuousFact,
+  QizhengBirthRangeInput,
+  QizhengBirthRangeOptions,
+  QizhengBirthRangeSource,
+} from './birth-range';
 export type { QizhengEnNanProfile } from './en-nan';
 
 export {

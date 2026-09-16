@@ -31,6 +31,11 @@ function createPublicSource(intervalStart: string, intervalEnd: string) {
 
 const primarySource = createPublicSource('2032-03-01 10:30:00', '2032-03-01 10:45:00');
 const partnerSource = createPublicSource('2031-09-12 08:00:00', '2031-09-12 08:20:00');
+const qizhengLegacySource = {
+  pillars: primarySource.pillars,
+  intervalStart: primarySource.intervalStart,
+  intervalEnd: primarySource.intervalEnd,
+};
 
 const astrolabeInputs = {
   name: '甲',
@@ -103,7 +108,7 @@ function createCompatibilityAstrolabeSubject(): ReadingSubjectSnapshot {
 }
 
 function createQizhengSubject(
-  range: Record<string, unknown> = { primary: primarySource },
+  range: Record<string, unknown> = { primary: qizhengLegacySource },
 ): ReadingSubjectSnapshot {
   return {
     id: `birth-range-qizheng-${Object.keys(range).join('-') || 'none'}`,
@@ -161,7 +166,7 @@ test('七政补算资源保留代表时刻、出生区间文本与结构化范�
 
     assert.match(resource.text, /【出生时间范围】/u);
     assert.match(resource.text, /2032-03-01 10:30:00 至 2032-03-01 10:45:00/u);
-    assert.deepEqual(resource.structured?.birthTimeRange, primarySource);
+    assert.deepEqual(resource.structured?.birthTimeRange, qizhengLegacySource);
     const context = resource.structured?.calculationContext as Record<string, unknown>;
     assert.equal(context.localDateTime, '2032-03-01T10:30:00');
   });

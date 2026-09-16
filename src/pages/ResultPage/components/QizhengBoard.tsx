@@ -138,6 +138,7 @@ export const QizhengBoard = memo(function QizhengBoard({
   isInstant = false,
   timeBasisLabel,
   birthTimeRange,
+  representativeTime,
 }: {
   title: string;
   name: string;
@@ -145,6 +146,7 @@ export const QizhengBoard = memo(function QizhengBoard({
   isInstant?: boolean;
   timeBasisLabel?: string;
   birthTimeRange?: BaziReverseSource | null;
+  representativeTime?: string;
 }) {
   const [classicsExpanded, setClassicsExpanded] = useState(false);
   const strongestAspects = data.aspects.slice(0, 8);
@@ -157,8 +159,10 @@ export const QizhengBoard = memo(function QizhengBoard({
           <h2>{name}</h2>
         </div>
         <div className="result-chip-row">
-          {!isInstant && birthTimeRange ? (
-            <span className="result-chip">代表时刻：{birthTimeRange.intervalStart}</span>
+          {!isInstant && (representativeTime || birthTimeRange) ? (
+            <span className="result-chip">
+              代表时刻：{representativeTime || birthTimeRange?.intervalStart}
+            </span>
           ) : null}
           {isInstant && timeBasisLabel ? (
             <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
