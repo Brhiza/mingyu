@@ -204,23 +204,43 @@ export function getEssentialDignity(
   return null;
 }
 
-function mapPlanet(planet: {
-  name: string;
-  longitude: number;
-  signName: string;
-  degree: number;
-  minute: number;
-  house: number;
-  isRetrograde?: boolean;
-}): AstrolabePoint {
+function mapPlanet(
+  planet: {
+    name: string;
+    longitude: number;
+    latitude?: number;
+    distance?: number;
+    longitudeSpeed?: number;
+    signName: string;
+    degree: number;
+    minute: number;
+    second: number;
+    house: number;
+    isRetrograde?: boolean;
+  },
+  options: {
+    includeLatitudeAndDistance?: boolean;
+    includeLongitudeSpeed?: boolean;
+  } = {},
+): AstrolabePoint {
   const dignityInfo = getEssentialDignity(planet.name, planet.signName);
   return {
     name: planet.name,
     label: PLANET_LABELS[planet.name] ?? planet.name,
     longitude: planet.longitude,
+    ...(options.includeLatitudeAndDistance && planet.latitude !== undefined
+      ? { latitude: planet.latitude }
+      : {}),
+    ...(options.includeLatitudeAndDistance && planet.distance !== undefined
+      ? { distance: planet.distance }
+      : {}),
+    ...(options.includeLongitudeSpeed && planet.longitudeSpeed !== undefined
+      ? { longitudeSpeed: planet.longitudeSpeed }
+      : {}),
     sign: SIGN_LABELS[planet.signName] ?? planet.signName,
     degree: planet.degree,
     minute: planet.minute,
+    second: planet.second,
     house: planet.house,
     formatted: formatPosition(planet.signName, planet.degree, planet.minute),
     retrograde: planet.isRetrograde ?? false,
@@ -235,6 +255,7 @@ function mapAngle(angle: {
   signName: string;
   degree: number;
   minute: number;
+  second: number;
 }): AstrolabePoint {
   return {
     name: angle.name,
@@ -243,6 +264,7 @@ function mapAngle(angle: {
     sign: SIGN_LABELS[angle.signName] ?? angle.signName,
     degree: angle.degree,
     minute: angle.minute,
+    second: angle.second,
     house: 0,
     formatted: formatPosition(angle.signName, angle.degree, angle.minute),
   };
@@ -435,9 +457,14 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     chart.angles.descendant,
     chart.angles.imumCoeli,
   ].map(mapAngle);
-  const calculatedPoints = [...chart.planets, ...chart.nodes, ...chart.lilith, ...chart.lots].map(
-    mapPlanet,
-  );
+  const calculatedPoints = [
+    ...chart.planets.map((planet) =>
+      mapPlanet(planet, { includeLatitudeAndDistance: true, includeLongitudeSpeed: true }),
+    ),
+    ...chart.nodes.map((node) => mapPlanet(node, { includeLongitudeSpeed: true })),
+    ...chart.lilith.map((point) => mapPlanet(point, { includeLongitudeSpeed: true })),
+    ...chart.lots.map((lot) => mapPlanet(lot)),
+  ];
 
   const result: AstrolabeData = {
     birth: {
@@ -487,6 +514,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       sign: SIGN_LABELS[cusp.signName] ?? cusp.signName,
       degree: cusp.degree,
       minute: cusp.minute,
+      second: cusp.second,
       house: cusp.house,
       formatted: formatPosition(cusp.signName, cusp.degree, cusp.minute),
     })),
