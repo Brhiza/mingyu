@@ -1,3 +1,4 @@
+import { formatJinkoujueJudgmentFacts } from '../prompt/jinkoujue-facts';
 import { formatLiurenJudgmentFacts } from '../prompt/liuren-judgment';
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { DivinationMethodId } from './config';
@@ -46,6 +47,7 @@ import type {
   AstrolabeData,
   DivinationData,
   JinkoujueDivinationMethod,
+  JinkoujueData,
   LenormandData,
   LenormandSpreadType,
   LiurenData,
@@ -269,6 +271,8 @@ function formatAiChart(
       `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
       item.pathomechanism?.summary ?? '',
     );
+  } else if (method === 'jinkoujue') {
+    base.push('金口诀判断依据：', ...formatJinkoujueJudgmentFacts(data as JinkoujueData));
   } else if (method === 'liuren') {
     base.push('六壬判断依据：', ...formatLiurenJudgmentFacts(data as LiurenData));
   } else if (method === 'taiyi') {

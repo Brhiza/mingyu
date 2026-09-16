@@ -39,3 +39,5 @@ export {
   type CombinedZiweiPromptOptions,
 } from '../ziwei/prompt/combined';
 export * from './liuren-judgment';
+
+export { formatJinkoujueJudgmentFacts } from './jinkoujue-facts';

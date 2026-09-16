@@ -13,6 +13,7 @@ import { ChartShareModal } from '@/components/ChartShareModal';
 import type { DivinationSession } from '@/lib/divination/engine';
 import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range';
 import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
+import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import {
   formatHuangjiCivilYear,
   type HuangjiDerivedHexagram,
@@ -98,6 +99,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'jinkoujue' && session.jinkoujueRange) {
+    const { startTimestamp, endTimestamp } = session.jinkoujueRange.source;
+    return formatJinkoujueRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'liuren' && session.liurenRange) {
     const { startTimestamp, endTimestamp } = session.liurenRange.source;
     return formatLiurenRangeInterval(startTimestamp, endTimestamp);
@@ -1221,9 +1226,11 @@ function XiaoliurenTraditionalBoard({
 function JinkoujueTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: JinkoujueData;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const positions = [
     ['人元', data.positions.renYuan],
@@ -1266,10 +1273,10 @@ function JinkoujueTraditionalBoard({
       subtitle={`${data.ganzhi.day}日${data.ganzhi.hour}时 · 月将${data.monthLeader}加${data.divinationBranch}`}
       className="traditional-jinkoujue-board"
     >
+      <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session)],
           [
             '干支',
             `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
@@ -3831,12 +3838,21 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
       );
     }
   } else if (session.method === 'jinkoujue') {
-    const d = session.data as JinkoujueData;
     const formatPosition = (position: JinkoujueData['positions']['diFen']) =>
       `${position.stem ?? ''}${position.branch}${position.god ? `·${position.god}` : ''}`;
-    lines.push(
-      `四位：人元【${formatPosition(d.positions.renYuan)}】 贵神【${formatPosition(d.positions.guiShen)}】 将神【${formatPosition(d.positions.jiangShen)}】 地分【${formatPosition(d.positions.diFen)}】`,
-    );
+    for (const branch of session.jinkoujueRange?.branches ?? [
+      { data: session.data as JinkoujueData },
+    ]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatJinkoujueRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      }
+      const d = branch.data;
+      lines.push(`月将：${d.monthLeader}加${d.divinationBranch}；${d.methodLabel}`);
+      lines.push(
+        `四位：人元【${formatPosition(d.positions.renYuan)}】 贵神【${formatPosition(d.positions.guiShen)}】 将神【${formatPosition(d.positions.jiangShen)}】 地分【${formatPosition(d.positions.diFen)}】`,
+        `阴阳发用：${d.yinYangUse.rule}；用${d.yinYangUse.usePosition}`,
+      );
+    }
   } else if (session.method === 'wuyun') {
     const d = session.data as WuyunLiuqiResult;
     lines.push(
@@ -3903,9 +3919,22 @@ export function TraditionalDivinationBoard({
         );
       break;
     case 'jinkoujue':
-      boardContent = (
-        <JinkoujueTraditionalBoard data={session.data as JinkoujueData} session={session} />
-      );
+      boardContent =
+        session.jinkoujueRange?.status === 'conditional' ? (
+          <section aria-label="金口诀时间分段结果">
+            <p>所选时间范围内课盘有变化，请按实际时间对应下列结果。</p>
+            {session.jinkoujueRange.branches.map((branch) => (
+              <JinkoujueTraditionalBoard
+                key={branch.startTimestamp}
+                data={branch.data}
+                session={session}
+                dateLabel={formatJinkoujueRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+              />
+            ))}
+          </section>
+        ) : (
+          <JinkoujueTraditionalBoard data={session.data as JinkoujueData} session={session} />
+        );
       break;
     case 'qimen':
       boardContent = <QimenTraditionalBoard data={session.data as QimenData} session={session} />;
