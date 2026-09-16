@@ -11,6 +11,8 @@ export * as almanac from './algorithms/almanac';
 export * as ssgw from './algorithms/ssgw';
 export * as lenormand from './algorithms/lenormand';
 export * as astrolabe from './algorithms/astrolabe';
+export * as astrolabeBirthRange from './astrolabe-birth-range';
+export * from './astrolabe-birth-range';
 export * as astrolabeScope from './astrolabe-scope';
 
 export * from './config';
