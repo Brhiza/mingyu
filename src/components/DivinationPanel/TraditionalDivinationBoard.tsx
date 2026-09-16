@@ -15,6 +15,7 @@ import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range
 import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
+import { formatTaiyiRangeInterval } from '@/lib/divination/taiyi-range';
 import {
   formatLiuyaoRangeInterval,
   formatLiuyaoRangeBackground,
@@ -106,6 +107,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'taiyi' && session.taiyiRange) {
+    const { startTimestamp, endTimestamp } = session.taiyiRange.source;
+    return formatTaiyiRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'liuyao' && session.liuyaoRange) {
     const { startTimestamp, endTimestamp } = session.liuyaoRange.source;
     return formatLiuyaoRangeInterval(startTimestamp, endTimestamp);
@@ -2921,9 +2926,11 @@ function AlmanacTraditionalBoard({
 function TaiyiTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: TaiyiResult;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
   const pointMarkers = new Map<string, string[]>();
@@ -2984,12 +2991,16 @@ function TaiyiTraditionalBoard({
     >
       <TraditionalMeta
         items={[
+          ['日期', dateLabel ?? getSessionDisplayDate(session) ?? data.dateTime ?? undefined],
+        ]}
+      />
+      <TraditionalMeta
+        items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session) ?? data.dateTime ?? undefined],
           ['干支', data.ganZhi],
           ['计式', `太乙${scopeLabel}`],
           ['定局', `${data.yinYang}第${data.bureau}局`],
-          ['积年', `${data.accumulatedLabel} ${data.accumulatedValue}`],
+          [data.accumulatedLabel, String(data.accumulatedValue)],
         ]}
       />
       <TraditionalFacts
@@ -3829,7 +3840,9 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
   if (session.question) lines.push(`所问之事：${session.question}`);
   const displayDate = getSessionDisplayDate(session);
   if (displayDate)
-    lines.push(`${session.method === 'qimen' ? '起局时间' : '起卦时间'}：${displayDate}`);
+    lines.push(
+      `${session.method === 'qimen' || session.method === 'taiyi' ? '起局时间' : '起卦时间'}：${displayDate}`,
+    );
 
   if (session.method === 'liuyao') {
     if (session.liuyaoRange) lines.push(formatLiuyaoRangeOrigin(session.liuyaoRange));
@@ -3913,6 +3926,19 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
       lines.push(
         `四位：人元【${formatPosition(d.positions.renYuan)}】 贵神【${formatPosition(d.positions.guiShen)}】 将神【${formatPosition(d.positions.jiangShen)}】 地分【${formatPosition(d.positions.diFen)}】`,
         `阴阳发用：${d.yinYangUse.rule}；用${d.yinYangUse.usePosition}`,
+      );
+    }
+  } else if (session.method === 'taiyi') {
+    for (const branch of session.taiyiRange?.branches ?? [{ data: session.data as TaiyiResult }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatTaiyiRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      }
+      const d = branch.data;
+      lines.push(
+        `${{ year: '年计', month: '月计', day: '日计', hour: '时计' }[d.scope]}：${d.ganZhi}；${d.yinYang}第${d.bureau}局；${d.accumulatedLabel}${d.accumulatedValue}`,
+        `太乙${d.taiyiPosition}；文昌${d.wenChangPosition}；始击${d.shiJiPosition}；计神${d.jiShenPosition}`,
+        `主算${d.lordCount}；客算${d.guestCount}；定算${d.setCount}`,
+        ...d.judgments,
       );
     }
   } else if (session.method === 'wuyun') {
@@ -4086,7 +4112,20 @@ export function TraditionalDivinationBoard({
       );
       break;
     case 'taiyi':
-      boardContent = <TaiyiTraditionalBoard data={session.data as TaiyiResult} session={session} />;
+      boardContent = session.taiyiRange ? (
+        <section aria-label="太乙时间分段结果">
+          {session.taiyiRange.branches.map((branch) => (
+            <TaiyiTraditionalBoard
+              key={branch.startTimestamp}
+              data={branch.data}
+              session={session}
+              dateLabel={formatTaiyiRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+            />
+          ))}
+        </section>
+      ) : (
+        <TaiyiTraditionalBoard data={session.data as TaiyiResult} session={session} />
+      );
       break;
     case 'huangji':
       boardContent = (

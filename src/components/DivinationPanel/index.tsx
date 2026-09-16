@@ -29,6 +29,7 @@ import {
   type QuestionInspirationSection,
 } from '@/components/QuestionInspirationModal';
 import { getDivinationSessionSummary } from '@/lib/divination/summary';
+import { formatTaiyiRangeInterval } from '@/lib/divination/taiyi-range';
 import { defaultDraft, methodLabelMap } from './constants';
 import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
@@ -382,17 +383,22 @@ export function DivinationPanel({
           question={session.question || draft.question}
           methodName={methodLabelMap[session.method] || methodLabelMap[draft.method]}
           timeLabel={
-            session.liuyaoRange
-              ? formatLiuyaoRangeInterval(
-                  session.liuyaoRange.source.startTimestamp,
-                  session.liuyaoRange.source.endTimestamp,
+            session.taiyiRange
+              ? formatTaiyiRangeInterval(
+                  session.taiyiRange.source.startTimestamp,
+                  session.taiyiRange.source.endTimestamp,
                 )
-              : session.qimenRange
-                ? formatQimenRangeInterval(
-                    session.qimenRange.source.startTimestamp,
-                    session.qimenRange.source.endTimestamp,
+              : session.liuyaoRange
+                ? formatLiuyaoRangeInterval(
+                    session.liuyaoRange.source.startTimestamp,
+                    session.liuyaoRange.source.endTimestamp,
                   )
-                : session.timeContext?.clockDateTime
+                : session.qimenRange
+                  ? formatQimenRangeInterval(
+                      session.qimenRange.source.startTimestamp,
+                      session.qimenRange.source.endTimestamp,
+                    )
+                  : session.timeContext?.clockDateTime
           }
           onClose={() => setIsShareModalOpen(false)}
         />
