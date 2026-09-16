@@ -18,7 +18,7 @@ import type {
   JinkoujuePositionName,
   JinkoujueYinYang,
 } from '../../types/divination';
-import { getDivinationTime } from '../../calendar/timeManager';
+import { getDivinationTime, TimeManager } from '../../calendar/timeManager';
 import { getVoidBranches } from '../../calendar/lunar';
 import {
   EARTHLY_BRANCHES,
@@ -144,24 +144,27 @@ function assertMethod(method: JinkoujueDivinationMethod): void {
   }
 }
 
-function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>['timeInfo']) {
+function getMonthLeaderByZhongqi(timestamp: number) {
+  const currentParts = TimeManager.getWallClockParts(new Date(timestamp));
   const currentTime = SolarTime.fromYmdHms(
-    timeInfo.solar.year,
-    timeInfo.solar.month,
-    timeInfo.solar.day,
-    timeInfo.solar.hour,
-    timeInfo.solar.minute,
-    0,
+    currentParts.year,
+    currentParts.month,
+    currentParts.day,
+    currentParts.hour,
+    currentParts.minute,
+    currentParts.second,
   );
   const currentJulianDay = currentTime.getJulianDay().getDay();
-  const year = timeInfo.solar.year;
+  const year = currentParts.year;
   let activeZhongqi = '冬至';
   let activeJulianDay = Number.NEGATIVE_INFINITY;
 
   for (const scanYear of [year - 1, year, year + 1]) {
     for (let termIndex = 0; termIndex < 24; termIndex += 2) {
       const term = SolarTerm.fromIndex(scanYear, termIndex);
-      const termJulianDay = term.getJulianDay().getDay();
+      // 与 tyme4ts 的 SolarTime#getTerm 保持同一整秒边界口径，避免把
+      // 节气原始小数 JD 与用户输入的整秒时刻直接比较而错后一秒。
+      const termJulianDay = term.getJulianDay().getSolarTime().getJulianDay().getDay();
       if (termJulianDay <= currentJulianDay && termJulianDay > activeJulianDay) {
         activeJulianDay = termJulianDay;
         activeZhongqi = term.getName();
@@ -512,12 +515,12 @@ export function generateJinkoujue(
 
   let randomTrace: RandomTrace | undefined;
 
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(params?.customDate);
+  const { ganzhi, timestamp } = getDivinationTime(params?.customDate);
   const dayStem = ganzhi.day.charAt(0);
   const monthBranch = ganzhi.month.charAt(1);
   const hourBranch = ganzhi.hour.charAt(1);
   const dayNight: '昼占' | '夜占' = DAYTIME_BRANCHES.has(hourBranch) ? '昼占' : '夜占';
-  const monthLeader = getMonthLeaderByZhongqi(timeInfo);
+  const monthLeader = getMonthLeaderByZhongqi(timestamp);
   const noblemanBranch = getJinkouNoblemanBranch(dayStem, dayNight);
   const xunKong = getVoidBranches(ganzhi.day);
 
