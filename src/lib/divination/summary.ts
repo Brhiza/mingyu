@@ -3,10 +3,21 @@ import type { DivinationSession } from './engine';
 import { formatXiaoliurenRangeInterval } from './xiaoliuren-range';
 import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
+import { formatMeihuaRangeInterval } from './meihua-range';
 
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
+  if (session.method === 'meihua' && session.meihuaRange?.status === 'conditional') {
+    return {
+      title: '梅花易数分时起卦结果',
+      tags: [`时间范围内分为${session.meihuaRange.branches.length}卦`],
+      lines: session.meihuaRange.branches.map(
+        ({ startTimestamp, endTimestamp, data }) =>
+          `${formatMeihuaRangeInterval(startTimestamp, endTimestamp)}：本卦${data.mainHexagram.name}，互卦${data.interHexagram?.name ?? data.interName ?? '无'}，变卦${data.changedHexagram?.name ?? data.changedName ?? '无'}；体${data.tiGua.name}、用${data.yongGua.name}，第${data.movingYao.position}爻动`,
+      ),
+    };
+  }
   if (session.method === 'jinkoujue' && session.jinkoujueRange?.status === 'conditional') {
     return {
       title: '金口诀分时起课结果',

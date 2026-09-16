@@ -14,6 +14,7 @@ import type { DivinationSession } from '@/lib/divination/engine';
 import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range';
 import { formatLiurenRangeInterval } from '@/lib/divination/liuren-range';
 import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
+import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
 import {
   formatHuangjiCivilYear,
   type HuangjiDerivedHexagram,
@@ -99,6 +100,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'meihua' && session.meihuaRange) {
+    const { startTimestamp, endTimestamp } = session.meihuaRange.source;
+    return formatMeihuaRangeInterval(startTimestamp, endTimestamp);
+  }
   if (session?.method === 'jinkoujue' && session.jinkoujueRange) {
     const { startTimestamp, endTimestamp } = session.jinkoujueRange.source;
     return formatJinkoujueRangeInterval(startTimestamp, endTimestamp);
@@ -983,9 +988,11 @@ function MiniHexagram(props: {
 function MeihuaTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: MeihuaData;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const rows = [...data.yaosDetail].sort((a, b) => b.position - a.position);
   const meihuaJudgement = useMemo(() => {
@@ -1022,10 +1029,10 @@ function MeihuaTraditionalBoard({
       subtitle="梅花易数 · 体用、互卦与变卦"
       className="traditional-meihua-board"
     >
+      <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', getSessionDisplayDate(session)],
           [
             '四柱',
             `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`,
@@ -3802,11 +3809,16 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
     lines.push(`四柱：${d.ganzhi.year} ${d.ganzhi.month} ${d.ganzhi.day} ${d.ganzhi.hour}`);
     lines.push(`旬空：${d.voidBranches?.join('、') || '无'}`);
   } else if (session.method === 'meihua') {
-    const d = session.data as MeihuaData;
-    lines.push(
-      `本卦：${d.mainHexagram.name}  互卦：${d.interHexagram?.name || '无'}  变卦：${d.changedHexagram?.name || '无'}`,
-    );
-    lines.push(`体卦：${d.tiGua.name}  用卦：${d.yongGua.name}`);
+    for (const branch of session.meihuaRange?.branches ?? [{ data: session.data as MeihuaData }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatMeihuaRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      }
+      const d = branch.data;
+      lines.push(
+        `本卦：${d.mainHexagram.name}  互卦：${d.interHexagram?.name || '无'}  变卦：${d.changedHexagram?.name || '无'}`,
+        `体卦：${d.tiGua.name}  用卦：${d.yongGua.name}  动爻：第${d.movingYao.position}爻`,
+      );
+    }
   } else if (session.method === 'qimen') {
     const d = session.data as QimenData;
     lines.push(`局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局`);
@@ -3895,7 +3907,24 @@ export function TraditionalDivinationBoard({
       boardContent = <LiuyaoTraditionalBoard data={session.data as LiuyaoData} session={session} />;
       break;
     case 'meihua':
-      boardContent = <MeihuaTraditionalBoard data={session.data as MeihuaData} session={session} />;
+      boardContent =
+        session.meihuaRange?.status === 'conditional' ? (
+          <section aria-label="梅花易数时间分段结果">
+            <p className="traditional-note-row">
+              所选时间范围内卦象有变化，请按实际时间对应下列结果。
+            </p>
+            {session.meihuaRange.branches.map((branch) => (
+              <MeihuaTraditionalBoard
+                key={branch.startTimestamp}
+                data={branch.data}
+                session={session}
+                dateLabel={formatMeihuaRangeInterval(branch.startTimestamp, branch.endTimestamp)}
+              />
+            ))}
+          </section>
+        ) : (
+          <MeihuaTraditionalBoard data={session.data as MeihuaData} session={session} />
+        );
       break;
     case 'xiaoliuren':
       boardContent =
