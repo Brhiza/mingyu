@@ -38,6 +38,13 @@ import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
+import { hasQizhengBirthRangeSource } from '@/lib/qizheng-birth-range';
+import {
+  formatQizhengBirthRangePrompt,
+  formatQizhengRangeTime,
+} from '@/lib/qizheng-birth-range-prompt';
+import { useQizhengBirthRange } from '@/hooks/useQizhengBirthRange';
+import { QizhengBirthRangePanel } from './components/QizhengBirthRangePanel';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { AstrolabeData } from '@/types/divination';
 import type { BaziFortuneSelectionModule, PromptEngineModule } from './ResultPage.types';
@@ -1175,8 +1182,41 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
   const shouldCalculateQizheng =
     hasAstrolabeChart && (mountedTabs.qizheng || (mountedTabs.prompt && isQizhengPromptSource));
+  const qizhengBirthSource = useMemo(() => {
+    const source = parseBaziReverseSource(inputState.birthReverseSource);
+    try {
+      const raw: unknown = inputState.birthReverseSource
+        ? JSON.parse(inputState.birthReverseSource)
+        : null;
+      return { source, requested: hasQizhengBirthRangeSource(raw) };
+    } catch {
+      return { source: null, requested: Boolean(inputState.birthReverseSource) };
+    }
+  }, [inputState.birthReverseSource]);
+  const qizhengRangeMode = !isInstantResult && qizhengBirthSource.requested;
+  const qizhengRangeState = useQizhengBirthRange(
+    sharedBirthData,
+    qizhengBirthSource.source,
+    shouldCalculateQizheng && qizhengRangeMode,
+  );
+  const qizhengRangeError =
+    qizhengRangeMode && !qizhengBirthSource.source
+      ? '出生区间资料不完整，请重新选择四柱候选日期。'
+      : qizhengRangeState.error || '';
+  const [qizhengBranchSelection, setQizhengBranchSelection] = useState({ key: '', index: 0 });
+  const qizhengBranchIndex =
+    qizhengBranchSelection.key === inputSearch ? qizhengBranchSelection.index : 0;
+  const qizhengRangePrompt = useMemo(
+    () => (qizhengRangeState.range ? formatQizhengBirthRangePrompt(qizhengRangeState.range) : ''),
+    [qizhengRangeState.range],
+  );
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
+    if (qizhengRangeMode)
+      return {
+        data: qizhengRangeState.range?.branches[0]?.representative ?? null,
+        error: qizhengRangeError,
+      };
     try {
       const cacheKey = JSON.stringify(sharedBirthData);
       let data = qizhengResultCache.get(cacheKey);
@@ -1194,7 +1234,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         error: error instanceof Error ? error.message : '七政四余排盘生成失败。',
       };
     }
-  }, [sharedBirthData, shouldCalculateQizheng]);
+  }, [
+    sharedBirthData,
+    shouldCalculateQizheng,
+    qizhengRangeMode,
+    qizhengRangeState.range,
+    qizhengRangeError,
+  ]);
 
   const shouldCalculateQimenLifetime =
     inputState.analysisMode === 'single' &&
@@ -1849,9 +1895,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           metaphysicsQuestionDraft,
           instantTimeBasisLabel,
         )
-      : buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
-          method: 'qizheng',
-        });
+      : buildMetaphysicsPrompt(
+          qizhengRangeMode ? qizhengRangePrompt : qizhengCalculation.data.prompt,
+          metaphysicsQuestionDraft,
+          {
+            method: 'qizheng',
+          },
+        );
   }, [
     instantTimeBasisLabel,
     isInstantResult,
@@ -1859,6 +1909,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     promptState.promptSource,
     showAssistantPane,
     qizhengCalculation.data,
+    qizhengRangeMode,
+    qizhengRangePrompt,
   ]);
   const bazhaiPromptText = useMemo(() => {
     if (
@@ -2045,6 +2097,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       : []),
   ].flatMap(({ value, label }) => {
     const source = parseBaziReverseSource(value);
+    if (source && qizhengRangeMode && (activeChartTab === 'qizheng' || isQizhengPromptSource)) {
+      return [
+        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；七政本命按整秒核对并分段呈现。`,
+      ];
+    }
     return source ? [formatBirthTimeInterval(source, label)] : [];
   });
   const birthTimeIntervalSection = birthTimeIntervals.length
@@ -2058,12 +2115,22 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const aiContextPrompt = useMemo(() => {
     if (!showAssistantPane) return '';
 
+    if (isQizhengPromptSource && qizhengRangeMode) {
+      return '请依据随后提供的七政四余本命出生区间资料，结合用户问题比较各时段与共同成立的判断。';
+    }
+
     if (isQimenLifetimePromptSource) {
       return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
     }
 
     return previewActivePromptText;
-  }, [isQimenLifetimePromptSource, previewActivePromptText, showAssistantPane]);
+  }, [
+    isQimenLifetimePromptSource,
+    isQizhengPromptSource,
+    qizhengRangeMode,
+    previewActivePromptText,
+    showAssistantPane,
+  ]);
 
   const qimenReadingResource = useMemo<ReadingResource | undefined>(() => {
     if (
@@ -2093,6 +2160,23 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
     if (!readingSubject.id) return undefined;
+    if (isQizhengPromptSource && qizhengRangeMode) {
+      if (!qizhengRangeState.range || !qizhengRangePrompt) return undefined;
+      const key = `qizheng-birth-range:${readingSubject.id}`;
+      return {
+        subjectId: readingSubject.id,
+        key,
+        resources: [
+          {
+            key,
+            title: '七政四余本命出生区间',
+            text: qizhengRangePrompt,
+            usable: true,
+            structured: qizhengRangeState.range as unknown as Record<string, unknown>,
+          },
+        ],
+      };
+    }
     if (isQimenLifetimePromptSource) {
       if (!qimenReadingResource) return undefined;
       return {
@@ -2108,6 +2192,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       resources: ziweiReadingResources,
     };
   }, [
+    isQizhengPromptSource,
+    qizhengRangeMode,
+    qizhengRangeState.range,
+    qizhengRangePrompt,
     isQimenLifetimePromptSource,
     qimenReadingResource,
     readingSubject.id,
@@ -2116,6 +2204,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const workflowPrompt = useMemo(() => {
+    if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
+      return '依据随后提供的七政四余本命出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
+    }
     if (
       isInstantResult ||
       (!isQimenLifetimePromptSource && promptState.ziweiScope !== 'full') ||
@@ -2134,6 +2225,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    isQizhengPromptSource,
+    qizhengRangeMode,
     promptState.promptSource,
     isQimenLifetimePromptSource,
     effectiveZiweiQuickQuestion,
@@ -2166,7 +2259,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
   const readingResourceRequired =
     !isInstantResult &&
-    (isQimenLifetimePromptSource ||
+    ((isQizhengPromptSource && qizhengRangeMode) ||
+      isQimenLifetimePromptSource ||
       (promptState.ziweiScope === 'full' &&
         (promptState.promptSource === 'ziwei' ||
           (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode === 'single'))));
@@ -2552,7 +2646,26 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           aria-hidden={isAssistantPage || activeChartTab !== 'qizheng'}
         >
           {hasAstrolabeChart && mountedTabs.qizheng ? (
-            qizhengCalculation.error ? (
+            qizhengRangeMode ? (
+              <>
+                <QizhengBirthRangePanel
+                  {...qizhengRangeState}
+                  error={qizhengRangeError}
+                  selectedIndex={qizhengBranchIndex}
+                  onSelect={(index) => setQizhengBranchSelection({ key: inputSearch, index })}
+                />
+                {qizhengRangeState.range?.branches[qizhengBranchIndex] ? (
+                  <QizhengBoard
+                    title="七政四余本命分段盘"
+                    name={inputState.name || '本人'}
+                    data={qizhengRangeState.range.branches[qizhengBranchIndex].representative}
+                    representativeTime={formatQizhengRangeTime(
+                      qizhengRangeState.range.branches[qizhengBranchIndex].startTimestamp,
+                    )}
+                  />
+                ) : null}
+              </>
+            ) : qizhengCalculation.error ? (
               <p className="error-text">{qizhengCalculation.error}</p>
             ) : qizhengCalculation.data ? (
               <QizhengBoard
@@ -2757,19 +2870,25 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   readingResourceSeed={workflowPrompt.trim() ? readingResourceSeed : undefined}
                   readingResourceRequired={readingResourceRequired}
                   readingResourceError={
-                    (isQimenLifetimePromptSource
-                      ? qimenLifetimeCalculation.error
-                      : ziweiReadingResourceError) || undefined
+                    (isQizhengPromptSource && qizhengRangeMode
+                      ? qizhengRangeError
+                      : isQimenLifetimePromptSource
+                        ? qimenLifetimeCalculation.error
+                        : ziweiReadingResourceError) || undefined
                   }
                   onRetryReadingResources={
-                    isQimenLifetimePromptSource
-                      ? reloadQimenLifetimeCalculation
-                      : reloadZiweiReadingResources
+                    isQizhengPromptSource && qizhengRangeMode
+                      ? qizhengRangeState.retry
+                      : isQimenLifetimePromptSource
+                        ? reloadQimenLifetimeCalculation
+                        : reloadZiweiReadingResources
                   }
                   historyKey={getChartChatHistoryContext(
-                    isQimenLifetimePromptSource
-                      ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
-                      : aiContextPrompt,
+                    isQizhengPromptSource && qizhengRangeMode
+                      ? `${aiContextPrompt}\n${readingSubject.id}`
+                      : isQimenLifetimePromptSource
+                        ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
+                        : aiContextPrompt,
                   )}
                   resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.qimenLifetimeStageModel}`}
                   externalInput={inspirationText}

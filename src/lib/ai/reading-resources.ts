@@ -14,6 +14,15 @@ import {
 } from 'mingyu-core/calendar';
 import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
 import { parseBaziReverseSource, formatBirthTimeInterval } from '../bazi-reverse-input';
+import {
+  executeQizhengBirthRangeWorker,
+  generateQizhengBirthRange,
+  hasQizhengBirthRangeSource,
+  isQizhengBirthRangeSource,
+} from '../qizheng-birth-range';
+import { formatQizhengBirthRangePrompt } from '../qizheng-birth-range-prompt';
+import { buildMetaphysicsPrompt } from '../metaphysics-prompt';
+import type { QizhengBirthRange, QizhengInput } from 'mingyu-core/qizheng';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -295,6 +304,14 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
     ],
   },
 };
+
+const QIZHENG_BIRTH_RANGE_FLOW_FIELDS = [
+  'flowYear',
+  'flowMonth',
+  'flowDay',
+  'flowHour',
+  'flowMinute',
+] as const;
 
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -992,6 +1009,31 @@ function assertQizhengResult(
       const resultField = field.replace('flow', '').toLowerCase();
       assertStructuredField(`qi-zheng.${field}`, calculationInput[field], flow[resultField]);
     }
+  }
+}
+
+function assertQizhengBirthRangeResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  source: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !Array.isArray(result.branches) || result.branches.length === 0) {
+    throw new Error('补算未返回完整七政四余出生区间。');
+  }
+  const resultSource = result.source;
+  if (!record(resultSource)) throw new Error('补算返回的七政出生区间缺少机器范围。');
+  for (const field of ['startTimestamp', 'endTimestamp', 'endExclusive']) {
+    assertStructuredField(`qi-zheng.birthRange.${field}`, source[field], resultSource[field]);
+  }
+  const branch = result.branches[0];
+  if (!record(branch) || !record(branch.representative)) {
+    throw new Error('补算返回的七政出生区间缺少代表盘。');
+  }
+  const context = branch.representative.calculationContext;
+  if (!record(context)) throw new Error('补算返回的七政出生区间缺少计算口径。');
+  for (const field of ['latitude', 'longitude']) {
+    assertStructuredField(`qi-zheng.birthRange.${field}`, locked[field], context[field]);
   }
 }
 
@@ -1762,10 +1804,30 @@ export async function executeReadingAction(
       usable: false,
     };
   }
+  const birthTimeRanges = subject?.range.birthTimeRanges;
+  const rawBirthTimeRange = record(birthTimeRanges) ? birthTimeRanges[target] : undefined;
+  const birthTimeRange = record(rawBirthTimeRange)
+    ? parseBaziReverseSource(JSON.stringify(rawBirthTimeRange))
+    : null;
+  let qizhengBirthRangeSource: typeof birthTimeRange = null;
+  if (action.method === 'qi-zheng' && hasQizhengBirthRangeSource(rawBirthTimeRange)) {
+    if (!birthTimeRange || !isQizhengBirthRangeSource(birthTimeRange)) {
+      throw new Error('七政四余出生区间来源无效，不能退回单点补算。');
+    }
+    qizhengBirthRangeSource = birthTimeRange;
+  }
   const requestInput = { ...(calculationInput ?? action.input) };
   if (action.method === 'astrolabe' && requestInput.astrolabeScope === undefined) {
     requestInput.astrolabeScope = 'yearly';
     requestInput.astrolabeScopeDate ??= getDefaultAstrolabeScopeDate('yearly');
+  }
+  if (qizhengBirthRangeSource) {
+    const flowField = QIZHENG_BIRTH_RANGE_FLOW_FIELDS.find((field) =>
+      Object.hasOwn(requestInput, field),
+    );
+    if (flowField) {
+      throw new Error(`七政四余出生区间只支持本命，不能包含${flowField}字段。`);
+    }
   }
   const requestLocked = Object.fromEntries(
     Object.entries(locked ?? {}).filter(([key]) => !key.startsWith('_')),
@@ -1785,7 +1847,30 @@ export async function executeReadingAction(
     delete calculationRequest.timeIndex;
   }
   let data: Record<string, unknown>;
-  if (action.method === 'qimen-lifetime' && typeof Worker !== 'undefined') {
+  let qizhengBirthRangeResult: QizhengBirthRange | undefined;
+  if (qizhengBirthRangeSource) {
+    const {
+      question: _question,
+      responseMode: _responseMode,
+      topicId: _topicId,
+      subtopicId: _subtopicId,
+      promptScope: _promptScope,
+      promptMode: _promptMode,
+      schools: _schools,
+      ...qizhengInputRecord
+    } = calculationRequest;
+    const qizhengInput = qizhengInputRecord as unknown as QizhengInput;
+    const question = typeof requestInput.question === 'string' ? requestInput.question.trim() : '';
+    qizhengBirthRangeResult =
+      typeof Worker !== 'undefined'
+        ? await executeQizhengBirthRangeWorker(qizhengInput, qizhengBirthRangeSource, signal)
+        : generateQizhengBirthRange(qizhengInput, qizhengBirthRangeSource, { signal });
+    const rangeFacts = formatQizhengBirthRangePrompt(qizhengBirthRangeResult);
+    const prompt = question
+      ? buildMetaphysicsPrompt(rangeFacts, question, { method: 'qizheng' })
+      : rangeFacts;
+    data = { prompt, result: qizhengBirthRangeResult };
+  } else if (action.method === 'qimen-lifetime' && typeof Worker !== 'undefined') {
     const question =
       typeof calculationRequest.question === 'string' ? calculationRequest.question.trim() : '';
     if (!question) throw new Error('缺少必填字段：question。');
@@ -1809,14 +1894,26 @@ export async function executeReadingAction(
     action.method === 'huangji' ||
     action.method === 'wuyun'
   ) {
-    verifyStructuredCalculation(action.method, data, locked ?? {}, requestInput);
+    if (qizhengBirthRangeResult) {
+      assertQizhengBirthRangeResult(data, locked ?? {}, qizhengBirthRangeSource!);
+    } else {
+      verifyStructuredCalculation(action.method, data, locked ?? {}, requestInput);
+    }
   }
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
-  const birthTimeRanges = subject?.range.birthTimeRanges;
-  const birthTimeRange = record(birthTimeRanges)
-    ? parseBaziReverseSource(JSON.stringify(birthTimeRanges[target]))
-    : null;
+  if (qizhengBirthRangeResult) {
+    return {
+      key: '',
+      title: buildCalculationResourceTitle(action.method, target, locked, requestInput, data),
+      text: data.prompt,
+      usable: true,
+      structured: {
+        ...qizhengBirthRangeResult,
+        birthTimeRange: birthTimeRange!,
+      },
+    };
+  }
   const intervalText = birthTimeRange
     ? `【出生时间范围】\n${formatBirthTimeInterval(birthTimeRange, target === 'partner' ? '对方出生时间' : '本人出生时间')}`
     : '';
