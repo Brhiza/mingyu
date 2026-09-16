@@ -321,7 +321,9 @@ export function buildReadingSubject(
 
 function readDivinationDateParts(value: unknown) {
   if (typeof value !== 'string') return undefined;
-  const match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?/u);
+  const match = value.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/u,
+  );
   if (!match) return undefined;
   return {
     year: Number(match[1]),
@@ -329,6 +331,7 @@ function readDivinationDateParts(value: unknown) {
     day: Number(match[3]),
     ...(match[4] === undefined ? {} : { hour: Number(match[4]) }),
     ...(match[5] === undefined ? {} : { minute: Number(match[5]) }),
+    ...(match[6] === undefined ? {} : { second: Number(match[6]) }),
   };
 }
 

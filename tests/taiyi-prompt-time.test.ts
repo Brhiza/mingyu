@@ -10,8 +10,8 @@ test('太乙月日时计正文保留实际东八区起局时刻，与外层当�
     ['hour', '时计'],
   ] as const) {
     const result = generateTaiyi({ scope, date: new Date('2026-07-11T06:35:00Z') });
-    assert.equal(result.dateTime, '2026-07-11 14:35');
-    const target = `分析目标：2026-07-11 14:35（东八区）起局的${label}盘。`;
+    assert.equal(result.dateTime, '2026-07-11 14:35:00');
+    const target = `分析目标：2026-07-11 14:35:00（东八区）起局的${label}盘。`;
     assert.ok(result.prompt.includes(target));
     const prompt = buildMetaphysicsPrompt(result.prompt, '请分析此盘。', {
       method: 'taiyi',

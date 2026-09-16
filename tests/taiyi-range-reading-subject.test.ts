@@ -78,7 +78,8 @@ test('太乙阅读主题保留完整区间来源与每个分支，而非只有�
   assert.equal(taiyiRange.branches[0].data.yinYang, '阳遁');
   assert.equal(taiyiRange.branches[1].data.yinYang, '阴遁');
   // 太乙结果的展示时间精确到分钟，区间边界仍由毫秒时间戳和局面事实表达。
-  assert.equal(taiyiRange.branches[0].data.dateTime, taiyiRange.branches[1].data.dateTime);
+  assert.equal(taiyiRange.branches[0].data.dateTime, '2026-06-21 16:24:29');
+  assert.equal(taiyiRange.branches[1].data.dateTime, '2026-06-21 16:24:30');
   assert.equal(taiyiRange.branches[0].endTimestamp, taiyiRange.branches[1].startTimestamp);
 });
 
@@ -112,9 +113,19 @@ test('太乙阅读主题指纹和恢复会包含次段变化', () => {
   assert.equal((restored?.range.taiyiRange as { branches: unknown[] }).branches.length, 2);
 });
 
-test('没有太乙区间的历史主题继续保留单时刻兼容形态', () => {
+test('没有太乙区间的新主题保留秒级目标时刻', () => {
   const subject = buildDivinationReadingSubject(emptyDraft, buildTaiyiSession(false));
   assert.ok(subject);
-  assert.equal(subject?.range.taiyiDateTime, '2026-06-21 16:24');
+  assert.equal(subject?.range.taiyiDateTime, '2026-06-21 16:24:29');
+  assert.equal((subject?.range.taiyiTarget as { second: number }).second, 29);
   assert.equal(subject?.range.taiyiRange, undefined);
+});
+
+test('旧太乙分钟记录继续恢复原有精度', () => {
+  const session = buildTaiyiSession(false);
+  session.data = { ...session.data, dateTime: '2026-06-21 16:24' } as typeof session.data;
+  const subject = buildDivinationReadingSubject(emptyDraft, session);
+  assert.ok(subject);
+  assert.equal(subject.range.taiyiDateTime, '2026-06-21 16:24');
+  assert.equal((subject.range.taiyiTarget as { second?: number }).second, undefined);
 });
