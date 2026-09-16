@@ -25,6 +25,8 @@ export interface PatternStemEvidence {
   rootType: '本根' | '同类根' | '无根';
   rootPositions: string[];
   clashedRootPositions: string[];
+  /** 直接六冲的实际来源柱位与地支；不把受冲根来源误当成冲方。 */
+  clashSourcePositions?: string[];
 }
 
 export interface PatternInteractionEvidence {
@@ -560,24 +562,29 @@ function evaluatePath(
   const targetGroup = getGodGroup(targetGods, observed, pillars);
   const source = sourceGroup.visible;
   const target = targetGroup.visible;
-  const positionEvidence = getPathPositionEvidence(source, target);
   const createResult = (
     status: PatternConditionStatus,
     detail: string,
     sourceItems: ObservedStem[] = sourceGroup.entries,
     targetItems: ObservedStem[] = targetGroup.entries,
-  ): PatternPathEvaluation => ({
-    key,
-    label,
-    status,
-    source: sourceItems.map(formatObserved),
-    target: targetItems.map(formatObserved),
-    sourceStems: sourceItems.map((item) => item.stem),
-    targetStems: targetItems.map((item) => item.stem),
-    position: positionEvidence.position,
-    positionPairs: positionEvidence.pairs,
-    detail,
-  });
+  ): PatternPathEvaluation => {
+    const positionEvidence = getPathPositionEvidence(
+      sourceItems.filter((item) => item.placement === '透干'),
+      targetItems.filter((item) => item.placement === '透干'),
+    );
+    return {
+      key,
+      label,
+      status,
+      source: sourceItems.map(formatObserved),
+      target: targetItems.map(formatObserved),
+      sourceStems: sourceItems.map((item) => item.stem),
+      targetStems: targetItems.map((item) => item.stem),
+      position: positionEvidence.position,
+      positionPairs: positionEvidence.pairs,
+      detail,
+    };
+  };
 
   if (!sourceGroup.entries.length || !targetGroup.entries.length) {
     return createResult(
@@ -585,42 +592,41 @@ function evaluatePath(
       `${label}缺少${!sourceGroup.entries.length ? '来源' : '作用对象'}；仅凭未出现的十神不能认定制化。`,
     );
   }
-  if (!source.length || !target.length) {
+  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
+  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
+  const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const sourceUncertain = sourceRoots.some(
+    ({ root }) =>
+      root.rooted &&
+      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+  );
+  const targetUncertain = targetRoots.some(
+    ({ root }) =>
+      root.rooted &&
+      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+  );
+  const sourceFailed = source.length > 0 && !rootedSource.length && !sourceUncertain;
+  const targetFailed = target.length > 0 && !rootedTarget.length && !targetUncertain;
+  if ((!source.length || !target.length) && !sourceFailed && !targetFailed) {
     return createResult(
       '资料不足',
       `${label}的${!source.length ? '来源' : '作用对象'}仅藏不透，位置条件不足，不能认定有效作用。`,
     );
   }
-
-  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
-  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
-  const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
-  const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   if (!rootedSource.length || !rootedTarget.length) {
-    const sourceUncertain = sourceRoots.some(
-      ({ root }) =>
-        root.rooted &&
-        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
-    );
-    const targetUncertain = targetRoots.some(
-      ({ root }) =>
-        root.rooted &&
-        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
-    );
-    const sourceFailed = !rootedSource.length && !sourceUncertain;
-    const targetFailed = !rootedTarget.length && !targetUncertain;
     // 两端根气是同时成立的必要条件；任一端明确失效便不能由另一端待核转为未定。
     const status: PatternConditionStatus = sourceFailed || targetFailed ? '不满足' : '资料不足';
     return createResult(
       status,
-      `${label}要求双方有稳定根气；${!rootedSource.length ? '来源无稳定根' : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? '作用对象无稳定根' : ''}。${[
+      `${label}要求双方有稳定根气；${!rootedSource.length ? (source.length ? '来源无稳定根' : '来源仅藏不透') : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? (target.length ? '作用对象无稳定根' : '作用对象仅藏不透') : ''}。${[
         ...sourceRoots.filter(({ root }) => !root.actionable),
         ...targetRoots.filter(({ root }) => !root.actionable),
       ]
         .map(({ item, root }) => describeRootLimitation(item, root))
         .join('；')}`,
-      source,
-      target,
+      source.length ? source : sourceGroup.entries,
+      target.length ? target : targetGroup.entries,
     );
   }
 
