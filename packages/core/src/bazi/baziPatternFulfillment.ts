@@ -3,6 +3,7 @@ import { TIAN_GAN_HE } from '../ganzhi/relations';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import type { HarmonyTransformProfile } from '../types/analysis';
 import type { Pillars } from './baziTypes';
+import { collectSameElementRootFacts, type SameElementRootFact } from './baziRootFacts';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
@@ -127,6 +128,7 @@ interface RootInfo {
   rootType: PatternStemEvidence['rootType'];
   rootPositions: string[];
   clashedRootPositions: string[];
+  clashSourcePositions: string[];
 }
 
 interface GodGroup {
@@ -223,16 +225,14 @@ function formatPathPosition(evidence: PathPositionEvidence): string {
   return `${evidence.position}（${evidence.pairs.join('；')}）`;
 }
 
-function formatRootPosition(item: ObservedStem): string {
-  return `${PILLAR_NAMES[item.pillar]}${item.branch}藏${item.stem}${item.hiddenRole ? `（${item.hiddenRole}）` : ''}`;
+function formatRootFactPosition(root: SameElementRootFact): string {
+  return (
+    PILLAR_NAMES[root.position] + root.branch + '藏' + root.stem + '（' + root.hiddenRole + '）'
+  );
 }
 
-function isBranchClashed(branch: string, pillars: Pillars, ownPillar: PillarPosition): boolean {
-  const clash = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
-  return Boolean(
-    clash &&
-    POSITIONS.some((position) => position !== ownPillar && pillars[position].zhi === clash),
-  );
+function formatClashSourcePosition(source: SameElementRootFact['clashSources'][number]): string {
+  return PILLAR_NAMES[source.position] + source.branch;
 }
 
 const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, number> = {
@@ -241,7 +241,9 @@ const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, numb
   余气: 1,
 };
 
-function resolveRootQuality(roots: ObservedStem[]): RootInfo['rootQuality'] {
+function resolveRootQuality(
+  roots: Array<{ hiddenRole?: PatternStemEvidence['hiddenRole'] }>,
+): RootInfo['rootQuality'] {
   if (!roots.length) return '无根';
   return roots.reduce<Exclude<RootInfo['rootQuality'], '无根'>>((best, root) => {
     const quality = root.hiddenRole ?? '余气';
@@ -262,19 +264,25 @@ function getMonthPrincipalControl(item: ObservedStem, pillars: Pillars): string 
   return `月令${pillars.month.zhi}本气${principal}（${principalWuxing}）克${item.stem}（${itemWuxing}）`;
 }
 
-function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pillars): RootInfo {
+function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const itemWuxing = getWuxing(item.stem);
-  const roots = observed.filter(
-    (candidate) => candidate.placement === '藏干' && getWuxing(candidate.stem) === itemWuxing,
-  );
+  if (itemWuxing === '未知') throw new Error(`根气天干五行无效：${item.stem}`);
+  const hiddenStems = {
+    year: HIDDEN_STEMS[pillars.year.zhi],
+    month: HIDDEN_STEMS[pillars.month.zhi],
+    day: HIDDEN_STEMS[pillars.day.zhi],
+    hour: HIDDEN_STEMS[pillars.hour.zhi],
+  };
+  const roots = collectSameElementRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
   const exactRoots = roots.filter((candidate) => candidate.stem === item.stem);
-  const rootPositions = roots.map(formatRootPosition);
+  const rootPositions = roots.map(formatRootFactPosition);
   const clashedRootPositions = roots
-    .filter((candidate) => isBranchClashed(candidate.branch, pillars, candidate.pillar))
-    .map(formatRootPosition);
-  const stableRoots = roots.filter(
-    (candidate) => !isBranchClashed(candidate.branch, pillars, candidate.pillar),
-  );
+    .filter((candidate) => candidate.clashSources.length > 0)
+    .map(formatRootFactPosition);
+  const clashSourcePositions = [
+    ...new Set(roots.flatMap((root) => root.clashSources.map(formatClashSourcePosition))),
+  ];
+  const stableRoots = roots.filter((candidate) => candidate.stable);
   const rootQuality = resolveRootQuality(stableRoots.length ? stableRoots : roots);
   const stable = stableRoots.some((candidate) => candidate.hiddenRole !== '余气');
   const monthPrincipalControl = getMonthPrincipalControl(item, pillars);
@@ -288,6 +296,7 @@ function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pill
     rootType: exactRoots.length ? '本根' : roots.length ? '同类根' : '无根',
     rootPositions,
     clashedRootPositions,
+    clashSourcePositions,
   };
 }
 
@@ -300,8 +309,8 @@ function getGodGroup(
   const visible = entries.filter((item) => item.placement === '透干');
   const hidden = entries.filter((item) => item.placement === '藏干');
   const rootInfos = visible.length
-    ? visible.map((item) => getRootInfo(item, observed, pillars))
-    : hidden.map((item) => getRootInfo(item, observed, pillars));
+    ? visible.map((item) => getRootInfo(item, pillars))
+    : hidden.map((item) => getRootInfo(item, pillars));
   return {
     entries,
     visible,
@@ -311,12 +320,8 @@ function getGodGroup(
   };
 }
 
-function toStemEvidence(
-  item: ObservedStem,
-  observed: ObservedStem[],
-  pillars: Pillars,
-): PatternStemEvidence {
-  const root = getRootInfo(item, observed, pillars);
+function toStemEvidence(item: ObservedStem, pillars: Pillars): PatternStemEvidence {
+  const root = getRootInfo(item, pillars);
   return {
     stem: item.stem,
     tenGod: item.tenGod,
@@ -329,6 +334,9 @@ function toStemEvidence(
     rootType: root.rootType,
     rootPositions: root.rootPositions,
     clashedRootPositions: root.clashedRootPositions,
+    ...(root.clashSourcePositions.length
+      ? { clashSourcePositions: root.clashSourcePositions }
+      : {}),
   };
 }
 
@@ -364,7 +372,6 @@ function isStemBlocked(item: ObservedStem, profiles: HarmonyTransformProfile[]):
 function assessGroupUsability(
   label: string,
   group: GodGroup,
-  observed: ObservedStem[],
   pillars: Pillars,
   harmonyProfiles: HarmonyTransformProfile[],
 ): GroupUsability {
@@ -379,7 +386,7 @@ function assessGroupUsability(
 
   const roots = group.visible.map((item) => ({
     item,
-    root: getRootInfo(item, observed, pillars),
+    root: getRootInfo(item, pillars),
   }));
   const stable = roots.filter(({ root }) => root.actionable);
   const available = stable.filter(({ item }) => !isStemBlocked(item, harmonyProfiles));
@@ -477,11 +484,7 @@ function formatGroup(group: GodGroup): string {
   return group.entries.length ? group.entries.map(formatObserved).join('、') : '未见';
 }
 
-function buildRootEvidence(
-  groups: readonly GodGroup[],
-  observed: ObservedStem[],
-  pillars: Pillars,
-): PatternStemEvidence[] {
+function buildRootEvidence(groups: readonly GodGroup[], pillars: Pillars): PatternStemEvidence[] {
   const keys = new Set<string>();
   return groups
     .flatMap((group) => group.entries)
@@ -491,7 +494,7 @@ function buildRootEvidence(
       keys.add(key);
       return true;
     })
-    .map((item) => toStemEvidence(item, observed, pillars));
+    .map((item) => toStemEvidence(item, pillars));
 }
 
 function buildGroupCondition(
@@ -516,7 +519,7 @@ function buildGroupCondition(
   }
   if (!group.stable) {
     if (requireVisible && pillars && observed.length) {
-      const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
+      const usability = assessGroupUsability(label, group, pillars, harmonyProfiles);
       return {
         key,
         status: usability.status,
@@ -526,7 +529,7 @@ function buildGroupCondition(
     return { key, status: '资料不足', detail: `${label}根气层次不足以直接视为稳定作用。` };
   }
   if (requireVisible && pillars && observed.length) {
-    const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
+    const usability = assessGroupUsability(label, group, pillars, harmonyProfiles);
     if (!usability.effective) {
       return {
         key,
@@ -592,8 +595,8 @@ function evaluatePath(
       `${label}缺少${!sourceGroup.entries.length ? '来源' : '作用对象'}；仅凭未出现的十神不能认定制化。`,
     );
   }
-  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
-  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
+  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, pillars) }));
+  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, pillars) }));
   const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   const sourceUncertain = sourceRoots.some(
@@ -789,7 +792,6 @@ function buildMonthPrincipalControlFact(
   key: string,
   label: string,
   visible: ObservedStem[],
-  observed: ObservedStem[],
   pillars: Pillars,
   dayMaster: string,
   getTenGod: GetTenGodFn,
@@ -800,7 +802,7 @@ function buildMonthPrincipalControlFact(
   if (!['正财', '偏财'].includes(principalGod)) return undefined;
 
   const controlled = visible
-    .map((item) => ({ item, root: getRootInfo(item, observed, pillars) }))
+    .map((item) => ({ item, root: getRootInfo(item, pillars) }))
     .filter(({ root }) => root.monthPrincipalControl);
   if (!controlled.length) return undefined;
 
@@ -887,19 +889,12 @@ function evaluateStatusForOrdinaryPattern(params: {
     targetCondition,
     breakerGroups,
     basis,
-    observed,
     pillars,
     harmonyProfiles,
     conditionFacts,
   } = params;
   const assessedBreakers = breakerGroups.map((item, index) => {
-    const usability = assessGroupUsability(
-      item.label,
-      item.group,
-      observed,
-      pillars,
-      harmonyProfiles,
-    );
+    const usability = assessGroupUsability(item.label, item.group, pillars, harmonyProfiles);
     conditionFacts.push({
       key: `pattern.breaker.${index + 1}`,
       status: usability.status,
@@ -1256,7 +1251,6 @@ export function evaluatePatternFulfillment(
       'pattern.month-principal-control',
       '印星',
       targetGroup.visible,
-      observed,
       pillars,
       dayMaster,
       getTenGod,
@@ -1330,7 +1324,6 @@ export function evaluatePatternFulfillment(
       'pattern.month-principal-control',
       '印星',
       sealGroup.visible,
-      observed,
       pillars,
       dayMaster,
       getTenGod,
@@ -1524,7 +1517,7 @@ export function evaluatePatternFulfillment(
     getGodGroup(['食神', '伤官'], observed, pillars),
     getGodGroup(['比肩', '劫财'], observed, pillars),
   ];
-  const rootEvidence = buildRootEvidence(allGroups, observed, pillars);
+  const rootEvidence = buildRootEvidence(allGroups, pillars);
   rootEvidence.push(
     toStemEvidence(
       {
@@ -1534,7 +1527,6 @@ export function evaluatePatternFulfillment(
         branch: pillars.day.zhi,
         placement: '透干',
       },
-      observed,
       pillars,
     ),
   );

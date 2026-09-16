@@ -268,6 +268,8 @@ export interface RootAnalysis {
     branch: string;
     /** 根所承载的地支未被外支六冲时为 true；旧调用方省略时按历史兼容口径处理。 */
     stable?: boolean;
+    /** 直接六冲的实际来源柱位与地支；根事实仍保留，稳定性另列。 */
+    clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];
@@ -283,6 +285,8 @@ export interface SupportAnalysis {
     stem: string;
     /** 生扶证据有未被外支六冲的同类根时为 true；浮干或冲后支气保留事实但标 false。 */
     stable?: boolean;
+    /** 生扶证据涉及直接六冲时，记录实际来源柱位与地支。 */
+    clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];
@@ -297,6 +301,8 @@ export interface ConstraintAnalysis {
     stem: string;
     /** 透干克泄耗有未被外支六冲的同类根，或所载支气未受冲时为 true；浮干与冲后支气标 false。 */
     stable?: boolean;
+    /** 克泄耗证据涉及直接六冲时，记录实际来源柱位与地支。 */
+    clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];

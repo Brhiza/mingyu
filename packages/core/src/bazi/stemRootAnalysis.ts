@@ -15,12 +15,23 @@ import type {
   ExposedStemProfile,
 } from '../types/analysis';
 import { HIDDEN_STEMS } from './baziMappingsData';
-import { WUXING } from './baziTypes';
+import { WUXING, type Wuxing } from './baziTypes';
+import {
+  collectSameElementRootFacts,
+  type RootClashSource,
+  type RootPillarPosition,
+} from './baziRootFacts';
 import { assertEarthlyBranch, assertHeavenlyStem, getSeasonStatus } from './baziUtils';
 
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'];
+const ROOT_POSITION_INDEX: Record<RootPillarPosition, number> = {
+  year: 0,
+  month: 1,
+  day: 2,
+  hour: 3,
+};
 
-const STEM_ELEMENT: Record<string, string> = {
+const STEM_ELEMENT: Record<string, Wuxing> = {
   甲: '木',
   乙: '木',
   丙: '火',
@@ -44,12 +55,12 @@ function assertPillarInputs(pillars: Array<{ gan: string; zhi: string }>): void 
   });
 }
 
-function resolveWuxing(getWuxing: (s: string) => string, value: string, label: string): string {
+function resolveWuxing(getWuxing: (s: string) => string, value: string, label: string): Wuxing {
   const wuxing = getWuxing(value);
   if (!(WUXING as readonly string[]).includes(wuxing)) {
     throw new Error(`${label}五行无效：${wuxing}`);
   }
-  return wuxing;
+  return wuxing as Wuxing;
 }
 
 function resolveTenGod(
@@ -64,6 +75,27 @@ function resolveTenGod(
   return tenGod;
 }
 
+function formatRootPosition(root: {
+  position: RootPillarPosition;
+  branch: string;
+  stem: string;
+  hiddenRole: string;
+}): string {
+  return (
+    PILLAR_LABELS[ROOT_POSITION_INDEX[root.position]] +
+    root.branch +
+    '藏' +
+    root.stem +
+    '（' +
+    root.hiddenRole +
+    '）'
+  );
+}
+
+function formatClashSource(source: RootClashSource): string {
+  return PILLAR_LABELS[ROOT_POSITION_INDEX[source.position]] + source.branch;
+}
+
 export function analyzeStemRootProfile(
   pillars: Array<{ gan: string; zhi: string }>,
   dayMaster: string,
@@ -75,29 +107,40 @@ export function analyzeStemRootProfile(
 
   const pillarNames = ['year', 'month', 'day', 'hour'];
   const items: VisibleStemRootItem[] = [];
+  const rootPillars = {
+    year: pillars[0],
+    month: pillars[1],
+    day: pillars[2],
+    hour: pillars[3],
+  };
+  const hiddenStems = {
+    year: HIDDEN_STEMS[pillars[0].zhi],
+    month: HIDDEN_STEMS[pillars[1].zhi],
+    day: HIDDEN_STEMS[pillars[2].zhi],
+    hour: HIDDEN_STEMS[pillars[3].zhi],
+  };
+  const resolveStemElement = (value: string): Wuxing =>
+    STEM_ELEMENT[value] ?? resolveWuxing(getWuxing, value, '藏干');
 
   pillars.forEach((p, idx) => {
     const visibleStem = p.gan;
     const visibleElement =
-      STEM_ELEMENT[visibleStem] || resolveWuxing(getWuxing, visibleStem, '透干');
-    let hasSameStem = false;
-    let hasSameElement = false;
-
-    pillars.forEach((rootPillar) => {
-      const stems = HIDDEN_STEMS[rootPillar.zhi];
-      if (!stems) {
-        throw new Error(`藏干数据缺失：${rootPillar.zhi}`);
-      }
-      stems.forEach((stem) => {
-        const isSameStem = stem === visibleStem;
-        const isSameElement = STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
-        if (isSameStem) {
-          hasSameStem = true;
-        } else if (isSameElement) {
-          hasSameElement = true;
-        }
-      });
-    });
+      STEM_ELEMENT[visibleStem] ?? resolveWuxing(getWuxing, visibleStem, '透干');
+    const rootFacts = collectSameElementRootFacts(
+      rootPillars,
+      hiddenStems,
+      visibleElement,
+      resolveStemElement,
+    );
+    const hasSameStem = rootFacts.some((root) => root.stem === visibleStem);
+    const hasSameElement = rootFacts.some((root) => root.stem !== visibleStem);
+    const rootPositions = rootFacts.map(formatRootPosition);
+    const clashedRootPositions = rootFacts
+      .filter((root) => root.clashSources.length > 0)
+      .map(formatRootPosition);
+    const clashSourcePositions = [
+      ...new Set(rootFacts.flatMap((root) => root.clashSources.map(formatClashSource))),
+    ];
 
     const status: VisibleStemRootItem['status'] = hasSameStem
       ? '有本根'
@@ -116,6 +159,9 @@ export function analyzeStemRootProfile(
           : status === '有同气根'
             ? '四柱地支见同气根支撑'
             : '无根漂浮',
+      rootPositions,
+      clashedRootPositions,
+      ...(clashSourcePositions.length ? { clashSourcePositions } : {}),
     });
   });
 
