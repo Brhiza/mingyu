@@ -332,6 +332,19 @@ function readDivinationDateParts(value: unknown) {
   };
 }
 
+function buildTaiyiRangeSnapshot(range: NonNullable<DivinationSession['taiyiRange']>) {
+  return {
+    source: { ...range.source },
+    status: range.status,
+    branches: range.branches.map((branch) => ({
+      startTimestamp: branch.startTimestamp,
+      endTimestamp: branch.endTimestamp,
+      endExclusive: branch.endExclusive,
+      data: branch.data,
+    })),
+  };
+}
+
 export function buildDivinationReadingSubject(
   _draft: DivinationDraft,
   session: DivinationSession,
@@ -347,11 +360,17 @@ export function buildDivinationReadingSubject(
 
   if (session.method === 'taiyi') {
     const result = session.data as TaiyiResult;
-    const dateParts = readDivinationDateParts(result.dateTime);
     lockedInputs.taiyi = { scope: result.scope };
     range.taiyiScope = result.scope;
-    range.taiyiDateTime = result.dateTime;
-    if (dateParts) range.taiyiTarget = dateParts;
+    if (session.taiyiRange) {
+      // 区间主题的时间身份由完整快照表达，避免把首段起点误作唯一目标。
+      range.taiyiRange = buildTaiyiRangeSnapshot(session.taiyiRange);
+    } else {
+      // 旧阅读主题继续保留单时刻字段，兼容历史记录与明确目标补算。
+      range.taiyiDateTime = result.dateTime;
+      const dateParts = readDivinationDateParts(result.dateTime);
+      if (dateParts) range.taiyiTarget = dateParts;
+    }
   } else if (session.method === 'huangji') {
     const result = session.data as HuangjiJingshiResult;
     const mode = result.input?.mode ?? '年月日时';

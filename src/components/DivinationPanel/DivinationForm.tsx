@@ -231,9 +231,14 @@ function PromptSelectionFields({
     value,
     label: PROMPT_SCOPE_LABELS[value] ?? value,
   }));
-  const selectedScope = scopeOptions.some((item) => item.value === draft.promptScope)
-    ? draft.promptScope!
-    : (capability?.defaultScope ?? scopeOptions[0]?.value ?? 'event');
+  const selectedScope =
+    draft.method === 'taiyi'
+      ? { year: 'yearly', month: 'monthly', day: 'daily', hour: 'hourly' }[
+          draft.taiyiScope ?? 'year'
+        ]
+      : scopeOptions.some((item) => item.value === draft.promptScope)
+        ? draft.promptScope!
+        : (capability?.defaultScope ?? scopeOptions[0]?.value ?? 'event');
   const topicSelectOptions = topicOptions.map((item) => ({ value: item.id, label: item.label }));
   const subtopicSelectOptions = subtopicOptions.map((item) => ({
     value: item.id,
@@ -278,13 +283,30 @@ function PromptSelectionFields({
         ) : null}
         {scopeOptions.length > 1 ? (
           <div className="form-item">
-            <label htmlFor="divination-prompt-scope-select">分析范围</label>
+            <label htmlFor="divination-prompt-scope-select">
+              {draft.method === 'taiyi' ? '太乙计式' : '分析范围'}
+            </label>
             <div className="divination-select-shell">
               <DropdownSelect
                 id="divination-prompt-scope-select"
                 value={selectedScope}
                 options={scopeOptions}
-                onChange={(value) => updateDraft('promptScope', value)}
+                onChange={(value) => {
+                  updateDraft('promptScope', value);
+                  if (draft.method === 'taiyi') {
+                    const scopes = {
+                      yearly: 'year',
+                      monthly: 'month',
+                      daily: 'day',
+                      hourly: 'hour',
+                    } as const;
+                    updateDraft('taiyiScope', scopes[value as keyof typeof scopes]);
+                    if (value === 'yearly' && draft.divinationTimeMode === 'pillars') {
+                      updateDraft('divinationTimeMode', 'current');
+                      updateDraft('divinationReverseSource', null);
+                    }
+                  }
+                }}
               />
             </div>
           </div>

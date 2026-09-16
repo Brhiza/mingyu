@@ -4,6 +4,7 @@ import { formatXiaoliurenRangeInterval } from './xiaoliuren-range';
 import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
 import { formatMeihuaRangeInterval } from './meihua-range';
+import { formatTaiyiRangeInterval } from './taiyi-range';
 import {
   formatLiuyaoRangeInterval,
   formatLiuyaoRangeBackground,
@@ -14,6 +15,20 @@ import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from './qimen-ran
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
+  if (session.method === 'taiyi' && session.taiyiRange) {
+    return {
+      title: '太乙时段排盘结果',
+      tags: [
+        session.taiyiRange.status === 'stable'
+          ? '区间局式稳定'
+          : `区间分为${session.taiyiRange.branches.length}段`,
+      ],
+      lines: session.taiyiRange.branches.map(
+        (branch) =>
+          `${formatTaiyiRangeInterval(branch.startTimestamp, branch.endTimestamp)}：${branch.data.ganZhi}，${branch.data.yinYang}第${branch.data.bureau}局；太乙${branch.data.taiyiPosition}，文昌${branch.data.wenChangPosition}；主算${branch.data.lordCount}，客算${branch.data.guestCount}，定算${branch.data.setCount}`,
+      ),
+    };
+  }
   if (session.method === 'liuyao' && session.liuyaoRange) {
     return {
       title: '六爻时段排盘结果',
