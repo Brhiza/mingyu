@@ -1,5 +1,9 @@
 import type { AlmanacParticipantInput } from '@/types/divination';
-import type { BaziReverseResolvedInput, BaziReverseSource } from '@/lib/bazi-reverse-input';
+import {
+  isValidBaziReverseSource,
+  type BaziReverseResolvedInput,
+  type BaziReverseSource,
+} from '@/lib/bazi-reverse-input';
 
 export type DivinationTimeMode = 'current' | 'custom' | 'pillars';
 export type AlmanacParticipantInputMode = 'solar' | 'lunar' | 'pillars';
@@ -11,28 +15,7 @@ export type DivinationAlmanacParticipant = AlmanacParticipantInput & {
 };
 
 export function isBaziReverseSource(value: unknown): value is BaziReverseSource {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as {
-    pillars?: Partial<BaziReverseSource['pillars']>;
-    intervalStart?: unknown;
-    intervalEnd?: unknown;
-  };
-  const pillars = candidate.pillars;
-  return Boolean(
-    pillars &&
-    typeof pillars.year === 'string' &&
-    pillars.year.length > 0 &&
-    typeof pillars.month === 'string' &&
-    pillars.month.length > 0 &&
-    typeof pillars.day === 'string' &&
-    pillars.day.length > 0 &&
-    typeof pillars.hour === 'string' &&
-    pillars.hour.length > 0 &&
-    typeof candidate.intervalStart === 'string' &&
-    candidate.intervalStart.length > 0 &&
-    typeof candidate.intervalEnd === 'string' &&
-    candidate.intervalEnd.length > 0,
-  );
+  return isValidBaziReverseSource(value);
 }
 
 export function formatBaziReverseDate(
