@@ -25,7 +25,7 @@
 import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divination';
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
-import { getDivinationTime } from '../../../calendar/timeManager';
+import { getDivinationTime, TimeManager } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
 import {
@@ -266,6 +266,10 @@ export function generateQimen(
     timezoneOffsetMinutes,
     referenceDate,
   );
+  const solarSecond = TimeManager.getWallClockParts(
+    new Date(timestamp),
+    timezoneOffsetMinutes,
+  ).second;
   const { jieQi } = timeInfo;
   const termContext: QimenTermContext | undefined =
     timezoneOffsetMinutes === undefined
@@ -282,7 +286,16 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 2：定局数
   // ──────────────────────────────────────────────────────────────────────────
-  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod, termContext);
+  const jushuResult = getJushuForScope(
+    scope,
+    ganzhi,
+    {
+      ...timeInfo,
+      solar: { ...timeInfo.solar, second: solarSecond },
+    },
+    juMethod,
+    termContext,
+  );
   const { isYangDun, juShu, yuan } = jushuResult;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -531,7 +544,14 @@ function getJushuForScope(
   scope: QimenScope,
   ganzhi: { year: string; month: string; day: string; hour: string },
   timeInfo: {
-    solar: { year: number; month: number; day: number; hour?: number; minute?: number };
+    solar: {
+      year: number;
+      month: number;
+      day: number;
+      hour?: number;
+      minute?: number;
+      second?: number;
+    };
     jieQi: string;
   },
   juMethod: QimenJuMethod = 'chaibu',
@@ -571,6 +591,7 @@ function getJushuForScope(
             day: timeInfo.solar.day,
             hour: timeInfo.solar.hour,
             minute: timeInfo.solar.minute,
+            second: timeInfo.solar.second,
           },
         },
         juMethod,
