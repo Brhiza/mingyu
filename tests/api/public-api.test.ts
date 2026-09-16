@@ -14,6 +14,8 @@ import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateTaiyi } from 'mingyu-core/taiyi';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { buildAstrolabePeriodContext } from 'mingyu-core/divination/astrolabe-scope';
 import {
   assertPromptHasAnswerFramework,
   assertPromptHasSingleRole,
@@ -267,6 +269,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/period-events'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/calculate'));
@@ -758,6 +761,14 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     '亥',
   ]);
   assert.equal(divinationRequestProperties.customDate.format, 'date-time');
+  assert.equal(divinationRequestProperties.astrolabeIncludePeriodEvents.default, true);
+  assert.ok(body.data.paths['/divination/astrolabe/period-events']);
+  assert.deepEqual(body.data.components.schemas.AstrolabePeriodEventsRequest.required, [
+    'astrolabeScope',
+    'astrolabeScopeDate',
+    'astrolabePeriodRange',
+    'astrolabePeriodContext',
+  ]);
   assert.deepEqual(divinationRequestProperties.year, {
     type: 'integer',
     minimum: 1900,
@@ -4166,6 +4177,31 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
     );
     assert.match(evidence.promptText, /证据汇总：/);
   }
+
+  const withoutPeriodEvents = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '本人',
+      gender: '女',
+      year: 1995,
+      month: 5,
+      day: 20,
+      hour: 12,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+      question: '请看2028年的阶段重点。',
+      astrolabeScope: 'yearly',
+      astrolabeScopeDate: '2028',
+      astrolabeIncludePeriodEvents: false,
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(withoutPeriodEvents.response.status, 200);
+  assert.equal(withoutPeriodEvents.body.data.result.scopeEvidence.periodEvents, undefined);
+  assert.doesNotMatch(withoutPeriodEvents.body.data.prompt, /周期关键星象/);
 });
 
 test('公开 API 星盘范围事实在各 responseMode 中保持一致', async (context) => {
@@ -4243,6 +4279,78 @@ test('公开 API 星盘范围事实在各 responseMode 中保持一致', async (
     promptText: customText,
   });
   assert.ok(customRequest.body.data.prompt.includes(customText));
+});
+
+test('公开 API 星盘周期端点只返回紧凑事件批次并拒绝非法上下文', async () => {
+  const astrolabeData = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    second: '37',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+  });
+  const context = buildAstrolabePeriodContext(astrolabeData);
+  const base = {
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: '2028',
+    astrolabePeriodRange: { startDate: '2028-01-01', endDate: '2028-01-08' },
+    astrolabePeriodContext: context,
+  };
+  const first = await callApi('divination/astrolabe/period-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(base),
+  });
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.data.kind, 'astrolabe-period-batch');
+  assert.equal(first.body.data.scope, 'yearly');
+  assert.deepEqual(first.body.data.range, {
+    startDate: '2028-01-01',
+    endDate: '2028-01-08',
+    endExclusive: true,
+  });
+  assert.deepEqual(first.body.data.nextRange, {
+    startDate: '2028-01-08',
+    endDate: '2028-01-15',
+    endExclusive: true,
+  });
+  assert.deepEqual(first.body.data.parentRange, {
+    startDate: '2028-01-01',
+    endDate: '2029-01-01',
+    endExclusive: true,
+  });
+  assert.ok(Array.isArray(first.body.data.events));
+  assert.equal(first.body.data.periodEvents, undefined);
+  assert.equal(first.body.data.prompt, undefined);
+
+  const invalidContext = {
+    ...context,
+    points: [...context.points, context.points[0]],
+  };
+  const invalid = await callApi('divination/astrolabe/period-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, astrolabePeriodContext: invalidContext }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.match(invalid.body.error.message, /点位重复/);
+
+  const invalidRange = await callApi('divination/astrolabe/period-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...base,
+      astrolabePeriodRange: { startDate: '2028-12-20', endDate: '2029-01-20' },
+    }),
+  });
+  assert.equal(invalidRange.response.status, 400);
+  assert.match(invalidRange.body.error.message, /完整落在所选分析范围内|最多 31/);
 });
 
 test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {

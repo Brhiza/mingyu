@@ -5,7 +5,12 @@ import {
 import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-workflow';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
-import { getDefaultAstrolabeScopeDate } from '../astrolabe-scope';
+import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
+import {
+  buildAstrolabeFullScopePromptText,
+  getDefaultAstrolabeScopeDate,
+  type AstrolabeFullScopeContexts,
+} from '../astrolabe-scope';
 import { getAiApiEndpoint } from './stream-client';
 import {
   DEFAULT_CHINA_TIMEZONE_HOURS,
@@ -23,6 +28,15 @@ import {
 import { formatQizhengBirthRangePrompt } from '../qizheng-birth-range-prompt';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt';
 import type { QizhengBirthRange, QizhengFlowBirthRange, QizhengInput } from 'mingyu-core/qizheng';
+import {
+  buildAstrolabePeriodContext,
+  type AstrolabePeriodScopeMode,
+} from 'mingyu-core/divination/astrolabe-scope';
+import type { AstrolabeData } from 'mingyu-core/types';
+import {
+  fetchAstrolabePeriodCollection,
+  injectAstrolabePeriodPrompt,
+} from './astrolabe-batch-resources';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -1624,6 +1638,121 @@ async function fetchReadingData(
   }
 }
 
+type AstrolabePeriodTarget = {
+  scope: AstrolabePeriodScopeMode;
+  dateStr: string;
+};
+
+function isAstrolabePeriodScope(value: unknown): value is AstrolabePeriodScopeMode {
+  return value === 'yearly' || value === 'monthly' || value === 'daily';
+}
+
+function getAstrolabePeriodScopeLabel(scope: AstrolabePeriodScopeMode) {
+  return scope === 'yearly' ? '流年' : scope === 'monthly' ? '流月' : '流日';
+}
+
+function assertAstrolabeCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error('完整星盘行运日期必须使用 YYYY-MM-DD 格式。');
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (
+    date.getUTCFullYear() !== Number(match[1]) ||
+    date.getUTCMonth() + 1 !== Number(match[2]) ||
+    date.getUTCDate() !== Number(match[3])
+  ) {
+    throw new Error('完整星盘行运日期不是有效民用日期。');
+  }
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+function getAstrolabePeriodTargets(input: Record<string, unknown>): AstrolabePeriodTarget[] {
+  if (typeof input.astrolabeScopeText === 'string' && input.astrolabeScopeText.trim()) return [];
+  const scope = input.astrolabeScope;
+  if (scope === 'natal') return [];
+  if (scope === 'full') {
+    const referenceDate = input.astrolabeScopeDate;
+    if (typeof referenceDate !== 'string') throw new Error('完整星盘行运缺少参考日期。');
+    const { year, month, day } = assertAstrolabeCivilDate(referenceDate);
+    const dailyDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return [
+      { scope: 'yearly', dateStr: String(year) },
+      { scope: 'monthly', dateStr: `${year}-${String(month).padStart(2, '0')}` },
+      { scope: 'daily', dateStr: dailyDate },
+    ];
+  }
+  if (!isAstrolabePeriodScope(scope)) return [];
+  if (typeof input.astrolabeScopeDate !== 'string' || !input.astrolabeScopeDate.trim()) {
+    throw new Error('星盘行运缺少目标日期。');
+  }
+  return [{ scope, dateStr: input.astrolabeScopeDate.trim() }];
+}
+
+function replaceAstrolabePromptText(
+  data: Record<string, unknown>,
+  previousText: string,
+  nextText: string,
+) {
+  const prompt = data.prompt;
+  if (typeof prompt !== 'string') throw new Error('星盘补算未返回完整提示词。');
+  const index = prompt.indexOf(previousText);
+  if (index < 0) throw new Error('星盘完整提示词缺少对应范围资料，拒绝拼接不完整周期。');
+  data.prompt = `${prompt.slice(0, index)}${nextText}${prompt.slice(index + previousText.length)}`;
+}
+
+async function completeAstrolabePeriodData(
+  data: Record<string, unknown>,
+  calculationRequest: Record<string, unknown>,
+  signal?: AbortSignal,
+) {
+  const targets = getAstrolabePeriodTargets(calculationRequest);
+  if (!targets.length) return data;
+  const result = data.result;
+  if (!record(result)) throw new Error('星盘补算未返回结构化本命盘。');
+  const evidence = result.scopeEvidence;
+  if (!record(evidence)) throw new Error('星盘补算未返回结构化范围资料。');
+
+  const scopePrompt = () => {
+    if (calculationRequest.astrolabeScope === 'full' && record(evidence.contexts)) {
+      return buildAstrolabeFullScopePromptText(
+        evidence.contexts as unknown as AstrolabeFullScopeContexts,
+      ).trim();
+    }
+    if (typeof evidence.promptText !== 'string') throw new Error('星盘补算缺少范围提示资料。');
+    return evidence.promptText.trim();
+  };
+  const previousScopePrompt = scopePrompt();
+
+  const periodContext = buildAstrolabePeriodContext(result as unknown as AstrolabeData);
+  for (const target of targets) {
+    if (signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
+    const context =
+      calculationRequest.astrolabeScope === 'full'
+        ? record(evidence.contexts)
+          ? evidence.contexts[target.scope]
+          : undefined
+        : evidence;
+    if (!record(context) || typeof context.promptText !== 'string') {
+      throw new Error(
+        `星盘补算缺少${getAstrolabePeriodScopeLabel(target.scope)}范围资料，不能拼接周期事件。`,
+      );
+    }
+    const collection = await fetchAstrolabePeriodCollection({
+      scope: target.scope,
+      dateStr: target.dateStr,
+      periodContext,
+      signal,
+      fetchBatch: (input, batchSignal) =>
+        fetchReadingData('/divination/astrolabe/period-events', batchSignal, input),
+    });
+    const previousText = context.promptText;
+    const nextText = injectAstrolabePeriodPrompt(previousText, collection.promptText);
+    context.periodEvents = collection;
+    context.promptText = nextText;
+  }
+  replaceAstrolabePromptText(data, previousScopePrompt, scopePrompt());
+  return data;
+}
+
 function prepareCalculationInput(
   method: string,
   input: Record<string, unknown>,
@@ -1862,6 +1991,9 @@ export async function executeReadingAction(
   if (action.method === 'astrolabe' && calculationRequest.gender !== undefined) {
     calculationRequest.gender = toAstrolabeGender(calculationRequest.gender);
   }
+  if (action.method === 'astrolabe' && getAstrolabePeriodTargets(calculationRequest).length > 0) {
+    calculationRequest.astrolabeIncludePeriodEvents = false;
+  }
   if (
     (action.method === 'bazi' || action.method === 'ziwei') &&
     calculationRequest.useTrueSolarTime === true
@@ -1869,6 +2001,7 @@ export async function executeReadingAction(
     delete calculationRequest.timeIndex;
   }
   let data: Record<string, unknown>;
+  let astrolabeLocalComplete = false;
   let qizhengBirthRangeResult: QizhengBirthRange | QizhengFlowBirthRange | undefined;
   if (qizhengBirthRangeSource) {
     const {
@@ -1907,8 +2040,19 @@ export async function executeReadingAction(
       signal,
     );
     data = workerResult as unknown as Record<string, unknown>;
+  } else if (
+    action.method === 'astrolabe' &&
+    getAstrolabePeriodTargets(calculationRequest).length > 0 &&
+    typeof Worker !== 'undefined'
+  ) {
+    const workerResult = await executeAstrolabeReadingWorker(calculationRequest, signal);
+    data = workerResult as unknown as Record<string, unknown>;
+    astrolabeLocalComplete = true;
   } else {
     data = await fetchReadingData(path, signal, calculationRequest);
+  }
+  if (action.method === 'astrolabe' && !astrolabeLocalComplete) {
+    data = await completeAstrolabePeriodData(data, calculationRequest, signal);
   }
   if (
     locked ||

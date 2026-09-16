@@ -73,6 +73,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/divination/lenormand',
   'POST /api/v1/divination/lenormand/prompt',
   'POST /api/v1/divination/astrolabe',
+  'POST /api/v1/divination/astrolabe/period-events',
   'POST /api/v1/divination/astrolabe/prompt',
   'POST /api/v1/divination/astrolabe/synastry',
   'POST /api/v1/divination/astrolabe/synastry/prompt',

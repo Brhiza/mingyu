@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildAstrolabePeriodEventLayers,
+  buildAstrolabePeriodBatchResult,
+  buildAstrolabePeriodContext,
   buildAstrolabePeriodEvents,
+  buildAstrolabePeriodEventsFromContext,
   buildAstrolabeScopeContext,
   mergeAstrolabePeriodEvents,
   rankAstrolabeAspects,
@@ -98,6 +101,193 @@ test('流月应补齐内行星天象，流日应补齐月亮动态点', () => {
       (item) => item.dateTime.startsWith('2028-06-12') || item.dateTime.startsWith('2028-06-13'),
     ),
   );
+});
+
+test('流月相邻半开批次合并后与完整月份事件一致', () => {
+  const complete = buildAstrolabePeriodEvents(astrolabeData, 'monthly', {
+    year: 2028,
+    month: 6,
+    day: 15,
+  });
+  const first = buildAstrolabePeriodEvents(
+    astrolabeData,
+    'monthly',
+    { year: 2028, month: 6, day: 15 },
+    {
+      batch: {
+        start: { year: 2028, month: 6, day: 1 },
+        endExclusive: { year: 2028, month: 6, day: 16 },
+      },
+    },
+  );
+  const second = buildAstrolabePeriodEvents(
+    astrolabeData,
+    'monthly',
+    { year: 2028, month: 6, day: 15 },
+    {
+      batch: {
+        start: { year: 2028, month: 6, day: 16 },
+        endExclusive: { year: 2028, month: 7, day: 1 },
+      },
+    },
+  );
+
+  assert.deepEqual(first.batch?.range, {
+    startDate: '2028-06-01',
+    endDate: '2028-06-16',
+    endExclusive: true,
+  });
+  assert.deepEqual(first.batch?.nextRange, {
+    startDate: '2028-06-16',
+    endDate: '2028-07-01',
+    endExclusive: true,
+  });
+  assert.equal(second.batch?.nextRange, null);
+  assert.deepEqual(mergeAstrolabePeriodEvents([first.events, second.events]), complete.events);
+  assert.ok(
+    first.events.every(
+      (event) => event.dateTime >= '2028-06-01 00:00' && event.dateTime < '2028-06-16 00:00',
+    ),
+  );
+  assert.ok(
+    second.events.every(
+      (event) => event.dateTime >= '2028-06-16 00:00' && event.dateTime < '2028-07-01 00:00',
+    ),
+  );
+});
+
+test('跨夏令时的流年七日批次按全局采样网格逐事件等价', () => {
+  const newYorkData = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const target = { year: 2024, month: 7, day: 1 };
+  const complete = buildAstrolabePeriodEvents(newYorkData, 'yearly', target).events;
+  const context = buildAstrolabePeriodContext(newYorkData);
+  const batches = [];
+  const scopeStart = Date.UTC(2024, 0, 1);
+  const scopeEnd = Date.UTC(2025, 0, 1);
+  const day = 24 * 60 * 60 * 1000;
+
+  for (let cursor = scopeStart; cursor < scopeEnd; cursor += 7 * day) {
+    const end = Math.min(cursor + 7 * day, scopeEnd);
+    const startDate = new Date(cursor);
+    const endDate = new Date(end);
+    batches.push(
+      buildAstrolabePeriodEventsFromContext(context, 'yearly', target, {
+        batch: {
+          start: {
+            year: startDate.getUTCFullYear(),
+            month: startDate.getUTCMonth() + 1,
+            day: startDate.getUTCDate(),
+          },
+          endExclusive: {
+            year: endDate.getUTCFullYear(),
+            month: endDate.getUTCMonth() + 1,
+            day: endDate.getUTCDate(),
+          },
+        },
+      }).events,
+    );
+  }
+
+  assert.deepEqual(mergeAstrolabePeriodEvents(batches), complete);
+});
+
+test('流年周期批次拒绝越界窗口', () => {
+  assert.throws(
+    () =>
+      buildAstrolabePeriodEvents(
+        astrolabeData,
+        'yearly',
+        { year: 2028, month: 7, day: 1 },
+        {
+          batch: {
+            start: { year: 2027, month: 12, day: 15 },
+            endExclusive: { year: 2028, month: 1, day: 15 },
+          },
+        },
+      ),
+    /完整落在所选分析范围内/,
+  );
+});
+
+test('紧凑本命周期上下文与完整星盘周期事件保持一致', () => {
+  const context = buildAstrolabePeriodContext(astrolabeData);
+  assert.ok(context.points.length >= 3);
+  assert.equal(context.houseCusps.length, 12);
+  const target = { year: 2028, month: 6, day: 15 };
+  const batch = {
+    start: { year: 2028, month: 6, day: 1 },
+    endExclusive: { year: 2028, month: 6, day: 8 },
+  };
+  const fromData = buildAstrolabePeriodEvents(astrolabeData, 'monthly', target, { batch });
+  const fromContext = buildAstrolabePeriodEventsFromContext(context, 'monthly', target, { batch });
+  assert.deepEqual(fromContext.events, fromData.events);
+  const result = buildAstrolabePeriodBatchResult(context, 'monthly', target, '2028-06', batch);
+  assert.equal(result.kind, 'astrolabe-period-batch');
+  assert.equal(result.target, '2028-06');
+  assert.deepEqual(result.range, fromData.batch?.range);
+  assert.deepEqual(result.events, fromData.events);
+});
+
+test('完整星盘入口保留缺失宫头兼容，紧凑上下文明确要求十二宫头', () => {
+  const incompleteData = {
+    ...astrolabeData,
+    houses: astrolabeData.houses.map((house) => ({ ...house, longitude: Number.NaN })),
+  };
+
+  assert.doesNotThrow(() =>
+    buildAstrolabePeriodEvents(incompleteData, 'daily', {
+      year: 2028,
+      month: 6,
+      day: 12,
+    }),
+  );
+  assert.throws(() => buildAstrolabePeriodContext(incompleteData), /完整十二宫宫头/);
+});
+
+test('纽约夏令时流年批次的结果时区取父范围起点', () => {
+  const newYorkData = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const result = buildAstrolabePeriodBatchResult(
+    buildAstrolabePeriodContext(newYorkData),
+    'yearly',
+    { year: 2024, month: 7, day: 1 },
+    '2024',
+    {
+      start: { year: 2024, month: 7, day: 1 },
+      endExclusive: { year: 2024, month: 7, day: 8 },
+    },
+  );
+
+  assert.equal(result.timeZoneId, 'America/New_York');
+  assert.equal(result.timezone, -5);
+  assert.deepEqual(result.parentRange, {
+    startDate: '2024-01-01',
+    endDate: '2025-01-01',
+    endExclusive: true,
+  });
 });
 
 test('合并周期星象应按时刻去重排序', () => {

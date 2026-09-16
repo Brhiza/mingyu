@@ -90,14 +90,77 @@ const astrolabeSubject: ReadingSubjectSnapshot = {
   range: {},
 };
 
+function addCivilDays(value: string, days: number) {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day!));
+  date.setUTCDate(date.getUTCDate() + days);
+  return [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()]
+    .map((item, index) => (index === 0 ? String(item) : String(item).padStart(2, '0')))
+    .join('-');
+}
+
+function getAstrolabeMockParentRange(scope: string, target: string) {
+  if (scope === 'yearly') {
+    const year = Number(target);
+    return { startDate: `${year}-01-01`, endDate: `${year + 1}-01-01` };
+  }
+  if (scope === 'monthly') {
+    const year = Number(target.slice(0, 4));
+    const month = Number(target.slice(5, 7));
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextMonth = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
+    return {
+      startDate,
+      endDate: `${nextMonth.year}-${String(nextMonth.month).padStart(2, '0')}-01`,
+    };
+  }
+  return { startDate: target, endDate: addCivilDays(target, 1) };
+}
+
+function buildAstrolabeMockPeriodBatch(input: Record<string, unknown>) {
+  const scope = String(input.astrolabeScope);
+  const target = String(input.astrolabeScopeDate);
+  const requested = input.astrolabePeriodRange as { startDate: string; endDate: string };
+  const parentRange = getAstrolabeMockParentRange(scope, target);
+  const nextStart = requested.endDate;
+  const nextEnd =
+    addCivilDays(nextStart, 7) < parentRange.endDate
+      ? addCivilDays(nextStart, 7)
+      : parentRange.endDate;
+  const nextRange =
+    nextStart === parentRange.endDate
+      ? null
+      : { startDate: nextStart, endDate: nextEnd, endExclusive: true as const };
+  return {
+    kind: 'astrolabe-period-batch',
+    scope,
+    target,
+    parentRange: { ...parentRange, endExclusive: true as const },
+    range: { ...requested, endExclusive: true as const },
+    nextRange,
+    timezone: 8,
+    timeZoneId: 'Asia/Shanghai',
+    sampleStepDays: scope === 'daily' ? 1 / 24 : scope === 'monthly' ? 0.25 : 1,
+    events: [],
+  };
+}
+
 async function withRequestCapture<T>(
   callback: (getRequest: () => Record<string, unknown>) => Promise<T>,
 ) {
   const original = globalThis.fetch;
   let request: Record<string, unknown> | undefined;
   globalThis.fetch = (async (input, init) => {
-    request = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    const currentRequest = JSON.parse(String(init?.body)) as Record<string, unknown>;
     const path = String(input);
+    if (!path.includes('/astrolabe/period-events')) request = currentRequest;
+    if (path.includes('/astrolabe/period-events')) {
+      return new Response(
+        JSON.stringify({ success: true, data: buildAstrolabeMockPeriodBatch(currentRequest) }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
+    request = request ?? currentRequest;
     let result: Record<string, unknown>;
     if (path.includes('/bazi/prompt')) {
       const birth = {
@@ -205,11 +268,35 @@ async function withRequestCapture<T>(
           isTrueSolarTime: request.useTrueSolarTime,
           standardDateTime: `${request.year}-${month}-${day} ${hour}:${minute}`,
         },
+        planets: [
+          ['Sun', 10],
+          ['Moon', 20],
+          ['Mercury', 30],
+          ['Venus', 40],
+          ['Mars', 50],
+          ['Jupiter', 60],
+          ['Saturn', 70],
+          ['Uranus', 80],
+          ['Neptune', 90],
+          ['Pluto', 100],
+          ['North Node', 110],
+          ['South Node', 290],
+        ].map(([name, longitude]) => ({ name, longitude, house: 1 })),
+        angles: [
+          { name: 'Ascendant', longitude: 120, house: 1 },
+          { name: 'Midheaven', longitude: 210, house: 10 },
+        ],
+        houses: Array.from({ length: 12 }, (_, index) => ({
+          name: `House ${index + 1}`,
+          longitude: index * 30,
+          house: index + 1,
+        })),
         scopeEvidence: {
           scope: request.astrolabeScope ?? 'natal',
           ...(request.astrolabeScopeDate === undefined
             ? {}
             : { dateStr: request.astrolabeScopeDate }),
+          promptText: `分析对象：${request.astrolabeScope ?? '本命盘'}。`,
         },
       };
     } else {
@@ -256,7 +343,12 @@ async function withRequestCapture<T>(
             }),
       };
     }
-    return new Response(JSON.stringify({ success: true, data: { result, prompt: '补算盘面' } }), {
+    const prompt =
+      path.includes('/astrolabe/prompt') &&
+      typeof (result.scopeEvidence as { promptText?: unknown } | undefined)?.promptText === 'string'
+        ? (result.scopeEvidence as { promptText: string }).promptText
+        : '补算盘面';
+    return new Response(JSON.stringify({ success: true, data: { result, prompt } }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });

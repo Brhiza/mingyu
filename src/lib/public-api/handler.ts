@@ -101,9 +101,13 @@ import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import {
   buildAstrolabeFullScopeContexts,
+  buildAstrolabeFullScopePromptText,
+  buildAstrolabePeriodBatchResult,
+  validateAstrolabePeriodContext,
   buildAstrolabeScopeContext,
   getDefaultAstrolabeScopeDate,
   type AstrolabeFullScopeContexts,
+  type AstrolabePeriodBatchInput,
   type AstrolabeScopeContext,
 } from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
@@ -453,6 +457,11 @@ const DIVINATION_REQUEST_PROPERTIES = {
       '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。显式指定非 natal 范围时必填；省略范围时默认使用当前年度。',
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+  astrolabeIncludePeriodEvents: {
+    type: 'boolean',
+    default: true,
+    description: '星盘提示词是否计算周期事件；轻量周期端点使用 false 避免重复计算。',
+  },
   promptMode: { enum: [...PROMPT_MODES] },
   supplementaryInfo: {
     type: 'object',
@@ -1006,6 +1015,18 @@ export function getPublicApiOpenApiDocument(
           summary: '星盘生成',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
           responses: { '200': { description: '星盘结果' } },
+        },
+      },
+      '/divination/astrolabe/period-events': {
+        post: {
+          summary: '星盘周期事件分批计算',
+          description:
+            '使用已生成的紧凑本命周期上下文，仅计算指定半开日期窗口；返回原始周期事件与下一批范围，不生成本命盘或提示词。',
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/AstrolabePeriodEventsRequest',
+            false,
+          ),
+          responses: { '200': { description: '星盘周期事件批次与续页范围' } },
         },
       },
       '/divination/astrolabe/synastry': {
@@ -2762,6 +2783,76 @@ export function getPublicApiOpenApiDocument(
             useTrueSolarTime: { type: 'boolean' },
           },
         },
+        AstrolabePeriodEventsRequest: {
+          type: 'object',
+          required: [
+            'astrolabeScope',
+            'astrolabeScopeDate',
+            'astrolabePeriodRange',
+            'astrolabePeriodContext',
+          ],
+          properties: {
+            astrolabeScope: { enum: ['yearly', 'monthly', 'daily'] },
+            astrolabeScopeDate: {
+              type: 'string',
+              description: 'yearly 使用 YYYY，monthly 使用 YYYY-MM，daily 使用 YYYY-MM-DD。',
+            },
+            astrolabePeriodRange: {
+              type: 'object',
+              required: ['startDate', 'endDate'],
+              properties: {
+                startDate: { type: 'string', format: 'date' },
+                endDate: { type: 'string', format: 'date' },
+              },
+              description: '半开日期窗口，包含 startDate 当日，不包含 endDate 当日，单批最多31日。',
+            },
+            astrolabePeriodContext: {
+              type: 'object',
+              required: ['timezone', 'points', 'houseCusps'],
+              properties: {
+                timezone: { type: 'number', minimum: -14, maximum: 14 },
+                timeZoneId: { type: 'string' },
+                points: {
+                  type: 'array',
+                  minItems: 3,
+                  maxItems: 14,
+                  uniqueItems: true,
+                  items: {
+                    type: 'object',
+                    required: ['name', 'longitude'],
+                    properties: {
+                      name: {
+                        enum: [
+                          'Sun',
+                          'Moon',
+                          'Mercury',
+                          'Venus',
+                          'Mars',
+                          'Jupiter',
+                          'Saturn',
+                          'Uranus',
+                          'Neptune',
+                          'Pluto',
+                          'North Node',
+                          'South Node',
+                          'Ascendant',
+                          'Midheaven',
+                        ],
+                      },
+                      longitude: { type: 'number' },
+                    },
+                  },
+                },
+                houseCusps: {
+                  type: 'array',
+                  minItems: 12,
+                  maxItems: 12,
+                  items: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
         AstrolabeSynastryRequest: {
           type: 'object',
           required: ['person1', 'person2'],
@@ -3006,6 +3097,8 @@ async function route(context: RouteContext) {
       return buildDivinationPromptResult('lenormand', await readJson(context.request));
     case 'divination/astrolabe':
       return calculateApiResult(context.request, calculateAstrolabe);
+    case 'divination/astrolabe/period-events':
+      return buildAstrolabePeriodEventsApi(await readJson(context.request));
     case 'divination/astrolabe/prompt':
       return buildDivinationPromptResult('astrolabe', await readJson(context.request));
     case 'divination/astrolabe/synastry':
@@ -5731,21 +5824,6 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
   });
 }
 
-function buildAstrolabeFullScopePromptText(fullContexts: AstrolabeFullScopeContexts) {
-  const contexts = [
-    fullContexts.natal,
-    fullContexts.yearly,
-    fullContexts.monthly,
-    fullContexts.daily,
-  ];
-  const lines = contexts
-    .map((context) => context.promptText)
-    .filter(Boolean)
-    .map((line, index) => `${index + 1}. ${line}`);
-
-  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
-}
-
 type AstrolabeScopeEvidence =
   | { scope: 'custom'; promptText: string }
   | { scope: 'full'; referenceDate: string; contexts: AstrolabeFullScopeContexts }
@@ -5755,6 +5833,107 @@ type AstrolabeScopeArtifacts = {
   promptText: string;
   scopeEvidence: AstrolabeScopeEvidence;
 };
+
+function readAstrolabeBatchDate(
+  input: JsonRecord,
+  key: string,
+  options: { allowNextYearBoundary?: boolean } = {},
+) {
+  const value = readRequiredString(input, key);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 需要使用 YYYY-MM-DD 格式。`);
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const isNextYearBoundary =
+    options.allowNextYearBoundary && year === 2201 && month === 1 && day === 1;
+  if (year < 1900 || (year > 2200 && !isNextYearBoundary) || month < 1 || month > 12) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不是有效日期。`);
+  }
+  if (day < 1 || day > daysInSolarMonth(year, month)) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不是有效日期。`);
+  }
+  return { year, month, day };
+}
+
+function readAstrolabePeriodTarget(input: JsonRecord) {
+  const scope = readEnum(input, 'astrolabeScope', ['yearly', 'monthly', 'daily'] as const);
+  const dateStr = readRequiredString(input, 'astrolabeScopeDate').trim();
+  if (scope === 'yearly') {
+    if (!/^\d{4}$/.test(dateStr)) {
+      throw new ApiError(400, 'BAD_REQUEST', 'yearly 的 astrolabeScopeDate 需要使用 YYYY 格式。');
+    }
+    const year = Number(dateStr);
+    if (year < 1900 || year > 2200) {
+      throw new ApiError(400, 'BAD_REQUEST', 'astrolabeScopeDate 年份需在 1900-2200 之间。');
+    }
+    return { scope, dateStr, target: { year, month: 7, day: 1 } };
+  }
+  if (scope === 'monthly') {
+    if (!/^\d{4}-\d{2}$/.test(dateStr)) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        'monthly 的 astrolabeScopeDate 需要使用 YYYY-MM 格式。',
+      );
+    }
+    const [yearText, monthText] = dateStr.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    if (year < 1900 || year > 2200 || month < 1 || month > 12) {
+      throw new ApiError(400, 'BAD_REQUEST', 'astrolabeScopeDate 不是有效月份。');
+    }
+    return { scope, dateStr, target: { year, month, day: 15 } };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      'daily 的 astrolabeScopeDate 需要使用 YYYY-MM-DD 格式。',
+    );
+  }
+  const date = readAstrolabeBatchDate({ astrolabeScopeDate: dateStr }, 'astrolabeScopeDate');
+  return { scope, dateStr, target: date };
+}
+
+function readAstrolabePeriodRange(input: JsonRecord): AstrolabePeriodBatchInput {
+  const value = input.astrolabePeriodRange;
+  if (!isRecord(value)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'astrolabePeriodRange 必须是对象。');
+  }
+  const start = readAstrolabeBatchDate(value, 'startDate');
+  const endExclusive = readAstrolabeBatchDate(value, 'endDate', {
+    allowNextYearBoundary: true,
+  });
+  const spanDays =
+    (Date.UTC(endExclusive.year, endExclusive.month - 1, endExclusive.day) -
+      Date.UTC(start.year, start.month - 1, start.day)) /
+    86400000;
+  if (spanDays <= 0) {
+    throw new ApiError(400, 'BAD_REQUEST', 'astrolabePeriodRange.endDate 必须晚于 startDate。');
+  }
+  if (spanDays > 31) {
+    throw new ApiError(400, 'BAD_REQUEST', 'astrolabePeriodRange 单批最多 31 个民用日。');
+  }
+  return { start, endExclusive };
+}
+
+function buildAstrolabePeriodEventsApi(input: JsonRecord) {
+  const { scope, dateStr, target } = readAstrolabePeriodTarget(input);
+  const batch = readAstrolabePeriodRange(input);
+  try {
+    const context = validateAstrolabePeriodContext(input.astrolabePeriodContext);
+    return buildAstrolabePeriodBatchResult(context, scope, target, dateStr, batch);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '星盘周期上下文或范围无效。',
+    );
+  }
+}
 
 function buildAstrolabeScopeArtifacts(
   input: JsonRecord,
@@ -5781,10 +5960,11 @@ function buildAstrolabeScopeArtifacts(
       : hasExplicitScope
         ? readRequiredString(input, 'astrolabeScopeDate')
         : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
+  const includePeriodEvents = readBoolean(input, 'astrolabeIncludePeriodEvents', true);
 
   try {
     if (scope === 'full') {
-      const contexts = buildAstrolabeFullScopeContexts(data, dateStr);
+      const contexts = buildAstrolabeFullScopeContexts(data, dateStr, { includePeriodEvents });
       return {
         promptText: buildAstrolabeFullScopePromptText(contexts),
         scopeEvidence: {
@@ -5795,7 +5975,9 @@ function buildAstrolabeScopeArtifacts(
       };
     }
 
-    const context = buildAstrolabeScopeContext(data, scope, dateStr);
+    const context = buildAstrolabeScopeContext(data, scope, dateStr, {
+      includePeriodEvents,
+    });
     return { promptText: context.promptText, scopeEvidence: context };
   } catch (error) {
     throw new ApiError(

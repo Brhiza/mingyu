@@ -14,6 +14,85 @@ import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 
 export type AstrolabePeriodScopeMode = 'yearly' | 'monthly' | 'daily';
 
+export const ASTROLABE_PERIOD_CONTEXT_POINT_NAMES = [
+  'Sun',
+  'Moon',
+  'Mercury',
+  'Venus',
+  'Mars',
+  'Jupiter',
+  'Saturn',
+  'Uranus',
+  'Neptune',
+  'Pluto',
+  'North Node',
+  'South Node',
+  'Ascendant',
+  'Midheaven',
+] as const;
+
+export type AstrolabePeriodContextPointName = (typeof ASTROLABE_PERIOD_CONTEXT_POINT_NAMES)[number];
+
+export type AstrolabePeriodContext = {
+  timezone: number;
+  timeZoneId?: string;
+  points: Array<{
+    name: AstrolabePeriodContextPointName;
+    longitude: number;
+  }>;
+  houseCusps: [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+};
+
+export type AstrolabePeriodDate = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+export type AstrolabePeriodBatchInput = {
+  start: AstrolabePeriodDate;
+  endExclusive: AstrolabePeriodDate;
+};
+
+export type AstrolabePeriodBatchRange = {
+  startDate: string;
+  endDate: string;
+  endExclusive: true;
+};
+
+export type AstrolabePeriodBatch = {
+  scopeStartDate: string;
+  scopeEndDate: string;
+  range: AstrolabePeriodBatchRange;
+  nextRange: AstrolabePeriodBatchRange | null;
+};
+
+export type AstrolabePeriodBatchResult = {
+  kind: 'astrolabe-period-batch';
+  scope: AstrolabePeriodScopeMode;
+  target: string;
+  parentRange: AstrolabePeriodBatchRange;
+  range: AstrolabePeriodBatchRange;
+  nextRange: AstrolabePeriodBatchRange | null;
+  timezone: number;
+  timeZoneId?: string;
+  sampleStepDays: number;
+  events: AstrolabePeriodEvent[];
+};
+
 export type AstrolabePeriodEventKind =
   '行运相位' | '天象相位' | '停逆' | '换座' | '换宫' | '朔望' | '交食';
 
@@ -63,6 +142,7 @@ export interface AstrolabePeriodEventCollection {
   windows: AstrolabePeriodWindow[];
   axis: AstrolabePeriodAxisItem[];
   promptText: string;
+  batch?: AstrolabePeriodBatch;
 }
 
 const BODY_LABELS: Record<string, string> = {
@@ -164,6 +244,11 @@ type Sample = {
   speed: number;
 };
 
+type BodyPosition = {
+  longitude: number;
+  speed: number;
+};
+
 function pad(value: number) {
   return String(value).padStart(2, '0');
 }
@@ -189,10 +274,6 @@ function aspectTargets(angle: number) {
 
 function bodyIdOf(name: MovingBodyName) {
   return BODY_IDS[name];
-}
-
-function longitudeOf(name: MovingBodyName, jd: number) {
-  return normalizeLongitude(getApparentPosition(bodyIdOf(name), jd).longitude);
 }
 
 function positionOf(name: MovingBodyName, jd: number) {
@@ -222,12 +303,28 @@ function houseForLongitude(cusps: number[], longitude: number) {
   return 0;
 }
 
-function getTimeZoneInput(data: AstrolabeData): CivilTimeZoneInput {
-  if (data.birth.timeZoneId) return { timeZoneId: data.birth.timeZoneId };
-  if (!Number.isFinite(data.birth.timezone)) {
+type AstrolabePeriodSource = AstrolabeData | AstrolabePeriodContext;
+
+function isAstrolabePeriodContext(source: AstrolabePeriodSource): source is AstrolabePeriodContext {
+  return 'points' in source && 'houseCusps' in source;
+}
+
+function getTimeZoneId(source: AstrolabePeriodSource) {
+  return isAstrolabePeriodContext(source) ? source.timeZoneId : source.birth.timeZoneId;
+}
+
+function getTimezone(source: AstrolabePeriodSource) {
+  return isAstrolabePeriodContext(source) ? source.timezone : source.birth.timezone;
+}
+
+function getTimeZoneInput(source: AstrolabePeriodSource): CivilTimeZoneInput {
+  const timeZoneId = getTimeZoneId(source);
+  if (timeZoneId) return { timeZoneId };
+  const timezone = getTimezone(source);
+  if (!Number.isFinite(timezone)) {
     throw new Error('星盘缺少有效时区，无法计算周期星象。');
   }
-  return { timezone: data.birth.timezone };
+  return { timezone };
 }
 
 function addCalendarMonths(year: number, month: number, count: number) {
@@ -242,8 +339,55 @@ function nextDate(year: number, month: number, day: number) {
   return { year: year + 1, month: 1, day: 1 };
 }
 
+function addCalendarDays(date: AstrolabePeriodDate, days: number): AstrolabePeriodDate {
+  const value = new Date(Date.UTC(date.year, date.month - 1, date.day));
+  value.setUTCDate(value.getUTCDate() + days);
+  return {
+    year: value.getUTCFullYear(),
+    month: value.getUTCMonth() + 1,
+    day: value.getUTCDate(),
+  };
+}
+
+function compareCalendarDates(first: AstrolabePeriodDate, second: AstrolabePeriodDate) {
+  return (
+    Date.UTC(first.year, first.month - 1, first.day) -
+    Date.UTC(second.year, second.month - 1, second.day)
+  );
+}
+
+function calendarDaySpan(start: AstrolabePeriodDate, endExclusive: AstrolabePeriodDate) {
+  return Math.round(compareCalendarDates(endExclusive, start) / 86400000);
+}
+
+function formatCivilDate(value: { year: number; month: number; day: number }) {
+  return `${value.year}-${pad(value.month)}-${pad(value.day)}`;
+}
+
+function dateParts(value: { year: number; month: number; day: number }): AstrolabePeriodDate {
+  return { year: value.year, month: value.month, day: value.day };
+}
+
+function buildNextBatchRange(
+  start: AstrolabePeriodDate,
+  endExclusive: AstrolabePeriodDate,
+  scopeEndExclusive: AstrolabePeriodDate,
+): AstrolabePeriodBatchRange | null {
+  const span = calendarDaySpan(start, endExclusive);
+  if (span <= 0 || compareCalendarDates(endExclusive, scopeEndExclusive) >= 0) return null;
+  const nextEnd =
+    compareCalendarDates(addCalendarDays(endExclusive, span), scopeEndExclusive) >= 0
+      ? scopeEndExclusive
+      : addCalendarDays(endExclusive, span);
+  return {
+    startDate: formatCivilDate(endExclusive),
+    endDate: formatCivilDate(nextEnd),
+    endExclusive: true,
+  };
+}
+
 function resolveLocalInstant(
-  data: AstrolabeData,
+  source: AstrolabePeriodSource,
   date: { year: number; month: number; day: number },
   hour = 0,
   minute = 0,
@@ -254,7 +398,7 @@ function resolveLocalInstant(
     hour,
     minute,
     second,
-    ...getTimeZoneInput(data),
+    ...getTimeZoneInput(source),
   });
 }
 
@@ -288,35 +432,69 @@ function formatEventDateTime(jd: number, timeZoneId: string | undefined, timezon
 }
 
 export function resolveAstrolabePeriodWindow(
-  data: AstrolabeData,
+  source: AstrolabePeriodSource,
   scope: AstrolabePeriodScopeMode,
   target: { year: number; month: number; day: number },
+  batch?: AstrolabePeriodBatchInput,
 ) {
-  const startDate =
+  const scopeStartDate =
     scope === 'yearly'
       ? { year: target.year, month: 1, day: 1 }
       : scope === 'monthly'
         ? { year: target.year, month: target.month, day: 1 }
         : { year: target.year, month: target.month, day: target.day };
-  const endDate =
+  const scopeEndDate =
     scope === 'yearly'
       ? { year: target.year + 1, month: 1, day: 1 }
       : scope === 'monthly'
         ? addCalendarMonths(target.year, target.month, 1)
         : nextDate(target.year, target.month, target.day);
-  const start = resolveLocalInstant(data, startDate);
-  const end = resolveLocalInstant(data, endDate);
-  const timezoneLabel = data.birth.timeZoneId
-    ? `${data.birth.timeZoneId}（UTC${start.timezone >= 0 ? '+' : ''}${start.timezone}）`
+  const scopeStart = resolveLocalInstant(source, scopeStartDate);
+  const scopeEnd = resolveLocalInstant(source, scopeEndDate);
+  const startDate = batch?.start ?? scopeStartDate;
+  const endDate = batch?.endExclusive ?? scopeEndDate;
+  const start = batch ? resolveLocalInstant(source, startDate) : scopeStart;
+  const end = batch ? resolveLocalInstant(source, endDate) : scopeEnd;
+  if (batch) {
+    if (calendarDaySpan(startDate, endDate) <= 0) {
+      throw new Error('星盘周期批次的 endDate 必须晚于 startDate。');
+    }
+    if (start.utcTimestamp < scopeStart.utcTimestamp || end.utcTimestamp > scopeEnd.utcTimestamp) {
+      throw new Error('星盘周期批次必须完整落在所选分析范围内。');
+    }
+  }
+  const timeZoneId = getTimeZoneId(source);
+  const timezoneLabel = timeZoneId
+    ? `${timeZoneId}（UTC${start.timezone >= 0 ? '+' : ''}${start.timezone}）`
     : `UTC${start.timezone >= 0 ? '+' : ''}${start.timezone}`;
   return {
     start,
     end,
+    scopeStart,
+    scopeEnd,
     startJd: unixToJulianDate(start.utcTimestamp),
     endJd: unixToJulianDate(end.utcTimestamp),
+    scopeStartJd: unixToJulianDate(scopeStart.utcTimestamp),
+    scopeEndJd: unixToJulianDate(scopeEnd.utcTimestamp),
     timezoneLabel,
     startDateTime: formatCivilStamp(start.localTime),
     endDateTime: formatCivilStamp(end.localTime),
+    batch: batch
+      ? {
+          scopeStartDate: formatCivilDate(scopeStart.localTime),
+          scopeEndDate: formatCivilDate(scopeEnd.localTime),
+          range: {
+            startDate: formatCivilDate(start.localTime),
+            endDate: formatCivilDate(end.localTime),
+            endExclusive: true as const,
+          },
+          nextRange: buildNextBatchRange(
+            dateParts(start.localTime),
+            dateParts(end.localTime),
+            dateParts(scopeEnd.localTime),
+          ),
+        }
+      : undefined,
   };
 }
 
@@ -357,17 +535,23 @@ function crossingsFromSamples(
   return hits;
 }
 
-function sampleBody(name: MovingBodyName, startJd: number, endJd: number, step: number) {
+function sampleBody(
+  name: MovingBodyName,
+  startJd: number,
+  endJd: number,
+  step: number,
+  positionAt: (name: MovingBodyName, jd: number) => BodyPosition = positionOf,
+) {
   const samples: Sample[] = [];
   const last = endJd + step * 0.5;
   for (let jd = startJd; jd <= last; jd += step) {
     const clamped = Math.min(jd, endJd);
-    const position = positionOf(name, clamped);
+    const position = positionAt(name, clamped);
     samples.push({ jd: clamped, longitude: position.longitude, speed: position.speed });
     if (clamped === endJd) break;
   }
   if (samples.length === 0 || samples[samples.length - 1].jd < endJd) {
-    const position = positionOf(name, endJd);
+    const position = positionAt(name, endJd);
     samples.push({ jd: endJd, longitude: position.longitude, speed: position.speed });
   }
   return samples;
@@ -377,9 +561,15 @@ function isFiniteLongitude(point: Partial<AstrolabePoint>) {
   return typeof point.longitude === 'number' && Number.isFinite(point.longitude);
 }
 
-function natalPointsOf(data: AstrolabeData) {
+function natalPointsOf(source: AstrolabePeriodSource) {
+  if (isAstrolabePeriodContext(source)) {
+    return source.points.map((point) => ({
+      name: point.name,
+      longitude: normalizeLongitude(point.longitude),
+    }));
+  }
   const byName = new Map<string, number>();
-  for (const point of [...data.planets, ...data.angles]) {
+  for (const point of [...source.planets, ...source.angles]) {
     if (!NATAL_POINT_NAMES.includes(point.name as (typeof NATAL_POINT_NAMES)[number])) continue;
     if (!isFiniteLongitude(point)) continue;
     byName.set(point.name, normalizeLongitude(point.longitude));
@@ -387,14 +577,106 @@ function natalPointsOf(data: AstrolabeData) {
   return [...byName.entries()].map(([name, longitude]) => ({ name, longitude }));
 }
 
-function natalCuspsOf(data: AstrolabeData) {
-  const cusps = data.houses
+function natalCuspsOf(source: AstrolabePeriodSource) {
+  if (isAstrolabePeriodContext(source)) {
+    return source.houseCusps.length === 12 &&
+      source.houseCusps.every((item) => Number.isFinite(item))
+      ? source.houseCusps.map(normalizeLongitude)
+      : null;
+  }
+  const cusps = source.houses
     .slice()
     .sort((first, second) => first.house - second.house)
     .map((item) => item.longitude);
   return cusps.length === 12 && cusps.every((item) => Number.isFinite(item))
     ? cusps.map(normalizeLongitude)
     : null;
+}
+
+export function buildAstrolabePeriodContext(data: AstrolabeData): AstrolabePeriodContext {
+  const points = natalPointsOf(data).filter(
+    (
+      point,
+    ): point is {
+      name: AstrolabePeriodContextPointName;
+      longitude: number;
+    } =>
+      ASTROLABE_PERIOD_CONTEXT_POINT_NAMES.includes(point.name as AstrolabePeriodContextPointName),
+  );
+  const cusps = natalCuspsOf(data) ?? [];
+  if (cusps.length !== 12) {
+    throw new Error('星盘缺少完整十二宫宫头，无法生成周期上下文。');
+  }
+  return {
+    timezone: Number.isFinite(data.birth.timezone) ? data.birth.timezone : 0,
+    ...(data.birth.timeZoneId ? { timeZoneId: data.birth.timeZoneId } : {}),
+    points,
+    houseCusps: cusps as AstrolabePeriodContext['houseCusps'],
+  };
+}
+
+export function validateAstrolabePeriodContext(value: unknown): AstrolabePeriodContext {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('astrolabePeriodContext 必须是对象。');
+  }
+  const input = value as {
+    timezone?: unknown;
+    timeZoneId?: unknown;
+    points?: unknown;
+    houseCusps?: unknown;
+  };
+  if (typeof input.timezone !== 'number' || !Number.isFinite(input.timezone)) {
+    throw new Error('astrolabePeriodContext.timezone 必须是有限数字。');
+  }
+  if (input.timezone < -14 || input.timezone > 14) {
+    throw new Error('astrolabePeriodContext.timezone 超出有效范围。');
+  }
+  const timeZoneId = input.timeZoneId === undefined ? undefined : input.timeZoneId;
+  if (timeZoneId !== undefined && (typeof timeZoneId !== 'string' || !timeZoneId.trim())) {
+    throw new Error('astrolabePeriodContext.timeZoneId 必须是非空字符串。');
+  }
+  if (!Array.isArray(input.points) || input.points.length < 3) {
+    throw new Error('astrolabePeriodContext.points 至少需要三个点位。');
+  }
+  const points: AstrolabePeriodContext['points'] = [];
+  const names = new Set<string>();
+  for (const item of input.points) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new Error('astrolabePeriodContext.points 含有无效点位。');
+    }
+    const point = item as { name?: unknown; longitude?: unknown };
+    if (
+      typeof point.name !== 'string' ||
+      !ASTROLABE_PERIOD_CONTEXT_POINT_NAMES.includes(point.name as AstrolabePeriodContextPointName)
+    ) {
+      throw new Error('astrolabePeriodContext.points 含有不支持的点位名称。');
+    }
+    if (names.has(point.name)) {
+      throw new Error(`astrolabePeriodContext.points 点位重复：${point.name}。`);
+    }
+    if (typeof point.longitude !== 'number' || !Number.isFinite(point.longitude)) {
+      throw new Error(`astrolabePeriodContext.points.${point.name} 经度必须是有限数字。`);
+    }
+    names.add(point.name);
+    points.push({
+      name: point.name as AstrolabePeriodContextPointName,
+      longitude: normalizeLongitude(point.longitude),
+    });
+  }
+  if (!Array.isArray(input.houseCusps) || input.houseCusps.length !== 12) {
+    throw new Error('astrolabePeriodContext.houseCusps 必须正好包含十二个宫头经度。');
+  }
+  if (!input.houseCusps.every((item) => typeof item === 'number' && Number.isFinite(item))) {
+    throw new Error('astrolabePeriodContext.houseCusps 必须全部是有限数字。');
+  }
+  return {
+    timezone: input.timezone,
+    ...(typeof timeZoneId === 'string' ? { timeZoneId: timeZoneId.trim() } : {}),
+    points,
+    houseCusps: input.houseCusps.map((item) =>
+      normalizeLongitude(item as number),
+    ) as AstrolabePeriodContext['houseCusps'],
+  };
 }
 
 function eventKey(kind: AstrolabePeriodEventKind, movingPoint: string, jd: number, extra = '') {
@@ -685,19 +967,52 @@ function formatCollectionPrompt(
   return buildAstrolabePeriodEventLayers(events, startDateTime, endDateTime, scope);
 }
 
-export function buildAstrolabePeriodEvents(
-  data: AstrolabeData,
+function alignBatchSampleStart(scopeStartJd: number, batchStartJd: number, step: number) {
+  const offset = Math.max(0, Math.floor((batchStartJd - scopeStartJd) / step + 1e-9) - 1);
+  return scopeStartJd + offset * step;
+}
+
+function alignBatchSampleEnd(
+  scopeStartJd: number,
+  batchEndJd: number,
+  scopeEndJd: number,
+  step: number,
+) {
+  const offset = Math.max(0, Math.ceil((batchEndJd - scopeStartJd) / step - 1e-9));
+  return Math.min(scopeStartJd + offset * step, scopeEndJd);
+}
+
+function buildAstrolabePeriodEventsInternal(
+  source: AstrolabePeriodSource,
   scope: AstrolabePeriodScopeMode,
   target: { year: number; month: number; day: number },
+  options: { batch?: AstrolabePeriodBatchInput } = {},
 ): AstrolabePeriodEventCollection {
-  const window = resolveAstrolabePeriodWindow(data, scope, target);
+  const window = resolveAstrolabePeriodWindow(source, scope, target, options.batch);
   const bodies = movingBodiesForScope(scope);
   const step = sampleStepDays(scope);
-  const natalPoints = natalPointsOf(data);
-  const cusps = natalCuspsOf(data);
+  const natalPoints = natalPointsOf(source);
+  const cusps = natalCuspsOf(source);
+  const positionCache = new Map<string, BodyPosition>();
+  const cachedPositionOf = (name: MovingBodyName, jd: number) => {
+    const key = `${name}:${jd}`;
+    const cached = positionCache.get(key);
+    if (cached) return cached;
+    const position = positionOf(name, jd);
+    positionCache.set(key, position);
+    return position;
+  };
+  const cachedLongitudeOf = (name: MovingBodyName, jd: number) =>
+    cachedPositionOf(name, jd).longitude;
+  const sampleStartJd = options.batch
+    ? alignBatchSampleStart(window.scopeStartJd, window.startJd, step)
+    : window.startJd;
+  const sampleEndJd = options.batch
+    ? alignBatchSampleEnd(window.scopeStartJd, window.endJd, window.scopeEndJd, step)
+    : window.endJd;
   const samples = new Map<MovingBodyName, Sample[]>();
   for (const body of bodies) {
-    samples.set(body, sampleBody(body, window.startJd, window.endJd, step));
+    samples.set(body, sampleBody(body, sampleStartJd, sampleEndJd, step, cachedPositionOf));
   }
 
   const events: AstrolabePeriodEvent[] = [];
@@ -705,7 +1020,7 @@ export function buildAstrolabePeriodEvents(
     if (!inWindow(event.julianDate, window.startJd, window.endJd)) return;
     const dateTime = formatEventDateTime(
       event.julianDate,
-      data.birth.timeZoneId,
+      getTimeZoneId(source),
       window.start.timezone,
     );
     events.push({
@@ -732,7 +1047,8 @@ export function buildAstrolabePeriodEvents(
         for (const offset of aspectTargets(aspect.angle)) {
           const residualAt = (sample: Sample) =>
             wrap180(sample.longitude - natal.longitude - offset);
-          const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - natal.longitude - offset);
+          const exactAt = (jd: number) =>
+            wrap180(cachedLongitudeOf(body, jd) - natal.longitude - offset);
           for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
             pushEvent({
               kind: '行运相位',
@@ -750,9 +1066,9 @@ export function buildAstrolabePeriodEvents(
 
     if (body !== 'Sun' && body !== 'Moon' && body !== 'North Node') {
       const residualAt = (sample: Sample) => sample.speed;
-      const exactAt = (jd: number) => positionOf(body, jd).speed;
+      const exactAt = (jd: number) => cachedPositionOf(body, jd).speed;
       for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-        const speedAfter = positionOf(body, jd + MINUTE_IN_DAYS).speed;
+        const speedAfter = cachedPositionOf(body, jd + MINUTE_IN_DAYS).speed;
         const direction: '逆行' | '顺行' = speedAfter < 0 ? '逆行' : '顺行';
         pushEvent({
           kind: '停逆',
@@ -768,9 +1084,9 @@ export function buildAstrolabePeriodEvents(
     for (let sign = 0; sign < 12; sign += 1) {
       const targetLongitude = sign * 30;
       const residualAt = (sample: Sample) => wrap180(sample.longitude - targetLongitude);
-      const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - targetLongitude);
+      const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - targetLongitude);
       for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-        const speed = positionOf(body, jd).speed;
+        const speed = cachedPositionOf(body, jd).speed;
         const entered = SIGN_LABELS[speed < 0 ? (sign + 11) % 12 : sign];
         const verb = speed < 0 ? '退入' : '进入';
         pushEvent({
@@ -788,9 +1104,9 @@ export function buildAstrolabePeriodEvents(
       for (let house = 1; house <= 12; house += 1) {
         const cusp = cusps[house - 1];
         const residualAt = (sample: Sample) => wrap180(sample.longitude - cusp);
-        const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - cusp);
+        const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - cusp);
         for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-          const speed = positionOf(body, jd).speed;
+          const speed = cachedPositionOf(body, jd).speed;
           const arrivedHouse =
             speed < 0 ? houseForLongitude(cusps, normalizeLongitude(cusp - 0.01)) : house;
           const verb = speed < 0 ? '退入' : '进入';
@@ -823,7 +1139,7 @@ export function buildAstrolabePeriodEvents(
           const residualAt = (sample: Sample, index: number) =>
             wrap180(sample.longitude - secondSamples[index].longitude - offset);
           const exactAt = (jd: number) =>
-            wrap180(longitudeOf(first, jd) - longitudeOf(second, jd) - offset);
+            wrap180(cachedLongitudeOf(first, jd) - cachedLongitudeOf(second, jd) - offset);
           for (const jd of crossingsFromSamples(firstSamples, residualAt, exactAt)) {
             pushEvent({
               kind: '天象相位',
@@ -840,8 +1156,11 @@ export function buildAstrolabePeriodEvents(
     }
   }
 
+  const eclipsePaddingDays = options.batch ? 0.75 : 0;
+  const eclipseStartJd = window.startJd - eclipsePaddingDays;
+  const eclipseEndJd = window.endJd + eclipsePaddingDays;
   const eclipseTimes: number[] = [];
-  for (const eclipse of findSolarEclipses(window.startJd, window.endJd)) {
+  for (const eclipse of findSolarEclipses(eclipseStartJd, eclipseEndJd)) {
     const name = solarEclipseName(eclipse.type);
     eclipseTimes.push(eclipse.julianDate);
     pushEvent({
@@ -854,7 +1173,7 @@ export function buildAstrolabePeriodEvents(
       key: eventKey('交食', 'Sun', eclipse.julianDate, eclipse.type),
     });
   }
-  for (const eclipse of findLunarEclipses(window.startJd, window.endJd)) {
+  for (const eclipse of findLunarEclipses(eclipseStartJd, eclipseEndJd)) {
     const name = lunarEclipseName(eclipse.type);
     eclipseTimes.push(eclipse.julianDate);
     pushEvent({
@@ -880,15 +1199,24 @@ export function buildAstrolabePeriodEvents(
         { name: '朔' as const, angle: 0 },
         { name: '望' as const, angle: 180 },
       ];
-  const moonSamples = samples.get('Moon') ?? sampleBody('Moon', window.startJd, window.endJd, 0.25);
+  const moonStep = 0.25;
+  const moonSampleStartJd = options.batch
+    ? alignBatchSampleStart(window.scopeStartJd, window.startJd, moonStep)
+    : window.startJd;
+  const moonSampleEndJd = options.batch
+    ? alignBatchSampleEnd(window.scopeStartJd, window.endJd, window.scopeEndJd, moonStep)
+    : window.endJd;
+  const moonSamples =
+    samples.get('Moon') ??
+    sampleBody('Moon', moonSampleStartJd, moonSampleEndJd, moonStep, cachedPositionOf);
   for (const lunation of lunationAngles) {
     const residualAt = (sample: Sample) =>
-      wrap180(sample.longitude - longitudeOf('Sun', sample.jd) - lunation.angle);
+      wrap180(sample.longitude - cachedLongitudeOf('Sun', sample.jd) - lunation.angle);
     const exactAt = (jd: number) =>
-      wrap180(longitudeOf('Moon', jd) - longitudeOf('Sun', jd) - lunation.angle);
+      wrap180(cachedLongitudeOf('Moon', jd) - cachedLongitudeOf('Sun', jd) - lunation.angle);
     for (const jd of crossingsFromSamples(moonSamples, residualAt, exactAt)) {
       if (eclipseTimes.some((item) => Math.abs(item - jd) < 0.75)) continue;
-      const moonLongitude = longitudeOf('Moon', jd);
+      const moonLongitude = cachedLongitudeOf('Moon', jd);
       const touches = lunationHitsNatal(moonLongitude, natalPoints);
       const suffix = touches.length ? touches.join('，') : '';
       pushEvent({
@@ -911,5 +1239,54 @@ export function buildAstrolabePeriodEvents(
     timezoneLabel: window.timezoneLabel,
     events: unique,
     ...layers,
+    ...(window.batch ? { batch: window.batch } : {}),
+  };
+}
+
+export function buildAstrolabePeriodEvents(
+  data: AstrolabeData,
+  scope: AstrolabePeriodScopeMode,
+  target: { year: number; month: number; day: number },
+  options: { batch?: AstrolabePeriodBatchInput } = {},
+) {
+  return buildAstrolabePeriodEventsInternal(data, scope, target, options);
+}
+
+export function buildAstrolabePeriodEventsFromContext(
+  context: AstrolabePeriodContext,
+  scope: AstrolabePeriodScopeMode,
+  target: { year: number; month: number; day: number },
+  options: { batch: AstrolabePeriodBatchInput },
+) {
+  return buildAstrolabePeriodEventsInternal(context, scope, target, options);
+}
+
+export function buildAstrolabePeriodBatchResult(
+  context: AstrolabePeriodContext,
+  scope: AstrolabePeriodScopeMode,
+  target: { year: number; month: number; day: number },
+  targetText: string,
+  batch: AstrolabePeriodBatchInput,
+): AstrolabePeriodBatchResult {
+  const collection = buildAstrolabePeriodEventsFromContext(context, scope, target, { batch });
+  if (!collection.batch) {
+    throw new Error('星盘周期批次未生成范围身份。');
+  }
+  const window = resolveAstrolabePeriodWindow(context, scope, target, batch);
+  return {
+    kind: 'astrolabe-period-batch',
+    scope,
+    target: targetText,
+    parentRange: {
+      startDate: collection.batch.scopeStartDate,
+      endDate: collection.batch.scopeEndDate,
+      endExclusive: true,
+    },
+    range: collection.batch.range,
+    nextRange: collection.batch.nextRange,
+    timezone: window.scopeStart.timezone,
+    ...(context.timeZoneId ? { timeZoneId: context.timeZoneId } : {}),
+    sampleStepDays: sampleStepDays(scope),
+    events: collection.events,
   };
 }
