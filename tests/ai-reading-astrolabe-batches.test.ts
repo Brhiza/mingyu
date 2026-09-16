@@ -9,6 +9,7 @@ import {
   DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS,
   fetchAstrolabePeriodCollection,
 } from '../src/lib/ai/astrolabe-batch-resources';
+import { generateAstrolabeReadingLocally } from '../src/lib/ai/astrolabe-reading-calculation';
 import { executeReadingAction } from '../src/lib/ai/reading-resources';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 
@@ -54,6 +55,7 @@ test('完整星盘分批补算经真实接口保持三个范围事件及完整�
     );
     const body = await original.json();
     assert.equal(body.ok, true);
+    assert.equal(resource.text, body.data.prompt);
     assert.equal(baseCount, 1);
     assert.deepEqual([...scopes], ['yearly', 'monthly', 'daily']);
     const actual = resource.structured?.scopeEvidence as {
@@ -70,6 +72,109 @@ test('完整星盘分批补算经真实接口保持三个范围事件及完整�
     }
   } finally {
     globalThis.fetch = previousFetch;
+  }
+});
+
+test('本地七日 Worker 计算与公共接口完整星盘 prompt 及三段事件逐项一致', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-16T04:00:00Z') });
+  const input = {
+    name: '合成本地验证',
+    gender: '女',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    second: 37,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    astrolabeScope: 'full',
+    astrolabeScopeDate: '2028-06-12',
+    question: '请分析各阶段变化。',
+  };
+  const originalFetch = globalThis.fetch;
+  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  Reflect.deleteProperty(globalThis, 'Worker');
+  globalThis.fetch = (async (url, init) =>
+    handlePublicApiRequest(
+      new Request(new URL(String(url), 'https://aov.cc'), init),
+    )) as typeof fetch;
+  try {
+    const remote = await executeReadingAction({ kind: 'calculate', method: 'astrolabe', input });
+    const local = await generateAstrolabeReadingLocally({
+      ...input,
+      responseMode: 'full',
+      astrolabeIncludePeriodEvents: false,
+    });
+    assert.equal(local.prompt, remote.text);
+    const remoteEvidence = (remote.structured as Record<string, unknown>).scopeEvidence as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(JSON.parse(JSON.stringify(local.result.scopeEvidence)), remoteEvidence);
+    if (local.result.scopeEvidence.scope !== 'full') {
+      throw new Error('本地完整星盘结果缺少 full 范围身份。');
+    }
+    const contexts = local.result.scopeEvidence.contexts;
+    assert.ok(contexts.yearly.periodEvents?.events.length);
+    assert.ok(contexts.monthly.periodEvents?.events.length);
+    assert.ok(contexts.daily.periodEvents?.events.length);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWorker) Object.defineProperty(globalThis, 'Worker', originalWorker);
+  }
+});
+
+test('星盘本地 Worker 失败直接报错且不回退公开接口', async () => {
+  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  const originalFetch = globalThis.fetch;
+  class FailingAstrolabeWorker {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: ((event: ErrorEvent) => void) | null = null;
+    onmessageerror: (() => void) | null = null;
+
+    postMessage() {
+      queueMicrotask(() => this.onerror?.({ message: '本地星盘 Worker 失败。' } as ErrorEvent));
+    }
+
+    terminate() {}
+  }
+  Object.defineProperty(globalThis, 'Worker', {
+    configurable: true,
+    writable: true,
+    value: FailingAstrolabeWorker,
+  });
+  globalThis.fetch = (async () => {
+    throw new Error('Worker 失败后不应回退公开接口。');
+  }) as typeof fetch;
+  try {
+    await assert.rejects(
+      executeReadingAction({
+        kind: 'calculate',
+        method: 'astrolabe',
+        input: {
+          name: '失败验证',
+          gender: 'male',
+          year: 1995,
+          month: 5,
+          day: 20,
+          hour: 12,
+          minute: 30,
+          latitude: 39.9042,
+          longitude: 116.4074,
+          timezone: 8,
+          astrolabeScope: 'daily',
+          astrolabeScopeDate: '2028-06-12',
+          question: '测试失败边界',
+        },
+      }),
+      /本地星盘 Worker 失败/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWorker) Object.defineProperty(globalThis, 'Worker', originalWorker);
+    else Reflect.deleteProperty(globalThis, 'Worker');
   }
 });
 

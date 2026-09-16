@@ -244,6 +244,11 @@ type Sample = {
   speed: number;
 };
 
+type BodyPosition = {
+  longitude: number;
+  speed: number;
+};
+
 function pad(value: number) {
   return String(value).padStart(2, '0');
 }
@@ -269,10 +274,6 @@ function aspectTargets(angle: number) {
 
 function bodyIdOf(name: MovingBodyName) {
   return BODY_IDS[name];
-}
-
-function longitudeOf(name: MovingBodyName, jd: number) {
-  return normalizeLongitude(getApparentPosition(bodyIdOf(name), jd).longitude);
 }
 
 function positionOf(name: MovingBodyName, jd: number) {
@@ -534,17 +535,23 @@ function crossingsFromSamples(
   return hits;
 }
 
-function sampleBody(name: MovingBodyName, startJd: number, endJd: number, step: number) {
+function sampleBody(
+  name: MovingBodyName,
+  startJd: number,
+  endJd: number,
+  step: number,
+  positionAt: (name: MovingBodyName, jd: number) => BodyPosition = positionOf,
+) {
   const samples: Sample[] = [];
   const last = endJd + step * 0.5;
   for (let jd = startJd; jd <= last; jd += step) {
     const clamped = Math.min(jd, endJd);
-    const position = positionOf(name, clamped);
+    const position = positionAt(name, clamped);
     samples.push({ jd: clamped, longitude: position.longitude, speed: position.speed });
     if (clamped === endJd) break;
   }
   if (samples.length === 0 || samples[samples.length - 1].jd < endJd) {
-    const position = positionOf(name, endJd);
+    const position = positionAt(name, endJd);
     samples.push({ jd: endJd, longitude: position.longitude, speed: position.speed });
   }
   return samples;
@@ -986,6 +993,17 @@ function buildAstrolabePeriodEventsInternal(
   const step = sampleStepDays(scope);
   const natalPoints = natalPointsOf(source);
   const cusps = natalCuspsOf(source);
+  const positionCache = new Map<string, BodyPosition>();
+  const cachedPositionOf = (name: MovingBodyName, jd: number) => {
+    const key = `${name}:${jd}`;
+    const cached = positionCache.get(key);
+    if (cached) return cached;
+    const position = positionOf(name, jd);
+    positionCache.set(key, position);
+    return position;
+  };
+  const cachedLongitudeOf = (name: MovingBodyName, jd: number) =>
+    cachedPositionOf(name, jd).longitude;
   const sampleStartJd = options.batch
     ? alignBatchSampleStart(window.scopeStartJd, window.startJd, step)
     : window.startJd;
@@ -994,7 +1012,7 @@ function buildAstrolabePeriodEventsInternal(
     : window.endJd;
   const samples = new Map<MovingBodyName, Sample[]>();
   for (const body of bodies) {
-    samples.set(body, sampleBody(body, sampleStartJd, sampleEndJd, step));
+    samples.set(body, sampleBody(body, sampleStartJd, sampleEndJd, step, cachedPositionOf));
   }
 
   const events: AstrolabePeriodEvent[] = [];
@@ -1029,7 +1047,8 @@ function buildAstrolabePeriodEventsInternal(
         for (const offset of aspectTargets(aspect.angle)) {
           const residualAt = (sample: Sample) =>
             wrap180(sample.longitude - natal.longitude - offset);
-          const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - natal.longitude - offset);
+          const exactAt = (jd: number) =>
+            wrap180(cachedLongitudeOf(body, jd) - natal.longitude - offset);
           for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
             pushEvent({
               kind: '行运相位',
@@ -1047,9 +1066,9 @@ function buildAstrolabePeriodEventsInternal(
 
     if (body !== 'Sun' && body !== 'Moon' && body !== 'North Node') {
       const residualAt = (sample: Sample) => sample.speed;
-      const exactAt = (jd: number) => positionOf(body, jd).speed;
+      const exactAt = (jd: number) => cachedPositionOf(body, jd).speed;
       for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-        const speedAfter = positionOf(body, jd + MINUTE_IN_DAYS).speed;
+        const speedAfter = cachedPositionOf(body, jd + MINUTE_IN_DAYS).speed;
         const direction: '逆行' | '顺行' = speedAfter < 0 ? '逆行' : '顺行';
         pushEvent({
           kind: '停逆',
@@ -1065,9 +1084,9 @@ function buildAstrolabePeriodEventsInternal(
     for (let sign = 0; sign < 12; sign += 1) {
       const targetLongitude = sign * 30;
       const residualAt = (sample: Sample) => wrap180(sample.longitude - targetLongitude);
-      const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - targetLongitude);
+      const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - targetLongitude);
       for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-        const speed = positionOf(body, jd).speed;
+        const speed = cachedPositionOf(body, jd).speed;
         const entered = SIGN_LABELS[speed < 0 ? (sign + 11) % 12 : sign];
         const verb = speed < 0 ? '退入' : '进入';
         pushEvent({
@@ -1085,9 +1104,9 @@ function buildAstrolabePeriodEventsInternal(
       for (let house = 1; house <= 12; house += 1) {
         const cusp = cusps[house - 1];
         const residualAt = (sample: Sample) => wrap180(sample.longitude - cusp);
-        const exactAt = (jd: number) => wrap180(longitudeOf(body, jd) - cusp);
+        const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - cusp);
         for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
-          const speed = positionOf(body, jd).speed;
+          const speed = cachedPositionOf(body, jd).speed;
           const arrivedHouse =
             speed < 0 ? houseForLongitude(cusps, normalizeLongitude(cusp - 0.01)) : house;
           const verb = speed < 0 ? '退入' : '进入';
@@ -1120,7 +1139,7 @@ function buildAstrolabePeriodEventsInternal(
           const residualAt = (sample: Sample, index: number) =>
             wrap180(sample.longitude - secondSamples[index].longitude - offset);
           const exactAt = (jd: number) =>
-            wrap180(longitudeOf(first, jd) - longitudeOf(second, jd) - offset);
+            wrap180(cachedLongitudeOf(first, jd) - cachedLongitudeOf(second, jd) - offset);
           for (const jd of crossingsFromSamples(firstSamples, residualAt, exactAt)) {
             pushEvent({
               kind: '天象相位',
@@ -1188,15 +1207,16 @@ function buildAstrolabePeriodEventsInternal(
     ? alignBatchSampleEnd(window.scopeStartJd, window.endJd, window.scopeEndJd, moonStep)
     : window.endJd;
   const moonSamples =
-    samples.get('Moon') ?? sampleBody('Moon', moonSampleStartJd, moonSampleEndJd, moonStep);
+    samples.get('Moon') ??
+    sampleBody('Moon', moonSampleStartJd, moonSampleEndJd, moonStep, cachedPositionOf);
   for (const lunation of lunationAngles) {
     const residualAt = (sample: Sample) =>
-      wrap180(sample.longitude - longitudeOf('Sun', sample.jd) - lunation.angle);
+      wrap180(sample.longitude - cachedLongitudeOf('Sun', sample.jd) - lunation.angle);
     const exactAt = (jd: number) =>
-      wrap180(longitudeOf('Moon', jd) - longitudeOf('Sun', jd) - lunation.angle);
+      wrap180(cachedLongitudeOf('Moon', jd) - cachedLongitudeOf('Sun', jd) - lunation.angle);
     for (const jd of crossingsFromSamples(moonSamples, residualAt, exactAt)) {
       if (eclipseTimes.some((item) => Math.abs(item - jd) < 0.75)) continue;
-      const moonLongitude = longitudeOf('Moon', jd);
+      const moonLongitude = cachedLongitudeOf('Moon', jd);
       const touches = lunationHitsNatal(moonLongitude, natalPoints);
       const suffix = touches.length ? touches.join('，') : '';
       pushEvent({

@@ -269,6 +269,7 @@ export async function fetchAstrolabePeriodCollection(args: {
   fetchBatch: AstrolabePeriodBatchFetcher;
   signal?: AbortSignal;
   batchDays?: number;
+  onProgress?: (completed: number, total: number) => void;
 }): Promise<AstrolabePeriodCollectionResult> {
   const parentRange = resolvePeriodRange(args.scope, args.dateStr);
   const batchDays = args.batchDays ?? DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS;
@@ -286,6 +287,9 @@ export async function fetchAstrolabePeriodCollection(args: {
     Math.ceil(
       daySpan(currentStart, parseDate(parentRange.endDate, 'parentRange.endDate')) / batchDays,
     ) + 1;
+  const expectedBatchCount = Math.ceil(
+    daySpan(currentStart, parseDate(parentRange.endDate, 'parentRange.endDate')) / batchDays,
+  );
 
   while (compareDates(currentStart, parseDate(parentRange.endDate, 'parentRange.endDate')) < 0) {
     assertNotAborted(args.signal);
@@ -318,6 +322,7 @@ export async function fetchAstrolabePeriodCollection(args: {
     for (const event of batch.events) {
       if (!events.has(event.key)) events.set(event.key, event);
     }
+    args.onProgress?.(batchCount, expectedBatchCount);
 
     if (!batch.nextRange) {
       if (batch.range.endDate !== parentRange.endDate) {

@@ -101,6 +101,7 @@ import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import {
   buildAstrolabeFullScopeContexts,
+  buildAstrolabeFullScopePromptText,
   buildAstrolabePeriodBatchResult,
   validateAstrolabePeriodContext,
   buildAstrolabeScopeContext,
@@ -5821,21 +5822,6 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
       ...(selection ? { selection } : {}),
     },
   });
-}
-
-function buildAstrolabeFullScopePromptText(fullContexts: AstrolabeFullScopeContexts) {
-  const contexts = [
-    fullContexts.natal,
-    fullContexts.yearly,
-    fullContexts.monthly,
-    fullContexts.daily,
-  ];
-  const lines = contexts
-    .map((context) => context.promptText)
-    .filter(Boolean)
-    .map((line, index) => `${index + 1}. ${line}`);
-
-  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
 }
 
 type AstrolabeScopeEvidence =

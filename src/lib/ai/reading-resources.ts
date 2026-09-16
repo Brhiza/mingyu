@@ -5,7 +5,12 @@ import {
 import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-workflow';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
-import { getDefaultAstrolabeScopeDate } from '../astrolabe-scope';
+import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
+import {
+  buildAstrolabeFullScopePromptText,
+  getDefaultAstrolabeScopeDate,
+  type AstrolabeFullScopeContexts,
+} from '../astrolabe-scope';
 import { getAiApiEndpoint } from './stream-client';
 import {
   DEFAULT_CHINA_TIMEZONE_HOURS,
@@ -1706,6 +1711,17 @@ async function completeAstrolabePeriodData(
   const evidence = result.scopeEvidence;
   if (!record(evidence)) throw new Error('星盘补算未返回结构化范围资料。');
 
+  const scopePrompt = () => {
+    if (calculationRequest.astrolabeScope === 'full' && record(evidence.contexts)) {
+      return buildAstrolabeFullScopePromptText(
+        evidence.contexts as unknown as AstrolabeFullScopeContexts,
+      ).trim();
+    }
+    if (typeof evidence.promptText !== 'string') throw new Error('星盘补算缺少范围提示资料。');
+    return evidence.promptText.trim();
+  };
+  const previousScopePrompt = scopePrompt();
+
   const periodContext = buildAstrolabePeriodContext(result as unknown as AstrolabeData);
   for (const target of targets) {
     if (signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
@@ -1732,8 +1748,8 @@ async function completeAstrolabePeriodData(
     const nextText = injectAstrolabePeriodPrompt(previousText, collection.promptText);
     context.periodEvents = collection;
     context.promptText = nextText;
-    replaceAstrolabePromptText(data, previousText, nextText);
   }
+  replaceAstrolabePromptText(data, previousScopePrompt, scopePrompt());
   return data;
 }
 
@@ -1985,6 +2001,7 @@ export async function executeReadingAction(
     delete calculationRequest.timeIndex;
   }
   let data: Record<string, unknown>;
+  let astrolabeLocalComplete = false;
   let qizhengBirthRangeResult: QizhengBirthRange | QizhengFlowBirthRange | undefined;
   if (qizhengBirthRangeSource) {
     const {
@@ -2023,10 +2040,18 @@ export async function executeReadingAction(
       signal,
     );
     data = workerResult as unknown as Record<string, unknown>;
+  } else if (
+    action.method === 'astrolabe' &&
+    getAstrolabePeriodTargets(calculationRequest).length > 0 &&
+    typeof Worker !== 'undefined'
+  ) {
+    const workerResult = await executeAstrolabeReadingWorker(calculationRequest, signal);
+    data = workerResult as unknown as Record<string, unknown>;
+    astrolabeLocalComplete = true;
   } else {
     data = await fetchReadingData(path, signal, calculationRequest);
   }
-  if (action.method === 'astrolabe') {
+  if (action.method === 'astrolabe' && !astrolabeLocalComplete) {
     data = await completeAstrolabePeriodData(data, calculationRequest, signal);
   }
   if (
