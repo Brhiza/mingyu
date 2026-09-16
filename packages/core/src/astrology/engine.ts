@@ -242,12 +242,31 @@ export interface NatalPoint {
   house?: number;
 }
 
+export interface TransitPosition {
+  longitude: number;
+  latitude?: number;
+  distance?: number;
+  longitudeSpeed?: number;
+  isRetrograde: boolean;
+  sign: number;
+  signName: string;
+  degree: number;
+  minute: number;
+  second: number;
+  formatted: string;
+}
+
 export interface Transit {
   transitingBodyEnum: CelestialBody;
   transitingBody: string;
   natalPoint: string;
   aspectType: AspectType;
   symbol: string;
+  transitingPosition: TransitPosition;
+  actualAngle: number;
+  exactAngle: number;
+  allowedOrb: number;
+  isOutOfSign: boolean;
   deviation: number;
   strength: number;
   phase: 'applying' | 'exact' | 'separating' | 'unknown';
@@ -832,6 +851,13 @@ export function calculateTransits(
   for (const bodyName of options.transitingBodies) {
     const bodyId = BODY_IDS[bodyName];
     const position = astrologyEngine.position(bodyId, jd);
+    const transitingPosition: TransitPosition = {
+      ...positionFields(position.lon),
+      ...(position.lat !== undefined ? { latitude: position.lat } : {}),
+      ...(position.dist != null ? { distance: position.dist } : {}),
+      ...(position.speed !== undefined ? { longitudeSpeed: position.speed } : {}),
+      isRetrograde: position.retrograde,
+    };
     for (const natal of natalPoints) {
       const actual = separation(position.lon, natal.longitude);
       for (const aspectType of options.aspectTypes) {
@@ -839,10 +865,8 @@ export function calculateTransits(
         const orb = DEFAULT_ORBS[aspectType];
         const deviation = Math.abs(actual - angle);
         if (deviation > orb) continue;
-        if (
-          options.includeOutOfSign === false &&
-          isOutOfSign(position.lon, natal.longitude, angle)
-        ) {
+        const outOfSign = isOutOfSign(position.lon, natal.longitude, angle);
+        if (options.includeOutOfSign === false && outOfSign) {
           continue;
         }
         const strength = Math.max(0, 100 * (1 - deviation / orb));
@@ -858,6 +882,11 @@ export function calculateTransits(
           natalPoint: natal.name,
           aspectType,
           symbol: ASPECT_SYMBOLS[aspectType],
+          transitingPosition,
+          actualAngle: actual,
+          exactAngle: angle,
+          allowedOrb: orb,
+          isOutOfSign: outOfSign,
           deviation,
           strength,
           phase:
