@@ -450,6 +450,11 @@ function getSolarTimeParts(solarTime: ReturnType<typeof SolarTime.fromYmdHms>): 
   };
 }
 
+function resolveSolarTermTimestamp(term: ReturnType<typeof SolarTerm.fromIndex>): number {
+  const civilTime = getSolarTimeParts(term.getJulianDay().getSolarTime());
+  return resolveCivilTime({ ...civilTime, timezone: HUANGJI_SOLAR_TERM_TIMEZONE }).utcTimestamp;
+}
+
 function resolveWinterSolstice(termYear: number) {
   const term = SolarTerm.fromName(termYear, '冬至');
   const solarTime = term.getJulianDay().getSolarTime();
@@ -952,13 +957,12 @@ function resolveCalendar(
   const minute = beijing.getUTCMinutes();
   const second = beijing.getUTCSeconds();
   const millisecond = beijing.getUTCMilliseconds();
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, second);
-  const targetJulianDay = solarTime.getJulianDay().getDay() + millisecond / 86400000;
+  const targetTimestamp = date.getTime();
   const candidates: Array<{
     forecastYear: number;
     index: number;
     name: string;
-    julianDay: number;
+    utcTimestamp: number;
   }> = [];
 
   for (const forecastYear of [year, year + 1]) {
@@ -968,17 +972,18 @@ function resolveCalendar(
         forecastYear,
         index,
         name: term.getName(),
-        julianDay: term.getJulianDay().getDay(),
+        utcTimestamp: resolveSolarTermTimestamp(term),
       });
     }
   }
 
   const active = candidates
-    .filter((term) => term.julianDay <= targetJulianDay)
-    .sort((left, right) => right.julianDay - left.julianDay)[0];
+    .filter((term) => term.utcTimestamp <= targetTimestamp)
+    .sort((left, right) => right.utcTimestamp - left.utcTimestamp)[0];
   if (!active) throw new Error('无法定位起盘时间所属的皇极节气。');
 
-  const actualDayInSolarTerm = Math.floor(targetJulianDay - active.julianDay) + 1;
+  const actualDayInSolarTerm =
+    Math.floor((targetTimestamp - active.utcTimestamp) / MILLISECONDS_PER_DAY) + 1;
   const mappedDayInSolarTerm = Math.max(1, Math.min(actualDayInSolarTerm, 15));
   const dayOfYear = active.index * 15 + mappedDayInSolarTerm;
   const monthIndex = Math.floor((dayOfYear - 1) / 30) + 1;
