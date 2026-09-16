@@ -295,7 +295,7 @@ export interface ConstraintAnalysis {
   constraints: {
     position: string;
     stem: string;
-    /** 克泄耗证据承载支气未被外支六冲时为 true；冲后支气保留事实但标 false。 */
+    /** 透干克泄耗有未被外支六冲的同类根，或所载支气未受冲时为 true；浮干与冲后支气标 false。 */
     stable?: boolean;
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;

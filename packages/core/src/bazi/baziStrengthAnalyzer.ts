@@ -373,7 +373,12 @@ export function analyzeConstraint(
       const stemWuxing = resolveWuxing(getWuxing, pillar.gan, `${position}柱天干`);
       const stemStrength = resolveConstraintStrength(stemWuxing, 1, 1.2);
       if (stemStrength > 0) {
-        addConstraint(position, pillar.gan, stemStrength);
+        addConstraint(
+          position,
+          pillar.gan,
+          stemStrength,
+          hasStableElementRoot(stemWuxing, pillars, hiddenStems, getWuxing),
+        );
       }
     }
 
@@ -530,14 +535,9 @@ export function analyzeFormation(
 /**
  * 日主强弱综合分析。
  *
- * 【古典依据与算法口径】
- * 1. 严格遵从《渊海子平》《穷通宝鉴》《滴天髓》论日主旺衰之“得令、得地、得势”三维结构定性法：
- *    - 得令（monthTendency）：以月令当旺、得长生建禄印比司权为扶身，休囚死绝为克泄；
- *    - 得地（rootTendency）：以四柱地支本气同气通根、逢冲逢合判定通根稳固度；
- *    - 得势（structureTendency）：以三合三会成局生扶比助、干支党众为增力。
- * 2. 澄清说明：本系统的正式旺衰分档（极强/偏强/身强/中和/身弱/偏弱/极弱）完全由上述三维定性
- *    条件组合裁定；成局分析对象中附带的 strength/totalStrength 浮点分值仅为旧版接口保留的
- *    参考性诊断数值（已在类型中声明为 @deprecated），不参与核心强弱分档与用神取用。
+ * 月令与司令、根气、透藏与成局分别形成倾向，再由下方条件组合分档。
+ * 透干两方使用相同的根气核验口径，存在与有效作用分别记录。
+ * strength/totalStrength 为旧接口诊断数据，不参与正式旺衰分档与取用。
  */
 export function analyzeDayMasterStrength(
   seasonalStatus: SeasonalStatusAnalysis,
@@ -569,6 +569,9 @@ export function analyzeDayMasterStrength(
   );
   const effectiveSupporters = supportAnalysis.supporters.filter(isStableEvidence);
   const effectiveConstraints = constraintAnalysis.constraints.filter(isStableEvidence);
+  const hasExposedConstraint = constraintAnalysis.constraints.some((item) =>
+    (BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).includes(item.stem),
+  );
 
   let status: DayMasterStrengthAnalysis['status'] = '中和';
   if (
@@ -576,6 +579,7 @@ export function analyzeDayMasterStrength(
     rootAnalysis.strongRoot &&
     structureTendency === '扶身' &&
     effectiveConstraints.length === 0 &&
+    !hasExposedConstraint &&
     !hasConstrainingFormation
   ) {
     status = '极强';
@@ -627,6 +631,7 @@ export function analyzeDayMasterStrength(
       ruleBasis: [
         `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、明根明透及中余气合看为${structureTendency}（明干本气优先，藏气次级）`,
         '先看得令，再看地支明根，随后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分',
+        '生扶与克泄耗的透干均核对同类根气；浮干保留可见事实，得势另看有根作用，透干异党尚在时不据此晋为极强。',
       ],
     },
   };
