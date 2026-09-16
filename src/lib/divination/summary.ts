@@ -5,6 +5,7 @@ import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
 import { formatMeihuaRangeInterval } from './meihua-range';
 import { formatTaiyiRangeInterval } from './taiyi-range';
+import { formatHuangjiRangeInterval } from './huangji-range';
 import {
   formatLiuyaoRangeInterval,
   formatLiuyaoRangeBackground,
@@ -13,6 +14,20 @@ import {
 import { formatQimenRangeInterval, formatQimenRangeMoonPhase } from './qimen-range';
 
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
+
+function formatHuangjiRangeLine(
+  branch: NonNullable<DivinationSession['huangjiRange']>['branches'][number],
+) {
+  const interval = formatHuangjiRangeInterval(branch.startTimestamp, branch.endTimestamp);
+  const dateTimeForecast = branch.data.dateTimeForecast;
+  const annual = branch.data.forecast?.hexagrams.annual;
+  if (!dateTimeForecast) {
+    return `${interval}：年月日时盘面缺少日时层；值年卦${annual?.name ?? '无'}`;
+  }
+  const { calendar, hexagrams } = dateTimeForecast;
+  const annualText = annual ? `${annual.name}（${annual.ganzhi}）` : '无';
+  return `${interval}：${calendar.activeSolarTerm}后第${calendar.actualDayInSolarTerm}日；皇极年内第${calendar.dayOfYear}日（${calendar.mappedDayInSolarTerm}日映射，${calendar.monthBranch}月第${calendar.dayOfMonth}日），${calendar.hourRange}第${calendar.hourSegment}时段；月经卦${hexagrams.monthJing.name}，旬纬卦${hexagrams.xunWei.name}，日卦${hexagrams.daily.name}，时经卦${hexagrams.hourJing.name}；值年卦${annualText}`;
+}
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
   if (session.method === 'taiyi' && session.taiyiRange) {
@@ -27,6 +42,17 @@ export function getDivinationSessionSummary(session: DivinationSession): Divinat
         (branch) =>
           `${formatTaiyiRangeInterval(branch.startTimestamp, branch.endTimestamp)}：${branch.data.ganZhi}，${branch.data.yinYang}第${branch.data.bureau}局；太乙${branch.data.taiyiPosition}，文昌${branch.data.wenChangPosition}；主算${branch.data.lordCount}，客算${branch.data.guestCount}，定算${branch.data.setCount}`,
       ),
+    };
+  }
+  if (session.method === 'huangji' && session.huangjiRange) {
+    return {
+      title: '皇极经世时段排盘结果',
+      tags: [
+        session.huangjiRange.status === 'stable'
+          ? '年月日时盘面稳定'
+          : `时间范围内分为${session.huangjiRange.branches.length}段`,
+      ],
+      lines: session.huangjiRange.branches.map(formatHuangjiRangeLine),
     };
   }
   if (session.method === 'liuyao' && session.liuyaoRange) {
