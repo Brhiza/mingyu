@@ -434,11 +434,9 @@ test('西占本命出生区间取消时终止 Worker 并返回取消错误', asy
         controller.signal,
         createSubject(),
       ),
-    () => undefined,
+    () => controller.abort(),
   );
 
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  controller.abort();
   await assert.rejects(pending, (error: unknown) => {
     return error instanceof DOMException && error.name === 'AbortError';
   });
