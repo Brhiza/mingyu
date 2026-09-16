@@ -1,7 +1,10 @@
 import { getDivinationTime, TimeManager } from 'mingyu-core/calendar';
 import {
   generateQizhengBirthRange as generateCoreQizhengBirthRange,
+  generateQizhengFlowBirthRange as generateCoreQizhengFlowBirthRange,
   type QizhengBirthRange,
+  type QizhengFlowBirthRange,
+  type QizhengFlowBirthRangeSource,
   type QizhengInput,
 } from 'mingyu-core/qizheng';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
@@ -29,6 +32,10 @@ export type QizhengBirthRangeOptions = {
   onProgress?: (completed: number, total: number) => void;
   signal?: AbortSignal;
 };
+
+export type QizhengDateRange = QizhengBirthRange | QizhengFlowBirthRange;
+
+const QIZHENG_FLOW_FIELDS = ['flowYear', 'flowMonth', 'flowDay', 'flowHour', 'flowMinute'] as const;
 
 function assertTimestamp(value: number, label: string) {
   if (!Number.isSafeInteger(value) || value % 1000 !== 0) {
@@ -61,6 +68,11 @@ export function hasQizhengBirthRangeSource(value: unknown): boolean {
     typeof value === 'object' &&
     QIZHENG_MACHINE_FIELDS.some((field) => Object.hasOwn(value, field)),
   );
+}
+
+/** 只要出现任一流曜字段就明确走流曜区间入口；不完整字段交由核心统一报错。 */
+export function hasQizhengFlowInput(input: QizhengInput): boolean {
+  return QIZHENG_FLOW_FIELDS.some((field) => input[field] !== undefined);
 }
 
 /** 只接受四柱反推写入的完整东八区机器区间。 */
@@ -164,6 +176,23 @@ function validateQizhengBirthRangeInput(
   return source;
 }
 
+function toCoreRange(source: QizhengBirthRangeSource) {
+  return {
+    startTimestamp: source.startTimestamp,
+    endTimestamp: source.endTimestamp,
+  };
+}
+
+function toCoreFlowSource(source: QizhengBirthRangeSource): QizhengFlowBirthRangeSource {
+  return {
+    startTimestamp: source.startTimestamp,
+    endTimestamp: source.endTimestamp,
+    endExclusive: true,
+    timezone: 'Asia/Shanghai',
+    offsetHours: CHINA_OFFSET_HOURS,
+  };
+}
+
 /** 在前置事实核验通过后调用核心七政四余出生区间扫描。 */
 export function generateQizhengBirthRange(
   input: QizhengInput,
@@ -171,14 +200,33 @@ export function generateQizhengBirthRange(
   options?: QizhengBirthRangeOptions,
 ): QizhengBirthRange {
   const validSource = validateQizhengBirthRangeInput(input, source);
-  return generateCoreQizhengBirthRange(
-    input,
-    {
-      startTimestamp: validSource.startTimestamp,
-      endTimestamp: validSource.endTimestamp,
-    },
-    options,
-  );
+  return generateCoreQizhengBirthRange(input, toCoreRange(validSource), options);
+}
+
+/** 在同一组四柱来源核验通过后扫描流曜目标期的出生区间。 */
+export function generateQizhengFlowBirthRange(
+  input: QizhengInput,
+  source: BaziReverseSource,
+  options?: QizhengBirthRangeOptions,
+): QizhengFlowBirthRange {
+  const validSource = validateQizhengBirthRangeInput(input, source);
+  if (!hasQizhengFlowInput(input)) {
+    throw new Error('七政四余流曜出生区间必须明确提供流年、流月或流日字段。');
+  }
+  return generateCoreQizhengFlowBirthRange(input, toCoreFlowSource(validSource), options);
+}
+
+/** 按明确的流曜字段选择本命或流曜区间入口；流曜错误不会回退本命。 */
+export function generateQizhengDateRange(
+  input: QizhengInput,
+  source: BaziReverseSource,
+  options?: QizhengBirthRangeOptions,
+): QizhengDateRange {
+  const validSource = validateQizhengBirthRangeInput(input, source);
+  const range = toCoreRange(validSource);
+  return hasQizhengFlowInput(input)
+    ? generateCoreQizhengFlowBirthRange(input, toCoreFlowSource(validSource), options)
+    : generateCoreQizhengBirthRange(input, range, options);
 }
 
 type QizhengBirthRangeWorkerProgress = {
@@ -191,7 +239,7 @@ type QizhengBirthRangeWorkerProgress = {
 type QizhengBirthRangeWorkerResult = {
   id: string;
   type: 'result';
-  result: QizhengBirthRange;
+  result: QizhengDateRange;
 };
 
 type QizhengBirthRangeWorkerError = {
@@ -220,7 +268,7 @@ export function executeQizhengBirthRangeWorker(
   source: BaziReverseSource,
   signal?: AbortSignal,
   onProgress?: (completed: number, total: number) => void,
-): Promise<QizhengBirthRange> {
+): Promise<QizhengDateRange> {
   if (signal?.aborted) return Promise.reject(createAbortError());
   let validSource: QizhengBirthRangeSource;
   try {
@@ -239,7 +287,7 @@ export function executeQizhengBirthRangeWorker(
   }
 
   const requestId = createWorkerId();
-  return new Promise<QizhengBirthRange>((resolve, reject) => {
+  return new Promise<QizhengDateRange>((resolve, reject) => {
     let settled = false;
 
     const cleanup = () => {

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { getDivinationTime } from 'mingyu-core/calendar';
 import {
   generateQizhengBirthRange,
+  generateQizhengFlowBirthRange,
   type QizhengBirthRange,
   type QizhengInput,
 } from 'mingyu-core/qizheng';
@@ -83,9 +84,16 @@ class ReadingFakeWorker {
 
   postMessage(message: WorkerMessage) {
     this.postedMessage = message;
-    const result = generateQizhengBirthRange(message.input, {
+    const generate =
+      message.input.flowYear === undefined
+        ? generateQizhengBirthRange
+        : generateQizhengFlowBirthRange;
+    const result = generate(message.input, {
       startTimestamp: message.source.startTimestamp!,
       endTimestamp: message.source.endTimestamp!,
+      endExclusive: true,
+      timezone: 'Asia/Shanghai',
+      offsetHours: 8,
     });
     queueMicrotask(() => {
       this.onmessage?.({
@@ -153,24 +161,46 @@ test('七政完整出生区间补算走本地 Worker 并保留全部本命分支
   });
 });
 
-test('七政出生区间明确拒绝流年字段而不启动计算', async () => {
+test('七政流日出生区间补算保留目标、分段行限及完整提示词', async () => {
   await withReadingFakeWorker(async () => {
-    await assert.rejects(
-      executeReadingAction(
-        {
-          kind: 'calculate',
-          method: 'qi-zheng',
-          input: { flowYear: 2035, question: '不应进入本命区间' },
-        },
-        undefined,
-        createSubject(),
-      ),
-      /只支持本命，不能包含flowYear字段/u,
+    const target = { flowYear: 2024, flowMonth: 3, flowDay: 15, flowHour: 12, flowMinute: 0 };
+    const resource = await executeReadingAction(
+      {
+        kind: 'calculate',
+        method: 'qi-zheng',
+        input: { ...target, question: '目标流日的共同与分段事实' },
+      },
+      undefined,
+      createSubject(),
     );
-    assert.equal(ReadingFakeWorker.instances.length, 0);
+    const result = resource.structured as unknown as {
+      coverage: string;
+      branches: {
+        representative: {
+          flowingStars: { year: number; month: number; day: number };
+          timeLords: { gender: string };
+        };
+      }[];
+    };
+    assert.notEqual(result.coverage, 'natal');
+    assert.equal(result.branches.length, 2);
+    for (const branch of result.branches) {
+      assert.equal(branch.representative.flowingStars.year, 2024);
+      assert.equal(branch.representative.flowingStars.month, 3);
+      assert.equal(branch.representative.flowingStars.day, 15);
+      assert.equal(branch.representative.timeLords.gender, 'male');
+    }
+    assert.match(resource.text, /流曜/);
+    assert.match(resource.text, /行限/);
+    assert.match(resource.text, /【时段1】/);
+    assert.match(resource.text, /【时段2】/);
+    assert.deepEqual(ReadingFakeWorker.instances[0]?.postedMessage?.input, {
+      ...lockedInput,
+      ...target,
+    });
+    assert.equal(ReadingFakeWorker.instances[0]?.terminated, true);
   });
 });
-
 test('七政出生区间机器来源无效时显式报错而不回退单点', async () => {
   await withReadingFakeWorker(async () => {
     await assert.rejects(
