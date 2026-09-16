@@ -4,6 +4,26 @@ import test from 'node:test';
 import { generateDivinationSession } from '../packages/core/src/divination/session';
 import type { LiurenData, TaiyiResult } from '../packages/core/src/types/divination';
 
+test('小六壬在线解读保留农历取数、口径与占得宫歌诀', () => {
+  for (const rule of ['common', 'duoneng'] as const) {
+    const session = generateDivinationSession({
+      method: 'xiaoliuren',
+      question: '核对时间起课',
+      xiaoliuren: { rule },
+      divinationTime: '2024-02-05T00:30:00+08:00',
+      currentTime: '2024-02-05T00:30:00+08:00',
+    });
+    assert.match(session.aiPrompt, /农历12月26日/);
+    assert.match(session.aiPrompt, /定月宫：12月从大安顺数/);
+    assert.match(session.aiPrompt, /定日宫：从月宫/);
+    assert.match(session.aiPrompt, /定时宫：从日宫/);
+    assert.match(session.aiPrompt, /歌诀原文：/);
+    assert.match(session.aiPrompt, /东八区民用日零点换日/);
+    assert.match(session.aiPrompt, /闰月沿用同名月序/);
+    assert.doesNotMatch(session.aiPrompt, /evidenceAnalysis|monthSeed|schemaVersion|资料来源/);
+  }
+});
+
 test('六壬 aiPrompt 应保留取传与课体判断依据', () => {
   const session = generateDivinationSession({
     method: 'liuren',

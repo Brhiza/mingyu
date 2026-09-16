@@ -11,6 +11,7 @@ import {
 import { getLiuyaoTermContext } from '@/lib/chart-term-context';
 import { ChartShareModal } from '@/components/ChartShareModal';
 import type { DivinationSession } from '@/lib/divination/engine';
+import { formatXiaoliurenRangeInterval } from '@/lib/divination/xiaoliuren-range';
 import {
   formatHuangjiCivilYear,
   type HuangjiDerivedHexagram,
@@ -96,6 +97,10 @@ function formatYaoPosition(position: number) {
 }
 
 function getSessionDisplayDate(session?: DivinationSession): string | undefined {
+  if (session?.method === 'xiaoliuren' && session.xiaoliurenRange) {
+    const { startTimestamp, endTimestamp } = session.xiaoliurenRange.source;
+    return formatXiaoliurenRangeInterval(startTimestamp, endTimestamp);
+  }
   const rawDate = session?.timeContext?.effectiveDateTime;
   if (rawDate) {
     const parsed = new Date(rawDate);
@@ -1127,9 +1132,11 @@ function MeihuaTraditionalBoard({
 function XiaoliurenTraditionalBoard({
   data,
   session,
+  dateLabel,
 }: {
   data: XiaoliurenData;
   session?: DivinationSession;
+  dateLabel?: string;
 }) {
   const sequence = [
     { label: '月宫', palace: data.sequence.month },
@@ -1152,7 +1159,8 @@ function XiaoliurenTraditionalBoard({
           ['占事', session?.question],
           [
             '日期',
-            getSessionDisplayDate(session) ??
+            dateLabel ??
+              getSessionDisplayDate(session) ??
               `农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日`,
           ],
           ['干支', `${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
@@ -3763,7 +3771,7 @@ const DIVINATION_METHOD_LABELS: Record<string, string> = {
   kongming: '孔明神卦',
 };
 
-function formatDivinationSessionShareText(session: DivinationSession): string {
+export function formatDivinationSessionShareText(session: DivinationSession): string {
   const lines: string[] = [];
   const label = DIVINATION_METHOD_LABELS[session.method] || session.method.toUpperCase();
   lines.push(`【${label} 排盘】`);
@@ -3796,10 +3804,17 @@ function formatDivinationSessionShareText(session: DivinationSession): string {
       `三传：初传【${initial?.branch || ''}】 中传【${middle?.branch || ''}】 末传【${final?.branch || ''}】`,
     );
   } else if (session.method === 'xiaoliuren') {
-    const d = session.data as XiaoliurenData;
-    lines.push(
-      `三宫：月宫【${d.sequence.month.name}】 日宫【${d.sequence.day.name}】 时宫【${d.sequence.hour.name}】`,
-    );
+    const branches = session.xiaoliurenRange?.branches;
+    for (const branch of branches ?? [{ data: session.data as XiaoliurenData }]) {
+      if ('startTimestamp' in branch) {
+        lines.push(formatXiaoliurenRangeInterval(branch.startTimestamp, branch.endTimestamp));
+      }
+      const d = branch.data;
+      lines.push(
+        `农历${d.isLeapMonth ? '闰' : ''}${d.lunarMonth}月${d.lunarDay}日，${d.hourLabel}；${d.ruleLabel}`,
+        `三宫：月宫【${d.sequence.month.name}】 日宫【${d.sequence.day.name}】 时宫【${d.sequence.hour.name}】`,
+      );
+    }
   } else if (session.method === 'jinkoujue') {
     const d = session.data as JinkoujueData;
     const formatPosition = (position: JinkoujueData['positions']['diFen']) =>
@@ -3852,9 +3867,25 @@ export function TraditionalDivinationBoard({
       boardContent = <MeihuaTraditionalBoard data={session.data as MeihuaData} session={session} />;
       break;
     case 'xiaoliuren':
-      boardContent = (
-        <XiaoliurenTraditionalBoard data={session.data as XiaoliurenData} session={session} />
-      );
+      boardContent =
+        session.xiaoliurenRange?.status === 'conditional' ? (
+          <section aria-label="小六壬时间分段结果">
+            <p>所选时间范围内课盘有变化，请按实际时间对应下列结果。</p>
+            {session.xiaoliurenRange.branches.map((branch) => (
+              <XiaoliurenTraditionalBoard
+                key={branch.startTimestamp}
+                data={branch.data}
+                session={session}
+                dateLabel={formatXiaoliurenRangeInterval(
+                  branch.startTimestamp,
+                  branch.endTimestamp,
+                )}
+              />
+            ))}
+          </section>
+        ) : (
+          <XiaoliurenTraditionalBoard data={session.data as XiaoliurenData} session={session} />
+        );
       break;
     case 'jinkoujue':
       boardContent = (

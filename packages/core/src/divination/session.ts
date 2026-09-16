@@ -273,6 +273,7 @@ function formatAiChart(
   const base = [summary.title, summary.tags.filter(Boolean).join('；'), ...summary.lines].filter(
     Boolean,
   );
+  if (method === 'xiaoliuren') return formatDivinationInfo(method, data);
   if (method === 'liuyao') {
     const item = data as LiuyaoData;
     base.push(
