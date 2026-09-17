@@ -190,23 +190,27 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   const dayStem = chartResult.pillars.day.gan;
   const monthBranch = chartResult.pillars.month.zhi;
 
+  const currentPattern = chartResult.analysis?.mingGe?.pattern;
   const classicPatterns = identifyClassicPatternCandidates(
     dayStem,
     monthBranch,
     chartResult.pillars,
     chartResult.hiddenStems,
-    chartResult.analysis?.mingGe?.pattern,
+    currentPattern,
   ).filter(
     (candidate) =>
-      chartResult.analysis?.mingGe?.transformation?.status !== '成化' ||
-      !candidate.pattern.id.startsWith('hua-qi-'),
+      (chartResult.analysis?.mingGe?.transformation?.status !== '成化' ||
+        !candidate.pattern.id.startsWith('hua-qi-')) &&
+      !(currentPattern === '曲直格' && candidate.pattern.id === 'qu-zhi'),
   );
 
   const transformation = chartResult.analysis?.mingGe?.transformation;
   const confirmedSection =
     transformation?.status === '成化'
       ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`
-      : '';
+      : currentPattern === '曲直格'
+        ? `【经典格局】曲直格；${chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用'}`
+        : '';
   if (!classicPatterns.length) return confirmedSection;
 
   const candidateSection = `【经典结构候选】${classicPatterns
