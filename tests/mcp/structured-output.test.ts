@@ -4214,6 +4214,8 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.match(liurenPrompt, /乘神生克：初传.+乘天盘.+与日干/);
     assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
     assert.match(liurenPrompt, /【问题范围】\n事业工作/);
+    assert.match(liurenPrompt, /普通宗门裁决：/);
+    assert.doesNotMatch(liurenPrompt, /directKe|remoteKe|suppressedByPrior|deferredToSpecial/);
     assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
     assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
     const liurenChart = await client.callTool({
@@ -4228,6 +4230,11 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const liurenData = (
       liurenChart.structuredContent as {
         result: {
+          ordinaryTransmissionAdjudication: {
+            key: string;
+            summary: string;
+            candidates: Array<{ key: string }>;
+          };
           evidenceAnalysis: {
             key: string;
             status: string;
@@ -4240,6 +4247,12 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
               initialSourceLessonKeys: string[];
               sources: string[];
               limitation: string;
+            };
+            ordinaryTransmissionAdjudicationFact: {
+              key: string;
+              promptText: string;
+              candidateFacts: Array<{ key: string; promptText: string }>;
+              stageFacts: Array<{ promptText: string }>;
             };
             lessons: Array<{
               key: string;
@@ -4332,6 +4345,59 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.rule);
     assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.initialSourceLessonKeys.length > 0);
     assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.sources.length >= 2);
+    assert.equal(
+      liurenData.ordinaryTransmissionAdjudication.key,
+      'liuren:ordinary-transmission-adjudication',
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.key,
+      liurenData.ordinaryTransmissionAdjudication.key,
+    );
+    assert.deepEqual(
+      liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+        (item) => item.key,
+      ),
+      liurenData.ordinaryTransmissionAdjudication.candidates.map((item) => item.key),
+    );
+    assert.doesNotMatch(
+      [
+        liurenData.ordinaryTransmissionAdjudication.summary,
+        liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.promptText,
+        ...liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+          (item) => item.promptText,
+        ),
+        ...liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.stageFacts.map(
+          (item) => item.promptText,
+        ),
+      ].join('\n'),
+      /directKe|directBiYong|directSheHai|remoteKe|remoteBiYong|remoteSheHai|suppressedByPrior|notApplicable|notMatched|deferredToSpecial/,
+    );
+    const compactLiurenChart = await client.callTool({
+      name: 'divine_liuren',
+      arguments: { customDate: '2025-01-01T08:00:00+08:00' },
+    });
+    assert.equal(compactLiurenChart.isError, undefined);
+    const compactLiurenData = (
+      compactLiurenChart.structuredContent as {
+        result: {
+          ordinaryTransmissionAdjudication: { key: string; selectedRule: string | null };
+          evidenceAnalysis?: unknown;
+        };
+      }
+    ).result;
+    assert.equal(compactLiurenData.evidenceAnalysis, undefined);
+    assert.equal(
+      compactLiurenData.ordinaryTransmissionAdjudication.key,
+      liurenData.ordinaryTransmissionAdjudication.key,
+    );
+    assert.equal(
+      compactLiurenData.ordinaryTransmissionAdjudication.selectedRule,
+      (
+        liurenChart.structuredContent as {
+          result: { ordinaryTransmissionAdjudication: { selectedRule: string | null } };
+        }
+      ).result.ordinaryTransmissionAdjudication.selectedRule,
+    );
     assert.match(
       liurenData.evidenceAnalysis.transmissionRuleFact.limitation,
       /不得按结果反推九宗门名称/,
@@ -4442,6 +4508,10 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenData.evidenceAnalysis.plateFact.key,
       ...liurenData.evidenceAnalysis.platePositionFacts.map((item) => item.key),
       liurenData.evidenceAnalysis.transmissionRuleFact.key,
+      liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.key,
+      ...liurenData.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+        (item) => item.key,
+      ),
       ...liurenData.evidenceAnalysis.lessons.flatMap((item) => [
         item.key,
         ...item.relationFacts.map((fact) => fact.key),

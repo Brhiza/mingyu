@@ -1,5 +1,6 @@
 import type { LiurenData, LiurenLesson } from '../types/divination';
 import { BRANCH_WUXING, STEM_WUXING, isSheng, isKe } from '../ganzhi';
+import { getLiurenOrdinaryCandidateStatusLabel } from '../divination/liuren-ordinary-adjudication';
 
 function formatRelation(source: string, target: string, sourceName: string, targetName: string) {
   const sourceElement = STEM_WUXING[source] || BRANCH_WUXING[source];
@@ -27,4 +28,30 @@ export function formatLiurenTransmission(data: LiurenData, index: number): strin
   const previousName = index === 0 ? '一课下位' : data.threeTransmissions[index - 1].stage;
   const relation = previous ? formatRelation(item.branch, previous, item.stage, previousName) : '';
   return `${item.stage}${item.branch}乘${item.god}，${item.relation}${item.isVoid ? '（空）' : ''}${relation ? `；${relation}` : ''}`;
+}
+
+export function formatLiurenOrdinaryTransmissionAdjudication(data: LiurenData): string {
+  const adjudication = data.ordinaryTransmissionAdjudication;
+  if (!adjudication) return '';
+
+  const stageReasons = Array.from(
+    new Set(
+      adjudication.stages
+        .filter((stage) => stage.status !== 'notApplicable')
+        .map((stage) => stage.reason)
+        .filter(Boolean),
+    ),
+  );
+  const candidateText = adjudication.candidates
+    .map(
+      (candidate) =>
+        `${candidate.kind}${candidate.upper}（${getLiurenOrdinaryCandidateStatusLabel(candidate)}：${candidate.reasons.at(-1) || '按普通宗门次序核验'}）`,
+    )
+    .join('、');
+  const selectionText =
+    adjudication.status === 'selected'
+      ? `最终按${adjudication.selectedRule}取${adjudication.selectedInitial}发用`
+      : `普通宗门未取定，转入${data.transmissionRule || '特殊课'}取传`;
+
+  return `普通宗门裁决：${stageReasons.join('；')}；${selectionText}${candidateText ? `；候选取舍：${candidateText}` : ''}`;
 }
