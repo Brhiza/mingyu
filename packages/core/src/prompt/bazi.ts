@@ -163,7 +163,8 @@ export function formatBaziTopicFocus(topic: BaziPromptTopic) {
 export function formatBaziPatternConditions(result: BaziChartResult): string {
   const transformation = result.analysis?.mingGe?.transformation;
   const fulfillment = result.analysis?.mingGe?.fulfillment;
-  if (!fulfillment && !transformation) return '';
+  const specialAdjudication = result.analysis?.mingGe?.specialAdjudication;
+  if (!fulfillment && !transformation && !specialAdjudication) return '';
   return [
     transformation
       ? `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`

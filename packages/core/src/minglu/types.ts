@@ -217,6 +217,8 @@ export interface MingluPatternUsefulGodSectionData {
     formationAnalysis: string;
     /** 化气主格的状态、依据和条件；保留原日主事实并单列化神主体。 */
     transformation?: PatternTransformationEvidence;
+    /** 已完成条件核验的特殊格终态。 */
+    specialAdjudication?: BaziChartResult['analysis']['mingGe']['specialAdjudication'];
     /** 核心格局成败评估；保留条件事实、反证与制化路径供页面逐项核验。 */
     fulfillment?: PatternFulfillmentResult;
     classicCommentary?: string;

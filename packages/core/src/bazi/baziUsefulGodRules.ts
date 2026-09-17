@@ -1,5 +1,9 @@
 export type UsefulGodWuxingBundle =
-  'resource_companion_output' | 'wealth_officer' | 'output_wealth_officer' | 'resource_companion';
+  | 'resource_companion_output'
+  | 'wealth_officer'
+  | 'output_wealth_officer'
+  | 'resource_companion'
+  | 'officer';
 
 export interface BaseUsefulGodRule {
   id: string;
@@ -15,6 +19,18 @@ export interface BaseUsefulGodRule {
 }
 
 export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
+  {
+    id: 'quzhi-follow-wood',
+    label: '曲直格顺势泄秀规则',
+    description:
+      '曲直格以水木顺势、火泄木秀，金为制破；土财只按实际作用另论，不因出现便列为破格或固定忌神。',
+    priority: 110,
+    patterns: ['曲直格'],
+    favorable: 'resource_companion_output',
+    unfavorable: 'officer',
+    trace: '曲直格取水木顺势、火泄秀，土财另核作用',
+    primaryReason: '曲直顺势泄秀',
+  },
   {
     id: 'follow-special-strong',
     label: '专旺格顺势规则',

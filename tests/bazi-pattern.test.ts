@@ -157,7 +157,7 @@ test('特殊格判断应把月令司权计入，不应只看月支藏干整体�
   assert.notEqual(result.pattern, '专旺格');
 });
 
-test('亥卯未木局成势且月令司权同党时，不应因未中副气而漏判专旺格', () => {
+test('亥卯未木局条件完整时应正式立曲直格，不应因未中火土副气漏判', () => {
   const pillars: Pillars = {
     year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
     month: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
@@ -168,8 +168,9 @@ test('亥卯未木局成势且月令司权同党时，不应因未中副气而�
   const result = determinePattern(pillars, '极强', getTenGod, '乙');
 
   assert.equal(result.isSpecial, true);
-  assert.equal(result.pattern, '专旺格');
-  assert.match(result.basis || '', /副气未至破格/);
+  assert.equal(result.pattern, '曲直格');
+  assert.match(result.basis || '', /未藏己、丁、乙/);
+  assert.match(result.basis || '', /火.*泄秀.*土.*财星/);
 });
 
 test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印星而漏判从格', () => {
