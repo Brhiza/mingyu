@@ -520,6 +520,8 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
 
   const useTrueSolarTime = profile.useTrueSolarTime === true;
   const date = useTrueSolarTime ? normalized.effectiveTime : undefined;
+  const preciseBirthTime =
+    normalized.timeInputMode === 'precise-clock-time' ? normalized.effectiveTime : undefined;
   return {
     name: profile.name ?? '',
     gender: profile.gender === 'male' ? '男' : '女',
@@ -528,7 +530,15 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
       ? formatBirthDate(date.year, date.month, date.day)
       : formatBirthDate(profile.year, profile.month, profile.day),
     birthTimeIndex: normalized.timeIndex,
-    ...(date ? { birthTime: { hour: date.hour, minute: date.minute } } : {}),
+    ...(preciseBirthTime
+      ? {
+          birthTime: {
+            hour: preciseBirthTime.hour,
+            minute: preciseBirthTime.minute,
+            second: preciseBirthTime.second,
+          },
+        }
+      : {}),
     trueSolarEvidence: normalized.trueSolarEvidence,
     isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
     fixLeap: true,

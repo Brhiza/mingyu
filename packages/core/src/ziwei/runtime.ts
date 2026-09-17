@@ -1,4 +1,5 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { resolveZiweiTrueSolarBirth } from './true-solar-input';
 import type { AnalysisPayloadV1, ScopeType } from '../types/analysis';
 import type { ChartInput } from '../types/chart';
@@ -222,6 +223,7 @@ export interface ZiweiChartInputDraft {
   useTrueSolarTime?: boolean;
   birthHour?: ZiweiInputText;
   birthMinute?: ZiweiInputText;
+  birthSecond?: ZiweiInputText;
   birthLongitude?: ZiweiInputText;
   timezone?: number;
   timeZoneId?: string;
@@ -265,10 +267,43 @@ function formatBirthDate(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+function readPreciseStandardBirthTime(
+  input: ZiweiChartInputDraft,
+): ChartInput['birthTime'] | undefined {
+  const birthSecond = input.birthSecond === undefined ? '' : String(input.birthSecond).trim();
+  if (!birthSecond) return undefined;
+  if (input.birthHour === undefined || input.birthMinute === undefined) {
+    throw new Error('精准标准北京时间需要同时提供出生小时和分钟。');
+  }
+  const time = {
+    hour: readInteger(input.birthHour, '出生小时'),
+    minute: readInteger(input.birthMinute, '出生分钟'),
+    second: readInteger(birthSecond, '出生秒数'),
+  };
+  if (
+    time.hour < 0 ||
+    time.hour > 23 ||
+    time.minute < 0 ||
+    time.minute > 59 ||
+    time.second < 0 ||
+    time.second > 59
+  ) {
+    throw new Error('精准出生时间需使用 0-23 时、0-59 分和 0-59 秒。');
+  }
+  return time;
+}
+
 /** 将网页表单或普通 JSON 输入转换为严格的紫微 ChartInput。 */
 export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
   const birthDateParts = readBirthDate(input);
-  const birthTimeIndex = input.useTrueSolarTime ? 0 : readTimeIndex(input.timeIndex);
+  const preciseStandardBirthTime = input.useTrueSolarTime
+    ? undefined
+    : readPreciseStandardBirthTime(input);
+  const birthTimeIndex = input.useTrueSolarTime
+    ? 0
+    : preciseStandardBirthTime
+      ? getTimeIndexFromClock(preciseStandardBirthTime.hour, preciseStandardBirthTime.minute)
+      : readTimeIndex(input.timeIndex);
   const gender = input.gender === 'male' ? '男' : '女';
   const trueSolarBirth = input.useTrueSolarTime
     ? resolveZiweiTrueSolarBirth({
@@ -279,6 +314,7 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
         isLeapMonth: input.isLeapMonth,
         birthHour: input.birthHour === undefined ? '' : String(input.birthHour),
         birthMinute: input.birthMinute === undefined ? '' : String(input.birthMinute),
+        birthSecond: input.birthSecond === undefined ? '' : String(input.birthSecond),
         birthLongitude: input.birthLongitude === undefined ? '' : String(input.birthLongitude),
         timezone: input.timezone,
         timeZoneId: input.timeZoneId,
@@ -296,7 +332,9 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
     birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
     ...(trueSolarBirth
       ? { birthTime: trueSolarBirth.birthTime, trueSolarEvidence: trueSolarBirth.trueSolarEvidence }
-      : {}),
+      : preciseStandardBirthTime
+        ? { birthTime: preciseStandardBirthTime }
+        : {}),
     isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
     algorithm: input.algorithm ?? 'default',
   });

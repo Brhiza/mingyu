@@ -78,6 +78,13 @@ export type BirthChartBundle = BirthChartPointBundle | BirthChartRangeBundle;
 export interface BirthChartBundleOptions {
   /** 默认只计算八字；紫微需要调用方安装可选 peerDependency iztro。 */
   systems?: BirthChartSystem[];
+  /** 八字规则偏好，与客观出生档案分开保存。 */
+  baziRules?: Pick<Person, 'shenShaScope' | 'shenShaVariants'>;
+  /** 紫微排盘口径；省略的字段沿用统一档案转换的默认值。 */
+  ziweiRules?: Pick<
+    ChartInput,
+    'fixLeap' | 'algorithm' | 'yearDivide' | 'horoscopeDivide' | 'ageDivide' | 'dayDivide'
+  >;
   ziwei?: ZiweiRuntimeOptions;
   /** 区间输入每次默认计算一个整秒点，按返回的 nextIndex 继续。 */
   rangeBatch?: { startIndex?: number; limit?: number };
@@ -117,12 +124,23 @@ async function calculatePointBundle(
     switch (system) {
       case 'bazi': {
         const input = birthProfileToBaziPerson(profile);
+        if (options.baziRules?.shenShaScope !== undefined)
+          input.shenShaScope = options.baziRules.shenShaScope;
+        if (options.baziRules?.shenShaVariants !== undefined)
+          input.shenShaVariants = { ...options.baziRules.shenShaVariants };
         bundle.inputs.bazi = input;
         bundle.bazi = baziCalculator.calculateBazi(input);
         break;
       }
       case 'ziwei': {
         const input = birthProfileToZiweiChartInput(profile);
+        const rules = options.ziweiRules;
+        if (rules?.fixLeap !== undefined) input.fixLeap = rules.fixLeap;
+        if (rules?.algorithm !== undefined) input.algorithm = rules.algorithm;
+        if (rules?.yearDivide !== undefined) input.yearDivide = rules.yearDivide;
+        if (rules?.horoscopeDivide !== undefined) input.horoscopeDivide = rules.horoscopeDivide;
+        if (rules?.ageDivide !== undefined) input.ageDivide = rules.ageDivide;
+        if (rules?.dayDivide !== undefined) input.dayDivide = rules.dayDivide;
         bundle.inputs.ziwei = input;
         bundle.ziwei = await calculateZiweiChart(input, options.ziwei);
         break;
@@ -160,6 +178,8 @@ export async function calculateBirthChartBundle(
   const lockedProfile = structuredClone(profile);
   const lockedOptions = {
     ...options,
+    baziRules: options.baziRules ? structuredClone(options.baziRules) : undefined,
+    ziweiRules: options.ziweiRules ? { ...options.ziweiRules } : undefined,
     ziwei: options.ziwei ? structuredClone(options.ziwei) : undefined,
   };
   if (systems.includes('ziwei') && lockedOptions.ziwei && !lockedOptions.ziwei.horoscopeContext) {

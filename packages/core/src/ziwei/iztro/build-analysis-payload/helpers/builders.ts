@@ -32,9 +32,13 @@ function buildFourPillars(
   if (time.hour > 23 || getTimeIndexFromClock(time.hour, time.minute) !== period.index) {
     throw new Error('紫微四柱展示时分与出生时辰不一致。');
   }
+  const second = birthTime?.second ?? 0;
+  if (!Number.isInteger(second) || second < 0 || second > 59) {
+    throw new Error('紫微四柱展示秒数必须在 0-59 之间。');
+  }
   const date = new Date(0);
   date.setFullYear(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
-  date.setHours(time.hour, time.minute, 0, 0);
+  date.setHours(time.hour, time.minute, second, 0);
   const pillars = getGanZhiFromDate(date);
   return {
     year_pillar: pillars.year,

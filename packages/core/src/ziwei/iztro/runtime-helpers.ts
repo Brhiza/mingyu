@@ -219,6 +219,14 @@ function assertValidChartInput(input: ChartInput) {
   ) {
     throw new Error('紫微四柱展示时分与出生时辰不一致。');
   }
+  if (
+    input.birthTime?.second !== undefined &&
+    (!Number.isInteger(input.birthTime.second) ||
+      input.birthTime.second < 0 ||
+      input.birthTime.second > 59)
+  ) {
+    throw new Error('紫微四柱展示秒数必须在 0-59 之间。');
+  }
   if (input.dateType === 'solar') {
     const maxDay = daysInSolarMonth(year, month);
     if (day > maxDay) {

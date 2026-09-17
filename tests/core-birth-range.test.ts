@@ -9,6 +9,8 @@ import {
 } from '../packages/core/src/birth';
 import { normalizeBirthProfile } from '../packages/core/src/profile';
 import type { BirthProfileTimeRange } from '../packages/core/src/profile/time-range';
+import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
+import { calculateBaziZiweiCombinedReading } from '../packages/core/src/synthesis';
 
 const SECOND = 1_000;
 const CHINA_OFFSET_MS = 8 * 60 * 60 * SECOND;
@@ -65,6 +67,64 @@ const PROFILE: BirthProfile = {
   birthTimeRange: RANGE,
   location: { name: '北京', longitude: 116.4, latitude: 39.9, timezone: 8 },
 };
+
+test('逐秒排盘保留规则偏好并冻结批次口径，合参沿用同一组选项', async () => {
+  const baziRules = {
+    shenShaScope: 'all' as const,
+    shenShaVariants: {
+      referenceProfile: 'classical' as const,
+      tongZiScope: 'all-pillars' as const,
+    },
+  };
+  const ziweiRules = {
+    algorithm: 'zhongzhou' as const,
+    fixLeap: false,
+    yearDivide: 'exact' as const,
+    horoscopeDivide: 'exact' as const,
+    ageDivide: 'birthday' as const,
+    dayDivide: 'current' as const,
+  };
+  const pending = calculateBirthChartBundle(PROFILE, {
+    systems: ['bazi', 'ziwei'],
+    baziRules,
+    ziweiRules,
+    rangeBatch: { limit: 2 },
+    ziwei: {
+      scopes: ['origin'],
+      skipAnalysis: true,
+      horoscopeContext: { dateStr: '2025-01-01', hourIndex: 6 },
+    },
+  });
+  // 首个异步边界之后，外部设置改变不能改写尚未计算的后续样本。
+  ziweiRules.fixLeap = true;
+  const range = asRangeBundle(await pending);
+  for (const { bundle } of range.range.samples) {
+    assert.equal(bundle.inputs.bazi?.shenShaScope, 'all');
+    assert.deepEqual(bundle.inputs.bazi?.shenShaVariants, baziRules.shenShaVariants);
+    assert.deepEqual(bundle.bazi, baziCalculator.calculateBazi(bundle.inputs.bazi!));
+    const config = bundle.ziwei!.payloadByScope.origin.calculation_config;
+    assert.equal(config.algorithm, 'zhongzhou');
+    assert.equal(config.fix_leap, false);
+    assert.equal(config.year_divide, 'exact');
+    assert.equal(config.horoscope_divide, 'exact');
+    assert.equal(config.age_divide, 'birthday');
+    assert.equal(config.day_divide, 'current');
+  }
+  const combined = await calculateBaziZiweiCombinedReading(PROFILE, {
+    baziRules,
+    ziweiRules,
+    ziwei: {
+      scopes: ['origin'],
+      skipAnalysis: true,
+      horoscopeContext: { dateStr: '2025-01-01', hourIndex: 6 },
+    },
+  });
+  assert.ok(combined.bundle.range);
+  const sample = combined.bundle.range.samples[0]!.bundle;
+  assert.equal(sample.inputs.bazi?.shenShaScope, 'all');
+  assert.equal(sample.ziwei!.payloadByScope.origin.calculation_config.algorithm, 'zhongzhou');
+  assert.equal(sample.ziwei!.payloadByScope.origin.calculation_config.fix_leap, true);
+});
 
 test('出生区间默认逐秒分页、可按 nextIndex 续取末尾且不返回代表盘', async () => {
   const first = asRangeBundle(await calculateBirthChartBundle(PROFILE, { systems: ['bazi'] }));

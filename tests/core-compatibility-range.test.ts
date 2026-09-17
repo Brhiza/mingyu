@@ -77,6 +77,7 @@ test('一侧范围与一侧固定盘生成有界笛卡尔积并缓存固定盘',
   const result = asRangeBundle(
     await calculateCompatibilityBundle(primary, fixedPartner, {
       systems: ['bazi'],
+      chart: { baziRules: { shenShaScope: 'all' } },
       rangeBatch: { limit: 60 },
     }),
   );
@@ -107,6 +108,9 @@ test('一侧范围与一侧固定盘生成有界笛卡尔积并缓存固定盘',
     [0],
   );
   assert.equal(result.partnerSamples[0]?.timestamp, undefined);
+  for (const sample of [...result.primarySamples, ...result.partnerSamples]) {
+    assert.equal(sample.bundle.inputs.bazi?.shenShaScope, 'all');
+  }
   assert.deepEqual(result.primaryProfile, primary);
   assert.deepEqual(result.partnerProfile, fixedPartner);
   assert.equal('primary' in result, false);

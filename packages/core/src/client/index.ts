@@ -180,6 +180,15 @@ function mergeBirthOptions(
   return {
     ...defaults,
     ...options,
+    baziRules: {
+      ...defaults?.baziRules,
+      ...options?.baziRules,
+      shenShaVariants: {
+        ...defaults?.baziRules?.shenShaVariants,
+        ...options?.baziRules?.shenShaVariants,
+      },
+    },
+    ziweiRules: { ...defaults?.ziweiRules, ...options?.ziweiRules },
     ziwei: { ...defaults?.ziwei, ...options?.ziwei },
   };
 }
@@ -194,11 +203,7 @@ function mergeCompatibilityOptions(
     bazi: { ...defaults?.bazi, ...options?.bazi },
     ziwei: { ...defaults?.ziwei, ...options?.ziwei },
     astrolabe: { ...defaults?.astrolabe, ...options?.astrolabe },
-    chart: {
-      ...defaults?.chart,
-      ...options?.chart,
-      ziwei: { ...defaults?.chart?.ziwei, ...options?.chart?.ziwei },
-    },
+    chart: mergeBirthOptions(defaults?.chart, options?.chart),
   };
 }
 
@@ -209,6 +214,15 @@ function mergeSynthesisOptions(
   return {
     ...defaults,
     ...options,
+    baziRules: {
+      ...defaults?.baziRules,
+      ...options?.baziRules,
+      shenShaVariants: {
+        ...defaults?.baziRules?.shenShaVariants,
+        ...options?.baziRules?.shenShaVariants,
+      },
+    },
+    ziweiRules: { ...defaults?.ziweiRules, ...options?.ziweiRules },
     ziwei: { ...defaults?.ziwei, ...options?.ziwei },
     prompt: { ...defaults?.prompt, ...options?.prompt },
   };

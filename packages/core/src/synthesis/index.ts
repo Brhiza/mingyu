@@ -561,6 +561,8 @@ export function formatBaziZiweiSynthesisForPrompt(
 }
 
 export interface BaziZiweiCombinedReadingOptions {
+  baziRules?: BirthChartBundleOptions['baziRules'];
+  ziweiRules?: BirthChartBundleOptions['ziweiRules'];
   ziwei?: ZiweiRuntimeOptions;
   prompt?: FormatBaziZiweiSynthesisOptions;
   rangeBatch?: BirthChartBundleOptions['rangeBatch'];
@@ -617,6 +619,8 @@ export async function calculateBaziZiweiCombinedReading(
   const promptOptions = { prompt: options.prompt ? { ...options.prompt } : undefined };
   const bundle = await calculateBirthChartBundle(profile, {
     systems: ['bazi', 'ziwei'],
+    baziRules: options.baziRules,
+    ziweiRules: options.ziweiRules,
     ziwei: options.ziwei,
     rangeBatch: options.rangeBatch,
     signal: options.signal,

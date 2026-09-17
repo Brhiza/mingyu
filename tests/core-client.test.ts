@@ -222,7 +222,12 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
 
 test('客户端默认设置可按单次调用覆盖且不会触发未请求的可选系统', async () => {
   const client = createMingyuClient({
-    defaults: { birth: { systems: ['bazi', 'astrolabe'] } },
+    defaults: {
+      birth: {
+        systems: ['bazi', 'astrolabe'],
+        baziRules: { shenShaScope: 'all', shenShaVariants: { referenceProfile: 'classical' } },
+      },
+    },
   });
   const preciseProfile: BirthProfile = {
     ...profile,
@@ -236,7 +241,15 @@ test('客户端默认设置可按单次调用覆盖且不会触发未请求的�
   assert.ok(defaults.bazi);
   assert.ok(defaults.astrolabe);
 
-  const override = await client.birth(preciseProfile, { systems: ['bazi'] });
+  const override = await client.birth(preciseProfile, {
+    systems: ['bazi'],
+    baziRules: { shenShaVariants: { tongZiScope: 'all-pillars' } },
+  });
   assert.deepEqual(override.systems, ['bazi']);
   assert.equal(override.astrolabe, undefined);
+  assert.equal(override.inputs?.bazi?.shenShaScope, 'all');
+  assert.deepEqual(override.inputs?.bazi?.shenShaVariants, {
+    referenceProfile: 'classical',
+    tongZiScope: 'all-pillars',
+  });
 });
