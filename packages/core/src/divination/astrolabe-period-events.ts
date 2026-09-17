@@ -109,14 +109,17 @@ export interface AstrolabePeriodEvent {
   house?: number;
   stationDirection?: '逆行' | '顺行';
   lunationName?: '朔' | '望' | '上弦' | '下弦';
-  /** 朔望触碰本命点的结构化事实；旧手工事件可省略，核心生成结果始终提供。 */
+  /** 朔望触碰本命点的结构化事实；旧文本只采用按偏差排序的前两项。 */
   lunationTouches?: AstrolabeLunationNatalTouch[];
+  /** 全部通过朔望容许度的本命触碰事实；旧手工事件可省略，核心生成结果始终提供。 */
+  lunationTouchCandidates?: AstrolabeLunationTouchCandidate[];
   eclipseName?: string;
 }
 
 export type AstrolabeLunationAspectName = '合相' | '刑相' | '冲相';
 
 export type AstrolabeLunationNatalTouch = {
+  key?: string;
   pointName: string;
   pointLabel: string;
   aspectName: AstrolabeLunationAspectName;
@@ -125,6 +128,11 @@ export type AstrolabeLunationNatalTouch = {
   actualAngle: number;
   deviation: number;
   allowedOrb: number;
+};
+
+export type AstrolabeLunationTouchCandidate = AstrolabeLunationNatalTouch & {
+  /** 由本命点和精确相位组成、跨取样时刻稳定的机器身份。 */
+  key: string;
 };
 
 export interface AstrolabePeriodTransitGroup {
@@ -720,32 +728,62 @@ function lunarEclipseName(type: LunarEclipseType) {
 type SolarEclipseType = ReturnType<typeof findSolarEclipses>[number]['type'];
 type LunarEclipseType = ReturnType<typeof findLunarEclipses>[number]['type'];
 
+type LunationTouchCandidate = {
+  point: { name: string; longitude: number };
+  aspect: (typeof LUNATION_ASPECTS)[number];
+  actualAngle: number;
+  deviation: number;
+  order: number;
+};
+
+type LunationTouchFacts = {
+  selected: AstrolabeLunationTouchCandidate[];
+  candidates: AstrolabeLunationTouchCandidate[];
+};
+
+function lunationTouchKey(pointName: string, exactAngle: number) {
+  return `lunation-touch:${pointName}:${exactAngle}`;
+}
+
+function toLunationTouch(item: LunationTouchCandidate): AstrolabeLunationTouchCandidate {
+  return {
+    key: lunationTouchKey(item.point.name, item.aspect.angle),
+    pointName: item.point.name,
+    pointLabel: labelOf(item.point.name),
+    aspectName: item.aspect.name,
+    aspectSymbol: item.aspect.symbol,
+    exactAngle: item.aspect.angle,
+    actualAngle: item.actualAngle,
+    deviation: item.deviation,
+    allowedOrb: LUNATION_ORB,
+  };
+}
+
 function lunationHitsNatal(
   lunationLongitude: number,
   natalPoints: Array<{ name: string; longitude: number }>,
-): AstrolabeLunationNatalTouch[] {
-  return natalPoints
+): LunationTouchFacts {
+  const candidates = natalPoints
     .filter((point) => LUNATION_NATAL_NAMES.has(point.name))
-    .flatMap((point) =>
-      LUNATION_ASPECTS.map((aspect) => ({
-        point,
-        aspect,
-        deviation: Math.abs(wrap180(lunationLongitude - point.longitude - aspect.angle)),
-      })),
+    .flatMap((point, pointIndex) =>
+      LUNATION_ASPECTS.map((aspect, aspectIndex) => {
+        const actualAngle = Math.abs(wrap180(lunationLongitude - point.longitude));
+        return {
+          point,
+          aspect,
+          actualAngle,
+          deviation: Math.abs(actualAngle - aspect.angle),
+          order: pointIndex * LUNATION_ASPECTS.length + aspectIndex,
+        };
+      }),
     )
     .filter((item) => item.deviation <= LUNATION_ORB)
-    .sort((first, second) => first.deviation - second.deviation)
-    .slice(0, 2)
-    .map((item) => ({
-      pointName: item.point.name,
-      pointLabel: labelOf(item.point.name),
-      aspectName: item.aspect.name,
-      aspectSymbol: item.aspect.symbol,
-      exactAngle: item.aspect.angle,
-      actualAngle: Math.abs(wrap180(lunationLongitude - item.point.longitude)),
-      deviation: item.deviation,
-      allowedOrb: LUNATION_ORB,
-    }));
+    .sort((first, second) => first.deviation - second.deviation || first.order - second.order)
+    .map(toLunationTouch);
+  return {
+    candidates,
+    selected: candidates.slice(0, 2),
+  };
 }
 
 function formatLunationTouch(touch: AstrolabeLunationNatalTouch) {
@@ -1253,8 +1291,10 @@ function buildAstrolabePeriodEventsInternal(
     for (const jd of crossingsFromSamples(moonSamples, residualAt, exactAt)) {
       if (eclipseTimes.some((item) => Math.abs(item - jd) < 0.75)) continue;
       const moonLongitude = cachedLongitudeOf('Moon', jd);
-      const touches = lunationHitsNatal(moonLongitude, natalPoints);
-      const suffix = touches.length ? touches.map(formatLunationTouch).join('，') : '';
+      const touchFacts = lunationHitsNatal(moonLongitude, natalPoints);
+      const suffix = touchFacts.selected.length
+        ? touchFacts.selected.map(formatLunationTouch).join('，')
+        : '';
       pushEvent({
         kind: '朔望',
         julianDate: jd,
@@ -1262,7 +1302,8 @@ function buildAstrolabePeriodEventsInternal(
         movingPoint: '月亮',
         targetPoint: '太阳',
         lunationName: lunation.name,
-        lunationTouches: touches,
+        lunationTouches: touchFacts.selected,
+        lunationTouchCandidates: touchFacts.candidates,
         key: eventKey('朔望', 'Moon', jd, lunation.name),
       });
     }

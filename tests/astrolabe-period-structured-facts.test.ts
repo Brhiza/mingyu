@@ -22,6 +22,25 @@ const syntheticAstrolabe = generateAstrolabe({
   locationName: '北京',
 });
 
+function normalizeLongitude(value: number) {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function withLunationOffsets(lunationLongitude: number, offsets: Record<string, number>) {
+  const applyOffset = <T extends { name: string; longitude: number }>(point: T) => {
+    const offset = offsets[point.name];
+    return offset === undefined
+      ? point
+      : { ...point, longitude: normalizeLongitude(lunationLongitude + offset) };
+  };
+  return {
+    ...syntheticAstrolabe,
+    planets: syntheticAstrolabe.planets.map(applyOffset),
+    angles: syntheticAstrolabe.angles.map(applyOffset),
+  };
+}
+
 test('朔望本命触碰保留结构化角距并由同一事实生成原文本', () => {
   const target = { year: 2028, month: 6, day: 15 };
   const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
@@ -40,6 +59,12 @@ test('朔望本命触碰保留结构化角距并由同一事实生成原文本',
   assert.ok(event, '对齐本命太阳后应保留同一朔望事件');
   assert.ok(event.lunationTouches);
   assert.ok(event.lunationTouches.length > 0);
+  assert.ok(event.lunationTouchCandidates);
+  assert.ok(event.lunationTouchCandidates.length >= event.lunationTouches.length);
+  assert.deepEqual(
+    event.lunationTouches.map((touch) => touch.key),
+    event.lunationTouchCandidates.slice(0, 2).map((touch) => touch.key),
+  );
   const sunTouch = event.lunationTouches.find(
     (touch) => touch.pointName === 'Sun' && touch.aspectName === '合相',
   );
@@ -56,9 +81,7 @@ test('朔望本命触碰保留结构化角距并由同一事实生成原文本',
     );
     assert.ok(natalPoint, `应能找到触碰对应的本命点：${touch.pointName}`);
     const actualAngle = Math.abs(((moonLongitude - natalPoint.longitude + 540) % 360) - 180);
-    const deviation = Math.abs(
-      ((moonLongitude - natalPoint.longitude - touch.exactAngle + 540) % 360) - 180,
-    );
+    const deviation = Math.abs(actualAngle - touch.exactAngle);
     assert.equal(touch.pointLabel, natalPoint.label);
     assert.ok(Math.abs(touch.actualAngle - actualAngle) < 1e-10);
     assert.ok(Math.abs(touch.deviation - deviation) < 1e-10);
@@ -68,6 +91,125 @@ test('朔望本命触碰保留结构化角距并由同一事实生成原文本',
     assert.ok(touch.deviation <= touch.allowedOrb);
     assert.ok([0, 90, 180].includes(touch.exactAngle));
     assert.ok(event.promptText.includes(`${touch.aspectSymbol}本命${touch.pointLabel}`));
+  }
+});
+
+test('朔望触碰按最小角距覆盖正反刑相并保留完整候选', () => {
+  const target = { year: 2028, month: 6, day: 15 };
+  const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
+  const lunation = baseline.events.find((event) => event.kind === '朔望');
+  assert.ok(lunation, '合成月份应至少有一个朔望事件');
+  const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
+  const aligned = withLunationOffsets(moonLongitude, {
+    Sun: 0,
+    Moon: 90,
+    'North Node': 180,
+    'South Node': 86,
+    Ascendant: -90,
+    Midheaven: 40,
+  });
+
+  const event = buildAstrolabePeriodEvents(aligned, 'monthly', target).events.find(
+    (item) => item.key === lunation.key,
+  );
+  assert.ok(event);
+  assert.ok(event.lunationTouches);
+  assert.ok(event.lunationTouchCandidates);
+  assert.equal(event.lunationTouches.length, 2);
+  assert.equal(event.lunationTouchCandidates.length, 4);
+  assert.equal(new Set(event.lunationTouchCandidates.map((touch) => touch.key)).size, 4);
+  assert.deepEqual(
+    event.lunationTouches.map((touch) => touch.key),
+    event.lunationTouchCandidates.slice(0, 2).map((touch) => touch.key),
+  );
+
+  const findTouch = (pointName: string, aspectName: string) =>
+    event.lunationTouchCandidates.find(
+      (touch) => touch.pointName === pointName && touch.aspectName === aspectName,
+    );
+  const exactConjunction = findTouch('Sun', '合相');
+  const reverseSquare = findTouch('Moon', '刑相');
+  const opposition = findTouch('North Node', '冲相');
+  const forwardSquare = findTouch('Ascendant', '刑相');
+  assert.ok(exactConjunction);
+  assert.ok(reverseSquare);
+  assert.ok(opposition);
+  assert.ok(forwardSquare);
+  for (const [touch, angle] of [
+    [exactConjunction, 0],
+    [reverseSquare, 90],
+    [opposition, 180],
+    [forwardSquare, 90],
+  ] as const) {
+    assert.equal(typeof touch.key, 'string');
+    assert.ok(Math.abs(touch.actualAngle - angle) < 1e-9);
+    assert.ok(Math.abs(touch.deviation) < 1e-9);
+  }
+  assert.equal(findTouch('South Node', '刑相'), undefined);
+});
+
+test('朔望刑相正反两侧的三度边界命中，超出边界排除', () => {
+  const target = { year: 2028, month: 6, day: 15 };
+  const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
+  const lunation = baseline.events.find((event) => event.kind === '朔望');
+  assert.ok(lunation, '合成月份应至少有一个朔望事件');
+  const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
+  const aligned = withLunationOffsets(moonLongitude, {
+    Sun: -87,
+    Moon: 87,
+    Ascendant: -86,
+    Midheaven: 86,
+    'North Node': 40,
+    'South Node': -40,
+  });
+
+  const event = buildAstrolabePeriodEvents(aligned, 'monthly', target).events.find(
+    (item) => item.key === lunation.key,
+  );
+  assert.ok(event);
+  assert.ok(event.lunationTouches);
+  assert.ok(event.lunationTouchCandidates);
+  assert.equal(event.lunationTouchCandidates.length, 2);
+  for (const pointName of ['Sun', 'Moon']) {
+    const touch = event.lunationTouchCandidates.find(
+      (item) => item.pointName === pointName && item.aspectName === '刑相',
+    );
+    assert.ok(touch);
+    assert.ok(Math.abs(touch.actualAngle - 87) < 1e-9);
+    assert.ok(Math.abs(touch.deviation - 3) < 1e-9);
+  }
+  assert.equal(
+    event.lunationTouchCandidates.some((touch) =>
+      ['Ascendant', 'Midheaven'].includes(touch.pointName),
+    ),
+    false,
+  );
+});
+
+test('朔望刑相九十三度边界及邻近越界按同一容许度判断', () => {
+  const target = { year: 2028, month: 6, day: 15 };
+  const lunation = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target).events.find(
+    (event) => event.kind === '朔望',
+  )!;
+  const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
+  const aligned = withLunationOffsets(moonLongitude, {
+    Sun: 93,
+    Moon: -93,
+    Ascendant: 93.0001,
+    Midheaven: -93.0001,
+    'North Node': 86.9999,
+    'South Node': -86.9999,
+  });
+  const event = buildAstrolabePeriodEvents(aligned, 'monthly', target).events.find(
+    (item) => item.key === lunation.key,
+  )!;
+  assert.deepEqual(
+    new Set(event.lunationTouchCandidates?.map((touch) => touch.pointName)),
+    new Set(['Sun', 'Moon']),
+  );
+  for (const touch of event.lunationTouchCandidates!) {
+    assert.equal(touch.aspectName, '刑相');
+    assert.ok(Math.abs(touch.deviation - 3) < 1e-9);
   }
 });
 
