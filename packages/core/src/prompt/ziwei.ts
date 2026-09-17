@@ -445,6 +445,25 @@ export {
 
 export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
   if (runtime.fortuneTimeline) {
+    if (runtime.fortuneTimeline.batch) {
+      let firstPayload = true;
+      const selectedScopeText = SCOPE_ORDER.map((scope) => runtime.payloadByScope[scope])
+        .map((payload) => {
+          if (!payload) return '';
+          const text = formatZiweiPayloadForPrompt(payload, { includeBasicInfo: firstPayload });
+          firstPayload = false;
+          return `${SCOPE_LABELS[payload.active_scope.scope]}：\n${text}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+      return [
+        selectedScopeText,
+        `本次所列运限资料：\n${formatZiweiFortuneTimeline(runtime.fortuneTimeline)}`,
+        formatZiweiTargetLowerScopeFacts(runtime),
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+    }
     const origin = runtime.payloadByScope.origin;
     const originText = origin
       ? formatZiweiPayloadForPrompt(origin, { includeBasicInfo: true })
@@ -523,10 +542,17 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
         )
       : '';
 
+  const isBatchedFullScope = scope === 'full' && Boolean(options.runtime.fortuneTimeline?.batch);
   const task = buildPromptTask(
     scope === 'origin'
       ? `请依据命身十二宫、星曜庙旺和生年四化解读本命结构${topicLabel ? `，重点分析${topicLabel}` : ''}，再回答问题。`
-      : `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+      : `请依据${
+          scope === 'full'
+            ? isBatchedFullScope
+              ? '本命与本次所列运限'
+              : '本命与所列完整运限'
+            : SCOPE_LABELS[scopes[0] ?? 'origin']
+        }资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
     scope === 'origin' ? 'ziwei-natal' : 'ziwei',
   );
   const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;

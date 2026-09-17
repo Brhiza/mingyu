@@ -1,7 +1,6 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { ScopeType } from '../../../src/types/analysis.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
   buildCurrentBaziFortuneSelectionForScope,
@@ -19,7 +18,6 @@ import {
   normalizeThematicTopic,
   buildThematicConsultationPrompt,
   buildSerializableZiweiResult,
-  getZiweiPromptCalculationScopes,
   type BaziSchool,
   type PromptMode,
   type ZiweiPromptScope,
@@ -32,7 +30,12 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildBaziPerson, baziSchema } from './bazi.js';
-import { buildMcpZiweiChartInput, buildMcpZiweiFortuneRangeOptions } from './ziwei.js';
+import {
+  buildMcpZiweiChartInput,
+  buildMcpZiweiFortuneRangeOptions,
+  getMcpZiweiBatchMetadata,
+  resolveMcpZiweiBatchOptions,
+} from './ziwei.js';
 
 const thematicConsultationPromptSchema = baziSchema.extend({
   system: z
@@ -77,6 +80,20 @@ const thematicConsultationPromptSchema = baziSchema.extend({
     .max(12)
     .optional()
     .describe('目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰'),
+  scopeBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(1).optional(),
+    })
+    .optional()
+    .describe('仅在 promptScope=full 时生效；按 scope 分页，origin 随每页返回'),
+  fortuneBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(10).optional(),
+    })
+    .optional()
+    .describe('仅在 promptScope=full 或 decadal 时生效；按年龄年分页'),
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一分析范围；优先于兼容字段 promptScope'),
   promptMode: z
     .enum(PROMPT_MODES)
@@ -168,14 +185,17 @@ export function registerThematicTool(server: McpServer) {
         let baziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
         let ziweiResult: Awaited<ReturnType<typeof calculateZiweiChartForScopes>> | undefined;
         let serializableZiweiResult: unknown | undefined;
+        let ziweiBatch: ReturnType<typeof getMcpZiweiBatchMetadata> | undefined;
 
         if (system === 'bazi_ziwei' || system === 'bazi') {
           baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
         }
 
         if (system === 'bazi_ziwei' || system === 'ziwei') {
-          const scopes: ScopeType[] = Array.from(
-            new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
+          const batchOptions = resolveMcpZiweiBatchOptions(
+            scope,
+            args.scopeBatch,
+            args.fortuneBatch,
           );
           const ziweiInput = buildCombinedZiweiInput(args);
           const currentContext = getDefaultHoroscopeContext();
@@ -187,13 +207,22 @@ export function registerThematicTool(server: McpServer) {
             scope,
             horoscopeContext.dateStr,
             horoscopeContext.hourIndex,
+            batchOptions.fortuneBatch,
           );
-          const computedZiwei = await calculateZiweiChartForScopes(ziweiInput, scopes, undefined, {
-            ...(fortuneRange ? { fortuneRange } : {}),
-            horoscopeContext,
-          });
+          const computedZiwei = await calculateZiweiChartForScopes(
+            ziweiInput,
+            batchOptions.scopes,
+            undefined,
+            {
+              ...(fortuneRange ? { fortuneRange } : {}),
+              horoscopeContext,
+            },
+          );
           ziweiResult = computedZiwei;
           serializableZiweiResult = buildSerializableZiweiResult(computedZiwei);
+          ziweiBatch = getMcpZiweiBatchMetadata(computedZiwei, batchOptions.scopeBatch);
+        } else if (args.scopeBatch !== undefined || args.fortuneBatch !== undefined) {
+          throw new Error('紫微分页参数仅适用于包含紫微资料的咨询体系。');
         }
 
         const baziFortuneScope =
@@ -258,6 +287,7 @@ export function registerThematicTool(server: McpServer) {
             bazi: baziResult,
             ziwei: serializableZiweiResult,
           },
+          ...(ziweiBatch ? { batch: ziweiBatch } : {}),
           prompt: promptResult.prompt,
         });
       } catch (error) {

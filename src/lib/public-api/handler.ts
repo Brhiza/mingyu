@@ -28,6 +28,7 @@ import {
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
   type ZiweiFortuneRangeScope,
+  type ZiweiFortuneTimeline,
 } from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
@@ -877,7 +878,7 @@ export function getPublicApiOpenApiDocument(
           responses: {
             '200': {
               description:
-                '未提供 birthTimeRange 时返回既有单点紫微结果；提供时返回包含 source、分页游标和逐秒完整样本的 range 结果。',
+                '未提供 birthTimeRange 且未传分页字段时返回既有单点紫微结果；单点显式传 scopeBatch 或 fortuneBatch 时只返回当前批次并附 batch 续取元数据；提供 birthTimeRange 时返回包含 source、分页游标和逐秒完整样本的 range 结果。',
             },
           },
         },
@@ -886,7 +887,12 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '紫微斗数排盘并生成 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiPromptRequest'),
-          responses: { '200': { description: '紫微命盘数据和结构化提示词' } },
+          responses: {
+            '200': {
+              description:
+                '紫微命盘数据和结构化提示词；显式分页时附 batch 续取元数据与固定运限上下文。',
+            },
+          },
         },
       },
       '/ziwei/compatibility': {
@@ -2526,12 +2532,12 @@ export function getPublicApiOpenApiDocument(
             scopeBatch: {
               $ref: '#/components/schemas/ZiweiScopeBatch',
               description:
-                '仅在 birthTimeRange 且 promptScope=full 时生效；返回 range.scopeBatch.nextIndex 继续读取。',
+                '显式传入时按 scope 分页；点输入仅在 promptScope=full 时生效，范围输入返回 range.scopeBatch.nextIndex，点输入返回 batch.scopeBatch.nextIndex。',
             },
             fortuneBatch: {
               $ref: '#/components/schemas/ZiweiFortuneBatch',
               description:
-                '仅在 birthTimeRange 且 promptScope 映射为 all/current 时生效；游标同时写入 fortuneTimeline.batch。',
+                '显式传入时按年龄年分页；仅在 promptScope 映射为 all/current 时生效，游标写入 fortuneTimeline.batch，并在点输入 batch.fortuneBatch 中返回。',
             },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
@@ -2688,6 +2694,16 @@ export function getPublicApiOpenApiDocument(
                   description:
                     '紫微安星口径：default 为传统通行安星法，zhongzhou 为中州派安星法；它改变底层排盘，不等同于提示词解读流派。',
                 },
+                scopeBatch: {
+                  $ref: '#/components/schemas/ZiweiScopeBatch',
+                  description:
+                    '点输入的紫微 full 资料游标；显式传入后每次只计算 origin 与一个资料 scope，并返回 batch.scopeBatch。',
+                },
+                fortuneBatch: {
+                  $ref: '#/components/schemas/ZiweiFortuneBatch',
+                  description:
+                    '点输入的紫微当前或完整运限年龄年游标；仅 all/current 有效，并返回 batch.fortuneBatch。',
+                },
               },
             },
           ],
@@ -2771,6 +2787,16 @@ export function getPublicApiOpenApiDocument(
                 algorithm: {
                   enum: ['default', 'zhongzhou'],
                   description: '紫微底层安星口径：default=传统通行安星法；zhongzhou=中州派。',
+                },
+                scopeBatch: {
+                  $ref: '#/components/schemas/ZiweiScopeBatch',
+                  description:
+                    '紫微 full 资料游标；显式传入后每次只计算 origin 与一个资料 scope，并在返回中附 batch.scopeBatch。',
+                },
+                fortuneBatch: {
+                  $ref: '#/components/schemas/ZiweiFortuneBatch',
+                  description:
+                    '紫微当前或完整运限年龄年游标；仅 all/current 有效，并在返回中附 batch.fortuneBatch。',
                 },
               },
             },
@@ -4634,6 +4660,71 @@ function resolveZiweiScopeBatch(
   };
 }
 
+type ZiweiBatchMetadata = {
+  scopeBatch?: BirthRangeScopeBatch;
+  fortuneBatch?: NonNullable<ZiweiFortuneTimeline['batch']>;
+  scopeContext?: { dateStr: string; hourIndex: number };
+};
+
+type ResolvedZiweiBatchOptions = {
+  scopes: ScopeType[];
+  fortuneScope?: ZiweiFortuneRangeScope;
+  fortuneBatch?: ZiweiFortuneBatchInput;
+  scopeBatch?: BirthRangeScopeBatch;
+};
+
+/**
+ * 单点紫微只有显式传入分页字段时才启用有界资料计算；未传字段必须保持原整包语义。
+ * full 的 scopeBatch 和 all/current 的 fortuneBatch 可以独立续取，前者默认同时取一年龄年，
+ * 以免只分页 scope 时仍意外构造完整运限时间线。
+ */
+function resolvePointZiweiBatchOptions(
+  input: JsonRecord,
+  scope: ZiweiPromptScope,
+): ResolvedZiweiBatchOptions {
+  const requestedScopes = getZiweiPromptCalculationScopes(scope);
+  const fortuneBatchInput = readFortuneBatch(input);
+  const hasScopeBatch = input.scopeBatch !== undefined;
+  const shouldPageScopes = hasScopeBatch || (scope === 'full' && fortuneBatchInput !== undefined);
+  const scopeResolution = shouldPageScopes
+    ? resolveZiweiScopeBatch(
+        hasScopeBatch || fortuneBatchInput === undefined ? input : { ...input, scopeBatch: {} },
+        scope,
+      )
+    : { scopes: requestedScopes };
+  const fortuneScope = toZiweiFortuneRangeScope(scope);
+  if (fortuneBatchInput !== undefined && fortuneScope !== 'all' && fortuneScope !== 'current') {
+    throw new ApiError(400, 'BAD_REQUEST', 'fortuneBatch 仅在紫微运限范围 all 或 current 时生效。');
+  }
+  const hasExplicitBatch = hasScopeBatch || fortuneBatchInput !== undefined;
+  const fortuneBatch =
+    hasExplicitBatch && (fortuneScope === 'all' || fortuneScope === 'current')
+      ? (fortuneBatchInput ?? {})
+      : undefined;
+  return {
+    scopes: scopeResolution.scopes,
+    fortuneScope,
+    ...(fortuneBatch ? { fortuneBatch } : {}),
+    ...(scopeResolution.metadata ? { scopeBatch: scopeResolution.metadata } : {}),
+  };
+}
+
+function getZiweiBatchMetadata(
+  runtime: {
+    fortuneTimeline?: ZiweiFortuneTimeline;
+    horoscopeContext?: { dateStr: string; hourIndex: number };
+  },
+  scopeBatch?: BirthRangeScopeBatch,
+): ZiweiBatchMetadata | undefined {
+  const fortuneBatch = runtime.fortuneTimeline?.batch;
+  if (!scopeBatch && !fortuneBatch) return undefined;
+  return {
+    ...(scopeBatch ? { scopeBatch } : {}),
+    ...(fortuneBatch ? { fortuneBatch } : {}),
+    ...(runtime.horoscopeContext ? { scopeContext: runtime.horoscopeContext } : {}),
+  };
+}
+
 function assertFixedBeijingRangeInput(input: JsonRecord, dateType: 'solar' | 'lunar') {
   if (dateType !== 'solar') {
     throw new ApiError(400, 'BAD_REQUEST', '出生时间范围必须使用公历输入。');
@@ -4793,6 +4884,22 @@ function throwBirthRangeApiError(error: unknown, fallback: string): never {
     (error instanceof MingyuCoreError && error.category === 'validation')
   ) {
     throw new ApiError(400, 'BAD_REQUEST', error instanceof Error ? error.message : fallback);
+  }
+  throw error;
+}
+
+function throwZiweiBatchApiError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  if (
+    error instanceof RangeError ||
+    error instanceof TypeError ||
+    (error instanceof MingyuCoreError && error.category === 'validation')
+  ) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '紫微分页参数无效。',
+    );
   }
   throw error;
 }
@@ -5163,7 +5270,11 @@ function readOptionalZiweiScopeDate(input: JsonRecord) {
 async function calculateZiweiRuntime(
   input: JsonRecord,
   scopes: ScopeType[] = ['origin'],
-  options: { fortuneScope?: ZiweiFortuneRangeScope; scopeDate?: string } = {},
+  options: {
+    fortuneScope?: ZiweiFortuneRangeScope;
+    fortuneBatch?: ZiweiFortuneBatchInput;
+    scopeDate?: string;
+  } = {},
 ) {
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
@@ -5225,6 +5336,7 @@ async function calculateZiweiRuntime(
     ? {
         scope: options.fortuneScope,
         ...horoscopeContext,
+        ...(options.fortuneBatch ? { batch: options.fortuneBatch } : {}),
       }
     : undefined;
   return calculatePublicZiweiChartForScopes(
@@ -5256,19 +5368,31 @@ async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
     }
   }
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'decadal') as ZiweiPromptScope;
-  const result = buildSerializableZiweiResult(
-    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
-      fortuneScope: toZiweiFortuneRangeScope(scope),
+  const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+  let runtime: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
+  try {
+    runtime = await calculateZiweiRuntime(input, batchOptions.scopes, {
+      fortuneScope: batchOptions.fortuneScope,
+      fortuneBatch: batchOptions.fortuneBatch,
       scopeDate: readOptionalZiweiScopeDate(input),
-    }),
-  );
-  return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
+    });
+  } catch (error) {
+    if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
+      return throwZiweiBatchApiError(error);
+    }
+    throw error;
+  }
+  const result = buildSerializableZiweiResult(runtime);
+  const shaped = input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
+  const batch = getZiweiBatchMetadata(runtime, batchOptions.scopeBatch);
+  return batch ? { ...shaped, batch } : shaped;
 }
 
 function buildZiweiCalculationIdentity(
   input: JsonRecord,
   scope: ZiweiPromptScope,
   result: ReturnType<typeof buildSerializableZiweiResult>,
+  batch?: ZiweiBatchMetadata,
 ) {
   const birthDate = readBirthDate(input, { asString: true });
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
@@ -5311,6 +5435,8 @@ function buildZiweiCalculationIdentity(
   } else if (result.fortuneTimeline) {
     target.scopeHourIndex = result.fortuneTimeline.targetHourIndex;
   }
+  if (batch?.scopeBatch) target.scopeBatch = batch.scopeBatch;
+  if (batch?.fortuneBatch) target.fortuneBatch = batch.fortuneBatch;
   return { method: 'ziwei', birth, target };
 }
 
@@ -5323,10 +5449,20 @@ async function buildZiweiPrompt(input: JsonRecord) {
     ZIWEI_PROMPT_SCOPES,
     selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
-    fortuneScope: toZiweiFortuneRangeScope(scope),
-    scopeDate: readOptionalZiweiScopeDate(input),
-  });
+  const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+  let result: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
+  try {
+    result = await calculateZiweiRuntime(input, batchOptions.scopes, {
+      fortuneScope: batchOptions.fortuneScope,
+      fortuneBatch: batchOptions.fortuneBatch,
+      scopeDate: readOptionalZiweiScopeDate(input),
+    });
+  } catch (error) {
+    if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
+      return throwZiweiBatchApiError(error);
+    }
+    throw error;
+  }
   const promptTopic =
     input.promptTopic === undefined
       ? undefined
@@ -5339,6 +5475,7 @@ async function buildZiweiPrompt(input: JsonRecord) {
       : undefined;
   const schools = readPromptSchools(input, ZIWEI_SCHOOLS) as ZiweiSchool[] | undefined;
   const serializableResult = buildSerializableZiweiResult(result);
+  const batch = getZiweiBatchMetadata(result, batchOptions.scopeBatch);
   const prompt = buildPublicZiweiPromptForRuntime({
     result,
     question: readRequiredString(input, 'question'),
@@ -5355,12 +5492,13 @@ async function buildZiweiPrompt(input: JsonRecord) {
     prompt,
     fullResult: {
       ...serializableResult,
-      calculationIdentity: buildZiweiCalculationIdentity(input, scope, serializableResult),
+      calculationIdentity: buildZiweiCalculationIdentity(input, scope, serializableResult, batch),
     },
     resultSummary: {
       ...buildCompactZiweiResult(serializableResult),
       ...(selection ? { selection } : {}),
     },
+    batch,
   });
 }
 
@@ -5466,10 +5604,20 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     ZIWEI_PROMPT_SCOPES,
     selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
-    fortuneScope: toZiweiFortuneRangeScope(scope),
-    scopeDate: readOptionalZiweiScopeDate(input),
-  });
+  const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+  let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
+  try {
+    ziweiResult = await calculateZiweiRuntime(input, batchOptions.scopes, {
+      fortuneScope: batchOptions.fortuneScope,
+      fortuneBatch: batchOptions.fortuneBatch,
+      scopeDate: readOptionalZiweiScopeDate(input),
+    });
+  } catch (error) {
+    if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
+      return throwZiweiBatchApiError(error);
+    }
+    throw error;
+  }
   const baziFortuneScope =
     scope === 'origin'
       ? 'natal'
@@ -5539,6 +5687,7 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     bazi: baziResult,
     ziwei: serializableZiweiResult,
   };
+  const batch = getZiweiBatchMetadata(ziweiResult, batchOptions.scopeBatch);
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -5549,6 +5698,7 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
       ziwei: buildCompactZiweiResult(serializableZiweiResult),
       ...(selection ? { selection } : {}),
     },
+    batch,
   });
 }
 
@@ -5625,17 +5775,30 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
   let baziResult: BaziChartResult | undefined;
   let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>> | undefined;
   let serializableZiweiResult: ReturnType<typeof buildSerializableZiweiResult> | undefined;
+  let ziweiBatch: ZiweiBatchMetadata | undefined;
 
   if (system === 'bazi_ziwei' || system === 'bazi') {
     baziResult = calculateBazi(input);
   }
 
   if (system === 'bazi_ziwei' || system === 'ziwei') {
-    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
-      fortuneScope: toZiweiFortuneRangeScope(scope),
-      scopeDate: readOptionalZiweiScopeDate(input),
-    });
+    const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+    try {
+      ziweiResult = await calculateZiweiRuntime(input, batchOptions.scopes, {
+        fortuneScope: batchOptions.fortuneScope,
+        fortuneBatch: batchOptions.fortuneBatch,
+        scopeDate: readOptionalZiweiScopeDate(input),
+      });
+    } catch (error) {
+      if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
+        return throwZiweiBatchApiError(error);
+      }
+      throw error;
+    }
     serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+    ziweiBatch = getZiweiBatchMetadata(ziweiResult, batchOptions.scopeBatch);
+  } else if (input.scopeBatch !== undefined || input.fortuneBatch !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', '紫微分页参数仅适用于包含紫微资料的咨询体系。');
   }
 
   const baziFortuneScope =
@@ -5723,6 +5886,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     fullResult,
     resultSummary,
     summary: resultSummary,
+    batch: ziweiBatch,
   });
 }
 
@@ -6726,14 +6890,19 @@ function buildPromptApiResult(params: {
   summary?: unknown;
   fullResult: unknown;
   resultSummary?: unknown;
+  batch?: ZiweiBatchMetadata;
 }) {
   const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {
-    return { prompt };
+    return {
+      ...(params.batch ? { batch: params.batch } : {}),
+      prompt,
+    };
   }
 
   if (params.responseMode === 'full') {
     return {
+      ...(params.batch ? { batch: params.batch } : {}),
       result: params.fullResult,
       ...(params.summary === undefined ? {} : { summary: params.summary }),
       prompt,
@@ -6741,6 +6910,7 @@ function buildPromptApiResult(params: {
   }
 
   return {
+    ...(params.batch ? { batch: params.batch } : {}),
     ...(params.resultSummary === undefined ? {} : { resultSummary: params.resultSummary }),
     ...(params.summary === undefined ? {} : { summary: params.summary }),
     prompt,
