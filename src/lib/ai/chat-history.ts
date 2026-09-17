@@ -2,7 +2,8 @@ import type { AiChatCompletionStatus, AiChatStatus, ChatTurn } from '@/hooks/use
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
 import { normalizeReadingSubject, type ReadingSubjectSnapshot } from './reading-subject';
-import { isAstrolabeDynamicReadingCheckpoint } from './astrolabe-dynamic-reading';
+import { isReadingDynamicCheckpoint } from './reading-dynamic-checkpoint';
+import { isReadingResourceReplays } from './reading-resource-replay';
 
 export type AiChatPromptMode = 'context' | 'context-question';
 
@@ -63,11 +64,14 @@ function normalizeTurns(value: unknown): ChatTurn[] {
           }
         : {}),
       ...(item.incomplete === true ||
-      (item.dynamicReading && !isAstrolabeDynamicReadingCheckpoint(item.dynamicReading))
+      (item.dynamicReading && !isReadingDynamicCheckpoint(item.dynamicReading))
         ? { incomplete: true }
         : {}),
-      ...(isAstrolabeDynamicReadingCheckpoint(item.dynamicReading)
+      ...(isReadingDynamicCheckpoint(item.dynamicReading)
         ? { dynamicReading: item.dynamicReading }
+        : {}),
+      ...(isReadingResourceReplays(item.dynamicReplays)
+        ? { dynamicReplays: item.dynamicReplays }
         : {}),
     }));
 }

@@ -7,8 +7,10 @@ import {
   type ReadingMemorySeed,
 } from '@/lib/ai/reading-workflow';
 import { executeReadingAction } from '@/lib/ai/reading-resources';
+import { disposeReadingResources } from '@/lib/ai/reading-resource-lifecycle';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
-import type { AstrolabeDynamicReadingCheckpoint } from '@/lib/ai/astrolabe-dynamic-reading';
+import type { ReadingDynamicCheckpoint } from '@/lib/ai/reading-dynamic-checkpoint';
+import type { ReadingResourceReplay } from '@/lib/ai/reading-resource-replay';
 
 export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'cancelled' | 'error';
 export type AiChatCompletionStatus =
@@ -19,7 +21,8 @@ export interface ChatTurn {
   content: string;
   notices?: string[];
   incomplete?: boolean;
-  dynamicReading?: AstrolabeDynamicReadingCheckpoint;
+  dynamicReading?: ReadingDynamicCheckpoint;
+  dynamicReplays?: ReadingResourceReplay[];
 }
 
 export interface UseAiChat {
@@ -165,10 +168,11 @@ export function useAiChat(
       return;
     }
 
-    readingMemoryRef.current = {
+    replaceReadingMemory(readingMemoryRef, {
       ...memory,
       astrolabeDynamicReading: getLatestDynamicReadingCheckpoint(turnsRef.current),
-    };
+      restoreActions: getLatestDynamicResourceReplays(turnsRef.current),
+    });
     readingResourceRequirementRef.current = undefined;
     const restoredState = pendingRestoredStateRef.current;
     pendingRestoredStateRef.current = undefined;
@@ -194,6 +198,7 @@ export function useAiChat(
     return () => {
       abortRef.current?.abort();
       abortRef.current = null;
+      replaceReadingMemory(readingMemoryRef, { resources: [] });
     };
   }, []);
 
@@ -203,7 +208,10 @@ export function useAiChat(
     streamingRef.current = '';
     turnsRef.current = [];
     initialPromptRef.current = '';
-    readingMemoryRef.current = createReadingMemory(readingSeedRef.current, readingSubject?.id);
+    replaceReadingMemory(
+      readingMemoryRef,
+      createReadingMemory(readingSeedRef.current, readingSubject?.id),
+    );
     readingResourceRequirementRef.current = undefined;
     pendingRestoredStateRef.current = undefined;
     readingSubjectLockedRef.current = false;
@@ -243,11 +251,15 @@ export function useAiChat(
         resourceRequirement,
         resourceSeed ?? readingSeedRef.current,
       );
-      readingMemoryRef.current = resourceKey
-        ? (restoredMemory ?? { resources: [] })
-        : createReadingMemory(undefined, restoredSubject?.id);
+      replaceReadingMemory(
+        readingMemoryRef,
+        resourceKey
+          ? (restoredMemory ?? { resources: [] })
+          : createReadingMemory(undefined, restoredSubject?.id),
+      );
       readingMemoryRef.current.astrolabeDynamicReading =
         getLatestDynamicReadingCheckpoint(nextTurns);
+      readingMemoryRef.current.restoreActions = getLatestDynamicResourceReplays(nextTurns);
       readingResourceRequirementRef.current =
         resourceKey && !restoredMemory ? resourceRequirement : undefined;
       readingSubjectLockedRef.current = true;
@@ -331,20 +343,23 @@ export function useAiChat(
       noticesRef.current = [];
       setCanRetry(false);
 
-      let dynamicReading: AstrolabeDynamicReadingCheckpoint | undefined;
+      let dynamicReading: ReadingDynamicCheckpoint | undefined;
+      let dynamicReplays: ReadingResourceReplay[] | undefined;
       void runReadingWorkflow(
         messages,
         {
           signal: controller.signal,
           aiConfig,
           memory: readingMemoryRef.current,
+          initialPrompt: initialPromptRef.current,
           subject: readingSubjectRef.current,
           readingMethod: readingMethodRef.current,
           onProgress: (value) => {
             if (abortRef.current === controller) setProgress(value.text);
           },
-          onAstrolabeDynamicCheckpoint: (checkpoint) => {
+          onAstrolabeDynamicCheckpoint: (checkpoint, replays) => {
             dynamicReading = checkpoint;
+            dynamicReplays = replays;
           },
           onNotice: (notice) => {
             if (abortRef.current === controller) {
@@ -369,13 +384,14 @@ export function useAiChat(
               const nextTurns = [
                 ...turnsRef.current.map((turn) => {
                   if (!dynamicReading || !turn.dynamicReading) return turn;
-                  const { dynamicReading: _previous, ...rest } = turn;
+                  const { dynamicReading: _previous, dynamicReplays: _replays, ...rest } = turn;
                   return rest;
                 }),
                 {
                   role: 'assistant' as const,
                   content: finalContent,
                   ...(dynamicReading ? { dynamicReading } : {}),
+                  ...(dynamicReplays ? { dynamicReplays } : {}),
                   ...(noticesRef.current.length ? { notices: [...noticesRef.current] } : {}),
                 },
               ];
@@ -414,9 +430,9 @@ export function useAiChat(
       initialPromptRef.current = prompt;
       readingResourceRequirementRef.current = undefined;
       pendingRestoredStateRef.current = undefined;
-      readingMemoryRef.current = createReadingMemory(
-        resourceSeed ?? readingSeedRef.current,
-        readingSubject?.id,
+      replaceReadingMemory(
+        readingMemoryRef,
+        createReadingMemory(resourceSeed ?? readingSeedRef.current, readingSubject?.id),
       );
       turnsRef.current = [];
       setTurns([]);
@@ -449,7 +465,10 @@ export function useAiChat(
         buildAiChatRequest(
           initialPromptRef.current,
           nextTurns,
-          readingMemoryRef.current.resources.some((resource) => Boolean(resource.dynamicAstrolabe)),
+          Boolean(readingMemoryRef.current.astrolabeDynamicReading) ||
+            readingMemoryRef.current.resources.some((resource) =>
+              Boolean(resource.dynamicAstrolabe),
+            ),
         ),
       );
     },
@@ -494,11 +513,26 @@ export function useAiChat(
   };
 }
 
+function replaceReadingMemory(ref: { current: ReadingMemory }, next: ReadingMemory) {
+  const previous = ref.current;
+  ref.current = next;
+  void disposeReadingResources(previous.resources, next.resources).catch((error) =>
+    console.error('清除补算临时资料失败。', error),
+  );
+}
+
 export function getLatestDynamicReadingCheckpoint(turns: ChatTurn[]) {
   return [...turns]
     .reverse()
     .find((turn) => turn.role === 'assistant' && !turn.incomplete && turn.dynamicReading)
     ?.dynamicReading;
+}
+
+export function getLatestDynamicResourceReplays(turns: ChatTurn[]) {
+  return [...turns]
+    .reverse()
+    .find((turn) => turn.role === 'assistant' && !turn.incomplete && turn.dynamicReading)
+    ?.dynamicReplays;
 }
 
 type LatestChatTurnState = 'none' | 'user' | 'partial' | 'complete' | 'continuable';

@@ -2,6 +2,10 @@ import { READING_CLASSIC_TABLES, READING_CALCULATION_ROUTES } from './reading-ca
 import workflow from '../../../skills/mingyu/references/reading-workflow.json';
 import type { ChatMessage, StreamOptions } from './stream-client';
 import { verifyReadingAnswer } from './reading-verification';
+import { disposeReadingResources } from './reading-resource-lifecycle';
+import { isReadingResourceReplays, type ReadingResourceReplay } from './reading-resource-replay';
+import type { ReadingDynamicCheckpoint } from './reading-dynamic-checkpoint';
+import { runAstrolabeDynamicCollectionRound } from './astrolabe-dynamic-collection';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import {
@@ -26,7 +30,6 @@ import type { AstrolabeBirthRange } from 'mingyu-core/divination/astrolabe-birth
 import type { QimenLifetimeData } from 'mingyu-core/types';
 import {
   runAstrolabeDynamicReadingRound,
-  type AstrolabeDynamicReadingCheckpoint,
   type AstrolabeDynamicReadingSource,
 } from './astrolabe-dynamic-reading';
 
@@ -50,6 +53,10 @@ export type ReadingResource = {
   sourceIds?: string[];
   structured?: Record<string, unknown>;
   dynamicAstrolabe?: AstrolabeDynamicReadingSource;
+  dynamicTarget?: ReadingTarget;
+  replay?: ReadingResourceReplay['action'];
+  /** 仅补算过程拥有的临时资料提供此方法；页面借出的资料由页面回收。 */
+  dispose?: () => Promise<void>;
 };
 type ZiweiPhaseStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled';
 type ZiweiPhaseMemory = {
@@ -117,12 +124,14 @@ type AstrolabePhaseMemory = {
 };
 export type ReadingMemory = {
   resources: ReadingResource[];
+  initialPrompt?: string;
+  restoreActions?: ReadingResourceReplay[];
   schemas?: ReadingResource[];
   ziweiPhaseReading?: ZiweiPhaseMemory;
   qimenPhaseReading?: QimenPhaseMemory;
   qizhengPhaseReading?: QizhengPhaseMemory;
   astrolabePhaseReading?: AstrolabePhaseMemory;
-  astrolabeDynamicReading?: AstrolabeDynamicReadingCheckpoint;
+  astrolabeDynamicReading?: ReadingDynamicCheckpoint;
 };
 export type ReadingMemorySeed = {
   subjectId: string;
@@ -143,12 +152,16 @@ export interface ReadingDependencies {
   ) => Promise<ReadingResource>;
 }
 export interface ReadingOptions extends StreamOptions {
+  initialPrompt?: string;
   memory: ReadingMemory;
   subject?: ReadingSubjectSnapshot;
   readingMethod?: string;
   onProgress: (progress: ReadingProgress) => void;
   onNotice: (notice: string) => void;
-  onAstrolabeDynamicCheckpoint?: (checkpoint: AstrolabeDynamicReadingCheckpoint) => void;
+  onAstrolabeDynamicCheckpoint?: (
+    checkpoint: ReadingDynamicCheckpoint,
+    replays?: ReadingResourceReplay[],
+  ) => void;
 }
 
 const MAX_CONTEXT = 49_000;
@@ -2948,35 +2961,111 @@ export async function runReadingWorkflow(
   const guard = () => {
     if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   };
-  const dynamicResources = options.memory.resources.filter(
-    (resource) => resource.usable && resource.dynamicAstrolabe,
-  );
-  if (dynamicResources.length) {
+  options.memory.initialPrompt ??= options.initialPrompt ?? messages[0]?.content ?? '';
+  if (options.memory.restoreActions) {
     try {
       guard();
-      if (dynamicResources.length !== 1) throw new Error('请分别解读不同主体的动态出生区间。');
-      const source = dynamicResources[0].dynamicAstrolabe!;
-      if (options.subject?.id !== source.subjectId || options.subject.source !== 'astrolabe')
+      if (!options.subject || !isReadingResourceReplays(options.memory.restoreActions))
+        throw new Error('动态解读的主体或恢复记录不完整，请重新开始解读。');
+      for (const replay of options.memory.restoreActions) {
+        if (options.memory.resources.some((resource) => resource.key === replay.key)) continue;
+        const [action] = parseReadingPlan(JSON.stringify({ actions: [replay.action] }));
+        options.onProgress({ stage: 'calculating', text: '正在恢复已保存的解读资料' });
+        const resource = await deps.execute(action, options.signal, options.subject);
+        if (options.signal?.aborted) {
+          await disposeReadingResources([resource]);
+          guard();
+        }
+        if (!resource.usable) {
+          await disposeReadingResources([resource]);
+          throw new Error('历史解读资料未能完整恢复，请重试或重新开始解读。');
+        }
+        options.memory.resources.push({ ...resource, key: replay.key, replay: replay.action });
+      }
+      options.memory.restoreActions = undefined;
+    } catch (error) {
+      if (!options.signal?.aborted)
+        options.onError(error instanceof Error ? error.message : '历史解读资料恢复失败。');
+      return;
+    }
+  }
+  const runDynamicResources = async () => {
+    const dynamicResources = options.memory.resources.filter(
+      (resource) => resource.usable && resource.dynamicAstrolabe,
+    );
+    const previous = options.memory.astrolabeDynamicReading;
+    if (!dynamicResources.length && !previous) return false;
+    try {
+      guard();
+      if (!dynamicResources.length)
+        throw new Error('动态解读的原始资料尚未恢复，请重新准备原范围资料。');
+      if (
+        !options.subject ||
+        (!options.subject.allowedMethods.includes('astrolabe') &&
+          options.subject.source !== 'astrolabe') ||
+        dynamicResources.some(
+          (resource) => resource.dynamicAstrolabe!.subjectId !== options.subject!.id,
+        )
+      )
         throw new Error('动态区间解读资料与锁定主体不匹配。');
-      const checkpoint = await runAstrolabeDynamicReadingRound(
-        source,
-        options.memory.astrolabeDynamicReading,
-        {
-          signal: options.signal,
-          aiConfig: options.aiConfig,
-          onChunk: options.onChunk,
-          question:
-            [...messages].reverse().find((message) => message.role === 'user')?.content ?? '',
-          onProgress: (text) => options.onProgress({ stage: 'writing', text }),
-        },
-        deps.stream,
+      const roundOptions = {
+        signal: options.signal,
+        aiConfig: options.aiConfig,
+        onChunk: options.onChunk,
+        question: [...messages].reverse().find((message) => message.role === 'user')?.content ?? '',
+        onProgress: (text: string) => options.onProgress({ stage: 'writing', text }),
+      };
+      const otherResources = options.memory.resources.filter(
+        (resource) => resource.usable && !resource.dynamicAstrolabe,
       );
+      const singleSeed =
+        dynamicResources.length === 1 &&
+        !dynamicResources[0].replay &&
+        otherResources.length === 0 &&
+        options.subject.source === 'astrolabe';
+      if (previous?.version === 1 && !singleSeed)
+        throw new Error('当前资料已改变，请新建解读以处理多份出生区间。');
+      const checkpoint =
+        singleSeed && previous?.version !== 2
+          ? await runAstrolabeDynamicReadingRound(
+              dynamicResources[0].dynamicAstrolabe!,
+              previous,
+              roundOptions,
+              deps.stream,
+            )
+          : await runAstrolabeDynamicCollectionRound(
+              dynamicResources.map((resource) => ({
+                ...resource.dynamicAstrolabe!,
+                target: resource.dynamicTarget ?? 'primary',
+              })),
+              [
+                {
+                  key: 'initial-prompt',
+                  title: '原始盘面与问题',
+                  text: options.memory.initialPrompt ?? '',
+                },
+                ...otherResources.map(({ key, title, text }) => ({ key, title, text })),
+              ],
+              previous?.version === 2 ? previous : undefined,
+              {
+                ...roundOptions,
+                question:
+                  roundOptions.question === options.memory.initialPrompt
+                    ? (dynamicResources[0].dynamicAstrolabe!.promptOptions?.question ??
+                      '结合原始盘面中的问题完成解读。')
+                    : roundOptions.question,
+              },
+              deps.stream,
+            );
       guard();
       options.memory.astrolabeDynamicReading = checkpoint;
-      options.onAstrolabeDynamicCheckpoint?.(checkpoint);
+      const replays = options.memory.resources.flatMap((resource) =>
+        resource.replay ? [{ key: resource.key, action: resource.replay }] : [],
+      );
+      options.onAstrolabeDynamicCheckpoint?.(checkpoint, replays);
       options.onNotice(
-        checkpoint.stage === 'pages'
-          ? `已完成${checkpoint.completedPages}页资料解读；继续下一批将从第${checkpoint.cursor!.branchIndex + 1}段第${checkpoint.cursor!.pageIndex + 1}页开始。整个区间尚未解读完成。`
+        checkpoint.stage === 'pages' || checkpoint.stage === 'supplemental'
+          ? `已完成${checkpoint.completedPages}页资料解读；继续下一批将读取后续资料。整个区间尚未解读完成。`
           : checkpoint.stage === 'summary'
             ? '全部资料已逐页解读；继续下一批将归纳整个区间的共同结论和分段差异。'
             : '全部资料与区间归纳均已完成。',
@@ -2986,8 +3075,9 @@ export async function runReadingWorkflow(
       if (!options.signal?.aborted)
         options.onError(error instanceof Error ? error.message : '动态区间解读失败，请重试。');
     }
-    return;
-  }
+    return true;
+  };
+  if (await runDynamicResources()) return;
   const explicitReadingMethods = resolveReadingMethods(options.readingMethod);
   const latestUserQuestion =
     [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
@@ -3046,6 +3136,7 @@ export async function runReadingWorkflow(
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   const retryFailures = new Map<string, string>();
+  const failedCalculations = new Map<string, ReadingResourceReplay>();
   let calls = 0;
   let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
@@ -3088,9 +3179,12 @@ export async function runReadingWorkflow(
   const rememberRetryFailure = (key: string, action: ReadingAction, error: unknown) => {
     const note = describeReadingFailure(action, error);
     retryFailures.set(retryFailureKey(key, action), note);
+    if (action.kind === 'calculate')
+      failedCalculations.set(retryFailureKey(key, action), { key, action });
   };
   const clearRetryFailure = (key: string, action: ReadingAction) => {
     retryFailures.delete(retryFailureKey(key, action));
+    failedCalculations.delete(retryFailureKey(key, action));
   };
   const formatRetryFailures = () =>
     retryFailures.size
@@ -3225,6 +3319,12 @@ export async function runReadingWorkflow(
         });
         try {
           const resource = await deps.execute(action, options.signal, options.subject);
+          if (options.signal?.aborted && resource.dispose) {
+            await disposeReadingResources([resource]).catch((error) =>
+              console.error('清除取消后返回的补算资料失败。', error),
+            );
+            guard();
+          }
           if (action.kind === 'schema') {
             clearRetryFailure(key, action);
             schemaResources.push({ ...resource, key, kind: 'schema' });
@@ -3241,7 +3341,7 @@ export async function runReadingWorkflow(
             continue;
           }
           clearRetryFailure(key, action);
-          resources.push({ ...resource, key, kind: 'evidence' });
+          resources.push({ ...resource, key, kind: 'evidence', replay: resource.replay ?? action });
           persistResources();
           guard();
         } catch (error) {
@@ -3259,6 +3359,11 @@ export async function runReadingWorkflow(
     }
     guard();
     persistResources();
+    if (resources.some((resource) => resource.dynamicAstrolabe) && failedCalculations.size) {
+      options.memory.restoreActions = [...failedCalculations.values()];
+      throw new Error('动态解读所需的补算资料尚未齐全，请重试补齐后继续。');
+    }
+    if (await runDynamicResources()) return;
     const finalResources = resources.filter((item) => item.usable);
     const getFinalStatusNotes = (omitted: ReadingResource[]) => {
       const capacityNote = formatCapacityNotice('本轮解读', omitted).trim();
