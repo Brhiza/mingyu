@@ -13,6 +13,8 @@ export * as lenormand from './algorithms/lenormand';
 export * as astrolabe from './algorithms/astrolabe';
 export * as astrolabeBirthRange from './astrolabe-birth-range';
 export * from './astrolabe-birth-range';
+export * as astrolabeDynamicRange from './astrolabe-dynamic-range';
+export * from './astrolabe-dynamic-range';
 export * as astrolabeScope from './astrolabe-scope';
 
 export * from './config';

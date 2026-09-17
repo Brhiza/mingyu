@@ -148,7 +148,7 @@ function assertSourcePillars(source: AstrolabeBirthRangeSource) {
   }
 }
 
-function validateAstrolabeBirthRangeInput(
+export function validateAstrolabeBirthRangeInput(
   input: AstrolabeBirthInput,
   source: BaziReverseSource,
 ): AstrolabeBirthRangeSource {
