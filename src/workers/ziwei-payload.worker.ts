@@ -4,6 +4,7 @@ import {
 } from '@/lib/full-chart-engine/ziwei';
 import { buildSerializableZiweiResult } from 'mingyu-core/ziwei';
 import { formatPublicZiweiFullScopeText } from 'mingyu-core/prompt/public-api';
+import type { ZiweiRuntimeOptions } from 'mingyu-core/ziwei';
 import type { ChartInput } from '@/types/chart';
 
 import type { ZiweiReadingResourceContent } from '@/pages/ResultPage/utils/createPayloadWorker';
@@ -12,6 +13,7 @@ type ZiweiPayloadWorkerRequest =
   | {
       id: string;
       input: ChartInput;
+      options: Omit<ZiweiRuntimeOptions, 'scopes'>;
       kind?: 'payload';
     }
   | {
@@ -80,7 +82,7 @@ self.onmessage = async (event: MessageEvent<ZiweiPayloadWorkerRequest>) => {
             id: request.id,
             kind: 'payload',
             ok: true,
-            payloadByScope: await calculateZiweiPayloadByScope(request.input),
+            payloadByScope: await calculateZiweiPayloadByScope(request.input, request.options),
           };
     self.postMessage(response);
   } catch (error) {

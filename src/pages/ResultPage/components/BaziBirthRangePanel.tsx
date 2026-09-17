@@ -15,16 +15,16 @@ function formatBirthTime(profile: BirthProfile, timestamp?: number) {
     : `${date} · 固定出生时辰`;
 }
 
-/** 在原有八字盘面中逐条查看出生区间的实际计算结果。 */
-export function BaziBirthRangePanel({ state }: { state: RangeState }) {
+/** 各排盘视图共享同一个出生样本游标。 */
+export function BirthRangeNavigator({ state }: { state: RangeState }) {
   const { page, loading, error, paused } = state;
   const isPair = Boolean(page?.partner);
   return (
-    <div className="bazi-birth-range" aria-busy={loading}>
+    <div className="birth-range-navigator" aria-busy={loading}>
       <div className="bazi-birth-range-toolbar">
         <div>
           <h3>出生时间区间</h3>
-          <p>逐秒查看盘面与起运变化；当前结果对应下方列出的具体出生时间。</p>
+          <p>逐秒查看盘面变化；当前结果对应下方列出的具体出生时间。</p>
         </div>
         <div className="bazi-birth-range-navigation" aria-label="出生区间翻页">
           <button type="button" onClick={state.previous} disabled={loading || state.index <= 0}>
@@ -113,18 +113,35 @@ export function BaziBirthRangePanel({ state }: { state: RangeState }) {
               </p>
             ) : null,
           )}
+          {[page.primary, ...(page.partner ? [page.partner] : [])].map((person, index) => (
+            <p className="bazi-birth-range-time" key={`${page.index}:${index}`}>
+              {isPair ? `${index === 0 ? '第一人' : '第二人'}当前出生时间：` : '当前出生时间：'}
+              {formatBirthTime(person.profile, person.timestamp)}
+            </p>
+          ))}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** 在原有八字盘面中逐条查看出生区间的实际计算结果。 */
+export function BaziBirthRangePanel({ state }: { state: RangeState }) {
+  const { page } = state;
+  const isPair = Boolean(page?.partner);
+  return (
+    <div className="bazi-birth-range">
+      <BirthRangeNavigator state={state} />
+      {page ? (
+        <>
           <div className={isPair ? 'result-dual-layout' : undefined}>
             {[page.primary, ...(page.partner ? [page.partner] : [])].map((person, index) => (
-              <div key={`${page.index}:${index}`}>
-                <p className="bazi-birth-range-time">
-                  {formatBirthTime(person.profile, person.timestamp)}
-                </p>
-                <BaziChartBoard
-                  title={isPair ? `${index === 0 ? '第一人' : '第二人'}八字` : '八字总览'}
-                  name={person.profile.name || (isPair ? `第${index + 1}人` : '当前命盘')}
-                  result={person.result}
-                />
-              </div>
+              <BaziChartBoard
+                key={`${page.index}:${index}`}
+                title={isPair ? `${index === 0 ? '第一人' : '第二人'}八字` : '八字总览'}
+                name={person.profile.name || (isPair ? `第${index + 1}人` : '当前命盘')}
+                result={person.result}
+              />
             ))}
           </div>
           {page.compatibility ? (

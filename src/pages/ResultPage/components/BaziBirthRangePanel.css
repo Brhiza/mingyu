@@ -1,4 +1,5 @@
-.bazi-birth-range {
+.bazi-birth-range,
+.birth-range-navigator {
   min-width: 0;
 }
 .bazi-birth-range-toolbar {
