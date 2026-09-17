@@ -5,6 +5,7 @@
 
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
 import type { ShenShaScope } from './baziShenSha/scope';
+import type { RootClashStatus } from './baziRootAdjudication';
 import type { MingGuaProfile } from '../types/analysis';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
@@ -268,6 +269,9 @@ export interface RootAnalysis {
     branch: string;
     /** 根所承载的地支未被外支六冲时为 true；旧调用方省略时按历史兼容口径处理。 */
     stable?: boolean;
+    /** 综合本气与月令冲方强弱后，是否参与结构判断；省略时沿用 stable。 */
+    actionable?: boolean;
+    clashStatus?: RootClashStatus;
     /** 直接六冲的实际来源柱位与地支；根事实仍保留，稳定性另列。 */
     clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
@@ -285,6 +289,8 @@ export interface SupportAnalysis {
     stem: string;
     /** 生扶证据有未被外支六冲的同类根时为 true；浮干或冲后支气保留事实但标 false。 */
     stable?: boolean;
+    /** 生扶证据是否具有可参与作用的同类根或支气。 */
+    actionable?: boolean;
     /** 生扶证据涉及直接六冲时，记录实际来源柱位与地支。 */
     clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
@@ -301,6 +307,8 @@ export interface ConstraintAnalysis {
     stem: string;
     /** 透干克泄耗有未被外支六冲的同类根，或所载支气未受冲时为 true；浮干与冲后支气标 false。 */
     stable?: boolean;
+    /** 克泄耗证据是否具有可参与作用的同类根或支气。 */
+    actionable?: boolean;
     /** 克泄耗证据涉及直接六冲时，记录实际来源柱位与地支。 */
     clashSources?: string[];
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */

@@ -68,8 +68,22 @@ test('夏月水失令时，浅根与帮身须结合全局克泄耗判定', () =>
   assert.equal(result.seasonalStatus.status, '囚');
   assert.equal(result.seasonalStatus.commanderEffect, '克身');
   assert.deepEqual(result.rootAnalysis.roots, [
-    { position: 'day', branch: '丑(癸)', stable: true, strength: 1 },
-    { position: 'hour', branch: '丑(癸)', stable: true, strength: 1 },
+    {
+      position: 'day',
+      branch: '丑(癸)',
+      stable: true,
+      actionable: true,
+      clashStatus: '未受冲',
+      strength: 1,
+    },
+    {
+      position: 'hour',
+      branch: '丑(癸)',
+      stable: true,
+      actionable: true,
+      clashStatus: '未受冲',
+      strength: 1,
+    },
   ]);
   assert.equal(result.rootAnalysis.strongRoot, false);
   assert.deepEqual(
@@ -125,7 +139,7 @@ test('无稳定同类根的透干印比只保留盘面事实，不直接形成�
   const support = analyzeSupport('甲', pillars, hiddenStems, strictGetWuxing);
 
   assert.deepEqual(support, {
-    supporters: [{ position: 'hour', stem: '壬', stable: false, strength: 1 }],
+    supporters: [{ position: 'hour', stem: '壬', stable: false, actionable: false, strength: 1 }],
     totalStrength: 1,
     hasSupport: true,
   });
@@ -150,7 +164,7 @@ test('失令无根但有浮印时保留帮扶事实，不直接判为极弱', ()
 
   assert.equal(result.rootAnalysis.hasRoot, false);
   assert.deepEqual(result.supportAnalysis.supporters, [
-    { position: 'hour', stem: '壬', stable: false, strength: 1 },
+    { position: 'hour', stem: '壬', stable: false, actionable: false, strength: 1 },
   ]);
   assert.equal(result.strength.status, '身弱');
 });
