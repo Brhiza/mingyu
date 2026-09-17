@@ -8,8 +8,9 @@
 import { assessStemHarmonyTransform, type HarmonyPillarInput } from './harmonyTransform';
 import { BASIC_MAPPINGS, HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
-import type { PatternTransformationEvidence, Pillars, Wuxing } from './baziTypes';
-import { assertPillars } from './baziUtils';
+import { collectAdjudicatedRootFacts, type RootClashStatus } from './baziRootAdjudication';
+import type { HiddenStems, PatternTransformationEvidence, Pillars, Wuxing } from './baziTypes';
+import { assertPillars, getWuxing } from './baziUtils';
 
 export interface TransformedPatternAssessment extends PatternTransformationEvidence {
   pattern: string;
@@ -30,6 +31,9 @@ interface RootFact {
   role: string;
   roleIndex: number;
   stage?: string;
+  stable: boolean;
+  actionable: boolean;
+  clashStatus: RootClashStatus;
   clashed: boolean;
 }
 
@@ -44,15 +48,6 @@ const TRANSFORM_RULES: TransformRule[] = [
   { pair: ['丁', '壬'], element: '木', pattern: '丁壬化木格', jealousStem: '丙' },
   { pair: ['戊', '癸'], element: '火', pattern: '戊癸化火格', jealousStem: '己' },
 ];
-
-const HIDDEN_STEM_ROLE_LABELS = ['本气', '中气', '余气'];
-const ELEMENT_STEMS: Record<Wuxing, string[]> = {
-  木: ['甲', '乙'],
-  火: ['丙', '丁'],
-  土: ['戊', '己'],
-  金: ['庚', '辛'],
-  水: ['壬', '癸'],
-};
 
 function getStemElement(stem: string): Wuxing {
   const index = (BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).indexOf(stem);
@@ -82,39 +77,28 @@ function getGeneratingElement(element: Wuxing): Wuxing {
   return resource as Wuxing;
 }
 
-function isBranchClashed(branch: string, index: number, pillars: Pillars): boolean {
-  const opposite = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
-  if (!opposite) return false;
-  return PILLAR_KEYS.some(
-    (key, candidateIndex) => candidateIndex !== index && pillars[key].zhi === opposite,
-  );
-}
-
 function collectRootFacts(
   element: Wuxing,
   pillars: Pillars,
   excludedIndexes = new Set<number>(),
 ): RootFact[] {
-  const stems = new Set(ELEMENT_STEMS[element]);
-
-  return PILLAR_KEYS.flatMap((key, index) => {
-    if (excludedIndexes.has(index)) return [];
-    const pillar = pillars[key];
-    return (HIDDEN_STEMS[pillar.zhi] || []).flatMap((stem, roleIndex) => {
-      if (!stems.has(stem)) return [];
-      return [
-        {
-          stem,
-          branch: pillar.zhi,
-          pillar: PILLAR_LABELS[index],
-          role: HIDDEN_STEM_ROLE_LABELS[roleIndex] || '第' + (roleIndex + 1) + '层',
-          roleIndex,
-          stage: TWELVE_STAGES_MAP[stem]?.[pillar.zhi],
-          clashed: isBranchClashed(pillar.zhi, index, pillars),
-        },
-      ];
-    });
-  });
+  const hiddenStems = Object.fromEntries(
+    PILLAR_KEYS.map((key) => [key, HIDDEN_STEMS[pillars[key].zhi]]),
+  ) as unknown as HiddenStems;
+  return collectAdjudicatedRootFacts(pillars, hiddenStems, element, getWuxing)
+    .filter((root) => !excludedIndexes.has(PILLAR_KEYS.indexOf(root.position)))
+    .map((root) => ({
+      stem: root.stem,
+      branch: root.branch,
+      pillar: PILLAR_LABELS[PILLAR_KEYS.indexOf(root.position)],
+      role: root.hiddenRole,
+      roleIndex: root.hiddenIndex,
+      stage: TWELVE_STAGES_MAP[root.stem]?.[root.branch],
+      stable: root.stable,
+      actionable: root.actionable,
+      clashStatus: root.clashStatus,
+      clashed: !root.stable,
+    }));
 }
 
 function isEffectiveRoot(fact: RootFact): boolean {
@@ -134,7 +118,7 @@ function formatRootFact(fact: RootFact): string {
     '（' +
     fact.role +
     (fact.stage ? '、' + fact.stage : '') +
-    (fact.clashed ? '、所在支受冲' : '') +
+    (fact.clashed ? '、所在支受冲、' + fact.clashStatus : '') +
     '）'
   );
 }
@@ -297,29 +281,29 @@ export function evaluateTransformedPattern(
       : [];
   });
   const transformRootFacts = collectRootFacts(rule.element, pillars, participantIndexes);
-  const stableTransformRoots = transformRootFacts.filter(
-    (fact) => isEffectiveRoot(fact) && !fact.clashed,
+  const actionableTransformRoots = transformRootFacts.filter(
+    (fact) => isEffectiveRoot(fact) && fact.actionable,
   );
-  const clashedTransformRoots = transformRootFacts.filter(
-    (fact) => isEffectiveRoot(fact) && fact.clashed,
+  const pendingTransformRoots = transformRootFacts.filter(
+    (fact) => isEffectiveRoot(fact) && !fact.actionable,
   );
   const weakTransformRoots = transformRootFacts.filter((fact) => !isEffectiveRoot(fact));
 
   if (visibleTransformStems.length) {
     evidence.push('化神明透：' + visibleTransformStems.join('、'));
     conditions.push('化神明透或有独立有效根：满足');
-  } else if (stableTransformRoots.length) {
-    evidence.push('化神独立有效根：' + stableTransformRoots.map(formatRootFact).join('、'));
+  } else if (actionableTransformRoots.length) {
+    evidence.push('化神独立有效根：' + actionableTransformRoots.map(formatRootFact).join('、'));
     conditions.push('化神明透或有独立有效根：满足');
   } else {
-    if (clashedTransformRoots.length) {
-      evidence.push('化神根气受冲：' + clashedTransformRoots.map(formatRootFact).join('、'));
+    if (pendingTransformRoots.length) {
+      evidence.push('化神受冲根待核：' + pendingTransformRoots.map(formatRootFact).join('、'));
     }
     if (weakTransformRoots.length) {
       evidence.push('化神仅见弱层根气：' + weakTransformRoots.map(formatRootFact).join('、'));
     }
     conditions.push('化神明透或有独立有效根：待核验');
-    pending.push('化神尚无未受冲的明透或独立有效根');
+    pending.push('化神尚无明透或经裁决可用的独立有效根');
   }
 
   const dayElement = getStemElement(dayStem);
@@ -332,26 +316,28 @@ export function evaluateTransformedPattern(
     const strongSameElementRoots = dayRootFacts.filter(
       (fact) => fact.stem !== dayStem && isStrongOriginalRoot(fact),
     );
-    const stableExactRoots = exactRoots.filter((fact) => isEffectiveRoot(fact) && !fact.clashed);
-    const stableStrongRoots = strongSameElementRoots.filter((fact) => !fact.clashed);
-    const clashedRoots = [...exactRoots.filter(isEffectiveRoot), ...strongSameElementRoots].filter(
-      (fact) => fact.clashed,
+    const actionableExactRoots = exactRoots.filter(
+      (fact) => isEffectiveRoot(fact) && fact.actionable,
+    );
+    const actionableStrongRoots = strongSameElementRoots.filter((fact) => fact.actionable);
+    const pendingRoots = [...exactRoots.filter(isEffectiveRoot), ...strongSameElementRoots].filter(
+      (fact) => !fact.actionable,
     );
     const weakRoots = dayRootFacts.filter((fact) => !isEffectiveRoot(fact));
 
-    if (stableExactRoots.length || stableStrongRoots.length) {
+    if (actionableExactRoots.length || actionableStrongRoots.length) {
       evidence.push(
-        ...stableExactRoots.map((fact) => '日干原根：' + formatRootFact(fact)),
-        ...stableStrongRoots.map((fact) => '日干同气强根：' + formatRootFact(fact)),
+        ...actionableExactRoots.map((fact) => '日干原根：' + formatRootFact(fact)),
+        ...actionableStrongRoots.map((fact) => '日干同气强根：' + formatRootFact(fact)),
       );
       conditions.push('原日干强根阻化：存在');
-      blockers.push('日干仍有未受冲的本根或同气强根');
+      blockers.push('日干仍有经裁决可用的本根或同气强根');
     } else {
       conditions.push('原日干强根阻化：未见');
     }
-    if (clashedRoots.length) {
+    if (pendingRoots.length) {
       evidence.push(
-        ...clashedRoots.map((fact) => '日干根气受冲，保留待核：' + formatRootFact(fact)),
+        ...pendingRoots.map((fact) => '日干根气受冲，保留待核：' + formatRootFact(fact)),
       );
       pending.push('日干根气有受冲事实，稳定性仍需核验');
     }
@@ -377,24 +363,26 @@ export function evaluateTransformedPattern(
     conditions.push('原日主印根返性阻化：不适用');
   } else {
     const resourceRootFacts = collectRootFacts(resourceElement, pillars);
-    const stableResourceRoots = resourceRootFacts.filter(
-      (fact) => isStrongOriginalRoot(fact) && !fact.clashed,
+    const actionableResourceRoots = resourceRootFacts.filter(
+      (fact) => isStrongOriginalRoot(fact) && fact.actionable,
     );
-    const clashedResourceRoots = resourceRootFacts.filter(
-      (fact) => isStrongOriginalRoot(fact) && fact.clashed,
+    const pendingResourceRoots = resourceRootFacts.filter(
+      (fact) => isStrongOriginalRoot(fact) && !fact.actionable,
     );
     const weakResourceRoots = resourceRootFacts.filter((fact) => !isStrongOriginalRoot(fact));
 
-    if (stableResourceRoots.length) {
-      evidence.push(...stableResourceRoots.map((fact) => '日主印根返性：' + formatRootFact(fact)));
+    if (actionableResourceRoots.length) {
+      evidence.push(
+        ...actionableResourceRoots.map((fact) => '日主印根返性：' + formatRootFact(fact)),
+      );
       conditions.push('原日主印根返性阻化：存在');
-      blockers.push('原日主有未受冲的印根，返性未尽');
+      blockers.push('原日主有经裁决可用的印根，返性未尽');
     } else {
       conditions.push('原日主印根返性阻化：未见');
     }
-    if (clashedResourceRoots.length) {
+    if (pendingResourceRoots.length) {
       evidence.push(
-        ...clashedResourceRoots.map((fact) => '日主印根受冲，保留待核：' + formatRootFact(fact)),
+        ...pendingResourceRoots.map((fact) => '日主印根受冲，保留待核：' + formatRootFact(fact)),
       );
       pending.push('原日主印根有受冲事实，返性稳定性仍需核验');
     }
@@ -443,9 +431,9 @@ export function evaluateTransformedPattern(
   }
 
   if (
-    clashedTransformRoots.length &&
+    pendingTransformRoots.length &&
     !visibleTransformStems.length &&
-    !stableTransformRoots.length
+    !actionableTransformRoots.length
   ) {
     pending.push('化神有效根所在支受冲，根气稳定性仍需核验');
   }
