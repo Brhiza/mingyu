@@ -6,6 +6,7 @@ import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-wo
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
 import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
+import { executeBaziReadingWorker } from './bazi-reading-worker';
 import { prepareAstrolabeDynamicResource } from './astrolabe-dynamic-resource';
 import type { AstrolabeDynamicRangeRequest } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import {
@@ -630,11 +631,12 @@ function assertIdentityBirth(
     for (const field of ['birthHour', 'birthMinute', 'birthSecond', 'birthLongitude']) {
       assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
     }
+  } else if (locked.birthSecond !== undefined) {
+    for (const field of ['birthHour', 'birthMinute', 'birthSecond']) {
+      assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
+    }
   } else {
     assertStructuredField(`${method}.timeIndex`, locked.timeIndex, birth.timeIndex);
-    if (locked.birthSecond !== undefined) {
-      assertStructuredField(`${method}.birthSecond`, locked.birthSecond, birth.birthSecond);
-    }
   }
 
   if (method === 'ziwei') {
@@ -746,7 +748,11 @@ function assertBaziResultFacts(
     } else {
       assertDateParts('八字实际公历出生日期', birth, result.solarDate);
     }
-    assertStructuredField('bazi.result.timeInfo.index', locked.timeIndex, timeInfo.index);
+    const expectedTimeIndex =
+      locked.birthSecond !== undefined
+        ? getTimeIndexFromClock(Number(locked.birthHour), Number(locked.birthMinute))
+        : locked.timeIndex;
+    assertStructuredField('bazi.result.timeInfo.index', expectedTimeIndex, timeInfo.index);
     return;
   }
 
@@ -2209,6 +2215,11 @@ export async function executeReadingAction(
     const workerResult = await executeAstrolabeReadingWorker(calculationRequest, signal);
     data = workerResult as unknown as Record<string, unknown>;
     astrolabeLocalComplete = true;
+  } else if (action.method === 'bazi' && typeof Worker !== 'undefined') {
+    data = (await executeBaziReadingWorker(calculationRequest, signal)) as unknown as Record<
+      string,
+      unknown
+    >;
   } else {
     data = await fetchReadingData(path, signal, calculationRequest);
   }
