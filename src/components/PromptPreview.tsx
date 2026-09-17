@@ -153,6 +153,7 @@ export function PromptDeliveryPanel({
 
 interface PromptWorkbenchPanelProps extends PromptDeliveryPanelProps {
   children: ReactNode;
+  pagedPreview?: ReactNode;
 }
 
 export function PromptWorkbenchPanel({
@@ -163,6 +164,7 @@ export function PromptWorkbenchPanel({
   onCopy,
   onShare,
   children,
+  pagedPreview,
 }: PromptWorkbenchPanelProps) {
   return (
     <section className="workspace-ui-surface workspace-prompt-workbench">
@@ -172,23 +174,27 @@ export function PromptWorkbenchPanel({
           <small>内容会随问题和解读范围自动更新</small>
         </header>
 
-        <div className="workspace-prompt-workbench-body" aria-live="polite">
-          {promptText ? (
-            <pre>{promptText}</pre>
-          ) : (
-            <div className="workspace-prompt-preview-loading">
-              {fallback || <span>正在整理提问内容…</span>}
+        {pagedPreview ?? (
+          <>
+            <div className="workspace-prompt-workbench-body" aria-live="polite">
+              {promptText ? (
+                <pre>{promptText}</pre>
+              ) : (
+                <div className="workspace-prompt-preview-loading">
+                  {fallback || <span>正在整理提问内容…</span>}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <PromptActionButtons
-          promptText={promptText}
-          copyState={copyState}
-          shareState={shareState}
-          onCopy={onCopy}
-          onShare={onShare}
-        />
+            <PromptActionButtons
+              promptText={promptText}
+              copyState={copyState}
+              shareState={shareState}
+              onCopy={onCopy}
+              onShare={onShare}
+            />
+          </>
+        )}
       </div>
 
       <div className="workspace-prompt-workbench-composer">{children}</div>

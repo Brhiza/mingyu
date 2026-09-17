@@ -144,12 +144,13 @@ function advancedProjection(
 ) {
   if (!evidence) return null;
   const name = evidence.movingPointFacts[0]?.technique ?? evidence.key;
+  const movingLabel = (label: string) => (label.startsWith(name) ? label : `${name}${label}`);
   for (const point of evidence.movingPointFacts) {
-    pointNumbers(samples, `${prefix}.points.${point.key}`, `${name}${point.label}`, point);
+    pointNumbers(samples, `${prefix}.points.${point.key}`, movingLabel(point.label), point);
   }
   for (const aspect of evidence.candidateAspectFacts) {
     const path = `${prefix}.aspects.${aspect.key}`;
-    const label = `${name}${aspect.movingPoint}${aspect.aspectName}${aspect.natalPoint}`;
+    const label = `${movingLabel(aspect.movingPoint)}${aspect.aspectName}${aspect.natalPoint}`;
     pushNumber(samples, `${path}.actualAngle`, `${label}实际角距`, '度', aspect.actualAngle);
     pushNumber(samples, `${path}.deviation`, `${label}偏差`, '度', aspect.deviation);
     pushNumber(

@@ -91,6 +91,13 @@ export function formatAstrolabeBirthRangeInterval(
 }
 
 function formatContinuousValue(value: number, unit: string): string {
+  if (unit === 'UTC毫秒') {
+    if (!Number.isFinite(value) || Number.isNaN(new Date(value).getTime()))
+      throw new Error('西占连续事实时刻无效。');
+    const wholeSecond = Math.floor(value / 1000) * 1000;
+    const milliseconds = Math.floor(value - wholeSecond);
+    return `北京时间${formatAstrolabeBirthRangeTime(wholeSecond)}${milliseconds ? `.${String(milliseconds).padStart(3, '0')}` : ''}`;
+  }
   if (unit === '毫秒时间戳') {
     return `北京时间${formatAstrolabeBirthRangeTime(value)}`;
   }
@@ -116,7 +123,7 @@ function buildPointDisplayLabels(data: AstrolabeData): Map<string, string> {
   return labels;
 }
 
-function localizeChartText(text: string, data: AstrolabeData): string {
+export function localizeAstrolabeChartText(text: string, data: AstrolabeData): string {
   const labels = buildPointDisplayLabels(data);
   return [...labels.entries()]
     .filter(([name, display]) => name !== display)
@@ -137,7 +144,7 @@ function localizeContinuousLabel(
   return `${pointDisplayLabel(first, data)}↔${ASPECT_LABELS[type] ?? type}↔${pointDisplayLabel(second, data)}${suffix}`;
 }
 
-function formatContinuousFact(
+export function formatAstrolabeRangeContinuousFact(
   fact: AstrolabeBirthRangeContinuousFact,
   data: AstrolabeData,
 ): string {
@@ -148,14 +155,15 @@ function formatContinuousFact(
   const circular = fact.circular
     ? `；${fact.circular.note
         .replace('first/last', '首值与末值')
-        .replace('min/max', '最小值与最大值')}`
+        .replace('min/max', '最小值与最大值')
+        .replace(/。$/u, '')}`
     : '';
-  return `${localizeContinuousLabel(fact, data)}：首值${formatContinuousValue(fact.first, fact.unit)}；末值${formatContinuousValue(fact.last, fact.unit)}；范围${range}；共${fact.sampleCount}个整秒样本${circular}。`;
+  return `${localizeAstrolabeChartText(localizeContinuousLabel(fact, data), data)}：首值${formatContinuousValue(fact.first, fact.unit)}；末值${formatContinuousValue(fact.last, fact.unit)}；范围${range}；共${fact.sampleCount}个整秒样本${circular}。`;
 }
 
 function formatBranchFacts(branch: AstrolabeBirthRangeBranch, index: number): string[] {
   const interval = formatAstrolabeBirthRangeInterval(branch.startTimestamp, branch.endTimestamp);
-  const chartFacts = localizeChartText(
+  const chartFacts = localizeAstrolabeChartText(
     formatAstrolabeForPrompt(branch.representative)
       .replace(/^出生信息：/u, `分段${index + 1}代表盘信息（${interval}；此处为该时段代表样本）：`)
       .replace(/宫位制：Placidus/gu, '宫位制：普拉西德斯'),
@@ -166,7 +174,9 @@ function formatBranchFacts(branch: AstrolabeBirthRangeBranch, index: number): st
     `${interval}，共${branch.sampleCount}个整秒样本。`,
     chartFacts,
     '连续事实范围：',
-    ...branch.continuous.map((fact) => formatContinuousFact(fact, branch.representative)),
+    ...branch.continuous.map((fact) =>
+      formatAstrolabeRangeContinuousFact(fact, branch.representative),
+    ),
   ];
 }
 
