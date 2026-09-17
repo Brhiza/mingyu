@@ -404,9 +404,15 @@ test('西占本命区间残缺机器来源明确拒绝且不访问网络或启�
   });
 });
 
-test('西占出生区间只允许显式本命，行运与省略范围均拒绝且不访问网络或启动 Worker', async () => {
+test('西占动态出生区间及默认流年要求浏览器存储，不能回退到网络或本命计算', async () => {
   await withReadingFakeWorker(async () => {
-    for (const input of [{ astrolabeScope: 'yearly', astrolabeScopeDate: '2024' }, {}]) {
+    for (const input of [
+      { astrolabeScope: 'yearly', astrolabeScopeDate: '2024' },
+      { astrolabeScope: 'monthly', astrolabeScopeDate: '2024-03' },
+      { astrolabeScope: 'daily', astrolabeScopeDate: '2024-03-20' },
+      { astrolabeScope: 'full', astrolabeScopeDate: '2024-03-20' },
+      {},
+    ]) {
       await assertRejectedWithoutNetwork(
         () =>
           executeReadingAction(
@@ -414,7 +420,7 @@ test('西占出生区间只允许显式本命，行运与省略范围均拒绝�
             undefined,
             createSubject(),
           ),
-        /出生时间区间的行运资料尚未就绪/u,
+        /需要浏览器本地存储/u,
       );
     }
     assert.equal(ReadingFakeWorker.instances.length, 0);
@@ -442,4 +448,23 @@ test('西占本命出生区间取消时终止 Worker 并返回取消错误', asy
   });
   assert.equal(ReadingFakeWorker.instances.length, 1);
   assert.equal(ReadingFakeWorker.instances[0]?.terminated, true);
+});
+
+test('出生区间动态补算要求明确范围，自定义文字不会触发网络或 Worker', async () => {
+  await withReadingFakeWorker(async () => {
+    await assertRejectedWithoutNetwork(
+      () =>
+        executeReadingAction(
+          {
+            kind: 'calculate',
+            method: 'astrolabe',
+            input: { astrolabeScope: 'custom', astrolabeScopeText: '公开合成范围' },
+          },
+          undefined,
+          createSubject(),
+        ),
+      /需选择明确的流年、流月、流日或全部范围/u,
+    );
+    assert.equal(ReadingFakeWorker.instances.length, 0);
+  });
 });

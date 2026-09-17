@@ -6,6 +6,8 @@ import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-wo
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
 import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
+import { prepareAstrolabeDynamicResource } from './astrolabe-dynamic-resource';
+import type { AstrolabeDynamicRangeRequest } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import {
   buildAstrolabeFullScopePromptText,
   getDefaultAstrolabeScopeDate,
@@ -2049,11 +2051,10 @@ export async function executeReadingAction(
   }
   if (
     astrolabeBirthRangeSource &&
-    (requestInput.astrolabeScope !== 'natal' ||
-      (typeof requestInput.astrolabeScopeText === 'string' &&
-        requestInput.astrolabeScopeText.trim()))
+    typeof requestInput.astrolabeScopeText === 'string' &&
+    requestInput.astrolabeScopeText.trim()
   ) {
-    throw new Error('出生时间区间的行运资料尚未就绪，请选择本命范围查看完整区间。');
+    throw new Error('出生时间区间需选择明确的流年、流月、流日或全部范围。');
   }
   const requestLocked = Object.fromEntries(
     Object.entries(locked ?? {}).filter(([key]) => !key.startsWith('_')),
@@ -2094,6 +2095,56 @@ export async function executeReadingAction(
     }
     const { toAstrolabeInput } = await import('./astrolabe-reading-calculation');
     const input = toAstrolabeInput(calculationRequest);
+    if (requestInput.astrolabeScope !== 'natal') {
+      if (!subject) throw new Error('动态区间补算缺少锁定主体。');
+      const scope = requestInput.astrolabeScope;
+      if (scope !== 'yearly' && scope !== 'monthly' && scope !== 'daily' && scope !== 'full')
+        throw new Error('动态区间补算的推运范围无效。');
+      const referenceDate = requestInput.astrolabeScopeDate ?? getDefaultAstrolabeScopeDate(scope);
+      if (typeof referenceDate !== 'string') throw new Error('推运日期必须是字符串。');
+      const request: AstrolabeDynamicRangeRequest = { scope, referenceDate };
+      const promptOptions = {
+        question: requestInput.question as string | undefined,
+        topicId: requestInput.topicId as string | undefined,
+        subtopicId: requestInput.subtopicId as string | undefined,
+        schools: requestInput.schools as string[] | undefined,
+      };
+      const prepared = await prepareAstrolabeDynamicResource(
+        input,
+        astrolabeBirthRangeSource,
+        request,
+        { signal },
+      );
+      const key = JSON.stringify([
+        subject.id,
+        target,
+        input,
+        astrolabeBirthRangeSource,
+        request,
+        promptOptions,
+      ]);
+      return {
+        key,
+        title: `${target === 'partner' ? '对方' : '本人'}西占动态出生区间`,
+        text: '',
+        usable: true,
+        dynamicTarget: target,
+        dynamicAstrolabe: {
+          key,
+          subjectId: subject.id,
+          summary: prepared.summary,
+          promptOptions,
+          readBranch: prepared.readBranch,
+        },
+        dispose: prepared.dispose,
+        replay: {
+          kind: 'calculate',
+          method: 'astrolabe',
+          target,
+          input: { ...requestInput, astrolabeScope: scope, astrolabeScopeDate: referenceDate },
+        },
+      };
+    }
     astrolabeBirthRangeResult =
       typeof Worker !== 'undefined'
         ? await executeAstrolabeBirthRangeWorker(input, astrolabeBirthRangeSource, signal)

@@ -30,11 +30,19 @@ export type AstrolabeDynamicReadingCheckpoint = {
   question: string;
 };
 
-type RoundOptions = Pick<StreamOptions, 'signal' | 'aiConfig' | 'onChunk'> & {
+export type AstrolabeDynamicReadingRoundOptions = Pick<
+  StreamOptions,
+  'signal' | 'aiConfig' | 'onChunk'
+> & {
   question: string;
   onProgress: (text: string) => void;
 };
-type Stream = (messages: ChatMessage[], options: StreamOptions) => Promise<void>;
+export type AstrolabeDynamicReadingStream = (
+  messages: ChatMessage[],
+  options: StreamOptions,
+) => Promise<void>;
+type RoundOptions = AstrolabeDynamicReadingRoundOptions;
+type Stream = AstrolabeDynamicReadingStream;
 const PAGE_CHARACTERS = 6000;
 const SUMMARY_CHARACTERS = 8000;
 const ANSWER_CHARACTERS = 12000;
@@ -72,7 +80,7 @@ export function isAstrolabeDynamicReadingCheckpoint(
   );
 }
 
-async function collect(
+export async function collectAstrolabeDynamicReadingText(
   text: string,
   limit: number,
   emit: boolean,
@@ -176,7 +184,7 @@ export async function runAstrolabeDynamicReadingRound(
         ? '全部资料已读完，正在归纳区间结论'
         : '正在结合区间解读回答追问',
     );
-    await collect(
+    await collectAstrolabeDynamicReadingText(
       [
         '【西洋占星出生区间解读】',
         `出生范围：${interval}。已逐页解读${checkpoint.completedPages}页、${checkpoint.completedBranches}个出生时段。`,
@@ -205,7 +213,7 @@ export async function runAstrolabeDynamicReadingRound(
   const page = result.value;
   const coverage = `第${page.branchIndex + 1}/${source.summary.branchCount}段，资料第${page.pageIndex + 1}页`;
   options.onProgress(`正在解读${coverage}`);
-  const answer = await collect(
+  const answer = await collectAstrolabeDynamicReadingText(
     [
       page.text,
       `【原问题】\n${checkpoint.question}`,
@@ -221,7 +229,7 @@ export async function runAstrolabeDynamicReadingRound(
     stream,
   );
   options.onProgress(`正在保存${coverage}的解读要点`);
-  const synopsis = await collect(
+  const synopsis = await collectAstrolabeDynamicReadingText(
     [
       '【任务】\n将已有分段归纳与本页资料、解读合并成可继续使用的中文归纳。保留问题、关键盘面依据、结论适用的出生时段与推运日期、相反条件和待核对内容。共同判断标明已覆盖范围，区分本页成立与跨页已确认的判断。',
       `【全部出生范围】\n${interval}`,
