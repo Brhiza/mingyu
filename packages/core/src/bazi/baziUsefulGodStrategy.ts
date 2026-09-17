@@ -1,12 +1,15 @@
 import { BASIC_MAPPINGS } from './baziDefinitions';
 import {
   WUXING,
+  type HiddenStems,
   type PatternAnalysis,
   type UsefulGodControlFunctionEvidence,
   type UsefulGodAnalysis,
   type UsefulGodDecisionEvidence,
   type Wuxing,
 } from './baziTypes';
+import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
+import type { RootPillars } from './baziRootFacts';
 import {
   applyClimateCandidates,
   applyTherapeuticPriority,
@@ -23,7 +26,7 @@ import {
   type RuleMatchContext,
   type VisibleStemSource,
 } from './baziRuleMatcher';
-import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
+import { assertEarthlyBranch, assertHeavenlyStem, getWuxing } from './baziUtils';
 import {
   CLIMATE_RULES,
   STRENGTH_HINT_RULES,
@@ -133,22 +136,27 @@ function applyResourceProtection(
     return state;
   const month = hidden.find((source) => source.pillar === 'month');
   if (!month?.stems[0] || element(month.stems[0]) !== wealth) return state;
-  const unClashed = (source: HiddenStemSource) =>
-    !hidden.some(
-      (other) =>
-        other.pillar !== source.pillar &&
-        other.branch === BASIC_MAPPINGS.DI_ZHI_CHONG[source.branch],
+  const pillarKeys = ['year', 'month', 'day', 'hour'] as const;
+  const rootPillars = Object.fromEntries(
+    pillarKeys.map((pillar) => [
+      pillar,
+      { zhi: hidden.find((source) => source.pillar === pillar)!.branch },
+    ]),
+  ) as unknown as RootPillars;
+  const rootHiddenStems = Object.fromEntries(
+    pillarKeys.map((pillar) => [pillar, hidden.find((source) => source.pillar === pillar)!.stems]),
+  ) as unknown as HiddenStems;
+  const collectUsableRoots = (target: string) => {
+    assertWuxing(target, '根气');
+    return collectAdjudicatedRootFacts(rootPillars, rootHiddenStems, target, getWuxing).filter(
+      (root) => root.actionable && root.hiddenIndex <= 1,
     );
+  };
+  const resourceRoots = collectUsableRoots(resource);
+  const companionRoots = collectUsableRoots(dmWuxing);
   const resourceStems = visible.filter((source) => element(source.stem) === resource);
-  // 任一印有未受冲的本中气根，或并未坐财受制，均不套用弱印待护的次序。
-  if (
-    !resourceStems.length ||
-    hidden.some(
-      (source) =>
-        unClashed(source) && source.stems.slice(0, 2).some((stem) => element(stem) === resource),
-    )
-  )
-    return state;
+  // 任一印有共享裁决可用的本中气根，或并未坐财受制，均不套用弱印待护的次序。
+  if (!resourceStems.length || resourceRoots.length) return state;
   if (
     !resourceStems.every((source) => {
       const seat = hidden.find((candidate) => candidate.pillar === source.pillar);
@@ -158,19 +166,14 @@ function applyResourceProtection(
     return state;
   const rootedCompanions = visible.filter(
     (source) =>
-      source.pillar !== 'day' &&
-      element(source.stem) === dmWuxing &&
-      hidden.some(
-        (root) =>
-          unClashed(root) && root.stems.slice(0, 2).some((stem) => element(stem) === dmWuxing),
-      ),
+      source.pillar !== 'day' && element(source.stem) === dmWuxing && companionRoots.length > 0,
   );
   if (!rootedCompanions.length) return state;
   const favorableOrder = [
     dmWuxing,
     ...state.favorableWuxing.filter((wuxing) => wuxing !== dmWuxing),
   ];
-  const reason = `月令本气为财，${resourceStems.map((source) => source.stem).join('、')}印坐财受制且缺少未受冲的本中气根；${rootedCompanions.map((source) => source.stem).join('、')}比劫透而有根，先以${dmWuxing}扶身制财护印，再取${resource}生身，印比配合`;
+  const reason = `月令本气为财，${resourceStems.map((source) => source.stem).join('、')}印坐财受制且缺少可用的本中气根；${rootedCompanions.map((source) => source.stem).join('、')}比劫透而有根（可用本中气根），先以${dmWuxing}扶身制财护印，再取${resource}生身，印比配合`;
   return {
     ...state,
     favorableWuxing: favorableOrder,

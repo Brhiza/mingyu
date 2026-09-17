@@ -3,7 +3,11 @@ import { TIAN_GAN_HE } from '../ganzhi/relations';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import type { HarmonyTransformProfile } from '../types/analysis';
 import type { Pillars } from './baziTypes';
-import { collectSameElementRootFacts, type SameElementRootFact } from './baziRootFacts';
+import {
+  collectAdjudicatedRootFacts,
+  type AdjudicatedRootFact,
+  type RootClashStatus,
+} from './baziRootAdjudication';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
@@ -124,10 +128,13 @@ interface RootInfo {
    */
   rootQuality: '本气' | '中气' | '余气' | '无根';
   actionable: boolean;
+  hasStableActionableRoot: boolean;
   monthPrincipalControl?: string;
   rootType: PatternStemEvidence['rootType'];
   rootPositions: string[];
   clashedRootPositions: string[];
+  actionableRootPositions: string[];
+  clashStatuses: RootClashStatus[];
   clashSourcePositions: string[];
 }
 
@@ -136,7 +143,7 @@ interface GodGroup {
   visible: ObservedStem[];
   hidden: ObservedStem[];
   rooted: boolean;
-  stable: boolean;
+  actionable: boolean;
 }
 
 interface PathPositionEvidence {
@@ -225,13 +232,13 @@ function formatPathPosition(evidence: PathPositionEvidence): string {
   return `${evidence.position}（${evidence.pairs.join('；')}）`;
 }
 
-function formatRootFactPosition(root: SameElementRootFact): string {
+function formatRootFactPosition(root: AdjudicatedRootFact): string {
   return (
     PILLAR_NAMES[root.position] + root.branch + '藏' + root.stem + '（' + root.hiddenRole + '）'
   );
 }
 
-function formatClashSourcePosition(source: SameElementRootFact['clashSources'][number]): string {
+function formatClashSourcePosition(source: AdjudicatedRootFact['clashSources'][number]): string {
   return PILLAR_NAMES[source.position] + source.branch;
 }
 
@@ -273,7 +280,7 @@ function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
     day: HIDDEN_STEMS[pillars.day.zhi],
     hour: HIDDEN_STEMS[pillars.hour.zhi],
   };
-  const roots = collectSameElementRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
+  const roots = collectAdjudicatedRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
   const exactRoots = roots.filter((candidate) => candidate.stem === item.stem);
   const rootPositions = roots.map(formatRootFactPosition);
   const clashedRootPositions = roots
@@ -282,20 +289,30 @@ function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const clashSourcePositions = [
     ...new Set(roots.flatMap((root) => root.clashSources.map(formatClashSourcePosition))),
   ];
+  // 格局作用仍要求本气或中气；共享裁决只负责判定受冲根能否继续参与作用。
+  const actionableRoots = roots.filter(
+    (candidate) => candidate.actionable && candidate.hiddenRole !== '余气',
+  );
   const stableRoots = roots.filter((candidate) => candidate.stable);
-  const rootQuality = resolveRootQuality(stableRoots.length ? stableRoots : roots);
-  const stable = stableRoots.some((candidate) => candidate.hiddenRole !== '余气');
+  const rootQuality = resolveRootQuality(
+    actionableRoots.length ? actionableRoots : stableRoots.length ? stableRoots : roots,
+  );
+  // stable 只保留“存在未受直接六冲的根”这一事实，不代替最终可作用裁决。
+  const stable = roots.some((candidate) => candidate.stable);
   const monthPrincipalControl = getMonthPrincipalControl(item, pillars);
 
   return {
     rooted: roots.length > 0,
     stable,
     rootQuality,
-    actionable: stable && (!monthPrincipalControl || rootQuality === '本气'),
+    actionable: actionableRoots.length > 0 && (!monthPrincipalControl || rootQuality === '本气'),
+    hasStableActionableRoot: actionableRoots.some((candidate) => candidate.stable),
     ...(monthPrincipalControl ? { monthPrincipalControl } : {}),
     rootType: exactRoots.length ? '本根' : roots.length ? '同类根' : '无根',
     rootPositions,
     clashedRootPositions,
+    actionableRootPositions: actionableRoots.map(formatRootFactPosition),
+    clashStatuses: [...new Set(roots.map((root) => root.clashStatus))],
     clashSourcePositions,
   };
 }
@@ -316,7 +333,7 @@ function getGodGroup(
     visible,
     hidden,
     rooted: rootInfos.some((info) => info.rooted),
-    stable: rootInfos.some((info) => info.actionable),
+    actionable: rootInfos.some((info) => info.actionable),
   };
 }
 
@@ -388,19 +405,22 @@ function assessGroupUsability(
     item,
     root: getRootInfo(item, pillars),
   }));
-  const stable = roots.filter(({ root }) => root.actionable);
-  const available = stable.filter(({ item }) => !isStemBlocked(item, harmonyProfiles));
-  const blocked = stable.filter(({ item }) => isStemBlocked(item, harmonyProfiles));
-  const withoutStableRoot = roots.filter(({ root }) => !root.actionable);
+  const actionable = roots.filter(({ root }) => root.actionable);
+  const available = actionable.filter(({ item }) => !isStemBlocked(item, harmonyProfiles));
+  const blocked = actionable.filter(({ item }) => isStemBlocked(item, harmonyProfiles));
+  const withoutActionableRoot = roots.filter(({ root }) => !root.actionable);
 
   if (available.length) {
+    const rootLabel = available.every(({ root }) => root.hasStableActionableRoot)
+      ? '有稳定根气'
+      : '有可用根气（含经冲根裁决仍可作用者）';
     const detail = [
-      `${label}可用项：${available.map(({ item }) => formatObserved(item)).join('、')}，有稳定根气且未见合绊`,
+      `${label}可用项：${available.map(({ item }) => formatObserved(item)).join('、')}，${rootLabel}且未见合绊`,
       blocked.length
         ? `受合绊项：${blocked.map(({ item }) => formatObserved(item)).join('、')}`
         : '',
-      withoutStableRoot.length
-        ? `根气不足项：${withoutStableRoot
+      withoutActionableRoot.length
+        ? `根气不足项：${withoutActionableRoot
             .map(({ item, root }) => describeRootLimitation(item, root))
             .join('；')}`
         : '',
@@ -408,19 +428,19 @@ function assessGroupUsability(
       .filter(Boolean)
       .join('；');
     return {
-      status: withoutStableRoot.length ? '资料不足' : '满足',
+      status: withoutActionableRoot.length ? '资料不足' : '满足',
       effective: true,
-      uncertain: withoutStableRoot.length > 0,
+      uncertain: withoutActionableRoot.length > 0,
       detail: `${detail}。`,
     };
   }
 
-  if (blocked.length === stable.length && stable.length === roots.length) {
+  if (blocked.length === actionable.length && actionable.length === roots.length) {
     return {
       status: '不满足',
       effective: false,
       uncertain: false,
-      detail: `${label}虽透且根气稳定，但${blocked
+      detail: `${label}虽透且根气可用，但${blocked
         .map(({ item }) =>
           findHarmonyProfiles(item, harmonyProfiles).map(formatHarmonyProfile).join('、'),
         )
@@ -442,23 +462,16 @@ function assessGroupUsability(
 function describeRootLimitation(item: ObservedStem, root: RootInfo): string {
   const observed = formatObserved(item);
   if (!root.rooted) return `${observed}无同类藏根`;
-  if (!root.stable) {
-    const unClashedPositions = root.rootPositions.filter(
-      (position) => !root.clashedRootPositions.includes(position),
-    );
-    const qualityDetail =
-      root.rootQuality === '余气' && unClashedPositions.length
-        ? `${observed}未受冲根仅见余气（${unClashedPositions.join('、')}）${root.clashedRootPositions.length ? `；另见受冲根（${root.clashedRootPositions.join('、')}）` : ''}，不足以作为稳定根气`
-        : `${observed}根气受冲（${root.clashedRootPositions.join('、')}）`;
-    if (root.monthPrincipalControl) {
-      return `${observed}${root.monthPrincipalControl}；${qualityDetail}`;
-    }
-    return qualityDetail;
-  }
   if (root.monthPrincipalControl) {
-    return `${observed}${root.monthPrincipalControl}，现有根气最高为${root.rootQuality}，不能直接视为稳定作用`;
+    return root.actionableRootPositions.length
+      ? `${observed}${root.monthPrincipalControl}；虽有${root.rootQuality}可用根（${root.actionableRootPositions.join('、')}），仍不能直接闭合作用`
+      : `${observed}${root.monthPrincipalControl}；现有根气最高为${root.rootQuality}，仍不能直接闭合作用`;
   }
-  return `${observed}根气层次为${root.rootQuality}，作用条件尚未闭合`;
+  if (!root.stable) {
+    const status = root.clashStatuses.filter((item) => item !== '未受冲').join('、');
+    return `${observed}根气受冲（${root.clashedRootPositions.join('、')}），裁决为${status || '受冲待核'}，当前不可作用`;
+  }
+  return `${observed}未受冲根最高仅见${root.rootQuality}，不足以作为可用根气`;
 }
 
 function formatHarmonyProfile(profile: HarmonyTransformProfile): string {
@@ -517,7 +530,7 @@ function buildGroupCondition(
   if (!group.rooted) {
     return { key, status: '不满足', detail: `${label}虽有${formatGroup(group)}，但未见同类藏根。` };
   }
-  if (!group.stable) {
+  if (!group.actionable) {
     if (requireVisible && pillars && observed.length) {
       const usability = assessGroupUsability(label, group, pillars, harmonyProfiles);
       return {
@@ -548,7 +561,7 @@ function buildGroupCondition(
   return {
     key,
     status: '满足',
-    detail: `${label}见${formatGroup(group)}，有稳定根气；透干与柱位已分别记录。`,
+    detail: `${label}见${formatGroup(group)}，有可用根气；透干与柱位已分别记录。`,
   };
 }
 
@@ -599,15 +612,20 @@ function evaluatePath(
   const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, pillars) }));
   const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const usesAdjudicatedClashedRoot = [...sourceRoots, ...targetRoots].some(
+    ({ root }) => root.actionable && !root.hasStableActionableRoot,
+  );
   const sourceUncertain = sourceRoots.some(
     ({ root }) =>
       root.rooted &&
-      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+      !root.actionable &&
+      (Boolean(root.monthPrincipalControl) || root.rootQuality === '余气'),
   );
   const targetUncertain = targetRoots.some(
     ({ root }) =>
       root.rooted &&
-      ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+      !root.actionable &&
+      (Boolean(root.monthPrincipalControl) || root.rootQuality === '余气'),
   );
   const sourceFailed = source.length > 0 && !rootedSource.length && !sourceUncertain;
   const targetFailed = target.length > 0 && !rootedTarget.length && !targetUncertain;
@@ -622,7 +640,7 @@ function evaluatePath(
     const status: PatternConditionStatus = sourceFailed || targetFailed ? '不满足' : '资料不足';
     return createResult(
       status,
-      `${label}要求双方有稳定根气；${!rootedSource.length ? (source.length ? '来源无稳定根' : '来源仅藏不透') : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? (target.length ? '作用对象无稳定根' : '作用对象仅藏不透') : ''}。${[
+      `${label}要求双方有可用根气；${!rootedSource.length ? (source.length ? '来源无稳定根或其他可用根' : '来源仅藏不透') : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? (target.length ? '作用对象无稳定根或其他可用根' : '作用对象仅藏不透') : ''}。${[
         ...sourceRoots.filter(({ root }) => !root.actionable),
         ...targetRoots.filter(({ root }) => !root.actionable),
       ]
@@ -653,7 +671,7 @@ function evaluatePath(
   if (!availablePosition.hasAdjacentPair) {
     return createResult(
       '资料不足',
-      `${label}虽有透干、稳定根气且未见合绊，但仅见${formatPathPosition(
+      `${label}虽有透干、${usesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}且未见合绊，但仅见${formatPathPosition(
         availablePosition,
       )}；依据当前紧贴柱位口径，隔位只记录事实，不自动认定为有效制化。`,
       availableSource,
@@ -665,7 +683,9 @@ function evaluatePath(
     '满足',
     `${label}来源${availableSource.map(formatObserved).join('、')}与作用对象${availableTarget
       .map(formatObserved)
-      .join('、')}均透干、有稳定根气，${formatPathPosition(availablePosition)}且未见合绊阻断。`,
+      .join(
+        '、',
+      )}均透干、有${usesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}，${formatPathPosition(availablePosition)}且未见合绊阻断。`,
     availableSource,
     availableTarget,
   );
@@ -939,7 +959,7 @@ function evaluateStatusForOrdinaryPattern(params: {
       .join('；');
     return {
       status: '成格',
-      detail: `格神已透干且有稳定根气，当前未见有效明透破格项。${suppressed ? ` ${suppressed}` : ''}`,
+      detail: `格神已透干且有可用根气，当前未见有效明透破格项。${suppressed ? ` ${suppressed}` : ''}`,
     };
   }
   const unresolved = activeBreakers.filter(
@@ -1078,7 +1098,7 @@ export function evaluatePatternFulfillment(
     visible: [],
     hidden: [],
     rooted: false,
-    stable: false,
+    actionable: false,
   };
   let decision: { status: PatternFulfillmentResult['status']; detail: string } = {
     status: '未判定',
@@ -1126,7 +1146,7 @@ export function evaluatePatternFulfillment(
 
   if (name.includes('正官')) {
     basis =
-      '《子平真诠·论正官》重“无破无伤”；此处要求正官月令、透干、有稳定根气，并核对伤官、七杀及有效救应。';
+      '《子平真诠·论正官》重“无破无伤”；此处要求正官月令、透干、有可用根气，并核对伤官、七杀及有效救应。';
     const targetCondition = registerTarget('正官', ['正官']);
     const hurtGroup = getGodGroup(['伤官'], observed, pillars);
     const killGroup = getGodGroup(['七杀'], observed, pillars);
@@ -1180,7 +1200,7 @@ export function evaluatePatternFulfillment(
       conditionFacts,
     });
     conditions.push(
-      '正官以月令、透干、稳定根气为格神条件；伤官见官或官杀混杂时，只有有效印制/食神取清才记为破而复成；财印并见时分别核对位置与能否各起作用。',
+      '正官以月令、透干、可用根气为格神条件；伤官见官或官杀混杂时，只有有效印制/食神取清才记为破而复成；财印并见时分别核对位置与能否各起作用。',
     );
   } else if (name.includes('正财') || name.includes('偏财')) {
     const exact = name.includes('偏财') ? '偏财' : '正财';
@@ -1354,7 +1374,7 @@ export function evaluatePatternFulfillment(
       decision = validPaths.length
         ? {
             status: '成格',
-            detail: `七杀透干且有稳定根气；${validPaths.map((path) => path.label).join('、')}路径双方有根、位置有效。`,
+            detail: `七杀透干且有可用根气；${validPaths.map((path) => path.label).join('、')}路径双方有根、位置有效。`,
           }
         : uncertainPaths.length
           ? {
@@ -1487,7 +1507,7 @@ export function evaluatePatternFulfillment(
     } else if (validPath) {
       decision = {
         status: '成格',
-        detail: `${validPath.label}来源与作用对象均有透干、稳定根气且未被合绊阻断。`,
+        detail: `${validPath.label}来源与作用对象均有透干、可用根气且未被合绊阻断。`,
       };
     } else if (hasUncertainPath) {
       decision = {
