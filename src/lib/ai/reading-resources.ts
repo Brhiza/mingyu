@@ -7,6 +7,7 @@ import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
 import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
 import { executeBaziReadingWorker } from './bazi-reading-worker';
+import { executeZiweiReadingWorker } from './ziwei-reading-worker';
 import { prepareAstrolabeDynamicResource } from './astrolabe-dynamic-resource';
 import type { AstrolabeDynamicRangeRequest } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import {
@@ -2217,6 +2218,11 @@ export async function executeReadingAction(
     astrolabeLocalComplete = true;
   } else if (action.method === 'bazi' && typeof Worker !== 'undefined') {
     data = (await executeBaziReadingWorker(calculationRequest, signal)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (action.method === 'ziwei' && typeof Worker !== 'undefined') {
+    data = (await executeZiweiReadingWorker(calculationRequest, signal)) as unknown as Record<
       string,
       unknown
     >;
