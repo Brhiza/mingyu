@@ -278,7 +278,7 @@ function buildSummaryTags(params: {
 export function buildNatalPalaceFacts(astrolabe: IztroAstrolabe): PalaceFact[] {
   assertValidAstrolabePalaces(astrolabe.palaces);
   const drafts = astrolabe.palaces.map((palace) => {
-    const surrounded = astrolabe.surroundedPalaces(palace.name);
+    const surrounded = astrolabe.surroundedPalaces(palace.index);
     const mutagedPlaces = buildMutagedPlaces(palace);
     const selfMutagens = collectSelfMutagensFromPlaces(palace.index, mutagedPlaces);
     const emptyState = palace.isEmpty();
@@ -356,7 +356,7 @@ export function buildPalaceFacts(params: {
   const scopeHitEntries = buildScopeHitEntries(horoscope);
 
   const drafts = astrolabe.palaces.map((palace) => {
-    const surrounded = astrolabe.surroundedPalaces(palace.name);
+    const surrounded = astrolabe.surroundedPalaces(palace.index);
     const scopeStarsRaw = currentScopeItem?.stars?.[palace.index] ?? [];
     const mutagedPlaces = buildMutagedPlaces(palace);
     const selfMutagens = collectSelfMutagensFromPlaces(palace.index, mutagedPlaces);

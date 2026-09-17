@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildAnalysisPayloadV1 } from '../packages/core/src/ziwei/iztro/build-analysis-payload';
+import { buildNatalPalaceFacts } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/builders';
 import {
   buildAstrolabeFromInput,
   buildHoroscopeFromInput,
@@ -96,10 +97,13 @@ test('完整分析只计算一次十二宫关系并复用到摘要与证据', as
     hasMutagen: 0,
     hasHoroscopeMutagen: 0,
   };
+  const surroundedPalaceIndexes: number[] = [];
 
   const surroundedPalaces = astrolabe.surroundedPalaces.bind(astrolabe);
   astrolabe.surroundedPalaces = (...args) => {
     calls.surroundedPalaces += 1;
+    assert.equal(typeof args[0], 'number');
+    surroundedPalaceIndexes.push(args[0] as number);
     return surroundedPalaces(...args);
   };
   for (const palace of astrolabe.palaces) {
@@ -128,7 +132,47 @@ test('完整分析只计算一次十二宫关系并复用到摘要与证据', as
 
   assert.equal(payload.palaces.length, 12);
   assert.equal(calls.surroundedPalaces, 12, '每宫只建立一次三方四正关系');
+  assert.deepEqual(
+    surroundedPalaceIndexes,
+    astrolabe.palaces.map((palace) => palace.index),
+    '直接使用已校验宫位索引，不重复按宫名反查',
+  );
   assert.equal(calls.selfMutaged, 0, '自化直接复用飞化目标');
   assert.equal(calls.hasMutagen, 0, '摘要与证据直接复用星曜四化事实');
   assert.equal(calls.hasHoroscopeMutagen, 0, '运限摘要直接复用已映射运限四化');
+});
+
+test('本命宫位枚举顺序改变时仍按唯一宫位索引取得原生三方四正', async () => {
+  const astrolabe = await buildAstrolabeFromInput(fixtures[0]);
+  const reorderedAstrolabe = Object.create(astrolabe) as typeof astrolabe;
+  const reorderedPalaces = [...astrolabe.palaces].reverse();
+  Object.defineProperty(reorderedAstrolabe, 'palaces', {
+    configurable: true,
+    enumerable: true,
+    value: reorderedPalaces,
+  });
+
+  const facts = buildNatalPalaceFacts(reorderedAstrolabe);
+
+  assert.deepEqual(
+    facts.map((fact) => fact.index),
+    reorderedPalaces.map((palace) => palace.index),
+    '事实顺序保留调用方提供的宫位排列',
+  );
+  for (const palace of reorderedPalaces) {
+    const fact = facts.find((candidate) => candidate.index === palace.index);
+    const surrounded = astrolabe.surroundedPalaces(palace.name);
+    assert.ok(fact);
+    assert.equal(fact.opposite_palace_index, surrounded.opposite.index, palace.name);
+    assert.deepEqual(
+      fact.surrounded_palace_indexes,
+      [
+        surrounded.target.index,
+        surrounded.opposite.index,
+        surrounded.wealth.index,
+        surrounded.career.index,
+      ],
+      palace.name,
+    );
+  }
 });
