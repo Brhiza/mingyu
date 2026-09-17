@@ -70,7 +70,7 @@ test('五合化气主格按日干紧贴、月令本气与独立化神证据分�
   assert.doesNotMatch(dingDay?.conditions.join('；') ?? '', /印根返性阻化：存在/);
 });
 
-test('子平真诠丁壬化木原例不被辰中癸余气一票否决', () => {
+test('子平真诠丁壬化木原例不被辰中癸水正库轻根一票否决', () => {
   const chart = pillars(['甲戌', '丁卯', '壬寅', '甲辰']);
   const result = determinePattern(chart, '偏弱', getTenGod, '乙');
 
@@ -79,8 +79,37 @@ test('子平真诠丁壬化木原例不被辰中癸余气一票否决', () => {
   assert.equal(result.transformation?.status, '成化');
   assert.equal(result.transformation?.element, '木');
   assert.match(result.transformation?.evidence.join('；') ?? '', /月令卯本气乙属木/);
-  assert.match(result.transformation?.evidence.join('；') ?? '', /辰藏癸.*余气/);
+  assert.match(result.transformation?.evidence.join('；') ?? '', /辰藏癸.*正库轻根/);
   assert.doesNotMatch(result.transformation?.conditions.join('；') ?? '', /辰藏癸.*不满足/);
+});
+
+test('化神正库轻根可满足独立根门槛，妒合仍单独阻化', () => {
+  const supported = evaluateTransformedPattern(pillars(['己未', '丁卯', '壬寅', '戊戌']));
+  assert.equal(supported?.status, '成化');
+  assert.match(supported?.evidence.join('；') ?? '', /化神独立有效根.*未藏乙.*正库轻根/);
+
+  const jealous = evaluateTransformedPattern(pillars(['己未', '丁卯', '壬寅', '丙戌']));
+  assert.equal(jealous?.status, '存在反证');
+  assert.match(jealous?.evidence.join('；') ?? '', /化神独立有效根.*未藏乙.*正库轻根/);
+  assert.match(jealous?.evidence.join('；') ?? '', /见丙妒合/);
+});
+
+test('异干同气本气仍须达到十二长生强根门槛', () => {
+  const sameElementStorage = evaluateTransformedPattern(pillars(['丁丑', '戊午', '戊申', '癸巳']));
+  assert.match(
+    sameElementStorage?.evidence.join('；') ?? '',
+    /日干同气根仅为弱层旁证：年柱丑藏己（本气、墓）/,
+  );
+  assert.doesNotMatch(sameElementStorage?.evidence.join('；') ?? '', /日干同气强根：年柱丑藏己/);
+});
+
+test('精确本干余气可阻化但不冒充强根', () => {
+  const result = evaluateTransformedPattern(pillars(['戊辰', '己酉', '乙未', '庚辰']));
+
+  assert.equal(result?.status, '存在反证');
+  assert.match(result?.conditions.join('；') ?? '', /原日干根气阻化：存在/);
+  assert.match(result?.evidence.join('；') ?? '', /日干原根：.*辰藏乙（余气轻根、冠带）/);
+  assert.doesNotMatch(result?.conditions.join('；') ?? '', /原日干强根阻化/);
 });
 
 test('原日干强根、印根返性、妒合与冲破均保留为反证', () => {

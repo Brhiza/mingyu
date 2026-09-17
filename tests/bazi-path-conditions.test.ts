@@ -6,7 +6,7 @@ import { getTenGod } from '../packages/core/src/bazi/baziUtils';
 import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter';
 
 test('制化来源确定无根时，对象根气待核不能掩盖已失效的必要条件', () => {
-  // 合成历法夹具：火无根，丑中辛金为余气；两端条件必须同时成立。
+  // 合成历法夹具：火无根，丑中辛金为正库；两端条件必须同时成立。
   const chart = baziCalculator.calculateBazi({
     year: 1997,
     month: 1,
@@ -24,7 +24,7 @@ test('制化来源确定无根时，对象根气待核不能掩盖已失效的�
   );
   assert.equal(source?.rooted, false);
   assert.equal(target?.rooted, true);
-  assert.ok(target?.rootPositions.every((position) => position.includes('余气')));
+  assert.ok(target?.rootPositions.every((position) => position.includes('正库')));
   assert.equal(result.pathEvaluations!.find((path) => path.key === '食神制杀')?.status, '不满足');
 });
 

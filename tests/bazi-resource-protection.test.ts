@@ -36,7 +36,7 @@ function decide(roots = hidden, stems = visible, strength = '身弱', isSpecial 
   );
 }
 
-test('午月癸水弱印坐财、比劫有根时说明水金护印配合', () => {
+test('午月癸水的辛印有正库轻根时保留印先基线', () => {
   const pillars = Object.fromEntries(
     ['甲午', '庚午', '癸丑', '癸丑'].map((ganZhi, index) => [
       ['year', 'month', 'day', 'hour'][index],
@@ -54,14 +54,11 @@ test('午月癸水弱印坐财、比劫有根时说明水金护印配合', () =>
   const result = { pillars, hiddenStems, analysis, dayMaster: { gan: '癸' } } as BaziChartResult;
   assert.equal(result.analysis.dayMasterStrength.status, '身弱');
   const useful = result.analysis.usefulGod;
-  assert.deepEqual(useful.favorableWuxing, ['水', '金']);
+  assert.deepEqual(useful.favorableWuxing, ['金', '水']);
   assert.deepEqual(useful.decisionEvidence?.base.favorable, ['金', '水']);
-  assert.match(
-    useful.decisionEvidence?.balanceAdjustment?.reason ?? '',
-    /印坐财受制.*比劫透而有根.*印比配合/,
-  );
-  assert.match(formatUsefulGodFunctions(useful).join('\n'), /取用配合：/);
-  assert.match(formatBaziDecisionDetails(result).join('\n'), /取用配合：/);
+  assert.equal(useful.decisionEvidence?.balanceAdjustment, undefined);
+  assert.doesNotMatch(formatUsefulGodFunctions(useful).join('\n'), /取用配合：/);
+  assert.doesNotMatch(formatBaziDecisionDetails(result).join('\n'), /取用配合：/);
   assert.doesNotMatch(JSON.stringify(useful), /富贵永无边|可按金水会夏天论富贵|多主富贵/);
 });
 
@@ -112,7 +109,7 @@ test('根受冲、身强与特殊从格不套用弱印护印次序', () => {
   }
 });
 
-test('财旺弱印的护印判据适用于其他日主，缺柱位资料时保留基线', () => {
+test('其他日主的印有正库轻根或缺柱位资料时均保留基线', () => {
   const result = determineUsefulGod(
     '身弱',
     { pattern: '偏财格', isSpecial: false },
@@ -135,8 +132,8 @@ test('财旺弱印的护印判据适用于其他日主，缺柱位资料时保�
       ],
     },
   );
-  assert.deepEqual(result.favorableWuxing, ['木', '水']);
-  assert.match(result.decisionEvidence?.balanceAdjustment?.reason ?? '', /先以木.*再取水/);
+  assert.deepEqual(result.favorableWuxing, ['水', '木']);
+  assert.equal(result.decisionEvidence?.balanceAdjustment, undefined);
   assert.deepEqual(
     determineUsefulGod('身弱', { pattern: '偏财格', isSpecial: false }, '木').favorableWuxing,
     ['水', '木'],

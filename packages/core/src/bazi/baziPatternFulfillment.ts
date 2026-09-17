@@ -8,6 +8,11 @@ import {
   type AdjudicatedRootFact,
   type RootClashStatus,
 } from './baziRootAdjudication';
+import {
+  getRootTraditionalKind,
+  isStructuralRoot,
+  type RootTraditionalKind,
+} from './baziRootFacts';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
@@ -122,11 +127,9 @@ interface ObservedStem {
 interface RootInfo {
   rooted: boolean;
   stable: boolean;
-  /**
-   * 根气层次只在内部用于制化路径裁决。余气仍保留为“有根”证据，
-   * 但不能在需要稳定根气的路径中与本气、中气等量齐观。
-   */
-  rootQuality: '本气' | '中气' | '余气' | '无根';
+  /** 传统根类与藏干数组位置分开；墓库、余气均为轻根，不冒充本气。 */
+  rootQuality: string;
+  hasStructuralRoot: boolean;
   actionable: boolean;
   hasStableActionableRoot: boolean;
   monthPrincipalControl?: string;
@@ -234,7 +237,13 @@ function formatPathPosition(evidence: PathPositionEvidence): string {
 
 function formatRootFactPosition(root: AdjudicatedRootFact): string {
   return (
-    PILLAR_NAMES[root.position] + root.branch + '藏' + root.stem + '（' + root.hiddenRole + '）'
+    PILLAR_NAMES[root.position] +
+    root.branch +
+    '藏' +
+    root.stem +
+    '（' +
+    getRootTraditionalKind(root) +
+    '）'
   );
 }
 
@@ -242,20 +251,18 @@ function formatClashSourcePosition(source: AdjudicatedRootFact['clashSources'][n
   return PILLAR_NAMES[source.position] + source.branch;
 }
 
-const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, number> = {
-  本气: 3,
-  中气: 2,
-  余气: 1,
-};
+const ROOT_KIND_DISPLAY_ORDER: readonly RootTraditionalKind[] = [
+  '本气',
+  '生禄',
+  '正库',
+  '余气',
+  '弱藏',
+];
 
-function resolveRootQuality(
-  roots: Array<{ hiddenRole?: PatternStemEvidence['hiddenRole'] }>,
-): RootInfo['rootQuality'] {
+function resolveRootQuality(roots: AdjudicatedRootFact[]): string {
   if (!roots.length) return '无根';
-  return roots.reduce<Exclude<RootInfo['rootQuality'], '无根'>>((best, root) => {
-    const quality = root.hiddenRole ?? '余气';
-    return ROOT_QUALITY_RANK[quality] > ROOT_QUALITY_RANK[best] ? quality : best;
-  }, '余气');
+  const kinds = new Set(roots.map(getRootTraditionalKind));
+  return ROOT_KIND_DISPLAY_ORDER.filter((kind) => kinds.has(kind)).join('、');
 }
 
 /**
@@ -289,23 +296,35 @@ function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const clashSourcePositions = [
     ...new Set(roots.flatMap((root) => root.clashSources.map(formatClashSourcePosition))),
   ];
-  // 格局作用仍要求本气或中气；共享裁决只负责判定受冲根能否继续参与作用。
+  // 数组位置不等于传统根类；正库、余气和生禄根均按实际身份进入结构门槛。
   const actionableRoots = roots.filter(
-    (candidate) => candidate.actionable && candidate.hiddenRole !== '余气',
+    (candidate) => candidate.actionable && isStructuralRoot(candidate),
   );
+  const structuralRoots = roots.filter(isStructuralRoot);
   const stableRoots = roots.filter((candidate) => candidate.stable);
   const rootQuality = resolveRootQuality(
-    actionableRoots.length ? actionableRoots : stableRoots.length ? stableRoots : roots,
+    actionableRoots.length
+      ? actionableRoots
+      : structuralRoots.length
+        ? structuralRoots
+        : stableRoots.length
+          ? stableRoots
+          : roots,
   );
   // stable 只保留“存在未受直接六冲的根”这一事实，不代替最终可作用裁决。
   const stable = roots.some((candidate) => candidate.stable);
   const monthPrincipalControl = getMonthPrincipalControl(item, pillars);
+  const hasPrincipalActionableRoot = actionableRoots.some(
+    (candidate) => getRootTraditionalKind(candidate) === '本气',
+  );
 
   return {
     rooted: roots.length > 0,
     stable,
     rootQuality,
-    actionable: actionableRoots.length > 0 && (!monthPrincipalControl || rootQuality === '本气'),
+    hasStructuralRoot: roots.some(isStructuralRoot),
+    actionable:
+      actionableRoots.length > 0 && (!monthPrincipalControl || hasPrincipalActionableRoot),
     hasStableActionableRoot: actionableRoots.some((candidate) => candidate.stable),
     ...(monthPrincipalControl ? { monthPrincipalControl } : {}),
     rootType: exactRoots.length ? '本根' : roots.length ? '同类根' : '无根',
@@ -465,13 +484,13 @@ function describeRootLimitation(item: ObservedStem, root: RootInfo): string {
   if (root.monthPrincipalControl) {
     return root.actionableRootPositions.length
       ? `${observed}${root.monthPrincipalControl}；虽有${root.rootQuality}可用根（${root.actionableRootPositions.join('、')}），仍不能直接闭合作用`
-      : `${observed}${root.monthPrincipalControl}；现有根气最高为${root.rootQuality}，仍不能直接闭合作用`;
+      : `${observed}${root.monthPrincipalControl}；现有根类为${root.rootQuality}，仍不能直接闭合作用`;
   }
-  if (!root.stable) {
+  if (root.hasStructuralRoot && root.clashedRootPositions.length) {
     const status = root.clashStatuses.filter((item) => item !== '未受冲').join('、');
     return `${observed}根气受冲（${root.clashedRootPositions.join('、')}），裁决为${status || '受冲待核'}，当前不可作用`;
   }
-  return `${observed}未受冲根最高仅见${root.rootQuality}，不足以作为可用根气`;
+  return `${observed}根类仅见${root.rootQuality}，不足以作为可用根气`;
 }
 
 function formatHarmonyProfile(profile: HarmonyTransformProfile): string {
@@ -616,16 +635,10 @@ function evaluatePath(
     ({ root }) => root.actionable && !root.hasStableActionableRoot,
   );
   const sourceUncertain = sourceRoots.some(
-    ({ root }) =>
-      root.rooted &&
-      !root.actionable &&
-      (Boolean(root.monthPrincipalControl) || root.rootQuality === '余气'),
+    ({ root }) => root.rooted && !root.actionable && Boolean(root.monthPrincipalControl),
   );
   const targetUncertain = targetRoots.some(
-    ({ root }) =>
-      root.rooted &&
-      !root.actionable &&
-      (Boolean(root.monthPrincipalControl) || root.rootQuality === '余气'),
+    ({ root }) => root.rooted && !root.actionable && Boolean(root.monthPrincipalControl),
   );
   const sourceFailed = source.length > 0 && !rootedSource.length && !sourceUncertain;
   const targetFailed = target.length > 0 && !rootedTarget.length && !targetUncertain;
@@ -833,7 +846,7 @@ function buildMonthPrincipalControlFact(
     detail: `月令${pillars.month.zhi}本气${principal}（${principalGod}）克${label}；${controlled
       .map(
         ({ item, root }) =>
-          `${formatObserved(item)}根气最高为${root.rootQuality}${root.actionable ? '，仍有可核验根气' : '，不足以直接闭合作用'}`,
+          `${formatObserved(item)}根类见${root.rootQuality}${root.actionable ? '，仍有可核验根气' : '，不足以直接闭合作用'}`,
       )
       .join('；')}。`,
   };

@@ -9,6 +9,11 @@ import { assessStemHarmonyTransform, type HarmonyPillarInput } from './harmonyTr
 import { BASIC_MAPPINGS, HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { collectAdjudicatedRootFacts, type RootClashStatus } from './baziRootAdjudication';
+import {
+  getRootTraditionalKind,
+  hasStrongRootStage,
+  type RootTraditionalKind,
+} from './baziRootFacts';
 import type { HiddenStems, PatternTransformationEvidence, Pillars, Wuxing } from './baziTypes';
 import { assertPillars, getWuxing } from './baziUtils';
 
@@ -28,8 +33,7 @@ interface RootFact {
   stem: string;
   branch: string;
   pillar: string;
-  role: string;
-  roleIndex: number;
+  traditionalKind: RootTraditionalKind;
   stage?: string;
   stable: boolean;
   actionable: boolean;
@@ -39,8 +43,6 @@ interface RootFact {
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
-const STRONG_STAGES = new Set(['长生', '临官', '帝旺']);
-
 const TRANSFORM_RULES: TransformRule[] = [
   { pair: ['甲', '己'], element: '土', pattern: '甲己化土格', jealousStem: '乙' },
   { pair: ['乙', '庚'], element: '金', pattern: '乙庚化金格', jealousStem: '甲' },
@@ -91,8 +93,7 @@ function collectRootFacts(
       stem: root.stem,
       branch: root.branch,
       pillar: PILLAR_LABELS[PILLAR_KEYS.indexOf(root.position)],
-      role: root.hiddenRole,
-      roleIndex: root.hiddenIndex,
+      traditionalKind: getRootTraditionalKind(root),
       stage: TWELVE_STAGES_MAP[root.stem]?.[root.branch],
       stable: root.stable,
       actionable: root.actionable,
@@ -101,23 +102,37 @@ function collectRootFacts(
     }));
 }
 
-function isEffectiveRoot(fact: RootFact): boolean {
-  return fact.roleIndex <= 1 || (fact.stage ? STRONG_STAGES.has(fact.stage) : false);
+/** 化神得根采用所有经裁决可用的传统结构根，包括墓库、余气轻根。 */
+function supportsTransformElement(fact: RootFact): boolean {
+  return fact.traditionalKind !== '弱藏';
 }
 
-function isStrongOriginalRoot(fact: RootFact): boolean {
-  return Boolean(fact.stage && STRONG_STAGES.has(fact.stage));
+/** 精确本干采用本气、生禄、余气；异干同五行仍须达到长生、临官或帝旺。 */
+function blocksOriginalElement(fact: RootFact, dayStem: string): boolean {
+  if (fact.stem !== dayStem) return hasStrongRootStage(fact);
+  return ['本气', '生禄', '余气'].includes(fact.traditionalKind);
+}
+
+/** 印根返性保留长生、临官、帝旺门槛，不把墓库本气自动升格。 */
+function blocksByResourceReturn(fact: RootFact): boolean {
+  return hasStrongRootStage(fact);
 }
 
 function formatRootFact(fact: RootFact): string {
+  const kind =
+    fact.traditionalKind === '正库' || fact.traditionalKind === '余气'
+      ? fact.traditionalKind + '轻根'
+      : fact.traditionalKind === '生禄'
+        ? (fact.stage || '生禄') + '根'
+        : fact.traditionalKind;
   return (
     fact.pillar +
     fact.branch +
     '藏' +
     fact.stem +
     '（' +
-    fact.role +
-    (fact.stage ? '、' + fact.stage : '') +
+    kind +
+    (fact.stage && fact.traditionalKind !== '生禄' ? '、' + fact.stage : '') +
     (fact.clashed ? '、所在支受冲、' + fact.clashStatus : '') +
     '）'
   );
@@ -282,12 +297,12 @@ export function evaluateTransformedPattern(
   });
   const transformRootFacts = collectRootFacts(rule.element, pillars, participantIndexes);
   const actionableTransformRoots = transformRootFacts.filter(
-    (fact) => isEffectiveRoot(fact) && fact.actionable,
+    (fact) => supportsTransformElement(fact) && fact.actionable,
   );
   const pendingTransformRoots = transformRootFacts.filter(
-    (fact) => isEffectiveRoot(fact) && !fact.actionable,
+    (fact) => supportsTransformElement(fact) && !fact.actionable,
   );
-  const weakTransformRoots = transformRootFacts.filter((fact) => !isEffectiveRoot(fact));
+  const weakTransformRoots = transformRootFacts.filter((fact) => !supportsTransformElement(fact));
 
   if (visibleTransformStems.length) {
     evidence.push('化神明透：' + visibleTransformStems.join('、'));
@@ -310,30 +325,27 @@ export function evaluateTransformedPattern(
   const dayRootFacts = collectRootFacts(dayElement, pillars);
   if (dayElement === rule.element) {
     evidence.push('日干' + dayStem + '与化神' + rule.element + '同气，所见根气归入化神根证据');
-    conditions.push('原日干强根阻化：不适用');
+    conditions.push('原日干根气阻化：不适用');
   } else {
-    const exactRoots = dayRootFacts.filter((fact) => fact.stem === dayStem);
-    const strongSameElementRoots = dayRootFacts.filter(
-      (fact) => fact.stem !== dayStem && isStrongOriginalRoot(fact),
+    const blockingRoots = dayRootFacts.filter((fact) => blocksOriginalElement(fact, dayStem));
+    const actionableExactRoots = blockingRoots.filter(
+      (fact) => fact.stem === dayStem && fact.actionable,
     );
-    const actionableExactRoots = exactRoots.filter(
-      (fact) => isEffectiveRoot(fact) && fact.actionable,
+    const actionableStrongRoots = blockingRoots.filter(
+      (fact) => fact.stem !== dayStem && fact.actionable,
     );
-    const actionableStrongRoots = strongSameElementRoots.filter((fact) => fact.actionable);
-    const pendingRoots = [...exactRoots.filter(isEffectiveRoot), ...strongSameElementRoots].filter(
-      (fact) => !fact.actionable,
-    );
-    const weakRoots = dayRootFacts.filter((fact) => !isEffectiveRoot(fact));
+    const pendingRoots = blockingRoots.filter((fact) => !fact.actionable);
+    const weakRoots = dayRootFacts.filter((fact) => !blocksOriginalElement(fact, dayStem));
 
     if (actionableExactRoots.length || actionableStrongRoots.length) {
       evidence.push(
         ...actionableExactRoots.map((fact) => '日干原根：' + formatRootFact(fact)),
         ...actionableStrongRoots.map((fact) => '日干同气强根：' + formatRootFact(fact)),
       );
-      conditions.push('原日干强根阻化：存在');
+      conditions.push('原日干根气阻化：存在');
       blockers.push('日干仍有经裁决可用的本根或同气强根');
     } else {
-      conditions.push('原日干强根阻化：未见');
+      conditions.push('原日干根气阻化：未见');
     }
     if (pendingRoots.length) {
       evidence.push(
@@ -364,12 +376,12 @@ export function evaluateTransformedPattern(
   } else {
     const resourceRootFacts = collectRootFacts(resourceElement, pillars);
     const actionableResourceRoots = resourceRootFacts.filter(
-      (fact) => isStrongOriginalRoot(fact) && fact.actionable,
+      (fact) => blocksByResourceReturn(fact) && fact.actionable,
     );
     const pendingResourceRoots = resourceRootFacts.filter(
-      (fact) => isStrongOriginalRoot(fact) && !fact.actionable,
+      (fact) => blocksByResourceReturn(fact) && !fact.actionable,
     );
-    const weakResourceRoots = resourceRootFacts.filter((fact) => !isStrongOriginalRoot(fact));
+    const weakResourceRoots = resourceRootFacts.filter((fact) => !blocksByResourceReturn(fact));
 
     if (actionableResourceRoots.length) {
       evidence.push(

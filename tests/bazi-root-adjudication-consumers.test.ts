@@ -8,10 +8,6 @@ import { determineUsefulGod } from '../packages/core/src/bazi/baziUsefulGodStrat
 import { evaluateTransformedPattern } from '../packages/core/src/bazi/transformedPatternStrategy';
 import type { HiddenStems, Pillars } from '../packages/core/src/bazi/baziTypes';
 import { getTenGod, getWuxing, isGanZhiPair } from '../packages/core/src/bazi/baziUtils';
-import type {
-  HiddenStemSource,
-  VisibleStemSource,
-} from '../packages/core/src/bazi/baziRuleMatcher';
 
 function pillars(values: [string, string, string, string]): Pillars {
   for (const value of values) {
@@ -34,8 +30,8 @@ function hiddenStems(chart: Pillars): HiddenStems {
 test('格局作用接受得令本气受失令异类冲，反向失令受旺冲仍不可用', () => {
   const supported = evaluatePatternFulfillment(
     // 午月火旺，午中丁本气虽受年支子冲，子水在午月为囚；丙食神仍可参与紧贴制杀。
-    // 时支戌另有未冲丁余气，不能借此把实际采用的受冲午火本气描述成“稳定根气”。
-    pillars(['丙子', '庚午', '甲申', '戊戌']),
+    // 其余地支不藏火，避免未冲替代根掩盖实际采用的受冲午火本气。
+    pillars(['丙子', '庚午', '甲申', '戊辰']),
     '甲',
     '七杀格',
     getTenGod,
@@ -63,6 +59,36 @@ test('格局作用接受得令本气受失令异类冲，反向失令受旺冲�
   assert.match(unsupportedPath?.detail ?? '', /受冲待核.*当前不可作用/);
 });
 
+test('格局作用按实际根类接受正库和第三项生禄，弱藏仍不可用', () => {
+  const storage = evaluatePatternFulfillment(
+    // 丙食神只得戌中丁火正库；庚杀得申本气，两干紧贴且两根未受冲。
+    pillars(['丙子', '庚申', '甲戌', '己丑']),
+    '甲',
+    '七杀格',
+    getTenGod,
+    { strengthStatus: '身强' },
+  );
+  const storagePath = storage.pathEvaluations?.find((path) => path.key === '食神制杀');
+  assert.equal(storagePath?.status, '满足');
+  assert.ok(
+    storage.rootEvidence?.some(
+      (item) => item.stem === '丙' && item.rootPositions.includes('日柱戌藏丁（正库）'),
+    ),
+  );
+
+  const weakHidden = evaluatePatternFulfillment(
+    // 戊财仅得申中戊病地弱藏；月刃财星承接不能只因它是第三项便算有根。
+    pillars(['癸酉', '乙卯', '甲子', '戊申']),
+    '甲',
+    '月刃格',
+    getTenGod,
+    { strengthStatus: '身强' },
+  );
+  const weakPath = weakHidden.pathEvaluations?.find((path) => path.key === '财星承禄劫');
+  assert.notEqual(weakPath?.status, '满足');
+  assert.match(weakPath?.detail ?? '', /弱藏.*不足以作为可用根气/);
+});
+
 test('库支余气不冒充库土本气，库土本气同类冲动可用但不改稳定事实', () => {
   const chart = pillars(['壬辰', '戊辰', '甲戌', '丁卯']);
   const hidden = hiddenStems(chart);
@@ -81,47 +107,41 @@ test('库支余气不冒充库土本气，库土本气同类冲动可用但不�
   assert.ok(earthRoots.every((root) => root.actionable && !root.stable));
 });
 
-const usefulVisible: VisibleStemSource[] = [
-  { pillar: 'year', stem: '甲' },
-  { pillar: 'month', stem: '庚' },
-  { pillar: 'day', stem: '癸' },
-  { pillar: 'hour', stem: '癸' },
-];
-
-function usefulDecision(hiddenStemSources: HiddenStemSource[]) {
+function usefulDecision(chart: Pillars) {
   return determineUsefulGod(
     '身弱',
     { pattern: '七杀格', isSpecial: false },
     '水',
-    '午',
+    chart.month.zhi,
     '己',
-    '癸',
-    { hiddenStemSources, visibleStemSources: usefulVisible },
+    chart.day.gan,
+    {
+      hiddenStemSources: (['year', 'month', 'day', 'hour'] as const).map((pillar) => ({
+        pillar,
+        branch: chart[pillar].zhi,
+        stems: HIDDEN_STEMS[chart[pillar].zhi],
+      })),
+      visibleStemSources: (['year', 'month', 'day', 'hour'] as const).map((pillar) => ({
+        pillar,
+        stem: chart[pillar].gan,
+      })),
+    },
   );
 }
 
-test('护印取用复用共享冲根裁决并保留本气中气层次限制', () => {
-  const middleRoots: HiddenStemSource[] = [
-    { pillar: 'year', branch: '午', stems: ['丁', '己'] },
-    { pillar: 'month', branch: '午', stems: ['丁', '己'] },
-    { pillar: 'day', branch: '丑', stems: ['己', '癸', '辛'] },
-    { pillar: 'hour', branch: '丑', stems: ['己', '癸', '辛'] },
-  ];
-  const middle = usefulDecision(middleRoots);
-  assert.deepEqual(middle.favorableWuxing, ['水', '金']);
-  assert.match(middle.decisionEvidence?.balanceAdjustment?.reason ?? '', /可用本中气根/);
-
-  const residualOnly = middleRoots.map((source) =>
-    source.pillar === 'day' || source.pillar === 'hour'
-      ? { ...source, branch: '辰', stems: ['戊', '乙', '癸'] }
-      : source,
+test('护印取用接受稳定正库轻根，资源已有正库时不误判缺根', () => {
+  const companionStorage = usefulDecision(pillars(['甲午', '庚午', '壬辰', '壬辰']));
+  assert.deepEqual(companionStorage.favorableWuxing, ['水', '金']);
+  assert.match(
+    companionStorage.decisionEvidence?.balanceAdjustment?.reason ?? '',
+    /比劫透而有根（正库轻根）/,
   );
-  assert.equal(usefulDecision(residualOnly).decisionEvidence?.balanceAdjustment, undefined);
 
-  const reverseClashed = middleRoots.map((source) =>
-    source.pillar === 'year' ? { ...source, branch: '未', stems: ['己', '丁', '乙'] } : source,
-  );
-  assert.equal(usefulDecision(reverseClashed).decisionEvidence?.balanceAdjustment, undefined);
+  const resourceStorage = usefulDecision(pillars(['壬午', '庚午', '壬辰', '乙丑']));
+  assert.equal(resourceStorage.decisionEvidence?.balanceAdjustment, undefined);
+
+  const clashedStorage = usefulDecision(pillars(['甲戌', '庚午', '壬辰', '壬辰']));
+  assert.equal(clashedStorage.decisionEvidence?.balanceAdjustment, undefined);
 });
 
 test('化气返性反证接受得令本气受弱冲的日主原根', () => {
@@ -131,7 +151,7 @@ test('化气返性反证接受得令本气受弱冲的日主原根', () => {
   );
 
   assert.equal(result?.status, '存在反证');
-  assert.match(result?.conditions.join('；') ?? '', /原日干强根阻化：存在/);
+  assert.match(result?.conditions.join('；') ?? '', /原日干根气阻化：存在/);
   assert.match(result?.evidence.join('；') ?? '', /日干原根.*得令本气受失令异类冲/);
   assert.doesNotMatch(result?.evidence.join('；') ?? '', /日干根气受冲，保留待核/);
 });
