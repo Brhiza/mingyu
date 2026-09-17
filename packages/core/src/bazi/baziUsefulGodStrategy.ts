@@ -516,6 +516,54 @@ function addClimateEvidence(
   };
 }
 
+/**
+ * 普通格局已明确破格且救应明确不成立时，只限制实际有效的具体破格干。
+ * 五行扶抑基线保持不变，同五行另一阴阳十神仍可按原基线判断。
+ */
+function applyPatternBreakerRestrictions(
+  state: UsefulGodDecisionState,
+  pattern: PatternAnalysis,
+): UsefulGodDecisionState {
+  if (pattern.isSpecial || pattern.fulfillment?.status !== '破格') return state;
+  const restrictions = (pattern.fulfillment.activeBreakers ?? []).filter(
+    (breaker) => breaker.repairStatus === '不满足' && breaker.stems.length > 0,
+  );
+  if (!restrictions.length) return state;
+
+  const restrictedStems = [
+    ...new Set(restrictions.flatMap((breaker) => breaker.stems.map((item) => item.stem))),
+  ];
+  const conditionalFavorableStems = (state.conditionalFavorableStems ?? []).filter(
+    (stem) => !restrictedStems.includes(stem),
+  );
+  const conditionalUnfavorableStems = [
+    ...new Set([...(state.conditionalUnfavorableStems ?? []), ...restrictedStems]),
+  ];
+  const appliedLayers = state.decisionEvidence.appliedLayers.includes('格局成败')
+    ? state.decisionEvidence.appliedLayers
+    : [...state.decisionEvidence.appliedLayers, '格局成败'];
+  const restrictionText = restrictions
+    .map(
+      (breaker) =>
+        `${breaker.label}:${breaker.stems.map((item) => `${item.stem}${item.tenGod}`).join('、')}`,
+    )
+    .join('；');
+
+  return {
+    ...state,
+    conditionalFavorableStems,
+    conditionalUnfavorableStems,
+    trace: [...state.trace, `格局破格限制:${restrictionText}，救应明确不成立`],
+    decisionEvidence: {
+      ...state.decisionEvidence,
+      conditionalFavorableStems,
+      conditionalUnfavorableStems,
+      patternBreakerRestrictions: restrictions,
+      appliedLayers,
+    },
+  };
+}
+
 function finalizeUsefulGodAnalysis(
   state: UsefulGodDecisionState,
   dmWuxing: string,
@@ -526,26 +574,47 @@ function finalizeUsefulGodAnalysis(
   primaryReason: string;
 } {
   const wuxingToTenGodMap = buildWuxingToTenGodMap(dmWuxing);
+  const restrictedTenGods = new Set(
+    (state.decisionEvidence.patternBreakerRestrictions ?? []).flatMap((breaker) =>
+      breaker.stems.map((item) => item.tenGod),
+    ),
+  );
+  const excludeRestrictedGods = (gods: string[]) =>
+    gods.filter((god) => !restrictedTenGods.has(god));
   const primaryFavorableWuxing = state.favorableWuxing[0] || '';
   const secondaryFavorableWuxing = state.favorableWuxing.slice(1);
   const primaryUnfavorableWuxing = state.unfavorableWuxing[0] || '';
   const secondaryUnfavorableWuxing = state.unfavorableWuxing.slice(1);
-  const favorableGods = state.favorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []);
-  const unfavorableGods = state.unfavorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []);
+  const favorableGods = excludeRestrictedGods(
+    state.favorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
+  );
+  const unfavorableGods = [
+    ...new Set([
+      ...state.unfavorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
+      ...restrictedTenGods,
+    ]),
+  ];
   const primaryFavorableGods = primaryFavorableWuxing
-    ? wuxingToTenGodMap[primaryFavorableWuxing] || []
+    ? excludeRestrictedGods(wuxingToTenGodMap[primaryFavorableWuxing] || [])
     : [];
-  const secondaryFavorableGods = secondaryFavorableWuxing.flatMap(
-    (wx) => wuxingToTenGodMap[wx] || [],
+  const secondaryFavorableGods = excludeRestrictedGods(
+    secondaryFavorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
   );
   const primaryUnfavorableGods = primaryUnfavorableWuxing
     ? wuxingToTenGodMap[primaryUnfavorableWuxing] || []
     : [];
-  const secondaryUnfavorableGods = secondaryUnfavorableWuxing.flatMap(
-    (wx) => wuxingToTenGodMap[wx] || [],
-  );
+  const secondaryUnfavorableGods = [
+    ...new Set([
+      ...secondaryUnfavorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
+      ...[...restrictedTenGods].filter((god) => !primaryUnfavorableGods.includes(god)),
+    ]),
+  ];
   const usefulGod = primaryFavorableWuxing
-    ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
+    ? primaryFavorableGods.length === 1
+      ? primaryFavorableGods[0]
+      : primaryFavorableGods.length > 1
+        ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
+        : '暂无'
     : '暂无';
   const avoidGod = primaryUnfavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryUnfavorableWuxing)
@@ -764,13 +833,37 @@ export function determineUsefulGod(
         formationWuxings,
         wuxingCounts,
       );
-  if (therapeuticHintRuleId && !state.matchedRuleIds.includes(therapeuticHintRuleId)) {
+  state = applyPatternBreakerRestrictions(state, pattern);
+
+  const restrictedStems = new Set(
+    (state.decisionEvidence.patternBreakerRestrictions ?? []).flatMap((breaker) =>
+      breaker.stems.map((item) => item.stem),
+    ),
+  );
+  const therapeuticHintRule = therapeuticHintRuleId
+    ? CLIMATE_RULES.find((rule) => rule.id === therapeuticHintRuleId)
+    : undefined;
+  const therapeuticRecommendationStems = [
+    ...new Set([
+      ...(therapeuticHintRule?.recommendationStems ?? []),
+      ...(therapeuticHintRule?.policy?.effects.map((effect) => effect.stem) ?? []),
+    ]),
+  ];
+  const therapeuticHintBlocked = Boolean(
+    therapeuticRecommendationStems.some((stem) => restrictedStems.has(stem)),
+  );
+  if (therapeuticHintBlocked) {
+    state = {
+      ...state,
+      matchedRuleIds: state.matchedRuleIds.filter((ruleId) => ruleId !== therapeuticHintRuleId),
+    };
+  } else if (therapeuticHintRuleId && !state.matchedRuleIds.includes(therapeuticHintRuleId)) {
     state.matchedRuleIds.push(therapeuticHintRuleId);
   }
 
   const finalTrace = [
     ...state.trace,
-    ...(therapeuticHint ? [`病药提示:${therapeuticHint}`] : []),
+    ...(therapeuticHint && !therapeuticHintBlocked ? [`病药提示:${therapeuticHint}`] : []),
     `最终取用:${state.favorableWuxing.join(' -> ')}`,
   ];
   return finalizeUsefulGodAnalysis(
