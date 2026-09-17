@@ -5,6 +5,7 @@ import {
   calculateTransits,
   getSunPosition,
   time,
+  type ChartPlanet,
   type NatalPoint,
   type TransitPosition,
   type Transit,
@@ -182,6 +183,8 @@ export interface AstrolabeAdvancedAspectFact {
   key: string;
   technique: AstrolabeAdvancedTechnique;
   status: '命中容许度';
+  movingPointKey: string;
+  natalPointKey: string;
   movingPoint: string;
   natalPoint: string;
   aspectName: string;
@@ -196,6 +199,34 @@ export interface AstrolabeAdvancedAspectFact {
   promptText: string;
   sources: string[];
   limitation: '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差、紧密等级和数量不代表事件概率、吉凶比例或必然结果';
+}
+
+export interface AstrolabeAdvancedMovingPointFact {
+  key: string;
+  technique: AstrolabeAdvancedTechnique;
+  status: '已计算';
+  /** 稳定原始身份，例如 Sun、Moon、Ascendant；展示标签不参与关联。 */
+  name: string;
+  label: string;
+  longitude: number;
+  signName: string;
+  signLabel: string;
+  degree: number;
+  minute: number;
+  second: number;
+  latitude?: number;
+  distance?: number;
+  longitudeSpeed?: number;
+  retrograde?: boolean;
+  /** 仅在本次技术实际计算了宫位时提供；0 不作为动态落宫事实。 */
+  house?: number;
+  /** 太阳弧保留被平移的本命点身份；其他技术通常与 name 相同。 */
+  sourceName?: string;
+  sourceLabel?: string;
+  /** 当前兼容输出中最终选中的相位。 */
+  aspectFactKeys: string[];
+  /** 完整候选相位，包含被全局上限截去的相位。 */
+  candidateAspectFactKeys: string[];
 }
 
 export interface AstrolabeAdvancedAspectSummaryFact {
@@ -247,6 +278,8 @@ export type SolarReturnEvidence = {
   calculationSteps: AstrolabeAdvancedCalculationStep[];
   calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
+  candidateAspectFacts: AstrolabeAdvancedAspectFact[];
+  movingPointFacts: AstrolabeAdvancedMovingPointFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
   summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
@@ -266,6 +299,8 @@ export interface SecondaryProgressionEvidence {
   calculationSteps: AstrolabeAdvancedCalculationStep[];
   calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
+  candidateAspectFacts: AstrolabeAdvancedAspectFact[];
+  movingPointFacts: AstrolabeAdvancedMovingPointFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
   summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
@@ -285,6 +320,8 @@ export interface SolarArcEvidence {
   calculationSteps: AstrolabeAdvancedCalculationStep[];
   calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
+  candidateAspectFacts: AstrolabeAdvancedAspectFact[];
+  movingPointFacts: AstrolabeAdvancedMovingPointFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
   summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
@@ -794,15 +831,68 @@ function advancedTechniqueKey(technique: AstrolabeAdvancedTechnique) {
       : 'solar-arc';
 }
 
-function buildAdvancedAspectFacts(
+type AdvancedMovingAspectPoint = {
+  name: string;
+  longitude: number;
+  label?: string;
+  signName?: string;
+  signLabel?: string;
+  degree?: number;
+  minute?: number;
+  second?: number;
+  latitude?: number;
+  distance?: number;
+  longitudeSpeed?: number;
+  retrograde?: boolean;
+  house?: number;
+  sourceName?: string;
+  sourceLabel?: string;
+};
+
+type AdvancedAspectFactSet = {
+  selected: AstrolabeAdvancedAspectFact[];
+  all: AstrolabeAdvancedAspectFact[];
+};
+
+function getAdvancedMovingPointKey(technique: AstrolabeAdvancedTechnique, name: string) {
+  return `${advancedTechniqueKey(technique)}:point:${name}`;
+}
+
+function getAdvancedNatalPointKey(name: string) {
+  return `natal-point:${name}`;
+}
+
+function advancedPlanetPoint(planet: ChartPlanet): AdvancedMovingAspectPoint {
+  return { ...planet, retrograde: planet.isRetrograde };
+}
+
+function getAdvancedPositionParts(longitude: number) {
+  const normalized = normalizeLongitude(longitude);
+  const signName = signNameFromLongitude(normalized);
+  const signIndex = Math.floor(normalized / 30);
+  const degreeInSign = normalized - signIndex * 30;
+  const degree = Math.floor(degreeInSign);
+  const minuteInSign = (degreeInSign - degree) * 60;
+  const minute = Math.floor(minuteInSign);
+  const second = Math.floor((minuteInSign - minute) * 60);
+  return {
+    signName,
+    signLabel: SIGN_LABELS[signName] ?? signName,
+    degree,
+    minute,
+    second,
+  };
+}
+
+function buildAdvancedAspectFactSet(
   technique: AstrolabeAdvancedTechnique,
-  moving: Array<{ name: string; longitude: number }>,
+  moving: AdvancedMovingAspectPoint[],
   natal: Array<{ name: string; longitude: number }>,
   ownerStepKey: string,
   limit = 8,
-): AstrolabeAdvancedAspectFact[] {
+): AdvancedAspectFactSet {
   const techniqueKey = advancedTechniqueKey(technique);
-  return moving
+  const all = moving
     .flatMap((movingPoint) =>
       natal.flatMap((natalPoint) => {
         const aspect = resolveAdvancedAspect(movingPoint.longitude, natalPoint.longitude);
@@ -810,14 +900,17 @@ function buildAdvancedAspectFacts(
         const normalizedOrbRatio = Math.min(1, aspect.deviation / aspect.orb);
         const closeness: AstrolabeAdvancedAspectFact['closeness'] =
           normalizedOrbRatio <= 0.35 ? '紧密' : normalizedOrbRatio <= 0.7 ? '中等' : '宽松';
-        const movingLabel = CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
+        const movingLabel =
+          movingPoint.label ?? CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
         const natalLabel = NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name;
         return [
           {
-            key: `${techniqueKey}:aspect:${movingPoint.name}:${natalPoint.name}:${aspect.name}`,
+            key: `${techniqueKey}:aspect:${movingPoint.label ?? movingPoint.name}:${natalPoint.name}:${aspect.name}`,
             technique,
             status: '命中容许度' as const,
-            movingPoint: movingLabel,
+            movingPointKey: getAdvancedMovingPointKey(technique, movingPoint.name),
+            natalPointKey: getAdvancedNatalPointKey(natalPoint.name),
+            movingPoint: movingPoint.label ?? movingLabel,
             natalPoint: natalLabel,
             aspectName: aspect.name,
             actualAngle: Number(aspect.actualAngle.toFixed(6)),
@@ -835,9 +928,60 @@ function buildAdvancedAspectFacts(
         ];
       }),
     )
-    .sort((a, b) => a.deviation - b.deviation)
-    .slice(0, limit)
-    .map((item) => item);
+    .sort((a, b) => a.deviation - b.deviation);
+  return {
+    all,
+    selected: all.slice(0, limit),
+  };
+}
+
+function buildAdvancedMovingPointFacts(
+  technique: AstrolabeAdvancedTechnique,
+  moving: AdvancedMovingAspectPoint[],
+  aspectFacts: AstrolabeAdvancedAspectFact[],
+  candidateAspectFacts: AstrolabeAdvancedAspectFact[],
+): AstrolabeAdvancedMovingPointFact[] {
+  return moving.map((point) => {
+    const position = getAdvancedPositionParts(point.longitude);
+    const pointKey = getAdvancedMovingPointKey(technique, point.name);
+    const selectedKeys = aspectFacts
+      .filter((fact) => fact.movingPointKey === pointKey)
+      .map((fact) => fact.key);
+    const candidateKeys = candidateAspectFacts
+      .filter((fact) => fact.movingPointKey === pointKey)
+      .map((fact) => fact.key);
+    return {
+      key: pointKey,
+      technique,
+      status: '已计算',
+      name: point.name,
+      label: point.label ?? CELESTIAL_BODY_LABELS[point.name] ?? point.name,
+      longitude: point.longitude,
+      signName: point.signName ?? position.signName,
+      signLabel:
+        point.signLabel ?? SIGN_LABELS[point.signName ?? position.signName] ?? position.signLabel,
+      degree: point.degree ?? position.degree,
+      minute: point.minute ?? position.minute,
+      second: point.second ?? position.second,
+      ...(point.latitude !== undefined && Number.isFinite(point.latitude)
+        ? { latitude: point.latitude }
+        : {}),
+      ...(point.distance !== undefined && Number.isFinite(point.distance) && point.distance > 0
+        ? { distance: point.distance }
+        : {}),
+      ...(point.longitudeSpeed !== undefined && Number.isFinite(point.longitudeSpeed)
+        ? { longitudeSpeed: point.longitudeSpeed }
+        : {}),
+      ...(point.retrograde !== undefined ? { retrograde: point.retrograde } : {}),
+      ...(point.house !== undefined && Number.isInteger(point.house) && point.house > 0
+        ? { house: point.house }
+        : {}),
+      ...(point.sourceName ? { sourceName: point.sourceName } : {}),
+      ...(point.sourceLabel ? { sourceLabel: point.sourceLabel } : {}),
+      aspectFactKeys: selectedKeys,
+      candidateAspectFactKeys: candidateKeys,
+    };
+  });
 }
 
 function buildAdvancedAspectSummaryFact(
@@ -992,6 +1136,8 @@ export function calculateSecondaryProgressionEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1042,6 +1188,8 @@ export function calculateSecondaryProgressionEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1117,11 +1265,18 @@ export function calculateSecondaryProgressionEvidence(
         limitation: ADVANCED_STEP_LIMITATION,
       },
     ];
-    const aspectFacts = buildAdvancedAspectFacts(
+    const aspectFactSet = buildAdvancedAspectFactSet(
       technique,
-      progressed,
+      progressed.map(advancedPlanetPoint),
       buildNatalPoints(data),
       aspectStepKey,
+    );
+    const aspectFacts = aspectFactSet.selected;
+    const movingPointFacts = buildAdvancedMovingPointFacts(
+      technique,
+      progressed.map(advancedPlanetPoint),
+      aspectFacts,
+      aspectFactSet.all,
     );
     calculationSteps[3].result.selectedAspectCount = aspectFacts.length;
     const limitations = [
@@ -1155,6 +1310,8 @@ export function calculateSecondaryProgressionEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: aspectFactSet.all,
+      movingPointFacts,
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1203,6 +1360,8 @@ export function calculateSecondaryProgressionEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1263,6 +1422,8 @@ export function calculateSolarArcEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1313,6 +1474,8 @@ export function calculateSolarArcEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1339,7 +1502,10 @@ export function calculateSolarArcEvidence(
     const directed = [...data.planets, ...data.angles]
       .filter((point) => ['Sun', 'Moon', 'Ascendant', 'Midheaven'].includes(point.name))
       .map((point) => ({
-        name: `太阳弧${NATAL_POINT_NAME_MAP[point.name] ?? point.name}`,
+        name: point.name,
+        label: `太阳弧${NATAL_POINT_NAME_MAP[point.name] ?? point.name}`,
+        sourceName: point.name,
+        sourceLabel: point.label,
         longitude: normalizeLongitude(point.longitude + arc),
       }));
     const inputStepKey = `${techniqueKey}:calculation:input`;
@@ -1409,12 +1575,19 @@ export function calculateSolarArcEvidence(
         limitation: ADVANCED_STEP_LIMITATION,
       },
     ];
-    const aspectFacts = buildAdvancedAspectFacts(
+    const aspectFactSet = buildAdvancedAspectFactSet(
       technique,
       directed,
       buildNatalPoints(data),
       aspectStepKey,
       6,
+    );
+    const aspectFacts = aspectFactSet.selected;
+    const movingPointFacts = buildAdvancedMovingPointFacts(
+      technique,
+      directed,
+      aspectFacts,
+      aspectFactSet.all,
     );
     calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
     const limitations = [
@@ -1449,6 +1622,8 @@ export function calculateSolarArcEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: aspectFactSet.all,
+      movingPointFacts,
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1496,6 +1671,8 @@ export function calculateSolarArcEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       source,
@@ -1602,6 +1779,8 @@ export function calculateSolarReturnEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: [],
+      movingPointFacts: [],
       aspectSummaryFact,
       summaryFact,
       limitations,
@@ -1782,12 +1961,19 @@ export function calculateSolarReturnEvidence(
         limitation: ADVANCED_STEP_LIMITATION,
       },
     ];
-    const aspectFacts = buildAdvancedAspectFacts(
+    const aspectFactSet = buildAdvancedAspectFactSet(
       technique,
-      returnPlanets,
+      returnPlanets.map(advancedPlanetPoint),
       buildNatalPoints(data),
       aspectStepKey,
       8,
+    );
+    const aspectFacts = aspectFactSet.selected;
+    const movingPointFacts = buildAdvancedMovingPointFacts(
+      technique,
+      returnPlanets.map(advancedPlanetPoint),
+      aspectFacts,
+      aspectFactSet.all,
     );
     calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
     const aspects = aspectFacts.map((item) => item.promptText);
@@ -1841,6 +2027,8 @@ export function calculateSolarReturnEvidence(
       calculationSteps,
       calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
+      candidateAspectFacts: aspectFactSet.all,
+      movingPointFacts,
       aspectSummaryFact,
       summaryFact,
       timeScale,
