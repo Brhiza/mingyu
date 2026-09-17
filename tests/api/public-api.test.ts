@@ -2363,6 +2363,7 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
   ]);
   assert.ok(JSON.stringify(body.data.resultSummary).length < 50000);
   assert.match(body.data.prompt, /分析范围：完整输出/);
+  assert.equal(body.data.resultSummary.fortuneTimeline, undefined);
   assert.match(body.data.prompt, /【完整运限资料】/);
   assert.match(body.data.prompt, /完整紫微运限资料：/);
   for (const label of ['流月', '流日', '流时']) {

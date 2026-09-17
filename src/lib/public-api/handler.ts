@@ -7052,7 +7052,7 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
     五行局: result.五行局,
     四化: result.四化,
     ...(result.natalFacts ? { natalFacts: result.natalFacts } : {}),
-    ...(result.fortuneTimeline ? { fortuneTimeline: result.fortuneTimeline } : {}),
+    ...(result.fortuneTimeline?.batch ? { fortuneTimeline: result.fortuneTimeline } : {}),
   };
 }
 
