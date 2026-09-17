@@ -187,20 +187,24 @@ export function buildActiveScope(params: {
   };
 }
 
-function buildScopeHits(horoscope: IztroHoroscope, palaceIndex: number): string[] {
-  const hits: string[] = [];
+function buildScopeHitEntries(horoscope: IztroHoroscope): Array<[number | undefined, string]> {
   const decadalLabel = horoscope.decadal.name || '大限';
+  return [
+    [horoscope.palace('命宫' as never, 'decadal')?.index, `${decadalLabel}落宫`],
+    [horoscope.agePalace()?.index, '小限落宫'],
+    [horoscope.palace('命宫' as never, 'yearly')?.index, '流年落宫'],
+    [horoscope.palace('命宫' as never, 'monthly')?.index, '流月落宫'],
+    [horoscope.palace('命宫' as never, 'daily')?.index, '流日落宫'],
+    [horoscope.palace('命宫' as never, 'hourly')?.index, '流时落宫'],
+  ];
+}
 
-  if (horoscope.palace('命宫' as never, 'decadal')?.index === palaceIndex) {
-    hits.push(`${decadalLabel}落宫`);
-  }
-  if (horoscope.agePalace()?.index === palaceIndex) hits.push('小限落宫');
-  if (horoscope.palace('命宫' as never, 'yearly')?.index === palaceIndex) hits.push('流年落宫');
-  if (horoscope.palace('命宫' as never, 'monthly')?.index === palaceIndex) hits.push('流月落宫');
-  if (horoscope.palace('命宫' as never, 'daily')?.index === palaceIndex) hits.push('流日落宫');
-  if (horoscope.palace('命宫' as never, 'hourly')?.index === palaceIndex) hits.push('流时落宫');
+function selectScopeHits(entries: Array<[number | undefined, string]>, palaceIndex: number) {
+  return entries.filter(([index]) => index === palaceIndex).map(([, label]) => label);
+}
 
-  return hits;
+function buildScopeHits(horoscope: IztroHoroscope, palaceIndex: number): string[] {
+  return selectScopeHits(buildScopeHitEntries(horoscope), palaceIndex);
 }
 
 function buildMutagedPlaces(palace: IztroPalace): MutagedPlaceItem[] {
@@ -289,13 +293,15 @@ export function buildPalaceFacts(params: {
     astrolabe,
     currentScopeItem?.palaceNames ?? [],
   );
+  // 同一运限对象的六个落宫固定，整盘只查询一次，再分配到十二宫。
+  const scopeHitEntries = buildScopeHitEntries(horoscope);
 
   return astrolabe.palaces.map((palace) => {
     const surrounded = astrolabe.surroundedPalaces(palace.name);
     const scopeStarsRaw = currentScopeItem?.stars?.[palace.index] ?? [];
     const mutagedPlaces = buildMutagedPlaces(palace);
     const selfMutagens = buildSelfMutagens(palace);
-    const scopeHits = buildScopeHits(horoscope, palace.index);
+    const scopeHits = selectScopeHits(scopeHitEntries, palace.index);
 
     return {
       index: palace.index,

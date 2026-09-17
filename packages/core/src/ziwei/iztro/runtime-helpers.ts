@@ -168,7 +168,7 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
   assertValidChartInput(normalized);
   const astro = await loadIztroAstro();
 
-  return astro.withOptions({
+  const astrolabe = astro.withOptions({
     type: normalized.dateType,
     dateStr: normalized.birthDate,
     timeIndex: normalized.birthTimeIndex,
@@ -178,6 +178,26 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
     language: 'zh-CN',
     config: buildIztroConfig(normalized),
   }) as FunctionalAstrolabe;
+
+  // 盘内星名已经按同一语言生成，精确名称无需逐星反查全部翻译词条。
+  // 别名与其他语言仍交给引擎处理；遍历当前星表，保留引擎的末项匹配语义。
+  const findTranslatedStar = astrolabe.star.bind(astrolabe);
+  astrolabe.star = (starName) => {
+    let matched: ReturnType<FunctionalAstrolabe['star']> | undefined;
+    for (const palace of astrolabe.palaces) {
+      for (const stars of [palace.majorStars, palace.minorStars, palace.adjectiveStars]) {
+        for (const star of stars) {
+          if (star.name === starName) {
+            star.setPalace(palace);
+            star.setAstrolabe(astrolabe);
+            matched = star;
+          }
+        }
+      }
+    }
+    return matched ?? findTranslatedStar(starName);
+  };
+  return astrolabe;
 }
 
 function assertValidChartInput(input: ChartInput) {
