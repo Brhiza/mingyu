@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { LuckCalculator } from '@core/bazi/LuckCalculator';
 import type { LiunianInfo, SolarDateTimeInfo } from '@core/bazi/baziTypes';
+import { getTenGod, getTenGodForBranch } from '@core/bazi/baziUtils';
 import { buildLuckDirectionProfile } from '@core/bazi/luckDetails';
 import { CHILD_LIMIT_METHOD } from '@core/bazi/childLimit';
+import { getGanZhiFromDate } from '@core/ganzhi';
 
 function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateBazi>) {
   const ageMap = new Map<number, string>();
@@ -39,6 +41,38 @@ function calculatePrivateLiunianForCycle(
     cycleEndTime,
   );
 }
+
+function calculatePrivateLiunian(year: number, dayMaster: string) {
+  const calculator = new LuckCalculator() as unknown as {
+    calculateLiunian: (
+      year: number,
+      dayMaster: string,
+    ) => {
+      ganZhi: string;
+      tenGod: string;
+      tenGodZhi: string;
+    };
+  };
+  return calculator.calculateLiunian(year, dayMaster);
+}
+
+test('支持出生范围及后续十二步大运的流年干支应与原年中换算逐年一致', () => {
+  // 出生输入支持 1900-2100；立春前仍属上一干支年。三日一岁起运最晚可跨至
+  // 出生后第 11 个公历年，十二步大运最后半开区间止于 2231 年立春前，
+  // 因而实际可能生成的流年范围为 1899-2230。
+  for (let year = 1899; year <= 2230; year++) {
+    const legacyGanZhi = getGanZhiFromDate(new Date(year, 5, 1, 12)).year;
+    const legacyGan = legacyGanZhi[0];
+    const legacyZhi = legacyGanZhi[1];
+    const legacy = {
+      ganZhi: legacyGanZhi,
+      tenGod: getTenGod(legacyGan, '甲'),
+      tenGodZhi: getTenGodForBranch(legacyZhi, '甲'),
+    };
+
+    assert.deepEqual(calculatePrivateLiunian(year, '甲'), legacy, `${year} 年流年字段应保持一致`);
+  }
+});
 
 test('男命小运序列应符合仓库固定真值', () => {
   const input = {
