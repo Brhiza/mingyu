@@ -3,9 +3,7 @@ import test from 'node:test';
 import {
   buildAstrolabeFromInput,
   buildHoroscopeFromInput,
-  buildIztroConfig,
   normalizeChartInput,
-  resolveIztroAstro,
 } from '../packages/core/src/ziwei/iztro/runtime-helpers';
 import { buildPalaceFacts } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/builders';
 import { buildAnalysisPayloadV1 } from '../packages/core/src/ziwei/iztro/build-analysis-payload';
@@ -65,17 +63,14 @@ test('星曜精确名称查找与原引擎的星体、落宫和完整分析资�
     birthDate: '1992-08-21',
     birthTimeIndex: 4,
   });
-  const engine = resolveIztroAstro(await import('iztro'));
-  const reference = engine.withOptions({
-    type: input.dateType,
-    dateStr: input.birthDate,
-    timeIndex: input.birthTimeIndex,
-    gender: input.gender,
-    fixLeap: input.fixLeap,
-    language: 'zh-CN',
-    config: buildIztroConfig(input),
-  });
   const actual = await buildAstrolabeFromInput(input);
+  // 从适配入口加载的原类重建参照实例，其构造函数保留引擎原生查询方法。
+  // 单独排盘提供星体，避免两份实例共享星体的落宫引用。
+  const referenceData = await buildAstrolabeFromInput(input);
+  const OriginalAstrolabe = referenceData.constructor as new (
+    data: typeof referenceData,
+  ) => typeof referenceData;
+  const reference = new OriginalAstrolabe(referenceData);
   const names = reference.palaces.flatMap((palace) =>
     [...palace.majorStars, ...palace.minorStars, ...palace.adjectiveStars].map((star) => star.name),
   );
