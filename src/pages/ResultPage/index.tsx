@@ -91,6 +91,11 @@ import { calculateQimenLifetime, buildLifetimePrompt } from 'mingyu-core/divinat
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { BaziBirthRangePanel } from './components/BaziBirthRangePanel';
+import {
+  buildBaziRangeReadingSubject,
+  formatBaziCurrentSampleContext,
+  selectBaziPromptSample,
+} from './bazi-range-prompt';
 import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
@@ -579,7 +584,37 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     prompt: showAssistantPane,
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
-  const baziBirthRange = useBaziRangeCalculations(inputState, mountedTabs.bazi && !isInstantResult);
+  const shouldCalculateBaziRange =
+    !isInstantResult &&
+    (mountedTabs.bazi || (mountedTabs.prompt && promptState.promptSource === 'bazi'));
+  const baziBirthRange = useBaziRangeCalculations(inputState, shouldCalculateBaziRange);
+  const baziPromptSample = useMemo(
+    () =>
+      selectBaziPromptSample(
+        promptState.promptSource === 'bazi' && baziBirthRange.requested,
+        baziBirthRange.page,
+        baziResult,
+        partnerBaziResult,
+      ),
+    [
+      baziBirthRange.page,
+      baziBirthRange.requested,
+      baziResult,
+      partnerBaziResult,
+      promptState.promptSource,
+    ],
+  );
+  const baziPromptReadingSubject = useMemo(
+    () =>
+      buildBaziRangeReadingSubject(
+        readingSubject,
+        promptState.promptSource === 'bazi' && baziBirthRange.requested,
+        baziPromptSample.page,
+      ),
+    [baziBirthRange.requested, baziPromptSample.page, promptState.promptSource, readingSubject],
+  );
+  const baziPromptRangePending =
+    promptState.promptSource === 'bazi' && baziBirthRange.requested && !baziPromptReadingSubject;
   const sharedBirthData = useMemo(() => {
     if (!hasPreciseBirthData || !baziResult) return null;
     const selectedBirthTime =
@@ -986,6 +1021,36 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       normalizedBaziFortuneSelection,
     );
   }, [baziFortuneSelectionModule, baziResult, normalizedBaziFortuneSelection]);
+  const baziPromptFortuneContext = useMemo(() => {
+    const result = baziPromptSample.primary;
+    if (!result || !baziFortuneSelectionModule) return null;
+
+    try {
+      if (baziFortuneSelection.scope === 'dayun' && baziFortuneSelection.cycleIndex == null) {
+        const current = buildCurrentBaziFortuneSelection(result, currentScopeDate);
+        if (current) {
+          return baziFortuneSelectionModule.buildFortuneSelectionContext(result, {
+            ...current,
+            scope: 'dayun' as const,
+          });
+        }
+      }
+      const normalized = baziFortuneSelectionModule.normalizeFortuneSelection(
+        result,
+        baziFortuneSelection,
+      );
+      return baziFortuneSelectionModule.buildFortuneSelectionContext(result, normalized);
+    } catch {
+      return null;
+    }
+  }, [
+    baziFortuneSelection,
+    baziFortuneSelectionModule,
+    baziPromptSample.primary,
+    currentScopeDate,
+  ]);
+  const baziQuestionFortuneContext =
+    promptState.promptSource === 'bazi' ? baziPromptFortuneContext : baziFortuneContext;
   const currentDateStr = useMemo(() => formatLocalDate(currentScopeDate), [currentScopeDate]);
   const currentBaziFortuneSelection = useMemo(
     () => (baziResult ? buildCurrentBaziFortuneSelection(baziResult, currentScopeDate) : null),
@@ -1527,29 +1592,43 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (!showAssistantPane) return '';
     if (isInstantResult) {
-      return baziResult
-        ? buildInstantBaziPrompt(baziResult, finalQuestion || question, instantTimeBasisLabel)
+      return baziPromptSample.primary
+        ? buildInstantBaziPrompt(
+            baziPromptSample.primary,
+            finalQuestion || question,
+            instantTimeBasisLabel,
+          )
         : '';
     }
     if (inputState.analysisMode === 'compatibility') {
-      if (!promptEngine || !baziResult || !partnerBaziResult) return '';
+      if (!promptEngine || !baziPromptSample.primary || !baziPromptSample.partner) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
         question,
-        baziResult,
-        partnerBaziResult,
+        baziPromptSample.primary,
+        baziPromptSample.partner,
         resolveCompatType(promptState.baziPresetId),
         { isCustomQuestion: activeBaziShortcutMode === '自定义' },
       );
-      return buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
+      const prompt = buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
+      const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
+      return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
     }
-    if (!promptEngine || !baziResult || !baziFortuneSelectionModule || !selectedBaziPreset) {
+    if (
+      !promptEngine ||
+      !baziPromptSample.primary ||
+      !baziFortuneSelectionModule ||
+      !selectedBaziPreset
+    ) {
+      return '';
+    }
+    if (promptState.baziFortuneScope !== 'natal' && !baziQuestionFortuneContext) {
       return '';
     }
     const { system, user } = promptEngine.buildPromptFromConfig(
       finalQuestion,
       selectedBaziPreset,
-      baziResult,
-      baziFortuneContext,
+      baziPromptSample.primary,
+      baziQuestionFortuneContext,
       activeBaziQuestionScopeLabel,
       {
         isCustomQuestion: activeBaziShortcutMode === '自定义',
@@ -1572,7 +1651,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           : {}),
       },
     );
-    return buildCombinedPromptText(system, user);
+    const prompt = buildCombinedPromptText(system, user);
+    const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
+    return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
   }
 
   const defaultBaziQuestion = useMemo(
@@ -1826,18 +1907,18 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   const finalBaziQuestion = useMemo(() => {
     const question = effectiveBaziQuickQuestion.trim();
-    if (baziFortuneContext) {
-      return `请结合${baziFortuneContext.displayLabel}重点回答：${question || defaultBaziQuestion}`;
+    if (baziQuestionFortuneContext) {
+      return `请结合${baziQuestionFortuneContext.displayLabel}重点回答：${question || defaultBaziQuestion}`;
     }
     return question;
-  }, [baziFortuneContext, defaultBaziQuestion, effectiveBaziQuickQuestion]);
+  }, [baziQuestionFortuneContext, defaultBaziQuestion, effectiveBaziQuickQuestion]);
   const deferredFinalBaziQuestion = useMemo(() => {
     const question = deferredBaziQuickQuestion.trim();
-    if (baziFortuneContext) {
-      return `请结合${baziFortuneContext.displayLabel}重点回答：${question || defaultBaziQuestion}`;
+    if (baziQuestionFortuneContext) {
+      return `请结合${baziQuestionFortuneContext.displayLabel}重点回答：${question || defaultBaziQuestion}`;
     }
     return question;
-  }, [baziFortuneContext, defaultBaziQuestion, deferredBaziQuickQuestion]);
+  }, [baziQuestionFortuneContext, defaultBaziQuestion, deferredBaziQuickQuestion]);
 
   const latestBaziPromptText = useMemo(
     () =>
@@ -1846,6 +1927,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : '',
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      baziPromptSample,
+      baziQuestionFortuneContext,
       baziFortuneContext,
       baziFortuneSelectionModule,
       baziResult,
@@ -1883,6 +1966,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      baziPromptSample,
+      baziQuestionFortuneContext,
       baziFortuneContext,
       baziFortuneSelectionModule,
       baziResult,
@@ -2295,6 +2380,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       : []),
   ].flatMap(({ value, label }) => {
     const source = parseBaziReverseSource(value);
+    if (source && baziBirthRange.requested && promptState.promptSource === 'bazi') {
+      // 八字当前样本提示词会写入当前页的精确秒；不再附加旧的区间起点代表时刻。
+      return [];
+    }
     if (
       source &&
       astrolabeBirthRangeMode &&
@@ -2581,6 +2670,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     baseLatestActivePromptText && birthTimeIntervalSection
       ? `${baseLatestActivePromptText}\n\n${birthTimeIntervalSection}`
       : baseLatestActivePromptText;
+  const baziPromptCacheIdentity =
+    promptState.promptSource === 'bazi' && baziBirthRange.requested
+      ? baziPromptSample.identity
+      : '';
   const { copyState, shareState, handleCopy } = usePromptCopyShare(latestActivePromptText);
 
   function switchTab(tab: ResultTabKey) {
@@ -2717,6 +2810,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [inputState.analysisMode, inspiration.deferredSearch, promptShortcutActions]);
   const questionPickerSections =
     inspiration.activeMode === 'matter' ? inspiration.filteredMatterSections : natalPromptSections;
+  const promptBaziScopeContext =
+    promptState.promptSource === 'bazi' ? baziPromptFortuneContext : baziFortuneContext;
 
   function handlePromptQuestionDraftChange(value: string) {
     const source = promptState.promptSource;
@@ -2800,9 +2895,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 : `${promptState.astrolabeScopeDate || currentDateStr} · ${promptState.astrolabeScope === 'full' ? '各层行运' : promptState.astrolabeScope === 'yearly' ? '全年' : promptState.astrolabeScope === 'monthly' ? '整月' : '当日'}`
               : promptState.baziFortuneScope === 'full'
                 ? '本命与全部大运流年'
-                : baziFortuneContext?.scope === 'dayun'
-                  ? `${baziFortuneContext.displayLabel} · ${baziFortuneContext.cycleTimeRange.start.year}～${baziFortuneContext.cycleTimeRange.end.year}年`
-                  : baziFortuneContext?.displayLabel || '本命盘与大运概览'}
+                : promptBaziScopeContext?.scope === 'dayun'
+                  ? `${promptBaziScopeContext.displayLabel} · ${promptBaziScopeContext.cycleTimeRange.start.year}～${promptBaziScopeContext.cycleTimeRange.end.year}年`
+                  : promptBaziScopeContext?.displayLabel || '本命盘与大运概览'}
       </small>
     </div>
   ) : null;
@@ -3206,28 +3301,32 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 <AiChatPanel
                   contextPrompt={aiContextPrompt}
                   workflowPrompt={workflowPrompt || undefined}
-                  readingSubject={readingSubject}
+                  readingSubject={baziPromptReadingSubject}
                   readingResourceSeed={workflowPrompt.trim() ? readingResourceSeed : undefined}
-                  readingResourceRequired={readingResourceRequired}
+                  readingResourceRequired={readingResourceRequired || baziPromptRangePending}
                   readingResourceError={
-                    (isAstrolabePromptSource && astrolabeBirthRangeMode
-                      ? astrolabeBirthRangeError
-                      : isQizhengPromptSource && qizhengRangeMode
-                        ? qizhengRangeError
-                        : isQimenLifetimePromptSource
-                          ? qimenLifetimeCalculation.error
-                          : ziweiReadingResourceError) || undefined
+                    (promptState.promptSource === 'bazi' && baziBirthRange.requested
+                      ? baziBirthRange.error
+                      : isAstrolabePromptSource && astrolabeBirthRangeMode
+                        ? astrolabeBirthRangeError
+                        : isQizhengPromptSource && qizhengRangeMode
+                          ? qizhengRangeError
+                          : isQimenLifetimePromptSource
+                            ? qimenLifetimeCalculation.error
+                            : ziweiReadingResourceError) || undefined
                   }
                   onRetryReadingResources={
-                    isAstrolabePromptSource && astrolabeBirthRangeMode
-                      ? astrolabeDynamicRangeMode
-                        ? astrolabeDynamicRangeState.start
-                        : astrolabeBirthRangeState.retry
-                      : isQizhengPromptSource && qizhengRangeMode
-                        ? qizhengRangeState.retry
-                        : isQimenLifetimePromptSource
-                          ? reloadQimenLifetimeCalculation
-                          : reloadZiweiReadingResources
+                    baziPromptRangePending
+                      ? baziBirthRange.retry
+                      : isAstrolabePromptSource && astrolabeBirthRangeMode
+                        ? astrolabeDynamicRangeMode
+                          ? astrolabeDynamicRangeState.start
+                          : astrolabeBirthRangeState.retry
+                        : isQizhengPromptSource && qizhengRangeMode
+                          ? qizhengRangeState.retry
+                          : isQimenLifetimePromptSource
+                            ? reloadQimenLifetimeCalculation
+                            : reloadZiweiReadingResources
                   }
                   historyKey={getChartChatHistoryContext(
                     isAstrolabePromptSource && astrolabeBirthRangeMode
@@ -3236,15 +3335,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         ? `${aiContextPrompt}\n${readingSubject.id}`
                         : isQimenLifetimePromptSource
                           ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
-                          : aiContextPrompt,
+                          : baziPromptCacheIdentity
+                            ? `${aiContextPrompt}\n${baziPromptCacheIdentity}`
+                            : aiContextPrompt,
                   )}
-                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}`}
+                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}-${baziPromptCacheIdentity}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}
                   aiConfig={aiRequestConfig}
                   workspaceMode
                   composerTools={aiComposerTools}
-                  inputResetKey={`${inputSearch}:${promptState.promptSource}`}
+                  inputResetKey={`${inputSearch}:${promptState.promptSource}:${baziPromptCacheIdentity}`}
                 />
               </div>
             ) : (

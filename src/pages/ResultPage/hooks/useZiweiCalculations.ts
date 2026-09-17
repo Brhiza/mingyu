@@ -81,6 +81,7 @@ export function useZiweiCalculations(
           useTrueSolarTime: inputState.partnerUseTrueSolarTime,
           birthHour: inputState.partnerBirthHour,
           birthMinute: inputState.partnerBirthMinute,
+          birthSecond: inputState.partnerBirthSecond,
           birthLongitude: inputState.partnerBirthLongitude,
         }),
       );
