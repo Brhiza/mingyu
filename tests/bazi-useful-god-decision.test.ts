@@ -8,6 +8,7 @@ import type { PatternAnalysis } from '@core/bazi/baziTypes';
 import {
   applyClimateCandidates,
   collectClimateRuleCandidates,
+  selectTherapeuticHintRule,
 } from '@core/bazi/baziTherapeuticStrategy';
 import type {
   ClimateRule,
@@ -329,6 +330,45 @@ test('候选集保留满足、不满足、资料不足三态，执行层只消�
   assert.equal(applied.appliedCandidate?.rule.id, 'three-state-satisfied');
 });
 
+test('最终病药提示复用已排序候选，同优先保留原顺序且无命中时回退旺衰提示', () => {
+  const policy: ClimateRulePolicy = {
+    mode: 'within-balance',
+    source: SOURCE,
+    effects: [],
+  };
+  const first = makeRule('same-priority-first', policy, [], {
+    recommendationStems: ['丙'],
+    hint: '先用第一条',
+  });
+  const second = makeRule('same-priority-second', policy, [], {
+    recommendationStems: ['丁'],
+    hint: '不应越过第一条',
+  });
+  const candidates = collectClimateRuleCandidates(BASE_CONTEXT, { rules: [first, second] });
+
+  assert.deepEqual(
+    candidates.map((candidate) => candidate.rule.id),
+    ['same-priority-first', 'same-priority-second'],
+  );
+  assert.equal(selectTherapeuticHintRule(candidates, '身弱'), first);
+
+  const noMatch = collectClimateRuleCandidates(BASE_CONTEXT, {
+    rules: [makeRule('month-not-matched', policy, [], { months: ['子'] })],
+  });
+  const fallback = selectTherapeuticHintRule(noMatch, '身弱');
+  assert.equal(fallback?.id, 'strength-weak-deficiency');
+  assert.equal(fallback && 'months' in fallback, false);
+
+  const incomplete = collectClimateRuleCandidates(
+    { monthBranch: '未', dayMaster: '木', dayStem: '甲', strengthStatus: '身弱' },
+    {
+      rules: [makeRule('missing-visible-input', policy, [], { requiredVisibleStems: ['丙'] })],
+    },
+  );
+  assert.equal(incomplete[0].status, '资料不足');
+  assert.equal(selectTherapeuticHintRule(incomplete, '身弱')?.id, 'strength-weak-deficiency');
+});
+
 test('strengths 条件使用真实旺衰上下文，不把季节规则重新简化成五行计数', () => {
   const rule = makeRule(
     'strength-gated',
@@ -408,6 +448,7 @@ test('五行与阴阳日主的扶抑基线均有互斥候选，未提供月令�
         false,
       );
       assert.deepEqual(result.decisionEvidence?.climateCandidates, []);
+      assert.doesNotMatch(result.strategyTrace?.join('；') || '', /病药提示/);
     }
   }
 });

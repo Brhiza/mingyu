@@ -227,6 +227,13 @@ export function matchFirstRule<T extends MatchableRule>(
 
 export function assessRuleMatch(rule: MatchableRule, context: RuleMatchContext) {
   const missingInputs = getMissingRuleInputs(rule, context);
+  if (!missingInputs.length) {
+    return {
+      ruleId: rule.id,
+      status: matchesRule(rule, context) ? ('满足' as const) : ('不满足' as const),
+      missingInputs,
+    };
+  }
   const knownConditions = { ...rule };
   for (const key of Object.keys(rule) as (keyof MatchableRule)[]) {
     if (key === 'id' || key === 'priority') continue;

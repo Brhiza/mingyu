@@ -14,9 +14,8 @@ import {
   applyClimateCandidates,
   applyTherapeuticPriority,
   collectClimateRuleCandidates,
-  resolveTherapeuticHint,
-  resolveTherapeuticHintRuleId,
   resolveTherapeuticPriorityWuxing,
+  selectTherapeuticHintRule,
   type ClimateRuleCandidate,
 } from './baziTherapeuticStrategy';
 import { BASE_USEFUL_GOD_RULES, type UsefulGodWuxingBundle } from './baziUsefulGodRules';
@@ -800,40 +799,14 @@ export function determineUsefulGod(
 
   state = applyResourceProtection(state, strengthStatus, pattern, dmWuxing, climateContext);
 
-  const therapeuticHint = isPatternSpecial
-    ? ''
-    : resolveTherapeuticHint(
-        strengthStatus,
-        dmWuxing,
-        yearStem,
-        dayMasterStem,
-        monthBranch,
-        hourBranch,
-        currentJieqi,
-        visibleStems,
-        visibleStemSources,
-        hiddenStems,
-        hiddenStemSources,
-        formationWuxings,
-        wuxingCounts,
-      );
-  const therapeuticHintRuleId = isPatternSpecial
-    ? ''
-    : resolveTherapeuticHintRuleId(
-        strengthStatus,
-        dmWuxing,
-        yearStem,
-        dayMasterStem,
-        monthBranch,
-        hourBranch,
-        currentJieqi,
-        visibleStems,
-        visibleStemSources,
-        hiddenStems,
-        hiddenStemSources,
-        formationWuxings,
-        wuxingCounts,
-      );
+  const therapeuticHintRule =
+    !isPatternSpecial && monthBranch
+      ? selectTherapeuticHintRule(climateCandidates, strengthStatus)
+      : undefined;
+  const therapeuticHintClimateRule =
+    therapeuticHintRule && 'months' in therapeuticHintRule ? therapeuticHintRule : undefined;
+  const therapeuticHint = therapeuticHintRule?.hint || '';
+  const therapeuticHintRuleId = therapeuticHintRule?.id || '';
   state = applyPatternBreakerRestrictions(state, pattern);
 
   const restrictedStems = new Set(
@@ -841,13 +814,10 @@ export function determineUsefulGod(
       breaker.stems.map((item) => item.stem),
     ),
   );
-  const therapeuticHintRule = therapeuticHintRuleId
-    ? CLIMATE_RULES.find((rule) => rule.id === therapeuticHintRuleId)
-    : undefined;
   const therapeuticRecommendationStems = [
     ...new Set([
-      ...(therapeuticHintRule?.recommendationStems ?? []),
-      ...(therapeuticHintRule?.policy?.effects.map((effect) => effect.stem) ?? []),
+      ...(therapeuticHintClimateRule?.recommendationStems ?? []),
+      ...(therapeuticHintClimateRule?.policy?.effects.map((effect) => effect.stem) ?? []),
     ]),
   ];
   const therapeuticHintBlocked = Boolean(

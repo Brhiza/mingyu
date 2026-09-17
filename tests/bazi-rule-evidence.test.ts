@@ -83,3 +83,45 @@ test('复合种类条件中已有反证时，不因另一组藏干资料缺失�
     '不满足',
   );
 });
+
+test('完整资料同时遵守全含、任一与排除条件，未知资料仍保持三态区别', () => {
+  const rule = {
+    id: 'combined-all-any-not',
+    requiredVisibleStems: ['甲', '丙'],
+    optionalHiddenStems: ['庚', '辛'],
+    forbiddenFormationWuxings: ['水'],
+  };
+
+  assert.deepEqual(
+    assessRuleMatch(rule, {
+      visibleStems: ['甲', '丙', '戊'],
+      hiddenStems: ['辛'],
+      formationWuxings: [],
+    }),
+    { ruleId: rule.id, status: '满足', missingInputs: [] },
+  );
+  assert.equal(
+    assessRuleMatch(rule, {
+      visibleStems: ['甲', '丙'],
+      hiddenStems: ['壬'],
+      formationWuxings: [],
+    }).status,
+    '不满足',
+  );
+  assert.equal(
+    assessRuleMatch(rule, {
+      visibleStems: ['甲', '丙'],
+      hiddenStems: ['庚'],
+      formationWuxings: ['水'],
+    }).status,
+    '不满足',
+  );
+  assert.equal(
+    assessRuleMatch(rule, {
+      visibleStems: ['甲', '丙'],
+      hiddenStems: ['庚'],
+      formationWuxings: undefined,
+    }).status,
+    '资料不足',
+  );
+});

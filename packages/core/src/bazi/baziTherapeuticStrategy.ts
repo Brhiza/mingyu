@@ -3,6 +3,7 @@ import {
   type ClimateRule,
   type ClimateRuleEffect,
   type ClimateRuleMode,
+  type StrengthHintRule,
   CLIMATE_RULES,
   STRENGTH_HINT_RULES,
   THERAPEUTIC_PRIORITY_RULES,
@@ -135,6 +136,16 @@ export function collectClimateRuleCandidates(
   return (options.rules || CLIMATE_RULES)
     .map((rule) => buildClimateCandidate(rule, context))
     .sort((left, right) => (right.rule.priority || 0) - (left.rule.priority || 0));
+}
+
+export function selectTherapeuticHintRule(
+  candidates: ClimateRuleCandidate[],
+  strengthStatus: string,
+): ClimateRule | StrengthHintRule | undefined {
+  return (
+    candidates.find((candidate) => candidate.status === '满足')?.rule ||
+    matchFirstRule(STRENGTH_HINT_RULES, { strengthStatus })
+  );
 }
 
 function modeRank(mode: ClimateRuleMode): number {
