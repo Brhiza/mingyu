@@ -16,6 +16,7 @@ import { collectEstablishedBranchFormations } from '../baziFormationUtils';
 import { HIDDEN_STEMS } from '../baziMappingsData';
 import { assessStemHarmonyTransform } from '../harmonyTransform';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
+import { assessQuzhiPattern } from '../baziQuzhiStrategy';
 
 export interface ClassicPattern {
   id: string;
@@ -227,16 +228,21 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'qu-zhi',
     name: '曲直格',
-    description: '甲乙日见寅卯辰三会木局。木性曲直，忌金来克木，喜水木相助。',
+    description:
+      '甲乙日以亥卯未局全，或春生寅卯辰全而无间断破坏立曲直；采用《神峰通考》所引《格解》的严格口径核庚辛透藏，并按张楠按语核局外支直接冲破。水木顺势、火可泄秀，土财按实际作用另论。',
     conditions: {
       dayStems: ['甲', '乙'],
-      establishedFormationWuxing: '木',
-      otherConditions: ['寅卯辰三会木局', '木势旺盛'],
+      anyConditions: ['亥卯未三合木局', '寅卯辰三会木局'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
-    favorableWuxing: ['水', '木'],
+    favorableWuxing: ['水', '木', '火'],
     unfavorableWuxing: ['金'],
     level: '极品',
+    source: {
+      title: '《三命通会·卷六》曲直格',
+      quote: '甲乙日得亥卯未局，柱中须有亥字带印为入格；甲乙生人寅卯辰，又名仁寿；亥卯未全嫌白帝。',
+      url: 'https://zh.wikisource.org/w/index.php?title=三命通會_(四庫全書本)/卷06&oldid=657375',
+    },
   },
 
   {
@@ -553,6 +559,11 @@ function matchClassicPatternConditions(
   hiddenStems: BaziChartResult['hiddenStems'],
   currentPattern?: string,
 ): string[] | null {
+  if (pattern.id === 'qu-zhi') {
+    const assessment = assessQuzhiPattern(pillars);
+    return assessment.structuralMatch ? [...assessment.matchedConditions] : null;
+  }
+
   const matchedConditions: string[] = [];
 
   if (pattern.conditions.dayStems) {
@@ -636,6 +647,15 @@ function evaluateClassicPatternCandidate(
   pillars: BaziChartResult['pillars'],
   hiddenStems: BaziChartResult['hiddenStems'],
 ): Omit<ClassicPatternCandidate, 'pattern' | 'matchedConditions' | 'status'> {
+  if (pattern.id === 'qu-zhi') {
+    const assessment = assessQuzhiPattern(pillars);
+    return {
+      verificationFacts: [...assessment.evidence],
+      pendingConditions: [],
+      counterEvidence: [...assessment.blockers],
+    };
+  }
+
   const verificationFacts: string[] = [];
   const pendingConditions: string[] = [];
   const counterEvidence: string[] = [];
@@ -764,7 +784,7 @@ export function identifyClassicPatternCandidates(
   });
 }
 
-/** 保留旧入口：仍返回目录顺序中的首项，不改变原有调用方契约。 */
+/** 返回目录顺序中的首项；已明确否定的曲直结构只保留在候选反证中。 */
 export function identifyClassicPattern(
   dayStem: string,
   monthBranch: string,
@@ -773,7 +793,13 @@ export function identifyClassicPattern(
   currentPattern?: string,
 ): ClassicPattern | null {
   return (
-    identifyClassicPatternCandidates(dayStem, monthBranch, pillars, hiddenStems, currentPattern)[0]
+    identifyClassicPatternCandidates(
+      dayStem,
+      monthBranch,
+      pillars,
+      hiddenStems,
+      currentPattern,
+    ).find((candidate) => candidate.pattern.id !== 'qu-zhi' || candidate.status === '结构命中')
       ?.pattern ?? null
   );
 }

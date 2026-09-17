@@ -346,11 +346,25 @@ export interface PatternTransformationEvidence {
   conditions: string[];
 }
 
+export interface SpecialPatternAdjudication {
+  kind: '曲直格';
+  status: '成立' | '不成立';
+  route: '亥卯未木局' | '寅卯辰东方';
+  method: string;
+  satisfied: string[];
+  blockers: string[];
+  memberHiddenStems: string[];
+  visibleOutputStems: string[];
+  visibleWealthStems: string[];
+}
+
 export interface PatternAnalysis {
   pattern: string;
   isSpecial: boolean;
   basis?: string;
   transformation?: PatternTransformationEvidence;
+  /** 已完成条件核验的特殊格终态；四柱完整时不以“候选”代替成立或不成立。 */
+  specialAdjudication?: SpecialPatternAdjudication;
   /** 魁罡日（日柱庚辰/壬辰/戊戌/庚戌为外格，《三命通会》） */
   isKuiGang?: boolean;
   /** 格局候选关系、制化路径与成败待核条件。 */

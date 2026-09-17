@@ -886,6 +886,7 @@ export function buildEnhancedPatternUsefulGodSection(
       basis:
         baziResult.analysis.mingGe.basis || `由月令${baziResult.pillars.month.zhi}藏干透出立格`,
       transformation,
+      specialAdjudication: baziResult.analysis.mingGe.specialAdjudication,
       formationAnalysis: transformationFacts.length
         ? transformationFacts.join('；')
         : baziResult.analysis.mingGe.isSpecial

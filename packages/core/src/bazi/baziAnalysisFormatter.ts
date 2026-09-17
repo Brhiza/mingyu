@@ -76,8 +76,26 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
 /** 格局名称与成败条件分开呈现，所有解读入口复用同一份已计算结论。 */
 export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
   const fulfillment = pattern.fulfillment;
-  if (!fulfillment) return [];
+  const special = pattern.specialAdjudication;
+  const specialFacts = special
+    ? [
+        `特殊格裁决：${special.kind}${special.status}；路径：${special.route}；方法：${special.method}`,
+        `特殊格条件：${special.satisfied.join('、')}`,
+        special.memberHiddenStems.length
+          ? `成员支藏干保留：${special.memberHiddenStems.join('；')}`
+          : '',
+        special.visibleOutputStems.length
+          ? `食伤明透：${special.visibleOutputStems.join('、')}`
+          : '',
+        special.visibleWealthStems.length
+          ? `财星明透：${special.visibleWealthStems.join('、')}`
+          : '',
+        special.blockers.length ? `特殊格反证：${special.blockers.join('；')}` : '',
+      ].filter(Boolean)
+    : [];
+  if (!fulfillment) return specialFacts;
   return [
+    ...specialFacts,
     `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
     fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
     ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),

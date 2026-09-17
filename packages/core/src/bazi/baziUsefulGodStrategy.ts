@@ -339,6 +339,7 @@ function buildBaseDecisionState(
     wealth_officer: [wealth, officer].filter(Boolean),
     output_wealth_officer: [output, wealth, officer].filter(Boolean),
     resource_companion: [resource, companion].filter(Boolean),
+    officer: [officer].filter(Boolean),
   };
 
   const ordinaryPatternTrace = pattern.isSpecial
