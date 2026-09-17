@@ -16,6 +16,7 @@ import {
   THEMATIC_TOPICS,
   PROMPT_SCOPE_IDS,
   normalizeThematicTopic,
+  buildBaziZiweiBatchPromptForResults,
   buildThematicConsultationPrompt,
   buildSerializableZiweiResult,
   type BaziSchool,
@@ -36,6 +37,12 @@ import {
   getMcpZiweiBatchMetadata,
   resolveMcpZiweiBatchOptions,
 } from './ziwei.js';
+import { readMcpPromptSelection } from './prompt-helpers.js';
+import {
+  calculateMcpCombinedBatchPage,
+  combinedBatchSchema,
+  resolveMcpCombinedBatchCursor,
+} from './combined-batch.js';
 
 const thematicConsultationPromptSchema = baziSchema.extend({
   system: z
@@ -94,6 +101,7 @@ const thematicConsultationPromptSchema = baziSchema.extend({
     })
     .optional()
     .describe('仅在 promptScope=full 或 decadal 时生效；按年龄年分页'),
+  combinedBatch: combinedBatchSchema,
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一分析范围；优先于兼容字段 promptScope'),
   promptMode: z
     .enum(PROMPT_MODES)
@@ -150,6 +158,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof thematicConsultationPrompt
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
     birthMinute: args.birthMinute === undefined ? undefined : String(args.birthMinute),
+    birthSecond: args.birthSecond === undefined ? undefined : String(args.birthSecond),
     birthLongitude: args.birthLongitude === undefined ? undefined : String(args.birthLongitude),
     timezone: args.timezone,
     timeZoneId: args.timeZoneId,
@@ -181,6 +190,78 @@ export function registerThematicTool(server: McpServer) {
             : args.scope === 'natal'
               ? 'origin'
               : (args.scope as ZiweiPromptScope);
+
+        const combinedCursor = resolveMcpCombinedBatchCursor({
+          scope,
+          combinedBatch: args.combinedBatch,
+          scopeBatch: args.scopeBatch,
+          fortuneBatch: args.fortuneBatch,
+          supported: system === 'bazi_ziwei',
+        });
+        if (combinedCursor) {
+          const selection = readMcpPromptSelection({
+            methodId: 'bazi-ziwei',
+            topicId: args.topicId ?? topic,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
+          });
+          const currentContext = getDefaultHoroscopeContext();
+          const horoscopeContext = {
+            dateStr: args.scopeDate ?? currentContext.dateStr,
+            hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+          };
+          const page = await calculateMcpCombinedBatchPage({
+            cursor: combinedCursor,
+            scopeContext: horoscopeContext,
+            calculateBazi: () => baziCalculator.calculateBazi(buildBaziPerson(args)),
+            ziweiInput: buildCombinedZiweiInput(args),
+          });
+          const promptCommon = {
+            question: args.question ?? `请围绕${topic}主题解读本页资料。`,
+            mode: (args.promptMode ?? 'framework') as PromptMode,
+            baziSchool: args.baziSchool as BaziSchool | undefined,
+            baziSchools: args.baziSchools as BaziSchool[] | undefined,
+            ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
+            ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
+            selection,
+          };
+          const identity = { system, methodId, topic, selection };
+          if (page.section === 'bazi-natal') {
+            return createStructuredToolResult({
+              result: { ...identity, bazi: page.baziResult },
+              batch: { combinedBatch: page.batch },
+              prompt: buildBaziZiweiBatchPromptForResults({
+                ...promptCommon,
+                section: page.section,
+                baziResult: page.baziResult,
+              }),
+            });
+          }
+          if (page.section === 'bazi-fortune') {
+            return createStructuredToolResult({
+              result: { ...identity, bazi: page.baziResult },
+              batch: { combinedBatch: page.batch },
+              prompt: buildBaziZiweiBatchPromptForResults({
+                ...promptCommon,
+                section: page.section,
+                baziResult: page.baziResult,
+                fortuneTextBatch: page.fortuneTextBatch,
+              }),
+            });
+          }
+          return createStructuredToolResult({
+            result: {
+              ...identity,
+              ziwei: buildSerializableZiweiResult(page.ziweiResult),
+            },
+            batch: { combinedBatch: page.batch },
+            prompt: buildBaziZiweiBatchPromptForResults({
+              ...promptCommon,
+              section: page.section,
+              ziweiResult: page.ziweiResult,
+            }),
+          });
+        }
 
         let baziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
         let ziweiResult: Awaited<ReturnType<typeof calculateZiweiChartForScopes>> | undefined;
@@ -227,7 +308,11 @@ export function registerThematicTool(server: McpServer) {
           ziweiResult = computedZiwei;
           serializableZiweiResult = buildSerializableZiweiResult(computedZiwei);
           ziweiBatch = getMcpZiweiBatchMetadata(computedZiwei, batchOptions.scopeBatch);
-        } else if (args.scopeBatch !== undefined || args.fortuneBatch !== undefined) {
+        } else if (
+          args.scopeBatch !== undefined ||
+          args.fortuneBatch !== undefined ||
+          args.combinedBatch !== undefined
+        ) {
           throw new Error('紫微分页参数仅适用于包含紫微资料的咨询体系。');
         }
 

@@ -80,12 +80,23 @@ test('交运年相邻两页通过去重年份字段仍能分别读取各自运�
   const second = after.body.data;
   assert.equal(first.batch.fortuneBatch.year, second.batch.fortuneBatch.year);
   assert.notEqual(first.batch.fortuneBatch.cycleIndex, second.batch.fortuneBatch.cycleIndex);
-  for (const data of [first, second]) {
+  for (const [startIndex, data] of [
+    [5, first],
+    [6, second],
+  ] as const) {
     const cycle = data.result.luckInfo.cycles[0];
     assert.deepEqual(
       (cycle.resolvedYears ?? cycle.years).map((year: { year: number }) => year.year),
       [data.batch.fortuneBatch.year],
     );
+    assert.deepEqual(data.result.liunian, cycle.years);
+
+    const summary = await callApi({ fortuneBatch: { startIndex }, responseMode: 'summary' });
+    assert.equal(summary.status, 200, JSON.stringify(summary.body));
+    const summaryCycle = summary.body.data.resultSummary.luckInfo.cycles[0];
+    assert.deepEqual(summaryCycle.years, cycle.years);
+    assert.deepEqual(summaryCycle.resolvedYears, cycle.resolvedYears);
+    assert.deepEqual(summary.body.data.resultSummary.liunian, data.result.liunian);
   }
 });
 

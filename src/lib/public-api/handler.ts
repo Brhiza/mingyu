@@ -9,6 +9,7 @@ import {
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
   formatBaziFortuneBatch,
+  selectBaziNatalResult,
   selectBaziFortuneBatchResult,
   type BaziFortuneTextBatch,
 } from '@core/prompt/bazi-fortune';
@@ -162,11 +163,14 @@ import {
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_PROMPT_TOPICS,
   ZIWEI_SCHOOLS,
+  COMBINED_BATCH_SECTIONS,
+  buildBaziZiweiBatchPromptForResults,
   buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
   buildPublicZiweiPromptForRuntime,
   buildSerializableZiweiResult,
   getZiweiPromptCalculationScopes,
+  getNextCombinedBatchCursor,
   THEMATIC_TOPICS,
   normalizeThematicTopic,
   PROMPT_SCOPE_IDS,
@@ -178,6 +182,9 @@ import {
   type ZiweiPromptScope,
   type ZiweiPromptTopic,
   type ZiweiSchool,
+  type CombinedBatchCursor,
+  type CombinedBatchMetadata,
+  type CombinedBatchSection,
 } from './prompt-builders';
 import { handleAiAnalyze, handleAiModels, type AiEnv, type AiRuntime } from '../ai/proxy';
 import {
@@ -1759,6 +1766,19 @@ export function getPublicApiOpenApiDocument(
             limit: { type: 'integer', const: 1, default: 1 },
           },
         },
+        CombinedBatch: {
+          type: 'object',
+          additionalProperties: false,
+          description:
+            '完整八字紫微合参分区游标；依次读取八字本命、单个大运流年、六个紫微 scope、单个紫微年龄年。每次只计算当前体系；续取时把响应中的 next 作为 combinedBatch，并将 scopeContext.dateStr/hourIndex 分别回传到顶层 scopeDate/scopeHourIndex。',
+          properties: {
+            section: {
+              enum: [...COMBINED_BATCH_SECTIONS],
+              default: 'bazi-natal',
+            },
+            startIndex: { type: 'integer', minimum: 0, default: 0 },
+          },
+        },
         BaziRequest: {
           type: 'object',
           required: ['gender', 'year', 'month', 'day', 'dateType'],
@@ -2718,6 +2738,11 @@ export function getPublicApiOpenApiDocument(
                   description:
                     '点输入的紫微当前或完整运限年龄年游标；仅 all/current 有效，并返回 batch.fortuneBatch。',
                 },
+                combinedBatch: {
+                  $ref: '#/components/schemas/CombinedBatch',
+                  description:
+                    '仅 promptScope=full 的完整合参续取使用；与 scopeBatch、fortuneBatch 互斥。续取时把 batch.combinedBatch.next 作为 combinedBatch，并将固定 scopeContext 分别回传到顶层 scopeDate、scopeHourIndex。',
+                },
               },
             },
           ],
@@ -2811,6 +2836,11 @@ export function getPublicApiOpenApiDocument(
                   $ref: '#/components/schemas/ZiweiFortuneBatch',
                   description:
                     '紫微当前或完整运限年龄年游标；仅 all/current 有效，并在返回中附 batch.fortuneBatch。',
+                },
+                combinedBatch: {
+                  $ref: '#/components/schemas/CombinedBatch',
+                  description:
+                    '仅 methodId=bazi-ziwei、scope=full 的完整合参续取使用；与 scopeBatch、fortuneBatch 互斥。续取时把返回的 next 作为 combinedBatch，并将 scopeContext.dateStr/hourIndex 分别回传到顶层 scopeDate/scopeHourIndex。',
                 },
               },
             },
@@ -4625,6 +4655,71 @@ type ZiweiFortuneBatchInput = {
   limit?: number;
 };
 
+type CombinedBatchInput = CombinedBatchCursor;
+
+function readCombinedBatch(
+  input: JsonRecord,
+  scope: ZiweiPromptScope,
+  supportsCombined: boolean,
+): CombinedBatchInput | undefined {
+  const value = input.combinedBatch;
+  if (value === undefined) return undefined;
+  if (!supportsCombined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'combinedBatch 仅适用于八字紫微合参。');
+  }
+  if (scope !== 'full') {
+    throw new ApiError(400, 'BAD_REQUEST', 'combinedBatch 仅在 promptScope=full 时生效。');
+  }
+  if (input.scopeBatch !== undefined || input.fortuneBatch !== undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      'combinedBatch 与 scopeBatch、fortuneBatch 不能同时传入。',
+    );
+  }
+  if (!isRecord(value)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'combinedBatch 必须是对象。');
+  }
+  const unsupportedKey = Object.keys(value).find(
+    (key) => key !== 'section' && key !== 'startIndex',
+  );
+  if (unsupportedKey) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `combinedBatch 不支持字段 ${unsupportedKey}；每次固定返回一页。`,
+    );
+  }
+  const sectionValue = value.section ?? 'bazi-natal';
+  if (
+    typeof sectionValue !== 'string' ||
+    !(COMBINED_BATCH_SECTIONS as readonly string[]).includes(sectionValue)
+  ) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `combinedBatch.section 必须是 ${COMBINED_BATCH_SECTIONS.join('、')} 之一。`,
+    );
+  }
+  const startIndex = value.startIndex === undefined ? 0 : readInteger(value, 'startIndex', 0);
+  if (sectionValue === 'bazi-natal' && startIndex !== 0) {
+    throw new ApiError(400, 'BAD_REQUEST', 'bazi-natal 仅支持 startIndex=0。');
+  }
+  const ziweiScopeCount = getZiweiPromptCalculationScopes('full').length;
+  if (sectionValue === 'ziwei-scope' && startIndex >= ziweiScopeCount) {
+    throw new ApiError(400, 'BAD_REQUEST', 'ziwei-scope 的 startIndex 已超出资料范围。');
+  }
+  return { section: sectionValue as CombinedBatchSection, startIndex };
+}
+
+function resolveCombinedBatchScopeContext(input: JsonRecord) {
+  const current = getDefaultHoroscopeContext();
+  return {
+    dateStr: readOptionalZiweiScopeDate(input) ?? current.dateStr,
+    hourIndex: optInt(input, 'scopeHourIndex', 0, 12) ?? current.hourIndex,
+  };
+}
+
 function readFortuneBatch(input: JsonRecord): ZiweiFortuneBatchInput | undefined {
   const value = input.fortuneBatch;
   if (value === undefined) return undefined;
@@ -5219,7 +5314,9 @@ function buildBaziPrompt(input: JsonRecord) {
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
     },
     resultSummary: {
-      ...buildCompactBaziResult(returnedResult),
+      ...(fortuneTextBatch
+        ? buildCompactBaziBatchResult(returnedResult)
+        : buildCompactBaziResult(returnedResult)),
       ...(selection ? { selection } : {}),
     },
     ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
@@ -5651,8 +5748,150 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
   });
 }
 
+async function buildCombinedBatchPromptPage(
+  input: JsonRecord,
+  cursor: CombinedBatchInput,
+  selection: ReturnType<typeof readSharedPromptSelection>,
+  question: string,
+) {
+  const scopeContext = resolveCombinedBatchScopeContext(input);
+  const baziTopic = readEnum(
+    input,
+    'baziPromptTopic',
+    BAZI_PROMPT_TOPICS,
+    'general',
+  ) as BaziPromptTopic;
+  const ziweiTopic =
+    input.ziweiPromptTopic === undefined
+      ? undefined
+      : (readEnum(input, 'ziweiPromptTopic', ZIWEI_PROMPT_TOPICS) as ZiweiPromptTopic);
+  const mode = readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode;
+  const baziSchoolValue = input.baziSchool;
+  const baziSchool =
+    typeof baziSchoolValue === 'string' &&
+    (BAZI_SCHOOLS as readonly string[]).includes(baziSchoolValue)
+      ? (baziSchoolValue as BaziSchool)
+      : undefined;
+  const ziweiSchoolValue = input.ziweiSchool;
+  const ziweiSchool =
+    typeof ziweiSchoolValue === 'string' &&
+    (ZIWEI_SCHOOLS as readonly string[]).includes(ziweiSchoolValue)
+      ? (ziweiSchoolValue as ZiweiSchool)
+      : undefined;
+  const baziSchools = readPromptSchools(input, BAZI_MULTI_SCHOOLS, 'baziSchools') as
+    BaziSchool[] | undefined;
+  const ziweiSchools = readPromptSchools(input, ZIWEI_SCHOOLS, 'ziweiSchools') as
+    ZiweiSchool[] | undefined;
+
+  if (cursor.section === 'bazi-natal' || cursor.section === 'bazi-fortune') {
+    const fullBaziResult = calculateBazi(input);
+    let returnedBaziResult: BaziChartResult;
+    let fortuneTextBatch: BaziFortuneTextBatch | undefined;
+    let innerNextIndex: number | null | undefined;
+    if (cursor.section === 'bazi-natal') {
+      returnedBaziResult = selectBaziNatalResult(fullBaziResult);
+    } else {
+      try {
+        fortuneTextBatch = formatBaziFortuneBatch(fullBaziResult, cursor.startIndex);
+      } catch (error) {
+        if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+        throw error;
+      }
+      returnedBaziResult = selectBaziFortuneBatchResult(fullBaziResult, fortuneTextBatch.batch);
+      innerNextIndex = fortuneTextBatch.batch.nextIndex;
+    }
+    const prompt =
+      cursor.section === 'bazi-natal'
+        ? buildBaziZiweiBatchPromptForResults({
+            section: 'bazi-natal',
+            baziResult: returnedBaziResult,
+            question,
+            baziTopic,
+            mode,
+            baziSchool,
+            baziSchools,
+            selection,
+          })
+        : buildBaziZiweiBatchPromptForResults({
+            section: 'bazi-fortune',
+            baziResult: returnedBaziResult,
+            fortuneTextBatch: fortuneTextBatch!,
+            question,
+            baziTopic,
+            mode,
+            baziSchool,
+            baziSchools,
+            selection,
+          });
+    const batch: CombinedBatchMetadata = {
+      unit: 'combined-section',
+      ...cursor,
+      scopeContext,
+      next: getNextCombinedBatchCursor({
+        ...cursor,
+        ...(cursor.section === 'bazi-fortune' ? { innerNextIndex } : {}),
+      }),
+    };
+    return {
+      prompt,
+      fullResult: { bazi: returnedBaziResult },
+      resultSummary: { bazi: buildCompactBaziBatchResult(returnedBaziResult) },
+      batch: { combinedBatch: batch },
+    };
+  }
+
+  const fullScopes = getZiweiPromptCalculationScopes('full');
+  const scope = fullScopes[cursor.startIndex];
+  let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
+  try {
+    ziweiResult = await calculateZiweiRuntime(
+      { ...input, scopeHourIndex: scopeContext.hourIndex },
+      cursor.section === 'ziwei-scope' ? [scope!] : [],
+      {
+        scopeDate: scopeContext.dateStr,
+        ...(cursor.section === 'ziwei-scope'
+          ? { independentBatch: 'scope' as const }
+          : {
+              independentBatch: 'fortune' as const,
+              fortuneScope: 'all' as const,
+              fortuneBatch: { startIndex: cursor.startIndex, limit: 1 },
+            }),
+      },
+    );
+  } catch (error) {
+    return throwZiweiBatchApiError(error);
+  }
+  const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+  const innerNextIndex = ziweiResult.fortuneTimeline?.batch?.nextIndex;
+  const batch: CombinedBatchMetadata = {
+    unit: 'combined-section',
+    ...cursor,
+    scopeContext: ziweiResult.horoscopeContext,
+    next: getNextCombinedBatchCursor({
+      ...cursor,
+      ...(cursor.section === 'ziwei-scope'
+        ? { ziweiScopeCount: fullScopes.length }
+        : { innerNextIndex }),
+    }),
+  };
+  return {
+    prompt: buildBaziZiweiBatchPromptForResults({
+      section: cursor.section,
+      ziweiResult,
+      question,
+      ziweiTopic,
+      mode,
+      ziweiSchool,
+      ziweiSchools,
+      selection,
+    }),
+    fullResult: { ziwei: serializableZiweiResult },
+    resultSummary: { ziwei: buildCompactZiweiResult(serializableZiweiResult) },
+    batch: { combinedBatch: batch },
+  };
+}
+
 async function buildBaziZiweiPrompt(input: JsonRecord) {
-  const baziResult = calculateBazi(input);
   const selection = readSharedPromptSelection(input, 'bazi-ziwei');
   const selectedScope = toZiweiPromptScope(selection?.scope);
   const scope = readEnum(
@@ -5661,6 +5900,26 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     ZIWEI_PROMPT_SCOPES,
     selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
+  const combinedBatch = readCombinedBatch(input, scope, true);
+  if (combinedBatch) {
+    const page = await buildCombinedBatchPromptPage(
+      input,
+      combinedBatch,
+      selection,
+      readRequiredString(input, 'question'),
+    );
+    return buildPromptApiResult({
+      responseMode: readPromptResponseMode(input),
+      prompt: page.prompt,
+      fullResult: page.fullResult,
+      resultSummary: {
+        ...page.resultSummary,
+        ...(selection ? { selection } : {}),
+      },
+      batch: page.batch,
+    });
+  }
+  const baziResult = calculateBazi(input);
   const batchOptions = resolvePointZiweiBatchOptions(input, scope);
   let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
   try {
@@ -5812,6 +6071,32 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
         ? 'origin'
         : (genericScope as ZiweiPromptScope);
   const mode = readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode;
+
+  const combinedBatch = readCombinedBatch(input, scope, system === 'bazi_ziwei');
+  if (combinedBatch) {
+    const page = await buildCombinedBatchPromptPage(
+      input,
+      combinedBatch,
+      selectionResolution.selection,
+      question || `请围绕${topic}主题解读本页资料。`,
+    );
+    const thematicIdentity = {
+      system,
+      methodId: selectionResolution.selection.methodId,
+      topic,
+      topicId: topicId ?? topic,
+      subtopicId,
+      selection: selectionResolution.selection,
+    };
+    return buildPromptApiResult({
+      responseMode: readPromptResponseMode(input),
+      prompt: page.prompt,
+      fullResult: { ...thematicIdentity, ...page.fullResult },
+      resultSummary: { ...thematicIdentity, ...page.resultSummary },
+      summary: thematicIdentity,
+      batch: page.batch,
+    });
+  }
 
   const baziSchoolValue = input.baziSchool;
   const baziSchool =
@@ -6949,7 +7234,10 @@ function buildPromptApiResult(params: {
   summary?: unknown;
   fullResult: unknown;
   resultSummary?: unknown;
-  batch?: ZiweiBatchMetadata | { fortuneBatch: BaziFortuneTextBatch['batch'] };
+  batch?:
+    | ZiweiBatchMetadata
+    | { fortuneBatch: BaziFortuneTextBatch['batch'] }
+    | { combinedBatch: CombinedBatchMetadata };
 }) {
   const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {
@@ -7031,6 +7319,29 @@ function buildCompactBaziResult(result: BaziChartResult) {
       })),
     },
     warnings: result.warnings,
+  };
+}
+
+/** 显式八字分批摘要保留本页唯一运段与流年；普通摘要继续沿用既有紧凑结构。 */
+function buildCompactBaziBatchResult(result: BaziChartResult) {
+  const compact = buildCompactBaziResult(result);
+  return {
+    ...compact,
+    liunian: result.liunian ?? [],
+    luckInfo: {
+      ...compact.luckInfo,
+      cycles: result.luckInfo.cycles.map((cycle) => ({
+        age: cycle.age,
+        year: cycle.year,
+        ganZhi: cycle.ganZhi,
+        isXiaoyun: cycle.isXiaoyun,
+        type: cycle.type,
+        startSolarTime: cycle.startSolarTime,
+        endSolarTime: cycle.endSolarTime,
+        years: cycle.years,
+        resolvedYears: cycle.resolvedYears ?? cycle.years,
+      })),
+    },
   };
 }
 

@@ -700,6 +700,134 @@ export function buildPublicZiweiPromptForRuntime(params: {
 
 export const buildZiweiPromptForRuntime = buildPublicZiweiPromptForRuntime;
 
+export const COMBINED_BATCH_SECTIONS = [
+  'bazi-natal',
+  'bazi-fortune',
+  'ziwei-scope',
+  'ziwei-fortune',
+] as const;
+
+export type CombinedBatchSection = (typeof COMBINED_BATCH_SECTIONS)[number];
+
+export type CombinedBatchCursor = {
+  section: CombinedBatchSection;
+  startIndex: number;
+};
+
+export type CombinedBatchScopeContext = {
+  dateStr: string;
+  hourIndex: number;
+};
+
+export type CombinedBatchMetadata = CombinedBatchCursor & {
+  unit: 'combined-section';
+  scopeContext: CombinedBatchScopeContext;
+  next: CombinedBatchCursor | null;
+};
+
+/** 合参分册按固定顺序推进，不预先计算另一体系的页数。 */
+export function getNextCombinedBatchCursor(params: {
+  section: CombinedBatchSection;
+  startIndex: number;
+  innerNextIndex?: number | null;
+  ziweiScopeCount?: number;
+}): CombinedBatchCursor | null {
+  const { section, startIndex, innerNextIndex } = params;
+  if (section === 'bazi-natal') return { section: 'bazi-fortune', startIndex: 0 };
+  if (section === 'bazi-fortune') {
+    return innerNextIndex === null
+      ? { section: 'ziwei-scope', startIndex: 0 }
+      : { section, startIndex: innerNextIndex ?? startIndex + 1 };
+  }
+  if (section === 'ziwei-scope') {
+    const scopeCount = params.ziweiScopeCount ?? FULL_ZIWEI_SCOPE_ORDER.length;
+    return startIndex + 1 < scopeCount
+      ? { section, startIndex: startIndex + 1 }
+      : { section: 'ziwei-fortune', startIndex: 0 };
+  }
+  return innerNextIndex === null ? null : { section, startIndex: innerNextIndex ?? startIndex + 1 };
+}
+
+/**
+ * 合参分册每页只组织当前体系的资料，任务书可独立解读但不宣称双盘已经完整合参。
+ */
+export function buildBaziZiweiBatchPromptForResults(
+  params: {
+    question: string;
+    baziTopic?: BaziPromptTopic;
+    ziweiTopic?: ZiweiPromptTopic;
+    mode?: PromptMode;
+    baziSchool?: BaziSchool;
+    baziSchools?: readonly BaziSchool[];
+    ziweiSchool?: ZiweiSchool;
+    ziweiSchools?: readonly ZiweiSchool[];
+    selection?: PromptSelection;
+  } & (
+    | {
+        section: 'bazi-natal';
+        baziResult: BaziChartResult;
+      }
+    | {
+        section: 'bazi-fortune';
+        baziResult: BaziChartResult;
+        fortuneTextBatch: BaziFortuneTextBatch;
+      }
+    | {
+        section: 'ziwei-scope' | 'ziwei-fortune';
+        ziweiResult: ZiweiRuntime;
+      }
+  ),
+) {
+  const selection = params.selection
+    ? {
+        ...params.selection,
+        scopeLabel:
+          params.section === 'bazi-natal'
+            ? '本次八字本命资料'
+            : params.section === 'bazi-fortune'
+              ? '本次所列大运流年'
+              : params.section === 'ziwei-fortune'
+                ? '本次所列紫微年龄年'
+                : '本次所列紫微层级资料',
+      }
+    : undefined;
+  if (params.section === 'bazi-natal') {
+    return buildBaziPromptForResult({
+      result: params.baziResult,
+      question: params.question,
+      topic: params.baziTopic,
+      mode: params.mode,
+      school: params.baziSchool,
+      schools: params.baziSchools,
+      fortuneScope: 'natal',
+      selection,
+    });
+  }
+  if (params.section === 'bazi-fortune') {
+    return buildBaziPromptForResult({
+      result: params.baziResult,
+      question: params.question,
+      topic: params.baziTopic,
+      mode: params.mode,
+      school: params.baziSchool,
+      schools: params.baziSchools,
+      fortuneScope: 'full',
+      fortuneTextBatch: params.fortuneTextBatch,
+      selection,
+    });
+  }
+  return buildPublicZiweiPromptForRuntime({
+    result: params.ziweiResult,
+    scope: 'full',
+    topic: params.ziweiTopic,
+    question: params.question,
+    mode: params.mode,
+    school: params.ziweiSchool,
+    schools: params.ziweiSchools,
+    selection,
+  });
+}
+
 export function buildBaziZiweiPromptForResults(params: {
   baziResult: BaziChartResult;
   ziweiResult: ZiweiRuntime;

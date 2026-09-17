@@ -102,7 +102,10 @@ export const promptOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('生成提示词时同步计算出的结构化盘面或证据；可供展示和后续追问复用，避免再调排盘工具'),
-  batch: z.unknown().optional().describe('显式分页时返回的 scopeBatch 与 fortuneBatch 续取元数据'),
+  batch: z
+    .unknown()
+    .optional()
+    .describe('显式分页时返回 scopeBatch、fortuneBatch 或 combinedBatch 续取元数据'),
 });
 
 export const ziweiOutputSchema = withErrorOutputSchema({
@@ -118,7 +121,10 @@ export const ziweiOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('按当前阶段、全部阶段或指定年/月/日/时组织的紫微运限时间线'),
-  batch: z.unknown().optional().describe('显式分页时返回的 scopeBatch 与 fortuneBatch 续取元数据'),
+  batch: z
+    .unknown()
+    .optional()
+    .describe('显式分页时返回 scopeBatch、fortuneBatch 或 combinedBatch 续取元数据'),
   trueSolarEvidence: z.unknown().optional().describe('真太阳时校正证据'),
   birthMutagens: z.record(z.string(), z.string()).optional().describe('生年四化'),
   fourMutagens: z.record(z.string(), z.string()).optional().describe('命宫四化'),

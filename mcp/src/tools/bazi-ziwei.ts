@@ -16,6 +16,7 @@ import {
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_PROMPT_TOPICS,
   ZIWEI_SCHOOLS,
+  buildBaziZiweiBatchPromptForResults,
   buildBaziZiweiPromptForResults,
   buildSerializableZiweiResult,
   type BaziPromptTopic,
@@ -39,6 +40,11 @@ import {
   getMcpZiweiBatchMetadata,
   resolveMcpZiweiBatchOptions,
 } from './ziwei.js';
+import {
+  calculateMcpCombinedBatchPage,
+  combinedBatchSchema,
+  resolveMcpCombinedBatchCursor,
+} from './combined-batch.js';
 
 const baziZiweiPromptSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
@@ -128,6 +134,7 @@ const baziZiweiPromptSchema = z.object({
     })
     .optional()
     .describe('仅在 promptScope=full 或 decadal 时生效；按年龄年分页'),
+  combinedBatch: combinedBatchSchema,
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
@@ -212,6 +219,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
     birthMinute: args.birthMinute === undefined ? undefined : String(args.birthMinute),
+    birthSecond: args.birthSecond === undefined ? undefined : String(args.birthSecond),
     birthLongitude: args.birthLongitude === undefined ? undefined : String(args.birthLongitude),
     timezone: args.timezone,
     timeZoneId: args.timeZoneId,
@@ -237,19 +245,77 @@ export function registerBaziZiweiTool(server: McpServer) {
           subtopicId: args.subtopicId,
           scope: args.scope,
         });
-        const baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
         const scope = (
           args.scope !== undefined
             ? mapPromptScopeToZiweiScope(selection?.scope)
             : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
-        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
+        const combinedCursor = resolveMcpCombinedBatchCursor({
+          scope,
+          combinedBatch: args.combinedBatch,
+          scopeBatch: args.scopeBatch,
+          fortuneBatch: args.fortuneBatch,
+          supported: true,
+        });
         const ziweiInput = buildCombinedZiweiInput(args);
         const currentContext = getDefaultHoroscopeContext();
         const horoscopeContext = {
           dateStr: args.scopeDate ?? currentContext.dateStr,
           hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
         };
+        if (combinedCursor) {
+          const page = await calculateMcpCombinedBatchPage({
+            cursor: combinedCursor,
+            scopeContext: horoscopeContext,
+            calculateBazi: () => baziCalculator.calculateBazi(buildBaziPerson(args)),
+            ziweiInput,
+          });
+          const promptCommon = {
+            question: args.question,
+            baziTopic: (args.baziPromptTopic ?? 'general') as BaziPromptTopic,
+            ziweiTopic: args.ziweiPromptTopic as ZiweiPromptTopic | undefined,
+            mode: (args.promptMode ?? 'framework') as PromptMode,
+            baziSchool: args.baziSchool as BaziSchool | undefined,
+            baziSchools: args.baziSchools as BaziSchool[] | undefined,
+            ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
+            ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
+            selection,
+          };
+          if (page.section === 'bazi-natal') {
+            return createStructuredToolResult({
+              result: { bazi: page.baziResult },
+              batch: { combinedBatch: page.batch },
+              prompt: buildBaziZiweiBatchPromptForResults({
+                ...promptCommon,
+                section: page.section,
+                baziResult: page.baziResult,
+              }),
+            });
+          }
+          if (page.section === 'bazi-fortune') {
+            return createStructuredToolResult({
+              result: { bazi: page.baziResult },
+              batch: { combinedBatch: page.batch },
+              prompt: buildBaziZiweiBatchPromptForResults({
+                ...promptCommon,
+                section: page.section,
+                baziResult: page.baziResult,
+                fortuneTextBatch: page.fortuneTextBatch,
+              }),
+            });
+          }
+          return createStructuredToolResult({
+            result: { ziwei: buildSerializableZiweiResult(page.ziweiResult) },
+            batch: { combinedBatch: page.batch },
+            prompt: buildBaziZiweiBatchPromptForResults({
+              ...promptCommon,
+              section: page.section,
+              ziweiResult: page.ziweiResult,
+            }),
+          });
+        }
+        const baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
+        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
         const fortuneRange =
           batchOptions.independentBatch === 'scope'
             ? undefined

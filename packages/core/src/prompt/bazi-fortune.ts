@@ -276,6 +276,18 @@ export interface BaziFortuneTextBatch {
   };
 }
 
+/** 合参分册的本命页不携带任何大运流年，避免把完整命限重复塞入首册。 */
+export function selectBaziNatalResult(result: BaziChartResult): BaziChartResult {
+  return {
+    ...result,
+    liunian: [],
+    luckInfo: {
+      ...result.luckInfo,
+      cycles: [],
+    },
+  };
+}
+
 /** 公开分批结果保留本命事实，命限仅携带本次所属大运及流年。 */
 export function selectBaziFortuneBatchResult(
   result: BaziChartResult,
@@ -285,6 +297,7 @@ export function selectBaziFortuneBatchResult(
   const years = cycle?.years.filter((year) => year.year === batch.year) ?? [];
   return {
     ...result,
+    liunian: years,
     luckInfo: {
       ...result.luckInfo,
       cycles: cycle
