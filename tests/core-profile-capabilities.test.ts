@@ -20,6 +20,30 @@ import {
   requireSystemCapability,
 } from '../packages/core/src/capabilities/index';
 
+test('秒级出生精度应保留到八字、星盘、七政和择日输入', () => {
+  const profile = {
+    gender: 'female' as const,
+    calendarType: 'solar' as const,
+    year: 1990,
+    month: 5,
+    day: 15,
+    hour: 12,
+    minute: 34,
+    second: 56,
+    location: { longitude: 116.4, latitude: 39.9, timezone: 8 },
+  };
+  const normalized = normalizeBirthProfile(profile);
+  assert.equal(normalized.timePrecision, 'second');
+  assert.equal(normalized.timeEvidence.inputFact.clockTime, '12:34:56');
+  assert.equal(birthProfileToBaziPerson(profile).birthSecond, 56);
+  assert.equal(birthProfileToAstrolabeInput(profile).second, '56');
+  assert.equal(birthProfileToQizhengInput(profile).second, 56);
+  assert.equal(birthProfileToAlmanacParticipant(profile).birthSecond, '56');
+  const { second: _second, ...minuteProfile } = profile;
+  assert.equal(normalizeBirthProfile(minuteProfile).timePrecision, 'minute');
+  assert.equal(normalizeBirthProfile(minuteProfile).timeEvidence.inputFact.clockTime, '12:34');
+});
+
 test('统一出生档案缺少时间时应在排盘前拒绝', () => {
   const profile = {
     gender: 'female' as const,

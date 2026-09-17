@@ -1,6 +1,11 @@
 import type { BaziChartResult } from '../bazi/baziTypes';
 import { createCivilDate, getLuckCycleForCivilDate } from '../bazi/luckTiming';
-import { calculateBirthChartBundle, type BirthChartBundle } from '../birth';
+import {
+  calculateBirthChartBundle,
+  type BirthChartPointBundle,
+  type BirthChartRangeBundle,
+  type BirthChartBundleOptions,
+} from '../birth';
 import { getShichenByIndex } from '../calendar/dateUtils';
 import type { BirthProfile } from '../profile';
 import type { EvidenceFact, PalaceFact, ScopeType } from '../types/analysis';
@@ -558,12 +563,41 @@ export function formatBaziZiweiSynthesisForPrompt(
 export interface BaziZiweiCombinedReadingOptions {
   ziwei?: ZiweiRuntimeOptions;
   prompt?: FormatBaziZiweiSynthesisOptions;
+  rangeBatch?: BirthChartBundleOptions['rangeBatch'];
+  signal?: AbortSignal;
 }
 
-export interface BaziZiweiCombinedReading {
-  bundle: BirthChartBundle;
+export interface BaziZiweiPointReading {
+  bundle: BirthChartPointBundle;
   synthesis: BaziZiweiSynthesis;
   promptText: string;
+  range?: never;
+}
+
+export interface BaziZiweiRangeReading {
+  bundle: BirthChartRangeBundle;
+  range: {
+    samples: Array<{
+      index: number;
+      timestamp: number;
+      synthesis: BaziZiweiSynthesis;
+      promptText: string;
+    }>;
+  };
+  synthesis?: never;
+  promptText?: never;
+}
+
+export type BaziZiweiCombinedReading = BaziZiweiPointReading | BaziZiweiRangeReading;
+
+function synthesizePoint(bundle: BirthChartPointBundle, options: BaziZiweiCombinedReadingOptions) {
+  if (!bundle.bazi || !bundle.ziwei) throw new Error('八字或紫微资料生成失败。');
+  const synthesis = buildBaziZiweiSynthesis({
+    bazi: bundle.bazi,
+    ziwei: bundle.ziwei,
+    subjectName: bundle.profile.name,
+  });
+  return { synthesis, promptText: formatBaziZiweiSynthesisForPrompt(synthesis, options.prompt) };
 }
 
 function assertExplicitZiweiTiming(options: BaziZiweiCombinedReadingOptions): void {
@@ -580,19 +614,24 @@ export async function calculateBaziZiweiCombinedReading(
   options: BaziZiweiCombinedReadingOptions = {},
 ): Promise<BaziZiweiCombinedReading> {
   assertExplicitZiweiTiming(options);
+  const promptOptions = { prompt: options.prompt ? { ...options.prompt } : undefined };
   const bundle = await calculateBirthChartBundle(profile, {
     systems: ['bazi', 'ziwei'],
     ziwei: options.ziwei,
+    rangeBatch: options.rangeBatch,
+    signal: options.signal,
   });
-  if (!bundle.bazi || !bundle.ziwei) throw new Error('八字或紫微资料生成失败。');
-  const synthesis = buildBaziZiweiSynthesis({
-    bazi: bundle.bazi,
-    ziwei: bundle.ziwei,
-    subjectName: profile.name,
-  });
-  return {
-    bundle,
-    synthesis,
-    promptText: formatBaziZiweiSynthesisForPrompt(synthesis, options.prompt),
-  };
+  if (bundle.range) {
+    return {
+      bundle,
+      range: {
+        samples: bundle.range.samples.map(({ index, timestamp, bundle: point }) => ({
+          index,
+          timestamp,
+          ...synthesizePoint(point, promptOptions),
+        })),
+      },
+    };
+  }
+  return { bundle, ...synthesizePoint(bundle, promptOptions) };
 }

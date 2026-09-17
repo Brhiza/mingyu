@@ -3,7 +3,7 @@ import type { ShichenPeriod } from '../calendar/dateUtils';
 import type { BirthCalendarType, BirthProfileDiagnostic } from './index';
 
 export type BirthTimeInputMode = 'traditional-shichen' | 'precise-clock-time';
-export type BirthTimePrecision = 'shichen' | 'minute';
+export type BirthTimePrecision = 'shichen' | 'minute' | 'second';
 
 export interface BirthTimeCalculationStep {
   key: string;
@@ -79,6 +79,7 @@ export interface BirthTimeEvidenceInput {
   originalDate: { year: number; month: number; day: number; isLeapMonth: boolean };
   inputHour: number;
   inputMinute: number;
+  inputSecond?: number;
   selectedShichen: ShichenPeriod;
   solarClockTime: SolarDateTimeParts;
   effectiveTime: SolarDateTimeParts;
@@ -103,7 +104,12 @@ function formatDateTime(time: SolarDateTimeParts): string {
 
 export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTimeEvidence {
   const precision: BirthTimePrecision =
-    input.inputMode === 'traditional-shichen' ? 'shichen' : 'minute';
+    input.inputMode === 'traditional-shichen'
+      ? 'shichen'
+      : input.inputSecond === undefined
+        ? 'minute'
+        : 'second';
+  const clockTime = `${String(input.inputHour).padStart(2, '0')}:${String(input.inputMinute).padStart(2, '0')}${input.inputSecond === undefined ? '' : `:${String(input.inputSecond).padStart(2, '0')}`}`;
   const inputStepKey = 'birth-profile:time-calculation:input';
   const calendarStepKey = 'birth-profile:time-calculation:calendar';
   const trueSolarStepKey = 'birth-profile:time-calculation:true-solar-time';
@@ -119,13 +125,13 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     shichenRange: input.selectedShichen.range,
     ...(input.inputMode === 'precise-clock-time'
       ? {
-          clockTime: `${String(input.inputHour).padStart(2, '0')}:${String(input.inputMinute).padStart(2, '0')}`,
+          clockTime,
         }
       : {}),
     promptText:
       input.inputMode === 'traditional-shichen'
         ? `出生时间明确选择${input.selectedShichen.name}（${input.selectedShichen.range}），按时辰级精度定盘`
-        : `出生钟表时间明确为${String(input.inputHour).padStart(2, '0')}:${String(input.inputMinute).padStart(2, '0')}，对应${input.selectedShichen.name}`,
+        : `出生钟表时间明确为${clockTime}，对应${input.selectedShichen.name}`,
     sources: ['明确出生时间输入', '早子时至晚子时统一时辰目录'],
     limitation: INPUT_FACT_LIMITATION,
   };
@@ -256,7 +262,7 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     precision,
     usedTrueSolarTime: input.usedTrueSolarTime,
     diagnosticCount: input.diagnostics.length,
-    promptText: `${summaryStatus}：采用${input.selectedShichen.name}，输入精度为${precision === 'shichen' ? '传统时辰' : '分钟'}，真太阳时${input.usedTrueSolarTime ? '已采用' : input.requestedTrueSolarTime ? '未完成' : '未请求'}，阻断诊断${input.diagnostics.filter((item) => item.level === 'error').length}项`,
+    promptText: `${summaryStatus}：采用${input.selectedShichen.name}，输入精度为${precision === 'shichen' ? '传统时辰' : precision === 'second' ? '秒' : '分钟'}，真太阳时${input.usedTrueSolarTime ? '已采用' : input.requestedTrueSolarTime ? '未完成' : '未请求'}，阻断诊断${input.diagnostics.filter((item) => item.level === 'error').length}项`,
     sources: ['出生时间输入、历法换算、时辰映射与真太阳时状态逐项汇总'],
     limitation: SUMMARY_LIMITATION,
   };
