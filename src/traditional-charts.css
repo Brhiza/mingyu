@@ -32,6 +32,32 @@
   color: var(--text-secondary);
 }
 
+.astrolabe-dynamic-range-panel button.result-chip,
+.astrolabe-dynamic-range-panel select.result-chip {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.astrolabe-dynamic-range-panel button.result-chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+.astrolabe-dynamic-range-panel button.result-chip:disabled {
+  opacity: 0.45;
+}
+
+@media (max-width: 640px) {
+  .astrolabe-dynamic-range-panel button.result-chip,
+  .astrolabe-dynamic-range-panel select.result-chip {
+    min-height: 44px;
+  }
+}
+
 .traditional-chart-layout .result-summary-grid {
   border: 1px solid var(--chart-border);
   background: var(--chart-border);

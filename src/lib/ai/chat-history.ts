@@ -2,6 +2,7 @@ import type { AiChatCompletionStatus, AiChatStatus, ChatTurn } from '@/hooks/use
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
 import { normalizeReadingSubject, type ReadingSubjectSnapshot } from './reading-subject';
+import { isAstrolabeDynamicReadingCheckpoint } from './astrolabe-dynamic-reading';
 
 export type AiChatPromptMode = 'context' | 'context-question';
 
@@ -61,7 +62,13 @@ function normalizeTurns(value: unknown): ChatTurn[] {
               .slice(0, 12),
           }
         : {}),
-      ...(item.incomplete === true ? { incomplete: true } : {}),
+      ...(item.incomplete === true ||
+      (item.dynamicReading && !isAstrolabeDynamicReadingCheckpoint(item.dynamicReading))
+        ? { incomplete: true }
+        : {}),
+      ...(isAstrolabeDynamicReadingCheckpoint(item.dynamicReading)
+        ? { dynamicReading: item.dynamicReading }
+        : {}),
     }));
 }
 
@@ -69,7 +76,11 @@ function inferCompletionStatus(turns: ChatTurn[]): AiChatCompletionStatus | unde
   const latest = turns[turns.length - 1];
   if (!latest) return undefined;
   if (latest.role === 'user') return 'pending';
-  return latest.incomplete ? 'partial' : undefined;
+  return latest.incomplete
+    ? 'partial'
+    : latest.dynamicReading && latest.dynamicReading.stage !== 'complete'
+      ? 'continuable'
+      : undefined;
 }
 
 function normalizeSession(value: unknown): AiChatSession | null {
@@ -86,6 +97,7 @@ function normalizeSession(value: unknown): AiChatSession | null {
   const completionStatus =
     value.completionStatus === 'pending' ||
     value.completionStatus === 'complete' ||
+    value.completionStatus === 'continuable' ||
     value.completionStatus === 'partial' ||
     value.completionStatus === 'cancelled' ||
     value.completionStatus === 'error'
@@ -181,7 +193,12 @@ export function getAiChatCompletionStatus(
   status: AiChatStatus,
   turns: ChatTurn[],
 ): AiChatCompletionStatus | undefined {
-  if (status === 'done') return 'complete';
+  if (status === 'done') {
+    const latest = turns.at(-1);
+    return latest?.dynamicReading && latest.dynamicReading.stage !== 'complete'
+      ? 'continuable'
+      : 'complete';
+  }
   if (status === 'cancelled') return 'cancelled';
   if (status === 'error') {
     const latest = turns[turns.length - 1];

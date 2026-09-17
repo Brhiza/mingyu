@@ -24,6 +24,11 @@ import { buildLifetimePrompt } from 'mingyu-core/divination/qimen';
 import type { QizhengBirthRange, QizhengFlowBirthRange } from 'mingyu-core/qizheng';
 import type { AstrolabeBirthRange } from 'mingyu-core/divination/astrolabe-birth-range';
 import type { QimenLifetimeData } from 'mingyu-core/types';
+import {
+  runAstrolabeDynamicReadingRound,
+  type AstrolabeDynamicReadingCheckpoint,
+  type AstrolabeDynamicReadingSource,
+} from './astrolabe-dynamic-reading';
 
 export type ReadingTarget = 'primary' | 'partner';
 
@@ -44,6 +49,7 @@ export type ReadingResource = {
   kind?: 'evidence' | 'schema';
   sourceIds?: string[];
   structured?: Record<string, unknown>;
+  dynamicAstrolabe?: AstrolabeDynamicReadingSource;
 };
 type ZiweiPhaseStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled';
 type ZiweiPhaseMemory = {
@@ -116,6 +122,7 @@ export type ReadingMemory = {
   qimenPhaseReading?: QimenPhaseMemory;
   qizhengPhaseReading?: QizhengPhaseMemory;
   astrolabePhaseReading?: AstrolabePhaseMemory;
+  astrolabeDynamicReading?: AstrolabeDynamicReadingCheckpoint;
 };
 export type ReadingMemorySeed = {
   subjectId: string;
@@ -141,6 +148,7 @@ export interface ReadingOptions extends StreamOptions {
   readingMethod?: string;
   onProgress: (progress: ReadingProgress) => void;
   onNotice: (notice: string) => void;
+  onAstrolabeDynamicCheckpoint?: (checkpoint: AstrolabeDynamicReadingCheckpoint) => void;
 }
 
 const MAX_CONTEXT = 49_000;
@@ -2940,6 +2948,46 @@ export async function runReadingWorkflow(
   const guard = () => {
     if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   };
+  const dynamicResources = options.memory.resources.filter(
+    (resource) => resource.usable && resource.dynamicAstrolabe,
+  );
+  if (dynamicResources.length) {
+    try {
+      guard();
+      if (dynamicResources.length !== 1) throw new Error('请分别解读不同主体的动态出生区间。');
+      const source = dynamicResources[0].dynamicAstrolabe!;
+      if (options.subject?.id !== source.subjectId || options.subject.source !== 'astrolabe')
+        throw new Error('动态区间解读资料与锁定主体不匹配。');
+      const checkpoint = await runAstrolabeDynamicReadingRound(
+        source,
+        options.memory.astrolabeDynamicReading,
+        {
+          signal: options.signal,
+          aiConfig: options.aiConfig,
+          onChunk: options.onChunk,
+          question:
+            [...messages].reverse().find((message) => message.role === 'user')?.content ?? '',
+          onProgress: (text) => options.onProgress({ stage: 'writing', text }),
+        },
+        deps.stream,
+      );
+      guard();
+      options.memory.astrolabeDynamicReading = checkpoint;
+      options.onAstrolabeDynamicCheckpoint?.(checkpoint);
+      options.onNotice(
+        checkpoint.stage === 'pages'
+          ? `已完成${checkpoint.completedPages}页资料解读；继续下一批将从第${checkpoint.cursor!.branchIndex + 1}段第${checkpoint.cursor!.pageIndex + 1}页开始。整个区间尚未解读完成。`
+          : checkpoint.stage === 'summary'
+            ? '全部资料已逐页解读；继续下一批将归纳整个区间的共同结论和分段差异。'
+            : '全部资料与区间归纳均已完成。',
+      );
+      options.onDone();
+    } catch (error) {
+      if (!options.signal?.aborted)
+        options.onError(error instanceof Error ? error.message : '动态区间解读失败，请重试。');
+    }
+    return;
+  }
   const explicitReadingMethods = resolveReadingMethods(options.readingMethod);
   const latestUserQuestion =
     [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';

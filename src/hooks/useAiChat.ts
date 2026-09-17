@@ -8,15 +8,18 @@ import {
 } from '@/lib/ai/reading-workflow';
 import { executeReadingAction } from '@/lib/ai/reading-resources';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
+import type { AstrolabeDynamicReadingCheckpoint } from '@/lib/ai/astrolabe-dynamic-reading';
 
 export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'cancelled' | 'error';
-export type AiChatCompletionStatus = 'pending' | 'complete' | 'partial' | 'cancelled' | 'error';
+export type AiChatCompletionStatus =
+  'pending' | 'complete' | 'continuable' | 'partial' | 'cancelled' | 'error';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
   notices?: string[];
   incomplete?: boolean;
+  dynamicReading?: AstrolabeDynamicReadingCheckpoint;
 }
 
 export interface UseAiChat {
@@ -162,7 +165,10 @@ export function useAiChat(
       return;
     }
 
-    readingMemoryRef.current = memory;
+    readingMemoryRef.current = {
+      ...memory,
+      astrolabeDynamicReading: getLatestDynamicReadingCheckpoint(turnsRef.current),
+    };
     readingResourceRequirementRef.current = undefined;
     const restoredState = pendingRestoredStateRef.current;
     pendingRestoredStateRef.current = undefined;
@@ -240,6 +246,8 @@ export function useAiChat(
       readingMemoryRef.current = resourceKey
         ? (restoredMemory ?? { resources: [] })
         : createReadingMemory(undefined, restoredSubject?.id);
+      readingMemoryRef.current.astrolabeDynamicReading =
+        getLatestDynamicReadingCheckpoint(nextTurns);
       readingResourceRequirementRef.current =
         resourceKey && !restoredMemory ? resourceRequirement : undefined;
       readingSubjectLockedRef.current = true;
@@ -248,7 +256,11 @@ export function useAiChat(
       readingMethodRef.current = restoredReadingMethod ?? readingMethod;
       setProgress('');
       setNotices([]);
-      lastRequestRef.current = buildAiChatRequest(initialPrompt, nextTurns);
+      lastRequestRef.current = buildAiChatRequest(
+        initialPrompt,
+        nextTurns,
+        Boolean(getLatestDynamicReadingCheckpoint(nextTurns)),
+      );
       setTurns(nextTurns);
       setStreamingContent('');
       const restoredState = resolveRestoredAiChatState(nextTurns, initialPrompt, completionStatus);
@@ -319,6 +331,7 @@ export function useAiChat(
       noticesRef.current = [];
       setCanRetry(false);
 
+      let dynamicReading: AstrolabeDynamicReadingCheckpoint | undefined;
       void runReadingWorkflow(
         messages,
         {
@@ -329,6 +342,9 @@ export function useAiChat(
           readingMethod: readingMethodRef.current,
           onProgress: (value) => {
             if (abortRef.current === controller) setProgress(value.text);
+          },
+          onAstrolabeDynamicCheckpoint: (checkpoint) => {
+            dynamicReading = checkpoint;
           },
           onNotice: (notice) => {
             if (abortRef.current === controller) {
@@ -351,10 +367,15 @@ export function useAiChat(
             setStreamingContent('');
             if (finalContent) {
               const nextTurns = [
-                ...turnsRef.current,
+                ...turnsRef.current.map((turn) => {
+                  if (!dynamicReading || !turn.dynamicReading) return turn;
+                  const { dynamicReading: _previous, ...rest } = turn;
+                  return rest;
+                }),
                 {
                   role: 'assistant' as const,
                   content: finalContent,
+                  ...(dynamicReading ? { dynamicReading } : {}),
                   ...(noticesRef.current.length ? { notices: [...noticesRef.current] } : {}),
                 },
               ];
@@ -424,7 +445,13 @@ export function useAiChat(
       const nextTurns = [...turnsRef.current, { role: 'user' as const, content: trimmed }];
       turnsRef.current = nextTurns;
       setTurns(nextTurns);
-      startStream(buildAiChatRequest(initialPromptRef.current, nextTurns));
+      startStream(
+        buildAiChatRequest(
+          initialPromptRef.current,
+          nextTurns,
+          readingMemoryRef.current.resources.some((resource) => Boolean(resource.dynamicAstrolabe)),
+        ),
+      );
     },
     [startStream],
   );
@@ -467,13 +494,24 @@ export function useAiChat(
   };
 }
 
-type LatestChatTurnState = 'none' | 'user' | 'partial' | 'complete';
+export function getLatestDynamicReadingCheckpoint(turns: ChatTurn[]) {
+  return [...turns]
+    .reverse()
+    .find((turn) => turn.role === 'assistant' && !turn.incomplete && turn.dynamicReading)
+    ?.dynamicReading;
+}
+
+type LatestChatTurnState = 'none' | 'user' | 'partial' | 'complete' | 'continuable';
 
 function getLatestChatTurnState(turns: ChatTurn[]): LatestChatTurnState {
   const latestTurn = turns[turns.length - 1];
   if (!latestTurn) return 'none';
   if (latestTurn.role === 'user') return 'user';
-  return latestTurn.incomplete ? 'partial' : 'complete';
+  return latestTurn.incomplete
+    ? 'partial'
+    : latestTurn.dynamicReading && latestTurn.dynamicReading.stage !== 'complete'
+      ? 'continuable'
+      : 'complete';
 }
 
 function resolveLatestCompletionStatus(
@@ -500,6 +538,12 @@ function resolveLatestCompletionStatus(
       ? completionStatus
       : 'complete';
   }
+  if (latestState === 'continuable')
+    return completionStatus === 'pending' ||
+      completionStatus === 'cancelled' ||
+      completionStatus === 'error'
+      ? completionStatus
+      : 'continuable';
   return completionStatus;
 }
 
@@ -507,7 +551,19 @@ export function removeIncompleteChatTurns(turns: ChatTurn[]) {
   return turns.filter((turn) => !turn.incomplete);
 }
 
-export function buildAiChatRequest(initialPrompt: string, turns: ChatTurn[]): ChatMessage[] {
+export function buildAiChatRequest(
+  initialPrompt: string,
+  turns: ChatTurn[],
+  dynamic = false,
+): ChatMessage[] {
+  if (dynamic) {
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index];
+      if (turn.role === 'user' && !turn.incomplete)
+        return [{ role: 'user', content: turn.content }];
+    }
+    return initialPrompt ? [{ role: 'user', content: initialPrompt }] : [];
+  }
   const completeTurns = removeIncompleteChatTurns(turns).map(({ role, content }) => ({
     role,
     content,
@@ -533,7 +589,7 @@ export function resolveRestoredAiChatState(
       ? 'error'
       : restoredStatus === 'cancelled'
         ? 'cancelled'
-        : restoredStatus === 'complete'
+        : restoredStatus === 'complete' || restoredStatus === 'continuable'
           ? 'done'
           : 'idle',
     error:

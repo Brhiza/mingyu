@@ -41,7 +41,13 @@ import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
 import { hasAstrolabeBirthRangeSource } from '@/lib/astrolabe-birth-range';
 import { formatAstrolabeBirthRangePrompt } from '@/lib/astrolabe-birth-range-prompt';
 import { useAstrolabeBirthRange } from '@/hooks/useAstrolabeBirthRange';
+import { useAstrolabeDynamicRange } from '@/hooks/useAstrolabeDynamicRange';
 import { AstrolabeBirthRangePanel } from './components/AstrolabeBirthRangePanel';
+import {
+  AstrolabeDynamicRangePanel,
+  AstrolabeDynamicRangeControls,
+} from './components/AstrolabeDynamicRangePanel';
+import { AstrolabeDynamicPromptPanel } from './components/AstrolabeDynamicPromptPanel';
 import { hasQizhengBirthRangeSource } from '@/lib/qizheng-birth-range';
 import {
   formatQizhengBirthRangePrompt,
@@ -1238,19 +1244,32 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
   }, [inputState.birthReverseSource]);
   const astrolabeBirthRangeMode = !isInstantResult && astrolabeBirthSource.requested;
-  const astrolabeBirthRangeUnsupported =
+  const astrolabeDynamicRangeMode =
     astrolabeBirthRangeMode && promptState.astrolabeScope !== 'natal';
   const astrolabeBirthRangeState = useAstrolabeBirthRange(
     astrolabeInput,
     astrolabeBirthSource.source,
-    shouldCalculateAstrolabe && astrolabeBirthRangeMode && !astrolabeBirthRangeUnsupported,
+    shouldCalculateAstrolabe && astrolabeBirthRangeMode && !astrolabeDynamicRangeMode,
   );
+  const astrolabeDynamicRangeState = useAstrolabeDynamicRange(
+    astrolabeInput,
+    astrolabeBirthSource.source,
+    promptState.astrolabeScope === 'natal'
+      ? null
+      : { scope: promptState.astrolabeScope, referenceDate: promptState.astrolabeScopeDate },
+    shouldCalculateAstrolabe && astrolabeDynamicRangeMode,
+  );
+  const astrolabeRangeInputError = astrolabeBirthRangeMode
+    ? !astrolabeBirthSource.source
+      ? '出生区间资料不完整，请重新选择四柱候选日期。'
+      : astrolabeCalculation.error || ''
+    : '';
   const astrolabeBirthRangeError = astrolabeBirthRangeMode
-    ? astrolabeBirthRangeUnsupported
-      ? '西占出生区间目前只支持本命盘；请选择“本命总览”查看完整出生区间。'
-      : !astrolabeBirthSource.source
-        ? '出生区间资料不完整，请重新选择四柱候选日期。'
-        : astrolabeCalculation.error || astrolabeBirthRangeState.error || ''
+    ? astrolabeRangeInputError ||
+      (astrolabeDynamicRangeMode
+        ? astrolabeDynamicRangeState.error
+        : astrolabeBirthRangeState.error) ||
+      ''
     : '';
   const astrolabeVisibleError = astrolabeBirthRangeMode
     ? astrolabeBirthRangeError
@@ -1448,11 +1467,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     ? `${astrolabePeriodCollection.startDateTime}至${astrolabePeriodCollection.endDateTime}`
     : undefined;
   const astrolabeBirthRangePrompt = useMemo(() => {
-    if (
-      !astrolabeBirthRangeMode ||
-      astrolabeBirthRangeUnsupported ||
-      !astrolabeBirthRangeState.range
-    ) {
+    if (!astrolabeBirthRangeMode || astrolabeDynamicRangeMode || !astrolabeBirthRangeState.range) {
       return '';
     }
     return formatAstrolabeBirthRangePrompt(astrolabeBirthRangeState.range, {
@@ -1467,7 +1482,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [
     astrolabeBirthRangeMode,
     astrolabeBirthRangeState.range,
-    astrolabeBirthRangeUnsupported,
+    astrolabeDynamicRangeMode,
     effectiveAstrolabeQuickQuestion,
     promptState.astrolabeSubtopicId,
     promptState.astrolabeTopicId,
@@ -1476,11 +1491,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     if (deferredAstrolabeQuestion === effectiveAstrolabeQuickQuestion) {
       return astrolabeBirthRangePrompt;
     }
-    if (
-      !astrolabeBirthRangeMode ||
-      astrolabeBirthRangeUnsupported ||
-      !astrolabeBirthRangeState.range
-    ) {
+    if (!astrolabeBirthRangeMode || astrolabeDynamicRangeMode || !astrolabeBirthRangeState.range) {
       return '';
     }
     return formatAstrolabeBirthRangePrompt(astrolabeBirthRangeState.range, {
@@ -1496,7 +1507,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     astrolabeBirthRangePrompt,
     astrolabeBirthRangeMode,
     astrolabeBirthRangeState.range,
-    astrolabeBirthRangeUnsupported,
+    astrolabeDynamicRangeMode,
     deferredAstrolabeQuestion,
     effectiveAstrolabeQuickQuestion,
     promptState.astrolabeSubtopicId,
@@ -2287,7 +2298,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       (activeChartTab === 'astrolabe' || isAstrolabePromptSource)
     ) {
       return [
-        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；西占本命按出生整秒核对并分段呈现。`,
+        `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；西占按出生整秒核对并分段呈现。`,
       ];
     }
     if (source && qizhengRangeMode && (activeChartTab === 'qizheng' || isQizhengPromptSource)) {
@@ -2305,12 +2316,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ? `${basePreviewActivePromptText}\n\n${birthTimeIntervalSection}`
       : basePreviewActivePromptText;
 
+  const astrolabeDynamicResourceKey = astrolabeDynamicRangeMode
+    ? `astrolabe-dynamic-range:${JSON.stringify([readingSubject.id, astrolabeDynamicRangeState.key, effectiveAstrolabeQuickQuestion, promptState.astrolabeTopicId, promptState.astrolabeSubtopicId])}`
+    : '';
   const aiContextPrompt = useMemo(() => {
     if (!showAssistantPane) return '';
 
     if (isAstrolabePromptSource && astrolabeBirthRangeMode) {
-      return astrolabeBirthRangeUnsupported
-        ? ''
+      return astrolabeDynamicRangeMode
+        ? '请依据随后提供的西洋占星出生时间区间与推运资料，逐页解读本轮时段，完成全部资料后归纳共同判断与分段差异。'
         : '请依据随后提供的西洋占星本命出生时间区间资料，结合用户问题区分共同事实与分段事实。';
     }
 
@@ -2325,7 +2339,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return previewActivePromptText;
   }, [
     astrolabeBirthRangeMode,
-    astrolabeBirthRangeUnsupported,
+    astrolabeDynamicRangeMode,
     isAstrolabePromptSource,
     isQimenLifetimePromptSource,
     isQizhengPromptSource,
@@ -2363,11 +2377,38 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
     if (!readingSubject.id) return undefined;
     if (isAstrolabePromptSource && astrolabeBirthRangeMode) {
-      if (
-        astrolabeBirthRangeUnsupported ||
-        !astrolabeBirthRangeState.range ||
-        !astrolabeBirthRangePrompt
-      ) {
+      if (astrolabeDynamicRangeMode) {
+        if (!astrolabeDynamicRangeState.summary) return undefined;
+        const key = astrolabeDynamicResourceKey;
+        return {
+          subjectId: readingSubject.id,
+          key,
+          resources: [
+            {
+              key,
+              title: '西洋占星动态出生区间',
+              text: '',
+              usable: true,
+              dynamicAstrolabe: {
+                key,
+                subjectId: readingSubject.id,
+                summary: astrolabeDynamicRangeState.summary,
+                readBranch: astrolabeDynamicRangeState.readBranch,
+                promptOptions: {
+                  question: effectiveAstrolabeQuickQuestion,
+                  ...(promptState.astrolabeTopicId
+                    ? {
+                        topicId: promptState.astrolabeTopicId,
+                        subtopicId: promptState.astrolabeSubtopicId || undefined,
+                      }
+                    : {}),
+                },
+              },
+            },
+          ],
+        };
+      }
+      if (!astrolabeBirthRangeState.range || !astrolabeBirthRangePrompt) {
         return undefined;
       }
       const key = `astrolabe-birth-range:${JSON.stringify([
@@ -2426,7 +2467,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     astrolabeBirthRangeMode,
     astrolabeBirthRangePrompt,
     astrolabeBirthRangeState.range,
-    astrolabeBirthRangeUnsupported,
+    astrolabeDynamicRangeMode,
+    astrolabeDynamicRangeState.summary,
+    astrolabeDynamicRangeState.readBranch,
+    astrolabeDynamicResourceKey,
     astrolabeRangeSelectionKey,
     effectiveAstrolabeQuickQuestion,
     promptState.astrolabeTopicId,
@@ -2445,8 +2489,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   const workflowPrompt = useMemo(() => {
     if (!isInstantResult && isAstrolabePromptSource && astrolabeBirthRangeMode) {
-      return astrolabeBirthRangeUnsupported
-        ? ''
+      return astrolabeDynamicRangeMode
+        ? '请依据随后提供的西洋占星出生时间区间与推运资料逐页解读，每轮注明适用出生时段；全部页完成后再归纳整个区间的共同判断与差异。'
         : '依据随后提供的西洋占星本命出生时间区间资料，结合用户问题解读，先说明整个区间共同成立的判断，再区分各出生时段的差异。';
     }
     if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
@@ -2471,7 +2515,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     astrolabeBirthRangeMode,
-    astrolabeBirthRangeUnsupported,
+    astrolabeDynamicRangeMode,
     isAstrolabePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
@@ -3046,17 +3090,24 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             <div className="single-panel-shell">
               <section className="panel result-panel result-panel-astrolabe">
                 {astrolabeBirthRangeMode ? (
-                  <AstrolabeBirthRangePanel
-                    {...astrolabeBirthRangeState}
-                    error={astrolabeBirthRangeError || astrolabeBirthRangeState.error}
-                    selectedIndex={astrolabeBranchIndex}
-                    onSelect={(index) =>
-                      setAstrolabeBranchSelection({
-                        key: astrolabeRangeSelectionKey,
-                        index,
-                      })
-                    }
-                  />
+                  astrolabeDynamicRangeMode ? (
+                    <AstrolabeDynamicRangePanel
+                      state={astrolabeDynamicRangeState}
+                      error={astrolabeRangeInputError}
+                    />
+                  ) : (
+                    <AstrolabeBirthRangePanel
+                      {...astrolabeBirthRangeState}
+                      error={astrolabeBirthRangeError || astrolabeBirthRangeState.error}
+                      selectedIndex={astrolabeBranchIndex}
+                      onSelect={(index) =>
+                        setAstrolabeBranchSelection({
+                          key: astrolabeRangeSelectionKey,
+                          index,
+                        })
+                      }
+                    />
+                  )
                 ) : astrolabeCalculation.error ? (
                   <p className="error-text">{astrolabeCalculation.error}</p>
                 ) : null}
@@ -3133,6 +3184,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             isAiEnabled ? (
               /* ── AI 模式：上方纯解答，工具和大输入框固定在底部 ── */
               <div className="workspace-ai-layout is-answer-workbench">
+                {isAstrolabePromptSource &&
+                astrolabeDynamicRangeMode &&
+                !astrolabeDynamicRangeState.summary ? (
+                  <AstrolabeDynamicRangeControls
+                    state={astrolabeDynamicRangeState}
+                    error={astrolabeRangeInputError}
+                  />
+                ) : null}
                 <AiChatPanel
                   contextPrompt={aiContextPrompt}
                   workflowPrompt={workflowPrompt || undefined}
@@ -3150,7 +3209,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   }
                   onRetryReadingResources={
                     isAstrolabePromptSource && astrolabeBirthRangeMode
-                      ? astrolabeBirthRangeState.retry
+                      ? astrolabeDynamicRangeMode
+                        ? astrolabeDynamicRangeState.start
+                        : astrolabeBirthRangeState.retry
                       : isQizhengPromptSource && qizhengRangeMode
                         ? qizhengRangeState.retry
                         : isQimenLifetimePromptSource
@@ -3159,7 +3220,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   }
                   historyKey={getChartChatHistoryContext(
                     isAstrolabePromptSource && astrolabeBirthRangeMode
-                      ? `${aiContextPrompt}\n${readingResourceSeed?.key ?? readingSubject.id}`
+                      ? `${aiContextPrompt}\n${astrolabeDynamicRangeMode ? astrolabeDynamicResourceKey : (readingResourceSeed?.key ?? readingSubject.id)}`
                       : isQizhengPromptSource && qizhengRangeMode
                         ? `${aiContextPrompt}\n${readingSubject.id}`
                         : isQimenLifetimePromptSource
@@ -3179,6 +3240,29 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               /* ── 非 AI 模式：提示词在上，选择与输入固定在底部 ── */
               <div className="workspace-prompt-layout is-workbench">
                 <PromptWorkbenchPanel
+                  pagedPreview={
+                    isAstrolabePromptSource && astrolabeDynamicRangeMode ? (
+                      astrolabeDynamicRangeState.summary ? (
+                        <AstrolabeDynamicPromptPanel
+                          summary={astrolabeDynamicRangeState.summary}
+                          readBranch={astrolabeDynamicRangeState.readBranch}
+                          options={{
+                            question: effectiveAstrolabeQuickQuestion,
+                            ...(promptState.astrolabeTopicId
+                              ? {
+                                  topicId: promptState.astrolabeTopicId,
+                                  subtopicId: promptState.astrolabeSubtopicId || undefined,
+                                }
+                              : {}),
+                          }}
+                        />
+                      ) : (
+                        <p role="status">
+                          完成上方出生区间核对后，可在此逐页查看、复制和分享解读资料。
+                        </p>
+                      )
+                    ) : undefined
+                  }
                   promptText={previewActivePromptText}
                   fallback={
                     ziweiError &&
@@ -3247,10 +3331,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
       {!isAssistantPage ? (
         <>
-          <ResultShareFab
-            disabled={!latestActivePromptText}
-            onShare={() => setIsShareModalOpen(true)}
-          />
+          {!(isAstrolabePromptSource && astrolabeDynamicRangeMode) ? (
+            <ResultShareFab
+              disabled={!latestActivePromptText}
+              onShare={() => setIsShareModalOpen(true)}
+            />
+          ) : null}
           <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
         </>
       ) : null}

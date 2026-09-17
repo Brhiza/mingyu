@@ -689,6 +689,23 @@ function AiChatPanelImpl({
 
           {/* 底部输入区 */}
           <div className="ai-chat-input-area">
+            {status === 'done' &&
+            turns.at(-1)?.dynamicReading &&
+            turns.at(-1)?.dynamicReading?.stage !== 'complete' ? (
+              <WorkspaceButton
+                disabled={!isContextReady}
+                onClick={() => {
+                  shouldAutoScrollRef.current = true;
+                  ask(
+                    turns.at(-1)?.dynamicReading?.stage === 'summary'
+                      ? '请归纳整个出生区间的共同判断与分段差异。'
+                      : '请继续解读下一批资料。',
+                  );
+                }}
+              >
+                {turns.at(-1)?.dynamicReading?.stage === 'summary' ? '归纳整个区间' : '继续下一批'}
+              </WorkspaceButton>
+            ) : null}
             {historySaveError ? (
               <p role="status" className="ai-chat-workflow-notice">
                 {historySaveError}
