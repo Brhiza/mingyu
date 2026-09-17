@@ -318,6 +318,89 @@ function buildControlFunctionEvidence(
   });
 }
 
+const RESOURCE_TEN_GODS = new Set(['正印', '偏印']);
+const OUTPUT_TEN_GODS = new Set(['食神', '伤官']);
+
+/**
+ * 通用专旺只把印比作为已确定的顺势基础。食伤沿用《滴天髓阐微》的条件结论：
+ * 原局印轻且泄秀作用成立时方可取；已有结构化印食作用链时只限制具体对象干。
+ */
+function applySpecialStrongOutputConditions(
+  state: UsefulGodDecisionState,
+  pattern: PatternAnalysis,
+  dmWuxing: string,
+): UsefulGodDecisionState {
+  if (!pattern.isSpecial || pattern.pattern !== '专旺格') return state;
+
+  const outputWuxing = BASIC_MAPPINGS.WUXING_SHENG[dmWuxing];
+  const isProvenResourceOutputPath = (path: UsefulGodControlFunctionEvidence) => {
+    if (path.status !== '满足' || !path.sourceStems.length || !path.targetStems.length) {
+      return false;
+    }
+    return (
+      path.sourceStems.every((stem) =>
+        path.sourceRootEvidence.some(
+          (evidence) => evidence.stem === stem && RESOURCE_TEN_GODS.has(evidence.tenGod),
+        ),
+      ) &&
+      path.targetStems.every((stem) =>
+        path.targetRootEvidence.some(
+          (evidence) => evidence.stem === stem && OUTPUT_TEN_GODS.has(evidence.tenGod),
+        ),
+      )
+    );
+  };
+  const resourceOutputPaths = (state.decisionEvidence.controlFunctions ?? []).filter(
+    isProvenResourceOutputPath,
+  );
+  const restrictedOutputStems = [
+    ...new Set(resourceOutputPaths.flatMap((path) => path.targetStems)),
+  ];
+  const conditionalFavorableStems = (state.conditionalFavorableStems ?? []).filter(
+    (stem) => !restrictedOutputStems.includes(stem),
+  );
+  const conditionalUnfavorableStems = [
+    ...new Set([...(state.conditionalUnfavorableStems ?? []), ...restrictedOutputStems]),
+  ];
+  const conditionalFavorableWuxing = [
+    ...new Set([...(state.conditionalFavorableWuxing ?? []), outputWuxing]),
+  ];
+  const appliedLayers = state.decisionEvidence.appliedLayers.includes('专旺食伤条件')
+    ? state.decisionEvidence.appliedLayers
+    : [...state.decisionEvidence.appliedLayers, '专旺食伤条件'];
+  const conflictText = resourceOutputPaths
+    .map(
+      (path) => `${path.label}[${path.sourceStems.join('、')} -> ${path.targetStems.join('、')}]`,
+    )
+    .join('；');
+  const trace = [
+    ...state.trace,
+    `食伤条件:${outputWuxing}仅在原局印轻且食伤泄秀作用成立时纳入喜用`,
+    ...(conflictText
+      ? [`印食作用限制:${conflictText}，只限制已证作用对象干，不扩大为${outputWuxing}忌`]
+      : []),
+  ];
+  const conflicts = conflictText
+    ? [...state.decisionEvidence.conflicts, `印食具体作用:${conflictText}`]
+    : state.decisionEvidence.conflicts;
+
+  return {
+    ...state,
+    conditionalFavorableStems,
+    conditionalUnfavorableStems,
+    conditionalFavorableWuxing,
+    trace,
+    decisionEvidence: {
+      ...state.decisionEvidence,
+      conditionalFavorableStems,
+      conditionalUnfavorableStems,
+      conditionalFavorableWuxing,
+      appliedLayers,
+      conflicts,
+    },
+  };
+}
+
 function buildBaseDecisionState(
   strengthStatus: string,
   pattern: PatternAnalysis,
@@ -383,14 +466,18 @@ function buildBaseDecisionState(
     trace.push(`制化证据待核:${uncertainPaths.map((path) => path.key).join('、')}；不直接改喜忌`);
   }
 
-  return {
-    favorableWuxing: [...favorable],
-    unfavorableWuxing: [...unfavorable],
-    trace,
-    primaryReason,
-    matchedRuleIds: [matchedRule.id],
-    decisionEvidence,
-  };
+  return applySpecialStrongOutputConditions(
+    {
+      favorableWuxing: [...favorable],
+      unfavorableWuxing: [...unfavorable],
+      trace,
+      primaryReason,
+      matchedRuleIds: [matchedRule.id],
+      decisionEvidence,
+    },
+    pattern,
+    dmWuxing,
+  );
 }
 
 function resolveCommanderWuxing(monthCommander?: string, isPatternSpecial?: boolean): string {

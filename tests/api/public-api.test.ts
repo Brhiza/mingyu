@@ -1697,6 +1697,40 @@ test('公开 API 八字轻量结果保留普通格局破格干限制', async () 
   assert.doesNotMatch(body.data.analysis.usefulGod.strategyTrace.join('；'), /先取丁火/);
 });
 
+test('公开 API 完整与轻量结果同源保留专旺食伤条件', async () => {
+  const input = {
+    gender: 'male',
+    year: 1903,
+    month: 4,
+    day: 6,
+    timeIndex: 0,
+    dateType: 'solar',
+  };
+  const results = await Promise.all(
+    ['compact', 'full'].map((detailMode) =>
+      callApi('bazi/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...input, detailMode }),
+      }),
+    ),
+  );
+
+  for (const { response, body } of results) {
+    assert.equal(response.status, 200);
+    assert.equal(body.data.analysis.dayMasterStrength.status, '极强');
+    assert.equal(body.data.analysis.mingGe.pattern, '专旺格');
+    assert.deepEqual(body.data.analysis.usefulGod.favorableWuxing, ['水', '木']);
+    assert.deepEqual(body.data.analysis.usefulGod.conditionalFavorableWuxing, ['火']);
+    assert.equal(body.data.analysis.usefulGod.favorableWuxing.includes('火'), false);
+    assert.match(
+      body.data.analysis.usefulGod.strategyTrace.join('；'),
+      /食伤条件:火仅在原局印轻且食伤泄秀作用成立时纳入喜用/,
+    );
+    assert.deepEqual(body.data.analysis.usefulGod.decisionEvidence.base.favorable, ['水', '木']);
+  }
+});
+
 test('公开 API 八字排盘应支持真太阳时精确时分和经度', async () => {
   const corrected = calculateTrueSolarTime(
     {

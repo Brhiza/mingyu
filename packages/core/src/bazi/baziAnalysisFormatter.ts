@@ -49,6 +49,14 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
   const otherConditionalUnfavorableStems = (usefulGod.conditionalUnfavorableStems ?? []).filter(
     (stem) => !patternRestrictedStems.has(stem),
   );
+  const isGenericSpecialStrong = usefulGod.matchedRules?.some(
+    (rule) => rule.id === 'follow-special-strong',
+  );
+  const specialStrongOutputCondition = isGenericSpecialStrong
+    ? (usefulGod.conditionalFavorableWuxing ?? []).map(
+        (wuxing) => `专旺食伤条件：${wuxing}仅在原局印轻且食伤泄秀作用成立时纳入喜用`,
+      )
+    : [];
   return [
     ...(usefulGod.decisionEvidence?.transformation
       ? [
@@ -62,6 +70,7 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       ? `取用配合：${usefulGod.decisionEvidence.balanceAdjustment.reason}`
       : '',
     descriptions.length ? `条件取用：${descriptions.join('；')}` : '',
+    ...specialStrongOutputCondition,
     ...patternBreakerRestrictions.map(
       (breaker) =>
         `格局破格所忌：${breaker.stems.map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`).join('、')}；${breaker.label}的救应明确不成立`,
