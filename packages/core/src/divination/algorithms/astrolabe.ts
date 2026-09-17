@@ -471,6 +471,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
       dateTime: formatDateTime(standardBirth),
+      ...(input.second === undefined ? {} : { second: standardBirth.second }),
       location:
         locationName.length > 0
           ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`

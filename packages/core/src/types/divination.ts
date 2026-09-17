@@ -1482,6 +1482,8 @@ export interface AstrolabeData {
     name: string;
     gender: AlmanacParticipantGender;
     dateTime: string;
+    /** 显式提供出生秒数时保留原始秒；旧的分钟输入继续省略。 */
+    second?: number;
     location: string;
     latitude?: number;
     longitude?: number;

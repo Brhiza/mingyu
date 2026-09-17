@@ -42,6 +42,7 @@ test('秒级出生精度应保留到八字、星盘、七政和择日输入', ()
   const { second: _second, ...minuteProfile } = profile;
   assert.equal(normalizeBirthProfile(minuteProfile).timePrecision, 'minute');
   assert.equal(normalizeBirthProfile(minuteProfile).timeEvidence.inputFact.clockTime, '12:34');
+  assert.equal(birthProfileToAstrolabeInput(minuteProfile).second, undefined);
 });
 
 test('统一出生档案缺少时间时应在排盘前拒绝', () => {

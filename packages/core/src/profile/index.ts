@@ -592,7 +592,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     day: String(clock.day),
     hour: String(clock.hour),
     minute: String(clock.minute),
-    second: String(clock.second),
+    ...(profile.second === undefined ? {} : { second: String(clock.second) }),
     latitude: String(location.latitude),
     longitude: String(location.longitude),
     ...(location.timezone !== undefined ? { timezone: String(location.timezone) } : {}),
