@@ -5,8 +5,8 @@ import {
   calculateTransits,
   getSunPosition,
   time,
-  type ChartPlanet,
   type NatalPoint,
+  type TransitPosition,
   type Transit,
 } from '../astrology/engine';
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
@@ -69,9 +69,86 @@ export type AstrolabeScopeContext = {
   solarReturnEvidence?: SolarReturnEvidence;
   secondaryProgressionEvidence?: SecondaryProgressionEvidence;
   solarArcEvidence?: SolarArcEvidence;
+  /** 行运相位原始事实；transitEvidence 保留现有中文摘要文本。 */
+  transitFacts?: AstrolabeTransitEvidence;
+  /** 行运落宫原始事实；transitHouseEvidence 保留现有中文摘要文本。 */
+  transitHouseFacts?: AstrolabeTransitHouseEvidence;
   periodEvents?: AstrolabePeriodEventCollection;
   periodBatch?: AstrolabePeriodBatch & { includesScopeFacts: boolean };
 };
+
+export type AstrolabeTransitEvidenceStatus = '资料不足' | '无相位' | '有效';
+
+export interface AstrolabeTransitPointFact {
+  name: string;
+  label: string;
+  longitude: number;
+  latitude?: number;
+  distance?: number;
+  /** 底层星历星座标识；中文 signLabel 仅用于展示。 */
+  sign: string;
+  signLabel: string;
+  degree: number;
+  minute: number;
+  second?: number;
+  longitudeSpeed?: number;
+  retrograde?: boolean;
+  /** 本命点自身或行运点落入的本命宫；无法定位时为 null。 */
+  natalHouse: number | null;
+}
+
+export interface AstrolabeTransitAspectFact {
+  key: string;
+  status: '有效';
+  transiting: AstrolabeTransitPointFact;
+  natal: AstrolabeTransitPointFact;
+  aspectType: string;
+  aspectName: string;
+  symbol: string;
+  actualAngle: number;
+  exactAngle: number;
+  allowedOrb: number;
+  isOutOfSign: boolean;
+  deviation: number;
+  strength: number;
+  phase: Transit['phase'];
+  /** 维持原有主线筛选后的成员身份，同时 facts 保留完整排序结果。 */
+  line: '主线' | '其余';
+  promptText: string;
+}
+
+export interface AstrolabeTransitEvidence {
+  status: AstrolabeTransitEvidenceStatus;
+  facts: AstrolabeTransitAspectFact[];
+  headlineFactKeys: string[];
+  promptText: string;
+}
+
+export interface AstrolabeTransitHouseFact {
+  key: string;
+  status: '有效';
+  transitingBody: string;
+  label: string;
+  longitude: number;
+  latitude?: number;
+  distance?: number;
+  /** 底层星历星座标识；中文 signLabel 仅用于展示。 */
+  sign: string;
+  signLabel: string;
+  degree: number;
+  minute: number;
+  second: number;
+  longitudeSpeed?: number;
+  retrograde: boolean;
+  natalHouse: number | null;
+  promptText: string;
+}
+
+export interface AstrolabeTransitHouseEvidence {
+  status: Exclude<AstrolabeTransitEvidenceStatus, '无相位'>;
+  facts: AstrolabeTransitHouseFact[];
+  promptText: string;
+}
 
 export type AstrolabeFullScopeContexts = {
   natal: AstrolabeScopeContext;
@@ -299,6 +376,21 @@ const SIGN_LABELS: Record<string, string> = {
   Pisces: '双鱼座',
 };
 
+const SIGN_NAMES = [
+  'Aries',
+  'Taurus',
+  'Gemini',
+  'Cancer',
+  'Leo',
+  'Virgo',
+  'Libra',
+  'Scorpio',
+  'Sagittarius',
+  'Capricorn',
+  'Aquarius',
+  'Pisces',
+] as const;
+
 const ASPECT_LABELS: Record<string, string> = {
   conjunction: '合相',
   sextile: '六合',
@@ -411,12 +503,6 @@ function formatAnchorDate(date: { year: number; month: number; day: number }) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} 12:00`;
 }
 
-function formatAstrolabePlanetPosition(
-  planet: Pick<ChartPlanet, 'signName' | 'degree' | 'minute'>,
-) {
-  return `${SIGN_LABELS[planet.signName] ?? planet.signName}${planet.degree}°${String(planet.minute).padStart(2, '0')}′`;
-}
-
 function isFiniteLongitude(point: Partial<AstrolabePoint>) {
   return typeof point.longitude === 'number' && Number.isFinite(point.longitude);
 }
@@ -479,6 +565,110 @@ function formatTransitLine(transit: Transit) {
   return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${phase}${retrograde}）`;
 }
 
+function buildTransitPointFact(point: TransitPosition, name: string, natalHouse: number | null) {
+  return {
+    name,
+    label: CELESTIAL_BODY_LABELS[name] ?? name,
+    longitude: point.longitude,
+    ...(point.latitude !== undefined ? { latitude: point.latitude } : {}),
+    ...(point.distance !== undefined ? { distance: point.distance } : {}),
+    sign: point.signName,
+    signLabel: SIGN_LABELS[point.signName] ?? point.signName,
+    degree: point.degree,
+    minute: point.minute,
+    second: point.second,
+    ...(point.longitudeSpeed !== undefined ? { longitudeSpeed: point.longitudeSpeed } : {}),
+    retrograde: point.isRetrograde,
+    natalHouse,
+  } satisfies AstrolabeTransitPointFact;
+}
+
+function buildNatalPointFact(point: AstrolabePoint) {
+  const sign = signNameFromLongitude(point.longitude);
+  return {
+    name: point.name,
+    label: point.label || NATAL_POINT_NAME_MAP[point.name] || point.name,
+    longitude: point.longitude,
+    ...(point.latitude !== undefined ? { latitude: point.latitude } : {}),
+    ...(point.distance !== undefined ? { distance: point.distance } : {}),
+    sign,
+    signLabel: point.sign || SIGN_LABELS[sign] || sign,
+    degree: point.degree,
+    minute: point.minute,
+    ...(point.second !== undefined ? { second: point.second } : {}),
+    ...(point.longitudeSpeed !== undefined ? { longitudeSpeed: point.longitudeSpeed } : {}),
+    retrograde: point.retrograde,
+    natalHouse: point.house || null,
+  } satisfies AstrolabeTransitPointFact;
+}
+
+function getNatalPointSources(data: AstrolabeData) {
+  return new Map(
+    [...data.planets, ...data.angles]
+      .filter((point) => NATAL_POINT_NAME_MAP[point.name] && isFiniteLongitude(point))
+      .map((point) => [point.name, point] as const),
+  );
+}
+
+function getTransitEvidencePrompt(evidence: AstrolabeTransitEvidence) {
+  if (evidence.status === '资料不足') return '主要行运相位：本命点经度资料不足。';
+  if (evidence.status === '无相位') return '主要行运相位：所选日期未见当前容许度内的主要相位。';
+
+  const factsByKey = new Map(evidence.facts.map((fact) => [fact.key, fact]));
+  const lead = evidence.headlineFactKeys
+    .map((key) => factsByKey.get(key))
+    .filter((fact): fact is AstrolabeTransitAspectFact => Boolean(fact));
+  const leadKeys = new Set(evidence.headlineFactKeys);
+  const remaining = evidence.facts.filter((fact) => !leadKeys.has(fact.key));
+  return [
+    `主要行运相位：${lead.map((fact) => fact.promptText).join('；')}。`,
+    remaining.length
+      ? `其余取样相位：${remaining.map((fact) => fact.promptText).join('；')}。`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function buildTransitAspectFact(
+  transit: Transit,
+  natalPoint: AstrolabePoint,
+  natalHouse: number | null,
+): AstrolabeTransitAspectFact {
+  const transiting = buildTransitPointFact(
+    transit.transitingPosition,
+    transit.transitingBody,
+    natalHouse,
+  );
+  const natal = buildNatalPointFact(natalPoint);
+  return {
+    key: `transit:${transit.transitingBody}:${transit.natalPoint}:${transit.aspectType}`,
+    status: '有效',
+    transiting,
+    natal,
+    aspectType: transit.aspectType,
+    aspectName: ASPECT_LABELS[transit.aspectType] ?? transit.aspectType,
+    symbol: transit.symbol,
+    actualAngle: transit.actualAngle,
+    exactAngle: transit.exactAngle,
+    allowedOrb: transit.allowedOrb,
+    isOutOfSign: transit.isOutOfSign,
+    deviation: transit.deviation,
+    strength: transit.strength,
+    phase: transit.phase,
+    line: '其余',
+    promptText: formatTransitLine(transit),
+  };
+}
+
+function formatTransitHouseFactLine(fact: AstrolabeTransitHouseFact) {
+  const position = `${fact.signLabel}${fact.degree}°${String(fact.minute).padStart(2, '0')}′`;
+  const retrograde = fact.retrograde ? '，逆行' : '';
+  return fact.natalHouse
+    ? `${fact.label}${position}${retrograde}落本命第${fact.natalHouse}宫`
+    : `${fact.label}${position}${retrograde}未能定位本命落宫`;
+}
+
 function getNatalHouseCusps(data: AstrolabeData) {
   const cusps = data.houses
     .slice()
@@ -491,6 +681,10 @@ function getNatalHouseCusps(data: AstrolabeData) {
 function normalizeLongitude(longitude: number) {
   const normalized = longitude % 360;
   return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function signNameFromLongitude(longitude: number) {
+  return SIGN_NAMES[Math.floor(normalizeLongitude(longitude) / 30)] ?? '';
 }
 
 const ADVANCED_ASPECTS = [
@@ -1728,7 +1922,11 @@ function buildTransitHouseEvidence(
 ) {
   const cusps = getNatalHouseCusps(data);
   if (!cusps) {
-    return '行运落宫：本命宫头资料不足。';
+    return {
+      status: '资料不足' as const,
+      facts: [],
+      promptText: '行运落宫：本命宫头资料不足。',
+    } satisfies AstrolabeTransitHouseEvidence;
   }
 
   const planets = calculateScopePlanets(data, {
@@ -1737,22 +1935,43 @@ function buildTransitHouseEvidence(
     minute: 0,
   });
   const allowedBodies = getTransitBodiesForScope(scope);
-  const lines = planets
+  const facts = planets
     .filter((planet) => allowedBodies.has(planet.name))
     .map((planet) => {
       const natalHouse = getNatalHouseByLongitude(planet.longitude, cusps);
       const label = CELESTIAL_BODY_LABELS[planet.name] ?? planet.name;
-      const position = formatAstrolabePlanetPosition(planet);
-      const retrograde = planet.isRetrograde ? '，逆行' : '';
-      return natalHouse
-        ? `${label}${position}${retrograde}落本命第${natalHouse}宫`
-        : `${label}${position}${retrograde}未能定位本命落宫`;
+      const fact: AstrolabeTransitHouseFact = {
+        key: `transit-house:${planet.name}`,
+        status: '有效',
+        transitingBody: planet.name,
+        label,
+        longitude: planet.longitude,
+        ...(planet.latitude !== undefined ? { latitude: planet.latitude } : {}),
+        ...(planet.distance > 0 ? { distance: planet.distance } : {}),
+        sign: planet.signName,
+        signLabel: SIGN_LABELS[planet.signName] ?? planet.signName,
+        degree: planet.degree,
+        minute: planet.minute,
+        second: planet.second,
+        longitudeSpeed: planet.longitudeSpeed,
+        retrograde: planet.isRetrograde,
+        natalHouse,
+        promptText: '',
+      };
+      fact.promptText = formatTransitHouseFactLine(fact);
+      return fact;
     });
 
-  if (!lines.length) {
+  if (!facts.length) {
     throw new Error('未取得可用行运行星位置，无法计算行运落宫。');
   }
-  return `行运落宫：取样时区UTC${timezone >= 0 ? '+' : ''}${timezone}；${lines.join('；')}。`;
+  return {
+    status: '有效' as const,
+    facts,
+    promptText: `行运落宫：取样时区UTC${timezone >= 0 ? '+' : ''}${timezone}；${facts
+      .map((fact) => fact.promptText)
+      .join('；')}。`,
+  } satisfies AstrolabeTransitHouseEvidence;
 }
 
 function buildTransitEvidence(
@@ -1762,7 +1981,12 @@ function buildTransitEvidence(
 ) {
   const natalPoints = buildNatalPoints(data);
   if (natalPoints.length < 3) {
-    return '主要行运相位：本命点经度资料不足。';
+    return {
+      status: '资料不足' as const,
+      facts: [],
+      headlineFactKeys: [],
+      promptText: '主要行运相位：本命点经度资料不足。',
+    } satisfies AstrolabeTransitEvidence;
   }
 
   const julianDate = time.toJulianDate({
@@ -1789,11 +2013,30 @@ function buildTransitEvidence(
   const ranked = result.transits.sort(
     (first, second) => second.strength - first.strength || first.deviation - second.deviation,
   );
-  const transitLines = ranked.map(formatTransitLine);
 
-  if (transitLines.length === 0) {
-    return '主要行运相位：所选日期未见当前容许度内的主要相位。';
+  if (ranked.length === 0) {
+    return {
+      status: '无相位' as const,
+      facts: [],
+      headlineFactKeys: [],
+      promptText: '主要行运相位：所选日期未见当前容许度内的主要相位。',
+    } satisfies AstrolabeTransitEvidence;
   }
+
+  const natalPointSources = getNatalPointSources(data);
+  const natalHouseCusps = getNatalHouseCusps(data);
+  const facts = ranked.map((transit) => {
+    const natalPoint = natalPointSources.get(transit.natalPoint);
+    if (!natalPoint) {
+      throw new Error(`行运相位缺少本命点资料：${transit.natalPoint}。`);
+    }
+    const natalHouse = getNatalHouseByLongitude(
+      transit.transitingPosition.longitude,
+      natalHouseCusps ?? [],
+    );
+    return buildTransitAspectFact(transit, natalPoint, natalHouse);
+  });
+  const completeFacts = facts;
 
   const headline = ranked
     .filter(
@@ -1805,17 +2048,25 @@ function buildTransitEvidence(
         item.natalPoint === 'Midheaven' ||
         item.natalPoint === 'North Node',
     )
-    .slice(0, 6)
-    .map(formatTransitLine);
-  const lead = headline.length ? headline : transitLines.slice(0, 6);
-  const leadSet = new Set(lead);
-  const remaining = transitLines.filter((line) => !leadSet.has(line));
-  return [
-    `主要行运相位：${lead.join('；')}。`,
-    remaining.length ? `其余取样相位：${remaining.join('；')}。` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
+    .slice(0, 6);
+  const headlineIndexes = new Set(
+    (headline.length ? headline : ranked.slice(0, 6)).map((item) => ranked.indexOf(item)),
+  );
+  const headlineFactKeys = completeFacts
+    .filter((_, index) => headlineIndexes.has(index))
+    .map((fact) => fact.key);
+  const factsWithLine = completeFacts.map((fact) => ({
+    ...fact,
+    line: headlineFactKeys.includes(fact.key) ? ('主线' as const) : ('其余' as const),
+  }));
+  const evidence: AstrolabeTransitEvidence = {
+    status: '有效',
+    facts: factsWithLine,
+    headlineFactKeys,
+    promptText: '',
+  };
+  evidence.promptText = getTransitEvidencePrompt(evidence);
+  return evidence;
 }
 
 function formatAdvancedScopeFacts(params: {
@@ -1902,12 +2153,14 @@ export function buildAstrolabeScopeContext(
     ? `${data.birth.timeZoneId}（UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}）`
     : `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
   const includeScopeFacts = options.includeScopeFacts ?? true;
-  const transitEvidence = includeScopeFacts
+  const transitFacts = includeScopeFacts
     ? buildTransitEvidence(data, target, targetTimezone)
     : undefined;
-  const transitHouseEvidence = includeScopeFacts
+  const transitHouseFacts = includeScopeFacts
     ? buildTransitHouseEvidence(data, scope, target, targetTimezone)
     : undefined;
+  const transitEvidence = transitFacts?.promptText;
+  const transitHouseEvidence = transitHouseFacts?.promptText;
   const solarReturnEvidence =
     includeScopeFacts && scope === 'yearly'
       ? calculateSolarReturnEvidence(data, target.year)
@@ -1954,6 +2207,8 @@ export function buildAstrolabeScopeContext(
     solarReturnEvidence,
     secondaryProgressionEvidence,
     solarArcEvidence,
+    transitFacts,
+    transitHouseFacts,
     periodEvents,
     periodBatch,
   };
