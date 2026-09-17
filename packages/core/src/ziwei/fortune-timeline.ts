@@ -22,6 +22,8 @@ export type ZiweiFortuneRangeOptions = {
   /** 未提供时使用默认当前时点；网页、API 和 MCP 可传入同一固定日期。 */
   dateStr?: string;
   hourIndex?: number;
+  /** 当前阶段或全部范围按年龄年分页；同一年龄年的实际流年交界片段完整返回。 */
+  batch?: { startIndex?: number; limit?: number };
 };
 
 export type ZiweiFortuneLayer = {
@@ -80,6 +82,13 @@ export type ZiweiFortuneTimeline = {
   actualEndDateStr: string;
   selectedPeriodIndex: number;
   periods: ZiweiFortunePeriod[];
+  batch?: {
+    unit: 'age-year';
+    totalYears: number;
+    startIndex: number;
+    endIndexExclusive: number;
+    nextIndex: number | null;
+  };
 };
 
 /** 完整运限资料中的一个连续阶段；年份索引保持原时间线顺序。 */
@@ -517,7 +526,8 @@ async function buildTimelineFromAstrolabe(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   decadalTimeline: DecadalTimelineOption[],
-  options: Required<Pick<ZiweiFortuneRangeOptions, 'scope' | 'dateStr' | 'hourIndex'>>,
+  options: Required<Pick<ZiweiFortuneRangeOptions, 'scope' | 'dateStr' | 'hourIndex'>> &
+    Pick<ZiweiFortuneRangeOptions, 'batch'>,
 ): Promise<ZiweiFortuneTimeline> {
   const targetHoroscope = await buildHoroscopeFromInput(
     astrolabe,
@@ -567,6 +577,38 @@ async function buildTimelineFromAstrolabe(
   if (!periodIndexes.length) {
     throw new Error('所选流年未落入紫微已支持的大限范围。');
   }
+  const ageYears = periodIndexes.flatMap((periodIndex) => {
+    const period = decadalTimeline[periodIndex]!;
+    return Array.from({ length: period.endAge - period.startAge + 1 }, (_, index) => ({
+      periodIndex,
+      age: period.startAge + index,
+    }));
+  });
+  let batch: ZiweiFortuneTimeline['batch'];
+  if (options.batch) {
+    const startIndex = options.batch.startIndex ?? 0;
+    const limit = options.batch.limit ?? 1;
+    if (options.scope !== 'all' && options.scope !== 'current') {
+      throw new RangeError('紫微年龄年分页仅用于当前阶段或全部运限。');
+    }
+    if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= ageYears.length) {
+      throw new RangeError('紫微运限分页起点超出可用年份范围。');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10) {
+      throw new RangeError('紫微运限每批需为 1 至 10 个年龄年。');
+    }
+    const endIndexExclusive = Math.min(startIndex + limit, ageYears.length);
+    batch = {
+      unit: 'age-year',
+      totalYears: ageYears.length,
+      startIndex,
+      endIndexExclusive,
+      nextIndex: endIndexExclusive < ageYears.length ? endIndexExclusive : null,
+    };
+  }
+  const selectedAgeYears = batch
+    ? ageYears.slice(batch.startIndex, batch.endIndexExclusive)
+    : ageYears;
   const includeMonths = options.scope !== 'all';
   const includeDay = options.scope === 'day' || options.scope === 'hour';
   const includeHour = options.scope === 'hour';
@@ -579,9 +621,11 @@ async function buildTimelineFromAstrolabe(
   for (const periodIndex of periodIndexes) {
     const period = decadalTimeline[periodIndex];
     if (!period) continue;
-    const startYear = period.startAge;
-    const endYear = period.endAge;
-    const firstYearDate = await buildYearDate(astrolabe, input, startYear, options.hourIndex);
+    const selectedAges = selectedAgeYears
+      .filter((entry) => entry.periodIndex === periodIndex)
+      .map((entry) => entry.age);
+    if (!selectedAges.length) continue;
+    const firstYearDate = await buildYearDate(astrolabe, input, period.startAge, options.hourIndex);
     const decadalHoroscope = await getCachedHoroscope(
       astrolabe,
       input,
@@ -590,17 +634,24 @@ async function buildTimelineFromAstrolabe(
       horoscopeCache,
     );
     const years: ZiweiFortuneYear[] = [];
-    for (let age = startYear; age <= endYear; age += 1) {
+    for (const age of selectedAges) {
       years.push(await buildYear(astrolabe, input, age, options.hourIndex));
     }
     if (!years.length) {
       throw new Error(`所选日期对应的流年不在${period.label}支持范围内。`);
     }
+    const lastAge = selectedAges.at(-1)!;
+    const followingDate =
+      lastAge < period.endAge
+        ? await buildYearDate(astrolabe, input, lastAge + 1, options.hourIndex)
+        : undefined;
     const yearsWithBoundaries = years.map((year, index) => ({
       ...year,
       endDateStr: years[index + 1]?.dateStr
         ? shiftSolarDay(years[index + 1]!.dateStr, -1)
-        : period.endDateStr,
+        : followingDate
+          ? shiftSolarDay(followingDate, -1)
+          : period.endDateStr,
     }));
     periodDrafts.push({ period, decadalHoroscope, years: yearsWithBoundaries });
   }
@@ -649,7 +700,12 @@ async function buildTimelineFromAstrolabe(
         (year.endDateStr ?? year.dateStr) >= options.dateStr,
     );
     const isTargetPeriod = targetAge >= draft.period.startAge && targetAge <= draft.period.endAge;
-    if (options.scope !== 'all' && isTargetPeriod && !targetYearEntry) {
+    if (
+      options.scope !== 'all' &&
+      isTargetPeriod &&
+      !targetYearEntry &&
+      (!batch || draft.years.some((year) => year.age === targetAge))
+    ) {
       throw new Error(`所选日期对应的流年不在${draft.period.label}支持范围内。`);
     }
     if (targetYearEntry && isTargetPeriod && options.scope !== 'all') {
@@ -687,7 +743,7 @@ async function buildTimelineFromAstrolabe(
   const firstPeriod = periods[0];
   const lastPeriod = periods.at(-1);
   if (!firstPeriod || !lastPeriod) throw new Error('紫微未生成可用的运限资料。');
-  const usePeriodBoundaries = options.scope === 'all' || options.scope === 'current';
+  const usePeriodBoundaries = !batch && (options.scope === 'all' || options.scope === 'current');
   const firstYear = firstPeriod.years[0];
   const lastYear = lastPeriod.years.at(-1);
   return {
@@ -704,6 +760,7 @@ async function buildTimelineFromAstrolabe(
       : (lastYear?.endDateStr ?? lastPeriod.endDateStr ?? lastPeriod.dateStr),
     selectedPeriodIndex,
     periods,
+    ...(batch ? { batch } : {}),
   };
 }
 
@@ -724,6 +781,7 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
     scope: options.scope,
     dateStr: context.dateStr,
     hourIndex,
+    ...(options.batch ? { batch: { ...options.batch } } : {}),
   });
 }
 
@@ -920,6 +978,11 @@ function formatCompactTimeline(timeline: ZiweiFortuneTimeline) {
   const dictionaries = buildCompactDictionaries(timeline);
   const lines = [
     `范围：童限、大限与逐年运限`,
+    ...(timeline.batch
+      ? [
+          `本段资料：第 ${timeline.batch.startIndex + 1} 至 ${timeline.batch.endIndexExclusive} 个年龄年，共 ${timeline.batch.totalYears} 个年龄年；每个年龄年包含其实际流年分段。`,
+        ]
+      : []),
     `实际覆盖：${timeline.actualStartDateStr} 至 ${timeline.actualEndDateStr}；目标时点：${timeline.targetDateStr}；目标时辰：${SHICHEN_PERIODS[timeline.targetHourIndex]?.name ?? `索引${timeline.targetHourIndex}`}；虚岁${timeline.targetAge}岁；目标年份${timeline.targetYear}年。`,
     '运限表中序号分别对应下列四化、宫位布局、星曜与年系星曜。',
     '四化表：',
@@ -1003,6 +1066,11 @@ export function formatZiweiFortuneTimeline(timeline: ZiweiFortuneTimeline) {
   };
   const lines = [
     `范围：${scopeLabel[timeline.scope]}`,
+    ...(timeline.batch
+      ? [
+          `本段资料：第 ${timeline.batch.startIndex + 1} 至 ${timeline.batch.endIndexExclusive} 个年龄年，共 ${timeline.batch.totalYears} 个年龄年；每个年龄年包含其实际流年分段。`,
+        ]
+      : []),
     `实际覆盖：${timeline.actualStartDateStr} 至 ${timeline.actualEndDateStr}；目标时点：${timeline.targetDateStr}；目标时辰：${SHICHEN_PERIODS[timeline.targetHourIndex]?.name ?? `索引${timeline.targetHourIndex}`}；虚岁${timeline.targetAge}岁；目标年份${timeline.targetYear}年。`,
   ];
   for (const period of timeline.periods) {
