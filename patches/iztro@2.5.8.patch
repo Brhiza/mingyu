@@ -1,5 +1,87 @@
+diff --git a/lib/astro/astro.js b/lib/astro/astro.js
+index 27623bcb4caeba7e5e393a4b053dd74365556c6c..c98a79143390505cd2f94de96afed51a378a4875 100644
+--- a/lib/astro/astro.js
++++ b/lib/astro/astro.js
+@@ -149,35 +149,37 @@ function bySolar(solarDate, timeIndex, gender, fixLeap, language) {
+         // 如果当前时辰为晚子时并且晚子时算当天时，将时辰调整为当日早子时
+         tIndex = 0;
+     }
+-    var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, tIndex, {
++    var chineseDate = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, tIndex, {
+         year: (0, exports.getConfig)().yearDivide,
+         month: (0, exports.getConfig)().horoscopeDivide,
+-    }).yearly;
++    });
++    var yearly = chineseDate.yearly;
+     var earthlyBranchOfYear = (0, i18n_1.kot)(yearly[1], 'Earthly');
+     var heavenlyStemOfYear = (0, i18n_1.kot)(yearly[0], 'Heavenly');
+-    var _a = (0, palace_1.getSoulAndBody)({
++    var soulAndBody = (0, palace_1.getSoulAndBody)({
+         solarDate: solarDate,
+         timeIndex: tIndex,
+         fixLeap: fixLeap,
+-    }), bodyIndex = _a.bodyIndex, soulIndex = _a.soulIndex, heavenlyStemOfSoul = _a.heavenlyStemOfSoul, earthlyBranchOfSoul = _a.earthlyBranchOfSoul;
++    });
++    var bodyIndex = soulAndBody.bodyIndex, soulIndex = soulAndBody.soulIndex, heavenlyStemOfSoul = soulAndBody.heavenlyStemOfSoul, earthlyBranchOfSoul = soulAndBody.earthlyBranchOfSoul;
+     var palaceNames = (0, palace_1.getPalaceNames)(soulIndex);
+-    var majorStars = (0, star_1.getMajorStar)({ solarDate: solarDate, timeIndex: tIndex, fixLeap: fixLeap });
++    var majorStars = (0, star_1.getMajorStar)({ solarDate: solarDate, timeIndex: tIndex, fixLeap: fixLeap }, soulAndBody);
+     var minorStars = (0, star_1.getMinorStar)(solarDate, tIndex, fixLeap);
+     var adjectiveStars = (0, star_1.getAdjectiveStar)({
+         solarDate: solarDate,
+         timeIndex: tIndex,
+         gender: gender,
+         fixLeap: fixLeap,
+-    });
++    }, soulAndBody);
+     var changsheng12 = (0, star_1.getchangsheng12)({
+         solarDate: solarDate,
+         timeIndex: tIndex,
+         gender: gender,
+         fixLeap: fixLeap,
+-    });
++    }, soulAndBody);
+     var boshi12 = (0, star_1.getBoShi12)(solarDate, gender);
+     var _b = (0, star_1.getYearly12)(solarDate), jiangqian12 = _b.jiangqian12, suiqian12 = _b.suiqian12;
+-    var _c = (0, palace_1.getHoroscope)({ solarDate: solarDate, timeIndex: tIndex, gender: gender, fixLeap: fixLeap }), decadals = _c.decadals, ages = _c.ages;
++    var _c = (0, palace_1.getHoroscope)({ solarDate: solarDate, timeIndex: tIndex, gender: gender, fixLeap: fixLeap }, soulAndBody), decadals = _c.decadals, ages = _c.ages;
+     for (var i = 0; i < 12; i++) {
+         var heavenlyStemOfPalace = data_1.HEAVENLY_STEMS[(0, utils_1.fixIndex)(data_1.HEAVENLY_STEMS.indexOf((0, i18n_1.kot)(heavenlyStemOfSoul, 'Heavenly')) - soulIndex + i, 10)];
+         var earthlyBranchOfPalace = data_1.EARTHLY_BRANCHES[(0, utils_1.fixIndex)(2 + i)];
+@@ -202,10 +204,6 @@ function bySolar(solarDate, timeIndex, gender, fixLeap, language) {
+     // 宫位是从寅宫开始，而寅的索引是2，所以需要+2
+     var earthlyBranchOfSoulPalace = data_1.EARTHLY_BRANCHES[(0, utils_1.fixIndex)(soulIndex + 2)];
+     var earthlyBranchOfBodyPalace = (0, i18n_1.t)(data_1.EARTHLY_BRANCHES[(0, utils_1.fixIndex)(bodyIndex + 2)]);
+-    var chineseDate = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, tIndex, {
+-        year: (0, exports.getConfig)().yearDivide,
+-        month: (0, exports.getConfig)().horoscopeDivide,
+-    });
+     var lunarDate = (0, lunar_lite_1.solar2lunar)(solarDate);
+     // 中州派地支以年支找命主
+     // 通用派别以命宫地支找命主
+diff --git a/lib/astro/palace.js b/lib/astro/palace.js
+index bb89d479d64f489c093e35fdc2490379c6ff4abb..b541f897c38019b8d6c6904f7852deed359ecae4 100644
+--- a/lib/astro/palace.js
++++ b/lib/astro/palace.js
+@@ -147,6 +147,7 @@ exports.getPalaceNames = getPalaceNames;
+ var getHoroscope = function (param) {
+     var _a, _b;
+     var solarDate = param.solarDate, timeIndex = param.timeIndex, gender = param.gender, from = param.from;
++    var soulAndBody = arguments[1];
+     var decadals = [];
+     var genderKey = (0, i18n_1.kot)(gender);
+     var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, timeIndex, {
+@@ -155,7 +156,7 @@ var getHoroscope = function (param) {
+     }).yearly;
+     var heavenlyStem = (0, i18n_1.kot)(yearly[0], 'Heavenly');
+     var earthlyBranch = (0, i18n_1.kot)(yearly[1], 'Earthly');
+-    var _c = (0, exports.getSoulAndBody)(param), soulIndex = _c.soulIndex, heavenlyStemOfSoul = _c.heavenlyStemOfSoul, earthlyBranchOfSoul = _c.earthlyBranchOfSoul;
++    var _c = soulAndBody !== null && soulAndBody !== void 0 ? soulAndBody : (0, exports.getSoulAndBody)(param), soulIndex = _c.soulIndex, heavenlyStemOfSoul = _c.heavenlyStemOfSoul, earthlyBranchOfSoul = _c.earthlyBranchOfSoul;
+     var fiveElementsClass = (0, i18n_1.kot)((0, exports.getFiveElementsClass)((_a = from === null || from === void 0 ? void 0 : from.heavenlyStem) !== null && _a !== void 0 ? _a : heavenlyStemOfSoul, (_b = from === null || from === void 0 ? void 0 : from.earthlyBranch) !== null && _b !== void 0 ? _b : earthlyBranchOfSoul));
+     // 用五虎遁获取大限起始天干
+     var startHeavenlyStem = data_1.TIGER_RULE[heavenlyStem];
 diff --git a/lib/i18n/index.js b/lib/i18n/index.js
-index c520f046..9a6c523a 100644
+index aef05d5396f06bd1a8113532602b99bd53532eb8..3f1c45534527c13483abc95d0fc69bdfdfd2cee4 100644
 --- a/lib/i18n/index.js
 +++ b/lib/i18n/index.js
 @@ -81,10 +81,19 @@ exports.t = t;
@@ -26,8 +108,48 @@ index c520f046..9a6c523a 100644
              if (((k && transKey.includes(k)) || !k) && trans === value) {
                  res = transKey;
                  return res;
+diff --git a/lib/star/adjectiveStar.js b/lib/star/adjectiveStar.js
+index 44cce199e2d20e344a9d0f4dc891dabd3d8c2dac..5eeec25792059bff155d7de18e674693b1d9de2f 100644
+--- a/lib/star/adjectiveStar.js
++++ b/lib/star/adjectiveStar.js
+@@ -18,12 +18,13 @@ var astro_1 = require("../astro");
+  */
+ var getAdjectiveStar = function (param) {
+     var solarDate = param.solarDate, timeIndex = param.timeIndex, fixLeap = param.fixLeap;
++    var soulAndBody = arguments[1];
+     var algorithm = (0, astro_1.getConfig)().algorithm;
+     var stars = (0, _1.initStars)();
+     var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, timeIndex, {
+         year: (0, astro_1.getConfig)().yearDivide,
+     }).yearly;
+-    var yearlyIndex = (0, location_1.getYearlyStarIndex)(param);
++    var yearlyIndex = (0, location_1.getYearlyStarIndex)(param, soulAndBody);
+     var monthlyIndex = (0, location_1.getMonthlyStarIndex)(solarDate, timeIndex, fixLeap);
+     var dailyIndex = (0, location_1.getDailyStarIndex)(solarDate, timeIndex, fixLeap);
+     var timelyIndex = (0, location_1.getTimelyStarIndex)(timeIndex);
+diff --git a/lib/star/decorativeStar.js b/lib/star/decorativeStar.js
+index d5ed9c428f22a6d52904925f32f7feedbd6b3b69..a445729db8cd2a304c8657b89e36037151928cdc 100644
+--- a/lib/star/decorativeStar.js
++++ b/lib/star/decorativeStar.js
+@@ -56,6 +56,7 @@ exports.getChangesheng12StartIndex = getChangesheng12StartIndex;
+  */
+ var getchangsheng12 = function (param) {
+     var solarDate = param.solarDate, gender = param.gender;
++    var soulAndBody = arguments[1];
+     var changsheng12 = [];
+     var genderKey = (0, i18n_1.kot)(gender);
+     var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, 0, {
+@@ -64,7 +65,7 @@ var getchangsheng12 = function (param) {
+     var earthlyBranchNameOfYear = yearly[1];
+     var earthlyBranchOfYear = (0, i18n_1.kot)(earthlyBranchNameOfYear, 'Earthly');
+     // 获取命宫干支，需要通过命宫干支计算五行局
+-    var _a = (0, astro_1.getSoulAndBody)(param), heavenlyStemOfSoul = _a.heavenlyStemOfSoul, earthlyBranchOfSoul = _a.earthlyBranchOfSoul;
++    var _a = soulAndBody !== null && soulAndBody !== void 0 ? soulAndBody : (0, astro_1.getSoulAndBody)(param), heavenlyStemOfSoul = _a.heavenlyStemOfSoul, earthlyBranchOfSoul = _a.earthlyBranchOfSoul;
+     // 获取五行局，通过五行局获取起运年龄
+     var fiveElementClass = (0, astro_1.getFiveElementsClass)(heavenlyStemOfSoul, earthlyBranchOfSoul);
+     // 长生12神顺序
 diff --git a/lib/star/horoscopeStar.js b/lib/star/horoscopeStar.js
-index 8c9dfd5b..1a77a048 100644
+index 8c9dfd5bf518f4da76bf1e8a3736b4c3c5b8f7b2..1a77a048bec2b5b892347a8bf0f62e20ebe88b12 100644
 --- a/lib/star/horoscopeStar.js
 +++ b/lib/star/horoscopeStar.js
 @@ -16,100 +16,114 @@ var location_1 = require("./location");
@@ -227,3 +349,46 @@ index 8c9dfd5b..1a77a048 100644
      return stars;
  };
  exports.getHoroscopeStar = getHoroscopeStar;
+diff --git a/lib/star/location.js b/lib/star/location.js
+index a429cbbe363323fbca1d31cc9b9e4d73451fdbeb..1b936df02db13d74a3c59796b96430431b4a3012 100644
+--- a/lib/star/location.js
++++ b/lib/star/location.js
+@@ -28,7 +28,8 @@ var utils_1 = require("../utils");
+ var getStartIndex = function (param) {
+     var _a, _b;
+     var solarDate = param.solarDate, timeIndex = param.timeIndex, fixLeap = param.fixLeap, from = param.from;
+-    var _c = (0, astro_1.getSoulAndBody)({ solarDate: solarDate, timeIndex: timeIndex, fixLeap: fixLeap }), heavenlyStemOfSoul = _c.heavenlyStemOfSoul, earthlyBranchOfSoul = _c.earthlyBranchOfSoul;
++    var soulAndBody = arguments[1];
++    var _c = soulAndBody !== null && soulAndBody !== void 0 ? soulAndBody : (0, astro_1.getSoulAndBody)({ solarDate: solarDate, timeIndex: timeIndex, fixLeap: fixLeap }), heavenlyStemOfSoul = _c.heavenlyStemOfSoul, earthlyBranchOfSoul = _c.earthlyBranchOfSoul;
+     var lunarDay = (0, lunar_lite_1.solar2lunar)(solarDate).lunarDay;
+     // 如果已传入干支，则用传入干支起五行局
+     // 确定用于起五行局的地盘干支
+@@ -599,12 +600,13 @@ exports.getDahaoIndex = getDahaoIndex;
+  */
+ var getYearlyStarIndex = function (param) {
+     var solarDate = param.solarDate, timeIndex = param.timeIndex, gender = param.gender, fixLeap = param.fixLeap;
++    var soulAndBody = arguments[1];
+     var horoscopeDivide = (0, astro_1.getConfig)().horoscopeDivide;
+     var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, timeIndex, {
+         // 流耀应该用立春为界，但为了满足不同流派的需求允许配置
+         year: horoscopeDivide,
+     }).yearly;
+-    var _a = (0, astro_1.getSoulAndBody)({ solarDate: solarDate, timeIndex: timeIndex, fixLeap: fixLeap }), soulIndex = _a.soulIndex, bodyIndex = _a.bodyIndex;
++    var _a = soulAndBody !== null && soulAndBody !== void 0 ? soulAndBody : (0, astro_1.getSoulAndBody)({ solarDate: solarDate, timeIndex: timeIndex, fixLeap: fixLeap }), soulIndex = _a.soulIndex, bodyIndex = _a.bodyIndex;
+     var heavenlyStem = (0, i18n_1.kot)(yearly[0], 'Heavenly');
+     var earthlyBranch = (0, i18n_1.kot)(yearly[1], 'Earthly');
+     var _b = (0, exports.getHuagaiXianchiIndex)(yearly[1]), huagaiIndex = _b.huagaiIndex, xianchiIndex = _b.xianchiIndex;
+diff --git a/lib/star/majorStar.js b/lib/star/majorStar.js
+index 5159f0cb979a7aab79d26840eec9dc77c54edc79..75c3677447b59b3420a99b73673e48380b1095dd 100644
+--- a/lib/star/majorStar.js
++++ b/lib/star/majorStar.js
+@@ -27,7 +27,8 @@ var astro_1 = require("../astro");
+  */
+ var getMajorStar = function (param) {
+     var solarDate = param.solarDate, timeIndex = param.timeIndex;
+-    var _a = (0, location_1.getStartIndex)(param), ziweiIndex = _a.ziweiIndex, tianfuIndex = _a.tianfuIndex;
++    var soulAndBody = arguments[1];
++    var _a = (0, location_1.getStartIndex)(param, soulAndBody), ziweiIndex = _a.ziweiIndex, tianfuIndex = _a.tianfuIndex;
+     var yearly = (0, lunar_lite_1.getHeavenlyStemAndEarthlyBranchBySolarDate)(solarDate, timeIndex, {
+         year: (0, astro_1.getConfig)().yearDivide,
+     }).yearly;

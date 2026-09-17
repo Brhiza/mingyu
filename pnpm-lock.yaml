@@ -8,7 +8,7 @@ overrides:
   esbuild: 0.28.1
 
 patchedDependencies:
-  iztro@2.5.8: 523217c358eccf2992b1e1029d72713d1bc2bbf560e250ae441c79b672eccce0
+  iztro@2.5.8: d4da79df57c8d8342a164147fc2e639a6cefa6a07e0007cc8ddf2f07e9d463f1
 
 importers:
 
@@ -25,7 +25,7 @@ importers:
         version: 0.24.1
       iztro:
         specifier: ^2.5.8
-        version: 2.5.8(patch_hash=523217c358eccf2992b1e1029d72713d1bc2bbf560e250ae441c79b672eccce0)
+        version: 2.5.8(patch_hash=d4da79df57c8d8342a164147fc2e639a6cefa6a07e0007cc8ddf2f07e9d463f1)
       marked:
         specifier: ^16.4.2
         version: 16.4.2
@@ -129,7 +129,7 @@ importers:
     devDependencies:
       iztro:
         specifier: ^2.5.8
-        version: 2.5.8(patch_hash=523217c358eccf2992b1e1029d72713d1bc2bbf560e250ae441c79b672eccce0)
+        version: 2.5.8(patch_hash=d4da79df57c8d8342a164147fc2e639a6cefa6a07e0007cc8ddf2f07e9d463f1)
 
   packages/mcp: {}
 
@@ -3632,7 +3632,7 @@ snapshots:
 
   isobject@3.0.1: {}
 
-  iztro@2.5.8(patch_hash=523217c358eccf2992b1e1029d72713d1bc2bbf560e250ae441c79b672eccce0):
+  iztro@2.5.8(patch_hash=d4da79df57c8d8342a164147fc2e639a6cefa6a07e0007cc8ddf2f07e9d463f1):
     dependencies:
       dayjs: 1.11.21
       i18next: 23.16.8
