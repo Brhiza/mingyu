@@ -90,6 +90,7 @@ import { QimenLifetimeBoard } from './components/QimenLifetimeBoard';
 import { calculateQimenLifetime, buildLifetimePrompt } from 'mingyu-core/divination/qimen';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
+import { BaziBirthRangePanel } from './components/BaziBirthRangePanel';
 import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
@@ -98,6 +99,7 @@ import { buildMingluArticle } from 'mingyu-core/minglu';
 import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
+import { useBaziRangeCalculations } from './hooks/useBaziRangeCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
@@ -577,6 +579,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     prompt: showAssistantPane,
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
+  const baziBirthRange = useBaziRangeCalculations(inputState, mountedTabs.bazi && !isInstantResult);
   const sharedBirthData = useMemo(() => {
     if (!hasPreciseBirthData || !baziResult) return null;
     const selectedBirthTime =
@@ -2841,7 +2844,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         />
       ) : null}
 
-      {!isAssistantPage && birthTimeIntervals.length > 0 ? (
+      {!isAssistantPage &&
+      birthTimeIntervals.length > 0 &&
+      !(activeChartTab === 'bazi' && baziBirthRange.requested) ? (
         <div className="workspace-ui-form-case-hint" role="note" aria-label="出生时间范围">
           {birthTimeIntervals.map((text) => (
             <p key={text}>{text}</p>
@@ -2898,35 +2903,41 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           {mountedTabs.bazi ? (
             <div className="single-panel-shell">
               <section className="panel result-panel result-panel-bazi">
-                {baziError ? <p className="error-text">{baziError}</p> : null}
-                {inputState.analysisMode === 'compatibility' ? (
-                  <div className="result-dual-layout">
-                    {baziResult ? (
+                {baziBirthRange.requested ? (
+                  <BaziBirthRangePanel state={baziBirthRange} />
+                ) : (
+                  <>
+                    {baziError ? <p className="error-text">{baziError}</p> : null}
+                    {inputState.analysisMode === 'compatibility' ? (
+                      <div className="result-dual-layout">
+                        {baziResult ? (
+                          <BaziChartBoard
+                            title="第一人八字"
+                            name={inputState.name || '第一人'}
+                            result={baziResult}
+                            isInstant={isInstantResult}
+                            timeBasisLabel={instantTimeBasisLabel}
+                          />
+                        ) : null}
+                        {partnerBaziResult ? (
+                          <BaziChartBoard
+                            title="第二人八字"
+                            name={inputState.partnerName || '第二人'}
+                            result={partnerBaziResult}
+                          />
+                        ) : null}
+                      </div>
+                    ) : baziResult ? (
                       <BaziChartBoard
-                        title="第一人八字"
-                        name={inputState.name || '第一人'}
+                        title={isInstantResult ? '八字即时盘' : '八字总览'}
+                        name={isInstantResult ? '当前时刻' : inputState.name || '当前命盘'}
                         result={baziResult}
                         isInstant={isInstantResult}
                         timeBasisLabel={instantTimeBasisLabel}
                       />
                     ) : null}
-                    {partnerBaziResult ? (
-                      <BaziChartBoard
-                        title="第二人八字"
-                        name={inputState.partnerName || '第二人'}
-                        result={partnerBaziResult}
-                      />
-                    ) : null}
-                  </div>
-                ) : baziResult ? (
-                  <BaziChartBoard
-                    title={isInstantResult ? '八字即时盘' : '八字总览'}
-                    name={isInstantResult ? '当前时刻' : inputState.name || '当前命盘'}
-                    result={baziResult}
-                    isInstant={isInstantResult}
-                    timeBasisLabel={instantTimeBasisLabel}
-                  />
-                ) : null}
+                  </>
+                )}
               </section>
             </div>
           ) : null}

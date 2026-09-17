@@ -1,5 +1,6 @@
 import type { BaziReverseCandidate, BaziReversePillars } from 'mingyu-core/calendar';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import type { BirthProfileTimeRange } from 'mingyu-core/profile';
 
 export type BaziReverseSource = {
   pillars: BaziReversePillars;
@@ -240,6 +241,29 @@ export function parseBaziReverseSource(value: string | undefined): BaziReverseSo
   } catch {
     return null;
   }
+}
+
+/** 旧案例的完整北京时间文本与新版时间戳采用同一个整秒区间契约。 */
+export function resolveBaziReverseTimeRange(value: string): BirthProfileTimeRange {
+  const source = parseBaziReverseSource(value);
+  if (!source) throw new Error('出生区间资料无效，请重新选择日期。');
+  const startTimestamp = source.startTimestamp ?? parseBeijingDateTimeText(source.intervalStart);
+  const endTimestamp = source.endTimestamp ?? parseBeijingDateTimeText(source.intervalEnd);
+  if (
+    startTimestamp === null ||
+    endTimestamp === null ||
+    endTimestamp <= startTimestamp ||
+    endTimestamp - startTimestamp > 2 * 60 * 60 * 1000
+  ) {
+    throw new Error('出生区间需提供两小时以内、精确到秒的完整北京时间。');
+  }
+  return {
+    startTimestamp,
+    endTimestamp,
+    endExclusive: true,
+    timezone: 'Asia/Shanghai',
+    offsetHours: 8,
+  };
 }
 
 /** 将日期区间作为盘面事实传给结果页和解读任务。 */
