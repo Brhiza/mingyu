@@ -9,7 +9,7 @@ import {
   type Wuxing,
 } from './baziTypes';
 import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
-import type { RootPillars } from './baziRootFacts';
+import { getRootTraditionalKind, isStructuralRoot, type RootPillars } from './baziRootFacts';
 import {
   applyClimateCandidates,
   applyTherapeuticPriority,
@@ -149,13 +149,13 @@ function applyResourceProtection(
   const collectUsableRoots = (target: string) => {
     assertWuxing(target, '根气');
     return collectAdjudicatedRootFacts(rootPillars, rootHiddenStems, target, getWuxing).filter(
-      (root) => root.actionable && root.hiddenIndex <= 1,
+      (root) => root.actionable && isStructuralRoot(root),
     );
   };
   const resourceRoots = collectUsableRoots(resource);
   const companionRoots = collectUsableRoots(dmWuxing);
   const resourceStems = visible.filter((source) => element(source.stem) === resource);
-  // 任一印有共享裁决可用的本中气根，或并未坐财受制，均不套用弱印待护的次序。
+  // 任一印有共享裁决可用的结构根，或并未坐财受制，均不套用弱印待护的次序。
   if (!resourceStems.length || resourceRoots.length) return state;
   if (
     !resourceStems.every((source) => {
@@ -173,7 +173,15 @@ function applyResourceProtection(
     dmWuxing,
     ...state.favorableWuxing.filter((wuxing) => wuxing !== dmWuxing),
   ];
-  const reason = `月令本气为财，${resourceStems.map((source) => source.stem).join('、')}印坐财受制且缺少可用的本中气根；${rootedCompanions.map((source) => source.stem).join('、')}比劫透而有根（可用本中气根），先以${dmWuxing}扶身制财护印，再取${resource}生身，印比配合`;
+  const companionRootKinds = [
+    ...new Set(
+      companionRoots.map((root) => {
+        const kind = getRootTraditionalKind(root);
+        return kind === '正库' || kind === '余气' ? `${kind}轻根` : kind;
+      }),
+    ),
+  ].join('、');
+  const reason = `月令本气为财，${resourceStems.map((source) => source.stem).join('、')}印坐财受制且缺少可用结构根；${rootedCompanions.map((source) => source.stem).join('、')}比劫透而有根（${companionRootKinds}），先以${dmWuxing}扶身制财护印，再取${resource}生身，印比配合`;
   return {
     ...state,
     favorableWuxing: favorableOrder,

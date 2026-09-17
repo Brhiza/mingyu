@@ -8,7 +8,7 @@
  *
  * 不在此处判定身强身弱、拔根程度、格局成败或合会是否成化。
  */
-import { BASIC_MAPPINGS } from './baziDefinitions';
+import { BASIC_MAPPINGS, TWELVE_STAGES_MAP } from './baziDefinitions';
 import type { HiddenStems, Wuxing } from './baziTypes';
 
 export const ROOT_PILLAR_POSITIONS = ['year', 'month', 'day', 'hour'] as const;
@@ -16,6 +16,21 @@ export type RootPillarPosition = (typeof ROOT_PILLAR_POSITIONS)[number];
 export type RootPillars = Record<RootPillarPosition, { zhi: string }>;
 
 export type RootHiddenRole = '本气' | '中气' | '余气';
+export type RootTraditionalKind = '本气' | '生禄' | '余气' | '正库' | '弱藏';
+
+const STRONG_ROOT_STAGES = new Set(['长生', '临官', '帝旺']);
+const STORAGE_STEMS: Record<string, string> = {
+  辰: '癸',
+  戌: '丁',
+  丑: '辛',
+  未: '乙',
+};
+const RESIDUAL_STEMS: Record<string, string> = {
+  辰: '乙',
+  戌: '辛',
+  丑: '癸',
+  未: '丁',
+};
 
 const ROOT_PILLAR_LABELS: Record<RootPillarPosition, string> = {
   year: '年柱',
@@ -41,6 +56,34 @@ export interface SameElementRootFact {
    */
   stable: boolean;
   clashSources: RootClashSource[];
+}
+
+export type RootSemanticFact = Pick<
+  SameElementRootFact,
+  'branch' | 'stem' | 'hiddenIndex' | 'hiddenRole'
+>;
+
+/** 长生、临官、帝旺仍是化气返性所用的强根阶段门槛。 */
+export function hasStrongRootStage(root: Pick<SameElementRootFact, 'branch' | 'stem'>): boolean {
+  const stage = TWELVE_STAGES_MAP[root.stem]?.[root.branch];
+  return Boolean(stage && STRONG_ROOT_STAGES.has(stage));
+}
+
+/**
+ * 数组中的本气／中气／余气是固定位置标签；传统根类另按实际支藏身份与十二长生判定。
+ * 四库第二项为季余气、末项为对应五行正库，不能按数组第二、第三项直接互换概念。
+ */
+export function getRootTraditionalKind(root: RootSemanticFact): RootTraditionalKind {
+  if (root.hiddenIndex === 0) return '本气';
+  if (STORAGE_STEMS[root.branch] === root.stem) return '正库';
+  if (RESIDUAL_STEMS[root.branch] === root.stem) return '余气';
+  if (hasStrongRootStage(root)) return '生禄';
+  return '弱藏';
+}
+
+/** 格局与扶抑链可采用的结构根；冲后能否作用仍由上层 actionable 裁决。 */
+export function isStructuralRoot(root: RootSemanticFact): boolean {
+  return getRootTraditionalKind(root) !== '弱藏';
 }
 
 function resolveHiddenRole(index: number): RootHiddenRole {
