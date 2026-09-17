@@ -38,8 +38,8 @@ import {
   calculateLiuriRange,
   calculateLiuyue,
   calculateSeasonInfo,
+  calculateSeasonContext,
   getCategorizedYearShenSha,
-  getMonthCommander,
 } from './baziCalculatorTime';
 import {
   Person,
@@ -643,8 +643,7 @@ export class BaziCalculator {
     ];
 
     const hiddenStems = calculateHiddenStems(pillars);
-    const seasonInfo = calculateSeasonInfo(termSolarTime);
-    const monthCommander = getMonthCommander(termSolarTime, pillars.month.zhi);
+    const { seasonInfo, monthCommander } = calculateSeasonContext(termSolarTime, pillars.month.zhi);
     const wuxingStrengthDetails = this.wuxingCalculator.calculateWuxingStrength(
       pillars,
       monthCommander,

@@ -234,7 +234,6 @@ export function calculateLiuriRange(
 
 export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: string): string {
   assertEarthlyBranch(monthBranch, '月支');
-  const commanders = MONTH_COMMANDER[monthBranch];
 
   const birthYear = solarTime.getSolarDay().getYear();
   const birthTime = solarTime.getJulianDay();
@@ -259,6 +258,11 @@ export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: str
   }
 
   const daysSinceJie = birthTime.getDay() - jieBefore.getJulianDay().getDay();
+  return getCommanderAfterJie(monthBranch, daysSinceJie);
+}
+
+function getCommanderAfterJie(monthBranch: string, daysSinceJie: number): string {
+  const commanders = MONTH_COMMANDER[monthBranch];
   let accumulatedDays = 0;
 
   for (const commander of commanders) {
@@ -271,26 +275,18 @@ export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: str
   return commanders[commanders.length - 1][0];
 }
 
-export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
-  const solarTerms: { name: string; date: string; jd: number; index: number; isJie: boolean }[] =
-    [];
-  const scanTerms: { name: string; date: string; jd: number; index: number; isJie: boolean }[] = [];
+interface SeasonTermFact {
+  year: number;
+  name: string;
+  date: string;
+  jd: number;
+  index: number;
+  isJie: boolean;
+}
+
+function collectSeasonTerms(solarTime: SolarTimeInstance): SeasonTermFact[] {
+  const scanTerms: SeasonTermFact[] = [];
   const currentYear = solarTime.getSolarDay().getYear();
-  const birthJulianDay = solarTime.getJulianDay();
-
-  for (let i = 0; i < 24; i++) {
-    const term = SolarTerm.fromIndex(currentYear, i);
-    const julianDay = term.getJulianDay();
-    const solarDay = julianDay.getSolarDay();
-
-    solarTerms.push({
-      name: term.getName(),
-      date: `${solarDay.getYear()}-${solarDay.getMonth().toString().padStart(2, '0')}-${solarDay.getDay().toString().padStart(2, '0')}`,
-      jd: julianDay.getDay(),
-      index: i,
-      isJie: term.isJie(),
-    });
-  }
 
   for (const scanYear of [currentYear - 1, currentYear, currentYear + 1]) {
     for (let i = 0; i < 24; i++) {
@@ -299,6 +295,7 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
       const solarDay = julianDay.getSolarDay();
 
       scanTerms.push({
+        year: scanYear,
         name: term.getName(),
         date: `${solarDay.getYear()}-${solarDay.getMonth().toString().padStart(2, '0')}-${solarDay.getDay().toString().padStart(2, '0')}`,
         jd: julianDay.getDay(),
@@ -307,6 +304,44 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
       });
     }
   }
+
+  return scanTerms;
+}
+
+export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
+  return buildSeasonInfo(solarTime, collectSeasonTerms(solarTime));
+}
+
+/** 同次排盘共用节气瞬间，月令司权仍限本年与前一年的节。 */
+export function calculateSeasonContext(solarTime: SolarTimeInstance, monthBranch: string) {
+  assertEarthlyBranch(monthBranch, '月支');
+  const terms = collectSeasonTerms(solarTime);
+  const currentYear = solarTime.getSolarDay().getYear();
+  const birthJd = solarTime.getJulianDay().getDay();
+  let previousJieJd: number | undefined;
+  for (const term of terms) {
+    if (
+      term.isJie &&
+      (term.year === currentYear || term.year === currentYear - 1) &&
+      term.jd <= birthJd &&
+      (previousJieJd === undefined || term.jd > previousJieJd)
+    ) {
+      previousJieJd = term.jd;
+    }
+  }
+  return {
+    seasonInfo: buildSeasonInfo(solarTime, terms),
+    monthCommander:
+      previousJieJd === undefined
+        ? '未知(节气未找到)'
+        : getCommanderAfterJie(monthBranch, birthJd - previousJieJd),
+  };
+}
+
+function buildSeasonInfo(solarTime: SolarTimeInstance, scanTerms: SeasonTermFact[]): SeasonInfo {
+  const currentYear = solarTime.getSolarDay().getYear();
+  const birthJulianDay = solarTime.getJulianDay();
+  const solarTerms = scanTerms.filter((term) => term.year === currentYear);
 
   const orderedTerms = Array.from(
     new Map(
