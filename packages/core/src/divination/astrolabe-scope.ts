@@ -17,6 +17,7 @@ import {
   type AstrolabePeriodEventCollection,
   type AstrolabePeriodBatch,
   type AstrolabePeriodBatchInput,
+  type AstrolabePeriodCalculationCache,
 } from './astrolabe-period-events';
 export {
   formatAstrolabeAspectLine,
@@ -24,6 +25,7 @@ export {
   rankAstrolabeAspects,
 } from './astrolabe-chart-facts';
 export {
+  AstrolabePeriodCalculationCache,
   buildAstrolabePeriodEventLayers,
   buildAstrolabePeriodBatchResult,
   buildAstrolabePeriodEvents,
@@ -159,6 +161,7 @@ export type AstrolabeFullScopeContexts = {
 };
 
 export type AstrolabeScopeBuildOptions = {
+  periodCalculationCache?: AstrolabePeriodCalculationCache;
   periodBatch?: AstrolabePeriodBatchInput;
   includeScopeFacts?: boolean;
   includePeriodEvents?: boolean;
@@ -2369,7 +2372,10 @@ export function buildAstrolabeScopeContext(
   });
   const periodEvents =
     includePeriodEvents && (scope === 'yearly' || scope === 'monthly' || scope === 'daily')
-      ? buildAstrolabePeriodEvents(data, scope, target, { batch: options.periodBatch })
+      ? buildAstrolabePeriodEvents(data, scope, target, {
+          batch: options.periodBatch,
+          calculationCache: options.periodCalculationCache,
+        })
       : undefined;
   const periodBatch = periodEvents?.batch
     ? { ...periodEvents.batch, includesScopeFacts: includeScopeFacts }
@@ -2405,7 +2411,7 @@ export function buildAstrolabeScopeContext(
 export function buildAstrolabeFullScopeContexts(
   data: AstrolabeData,
   referenceDateStr: string,
-  options: Pick<AstrolabeScopeBuildOptions, 'includePeriodEvents'> = {},
+  options: Pick<AstrolabeScopeBuildOptions, 'includePeriodEvents' | 'periodCalculationCache'> = {},
 ): AstrolabeFullScopeContexts {
   const reference = normalizeTargetDate('full', referenceDateStr);
   const dailyDate = formatDateStr('daily', reference);

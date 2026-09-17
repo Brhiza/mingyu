@@ -87,6 +87,10 @@
       "types": "./dist/divination/algorithms/astrolabe.d.ts",
       "import": "./dist/divination/algorithms/astrolabe.js"
     },
+    "./divination/astrolabe-dynamic-range": {
+      "types": "./dist/divination/astrolabe-dynamic-range.d.ts",
+      "import": "./dist/divination/astrolabe-dynamic-range.js"
+    },
     "./divination/astrolabe-birth-range": {
       "types": "./dist/divination/astrolabe-birth-range.d.ts",
       "import": "./dist/divination/astrolabe-birth-range.js"

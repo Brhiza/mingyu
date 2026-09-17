@@ -81,7 +81,7 @@ export type AstrolabeBirthRangeContinuousSample = {
   circularPeriod?: number;
 };
 
-type MetricAccumulator = {
+export type AstrolabeRangeMetricAccumulator = {
   path: string;
   label: string;
   unit: string;
@@ -100,7 +100,7 @@ type ActiveBranch = {
   representative: AstrolabeData;
   last: AstrolabeData;
   sampleCount: number;
-  metrics: Map<string, MetricAccumulator>;
+  metrics: Map<string, AstrolabeRangeMetricAccumulator>;
 };
 
 function isValidTimestamp(value: unknown): value is number {
@@ -163,7 +163,10 @@ function assertInputMatchesStart(input: AstrolabeBirthInput, startTimestamp: num
   }
 }
 
-function inputAtTimestamp(input: AstrolabeBirthInput, timestamp: number): AstrolabeBirthInput {
+export function getAstrolabeRangeInputAtTimestamp(
+  input: AstrolabeBirthInput,
+  timestamp: number,
+): AstrolabeBirthInput {
   const local = getCivilDateTimeAtFixedOffset(new Date(timestamp), CHINA_OFFSET_HOURS);
   return {
     ...input,
@@ -640,8 +643,8 @@ function unwrap(value: number, reference: number, period: number): number {
   return reference + normalized;
 }
 
-function updateMetrics(
-  metrics: Map<string, MetricAccumulator>,
+export function updateAstrolabeRangeMetrics(
+  metrics: Map<string, AstrolabeRangeMetricAccumulator>,
   samples: AstrolabeBirthRangeContinuousSample[],
 ): void {
   for (const sample of samples) {
@@ -671,8 +674,8 @@ function updateMetrics(
   }
 }
 
-function finalizeMetrics(
-  metrics: Map<string, MetricAccumulator>,
+export function finalizeAstrolabeRangeMetrics(
+  metrics: Map<string, AstrolabeRangeMetricAccumulator>,
 ): AstrolabeBirthRangeContinuousFact[] {
   return [...metrics.values()]
     .sort((left, right) => left.path.localeCompare(right.path))
@@ -705,7 +708,7 @@ function finalizeBranch(branch: ActiveBranch, endTimestamp: number): AstrolabeBi
     sampleCount: branch.sampleCount,
     representative: branch.representative,
     last: branch.last,
-    continuous: finalizeMetrics(branch.metrics),
+    continuous: finalizeAstrolabeRangeMetrics(branch.metrics),
   };
 }
 
@@ -724,14 +727,23 @@ export function isAstrolabeBirthRangeSource(value: unknown): value is AstrolabeB
   );
 }
 
+/** 本命与动态扫描共用同一整秒范围和出生输入约束。 */
+export function validateAstrolabeRangeInput(
+  input: AstrolabeBirthInput,
+  range: AstrolabeBirthRangeInput,
+): number {
+  const total = assertRange(range);
+  assertFixedTimezoneInput(input);
+  assertInputMatchesStart(input, range.startTimestamp);
+  return total;
+}
+
 export function generateAstrolabeBirthRange(
   input: AstrolabeBirthInput,
   range: AstrolabeBirthRangeInput,
   options: AstrolabeBirthRangeOptions = {},
 ): AstrolabeBirthRange {
-  const total = assertRange(range);
-  assertFixedTimezoneInput(input);
-  assertInputMatchesStart(input, range.startTimestamp);
+  const total = validateAstrolabeRangeInput(input, range);
   assertNotAborted(options.signal);
 
   let active: ActiveBranch | undefined;
@@ -739,7 +751,7 @@ export function generateAstrolabeBirthRange(
   for (let completed = 0; completed < total; completed += 1) {
     assertNotAborted(options.signal);
     const timestamp = range.startTimestamp + completed * SECOND_MILLISECONDS;
-    const result = generateAstrolabe(inputAtTimestamp(input, timestamp));
+    const result = generateAstrolabe(getAstrolabeRangeInputAtTimestamp(input, timestamp));
     const currentFingerprint = getAstrolabeBirthRangeDiscreteFingerprint(result);
     if (!active) {
       active = {
@@ -750,11 +762,11 @@ export function generateAstrolabeBirthRange(
         sampleCount: 1,
         metrics: new Map(),
       };
-      updateMetrics(active.metrics, collectContinuousSamples(result));
+      updateAstrolabeRangeMetrics(active.metrics, collectContinuousSamples(result));
     } else if (currentFingerprint === active.fingerprint) {
       active.last = result;
       active.sampleCount += 1;
-      updateMetrics(active.metrics, collectContinuousSamples(result));
+      updateAstrolabeRangeMetrics(active.metrics, collectContinuousSamples(result));
     } else {
       branches.push(finalizeBranch(active, timestamp));
       active = {
@@ -765,7 +777,7 @@ export function generateAstrolabeBirthRange(
         sampleCount: 1,
         metrics: new Map(),
       };
-      updateMetrics(active.metrics, collectContinuousSamples(result));
+      updateAstrolabeRangeMetrics(active.metrics, collectContinuousSamples(result));
     }
     options.onProgress?.(completed + 1, total);
   }

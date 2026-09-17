@@ -278,6 +278,52 @@ type BodyPosition = {
   speed: number;
 };
 
+/** 单次范围扫描复用精确星历输入；不缓存本命相位、宫位或触碰结论。 */
+export class AstrolabePeriodCalculationCache {
+  private readonly positions = new Map<string, BodyPosition>();
+  private readonly solarEclipses = new Map<string, ReturnType<typeof findSolarEclipses>>();
+  private readonly lunarEclipses = new Map<string, ReturnType<typeof findLunarEclipses>>();
+
+  position(name: MovingBodyName, jd: number): BodyPosition {
+    const key = `${name}:${jd}`;
+    let value = this.positions.get(key);
+    if (!value) {
+      value = positionOf(name, jd);
+      // 精准求根产生的时刻随本命变化；限制驻留量，避免长区间积累全部求根中间值。
+      if (this.positions.size >= 65_536) {
+        this.positions.delete(this.positions.keys().next().value!);
+      }
+      this.positions.set(key, value);
+    }
+    return value;
+  }
+
+  solar(start: number, end: number) {
+    const key = `${start}:${end}`;
+    let value = this.solarEclipses.get(key);
+    if (!value) {
+      value = findSolarEclipses(start, end);
+      this.solarEclipses.set(key, value);
+    }
+    return value;
+  }
+
+  lunar(start: number, end: number) {
+    const key = `${start}:${end}`;
+    let value = this.lunarEclipses.get(key);
+    if (!value) {
+      value = findLunarEclipses(start, end);
+      this.lunarEclipses.set(key, value);
+    }
+    return value;
+  }
+}
+
+export type AstrolabePeriodBuildOptions = {
+  batch?: AstrolabePeriodBatchInput;
+  calculationCache?: AstrolabePeriodCalculationCache;
+};
+
 function pad(value: number) {
   return String(value).padStart(2, '0');
 }
@@ -1060,22 +1106,16 @@ function buildAstrolabePeriodEventsInternal(
   source: AstrolabePeriodSource,
   scope: AstrolabePeriodScopeMode,
   target: { year: number; month: number; day: number },
-  options: { batch?: AstrolabePeriodBatchInput } = {},
+  options: AstrolabePeriodBuildOptions = {},
 ): AstrolabePeriodEventCollection {
   const window = resolveAstrolabePeriodWindow(source, scope, target, options.batch);
   const bodies = movingBodiesForScope(scope);
   const step = sampleStepDays(scope);
   const natalPoints = natalPointsOf(source);
   const cusps = natalCuspsOf(source);
-  const positionCache = new Map<string, BodyPosition>();
-  const cachedPositionOf = (name: MovingBodyName, jd: number) => {
-    const key = `${name}:${jd}`;
-    const cached = positionCache.get(key);
-    if (cached) return cached;
-    const position = positionOf(name, jd);
-    positionCache.set(key, position);
-    return position;
-  };
+  const calculationCache = options.calculationCache ?? new AstrolabePeriodCalculationCache();
+  const cachedPositionOf = (name: MovingBodyName, jd: number) =>
+    calculationCache.position(name, jd);
   const cachedLongitudeOf = (name: MovingBodyName, jd: number) =>
     cachedPositionOf(name, jd).longitude;
   const sampleStartJd = options.batch
@@ -1234,7 +1274,7 @@ function buildAstrolabePeriodEventsInternal(
   const eclipseStartJd = window.startJd - eclipsePaddingDays;
   const eclipseEndJd = window.endJd + eclipsePaddingDays;
   const eclipseTimes: number[] = [];
-  for (const eclipse of findSolarEclipses(eclipseStartJd, eclipseEndJd)) {
+  for (const eclipse of calculationCache.solar(eclipseStartJd, eclipseEndJd)) {
     const name = solarEclipseName(eclipse.type);
     eclipseTimes.push(eclipse.julianDate);
     pushEvent({
@@ -1247,7 +1287,7 @@ function buildAstrolabePeriodEventsInternal(
       key: eventKey('交食', 'Sun', eclipse.julianDate, eclipse.type),
     });
   }
-  for (const eclipse of findLunarEclipses(eclipseStartJd, eclipseEndJd)) {
+  for (const eclipse of calculationCache.lunar(eclipseStartJd, eclipseEndJd)) {
     const name = lunarEclipseName(eclipse.type);
     eclipseTimes.push(eclipse.julianDate);
     pushEvent({
@@ -1325,7 +1365,7 @@ export function buildAstrolabePeriodEvents(
   data: AstrolabeData,
   scope: AstrolabePeriodScopeMode,
   target: { year: number; month: number; day: number },
-  options: { batch?: AstrolabePeriodBatchInput } = {},
+  options: AstrolabePeriodBuildOptions = {},
 ) {
   return buildAstrolabePeriodEventsInternal(data, scope, target, options);
 }
