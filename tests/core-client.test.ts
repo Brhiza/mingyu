@@ -26,6 +26,7 @@ test('统一客户端应提供出生盘、占法、能力发现和稳定序列�
   });
 
   assert.ok(birth.bazi);
+  assert.equal(birth.inputs?.bazi?.shenShaVariants, undefined);
   assert.equal(divination.method, 'meihua');
   assert.equal(client.capability('bazi').id, 'bazi');
   assert.ok(client.capabilities().systems.length > 10);

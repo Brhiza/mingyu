@@ -173,6 +173,20 @@ function normalizeUtcTimestamp(value: Date | string | number): number {
   return timestamp;
 }
 
+function mergeBaziRules(
+  defaults: BirthChartBundleOptions['baziRules'],
+  options: BirthChartBundleOptions['baziRules'],
+): BirthChartBundleOptions['baziRules'] {
+  if (!defaults && !options) return undefined;
+  return {
+    ...defaults,
+    ...options,
+    ...(defaults?.shenShaVariants || options?.shenShaVariants
+      ? { shenShaVariants: { ...defaults?.shenShaVariants, ...options?.shenShaVariants } }
+      : {}),
+  };
+}
+
 function mergeBirthOptions(
   defaults: BirthChartBundleOptions | undefined,
   options: BirthChartBundleOptions | undefined,
@@ -180,14 +194,7 @@ function mergeBirthOptions(
   return {
     ...defaults,
     ...options,
-    baziRules: {
-      ...defaults?.baziRules,
-      ...options?.baziRules,
-      shenShaVariants: {
-        ...defaults?.baziRules?.shenShaVariants,
-        ...options?.baziRules?.shenShaVariants,
-      },
-    },
+    baziRules: mergeBaziRules(defaults?.baziRules, options?.baziRules),
     ziweiRules: { ...defaults?.ziweiRules, ...options?.ziweiRules },
     ziwei: { ...defaults?.ziwei, ...options?.ziwei },
   };
@@ -214,14 +221,7 @@ function mergeSynthesisOptions(
   return {
     ...defaults,
     ...options,
-    baziRules: {
-      ...defaults?.baziRules,
-      ...options?.baziRules,
-      shenShaVariants: {
-        ...defaults?.baziRules?.shenShaVariants,
-        ...options?.baziRules?.shenShaVariants,
-      },
-    },
+    baziRules: mergeBaziRules(defaults?.baziRules, options?.baziRules),
     ziweiRules: { ...defaults?.ziweiRules, ...options?.ziweiRules },
     ziwei: { ...defaults?.ziwei, ...options?.ziwei },
     prompt: { ...defaults?.prompt, ...options?.prompt },
