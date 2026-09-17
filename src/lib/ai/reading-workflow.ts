@@ -3136,6 +3136,7 @@ export async function runReadingWorkflow(
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   const retryFailures = new Map<string, string>();
+  const failedCalculations = new Map<string, ReadingResourceReplay>();
   let calls = 0;
   let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
@@ -3178,9 +3179,12 @@ export async function runReadingWorkflow(
   const rememberRetryFailure = (key: string, action: ReadingAction, error: unknown) => {
     const note = describeReadingFailure(action, error);
     retryFailures.set(retryFailureKey(key, action), note);
+    if (action.kind === 'calculate')
+      failedCalculations.set(retryFailureKey(key, action), { key, action });
   };
   const clearRetryFailure = (key: string, action: ReadingAction) => {
     retryFailures.delete(retryFailureKey(key, action));
+    failedCalculations.delete(retryFailureKey(key, action));
   };
   const formatRetryFailures = () =>
     retryFailures.size
@@ -3355,6 +3359,10 @@ export async function runReadingWorkflow(
     }
     guard();
     persistResources();
+    if (resources.some((resource) => resource.dynamicAstrolabe) && failedCalculations.size) {
+      options.memory.restoreActions = [...failedCalculations.values()];
+      throw new Error('动态解读所需的补算资料尚未齐全，请重试补齐后继续。');
+    }
     if (await runDynamicResources()) return;
     const finalResources = resources.filter((item) => item.usable);
     const getFinalStatusNotes = (omitted: ReadingResource[]) => {

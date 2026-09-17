@@ -271,3 +271,71 @@ test('普通资料规划补算动态范围后立即转入逐页解读', async ()
   assert.equal(memory.astrolabeDynamicReading?.completedPages, 1);
   assert.equal(memory.resources.filter((item) => item.dynamicAstrolabe).length, 2);
 });
+
+test('双方动态补算只成功一方时先补齐失败方，再进入分轮解读', async () => {
+  const memory: ReadingMemory = {
+    resources: [
+      {
+        key: JSON.stringify({ kind: 'schema', method: 'astrolabe' }),
+        kind: 'schema',
+        title: '参数',
+        text: '{"properties":{"astrolabeScope":{},"astrolabeScopeDate":{}}}',
+        usable: false,
+      },
+    ],
+  };
+  const errors: string[] = [];
+  let pages = 0;
+  await runReadingWorkflow(
+    [{ role: 'user', content: '结合双方资料解读。' }],
+    {
+      memory,
+      subject,
+      readingMethod: 'astrolabe',
+      initialPrompt: '原始盘面与问题',
+      onChunk() {},
+      onNotice() {},
+      onProgress() {},
+      onDone() {
+        assert.fail('资料未齐全不能完成本轮');
+      },
+      onError(error) {
+        errors.push(error);
+      },
+      onAstrolabeDynamicCheckpoint() {
+        pages++;
+      },
+    },
+    {
+      async stream(_messages, callbacks) {
+        callbacks.onChunk(
+          JSON.stringify({ actions: [replay('primary').action, replay('partner').action] }),
+        );
+        callbacks.onDone();
+      },
+      async execute(action) {
+        if (action.kind !== 'calculate') throw new Error('类型错误');
+        if (action.target === 'partner') throw new Error('合成补算故障');
+        return resource('primary');
+      },
+    },
+  );
+  assert.equal(pages, 0);
+  assert.equal(memory.astrolabeDynamicReading, undefined);
+  assert.match(errors[0], /尚未齐全/u);
+  assert.equal(memory.restoreActions?.length, 1);
+  assert.equal(memory.restoreActions?.[0].action.kind, 'calculate');
+  const retried: unknown[] = [];
+  const result = await round(memory, {
+    async execute(action) {
+      assert.equal(action.kind, 'calculate');
+      if (action.kind !== 'calculate') throw new Error('类型错误');
+      retried.push(action.target);
+      return resource('partner');
+    },
+  });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(retried, ['partner']);
+  assert.equal(memory.astrolabeDynamicReading?.version, 2);
+  assert.equal(memory.resources.filter((item) => item.dynamicAstrolabe).length, 2);
+});
