@@ -1,4 +1,4 @@
-import { SolarTime, SolarTerm, ChildLimit } from 'tyme4ts';
+import { SolarTime, SolarTerm, ChildLimit, SixtyCycleYear } from 'tyme4ts';
 import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
 import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo, XiaoyunInfo } from './baziTypes';
 import {
@@ -213,13 +213,11 @@ export class LuckCalculator {
    * 计算流年
    */
   private calculateLiunian(year: number, dayMaster: string) {
-    // 使用年中(6月)计算该年干支，避免年初年末边界问题
-    const solarTime = SolarTime.fromYmdHms(year, 6, 1, 0, 0, 0);
-    const yearPillar = solarTime.getLunarHour().getEightChar().getYear();
-    const gan = yearPillar.getHeavenStem().getName();
-    const zhi = yearPillar.getEarthBranch().getName();
+    const ganZhi = SixtyCycleYear.fromYear(year).getSixtyCycle().getName();
+    const gan = ganZhi[0];
+    const zhi = ganZhi[1];
     return {
-      ganZhi: `${gan}${zhi}`,
+      ganZhi,
       tenGod: getTenGod(gan, dayMaster),
       tenGodZhi: getTenGodForBranch(zhi, dayMaster),
     };
