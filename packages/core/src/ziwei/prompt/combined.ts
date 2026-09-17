@@ -314,7 +314,7 @@ export function buildCombinedZiweiCompatibilityPrompt(
     '',
     `【${partnerName}盘面】`,
     partnerEmbeddedPack,
-    compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : '',
+    ...(compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : []),
     buildPromptSchoolSection('ziwei', params.schools),
     '',
     `【任务】\n${
