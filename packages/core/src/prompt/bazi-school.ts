@@ -138,11 +138,7 @@ function usefulWuxing(result: BaziChartResult) {
 function formatUsefulGod(result: BaziChartResult) {
   const useful = result.analysis.usefulGod;
   const { favorable, unfavorable } = usefulWuxing(result);
-  const transformationFunctions = useful.decisionEvidence?.transformation
-    ? formatUsefulGodFunctions(useful).filter(
-        (item) => item.startsWith('化神取用：') || item.startsWith('取用条件：'),
-      )
-    : [];
+  const usefulGodFunctions = formatUsefulGodFunctions(useful);
   return joinFacts([
     useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
     useful.secondaryFavorableWuxing?.length
@@ -157,7 +153,7 @@ function formatUsefulGod(result: BaziChartResult) {
       ? `忌神${unfavorable.join('、')}`
       : undefined,
     useful.primaryReason ? `取用理由${useful.primaryReason}` : undefined,
-    ...transformationFunctions,
+    ...usefulGodFunctions,
   ]);
 }
 

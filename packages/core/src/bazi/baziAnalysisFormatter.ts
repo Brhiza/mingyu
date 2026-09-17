@@ -42,6 +42,13 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       (path) =>
         `原局制化：${path.label}；${path.sourceStems.join('、')}作用于${path.targetStems.join('、')}${path.baseUnfavorableStems.length ? `；其中${path.baseUnfavorableStems.join('、')}在扶抑基线属忌，原局作用与增补取用分别判断` : ''}${path.evidenceGaps.length ? `；作用条件待核：${path.evidenceGaps.join('、')}` : ''}`,
     );
+  const patternBreakerRestrictions = usefulGod.decisionEvidence?.patternBreakerRestrictions ?? [];
+  const patternRestrictedStems = new Set(
+    patternBreakerRestrictions.flatMap((breaker) => breaker.stems.map((item) => item.stem)),
+  );
+  const otherConditionalUnfavorableStems = (usefulGod.conditionalUnfavorableStems ?? []).filter(
+    (stem) => !patternRestrictedStems.has(stem),
+  );
   return [
     ...(usefulGod.decisionEvidence?.transformation
       ? [
@@ -55,8 +62,12 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       ? `取用配合：${usefulGod.decisionEvidence.balanceAdjustment.reason}`
       : '',
     descriptions.length ? `条件取用：${descriptions.join('；')}` : '',
-    usefulGod.conditionalUnfavorableStems?.length
-      ? `干级所忌：${usefulGod.conditionalUnfavorableStems.join('、')}`
+    ...patternBreakerRestrictions.map(
+      (breaker) =>
+        `格局破格所忌：${breaker.stems.map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`).join('、')}；${breaker.label}的救应明确不成立`,
+    ),
+    otherConditionalUnfavorableStems.length
+      ? `干级所忌：${otherConditionalUnfavorableStems.join('、')}`
       : '',
     ...observedFunctions,
   ].filter(Boolean);

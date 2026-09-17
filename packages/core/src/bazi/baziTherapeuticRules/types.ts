@@ -145,6 +145,8 @@ export interface ClimateRule {
   /** 没有 policy 时默认为 reference，不得由 priority 推断覆盖权限。 */
   policy?: ClimateRulePolicy;
   traceHints?: string[];
+  /** 提示明确采用的具体天干，用于与本局干级限制核对。 */
+  recommendationStems?: string[];
   hint: string;
 }
 

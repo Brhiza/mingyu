@@ -73,6 +73,22 @@ export interface PatternRemedy {
   placement?: '透干' | '藏干';
 }
 
+export interface PatternActiveBreakerStem {
+  stem: string;
+  tenGod: string;
+  pillar: 'year' | 'month' | 'day' | 'hour';
+  pillarName: string;
+}
+
+/** 已通过透干、根气与合绊门槛的破格神，以及现有救应是否闭合。 */
+export interface PatternActiveBreaker {
+  label: string;
+  stems: PatternActiveBreakerStem[];
+  repairStatus: PatternConditionStatus;
+  repairPathKeys: string[];
+  detail: string;
+}
+
 export interface PatternFulfillmentResult {
   patternName: string;
   status: '成格' | '破格' | '破而复成' | '平常' | '未判定';
@@ -88,6 +104,7 @@ export interface PatternFulfillmentResult {
   rootEvidence?: PatternStemEvidence[];
   interactionEvidence?: PatternInteractionEvidence[];
   pathEvaluations?: PatternPathEvaluation[];
+  activeBreakers?: PatternActiveBreaker[];
 }
 
 export interface PatternFulfillmentOptions {
@@ -159,7 +176,14 @@ interface GroupUsability {
   status: PatternConditionStatus;
   effective: boolean;
   uncertain: boolean;
+  effectiveItems: ObservedStem[];
   detail: string;
+}
+
+interface PatternDecision {
+  status: PatternFulfillmentResult['status'];
+  detail: string;
+  activeBreakers?: PatternActiveBreaker[];
 }
 
 function normalizePatternName(patternName: string): string {
@@ -416,6 +440,7 @@ function assessGroupUsability(
       status: '不满足',
       effective: false,
       uncertain: false,
+      effectiveItems: [],
       detail: `${label}未透干。`,
     };
   }
@@ -450,6 +475,7 @@ function assessGroupUsability(
       status: withoutActionableRoot.length ? '资料不足' : '满足',
       effective: true,
       uncertain: withoutActionableRoot.length > 0,
+      effectiveItems: available.map(({ item }) => item),
       detail: `${detail}。`,
     };
   }
@@ -459,6 +485,7 @@ function assessGroupUsability(
       status: '不满足',
       effective: false,
       uncertain: false,
+      effectiveItems: [],
       detail: `${label}虽透且根气可用，但${blocked
         .map(({ item }) =>
           findHarmonyProfiles(item, harmonyProfiles).map(formatHarmonyProfile).join('、'),
@@ -472,6 +499,7 @@ function assessGroupUsability(
     status: '资料不足',
     effective: false,
     uncertain: true,
+    effectiveItems: [],
     detail: `${label}虽透，但${roots
       .map(({ item, root }) => describeRootLimitation(item, root))
       .join('；')}，当前不能确认其为有效作用。`,
@@ -914,7 +942,7 @@ function evaluateStatusForOrdinaryPattern(params: {
   pillars: Pillars;
   harmonyProfiles: HarmonyTransformProfile[];
   conditionFacts: PatternConditionFact[];
-}): { status: PatternFulfillmentResult['status']; detail: string } {
+}): PatternDecision {
   const {
     patternName,
     targetGods,
@@ -941,18 +969,39 @@ function evaluateStatusForOrdinaryPattern(params: {
           ? '满足'
           : '资料不足',
     );
-    return { ...item, usability, repairOptions, repairStatuses };
+    const repairStatus: PatternConditionStatus = repairStatuses.includes('满足')
+      ? '满足'
+      : repairStatuses.includes('资料不足')
+        ? '资料不足'
+        : '不满足';
+    return { ...item, usability, repairOptions, repairStatuses, repairStatus };
   });
+  const activeBreakers: PatternActiveBreaker[] = assessedBreakers
+    .filter((item) => item.usability.effective)
+    .map((item) => ({
+      label: item.label,
+      stems: item.usability.effectiveItems.map((stem) => ({
+        stem: stem.stem,
+        tenGod: stem.tenGod,
+        pillar: stem.pillar,
+        pillarName: PILLAR_NAMES[stem.pillar],
+      })),
+      repairStatus: item.repairStatus,
+      repairPathKeys: [...new Set(item.repairOptions.flat().map((path) => path.key))],
+      detail: item.usability.detail,
+    }));
   if (!monthGate) {
     return {
       status: '平常',
       detail: `月令未见${targetGods.join('或')}，当前${patternName}名称不能替代月令取格依据。`,
+      activeBreakers,
     };
   }
   if (targetCondition.status !== '满足') {
     return {
       status: targetCondition.status === '资料不足' ? '未判定' : '破格',
       detail: `${targetCondition.detail} ${basis}`,
+      activeBreakers,
     };
   }
   const uncertainBreakers = assessedBreakers.filter((item) => item.usability.uncertain);
@@ -962,10 +1011,11 @@ function evaluateStatusForOrdinaryPattern(params: {
       detail: `${uncertainBreakers
         .map((item) => item.usability.detail)
         .join('；')} ${basis} 存在破格候选，但救应条件尚未完备，不能闭合成败。`,
+      activeBreakers,
     };
   }
-  const activeBreakers = assessedBreakers.filter((item) => item.usability.effective);
-  if (!activeBreakers.length) {
+  const effectiveBreakers = assessedBreakers.filter((item) => item.usability.effective);
+  if (!effectiveBreakers.length) {
     const suppressed = assessedBreakers
       .filter((item) => item.group.visible.length > 0)
       .map((item) => item.usability.detail)
@@ -973,9 +1023,10 @@ function evaluateStatusForOrdinaryPattern(params: {
     return {
       status: '成格',
       detail: `格神已透干且有可用根气，当前未见有效明透破格项。${suppressed ? ` ${suppressed}` : ''}`,
+      activeBreakers,
     };
   }
-  const unresolved = activeBreakers.filter(
+  const unresolved = effectiveBreakers.filter(
     (item) => !item.repairStatuses.some((status) => status === '满足'),
   );
   const indeterminate = unresolved.filter((item) =>
@@ -984,7 +1035,7 @@ function evaluateStatusForOrdinaryPattern(params: {
   if (indeterminate.length) {
     return {
       status: '未判定',
-      detail: `原局见${activeBreakers.map((item) => item.label).join('、')}，但救应路径仍有资料不足：${indeterminate
+      detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}，但救应路径仍有资料不足：${indeterminate
         .map((item) => {
           const details = item.repairOptions
             .flat()
@@ -993,17 +1044,19 @@ function evaluateStatusForOrdinaryPattern(params: {
           return details || `${item.label}未见明确救应路径`;
         })
         .join('；')}。`,
+      activeBreakers,
     };
   }
   if (!unresolved.length) {
     return {
       status: '破而复成',
-      detail: `原局见${activeBreakers.map((item) => item.label).join('、')}，但每项均有明示且有效的救应路径。`,
+      detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}，但每项均有明示且有效的救应路径。`,
+      activeBreakers,
     };
   }
   return {
     status: '破格',
-    detail: `原局见${activeBreakers.map((item) => item.label).join('、')}；${unresolved
+    detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}；${unresolved
       .map((item) => {
         const details = item.repairOptions
           .flat()
@@ -1012,6 +1065,7 @@ function evaluateStatusForOrdinaryPattern(params: {
         return details || item.repair?.detail || `${item.label}未见有效救应`;
       })
       .join('；')}`,
+    activeBreakers,
   };
 }
 
@@ -1113,7 +1167,7 @@ export function evaluatePatternFulfillment(
     rooted: false,
     actionable: false,
   };
-  let decision: { status: PatternFulfillmentResult['status']; detail: string } = {
+  let decision: PatternDecision = {
     status: '未判定',
     detail: '当前格局名称尚无对应的成败条件，保留盘面证据供所用流派复核。',
   };
@@ -1609,6 +1663,7 @@ export function evaluatePatternFulfillment(
         detail: `原有有限格神结构为“${decision.status}”，但${
           wealthBearingStatus === '不满足' ? '日主偏弱或身弱' : '日主旺衰资料不足'
         }，尚不能称为完整财格成败：${decision.detail}`,
+        activeBreakers: decision.activeBreakers,
       };
     }
   }
@@ -1638,6 +1693,7 @@ export function evaluatePatternFulfillment(
     rootEvidence,
     interactionEvidence: interactions,
     pathEvaluations,
+    activeBreakers: decision.activeBreakers ?? [],
     summary: `【${patternName}】当前判定：${decision.status}；${decision.detail} 透干所见：${
       exposed.map(formatObserved).join('、') || '未记录'
     }。`,

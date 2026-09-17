@@ -7298,6 +7298,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
                 baseUnfavorableStems: path.baseUnfavorableStems,
                 evidenceGaps: path.evidenceGaps,
               })),
+              patternBreakerRestrictions: decision.patternBreakerRestrictions,
               transformation: decision.transformation,
             }
           : undefined,
