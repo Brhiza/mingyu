@@ -140,24 +140,22 @@ test('公开紫微接口范围模式按 scope 与运限游标分页并保留完�
   const sample = body.data.range.samples[0].bundle;
   assert.deepEqual(body.data.range.scopeBatch, {
     requestedScope: 'full',
-    scopes: ['origin', 'decadal'],
+    scopes: ['origin'],
     startIndex: 0,
     endIndexExclusive: 1,
-    totalScopes: 5,
+    totalScopes: 6,
     nextIndex: 1,
   });
-  assert.deepEqual(sample.ziwei.scopeNames, ['origin', 'decadal']);
+  assert.deepEqual(sample.ziwei.scopeNames, ['origin']);
   assert.deepEqual(Object.keys(sample.ziwei.payloadByScope), body.data.range.scopeBatch.scopes);
-  assert.equal(sample.ziwei.fortuneTimeline.scope, 'all');
-  assert.equal(sample.ziwei.fortuneTimeline.targetDateStr, '2025-01-01');
-  assert.equal(sample.ziwei.fortuneTimeline.targetHourIndex, 6);
+  assert.equal(sample.ziwei.fortuneTimeline, undefined);
   assert.ok(sample.ziwei.payloadByScope.origin);
-  assert.ok(sample.ziwei.payloadByScope.decadal);
+  assert.equal(sample.ziwei.payloadByScope.decadal, undefined);
   assert.equal(sample.ziwei.payloadByScope.yearly, undefined);
-  assert.equal(sample.ziwei.fortuneTimeline.batch.unit, 'age-year');
-  assert.equal(sample.ziwei.fortuneTimeline.batch.startIndex, 0);
-  assert.equal(sample.ziwei.fortuneTimeline.batch.endIndexExclusive, 1);
-  assert.equal(sample.ziwei.fortuneTimeline.batch.nextIndex, 1);
+  assert.deepEqual(body.data.range.batch.scopeContext, {
+    dateStr: '2025-01-01',
+    hourIndex: 6,
+  });
   assert.deepEqual(sample.profile.location, {
     name: '公开合成地点',
     longitude: 120.5,
@@ -174,25 +172,23 @@ test('公开紫微接口范围模式按 scope 与运限游标分页并保留完�
   assert.ok(nextScope.bytes < 1024 * 1024);
   assert.deepEqual(nextScope.body.data.range.scopeBatch, {
     requestedScope: 'full',
-    scopes: ['origin', 'yearly'],
+    scopes: ['decadal'],
     startIndex: 1,
     endIndexExclusive: 2,
-    totalScopes: 5,
+    totalScopes: 6,
     nextIndex: 2,
   });
   assert.deepEqual(
     Object.keys(nextScope.body.data.range.samples[0].bundle.ziwei.payloadByScope),
     nextScope.body.data.range.scopeBatch.scopes,
   );
-  assert.ok(nextScope.body.data.range.samples[0].bundle.ziwei.payloadByScope.yearly);
-  assert.equal(nextScope.body.data.range.samples[0].bundle.ziwei.payloadByScope.decadal, undefined);
+  assert.ok(nextScope.body.data.range.samples[0].bundle.ziwei.payloadByScope.decadal);
+  assert.equal(nextScope.body.data.range.samples[0].bundle.ziwei.payloadByScope.origin, undefined);
 
-  const expectedScopePages = getZiweiPromptCalculationScopes('full').filter(
-    (scope) => scope !== 'origin',
-  );
+  const expectedScopePages = getZiweiPromptCalculationScopes('full');
   const collectedScopes = [
-    body.data.range.scopeBatch.scopes[1],
-    nextScope.body.data.range.scopeBatch.scopes[1],
+    body.data.range.scopeBatch.scopes[0],
+    nextScope.body.data.range.scopeBatch.scopes[0],
   ];
   let scopeIndex = nextScope.body.data.range.scopeBatch.nextIndex;
   while (scopeIndex !== null) {
@@ -203,25 +199,28 @@ test('公开紫微接口范围模式按 scope 与运限游标分页并保留完�
     assert.equal(page.response.status, 200);
     assert.ok(page.bytes < 1024 * 1024);
     const metadata = page.body.data.range.scopeBatch;
-    assert.deepEqual(metadata.scopes, ['origin', expectedScopePages[metadata.startIndex]]);
+    assert.deepEqual(metadata.scopes, [expectedScopePages[metadata.startIndex]]);
     assert.deepEqual(
       Object.keys(page.body.data.range.samples[0].bundle.ziwei.payloadByScope),
       metadata.scopes,
     );
-    collectedScopes.push(metadata.scopes[1]);
+    collectedScopes.push(metadata.scopes[0]);
     scopeIndex = metadata.nextIndex;
   }
-  assert.deepEqual(['origin', ...collectedScopes], getZiweiPromptCalculationScopes('full'));
+  assert.deepEqual(collectedScopes, getZiweiPromptCalculationScopes('full'));
 
   const nextFortune = await callApi('ziwei/calculate', {
     ...input,
-    fortuneBatch: { startIndex: 1, limit: 10 },
+    fortuneBatch: { startIndex: 1, limit: 1 },
   });
   assert.equal(nextFortune.response.status, 200);
   const nextTimeline = nextFortune.body.data.range.samples[0].bundle.ziwei.fortuneTimeline;
   assert.equal(nextTimeline.batch.startIndex, 1);
-  assert.equal(nextTimeline.batch.endIndexExclusive, 11);
-  assert.equal(nextTimeline.batch.nextIndex, 11);
+  assert.equal(nextTimeline.batch.endIndexExclusive, 2);
+  assert.equal(nextTimeline.batch.nextIndex, 2);
+  assert.deepEqual(nextFortune.body.data.range.samples[0].bundle.ziwei.scopeNames, []);
+  assert.equal(nextFortune.body.data.range.samples[0].bundle.ziwei.natalFacts.kind, 'natal-facts');
+  assert.equal(nextFortune.body.data.range.batch.fortuneBatch.startIndex, 1);
 });
 
 test('范围模式拒绝起点冲突、冲突时区和非法游标，点输入保持原路径', async () => {
@@ -297,7 +296,9 @@ test('范围模式拒绝起点冲突、冲突时区和非法游标，点输入�
   for (const payload of [
     { ...ziweiBase, rangeBatch: { limit: 2 } },
     { ...ziweiBase, scopeBatch: { limit: 2 } },
-    { ...ziweiBase, scopeBatch: { startIndex: 5 } },
+    { ...ziweiBase, scopeBatch: { startIndex: 6 } },
+    { ...ziweiBase, scopeBatch: {}, fortuneBatch: {} },
+    { ...ziweiBase, fortuneBatch: { limit: 2 } },
     { ...ziweiBase, fortuneBatch: { limit: 11 } },
     { ...ziweiBase, promptScope: 'yearly', fortuneBatch: {} },
     { ...ziweiBase, promptScope: 'yearly', scopeBatch: {} },
@@ -317,7 +318,7 @@ test('公开 API OpenAPI 声明范围字段而不新增端点', async () => {
   assert.equal(body.data.components.schemas.BirthRangeBatch.properties.limit.maximum, 60);
   assert.equal(body.data.components.schemas.ZiweiBirthRangeBatch.properties.limit.const, 1);
   assert.equal(body.data.components.schemas.ZiweiScopeBatch.properties.limit.const, 1);
-  assert.equal(body.data.components.schemas.ZiweiFortuneBatch.properties.limit.maximum, 10);
+  assert.equal(body.data.components.schemas.ZiweiFortuneBatch.properties.limit.const, 1);
   assert.ok(body.data.components.schemas.BaziRequest.properties.birthTimeRange);
   assert.ok(body.data.components.schemas.BaziRequest.properties.birthLatitude);
   assert.ok(body.data.components.schemas.ZiweiRequest.properties.birthTimeRange);

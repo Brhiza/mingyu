@@ -244,6 +244,102 @@ export async function buildVerifiedDecadalTimelineOptions(
   }));
 }
 
+/**
+ * 年龄年独立批次只验证本批实际涉及的童限或大限，并保留其精确起止边界。
+ * 其余条目仅用于稳定年龄索引，不会进入返回结果。
+ */
+export async function buildVerifiedDecadalTimelineBatchOptions(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  options: {
+    scope: 'all' | 'current';
+    targetAge: number;
+    batch: { startIndex?: number; limit?: number };
+  },
+): Promise<DecadalTimelineOption[]> {
+  const ranges = collectIztroDecadalRanges(astrolabe);
+  const firstRange = ranges[0];
+  if (!firstRange) throw new Error('iztro 未返回可用的大限范围。');
+  const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
+  const timeline: DecadalTimelineOption[] = [
+    ...Array.from({ length: firstRange.startAge - 1 }, (_, index) => {
+      const age = index + 1;
+      return {
+        kind: 'childhood' as const,
+        label: '童限',
+        startAge: age,
+        endAge: age,
+        dateStr: shiftLunarYear(birthSolarDate, age - 1),
+        source: 'payload-compatibility' as const,
+      };
+    }),
+    ...ranges.map((range) => ({
+      kind: 'decadal' as const,
+      label: '大限',
+      startAge: range.startAge,
+      endAge: range.endAge,
+      dateStr: shiftLunarYear(birthSolarDate, range.startAge - 1),
+      palaceIndex: range.palaceIndex,
+      palaceName: range.palaceName,
+      source: 'payload-compatibility' as const,
+    })),
+  ];
+  const availableIndexes =
+    options.scope === 'all'
+      ? timeline.map((_, index) => index)
+      : timeline
+          .map((period, index) => ({ period, index }))
+          .filter(
+            ({ period }) =>
+              options.targetAge >= period.startAge && options.targetAge <= period.endAge,
+          )
+          .map(({ index }) => index);
+  if (!availableIndexes.length) {
+    throw new RangeError(`所选日期对应虚岁 ${options.targetAge}，超出紫微已支持的运限范围。`);
+  }
+  const ageYears = availableIndexes.flatMap((periodIndex) => {
+    const period = timeline[periodIndex]!;
+    return Array.from({ length: period.endAge - period.startAge + 1 }, (_, index) => ({
+      periodIndex,
+      age: period.startAge + index,
+    }));
+  });
+  const startIndex = options.batch.startIndex ?? 0;
+  const limit = options.batch.limit ?? 1;
+  if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= ageYears.length) {
+    throw new RangeError('紫微运限分页起点超出可用年份范围。');
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 10) {
+    throw new RangeError('紫微运限每批需为 1 至 10 个年龄年。');
+  }
+  const selectedPeriodIndexes = new Set(
+    ageYears.slice(startIndex, startIndex + limit).map((item) => item.periodIndex),
+  );
+  for (const periodIndex of selectedPeriodIndexes) {
+    const period = timeline[periodIndex]!;
+    const start = await findVerifiedHoroscope(astrolabe, input, period.startAge);
+    const palace = astrolabe.palace(start.horoscope.decadal.index);
+    if (
+      start.horoscope.age.nominalAge !== period.startAge ||
+      start.horoscope.decadal.name !== period.label ||
+      !palace ||
+      (period.kind === 'decadal' && palace.index !== period.palaceIndex)
+    ) {
+      throw new Error(`iztro 无法验证 ${period.startAge}-${period.endAge} 岁${period.label}。`);
+    }
+    const next = await findVerifiedHoroscope(astrolabe, input, period.endAge + 1);
+    timeline[periodIndex] = {
+      ...period,
+      dateStr: start.dateStr,
+      endDateStr: shiftSolarDay(next.dateStr, -1),
+      palaceIndex: palace.index,
+      palaceName: palace.name,
+      source: 'iztro-horoscope',
+    };
+  }
+  return timeline;
+}
+
 export function findCurrentDecadalOption(
   options: DecadalTimelineOption[],
   nominalAge: number,

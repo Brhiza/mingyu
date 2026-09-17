@@ -228,7 +228,7 @@ function buildSelfMutagens(palace: IztroPalace): MutagenName[] {
 
 function buildSummaryTags(params: {
   palace: IztroPalace;
-  horoscope: IztroHoroscope;
+  horoscope?: IztroHoroscope;
   currentScope: ScopeType;
   dynamicPalaceName?: string;
   scopeHits: string[];
@@ -270,13 +270,65 @@ function buildSummaryTags(params: {
     currentScope !== 'age' &&
     dynamicPalaceName &&
     MUTAGEN_ORDER.some((mutagen) =>
-      horoscope.hasHoroscopeMutagen(dynamicPalaceName as never, currentScope, mutagen as never),
+      horoscope?.hasHoroscopeMutagen(dynamicPalaceName as never, currentScope, mutagen as never),
     )
   ) {
     tags.push('有当前运限四化');
   }
 
   return tags;
+}
+
+/** 直接投影本命宫位事实，不读取或构造任何运限字段。 */
+export function buildNatalPalaceFacts(astrolabe: IztroAstrolabe): PalaceFact[] {
+  assertValidAstrolabePalaces(astrolabe.palaces);
+  return astrolabe.palaces.map((palace) => {
+    const surrounded = astrolabe.surroundedPalaces(palace.name);
+    const mutagedPlaces = buildMutagedPlaces(palace);
+    const selfMutagens = buildSelfMutagens(palace);
+    return {
+      index: palace.index,
+      name: palace.name,
+      is_body_palace: palace.isBodyPalace,
+      is_original_palace: palace.isOriginalPalace,
+      heavenly_stem: palace.heavenlyStem,
+      earthly_branch: palace.earthlyBranch,
+      major_stars: palace.majorStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      minor_stars: palace.minorStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      other_stars: palace.adjectiveStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      scope_stars: [],
+      changsheng12: palace.changsheng12,
+      boshi12: palace.boshi12,
+      base_jiangqian12: palace.jiangqian12,
+      base_suiqian12: palace.suiqian12,
+      decadal_range: palace.decadal.range,
+      ages: palace.ages,
+      scope_hits: [],
+      empty_state: palace.isEmpty(),
+      opposite_palace_index: surrounded.opposite.index,
+      surrounded_palace_indexes: [
+        surrounded.target.index,
+        surrounded.opposite.index,
+        surrounded.wealth.index,
+        surrounded.career.index,
+      ],
+      summary_tags: buildSummaryTags({
+        palace,
+        currentScope: 'origin',
+        scopeHits: [],
+        surrounded,
+        selfMutagens,
+      }),
+      mutaged_palaces: mutagedPlaces,
+      self_mutagens: selfMutagens,
+    };
+  });
 }
 
 export function buildPalaceFacts(params: {

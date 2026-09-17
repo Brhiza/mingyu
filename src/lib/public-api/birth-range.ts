@@ -7,12 +7,13 @@ import type {
   BirthChartPointBundle,
   BirthChartRangeBundle,
 } from 'mingyu-core/birth';
+import type { ZiweiFortuneTimeline } from 'mingyu-core/ziwei';
 
 type SerializablePointBundle = Omit<BirthChartPointBundle, 'ziwei'> & {
   ziwei?: SerializableZiweiResult;
 };
 
-/** full 紫微范围资料页的 scope 游标；origin 会随每页重复返回。 */
+/** full 紫微范围资料页的 scope 游标；每页只返回一个实际计算的 scope。 */
 export interface BirthRangeScopeBatch {
   requestedScope: 'full';
   scopes: string[];
@@ -20,6 +21,12 @@ export interface BirthRangeScopeBatch {
   endIndexExclusive: number;
   totalScopes: number;
   nextIndex: number | null;
+}
+
+export interface BirthRangeZiweiBatchMetadata {
+  scopeBatch?: BirthRangeScopeBatch;
+  fortuneBatch?: NonNullable<ZiweiFortuneTimeline['batch']>;
+  scopeContext?: { dateStr: string; hourIndex: number };
 }
 
 type SerializableRangeSample = Omit<BirthChartRangeBundle['range']['samples'][number], 'bundle'> & {
@@ -30,6 +37,7 @@ export type SerializableBirthChartRangeBundle = Omit<BirthChartRangeBundle, 'ran
   range: Omit<BirthChartRangeBundle['range'], 'samples'> & {
     samples: SerializableRangeSample[];
     scopeBatch?: BirthRangeScopeBatch;
+    batch?: BirthRangeZiweiBatchMetadata;
   };
 };
 
@@ -46,7 +54,7 @@ export function isBirthChartRangeBundle(value: unknown): value is BirthChartRang
 /** 将 core 的紫微运行对象投影为已有 public API 使用的完整稳定结构。 */
 export function serializeBirthChartRangeBundle(
   bundle: BirthChartBundle,
-  scopeBatch?: BirthRangeScopeBatch,
+  batch?: BirthRangeZiweiBatchMetadata,
 ): BirthChartBundle | SerializableBirthChartRangeBundle {
   if (!isBirthChartRangeBundle(bundle)) return bundle;
 
@@ -54,7 +62,8 @@ export function serializeBirthChartRangeBundle(
     ...bundle,
     range: {
       ...bundle.range,
-      ...(scopeBatch ? { scopeBatch } : {}),
+      ...(batch?.scopeBatch ? { scopeBatch: batch.scopeBatch } : {}),
+      ...(batch ? { batch } : {}),
       samples: bundle.range.samples.map((sample) => ({
         ...sample,
         bundle: serializePointBundle(sample.bundle),

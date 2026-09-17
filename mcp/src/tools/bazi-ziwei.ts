@@ -120,11 +120,11 @@ const baziZiweiPromptSchema = z.object({
       limit: z.number().int().min(1).max(1).optional(),
     })
     .optional()
-    .describe('仅在 promptScope=full 时生效；按 scope 分页，origin 随每页返回'),
+    .describe('仅在 promptScope=full 时生效；每次只计算一个 scope'),
   fortuneBatch: z
     .object({
       startIndex: z.number().int().min(0).optional(),
-      limit: z.number().int().min(1).max(10).optional(),
+      limit: z.number().int().min(1).max(1).optional(),
     })
     .optional()
     .describe('仅在 promptScope=full 或 decadal 时生效；按年龄年分页'),
@@ -250,12 +250,15 @@ export function registerBaziZiweiTool(server: McpServer) {
           dateStr: args.scopeDate ?? currentContext.dateStr,
           hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
         };
-        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
-          scope,
-          horoscopeContext.dateStr,
-          horoscopeContext.hourIndex,
-          batchOptions.fortuneBatch,
-        );
+        const fortuneRange =
+          batchOptions.independentBatch === 'scope'
+            ? undefined
+            : buildMcpZiweiFortuneRangeOptions(
+                scope,
+                horoscopeContext.dateStr,
+                horoscopeContext.hourIndex,
+                batchOptions.fortuneBatch,
+              );
         const ziweiResult = await calculateZiweiChartForScopes(
           ziweiInput,
           batchOptions.scopes,
@@ -263,6 +266,9 @@ export function registerBaziZiweiTool(server: McpServer) {
           {
             ...(fortuneRange ? { fortuneRange } : {}),
             horoscopeContext,
+            ...(batchOptions.independentBatch
+              ? { independentBatch: batchOptions.independentBatch }
+              : {}),
           },
         );
         const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);

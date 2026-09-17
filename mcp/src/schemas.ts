@@ -110,6 +110,10 @@ export const ziweiOutputSchema = withErrorOutputSchema({
   calculationConfig: z.record(z.string(), z.unknown()).describe('本次实际采用的紫微排盘口径'),
   scopeNames: z.array(z.string()).describe('本次返回包含的运限范围'),
   payloadByScope: z.record(z.string(), z.unknown()).describe('按运限范围组织的紫微分析载荷'),
+  natalFacts: z
+    .unknown()
+    .optional()
+    .describe('年龄年独立批次附带的本命基础事实投影，不代表 origin 完整分析'),
   fortuneTimeline: z
     .unknown()
     .optional()

@@ -7,6 +7,8 @@ import {
   type ZiweiFortuneRangeScope,
   type ZiweiFortuneTimeline,
 } from 'mingyu-core/ziwei';
+import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
+import { buildThematicConsultationPrompt, buildZiweiPrompt } from 'mingyu-core/prompt';
 
 const input = buildZiweiChartInput({
   name: '运限分页样本',
@@ -94,6 +96,182 @@ function assertRowsEqual(actual: TimelineRows, expected: TimelineRows, message: 
     assert.deepEqual(row, expected[index], `${message}：第${index + 1}个年龄年`);
   }
 }
+
+test('紫微独立批次只计算一个资料 scope 或一个年龄年', async () => {
+  const originBatch = await calculateZiweiChart(input, {
+    scopes: ['origin'],
+    horoscopeContext: currentContext,
+    independentBatch: 'scope',
+  });
+  const scopeBatch = await calculateZiweiChart(input, {
+    scopes: ['yearly'],
+    horoscopeContext: currentContext,
+    independentBatch: 'scope',
+  });
+  assert.deepEqual(Object.keys(scopeBatch.payloadByScope), ['yearly']);
+  assert.equal(scopeBatch.payloadByScope.origin, undefined);
+  assert.equal(scopeBatch.fortuneTimeline, undefined);
+  assert.deepEqual(scopeBatch.decadalTimeline, []);
+
+  const fortuneBatch = await calculateZiweiChart(input, {
+    scopes: [],
+    horoscopeContext: currentContext,
+    independentBatch: 'fortune',
+    fortuneRange: {
+      scope: 'all',
+      ...currentContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  assert.deepEqual(fortuneBatch.payloadByScope, {});
+  assert.equal(fortuneBatch.natalSnapshot?.kind, 'natal-facts');
+  assert.equal(fortuneBatch.natalSnapshot?.palaces.length, 12);
+  assert.ok(
+    fortuneBatch.natalSnapshot?.palaces.every(
+      (palace) =>
+        palace.scope_stars.length === 0 &&
+        palace.scope_hits.length === 0 &&
+        palace.dynamic_scope_name === undefined &&
+        palace.yearly_jiangqian12 === undefined &&
+        palace.yearly_suiqian12 === undefined,
+    ),
+  );
+  assert.ok(
+    fortuneBatch.natalSnapshot?.palaces.some(
+      (palace) =>
+        palace.major_stars.length + palace.minor_stars.length + palace.other_stars.length > 0,
+    ),
+  );
+  const staticStars = (palace: (typeof originBatch.payloadByScope.origin.palaces)[number]) =>
+    [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars].map(
+      ({ name, kind, scope, brightness, birth_mutagen }) => ({
+        name,
+        kind,
+        scope,
+        brightness,
+        birth_mutagen,
+      }),
+    );
+  assert.deepEqual(
+    fortuneBatch.natalSnapshot?.palaces.map(staticStars),
+    originBatch.payloadByScope.origin.palaces.map(staticStars),
+  );
+  assert.equal(fortuneBatch.fortuneTimeline?.batch?.endIndexExclusive, 1);
+  assert.equal(fortuneBatch.fortuneTimeline?.periods.flatMap((period) => period.years).length, 1);
+  assert.ok(
+    fortuneBatch.fortuneTimeline?.periods.every(
+      (period) => period.source === 'iztro-horoscope' && Boolean(period.endDateStr),
+    ),
+  );
+});
+
+test('紫微年龄年独立批次在生日分界下保留已验证精确边界', async () => {
+  const chartInput = {
+    ...input,
+    horoscopeDivide: 'exact' as const,
+    yearDivide: 'exact' as const,
+    ageDivide: 'birthday' as const,
+  };
+  const full = await loadTimeline(chartInput, 'current', boundaryContext);
+  const pageRuntime = await calculateZiweiChart(chartInput, {
+    scopes: [],
+    horoscopeContext: boundaryContext,
+    independentBatch: 'fortune',
+    fortuneRange: {
+      scope: 'current',
+      ...boundaryContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  const page = pageRuntime.fortuneTimeline!;
+  const pageRows = collectRows(page);
+  const selectedAge = pageRows[0]?.year.age;
+  assertRowsEqual(
+    pageRows,
+    collectRows(full).filter(({ year }) => year.age === selectedAge),
+    '生日分界独立批次',
+  );
+  assert.equal(page.periods[0]?.source, 'iztro-horoscope');
+  assert.ok(page.periods[0]?.dateStr);
+  assert.ok(page.periods[0]?.endDateStr);
+});
+
+test('紫微年龄年独立批次限制单年且按运限目标时点选择当前阶段', async () => {
+  await assert.rejects(
+    calculateZiweiChart(input, {
+      scopes: [],
+      horoscopeContext: currentContext,
+      independentBatch: 'fortune',
+      fortuneRange: {
+        scope: 'all',
+        ...currentContext,
+        batch: { startIndex: 0, limit: 2 },
+      },
+    }),
+    /每次只能计算一个年龄年/,
+  );
+
+  const legacyBatch = await calculateZiweiChart(input, {
+    scopes: ['origin'],
+    horoscopeContext: currentContext,
+    fortuneRange: {
+      scope: 'all',
+      ...currentContext,
+      batch: { startIndex: 0, limit: 2 },
+    },
+  });
+  assert.equal(legacyBatch.fortuneTimeline?.batch?.endIndexExclusive, 2);
+  assert.equal(legacyBatch.fortuneTimeline?.periods.flatMap((period) => period.years).length, 2);
+
+  const targetContext = { dateStr: '2046-08-06', hourIndex: 4 } as const;
+  const targetBatch = await calculateZiweiChart(input, {
+    scopes: [],
+    horoscopeContext: currentContext,
+    independentBatch: 'fortune',
+    fortuneRange: {
+      scope: 'current',
+      ...targetContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  assert.equal(targetBatch.horoscopeContext.dateStr, currentContext.dateStr);
+  assert.equal(targetBatch.fortuneTimeline?.targetDateStr, targetContext.dateStr);
+  assert.ok(
+    targetBatch.fortuneTimeline?.periods.every(
+      (period) =>
+        targetBatch.fortuneTimeline!.targetAge >= period.startAge &&
+        targetBatch.fortuneTimeline!.targetAge <= period.endAge,
+    ),
+  );
+});
+
+test('紫微旧运限分页任务书保持本次资料口径', async () => {
+  const runtime = await calculateZiweiChart(input, {
+    scopes: ['origin'],
+    horoscopeContext: currentContext,
+    fortuneRange: {
+      scope: 'all',
+      ...currentContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  assert.equal(runtime.calculationBatch, undefined);
+  assert.ok(runtime.fortuneTimeline?.batch);
+  const prompt = buildPublicZiweiPromptForRuntime({ result: runtime, scope: 'full' });
+  const corePrompt = buildZiweiPrompt({ runtime, scope: 'full' });
+  const thematicPrompt = buildThematicConsultationPrompt({
+    system: 'ziwei',
+    methodId: 'ziwei',
+    topic: 'career',
+    scope: 'full',
+    ziweiScope: 'full',
+    ziweiResult: runtime,
+  }).prompt;
+  for (const text of [prompt, corePrompt, thematicPrompt]) {
+    assert.match(text, /本次所列(?:紫微|运限)?资料/);
+    assert.doesNotMatch(text, /分析范围：完整输出|所列完整运限|完整运限范围/);
+  }
+});
 
 async function collectAllPages(
   chartInput: typeof input,

@@ -66,22 +66,21 @@ test('公开点输入显式 scopeBatch 只返回当前 scope 并提供续取游�
   assert.equal(first.response.status, 200, JSON.stringify(first.body));
   assert.equal(first.body.ok, true);
   assert.ok(first.bytes < 1024 * 1024);
-  assert.deepEqual(first.body.data.scopeNames, ['origin', 'decadal']);
+  assert.deepEqual(first.body.data.scopeNames, ['origin']);
   assert.deepEqual(Object.keys(first.body.data.payloadByScope), first.body.data.scopeNames);
   assert.deepEqual(first.body.data.batch.scopeBatch, {
     requestedScope: 'full',
-    scopes: ['origin', 'decadal'],
+    scopes: ['origin'],
     startIndex: 0,
     endIndexExclusive: 1,
-    totalScopes: 5,
+    totalScopes: 6,
     nextIndex: 1,
   });
   assert.deepEqual(first.body.data.batch.scopeContext, {
     dateStr: '2025-01-01',
     hourIndex: 6,
   });
-  assert.equal(first.body.data.fortuneTimeline.batch.unit, 'age-year');
-  assert.equal(first.body.data.fortuneTimeline.batch.startIndex, 0);
+  assert.equal(first.body.data.fortuneTimeline, undefined);
 
   const next = await callApi('ziwei/calculate', {
     ...HTTP_POINT,
@@ -90,8 +89,8 @@ test('公开点输入显式 scopeBatch 只返回当前 scope 并提供续取游�
   });
   assert.equal(next.response.status, 200, JSON.stringify(next.body));
   assert.ok(next.bytes < 1024 * 1024);
-  assert.deepEqual(next.body.data.scopeNames, ['origin', 'yearly']);
-  assert.equal(next.body.data.payloadByScope.decadal, undefined);
+  assert.deepEqual(next.body.data.scopeNames, ['decadal']);
+  assert.equal(next.body.data.payloadByScope.origin, undefined);
   assert.equal(next.body.data.batch.scopeBatch.startIndex, 1);
   assert.equal(next.body.data.batch.scopeBatch.nextIndex, 2);
 });
@@ -117,6 +116,28 @@ test('公开点输入显式 fortuneBatch 只计算请求年龄年，旧点输入
   assert.equal(page.body.data.batch.fortuneBatch.startIndex, 0);
   assert.equal(page.body.data.fortuneTimeline.batch.endIndexExclusive, 1);
   assert.equal(page.body.data.fortuneTimeline.batch.nextIndex, 1);
+  assert.deepEqual(page.body.data.scopeNames, []);
+  assert.deepEqual(page.body.data.payloadByScope, {});
+  assert.equal(page.body.data.natalFacts.kind, 'natal-facts');
+  assert.equal(page.body.data.natalFacts.palaces.length, 12);
+  assert.equal(page.body.data.natalFacts.evidence_pool, undefined);
+
+  const compactPage = await callApi('ziwei/calculate', {
+    ...HTTP_POINT,
+    detailMode: 'compact',
+    promptScope: 'decadal',
+    fortuneBatch: {},
+  });
+  assert.equal(compactPage.response.status, 200, JSON.stringify(compactPage.body));
+  assert.equal(compactPage.body.data.natalFacts.kind, 'natal-facts');
+  assert.equal(compactPage.body.data.natalFacts.palaces.length, 12);
+  assert.equal(compactPage.body.data.fortuneTimeline.batch.endIndexExclusive, 1);
+  assert.equal(
+    compactPage.body.data.fortuneTimeline.periods.flatMap(
+      (period: Record<string, any>) => period.years,
+    ).length,
+    1,
+  );
 
   const fullFortune = await callApi('ziwei/calculate', {
     ...HTTP_POINT,
@@ -125,8 +146,8 @@ test('公开点输入显式 fortuneBatch 只计算请求年龄年，旧点输入
   });
   assert.equal(fullFortune.response.status, 200, JSON.stringify(fullFortune.body));
   assert.ok(fullFortune.bytes < 1024 * 1024);
-  assert.deepEqual(fullFortune.body.data.scopeNames, ['origin', 'decadal']);
-  assert.deepEqual(fullFortune.body.data.batch.scopeBatch.scopes, ['origin', 'decadal']);
+  assert.deepEqual(fullFortune.body.data.scopeNames, []);
+  assert.equal(fullFortune.body.data.batch.scopeBatch, undefined);
   assert.equal(fullFortune.body.data.batch.fortuneBatch.startIndex, 0);
 });
 
@@ -134,18 +155,18 @@ test('公开紫微提示词与八字紫微合参提示词透传点输入分页�
   const ziweiPrompt = await callApi('ziwei/prompt', {
     ...HTTP_POINT,
     promptScope: 'full',
-    scopeBatch: {},
+    scopeBatch: { startIndex: 1 },
     question: '请解释当前返回的紫微资料。',
     responseMode: 'prompt-only',
   });
   assert.equal(ziweiPrompt.response.status, 200, JSON.stringify(ziweiPrompt.body));
   assert.equal(typeof ziweiPrompt.body.data.prompt, 'string');
-  assert.deepEqual(ziweiPrompt.body.data.batch.scopeBatch.scopes, ['origin', 'decadal']);
+  assert.deepEqual(ziweiPrompt.body.data.batch.scopeBatch.scopes, ['decadal']);
   assert.deepEqual(ziweiPrompt.body.data.batch.scopeContext, {
     dateStr: '2025-01-01',
     hourIndex: 6,
   });
-  assert.match(ziweiPrompt.body.data.prompt, /本命(?:盘)?与本次所列运限/);
+  assert.match(ziweiPrompt.body.data.prompt, /本次所列(?:紫微)?资料/);
   assert.doesNotMatch(
     ziweiPrompt.body.data.prompt,
     /分析范围：完整输出|【完整运限资料】|完整紫微运限资料：|所列完整运限|完整运限范围/,
@@ -160,14 +181,15 @@ test('公开紫微提示词与八字紫微合参提示词透传点输入分页�
     birthMinute: 59,
     birthSecond: 59,
     promptScope: 'full',
-    scopeBatch: {},
+    scopeBatch: { startIndex: 1 },
     question: '请结合八字和紫微说明本次所列运限。',
     responseMode: 'summary',
   });
   assert.equal(combinedPrompt.response.status, 200, JSON.stringify(combinedPrompt.body));
   assert.equal(typeof combinedPrompt.body.data.prompt, 'string');
-  assert.equal(combinedPrompt.body.data.batch.scopeBatch.startIndex, 0);
-  assert.match(combinedPrompt.body.data.prompt, /本命(?:盘)?与本次所列运限/);
+  assert.equal(combinedPrompt.body.data.batch.scopeBatch.startIndex, 1);
+  assert.match(combinedPrompt.body.data.prompt, /本次所列(?:紫微)?资料/);
+  assert.match(combinedPrompt.body.data.prompt, /分析对象：大限/);
   assert.doesNotMatch(
     combinedPrompt.body.data.prompt,
     /分析范围：完整输出|【完整运限资料】|完整紫微运限资料：|所列完整运限|完整运限范围/,
@@ -176,16 +198,23 @@ test('公开紫微提示词与八字紫微合参提示词透传点输入分页�
 
   const thematicPrompt = await callApi('consultation/thematic/prompt', {
     ...HTTP_POINT,
-    system: 'ziwei',
+    year: 1990,
+    month: 6,
+    day: 14,
+    birthHour: 10,
+    birthMinute: 59,
+    birthSecond: 59,
+    methodId: 'bazi-ziwei',
     promptScope: 'full',
-    scopeBatch: {},
+    scopeBatch: { startIndex: 1 },
     topic: 'career',
     question: '请结合本次所列运限说明事业主题。',
     responseMode: 'prompt-only',
   });
   assert.equal(thematicPrompt.response.status, 200, JSON.stringify(thematicPrompt.body));
   assert.equal(typeof thematicPrompt.body.data.prompt, 'string');
-  assert.match(thematicPrompt.body.data.prompt, /本命(?:盘)?与本次所列运限/);
+  assert.match(thematicPrompt.body.data.prompt, /本次所列(?:紫微)?资料/);
+  assert.match(thematicPrompt.body.data.prompt, /分析对象：大限/);
   assert.doesNotMatch(
     thematicPrompt.body.data.prompt,
     /分析范围：完整输出|【完整运限资料】|完整紫微运限资料：|完整资料|所列完整运限|完整运限范围/,
@@ -213,6 +242,22 @@ test('公开点输入拒绝与范围不匹配的分页游标', async () => {
     fortuneBatch: { startIndex: 100000 },
   });
   assert.equal(invalidCursor.response.status, 400);
+
+  const conflictingBatches = await callApi('ziwei/calculate', {
+    ...HTTP_POINT,
+    promptScope: 'full',
+    scopeBatch: {},
+    fortuneBatch: {},
+  });
+  assert.equal(conflictingBatches.response.status, 400);
+  assert.match(conflictingBatches.body.error.message, /不能同时传入/);
+
+  const multiYearBatch = await callApi('ziwei/calculate', {
+    ...HTTP_POINT,
+    promptScope: 'full',
+    fortuneBatch: { limit: 2 },
+  });
+  assert.equal(multiYearBatch.response.status, 400);
 });
 
 const mcpServer = createMingyuMcpServer();
@@ -240,10 +285,10 @@ test('MCP 紫微点输入显式 scopeBatch 与 fortuneBatch 使用同一分页�
   });
   assert.equal(result.isError, undefined);
   const data = result.structuredContent as Record<string, any>;
-  assert.deepEqual(data.scopeNames, ['origin', 'decadal']);
-  assert.deepEqual(data.batch.scopeBatch.scopes, ['origin', 'decadal']);
+  assert.deepEqual(data.scopeNames, ['origin']);
+  assert.deepEqual(data.batch.scopeBatch.scopes, ['origin']);
   assert.deepEqual(data.batch.scopeContext, { dateStr: '2025-01-01', hourIndex: 6 });
-  assert.equal(data.fortuneTimeline.batch.startIndex, 0);
+  assert.equal(data.fortuneTimeline, undefined);
 
   const fortune = await mcpClient.callTool({
     name: 'ziwei_prompt',
@@ -257,6 +302,8 @@ test('MCP 紫微点输入显式 scopeBatch 与 fortuneBatch 使用同一分页�
   assert.equal(fortune.isError, undefined);
   const promptData = fortune.structuredContent as Record<string, any>;
   assert.equal(promptData.batch.fortuneBatch.unit, 'age-year');
+  assert.deepEqual(promptData.result.scopeNames, []);
+  assert.equal(promptData.result.natalFacts.kind, 'natal-facts');
   assert.equal(typeof promptData.prompt, 'string');
 
   const fullFortune = await mcpClient.callTool({
@@ -269,7 +316,8 @@ test('MCP 紫微点输入显式 scopeBatch 与 fortuneBatch 使用同一分页�
   });
   assert.equal(fullFortune.isError, undefined);
   const fullData = fullFortune.structuredContent as Record<string, any>;
-  assert.deepEqual(fullData.scopeNames, ['origin', 'decadal']);
+  assert.deepEqual(fullData.scopeNames, []);
+  assert.equal(fullData.natalFacts.kind, 'natal-facts');
   assert.equal(fullData.batch.fortuneBatch.startIndex, 0);
 
   const fullPrompt = await mcpClient.callTool({
@@ -283,7 +331,7 @@ test('MCP 紫微点输入显式 scopeBatch 与 fortuneBatch 使用同一分页�
   });
   assert.equal(fullPrompt.isError, undefined);
   const fullPromptData = fullPrompt.structuredContent as Record<string, any>;
-  assert.match(fullPromptData.prompt, /本命(?:盘)?与本次所列运限/);
+  assert.match(fullPromptData.prompt, /本次所列(?:紫微)?资料/);
   assert.doesNotMatch(
     fullPromptData.prompt,
     /分析范围：完整输出|【完整运限资料】|完整紫微运限资料：|所列完整运限|完整运限范围/,

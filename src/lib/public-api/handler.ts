@@ -1740,7 +1740,7 @@ export function getPublicApiOpenApiDocument(
         ZiweiScopeBatch: {
           type: 'object',
           description:
-            '紫微 full 范围资料游标；按公开 scope 顺序逐页读取，origin 随每页返回，limit 固定为 1。',
+            '紫微 full 范围资料游标；按公开 scope 顺序逐页读取，每次只计算一个 scope，limit 固定为 1。',
           properties: {
             startIndex: { type: 'integer', minimum: 0, default: 0 },
             limit: { type: 'integer', const: 1, default: 1 },
@@ -1748,10 +1748,10 @@ export function getPublicApiOpenApiDocument(
         },
         ZiweiFortuneBatch: {
           type: 'object',
-          description: '紫微当前或完整运限的年龄年游标；默认一年龄年，单批最多十个年龄年。',
+          description: '紫微当前或完整运限的年龄年游标；公开免费入口每批固定一个年龄年。',
           properties: {
             startIndex: { type: 'integer', minimum: 0, default: 0 },
-            limit: { type: 'integer', minimum: 1, maximum: 10, default: 1 },
+            limit: { type: 'integer', const: 1, default: 1 },
           },
         },
         BaziRequest: {
@@ -2532,7 +2532,7 @@ export function getPublicApiOpenApiDocument(
             scopeBatch: {
               $ref: '#/components/schemas/ZiweiScopeBatch',
               description:
-                '显式传入时按 scope 分页；点输入仅在 promptScope=full 时生效，范围输入返回 range.scopeBatch.nextIndex，点输入返回 batch.scopeBatch.nextIndex。',
+                '点输入在 promptScope=full 且显式传入时按 scope 分页；范围输入始终每批一个 scope，并通过 range.scopeBatch.nextIndex 续取。',
             },
             fortuneBatch: {
               $ref: '#/components/schemas/ZiweiFortuneBatch',
@@ -2697,7 +2697,7 @@ export function getPublicApiOpenApiDocument(
                 scopeBatch: {
                   $ref: '#/components/schemas/ZiweiScopeBatch',
                   description:
-                    '点输入的紫微 full 资料游标；显式传入后每次只计算 origin 与一个资料 scope，并返回 batch.scopeBatch。',
+                    '点输入的紫微 full 资料游标；显式传入后每次只计算一个资料 scope，并返回 batch.scopeBatch。',
                 },
                 fortuneBatch: {
                   $ref: '#/components/schemas/ZiweiFortuneBatch',
@@ -2791,7 +2791,7 @@ export function getPublicApiOpenApiDocument(
                 scopeBatch: {
                   $ref: '#/components/schemas/ZiweiScopeBatch',
                   description:
-                    '紫微 full 资料游标；显式传入后每次只计算 origin 与一个资料 scope，并在返回中附 batch.scopeBatch。',
+                    '紫微 full 资料游标；显式传入后每次只计算一个资料 scope，并在返回中附 batch.scopeBatch。',
                 },
                 fortuneBatch: {
                   $ref: '#/components/schemas/ZiweiFortuneBatch',
@@ -4619,7 +4619,7 @@ function readFortuneBatch(input: JsonRecord): ZiweiFortuneBatchInput | undefined
   }
   return {
     ...(value.startIndex === undefined ? {} : { startIndex: readInteger(value, 'startIndex', 0) }),
-    ...(value.limit === undefined ? {} : { limit: readInteger(value, 'limit', 1, 10) }),
+    ...(value.limit === undefined ? {} : { limit: readInteger(value, 'limit', 1, 1) }),
   };
 }
 
@@ -4638,7 +4638,7 @@ function resolveZiweiScopeBatch(
   if (value !== undefined && !isRecord(value)) {
     throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 必须是对象。');
   }
-  const availableScopes = requestedScopes.filter((item) => item !== 'origin');
+  const availableScopes = requestedScopes;
   const startIndex = value?.startIndex === undefined ? 0 : readInteger(value, 'startIndex', 0);
   const limit = value?.limit === undefined ? 1 : readInteger(value, 'limit', 1, 1);
   if (startIndex >= availableScopes.length) {
@@ -4646,7 +4646,7 @@ function resolveZiweiScopeBatch(
   }
   const endIndexExclusive = Math.min(startIndex + limit, availableScopes.length);
   const pageScopes = availableScopes.slice(startIndex, endIndexExclusive);
-  const scopes: ScopeType[] = ['origin', ...pageScopes];
+  const scopes: ScopeType[] = pageScopes;
   return {
     scopes,
     metadata: {
@@ -4671,12 +4671,12 @@ type ResolvedZiweiBatchOptions = {
   fortuneScope?: ZiweiFortuneRangeScope;
   fortuneBatch?: ZiweiFortuneBatchInput;
   scopeBatch?: BirthRangeScopeBatch;
+  independentBatch?: 'scope' | 'fortune';
 };
 
 /**
  * 单点紫微只有显式传入分页字段时才启用有界资料计算；未传字段必须保持原整包语义。
- * full 的 scopeBatch 和 all/current 的 fortuneBatch 可以独立续取，前者默认同时取一年龄年，
- * 以免只分页 scope 时仍意外构造完整运限时间线。
+ * scopeBatch 与 fortuneBatch 互斥；每次显式批次只计算一个资料 scope 或一个年龄年。
  */
 function resolvePointZiweiBatchOptions(
   input: JsonRecord,
@@ -4685,27 +4685,32 @@ function resolvePointZiweiBatchOptions(
   const requestedScopes = getZiweiPromptCalculationScopes(scope);
   const fortuneBatchInput = readFortuneBatch(input);
   const hasScopeBatch = input.scopeBatch !== undefined;
-  const shouldPageScopes = hasScopeBatch || (scope === 'full' && fortuneBatchInput !== undefined);
-  const scopeResolution = shouldPageScopes
-    ? resolveZiweiScopeBatch(
-        hasScopeBatch || fortuneBatchInput === undefined ? input : { ...input, scopeBatch: {} },
-        scope,
-      )
-    : { scopes: requestedScopes };
+  if (hasScopeBatch && fortuneBatchInput !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 与 fortuneBatch 不能同时传入。');
+  }
   const fortuneScope = toZiweiFortuneRangeScope(scope);
   if (fortuneBatchInput !== undefined && fortuneScope !== 'all' && fortuneScope !== 'current') {
     throw new ApiError(400, 'BAD_REQUEST', 'fortuneBatch 仅在紫微运限范围 all 或 current 时生效。');
   }
-  const hasExplicitBatch = hasScopeBatch || fortuneBatchInput !== undefined;
-  const fortuneBatch =
-    hasExplicitBatch && (fortuneScope === 'all' || fortuneScope === 'current')
-      ? (fortuneBatchInput ?? {})
-      : undefined;
+  if (hasScopeBatch) {
+    const scopeResolution = resolveZiweiScopeBatch(input, scope);
+    return {
+      scopes: scopeResolution.scopes,
+      scopeBatch: scopeResolution.metadata,
+      independentBatch: 'scope',
+    };
+  }
+  if (fortuneBatchInput !== undefined) {
+    return {
+      scopes: [],
+      fortuneScope,
+      fortuneBatch: { ...fortuneBatchInput, limit: 1 },
+      independentBatch: 'fortune',
+    };
+  }
   return {
-    scopes: scopeResolution.scopes,
+    scopes: requestedScopes,
     fortuneScope,
-    ...(fortuneBatch ? { fortuneBatch } : {}),
-    ...(scopeResolution.metadata ? { scopeBatch: scopeResolution.metadata } : {}),
   };
 }
 
@@ -4824,13 +4829,18 @@ function buildZiweiRangeProfile(input: JsonRecord) {
   const range = readBirthTimeRange(input);
   const location = readRangeLocation(input);
   const fortuneScope = toZiweiFortuneRangeScope(scope);
-  const resolvedScopes = resolveZiweiScopeBatch(input, scope);
   const fortuneBatchInput = readFortuneBatch(input);
+  const hasScopeBatch = input.scopeBatch !== undefined;
+  if (hasScopeBatch && fortuneBatchInput !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 与 fortuneBatch 不能同时传入。');
+  }
   if (fortuneBatchInput !== undefined && fortuneScope !== 'all' && fortuneScope !== 'current') {
     throw new ApiError(400, 'BAD_REQUEST', 'fortuneBatch 仅在紫微运限范围 all 或 current 时生效。');
   }
+  const resolvedScopes =
+    fortuneBatchInput === undefined ? resolveZiweiScopeBatch(input, scope) : { scopes: [] };
   const fortuneBatch =
-    fortuneScope === 'all' || fortuneScope === 'current' ? (fortuneBatchInput ?? {}) : undefined;
+    fortuneBatchInput !== undefined ? { ...fortuneBatchInput, limit: 1 } : undefined;
   const profile: BirthProfile = {
     name: readString(input, 'name', ''),
     gender,
@@ -4859,13 +4869,14 @@ function buildZiweiRangeProfile(input: JsonRecord) {
     ziwei: {
       scopes: resolvedScopes.scopes,
       horoscopeContext: { dateStr: scopeDate, hourIndex: scopeHourIndex },
-      ...(fortuneScope
+      independentBatch: fortuneBatch ? 'fortune' : 'scope',
+      ...(fortuneBatch && fortuneScope
         ? {
             fortuneRange: {
               scope: fortuneScope,
               dateStr: scopeDate,
               hourIndex: scopeHourIndex,
-              ...(fortuneBatch ? { batch: fortuneBatch } : {}),
+              batch: fortuneBatch,
             },
           }
         : {}),
@@ -5274,6 +5285,7 @@ async function calculateZiweiRuntime(
     fortuneScope?: ZiweiFortuneRangeScope;
     fortuneBatch?: ZiweiFortuneBatchInput;
     scopeDate?: string;
+    independentBatch?: 'scope' | 'fortune';
   } = {},
 ) {
   const birthDate = readBirthDate(input, { asString: true });
@@ -5339,29 +5351,30 @@ async function calculateZiweiRuntime(
         ...(options.fortuneBatch ? { batch: options.fortuneBatch } : {}),
       }
     : undefined;
-  return calculatePublicZiweiChartForScopes(
-    chartInput,
-    Array.from(new Set(['origin' as ScopeType, ...scopes])),
-    {
-      ...(fortuneRange ? { fortuneRange } : {}),
-      horoscopeContext,
-    },
-  );
+  return calculatePublicZiweiChartForScopes(chartInput, scopes, {
+    ...(fortuneRange ? { fortuneRange } : {}),
+    horoscopeContext,
+    ...(options.independentBatch ? { independentBatch: options.independentBatch } : {}),
+  });
 }
 
 async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
   if (input.birthTimeRange !== undefined) {
     try {
       const { profile, rangeBatch, scopeBatch, ziweiRules, ziwei } = buildZiweiRangeProfile(input);
+      const bundle = await calculateBirthChartBundle(profile, {
+        systems: ['ziwei'],
+        ziweiRules,
+        ziwei,
+        rangeBatch,
+        signal,
+      });
+      const runtime = isBirthChartRangeBundle(bundle)
+        ? bundle.range.samples[0]?.bundle.ziwei
+        : undefined;
       return serializeBirthChartRangeBundle(
-        await calculateBirthChartBundle(profile, {
-          systems: ['ziwei'],
-          ziweiRules,
-          ziwei,
-          rangeBatch,
-          signal,
-        }),
-        scopeBatch,
+        bundle,
+        runtime ? getZiweiBatchMetadata(runtime, scopeBatch) : undefined,
       );
     } catch (error) {
       return throwBirthRangeApiError(error, '紫微出生时间范围参数无效。');
@@ -5375,6 +5388,7 @@ async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
       fortuneScope: batchOptions.fortuneScope,
       fortuneBatch: batchOptions.fortuneBatch,
       scopeDate: readOptionalZiweiScopeDate(input),
+      independentBatch: batchOptions.independentBatch,
     });
   } catch (error) {
     if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
@@ -5427,11 +5441,15 @@ function buildZiweiCalculationIdentity(
   const target: JsonRecord = { promptScope: scope };
   if (input.scopeDate !== undefined) {
     target.scopeDate = readOptionalZiweiScopeDate(input);
+  } else if (batch?.scopeContext) {
+    target.scopeDate = batch.scopeContext.dateStr;
   } else if (result.fortuneTimeline) {
     target.scopeDate = result.fortuneTimeline.targetDateStr;
   }
   if (input.scopeHourIndex !== undefined) {
     target.scopeHourIndex = optInt(input, 'scopeHourIndex', 0, 12);
+  } else if (batch?.scopeContext) {
+    target.scopeHourIndex = batch.scopeContext.hourIndex;
   } else if (result.fortuneTimeline) {
     target.scopeHourIndex = result.fortuneTimeline.targetHourIndex;
   }
@@ -5456,6 +5474,7 @@ async function buildZiweiPrompt(input: JsonRecord) {
       fortuneScope: batchOptions.fortuneScope,
       fortuneBatch: batchOptions.fortuneBatch,
       scopeDate: readOptionalZiweiScopeDate(input),
+      independentBatch: batchOptions.independentBatch,
     });
   } catch (error) {
     if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
@@ -5611,6 +5630,7 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
       fortuneScope: batchOptions.fortuneScope,
       fortuneBatch: batchOptions.fortuneBatch,
       scopeDate: readOptionalZiweiScopeDate(input),
+      independentBatch: batchOptions.independentBatch,
     });
   } catch (error) {
     if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
@@ -5788,6 +5808,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
         fortuneScope: batchOptions.fortuneScope,
         fortuneBatch: batchOptions.fortuneBatch,
         scopeDate: readOptionalZiweiScopeDate(input),
+        independentBatch: batchOptions.independentBatch,
       });
     } catch (error) {
       if (batchOptions.scopeBatch || batchOptions.fortuneBatch) {
@@ -7030,6 +7051,8 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
     身宫: result.身宫,
     五行局: result.五行局,
     四化: result.四化,
+    ...(result.natalFacts ? { natalFacts: result.natalFacts } : {}),
+    ...(result.fortuneTimeline ? { fortuneTimeline: result.fortuneTimeline } : {}),
   };
 }
 

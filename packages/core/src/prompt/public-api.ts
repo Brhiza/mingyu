@@ -12,6 +12,7 @@ import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortun
 import { formatBaziTopicFocus, formatBaziPatternConditions } from './bazi';
 import {
   buildSerializableZiweiResult,
+  formatZiweiNatalSnapshotForPrompt,
   formatZiweiPayloadForPrompt,
   formatZiweiTargetLowerScopeFacts,
   formatZiweiTopicFocus,
@@ -346,10 +347,10 @@ function scopeLabel(scope: ZiweiPromptScope | ScopeType) {
 }
 
 function isBatchedFullScope(
-  result: Pick<ZiweiRuntime, 'fortuneTimeline'>,
+  result: Pick<ZiweiRuntime, 'calculationBatch' | 'fortuneTimeline'>,
   scope: ZiweiPromptScope,
 ) {
-  return scope === 'full' && Boolean(result.fortuneTimeline?.batch);
+  return scope === 'full' && Boolean(result.calculationBatch || result.fortuneTimeline?.batch);
 }
 
 function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
@@ -363,8 +364,12 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
 }
 
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
+  const calculationConfig =
+    result.payloadByScope.origin?.calculation_config ??
+    Object.values(result.payloadByScope)[0]?.calculation_config ??
+    result.natalSnapshot?.calculationConfig;
   const algorithmText =
-    result.payloadByScope.origin?.calculation_config.algorithm === 'zhongzhou'
+    calculationConfig?.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
       : '安星口径：传统通行安星法';
   if (result.fortuneTimeline) {
@@ -380,6 +385,9 @@ export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
       return [
         '本次所列运限资料：',
         algorithmText,
+        result.natalSnapshot
+          ? `本命基础资料：\n${formatZiweiNatalSnapshotForPrompt(result.natalSnapshot)}`
+          : '',
         ...selectedScopeLines,
         formatZiweiFortuneTimeline(result.fortuneTimeline),
         formatZiweiTargetLowerScopeFacts(result),
@@ -409,7 +417,9 @@ export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
     firstPayload = false;
     return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。\n${text}`;
   }).filter(Boolean);
-  return lines.length ? `完整紫微运限资料：\n${algorithmText}\n${lines.join('\n\n')}` : '';
+  return lines.length
+    ? `${result.calculationBatch ? '本次所列紫微资料' : '完整紫微运限资料'}：\n${algorithmText}\n${lines.join('\n\n')}`
+    : '';
 }
 
 function formatStar(star: StarFact) {
@@ -483,9 +493,19 @@ export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPrompt
   const batchedFullScope = isBatchedFullScope(result, scope);
   const payload =
     scope === 'full'
-      ? result.payloadByScope.origin
+      ? (result.payloadByScope.origin ?? Object.values(result.payloadByScope)[0])
       : (result.payloadByScope[scope as ScopeType] ?? result.payloadByScope.origin);
-  if (!payload) return '';
+  if (!payload) {
+    if (!result.natalSnapshot) return '';
+    return [
+      formatZiweiNatalSnapshotForPrompt(result.natalSnapshot),
+      result.fortuneTimeline
+        ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
   const activePalace = payload.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -497,7 +517,7 @@ export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPrompt
       .filter(Boolean)
       .join('、');
   const baseText = [
-    `分析对象：${scope === 'full' ? (batchedFullScope ? '本命盘与本次所列运限资料' : '本命盘、童限与大限流年；目标日期下附流月、流日与流时') : payload.active_scope.label || scopeLabel(scope)}`,
+    `分析对象：${scope === 'full' ? (batchedFullScope ? '本次所列紫微资料' : '本命盘、童限与大限流年；目标日期下附流月、流日与流时') : payload.active_scope.label || scopeLabel(scope)}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     payload.calculation_config.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
@@ -557,14 +577,15 @@ export function buildPublicZiweiPromptForRuntime(params: {
   const batchedFullScope = isBatchedFullScope(params.result, scope);
   const promptSelection =
     batchedFullScope && params.selection
-      ? { ...params.selection, scopeLabel: '本次所列运限' }
+      ? { ...params.selection, scopeLabel: '本次所列资料' }
       : params.selection;
   const mode = params.mode ?? 'framework';
   const topic = params.topic ?? (mode === 'custom' ? 'chat' : 'life');
   const payload =
     scope === 'full'
-      ? params.result.payloadByScope.origin
+      ? (params.result.payloadByScope.origin ?? Object.values(params.result.payloadByScope)[0])
       : (params.result.payloadByScope[scope as ScopeType] ?? params.result.payloadByScope.origin);
+  const natalSnapshot = params.result.natalSnapshot;
   const activePalace = payload?.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -576,8 +597,12 @@ export function buildPublicZiweiPromptForRuntime(params: {
       .filter(Boolean)
       .join('、');
   const chartLines = [
-    `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
-    payload.calculation_config.algorithm === 'zhongzhou'
+    payload
+      ? `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`
+      : natalSnapshot
+        ? `出生日期：${natalSnapshot.basicInfo.solar_date}；农历：${natalSnapshot.basicInfo.lunar_date}；时辰：${natalSnapshot.basicInfo.birth_time_label}`
+        : '',
+    (payload?.calculation_config ?? natalSnapshot?.calculationConfig)?.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
       : '安星口径：传统通行安星法',
     lifePalace
@@ -586,10 +611,10 @@ export function buildPublicZiweiPromptForRuntime(params: {
     bodyPalace
       ? `身宫：${bodyPalace.name}${stars(bodyPalace) ? `；星曜：${stars(bodyPalace)}` : ''}`
       : '',
-    payload.active_scope.scope === 'origin' || !activePalace
+    !payload || payload.active_scope.scope === 'origin' || !activePalace
       ? ''
       : `当前落宫：${activePalace.name}`,
-    getPromptMutagenItems(payload, payload.active_scope.scope === 'origin').length
+    payload && getPromptMutagenItems(payload, payload.active_scope.scope === 'origin').length
       ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, payload.active_scope.scope === 'origin')}`
       : '',
   ]
@@ -609,24 +634,31 @@ export function buildPublicZiweiPromptForRuntime(params: {
       : '',
     section(
       '分析背景',
-      `分析主题：${ZIWEI_TOPIC_LABELS[topic]}\n分析范围：${batchedFullScope ? '本次所列运限' : scopeLabel(scope)}`,
+      `分析主题：${ZIWEI_TOPIC_LABELS[topic]}\n分析范围：${batchedFullScope ? '本次所列资料' : scopeLabel(scope)}`,
     ),
     formatZiweiTopicFocus(topic) ? section('主题取用', formatZiweiTopicFocus(topic)) : '',
     section(
       '分析对象',
       scope === 'full'
         ? batchedFullScope
-          ? '本命盘与本次所列运限资料'
+          ? '本次所列紫微资料'
           : '本命盘、童限与大限流年；目标日期下附流月、流日与流时'
-        : payload.active_scope.label || scopeLabel(scope),
+        : payload?.active_scope.label || scopeLabel(scope),
     ),
-    scope !== 'full' ? section('本命资料', chartLines) : '',
     scope !== 'full'
-      ? buildKeyPalaces(payload, payload.active_scope.scope === 'origin' || scope === 'origin')
+      ? section(
+          '本命资料',
+          natalSnapshot ? formatZiweiNatalSnapshotForPrompt(natalSnapshot) : chartLines,
+        )
+      : '',
+    scope !== 'full'
+      ? payload
+        ? buildKeyPalaces(payload, payload.active_scope.scope === 'origin' || scope === 'origin')
+        : ''
       : '',
     scope === 'full'
       ? section(
-          batchedFullScope ? '本次所列运限资料' : '完整运限资料',
+          batchedFullScope ? '本次所列资料' : '完整运限资料',
           formatPublicZiweiFullScopeText(params.result),
         )
       : '',

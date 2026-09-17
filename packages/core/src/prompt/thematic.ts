@@ -366,9 +366,10 @@ export function buildThematicConsultationPrompt(
   const ziweiScope =
     options.ziweiScope ?? ZIWEI_SCOPE_BY_PROMPT_SCOPE[selection.scope] ?? 'decadal';
   const batchedFullZiweiScope =
-    ziweiScope === 'full' && Boolean(options.ziweiResult?.fortuneTimeline?.batch);
+    ziweiScope === 'full' &&
+    Boolean(options.ziweiResult?.calculationBatch || options.ziweiResult?.fortuneTimeline?.batch);
   const promptSelection = batchedFullZiweiScope
-    ? { ...selection, scopeLabel: '本次所列运限' }
+    ? { ...selection, scopeLabel: '本次所列资料' }
     : selection;
   const currentDate =
     typeof options.currentTime === 'string' ? new Date(options.currentTime) : options.currentTime;

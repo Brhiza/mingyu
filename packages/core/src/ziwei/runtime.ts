@@ -1,7 +1,13 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { resolveZiweiTrueSolarBirth } from './true-solar-input';
-import type { AnalysisPayloadV1, ScopeType } from '../types/analysis';
+import type {
+  AnalysisPayloadV1,
+  BasicInfo,
+  PalaceFact,
+  ScopeType,
+  ZiweiCalculationConfig,
+} from '../types/analysis';
 import type { ChartInput } from '../types/chart';
 import type { IztroAstrolabe, IztroHoroscope } from '../types/iztro';
 import {
@@ -12,7 +18,14 @@ import {
   normalizeChartInput,
 } from './iztro/runtime-helpers';
 import { buildAnalysisPayloadV1 } from './iztro/build-analysis-payload/index';
-import { buildVerifiedDecadalTimelineOptions } from './iztro/decadal';
+import {
+  buildBasicInfo,
+  buildNatalPalaceFacts,
+} from './iztro/build-analysis-payload/helpers/builders';
+import {
+  buildVerifiedDecadalTimelineBatchOptions,
+  buildVerifiedDecadalTimelineOptions,
+} from './iztro/decadal';
 import {
   buildZiweiFortuneTimelineFromAstrolabe,
   type ZiweiFortuneRangeOptions,
@@ -26,10 +39,21 @@ export type ZiweiRuntime = {
   /** 本次运限计算实际采用的日期与时辰，便于缓存、审计和重放。 */
   horoscopeContext: ZiweiHoroscopeContext;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  /** 年龄年独立批次使用的本命基础事实投影；不等同于 origin 完整分析。 */
+  natalSnapshot?: ZiweiNatalSnapshot;
+  /** 当前运行是否为显式独立批次。 */
+  calculationBatch?: 'scope' | 'fortune';
   decadalTimeline: Awaited<ReturnType<typeof buildVerifiedDecadalTimelineOptions>>;
   /** 当前、全部或指定下层范围的逐阶段逐年资料；未请求范围时省略。 */
   fortuneTimeline?: ZiweiFortuneTimeline;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
+};
+
+export type ZiweiNatalSnapshot = {
+  kind: 'natal-facts';
+  basicInfo: BasicInfo;
+  calculationConfig: ZiweiCalculationConfig;
+  palaces: PalaceFact[];
 };
 
 export const DEFAULT_ZIWEI_RUNTIME_SCOPES: ScopeType[] = [
@@ -60,6 +84,8 @@ export interface ZiweiRuntimeOptions {
   now?: Date;
   /** 组织网页、HTTP 与 MCP 共用的紫微阶段/逐年范围资料。 */
   fortuneRange?: ZiweiFortuneRangeOptions;
+  /** 显式独立批次；scope 只计算一个资料范围，fortune 只计算年龄年与本命基础事实。 */
+  independentBatch?: 'scope' | 'fortune';
 }
 
 function normalizeScopes(scopes?: ScopeType[]): ScopeType[] {
@@ -101,6 +127,20 @@ export function buildZiweiPayloadByScope(params: {
   ) as Record<ScopeType, AnalysisPayloadV1>;
 }
 
+/** 从星盘直接投影本命基础事实，不执行 origin 的证据池与格局分析。 */
+export function buildZiweiNatalSnapshot(params: {
+  astrolabe: IztroAstrolabe;
+  calculationConfig: ZiweiCalculationConfig;
+  birthTime?: ChartInput['birthTime'];
+}): ZiweiNatalSnapshot {
+  return {
+    kind: 'natal-facts',
+    basicInfo: buildBasicInfo(params.astrolabe, params.birthTime),
+    calculationConfig: params.calculationConfig,
+    palaces: buildNatalPalaceFacts(params.astrolabe),
+  };
+}
+
 /**
  * 生成紫微完整运行结果。
  *
@@ -111,6 +151,28 @@ export async function calculateZiweiChart(
   input: ChartInput,
   options: ZiweiRuntimeOptions = {},
 ): Promise<ZiweiRuntime> {
+  if (options.independentBatch === 'scope') {
+    if (options.fortuneRange) {
+      throw new RangeError('紫微 scope 独立批次不能同时计算年龄年运限。');
+    }
+    if (options.scopes?.length !== 1) {
+      throw new RangeError('紫微 scope 独立批次必须且只能指定一个资料范围。');
+    }
+  }
+  if (options.independentBatch === 'fortune') {
+    if (!options.fortuneRange?.batch) {
+      throw new RangeError('紫微年龄年独立批次必须提供 fortuneRange.batch。');
+    }
+    if (options.scopes?.length) {
+      throw new RangeError('紫微年龄年独立批次不能同时计算资料 scope。');
+    }
+    if (options.fortuneRange.scope !== 'all' && options.fortuneRange.scope !== 'current') {
+      throw new RangeError('紫微年龄年独立批次仅用于当前阶段或全部运限。');
+    }
+    if ((options.fortuneRange.batch.limit ?? 1) !== 1) {
+      throw new RangeError('紫微年龄年独立批次每次只能计算一个年龄年。');
+    }
+  }
   const astrolabe = await buildAstrolabeFromInput(input);
   const horoscopeContext = resolveHoroscopeContext(options);
   const horoscope = await buildHoroscopeFromInput(
@@ -119,20 +181,59 @@ export async function calculateZiweiChart(
     horoscopeContext.dateStr,
     horoscopeContext.hourIndex,
   );
-  const payloadByScope = buildZiweiPayloadByScope({
-    astrolabe,
-    horoscope,
-    scopes: options.scopes,
-    calculationConfig: buildZiweiCalculationConfig(input),
-    birthTime: input.birthTime,
-    skipAnalysis: options.skipAnalysis,
-  });
-  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+  const fortuneContext = options.fortuneRange
+    ? {
+        dateStr: options.fortuneRange.dateStr ?? horoscopeContext.dateStr,
+        hourIndex: options.fortuneRange.hourIndex ?? horoscopeContext.hourIndex,
+      }
+    : undefined;
+  const fortuneTargetHoroscope =
+    options.independentBatch === 'fortune' && fortuneContext
+      ? fortuneContext.dateStr === horoscopeContext.dateStr &&
+        fortuneContext.hourIndex === horoscopeContext.hourIndex
+        ? horoscope
+        : await buildHoroscopeFromInput(
+            astrolabe,
+            input,
+            fortuneContext.dateStr,
+            fortuneContext.hourIndex,
+          )
+      : undefined;
+  const calculationConfig = buildZiweiCalculationConfig(input);
+  const payloadByScope =
+    options.independentBatch === 'fortune'
+      ? ({} as Record<ScopeType, AnalysisPayloadV1>)
+      : buildZiweiPayloadByScope({
+          astrolabe,
+          horoscope,
+          scopes: options.scopes,
+          calculationConfig,
+          birthTime: input.birthTime,
+          skipAnalysis: options.skipAnalysis,
+        });
+  const natalSnapshot =
+    options.independentBatch === 'fortune'
+      ? buildZiweiNatalSnapshot({
+          astrolabe,
+          calculationConfig,
+          birthTime: input.birthTime,
+        })
+      : undefined;
+  const decadalTimeline =
+    options.independentBatch === 'scope'
+      ? []
+      : options.independentBatch === 'fortune'
+        ? await buildVerifiedDecadalTimelineBatchOptions(astrolabe, input, {
+            scope: options.fortuneRange!.scope as 'all' | 'current',
+            targetAge: fortuneTargetHoroscope!.age.nominalAge,
+            batch: options.fortuneRange!.batch!,
+          })
+        : await buildVerifiedDecadalTimelineOptions(astrolabe, input);
   const fortuneTimeline = options.fortuneRange
     ? await buildZiweiFortuneTimelineFromAstrolabe(astrolabe, input, decadalTimeline, {
         ...options.fortuneRange,
-        dateStr: options.fortuneRange.dateStr ?? horoscopeContext.dateStr,
-        hourIndex: options.fortuneRange.hourIndex ?? horoscopeContext.hourIndex,
+        dateStr: fortuneContext!.dateStr,
+        hourIndex: fortuneContext!.hourIndex,
       })
     : undefined;
 
@@ -141,6 +242,8 @@ export async function calculateZiweiChart(
     horoscope,
     horoscopeContext: { ...horoscopeContext },
     payloadByScope,
+    ...(natalSnapshot ? { natalSnapshot } : {}),
+    ...(options.independentBatch ? { calculationBatch: options.independentBatch } : {}),
     decadalTimeline,
     ...(fortuneTimeline ? { fortuneTimeline } : {}),
     trueSolarEvidence: input.trueSolarEvidence,
@@ -173,7 +276,12 @@ export async function calculatePublicZiweiChartForScopes(
 ): Promise<ZiweiRuntime> {
   return calculateZiweiChart(input, {
     ...options,
-    scopes: Array.from(new Set(['origin' as const, ...(scopes ?? [])])),
+    scopes:
+      options.independentBatch === 'fortune'
+        ? []
+        : options.independentBatch === 'scope'
+          ? scopes
+          : Array.from(new Set(['origin' as const, ...(scopes ?? [])])),
   });
 }
 
