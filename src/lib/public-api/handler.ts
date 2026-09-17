@@ -7,6 +7,11 @@ import {
   type ShenShaVariantConfig,
 } from 'mingyu-core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import {
+  formatBaziFortuneBatch,
+  selectBaziFortuneBatchResult,
+  type BaziFortuneTextBatch,
+} from '@core/prompt/bazi-fortune';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
 import {
   buildCurrentBaziFortuneSelectionForScope,
@@ -2409,6 +2414,15 @@ export function getPublicApiOpenApiDocument(
                   minimum: 0,
                   description:
                     '大运序号，从 0 开始；选择大运时必填，选择流年、流月或流日时可与年份一起传入以消除交运年歧义。',
+                },
+                fortuneBatch: {
+                  type: 'object',
+                  properties: {
+                    startIndex: { type: 'integer', minimum: 0 },
+                    limit: { type: 'integer', enum: [1] },
+                  },
+                  description:
+                    '完整八字命限逐年续取，每次一个大运内的流年；仅 baziFortuneScope=full 有效，交运年分别保留两步运内的资料。',
                 },
                 baziFortuneYear: {
                   type: 'integer',
@@ -5113,6 +5127,8 @@ function buildBaziCalculationIdentity(
   if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
 
   const target: JsonRecord = { baziFortuneScope: fortuneScope };
+  const fortuneBatch = readFortuneBatch(input);
+  if (fortuneBatch) target.fortuneBatch = { startIndex: fortuneBatch.startIndex ?? 0, limit: 1 };
   if (fortuneSelectionContext) {
     const targetFields: Record<string, unknown> = {
       baziFortuneCycleIndex: fortuneSelectionContext.cycleIndex,
@@ -5147,6 +5163,26 @@ function buildBaziPrompt(input: JsonRecord) {
     : null;
   const fortuneScope =
     useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
+  const fortuneBatch = readFortuneBatch(input);
+  if (fortuneBatch && (fortuneScope !== 'full' || input.scopeBatch !== undefined)) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '八字 fortuneBatch 仅支持完整命限，且不能与 scopeBatch 同传。',
+    );
+  }
+  let fortuneTextBatch: BaziFortuneTextBatch | undefined;
+  if (fortuneBatch) {
+    try {
+      fortuneTextBatch = formatBaziFortuneBatch(result, fortuneBatch.startIndex);
+    } catch (error) {
+      if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+      throw error;
+    }
+  }
+  const returnedResult = fortuneTextBatch
+    ? selectBaziFortuneBatchResult(result, fortuneTextBatch.batch)
+    : result;
   const fortuneSelectionContext = currentSelection
     ? buildFortuneSelectionContext(result, currentSelection)
     : buildBaziFortuneContextFromInput(result, input, fortuneScope);
@@ -5163,6 +5199,7 @@ function buildBaziPrompt(input: JsonRecord) {
     mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
     fortuneSelectionContext,
     fortuneScope,
+    fortuneTextBatch,
     school,
     schools,
     selection,
@@ -5173,7 +5210,7 @@ function buildBaziPrompt(input: JsonRecord) {
     responseMode: readPromptResponseMode(input),
     prompt,
     fullResult: {
-      ...result,
+      ...returnedResult,
       calculationIdentity: buildBaziCalculationIdentity(
         input,
         fortuneScope,
@@ -5182,9 +5219,10 @@ function buildBaziPrompt(input: JsonRecord) {
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
     },
     resultSummary: {
-      ...buildCompactBaziResult(result),
+      ...buildCompactBaziResult(returnedResult),
       ...(selection ? { selection } : {}),
     },
+    ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
   });
 }
 
@@ -6911,7 +6949,7 @@ function buildPromptApiResult(params: {
   summary?: unknown;
   fullResult: unknown;
   resultSummary?: unknown;
-  batch?: ZiweiBatchMetadata;
+  batch?: ZiweiBatchMetadata | { fortuneBatch: BaziFortuneTextBatch['batch'] };
 }) {
   const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {

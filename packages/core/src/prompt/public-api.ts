@@ -8,7 +8,11 @@ import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../type
 import { formatBaziForPrompt, type BaziChartResult, type FortuneSelectionContext } from '../bazi';
 import type { ZiweiRuntime } from '../ziwei/runtime';
 import { formatZiweiFortuneTimeline } from '../ziwei/fortune-timeline';
-import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
+import {
+  formatBaziFortuneSelection,
+  formatBaziFullFortune,
+  type BaziFortuneTextBatch,
+} from './bazi-fortune';
 import { formatBaziTopicFocus, formatBaziPatternConditions } from './bazi';
 import {
   buildSerializableZiweiResult,
@@ -279,6 +283,7 @@ export function buildBaziPromptForResult(params: {
   schools?: readonly BaziSchool[];
   fortuneSelectionContext?: FortuneSelectionContext | null;
   fortuneScope?: PublicBaziFortuneScope;
+  fortuneTextBatch?: BaziFortuneTextBatch;
   selection?: PromptSelection;
 }) {
   const topic = params.topic ?? 'general';
@@ -290,11 +295,20 @@ export function buildBaziPromptForResult(params: {
     fortuneSelection || (fortuneScope === 'full' && params.result.luckInfo?.cycles?.length),
   );
   const effectiveFortuneScope = hasFortuneData ? fortuneScope : 'natal';
-  const scopeText = fortuneSelection
-    ? fortuneSelection.analysisObject
-    : effectiveFortuneScope === 'full'
-      ? '分析对象：本命盘与完整大运流年'
-      : '分析对象：本命盘';
+  if (params.fortuneTextBatch && fortuneScope !== 'full') {
+    throw new Error('八字命限分批仅适用于完整命限范围。');
+  }
+  const promptSelection =
+    params.fortuneTextBatch && params.selection
+      ? { ...params.selection, scopeLabel: '本次所列大运流年' }
+      : params.selection;
+  const scopeText = params.fortuneTextBatch
+    ? '分析对象：本命盘与本次所列大运流年'
+    : fortuneSelection
+      ? fortuneSelection.analysisObject
+      : effectiveFortuneScope === 'full'
+        ? '分析对象：本命盘与完整大运流年'
+        : '分析对象：本命盘';
   const label = BAZI_TOPIC_LABELS[topic];
   const taskMethod = hasFortuneData ? 'bazi' : 'bazi-natal';
   const task =
@@ -303,7 +317,7 @@ export function buildBaziPromptForResult(params: {
       : label === '通用'
         ? buildPromptTask('请依据八字排盘资料完成解读。', taskMethod)
         : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, taskMethod);
-  const selectedTask = params.selection ? buildPromptSelectionTask(task, params.selection) : task;
+  const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
   const chart = [
     formatBaziForPrompt(
       params.result,
@@ -323,10 +337,10 @@ export function buildBaziPromptForResult(params: {
       : '',
     section('分析对象', scopeText),
     effectiveFortuneScope === 'full'
-      ? section('命限资料', formatBaziFullFortune(params.result))
+      ? section('命限资料', params.fortuneTextBatch?.text ?? formatBaziFullFortune(params.result))
       : '',
     fortuneSelection ? section('岁运重点', fortuneFocus) : '',
-    params.selection ? section('解读选择', getPromptSelectionSection(params.selection)) : '',
+    promptSelection ? section('解读选择', getPromptSelectionSection(promptSelection)) : '',
     selectedTask ? section('任务', selectedTask) : '',
     section('问题', question),
   ]);

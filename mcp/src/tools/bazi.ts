@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { formatBaziFortuneBatch, selectBaziFortuneBatchResult } from '@core/prompt/bazi-fortune';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import {
@@ -129,6 +130,13 @@ const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
 });
 
 const baziPromptSchema = baziSchema.extend({
+  fortuneBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.literal(1).optional(),
+    })
+    .optional()
+    .describe('完整八字命限逐年续取；每次返回一个大运内的流年，仅 full 范围有效'),
   question: z.string().describe('用户希望围绕命盘解读的问题'),
   promptTopic: z
     .enum(BAZI_PROMPT_TOPICS)
@@ -345,6 +353,15 @@ export function registerBaziTool(server: McpServer) {
           !currentSelection
             ? 'natal'
             : initialFortuneScope;
+        if (args.fortuneBatch && fortuneScope !== 'full') {
+          throw new Error('八字 fortuneBatch 仅支持完整命限。');
+        }
+        const fortuneTextBatch = args.fortuneBatch
+          ? formatBaziFortuneBatch(result, args.fortuneBatch.startIndex)
+          : undefined;
+        const returnedResult = fortuneTextBatch
+          ? selectBaziFortuneBatchResult(result, fortuneTextBatch.batch)
+          : result;
         const requiresCycle = fortuneScope === 'dayun';
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
@@ -408,16 +425,18 @@ export function registerBaziTool(server: McpServer) {
           mode: (args.promptMode ?? 'framework') as PromptMode,
           fortuneSelectionContext,
           fortuneScope,
+          fortuneTextBatch,
           school: args.school as BaziSchool | undefined,
           schools: args.schools as BaziSchool[] | undefined,
           selection,
         });
         return createStructuredToolResult({
           result: {
-            ...result,
+            ...returnedResult,
             ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
           },
           prompt: basePrompt,
+          ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成八字提示词失败'));
