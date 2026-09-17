@@ -6,6 +6,7 @@ import {
 } from '@/lib/full-chart-engine/birth-profile';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
+import { normalizeBirthProfile } from 'mingyu-core/profile';
 
 const startTimestamp = Date.parse('2000-01-01T08:00:00+08:00');
 
@@ -134,6 +135,33 @@ test('点输入保留精准秒和默认 IANA 时区', () => {
   assert.equal(typeof profile.timeIndex, 'number');
   assert.deepEqual(profile.location, {
     name: '合成地点',
+    longitude: 121.47,
+    latitude: 31.23,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+  });
+});
+
+test('点输入只有时分时保留分钟精度和默认 IANA 时区', () => {
+  const input = createInput({
+    birthReverseSource: '',
+    dateType: 'solar',
+    timeIndex: '',
+    birthHour: '4',
+    birthMinute: '5',
+    birthSecond: '',
+    birthPlace: '分钟地点',
+    birthLongitude: '121.47',
+    birthLatitude: '31.23',
+  });
+
+  const profile = buildFrontendBirthProfile(input, 'primary');
+
+  assert.equal(profile.hour, 4);
+  assert.equal(profile.minute, 5);
+  assert.equal(profile.second, undefined);
+  assert.equal(normalizeBirthProfile(profile).timePrecision, 'minute');
+  assert.deepEqual(profile.location, {
+    name: '分钟地点',
     longitude: 121.47,
     latitude: 31.23,
     timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,

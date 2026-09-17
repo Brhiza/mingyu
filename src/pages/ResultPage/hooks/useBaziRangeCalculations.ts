@@ -5,8 +5,10 @@ import {
   buildFrontendBirthProfile,
   hasFrontendBirthRangeInput,
 } from '@/lib/full-chart-engine/birth-profile';
+import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import type { QueryInputState } from '@/lib/query-state';
 import {
+  type BaziRangeSideIdentity,
   type BaziRangeCalculationRequest,
   type BaziRangePage,
   type BaziRangeWorkerResponse,
@@ -167,7 +169,7 @@ function buildPreparedSide(
   input: QueryInputState,
   subject: 'primary' | 'partner',
   sourceText: string,
-): { profile: BirthProfile; samples: number } {
+): { profile: BirthProfile; samples: number; identity: BaziRangeSideIdentity } {
   let profile: BirthProfile;
   try {
     profile = buildFrontendBirthProfile(input, subject);
@@ -180,7 +182,16 @@ function buildPreparedSide(
     const label = subject === 'primary' ? '本人' : '对方';
     throw new Error(label + '出生范围来源损坏，未能恢复完整的机器时间区间。');
   }
-  return { profile, samples: getRangeSampleCount(profile) };
+  const birthPlace =
+    subject === 'primary' ? input.birthPlace.trim() : input.partnerBirthPlace.trim();
+  return {
+    profile,
+    samples: getRangeSampleCount(profile),
+    identity: {
+      ...getFrontendBirthTimeZone(sourceText),
+      ...(birthPlace ? { birthPlace } : {}),
+    },
+  };
 }
 
 function prepareRangeRequest(input: QueryInputState, enabled: boolean): RangePreparation {
@@ -203,8 +214,10 @@ function prepareRangeRequest(input: QueryInputState, enabled: boolean): RangePre
     const request: PreparedRangeRequest = {
       inputKey: key,
       index: 0,
-      primary: { profile: primary },
-      ...(partner ? { partner: { profile: partner } } : {}),
+      primary: { profile: primary, identity: primarySide.identity },
+      ...(partnerSide
+        ? { partner: { profile: partnerSide.profile, identity: partnerSide.identity } }
+        : {}),
       total,
     };
     return { requested: true, key, request, total, error: null };

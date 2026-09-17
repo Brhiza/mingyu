@@ -160,12 +160,17 @@ function buildProfileFromPerson(
   person: ReturnType<typeof buildPersonFromInput>,
   fixedBeijing: boolean,
 ): BirthProfile {
+  // buildPersonFromInput 为“时分无秒”的标准时间计算补了零秒，供核心计算使用；
+  // 这里仍须依据网页原始输入保留分钟精度，不能把补入的 0 当成用户明确提供的秒。
+  const hasExplicitSecond = fixedBeijing || fields.birthSecond.trim() !== '';
   const preciseTime =
     person.birthHour !== undefined && person.birthMinute !== undefined
       ? {
           hour: person.birthHour,
           minute: person.birthMinute,
-          ...(person.birthSecond === undefined ? {} : { second: person.birthSecond }),
+          ...(hasExplicitSecond && person.birthSecond !== undefined
+            ? { second: person.birthSecond }
+            : {}),
         }
       : undefined;
   const location = buildLocation(fields, fixedBeijing);

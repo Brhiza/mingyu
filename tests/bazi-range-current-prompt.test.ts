@@ -224,6 +224,106 @@ test('AI主体快照锁定当前双方秒和组合索引，并移除旧出生范
   assert.equal(buildBaziRangeReadingSubject(originalSubject, false, null), originalSubject);
 });
 
+test('混合范围组合保留仅名称地点、坐标 IANA 时区和固定侧分钟精度', () => {
+  const basePage = page(1);
+  const primaryPerson: Person = {
+    gender: 'female',
+    year: 1990,
+    month: 1,
+    day: 1,
+    timeIndex: 6,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: 8,
+    birthMinute: 0,
+    birthSecond: 2,
+    timezone: 8,
+    applyChinaDst: false,
+  };
+  const minutePartner: Person = {
+    ...primaryPerson,
+    gender: 'male',
+    birthSecond: 0,
+    birthPlace: '有坐标对方',
+    birthLongitude: 121.47,
+    timeZoneId: 'Asia/Shanghai',
+    timezone: undefined,
+  };
+  const currentPage: BaziRangePage = {
+    ...basePage,
+    primary: {
+      ...basePage.primary,
+      profile: { ...PRIMARY_PROFILE, second: 2 },
+      bundle: baziBundle(primaryPerson),
+      identity: { birthPlace: '范围主方', timezone: 8 },
+    },
+    partner: basePage.partner
+      ? {
+          ...basePage.partner,
+          profile: {
+            ...PARTNER_PROFILE,
+            second: undefined,
+            location: {
+              name: '有坐标对方',
+              longitude: 121.47,
+              latitude: 31.23,
+              timeZoneId: 'Asia/Shanghai',
+            },
+          },
+          bundle: baziBundle(minutePartner),
+          timestamp: undefined,
+          identity: { birthPlace: '有坐标对方', timeZoneId: 'Asia/Shanghai' },
+        }
+      : undefined,
+  };
+  const subject: ReadingSubjectSnapshot = {
+    id: 'mixed-subject-start',
+    source: 'bazi',
+    lockedInputs: {
+      bazi: {
+        year: 1990,
+        month: 1,
+        day: 1,
+        birthPlace: '起点主方',
+        birthSecond: 0,
+        timezone: 8,
+      },
+      baziPartner: {
+        year: 1990,
+        month: 1,
+        day: 1,
+        birthPlace: '起点对方',
+        birthSecond: 0,
+        timeZoneId: 'Asia/Shanghai',
+      },
+    },
+    allowedMethods: ['bazi'],
+    range: {
+      source: 'bazi',
+      birthTimeRanges: { primary: { startTimestamp: PRIMARY_TIMESTAMP } },
+    },
+  };
+
+  const currentSubject = buildBaziRangeReadingSubject(subject, true, currentPage);
+
+  assert.ok(currentSubject);
+  assert.equal(currentSubject.lockedInputs.bazi?.birthPlace, '范围主方');
+  assert.equal(currentSubject.lockedInputs.bazi?.birthSecond, 2);
+  assert.equal(currentSubject.lockedInputs.baziPartner?.birthPlace, '有坐标对方');
+  assert.equal(currentSubject.lockedInputs.baziPartner?.birthLongitude, 121.47);
+  assert.equal(currentSubject.lockedInputs.baziPartner?.birthLatitude, 31.23);
+  assert.equal(currentSubject.lockedInputs.baziPartner?.birthSecond, undefined);
+  assert.equal(currentSubject.lockedInputs.baziPartner?.timeZoneId, 'Asia/Shanghai');
+  const context = formatBaziCurrentSampleContext(currentPage);
+  assert.match(context, /出生地：范围主方/u);
+  assert.match(context, /出生地：有坐标对方/u);
+  assert.match(context, /时区：UTC\+8/u);
+  assert.match(context, /时区：Asia\/Shanghai/u);
+  assert.match(context, /第一人：.*输入精度：秒/u);
+  assert.match(context, /第二人：.*输入精度：分钟/u);
+});
+
 test('八字紫微合参当前页同时锁定双方精确秒，并保留固定运限上下文身份', () => {
   const primaryPerson: Person = {
     gender: 'female',

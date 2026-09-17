@@ -1,6 +1,10 @@
 import type { BaziChartResult, Person } from 'mingyu-core/bazi';
 import type { BirthProfile } from 'mingyu-core/profile';
-import type { BaziRangePage, BaziRangePageSide } from '@/lib/full-chart-engine/bazi-range';
+import type {
+  BaziRangePage,
+  BaziRangePageSide,
+  BaziRangeSideIdentity,
+} from '@/lib/full-chart-engine/bazi-range';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
 
 export interface BaziPromptSampleSelection {
@@ -23,6 +27,7 @@ function buildCurrentBaziLockedInput(
   person: Person | undefined,
   profile?: BirthProfile,
   includeName = false,
+  identity?: BaziRangeSideIdentity,
 ): Record<string, unknown> | null {
   if (!original || !person) return null;
   const result = { ...original };
@@ -39,14 +44,24 @@ function buildCurrentBaziLockedInput(
   setCurrentBaziField(result, 'timeIndex', person.timeIndex);
   setCurrentBaziField(result, 'birthHour', person.birthHour);
   setCurrentBaziField(result, 'birthMinute', person.birthMinute);
-  setCurrentBaziField(result, 'birthSecond', person.birthSecond);
+  const hasExplicitSecond = profile
+    ? profile.second !== undefined
+    : Object.prototype.hasOwnProperty.call(original, 'birthSecond');
+  setCurrentBaziField(result, 'birthSecond', hasExplicitSecond ? person.birthSecond : undefined);
   if (person.birthPlace !== undefined) result.birthPlace = person.birthPlace;
+  else if (identity?.birthPlace !== undefined) result.birthPlace = identity.birthPlace;
   if (person.birthLongitude !== undefined) result.birthLongitude = person.birthLongitude;
   if (person.timezone !== undefined) {
     result.timezone = person.timezone;
     delete result.timeZoneId;
   } else if (person.timeZoneId !== undefined) {
     result.timeZoneId = person.timeZoneId;
+    delete result.timezone;
+  } else if (identity?.timezone !== undefined) {
+    result.timezone = identity.timezone;
+    delete result.timeZoneId;
+  } else if (identity?.timeZoneId !== undefined) {
+    result.timeZoneId = identity.timeZoneId;
     delete result.timezone;
   }
   if (profile?.location?.latitude !== undefined) result.birthLatitude = profile.location.latitude;
@@ -75,6 +90,8 @@ function buildRangeReadingSubject(
   const partnerPerson = page.partner?.bundle.inputs.bazi;
   const primaryProfile = page.primary.profile;
   const partnerProfile = page.partner?.profile;
+  const primaryIdentity = page.primary.identity;
+  const partnerIdentity = page.partner?.identity;
   const lockedInputs = Object.fromEntries(
     Object.entries(subject.lockedInputs).map(([key, value]) => [key, { ...value }]),
   );
@@ -85,6 +102,7 @@ function buildRangeReadingSubject(
       primaryPerson,
       primaryProfile,
       method === 'ziwei',
+      primaryIdentity,
     );
     if (!primary) return undefined;
     lockedInputs[method] = primary;
@@ -95,6 +113,7 @@ function buildRangeReadingSubject(
         partnerPerson,
         partnerProfile,
         method === 'ziwei',
+        partnerIdentity,
       );
       if (!partner) return undefined;
       lockedInputs[`${method}Partner`] = partner;
@@ -214,7 +233,32 @@ function formatBaziSampleSide(side: BaziRangePageSide): string {
     side.timestamp === undefined
       ? `${formatProfileTimestamp(side.profile)}（固定单点）`
       : formatBaziSampleTimestamp(side.timestamp);
-  return timestamp;
+  const person = side.bundle.inputs?.bazi;
+  const locationName =
+    side.profile.location?.name ?? person?.birthPlace ?? side.identity?.birthPlace;
+  const timeZoneId =
+    side.profile.location?.timeZoneId ?? person?.timeZoneId ?? side.identity?.timeZoneId;
+  const timezone = side.profile.location?.timezone ?? person?.timezone ?? side.identity?.timezone;
+  const timezoneText =
+    timeZoneId !== undefined
+      ? `时区：${timeZoneId}`
+      : timezone !== undefined
+        ? `时区：UTC${timezone >= 0 ? '+' : ''}${timezone}`
+        : '';
+  const precision =
+    side.profile.second !== undefined
+      ? '秒'
+      : side.profile.hour !== undefined && side.profile.minute !== undefined
+        ? '分钟'
+        : '传统时辰';
+  return [
+    timestamp,
+    locationName ? `出生地：${locationName}` : '',
+    timezoneText,
+    `输入精度：${precision}`,
+  ]
+    .filter(Boolean)
+    .join('；');
 }
 
 function formatCurrentRangeSampleContext(

@@ -14,6 +14,14 @@ import type { BirthProfile, BirthProfileTimeRange } from 'mingyu-core/profile';
 
 export interface BaziRangeSideRequest {
   profile: BirthProfile;
+  /** 核心档案无法接受无坐标的仅名称地点；保留前端当前页展示及主体锁定所需的原始身份。 */
+  identity?: BaziRangeSideIdentity;
+}
+
+export interface BaziRangeSideIdentity {
+  birthPlace?: string;
+  timezone?: number;
+  timeZoneId?: string;
 }
 
 export interface BaziRangeCalculationRequest {
@@ -29,6 +37,7 @@ export interface BaziRangePageSide {
   result: BaziChartResult;
   bundle: BirthChartPointBundle;
   timestamp?: number;
+  identity?: BaziRangeSideIdentity;
 }
 
 export interface BaziRangePage {
@@ -61,21 +70,29 @@ function getBaziResult(bundle: BirthChartPointBundle): BaziChartResult {
   return bundle.bazi;
 }
 
-function buildPageSide(sample: {
-  index: number;
-  timestamp?: number;
-  bundle: BirthChartPointBundle;
-}): BaziRangePageSide {
+function buildPageSide(
+  sample: {
+    index: number;
+    timestamp?: number;
+    bundle: BirthChartPointBundle;
+  },
+  identity?: BaziRangeSideIdentity,
+): BaziRangePageSide {
   return {
     index: sample.index,
     profile: sample.bundle.profile,
     result: getBaziResult(sample.bundle),
     bundle: sample.bundle,
     ...(sample.timestamp === undefined ? {} : { timestamp: sample.timestamp }),
+    ...(identity ? { identity } : {}),
   };
 }
 
-function buildSinglePage(bundle: BirthChartRangeBundle, inputKey: string): BaziRangePage {
+function buildSinglePage(
+  bundle: BirthChartRangeBundle,
+  inputKey: string,
+  primaryIdentity?: BaziRangeSideIdentity,
+): BaziRangePage {
   const sample = bundle.range.samples[0];
   if (!sample) throw new Error('八字出生范围当前页没有可用样本。');
   return {
@@ -83,12 +100,16 @@ function buildSinglePage(bundle: BirthChartRangeBundle, inputKey: string): BaziR
     index: bundle.range.startIndex,
     total: bundle.range.totalSamples,
     nextIndex: bundle.range.nextIndex,
-    primary: buildPageSide(sample),
+    primary: buildPageSide(sample, primaryIdentity),
     primarySource: bundle.range.source,
   };
 }
 
-function buildPointPage(bundle: BirthChartPointBundle, inputKey: string): BaziRangePage {
+function buildPointPage(
+  bundle: BirthChartPointBundle,
+  inputKey: string,
+  primaryIdentity?: BaziRangeSideIdentity,
+): BaziRangePage {
   return {
     inputKey,
     index: 0,
@@ -99,20 +120,27 @@ function buildPointPage(bundle: BirthChartPointBundle, inputKey: string): BaziRa
       profile: bundle.profile,
       result: getBaziResult(bundle),
       bundle,
+      ...(primaryIdentity ? { identity: primaryIdentity } : {}),
     },
   };
 }
 
-function buildCompatibilityPage(bundle: CompatibilityBundle, inputKey: string): BaziRangePage {
+function buildCompatibilityPage(
+  bundle: CompatibilityBundle,
+  inputKey: string,
+  primaryIdentity?: BaziRangeSideIdentity,
+  partnerIdentity?: BaziRangeSideIdentity,
+): BaziRangePage {
   if (!bundle.range) {
     if (!bundle.bazi) throw new Error('八字合盘样本缺少完整关系证据。');
     return {
-      ...buildPointPage(bundle.primary, inputKey),
+      ...buildPointPage(bundle.primary, inputKey, primaryIdentity),
       partner: {
         index: 0,
         profile: bundle.partner.profile,
         result: getBaziResult(bundle.partner),
         bundle: bundle.partner,
+        ...(partnerIdentity ? { identity: partnerIdentity } : {}),
       },
       compatibility: bundle.bazi,
     };
@@ -131,8 +159,8 @@ function buildCompatibilityPage(bundle: CompatibilityBundle, inputKey: string): 
     index: range.range.startIndex,
     total: range.range.totalPairs,
     nextIndex: range.range.nextIndex,
-    primary: buildPageSide(primarySample),
-    partner: buildPageSide(partnerSample),
+    primary: buildPageSide(primarySample, primaryIdentity),
+    partner: buildPageSide(partnerSample, partnerIdentity),
     compatibility: pair.bazi,
     ...(range.range.primarySource ? { primarySource: range.range.primarySource } : {}),
     ...(range.range.partnerSource ? { partnerSource: range.range.partnerSource } : {}),
@@ -159,10 +187,10 @@ export async function calculateBaziRangePage(
       rangeBatch: { startIndex: request.index, limit: 1 },
     });
     if (bundle.range) {
-      return buildSinglePage(bundle, request.inputKey);
+      return buildSinglePage(bundle, request.inputKey, request.primary.identity);
     }
     if (request.index !== 0) throw new RangeError('单人固定出生盘只能请求索引 0。');
-    return buildPointPage(assertPointBundle(bundle), request.inputKey);
+    return buildPointPage(assertPointBundle(bundle), request.inputKey, request.primary.identity);
   }
 
   const bundle = await calculateCompatibilityBundle(primaryProfile, partnerProfile, {
@@ -172,5 +200,10 @@ export async function calculateBaziRangePage(
   if (!bundle.range && request.index !== 0) {
     throw new RangeError('双方固定出生盘只能请求索引 0。');
   }
-  return buildCompatibilityPage(bundle, request.inputKey);
+  return buildCompatibilityPage(
+    bundle,
+    request.inputKey,
+    request.primary.identity,
+    request.partner?.identity,
+  );
 }

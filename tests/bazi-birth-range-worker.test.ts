@@ -68,7 +68,10 @@ test('单人范围页只计算目标秒并保留完整单点盘事实', async ()
   const page = await calculateBaziRangePage({
     inputKey: 'single-range',
     index: 1,
-    primary: { profile: primary },
+    primary: {
+      profile: primary,
+      identity: { birthPlace: '仅名称主方', timezone: 8 },
+    },
   });
 
   assert.equal(page.inputKey, 'single-range');
@@ -80,6 +83,7 @@ test('单人范围页只计算目标秒并保留完整单点盘事实', async ()
   assert.ok(page.primary.bundle.normalized);
   assert.ok(page.primary.bundle.inputs.bazi);
   assert.ok(page.primary.result);
+  assert.deepEqual(page.primary.identity, { birthPlace: '仅名称主方', timezone: 8 });
   assert.deepEqual(page.primarySource, primary.birthTimeRange);
 });
 
@@ -132,8 +136,14 @@ test('一侧范围与固定对方按真实 pair 读取且固定侧保留完整�
   const page = await calculateBaziRangePage({
     inputKey: 'fixed-partner',
     index: 1,
-    primary: { profile: primary },
-    partner: { profile: fixedPartner },
+    primary: {
+      profile: primary,
+      identity: { birthPlace: '仅名称主方', timezone: 8 },
+    },
+    partner: {
+      profile: fixedPartner,
+      identity: { birthPlace: '仅名称对方', timeZoneId: 'Asia/Shanghai' },
+    },
   });
 
   assert.equal(page.total, 2);
@@ -148,6 +158,11 @@ test('一侧范围与固定对方按真实 pair 读取且固定侧保留完整�
   assert.equal(page.partnerSource, undefined);
   assert.equal(page.compatibility?.people.person1, '公开合成主方');
   assert.equal(page.compatibility?.people.person2, '公开固定对方');
+  assert.deepEqual(page.primary.identity, { birthPlace: '仅名称主方', timezone: 8 });
+  assert.deepEqual(page.partner?.identity, {
+    birthPlace: '仅名称对方',
+    timeZoneId: 'Asia/Shanghai',
+  });
 });
 
 test('范围页拒绝负索引和尾界索引，不把越界当作完成', async () => {
