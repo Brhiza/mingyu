@@ -5029,6 +5029,11 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.equal(liuren.response.status, 200);
   assert.equal(liuren.body.ok, true);
   assert.match(liuren.body.data.prompt, /【问题范围】\n事业工作/);
+  assert.match(liuren.body.data.prompt, /普通宗门裁决：/);
+  assert.doesNotMatch(
+    liuren.body.data.prompt,
+    /directKe|remoteKe|suppressedByPrior|deferredToSpecial/,
+  );
   assert.doesNotMatch(liuren.body.data.prompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
   assert.doesNotMatch(
     liuren.body.data.prompt,
@@ -5072,6 +5077,50 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   );
   assert.ok(
     liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.initialSourceLessonKeys.length > 0,
+  );
+  assert.equal(
+    liurenChart.body.data.ordinaryTransmissionAdjudication.key,
+    'liuren:ordinary-transmission-adjudication',
+  );
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.key,
+    liurenChart.body.data.ordinaryTransmissionAdjudication.key,
+  );
+  assert.deepEqual(
+    liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    liurenChart.body.data.ordinaryTransmissionAdjudication.candidates.map(
+      (item: { key: string }) => item.key,
+    ),
+  );
+  assert.doesNotMatch(
+    [
+      liurenChart.body.data.ordinaryTransmissionAdjudication.summary,
+      liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.promptText,
+      ...liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+        (item: { promptText: string }) => item.promptText,
+      ),
+      ...liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.stageFacts.map(
+        (item: { promptText: string }) => item.promptText,
+      ),
+    ].join('\n'),
+    /directKe|directBiYong|directSheHai|remoteKe|remoteBiYong|remoteSheHai|suppressedByPrior|notApplicable|notMatched|deferredToSpecial/,
+  );
+  const liurenCompact = await callApi('divination/liuren', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
+  });
+  assert.equal(liurenCompact.response.status, 200);
+  assert.equal(liurenCompact.body.data.evidenceAnalysis, undefined);
+  assert.equal(
+    liurenCompact.body.data.ordinaryTransmissionAdjudication.key,
+    liurenChart.body.data.ordinaryTransmissionAdjudication.key,
+  );
+  assert.equal(
+    liurenCompact.body.data.ordinaryTransmissionAdjudication.selectedRule,
+    liurenChart.body.data.ordinaryTransmissionAdjudication.selectedRule,
   );
   assert.ok(
     liurenChart.body.data.evidenceAnalysis.lessons.every(
@@ -5176,6 +5225,10 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
       (item: { key: string }) => item.key,
     ),
     liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.key,
+    liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.key,
+    ...liurenChart.body.data.evidenceAnalysis.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+      (item: { key: string }) => item.key,
+    ),
     ...liurenChart.body.data.evidenceAnalysis.lessons.flatMap(
       (item: { key: string; relationFacts: Array<{ key: string }> }) => [
         item.key,

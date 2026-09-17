@@ -1,4 +1,8 @@
-import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
+import {
+  formatLiurenLesson,
+  formatLiurenOrdinaryTransmissionAdjudication,
+  formatLiurenTransmission,
+} from './liuren-facts';
 import type { DivinationMethodId } from '../divination/config';
 import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import type {
@@ -176,6 +180,7 @@ function formatLiurenDetail(data: LiurenData) {
     `天盘：${data.heavenlyPlate.map((item) => `${item.under}上${item.branch}乘${item.god}`).join('；')}`,
     `四课：${data.fourLessons.map(formatLiurenLesson).join('；')}`,
     `三传：${data.threeTransmissions.map((_, index) => formatLiurenTransmission(data, index)).join('；')}`,
+    formatLiurenOrdinaryTransmissionAdjudication(data),
     data.guaTi?.length ? `课体：${data.guaTi.join('、')}` : '',
   ];
 }

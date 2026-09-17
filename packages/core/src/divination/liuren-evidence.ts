@@ -1,7 +1,17 @@
-import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
+import type {
+  LiurenData,
+  LiurenLesson,
+  LiurenOrdinaryTransmissionCandidate,
+  LiurenOrdinaryTransmissionStage,
+  LiurenTransmission,
+} from '../types/divination';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import { getBranchWuxing, getStemWuxing, isKe, isSheng } from '../ganzhi';
+import {
+  formatLiurenOrdinaryStage,
+  getLiurenOrdinaryCandidateStatusLabel,
+} from './liuren-ordinary-adjudication';
 
 export interface LiurenRelationEvidenceFact {
   key: string;
@@ -66,6 +76,28 @@ export interface LiurenTransmissionRuleFact {
   promptText: string;
   sources: string[];
   limitation: '取传规则事实只说明当前四课如何形成初传及三传模式；缺少规则名时不得按结果反推九宗门名称，也不单独证明现实吉凶或应期';
+}
+
+export interface LiurenOrdinaryTransmissionCandidateFact extends LiurenOrdinaryTransmissionCandidate {
+  sourceLessonKeys: string[];
+  promptText: string;
+}
+
+export interface LiurenOrdinaryTransmissionStageFact extends LiurenOrdinaryTransmissionStage {
+  promptText: string;
+}
+
+export interface LiurenOrdinaryTransmissionAdjudicationFact {
+  key: 'liuren:ordinary-transmission-adjudication';
+  status: '已裁决' | '转特殊课' | '缺少轨迹';
+  selectedRule: string | null;
+  selectedInitial: string | null;
+  selectedCandidateKey: string | null;
+  candidateFacts: LiurenOrdinaryTransmissionCandidateFact[];
+  stageFacts: LiurenOrdinaryTransmissionStageFact[];
+  promptText: string;
+  sources: string[];
+  limitation: string;
 }
 
 export interface LiurenCounterEvidenceFact {
@@ -249,6 +281,7 @@ export interface LiurenEvidenceAnalysis {
   initialBranch: string;
   initialSourceLessons: string[];
   transmissionRuleFact: LiurenTransmissionRuleFact;
+  ordinaryTransmissionAdjudicationFact: LiurenOrdinaryTransmissionAdjudicationFact;
   lessons: LiurenLessonEvidence[];
   transmissions: LiurenTransmissionEvidence[];
   transitionFacts: LiurenTransitionFact[];
@@ -787,6 +820,7 @@ function buildSummaryFact(params: {
   plateFact: LiurenPlateCoverageFact;
   platePositionFacts: LiurenPlateFact[];
   transmissionRuleFact: LiurenTransmissionRuleFact;
+  ordinaryTransmissionAdjudicationFact: LiurenOrdinaryTransmissionAdjudicationFact;
   lessons: LiurenLessonEvidence[];
   transmissions: LiurenTransmissionEvidence[];
   transitionFacts: LiurenTransitionFact[];
@@ -803,6 +837,8 @@ function buildSummaryFact(params: {
       params.plateFact.key,
       ...params.platePositionFacts.map((item) => item.key),
       params.transmissionRuleFact.key,
+      params.ordinaryTransmissionAdjudicationFact.key,
+      ...params.ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.key),
       ...params.lessons.flatMap((item) => [
         item.key,
         ...item.relationFacts.map((fact) => fact.key),
@@ -825,7 +861,8 @@ function buildSummaryFact(params: {
     params.lessons.length === 4 &&
     params.transmissions.length === 3 &&
     params.transitionFacts.length === 2 &&
-    params.transmissionRuleFact.status === '已确定'
+    params.transmissionRuleFact.status === '已确定' &&
+    params.ordinaryTransmissionAdjudicationFact.status !== '缺少轨迹'
       ? '证据链完整'
       : '证据链有缺口';
   return {
@@ -840,7 +877,7 @@ function buildSummaryFact(params: {
     timingFactCount: params.timingFacts.length,
     focusFactCount: params.focusFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
-    promptText: `证据链状态：${status}；天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
+    promptText: `证据链状态：${status}；天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、普通宗门裁决${params.ordinaryTransmissionAdjudicationFact.status}、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
     sources: ['全部起盘、天地盘、四课取传、三传、反证、类神、应期与传统事实逐项汇总'],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -852,6 +889,7 @@ function buildCalculationSteps(params: {
   platePositionFacts: LiurenPlateFact[];
   lessons: LiurenLessonEvidence[];
   transmissionRuleFact: LiurenTransmissionRuleFact;
+  ordinaryTransmissionAdjudicationFact: LiurenOrdinaryTransmissionAdjudicationFact;
   transmissions: LiurenTransmissionEvidence[];
   transitionFacts: LiurenTransitionFact[];
   counterEvidenceFacts: LiurenCounterEvidenceFact[];
@@ -931,10 +969,17 @@ function buildCalculationSteps(params: {
     {
       key: 'liuren:calculation:transmission-rule',
       stage: '取传规则核验',
-      status: params.transmissionRuleFact.status === '已确定' ? '已计算' : '资料不足',
+      status:
+        params.transmissionRuleFact.status === '已确定' &&
+        params.ordinaryTransmissionAdjudicationFact.status !== '缺少轨迹'
+          ? '已计算'
+          : '资料不足',
       inputs: {
         lessonCount: params.lessons.length,
         initialSourceLessonKeys: params.transmissionRuleFact.initialSourceLessonKeys,
+        ordinaryCandidateKeys: params.ordinaryTransmissionAdjudicationFact.candidateFacts.map(
+          (item) => item.key,
+        ),
       },
       result: {
         ruleStatus: params.transmissionRuleFact.status,
@@ -942,10 +987,18 @@ function buildCalculationSteps(params: {
         pattern: params.transmissionRuleFact.pattern ?? '未记录',
         initialBranch: params.transmissionRuleFact.initialBranch,
         initialGod: params.transmissionRuleFact.initialGod,
+        ordinaryAdjudicationStatus: params.ordinaryTransmissionAdjudicationFact.status,
+        selectedCandidateKey:
+          params.ordinaryTransmissionAdjudicationFact.selectedCandidateKey ?? '未记录',
       },
       dependsOnStepKeys: ['liuren:calculation:lessons'],
-      promptText: params.transmissionRuleFact.promptText,
-      sources: params.transmissionRuleFact.sources,
+      promptText: `${params.transmissionRuleFact.promptText}；${params.ordinaryTransmissionAdjudicationFact.promptText}`,
+      sources: Array.from(
+        new Set([
+          ...params.transmissionRuleFact.sources,
+          ...params.ordinaryTransmissionAdjudicationFact.sources,
+        ]),
+      ),
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1028,6 +1081,7 @@ function buildLimitationFacts(params: {
   platePositionFacts: LiurenPlateFact[];
   lessons: LiurenLessonEvidence[];
   transmissionRuleFact: LiurenTransmissionRuleFact;
+  ordinaryTransmissionAdjudicationFact: LiurenOrdinaryTransmissionAdjudicationFact;
   transmissions: LiurenTransmissionEvidence[];
   transitionFacts: LiurenTransitionFact[];
   counterSummaryFact: LiurenCounterSummaryFact;
@@ -1062,10 +1116,12 @@ function buildLimitationFacts(params: {
           ...item.relationFacts.map((fact) => fact.key),
         ]),
         params.transmissionRuleFact.key,
+        params.ordinaryTransmissionAdjudicationFact.key,
+        ...params.ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.key),
       ],
       promptText:
-        '四课记录上下神、乘将、生克、旬空和初传来源，九宗门规则只说明如何发用取传；缺少规则名时不得按结果反推，已有规则也不单独证明现实成败',
-      sources: ['四课关系事实、初传来源与九宗门取传结果'],
+        '四课记录上下神、乘将、生克、旬空和初传来源，普通宗门裁决记录候选、优先级与排除理由；缺少裁决轨迹时不得从最终规则名反推候选全集，已有规则也不单独证明现实成败',
+      sources: ['四课关系事实、普通宗门裁决、初传来源与九宗门取传结果'],
     },
     {
       key: 'liuren:limitation:transmissions',
@@ -1119,6 +1175,65 @@ function buildLimitationFacts(params: {
   }));
 }
 
+function buildOrdinaryTransmissionAdjudicationFact(
+  data: LiurenData,
+  lessons: LiurenLessonEvidence[],
+): LiurenOrdinaryTransmissionAdjudicationFact {
+  const adjudication = data.ordinaryTransmissionAdjudication;
+  if (!adjudication) {
+    return {
+      key: 'liuren:ordinary-transmission-adjudication',
+      status: '缺少轨迹',
+      selectedRule: null,
+      selectedInitial: null,
+      selectedCandidateKey: null,
+      candidateFacts: [],
+      stageFacts: [],
+      promptText:
+        '当前结果只保存最终取传规则，缺少普通宗门候选、优先级与排除理由，不得声称取传竞争可重建。',
+      sources: ['当前大六壬结果的普通宗门裁决轨迹完整性检查'],
+      limitation:
+        '普通宗门裁决只证明四课直接克、比用、涉害与遥克如何竞争形成初传；缺少轨迹时不得从最终规则名反推候选全集，也不单独证明现实吉凶或应期。',
+    };
+  }
+
+  const candidateFacts: LiurenOrdinaryTransmissionCandidateFact[] = adjudication.candidates.map(
+    (candidate) => {
+      const sourceLessonKeys = candidate.sourceLessons
+        .map((source) => lessons[source.position - 1]?.key)
+        .filter((key): key is string => Boolean(key));
+      const harmText = candidate.harmAssessment
+        ? `；涉害行程${candidate.harmAssessment.walkedBranches.join('、') || '无中间支'}，深度${candidate.harmAssessment.depth}`
+        : '';
+      return {
+        ...candidate,
+        sourceLessonKeys,
+        promptText: `${candidate.kind}候选${candidate.upper}，来源${candidate.sourceLessons.map((source) => source.name).join('、') || '未记录'}，状态${getLiurenOrdinaryCandidateStatusLabel(candidate)}；${candidate.reasons.join('；')}${harmText}`,
+      };
+    },
+  );
+  const stageFacts: LiurenOrdinaryTransmissionStageFact[] = adjudication.stages.map((stage) => ({
+    ...stage,
+    promptText: formatLiurenOrdinaryStage(stage),
+  }));
+  const status = adjudication.status === 'selected' ? '已裁决' : '转特殊课';
+  return {
+    key: adjudication.key,
+    status,
+    selectedRule: adjudication.selectedRule,
+    selectedInitial: adjudication.selectedInitial,
+    selectedCandidateKey: adjudication.selectedCandidateKey,
+    candidateFacts,
+    stageFacts,
+    promptText:
+      status === '已裁决'
+        ? `普通宗门按${stageFacts.map(formatLiurenOrdinaryStage).join('、')}完成取舍，最终${adjudication.selectedRule}取${adjudication.selectedInitial}发用。`
+        : adjudication.summary,
+    sources: adjudication.sources,
+    limitation: adjudication.limitation,
+  };
+}
+
 export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis {
   if (data.fourLessons.length !== 4 || data.threeTransmissions.length !== 3) {
     throw new Error('大六壬证据分析需要完整四课与三传。');
@@ -1156,6 +1271,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const initialSourceLessons = lessons
     .filter((item) => item.isInitialSource)
     .map((item) => item.name);
+  const ordinaryTransmissionAdjudicationFact = buildOrdinaryTransmissionAdjudicationFact(
+    data,
+    lessons,
+  );
   const transmissions = data.threeTransmissions.map((item, index) =>
     buildTransmissionEvidence(item, index, xunKong),
   );
@@ -1261,6 +1380,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     plateFact,
     platePositionFacts,
     transmissionRuleFact,
+    ordinaryTransmissionAdjudicationFact,
     lessons,
     transmissions,
     transitionFacts,
@@ -1277,6 +1397,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     platePositionFacts,
     lessons,
     transmissionRuleFact,
+    ordinaryTransmissionAdjudicationFact,
     transmissions,
     transitionFacts,
     counterEvidenceFacts,
@@ -1296,6 +1417,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     platePositionFacts,
     lessons,
     transmissionRuleFact,
+    ordinaryTransmissionAdjudicationFact,
     transmissions,
     transitionFacts,
     counterSummaryFact,
@@ -1341,7 +1463,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     {
       level: '主证',
       title: '四课取传与初传发用',
-      detail: `四课${lessons.map((item) => `${item.name}${item.upper}临${item.lower}（${item.relation}）`).join('；')}；${transmissionRuleFact.promptText}；规则边界：${transmissionRuleFact.limitation}；古籍依据：${classicalText}`,
+      detail: `四课${lessons.map((item) => `${item.name}${item.upper}临${item.lower}（${item.relation}）`).join('；')}；${transmissionRuleFact.promptText}；${ordinaryTransmissionAdjudicationFact.promptText}；候选${ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.promptText).join('；') || '无普通宗门候选'}；规则边界：${transmissionRuleFact.limitation}；裁决边界：${ordinaryTransmissionAdjudicationFact.limitation}；古籍依据：${classicalText}`,
       source: transmissionRuleFact.sources.join('、'),
       tags: ['四课', transmissionRuleFact.rule || '取传规则缺失'],
     },
@@ -1484,6 +1606,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     '【大六壬四课取传与三传推进结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `取传规则事实：${transmissionRuleFact.promptText}；边界：${transmissionRuleFact.limitation}`,
+    `普通宗门裁决：${ordinaryTransmissionAdjudicationFact.promptText}；候选${ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.promptText).join('；') || '无'}；边界：${ordinaryTransmissionAdjudicationFact.limitation}`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；')}`,
     `反证限制：${counterSummaryFact.promptText}${counterEvidenceFacts.length ? `；明细${counterEvidenceFacts.map((item) => item.promptText).join('；')}` : ''}；边界：${counterSummaryFact.limitation}`,
     `触发条件：${timingFacts.map((item) => `${item.promptText}（${item.sourceStatus}）`).join('；')}`,
@@ -1509,6 +1632,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     initialBranch: initial.branch,
     initialSourceLessons,
     transmissionRuleFact,
+    ordinaryTransmissionAdjudicationFact,
     lessons,
     transmissions,
     transitionFacts,
@@ -1529,7 +1653,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     evidence,
     promptText,
     methodology: [
-      '先核验四课上下关系，再按已计算的九宗门规则确认初传发用。',
+      '先核验四课直接上下克；有直接克时在候选内依比用、涉害取舍，无直接克时才进入遥克，保留全部候选和排除理由。',
       '初传、中传、末传分别作为起点、过程、落点，逐传保留天将、旺衰、旬空和日支关系。',
       '月将加时、昼夜贵人、天地盘、日干寄宫、课体、神煞与天将属性均保留为结构化辅证。',
       '课体与神煞只作辅助标签，不覆盖发用和三传主线。',

@@ -18,6 +18,29 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
   assert.ok(evidence.transmissionRuleFact.initialSourceLessonKeys.length > 0);
   assert.ok(evidence.transmissionRuleFact.sources.length >= 2);
   assert.match(evidence.transmissionRuleFact.limitation, /不得按结果反推九宗门名称/);
+  assert.notEqual(evidence.ordinaryTransmissionAdjudicationFact.status, '缺少轨迹');
+  assert.ok(evidence.ordinaryTransmissionAdjudicationFact.stageFacts.length > 0);
+  assert.ok(
+    evidence.ordinaryTransmissionAdjudicationFact.candidateFacts.every((item) =>
+      item.sourceLessonKeys.every((key) => key.startsWith('liuren:lesson:')),
+    ),
+  );
+  for (const candidate of evidence.ordinaryTransmissionAdjudicationFact.candidateFacts) {
+    assert.deepEqual(
+      candidate.sourceLessonKeys,
+      candidate.sourceLessons.map((source) => evidence.lessons[source.position - 1]?.key),
+    );
+  }
+  const adjudicationPromptText = [
+    data.ordinaryTransmissionAdjudication?.summary ?? '',
+    evidence.ordinaryTransmissionAdjudicationFact.promptText,
+    ...evidence.ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.promptText),
+    ...evidence.ordinaryTransmissionAdjudicationFact.stageFacts.map((item) => item.promptText),
+  ].join('\n');
+  assert.doesNotMatch(
+    adjudicationPromptText,
+    /directKe|directBiYong|directSheHai|remoteKe|remoteBiYong|remoteSheHai|suppressedByPrior|notApplicable|notMatched|deferredToSpecial/,
+  );
   assert.ok(
     evidence.lessons.every(
       (item) =>
@@ -179,6 +202,19 @@ test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来�
   assert.match(evidence.focusSummaryFact.promptText, /不得自行把日支、天将或神煞固定当作用神/);
   assert.match(evidence.promptText, /由盘面补齐/);
   assert.match(evidence.promptText, /类神焦点资料缺失/);
+});
+
+test('大六壬旧结果只有最终取传名时不得冒充普通宗门竞争可重建', () => {
+  const data = generateLiuren(fixedDate);
+  data.ordinaryTransmissionAdjudication = undefined;
+
+  const evidence = analyzeLiurenEvidence(data);
+
+  assert.equal(evidence.ordinaryTransmissionAdjudicationFact.status, '缺少轨迹');
+  assert.equal(evidence.ordinaryTransmissionAdjudicationFact.candidateFacts.length, 0);
+  assert.match(evidence.ordinaryTransmissionAdjudicationFact.promptText, /不得声称取传竞争可重建/);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
 });
 
 test('大六壬证据应保留类神未选定限制，不把日支或神煞固定当作用神', () => {

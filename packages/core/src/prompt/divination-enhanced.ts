@@ -1,7 +1,11 @@
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import { formatWuyunLiuqiFacts } from '../wuyun-liuqi';
 import { formatAstrolabeForPrompt } from './astrolabe';
-import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
+import {
+  formatLiurenLesson,
+  formatLiurenOrdinaryTransmissionAdjudication,
+  formatLiurenTransmission,
+} from './liuren-facts';
 import { formatMeihuaFacts } from './meihua-facts';
 import {
   formatQimenHourStem,
@@ -838,6 +842,7 @@ function formatLiurenInfo(data: LiurenData) {
     `核心结构：${plateSummaryText.join('；')}`,
     data.dayStemResidence ? `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '',
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
+    formatLiurenOrdinaryTransmissionAdjudication(data),
     guaTiSection,
     data.xunKong?.includes(data.threeTransmissions[0]?.branch)
       ? '毕法断诀：【旬在空亡发用虚】，发端有声无实，谋事防中途落空'
