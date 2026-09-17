@@ -603,6 +603,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     noblemanGroundBranch,
     xunKong,
     transmissionRule: initialResult.rule,
+    ordinaryTransmissionAdjudication: initialResult.ordinaryAdjudication,
     transmissionPattern,
     transmissionDetail,
     earthlyPlate: [...DIZHI],

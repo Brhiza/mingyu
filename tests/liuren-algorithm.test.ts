@@ -14,6 +14,7 @@ import {
   buildFourLessons,
   resolveInitialTransmission,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/lessons.ts';
+import { resolveLiurenClassicalRules } from '../packages/core/src/divination/algorithms/liuren/helpers/classical-rules.ts';
 import {
   buildHeavenlyPlate,
   getDayStemResidence,
@@ -92,6 +93,8 @@ test('大六壬应输出分层取用与应期证据', () => {
     evidence.plateFact.key,
     ...evidence.platePositionFacts.map((item) => item.key),
     evidence.transmissionRuleFact.key,
+    evidence.ordinaryTransmissionAdjudicationFact.key,
+    ...evidence.ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.key),
     ...evidence.lessons.flatMap((item) => [
       item.key,
       ...item.relationFacts.map((fact) => fact.key),
@@ -153,9 +156,14 @@ function getGodByUpper(
   return plate.find((item) => item.branch === branch)?.god;
 }
 
-function createLesson(upper: string, lower: string, relation = '比和'): LiurenLesson {
+function createLesson(
+  upper: string,
+  lower: string,
+  relation = '比和',
+  name: LiurenLesson['name'] = '一课',
+): LiurenLesson {
   return {
-    name: '一课',
+    name,
     upper,
     lower,
     god: '贵人',
@@ -521,6 +529,40 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
             label,
           );
+          const adjudication = initial.ordinaryAdjudication;
+          assert.ok(adjudication, label);
+          const isSpecialRule = /伏吟|返吟|八专|别责|昴星/.test(initial.rule);
+          assert.equal(
+            adjudication.status,
+            isSpecialRule ? 'deferredToSpecial' : 'selected',
+            label,
+          );
+          for (const candidate of adjudication.candidates) {
+            for (const source of candidate.sourceLessons) {
+              assert.deepEqual(
+                { name: source.name, lower: source.lower },
+                {
+                  name: lessons[source.position - 1]?.name,
+                  lower: lessons[source.position - 1]?.lower,
+                },
+                label,
+              );
+            }
+          }
+          if (!isSpecialRule) {
+            assert.equal(adjudication.selectedRule, initial.rule, label);
+            assert.equal(adjudication.selectedInitial, initial.initial, label);
+            assert.equal(
+              adjudication.candidates.filter((candidate) => candidate.status === 'selected').length,
+              1,
+              label,
+            );
+            assert.equal(
+              adjudication.selectedCandidateKey,
+              adjudication.candidates.find((candidate) => candidate.status === 'selected')?.key,
+              label,
+            );
+          }
 
           ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
           caseCount += 1;
@@ -546,8 +588,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
     返吟涉害法: 144,
     返吟重审法: 720,
     遥克比用法: 264,
-    遥克法: 1272,
-    遥克涉害法: 24,
+    遥克法: 1296,
     重审法: 5232,
   });
 });
@@ -835,6 +876,157 @@ test('大六壬多处贼克时按比用取与日干同阴阳的发用', () => {
 
   assert.equal(result.rule, '比用法');
   assert.equal(result.initial, '午');
+  assert.deepEqual(
+    result.ordinaryAdjudication?.candidates
+      .filter((item) => item.family === 'directKe')
+      .map((item) => [item.upper, item.sameYinYangAsDayStem, item.status]),
+    [
+      ['巳', false, 'excluded'],
+      ['午', true, 'selected'],
+    ],
+  );
+  assert.equal(
+    result.ordinaryAdjudication?.stages.find((item) => item.id === 'directBiYong')?.status,
+    'selected',
+  );
+});
+
+test('大六壬普通宗门应保留直接克压制遥克的完整候选轨迹', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('巳', '子', '水克火'),
+      createLesson('申', '酉'),
+      createLesson('子', '亥'),
+      createLesson('卯', '寅'),
+    ],
+    createResolveContext({ dayStem: '甲' }),
+  );
+
+  assert.equal(result.rule, '重审法');
+  assert.equal(result.initial, '巳');
+  const adjudication = result.ordinaryAdjudication;
+  assert.ok(adjudication);
+  assert.equal(adjudication.status, 'selected');
+  assert.equal(adjudication.selectedRule, '重审法');
+  assert.equal(adjudication.selectedInitial, '巳');
+  assert.equal(adjudication.stages.find((item) => item.id === 'directKe')?.status, 'selected');
+  assert.equal(
+    adjudication.stages.find((item) => item.id === 'remoteKe')?.status,
+    'suppressedByPrior',
+  );
+  assert.deepEqual(
+    adjudication.candidates.map((item) => [item.kind, item.upper, item.status]),
+    [
+      ['下贼上', '巳', 'selected'],
+      ['蒿矢', '申', 'suppressedByPrior'],
+    ],
+  );
+  assert.match(adjudication.candidates[1].reasons.join('；'), /直接上下克前置成立/);
+});
+
+test('大六壬普通宗门应在直接克必要条件失败后转入遥克', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('寅', '卯'),
+      createLesson('申', '酉'),
+      createLesson('子', '亥'),
+      createLesson('卯', '寅'),
+    ],
+    createResolveContext({ dayStem: '甲' }),
+  );
+
+  assert.equal(result.rule, '遥克法');
+  assert.equal(result.initial, '申');
+  const adjudication = result.ordinaryAdjudication;
+  assert.ok(adjudication);
+  assert.equal(adjudication.status, 'selected');
+  assert.equal(adjudication.stages.find((item) => item.id === 'directKe')?.status, 'notMatched');
+  assert.equal(adjudication.stages.find((item) => item.id === 'remoteKe')?.status, 'selected');
+  assert.deepEqual(
+    adjudication.candidates.map((item) => [item.kind, item.upper, item.status]),
+    [['蒿矢', '申', 'selected']],
+  );
+});
+
+test('大六壬遥克候选应保留第三课与第四课的原始课位', () => {
+  const fixtures = [
+    {
+      lessons: [
+        createLesson('寅', '卯'),
+        createLesson('子', '亥', '比和', '二课'),
+        createLesson('申', '酉', '比和', '三课'),
+        createLesson('卯', '寅', '比和', '四课'),
+      ],
+      position: 3,
+      name: '三课',
+    },
+    {
+      lessons: [
+        createLesson('寅', '卯'),
+        createLesson('子', '亥', '比和', '二课'),
+        createLesson('卯', '寅', '比和', '三课'),
+        createLesson('申', '酉', '比和', '四课'),
+      ],
+      position: 4,
+      name: '四课',
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    const result = resolveInitialTransmission(
+      fixture.lessons,
+      createResolveContext({ dayStem: '甲' }),
+    );
+    const candidate = result.ordinaryAdjudication?.candidates.find(
+      (item) => item.family === 'remoteKe' && item.upper === '申',
+    );
+    assert.equal(result.rule, '遥克法');
+    assert.deepEqual(candidate?.sourceLessons, [
+      { position: fixture.position, name: fixture.name, lower: '酉' },
+    ]);
+  }
+});
+
+test('大六壬重复遥克上神只按一个候选取遥克，不误入比用或涉害', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('寅', '卯'),
+      createLesson('申', '酉', '比和', '二课'),
+      createLesson('申', '酉', '比和', '三课'),
+      createLesson('卯', '寅', '比和', '四课'),
+    ],
+    createResolveContext({ dayStem: '甲' }),
+  );
+
+  assert.equal(result.rule, '遥克法');
+  assert.equal(result.initial, '申');
+  const candidate = result.ordinaryAdjudication?.candidates.find((item) => item.upper === '申');
+  assert.deepEqual(
+    candidate?.sourceLessons.map((item) => [item.position, item.name]),
+    [
+      [2, '二课'],
+      [3, '三课'],
+    ],
+  );
+  assert.equal(
+    result.ordinaryAdjudication?.stages.find((stage) => stage.id === 'remoteKe')?.status,
+    'selected',
+  );
+  assert.equal(
+    result.ordinaryAdjudication?.stages.find((stage) => stage.id === 'remoteBiYong')?.status,
+    'notApplicable',
+  );
+});
+
+test('大六壬遥克经典来源不得被宽泛克法匹配冒充贼克', () => {
+  assert.deepEqual(
+    resolveLiurenClassicalRules('遥克法').map((item) => item.rule),
+    ['遥克'],
+  );
+  assert.deepEqual(
+    resolveLiurenClassicalRules('遥克比用法').map((item) => item.rule),
+    ['遥克', '知一/比用'],
+  );
 });
 
 test('大六壬比用发用不得因时柱五行或课体名称擅改为二课上神', () => {
@@ -923,6 +1115,26 @@ test('大六壬涉害先按受克深浅，复等再取干支上与孟仲季', ()
 
     assert.equal(result.initial.rule, '涉害法', item.source);
     assert.deepEqual(result.branches, item.expected, item.source);
+    assert.equal(
+      result.initial.ordinaryAdjudication?.stages.find((stage) => stage.id === 'directSheHai')
+        ?.status,
+      'selected',
+      item.source,
+    );
+    assert.ok(
+      result.initial.ordinaryAdjudication?.candidates
+        .filter((candidate) => candidate.family === 'directKe')
+        .every((candidate) => candidate.harmAssessment),
+      item.source,
+    );
+    assert.ok(
+      result.initial.ordinaryAdjudication?.candidates
+        .filter((candidate) => candidate.harmAssessment)
+        .every((candidate) =>
+          candidate.reasons.some((reason) => /涉害深度|复等|孟仲季|原课序/.test(reason)),
+        ),
+      item.source,
+    );
   }
 });
 
