@@ -25,6 +25,7 @@ import {
 import {
   buildVerifiedDecadalTimelineBatchOptions,
   buildVerifiedDecadalTimelineOptions,
+  createZiweiHoroscopeResolver,
 } from './iztro/decadal';
 import {
   buildZiweiFortuneTimelineFromAstrolabe,
@@ -174,13 +175,9 @@ export async function calculateZiweiChart(
     }
   }
   const astrolabe = await buildAstrolabeFromInput(input);
+  const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
   const horoscopeContext = resolveHoroscopeContext(options);
-  const horoscope = await buildHoroscopeFromInput(
-    astrolabe,
-    input,
-    horoscopeContext.dateStr,
-    horoscopeContext.hourIndex,
-  );
+  const horoscope = await resolveHoroscope(horoscopeContext.dateStr, horoscopeContext.hourIndex);
   const fortuneContext = options.fortuneRange
     ? {
         dateStr: options.fortuneRange.dateStr ?? horoscopeContext.dateStr,
@@ -192,12 +189,7 @@ export async function calculateZiweiChart(
       ? fortuneContext.dateStr === horoscopeContext.dateStr &&
         fortuneContext.hourIndex === horoscopeContext.hourIndex
         ? horoscope
-        : await buildHoroscopeFromInput(
-            astrolabe,
-            input,
-            fortuneContext.dateStr,
-            fortuneContext.hourIndex,
-          )
+        : await resolveHoroscope(fortuneContext.dateStr, fortuneContext.hourIndex)
       : undefined;
   const calculationConfig = buildZiweiCalculationConfig(input);
   const payloadByScope =
@@ -223,18 +215,31 @@ export async function calculateZiweiChart(
     options.independentBatch === 'scope'
       ? []
       : options.independentBatch === 'fortune'
-        ? await buildVerifiedDecadalTimelineBatchOptions(astrolabe, input, {
-            scope: options.fortuneRange!.scope as 'all' | 'current',
-            targetAge: fortuneTargetHoroscope!.age.nominalAge,
-            batch: options.fortuneRange!.batch!,
-          })
-        : await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+        ? await buildVerifiedDecadalTimelineBatchOptions(
+            astrolabe,
+            input,
+            {
+              scope: options.fortuneRange!.scope as 'all' | 'current',
+              targetAge: fortuneTargetHoroscope!.age.nominalAge,
+              batch: options.fortuneRange!.batch!,
+            },
+            resolveHoroscope,
+          )
+        : await buildVerifiedDecadalTimelineOptions(astrolabe, input, resolveHoroscope);
   const fortuneTimeline = options.fortuneRange
-    ? await buildZiweiFortuneTimelineFromAstrolabe(astrolabe, input, decadalTimeline, {
-        ...options.fortuneRange,
-        dateStr: fortuneContext!.dateStr,
-        hourIndex: fortuneContext!.hourIndex,
-      })
+    ? await buildZiweiFortuneTimelineFromAstrolabe(
+        astrolabe,
+        input,
+        decadalTimeline,
+        {
+          ...options.fortuneRange,
+          dateStr: fortuneContext!.dateStr,
+          hourIndex: fortuneContext!.hourIndex,
+        },
+        {
+          resolveHoroscope,
+        },
+      )
     : undefined;
 
   return {

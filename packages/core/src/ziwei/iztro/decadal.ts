@@ -1,6 +1,6 @@
 import type { PalaceFact } from '../../types/analysis';
 import type { ChartInput } from '../../types/chart';
-import type { IztroAstrolabe } from '../../types/iztro';
+import type { IztroAstrolabe, IztroHoroscope } from '../../types/iztro';
 import { LunarDay, SolarDay } from 'tyme4ts';
 import { buildHoroscopeFromInput, shiftLunarYear } from './runtime-helpers';
 
@@ -15,6 +15,27 @@ export type DecadalTimelineOption = {
   palaceName?: string;
   source: 'payload-compatibility' | 'iztro-horoscope';
 };
+
+export type ZiweiHoroscopeResolver = (
+  dateStr: string,
+  hourIndex: number,
+) => Promise<IztroHoroscope>;
+
+/** 同一次计算内按日期和时辰复用运限对象；不会跨请求保留出生盘状态。 */
+export function createZiweiHoroscopeResolver(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+): ZiweiHoroscopeResolver {
+  const cache = new Map<string, Promise<IztroHoroscope>>();
+  return (dateStr, hourIndex) => {
+    const key = `${dateStr}#${hourIndex}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const pending = buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
+    cache.set(key, pending);
+    return pending;
+  };
+}
 
 function collectRegularDecadalRanges(palaces: PalaceFact[]) {
   const uniqueRanges = new Map<string, { startAge: number; endAge: number }>();
@@ -94,28 +115,19 @@ async function findVerifiedHoroscope(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   nominalAge: number,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
   const anniversary = shiftLunarYear(birthSolarDate, nominalAge - 1);
   const buildAtOffset = async (offset: number) => {
     const dateStr = shiftSolarDay(anniversary, offset);
-    const horoscope = await buildHoroscopeFromInput(
-      astrolabe,
-      input,
-      dateStr,
-      input.birthTimeIndex,
-    );
+    const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
     return { dateStr, horoscope };
   };
 
   if ((input.ageDivide ?? 'normal') !== 'birthday') {
     if (nominalAge === 1) {
-      const horoscope = await buildHoroscopeFromInput(
-        astrolabe,
-        input,
-        birthSolarDate,
-        input.birthTimeIndex,
-      );
+      const horoscope = await resolveHoroscope(birthSolarDate, input.birthTimeIndex);
       if (horoscope.age.nominalAge !== nominalAge) {
         throw new Error('iztro 无法验证出生日期的虚岁。');
       }
@@ -125,12 +137,7 @@ async function findVerifiedHoroscope(
     const anniversaryLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
     const firstDay = LunarDay.fromYmd(anniversaryLunarYear, 1, 1).getSolarDay();
     const dateStr = formatSolarDay(firstDay);
-    const horoscope = await buildHoroscopeFromInput(
-      astrolabe,
-      input,
-      dateStr,
-      input.birthTimeIndex,
-    );
+    const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
     if (horoscope.age.nominalAge !== nominalAge) {
       throw new Error(`iztro 无法验证虚岁 ${nominalAge} 的农历年分界。`);
     }
@@ -184,6 +191,7 @@ function collectIztroDecadalRanges(astrolabe: IztroAstrolabe) {
 export async function buildVerifiedDecadalTimelineOptions(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
+  resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
 ): Promise<DecadalTimelineOption[]> {
   const ranges = collectIztroDecadalRanges(astrolabe);
   const firstRange = ranges[0];
@@ -193,7 +201,12 @@ export async function buildVerifiedDecadalTimelineOptions(
 
   const options: DecadalTimelineOption[] = [];
   for (let age = 1; age < firstRange.startAge; age += 1) {
-    const { dateStr, horoscope } = await findVerifiedHoroscope(astrolabe, input, age);
+    const { dateStr, horoscope } = await findVerifiedHoroscope(
+      astrolabe,
+      input,
+      age,
+      resolveHoroscope,
+    );
     const palace = astrolabe.palace(horoscope.decadal.index);
     if (horoscope.age.nominalAge !== age || horoscope.decadal.name !== '童限' || !palace) {
       throw new Error(`iztro 无法验证虚岁 ${age} 的童限宫位。`);
@@ -211,7 +224,12 @@ export async function buildVerifiedDecadalTimelineOptions(
   }
 
   for (const range of ranges) {
-    const { dateStr, horoscope } = await findVerifiedHoroscope(astrolabe, input, range.startAge);
+    const { dateStr, horoscope } = await findVerifiedHoroscope(
+      astrolabe,
+      input,
+      range.startAge,
+      resolveHoroscope,
+    );
     if (
       horoscope.age.nominalAge !== range.startAge ||
       horoscope.decadal.name !== '大限' ||
@@ -237,7 +255,12 @@ export async function buildVerifiedDecadalTimelineOptions(
   if (!nextAge) {
     throw new Error('iztro 未生成可用的童限或大限时间线。');
   }
-  const finalBoundary = await findVerifiedHoroscope(astrolabe, input, nextAge + 1);
+  const finalBoundary = await findVerifiedHoroscope(
+    astrolabe,
+    input,
+    nextAge + 1,
+    resolveHoroscope,
+  );
   return options.map((option, index) => ({
     ...option,
     endDateStr: shiftSolarDay(options[index + 1]?.dateStr ?? finalBoundary.dateStr, -1),
@@ -256,6 +279,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     targetAge: number;
     batch: { startIndex?: number; limit?: number };
   },
+  resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
 ): Promise<DecadalTimelineOption[]> {
   const ranges = collectIztroDecadalRanges(astrolabe);
   const firstRange = ranges[0];
@@ -317,7 +341,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
   );
   for (const periodIndex of selectedPeriodIndexes) {
     const period = timeline[periodIndex]!;
-    const start = await findVerifiedHoroscope(astrolabe, input, period.startAge);
+    const start = await findVerifiedHoroscope(astrolabe, input, period.startAge, resolveHoroscope);
     const palace = astrolabe.palace(start.horoscope.decadal.index);
     if (
       start.horoscope.age.nominalAge !== period.startAge ||
@@ -327,7 +351,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     ) {
       throw new Error(`iztro 无法验证 ${period.startAge}-${period.endAge} 岁${period.label}。`);
     }
-    const next = await findVerifiedHoroscope(astrolabe, input, period.endAge + 1);
+    const next = await findVerifiedHoroscope(astrolabe, input, period.endAge + 1, resolveHoroscope);
     timeline[periodIndex] = {
       ...period,
       dateStr: start.dateStr,

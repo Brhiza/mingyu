@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildAstrolabeFromInput,
+  buildHoroscopeFromInput,
+  buildZiweiFortuneTimelineFromAstrolabe,
   buildZiweiChartInput,
   calculateZiweiChart,
   formatZiweiFortuneTimeline,
@@ -9,6 +12,12 @@ import {
 } from 'mingyu-core/ziwei';
 import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
 import { buildThematicConsultationPrompt, buildZiweiPrompt } from 'mingyu-core/prompt';
+import {
+  buildVerifiedDecadalTimelineBatchOptions,
+  createZiweiHoroscopeResolver,
+  type ZiweiHoroscopeResolver,
+} from '../packages/core/src/ziwei/iztro/decadal';
+import type { IztroHoroscope } from '../packages/core/src/types/iztro';
 
 const input = buildZiweiChartInput({
   name: '运限分页样本',
@@ -97,6 +106,34 @@ function assertRowsEqual(actual: TimelineRows, expected: TimelineRows, message: 
   }
 }
 
+function snapshotHoroscope(horoscope: IztroHoroscope) {
+  const snapshotLayer = (scope: 'decadal' | 'yearly' | 'monthly' | 'daily' | 'hourly') => {
+    const layer = horoscope[scope];
+    return {
+      name: layer.name,
+      heavenlyStem: layer.heavenlyStem,
+      earthlyBranch: layer.earthlyBranch,
+      palaceNames: [...layer.palaceNames],
+      mutagen: [...layer.mutagen],
+      stars: (layer.stars ?? []).map((stars) => stars.map((star) => star.name)),
+    };
+  };
+  return JSON.stringify({
+    age: horoscope.age,
+    decadal: snapshotLayer('decadal'),
+    yearly: {
+      ...snapshotLayer('yearly'),
+      yearlyDecStar: {
+        jiangqian12: [...horoscope.yearly.yearlyDecStar.jiangqian12],
+        suiqian12: [...horoscope.yearly.yearlyDecStar.suiqian12],
+      },
+    },
+    monthly: snapshotLayer('monthly'),
+    daily: snapshotLayer('daily'),
+    hourly: snapshotLayer('hourly'),
+  });
+}
+
 test('紫微独立批次只计算一个资料 scope 或一个年龄年', async () => {
   const originBatch = await calculateZiweiChart(input, {
     scopes: ['origin'],
@@ -163,6 +200,91 @@ test('紫微独立批次只计算一个资料 scope 或一个年龄年', async (
       (period) => period.source === 'iztro-horoscope' && Boolean(period.endDateStr),
     ),
   );
+});
+
+test('紫微年龄年在单次请求内复用相同运限对象且不污染动态事实', async () => {
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const nativeHoroscope = astrolabe.horoscope.bind(astrolabe);
+  const constructions = new Map<string, number>();
+  const snapshots = new Map<IztroHoroscope, string>();
+  astrolabe.horoscope = ((dateStr, hourIndex) => {
+    const key = `${dateStr}#${hourIndex}`;
+    constructions.set(key, (constructions.get(key) ?? 0) + 1);
+    const horoscope = nativeHoroscope(dateStr, hourIndex) as IztroHoroscope;
+    snapshots.set(horoscope, snapshotHoroscope(horoscope));
+    return horoscope;
+  }) as typeof astrolabe.horoscope;
+
+  const cachedResolver = createZiweiHoroscopeResolver(astrolabe, input);
+  const requests = new Map<string, number>();
+  const resolveHoroscope: ZiweiHoroscopeResolver = (dateStr, hourIndex) => {
+    const key = `${dateStr}#${hourIndex}`;
+    requests.set(key, (requests.get(key) ?? 0) + 1);
+    return cachedResolver(dateStr, hourIndex);
+  };
+  const targetHoroscope = await resolveHoroscope(currentContext.dateStr, currentContext.hourIndex);
+  assert.equal(
+    await resolveHoroscope(currentContext.dateStr, currentContext.hourIndex),
+    targetHoroscope,
+  );
+  const decadalTimeline = await buildVerifiedDecadalTimelineBatchOptions(
+    astrolabe,
+    input,
+    {
+      scope: 'all',
+      targetAge: targetHoroscope.age.nominalAge,
+      batch: { startIndex: 0, limit: 1 },
+    },
+    resolveHoroscope,
+  );
+  const timeline = await buildZiweiFortuneTimelineFromAstrolabe(
+    astrolabe,
+    input,
+    decadalTimeline,
+    {
+      scope: 'all',
+      ...currentContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+    { resolveHoroscope },
+  );
+
+  const periodStartKey = `${timeline.periods[0]?.dateStr}#${currentContext.hourIndex}`;
+  assert.ok((requests.get(periodStartKey) ?? 0) > 1, '阶段起点应被验证和流年组织共同读取');
+  assert.ok(
+    [...constructions.values()].every((count) => count === 1),
+    '相同日期和时辰只应构造一个运限对象',
+  );
+  for (const [horoscope, snapshot] of snapshots) {
+    assert.equal(snapshotHoroscope(horoscope), snapshot, '复用过程中不得修改动态运限对象');
+  }
+
+  const baselineAstrolabe = await buildAstrolabeFromInput(input);
+  const directResolver: ZiweiHoroscopeResolver = (dateStr, hourIndex) =>
+    buildHoroscopeFromInput(baselineAstrolabe, input, dateStr, hourIndex);
+  const baselineTarget = await directResolver(currentContext.dateStr, currentContext.hourIndex);
+  const baselineDecadal = await buildVerifiedDecadalTimelineBatchOptions(
+    baselineAstrolabe,
+    input,
+    {
+      scope: 'all',
+      targetAge: baselineTarget.age.nominalAge,
+      batch: { startIndex: 0, limit: 1 },
+    },
+    directResolver,
+  );
+  const baseline = await buildZiweiFortuneTimelineFromAstrolabe(
+    baselineAstrolabe,
+    input,
+    baselineDecadal,
+    {
+      scope: 'all',
+      ...currentContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+    { resolveHoroscope: directResolver },
+  );
+  assert.deepEqual(timeline, baseline);
 });
 
 test('紫微年龄年独立批次在生日分界下保留已验证精确边界', async () => {

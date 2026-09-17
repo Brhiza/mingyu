@@ -3,15 +3,13 @@ import type { IztroAstrolabe, IztroHoroscope } from '../types/iztro';
 import { LunarDay, SolarDay } from 'tyme4ts';
 import { SHICHEN_PERIODS } from '../calendar/dateUtils';
 import { getDefaultHoroscopeContext } from './iztro/runtime-helpers';
-import {
-  buildAstrolabeFromInput,
-  buildHoroscopeFromInput,
-  shiftLunarYear,
-} from './iztro/runtime-helpers';
+import { buildAstrolabeFromInput, shiftLunarYear } from './iztro/runtime-helpers';
 import {
   buildVerifiedDecadalTimelineOptions,
+  createZiweiHoroscopeResolver,
   type DecadalTimelineOption,
   formatDecadalAgeRange,
+  type ZiweiHoroscopeResolver,
 } from './iztro/decadal';
 
 /** 紫微任务书可读取的时间范围。范围只描述已有排盘精度，不制造新的周期。 */
@@ -182,35 +180,17 @@ function minDate(left: string, right: string) {
   return left < right ? left : right;
 }
 
-type HoroscopeCache = Map<string, IztroHoroscope>;
-
-async function getCachedHoroscope(
-  astrolabe: IztroAstrolabe,
-  input: ChartInput,
-  dateStr: string,
-  hourIndex: number,
-  cache: HoroscopeCache,
-) {
-  const cached = cache.get(dateStr);
-  if (cached) return cached;
-  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
-  cache.set(dateStr, horoscope);
-  return horoscope;
-}
-
 /** 在两个已知不同流年干支之间，用有界二分定位首个新干支日。 */
 async function findFirstYearChange(
-  astrolabe: IztroAstrolabe,
-  input: ChartInput,
   startDateStr: string,
   endDateStr: string,
   hourIndex: number,
-  cache: HoroscopeCache,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   const distance = dateDistance(startDateStr, endDateStr);
   if (distance <= 0) return null;
-  const startHoroscope = await getCachedHoroscope(astrolabe, input, startDateStr, hourIndex, cache);
-  const endHoroscope = await getCachedHoroscope(astrolabe, input, endDateStr, hourIndex, cache);
+  const startHoroscope = await resolveHoroscope(startDateStr, hourIndex);
+  const endHoroscope = await resolveHoroscope(endDateStr, hourIndex);
   const startSignature = yearlySignature(startHoroscope);
   if (startSignature === yearlySignature(endHoroscope)) return null;
 
@@ -219,7 +199,7 @@ async function findFirstYearChange(
   while (high - low > 1) {
     const middle = Math.floor((low + high) / 2);
     const candidate = shiftSolarDay(startDateStr, middle);
-    const horoscope = await getCachedHoroscope(astrolabe, input, candidate, hourIndex, cache);
+    const horoscope = await resolveHoroscope(candidate, hourIndex);
     if (yearlySignature(horoscope) === startSignature) {
       low = middle;
     } else {
@@ -234,12 +214,10 @@ async function findFirstYearChange(
  * 找到流年切换，再把该日期与年龄分界合并；这样不会把两个流年压成一条年龄行。
  */
 async function collectYearBoundaryDates(
-  astrolabe: IztroAstrolabe,
-  input: ChartInput,
   startDateStr: string,
   endDateStr: string,
   hourIndex: number,
-  cache: HoroscopeCache,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   const boundaries: string[] = [];
   const startYear = parseDateParts(startDateStr).year;
@@ -248,26 +226,17 @@ async function collectYearBoundaryDates(
     const windowStart = maxDate(startDateStr, `${year}-01-01`);
     const windowEnd = minDate(endDateStr, `${year}-03-01`);
     if (dateDistance(windowStart, windowEnd) <= 0) continue;
-    const boundary = await findFirstYearChange(
-      astrolabe,
-      input,
-      windowStart,
-      windowEnd,
-      hourIndex,
-      cache,
-    );
+    const boundary = await findFirstYearChange(windowStart, windowEnd, hourIndex, resolveHoroscope);
     if (boundary) boundaries.push(boundary);
   }
   return boundaries;
 }
 
 async function findTargetYearBoundary(
-  astrolabe: IztroAstrolabe,
-  input: ChartInput,
   targetDateStr: string,
   targetHourIndex: number,
   targetHoroscope: IztroHoroscope,
-  cache: HoroscopeCache,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   const targetSignature = yearlySignature(targetHoroscope);
   const findBoundary = async (direction: -1 | 1) => {
@@ -275,13 +244,7 @@ async function findTargetYearBoundary(
     let differentOffset = 1;
     while (true) {
       const candidate = shiftSolarDay(targetDateStr, direction * differentOffset);
-      const horoscope = await getCachedHoroscope(
-        astrolabe,
-        input,
-        candidate,
-        targetHourIndex,
-        cache,
-      );
+      const horoscope = await resolveHoroscope(candidate, targetHourIndex);
       if (yearlySignature(horoscope) !== targetSignature) break;
       sameOffset = differentOffset;
       if (differentOffset === 400) return null;
@@ -290,13 +253,7 @@ async function findTargetYearBoundary(
     while (differentOffset - sameOffset > 1) {
       const middle = Math.floor((sameOffset + differentOffset) / 2);
       const candidate = shiftSolarDay(targetDateStr, direction * middle);
-      const horoscope = await getCachedHoroscope(
-        astrolabe,
-        input,
-        candidate,
-        targetHourIndex,
-        cache,
-      );
+      const horoscope = await resolveHoroscope(candidate, targetHourIndex);
       if (yearlySignature(horoscope) === targetSignature) {
         sameOffset = middle;
       } else {
@@ -324,6 +281,7 @@ async function buildYearDate(
   input: ChartInput,
   age: number,
   hourIndex: number,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   if (age === 1) {
     return formatSolarDay(
@@ -347,7 +305,7 @@ async function buildYearDate(
 
   for (let offset = 0; offset <= 62; offset += 1) {
     const candidate = formatSolarDay(anniversarySolar.next(offset));
-    const horoscope = await buildHoroscopeFromInput(astrolabe, input, candidate, hourIndex);
+    const horoscope = await resolveHoroscope(candidate, hourIndex);
     if (horoscope.age.nominalAge === age) return candidate;
   }
   throw new Error(`iztro 无法定位虚岁 ${age} 的生日分界。`);
@@ -358,10 +316,12 @@ async function buildYear(
   input: ChartInput,
   age: number,
   hourIndex: number,
+  resolveHoroscope: ZiweiHoroscopeResolver,
   dateOverride?: string,
 ): Promise<ZiweiFortuneYear> {
-  const dateStr = dateOverride ?? (await buildYearDate(astrolabe, input, age, hourIndex));
-  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
+  const dateStr =
+    dateOverride ?? (await buildYearDate(astrolabe, input, age, hourIndex, resolveHoroscope));
+  const horoscope = await resolveHoroscope(dateStr, hourIndex);
   const year = parseDateParts(dateStr).year;
   return {
     age,
@@ -377,9 +337,8 @@ async function splitYearAtBoundaries(
   year: ZiweiFortuneYear,
   boundaryDates: string[],
   astrolabe: IztroAstrolabe,
-  input: ChartInput,
   hourIndex: number,
-  cache: HoroscopeCache,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   const startDateStr = year.dateStr;
   const endDateStr = year.endDateStr;
@@ -394,7 +353,7 @@ async function splitYearAtBoundaries(
   for (const [index, segmentStart] of starts.entries()) {
     const segmentEnd =
       starts[index + 1] !== undefined ? shiftSolarDay(starts[index + 1]!, -1) : endDateStr;
-    const horoscope = await getCachedHoroscope(astrolabe, input, segmentStart, hourIndex, cache);
+    const horoscope = await resolveHoroscope(segmentStart, hourIndex);
     const segmentYear = parseDateParts(segmentStart).year;
     segments.push({
       ...year,
@@ -419,7 +378,7 @@ async function addLowerLayers(
   includeDay: boolean,
   includeHour: boolean,
   targetHoroscope: IztroHoroscope,
-  horoscopeCache: HoroscopeCache,
+  resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   if (!includeMonths) return;
 
@@ -431,12 +390,10 @@ async function addLowerLayers(
     // iztro/lunar-lite 的节令切换可能落在节气日的不同一项，不能用固定的
     // “每隔一个节气”猜边界。逐日读取引擎返回的流月干支，记录实际切换首日。
     const { startDateStr: exactYearStart, endDateStr: exactYearEnd } = await findTargetYearBoundary(
-      astrolabe,
-      input,
       targetDateStr,
       targetHourIndex,
       targetHoroscope,
-      horoscopeCache,
+      resolveHoroscope,
     );
     let previousMonthlySignature = '';
     const spanDays = SolarDay.fromYmd(
@@ -446,7 +403,7 @@ async function addLowerLayers(
     );
     for (let offset = 0; offset <= spanDays; offset += 1) {
       const dateStr = shiftSolarDay(exactYearStart, offset);
-      const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, targetHourIndex);
+      const horoscope = await resolveHoroscope(dateStr, targetHourIndex);
       const yearlySignature = `${horoscope.yearly.heavenlyStem}${horoscope.yearly.earthlyBranch}`;
       if (yearlySignature !== targetYearlySignature) continue;
       const monthlySignature = `${horoscope.monthly.heavenlyStem}${horoscope.monthly.earthlyBranch}`;
@@ -471,7 +428,7 @@ async function addLowerLayers(
   const months: ZiweiFortuneMonth[] = [];
   let previousMonthlySignature = '';
   for (const [index, dateStr] of monthAnchors.sort().entries()) {
-    const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, targetHourIndex);
+    const horoscope = await resolveHoroscope(dateStr, targetHourIndex);
     const monthlySignature = `${horoscope.monthly.heavenlyStem}${horoscope.monthly.earthlyBranch}`;
     if (monthlySignature === previousMonthlySignature) {
       throw new Error('紫微流月边界未产生新的月干支，不能把重复月份压缩为一层。');
@@ -528,13 +485,12 @@ async function buildTimelineFromAstrolabe(
   decadalTimeline: DecadalTimelineOption[],
   options: Required<Pick<ZiweiFortuneRangeOptions, 'scope' | 'dateStr' | 'hourIndex'>> &
     Pick<ZiweiFortuneRangeOptions, 'batch'>,
+  calculationContext: {
+    resolveHoroscope: ZiweiHoroscopeResolver;
+  },
 ): Promise<ZiweiFortuneTimeline> {
-  const targetHoroscope = await buildHoroscopeFromInput(
-    astrolabe,
-    input,
-    options.dateStr,
-    options.hourIndex,
-  );
+  const { resolveHoroscope } = calculationContext;
+  const targetHoroscope = await resolveHoroscope(options.dateStr, options.hourIndex);
   const targetAge = targetHoroscope.age.nominalAge;
   const selectedPeriodIndex = decadalTimeline.findIndex(
     (period) => targetAge >= period.startAge && targetAge <= period.endAge,
@@ -544,18 +500,15 @@ async function buildTimelineFromAstrolabe(
   }
 
   const targetYear = parseDateParts(options.dateStr).year;
-  const horoscopeCache: HoroscopeCache = new Map([[options.dateStr, targetHoroscope]]);
   // 指定年及其下层范围都以目标流年的真实起止为父范围；当前阶段和全部仍沿用各自的
   // 大限/全量范围，不因目标流年跨段而改变入口语义。
   const targetYearBounds =
     options.scope !== 'all' && options.scope !== 'current'
       ? await findTargetYearBoundary(
-          astrolabe,
-          input,
           options.dateStr,
           options.hourIndex,
           targetHoroscope,
-          horoscopeCache,
+          resolveHoroscope,
         )
       : null;
   const periodIndexes =
@@ -625,17 +578,17 @@ async function buildTimelineFromAstrolabe(
       .filter((entry) => entry.periodIndex === periodIndex)
       .map((entry) => entry.age);
     if (!selectedAges.length) continue;
-    const firstYearDate = await buildYearDate(astrolabe, input, period.startAge, options.hourIndex);
-    const decadalHoroscope = await getCachedHoroscope(
+    const firstYearDate = await buildYearDate(
       astrolabe,
       input,
-      firstYearDate,
+      period.startAge,
       options.hourIndex,
-      horoscopeCache,
+      resolveHoroscope,
     );
+    const decadalHoroscope = await resolveHoroscope(firstYearDate, options.hourIndex);
     const years: ZiweiFortuneYear[] = [];
     for (const age of selectedAges) {
-      years.push(await buildYear(astrolabe, input, age, options.hourIndex));
+      years.push(await buildYear(astrolabe, input, age, options.hourIndex, resolveHoroscope));
     }
     if (!years.length) {
       throw new Error(`所选日期对应的流年不在${period.label}支持范围内。`);
@@ -643,7 +596,7 @@ async function buildTimelineFromAstrolabe(
     const lastAge = selectedAges.at(-1)!;
     const followingDate =
       lastAge < period.endAge
-        ? await buildYearDate(astrolabe, input, lastAge + 1, options.hourIndex)
+        ? await buildYearDate(astrolabe, input, lastAge + 1, options.hourIndex, resolveHoroscope)
         : undefined;
     const yearsWithBoundaries = years.map((year, index) => ({
       ...year,
@@ -665,14 +618,12 @@ async function buildTimelineFromAstrolabe(
     input.ageDivide === 'birthday';
   const yearBoundaryDates = shouldSplitYearLayers
     ? await collectYearBoundaryDates(
-        astrolabe,
-        input,
         firstDraft.years[0]!.dateStr,
         lastDraft.years.at(-1)!.endDateStr ??
           lastDraft.period.endDateStr ??
           lastDraft.years.at(-1)!.dateStr,
         options.hourIndex,
-        horoscopeCache,
+        resolveHoroscope,
       )
     : [];
   const periods: ZiweiFortunePeriod[] = [];
@@ -686,9 +637,8 @@ async function buildTimelineFromAstrolabe(
             year,
             yearBoundaryDates,
             astrolabe,
-            input,
             options.hourIndex,
-            horoscopeCache,
+            resolveHoroscope,
           )),
         );
       }
@@ -719,7 +669,7 @@ async function buildTimelineFromAstrolabe(
         includeDay,
         includeHour,
         targetHoroscope,
-        horoscopeCache,
+        resolveHoroscope,
       );
     }
     const visibleYears =
@@ -770,6 +720,9 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
   input: ChartInput,
   decadalTimeline: DecadalTimelineOption[],
   options: ZiweiFortuneRangeOptions,
+  calculationContext?: {
+    resolveHoroscope?: ZiweiHoroscopeResolver;
+  },
 ): Promise<ZiweiFortuneTimeline> {
   const context = options.dateStr
     ? { dateStr: options.dateStr, hourIndex: options.hourIndex ?? input.birthTimeIndex }
@@ -777,12 +730,20 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
   const hourIndex = options.hourIndex ?? context.hourIndex;
   assertHourIndex(hourIndex);
   parseDateParts(context.dateStr);
-  return buildTimelineFromAstrolabe(astrolabe, input, decadalTimeline, {
-    scope: options.scope,
-    dateStr: context.dateStr,
-    hourIndex,
-    ...(options.batch ? { batch: { ...options.batch } } : {}),
-  });
+  const resolveHoroscope =
+    calculationContext?.resolveHoroscope ?? createZiweiHoroscopeResolver(astrolabe, input);
+  return buildTimelineFromAstrolabe(
+    astrolabe,
+    input,
+    decadalTimeline,
+    {
+      scope: options.scope,
+      dateStr: context.dateStr,
+      hourIndex,
+      ...(options.batch ? { batch: { ...options.batch } } : {}),
+    },
+    { resolveHoroscope },
+  );
 }
 
 /** 独立使用时生成星盘、时间线和范围资料；网页 worker 与公开入口共用此实现。 */
@@ -791,8 +752,15 @@ export async function buildZiweiFortuneTimeline(
   options: ZiweiFortuneRangeOptions,
 ): Promise<ZiweiFortuneTimeline> {
   const astrolabe = await buildAstrolabeFromInput(input);
-  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
-  return buildZiweiFortuneTimelineFromAstrolabe(astrolabe, input, decadalTimeline, options);
+  const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
+  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(
+    astrolabe,
+    input,
+    resolveHoroscope,
+  );
+  return buildZiweiFortuneTimelineFromAstrolabe(astrolabe, input, decadalTimeline, options, {
+    resolveHoroscope,
+  });
 }
 
 function formatLayer(layer: ZiweiFortuneLayer) {
