@@ -1,0 +1,28 @@
+diff --git a/lib/i18n/index.js b/lib/i18n/index.js
+index c520f046..9a6c523a 100644
+--- a/lib/i18n/index.js
++++ b/lib/i18n/index.js
+@@ -81,10 +81,19 @@ exports.t = t;
+  */
+ var kot = function (value, k) {
+     var res = value;
+-    for (var _i = 0, _a = Object.entries(resources); _i < _a.length; _i++) {
+-        var _b = _a[_i], item = _b[1];
+-        for (var _c = 0, _d = Object.entries(item.translation); _c < _d.length; _c++) {
+-            var _e = _d[_c], transKey = _e[0], trans = _e[1];
++    for (var language in resources) {
++        if (!Object.prototype.hasOwnProperty.call(resources, language)) {
++            continue;
++        }
++        var translation = resources[language].translation;
++        if (translation == null) {
++            Object.entries(translation);
++        }
++        for (var transKey in translation) {
++            if (!Object.prototype.hasOwnProperty.call(translation, transKey)) {
++                continue;
++            }
++            var trans = translation[transKey];
+             if (((k && transKey.includes(k)) || !k) && trans === value) {
+                 res = transKey;
+                 return res;
