@@ -6,6 +6,8 @@ export { evaluatePatternFulfillment } from './baziPatternFulfillment';
 export type {
   PatternConditionFact,
   PatternConditionStatus,
+  PatternActiveBreaker,
+  PatternActiveBreakerStem,
   PatternFulfillmentOptions,
   PatternFulfillmentResult,
   PatternInteractionEvidence,

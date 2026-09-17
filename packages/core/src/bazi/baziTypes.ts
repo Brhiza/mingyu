@@ -12,6 +12,7 @@ import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import { WUXING } from '../wuxing';
 import type { Wuxing } from '../wuxing';
 import type {
+  PatternActiveBreaker,
   PatternConditionStatus,
   PatternFulfillmentResult,
   PatternInteractionEvidence,
@@ -375,7 +376,7 @@ export interface UsefulGodAnalysis {
   primaryAvoid?: string;
   /** 只适用于明确 policy.effects 的干级候选，不代表同五行全部可用。 */
   conditionalFavorableStems?: string[];
-  /** 条件作用只取其中一干时，记录同五行仍承接基线忌性的另一干。 */
+  /** 具体天干因调候条件或普通格局破格事实列忌，不把限制扩大到整个五行。 */
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
   decisionEvidence?: UsefulGodDecisionEvidence;
@@ -439,6 +440,8 @@ export interface UsefulGodDecisionEvidence {
   conditionalFavorableStems?: string[];
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
+  /** 普通格局破格且救应明确不成立时，对具体破格干落实的取用限制。 */
+  patternBreakerRestrictions?: PatternActiveBreaker[];
   controlPaths?: PatternFulfillmentResult['pathEvaluations'];
   controlRemedies?: PatternFulfillmentResult['remedies'];
   transformation?: {

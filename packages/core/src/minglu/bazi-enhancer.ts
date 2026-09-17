@@ -900,9 +900,8 @@ export function buildEnhancedPatternUsefulGodSection(
       unfavorable: useful.unfavorable || [],
       usefulGodCategory: useful.primaryReason || '扶抑取中',
       reasoning:
-        transformation?.status === '成化' && functionFacts.length
-          ? functionFacts.join('；')
-          : useful.strategyTrace?.join('；') || '综合日主旺衰与全局五行流通评定。',
+        [...(useful.strategyTrace ?? []), ...functionFacts].join('；') ||
+        '综合日主旺衰与全局五行流通评定。',
       strategyTrace: useful.strategyTrace || [],
       transformation: usefulTransformation,
     },

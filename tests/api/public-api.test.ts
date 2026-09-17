@@ -1667,6 +1667,36 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   );
 });
 
+test('公开 API 八字轻量结果保留普通格局破格干限制', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 2013,
+      month: 9,
+      day: 25,
+      timeIndex: 3,
+      dateType: 'solar',
+      detailMode: 'compact',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.data.analysis.mingGe.fulfillment.status, '破格');
+  assert.deepEqual(body.data.analysis.usefulGod.conditionalUnfavorableStems, ['丁']);
+  assert.deepEqual(
+    body.data.analysis.usefulGod.decisionEvidence.patternBreakerRestrictions[0].stems,
+    [{ stem: '丁', tenGod: '伤官', pillar: 'hour', pillarName: '时柱' }],
+  );
+  assert.ok(
+    !body.data.analysis.usefulGod.matchedRules.some(
+      (rule: { id: string }) => rule.id === 'you-month-jia-fire-forge',
+    ),
+  );
+  assert.doesNotMatch(body.data.analysis.usefulGod.strategyTrace.join('；'), /先取丁火/);
+});
+
 test('公开 API 八字排盘应支持真太阳时精确时分和经度', async () => {
   const corrected = calculateTrueSolarTime(
     {
