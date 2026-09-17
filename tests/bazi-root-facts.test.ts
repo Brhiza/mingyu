@@ -10,6 +10,9 @@ import {
 import { evaluatePatternFulfillment } from '../packages/core/src/bazi/baziPatternFulfillment';
 import {
   collectSameElementRootFacts,
+  getRootTraditionalKind,
+  hasStrongRootStage,
+  isStructuralRoot,
   type RootPillars,
 } from '../packages/core/src/bazi/baziRootFacts';
 import { analyzeStemRootProfile } from '../packages/core/src/bazi/stemRootAnalysis';
@@ -31,6 +34,27 @@ function getHiddenStems(chart: {
     hour: HIDDEN_STEMS[chart.pillars.hour.zhi],
   };
 }
+
+test('藏干数组位置与余气正库生禄身份分开', () => {
+  const cases = [
+    { branch: '辰', stem: '乙', hiddenIndex: 1, hiddenRole: '中气', expected: '余气' },
+    { branch: '辰', stem: '癸', hiddenIndex: 2, hiddenRole: '余气', expected: '正库' },
+    { branch: '未', stem: '乙', hiddenIndex: 2, hiddenRole: '余气', expected: '正库' },
+    { branch: '戌', stem: '丁', hiddenIndex: 2, hiddenRole: '余气', expected: '正库' },
+    { branch: '丑', stem: '辛', hiddenIndex: 2, hiddenRole: '余气', expected: '正库' },
+    { branch: '寅', stem: '戊', hiddenIndex: 2, hiddenRole: '余气', expected: '生禄' },
+    { branch: '巳', stem: '戊', hiddenIndex: 2, hiddenRole: '余气', expected: '生禄' },
+    { branch: '申', stem: '戊', hiddenIndex: 2, hiddenRole: '余气', expected: '弱藏' },
+  ] as const;
+
+  for (const item of cases) {
+    assert.equal(getRootTraditionalKind(item), item.expected);
+    assert.equal(isStructuralRoot(item), item.expected !== '弱藏');
+  }
+  assert.equal(hasStrongRootStage({ branch: '寅', stem: '戊' }), true);
+  assert.equal(hasStrongRootStage({ branch: '辰', stem: '戊' }), false);
+  assert.equal(hasStrongRootStage({ branch: '丑', stem: '己' }), false);
+});
 
 test('同支重复的冲方按柱位保留，未受冲的替代根独立保留', () => {
   const pillars: RootPillars = {

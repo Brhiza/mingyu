@@ -18,7 +18,7 @@ function pillars(values: [string, string, string, string]): Pillars {
   ) as unknown as Pillars;
 }
 
-test('午月本气偏财与司令透杀分层，余气印根不能直接闭合杀印链', () => {
+test('午月本气偏财与司令透杀分层，正库印根受月令直克不能闭合杀印链', () => {
   const chart = pillars(['己丑', '庚午', '癸丑', '癸丑']);
   const pattern = determinePattern(chart, '身弱', getTenGod, '己');
 
@@ -38,13 +38,13 @@ test('午月本气偏财与司令透杀分层，余气印根不能直接闭合�
     (fact) => fact.key === 'pattern.month-principal-control',
   );
   assert.equal(controlFact?.status, '资料不足');
-  assert.match(controlFact?.detail ?? '', /丁.*偏财.*庚.*余气/);
+  assert.match(controlFact?.detail ?? '', /丁.*偏财.*庚.*正库/);
   assert.ok(
     pattern.fulfillment?.rootEvidence?.some(
       (item) =>
         item.stem === '庚' &&
         item.rootType === '同类根' &&
-        item.rootPositions.includes('时柱丑藏辛（余气）'),
+        item.rootPositions.includes('时柱丑藏辛（正库）'),
     ),
   );
 });
