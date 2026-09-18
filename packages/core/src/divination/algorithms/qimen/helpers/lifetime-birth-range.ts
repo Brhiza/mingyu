@@ -16,7 +16,9 @@ export function selectQimenLifetimeBirthSample(input: QimenLifetimeInput): {
     input.timeZoneId !== undefined ||
     (input.timezone !== undefined && input.timezone !== 8)
   ) {
-    throw new RangeError('奇门终身局出生范围必须使用公历标准北京时间和法定民用时，夏令时保持关闭。');
+    throw new RangeError(
+      '奇门终身局出生范围必须使用公历标准北京时间和法定民用时，夏令时保持关闭。',
+    );
   }
   const normalized = normalizeQimenLifetimeTime(input);
   if (normalized.timezoneOffsetMinutes !== 480) {
