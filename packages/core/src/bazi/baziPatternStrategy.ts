@@ -3,7 +3,7 @@ import {
   collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
 } from './baziFormationUtils';
-import type { PatternAnalysis, Pillars } from './baziTypes';
+import type { PatternAnalysis, PatternCandidate, Pillars } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 import { evaluatePatternFulfillment } from './baziPatternFulfillment';
 import { evaluateTransformedPattern } from './transformedPatternStrategy';
@@ -44,6 +44,108 @@ function getPatternNameByTenGod(tenGod: string, dayMaster: string, monthBranch: 
     return '劫财格';
   }
   return `${tenGod}格`;
+}
+
+function getExposedPosition(pillars: Pillars, stem: string): string | null {
+  if (pillars.month.gan === stem) return '月干';
+  if (pillars.hour.gan === stem) return '时干';
+  if (pillars.year.gan === stem) return '年干';
+  return null;
+}
+
+function isStorageMonth(monthBranch: string): boolean {
+  return ['辰', '戌', '丑', '未'].includes(monthBranch);
+}
+
+function buildOrdinaryPatternCandidates(params: {
+  pillars: Pillars;
+  monthBranch: string;
+  monthPrincipalStem: string;
+  monthPrincipalGod: string;
+  monthCommander?: string;
+  dayMaster: string;
+  getTenGod: GetTenGodFn;
+  selectedPattern: string;
+  selectedSource?: PatternCandidate['source'];
+}): PatternCandidate[] {
+  const {
+    pillars,
+    monthBranch,
+    monthPrincipalStem,
+    monthPrincipalGod,
+    monthCommander,
+    dayMaster,
+    getTenGod,
+    selectedPattern,
+    selectedSource,
+  } = params;
+  const exposedStems = [pillars.year.gan, pillars.month.gan, pillars.hour.gan];
+  const candidates: PatternCandidate[] = [];
+  const addCandidate = (pattern: string, source: PatternCandidate['source'], basis: string) => {
+    if (
+      candidates.some((candidate) => candidate.pattern === pattern && candidate.source === source)
+    ) {
+      return;
+    }
+    candidates.push({ pattern, source, basis, selected: false });
+  };
+
+  const principalPattern = getPatternNameByTenGod(monthPrincipalGod, dayMaster, monthBranch);
+  const principalLabel =
+    monthCommander && monthCommander !== monthPrincipalStem && isStorageMonth(monthBranch)
+      ? `杂气${principalPattern}`
+      : principalPattern;
+  addCandidate(
+    principalLabel,
+    '月令本气',
+    `月支${monthBranch}本气为${monthPrincipalStem}（${monthPrincipalGod}），按月令本气取${principalLabel}`,
+  );
+
+  if (monthCommander && exposedStems.includes(monthCommander)) {
+    const commanderGod = getTenGod(monthCommander, dayMaster);
+    const commanderPattern = getPatternNameByTenGod(commanderGod, dayMaster, monthBranch);
+    const position = getExposedPosition(pillars, monthCommander);
+    if (position) {
+      addCandidate(
+        commanderPattern,
+        '分日司令透干',
+        `分日司权为${monthCommander}（${commanderGod}）且透于${position}，按司令透干取${commanderPattern}`,
+      );
+    }
+  }
+
+  const monthStems = HIDDEN_STEMS[monthBranch] || [];
+  const prioritizedStem = resolveExposedStemPriority(monthStems, pillars, dayMaster, getTenGod);
+  if (prioritizedStem) {
+    const tenGod = getTenGod(prioritizedStem, dayMaster);
+    const pattern = `${isStorageMonth(monthBranch) && monthCommander && prioritizedStem !== monthCommander ? '杂气' : ''}${tenGod}格`;
+    const position = getExposedPosition(pillars, prioritizedStem);
+    if (position) {
+      addCandidate(
+        pattern,
+        '月令藏干透干',
+        `${prioritizedStem}为月令藏干，透于${position}，按透干优先取${pattern}`,
+      );
+    }
+  }
+
+  if (candidates.length <= 1) return [];
+
+  // 选中的主格局只标记一个，避免同名格局因不同证据来源被误读为多个主结论。
+  const selectedIndexBySource = selectedSource
+    ? candidates.findIndex(
+        (candidate) => candidate.pattern === selectedPattern && candidate.source === selectedSource,
+      )
+    : -1;
+  const selectedIndex =
+    selectedIndexBySource >= 0
+      ? selectedIndexBySource
+      : candidates.findIndex((candidate) => candidate.pattern === selectedPattern);
+  if (selectedIndex < 0) return [];
+  return candidates.map((candidate, index) => ({
+    ...candidate,
+    selected: selectedIndex >= 0 ? index === selectedIndex : false,
+  }));
 }
 
 function isSamePartyTenGod(tenGod: string): boolean {
@@ -369,6 +471,7 @@ export function determinePattern(
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
   const activeMonthStem = monthCommander || monthStems[0];
   const monthMainGod = getTenGod(activeMonthStem, dayMaster);
+  let selectedSource: PatternCandidate['source'] = '月令本气';
   let basis: string;
 
   if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
@@ -386,6 +489,7 @@ export function determinePattern(
       basis = `月令本气为${monthPrincipalStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
     }
   } else if (monthCommander && exposedStems.includes(monthCommander)) {
+    selectedSource = '分日司令透干';
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
     const exposedPosition =
       pillars.month.gan === monthCommander
@@ -414,6 +518,7 @@ export function determinePattern(
     const prioritizedStem = resolveExposedStemPriority(monthStems, pillars, dayMaster, getTenGod);
 
     if (prioritizedStem) {
+      selectedSource = '月令藏干透干';
       const tenGod = getTenGod(prioritizedStem, dayMaster);
       const prefix =
         ['辰', '戌', '丑', '未'].includes(monthBranch) &&
@@ -436,6 +541,17 @@ export function determinePattern(
   }
 
   const finalPatternName = patternName || '杂气格';
+  const patternCandidates = buildOrdinaryPatternCandidates({
+    pillars,
+    monthBranch,
+    monthPrincipalStem,
+    monthPrincipalGod,
+    monthCommander,
+    dayMaster,
+    getTenGod,
+    selectedPattern: finalPatternName,
+    selectedSource,
+  });
   const fulfillment = evaluatePatternFulfillment(pillars, dayMaster, finalPatternName, getTenGod, {
     strengthStatus,
     monthCommander,
@@ -452,6 +568,7 @@ export function determinePattern(
     pattern: finalPatternName,
     isSpecial: false,
     basis,
+    ...(patternCandidates.length ? { patternCandidates } : {}),
     specialAdjudication: quzhi.adjudication || conger.adjudication,
     fulfillment,
     // 魁罡日（庚辰/壬辰/戊戌/庚戌）为重要外格，日柱判定后即标出，供 AI 参照《三命通会》

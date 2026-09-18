@@ -86,6 +86,17 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
 export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
   const fulfillment = pattern.fulfillment;
   const special = pattern.specialAdjudication;
+  const patternCandidateFacts =
+    pattern.patternCandidates && pattern.patternCandidates.length > 1
+      ? [
+          `取格分层候选：${pattern.patternCandidates
+            .map(
+              (candidate) =>
+                `${candidate.pattern}（${candidate.source}${candidate.selected ? '；当前采用' : ''}；${candidate.basis}）`,
+            )
+            .join('；')}`,
+        ]
+      : [];
   const commonSpecialFacts = special
     ? [
         `特殊格裁决：${special.kind}${special.status}；路径：${special.route}；方法：${special.method}`,
@@ -118,8 +129,9 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
             ? `原支藏印官事实：${special.retainedHiddenFacts.join('；')}`
             : '',
         ].filter(Boolean);
-  if (!fulfillment) return specialFacts;
+  if (!fulfillment) return [...patternCandidateFacts, ...specialFacts];
   return [
+    ...patternCandidateFacts,
     ...specialFacts,
     `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
     fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
@@ -354,11 +366,16 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `（${analysis.mingGe.basis}）`;
   }
   result += '\n';
+  const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
+  if (includeRules && analysis.mingGe.patternCandidates?.length) {
+    const candidateFacts = patternFacts.filter((fact) => fact.startsWith('取格分层候选：'));
+    if (candidateFacts.length) result += `${candidateFacts.join('\n')}\n`;
+  }
   if (analysis.mingGe.fulfillment) {
-    const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
-    const patternSummary = patternFacts.find((fact) => fact.startsWith('所取格局：'));
-    if (patternFacts[0]) result += `${patternFacts[0]}\n`;
-    if (patternSummary && patternSummary !== patternFacts[0]) {
+    const nonCandidateFacts = patternFacts.filter((fact) => !fact.startsWith('取格分层候选：'));
+    const patternSummary = nonCandidateFacts.find((fact) => fact.startsWith('所取格局：'));
+    if (nonCandidateFacts[0]) result += `${nonCandidateFacts[0]}\n`;
+    if (patternSummary && patternSummary !== nonCandidateFacts[0]) {
       result += `${patternSummary}\n`;
     }
     if (analysis.mingGe.fulfillment.contradiction) {

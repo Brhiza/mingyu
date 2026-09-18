@@ -66,6 +66,7 @@ export type {
   UsefulGodControlFunctionEvidence,
   UsefulGodDecisionEvidence,
   UsefulGodDecisionStatus,
+  PatternCandidate,
   SpecialPatternAdjudication,
   CongErPatternAdjudication,
   QuzhiPatternAdjudication,

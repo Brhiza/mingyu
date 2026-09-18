@@ -33,6 +33,14 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
       : ['旺衰依据：月令、司令、通根、帮扶与克泄耗合看']),
     `扶抑条件：月令${strength.seasonalEffect}，司令${strength.commanderEffect}；${strength.hasStrongRoot ? '有未受冲本气根' : strength.hasRoot ? '见根但非稳定本气根' : '无根'}；${strength.hasSupport ? '有印比扶助' : '未见印比扶助'}；${strength.hasConstraint ? '有克泄耗' : '未见克泄耗'}；成局${strength.formationEffect}`,
     mingGe.basis ? `取格依据：${mingGe.basis}` : '',
+    mingGe.patternCandidates && mingGe.patternCandidates.length > 1
+      ? `取格分层候选：${mingGe.patternCandidates
+          .map(
+            (candidate) =>
+              `${candidate.pattern}（${candidate.source}${candidate.selected ? '；当前采用' : ''}；${candidate.basis}）`,
+          )
+          .join('；')}`
+      : '',
     fulfillment ? `格局成败：${fulfillment.status}；${fulfillment.summary}` : '',
     ...(fulfillment?.conditionFacts ?? []).map(
       (condition) => `成格条件（${condition.status}）：${condition.detail}`,

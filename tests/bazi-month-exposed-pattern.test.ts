@@ -18,6 +18,20 @@ test('壬生戌月藏辛透出，司令戊未透时保留正印取格', () => {
   assert.equal(result.pattern, '杂气正印格');
   assert.match(result.basis!, /辛为月令藏干，透于时干/);
   assert.equal(result.isSpecial, false);
+  assert.ok(
+    result.patternCandidates?.some(
+      (candidate) =>
+        candidate.pattern === '七杀格' && candidate.source === '月令本气' && !candidate.selected,
+    ),
+  );
+  assert.ok(
+    result.patternCandidates?.some(
+      (candidate) =>
+        candidate.pattern === '杂气正印格' &&
+        candidate.source === '月令藏干透干' &&
+        candidate.selected,
+    ),
+  );
 });
 
 test('偏印透干也参加月令取格，不作为比劫排除', () => {

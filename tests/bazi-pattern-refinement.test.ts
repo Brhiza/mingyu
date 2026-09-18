@@ -23,6 +23,18 @@ test('午月本气偏财与司令透杀分层，正库印根受月令直克不�
   const pattern = determinePattern(chart, '身弱', getTenGod, '己');
 
   assert.equal(pattern.pattern, '七杀格');
+  assert.ok(
+    pattern.patternCandidates?.some(
+      (candidate) =>
+        candidate.pattern === '偏财格' && candidate.source === '月令本气' && !candidate.selected,
+    ),
+  );
+  assert.ok(
+    pattern.patternCandidates?.some(
+      (candidate) =>
+        candidate.pattern === '七杀格' && candidate.source === '分日司令透干' && candidate.selected,
+    ),
+  );
   assert.match(pattern.basis, /本气为丁（偏财）/);
   assert.match(pattern.basis, /分日司权为己（七杀）/);
   assert.equal(pattern.fulfillment?.status, '未判定');

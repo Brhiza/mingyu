@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import type { AlmanacParticipantInput, AlmanacTopic } from 'mingyu-core/types';
+import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import type { AlmanacData, AlmanacParticipantInput, AlmanacTopic } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -72,6 +72,14 @@ const almanacSchema = z.object({
     .array(almanacParticipantSchema)
     .optional()
     .describe('可选参与人出生信息，用于八字适配参考'),
+  page: z.number().int().min(1).optional().describe('分页页码；传入 page 或 pageSize 时启用分页'),
+  pageSize: z
+    .number()
+    .int()
+    .min(1)
+    .max(31)
+    .optional()
+    .describe('分页每页日期数量，最多 31 天；默认 10'),
 });
 
 const almanacPromptSchema = extendOptionalQuestionPromptSchema(
@@ -129,14 +137,53 @@ function buildAlmanacParticipants(
   });
 }
 
-function buildAlmanacResult(args: z.infer<typeof almanacSchema>) {
+type AlmanacToolResult = AlmanacData & {
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  };
+};
+
+function buildAlmanacResult(args: z.infer<typeof almanacSchema>): AlmanacToolResult {
   const { startDate, endDate } = readMcpDateRange(args.startDate, args.endDate);
-  return generateAlmanacSelection({
+  const result = generateAlmanacSelection({
     topic: (args.topic ?? 'custom') as AlmanacTopic,
     startDate,
     endDate,
     participants: buildAlmanacParticipants(args.participants),
   });
+  const shouldPaginate = args.page !== undefined || args.pageSize !== undefined;
+  if (!shouldPaginate) return result;
+
+  const page = readMcpIntegerLikeInRange(args.page ?? 1, 'page', 1, Number.MAX_SAFE_INTEGER);
+  const pageSize = readMcpIntegerLikeInRange(args.pageSize ?? 10, 'pageSize', 1, 31);
+  const total = result.days.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) {
+    throw new Error(`page 不能超过总页数 ${totalPages}。`);
+  }
+  const pageStart = (page - 1) * pageSize;
+  const selectedDays = result.days.slice(pageStart, pageStart + pageSize);
+  const pagedResult: AlmanacData = {
+    ...result,
+    days: selectedDays,
+  };
+  return {
+    ...pagedResult,
+    evidenceAnalysis: analyzeAlmanacEvidence(pagedResult),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+    },
+  };
 }
 
 export function registerAlmanacTool(server: McpServer) {

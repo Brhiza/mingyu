@@ -205,13 +205,25 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   );
 
   const transformation = chartResult.analysis?.mingGe?.transformation;
+  const patternCandidates = chartResult.analysis?.mingGe?.patternCandidates ?? [];
+  const layeredCandidateSection =
+    patternCandidates.length > 1
+      ? `【取格分层候选】${patternCandidates
+          .map(
+            (candidate) =>
+              `${candidate.pattern}（${candidate.source}${candidate.selected ? '；当前采用' : ''}；${candidate.basis}）`,
+          )
+          .join('；')}`
+      : '';
   const confirmedSection =
     transformation?.status === '成化'
       ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`
       : currentPattern === '曲直格'
         ? `【经典格局】曲直格；${chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用'}`
         : '';
-  if (!classicPatterns.length) return confirmedSection;
+  if (!classicPatterns.length) {
+    return [confirmedSection, layeredCandidateSection].filter(Boolean).join('\n');
+  }
 
   const candidateSection = `【经典结构候选】${classicPatterns
     .map((candidate) => {
@@ -230,7 +242,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
       return details.join(' | ');
     })
     .join('\n')}`;
-  return [confirmedSection, candidateSection].filter(Boolean).join('\n');
+  return [confirmedSection, layeredCandidateSection, candidateSection].filter(Boolean).join('\n');
 }
 
 /**
