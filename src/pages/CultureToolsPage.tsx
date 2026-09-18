@@ -848,7 +848,15 @@ function BirthSection({
         }}
         reversePanel={
           <BaziReverseInput
-            key={caseId ?? TEMPORARY_CASE_VALUE}
+            key={[
+              caseId ?? TEMPORARY_CASE_VALUE,
+              reverseSource?.pillars.year,
+              reverseSource?.pillars.month,
+              reverseSource?.pillars.day,
+              reverseSource?.pillars.hour,
+              reverseSource?.intervalStart,
+              reverseSource?.intervalEnd,
+            ].join('|')}
             source={reverseSource}
             onInvalidate={() => onChange((current) => clearNamingBirthReverseSource(current))}
             onSelect={(selection) =>
