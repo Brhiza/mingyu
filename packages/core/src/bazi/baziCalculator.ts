@@ -1,4 +1,4 @@
-import { SolarTime, Gender, LunarHour, EightChar } from 'tyme4ts';
+import { SolarTime, SixtyCycleYear, Gender, LunarHour, EightChar } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange } from '../calendar/china-dst';
@@ -63,11 +63,7 @@ type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
 
 function getMidYearPillarName(year: number): string {
-  return SolarTime.fromYmdHms(year, 6, 1, 12, 0, 0)
-    .getLunarHour()
-    .getEightChar()
-    .getYear()
-    .getName();
+  return SixtyCycleYear.fromYear(year).getSixtyCycle().getName();
 }
 
 function resolveMingGuaYear(solarTime: SolarTimeInstance, baziYearPillarName: string): number {
@@ -420,7 +416,8 @@ export class BaziCalculator {
     }
 
     const pillarEightChar = lunarHour.getEightChar();
-    const termEightChar = termSolarTime.getLunarHour().getEightChar();
+    const termEightChar =
+      termSolarTime === solarTime ? pillarEightChar : termSolarTime.getLunarHour().getEightChar();
     const eightChar = new EightChar(
       termEightChar.getYear(),
       termEightChar.getMonth(),
