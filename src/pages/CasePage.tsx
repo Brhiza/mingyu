@@ -440,6 +440,7 @@ export function CasePage() {
               }}
               reversePanel={
                 <BaziReverseInput
+                  key={`case-reverse-${editingRecord?.id ?? 'new'}`}
                   source={parseBaziReverseSource(form.birthReverseSource)}
                   onInvalidate={() => updatePersonField('self', 'reverseSource', '')}
                   onSelect={(selection) => {
