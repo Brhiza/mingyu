@@ -241,3 +241,20 @@ export {
   type SpousePalaceDeepRelationResult,
   type UsefulGodComplementarityResult,
 } from './compatibility-marriage';
+export {
+  analyzeFortuneActionEvidence,
+  formatFortuneActionEvidenceForPrompt,
+  formatFortuneActionFactLine,
+} from './fortuneActionEvidence';
+export type {
+  FortuneActionConditionStatus,
+  FortuneActionCurrentStatus,
+  FortuneActionEvidenceResult,
+  FortuneActionFact,
+  FortuneActionHiddenCategory,
+  FortuneActionHitSourceType,
+  FortuneActionLayerInput,
+  FortuneActionLevel,
+  FortuneActionLevelChinese,
+  FortuneActionPlacement,
+} from './fortuneActionEvidence';

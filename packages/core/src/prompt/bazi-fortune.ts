@@ -1,5 +1,6 @@
 import {
   analyzeFortuneTriggers,
+  formatFortuneActionFactLine,
   type BaziChartResult,
   type BaziFortuneBatchMetadata,
 } from '../bazi/index';
@@ -34,6 +35,7 @@ const READABLE_FORTUNE_EVIDENCE_TITLES = new Set([
   '流月干支与十神',
   '流日干支与十神',
   '刑冲合害触发',
+  '岁运作用事实',
   '应期边界',
 ]);
 
@@ -153,6 +155,15 @@ export function formatBaziFortuneSelection(
   if (evidenceLines.length) lines.push(`岁运取证：\n${evidenceLines.join('\n')}`);
 
   lines.push(...formatTriggerRelations(promptPayload.triggerEvidence));
+  const actionFacts = promptPayload.actionEvidence?.facts ?? [];
+  const actionFactsAlreadyRendered =
+    actionFacts.length > 0 &&
+    actionFacts.every((fact) => evidenceLines.some((line) => line.includes(`[${fact.key}]`)));
+  if (actionFacts.length && !actionFactsAlreadyRendered) {
+    lines.push(
+      '岁运作用事实：\n' + actionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),
+    );
+  }
   const groups = new Map<string, Set<string>>();
   for (const group of promptPayload.detailGroups ?? []) {
     const title = group.title.trim();

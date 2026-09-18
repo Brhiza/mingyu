@@ -1,4 +1,5 @@
 import type { FortuneTriggerEvidenceResult } from '../../fortuneTriggerEvidence';
+import type { FortuneActionEvidenceResult } from '../../fortuneActionEvidence';
 import type { LocalTimeRange } from '../../baziTypes';
 
 export type FortuneHourMode = 'twelve' | 'splitZi';
@@ -22,6 +23,8 @@ export interface FortunePromptPayload {
   }>;
   /** 可供 API、页面和提示词复用的逐层岁运触发事实。 */
   triggerEvidence?: FortuneTriggerEvidenceResult;
+  /** 投影本命已裁决喜忌至岁运参与干的结构化作用事实切片。 */
+  actionEvidence?: FortuneActionEvidenceResult;
 }
 
 export interface FortuneSelectionContext {
@@ -81,6 +84,8 @@ export interface FortuneSelectionContext {
   displayLabel: string;
   displayText: string;
   promptPayload: FortunePromptPayload;
+  /** 结构化岁运作用事实切片 */
+  actionEvidence?: FortuneActionEvidenceResult;
 }
 
 export interface BaziFortuneSelectionValue {

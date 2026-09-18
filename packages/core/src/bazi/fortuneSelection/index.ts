@@ -11,6 +11,12 @@ import {
   type FortuneTriggerEvidenceResult,
   type FortuneTriggerLayer,
 } from '../fortuneTriggerEvidence';
+import {
+  analyzeFortuneActionEvidence,
+  formatFortuneActionFactLine,
+  type FortuneActionEvidenceResult,
+  type FortuneActionLayerInput,
+} from '../fortuneActionEvidence';
 import { getDayHourBreakdown } from './helpers/breakdown';
 import {
   formatCycleLabel,
@@ -239,6 +245,7 @@ function buildFortuneEvidenceLines(params: {
   parentText?: string;
   limitText: string;
   triggerEvidence: FortuneTriggerEvidenceResult;
+  actionEvidence?: FortuneActionEvidenceResult;
 }) {
   const items: PromptEvidenceItem[] = [
     {
@@ -277,6 +284,26 @@ function buildFortuneEvidenceLines(params: {
     });
   }
 
+  if (params.actionEvidence?.facts.length) {
+    params.actionEvidence.facts.forEach((fact) => {
+      const level: PromptEvidenceItem['level'] =
+        fact.conditionStatus === '引用已裁决所忌条件'
+          ? '反证'
+          : fact.conditionStatus === '双向条件引用'
+            ? '主证'
+            : fact.placement === '岁运透干'
+              ? '主证'
+              : '辅证';
+      items.push({
+        level,
+        title: '岁运作用事实',
+        detail: formatFortuneActionFactLine(fact),
+        source: fact.hitSources.length ? fact.hitSources.join('、') : '岁运作用核验',
+        tags: ['岁运作用', fact.level, fact.placement, fact.conditionStatus],
+      });
+    });
+  }
+
   if (params.timingText) {
     items.push({
       level: '应期',
@@ -293,7 +320,12 @@ function buildFortuneEvidenceLines(params: {
     source: '解读边界',
   });
 
-  return [...formatPromptEvidenceBundle({ items }), '', params.triggerEvidence.promptText];
+  return [
+    ...formatPromptEvidenceBundle({ items }),
+    '',
+    params.triggerEvidence.promptText,
+    ...(params.actionEvidence ? ['', params.actionEvidence.promptText] : []),
+  ];
 }
 
 function fortuneLayer(
@@ -303,6 +335,16 @@ function fortuneLayer(
   ganZhi: string,
   timeRange?: string,
 ): FortuneTriggerLayer {
+  return { id, type, label, ganZhi, timeRange };
+}
+
+function actionLayer(
+  id: string,
+  type: FortuneActionLayerInput['type'],
+  label: string,
+  ganZhi: string,
+  timeRange?: string,
+): FortuneActionLayerInput {
   return { id, type, label, ganZhi, timeRange };
 }
 
@@ -451,6 +493,19 @@ export function buildFortuneSelectionContext(
     const triggerEvidence = analyzeSelectionTriggers(result, [
       fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
     ]);
+    const actionEvidence = analyzeFortuneActionEvidence({
+      result,
+      layers: [
+        actionLayer(
+          'dayun',
+          'dayun',
+          cycleLabel,
+          cycle.ganZhi,
+          `${cycle.year}年起，约${cycle.age}岁交运`,
+        ),
+      ],
+      triggerEvidence,
+    });
 
     return {
       ...baseContext,
@@ -458,6 +513,7 @@ export function buildFortuneSelectionContext(
       yearBreakdown: breakdown,
       displayLabel: cycleLabel,
       displayText: `${cycleLabel}（${cycle.year}年起，${cycle.age}岁交运）`,
+      actionEvidence,
       promptPayload: {
         scopeLabel: `分析对象：${cycleLabel}`,
         summaryLines: [
@@ -484,8 +540,10 @@ export function buildFortuneSelectionContext(
           limitText:
             '大运不能替代流年给出精确年份；未给出具体流年时，只能判断十年阶段，不展开年度触发。',
           triggerEvidence,
+          actionEvidence,
         }),
         triggerEvidence,
+        actionEvidence,
         breakdownTitle: '该大运包含的流年',
         breakdownLines: breakdown.map((item) => formatYearBreakdownLine(result, item)),
         detailGroups: [
@@ -535,6 +593,26 @@ export function buildFortuneSelectionContext(
       fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
       fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi, `${yearItem.year}年`),
     ]);
+    const actionEvidence = analyzeFortuneActionEvidence({
+      result,
+      layers: [
+        actionLayer(
+          'dayun',
+          'dayun',
+          cycleLabel,
+          cycle.ganZhi,
+          `${cycle.year}年起，约${cycle.age}岁交运`,
+        ),
+        actionLayer(
+          'year',
+          'year',
+          `${yearItem.year}年流年`,
+          yearItem.ganZhi,
+          `${yearItem.year}年`,
+        ),
+      ],
+      triggerEvidence,
+    });
 
     return {
       ...baseContext,
@@ -542,6 +620,7 @@ export function buildFortuneSelectionContext(
       monthBreakdown: breakdown,
       displayLabel: formatYearLabel(yearItem),
       displayText: `${yearItem.year}年 ${yearItem.ganZhi}（${yearItem.age}岁）`,
+      actionEvidence,
       promptPayload: {
         scopeLabel: `分析对象：${yearItem.year}年流年`,
         summaryLines: [
@@ -569,8 +648,10 @@ export function buildFortuneSelectionContext(
           timingText: `${yearItem.year}年（${yearItem.age}岁）为年度触发；流月列表只作月份窗口参考。`,
           limitText: '未给出具体流月或流日时，不得把某月某日硬断成唯一应期。',
           triggerEvidence,
+          actionEvidence,
         }),
         triggerEvidence,
+        actionEvidence,
         breakdownTitle: '该流年包含的流月',
         breakdownLines: monthLines,
         detailGroups: [
@@ -644,6 +725,33 @@ export function buildFortuneSelectionContext(
         `${monthInfo.startDate}至${monthInfo.endDate}`,
       ),
     ]);
+    const actionEvidence = analyzeFortuneActionEvidence({
+      result,
+      layers: [
+        actionLayer(
+          'dayun',
+          'dayun',
+          cycleLabel,
+          cycle.ganZhi,
+          `${cycle.year}年起，约${cycle.age}岁交运`,
+        ),
+        actionLayer(
+          'year',
+          'year',
+          `${yearItem.year}年流年`,
+          yearItem.ganZhi,
+          `${yearItem.year}年`,
+        ),
+        actionLayer(
+          'month',
+          'month',
+          `${yearItem.year}年${monthInfo.month}流月`,
+          monthInfo.ganZhi,
+          `${monthInfo.startDate}至${monthInfo.endDate}`,
+        ),
+      ],
+      triggerEvidence,
+    });
 
     return {
       ...baseContext,
@@ -668,6 +776,7 @@ export function buildFortuneSelectionContext(
       dayBreakdown: breakdown,
       displayLabel: `${yearItem.year}年${monthInfo.month}`,
       displayText: `${yearItem.year}年 ${monthInfo.month}（${monthInfo.ganZhi}，${monthInfo.startDateTime || monthInfo.startDate} 起，至 ${monthInfo.endDateTime || monthInfo.endDate} 交下节）`,
+      actionEvidence,
       promptPayload: {
         scopeLabel: `分析对象：${yearItem.year}年${monthInfo.month}流月`,
         summaryLines: [
@@ -701,11 +810,13 @@ export function buildFortuneSelectionContext(
             limitText:
               '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
             triggerEvidence,
+            actionEvidence,
           }),
           ...(monthInfo.startTermEvidence ? [monthInfo.startTermEvidence.promptText] : []),
           ...(monthInfo.endTermEvidence ? [monthInfo.endTermEvidence.promptText] : []),
         ],
         triggerEvidence,
+        actionEvidence,
         breakdownTitle: '该流月包含的流日',
         breakdownLines: dayLines,
         detailGroups: [
@@ -757,6 +868,28 @@ export function buildFortuneSelectionContext(
     fortuneLayer('month', 'month', `${yearItem.year}年${monthInfo.month}流月`, monthInfo.ganZhi),
     fortuneLayer('day', 'day', `${actualDate}流日`, dayInfo.ganZhi, actualDate),
   ]);
+  const actionEvidence = analyzeFortuneActionEvidence({
+    result,
+    layers: [
+      actionLayer(
+        'dayun',
+        'dayun',
+        cycleLabel,
+        cycle.ganZhi,
+        `${cycle.year}年起，约${cycle.age}岁交运`,
+      ),
+      actionLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi, `${yearItem.year}年`),
+      actionLayer(
+        'month',
+        'month',
+        `${yearItem.year}年${monthInfo.month}流月`,
+        monthInfo.ganZhi,
+        `${monthInfo.startDate}至${monthInfo.endDate}`,
+      ),
+      actionLayer('day', 'day', `${actualDate}流日`, dayInfo.ganZhi, actualDate),
+    ],
+    triggerEvidence,
+  });
   const monthDayLines = dayInfoList.map((item) =>
     formatDayBreakdownLine(result, {
       date: item.solarDate,
@@ -789,6 +922,7 @@ export function buildFortuneSelectionContext(
     ],
     displayLabel: actualDate,
     displayText: `${actualDate}（${dayInfo.ganZhi}）`,
+    actionEvidence,
     promptPayload: {
       scopeLabel: `分析对象：${actualDate}流日`,
       summaryLines: [
@@ -826,8 +960,10 @@ export function buildFortuneSelectionContext(
         timingText: `按子初换日：${ziChuStart}至${ziChuEnd}；流时列表只作当日内短时触发参考。`,
         limitText: '流日只判断当日执行、沟通、避险和即时触发，不得改写长期命局或整年趋势。',
         triggerEvidence,
+        actionEvidence,
       }),
       triggerEvidence,
+      actionEvidence,
       breakdownTitle: '该流日包含的流时',
       breakdownLines: hourLines,
       detailGroups: [
