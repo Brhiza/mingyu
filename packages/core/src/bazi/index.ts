@@ -58,6 +58,9 @@ export type {
   UsefulGodControlFunctionEvidence,
   UsefulGodDecisionEvidence,
   UsefulGodDecisionStatus,
+  SpecialPatternAdjudication,
+  CongErPatternAdjudication,
+  QuzhiPatternAdjudication,
   SolarDateTimeInfo,
   LocalTimeRange,
   TimingInfo,
@@ -121,6 +124,11 @@ export type {
 export { COMMON_BAZI_SHENSHA_NAMES, filterCommonBaziShenSha } from './baziShenSha/index';
 export { matchesRule } from './baziRuleMatcher/index';
 export { determinePattern } from './baziPatternStrategy';
+export {
+  assessCongErPattern,
+  buildCongErPatternBasis,
+  buildFollowWealthPriorityBasis,
+} from './baziCongErStrategy';
 export { determineUsefulGod } from './baziUsefulGodStrategy';
 export {
   calculateEquationOfTimeMinutes,

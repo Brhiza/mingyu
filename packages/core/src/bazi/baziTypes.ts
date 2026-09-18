@@ -346,7 +346,7 @@ export interface PatternTransformationEvidence {
   conditions: string[];
 }
 
-export interface SpecialPatternAdjudication {
+export interface QuzhiPatternAdjudication {
   kind: '曲直格';
   status: '成立' | '不成立';
   route: '亥卯未木局' | '寅卯辰东方';
@@ -357,6 +357,25 @@ export interface SpecialPatternAdjudication {
   visibleOutputStems: string[];
   visibleWealthStems: string[];
 }
+
+export interface CongErPatternAdjudication {
+  kind: '从儿格';
+  status: '成立' | '不成立';
+  route: '三合食伤成气' | '三会食伤成气' | '月建食伤当权' | '食伤并透坐支同气';
+  method: string;
+  satisfied: string[];
+  blockers: string[];
+  outputElement: Wuxing;
+  wealthElement: Wuxing;
+  visibleOutputStems: string[];
+  visibleWealthStems: string[];
+  outputRootFacts: string[];
+  wealthRootFacts: string[];
+  functionalResolutions: string[];
+  retainedHiddenFacts: string[];
+}
+
+export type SpecialPatternAdjudication = QuzhiPatternAdjudication | CongErPatternAdjudication;
 
 export interface PatternAnalysis {
   pattern: string;
