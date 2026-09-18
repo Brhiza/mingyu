@@ -135,6 +135,19 @@ function getParticipantSummary(participant: DivinationAlmanacParticipant) {
     .join(' · ');
 }
 
+function getParticipantReverseInputKey(participant: DivinationAlmanacParticipant) {
+  const source = isBaziReverseSource(participant.reverseSource) ? participant.reverseSource : null;
+  return [
+    participant.id,
+    source?.pillars.year,
+    source?.pillars.month,
+    source?.pillars.day,
+    source?.pillars.hour,
+    source?.intervalStart,
+    source?.intervalEnd,
+  ].join('|');
+}
+
 export function AlmanacForm({
   draft,
   cases,
@@ -471,7 +484,7 @@ export function AlmanacForm({
                   {getAlmanacParticipantInputMode(participant) === 'pillars' ? (
                     <>
                       <BaziReverseInput
-                        key={`${participant.id}-pillars`}
+                        key={getParticipantReverseInputKey(participant)}
                         source={participant.reverseSource ?? null}
                         onInvalidate={() =>
                           updateParticipant(participant.id, 'reverseSource', null)
