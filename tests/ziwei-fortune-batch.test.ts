@@ -107,6 +107,7 @@ function assertRowsEqual(actual: TimelineRows, expected: TimelineRows, message: 
   for (const [index, row] of actual.entries()) {
     assert.deepEqual(row, expected[index], `${message}：第${index + 1}个年龄年`);
   }
+  assert.equal(JSON.stringify(actual), JSON.stringify(expected), `${message}：结构化字节顺序`);
 }
 
 function snapshotHoroscope(horoscope: IztroHoroscope) {
@@ -223,6 +224,22 @@ test('紫微独立批次只计算一个资料 scope 或一个年龄年', async (
     originBatch.payloadByScope.origin.palaces.map(staticStars),
   );
   assert.equal(fortuneBatch.fortuneTimeline?.batch?.endIndexExclusive, 1);
+  assert.equal(fortuneBatch.decadalTimeline.length, 1);
+  assert.equal(fortuneBatch.decadalTimeline[0]?.source, 'iztro-horoscope');
+  assert.deepEqual(
+    fortuneBatch.decadalTimeline.map(({ startAge, endAge, dateStr, endDateStr }) => ({
+      startAge,
+      endAge,
+      dateStr,
+      endDateStr,
+    })),
+    fortuneBatch.fortuneTimeline?.periods.map(({ startAge, endAge, dateStr, endDateStr }) => ({
+      startAge,
+      endAge,
+      dateStr,
+      endDateStr,
+    })),
+  );
   assert.equal(fortuneBatch.fortuneTimeline?.periods.flatMap((period) => period.years).length, 1);
   assert.ok(
     fortuneBatch.fortuneTimeline?.periods.every(
@@ -314,7 +331,7 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
     await resolveHoroscope(currentContext.dateStr, currentContext.hourIndex),
     targetHoroscope,
   );
-  const decadalTimeline = await buildVerifiedDecadalTimelineBatchOptions(
+  const decadalBatch = await buildVerifiedDecadalTimelineBatchOptions(
     astrolabe,
     input,
     {
@@ -327,14 +344,19 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
   const timeline = await buildZiweiFortuneTimelineFromAstrolabe(
     astrolabe,
     input,
-    decadalTimeline,
+    decadalBatch.periods.map((entry) => entry.period),
     {
       scope: 'all',
       ...currentContext,
       batch: { startIndex: 0, limit: 1 },
     },
-    { resolveHoroscope },
+    { resolveHoroscope, verifiedBatch: decadalBatch },
   );
+
+  assert.equal(decadalBatch.periods.length, 1);
+  assert.equal(decadalBatch.periods[0]?.period.source, 'iztro-horoscope');
+  assert.equal(decadalBatch.batch.totalYears, 125);
+  assert.deepEqual(decadalBatch.selectedAgeYears, [{ periodIndex: 0, age: 1 }]);
 
   const periodStartKey = `${timeline.periods[0]?.dateStr}#${currentContext.hourIndex}`;
   assert.ok((requests.get(periodStartKey) ?? 0) > 1, '阶段起点应被验证和流年组织共同读取');
@@ -350,7 +372,7 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
   const directResolver: ZiweiHoroscopeResolver = (dateStr, hourIndex) =>
     buildHoroscopeFromInput(baselineAstrolabe, input, dateStr, hourIndex);
   const baselineTarget = await directResolver(currentContext.dateStr, currentContext.hourIndex);
-  const baselineDecadal = await buildVerifiedDecadalTimelineBatchOptions(
+  const baselineDecadalBatch = await buildVerifiedDecadalTimelineBatchOptions(
     baselineAstrolabe,
     input,
     {
@@ -363,13 +385,13 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
   const baseline = await buildZiweiFortuneTimelineFromAstrolabe(
     baselineAstrolabe,
     input,
-    baselineDecadal,
+    baselineDecadalBatch.periods.map((entry) => entry.period),
     {
       scope: 'all',
       ...currentContext,
       batch: { startIndex: 0, limit: 1 },
     },
-    { resolveHoroscope: directResolver },
+    { resolveHoroscope: directResolver, verifiedBatch: baselineDecadalBatch },
   );
   assert.deepEqual(timeline, baseline);
 });
@@ -431,6 +453,8 @@ test('紫微年龄年独立批次限制单年且按运限目标时点选择当�
   });
   assert.equal(legacyBatch.fortuneTimeline?.batch?.endIndexExclusive, 2);
   assert.equal(legacyBatch.fortuneTimeline?.periods.flatMap((period) => period.years).length, 2);
+  assert.ok(legacyBatch.decadalTimeline.length > 1);
+  assert.ok(legacyBatch.decadalTimeline.every((period) => period.source === 'iztro-horoscope'));
 
   const targetContext = { dateStr: '2046-08-06', hourIndex: 4 } as const;
   const targetBatch = await calculateZiweiChart(input, {

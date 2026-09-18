@@ -214,20 +214,24 @@ export async function calculateZiweiChart(
           birthTime: input.birthTime,
         })
       : undefined;
+  const verifiedDecadalBatch =
+    options.independentBatch === 'fortune'
+      ? await buildVerifiedDecadalTimelineBatchOptions(
+          astrolabe,
+          input,
+          {
+            scope: options.fortuneRange!.scope as 'all' | 'current',
+            targetAge: fortuneTargetHoroscope!.age.nominalAge,
+            batch: options.fortuneRange!.batch!,
+          },
+          resolveHoroscope,
+        )
+      : undefined;
   const decadalTimeline =
     options.independentBatch === 'scope'
       ? []
-      : options.independentBatch === 'fortune'
-        ? await buildVerifiedDecadalTimelineBatchOptions(
-            astrolabe,
-            input,
-            {
-              scope: options.fortuneRange!.scope as 'all' | 'current',
-              targetAge: fortuneTargetHoroscope!.age.nominalAge,
-              batch: options.fortuneRange!.batch!,
-            },
-            resolveHoroscope,
-          )
+      : verifiedDecadalBatch
+        ? verifiedDecadalBatch.periods.map((entry) => entry.period)
         : await buildVerifiedDecadalTimelineOptions(astrolabe, input, resolveHoroscope);
   const fortuneTimeline = options.fortuneRange
     ? await buildZiweiFortuneTimelineFromAstrolabe(
@@ -241,6 +245,7 @@ export async function calculateZiweiChart(
         },
         {
           resolveHoroscope,
+          ...(verifiedDecadalBatch ? { verifiedBatch: verifiedDecadalBatch } : {}),
         },
       )
     : undefined;

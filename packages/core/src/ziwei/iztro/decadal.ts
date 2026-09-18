@@ -16,6 +16,21 @@ export type DecadalTimelineOption = {
   source: 'payload-compatibility' | 'iztro-horoscope';
 };
 
+export type VerifiedDecadalTimelineBatch = {
+  /** 本批实际涉及且已经过 iztro 运限对象核验的阶段。 */
+  periods: Array<{ periodIndex: number; period: DecadalTimelineOption }>;
+  /** 只含年龄与阶段位置的全局索引，不伪造未计算阶段的日期。 */
+  selectedAgeYears: Array<{ periodIndex: number; age: number }>;
+  targetPeriodIndex: number;
+  batch: {
+    unit: 'age-year';
+    totalYears: number;
+    startIndex: number;
+    endIndexExclusive: number;
+    nextIndex: number | null;
+  };
+};
+
 export type ZiweiHoroscopeResolver = (
   dateStr: string,
   hourIndex: number,
@@ -280,12 +295,11 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     batch: { startIndex?: number; limit?: number };
   },
   resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
-): Promise<DecadalTimelineOption[]> {
+): Promise<VerifiedDecadalTimelineBatch> {
   const ranges = collectIztroDecadalRanges(astrolabe);
   const firstRange = ranges[0];
   if (!firstRange) throw new Error('iztro 未返回可用的大限范围。');
-  const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
-  const timeline: DecadalTimelineOption[] = [
+  const timelineIndex = [
     ...Array.from({ length: firstRange.startAge - 1 }, (_, index) => {
       const age = index + 1;
       return {
@@ -293,8 +307,6 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
         label: '童限',
         startAge: age,
         endAge: age,
-        dateStr: shiftLunarYear(birthSolarDate, age - 1),
-        source: 'payload-compatibility' as const,
       };
     }),
     ...ranges.map((range) => ({
@@ -302,16 +314,20 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
       label: '大限',
       startAge: range.startAge,
       endAge: range.endAge,
-      dateStr: shiftLunarYear(birthSolarDate, range.startAge - 1),
       palaceIndex: range.palaceIndex,
       palaceName: range.palaceName,
-      source: 'payload-compatibility' as const,
     })),
   ];
+  const targetPeriodIndex = timelineIndex.findIndex(
+    (period) => options.targetAge >= period.startAge && options.targetAge <= period.endAge,
+  );
+  if (targetPeriodIndex < 0) {
+    throw new RangeError(`所选日期对应虚岁 ${options.targetAge}，超出紫微已支持的运限范围。`);
+  }
   const availableIndexes =
     options.scope === 'all'
-      ? timeline.map((_, index) => index)
-      : timeline
+      ? timelineIndex.map((_, index) => index)
+      : timelineIndex
           .map((period, index) => ({ period, index }))
           .filter(
             ({ period }) =>
@@ -322,7 +338,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     throw new RangeError(`所选日期对应虚岁 ${options.targetAge}，超出紫微已支持的运限范围。`);
   }
   const ageYears = availableIndexes.flatMap((periodIndex) => {
-    const period = timeline[periodIndex]!;
+    const period = timelineIndex[periodIndex]!;
     return Array.from({ length: period.endAge - period.startAge + 1 }, (_, index) => ({
       periodIndex,
       age: period.startAge + index,
@@ -336,11 +352,12 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
   if (!Number.isInteger(limit) || limit < 1 || limit > 10) {
     throw new RangeError('紫微运限每批需为 1 至 10 个年龄年。');
   }
-  const selectedPeriodIndexes = new Set(
-    ageYears.slice(startIndex, startIndex + limit).map((item) => item.periodIndex),
-  );
+  const endIndexExclusive = Math.min(startIndex + limit, ageYears.length);
+  const selectedAgeYears = ageYears.slice(startIndex, endIndexExclusive);
+  const selectedPeriodIndexes = new Set(selectedAgeYears.map((item) => item.periodIndex));
+  const periods: VerifiedDecadalTimelineBatch['periods'] = [];
   for (const periodIndex of selectedPeriodIndexes) {
-    const period = timeline[periodIndex]!;
+    const period = timelineIndex[periodIndex]!;
     const start = await findVerifiedHoroscope(astrolabe, input, period.startAge, resolveHoroscope);
     const palace = astrolabe.palace(start.horoscope.decadal.index);
     if (
@@ -352,16 +369,48 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
       throw new Error(`iztro 无法验证 ${period.startAge}-${period.endAge} 岁${period.label}。`);
     }
     const next = await findVerifiedHoroscope(astrolabe, input, period.endAge + 1, resolveHoroscope);
-    timeline[periodIndex] = {
-      ...period,
-      dateStr: start.dateStr,
-      endDateStr: shiftSolarDay(next.dateStr, -1),
-      palaceIndex: palace.index,
-      palaceName: palace.name,
-      source: 'iztro-horoscope',
-    };
+    const endDateStr = shiftSolarDay(next.dateStr, -1);
+    const verifiedPeriod: DecadalTimelineOption =
+      period.kind === 'childhood'
+        ? {
+            kind: period.kind,
+            label: period.label,
+            startAge: period.startAge,
+            endAge: period.endAge,
+            dateStr: start.dateStr,
+            source: 'iztro-horoscope',
+            endDateStr,
+            palaceIndex: palace.index,
+            palaceName: palace.name,
+          }
+        : {
+            kind: period.kind,
+            label: period.label,
+            startAge: period.startAge,
+            endAge: period.endAge,
+            dateStr: start.dateStr,
+            palaceIndex: palace.index,
+            palaceName: palace.name,
+            source: 'iztro-horoscope',
+            endDateStr,
+          };
+    periods.push({
+      periodIndex,
+      period: verifiedPeriod,
+    });
   }
-  return timeline;
+  return {
+    periods,
+    selectedAgeYears,
+    targetPeriodIndex,
+    batch: {
+      unit: 'age-year',
+      totalYears: ageYears.length,
+      startIndex,
+      endIndexExclusive,
+      nextIndex: endIndexExclusive < ageYears.length ? endIndexExclusive : null,
+    },
+  };
 }
 
 export function findCurrentDecadalOption(

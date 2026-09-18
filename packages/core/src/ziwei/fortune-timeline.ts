@@ -9,6 +9,7 @@ import {
   createZiweiHoroscopeResolver,
   type DecadalTimelineOption,
   formatDecadalAgeRange,
+  type VerifiedDecadalTimelineBatch,
   type ZiweiHoroscopeResolver,
 } from './iztro/decadal';
 
@@ -487,14 +488,17 @@ async function buildTimelineFromAstrolabe(
     Pick<ZiweiFortuneRangeOptions, 'batch'>,
   calculationContext: {
     resolveHoroscope: ZiweiHoroscopeResolver;
+    verifiedBatch?: VerifiedDecadalTimelineBatch;
   },
 ): Promise<ZiweiFortuneTimeline> {
-  const { resolveHoroscope } = calculationContext;
+  const { resolveHoroscope, verifiedBatch } = calculationContext;
   const targetHoroscope = await resolveHoroscope(options.dateStr, options.hourIndex);
   const targetAge = targetHoroscope.age.nominalAge;
-  const selectedPeriodIndex = decadalTimeline.findIndex(
-    (period) => targetAge >= period.startAge && targetAge <= period.endAge,
-  );
+  const selectedPeriodIndex =
+    verifiedBatch?.targetPeriodIndex ??
+    decadalTimeline.findIndex(
+      (period) => targetAge >= period.startAge && targetAge <= period.endAge,
+    );
   if (selectedPeriodIndex < 0) {
     throw new Error(`所选日期对应虚岁 ${targetAge}，超出紫微已支持的运限范围。`);
   }
@@ -511,8 +515,9 @@ async function buildTimelineFromAstrolabe(
           resolveHoroscope,
         )
       : null;
-  const periodIndexes =
-    options.scope === 'all'
+  const periodIndexes = verifiedBatch
+    ? verifiedBatch.periods.map((entry) => entry.periodIndex)
+    : options.scope === 'all'
       ? decadalTimeline.map((_, index) => index)
       : options.scope === 'current'
         ? [selectedPeriodIndex]
@@ -530,15 +535,19 @@ async function buildTimelineFromAstrolabe(
   if (!periodIndexes.length) {
     throw new Error('所选流年未落入紫微已支持的大限范围。');
   }
-  const ageYears = periodIndexes.flatMap((periodIndex) => {
-    const period = decadalTimeline[periodIndex]!;
-    return Array.from({ length: period.endAge - period.startAge + 1 }, (_, index) => ({
-      periodIndex,
-      age: period.startAge + index,
-    }));
-  });
+  const ageYears =
+    verifiedBatch?.selectedAgeYears ??
+    periodIndexes.flatMap((periodIndex) => {
+      const period = decadalTimeline[periodIndex]!;
+      return Array.from({ length: period.endAge - period.startAge + 1 }, (_, index) => ({
+        periodIndex,
+        age: period.startAge + index,
+      }));
+    });
   let batch: ZiweiFortuneTimeline['batch'];
-  if (options.batch) {
+  if (verifiedBatch) {
+    batch = { ...verifiedBatch.batch };
+  } else if (options.batch) {
     const startIndex = options.batch.startIndex ?? 0;
     const limit = options.batch.limit ?? 1;
     if (options.scope !== 'all' && options.scope !== 'current') {
@@ -559,9 +568,11 @@ async function buildTimelineFromAstrolabe(
       nextIndex: endIndexExclusive < ageYears.length ? endIndexExclusive : null,
     };
   }
-  const selectedAgeYears = batch
-    ? ageYears.slice(batch.startIndex, batch.endIndexExclusive)
-    : ageYears;
+  const selectedAgeYears = verifiedBatch
+    ? ageYears
+    : batch
+      ? ageYears.slice(batch.startIndex, batch.endIndexExclusive)
+      : ageYears;
   const includeMonths = options.scope !== 'all';
   const includeDay = options.scope === 'day' || options.scope === 'hour';
   const includeHour = options.scope === 'hour';
@@ -571,8 +582,13 @@ async function buildTimelineFromAstrolabe(
     years: ZiweiFortuneYear[];
   }> = [];
 
-  for (const periodIndex of periodIndexes) {
-    const period = decadalTimeline[periodIndex];
+  const selectedPeriods = verifiedBatch
+    ? verifiedBatch.periods
+    : periodIndexes.map((periodIndex) => ({
+        periodIndex,
+        period: decadalTimeline[periodIndex]!,
+      }));
+  for (const { periodIndex, period } of selectedPeriods) {
     if (!period) continue;
     const selectedAges = selectedAgeYears
       .filter((entry) => entry.periodIndex === periodIndex)
@@ -722,6 +738,7 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
   options: ZiweiFortuneRangeOptions,
   calculationContext?: {
     resolveHoroscope?: ZiweiHoroscopeResolver;
+    verifiedBatch?: VerifiedDecadalTimelineBatch;
   },
 ): Promise<ZiweiFortuneTimeline> {
   const context = options.dateStr
@@ -742,7 +759,12 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
       hourIndex,
       ...(options.batch ? { batch: { ...options.batch } } : {}),
     },
-    { resolveHoroscope },
+    {
+      resolveHoroscope,
+      ...(calculationContext?.verifiedBatch
+        ? { verifiedBatch: calculationContext.verifiedBatch }
+        : {}),
+    },
   );
 }
 
