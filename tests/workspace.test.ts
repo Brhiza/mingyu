@@ -7,6 +7,7 @@ import {
   WORKSPACE_FEATURE_IDS,
   WORKSPACE_FEATURES,
   buildWorkspaceFeaturePath,
+  isCalendarWorkspaceId,
   isHomeChartWorkspaceId,
   normalizeHomeModeOrder,
   normalizeNavigationOrder,
@@ -19,6 +20,9 @@ test('工作区应为每个排盘和占问工具提供独立入口', () => {
   assert.equal(buildWorkspaceFeaturePath('liuyao'), '/divination/liuyao');
   assert.equal(buildWorkspaceFeaturePath('almanac'), '/divination/almanac');
   assert.equal(buildWorkspaceFeaturePath('huangji'), '/divination/huangji');
+  assert.equal(buildWorkspaceFeaturePath('calendar'), '/calendar');
+  assert.equal(isCalendarWorkspaceId('calendar'), true);
+  assert.equal(WORKSPACE_FEATURES.find((item) => item.id === 'calendar')?.label, '干支日历');
   assert.equal(WORKSPACE_FEATURES.find((item) => item.id === 'huangji')?.label, '皇极经世');
   assert.equal(new Set(WORKSPACE_FEATURE_IDS).size, WORKSPACE_FEATURE_IDS.length);
 });

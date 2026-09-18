@@ -56,6 +56,11 @@ const DivinationResultPage = lazy(async () => {
   return { default: module.DivinationResultPage };
 });
 
+const CalendarPage = lazy(async () => {
+  const module = await import('./pages/CalendarPage');
+  return { default: module.CalendarPage };
+});
+
 function buildDefaultFeaturePath(feature: WorkspaceFeatureId) {
   if (!isChartWorkspaceId(feature)) return buildWorkspaceFeaturePath(feature);
   const activeCaseId = readActiveCaseId();
@@ -124,6 +129,7 @@ export default function App() {
               path="/divination/:method/result/assistant"
               element={<DivinationResultPage assistantOnly />}
             />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/culture-tools" element={<CultureToolsPage />} />
             <Route path="/cases" element={<CasePage />} />
