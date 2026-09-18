@@ -397,10 +397,20 @@ export interface CongErPatternAdjudication {
 
 export type SpecialPatternAdjudication = QuzhiPatternAdjudication | CongErPatternAdjudication;
 
+/** 普通格局在不同月令分层口径下的可核验候选。 */
+export interface PatternCandidate {
+  pattern: string;
+  source: '月令本气' | '分日司令透干' | '月令藏干透干';
+  basis: string;
+  selected: boolean;
+}
+
 export interface PatternAnalysis {
   pattern: string;
   isSpecial: boolean;
   basis?: string;
+  /** 主结论之外保留同一原局可证明的普通取格分层，避免把流派差异压成单一结论。 */
+  patternCandidates?: PatternCandidate[];
   transformation?: PatternTransformationEvidence;
   /** 已完成条件核验的特殊格终态；四柱完整时不以“候选”代替成立或不成立。 */
   specialAdjudication?: SpecialPatternAdjudication;
