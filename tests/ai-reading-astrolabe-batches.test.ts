@@ -50,7 +50,12 @@ test('完整星盘分批补算经真实接口保持三个范围事件及完整�
       new Request('https://aov.cc/api/v1/divination/astrolabe/prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...input, gender: '女', responseMode: 'full' }),
+        body: JSON.stringify({
+          ...input,
+          gender: '女',
+          astrolabeIncludePeriodEvents: true,
+          responseMode: 'full',
+        }),
       }),
     );
     const body = await original.json();
