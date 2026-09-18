@@ -1022,6 +1022,52 @@ export interface LiurenClassicalRule {
   summary: string;
 }
 
+export type LiurenOrdinaryTransmissionStageId =
+  'directKe' | 'directBiYong' | 'directSheHai' | 'remoteKe' | 'remoteBiYong' | 'remoteSheHai';
+
+export interface LiurenOrdinaryTransmissionCandidate {
+  key: string;
+  family: 'directKe' | 'remoteKe';
+  kind: '下贼上' | '上克下' | '蒿矢' | '弹射';
+  upper: string;
+  sourceLessons: Array<{
+    position: number;
+    name: LiurenLesson['name'];
+    lower: string;
+  }>;
+  sameYinYangAsDayStem: boolean;
+  harmAssessment?: {
+    walkedBranches: string[];
+    depth: number;
+  };
+  status: 'selected' | 'eligible' | 'excluded' | 'suppressedByPrior';
+  reasons: string[];
+}
+
+export interface LiurenOrdinaryTransmissionStage {
+  id: LiurenOrdinaryTransmissionStageId;
+  order: number;
+  status: 'selected' | 'matched' | 'notMatched' | 'notApplicable' | 'suppressedByPrior';
+  conditions: string[];
+  candidateKeys: string[];
+  selectedCandidateKey?: string;
+  reason: string;
+  sources: string[];
+}
+
+export interface LiurenOrdinaryTransmissionAdjudication {
+  key: 'liuren:ordinary-transmission-adjudication';
+  status: 'selected' | 'deferredToSpecial';
+  selectedRule: string | null;
+  selectedInitial: string | null;
+  selectedCandidateKey: string | null;
+  candidates: LiurenOrdinaryTransmissionCandidate[];
+  stages: LiurenOrdinaryTransmissionStage[];
+  summary: string;
+  sources: string[];
+  limitation: string;
+}
+
 export interface LiurenGuaTiFact {
   id: string;
   stableKey: string;
@@ -1078,6 +1124,8 @@ export interface LiurenData {
   xunKong?: string[];
   /** 发用规则名称（如涉害、遥克、昴星等九宗门） */
   transmissionRule?: string;
+  /** 普通宗门（贼克、比用、涉害、遥克）的候选与优先裁决轨迹 */
+  ordinaryTransmissionAdjudication?: LiurenOrdinaryTransmissionAdjudication;
   /** 三传特殊模式：伏吟/反吟/回环/递传 */
   transmissionPattern?: '伏吟' | '反吟' | '回环' | '递传';
   /** 三传详细说明 */

@@ -32,9 +32,27 @@ test('大六壬四课和三传分别绑定实际上下位与前传，十二宫�
     assert.match(text, /初传酉金生一课下位癸水/);
     assert.match(text, /中传丑土生初传酉金/);
     assert.match(text, /末传巳火生中传丑土/);
+    assert.match(text, /普通宗门裁决：/);
+    assert.doesNotMatch(text, /directKe|remoteKe|suppressedByPrior|deferredToSpecial/);
     assert.doesNotMatch(text, /上神酉金克下位巳火|初传酉金生中传丑土/);
   }
   const enhanced = formatEnhancedDivinationInfo('liuren', data);
   assert.match(enhanced, /地盘卯上临天盘未乘朱雀/);
   assert.match(enhanced, /地盘未上临天盘亥乘天空/);
+});
+
+test('大六壬遥克提示词应说明直接克未命中且不得夹带贼克身份', () => {
+  const data = generateLiuren(new Date('2026-01-01T06:00:00+08:00'));
+  assert.equal(data.transmissionRule, '遥克法');
+  assert.deepEqual(
+    data.classicalRules?.map((item) => item.rule),
+    ['遥克'],
+  );
+
+  for (const format of [formatDivinationInfo, formatEnhancedDivinationInfo]) {
+    const text = format('liuren', data);
+    assert.match(text, /四课没有直接上下克，进入遥克/);
+    assert.match(text, /最终按遥克法取.+发用/);
+    assert.doesNotMatch(text, /贼克法：|四课先察上下相克/);
+  }
 });

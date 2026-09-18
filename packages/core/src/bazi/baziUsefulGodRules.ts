@@ -34,12 +34,13 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
   {
     id: 'follow-special-strong',
     label: '专旺格顺势规则',
-    description: '专旺格以顺势为主，喜印比及顺气之神。',
+    description:
+      '通用专旺格以印比顺势为确定取向；食伤须原局印轻且泄秀作用成立时方可纳入喜用，若已有印食具体冲克则按实际作用干限制。',
     priority: 100,
     patterns: ['专旺格'],
-    favorable: 'resource_companion_output',
+    favorable: 'resource_companion',
     unfavorable: 'wealth_officer',
-    trace: '专旺格顺势取用',
+    trace: '专旺格以印比顺势，食伤另核印轻与实际作用',
     primaryReason: '顺势',
   },
   {

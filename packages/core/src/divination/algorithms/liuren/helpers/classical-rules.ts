@@ -48,7 +48,7 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     summary: '四课只有一处上克下，以上克下之上神为初传发用。',
   },
   {
-    match: /贼克|克法/,
+    match: /贼克/,
     source: MAIN_SOURCE,
     rule: '贼克',
     category: '贼克法',

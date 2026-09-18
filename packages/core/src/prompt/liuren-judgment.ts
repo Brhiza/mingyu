@@ -1,4 +1,5 @@
 import type { LiurenData } from '../types/divination';
+import { formatLiurenOrdinaryTransmissionAdjudication } from './liuren-facts';
 
 export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
   const lines: string[] = [];
@@ -14,6 +15,8 @@ export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
     .map((item) => `${item.category}：${item.summary}`)
     .filter(Boolean);
   if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
+  const ordinaryAdjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
+  if (ordinaryAdjudication) lines.push(ordinaryAdjudication);
 
   const guaTiFacts = (data.guaTiFacts ?? [])
     .map((item) => `${item.name}（${item.matchedConditions.join('、')}）`)

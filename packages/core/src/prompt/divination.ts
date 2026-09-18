@@ -1,5 +1,9 @@
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
-import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
+import {
+  formatLiurenLesson,
+  formatLiurenOrdinaryTransmissionAdjudication,
+  formatLiurenTransmission,
+} from './liuren-facts';
 import { buildTaskText } from '../divination/engine/method-text';
 import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import { buildLiurenTemplateText } from '../divination/engine/liuren-template';
@@ -372,6 +376,7 @@ export function getDivinationSummaryBlocks(
           `日干寄宫：${item.dayStemResidence ? `${item.ganzhi.day.charAt(0)}寄${item.dayStemResidence}` : '未知'}`,
           `旬空：${item.xunKong?.length ? item.xunKong.join('、') : '未知'}`,
           `取传法：${item.transmissionRule || '未记录'}；传态：${item.transmissionPattern || '未记录'}`,
+          formatLiurenOrdinaryTransmissionAdjudication(item),
           `四课：${item.fourLessons.map(formatLiurenLesson).join('；')}`,
           `三传：${item.threeTransmissions.map((_, index) => formatLiurenTransmission(item, index)).join(' → ')}`,
           `课体：${item.guaTi?.join('、') || '无'}`,
