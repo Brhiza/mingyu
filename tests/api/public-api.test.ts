@@ -966,6 +966,30 @@ test('公开 API 应按完整四柱反推北京时间候选区间', async () => 
     assert.equal(invalid.body.ok, false);
     assert.equal(invalid.body.error.code, 'BAD_REQUEST');
   }
+
+  const invalidPillar = await callApi('calendar/bazi-reverse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pillars: { year: '甲辰', month: '丙寅', day: '未知', hour: '甲子' },
+      startYear: 2024,
+      endYear: 2024,
+    }),
+  });
+  assert.equal(invalidPillar.response.status, 400);
+  assert.match(invalidPillar.body.error.message, /pillars\.day.*有效的六十甲子干支/);
+
+  const reversedYears = await callApi('calendar/bazi-reverse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 2025,
+      endYear: 2024,
+    }),
+  });
+  assert.equal(reversedYears.response.status, 400);
+  assert.match(reversedYears.body.error.message, /起始年份不能大于结束年份/);
 });
 
 test('公开 API 应提供便捷真太阳时换算接口', async () => {
