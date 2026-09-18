@@ -23,7 +23,7 @@ const RANGE_PILLARS = {
 const RANGE_PARTICIPANT: AlmanacParticipantInput = {
   id: 'synthetic-range',
   name: '合成参与人甲',
-  gender: '男',
+  gender: '',
   dateType: 'solar',
   year: '2024',
   month: '2',
@@ -44,13 +44,28 @@ const RANGE_PARTICIPANT: AlmanacParticipantInput = {
 const FIXED_PARTICIPANT: AlmanacParticipantInput = {
   id: 'synthetic-fixed',
   name: '合成参与人乙',
-  gender: '女',
+  gender: '',
   dateType: 'solar',
   year: '1990',
   month: '1',
   day: '2',
   timeIndex: '4',
 };
+
+test('黄历参与人性别可留空，但不接受未定义值', () => {
+  for (const gender of [undefined, 'other']) {
+    assert.throws(
+      () =>
+        generateAlmanacSelection({
+          topic: 'custom',
+          startDate: '2026-06-01',
+          endDate: '2026-06-01',
+          participants: [{ ...FIXED_PARTICIPANT, gender } as unknown as AlmanacParticipantInput],
+        }),
+      /参与人性别必须是 男、女 或留空/u,
+    );
+  }
+});
 
 test('黄历参与人完整出生区间按实际司令边界保留条件画像并参与日时关系', () => {
   const result = generateAlmanacSelection({
@@ -61,6 +76,7 @@ test('黄历参与人完整出生区间按实际司令边界保留条件画像�
   });
 
   const ranged = result.participants[0]!;
+  assert.equal(ranged.gender, '');
   assert.equal(ranged.birthTimeRange?.status, 'conditional');
   assert.deepEqual(
     ranged.birthTimeRange?.branches.map((branch) => [
@@ -74,6 +90,7 @@ test('黄历参与人完整出生区间按实际司令边界保留条件画像�
       [RANGE_CHANGE, RANGE_END, true, ['火', '土', '金']],
     ],
   );
+  assert.equal(result.participants[1]!.gender, '');
   assert.equal(result.participants[1]!.birthTimeRange, undefined);
 
   const dayFacts = result.days[0]!.participantRelationFacts ?? [];

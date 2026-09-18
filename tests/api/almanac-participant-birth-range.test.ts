@@ -6,7 +6,6 @@ import { handlePublicApiRequest } from '../../src/lib/public-api/handler';
 const rangeParticipant = {
   id: 'synthetic-range',
   name: '合成参与人甲',
-  gender: '男',
   year: 2024,
   month: 2,
   day: 11,
@@ -51,7 +50,7 @@ test('公开 API 黄历参与人透传完整出生区间、来源四柱和条件
       {
         id: 'synthetic-fixed',
         name: '合成参与人乙',
-        gender: '女',
+        gender: '',
         year: 1990,
         month: 1,
         day: 2,

@@ -356,8 +356,8 @@ function readOptionalParticipantNumber(value: string | undefined, label: string)
 }
 
 function readParticipantBirthInput(item: AlmanacParticipantInput) {
-  if (item.gender !== '男' && item.gender !== '女') {
-    throw new Error('参与人性别必须是 男 或 女。');
+  if (item.gender !== '男' && item.gender !== '女' && item.gender !== '') {
+    throw new Error('参与人性别必须是 男、女 或留空。');
   }
   if (item.dateType !== 'solar' && item.dateType !== 'lunar') {
     throw new Error('参与人日历类型必须是 solar 或 lunar。');
@@ -461,7 +461,7 @@ function buildParticipantBirthProfile(
   return {
     id: item.id,
     name: item.name,
-    gender: item.gender === '男' ? 'male' : 'female',
+    gender: item.gender === '女' ? 'female' : 'male',
     calendarType: 'solar',
     year: birthInput.year,
     month: birthInput.month,
@@ -546,6 +546,35 @@ function profileFingerprint(profile: AlmanacParticipantProfileSnapshot) {
   return JSON.stringify(profile);
 }
 
+function calculateParticipantProfileSnapshot(
+  item: AlmanacParticipantInput,
+  id: string,
+  name: string,
+  person: ReturnType<typeof birthProfileToBaziPerson>,
+) {
+  const snapshot = buildParticipantProfileSnapshot(
+    item,
+    id,
+    name,
+    baziCalculator.calculateBazi(person),
+  );
+  if (item.gender !== '') return snapshot;
+
+  const alternate = buildParticipantProfileSnapshot(
+    item,
+    id,
+    name,
+    baziCalculator.calculateBazi({
+      ...person,
+      gender: person.gender === 'male' ? 'female' : 'male',
+    }),
+  );
+  if (profileFingerprint(snapshot) !== profileFingerprint(alternate)) {
+    throw new Error('参与人性别未指定时无法得到唯一择日画像。');
+  }
+  return snapshot;
+}
+
 function createRangeParticipantProfile(
   item: AlmanacParticipantInput,
   birthInput: ReturnType<typeof readParticipantBirthInput>,
@@ -570,18 +599,18 @@ function createRangeParticipantProfile(
     const startTimestamp = boundaries[index]!;
     const endTimestamp = boundaries[index + 1]!;
     const point = birthProfileAtRangeTimestamp(profile, source, startTimestamp);
-    const snapshot = buildParticipantProfileSnapshot(
+    const snapshot = calculateParticipantProfileSnapshot(
       item,
       id,
       name,
-      baziCalculator.calculateBazi(birthProfileToBaziPerson(point)),
+      birthProfileToBaziPerson(point),
     );
     const lastPoint = birthProfileAtRangeTimestamp(profile, source, endTimestamp - 1_000);
-    const lastSnapshot = buildParticipantProfileSnapshot(
+    const lastSnapshot = calculateParticipantProfileSnapshot(
       item,
       id,
       name,
-      baziCalculator.calculateBazi(birthProfileToBaziPerson(lastPoint)),
+      birthProfileToBaziPerson(lastPoint),
     );
     assertParticipantRangePillars(snapshot, rawSource.pillars);
     assertParticipantRangePillars(lastSnapshot, rawSource.pillars);
@@ -640,12 +669,12 @@ function createParticipantProfiles(
         }
         return createRangeParticipantProfile(item, birthInput, id, name);
       }
-      const chart = baziCalculator.calculateBazi({
+      const person: ReturnType<typeof birthProfileToBaziPerson> = {
         year: birthInput.year,
         month: birthInput.month,
         day: birthInput.day,
         ...(birthInput.timeIndex === undefined ? {} : { timeIndex: birthInput.timeIndex }),
-        gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
+        gender: item.gender === '女' ? 'female' : 'male',
         isLunar: item.dateType === 'lunar',
         isLeapMonth: Boolean(item.isLeapMonth),
         ...(birthInput.birthHour === undefined
@@ -662,9 +691,9 @@ function createParticipantProfiles(
           ? {}
           : { birthLongitude: birthInput.birthLongitude }),
         useTrueSolarTime: birthInput.useTrueSolarTime,
-      });
+      };
 
-      return buildParticipantProfileSnapshot(item, id, name, chart);
+      return calculateParticipantProfileSnapshot(item, id, name, person);
     });
 }
 

@@ -7,7 +7,6 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const rangeParticipant = {
   id: 'synthetic-range',
   name: '合成参与人甲',
-  gender: '男',
   year: 2024,
   month: 2,
   day: 11,
