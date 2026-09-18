@@ -1483,6 +1483,40 @@ test('公开 API 应支持八字排盘', async () => {
   assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
 });
 
+test('公开 API 八字完整结果与提示词共用从儿裁决和取用', async () => {
+  const input = {
+    gender: 'male',
+    year: 1987,
+    month: 2,
+    day: 23,
+    timeIndex: 4,
+    dateType: 'solar',
+    detailMode: 'full',
+  };
+  const calculated = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const prompted = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, question: '请分析本命格局与取用。' }),
+  });
+
+  assert.equal(calculated.response.status, 200);
+  assert.equal(calculated.body.data.analysis.mingGe.pattern, '从儿格');
+  assert.equal(calculated.body.data.analysis.mingGe.specialAdjudication.status, '成立');
+  assert.equal(
+    calculated.body.data.analysis.usefulGod.decisionEvidence.base.ruleId,
+    'follow-conger',
+  );
+  assert.deepEqual(calculated.body.data.analysis.usefulGod.favorableWuxing, ['火', '木']);
+  assert.equal(prompted.response.status, 200);
+  assert.match(prompted.body.data.prompt, /特殊格裁决：从儿格成立/);
+  assert.match(prompted.body.data.prompt, /取用: 主用火，辅木/);
+});
+
 test('公开 API 八字神煞默认使用问真口径', async () => {
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',
@@ -1625,9 +1659,9 @@ test('公开 API 八字排盘接口只返回排盘结果', async () => {
 test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明细', async () => {
   const input = {
     gender: 'female',
-    year: 1987,
+    year: 1988,
     month: 7,
-    day: 5,
+    day: 15,
     timeIndex: 6,
     dateType: 'solar',
     shenShaScope: 'all',

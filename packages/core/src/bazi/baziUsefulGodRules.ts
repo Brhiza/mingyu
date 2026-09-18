@@ -3,6 +3,8 @@ export type UsefulGodWuxingBundle =
   | 'wealth_officer'
   | 'output_wealth_officer'
   | 'resource_companion'
+  | 'wealth_output'
+  | 'resource_officer'
   | 'officer';
 
 export interface BaseUsefulGodRule {
@@ -44,11 +46,23 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     primaryReason: '顺势',
   },
   {
+    id: 'follow-conger',
+    label: '从儿格顺局规则',
+    description:
+      '《滴天髓阐微·顺局》从儿以食伤生财为喜，印星制食伤为首忌，官杀耗财逆局次忌；比劫须按生食伤或争财的实际作用另论。',
+    priority: 105,
+    patterns: ['从儿格'],
+    favorable: 'wealth_output',
+    unfavorable: 'resource_officer',
+    trace: '从儿格取财星、食伤顺局，忌印星、官杀逆局，比劫另核实际作用',
+    primaryReason: '从儿顺局',
+  },
+  {
     id: 'follow-special-weak',
     label: '从格从势规则',
     description: '从格以从势为主，喜顺从克泄耗之气。',
     priority: 100,
-    patterns: ['从格', '从财格', '从杀格', '从儿格', '从势格'],
+    patterns: ['从格', '从财格', '从杀格', '从势格'],
     favorable: 'output_wealth_officer',
     unfavorable: 'resource_companion',
     trace: '从格从势取用',

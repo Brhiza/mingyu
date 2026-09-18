@@ -480,6 +480,37 @@ test('八字 MCP 缺时辰返回候选并暂缓岁运，提示词不确定午时
   });
 });
 
+test('MCP 八字计算与提示词共用从儿裁决和取用', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'male',
+      year: 1987,
+      month: 2,
+      day: 23,
+      timeIndex: 4,
+      dateType: 'solar',
+      detailMode: 'full',
+    };
+    const calculated = await client.callTool({ name: 'bazi_calculate', arguments: input });
+    const prompted = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...input, question: '请分析本命格局与取用。' },
+    });
+    const chart = calculated.structuredContent?.result as ReturnType<
+      typeof baziCalculator.calculateBazi
+    >;
+
+    assert.equal(calculated.isError, undefined);
+    assert.equal(chart.analysis.mingGe.pattern, '从儿格');
+    assert.equal(chart.analysis.mingGe.specialAdjudication?.status, '成立');
+    assert.equal(chart.analysis.usefulGod.decisionEvidence?.base.ruleId, 'follow-conger');
+    assert.equal(prompted.isError, undefined);
+    assert.equal(prompted.structuredContent?.result.analysis.mingGe.pattern, '从儿格');
+    assert.match(String(prompted.structuredContent?.prompt), /特殊格裁决：从儿格成立/);
+    assert.match(String(prompted.structuredContent?.prompt), /取用: 主用火，辅木/);
+  });
+});
+
 test('MCP 奇门十年干支大运保留精确区间与分层定位，缺少性别返回错误', async () => {
   await withMcpClient(async (client) => {
     const input = {

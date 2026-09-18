@@ -421,6 +421,8 @@ function buildBaseDecisionState(
     wealth_officer: [wealth, officer].filter(Boolean),
     output_wealth_officer: [output, wealth, officer].filter(Boolean),
     resource_companion: [resource, companion].filter(Boolean),
+    wealth_output: [wealth, output].filter(Boolean),
+    resource_officer: [resource, officer].filter(Boolean),
     officer: [officer].filter(Boolean),
   };
 
