@@ -28,6 +28,29 @@ test('展示依据保留旺衰、格局成败及调候与扶抑区别', () => {
   assert.doesNotMatch(text, /ruleId|within-balance|wei-month-jia|day甲|hour己|小数总分/);
 });
 
+test('展示依据完整保留旺衰裁决的每条规则依据', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 8,
+    day: 15,
+    timeIndex: 8,
+    gender: 'female',
+    isLunar: false,
+  });
+  const details = formatBaziDecisionDetails(result);
+  const strengthBasis = result.analysis.dayMasterStrength.details.ruleBasis.filter(Boolean);
+  const displayBasis = details.filter((line) => line.startsWith('旺衰依据：'));
+
+  assert.ok(strengthBasis.length > 1);
+  assert.equal(displayBasis.length, strengthBasis.length);
+  assert.match(displayBasis[0] ?? '', /旺衰依据：/);
+  assert.match(displayBasis.join('\n'), /机械分数/);
+  assert.doesNotMatch(
+    displayBasis.join('\n'),
+    /ruleId|within-balance|wei-month-jia|day甲|hour己|小数总分/,
+  );
+});
+
 test('成格名称与成败状态分别保留，待核条件和反证不会被隐藏', () => {
   const result = baziCalculator.calculateBazi({
     year: 2000,

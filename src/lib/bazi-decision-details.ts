@@ -1,5 +1,24 @@
 import type { BaziChartResult } from 'mingyu-core/bazi';
 
+const GANZHI_STEM_CHARS = '甲乙丙丁戊己庚辛壬癸';
+const PILLAR_LABELS: Record<string, string> = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+};
+
+function formatStrengthBasisForDisplay(basis: string): string {
+  return basis
+    .replace(new RegExp(`\\b(year|month|day|hour)(?=[${GANZHI_STEM_CHARS}])`, 'g'), (_, key) => {
+      return PILLAR_LABELS[key] ?? key;
+    })
+    .replace(/小数总分/g, '机械分数')
+    .replace(/within-balance/g, '平衡规则')
+    .replace(/wei-month-jia/g, '未月甲木调候')
+    .replace(/ruleId/g, '规则');
+}
+
 /** 盘面与分享文本使用同一组本命判断依据。 */
 export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
   const { dayMasterStrength, mingGe, usefulGod } = result.analysis;
@@ -7,8 +26,11 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
   const fulfillment = mingGe.fulfillment;
   const decision = usefulGod.decisionEvidence;
   const transformation = mingGe.transformation;
+  const strengthBasis = strength.ruleBasis.filter(Boolean).map(formatStrengthBasisForDisplay);
   return [
-    `旺衰依据：${strength.ruleBasis[0]}`,
+    ...(strengthBasis.length
+      ? strengthBasis.map((basis) => `旺衰依据：${basis}`)
+      : ['旺衰依据：月令、司令、通根、帮扶与克泄耗合看']),
     `扶抑条件：月令${strength.seasonalEffect}，司令${strength.commanderEffect}；${strength.hasStrongRoot ? '有未受冲本气根' : strength.hasRoot ? '见根但非稳定本气根' : '无根'}；${strength.hasSupport ? '有印比扶助' : '未见印比扶助'}；${strength.hasConstraint ? '有克泄耗' : '未见克泄耗'}；成局${strength.formationEffect}`,
     mingGe.basis ? `取格依据：${mingGe.basis}` : '',
     fulfillment ? `格局成败：${fulfillment.status}；${fulfillment.summary}` : '',
