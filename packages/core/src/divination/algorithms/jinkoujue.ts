@@ -469,8 +469,8 @@ function resolveDiFenBranch(params: {
 
   if (params.method === 'number') {
     const number = params.number;
-    if (!Number.isInteger(number) || !number || number < 1) {
-      throw new Error('金口诀数字起课必须提供不小于 1 的整数。');
+    if (!Number.isSafeInteger(number) || !number || number < 1) {
+      throw new Error('金口诀数字起课必须提供不小于 1 的安全整数。');
     }
     const normalized = ((number - 1) % 12) + 1;
     const branch = EARTHLY_BRANCHES[normalized - 1];
