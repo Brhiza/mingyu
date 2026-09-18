@@ -354,7 +354,8 @@ export function generateQimen(
     zhiFuLandingPalace,
     zhiShiLandingPalace,
     jiuGongGe,
-    hourGanForFind: activeGanForFind,
+    activeGanForFind,
+    activeGanLabel: getActiveGanLabel(scope),
     horsePalace: horsePalace?.palace,
     horsePalaceName: horsePalace?.name,
   });
@@ -536,6 +537,19 @@ function getActiveGanZhi(
       return ganzhi.day;
     default:
       return ganzhi.hour;
+  }
+}
+
+function getActiveGanLabel(scope: QimenScope): string {
+  switch (scope) {
+    case 'year':
+      return '年干';
+    case 'month':
+      return '月干';
+    case 'day':
+      return '日干';
+    default:
+      return '时干';
   }
 }
 

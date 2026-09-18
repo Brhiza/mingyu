@@ -5,6 +5,8 @@ import {
   generateQimen,
   evaluateQimenPatternFulfillment,
 } from 'mingyu-core/divination/qimen';
+import { generateQimen as generateQimenFromSource } from '../packages/core/src/divination/algorithms/qimen/index';
+import type { QimenCandidateSource } from '../packages/core/src/divination/algorithms/qimen/index';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -120,6 +122,62 @@ test('奇门证据应保留空亡与宫间五行反证', () => {
   assert.equal(evidence.candidates.find((item) => item.gong === first.gong)?.isVoid, true);
   assert.match(evidence.promptText, /宫位逢空/);
   assert.ok(evidence.relations.every((item) => item.relation.length > 0));
+});
+
+test('奇门证据按排盘范围使用六甲遁干主动源并优先于日时背景', () => {
+  const date = new Date('2026-09-07T04:00:00.000Z');
+  const activeLabels: Record<'year' | 'month' | 'day' | 'hour', QimenCandidateSource> = {
+    year: '年干落宫',
+    month: '月干落宫',
+    day: '日干落宫',
+    hour: '时干落宫',
+  };
+  const dunJia: Record<string, string> = {
+    甲子: '戊',
+    甲戌: '己',
+    甲申: '庚',
+    甲午: '辛',
+    甲辰: '壬',
+    甲寅: '癸',
+  };
+  const scopes = ['year', 'month', 'day', 'hour'] as const;
+  for (const scope of scopes) {
+    const result = generateQimenFromSource(
+      date,
+      'zhuanpan',
+      scope,
+      scope === 'hour' || scope === 'day' ? 'zhirun' : 'chaibu',
+    );
+    const activeGanZhi = result.ganzhi[scope];
+    const activeStem = dunJia[activeGanZhi] ?? activeGanZhi.charAt(0);
+    const expected = result.jiuGongGe
+      .filter(
+        (palace) =>
+          palace.tianPan.stem === activeStem ||
+          palace.tianPan.companionStem === activeStem ||
+          palace.diPan.stem === activeStem,
+      )
+      .map((palace) => palace.name)
+      .sort();
+    const label = activeLabels[scope];
+    const candidates = result.evidenceAnalysis!.candidates;
+    const actual = candidates
+      .filter((item) => item.sources.includes(label))
+      .map((item) => item.name)
+      .sort();
+    assert.deepEqual(actual, expected, `${scope} 主动干候选应使用六甲遁干`);
+    const activeIndex = candidates.findIndex((item) => item.sources.includes(label));
+    const backgroundBeforeActive = candidates
+      .slice(0, activeIndex)
+      .some((item) =>
+        item.sources.some(
+          (source) =>
+            ['年干落宫', '月干落宫', '日干落宫', '时干落宫'].includes(source) && source !== label,
+        ),
+      );
+    assert.equal(backgroundBeforeActive, false, `${scope} 主动源应优先于年/月/日/时背景源`);
+    assert.ok(result.evidenceAnalysis!.methodology.some((item) => item.includes('当前排盘范围')));
+  }
 });
 
 test('奇门中性格局与多宫门迫保留各宫条件，空亡不直接翻转吉凶', () => {
