@@ -853,3 +853,11 @@ test('短参数链接可以完整恢复输入与提示词状态', () => {
   assert.equal(parsedPrompt.ziweiScope, 'yearly');
   assert.equal(parsedPrompt.ziweiScopeDate, '2028-06-01');
 });
+
+test('未知时辰链接只允许八字单盘本人，其他盘型及合盘保持待选', () => {
+  assert.equal(parseInputState(new URLSearchParams('ti=-1')).timeIndex, -1);
+  for (const search of ['c=ziwei&ti=-1', 'c=astrolabe&ti=-1', 'a=compatibility&ti=-1']) {
+    assert.equal(parseInputState(new URLSearchParams(search)).timeIndex, '', search);
+  }
+  assert.equal(parseInputState(new URLSearchParams('pti=-1')).partnerTimeIndex, '');
+});

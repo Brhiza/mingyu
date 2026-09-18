@@ -910,8 +910,11 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <span>旺衰</span>
             <strong>{result.analysis.dayMasterStrength.status}</strong>
             <small>
-              月令{result.analysis.dayMasterStrength.details.seasonalEffect} ·{' '}
-              {result.analysis.dayMasterStrength.details.hasRoot ? '有根' : '无根'}
+              {result.isThreePillars
+                ? '月令与根气按候选分别核对'
+                : `月令${result.analysis.dayMasterStrength.details.seasonalEffect} · ${
+                    result.analysis.dayMasterStrength.details.hasRoot ? '有根' : '无根'
+                  }`}
             </small>
           </div>
           <div

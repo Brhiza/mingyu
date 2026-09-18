@@ -4,6 +4,7 @@ import { getBirthTimeDropdownOptions } from '../src/lib/birth-time';
 import { normalizeChartInputForSource } from '../src/lib/case-navigation';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
 import { buildInputStateSearch, defaultInputState, parseInputState } from '../src/lib/query-state';
+import { buildUnknownTimeBaziPrompt } from '../src/pages/ResultPage/ResultPage.helpers';
 
 const unknownTimeInput = {
   ...defaultInputState,
@@ -41,6 +42,23 @@ test('未知时辰经查询状态进入三柱排盘并保留交节具体时刻�
       /立春临界(?:前一秒|时刻)\d{2}:\d{2}:\d{2}候选/u.test(scenario.timeName),
     ),
   );
+});
+
+test('未知单盘提示词复用三柱候选事实并保留用户问题', () => {
+  const result = calculateFullBaziChart(buildPersonFromInput(unknownTimeInput));
+  const prompt = buildUnknownTimeBaziPrompt(
+    result,
+    '请比较全天候选场景，并说明立春节气临界前后的差异。',
+    'custom',
+  );
+
+  assert.match(prompt, /【排盘信息】/u);
+  assert.match(prompt, /出生时辰未知/u);
+  assert.match(prompt, /【时辰候选比较】/u);
+  assert.match(prompt, /立春临界前一秒\d{2}:\d{2}:\d{2}候选/u);
+  assert.match(prompt, /立春临界时刻\d{2}:\d{2}:\d{2}候选/u);
+  assert.match(prompt, /请比较全天候选场景，并说明立春节气临界前后的差异。/u);
+  assert.doesNotMatch(prompt, /unknownTimeAnalysis|isThreePillars/u);
 });
 
 test('未知时辰不会进入紫微、合参或其他要求具体时辰的入口', () => {

@@ -611,7 +611,7 @@ function getString(params: URLSearchParams, key: string, fallback: string) {
   return (shortKey ? params.get(shortKey) : null) ?? params.get(key) ?? fallback;
 }
 
-function parseTimeIndex(value: string) {
+function parseTimeIndex(value: string, allowUnknownTime = false) {
   if (value === '') {
     return '';
   }
@@ -621,7 +621,11 @@ function parseTimeIndex(value: string) {
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= -1 && parsed <= MAX_TIME_INDEX ? parsed : '';
+  return Number.isInteger(parsed) &&
+    parsed >= (allowUnknownTime ? -1 : 0) &&
+    parsed <= MAX_TIME_INDEX
+    ? parsed
+    : '';
 }
 
 function parseIntegerText(value: string, min: number, max: number) {
@@ -899,6 +903,13 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
 }
 
 export function parseInputState(params: URLSearchParams): QueryInputState {
+  const analysisMode =
+    getString(params, 'analysisMode', defaultInputState.analysisMode) === 'compatibility'
+      ? 'compatibility'
+      : 'single';
+  const rawChartType = getString(params, 'chartType', defaultInputState.chartType);
+  const chartType =
+    rawChartType === 'ziwei' || rawChartType === 'astrolabe' ? rawChartType : 'bazi';
   const dateType =
     getString(params, 'dateType', defaultInputState.dateType) === 'lunar' ? 'lunar' : 'solar';
   const isLeapMonth = getString(params, 'isLeapMonth', '0') === '1';
@@ -923,23 +934,18 @@ export function parseInputState(params: URLSearchParams): QueryInputState {
   });
 
   return {
-    analysisMode:
-      getString(params, 'analysisMode', defaultInputState.analysisMode) === 'compatibility'
-        ? 'compatibility'
-        : 'single',
-    chartType:
-      getString(params, 'chartType', defaultInputState.chartType) === 'ziwei'
-        ? 'ziwei'
-        : getString(params, 'chartType', defaultInputState.chartType) === 'astrolabe'
-          ? 'astrolabe'
-          : 'bazi',
+    analysisMode,
+    chartType,
     name: getString(params, 'name', defaultInputState.name),
     gender: getString(params, 'gender', defaultInputState.gender) === 'female' ? 'female' : 'male',
     dateType,
     year: birthDate.year,
     month: birthDate.month,
     day: birthDate.day,
-    timeIndex: parseTimeIndex(getString(params, 'timeIndex', String(defaultInputState.timeIndex))),
+    timeIndex: parseTimeIndex(
+      getString(params, 'timeIndex', String(defaultInputState.timeIndex)),
+      analysisMode === 'single' && chartType === 'bazi',
+    ),
     isLeapMonth,
     useTrueSolarTime: getString(params, 'useTrueSolarTime', '0') === '1',
     birthHour: parseBirthHour(getString(params, 'birthHour', defaultInputState.birthHour)),

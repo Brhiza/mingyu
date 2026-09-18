@@ -30,6 +30,7 @@ import {
 } from './ResultPage.constants';
 import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prompt';
 import {
+  buildBaziPrompt,
   formatBaziFullFortune,
   formatBaziFortuneSelection,
   formatBaziPatternConditions,
@@ -40,6 +41,20 @@ import {
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from './ResultPage.types';
 
 export type PromptDraftKind = 'custom' | 'inspiration';
+
+export function buildUnknownTimeBaziPrompt(
+  result: BaziChartResult | null,
+  question: string,
+  mode: 'framework' | 'custom',
+) {
+  if (!result?.isThreePillars) return '';
+  return buildBaziPrompt({
+    result,
+    question,
+    mode,
+    fortuneScope: 'natal',
+  });
+}
 
 function buildPromptDraftStorageKey(storageKey: string, kind: PromptDraftKind) {
   return kind === 'custom' ? storageKey : `${storageKey}:${kind}`;
