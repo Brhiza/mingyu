@@ -66,16 +66,40 @@ test('成格名称与成败状态分别保留，待核条件和反证不会被�
     basis: '月令取格',
     summary: '救应条件待核',
     contradiction: '财星受合绊',
-    remedies: [],
+    remedies: [
+      {
+        stem: '壬',
+        pillar: 'hour',
+        tenGod: '正印',
+        effect: '印星护官',
+        placement: '透干',
+      },
+    ],
     conditionFacts: [
       { key: 'private-root-key', status: '资料不足', detail: '根气尚待核对' },
       { key: 'private-path-key', status: '不满足', detail: '作用路径未成立' },
+    ],
+    pathEvaluations: [
+      {
+        key: 'private-path-evaluation',
+        label: '印星护官',
+        status: '资料不足',
+        source: ['时柱壬（正印）'],
+        target: ['年柱庚（正官）'],
+        sourceStems: ['壬'],
+        targetStems: ['庚'],
+        position: '未判定',
+        positionPairs: [],
+        detail: '位置与根气尚待核对',
+      },
     ],
   };
   const text = formatBaziDecisionDetails(result).join('\n');
   assert.match(text, /格局成败：未判定；救应条件待核/);
   assert.match(text, /成格条件（资料不足）：根气尚待核对/);
   assert.match(text, /成格条件（不满足）：作用路径未成立/);
+  assert.match(text, /制化路径（资料不足）：印星护官（未判定）；位置与根气尚待核对/);
+  assert.match(text, /候选取用：印星护官/);
   assert.match(text, /格局反证：财星受合绊/);
   assert.doesNotMatch(text, /private-root-key|private-path-key/);
 });

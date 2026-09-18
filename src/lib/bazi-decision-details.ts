@@ -37,6 +37,10 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
     ...(fulfillment?.conditionFacts ?? []).map(
       (condition) => `成格条件（${condition.status}）：${condition.detail}`,
     ),
+    ...(fulfillment?.pathEvaluations ?? []).map(
+      (path) => `制化路径（${path.status}）：${path.label}（${path.position}）；${path.detail}`,
+    ),
+    ...(fulfillment?.remedies ?? []).map((remedy) => `候选取用：${remedy.effect}`),
     fulfillment?.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
     ...(transformation
       ? [
