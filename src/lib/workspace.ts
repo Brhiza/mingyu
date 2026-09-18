@@ -13,8 +13,9 @@ export type ChartWorkspaceId =
   | 'bazhai'
   | 'compatibility';
 
+export type CalendarWorkspaceId = 'calendar';
 export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe' | 'random'>;
-export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId;
+export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId | CalendarWorkspaceId;
 export type WorkspaceFeatureGroup = 'chart' | 'divination' | 'timing';
 export type HomeModeId = 'chart' | 'divination' | 'instant';
 export type WorkspaceThemeId = 'blossom' | 'violet' | 'indigo' | 'jade' | 'amber';
@@ -161,7 +162,22 @@ const divinationFeatures: WorkspaceFeature[] = DIVINATION_METHOD_OPTIONS.filter(
   group: item.value === 'almanac' ? 'timing' : 'divination',
 }));
 
-export const WORKSPACE_FEATURES: WorkspaceFeature[] = [...chartFeatures, ...divinationFeatures];
+const calendarFeatures: WorkspaceFeature[] = [
+  {
+    id: 'calendar',
+    label: '干支日历',
+    shortLabel: '日历',
+    mark: '历',
+    description: '公历、农历、干支、节气与黄黑道',
+    group: 'timing',
+  },
+];
+
+export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
+  ...chartFeatures,
+  ...divinationFeatures,
+  ...calendarFeatures,
+];
 export const WORKSPACE_FEATURE_IDS = WORKSPACE_FEATURES.map((item) => item.id);
 export const DEFAULT_WORKSPACE_FEATURE_ID: WorkspaceFeatureId = 'bazi';
 
@@ -205,6 +221,10 @@ export function isHomeChartWorkspaceId(value: unknown): value is ChartWorkspaceI
 
 export function isDivinationWorkspaceId(value: unknown): value is DivinationWorkspaceId {
   return divinationFeatures.some((item) => item.id === value);
+}
+
+export function isCalendarWorkspaceId(value: unknown): value is CalendarWorkspaceId {
+  return value === 'calendar';
 }
 
 export function isHomeModeId(value: unknown): value is HomeModeId {
@@ -322,6 +342,7 @@ export function saveWorkspacePreferences(preferences: WorkspacePreferences) {
 }
 
 export function buildWorkspaceFeaturePath(id: WorkspaceFeatureId) {
+  if (isCalendarWorkspaceId(id)) return '/calendar';
   return isChartWorkspaceId(id) ? `/chart/${id}` : `/divination/${id}`;
 }
 

@@ -868,7 +868,11 @@
 }
 
 .workspace-divination-page.is-almanac {
-  width: 100%;
+  width: min(1600px, 100%);
+}
+
+.workspace-calendar-page {
+  width: min(1600px, 100%);
 }
 
 @media (min-width: 1100px) {

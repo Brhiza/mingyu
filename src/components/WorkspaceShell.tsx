@@ -54,6 +54,7 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
   if (chartMatch && isChartWorkspaceId(chartMatch[1])) return chartMatch[1];
   const divinationMatch = /^\/divination\/([^/]+)/.exec(pathname);
   if (divinationMatch && isDivinationWorkspaceId(divinationMatch[1])) return divinationMatch[1];
+  if (pathname === '/calendar') return 'calendar';
   return pathname === '/result' || pathname === '/result/assistant'
     ? resolveResultFeature(search)
     : null;
