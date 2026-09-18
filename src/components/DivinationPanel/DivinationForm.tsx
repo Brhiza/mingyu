@@ -381,6 +381,15 @@ export function DivinationForm({
   const divinationReverseSource = isBaziReverseSource(draft.divinationReverseSource)
     ? draft.divinationReverseSource
     : null;
+  const divinationReverseInputKey = [
+    draft.almanacParticipants.find((item) => item.id.startsWith('active-case:'))?.id ?? 'no-case',
+    divinationReverseSource?.pillars.year,
+    divinationReverseSource?.pillars.month,
+    divinationReverseSource?.pillars.day,
+    divinationReverseSource?.pillars.hour,
+    divinationReverseSource?.intervalStart,
+    divinationReverseSource?.intervalEnd,
+  ].join('|');
   const isBaziReverseTime = effectiveDivinationTimeMode === 'pillars';
   const isBaziReverseSelectionIncomplete =
     isTimeBasedDivination && isBaziReverseTime && !divinationReverseSource;
@@ -1835,7 +1844,7 @@ export function DivinationForm({
             isBaziReverseTime ? (
               <div className="divination-extra-panel divination-time-panel">
                 <BaziReverseInput
-                  key={`divination-pillars-${draft.almanacParticipants.find((item) => item.id.startsWith('active-case:'))?.id ?? 'no-case'}`}
+                  key={`divination-pillars-${divinationReverseInputKey}`}
                   source={divinationReverseSource}
                   onInvalidate={() => updateDraft('divinationReverseSource', null)}
                   onSelect={applyBaziReverseSelection}
