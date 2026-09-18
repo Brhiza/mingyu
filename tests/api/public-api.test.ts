@@ -4198,7 +4198,7 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
       exactAngle?: number;
       allowedOrb?: number;
     }) => {
-      assert.equal(aspect.strength, undefined);
+      assert.equal(typeof aspect.strength, 'number');
       assert.equal(typeof aspect.actualAngle, 'number');
       assert.equal(typeof aspect.exactAngle, 'number');
       assert.equal(typeof aspect.allowedOrb, 'number');

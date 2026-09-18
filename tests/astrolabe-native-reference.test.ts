@@ -129,6 +129,7 @@ function assertSameAspect(
     separation: number;
     deviation: number;
     orb: number;
+    strength: number;
     isApplying: boolean | null;
     isOutOfSign: boolean;
   },
@@ -154,6 +155,7 @@ function assertSameAspect(
     Math.abs(actual.allowedOrb - Number(expected.orb.toFixed(4))) < 1e-9,
     `${label}允许容许度`,
   );
+  assert.equal(actual.strength, expected.strength, `${label}相位强度`);
   assert.equal(actual.applying, expected.isApplying, `${label}入相位`);
   assert.equal(actual.isOutOfSign, expected.isOutOfSign, `${label}跨星座`);
 }
@@ -486,4 +488,5 @@ test('星盘扩展位置字段只在底层适用点位出现', () => {
   assert.ok(result.angles.every((point) => point.longitudeSpeed === undefined));
   assert.ok(result.houses.every((point) => typeof point.second === 'number'));
   assert.ok(result.houses.every((point) => point.longitudeSpeed === undefined));
+  assert.ok(result.aspects.every((aspect) => typeof aspect.strength === 'number'));
 });
