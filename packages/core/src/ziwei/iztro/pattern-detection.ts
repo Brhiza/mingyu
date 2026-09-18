@@ -1576,7 +1576,8 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     detect(context) {
       for (const target of getSoulAndBodyPalaces(context)) {
         const surrounded = getSurroundedPalaces(context, target).filter(
-          (palace) => palace.index !== target.index,
+          (palace) =>
+            palace.index !== target.index && palace.index !== target.opposite_palace_index,
         );
         const greed = findStarPalace(surrounded, '贪狼');
         const fire = findStarPalace(surrounded, '火星');

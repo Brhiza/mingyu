@@ -34,16 +34,16 @@ const NEW_YORK_SUMMER_BIRTH = {
   timeZoneId: 'America/New_York',
 } as const;
 
-test('行限：阳男阴女顺行，阴男阳女逆行，虚岁按流年减出生年加一', () => {
+test('洞微大限按地支顺行，经相貌入福德，虚岁按流年减出生年加一', () => {
   assert.equal(resolveQizhengLimitDirection('male', '阳'), '顺行');
   assert.equal(resolveQizhengLimitDirection('female', '阴'), '顺行');
-  assert.equal(resolveQizhengLimitDirection('male', '阴'), '逆行');
-  assert.equal(resolveQizhengLimitDirection('female', '阳'), '逆行');
+  assert.equal(resolveQizhengLimitDirection('male', '阴'), '顺行');
+  assert.equal(resolveQizhengLimitDirection('female', '阳'), '顺行');
   assert.equal(resolveQizhengNominalAge(1990, 2024), 35);
   assert.equal(palaceIndexByLimitStep(0, '顺行'), 0);
-  assert.equal(palaceIndexByLimitStep(1, '顺行'), 1);
-  assert.equal(palaceIndexByLimitStep(1, '逆行'), 11);
-  assert.equal(TWELVE_PALACES[palaceIndexByLimitStep(1, '逆行')], '相貌');
+  assert.equal(palaceIndexByLimitStep(1, '顺行'), 11);
+  assert.equal(palaceIndexByLimitStep(1, '逆行'), 1);
+  assert.equal(TWELVE_PALACES[palaceIndexByLimitStep(1, '顺行')], '相貌');
 });
 
 test('未给流年时七政只排本命静态盘，不冒充阶段资料', () => {
@@ -66,9 +66,12 @@ test('给出性别与流年后应同时生成行限和流曜，并叠到本命�
   });
   assert.ok(result.timeLords);
   assert.equal(result.timeLords?.nominalAge, 35);
-  assert.equal(result.timeLords?.currentMajorLimit.startNominalAge, 31);
-  assert.equal(result.timeLords?.currentMajorLimit.endNominalAge, 40);
-  assert.ok(TWELVE_PALACES.includes(result.timeLords?.currentMajorLimit.palace as string));
+  assert.equal(result.timeLords?.currentMajorLimit?.palace, '福德');
+  assert.equal(
+    result.timeLords?.currentMajorLimit?.endNominalAge! -
+      result.timeLords?.currentMajorLimit?.startNominalAge!,
+    11,
+  );
   assert.ok(result.flowingStars);
   assert.equal(result.flowingStars?.stars.length, 11);
   for (const star of result.flowingStars?.stars ?? []) {

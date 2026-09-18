@@ -32,20 +32,51 @@ const selectedChars = new Set(
 for (const char of definitionChars) selectedChars.add(char);
 for (const char of surnameChars) selectedChars.add(char);
 
+// “万”条目在项目姓名学口径中明确按“萬”的康熙部首数 15 取数；保留该既有业务约定，
+// 不因上游直接查询“萬”得到 13 画而拆成另一条姓名取数。其他明确输入的异体按实际字形保留。
+const PRESERVED_STROKE_ALIAS_PAIRS = new Set(['万\u0000萬']);
+
+// 生成表按“输入的实际字形”保留上游可直接解析到的简体、繁体和异体身份。
+// 不能只用一次 charDetail(简体) 的简繁配对，否则“後/后”“鍾/钟/锺”“檯/台”
+// 会在运行时共用简体条目的康熙笔画；也不能把所有普通笔画差异抹成同一个数。
+const pendingChars = [...selectedChars];
+for (let index = 0; index < pendingChars.length; index += 1) {
+  const detail = charDetail(pendingChars[index]);
+  if (!detail) continue;
+  for (const variant of [detail.char, detail.简体, detail.繁体]) {
+    if (!variant || selectedChars.has(variant)) continue;
+    if (PRESERVED_STROKE_ALIAS_PAIRS.has(`${detail.简体}\u0000${variant}`)) continue;
+    selectedChars.add(variant);
+    pendingChars.push(variant);
+  }
+}
+
 // 上游 shunshi-kangxi-core 个别字的康熙原文与字部存在错配，例如“简”的原文错挂“耕”字条目。
 // 在依据核验底本补录之前，先按缺文处理（置空），不得把其他字的原文当作该字的原文输出。
 const KANGXI_REFERENCE_OVERRIDES = {
   简: { kangxiText: null, kangxiVolume: null, kangxiSection: null },
 };
 
+// 姓名取数采用已核对的实际字形笔画。上游字典把“松”“姜”挂在康熙部首展开数，
+// 但姓名用字的独立字书依据分别为木部四画、女部六画；只修正这两个已确认的源条目，
+// 保留清(12/11)、万/萬等有明确字形或版本差异的数值。
+const KANGXI_NAME_STROKE_CORRECTIONS = {
+  松: 8,
+  姜: 9,
+};
+
 for (const char of selectedChars) {
   const detail = charDetail(char);
   if (!detail) continue;
+  const kangxiStrokes =
+    detail.char === char
+      ? (KANGXI_NAME_STROKE_CORRECTIONS[char] ?? detail.康熙笔画)
+      : detail.康熙笔画;
   const value = {
     char: detail.char,
     simplified: detail.简体,
     traditional: detail.繁体,
-    kangxiStrokes: detail.康熙笔画,
+    kangxiStrokes,
     radical: detail.部首,
     wuxing: detail.五行,
     pinyin: detail.拼音,
@@ -57,9 +88,16 @@ for (const char of selectedChars) {
     kangxiVolume: detail.康熙部居,
     kangxiSection: detail.康熙字部,
     common: commonCharacters.has(detail.简体),
+    sourceChars: [char],
     ...(KANGXI_REFERENCE_OVERRIDES[detail.简体] ?? {}),
   };
-  characters.set(`${detail.简体}\u0000${detail.繁体}`, value);
+  const key = `${detail.简体}\u0000${detail.繁体}`;
+  const existing = characters.get(key);
+  if (existing) {
+    if (!existing.sourceChars.includes(char)) existing.sourceChars.push(char);
+  } else {
+    characters.set(key, value);
+  }
 }
 
 const representative = { 木: 1, 火: 3, 土: 5, 金: 7, 水: 9 };
@@ -87,7 +125,18 @@ const characterTuples = characterList.map((item) => [
   item.kangxiVolume,
   item.kangxiSection,
   item.common,
+  item.sourceChars,
 ]);
+// 取数表与查字入口采用相同优先级：实际输入字形优先，简繁别名只补空缺。
+const strokeByCharacter = new Map();
+for (const item of characterList) {
+  for (const char of item.sourceChars) strokeByCharacter.set(char, item.kangxiStrokes);
+}
+for (const item of characterList) {
+  for (const char of [item.simplified, item.traditional]) {
+    if (!strokeByCharacter.has(char)) strokeByCharacter.set(char, item.kangxiStrokes);
+  }
+}
 const characterTupleShardCount = 32;
 const characterTupleShardSize = Math.ceil(characterTuples.length / characterTupleShardCount);
 const characterTupleShards = Array.from({ length: characterTupleShardCount }, (_, index) =>
@@ -110,7 +159,7 @@ const generatedDataOutput = `export interface GeneratedCharacterData {
   kangxiSection: string | null;
 }
 
-export type GeneratedCharacterTuple = readonly [string, string, number, string | null, string | null, string | null, string | null, number | null, number | null, string | null, string | null, string | null, boolean];
+export type GeneratedCharacterTuple = readonly [string, string, number, string | null, string | null, string | null, string | null, number | null, number | null, string | null, string | null, string | null, boolean, readonly string[]];
 
 export interface GeneratedShuliData { level: string; poem: string; text: string; keywords: string; level_note?: string }
 
@@ -156,10 +205,10 @@ await Promise.all(
 );
 await writeFile(
   new URL('../packages/core/src/name-number/generated-character-strokes.ts', import.meta.url),
-  `const packed = ${JSON.stringify(characterList.map((item) => `${item.simplified}${item.traditional === item.simplified ? '' : item.traditional}${String.fromCharCode(33 + item.kangxiStrokes)}`).join(''))};
+  `const packed = ${JSON.stringify([...strokeByCharacter].map(([char, strokes]) => `${char}${String.fromCharCode(33 + strokes)}`).join(''))};
 export const CHARACTER_STROKE_TUPLES: readonly (readonly [string, string, number])[] = Array.from(
-  packed.matchAll(/([^!-~])([^!-~]?)([!-~])/gu),
-  (match) => [match[1], match[2] || match[1], match[3].charCodeAt(0) - 33] as const,
+  packed.matchAll(/([^!-~])([!-~])/gu),
+  (match) => [match[1], match[1], match[2].charCodeAt(0) - 33] as const,
 );\n`,
   'utf8',
 );

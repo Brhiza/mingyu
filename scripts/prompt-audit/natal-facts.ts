@@ -865,15 +865,17 @@ export function extractQizhengFacts(
     const scope = { start: '【行限】' };
     facts.push(
       ...collect([
-        fact(
-          `${idPrefix}.limits.major-current`,
-          '当前大限',
-          [
-            `虚岁${limits.currentMajorLimit.startNominalAge}-${limits.currentMajorLimit.endNominalAge}`,
-            `${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}`,
-          ],
-          { scope },
-        ),
+        limits.currentMajorLimit
+          ? fact(
+              `${idPrefix}.limits.major-current`,
+              '当前大限',
+              [
+                `虚岁${limits.currentMajorLimit.startNominalAge}至未满${limits.currentMajorLimit.endNominalAge}`,
+                `${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}`,
+              ],
+              { scope },
+            )
+          : fact(`${idPrefix}.limits.major-current`, '当前虚岁', ['超出所列单周行限'], { scope }),
         fact(
           `${idPrefix}.limits.minor-current`,
           '当前小限',
@@ -898,7 +900,7 @@ export function extractQizhengFacts(
             `${idPrefix}.limits.major.${index}`,
             '大限十二步',
             [
-              `虚岁${item.startNominalAge}-${item.endNominalAge}`,
+              `虚岁${item.startNominalAge}至未满${item.endNominalAge}`,
               `${item.signBranch}宫${item.palace}`,
             ],
             { scope },

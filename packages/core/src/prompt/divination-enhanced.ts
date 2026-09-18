@@ -8,6 +8,7 @@ import {
 } from './liuren-facts';
 import { formatMeihuaFacts } from './meihua-facts';
 import {
+  formatQimenActiveStem,
   formatQimenHourStem,
   formatQimenRelationFacts,
   formatQimenStemLocations,
@@ -736,6 +737,17 @@ function formatQimenBirthInfo(data: QimenData, supplementaryInfo?: Supplementary
   ].join('\n');
 }
 
+function getQimenScopePresentation(data: QimenData) {
+  const scope = data.scope ?? 'hour';
+  const config = {
+    year: { scopeLabel: '年家', branchLabel: '年支' },
+    month: { scopeLabel: '月家', branchLabel: '月支' },
+    day: { scopeLabel: '日家', branchLabel: '日支' },
+    hour: { scopeLabel: '时家', branchLabel: '时支' },
+  } as const;
+  return { scope, ...(config[scope] ?? config.hour) };
+}
+
 function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
   const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
     ? data.evidenceAnalysis
@@ -753,8 +765,11 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     : data.voidBranches?.length
       ? `${data.voidBranches.join('、')}空`
       : '无';
+  const scopePresentation = getQimenScopePresentation(data);
   const horseText = data.horseStar
-    ? `${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`
+    ? scopePresentation.scope === 'hour'
+      ? `${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`
+      : `${scopePresentation.branchLabel}${data.horseStar.sourceBranch}起驿马在${data.horseStar.branch}，落${data.horseStar.name}`
     : '无';
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
@@ -779,16 +794,18 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
 
   return [
     '占法：奇门遁甲',
-    `起局方法：${data.method === 'feipan' ? '飞盘法' : '转盘法'}；${data.juMethod === 'zhirun' ? '置闰法定局' : '拆补法定局'}；${data.scope ? ({ hour: '时家', day: '日家', month: '月家', year: '年家' } as const)[data.scope] : '时家'}`,
+    `起局方法：${data.method === 'feipan' ? '飞盘法' : '转盘法'}；${data.juMethod === 'zhirun' ? '置闰法定局' : '拆补法定局'}；${scopePresentation.scopeLabel}`,
     ...focusLines,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}`,
     birthInfo,
     seasonalitySummary ? `节令：${seasonalitySummary}` : '',
-    `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；${formatQimenHourStem(data)}`,
+    `值符值使与${scopePresentation.scope === 'hour' ? '时干' : `${scopePresentation.scopeLabel}主动干`}：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；${scopePresentation.scope === 'hour' ? formatQimenHourStem(data) : formatQimenActiveStem(data)}`,
     ...formatQimenRelationFacts(zhiFuPalace, zhiShiPalace, undefined),
     ...data.jiuGongGe.flatMap((palace) => formatQimenRelationFacts(undefined, undefined, palace)),
     `旬空与马星：旬空${voidText}；马星${horseText}`,
-    specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
+    specialConditionsText
+      ? `${scopePresentation.scope === 'hour' ? '特殊时辰' : `${scopePresentation.scopeLabel}特殊条件`}：${specialConditionsText}`
+      : '',
     palaceLines.length ? '九宫简表：' : '',
     ...palaceLines,
     `同干定位：\n${formatQimenStemLocations(data).join('\n')}`,

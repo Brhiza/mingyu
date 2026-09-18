@@ -39,6 +39,32 @@ export function formatQimenHourStem(data: QimenData): string {
   ].join('；');
 }
 
+/** 按奇门排盘范围格式化主动干及其六甲遁干落点。 */
+export function formatQimenActiveStem(data: QimenData): string {
+  const scope = data.scope ?? 'hour';
+  const scopeConfig = {
+    year: { label: '年干' },
+    month: { label: '月干' },
+    day: { label: '日干' },
+    hour: { label: '时干' },
+  } as const;
+  const config = scopeConfig[scope] ?? scopeConfig.hour;
+  const activeGanZhi = data.ganzhi[scope] ?? data.ganzhi.hour;
+  const activeStem = activeGanZhi.charAt(0);
+  const visibleStem = getDunJiaStem(activeGanZhi);
+  const sky = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, visibleStem));
+  const earth = data.jiuGongGe.filter((palace) => palace.diPan.stem === visibleStem);
+  const label =
+    activeStem === visibleStem
+      ? `${config.label}${activeStem}`
+      : `${config.label}${activeStem}（${activeGanZhi}遁于${visibleStem}）`;
+  return [
+    label,
+    `天盘${visibleStem}：${sky.map((palace) => palace.name).join('、') || '未见落宫'}`,
+    `地盘${visibleStem}：${earth.map((palace) => palace.name).join('、') || '未见落宫'}`,
+  ].join('；');
+}
+
 export function formatQimenRelationFacts(
   zhiFu: Palace | undefined,
   zhiShi: Palace | undefined,

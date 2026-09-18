@@ -18,6 +18,46 @@ const input = {
   gender: '男' as const,
 };
 
+test('普通时辰模式应忽略空精准时间字段并保留时辰索引', async () => {
+  const normalized = buildZiweiChartInput({
+    name: '空精准时间字段',
+    gender: 'male',
+    dateType: 'solar',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 8,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: '',
+    birthMinute: '',
+    birthSecond: '',
+  });
+
+  assert.equal(normalized.birthTime, undefined);
+  const astrolabe = await buildAstrolabeFromInput(normalized);
+  assert.equal(astrolabe.time, '申时');
+});
+
+test('普通精准时分秒应传入紫微四柱构造', () => {
+  const normalized = buildZiweiChartInput({
+    name: '标准精准时间',
+    gender: 'male',
+    dateType: 'solar',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 8,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: 16,
+    birthMinute: 1,
+    birthSecond: 2,
+  });
+
+  assert.deepEqual(normalized.birthTime, { hour: 16, minute: 1, second: 2 });
+});
+
 test('合参案例四柱统一为节气月，紫微原始农历月及运限保持不变', async () => {
   const runtime = await calculateZiweiChart(input, {
     scopes: ['origin', 'monthly'],

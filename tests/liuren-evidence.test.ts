@@ -2,8 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
 import { TIANJIANG_ATTRIBUTES } from '../packages/core/src/divination/algorithms/liuren/helpers/plate';
+import { resolveLiurenClassicalRules } from '../packages/core/src/divination/algorithms/liuren/helpers/classical-rules';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
+
+test('大六壬遥克规则不应因“克法”字样追加贼克法', () => {
+  const rules = resolveLiurenClassicalRules('遥克法');
+  assert.deepEqual(
+    rules.map((item) => item.rule),
+    ['遥克'],
+  );
+  assert.equal(
+    rules.some((item) => item.rule === '贼克'),
+    false,
+  );
+});
 
 test('大六壬排盘应内置四课取传与三传推进结构化证据', () => {
   const data = generateLiuren(fixedDate);

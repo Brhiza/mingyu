@@ -169,7 +169,7 @@ export const QizhengBoard = memo(function QizhengBoard({
           ) : null}
           <span className="result-chip">七政四余 {data.stars.length} 星</span>
           <span className="result-chip">吊照 {data.aspects.length} 组</span>
-          {data.timeLords ? (
+          {data.timeLords?.currentMajorLimit ? (
             <span className="result-chip result-chip-highlight">
               大限 {data.timeLords.currentMajorLimit.palace}
             </span>
@@ -281,10 +281,16 @@ export const QizhengBoard = memo(function QizhengBoard({
                 <div>
                   <span>大限</span>
                   <strong>
-                    虚岁{data.timeLords.currentMajorLimit.startNominalAge}-
-                    {data.timeLords.currentMajorLimit.endNominalAge} ·{' '}
-                    {data.timeLords.currentMajorLimit.signBranch}宫
-                    {data.timeLords.currentMajorLimit.palace}
+                    {data.timeLords.currentMajorLimit ? (
+                      <>
+                        虚岁{data.timeLords.currentMajorLimit.startNominalAge}至未满
+                        {data.timeLords.currentMajorLimit.endNominalAge} ·{' '}
+                        {data.timeLords.currentMajorLimit.signBranch}宫
+                        {data.timeLords.currentMajorLimit.palace}
+                      </>
+                    ) : (
+                      '超出单周行限范围'
+                    )}
                   </strong>
                 </div>
                 <div>
@@ -302,6 +308,7 @@ export const QizhengBoard = memo(function QizhengBoard({
                   </strong>
                 </div>
               </div>
+              <p>{data.timeLords.coverageNote}</p>
             </div>
           ) : null}
           {data.flowingStars ? (

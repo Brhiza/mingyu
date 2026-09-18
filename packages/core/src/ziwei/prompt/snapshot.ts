@@ -73,9 +73,13 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
+  const birthYearHeavenlyStem = /^[甲乙丙丁戊己庚辛壬癸]/u.exec(
+    payload.basic_info.chinese_date,
+  )?.[0];
   const patterns = selectVerifiedZiweiPatterns({
     patterns: payload.patterns ?? [],
     palaces: payload.palaces,
+    birthYearHeavenlyStem,
   });
   return patterns.map((pattern) => ({
     格局: pattern.name,

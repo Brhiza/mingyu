@@ -20,7 +20,7 @@
  */
 import * as AstronomyEngine from 'astronomy-engine';
 import type { Body } from 'astronomy-engine';
-import { SevenStar, SolarTerm, TwentyEightStar } from 'tyme4ts';
+import { SevenStar, SolarTerm, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { getCivilDateTimeAtFixedOffset, resolveCivilTime } from '../calendar/civil-time';
 import { createUtcTimestamp, daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
@@ -2204,6 +2204,23 @@ function splitPrimaryAppendix(items: string[], primaryLimit: number) {
   };
 }
 
+/** 立春年界按同一瞬时点换算到节气历使用的东八区，与展示时区无关。 */
+function getQizhengSeasonalYear(utcTimestamp: number): string {
+  const parts = getCivilDateTimeAtFixedOffset(new Date(utcTimestamp), 8);
+  return SolarTime.fromYmdHms(
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  )
+    .getLunarHour()
+    .getEightChar()
+    .getYear()
+    .getName();
+}
+
 /** 生成七政四余盘 */
 export function generateQizheng(input: QizhengInput): QizhengResult {
   return generateQizhengInternal(input);
@@ -2270,13 +2287,13 @@ function generateQizhengInternal(
     YOU = 9; // 卯、酉
 
   // 安命宫：「生时加太阳宫，顺数见卯」→ 命宫 = 太阳宫 + (卯 - 生时) mod 12
-  const mingGong = (((sunSign + (MAO - hourIdx) + 12) % 12) + 12) % 12;
+  const mingGong = (sunSign - MAO + hourIdx + 12) % 12;
   // 安身宫：「生时加太阴宫，逆数见酉」→ 身宫 = 太阴宫 + (生时 - 酉) mod 12
-  const shenGong = (((moonSign + (hourIdx - YOU) + 12) % 12) + 12) % 12;
+  const shenGong = (moonSign - hourIdx + YOU + 12) % 12;
 
   const twelvePalaces = TWELVE_PALACES.map((palace, i) => ({
     palace,
-    signIndex: (mingGong - i + 12) % 12, // 自命宫逆布
+    signIndex: (mingGong + i) % 12, // 地支逆布对应黄经宫序递增
   })).map((item) => ({ ...item, signBranch: getQizhengSignBranch(item.signIndex) }));
   const palaceBySign = new Map(twelvePalaces.map((t) => [t.signIndex, t.palace]));
   for (const s of stars) {
@@ -2299,7 +2316,8 @@ function generateQizhengInternal(
       input.second ?? 0,
     ),
   );
-  const yearBranch = dateGanZhi.year[1];
+  const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
+  const yearBranch = birthSeasonalYear[1];
   const dayGan = dateGanZhi.day[0];
   const ys = yearBranchShensha(yearBranch);
   const shensha = [
@@ -2326,32 +2344,19 @@ function generateQizhengInternal(
     : undefined;
   let timeLords: QizhengTimeLordResult | undefined;
   if (input.gender && flowCivil) {
-    const birthGanZhi = getGanZhiFromDate(
-      new Date(
-        input.year,
-        input.month - 1,
-        input.day,
-        input.hour,
-        input.minute ?? 0,
-        input.second ?? 0,
-      ),
-    );
-    const flowGanZhi = getGanZhiFromDate(
-      new Date(
-        flowCivil.flowInput.year,
-        flowCivil.flowInput.month - 1,
-        flowCivil.flowInput.day,
-        flowCivil.flowInput.hour,
-        flowCivil.flowInput.minute ?? 0,
-      ),
+    const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
+    const flowSeasonalYear = getQizhengSeasonalYear(
+      buildAstronomicalTimeEvidence({ ...flowCivil.flowInput, second: 0 }).unixMilliseconds,
     );
     timeLords = buildQizhengTimeLords({
       gender: input.gender,
-      yearStem: birthGanZhi.year[0],
-      yearStemYinYang: getGanZhiYinYang(birthGanZhi.year),
+      yearStem: birthSeasonalYear[0],
+      yearStemYinYang: getGanZhiYinYang(birthSeasonalYear),
       birthYear: input.year,
       flowYear: input.flowYear as number,
-      flowYearBranch: flowGanZhi.year[1],
+      flowYearBranch: flowSeasonalYear[1],
+      birthYearBranch: birthSeasonalYear[1],
+      mingDegree: ((sun.longitude % 30) + 30) % 30,
       twelvePalaces,
     });
   }
