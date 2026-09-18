@@ -221,6 +221,23 @@ test('公开紫微接口范围模式按 scope 与运限游标分页并保留完�
   assert.deepEqual(nextFortune.body.data.range.samples[0].bundle.ziwei.scopeNames, []);
   assert.equal(nextFortune.body.data.range.samples[0].bundle.ziwei.natalFacts.kind, 'natal-facts');
   assert.equal(nextFortune.body.data.range.batch.fortuneBatch.startIndex, 1);
+
+  const { birthTimeRange: _birthTimeRange, ...pointInput } = input;
+  const [rangeFortune, pointFortune] = await Promise.all([
+    callApi('ziwei/calculate', {
+      ...input,
+      fortuneBatch: { startIndex: 81 },
+    }),
+    callApi('ziwei/calculate', {
+      ...pointInput,
+      fortuneBatch: { startIndex: 81 },
+    }),
+  ]);
+  assert.equal(rangeFortune.response.status, 200, JSON.stringify(rangeFortune.body));
+  assert.equal(pointFortune.response.status, 200, JSON.stringify(pointFortune.body));
+  const { batch: pointBatch, ...pointZiwei } = pointFortune.body.data;
+  assert.deepEqual(rangeFortune.body.data.range.samples[0].bundle.ziwei, pointZiwei);
+  assert.deepEqual(rangeFortune.body.data.range.batch, pointBatch);
 });
 
 test('范围模式拒绝起点冲突、冲突时区和非法游标，点输入保持原路径', async () => {

@@ -6,7 +6,7 @@
  */
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import { formatBaziForPrompt, type BaziChartResult, type FortuneSelectionContext } from '../bazi';
-import type { ZiweiRuntime } from '../ziwei/runtime';
+import type { ZiweiRuntimeFacts } from '../ziwei/runtime';
 import { formatZiweiFortuneTimeline } from '../ziwei/fortune-timeline';
 import {
   formatBaziFortuneSelection,
@@ -361,7 +361,7 @@ function scopeLabel(scope: ZiweiPromptScope | ScopeType) {
 }
 
 function isBatchedFullScope(
-  result: Pick<ZiweiRuntime, 'calculationBatch' | 'fortuneTimeline'>,
+  result: Pick<ZiweiRuntimeFacts, 'calculationBatch' | 'fortuneTimeline'>,
   scope: ZiweiPromptScope,
 ) {
   return scope === 'full' && Boolean(result.calculationBatch || result.fortuneTimeline?.batch);
@@ -377,7 +377,7 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
   return items.length ? items.join('；') : isOriginScope ? '未标出生年四化' : '未标出当前四化';
 }
 
-export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
+export function formatPublicZiweiFullScopeText(result: ZiweiRuntimeFacts) {
   const calculationConfig =
     result.payloadByScope.origin?.calculation_config ??
     Object.values(result.payloadByScope)[0]?.calculation_config ??
@@ -503,7 +503,10 @@ function buildKeyPalaces(payload: AnalysisPayloadV1, isOriginScope: boolean) {
   return lines.join('\n');
 }
 
-export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPromptScope = 'origin') {
+export function formatZiweiEvidenceText(
+  result: ZiweiRuntimeFacts,
+  scope: ZiweiPromptScope = 'origin',
+) {
   const batchedFullScope = isBatchedFullScope(result, scope);
   const payload =
     scope === 'full'
@@ -564,7 +567,7 @@ export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPrompt
     .join('\n\n');
 }
 
-function formatPublicTrueSolarEvidence(evidence?: ZiweiRuntime['trueSolarEvidence']) {
+function formatPublicTrueSolarEvidence(evidence?: ZiweiRuntimeFacts['trueSolarEvidence']) {
   if (!evidence) return '';
   const corrected = evidence.correctionFacts
     .find((fact) => fact.type === '总校正')
@@ -578,7 +581,7 @@ function formatPublicTrueSolarEvidence(evidence?: ZiweiRuntime['trueSolarEvidenc
 }
 
 export function buildPublicZiweiPromptForRuntime(params: {
-  result: ZiweiRuntime;
+  result: ZiweiRuntimeFacts;
   question?: string;
   topic?: ZiweiPromptTopic;
   scope?: ZiweiPromptScope;
@@ -774,7 +777,7 @@ export function buildBaziZiweiBatchPromptForResults(
       }
     | {
         section: 'ziwei-scope' | 'ziwei-fortune';
-        ziweiResult: ZiweiRuntime;
+        ziweiResult: ZiweiRuntimeFacts;
       }
   ),
 ) {
@@ -830,7 +833,7 @@ export function buildBaziZiweiBatchPromptForResults(
 
 export function buildBaziZiweiPromptForResults(params: {
   baziResult: BaziChartResult;
-  ziweiResult: ZiweiRuntime;
+  ziweiResult: ZiweiRuntimeFacts;
   question: string;
   baziTopic?: BaziPromptTopic;
   ziweiTopic?: ZiweiPromptTopic;

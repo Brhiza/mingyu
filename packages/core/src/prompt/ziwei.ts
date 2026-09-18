@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
-import type { ZiweiNatalSnapshot, ZiweiRuntime } from '../ziwei/runtime';
+import type { ZiweiNatalSnapshot, ZiweiRuntimeFacts } from '../ziwei/runtime';
 import {
   formatZiweiFortuneTimeline,
   formatZiweiFortuneTimelinePhase,
@@ -418,7 +418,9 @@ export function formatZiweiSelectedTimeline(
   return formatZiweiFortuneTimelinePhase(timeline, selections, 1, 1);
 }
 
-export function formatZiweiTargetLowerScopeFacts(runtime: Pick<ZiweiRuntime, 'payloadByScope'>) {
+export function formatZiweiTargetLowerScopeFacts(
+  runtime: Pick<ZiweiRuntimeFacts, 'payloadByScope'>,
+) {
   const scopes: ScopeType[] = ['monthly', 'daily', 'hourly'];
   const lines = scopes.flatMap((scope) => {
     const payload = runtime.payloadByScope[scope];
@@ -462,7 +464,7 @@ export {
   type ZiweiFortuneTimelinePhaseSelection,
 };
 
-export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
+export function formatZiweiFullScopeText(runtime: ZiweiRuntimeFacts) {
   if (runtime.fortuneTimeline) {
     if (runtime.fortuneTimeline.batch) {
       let firstPayload = true;
@@ -510,14 +512,14 @@ export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
     .join('\n\n');
 }
 
-function formatTrueSolarEvidence(runtime: ZiweiRuntime) {
+function formatTrueSolarEvidence(runtime: ZiweiRuntimeFacts) {
   return runtime.trueSolarEvidence?.promptText
     ? `出生时间校正：${runtime.trueSolarEvidence.promptText}`
     : '';
 }
 
 export interface ZiweiPromptOptions extends PromptBuildOptions {
-  runtime: ZiweiRuntime;
+  runtime: ZiweiRuntimeFacts;
   scope?: ZiweiPromptScope;
   school?: ZiweiPromptSchool;
   schools?: readonly ZiweiPromptSchool[];
@@ -687,7 +689,7 @@ export function buildZiweiCompatibilityPrompt(options: ZiweiCompatibilityPromptO
 
 export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   bazi: BaziChartResult;
-  ziwei: ZiweiRuntime | AnalysisPayloadV1;
+  ziwei: ZiweiRuntimeFacts | AnalysisPayloadV1;
   topic?: string;
   /** 旧版八字单派兼容字段。 */
   school?: import('./bazi').BaziPromptSchool;
@@ -698,7 +700,7 @@ export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   selection?: PromptSelection;
 }
 
-function resolveZiweiPayload(ziwei: ZiweiRuntime | AnalysisPayloadV1) {
+function resolveZiweiPayload(ziwei: ZiweiRuntimeFacts | AnalysisPayloadV1) {
   return 'payload_version' in ziwei ? ziwei : ziwei.payloadByScope.origin;
 }
 
@@ -781,7 +783,7 @@ export interface SerializableZiweiResult {
   /** 年龄年独立批次的本命基础事实；不表示已经生成 origin 证据与格局分析。 */
   natalFacts?: ZiweiNatalSnapshot;
   fortuneTimeline?: ZiweiFortuneTimeline;
-  trueSolarEvidence?: ZiweiRuntime['trueSolarEvidence'];
+  trueSolarEvidence?: ZiweiRuntimeFacts['trueSolarEvidence'];
   fourMutagens: Record<string, string>;
   birthMutagens: Record<string, string>;
   gongList: Array<{
@@ -803,7 +805,7 @@ export interface SerializableZiweiResult {
 }
 
 /** 将完整运行结果转换为稳定的 API 兼容结构。 */
-export function buildSerializableZiweiResult(runtime: ZiweiRuntime): SerializableZiweiResult {
+export function buildSerializableZiweiResult(runtime: ZiweiRuntimeFacts): SerializableZiweiResult {
   const payload = runtime.payloadByScope.origin ?? Object.values(runtime.payloadByScope)[0];
   const natalFacts = runtime.natalSnapshot;
   if (!payload && !natalFacts) {

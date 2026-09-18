@@ -32,7 +32,8 @@ import {
 } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
-  calculatePublicZiweiChartForScopes,
+  calculateZiweiFactsForScopes,
+  calculatePublicZiweiFactsForScopes,
   type ZiweiFortuneRangeScope,
   type ZiweiFortuneTimeline,
 } from 'mingyu-core/ziwei';
@@ -80,7 +81,17 @@ import {
   residentialFengshui,
 } from 'mingyu-core';
 import { calculateBirthChartBundle, type BirthChartBundleOptions } from 'mingyu-core/birth';
-import type { BirthProfile, BirthProfileTimeRange } from 'mingyu-core/profile';
+import {
+  birthProfileToZiweiChartInput,
+  normalizeBirthProfile,
+  type BirthProfile,
+  type BirthProfileTimeRange,
+} from 'mingyu-core/profile';
+import {
+  birthProfileAtRangeTimestamp,
+  resolveBirthRangeBatch,
+  validateBirthProfileTimeRange,
+} from '@core/profile/time-range';
 import { queryYilinEntry, type YilinSourcePreference } from 'mingyu-core/classics';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import {
@@ -5567,30 +5578,92 @@ async function calculateZiweiRuntime(
         ...(options.fortuneBatch ? { batch: options.fortuneBatch } : {}),
       }
     : undefined;
-  return calculatePublicZiweiChartForScopes(chartInput, scopes, {
+  return calculatePublicZiweiFactsForScopes(chartInput, scopes, {
     ...(fortuneRange ? { fortuneRange } : {}),
     horoscopeContext,
     ...(options.independentBatch ? { independentBatch: options.independentBatch } : {}),
   });
 }
 
+async function calculateZiweiBirthRangeFacts(
+  profile: BirthProfile,
+  options: Pick<BirthChartBundleOptions, 'rangeBatch' | 'ziweiRules' | 'ziwei' | 'signal'>,
+  scopeBatch?: BirthRangeScopeBatch,
+) {
+  const abortIfNeeded = () => {
+    if (options.signal?.aborted) throw new DOMException('已停止出生区间计算。', 'AbortError');
+  };
+  abortIfNeeded();
+  const source = validateBirthProfileTimeRange(profile, profile.birthTimeRange!);
+  const lockedProfile = structuredClone(profile);
+  const lockedZiweiOptions = options.ziwei ? structuredClone(options.ziwei) : undefined;
+  const {
+    scopes: ziweiScopes,
+    skipAnalysis: ziweiSkipAnalysis,
+    ...ziweiRuntimeOptions
+  } = lockedZiweiOptions ?? {};
+  const bounds = resolveBirthRangeBatch(
+    (source.endTimestamp - source.startTimestamp) / 1000,
+    options.rangeBatch,
+  );
+  const samples = [];
+  let batch: ZiweiBatchMetadata | undefined;
+  for (let index = bounds.startIndex; index < bounds.endIndexExclusive; index += 1) {
+    abortIfNeeded();
+    const timestamp = source.startTimestamp + index * 1000;
+    const pointProfile = birthProfileAtRangeTimestamp(lockedProfile, source, timestamp);
+    const chartInput = birthProfileToZiweiChartInput(pointProfile);
+    Object.assign(chartInput, options.ziweiRules);
+    const ziwei = await calculateZiweiFactsForScopes(
+      chartInput,
+      ziweiScopes,
+      ziweiSkipAnalysis,
+      ziweiRuntimeOptions,
+    );
+    batch ??= getZiweiBatchMetadata(ziwei, scopeBatch);
+    samples.push({
+      index,
+      timestamp,
+      bundle: {
+        profile: pointProfile,
+        normalized: normalizeBirthProfile(pointProfile),
+        systems: ['ziwei'],
+        inputs: { ziwei: chartInput },
+        ziwei: buildSerializableZiweiResult(ziwei),
+      },
+    });
+  }
+  abortIfNeeded();
+  return {
+    profile: lockedProfile,
+    systems: ['ziwei'],
+    range: {
+      source,
+      resolutionSeconds: 1,
+      totalSamples: bounds.totalSamples,
+      startIndex: bounds.startIndex,
+      endIndexExclusive: bounds.endIndexExclusive,
+      nextIndex: bounds.nextIndex,
+      ...(batch?.scopeBatch ? { scopeBatch: batch.scopeBatch } : {}),
+      ...(batch ? { batch } : {}),
+      samples,
+    },
+  };
+}
+
 async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
   if (input.birthTimeRange !== undefined) {
     try {
       const { profile, rangeBatch, scopeBatch, ziweiRules, ziwei } = buildZiweiRangeProfile(input);
-      const bundle = await calculateBirthChartBundle(profile, {
-        systems: ['ziwei'],
-        ziweiRules,
-        ziwei,
-        rangeBatch,
-        signal,
-      });
-      const runtime = isBirthChartRangeBundle(bundle)
-        ? bundle.range.samples[0]?.bundle.ziwei
-        : undefined;
-      return serializeBirthChartRangeBundle(
-        bundle,
-        runtime ? getZiweiBatchMetadata(runtime, scopeBatch) : undefined,
+      return await calculateZiweiBirthRangeFacts(
+        profile,
+        {
+          rangeBatch,
+          ziweiRules,
+          ziwei,
+          signal,
+        },
+        scopeBatch,
       );
     } catch (error) {
       return throwBirthRangeApiError(error, '紫微出生时间范围参数无效。');

@@ -4,6 +4,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import {
   buildZiweiChartInput,
+  calculateZiweiFactsForScopes,
   calculateZiweiChartForScopes,
   type ZiweiFortuneRangeOptions,
   type ZiweiFortuneTimeline,
@@ -382,7 +383,7 @@ export function registerZiweiTool(server: McpServer) {
                 horoscopeContext.hourIndex,
                 batchOptions.fortuneBatch,
               );
-        const result = await calculateZiweiChartForScopes(input, batchOptions.scopes, undefined, {
+        const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
           ...(batchOptions.independentBatch
@@ -440,7 +441,7 @@ export function registerZiweiTool(server: McpServer) {
                 horoscopeContext.hourIndex,
                 batchOptions.fortuneBatch,
               );
-        const result = await calculateZiweiChartForScopes(input, batchOptions.scopes, undefined, {
+        const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
           ...(batchOptions.independentBatch

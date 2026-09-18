@@ -489,11 +489,15 @@ async function buildTimelineFromAstrolabe(
   calculationContext: {
     resolveHoroscope: ZiweiHoroscopeResolver;
     verifiedBatch?: VerifiedDecadalTimelineBatch;
+    verifiedTargetAge?: number;
   },
 ): Promise<ZiweiFortuneTimeline> {
-  const { resolveHoroscope, verifiedBatch } = calculationContext;
-  const targetHoroscope = await resolveHoroscope(options.dateStr, options.hourIndex);
-  const targetAge = targetHoroscope.age.nominalAge;
+  const { resolveHoroscope, verifiedBatch, verifiedTargetAge } = calculationContext;
+  const targetHoroscope =
+    verifiedTargetAge === undefined || options.scope !== 'all'
+      ? await resolveHoroscope(options.dateStr, options.hourIndex)
+      : undefined;
+  const targetAge = verifiedTargetAge ?? targetHoroscope!.age.nominalAge;
   const selectedPeriodIndex =
     verifiedBatch?.targetPeriodIndex ??
     decadalTimeline.findIndex(
@@ -511,7 +515,7 @@ async function buildTimelineFromAstrolabe(
       ? await findTargetYearBoundary(
           options.dateStr,
           options.hourIndex,
-          targetHoroscope,
+          targetHoroscope!,
           resolveHoroscope,
         )
       : null;
@@ -684,7 +688,7 @@ async function buildTimelineFromAstrolabe(
         includeMonths,
         includeDay,
         includeHour,
-        targetHoroscope,
+        targetHoroscope!,
         resolveHoroscope,
       );
     }
@@ -766,6 +770,31 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
         : {}),
     },
   );
+}
+
+/**
+ * normal 年龄口径的独立全范围年龄年内部入口。
+ * targetAge 由出生盘和目标日期在核心内计算，不接受调用方提供中间盘面或年龄。
+ */
+export async function buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  decadalTimeline: DecadalTimelineOption[],
+  options: ZiweiFortuneRangeOptions & {
+    scope: 'all';
+    dateStr: string;
+    hourIndex: number;
+    batch: { startIndex?: number; limit?: number };
+  },
+  calculationContext: {
+    resolveHoroscope: ZiweiHoroscopeResolver;
+    verifiedBatch: VerifiedDecadalTimelineBatch;
+    verifiedTargetAge: number;
+  },
+): Promise<ZiweiFortuneTimeline> {
+  return buildTimelineFromAstrolabe(astrolabe, input, decadalTimeline, options, {
+    ...calculationContext,
+  });
 }
 
 /** 独立使用时生成星盘、时间线和范围资料；网页 worker 与公开入口共用此实现。 */

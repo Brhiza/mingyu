@@ -6,6 +6,7 @@ import {
   buildZiweiFortuneTimelineFromAstrolabe,
   buildZiweiChartInput,
   calculateZiweiChart,
+  calculateZiweiFactsForScopes,
   formatZiweiFortuneTimeline,
   type ZiweiFortuneRangeScope,
   type ZiweiFortuneTimeline,
@@ -15,11 +16,14 @@ import { buildThematicConsultationPrompt, buildZiweiPrompt } from 'mingyu-core/p
 import {
   buildVerifiedDecadalTimelineOptions,
   buildVerifiedDecadalTimelineBatchOptions,
+  calculateNormalZiweiNominalAge,
   createZiweiHoroscopeResolver,
   type ZiweiHoroscopeResolver,
 } from '../packages/core/src/ziwei/iztro/decadal';
 import { buildAnalysisPayloadV1 } from '../packages/core/src/ziwei/iztro/build-analysis-payload/index';
 import { buildEvidencePool } from '../packages/core/src/ziwei/iztro/build-evidence-pool';
+import { buildNormalZiweiFortuneBatchTimelineFromAstrolabe } from '../packages/core/src/ziwei/fortune-timeline';
+import { buildSerializableZiweiResult } from '../packages/core/src/prompt/ziwei';
 import type { EvidenceFact } from '../packages/core/src/types/analysis';
 import type { IztroHoroscope } from '../packages/core/src/types/iztro';
 
@@ -401,6 +405,307 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
     { resolveHoroscope: directResolver, verifiedBatch: baselineDecadalBatch },
   );
   assert.deepEqual(timeline, baseline);
+});
+
+test('紫微normal目标虚岁公式与iztro在农历年边界及不同盘型一致', async () => {
+  const cases = [
+    {
+      chartInput: input,
+      dates: [
+        '2024-02-09',
+        '2024-02-10',
+        '2024-02-11',
+        '2026-02-16',
+        '2026-02-17',
+        '2026-02-18',
+        '2072-02-19',
+        '2100-02-08',
+        '2100-02-09',
+        '2100-02-10',
+      ],
+    },
+    {
+      chartInput: buildZiweiChartInput({
+        name: '中州春节样本',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1992',
+        month: '2',
+        day: '3',
+        timeIndex: 0,
+        isLeapMonth: false,
+        algorithm: 'zhongzhou',
+      }),
+      dates: ['2024-02-09', '2024-02-10', '2024-02-11'],
+    },
+    {
+      chartInput: {
+        ...buildZiweiChartInput({
+          name: '闰月精确分界样本',
+          gender: 'female',
+          dateType: 'lunar',
+          year: '2004',
+          month: '2',
+          day: '1',
+          timeIndex: 12,
+          isLeapMonth: true,
+          algorithm: 'default',
+        }),
+        yearDivide: 'exact' as const,
+        horoscopeDivide: 'exact' as const,
+      },
+      dates: ['2026-02-16', '2026-02-17', '2026-02-18'],
+    },
+    {
+      chartInput: buildZiweiChartInput({
+        name: '1900年历法下界样本',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1900',
+        month: '1',
+        day: '15',
+        timeIndex: 4,
+        isLeapMonth: false,
+        algorithm: 'default',
+      }),
+      dates: ['1900-01-30', '1900-01-31', '1900-02-01'],
+    },
+  ];
+
+  for (const { chartInput, dates } of cases) {
+    const astrolabe = await buildAstrolabeFromInput(chartInput);
+    for (const dateStr of dates) {
+      for (const hourIndex of [0, 4, 12]) {
+        const horoscope = await buildHoroscopeFromInput(astrolabe, chartInput, dateStr, hourIndex);
+        assert.equal(
+          calculateNormalZiweiNominalAge(astrolabe, dateStr, hourIndex),
+          horoscope.age.nominalAge,
+          `${chartInput.name} ${dateStr} 时辰${hourIndex}`,
+        );
+      }
+    }
+  }
+});
+
+test('紫微normal全范围独立年龄年省略未消费目标运限对象且事实逐字节一致', async () => {
+  const options = {
+    horoscopeContext: boundaryContext,
+    independentBatch: 'fortune' as const,
+    fortuneRange: {
+      scope: 'all' as const,
+      ...boundaryContext,
+      batch: { startIndex: 80, limit: 1 },
+    },
+  };
+  const legacy = await calculateZiweiChart(input, { scopes: [], ...options });
+  const facts = await calculateZiweiFactsForScopes(input, [], undefined, options);
+  const { horoscope: _horoscope, astrolabe: legacyAstrolabe, ...expectedFacts } = legacy;
+  const { astrolabe: factsAstrolabe, ...actualFacts } = facts;
+
+  assert.equal('horoscope' in facts, false);
+  assert.deepEqual(actualFacts, expectedFacts);
+  assert.equal(JSON.stringify(actualFacts), JSON.stringify(expectedFacts));
+  assert.deepEqual(
+    {
+      solarDate: factsAstrolabe.solarDate,
+      lunarDate: factsAstrolabe.lunarDate,
+      chineseDate: factsAstrolabe.chineseDate,
+      palaces: factsAstrolabe.palaces.map(({ index, name, heavenlyStem, earthlyBranch }) => ({
+        index,
+        name,
+        heavenlyStem,
+        earthlyBranch,
+      })),
+    },
+    {
+      solarDate: legacyAstrolabe.solarDate,
+      lunarDate: legacyAstrolabe.lunarDate,
+      chineseDate: legacyAstrolabe.chineseDate,
+      palaces: legacyAstrolabe.palaces.map(({ index, name, heavenlyStem, earthlyBranch }) => ({
+        index,
+        name,
+        heavenlyStem,
+        earthlyBranch,
+      })),
+    },
+  );
+  assert.deepEqual(buildSerializableZiweiResult(facts), buildSerializableZiweiResult(legacy));
+  assert.equal(
+    buildPublicZiweiPromptForRuntime({ result: facts, scope: 'full' }),
+    buildPublicZiweiPromptForRuntime({ result: legacy, scope: 'full' }),
+  );
+  assert.equal(facts.fortuneTimeline?.targetDateStr, boundaryContext.dateStr);
+  assert.equal(facts.fortuneTimeline?.targetAge, legacy.horoscope.age.nominalAge);
+  assert.equal(facts.fortuneTimeline?.periods[0]?.years[0]?.age, 81);
+});
+
+test('紫微normal事实入口在精确分界与中州配置下保持完整结果一致', async () => {
+  const cases = [
+    {
+      chartInput: {
+        ...input,
+        yearDivide: 'exact' as const,
+        horoscopeDivide: 'exact' as const,
+      },
+      startIndex: 59,
+    },
+    {
+      chartInput: {
+        ...buildZiweiChartInput({
+          name: '中州精确分界结果对照',
+          gender: 'female',
+          dateType: 'solar',
+          year: '2004',
+          month: '3',
+          day: '21',
+          timeIndex: 8,
+          isLeapMonth: false,
+          algorithm: 'zhongzhou',
+        }),
+        yearDivide: 'exact' as const,
+        horoscopeDivide: 'exact' as const,
+      },
+      startIndex: 81,
+    },
+  ];
+
+  for (const { chartInput, startIndex } of cases) {
+    const options = {
+      horoscopeContext: boundaryContext,
+      independentBatch: 'fortune' as const,
+      fortuneRange: {
+        scope: 'all' as const,
+        ...boundaryContext,
+        batch: { startIndex, limit: 1 },
+      },
+    };
+    const legacy = await calculateZiweiChart(chartInput, { scopes: [], ...options });
+    const facts = await calculateZiweiFactsForScopes(chartInput, [], undefined, options);
+    const { horoscope: _horoscope, astrolabe: _legacyAstrolabe, ...legacyFacts } = legacy;
+    const { astrolabe: _factsAstrolabe, ...actualFacts } = facts;
+    assert.deepEqual(actualFacts, legacyFacts);
+    assert.equal(
+      JSON.stringify(buildSerializableZiweiResult(facts)),
+      JSON.stringify(buildSerializableZiweiResult(legacy)),
+    );
+    assert.equal(
+      buildPublicZiweiPromptForRuntime({ result: facts, scope: 'full' }),
+      buildPublicZiweiPromptForRuntime({ result: legacy, scope: 'full' }),
+    );
+  }
+});
+
+test('紫微normal独立年龄年内部时间线不构造固定目标对象', async () => {
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const nativeHoroscope = astrolabe.horoscope.bind(astrolabe);
+  const constructions: string[] = [];
+  astrolabe.horoscope = ((dateStr, hourIndex) => {
+    constructions.push(`${dateStr}#${hourIndex}`);
+    return nativeHoroscope(dateStr, hourIndex);
+  }) as typeof astrolabe.horoscope;
+  const resolver = createZiweiHoroscopeResolver(astrolabe, input);
+  const targetAge = calculateNormalZiweiNominalAge(
+    astrolabe,
+    boundaryContext.dateStr,
+    boundaryContext.hourIndex,
+  );
+  const verifiedBatch = await buildVerifiedDecadalTimelineBatchOptions(
+    astrolabe,
+    input,
+    { scope: 'all', targetAge, batch: { startIndex: 80, limit: 1 } },
+    resolver,
+  );
+  const timeline = await buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
+    astrolabe,
+    input,
+    verifiedBatch.periods.map((entry) => entry.period),
+    {
+      scope: 'all',
+      ...boundaryContext,
+      batch: { startIndex: 80, limit: 1 },
+    },
+    { resolveHoroscope: resolver, verifiedBatch, verifiedTargetAge: targetAge },
+  );
+
+  assert.equal(
+    constructions.includes(`${boundaryContext.dateStr}#${boundaryContext.hourIndex}`),
+    false,
+  );
+  assert.equal(timeline.targetAge, targetAge);
+  assert.equal(timeline.periods[0]?.years[0]?.age, 81);
+  assert.ok(constructions.includes(`${timeline.periods[0]?.dateStr}#${boundaryContext.hourIndex}`));
+  assert.ok(
+    constructions.includes(
+      `${timeline.periods[0]?.years[0]?.dateStr}#${boundaryContext.hourIndex}`,
+    ),
+  );
+});
+
+test('紫微生日与current独立年龄年继续返回真实目标运限对象', async () => {
+  const birthday = await calculateZiweiFactsForScopes(
+    { ...input, ageDivide: 'birthday' },
+    [],
+    undefined,
+    {
+      horoscopeContext: boundaryContext,
+      independentBatch: 'fortune',
+      fortuneRange: {
+        scope: 'all',
+        ...boundaryContext,
+        batch: { startIndex: 0, limit: 1 },
+      },
+    },
+  );
+  assert.equal('horoscope' in birthday, true);
+
+  const current = await calculateZiweiFactsForScopes(input, [], undefined, {
+    horoscopeContext: boundaryContext,
+    independentBatch: 'fortune',
+    fortuneRange: {
+      scope: 'current',
+      ...boundaryContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  assert.equal('horoscope' in current, true);
+
+  const legacyAllBatch = await calculateZiweiFactsForScopes(input, ['origin'], undefined, {
+    horoscopeContext: boundaryContext,
+    fortuneRange: {
+      scope: 'all',
+      ...boundaryContext,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  assert.equal('horoscope' in legacyAllBatch, true);
+});
+
+test('紫微normal独立年龄年仍分别校验固定上下文与运限目标上下文', async () => {
+  await assert.rejects(
+    calculateZiweiFactsForScopes(input, [], undefined, {
+      horoscopeContext: { dateStr: '2026-02-30', hourIndex: 4 },
+      independentBatch: 'fortune',
+      fortuneRange: {
+        scope: 'all',
+        ...boundaryContext,
+        batch: { startIndex: 0, limit: 1 },
+      },
+    }),
+    /行运日期需在 1-28 之间/,
+  );
+  await assert.rejects(
+    calculateZiweiFactsForScopes(input, [], undefined, {
+      horoscopeContext: boundaryContext,
+      independentBatch: 'fortune',
+      fortuneRange: {
+        scope: 'all',
+        dateStr: '2026-02-30',
+        hourIndex: 4,
+        batch: { startIndex: 0, limit: 1 },
+      },
+    }),
+    /行运日期需在 1-28 之间/,
+  );
 });
 
 test('紫微独立年龄年normal阶段终点直取农历年界且各阶段与完整验证结果一致', async () => {

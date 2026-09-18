@@ -6,7 +6,7 @@ import {
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
 } from '@core/bazi/fortuneSelection';
-import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
+import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_PROMPT_TOPICS,
   BAZI_MULTI_SCHOOLS,
@@ -325,7 +325,7 @@ export function registerBaziZiweiTool(server: McpServer) {
                 horoscopeContext.hourIndex,
                 batchOptions.fortuneBatch,
               );
-        const ziweiResult = await calculateZiweiChartForScopes(
+        const ziweiResult = await calculateZiweiFactsForScopes(
           ziweiInput,
           batchOptions.scopes,
           undefined,

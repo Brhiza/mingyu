@@ -2,7 +2,11 @@ import type { PalaceFact } from '../../types/analysis';
 import type { ChartInput } from '../../types/chart';
 import type { IztroAstrolabe, IztroHoroscope } from '../../types/iztro';
 import { LunarDay, SolarDay } from 'tyme4ts';
-import { buildHoroscopeFromInput, shiftLunarYear } from './runtime-helpers';
+import {
+  assertValidHoroscopeInput,
+  buildHoroscopeFromInput,
+  shiftLunarYear,
+} from './runtime-helpers';
 
 export type DecadalTimelineOption = {
   kind: 'childhood' | 'decadal';
@@ -133,6 +137,21 @@ function buildNormalAgeBoundaryDate(astrolabe: IztroAstrolabe, nominalAge: numbe
   const [year, month, day] = anniversary.split('-').map(Number);
   const anniversaryLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
   return formatSolarDay(LunarDay.fromYmd(anniversaryLunarYear, 1, 1).getSolarDay());
+}
+
+/**
+ * iztro normal 口径的虚岁只取出生与目标日期的农历年差并加一。
+ * 这里复用星盘内已经确定的出生农历年，不生成目标时刻的完整运限对象。
+ */
+export function calculateNormalZiweiNominalAge(
+  astrolabe: IztroAstrolabe,
+  dateStr: string,
+  hourIndex: number,
+) {
+  assertValidHoroscopeInput(dateStr, hourIndex);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const targetLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
+  return targetLunarYear - astrolabe.rawDates.lunarDate.lunarYear + 1;
 }
 
 async function findVerifiedHoroscope(

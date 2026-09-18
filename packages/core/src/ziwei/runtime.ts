@@ -11,6 +11,7 @@ import type {
 import type { ChartInput } from '../types/chart';
 import type { IztroAstrolabe, IztroHoroscope } from '../types/iztro';
 import {
+  assertValidHoroscopeInput,
   buildAstrolabeFromInput,
   buildHoroscopeFromInput,
   buildZiweiCalculationConfig,
@@ -25,9 +26,11 @@ import {
 import {
   buildVerifiedDecadalTimelineBatchOptions,
   buildVerifiedDecadalTimelineOptions,
+  calculateNormalZiweiNominalAge,
   createZiweiHoroscopeResolver,
 } from './iztro/decadal';
 import {
+  buildNormalZiweiFortuneBatchTimelineFromAstrolabe,
   buildZiweiFortuneTimelineFromAstrolabe,
   type ZiweiFortuneRangeOptions,
   type ZiweiFortuneTimeline,
@@ -48,6 +51,16 @@ export type ZiweiRuntime = {
   /** 当前、全部或指定下层范围的逐阶段逐年资料；未请求范围时省略。 */
   fortuneTimeline?: ZiweiFortuneTimeline;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
+};
+
+/** 提示词、序列化与公开分页只需要的盘面事实，不承诺附带目标时刻完整运限对象。 */
+export type ZiweiRuntimeFacts = Omit<ZiweiRuntime, 'horoscope'>;
+
+/** normal 口径的独立年龄年结果；本命、阶段与所选年龄年事实保持完整。 */
+export type ZiweiFortuneBatchRuntime = ZiweiRuntimeFacts & {
+  calculationBatch: 'fortune';
+  natalSnapshot: ZiweiNatalSnapshot;
+  fortuneTimeline: ZiweiFortuneTimeline;
 };
 
 export type ZiweiNatalSnapshot = {
@@ -281,6 +294,91 @@ export async function calculateZiweiChartForScopes(
   return calculateZiweiChart(input, { ...options, scopes, skipAnalysis });
 }
 
+/**
+ * 生成供提示词与公开序列化消费的紫微事实。
+ * normal + all 的独立年龄年无需构造不会被消费的目标时刻完整运限对象；其余路径保留
+ * `calculateZiweiChartForScopes` 的真实 ZiweiRuntime 行为。
+ */
+export async function calculateZiweiFactsForScopes(
+  input: ChartInput,
+  scopes?: ScopeType[],
+  skipAnalysis?: boolean,
+  options: Omit<ZiweiRuntimeOptions, 'scopes' | 'skipAnalysis'> = {},
+): Promise<ZiweiRuntimeFacts> {
+  const fortuneRange = options.fortuneRange;
+  if (
+    options.independentBatch !== 'fortune' ||
+    fortuneRange?.scope !== 'all' ||
+    (input.ageDivide ?? 'normal') === 'birthday'
+  ) {
+    return calculateZiweiChartForScopes(input, scopes, skipAnalysis, options);
+  }
+  if (!fortuneRange.batch) {
+    throw new RangeError('紫微年龄年独立批次必须提供 fortuneRange.batch。');
+  }
+  if (scopes?.length) {
+    throw new RangeError('紫微年龄年独立批次不能同时计算资料 scope。');
+  }
+  if ((fortuneRange.batch.limit ?? 1) !== 1) {
+    throw new RangeError('紫微年龄年独立批次每次只能计算一个年龄年。');
+  }
+
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
+  const horoscopeContext = resolveHoroscopeContext(options);
+  assertValidHoroscopeInput(horoscopeContext.dateStr, horoscopeContext.hourIndex);
+  const fortuneContext = {
+    dateStr: fortuneRange.dateStr ?? horoscopeContext.dateStr,
+    hourIndex: fortuneRange.hourIndex ?? horoscopeContext.hourIndex,
+  };
+  const targetAge = calculateNormalZiweiNominalAge(
+    astrolabe,
+    fortuneContext.dateStr,
+    fortuneContext.hourIndex,
+  );
+  const calculationConfig = buildZiweiCalculationConfig(input);
+  const natalSnapshot = buildZiweiNatalSnapshot({
+    astrolabe,
+    calculationConfig,
+    birthTime: input.birthTime,
+  });
+  const verifiedDecadalBatch = await buildVerifiedDecadalTimelineBatchOptions(
+    astrolabe,
+    input,
+    {
+      scope: 'all',
+      targetAge,
+      batch: fortuneRange.batch,
+    },
+    resolveHoroscope,
+  );
+  const decadalTimeline = verifiedDecadalBatch.periods.map((entry) => entry.period);
+  const fortuneTimeline = await buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
+    astrolabe,
+    input,
+    decadalTimeline,
+    {
+      ...fortuneRange,
+      scope: 'all',
+      dateStr: fortuneContext.dateStr,
+      hourIndex: fortuneContext.hourIndex,
+      batch: fortuneRange.batch,
+    },
+    { resolveHoroscope, verifiedBatch: verifiedDecadalBatch, verifiedTargetAge: targetAge },
+  );
+
+  return {
+    astrolabe,
+    horoscopeContext: { ...horoscopeContext },
+    payloadByScope: {} as Record<ScopeType, AnalysisPayloadV1>,
+    natalSnapshot,
+    calculationBatch: 'fortune',
+    decadalTimeline,
+    fortuneTimeline,
+    trueSolarEvidence: input.trueSolarEvidence,
+  } satisfies ZiweiFortuneBatchRuntime;
+}
+
 /** 面向较小接口响应的范围入口，始终保留本命资料。 */
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
@@ -296,6 +394,22 @@ export async function calculatePublicZiweiChartForScopes(
           ? scopes
           : Array.from(new Set(['origin' as const, ...(scopes ?? [])])),
   });
+}
+
+/** 面向公开提示词与序列化的范围入口；旧非分页行为仍自动保留 origin。 */
+export async function calculatePublicZiweiFactsForScopes(
+  input: ChartInput,
+  scopes?: ScopeType[],
+  options: Omit<ZiweiRuntimeOptions, 'scopes'> = {},
+): Promise<ZiweiRuntimeFacts> {
+  if (
+    options.independentBatch === 'fortune' &&
+    options.fortuneRange?.scope === 'all' &&
+    (input.ageDivide ?? 'normal') !== 'birthday'
+  ) {
+    return calculateZiweiFactsForScopes(input, [], options.skipAnalysis, options);
+  }
+  return calculatePublicZiweiChartForScopes(input, scopes, options);
 }
 
 /** 只返回各范围结构化资料，不额外暴露完整运行时给调用方。 */

@@ -10,7 +10,7 @@ import {
   type BaziFortuneSelectionValue,
   type FortuneSelectionContext,
 } from '../bazi';
-import type { ZiweiRuntime } from '../ziwei/runtime';
+import type { ZiweiRuntimeFacts } from '../ziwei/runtime';
 import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
@@ -270,7 +270,7 @@ export interface ThematicConsultationOptions {
   baziSchool?: BaziPromptSchool;
   baziSchools?: readonly BaziPromptSchool[];
   // 紫微资料
-  ziweiResult?: ZiweiRuntime;
+  ziweiResult?: ZiweiRuntimeFacts;
   ziweiScope?: ZiweiPromptScope;
   ziweiSchool?: ZiweiSchool;
   ziweiSchools?: readonly ZiweiSchool[];

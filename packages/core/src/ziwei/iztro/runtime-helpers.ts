@@ -413,7 +413,7 @@ function assertOneOf<T extends readonly string[]>(
   }
 }
 
-function assertValidHoroscopeInput(dateStr: unknown, hourIndex: number) {
+export function assertValidHoroscopeInput(dateStr: unknown, hourIndex: number) {
   if (typeof dateStr !== 'string') {
     throw new Error('行运日期格式需为 YYYY-MM-DD。');
   }

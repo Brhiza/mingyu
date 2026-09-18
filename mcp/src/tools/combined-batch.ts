@@ -13,7 +13,7 @@ import {
   type CombinedBatchMetadata,
   type ZiweiPromptScope,
 } from '../../../src/lib/public-api/prompt-builders.js';
-import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
+import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import type { ChartInput } from '@core/types';
 
 export const combinedBatchSchema = z
@@ -91,7 +91,7 @@ export async function calculateMcpCombinedBatchPage(params: {
   }
 
   const scopes = getZiweiPromptCalculationScopes('full');
-  const ziweiResult = await calculateZiweiChartForScopes(
+  const ziweiResult = await calculateZiweiFactsForScopes(
     params.ziweiInput,
     cursor.section === 'ziwei-scope' ? [scopes[cursor.startIndex]!] : [],
     undefined,

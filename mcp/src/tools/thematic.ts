@@ -6,7 +6,7 @@ import {
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
 } from '@core/bazi/fortuneSelection';
-import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
+import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
@@ -264,7 +264,7 @@ export function registerThematicTool(server: McpServer) {
         }
 
         let baziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
-        let ziweiResult: Awaited<ReturnType<typeof calculateZiweiChartForScopes>> | undefined;
+        let ziweiResult: Awaited<ReturnType<typeof calculateZiweiFactsForScopes>> | undefined;
         let serializableZiweiResult: unknown | undefined;
         let ziweiBatch: ReturnType<typeof getMcpZiweiBatchMetadata> | undefined;
 
@@ -293,7 +293,7 @@ export function registerThematicTool(server: McpServer) {
                   horoscopeContext.hourIndex,
                   batchOptions.fortuneBatch,
                 );
-          const computedZiwei = await calculateZiweiChartForScopes(
+          const computedZiwei = await calculateZiweiFactsForScopes(
             ziweiInput,
             batchOptions.scopes,
             undefined,

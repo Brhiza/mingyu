@@ -57,13 +57,17 @@ export {
   buildZiweiPayloadByScope,
   calculateFullZiweiChart,
   calculatePublicZiweiChartForScopes,
+  calculatePublicZiweiFactsForScopes,
+  calculateZiweiFactsForScopes,
   calculateZiweiChart,
   calculateZiweiChartForScopes,
   calculateZiweiDisplayPayload,
   calculateZiweiPayloadByScope,
   type ZiweiChartInputDraft,
   type ZiweiHoroscopeContext,
+  type ZiweiFortuneBatchRuntime,
   type ZiweiRuntime,
+  type ZiweiRuntimeFacts,
   type ZiweiRuntimeOptions,
 } from '../runtime';
 export {
