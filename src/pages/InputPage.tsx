@@ -501,6 +501,31 @@ export function InputPage() {
     });
   }
 
+  const selfReverseSource = parseBaziReverseSource(form.birthReverseSource);
+  const selfReverseInputKey = [
+    'self',
+    location.key,
+    personInputKeys.self,
+    selfReverseSource?.pillars.year,
+    selfReverseSource?.pillars.month,
+    selfReverseSource?.pillars.day,
+    selfReverseSource?.pillars.hour,
+    selfReverseSource?.intervalStart,
+    selfReverseSource?.intervalEnd,
+  ].join('|');
+  const partnerReverseSource = parseBaziReverseSource(form.partnerBirthReverseSource);
+  const partnerReverseInputKey = [
+    'partner',
+    location.key,
+    personInputKeys.partner,
+    partnerReverseSource?.pillars.year,
+    partnerReverseSource?.pillars.month,
+    partnerReverseSource?.pillars.day,
+    partnerReverseSource?.pillars.hour,
+    partnerReverseSource?.intervalStart,
+    partnerReverseSource?.intervalEnd,
+  ].join('|');
+
   return (
     <div className={`workspace-input-page${config.compatibility ? ' is-compatibility' : ''}`}>
       <WorkspacePage
@@ -559,13 +584,13 @@ export function InputPage() {
             onInputModeChange={(mode) => changePersonInputMode('self', mode)}
             reversePanel={
               <BaziReverseInput
-                key={`self-${location.key}-${personInputKeys.self}`}
-                source={parseBaziReverseSource(form.birthReverseSource)}
+                key={selfReverseInputKey}
+                source={selfReverseSource}
                 onInvalidate={() => updatePersonField('self', 'reverseSource', '')}
                 onSelect={(selection) => applyReverseSelection('self', selection)}
               />
             }
-            reverseSource={parseBaziReverseSource(form.birthReverseSource)}
+            reverseSource={selfReverseSource}
             allowUnknownTime={config.allowUnknownTime}
           />
           {config.compatibility ? (
@@ -586,13 +611,13 @@ export function InputPage() {
               onInputModeChange={(mode) => changePersonInputMode('partner', mode)}
               reversePanel={
                 <BaziReverseInput
-                  key={`partner-${location.key}-${personInputKeys.partner}`}
-                  source={parseBaziReverseSource(form.partnerBirthReverseSource)}
+                  key={partnerReverseInputKey}
+                  source={partnerReverseSource}
                   onInvalidate={() => updatePersonField('partner', 'reverseSource', '')}
                   onSelect={(selection) => applyReverseSelection('partner', selection)}
                 />
               }
-              reverseSource={parseBaziReverseSource(form.partnerBirthReverseSource)}
+              reverseSource={partnerReverseSource}
             />
           ) : null}
         </div>

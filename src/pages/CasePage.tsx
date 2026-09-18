@@ -259,6 +259,18 @@ export function CasePage() {
     closeEditor();
   }
 
+  const caseReverseSource = parseBaziReverseSource(form.birthReverseSource);
+  const caseReverseInputKey = [
+    'case-reverse',
+    editingRecord?.id ?? 'new',
+    caseReverseSource?.pillars.year,
+    caseReverseSource?.pillars.month,
+    caseReverseSource?.pillars.day,
+    caseReverseSource?.pillars.hour,
+    caseReverseSource?.intervalStart,
+    caseReverseSource?.intervalEnd,
+  ].join('|');
+
   function openCase(record: PersonalHistoryRecord) {
     selectCase(record.id);
     navigate(buildPersonalRecordPath(record));
@@ -440,8 +452,8 @@ export function CasePage() {
               }}
               reversePanel={
                 <BaziReverseInput
-                  key={`case-reverse-${editingRecord?.id ?? 'new'}`}
-                  source={parseBaziReverseSource(form.birthReverseSource)}
+                  key={caseReverseInputKey}
+                  source={caseReverseSource}
                   onInvalidate={() => updatePersonField('self', 'reverseSource', '')}
                   onSelect={(selection) => {
                     setForm((current) => applyPersonReverseSelection(current, 'self', selection));
@@ -449,7 +461,7 @@ export function CasePage() {
                   }}
                 />
               }
-              reverseSource={parseBaziReverseSource(form.birthReverseSource)}
+              reverseSource={caseReverseSource}
             />
             {error ? <div className="workspace-ui-form-error">{error}</div> : null}
           </div>
