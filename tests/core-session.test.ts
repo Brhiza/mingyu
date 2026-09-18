@@ -115,6 +115,31 @@ test('统一占法会话应支持金口诀指定地分并在计算前校验输�
   );
 });
 
+test('黄历 AI 提示词应保留用户时段偏好与已计算候选时辰', () => {
+  const makeSession = (preference: 'morning' | 'afternoon') =>
+    generateDivinationSession({
+      method: 'almanac',
+      question: '按所选时段推荐开业时辰。',
+      currentTime: '2026-09-15T00:00:00Z',
+      almanac: {
+        topic: 'opening',
+        startDate: '2026-09-15',
+        endDate: '2026-09-15',
+        timePreferences: [preference],
+        participants: [],
+      },
+    });
+
+  const morning = makeSession('morning');
+  const afternoon = makeSession('afternoon');
+  assert.notEqual(morning.aiPrompt, afternoon.aiPrompt);
+  assert.match(morning.aiPrompt, /已选优先上午/);
+  assert.match(afternoon.aiPrompt, /已选优先下午/);
+  assert.match(morning.aiPrompt, /已计算候选日与可用时辰/);
+  assert.match(morning.aiPrompt, /可用时辰/);
+  assert.doesNotMatch(morning.aiPrompt, /evidenceAnalysis|calculationSteps|候选分类键/);
+});
+
 test('统一占法会话应支持皇极经世值年盘', () => {
   const session = generateDivinationSession({
     method: 'huangji',
