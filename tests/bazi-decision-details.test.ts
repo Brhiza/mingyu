@@ -93,12 +93,29 @@ test('成格名称与成败状态分别保留，待核条件和反证不会被�
         detail: '位置与根气尚待核对',
       },
     ],
+    activeBreakers: [
+      {
+        label: '伤官见官',
+        stems: [
+          {
+            stem: '丁',
+            tenGod: '伤官',
+            pillar: 'hour',
+            pillarName: '时柱',
+          },
+        ],
+        repairStatus: '资料不足',
+        repairPathKeys: ['印制伤官'],
+        detail: '印星救应尚待核对',
+      },
+    ],
   };
   const text = formatBaziDecisionDetails(result).join('\n');
   assert.match(text, /格局成败：未判定；救应条件待核/);
   assert.match(text, /成格条件（资料不足）：根气尚待核对/);
   assert.match(text, /成格条件（不满足）：作用路径未成立/);
   assert.match(text, /制化路径（资料不足）：印星护官（未判定）；位置与根气尚待核对/);
+  assert.match(text, /破格候选（资料不足）：伤官见官；涉及丁伤官（时柱）；印星救应尚待核对/);
   assert.match(text, /候选取用：印星护官/);
   assert.match(text, /格局反证：财星受合绊/);
   assert.doesNotMatch(text, /private-root-key|private-path-key/);

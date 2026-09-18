@@ -40,6 +40,12 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
     ...(fulfillment?.pathEvaluations ?? []).map(
       (path) => `制化路径（${path.status}）：${path.label}（${path.position}）；${path.detail}`,
     ),
+    ...(fulfillment?.activeBreakers ?? []).map((breaker) => {
+      const stems = breaker.stems
+        .map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`)
+        .join('、');
+      return `破格候选（${breaker.repairStatus}）：${breaker.label}；涉及${stems || '未记录'}；${breaker.detail}`;
+    }),
     ...(fulfillment?.remedies ?? []).map((remedy) => `候选取用：${remedy.effect}`),
     fulfillment?.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
     ...(transformation
