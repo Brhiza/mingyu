@@ -937,12 +937,46 @@ test('公开 API 应按完整四柱反推北京时间候选区间', async () => 
   assert.equal(candidate.startBoundary.reason, '子时换日');
   assert.equal(candidate.endBoundary.reason, '时辰交接');
 
+  const firstBatch = await callApi('calendar/bazi-reverse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 1900,
+      endYear: 2100,
+      limit: 1,
+    }),
+  });
+  assert.equal(firstBatch.response.status, 200);
+  assert.equal(firstBatch.body.data.candidates.length, 1);
+  assert.equal(firstBatch.body.data.batch.limit, 1);
+  assert.equal(firstBatch.body.data.batch.total, firstBatch.body.data.candidateCount);
+  assert.ok(firstBatch.body.data.batch.next);
+
+  const secondBatch = await callApi('calendar/bazi-reverse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 1900,
+      endYear: 2100,
+      ...firstBatch.body.data.batch.next,
+    }),
+  });
+  assert.equal(secondBatch.response.status, 200);
+  assert.equal(secondBatch.body.data.batch.startIndex, 1);
+  assert.equal(secondBatch.body.data.candidateCount, firstBatch.body.data.candidateCount);
+
   const openapi = await callApi('openapi.json');
   assert.equal(
     openapi.body.data.paths['/calendar/bazi-reverse'].post.summary,
     '根据四柱反推公历北京时间候选区间',
   );
   assert.deepEqual(openapi.body.data.components.schemas.BaziReverseRequest.required, ['pillars']);
+  assert.equal(
+    openapi.body.data.components.schemas.BaziReverseRequest.properties.limit.default,
+    24,
+  );
 
   for (const payload of [
     { startYear: 2024, endYear: 2024 },

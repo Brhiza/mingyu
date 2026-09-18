@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  BAZI_REVERSE_DEFAULT_PAGE_SIZE,
   reverseBaziDates,
   type BaziReversePillars,
   type BaziReverseResult,
@@ -91,10 +92,10 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
     onInvalidate?.();
   }
 
-  function searchCandidates() {
-    onInvalidate?.();
+  function searchCandidates(startIndex = 0, append = false) {
+    if (!append) onInvalidate?.();
     setError('');
-    setResult(null);
+    if (!append) setResult(null);
     if (!canSearch) {
       setError('请先选择完整四柱，并填写 1900-2100 年内的有效查询范围。');
       return;
@@ -104,17 +105,31 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
         pillars,
         startYear: startYearNumber,
         endYear: endYearNumber,
+        startIndex,
+        limit: BAZI_REVERSE_DEFAULT_PAGE_SIZE,
       });
-      setResult(nextResult);
+      setResult((current) =>
+        append && current
+          ? {
+              ...nextResult,
+              candidates: [...current.candidates, ...nextResult.candidates],
+            }
+          : nextResult,
+      );
     } catch (cause) {
       setError(getErrorMessage(cause));
     }
   }
 
+  function loadMoreCandidates() {
+    const next = result?.batch?.next;
+    if (next) searchCandidates(next.startIndex, true);
+  }
+
   return (
     <div className="bazi-reverse-input" data-testid="bazi-reverse-input">
       <div className="bazi-reverse-input-intro">
-        <strong>选择四柱，查找对应日期</strong>
+        <strong>选择四柱，分批查找对应日期</strong>
         <p>
           按北京时间、节气月和 23:00
           子时换日查找可能时段。候选只表示区间，具体时刻仍需结合原始记录核对。
@@ -189,7 +204,7 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
         </p>
       ) : null}
 
-      <WorkspaceButton variant="secondary" onClick={searchCandidates} disabled={!canSearch}>
+      <WorkspaceButton variant="secondary" onClick={() => searchCandidates()} disabled={!canSearch}>
         查找候选时段
       </WorkspaceButton>
 
@@ -202,7 +217,9 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
       {result ? (
         <div className="bazi-reverse-input-results">
           <div className="bazi-reverse-input-result-summary">
-            <strong>找到 {result.candidateCount} 个候选区间</strong>
+            <strong>
+              找到 {result.candidateCount} 个候选区间，当前显示 {result.candidates.length} 条
+            </strong>
             <span>北京时间 UTC+8 · 节气交接切换月柱 · 23:00 换日</span>
           </div>
           {result.candidates.length ? (
@@ -241,6 +258,11 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
               查询范围内没有匹配时段，请检查四柱或扩大年份。
             </p>
           )}
+          {result.batch?.next ? (
+            <WorkspaceButton variant="secondary" onClick={loadMoreCandidates}>
+              加载更多候选
+            </WorkspaceButton>
+          ) : null}
           <p className="bazi-reverse-input-note">
             选定日期会保留完整北京时间区间。请在结果中核对采用的代表时刻或分段范围。
           </p>

@@ -6,6 +6,8 @@ import {
   calculateSolarIlluminationEvidence,
   calculateSolarTermEvidence,
   convertTrueSolarTime,
+  BAZI_REVERSE_DEFAULT_PAGE_SIZE,
+  BAZI_REVERSE_MAX_PAGE_SIZE,
   reverseBaziDates,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
@@ -121,20 +123,33 @@ const baziReverseSchema = z.object({
     .max(2100)
     .optional()
     .describe('查询公历年份终点（含），默认当前北京时间年份'),
+  startIndex: z.number().int().min(0).optional().describe('候选批次起始序号，从 0 开始；默认 0'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(BAZI_REVERSE_MAX_PAGE_SIZE)
+    .optional()
+    .describe(`本批最多返回候选数，默认 ${BAZI_REVERSE_DEFAULT_PAGE_SIZE}，可用 next 续取`),
 });
 
 export function registerCalendarTools(server: McpServer) {
   server.registerTool(
     'calendar_bazi_reverse',
     {
-      description:
-        '根据完整四柱反推指定公历年份范围内的全部北京时间候选区间；采用节气月、23:00 子时换日口径，返回正向复核后的起止时间和查询范围、节气、子时换日或时辰交接边界',
+      description: `根据完整四柱反推指定公历年份范围内的北京时间候选区间；默认分批返回 ${BAZI_REVERSE_DEFAULT_PAGE_SIZE} 条，可用返回的 batch.next 续取；采用节气月、23:00 子时换日口径，返回正向复核后的起止时间和查询范围、节气、子时换日或时辰交接边界`,
       inputSchema: baziReverseSchema.shape,
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
-        return createStructuredToolResult({ result: reverseBaziDates(args) });
+        return createStructuredToolResult({
+          result: reverseBaziDates({
+            ...args,
+            startIndex: args.startIndex ?? 0,
+            limit: args.limit ?? BAZI_REVERSE_DEFAULT_PAGE_SIZE,
+          }),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '八字反推失败'));
       }

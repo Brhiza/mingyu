@@ -24,6 +24,8 @@ import {
   calculateSolarIlluminationEvidence,
   calculateSolarTermEvidence,
   convertTrueSolarTime,
+  BAZI_REVERSE_DEFAULT_PAGE_SIZE,
+  BAZI_REVERSE_MAX_PAGE_SIZE,
   reverseBaziDates,
   getTimeIndexFromClock,
   resolveCivilTime,
@@ -1585,8 +1587,7 @@ export function getPublicApiOpenApiDocument(
         BaziReverseRequest: {
           type: 'object',
           required: ['pillars'],
-          description:
-            '按北京时间（UTC+8）、节气月和 23:00 子时换日口径，根据完整四柱查找候选公历时间区间。默认查询 1900 年至当前北京时间年份。',
+          description: `按北京时间（UTC+8）、节气月和 23:00 子时换日口径，根据完整四柱查找候选公历时间区间。默认查询 1900 年至当前北京时间年份，并分批返回 ${BAZI_REVERSE_DEFAULT_PAGE_SIZE} 条候选。`,
           properties: {
             pillars: {
               type: 'object',
@@ -1615,6 +1616,19 @@ export function getPublicApiOpenApiDocument(
               minimum: 1900,
               maximum: 2100,
               description: '查询公历年份终点（含）；不传时使用当前北京时间年份',
+            },
+            startIndex: {
+              type: 'integer',
+              minimum: 0,
+              default: 0,
+              description: '候选批次起始序号，从 0 开始',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: BAZI_REVERSE_MAX_PAGE_SIZE,
+              default: BAZI_REVERSE_DEFAULT_PAGE_SIZE,
+              description: '本批最多返回候选数；使用返回的 batch.next 续取',
             },
           },
         },
@@ -3767,6 +3781,12 @@ function calculateBaziReverseApi(input: JsonRecord) {
       input.startYear === undefined ? undefined : readIntegerLike(input, 'startYear', 1900, 2100);
     const endYear =
       input.endYear === undefined ? undefined : readIntegerLike(input, 'endYear', 1900, 2100);
+    const startIndex =
+      input.startIndex === undefined ? 0 : readIntegerLike(input, 'startIndex', 0, 100000);
+    const limit =
+      input.limit === undefined
+        ? BAZI_REVERSE_DEFAULT_PAGE_SIZE
+        : readIntegerLike(input, 'limit', 1, BAZI_REVERSE_MAX_PAGE_SIZE);
     if (startYear !== undefined && endYear !== undefined && startYear > endYear) {
       throw new ApiError(400, 'BAD_REQUEST', '起始年份不能大于结束年份。');
     }
@@ -3775,6 +3795,8 @@ function calculateBaziReverseApi(input: JsonRecord) {
       pillars,
       startYear,
       endYear,
+      startIndex,
+      limit,
     });
   } catch (error) {
     if (error instanceof ApiError) throw error;
