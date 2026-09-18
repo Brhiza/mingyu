@@ -126,12 +126,34 @@ function normalizeAstrolabeSolarDate(dateStr: string) {
   return formatSolarDay(SolarDay.fromYmd(Number(match[1]), Number(match[2]), Number(match[3])));
 }
 
+function buildNormalAgeBoundaryDate(astrolabe: IztroAstrolabe, nominalAge: number) {
+  const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
+  if (nominalAge === 1) return birthSolarDate;
+  const anniversary = shiftLunarYear(birthSolarDate, nominalAge - 1);
+  const [year, month, day] = anniversary.split('-').map(Number);
+  const anniversaryLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
+  return formatSolarDay(LunarDay.fromYmd(anniversaryLunarYear, 1, 1).getSolarDay());
+}
+
 async function findVerifiedHoroscope(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   nominalAge: number,
   resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
+  if ((input.ageDivide ?? 'normal') !== 'birthday') {
+    const dateStr = buildNormalAgeBoundaryDate(astrolabe, nominalAge);
+    const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
+    if (horoscope.age.nominalAge !== nominalAge) {
+      throw new Error(
+        nominalAge === 1
+          ? 'iztro 无法验证出生日期的虚岁。'
+          : `iztro 无法验证虚岁 ${nominalAge} 的农历年分界。`,
+      );
+    }
+    return { dateStr, horoscope };
+  }
+
   const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
   const anniversary = shiftLunarYear(birthSolarDate, nominalAge - 1);
   const buildAtOffset = async (offset: number) => {
@@ -139,25 +161,6 @@ async function findVerifiedHoroscope(
     const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
     return { dateStr, horoscope };
   };
-
-  if ((input.ageDivide ?? 'normal') !== 'birthday') {
-    if (nominalAge === 1) {
-      const horoscope = await resolveHoroscope(birthSolarDate, input.birthTimeIndex);
-      if (horoscope.age.nominalAge !== nominalAge) {
-        throw new Error('iztro 无法验证出生日期的虚岁。');
-      }
-      return { dateStr: birthSolarDate, horoscope };
-    }
-    const [year, month, day] = anniversary.split('-').map(Number);
-    const anniversaryLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
-    const firstDay = LunarDay.fromYmd(anniversaryLunarYear, 1, 1).getSolarDay();
-    const dateStr = formatSolarDay(firstDay);
-    const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
-    if (horoscope.age.nominalAge !== nominalAge) {
-      throw new Error(`iztro 无法验证虚岁 ${nominalAge} 的农历年分界。`);
-    }
-    return { dateStr, horoscope };
-  }
 
   // iztro 2.5.8 的 birthday 分界在后续年份存在同月日比较缺陷，
   // 这里不猜边界，改为在一个农历月跨度内寻找其实际返回目标虚岁的首日。
@@ -368,8 +371,12 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     ) {
       throw new Error(`iztro 无法验证 ${period.startAge}-${period.endAge} 岁${period.label}。`);
     }
-    const next = await findVerifiedHoroscope(astrolabe, input, period.endAge + 1, resolveHoroscope);
-    const endDateStr = shiftSolarDay(next.dateStr, -1);
+    const nextDateStr =
+      (input.ageDivide ?? 'normal') === 'birthday'
+        ? (await findVerifiedHoroscope(astrolabe, input, period.endAge + 1, resolveHoroscope))
+            .dateStr
+        : buildNormalAgeBoundaryDate(astrolabe, period.endAge + 1);
+    const endDateStr = shiftSolarDay(nextDateStr, -1);
     const verifiedPeriod: DecadalTimelineOption =
       period.kind === 'childhood'
         ? {

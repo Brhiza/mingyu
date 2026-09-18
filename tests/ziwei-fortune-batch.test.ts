@@ -13,6 +13,7 @@ import {
 import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
 import { buildThematicConsultationPrompt, buildZiweiPrompt } from 'mingyu-core/prompt';
 import {
+  buildVerifiedDecadalTimelineOptions,
   buildVerifiedDecadalTimelineBatchOptions,
   createZiweiHoroscopeResolver,
   type ZiweiHoroscopeResolver,
@@ -136,6 +137,12 @@ function snapshotHoroscope(horoscope: IztroHoroscope) {
     daily: snapshotLayer('daily'),
     hourly: snapshotLayer('hourly'),
   });
+}
+
+function nextSolarDate(dateStr: string) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
 test('紫微独立批次只计算一个资料 scope 或一个年龄年', async () => {
@@ -394,6 +401,138 @@ test('紫微年龄年在单次请求内复用相同运限对象且不污染动�
     { resolveHoroscope: directResolver, verifiedBatch: baselineDecadalBatch },
   );
   assert.deepEqual(timeline, baseline);
+});
+
+test('紫微独立年龄年normal阶段终点直取农历年界且各阶段与完整验证结果一致', async () => {
+  const cases = [
+    {
+      label: '春节前出生',
+      chartInput: buildZiweiChartInput({
+        name: '春节前出生',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '2',
+        day: '3',
+        timeIndex: 4,
+        isLeapMonth: false,
+        algorithm: 'default',
+      }),
+    },
+    {
+      label: '春节后出生',
+      chartInput: buildZiweiChartInput({
+        name: '春节后出生',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1992',
+        month: '2',
+        day: '5',
+        timeIndex: 6,
+        isLeapMonth: false,
+        algorithm: 'default',
+      }),
+    },
+    {
+      label: '闰月出生',
+      chartInput: buildZiweiChartInput({
+        name: '闰月出生',
+        gender: 'female',
+        dateType: 'lunar',
+        year: '2004',
+        month: '2',
+        day: '1',
+        timeIndex: 8,
+        isLeapMonth: true,
+        algorithm: 'default',
+      }),
+    },
+  ];
+
+  for (const { label, chartInput } of cases) {
+    const baselineAstrolabe = await buildAstrolabeFromInput(chartInput);
+    const baseline = await buildVerifiedDecadalTimelineOptions(baselineAstrolabe, chartInput);
+    const astrolabe = await buildAstrolabeFromInput(chartInput);
+    const nativeHoroscope = astrolabe.horoscope.bind(astrolabe);
+    const constructedDates: string[] = [];
+    astrolabe.horoscope = ((dateStr, hourIndex) => {
+      constructedDates.push(String(dateStr));
+      return nativeHoroscope(dateStr, hourIndex);
+    }) as typeof astrolabe.horoscope;
+    const resolver = createZiweiHoroscopeResolver(astrolabe, chartInput);
+    let startIndex = 0;
+    for (const [periodIndex, expectedPeriod] of baseline.entries()) {
+      const callsBefore = constructedDates.length;
+      const page = await buildVerifiedDecadalTimelineBatchOptions(
+        astrolabe,
+        chartInput,
+        {
+          scope: 'all',
+          targetAge: 34,
+          batch: { startIndex, limit: 1 },
+        },
+        resolver,
+      );
+      assert.deepEqual(
+        page.periods,
+        [{ periodIndex, period: expectedPeriod }],
+        `${label}第${periodIndex + 1}阶段`,
+      );
+      assert.deepEqual(
+        page.selectedAgeYears,
+        [{ periodIndex, age: expectedPeriod.startAge }],
+        `${label}第${periodIndex + 1}阶段年龄索引`,
+      );
+      assert.deepEqual(
+        constructedDates.slice(callsBefore),
+        [expectedPeriod.dateStr],
+        `${label}第${periodIndex + 1}阶段只构造实际返回的起点运限`,
+      );
+      const nextBoundary = nextSolarDate(expectedPeriod.endDateStr!);
+      const boundaryHoroscope = await buildHoroscopeFromInput(
+        baselineAstrolabe,
+        chartInput,
+        nextBoundary,
+        chartInput.birthTimeIndex,
+      );
+      assert.equal(
+        boundaryHoroscope.age.nominalAge,
+        expectedPeriod.endAge + 1,
+        `${label}第${periodIndex + 1}阶段终点后一日仍是iztro的下一虚岁`,
+      );
+      if (baseline[periodIndex + 1]) {
+        assert.equal(
+          nextBoundary,
+          baseline[periodIndex + 1]?.dateStr,
+          `${label}第${periodIndex + 1}阶段与下一阶段连续`,
+        );
+      }
+      startIndex += expectedPeriod.endAge - expectedPeriod.startAge + 1;
+    }
+  }
+});
+
+test('紫微生日分界的独立阶段终点继续调用iztro核验', async () => {
+  const chartInput = { ...input, ageDivide: 'birthday' as const };
+  const astrolabe = await buildAstrolabeFromInput(chartInput);
+  const nativeHoroscope = astrolabe.horoscope.bind(astrolabe);
+  const constructedDates: string[] = [];
+  astrolabe.horoscope = ((dateStr, hourIndex) => {
+    constructedDates.push(String(dateStr));
+    return nativeHoroscope(dateStr, hourIndex);
+  }) as typeof astrolabe.horoscope;
+  const resolver = createZiweiHoroscopeResolver(astrolabe, chartInput);
+  const page = await buildVerifiedDecadalTimelineBatchOptions(
+    astrolabe,
+    chartInput,
+    { scope: 'all', targetAge: 34, batch: { startIndex: 0, limit: 1 } },
+    resolver,
+  );
+  assert.equal(page.periods.length, 1);
+  assert.ok(
+    new Set(constructedDates).size > 2,
+    '生日分界仍需为阶段起点和下一年龄边界执行iztro有界搜索',
+  );
 });
 
 test('紫微年龄年独立批次在生日分界下保留已验证精确边界', async () => {
