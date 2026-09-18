@@ -151,7 +151,12 @@ function applyResourceProtection(
       (root) => root.actionable && isStructuralRoot(root),
     );
   };
-  const resourceRoots = collectUsableRoots(resource);
+  // 财旺身弱且印坐财时，墓库与余气只证明“有根”，不能直接把受制的印
+  // 当成已具承接力。只有本气或生禄等实根才足以跳过护印次序；这与
+  // 格局路径中的根气分层保持一致。
+  const resourceRoots = collectUsableRoots(resource).filter((root) =>
+    ['本气', '生禄'].includes(getRootTraditionalKind(root)),
+  );
   const companionRoots = collectUsableRoots(dmWuxing);
   const resourceStems = visible.filter((source) => element(source.stem) === resource);
   // 任一印有共享裁决可用的结构根，或并未坐财受制，均不套用弱印待护的次序。
