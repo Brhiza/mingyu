@@ -761,7 +761,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     '亥',
   ]);
   assert.equal(divinationRequestProperties.customDate.format, 'date-time');
-  assert.equal(divinationRequestProperties.astrolabeIncludePeriodEvents.default, true);
+  assert.equal(divinationRequestProperties.astrolabeIncludePeriodEvents.default, false);
   assert.ok(body.data.paths['/divination/astrolabe/period-events']);
   assert.deepEqual(body.data.components.schemas.AstrolabePeriodEventsRequest.required, [
     'astrolabeScope',
@@ -4269,6 +4269,8 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   });
   assert.equal(detailed.response.status, 200);
   assert.equal(detailed.body.data.result.scopeEvidence.scope, 'yearly');
+  assert.equal(detailed.body.data.result.scopeEvidence.periodEvents, undefined);
+  assert.doesNotMatch(detailed.body.data.prompt, /周期关键星象/);
   assert.equal(
     detailed.body.data.result.scopeEvidence.solarReturnEvidence.key,
     'solar-return:2028',
@@ -4500,8 +4502,18 @@ test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使
   assert.equal(defaultRange.response.status, 200);
   assert.equal(defaultRange.body.data.result.scopeEvidence.scope, 'yearly');
   assert.match(defaultRange.body.data.prompt, /分析对象：流年\d{4}。/);
-  assert.match(defaultRange.body.data.prompt, /周期关键星象（/);
+  assert.equal(defaultRange.body.data.result.scopeEvidence.periodEvents, undefined);
+  assert.doesNotMatch(defaultRange.body.data.prompt, /周期关键星象/);
   assert.match(defaultRange.body.data.prompt, /太阳返照（/);
+
+  const withPeriodEvents = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, astrolabeIncludePeriodEvents: true }),
+  });
+  assert.equal(withPeriodEvents.response.status, 200);
+  assert.ok(Array.isArray(withPeriodEvents.body.data.result.scopeEvidence.periodEvents.events));
+  assert.match(withPeriodEvents.body.data.prompt, /周期关键星象（/);
 
   const natal = await callApi('divination/astrolabe/prompt', {
     method: 'POST',

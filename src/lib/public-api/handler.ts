@@ -495,8 +495,9 @@ const DIVINATION_REQUEST_PROPERTIES = {
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   astrolabeIncludePeriodEvents: {
     type: 'boolean',
-    default: true,
-    description: '星盘提示词是否计算周期事件；轻量周期端点使用 false 避免重复计算。',
+    default: false,
+    description:
+      '星盘提示词是否计算周期事件；默认不在单次请求中计算整段周期，使用 /divination/astrolabe/period-events 分批获取。',
   },
   promptMode: { enum: [...PROMPT_MODES] },
   supplementaryInfo: {
@@ -7238,7 +7239,7 @@ function buildAstrolabeScopeArtifacts(
       : hasExplicitScope
         ? readRequiredString(input, 'astrolabeScopeDate')
         : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
-  const includePeriodEvents = readBoolean(input, 'astrolabeIncludePeriodEvents', true);
+  const includePeriodEvents = readBoolean(input, 'astrolabeIncludePeriodEvents', false);
 
   try {
     if (scope === 'full') {
