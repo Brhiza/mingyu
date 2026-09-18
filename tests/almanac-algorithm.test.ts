@@ -350,7 +350,7 @@ test('黄历择日：空白参与人行可忽略，但半填资料必须报错',
   );
 });
 
-test('黄历择日：完整参与人资料应先校验性别、日历类型和闰月标志', () => {
+test('黄历择日：完整参与人资料允许空性别唯一画像，并校验日历类型和闰月标志', () => {
   const baseParticipant = {
     id: 'self',
     name: '本人',
@@ -368,14 +368,11 @@ test('黄历择日：完整参与人资料应先校验性别、日历类型和�
     endDate: '2026-06-10',
   } as const;
 
-  assert.throws(
-    () =>
-      generateAlmanacSelection({
-        ...baseParams,
-        participants: [{ ...baseParticipant, gender: '' }],
-      }),
-    /参与人性别必须是 男 或 女/,
-  );
+  const unspecifiedGender = generateAlmanacSelection({
+    ...baseParams,
+    participants: [{ ...baseParticipant, gender: '' }],
+  });
+  assert.equal(unspecifiedGender.participants[0]?.gender, '');
   assert.throws(
     () =>
       generateAlmanacSelection({
