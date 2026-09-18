@@ -473,12 +473,7 @@ export function resolveReadingSchema(
     return value.map((item) => resolveReadingSchema(item, document, depth + 1));
   if (!record(value)) return value;
   if (typeof value.$ref === 'string') {
-    if (!value.$ref.startsWith('#/components/schemas/')) throw new Error('补算参数引用无效。');
-    let target: unknown = document;
-    for (const part of value.$ref.slice(2).split('/'))
-      target = record(target) ? target[part] : undefined;
-    if (!target) throw new Error('补算参数定义缺失。');
-    return resolveReadingSchema(target, document, depth + 1);
+    return resolveReadingSchema(readSchemaReference(value.$ref, document), document, depth + 1);
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
@@ -488,15 +483,29 @@ export function resolveReadingSchema(
   );
 }
 
-function collectObjectSchemaParts(value: unknown) {
+function readSchemaReference(reference: string, document: Record<string, unknown>): unknown {
+  if (!reference.startsWith('#/components/schemas/')) throw new Error('补算参数引用无效。');
+  let target: unknown = document;
+  for (const part of reference.slice(2).split('/'))
+    target = record(target) ? target[part] : undefined;
+  if (!target) throw new Error('补算参数定义缺失。');
+  return target;
+}
+
+function collectObjectSchemaParts(value: unknown, document: Record<string, unknown>) {
   const properties: Record<string, unknown> = {};
   const required = new Set<string>();
   const conditions: Record<string, unknown>[] = [];
 
-  const collect = (current: unknown) => {
+  const collect = (current: unknown, depth = 0) => {
+    if (depth > 12) throw new Error('补算参数层级过多。');
     if (!record(current)) return;
+    if (typeof current.$ref === 'string') {
+      collect(readSchemaReference(current.$ref, document), depth + 1);
+      return;
+    }
     if (Array.isArray(current.allOf)) {
-      for (const item of current.allOf) collect(item);
+      for (const item of current.allOf) collect(item, depth + 1);
     }
     if (record(current.properties)) Object.assign(properties, current.properties);
     if (Array.isArray(current.required)) {
@@ -514,11 +523,15 @@ function collectObjectSchemaParts(value: unknown) {
   return { properties, required, conditions };
 }
 
-function filterCalculationSchema(method: string, value: unknown): Record<string, unknown> {
+function filterCalculationSchema(
+  method: string,
+  value: unknown,
+  document: Record<string, unknown>,
+): Record<string, unknown> {
   const rule = CALCULATION_PARAMETER_RULES[method];
   if (!rule) throw new Error('此方法暂不支持安全补算。');
 
-  const { properties, required, conditions } = collectObjectSchemaParts(value);
+  const { properties, required, conditions } = collectObjectSchemaParts(value, document);
   const mutable = new Set(rule.mutable);
   const filteredProperties = Object.fromEntries(
     Object.entries(properties).filter(([key]) => mutable.has(key)),
@@ -2044,9 +2057,9 @@ export async function executeReadingAction(
       (action.method === 'astrolabe' ? paths?.['/divination/{method}/prompt'] : undefined)
     )?.post?.requestBody?.content?.['application/json']?.schema;
     if (!schema) throw new Error('暂未取得该方法的补算参数。');
-    const filteredSchema = filterCalculationSchema(
-      action.method,
-      resolveReadingSchema(schema, document),
+    const filteredSchema = resolveReadingSchema(
+      filterCalculationSchema(action.method, schema, document),
+      document,
     );
     return {
       key: '',
