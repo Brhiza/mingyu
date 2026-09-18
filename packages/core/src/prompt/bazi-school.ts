@@ -346,7 +346,9 @@ function formatUnknownTimeFacts(result: BaziChartResult) {
   return [
     `出生时辰资料：${summary}`,
     '已确定的柱作为基础资料；日主十神、格局成败、喜忌与岁运请在补齐时分后结合候选场景复核。',
-    scenarios.length ? `候选场景（补时后复核）：\n${scenarios.join('\n')}` : '',
+    scenarios.length
+      ? `${analysis?.batch ? `当前候选（第${analysis.batch.startIndex + 1}/${analysis.batch.totalCandidates}项）` : '候选场景（补时后复核）'}：\n${scenarios.join('\n')}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');

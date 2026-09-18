@@ -92,6 +92,7 @@ export const resultOutputSchema = withErrorOutputSchema({
   result: z
     .unknown()
     .describe('本次调用已计算出的结构化事实；后续展示、比较或解读应复用该结果，避免重复调用'),
+  batch: z.unknown().optional().describe('显式分页时返回 unknownTimeBatch 等续取元数据'),
 });
 
 export const promptOutputSchema = withErrorOutputSchema({

@@ -2,6 +2,7 @@ import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import {
   analyzeBaziCompatibility,
   type BaziChartResult,
+  type BaziUnknownTimeBatchMetadata,
   type Person,
   type ShenShaScope,
   type ShenShaVariantConfig,
@@ -1852,7 +1853,17 @@ export function getPublicApiOpenApiDocument(
               minimum: -1,
               maximum: 12,
               description:
-                '时辰索引（0-12）；八字单盘传 -1 表示时辰未知，返回候选资料。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
+                '时辰索引（0-12）；八字单盘传 -1 表示时辰未知，每次计算并返回一个候选，默认第一个。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
+            },
+            unknownTimeBatch: {
+              type: 'object',
+              additionalProperties: false,
+              description:
+                '仅未知时辰单盘使用；每次计算一个候选。保持出生参数不变，将 batch.unknownTimeBatch.next 回传为本字段，直到 next 为 null。与岁运、范围和其他分页字段互斥。',
+              properties: {
+                startIndex: { type: 'integer', minimum: 0, default: 0 },
+                contextKey: { type: 'string', minLength: 1 },
+              },
             },
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
@@ -5116,6 +5127,7 @@ function throwZiweiBatchApiError(error: unknown): never {
 
 async function calculateBaziApi(input: JsonRecord, signal?: AbortSignal) {
   if (input.birthTimeRange !== undefined) {
+    rejectUnknownTimeBatch(input, '出生时间范围');
     try {
       const { profile, rangeBatch, baziRules } = buildBaziRangeProfile(input);
       return serializeBirthChartRangeBundle(
@@ -5130,8 +5142,78 @@ async function calculateBaziApi(input: JsonRecord, signal?: AbortSignal) {
       return throwBirthRangeApiError(error, '八字出生时间范围参数无效。');
     }
   }
-  const result = calculateBazi(input);
-  return input.detailMode === 'compact' ? buildCompactBaziResult(result) : result;
+  const person = readBaziPerson(input);
+  const unknownTimeBatch = readBaziUnknownTimeBatch(input, person);
+  const calculation = unknownTimeBatch
+    ? calculateUnknownTimeBaziBatch(person, unknownTimeBatch)
+    : undefined;
+  const result = calculation?.result ?? baziCalculator.calculateBazi(person);
+  return {
+    ...(input.detailMode === 'compact' ? buildCompactBaziResult(result) : result),
+    ...(calculation ? { batch: { unknownTimeBatch: calculation.batch } } : {}),
+  };
+}
+
+function rejectUnknownTimeBatch(input: JsonRecord, label: string) {
+  if (input.unknownTimeBatch !== undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `${label}不支持 unknownTimeBatch，请使用未知时辰八字单盘。`,
+    );
+  }
+}
+
+function readBaziUnknownTimeBatch(input: JsonRecord, person: Person) {
+  if (person.timeIndex !== -1 && !person.isThreePillars) {
+    rejectUnknownTimeBatch(input, '明确时辰排盘');
+    return undefined;
+  }
+  for (const key of [
+    'fortuneBatch',
+    'scopeBatch',
+    'combinedBatch',
+    'rangeBatch',
+    'birthTimeRange',
+  ]) {
+    if (input[key] !== undefined) {
+      throw new ApiError(400, 'BAD_REQUEST', `未知时辰候选与 ${key} 不能同时使用。`);
+    }
+  }
+  for (const key of ['baziFortuneScope', 'scope']) {
+    if (input[key] !== undefined && input[key] !== 'natal') {
+      throw new ApiError(400, 'BAD_REQUEST', '出生时辰未知，补齐出生时分后才能选择岁运。');
+    }
+  }
+  if (input.promptScope !== undefined && input.promptScope !== 'origin') {
+    throw new ApiError(400, 'BAD_REQUEST', '出生时辰未知，解读范围仅支持本命候选。');
+  }
+  const value = input.unknownTimeBatch;
+  if (value === undefined) return { startIndex: 0 };
+  if (
+    !isRecord(value) ||
+    Object.keys(value).some((key) => !['startIndex', 'contextKey'].includes(key))
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', 'unknownTimeBatch 仅接受 startIndex 和 contextKey。');
+  }
+  return {
+    startIndex: value.startIndex === undefined ? 0 : readInteger(value, 'startIndex', 0),
+    ...(value.contextKey === undefined
+      ? {}
+      : { contextKey: readRequiredString(value, 'contextKey') }),
+  };
+}
+
+function calculateUnknownTimeBaziBatch(
+  person: Person,
+  request: { startIndex: number; contextKey?: string },
+) {
+  try {
+    return baziCalculator.calculateBaziUnknownTimeBatch(person, request);
+  } catch (error) {
+    if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+    throw error;
+  }
 }
 
 function readBaziPerson(input: JsonRecord): Person {
@@ -5204,10 +5286,6 @@ function readBaziPerson(input: JsonRecord): Person {
   };
 
   return person;
-}
-
-function calculateBazi(input: JsonRecord) {
-  return baziCalculator.calculateBazi(readBaziPerson(input));
 }
 
 function calculateBaziBatch(
@@ -5319,6 +5397,9 @@ function buildBaziCalculationIdentity(
   if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
 
   const target: JsonRecord = { baziFortuneScope: fortuneScope };
+  if (person.timeIndex === -1) {
+    target.unknownTimeBatch = { startIndex: readBaziUnknownTimeBatch(input, person)!.startIndex };
+  }
   const fortuneBatch = readFortuneBatch(input);
   if (fortuneBatch) target.fortuneBatch = { startIndex: fortuneBatch.startIndex ?? 0, limit: 1 };
   if (fortuneSelectionContext) {
@@ -5336,14 +5417,19 @@ function buildBaziCalculationIdentity(
 }
 
 function buildBaziPrompt(input: JsonRecord) {
+  const question = readRequiredString(input, 'question');
+  const person = readBaziPerson(input);
+  const unknownTimeBatch = readBaziUnknownTimeBatch(input, person);
   const selection = readSharedPromptSelection(input, 'bazi');
   const selectedFortuneScope =
-    input.baziFortuneScope === undefined ? toBaziFortuneScope(selection?.scope) : undefined;
+    input.baziFortuneScope === undefined && !unknownTimeBatch
+      ? toBaziFortuneScope(selection?.scope)
+      : undefined;
   const requestedFortuneScope = readEnum(
     input,
     'baziFortuneScope',
     BAZI_FORTUNE_SCOPES,
-    selectedFortuneScope ?? 'dayun',
+    selectedFortuneScope ?? (unknownTimeBatch ? 'natal' : 'dayun'),
   );
   const useCurrentFortuneDefaults =
     input.baziFortuneScope === undefined &&
@@ -5358,8 +5444,13 @@ function buildBaziPrompt(input: JsonRecord) {
     );
   }
   let fortuneTextBatch: BaziFortuneTextBatch | undefined;
+  const unknownCalculation = unknownTimeBatch
+    ? calculateUnknownTimeBaziBatch(person, unknownTimeBatch)
+    : undefined;
   let result: BaziChartResult;
-  if (fortuneBatch) {
+  if (unknownCalculation) {
+    result = unknownCalculation.result;
+  } else if (fortuneBatch) {
     try {
       const calculation = calculateBaziBatch(input, {
         section: 'fortune',
@@ -5372,7 +5463,7 @@ function buildBaziPrompt(input: JsonRecord) {
       throw error;
     }
   } else {
-    result = calculateBazi(input);
+    result = baziCalculator.calculateBazi(person);
   }
   const currentSelection = useCurrentFortuneDefaults
     ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
@@ -5391,7 +5482,7 @@ function buildBaziPrompt(input: JsonRecord) {
   const schools = readPromptSchools(input, BAZI_MULTI_SCHOOLS) as BaziSchool[] | undefined;
   const basePrompt = buildBaziPromptForResult({
     result,
-    question: readRequiredString(input, 'question'),
+    question,
     topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
     mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
     fortuneSelectionContext,
@@ -5421,7 +5512,11 @@ function buildBaziPrompt(input: JsonRecord) {
         : buildCompactBaziResult(returnedResult)),
       ...(selection ? { selection } : {}),
     },
-    ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
+    ...(unknownCalculation
+      ? { batch: { unknownTimeBatch: unknownCalculation.batch } }
+      : fortuneTextBatch
+        ? { batch: { fortuneBatch: fortuneTextBatch.batch } }
+        : {}),
   });
 }
 
@@ -5435,9 +5530,12 @@ const BAZI_COMPATIBILITY_TYPES = [
 ] as const;
 
 function readBaziCompatibilityCharts(input: JsonRecord) {
+  rejectUnknownTimeBatch(input, '八字合盘');
   if (!isRecord(input.person1) || !isRecord(input.person2)) {
     throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的八字出生资料。');
   }
+  rejectUnknownTimeBatch(input.person1, '八字合盘');
+  rejectUnknownTimeBatch(input.person2, '八字合盘');
   const person1 = readBaziPerson(input.person1);
   const person2 = readBaziPerson(input.person2);
   if (person1.timeIndex === -1 || person2.timeIndex === -1) {
@@ -5927,6 +6025,7 @@ async function buildCombinedBatchPromptPage(
   selection: ReturnType<typeof readSharedPromptSelection>,
   question: string,
 ) {
+  rejectUnknownTimeBatch(input, '八字紫微合参');
   if (readBaziPerson(input).timeIndex === -1) {
     throw new ApiError(
       400,
@@ -6075,6 +6174,15 @@ async function buildCombinedBatchPromptPage(
 }
 
 async function buildBaziZiweiPrompt(input: JsonRecord) {
+  rejectUnknownTimeBatch(input, '八字紫微合参');
+  const person = readBaziPerson(input);
+  if (person.timeIndex === -1) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '八字紫微合参需要明确的出生时辰，未知时辰可先查询八字单盘候选。',
+    );
+  }
   const selection = readSharedPromptSelection(input, 'bazi-ziwei');
   const selectedScope = toZiweiPromptScope(selection?.scope);
   const scope = readEnum(
@@ -6102,7 +6210,7 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
       batch: page.batch,
     });
   }
-  const baziResult = calculateBazi(input);
+  const baziResult = baziCalculator.calculateBazi(person);
   const batchOptions = resolvePointZiweiBatchOptions(input, scope);
   let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
   try {
@@ -6247,8 +6355,21 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
       : selectionResolution.selection.methodId === 'ziwei'
         ? 'ziwei'
         : 'bazi_ziwei';
-  const scope =
-    genericScope === undefined
+  const person = system === 'ziwei' ? undefined : readBaziPerson(input);
+  if (system !== 'bazi') {
+    rejectUnknownTimeBatch(input, '跨体系或紫微专题');
+    if (person?.timeIndex === -1) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '八字紫微合参需要明确的出生时辰，未知时辰可先查询八字单盘候选。',
+      );
+    }
+  }
+  const unknownTimeBatch = system === 'bazi' ? readBaziUnknownTimeBatch(input, person!) : undefined;
+  const scope = unknownTimeBatch
+    ? 'origin'
+    : genericScope === undefined
       ? promptScope
       : genericScope === 'natal'
         ? 'origin'
@@ -6302,9 +6423,12 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
   let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>> | undefined;
   let serializableZiweiResult: ReturnType<typeof buildSerializableZiweiResult> | undefined;
   let ziweiBatch: ZiweiBatchMetadata | undefined;
+  const unknownCalculation = unknownTimeBatch
+    ? calculateUnknownTimeBaziBatch(person!, unknownTimeBatch)
+    : undefined;
 
   if (system === 'bazi_ziwei' || system === 'bazi') {
-    baziResult = calculateBazi(input);
+    baziResult = unknownCalculation?.result ?? baziCalculator.calculateBazi(person!);
   }
 
   if (system === 'bazi_ziwei' || system === 'ziwei') {
@@ -6357,7 +6481,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     topic,
     topicId: topicId ?? topic,
     subtopicId,
-    scope: genericScope,
+    scope: unknownTimeBatch ? 'natal' : genericScope,
     question,
     mode,
     baziResult,
@@ -6413,7 +6537,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     fullResult,
     resultSummary,
     summary: resultSummary,
-    batch: ziweiBatch,
+    batch: unknownCalculation ? { unknownTimeBatch: unknownCalculation.batch } : ziweiBatch,
   });
 }
 
@@ -7444,6 +7568,7 @@ function buildPromptApiResult(params: {
   resultSummary?: unknown;
   batch?:
     | ZiweiBatchMetadata
+    | { unknownTimeBatch: BaziUnknownTimeBatchMetadata }
     | { fortuneBatch: BaziFortuneTextBatch['batch'] }
     | { combinedBatch: CombinedBatchMetadata };
 }) {
@@ -7475,6 +7600,14 @@ function buildPromptApiResult(params: {
 function buildCompactBaziResult(result: BaziChartResult) {
   const decision = result.analysis.usefulGod.decisionEvidence;
   return {
+    ...(result.unknownTimeAnalysis
+      ? {
+          isThreePillars: true,
+          unknownTimeAnalysis: result.unknownTimeAnalysis,
+          warningFacts: result.warningFacts,
+          warningSummaryFact: result.warningSummaryFact,
+        }
+      : {}),
     gender: result.gender,
     solarDate: result.solarDate,
     lunarDate: result.lunarDate,

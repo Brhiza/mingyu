@@ -47,6 +47,7 @@ import {
   Pillars,
   BaziChartResult,
   BaziFortuneBatchMetadata,
+  BaziUnknownTimeBatchMetadata,
   InternalBaziChartResult,
   LiunianInfo,
   TimingInfo,
@@ -55,7 +56,14 @@ import {
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { getTermSolarTime } from './globalTimeBasis';
-import { applyUnknownBirthTime } from './baziUnknownTime';
+import {
+  applyUnknownBirthTime,
+  buildUnknownTimeContextKey,
+  buildUnknownTimeScenario,
+  discoverUnknownTimeCandidates,
+  finalizeUnknownBirthTime,
+  getUnknownTimeUncertainPillars,
+} from './baziUnknownTime';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
@@ -70,6 +78,18 @@ export interface BaziBatchCalculationResult {
   result: BaziChartResult;
   batch?: BaziFortuneBatchMetadata;
 }
+
+export interface BaziUnknownTimeBatchRequest {
+  startIndex: number;
+  contextKey?: string;
+}
+
+export interface BaziUnknownTimeBatchResult {
+  result: BaziChartResult;
+  batch: BaziUnknownTimeBatchMetadata;
+}
+
+type CoreBaziCalculationMode = 'complete' | 'pillars';
 
 interface CoreBaziCalculationResult {
   result: InternalBaziChartResult;
@@ -146,6 +166,7 @@ export class BaziCalculator {
   private calculateCoreBaziInternal(
     person: Person,
     batchRequest?: BaziBatchCalculationRequest,
+    mode: CoreBaziCalculationMode = 'complete',
   ): CoreBaziCalculationResult {
     const {
       year,
@@ -479,7 +500,9 @@ export class BaziCalculator {
     const genderEnum = gender === 'male' ? Gender.MAN : Gender.WOMAN;
     let batch: BaziFortuneBatchMetadata | undefined;
     let luckInfo;
-    if (isThreePillars || batchRequest?.section === 'natal') {
+    if (mode === 'pillars') {
+      luckInfo = { startInfo: '', handoverInfo: '', cycles: [] };
+    } else if (isThreePillars || batchRequest?.section === 'natal') {
       luckInfo = this.luckCalculator.calculateNatalLuckInfo(
         solarTime,
         genderEnum,
@@ -619,6 +642,71 @@ export class BaziCalculator {
     request: BaziBatchCalculationRequest,
   ): BaziBatchCalculationResult {
     return this.calculateBaziInternal(person, request);
+  }
+
+  public calculateBaziUnknownTimeBatch(
+    person: Person,
+    request: BaziUnknownTimeBatchRequest,
+  ): BaziUnknownTimeBatchResult {
+    if (!Number.isSafeInteger(request.startIndex) || request.startIndex < 0) {
+      throw new RangeError('未知时辰候选 startIndex 必须是非负安全整数。');
+    }
+    if (request.contextKey !== undefined && typeof request.contextKey !== 'string') {
+      throw new RangeError('未知时辰候选 contextKey 必须是字符串。');
+    }
+    if (person.useTrueSolarTime === true || person.birthSecond !== undefined) {
+      throw new RangeError('已提供精确出生时刻，不能按未知时辰候选续取。');
+    }
+
+    const baseResult = this.calculateCoreBaziInternal(person, undefined, 'pillars').result;
+    if (!baseResult.isThreePillars) {
+      throw new RangeError('未知时辰候选批次仅支持未确定出生时辰的资料。');
+    }
+
+    const contextKey = buildUnknownTimeContextKey(person);
+    if (request.contextKey !== undefined && request.contextKey !== contextKey) {
+      throw new RangeError('未知时辰候选 contextKey 与当前出生资料不一致。');
+    }
+
+    const candidates = discoverUnknownTimeCandidates(person);
+    if (request.startIndex >= candidates.length) {
+      throw new RangeError('未知时辰候选 startIndex 超出资料范围。');
+    }
+
+    const pillarCache = new Map<string, Pillars>();
+    const candidatePillars = candidates.map((candidate) => {
+      const { hour, minute, second } = candidate.point;
+      const clockKey = `${hour}:${minute}:${second}`;
+      const cached = pillarCache.get(clockKey);
+      if (cached) return cached;
+      const pillars = this.calculateCoreBaziInternal(candidate.person, undefined, 'pillars').result
+        .pillars;
+      pillarCache.set(clockKey, pillars);
+      return pillars;
+    });
+    const uncertainPillars = getUnknownTimeUncertainPillars(candidatePillars);
+    const candidate = candidates[request.startIndex]!;
+    const candidateResult = this.calculateBaziInternal(candidate.person, {
+      section: 'natal',
+    }).result;
+    const batch: BaziUnknownTimeBatchMetadata = {
+      unit: 'candidate',
+      startIndex: request.startIndex,
+      endIndexExclusive: request.startIndex + 1,
+      totalCandidates: candidates.length,
+      candidateKey: candidate.scenarioKey,
+      contextKey,
+      next:
+        request.startIndex + 1 < candidates.length
+          ? { startIndex: request.startIndex + 1, contextKey }
+          : null,
+    };
+    const scenario = buildUnknownTimeScenario(candidateResult, candidate);
+    const result = finalizeUnknownBirthTime(candidateResult, [scenario], uncertainPillars, {
+      batch,
+      baseResult,
+    });
+    return { result, batch };
   }
 
   private calculateBaziInternal(

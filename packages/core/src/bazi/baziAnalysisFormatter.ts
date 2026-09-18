@@ -281,7 +281,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       ),
       '【待补时判断】',
       unknownTimeAnalysis?.summary ?? '旺衰、格局与喜忌待出生时分确定后再判。',
-      '【时辰候选比较】',
+      unknownTimeAnalysis?.batch
+        ? `【当前时辰候选：第${unknownTimeAnalysis.batch.startIndex + 1}/${unknownTimeAnalysis.batch.totalCandidates}项】`
+        : '【时辰候选比较】',
       ...(unknownTimeAnalysis?.scenarios ?? []).map(
         (scenario) =>
           `${scenario.timeName}：${Object.values(scenario.pillars)

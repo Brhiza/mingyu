@@ -58,6 +58,16 @@ const shenShaVariantsSchema = z
   .optional()
   .describe('神煞争议口径；不传时使用问真学堂整理口径');
 
+export const unknownTimeBatchSchema = z
+  .strictObject({
+    startIndex: z.number().int().min(0).default(0).describe('候选全局序号，从 0 开始；省略时为 0'),
+    contextKey: z.string().min(1).optional().describe('上一页返回的候选上下文标识'),
+  })
+  .optional()
+  .describe(
+    '出生时辰未知的单盘候选续取；每次只返回一个候选，首次可省略此项或传空对象，续取时原样传入上一页 next',
+  );
+
 export const baziSchema = z.object({
   name: z.string().optional().describe('称呼（可选，用于双盘证据来源标注）'),
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
@@ -93,6 +103,12 @@ export const baziSchema = z.object({
     .optional()
     .describe('神煞输出范围：common=默认55个常用神煞，all=全部已计算神煞'),
   shenShaVariants: shenShaVariantsSchema,
+  unknownTimeBatch: unknownTimeBatchSchema,
+  scopeBatch: z.never().optional().describe('八字单盘不支持 scopeBatch'),
+  fortuneBatch: z.never().optional().describe('八字排盘不支持 fortuneBatch'),
+  combinedBatch: z.never().optional().describe('八字单盘不支持 combinedBatch'),
+  rangeBatch: z.never().optional().describe('八字单盘不支持 rangeBatch'),
+  birthTimeRange: z.never().optional().describe('八字单盘不支持 birthTimeRange'),
 });
 
 const baziCompatibilityTypes = [
@@ -193,7 +209,12 @@ function mapPromptScopeToBaziFortuneScope(scope: string | undefined) {
   return scope === undefined ? undefined : mapped[scope];
 }
 
-export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
+type BaziPersonInput = Omit<
+  z.infer<typeof baziSchema>,
+  'scopeBatch' | 'fortuneBatch' | 'combinedBatch' | 'rangeBatch' | 'birthTimeRange'
+>;
+
+export function buildBaziPerson(args: BaziPersonInput): Person {
   if (args.timeIndex !== undefined) {
     readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', -1, 12);
   }
@@ -295,9 +316,46 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     ...(birthHour === undefined ? {} : { birthHour }),
     ...(birthMinute === undefined ? {} : { birthMinute }),
     ...(birthSecond === undefined ? {} : { birthSecond }),
+    birthPlace: args.birthPlace ?? '',
+    timezone: args.timezone,
+    timeZoneId: args.timeZoneId,
+    applyChinaDst: args.applyChinaDst,
     shenShaScope: args.shenShaScope,
     shenShaVariants: args.shenShaVariants,
   };
+}
+
+export function assertUnknownTimeBatchForSingleChart(
+  person: Person,
+  unknownTimeBatch: z.infer<typeof unknownTimeBatchSchema>,
+) {
+  if (!person.isThreePillars && unknownTimeBatch) {
+    throw new Error('unknownTimeBatch 仅适用于出生时辰未知的八字单盘。');
+  }
+}
+
+export function calculateMcpBaziSingleChart(
+  person: Person,
+  unknownTimeBatch: z.infer<typeof unknownTimeBatchSchema>,
+) {
+  assertUnknownTimeBatchForSingleChart(person, unknownTimeBatch);
+  if (!person.isThreePillars) {
+    return { result: baziCalculator.calculateBazi(person) };
+  }
+  const page = baziCalculator.calculateBaziUnknownTimeBatch(person, {
+    startIndex: unknownTimeBatch?.startIndex ?? 0,
+    ...(unknownTimeBatch?.contextKey ? { contextKey: unknownTimeBatch.contextKey } : {}),
+  });
+  return { result: page.result, unknownTimeBatch: page.batch };
+}
+
+function assertCompatibilityHasNoUnknownTimeBatch(args: {
+  person1: z.infer<typeof baziSchema>;
+  person2: z.infer<typeof baziSchema>;
+}) {
+  if (args.person1.unknownTimeBatch || args.person2.unknownTimeBatch) {
+    throw new Error('unknownTimeBatch 仅支持八字单盘工具，八字合盘不能使用该参数。');
+  }
 }
 
 export function registerBaziTool(server: McpServer) {
@@ -305,15 +363,23 @@ export function registerBaziTool(server: McpServer) {
     'bazi_calculate',
     {
       description:
-        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制，关闭时仍可直接按明确时辰排盘',
+        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；出生时辰未知时默认只返回第一个候选及 unknownTimeBatch 续取参数，每次续取一个候选',
       inputSchema: { ...baziSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const person = buildBaziPerson(args);
-        const result = baziCalculator.calculateBazi(person);
-        return createStructuredToolResult({ result }, args.detailMode);
+        const calculation = calculateMcpBaziSingleChart(person, args.unknownTimeBatch);
+        return createStructuredToolResult(
+          {
+            result: calculation.result,
+            ...(calculation.unknownTimeBatch
+              ? { batch: { unknownTimeBatch: calculation.unknownTimeBatch } }
+              : {}),
+          },
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -323,13 +389,15 @@ export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_prompt',
     {
-      description: '八字排盘并生成可直接交给 AI 的完整任务书，同时返回本次计算的命盘与所选运限资料',
+      description:
+        '八字排盘并生成可直接交给 AI 的完整任务书，同时返回本次计算的命盘与所选运限资料；时辰未知时默认只生成首个本命候选，可按 unknownTimeBatch 逐项续取',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
         const person = buildBaziPerson(args);
+        assertUnknownTimeBatchForSingleChart(person, args.unknownTimeBatch);
         const selection = readMcpPromptSelection({
           methodId: 'bazi',
           topicId: args.topicId,
@@ -338,20 +406,30 @@ export function registerBaziTool(server: McpServer) {
         });
         const explicitFortuneScope =
           args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
+        if (person.isThreePillars && args.fortuneBatch) {
+          throw new Error('出生时辰未知时不能使用 fortuneBatch，请先逐页续取本命候选。');
+        }
+        if (person.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
+          throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
+        }
         const requestedFortuneScope = explicitFortuneScope ?? 'dayun';
         if (args.fortuneBatch && requestedFortuneScope !== 'full') {
           throw new Error('八字 fortuneBatch 仅支持完整命限。');
         }
-        const batchCalculation = args.fortuneBatch
-          ? baziCalculator.calculateBaziBatch(person, {
-              section: 'fortune',
-              startIndex: args.fortuneBatch.startIndex ?? 0,
-            })
+        const unknownTimeCalculation = person.isThreePillars
+          ? calculateMcpBaziSingleChart(person, args.unknownTimeBatch)
           : undefined;
-        const result = batchCalculation?.result ?? baziCalculator.calculateBazi(person);
-        if (result.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
-          throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
-        }
+        const batchCalculation =
+          !person.isThreePillars && args.fortuneBatch
+            ? baziCalculator.calculateBaziBatch(person, {
+                section: 'fortune',
+                startIndex: args.fortuneBatch.startIndex ?? 0,
+              })
+            : undefined;
+        const result =
+          unknownTimeCalculation?.result ??
+          batchCalculation?.result ??
+          baziCalculator.calculateBazi(person);
         const initialFortuneScope =
           explicitFortuneScope ?? (result.isThreePillars ? 'natal' : 'dayun');
         // 通用 scope 只指定层级（如 decadal），仍应自动定位当前阶段；只有
@@ -446,6 +524,9 @@ export function registerBaziTool(server: McpServer) {
             ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
           },
           prompt: basePrompt,
+          ...(unknownTimeCalculation
+            ? { batch: { unknownTimeBatch: unknownTimeCalculation.unknownTimeBatch } }
+            : {}),
           ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
         });
       } catch (error) {
@@ -464,6 +545,7 @@ export function registerBaziTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertCompatibilityHasNoUnknownTimeBatch(args);
         const person1 = buildBaziPerson(args.person1);
         const person2 = buildBaziPerson(args.person2);
         if (person1.isThreePillars || person2.isThreePillars) {
@@ -494,6 +576,7 @@ export function registerBaziTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertCompatibilityHasNoUnknownTimeBatch(args);
         const person1 = buildBaziPerson(args.person1);
         const person2 = buildBaziPerson(args.person2);
         if (person1.isThreePillars || person2.isThreePillars) {

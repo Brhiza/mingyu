@@ -30,7 +30,7 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
-import { buildBaziPerson, baziSchema } from './bazi.js';
+import { buildBaziPerson, baziSchema, calculateMcpBaziSingleChart } from './bazi.js';
 import {
   buildMcpZiweiChartInput,
   buildMcpZiweiFortuneRangeOptions,
@@ -172,7 +172,7 @@ export function registerThematicTool(server: McpServer) {
     'thematic_consultation_prompt',
     {
       description:
-        '大类主题命理咨询：指定大类主题（默认通用 general，可选感情 relationship、事业 career、财运 wealth、健康 health、家庭 family、学业 academic、时机 timing）与体系（默认 bazi_ziwei 八字紫微合参，可选 bazi 或 ziwei），自动为 AI 提取针对性盘面核心要素与宫位证据，并生成符合正统理法的完整自包含任务书提示词',
+        '大类主题命理咨询：指定主题与八字、紫微或合参体系，生成完整自包含任务书；纯八字且时辰未知时默认只返回首个本命候选，可按 unknownTimeBatch 逐项续取',
       inputSchema: thematicConsultationPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -183,13 +183,36 @@ export function registerThematicTool(server: McpServer) {
           args.methodId ??
           (legacySystem === 'bazi' ? 'bazi' : legacySystem === 'ziwei' ? 'ziwei' : 'bazi-ziwei');
         const system = methodId === 'bazi' ? 'bazi' : methodId === 'ziwei' ? 'ziwei' : 'bazi_ziwei';
+        if (args.unknownTimeBatch && system !== 'bazi') {
+          throw new Error('unknownTimeBatch 仅支持八字单盘，不能用于紫微或八字紫微合参。');
+        }
+        const baziPerson =
+          system === 'bazi_ziwei' || system === 'bazi' ? buildBaziPerson(args) : null;
+        const unknownBazi = baziPerson?.isThreePillars === true;
+        if (system === 'bazi_ziwei' && unknownBazi) {
+          throw new Error('八字紫微合参需要明确的出生时辰，未知时辰可先查询八字单盘候选。');
+        }
         const topic = normalizeThematicTopic(args.topic);
         const scope =
           args.scope === undefined
-            ? ((args.promptScope ?? 'decadal') as ZiweiPromptScope)
+            ? ((args.promptScope ??
+                (system === 'bazi' && unknownBazi ? 'origin' : 'decadal')) as ZiweiPromptScope)
             : args.scope === 'natal'
               ? 'origin'
               : (args.scope as ZiweiPromptScope);
+
+        if (system === 'bazi' && unknownBazi && scope !== 'origin') {
+          throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
+        }
+        if (
+          system === 'bazi' &&
+          unknownBazi &&
+          (args.scopeBatch !== undefined ||
+            args.fortuneBatch !== undefined ||
+            args.combinedBatch !== undefined)
+        ) {
+          throw new Error('出生时辰未知时不能使用岁运或合参分页，请逐页续取本命候选。');
+        }
 
         const combinedCursor = resolveMcpCombinedBatchCursor({
           scope,
@@ -265,12 +288,20 @@ export function registerThematicTool(server: McpServer) {
         }
 
         let baziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+        let unknownTimeBatch:
+          ReturnType<typeof calculateMcpBaziSingleChart>['unknownTimeBatch'] | undefined;
         let ziweiResult: Awaited<ReturnType<typeof calculateZiweiFactsForScopes>> | undefined;
         let serializableZiweiResult: unknown | undefined;
         let ziweiBatch: ReturnType<typeof getMcpZiweiBatchMetadata> | undefined;
 
         if (system === 'bazi_ziwei' || system === 'bazi') {
-          baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
+          if (system === 'bazi' && baziPerson) {
+            const calculation = calculateMcpBaziSingleChart(baziPerson, args.unknownTimeBatch);
+            baziResult = calculation.result;
+            unknownTimeBatch = calculation.unknownTimeBatch;
+          } else {
+            baziResult = baziCalculator.calculateBazi(baziPerson!);
+          }
         }
 
         if (system === 'bazi_ziwei' || system === 'ziwei') {
@@ -379,7 +410,11 @@ export function registerThematicTool(server: McpServer) {
             bazi: baziResult,
             ziwei: serializableZiweiResult,
           },
-          ...(ziweiBatch ? { batch: ziweiBatch } : {}),
+          ...(unknownTimeBatch
+            ? { batch: { unknownTimeBatch } }
+            : ziweiBatch
+              ? { batch: ziweiBatch }
+              : {}),
           prompt: promptResult.prompt,
         });
       } catch (error) {
