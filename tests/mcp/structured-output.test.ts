@@ -2589,7 +2589,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       }
     ).result;
     for (const aspect of chart?.aspects ?? []) {
-      assert.equal(aspect.strength, undefined);
+      assert.equal(typeof aspect.strength, 'number');
       assert.equal(typeof aspect.actualAngle, 'number');
       assert.equal(typeof aspect.exactAngle, 'number');
       assert.equal(typeof aspect.allowedOrb, 'number');

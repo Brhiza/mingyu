@@ -1554,6 +1554,8 @@ export interface AstrolabeAspect {
   /** 两计算点黄经的实际最小夹角。旧结果可能缺少。 */
   actualAngle?: number;
   orb: number;
+  /** 底层相位筛选的原始强度（无单位，范围为 0-100）；旧手工结果可缺省。 */
+  strength?: number;
   /** 本次相位筛选采用的允许容许度。旧结果可能缺少。 */
   allowedOrb?: number;
   closeness?: '紧密' | '中等' | '宽松';

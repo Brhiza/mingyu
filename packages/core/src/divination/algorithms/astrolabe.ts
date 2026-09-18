@@ -292,6 +292,7 @@ function mapAspect(aspect: {
     exactAngle: Number(aspect.angle.toFixed(4)),
     actualAngle: Number(aspect.separation.toFixed(4)),
     orb: Number(aspect.deviation.toFixed(2)),
+    strength: aspect.strength,
     allowedOrb: Number(aspect.orb.toFixed(4)),
     closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
     normalizedOrbRatio,
