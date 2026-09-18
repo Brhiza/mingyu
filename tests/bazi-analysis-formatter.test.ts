@@ -49,6 +49,29 @@ test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
   assert.doesNotMatch(text, /喜忌五行:|喜忌十神:|十神归类:|取用脉络:/);
 });
 
+test('核心判断应保留完整旺衰裁决并同时呈现特殊格与常规格局成败', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 8,
+    day: 15,
+    timeIndex: 8,
+    gender: 'female',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const ruleBasis = result.analysis.dayMasterStrength.details.ruleBasis;
+  assert.ok(ruleBasis.length > 1);
+  const text = formatBaziForPrompt(result);
+
+  for (const fact of ruleBasis) {
+    assert.ok(text.includes(fact), `旺衰裁决依据未完整输出：${fact}`);
+  }
+  assert.match(text, /特殊格裁决：从儿格不成立/);
+  assert.match(text, /所取格局：食神格；当前成败判定：成格/);
+});
+
 test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,

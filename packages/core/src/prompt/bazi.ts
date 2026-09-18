@@ -202,7 +202,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
           taskMethod,
         );
   const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
-  const chart = formatBaziForPrompt(options.result, null, hasFortuneData ? 'fortune' : 'general');
+  const selectedSchools = normalizeBaziPromptSchools(options.schools);
+  const chartScene =
+    selectedSchools.length || options.school ? 'school' : hasFortuneData ? 'fortune' : 'general';
+  const chart = formatBaziForPrompt(options.result, null, chartScene);
   const fortuneSelection = formatBaziFortuneSelection(options.fortuneSelectionContext);
   const fortuneFocus = [options.fortuneFocus?.trim(), fortuneSelection?.focus.trim()]
     .filter(Boolean)
@@ -212,8 +215,6 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     : hasFortuneData && options.fortuneScope && options.fortuneScope !== 'natal'
       ? `分析对象：${options.fortuneScope === 'full' ? '本命盘与完整大运流年' : options.fortuneScope}`
       : '分析对象：本命盘';
-  const selectedSchools = normalizeBaziPromptSchools(options.schools);
-
   const patternConditions = formatBaziPatternConditions(options.result);
   const focusSection = patternConditions ? buildPromptSection('格局条件', patternConditions) : '';
 

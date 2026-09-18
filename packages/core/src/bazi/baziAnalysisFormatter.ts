@@ -11,7 +11,7 @@ interface FormatBaziOptions {
 }
 
 export type PromptChartScene =
-  'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
+  'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise' | 'school';
 
 function joinOrFallback(values: string[] | undefined, fallback = '无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
@@ -344,8 +344,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
   result += `旺衰: ${analysis.dayMasterStrength.status}`;
-  if (includeRules && analysis.dayMasterStrength.details?.ruleBasis?.[0]) {
-    result += `（${analysis.dayMasterStrength.details.ruleBasis[0]}）`;
+  const strengthRuleBasis = analysis.dayMasterStrength.details?.ruleBasis ?? [];
+  if (includeRules && strengthRuleBasis.length) {
+    result += `（${strengthRuleBasis.join('；')}）`;
   }
   result += '\n';
   result += `格局: ${analysis.mingGe.pattern}`;
@@ -354,7 +355,12 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   result += '\n';
   if (analysis.mingGe.fulfillment) {
-    result += `${formatPatternFulfillmentFacts(analysis.mingGe)[0]}\n`;
+    const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
+    const patternSummary = patternFacts.find((fact) => fact.startsWith('所取格局：'));
+    if (patternFacts[0]) result += `${patternFacts[0]}\n`;
+    if (patternSummary && patternSummary !== patternFacts[0]) {
+      result += `${patternSummary}\n`;
+    }
     if (analysis.mingGe.fulfillment.contradiction) {
       result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;
     }
@@ -494,6 +500,17 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 }
 
 function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
+  if (scene === 'school') {
+    return {
+      includeRules: false,
+      includeShensha: true,
+      includeShenShaAnalysis: false,
+      includeWuxing: true,
+      includeNatalDetails: true,
+      includeLuckOverview: false,
+    };
+  }
+
   if (scene === 'comprehensive') {
     return {
       includeRules: true,
