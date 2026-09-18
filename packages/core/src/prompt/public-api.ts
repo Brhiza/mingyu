@@ -318,11 +318,12 @@ export function buildBaziPromptForResult(params: {
         ? buildPromptTask('请依据八字排盘资料完成解读。', taskMethod)
         : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, taskMethod);
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
+  const schoolScene = params.school || params.schools?.length;
   const chart = [
     formatBaziForPrompt(
       params.result,
       null,
-      effectiveFortuneScope === 'natal' ? 'general' : 'fortune',
+      schoolScene ? 'school' : effectiveFortuneScope === 'natal' ? 'general' : 'fortune',
     ),
   ]
     .filter(Boolean)

@@ -11,7 +11,7 @@ interface FormatBaziOptions {
 }
 
 export type PromptChartScene =
-  'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
+  'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise' | 'school';
 
 function joinOrFallback(values: string[] | undefined, fallback = '无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
@@ -500,6 +500,17 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 }
 
 function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
+  if (scene === 'school') {
+    return {
+      includeRules: false,
+      includeShensha: true,
+      includeShenShaAnalysis: false,
+      includeWuxing: true,
+      includeNatalDetails: true,
+      includeLuckOverview: false,
+    };
+  }
+
   if (scene === 'comprehensive') {
     return {
       includeRules: true,
