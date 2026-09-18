@@ -285,6 +285,45 @@ test('统一出生档案可生成真太阳时后的紫微传统盘输入', () =>
   assert.equal(input.trueSolarEvidence?.summaryFact.status, '证据链完整');
 });
 
+test('统一出生档案的精确秒应同时透传八字与紫微输入', () => {
+  const profile = {
+    name: '精确秒样例',
+    gender: 'male' as const,
+    calendarType: 'solar' as const,
+    year: 2025,
+    month: 5,
+    day: 5,
+    hour: 13,
+    minute: 57,
+    second: 16,
+  };
+  const baziInput = birthProfileToBaziPerson(profile);
+  const ziweiInput = birthProfileToZiweiChartInput(profile);
+
+  assert.equal(baziInput.birthHour, 13);
+  assert.equal(baziInput.birthMinute, 57);
+  assert.equal(baziInput.birthSecond, 16);
+  assert.deepEqual(ziweiInput.birthTime, { hour: 13, minute: 57, second: 16 });
+});
+
+test('农历精确出生档案透传秒时仍保留农历日期口径', () => {
+  const input = birthProfileToZiweiChartInput({
+    name: '农历精确秒样例',
+    gender: 'female',
+    calendarType: 'lunar',
+    year: 2024,
+    month: 1,
+    day: 1,
+    hour: 13,
+    minute: 57,
+    second: 16,
+  });
+
+  assert.equal(input.dateType, 'lunar');
+  assert.equal(input.birthDate, '2024-01-01');
+  assert.deepEqual(input.birthTime, { hour: 13, minute: 57, second: 16 });
+});
+
 test('择日适配器保持真太阳时跨日后的日期与时辰一致', () => {
   const participant = birthProfileToAlmanacParticipant({
     name: '跨日样例',
@@ -322,6 +361,8 @@ test('能力清单可序列化且返回副本', () => {
     getSystemCapability(systemId)?.inputs.find((input) => input.id === inputId);
 
   const trueSolarBirth = getSystemCapability('calendar.trueSolarBirth');
+  assert.equal(findInput('calendar.trueSolarBirth', 'date'), undefined);
+  assert.doesNotMatch(JSON.stringify(trueSolarBirth), /纪元年|目标公元年/);
   assert.equal(
     trueSolarBirth?.inputs.some((input) => input.id === 'profile'),
     false,

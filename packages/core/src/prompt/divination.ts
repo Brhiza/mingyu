@@ -46,6 +46,7 @@ import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
+import { getDunJiaStem } from '../divination/algorithms/qimen/helpers/palace-utils';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -166,19 +167,49 @@ function formatLiuyaoHiddenSpiritSummary(data: DivinationData) {
     .join('；')}`;
 }
 
+function getQimenActiveContext(data: QimenData) {
+  const scope = data.scope ?? 'hour';
+  const scopeConfig = {
+    year: { label: '年干', branchLabel: '年支', scopeLabel: '年家' },
+    month: { label: '月干', branchLabel: '月支', scopeLabel: '月家' },
+    day: { label: '日干', branchLabel: '日支', scopeLabel: '日家' },
+    hour: { label: '时干', branchLabel: '时支', scopeLabel: '时家' },
+  } as const;
+  const config = scopeConfig[scope] ?? scopeConfig.hour;
+  const activeGanZhi = data.ganzhi[scope] ?? data.ganzhi.hour;
+  return {
+    ...config,
+    scope,
+    activeStem: activeGanZhi.charAt(0),
+    visibleStem: getDunJiaStem(activeGanZhi),
+  };
+}
+
 function formatQimenFocusSummary(data: QimenData) {
   const zhiFuPalace = data.jiuGongGe.find(
     (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
   );
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
-  const hourStem = data.ganzhi.hour.charAt(0);
-  const hourStemPalaces = data.jiuGongGe.filter(
+  const active = getQimenActiveContext(data);
+  const activeStemPalaces = data.jiuGongGe.filter(
     (item) =>
-      item.tianPan.stem === hourStem ||
-      item.tianPan.companionStem === hourStem ||
-      item.diPan.stem === hourStem,
+      item.tianPan.stem === active.visibleStem ||
+      item.tianPan.companionStem === active.visibleStem ||
+      item.diPan.stem === active.visibleStem,
   );
-  return `值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`;
+  const activeStemLabel =
+    active.activeStem === active.visibleStem
+      ? `${active.label}${active.activeStem}`
+      : `${active.label}${active.activeStem}（遁${active.visibleStem}）`;
+  return `值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；${activeStemLabel}${activeStemPalaces.length ? `见于${activeStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`;
+}
+
+function formatQimenHorseSummary(data: QimenData) {
+  if (!data.horseStar) return '';
+  const active = getQimenActiveContext(data);
+  return active.scope === 'hour'
+    ? `驿马：${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}`
+    : `驿马：${active.branchLabel}${data.horseStar.sourceBranch}起驿马在${data.horseStar.branch}`;
 }
 
 function formatQimenSeasonalitySummary(data: QimenData) {
@@ -337,6 +368,7 @@ export function getDivinationSummaryBlocks(
     }
     case 'qimen': {
       const item = data as QimenData;
+      const qimenActive = getQimenActiveContext(item);
       return {
         title: '奇门起局结果',
         tags: [
@@ -352,11 +384,11 @@ export function getDivinationSummaryBlocks(
           `格局：${item.patternTags?.join('、') || '未列'}`,
           formatQimenPatternComboSummary(item),
           `空亡：${item.voidBranches?.join('、') || '无'}`,
-          item.horseStar
-            ? `驿马：${item.horseStar.sourceBranch}时驿马在${item.horseStar.branch}`
-            : '',
+          formatQimenHorseSummary(item),
           formatQimenSeasonalitySummary(item),
-          item.specialConditions?.description ? `时辰：${item.specialConditions.description}` : '',
+          item.specialConditions?.description
+            ? `${qimenActive.scope === 'hour' ? '时辰' : `${qimenActive.scopeLabel}特殊条件`}：${item.specialConditions.description}`
+            : '',
         ].filter(Boolean),
       };
     }

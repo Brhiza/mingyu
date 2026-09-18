@@ -18,6 +18,7 @@ function assertContract(result, bundler) {
     result.horoscopeAge !== undefined && result.horoscopeAge !== null,
     `${bundler} 紫微行运结果无效`,
   );
+  assert.equal(result.birthdayAge, 2, `${bundler} 紫微生日当天换岁结果无效`);
 }
 
 async function runViteContract() {

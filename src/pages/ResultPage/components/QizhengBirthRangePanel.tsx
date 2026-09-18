@@ -104,6 +104,7 @@ function getFlowChanges(previous: QizhengResult, current: QizhengResult): string
     const flow = result.flowingStars;
     if (!flow) return [];
     const limits = result.timeLords;
+    const currentMajor = limits?.currentMajorLimit;
     return [
       ...flow.stars.map(
         (star) => `流曜${star.name}在${star.signBranch}宫${star.palace}、${star.xiu}宿`,
@@ -111,7 +112,7 @@ function getFlowChanges(previous: QizhengResult, current: QizhengResult): string
       ...flow.transits.map(formatAspectFact),
       ...(limits
         ? [
-            `虚岁${limits.nominalAge}、${limits.direction}、大限${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}、小限${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}、太岁入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}`,
+            `虚岁${limits.nominalAge}、${limits.direction}、大限${currentMajor ? `${currentMajor.signBranch}宫${currentMajor.palace}` : '当前虚岁超出单周行限'}、小限${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}、太岁入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}`,
           ]
         : []),
       ...flow.periodEvents!.events.map(

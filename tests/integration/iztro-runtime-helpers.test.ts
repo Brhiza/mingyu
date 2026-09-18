@@ -15,6 +15,8 @@ import {
   shiftLocalDate,
   shiftLunarYear,
 } from '@core/ziwei/iztro';
+import { buildPromptContextSnapshot } from '@core/ziwei/prompt';
+import { calculateZiweiDisplayPayload } from '@core/ziwei/runtime';
 
 const DEFAULT_CHART_INPUT = {
   name: '测试',
@@ -749,7 +751,7 @@ test('紫微按生日换虚岁时应寻找并验证 iztro 实际换岁代表日'
   const firstOption = options[0];
 
   assert.ok(firstOption);
-  assert.notEqual(firstOption.dateStr, input.birthDate);
+  assert.equal(firstOption.dateStr, input.birthDate);
   const horoscope = await buildHoroscopeFromInput(
     astrolabe,
     input,
@@ -758,6 +760,144 @@ test('紫微按生日换虚岁时应寻找并验证 iztro 实际换岁代表日'
   );
   assert.equal(horoscope.age.nominalAge, 1);
   assert.equal(horoscope.decadal.name, '童限');
+});
+
+test('紫微生日分界跨农历年同月日应立即切换小限与童限宫位', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2000-06-15',
+    birthTimeIndex: 6,
+    ageDivide: 'birthday' as const,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const birthDay = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2000-06-15',
+    input.birthTimeIndex,
+  );
+  const dayAfterBirth = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2000-06-16',
+    input.birthTimeIndex,
+  );
+  const beforeBirthday = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2001-07-03',
+    input.birthTimeIndex,
+  );
+  const birthdayBoundary = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2001-07-04',
+    input.birthTimeIndex,
+  );
+  const afterBoundary = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2001-07-05',
+    input.birthTimeIndex,
+  );
+
+  assert.equal(birthDay.age.nominalAge, 1);
+  assert.equal(dayAfterBirth.age.nominalAge, 1);
+  assert.equal(beforeBirthday.age.nominalAge, 1);
+  assert.equal(birthdayBoundary.age.nominalAge, 2);
+  assert.equal(afterBoundary.age.nominalAge, 2);
+  assert.equal(birthdayBoundary.age.index, afterBoundary.age.index);
+  assert.equal(birthdayBoundary.decadal.index, afterBoundary.decadal.index);
+  assert.equal(birthdayBoundary.decadal.name, '童限');
+
+  const options = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+  assert.equal(options[0]?.startAge, 1);
+  assert.equal(options[0]?.dateStr, '2000-06-15');
+  assert.equal(options[1]?.startAge, 2);
+  assert.equal(options[1]?.dateStr, '2001-07-04');
+});
+
+test('紫微闰月生日在无闰月的目标年应按同名普通月切换', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    dateType: 'lunar' as const,
+    birthDate: '2023-02-04',
+    isLeapMonth: true,
+    ageDivide: 'birthday' as const,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const anniversary = shiftLunarYear('2023-03-25', 1);
+  assert.equal(anniversary, '2024-03-13');
+
+  const beforeAnniversary = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2024-03-12',
+    input.birthTimeIndex,
+  );
+  const anniversaryHoroscope = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    anniversary,
+    input.birthTimeIndex,
+  );
+  const dayAfterAnniversary = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2024-03-14',
+    input.birthTimeIndex,
+  );
+  assert.equal(beforeAnniversary.age.nominalAge, 1);
+  assert.equal(anniversaryHoroscope.age.nominalAge, 2);
+  assert.equal(dayAfterAnniversary.age.nominalAge, 2);
+});
+
+test('紫微三十日生日在目标年小月应与周年日期钳到廿九日', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2024-04-08',
+    ageDivide: 'birthday' as const,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  assert.equal(shiftLunarYear('2024-04-08', 1), '2025-03-28');
+
+  const beforeAnniversary = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2025-03-27',
+    input.birthTimeIndex,
+  );
+  const anniversaryHoroscope = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    '2025-03-28',
+    input.birthTimeIndex,
+  );
+  assert.equal(beforeAnniversary.age.nominalAge, 1);
+  assert.equal(anniversaryHoroscope.age.nominalAge, 2);
+});
+
+test('紫微提示词快照重筛选格局时应保留生年天干', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    name: '巨机边界',
+    birthDate: '1995-02-02',
+    birthTimeIndex: 11,
+    gender: '男' as const,
+  };
+  const payload = await calculateZiweiDisplayPayload({
+    input,
+    dateStr: '2026-09-15',
+    hourIndex: 6,
+    scope: 'origin',
+  });
+  assert.ok(payload.patterns?.some((pattern) => pattern.name === '巨机居卯'));
+
+  const snapshot = buildPromptContextSnapshot({
+    payload,
+    reportContext: { scope: 'origin' },
+  });
+  assert.ok(snapshot.命盘格局.some((pattern) => pattern.格局 === '巨机居卯'));
 });
 
 test('紫微当前大限查找失败时不得默认选择第一项', () => {

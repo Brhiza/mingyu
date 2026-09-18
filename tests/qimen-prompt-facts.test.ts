@@ -6,6 +6,9 @@ import {
   formatQimenRelationFacts,
   formatQimenStemLocations,
 } from '../packages/core/src/prompt/qimen-facts';
+import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { getDunJiaStem } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils';
 
 test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫干冲', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
@@ -23,6 +26,75 @@ test('奇门甲子时以旬首所遁戊分别定位天盘和地盘', () => {
     const prompt = buildDivinationPrompt('qimen', '请做整体解读。', data);
     assert.match(prompt, /时干甲（甲子遁于戊）；天盘戊：[一-龥]+；地盘戊：[一-龥]+/);
     assert.doesNotMatch(prompt, /时干甲未见落宫/);
+  }
+});
+
+test('奇门摘要按六甲遁干定位甲时，不把原始甲误报为未定位', () => {
+  const data = generateQimen(new Date('2026-09-01T15:00:00Z'));
+  assert.equal(data.ganzhi.hour, '甲子');
+  const summary = getDivinationSummaryBlocks('qimen', data);
+  assert.match(summary.lines.join('\n'), /时干甲（遁戊）见于/);
+  assert.doesNotMatch(summary.lines.join('\n'), /时干甲落宫未定位/);
+});
+
+test('奇门年日月时摘要使用对应排盘范围的主动干支和驿马来源', () => {
+  const cases = [
+    { scope: 'year', label: '年干', branchLabel: '年支', scopeLabel: '年家' },
+    { scope: 'month', label: '月干', branchLabel: '月支', scopeLabel: '月家' },
+    { scope: 'day', label: '日干', branchLabel: '日支', scopeLabel: '日家' },
+    { scope: 'hour', label: '时干', branchLabel: '时支', scopeLabel: '时家' },
+  ] as const;
+
+  for (const item of cases) {
+    const data = generateQimen(new Date('2026-09-01T15:00:00Z'), 'zhuanpan', item.scope);
+    const activeGanZhi = data.ganzhi[item.scope];
+    const activeStem = activeGanZhi.charAt(0);
+    const visibleStem = getDunJiaStem(activeGanZhi);
+    const summary = getDivinationSummaryBlocks('qimen', data).lines.join('\n');
+    const fullPrompt = formatEnhancedDivinationInfo('qimen', data, '请做整体解读。');
+    const stemText = `${item.label}${activeStem}${activeStem === visibleStem ? '' : `（遁${visibleStem}）`}见于`;
+    assert.match(summary, new RegExp(stemText));
+    assert.match(
+      fullPrompt,
+      new RegExp(
+        `${item.scope === 'hour' ? '值符值使与时干' : `值符值使与${item.scopeLabel}主动干`}`,
+      ),
+    );
+    assert.equal(data.horseStar?.sourceBranch, activeGanZhi.charAt(1));
+    if (item.scope === 'hour') {
+      assert.match(summary, /时驿马/);
+      assert.match(fullPrompt, /时驿马/);
+    } else {
+      assert.doesNotMatch(summary, /时驿马/);
+      assert.doesNotMatch(fullPrompt, /时驿马/);
+      if (data.horseStar)
+        assert.match(
+          summary,
+          new RegExp(`${item.branchLabel}${data.horseStar.sourceBranch}起驿马`),
+        );
+      if (data.horseStar)
+        assert.match(
+          fullPrompt,
+          new RegExp(`${item.branchLabel}${data.horseStar.sourceBranch}起驿马`),
+        );
+    }
+
+    const withSpecialCondition = structuredClone(data);
+    withSpecialCondition.specialConditions = {
+      isLiuJiaHour: false,
+      isLiuGuiHour: false,
+      isShiGanRuMu: false,
+      isWuBuYuShi: false,
+      description: '测试特殊条件',
+    };
+    const specialSummary = getDivinationSummaryBlocks('qimen', withSpecialCondition).lines.join(
+      '\n',
+    );
+    assert.match(
+      specialSummary,
+      new RegExp(`${item.scope === 'hour' ? '时辰' : `${item.scopeLabel}特殊条件`}：测试特殊条件`),
+    );
+    if (item.scope !== 'hour') assert.doesNotMatch(specialSummary, /时辰：测试特殊条件/);
   }
 });
 

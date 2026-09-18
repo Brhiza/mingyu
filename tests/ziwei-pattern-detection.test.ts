@@ -600,11 +600,16 @@ test('羊陀夹忌只核对命宫，不得把其他宫位化忌误识别为夹�
 test('火贵格应分别核对命宫与身宫三方，不得跨目标拼接条件', () => {
   const bodyMatch = createPalaces();
   addStar(bodyMatch, 8, '贪狼');
-  addStar(bodyMatch, 10, '火星', 'other');
+  addStar(bodyMatch, 0, '火星', 'other');
   const pattern = detectPatterns({ palaces: bodyMatch }).find((item) => item.name === '火贵格');
   assert.ok(pattern);
   assert.ok(pattern.palace_indexes.includes(4));
   assert.match(pattern.matched_conditions?.join('；') ?? '', /身宫/);
+
+  const oppositeOnly = createPalaces();
+  addStar(oppositeOnly, 8, '贪狼');
+  addStar(oppositeOnly, 10, '火星', 'other');
+  assert.ok(!detectedNames(oppositeOnly).includes('火贵格'));
 
   const crossTarget = createPalaces();
   addStar(crossTarget, 4, '贪狼');

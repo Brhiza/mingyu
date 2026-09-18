@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { normalizeCharacterDefinition } from '../scripts/name-definition-normalization.mjs';
 import { analyzeChineseCharacters, buildChineseCharacterPrompt } from 'mingyu-core/name-number';
 
+test('截断不完整注释时保留扩展区汉字之前的完整字义', () => {
+  assert.equal(normalizeCharacterDefinition('字', '𠮷：吉祥（残缺'), '𠮷：吉祥');
+  assert.equal(normalizeCharacterDefinition('字', '𠮷𠀀：完整）残缺'), '𠮷𠀀：完整');
+  assert.equal(normalizeCharacterDefinition('字', '𠮷：吉祥（完整）'), '𠮷：吉祥（完整）');
+});
+
 test('损坏注音在完整括号内按声调字节还原并保留字义正文', () => {
   const examples = [
     ['丸', '弹（d刵 ）丸', '弹（dàn）丸'],

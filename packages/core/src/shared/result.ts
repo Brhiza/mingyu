@@ -248,7 +248,14 @@ function normalizeForSerialization(value: unknown, seen: WeakSet<object>): unkno
     const normalized: Record<string, unknown> = {};
     for (const key of Object.keys(record).sort()) {
       const item = normalizeForSerialization(record[key], seen);
-      if (item !== undefined) normalized[key] = item;
+      if (item !== undefined) {
+        Object.defineProperty(normalized, key, {
+          value: item,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      }
     }
     return normalized;
   } finally {

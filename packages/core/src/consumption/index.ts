@@ -70,7 +70,12 @@ function partitionValue(value: unknown, path: string, evidence: AuditEvidenceEnt
         evidence.push({ path: itemPath, field, value: item });
       continue;
     }
-    chart[field] = partitionValue(item, itemPath, evidence);
+    Object.defineProperty(chart, field, {
+      value: partitionValue(item, itemPath, evidence),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return chart;
 }

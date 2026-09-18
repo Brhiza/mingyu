@@ -62,6 +62,7 @@ export {
 export { analyzeQimenEvidence } from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
+  QimenCandidateSource,
   QimenCounterEvidenceFact,
   QimenCounterSummaryFact,
   QimenDirectionFact,

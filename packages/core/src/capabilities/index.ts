@@ -138,13 +138,6 @@ const systems: SystemCapability[] = [
     category: 'calendar',
     inputs: [
       {
-        id: 'date',
-        label: '起盘时间',
-        type: 'date',
-        required: false,
-        description: '提供时生成年月日时完整排盘；不得与纪元年坐标、目标公元年同时使用。',
-      },
-      {
         id: 'dateType',
         label: '历法类型',
         type: 'select',

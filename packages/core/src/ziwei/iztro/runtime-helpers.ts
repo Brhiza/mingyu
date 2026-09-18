@@ -18,6 +18,11 @@ const VALID_AGE_DIVIDES = ['normal', 'birthday'] as const;
 const VALID_DAY_DIVIDES = ['current', 'forward'] as const;
 
 type IztroAstro = typeof import('iztro').astro;
+type BirthdayTools = [
+  typeof import('iztro/lib/astro/index.js'),
+  typeof import('iztro/lib/star/index.js'),
+  typeof import('iztro/lib/utils/index.js'),
+];
 type IztroModuleShape = {
   astro?: IztroAstro;
   default?:
@@ -234,7 +239,16 @@ function assertValidChartInput(input: ChartInput) {
   if (
     input.birthTime !== undefined &&
     (!input.birthTime ||
+      !Number.isInteger(input.birthTime.hour) ||
+      input.birthTime.hour < 0 ||
       input.birthTime.hour > 23 ||
+      !Number.isInteger(input.birthTime.minute) ||
+      input.birthTime.minute < 0 ||
+      input.birthTime.minute > 59 ||
+      (input.birthTime.second !== undefined &&
+        (!Number.isInteger(input.birthTime.second) ||
+          input.birthTime.second < 0 ||
+          input.birthTime.second > 59)) ||
       getTimeIndexFromClock(input.birthTime.hour, input.birthTime.minute) !== input.birthTimeIndex)
   ) {
     throw new Error('紫微四柱展示时分与出生时辰不一致。');
@@ -308,8 +322,122 @@ export async function buildHoroscopeFromInput(
   const astro = await loadIztroAstro();
 
   // iztro 的配置是全局状态；每次取运限前恢复本盘配置，避免不同口径串盘。
+  // 可选依赖只在调用紫微能力时加载，并在恢复配置前完成异步导入。
+  const birthdayTools: BirthdayTools | undefined =
+    normalized.ageDivide === 'birthday'
+      ? await Promise.all([
+          import('iztro/lib/astro/index.js'),
+          import('iztro/lib/star/index.js'),
+          import('iztro/lib/utils/index.js'),
+        ])
+      : undefined;
   astro.config(buildIztroConfig(normalized));
-  return astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
+  const horoscope = astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
+  return birthdayTools
+    ? applyBirthdayAgeBoundary(astrolabe, horoscope, dateStr, birthdayTools)
+    : horoscope;
+}
+
+type LunarBirthdayParts = {
+  year: number;
+};
+
+function parseSolarDateParts(dateStr: string): [number, number, number] {
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(dateStr.trim());
+  if (!match) throw new Error('紫微运限日期格式需为 YYYY-MM-DD。');
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function getLunarBirthdayParts(dateStr: string): LunarBirthdayParts {
+  const lunarDay = SolarDay.fromYmd(...parseSolarDateParts(dateStr)).getLunarDay();
+  const lunarMonth = lunarDay.getLunarMonth();
+  return {
+    year: lunarMonth.getYear(),
+  };
+}
+
+function normalizeSolarDateKey(dateStr: string): string {
+  const [year, month, day] = parseSolarDateParts(dateStr);
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function compareLunarBirthday(
+  targetDateStr: string,
+  birthDateStr: string,
+  targetLunarYear: number,
+  birthLunarYear: number,
+): number {
+  const elapsedLunarYears = targetLunarYear - birthLunarYear;
+  const anniversaryDate =
+    elapsedLunarYears > 0 ? shiftLunarYear(birthDateStr, elapsedLunarYears) : birthDateStr;
+  const targetDate = normalizeSolarDateKey(targetDateStr);
+  const anniversary = normalizeSolarDateKey(anniversaryDate);
+  return targetDate < anniversary ? -1 : targetDate > anniversary ? 1 : 0;
+}
+
+/**
+ * iztro 2.5.8 的 birthday 规则只在目标日期与出生日期同一农历年时比较月日，
+ * 导致跨年同月生日被推迟到下一个农历月。这里在适配层按出生农历周年的实际公历代表日重算，
+ * 并把依赖年龄驱动的童限、大限和小限对象一起切换到正确宫位。
+ */
+function applyBirthdayAgeBoundary(
+  astrolabe: IFunctionalAstrolabe,
+  horoscope: FunctionalHoroscope,
+  targetDateStr: string,
+  [{ getPalaceNames }, { getHoroscopeStar }, { getMutagensByHeavenlyStem }]: BirthdayTools,
+): FunctionalHoroscope {
+  const birthDateStr = normalizeSolarDateKey(astrolabe.solarDate);
+  const birth = getLunarBirthdayParts(birthDateStr);
+  const target = getLunarBirthdayParts(targetDateStr);
+  const birthdayComparison = compareLunarBirthday(
+    targetDateStr,
+    birthDateStr,
+    target.year,
+    birth.year,
+  );
+  const nominalAge = Math.max(1, target.year - birth.year + (birthdayComparison >= 0 ? 1 : 0));
+
+  const agePalace = astrolabe.palaces.find((palace) => palace.ages.includes(nominalAge));
+  if (!agePalace) {
+    // iztro 对超出小限支持范围的输入本来也返回 -1；保留其结构，只纠正可确定的年龄。
+    horoscope.age = { ...horoscope.age, nominalAge };
+    return horoscope;
+  }
+
+  const regularDecadalPalace = astrolabe.palaces.find(
+    (palace) => nominalAge >= palace.decadal.range[0] && nominalAge <= palace.decadal.range[1],
+  );
+  const childhoodPalaceName = ['命宫', '财帛', '疾厄', '夫妻', '福德', '官禄'][nominalAge - 1];
+  const childhoodPalace = childhoodPalaceName
+    ? astrolabe.palaces.find((palace) => palace.name === childhoodPalaceName)
+    : undefined;
+  const decadalPalace = regularDecadalPalace ?? childhoodPalace;
+  const isChildhood = !regularDecadalPalace && !!childhoodPalace;
+
+  horoscope.age = {
+    ...horoscope.age,
+    index: agePalace.index,
+    nominalAge,
+    heavenlyStem: agePalace.heavenlyStem,
+    earthlyBranch: agePalace.earthlyBranch,
+    palaceNames: getPalaceNames(agePalace.index),
+    mutagen: getMutagensByHeavenlyStem(agePalace.heavenlyStem),
+  };
+
+  if (decadalPalace) {
+    horoscope.decadal = {
+      ...horoscope.decadal,
+      index: decadalPalace.index,
+      name: isChildhood ? '童限' : '大限',
+      heavenlyStem: decadalPalace.heavenlyStem,
+      earthlyBranch: decadalPalace.earthlyBranch,
+      palaceNames: getPalaceNames(decadalPalace.index),
+      mutagen: getMutagensByHeavenlyStem(decadalPalace.heavenlyStem),
+      stars: getHoroscopeStar(decadalPalace.heavenlyStem, decadalPalace.earthlyBranch, 'decadal'),
+    };
+  }
+
+  return horoscope;
 }
 
 export function shiftLocalDate(

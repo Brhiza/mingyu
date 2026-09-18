@@ -379,10 +379,11 @@ async function calculateZiwei(
     isLeapMonth: false,
     useTrueSolarTime,
     algorithm,
+    birthHour: parts.hour,
+    birthMinute: parts.minute,
+    birthSecond: parts.second,
     ...(useTrueSolarTime
       ? {
-          birthHour: parts.hour,
-          birthMinute: parts.minute,
           birthLongitude: context.observer!.longitude,
           timezone: context.observer?.timezone,
           timeZoneId: context.observer?.timeZoneId,

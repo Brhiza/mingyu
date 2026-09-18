@@ -49,6 +49,7 @@ export function formatQizhengFlowRangeFacts(
   const flow = data.flowingStars;
   if (!flow) return [];
   const limits = data.timeLords;
+  const currentMajor = limits?.currentMajorLimit;
   return [
     '流曜落宫落宿：',
     ...flow.stars.map(
@@ -59,7 +60,7 @@ export function formatQizhengFlowRangeFacts(
     ...(limits
       ? [
           `行限：${limits.gender === 'male' ? '男命' : '女命'}，生年干${limits.yearStem}属${limits.yearStemYinYang}，${limits.direction}，虚岁${limits.nominalAge}；${limits.ageNote}。`,
-          `大限：虚岁${limits.currentMajorLimit.startNominalAge}至${limits.currentMajorLimit.endNominalAge}，${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}；小限：${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；太岁${limits.annualBranch}入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}。`,
+          `大限：${currentMajor ? `虚岁${currentMajor.startNominalAge}至${currentMajor.endNominalAge}，${currentMajor.signBranch}宫${currentMajor.palace}` : '当前虚岁超出单周行限'}；小限：${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；太岁${limits.annualBranch}入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}。`,
           `大限次序：${limits.majorLimits.map((item) => `${item.startNominalAge}至${item.endNominalAge}虚岁${item.signBranch}宫${item.palace}`).join('；')}。`,
         ]
       : ['行限：性别未提供。']),

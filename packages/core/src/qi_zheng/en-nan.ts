@@ -58,6 +58,7 @@ function resolveCanonicalStar(name: string): string | undefined {
   if (STAR_ALIAS_TO_CANONICAL[name]) return STAR_ALIAS_TO_CANONICAL[name];
   // 兼容“辰星(水)”“罗睺(火余)”等带括注的展示名
   const base = name.replace(/[（(].*$/, '').trim();
+  if (STAR_WUXING[base]) return base;
   if (STAR_ALIAS_TO_CANONICAL[base]) return STAR_ALIAS_TO_CANONICAL[base];
   return undefined;
 }

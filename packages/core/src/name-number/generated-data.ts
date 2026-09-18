@@ -15,7 +15,7 @@ export interface GeneratedCharacterData {
   kangxiSection: string | null;
 }
 
-export type GeneratedCharacterTuple = readonly [string, string, number, string | null, string | null, string | null, string | null, number | null, number | null, string | null, string | null, string | null, boolean];
+export type GeneratedCharacterTuple = readonly [string, string, number, string | null, string | null, string | null, string | null, number | null, number | null, string | null, string | null, string | null, boolean, readonly string[]];
 
 export interface GeneratedShuliData { level: string; poem: string; text: string; keywords: string; level_note?: string }
 

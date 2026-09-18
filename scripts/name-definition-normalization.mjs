@@ -20,12 +20,14 @@ function truncateAtUnclosedAnnotation(value) {
     ['“', '”'],
   ]) {
     const openings = [];
-    for (const [index, char] of [...value].entries()) {
+    let index = 0;
+    for (const char of value) {
       if (char === open) openings.push(index);
       if (char === close) {
         if (openings.length) openings.pop();
         else cutAt = Math.min(cutAt, index);
       }
+      index += char.length;
     }
     if (openings.length) cutAt = Math.min(cutAt, openings[0]);
   }

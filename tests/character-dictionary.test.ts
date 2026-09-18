@@ -16,10 +16,15 @@ import {
 } from '../packages/core/src/name-number/index.ts';
 
 test('占问笔画表与完整字典逐字保持一致', () => {
-  assert.deepEqual(
-    CHARACTER_STROKE_TUPLES,
-    CHARACTER_TUPLES.map((row) => [row[0], row[1], row[2]]),
-  );
+  const seen = new Set<string>();
+  for (const [char, , strokes] of CHARACTER_STROKE_TUPLES) {
+    assert.ok(!seen.has(char), `取数表重复字形：${char}`);
+    seen.add(char);
+    assert.equal(analyzeChineseCharacters(char).characters[0].detail?.kangxiStrokes, strokes, char);
+  }
+  for (const row of CHARACTER_TUPLES) {
+    for (const char of [row[0], row[1], ...row[13]]) assert.ok(seen.has(char), char);
+  }
 });
 
 test('字典逐条保留完整释义、繁简笔画及康熙原文', () => {
@@ -108,7 +113,7 @@ test('常用字筛选按GB2312一级字生效且保留补充用字查询', () =>
   }
 });
 
-test('万和萬保持同一姓名取数并区分字形与字书笔画', async () => {
+test('万和萬保持项目约定的姓名取数并区分字形与字书笔画', async () => {
   const analysis = await analyzeChineseCharactersWithReferences('万萬');
   const [simplified, traditional] = analysis.characters.map((item) => item.detail!);
   assert.equal(simplified.kangxiStrokes, 15);
@@ -129,6 +134,7 @@ test('万和萬保持同一姓名取数并区分字形与字书笔画', async ()
   assert.deepEqual(first.rawGrids, { tian: 16, ren: 31, di: 17, wai: 2, zong: 31 });
   const namePrompt = buildChineseNameAnalysisPrompt({ analysis: second });
   assert.ok(namePrompt.includes(simplified.strokeNote!));
+  assert.doesNotMatch(namePrompt, /undefined|null|strokeNote|https?:/);
   assert.deepEqual(calculateZhugeNumber('万学一').strokes, [15, 16, 1]);
   assert.equal(calculateZhugeNumber('万学一').number, calculateZhugeNumber('萬學一').number);
   assert.ok(
@@ -141,6 +147,29 @@ test('万和萬保持同一姓名取数并区分字形与字书笔画', async ()
       (item) => item.char === '万',
     ),
   );
+});
+
+test('姓名生成链按实际字形保留已核对的松姜後鍾檯', async () => {
+  const analysis = await analyzeChineseCharactersWithReferences('松姜後鍾檯');
+  const details = analysis.characters.map((item) => item.detail!);
+  assert.deepEqual(
+    details.map((item) => [item.char, item.kangxiStrokes]),
+    [
+      ['松', 8],
+      ['姜', 9],
+      ['後', 9],
+      ['锺', 17],
+      ['檯', 18],
+    ],
+  );
+  assert.deepEqual(analyzeChineseName({ fullName: '王松' }).rawGrids, {
+    tian: 5,
+    ren: 12,
+    di: 9,
+    wai: 2,
+    zong: 12,
+  });
+  assert.deepEqual(calculateZhugeNumber('鍾鍾鍾').strokes, [17, 17, 17]);
 });
 
 test('汉字提示词使用完整字义且区分繁简与姓名学笔画', async () => {
