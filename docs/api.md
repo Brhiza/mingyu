@@ -7,6 +7,7 @@
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
+- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按 SSE 类型配置
 - Skill 文档：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
 `GET /openapi.json` 返回统一的 `{ "ok": true, "data": {}, "meta": {} }` 封装；读取完整 OpenAPI 定义时，端点正文位于 `spec["data"]["paths"]`。
@@ -173,6 +174,8 @@
 ## 请求示例
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
+
+MCP 的在线端点与本地 stdio 工具复用同一套计算能力；MCP 的 `_prompt` 工具默认 `responseMode: "full"` 以保持兼容，在线 AI 直读时建议显式传 `prompt-only`。在线 Remote MCP 对黄历单次超过 7 天、奇门终身局动态扫描超过 10 年的请求会在计算前返回 `RESOURCE_LIMIT`，本地或自部署 MCP 仍支持各自文档声明的完整范围。
 
 为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 

@@ -320,6 +320,12 @@ test('当前时间公共格式化入口应包含公历和干支历', () => {
   const text = formatPromptCurrentTime(new Date('2026-08-06T12:30:00+08:00'));
   assert.match(text, /公历：/);
   assert.match(text, /干支历：/);
+  assert.match(text, /（UTC\+08:00）/);
+});
+
+test('当前时间公共格式化入口按北京时间处理 UTC 跨日', () => {
+  const text = formatPromptCurrentTime(new Date('2026-08-06T23:30:00Z'));
+  assert.match(text, /公历：2026年8月7日 7时30分（UTC\+08:00）/);
 });
 
 test('npm 提示词格式化适配器应覆盖时间、补充资料和通用分段', () => {

@@ -28,6 +28,9 @@ import { registerInstantTool } from './tools/instant.js';
 import { registerNameNumberTools } from './tools/name-number.js';
 import { registerYilinTool } from './tools/yilin.js';
 import { getToolAnnotations, getToolDescription } from './catalog/tool-catalog.js';
+import { promptOutputSchema, promptResponseModeShape, type PromptResponseMode } from './schemas.js';
+import { applyPromptResponseMode } from './tool-results.js';
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import packageJson from '../../package.json';
 
 export const SERVER_INFO = {
@@ -43,6 +46,52 @@ export const SERVER_INSTRUCTIONS = [
   '解读规则：先说明采用的方法、时间和范围，再提炼主要证据、相反证据与限制，最后直接回答用户问题。计算事实与传统取义分开表达；只从返回资料推导，不补造盘面、古籍依据或确定性事件。',
 ].join('\n');
 
+type RegisterToolConfig = {
+  annotations?: ToolAnnotations;
+  description?: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  [key: string]: unknown;
+};
+
+type RegisterToolCallback = (
+  args: Record<string, unknown>,
+  extra: unknown,
+) => CallToolResult | Promise<CallToolResult>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function hasSchemaExtend(
+  value: unknown,
+): value is { extend: (shape: Record<string, unknown>) => unknown } {
+  return isRecord(value) && typeof value.extend === 'function';
+}
+
+function hasSchemaMeta(value: unknown): value is {
+  meta: (metadata?: Record<string, unknown>) => Record<string, unknown> | undefined;
+} {
+  return isRecord(value) && typeof value.meta === 'function';
+}
+
+function addPromptResponseMode(inputSchema: unknown): unknown {
+  if (hasSchemaExtend(inputSchema)) {
+    const extendedSchema = inputSchema.extend(promptResponseModeShape);
+    const metadata = hasSchemaMeta(inputSchema) ? inputSchema.meta() : undefined;
+    return metadata && hasSchemaMeta(extendedSchema)
+      ? extendedSchema.meta(metadata)
+      : extendedSchema;
+  }
+  if (isRecord(inputSchema) && isRecord(inputSchema.shape)) {
+    return { ...inputSchema.shape, ...promptResponseModeShape };
+  }
+  if (isRecord(inputSchema)) {
+    return { ...inputSchema, ...promptResponseModeShape };
+  }
+  return promptResponseModeShape;
+}
+
 /**
  * 创建并配置命语 MCP 服务器实例
  */
@@ -55,12 +104,36 @@ export function createMingyuMcpServer(): McpServer {
   });
 
   // 自动从统一工具契约注入元数据注解 (readOnlyHint, idempotentHint)
-  const originalRegisterTool = server.registerTool.bind(server);
-  server.registerTool = (name, config, cb) => {
+  const originalRegisterTool = server.registerTool.bind(server) as unknown as (
+    name: string,
+    config: RegisterToolConfig,
+    cb: RegisterToolCallback,
+  ) => unknown;
+  server.registerTool = ((name: string, config: RegisterToolConfig, cb: RegisterToolCallback) => {
     const annotations = config.annotations ?? getToolAnnotations(name);
     const description = getToolDescription(name, config.description);
-    return originalRegisterTool(name, { ...config, annotations, description }, cb);
-  };
+    const isPromptTool = config.outputSchema === promptOutputSchema;
+    const inputSchema = isPromptTool
+      ? addPromptResponseMode(config.inputSchema)
+      : config.inputSchema;
+    const wrappedCallback = isPromptTool
+      ? async (args: Record<string, unknown>, extra: unknown) => {
+          const result = await cb(args, extra);
+          const responseMode = (args as { responseMode?: PromptResponseMode }).responseMode;
+          return applyPromptResponseMode(
+            result,
+            responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
+              ? responseMode
+              : 'full',
+          );
+        }
+      : cb;
+    return originalRegisterTool(
+      name,
+      { ...config, inputSchema, annotations, description },
+      wrappedCallback,
+    );
+  }) as unknown as typeof server.registerTool;
 
   registerBaziTool(server);
   registerZiweiTool(server);

@@ -803,7 +803,7 @@ export function getToolAnnotations(id: string): ToolMetadataAnnotations {
 
 const TOOL_USAGE_GUIDANCE: Record<ToolCatalogItem['type'], string> = {
   prompt:
-    '直接解读时优先调用；本工具已完成所需计算，返回 prompt，并可能同步返回 result，无需先调同类排盘工具。按 prompt 回答，以 result 和 warnings 为事实边界',
+    '直接解读时优先调用；本工具已完成所需计算，返回 prompt，并支持 responseMode=prompt-only、summary、full（默认 full），无需先调同类排盘工具。按 prompt 回答，以 result/resultSummary 和 warnings 为事实边界',
   calculate:
     '只用于结构化盘面、表格展示或二次计算；直接解读应选同类提示词工具，避免重复计算。按 outputSchema 读取结构化字段和 warnings',
   utility:
