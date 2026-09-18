@@ -12,6 +12,14 @@ export function buildPersonFromInput(input: BaziChartInputDraft): Person {
   const hasClockTime = [input.birthHour, input.birthMinute].every(
     (value) => value !== undefined && String(value).trim() !== '',
   );
+  const hasPreciseStandardTime =
+    !input.useTrueSolarTime && input.birthSecond !== undefined && input.birthSecond !== '';
+  if (!input.useTrueSolarTime && input.timeIndex === -1 && !hasPreciseStandardTime) {
+    const validated = buildBaziPersonInput(
+      applyFrontendBirthTimeDefaults({ ...input, timeIndex: 6 }),
+    );
+    return { ...validated, timeIndex: -1, isThreePillars: true };
+  }
   // 精准时间表单没有单独的秒字段；未选时辰时，以完整时分和零秒传入核心。
   const preciseInput =
     !input.useTrueSolarTime &&

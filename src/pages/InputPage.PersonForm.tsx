@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
+import { BIRTH_TIME_OPTIONS, getBirthTimeDropdownOptions } from '@/lib/birth-time';
 import { getPersonSectionTitle } from '@/lib/input-labels';
 import type { QueryInputState } from '@/lib/query-state';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
@@ -12,14 +12,6 @@ import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 
 import type { PersonInputMode } from './InputPage.field-helpers';
 export type { PersonInputMode } from './InputPage.field-helpers';
-
-const BIRTH_TIME_DROPDOWN_OPTIONS = [
-  { value: '', label: '请选择时辰' },
-  ...BIRTH_TIME_OPTIONS.map((time, index) => ({
-    value: String(index),
-    label: `${time.label}（${time.range}）`,
-  })),
-];
 
 function getTrueSolarTimeLabel(form: QueryInputState, role: PersonRole) {
   const rawHour = getPersonValue(form, role, 'birthHour');
@@ -66,6 +58,7 @@ export interface PersonFormProps {
   onInputModeChange?: (mode: PersonInputMode) => void;
   reversePanel?: ReactNode;
   reverseSource?: BaziReverseSource | null;
+  allowUnknownTime?: boolean;
 }
 
 export const PersonForm = memo(function PersonForm({
@@ -84,6 +77,7 @@ export const PersonForm = memo(function PersonForm({
   onInputModeChange,
   reversePanel,
   reverseSource = null,
+  allowUnknownTime = false,
 }: PersonFormProps) {
   const birthTimeValue =
     getPersonValue(form, role, 'birthHour') !== '' &&
@@ -273,7 +267,7 @@ export const PersonForm = memo(function PersonForm({
                   <DropdownSelect
                     id={`${role}-time-index-input`}
                     value={String(getPersonValue(form, role, 'timeIndex'))}
-                    options={BIRTH_TIME_DROPDOWN_OPTIONS}
+                    options={getBirthTimeDropdownOptions(allowUnknownTime)}
                     variant="field"
                     onChange={(value) =>
                       updatePersonField(role, 'timeIndex', value === '' ? '' : Number(value))

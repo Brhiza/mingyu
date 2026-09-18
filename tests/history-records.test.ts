@@ -147,6 +147,35 @@ test('四柱日期保存、重开与跨术数引用保留候选区间和秒数',
   });
 });
 
+test('八字未知时辰案例保存重开保留三柱标志，其他命盘入口不继承', async () => {
+  const { buildChartFeaturePathForCase, buildPersonalRecordPath } =
+    await import('../src/lib/case-navigation');
+  withMockStorage(() => {
+    upsertPersonalHistory(
+      {
+        ...createInput('未知时辰合成案例'),
+        gender: 'female',
+        year: '2024',
+        month: '2',
+        day: '4',
+        timeIndex: -1,
+      },
+      'bazi',
+    );
+    const [record] = loadPersonalHistory();
+    assert.ok(record);
+    assert.equal(record.input.timeIndex, -1);
+
+    const baziParams = new URLSearchParams(buildPersonalRecordPath(record).split('?')[1]);
+    assert.equal(parseInputState(baziParams).timeIndex, -1);
+
+    for (const feature of ['ziwei', 'bazi-ziwei', 'qimen-lifetime', 'bazhai'] as const) {
+      const path = buildChartFeaturePathForCase(record, feature);
+      assert.equal(parseInputState(new URLSearchParams(path.split('?')[1])).timeIndex, '', feature);
+    }
+  });
+});
+
 test('双人历史恢复保留仅名称地点、坐标和双方分钟秒精度', () => {
   const startTimestamp = Date.parse('2000-01-01T00:00:00.000Z');
   const rangeSource = JSON.stringify({

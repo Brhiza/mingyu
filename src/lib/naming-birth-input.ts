@@ -3,7 +3,8 @@ import { parseBaziReverseSource, resolveBaziReverseTimeRange } from './bazi-reve
 import { defaultInputState, type QueryInputState } from './query-state';
 
 export function createNamingBirthDraft(input?: QueryInputState | null): QueryInputState {
-  return { ...defaultInputState, ...input };
+  const draft = { ...defaultInputState, ...input };
+  return draft.timeIndex === -1 ? { ...draft, timeIndex: '' } : draft;
 }
 
 export function clearNamingBirthReverseSource(birth: QueryInputState): QueryInputState {

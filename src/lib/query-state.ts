@@ -621,7 +621,7 @@ function parseTimeIndex(value: string) {
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_TIME_INDEX ? parsed : '';
+  return Number.isInteger(parsed) && parsed >= -1 && parsed <= MAX_TIME_INDEX ? parsed : '';
 }
 
 function parseIntegerText(value: string, min: number, max: number) {

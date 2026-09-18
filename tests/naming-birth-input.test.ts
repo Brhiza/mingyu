@@ -82,6 +82,18 @@ test('切换到临时档案清空精确资料，普通时辰与农历闰月口�
   );
 });
 
+test('八字未知时辰案例进入姓名工具时回到待选状态', () => {
+  const draft = createNamingBirthDraft({
+    ...defaultInputState,
+    year: '2024',
+    month: '2',
+    day: '4',
+    timeIndex: -1,
+  });
+  assert.equal(draft.timeIndex, '');
+  assert.throws(() => calculateNamingBirthContext(createNamingBirthInput(draft)), /出生时辰/u);
+});
+
 test('姓名案例展示精确标准北京时间秒而非整段时辰', () => {
   const context = calculateNamingBirthContext({
     ...defaultInputState,
