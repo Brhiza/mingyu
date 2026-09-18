@@ -30,10 +30,13 @@ export function normalizeChartInputForSource(
   const requiresPreciseBirthData = source === 'astrolabe' || source === 'qizheng';
   const canKeepTrueSolarTime =
     input.analysisMode === 'compatibility' || hasCompletePreciseBirthData(input);
+  const canKeepUnknownTime = source === 'bazi' && input.analysisMode === 'single';
 
   return {
     ...input,
     chartType,
+    timeIndex: input.timeIndex === -1 && !canKeepUnknownTime ? '' : input.timeIndex,
+    partnerTimeIndex: input.partnerTimeIndex === -1 ? '' : input.partnerTimeIndex,
     useTrueSolarTime: requiresPreciseBirthData
       ? input.useTrueSolarTime
       : input.useTrueSolarTime && canKeepTrueSolarTime,

@@ -87,3 +87,11 @@ test('切换为不指定应只移除案例自动带入的资料', () => {
     ['manual-1'],
   );
 });
+
+test('八字未知时辰案例不会把负数时辰带入其他术数参与人', () => {
+  const draft = applyPersonalCaseToDivinationDraft(defaultDraft, {
+    ...personalCase,
+    input: { ...personalCase.input, timeIndex: -1 },
+  });
+  assert.equal(draft.almanacParticipants[0]?.timeIndex, '');
+});

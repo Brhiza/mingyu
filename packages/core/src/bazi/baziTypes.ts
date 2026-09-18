@@ -550,6 +550,20 @@ export interface BaziChartResult {
     summary: string;
     uncertainPillars: Array<'year' | 'month' | 'day'>;
     scenarios: Array<{
+      /** 稳定候选身份；同一时辰内的临界前后仍保持不同身份。 */
+      scenarioKey: string;
+      /** 用户输入日历日期上的具体钟表时刻。 */
+      inputClockTime: string;
+      source:
+        | 'day-start'
+        | 'shichen-representative'
+        | 'day-end'
+        | 'solar-term-boundary'
+        | 'month-commander-boundary';
+      boundary?: {
+        name: string;
+        side: 'before' | 'at';
+      };
       timeIndex: number;
       timeName: string;
       pillars: Pillars;

@@ -479,7 +479,7 @@ export class BaziCalculator {
     const genderEnum = gender === 'male' ? Gender.MAN : Gender.WOMAN;
     let batch: BaziFortuneBatchMetadata | undefined;
     let luckInfo;
-    if (batchRequest && (isThreePillars || batchRequest.section === 'natal')) {
+    if (isThreePillars || batchRequest?.section === 'natal') {
       luckInfo = this.luckCalculator.calculateNatalLuckInfo(
         solarTime,
         genderEnum,
@@ -638,9 +638,7 @@ export class BaziCalculator {
       const result = applyUnknownBirthTime(
         finalResult,
         person,
-        (candidate) =>
-          this.calculateBaziInternal(candidate, batchRequest ? { section: 'natal' } : undefined)
-            .result,
+        (candidate) => this.calculateBaziInternal(candidate, { section: 'natal' }).result,
       );
       if (batchRequest?.section !== 'fortune') return { result };
       if (!Number.isSafeInteger(batchRequest.startIndex) || batchRequest.startIndex !== 0) {

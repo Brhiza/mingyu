@@ -66,6 +66,7 @@ type ChartToolConfig = {
   resultTab: ResultTabKey;
   preciseBirthData: boolean;
   compatibility: boolean;
+  allowUnknownTime: boolean;
 };
 
 type CompatibilityPromptSource = Extract<PromptSourceKey, 'bazi' | 'ziwei' | 'bazi-ziwei'>;
@@ -98,6 +99,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'bazi',
     preciseBirthData: false,
     compatibility: false,
+    allowUnknownTime: true,
   },
   ziwei: {
     label: '紫微斗数',
@@ -106,6 +108,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'ziwei',
     preciseBirthData: false,
     compatibility: false,
+    allowUnknownTime: false,
   },
   'bazi-ziwei': {
     label: '八字紫微合参',
@@ -114,6 +117,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'bazi',
     preciseBirthData: false,
     compatibility: false,
+    allowUnknownTime: false,
   },
   'qimen-lifetime': {
     label: '奇门终身局',
@@ -122,6 +126,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'qimen-lifetime',
     preciseBirthData: false,
     compatibility: false,
+    allowUnknownTime: false,
   },
   astrolabe: {
     label: '西洋星盘',
@@ -130,6 +135,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'astrolabe',
     preciseBirthData: true,
     compatibility: false,
+    allowUnknownTime: false,
   },
   qizheng: {
     label: '七政四余',
@@ -138,6 +144,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'qizheng',
     preciseBirthData: true,
     compatibility: false,
+    allowUnknownTime: false,
   },
   bazhai: {
     label: '八宅风水',
@@ -146,6 +153,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'bazhai',
     preciseBirthData: false,
     compatibility: false,
+    allowUnknownTime: false,
   },
   compatibility: {
     label: '双人合盘',
@@ -154,6 +162,7 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     resultTab: 'bazi',
     preciseBirthData: false,
     compatibility: true,
+    allowUnknownTime: false,
   },
 };
 
@@ -370,7 +379,12 @@ export function InputPage() {
     if (!year || !month || !day) return `请填写完整的${label}信息`;
     const requiresPreciseBirthData = role === 'self' && config.preciseBirthData;
     const validateAsPreciseBirthData = useTrueSolarTime || requiresPreciseBirthData;
-    if (!validateAsPreciseBirthData && timeIndex === '') return `请选择${label}的出生时辰`;
+    if (
+      !validateAsPreciseBirthData &&
+      (timeIndex === '' || (timeIndex === -1 && (!config.allowUnknownTime || role !== 'self')))
+    ) {
+      return `请选择${label}的出生时辰`;
+    }
     if (
       (validateAsPreciseBirthData || hasPreciseStandardTime) &&
       (birthHour === '' || birthMinute === '' || (hasPreciseStandardTime && birthSecond === ''))
@@ -552,6 +566,7 @@ export function InputPage() {
               />
             }
             reverseSource={parseBaziReverseSource(form.birthReverseSource)}
+            allowUnknownTime={config.allowUnknownTime}
           />
           {config.compatibility ? (
             <PersonForm

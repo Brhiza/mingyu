@@ -1849,10 +1849,10 @@ export function getPublicApiOpenApiDocument(
             day: { type: 'integer', minimum: 1, maximum: 31 },
             timeIndex: {
               type: 'integer',
-              minimum: 0,
+              minimum: -1,
               maximum: 12,
               description:
-                '时辰索引（0-12）。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
+                '时辰索引（0-12）；八字单盘传 -1 表示时辰未知，返回候选资料。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
             },
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
@@ -5177,7 +5177,7 @@ function readBaziPerson(input: JsonRecord): Person {
         '未启用真太阳时时 timeIndex 为必填项，或启用 useTrueSolarTime 并提供 birthHour/birthMinute。',
       );
     }
-    finalTimeIndex = readInteger(input, 'timeIndex', 0, 12);
+    finalTimeIndex = readInteger(input, 'timeIndex', -1, 12);
   }
 
   const person: Person = {
@@ -5438,8 +5438,17 @@ function readBaziCompatibilityCharts(input: JsonRecord) {
   if (!isRecord(input.person1) || !isRecord(input.person2)) {
     throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的八字出生资料。');
   }
-  const chart1 = calculateBazi(input.person1);
-  const chart2 = calculateBazi(input.person2);
+  const person1 = readBaziPerson(input.person1);
+  const person2 = readBaziPerson(input.person2);
+  if (person1.timeIndex === -1 || person2.timeIndex === -1) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '八字合盘尚需双方明确的出生时辰，未知时辰可先查询单盘候选。',
+    );
+  }
+  const chart1 = baziCalculator.calculateBazi(person1);
+  const chart2 = baziCalculator.calculateBazi(person2);
   return { chart1, chart2 };
 }
 
@@ -5918,6 +5927,13 @@ async function buildCombinedBatchPromptPage(
   selection: ReturnType<typeof readSharedPromptSelection>,
   question: string,
 ) {
+  if (readBaziPerson(input).timeIndex === -1) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '八字紫微合参需要明确的出生时辰，未知时辰可先查询八字单盘候选。',
+    );
+  }
   const scopeContext = resolveCombinedBatchScopeContext(input);
   const baziTopic = readEnum(
     input,

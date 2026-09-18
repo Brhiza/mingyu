@@ -70,6 +70,7 @@ import {
   formatZiweiPromptScopeSummary,
   formatBaziFullFortuneText,
   buildEnhancedBaziPromptPack,
+  buildUnknownTimeBaziPrompt,
   formatZiweiSupportingScopeText,
   formatZiweiFullScopeText,
   getBaziShortcutActions,
@@ -253,20 +254,22 @@ function FortuneScopePresetSelect(props: {
   kind: 'bazi' | 'ziwei' | 'astrolabe';
   currentAvailable?: boolean;
   disabled?: boolean;
+  defaultLabel?: string;
 }) {
   const currentAvailable = props.currentAvailable ?? true;
+  const defaultLabel = props.defaultLabel ?? '本命总览';
   const options: DropdownSelectOption<FortuneScopePreset>[] = [
     ...(props.kind === 'astrolabe'
       ? [
           { value: 'year' as const, label: '当前阶段', triggerLabel: '当前阶段' },
-          { value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' },
+          { value: 'default' as const, label: defaultLabel, triggerLabel: defaultLabel },
         ]
       : [{ value: 'dayun' as const, label: '当前阶段', disabled: !currentAvailable }]),
     { value: 'all', label: '全部' },
     { value: 'manual', label: '自选时间…', triggerLabel: '自选时间' },
     ...(props.kind === 'astrolabe'
       ? []
-      : [{ value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' }]),
+      : [{ value: 'default' as const, label: defaultLabel, triggerLabel: defaultLabel }]),
   ];
   const selectedValue =
     props.value === 'default' ||
@@ -632,6 +635,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ),
     [baziBirthRange.page, baziResult, partnerBaziResult, rangeBaziPromptRequested],
   );
+  const isUnknownTimeBaziPrompt =
+    promptState.promptSource === 'bazi' &&
+    inputState.analysisMode === 'single' &&
+    baziPromptSample.primary?.isThreePillars === true;
   const baziPromptReadingSubject = useMemo(
     () =>
       buildBaziRangeReadingSubject(
@@ -1765,6 +1772,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       const prompt = buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
       const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
       return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
+    }
+    if (baziPromptSample.primary?.isThreePillars) {
+      return buildUnknownTimeBaziPrompt(
+        baziPromptSample.primary,
+        finalQuestion || question,
+        activeBaziShortcutMode === '自定义' ? 'custom' : 'framework',
+      );
     }
     if (
       !promptEngine ||
@@ -3118,9 +3132,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       inputState.analysisMode === 'single' ? (
         <FortuneScopePresetSelect
           kind="bazi"
-          value={baziFortunePreset}
+          value={isUnknownTimeBaziPrompt ? 'default' : baziFortunePreset}
           onChange={handleBaziFortunePresetChange}
           currentAvailable={Boolean(currentBaziFortuneSelection)}
+          disabled={isUnknownTimeBaziPrompt}
+          defaultLabel={isUnknownTimeBaziPrompt ? '本命候选' : undefined}
         />
       ) : null}
 
@@ -3148,19 +3164,21 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         />
       ) : null}
       <small className="workspace-prompt-scope-summary">
-        {isQimenLifetimePromptSource
-          ? QIMEN_LIFETIME_STAGE_MODEL_DESCRIPTIONS[promptState.qimenLifetimeStageModel]
-          : promptState.promptSource === 'ziwei'
-            ? ziweiScopeSummaryText
-            : promptState.promptSource === 'astrolabe'
-              ? promptState.astrolabeScope === 'natal'
-                ? '本命盘'
-                : `${promptState.astrolabeScopeDate || currentDateStr} · ${promptState.astrolabeScope === 'full' ? '各层行运' : promptState.astrolabeScope === 'yearly' ? '全年' : promptState.astrolabeScope === 'monthly' ? '整月' : '当日'}`
-              : promptState.baziFortuneScope === 'full'
-                ? '本命与全部大运流年'
-                : promptBaziScopeContext?.scope === 'dayun'
-                  ? `${promptBaziScopeContext.displayLabel} · ${promptBaziScopeContext.cycleTimeRange.start.year}～${promptBaziScopeContext.cycleTimeRange.end.year}年`
-                  : promptBaziScopeContext?.displayLabel || '本命盘与大运概览'}
+        {isUnknownTimeBaziPrompt
+          ? '本命候选比较（出生时辰待补）'
+          : isQimenLifetimePromptSource
+            ? QIMEN_LIFETIME_STAGE_MODEL_DESCRIPTIONS[promptState.qimenLifetimeStageModel]
+            : promptState.promptSource === 'ziwei'
+              ? ziweiScopeSummaryText
+              : promptState.promptSource === 'astrolabe'
+                ? promptState.astrolabeScope === 'natal'
+                  ? '本命盘'
+                  : `${promptState.astrolabeScopeDate || currentDateStr} · ${promptState.astrolabeScope === 'full' ? '各层行运' : promptState.astrolabeScope === 'yearly' ? '全年' : promptState.astrolabeScope === 'monthly' ? '整月' : '当日'}`
+                : promptState.baziFortuneScope === 'full'
+                  ? '本命与全部大运流年'
+                  : promptBaziScopeContext?.scope === 'dayun'
+                    ? `${promptBaziScopeContext.displayLabel} · ${promptBaziScopeContext.cycleTimeRange.start.year}～${promptBaziScopeContext.cycleTimeRange.end.year}年`
+                    : promptBaziScopeContext?.displayLabel || '本命盘与大运概览'}
       </small>
     </div>
   ) : null;

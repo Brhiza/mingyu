@@ -35,7 +35,10 @@ export function applyPersonalCaseToDivinationDraft(
         year: input.year,
         month: input.month,
         day: input.day,
-        timeIndex: input.timeIndex === '' ? '' : String(input.timeIndex),
+        timeIndex:
+          typeof input.timeIndex === 'number' && input.timeIndex >= 0
+            ? String(input.timeIndex)
+            : '',
         dateType: reverseSource ? 'solar' : input.dateType,
         ...(reverseSource ? { inputMode: 'pillars' as const } : {}),
         isLeapMonth: reverseSource ? false : input.isLeapMonth,
