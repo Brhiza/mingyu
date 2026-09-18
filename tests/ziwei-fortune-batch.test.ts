@@ -17,6 +17,9 @@ import {
   createZiweiHoroscopeResolver,
   type ZiweiHoroscopeResolver,
 } from '../packages/core/src/ziwei/iztro/decadal';
+import { buildAnalysisPayloadV1 } from '../packages/core/src/ziwei/iztro/build-analysis-payload/index';
+import { buildEvidencePool } from '../packages/core/src/ziwei/iztro/build-evidence-pool';
+import type { EvidenceFact } from '../packages/core/src/types/analysis';
 import type { IztroHoroscope } from '../packages/core/src/types/iztro';
 
 const input = buildZiweiChartInput({
@@ -150,6 +153,32 @@ test('紫微独立批次只计算一个资料 scope 或一个年龄年', async (
   assert.equal(scopeBatch.fortuneTimeline, undefined);
   assert.deepEqual(scopeBatch.decadalTimeline, []);
 
+  const completeYearly = await calculateZiweiChart(input, {
+    scopes: ['yearly'],
+    horoscopeContext: currentContext,
+  });
+  assert.deepEqual(
+    new Set(completeYearly.payloadByScope.yearly.evidence_pool.map((fact) => fact.scope)),
+    new Set(['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age']),
+  );
+  assert.deepEqual(
+    new Set(scopeBatch.payloadByScope.yearly.evidence_pool.map((fact) => fact.scope)),
+    new Set(['origin', 'yearly']),
+  );
+  const withoutDisplayId = ({ id: _id, ...fact }: EvidenceFact) => fact;
+  const expectedBatchFacts = completeYearly.payloadByScope.yearly.evidence_pool.filter(
+    (fact) => fact.scope === 'origin' || fact.scope === 'yearly',
+  );
+  assert.deepEqual(
+    new Map(
+      scopeBatch.payloadByScope.yearly.evidence_pool.map((fact) => [
+        fact.key,
+        withoutDisplayId(fact),
+      ]),
+    ),
+    new Map(expectedBatchFacts.map((fact) => [fact.key, withoutDisplayId(fact)])),
+  );
+
   const fortuneBatch = await calculateZiweiChart(input, {
     scopes: [],
     horoscopeContext: currentContext,
@@ -200,6 +229,64 @@ test('紫微独立批次只计算一个资料 scope 或一个年龄年', async (
       (period) => period.source === 'iztro-horoscope' && Boolean(period.endDateStr),
     ),
   );
+});
+
+test('紫微当前 scope 证据生成器不访问其他运限层', async () => {
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const horoscope = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    currentContext.dateStr,
+    currentContext.hourIndex,
+  );
+  const palaces = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'yearly',
+    skipAnalysis: true,
+  }).palaces;
+
+  const buildCountingHoroscope = () => {
+    const calls: string[] = [];
+    const counting = new Proxy(horoscope, {
+      get(target, property, receiver) {
+        if (property === 'palace') {
+          return (name: never, scope: never) => {
+            calls.push(String(scope));
+            return target.palace(name, scope);
+          };
+        }
+        if (property === 'agePalace') {
+          return () => {
+            calls.push('age');
+            return target.agePalace();
+          };
+        }
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }) as IztroHoroscope;
+    return { counting, calls };
+  };
+
+  const current = buildCountingHoroscope();
+  buildEvidencePool({
+    astrolabe,
+    horoscope: current.counting,
+    currentScope: 'yearly',
+    palaces,
+    currentScopeOnly: true,
+  });
+  assert.deepEqual(current.calls, ['yearly']);
+
+  const complete = buildCountingHoroscope();
+  buildEvidencePool({
+    astrolabe,
+    horoscope: complete.counting,
+    currentScope: 'yearly',
+    palaces,
+  });
+  assert.deepEqual(complete.calls, ['decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age']);
 });
 
 test('紫微年龄年在单次请求内复用相同运限对象且不污染动态事实', async () => {

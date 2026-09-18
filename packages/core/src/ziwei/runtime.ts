@@ -111,6 +111,7 @@ export function buildZiweiPayloadByScope(params: {
   calculationConfig: AnalysisPayloadV1['calculation_config'];
   birthTime?: ChartInput['birthTime'];
   skipAnalysis?: boolean;
+  currentScopeEvidenceOnly?: boolean;
 }): Record<ScopeType, AnalysisPayloadV1> {
   const scopes = normalizeScopes(params.scopes);
   return Object.fromEntries(
@@ -123,6 +124,7 @@ export function buildZiweiPayloadByScope(params: {
         calculationConfig: params.calculationConfig,
         birthTime: params.birthTime,
         skipAnalysis: params.skipAnalysis,
+        currentScopeEvidenceOnly: params.currentScopeEvidenceOnly,
       }),
     ]),
   ) as Record<ScopeType, AnalysisPayloadV1>;
@@ -202,6 +204,7 @@ export async function calculateZiweiChart(
           calculationConfig,
           birthTime: input.birthTime,
           skipAnalysis: options.skipAnalysis,
+          currentScopeEvidenceOnly: options.independentBatch === 'scope',
         });
   const natalSnapshot =
     options.independentBatch === 'fortune'

@@ -93,6 +93,19 @@ test('公开点输入显式 scopeBatch 只返回当前 scope 并提供续取游�
   assert.equal(next.body.data.payloadByScope.origin, undefined);
   assert.equal(next.body.data.batch.scopeBatch.startIndex, 1);
   assert.equal(next.body.data.batch.scopeBatch.nextIndex, 2);
+  const decadalEvidence = next.body.data.payloadByScope.decadal.evidence_pool;
+  assert.deepEqual(
+    new Set(decadalEvidence.map((fact: Record<string, unknown>) => fact.scope)),
+    new Set(['origin', 'decadal']),
+  );
+  assert.deepEqual(
+    new Set(
+      decadalEvidence
+        .filter((fact: Record<string, unknown>) => fact.type === 'scope_landing')
+        .map((fact: Record<string, unknown>) => fact.scope),
+    ),
+    new Set(['decadal']),
+  );
 });
 
 test('公开点输入显式 fortuneBatch 只计算请求年龄年，旧点输入不增加 batch 字段', async () => {
@@ -104,6 +117,14 @@ test('公开点输入显式 fortuneBatch 只计算请求年龄年，旧点输入
   assert.equal(point.body.data.batch, undefined);
   assert.deepEqual(point.body.data.scopeNames, ['origin', 'decadal']);
   assert.equal(point.body.data.fortuneTimeline.batch, undefined);
+  assert.deepEqual(
+    new Set(
+      point.body.data.payloadByScope.decadal.evidence_pool.map(
+        (fact: Record<string, unknown>) => fact.scope,
+      ),
+    ),
+    new Set(['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age']),
+  );
 
   const page = await callApi('ziwei/calculate', {
     ...HTTP_POINT,

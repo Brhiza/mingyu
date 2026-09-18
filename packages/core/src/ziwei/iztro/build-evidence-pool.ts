@@ -151,13 +151,31 @@ function getScopeItems(horoscope: IFunctionalHoroscope): Array<{
   ];
 }
 
+function getCurrentScopeItems(
+  horoscope: IFunctionalHoroscope,
+  currentScope: ScopeType,
+): ReturnType<typeof getScopeItems> {
+  if (currentScope === 'origin') return [];
+  if (currentScope === 'age') {
+    return [{ scope: 'age', item: horoscope.age, landingPalace: horoscope.agePalace() }];
+  }
+  return [
+    {
+      scope: currentScope,
+      item: horoscope[currentScope],
+      landingPalace: horoscope.palace('命宫', currentScope),
+    },
+  ];
+}
+
 function collectScopeStructureEvidence(params: {
   astrolabe: IFunctionalAstrolabe;
   horoscope: IFunctionalHoroscope;
   currentScope: ScopeType;
   palaces: PalaceFact[];
+  currentScopeOnly?: boolean;
 }): EvidenceDraft[] {
-  const { astrolabe, horoscope, currentScope, palaces } = params;
+  const { astrolabe, horoscope, currentScope, palaces, currentScopeOnly = false } = params;
   const drafts: EvidenceDraft[] = [];
   const landingPriority: Record<ScopeType, number> = {
     origin: 0,
@@ -173,7 +191,10 @@ function collectScopeStructureEvidence(params: {
     return drafts;
   }
 
-  getScopeItems(horoscope).forEach(({ scope, item, landingPalace }) => {
+  const scopeItems = currentScopeOnly
+    ? getCurrentScopeItems(horoscope, currentScope)
+    : getScopeItems(horoscope);
+  scopeItems.forEach(({ scope, item, landingPalace }) => {
     const palace = palaces.find((candidate) => candidate.index === landingPalace?.index);
     if (!palace) return;
 
@@ -762,8 +783,9 @@ export function buildEvidencePool(params: {
   horoscope: IFunctionalHoroscope;
   currentScope: ScopeType;
   palaces: PalaceFact[];
+  currentScopeOnly?: boolean;
 }): EvidenceFact[] {
-  const { astrolabe, horoscope, currentScope, palaces } = params;
+  const { astrolabe, horoscope, currentScope, palaces, currentScopeOnly = false } = params;
   const currentScopeLabel = resolveCurrentScopeLabel(horoscope, currentScope);
   const birthMutagensByPalaceIndex = buildBirthMutagensByPalaceIndex(palaces);
 
@@ -783,6 +805,7 @@ export function buildEvidencePool(params: {
       horoscope,
       currentScope,
       palaces,
+      currentScopeOnly,
     }),
     ...drafts,
   ]);
