@@ -8,6 +8,11 @@ import { assertHeavenlyStem, assertPillars } from './baziUtils';
 import { evaluatePatternFulfillment } from './baziPatternFulfillment';
 import { evaluateTransformedPattern } from './transformedPatternStrategy';
 import { assessQuzhiPattern, buildQuzhiPatternBasis } from './baziQuzhiStrategy';
+import {
+  assessCongErPattern,
+  buildCongErPatternBasis,
+  buildFollowWealthPriorityBasis,
+} from './baziCongErStrategy';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type PillarPosition = 'year' | 'month' | 'hour';
@@ -205,11 +210,11 @@ const TEN_GOD_TO_SUB_PATTERN: Record<string, 'wealth' | 'officer' | 'output'> = 
 const SUB_PATTERN_CATEGORY_TO_LABEL: Record<string, string> = {
   wealth: '从财格',
   officer: '从杀格',
-  output: '从儿格',
 };
 
 /**
- * 从格细分：根据明透、本气与已成立会合局的类别是否纯一，判断从财/从杀/从儿。
+ * 通用从格细分：根据明透、本气与已成立会合局的类别是否纯一，判断从财或从杀。
+ * 从儿格由独立的顺局裁决处理，不在此处按类别唯一性推导。
  * 类别混杂时保守返回从势格，不按自定义分数或比例选出单一类别。
  */
 function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTenGodFn): string {
@@ -285,6 +290,23 @@ export function determinePattern(
     });
   }
 
+  const conger = assessCongErPattern(pillars, getTenGod, monthCommander);
+  if (conger.competingPattern) {
+    return attachTransformation({
+      pattern: conger.competingPattern.pattern,
+      isSpecial: true,
+      basis: buildFollowWealthPriorityBasis(conger.competingPattern),
+    });
+  }
+  if (conger.established) {
+    return attachTransformation({
+      pattern: '从儿格',
+      isSpecial: true,
+      basis: buildCongErPatternBasis(conger),
+      specialAdjudication: conger.adjudication,
+    });
+  }
+
   let patternName: string;
 
   const samePartyGods = new Set(['比肩', '劫财', '正印', '偏印']);
@@ -320,6 +342,7 @@ export function determinePattern(
   if (
     strengthStatus === '极强' &&
     !quzhi.structuralMatch &&
+    !conger.structuralMatch &&
     commanderSupportsSameParty &&
     (isPureSameParty || canTreatAsSpecialStrong)
   ) {
@@ -330,6 +353,7 @@ export function determinePattern(
   }
   if (
     strengthStatus === '极弱' &&
+    !conger.structuralMatch &&
     commanderSupportsOppositeParty &&
     (isPureOppositeParty || canTreatAsSpecialWeak)
   ) {
@@ -420,12 +444,15 @@ export function determinePattern(
   if (quzhi.structuralMatch && quzhi.blockers.length) {
     basis = `${basis}；曲直结构未立：${quzhi.blockers.join('；')}`;
   }
+  if (conger.structuralMatch && conger.blockers.length) {
+    basis = `${basis}；从儿结构未立：${conger.blockers.join('；')}`;
+  }
 
   return attachTransformation({
     pattern: finalPatternName,
     isSpecial: false,
     basis,
-    specialAdjudication: quzhi.adjudication,
+    specialAdjudication: quzhi.adjudication || conger.adjudication,
     fulfillment,
     // 魁罡日（庚辰/壬辰/戊戌/庚戌）为重要外格，日柱判定后即标出，供 AI 参照《三命通会》
     isKuiGang: ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),

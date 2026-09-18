@@ -86,13 +86,10 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
 export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
   const fulfillment = pattern.fulfillment;
   const special = pattern.specialAdjudication;
-  const specialFacts = special
+  const commonSpecialFacts = special
     ? [
         `特殊格裁决：${special.kind}${special.status}；路径：${special.route}；方法：${special.method}`,
         `特殊格条件：${special.satisfied.join('、')}`,
-        special.memberHiddenStems.length
-          ? `成员支藏干保留：${special.memberHiddenStems.join('；')}`
-          : '',
         special.visibleOutputStems.length
           ? `食伤明透：${special.visibleOutputStems.join('、')}`
           : '',
@@ -102,6 +99,25 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
         special.blockers.length ? `特殊格反证：${special.blockers.join('；')}` : '',
       ].filter(Boolean)
     : [];
+  const specialFacts = !special
+    ? []
+    : special.kind === '曲直格'
+      ? [
+          ...commonSpecialFacts,
+          special.memberHiddenStems.length
+            ? `成员支藏干保留：${special.memberHiddenStems.join('；')}`
+            : '',
+        ].filter(Boolean)
+      : [
+          ...commonSpecialFacts,
+          `从儿五行流向：食伤${special.outputElement}生财${special.wealthElement}`,
+          special.outputRootFacts.length ? `食伤结构根：${special.outputRootFacts.join('；')}` : '',
+          special.wealthRootFacts.length ? `财星结构根：${special.wealthRootFacts.join('；')}` : '',
+          ...special.functionalResolutions.map((item) => `顺局作用：${item}`),
+          special.retainedHiddenFacts.length
+            ? `原支藏印官事实：${special.retainedHiddenFacts.join('；')}`
+            : '',
+        ].filter(Boolean);
   if (!fulfillment) return specialFacts;
   return [
     ...specialFacts,
