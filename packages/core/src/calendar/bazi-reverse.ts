@@ -9,6 +9,8 @@ const MILLISECONDS_PER_SECOND = 1000;
 const MILLISECONDS_PER_DAY = 24 * SECONDS_PER_HOUR * MILLISECONDS_PER_SECOND;
 const SUPPORTED_YEAR_MIN = 1900;
 const SUPPORTED_YEAR_MAX = 2100;
+export const BAZI_REVERSE_DEFAULT_PAGE_SIZE = 24;
+export const BAZI_REVERSE_MAX_PAGE_SIZE = 100;
 
 /** 八字反推使用的四柱名称。每个字段都是六十甲子中的一个干支。 */
 export interface BaziReversePillars {
@@ -22,6 +24,10 @@ export interface BaziReversePillars {
 export interface BaziReverseOptions {
   startYear?: number;
   endYear?: number;
+  /** 候选起始序号；传入 limit 时启用分批返回。 */
+  startIndex?: number;
+  /** 本批最多返回的候选数；省略时保留历史的完整返回行为。 */
+  limit?: number;
 }
 
 export interface BaziReverseRequest extends BaziReverseOptions {
@@ -63,6 +69,17 @@ export interface BaziReverseCandidate {
   endBoundary: BaziReverseBoundary;
 }
 
+export interface BaziReverseBatchMetadata {
+  startIndex: number;
+  limit: number;
+  returned: number;
+  total: number;
+  next?: {
+    startIndex: number;
+    limit: number;
+  };
+}
+
 export interface BaziReverseResult {
   pillars: BaziReversePillars;
   startYear: number;
@@ -70,6 +87,8 @@ export interface BaziReverseResult {
   /** 按开始时间排序的所有候选区间。 */
   candidates: BaziReverseCandidate[];
   candidateCount: number;
+  /** 仅在请求传入 limit 时提供；next 可原样作为下一批请求参数。 */
+  batch?: BaziReverseBatchMetadata;
   policy: {
     timezone: 'Asia/Shanghai';
     offsetHours: 8;
@@ -173,16 +192,39 @@ function normalizeYear(value: number | undefined, fallback: number, label: strin
   return year;
 }
 
+function normalizeBatchIndex(value: number | undefined): number {
+  const startIndex = value ?? 0;
+  if (!Number.isSafeInteger(startIndex) || startIndex < 0) {
+    throw new Error('startIndex需为大于等于 0 的整数。');
+  }
+  return startIndex;
+}
+
+function normalizeBatchLimit(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 1 || value > BAZI_REVERSE_MAX_PAGE_SIZE) {
+    throw new Error(`limit需为 1-${BAZI_REVERSE_MAX_PAGE_SIZE} 的整数。`);
+  }
+  return value;
+}
+
 function normalizeRequest(input: BaziReverseRequest): {
   pillars: BaziReversePillars;
   startYear: number;
   endYear: number;
+  startIndex: number;
+  limit?: number;
 } {
   const pillars = normalizePillars(input.pillars);
   const endYear = normalizeYear(input.endYear, getCurrentBeijingYear(), '结束年份');
   const startYear = normalizeYear(input.startYear, SUPPORTED_YEAR_MIN, '开始年份');
   if (startYear > endYear) throw new Error('开始年份不能晚于结束年份。');
-  return { pillars, startYear, endYear };
+  const startIndex = normalizeBatchIndex(input.startIndex);
+  const limit = normalizeBatchLimit(input.limit);
+  if (limit === undefined && startIndex !== 0) {
+    throw new Error('传入 startIndex 时必须同时传入 limit。');
+  }
+  return { pillars, startYear, endYear, startIndex, limit };
 }
 
 function matches(time: SolarTimeInstance, targetKey: string): boolean {
@@ -371,7 +413,7 @@ function buildSearchAnchors(
  * 23:00 起按次日干支处理子时。候选区间的起止均由 tyme4ts 正向复核后确定。
  */
 export function reverseBaziDates(input: BaziReverseRequest): BaziReverseResult {
-  const { pillars, startYear, endYear } = normalizeRequest(input);
+  const { pillars, startYear, endYear, startIndex, limit } = normalizeRequest(input);
   const targetKey = pillarKey(pillars);
   const rangeStart = SolarTime.fromYmdHms(startYear, 1, 1, 0, 0, 0);
   const rangeEnd = SolarTime.fromYmdHms(endYear + 1, 1, 1, 0, 0, 0);
@@ -385,20 +427,36 @@ export function reverseBaziDates(input: BaziReverseRequest): BaziReverseResult {
     rangeEndTimestamp,
   );
 
-  const candidates = deduplicateCandidates(
+  const allCandidates = deduplicateCandidates(
     anchors
       .filter((timestamp) => matches(fromBeijingTimestamp(timestamp), targetKey))
       .map((timestamp) =>
         buildCandidate(timestamp, pillars, targetKey, rangeStartTimestamp, rangeEndTimestamp),
       ),
   ).sort((left, right) => left.startTimestamp - right.startTimestamp);
+  const candidates =
+    limit === undefined ? allCandidates : allCandidates.slice(startIndex, startIndex + limit);
+  const batch =
+    limit === undefined
+      ? undefined
+      : {
+          startIndex,
+          limit,
+          returned: candidates.length,
+          total: allCandidates.length,
+          ...(startIndex < allCandidates.length &&
+          startIndex + candidates.length < allCandidates.length
+            ? { next: { startIndex: startIndex + candidates.length, limit } }
+            : {}),
+        };
 
   return {
     pillars,
     startYear,
     endYear,
     candidates,
-    candidateCount: candidates.length,
+    candidateCount: allCandidates.length,
+    ...(batch ? { batch } : {}),
     policy: {
       timezone: 'Asia/Shanghai',
       offsetHours: CHINA_OFFSET_HOURS,

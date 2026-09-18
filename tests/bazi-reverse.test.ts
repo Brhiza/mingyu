@@ -81,6 +81,42 @@ test('八字反推返回完整候选区间，并能在区间内正向复核', ()
   assert.equal(candidate.endBoundary.reason, '时辰交接');
 });
 
+test('八字反推支持按游标分批返回且候选总数保持稳定', () => {
+  const pillars = pillarsAt(at(2024, 2, 4, 23));
+  const first = reverseBaziDates({
+    pillars,
+    startYear: 1900,
+    endYear: 2100,
+    startIndex: 0,
+    limit: 2,
+  });
+  assert.equal(first.candidates.length, 2);
+  assert.equal(first.batch?.startIndex, 0);
+  assert.equal(first.batch?.limit, 2);
+  assert.equal(first.batch?.returned, 2);
+  assert.equal(first.batch?.total, first.candidateCount);
+  assert.ok(first.batch?.next);
+
+  const second = reverseBaziDates({
+    pillars,
+    startYear: 1900,
+    endYear: 2100,
+    ...first.batch!.next!,
+  });
+  assert.equal(second.batch?.startIndex, 2);
+  assert.equal(second.candidates.length, 1);
+  assert.equal(second.batch?.returned, 1);
+  assert.equal(second.batch?.next, undefined);
+  assert.notEqual(first.candidates[0]?.startTimestamp, second.candidates[0]?.startTimestamp);
+  assert.equal(second.candidateCount, first.candidateCount);
+});
+
+test('八字反推分批参数边界明确拒绝', () => {
+  const pillars = pillarsAt(at(2024, 2, 4, 23));
+  assert.throws(() => reverseBaziDates({ pillars, startIndex: 1 }), /startIndex.*limit/);
+  assert.throws(() => reverseBaziDates({ pillars, limit: 101 }), /limit需为 1-100/);
+});
+
 test('节气交接秒级边界会切换月柱并返回真实起止时间', () => {
   const termEvidence = calculateSolarTermEvidence(2024, 3);
   const term = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp);
