@@ -73,6 +73,14 @@ test('HTTP 未知时辰默认一项并按 next 续取，compact 保留当前候�
   const compact = compactCall.payload.data as UnknownPage;
   assertSingleCandidatePage(compact, compact.batch.unknownTimeBatch);
   assert.ok(compact.warningSummaryFact);
+  const explicitCompactCall = await callApi('bazi/calculate', {
+    ...unknownInput,
+    unknownTimeBatch: firstBatch.next,
+    detailMode: 'compact',
+  });
+  assert.equal(explicitCompactCall.response.status, 200);
+  assert.deepEqual(compactCall.payload.data, explicitCompactCall.payload.data);
+  assert.deepEqual(compact.unknownTimeAnalysis, next.unknownTimeAnalysis);
 });
 
 test('HTTP 未知时辰候选把非法、越界和跨出生上下文游标映射为 400', async () => {

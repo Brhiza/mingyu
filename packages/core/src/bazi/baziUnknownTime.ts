@@ -177,6 +177,17 @@ export interface UnknownTimeCandidate {
   scenarioKey: string;
 }
 
+/**
+ * 年月柱只会在节气临界改变，日柱只会在换日临界改变。
+ * 日初、日末与已发现的真实临界前后覆盖这些状态；普通时辰代表点仍作为候选返回，
+ * 但无需为判断年月日柱是否待定而逐一重复排盘。
+ */
+export function selectUnknownTimePillarCheckCandidates(
+  candidates: UnknownTimeCandidate[],
+): UnknownTimeCandidate[] {
+  return candidates.filter((candidate) => candidate.point.source !== 'shichen-representative');
+}
+
 function buildScenarioKey(point: UnknownTimeCandidatePoint): string {
   return [
     'bazi:unknown-time',

@@ -63,6 +63,7 @@ import {
   discoverUnknownTimeCandidates,
   finalizeUnknownBirthTime,
   getUnknownTimeUncertainPillars,
+  selectUnknownTimePillarCheckCandidates,
 } from './baziUnknownTime';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
@@ -673,22 +674,29 @@ export class BaziCalculator {
       throw new RangeError('未知时辰候选 startIndex 超出资料范围。');
     }
 
-    const pillarCache = new Map<string, Pillars>();
-    const candidatePillars = candidates.map((candidate) => {
-      const { hour, minute, second } = candidate.point;
-      const clockKey = `${hour}:${minute}:${second}`;
-      const cached = pillarCache.get(clockKey);
-      if (cached) return cached;
-      const pillars = this.calculateCoreBaziInternal(candidate.person, undefined, 'pillars').result
-        .pillars;
-      pillarCache.set(clockKey, pillars);
-      return pillars;
-    });
-    const uncertainPillars = getUnknownTimeUncertainPillars(candidatePillars);
     const candidate = candidates[request.startIndex]!;
     const candidateResult = this.calculateBaziInternal(candidate.person, {
       section: 'natal',
     }).result;
+    const pillarCache = new Map<string, Pillars>();
+    const toClockKey = (item: (typeof candidates)[number]) => {
+      const { hour, minute, second } = item.point;
+      return `${hour}:${minute}:${second}`;
+    };
+    pillarCache.set(toClockKey(candidate), candidateResult.pillars);
+    const candidatePillars = [
+      baseResult.pillars,
+      ...selectUnknownTimePillarCheckCandidates(candidates).map((pillarCandidate) => {
+        const clockKey = toClockKey(pillarCandidate);
+        const cached = pillarCache.get(clockKey);
+        if (cached) return cached;
+        const pillars = this.calculateCoreBaziInternal(pillarCandidate.person, undefined, 'pillars')
+          .result.pillars;
+        pillarCache.set(clockKey, pillars);
+        return pillars;
+      }),
+    ];
+    const uncertainPillars = getUnknownTimeUncertainPillars(candidatePillars);
     const batch: BaziUnknownTimeBatchMetadata = {
       unit: 'candidate',
       startIndex: request.startIndex,

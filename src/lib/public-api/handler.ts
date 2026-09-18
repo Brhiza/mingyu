@@ -5148,8 +5148,10 @@ async function calculateBaziApi(input: JsonRecord, signal?: AbortSignal) {
     ? calculateUnknownTimeBaziBatch(person, unknownTimeBatch)
     : undefined;
   const result = calculation?.result ?? baziCalculator.calculateBazi(person);
+  const compact =
+    input.detailMode === 'compact' || (calculation !== undefined && input.detailMode === undefined);
   return {
-    ...(input.detailMode === 'compact' ? buildCompactBaziResult(result) : result),
+    ...(compact ? buildCompactBaziResult(result) : result),
     ...(calculation ? { batch: { unknownTimeBatch: calculation.batch } } : {}),
   };
 }
