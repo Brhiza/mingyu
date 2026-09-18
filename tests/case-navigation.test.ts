@@ -140,3 +140,11 @@ test('全局案例应能直接打开奇门终身局结果并保留案例标识',
   assert.equal(parsePromptState(params).tab, 'qimen-lifetime');
   assert.equal(parseInputState(params).name, '测试');
 });
+
+test('奇门出生候选秒在盘面与独立解读页切换时保持一致', () => {
+  const current = new URLSearchParams('qbi=4392&t=qimen-lifetime');
+  const assistant = preserveResultContextParams('t=prompt', current);
+  assert.equal(assistant.get('qbi'), '4392');
+  const chart = preserveResultContextParams('t=qimen-lifetime', assistant);
+  assert.equal(chart.get('qbi'), '4392');
+});

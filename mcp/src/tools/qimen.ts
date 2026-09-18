@@ -38,6 +38,22 @@ const qimenPromptSchema = extendPromptSchema(qimenSchema, 'qimen', '用户希望
 
 const qimenLifetimeSchema = z.object({
   birthDateTime: z.string().describe('出生时刻（ISO 8601 格式，如 1990-05-15T14:30:00）'),
+  birthTimeRange: z
+    .object({
+      startTimestamp: z.number().int(),
+      endTimestamp: z.number().int(),
+      endExclusive: z.literal(true),
+      timezone: z.literal('Asia/Shanghai'),
+      offsetHours: z.literal(8),
+    })
+    .optional()
+    .describe('完整北京时间出生半开区间，最多两小时，每次返回一个候选秒的完整盘'),
+  birthRangeIndex: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('出生范围整秒索引，默认0，按结果nextIndex续取'),
   timeZoneId: z.string().optional().describe('IANA 时区标识符（如 Asia/Shanghai）'),
   timezone: z.number().optional().describe('固定 UTC 偏移（默认 8）'),
   location: z

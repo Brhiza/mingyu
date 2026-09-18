@@ -17,6 +17,7 @@ import {
   buildChineseCharacterPrompt,
   buildChineseNamingPrompt,
   buildNumberEnergyPrompt,
+  calculateNamingBirthContext,
   generateChineseNames,
   selectChineseCharacters,
   selectNamingCharacters,
@@ -25,18 +26,29 @@ import {
   type Wuxing,
 } from 'mingyu-core/name-number';
 import { PromptDeliveryPanel } from '@/components/PromptPreview';
+import { BaziReverseInput } from '@/components/BaziReverseInput';
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { WorkspacePage } from '@/components/workspace/WorkspaceUI';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { sortPersonalCasesForQuickSwitch, type PersonalHistoryRecord } from '@/lib/history-records';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
-import { createNamingBirthDraft, createNamingBirthInput } from '@/lib/naming-birth-input';
+import {
+  clearNamingBirthReverseSource,
+  createNamingBirthDraft,
+  createNamingBirthInput,
+} from '@/lib/naming-birth-input';
+import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 import { clampNumericField } from '@/lib/input-validation';
 import type { QueryInputState } from '@/lib/query-state';
 import { PersonForm } from './InputPage.PersonForm';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
-import { getFieldKey } from './InputPage.field-helpers';
+import {
+  applyPersonReverseSelection,
+  getFieldKey,
+  getPersonInputMode,
+  type PersonInputMode,
+} from './InputPage.field-helpers';
 
 type ToolId = 'naming' | 'name' | 'hanzi' | 'number';
 type BirthDraft = QueryInputState;
@@ -288,7 +300,18 @@ export function CultureToolsPage() {
                   limit: 12,
                 } as const;
                 const candidates = generateChineseNames(options);
-                const characters = selectNamingCharacters({ ...options, limit: 24 });
+                const birthContext = candidates[0]?.analysis.birthContext;
+                const preferredElements = [
+                  ...(birthContext?.favorableElements ?? []),
+                  ...(birthContext?.birthRange?.conditionalFavorableElements ?? []),
+                ];
+                const characters = selectNamingCharacters({
+                  gender,
+                  preferredElements,
+                  preferredCharacters,
+                  forbiddenCharacters,
+                  limit: 24,
+                });
                 setNamingResult({ candidates, characters });
                 setSelectedCandidate(0);
               })
@@ -348,6 +371,7 @@ export function CultureToolsPage() {
               value={birth}
               onChange={setBirth}
               caseId={activeCaseId}
+              caseInput={caseInput}
               caseOptions={caseOptions}
               onCaseChange={selectCase}
             />
@@ -368,7 +392,10 @@ export function CultureToolsPage() {
             />
             {nameCandidates.length ? (
               <>
-                <NamingCharacterPool items={namingCharacterPool} />
+                <NamingCharacterPool
+                  items={namingCharacterPool}
+                  birthContext={nameCandidates[0]?.analysis.birthContext}
+                />
                 <div className="culture-name-grid">
                   {nameCandidates.map((item, index) => (
                     <button
@@ -445,6 +472,7 @@ export function CultureToolsPage() {
               value={birth}
               onChange={setBirth}
               caseId={activeCaseId}
+              caseInput={caseInput}
               caseOptions={caseOptions}
               onCaseChange={selectCase}
             />
@@ -730,16 +758,26 @@ function BirthSection({
   value,
   onChange,
   caseId,
+  caseInput,
   caseOptions,
   onCaseChange,
 }: {
   value: BirthDraft;
   onChange: Dispatch<SetStateAction<BirthDraft>>;
   caseId: string | null;
+  caseInput: QueryInputState | null;
   caseOptions: readonly DropdownSelectOption<string>[];
   onCaseChange: (caseId: string | null) => void;
 }) {
   const birthPlace = useBirthPlace({ form: value, setForm: onChange });
+  const [inputMode, setInputMode] = useState<PersonInputMode>(() =>
+    getPersonInputMode(value, 'self'),
+  );
+  const caseInputMode = getPersonInputMode(createNamingBirthDraft(caseInput), 'self');
+  useEffect(() => {
+    setInputMode(caseInputMode);
+  }, [caseId, caseInputMode]);
+  const reverseSource = parseBaziReverseSource(value.birthReverseSource);
   return (
     <div className="culture-birth-section">
       <PersonForm
@@ -780,23 +818,45 @@ function BirthSection({
         updateNumericField={(role, key, next) => {
           if (next === '' || /^\d*$/.test(next)) {
             onChange((current) => ({
-              ...current,
+              ...clearNamingBirthReverseSource(current),
               [getFieldKey(role, key)]: clampNumericField(key, next),
-              birthReverseSource: '',
             }));
           }
         }}
         updateBirthTime={(_, next) => {
           const [birthHour = '', birthMinute = '', birthSecond = ''] = next.split(':');
           onChange((current) => ({
-            ...current,
+            ...clearNamingBirthReverseSource(current),
             birthHour,
             birthMinute,
             birthSecond,
-            birthReverseSource: '',
           }));
         }}
         openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+        inputMode={inputMode}
+        onInputModeChange={(mode) => {
+          if (mode === inputMode) return;
+          setInputMode(mode);
+          if (mode !== 'pillars') {
+            onChange((current) => ({
+              ...current,
+              dateType: mode,
+              isLeapMonth: false,
+              birthReverseSource: '',
+            }));
+          }
+        }}
+        reversePanel={
+          <BaziReverseInput
+            key={caseId ?? TEMPORARY_CASE_VALUE}
+            source={reverseSource}
+            onInvalidate={() => onChange((current) => clearNamingBirthReverseSource(current))}
+            onSelect={(selection) =>
+              onChange((current) => applyPersonReverseSelection(current, 'self', selection))
+            }
+          />
+        }
+        reverseSource={reverseSource}
       />
       <BirthPlaceModal birthPlace={birthPlace} />
     </div>
@@ -834,6 +894,12 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
             日主 {result.birthContext.dayMaster} · 喜用{' '}
             {result.birthContext.favorableElements.join('、') || '需综合复核'}
           </p>
+          {result.birthContext.birthRange?.conditionalFavorableElements.length ? (
+            <p>
+              条件喜用 {result.birthContext.birthRange.conditionalFavorableElements.join('、')}
+              ，按出生时段比较
+            </p>
+          ) : null}
           <details className="culture-character-classic">
             <summary>出生取用依据</summary>
             <p>
@@ -847,12 +913,23 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
                 ? ` · ${result.birthContext.timeBasis.place}（经度 ${result.birthContext.timeBasis.longitude}°）`
                 : ''}
             </p>
-            <p>
-              月令 {result.birthContext.monthContext.branch} · 司令{' '}
-              {result.birthContext.monthContext.commander}
-              {' · '}
-              {result.birthContext.monthContext.season} · {result.birthContext.monthContext.term}
-            </p>
+            {result.birthContext.birthRange ? (
+              result.birthContext.birthRange.branches.map((branch, index) => (
+                <p key={`${branch.startTimestamp}-${branch.endTimestamp}`}>
+                  时段 {index + 1}：{branch.startTime} 至 {branch.endTime}（终点不含） · 司令{' '}
+                  {branch.context.monthContext.commander} · {branch.context.monthContext.term} ·{' '}
+                  {branch.context.pattern.name} · {branch.context.strength.status} · 喜用{' '}
+                  {branch.context.favorableElements.join('、') || '需综合复核'}
+                </p>
+              ))
+            ) : (
+              <p>
+                月令 {result.birthContext.monthContext.branch} · 司令{' '}
+                {result.birthContext.monthContext.commander}
+                {' · '}
+                {result.birthContext.monthContext.season} · {result.birthContext.monthContext.term}
+              </p>
+            )}
             {result.birthContext.pillarDetails.map((pillar) => (
               <p key={pillar.label}>
                 {pillar.label} {pillar.ganZhi} · 藏干{' '}
@@ -861,10 +938,12 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
                   .join('、')}
               </p>
             ))}
-            <p>
-              {result.birthContext.strength.status} ·{' '}
-              {result.birthContext.strength.basis.join('；')}
-            </p>
+            {!result.birthContext.birthRange ? (
+              <p>
+                {result.birthContext.strength.status} ·{' '}
+                {result.birthContext.strength.basis.join('；')}
+              </p>
+            ) : null}
             {result.birthContext.climate ? (
               <p>
                 寒暖分布：{result.birthContext.climate.nature} ·{' '}
@@ -942,6 +1021,9 @@ function formatCandidateSelection(candidate: ReturnType<typeof generateChineseNa
     evidence.favorableElementCharacters.length
       ? `取用 ${evidence.favorableElementCharacters.join('、')}`
       : '',
+    evidence.conditionalFavorableElementCharacters.length
+      ? `条件取用 ${evidence.conditionalFavorableElementCharacters.join('、')}（按时段）`
+      : '',
   ].filter(Boolean);
   if (parts.length) return parts.join(' · ');
   return candidate.analysis.chars
@@ -950,22 +1032,42 @@ function formatCandidateSelection(candidate: ReturnType<typeof generateChineseNa
     .join(' / ');
 }
 
-function NamingCharacterPool({ items }: { items: ReturnType<typeof selectNamingCharacters> }) {
+function NamingCharacterPool({
+  items,
+  birthContext,
+}: {
+  items: ReturnType<typeof selectNamingCharacters>;
+  birthContext?: ReturnType<typeof calculateNamingBirthContext> | null;
+}) {
   if (!items.length) return null;
+  const stableElements = birthContext?.favorableElements ?? [];
+  const conditionalElements = birthContext?.birthRange?.conditionalFavorableElements ?? [];
+  const hasConditionalElements = conditionalElements.length > 0;
   return (
     <section className="culture-naming-pool">
       <header>
-        <h3>适配选字</h3>
+        <h3>{hasConditionalElements ? '适配选字（含条件选字）' : '适配选字'}</h3>
       </header>
       <div>
-        {items.map((item) => (
-          <span key={item.char} title={item.definition ?? undefined}>
-            <strong>{item.char}</strong>
-            <small>
-              {item.wuxing ?? '待定'} · {item.pinyin ?? '读音待补'}
-            </small>
-          </span>
-        ))}
+        {items.map((item) => {
+          const element = item.wuxing as Wuxing | undefined;
+          const rangeLabel = element
+            ? stableElements.includes(element)
+              ? '共同取用'
+              : conditionalElements.includes(element)
+                ? '条件取用'
+                : '常用备选'
+            : '';
+          return (
+            <span key={item.char} title={item.definition ?? undefined}>
+              <strong>{item.char}</strong>
+              <small>
+                {item.wuxing ?? '待定'} · {item.pinyin ?? '读音待补'}
+                {rangeLabel ? ` · ${rangeLabel}` : ''}
+              </small>
+            </span>
+          );
+        })}
       </div>
     </section>
   );

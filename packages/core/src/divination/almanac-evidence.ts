@@ -403,6 +403,7 @@ function isDirectConflictNote(note: string): boolean {
 function isDirectParticipantConstraint(fact: AlmanacParticipantRelationFact): boolean {
   return (
     fact.status === '限制' &&
+    fact.birthTimeRange?.status !== 'conditional' &&
     (fact.basis === '年支' ||
       fact.basis === '日支' ||
       (fact.basis === '整体' && isDirectConflictNote(fact.promptText))) &&
@@ -757,6 +758,7 @@ function buildCandidateDecisionFact(params: {
   const strongParticipantFacts = params.participantRelationFacts.filter(
     (item) =>
       item.status === '限制' &&
+      item.birthTimeRange?.status !== 'conditional' &&
       (item.relation === '冲' ||
         item.relation === '刑' ||
         item.relation === '害' ||

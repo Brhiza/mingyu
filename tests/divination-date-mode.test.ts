@@ -30,6 +30,33 @@ const SELECTION: BaziReverseResolvedInput = {
   source: SOURCE,
 };
 
+const ALMANAC_SOURCE: BaziReverseSource = {
+  pillars: {
+    year: '甲辰',
+    month: '丙寅',
+    day: '乙巳',
+    hour: '甲申',
+  },
+  intervalStart: '2024-02-11 15:00:00',
+  intervalEnd: '2024-02-11 17:00:00',
+  startTimestamp: Date.parse('2024-02-11T15:00:00+08:00'),
+  endTimestamp: Date.parse('2024-02-11T17:00:00+08:00'),
+  endExclusive: true,
+  timezone: 'Asia/Shanghai',
+  offsetHours: 8,
+};
+
+const ALMANAC_SELECTION: BaziReverseResolvedInput = {
+  year: '2024',
+  month: '2',
+  day: '11',
+  timeIndex: 8,
+  representativeHour: 15,
+  representativeMinute: 0,
+  representativeSecond: 0,
+  source: ALMANAC_SOURCE,
+};
+
 function buildDraft(overrides: Partial<DivinationDraft>): DivinationDraft {
   return {
     method: 'qimen',
@@ -121,12 +148,12 @@ test('黄历参与人按四柱回填使用公历并在时间编辑后清除来�
     timeIndex: '',
     dateType: 'lunar' as const,
   };
-  const selected = applyAlmanacReverseSelection(participant, SELECTION);
+  const selected = applyAlmanacReverseSelection(participant, ALMANAC_SELECTION);
 
   assert.equal(selected.inputMode, 'pillars');
   assert.equal(selected.dateType, 'solar');
   assert.equal(selected.isLeapMonth, false);
-  assert.equal(selected.birthSecond, '37');
+  assert.equal(selected.birthSecond, '0');
   assert.equal(getAlmanacParticipantInputMode(selected), 'pillars');
 
   const edited = updateAlmanacParticipantField(selected, 'birthSecond', '38');
@@ -146,7 +173,7 @@ test('黄历结果提示词应保留参与人的四柱候选区间事实', async
       timeIndex: '',
       dateType: 'lunar',
     },
-    SELECTION,
+    ALMANAC_SELECTION,
   );
   const session = await generateDivinationSession(
     buildDraft({
@@ -158,7 +185,7 @@ test('黄历结果提示词应保留参与人的四柱候选区间事实', async
 
   assert.match(
     session.prompt,
-    /本人：出生时间范围（北京时间）：2024-01-01 08:30:37 至 2024-01-01 09:30:37/,
+    /本人：出生时间范围（北京时间）：2024-02-11 15:00:00 至 2024-02-11 17:00:00/,
   );
 });
 

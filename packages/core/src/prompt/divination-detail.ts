@@ -210,8 +210,30 @@ function formatSsgwDetail(data: SsgwData) {
 }
 
 function formatAlmanacDetail(data: AlmanacData) {
+  const formatRangeTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp + 8 * 60 * 60 * 1_000);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  };
   return [
-    `参与人：${data.participants.map((item) => `${item.name}（${item.gender || '性别未填'}，${item.solarDate}，${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}）`).join('；') || '未列'}`,
+    `参与人：${
+      data.participants
+        .map((item) => {
+          const base = `${item.name}（${item.gender || '性别未填'}，${item.solarDate}，${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}`;
+          const range = item.birthTimeRange;
+          if (!range) return `${base}）`;
+          const source = `${formatRangeTimestamp(range.source.startTimestamp)} 至 ${formatRangeTimestamp(range.source.endTimestamp)}（终点不含）`;
+          if (range.status === 'stable') return `${base}，出生时间范围${source}内资料一致）`;
+          const conditions = range.branches
+            .map(
+              (branch) =>
+                `${formatRangeTimestamp(branch.startTimestamp)} 至 ${formatRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+            )
+            .join('；');
+          return `${base}，出生时间范围${source}，时间条件：${conditions}）`;
+        })
+        .join('；') || '未列'
+    }`,
     `候选日：${data.days
       .map(
         (item) =>

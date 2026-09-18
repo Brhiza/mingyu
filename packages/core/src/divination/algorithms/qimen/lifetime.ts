@@ -16,6 +16,7 @@ import { buildLifetimeStages } from './helpers/lifetime-stages';
 import { buildDecadalLifetimeStages } from './helpers/lifetime-decadal';
 import { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helpers/lifetime-dynamic';
 import { buildLifetimePrompt } from './helpers/lifetime-prompt';
+import { selectQimenLifetimeBirthSample } from './helpers/lifetime-birth-range';
 
 export { buildLifetimePrompt } from './helpers/lifetime-prompt';
 export { normalizeQimenLifetimeTime } from './helpers/lifetime-time';
@@ -27,6 +28,13 @@ export { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helper
  * 计算奇门终身局完整结构
  */
 export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetimeData {
+  if (input.birthTimeRange !== undefined) {
+    const { pointInput, birthRange } = selectQimenLifetimeBirthSample(input);
+    return { ...calculateQimenLifetime(pointInput), input, birthRange };
+  }
+  if (input.birthRangeIndex !== undefined) {
+    throw new RangeError('奇门终身局出生范围索引需要同时提供完整出生区间。');
+  }
   if (input.periodRange !== undefined) validateLifetimePeriodRange(input.periodRange);
   // 1. P0: 时间标准化与历法依据
   const timeResult = normalizeQimenLifetimeTime(input);

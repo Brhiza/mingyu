@@ -447,8 +447,14 @@ const DIVINATION_REQUEST_PROPERTIES = {
         month: { type: 'integer', minimum: 1, maximum: 12 },
         day: { type: 'integer', minimum: 1, maximum: 31 },
         timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+        birthHour: { type: 'integer', minimum: 0, maximum: 23 },
+        birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
+        birthSecond: { type: 'integer', minimum: 0, maximum: 59 },
         dateType: { enum: ['solar', 'lunar'] },
         isLeapMonth: { type: 'boolean' },
+        birthTimeRange: {
+          $ref: '#/components/schemas/AlmanacParticipantBirthTimeRange',
+        },
       },
     },
   },
@@ -1397,7 +1403,30 @@ export function getPublicApiOpenApiDocument(
               default: false,
               description: '按中国 1986-1991 夏令时规则解释钟表时间',
             },
+            birthTimeRange: { $ref: '#/components/schemas/NamingBirthTimeRange' },
           },
+        },
+        NamingBirthTimeRange: {
+          allOf: [
+            { $ref: '#/components/schemas/BirthTimeRange' },
+            {
+              type: 'object',
+              required: ['pillars'],
+              description: '四柱反推得到的起名出生范围；续算时必须保留来源四柱。',
+              properties: {
+                pillars: {
+                  type: 'object',
+                  required: ['year', 'month', 'day', 'hour'],
+                  properties: {
+                    year: { type: 'string', minLength: 1 },
+                    month: { type: 'string', minLength: 1 },
+                    day: { type: 'string', minLength: 1 },
+                    hour: { type: 'string', minLength: 1 },
+                  },
+                },
+              },
+            },
+          ],
         },
         CharacterAnalyzeRequest: {
           type: 'object',
@@ -1732,6 +1761,28 @@ export function getPublicApiOpenApiDocument(
             timezone: { const: 'Asia/Shanghai', description: '固定北京时间 IANA 时区。' },
             offsetHours: { type: 'number', const: 8, description: '固定 UTC+8。' },
           },
+        },
+        AlmanacParticipantBirthTimeRange: {
+          allOf: [
+            { $ref: '#/components/schemas/BirthTimeRange' },
+            {
+              type: 'object',
+              required: ['pillars'],
+              properties: {
+                pillars: {
+                  type: 'object',
+                  required: ['year', 'month', 'day', 'hour'],
+                  description: '四柱反推来源；核心会复核区间起止时刻的四柱与此处一致。',
+                  properties: {
+                    year: { type: 'string' },
+                    month: { type: 'string' },
+                    day: { type: 'string' },
+                    hour: { type: 'string' },
+                  },
+                },
+              },
+            },
+          ],
         },
         BirthRangeBatch: {
           type: 'object',
@@ -2858,6 +2909,12 @@ export function getPublicApiOpenApiDocument(
           type: 'object',
           required: ['birthDateTime'],
           properties: {
+            birthTimeRange: { $ref: '#/components/schemas/BirthTimeRange' },
+            birthRangeIndex: {
+              type: 'integer',
+              minimum: 0,
+              description: '出生半开区间的整秒索引，每次返回一个完整候选盘。',
+            },
             birthDateTime: {
               type: 'string',
               format: 'date-time',
@@ -3453,6 +3510,7 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
   const birth = value as JsonRecord;
   const useTrueSolarTime = readBoolean(birth, 'useTrueSolarTime', false);
   const hasPreciseStandardTime = !useTrueSolarTime && birth.birthSecond !== undefined;
+  const birthTimeRange = readNamingBirthTimeRange(birth);
   return {
     gender: readEnum(birth, 'gender', ['male', 'female'] as const),
     year: readInteger(birth, 'year', 1900, 2100),
@@ -3486,6 +3544,29 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
     ...(birth.applyChinaDst !== undefined
       ? { applyChinaDst: readBoolean(birth, 'applyChinaDst', false) }
       : {}),
+    ...(birthTimeRange ? { birthTimeRange } : {}),
+  };
+}
+
+function readNamingBirthTimeRange(
+  birth: JsonRecord,
+): NamingBirthInput['birthTimeRange'] | undefined {
+  const value = birth.birthTimeRange;
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'birth.birthTimeRange 必须是对象。');
+  }
+  if (!isRecord(value.pillars)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'birth.birthTimeRange.pillars 必须是四柱对象。');
+  }
+  return {
+    ...readBirthTimeRange({ birthTimeRange: value }),
+    pillars: {
+      year: readRequiredString(value.pillars, 'year').trim(),
+      month: readRequiredString(value.pillars, 'month').trim(),
+      day: readRequiredString(value.pillars, 'day').trim(),
+      hour: readRequiredString(value.pillars, 'hour').trim(),
+    },
   };
 }
 
@@ -6319,6 +6400,10 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
   }
   const lifetimeInput: QimenLifetimeInput = {
     birthDateTime,
+    ...(input.birthTimeRange === undefined ? {} : { birthTimeRange: readBirthTimeRange(input) }),
+    ...(input.birthRangeIndex === undefined
+      ? {}
+      : { birthRangeIndex: readInteger(input, 'birthRangeIndex', 0) }),
     timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
     timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
     location: isRecord(input.location)
@@ -6339,7 +6424,13 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
     detailMode: readDetailMode(input),
   };
-  const result = calculateQimenLifetime(lifetimeInput);
+  let result: QimenLifetimeData;
+  try {
+    result = calculateQimenLifetime(lifetimeInput);
+  } catch (error) {
+    if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+    throw error;
+  }
   if (lifetimeInput.detailMode === 'compact') {
     return buildCompactQimenLifetimeResult(result);
   }
@@ -6372,6 +6463,7 @@ function readQimenLifetimePeriodRange(
 function buildCompactQimenLifetimeResult(result: QimenLifetimeData) {
   return {
     schemaVersion: result.schemaVersion,
+    ...(result.birthRange ? { birthRange: result.birthRange } : {}),
     basis: result.basis,
     baseChart: buildCompactQimenResult(result.baseChart),
     personalMarkers: result.personalMarkers,
@@ -6408,6 +6500,10 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
   }
   const lifetimeInput: QimenLifetimeInput = {
     birthDateTime,
+    ...(input.birthTimeRange === undefined ? {} : { birthTimeRange: readBirthTimeRange(input) }),
+    ...(input.birthRangeIndex === undefined
+      ? {}
+      : { birthRangeIndex: readInteger(input, 'birthRangeIndex', 0) }),
     timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
     timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
     location: isRecord(input.location)
@@ -6427,14 +6523,23 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
   };
-  const { data, prompt } = generateQimenLifetimePrompt(lifetimeInput, question);
+  let generated: ReturnType<typeof generateQimenLifetimePrompt>;
+  try {
+    generated = generateQimenLifetimePrompt(lifetimeInput, question);
+  } catch (error) {
+    if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+    throw error;
+  }
+  const { data, prompt } = generated;
   const responseMode = readPromptResponseMode(input);
-  return buildPromptApiResult({
+  const response = buildPromptApiResult({
     responseMode,
     prompt,
     fullResult: data,
     summary: {
-      birthDateTime: data.input.birthDateTime,
+      birthDateTime: data.birthRange
+        ? new Date(data.birthRange.timestamp + 8 * 3600000).toISOString().slice(0, 19)
+        : data.input.birthDateTime,
       calendar: data.basis.calendar,
       solarTerm: data.basis.solarTerm,
       ganzhi: data.baseChart.ganzhi,
@@ -6444,6 +6549,7 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
       eventClustersCount: data.eventClusters?.length ?? 0,
     },
   });
+  return { ...response, ...(data.birthRange ? { birthRange: data.birthRange } : {}) };
 }
 
 function calculateMeihua(input: JsonRecord) {
@@ -7950,6 +8056,42 @@ function readBirthDate(
   return { year, month, day, dateType };
 }
 
+function readAlmanacParticipantBirthTimeRange(
+  input: JsonRecord,
+  participantIndex: number,
+): NonNullable<AlmanacParticipantInput['birthTimeRange']> {
+  const range = readBirthTimeRange(input);
+  const value = input.birthTimeRange;
+  if (!isRecord(value) || !isRecord(value.pillars)) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `participants[${participantIndex}].birthTimeRange.pillars 必须是对象。`,
+    );
+  }
+  const pillars = value.pillars;
+  const readPillar = (key: 'year' | 'month' | 'day' | 'hour') => {
+    const pillar = readString(pillars, key, '').trim();
+    if (!pillar) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        `participants[${participantIndex}].birthTimeRange.pillars.${key} 不能为空。`,
+      );
+    }
+    return pillar;
+  };
+  return {
+    ...range,
+    pillars: {
+      year: readPillar('year'),
+      month: readPillar('month'),
+      day: readPillar('day'),
+      hour: readPillar('hour'),
+    },
+  };
+}
+
 function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
   const value = input.participants;
   if (value === undefined) {
@@ -7973,6 +8115,22 @@ function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
 
     const dateType = readEnum(item, 'dateType', ['solar', 'lunar']);
     const birthDate = readBirthDate(item, { dateType });
+    const birthTimeRange =
+      item.birthTimeRange === undefined
+        ? undefined
+        : readAlmanacParticipantBirthTimeRange(item, index);
+    if (
+      birthTimeRange &&
+      (item.birthHour === undefined ||
+        item.birthMinute === undefined ||
+        item.birthSecond === undefined)
+    ) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        `participants[${index}] 使用 birthTimeRange 时必须提供 birthHour、birthMinute、birthSecond。`,
+      );
+    }
     const participant: AlmanacParticipantInput = {
       id: readString(item, 'id', `participant-${index + 1}`),
       name: readString(item, 'name', ''),
@@ -7981,8 +8139,18 @@ function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
       month: String(birthDate.month),
       day: String(birthDate.day),
       timeIndex: String(readInteger(item, 'timeIndex', 0, 12)),
+      ...(item.birthHour === undefined
+        ? {}
+        : { birthHour: String(readInteger(item, 'birthHour', 0, 23)) }),
+      ...(item.birthMinute === undefined
+        ? {}
+        : { birthMinute: String(readInteger(item, 'birthMinute', 0, 59)) }),
+      ...(item.birthSecond === undefined
+        ? {}
+        : { birthSecond: String(readInteger(item, 'birthSecond', 0, 59)) }),
       dateType,
       isLeapMonth: readBoolean(item, 'isLeapMonth', false),
+      ...(birthTimeRange ? { birthTimeRange } : {}),
     };
 
     return participant;

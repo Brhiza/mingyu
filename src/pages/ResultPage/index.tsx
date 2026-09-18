@@ -1,3 +1,4 @@
+import { QimenBirthRangeNavigator } from './components/QimenBirthRangeNavigator';
 import { parseBaziReverseSource, formatBirthTimeInterval } from '@/lib/bazi-reverse-input';
 import {
   Suspense,
@@ -88,7 +89,8 @@ import {
 import { AstrolabeBoard } from './components/AstrolabeBoard';
 import { QizhengBoard } from './components/QizhengBoard';
 import { QimenLifetimeBoard } from './components/QimenLifetimeBoard';
-import { calculateQimenLifetime, buildLifetimePrompt } from 'mingyu-core/divination/qimen';
+import { buildLifetimePrompt } from 'mingyu-core/divination/qimen';
+import { useQimenLifetimeCalculation } from './hooks/useQimenLifetimeCalculation';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { BaziBirthRangePanel, BirthRangeNavigator } from './components/BaziBirthRangePanel';
@@ -469,11 +471,30 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       };
     }
   }, [qizhengFlowQuery]);
-  const readingSubject = useMemo(
-    () => buildReadingSubject(inputState, promptState, qizhengFlowSelection.target),
-    [inputState, promptState, qizhengFlowSelection.target],
-  );
   const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
+  const qimenBirthIndex = Number(searchParams.get('qbi') ?? 0);
+  const changeQimenBirthIndex = (index: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('qbi', String(index));
+    setSearchParams(next, { replace: true });
+  };
+  const readingSubject = useMemo(() => {
+    const subject = buildReadingSubject(inputState, promptState, qizhengFlowSelection.target);
+    if (inputState.birthReverseSource && promptState.promptSource === 'qimen-lifetime') {
+      return {
+        ...subject,
+        id: `${subject.id}:birth-second:${qimenBirthIndex}`,
+        lockedInputs: {
+          ...subject.lockedInputs,
+          'qimen-lifetime': {
+            ...subject.lockedInputs['qimen-lifetime'],
+            birthRangeIndex: qimenBirthIndex,
+          },
+        },
+      };
+    }
+    return subject;
+  }, [inputState, promptState, qizhengFlowSelection.target, qimenBirthIndex]);
   const isCombinedResult =
     inputState.analysisMode === 'compatibility' || promptState.promptSource === 'bazi-ziwei';
   const resultTabs = useMemo<ResultTabKey[]>(() => {
@@ -1562,17 +1583,16 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.analysisMode === 'single' &&
     (mountedTabs['qimen-lifetime'] || (mountedTabs.prompt && isQimenLifetimePromptSource));
 
-  const qimenLifetimeCalculation = useMemo<{
-    data: import('@/types/divination').QimenLifetimeData | null;
+  const qimenLifetimeRequest = useMemo<{
+    input: import('@/types/divination').QimenLifetimeInput | null;
     error: string;
   }>(() => {
-    void qimenLifetimeCalculationRevision;
-    if (!shouldCalculateQimenLifetime) return { data: null, error: '' };
+    if (!shouldCalculateQimenLifetime) return { input: null, error: '' };
     const year = Number(inputState.year);
     const month = Number(inputState.month);
     const day = Number(inputState.day);
     if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
-      return { data: null, error: '请填写完整出生年月日' };
+      return { input: null, error: '请填写完整出生年月日' };
     }
 
     const currentYear = new Date().getFullYear();
@@ -1582,23 +1602,32 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     };
 
     try {
-      const data = calculateQimenLifetime({
+      const input = {
         ...buildQimenLifetimeInputs(inputState, promptState.qimenLifetimeStageModel),
+        ...(inputState.birthReverseSource ? { birthRangeIndex: qimenBirthIndex } : {}),
         periodRange,
-      });
-      return { data, error: '' };
+      };
+      return { input, error: '' };
     } catch (err) {
       return {
-        data: null,
+        input: null,
         error: err instanceof Error ? err.message : '奇门终身局排盘失败。',
       };
     }
   }, [
     inputState,
     promptState.qimenLifetimeStageModel,
-    qimenLifetimeCalculationRevision,
+    qimenBirthIndex,
     shouldCalculateQimenLifetime,
   ]);
+  const qimenLifetimeWorkerState = useQimenLifetimeCalculation(
+    qimenLifetimeRequest.input,
+    qimenLifetimeCalculationRevision,
+  );
+  const qimenLifetimeCalculation = {
+    data: qimenLifetimeWorkerState.data,
+    error: qimenLifetimeRequest.error || qimenLifetimeWorkerState.error,
+  };
   const reloadQimenLifetimeCalculation = useCallback(() => {
     setQimenLifetimeCalculationRevision((value) => value + 1);
   }, []);
@@ -2608,6 +2637,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       : []),
   ].flatMap(({ value, label }) => {
     const source = parseBaziReverseSource(value);
+    if (source && isQimenLifetimePromptSource) {
+      return [];
+    }
     if (source && baziBirthRange.requested && (rangeBaziPromptRequested || rangeZiweiRequested)) {
       return [
         `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；当前页面按出生整秒逐页核对，当前解读仅对应当前页具体出生时间。`,
@@ -2681,7 +2713,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     const range = qimenLifetimeCalculation.data.input.periodRange;
     const rangeKey = range ? `${range.startDate}-${range.endDate}` : 'current';
     return {
-      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}`,
+      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}:birth-second:${qimenLifetimeCalculation.data.birthRange?.index ?? 'point'}`,
       title: '奇门终身局完整资料',
       text: qimenLifetimePromptText,
       usable: true,
@@ -3350,6 +3382,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   title={isInstantResult ? '奇门终身即时盘' : '奇门终身局'}
                   name={isInstantResult ? '当前时刻' : inputState.name || '本人'}
                   data={qimenLifetimeCalculation.data}
+                  onBirthRangeIndexChange={changeQimenBirthIndex}
                 />
               </>
             ) : (
@@ -3553,6 +3586,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             isAiEnabled ? (
               /* ── AI 模式：上方纯解答，工具和大输入框固定在底部 ── */
               <div className="workspace-ai-layout is-answer-workbench">
+                {isAssistantPage && isQimenLifetimePromptSource ? (
+                  <QimenBirthRangeNavigator
+                    range={qimenLifetimeCalculation.data?.birthRange}
+                    onChange={changeQimenBirthIndex}
+                  />
+                ) : null}
                 {isAssistantPage && rangePromptNavigationRequested ? (
                   <BirthRangeNavigator state={rangeNavigatorState} />
                 ) : null}
@@ -3617,6 +3656,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             ) : (
               /* ── 非 AI 模式：提示词在上，选择与输入固定在底部 ── */
               <div className="workspace-prompt-layout is-workbench">
+                {isAssistantPage && isQimenLifetimePromptSource ? (
+                  <QimenBirthRangeNavigator
+                    range={qimenLifetimeCalculation.data?.birthRange}
+                    onChange={changeQimenBirthIndex}
+                  />
+                ) : null}
                 {isAssistantPage && rangePromptNavigationRequested ? (
                   <BirthRangeNavigator state={rangeNavigatorState} />
                 ) : null}

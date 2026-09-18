@@ -97,7 +97,20 @@ export function buildLifetimePrompt(
 
   // 3. 【起盘依据】
   lines.push(`【起盘依据】`);
-  lines.push(`出生时刻：${data.input.birthDateTime}`);
+  if (data.birthRange) {
+    const range = data.birthRange;
+    const wallClock = (timestamp: number) =>
+      new Date(timestamp + 8 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+    lines.push(
+      `出生候选范围：北京时间 ${wallClock(range.source.startTimestamp)} 至 ${wallClock(range.source.endTimestamp)}（起点含、终点不含）。`,
+    );
+    lines.push(
+      `本册候选时刻：北京时间 ${wallClock(range.timestamp)}；第${range.index + 1}个整秒，共${range.totalSamples}个整秒。`,
+    );
+    lines.push('本册盘面、阶段起止和动态事实均以所列候选时刻为条件，完整出生范围按整秒分别核验。');
+  } else {
+    lines.push(`出生时刻：${data.input.birthDateTime}`);
+  }
   lines.push(`出生时区：${data.basis.timeZoneUsed}`);
   lines.push(`历法口径：${data.basis.calendar}`);
   lines.push(

@@ -4,6 +4,9 @@
  */
 import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
+import { MONTH_COMMANDER } from '../../bazi/baziDefinitions';
+import { calculateSolarTermsForYear } from '../../calendar/solar-term-evidence';
+import { getCivilDateTimeAtFixedOffset } from '../../calendar/civil-time';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
@@ -27,9 +30,16 @@ import type {
   AlmanacParticipantInput,
   AlmanacParticipantRelationFact,
   AlmanacParticipantProfile,
+  AlmanacParticipantProfileSnapshot,
   AlmanacTopic,
   AlmanacTopicMatchFact,
+  BaseGanZhi,
 } from '../../types/divination';
+import {
+  birthProfileAtRangeTimestamp,
+  validateBirthProfileTimeRange,
+} from '../../profile/time-range';
+import { birthProfileToBaziPerson, type BirthProfile } from '../../profile';
 
 interface AlmanacLunarHourSource {
   getSixtyCycle(): { getName(): string };
@@ -424,6 +434,185 @@ function readParticipantText(value: unknown, label: string, fallback: string) {
   return value.trim() || fallback;
 }
 
+const BEIJING_OFFSET_HOURS = 8;
+const DAY_MILLISECONDS = 86_400_000;
+const JIE_MONTH_BRANCH: Readonly<Record<string, string>> = {
+  小寒: '丑',
+  立春: '寅',
+  惊蛰: '卯',
+  清明: '辰',
+  立夏: '巳',
+  芒种: '午',
+  小暑: '未',
+  立秋: '申',
+  白露: '酉',
+  寒露: '戌',
+  立冬: '亥',
+  大雪: '子',
+};
+
+function buildParticipantBirthProfile(
+  item: AlmanacParticipantInput,
+  birthInput: ReturnType<typeof readParticipantBirthInput>,
+): BirthProfile {
+  if (birthInput.birthHour === undefined || birthInput.birthMinute === undefined) {
+    throw new Error('四柱反推参与人必须提供区间起点的精准出生时间。');
+  }
+  return {
+    id: item.id,
+    name: item.name,
+    gender: item.gender === '男' ? 'male' : 'female',
+    calendarType: 'solar',
+    year: birthInput.year,
+    month: birthInput.month,
+    day: birthInput.day,
+    hour: birthInput.birthHour,
+    minute: birthInput.birthMinute,
+    second: birthInput.birthSecond ?? 0,
+    useTrueSolarTime: false,
+    applyChinaDst: false,
+    birthTimeRange: item.birthTimeRange,
+  };
+}
+
+function buildParticipantProfileSnapshot(
+  item: AlmanacParticipantInput,
+  id: string,
+  name: string,
+  chart: ReturnType<typeof baziCalculator.calculateBazi>,
+): AlmanacParticipantProfileSnapshot {
+  return {
+    id,
+    name,
+    gender: item.gender,
+    solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
+    lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
+    zodiac: chart.zodiac,
+    constellation: chart.constellation,
+    dayMaster: chart.dayMaster.gan,
+    dayMasterElement: chart.dayMaster.element,
+    pillars: {
+      year: chart.pillars.year.ganZhi,
+      month: chart.pillars.month.ganZhi,
+      day: chart.pillars.day.ganZhi,
+      hour: chart.pillars.hour.ganZhi,
+    },
+    usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
+    avoidGods: chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+  };
+}
+
+function assertParticipantRangePillars(
+  profile: AlmanacParticipantProfileSnapshot,
+  expected: BaseGanZhi,
+) {
+  const labels = { year: '年', month: '月', day: '日', hour: '时' } as const;
+  for (const key of ['year', 'month', 'day', 'hour'] as const) {
+    if (profile.pillars[key] !== expected[key]) {
+      throw new Error(`参与人出生区间${labels[key]}柱与四柱反推来源不一致。`);
+    }
+  }
+}
+
+function collectParticipantRangeBoundaries(startTimestamp: number, endTimestamp: number) {
+  const boundaries = new Set<number>([startTimestamp, endTimestamp]);
+  const start = getCivilDateTimeAtFixedOffset(new Date(startTimestamp), BEIJING_OFFSET_HOURS);
+  const end = getCivilDateTimeAtFixedOffset(new Date(endTimestamp - 1_000), BEIJING_OFFSET_HOURS);
+  const midnight =
+    Date.UTC(start.year, start.month - 1, start.day + 1) - BEIJING_OFFSET_HOURS * 60 * 60 * 1_000;
+  if (midnight > startTimestamp && midnight < endTimestamp) boundaries.add(midnight);
+
+  for (let year = start.year - 1; year <= end.year; year += 1) {
+    if (year < 1900 || year > 2199) continue;
+    for (const term of calculateSolarTermsForYear(year)) {
+      if (term.utcTimestamp > startTimestamp && term.utcTimestamp < endTimestamp) {
+        boundaries.add(term.utcTimestamp);
+      }
+      const monthBranch = JIE_MONTH_BRANCH[term.name];
+      if (!monthBranch) continue;
+      const commanders = MONTH_COMMANDER[monthBranch];
+      let elapsedDays = 0;
+      for (let index = 0; index < commanders.length - 1; index += 1) {
+        elapsedDays += commanders[index]![1];
+        const boundary = term.utcTimestamp + elapsedDays * DAY_MILLISECONDS;
+        if (boundary > startTimestamp && boundary < endTimestamp) boundaries.add(boundary);
+      }
+    }
+  }
+  return [...boundaries].sort((left, right) => left - right);
+}
+
+function profileFingerprint(profile: AlmanacParticipantProfileSnapshot) {
+  return JSON.stringify(profile);
+}
+
+function createRangeParticipantProfile(
+  item: AlmanacParticipantInput,
+  birthInput: ReturnType<typeof readParticipantBirthInput>,
+  id: string,
+  name: string,
+): AlmanacParticipantProfile {
+  const rawSource = item.birthTimeRange!;
+  if (
+    !rawSource.pillars ||
+    (['year', 'month', 'day', 'hour'] as const).some(
+      (key) => typeof rawSource.pillars[key] !== 'string' || !rawSource.pillars[key].trim(),
+    )
+  ) {
+    throw new Error('四柱反推参与人必须提供完整来源四柱。');
+  }
+  const profile = buildParticipantBirthProfile(item, birthInput);
+  const source = validateBirthProfileTimeRange(profile, rawSource);
+  const boundaries = collectParticipantRangeBoundaries(source.startTimestamp, source.endTimestamp);
+  const branches: NonNullable<AlmanacParticipantProfile['birthTimeRange']>['branches'] = [];
+
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const startTimestamp = boundaries[index]!;
+    const endTimestamp = boundaries[index + 1]!;
+    const point = birthProfileAtRangeTimestamp(profile, source, startTimestamp);
+    const snapshot = buildParticipantProfileSnapshot(
+      item,
+      id,
+      name,
+      baziCalculator.calculateBazi(birthProfileToBaziPerson(point)),
+    );
+    const lastPoint = birthProfileAtRangeTimestamp(profile, source, endTimestamp - 1_000);
+    const lastSnapshot = buildParticipantProfileSnapshot(
+      item,
+      id,
+      name,
+      baziCalculator.calculateBazi(birthProfileToBaziPerson(lastPoint)),
+    );
+    assertParticipantRangePillars(snapshot, rawSource.pillars);
+    assertParticipantRangePillars(lastSnapshot, rawSource.pillars);
+    if (profileFingerprint(snapshot) !== profileFingerprint(lastSnapshot)) {
+      throw new Error('参与人出生区间存在未纳入裁决的画像变化边界。');
+    }
+    const previous = branches.at(-1);
+    if (previous && profileFingerprint(previous.profile) === profileFingerprint(snapshot)) {
+      previous.endTimestamp = endTimestamp;
+    } else {
+      branches.push({
+        startTimestamp,
+        endTimestamp,
+        endExclusive: true,
+        profile: snapshot,
+      });
+    }
+  }
+
+  const representative = branches[0]?.profile;
+  if (!representative) throw new Error('参与人出生区间没有可用画像。');
+  return {
+    ...representative,
+    birthTimeRange: {
+      source: { ...source, pillars: { ...rawSource.pillars } },
+      status: branches.length === 1 ? 'stable' : 'conditional',
+      branches,
+    },
+  };
+}
+
 function createParticipantProfiles(
   participants: AlmanacParticipantInput[],
 ): AlmanacParticipantProfile[] {
@@ -445,6 +634,12 @@ function createParticipantProfiles(
       const birthInput = readParticipantBirthInput(item);
       const id = readParticipantText(item.id, 'id', `participant-${index + 1}`);
       const name = readParticipantText(item.name, '姓名', '未命名参与人');
+      if (item.birthTimeRange) {
+        if (item.dateType !== 'solar' || item.isLeapMonth || item.useTrueSolarTime) {
+          throw new Error('四柱反推参与人必须使用公历、非闰月和标准北京时间。');
+        }
+        return createRangeParticipantProfile(item, birthInput, id, name);
+      }
       const chart = baziCalculator.calculateBazi({
         year: birthInput.year,
         month: birthInput.month,
@@ -469,26 +664,7 @@ function createParticipantProfiles(
         useTrueSolarTime: birthInput.useTrueSolarTime,
       });
 
-      return {
-        id,
-        name,
-        gender: item.gender,
-        solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
-        lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
-        zodiac: chart.zodiac,
-        constellation: chart.constellation,
-        dayMaster: chart.dayMaster.gan,
-        dayMasterElement: chart.dayMaster.element,
-        pillars: {
-          year: chart.pillars.year.ganZhi,
-          month: chart.pillars.month.ganZhi,
-          day: chart.pillars.day.ganZhi,
-          hour: chart.pillars.hour.ganZhi,
-        },
-        usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
-        avoidGods:
-          chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
-      };
+      return buildParticipantProfileSnapshot(item, id, name, chart);
     });
 }
 
@@ -722,7 +898,7 @@ function getParticipantBranchConflict(
 
 function getParticipantBranchConflictSummary(
   candidateBranch: string,
-  participant: AlmanacParticipantProfile,
+  participant: AlmanacParticipantProfileSnapshot,
 ) {
   const targets: Array<{
     branch: string;
@@ -764,7 +940,7 @@ function buildParticipantConflictFacts(params: {
   keyPrefix: string;
   scope: AlmanacParticipantRelationFact['scope'];
   candidateBranch: string;
-  participant: AlmanacParticipantProfile;
+  participant: AlmanacParticipantProfileSnapshot;
   relations: ReturnType<typeof getParticipantBranchConflictSummary>['relations'];
 }): AlmanacParticipantRelationFact[] {
   if (!params.relations.length) {
@@ -804,6 +980,96 @@ function buildParticipantConflictFacts(params: {
     sources: ['地支六冲、三刑、六害、六破公共规则', '参与人年支或日支'],
     limitation: PARTICIPANT_FACT_LIMITATION,
   }));
+}
+
+type ParticipantProfileVariant = {
+  profile: AlmanacParticipantProfileSnapshot;
+  startTimestamp?: number;
+  endTimestamp?: number;
+};
+
+function getParticipantProfileVariants(
+  participant: AlmanacParticipantProfile,
+): ParticipantProfileVariant[] {
+  return (
+    participant.birthTimeRange?.branches.map((branch) => ({
+      profile: branch.profile,
+      startTimestamp: branch.startTimestamp,
+      endTimestamp: branch.endTimestamp,
+    })) ?? [{ profile: participant }]
+  );
+}
+
+function formatBeijingTimestamp(timestamp: number) {
+  const parts = getCivilDateTimeAtFixedOffset(new Date(timestamp), BEIJING_OFFSET_HOURS);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+}
+
+function relationFactFingerprint(fact: AlmanacParticipantRelationFact) {
+  const { key: _key, promptText: _promptText, birthTimeRange: _birthTimeRange, ...content } = fact;
+  return JSON.stringify(content);
+}
+
+function mergeParticipantRangeFacts(
+  participant: AlmanacParticipantProfile,
+  branchFacts: Array<{
+    facts: AlmanacParticipantRelationFact[];
+    startTimestamp?: number;
+    endTimestamp?: number;
+  }>,
+) {
+  if (!participant.birthTimeRange) return branchFacts.flatMap((item) => item.facts);
+  const groups = new Map<
+    string,
+    { fact: AlmanacParticipantRelationFact; intervals: Array<[number, number]> }
+  >();
+  for (const branch of branchFacts) {
+    if (branch.startTimestamp === undefined || branch.endTimestamp === undefined) {
+      throw new Error('参与人条件画像缺少完整时间边界。');
+    }
+    for (const fact of branch.facts) {
+      const fingerprint = relationFactFingerprint(fact);
+      const current = groups.get(fingerprint);
+      if (current && current.intervals.at(-1)?.[1] === branch.startTimestamp) {
+        current.intervals[current.intervals.length - 1]![1] = branch.endTimestamp;
+      } else if (current) {
+        current.intervals.push([branch.startTimestamp, branch.endTimestamp]);
+      } else {
+        groups.set(fingerprint, {
+          fact,
+          intervals: [[branch.startTimestamp, branch.endTimestamp]],
+        });
+      }
+    }
+  }
+
+  return [...groups.values()].map(({ fact, intervals }, index) => {
+    const source = participant.birthTimeRange!.source;
+    const stable =
+      intervals.length === 1 &&
+      intervals[0]![0] === source.startTimestamp &&
+      intervals[0]![1] === source.endTimestamp;
+    const intervalText = intervals
+      .map(
+        ([startTimestamp, endTimestamp]) =>
+          `${formatBeijingTimestamp(startTimestamp)} 至 ${formatBeijingTimestamp(endTimestamp)}（终点不含）`,
+      )
+      .join('、');
+    return {
+      ...fact,
+      key: `${fact.key}:birth-range:${index + 1}`,
+      promptText: stable ? fact.promptText : `${intervalText}：${fact.promptText}`,
+      birthTimeRange: {
+        status: stable ? ('stable' as const) : ('conditional' as const),
+        intervals: intervals.map(([startTimestamp, endTimestamp]) => ({
+          startTimestamp,
+          endTimestamp,
+          endExclusive: true as const,
+        })),
+      },
+    };
+  });
 }
 
 function buildDayFacts(params: {
@@ -893,41 +1159,49 @@ function buildDayFacts(params: {
   const godFacts = buildGodFacts(params.dateKey, params.gods);
 
   params.participants.forEach((participant) => {
-    const branchConflict = getParticipantBranchConflictSummary(params.dayBranch, participant);
-    participantRelationFacts.push(
-      ...buildParticipantConflictFacts({
-        keyPrefix: params.dateKey,
-        scope: '候选日',
-        candidateBranch: params.dayBranch,
-        participant,
-        relations: branchConflict.relations,
-      }),
-    );
-
-    if (branchConflict.text) {
-      participantNotes.push(`${participant.name}：${branchConflict.text}`);
-    }
-
-    const usefulGods = [...new Set(participant.usefulGods)].filter(Boolean);
-    const avoidGods = [...new Set(participant.avoidGods)].filter(Boolean);
-    const candidateElements = [getStemWuxing(params.dayStem), getBranchWuxing(params.dayBranch)];
-    participantRelationFacts.push({
-      key: `${params.dateKey}:participant:${participant.id}:elements-not-adopted`,
-      participantId: participant.id,
-      participantName: participant.name,
-      scope: '候选日',
-      basis: '整体',
-      candidateValue: candidateElements.join('、'),
-      participantValues: [...usefulGods, ...avoidGods],
-      relation: '未采用',
-      status: '未采用',
-      detail: '仅凭候选日干支五行是否命中喜忌，不能替代完整择日合参',
-      promptText: `${participant.name}：不采用候选日干支五行简单命中喜忌作为排序或限制依据`,
-      sources: ['参与人八字资料', '候选日干支五行', '择日合参适用边界'],
-      limitation: PARTICIPANT_FACT_LIMITATION,
+    const variants = getParticipantProfileVariants(participant);
+    const conflictTexts = new Set<string>();
+    const branchFacts = variants.map((variant) => {
+      const branchConflict = getParticipantBranchConflictSummary(params.dayBranch, variant.profile);
+      if (branchConflict.text) conflictTexts.add(branchConflict.text);
+      const usefulGods = [...new Set(variant.profile.usefulGods)].filter(Boolean);
+      const avoidGods = [...new Set(variant.profile.avoidGods)].filter(Boolean);
+      const candidateElements = [getStemWuxing(params.dayStem), getBranchWuxing(params.dayBranch)];
+      return {
+        startTimestamp: variant.startTimestamp,
+        endTimestamp: variant.endTimestamp,
+        facts: [
+          ...buildParticipantConflictFacts({
+            keyPrefix: params.dateKey,
+            scope: '候选日' as const,
+            candidateBranch: params.dayBranch,
+            participant: variant.profile,
+            relations: branchConflict.relations,
+          }),
+          {
+            key: `${params.dateKey}:participant:${participant.id}:elements-not-adopted`,
+            participantId: participant.id,
+            participantName: participant.name,
+            scope: '候选日' as const,
+            basis: '整体' as const,
+            candidateValue: candidateElements.join('、'),
+            participantValues: [...usefulGods, ...avoidGods],
+            relation: '未采用' as const,
+            status: '未采用' as const,
+            detail: '仅凭候选日干支五行是否命中喜忌，不能替代完整择日合参',
+            promptText: `${participant.name}：不采用候选日干支五行简单命中喜忌作为排序或限制依据`,
+            sources: ['参与人八字资料', '候选日干支五行', '择日合参适用边界'],
+            limitation: PARTICIPANT_FACT_LIMITATION,
+          },
+        ],
+      };
     });
+    participantRelationFacts.push(...mergeParticipantRangeFacts(participant, branchFacts));
 
-    if (!branchConflict.text) {
+    for (const conflictText of conflictTexts) {
+      participantNotes.push(`${participant.name}：${conflictText}`);
+    }
+    if (!conflictTexts.size) {
       participantNotes.push(
         `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见候选日与年支、日支直接刑冲破害`,
       );
@@ -1024,20 +1298,25 @@ function buildHourCandidates(
       );
     }
     participants.forEach((participant) => {
-      const conflict = getParticipantBranchConflictSummary(branch, participant);
-      participantRelationFacts.push(
-        ...buildParticipantConflictFacts({
-          keyPrefix: hourKey,
-          scope: '时辰',
-          candidateBranch: branch,
-          participant,
-          relations: conflict.relations,
-        }),
-      );
-      if (conflict.text) {
-        participantNotes.push(
-          `${participant.name}：时支${conflict.text.replace('候选日地支', '')}`,
-        );
+      const conflictTexts = new Set<string>();
+      const branchFacts = getParticipantProfileVariants(participant).map((variant) => {
+        const conflict = getParticipantBranchConflictSummary(branch, variant.profile);
+        if (conflict.text) conflictTexts.add(conflict.text);
+        return {
+          startTimestamp: variant.startTimestamp,
+          endTimestamp: variant.endTimestamp,
+          facts: buildParticipantConflictFacts({
+            keyPrefix: hourKey,
+            scope: '时辰',
+            candidateBranch: branch,
+            participant: variant.profile,
+            relations: conflict.relations,
+          }),
+        };
+      });
+      participantRelationFacts.push(...mergeParticipantRangeFacts(participant, branchFacts));
+      for (const conflictText of conflictTexts) {
+        participantNotes.push(`${participant.name}：时支${conflictText.replace('候选日地支', '')}`);
       }
     });
     return {

@@ -55,7 +55,7 @@ export function buildChartRecordPath(
 
 export function preserveResultContextParams(nextSearch: string, currentParams: URLSearchParams) {
   const params = new URLSearchParams(nextSearch);
-  for (const key of [CHART_RECORD_PARAM, 'instant', 'its', 'record', 'qf'] as const) {
+  for (const key of [CHART_RECORD_PARAM, 'instant', 'its', 'record', 'qf', 'qbi'] as const) {
     const value = currentParams.get(key);
     if (value) {
       params.set(key, value);

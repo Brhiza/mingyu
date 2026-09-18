@@ -1159,6 +1159,8 @@ function assertQimenLifetimeResult(
   const actualInput = result.input;
   for (const field of [
     'birthDateTime',
+    'birthTimeRange',
+    'birthRangeIndex',
     'timeZoneId',
     'timezone',
     'location',
@@ -1173,6 +1175,30 @@ function assertQimenLifetimeResult(
     'gender',
   ]) {
     assertStructuredField(`qimen-lifetime.input.${field}`, locked[field], actualInput[field]);
+  }
+  if (record(locked.birthTimeRange)) {
+    const source = locked.birthTimeRange;
+    const index = locked.birthRangeIndex ?? 0;
+    if (
+      !record(result.birthRange) ||
+      typeof index !== 'number' ||
+      typeof source.startTimestamp !== 'number' ||
+      typeof source.endTimestamp !== 'number'
+    ) {
+      throw new Error('补算缺少奇门终身局出生范围及当前候选秒。');
+    }
+    const total = (source.endTimestamp - source.startTimestamp) / 1000;
+    assertStructuredField(
+      'qimen-lifetime.birthRange',
+      {
+        source,
+        index,
+        timestamp: source.startTimestamp + index * 1000,
+        totalSamples: total,
+        nextIndex: index + 1 < total ? index + 1 : null,
+      },
+      result.birthRange,
+    );
   }
 
   const stages = result.stages;

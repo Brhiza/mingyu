@@ -24,6 +24,21 @@ import {
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const wuxing = z.enum(['金', '木', '水', '火', '土']);
+const namingBirthTimeRange = z
+  .object({
+    startTimestamp: z.number().int().describe('区间起点，含，UTC epoch 毫秒时间戳'),
+    endTimestamp: z.number().int().describe('区间终点，不含，UTC epoch 毫秒时间戳'),
+    endExclusive: z.literal(true),
+    timezone: z.literal('Asia/Shanghai'),
+    offsetHours: z.literal(8),
+    pillars: z.object({
+      year: z.string().min(1),
+      month: z.string().min(1),
+      day: z.string().min(1),
+      hour: z.string().min(1),
+    }),
+  })
+  .describe('四柱反推得到的标准北京时间半开区间及来源四柱');
 const namingBirth = z
   .object({
     gender: z.enum(['male', 'female']),
@@ -57,6 +72,7 @@ const namingBirth = z
     timezone: z.number().min(-12).max(14).optional().describe('小时偏移，如东八区为 8'),
     timeZoneId: z.string().optional().describe('IANA 时区名，如 Asia/Shanghai'),
     applyChinaDst: z.boolean().optional().describe('按中国 1986-1991 夏令时规则解释钟表时间'),
+    birthTimeRange: namingBirthTimeRange.optional(),
   })
   .describe('出生资料，用于结合四柱喜用筛选名字');
 
