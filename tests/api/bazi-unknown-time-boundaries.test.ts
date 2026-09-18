@@ -96,40 +96,71 @@ test('未知时辰合参在首页拒绝，不能发出最终无法完成的跨�
 });
 
 test('未知时辰交节两侧的同一时辰候选贯通 HTTP、MCP 与各流派提示词', async () => {
-  const response = await handlePublicApiRequest(
-    new Request('https://example.test/api/v1/bazi/prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...input, responseMode: 'full' }),
-    }),
-  );
-  const body = (await response.json()) as {
-    data: { result: BaziChartResult; prompt: string };
-  };
-  assert.equal(response.status, 200, JSON.stringify(body));
-  const result = body.data.result;
-  const scenarios = result.unknownTimeAnalysis!.scenarios;
   const pillarText = (pillars: BaziChartResult['pillars']) =>
     [pillars.year, pillars.month, pillars.day, pillars.hour].map((item) => item.ganZhi).join(' ');
-  for (const combination of ['癸卯 乙丑 戊戌 庚申', '甲辰 丙寅 戊戌 庚申']) {
-    const scenario = scenarios.find((item) => pillarText(item.pillars) === combination);
-    assert.ok(scenario, `缺少交节申时候选：${combination}`);
+  const expected = new Set(['癸卯 乙丑 戊戌 庚申', '甲辰 丙寅 戊戌 庚申']);
+  const pages = new Map<
+    string,
+    {
+      result: BaziChartResult;
+      prompt: string;
+      cursor: { startIndex: number; contextKey?: string };
+    }
+  >();
+  let cursor: { startIndex: number; contextKey?: string } | undefined;
+  do {
+    const requestCursor = cursor ?? { startIndex: 0 };
+    const response = await handlePublicApiRequest(
+      new Request('https://example.test/api/v1/bazi/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...input,
+          responseMode: 'full',
+          ...(cursor ? { unknownTimeBatch: cursor } : {}),
+        }),
+      }),
+    );
+    const body = (await response.json()) as {
+      data: {
+        result: BaziChartResult;
+        prompt: string;
+        batch: {
+          unknownTimeBatch: {
+            next: { startIndex: number; contextKey: string } | null;
+          };
+        };
+      };
+    };
+    assert.equal(response.status, 200, JSON.stringify(body));
+    const result = body.data.result;
+    const scenarios = result.unknownTimeAnalysis!.scenarios;
+    assert.equal(scenarios.length, 1);
+    const combination = pillarText(scenarios[0]!.pillars);
+    if (expected.has(combination)) {
+      pages.set(combination, { result, prompt: body.data.prompt, cursor: requestCursor });
+    }
+    assert.equal(result.isThreePillars, true);
+    assert.equal(result.pillars.hour.ganZhi, '');
+    assert.equal(result.analysis.mingGe.pattern, '待补时');
+    assert.deepEqual(result.luckInfo.cycles, []);
+    cursor = body.data.batch.unknownTimeBatch.next ?? undefined;
+  } while (cursor);
+
+  assert.deepEqual(new Set(pages.keys()), expected);
+  for (const [combination, page] of pages) {
+    const scenario = page.result.unknownTimeAnalysis!.scenarios[0]!;
     for (const text of [
-      body.data.prompt,
-      formatBaziForPrompt(result),
+      page.prompt,
+      formatBaziForPrompt(page.result),
       ...(['ziping', 'mangpai', 'xinpai'] as const).map((school) =>
-        formatBaziSchoolFacts(result, school),
+        formatBaziSchoolFacts(page.result, school),
       ),
     ]) {
       assert.ok(text.includes(combination), `提示词遗漏：${combination}`);
       assert.ok(text.includes(scenario.timeName));
     }
   }
-  assert.equal(new Set(scenarios.map((item) => item.timeName)).size, scenarios.length);
-  assert.equal(result.isThreePillars, true);
-  assert.equal(result.pillars.hour.ganZhi, '');
-  assert.equal(result.analysis.mingGe.pattern, '待补时');
-  assert.deepEqual(result.luckInfo.cycles, []);
 
   const server = createMingyuMcpServer();
   const client = new Client({ name: '缺时辰边界验证', version: '1.0.0' });
@@ -137,11 +168,16 @@ test('未知时辰交节两侧的同一时辰候选贯通 HTTP、MCP 与各流�
   await server.connect(serverTransport);
   await client.connect(clientTransport);
   try {
-    const mcp = await client.callTool({ name: 'bazi_prompt', arguments: input });
-    assert.ok(!mcp.isError, JSON.stringify(mcp));
-    const data = mcp.structuredContent as { result: BaziChartResult; prompt: string };
-    assert.deepEqual(data.result.unknownTimeAnalysis, result.unknownTimeAnalysis);
-    assert.ok(data.prompt.includes('甲辰 丙寅 戊戌 庚申'));
+    for (const [combination, page] of pages) {
+      const mcp = await client.callTool({
+        name: 'bazi_prompt',
+        arguments: { ...input, unknownTimeBatch: page.cursor },
+      });
+      assert.ok(!mcp.isError, JSON.stringify(mcp));
+      const data = mcp.structuredContent as { result: BaziChartResult; prompt: string };
+      assert.deepEqual(data.result.unknownTimeAnalysis, page.result.unknownTimeAnalysis);
+      assert.ok(data.prompt.includes(combination));
+    }
   } finally {
     await client.close();
     await server.close();

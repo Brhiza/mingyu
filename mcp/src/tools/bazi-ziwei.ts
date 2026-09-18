@@ -33,7 +33,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { readMcpPromptSelection } from './prompt-helpers.js';
-import { buildBaziPerson } from './bazi.js';
+import { buildBaziPerson, unknownTimeBatchSchema } from './bazi.js';
 import {
   buildMcpZiweiChartInput,
   buildMcpZiweiFortuneRangeOptions,
@@ -89,6 +89,7 @@ const baziZiweiPromptSchema = z.object({
     })
     .optional()
     .describe('神煞争议口径；不传时使用问真学堂整理口径'),
+  unknownTimeBatch: unknownTimeBatchSchema,
   algorithm: z
     .enum(['default', 'zhongzhou'])
     .optional()
@@ -239,6 +240,13 @@ export function registerBaziZiweiTool(server: McpServer) {
     },
     async (args) => {
       try {
+        if (args.unknownTimeBatch) {
+          throw new Error('unknownTimeBatch 仅支持八字单盘，不能用于八字紫微合参。');
+        }
+        const baziPerson = buildBaziPerson(args);
+        if (baziPerson.isThreePillars) {
+          throw new Error('八字紫微合参需要明确的出生时辰，未知时辰可先查询八字单盘候选。');
+        }
         const selection = readMcpPromptSelection({
           methodId: 'bazi-ziwei',
           topicId: args.topicId,
@@ -267,8 +275,7 @@ export function registerBaziZiweiTool(server: McpServer) {
           const page = await calculateMcpCombinedBatchPage({
             cursor: combinedCursor,
             scopeContext: horoscopeContext,
-            calculateBaziBatch: (request) =>
-              baziCalculator.calculateBaziBatch(buildBaziPerson(args), request),
+            calculateBaziBatch: (request) => baziCalculator.calculateBaziBatch(baziPerson, request),
             ziweiInput,
           });
           const promptCommon = {
@@ -315,7 +322,7 @@ export function registerBaziZiweiTool(server: McpServer) {
             }),
           });
         }
-        const baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
+        const baziResult = baziCalculator.calculateBazi(baziPerson);
         const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
         const fortuneRange =
           batchOptions.independentBatch === 'scope'

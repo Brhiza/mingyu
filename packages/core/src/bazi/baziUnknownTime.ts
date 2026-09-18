@@ -1,7 +1,14 @@
-import type { BaziChartResult, InternalBaziChartResult, Person } from './baziTypes';
+import type {
+  BaziChartResult,
+  BaziUnknownTimeBatchMetadata,
+  InternalBaziChartResult,
+  Person,
+  Pillars,
+} from './baziTypes';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
 import { resolveBirthCalendarClockTime } from '../calendar/true-solar-time';
-import { MONTH_COMMANDER } from './baziDefinitions';
+import { MONTH_COMMANDER, TIME_MAP } from './baziDefinitions';
+import { resolveShenShaVariantConfig } from './baziShenSha';
 import { SolarTerm } from 'tyme4ts';
 
 const SECOND = 1_000;
@@ -29,7 +36,7 @@ type UnknownTimeScenarioSource =
   | 'solar-term-boundary'
   | 'month-commander-boundary';
 
-interface CandidatePoint {
+export interface UnknownTimeCandidatePoint {
   hour: number;
   minute: number;
   second: number;
@@ -43,7 +50,7 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function formatClock(point: Pick<CandidatePoint, 'hour' | 'minute' | 'second'>): string {
+function formatClock(point: Pick<UnknownTimeCandidatePoint, 'hour' | 'minute' | 'second'>): string {
   return `${pad(point.hour)}:${pad(point.minute)}:${pad(point.second)}`;
 }
 
@@ -75,7 +82,7 @@ function getFirstEffectiveTimestamp(term: ReturnType<typeof SolarTerm.fromIndex>
     : roundedTimestamp;
 }
 
-function collectBoundaryCandidatePoints(person: Person): CandidatePoint[] {
+function collectBoundaryCandidatePoints(person: Person): UnknownTimeCandidatePoint[] {
   const solarDate = resolveBirthCalendarClockTime({
     dateType: person.isLunar ? 'lunar' : 'solar',
     year: person.year,
@@ -134,7 +141,7 @@ function collectBoundaryCandidatePoints(person: Person): CandidatePoint[] {
     }
   }
 
-  const points: CandidatePoint[] = [];
+  const points: UnknownTimeCandidatePoint[] = [];
   for (const [timestamp, facts] of [...boundaries].sort((left, right) => left[0] - right[0])) {
     for (const [side, pointTimestamp] of [
       ['before', timestamp - SECOND],
@@ -162,120 +169,226 @@ function collectBoundaryCandidatePoints(person: Person): CandidatePoint[] {
   return points;
 }
 
-/** 缺时辰结果保留确定资料，并把完整排盘放在明确标注的候选场景中。 */
-export function applyUnknownBirthTime(
-  result: InternalBaziChartResult,
-  person: Person,
-  calculateCandidate: (person: Person) => BaziChartResult,
-): BaziChartResult {
+type UnknownTimeScenario = NonNullable<BaziChartResult['unknownTimeAnalysis']>['scenarios'][number];
+
+export interface UnknownTimeCandidate {
+  point: UnknownTimeCandidatePoint;
+  person: Person;
+  scenarioKey: string;
+}
+
+function buildScenarioKey(point: UnknownTimeCandidatePoint): string {
+  return [
+    'bazi:unknown-time',
+    point.source,
+    formatClock(point),
+    point.boundaryName ?? 'point',
+    point.boundarySide ?? 'point',
+  ].join(':');
+}
+
+export function discoverUnknownTimeCandidates(person: Person): UnknownTimeCandidate[] {
   if (person.useTrueSolarTime) {
     throw new Error('出生时辰未知，补齐出生时分后才能校正真太阳时。');
   }
-  const retainedWarnings = result.warnings.filter(
-    (warning) => warning !== '出生时辰待补充，完整判断与岁运待确定出生时分后再排。',
-  );
-  const retainedWarningFacts = result.warningFacts;
   const candidateInput: Person = {
     ...person,
     isThreePillars: false,
+    timeIndex: undefined,
     birthHour: undefined,
     birthMinute: undefined,
     birthSecond: undefined,
   };
-  const dayStartChart = calculateCandidate({
-    ...candidateInput,
-    timeIndex: 0,
-    birthHour: 0,
-    birthMinute: 0,
-    birthSecond: 0,
-  });
-  const representativeCharts = Array.from({ length: 13 }, (_, timeIndex) =>
-    calculateCandidate({ ...candidateInput, timeIndex }),
-  );
-  const dayEndChart = calculateCandidate({
-    ...candidateInput,
-    timeIndex: 12,
-    birthHour: 23,
-    birthMinute: 59,
-    birthSecond: 59,
-  });
-  const scenarios: Array<{ chart: BaziChartResult; point: CandidatePoint }> = [
+  const points: UnknownTimeCandidatePoint[] = [
     {
-      chart: dayStartChart,
-      point: {
-        hour: 0,
-        minute: 0,
-        second: 0,
-        source: 'day-start' as const,
-        timeName: '日初00:00:00候选',
-      },
+      hour: 0,
+      minute: 0,
+      second: 0,
+      source: 'day-start',
+      timeName: '日初00:00:00候选',
     },
-    ...representativeCharts.map((chart) => ({
-      chart,
-      point: {
-        hour: chart.timeInfo.hour,
-        minute: chart.timeInfo.minute,
-        second: 0,
-        source: 'shichen-representative' as const,
-        timeName: `${chart.timeInfo.name}候选`,
-      },
+    ...TIME_MAP.map((time) => ({
+      hour: time.hour,
+      minute: time.minute,
+      second: 0,
+      source: 'shichen-representative' as const,
+      timeName: `${time.name}候选`,
     })),
     {
-      chart: dayEndChart,
-      point: {
-        hour: 23,
-        minute: 59,
-        second: 59,
-        source: 'day-end' as const,
-        timeName: '日末23:59:59候选',
-      },
+      hour: 23,
+      minute: 59,
+      second: 59,
+      source: 'day-end',
+      timeName: '日末23:59:59候选',
     },
-    ...collectBoundaryCandidatePoints(person).map((point) => ({
-      point,
-      chart: calculateCandidate({
-        ...candidateInput,
-        birthHour: point.hour,
-        birthMinute: point.minute,
-        birthSecond: point.second,
-      }),
-    })),
+    ...collectBoundaryCandidatePoints(person),
   ];
-  const charts = scenarios.map((scenario) => scenario.chart);
-  const summary =
-    '出生时辰待补充。已按早子至晚子代表时刻、日初日末，以及当日节气与月令司权临界前后列出候选场景。每项只代表所列具体输入时刻；本命结构按这些真实临界点比较，起运仍随具体出生秒变化，待出生时分确定后再判。';
-  const uncertainPillars = (['year', 'month', 'day'] as const).filter((key) =>
-    charts.some((chart) => chart.pillars[key].ganZhi !== charts[0].pillars[key].ganZhi),
+
+  return points.map((point, index) => ({
+    point,
+    scenarioKey: buildScenarioKey(point),
+    person:
+      index === 0
+        ? {
+            ...candidateInput,
+            timeIndex: 0,
+            birthHour: 0,
+            birthMinute: 0,
+            birthSecond: 0,
+          }
+        : index <= TIME_MAP.length
+          ? { ...candidateInput, timeIndex: index - 1 }
+          : index === TIME_MAP.length + 1
+            ? {
+                ...candidateInput,
+                timeIndex: 12,
+                birthHour: 23,
+                birthMinute: 59,
+                birthSecond: 59,
+              }
+            : {
+                ...candidateInput,
+                birthHour: point.hour,
+                birthMinute: point.minute,
+                birthSecond: point.second,
+              },
+  }));
+}
+
+export function buildUnknownTimeScenario(
+  chart: BaziChartResult,
+  candidate: UnknownTimeCandidate,
+): UnknownTimeScenario {
+  const { point } = candidate;
+  return {
+    scenarioKey: candidate.scenarioKey,
+    inputClockTime: formatClock(point),
+    source: point.source,
+    ...(point.boundaryName
+      ? {
+          boundary: {
+            name: point.boundaryName,
+            side: point.boundarySide!,
+          },
+        }
+      : {}),
+    timeIndex: chart.timeInfo.index,
+    timeName: point.timeName,
+    pillars: chart.pillars,
+    strength: chart.analysis.dayMasterStrength.status,
+    pattern: chart.analysis.mingGe.pattern,
+    favorableWuxing: chart.analysis.usefulGod.favorableWuxing ?? [],
+    unfavorableWuxing: chart.analysis.usefulGod.unfavorableWuxing ?? [],
+  };
+}
+
+export function getUnknownTimeUncertainPillars(
+  pillars: Pillars[],
+): Array<'year' | 'month' | 'day'> {
+  if (!pillars.length) throw new Error('未知时辰候选目录为空。');
+  return (['year', 'month', 'day'] as const).filter((key) =>
+    pillars.some((item) => item[key].ganZhi !== pillars[0]![key].ganZhi),
   );
+}
+
+function hashContext(value: string, seed: number): string {
+  let hash = seed >>> 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+export function buildUnknownTimeContextKey(person: Person): string {
+  const solarDate = resolveBirthCalendarClockTime({
+    dateType: person.isLunar ? 'lunar' : 'solar',
+    year: person.year,
+    month: person.month,
+    day: person.day,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    isLeapMonth: person.isLeapMonth,
+  });
+  const timeZoneId = person.timeZoneId?.trim() || null;
+  const normalized = JSON.stringify({
+    version: 1,
+    solarDate: [solarDate.year, solarDate.month, solarDate.day],
+    gender: person.gender,
+    age: person.age ?? null,
+    useTrueSolarTime: person.useTrueSolarTime === true,
+    timezone: person.timezone ?? (timeZoneId ? null : 8),
+    timeZoneId,
+    applyChinaDst: person.applyChinaDst === true,
+    shenShaScope: person.shenShaScope ?? 'common',
+    shenShaVariants: resolveShenShaVariantConfig(person.shenShaVariants),
+  });
+  return `bazi:unknown-time:v1:${hashContext(normalized, 0x811c9dc5)}${hashContext(
+    normalized,
+    0x9e3779b9,
+  )}`;
+}
+
+const FULL_UNKNOWN_TIME_SUMMARY =
+  '出生时辰待补充。已按早子至晚子代表时刻、日初日末，以及当日节气与月令司权临界前后列出候选场景。每项只代表所列具体输入时刻；本命结构按这些真实临界点比较，起运仍随具体出生秒变化，待出生时分确定后再判。';
+
+function copyPillars(pillars: Pillars): Pillars {
+  return {
+    year: { ...pillars.year },
+    month: { ...pillars.month },
+    day: { ...pillars.day },
+    hour: { ...pillars.hour },
+  };
+}
+
+function restoreUnknownBaseFacts(result: BaziChartResult, base: BaziChartResult): void {
+  result.gender = base.gender;
+  result.age = base.age;
+  result.solarDate = { ...base.solarDate };
+  result.lunarDate = { ...base.lunarDate };
+  result.pillars = copyPillars(base.pillars);
+  result.dayMaster = { ...base.dayMaster };
+  result.zodiac = base.zodiac;
+  result.constellation = base.constellation;
+  result.mingGua = base.mingGua;
+  result.warnings = [...base.warnings];
+  result.warningFacts = base.warningFacts.map((fact) => ({
+    ...fact,
+    referenceKeys: [...fact.referenceKeys],
+    sources: [...fact.sources],
+  }));
+  result.warningSummaryFact = {
+    ...base.warningSummaryFact,
+    factKeys: [...base.warningSummaryFact.factKeys],
+    sources: [...base.warningSummaryFact.sources],
+  };
+}
+
+export function finalizeUnknownBirthTime(
+  result: BaziChartResult,
+  scenarios: UnknownTimeScenario[],
+  uncertainPillars: Array<'year' | 'month' | 'day'>,
+  options: {
+    batch?: BaziUnknownTimeBatchMetadata;
+    baseResult?: BaziChartResult;
+  } = {},
+): BaziChartResult {
+  if (options.baseResult) restoreUnknownBaseFacts(result, options.baseResult);
+  const retainedWarnings = result.warnings.filter(
+    (warning) => warning !== '出生时辰待补充，完整判断与岁运待确定出生时分后再排。',
+  );
+  const retainedWarningFacts = result.warningFacts;
+  const summary = options.batch
+    ? `出生时辰待补充。本页仅列第 ${options.batch.startIndex + 1}/${options.batch.totalCandidates} 个候选；候选目录按早子至晚子代表时刻、日初日末，以及当日节气与月令司权临界确定。当前资料只代表所列具体输入时刻，起运仍随具体出生秒变化，待续取全部候选或补齐出生时分后再判。`
+    : FULL_UNKNOWN_TIME_SUMMARY;
+  result.isThreePillars = true;
   result.unknownTimeAnalysis = {
     status: '待补时',
     summary,
     uncertainPillars,
-    scenarios: scenarios.map(({ chart, point }) => ({
-      scenarioKey: [
-        'bazi:unknown-time',
-        point.source,
-        formatClock(point),
-        point.boundaryName ?? 'point',
-        point.boundarySide ?? 'point',
-      ].join(':'),
-      inputClockTime: formatClock(point),
-      source: point.source,
-      ...(point.boundaryName
-        ? {
-            boundary: {
-              name: point.boundaryName,
-              side: point.boundarySide!,
-            },
-          }
-        : {}),
-      timeIndex: chart.timeInfo.index,
-      timeName: point.timeName,
-      pillars: chart.pillars,
-      strength: chart.analysis.dayMasterStrength.status,
-      pattern: chart.analysis.mingGe.pattern,
-      favorableWuxing: chart.analysis.usefulGod.favorableWuxing ?? [],
-      unfavorableWuxing: chart.analysis.usefulGod.unfavorableWuxing ?? [],
-    })),
+    scenarios,
+    ...(options.batch ? { batch: options.batch } : {}),
   };
   for (const key of [...uncertainPillars, 'hour'] as const) {
     result.pillars[key] = { gan: '', zhi: '', ganZhi: '' };
@@ -352,7 +465,25 @@ export function applyUnknownBirthTime(
     limitation: '缺时辰说明用于标注待补资料，候选场景分别记录，完整命盘尚未确定',
   };
   result.evidenceAnalysis = analyzeBaziNatalEvidence(result);
-  delete result.solarTime;
-  delete result.eightChar;
+  delete (result as InternalBaziChartResult).solarTime;
+  delete (result as InternalBaziChartResult).eightChar;
   return result;
+}
+
+/** 缺时辰结果保留确定资料，并把完整排盘放在明确标注的候选场景中。 */
+export function applyUnknownBirthTime(
+  result: BaziChartResult,
+  person: Person,
+  calculateCandidate: (person: Person) => BaziChartResult,
+): BaziChartResult {
+  const candidates = discoverUnknownTimeCandidates(person);
+  const calculated = candidates.map((candidate) => ({
+    candidate,
+    chart: calculateCandidate(candidate.person),
+  }));
+  return finalizeUnknownBirthTime(
+    result,
+    calculated.map(({ chart, candidate }) => buildUnknownTimeScenario(chart, candidate)),
+    getUnknownTimeUncertainPillars(calculated.map(({ chart }) => chart.pillars)),
+  );
 }

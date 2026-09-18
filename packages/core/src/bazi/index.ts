@@ -2,7 +2,12 @@
  * @file Bazi algorithms barrel
  */
 export { baziCalculator, BaziCalculator } from './baziCalculator';
-export type { BaziBatchCalculationRequest, BaziBatchCalculationResult } from './baziCalculator';
+export type {
+  BaziBatchCalculationRequest,
+  BaziBatchCalculationResult,
+  BaziUnknownTimeBatchRequest,
+  BaziUnknownTimeBatchResult,
+} from './baziCalculator';
 export { evaluatePatternFulfillment } from './baziPatternFulfillment';
 export type {
   PatternConditionFact,
@@ -52,6 +57,7 @@ export type {
   Pillars,
   BaziChartResult,
   BaziFortuneBatchMetadata,
+  BaziUnknownTimeBatchMetadata,
   BaziAnalysisResult,
   BaziWarningFact,
   BaziWarningSummaryFact,

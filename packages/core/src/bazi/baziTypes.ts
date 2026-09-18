@@ -227,6 +227,16 @@ export interface BaziFortuneBatchMetadata {
   year: number | null;
 }
 
+export interface BaziUnknownTimeBatchMetadata {
+  unit: 'candidate';
+  startIndex: number;
+  endIndexExclusive: number;
+  totalCandidates: number;
+  candidateKey: string;
+  contextKey: string;
+  next: { startIndex: number; contextKey: string } | null;
+}
+
 export interface PillarLifeStages {
   year: string;
   month: string;
@@ -549,6 +559,8 @@ export interface BaziChartResult {
     status: '待补时';
     summary: string;
     uncertainPillars: Array<'year' | 'month' | 'day'>;
+    /** 远程按候选续取时标识当前页；完整本地计算不带此字段。 */
+    batch?: BaziUnknownTimeBatchMetadata;
     scenarios: Array<{
       /** 稳定候选身份；同一时辰内的临界前后仍保持不同身份。 */
       scenarioKey: string;
