@@ -246,6 +246,7 @@ export {
   formatFortuneActionEvidenceForPrompt,
   formatFortuneActionFactLine,
 } from './fortuneActionEvidence';
+export type { RootTraditionalKind } from './baziRootFacts';
 export type {
   FortuneActionConditionStatus,
   FortuneActionCurrentStatus,
@@ -257,4 +258,6 @@ export type {
   FortuneActionLevel,
   FortuneActionLevelChinese,
   FortuneActionPlacement,
+  FortuneRootEvidence,
+  FortuneRootEvidenceItem,
 } from './fortuneActionEvidence';

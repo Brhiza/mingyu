@@ -14,6 +14,7 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { getTenGod } from './baziUtils';
+import { getRootTraditionalKind, type RootTraditionalKind } from './baziRootFacts';
 import { BRANCH_HIDDEN_STEMS } from '../ganzhi/relations';
 import { STEM_WUXING } from '../ganzhi/data';
 import type { FortuneTriggerEvidenceResult } from './fortuneTriggerEvidence';
@@ -41,6 +42,21 @@ export interface FortuneActionLayerInput {
   key?: string;
 }
 
+export interface FortuneRootEvidenceItem {
+  branch: string;
+  stem: string;
+  hiddenCategory: FortuneActionHiddenCategory;
+  traditionalKind: RootTraditionalKind;
+  isSameStem: boolean;
+}
+
+export interface FortuneRootEvidence {
+  hasClearRoot: boolean;
+  isSelfRooted: boolean;
+  natalRoots: Array<FortuneRootEvidenceItem & { position: string }>;
+  fortuneRoots: Array<FortuneRootEvidenceItem & { layerKey: string; level: FortuneActionLevel }>;
+}
+
 export interface FortuneActionFact {
   key: string;
   layerKey: string;
@@ -54,6 +70,7 @@ export interface FortuneActionFact {
   hitSources: FortuneActionHitSourceType[];
   conditionStatus: FortuneActionConditionStatus;
   currentActionStatus: FortuneActionCurrentStatus;
+  rootEvidence?: FortuneRootEvidence;
   targetObjects: string[];
   applicableTimeRange?: string;
   supportingFactKeys: string[];
@@ -67,6 +84,7 @@ export interface FortuneActionFact {
   藏干位置?: FortuneActionHiddenCategory;
   命中来源: FortuneActionHitSourceType[];
   作用对象: string[];
+  根气证据?: FortuneRootEvidence;
   适用时间范围?: string;
   支持事实key: string[];
   反证key: string[];
@@ -92,6 +110,36 @@ function getLayerKey(layer: FortuneActionLayerInput): string {
   return layer.key?.trim() || `bazi:fortune-trigger:layer:${layer.type}:${layer.id}`;
 }
 
+/**
+ * 仅把同干且属于本气、生禄或正库的藏根作为清晰根气证据。
+ * 余气和弱藏仍保留在明细中，不能单独把岁运透干升级为已满足。
+ */
+function isClearRoot(root: FortuneRootEvidenceItem): boolean {
+  return (
+    root.isSameStem &&
+    (root.traditionalKind === '本气' ||
+      root.traditionalKind === '生禄' ||
+      root.traditionalKind === '正库')
+  );
+}
+
+function getHiddenCategory(hiddenIndex: number): FortuneActionHiddenCategory {
+  return hiddenIndex === 0 ? '本气' : hiddenIndex === 1 ? '中气' : '余气';
+}
+
+function getTraditionalRootKind(
+  branch: string,
+  stem: string,
+  hiddenIndex: number,
+): RootTraditionalKind {
+  return getRootTraditionalKind({
+    branch,
+    stem,
+    hiddenIndex,
+    hiddenRole: getHiddenCategory(hiddenIndex),
+  });
+}
+
 export function formatFortuneActionFactLine(fact: FortuneActionFact): string {
   const placementText =
     fact.placement === '岁运透干' ? '岁运透干' : `岁运藏干·${fact.hiddenCategory ?? '藏气'}`;
@@ -100,7 +148,23 @@ export function formatFortuneActionFactLine(fact: FortuneActionFact): string {
     : '';
   const timeRangeText = fact.applicableTimeRange ? `｜适用范围：${fact.applicableTimeRange}` : '';
   const sourcesText = fact.hitSources.length ? `｜命中：${fact.hitSources.join('、')}` : '';
-  return `[${fact.key}] ${fact.层级}${fact.干}（${fact.五行}，${fact.十神}，${placementText}）：${fact.conditionStatus}｜状态：${fact.currentActionStatus}${sourcesText}${targetText}${timeRangeText}`;
+  let rootText = '';
+  if (fact.rootEvidence) {
+    if (fact.rootEvidence.hasClearRoot) {
+      const isNatal = fact.rootEvidence.natalRoots.some(isClearRoot);
+      const isFortune = fact.rootEvidence.fortuneRoots.some(isClearRoot);
+      const rootSource =
+        isNatal && isFortune
+          ? '原局及岁运均见同干根气'
+          : isNatal
+            ? '见原局同干根气'
+            : '见岁运同干根气';
+      rootText = `｜根气：${rootSource}`;
+    } else {
+      rootText = '｜根气：无明确同干根气';
+    }
+  }
+  return `[${fact.key}] ${fact.层级}${fact.干}（${fact.五行}，${fact.十神}，${placementText}）：${fact.conditionStatus}｜状态：${fact.currentActionStatus}${sourcesText}${rootText}${targetText}${timeRangeText}`;
 }
 
 export function formatFortuneActionEvidenceForPrompt(
@@ -177,8 +241,7 @@ export function analyzeFortuneActionEvidence(params: {
       ...hiddenStems.map((stem, idx) => ({
         stem,
         placement: '岁运藏干' as const,
-        hiddenCategory:
-          idx === 0 ? ('本气' as const) : idx === 1 ? ('中气' as const) : ('余气' as const),
+        hiddenCategory: getHiddenCategory(idx),
       })),
     ];
 
@@ -334,6 +397,7 @@ export function analyzeFortuneActionEvidence(params: {
       const hasDirectStemCondition = isSpecificFav || isSpecificUnfav;
 
       let currentActionStatus: FortuneActionCurrentStatus;
+      let rootEvidence: FortuneRootEvidence | undefined;
 
       if (placement === '岁运藏干') {
         // 藏干不冒充透干，不满足透干条件；
@@ -345,8 +409,78 @@ export function analyzeFortuneActionEvidence(params: {
         }
       } else {
         // 岁运透干
-        if (hasDirectStemCondition || hasRelationFact || conditionStatus !== '未引用') {
-          // 本切片只建立条件引用；是否已实际作用仍需独立的根气、合绊和制化裁决。
+        const natalRoots: Array<FortuneRootEvidenceItem & { position: string }> = [];
+        const fortuneRoots: Array<
+          FortuneRootEvidenceItem & { layerKey: string; level: FortuneActionLevel }
+        > = [];
+        let isSelfRooted = false;
+
+        if (result.pillars) {
+          const positions = ['year', 'month', 'day', 'hour'] as const;
+          positions.forEach((pos) => {
+            const pillarZhi = result.pillars![pos]?.zhi;
+            if (!pillarZhi) return;
+            const hStems = BRANCH_HIDDEN_STEMS[pillarZhi] || [];
+            hStems.forEach((hs, idx) => {
+              if (STEM_WUXING[hs] === element) {
+                natalRoots.push({
+                  position: pos,
+                  branch: pillarZhi,
+                  stem: hs,
+                  hiddenCategory: getHiddenCategory(idx),
+                  traditionalKind: getTraditionalRootKind(pillarZhi, hs, idx),
+                  isSameStem: hs === stem,
+                });
+              }
+            });
+          });
+        }
+
+        // 只纳入当前层及其父层，避免子层根气反向改变父层事实。
+        layers.slice(0, layerIndex + 1).forEach((lyr) => {
+          const lyrZhi = lyr.ganZhi[1];
+          const hStems = BRANCH_HIDDEN_STEMS[lyrZhi] || [];
+          hStems.forEach((hs, idx) => {
+            if (STEM_WUXING[hs] === element) {
+              const isSameStem = hs === stem;
+              const rootItem: FortuneRootEvidenceItem & {
+                layerKey: string;
+                level: FortuneActionLevel;
+              } = {
+                layerKey: getLayerKey(lyr),
+                level: lyr.type,
+                branch: lyrZhi,
+                stem: hs,
+                hiddenCategory: getHiddenCategory(idx),
+                traditionalKind: getTraditionalRootKind(lyrZhi, hs, idx),
+                isSameStem,
+              };
+              fortuneRoots.push(rootItem);
+              if (rootItem.layerKey === layerKey && isClearRoot(rootItem)) {
+                isSelfRooted = true;
+              }
+            }
+          });
+        });
+
+        const hasClearRoot = natalRoots.some(isClearRoot) || fortuneRoots.some(isClearRoot);
+        rootEvidence = {
+          hasClearRoot,
+          isSelfRooted,
+          natalRoots,
+          fortuneRoots,
+        };
+
+        const hasUnimplementedRestrictions =
+          hitSources.includes('制化来源') || hitSources.includes('patternBreakerRestrictions');
+
+        if (hasDirectStemCondition) {
+          if (hasClearRoot && !hasUnimplementedRestrictions && !hasRelationFact) {
+            currentActionStatus = '满足';
+          } else {
+            currentActionStatus = '资料不足';
+          }
+        } else if (hasRelationFact || conditionStatus !== '未引用') {
           currentActionStatus = '资料不足';
         } else {
           currentActionStatus = '不满足';
@@ -366,6 +500,7 @@ export function analyzeFortuneActionEvidence(params: {
         hitSources,
         conditionStatus,
         currentActionStatus,
+        rootEvidence,
         targetObjects,
         applicableTimeRange: layer.timeRange,
         supportingFactKeys,
@@ -379,6 +514,7 @@ export function analyzeFortuneActionEvidence(params: {
         藏干位置: hiddenCategory,
         命中来源: hitSources,
         作用对象: targetObjects,
+        根气证据: rootEvidence,
         适用时间范围: layer.timeRange,
         支持事实key: supportingFactKeys,
         反证key: opposingFactKeys,
