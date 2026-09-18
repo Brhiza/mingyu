@@ -46,6 +46,20 @@ test('奇门拆补法在交节当天应按具体时刻换节气，不应按整�
   assert.equal(afterXiaoman.juShu, 2);
 });
 
+test('奇门日家月家主动干标签不得误写成时干', () => {
+  const dayChart = generateQimen(new Date('2026-09-03T04:00:00.000Z'), 'zhuanpan', 'day');
+  const monthChart = generateQimen(new Date('2026-09-01T04:00:00.000Z'), 'zhuanpan', 'month');
+
+  assert.ok(dayChart.patternTags.some((tag) => tag.includes('击刑（日干庚')));
+  assert.ok(monthChart.patternTags.some((tag) => tag.includes('入墓（月干丙')));
+  assert.doesNotMatch(dayChart.patternTags.join('、'), /击刑（时干庚/);
+  assert.doesNotMatch(monthChart.patternTags.join('、'), /入墓（时干丙/);
+  assert.match(
+    dayChart.patternDetails.find((item) => item.tag.startsWith('击刑'))?.summary ?? '',
+    /日干落击刑位/,
+  );
+});
+
 test('奇门拆补法定三元应按晚子时日柱推进符头日', () => {
   const beforeLateZi = generateQimen(new Date('2024-02-19T22:30:00+08:00'));
   assert.equal(beforeLateZi.ganzhi.day, '癸丑');

@@ -66,7 +66,7 @@ const SAN_QI_YOU_LIU_YI: Record<
 };
 
 /**
- * 击刑规则：时干落击刑宫
+ * 击刑规则：当前排盘层级的主动干落击刑宫
  * 《烟波钓叟歌》：「击刑之处防官非」
  * 戊在震3，己在坤2，庚在艮8，辛在离9，壬在巽4，癸在巽4
  */
@@ -111,16 +111,22 @@ function getMenPoTags(jiuGongGe: QimenJiuGongGe[]): string[] {
 /**
  * 获取击刑标签（单宫判断）
  *
- * 时干遁干落在击刑宫位时生成对应标签。
+ * 主动干遁干落在击刑宫位时生成对应标签。
  *
- * @param stem - 时干遁干
+ * @param stem - 主动干遁干
+ * @param ganLabel - 主动干的层级名称
  * @param landingPalace - 落宫编号
  * @param palaceName - 宫位中文名
  * @returns 击刑标签字符串，不命中时返回 null
  */
-function getJiXingTag(stem: string, landingPalace: number, palaceName: string): string | null {
+function getJiXingTag(
+  stem: string,
+  ganLabel: string,
+  landingPalace: number,
+  palaceName: string,
+): string | null {
   if (JI_XING_MAP[stem] === landingPalace) {
-    return `击刑（时干${stem}落${palaceName}）`;
+    return `击刑（${ganLabel}${stem}落${palaceName}）`;
   }
   return null;
 }
@@ -128,17 +134,23 @@ function getJiXingTag(stem: string, landingPalace: number, palaceName: string): 
 /**
  * 获取入墓标签（单宫判断）
  *
- * 时干遁干落入墓宫时生成对应标签。
+ * 主动干遁干落入墓宫时生成对应标签。
  *
- * @param stem - 时干遁干
+ * @param stem - 主动干遁干
+ * @param ganLabel - 主动干的层级名称
  * @param landingPalace - 落宫编号
  * @param palaceName - 宫位中文名
  * @returns 入墓标签字符串，不命中时返回 null
  */
-function getRuMuTag(stem: string, landingPalace: number, palaceName: string): string | null {
+function getRuMuTag(
+  stem: string,
+  ganLabel: string,
+  landingPalace: number,
+  palaceName: string,
+): string | null {
   const muPalace = STEM_TOMB_MAP[stem]?.palace;
   if (muPalace === landingPalace) {
-    return `入墓（时干${stem}落${palaceName}）`;
+    return `入墓（${ganLabel}${stem}落${palaceName}）`;
   }
   return null;
 }
@@ -175,8 +187,12 @@ export interface QimenPatternTagParams {
   zhiShiLandingPalace: number;
   /** 九宫格完整数据 */
   jiuGongGe: QimenJiuGongGe[];
-  /** 时干遁干（用于击刑/入墓判断） */
-  hourGanForFind: string;
+  /** 当前排盘层级的主动干遁干（用于击刑/入墓判断）。 */
+  activeGanForFind?: string;
+  /** 主动干层级名称，如年干、月干、日干、时干。 */
+  activeGanLabel?: string;
+  /** 旧字段兼容；新调用方应传 activeGanForFind。 */
+  hourGanForFind?: string;
   /**
    * 马星落宫编号（可选）
    * 由调用方传入（通常为时支驿马所在宫位）。
@@ -203,8 +219,8 @@ export interface QimenPatternTagParams {
  *
  * **宫位层面**
  *   - 门迫：门克宫，该宫事务易受阻
- *   - 击刑：时干遁干落击刑宫，主压力掣肘
- *   - 入墓：时干遁干落入墓宫，主能量被困
+ *   - 击刑：主动干遁干落击刑宫，主压力掣肘
+ *   - 入墓：主动干遁干落入墓宫，主能量被困
  *
  * **吉格局**
  *   - 三奇得：乙/丙/丁与开/休/生三吉门同宫
@@ -223,7 +239,8 @@ export interface QimenPatternTagParams {
  *   zhiFuLandingPalace: 1,
  *   zhiShiLandingPalace: 8,
  *   jiuGongGe,
- *   hourGanForFind: '戊',
+ *   activeGanForFind: '戊',
+ *   activeGanLabel: '时干',
  *   horsePalace: 3,
  * });
  * // => ['星伏吟', '三奇得（乙奇（日奇）合休门于震三宫）', '马星（驿马落震三宫）']
@@ -236,10 +253,17 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
     zhiFuLandingPalace,
     zhiShiLandingPalace,
     jiuGongGe,
+    activeGanForFind,
+    activeGanLabel,
     hourGanForFind,
     horsePalace,
     horsePalaceName,
   } = params;
+  const ganForFind = activeGanForFind ?? hourGanForFind;
+  if (!ganForFind) {
+    throw new Error('奇门格局判断缺少主动干遁干。');
+  }
+  const ganLabel = activeGanLabel ?? '时干';
 
   const tags: string[] = [];
 
@@ -274,18 +298,18 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // 遍历所有宫位检查门克宫
   tags.push(...getMenPoTags(jiuGongGe));
 
-  // ── 4. 击刑（时干落值符宫） ──
+  // ── 4. 击刑（主动干落值符宫） ──
   const zhiFuLandingGong = jiuGongGe.find((gong) => gong.gong === zhiFuLandingPalace);
   const jiXingTag = zhiFuLandingGong
-    ? getJiXingTag(hourGanForFind, zhiFuLandingPalace, zhiFuLandingGong.name)
+    ? getJiXingTag(ganForFind, ganLabel, zhiFuLandingPalace, zhiFuLandingGong.name)
     : null;
   if (jiXingTag) {
     tags.push(jiXingTag);
   }
 
-  // ── 5. 入墓（时干落值符宫） ──
+  // ── 5. 入墓（主动干落值符宫） ──
   const ruMuTag = zhiFuLandingGong
-    ? getRuMuTag(hourGanForFind, zhiFuLandingPalace, zhiFuLandingGong.name)
+    ? getRuMuTag(ganForFind, ganLabel, zhiFuLandingPalace, zhiFuLandingGong.name)
     : null;
   if (ruMuTag) {
     tags.push(ruMuTag);
@@ -409,12 +433,14 @@ function getPatternSummary(tag: string): string {
 
   // 击刑
   if (tag.startsWith('击刑')) {
-    return '时干落击刑位，主压力、掣肘或规章束缚，宜谨慎行事。';
+    const ganLabel = tag.match(/^击刑（(年干|月干|日干|时干)/u)?.[1] ?? '主动干';
+    return `${ganLabel}落击刑位，主压力、掣肘或规章束缚，宜谨慎行事。`;
   }
 
   // 入墓
   if (tag.startsWith('入墓')) {
-    return '时干入墓宫，主能量被困、事情停滞或难以施展，宜等待时机或寻求突破。';
+    const ganLabel = tag.match(/^入墓（(年干|月干|日干|时干)/u)?.[1] ?? '主动干';
+    return `${ganLabel}入墓宫，主能量被困、事情停滞或难以施展，宜等待时机或寻求突破。`;
   }
 
   // 三奇得

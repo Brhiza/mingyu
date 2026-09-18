@@ -4,12 +4,20 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 import {
   formatTianPanStars,
   formatTianPanStems,
+  getDunJiaStem,
   hasTianPanStar,
   hasTianPanStem,
 } from './algorithms/qimen/helpers/palace-utils';
 
 export type QimenCandidateSource =
-  '值符落宫' | '值使落宫' | '日干落宫' | '时干落宫' | '盘面洞察' | '经典格局';
+  | '值符落宫'
+  | '值使落宫'
+  | '年干落宫'
+  | '月干落宫'
+  | '日干落宫'
+  | '时干落宫'
+  | '盘面洞察'
+  | '经典格局';
 
 export interface QimenPalaceEvidence {
   gong: number;
@@ -438,6 +446,19 @@ const SCOPE_LABELS = {
   year: '年家奇门',
 } as const;
 
+type QimenEvidenceScope = NonNullable<QimenData['scope']>;
+
+const ACTIVE_SOURCE_BY_SCOPE: Record<QimenEvidenceScope, QimenCandidateSource> = {
+  year: '年干落宫',
+  month: '月干落宫',
+  day: '日干落宫',
+  hour: '时干落宫',
+};
+
+function getActiveSource(data: QimenData): QimenCandidateSource {
+  return ACTIVE_SOURCE_BY_SCOPE[data.scope ?? 'hour'];
+}
+
 function getActiveGanZhi(data: QimenData): string {
   switch (data.scope) {
     case 'year':
@@ -457,8 +478,11 @@ function collectCandidateSources(data: QimenData) {
     if (gong === undefined) return;
     sourceMap.set(gong, unique([...(sourceMap.get(gong) ?? []), source]) as QimenCandidateSource[]);
   };
-  const dayStem = data.ganzhi.day.charAt(0);
-  const hourStem = data.ganzhi.hour.charAt(0);
+  const activeGanZhi = getActiveGanZhi(data);
+  const activeStem = getDunJiaStem(activeGanZhi);
+  const activeSource = getActiveSource(data);
+  const dayStem = getDunJiaStem(data.ganzhi.day);
+  const hourStem = getDunJiaStem(data.ganzhi.hour);
   data.jiuGongGe.forEach((palace) => {
     if (hasTianPanStar(palace, data.zhiFu)) add(palace.gong, '值符落宫');
     if (palace.renPan.door === data.zhiShi) add(palace.gong, '值使落宫');
@@ -466,6 +490,8 @@ function collectCandidateSources(data: QimenData) {
       add(palace.gong, '日干落宫');
     if (hasTianPanStem(palace, hourStem) || palace.diPan.stem === hourStem)
       add(palace.gong, '时干落宫');
+    if (hasTianPanStem(palace, activeStem) || palace.diPan.stem === activeStem)
+      add(palace.gong, activeSource);
   });
   data.palaceInsights?.forEach((item) => add(item.gong, '盘面洞察'));
   data.classicPatterns?.forEach((item) => item.palaces.forEach((gong) => add(gong, '经典格局')));
@@ -726,7 +752,7 @@ function buildLimitationFacts(params: {
         ]),
       ),
       promptText:
-        '以上宫位均为盘面候选，不等于已经按具体问题选定用神；值符、值使、日干、时干、洞察和格局只能提出候选范围，不得把候选顺序或宫间五行关系写成现实主次、支持阻碍或人物意图',
+        '以上宫位均为盘面候选，不等于已经按具体问题选定用神；值符、值使、当前排盘范围主动干（年干、月干、日干或时干）、日时背景、洞察和格局只能提出候选范围，不得把候选顺序或宫间五行关系写成现实主次、支持阻碍或人物意图',
       sources: ['候选宫来源与候选宫间五行关系'],
     },
     {
@@ -818,6 +844,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const juMethod =
     data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
   const juMethodLabel = juMethod === 'zhirun' ? '置闰法' : '拆补法';
+  const activeSource = getActiveSource(data);
   const juTerm = data.timeInfo.juTerm || data.timeInfo.solarTerm;
   const activeGanZhi = getActiveGanZhi(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => hasTianPanStar(item, data.zhiFu));
@@ -941,11 +968,12 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   ];
   const calculationFacts = unique(calculationEvidenceFacts.map((item) => item.promptText));
   const ruleSources = unique(ruleSourceFacts.map((item) => item.promptText));
+  const stemSources: QimenCandidateSource[] = ['年干落宫', '月干落宫', '日干落宫', '时干落宫'];
   const sourcePriority: QimenCandidateSource[] = [
     '值符落宫',
     '值使落宫',
-    '日干落宫',
-    '时干落宫',
+    activeSource,
+    ...stemSources.filter((source) => source !== activeSource),
     '盘面洞察',
     '经典格局',
   ];
@@ -1147,7 +1175,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       candidateSources: [...item.sources],
       reasons: item.sources.map((source) => `候选来源：${source}`),
       promptText: `${item.direction}${item.name}来自${item.sources.join('、')}；这只是候选宫方向；方位仅在现实路线、安全和事项用神均匹配时采用`,
-      sources: ['候选宫方向字段', '值符、值使、日干、时干、盘面洞察与经典格局候选来源'],
+      sources: ['候选宫方向字段', '值符、值使、年/月/日/时干、盘面洞察与经典格局候选来源'],
       limitation: DIRECTION_FACT_LIMITATION,
     })),
   ];
@@ -1267,7 +1295,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       level: index === 0 ? '主证' : '辅证',
       title: `${item.name}用神宫候选`,
       detail: `引用逐宫事实${item.palaceFactKey}；候选来源${item.sources.join('、')}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
-      source: '值符、值使、日干、时干、盘面洞察与经典格局候选定位',
+      source: '值符、值使、年/月/日/时干、盘面洞察与经典格局候选定位',
       tags: [item.name, ...item.sources],
     })),
     ...patternItems,
@@ -1358,7 +1386,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     evidence,
     promptText,
     methodology: [
-      '先定位值符、值使、日干和时干落宫，再补充盘面洞察与经典格局候选。',
+      '先定位值符、值使与当前排盘范围的主动干落宫（年干、月干、日干或时干；甲干按六甲遁干），再补充日干、时干背景、盘面洞察与经典格局候选。',
       '逐宫保留门、星、神、天地盘干、空亡、马星、格局、支持与限制。',
       '定局、值符值使、复合格局来源、宫间作用、应期和方位条件全部进入统一证据条目。',
       '传统格局原文保留在结构化结果中，提示词只读取条件化副本并注明传统分类与现代实证边界。',
