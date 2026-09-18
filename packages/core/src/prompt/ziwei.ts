@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
-import type { ZiweiRuntime } from '../ziwei/runtime';
+import type { ZiweiNatalSnapshot, ZiweiRuntimeFacts } from '../ziwei/runtime';
 import {
   formatZiweiFortuneTimeline,
   formatZiweiFortuneTimelinePhase,
@@ -236,6 +236,25 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     .join('；');
 }
 
+export function formatZiweiNatalSnapshotForPrompt(snapshot: ZiweiNatalSnapshot) {
+  const basic = snapshot.basicInfo;
+  const relationPayload = { palaces: snapshot.palaces } as AnalysisPayloadV1;
+  return [
+    `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`,
+    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}`,
+    basic.four_pillars
+      ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
+      : '',
+    '十二宫本命资料：',
+    ...snapshot.palaces.map(
+      (palace) =>
+        `  ${formatPalace(palace, true)}\n  宫位关系：${formatPalaceRelations(relationPayload, palace)}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
   const values = getPromptMutagenItems(payload, isOriginScope).map((item) => {
     const palace = item.palace_name
@@ -399,7 +418,9 @@ export function formatZiweiSelectedTimeline(
   return formatZiweiFortuneTimelinePhase(timeline, selections, 1, 1);
 }
 
-export function formatZiweiTargetLowerScopeFacts(runtime: Pick<ZiweiRuntime, 'payloadByScope'>) {
+export function formatZiweiTargetLowerScopeFacts(
+  runtime: Pick<ZiweiRuntimeFacts, 'payloadByScope'>,
+) {
   const scopes: ScopeType[] = ['monthly', 'daily', 'hourly'];
   const lines = scopes.flatMap((scope) => {
     const payload = runtime.payloadByScope[scope];
@@ -443,8 +464,30 @@ export {
   type ZiweiFortuneTimelinePhaseSelection,
 };
 
-export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
+export function formatZiweiFullScopeText(runtime: ZiweiRuntimeFacts) {
   if (runtime.fortuneTimeline) {
+    if (runtime.fortuneTimeline.batch) {
+      let firstPayload = true;
+      const selectedScopeText = SCOPE_ORDER.map((scope) => runtime.payloadByScope[scope])
+        .map((payload) => {
+          if (!payload) return '';
+          const text = formatZiweiPayloadForPrompt(payload, { includeBasicInfo: firstPayload });
+          firstPayload = false;
+          return `${SCOPE_LABELS[payload.active_scope.scope]}：\n${text}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+      return [
+        runtime.natalSnapshot
+          ? `本命基础资料：\n${formatZiweiNatalSnapshotForPrompt(runtime.natalSnapshot)}`
+          : '',
+        selectedScopeText,
+        `本次所列运限资料：\n${formatZiweiFortuneTimeline(runtime.fortuneTimeline)}`,
+        formatZiweiTargetLowerScopeFacts(runtime),
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+    }
     const origin = runtime.payloadByScope.origin;
     const originText = origin
       ? formatZiweiPayloadForPrompt(origin, { includeBasicInfo: true })
@@ -469,14 +512,14 @@ export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
     .join('\n\n');
 }
 
-function formatTrueSolarEvidence(runtime: ZiweiRuntime) {
+function formatTrueSolarEvidence(runtime: ZiweiRuntimeFacts) {
   return runtime.trueSolarEvidence?.promptText
     ? `出生时间校正：${runtime.trueSolarEvidence.promptText}`
     : '';
 }
 
 export interface ZiweiPromptOptions extends PromptBuildOptions {
-  runtime: ZiweiRuntime;
+  runtime: ZiweiRuntimeFacts;
   scope?: ZiweiPromptScope;
   school?: ZiweiPromptSchool;
   schools?: readonly ZiweiPromptSchool[];
@@ -495,6 +538,9 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     scope === 'full'
       ? formatZiweiFullScopeText(options.runtime)
       : [
+          options.runtime.natalSnapshot
+            ? formatZiweiNatalSnapshotForPrompt(options.runtime.natalSnapshot)
+            : '',
           payloads
             .map((payload) =>
               formatZiweiPayloadForPrompt(payload, {
@@ -523,10 +569,19 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
         )
       : '';
 
+  const isBatchedFullScope =
+    scope === 'full' &&
+    Boolean(options.runtime.calculationBatch || options.runtime.fortuneTimeline?.batch);
   const task = buildPromptTask(
     scope === 'origin'
       ? `请依据命身十二宫、星曜庙旺和生年四化解读本命结构${topicLabel ? `，重点分析${topicLabel}` : ''}，再回答问题。`
-      : `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+      : `请依据${
+          scope === 'full'
+            ? isBatchedFullScope
+              ? '本次所列紫微'
+              : '本命与所列完整运限'
+            : SCOPE_LABELS[scopes[0] ?? 'origin']
+        }资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
     scope === 'origin' ? 'ziwei-natal' : 'ziwei',
   );
   const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
@@ -634,7 +689,7 @@ export function buildZiweiCompatibilityPrompt(options: ZiweiCompatibilityPromptO
 
 export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   bazi: BaziChartResult;
-  ziwei: ZiweiRuntime | AnalysisPayloadV1;
+  ziwei: ZiweiRuntimeFacts | AnalysisPayloadV1;
   topic?: string;
   /** 旧版八字单派兼容字段。 */
   school?: import('./bazi').BaziPromptSchool;
@@ -645,7 +700,7 @@ export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   selection?: PromptSelection;
 }
 
-function resolveZiweiPayload(ziwei: ZiweiRuntime | AnalysisPayloadV1) {
+function resolveZiweiPayload(ziwei: ZiweiRuntimeFacts | AnalysisPayloadV1) {
   return 'payload_version' in ziwei ? ziwei : ziwei.payloadByScope.origin;
 }
 
@@ -725,8 +780,10 @@ export interface SerializableZiweiResult {
   calculationConfig: AnalysisPayloadV1['calculation_config'];
   scopeNames: string[];
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  /** 年龄年独立批次的本命基础事实；不表示已经生成 origin 证据与格局分析。 */
+  natalFacts?: ZiweiNatalSnapshot;
   fortuneTimeline?: ZiweiFortuneTimeline;
-  trueSolarEvidence?: ZiweiRuntime['trueSolarEvidence'];
+  trueSolarEvidence?: ZiweiRuntimeFacts['trueSolarEvidence'];
   fourMutagens: Record<string, string>;
   birthMutagens: Record<string, string>;
   gongList: Array<{
@@ -748,14 +805,19 @@ export interface SerializableZiweiResult {
 }
 
 /** 将完整运行结果转换为稳定的 API 兼容结构。 */
-export function buildSerializableZiweiResult(runtime: ZiweiRuntime): SerializableZiweiResult {
-  const origin = runtime.payloadByScope.origin ?? Object.values(runtime.payloadByScope)[0];
-  if (!origin) {
+export function buildSerializableZiweiResult(runtime: ZiweiRuntimeFacts): SerializableZiweiResult {
+  const payload = runtime.payloadByScope.origin ?? Object.values(runtime.payloadByScope)[0];
+  const natalFacts = runtime.natalSnapshot;
+  if (!payload && !natalFacts) {
     throw new Error('紫微运行结果缺少可序列化的盘面资料。');
   }
 
+  const basicInfo = payload?.basic_info ?? natalFacts!.basicInfo;
+  const calculationConfig = payload?.calculation_config ?? natalFacts!.calculationConfig;
+  const palaces = payload?.palaces ?? natalFacts!.palaces;
+
   const mutagens: Record<string, string> = {};
-  const gongList = origin.palaces.map((palace) => {
+  const gongList = palaces.map((palace) => {
     const allStars = [
       ...palace.major_stars,
       ...palace.minor_stars,
@@ -780,14 +842,15 @@ export function buildSerializableZiweiResult(runtime: ZiweiRuntime): Serializabl
       otherStars: palace.other_stars.map((star) => star.name).filter(Boolean),
     };
   });
-  const lifePalace = origin.palaces.find((palace) => palace.name === '命宫');
-  const bodyPalace = origin.palaces.find((palace) => palace.is_body_palace);
+  const lifePalace = palaces.find((palace) => palace.name === '命宫');
+  const bodyPalace = palaces.find((palace) => palace.is_body_palace);
 
   return {
-    basicInfo: origin.basic_info,
-    calculationConfig: origin.calculation_config,
+    basicInfo,
+    calculationConfig,
     scopeNames: Object.keys(runtime.payloadByScope),
     payloadByScope: runtime.payloadByScope,
+    ...(natalFacts ? { natalFacts } : {}),
     ...(runtime.fortuneTimeline ? { fortuneTimeline: runtime.fortuneTimeline } : {}),
     trueSolarEvidence: runtime.trueSolarEvidence,
     fourMutagens: mutagens,
@@ -795,7 +858,7 @@ export function buildSerializableZiweiResult(runtime: ZiweiRuntime): Serializabl
     gongList,
     命宫: lifePalace?.earthly_branch ?? '',
     身宫: bodyPalace?.name ?? '',
-    五行局: origin.basic_info.five_elements_class,
+    五行局: basicInfo.five_elements_class,
     四化: mutagens,
   };
 }

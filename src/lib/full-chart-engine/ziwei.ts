@@ -9,12 +9,14 @@ import {
 } from 'mingyu-core/ziwei';
 import { applyFrontendBirthTimeDefaults } from '@/lib/time-policy';
 
-export type { ZiweiRuntime } from 'mingyu-core/ziwei';
+export type { ZiweiRuntime, ZiweiRuntimeFacts } from 'mingyu-core/ziwei';
 export {
   buildZiweiPayloadByScope,
   calculateFullZiweiChart,
   calculatePublicZiweiChartForScopes,
+  calculatePublicZiweiFactsForScopes,
   calculateZiweiChart,
+  calculateZiweiFactsForScopes,
   calculateZiweiChartForScopes,
   calculateZiweiDisplayPayload,
   calculateZiweiPayloadByScope,

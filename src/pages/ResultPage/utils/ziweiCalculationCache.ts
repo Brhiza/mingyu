@@ -1,12 +1,17 @@
-import { calculateFullZiweiChart } from '@/lib/full-chart-engine/ziwei';
+import { calculateZiweiChart } from '@/lib/full-chart-engine/ziwei';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { createSecureId } from '@/lib/secure-id';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ReadingResource } from '@/lib/ai/reading-workflow';
+import type { ZiweiRuntimeOptions } from 'mingyu-core/ziwei';
 import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.types';
 import { createDisplayWorker } from './createDisplayWorker';
-import { createPayloadWorker, createReadingResourceWorker } from './createPayloadWorker';
+import {
+  createPayloadWorker,
+  createReadingResourceWorker,
+  type ZiweiPayloadOptions,
+} from './createPayloadWorker';
 
 type ZiweiRuntime = NonNullable<ZiweiRuntimeState>;
 type ZiweiPayloadByScope = NonNullable<ZiweiPayloadByScopeState>;
@@ -41,24 +46,39 @@ export function getCachedZiweiRuntime(inputKey: string): ZiweiRuntime | null {
   return runtimeCache.get(inputKey) ?? null;
 }
 
-export function getCachedZiweiPayload(inputKey: string): ZiweiPayloadByScope | null {
-  return payloadCache.get(inputKey) ?? null;
+export function getCachedZiweiPayload(payloadKey: string): ZiweiPayloadByScope | null {
+  return payloadCache.get(payloadKey) ?? null;
 }
 
-export function loadZiweiRuntime(input: ChartInput, inputKey: string): Promise<ZiweiRuntime> {
-  const cached = runtimeCache.get(inputKey);
+/** 紫微 payload 与运行时一样必须绑定运限上下文，避免逐页时读到动态当前时刻缓存。 */
+export function getZiweiPayloadKey(inputKey: string, options: ZiweiPayloadOptions = {}): string {
+  return `${inputKey}\u0000payload\u0000${JSON.stringify(options)}`;
+}
+
+/** 紫微运行时包含运限基准时刻，范围逐页计算必须把上下文纳入缓存键。 */
+export function getZiweiRuntimeKey(inputKey: string, options: ZiweiRuntimeOptions = {}): string {
+  return `${inputKey}\u0000runtime\u0000${JSON.stringify(options)}`;
+}
+
+export function loadZiweiRuntime(
+  input: ChartInput,
+  inputKey: string,
+  options: ZiweiRuntimeOptions = {},
+): Promise<ZiweiRuntime> {
+  const runtimeKey = getZiweiRuntimeKey(inputKey, options);
+  const cached = runtimeCache.get(runtimeKey);
   if (cached) return Promise.resolve(cached);
 
-  const pending = pendingRuntime.get(inputKey);
+  const pending = pendingRuntime.get(runtimeKey);
   if (pending) return pending;
 
-  const request = calculateFullZiweiChart(input, true)
+  const request = calculateZiweiChart(input, { ...options, skipAnalysis: true })
     .then((runtime) => {
-      runtimeCache.set(inputKey, runtime);
+      runtimeCache.set(runtimeKey, runtime);
       return runtime;
     })
-    .finally(() => pendingRuntime.delete(inputKey));
-  pendingRuntime.set(inputKey, request);
+    .finally(() => pendingRuntime.delete(runtimeKey));
+  pendingRuntime.set(runtimeKey, request);
   return request;
 }
 
@@ -149,30 +169,76 @@ export function loadZiweiReadingResource(
 export function loadZiweiPayload(
   input: ChartInput,
   inputKey: string,
+  options: ZiweiPayloadOptions = {},
   fallbackError = '紫微排盘失败。',
+  signal?: AbortSignal,
 ): Promise<ZiweiPayloadByScope> {
-  const cached = payloadCache.get(inputKey);
+  const payloadKey = getZiweiPayloadKey(inputKey, options);
+  const cached = payloadCache.get(payloadKey);
   if (cached) return Promise.resolve(cached);
 
-  const pending = pendingPayload.get(inputKey);
+  const pending = pendingPayload.get(payloadKey);
   if (pending) return pending;
 
-  const request = new Promise<ZiweiPayloadByScope>((resolve, reject) => {
-    createPayloadWorker(
+  let requestRef: Promise<ZiweiPayloadByScope> | null = null;
+  let settled = false;
+  const rawRequest = new Promise<ZiweiPayloadByScope>((resolve, reject) => {
+    let cancel = () => {};
+    const abortError = () => {
+      const error = new Error('已停止紫微排盘。');
+      error.name = 'AbortError';
+      return error;
+    };
+    const cleanup = () => {
+      signal?.removeEventListener('abort', handleAbort);
+    };
+    const handleAbort = () => {
+      if (settled) return;
+      settled = true;
+      cancel();
+      if (requestRef && pendingPayload.get(payloadKey) === requestRef) {
+        pendingPayload.delete(payloadKey);
+      }
+      cleanup();
+      reject(abortError());
+    };
+    cancel = createPayloadWorker(
       input,
+      options,
       `${createSecureId()}-cached-payload`,
-      resolve,
-      (message) => reject(new Error(message)),
+      (payloadByScope) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(payloadByScope);
+      },
+      (message) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error(message));
+      },
       fallbackError,
     );
-  })
+    if (signal) {
+      if (signal.aborted) {
+        handleAbort();
+      } else {
+        signal.addEventListener('abort', handleAbort, { once: true });
+      }
+    }
+  });
+  const trackedRequest = rawRequest
     .then((payloadByScope) => {
-      payloadCache.set(inputKey, payloadByScope);
+      payloadCache.set(payloadKey, payloadByScope);
       return payloadByScope;
     })
-    .finally(() => pendingPayload.delete(inputKey));
-  pendingPayload.set(inputKey, request);
-  return request;
+    .finally(() => {
+      if (pendingPayload.get(payloadKey) === trackedRequest) pendingPayload.delete(payloadKey);
+    });
+  requestRef = trackedRequest;
+  if (!settled) pendingPayload.set(payloadKey, trackedRequest);
+  return trackedRequest;
 }
 
 export function getZiweiDisplayKey(

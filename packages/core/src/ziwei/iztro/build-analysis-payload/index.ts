@@ -14,6 +14,8 @@ export function buildAnalysisPayloadV1(params: {
   calculationConfig?: ZiweiCalculationConfig;
   birthTime?: ChartInput['birthTime'];
   skipAnalysis?: boolean;
+  /** 独立 scope 批次只生成当前层结构证据；完整路径保留全部运限层。 */
+  currentScopeEvidenceOnly?: boolean;
 }): AnalysisPayloadV1 {
   const { astrolabe, horoscope, currentScope, calculationConfig, skipAnalysis } = params;
   assertScopeType(currentScope);
@@ -42,6 +44,7 @@ export function buildAnalysisPayloadV1(params: {
         horoscope,
         currentScope,
         palaces,
+        currentScopeOnly: params.currentScopeEvidenceOnly,
       });
   const evidence_analysis = buildEvidenceAnalysis({
     evidencePool: evidence_pool,

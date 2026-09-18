@@ -49,7 +49,7 @@ import {
   type QimenRange,
 } from '../qimen-range';
 import type { DivinationAlmanacParticipant, DivinationTimeMode } from '../time-input';
-import { formatBirthTimeInterval } from '@/lib/bazi-reverse-input';
+import { formatBirthTimeInterval, resolveBaziReverseTimeRange } from '@/lib/bazi-reverse-input';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { HuangjiJingshiResult, HuangjiSixDayCalendarModel } from 'mingyu-core/huangji-jingshi';
@@ -602,7 +602,7 @@ function buildAlmanacParticipantTimeContextText(participants: DivinationAlmanacP
     .map((participant, index) => {
       if (!isBaziReverseSource(participant.reverseSource)) return '';
       const name = participant.name.trim() || `参与人${index + 1}`;
-      return `${name}：${formatBirthTimeInterval(participant.reverseSource, '出生时间')}`;
+      return `${name}：出生时间范围（北京时间）：${participant.reverseSource.intervalStart} 至 ${participant.reverseSource.intervalEnd}（起点含、终点不含）；范围内变化按实际时间条件分列。`;
     })
     .filter(Boolean)
     .join('\n');
@@ -1481,7 +1481,19 @@ export async function generateDivinationSession(
         endDate: draft.almanacEndDate,
         weekendPreference: draft.almanacWeekendPreference,
         timePreferences: draft.almanacTimePreferences,
-        participants: draft.almanacParticipants,
+        participants: draft.almanacParticipants.map(({ reverseSource, ...participant }) => {
+          if (!isBaziReverseSource(reverseSource)) return participant;
+          const birthTimeRange = resolveBaziReverseTimeRange(JSON.stringify(reverseSource));
+          return {
+            ...participant,
+            birthTimeRange: {
+              ...birthTimeRange,
+              pillars: { ...reverseSource.pillars },
+              intervalStart: reverseSource.intervalStart,
+              intervalEnd: reverseSource.intervalEnd,
+            },
+          };
+        }),
       });
       break;
     }

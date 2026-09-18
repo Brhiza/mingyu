@@ -2,11 +2,14 @@ import { attachWorkerSafety } from '@/hooks/useWorkerRequest';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ReadingResource } from '@/lib/ai/reading-workflow';
+import type { ZiweiRuntimeOptions } from 'mingyu-core/ziwei';
 
 export type ZiweiReadingResourceContent = Omit<ReadingResource, 'key' | 'title'>;
+export type ZiweiPayloadOptions = Omit<ZiweiRuntimeOptions, 'scopes'>;
 
 export function createPayloadWorker(
   input: ChartInput,
+  options: ZiweiPayloadOptions,
   requestId: string,
   onSuccess: (payloadByScope: Record<ScopeType, AnalysisPayloadV1>) => void,
   onError: (message: string) => void,
@@ -38,7 +41,7 @@ export function createPayloadWorker(
     worker.terminate();
   };
 
-  worker.postMessage({ id: requestId, input });
+  worker.postMessage({ id: requestId, input, options });
 
   return () => {
     disarm();

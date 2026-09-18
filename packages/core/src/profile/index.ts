@@ -1,3 +1,5 @@
+import type { BirthProfileTimeRange } from './time-range';
+export type { BirthProfileTimeRange } from './time-range';
 import {
   resolveBirthCalendarClockTime,
   resolveTrueSolarBirthTime,
@@ -85,6 +87,8 @@ export interface BirthProfile {
   location?: BirthProfileLocation;
   useTrueSolarTime?: boolean;
   applyChinaDst?: boolean;
+  /** 四柱反推保留的完整出生区间；统一排盘入口按有界批次计算每一秒。 */
+  birthTimeRange?: BirthProfileTimeRange;
 }
 
 export type BirthProfileDiagnosticCode =
@@ -95,7 +99,8 @@ export type BirthProfileDiagnosticCode =
   | 'GENDER_REQUIRED'
   | 'TIME_REQUIRED'
   | 'PRECISE_TIME_REQUIRED'
-  | 'TIME_INPUT_CONFLICT';
+  | 'TIME_INPUT_CONFLICT'
+  | 'TIME_RANGE_REQUIRES_BATCH';
 
 export type BirthProfileDiagnostic = CoreDiagnostic<BirthProfileDiagnosticCode>;
 
@@ -226,7 +231,7 @@ interface ResolvedBirthTimeInput {
 function throwBirthTimeError(
   code: Extract<
     BirthProfileDiagnosticCode,
-    'TIME_REQUIRED' | 'PRECISE_TIME_REQUIRED' | 'TIME_INPUT_CONFLICT'
+    'TIME_REQUIRED' | 'PRECISE_TIME_REQUIRED' | 'TIME_INPUT_CONFLICT' | 'TIME_RANGE_REQUIRES_BATCH'
   >,
   message: string,
   field: string,
@@ -315,6 +320,13 @@ function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
  */
 export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthProfile {
   assertProfileShape(profile);
+  if (profile.birthTimeRange !== undefined) {
+    throwBirthTimeError(
+      'TIME_RANGE_REQUIRES_BATCH',
+      '出生区间需通过统一排盘入口逐秒分批计算。',
+      'birthTimeRange',
+    );
+  }
   const diagnostics: BirthProfileDiagnostic[] = [];
   const resolvedLocation = resolveBirthProfileLocation(profile.location);
   const timeInput = resolveBirthTimeInput(profile);
@@ -373,6 +385,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       },
       inputHour: hour,
       inputMinute: minute,
+      inputSecond: profile.second,
       selectedShichen,
       solarClockTime: resolved.solarClockTime,
       effectiveTime: resolved.correctedTime,
@@ -388,7 +401,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       effectiveTime: resolved.correctedTime,
       timeIndex: resolved.timeIndex,
       timeInputMode: timeInput.inputMode,
-      timePrecision: 'minute',
+      timePrecision: timeEvidence.precision,
       usedTrueSolarTime: true,
       trueSolarEvidence,
       timeEvidence,
@@ -419,6 +432,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     },
     inputHour: hour,
     inputMinute: minute,
+    inputSecond: profile.second,
     selectedShichen,
     solarClockTime,
     effectiveTime: solarClockTime,
@@ -433,7 +447,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     effectiveTime: solarClockTime,
     timeIndex: timeInput.timeIndex,
     timeInputMode: timeInput.inputMode,
-    timePrecision: timeInput.inputMode === 'traditional-shichen' ? 'shichen' : 'minute',
+    timePrecision: timeEvidence.precision,
     usedTrueSolarTime: false,
     timeEvidence,
     diagnostics,
@@ -470,7 +484,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     isLunar: useTrueSolarTime ? false : profile.calendarType === 'lunar',
     isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
     useTrueSolarTime,
-    ...(normalized.timePrecision === 'minute'
+    ...(normalized.timeInputMode === 'precise-clock-time'
       ? { birthHour: clock.hour, birthMinute: clock.minute, birthSecond: clock.second }
       : {}),
     birthPlace: location?.name,
@@ -506,6 +520,8 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
 
   const useTrueSolarTime = profile.useTrueSolarTime === true;
   const date = useTrueSolarTime ? normalized.effectiveTime : undefined;
+  const preciseBirthTime =
+    normalized.timeInputMode === 'precise-clock-time' ? normalized.effectiveTime : undefined;
   return {
     name: profile.name ?? '',
     gender: profile.gender === 'male' ? '男' : '女',
@@ -514,7 +530,15 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
       ? formatBirthDate(date.year, date.month, date.day)
       : formatBirthDate(profile.year, profile.month, profile.day),
     birthTimeIndex: normalized.timeIndex,
-    ...(date ? { birthTime: { hour: date.hour, minute: date.minute } } : {}),
+    ...(preciseBirthTime
+      ? {
+          birthTime: {
+            hour: preciseBirthTime.hour,
+            minute: preciseBirthTime.minute,
+            second: preciseBirthTime.second,
+          },
+        }
+      : {}),
     trueSolarEvidence: normalized.trueSolarEvidence,
     isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
     fixLeap: true,
@@ -531,7 +555,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
   const normalized = normalizeBirthProfile(profile);
   const location = normalized.resolvedLocation;
   const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
-    normalized.timePrecision !== 'minute'
+    normalized.timeInputMode !== 'precise-clock-time'
       ? {
           code: 'PRECISE_TIME_REQUIRED',
           level: 'error',
@@ -568,7 +592,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     day: String(clock.day),
     hour: String(clock.hour),
     minute: String(clock.minute),
-    second: String(clock.second),
+    ...(profile.second === undefined ? {} : { second: String(clock.second) }),
     latitude: String(location.latitude),
     longitude: String(location.longitude),
     ...(location.timezone !== undefined ? { timezone: String(location.timezone) } : {}),
@@ -639,7 +663,7 @@ export function birthProfileToAlmanacParticipant(
     day: String(useTrueSolarTime ? effective.day : profile.day),
     timeIndex: String(normalized.timeIndex),
     dateType: useTrueSolarTime ? 'solar' : profile.calendarType,
-    ...(normalized.timePrecision === 'minute'
+    ...(normalized.timeInputMode === 'precise-clock-time'
       ? {
           birthHour: String(participantTime.hour),
           birthMinute: String(participantTime.minute),

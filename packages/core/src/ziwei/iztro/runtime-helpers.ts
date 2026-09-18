@@ -168,7 +168,7 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
   assertValidChartInput(normalized);
   const astro = await loadIztroAstro();
 
-  return astro.withOptions({
+  const astrolabe = astro.withOptions({
     type: normalized.dateType,
     dateStr: normalized.birthDate,
     timeIndex: normalized.birthTimeIndex,
@@ -178,6 +178,26 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
     language: 'zh-CN',
     config: buildIztroConfig(normalized),
   }) as FunctionalAstrolabe;
+
+  // 盘内星名已经按同一语言生成，精确名称无需逐星反查全部翻译词条。
+  // 别名与其他语言仍交给引擎处理；遍历当前星表，保留引擎的末项匹配语义。
+  const findTranslatedStar = astrolabe.star.bind(astrolabe);
+  astrolabe.star = (starName) => {
+    let matched: ReturnType<FunctionalAstrolabe['star']> | undefined;
+    for (const palace of astrolabe.palaces) {
+      for (const stars of [palace.majorStars, palace.minorStars, palace.adjectiveStars]) {
+        for (const star of stars) {
+          if (star.name === starName) {
+            star.setPalace(palace);
+            star.setAstrolabe(astrolabe);
+            matched = star;
+          }
+        }
+      }
+    }
+    return matched ?? findTranslatedStar(starName);
+  };
+  return astrolabe;
 }
 
 function assertValidChartInput(input: ChartInput) {
@@ -218,6 +238,14 @@ function assertValidChartInput(input: ChartInput) {
       getTimeIndexFromClock(input.birthTime.hour, input.birthTime.minute) !== input.birthTimeIndex)
   ) {
     throw new Error('紫微四柱展示时分与出生时辰不一致。');
+  }
+  if (
+    input.birthTime?.second !== undefined &&
+    (!Number.isInteger(input.birthTime.second) ||
+      input.birthTime.second < 0 ||
+      input.birthTime.second > 59)
+  ) {
+    throw new Error('紫微四柱展示秒数必须在 0-59 之间。');
   }
   if (input.dateType === 'solar') {
     const maxDay = daysInSolarMonth(year, month);
@@ -385,7 +413,7 @@ function assertOneOf<T extends readonly string[]>(
   }
 }
 
-function assertValidHoroscopeInput(dateStr: unknown, hourIndex: number) {
+export function assertValidHoroscopeInput(dateStr: unknown, hourIndex: number) {
   if (typeof dateStr !== 'string') {
     throw new Error('行运日期格式需为 YYYY-MM-DD。');
   }

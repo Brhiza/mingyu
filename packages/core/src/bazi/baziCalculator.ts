@@ -46,6 +46,7 @@ import {
   TimeInfo,
   Pillars,
   BaziChartResult,
+  BaziFortuneBatchMetadata,
   InternalBaziChartResult,
   LiunianInfo,
   TimingInfo,
@@ -61,6 +62,19 @@ import { analyzeBaziNatalEvidence } from './natalEvidence';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
+
+export type BaziBatchCalculationRequest =
+  { section: 'natal' } | { section: 'fortune'; startIndex: number };
+
+export interface BaziBatchCalculationResult {
+  result: BaziChartResult;
+  batch?: BaziFortuneBatchMetadata;
+}
+
+interface CoreBaziCalculationResult {
+  result: InternalBaziChartResult;
+  batch?: BaziFortuneBatchMetadata;
+}
 
 function getMidYearPillarName(year: number): string {
   return SixtyCycleYear.fromYear(year).getSixtyCycle().getName();
@@ -122,14 +136,17 @@ export class BaziCalculator {
    * 计算核心八字数据（同步）
    */
   public calculateCoreBazi(person: Person): InternalBaziChartResult {
-    const result = this.calculateCoreBaziInternal(person);
+    const { result } = this.calculateCoreBaziInternal(person);
     if (result.isThreePillars) {
       throw new Error('出生时辰未知，请使用 calculateBazi 获取待补时资料与候选比较。');
     }
     return result;
   }
 
-  private calculateCoreBaziInternal(person: Person): InternalBaziChartResult {
+  private calculateCoreBaziInternal(
+    person: Person,
+    batchRequest?: BaziBatchCalculationRequest,
+  ): CoreBaziCalculationResult {
     const {
       year,
       month,
@@ -460,16 +477,39 @@ export class BaziCalculator {
 
     const dayMasterGan = pillars.day.gan;
     const genderEnum = gender === 'male' ? Gender.MAN : Gender.WOMAN;
-    const luckInfo = this.luckCalculator.calculateLuckInfo(
-      solarTime,
-      genderEnum,
-      dayMasterGan,
-      termSolarTime,
-      eightChar,
-    );
+    let batch: BaziFortuneBatchMetadata | undefined;
+    let luckInfo;
+    if (batchRequest && (isThreePillars || batchRequest.section === 'natal')) {
+      luckInfo = this.luckCalculator.calculateNatalLuckInfo(
+        solarTime,
+        genderEnum,
+        dayMasterGan,
+        termSolarTime,
+        eightChar,
+      );
+    } else if (batchRequest?.section === 'fortune') {
+      const batchResult = this.luckCalculator.calculateLuckInfoBatch(
+        solarTime,
+        genderEnum,
+        dayMasterGan,
+        batchRequest.startIndex,
+        termSolarTime,
+        eightChar,
+      );
+      luckInfo = batchResult.luckInfo;
+      batch = batchResult.batch;
+    } else {
+      luckInfo = this.luckCalculator.calculateLuckInfo(
+        solarTime,
+        genderEnum,
+        dayMasterGan,
+        termSolarTime,
+        eightChar,
+      );
+    }
     const liunian = this.flattenLiunian(luckInfo);
 
-    return {
+    const result: InternalBaziChartResult = {
       gender, // 保持原始值 'male' | 'female'，仅在展示层转换
       age,
       solarDate: {
@@ -564,13 +604,29 @@ export class BaziCalculator {
       },
       shenShaAnalysis: { year: [], month: [], day: [], hour: [], global: [] },
     };
+    return { result, ...(batch ? { batch } : {}) };
   }
 
   /**
    * 统一计算八字所有数据
    */
   public calculateBazi(person: Person): BaziChartResult {
-    const coreResult = this.calculateCoreBaziInternal(person);
+    return this.calculateBaziInternal(person).result;
+  }
+
+  public calculateBaziBatch(
+    person: Person,
+    request: BaziBatchCalculationRequest,
+  ): BaziBatchCalculationResult {
+    return this.calculateBaziInternal(person, request);
+  }
+
+  private calculateBaziInternal(
+    person: Person,
+    batchRequest?: BaziBatchCalculationRequest,
+  ): BaziBatchCalculationResult {
+    const coreCalculation = this.calculateCoreBaziInternal(person, batchRequest);
+    const coreResult = coreCalculation.result;
     const extendedResult = this.calculateExtendedBazi(person, coreResult);
 
     const finalResult: InternalBaziChartResult = {
@@ -579,16 +635,39 @@ export class BaziCalculator {
       pillarRelations: analyzePillarRelations(coreResult),
     };
     if (finalResult.isThreePillars) {
-      return applyUnknownBirthTime(finalResult, person, (candidate) =>
-        this.calculateBazi(candidate),
+      const result = applyUnknownBirthTime(
+        finalResult,
+        person,
+        (candidate) =>
+          this.calculateBaziInternal(candidate, batchRequest ? { section: 'natal' } : undefined)
+            .result,
       );
+      if (batchRequest?.section !== 'fortune') return { result };
+      if (!Number.isSafeInteger(batchRequest.startIndex) || batchRequest.startIndex !== 0) {
+        throw new RangeError('八字命限续取位置超出资料范围。');
+      }
+      return {
+        result,
+        batch: {
+          unit: 'cycle-year',
+          startIndex: 0,
+          endIndexExclusive: 0,
+          totalEntries: 0,
+          nextIndex: null,
+          cycleIndex: null,
+          year: null,
+        },
+      };
     }
     finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
 
     delete finalResult.solarTime;
     delete finalResult.eightChar;
 
-    return finalResult as BaziChartResult;
+    return {
+      result: finalResult as BaziChartResult,
+      ...(coreCalculation.batch ? { batch: coreCalculation.batch } : {}),
+    };
   }
 
   /**

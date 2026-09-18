@@ -10,7 +10,7 @@ import {
   type BaziFortuneSelectionValue,
   type FortuneSelectionContext,
 } from '../bazi';
-import type { ZiweiRuntime } from '../ziwei/runtime';
+import type { ZiweiRuntimeFacts } from '../ziwei/runtime';
 import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
@@ -270,7 +270,7 @@ export interface ThematicConsultationOptions {
   baziSchool?: BaziPromptSchool;
   baziSchools?: readonly BaziPromptSchool[];
   // 紫微资料
-  ziweiResult?: ZiweiRuntime;
+  ziweiResult?: ZiweiRuntimeFacts;
   ziweiScope?: ZiweiPromptScope;
   ziweiSchool?: ZiweiSchool;
   ziweiSchools?: readonly ZiweiSchool[];
@@ -365,6 +365,12 @@ export function buildThematicConsultationPrompt(
   const isCustomMode = options.mode === 'custom';
   const ziweiScope =
     options.ziweiScope ?? ZIWEI_SCOPE_BY_PROMPT_SCOPE[selection.scope] ?? 'decadal';
+  const batchedFullZiweiScope =
+    ziweiScope === 'full' &&
+    Boolean(options.ziweiResult?.calculationBatch || options.ziweiResult?.fortuneTimeline?.batch);
+  const promptSelection = batchedFullZiweiScope
+    ? { ...selection, scopeLabel: '本次所列资料' }
+    : selection;
   const currentDate =
     typeof options.currentTime === 'string' ? new Date(options.currentTime) : options.currentTime;
 
@@ -465,7 +471,7 @@ export function buildThematicConsultationPrompt(
       isCustomMode
         ? buildCustomQuestionTask('紫微盘面资料', ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei')
         : buildPromptTask(config.ziweiTask, ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei'),
-      selection,
+      promptSelection,
     );
 
     const selectedSchools = options.ziweiSchools?.length ? options.ziweiSchools : [];
@@ -483,14 +489,16 @@ export function buildThematicConsultationPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
       buildPromptSection(
         '分析主题',
-        `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => (p.endsWith('宫') ? p : `${p}宫`)).join('、')}`,
+        `${getPromptSelectionSection(promptSelection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => (p.endsWith('宫') ? p : `${p}宫`)).join('、')}`,
       ),
       buildPromptSection('紫微盘面资料', chartText),
       buildPromptSection(
         '资料范围',
         ziweiScope === 'origin'
           ? '紫微：本命盘；未提供具体运限资料。'
-          : `紫微：${selection.scopeLabel}。`,
+          : batchedFullZiweiScope
+            ? '紫微：本命与本次所列运限。'
+            : `紫微：${selection.scopeLabel}。`,
       ),
       buildPromptSection('任务', taskText),
       buildPromptSection('问题', question),
@@ -544,7 +552,7 @@ export function buildThematicConsultationPrompt(
     isCustomMode
       ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
       : buildPromptTask(buildNatalSafeTask(config.combinedTask, selection), 'bazi-ziwei'),
-    selection,
+    promptSelection,
   );
 
   const promptText = joinPromptSections([
@@ -553,7 +561,7 @@ export function buildThematicConsultationPrompt(
     buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
     buildPromptSection(
       '分析主题',
-      `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n核心考查：紫微重点审视${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}；八字重点审视${getFocusElements(config.baziFocusElements, selection).join('、')}`,
+      `${getPromptSelectionSection(promptSelection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n核心考查：紫微重点审视${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}；八字重点审视${getFocusElements(config.baziFocusElements, selection).join('、')}`,
     ),
     buildPromptSection('八字排盘信息', baziChartText),
     baziPatternConditions ? buildPromptSection('八字格局条件', baziPatternConditions) : '',
@@ -576,7 +584,9 @@ export function buildThematicConsultationPrompt(
             : '八字：本命原局；未提供具体岁运资料。',
         ziweiScope === 'origin'
           ? '紫微：本命盘；未提供具体运限资料。'
-          : `紫微：${selection.scopeLabel}。`,
+          : batchedFullZiweiScope
+            ? '紫微：本命与本次所列运限。'
+            : `紫微：${selection.scopeLabel}。`,
       ].join('\n'),
     ),
     buildPromptSection('紫微盘面信息', ziweiText),

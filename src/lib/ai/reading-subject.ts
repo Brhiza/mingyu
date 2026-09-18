@@ -3,7 +3,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
-import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
+import { parseBaziReverseSource, resolveBaziReverseTimeRange } from '@/lib/bazi-reverse-input';
 import type { QizhengFlowTarget } from '@/lib/qizheng-flow-target';
 import {
   buildResidentialCoreInput,
@@ -225,6 +225,9 @@ export function buildQimenLifetimeInputs(
   }
 
   const result: QimenLifetimeInput = {
+    ...(input.birthReverseSource
+      ? { birthTimeRange: resolveBaziReverseTimeRange(input.birthReverseSource) }
+      : {}),
     birthDateTime: `${String(Number(input.year)).padStart(4, '0')}-${String(Number(input.month)).padStart(2, '0')}-${String(Number(input.day)).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`,
     ...getFrontendBirthTimeZone(input.birthReverseSource),
     calendarType: input.dateType,

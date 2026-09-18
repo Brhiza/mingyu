@@ -2,6 +2,7 @@
  * @file Bazi algorithms barrel
  */
 export { baziCalculator, BaziCalculator } from './baziCalculator';
+export type { BaziBatchCalculationRequest, BaziBatchCalculationResult } from './baziCalculator';
 export { evaluatePatternFulfillment } from './baziPatternFulfillment';
 export type {
   PatternConditionFact,
@@ -50,6 +51,7 @@ export type {
   Pillar,
   Pillars,
   BaziChartResult,
+  BaziFortuneBatchMetadata,
   BaziAnalysisResult,
   BaziWarningFact,
   BaziWarningSummaryFact,

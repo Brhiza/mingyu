@@ -6,6 +6,8 @@ import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-wo
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
 import { executeAstrolabeReadingWorker } from './astrolabe-reading-worker';
+import { executeBaziReadingWorker } from './bazi-reading-worker';
+import { executeZiweiReadingWorker } from './ziwei-reading-worker';
 import { prepareAstrolabeDynamicResource } from './astrolabe-dynamic-resource';
 import type { AstrolabeDynamicRangeRequest } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import {
@@ -471,12 +473,7 @@ export function resolveReadingSchema(
     return value.map((item) => resolveReadingSchema(item, document, depth + 1));
   if (!record(value)) return value;
   if (typeof value.$ref === 'string') {
-    if (!value.$ref.startsWith('#/components/schemas/')) throw new Error('补算参数引用无效。');
-    let target: unknown = document;
-    for (const part of value.$ref.slice(2).split('/'))
-      target = record(target) ? target[part] : undefined;
-    if (!target) throw new Error('补算参数定义缺失。');
-    return resolveReadingSchema(target, document, depth + 1);
+    return resolveReadingSchema(readSchemaReference(value.$ref, document), document, depth + 1);
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
@@ -486,15 +483,29 @@ export function resolveReadingSchema(
   );
 }
 
-function collectObjectSchemaParts(value: unknown) {
+function readSchemaReference(reference: string, document: Record<string, unknown>): unknown {
+  if (!reference.startsWith('#/components/schemas/')) throw new Error('补算参数引用无效。');
+  let target: unknown = document;
+  for (const part of reference.slice(2).split('/'))
+    target = record(target) ? target[part] : undefined;
+  if (!target) throw new Error('补算参数定义缺失。');
+  return target;
+}
+
+function collectObjectSchemaParts(value: unknown, document: Record<string, unknown>) {
   const properties: Record<string, unknown> = {};
   const required = new Set<string>();
   const conditions: Record<string, unknown>[] = [];
 
-  const collect = (current: unknown) => {
+  const collect = (current: unknown, depth = 0) => {
+    if (depth > 12) throw new Error('补算参数层级过多。');
     if (!record(current)) return;
+    if (typeof current.$ref === 'string') {
+      collect(readSchemaReference(current.$ref, document), depth + 1);
+      return;
+    }
     if (Array.isArray(current.allOf)) {
-      for (const item of current.allOf) collect(item);
+      for (const item of current.allOf) collect(item, depth + 1);
     }
     if (record(current.properties)) Object.assign(properties, current.properties);
     if (Array.isArray(current.required)) {
@@ -512,11 +523,15 @@ function collectObjectSchemaParts(value: unknown) {
   return { properties, required, conditions };
 }
 
-function filterCalculationSchema(method: string, value: unknown): Record<string, unknown> {
+function filterCalculationSchema(
+  method: string,
+  value: unknown,
+  document: Record<string, unknown>,
+): Record<string, unknown> {
   const rule = CALCULATION_PARAMETER_RULES[method];
   if (!rule) throw new Error('此方法暂不支持安全补算。');
 
-  const { properties, required, conditions } = collectObjectSchemaParts(value);
+  const { properties, required, conditions } = collectObjectSchemaParts(value, document);
   const mutable = new Set(rule.mutable);
   const filteredProperties = Object.fromEntries(
     Object.entries(properties).filter(([key]) => mutable.has(key)),
@@ -630,11 +645,12 @@ function assertIdentityBirth(
     for (const field of ['birthHour', 'birthMinute', 'birthSecond', 'birthLongitude']) {
       assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
     }
+  } else if (locked.birthSecond !== undefined) {
+    for (const field of ['birthHour', 'birthMinute', 'birthSecond']) {
+      assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
+    }
   } else {
     assertStructuredField(`${method}.timeIndex`, locked.timeIndex, birth.timeIndex);
-    if (locked.birthSecond !== undefined) {
-      assertStructuredField(`${method}.birthSecond`, locked.birthSecond, birth.birthSecond);
-    }
   }
 
   if (method === 'ziwei') {
@@ -746,7 +762,11 @@ function assertBaziResultFacts(
     } else {
       assertDateParts('八字实际公历出生日期', birth, result.solarDate);
     }
-    assertStructuredField('bazi.result.timeInfo.index', locked.timeIndex, timeInfo.index);
+    const expectedTimeIndex =
+      locked.birthSecond !== undefined
+        ? getTimeIndexFromClock(Number(locked.birthHour), Number(locked.birthMinute))
+        : locked.timeIndex;
+    assertStructuredField('bazi.result.timeInfo.index', expectedTimeIndex, timeInfo.index);
     return;
   }
 
@@ -1152,6 +1172,8 @@ function assertQimenLifetimeResult(
   const actualInput = result.input;
   for (const field of [
     'birthDateTime',
+    'birthTimeRange',
+    'birthRangeIndex',
     'timeZoneId',
     'timezone',
     'location',
@@ -1166,6 +1188,30 @@ function assertQimenLifetimeResult(
     'gender',
   ]) {
     assertStructuredField(`qimen-lifetime.input.${field}`, locked[field], actualInput[field]);
+  }
+  if (record(locked.birthTimeRange)) {
+    const source = locked.birthTimeRange;
+    const index = locked.birthRangeIndex ?? 0;
+    if (
+      !record(result.birthRange) ||
+      typeof index !== 'number' ||
+      typeof source.startTimestamp !== 'number' ||
+      typeof source.endTimestamp !== 'number'
+    ) {
+      throw new Error('补算缺少奇门终身局出生范围及当前候选秒。');
+    }
+    const total = (source.endTimestamp - source.startTimestamp) / 1000;
+    assertStructuredField(
+      'qimen-lifetime.birthRange',
+      {
+        source,
+        index,
+        timestamp: source.startTimestamp + index * 1000,
+        totalSamples: total,
+        nextIndex: index + 1 < total ? index + 1 : null,
+      },
+      result.birthRange,
+    );
   }
 
   const stages = result.stages;
@@ -2011,9 +2057,9 @@ export async function executeReadingAction(
       (action.method === 'astrolabe' ? paths?.['/divination/{method}/prompt'] : undefined)
     )?.post?.requestBody?.content?.['application/json']?.schema;
     if (!schema) throw new Error('暂未取得该方法的补算参数。');
-    const filteredSchema = filterCalculationSchema(
-      action.method,
-      resolveReadingSchema(schema, document),
+    const filteredSchema = resolveReadingSchema(
+      filterCalculationSchema(action.method, schema, document),
+      document,
     );
     return {
       key: '',
@@ -2209,6 +2255,16 @@ export async function executeReadingAction(
     const workerResult = await executeAstrolabeReadingWorker(calculationRequest, signal);
     data = workerResult as unknown as Record<string, unknown>;
     astrolabeLocalComplete = true;
+  } else if (action.method === 'bazi' && typeof Worker !== 'undefined') {
+    data = (await executeBaziReadingWorker(calculationRequest, signal)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (action.method === 'ziwei' && typeof Worker !== 'undefined') {
+    data = (await executeZiweiReadingWorker(calculationRequest, signal)) as unknown as Record<
+      string,
+      unknown
+    >;
   } else {
     data = await fetchReadingData(path, signal, calculationRequest);
   }

@@ -2685,6 +2685,28 @@ function getAlmanacStatusClass(status: AlmanacDisplayStatus) {
       : 'is-conditional';
 }
 
+function formatAlmanacParticipantRangeTimestamp(timestamp: number) {
+  const date = new Date(timestamp + 8 * 60 * 60 * 1_000);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function formatAlmanacParticipantSummary(item: AlmanacData['participants'][number]) {
+  const range = item.birthTimeRange;
+  if (!range) {
+    return `${item.name}：${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}`;
+  }
+  const source = `${formatAlmanacParticipantRangeTimestamp(range.source.startTimestamp)} 至 ${formatAlmanacParticipantRangeTimestamp(range.source.endTimestamp)}（终点不含）`;
+  if (range.status === 'stable') return `${item.name}：${source}内资料一致`;
+  const conditions = range.branches
+    .map(
+      (branch) =>
+        `${formatAlmanacParticipantRangeTimestamp(branch.startTimestamp)}至${formatAlmanacParticipantRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+    )
+    .join('；');
+  return `${item.name}：${source}；${conditions}`;
+}
+
 function AlmanacTraditionalBoard({
   data,
   session: _session,
@@ -2772,6 +2794,12 @@ function AlmanacTraditionalBoard({
           ['日期范围', `${data.startDate} 至 ${data.endDate}`],
           ['偏好', [preferenceLabel, timePreferenceLabel].filter(Boolean).join(' · ') || undefined],
         ]}
+      />
+      <TraditionalFacts
+        items={data.participants.map((item, index) => [
+          `参与人${index + 1}`,
+          formatAlmanacParticipantSummary(item),
+        ])}
       />
       <div className="traditional-almanac-toolbar">
         <button

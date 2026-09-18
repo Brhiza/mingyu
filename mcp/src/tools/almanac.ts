@@ -18,6 +18,20 @@ import {
   readMcpIntegerLikeInRange,
 } from './input-helpers.js';
 
+const almanacParticipantBirthTimeRangeSchema = z.object({
+  startTimestamp: z.number().int().describe('区间起点，含，UTC epoch 毫秒整秒时间戳'),
+  endTimestamp: z.number().int().describe('区间终点，不含，UTC epoch 毫秒整秒时间戳'),
+  endExclusive: z.literal(true),
+  timezone: z.literal('Asia/Shanghai'),
+  offsetHours: z.literal(8),
+  pillars: z.object({
+    year: z.string().min(1),
+    month: z.string().min(1),
+    day: z.string().min(1),
+    hour: z.string().min(1),
+  }),
+});
+
 const almanacParticipantSchema = z.object({
   id: z.string().optional().describe('参与人 ID，不填时按顺序自动生成'),
   name: z.string().optional().describe('参与人姓名'),
@@ -26,8 +40,14 @@ const almanacParticipantSchema = z.object({
   month: z.number().describe('出生月'),
   day: z.number().describe('出生日'),
   timeIndex: z.number().describe('出生时辰索引：0=早子时,...,12=晚子时'),
+  birthHour: z.number().int().min(0).max(23).optional().describe('出生区间起点小时'),
+  birthMinute: z.number().int().min(0).max(59).optional().describe('出生区间起点分钟'),
+  birthSecond: z.number().int().min(0).max(59).optional().describe('出生区间起点秒数'),
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为农历闰月'),
+  birthTimeRange: almanacParticipantBirthTimeRangeSchema
+    .optional()
+    .describe('四柱反推得到的完整北京时间出生半开区间及来源四柱'),
 });
 
 const almanacSchema = z.object({
@@ -73,6 +93,16 @@ function buildAlmanacParticipants(
     });
 
     const timeIndex = readMcpIntegerLikeInRange(item.timeIndex, 'timeIndex', 0, 12);
+    if (
+      item.birthTimeRange &&
+      (item.birthHour === undefined ||
+        item.birthMinute === undefined ||
+        item.birthSecond === undefined)
+    ) {
+      throw new Error(
+        '黄历参与人使用 birthTimeRange 时必须提供 birthHour、birthMinute、birthSecond。',
+      );
+    }
 
     return {
       id: item.id ?? `participant-${index + 1}`,
@@ -82,8 +112,19 @@ function buildAlmanacParticipants(
       month: String(item.month),
       day: String(item.day),
       timeIndex: String(timeIndex),
+      ...(item.birthHour === undefined ? {} : { birthHour: String(item.birthHour) }),
+      ...(item.birthMinute === undefined ? {} : { birthMinute: String(item.birthMinute) }),
+      ...(item.birthSecond === undefined ? {} : { birthSecond: String(item.birthSecond) }),
       dateType: item.dateType,
       isLeapMonth: item.isLeapMonth ?? false,
+      ...(item.birthTimeRange
+        ? {
+            birthTimeRange: {
+              ...item.birthTimeRange,
+              pillars: { ...item.birthTimeRange.pillars },
+            },
+          }
+        : {}),
     };
   });
 }

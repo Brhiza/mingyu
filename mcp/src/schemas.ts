@@ -102,6 +102,10 @@ export const promptOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('生成提示词时同步计算出的结构化盘面或证据；可供展示和后续追问复用，避免再调排盘工具'),
+  batch: z
+    .unknown()
+    .optional()
+    .describe('显式分页时返回 scopeBatch、fortuneBatch 或 combinedBatch 续取元数据'),
 });
 
 export const ziweiOutputSchema = withErrorOutputSchema({
@@ -109,10 +113,18 @@ export const ziweiOutputSchema = withErrorOutputSchema({
   calculationConfig: z.record(z.string(), z.unknown()).describe('本次实际采用的紫微排盘口径'),
   scopeNames: z.array(z.string()).describe('本次返回包含的运限范围'),
   payloadByScope: z.record(z.string(), z.unknown()).describe('按运限范围组织的紫微分析载荷'),
+  natalFacts: z
+    .unknown()
+    .optional()
+    .describe('年龄年独立批次附带的本命基础事实投影，不代表 origin 完整分析'),
   fortuneTimeline: z
     .unknown()
     .optional()
     .describe('按当前阶段、全部阶段或指定年/月/日/时组织的紫微运限时间线'),
+  batch: z
+    .unknown()
+    .optional()
+    .describe('显式分页时返回 scopeBatch、fortuneBatch 或 combinedBatch 续取元数据'),
   trueSolarEvidence: z.unknown().optional().describe('真太阳时校正证据'),
   birthMutagens: z.record(z.string(), z.string()).optional().describe('生年四化'),
   fourMutagens: z.record(z.string(), z.string()).optional().describe('命宫四化'),

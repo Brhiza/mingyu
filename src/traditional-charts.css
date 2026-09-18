@@ -5507,3 +5507,31 @@
   border-radius: 4px;
   margin-top: 6px;
 }
+
+.qimen-birth-range-navigation {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qimen-birth-range-navigation button,
+.qimen-birth-range-navigation label,
+.qimen-birth-range-navigation > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.qimen-birth-range-navigation button {
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: inherit;
+}
+
+.qimen-birth-range-navigation button:disabled {
+  opacity: 0.45;
+}
+
+.qimen-birth-range-navigation input {
+  width: 6em;
+}

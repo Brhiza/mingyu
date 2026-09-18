@@ -50,6 +50,7 @@ import {
   WorkspaceDialog,
   WorkspacePage,
 } from '@/components/workspace/WorkspaceUI';
+import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import {
   getFieldKey,
   getPersonInputMode,
@@ -66,6 +67,15 @@ type ChartToolConfig = {
   preciseBirthData: boolean;
   compatibility: boolean;
 };
+
+type CompatibilityPromptSource = Extract<PromptSourceKey, 'bazi' | 'ziwei' | 'bazi-ziwei'>;
+
+const COMPATIBILITY_PROMPT_SOURCE_OPTIONS: readonly DropdownSelectOption<CompatibilityPromptSource>[] =
+  [
+    { value: 'bazi', label: '八字' },
+    { value: 'ziwei', label: '紫微斗数' },
+    { value: 'bazi-ziwei', label: '八字紫微合参' },
+  ];
 
 const REVERSE_SOURCE_INVALIDATING_FIELDS: readonly (keyof typeof SELF_FIELD_MAP)[] = [
   'dateType',
@@ -201,6 +211,8 @@ export function InputPage() {
   const [form, setForm] = useState<QueryInputState>(() =>
     createFormFromLocation(searchParams, config, routeCase, launchState),
   );
+  const [compatibilityPromptSource, setCompatibilityPromptSource] =
+    useState<CompatibilityPromptSource>('bazi');
   const [error, setError] = useState('');
   const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
   const [casePickerRole, setCasePickerRole] = useState<PersonRole | null>(null);
@@ -232,6 +244,7 @@ export function InputPage() {
     setError('');
     const nextForm = createFormFromLocation(searchParams, nextConfig, routeCase);
     setForm(nextForm);
+    setCompatibilityPromptSource('bazi');
     setPersonInputModes({
       self: getPersonInputMode(nextForm, 'self'),
       partner: getPersonInputMode(nextForm, 'partner'),
@@ -398,6 +411,7 @@ export function InputPage() {
       return;
     }
     let recordId: string | undefined;
+    const promptSource = config.compatibility ? compatibilityPromptSource : config.promptSource;
     try {
       if (config.compatibility) {
         const partnerError = validatePerson('partner');
@@ -426,7 +440,7 @@ export function InputPage() {
           {
             ...promptDefaults,
             tab: config.resultTab,
-            promptSource: config.promptSource,
+            promptSource,
             baziShortcutMode: config.compatibility ? '合婚' : promptDefaults.baziShortcutMode,
             baziPresetId: config.compatibility ? 'ai-compat-marriage' : promptDefaults.baziPresetId,
           },
@@ -487,6 +501,22 @@ export function InputPage() {
         }
       >
         <PrivacyHint />
+        {config.compatibility ? (
+          <div className="workspace-ui-form-row">
+            <div className="workspace-ui-field">
+              <label htmlFor="compatibility-method-select">合盘方法</label>
+              <DropdownSelect<CompatibilityPromptSource>
+                id="compatibility-method-select"
+                value={compatibilityPromptSource}
+                options={COMPATIBILITY_PROMPT_SOURCE_OPTIONS}
+                onChange={setCompatibilityPromptSource}
+                ariaLabel="合盘方法"
+                prefix="方法"
+                variant="field"
+              />
+            </div>
+          </div>
+        ) : null}
         <div className={`workspace-ui-form-layout${config.compatibility ? ' is-two-column' : ''}`}>
           <PersonForm
             role="self"

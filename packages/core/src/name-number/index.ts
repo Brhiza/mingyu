@@ -14,6 +14,8 @@ import {
 } from '../bazi/input';
 import { baziCalculator } from '../bazi/baziCalculator';
 import { formatUsefulGodFunctions } from '../bazi/baziAnalysisFormatter';
+import { getCivilDateTimeAtFixedOffset } from '../calendar/civil-time';
+import type { BirthProfileTimeRange } from '../profile/time-range';
 import { CHARACTER_STROKE_NOTES, CHARACTER_READING_NOTES } from './character-annotations';
 import {
   buildPromptSelectionTask,
@@ -47,9 +49,20 @@ const COMPOUND_SURNAME_READINGS: Readonly<Record<string, readonly string[]>> = {
   令狐: ['lìng', 'hú'],
 };
 
+export type NamingBirthRangeSource = BirthProfileTimeRange & {
+  pillars: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+};
+
 export type NamingBirthInput = BaziChartInputDraft & {
   /** 起名入口也可明确传入缺时资料；不把任意时辰当作出生事实。 */
   isThreePillars?: boolean;
+  /** 四柱反推所得的标准北京时间半开区间。 */
+  birthTimeRange?: NamingBirthRangeSource;
 };
 
 function formatNamingClock(input: NamingBirthInput, includeSeconds: boolean) {
@@ -77,7 +90,7 @@ function calculateNamingBazi(input: NamingBirthInput) {
   return baziCalculator.calculateBazi({ ...validatedPerson, isThreePillars: true });
 }
 
-export function calculateNamingBirthContext(input: NamingBirthInput) {
+function calculateNamingPointBirthContext(input: NamingBirthInput) {
   const chart = calculateNamingBazi(input);
   const hasPreciseStandardTime =
     input.useTrueSolarTime !== true && input.birthSecond !== undefined && input.birthSecond !== '';
@@ -179,6 +192,320 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
     warnings: chart.warnings,
     unknownTimeAnalysis: chart.unknownTimeAnalysis ?? null,
   };
+}
+
+export type NamingBirthPointContext = ReturnType<typeof calculateNamingPointBirthContext>;
+
+export interface NamingBirthRangeBranch {
+  startTimestamp: number;
+  endTimestamp: number;
+  sampleCount: number;
+  startTime: string;
+  endTime: string;
+  context: NamingBirthPointContext;
+}
+
+export type NamingBirthContext = NamingBirthPointContext & {
+  birthRange?: {
+    source: NamingBirthRangeSource;
+    totalSamples: number;
+    stableFavorableElements: Wuxing[];
+    conditionalFavorableElements: Wuxing[];
+    branches: NamingBirthRangeBranch[];
+  };
+};
+
+const BEIJING_OFFSET_HOURS = 8;
+const MILLISECONDS_PER_SECOND = 1_000;
+const MAX_NAMING_RANGE_MILLISECONDS = 2 * 60 * 60 * MILLISECONDS_PER_SECOND;
+
+function formatBeijingRangeTime(timestamp: number) {
+  const parts = getCivilDateTimeAtFixedOffset(new Date(timestamp), BEIJING_OFFSET_HOURS);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${String(parts.year).padStart(4, '0')}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+}
+
+function assertNamingBirthRange(input: NamingBirthInput): NamingBirthRangeSource {
+  const source = input.birthTimeRange;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    throw new TypeError('起名出生区间必须提供完整的四柱与北京时间边界。');
+  }
+  if (
+    !Number.isSafeInteger(source.startTimestamp) ||
+    !Number.isSafeInteger(source.endTimestamp) ||
+    source.startTimestamp % MILLISECONDS_PER_SECOND !== 0 ||
+    source.endTimestamp % MILLISECONDS_PER_SECOND !== 0 ||
+    source.startTimestamp >= source.endTimestamp ||
+    source.endTimestamp - source.startTimestamp > MAX_NAMING_RANGE_MILLISECONDS
+  ) {
+    throw new RangeError('起名出生区间必须是两小时以内、精确到秒的有效范围。');
+  }
+  if (source.endExclusive !== true) {
+    throw new RangeError('起名出生区间必须是起点含、终点不含的半开区间。');
+  }
+  if (source.timezone !== 'Asia/Shanghai' || source.offsetHours !== BEIJING_OFFSET_HOURS) {
+    throw new RangeError('起名出生区间必须固定使用 Asia/Shanghai（UTC+8）北京时间。');
+  }
+  if (
+    !source.pillars ||
+    (['year', 'month', 'day', 'hour'] as const).some(
+      (key) => typeof source.pillars[key] !== 'string' || !source.pillars[key],
+    )
+  ) {
+    throw new RangeError('起名出生区间必须保留完整四柱。');
+  }
+  if (
+    input.isThreePillars ||
+    input.dateType === 'lunar' ||
+    input.useTrueSolarTime === true ||
+    input.applyChinaDst === true ||
+    (input.timezone !== undefined && input.timezone !== BEIJING_OFFSET_HOURS) ||
+    input.timeZoneId !== undefined
+  ) {
+    throw new RangeError('四柱反推区间只接受公历标准北京时间。');
+  }
+  const start = getCivilDateTimeAtFixedOffset(
+    new Date(source.startTimestamp),
+    BEIJING_OFFSET_HOURS,
+  );
+  if (
+    Number(input.year) !== start.year ||
+    Number(input.month) !== start.month ||
+    Number(input.day) !== start.day ||
+    Number(input.birthHour) !== start.hour ||
+    Number(input.birthMinute) !== start.minute ||
+    Number(input.birthSecond) !== start.second
+  ) {
+    throw new RangeError('起名出生资料必须保留四柱候选区间起点作为代表时间。');
+  }
+  return {
+    startTimestamp: source.startTimestamp,
+    endTimestamp: source.endTimestamp,
+    endExclusive: true,
+    timezone: 'Asia/Shanghai',
+    offsetHours: BEIJING_OFFSET_HOURS,
+    pillars: { ...source.pillars },
+  };
+}
+
+function namingInputAtTimestamp(input: NamingBirthInput, timestamp: number): NamingBirthInput {
+  const parts = getCivilDateTimeAtFixedOffset(new Date(timestamp), BEIJING_OFFSET_HOURS);
+  const { birthTimeRange: _range, isThreePillars: _threePillars, ...shared } = input;
+  return {
+    ...shared,
+    dateType: 'solar',
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    timeIndex: '',
+    birthHour: parts.hour,
+    birthMinute: parts.minute,
+    birthSecond: parts.second,
+  };
+}
+
+function namingRangeContextKey(context: NamingBirthPointContext) {
+  return JSON.stringify([
+    context.solarDate,
+    context.lunarDate,
+    context.pillars,
+    context.monthContext.branch,
+    context.monthContext.commander,
+    context.monthContext.season,
+    context.monthContext.term,
+  ]);
+}
+
+function sameJson(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function intersectLists<T>(lists: readonly (readonly T[])[]) {
+  const [first = [], ...rest] = lists;
+  return first.filter((item) => rest.every((list) => list.includes(item)));
+}
+
+function assertSourcePillars(
+  context: NamingBirthPointContext,
+  expected: NamingBirthRangeSource['pillars'],
+) {
+  const actual = context.pillars;
+  if (
+    actual[0] !== expected.year ||
+    actual[1] !== expected.month ||
+    actual[2] !== expected.day ||
+    actual[3] !== expected.hour
+  ) {
+    throw new RangeError('起名出生区间的排盘四柱与反推来源不一致。');
+  }
+}
+
+function calculateNamingRangeContext(input: NamingBirthInput): NamingBirthContext {
+  const source = assertNamingBirthRange(input);
+  const cache = new Map<number, NamingBirthPointContext>();
+  const contextAt = (timestamp: number) => {
+    const cached = cache.get(timestamp);
+    if (cached) return cached;
+    const context = calculateNamingPointBirthContext(namingInputAtTimestamp(input, timestamp));
+    assertSourcePillars(context, source.pillars);
+    cache.set(timestamp, context);
+    return context;
+  };
+  const lastTimestamp = source.endTimestamp - MILLISECONDS_PER_SECOND;
+  contextAt(source.startTimestamp);
+  contextAt(lastTimestamp);
+
+  const buildBranch = (
+    startTimestamp: number,
+    endTimestamp: number,
+    pointContext: NamingBirthPointContext,
+  ): NamingBirthRangeBranch => {
+    const startTime = formatBeijingRangeTime(startTimestamp);
+    const endTime = formatBeijingRangeTime(endTimestamp);
+    const interval = `${startTime} 至 ${endTime}（起点含、终点不含）`;
+    return {
+      startTimestamp,
+      endTimestamp,
+      sampleCount: (endTimestamp - startTimestamp) / MILLISECONDS_PER_SECOND,
+      startTime,
+      endTime,
+      context: {
+        ...pointContext,
+        timeBasis: {
+          ...pointContext.timeBasis,
+          inputTime: interval,
+          mode: '标准北京时间条件时段（精确到秒）',
+          calculatedTime: interval,
+        },
+        // 单点边界提醒随秒数距离变化，不能作为整个条件时段的共同事实。
+        warnings: [],
+      },
+    };
+  };
+
+  const branches: NamingBirthRangeBranch[] = [];
+  let startTimestamp = source.startTimestamp;
+  while (startTimestamp < source.endTimestamp) {
+    const startContext = contextAt(startTimestamp);
+    const startKey = namingRangeContextKey(startContext);
+    // 四柱来源最多覆盖同一时辰的两小时：公历日、节气和分日司令在这段内
+    // 只会按时间前进，不会在终点前恢复成旧值。因此可用二分精确定位整秒
+    // 变化点，只在各段代表秒执行完整八字分析，无需重复计算7200份完整命局。
+    if (namingRangeContextKey(contextAt(lastTimestamp)) === startKey) {
+      branches.push(buildBranch(startTimestamp, source.endTimestamp, startContext));
+      break;
+    }
+
+    let low = startTimestamp + MILLISECONDS_PER_SECOND;
+    let high = lastTimestamp;
+    while (low < high) {
+      const middleIndex = Math.floor(
+        (low / MILLISECONDS_PER_SECOND + high / MILLISECONDS_PER_SECOND) / 2,
+      );
+      const middle = middleIndex * MILLISECONDS_PER_SECOND;
+      if (namingRangeContextKey(contextAt(middle)) === startKey) {
+        low = middle + MILLISECONDS_PER_SECOND;
+      } else {
+        high = middle;
+      }
+    }
+    branches.push(buildBranch(startTimestamp, low, startContext));
+    startTimestamp = low;
+  }
+
+  const contexts = branches.map((branch) => branch.context);
+  const first = contexts[0]!;
+  const stableFavorableElements = intersectLists(
+    contexts.map((context) => context.favorableElements),
+  );
+  const conditionalFavorableElements = [
+    ...new Set(contexts.flatMap((context) => context.favorableElements)),
+  ].filter((element) => !stableFavorableElements.includes(element));
+  const stableUnfavorableElements = intersectLists(
+    contexts.map((context) => context.unfavorableElements),
+  );
+  const commonValue = <T>(values: readonly T[], fallback: T): T =>
+    values.every((value) => sameJson(value, values[0])) ? values[0]! : fallback;
+  const interval = `${formatBeijingRangeTime(source.startTimestamp)} 至 ${formatBeijingRangeTime(source.endTimestamp)}（起点含、终点不含）`;
+
+  return {
+    ...first,
+    solarDate: commonValue(
+      contexts.map((context) => context.solarDate),
+      '按出生时段分列',
+    ),
+    lunarDate: commonValue(
+      contexts.map((context) => context.lunarDate),
+      '按出生时段分列',
+    ),
+    timeBasis: {
+      ...first.timeBasis,
+      inputTime: interval,
+      mode: '标准北京时间出生区间（精确到秒）',
+      calculatedTime: interval,
+    },
+    pattern: commonValue(
+      contexts.map((context) => context.pattern),
+      {
+        ...first.pattern,
+        name: '按出生时段分列',
+        basis: '',
+        transformation: undefined,
+        fulfillment: null,
+      },
+    ),
+    favorableElements: stableFavorableElements,
+    unfavorableElements: stableUnfavorableElements,
+    usefulGodReason: commonValue(
+      contexts.map((context) => context.usefulGodReason),
+      '各出生时段的取用依据不同，按条件分支列示。',
+    ),
+    functionalUse: intersectLists(contexts.map((context) => context.functionalUse)),
+    monthContext: {
+      branch: commonValue(
+        contexts.map((context) => context.monthContext.branch),
+        '按时段分列',
+      ),
+      commander: commonValue(
+        contexts.map((context) => context.monthContext.commander),
+        '按时段分列',
+      ),
+      season: commonValue(
+        contexts.map((context) => context.monthContext.season),
+        '按时段分列',
+      ),
+      term: commonValue(
+        contexts.map((context) => context.monthContext.term),
+        '按时段分列',
+      ),
+    },
+    strength: commonValue(
+      contexts.map((context) => context.strength),
+      {
+        status: '未知',
+        basis: intersectLists(contexts.map((context) => context.strength.basis)),
+      },
+    ),
+    climate: commonValue(
+      contexts.map((context) => context.climate),
+      null,
+    ),
+    warnings: intersectLists(contexts.map((context) => context.warnings)),
+    birthRange: {
+      source,
+      totalSamples: (source.endTimestamp - source.startTimestamp) / MILLISECONDS_PER_SECOND,
+      stableFavorableElements,
+      conditionalFavorableElements,
+      branches,
+    },
+  };
+}
+
+export function calculateNamingBirthContext(input: NamingBirthInput): NamingBirthContext {
+  if (input.birthTimeRange) return calculateNamingRangeContext(input);
+  return calculateNamingPointBirthContext(input);
 }
 
 const characterData: Record<string, CharacterDetail> = {};
@@ -354,6 +681,7 @@ function analyzeNameStructure(
   given: string,
   options: {
     xiYong?: Wuxing[];
+    conditionalXiYong?: Wuxing[];
     birthContext?: ReturnType<typeof calculateNamingBirthContext>;
   } = {},
 ) {
@@ -383,6 +711,9 @@ function analyzeNameStructure(
     >
   )[combo];
   const preferred = options.xiYong ?? [];
+  const conditionalPreferred = (options.conditionalXiYong ?? []).filter(
+    (element) => !preferred.includes(element),
+  );
   return {
     surname,
     given,
@@ -410,12 +741,29 @@ function analyzeNameStructure(
     sancai: { ...sancai },
     sancaiEvidence,
     preferredElements: [...preferred],
+    conditionalPreferredElements: [...conditionalPreferred],
     birthContext: options.birthContext ?? null,
     elementMatches: preferred.length
       ? givenDetails
           .filter((item) => item!.wuxing && preferred.includes(item!.wuxing as Wuxing))
           .map((item) => item!.char)
       : [],
+    conditionalElementMatches: conditionalPreferred.length
+      ? givenDetails
+          .filter((item) => item!.wuxing && conditionalPreferred.includes(item!.wuxing as Wuxing))
+          .map((item) => item!.char)
+      : [],
+  };
+}
+
+function resolveNamingElementPreferences(
+  explicit: Wuxing[] | undefined,
+  birthContext: NamingBirthContext | undefined,
+) {
+  if (explicit?.length) return { stable: explicit, conditional: [] as Wuxing[] };
+  return {
+    stable: birthContext?.favorableElements ?? [],
+    conditional: birthContext?.birthRange?.conditionalFavorableElements ?? [],
   };
 }
 
@@ -510,11 +858,13 @@ export function analyzeChineseName(input: {
     throw new Error('姓名需由 1 至 2 字姓氏和 1 至 2 字名字组成');
   }
   const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
+  const preferences = resolveNamingElementPreferences(input.xiYong, birthContext);
   return analyzeNameStructure(
     chars.slice(0, surnameLength).join(''),
     chars.slice(surnameLength).join(''),
     {
-      xiYong: input.xiYong?.length ? input.xiYong : birthContext?.favorableElements,
+      xiYong: preferences.stable,
+      conditionalXiYong: preferences.conditional,
       birthContext,
     },
   );
@@ -549,9 +899,8 @@ export function selectNamingCharacters(input: {
     throw new Error('起名性别取值无效');
   const limit = namingLimit(input.limit, 48, 100);
   const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
-  const preferredElements = input.preferredElements?.length
-    ? input.preferredElements
-    : birthContext?.favorableElements;
+  const preferences = resolveNamingElementPreferences(input.preferredElements, birthContext);
+  const preferredElements = [...preferences.stable, ...preferences.conditional];
   const forbidden = new Set(namingCharacters(input.forbiddenCharacters).map(namingCharacterKey));
   const preferred = namingCharacters(input.preferredCharacters).filter(
     (char) => !forbidden.has(namingCharacterKey(char)),
@@ -601,9 +950,8 @@ export function generateChineseNames(input: {
     throw new Error('辈分字位置必须为首字或末字');
   const limit = namingLimit(input.limit, 20, 50);
   const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
-  const preferredElements = input.preferredElements?.length
-    ? input.preferredElements
-    : birthContext?.favorableElements;
+  const preferences = resolveNamingElementPreferences(input.preferredElements, birthContext);
+  const preferredElements = [...preferences.stable, ...preferences.conditional];
   const forbidden = new Set(namingCharacters(input.forbiddenCharacters).map(namingCharacterKey));
   const preferred = new Set(
     namingCharacters(input.preferredCharacters)
@@ -625,7 +973,11 @@ export function generateChineseNames(input: {
     limit: length === 2 ? 48 : 80,
   });
   if (!pool.length) throw new Error('当前用字条件没有可用候选字');
-  const options = { xiYong: preferredElements, birthContext };
+  const options = {
+    xiYong: preferences.stable,
+    conditionalXiYong: preferences.conditional,
+    birthContext,
+  };
   const candidates: Array<{
     fullName: string;
     givenName: string;
@@ -635,6 +987,7 @@ export function generateChineseNames(input: {
       generationCharacter: string | null;
       generationPosition: GenerationCharacterPosition | null;
       favorableElementCharacters: string[];
+      conditionalFavorableElementCharacters: string[];
     };
   }> = [];
   let candidateFailures = 0;
@@ -671,6 +1024,7 @@ export function generateChineseNames(input: {
           generationCharacter: generationCharacter ?? null,
           generationPosition: generationCharacter ? (input.generationPosition ?? 'first') : null,
           favorableElementCharacters: [...analysis.elementMatches],
+          conditionalFavorableElementCharacters: [...analysis.conditionalElementMatches],
         },
       });
     } catch {
@@ -695,8 +1049,26 @@ export function generateChineseNames(input: {
   return selected;
 }
 
-function formatBirthContext(context: ReturnType<typeof calculateNamingBirthContext> | null) {
+function formatBirthContext(
+  context: ReturnType<typeof calculateNamingBirthContext> | null,
+): string {
   if (!context) return '本次未结合出生资料。';
+  if (context.birthRange) {
+    const range = context.birthRange;
+    const conditional = range.conditionalFavorableElements;
+    return [
+      `出生范围：北京时间 ${formatBeijingRangeTime(range.source.startTimestamp)} 至 ${formatBeijingRangeTime(range.source.endTimestamp)}（起点含、终点不含），共${range.totalSamples}个整秒。`,
+      `稳定四柱：${context.pillars.join(' ')}；日主${context.dayMaster}。`,
+      `全段共同喜用：${range.stableFavorableElements.join('、') || '无共同五行，按时段分别比较'}`,
+      ...(conditional.length ? [`条件喜用：${conditional.join('、')}，只适用于对应时段。`] : []),
+      ...range.branches.flatMap((branch, index) => [
+        '',
+        `【出生时段${index + 1}】`,
+        `北京时间 ${branch.startTime} 至 ${branch.endTime}（起点含、终点不含），共${branch.sampleCount}个整秒。`,
+        formatBirthContext(branch.context),
+      ]),
+    ].join('\n');
+  }
   const fulfillment = context.pattern.fulfillment;
   const unknownTime = context.unknownTimeAnalysis;
   const unknownTimeLines = unknownTime
@@ -847,6 +1219,9 @@ function formatNamingCandidate(
       : '',
     evidence.favorableElementCharacters.length
       ? `出生取用相应字${evidence.favorableElementCharacters.join('、')}`
+      : '',
+    evidence.conditionalFavorableElementCharacters.length
+      ? `条件取用相应字${evidence.conditionalFavorableElementCharacters.join('、')}，需按出生时段比较`
       : '',
   ].filter(Boolean);
   return [

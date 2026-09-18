@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import {
@@ -129,6 +130,13 @@ const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
 });
 
 const baziPromptSchema = baziSchema.extend({
+  fortuneBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.literal(1).optional(),
+    })
+    .optional()
+    .describe('完整八字命限逐年续取；每次返回一个大运内的流年，仅 full 范围有效'),
   question: z.string().describe('用户希望围绕命盘解读的问题'),
   promptTopic: z
     .enum(BAZI_PROMPT_TOPICS)
@@ -317,7 +325,6 @@ export function registerBaziTool(server: McpServer) {
     async (args) => {
       try {
         const person = buildBaziPerson(args);
-        const result = baziCalculator.calculateBazi(person);
         const selection = readMcpPromptSelection({
           methodId: 'bazi',
           topicId: args.topicId,
@@ -326,6 +333,17 @@ export function registerBaziTool(server: McpServer) {
         });
         const explicitFortuneScope =
           args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
+        const requestedFortuneScope = explicitFortuneScope ?? 'dayun';
+        if (args.fortuneBatch && requestedFortuneScope !== 'full') {
+          throw new Error('八字 fortuneBatch 仅支持完整命限。');
+        }
+        const batchCalculation = args.fortuneBatch
+          ? baziCalculator.calculateBaziBatch(person, {
+              section: 'fortune',
+              startIndex: args.fortuneBatch.startIndex ?? 0,
+            })
+          : undefined;
+        const result = batchCalculation?.result ?? baziCalculator.calculateBazi(person);
         if (result.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
           throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
         }
@@ -345,6 +363,10 @@ export function registerBaziTool(server: McpServer) {
           !currentSelection
             ? 'natal'
             : initialFortuneScope;
+        const fortuneTextBatch = args.fortuneBatch
+          ? formatCalculatedBaziFortuneBatch(result, batchCalculation!.batch!)
+          : undefined;
+        const returnedResult = result;
         const requiresCycle = fortuneScope === 'dayun';
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
@@ -408,16 +430,18 @@ export function registerBaziTool(server: McpServer) {
           mode: (args.promptMode ?? 'framework') as PromptMode,
           fortuneSelectionContext,
           fortuneScope,
+          fortuneTextBatch,
           school: args.school as BaziSchool | undefined,
           schools: args.schools as BaziSchool[] | undefined,
           selection,
         });
         return createStructuredToolResult({
           result: {
-            ...result,
+            ...returnedResult,
             ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
           },
           prompt: basePrompt,
+          ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成八字提示词失败'));

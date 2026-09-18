@@ -921,16 +921,52 @@ function formatSsgwInfo(data: SsgwData) {
     .join('\n');
 }
 
+function formatAlmanacRangeTimestamp(timestamp: number) {
+  const date = new Date(timestamp + 8 * 60 * 60 * 1_000);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function formatAlmanacUsefulGods(
+  profile: Pick<AlmanacData['participants'][number], 'usefulGods' | 'avoidGods'>,
+) {
+  return profile.usefulGods.length > 0 &&
+    profile.usefulGods.length <= 3 &&
+    profile.avoidGods.length > 0
+    ? `喜用资料${profile.usefulGods.join('、')}，忌神资料${profile.avoidGods.join('、')}`
+    : '';
+}
+
+function formatAlmanacParticipantLines(item: AlmanacData['participants'][number]) {
+  const pillars = `四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}`;
+  const range = item.birthTimeRange;
+  if (!range) {
+    const useful = formatAlmanacUsefulGods(item);
+    return [
+      `  ${item.name}：${item.gender || '性别未填'}；${pillars}${useful ? `；${useful}` : ''}`,
+    ];
+  }
+
+  const sourceText = `${formatAlmanacRangeTimestamp(range.source.startTimestamp)} 至 ${formatAlmanacRangeTimestamp(range.source.endTimestamp)}（终点不含）`;
+  if (range.status === 'stable') {
+    const useful = formatAlmanacUsefulGods(range.branches[0]?.profile ?? item);
+    return [
+      `  ${item.name}：${item.gender || '性别未填'}；出生时间范围${sourceText}；${pillars}；范围内资料一致${useful ? `；${useful}` : ''}`,
+    ];
+  }
+
+  return [
+    `  ${item.name}：${item.gender || '性别未填'}；出生时间范围${sourceText}；${pillars}；以下时间条件分别适用`,
+    ...range.branches.map((branch) => {
+      const useful = formatAlmanacUsefulGods(branch.profile);
+      return `    ${formatAlmanacRangeTimestamp(branch.startTimestamp)} 至 ${formatAlmanacRangeTimestamp(branch.endTimestamp)}（终点不含）${useful ? `：${useful}` : '：未列可直接采用的喜忌资料'}`;
+    }),
+  ];
+}
+
 function formatAlmanacInfo(data: AlmanacData) {
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
-  const participantLines = data.participants.map((item) => {
-    const usefulEvidenceAvailable =
-      item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
-    const useful = usefulEvidenceAvailable
-      ? `喜用资料${item.usefulGods.join('、')}，忌神资料${item.avoidGods.join('、')}`
-      : '';
-    return `  ${item.name}：${item.gender || '性别未填'}；四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}${useful ? `；${useful}` : ''}`;
-  });
+  const participantLines = data.participants.flatMap(formatAlmanacParticipantLines);
   const promptDays = [...data.days].sort((left, right) => left.date.localeCompare(right.date));
   const dayLines = promptDays.flatMap((item, index) => {
     const candidate = evidenceAnalysis.candidates.find(

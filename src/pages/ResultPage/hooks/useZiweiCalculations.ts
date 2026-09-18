@@ -1,11 +1,13 @@
 import { useWorkerRequest } from '@/hooks/useWorkerRequest';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildZiweiChartInput } from '@/lib/full-chart-engine/ziwei';
-import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
+import { birthProfileToZiweiChartInput } from 'mingyu-core/profile';
+import { getDefaultHoroscopeContext, type ZiweiRuntimeOptions } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ReadingResource } from '@/lib/ai/reading-workflow';
 import type { QueryInputState } from '@/lib/query-state';
+import type { BaziRangePage } from '@/lib/full-chart-engine/bazi-range';
 import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.types';
 import {
   getCachedZiweiDisplayPayload,
@@ -13,7 +15,9 @@ import {
   getCachedZiweiRuntime,
   getZiweiDisplayKey,
   getZiweiInputKey,
+  getZiweiPayloadKey,
   getZiweiReadingResourceKey,
+  getZiweiRuntimeKey,
   loadZiweiDisplayPayload,
   loadZiweiPromptScopePayloads,
   loadZiweiReadingResource,
@@ -42,6 +46,16 @@ export interface ZiweiCalculations {
   ziweiReadingResourcesReady: boolean;
   ziweiReadingResourceError: string;
   reloadZiweiReadingResources: () => void;
+  ziweiLoading: boolean;
+  cancelZiwei: () => void;
+  retryZiwei: () => void;
+  ziweiPaused: boolean;
+}
+
+export interface ZiweiRangeSelection {
+  requested: boolean;
+  page: BaziRangePage | null;
+  paused?: boolean;
 }
 
 export function useZiweiCalculations(
@@ -55,19 +69,39 @@ export function useZiweiCalculations(
   isZiweiTabMounted: boolean,
   isPromptTabMounted: boolean,
   isInstantResult = false,
+  rangeSelection: ZiweiRangeSelection = { requested: false, page: null },
 ): ZiweiCalculations {
+  const rangeRequested = rangeSelection.requested;
+  const rangePage = rangeRequested ? rangeSelection.page : null;
+  const rangePaused = rangeRequested && rangeSelection.paused === true;
+  const fixedHoroscopeContext = useMemo(() => getDefaultHoroscopeContext(), []);
+  const ziweiRuntimeOptions = useMemo<ZiweiRuntimeOptions>(
+    () => ({ horoscopeContext: fixedHoroscopeContext }),
+    [fixedHoroscopeContext],
+  );
+
   const primaryZiweiInput = useMemo(() => {
     try {
+      if (rangeRequested) {
+        return rangePage
+          ? stabilizeZiweiChartInput(birthProfileToZiweiChartInput(rangePage.primary.profile))
+          : null;
+      }
       return stabilizeZiweiChartInput(buildZiweiChartInput(inputState));
     } catch {
       return null;
     }
-  }, [inputState]);
+  }, [inputState, rangePage, rangeRequested]);
 
   const partnerZiweiInput = useMemo(() => {
     if (inputState.analysisMode !== 'compatibility') return null;
 
     try {
+      if (rangeRequested) {
+        return rangePage?.partner
+          ? stabilizeZiweiChartInput(birthProfileToZiweiChartInput(rangePage.partner.profile))
+          : null;
+      }
       return stabilizeZiweiChartInput(
         buildZiweiChartInput({
           name: inputState.partnerName,
@@ -81,28 +115,33 @@ export function useZiweiCalculations(
           useTrueSolarTime: inputState.partnerUseTrueSolarTime,
           birthHour: inputState.partnerBirthHour,
           birthMinute: inputState.partnerBirthMinute,
+          birthSecond: inputState.partnerBirthSecond,
           birthLongitude: inputState.partnerBirthLongitude,
         }),
       );
     } catch {
       return null;
     }
-  }, [inputState]);
+  }, [inputState, rangePage, rangeRequested]);
 
   const primaryZiweiInputKey = primaryZiweiInput ? getZiweiInputKey(primaryZiweiInput) : '';
   const partnerZiweiInputKey = partnerZiweiInput ? getZiweiInputKey(partnerZiweiInput) : '';
-  const initialPrimaryRuntime = primaryZiweiInputKey
-    ? getCachedZiweiRuntime(primaryZiweiInputKey)
-    : null;
-  const initialPartnerRuntime = partnerZiweiInputKey
-    ? getCachedZiweiRuntime(partnerZiweiInputKey)
-    : null;
-  const initialPrimaryPayload = primaryZiweiInputKey
-    ? getCachedZiweiPayload(primaryZiweiInputKey)
-    : null;
-  const initialPartnerPayload = partnerZiweiInputKey
-    ? getCachedZiweiPayload(partnerZiweiInputKey)
-    : null;
+  const primaryPayloadKey = primaryZiweiInputKey
+    ? getZiweiPayloadKey(primaryZiweiInputKey, ziweiRuntimeOptions)
+    : '';
+  const partnerPayloadKey = partnerZiweiInputKey
+    ? getZiweiPayloadKey(partnerZiweiInputKey, ziweiRuntimeOptions)
+    : '';
+  const primaryRuntimeKey = primaryZiweiInputKey
+    ? getZiweiRuntimeKey(primaryZiweiInputKey, ziweiRuntimeOptions)
+    : '';
+  const partnerRuntimeKey = partnerZiweiInputKey
+    ? getZiweiRuntimeKey(partnerZiweiInputKey, ziweiRuntimeOptions)
+    : '';
+  const initialPrimaryRuntime = primaryRuntimeKey ? getCachedZiweiRuntime(primaryRuntimeKey) : null;
+  const initialPartnerRuntime = partnerRuntimeKey ? getCachedZiweiRuntime(partnerRuntimeKey) : null;
+  const initialPrimaryPayload = primaryPayloadKey ? getCachedZiweiPayload(primaryPayloadKey) : null;
+  const initialPartnerPayload = partnerPayloadKey ? getCachedZiweiPayload(partnerPayloadKey) : null;
 
   const [ziweiRuntime, setZiweiRuntime] = useState<ZiweiRuntimeState>(initialPrimaryRuntime);
   const [partnerZiweiRuntime, setPartnerZiweiRuntime] =
@@ -112,16 +151,16 @@ export function useZiweiCalculations(
   const [partnerZiweiPayloadByScope, setPartnerZiweiPayloadByScope] =
     useState<ZiweiPayloadByScopeState>(initialPartnerPayload);
   const [primaryRuntimeInputKey, setPrimaryRuntimeInputKey] = useState(
-    initialPrimaryRuntime ? primaryZiweiInputKey : '',
+    initialPrimaryRuntime ? primaryRuntimeKey : '',
   );
   const [partnerRuntimeInputKey, setPartnerRuntimeInputKey] = useState(
-    initialPartnerRuntime ? partnerZiweiInputKey : '',
+    initialPartnerRuntime ? partnerRuntimeKey : '',
   );
   const [primaryPayloadInputKey, setPrimaryPayloadInputKey] = useState(
-    initialPrimaryPayload ? primaryZiweiInputKey : '',
+    initialPrimaryPayload ? primaryPayloadKey : '',
   );
   const [partnerPayloadInputKey, setPartnerPayloadInputKey] = useState(
-    initialPartnerPayload ? partnerZiweiInputKey : '',
+    initialPartnerPayload ? partnerPayloadKey : '',
   );
   const [promptZiweiPayload, setPromptZiweiPayload] = useState<AnalysisPayloadV1 | null>(null);
   const [promptPartnerZiweiPayload, setPromptPartnerZiweiPayload] =
@@ -132,195 +171,354 @@ export function useZiweiCalculations(
   const [promptZiweiPayloadKey, setPromptZiweiPayloadKey] = useState('');
   const [promptPartnerZiweiPayloadKey, setPromptPartnerZiweiPayloadKey] = useState('');
   const [ziweiError, setZiweiError] = useState('');
+  const [ziweiPaused, setZiweiPaused] = useState(false);
+  const [ziweiRetryRevision, setZiweiRetryRevision] = useState(0);
+  const ziweiPayloadControllersRef = useRef<Set<AbortController>>(new Set());
+  const ziweiRequestGenerationRef = useRef(0);
+  const cancelZiwei = useCallback(() => {
+    ziweiRequestGenerationRef.current += 1;
+    if (rangeRequested) setZiweiPaused(true);
+    for (const controller of ziweiPayloadControllersRef.current) {
+      controller.abort();
+    }
+    ziweiPayloadControllersRef.current.clear();
+  }, [rangeRequested]);
+  const retryZiwei = useCallback(() => {
+    ziweiRequestGenerationRef.current += 1;
+    setZiweiPaused(false);
+    setZiweiRetryRevision((value) => value + 1);
+    setZiweiRuntime(null);
+    setPartnerZiweiRuntime(null);
+    setZiweiPayloadByScope(null);
+    setPartnerZiweiPayloadByScope(null);
+    setPrimaryRuntimeInputKey('');
+    setPartnerRuntimeInputKey('');
+    setPrimaryPayloadInputKey('');
+    setPartnerPayloadInputKey('');
+    setZiweiError('');
+    for (const controller of ziweiPayloadControllersRef.current) {
+      controller.abort();
+    }
+    ziweiPayloadControllersRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    setZiweiPaused(false);
+  }, [primaryZiweiInputKey, partnerZiweiInputKey]);
 
   const shouldLoadZiweiPromptPayload =
+    !rangePaused &&
+    !ziweiPaused &&
     isPromptTabMounted &&
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei');
   const shouldWarmZiweiRuntime =
-    Boolean(primaryZiweiInput) && (isZiweiTabMounted || shouldLoadZiweiPromptPayload);
+    !rangePaused &&
+    !ziweiPaused &&
+    Boolean(primaryZiweiInput) &&
+    (isZiweiTabMounted || shouldLoadZiweiPromptPayload || (rangeRequested && Boolean(rangePage)));
   const shouldWarmPartnerZiweiRuntime =
+    !rangePaused &&
+    !ziweiPaused &&
     inputState.analysisMode === 'compatibility' &&
     Boolean(partnerZiweiInput) &&
-    (isZiweiTabMounted || shouldLoadZiweiPromptPayload);
+    (isZiweiTabMounted || shouldLoadZiweiPromptPayload || (rangeRequested && Boolean(rangePage)));
 
   useEffect(() => {
     if (!primaryZiweiInput || !primaryZiweiInputKey) {
       setZiweiPayloadByScope(null);
       setPrimaryPayloadInputKey('');
+      setZiweiError('');
       return;
     }
 
-    const cached = getCachedZiweiPayload(primaryZiweiInputKey);
+    const cached = getCachedZiweiPayload(primaryPayloadKey);
     if (cached) {
       setZiweiPayloadByScope(cached);
-      setPrimaryPayloadInputKey(primaryZiweiInputKey);
+      setPrimaryPayloadInputKey(primaryPayloadKey);
       setZiweiError('');
       return;
     }
     if (!shouldLoadZiweiPromptPayload) return;
 
     let active = true;
-    void loadZiweiPayload(primaryZiweiInput, primaryZiweiInputKey)
+    const controller = new AbortController();
+    ziweiPayloadControllersRef.current.add(controller);
+    const releaseController = () => {
+      ziweiPayloadControllersRef.current.delete(controller);
+    };
+    void loadZiweiPayload(
+      primaryZiweiInput,
+      primaryZiweiInputKey,
+      ziweiRuntimeOptions,
+      '紫微排盘失败。',
+      controller.signal,
+    )
       .then((payloadByScope) => {
+        releaseController();
         if (!active) return;
         setZiweiPayloadByScope(payloadByScope);
-        setPrimaryPayloadInputKey(primaryZiweiInputKey);
+        setPrimaryPayloadInputKey(primaryPayloadKey);
         setZiweiError('');
       })
       .catch((error: unknown) => {
+        releaseController();
         if (active) {
           setZiweiError(error instanceof Error ? error.message : '紫微排盘失败。');
         }
       });
     return () => {
       active = false;
+      releaseController();
+      controller.abort();
     };
-  }, [primaryZiweiInput, primaryZiweiInputKey, shouldLoadZiweiPromptPayload]);
+  }, [
+    primaryPayloadKey,
+    primaryZiweiInput,
+    primaryZiweiInputKey,
+    shouldLoadZiweiPromptPayload,
+    ziweiRetryRevision,
+    ziweiRuntimeOptions,
+  ]);
 
   useEffect(() => {
     if (!partnerZiweiInput || !partnerZiweiInputKey) {
       setPartnerZiweiPayloadByScope(null);
       setPartnerPayloadInputKey('');
+      setZiweiError('');
       return;
     }
 
-    const cached = getCachedZiweiPayload(partnerZiweiInputKey);
+    const cached = getCachedZiweiPayload(partnerPayloadKey);
     if (cached) {
       setPartnerZiweiPayloadByScope(cached);
-      setPartnerPayloadInputKey(partnerZiweiInputKey);
+      setPartnerPayloadInputKey(partnerPayloadKey);
       setZiweiError('');
       return;
     }
     if (!shouldLoadZiweiPromptPayload) return;
 
     let active = true;
-    void loadZiweiPayload(partnerZiweiInput, partnerZiweiInputKey, '第二人紫微排盘失败。')
+    const controller = new AbortController();
+    ziweiPayloadControllersRef.current.add(controller);
+    const releaseController = () => {
+      ziweiPayloadControllersRef.current.delete(controller);
+    };
+    void loadZiweiPayload(
+      partnerZiweiInput,
+      partnerZiweiInputKey,
+      ziweiRuntimeOptions,
+      '第二人紫微排盘失败。',
+      controller.signal,
+    )
       .then((payloadByScope) => {
+        releaseController();
         if (!active) return;
         setPartnerZiweiPayloadByScope(payloadByScope);
-        setPartnerPayloadInputKey(partnerZiweiInputKey);
+        setPartnerPayloadInputKey(partnerPayloadKey);
         setZiweiError('');
       })
       .catch((error: unknown) => {
+        releaseController();
         if (active) {
           setZiweiError(error instanceof Error ? error.message : '第二人紫微排盘失败。');
         }
       });
     return () => {
       active = false;
+      releaseController();
+      controller.abort();
     };
-  }, [partnerZiweiInput, partnerZiweiInputKey, shouldLoadZiweiPromptPayload]);
+  }, [
+    partnerPayloadKey,
+    partnerZiweiInput,
+    partnerZiweiInputKey,
+    shouldLoadZiweiPromptPayload,
+    ziweiRetryRevision,
+    ziweiRuntimeOptions,
+  ]);
 
   useEffect(() => {
-    if (!primaryZiweiInput || !primaryZiweiInputKey) {
+    if (!primaryZiweiInput || !primaryZiweiInputKey || !primaryRuntimeKey) {
       setZiweiRuntime(null);
       setPrimaryRuntimeInputKey('');
       return;
     }
 
-    const cached = getCachedZiweiRuntime(primaryZiweiInputKey);
+    const cached = getCachedZiweiRuntime(primaryRuntimeKey);
     if (cached) {
       setZiweiRuntime(cached);
-      setPrimaryRuntimeInputKey(primaryZiweiInputKey);
+      setPrimaryRuntimeInputKey(primaryRuntimeKey);
       setZiweiError('');
     } else if (shouldWarmZiweiRuntime) {
       let active = true;
-      void loadZiweiRuntime(primaryZiweiInput, primaryZiweiInputKey)
+      const generation = ziweiRequestGenerationRef.current;
+      const payloadController = new AbortController();
+      ziweiPayloadControllersRef.current.add(payloadController);
+      const releasePayloadController = () => {
+        ziweiPayloadControllersRef.current.delete(payloadController);
+      };
+      void loadZiweiRuntime(primaryZiweiInput, primaryZiweiInputKey, ziweiRuntimeOptions)
         .then((runtime) => {
-          if (!active) return;
+          if (!active || generation !== ziweiRequestGenerationRef.current) return;
           setZiweiRuntime(runtime);
-          setPrimaryRuntimeInputKey(primaryZiweiInputKey);
+          setPrimaryRuntimeInputKey(primaryRuntimeKey);
           setZiweiError('');
         })
         .catch((error: unknown) => {
-          if (active) {
+          if (active && generation === ziweiRequestGenerationRef.current) {
             setZiweiError(error instanceof Error ? error.message : '紫微排盘失败。');
           }
         });
 
-      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(primaryZiweiInputKey)) {
-        void loadZiweiPayload(primaryZiweiInput, primaryZiweiInputKey).catch(() => {
-          // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
-        });
+      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(primaryPayloadKey)) {
+        void loadZiweiPayload(
+          primaryZiweiInput,
+          primaryZiweiInputKey,
+          ziweiRuntimeOptions,
+          '紫微排盘失败。',
+          payloadController.signal,
+        )
+          .catch(() => {
+            // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
+          })
+          .finally(releasePayloadController);
+      } else {
+        releasePayloadController();
       }
       return () => {
         active = false;
+        releasePayloadController();
+        payloadController.abort();
       };
     }
 
     if (
       shouldWarmZiweiRuntime &&
       !shouldLoadZiweiPromptPayload &&
-      !getCachedZiweiPayload(primaryZiweiInputKey)
+      !getCachedZiweiPayload(primaryPayloadKey)
     ) {
-      void loadZiweiPayload(primaryZiweiInput, primaryZiweiInputKey).catch(() => {
-        // 完整提示词数据在后台预热，失败不影响已经缓存的盘面展示。
-      });
+      const payloadController = new AbortController();
+      ziweiPayloadControllersRef.current.add(payloadController);
+      const releasePayloadController = () => {
+        ziweiPayloadControllersRef.current.delete(payloadController);
+      };
+      void loadZiweiPayload(
+        primaryZiweiInput,
+        primaryZiweiInputKey,
+        ziweiRuntimeOptions,
+        '紫微排盘失败。',
+        payloadController.signal,
+      )
+        .catch(() => {
+          // 完整提示词数据在后台预热，失败不影响已经缓存的轻量盘面。
+        })
+        .finally(releasePayloadController);
+      return () => {
+        releasePayloadController();
+        payloadController.abort();
+      };
     }
   }, [
     primaryZiweiInput,
     primaryZiweiInputKey,
+    primaryPayloadKey,
+    primaryRuntimeKey,
     shouldLoadZiweiPromptPayload,
     shouldWarmZiweiRuntime,
+    ziweiRetryRevision,
+    ziweiRuntimeOptions,
   ]);
 
   useEffect(() => {
-    if (!partnerZiweiInput || !partnerZiweiInputKey) {
+    if (!partnerZiweiInput || !partnerZiweiInputKey || !partnerRuntimeKey) {
       setPartnerZiweiRuntime(null);
       setPartnerRuntimeInputKey('');
       return;
     }
 
-    const cached = getCachedZiweiRuntime(partnerZiweiInputKey);
+    const cached = getCachedZiweiRuntime(partnerRuntimeKey);
     if (cached) {
       setPartnerZiweiRuntime(cached);
-      setPartnerRuntimeInputKey(partnerZiweiInputKey);
+      setPartnerRuntimeInputKey(partnerRuntimeKey);
       setZiweiError('');
     } else if (shouldWarmPartnerZiweiRuntime) {
       let active = true;
-      void loadZiweiRuntime(partnerZiweiInput, partnerZiweiInputKey)
+      const generation = ziweiRequestGenerationRef.current;
+      const payloadController = new AbortController();
+      ziweiPayloadControllersRef.current.add(payloadController);
+      const releasePayloadController = () => {
+        ziweiPayloadControllersRef.current.delete(payloadController);
+      };
+      void loadZiweiRuntime(partnerZiweiInput, partnerZiweiInputKey, ziweiRuntimeOptions)
         .then((runtime) => {
-          if (!active) return;
+          if (!active || generation !== ziweiRequestGenerationRef.current) return;
           setPartnerZiweiRuntime(runtime);
-          setPartnerRuntimeInputKey(partnerZiweiInputKey);
+          setPartnerRuntimeInputKey(partnerRuntimeKey);
           setZiweiError('');
         })
         .catch((error: unknown) => {
-          if (active) {
+          if (active && generation === ziweiRequestGenerationRef.current) {
             setZiweiError(error instanceof Error ? error.message : '第二人紫微排盘失败。');
           }
         });
 
-      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(partnerZiweiInputKey)) {
+      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(partnerPayloadKey)) {
         void loadZiweiPayload(
           partnerZiweiInput,
           partnerZiweiInputKey,
+          ziweiRuntimeOptions,
           '第二人紫微排盘失败。',
-        ).catch(() => {
-          // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
-        });
+          payloadController.signal,
+        )
+          .catch(() => {
+            // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
+          })
+          .finally(releasePayloadController);
+      } else {
+        releasePayloadController();
       }
       return () => {
         active = false;
+        releasePayloadController();
+        payloadController.abort();
       };
     }
 
     if (
       shouldWarmPartnerZiweiRuntime &&
       !shouldLoadZiweiPromptPayload &&
-      !getCachedZiweiPayload(partnerZiweiInputKey)
+      !getCachedZiweiPayload(partnerPayloadKey)
     ) {
-      void loadZiweiPayload(partnerZiweiInput, partnerZiweiInputKey, '第二人紫微排盘失败。').catch(
-        () => {
+      const payloadController = new AbortController();
+      ziweiPayloadControllersRef.current.add(payloadController);
+      const releasePayloadController = () => {
+        ziweiPayloadControllersRef.current.delete(payloadController);
+      };
+      void loadZiweiPayload(
+        partnerZiweiInput,
+        partnerZiweiInputKey,
+        ziweiRuntimeOptions,
+        '第二人紫微排盘失败。',
+        payloadController.signal,
+      )
+        .catch(() => {
           // 完整提示词数据在后台预热，失败不影响已经缓存的盘面展示。
-        },
-      );
+        })
+        .finally(releasePayloadController);
+      return () => {
+        releasePayloadController();
+        payloadController.abort();
+      };
     }
   }, [
     partnerZiweiInput,
     partnerZiweiInputKey,
+    partnerPayloadKey,
+    partnerRuntimeKey,
     shouldLoadZiweiPromptPayload,
     shouldWarmPartnerZiweiRuntime,
+    ziweiRetryRevision,
+    ziweiRuntimeOptions,
   ]);
 
   const ziweiPromptScopeType =
@@ -330,21 +528,20 @@ export function useZiweiCalculations(
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
     promptState.ziweiScope !== 'full' &&
     Boolean(promptState.ziweiScopeDate);
-  const promptHourIndex = useMemo(() => getDefaultHoroscopeContext().hourIndex, []);
+  const promptHourIndex = fixedHoroscopeContext.hourIndex;
   const readingResourceRequest = useMemo(() => {
     if (
       isInstantResult ||
       !isPromptTabMounted ||
       promptState.ziweiScope !== 'full' ||
       (promptState.promptSource !== 'ziwei' && promptState.promptSource !== 'bazi-ziwei') ||
-      (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode !== 'single') ||
       !primaryZiweiInput ||
       !primaryZiweiInputKey
     ) {
       return null;
     }
 
-    const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
+    const dateStr = promptState.ziweiScopeDate || fixedHoroscopeContext.dateStr;
     const items: Array<{
       role: 'primary' | 'partner';
       input: ChartInput;
@@ -385,6 +582,7 @@ export function useZiweiCalculations(
     partnerZiweiInputKey,
     primaryZiweiInput,
     primaryZiweiInputKey,
+    fixedHoroscopeContext,
     promptHourIndex,
     promptState.promptSource,
     promptState.ziweiScope,
@@ -465,7 +663,7 @@ export function useZiweiCalculations(
       promptState.ziweiScope === 'origin'
     )
       return null;
-    const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
+    const dateStr = promptState.ziweiScopeDate || fixedHoroscopeContext.dateStr;
     const all = promptState.ziweiScope === 'full';
     const scope =
       promptState.ziweiScope === 'full'
@@ -492,6 +690,7 @@ export function useZiweiCalculations(
     inputState.analysisMode,
     primaryZiweiInput,
     primaryZiweiInputKey,
+    fixedHoroscopeContext,
     promptState.ziweiScope,
     promptState.ziweiScopeDate,
     promptHourIndex,
@@ -627,13 +826,13 @@ export function useZiweiCalculations(
   ]);
 
   const currentZiweiRuntime =
-    primaryRuntimeInputKey === primaryZiweiInputKey ? ziweiRuntime : initialPrimaryRuntime;
+    primaryRuntimeInputKey === primaryRuntimeKey ? ziweiRuntime : initialPrimaryRuntime;
   const currentPartnerZiweiRuntime =
-    partnerRuntimeInputKey === partnerZiweiInputKey ? partnerZiweiRuntime : initialPartnerRuntime;
+    partnerRuntimeInputKey === partnerRuntimeKey ? partnerZiweiRuntime : initialPartnerRuntime;
   const currentZiweiPayloadByScope =
-    primaryPayloadInputKey === primaryZiweiInputKey ? ziweiPayloadByScope : initialPrimaryPayload;
+    primaryPayloadInputKey === primaryPayloadKey ? ziweiPayloadByScope : initialPrimaryPayload;
   const currentPartnerZiweiPayloadByScope =
-    partnerPayloadInputKey === partnerZiweiInputKey
+    partnerPayloadInputKey === partnerPayloadKey
       ? partnerZiweiPayloadByScope
       : initialPartnerPayload;
   const activeZiweiPayloadByScope =
@@ -664,6 +863,16 @@ export function useZiweiCalculations(
   const partnerZiweiPayload = shouldUseCustomZiweiPromptPayload
     ? activePromptPartnerZiweiPayload
     : defaultPartnerZiweiPayload;
+  const ziweiLoading = Boolean(
+    (primaryZiweiInput &&
+      shouldWarmZiweiRuntime &&
+      (primaryRuntimeInputKey !== primaryRuntimeKey ||
+        (shouldLoadZiweiPromptPayload && primaryPayloadInputKey !== primaryPayloadKey))) ||
+    (partnerZiweiInput &&
+      shouldWarmPartnerZiweiRuntime &&
+      (partnerRuntimeInputKey !== partnerRuntimeKey ||
+        (shouldLoadZiweiPromptPayload && partnerPayloadInputKey !== partnerPayloadKey))),
+  );
 
   return {
     ziweiRuntime: currentZiweiRuntime,
@@ -689,5 +898,9 @@ export function useZiweiCalculations(
     ziweiReadingResourcesReady,
     ziweiReadingResourceError,
     reloadZiweiReadingResources,
+    ziweiLoading,
+    cancelZiwei,
+    retryZiwei,
+    ziweiPaused,
   };
 }

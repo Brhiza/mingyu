@@ -8,6 +8,7 @@ import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
+import type { BirthProfileTimeRange } from '../profile/time-range';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -782,6 +783,10 @@ export interface QimenStagePolicy {
 export interface QimenLifetimeInput {
   /** 出生时刻（ISO 8601 格式，如 "1990-05-15T14:30:00"） */
   birthDateTime: string;
+  /** 完整出生半开区间；按整秒逐页读取，每页计算一个完整终身局。 */
+  birthTimeRange?: import('../profile/time-range').BirthProfileTimeRange;
+  /** 区间中的整秒索引，默认从首秒开始。 */
+  birthRangeIndex?: number;
   /** IANA 时区标识符（如 "Asia/Shanghai"） */
   timeZoneId?: string;
   /** 固定 UTC 偏移（默认 8） */
@@ -959,6 +964,14 @@ export interface QimenLifetimeEvidence {
 export interface QimenLifetimeData {
   schemaVersion: '1.0.0';
   input: QimenLifetimeInput;
+  /** 本页仅对应指定候选秒；完整来源与续取位置保留。 */
+  birthRange?: {
+    source: import('../profile/time-range').BirthProfileTimeRange;
+    index: number;
+    timestamp: number;
+    totalSamples: number;
+    nextIndex: number | null;
+  };
   basis: {
     calendar: string;
     solarTerm: string;
@@ -1264,9 +1277,15 @@ export interface AlmanacParticipantInput {
   birthPlace?: string;
   birthLongitude?: string;
   useTrueSolarTime?: boolean;
+  /** 四柱反推得到的完整北京时间区间；必须与上面的区间起点标量字段一致。 */
+  birthTimeRange?: BirthProfileTimeRange & {
+    pillars: BaseGanZhi;
+    intervalStart?: string;
+    intervalEnd?: string;
+  };
 }
 
-export interface AlmanacParticipantProfile {
+export interface AlmanacParticipantProfileSnapshot {
   id: string;
   name: string;
   gender: AlmanacParticipantGender;
@@ -1279,6 +1298,21 @@ export interface AlmanacParticipantProfile {
   pillars: BaseGanZhi;
   usefulGods: string[];
   avoidGods: string[];
+}
+
+export interface AlmanacParticipantProfileRangeBranch {
+  startTimestamp: number;
+  endTimestamp: number;
+  endExclusive: true;
+  profile: AlmanacParticipantProfileSnapshot;
+}
+
+export interface AlmanacParticipantProfile extends AlmanacParticipantProfileSnapshot {
+  birthTimeRange?: {
+    source: BirthProfileTimeRange & { pillars: BaseGanZhi };
+    status: 'stable' | 'conditional';
+    branches: AlmanacParticipantProfileRangeBranch[];
+  };
 }
 
 export interface AlmanacAnnualDirectionGod {
@@ -1328,6 +1362,15 @@ export interface AlmanacParticipantRelationFact {
   promptText: string;
   sources: string[];
   limitation: string;
+  /** 条件范围表示这条关系只在列出的出生时间分支成立。 */
+  birthTimeRange?: {
+    status: 'stable' | 'conditional';
+    intervals: Array<{
+      startTimestamp: number;
+      endTimestamp: number;
+      endExclusive: true;
+    }>;
+  };
 }
 
 export interface AlmanacDayCandidate {
@@ -1530,6 +1573,8 @@ export interface AstrolabeData {
     name: string;
     gender: AlmanacParticipantGender;
     dateTime: string;
+    /** 显式提供出生秒数时保留原始秒；旧的分钟输入继续省略。 */
+    second?: number;
     location: string;
     latitude?: number;
     longitude?: number;

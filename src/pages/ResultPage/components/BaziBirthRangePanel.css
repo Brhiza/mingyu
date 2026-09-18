@@ -1,0 +1,74 @@
+.bazi-birth-range,
+.birth-range-navigator {
+  min-width: 0;
+}
+.bazi-birth-range-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.bazi-birth-range-toolbar h3 {
+  margin: 0 0 0.4rem;
+}
+.bazi-birth-range-toolbar p {
+  margin: 0;
+  line-height: 1.7;
+}
+.bazi-birth-range-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.bazi-birth-range-navigation button {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
+  background: var(--surface-base);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bazi-birth-range-navigation button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.bazi-birth-range-navigation form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.bazi-birth-range-navigation input {
+  width: 7rem;
+  max-width: 25vw;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
+  background: var(--surface-base);
+  color: inherit;
+  font: inherit;
+}
+.bazi-birth-range-time {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.bazi-birth-range-relations {
+  margin-top: 1rem;
+}
+.bazi-birth-range-relations summary {
+  cursor: pointer;
+  padding: 0.75rem 0;
+}
+.bazi-birth-range-relations pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.7;
+}

@@ -43,6 +43,7 @@ export interface MingluMetadata {
   lunarDateStr: string;
   shichenName: string;
   exactBirthTime?: string;
+  birthSecond?: number;
   birthPlace?: string;
   longitude?: number;
   latitude?: number;
@@ -609,6 +610,7 @@ export interface MingluPersonInput {
   birthDay?: number;
   birthHour?: number;
   birthMinute?: number;
+  birthSecond?: number;
   birthPlace?: string;
   birthLongitude?: number;
   birthLatitude?: number;

@@ -1,4 +1,8 @@
-import { analyzeFortuneTriggers, type BaziChartResult } from '../bazi/index';
+import {
+  analyzeFortuneTriggers,
+  type BaziChartResult,
+  type BaziFortuneBatchMetadata,
+} from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { getLuckCycleTimeRange, formatSolarDateTime } from '../bazi/luckTiming';
 
@@ -227,33 +231,165 @@ function formatTriggerRelations(
   return lines;
 }
 
+type FortuneCycle = NonNullable<BaziChartResult['luckInfo']>['cycles'][number];
+
+const FORTUNE_NOTATION = '十神记法：干/支主气；流年以立春交接，交运年结合大运交接时刻。';
+
+function formatFortuneCycle(result: BaziChartResult, cycle: FortuneCycle) {
+  const range = getLuckCycleTimeRange(cycle);
+  const layers = cycle.isXiaoyun
+    ? []
+    : [{ id: 'dayun', type: 'dayun' as const, label: '大运', ganZhi: cycle.ganZhi }];
+  return {
+    layers,
+    lines: [
+      `${cycle.isXiaoyun ? '童运' : `${cycle.ganZhi}大运`}｜${cycle.age}岁起｜${formatSolarDateTime(range.start, true)}～${formatSolarDateTime(range.end, true)}`,
+      ...formatTriggerRelations(analyzeFortuneTriggers(result, layers)),
+    ],
+  };
+}
+
+function formatFortuneYear(
+  result: BaziChartResult,
+  year: FortuneCycle['years'][number],
+  layers: ReturnType<typeof formatFortuneCycle>['layers'],
+) {
+  const evidence = analyzeFortuneTriggers(result, [
+    ...layers,
+    { id: 'year', type: 'year', label: `${year.year}流年`, ganZhi: year.ganZhi },
+  ]);
+  return [
+    `${year.year}年(${year.age}岁) ${year.ganZhi}｜${year.tenGod}/${year.tenGodZhi}${year.xiaoyun ? `｜小运${year.xiaoyun.ganZhi} ${year.xiaoyun.tenGod}/${year.xiaoyun.tenGodZhi}` : ''}`,
+    ...formatTriggerRelations({
+      ...evidence,
+      relations: evidence.relations.filter((item) => item.source.type === 'year'),
+    }).map((line) => line.replace('岁运干支关系：\n', '')),
+  ];
+}
+
+export interface BaziFortuneTextBatch {
+  text: string;
+  batch: BaziFortuneBatchMetadata;
+}
+
+/** 合参分册的本命页不携带任何大运流年，避免把完整命限重复塞入首册。 */
+export function selectBaziNatalResult(result: BaziChartResult): BaziChartResult {
+  return {
+    ...result,
+    liunian: [],
+    luckInfo: {
+      ...result.luckInfo,
+      cycles: [],
+    },
+  };
+}
+
+/** 公开分批结果保留本命事实，命限仅携带本次所属大运及流年。 */
+export function selectBaziFortuneBatchResult(
+  result: BaziChartResult,
+  batch: BaziFortuneTextBatch['batch'],
+): BaziChartResult {
+  const cycle = batch.cycleIndex === null ? undefined : result.luckInfo.cycles[batch.cycleIndex];
+  const years = cycle?.years.filter((year) => year.year === batch.year) ?? [];
+  return {
+    ...result,
+    liunian: years,
+    luckInfo: {
+      ...result.luckInfo,
+      cycles: cycle
+        ? [
+            {
+              ...cycle,
+              years,
+              // 本页只有一段大运，跨运去重不能删除当前实际覆盖的交运年。
+              resolvedYears: years,
+            },
+          ]
+        : [],
+    },
+  };
+}
+
+/** 每次仅组织一个大运内的流年，交运年在两步运内的资料分别保留。 */
+export function formatBaziFortuneBatch(
+  result: BaziChartResult,
+  startIndex = 0,
+): BaziFortuneTextBatch {
+  const cycles = result.luckInfo?.cycles ?? [];
+  const totalEntries = cycles.reduce((total, cycle) => total + Math.max(cycle.years.length, 1), 0);
+  if (
+    !Number.isSafeInteger(startIndex) ||
+    startIndex < 0 ||
+    startIndex >= Math.max(totalEntries, 1)
+  ) {
+    throw new RangeError('八字命限续取位置超出资料范围。');
+  }
+  const batch: BaziFortuneTextBatch['batch'] = {
+    unit: 'cycle-year',
+    startIndex,
+    endIndexExclusive: Math.min(startIndex + 1, totalEntries),
+    totalEntries,
+    nextIndex: startIndex + 1 < totalEntries ? startIndex + 1 : null,
+    cycleIndex: null,
+    year: null,
+  };
+  let offset = startIndex;
+  for (let cycleIndex = 0; cycleIndex < cycles.length; cycleIndex++) {
+    const cycle = cycles[cycleIndex];
+    const entries = Math.max(cycle.years.length, 1);
+    if (offset >= entries) {
+      offset -= entries;
+      continue;
+    }
+    const { layers, lines } = formatFortuneCycle(result, cycle);
+    const year = cycle.years[offset];
+    batch.cycleIndex = cycleIndex;
+    batch.year = year?.year ?? null;
+    return formatBaziFortuneBatchEntry(result, cycle, year, batch, layers, lines);
+  }
+  return { text: '', batch };
+}
+
+/** 为核心已按游标构造的一页命限生成与旧全量裁剪完全相同的文本。 */
+export function formatCalculatedBaziFortuneBatch(
+  result: BaziChartResult,
+  batch: BaziFortuneBatchMetadata,
+): BaziFortuneTextBatch {
+  const cycle = result.luckInfo.cycles[0];
+  if (!cycle) return { text: '', batch };
+  const year = cycle.years.find((item) => item.year === batch.year);
+  const { layers, lines } = formatFortuneCycle(result, cycle);
+  return formatBaziFortuneBatchEntry(result, cycle, year, batch, layers, lines);
+}
+
+function formatBaziFortuneBatchEntry(
+  result: BaziChartResult,
+  _cycle: FortuneCycle,
+  year: FortuneCycle['years'][number] | undefined,
+  batch: BaziFortuneBatchMetadata,
+  layers: ReturnType<typeof formatFortuneCycle>['layers'],
+  lines: string[],
+): BaziFortuneTextBatch {
+  return {
+    text: [
+      '本次大运流年：',
+      FORTUNE_NOTATION,
+      ...lines,
+      ...(year ? formatFortuneYear(result, year, layers) : []),
+    ].join('\n'),
+    batch,
+  };
+}
+
 export function formatBaziFullFortune(result: BaziChartResult): string {
   const cycles = result.luckInfo?.cycles ?? [];
   if (!cycles.length) return '';
-  const lines = ['完整大运流年：', '十神记法：干/支主气；流年以立春交接，交运年结合大运交接时刻。'];
+  const lines = ['完整大运流年：', FORTUNE_NOTATION];
   for (const cycle of cycles) {
-    const range = getLuckCycleTimeRange(cycle);
-    lines.push(
-      `${cycle.isXiaoyun ? '童运' : `${cycle.ganZhi}大运`}｜${cycle.age}岁起｜${formatSolarDateTime(range.start, true)}～${formatSolarDateTime(range.end, true)}`,
-    );
-    const layers = cycle.isXiaoyun
-      ? []
-      : [{ id: 'dayun', type: 'dayun' as const, label: '大运', ganZhi: cycle.ganZhi }];
-    lines.push(...formatTriggerRelations(analyzeFortuneTriggers(result, layers)));
+    const { layers, lines: cycleLines } = formatFortuneCycle(result, cycle);
+    lines.push(...cycleLines);
     for (const year of cycle.years) {
-      lines.push(
-        `${year.year}年(${year.age}岁) ${year.ganZhi}｜${year.tenGod}/${year.tenGodZhi}${year.xiaoyun ? `｜小运${year.xiaoyun.ganZhi} ${year.xiaoyun.tenGod}/${year.xiaoyun.tenGodZhi}` : ''}`,
-      );
-      const evidence = analyzeFortuneTriggers(result, [
-        ...layers,
-        { id: 'year', type: 'year', label: `${year.year}流年`, ganZhi: year.ganZhi },
-      ]);
-      lines.push(
-        ...formatTriggerRelations({
-          ...evidence,
-          relations: evidence.relations.filter((item) => item.source.type === 'year'),
-        }).map((line) => line.replace('岁运干支关系：\n', '')),
-      );
+      lines.push(...formatFortuneYear(result, year, layers));
     }
   }
   return lines.join('\n');

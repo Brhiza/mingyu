@@ -174,6 +174,50 @@ test('终身奇门初始盘与 AI 补算共享历史时区和阶段口径', asyn
   });
 });
 
+test('终身奇门补算锁定完整出生范围与当前候选秒，拒绝偷换为首秒', async () => {
+  const range = {
+    pillars: { year: '甲辰', month: '丙寅', day: '癸丑', hour: '戊午' },
+    intervalStart: '2024-02-19 11:00:00',
+    intervalEnd: '2024-02-19 13:00:00',
+    startTimestamp: Date.parse('2024-02-19T11:00:00+08:00'),
+    endTimestamp: Date.parse('2024-02-19T13:00:00+08:00'),
+    endExclusive: true,
+    timezone: 'Asia/Shanghai',
+    offsetHours: 8,
+  };
+  const rangeInput: QueryInputState = {
+    ...input,
+    year: '2024',
+    month: '2',
+    day: '19',
+    birthHour: '11',
+    birthMinute: '0',
+    birthSecond: '0',
+    timeIndex: 6,
+    useTrueSolarTime: false,
+    birthReverseSource: JSON.stringify(range),
+  };
+  const locked = buildReadingSubject(rangeInput, prompt);
+  locked.lockedInputs['qimen-lifetime'].birthRangeIndex = 4392;
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(action, undefined, locked);
+    const result = resource.structured as Record<string, any>;
+    assert.equal(result.birthRange.index, 4392);
+    assert.equal(result.birthRange.totalSamples, 7200);
+    assert.equal(result.basis.solarTerm, '雨水');
+    assert.match(resource.text, /本册候选时刻：北京时间 2024-02-19 12:13:12/);
+  });
+  await withRealApi(
+    async () => {
+      await assert.rejects(
+        executeReadingAction(action, undefined, locked),
+        /birthRangeIndex|出生|主体/,
+      );
+    },
+    { birthRangeIndex: 0 },
+  );
+});
+
 test('终身奇门分运模型应同时进入排盘输入和主体快照', () => {
   const decadalPrompt = { ...prompt, qimenLifetimeStageModel: 'decadalGanzhi' as const };
   const decadalSubject = buildReadingSubject(input, decadalPrompt);

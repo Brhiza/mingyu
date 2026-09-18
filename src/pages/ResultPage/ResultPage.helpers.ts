@@ -341,6 +341,35 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     .join('\n\n');
 }
 
+/**
+ * 将双方当前页的八字、紫微事实与两套关系证据合并为一份可独立复制的任务书。
+ * 调用方必须传入同一页的双方资料，避免把范围起点盘与当前页交叉拼接。
+ */
+export function buildBaziZiweiCompatibilityPrompt(params: {
+  primaryBaziText: string;
+  partnerBaziText: string;
+  primaryZiweiText: string;
+  partnerZiweiText: string;
+  baziCompatibilityText: string;
+  ziweiCompatibilityText: string;
+  question: string;
+  currentSampleContext?: string;
+}) {
+  return [
+    `【第一人八字资料】\n${params.primaryBaziText}`,
+    `【第二人八字资料】\n${params.partnerBaziText}`,
+    `【第一人紫微资料】\n${params.primaryZiweiText}`,
+    `【第二人紫微资料】\n${params.partnerZiweiText}`,
+    `【八字关系依据】\n${params.baziCompatibilityText}`,
+    `【紫微关系依据】\n${params.ziweiCompatibilityText}`,
+    '【任务】\n请分别核对双方各自的八字与紫微本命事实，再分别说明八字关系依据与紫微关系依据，交叉印证双方在问题所涉主题上的互动模式、优势、冲突来源、适用边界与可执行建议；引用盘面中的具体依据，区分已经显示的事实与推断。',
+    `【问题】\n${params.question.trim()}`,
+    params.currentSampleContext,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function buildEnhancedBaziPromptPack(
   result: BaziChartResult,
   context: FortuneSelectionContext | null,

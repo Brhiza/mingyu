@@ -4,8 +4,10 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import {
   buildZiweiChartInput,
+  calculateZiweiFactsForScopes,
   calculateZiweiChartForScopes,
   type ZiweiFortuneRangeOptions,
+  type ZiweiFortuneTimeline,
 } from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
@@ -55,7 +57,7 @@ export const ziweiSchema = z.object({
     .min(0)
     .max(12)
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；未启用真太阳时时必填'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；未指定精准时分秒或真太阳时时必填'),
   promptScope: z
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
@@ -74,10 +76,25 @@ export const ziweiSchema = z.object({
     .max(12)
     .optional()
     .describe('目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰'),
+  scopeBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(1).optional(),
+    })
+    .optional()
+    .describe('仅在 promptScope=full 时生效；每次只计算并返回一个 scope'),
+  fortuneBatch: z
+    .object({
+      startIndex: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(1).optional(),
+    })
+    .optional()
+    .describe('仅在 promptScope=full 或 decadal 时生效；每次只计算一个年龄年'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
   birthMinute: z.string().optional().describe('精准出生分钟，启用真太阳时时必填，如 20'),
+  birthSecond: z.string().optional().describe('出生秒数（0-59）；与时分共同指定精准出生时间'),
   birthLongitude: z.string().optional().describe('出生地经度，启用真太阳时时必填，如 116.4074'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
   timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
@@ -119,8 +136,8 @@ const ziweiPromptSchema = ziweiSchema.extend({
 });
 
 const ziweiCompatibilitySchema = z.object({
-  person1: ziweiSchema.omit({ promptScope: true }),
-  person2: ziweiSchema.omit({ promptScope: true }),
+  person1: ziweiSchema.omit({ promptScope: true, scopeBatch: true, fortuneBatch: true }),
+  person2: ziweiSchema.omit({ promptScope: true, scopeBatch: true, fortuneBatch: true }),
 });
 
 const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
@@ -155,10 +172,120 @@ function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope
   return scope === undefined ? undefined : mapped[scope];
 }
 
+export type McpZiweiBatchCursor = {
+  startIndex?: number;
+  limit?: number;
+};
+
+export type McpZiweiScopeBatchMetadata = {
+  requestedScope: 'full';
+  scopes: ScopeType[];
+  startIndex: number;
+  endIndexExclusive: number;
+  totalScopes: number;
+  nextIndex: number | null;
+};
+
+export type McpZiweiBatchMetadata = {
+  scopeBatch?: McpZiweiScopeBatchMetadata;
+  fortuneBatch?: NonNullable<ZiweiFortuneTimeline['batch']>;
+  scopeContext?: { dateStr: string; hourIndex: number };
+};
+
+export function resolveMcpZiweiScopeBatch(
+  scope: ZiweiPromptScope,
+  value?: McpZiweiBatchCursor,
+): { scopes: ScopeType[]; metadata?: McpZiweiScopeBatchMetadata } {
+  const requestedScopes = getZiweiPromptCalculationScopes(scope);
+  if (value === undefined) return { scopes: requestedScopes };
+  if (scope !== 'full') {
+    throw new Error('scopeBatch 仅在紫微 promptScope=full 时生效。');
+  }
+  const availableScopes = requestedScopes;
+  const startIndex = value.startIndex ?? 0;
+  const limit = value.limit ?? 1;
+  if (startIndex >= availableScopes.length) {
+    throw new Error('scopeBatch.startIndex 已超出 full 紫微资料范围。');
+  }
+  if (limit !== 1) {
+    throw new Error('scopeBatch.limit 必须为 1。');
+  }
+  const endIndexExclusive = Math.min(startIndex + limit, availableScopes.length);
+  const scopes: ScopeType[] = availableScopes.slice(startIndex, endIndexExclusive);
+  return {
+    scopes,
+    metadata: {
+      requestedScope: 'full',
+      scopes,
+      startIndex,
+      endIndexExclusive,
+      totalScopes: availableScopes.length,
+      nextIndex: endIndexExclusive < availableScopes.length ? endIndexExclusive : null,
+    },
+  };
+}
+
+export function resolveMcpZiweiBatchOptions(
+  scope: ZiweiPromptScope,
+  scopeBatch?: McpZiweiBatchCursor,
+  fortuneBatch?: McpZiweiBatchCursor,
+): {
+  scopes: ScopeType[];
+  scopeBatch?: McpZiweiScopeBatchMetadata;
+  fortuneBatch?: McpZiweiBatchCursor;
+  independentBatch?: 'scope' | 'fortune';
+} {
+  if (scopeBatch !== undefined && fortuneBatch !== undefined) {
+    throw new Error('scopeBatch 与 fortuneBatch 不能同时传入。');
+  }
+  const scopeResolution = resolveMcpZiweiScopeBatch(scope, scopeBatch);
+  const supportsFortuneBatch = scope === 'full' || scope === 'decadal';
+  if (fortuneBatch !== undefined && !supportsFortuneBatch) {
+    throw new Error('fortuneBatch 仅在紫微 promptScope=full 或 decadal 时生效。');
+  }
+  if (scopeBatch !== undefined) {
+    return {
+      scopes: scopeResolution.scopes,
+      scopeBatch: scopeResolution.metadata,
+      independentBatch: 'scope',
+    };
+  }
+  if (fortuneBatch !== undefined) {
+    if (fortuneBatch.limit !== undefined && fortuneBatch.limit !== 1) {
+      throw new Error('fortuneBatch.limit 必须为 1。');
+    }
+    return {
+      scopes: [],
+      fortuneBatch: { ...fortuneBatch, limit: 1 },
+      independentBatch: 'fortune',
+    };
+  }
+  return {
+    scopes: Array.from(new Set(['origin' as ScopeType, ...scopeResolution.scopes])),
+  };
+}
+
+export function getMcpZiweiBatchMetadata(
+  runtime: {
+    fortuneTimeline?: ZiweiFortuneTimeline;
+    horoscopeContext?: { dateStr: string; hourIndex: number };
+  },
+  scopeBatch?: McpZiweiScopeBatchMetadata,
+): McpZiweiBatchMetadata | undefined {
+  const fortuneBatch = runtime.fortuneTimeline?.batch;
+  if (!scopeBatch && !fortuneBatch) return undefined;
+  return {
+    ...(scopeBatch ? { scopeBatch } : {}),
+    ...(fortuneBatch ? { fortuneBatch } : {}),
+    ...(runtime.horoscopeContext ? { scopeContext: runtime.horoscopeContext } : {}),
+  };
+}
+
 export function buildMcpZiweiFortuneRangeOptions(
   scope: ZiweiPromptScope,
   scopeDate: string | undefined,
   hourIndex: number,
+  batch?: McpZiweiBatchCursor,
 ): ZiweiFortuneRangeOptions | undefined {
   const mapped: Partial<Record<ZiweiPromptScope, ZiweiFortuneRangeOptions['scope']>> = {
     full: 'all',
@@ -169,12 +296,16 @@ export function buildMcpZiweiFortuneRangeOptions(
     hourly: 'hour',
   };
   const fortuneScope = mapped[scope];
+  if (batch !== undefined && fortuneScope !== 'all' && fortuneScope !== 'current') {
+    throw new Error('fortuneBatch 仅在紫微 promptScope=full 或 decadal 时生效。');
+  }
   if (!fortuneScope) return undefined;
   const dateStr =
     scopeDate === undefined ? undefined : readMcpDateOnly(scopeDate, 'scopeDate').value;
   return {
     scope: fortuneScope,
     ...(dateStr ? { dateStr, hourIndex } : {}),
+    ...(batch ? { batch } : {}),
   };
 }
 
@@ -187,7 +318,8 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     dateType: args.dateType,
     isLeapMonth: args.isLeapMonth ?? false,
   });
-  if (!useTrueSolarTime && typeof args.timeIndex !== 'number') {
+  const hasPreciseClock = args.birthSecond !== undefined && args.birthSecond.trim() !== '';
+  if (!useTrueSolarTime && !hasPreciseClock && typeof args.timeIndex !== 'number') {
     throw new Error('请选择出生时辰。');
   }
   const trueSolarTimeInput = useTrueSolarTime
@@ -200,7 +332,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
         ),
       }
     : null;
-  const timeIndex: number | '' = trueSolarTimeInput ? '' : args.timeIndex!;
+  const timeIndex: number | '' = trueSolarTimeInput ? '' : (args.timeIndex ?? '');
 
   return buildZiweiChartInput({
     name: args.name || '',
@@ -214,6 +346,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     useTrueSolarTime,
     birthHour: trueSolarTimeInput?.birthHour ?? args.birthHour ?? '',
     birthMinute: trueSolarTimeInput?.birthMinute ?? args.birthMinute ?? '',
+    birthSecond: args.birthSecond,
     birthLongitude: trueSolarTimeInput?.birthLongitude ?? args.birthLongitude ?? '',
     timezone: args.timezone,
     timeZoneId: args.timeZoneId,
@@ -235,25 +368,34 @@ export function registerZiweiTool(server: McpServer) {
       try {
         const input = buildMcpZiweiChartInput(args);
         const scope = (args.promptScope ?? 'decadal') as ZiweiPromptScope;
-        const scopes: ScopeType[] = Array.from(
-          new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
-        );
+        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
         const currentContext = getDefaultHoroscopeContext();
         const horoscopeContext = {
           dateStr: args.scopeDate ?? currentContext.dateStr,
           hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
         };
-        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
-          scope,
-          horoscopeContext.dateStr,
-          horoscopeContext.hourIndex,
-        );
-        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+        const fortuneRange =
+          batchOptions.independentBatch === 'scope'
+            ? undefined
+            : buildMcpZiweiFortuneRangeOptions(
+                scope,
+                horoscopeContext.dateStr,
+                horoscopeContext.hourIndex,
+                batchOptions.fortuneBatch,
+              );
+        const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
+          ...(batchOptions.independentBatch
+            ? { independentBatch: batchOptions.independentBatch }
+            : {}),
         });
+        const batch = getMcpZiweiBatchMetadata(result, batchOptions.scopeBatch);
         return createStructuredToolResult(
-          { ...buildSerializableZiweiResult(result) },
+          {
+            ...buildSerializableZiweiResult(result),
+            ...(batch ? { batch } : {}),
+          },
           args.detailMode,
         );
       } catch (error) {
@@ -284,25 +426,32 @@ export function registerZiweiTool(server: McpServer) {
             ? mapPromptScopeToZiweiScope(selection?.scope)
             : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
-        const scopes: ScopeType[] = Array.from(
-          new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
-        );
+        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
         const currentContext = getDefaultHoroscopeContext();
         const horoscopeContext = {
           dateStr: args.scopeDate ?? currentContext.dateStr,
           hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
         };
-        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
-          scope,
-          horoscopeContext.dateStr,
-          horoscopeContext.hourIndex,
-        );
-        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+        const fortuneRange =
+          batchOptions.independentBatch === 'scope'
+            ? undefined
+            : buildMcpZiweiFortuneRangeOptions(
+                scope,
+                horoscopeContext.dateStr,
+                horoscopeContext.hourIndex,
+                batchOptions.fortuneBatch,
+              );
+        const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
+          ...(batchOptions.independentBatch
+            ? { independentBatch: batchOptions.independentBatch }
+            : {}),
         });
+        const batch = getMcpZiweiBatchMetadata(result, batchOptions.scopeBatch);
         return createStructuredToolResult({
           result: buildSerializableZiweiResult(result),
+          ...(batch ? { batch } : {}),
           prompt: buildZiweiPromptForRuntime({
             result,
             question: args.question,

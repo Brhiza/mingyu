@@ -54,7 +54,9 @@ test('星盘可选秒数应贯穿现代星历、UTC和光照证据，省略时�
   const withSecond = generateAstrolabe({ ...validInput, second: '37' });
 
   assert.equal(withoutSecond.birth.dateTime, '1995-05-20 12:30');
+  assert.equal(withoutSecond.birth.second, undefined);
   assert.equal(withSecond.birth.dateTime, '1995-05-20 12:30:37');
+  assert.equal(withSecond.birth.second, 37);
   assert.equal(withSecond.birth.standardDateTime, '1995-05-20 12:30:37');
   assert.equal(withSecond.solarIllumination.referenceLocalDateTime, '1995-05-20 12:30:37');
   assert.notEqual(

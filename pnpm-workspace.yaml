@@ -6,3 +6,5 @@ allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
   - esbuild
+patchedDependencies:
+  iztro@2.5.8: patches/iztro@2.5.8.patch

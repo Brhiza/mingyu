@@ -1,3 +1,4 @@
+import { QimenBirthRangeNavigator } from './QimenBirthRangeNavigator';
 import { memo, useMemo, useState } from 'react';
 import type { QimenLifetimeData, QimenTopic, QimenLifetimeStage } from '@/types/divination';
 
@@ -5,6 +6,7 @@ export interface QimenLifetimeBoardProps {
   title: string;
   name: string;
   data: QimenLifetimeData;
+  onBirthRangeIndexChange?: (index: number) => void;
 }
 
 const QIMEN_LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
@@ -78,6 +80,7 @@ export const QimenLifetimeBoard = memo(function QimenLifetimeBoard({
   title,
   name,
   data,
+  onBirthRangeIndexChange,
 }: QimenLifetimeBoardProps) {
   const [selectedGong, setSelectedGong] = useState<number | null>(null);
   const [activeTopic, setActiveTopic] = useState<QimenTopic | 'all'>('all');
@@ -106,6 +109,7 @@ export const QimenLifetimeBoard = memo(function QimenLifetimeBoard({
 
   return (
     <div className="traditional-chart-layout qimen-lifetime-showcase">
+      <QimenBirthRangeNavigator range={data.birthRange} onChange={onBirthRangeIndexChange} />
       {/* 1. 终身局顶栏概览 */}
       <section className="panel traditional-chart-card qimen-lifetime-hero">
         <div className="traditional-board-header">

@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadPersonalHistory, upsertPersonalHistory } from '../src/lib/history-records';
-import { defaultInputState, type QueryInputState } from '../src/lib/query-state';
+import {
+  loadCompatibilityHistory,
+  loadPersonalHistory,
+  upsertCompatibilityHistory,
+  upsertPersonalHistory,
+} from '../src/lib/history-records';
+import { buildCompatibilityRecordPath } from '../src/lib/case-navigation';
+import {
+  defaultInputState,
+  defaultPromptState,
+  parseInputState,
+  type QueryInputState,
+} from '../src/lib/query-state';
+import { buildReadingSubject } from '../src/lib/ai/reading-subject';
+import { buildFrontendBirthProfile } from '../src/lib/full-chart-engine/birth-profile';
 
 function createInput(name: string): QueryInputState {
   return {
@@ -131,5 +144,91 @@ test('四柱日期保存、重开与跨术数引用保留候选区间和秒数',
       assert.equal(restored.useTrueSolarTime, false, feature);
       assert.equal(getPersonInputMode(restored, 'self'), 'pillars', feature);
     }
+  });
+});
+
+test('双人历史恢复保留仅名称地点、坐标和双方分钟秒精度', () => {
+  const startTimestamp = Date.parse('2000-01-01T00:00:00.000Z');
+  const rangeSource = JSON.stringify({
+    pillars: { year: '庚辰', month: '戊子', day: '甲午', hour: '丙寅' },
+    intervalStart: '2000-01-01 08:00:00',
+    intervalEnd: '2000-01-01 08:00:03',
+    startTimestamp,
+    endTimestamp: startTimestamp + 3_000,
+    endExclusive: true,
+    timezone: 'Asia/Shanghai',
+    offsetHours: 8,
+  });
+  const input: QueryInputState = {
+    ...defaultInputState,
+    analysisMode: 'compatibility',
+    name: '仅名称主方',
+    gender: 'female',
+    year: '2000',
+    month: '1',
+    day: '1',
+    timeIndex: '',
+    birthHour: '8',
+    birthMinute: '0',
+    birthSecond: '',
+    birthReverseSource: rangeSource,
+    birthPlace: '仅名称主方',
+    birthLongitude: '',
+    birthLatitude: '',
+    partnerName: '坐标对方',
+    partnerGender: 'male',
+    partnerYear: '2000',
+    partnerMonth: '1',
+    partnerDay: '1',
+    partnerTimeIndex: '',
+    partnerBirthHour: '8',
+    partnerBirthMinute: '1',
+    partnerBirthSecond: '7',
+    partnerBirthReverseSource: '',
+    partnerBirthPlace: '坐标对方',
+    partnerBirthLongitude: '121.47',
+    partnerBirthLatitude: '31.23',
+  };
+
+  withMockStorage(() => {
+    upsertCompatibilityHistory(input);
+    const [record] = loadCompatibilityHistory();
+    assert.ok(record);
+    const restored = parseInputState(
+      new URLSearchParams(buildCompatibilityRecordPath(record).split('?')[1]),
+    );
+
+    for (const field of [
+      'birthPlace',
+      'birthLongitude',
+      'birthLatitude',
+      'birthSecond',
+      'birthReverseSource',
+      'partnerBirthPlace',
+      'partnerBirthLongitude',
+      'partnerBirthLatitude',
+      'partnerBirthSecond',
+    ] as const) {
+      assert.equal(restored[field], input[field], field);
+    }
+
+    const restoredProfile = buildFrontendBirthProfile(restored, 'primary');
+    assert.deepEqual(restoredProfile.birthTimeRange, {
+      startTimestamp,
+      endTimestamp: startTimestamp + 3_000,
+      endExclusive: true,
+      timezone: 'Asia/Shanghai',
+      offsetHours: 8,
+    });
+
+    const subject = buildReadingSubject(restored, {
+      ...defaultPromptState,
+      promptSource: 'bazi-ziwei',
+    });
+    assert.equal(subject.lockedInputs.bazi?.timezone, 8);
+    assert.equal(subject.lockedInputs.bazi?.birthPlace, '仅名称主方');
+    assert.equal(subject.lockedInputs.baziPartner?.timeZoneId, 'Asia/Shanghai');
+    assert.equal(subject.lockedInputs.baziPartner?.birthLongitude, 121.47);
+    assert.equal(subject.lockedInputs.baziPartner?.birthSecond, 7);
   });
 });

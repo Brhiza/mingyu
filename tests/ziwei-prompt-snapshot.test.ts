@@ -480,7 +480,7 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
   });
 
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT['ziwei-compatibility']);
-  assert.match(prompt, /【双盘关系资料】/);
+  assert.match(prompt, /^【双盘关系资料】$/m);
   assert.match(prompt, /宫位对应：/);
   assert.doesNotMatch(
     prompt,

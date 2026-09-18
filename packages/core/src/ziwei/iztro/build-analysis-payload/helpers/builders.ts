@@ -3,7 +3,6 @@ import type {
   IztroHoroscope,
   IztroPalace,
   IztroStar,
-  IztroSurpalaces,
 } from '../../../../types/iztro';
 import type {
   ActiveScopeInfo,
@@ -20,6 +19,11 @@ import { MUTAGEN_ORDER, mapScopeMutagenMap, mapStarFact } from './mappers';
 import { SHICHEN_PERIODS, getTimeIndexFromClock } from '../../../../calendar/dateUtils';
 import { getGanZhiFromDate } from '../../../../ganzhi';
 import type { ChartInput } from '../../../../types/chart';
+import {
+  buildBirthMutagensByPalaceIndex,
+  collectSelfMutagensFromPlaces,
+  collectSurroundedMutagens,
+} from './palace-relations';
 
 function buildFourPillars(
   astrolabe: IztroAstrolabe,
@@ -32,9 +36,13 @@ function buildFourPillars(
   if (time.hour > 23 || getTimeIndexFromClock(time.hour, time.minute) !== period.index) {
     throw new Error('紫微四柱展示时分与出生时辰不一致。');
   }
+  const second = birthTime?.second ?? 0;
+  if (!Number.isInteger(second) || second < 0 || second > 59) {
+    throw new Error('紫微四柱展示秒数必须在 0-59 之间。');
+  }
   const date = new Date(0);
   date.setFullYear(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
-  date.setHours(time.hour, time.minute, 0, 0);
+  date.setHours(time.hour, time.minute, second, 0);
   const pillars = getGanZhiFromDate(date);
   return {
     year_pillar: pillars.year,
@@ -183,20 +191,24 @@ export function buildActiveScope(params: {
   };
 }
 
-function buildScopeHits(horoscope: IztroHoroscope, palaceIndex: number): string[] {
-  const hits: string[] = [];
+function buildScopeHitEntries(horoscope: IztroHoroscope): Array<[number | undefined, string]> {
   const decadalLabel = horoscope.decadal.name || '大限';
+  return [
+    [horoscope.palace('命宫' as never, 'decadal')?.index, `${decadalLabel}落宫`],
+    [horoscope.agePalace()?.index, '小限落宫'],
+    [horoscope.palace('命宫' as never, 'yearly')?.index, '流年落宫'],
+    [horoscope.palace('命宫' as never, 'monthly')?.index, '流月落宫'],
+    [horoscope.palace('命宫' as never, 'daily')?.index, '流日落宫'],
+    [horoscope.palace('命宫' as never, 'hourly')?.index, '流时落宫'],
+  ];
+}
 
-  if (horoscope.palace('命宫' as never, 'decadal')?.index === palaceIndex) {
-    hits.push(`${decadalLabel}落宫`);
-  }
-  if (horoscope.agePalace()?.index === palaceIndex) hits.push('小限落宫');
-  if (horoscope.palace('命宫' as never, 'yearly')?.index === palaceIndex) hits.push('流年落宫');
-  if (horoscope.palace('命宫' as never, 'monthly')?.index === palaceIndex) hits.push('流月落宫');
-  if (horoscope.palace('命宫' as never, 'daily')?.index === palaceIndex) hits.push('流日落宫');
-  if (horoscope.palace('命宫' as never, 'hourly')?.index === palaceIndex) hits.push('流时落宫');
+function selectScopeHits(entries: Array<[number | undefined, string]>, palaceIndex: number) {
+  return entries.filter(([index]) => index === palaceIndex).map(([, label]) => label);
+}
 
-  return hits;
+function buildScopeHits(horoscope: IztroHoroscope, palaceIndex: number): string[] {
+  return selectScopeHits(buildScopeHitEntries(horoscope), palaceIndex);
 }
 
 function buildMutagedPlaces(palace: IztroPalace): MutagedPlaceItem[] {
@@ -220,55 +232,110 @@ function buildSelfMutagens(palace: IztroPalace): MutagenName[] {
 
 function buildSummaryTags(params: {
   palace: IztroPalace;
-  horoscope: IztroHoroscope;
   currentScope: ScopeType;
-  dynamicPalaceName?: string;
   scopeHits: string[];
-  surrounded: IztroSurpalaces;
   selfMutagens: MutagenName[];
+  surroundedMutagens: MutagenName[];
+  emptyState: boolean;
+  hasBirthMutagen: boolean;
+  hasScopeMutagen: boolean;
 }): string[] {
   const {
     palace,
-    horoscope,
     currentScope,
-    dynamicPalaceName,
     scopeHits,
-    surrounded,
     selfMutagens,
+    surroundedMutagens,
+    emptyState,
+    hasBirthMutagen,
+    hasScopeMutagen,
   } = params;
   const tags: string[] = [];
 
   if (palace.name === '命宫') tags.push('命宫');
   if (palace.isBodyPalace) tags.push('身宫');
   if (palace.isOriginalPalace) tags.push('来因宫');
-  if (palace.isEmpty()) tags.push('空宫');
+  if (emptyState) tags.push('空宫');
 
   selfMutagens.forEach((mutagen) => tags.push(`自化${mutagen}`));
 
-  MUTAGEN_ORDER.forEach((mutagen) => {
-    if (surrounded.haveMutagen(mutagen as never)) {
-      tags.push(`三方四正见化${mutagen}`);
-    }
-  });
+  surroundedMutagens.forEach((mutagen) => tags.push(`三方四正见化${mutagen}`));
 
   tags.push(...scopeHits);
 
-  if (MUTAGEN_ORDER.some((mutagen) => palace.hasMutagen(mutagen as never))) {
+  if (hasBirthMutagen) {
     tags.push('有生年四化');
   }
 
-  if (
-    currentScope !== 'origin' &&
-    currentScope !== 'age' &&
-    dynamicPalaceName &&
-    MUTAGEN_ORDER.some((mutagen) =>
-      horoscope.hasHoroscopeMutagen(dynamicPalaceName as never, currentScope, mutagen as never),
-    )
-  ) {
+  if (currentScope !== 'origin' && currentScope !== 'age' && hasScopeMutagen) {
     tags.push('有当前运限四化');
   }
 
   return tags;
+}
+
+/** 直接投影本命宫位事实，不读取或构造任何运限字段。 */
+export function buildNatalPalaceFacts(astrolabe: IztroAstrolabe): PalaceFact[] {
+  assertValidAstrolabePalaces(astrolabe.palaces);
+  const drafts = astrolabe.palaces.map((palace) => {
+    const surrounded = astrolabe.surroundedPalaces(palace.index);
+    const mutagedPlaces = buildMutagedPlaces(palace);
+    const selfMutagens = collectSelfMutagensFromPlaces(palace.index, mutagedPlaces);
+    const emptyState = palace.isEmpty();
+    const fact: PalaceFact = {
+      index: palace.index,
+      name: palace.name,
+      is_body_palace: palace.isBodyPalace,
+      is_original_palace: palace.isOriginalPalace,
+      heavenly_stem: palace.heavenlyStem,
+      earthly_branch: palace.earthlyBranch,
+      major_stars: palace.majorStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      minor_stars: palace.minorStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      other_stars: palace.adjectiveStars.map((star: IztroStar) =>
+        mapStarFact(star, [], { isHoroscopeStar: false }),
+      ),
+      scope_stars: [],
+      changsheng12: palace.changsheng12,
+      boshi12: palace.boshi12,
+      base_jiangqian12: palace.jiangqian12,
+      base_suiqian12: palace.suiqian12,
+      decadal_range: palace.decadal.range,
+      ages: palace.ages,
+      scope_hits: [],
+      empty_state: emptyState,
+      opposite_palace_index: surrounded.opposite.index,
+      surrounded_palace_indexes: [
+        surrounded.target.index,
+        surrounded.opposite.index,
+        surrounded.wealth.index,
+        surrounded.career.index,
+      ],
+      summary_tags: [],
+      mutaged_palaces: mutagedPlaces,
+      self_mutagens: selfMutagens,
+    };
+    return { palace, fact, selfMutagens };
+  });
+
+  const facts = drafts.map((draft) => draft.fact);
+  const birthMutagensByPalaceIndex = buildBirthMutagensByPalaceIndex(facts);
+  return drafts.map(({ palace, fact, selfMutagens }) => ({
+    ...fact,
+    summary_tags: buildSummaryTags({
+      palace,
+      currentScope: 'origin',
+      scopeHits: [],
+      selfMutagens,
+      surroundedMutagens: collectSurroundedMutagens(fact, birthMutagensByPalaceIndex),
+      emptyState: fact.empty_state,
+      hasBirthMutagen: (birthMutagensByPalaceIndex.get(fact.index)?.size ?? 0) > 0,
+      hasScopeMutagen: false,
+    }),
+  }));
 }
 
 export function buildPalaceFacts(params: {
@@ -285,33 +352,40 @@ export function buildPalaceFacts(params: {
     astrolabe,
     currentScopeItem?.palaceNames ?? [],
   );
+  // 同一运限对象的六个落宫固定，整盘只查询一次，再分配到十二宫。
+  const scopeHitEntries = buildScopeHitEntries(horoscope);
 
-  return astrolabe.palaces.map((palace) => {
-    const surrounded = astrolabe.surroundedPalaces(palace.name);
+  const drafts = astrolabe.palaces.map((palace) => {
+    const surrounded = astrolabe.surroundedPalaces(palace.index);
     const scopeStarsRaw = currentScopeItem?.stars?.[palace.index] ?? [];
     const mutagedPlaces = buildMutagedPlaces(palace);
-    const selfMutagens = buildSelfMutagens(palace);
-    const scopeHits = buildScopeHits(horoscope, palace.index);
+    const selfMutagens = collectSelfMutagensFromPlaces(palace.index, mutagedPlaces);
+    const scopeHits = selectScopeHits(scopeHitEntries, palace.index);
+    const majorStars = palace.majorStars.map((star: IztroStar) =>
+      mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
+    );
+    const minorStars = palace.minorStars.map((star: IztroStar) =>
+      mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
+    );
+    const otherStars = palace.adjectiveStars.map((star: IztroStar) =>
+      mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
+    );
+    const scopeStars = scopeStarsRaw.map((star: IztroStar) =>
+      mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: true }),
+    );
+    const emptyState = palace.isEmpty();
 
-    return {
+    const fact: PalaceFact = {
       index: palace.index,
       name: palace.name,
       is_body_palace: palace.isBodyPalace,
       is_original_palace: palace.isOriginalPalace,
       heavenly_stem: palace.heavenlyStem,
       earthly_branch: palace.earthlyBranch,
-      major_stars: palace.majorStars.map((star: IztroStar) =>
-        mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
-      ),
-      minor_stars: palace.minorStars.map((star: IztroStar) =>
-        mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
-      ),
-      other_stars: palace.adjectiveStars.map((star: IztroStar) =>
-        mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: false }),
-      ),
-      scope_stars: scopeStarsRaw.map((star: IztroStar) =>
-        mapStarFact(star, activeScopeMutagenMap, { isHoroscopeStar: true }),
-      ),
+      major_stars: majorStars,
+      minor_stars: minorStars,
+      other_stars: otherStars,
+      scope_stars: scopeStars,
       changsheng12: palace.changsheng12,
       boshi12: palace.boshi12,
       base_jiangqian12: palace.jiangqian12,
@@ -322,7 +396,7 @@ export function buildPalaceFacts(params: {
       ages: palace.ages,
       dynamic_scope_name: currentScopeItem?.palaceNames?.[palace.index],
       scope_hits: scopeHits,
-      empty_state: palace.isEmpty(),
+      empty_state: emptyState,
       opposite_palace_index: surrounded.opposite.index,
       surrounded_palace_indexes: [
         surrounded.target.index,
@@ -330,19 +404,30 @@ export function buildPalaceFacts(params: {
         surrounded.wealth.index,
         surrounded.career.index,
       ],
-      summary_tags: buildSummaryTags({
-        palace,
-        horoscope,
-        currentScope: params.currentScope,
-        dynamicPalaceName: currentScopeItem?.palaceNames?.[palace.index],
-        scopeHits,
-        surrounded,
-        selfMutagens,
-      }),
+      summary_tags: [],
       mutaged_palaces: mutagedPlaces,
       self_mutagens: selfMutagens,
     };
+    return { palace, fact, selfMutagens };
   });
+
+  const facts = drafts.map((draft) => draft.fact);
+  const birthMutagensByPalaceIndex = buildBirthMutagensByPalaceIndex(facts);
+  return drafts.map(({ palace, fact, selfMutagens }) => ({
+    ...fact,
+    summary_tags: buildSummaryTags({
+      palace,
+      currentScope: params.currentScope,
+      scopeHits: fact.scope_hits,
+      selfMutagens,
+      surroundedMutagens: collectSurroundedMutagens(fact, birthMutagensByPalaceIndex),
+      emptyState: fact.empty_state,
+      hasBirthMutagen: (birthMutagensByPalaceIndex.get(fact.index)?.size ?? 0) > 0,
+      hasScopeMutagen: [...fact.major_stars, ...fact.minor_stars].some(
+        (star) => star.active_scope_mutagen !== undefined,
+      ),
+    }),
+  }));
 }
 
 // 内部 helper 也对外暴露,便于测试或后续复用

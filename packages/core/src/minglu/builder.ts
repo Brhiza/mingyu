@@ -209,8 +209,13 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     shichenName: baziResult.timeInfo.name,
     exactBirthTime:
       person.birthHour !== undefined && person.birthMinute !== undefined
-        ? `${String(person.birthHour).padStart(2, '0')}:${String(person.birthMinute).padStart(2, '0')}`
+        ? `${String(person.birthHour).padStart(2, '0')}:${String(person.birthMinute).padStart(2, '0')}${
+            person.birthSecond === undefined
+              ? ''
+              : `:${String(person.birthSecond).padStart(2, '0')}`
+          }`
         : undefined,
+    ...(person.birthSecond === undefined ? {} : { birthSecond: person.birthSecond }),
     birthPlace: person.birthPlace,
     longitude: person.birthLongitude,
     latitude: person.birthLatitude,
@@ -218,7 +223,9 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     timeZoneId: person.timeZoneId,
     isTrueSolarTime: person.useTrueSolarTime ?? false,
     trueSolarTimeStr: baziResult.timing
-      ? `${baziResult.timing.correctedTime.hour}时${baziResult.timing.correctedTime.minute}分`
+      ? `${baziResult.timing.correctedTime.hour}时${baziResult.timing.correctedTime.minute}分${
+          person.birthSecond === undefined ? '' : `${baziResult.timing.correctedTime.second}秒`
+        }`
       : undefined,
     baziFourPillars: {
       year: baziResult.pillars.year.ganZhi,
