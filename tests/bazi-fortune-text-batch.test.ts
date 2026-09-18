@@ -153,7 +153,7 @@ test('核心有界批次本命不算流年，命限只计算当前一条', () =>
   assert.equal(rangeCalls, plannedRangeCalls, '完整排盘应直接复用周期骨架的年份范围');
 });
 
-test('时辰未知批次与旧完整排盘裁剪保持空命限和十五候选一致', () => {
+test('时辰未知批次与完整排盘裁剪保持空命限及固定和临界候选一致', () => {
   const unknownPerson = {
     ...person,
     timeIndex: -1,
@@ -170,7 +170,9 @@ test('时辰未知批次与旧完整排盘裁剪保持空命限和十五候选�
   assert.deepEqual(natal.result, selectBaziNatalResult(full));
   assert.deepEqual(fortune.batch, expectedPage.batch);
   assert.deepEqual(fortune.result, selectBaziFortuneBatchResult(full, expectedPage.batch));
-  assert.equal(fortune.result.unknownTimeAnalysis?.scenarios.length, 15);
+  const scenarios = fortune.result.unknownTimeAnalysis!.scenarios;
+  assert.equal(scenarios.filter((scenario) => !scenario.boundary).length, 15);
+  assert.ok(scenarios.some((scenario) => scenario.source === 'month-commander-boundary'));
   assert.throws(
     () =>
       baziCalculator.calculateBaziBatch(unknownPerson, {

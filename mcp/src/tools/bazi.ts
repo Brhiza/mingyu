@@ -67,7 +67,9 @@ export const baziSchema = z.object({
   timeIndex: z
     .number()
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；精确标准北京时间传时分秒时可省略'),
+    .describe(
+      '时辰索引：0=早子时,1=丑时,...,12=晚子时；单盘传-1或省略表示时辰未知；精确标准北京时间传时分秒时可省略',
+    ),
 
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
@@ -192,6 +194,9 @@ function mapPromptScopeToBaziFortuneScope(scope: string | undefined) {
 }
 
 export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
+  if (args.timeIndex !== undefined) {
+    readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', -1, 12);
+  }
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
     year: args.year,
@@ -459,8 +464,13 @@ export function registerBaziTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const chart1 = baziCalculator.calculateBazi(buildBaziPerson(args.person1));
-        const chart2 = baziCalculator.calculateBazi(buildBaziPerson(args.person2));
+        const person1 = buildBaziPerson(args.person1);
+        const person2 = buildBaziPerson(args.person2);
+        if (person1.isThreePillars || person2.isThreePillars) {
+          throw new Error('八字合盘尚需双方明确的出生时辰，未知时辰可先查询单盘候选。');
+        }
+        const chart1 = baziCalculator.calculateBazi(person1);
+        const chart2 = baziCalculator.calculateBazi(person2);
         const compatibility = analyzeBaziCompatibility(chart1, chart2, {
           person1Name: args.person1.name,
           person2Name: args.person2.name,
@@ -484,8 +494,13 @@ export function registerBaziTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const chart1 = baziCalculator.calculateBazi(buildBaziPerson(args.person1));
-        const chart2 = baziCalculator.calculateBazi(buildBaziPerson(args.person2));
+        const person1 = buildBaziPerson(args.person1);
+        const person2 = buildBaziPerson(args.person2);
+        if (person1.isThreePillars || person2.isThreePillars) {
+          throw new Error('八字合盘尚需双方明确的出生时辰，未知时辰可先查询单盘候选。');
+        }
+        const chart1 = baziCalculator.calculateBazi(person1);
+        const chart2 = baziCalculator.calculateBazi(person2);
         const compatibility = analyzeBaziCompatibility(chart1, chart2, {
           person1Name: args.person1.name,
           person2Name: args.person2.name,
