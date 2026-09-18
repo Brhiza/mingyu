@@ -3750,17 +3750,30 @@ function calculateBaziReverseApi(input: JsonRecord) {
   }
 
   try {
+    const pillars = {
+      year: readRequiredString(input.pillars, 'year').trim(),
+      month: readRequiredString(input.pillars, 'month').trim(),
+      day: readRequiredString(input.pillars, 'day').trim(),
+      hour: readRequiredString(input.pillars, 'hour').trim(),
+    };
+    for (const [key, value] of Object.entries(pillars)) {
+      if (!isValidGanZhi(value)) {
+        throw new ApiError(400, 'BAD_REQUEST', `pillars.${key} 必须是有效的六十甲子干支。`);
+      }
+    }
+
+    const startYear =
+      input.startYear === undefined ? undefined : readIntegerLike(input, 'startYear', 1900, 2100);
+    const endYear =
+      input.endYear === undefined ? undefined : readIntegerLike(input, 'endYear', 1900, 2100);
+    if (startYear !== undefined && endYear !== undefined && startYear > endYear) {
+      throw new ApiError(400, 'BAD_REQUEST', '起始年份不能大于结束年份。');
+    }
+
     return reverseBaziDates({
-      pillars: {
-        year: readRequiredString(input.pillars, 'year'),
-        month: readRequiredString(input.pillars, 'month'),
-        day: readRequiredString(input.pillars, 'day'),
-        hour: readRequiredString(input.pillars, 'hour'),
-      },
-      startYear:
-        input.startYear === undefined ? undefined : readIntegerLike(input, 'startYear', 1900, 2100),
-      endYear:
-        input.endYear === undefined ? undefined : readIntegerLike(input, 'endYear', 1900, 2100),
+      pillars,
+      startYear,
+      endYear,
     });
   } catch (error) {
     if (error instanceof ApiError) throw error;
