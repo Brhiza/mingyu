@@ -129,7 +129,7 @@ function usefulDecision(chart: Pillars) {
   );
 }
 
-test('护印取用接受稳定正库轻根，资源已有正库时不误判缺根', () => {
+test('护印取用区分实根与正库轻根，资源仅有正库时先护印', () => {
   const companionStorage = usefulDecision(pillars(['甲午', '庚午', '壬辰', '壬辰']));
   assert.deepEqual(companionStorage.favorableWuxing, ['水', '金']);
   assert.match(
@@ -138,7 +138,10 @@ test('护印取用接受稳定正库轻根，资源已有正库时不误判缺�
   );
 
   const resourceStorage = usefulDecision(pillars(['壬午', '庚午', '壬辰', '乙丑']));
-  assert.equal(resourceStorage.decisionEvidence?.balanceAdjustment, undefined);
+  assert.match(
+    resourceStorage.decisionEvidence?.balanceAdjustment?.reason ?? '',
+    /印坐财受制.*先以水扶身制财护印/,
+  );
 
   const clashedStorage = usefulDecision(pillars(['甲戌', '庚午', '壬辰', '壬辰']));
   assert.equal(clashedStorage.decisionEvidence?.balanceAdjustment, undefined);
