@@ -217,6 +217,16 @@ export interface LuckInfo {
   cycles: LuckCycle[];
 }
 
+export interface BaziFortuneBatchMetadata {
+  unit: 'cycle-year';
+  startIndex: number;
+  endIndexExclusive: number;
+  totalEntries: number;
+  nextIndex: number | null;
+  cycleIndex: number | null;
+  year: number | null;
+}
+
 export interface PillarLifeStages {
   year: string;
   month: string;

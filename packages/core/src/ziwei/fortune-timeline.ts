@@ -591,21 +591,42 @@ async function buildTimelineFromAstrolabe(
     : periodIndexes.map((periodIndex) => ({
         periodIndex,
         period: decadalTimeline[periodIndex]!,
+        selectedAgeHoroscope: undefined,
       }));
-  for (const { periodIndex, period } of selectedPeriods) {
+  for (const { periodIndex, period, selectedAgeHoroscope } of selectedPeriods) {
     if (!period) continue;
     const selectedAges = selectedAgeYears
       .filter((entry) => entry.periodIndex === periodIndex)
       .map((entry) => entry.age);
     if (!selectedAges.length) continue;
-    const firstYearDate = await buildYearDate(
-      astrolabe,
-      input,
-      period.startAge,
-      options.hourIndex,
-      resolveHoroscope,
-    );
-    const decadalHoroscope = await resolveHoroscope(firstYearDate, options.hourIndex);
+    if (selectedAgeHoroscope) {
+      const selectedAgeDate = await buildYearDate(
+        astrolabe,
+        input,
+        selectedAgeHoroscope.age,
+        options.hourIndex,
+        resolveHoroscope,
+      );
+      if (
+        !selectedAges.includes(selectedAgeHoroscope.age) ||
+        selectedAgeHoroscope.hourIndex !== options.hourIndex ||
+        selectedAgeHoroscope.dateStr !== selectedAgeDate
+      ) {
+        throw new Error('紫微所选年龄年对象与本批阶段、日期或时辰不一致。');
+      }
+    }
+    const decadalHoroscope = selectedAgeHoroscope
+      ? selectedAgeHoroscope.horoscope
+      : await resolveHoroscope(
+          await buildYearDate(
+            astrolabe,
+            input,
+            period.startAge,
+            options.hourIndex,
+            resolveHoroscope,
+          ),
+          options.hourIndex,
+        );
     const years: ZiweiFortuneYear[] = [];
     for (const age of selectedAges) {
       years.push(await buildYear(astrolabe, input, age, options.hourIndex, resolveHoroscope));

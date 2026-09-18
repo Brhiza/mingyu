@@ -1,4 +1,8 @@
-import { analyzeFortuneTriggers, type BaziChartResult } from '../bazi/index';
+import {
+  analyzeFortuneTriggers,
+  type BaziChartResult,
+  type BaziFortuneBatchMetadata,
+} from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { getLuckCycleTimeRange, formatSolarDateTime } from '../bazi/luckTiming';
 
@@ -265,15 +269,7 @@ function formatFortuneYear(
 
 export interface BaziFortuneTextBatch {
   text: string;
-  batch: {
-    unit: 'cycle-year';
-    startIndex: number;
-    endIndexExclusive: number;
-    totalEntries: number;
-    nextIndex: number | null;
-    cycleIndex: number | null;
-    year: number | null;
-  };
+  batch: BaziFortuneBatchMetadata;
 }
 
 /** 合参分册的本命页不携带任何大运流年，避免把完整命限重复塞入首册。 */
@@ -349,17 +345,40 @@ export function formatBaziFortuneBatch(
     const year = cycle.years[offset];
     batch.cycleIndex = cycleIndex;
     batch.year = year?.year ?? null;
-    return {
-      text: [
-        '本次大运流年：',
-        FORTUNE_NOTATION,
-        ...lines,
-        ...(year ? formatFortuneYear(result, year, layers) : []),
-      ].join('\n'),
-      batch,
-    };
+    return formatBaziFortuneBatchEntry(result, cycle, year, batch, layers, lines);
   }
   return { text: '', batch };
+}
+
+/** 为核心已按游标构造的一页命限生成与旧全量裁剪完全相同的文本。 */
+export function formatCalculatedBaziFortuneBatch(
+  result: BaziChartResult,
+  batch: BaziFortuneBatchMetadata,
+): BaziFortuneTextBatch {
+  const cycle = result.luckInfo.cycles[0];
+  if (!cycle) return { text: '', batch };
+  const year = cycle.years.find((item) => item.year === batch.year);
+  const { layers, lines } = formatFortuneCycle(result, cycle);
+  return formatBaziFortuneBatchEntry(result, cycle, year, batch, layers, lines);
+}
+
+function formatBaziFortuneBatchEntry(
+  result: BaziChartResult,
+  _cycle: FortuneCycle,
+  year: FortuneCycle['years'][number] | undefined,
+  batch: BaziFortuneBatchMetadata,
+  layers: ReturnType<typeof formatFortuneCycle>['layers'],
+  lines: string[],
+): BaziFortuneTextBatch {
+  return {
+    text: [
+      '本次大运流年：',
+      FORTUNE_NOTATION,
+      ...lines,
+      ...(year ? formatFortuneYear(result, year, layers) : []),
+    ].join('\n'),
+    batch,
+  };
 }
 
 export function formatBaziFullFortune(result: BaziChartResult): string {

@@ -539,8 +539,20 @@ test('紫微normal全范围独立年龄年省略未消费目标运限对象且�
   assert.equal(facts.fortuneTimeline?.periods[0]?.years[0]?.age, 81);
 });
 
-test('紫微normal事实入口在精确分界与中州配置下保持完整结果一致', async () => {
+test('紫微normal事实入口在失败索引、异时辰及精确配置下保持完整结果一致', async () => {
   const cases = [
+    {
+      chartInput: input,
+      startIndex: 117,
+      horoscopeContext: boundaryContext,
+      fortuneContext: boundaryContext,
+    },
+    {
+      chartInput: input,
+      startIndex: 117,
+      horoscopeContext: { dateStr: '2026-02-10', hourIndex: 0 },
+      fortuneContext: { dateStr: '2026-02-10', hourIndex: 12 },
+    },
     {
       chartInput: {
         ...input,
@@ -548,6 +560,8 @@ test('紫微normal事实入口在精确分界与中州配置下保持完整结�
         horoscopeDivide: 'exact' as const,
       },
       startIndex: 59,
+      horoscopeContext: boundaryContext,
+      fortuneContext: boundaryContext,
     },
     {
       chartInput: {
@@ -566,16 +580,18 @@ test('紫微normal事实入口在精确分界与中州配置下保持完整结�
         horoscopeDivide: 'exact' as const,
       },
       startIndex: 81,
+      horoscopeContext: boundaryContext,
+      fortuneContext: boundaryContext,
     },
   ];
 
-  for (const { chartInput, startIndex } of cases) {
+  for (const { chartInput, startIndex, horoscopeContext, fortuneContext } of cases) {
     const options = {
-      horoscopeContext: boundaryContext,
+      horoscopeContext,
       independentBatch: 'fortune' as const,
       fortuneRange: {
         scope: 'all' as const,
-        ...boundaryContext,
+        ...fortuneContext,
         batch: { startIndex, limit: 1 },
       },
     };
@@ -612,7 +628,12 @@ test('紫微normal独立年龄年内部时间线不构造固定目标对象', as
   const verifiedBatch = await buildVerifiedDecadalTimelineBatchOptions(
     astrolabe,
     input,
-    { scope: 'all', targetAge, batch: { startIndex: 80, limit: 1 } },
+    {
+      scope: 'all',
+      targetAge,
+      batch: { startIndex: 80, limit: 1 },
+      selectedAgeHoroscopeHourIndex: boundaryContext.hourIndex,
+    },
     resolver,
   );
   const timeline = await buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
@@ -633,12 +654,104 @@ test('紫微normal独立年龄年内部时间线不构造固定目标对象', as
   );
   assert.equal(timeline.targetAge, targetAge);
   assert.equal(timeline.periods[0]?.years[0]?.age, 81);
-  assert.ok(constructions.includes(`${timeline.periods[0]?.dateStr}#${boundaryContext.hourIndex}`));
+  assert.equal(
+    constructions.includes(`${timeline.periods[0]?.dateStr}#${boundaryContext.hourIndex}`),
+    false,
+  );
   assert.ok(
     constructions.includes(
       `${timeline.periods[0]?.years[0]?.dateStr}#${boundaryContext.hourIndex}`,
     ),
   );
+  assert.equal(new Set(constructions).size, 1);
+  assert.equal(verifiedBatch.periods[0]?.selectedAgeHoroscope?.age, 81);
+  assert.equal(
+    verifiedBatch.periods[0]?.selectedAgeHoroscope?.dateStr,
+    timeline.periods[0]?.years[0]?.dateStr,
+  );
+});
+
+test('紫微normal独立页以所选年龄年真实对象复用阶段核验和层级', async () => {
+  const baselineAstrolabe = await buildAstrolabeFromInput(input);
+  const stages = await buildVerifiedDecadalTimelineOptions(baselineAstrolabe, input);
+  const regularStages = stages.filter((stage) => stage.kind === 'decadal');
+  const sampledStages = [
+    stages[0]!,
+    regularStages[0]!,
+    regularStages[Math.floor(regularStages.length / 2)]!,
+    regularStages.at(-1)!,
+  ];
+  const sampledAges = Array.from(
+    new Set(
+      sampledStages.flatMap((stage) => [
+        stage.startAge,
+        Math.floor((stage.startAge + stage.endAge) / 2),
+        stage.endAge,
+      ]),
+    ),
+  );
+  const fortuneContext = { dateStr: boundaryContext.dateStr, hourIndex: 12 } as const;
+
+  for (const age of sampledAges) {
+    const run = async (reuseSelectedAge: boolean) => {
+      const astrolabe = await buildAstrolabeFromInput(input);
+      const nativeHoroscope = astrolabe.horoscope.bind(astrolabe);
+      const constructions: string[] = [];
+      astrolabe.horoscope = ((dateStr, hourIndex) => {
+        constructions.push(`${String(dateStr)}#${hourIndex}`);
+        return nativeHoroscope(dateStr, hourIndex);
+      }) as typeof astrolabe.horoscope;
+      const resolver = createZiweiHoroscopeResolver(astrolabe, input);
+      const targetAge = calculateNormalZiweiNominalAge(
+        astrolabe,
+        fortuneContext.dateStr,
+        fortuneContext.hourIndex,
+      );
+      const batch = await buildVerifiedDecadalTimelineBatchOptions(
+        astrolabe,
+        input,
+        {
+          scope: 'all',
+          targetAge,
+          batch: { startIndex: age - 1, limit: 1 },
+          ...(reuseSelectedAge ? { selectedAgeHoroscopeHourIndex: fortuneContext.hourIndex } : {}),
+        },
+        resolver,
+      );
+      const timeline = await buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
+        astrolabe,
+        input,
+        batch.periods.map((entry) => entry.period),
+        {
+          scope: 'all',
+          ...fortuneContext,
+          batch: { startIndex: age - 1, limit: 1 },
+        },
+        { resolveHoroscope: resolver, verifiedBatch: batch, verifiedTargetAge: targetAge },
+      );
+      return { batch, timeline, constructions };
+    };
+
+    const [legacy, reused] = await Promise.all([run(false), run(true)]);
+    assert.equal(
+      JSON.stringify(reused.timeline),
+      JSON.stringify(legacy.timeline),
+      `${age}岁完整时间线`,
+    );
+    assert.deepEqual(reused.timeline, legacy.timeline, `${age}岁结构化时间线`);
+    assert.equal(reused.timeline.periods[0]?.years[0]?.age, age);
+    assert.equal(reused.batch.periods[0]?.selectedAgeHoroscope?.age, age);
+    assert.equal(new Set(reused.constructions).size, 1, `${age}岁只构造本页真实年龄年对象`);
+    assert.ok(
+      reused.constructions.includes(
+        `${reused.timeline.periods[0]?.years[0]?.dateStr}#${fortuneContext.hourIndex}`,
+      ),
+    );
+    assert.ok(
+      new Set(legacy.constructions).size >= new Set(reused.constructions).size,
+      `${age}岁不增加运限对象`,
+    );
+  }
 });
 
 test('紫微生日与current独立年龄年继续返回真实目标运限对象', async () => {

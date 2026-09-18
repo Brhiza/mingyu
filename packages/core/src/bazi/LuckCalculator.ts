@@ -1,6 +1,13 @@
 import { SolarTime, SolarTerm, ChildLimit, SixtyCycleYear } from 'tyme4ts';
 import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
-import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo, XiaoyunInfo } from './baziTypes';
+import type {
+  BaziFortuneBatchMetadata,
+  LuckInfo,
+  LuckCycle,
+  LiunianInfo,
+  SolarDateTimeInfo,
+  XiaoyunInfo,
+} from './baziTypes';
 import {
   formatSolarDateTime,
   shiftSolarDateTimeYears,
@@ -11,8 +18,38 @@ import { CHILD_LIMIT_METHOD, createChildLimit } from './childLimit';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
-type FortuneInstance = ReturnType<ReturnType<typeof ChildLimit.fromSolarTime>['getStartFortune']>;
+type ChildLimitInstance = ReturnType<typeof ChildLimit.fromSolarTime>;
+type FortuneInstance = ReturnType<ChildLimitInstance['getStartFortune']>;
 type EightCharInstance = ReturnType<ReturnType<SolarTimeInstance['getLunarHour']>['getEightChar']>;
+
+interface LuckCyclePlan {
+  cycle: LuckCycle;
+  startYear: number;
+  yearCount: number;
+}
+
+interface LuckStartContext {
+  childLimit: ChildLimitInstance;
+  firstCycleStartTime: SolarDateTimeInfo;
+  birthSolarTime: SolarDateTimeInfo;
+  birthYear: number;
+  startFortune: FortuneInstance;
+  startInfo: string;
+  handoverInfo: string;
+}
+
+interface LuckPlan {
+  startInfo: string;
+  handoverInfo: string;
+  birthYear: number;
+  startFortune: FortuneInstance;
+  cycles: LuckCyclePlan[];
+}
+
+export interface LuckInfoBatchResult {
+  luckInfo: LuckInfo;
+  batch: BaziFortuneBatchMetadata;
+}
 
 /**
  * 专注于大运、小运、流年等运势计算的工具类
@@ -31,112 +68,223 @@ export class LuckCalculator {
     termSolarTime: SolarTimeInstance = solarTime,
     eightChar: EightCharInstance = solarTime.getLunarHour().getEightChar(),
   ): LuckInfo {
-    assertHeavenlyStem(dayMaster, '日主');
-
-    // 1. 计算童限 (起运前)
-    const childLimit = createChildLimit(termSolarTime, gender, eightChar);
-    const startAge = childLimit.getYearCount(); // 起运岁数
-    const startMonth = childLimit.getMonthCount();
-    const startDay = childLimit.getDayCount();
-    const startHour = childLimit.getHourCount();
-    const startMinute = childLimit.getMinuteCount();
-
-    // 精确的起运时间 (公历)
-    const limitSolarTime = childLimit.getEndTime();
-    const birthSolarTime = toSolarDateTimeInfo(termSolarTime);
-    const firstCycleStartTime = toSolarDateTimeInfo(limitSolarTime);
-
-    const startInfoText = this.getStartInfoText(
-      startAge,
-      startMonth,
-      startDay,
-      startHour,
-      startMinute,
+    const plan = this.createLuckPlan(termSolarTime, gender, dayMaster, eightChar);
+    const cycles = plan.cycles.map(({ cycle, startYear, yearCount }) => ({
+      ...cycle,
+      years: this.calculateLiunianForCycle(
+        cycle.startSolarTime!,
+        plan.birthYear,
+        dayMaster,
+        cycle.endSolarTime,
+        plan.startFortune,
+        { startYear, yearCount },
+      ),
+    }));
+    this.attachResolvedYears(
+      cycles,
+      plan.cycles.map(({ startYear }) => startYear),
     );
-    const startFortune = childLimit.getStartFortune();
 
-    // 2. 获取大运列表 (DecadeFortune)
-    // tyme4ts 的 ChildLimit 提供了获取第一步大运的方法 getStartDecadeFortune()
-    // 后续大运可以通过 next() 方法获取
-    const decadeFortunes: Array<ReturnType<typeof childLimit.getStartDecadeFortune>> = [];
-    let currentDecade = childLimit.getStartDecadeFortune();
+    return {
+      startInfo: plan.startInfo,
+      handoverInfo: plan.handoverInfo,
+      cycles,
+    };
+  }
 
-    // 获取 12 步大运
-    for (let i = 0; i < 12; i++) {
-      decadeFortunes.push(currentDecade);
-      currentDecade = currentDecade.next(1);
+  /** 仅计算本命批次仍需展示的起运资料，不构造任何大运流年。 */
+  public calculateNatalLuckInfo(
+    solarTime: SolarTimeInstance,
+    gender: LuckGender,
+    dayMaster: string,
+    termSolarTime: SolarTimeInstance = solarTime,
+    eightChar: EightCharInstance = solarTime.getLunarHour().getEightChar(),
+  ): LuckInfo {
+    const context = this.createLuckStartContext(termSolarTime, gender, dayMaster, eightChar);
+    return {
+      startInfo: context.startInfo,
+      handoverInfo: context.handoverInfo,
+      cycles: [],
+    };
+  }
+
+  /** 按全局逐年游标仅构造本次所属周期及一个流年。 */
+  public calculateLuckInfoBatch(
+    solarTime: SolarTimeInstance,
+    gender: LuckGender,
+    dayMaster: string,
+    startIndex: number,
+    termSolarTime: SolarTimeInstance = solarTime,
+    eightChar: EightCharInstance = solarTime.getLunarHour().getEightChar(),
+  ): LuckInfoBatchResult {
+    const plan = this.createLuckPlan(termSolarTime, gender, dayMaster, eightChar);
+    const totalEntries = plan.cycles.reduce(
+      (total, item) => total + Math.max(item.yearCount, 1),
+      0,
+    );
+    if (
+      !Number.isSafeInteger(startIndex) ||
+      startIndex < 0 ||
+      startIndex >= Math.max(totalEntries, 1)
+    ) {
+      throw new RangeError('八字命限续取位置超出资料范围。');
     }
 
-    const cycles: LuckCycle[] = [];
-    const birthYear = termSolarTime.getYear();
+    const batch: BaziFortuneBatchMetadata = {
+      unit: 'cycle-year',
+      startIndex,
+      endIndexExclusive: Math.min(startIndex + 1, totalEntries),
+      totalEntries,
+      nextIndex: startIndex + 1 < totalEntries ? startIndex + 1 : null,
+      cycleIndex: null,
+      year: null,
+    };
+    let offset = startIndex;
+    for (let cycleIndex = 0; cycleIndex < plan.cycles.length; cycleIndex++) {
+      const { cycle, startYear, yearCount } = plan.cycles[cycleIndex];
+      const entries = Math.max(yearCount, 1);
+      if (offset >= entries) {
+        offset -= entries;
+        continue;
+      }
+      const years =
+        yearCount > 0
+          ? [
+              this.calculateLiunianAtOffset(
+                startYear,
+                offset,
+                plan.birthYear,
+                dayMaster,
+                plan.startFortune,
+              ),
+            ]
+          : [];
+      batch.cycleIndex = cycleIndex;
+      batch.year = years[0]?.year ?? null;
+      return {
+        luckInfo: {
+          startInfo: plan.startInfo,
+          handoverInfo: plan.handoverInfo,
+          cycles: [{ ...cycle, years, resolvedYears: years }],
+        },
+        batch,
+      };
+    }
 
-    // 3. 处理起运前的童限年份
-    if (this.hasPositiveSolarRange(birthSolarTime, firstCycleStartTime)) {
-      const preDayunYears = this.calculateLiunianForCycle(
-        birthSolarTime,
-        birthYear,
-        dayMaster,
-        firstCycleStartTime,
-        startFortune,
-      );
+    return {
+      luckInfo: {
+        startInfo: plan.startInfo,
+        handoverInfo: plan.handoverInfo,
+        cycles: [],
+      },
+      batch,
+    };
+  }
 
-      if (preDayunYears.length > 0) {
-        cycles.push({
+  private createLuckPlan(
+    termSolarTime: SolarTimeInstance,
+    gender: LuckGender,
+    dayMaster: string,
+    eightChar: EightCharInstance,
+  ): LuckPlan {
+    const context = this.createLuckStartContext(termSolarTime, gender, dayMaster, eightChar);
+    const {
+      childLimit,
+      firstCycleStartTime,
+      birthSolarTime,
+      birthYear,
+      startFortune,
+      startInfo,
+      handoverInfo,
+    } = context;
+    const cycles: LuckCyclePlan[] = [];
+    const preDayunRange = this.getCycleCalendarYearRange(birthSolarTime, firstCycleStartTime);
+    if (preDayunRange.yearCount > 0) {
+      cycles.push({
+        cycle: {
           age: 1,
           year: birthYear,
-          ganZhi: '小运', // 童限期统称
+          ganZhi: '小运',
           isXiaoyun: true,
           type: '小运',
           startSolarTime: birthSolarTime,
           endSolarTime: firstCycleStartTime,
-          years: preDayunYears,
-        });
-      }
+          years: [],
+        },
+        ...preDayunRange,
+      });
     }
 
-    // 4. 处理大运
-    decadeFortunes.forEach((df, index) => {
-      // 大运起始年份需要根据推算：出生年 + 起运岁数 + 10 * index
-      // 注意：DecadeFortune.getStartAge() 返回的是岁数
-      const startAgeDaYun = df.getStartAge();
+    let currentDecade = childLimit.getStartDecadeFortune();
+    for (let index = 0; index < 12; index++) {
       const cycleStartTime = shiftSolarDateTimeYears(firstCycleStartTime, index * 10);
       const cycleEndTime = shiftSolarDateTimeYears(firstCycleStartTime, (index + 1) * 10);
-      const startYear = cycleStartTime.year;
-
-      const ganZhi = df.getName();
-
       cycles.push({
-        age: startAgeDaYun,
-        year: startYear,
-        ganZhi,
-        isXiaoyun: false,
-        type: '大运',
-        startSolarTime: cycleStartTime,
-        endSolarTime: cycleEndTime,
-        years: [], // 稍后填充
+        cycle: {
+          age: currentDecade.getStartAge(),
+          year: cycleStartTime.year,
+          ganZhi: currentDecade.getName(),
+          isXiaoyun: false,
+          type: '大运',
+          startSolarTime: cycleStartTime,
+          endSolarTime: cycleEndTime,
+          years: [],
+        },
+        ...this.getCycleCalendarYearRange(cycleStartTime, cycleEndTime),
       });
-    });
+      currentDecade = currentDecade.next(1);
+    }
 
-    // 5. 填充大运流年
-    cycles.forEach((cycle) => {
-      if (!cycle.isXiaoyun) {
-        cycle.years = this.calculateLiunianForCycle(
-          cycle.startSolarTime ?? birthSolarTime,
-          birthYear,
-          dayMaster,
-          cycle.endSolarTime,
-          startFortune,
-        );
-      }
-    });
-    this.attachResolvedYears(cycles);
+    return { startInfo, handoverInfo, birthYear, startFortune, cycles };
+  }
 
-    const handoverInfoText = this.getHandoverInfo(firstCycleStartTime);
+  private createLuckStartContext(
+    termSolarTime: SolarTimeInstance,
+    gender: LuckGender,
+    dayMaster: string,
+    eightChar: EightCharInstance,
+  ): LuckStartContext {
+    assertHeavenlyStem(dayMaster, '日主');
+    const childLimit = createChildLimit(termSolarTime, gender, eightChar);
+    const firstCycleStartTime = toSolarDateTimeInfo(childLimit.getEndTime());
+    const birthSolarTime = toSolarDateTimeInfo(termSolarTime);
+    const birthYear = termSolarTime.getYear();
+    const startFortune = childLimit.getStartFortune();
 
     return {
-      startInfo: startInfoText,
-      handoverInfo: handoverInfoText,
-      cycles,
+      childLimit,
+      firstCycleStartTime,
+      birthSolarTime,
+      birthYear,
+      startFortune,
+      startInfo: this.getStartInfoText(
+        childLimit.getYearCount(),
+        childLimit.getMonthCount(),
+        childLimit.getDayCount(),
+        childLimit.getHourCount(),
+        childLimit.getMinuteCount(),
+      ),
+      handoverInfo: this.getHandoverInfo(firstCycleStartTime),
+    };
+  }
+
+  private calculateLiunianAtOffset(
+    startYear: number,
+    offset: number,
+    birthYear: number,
+    dayMaster: string,
+    startFortune: FortuneInstance,
+  ): LiunianInfo {
+    const currentYear = startYear + offset;
+    const age = currentYear - birthYear + 1;
+    const liunian = this.calculateLiunian(currentYear, dayMaster);
+    return {
+      year: currentYear,
+      age,
+      ganZhi: liunian.ganZhi,
+      tenGod: liunian.tenGod,
+      tenGodZhi: liunian.tenGodZhi,
+      xiaoyun: this.getXiaoyunForAge(startFortune, age, dayMaster),
     };
   }
 
@@ -149,12 +297,14 @@ export class LuckCalculator {
     dayMaster: string,
     cycleEndTime?: SolarDateTimeInfo,
     startFortune?: FortuneInstance,
+    plannedRange?: { startYear: number; yearCount: number },
   ): LiunianInfo[] {
     const liunianList: LiunianInfo[] = [];
-    const startYear = this.getBaziYearAt(cycleStartTime);
-    const yearCount = cycleEndTime
-      ? this.getCycleCalendarYearCount(cycleStartTime, cycleEndTime)
-      : 10;
+    const { startYear, yearCount } =
+      plannedRange ??
+      (cycleEndTime
+        ? this.getCycleCalendarYearRange(cycleStartTime, cycleEndTime)
+        : { startYear: this.getBaziYearAt(cycleStartTime), yearCount: 10 });
 
     if (yearCount <= 0) {
       return liunianList;
@@ -195,12 +345,12 @@ export class LuckCalculator {
     };
   }
 
-  private attachResolvedYears(cycles: LuckCycle[]) {
+  private attachResolvedYears(cycles: LuckCycle[], startYears?: number[]) {
     cycles.forEach((cycle, index) => {
       const nextCycle = cycles[index + 1];
-      const nextStartYear = nextCycle?.startSolarTime
-        ? this.getBaziYearAt(nextCycle.startSolarTime)
-        : undefined;
+      const nextStartYear =
+        startYears?.[index + 1] ??
+        (nextCycle?.startSolarTime ? this.getBaziYearAt(nextCycle.startSolarTime) : undefined);
 
       cycle.resolvedYears =
         typeof nextStartYear === 'number'
@@ -261,17 +411,17 @@ export class LuckCalculator {
     return toNativeDate(cycleStartTime).getTime() < toNativeDate(cycleEndTime).getTime();
   }
 
-  private getCycleCalendarYearCount(
+  private getCycleCalendarYearRange(
     cycleStartTime: SolarDateTimeInfo,
     cycleEndTime: SolarDateTimeInfo,
-  ): number {
+  ): { startYear: number; yearCount: number } {
+    const startYear = this.getBaziYearAt(cycleStartTime);
     if (!this.hasPositiveSolarRange(cycleStartTime, cycleEndTime)) {
-      return 0;
+      return { startYear, yearCount: 0 };
     }
 
-    const startYear = this.getBaziYearAt(cycleStartTime);
     const endYear = this.getLastBaziYearInHalfOpenRange(cycleEndTime);
-    return Math.max(endYear - startYear + 1, 0);
+    return { startYear, yearCount: Math.max(endYear - startYear + 1, 0) };
   }
 
   private getLastBaziYearInHalfOpenRange(time: SolarDateTimeInfo): number {

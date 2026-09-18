@@ -1,19 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
+import { BaziCalculator, baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import {
+  formatCalculatedBaziFortuneBatch,
   formatBaziFortuneBatch,
   formatBaziFullFortune,
+  selectBaziNatalResult,
   selectBaziFortuneBatchResult,
 } from '../packages/core/src/prompt/bazi-fortune';
 
-const result = baziCalculator.calculateBazi({
+const person = {
   year: 1992,
   month: 8,
   day: 21,
   timeIndex: 4,
-  gender: 'female',
-});
+  gender: 'female' as const,
+};
+const result = baziCalculator.calculateBazi(person);
 
 test('逐年续取覆盖完整命限，交运年按所属大运分别保留', () => {
   const expected = result.luckInfo.cycles.flatMap<{ cycleIndex: number; year: number | null }>(
@@ -87,4 +90,93 @@ test('续取位置校验与空命限明确终止', () => {
   assert.equal(page.batch.totalEntries, 0);
   assert.equal(page.batch.endIndexExclusive, 0);
   assert.equal(page.batch.nextIndex, null);
+});
+
+test('核心有界批次逐页等同完整命限裁剪并保留交运双归属', () => {
+  assert.deepEqual(
+    baziCalculator.calculateBaziBatch(person, { section: 'natal' }).result,
+    selectBaziNatalResult(result),
+  );
+  const total = formatBaziFortuneBatch(result).batch.totalEntries;
+  for (let startIndex = 0; startIndex < total; startIndex++) {
+    const expectedText = formatBaziFortuneBatch(result, startIndex);
+    const expectedResult = selectBaziFortuneBatchResult(result, expectedText.batch);
+    const actual = baziCalculator.calculateBaziBatch(person, {
+      section: 'fortune',
+      startIndex,
+    });
+    assert.deepEqual(actual.batch, expectedText.batch);
+    assert.deepEqual(actual.result, expectedResult);
+    assert.deepEqual(formatCalculatedBaziFortuneBatch(actual.result, actual.batch!), expectedText);
+  }
+});
+
+test('核心有界批次本命不算流年，命限只计算当前一条', () => {
+  const calculator = new BaziCalculator();
+  const luckCalculator = (
+    calculator as unknown as {
+      luckCalculator: {
+        calculateLiunian: (...args: unknown[]) => unknown;
+        getCycleCalendarYearRange: (...args: unknown[]) => unknown;
+      };
+    }
+  ).luckCalculator;
+  const originalLiunian = luckCalculator.calculateLiunian.bind(luckCalculator);
+  const originalRange = luckCalculator.getCycleCalendarYearRange.bind(luckCalculator);
+  let liunianCalls = 0;
+  let rangeCalls = 0;
+  luckCalculator.calculateLiunian = (...args) => {
+    liunianCalls += 1;
+    return originalLiunian(...args);
+  };
+  luckCalculator.getCycleCalendarYearRange = (...args) => {
+    rangeCalls += 1;
+    return originalRange(...args);
+  };
+
+  calculator.calculateBaziBatch(person, { section: 'natal' });
+  assert.equal(liunianCalls, 0);
+  assert.equal(rangeCalls, 0);
+  calculator.calculateBaziBatch(person, { section: 'fortune', startIndex: 7 });
+  assert.equal(liunianCalls, 1);
+  assert.ok(rangeCalls > 0);
+  const plannedRangeCalls = rangeCalls;
+
+  liunianCalls = 0;
+  rangeCalls = 0;
+  calculator.calculateBazi(person);
+  assert.equal(
+    liunianCalls,
+    result.luckInfo.cycles.reduce((total, cycle) => total + cycle.years.length, 0),
+    '完整排盘仍应生成全部流年',
+  );
+  assert.equal(rangeCalls, plannedRangeCalls, '完整排盘应直接复用周期骨架的年份范围');
+});
+
+test('时辰未知批次与旧完整排盘裁剪保持空命限和十五候选一致', () => {
+  const unknownPerson = {
+    ...person,
+    timeIndex: -1,
+    isThreePillars: true,
+  };
+  const full = baziCalculator.calculateBazi(unknownPerson);
+  const expectedPage = formatBaziFortuneBatch(full, 0);
+  const natal = baziCalculator.calculateBaziBatch(unknownPerson, { section: 'natal' });
+  const fortune = baziCalculator.calculateBaziBatch(unknownPerson, {
+    section: 'fortune',
+    startIndex: 0,
+  });
+
+  assert.deepEqual(natal.result, selectBaziNatalResult(full));
+  assert.deepEqual(fortune.batch, expectedPage.batch);
+  assert.deepEqual(fortune.result, selectBaziFortuneBatchResult(full, expectedPage.batch));
+  assert.equal(fortune.result.unknownTimeAnalysis?.scenarios.length, 15);
+  assert.throws(
+    () =>
+      baziCalculator.calculateBaziBatch(unknownPerson, {
+        section: 'fortune',
+        startIndex: 1,
+      }),
+    RangeError,
+  );
 });

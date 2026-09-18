@@ -1,10 +1,6 @@
 import { z } from 'zod';
-import type { BaziChartResult } from '@core/bazi';
-import {
-  formatBaziFortuneBatch,
-  selectBaziFortuneBatchResult,
-  selectBaziNatalResult,
-} from '@core/prompt/bazi-fortune';
+import type { BaziChartResult, BaziFortuneBatchMetadata } from '@core/bazi';
+import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
 import {
   COMBINED_BATCH_SECTIONS,
   getNextCombinedBatchCursor,
@@ -60,14 +56,20 @@ export function resolveMcpCombinedBatchCursor(params: {
 export async function calculateMcpCombinedBatchPage(params: {
   cursor: CombinedBatchCursor;
   scopeContext: { dateStr: string; hourIndex: number };
-  calculateBazi: () => BaziChartResult;
+  calculateBaziBatch: (
+    request: { section: 'natal' } | { section: 'fortune'; startIndex: number },
+  ) => { result: BaziChartResult; batch?: BaziFortuneBatchMetadata };
   ziweiInput: ChartInput;
 }) {
   const { cursor, scopeContext } = params;
   if (cursor.section === 'bazi-natal' || cursor.section === 'bazi-fortune') {
-    const fullBaziResult = params.calculateBazi();
+    const calculation = params.calculateBaziBatch(
+      cursor.section === 'bazi-natal'
+        ? { section: 'natal' }
+        : { section: 'fortune', startIndex: cursor.startIndex },
+    );
+    const baziResult = calculation.result;
     if (cursor.section === 'bazi-natal') {
-      const baziResult = selectBaziNatalResult(fullBaziResult);
       const batch: CombinedBatchMetadata = {
         unit: 'combined-section',
         ...cursor,
@@ -76,8 +78,7 @@ export async function calculateMcpCombinedBatchPage(params: {
       };
       return { section: cursor.section, baziResult, batch } as const;
     }
-    const fortuneTextBatch = formatBaziFortuneBatch(fullBaziResult, cursor.startIndex);
-    const baziResult = selectBaziFortuneBatchResult(fullBaziResult, fortuneTextBatch.batch);
+    const fortuneTextBatch = formatCalculatedBaziFortuneBatch(baziResult, calculation.batch!);
     const batch: CombinedBatchMetadata = {
       unit: 'combined-section',
       ...cursor,

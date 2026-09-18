@@ -297,8 +297,10 @@ test('合参分册单页只调用当前体系的排盘入口', async (context) =
     withOptions: (...args: any[]) => unknown;
   };
   const originalBazi = baziCalculator.calculateBazi.bind(baziCalculator);
+  const originalBaziBatch = baziCalculator.calculateBaziBatch.bind(baziCalculator);
   const originalWithOptions = astroModule.withOptions;
   let baziCalls = 0;
+  let baziBatchCalls = 0;
   let ziweiCalls = 0;
   context.mock.method(
     baziCalculator,
@@ -306,6 +308,14 @@ test('合参分册单页只调用当前体系的排盘入口', async (context) =
     (...args: Parameters<typeof originalBazi>) => {
       baziCalls += 1;
       return originalBazi(...args);
+    },
+  );
+  context.mock.method(
+    baziCalculator,
+    'calculateBaziBatch',
+    (...args: Parameters<typeof originalBaziBatch>) => {
+      baziBatchCalls += 1;
+      return originalBaziBatch(...args);
     },
   );
   context.mock.method(
@@ -321,34 +331,41 @@ test('合参分册单页只调用当前体系的排盘入口', async (context) =
     combinedBatch: { section: 'bazi-natal', startIndex: 0 },
   });
   assert.equal(baziPage.status, 200, JSON.stringify(baziPage.data));
-  assert.equal(baziCalls, 1);
+  assert.equal(baziCalls, 0);
+  assert.equal(baziBatchCalls, 1);
   assert.equal(ziweiCalls, 0);
 
   baziCalls = 0;
+  baziBatchCalls = 0;
   ziweiCalls = 0;
   const baziFortunePage = await callApi('bazi-ziwei/prompt', {
     combinedBatch: { section: 'bazi-fortune', startIndex: 0 },
   });
   assert.equal(baziFortunePage.status, 200, JSON.stringify(baziFortunePage.data));
-  assert.equal(baziCalls, 1);
+  assert.equal(baziCalls, 0);
+  assert.equal(baziBatchCalls, 1);
   assert.equal(ziweiCalls, 0);
 
   baziCalls = 0;
+  baziBatchCalls = 0;
   ziweiCalls = 0;
   const ziweiPage = await callApi('bazi-ziwei/prompt', {
     combinedBatch: { section: 'ziwei-scope', startIndex: 0 },
   });
   assert.equal(ziweiPage.status, 200, JSON.stringify(ziweiPage.data));
   assert.equal(baziCalls, 0);
+  assert.equal(baziBatchCalls, 0);
   assert.equal(ziweiCalls, 1);
 
   baziCalls = 0;
+  baziBatchCalls = 0;
   ziweiCalls = 0;
   const ziweiFortunePage = await callApi('bazi-ziwei/prompt', {
     combinedBatch: { section: 'ziwei-fortune', startIndex: 0 },
   });
   assert.equal(ziweiFortunePage.status, 200, JSON.stringify(ziweiFortunePage.data));
   assert.equal(baziCalls, 0);
+  assert.equal(baziBatchCalls, 0);
   assert.equal(ziweiCalls, 1);
 });
 

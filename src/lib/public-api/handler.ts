@@ -8,9 +8,7 @@ import {
 } from 'mingyu-core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
-  formatBaziFortuneBatch,
-  selectBaziNatalResult,
-  selectBaziFortuneBatchResult,
+  formatCalculatedBaziFortuneBatch,
   type BaziFortuneTextBatch,
 } from '@core/prompt/bazi-fortune';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
@@ -5212,6 +5210,13 @@ function calculateBazi(input: JsonRecord) {
   return baziCalculator.calculateBazi(readBaziPerson(input));
 }
 
+function calculateBaziBatch(
+  input: JsonRecord,
+  request: Parameters<typeof baziCalculator.calculateBaziBatch>[1],
+) {
+  return baziCalculator.calculateBaziBatch(readBaziPerson(input), request);
+}
+
 function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> | undefined {
   const value = input.shenShaVariants;
   if (value === undefined) return undefined;
@@ -5331,7 +5336,6 @@ function buildBaziCalculationIdentity(
 }
 
 function buildBaziPrompt(input: JsonRecord) {
-  const result = calculateBazi(input);
   const selection = readSharedPromptSelection(input, 'bazi');
   const selectedFortuneScope =
     input.baziFortuneScope === undefined ? toBaziFortuneScope(selection?.scope) : undefined;
@@ -5345,13 +5349,8 @@ function buildBaziPrompt(input: JsonRecord) {
     input.baziFortuneScope === undefined &&
     requestedFortuneScope !== 'natal' &&
     requestedFortuneScope !== 'full';
-  const currentSelection = useCurrentFortuneDefaults
-    ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
-    : null;
-  const fortuneScope =
-    useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
   const fortuneBatch = readFortuneBatch(input);
-  if (fortuneBatch && (fortuneScope !== 'full' || input.scopeBatch !== undefined)) {
+  if (fortuneBatch && (requestedFortuneScope !== 'full' || input.scopeBatch !== undefined)) {
     throw new ApiError(
       400,
       'BAD_REQUEST',
@@ -5359,17 +5358,28 @@ function buildBaziPrompt(input: JsonRecord) {
     );
   }
   let fortuneTextBatch: BaziFortuneTextBatch | undefined;
+  let result: BaziChartResult;
   if (fortuneBatch) {
     try {
-      fortuneTextBatch = formatBaziFortuneBatch(result, fortuneBatch.startIndex);
+      const calculation = calculateBaziBatch(input, {
+        section: 'fortune',
+        startIndex: fortuneBatch.startIndex ?? 0,
+      });
+      result = calculation.result;
+      fortuneTextBatch = formatCalculatedBaziFortuneBatch(result, calculation.batch!);
     } catch (error) {
       if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
       throw error;
     }
+  } else {
+    result = calculateBazi(input);
   }
-  const returnedResult = fortuneTextBatch
-    ? selectBaziFortuneBatchResult(result, fortuneTextBatch.batch)
-    : result;
+  const currentSelection = useCurrentFortuneDefaults
+    ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
+    : null;
+  const fortuneScope =
+    useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
+  const returnedResult = result;
   const fortuneSelectionContext = currentSelection
     ? buildFortuneSelectionContext(result, currentSelection)
     : buildBaziFortuneContextFromInput(result, input, fortuneScope);
@@ -5938,21 +5948,24 @@ async function buildCombinedBatchPromptPage(
     ZiweiSchool[] | undefined;
 
   if (cursor.section === 'bazi-natal' || cursor.section === 'bazi-fortune') {
-    const fullBaziResult = calculateBazi(input);
     let returnedBaziResult: BaziChartResult;
     let fortuneTextBatch: BaziFortuneTextBatch | undefined;
     let innerNextIndex: number | null | undefined;
-    if (cursor.section === 'bazi-natal') {
-      returnedBaziResult = selectBaziNatalResult(fullBaziResult);
-    } else {
-      try {
-        fortuneTextBatch = formatBaziFortuneBatch(fullBaziResult, cursor.startIndex);
-      } catch (error) {
-        if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
-        throw error;
+    try {
+      const calculation = calculateBaziBatch(
+        input,
+        cursor.section === 'bazi-natal'
+          ? { section: 'natal' }
+          : { section: 'fortune', startIndex: cursor.startIndex },
+      );
+      returnedBaziResult = calculation.result;
+      if (cursor.section === 'bazi-fortune') {
+        fortuneTextBatch = formatCalculatedBaziFortuneBatch(returnedBaziResult, calculation.batch!);
+        innerNextIndex = fortuneTextBatch.batch.nextIndex;
       }
-      returnedBaziResult = selectBaziFortuneBatchResult(fullBaziResult, fortuneTextBatch.batch);
-      innerNextIndex = fortuneTextBatch.batch.nextIndex;
+    } catch (error) {
+      if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
+      throw error;
     }
     const prompt =
       cursor.section === 'bazi-natal'

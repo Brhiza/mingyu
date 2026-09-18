@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { formatBaziFortuneBatch, selectBaziFortuneBatchResult } from '@core/prompt/bazi-fortune';
+import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import {
@@ -325,7 +325,6 @@ export function registerBaziTool(server: McpServer) {
     async (args) => {
       try {
         const person = buildBaziPerson(args);
-        const result = baziCalculator.calculateBazi(person);
         const selection = readMcpPromptSelection({
           methodId: 'bazi',
           topicId: args.topicId,
@@ -334,6 +333,17 @@ export function registerBaziTool(server: McpServer) {
         });
         const explicitFortuneScope =
           args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
+        const requestedFortuneScope = explicitFortuneScope ?? 'dayun';
+        if (args.fortuneBatch && requestedFortuneScope !== 'full') {
+          throw new Error('八字 fortuneBatch 仅支持完整命限。');
+        }
+        const batchCalculation = args.fortuneBatch
+          ? baziCalculator.calculateBaziBatch(person, {
+              section: 'fortune',
+              startIndex: args.fortuneBatch.startIndex ?? 0,
+            })
+          : undefined;
+        const result = batchCalculation?.result ?? baziCalculator.calculateBazi(person);
         if (result.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
           throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
         }
@@ -353,15 +363,10 @@ export function registerBaziTool(server: McpServer) {
           !currentSelection
             ? 'natal'
             : initialFortuneScope;
-        if (args.fortuneBatch && fortuneScope !== 'full') {
-          throw new Error('八字 fortuneBatch 仅支持完整命限。');
-        }
         const fortuneTextBatch = args.fortuneBatch
-          ? formatBaziFortuneBatch(result, args.fortuneBatch.startIndex)
+          ? formatCalculatedBaziFortuneBatch(result, batchCalculation!.batch!)
           : undefined;
-        const returnedResult = fortuneTextBatch
-          ? selectBaziFortuneBatchResult(result, fortuneTextBatch.batch)
-          : result;
+        const returnedResult = result;
         const requiresCycle = fortuneScope === 'dayun';
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';

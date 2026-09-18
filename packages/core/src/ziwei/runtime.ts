@@ -349,6 +349,7 @@ export async function calculateZiweiFactsForScopes(
       scope: 'all',
       targetAge,
       batch: fortuneRange.batch,
+      selectedAgeHoroscopeHourIndex: fortuneContext.hourIndex,
     },
     resolveHoroscope,
   );

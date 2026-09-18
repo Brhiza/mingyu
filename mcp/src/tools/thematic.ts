@@ -213,7 +213,8 @@ export function registerThematicTool(server: McpServer) {
           const page = await calculateMcpCombinedBatchPage({
             cursor: combinedCursor,
             scopeContext: horoscopeContext,
-            calculateBazi: () => baziCalculator.calculateBazi(buildBaziPerson(args)),
+            calculateBaziBatch: (request) =>
+              baziCalculator.calculateBaziBatch(buildBaziPerson(args), request),
             ziweiInput: buildCombinedZiweiInput(args),
           });
           const promptCommon = {

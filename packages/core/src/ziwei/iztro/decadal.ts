@@ -20,9 +20,21 @@ export type DecadalTimelineOption = {
   source: 'payload-compatibility' | 'iztro-horoscope';
 };
 
+type VerifiedSelectedAgeHoroscope = {
+  age: number;
+  dateStr: string;
+  hourIndex: number;
+  horoscope: IztroHoroscope;
+};
+
 export type VerifiedDecadalTimelineBatch = {
   /** 本批实际涉及且已经过 iztro 运限对象核验的阶段。 */
-  periods: Array<{ periodIndex: number; period: DecadalTimelineOption }>;
+  periods: Array<{
+    periodIndex: number;
+    period: DecadalTimelineOption;
+    /** 本页所选年龄年的真实对象；仅供同次计算复用，不表示阶段起点对象。 */
+    selectedAgeHoroscope?: VerifiedSelectedAgeHoroscope;
+  }>;
   /** 只含年龄与阶段位置的全局索引，不伪造未计算阶段的日期。 */
   selectedAgeYears: Array<{ periodIndex: number; age: number }>;
   targetPeriodIndex: number;
@@ -137,6 +149,24 @@ function buildNormalAgeBoundaryDate(astrolabe: IztroAstrolabe, nominalAge: numbe
   const [year, month, day] = anniversary.split('-').map(Number);
   const anniversaryLunarYear = SolarDay.fromYmd(year, month, day).getLunarDay().getYear();
   return formatSolarDay(LunarDay.fromYmd(anniversaryLunarYear, 1, 1).getSolarDay());
+}
+
+async function resolveSelectedAgeHoroscope(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  age: number,
+  hourIndex: number,
+  resolveHoroscope: ZiweiHoroscopeResolver,
+): Promise<VerifiedSelectedAgeHoroscope> {
+  if ((input.ageDivide ?? 'normal') !== 'normal') {
+    throw new Error('仅普通虚岁独立批次可复用所选年龄年运限对象。');
+  }
+  const dateStr = buildNormalAgeBoundaryDate(astrolabe, age);
+  const horoscope = await resolveHoroscope(dateStr, hourIndex);
+  if (horoscope.age.nominalAge !== age) {
+    throw new Error(`iztro 无法验证虚岁 ${age} 的农历年分界。`);
+  }
+  return { age, dateStr, hourIndex, horoscope };
 }
 
 /**
@@ -315,6 +345,8 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     scope: 'all' | 'current';
     targetAge: number;
     batch: { startIndex?: number; limit?: number };
+    /** normal/all 事实页可用本页年龄年的真实对象同时核验阶段并生成阶段层。 */
+    selectedAgeHoroscopeHourIndex?: number;
   },
   resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
 ): Promise<VerifiedDecadalTimelineBatch> {
@@ -380,11 +412,34 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
   const periods: VerifiedDecadalTimelineBatch['periods'] = [];
   for (const periodIndex of selectedPeriodIndexes) {
     const period = timelineIndex[periodIndex]!;
-    const start = await findVerifiedHoroscope(astrolabe, input, period.startAge, resolveHoroscope);
-    const palace = astrolabe.palace(start.horoscope.decadal.index);
+    const selectedAge = selectedAgeYears.find((item) => item.periodIndex === periodIndex)?.age;
+    let selectedAgeHoroscope: VerifiedSelectedAgeHoroscope | undefined;
+    const selectedAgeHoroscopeHourIndex = options.selectedAgeHoroscopeHourIndex;
+    if (selectedAgeHoroscopeHourIndex !== undefined) {
+      if (selectedAge === undefined || options.scope !== 'all') {
+        throw new Error('仅全部运限独立批次可复用所选年龄年运限对象。');
+      }
+      selectedAgeHoroscope = await resolveSelectedAgeHoroscope(
+        astrolabe,
+        input,
+        selectedAge,
+        selectedAgeHoroscopeHourIndex,
+        resolveHoroscope,
+      );
+    }
+    const stageVerification = selectedAgeHoroscope
+      ? {
+          dateStr: buildNormalAgeBoundaryDate(astrolabe, period.startAge),
+          horoscope: selectedAgeHoroscope.horoscope,
+        }
+      : await findVerifiedHoroscope(astrolabe, input, period.startAge, resolveHoroscope);
+    const palace = astrolabe.palace(stageVerification.horoscope.decadal.index);
+    const verifiedAge = selectedAgeHoroscope?.age ?? period.startAge;
     if (
-      start.horoscope.age.nominalAge !== period.startAge ||
-      start.horoscope.decadal.name !== period.label ||
+      verifiedAge < period.startAge ||
+      verifiedAge > period.endAge ||
+      stageVerification.horoscope.age.nominalAge !== verifiedAge ||
+      stageVerification.horoscope.decadal.name !== period.label ||
       !palace ||
       (period.kind === 'decadal' && palace.index !== period.palaceIndex)
     ) {
@@ -403,7 +458,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
             label: period.label,
             startAge: period.startAge,
             endAge: period.endAge,
-            dateStr: start.dateStr,
+            dateStr: stageVerification.dateStr,
             source: 'iztro-horoscope',
             endDateStr,
             palaceIndex: palace.index,
@@ -414,7 +469,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
             label: period.label,
             startAge: period.startAge,
             endAge: period.endAge,
-            dateStr: start.dateStr,
+            dateStr: stageVerification.dateStr,
             palaceIndex: palace.index,
             palaceName: palace.name,
             source: 'iztro-horoscope',
@@ -423,6 +478,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     periods.push({
       periodIndex,
       period: verifiedPeriod,
+      ...(selectedAgeHoroscope ? { selectedAgeHoroscope } : {}),
     });
   }
   return {

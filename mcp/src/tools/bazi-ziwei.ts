@@ -267,7 +267,8 @@ export function registerBaziZiweiTool(server: McpServer) {
           const page = await calculateMcpCombinedBatchPage({
             cursor: combinedCursor,
             scopeContext: horoscopeContext,
-            calculateBazi: () => baziCalculator.calculateBazi(buildBaziPerson(args)),
+            calculateBaziBatch: (request) =>
+              baziCalculator.calculateBaziBatch(buildBaziPerson(args), request),
             ziweiInput,
           });
           const promptCommon = {
