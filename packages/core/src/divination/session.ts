@@ -391,7 +391,7 @@ export function validateDivinationRequest(request: DivinationRequest): void {
       method === 'number' &&
       (!Number.isSafeInteger(request.jinkoujue?.number) || (request.jinkoujue?.number ?? 0) < 1)
     ) {
-      throw new Error('金口诀数字起课必须提供不小于 1 的整数。');
+      throw new Error('金口诀数字起课必须提供不小于 1 的安全整数。');
     }
   }
   if (request.method === 'taiyi') {

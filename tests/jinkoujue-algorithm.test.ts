@@ -232,6 +232,18 @@ test('金口诀：数字起课 1-12 映射子至亥，大于 12 按 12 归一', 
   assert.equal(wrap.diFenBranch, '子');
 });
 
+test('金口诀：数字起课拒绝超出安全整数的直接输入', () => {
+  assert.throws(
+    () =>
+      generateJinkoujue({
+        method: 'number',
+        number: 18_014_398_509_481_984,
+        customDate: SAMPLE_DATE,
+      }),
+    /安全整数/,
+  );
+});
+
 test('金口诀：五子元遁应按日干起遁干', () => {
   const data = generateJinkoujue({ method: 'number', number: 1, customDate: SAMPLE_DATE });
   const dayStem = data.ganzhi.day.charAt(0);
