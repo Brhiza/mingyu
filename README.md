@@ -15,8 +15,8 @@
   npx skills add Brhiza/mingyu --skill mingyu -g -y
   ```
 - **在线 Remote MCP（云端直连 · 零依赖）**：
-  - **Claude Code**：`claude mcp add mingyu --transport sse https://aov.cc/mcp`
-  - **Cursor / Windsurf / VS Code**：直接添加 SSE 类型的 Server URL：`https://aov.cc/mcp`
+  - **Claude Code**：`claude mcp add mingyu --transport http https://aov.cc/mcp`
+  - **Cursor / Windsurf / VS Code**：添加 **Streamable HTTP** 类型的 Server URL：`https://aov.cc/mcp`
 - **QQ 交流群**：命语 Mingyu 技术交流群（1080947018）
 
 ---
@@ -87,7 +87,7 @@ const tarot = drawTarotSpread('celtic');
 
 ### 3. MCP Server
 
-- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 中直接配置 Streamable HTTP 远程端点：`https://aov.cc/mcp`
+- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 等客户端中直接配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`；不要按 SSE 类型配置。
 - **本地 npx CLI（开箱即用）**：
   ```bash
   npx -y mingyu-mcp

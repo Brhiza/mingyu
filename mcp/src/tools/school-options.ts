@@ -8,11 +8,13 @@ import {
   type PromptSchoolId,
   type PromptSchoolMethod,
 } from 'mingyu-core/prompt';
+import { promptResponseModeShape } from '../schemas.js';
 
 export function createPromptSchoolsShape<Method extends PromptSchoolMethod>(method: Method) {
   const allowed = getPromptSchoolIds(method);
   const schoolSchema = z.enum(allowed as [PromptSchoolId<Method>, ...PromptSchoolId<Method>[]]);
   return {
+    ...promptResponseModeShape,
     schools: z
       .array(schoolSchema)
       .min(1)

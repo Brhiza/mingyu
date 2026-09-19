@@ -140,6 +140,35 @@ test('结构化结果 Envelope 应支持元数据与预警信息 (data, meta, wa
   ]);
 });
 
+test('提示词结果支持 prompt-only、summary 与 full 三种响应模式', () => {
+  const full = createStructuredToolResult({
+    result: { chart: { pillars: ['甲子', '乙丑'] } },
+    prompt: '请依据盘面完成解读。',
+  });
+  const promptOnly = createStructuredToolResult(
+    {
+      result: { chart: { pillars: ['甲子', '乙丑'] } },
+      prompt: '请依据盘面完成解读。',
+    },
+    null,
+    { responseMode: 'prompt-only' },
+  );
+  const summary = createStructuredToolResult(
+    {
+      result: { chart: { pillars: ['甲子', '乙丑'] } },
+      prompt: '请依据盘面完成解读。',
+    },
+    null,
+    { responseMode: 'summary' },
+  );
+
+  assert.ok((full.structuredContent as Record<string, unknown>).result);
+  assert.ok((promptOnly.structuredContent as Record<string, unknown>).prompt);
+  assert.equal((promptOnly.structuredContent as Record<string, unknown>).result, undefined);
+  assert.ok((summary.structuredContent as Record<string, unknown>).resultSummary);
+  assert.equal((summary.structuredContent as Record<string, unknown>).result, undefined);
+});
+
 test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据', async () => {
   const { createMingyuMcpServer, SERVER_INSTRUCTIONS } =
     await import('../../mcp/src/create-server.js');

@@ -10,6 +10,18 @@ export const calculationDetailShape = {
     ),
 };
 
+export const PROMPT_RESPONSE_MODES = ['prompt-only', 'summary', 'full'] as const;
+export type PromptResponseMode = (typeof PROMPT_RESPONSE_MODES)[number];
+
+export const promptResponseModeShape = {
+  responseMode: z
+    .enum(PROMPT_RESPONSE_MODES)
+    .optional()
+    .describe(
+      '提示词工具返回模式：prompt-only 只返回提示词，summary 返回提示词和轻量结构化摘要，full 返回完整结构化结果与提示词；默认 full 以保持兼容',
+    ),
+};
+
 /**
  * 统一出生参数输入契约 (BirthInputSchema)
  */
@@ -103,6 +115,7 @@ export const promptOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('生成提示词时同步计算出的结构化盘面或证据；可供展示和后续追问复用，避免再调排盘工具'),
+  resultSummary: z.unknown().optional().describe('summary 模式下的轻量结构化盘面或证据摘要'),
   batch: z
     .unknown()
     .optional()
