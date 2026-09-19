@@ -6,7 +6,7 @@ const promptTimeCache = new Map<string, string>();
 type PromptTimeParts = ReturnType<typeof TimeManager.getWallClockParts>;
 
 function getPromptTimeParts(date: Date): PromptTimeParts {
-  return TimeManager.getWallClockParts(date);
+  return TimeManager.getWallClockParts(new Date(date.getTime()));
 }
 
 function getCacheKey(parts: PromptTimeParts) {
