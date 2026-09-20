@@ -37,7 +37,9 @@ const instantChartSchema = z.object({
     .string()
     .datetime({ offset: true })
     .optional()
-    .describe('可重放时刻；不传即使用工具调用当刻'),
+    .describe(
+      '可重放时刻，必须为带明确时区偏移的完整 ISO 8601 字符串（如 2026-05-15T14:30:00+08:00 或 2026-05-15T06:30:00Z）；不传即使用工具调用当刻',
+    ),
   observer: instantObserverSchema
     .optional()
     .describe('真太阳时必填；星盘和七政四余在两种口径下都必填'),

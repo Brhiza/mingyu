@@ -10,6 +10,18 @@ export const calculationDetailShape = {
     ),
 };
 
+export const PROMPT_RESPONSE_MODES = ['prompt-only', 'summary', 'full'] as const;
+export type PromptResponseMode = (typeof PROMPT_RESPONSE_MODES)[number];
+
+export const promptResponseModeShape = {
+  responseMode: z
+    .enum(PROMPT_RESPONSE_MODES)
+    .optional()
+    .describe(
+      '提示词工具返回模式：prompt-only 只返回提示词，summary 返回提示词和轻量结构化摘要，full 返回完整结构化结果与提示词；默认 full 以保持兼容',
+    ),
+};
+
 /**
  * 统一出生参数输入契约 (BirthInputSchema)
  */
@@ -75,6 +87,11 @@ export function withErrorOutputSchema<T extends z.ZodRawShape>(successShape: T) 
       missingFields: z.array(z.string()).optional().describe('缺失的必填字段列表'),
       retryable: z.boolean().optional().describe('是否支持带参重试'),
       fallback: z.string().optional().describe('业务降级建议或后备策略说明'),
+      limit: z.number().optional().describe('资源限制值'),
+      maxAllowed: z.number().optional().describe('允许的最大数值'),
+      requested: z.number().optional().describe('请求的数值'),
+      unit: z.string().optional().describe('限制单位（如 days、years）'),
+      recommendation: z.string().optional().describe('业务建议或分段指引'),
     })
     .refine(
       (value) => {
@@ -103,6 +120,7 @@ export const promptOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('生成提示词时同步计算出的结构化盘面或证据；可供展示和后续追问复用，避免再调排盘工具'),
+  resultSummary: z.unknown().optional().describe('summary 模式下的轻量结构化盘面或证据摘要'),
   batch: z
     .unknown()
     .optional()

@@ -3471,7 +3471,7 @@ test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', asyn
           birthHour: '1',
           birthMinute: '20',
         },
-        /birthLongitude 必须是数字/,
+        /缺少 birthLongitude/,
       ],
       [
         'ziwei_prompt',

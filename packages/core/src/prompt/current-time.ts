@@ -1,30 +1,30 @@
 import { SolarTime } from 'tyme4ts';
+import { TimeManager } from '../calendar/timeManager';
 
 const promptTimeCache = new Map<string, string>();
 
-function getCacheKey(date: Date) {
-  return [
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-  ].join('-');
+type PromptTimeParts = ReturnType<typeof TimeManager.getWallClockParts>;
+
+function getPromptTimeParts(date: Date): PromptTimeParts {
+  return TimeManager.getWallClockParts(new Date(date.getTime()));
 }
 
-function formatSolarTime(date: Date) {
-  return `公历：${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}时${date.getMinutes()}分`;
+function getCacheKey(parts: PromptTimeParts) {
+  return [parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second].join('-');
 }
 
-function formatGanzhiCalendar(date: Date) {
+function formatSolarTime(parts: PromptTimeParts) {
+  return `公历：${parts.year}年${parts.month}月${parts.day}日 ${parts.hour}时${parts.minute}分（UTC+08:00）`;
+}
+
+function formatGanzhiCalendar(parts: PromptTimeParts) {
   const solarTime = SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
   );
   const lunarHour = solarTime.getLunarHour();
   const lunarDay = lunarHour.getLunarDay();
@@ -40,14 +40,15 @@ function formatGanzhiCalendar(date: Date) {
 }
 
 export function formatPromptCurrentTime(date: Date = new Date()) {
-  const cacheKey = getCacheKey(date);
+  const parts = getPromptTimeParts(date);
+  const cacheKey = getCacheKey(parts);
   const cached = promptTimeCache.get(cacheKey);
   if (cached) return cached;
 
-  const solarText = formatSolarTime(date);
+  const solarText = formatSolarTime(parts);
   let text: string;
   try {
-    text = [solarText, formatGanzhiCalendar(date)].join('\n');
+    text = [solarText, formatGanzhiCalendar(parts)].join('\n');
   } catch {
     text = [solarText, '干支历：暂无法计算'].join('\n');
   }

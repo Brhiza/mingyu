@@ -1,5 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { shapeCalculationResult, type ResultDetailMode } from '../../src/lib/result-detail.js';
+import type { PromptResponseMode } from './schemas.js';
 
 type StructuredContent = Record<string, unknown>;
 
@@ -18,6 +19,31 @@ export interface StructuredToolResultOptions {
     [key: string]: unknown;
   };
   warnings?: string[];
+  responseMode?: PromptResponseMode;
+}
+
+function shapePromptResponseContent(
+  structuredContent: StructuredContent,
+  responseMode: PromptResponseMode,
+): StructuredContent {
+  const prompt =
+    typeof structuredContent.prompt === 'string' ? structuredContent.prompt : undefined;
+  if (prompt === undefined || responseMode === 'full') {
+    return structuredContent;
+  }
+
+  const { result: fullResult, ...withoutResult } = structuredContent;
+  if (responseMode === 'prompt-only') {
+    return { ...withoutResult, prompt };
+  }
+
+  return {
+    ...withoutResult,
+    ...(fullResult === undefined
+      ? {}
+      : { resultSummary: shapeCalculationResult(fullResult, 'compact') }),
+    prompt,
+  };
 }
 
 export function createStructuredToolResult(
@@ -35,8 +61,11 @@ export function createStructuredToolResult(
         ? structuredContent
         : structuredContent;
 
+  const responseMode = options?.responseMode ?? 'full';
+  const promptResponseContent = shapePromptResponseContent(responseContent, responseMode);
+
   const finalContent: Record<string, unknown> = {
-    ...responseContent,
+    ...promptResponseContent,
     ...(options?.meta ? { meta: options.meta } : {}),
     ...(options?.warnings?.length ? { warnings: options.warnings } : {}),
   };
@@ -52,16 +81,52 @@ export function createStructuredToolResult(
   };
 }
 
+export function applyPromptResponseMode(
+  result: CallToolResult,
+  responseMode: PromptResponseMode = 'full',
+): CallToolResult {
+  if (!result.structuredContent || typeof result.structuredContent !== 'object') {
+    return result;
+  }
+
+  const structuredContent = result.structuredContent as StructuredContent;
+  if (typeof structuredContent.prompt !== 'string' || responseMode === 'full') {
+    return result;
+  }
+
+  return {
+    ...result,
+    structuredContent: shapePromptResponseContent(structuredContent, responseMode),
+  };
+}
+
+export function createPromptToolResult(
+  structuredContent: StructuredContent & { prompt: string },
+  responseMode?: PromptResponseMode,
+): CallToolResult {
+  return createStructuredToolResult(structuredContent, null, {
+    responseMode: responseMode ?? 'full',
+  });
+}
+
 export function createErrorToolResult(
   message: string,
   options?: ErrorToolResultOptions,
 ): CallToolResult {
+  const defaultOptions = classifyError(message);
+  const resolvedOptions = {
+    ...defaultOptions,
+    ...options,
+    missingFields: options?.missingFields ?? defaultOptions.missingFields,
+  };
   const structuredContent: Record<string, unknown> = {
     error: message,
-    ...(options?.code ? { code: options.code } : {}),
-    ...(options?.missingFields?.length ? { missingFields: options.missingFields } : {}),
-    ...(options?.retryable !== undefined ? { retryable: options.retryable } : {}),
-    ...(options?.fallback ? { fallback: options.fallback } : {}),
+    ...(resolvedOptions.code ? { code: resolvedOptions.code } : {}),
+    ...(resolvedOptions.missingFields?.length
+      ? { missingFields: resolvedOptions.missingFields }
+      : {}),
+    ...(resolvedOptions.retryable !== undefined ? { retryable: resolvedOptions.retryable } : {}),
+    ...(resolvedOptions.fallback ? { fallback: resolvedOptions.fallback } : {}),
   };
 
   return {
@@ -73,6 +138,62 @@ export function createErrorToolResult(
       },
     ],
     isError: true,
+  };
+}
+
+function extractMissingFields(message: string): string[] | undefined {
+  if (/timezone.*timeZoneId|timeZoneId.*timezone/i.test(message)) {
+    return ['timezone', 'timeZoneId'];
+  }
+  if (/location\.longitude/i.test(message)) {
+    return ['location.longitude'];
+  }
+  if (/真太阳时.*(?:精准时间|经度)|缺少精准时间或经度/i.test(message)) {
+    const fields: string[] = [];
+    if (/birthHour/i.test(message) || /小时/.test(message)) fields.push('birthHour');
+    if (/birthMinute/i.test(message) || /分钟/.test(message)) fields.push('birthMinute');
+    if (/birthLongitude/i.test(message) || /经度/.test(message)) fields.push('birthLongitude');
+    return fields.length ? fields : ['birthLongitude'];
+  }
+  if (/birthLongitude|出生地经度/i.test(message)) {
+    return ['birthLongitude'];
+  }
+  if (/customDate/i.test(message)) {
+    return ['customDate'];
+  }
+  if (/时辰|birthTime|timeIndex/i.test(message)) {
+    return ['timeIndex'];
+  }
+  return undefined;
+}
+
+function classifyError(message: string): Required<
+  Pick<ErrorToolResultOptions, 'code' | 'retryable' | 'fallback'>
+> & {
+  missingFields?: string[];
+} {
+  if (/资源|超出|过大|限制|1102|timeout|timed out|limit/i.test(message)) {
+    return {
+      code: 'RESOURCE_LIMIT',
+      retryable: true,
+      fallback: '请缩小日期或年份范围并分段调用；需要完整结果时使用本地或自部署 MCP。',
+    };
+  }
+  if (
+    /必须|需要|缺少|不能|不得|不接受|无效|不合法|不一致|至少|至多|只能|应为|超出范围/.test(message)
+  ) {
+    const missingFields = extractMissingFields(message);
+    return {
+      code: 'INVALID_ARGUMENTS',
+      retryable: false,
+      fallback: '请根据 error 修正输入参数后重试。',
+      ...(missingFields?.length ? { missingFields } : {}),
+    };
+  }
+  return {
+    code: 'MCP_TOOL_ERROR',
+    retryable: false,
+    fallback: '请检查输入并重试；若问题持续，请稍后再试。',
   };
 }
 

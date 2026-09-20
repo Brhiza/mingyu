@@ -86,6 +86,8 @@
 
 七政四余的七政、罗睺、计都和月孛采用现代天文位置，二十八宿按 28 颗真实距星在目标日期的黄经划界；紫炁采用《七政算内篇》古法均速模型。结果逐星标明来源和精度层级，真太阳时只校正传统命身十二宫，不改变现代天体计算时刻。
 
+所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。MCP 默认保持 `full` 以兼容已有客户端；只需交给在线 AI 解读时建议显式使用 `prompt-only`，避免传输重复盘面。
+
 ## 工具选择指南
 
 需要 AI 直接解读时，优先调用 `*_prompt` 工具。它会自行完成所需计算，在 `structuredContent` 中返回完整 `prompt`，可用时还会同步返回 `result`，因此不要先调用同类排盘工具。只需要结构化数据、表格展示或二次计算时，才调用 `*_calculate`、`divine_*` 或 `metaphysics_*` 工具。排盘工具默认使用 `detailMode: "compact"`，保留盘面与解读所需字段；只有审计或研究时才显式传 `detailMode: "full"`。历法、天文和公共地基工具保持原有完整事实返回。
@@ -239,7 +241,6 @@ pnpm mcp
 - "用黄历择日工具看看 2026-06-01 到 2026-06-05 哪天适合签约"
 - "用黄历择日工具看看 2026-06-01 到 2026-06-05 哪天适合安葬"
 - "用黄历择日工具看看 2026-06-01 到 2026-06-05 哪天适合修造动土"
-- "用黄历择日工具看看 2026-06-01 到 2026-06-05 哪天适合修造动土"
 - "用星盘提示词工具，按北京出生经纬度看我的事业发展"
 
 只需要结构化数据时调用 `*_calculate` 或 `divine_*` 工具；需要完整 AI 解读时直接调用 `*_prompt` 工具。提示词工具已经完成本次计算，不需要先排盘再调用一次。
@@ -274,16 +275,16 @@ pnpm mcp
 
 ### 黄历择日参数
 
-黄历择日工具需要提供 `startDate`、`endDate`。日期使用 `YYYY-MM-DD` 格式，一次最多比较 31 天。`topic` 可选，支持 `marriage`（订婚结婚）、`move`（搬家入宅）、`opening`（开业启动）、`contract`（签约合作）、`travel`（出行赴任）、`medical`（就医手术）、`study`（考试学习）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义），不传时使用 `custom`。`participants` 可选，每个参与人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`。
+黄历择日工具需要提供 `startDate`、`endDate`。日期使用 `YYYY-MM-DD` 格式，本地 stdio/自部署服务一次最多比较 31 天；在线 Remote MCP 为保证边缘稳定，单次最多 7 天，超过时会返回 `RESOURCE_LIMIT`，请按日期段分次调用。`topic` 可选，支持 `marriage`（订婚结婚）、`move`（搬家入宅）、`opening`（开业启动）、`contract`（签约合作）、`travel`（出行赴任）、`medical`（就医手术）、`study`（考试学习）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义），不传时使用 `custom`。`participants` 可选，每个参与人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`。
 
 ### 奇门遁甲排盘方法
 
 奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）；`qimenScope` 可选 `hour`（时家，默认）、`day`、`month`、`year`；`qimenJuMethod` 可选 `chaibu`（拆补，默认）或 `zhirun`（置闰），后者只对时家、日家生效。
 返回结果会包含 `timeInfo`（正式定局节气与三元）、`seasonality`（实际节气、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局），提示词工具会把这些字段作为解读证据。
 
-奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，最多连续31个年份；`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
+奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，本地 stdio/自部署服务最多连续31个年份；在线 Remote MCP 为保证边缘稳定，单次最多10个年份，超过时会返回 `RESOURCE_LIMIT`，请按年份分段调用。`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 
-独立 MCP 的 stdio 工具在本机运行，奇门31年时限可返回完整 `result` 和 `prompt`。HTTP部署另受应用1MiB成功响应上限与托管运行额度限制：`RESPONSE_TOO_LARGE` 表示响应过大，Pages的1102表示运行资源超限。仅需完整解读文本时可选HTTP的 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
+独立 MCP 的 stdio 工具在本机运行，奇门31年时限可返回完整 `result` 和 `prompt`。在线 Remote MCP 会在计算前对黄历和奇门终身局的大范围请求返回结构化 `RESOURCE_LIMIT`，避免客户端只看到 Cloudflare 1102；请根据 `fallback` 分段调用，或改用本地/自部署 MCP。仅需完整解读文本时，在线和本地都可使用 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
 
 ### 解读口径与合参
 

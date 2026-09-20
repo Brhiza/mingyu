@@ -19,7 +19,9 @@ const qimenSchema = z.object({
   customDate: z
     .string()
     .optional()
-    .describe('自定义排盘时间（ISO 8601 格式），不提供则使用当前时间'),
+    .describe(
+      '自定义排盘时间，必须包含明确时区偏移的完整 ISO 8601 格式（如 2026-05-15T14:30:00+08:00 或 2026-05-15T06:30:00Z）；不提供则使用当前时间',
+    ),
   qimenMethod: z
     .enum(['zhuanpan', 'feipan'])
     .optional()
@@ -63,7 +65,9 @@ const qimenLifetimeSchema = z.object({
       locationName: z.string().optional().describe('地点名称'),
     })
     .optional()
-    .describe('出生地点与经纬度（启用真太阳时必须提供经度）'),
+    .describe(
+      '出生地点与经纬度；启用真太阳时（timeStandard=trueSolar）时必须提供 location.longitude',
+    ),
   calendarType: z
     .enum(['solar', 'lunar'])
     .optional()
@@ -101,7 +105,9 @@ const qimenLifetimeSchema = z.object({
       endDate: z.string().describe('结束日期（YYYY-MM-DD）'),
     })
     .optional()
-    .describe('动态扫描的时间区间；日期必须有效，最多覆盖连续31个年份'),
+    .describe(
+      '动态扫描的时间区间；日期必须有效。在线调用单次最多覆盖连续 10 个年份，本地 stdio/自部署最多覆盖连续 31 个年份',
+    ),
   topics: z
     .array(z.enum(QIMEN_LIFETIME_TOPICS))
     .optional()

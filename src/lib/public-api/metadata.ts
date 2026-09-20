@@ -137,6 +137,8 @@ export function getPublicApiManifest(runtime: PublicApiRuntime = DEFAULT_PUBLIC_
     version: API_VERSION,
     baseUrl,
     openapiUrl: `${baseUrl}/openapi.json`,
+    mcpUrl: `${runtime.origin}/mcp`,
+    mcpTransport: 'Streamable HTTP',
     skillUrl: `${runtime.origin}/skills/aov-mingyu-api/SKILL.md`,
     endpoints: [...PUBLIC_API_ENDPOINTS],
   };

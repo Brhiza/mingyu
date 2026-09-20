@@ -5,7 +5,7 @@
  */
 
 import type { QimenLifetimeData } from '../../../../types/divination';
-import { formatFixedTimezoneOffset } from '../../../../calendar/civil-time';
+import { TimeManager } from '../../../../calendar/timeManager';
 import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../../../prompt/qimen-interpretation';
 import { formatQimenStemLocations } from '../../../../prompt/qimen-facts';
 import { buildPromptTask } from '../../../../prompt/guidance';
@@ -65,10 +65,10 @@ export function buildLifetimePrompt(
 
   // 1. 【当前时间】
   if (options.includeCurrentTime !== false) {
-    const now = new Date();
-    const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const now = TimeManager.getWallClockParts();
+    const nowStr = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')} ${String(now.hour).padStart(2, '0')}:${String(now.minute).padStart(2, '0')}`;
     lines.push(`【当前时间】`);
-    lines.push(`${nowStr}（UTC${formatFixedTimezoneOffset(-now.getTimezoneOffset() / 60)}）\n`);
+    lines.push(`${nowStr}（UTC+08:00）\n`);
   }
 
   // 2. 【传统依据】

@@ -94,7 +94,12 @@ export const baziSchema = z.object({
     .optional()
     .describe('出生秒数（0-59）；与标准北京时间时分一起表示精确时刻'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
-  birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+  birthLongitude: z
+    .number()
+    .min(-180)
+    .max(180)
+    .optional()
+    .describe('出生地经度（-180至180），启用真太阳时（useTrueSolarTime=true）时必填'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
   timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
@@ -228,14 +233,13 @@ export function buildBaziPerson(args: BaziPersonInput): Person {
   });
 
   if (useTrueSolarTime) {
-    if (
-      typeof args.birthHour !== 'number' ||
-      typeof args.birthMinute !== 'number' ||
-      typeof args.birthLongitude !== 'number'
-    ) {
-      throw new Error('真太阳时缺少精准时间或经度。');
+    const missingFields: string[] = [];
+    if (args.birthHour === undefined) missingFields.push('birthHour');
+    if (args.birthMinute === undefined) missingFields.push('birthMinute');
+    if (args.birthLongitude === undefined) missingFields.push('birthLongitude');
+    if (missingFields.length > 0) {
+      throw new Error(`真太阳时缺少精准时间或经度: 缺少 ${missingFields.join('、')}。`);
     }
-
     const birthHour = readMcpIntegerLikeInRange(args.birthHour, 'birthHour', 0, 23);
     const birthMinute = readMcpIntegerLikeInRange(args.birthMinute, 'birthMinute', 0, 59);
     const birthSecond =

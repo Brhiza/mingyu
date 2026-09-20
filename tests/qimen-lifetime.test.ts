@@ -723,7 +723,7 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.match(data.basis.timeZoneUsed, /America\/New_York/);
   const currentTimeSection = prompt.split('【传统依据】')[0];
   assert.doesNotMatch(currentTimeSection, /America\/New_York/);
-  assert.match(currentTimeSection, /UTC[+-]\d{2}:\d{2}/);
+  assert.match(currentTimeSection, /UTC\+08:00/);
   assert.ok(prompt.includes(`出生时区：${data.basis.timeZoneUsed}`));
 
   // 1. 结构化指定标题必须齐全
