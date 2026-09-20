@@ -79,6 +79,48 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
     'summary',
     'full',
   ]);
+  assert.equal(baziPromptTool?.title, '八字解读提示词');
+  assert.equal(baziPromptTool?._meta?.category, 'bazi');
+  assert.equal(baziPromptTool?._meta?.type, 'prompt');
+  assert.equal(baziPromptTool?._meta?.endpoint, '/bazi/prompt');
+  assert.deepEqual(baziPromptTool?._meta?.example, {
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 6,
+    dateType: 'solar',
+    question: '分析事业发展重点',
+  });
+  assert.match(baziPromptTool?.description ?? '', /示例：/);
+  const astrolabeTool = listJson.result.tools.find(
+    (tool: { name?: string }) => tool.name === 'divine_astrolabe',
+  );
+  assert.deepEqual(astrolabeTool?.inputSchema?.anyOf, [
+    { required: ['timezone'] },
+    { required: ['timeZoneId'] },
+  ]);
+  const astrolabeSynastryTool = listJson.result.tools.find(
+    (tool: { name?: string }) => tool.name === 'astrolabe_synastry',
+  );
+  assert.deepEqual(astrolabeSynastryTool?.inputSchema?.properties?.person1?.anyOf, [
+    { required: ['timezone'] },
+    { required: ['timeZoneId'] },
+  ]);
+  const almanacTool = listJson.result.tools.find(
+    (tool: { name?: string }) => tool.name === 'divine_almanac',
+  );
+  assert.match(
+    almanacTool?.inputSchema?.properties?.endDate?.description ?? '',
+    /在线调用单次最多 7 天/,
+  );
+  const qimenLifetimeTool = listJson.result.tools.find(
+    (tool: { name?: string }) => tool.name === 'divine_qimen_lifetime',
+  );
+  assert.match(
+    qimenLifetimeTool?.inputSchema?.properties?.periodRange?.description ?? '',
+    /在线调用单次最多覆盖连续 10 个年份/,
+  );
   const promptTools = listJson.result.tools.filter((tool: { name?: string }) =>
     tool.name?.endsWith('_prompt'),
   );
@@ -177,8 +219,40 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   assert.equal(rangeJson.result?.isError, true);
   assert.equal(rangeJson.result?.structuredContent?.code, 'RESOURCE_LIMIT');
   assert.equal(rangeJson.result?.structuredContent?.retryable, true);
+  assert.equal(rangeJson.result?.structuredContent?.maxAllowed, 7);
+  assert.equal(rangeJson.result?._meta?.unit, 'days');
 
-  // 8. POST tools/call 执行排盘工具
+  // 8. 条件输入缺失时一次性返回可执行的字段清单
+  const trueSolarErrorRes = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: {
+          name: 'bazi_calculate',
+          arguments: {
+            gender: 'male',
+            year: 1990,
+            month: 5,
+            day: 15,
+            dateType: 'solar',
+            useTrueSolarTime: true,
+          },
+        },
+      }),
+    }),
+  });
+  const trueSolarErrorJson = await trueSolarErrorRes.json();
+  assert.deepEqual(trueSolarErrorJson.result?.structuredContent?.missingFields, [
+    'birthHour',
+    'birthMinute',
+    'birthLongitude',
+  ]);
+
+  // 9. POST tools/call 执行排盘工具并返回响应元数据
   const callRes = await onRequest({
     request: new Request('https://aov.cc/mcp', {
       method: 'POST',
@@ -200,4 +274,7 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   const callJson = await callRes.json();
   assert.equal(callJson.result?.isError, undefined);
   assert.ok(callJson.result?.structuredContent || callJson.result?.content);
+  assert.equal(callJson.result?._meta?.tool, 'foundation_capabilities');
+  assert.equal(typeof callJson.result?._meta?.durationMs, 'number');
+  assert.equal(callJson.result?._meta?.version, initJson.result?.serverInfo?.version);
 });

@@ -35,7 +35,7 @@ function getValidationFieldNames(message: string) {
   return [...fields];
 }
 
-function normalizeMcpValidationResponseBody(payload: unknown) {
+function normalizeMcpValidationResponseBody(payload: unknown, toolName?: string) {
   if (!payload || typeof payload !== 'object') return payload;
   const record = payload as Record<string, unknown>;
   const result = record.result;
@@ -64,6 +64,11 @@ function normalizeMcpValidationResponseBody(payload: unknown) {
       ...toolResult,
       structuredContent,
       content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+      _meta: {
+        ...(toolName ? { tool: toolName } : {}),
+        version: SERVER_INFO.version,
+        ...(toolResult._meta && typeof toolResult._meta === 'object' ? toolResult._meta : {}),
+      },
     },
   };
 }
@@ -88,12 +93,29 @@ function readYearRangeYears(range: unknown) {
   return endYear - startYear + 1;
 }
 
-function buildOnlineResourceLimitResponse(id: unknown, message: string) {
+function buildOnlineResourceLimitResponse(
+  id: unknown,
+  message: string,
+  extra?: {
+    tool?: string;
+    limit?: number;
+    maxAllowed?: number;
+    requested?: number;
+    unit?: string;
+    recommendation?: string;
+  },
+) {
   const structuredContent = {
     error: message,
     code: 'RESOURCE_LIMIT',
     retryable: true,
-    fallback: '请缩小范围后分段调用；需要完整大范围结果时使用本地或自部署 MCP。',
+    fallback:
+      extra?.recommendation || '请缩小范围后分段调用；需要完整大范围结果时使用本地或自部署 MCP。',
+    ...(extra?.limit !== undefined ? { limit: extra.limit } : {}),
+    ...(extra?.maxAllowed !== undefined ? { maxAllowed: extra.maxAllowed } : {}),
+    ...(extra?.requested !== undefined ? { requested: extra.requested } : {}),
+    ...(extra?.unit ? { unit: extra.unit } : {}),
+    ...(extra?.recommendation ? { recommendation: extra.recommendation } : {}),
   };
   return jsonResponse({
     jsonrpc: '2.0',
@@ -102,6 +124,13 @@ function buildOnlineResourceLimitResponse(id: unknown, message: string) {
       isError: true,
       structuredContent,
       content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+      _meta: {
+        ...(extra?.tool ? { tool: extra.tool } : {}),
+        version: SERVER_INFO.version,
+        ...(extra?.limit !== undefined ? { limit: extra.limit } : {}),
+        ...(extra?.maxAllowed !== undefined ? { maxAllowed: extra.maxAllowed } : {}),
+        ...(extra?.unit ? { unit: extra.unit } : {}),
+      },
     },
   });
 }
@@ -131,6 +160,14 @@ async function checkOnlineResourceLimit(request: Request) {
       return buildOnlineResourceLimitResponse(
         record.id,
         `在线 MCP 为保证边缘运行稳定，黄历单次最多计算 ${ONLINE_ALMANAC_MAX_DAYS} 天；当前请求为 ${days} 天。`,
+        {
+          tool: name,
+          limit: ONLINE_ALMANAC_MAX_DAYS,
+          maxAllowed: ONLINE_ALMANAC_MAX_DAYS,
+          requested: days,
+          unit: 'days',
+          recommendation: `建议将日期范围缩小至 ${ONLINE_ALMANAC_MAX_DAYS} 天以内分段查询（例如以 ${input.startDate} 起查询 7 天），或使用本地/自部署 MCP 查询完整范围。`,
+        },
       );
     }
   }
@@ -141,6 +178,14 @@ async function checkOnlineResourceLimit(request: Request) {
       return buildOnlineResourceLimitResponse(
         record.id,
         `在线 MCP 为保证边缘运行稳定，奇门终身局单次动态扫描最多 ${ONLINE_QIMEN_LIFETIME_MAX_YEARS} 年；当前请求为 ${years} 年。`,
+        {
+          tool: name,
+          limit: ONLINE_QIMEN_LIFETIME_MAX_YEARS,
+          maxAllowed: ONLINE_QIMEN_LIFETIME_MAX_YEARS,
+          requested: years,
+          unit: 'years',
+          recommendation: `建议将扫描区间缩小至 ${ONLINE_QIMEN_LIFETIME_MAX_YEARS} 年以内分段查询，或使用本地/自部署 MCP 查询完整范围。`,
+        },
       );
     }
   }
@@ -205,6 +250,22 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     normalizedRequest = new Request(request, { headers: nextHeaders });
   }
 
+  let requestedToolName: string | undefined;
+  if (method === 'POST') {
+    try {
+      const cloned = await request.clone().json();
+      if (cloned && typeof cloned === 'object') {
+        const r = cloned as Record<string, unknown>;
+        if (r.method === 'tools/call' && r.params && typeof r.params === 'object') {
+          const name = (r.params as Record<string, unknown>).name;
+          requestedToolName = typeof name === 'string' ? name : undefined;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   // 4. 创建无状态 Transport 并执行请求
   const server = createMingyuMcpServer();
   const transport = new WebStandardStreamableHTTPServerTransport({
@@ -226,7 +287,10 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   if ((headers.get('content-type') || '').includes('application/json')) {
     const body = await response.text();
     try {
-      const normalizedBody = normalizeMcpValidationResponseBody(JSON.parse(body));
+      const normalizedBody = normalizeMcpValidationResponseBody(
+        JSON.parse(body),
+        requestedToolName,
+      );
       return new Response(JSON.stringify(normalizedBody), {
         status: response.status,
         statusText: response.statusText,

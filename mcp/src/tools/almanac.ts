@@ -67,7 +67,9 @@ const almanacSchema = z.object({
     .optional()
     .describe('择日事项；不填时使用 custom'),
   startDate: z.string().describe('开始日期，格式为 YYYY-MM-DD'),
-  endDate: z.string().describe('结束日期，格式为 YYYY-MM-DD；最多比较 31 天'),
+  endDate: z
+    .string()
+    .describe('结束日期，格式为 YYYY-MM-DD；在线调用单次最多 7 天，本地 stdio/自部署最多 31 天'),
   participants: z
     .array(almanacParticipantSchema)
     .optional()
@@ -79,7 +81,7 @@ const almanacSchema = z.object({
     .min(1)
     .max(31)
     .optional()
-    .describe('分页每页日期数量，最多 31 天；默认 10'),
+    .describe('分页每页日期数量，在线调用单次最多 7 天，本地 stdio/自部署最多 31 天；默认 10'),
 });
 
 const almanacPromptSchema = extendOptionalQuestionPromptSchema(

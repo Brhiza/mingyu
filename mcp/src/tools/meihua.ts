@@ -53,7 +53,9 @@ const meihuaSchema = z.object({
   customDate: z
     .string()
     .optional()
-    .describe('自定义起卦时间（ISO 8601 格式），不提供则使用当前时间'),
+    .describe(
+      '自定义起卦时间，必须包含明确时区偏移的完整 ISO 8601 格式（如 2026-05-15T14:30:00+08:00 或 2026-05-15T06:30:00Z）；不提供则使用当前时间',
+    ),
 });
 
 const meihuaPromptSchema = extendPromptSchema(meihuaSchema, 'meihua', '用户希望围绕卦盘解读的问题');

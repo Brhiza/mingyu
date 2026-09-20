@@ -92,10 +92,19 @@ export const ziweiSchema = z.object({
     .describe('仅在 promptScope=full 或 decadal 时生效；每次只计算一个年龄年'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
-  birthMinute: z.string().optional().describe('精准出生分钟，启用真太阳时时必填，如 20'),
+  birthHour: z
+    .string()
+    .optional()
+    .describe('精准出生小时（0-23），启用真太阳时（useTrueSolarTime=true）时必填，如 1'),
+  birthMinute: z
+    .string()
+    .optional()
+    .describe('精准出生分钟（0-59），启用真太阳时（useTrueSolarTime=true）时必填，如 20'),
   birthSecond: z.string().optional().describe('出生秒数（0-59）；与时分共同指定精准出生时间'),
-  birthLongitude: z.string().optional().describe('出生地经度，启用真太阳时时必填，如 116.4074'),
+  birthLongitude: z
+    .string()
+    .optional()
+    .describe('出生地经度（-180至180），启用真太阳时（useTrueSolarTime=true）时必填，如 116.4074'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
   timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
@@ -321,6 +330,19 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const hasPreciseClock = args.birthSecond !== undefined && args.birthSecond.trim() !== '';
   if (!useTrueSolarTime && !hasPreciseClock && typeof args.timeIndex !== 'number') {
     throw new Error('请选择出生时辰。');
+  }
+  if (useTrueSolarTime) {
+    const missingFields: string[] = [];
+    if (args.birthHour === undefined || args.birthHour.trim() === '')
+      missingFields.push('birthHour');
+    if (args.birthMinute === undefined || args.birthMinute.trim() === '')
+      missingFields.push('birthMinute');
+    if (args.birthLongitude === undefined || args.birthLongitude.trim() === '') {
+      missingFields.push('birthLongitude');
+    }
+    if (missingFields.length > 0) {
+      throw new Error(`真太阳时缺少精准时间或经度: 缺少 ${missingFields.join('、')}。`);
+    }
   }
   const trueSolarTimeInput = useTrueSolarTime
     ? {

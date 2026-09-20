@@ -87,6 +87,11 @@ export function withErrorOutputSchema<T extends z.ZodRawShape>(successShape: T) 
       missingFields: z.array(z.string()).optional().describe('缺失的必填字段列表'),
       retryable: z.boolean().optional().describe('是否支持带参重试'),
       fallback: z.string().optional().describe('业务降级建议或后备策略说明'),
+      limit: z.number().optional().describe('资源限制值'),
+      maxAllowed: z.number().optional().describe('允许的最大数值'),
+      requested: z.number().optional().describe('请求的数值'),
+      unit: z.string().optional().describe('限制单位（如 days、years）'),
+      recommendation: z.string().optional().describe('业务建议或分段指引'),
     })
     .refine(
       (value) => {

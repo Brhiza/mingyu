@@ -40,17 +40,29 @@ const astrolabeSchema = z.object({
   second: z.number().int().min(0).max(59).optional().describe('出生秒数，默认0'),
   latitude: z.number().describe('出生地纬度'),
   longitude: z.number().describe('出生地经度'),
-  timezone: z.number().optional().describe('固定时区偏移，例如中国大陆通常为 8'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('固定时区偏移，例如中国大陆通常为 8；与 timeZoneId 至少提供一项'),
   timeZoneId: z
     .string()
+    .min(1)
     .optional()
-    .describe('IANA 历史时区，例如 Asia/Shanghai；推荐用于历史出生时间和夏令时地区'),
+    .describe(
+      'IANA 历史时区，例如 Asia/Shanghai；推荐用于历史出生时间和夏令时地区；与 timezone 至少提供一项',
+    ),
   locationName: z.string().optional().describe('出生地点名称'),
   useTrueSolarTime: z
     .boolean()
     .optional()
     .describe('是否附带真太阳时参考证据；不改变现代星历采用的实际出生瞬间'),
 });
+
+export const astrolabeCondition = {
+  anyOf: [{ required: ['timezone'] }, { required: ['timeZoneId'] }],
+};
 
 const astrolabePromptScopes = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
 
@@ -78,9 +90,19 @@ const astrolabePromptSchema = extendPromptSchema(
   '用户希望围绕星盘解读的问题',
 );
 
+const astrolabeToolSchema = astrolabeSchema
+  .extend(calculationDetailShape)
+  .describe('西洋占星排盘：timezone 与 timeZoneId 至少提供一项')
+  .meta(astrolabeCondition);
+
+const astrolabePromptToolSchema = astrolabePromptSchema
+  .describe('星盘提示词：timezone 与 timeZoneId 至少提供一项')
+  .meta(astrolabeCondition);
+
+const astrolabeSynastryPersonSchema = astrolabeSchema.meta(astrolabeCondition);
 const astrolabeSynastrySchema = z.object({
-  person1: astrolabeSchema.describe('第一人的出生资料'),
-  person2: astrolabeSchema.describe('第二人的出生资料'),
+  person1: astrolabeSynastryPersonSchema.describe('第一人的出生资料'),
+  person2: astrolabeSynastryPersonSchema.describe('第二人的出生资料'),
 });
 
 const astrolabeSynastryPromptSchema = extendOptionalQuestionPromptSchema(
@@ -232,7 +254,7 @@ export function registerAstrolabeTool(server: McpServer) {
     {
       description:
         '星盘生成：根据民用出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；可附带真太阳时参考，但不改写现代星历时刻',
-      inputSchema: { ...astrolabeSchema.shape, ...calculationDetailShape },
+      inputSchema: astrolabeToolSchema,
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -249,7 +271,7 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_prompt',
     {
       description: '星盘计算并生成可直接交给 AI 的完整任务书，同时返回星盘和结构化证据',
-      inputSchema: astrolabePromptSchema.shape,
+      inputSchema: astrolabePromptToolSchema,
       outputSchema: promptOutputSchema,
     },
     async (args) => {

@@ -789,12 +789,117 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
   },
 ];
 
+export const TOOL_MINIMAL_EXAMPLES: Record<string, Record<string, unknown>> = {
+  bazi_calculate: {
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 6,
+    dateType: 'solar',
+  },
+  bazi_prompt: {
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 6,
+    dateType: 'solar',
+    question: '分析事业发展重点',
+  },
+  ziwei_calculate: {
+    gender: 'male',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 6,
+    dateType: 'solar',
+  },
+  ziwei_prompt: {
+    gender: 'male',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 6,
+    dateType: 'solar',
+    question: '分析今年运势格局',
+  },
+  divine_liuyao: {
+    question: '求测项目合作前景',
+  },
+  liuyao_prompt: {
+    question: '求测项目合作前景',
+  },
+  divine_qimen: {
+    customDate: '2026-05-15T14:30:00+08:00',
+  },
+  qimen_prompt: {
+    question: '求测求职面试结果',
+  },
+  divine_almanac: {
+    startDate: '2026-06-01',
+    endDate: '2026-06-03',
+    topic: 'move',
+  },
+  almanac_prompt: {
+    startDate: '2026-06-01',
+    endDate: '2026-06-03',
+    topic: 'move',
+  },
+  name_generate: {
+    surname: '李',
+    gender: '男',
+    givenNameLength: 2,
+    preferredElements: ['木'],
+  },
+  name_generate_prompt: {
+    surname: '李',
+    gender: '男',
+    givenNameLength: 2,
+    preferredElements: ['木'],
+    generationCharacter: '知',
+  },
+  name_analyze: {
+    fullName: '李知远',
+    surnameLength: 1,
+  },
+  name_analyze_prompt: {
+    fullName: '李知远',
+    surnameLength: 1,
+    question: '分析姓名五行与寓意',
+  },
+};
+
 export function getToolCatalog(): readonly ToolCatalogItem[] {
   return TOOL_CATALOG;
 }
 
 export function findTool(id: string): ToolCatalogItem | undefined {
   return TOOL_CATALOG.find((tool) => tool.id === id);
+}
+
+export function getToolTitle(id: string): string | undefined {
+  return findTool(id)?.title;
+}
+
+export function getToolMetadata(id: string):
+  | {
+      category: ToolCatalogItem['category'];
+      type: ToolCatalogItem['type'];
+      endpoint?: string;
+    }
+  | undefined {
+  const tool = findTool(id);
+  if (!tool) return undefined;
+  return {
+    category: tool.category,
+    type: tool.type,
+    ...(tool.endpoint ? { endpoint: tool.endpoint } : {}),
+  };
+}
+
+export function getToolExample(id: string): Record<string, unknown> | undefined {
+  return TOOL_MINIMAL_EXAMPLES[id];
 }
 
 export function getToolAnnotations(id: string): ToolMetadataAnnotations {
@@ -827,7 +932,9 @@ export function getToolDescription(id: string, registeredDescription?: string): 
     tool && !tool.annotations.idempotentHint
       ? '。本工具可能随机；同一问题只调用一次，复核时复用重放参数或固定输入'
       : '';
-  return `${baseDescription}。调用与读取：${TOOL_USAGE_GUIDANCE[type]}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论。`;
+  const example = TOOL_MINIMAL_EXAMPLES[id];
+  const exampleSuffix = example ? `。示例：${JSON.stringify(example)}` : '';
+  return `${baseDescription}。调用与读取：${TOOL_USAGE_GUIDANCE[type]}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论${exampleSuffix}。`;
 }
 
 export function getToolsByCategory(category: ToolCatalogItem['category']): ToolCatalogItem[] {

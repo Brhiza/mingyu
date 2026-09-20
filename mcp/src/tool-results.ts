@@ -114,7 +114,11 @@ export function createErrorToolResult(
   options?: ErrorToolResultOptions,
 ): CallToolResult {
   const defaultOptions = classifyError(message);
-  const resolvedOptions = { ...defaultOptions, ...options };
+  const resolvedOptions = {
+    ...defaultOptions,
+    ...options,
+    missingFields: options?.missingFields ?? defaultOptions.missingFields,
+  };
   const structuredContent: Record<string, unknown> = {
     error: message,
     ...(resolvedOptions.code ? { code: resolvedOptions.code } : {}),
@@ -137,9 +141,37 @@ export function createErrorToolResult(
   };
 }
 
-function classifyError(
-  message: string,
-): Required<Pick<ErrorToolResultOptions, 'code' | 'retryable' | 'fallback'>> {
+function extractMissingFields(message: string): string[] | undefined {
+  if (/timezone.*timeZoneId|timeZoneId.*timezone/i.test(message)) {
+    return ['timezone', 'timeZoneId'];
+  }
+  if (/location\.longitude/i.test(message)) {
+    return ['location.longitude'];
+  }
+  if (/真太阳时.*(?:精准时间|经度)|缺少精准时间或经度/i.test(message)) {
+    const fields: string[] = [];
+    if (/birthHour/i.test(message) || /小时/.test(message)) fields.push('birthHour');
+    if (/birthMinute/i.test(message) || /分钟/.test(message)) fields.push('birthMinute');
+    if (/birthLongitude/i.test(message) || /经度/.test(message)) fields.push('birthLongitude');
+    return fields.length ? fields : ['birthLongitude'];
+  }
+  if (/birthLongitude|出生地经度/i.test(message)) {
+    return ['birthLongitude'];
+  }
+  if (/customDate/i.test(message)) {
+    return ['customDate'];
+  }
+  if (/时辰|birthTime|timeIndex/i.test(message)) {
+    return ['timeIndex'];
+  }
+  return undefined;
+}
+
+function classifyError(message: string): Required<
+  Pick<ErrorToolResultOptions, 'code' | 'retryable' | 'fallback'>
+> & {
+  missingFields?: string[];
+} {
   if (/资源|超出|过大|限制|1102|timeout|timed out|limit/i.test(message)) {
     return {
       code: 'RESOURCE_LIMIT',
@@ -150,10 +182,12 @@ function classifyError(
   if (
     /必须|需要|缺少|不能|不得|不接受|无效|不合法|不一致|至少|至多|只能|应为|超出范围/.test(message)
   ) {
+    const missingFields = extractMissingFields(message);
     return {
       code: 'INVALID_ARGUMENTS',
       retryable: false,
       fallback: '请根据 error 修正输入参数后重试。',
+      ...(missingFields?.length ? { missingFields } : {}),
     };
   }
   return {

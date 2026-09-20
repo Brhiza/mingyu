@@ -21,7 +21,9 @@ const taiyiSchema = z.object({
   customDate: z
     .string()
     .optional()
-    .describe('月计、日计、时计的排盘时间（ISO 8601 格式）；不提供则使用当前时间'),
+    .describe(
+      '月计、日计、时计的排盘时间，必须包含明确时区偏移的完整 ISO 8601 格式（如 2026-05-15T14:30:00+08:00 或 2026-05-15T06:30:00Z）；不提供则使用当前时间',
+    ),
   ganZhi: z
     .string()
     .refine(isValidGanZhi, 'ganZhi 必须是有效的六十甲子')

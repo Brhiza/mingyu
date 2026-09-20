@@ -27,9 +27,15 @@ import { registerCalendarTools } from './tools/calendar.js';
 import { registerInstantTool } from './tools/instant.js';
 import { registerNameNumberTools } from './tools/name-number.js';
 import { registerYilinTool } from './tools/yilin.js';
-import { getToolAnnotations, getToolDescription } from './catalog/tool-catalog.js';
+import {
+  getToolAnnotations,
+  getToolDescription,
+  getToolExample,
+  getToolMetadata,
+  getToolTitle,
+} from './catalog/tool-catalog.js';
 import { promptOutputSchema, promptResponseModeShape, type PromptResponseMode } from './schemas.js';
-import { applyPromptResponseMode } from './tool-results.js';
+import { applyPromptResponseMode, createErrorToolResult, getErrorMessage } from './tool-results.js';
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import packageJson from '../../package.json';
 
@@ -47,10 +53,12 @@ export const SERVER_INSTRUCTIONS = [
 ].join('\n');
 
 type RegisterToolConfig = {
+  title?: string;
   annotations?: ToolAnnotations;
   description?: string;
   inputSchema?: unknown;
   outputSchema?: unknown;
+  _meta?: Record<string, unknown>;
   [key: string]: unknown;
 };
 
@@ -92,6 +100,46 @@ function addPromptResponseMode(inputSchema: unknown): unknown {
   return promptResponseModeShape;
 }
 
+function extractPublicMetadata(
+  name: string,
+  args: Record<string, unknown>,
+  durationMs: number,
+): Record<string, unknown> {
+  const meta: Record<string, unknown> = {
+    tool: name,
+    version: SERVER_INFO.version,
+    durationMs,
+  };
+
+  if (typeof args.startDate === 'string' && typeof args.endDate === 'string') {
+    meta.range = { startDate: args.startDate, endDate: args.endDate };
+  } else if (
+    args.periodRange &&
+    typeof args.periodRange === 'object' &&
+    typeof (args.periodRange as Record<string, unknown>).startDate === 'string' &&
+    typeof (args.periodRange as Record<string, unknown>).endDate === 'string'
+  ) {
+    const pr = args.periodRange as Record<string, unknown>;
+    meta.range = { startDate: pr.startDate, endDate: pr.endDate };
+  }
+
+  if (typeof args.timeZoneId === 'string' && args.timeZoneId.trim()) {
+    meta.timeZone = args.timeZoneId.trim();
+  } else if (typeof args.timezone === 'number' && Number.isFinite(args.timezone)) {
+    meta.timeZone = args.timezone >= 0 ? `UTC+${args.timezone}` : `UTC${args.timezone}`;
+  }
+
+  if (typeof args.customDate === 'string' && args.customDate.trim()) {
+    meta.actualTime = args.customDate.trim();
+  } else if (typeof args.birthDateTime === 'string' && args.birthDateTime.trim()) {
+    meta.actualTime = args.birthDateTime.trim();
+  } else if (typeof args.localDateTime === 'string' && args.localDateTime.trim()) {
+    meta.actualTime = args.localDateTime.trim();
+  }
+
+  return meta;
+}
+
 /**
  * 创建并配置命语 MCP 服务器实例
  */
@@ -110,27 +158,55 @@ export function createMingyuMcpServer(): McpServer {
     cb: RegisterToolCallback,
   ) => unknown;
   server.registerTool = ((name: string, config: RegisterToolConfig, cb: RegisterToolCallback) => {
+    const title = config.title ?? getToolTitle(name);
     const annotations = config.annotations ?? getToolAnnotations(name);
     const description = getToolDescription(name, config.description);
+    const toolMeta = getToolMetadata(name);
+    const example = getToolExample(name);
+    const metaRecord = {
+      ...(toolMeta ?? {}),
+      ...(example ? { example } : {}),
+      ...((config._meta as Record<string, unknown> | undefined) ?? {}),
+    };
+    const _meta = Object.keys(metaRecord).length ? metaRecord : undefined;
+
     const isPromptTool = config.outputSchema === promptOutputSchema;
     const inputSchema = isPromptTool
       ? addPromptResponseMode(config.inputSchema)
       : config.inputSchema;
-    const wrappedCallback = isPromptTool
-      ? async (args: Record<string, unknown>, extra: unknown) => {
-          const result = await cb(args, extra);
-          const responseMode = (args as { responseMode?: PromptResponseMode }).responseMode;
-          return applyPromptResponseMode(
-            result,
-            responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
-              ? responseMode
-              : 'full',
-          );
-        }
-      : cb;
+
+    const wrappedCallback = async (args: Record<string, unknown>, extra: unknown) => {
+      const startTime = performance.now();
+      let result: CallToolResult;
+      try {
+        result = await cb(args, extra);
+      } catch (error) {
+        result = createErrorToolResult(getErrorMessage(error, '工具执行失败'));
+      }
+      const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+
+      if (isPromptTool) {
+        const responseMode = (args as { responseMode?: PromptResponseMode }).responseMode;
+        result = applyPromptResponseMode(
+          result,
+          responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
+            ? responseMode
+            : 'full',
+        );
+      }
+
+      const reliableMeta = extractPublicMetadata(name, args, durationMs);
+      result._meta = {
+        ...reliableMeta,
+        ...(result._meta ?? {}),
+      };
+
+      return result;
+    };
+
     return originalRegisterTool(
       name,
-      { ...config, inputSchema, annotations, description },
+      { ...config, title, inputSchema, annotations, description, _meta },
       wrappedCallback,
     );
   }) as unknown as typeof server.registerTool;
