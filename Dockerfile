@@ -6,6 +6,7 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/core/package.json packages/core/package.json
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
