@@ -1887,12 +1887,24 @@
   }
 
   .ziwei-showcase-card .ziwei-traditional-board {
-    padding: 20px 5px;
-    overflow-x: auto;
+    aspect-ratio: 1;
+    padding: 4px;
+    overflow: hidden;
   }
 
   .ziwei-showcase-card .ziwei-traditional-grid {
-    min-width: 620px;
+    min-width: 0;
+    height: 100%;
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .ziwei-showcase-card .ziwei-grid-cell {
+    min-height: 0;
+    padding: 12px 3px 3px;
+    gap: 2px;
+    border-radius: 6px;
+    overflow: hidden;
   }
 
   .divination-result-panel > .traditional-board,
@@ -5161,10 +5173,45 @@
   }
 
   .ziwei-traditional-board {
-    padding: 6px 0 !important;
+    aspect-ratio: 1 !important;
+    padding: 4px !important;
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
+    overflow: hidden !important;
+  }
+
+  .ziwei-showcase-card .ziwei-traditional-grid {
+    min-width: 0 !important;
+    height: 100% !important;
+    grid-template-rows: repeat(4, minmax(0, 1fr)) !important;
+    gap: 3px !important;
+  }
+
+  .ziwei-showcase-card .ziwei-grid-cell {
+    min-height: 0 !important;
+    padding: 12px 3px 3px !important;
+    gap: 2px !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .ziwei-showcase-card .chart-cell-body {
+    overflow: hidden;
+  }
+
+  .ziwei-showcase-card .chart-cell-star-layers {
+    max-height: 44px;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .ziwei-showcase-card .chart-cell-stars {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.1;
   }
 
   /* 8. 典籍断语卡片沉浸化折叠 */

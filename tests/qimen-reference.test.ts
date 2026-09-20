@@ -93,10 +93,8 @@ function referenceZhuanpan(
   const zhiFuLanding = diPan.indexOf(hourGan) + 1 === 5 ? 2 : diPan.indexOf(hourGan) + 1;
   const zhiFuHome = STAR_HOME[zhiFu];
   const steps = HEAVENLY_STEMS.indexOf(ganZhi.charAt(0));
-  const zhiShiLanding =
-    (((zhiFuHome === 5 ? 2 : zhiFuHome) - 1 + (isYangDun ? steps : -steps) + 90) % 9) + 1 === 5
-      ? 2
-      : (((zhiFuHome === 5 ? 2 : zhiFuHome) - 1 + (isYangDun ? steps : -steps) + 90) % 9) + 1;
+  const zhiShiRaw = ((zhiFuHome - 1 + (isYangDun ? steps : -steps) + 90) % 9) + 1;
+  const zhiShiLanding = zhiShiRaw === 5 ? 2 : zhiShiRaw;
 
   const result = Array.from({ length: 9 }, () => ({
     diPan: '',
