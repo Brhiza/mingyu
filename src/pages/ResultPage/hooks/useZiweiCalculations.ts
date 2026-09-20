@@ -75,7 +75,19 @@ export function useZiweiCalculations(
   const rangePage = rangeRequested ? rangeSelection.page : null;
   const rangePaused = rangeRequested && rangeSelection.paused === true;
   const fixedHoroscopeContext = useMemo(() => getDefaultHoroscopeContext(), []);
+  const ziweiRuntimeScopes = useMemo<ScopeType[]>(() => {
+    const requestedScope =
+      promptState.ziweiScope === 'full' ? 'origin' : (promptState.ziweiScope as ScopeType);
+    // 盘面和年限选择器首屏都会读取这些范围；流时、年龄等资料在实际需要时再生成。
+    return Array.from(
+      new Set(['origin', 'decadal', 'yearly', 'monthly', 'daily', requestedScope] as ScopeType[]),
+    );
+  }, [promptState.ziweiScope]);
   const ziweiRuntimeOptions = useMemo<ZiweiRuntimeOptions>(
+    () => ({ scopes: ziweiRuntimeScopes, horoscopeContext: fixedHoroscopeContext }),
+    [fixedHoroscopeContext, ziweiRuntimeScopes],
+  );
+  const ziweiPayloadOptions = useMemo(
     () => ({ horoscopeContext: fixedHoroscopeContext }),
     [fixedHoroscopeContext],
   );
@@ -127,10 +139,10 @@ export function useZiweiCalculations(
   const primaryZiweiInputKey = primaryZiweiInput ? getZiweiInputKey(primaryZiweiInput) : '';
   const partnerZiweiInputKey = partnerZiweiInput ? getZiweiInputKey(partnerZiweiInput) : '';
   const primaryPayloadKey = primaryZiweiInputKey
-    ? getZiweiPayloadKey(primaryZiweiInputKey, ziweiRuntimeOptions)
+    ? getZiweiPayloadKey(primaryZiweiInputKey, ziweiPayloadOptions)
     : '';
   const partnerPayloadKey = partnerZiweiInputKey
-    ? getZiweiPayloadKey(partnerZiweiInputKey, ziweiRuntimeOptions)
+    ? getZiweiPayloadKey(partnerZiweiInputKey, ziweiPayloadOptions)
     : '';
   const primaryRuntimeKey = primaryZiweiInputKey
     ? getZiweiRuntimeKey(primaryZiweiInputKey, ziweiRuntimeOptions)
@@ -249,7 +261,7 @@ export function useZiweiCalculations(
     void loadZiweiPayload(
       primaryZiweiInput,
       primaryZiweiInputKey,
-      ziweiRuntimeOptions,
+      ziweiPayloadOptions,
       '紫微排盘失败。',
       controller.signal,
     )
@@ -277,7 +289,7 @@ export function useZiweiCalculations(
     primaryZiweiInputKey,
     shouldLoadZiweiPromptPayload,
     ziweiRetryRevision,
-    ziweiRuntimeOptions,
+    ziweiPayloadOptions,
   ]);
 
   useEffect(() => {
@@ -306,7 +318,7 @@ export function useZiweiCalculations(
     void loadZiweiPayload(
       partnerZiweiInput,
       partnerZiweiInputKey,
-      ziweiRuntimeOptions,
+      ziweiPayloadOptions,
       '第二人紫微排盘失败。',
       controller.signal,
     )
@@ -334,7 +346,7 @@ export function useZiweiCalculations(
     partnerZiweiInputKey,
     shouldLoadZiweiPromptPayload,
     ziweiRetryRevision,
-    ziweiRuntimeOptions,
+    ziweiPayloadOptions,
   ]);
 
   useEffect(() => {
@@ -363,28 +375,30 @@ export function useZiweiCalculations(
           setZiweiRuntime(runtime);
           setPrimaryRuntimeInputKey(primaryRuntimeKey);
           setZiweiError('');
+
+          // 先让轻量盘面完成，完整提示词资料在盘面显示后再预热，避免移动端首次进入时抢占计算资源。
+          if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(primaryPayloadKey)) {
+            void loadZiweiPayload(
+              primaryZiweiInput,
+              primaryZiweiInputKey,
+              ziweiPayloadOptions,
+              '紫微排盘失败。',
+              payloadController.signal,
+            )
+              .catch(() => {
+                // 完整提示词数据在后台预热，失败不影响已经缓存的轻量盘面。
+              })
+              .finally(releasePayloadController);
+          } else {
+            releasePayloadController();
+          }
         })
         .catch((error: unknown) => {
+          releasePayloadController();
           if (active && generation === ziweiRequestGenerationRef.current) {
             setZiweiError(error instanceof Error ? error.message : '紫微排盘失败。');
           }
         });
-
-      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(primaryPayloadKey)) {
-        void loadZiweiPayload(
-          primaryZiweiInput,
-          primaryZiweiInputKey,
-          ziweiRuntimeOptions,
-          '紫微排盘失败。',
-          payloadController.signal,
-        )
-          .catch(() => {
-            // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
-          })
-          .finally(releasePayloadController);
-      } else {
-        releasePayloadController();
-      }
       return () => {
         active = false;
         releasePayloadController();
@@ -405,7 +419,7 @@ export function useZiweiCalculations(
       void loadZiweiPayload(
         primaryZiweiInput,
         primaryZiweiInputKey,
-        ziweiRuntimeOptions,
+        ziweiPayloadOptions,
         '紫微排盘失败。',
         payloadController.signal,
       )
@@ -426,6 +440,7 @@ export function useZiweiCalculations(
     shouldLoadZiweiPromptPayload,
     shouldWarmZiweiRuntime,
     ziweiRetryRevision,
+    ziweiPayloadOptions,
     ziweiRuntimeOptions,
   ]);
 
@@ -455,28 +470,30 @@ export function useZiweiCalculations(
           setPartnerZiweiRuntime(runtime);
           setPartnerRuntimeInputKey(partnerRuntimeKey);
           setZiweiError('');
+
+          // 先让轻量盘面完成，完整提示词资料在盘面显示后再预热，避免移动端首次进入时抢占计算资源。
+          if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(partnerPayloadKey)) {
+            void loadZiweiPayload(
+              partnerZiweiInput,
+              partnerZiweiInputKey,
+              ziweiPayloadOptions,
+              '第二人紫微排盘失败。',
+              payloadController.signal,
+            )
+              .catch(() => {
+                // 完整提示词数据在后台预热，失败不影响已经缓存的轻量盘面。
+              })
+              .finally(releasePayloadController);
+          } else {
+            releasePayloadController();
+          }
         })
         .catch((error: unknown) => {
+          releasePayloadController();
           if (active && generation === ziweiRequestGenerationRef.current) {
             setZiweiError(error instanceof Error ? error.message : '第二人紫微排盘失败。');
           }
         });
-
-      if (!shouldLoadZiweiPromptPayload && !getCachedZiweiPayload(partnerPayloadKey)) {
-        void loadZiweiPayload(
-          partnerZiweiInput,
-          partnerZiweiInputKey,
-          ziweiRuntimeOptions,
-          '第二人紫微排盘失败。',
-          payloadController.signal,
-        )
-          .catch(() => {
-            // 完整提示词数据在后台预热，失败不影响轻量盘面展示。
-          })
-          .finally(releasePayloadController);
-      } else {
-        releasePayloadController();
-      }
       return () => {
         active = false;
         releasePayloadController();
@@ -497,7 +514,7 @@ export function useZiweiCalculations(
       void loadZiweiPayload(
         partnerZiweiInput,
         partnerZiweiInputKey,
-        ziweiRuntimeOptions,
+        ziweiPayloadOptions,
         '第二人紫微排盘失败。',
         payloadController.signal,
       )
@@ -518,6 +535,7 @@ export function useZiweiCalculations(
     shouldLoadZiweiPromptPayload,
     shouldWarmPartnerZiweiRuntime,
     ziweiRetryRevision,
+    ziweiPayloadOptions,
     ziweiRuntimeOptions,
   ]);
 

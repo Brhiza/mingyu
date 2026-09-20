@@ -134,9 +134,10 @@ export function resolveZhiShiLandingPalace(
   }
 
   const rawStart = startPalace ?? luoShuDoorPath[zhiShiDoorIndex];
-  const start = method === 'zhuanpan' ? normalizeNoDoorPalace(rawStart) : rawStart;
   const steps = getGanZhiStepInXun(ganZhi);
-  return normalizeNoDoorPalace(advanceNinePalace(start, steps, isYangDun));
+  // 旬首落中五宫时，先从原宫计步，只有最终落中五宫才按寄宫处理。
+  // 若先把起点 5 归到坤二，会把阴遁甲申旬丁亥的死门由二宫误算到八宫。
+  return normalizeNoDoorPalace(advanceNinePalace(rawStart, steps, isYangDun));
 }
 
 // ─── 排盘主函数 ───

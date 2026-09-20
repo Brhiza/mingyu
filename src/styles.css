@@ -8589,6 +8589,58 @@ select {
   .ziwei-star-block strong {
     font-size: 12px;
   }
+
+  /* 手机端优先保证整张紫微九宫盘可见，再把详细资料放到盘下。 */
+  .ziwei-traditional-board {
+    aspect-ratio: 1;
+    padding: 4px;
+  }
+
+  .ziwei-traditional-grid {
+    height: 100%;
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .ziwei-grid-cell {
+    min-height: 0;
+    padding: 12px 3px 3px;
+    gap: 2px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .ziwei-grid-cell-corner {
+    top: 3px;
+    padding: 1px 2px;
+    font-size: 7px;
+  }
+
+  .ziwei-grid-cell-title {
+    gap: 3px;
+  }
+
+  .ziwei-grid-cell-flags {
+    gap: 2px;
+  }
+
+  .ziwei-grid-cell-flags span {
+    min-width: 12px;
+    height: 12px;
+    font-size: 7px;
+  }
+
+  .ziwei-grid-cell-foot {
+    min-height: 12px;
+    font-size: 8px;
+  }
+
+  .ziwei-board-center {
+    min-height: 0;
+    padding: 4px;
+    gap: 3px;
+    overflow: hidden;
+  }
 }
 
 .error-boundary-fallback {

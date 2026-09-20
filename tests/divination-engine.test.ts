@@ -332,6 +332,23 @@ test('奇门值符值使应按当前局地盘旬首落宫定位', () => {
   assert.equal(yinEightPalaces.find((gong) => gong.tianPan.star === '天任')?.gong, 5);
 });
 
+test('奇门转盘旬首落中五宫应先计步再寄宫', () => {
+  const result = generateQimen(new Date('2026-09-18T14:28:00Z'), 'zhuanpan', 'hour', 'zhirun', 480);
+
+  assert.deepEqual(result.ganzhi, {
+    year: '丙午',
+    month: '丁酉',
+    day: '乙未',
+    hour: '丁亥',
+  });
+  assert.equal(result.isYangDun, false);
+  assert.equal(result.juShu, 7);
+  assert.equal(result.zhiFu, '天禽');
+  assert.equal(result.zhiShi, '死门');
+  assert.equal(result.jiuGongGe.find((palace) => palace.renPan.door === result.zhiShi)?.gong, 2);
+  assert.equal(resolveZhiShiLandingPalace(false, '死门', '丁亥', 5, 'zhuanpan'), 2);
+});
+
 test('奇门八神应按宝鉴坎一起例分阳逆阴顺', () => {
   const godsByGong = (isYangDun: boolean) =>
     Object.fromEntries(
