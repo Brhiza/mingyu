@@ -861,6 +861,17 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   ]) {
     assert.match(baziTopicSchema, new RegExp(topic), `八字 promptTopic 应包含 ${topic}`);
   }
+  const baziFortuneProperties = body.data.components.schemas.BaziPromptRequest.allOf[1].properties;
+  assert.equal(baziFortuneProperties.baziFortuneDate.format, 'date');
+  assert.match(baziFortuneProperties.baziFortuneDate.description, /元旦至立春前归上一节气年/);
+  assert.match(baziFortuneProperties.baziFortuneDate.description, /12:00:00/);
+  assert.equal(baziFortuneProperties.baziFortuneDay.maximum, 33);
+  assert.match(
+    baziFortuneProperties.baziFortuneCycleIndex.description,
+    /未传 baziFortuneDate 时选择大运必填/,
+  );
+  assert.match(baziFortuneProperties.baziFortuneMonth.description, /寅月=1/);
+  assert.match(baziFortuneProperties.baziFortuneDay.description, /子初 23:00 换日/);
   assert.ok(body.data.components.schemas.ZiweiRequest.properties.promptScope);
   assert.deepEqual(body.data.components.schemas.ZiweiRequest.properties.algorithm.enum, [
     'default',
@@ -3729,6 +3740,76 @@ test('公开 API 八字年限范围缺少必要层级参数时应拒绝而非套
     assert.equal(response.status, 400, JSON.stringify(payload));
     assert.equal(body.error.code, 'BAD_REQUEST');
   }
+});
+
+test('公开 API 八字公历日期直传应解析并回显准确流日', async () => {
+  const base = {
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    dateType: 'solar',
+    question: '请分析指定公历日期。',
+    baziFortuneScope: 'day',
+    responseMode: 'full',
+  };
+  const { response, body } = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, baziFortuneDate: '2026-09-22' }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.data.result.calculationIdentity.target.baziFortuneDate, '2026-09-22');
+  assert.equal(body.data.result.calculationIdentity.target.baziFortuneYear, 2026);
+  assert.equal(body.data.result.calculationIdentity.target.baziFortuneMonth, 8);
+  assert.equal(body.data.result.calculationIdentity.target.baziFortuneDay, 16);
+  assert.equal(body.data.result.fortuneSelection.dayBreakdown[0].date, '2026-09-22');
+  assert.match(body.data.prompt, /分析对象：2026-09-22\s*流日/);
+  assert.doesNotMatch(body.data.prompt, /baziFortuneDate/);
+
+  const conflict = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...base,
+      baziFortuneDate: '2026-09-22',
+      baziFortuneCycleIndex: 1,
+    }),
+  });
+  assert.equal(conflict.response.status, 400);
+  assert.match(conflict.body.error.message, /不能与 baziFortuneCycleIndex 同时使用/);
+
+  const dayun = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...base,
+      baziFortuneScope: 'dayun',
+      baziFortuneDate: '2026-09-22',
+    }),
+  });
+  assert.equal(dayun.response.status, 200);
+  assert.equal(dayun.body.data.result.fortuneSelection.scope, 'dayun');
+  assert.equal(typeof dayun.body.data.result.fortuneSelection.cycleIndex, 'number');
+  assert.equal(dayun.body.data.result.calculationIdentity.target.baziFortuneYear, undefined);
+  assert.equal(dayun.body.data.result.calculationIdentity.target.baziFortuneMonth, undefined);
+  assert.equal(dayun.body.data.result.calculationIdentity.target.baziFortuneDay, undefined);
+
+  const legacyDay33 = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...base,
+      baziFortuneYear: 2022,
+      baziFortuneMonth: 7,
+      baziFortuneDay: 33,
+    }),
+  });
+  assert.equal(legacyDay33.response.status, 200);
+  assert.equal(legacyDay33.body.data.result.fortuneSelection.day, 33);
+  assert.equal(legacyDay33.body.data.result.fortuneSelection.dayBreakdown[0].date, '2022-09-08');
 });
 
 test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请求', async () => {

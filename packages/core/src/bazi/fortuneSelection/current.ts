@@ -1,4 +1,8 @@
-import { getBaziDayIndexByDate, getBaziMonthIndexByDate } from '../calendarTool';
+import {
+  getBaziDayIndexByDate,
+  getBaziMonthIndexByDate,
+  resolveBaziFortuneDate,
+} from '../calendarTool';
 import type { BaziChartResult } from '../baziTypes';
 import {
   createCivilDate,
@@ -93,6 +97,36 @@ export function buildCurrentBaziFortuneSelectionForScope(
     };
   }
   return current;
+}
+
+/** 用公历日期的北京时间正午精确定位大运及所需岁运层级。 */
+export function buildBaziFortuneSelectionForDate(
+  result: BaziChartResult,
+  scope: Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
+  date: string,
+): BaziFortuneSelectionValue {
+  const resolved = resolveBaziFortuneDate(date);
+  const cycle = getLuckCycleForDate(result.luckInfo.cycles, new Date(resolved.referenceTimestamp));
+  if (!cycle) throw new Error('所选公历日期不在命盘的有效大运范围内。');
+  const cycleIndex = result.luckInfo.cycles.findIndex((item) => item === cycle);
+
+  if (scope === 'dayun') return { scope, cycleIndex };
+  if (scope === 'year') return { scope, cycleIndex, year: resolved.year };
+  if (scope === 'month') {
+    return {
+      scope,
+      cycleIndex,
+      year: resolved.year,
+      month: resolved.month,
+    };
+  }
+  return {
+    scope,
+    cycleIndex,
+    year: resolved.year,
+    month: resolved.month,
+    day: resolved.day,
+  };
 }
 
 /** 生成当前节令月选择，适合“近期趋势”类入口。 */

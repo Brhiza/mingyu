@@ -269,7 +269,17 @@ curl -X POST https://aov.cc/api/v1/bazi/calculate \
   -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","shenShaScope":"all","shenShaVariants":{"referenceProfile":"classical","kongWangBasis":"day-and-year","yangRenMode":"include-yin-ren","tongZiScope":"all-pillars"}}'
 ```
 
-八字提示词可指定命限范围。未传 `baziFortuneScope` 时默认定位当前大运，并携带该大运的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。`baziFortuneScope` 支持 `natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。显式选择 `dayun` 时必须传 `baziFortuneCycleIndex`；显式选择 `year`、`month`、`day` 时必须依次传入对应层级的 `baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`，交运年份可同时传 `baziFortuneCycleIndex` 消除重叠歧义。`full` 会写入完整大运与逐年流年，不需要再传具体年限参数。
+八字提示词可指定命限范围。未传 `baziFortuneScope` 时默认定位当前大运，并携带该大运的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。`baziFortuneScope` 支持 `natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。显式选择 `dayun` 时可传 `baziFortuneCycleIndex`，也可传 `baziFortuneDate: "YYYY-MM-DD"` 按日期精确定位；`year`、`month`、`day` 同样推荐使用日期直传。服务端统一以北京时间该日 `12:00:00` 为代表时刻，同时解析所在大运、节气年、节令月和流日序号；元旦至立春前归入上一节气年。`baziFortuneDate` 不得与 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay` 混用。
+
+兼容参数继续可用：`baziFortuneYear` 是以立春为起点的节气年；`baziFortuneMonth` 是寅月为 1、卯月为 2 的节令月序号，按实际交节时刻切换；`baziFortuneDay` 是该节令月内按子初 23:00 换日切片后的流日序号，范围为 1—33，节令月首尾日由实际交节时刻裁剪。交节日可能同时包含前月末段和新月首段；日期直传按北京时间正午所在的节令月与流日切片定位。日期直传从 1900 年立春起可用，1900 年立春前因上一节气年超出支持范围会返回参数错误。`full` 会写入完整大运与逐年流年，不需要再传具体年限参数。
+
+按公历日期选择流日：
+
+```bash
+curl -X POST https://aov.cc/api/v1/bazi/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"2026年9月22日的事业重点是什么？","promptTopic":"career","baziFortuneScope":"day","baziFortuneDate":"2026-09-22"}'
+```
 
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi/prompt \
@@ -491,7 +501,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `/prompt` 支持 `responseMode`：`prompt-only` 为默认值，只返回提示词；`summary` 返回提示词和轻量摘要；`full` 返回完整排盘和提示词。
 - 所有命理、占卜和风水排盘接口支持 `detailMode`：默认 `compact`，保留核心盘面并省略证据链、提示词与重复计算过程；八字轻量结果仍包含逐柱神煞命中。显式传 `full` 才返回完整结构。基础历法、天文和五行等公共地基接口不受此参数影响。
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
-- 八字 `/bazi/prompt` 未指定范围时默认使用当前大运；也可传 `baziFortuneScope` 指定 `natal`、`full`、`dayun`、`year`、`month`、`day`，显式选择具体层级时必须提供该层级需要的明确年限参数，工具不会静默套用第一项。
+- 八字 `/bazi/prompt` 未指定范围时默认使用当前大运；也可传 `baziFortuneScope` 指定 `natal`、`full`、`dayun`、`year`、`month`、`day`。`dayun`、`year`、`month`、`day` 推荐配合 `baziFortuneDate` 直传公历日期，并按北京时间正午定位；兼容序号中流月按寅月=1 的节令月、流日按子初换日且由交节时刻裁剪。日期参数与大运序号及其他兼容序号不得混用，工具不会静默套用第一项。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
 - 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、已验证童限与大限及各阶段流年资料，下层流月、流日和流时按指定范围展开。
 - 紫微公开 API 未指定 `promptScope` 时默认返回当前大限，并保留 `origin` 作为本命基础范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。

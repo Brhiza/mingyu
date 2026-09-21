@@ -28,6 +28,7 @@ export { formatBaziForPrompt, formatUsefulGodFunctions } from './baziAnalysisFor
 export type { PromptChartScene } from './baziAnalysisFormatter';
 export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
 export {
+  buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelection,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
@@ -88,10 +89,16 @@ export {
   getCalendarInfo,
   getCurrentTimeDescription,
   getMonthDaysInfo,
+  resolveBaziFortuneDate,
   getYearInfo,
   getYearMonthsGanZhi,
 } from './calendarTool';
-export type { BaziMonthDayInfo, BaziMonthInfo, CalendarInfo } from './calendarTool';
+export type {
+  BaziFortuneDateResolution,
+  BaziMonthDayInfo,
+  BaziMonthInfo,
+  CalendarInfo,
+} from './calendarTool';
 export {
   BASIC_MAPPINGS,
   EARTHLY_BRANCHES,

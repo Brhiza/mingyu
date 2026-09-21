@@ -1,5 +1,6 @@
 import {
   baziCalculator,
+  buildBaziFortuneSelectionForDate,
   buildBaziPersonInput,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
@@ -228,25 +229,49 @@ function buildBaziFortuneContext(
   input: JsonRecord,
   scope: PublicBaziFortuneScope,
 ): FortuneSelectionContext | null {
-  const selection: BaziFortuneSelectionValue = {
-    scope,
-    cycleIndex:
-      scope === 'natal' || scope === 'full'
-        ? undefined
-        : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
-          ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
-          : undefined,
-    year:
-      scope === 'year' || scope === 'month' || scope === 'day'
-        ? readInteger(input, 'baziFortuneYear', 1900, 2200)
-        : undefined,
-    month:
-      scope === 'month' || scope === 'day'
-        ? readInteger(input, 'baziFortuneMonth', 1, 12)
-        : undefined,
-    day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 31) : undefined,
-  };
+  const fortuneDate = readBaziFortuneDateValue(input, scope);
+  const selection: BaziFortuneSelectionValue = fortuneDate
+    ? buildBaziFortuneSelectionForDate(
+        result,
+        scope as Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
+        fortuneDate,
+      )
+    : {
+        scope,
+        cycleIndex:
+          scope === 'natal' || scope === 'full'
+            ? undefined
+            : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
+              ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
+              : undefined,
+        year:
+          scope === 'year' || scope === 'month' || scope === 'day'
+            ? readInteger(input, 'baziFortuneYear', 1900, 2200)
+            : undefined,
+        month:
+          scope === 'month' || scope === 'day'
+            ? readInteger(input, 'baziFortuneMonth', 1, 12)
+            : undefined,
+        day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 33) : undefined,
+      };
   return buildFortuneSelectionContext(result, selection);
+}
+
+function readBaziFortuneDateValue(input: JsonRecord, scope: PublicBaziFortuneScope) {
+  if (input.baziFortuneDate === undefined) return undefined;
+  if (!['dayun', 'year', 'month', 'day'].includes(scope)) {
+    throw new Error('baziFortuneDate 仅适用于 dayun、year、month 或 day 八字命限范围。');
+  }
+  const conflictingField = [
+    'baziFortuneCycleIndex',
+    'baziFortuneYear',
+    'baziFortuneMonth',
+    'baziFortuneDay',
+  ].find((key) => input[key] !== undefined);
+  if (conflictingField) {
+    throw new Error(`baziFortuneDate 不能与 ${conflictingField} 同时使用。`);
+  }
+  return readRequiredText(input, 'baziFortuneDate');
 }
 
 function buildCalculationIdentity(
@@ -295,6 +320,9 @@ function buildCalculationIdentity(
       if (value !== undefined) target[key] = value;
     }
   }
+  if (input.baziFortuneDate !== undefined) {
+    target.baziFortuneDate = readRequiredText(input, 'baziFortuneDate');
+  }
   return { method: 'bazi', birth, target };
 }
 
@@ -325,6 +353,7 @@ export function calculateBaziReading(
   );
   const useCurrentFortuneDefaults =
     calculationRequest.baziFortuneScope === undefined &&
+    calculationRequest.baziFortuneDate === undefined &&
     requestedFortuneScope !== 'natal' &&
     requestedFortuneScope !== 'full';
   const currentSelection = useCurrentFortuneDefaults

@@ -188,6 +188,7 @@ async function withRequestCapture<T>(
           'baziFortuneYear',
           'baziFortuneMonth',
           'baziFortuneDay',
+          'baziFortuneDate',
         ]
           .filter((key) => request[key] !== undefined)
           .map((key) => [key, request[key]]),
@@ -425,6 +426,27 @@ test('补算经真实公共 API 返回可核验的八字与紫微盘面事实', 
       2030,
     );
 
+    const baziDateResource = await executeReadingAction(
+      {
+        kind: 'calculate',
+        method: 'bazi',
+        input: {
+          baziFortuneScope: 'day',
+          baziFortuneDate: '2026-09-22',
+          question: '指定日期事业',
+        },
+      },
+      undefined,
+      baziSubject,
+    );
+    const baziDate = baziDateResource.structured as Record<string, unknown>;
+    const baziDateTarget = (baziDate.calculationIdentity as Record<string, unknown>)
+      .target as Record<string, unknown>;
+    assert.equal(baziDateTarget.baziFortuneDate, '2026-09-22');
+    assert.equal(baziDateTarget.baziFortuneYear, 2026);
+    assert.equal(baziDateTarget.baziFortuneMonth, 8);
+    assert.equal(baziDateTarget.baziFortuneDay, 16);
+
     const ziweiResource = await executeReadingAction(
       {
         kind: 'calculate',
@@ -659,6 +681,7 @@ test('schema 动作只暴露各术式可修改字段并清理公共 OpenAPI 引�
         'baziFortuneYear',
         'baziFortuneMonth',
         'baziFortuneDay',
+        'baziFortuneDate',
         'question',
         'topicId',
         'subtopicId',

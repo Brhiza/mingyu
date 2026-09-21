@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { getMonthDaysInfo, getYearInfo } from '@core/bazi/calendarTool';
 import {
+  buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelection,
   buildFortuneSelectionContext,
   buildRecentBaziFortuneSelection,
@@ -60,6 +61,50 @@ function createMockResult(): BaziChartResult {
       ],
     },
   } as BaziChartResult;
+}
+
+function createHandoverResult(handoverHour: number): BaziChartResult {
+  const result = createMockResult();
+  const nextCycle = result.luckInfo.cycles[0];
+  nextCycle.startSolarTime = {
+    year: 2008,
+    month: 2,
+    day: 8,
+    hour: handoverHour,
+    minute: 0,
+    second: 0,
+  };
+  nextCycle.endSolarTime = {
+    year: 2018,
+    month: 2,
+    day: 8,
+    hour: handoverHour,
+    minute: 0,
+    second: 0,
+  };
+  result.luckInfo.cycles.unshift({
+    ...nextCycle,
+    year: 1998,
+    ganZhi: '癸亥',
+    startSolarTime: {
+      year: 1998,
+      month: 2,
+      day: 8,
+      hour: handoverHour,
+      minute: 0,
+      second: 0,
+    },
+    endSolarTime: {
+      year: 2008,
+      month: 2,
+      day: 8,
+      hour: handoverHour,
+      minute: 0,
+      second: 0,
+    },
+    years: [],
+  });
+  return result;
 }
 
 test('运限选择器的当天快捷值会选择对应的大运、流月和流日', () => {
@@ -265,6 +310,20 @@ test('当前大运定位应服从交运时刻而不是只看交运年份', () =>
 
   assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T11:59:59+08:00')), null);
   assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T12:00:00+08:00')), cycle);
+});
+
+test('公历日期模式应以北京时间正午精确定位交运当天的大运', () => {
+  const handoverAfterNoon = createHandoverResult(13);
+  const handoverBeforeNoon = createHandoverResult(11);
+
+  assert.deepEqual(buildBaziFortuneSelectionForDate(handoverAfterNoon, 'dayun', '2008-02-08'), {
+    scope: 'dayun',
+    cycleIndex: 0,
+  });
+  assert.deepEqual(buildBaziFortuneSelectionForDate(handoverBeforeNoon, 'dayun', '2008-02-08'), {
+    scope: 'dayun',
+    cycleIndex: 1,
+  });
 });
 
 test('选择大运时会附带该大运下的全部流年', () => {

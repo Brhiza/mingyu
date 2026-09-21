@@ -3,6 +3,7 @@ import {
   getBaziMonthIndexByDate,
   getCalendarInfo,
   getYearMonthsGanZhi,
+  resolveBaziFortuneDate,
 } from '../../packages/core/src/bazi/calendarTool';
 import { calculateSeasonInfoFromDate } from '../../packages/core/src/bazi/baziCalculatorTime';
 import { calculateSolarTermEvidence } from '../../packages/core/src/calendar/solar-term-evidence';
@@ -125,6 +126,7 @@ process.stdout.write(
       before: getLuckCycleForDate([cycle], handoverBefore)?.year ?? null,
       at: getLuckCycleForDate([cycle], handoverAt)?.year ?? null,
     },
+    fortuneDateResolution: resolveBaziFortuneDate('2022-09-07'),
     currentSelection: buildCurrentBaziFortuneSelection(chart, handoverAt),
     breakdown,
     months,

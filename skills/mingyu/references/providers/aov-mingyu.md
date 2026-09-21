@@ -63,7 +63,7 @@
 | 诸葛神数           | `POST /divination/zhuge`             | `divine_zhuge`                 | 按三个汉字康熙笔画尾数计算诸葛神数384签                                                                                                |
 | 孔明神卦           | `POST /divination/kongming`          | `divine_kongming`              | 按五枚硬币的阴阳结果生成三十二种孔明神卦之一                                                                                           |
 | 八字排盘           | `POST /bazi/calculate`               | `bazi_calculate`               | 计算四柱干支、十神、藏干、大运、流年、胎元命宫身宫与神煞（支持缺时辰三柱降级）                                                         |
-| 八字解读提示词     | `POST /bazi/prompt`                  | `bazi_prompt`                  | 未指定范围时默认当前大运；指定流年会同时带所属大运、全年流月与节气边界，指定流月会带流日，`full` 返回全部大运流年                      |
+| 八字解读提示词     | `POST /bazi/prompt`                  | `bazi_prompt`                  | 未指定范围时默认当前大运；`dayun`、`year`、`month`、`day` 可用 `baziFortuneDate` 直传公历日期，指定流月会带流日，`full` 返回全部大运流年 |
 | 八字双盘合婚       | `POST /bazi/compatibility`           | `bazi_compatibility`           | 计算两人八字日主五行喜忌互补、四柱干支合冲与夫妻宫德合刑冲                                                                             |
 | 八字合盘提示词     | `POST /bazi/compatibility/prompt`    | `bazi_compatibility_prompt`    | 生成八字双盘合婚与合伙关系的自包含深度提示词；支持统一主题、主题细项和分析范围选择                                                     |
 | 紫微斗数排盘       | `POST /ziwei/calculate`              | `ziwei_calculate`              | 计算紫微斗数十二宫星曜、生年四化、大限流年与三方四正格局                                                                               |
@@ -138,6 +138,7 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 - **流年**：八字返回所属大运、全年节气月及交节边界；紫微返回所属大限、流年四化与宫位、十二个常规流月及目标日所在流月。紫微流月按实际农历或节令分界生成，闰月归属沿用排盘结果。
 - **流月**：八字携带所属大运、流年、节气月边界及当月流日窗口；紫微携带所属大限、流年与全年流月，明确标出目标日期所在流月。
 - **流日/流时**：保留上层运限背景，并附目标日期或目标时辰的实际盘面。紫微通过 `scopeDate`（YYYY-MM-DD）与 `scopeHourIndex`（0=早子、1=丑、…、12=晚子）选择目标；省略时使用当前日期和时辰。出生 `timeIndex` 始终用于本命盘。
+- **八字公历日期选择**：`bazi_prompt` 在 `dayun`、`year`、`month`、`day` 范围可传 `baziFortuneDate`（YYYY-MM-DD），服务端以北京时间当天 12:00:00 定位所在大运、节气年、寅月为 1 的节令月序号和月内流日序号；元旦至立春前归上一节气年。兼容的 `baziFortuneDay` 范围为 1—33，按子初 23:00 换日切片，节令月首尾由实际交节时刻裁剪；交节日按正午所在的节令月与流日切片定位。日期直传从 1900 年立春起可用；日期参数不得与 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay` 混用。
 - **全部**：只有用户需要全景或比较多个阶段时使用，展开全部大运、流年及已计算的下层时间资料；普通问题优先使用当前阶段以保持提示词紧凑。
 
 - **玄空起法**：玄空与住宅接口均接受 `guaType: 下卦 | 替卦`，默认下卦；实测坐向稳定落在每山中央九度之外、两侧各三度兼向范围时可选替卦。补算时保留同一起法，再叠加目标流年和流月。
