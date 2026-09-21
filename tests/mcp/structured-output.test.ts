@@ -667,6 +667,24 @@ test('MCP 工具列表应声明输出结构', async () => {
     const baziPromptTool = tools.find((tool) => tool.name === 'bazi_prompt');
     assert.match(baziPromptTool?.description ?? '', /无需先调同类排盘工具/);
     assert.doesNotMatch(baziPromptTool?.description ?? '', /仅返回提示词/);
+    assert.equal(baziPromptTool?.inputSchema?.properties?.baziFortuneDate?.type, 'string');
+    assert.match(
+      String(baziPromptTool?.inputSchema?.properties?.baziFortuneDate?.description),
+      /12:00:00/,
+    );
+    assert.match(
+      String(baziPromptTool?.inputSchema?.properties?.baziFortuneMonth?.description),
+      /寅月=1/,
+    );
+    assert.match(
+      String(baziPromptTool?.inputSchema?.properties?.baziFortuneDay?.description),
+      /子初23:00换日/,
+    );
+    assert.equal(
+      tools.find((tool) => tool.name === 'bazi_calculate')?.inputSchema?.properties
+        ?.baziFortuneDate,
+      undefined,
+    );
     const liuyaoTool = tools.find((tool) => tool.name === 'divine_liuyao');
     assert.match(liuyaoTool?.description ?? '', /同一问题只调用一次/);
 
@@ -2038,6 +2056,84 @@ test('MCP 八字年限提示词应保留岁运重点并返回结构化盘面', a
     assert.match(prompt, /【分析对象】[\s\S]*分析对象：1998年流年/);
     assert.match(prompt, /【岁运重点】[\s\S]*岁运干支关系：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+  });
+});
+
+test('MCP 八字公历日期直传应解析准确岁运并拒绝混用序号', async () => {
+  await withMcpClient(async (client) => {
+    const common = {
+      gender: 'male',
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 1,
+      dateType: 'solar',
+      question: '请分析指定公历日期。',
+      baziFortuneScope: 'day',
+      baziFortuneDate: '2026-09-22',
+    } as const;
+    const response = await client.callTool({ name: 'bazi_prompt', arguments: common });
+
+    assert.equal(response.isError, undefined);
+    const selection = (
+      response.structuredContent?.result as
+        { fortuneSelection?: { year?: number; month?: number; day?: number } } | undefined
+    )?.fortuneSelection;
+    assert.equal(selection?.year, 2026);
+    assert.equal(selection?.month, 8);
+    assert.equal(selection?.day, 16);
+    assert.match(String(response.structuredContent?.prompt), /分析对象：2026-09-22\s*流日/);
+    assert.doesNotMatch(String(response.structuredContent?.prompt), /baziFortuneDate/);
+
+    const conflict = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...common, baziFortuneCycleIndex: 1 },
+    });
+    assert.equal(conflict.isError, true);
+    const conflictText = conflict.content[0]?.type === 'text' ? conflict.content[0].text : '';
+    assert.match(conflictText, /不能与 baziFortuneCycleIndex 同时使用/);
+
+    const dayun = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...common, baziFortuneScope: 'dayun' },
+    });
+    assert.equal(dayun.isError, undefined);
+    const dayunSelection = (
+      dayun.structuredContent?.result as
+        | {
+            fortuneSelection?: {
+              scope?: string;
+              cycleIndex?: number;
+              year?: number;
+              month?: number;
+              day?: number;
+            };
+          }
+        | undefined
+    )?.fortuneSelection;
+    assert.equal(dayunSelection?.scope, 'dayun');
+    assert.equal(typeof dayunSelection?.cycleIndex, 'number');
+    assert.equal(dayunSelection?.year, undefined);
+    assert.equal(dayunSelection?.month, undefined);
+    assert.equal(dayunSelection?.day, undefined);
+
+    const legacyDay33 = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: {
+        ...common,
+        baziFortuneDate: undefined,
+        baziFortuneYear: 2022,
+        baziFortuneMonth: 7,
+        baziFortuneDay: 33,
+      },
+    });
+    assert.equal(legacyDay33.isError, undefined);
+    const legacySelection = (
+      legacyDay33.structuredContent?.result as
+        { fortuneSelection?: { day?: number; dayBreakdown?: Array<{ date?: string }> } } | undefined
+    )?.fortuneSelection;
+    assert.equal(legacySelection?.day, 33);
+    assert.equal(legacySelection?.dayBreakdown?.[0]?.date, '2022-09-08');
   });
 });
 

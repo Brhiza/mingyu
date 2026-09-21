@@ -70,6 +70,69 @@ test('用户选择的八字运限进入提示词和身份目标', () => {
   assert.match(output.prompt, new RegExp(`${year}年`, 'u'));
 });
 
+test('公历日期直传会解析节气年、节令月和流日且回显原日期', () => {
+  const output = calculateBaziReading({
+    ...baseInput,
+    baziFortuneScope: 'day',
+    baziFortuneDate: '2026-09-22',
+  });
+
+  assert.equal(output.result.calculationIdentity.target.baziFortuneDate, '2026-09-22');
+  assert.equal(output.result.calculationIdentity.target.baziFortuneYear, 2026);
+  assert.equal(output.result.calculationIdentity.target.baziFortuneMonth, 8);
+  assert.equal(output.result.calculationIdentity.target.baziFortuneDay, 16);
+  assert.equal(output.result.fortuneSelection?.year, 2026);
+  assert.equal(output.result.fortuneSelection?.month, 8);
+  assert.equal(output.result.fortuneSelection?.day, 16);
+  assert.match(output.prompt, /分析对象：2026-09-22\s*流日/u);
+  assert.doesNotMatch(output.prompt, /baziFortuneDate/u);
+});
+
+test('公历日期直传禁止与大运序号混用', () => {
+  assert.throws(
+    () =>
+      calculateBaziReading({
+        ...baseInput,
+        baziFortuneScope: 'day',
+        baziFortuneDate: '2026-09-22',
+        baziFortuneCycleIndex: 1,
+      }),
+    /baziFortuneDate 不能与 baziFortuneCycleIndex 同时使用/u,
+  );
+});
+
+test('公历日期直传可只定位大运并回显精确周期序号', () => {
+  const output = calculateBaziReading({
+    ...baseInput,
+    baziFortuneScope: 'dayun',
+    baziFortuneDate: '2026-09-22',
+  });
+
+  assert.equal(output.result.fortuneSelection?.scope, 'dayun');
+  assert.equal(typeof output.result.fortuneSelection?.cycleIndex, 'number');
+  assert.equal(output.result.calculationIdentity.target.baziFortuneDate, '2026-09-22');
+  assert.equal(
+    output.result.calculationIdentity.target.baziFortuneCycleIndex,
+    output.result.fortuneSelection?.cycleIndex,
+  );
+  assert.equal(output.result.calculationIdentity.target.baziFortuneYear, undefined);
+  assert.equal(output.result.calculationIdentity.target.baziFortuneMonth, undefined);
+  assert.equal(output.result.calculationIdentity.target.baziFortuneDay, undefined);
+});
+
+test('兼容序号模式保留交节前短时段形成的第 33 个流日切片', () => {
+  const output = calculateBaziReading({
+    ...baseInput,
+    baziFortuneScope: 'day',
+    baziFortuneYear: 2022,
+    baziFortuneMonth: 7,
+    baziFortuneDay: 33,
+  });
+
+  assert.equal(output.result.fortuneSelection?.day, 33);
+  assert.equal(output.result.fortuneSelection?.dayBreakdown?.[0]?.date, '2022-09-08');
+});
+
 test('精确标准北京时间保留秒数并沿用核心排盘结果', () => {
   const input = {
     ...baseInput,

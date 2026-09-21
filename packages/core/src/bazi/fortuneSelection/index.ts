@@ -39,6 +39,7 @@ export type {
   FortuneSelectionOptions,
 } from './helpers/types';
 export {
+  buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelection,
   buildCurrentBaziFortuneSelectionForScope,
   buildRecentBaziFortuneSelection,

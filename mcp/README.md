@@ -253,9 +253,13 @@ pnpm mcp
 
 ### 八字命限提示词参数
 
-`bazi_prompt` 未指定 `baziFortuneScope` 时默认定位当前大运，并写入该阶段的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。也可通过 `baziFortuneScope` 指定 `natal`（本命）、`full`（全部大运流年）、`dayun`（大运）、`year`（流年，含全年流月）、`month`（流月，含流日）、`day`（流日）。显式选择具体层级时仍需传对应的年限参数；`full` 不需要再传具体年限参数。
+`bazi_prompt` 未指定 `baziFortuneScope` 时默认定位当前大运，并写入该阶段的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。也可通过 `baziFortuneScope` 指定 `natal`（本命）、`full`（全部大运流年）、`dayun`（大运）、`year`（流年，含全年流月）、`month`（流月，含流日）、`day`（流日）。`full` 不需要再传具体年限参数。
 
-显式选择 `dayun` 时必须传 `baziFortuneCycleIndex`。显式选择 `year`、`month`、`day` 时必须依次传入对应层级的 `baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`；交运年份可同时传 `baziFortuneCycleIndex` 消除前后两步大运重叠歧义。工具不会静默套用第一项。
+显式选择 `dayun` 时可传 `baziFortuneCycleIndex`，也可传 `baziFortuneDate: "YYYY-MM-DD"` 按日期精确定位；`year`、`month`、`day` 同样推荐使用日期直传。工具统一以北京时间该日 `12:00:00` 为代表时刻，同时解析所在大运、节气年、节令月和流日序号；元旦至立春前归入上一节气年。
+
+兼容参数继续可用：`baziFortuneYear` 是立春起算的节气年；`baziFortuneMonth` 是寅月=1、卯月=2 的节令月序号，按实际交节时刻切换；`baziFortuneDay` 是该节令月内按子初 23:00 换日切片后的流日序号，范围为 1—33，首尾日由实际交节时刻裁剪。交节日同时出现前月末段与新月首段时，日期直传按北京时间正午所在的节令月与流日切片定位。日期直传从 1900 年立春起可用，1900 年立春前因上一节气年超出支持范围会返回参数错误。`baziFortuneDate` 不得与 `baziFortuneCycleIndex` 或三个兼容序号参数混用，工具不会静默套用第一项。
+
+例如，选择 2026-09-22 流日时传 `baziFortuneScope: "day"` 和 `baziFortuneDate: "2026-09-22"`；工具会解析为节气年 2026、酉月（节令月序号 8）第 16 日。
 
 ### 星盘行运提示词参数
 

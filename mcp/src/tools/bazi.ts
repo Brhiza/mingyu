@@ -5,8 +5,10 @@ import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import {
+  buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
+  type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
@@ -193,10 +195,30 @@ const baziPromptSchema = baziSchema.extend({
   baziFortuneCycleIndex: z
     .number()
     .optional()
-    .describe('大运序号，从 0 开始；选择大运时必填，交运年建议同时传入'),
-  baziFortuneYear: z.number().optional().describe('指定流年年份；选择流年及以下范围时必填'),
-  baziFortuneMonth: z.number().optional().describe('指定流月序号；选择流月及以下范围时必填'),
-  baziFortuneDay: z.number().optional().describe('指定流日序号；选择流日时必填'),
+    .describe('大运序号，从 0 开始；选择大运且未传 baziFortuneDate 时必填，交运年建议同时传入'),
+  baziFortuneYear: z
+    .number()
+    .optional()
+    .describe('指定节气年（立春起）；选择流年及以下范围且未传 baziFortuneDate 时必填'),
+  baziFortuneMonth: z
+    .number()
+    .optional()
+    .describe(
+      '节令月序号，寅月=1、卯月=2，按实际交节时刻切换；选择流月及以下范围且未传 baziFortuneDate 时必填',
+    ),
+  baziFortuneDay: z
+    .number()
+    .optional()
+    .describe(
+      '所选节令月内按子初23:00换日切片的流日序号，首尾由实际交节时刻裁剪；选择流日且未传 baziFortuneDate 时必填',
+    ),
+  baziFortuneDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe(
+      '公历日期（YYYY-MM-DD），用于 dayun、year、month 或 day 范围；统一以北京时间当天 12:00:00 定位大运、节气年、寅月起节令月序号和月内流日序号。元旦至立春前归上一节气年；不得与 baziFortuneCycleIndex、baziFortuneYear、baziFortuneMonth、baziFortuneDay 同传',
+    ),
   topicId: z.string().optional().describe('统一解读主题 ID；优先于旧版 promptTopic'),
   subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步可用的八字岁运层'),
@@ -212,6 +234,26 @@ function mapPromptScopeToBaziFortuneScope(scope: string | undefined) {
     daily: 'day',
   };
   return scope === undefined ? undefined : mapped[scope];
+}
+
+function readMcpBaziFortuneDateValue(
+  args: z.infer<typeof baziPromptSchema>,
+  scope: (typeof BAZI_FORTUNE_SCOPES)[number],
+) {
+  if (args.baziFortuneDate === undefined) return undefined;
+  if (!['dayun', 'year', 'month', 'day'].includes(scope)) {
+    throw new Error('baziFortuneDate 仅适用于 dayun、year、month 或 day 八字命限范围。');
+  }
+  const conflictingField = [
+    ['baziFortuneCycleIndex', args.baziFortuneCycleIndex],
+    ['baziFortuneYear', args.baziFortuneYear],
+    ['baziFortuneMonth', args.baziFortuneMonth],
+    ['baziFortuneDay', args.baziFortuneDay],
+  ].find(([, value]) => value !== undefined)?.[0];
+  if (conflictingField) {
+    throw new Error(`baziFortuneDate 不能与 ${conflictingField} 同时使用。`);
+  }
+  return args.baziFortuneDate;
 }
 
 type BaziPersonInput = Omit<
@@ -413,7 +455,10 @@ export function registerBaziTool(server: McpServer) {
         if (person.isThreePillars && args.fortuneBatch) {
           throw new Error('出生时辰未知时不能使用 fortuneBatch，请先逐页续取本命候选。');
         }
-        if (person.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
+        if (
+          person.isThreePillars &&
+          ((explicitFortuneScope && explicitFortuneScope !== 'natal') || args.baziFortuneDate)
+        ) {
           throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
         }
         const requestedFortuneScope = explicitFortuneScope ?? 'dayun';
@@ -438,7 +483,8 @@ export function registerBaziTool(server: McpServer) {
           explicitFortuneScope ?? (result.isThreePillars ? 'natal' : 'dayun');
         // 通用 scope 只指定层级（如 decadal），仍应自动定位当前阶段；只有
         // baziFortuneScope 携带具体参数时才按显式选择严格校验。
-        const useCurrentDefaults = args.baziFortuneScope === undefined;
+        const useCurrentDefaults =
+          args.baziFortuneScope === undefined && args.baziFortuneDate === undefined;
         const currentSelection =
           useCurrentDefaults && initialFortuneScope !== 'natal' && initialFortuneScope !== 'full'
             ? buildCurrentBaziFortuneSelectionForScope(result, initialFortuneScope)
@@ -458,9 +504,18 @@ export function registerBaziTool(server: McpServer) {
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
         const requiresDay = fortuneScope === 'day';
+        const fortuneDate = readMcpBaziFortuneDateValue(args, fortuneScope);
+        const dateSelection = fortuneDate
+          ? buildBaziFortuneSelectionForDate(
+              result,
+              fortuneScope as Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
+              fortuneDate,
+            )
+          : undefined;
         if (
           requiresCycle &&
           args.baziFortuneCycleIndex === undefined &&
+          dateSelection?.cycleIndex === undefined &&
           currentSelection?.cycleIndex === undefined
         ) {
           throw new Error('选择大运时必须提供 baziFortuneCycleIndex。');
@@ -468,6 +523,7 @@ export function registerBaziTool(server: McpServer) {
         if (
           requiresYear &&
           args.baziFortuneYear === undefined &&
+          dateSelection === undefined &&
           currentSelection?.year === undefined
         ) {
           throw new Error('选择流年、流月或流日时必须提供 baziFortuneYear。');
@@ -475,6 +531,7 @@ export function registerBaziTool(server: McpServer) {
         if (
           requiresMonth &&
           args.baziFortuneMonth === undefined &&
+          dateSelection === undefined &&
           currentSelection?.month === undefined
         ) {
           throw new Error('选择流月或流日时必须提供 baziFortuneMonth。');
@@ -482,11 +539,12 @@ export function registerBaziTool(server: McpServer) {
         if (
           requiresDay &&
           args.baziFortuneDay === undefined &&
+          dateSelection === undefined &&
           currentSelection?.day === undefined
         ) {
           throw new Error('选择流日时必须提供 baziFortuneDay。');
         }
-        const fortuneSelectionContext = buildFortuneSelectionContext(result, {
+        const selectionValue: BaziFortuneSelectionValue = dateSelection ?? {
           scope: fortuneScope,
           cycleIndex:
             args.baziFortuneCycleIndex !== undefined
@@ -508,8 +566,9 @@ export function registerBaziTool(server: McpServer) {
           day:
             args.baziFortuneDay === undefined
               ? currentSelection?.day
-              : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
-        });
+              : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 33),
+        };
+        const fortuneSelectionContext = buildFortuneSelectionContext(result, selectionValue);
         const basePrompt = buildBaziPromptForResult({
           result,
           question: args.question,

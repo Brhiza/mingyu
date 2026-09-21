@@ -125,6 +125,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'baziFortuneYear',
       'baziFortuneMonth',
       'baziFortuneDay',
+      'baziFortuneDate',
       'question',
       'topicId',
       'subtopicId',
@@ -672,6 +673,7 @@ function assertBaziTarget(
     'baziFortuneYear',
     'baziFortuneMonth',
     'baziFortuneDay',
+    'baziFortuneDate',
   ];
   for (const field of fields) {
     assertStructuredField(`bazi.${field}`, calculationInput[field], target[field]);

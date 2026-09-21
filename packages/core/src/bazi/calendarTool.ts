@@ -44,6 +44,19 @@ export interface BaziMonthDayInfo {
   timeRange: LocalTimeRange;
 }
 
+export interface BaziFortuneDateResolution {
+  /** 调用方传入的公历日期，格式为 YYYY-MM-DD。 */
+  date: string;
+  /** 该公历日期北京时间 12:00:00 对应的真实时间戳。 */
+  referenceTimestamp: number;
+  /** 以立春为起点的节气年。 */
+  year: number;
+  /** 节令月序号，寅月为 1。 */
+  month: number;
+  /** 该节令月内按子初换日切片后的流日序号。 */
+  day: number;
+}
+
 export interface CalendarInfo {
   solarDate: string;
   lunarDate: string;
@@ -315,6 +328,48 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
   }
 
   return list;
+}
+
+/**
+ * 将公历日期定位到八字岁运使用的节气年、节令月与流日序号。
+ *
+ * 日期没有时分信息，因此统一用北京时间当天 12:00:00 作为代表时刻。
+ * 流月、流日与后续大运定位均须复用这一真实瞬时点。
+ */
+export function resolveBaziFortuneDate(date: string): BaziFortuneDateResolution {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) {
+    throw new Error('八字岁运日期需使用 YYYY-MM-DD 格式。');
+  }
+
+  const civilYear = Number(match[1]);
+  const civilMonth = Number(match[2]);
+  const civilDay = Number(match[3]);
+  assertYear(civilYear);
+  let civilDate: Date;
+  try {
+    civilDate = createCivilDate(civilYear, civilMonth, civilDay, 12, 0, 0);
+  } catch {
+    throw new Error('八字岁运日期不是有效公历日期。');
+  }
+  const referenceDate = toChinaInstant(fromCivilDate(civilDate));
+  let year = civilYear;
+  let month = getBaziMonthIndexByDate(year, referenceDate);
+  if (month === undefined && year > 1900) {
+    year -= 1;
+    month = getBaziMonthIndexByDate(year, referenceDate);
+  }
+  if (month === undefined) throw new Error('八字岁运日期不在支持的节气年范围内。');
+  const day = getBaziDayIndexByDate(year, month, referenceDate);
+  if (day === undefined) throw new Error('八字岁运日期无法定位到所属流日。');
+
+  return {
+    date,
+    referenceTimestamp: referenceDate.getTime(),
+    year,
+    month,
+    day,
+  };
 }
 
 export function getCalendarInfo(date: Date = new Date()): CalendarInfo {

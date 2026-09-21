@@ -6,6 +6,7 @@ import {
   getBaziMonthIndexByDate,
   getCalendarInfo,
   getMonthDaysInfo,
+  resolveBaziFortuneDate,
   getYearInfo,
 } from '@core/bazi/calendarTool';
 
@@ -52,6 +53,50 @@ test('交节当天应按具体时刻切换节令月，不应整天一起切换',
 
   assert.equal(getBaziMonthIndexByDate(2024, before), 1);
   assert.equal(getBaziMonthIndexByDate(2024, after), 2);
+  assert.equal(getBaziDayIndexByDate(2024, 1, before), 31);
+  assert.equal(getBaziDayIndexByDate(2024, 2, after), 1);
+  assert.deepEqual(resolveBaziFortuneDate('2024-03-05'), {
+    date: '2024-03-05',
+    referenceTimestamp: Date.parse('2024-03-05T12:00:00+08:00'),
+    year: 2024,
+    month: 2,
+    day: 1,
+  });
+});
+
+test('深夜交节日的日期直传应按北京时间正午归入旧月', () => {
+  assert.deepEqual(resolveBaziFortuneDate('2022-09-07'), {
+    date: '2022-09-07',
+    referenceTimestamp: Date.parse('2022-09-07T12:00:00+08:00'),
+    year: 2022,
+    month: 7,
+    day: 32,
+  });
+});
+
+test('公历日期应解析为节气年、寅月起序号和月内流日序号', () => {
+  assert.deepEqual(resolveBaziFortuneDate('2026-09-22'), {
+    date: '2026-09-22',
+    referenceTimestamp: Date.parse('2026-09-22T12:00:00+08:00'),
+    year: 2026,
+    month: 8,
+    day: 16,
+  });
+  assert.deepEqual(resolveBaziFortuneDate('2027-01-01'), {
+    date: '2027-01-01',
+    referenceTimestamp: Date.parse('2027-01-01T12:00:00+08:00'),
+    year: 2026,
+    month: 11,
+    day: 26,
+  });
+});
+
+test('流日应在子初 23:00 换日', () => {
+  const beforeZi = new Date('2026-09-22T22:59:59+08:00');
+  const afterZi = new Date('2026-09-22T23:00:00+08:00');
+
+  assert.equal(getBaziDayIndexByDate(2026, 8, beforeZi), 16);
+  assert.equal(getBaziDayIndexByDate(2026, 8, afterZi), 17);
 });
 
 test('日历工具应先拒绝无效年月和时间对象', () => {
@@ -59,6 +104,7 @@ test('日历工具应先拒绝无效年月和时间对象', () => {
   assert.throws(() => getYearInfo(2101), /年份需在 1900-2100 之间/);
   assert.throws(() => getMonthDaysInfo(2026, 0), /节令月序号需在 1-12 之间/);
   assert.throws(() => getMonthDaysInfo(2026, 13), /节令月序号需在 1-12 之间/);
+  assert.throws(() => resolveBaziFortuneDate('1900-01-01'), /不在支持的节气年范围内/);
   assert.throws(() => getCalendarInfo(new Date(Number.NaN)), /时间不是有效日期/);
   assert.throws(() => getBaziMonthIndexByDate(2026, new Date(Number.NaN)), /参考时间不是有效日期/);
   assert.throws(() => getBaziDayIndexByDate(2026, 1, new Date(Number.NaN)), /参考时间不是有效日期/);

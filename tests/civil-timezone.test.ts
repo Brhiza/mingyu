@@ -107,6 +107,13 @@ test('八字民用时间边界不受宿主时区和夏令时影响', () => {
   });
   assert.deepEqual(baseline.monthBoundary, { before: 1, after: 2, day: 7 });
   assert.deepEqual(baseline.luckBoundary, { before: null, at: 2008 });
+  assert.deepEqual(baseline.fortuneDateResolution, {
+    date: '2022-09-07',
+    referenceTimestamp: Date.parse('2022-09-07T12:00:00+08:00'),
+    year: 2022,
+    month: 7,
+    day: 32,
+  });
   assert.deepEqual(baseline.currentSelection, {
     scope: 'day',
     cycleIndex: 0,

@@ -14,6 +14,7 @@ import {
 } from '@core/prompt/bazi-fortune';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
 import {
+  buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
@@ -2519,7 +2520,7 @@ export function getPublicApiOpenApiDocument(
                   type: 'integer',
                   minimum: 0,
                   description:
-                    '大运序号，从 0 开始；选择大运时必填，选择流年、流月或流日时可与年份一起传入以消除交运年歧义。',
+                    '大运序号，从 0 开始；未传 baziFortuneDate 时选择大运必填，选择流年、流月或流日时可与年份一起传入以消除交运年歧义。',
                 },
                 fortuneBatch: {
                   type: 'object',
@@ -2532,19 +2533,28 @@ export function getPublicApiOpenApiDocument(
                 },
                 baziFortuneYear: {
                   type: 'integer',
-                  description: '指定流年年份；选择流年、流月或流日时必填。',
+                  description:
+                    '指定节气年（立春起）；选择流年、流月或流日且未传 baziFortuneDate 时必填。',
                 },
                 baziFortuneMonth: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 12,
-                  description: '指定流月序号；选择流月或流日时必填。',
+                  description:
+                    '节令月序号，寅月=1、卯月=2，按实际交节时刻切换；选择流月或流日且未传 baziFortuneDate 时必填。',
                 },
                 baziFortuneDay: {
                   type: 'integer',
                   minimum: 1,
-                  maximum: 31,
-                  description: '指定流日序号；选择流日时必填。',
+                  maximum: 33,
+                  description:
+                    '所选节令月内的流日序号；按子初 23:00 换日切片，首尾日由实际交节时刻裁剪；选择流日且未传 baziFortuneDate 时必填。',
+                },
+                baziFortuneDate: {
+                  type: 'string',
+                  format: 'date',
+                  description:
+                    '公历日期（YYYY-MM-DD），用于 dayun、year、month 或 day 范围；统一以北京时间当天 12:00:00 定位大运、节气年、寅月起节令月序号和月内流日序号。元旦至立春前归上一节气年。不得与 baziFortuneCycleIndex、baziFortuneYear、baziFortuneMonth、baziFortuneDay 同传。',
                 },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -5223,6 +5233,9 @@ function readBaziUnknownTimeBatch(input: JsonRecord, person: Person) {
       throw new ApiError(400, 'BAD_REQUEST', '出生时辰未知，补齐出生时分后才能选择岁运。');
     }
   }
+  if (input.baziFortuneDate !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', '出生时辰未知，补齐出生时分后才能选择岁运。');
+  }
   if (input.promptScope !== undefined && input.promptScope !== 'origin') {
     throw new ApiError(400, 'BAD_REQUEST', '出生时辰未知，解读范围仅支持本命候选。');
   }
@@ -5360,24 +5373,42 @@ function buildBaziFortuneContextFromInput(
   scopeOverride?: (typeof BAZI_FORTUNE_SCOPES)[number],
 ) {
   const scope = scopeOverride ?? readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
-  const selection: BaziFortuneSelectionValue = {
-    scope,
-    cycleIndex:
-      scope === 'natal' || scope === 'full'
-        ? undefined
-        : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
-          ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
+  const fortuneDate = readBaziFortuneDateValue(input, scope);
+  let selection: BaziFortuneSelectionValue;
+  if (fortuneDate) {
+    try {
+      selection = buildBaziFortuneSelectionForDate(
+        result,
+        scope as Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
+        fortuneDate,
+      );
+    } catch (error) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        error instanceof Error ? error.message : 'baziFortuneDate 无法解析为八字岁运日期。',
+      );
+    }
+  } else {
+    selection = {
+      scope,
+      cycleIndex:
+        scope === 'natal' || scope === 'full'
+          ? undefined
+          : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
+            ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
+            : undefined,
+      year:
+        scope === 'year' || scope === 'month' || scope === 'day'
+          ? readInteger(input, 'baziFortuneYear', 1900, 2200)
           : undefined,
-    year:
-      scope === 'year' || scope === 'month' || scope === 'day'
-        ? readInteger(input, 'baziFortuneYear', 1900, 2200)
-        : undefined,
-    month:
-      scope === 'month' || scope === 'day'
-        ? readInteger(input, 'baziFortuneMonth', 1, 12)
-        : undefined,
-    day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 31) : undefined,
-  };
+      month:
+        scope === 'month' || scope === 'day'
+          ? readInteger(input, 'baziFortuneMonth', 1, 12)
+          : undefined,
+      day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 33) : undefined,
+    };
+  }
 
   try {
     return buildFortuneSelectionContext(result, selection);
@@ -5388,6 +5419,27 @@ function buildBaziFortuneContextFromInput(
       error instanceof Error ? error.message : '八字年限参数无效。',
     );
   }
+}
+
+function readBaziFortuneDateValue(input: JsonRecord, scope: (typeof BAZI_FORTUNE_SCOPES)[number]) {
+  if (input.baziFortuneDate === undefined) return undefined;
+  if (!['dayun', 'year', 'month', 'day'].includes(scope)) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      'baziFortuneDate 仅适用于 dayun、year、month 或 day 八字命限范围。',
+    );
+  }
+  const conflictingField = [
+    'baziFortuneCycleIndex',
+    'baziFortuneYear',
+    'baziFortuneMonth',
+    'baziFortuneDay',
+  ].find((key) => input[key] !== undefined);
+  if (conflictingField) {
+    throw new ApiError(400, 'BAD_REQUEST', `baziFortuneDate 不能与 ${conflictingField} 同时使用。`);
+  }
+  return readDateOnly(input, 'baziFortuneDate').value;
 }
 
 function readOptionalIdentityNumber(input: JsonRecord, key: string) {
@@ -5451,6 +5503,9 @@ function buildBaziCalculationIdentity(
       if (value !== undefined) target[key] = value;
     }
   }
+  if (input.baziFortuneDate !== undefined) {
+    target.baziFortuneDate = readDateOnly(input, 'baziFortuneDate').value;
+  }
   return { method: 'bazi', birth, target };
 }
 
@@ -5471,6 +5526,7 @@ function buildBaziPrompt(input: JsonRecord) {
   );
   const useCurrentFortuneDefaults =
     input.baziFortuneScope === undefined &&
+    input.baziFortuneDate === undefined &&
     requestedFortuneScope !== 'natal' &&
     requestedFortuneScope !== 'full';
   const fortuneBatch = readFortuneBatch(input);
