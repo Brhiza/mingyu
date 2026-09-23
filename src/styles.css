@@ -6488,6 +6488,36 @@ select {
   border: 1px solid var(--border-soft);
 }
 
+.astrolabe-advanced-details {
+  min-width: 0;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.astrolabe-advanced-details summary {
+  width: fit-content;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.astrolabe-advanced-details h4 {
+  margin: 12px 0 4px;
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.astrolabe-advanced-details p {
+  margin: 8px 0 0;
+}
+
+.astrolabe-advanced-details ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .astrolabe-quick-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

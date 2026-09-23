@@ -76,6 +76,7 @@ export type AstrolabeScopeContext = {
   displayLabel: string;
   promptText: string;
   solarReturnEvidence?: SolarReturnEvidence;
+  solarReturnPeriods?: SolarReturnPeriod[];
   secondaryProgressionEvidence?: SecondaryProgressionEvidence;
   solarArcEvidence?: SolarArcEvidence;
   /** 行运相位原始事实；transitEvidence 保留现有中文摘要文本。 */
@@ -171,6 +172,8 @@ export type AstrolabeScopeBuildOptions = {
   periodBatch?: AstrolabePeriodBatchInput;
   includeScopeFacts?: boolean;
   includePeriodEvents?: boolean;
+  /** 完整输出可把流年高级推运采样点固定在所选的具体日期。 */
+  advancedReferenceDate?: { year: number; month: number; day: number };
 };
 
 export type AstrolabeAdvancedTechnique = '太阳返照' | '次限推进' | '太阳弧';
@@ -299,6 +302,16 @@ export type SolarReturnEvidence = {
   timeScale?: AstronomicalTimeEvidence;
   promptText: string;
 };
+
+export interface SolarReturnPeriod {
+  /** 目标日历年内的当地有效区间，结束时刻不含。 */
+  startsAt: string;
+  endsAt: string;
+  startUtcDateTime: string;
+  endUtcDateTime: string;
+  isReferencePeriod: boolean;
+  evidence: SolarReturnEvidence;
+}
 
 export interface SolarReturnHouseFact {
   key: string;
@@ -871,6 +884,26 @@ function getBirthUtcTimestamp(data: AstrolabeData, birth: ScopeDateParts) {
   }).utcTimestamp;
 }
 
+function getAdvancedAge(
+  data: AstrolabeData,
+  birth: ScopeDateParts,
+  targetYear: number,
+  referenceDate?: { year: number; month: number; day: number },
+) {
+  if (!referenceDate) return targetYear - birth.year;
+  if (referenceDate.year !== targetYear) {
+    throw new Error('高级推运参考日期与目标年份不一致。');
+  }
+  const referenceUtc = resolveCivilTime({
+    ...referenceDate,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    ...getScopeTimeZoneInput(data),
+  }).utcTimestamp;
+  return (referenceUtc - getBirthUtcTimestamp(data, birth)) / (365.2425 * 86400000);
+}
+
 function calculatePlanetsAtUtc(data: AstrolabeData, timestamp: number) {
   const coordinates = parseBirthCoordinates(data);
   return calculatePlanets(
@@ -1199,6 +1232,7 @@ function assertAdvancedTargetYear(targetYear: number) {
 export function calculateSecondaryProgressionEvidence(
   data: AstrolabeData,
   targetYear: number,
+  referenceDate?: { year: number; month: number; day: number },
 ): SecondaryProgressionEvidence {
   assertAdvancedTargetYear(targetYear);
   const technique: AstrolabeAdvancedTechnique = '次限推进';
@@ -1255,7 +1289,8 @@ export function calculateSecondaryProgressionEvidence(
       promptText: `次限证据：${baseLimitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${baseLimitations.join('；')}`,
     };
   }
-  const age = targetYear - birth.year;
+  const age = getAdvancedAge(data, birth, targetYear, referenceDate);
+  const ageLabel = Number(age.toFixed(2));
   if (age < 0) {
     const limitations = ['目标年早于出生年，次限一岁一日映射不适用。'];
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
@@ -1325,7 +1360,7 @@ export function calculateSecondaryProgressionEvidence(
         dependsOnStepKeys: [],
         inputs: { birthYear: birth.year, targetYear },
         result: { age },
-        promptText: `固定出生年${birth.year}与目标年${targetYear}，年龄差约${age}岁`,
+        promptText: `固定出生年${birth.year}与目标年${targetYear}，参考时点年龄约${ageLabel}岁`,
         sources: ['出生时间与目标年份'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -1337,7 +1372,7 @@ export function calculateSecondaryProgressionEvidence(
         dependsOnStepKeys: [inputStepKey],
         inputs: { age, rule: '一岁一日' },
         result: { progressedDateTime: progressedDate.toISOString() },
-        promptText: `按一岁一日规则取出生后第${age}日作为次限日期${progressedDate.toISOString()}`,
+        promptText: `按一岁一日规则取出生后第${ageLabel}日作为次限日期${progressedDate.toISOString()}`,
         sources: ['次限一岁一日传统时间映射'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -1420,7 +1455,7 @@ export function calculateSecondaryProgressionEvidence(
       source,
       limitations,
       limitationFacts,
-      promptText: `次限证据（一岁一日）：目标年约${age}岁，推进盘取出生后第${age}日（${progressedDate.toISOString()}）；${aspects.join('；') || '未见容许度内的主要次限触发'}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+      promptText: `次限证据（一岁一日）：参考时点约${ageLabel}岁，推进盘取出生后第${ageLabel}日（${progressedDate.toISOString()}）；${aspects.join('；') || '未见容许度内的主要次限触发'}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
     };
   } catch {
     const limitations = ['次限计算失败，不作为本次判断依据。'];
@@ -1478,6 +1513,7 @@ export function calculateSecondaryProgressionEvidence(
 export function calculateSolarArcEvidence(
   data: AstrolabeData,
   targetYear: number,
+  referenceDate?: { year: number; month: number; day: number },
 ): SolarArcEvidence {
   assertAdvancedTargetYear(targetYear);
   const technique: AstrolabeAdvancedTechnique = '太阳弧';
@@ -1535,7 +1571,8 @@ export function calculateSolarArcEvidence(
       promptText: `太阳弧证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
-  const age = targetYear - birth.year;
+  const age = getAdvancedAge(data, birth, targetYear, referenceDate);
+  const ageLabel = Number(age.toFixed(2));
   if (age < 0) {
     const limitations = ['目标年早于出生年，太阳弧不适用。'];
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
@@ -1635,7 +1672,7 @@ export function calculateSolarArcEvidence(
         dependsOnStepKeys: [],
         inputs: { birthYear: birth.year, targetYear },
         result: { age },
-        promptText: `固定出生年${birth.year}与目标年${targetYear}，年龄差约${age}岁`,
+        promptText: `固定出生年${birth.year}与目标年${targetYear}，参考时点年龄约${ageLabel}岁`,
         sources: ['出生时间与目标年份'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -2234,6 +2271,59 @@ export function calculateSolarReturnEvidence(
   }
 }
 
+function buildSolarReturnPeriods(
+  data: AstrolabeData,
+  targetYear: number,
+  referenceDate: { year: number; month: number; day: number },
+  currentEvidence: SolarReturnEvidence,
+): SolarReturnPeriod[] {
+  const timeZone = getScopeTimeZoneInput(data);
+  const localMidnightUtc = (year: number) =>
+    resolveCivilTime({
+      year,
+      month: 1,
+      day: 1,
+      hour: 0,
+      minute: 0,
+      second: 0,
+      ...timeZone,
+    }).utcTimestamp;
+  const yearStart = localMidnightUtc(targetYear);
+  const yearEnd = localMidnightUtc(targetYear + 1);
+  const referenceUtc = resolveCivilTime({
+    ...referenceDate,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    ...timeZone,
+  }).utcTimestamp;
+  const returns = [targetYear - 1, targetYear, targetYear + 1]
+    .filter((year) => year >= 1900 && year <= 2200)
+    .map((year) =>
+      year === targetYear ? currentEvidence : calculateSolarReturnEvidence(data, year),
+    )
+    .filter(
+      (evidence): evidence is SolarReturnEvidence & { timeScale: AstronomicalTimeEvidence } =>
+        evidence.timeScale !== undefined && Number.isFinite(evidence.timeScale.unixMilliseconds),
+    )
+    .sort((first, second) => first.timeScale.unixMilliseconds - second.timeScale.unixMilliseconds);
+  return returns.flatMap((evidence, index) => {
+    const start = Math.max(yearStart, evidence.timeScale.unixMilliseconds);
+    const end = Math.min(yearEnd, returns[index + 1]?.timeScale.unixMilliseconds ?? yearEnd);
+    if (end <= start) return [];
+    return [
+      {
+        startsAt: getLocalReturnTime(data, start).dateTime,
+        endsAt: getLocalReturnTime(data, end).dateTime,
+        startUtcDateTime: new Date(start).toISOString(),
+        endUtcDateTime: new Date(end).toISOString(),
+        isReferencePeriod: referenceUtc >= start && referenceUtc < end,
+        evidence,
+      },
+    ];
+  });
+}
+
 function isLongitudeInHouse(longitude: number, cusp: number, nextCusp: number) {
   if (nextCusp > cusp) {
     return longitude >= cusp && longitude < nextCusp;
@@ -2450,11 +2540,13 @@ function buildTransitEvidence(
 
 function formatAdvancedScopeFacts(params: {
   solarReturnEvidence?: SolarReturnEvidence;
+  solarReturnPeriods?: SolarReturnPeriod[];
   secondaryProgressionEvidence?: SecondaryProgressionEvidence;
   solarArcEvidence?: SolarArcEvidence;
 }) {
   const lines: string[] = [];
   const solarReturn = params.solarReturnEvidence;
+  const returnPeriods = params.solarReturnPeriods;
   const progression = params.secondaryProgressionEvidence;
   const solarArc = params.solarArcEvidence;
   const formatAspectFacts = (facts: AstrolabeAdvancedAspectFact[]) =>
@@ -2464,18 +2556,37 @@ function formatAdvancedScopeFacts(params: {
           `${fact.movingPoint}${fact.aspectName}${fact.natalPoint}（偏差${fact.deviation.toFixed(2)}°，${fact.closeness}）`,
       )
       .join('；');
+  const formatMovingPoints = (facts: AstrolabeAdvancedMovingPointFact[]) =>
+    facts
+      .map(
+        (fact) =>
+          `${fact.label}${fact.signLabel}${fact.degree}°${String(fact.minute).padStart(2, '0')}′`,
+      )
+      .join('；');
 
-  if (solarReturn) {
+  if (returnPeriods?.length) {
+    for (const period of returnPeriods) {
+      const evidence = period.evidence;
+      lines.push(
+        `太阳返照有效期${period.startsAt}至${period.endsAt}（结束时刻不含）${period.isReferencePeriod ? '，覆盖本次参考日期' : ''}：返照时刻${evidence.dateTime}；${formatAspectFacts(evidence.aspectFacts) || '未见主要对本命相位'}。`,
+      );
+      if (evidence.returnChart) lines.push(evidence.returnChart.promptText);
+    }
+  } else if (solarReturn) {
     lines.push(
       `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}：${formatAspectFacts(solarReturn.aspectFacts) || '暂无'}。`,
     );
     if (solarReturn.returnChart) lines.push(solarReturn.returnChart.promptText);
   }
   if (progression) {
-    lines.push(`次限相位：${formatAspectFacts(progression.aspectFacts) || '暂无'}。`);
+    lines.push(
+      `次限推进${progression.progressedDateTime ? `（推进日期${progression.progressedDateTime}）` : ''}：${formatMovingPoints(progression.movingPointFacts) || progression.limitations[0]}。次限相位：${formatAspectFacts(progression.aspectFacts) || '暂无'}。`,
+    );
   }
   if (solarArc) {
-    lines.push(`太阳弧相位：${formatAspectFacts(solarArc.aspectFacts) || '暂无'}。`);
+    lines.push(
+      `太阳弧${solarArc.arcDegrees === undefined ? '' : `（推进弧${solarArc.arcDegrees.toFixed(2)}°）`}：${formatMovingPoints(solarArc.movingPointFacts) || solarArc.limitations[0]}。太阳弧相位：${formatAspectFacts(solarArc.aspectFacts) || '暂无'}。`,
+    );
   }
 
   return lines;
@@ -2524,6 +2635,7 @@ export function buildAstrolabeScopeContext(
   }
 
   const target = normalizeTargetDate(scope, dateStr);
+  const advancedReferenceDate = options.advancedReferenceDate ?? target;
   const normalizedDateStr = formatDateStr(scope, target);
   const scopeLabel = SCOPE_LABEL_MAP[scope];
   const displayText = `${scopeLabel} · ${normalizedDateStr}`;
@@ -2545,17 +2657,21 @@ export function buildAstrolabeScopeContext(
     includeScopeFacts && scope === 'yearly'
       ? calculateSolarReturnEvidence(data, target.year)
       : undefined;
+  const solarReturnPeriods = solarReturnEvidence
+    ? buildSolarReturnPeriods(data, target.year, advancedReferenceDate, solarReturnEvidence)
+    : undefined;
   const secondaryProgressionEvidence =
     includeScopeFacts && scope === 'yearly'
-      ? calculateSecondaryProgressionEvidence(data, target.year)
+      ? calculateSecondaryProgressionEvidence(data, target.year, advancedReferenceDate)
       : undefined;
   const solarArcEvidence =
     includeScopeFacts && scope === 'yearly'
-      ? calculateSolarArcEvidence(data, target.year)
+      ? calculateSolarArcEvidence(data, target.year, advancedReferenceDate)
       : undefined;
   const includePeriodEvents = options.includePeriodEvents ?? true;
   const advancedYearlyFacts = formatAdvancedScopeFacts({
     solarReturnEvidence,
+    solarReturnPeriods,
     secondaryProgressionEvidence,
     solarArcEvidence,
   });
@@ -2581,6 +2697,9 @@ export function buildAstrolabeScopeContext(
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
       `行运取样：${anchorDate}（${timezoneLabel}）。`,
+      includeScopeFacts && scope === 'yearly'
+        ? `次限与太阳弧取样：${formatAnchorDate(advancedReferenceDate)}（出生地时区）。`
+        : undefined,
       transitEvidence,
       transitHouseEvidence,
       periodBatchText,
@@ -2588,6 +2707,7 @@ export function buildAstrolabeScopeContext(
       ...advancedYearlyFacts,
     ].join('\n'),
     solarReturnEvidence,
+    solarReturnPeriods,
     secondaryProgressionEvidence,
     solarArcEvidence,
     transitFacts,
@@ -2609,7 +2729,10 @@ export function buildAstrolabeFullScopeContexts(
 
   return {
     natal: buildAstrolabeScopeContext(data, 'natal', ''),
-    yearly: buildAstrolabeScopeContext(data, 'yearly', yearlyDate, options),
+    yearly: buildAstrolabeScopeContext(data, 'yearly', yearlyDate, {
+      ...options,
+      advancedReferenceDate: reference,
+    }),
     monthly: buildAstrolabeScopeContext(data, 'monthly', monthlyDate, options),
     daily: buildAstrolabeScopeContext(data, 'daily', dailyDate, options),
   };

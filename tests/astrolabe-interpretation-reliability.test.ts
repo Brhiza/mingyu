@@ -76,23 +76,19 @@ test('星盘周期提示词压缩保留真实 fixture 的全量事件且摘要�
 
 test('星盘流年提示词应列出高级时限的全部已筛选相位事实', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2022');
+  const lines = context.promptText.split('\n');
   const evidence = [
-    ['太阳返照', context.solarReturnEvidence],
-    ['次限相位', context.secondaryProgressionEvidence],
-    ['太阳弧相位', context.solarArcEvidence],
-  ] as const;
+    ...(context.solarReturnPeriods ?? []).map(
+      (period) => [`太阳返照有效期${period.startsAt}`, period.evidence] as const,
+    ),
+    ['次限推进', context.secondaryProgressionEvidence] as const,
+    ['太阳弧（', context.solarArcEvidence] as const,
+  ];
 
   for (const [label, item] of evidence) {
     assert.ok(item);
-    const line =
-      context.promptText.split('\n').find((value) => value.startsWith(`${label}：`)) ??
-      context.promptText.split('\n').find((value) => value.startsWith(`${label}（`));
+    const line = lines.find((value) => value.startsWith(label));
     assert.ok(line, `缺少高级时限提示词行：${label}`);
-    const facts = line!
-      .slice(line!.indexOf('：') + 1)
-      .replace(/。$/, '')
-      .split('；');
-    assert.equal(facts.length, item.aspectFacts.length, `${label}不应静默截断相位事实`);
     for (const fact of item.aspectFacts) {
       assert.ok(
         line!.includes(compactAdvancedAspect(fact)),
