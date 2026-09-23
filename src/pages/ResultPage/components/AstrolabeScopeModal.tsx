@@ -155,10 +155,10 @@ export function AstrolabeScopeModal(props: {
           : `${draftYear}年${draftMonth}月${normalizedDraftDay}日`;
   const summaryText =
     draftScope === 'full'
-      ? '本命盘与同一参考日的流年、流月、流日行运。'
+      ? '本命盘与同一参考日的流年、流月、流日行运；流年含太阳返照、次限推进和太阳弧。'
       : draftScope === 'natal'
         ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
-        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。`;
+        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。${draftScope === 'yearly' ? '还会完整计算太阳返照、次限推进和太阳弧。' : ''}`;
   const quickActions: Array<{
     scope: Exclude<AstrolabeScopeMode, 'natal'>;
     label: string;
@@ -220,7 +220,7 @@ export function AstrolabeScopeModal(props: {
           <section className="fortune-modal-section">
             <div className="fortune-modal-section-head">
               <h3>流年</h3>
-              <small>选具体年份后，可继续下钻到流月。</small>
+              <small>同时计算太阳返照、次限推进和太阳弧，并可继续下钻到流月。</small>
             </div>
             <div className="fortune-modal-list">
               {yearOptions.map((year) => (

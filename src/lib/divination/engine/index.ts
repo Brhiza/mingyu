@@ -317,6 +317,8 @@ export function buildDivinationPrompt(
   const astrolabeTopic =
     method === 'astrolabe' ? (options.astrolabeTopic ?? (isCustomQuestion ? 'chat' : 'life')) : '';
   const astrolabeScopeText = method === 'astrolabe' ? options.astrolabeScopeText?.trim() || '' : '';
+  const hasAstrolabeAdvancedTiming =
+    method === 'astrolabe' && /太阳返照|次限相位：|太阳弧相位：/.test(astrolabeScopeText);
   const normalizedQuestion =
     method === 'astrolabe'
       ? question.trim() || getAstrolabeDefaultQuestion(astrolabeTopic, { isCustomQuestion })
@@ -418,7 +420,12 @@ export function buildDivinationPrompt(
                 'meihua',
               )
             : method === 'astrolabe' && !isCustomQuestion
-              ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
+              ? buildPromptTask(
+                  hasAstrolabeAdvancedTiming
+                    ? '请分别判断普通行运、太阳返照、次限推进和太阳弧，再综合四类证据的共同主题、时间触发与分歧回答【问题】。'
+                    : buildAstrolabeTopicTask(astrolabeTopic),
+                  'astrolabe',
+                )
               : method === 'xiaoliuren' && options.xiaoliurenRangeText?.trim()
                 ? buildPromptTask(
                     '依据各时间段的顺数结果、时宫与歌诀，比较分支条件后回答【问题】。',

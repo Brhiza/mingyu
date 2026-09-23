@@ -2878,9 +2878,27 @@ test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本�
     });
     assert.equal(defaultRange.isError, undefined);
     const defaultResult = defaultRange.structuredContent?.result as {
-      scopeEvidence?: { scope?: string };
+      scopeEvidence?: {
+        scope?: string;
+        solarReturnEvidence?: {
+          returnChart?: { planets?: unknown[]; angles?: unknown[]; houses?: unknown[] };
+        };
+        secondaryProgressionEvidence?: { movingPointFacts?: unknown[] };
+        solarArcEvidence?: { movingPointFacts?: unknown[] };
+      };
     };
     assert.equal(defaultResult.scopeEvidence?.scope, 'yearly');
+    assert.equal(
+      defaultResult.scopeEvidence?.solarReturnEvidence?.returnChart?.planets?.length,
+      10,
+    );
+    assert.equal(defaultResult.scopeEvidence?.solarReturnEvidence?.returnChart?.angles?.length, 4);
+    assert.equal(defaultResult.scopeEvidence?.solarReturnEvidence?.returnChart?.houses?.length, 12);
+    assert.equal(
+      defaultResult.scopeEvidence?.secondaryProgressionEvidence?.movingPointFacts?.length,
+      5,
+    );
+    assert.equal(defaultResult.scopeEvidence?.solarArcEvidence?.movingPointFacts?.length, 14);
     const defaultPrompt = String(defaultRange.structuredContent?.prompt ?? '');
     assert.match(defaultPrompt, /分析对象：流年\d{4}。/);
     assert.match(defaultPrompt, /周期关键星象（/);

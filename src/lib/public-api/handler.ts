@@ -488,7 +488,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   astrolabeScope: {
     enum: [...ASTROLABE_PROMPT_SCOPES],
     description:
-      '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日。不传时默认当前年度流年；传 astrolabeScopeText 时以自定义文本为准。',
+      '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日。yearly 与 full 的流年层会自动计算太阳返照、次限推进和太阳弧；不传时默认当前年度流年；传 astrolabeScopeText 时以自定义文本为准。',
   },
   astrolabeScopeDate: {
     type: 'string',

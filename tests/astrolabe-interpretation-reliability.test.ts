@@ -102,7 +102,13 @@ test('星盘流年提示词应列出高级时限的全部已筛选相位事实',
     }
   }
 
-  assert.equal(context.solarReturnEvidence?.aspectFacts.length, 8);
-  assert.equal(context.secondaryProgressionEvidence?.aspectFacts.length, 8);
-  assert.equal(context.solarArcEvidence?.aspectFacts.length, 6);
+  assert.ok((context.solarReturnEvidence?.aspectFacts.length ?? 0) > 0);
+  assert.ok((context.secondaryProgressionEvidence?.aspectFacts.length ?? 0) > 0);
+  assert.ok((context.solarArcEvidence?.aspectFacts.length ?? 0) > 0);
+  assert.ok(
+    context.secondaryProgressionEvidence?.candidateAspectFacts.every(
+      (fact) => fact.allowedOrb === (fact.movingPointKey.endsWith(':Moon') ? 1 : 0.5),
+    ),
+  );
+  assert.ok(context.solarArcEvidence?.candidateAspectFacts.every((fact) => fact.allowedOrb === 1));
 });

@@ -1,6 +1,7 @@
 import {
   AspectType,
   CelestialBody,
+  calculateChart,
   calculatePlanets,
   calculateTransits,
   getSunPosition,
@@ -60,7 +61,12 @@ import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
-import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
+import {
+  getCivilDateTimeAtFixedOffset,
+  resolveCivilTime,
+  type CivilTimeZoneInput,
+} from '../calendar/civil-time';
+import { getHistoricalTimezoneOffsetAt } from '../calendar/historical-timezone';
 import { TimeManager } from '../calendar/timeManager';
 
 export type AstrolabeScopeContext = {
@@ -283,6 +289,8 @@ export type SolarReturnEvidence = {
   aspectFacts: AstrolabeAdvancedAspectFact[];
   candidateAspectFacts: AstrolabeAdvancedAspectFact[];
   movingPointFacts: AstrolabeAdvancedMovingPointFact[];
+  /** 返照地点默认沿用出生地；完整返照盘包含行星、四轴、宫头及两层相位。 */
+  returnChart?: SolarReturnChartFact;
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
   summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
@@ -291,6 +299,42 @@ export type SolarReturnEvidence = {
   timeScale?: AstronomicalTimeEvidence;
   promptText: string;
 };
+
+export interface SolarReturnHouseFact {
+  key: string;
+  house: number;
+  longitude: number;
+  signName: string;
+  signLabel: string;
+  degree: number;
+  minute: number;
+  second: number;
+}
+
+export interface SolarReturnInternalAspectFact {
+  key: string;
+  firstPointKey: string;
+  secondPointKey: string;
+  firstPoint: string;
+  secondPoint: string;
+  aspectName: string;
+  actualAngle: number;
+  exactAngle: number;
+  deviation: number;
+  allowedOrb: number;
+  promptText: string;
+}
+
+export interface SolarReturnChartFact {
+  location: { name: string; latitude: number; longitude: number; source: '出生地' };
+  houseSystem: 'placidus' | 'whole_sign';
+  planets: AstrolabeAdvancedMovingPointFact[];
+  angles: AstrolabeAdvancedMovingPointFact[];
+  houses: SolarReturnHouseFact[];
+  internalAspectFacts: SolarReturnInternalAspectFact[];
+  natalAspectFacts: AstrolabeAdvancedAspectFact[];
+  promptText: string;
+}
 
 export interface SecondaryProgressionEvidence {
   key: string;
@@ -744,10 +788,11 @@ function signedLongitudeDifference(first: number, second: number) {
   return ((normalizeLongitude(first) - normalizeLongitude(second) + 540) % 360) - 180;
 }
 
-function resolveAdvancedAspect(first: number, second: number) {
+function resolveAdvancedAspect(first: number, second: number, allowedOrb?: number) {
   const distance = longitudeDistance(first, second);
   return ADVANCED_ASPECTS.map((aspect) => ({
     ...aspect,
+    orb: allowedOrb ?? aspect.orb,
     actualAngle: distance,
     deviation: Math.abs(distance - aspect.angle),
   }))
@@ -816,14 +861,70 @@ function calculateScopePlanets(data: AstrolabeData, date: ScopeDateParts) {
   );
 }
 
-function calculateScopeSunLongitude(data: AstrolabeData, date: ScopeDateParts) {
-  const timezone = resolveScopeTimezone(data, date);
-  const jd = time.toJulianDate({
-    ...date,
-    second: date.second ?? 0,
-    timezone,
-  });
-  return getSunPosition(jd).longitude;
+/** 推进与求根统一使用真实 UTC 时刻，避免将中间日期再次按夏令时墙钟解析。 */
+function getBirthUtcTimestamp(data: AstrolabeData, birth: ScopeDateParts) {
+  return resolveCivilTime({
+    ...birth,
+    second: birth.second ?? 0,
+    timezone: data.birth.timezone,
+    ...(data.birth.timeZoneId ? { timeZoneId: data.birth.timeZoneId } : {}),
+  }).utcTimestamp;
+}
+
+function calculatePlanetsAtUtc(data: AstrolabeData, timestamp: number) {
+  const coordinates = parseBirthCoordinates(data);
+  return calculatePlanets(
+    { ...datePartsFromUtcTimestamp(timestamp), timezone: 0, ...coordinates },
+    {
+      houseSystem: 'placidus',
+      includeAsteroids: false,
+      includeChiron: false,
+      includeLilith: false,
+      includeNodes: true,
+      includeLots: false,
+    },
+  );
+}
+
+function calculateSunLongitudeAtUtc(timestamp: number) {
+  return getSunPosition(time.toJulianDate({ ...datePartsFromUtcTimestamp(timestamp), timezone: 0 }))
+    .longitude;
+}
+
+function getLocalReturnTime(data: AstrolabeData, timestamp: number) {
+  const timezone = data.birth.timeZoneId
+    ? getHistoricalTimezoneOffsetAt(new Date(timestamp), data.birth.timeZoneId)
+    : data.birth.timezone;
+  const parts = data.birth.timeZoneId
+    ? (() => {
+        const fields = Object.fromEntries(
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: data.birth.timeZoneId,
+            calendar: 'gregory',
+            numberingSystem: 'latn',
+            hourCycle: 'h23',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+            .formatToParts(new Date(timestamp))
+            .filter((item) => item.type !== 'literal')
+            .map((item) => [item.type, Number(item.value)]),
+        );
+        return {
+          year: fields.year,
+          month: fields.month,
+          day: fields.day,
+          hour: fields.hour,
+          minute: fields.minute,
+          second: fields.second,
+        };
+      })()
+    : getCivilDateTimeAtFixedOffset(new Date(timestamp), timezone);
+  return { timezone, parts, dateTime: formatDateTimeParts(parts) };
 }
 
 function advancedTechniqueKey(technique: AstrolabeAdvancedTechnique) {
@@ -893,18 +994,23 @@ function buildAdvancedAspectFactSet(
   natal: Array<{ name: string; longitude: number }>,
   ownerStepKey: string,
   limit = 8,
+  orbForPoint?: (name: string) => number,
 ): AdvancedAspectFactSet {
   const techniqueKey = advancedTechniqueKey(technique);
   const all = moving
     .flatMap((movingPoint) =>
       natal.flatMap((natalPoint) => {
-        const aspect = resolveAdvancedAspect(movingPoint.longitude, natalPoint.longitude);
+        const aspect = resolveAdvancedAspect(
+          movingPoint.longitude,
+          natalPoint.longitude,
+          orbForPoint?.(movingPoint.name),
+        );
         if (!aspect) return [];
         const normalizedOrbRatio = Math.min(1, aspect.deviation / aspect.orb);
         const closeness: AstrolabeAdvancedAspectFact['closeness'] =
           normalizedOrbRatio <= 0.35 ? '紧密' : normalizedOrbRatio <= 0.7 ? '中等' : '宽松';
         const movingLabel =
-          movingPoint.label ?? CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
+          movingPoint.label ?? NATAL_POINT_NAME_MAP[movingPoint.name] ?? movingPoint.name;
         const natalLabel = NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name;
         return [
           {
@@ -958,7 +1064,7 @@ function buildAdvancedMovingPointFacts(
       technique,
       status: '已计算',
       name: point.name,
-      label: point.label ?? CELESTIAL_BODY_LABELS[point.name] ?? point.name,
+      label: point.label ?? NATAL_POINT_NAME_MAP[point.name] ?? point.name,
       longitude: point.longitude,
       signName: point.signName ?? position.signName,
       signLabel:
@@ -1201,19 +1307,11 @@ export function calculateSecondaryProgressionEvidence(
       promptText: `次限证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
-  const progressedDate = new Date(
-    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute, birth.second ?? 0) +
-      age * 86400000,
-  );
   try {
-    const progressed = calculateScopePlanets(data, {
-      year: progressedDate.getUTCFullYear(),
-      month: progressedDate.getUTCMonth() + 1,
-      day: progressedDate.getUTCDate(),
-      hour: progressedDate.getUTCHours(),
-      minute: progressedDate.getUTCMinutes(),
-      second: progressedDate.getUTCSeconds(),
-    }).filter((planet) => ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'].includes(planet.name));
+    const progressedDate = new Date(getBirthUtcTimestamp(data, birth) + age * 86400000);
+    const progressed = calculatePlanetsAtUtc(data, progressedDate.getTime()).filter((planet) =>
+      ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'].includes(planet.name),
+    );
     const inputStepKey = `${techniqueKey}:calculation:input`;
     const dateStepKey = `${techniqueKey}:calculation:progressed-date`;
     const positionStepKey = `${techniqueKey}:calculation:positions`;
@@ -1273,6 +1371,8 @@ export function calculateSecondaryProgressionEvidence(
       progressed.map(advancedPlanetPoint),
       buildNatalPoints(data),
       aspectStepKey,
+      8,
+      (name) => (name === 'Moon' ? 1 : 0.5),
     );
     const aspectFacts = aspectFactSet.selected;
     const movingPointFacts = buildAdvancedMovingPointFacts(
@@ -1487,23 +1587,33 @@ export function calculateSolarArcEvidence(
       promptText: `太阳弧证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
-  const progressedDate = new Date(
-    Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute, birth.second ?? 0) +
-      Math.max(0, age) * 86400000,
-  );
   try {
-    const progressedSun = calculateScopePlanets(data, {
-      year: progressedDate.getUTCFullYear(),
-      month: progressedDate.getUTCMonth() + 1,
-      day: progressedDate.getUTCDate(),
-      hour: progressedDate.getUTCHours(),
-      minute: progressedDate.getUTCMinutes(),
-      second: progressedDate.getUTCSeconds(),
-    }).find((planet) => planet.name === 'Sun');
+    const progressedDate = new Date(getBirthUtcTimestamp(data, birth) + age * 86400000);
+    const progressedSun = calculatePlanetsAtUtc(data, progressedDate.getTime()).find(
+      (planet) => planet.name === 'Sun',
+    );
     if (!progressedSun) throw new Error('未取得推进太阳位置。');
     const arc = normalizeLongitude(progressedSun.longitude - natalSun.longitude);
     const directed = [...data.planets, ...data.angles]
-      .filter((point) => ['Sun', 'Moon', 'Ascendant', 'Midheaven'].includes(point.name))
+      .filter(
+        (point) =>
+          [
+            'Sun',
+            'Moon',
+            'Mercury',
+            'Venus',
+            'Mars',
+            'Jupiter',
+            'Saturn',
+            'Uranus',
+            'Neptune',
+            'Pluto',
+            'Ascendant',
+            'Descendant',
+            'Midheaven',
+            'Imum Coeli',
+          ].includes(point.name) && Number.isFinite(point.longitude),
+      )
       .map((point) => ({
         name: point.name,
         label: `太阳弧${NATAL_POINT_NAME_MAP[point.name] ?? point.name}`,
@@ -1584,6 +1694,7 @@ export function calculateSolarArcEvidence(
       buildNatalPoints(data),
       aspectStepKey,
       6,
+      () => 1,
     );
     const aspectFacts = aspectFactSet.selected;
     const movingPointFacts = buildAdvancedMovingPointFacts(
@@ -1686,7 +1797,7 @@ export function calculateSolarArcEvidence(
   }
 }
 
-function datePartsFromWallClockTimestamp(timestamp: number) {
+function datePartsFromUtcTimestamp(timestamp: number) {
   const date = new Date(timestamp);
   return {
     year: date.getUTCFullYear(),
@@ -1698,9 +1809,111 @@ function datePartsFromWallClockTimestamp(timestamp: number) {
   };
 }
 
-function formatWallClockDateTime(timestamp: number) {
-  const date = datePartsFromWallClockTimestamp(timestamp);
+function formatDateTimeParts(date: ScopeDateParts) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} ${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}:${String(date.second).padStart(2, '0')}`;
+}
+
+function buildSolarReturnChartFact(
+  data: AstrolabeData,
+  timestamp: number,
+  aspectStepKey: string,
+): { returnChart: SolarReturnChartFact; aspectFactSet: AdvancedAspectFactSet } {
+  const coordinates = parseBirthCoordinates(data);
+  const chart = calculateChart(
+    { ...datePartsFromUtcTimestamp(timestamp), timezone: 0, ...coordinates },
+    {
+      houseSystem: 'placidus',
+      includeAsteroids: false,
+      includeChiron: false,
+      includeLilith: false,
+      includeNodes: false,
+      includeLots: false,
+    },
+  );
+  const planetPoints = chart.planets.map(advancedPlanetPoint);
+  const anglePoints: AdvancedMovingAspectPoint[] = [
+    chart.angles.ascendant,
+    chart.angles.descendant,
+    chart.angles.midheaven,
+    chart.angles.imumCoeli,
+  ];
+  const allPoints = [...planetPoints, ...anglePoints];
+  const aspectFactSet = buildAdvancedAspectFactSet(
+    '太阳返照',
+    allPoints,
+    buildNatalPoints(data),
+    aspectStepKey,
+    8,
+  );
+  const planets = buildAdvancedMovingPointFacts(
+    '太阳返照',
+    planetPoints,
+    aspectFactSet.selected,
+    aspectFactSet.all,
+  );
+  const angles = buildAdvancedMovingPointFacts(
+    '太阳返照',
+    anglePoints,
+    aspectFactSet.selected,
+    aspectFactSet.all,
+  );
+  const houses = chart.houses.cusps.map((cusp): SolarReturnHouseFact => ({
+    key: `solar-return:house:${cusp.house}`,
+    house: cusp.house,
+    longitude: cusp.longitude,
+    signName: cusp.signName,
+    signLabel: SIGN_LABELS[cusp.signName] ?? cusp.signName,
+    degree: cusp.degree,
+    minute: cusp.minute,
+    second: cusp.second,
+  }));
+  const internalAspectFacts = allPoints.flatMap((first, firstIndex) =>
+    allPoints.slice(firstIndex + 1).flatMap((second) => {
+      if (firstIndex >= planetPoints.length && allPoints.indexOf(second) >= planetPoints.length) {
+        return [];
+      }
+      const aspect = resolveAdvancedAspect(first.longitude, second.longitude);
+      if (!aspect) return [];
+      const firstLabel = NATAL_POINT_NAME_MAP[first.name] ?? first.name;
+      const secondLabel = NATAL_POINT_NAME_MAP[second.name] ?? second.name;
+      return [
+        {
+          key: `solar-return:internal-aspect:${first.name}:${second.name}:${aspect.name}`,
+          firstPointKey: getAdvancedMovingPointKey('太阳返照', first.name),
+          secondPointKey: getAdvancedMovingPointKey('太阳返照', second.name),
+          firstPoint: firstLabel,
+          secondPoint: secondLabel,
+          aspectName: aspect.name,
+          actualAngle: Number(aspect.actualAngle.toFixed(6)),
+          exactAngle: aspect.angle,
+          deviation: Number(aspect.deviation.toFixed(6)),
+          allowedOrb: aspect.orb,
+          promptText: `${firstLabel}${aspect.name}${secondLabel}（偏差${aspect.deviation.toFixed(2)}°）`,
+        },
+      ];
+    }),
+  );
+  const formatPoint = (point: AstrolabeAdvancedMovingPointFact) =>
+    `${point.label}${point.signLabel}${point.degree}°${String(point.minute).padStart(2, '0')}′${point.house ? `第${point.house}宫` : ''}`;
+  const promptText = `返照盘（出生地${data.birth.location}，纬度${coordinates.latitude}°、经度${coordinates.longitude}°）：行星${planets.map(formatPoint).join('、')}；四轴${angles.map(formatPoint).join('、')}；十二宫宫头${houses.map((house) => `第${house.house}宫${house.signLabel}${house.degree}°${String(house.minute).padStart(2, '0')}′`).join('、')}；盘内主要相位${internalAspectFacts.map((fact) => fact.promptText).join('、') || '未见'}；对本命主要相位${aspectFactSet.all.map((fact) => `${fact.movingPoint}${fact.aspectName}${fact.natalPoint}（偏差${fact.deviation.toFixed(2)}°）`).join('、') || '未见'}。`;
+  return {
+    aspectFactSet,
+    returnChart: {
+      location: {
+        name: data.birth.location,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        source: '出生地',
+      },
+      houseSystem: chart.houses.system,
+      planets,
+      angles,
+      houses,
+      internalAspectFacts,
+      natalAspectFacts: aspectFactSet.all,
+      promptText,
+    },
+  };
 }
 
 export function calculateSolarReturnEvidence(
@@ -1712,20 +1925,10 @@ export function calculateSolarReturnEvidence(
   const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
-  const targetTimezone = birth
-    ? resolveScopeTimezone(data, {
-        year: targetYear,
-        month: birth.month,
-        day: Math.min(birth.day, daysInAstrolabeScopeMonth(targetYear, birth.month)),
-        hour: birth.hour,
-        minute: birth.minute,
-        second: birth.second ?? 0,
-      })
-    : data.birth.timezone;
   const baseEvidence = {
     key: `${techniqueKey}:${targetYear}`,
     targetYear,
-    timezone: targetTimezone,
+    timezone: data.birth.timezone,
     searchWindowHours: 48,
     coarseStepHours: 2,
     refinementToleranceMinutes: 1 / 60,
@@ -1807,14 +2010,9 @@ export function calculateSolarReturnEvidence(
   }
   const maxDay = daysInAstrolabeScopeMonth(targetYear, birth.month);
   const centerDay = Math.min(birth.day, maxDay);
-  const centerTimestamp = Date.UTC(
-    targetYear,
-    birth.month - 1,
-    centerDay,
-    birth.hour,
-    birth.minute,
-    birth.second ?? 0,
-  );
+  const centerTimestamp =
+    Date.UTC(targetYear, birth.month - 1, centerDay, birth.hour, birth.minute, birth.second ?? 0) -
+    data.birth.timezone * 3600000;
   try {
     let previous: { timestamp: number; difference: number } | undefined;
     let bracket: { left: number; right: number; leftDifference: number } | undefined;
@@ -1822,7 +2020,7 @@ export function calculateSolarReturnEvidence(
     for (let offsetHours = -48; offsetHours <= 48; offsetHours += 2) {
       const timestamp = centerTimestamp + offsetHours * 3600000;
       const difference = signedLongitudeDifference(
-        calculateScopeSunLongitude(data, datePartsFromWallClockTimestamp(timestamp)),
+        calculateSunLongitudeAtUtc(timestamp),
         natalSun.longitude,
       );
       if (!best || Math.abs(difference) < Math.abs(best.difference)) {
@@ -1854,7 +2052,7 @@ export function calculateSolarReturnEvidence(
       while (right - left > 1000 && iterations < 40) {
         const middle = Math.floor((left + right) / 2000) * 1000;
         const middleDifference = signedLongitudeDifference(
-          calculateScopeSunLongitude(data, datePartsFromWallClockTimestamp(middle)),
+          calculateSunLongitudeAtUtc(middle),
           natalSun.longitude,
         );
         if (leftDifference * middleDifference <= 0) {
@@ -1865,20 +2063,21 @@ export function calculateSolarReturnEvidence(
         }
         iterations += 1;
       }
-      const rightSunLongitude = calculateScopeSunLongitude(
-        data,
-        datePartsFromWallClockTimestamp(right),
-      );
+      const rightSunLongitude = calculateSunLongitudeAtUtc(right);
       finalTimestamp =
         Math.abs(signedLongitudeDifference(rightSunLongitude, natalSun.longitude)) <
         Math.abs(leftDifference)
           ? right
           : left;
     }
-    const finalDate = datePartsFromWallClockTimestamp(finalTimestamp);
-    const returnPlanets = calculateScopePlanets(data, finalDate).filter((planet) =>
-      ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'].includes(planet.name),
+    const localReturn = getLocalReturnTime(data, finalTimestamp);
+    const aspectStepKey = `${techniqueKey}:calculation:aspects`;
+    const { returnChart, aspectFactSet } = buildSolarReturnChartFact(
+      data,
+      finalTimestamp,
+      aspectStepKey,
     );
+    const returnPlanets = returnChart.planets;
     const returnSun = returnPlanets.find((planet) => planet.name === 'Sun');
     const residualDegrees = returnSun
       ? longitudeDistance(returnSun.longitude, natalSun.longitude)
@@ -1887,7 +2086,6 @@ export function calculateSolarReturnEvidence(
     const coarseStepKey = `${techniqueKey}:calculation:coarse-search`;
     const refineStepKey = `${techniqueKey}:calculation:refinement`;
     const positionStepKey = `${techniqueKey}:calculation:return-positions`;
-    const aspectStepKey = `${techniqueKey}:calculation:aspects`;
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
       {
         key: inputStepKey,
@@ -1896,7 +2094,7 @@ export function calculateSolarReturnEvidence(
         status: '已计算',
         dependsOnStepKeys: [],
         inputs: { targetYear, natalSunLongitude: natalSun.longitude },
-        result: { centerDateTime: formatWallClockDateTime(centerTimestamp) },
+        result: { centerUtcDateTime: new Date(centerTimestamp).toISOString() },
         promptText: `以本命太阳黄经${natalSun.longitude.toFixed(6)}°和目标年${targetYear}生日附近时刻为返照搜索输入`,
         sources: ['本命太阳黄经', '出生日期与目标年份'],
         limitation: ADVANCED_STEP_LIMITATION,
@@ -1910,7 +2108,7 @@ export function calculateSolarReturnEvidence(
         inputs: { searchWindowHours: 48, coarseStepHours: 2 },
         result: {
           bracketFound: Boolean(bracket),
-          bestSampleDateTime: formatWallClockDateTime(best.timestamp),
+          bestSampleUtcDateTime: new Date(best.timestamp).toISOString(),
           bestSampleDifferenceDegrees: Number(best.difference.toFixed(6)),
         },
         promptText: bracket
@@ -1928,7 +2126,7 @@ export function calculateSolarReturnEvidence(
         inputs: { refinementToleranceMinutes: 1 / 60 },
         result: {
           refinementIterations: iterations,
-          finalDateTime: formatWallClockDateTime(finalTimestamp),
+          finalUtcDateTime: new Date(finalTimestamp).toISOString(),
         },
         promptText: bracket
           ? `对过零区间二分${iterations}次，细化到1秒内`
@@ -1942,12 +2140,12 @@ export function calculateSolarReturnEvidence(
         stage: '位置计算',
         status: bracket ? '已计算' : '近似',
         dependsOnStepKeys: [refineStepKey],
-        inputs: { returnDateTime: formatWallClockDateTime(finalTimestamp) },
+        inputs: { returnUtcDateTime: new Date(finalTimestamp).toISOString() },
         result: {
           returnPlanetCount: returnPlanets.length,
           residualDegrees: Number(residualDegrees.toFixed(6)),
         },
-        promptText: `计算返照时刻七颗主要星体位置，太阳黄经残差${residualDegrees.toFixed(6)}°`,
+        promptText: `计算返照时刻十大行星、四轴与十二宫宫头，太阳黄经残差${residualDegrees.toFixed(6)}°`,
         sources: ['Caelus 返照星体位置'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -1964,26 +2162,14 @@ export function calculateSolarReturnEvidence(
         limitation: ADVANCED_STEP_LIMITATION,
       },
     ];
-    const aspectFactSet = buildAdvancedAspectFactSet(
-      technique,
-      returnPlanets.map(advancedPlanetPoint),
-      buildNatalPoints(data),
-      aspectStepKey,
-      8,
-    );
     const aspectFacts = aspectFactSet.selected;
-    const movingPointFacts = buildAdvancedMovingPointFacts(
-      technique,
-      returnPlanets.map(advancedPlanetPoint),
-      aspectFacts,
-      aspectFactSet.all,
-    );
+    const movingPointFacts = [...returnChart.planets, ...returnChart.angles];
     calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
     const aspects = aspectFacts.map((item) => item.promptText);
     const timeScale = buildAstronomicalTimeEvidence({
-      ...finalDate,
-      second: finalDate.second ?? 0,
-      ...getScopeTimeZoneInput(data),
+      ...localReturn.parts,
+      timezone: localReturn.timezone,
+      ...(data.birth.timeZoneId ? { timeZoneId: data.birth.timeZoneId } : {}),
     });
     const limitations = bracket
       ? [
@@ -2019,11 +2205,12 @@ export function calculateSolarReturnEvidence(
     const precision = bracket
       ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至1秒内，共${iterations}次迭代`
       : `仅取得${baseEvidence.coarseStepHours}小时步长的近似取样点`;
-    const dateTime = formatWallClockDateTime(finalTimestamp);
+    const dateTime = localReturn.dateTime;
     return {
       ...baseEvidence,
       status: bracket ? 'exact' : 'approximate',
       dateTime,
+      timezone: localReturn.timezone,
       residualDegrees: Number(residualDegrees.toFixed(6)),
       refinementIterations: iterations,
       aspects,
@@ -2032,12 +2219,13 @@ export function calculateSolarReturnEvidence(
       aspectFacts,
       candidateAspectFacts: aspectFactSet.all,
       movingPointFacts,
+      returnChart,
       aspectSummaryFact,
       summaryFact,
       timeScale,
       limitations,
       limitationFacts,
-      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${baseEvidence.timezone >= 0 ? '+' : ''}${baseEvidence.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
+      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${localReturn.timezone >= 0 ? '+' : ''}${localReturn.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${returnChart.promptText}；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
     };
   } catch {
     return unavailableEvidence('太阳返照计算失败，不作为本次判断依据。', '位置计算', [
@@ -2281,6 +2469,7 @@ function formatAdvancedScopeFacts(params: {
     lines.push(
       `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}：${formatAspectFacts(solarReturn.aspectFacts) || '暂无'}。`,
     );
+    if (solarReturn.returnChart) lines.push(solarReturn.returnChart.promptText);
   }
   if (progression) {
     lines.push(`次限相位：${formatAspectFacts(progression.aspectFacts) || '暂无'}。`);

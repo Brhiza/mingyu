@@ -31,7 +31,7 @@ test('三种高级时限保留全部移动点和完整候选相位关联', () =>
   ];
   for (const [index, item] of evidence.entries()) {
     assert.ok(['calculated', 'exact', 'approximate'].includes(item.status));
-    assert.equal(item.movingPointFacts.length, [5, 4, 7][index]);
+    assert.equal(item.movingPointFacts.length, [5, 14, 14][index]);
     const points = new Map(item.movingPointFacts.map((point) => [point.key, point]));
     const all = new Map(item.candidateAspectFacts.map((fact) => [fact.key, fact]));
     assert.equal(all.size, item.candidateAspectFacts.length);
@@ -56,8 +56,8 @@ test('三种高级时限保留全部移动点和完整候选相位关联', () =>
           .filter((fact) => fact.movingPointKey === point.key)
           .map((fact) => fact.key),
       );
-      assert.equal(point.house, undefined);
       if (index === 1) {
+        assert.equal(point.house, undefined);
         assert.equal(point.sourceName, point.name);
         for (const key of ['latitude', 'distance', 'longitudeSpeed', 'retrograde'] as const) {
           assert.equal(point[key], undefined);
@@ -67,11 +67,16 @@ test('三种高级时限保留全部移动点和完整候选相位关联', () =>
         )!;
         const arc = (item as ReturnType<typeof calculateSolarArcEvidence>).arcDegrees!;
         assert.ok(Math.abs(((original.longitude + arc) % 360) - point.longitude) < 1e-6);
-      } else {
+      } else if (index === 0 || !data.angles.some((angle) => angle.name === point.name)) {
         assert.equal(typeof point.retrograde, 'boolean');
         assert.ok(Number.isFinite(point.latitude));
         assert.ok(point.distance! > 0);
         assert.ok(Number.isFinite(point.longitudeSpeed));
+        if (index === 0) assert.equal(point.house, undefined);
+        else assert.ok(point.house! >= 1 && point.house! <= 12);
+      } else {
+        assert.equal(point.house, undefined);
+        assert.equal(point.retrograde, undefined);
       }
     }
   }

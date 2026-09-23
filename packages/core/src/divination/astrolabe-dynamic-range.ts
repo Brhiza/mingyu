@@ -70,8 +70,9 @@ function pushNumber(
   samples.push({ path, label, unit, value, ...(circularPeriod ? { circularPeriod } : {}) });
 }
 
-/** 高级时限的 ISO 字段编码的是当地墙钟坐标；本入口固定 UTC+8。 */
+/** 带 Z 的推进时刻是 UTC；无时区的返照字段仍按本入口固定 UTC+8 墙钟解析。 */
 function civilMilliseconds(value: string) {
+  if (/Z$/u.test(value)) return Date.parse(value);
   return Date.parse(`${value.replace(' ', 'T').replace(/Z$/, '')}+08:00`);
 }
 

@@ -10,7 +10,7 @@ import {
   getDefaultAstrolabeScopeDate,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { calculatePlanets } from '../packages/core/src/astrology/engine';
+import { calculateChart, calculatePlanets } from '../packages/core/src/astrology/engine';
 import type { AstrolabeData } from 'mingyu-core/types';
 
 const astrolabeData = generateAstrolabe({
@@ -85,7 +85,7 @@ function calculateIndependentPlanets(data: AstrolabeData, pseudoUtcDate: Date, t
 function calculateIndependentPlanetsAtIso(data: AstrolabeData, dateTime: string) {
   const date = new Date(dateTime);
   assert.equal(Number.isNaN(date.getTime()), false, `无效的推进时间：${dateTime}`);
-  return calculateIndependentPlanets(data, date, data.birth.timezone);
+  return calculateIndependentPlanets(data, date, 0);
 }
 
 function parseWallClockDateTime(dateTime: string) {
@@ -317,6 +317,163 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   assertAdvancedEvidenceReferences(evidence);
 });
 
+test('太阳返照应返回出生地完整返照盘及两层主要相位', () => {
+  const evidence = calculateSolarReturnEvidence(astrolabeData, 2028);
+  const returnChart = evidence.returnChart;
+  assert.ok(returnChart);
+  assert.deepEqual(
+    returnChart.planets.map((point) => point.name),
+    ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'],
+  );
+  assert.deepEqual(
+    returnChart.angles.map((point) => point.name),
+    ['Ascendant', 'Descendant', 'Midheaven', 'Imum Coeli'],
+  );
+  assert.deepEqual(
+    returnChart.houses.map((cusp) => cusp.house),
+    Array.from({ length: 12 }, (_, i) => i + 1),
+  );
+  assert.equal(returnChart.location.source, '出生地');
+  assert.equal(returnChart.location.latitude, astrolabeData.birth.latitude);
+  assert.equal(returnChart.location.longitude, astrolabeData.birth.longitude);
+  assert.equal(returnChart.houseSystem, 'placidus');
+  assert.ok(returnChart.planets.every((point) => point.house >= 1 && point.house <= 12));
+  assert.ok(returnChart.internalAspectFacts.length > 0);
+  assert.deepEqual(returnChart.natalAspectFacts, evidence.candidateAspectFacts);
+
+  const utc = new Date(evidence.timeScale!.unixMilliseconds);
+  const independentChart = calculateChart({
+    year: utc.getUTCFullYear(),
+    month: utc.getUTCMonth() + 1,
+    day: utc.getUTCDate(),
+    hour: utc.getUTCHours(),
+    minute: utc.getUTCMinutes(),
+    second: utc.getUTCSeconds(),
+    timezone: 0,
+    latitude: astrolabeData.birth.latitude,
+    longitude: astrolabeData.birth.longitude,
+  });
+  for (const point of returnChart.planets) {
+    const independent = independentChart.planets.find((item) => item.name === point.name);
+    assert.ok(independent);
+    assert.ok(longitudeDistance(point.longitude, independent.longitude) < 0.000001);
+  }
+  for (const fact of returnChart.internalAspectFacts) {
+    const first = [...returnChart.planets, ...returnChart.angles].find(
+      (point) => point.key === fact.firstPointKey,
+    );
+    const second = [...returnChart.planets, ...returnChart.angles].find(
+      (point) => point.key === fact.secondPointKey,
+    );
+    assert.ok(first && second);
+    assert.ok(
+      Math.abs(longitudeDistance(first.longitude, second.longitude) - fact.actualAngle) < 0.000001,
+    );
+    assert.ok(fact.deviation <= fact.allowedOrb);
+  }
+  const prompt = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+    includePeriodEvents: false,
+  }).promptText;
+  assert.ok(prompt.includes(returnChart.promptText));
+  assert.match(prompt, /返照盘（出生地/);
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(returnChart)));
+});
+
+test('太阳返照跨目标生日夏令时空洞仍按连续 UTC 求根', () => {
+  const newYork = generateAstrolabe({
+    name: '夏令时命例',
+    gender: '女',
+    year: '2000',
+    month: '3',
+    day: '10',
+    hour: '2',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  // 2024-03-10 02:30 在纽约不存在，搜索中心仍是有效 UTC 时刻。
+  const evidence = calculateSolarReturnEvidence(newYork, 2024);
+  assert.equal(evidence.status, 'exact');
+  assert.ok((evidence.residualDegrees ?? 1) < 0.001);
+  assert.equal(evidence.timeScale?.localDateTime, evidence.dateTime);
+  assert.equal(
+    evidence.timeScale?.unixMilliseconds,
+    Date.parse(evidence.timeScale!.utcDateTime.replace(' ', 'T')),
+  );
+  assert.equal(evidence.returnChart?.location.source, '出生地');
+});
+
+test('次限与太阳弧从出生 UTC 瞬间推进且采用各自小容许度', () => {
+  const newYork = generateAstrolabe({
+    name: '推进夏令时命例',
+    gender: '男',
+    year: '2000',
+    month: '3',
+    day: '10',
+    hour: '2',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const expectedDateTime = '2000-03-20T07:30:00.000Z';
+  const secondary = calculateSecondaryProgressionEvidence(newYork, 2010);
+  const solarArc = calculateSolarArcEvidence(newYork, 2010);
+  assert.equal(secondary.progressedDateTime, expectedDateTime);
+  assert.equal(solarArc.progressedDateTime, expectedDateTime);
+  const independent = calculateIndependentPlanetsAtIso(newYork, expectedDateTime);
+  for (const point of secondary.movingPointFacts) {
+    const planet = independent.find((item) => item.name === point.name);
+    assert.ok(planet);
+    assert.ok(longitudeDistance(point.longitude, planet.longitude) < 0.000001);
+  }
+  assert.ok(
+    secondary.candidateAspectFacts.every(
+      (fact) => fact.allowedOrb === (fact.movingPointKey.endsWith(':Moon') ? 1 : 0.5),
+    ),
+  );
+  assert.ok(secondary.candidateAspectFacts.every((fact) => fact.deviation <= fact.allowedOrb));
+  assert.ok(
+    solarArc.candidateAspectFacts.every((fact) => fact.allowedOrb === 1 && fact.deviation <= 1),
+  );
+  const expectedArc = normalizeLongitude(
+    independent.find((planet) => planet.name === 'Sun')!.longitude -
+      newYork.planets.find((planet) => planet.name === 'Sun')!.longitude,
+  );
+  assert.equal(solarArc.arcDegrees, Number(expectedArc.toFixed(6)));
+  const directedNames = [
+    'Sun',
+    'Moon',
+    'Mercury',
+    'Venus',
+    'Mars',
+    'Jupiter',
+    'Saturn',
+    'Uranus',
+    'Neptune',
+    'Pluto',
+    'Ascendant',
+    'Midheaven',
+    'Descendant',
+    'Imum Coeli',
+  ];
+  assert.deepEqual(
+    solarArc.movingPointFacts.map((point) => point.name),
+    directedNames,
+  );
+  for (const point of solarArc.movingPointFacts) {
+    const natal = [...newYork.planets, ...newYork.angles].find((item) => item.name === point.name);
+    assert.ok(natal);
+    assert.ok(
+      longitudeDistance(point.longitude, normalizeLongitude(natal.longitude + expectedArc)) <
+        0.000001,
+    );
+  }
+});
+
 test('秒级出生时间应由独立星历位置验证次限、太阳弧和太阳返照', () => {
   const targetYear = 1995;
   const minuteSecondary = calculateSecondaryProgressionEvidence(astrolabeData, targetYear);
@@ -332,7 +489,7 @@ test('秒级出生时间应由独立星历位置验证次限、太阳弧和太�
     secondPrecisionAstrolabeData,
     secondSecondary.progressedDateTime!,
   );
-  assert.match(secondSecondary.progressedDateTime ?? '', /T12:30:37\.000Z$/);
+  assert.match(secondSecondary.progressedDateTime ?? '', /T04:30:37\.000Z$/);
   const minuteSecondarySun = minuteSecondaryPlanets.find((planet) => planet.name === 'Sun');
   const secondSecondarySun = secondSecondaryPlanets.find((planet) => planet.name === 'Sun');
   const minuteSecondaryMoon = minuteSecondaryPlanets.find((planet) => planet.name === 'Moon');
@@ -372,7 +529,7 @@ test('秒级出生时间应由独立星历位置验证次限、太阳弧和太�
     secondPrecisionAstrolabeData,
     secondSolarArc.progressedDateTime!,
   );
-  assert.match(secondSolarArc.progressedDateTime ?? '', /T12:30:37\.000Z$/);
+  assert.match(secondSolarArc.progressedDateTime ?? '', /T04:30:37\.000Z$/);
   const minuteSolarArcSun = minuteSolarArcPlanets.find((planet) => planet.name === 'Sun');
   const secondSolarArcSun = secondSolarArcPlanets.find((planet) => planet.name === 'Sun');
   if (!minuteSolarArcSun || !secondSolarArcSun || !secondNatalSun) {
