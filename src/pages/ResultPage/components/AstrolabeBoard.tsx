@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type {
+  AstrolabeScopeContext,
   AstrolabePeriodAxisItem,
   AstrolabePeriodEvent,
   AstrolabePeriodTransitGroup,
@@ -17,6 +18,14 @@ function findAngle(data: AstrolabeData, name: string) {
   return data.angles.find((item) => item.name === name)?.formatted || '未知';
 }
 
+function formatAdvancedPosition(
+  point: NonNullable<
+    AstrolabeScopeContext['secondaryProgressionEvidence']
+  >['movingPointFacts'][number],
+) {
+  return `${point.label}${point.signLabel}${point.degree}°${String(point.minute).padStart(2, '0')}′${point.retrograde ? '，逆行' : ''}`;
+}
+
 export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   title: string;
   name: string;
@@ -30,6 +39,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   periodAxis?: AstrolabePeriodAxisItem[];
   periodWindows?: AstrolabePeriodWindow[];
   periodGroups?: AstrolabePeriodTransitGroup[];
+  advancedScopeContext?: AstrolabeScopeContext | null;
 }) {
   const {
     title,
@@ -44,6 +54,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     periodAxis = [],
     periodWindows = [],
     periodGroups = [],
+    advancedScopeContext,
   } = props;
   const range = isInstant ? null : birthTimeRange;
   const hasRepresentativeTime = !isInstant && Boolean(range || representativeTime);
@@ -53,6 +64,36 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
+  const advancedTechniques = advancedScopeContext
+    ? [
+        {
+          key: 'solar-return',
+          title: '太阳返照',
+          evidence: advancedScopeContext.solarReturnEvidence,
+          detail: advancedScopeContext.solarReturnEvidence?.dateTime
+            ? `返照时刻 ${advancedScopeContext.solarReturnEvidence.dateTime}`
+            : '按本命太阳黄经定位周年返照',
+        },
+        {
+          key: 'secondary-progression',
+          title: '次限推进',
+          evidence: advancedScopeContext.secondaryProgressionEvidence,
+          detail: advancedScopeContext.secondaryProgressionEvidence?.progressedDateTime
+            ? `一岁一日 · ${advancedScopeContext.secondaryProgressionEvidence.progressedDateTime}`
+            : '按一岁一日映射长期发展',
+        },
+        {
+          key: 'solar-arc',
+          title: '太阳弧',
+          evidence: advancedScopeContext.solarArcEvidence,
+          detail:
+            advancedScopeContext.solarArcEvidence?.arcDegrees !== undefined
+              ? `推进弧 ${advancedScopeContext.solarArcEvidence.arcDegrees.toFixed(2)}°`
+              : '按推进太阳弧度平移本命点',
+        },
+      ].filter((item) => item.evidence)
+    : [];
+  const solarReturnChart = advancedScopeContext?.solarReturnEvidence?.returnChart;
 
   return (
     <section className="result-showcase-card astrolabe-showcase-card traditional-chart-layout">
@@ -154,6 +195,56 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
               </div>
             </div>
           </div>
+
+          {advancedTechniques.length > 0 ? (
+            <div className="result-side-card">
+              <div className="result-side-head">
+                <h3>年度高级推运</h3>
+                <p>太阳返照、次限推进与太阳弧与行运共同交叉验证。</p>
+              </div>
+              <div className="astrolabe-period-group-list">
+                {advancedTechniques.map((item) => {
+                  const evidence = item.evidence!;
+                  const positions = evidence.movingPointFacts.slice(0, 4);
+                  const aspects = evidence.aspectFacts.slice(0, 3);
+                  const statusLabel =
+                    evidence.status === 'unavailable'
+                      ? '不可用'
+                      : evidence.status === 'not-applicable'
+                        ? '不适用'
+                        : evidence.status === 'approximate'
+                          ? '近似值'
+                          : '已计算';
+                  return (
+                    <div className="astrolabe-period-event-item" key={item.key}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>{item.detail}</span>
+                        {positions.length > 0 ? (
+                          <span>{positions.map(formatAdvancedPosition).join('；')}</span>
+                        ) : null}
+                        {item.key === 'solar-return' && solarReturnChart ? (
+                          <span>
+                            {solarReturnChart.angles
+                              .slice(0, 2)
+                              .map(formatAdvancedPosition)
+                              .join('；')}
+                            {`；${solarReturnChart.houses.length}个宫头；${solarReturnChart.internalAspectFacts.length}组返照盘内相位`}
+                          </span>
+                        ) : null}
+                        {aspects.length > 0 ? (
+                          <span>{aspects.map((aspect) => aspect.promptText).join('；')}</span>
+                        ) : (
+                          <span>{evidence.aspectSummaryFact.promptText}</span>
+                        )}
+                      </div>
+                      <em>{statusLabel}</em>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="result-side-card">
             <div className="result-side-head">

@@ -1678,6 +1678,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : null,
     [astrolabeFullScopeContexts],
   );
+  const astrolabeAdvancedScopeContext =
+    promptState.astrolabeScope === 'full'
+      ? astrolabeFullScopeContexts?.yearly
+      : promptState.astrolabeScope === 'yearly'
+        ? astrolabeScopeContext
+        : null;
   const astrolabePeriodCollection = useMemo(() => {
     if (astrolabeFullScopeContexts) {
       return mergeAstrolabePeriodCollections(
@@ -3519,6 +3525,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     periodAxis={astrolabePeriodCollection?.axis}
                     periodWindows={astrolabePeriodCollection?.windows}
                     periodGroups={astrolabePeriodCollection?.groups}
+                    advancedScopeContext={astrolabeAdvancedScopeContext}
                   />
                 ) : null}
               </section>

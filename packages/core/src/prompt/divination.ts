@@ -773,11 +773,17 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     options.astrolabeScopeText &&
     /周期关键星象|行运取样|主要行运相位/.test(options.astrolabeScopeText),
   );
+  const hasAstrolabeAdvancedTiming = Boolean(
+    options.astrolabeScopeText &&
+    /太阳返照|次限相位：|太阳弧相位：/.test(options.astrolabeScopeText),
+  );
   const baseTask = isSignPrompt
     ? buildPromptTask('', options.method)
     : options.method === 'astrolabe' && !options.isCustomQuestion
       ? buildPromptTask(
-          `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
+          hasAstrolabeAdvancedTiming
+            ? `请分别判断普通行运、太阳返照、次限推进和太阳弧，再依据四类证据的共同主题、时间触发与分歧，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`
+            : `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
           hasAstrolabePeriod ? 'astrolabe' : 'astrolabe-natal',
         )
       : options.method === 'tarot'

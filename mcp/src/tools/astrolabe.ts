@@ -73,7 +73,7 @@ const astrolabePromptSchema = extendPromptSchema(
       .enum(astrolabePromptScopes)
       .optional()
       .describe(
-        '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日；省略时默认当前年度流年',
+        '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日；yearly 与 full 的流年层自动包含太阳返照、次限推进和太阳弧；省略时默认当前年度流年',
       ),
     astrolabeScopeDate: z
       .string()
@@ -270,7 +270,8 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'astrolabe_prompt',
     {
-      description: '星盘计算并生成可直接交给 AI 的完整任务书，同时返回星盘和结构化证据',
+      description:
+        '星盘计算并生成可直接交给 AI 的完整任务书，同时返回星盘和结构化证据；流年自动包含太阳返照、次限推进和太阳弧',
       inputSchema: astrolabePromptToolSchema,
       outputSchema: promptOutputSchema,
     },

@@ -4360,6 +4360,7 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /太阳返照（/);
   assert.match(body.data.prompt, /次限相位：/);
   assert.match(body.data.prompt, /太阳弧相位：/);
+  assert.match(body.data.prompt, /分别判断普通行运、太阳返照、次限推进和太阳弧/);
   assertPromptIsPortableTaskText(body.data.prompt);
 
   const detailed = await callApi('divination/astrolabe/prompt', {
@@ -4395,10 +4396,42 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
     'secondary-progression:2028',
   );
   assert.equal(detailed.body.data.result.scopeEvidence.solarArcEvidence.key, 'solar-arc:2028');
-  assert.equal(
-    detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitations.length,
-    detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitationFacts.length,
+  const solarReturn = detailed.body.data.result.scopeEvidence.solarReturnEvidence;
+  const secondaryProgression = detailed.body.data.result.scopeEvidence.secondaryProgressionEvidence;
+  const solarArc = detailed.body.data.result.scopeEvidence.solarArcEvidence;
+  assert.equal(solarReturn.returnChart.planets.length, 10);
+  assert.equal(solarReturn.returnChart.angles.length, 4);
+  assert.equal(solarReturn.returnChart.houses.length, 12);
+  assert.equal(solarReturn.returnChart.location.source, '出生地');
+  assert.deepEqual(
+    solarArc.movingPointFacts.map((item: { name: string }) => item.name),
+    [
+      'Sun',
+      'Moon',
+      'Mercury',
+      'Venus',
+      'Mars',
+      'Jupiter',
+      'Saturn',
+      'Uranus',
+      'Neptune',
+      'Pluto',
+      'Ascendant',
+      'Midheaven',
+      'Descendant',
+      'Imum Coeli',
+    ],
   );
+  assert.ok(
+    secondaryProgression.candidateAspectFacts.every(
+      (item: { movingPointKey: string; allowedOrb: number }) =>
+        item.allowedOrb === (item.movingPointKey.endsWith(':Moon') ? 1 : 0.5),
+    ),
+  );
+  assert.ok(
+    solarArc.candidateAspectFacts.every((item: { allowedOrb: number }) => item.allowedOrb === 1),
+  );
+  assert.equal(solarReturn.limitations.length, solarReturn.limitationFacts.length);
   for (const evidence of [
     detailed.body.data.result.scopeEvidence.solarReturnEvidence,
     detailed.body.data.result.scopeEvidence.secondaryProgressionEvidence,

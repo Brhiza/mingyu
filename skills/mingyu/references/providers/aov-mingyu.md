@@ -37,45 +37,45 @@
 
 ## 二、API 与 MCP 工具全量映射速查表
 
-| 功能领域           | REST API 端点（相对 `/api/v1`）      | MCP Tool 名称                  | 核心功能与关键参数建议                                                                                                                 |
-| :----------------- | :----------------------------------- | :----------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-| 公共地基能力目录   | `GET /foundation/capabilities`       | `foundation_capabilities`      | 获取公共地基能力目录，返回历法、干支、五行、方位与通用神煞的稳定能力事实                                                               |
-| 六十甲子干支属性   | `POST /foundation/ganzhi`            | `foundation_ganzhi`            | 查询单个六十甲子的序号、纳音、五行、阴阳、藏干与合冲刑害破                                                                             |
-| 五行力量与生克     | `POST /foundation/wuxing`            | `foundation_wuxing`            | 分析干支列表的五行统计、藏干权重与主导五行生克                                                                                         |
-| 二十四山与罗盘方位 | `POST /foundation/direction`         | `foundation_direction`         | 按罗盘角度查询所属八卦、二十四山、天心十道对冲山与四正四隅属性                                                                         |
-| 通用传统神煞       | `POST /foundation/shensha`           | `foundation_shensha`           | 按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞                                                                                   |
-| 真太阳时校正       | `POST /calendar/true-solar-time`     | `calendar_true_solar_time`     | 根据地理经度与平太阳时换算真太阳时与均时差                                                                                             |
-| 统一出生真太阳时   | `POST /calendar/true-solar-birth`    | `calendar_true_solar_birth`    | 根据出生公历或农历及经度时区计算校正后的公历与农历时间                                                                                 |
-| 四柱反推日期       | `POST /calendar/bazi-reverse`       | `calendar_bazi_reverse`       | 根据完整四柱查找指定公历年份范围内的北京时间候选区间，并返回查询范围、节气、子时换日或时辰交接边界                             |
-| 太阳光照与出没     | `POST /calendar/solar-illumination`  | `calendar_solar_illumination`  | 计算指定日期的日出日落时刻、地平高度与曙暮光证据                                                                                       |
-| 天文时间尺度       | `POST /calendar/astronomical-time`   | `calendar_astronomical_time`   | 计算儒略日、近似 UT1、ΔT 与近似 TT 证据                                                                                                |
-| 月相证据           | `POST /calendar/moon-phase`          | `calendar_moon_phase`          | 计算月相角、照明比例与朔弦望事件                                                                                                       |
-| 二十四节气         | `POST /calendar/solar-term`          | `calendar_solar_term`          | 计算节气历表时刻、太阳黄经度数与独立求根核验                                                                                           |
-| 即时排盘           | `POST /instant/calculate`            | `instant_chart`                | 按当前时刻即时排八字、紫微、合参、星盘或七政盘，无需性别与个人字段                                                                     |
-| 中文起名           | `POST /name/generate`                | `name_generate`                | 结合出生资料、偏好字、忌用字与辈分字生成姓名候选                                                                                       |
-| 姓名解析           | `POST /name/analyze`                 | `name_analyze`                 | 解析姓名康熙笔画、五格数理、三才配置与五行分布                                                                                         |
-| 中文起名提示词     | `POST /name/generate/prompt`         | `name_generate_prompt`         | 结合出生资料、用字条件、适配字池和候选样本生成完整起名提示词；支持统一主题、主题细项和分析范围选择                                     |
-| 姓名解析提示词     | `POST /name/analyze/prompt`          | `name_analyze_prompt`          | 结合出生资料和姓名底稿生成完整姓名解析提示词；支持统一主题、主题细项和分析范围选择                                                     |
-| 汉字解析           | `POST /character/analyze`            | `character_analyze`            | 查询汉字康熙笔画、现代笔画、五行、部首、拼音与繁简对应                                                                                 |
-| 起名选字           | `POST /character/select`             | `character_select`             | 按康熙笔画、五行、拼音和常用字条件筛选汉字                                                                                             |
-| 数字能量           | `POST /number/analyze`               | `number_analyze`               | 解析数字与字母编号的八星磁场、相邻组合以及0和5的作用                                                                                   |
-| 数字能量提示词     | `POST /number/analyze/prompt`        | `number_energy_prompt`         | 解析八星数字能量并生成可直接交给 AI 的完整提示词；支持统一主题、主题细项和分析范围选择                                                 |
-| 诸葛神数           | `POST /divination/zhuge`             | `divine_zhuge`                 | 按三个汉字康熙笔画尾数计算诸葛神数384签                                                                                                |
-| 孔明神卦           | `POST /divination/kongming`          | `divine_kongming`              | 按五枚硬币的阴阳结果生成三十二种孔明神卦之一                                                                                           |
-| 八字排盘           | `POST /bazi/calculate`               | `bazi_calculate`               | 计算四柱干支、十神、藏干、大运、流年、胎元命宫身宫与神煞（支持缺时辰三柱降级）                                                         |
+| 功能领域           | REST API 端点（相对 `/api/v1`）      | MCP Tool 名称                  | 核心功能与关键参数建议                                                                                                                   |
+| :----------------- | :----------------------------------- | :----------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| 公共地基能力目录   | `GET /foundation/capabilities`       | `foundation_capabilities`      | 获取公共地基能力目录，返回历法、干支、五行、方位与通用神煞的稳定能力事实                                                                 |
+| 六十甲子干支属性   | `POST /foundation/ganzhi`            | `foundation_ganzhi`            | 查询单个六十甲子的序号、纳音、五行、阴阳、藏干与合冲刑害破                                                                               |
+| 五行力量与生克     | `POST /foundation/wuxing`            | `foundation_wuxing`            | 分析干支列表的五行统计、藏干权重与主导五行生克                                                                                           |
+| 二十四山与罗盘方位 | `POST /foundation/direction`         | `foundation_direction`         | 按罗盘角度查询所属八卦、二十四山、天心十道对冲山与四正四隅属性                                                                           |
+| 通用传统神煞       | `POST /foundation/shensha`           | `foundation_shensha`           | 按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞                                                                                     |
+| 真太阳时校正       | `POST /calendar/true-solar-time`     | `calendar_true_solar_time`     | 根据地理经度与平太阳时换算真太阳时与均时差                                                                                               |
+| 统一出生真太阳时   | `POST /calendar/true-solar-birth`    | `calendar_true_solar_birth`    | 根据出生公历或农历及经度时区计算校正后的公历与农历时间                                                                                   |
+| 四柱反推日期       | `POST /calendar/bazi-reverse`        | `calendar_bazi_reverse`        | 根据完整四柱查找指定公历年份范围内的北京时间候选区间，并返回查询范围、节气、子时换日或时辰交接边界                                       |
+| 太阳光照与出没     | `POST /calendar/solar-illumination`  | `calendar_solar_illumination`  | 计算指定日期的日出日落时刻、地平高度与曙暮光证据                                                                                         |
+| 天文时间尺度       | `POST /calendar/astronomical-time`   | `calendar_astronomical_time`   | 计算儒略日、近似 UT1、ΔT 与近似 TT 证据                                                                                                  |
+| 月相证据           | `POST /calendar/moon-phase`          | `calendar_moon_phase`          | 计算月相角、照明比例与朔弦望事件                                                                                                         |
+| 二十四节气         | `POST /calendar/solar-term`          | `calendar_solar_term`          | 计算节气历表时刻、太阳黄经度数与独立求根核验                                                                                             |
+| 即时排盘           | `POST /instant/calculate`            | `instant_chart`                | 按当前时刻即时排八字、紫微、合参、星盘或七政盘，无需性别与个人字段                                                                       |
+| 中文起名           | `POST /name/generate`                | `name_generate`                | 结合出生资料、偏好字、忌用字与辈分字生成姓名候选                                                                                         |
+| 姓名解析           | `POST /name/analyze`                 | `name_analyze`                 | 解析姓名康熙笔画、五格数理、三才配置与五行分布                                                                                           |
+| 中文起名提示词     | `POST /name/generate/prompt`         | `name_generate_prompt`         | 结合出生资料、用字条件、适配字池和候选样本生成完整起名提示词；支持统一主题、主题细项和分析范围选择                                       |
+| 姓名解析提示词     | `POST /name/analyze/prompt`          | `name_analyze_prompt`          | 结合出生资料和姓名底稿生成完整姓名解析提示词；支持统一主题、主题细项和分析范围选择                                                       |
+| 汉字解析           | `POST /character/analyze`            | `character_analyze`            | 查询汉字康熙笔画、现代笔画、五行、部首、拼音与繁简对应                                                                                   |
+| 起名选字           | `POST /character/select`             | `character_select`             | 按康熙笔画、五行、拼音和常用字条件筛选汉字                                                                                               |
+| 数字能量           | `POST /number/analyze`               | `number_analyze`               | 解析数字与字母编号的八星磁场、相邻组合以及0和5的作用                                                                                     |
+| 数字能量提示词     | `POST /number/analyze/prompt`        | `number_energy_prompt`         | 解析八星数字能量并生成可直接交给 AI 的完整提示词；支持统一主题、主题细项和分析范围选择                                                   |
+| 诸葛神数           | `POST /divination/zhuge`             | `divine_zhuge`                 | 按三个汉字康熙笔画尾数计算诸葛神数384签                                                                                                  |
+| 孔明神卦           | `POST /divination/kongming`          | `divine_kongming`              | 按五枚硬币的阴阳结果生成三十二种孔明神卦之一                                                                                             |
+| 八字排盘           | `POST /bazi/calculate`               | `bazi_calculate`               | 计算四柱干支、十神、藏干、大运、流年、胎元命宫身宫与神煞（支持缺时辰三柱降级）                                                           |
 | 八字解读提示词     | `POST /bazi/prompt`                  | `bazi_prompt`                  | 未指定范围时默认当前大运；`dayun`、`year`、`month`、`day` 可用 `baziFortuneDate` 直传公历日期，指定流月会带流日，`full` 返回全部大运流年 |
-| 八字双盘合婚       | `POST /bazi/compatibility`           | `bazi_compatibility`           | 计算两人八字日主五行喜忌互补、四柱干支合冲与夫妻宫德合刑冲                                                                             |
-| 八字合盘提示词     | `POST /bazi/compatibility/prompt`    | `bazi_compatibility_prompt`    | 生成八字双盘合婚与合伙关系的自包含深度提示词；支持统一主题、主题细项和分析范围选择                                                     |
-| 紫微斗数排盘       | `POST /ziwei/calculate`              | `ziwei_calculate`              | 计算紫微斗数十二宫星曜、生年四化、大限流年与三方四正格局                                                                               |
-| 紫微解读提示词     | `POST /ziwei/prompt`                 | `ziwei_prompt`                 | 未指定范围时默认当前大限；可按流年、流月、流日、流时或 `full` 返回对应上下层运限资料                                                   |
-| 紫微合盘           | `POST /ziwei/compatibility`          | `ziwei_compatibility`          | 计算双方关键宫位叠盘、生年四化跨盘落宫与星曜交感                                                                                       |
-| 紫微合盘提示词     | `POST /ziwei/compatibility/prompt`   | `ziwei_compatibility_prompt`   | 生成紫微合盘结构化证据与关系推演提示词；支持统一主题、主题细项和分析范围选择                                                           |
-| 八字紫微合参提示词 | `POST /bazi-ziwei/prompt`            | `bazi_ziwei_prompt`            | 默认按当前阶段对齐八字大运与紫微大限；流年及以下层级同步携带八字所属上层岁运与紫微运限，`full` 返回两套完整时间资料                    |
-| 大类主题咨询提示词 | `POST /consultation/thematic/prompt` | `thematic_consultation_prompt` | 按通用、感情、事业、财运、健康、家庭、学业、时机等大类自动提取八字与紫微核心要素生成自包含任务书；支持统一主题、主题细项和分析范围选择 |
-| 六爻排盘           | `POST /divination/liuyao`            | `divine_liuyao`                | 六爻纳甲起卦、世应动变、六亲六神与生克冲合                                                                                             |
-| 六爻提示词         | `POST /divination/liuyao/prompt`     | `liuyao_prompt`                | 生成六爻卦象用神旺衰与动态演变的自包含提示词；支持统一主题、主题细项和分析范围选择                                                     |
-| 梅花易数排盘       | `POST /divination/meihua`            | `divine_meihua`                | 梅花易数体用互变卦象与五行生克                                                                                                         |
-| 梅花易数提示词     | `POST /divination/meihua/prompt`     | `meihua_prompt`                | 生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持统一主题、主题细项和分析范围选择                                               |
+| 八字双盘合婚       | `POST /bazi/compatibility`           | `bazi_compatibility`           | 计算两人八字日主五行喜忌互补、四柱干支合冲与夫妻宫德合刑冲                                                                               |
+| 八字合盘提示词     | `POST /bazi/compatibility/prompt`    | `bazi_compatibility_prompt`    | 生成八字双盘合婚与合伙关系的自包含深度提示词；支持统一主题、主题细项和分析范围选择                                                       |
+| 紫微斗数排盘       | `POST /ziwei/calculate`              | `ziwei_calculate`              | 计算紫微斗数十二宫星曜、生年四化、大限流年与三方四正格局                                                                                 |
+| 紫微解读提示词     | `POST /ziwei/prompt`                 | `ziwei_prompt`                 | 未指定范围时默认当前大限；可按流年、流月、流日、流时或 `full` 返回对应上下层运限资料                                                     |
+| 紫微合盘           | `POST /ziwei/compatibility`          | `ziwei_compatibility`          | 计算双方关键宫位叠盘、生年四化跨盘落宫与星曜交感                                                                                         |
+| 紫微合盘提示词     | `POST /ziwei/compatibility/prompt`   | `ziwei_compatibility_prompt`   | 生成紫微合盘结构化证据与关系推演提示词；支持统一主题、主题细项和分析范围选择                                                             |
+| 八字紫微合参提示词 | `POST /bazi-ziwei/prompt`            | `bazi_ziwei_prompt`            | 默认按当前阶段对齐八字大运与紫微大限；流年及以下层级同步携带八字所属上层岁运与紫微运限，`full` 返回两套完整时间资料                      |
+| 大类主题咨询提示词 | `POST /consultation/thematic/prompt` | `thematic_consultation_prompt` | 按通用、感情、事业、财运、健康、家庭、学业、时机等大类自动提取八字与紫微核心要素生成自包含任务书；支持统一主题、主题细项和分析范围选择   |
+| 六爻排盘           | `POST /divination/liuyao`            | `divine_liuyao`                | 六爻纳甲起卦、世应动变、六亲六神与生克冲合                                                                                               |
+| 六爻提示词         | `POST /divination/liuyao/prompt`     | `liuyao_prompt`                | 生成六爻卦象用神旺衰与动态演变的自包含提示词；支持统一主题、主题细项和分析范围选择                                                       |
+| 梅花易数排盘       | `POST /divination/meihua`            | `divine_meihua`                | 梅花易数体用互变卦象与五行生克                                                                                                           |
+| 梅花易数提示词     | `POST /divination/meihua/prompt`     | `meihua_prompt`                | 生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持统一主题、主题细项和分析范围选择                                                 |
 
 梅花 `method` 支持 `time`、`number`、`sound`、`character`、`direction`、`random`、`timeTrigram`；声音使用 `soundCount`，字数按分段规则传参：单字传左右分笔数，2—3 字传 `characterStrokeCounts` 逐字笔画数，4—10 字必须传 `characterTones` 的传统平、上、去、入声类 1—4 数（不等同于普通话一至四声），11—100 字只传文字或字符数，方位取象使用 `objectType` 与 `direction`。
 | 小六壬排盘 | `POST /divination/xiaoliuren` | `divine_xiaoliuren` | 小六壬月日时顺数初宫二宫三宫流转与时宫定局 |
@@ -97,7 +97,7 @@
 | 黄历择日排盘 | `POST /divination/almanac` | `divine_almanac` | 建除十二神、丛辰神煞与多参与人四柱冲煞择吉 |
 | 黄历择日提示词 | `POST /divination/almanac/prompt` | `almanac_prompt` | 生成候选日期优选分析与自包含择日决策提示词；支持统一主题、主题细项和分析范围选择 |
 | 西洋星盘排盘 | `POST /divination/astrolabe` | `divine_astrolabe` | 本命星体黄道位置、宫位分界与相位交角 |
-| 西洋星盘提示词 | `POST /divination/astrolabe/prompt` | `astrolabe_prompt` | 生成本命与行运过境解读自包含提示词；支持统一主题、主题细项和分析范围选择 |
+| 西洋星盘提示词 | `POST /divination/astrolabe/prompt` | `astrolabe_prompt` | 生成本命与行运过境解读自包含提示词；流年自动包含太阳返照、次限推进和太阳弧 |
 | 西占双盘比较盘 | `POST /divination/astrolabe/synastry` | `astrolabe_synastry` | 计算双人星盘跨盘相位、角距、落宫与互溶接纳 |
 | 西占双盘提示词 | `POST /divination/astrolabe/synastry/prompt` | `astrolabe_synastry_prompt` | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | 八宅风水排盘 | `POST /metaphysics/bazhai/calculate` | `metaphysics_bazhai` | 居者生年命卦、宅卦大游年与门主灶九星相配 |
