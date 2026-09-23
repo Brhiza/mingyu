@@ -74,7 +74,7 @@ test('Skill 数据提供方适配文档中的端点必须全部在 PUBLIC_API_EN
 
 test('MCP 使用说明中的工具清单必须与真实目录完整对应', () => {
   const readme = readFileSync('mcp/README.md', 'utf8');
-  const ids = [...readme.matchAll(/^\| `([^`]+)` \|/gm)].map((match) => match[1]);
+  const ids = [...readme.matchAll(/^\| `([^`]+)`\s*\|/gm)].map((match) => match[1]);
   assert.deepEqual(
     ids.sort(),
     getToolCatalog()
