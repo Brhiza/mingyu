@@ -4357,7 +4357,7 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /分析对象：流年2028。/);
   assert.match(body.data.prompt, /分析对象：流月2028-06。/);
   assert.match(body.data.prompt, /分析对象：流日2028-06-12。/);
-  assert.match(body.data.prompt, /太阳返照（/);
+  assert.match(body.data.prompt, /太阳返照有效期/);
   assert.match(body.data.prompt, /次限相位：/);
   assert.match(body.data.prompt, /太阳弧相位：/);
   assert.match(body.data.prompt, /分别判断普通行运、太阳返照、次限推进和太阳弧/);
@@ -4397,6 +4397,18 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   );
   assert.equal(detailed.body.data.result.scopeEvidence.solarArcEvidence.key, 'solar-arc:2028');
   const solarReturn = detailed.body.data.result.scopeEvidence.solarReturnEvidence;
+  const solarReturnPeriods = detailed.body.data.result.scopeEvidence.solarReturnPeriods;
+  assert.deepEqual(
+    solarReturnPeriods.map(
+      (period: { evidence: { targetYear: number } }) => period.evidence.targetYear,
+    ),
+    [2027, 2028],
+  );
+  assert.equal(
+    solarReturnPeriods.filter((period: { isReferencePeriod: boolean }) => period.isReferencePeriod)
+      .length,
+    1,
+  );
   const secondaryProgression = detailed.body.data.result.scopeEvidence.secondaryProgressionEvidence;
   const solarArc = detailed.body.data.result.scopeEvidence.solarArcEvidence;
   assert.equal(solarReturn.returnChart.planets.length, 10);
@@ -4652,7 +4664,7 @@ test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使
   assert.match(defaultRange.body.data.prompt, /分析对象：流年\d{4}。/);
   assert.equal(defaultRange.body.data.result.scopeEvidence.periodEvents, undefined);
   assert.doesNotMatch(defaultRange.body.data.prompt, /周期关键星象/);
-  assert.match(defaultRange.body.data.prompt, /太阳返照（/);
+  assert.match(defaultRange.body.data.prompt, /太阳返照有效期/);
 
   const withPeriodEvents = await callApi('divination/astrolabe/prompt', {
     method: 'POST',
@@ -4671,7 +4683,7 @@ test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使
   assert.equal(natal.response.status, 200);
   assert.equal(natal.body.data.result.scopeEvidence.scope, 'natal');
   assert.match(natal.body.data.prompt, /分析对象：本命盘。/);
-  assert.doesNotMatch(natal.body.data.prompt, /主要行运相位：|太阳返照（/);
+  assert.doesNotMatch(natal.body.data.prompt, /主要行运相位：|太阳返照有效期/);
 });
 
 test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', async () => {

@@ -265,7 +265,7 @@ pnpm mcp
 
 `astrolabe_prompt` 未指定 `astrolabeScope` 时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
 
-`yearly` 与 `full` 的流年层会自动生成太阳返照、次限推进和太阳弧。结构化结果在 `scopeEvidence` 中分别返回返照盘、推进点、太阳弧点及与本命的主要相位，提示词会将三项与普通行运交叉组织。
+`yearly` 与 `full` 的流年层会自动生成太阳返照、次限推进和太阳弧。结构化结果在 `scopeEvidence` 中返回 `solarReturnPeriods`（目标日历年内每期返照的有效区间与完整返照盘）、推进点、太阳弧点及与本命的主要相位；原有 `solarReturnEvidence` 保留目标年份对应的返照。`yearly` 的次限和太阳弧按 7 月 1 日取样，`full` 按指定的具体日期取样。提示词会将这些资料与普通行运交叉组织。
 
 玄空与住宅工具支持 `guaType: 下卦 | 替卦`，默认下卦。实测坐向稳定落在每山中央九度之外、两侧各三度兼向范围时可选替卦；后续流运补算保留同一起法。
 

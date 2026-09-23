@@ -107,12 +107,25 @@ test('流年、流月、流日和完整范围逐出生秒等价且连续统计�
           branch.continuous.find(
             (fact) => fact.path === 'dynamic.yearly.progression.progressedTime',
           )?.first,
-          start + 4 * 86400000 + begin * 1000,
+          Date.parse(yearly.secondaryProgressionEvidence!.progressedDateTime!),
+        );
+        assert.equal(
+          branch.continuous.find((fact) => fact.path === 'dynamic.yearly.progression.age')?.first,
+          yearly.secondaryProgressionEvidence?.age,
         );
         assert.equal(
           branch.continuous.find((fact) => fact.path === 'dynamic.yearly.return.returnTime')?.first,
           yearly.solarReturnEvidence?.timeScale?.unixMilliseconds,
         );
+        for (const period of yearly.solarReturnPeriods ?? []) {
+          assert.equal(
+            branch.continuous.find(
+              (fact) =>
+                fact.path === `dynamic.yearly.returnPeriods.${period.evidence.targetYear}.startUtc`,
+            )?.first,
+            Date.parse(period.startUtcDateTime),
+          );
+        }
       }
       assert.deepEqual(
         branch.representative.scopes.map((scope) => scope.scope),
@@ -166,6 +179,74 @@ test('动态离散变化独立于本命盘，事件时刻微移进入连续统�
   assert.notDeepEqual(shifted.samples, baseline.samples);
 });
 
+test('返照盘宫头和盘内相位完整进入动态区间投影', () => {
+  const natal = generateAstrolabe(input);
+  const sample = {
+    natal,
+    scopes: [buildAstrolabeScopeContext(natal, 'yearly', '2028', { includePeriodEvents: false })],
+  };
+  const baseline = projectAstrolabeDynamicSample(sample);
+  const chart = sample.scopes[0].solarReturnEvidence?.returnChart;
+  assert.ok(chart);
+  assert.ok(chart.internalAspectFacts.length > 0);
+  assert.ok(
+    baseline.samples.some(
+      (fact) => fact.path === 'dynamic.yearly.return.houses.solar-return:house:1.longitude',
+    ),
+  );
+  assert.ok(
+    baseline.samples.some(
+      (fact) =>
+        fact.path.includes('.return.internalAspects.') && fact.path.endsWith('.actualAngle'),
+    ),
+  );
+
+  const changedSign = structuredClone(sample);
+  changedSign.scopes[0].solarReturnEvidence!.returnChart!.houses[0].signName = 'Taurus';
+  assert.notEqual(projectAstrolabeDynamicSample(changedSign).fingerprint, baseline.fingerprint);
+
+  const changedMembership = structuredClone(sample);
+  changedMembership.scopes[0].solarReturnEvidence!.returnChart!.internalAspectFacts.pop();
+  assert.notEqual(
+    projectAstrolabeDynamicSample(changedMembership).fingerprint,
+    baseline.fingerprint,
+  );
+
+  const changedLongitude = structuredClone(sample);
+  changedLongitude.scopes[0].solarReturnEvidence!.returnChart!.houses[0].longitude += 0.001;
+  const shifted = projectAstrolabeDynamicSample(changedLongitude);
+  assert.equal(shifted.fingerprint, baseline.fingerprint);
+  assert.notDeepEqual(shifted.samples, baseline.samples);
+});
+
+test('非东八区返照时刻与同一证据的 UTC 时间一致', () => {
+  const natal = generateAstrolabe({
+    name: '纽约返照动态区间验证',
+    gender: '女',
+    year: '2000',
+    month: '3',
+    day: '10',
+    hour: '2',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const scope = buildAstrolabeScopeContext(natal, 'yearly', '2024', {
+    includePeriodEvents: false,
+  });
+  const evidence = scope.solarReturnEvidence;
+  assert.ok(evidence?.timeScale && evidence.dateTime);
+  assert.notEqual(evidence.timezone, 8);
+  const projected = projectAstrolabeDynamicSample({ natal, scopes: [scope] });
+  const returnTime = projected.samples.find(
+    (fact) => fact.path === 'dynamic.yearly.return.returnTime',
+  );
+  assert.equal(returnTime?.value, evidence.timeScale.unixMilliseconds);
+  assert.notEqual(returnTime?.value, Date.parse(`${evidence.dateTime.replace(' ', 'T')}+08:00`));
+});
+
 test('跨公历年保留正确推进年龄和完整出生秒', () => {
   const rangeStart = Date.parse('2024-12-31T23:59:59+08:00');
   const result = generateAstrolabeDynamicRange(
@@ -175,12 +256,11 @@ test('跨公历年保留正确推进年龄和完整出生秒', () => {
   );
   assert.equal(result.sampleCount, 2);
   assert.equal(result.branches.length, 2);
-  assert.deepEqual(
-    result.branches.map(
-      (branch) => branch.representative.scopes[0].secondaryProgressionEvidence?.age,
-    ),
-    [4, 3],
+  const ages = result.branches.map(
+    (branch) => branch.representative.scopes[0].secondaryProgressionEvidence!.age!,
   );
+  assert.ok(ages.every((age) => age > 3 && age < 4));
+  assert.ok(ages[0] > ages[1]);
   assert.equal(result.branches[1].startTimestamp, rangeStart + 1000);
 });
 

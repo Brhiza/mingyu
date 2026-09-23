@@ -2883,6 +2883,7 @@ test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本�
         solarReturnEvidence?: {
           returnChart?: { planets?: unknown[]; angles?: unknown[]; houses?: unknown[] };
         };
+        solarReturnPeriods?: { evidence: { targetYear: number } }[];
         secondaryProgressionEvidence?: { movingPointFacts?: unknown[] };
         solarArcEvidence?: { movingPointFacts?: unknown[] };
       };
@@ -2894,6 +2895,7 @@ test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本�
     );
     assert.equal(defaultResult.scopeEvidence?.solarReturnEvidence?.returnChart?.angles?.length, 4);
     assert.equal(defaultResult.scopeEvidence?.solarReturnEvidence?.returnChart?.houses?.length, 12);
+    assert.ok((defaultResult.scopeEvidence?.solarReturnPeriods?.length ?? 0) >= 1);
     assert.equal(
       defaultResult.scopeEvidence?.secondaryProgressionEvidence?.movingPointFacts?.length,
       5,
@@ -2902,7 +2904,7 @@ test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本�
     const defaultPrompt = String(defaultRange.structuredContent?.prompt ?? '');
     assert.match(defaultPrompt, /分析对象：流年\d{4}。/);
     assert.match(defaultPrompt, /周期关键星象（/);
-    assert.match(defaultPrompt, /太阳返照（/);
+    assert.match(defaultPrompt, /太阳返照有效期/);
 
     const natal = await client.callTool({
       name: 'astrolabe_prompt',
@@ -2915,7 +2917,7 @@ test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本�
     assert.equal(natalResult.scopeEvidence?.scope, 'natal');
     const natalPrompt = String(natal.structuredContent?.prompt ?? '');
     assert.match(natalPrompt, /分析对象：本命盘。/);
-    assert.doesNotMatch(natalPrompt, /主要行运相位：|太阳返照（/);
+    assert.doesNotMatch(natalPrompt, /主要行运相位：|太阳返照有效期/);
   });
 });
 

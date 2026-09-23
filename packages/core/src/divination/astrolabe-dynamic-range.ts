@@ -70,7 +70,7 @@ function pushNumber(
   samples.push({ path, label, unit, value, ...(circularPeriod ? { circularPeriod } : {}) });
 }
 
-/** 带 Z 的推进时刻是 UTC；无时区的返照字段仍按本入口固定 UTC+8 墙钟解析。 */
+/** 带 Z 的推进时刻是 UTC；其他周期日期沿用本入口固定 UTC+8 墙钟。 */
 function civilMilliseconds(value: string) {
   if (/Z$/u.test(value)) return Date.parse(value);
   return Date.parse(`${value.replace(' ', 'T').replace(/Z$/, '')}+08:00`);
@@ -164,10 +164,18 @@ function advancedProjection(
   }
   if ('progressedDateTime' in evidence)
     pushDate(samples, `${prefix}.progressedTime`, `${name}推进时刻`, evidence.progressedDateTime);
+  if ('age' in evidence)
+    pushNumber(samples, `${prefix}.age`, `${name}参考时点年龄`, '年', evidence.age);
   if ('arcDegrees' in evidence)
     pushNumber(samples, `${prefix}.arcDegrees`, '太阳推进弧', '度', evidence.arcDegrees, 360);
-  if ('dateTime' in evidence)
-    pushDate(samples, `${prefix}.returnTime`, '太阳返照时刻', evidence.dateTime);
+  if ('dateTime' in evidence && evidence.timeScale)
+    pushNumber(
+      samples,
+      `${prefix}.returnTime`,
+      '太阳返照时刻',
+      'UTC毫秒',
+      evidence.timeScale.unixMilliseconds,
+    );
   if ('residualDegrees' in evidence)
     pushNumber(
       samples,
@@ -188,11 +196,30 @@ function advancedProjection(
     ] as const)
       pushNumber(samples, `${prefix}.timeScale.${key}`, label, unit, time[key]);
   }
+  const returnChart = 'returnChart' in evidence ? evidence.returnChart : undefined;
+  if (returnChart) {
+    for (const house of returnChart.houses) {
+      pushNumber(
+        samples,
+        `${prefix}.houses.${house.key}.longitude`,
+        `返照第${house.house}宫宫头黄经`,
+        '度',
+        house.longitude,
+        360,
+      );
+    }
+    for (const aspect of returnChart.internalAspectFacts) {
+      const path = `${prefix}.internalAspects.${aspect.key}`;
+      const label = `返照盘内${aspect.firstPoint}${aspect.aspectName}${aspect.secondPoint}`;
+      pushNumber(samples, `${path}.actualAngle`, `${label}实际角距`, '度', aspect.actualAngle);
+      pushNumber(samples, `${path}.deviation`, `${label}偏差`, '度', aspect.deviation);
+    }
+  }
   return {
     key: evidence.key,
     status: evidence.status,
     year: evidence.targetYear,
-    age: 'age' in evidence ? evidence.age : null,
+    age: 'age' in evidence && evidence.age !== undefined ? '连续年龄' : null,
     points: evidence.movingPointFacts.map((point) => [
       point.key,
       point.name,
@@ -249,6 +276,20 @@ function advancedProjection(
           time.counterSummaryFact.status,
           time.summaryFact.status,
         ]
+      : null,
+    returnChart: returnChart
+      ? {
+          houseSystem: returnChart.houseSystem,
+          houses: returnChart.houses.map((house) => [house.key, house.house, house.signName]),
+          internalAspects: returnChart.internalAspectFacts.map((aspect) => [
+            aspect.key,
+            aspect.firstPointKey,
+            aspect.secondPointKey,
+            aspect.aspectName,
+            aspect.exactAngle,
+            aspect.allowedOrb,
+          ]),
+        }
       : null,
   };
 }
@@ -384,6 +425,29 @@ function scopeProjection(context: AstrolabeScopeContext, samples: ContinuousSamp
     ),
     arc: advancedProjection(context.solarArcEvidence, `${prefix}.arc`, samples),
     solarReturn: advancedProjection(context.solarReturnEvidence, `${prefix}.return`, samples),
+    solarReturnPeriods:
+      context.solarReturnPeriods?.map((period) => {
+        const path = `${prefix}.returnPeriods.${period.evidence.targetYear}`;
+        pushNumber(
+          samples,
+          `${path}.startUtc`,
+          `${period.evidence.targetYear}年返照在目标年的起点`,
+          'UTC毫秒',
+          Date.parse(period.startUtcDateTime),
+        );
+        pushNumber(
+          samples,
+          `${path}.endUtc`,
+          `${period.evidence.targetYear}年返照在目标年的终点`,
+          'UTC毫秒',
+          Date.parse(period.endUtcDateTime),
+        );
+        return {
+          year: period.evidence.targetYear,
+          isReferencePeriod: period.isReferencePeriod,
+          evidence: advancedProjection(period.evidence, path, samples),
+        };
+      }) ?? [],
     period: periodProjection(context.periodEvents, `${prefix}.period`, samples),
   };
 }

@@ -155,10 +155,10 @@ export function AstrolabeScopeModal(props: {
           : `${draftYear}年${draftMonth}月${normalizedDraftDay}日`;
   const summaryText =
     draftScope === 'full'
-      ? '本命盘与同一参考日的流年、流月、流日行运；流年含太阳返照、次限推进和太阳弧。'
+      ? '本命盘与同一参考日的流年、流月、流日行运；流年含返照有效期，并按参考日计算次限与太阳弧。'
       : draftScope === 'natal'
         ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
-        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。${draftScope === 'yearly' ? '还会完整计算太阳返照、次限推进和太阳弧。' : ''}`;
+        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。${draftScope === 'yearly' ? '还会计算年内有效的太阳返照盘，并按年中取样次限与太阳弧。' : ''}`;
   const quickActions: Array<{
     scope: Exclude<AstrolabeScopeMode, 'natal'>;
     label: string;

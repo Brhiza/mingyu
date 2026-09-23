@@ -186,7 +186,7 @@ test('星盘范围可显式跳过周期事件计算而保留基础与高级事�
 
   assert.equal(context.periodEvents, undefined);
   assert.equal(context.periodBatch, undefined);
-  assert.match(context.promptText, /太阳返照（/);
+  assert.match(context.promptText, /太阳返照有效期/);
   assert.match(context.promptText, /次限相位：/);
   assert.match(context.promptText, /太阳弧相位：/);
   assert.doesNotMatch(context.promptText, /周期关键星象/);
@@ -205,7 +205,7 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.equal(contexts.yearly.dateStr, '2028');
   assert.equal(contexts.monthly.dateStr, '2028-06');
   assert.equal(contexts.daily.dateStr, '2028-06-01');
-  assert.match(contexts.yearly.promptText, /太阳返照（/);
+  assert.match(contexts.yearly.promptText, /太阳返照有效期/);
   assert.match(contexts.yearly.promptText, /次限相位：/);
   assert.match(contexts.yearly.promptText, /太阳弧相位：/);
 });
@@ -234,7 +234,7 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）。/);
   assert.match(context.promptText, /周期主轴：/);
   assert.match(context.promptText, /完整明细：/);
-  assert.match(context.promptText, /太阳返照（.+）：/);
+  assert.match(context.promptText, /太阳返照有效期.+：/);
   assert.match(context.promptText, /次限相位：/);
   assert.match(context.promptText, /太阳弧相位：/);
   assert.match(context.promptText, /落本命第\d+宫/);
@@ -272,7 +272,7 @@ test('星盘周期批次只在首批生成固定范围事实并保留续批身�
   assert.equal(continuation.solarReturnEvidence, undefined);
   assert.equal(continuation.secondaryProgressionEvidence, undefined);
   assert.equal(continuation.solarArcEvidence, undefined);
-  assert.doesNotMatch(continuation.promptText, /太阳返照（|次限相位：|太阳弧相位：/);
+  assert.doesNotMatch(continuation.promptText, /太阳返照有效期|次限相位：|太阳弧相位：/);
   assert.match(continuation.promptText, /本批周期范围：2028-02-01至2028-03-01/);
   assert.ok(continuation.periodEvents);
   assert.throws(
@@ -377,6 +377,59 @@ test('太阳返照应返回出生地完整返照盘及两层主要相位', () =>
   assert.ok(prompt.includes(returnChart.promptText));
   assert.match(prompt, /返照盘（出生地/);
   assert.doesNotThrow(() => JSON.parse(JSON.stringify(returnChart)));
+});
+
+test('流年覆盖返照前后两期，完整输出按参考日推进次限与太阳弧', () => {
+  const january = buildAstrolabeFullScopeContexts(astrolabeData, '2028-01-15', {
+    includePeriodEvents: false,
+  }).yearly;
+  const september = buildAstrolabeFullScopeContexts(astrolabeData, '2028-09-15', {
+    includePeriodEvents: false,
+  }).yearly;
+  const periods = january.solarReturnPeriods!;
+  assert.equal(periods.length, 2);
+  assert.deepEqual(
+    periods.map((period) => period.evidence.targetYear),
+    [2027, 2028],
+  );
+  assert.equal(periods[0].endUtcDateTime, periods[1].startUtcDateTime);
+  assert.equal(periods.find((period) => period.isReferencePeriod)?.evidence.targetYear, 2027);
+  assert.equal(
+    september.solarReturnPeriods?.find((period) => period.isReferencePeriod)?.evidence.targetYear,
+    2028,
+  );
+  assert.ok(january.promptText.includes('太阳返照有效期'));
+  assert.ok(january.promptText.includes('次限与太阳弧取样：2028-01-15'));
+  assert.ok(september.promptText.includes('次限与太阳弧取样：2028-09-15'));
+  assert.ok(
+    january.secondaryProgressionEvidence!.age! < september.secondaryProgressionEvidence!.age!,
+  );
+  assert.ok(january.solarArcEvidence!.arcDegrees! < september.solarArcEvidence!.arcDegrees!);
+});
+
+test('元旦附近生日的返照有效期完整覆盖目标日历年', () => {
+  const januaryBirth = generateAstrolabe({
+    name: '元旦生日',
+    gender: '女',
+    year: '2000',
+    month: '1',
+    day: '1',
+    hour: '12',
+    minute: '0',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+    locationName: '北京',
+  });
+  const periods = buildAstrolabeScopeContext(januaryBirth, 'yearly', '2028', {
+    includePeriodEvents: false,
+  }).solarReturnPeriods!;
+  assert.ok(periods.length >= 1);
+  assert.equal(periods[0].startsAt, '2028-01-01 00:00:00');
+  assert.equal(periods.at(-1)?.endsAt, '2029-01-01 00:00:00');
+  for (let index = 1; index < periods.length; index += 1) {
+    assert.equal(periods[index - 1].endUtcDateTime, periods[index].startUtcDateTime);
+  }
 });
 
 test('太阳返照跨目标生日夏令时空洞仍按连续 UTC 求根', () => {

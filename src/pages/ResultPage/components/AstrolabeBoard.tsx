@@ -23,7 +23,13 @@ function formatAdvancedPosition(
     AstrolabeScopeContext['secondaryProgressionEvidence']
   >['movingPointFacts'][number],
 ) {
-  return `${point.label}${point.signLabel}${point.degree}°${String(point.minute).padStart(2, '0')}′${point.retrograde ? '，逆行' : ''}`;
+  return `${point.label}${point.signLabel}${point.degree}°${String(point.minute).padStart(2, '0')}′${point.house ? `，第${point.house}宫` : ''}${point.retrograde ? '，逆行' : ''}`;
+}
+
+function formatAdvancedAspect(
+  aspect: NonNullable<AstrolabeScopeContext['solarArcEvidence']>['aspectFacts'][number],
+) {
+  return `${aspect.movingPoint}${aspect.aspectName}${aspect.natalPoint}（偏差${aspect.deviation.toFixed(2)}°，容许${aspect.allowedOrb}°）`;
 }
 
 export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
@@ -64,16 +70,27 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
-  const advancedTechniques = advancedScopeContext
-    ? [
+  const returnPeriods = advancedScopeContext?.solarReturnPeriods;
+  const returnTechniques = returnPeriods?.length
+    ? returnPeriods.map((period) => ({
+        key: `solar-return-${period.evidence.targetYear}`,
+        title: `太阳返照 · ${period.evidence.targetYear}年返照`,
+        evidence: period.evidence,
+        detail: `返照时刻 ${period.evidence.dateTime} · 年内有效 ${period.startsAt} 至 ${period.endsAt}${period.isReferencePeriod ? ' · 参考日有效' : ''}`,
+      }))
+    : [
         {
           key: 'solar-return',
           title: '太阳返照',
-          evidence: advancedScopeContext.solarReturnEvidence,
-          detail: advancedScopeContext.solarReturnEvidence?.dateTime
+          evidence: advancedScopeContext?.solarReturnEvidence,
+          detail: advancedScopeContext?.solarReturnEvidence?.dateTime
             ? `返照时刻 ${advancedScopeContext.solarReturnEvidence.dateTime}`
             : '按本命太阳黄经定位周年返照',
         },
+      ];
+  const advancedTechniques = advancedScopeContext
+    ? [
+        ...returnTechniques,
         {
           key: 'secondary-progression',
           title: '次限推进',
@@ -93,7 +110,6 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
         },
       ].filter((item) => item.evidence)
     : [];
-  const solarReturnChart = advancedScopeContext?.solarReturnEvidence?.returnChart;
 
   return (
     <section className="result-showcase-card astrolabe-showcase-card traditional-chart-layout">
@@ -200,11 +216,13 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>年度高级推运</h3>
-                <p>太阳返照、次限推进与太阳弧与行运共同交叉验证。</p>
+                <p>结合太阳返照、次限推进、太阳弧与行运查看年度线索。</p>
               </div>
               <div className="astrolabe-period-group-list">
                 {advancedTechniques.map((item) => {
                   const evidence = item.evidence!;
+                  const solarReturnChart =
+                    'returnChart' in evidence ? evidence.returnChart : undefined;
                   const positions = evidence.movingPointFacts.slice(0, 4);
                   const aspects = evidence.aspectFacts.slice(0, 3);
                   const statusLabel =
@@ -223,7 +241,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
                         {positions.length > 0 ? (
                           <span>{positions.map(formatAdvancedPosition).join('；')}</span>
                         ) : null}
-                        {item.key === 'solar-return' && solarReturnChart ? (
+                        {item.key.startsWith('solar-return') && solarReturnChart ? (
                           <span>
                             {solarReturnChart.angles
                               .slice(0, 2)
@@ -233,10 +251,66 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
                           </span>
                         ) : null}
                         {aspects.length > 0 ? (
-                          <span>{aspects.map((aspect) => aspect.promptText).join('；')}</span>
+                          <span>{aspects.map(formatAdvancedAspect).join('；')}</span>
                         ) : (
                           <span>{evidence.aspectSummaryFact.promptText}</span>
                         )}
+                        {evidence.movingPointFacts.length > 0 ? (
+                          <details className="astrolabe-advanced-details">
+                            <summary>查看全部点位、宫位与相位</summary>
+                            {item.key.startsWith('solar-return') && solarReturnChart ? (
+                              <p>
+                                返照地点：{solarReturnChart.location.name}；宫位制：
+                                {solarReturnChart.houseSystem === 'whole_sign'
+                                  ? '整宫制'
+                                  : '普拉西德斯宫制'}
+                              </p>
+                            ) : null}
+                            <h4>全部点位（{evidence.movingPointFacts.length}）</h4>
+                            <ul>
+                              {evidence.movingPointFacts.map((point) => (
+                                <li key={point.key}>{formatAdvancedPosition(point)}</li>
+                              ))}
+                            </ul>
+                            {item.key.startsWith('solar-return') && solarReturnChart ? (
+                              <>
+                                <h4>十二宫宫头</h4>
+                                <ul>
+                                  {solarReturnChart.houses.map((house) => (
+                                    <li key={house.key}>
+                                      第{house.house}宫 {house.signLabel}
+                                      {house.degree}°{String(house.minute).padStart(2, '0')}′
+                                    </li>
+                                  ))}
+                                </ul>
+                                <h4>
+                                  返照盘内相位（{solarReturnChart.internalAspectFacts.length}）
+                                </h4>
+                                {solarReturnChart.internalAspectFacts.length > 0 ? (
+                                  <ul>
+                                    {solarReturnChart.internalAspectFacts.map((aspect) => (
+                                      <li key={aspect.key}>{aspect.promptText}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p>当前容许度内未见主要盘内相位。</p>
+                                )}
+                              </>
+                            ) : null}
+                            <h4>对本命相位（{evidence.candidateAspectFacts.length}）</h4>
+                            {evidence.candidateAspectFacts.length > 0 ? (
+                              <ul>
+                                {evidence.candidateAspectFacts.map((aspect) => (
+                                  <li key={aspect.key}>{formatAdvancedAspect(aspect)}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>当前容许度内未见主要对本命相位。</p>
+                            )}
+                          </details>
+                        ) : evidence.limitations.length > 0 ? (
+                          <span>{evidence.limitations[0]}</span>
+                        ) : null}
                       </div>
                       <em>{statusLabel}</em>
                     </div>
