@@ -27,6 +27,18 @@ test('梅花字占保留原字及分笔，方位取象使用中文资料', () =>
   assert.doesNotMatch(direction.evidenceAnalysis?.promptText ?? '', /所见物类earth|方位north/u);
 });
 
+test('梅花完整提示词保留主互变逐阶段体用旺衰与制约条件', () => {
+  const data = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
+    method: 'time',
+  });
+  const prompt = buildDivinationPrompt('meihua', '请做整体解读。', data);
+  assert.ok(data.evidenceAnalysis?.stages.length);
+  for (const stage of data.evidenceAnalysis.stages) {
+    assert.ok(prompt.includes(stage.promptText));
+  }
+  assert.doesNotMatch(prompt, /ownerFactKeys|limitationFacts|sourceStatus/);
+});
+
 test('梅花物象锚点只由完整方位起卦资料形成', () => {
   const date = new Date('2026-09-11T05:27:00+08:00');
   const number = generateMeihua(date, { method: 'number', number: 42 });
