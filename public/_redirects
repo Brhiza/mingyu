@@ -1,0 +1,2 @@
+# 旧版 Skill 路径重定向至标准 mingyu 入口
+/skills/aov-mingyu-api/* /skills/mingyu/:splat 301

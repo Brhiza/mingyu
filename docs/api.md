@@ -9,7 +9,7 @@
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
 - 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按 SSE 类型配置；线上默认启用 `online` 预设（提示词默认 `summary`，星盘默认 `natal`，深度适配 Cloudflare 免费套餐 10ms CPU 限制）
 - 本地 MCP CLI：`npx -y mingyu-mcp`，默认启用 `full` 完整预设，保留全量结构化数据与默认流年推运
-- Skill 文档：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
+- Skill 文档：[https://aov.cc/skills/mingyu/SKILL.md](https://aov.cc/skills/mingyu/SKILL.md)
 
 `GET /openapi.json` 返回统一的 `{ "ok": true, "data": {}, "meta": {} }` 封装；读取完整 OpenAPI 定义时，端点正文位于 `spec["data"]["paths"]`。
 

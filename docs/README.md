@@ -12,7 +12,7 @@
 
 - [公开 API](api.md)：接口、参数和请求示例。
 - [MCP Server](../mcp/README.md)：让支持 MCP 的 AI 客户端调用命语。
-- [Agent Skill](../public/skills/aov-mingyu-api/SKILL.md)：通用算命与周易玄学工作流 Skill，让 AI 代理准确选择术数并调用排盘。
+- [Agent Skill](../public/skills/mingyu/SKILL.md)：通用算命与周易玄学工作流 Skill，让 AI 代理准确选择术数并调用排盘。
 - [`mingyu-core` 算法包](../packages/core/README.md)：在应用中复用核心算法。
 - [开发与部署](development-and-deployment.md)：本地开发、项目结构、Cloudflare Pages、Docker 和内置 AI 配置。
 - [模型评测](model-evaluation.md)：算命师大赛数据集和评测脚本。
@@ -22,7 +22,7 @@
 - [API 能力清单](https://aov.cc/api/v1/manifest)
 - [OpenAPI](https://aov.cc/api/v1/openapi.json)
 - [llms.txt](https://aov.cc/llms.txt)
-- [Agent Skill](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
+- [Agent Skill](https://aov.cc/skills/mingyu/SKILL.md)
 - [npm 核心包](https://www.npmjs.com/package/mingyu-core)
 
 ## Agent Skill 安装
@@ -35,4 +35,4 @@ npx skills add Brhiza/mingyu --skill mingyu -g -y
 
 手动安装时，从仓库复制完整的 `skills/mingyu/` 目录到客户端的 Skill 目录，包含 `SKILL.md` 和全部 `references/` 文件。
 
-Skill 内容统一在 `skills/mingyu/` 维护，更新后运行 `node scripts/sync-skill.mjs` 同步两个公开入口。
+Skill 内容统一在 `skills/mingyu/` 维护，更新后运行 `node scripts/sync-skill.mjs` 同步公开入口。

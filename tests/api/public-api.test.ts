@@ -248,7 +248,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
 
   assert.equal(body.ok, true);
   assert.equal(body.data.openapiUrl, 'https://aov.cc/api/v1/openapi.json');
-  assert.equal(body.data.skillUrl, 'https://aov.cc/skills/aov-mingyu-api/SKILL.md');
+  assert.equal(body.data.skillUrl, 'https://aov.cc/skills/mingyu/SKILL.md');
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility/prompt'));
@@ -451,7 +451,7 @@ test('公开 API 元数据应跟随当前访问域名', async () => {
   assert.equal(body.data.service, 'example.pages.dev');
   assert.equal(body.data.baseUrl, 'https://example.pages.dev/api/v1');
   assert.equal(body.data.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
-  assert.equal(body.data.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+  assert.equal(body.data.skillUrl, 'https://example.pages.dev/skills/mingyu/SKILL.md');
 });
 
 test('公开 API well-known 元数据应跟随当前访问域名', async () => {
@@ -472,7 +472,7 @@ test('公开 API well-known 元数据应跟随当前访问域名', async () => {
   assert.equal(body.service, 'example.pages.dev');
   assert.equal(body.baseUrl, 'https://example.pages.dev/api/v1');
   assert.equal(body.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
-  assert.equal(body.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+  assert.equal(body.skillUrl, 'https://example.pages.dev/skills/mingyu/SKILL.md');
   assert.ok(body.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.endpoints.includes('POST /api/v1/ai/analyze'));
 });

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, mkdirSync, writeFileSync, rmSync, existsSync
 import { join, dirname } from 'node:path';
 
 const source = 'skills/mingyu';
-const targets = ['public/skills/mingyu', 'public/skills/aov-mingyu-api'];
+const targets = ['public/skills/mingyu'];
 function files(root) {
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) =>
     entry.isDirectory()
@@ -25,4 +25,4 @@ for (const name of sourceFiles) {
     writeFileSync(path, content);
   }
 }
-console.log('已同步完整 Skill 至两个公开入口。');
+console.log('已同步完整 Skill 至公开入口。');

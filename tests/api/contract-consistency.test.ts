@@ -51,7 +51,7 @@ test('公开 API 端点与 OpenAPI 规范定义必须 100% 双向对齐', () => 
 test('Skill 数据提供方适配文档中的端点必须全部在 PUBLIC_API_ENDPOINTS 中合法有效', () => {
   const providerRefPath = join(
     process.cwd(),
-    'public/skills/aov-mingyu-api/references/providers/aov-mingyu.md',
+    'public/skills/mingyu/references/providers/aov-mingyu.md',
   );
   const providerRefContent = readFileSync(providerRefPath, 'utf8');
 
