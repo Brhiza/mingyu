@@ -6,6 +6,58 @@ import {
   formatAstrolabeAspectSections,
 } from '../packages/core/src/divination/astrolabe-chart-facts';
 import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe';
+import { buildAstrolabeSynastryPrompt } from '../packages/core/src/prompt/astrolabe';
+import { analyzeAstrolabeSynastry } from '../packages/core/src/divination/astrolabe-synastry';
+import { buildInstantAstrolabePrompt } from '../src/lib/instant-prompt';
+import { generateDivinationSession } from '../packages/core/src/divination/session';
+
+test('倍五分相在普通、双盘与即时提示词中只呈现中文关系和角度', () => {
+  const birth = {
+    name: '样本',
+    gender: '女',
+    year: '1993',
+    month: '4',
+    day: '8',
+    hour: '23',
+    minute: '34',
+    latitude: '1.3521',
+    longitude: '103.8198',
+    timezone: '8',
+  };
+  const chart = generateAstrolabe(birth);
+  const aspect = chart.aspects.find((item) => item.symbol === 'bQ');
+  assert.ok(aspect);
+  assert.equal(aspect.type, '倍五分相');
+  const line = formatAstrolabeAspectLine(aspect, [...chart.planets, ...chart.angles]);
+  assert.match(line, /：倍五分相，目标角144°，实际角距/);
+  assert.doesNotMatch(line, /bQ/);
+
+  const synastry = analyzeAstrolabeSynastry(chart, chart);
+  for (const prompt of [
+    formatAstrolabeForPrompt(chart),
+    buildAstrolabeSynastryPrompt({ chart1: chart, chart2: chart, synastry }),
+    buildInstantAstrolabePrompt(chart, '请解读当前情况', '当地钟表时间'),
+  ]) {
+    assert.ok(prompt.includes(line));
+    assert.doesNotMatch(prompt, /bQ/);
+  }
+
+  const session = generateDivinationSession({
+    method: 'astrolabe',
+    question: '请分析当前情况',
+    astrolabe: birth,
+  });
+  assert.ok(session.summary.lines.join('\n').includes('倍五分相'));
+  assert.match(session.aiPrompt, /星体：太阳/);
+  assert.match(session.aiPrompt, /四轴：上升/);
+  assert.match(session.aiPrompt, /相位：[^\n]*倍五分相，偏差/);
+  assert.doesNotMatch(session.aiPrompt, /bQ|\bSun\b|\bAscendant\b/);
+  assert.doesNotMatch(session.prompt, /bQ/);
+  assert.equal(
+    (session.data as typeof chart).aspects.find((item) => item.type === '倍五分相')?.symbol,
+    'bQ',
+  );
+});
 
 test('真实星盘相位将跨星座合相的位置与角距偏差分别给出', () => {
   const chart = generateAstrolabe({

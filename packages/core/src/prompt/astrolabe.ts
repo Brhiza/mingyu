@@ -90,7 +90,9 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
       : data.birth.timeZoneId
         ? `时区：${data.birth.timeZoneId}`
         : '',
-    data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
+    data.houseSystem
+      ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : '普拉西德斯宫制（Placidus）'}`
+      : '',
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}；真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}`

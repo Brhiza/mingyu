@@ -60,8 +60,11 @@ test('高纬度实际整宫制贯通星盘、解读资料和页面标签', () =>
     assert.equal(data.houseSystem, polar ? 'whole_sign' : 'placidus');
     const label = polar ? '整宫制' : 'Placidus';
     assert.equal(data.evidenceAnalysis!.calculationFact.models.houseSystem, label);
+    const promptLabel = polar ? '整宫制' : '普拉西德斯宫制（Placidus）';
     assert.ok(
-      data.evidenceAnalysis!.calculationChain.some((item) => item.includes(`宫位制：${label}`)),
+      data.evidenceAnalysis!.calculationChain.some((item) =>
+        item.includes(`宫位制：${promptLabel}`),
+      ),
     );
     const html = renderToStaticMarkup(
       createElement(AstrolabeBoard, { title: '本命星盘', name: '宫位用例', data }),

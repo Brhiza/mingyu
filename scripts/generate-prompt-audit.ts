@@ -709,6 +709,11 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     { label: 'selected_topic', pattern: /\bselected_topic\b/ },
     { label: 'scope_type', pattern: /\bscope_type\b/ },
     {
+      label: '未汉化盘面术语或内部证据键',
+      pattern:
+        /(?<!（)(?:Placidus|True North Node)|Caelus|\[bazi:fortune-action:|）(?:bQ|Q|S|N|D)[\u3400-\u9fff]|[\u3400-\u9fff](?:year|month|day|hour)(?=[\s0-9]|$)/u,
+    },
+    {
       label: '工程语境',
       pattern:
         /本项目|当前项目|项目(?:统一|明确)|本地(?:系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：|排盘口径|定盘口径|取样时间|推算口径|现代天文|公开天文|坐标口径|紫炁周期|日行|目标日期黄经|公共罗盘|tyme4ts|原生吉凶属性|吉神明细|黄历宜项命中|时辰宜项命中/,

@@ -83,8 +83,9 @@ test('西占本命区间提示词保留全部分支完整事实和连续量中�
   );
   assert.doesNotMatch(
     text,
-    /Placidus|first\/last|min\/max|\b(?:True|Mean|Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|Ascendant|Midheaven)\b/u,
+    /(?<!（)(?:Placidus|True North Node|Mean North Node)|first\/last|min\/max|\b(?:Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|Ascendant|Midheaven)\b/u,
   );
+  assert.match(text, /普拉西德斯宫制（Placidus）/u);
   assert.doesNotMatch(text, /代表盘信息（[^）]*）[^\n]*出生信息：/u);
 });
 

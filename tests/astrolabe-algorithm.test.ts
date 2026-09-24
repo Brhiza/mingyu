@@ -169,7 +169,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
     ),
   );
   assert.match(evidence.calculationFact.limitation, /不证明占星解释有效性/);
-  assert.ok(evidence.calculationChain.some((item) => item.includes('Placidus')));
+  assert.ok(evidence.calculationChain.some((item) => item.includes('普拉西德斯宫制')));
   assert.ok(evidence.primaryFacts.some((item) => item.includes('太阳')));
   assert.equal(evidence.primaryCoverageFact.status, '完整');
   assert.deepEqual(evidence.primaryCoverageFact.actualRoles, ['太阳', '月亮', '上升', '天顶']);

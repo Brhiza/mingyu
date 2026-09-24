@@ -70,7 +70,7 @@ export function formatAstrolabeAspectLine(aspect: AstrolabeAspect, points: Astro
         ]
       : []),
   ];
-  return `${position(aspect.body1, first)}${aspect.symbol}${position(aspect.body2, second)}：${facts.join('，')}`;
+  return `${position(aspect.body1, first)}与${position(aspect.body2, second)}：${facts.join('，')}`;
 }
 
 export function isAstrolabeAspectHeadline(aspect: AstrolabeAspect) {

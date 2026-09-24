@@ -163,7 +163,7 @@ test('太乙补算经真实公开接口保留目标计式、时间与局数事�
     assert.equal(result.dateTime, '2026-08-24 15:30:00');
     assert.equal(typeof result.bureau, 'number');
     assert.ok(Array.isArray(result.sixteenGods));
-    assert.match(resource.title, /本次目标时点·太乙神数month 2026-08-24 15:30/u);
+    assert.match(resource.title, /本次目标时点·太乙神数月计 2026-08-24 15:30/u);
     assert.match(resource.text, /主客定算/u);
   });
 });

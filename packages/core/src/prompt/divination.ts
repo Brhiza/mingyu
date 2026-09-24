@@ -539,7 +539,7 @@ export function getDivinationSummaryBlocks(
           `主要相位：${
             item.aspects
               .slice(0, 5)
-              .map((aspect) => `${aspect.body1}${aspect.symbol}${aspect.body2}`)
+              .map((aspect) => `${aspect.body1}与${aspect.body2}：${aspect.type}`)
               .join('、') || '无'
           }`,
         ],

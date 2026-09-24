@@ -1672,10 +1672,13 @@ function buildCalculationResourceTitle(
   } else if (method === 'taiyi') {
     const dateTime = result?.dateTime;
     const scope = result?.scope ?? calculationInput.scope;
-    range =
-      typeof dateTime === 'string'
-        ? `${typeof scope === 'string' ? scope : ''} ${dateTime}`.trim()
-        : '';
+    const scopeLabel =
+      typeof scope === 'string'
+        ? ({ year: '年计', month: '月计', day: '日计', hour: '时计' } as Record<string, string>)[
+            scope
+          ]
+        : undefined;
+    range = typeof dateTime === 'string' ? `${scopeLabel ?? ''} ${dateTime}`.trim() : '';
   } else if (method === 'huangji') {
     const dateTimeForecast = result?.dateTimeForecast;
     const sixDayCycle = result?.sixDayCycle;
