@@ -86,7 +86,24 @@
 
 七政四余的七政、罗睺、计都和月孛采用现代天文位置，二十八宿按 28 颗真实距星在目标日期的黄经划界；紫炁采用《七政算内篇》古法均速模型。结果逐星标明来源和精度层级，真太阳时只校正传统命身十二宫，不改变现代天体计算时刻。
 
-所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。MCP 默认保持 `full` 以兼容已有客户端；只需交给在线 AI 解读时建议显式使用 `prompt-only`，避免传输重复盘面。
+所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。
+
+### 运行环境预设（Preset）与默认选项说明
+
+为了在 **Cloudflare Pages / Workers 免费套餐**（10ms CPU 上限、无状态边缘节点）与 **本地 / 自部署运行** 之间兼顾极致性能与完整能力，命语 MCP 划分了两套预设（Preset）：
+
+| 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明与优化收益 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`online`（在线边缘预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | **`summary`** | **`natal`**（本命盘） | 自动精简冗余数据，省去数百 KB 庞大 AST 的 JSON 序列化 CPU 时间，彻底规避 10ms CPU 超时；星盘仅排本命（~5ms），避免强算返照/次限/太阳弧导致超时；AI 获取自包含 Prompt，大模型 Token 消耗直降 80%+。如需完整盘面或流年可显式传入参数 |
+| **`full`（本地/自部署完整预设）** | 本地 CLI（`npx mingyu-mcp`）、本地源码（`pnpm mcp`）、独立服务端与 Docker 容器 | **`full`** | **`yearly`**（流年全量推进） | 完整保留全套 77 个工具、全量大运流年、完整盘面 AST 对象与流年行运推进；学术排盘、科研二开和本地大模型直接获取全量结构化数据；支持环境变量 `MINGYU_MCP_PRESET=online` 按需切换 |
+
+#### 选项拆分与按需调用指引
+
+在在线边缘或轻量调用环境下，推荐遵循以下“拆分与分段”模式：
+1. **星盘分析拆分**：在线模式默认分析本命（`astrolabeScope: "natal"`）；需要年度行运与推进时，显式指定 `astrolabeScope: "yearly"`；流月指定 `monthly`，流日指定 `daily`，无需每次强求多层推进。
+2. **黄历长区间拆分**：在线单次择日查询建议在 7 天以内（超过 7 天触发边缘保护）；多天或整月择日推荐使用 `page` 与 `pageSize` 分页查询。
+3. **奇门终身局拆分**：在线单次终身局扫描建议在 10 年以内；长远人生大运推荐分十年大运逐步查询。
+4. **八字未知时辰拆分**：未知时辰单盘使用 `unknownTimeBatch` 分页游标，按候选逐页续取，不一次性穷尽 12 个时辰导致计算堆积。
 
 ## 工具选择指南
 
@@ -263,7 +280,7 @@ pnpm mcp
 
 ### 星盘行运提示词参数
 
-`astrolabe_prompt` 未指定 `astrolabeScope` 时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
+`astrolabe_prompt` 在线 Remote MCP（`online` 预设）未指定 `astrolabeScope` 时默认使用 `natal`（本命盘），以极速完成排盘，避免无谓的三级推运开销；本地 stdio/自部署服务（`full` 预设）未指定时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
 
 `yearly` 与 `full` 的流年层会自动生成太阳返照、次限推进和太阳弧。结构化结果在 `scopeEvidence` 中返回 `solarReturnPeriods`（目标日历年内每期返照的有效区间与完整返照盘）、推进点、太阳弧点及与本命的主要相位；原有 `solarReturnEvidence` 保留目标年份对应的返照。`yearly` 的次限和太阳弧按 7 月 1 日取样，`full` 按指定的具体日期取样。提示词会将这些资料与普通行运交叉组织。
 

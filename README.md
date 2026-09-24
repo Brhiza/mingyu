@@ -87,11 +87,12 @@ const tarot = drawTarotSpread('celtic');
 
 ### 3. MCP Server
 
-- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 等客户端中直接配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`；不要按 SSE 类型配置。
-- **本地 npx CLI（开箱即用）**：
+- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 等客户端中直接配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`（不要按 SSE 类型配置）。线上服务采用 `online` 预设，深度适配 Cloudflare Pages 边缘免费环境（提示词工具默认精简模式，星盘默认本命，毫秒级响应防超时）。
+- **本地 npx CLI（开箱即用，全量功能）**：
   ```bash
   npx -y mingyu-mcp
   ```
+  本地 CLI 与自部署默认采用 `full` 预设，保留全量结构化 AST 数据与默认流年三级推运，适合深度研究与复杂二次计算。
 
 （本地源码开发也可通过 `pnpm mcp` 启动，详见 [MCP 服务文档](mcp/README.md)）
 

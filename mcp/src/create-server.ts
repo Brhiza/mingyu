@@ -44,6 +44,14 @@ export const SERVER_INFO = {
   version: packageJson.version,
 } as const;
 
+export type MingyuMcpPreset = 'full' | 'online';
+
+export interface MingyuMcpServerOptions {
+  preset?: MingyuMcpPreset;
+  defaultResponseMode?: PromptResponseMode;
+  astrolabeDefaultScope?: 'natal' | 'yearly';
+}
+
 export const SERVER_INSTRUCTIONS = [
   '命语 MCP Server 提供命理排盘、运势、占卜、风水、择日、起名、历法与天文工具。先根据用户目的选择一个首选工具，再调用并回答。',
   '调用规则：需要直接解读时优先调用名称以 _prompt 结尾的工具；它会自行计算并返回完整 prompt，可用时还会同步返回 result，不要先调用同类排盘工具。只要结构化盘面、表格或二次计算时，使用 *_calculate、divine_*、metaphysics_* 或基础查询工具。随机起卦、抽牌、求签同一问题只调用一次，继续分析时复用返回的重放参数或固定结果。',
@@ -143,7 +151,13 @@ function extractPublicMetadata(
 /**
  * 创建并配置命语 MCP 服务器实例
  */
-export function createMingyuMcpServer(): McpServer {
+export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): McpServer {
+  const preset = options.preset ?? 'full';
+  const defaultResponseMode: PromptResponseMode =
+    options.defaultResponseMode ?? (preset === 'online' ? 'summary' : 'full');
+  const astrolabeDefaultScope: 'natal' | 'yearly' =
+    options.astrolabeDefaultScope ?? (preset === 'online' ? 'natal' : 'yearly');
+
   const server = new McpServer(SERVER_INFO, {
     capabilities: {
       tools: {},
@@ -187,12 +201,11 @@ export function createMingyuMcpServer(): McpServer {
 
       if (isPromptTool) {
         const responseMode = (args as { responseMode?: PromptResponseMode }).responseMode;
-        result = applyPromptResponseMode(
-          result,
+        const effectiveResponseMode: PromptResponseMode =
           responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
             ? responseMode
-            : 'full',
-        );
+            : defaultResponseMode;
+        result = applyPromptResponseMode(result, effectiveResponseMode);
       }
 
       const reliableMeta = extractPublicMetadata(name, args, durationMs);
@@ -225,7 +238,7 @@ export function createMingyuMcpServer(): McpServer {
   registerSsgwTool(server);
   registerAlmanacTool(server);
   registerLenormandTool(server);
-  registerAstrolabeTool(server);
+  registerAstrolabeTool(server, { defaultPromptScope: astrolabeDefaultScope });
   registerBaZhaiTool(server);
   registerZodiacTool(server);
   registerTaiyiTool(server);

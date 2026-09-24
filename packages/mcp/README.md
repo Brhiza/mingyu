@@ -29,6 +29,10 @@ mingyu-mcp
 
 - **URL**: `https://aov.cc/mcp`
 
+> 💡 **预设模式说明（Online vs Full）**：
+> - **在线端点 (`https://aov.cc/mcp`)**：采用 `online` 边缘预设，深度适配 Cloudflare 免费套餐（单次 10ms CPU 限制）。提示词工具默认精简模式（`responseMode: "summary"`），星盘默认本命（`astrolabeScope: "natal"`），响应极速且规避超时。如需推运或全量数据可显式传入相应参数。
+> - **本地 CLI (`npx mingyu-mcp`) / 自部署**：采用 `full` 完整预设。默认返回全量原始 AST 结构，星盘默认包含太阳返照、次限推进和太阳弧三级推运，适合深度研究、二次开发与本地大模型直连。可通过环境变量 `MINGYU_MCP_PRESET=online` 按需切换。
+
 ---
 
 ## 客户端配置
@@ -71,6 +75,8 @@ mingyu-mcp
 3. 只传用户已经提供的资料。出生时辰、日期、地点、经纬度和时区缺失时，根据工具错误中的 `missingFields` 补问，不自行推定。
 4. 随机起卦、抽牌和求签，同一问题只调用一次；继续解读时复用返回的重放参数或固定结果。
 5. 解读时以计算结果为事实，以提示词中的传统取义完成分析；遇到 `warnings` 时相应收窄结论。
+6. 响应模式选择：提示词工具支持 `responseMode: "summary"`（轻量摘要，在线端点默认，省流极速防超时）、`"full"`（全量 AST，本地 CLI 默认）与 `"prompt-only"`（仅纯提示词）。
+7. 重型计算拆分：在在线端点使用时，西洋星盘优先使用默认本命盘（`natal`），有推运需求再显式传 `astrolabeScope: "yearly"`；奇门终身局使用 `periodRange` 限制关注年份；黄历择日按段请求。需要批量大运流年与全生命周期推演时，推荐直接使用本地 CLI。
 
 ---
 

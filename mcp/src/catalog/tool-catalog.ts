@@ -870,12 +870,14 @@ export const TOOL_MINIMAL_EXAMPLES: Record<string, Record<string, unknown>> = {
   },
 };
 
+const TOOL_MAP = new Map<string, ToolCatalogItem>(TOOL_CATALOG.map((tool) => [tool.id, tool]));
+
 export function getToolCatalog(): readonly ToolCatalogItem[] {
   return TOOL_CATALOG;
 }
 
 export function findTool(id: string): ToolCatalogItem | undefined {
-  return TOOL_CATALOG.find((tool) => tool.id === id);
+  return TOOL_MAP.get(id);
 }
 
 export function getToolTitle(id: string): string | undefined {

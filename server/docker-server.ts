@@ -169,6 +169,9 @@ async function handleMcpServerRequest(
       headers,
       body,
     }),
+    {
+      preset: (process.env.MINGYU_MCP_PRESET as 'full' | 'online') || 'full',
+    },
   );
 
   response.statusCode = mcpResponse.status;

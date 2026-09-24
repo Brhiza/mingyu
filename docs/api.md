@@ -7,7 +7,8 @@
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
-- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按 SSE 类型配置
+- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按 SSE 类型配置；线上默认启用 `online` 预设（提示词默认 `summary`，星盘默认 `natal`，深度适配 Cloudflare 免费套餐 10ms CPU 限制）
+- 本地 MCP CLI：`npx -y mingyu-mcp`，默认启用 `full` 完整预设，保留全量结构化数据与默认流年推运
 - Skill 文档：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
 `GET /openapi.json` 返回统一的 `{ "ok": true, "data": {}, "meta": {} }` 封装；读取完整 OpenAPI 定义时，端点正文位于 `spec["data"]["paths"]`。
@@ -112,7 +113,10 @@
 
 六爻接口的 `liuyaoMethod` 支持 `time`、`coins`、`manual`、`yarrow`。蓍草起卦使用 `yarrow`，可提供 `seed` 或 `replay` 重放随机过程；也可单独提供 `yarrowSplits`，按初爻至上爻传入十八次挂一前左堆策数。每次左堆须为正整数，右堆挂一后至少留一策；具体上限随前一变剩策变化。手工分堆与随机选项、手工爻值不能混用。结果 `generation.yarrow` 保留六爻十八变，`meta.random` 保留随机样本，提示词接口同步包含起卦过程。MCP 的 `divine_liuyao` 与 `liuyao_prompt` 使用对应的 `method: "yarrow"` 和 `yarrowSplits` 参数。
 
-面向自动化代理时，优先使用 `/prompt` 一站式接口，让接口直接返回可交给 AI 解读的 `data.prompt`，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`。
+面向自动化代理与 MCP 客户端时：
+- **提示词优先**：优先使用 `/prompt` 一站式接口或 MCP `*_prompt` 工具，让服务端直接返回可交给 AI 解读的自包含 `prompt` 任务书，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`；
+- **在线 MCP 优化与拆分**：线上 Remote MCP（`https://aov.cc/mcp`）默认启用 `online` 预设，提示词默认 `summary` 响应，星盘默认本命（`astrolabeScope: "natal"`），以 5~10ms 极速响应规避 Cloudflare 免费套餐 10ms CPU 限制与 413 响应过大。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求；
+- **本地/自部署完整模式**：需获取全量 AST 数据或全生命周期推演时，使用本地 `npx -y mingyu-mcp` 或 Docker 部署（默认 `full` 预设）。
 
 默认优先级：
 
@@ -120,7 +124,7 @@
 2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
 3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、大六壬。
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
-5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
+5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`（在线默认本命，行运推运传 `astrolabeScope: "yearly"`）；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
 7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世年月日时即时占断使用 `customDate`，六日逐爻公历占断可选 `calendarModel=six-day-seven-part`（现代冬至与岁周比例定位，不传显式历元）或 `calendarModel=six-day-explicit-epoch`（必须传显式历元），年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
 

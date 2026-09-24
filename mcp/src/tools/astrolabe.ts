@@ -73,7 +73,7 @@ const astrolabePromptSchema = extendPromptSchema(
       .enum(astrolabePromptScopes)
       .optional()
       .describe(
-        '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日；yearly 与 full 的流年层自动包含太阳返照、次限推进和太阳弧；省略时默认当前年度流年',
+        '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日；yearly 与 full 的流年层自动包含太阳返照、次限推进和太阳弧；在线边缘模式默认 natal（本命快速计算），本地/自部署完整模式默认当前年度流年',
       ),
     astrolabeScopeDate: z
       .string()
@@ -156,6 +156,7 @@ function buildAstrolabeResult(args: z.infer<typeof astrolabeSchema>) {
 
 function resolveAstrolabePromptScopeArgs(
   args: z.infer<typeof astrolabePromptSchema>,
+  defaultScope: 'natal' | 'yearly' = 'yearly',
 ): z.infer<typeof astrolabePromptSchema> {
   if (args.astrolabeScope !== undefined) {
     return args;
@@ -163,8 +164,11 @@ function resolveAstrolabePromptScopeArgs(
 
   return {
     ...args,
-    astrolabeScope: 'yearly',
-    astrolabeScopeDate: args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate('yearly'),
+    astrolabeScope: defaultScope,
+    astrolabeScopeDate:
+      defaultScope === 'natal'
+        ? undefined
+        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(defaultScope),
   };
 }
 
@@ -196,18 +200,19 @@ function buildAstrolabeFullScopePromptText(data: AstrolabeData, referenceDateStr
 function buildAstrolabePromptScopeText(
   args: z.infer<typeof astrolabePromptSchema>,
   result: AstrolabeData,
+  defaultScope: 'natal' | 'yearly' = 'yearly',
 ) {
   const customText = args.astrolabeScopeText?.trim();
   if (customText) return customText;
 
   const hasExplicitScope = args.astrolabeScope !== undefined;
-  const scope = args.astrolabeScope ?? 'yearly';
-  const dateStr =
-    scope === 'natal'
-      ? ''
-      : hasExplicitScope
-        ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
-        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
+  const scope = args.astrolabeScope ?? defaultScope;
+  if (scope === 'natal') {
+    return buildAstrolabeScopeContext(result, 'natal', '').promptText;
+  }
+  const dateStr = hasExplicitScope
+    ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
+    : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
   if (scope === 'full') {
     return buildAstrolabeFullScopePromptText(result, dateStr);
   }
@@ -225,18 +230,19 @@ function requireAstrolabeScopeDate(dateStr: string | undefined) {
 function buildAstrolabeScopeEvidence(
   args: z.infer<typeof astrolabePromptSchema>,
   result: AstrolabeData,
+  defaultScope: 'natal' | 'yearly' = 'yearly',
 ) {
   const customText = args.astrolabeScopeText?.trim();
   if (customText) return { scope: 'custom' as const, promptText: customText };
 
   const hasExplicitScope = args.astrolabeScope !== undefined;
-  const scope = args.astrolabeScope ?? 'yearly';
-  const dateStr =
-    scope === 'natal'
-      ? ''
-      : hasExplicitScope
-        ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
-        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
+  const scope = args.astrolabeScope ?? defaultScope;
+  if (scope === 'natal') {
+    return { scope: 'natal' as const, promptText: '' };
+  }
+  const dateStr = hasExplicitScope
+    ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
+    : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
   if (scope === 'full') {
     return {
       scope: 'full' as const,
@@ -248,7 +254,12 @@ function buildAstrolabeScopeEvidence(
   return buildAstrolabeScopeContext(result, scope, dateStr);
 }
 
-export function registerAstrolabeTool(server: McpServer) {
+export interface RegisterAstrolabeToolOptions {
+  defaultPromptScope?: 'natal' | 'yearly';
+}
+
+export function registerAstrolabeTool(server: McpServer, options?: RegisterAstrolabeToolOptions) {
+  const defaultPromptScope = options?.defaultPromptScope ?? 'yearly';
   server.registerTool(
     'divine_astrolabe',
     {
@@ -277,10 +288,13 @@ export function registerAstrolabeTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const scopeArgs = resolveAstrolabePromptScopeArgs(args);
+        const scopeArgs = resolveAstrolabePromptScopeArgs(args, defaultPromptScope);
         const result = buildAstrolabeResult(scopeArgs);
         return createStructuredToolResult({
-          result: { ...result, scopeEvidence: buildAstrolabeScopeEvidence(scopeArgs, result) },
+          result: {
+            ...result,
+            scopeEvidence: buildAstrolabeScopeEvidence(scopeArgs, result, defaultPromptScope),
+          },
           prompt: buildCommonDivinationPrompt(
             'astrolabe',
             scopeArgs.question,
@@ -288,7 +302,11 @@ export function registerAstrolabeTool(server: McpServer) {
             scopeArgs.promptMode,
             {
               astrolabeTopic: scopeArgs.astrolabeTopic,
-              astrolabeScopeText: buildAstrolabePromptScopeText(scopeArgs, result),
+              astrolabeScopeText: buildAstrolabePromptScopeText(
+                scopeArgs,
+                result,
+                defaultPromptScope,
+              ),
               schools: scopeArgs.schools,
               topicId: scopeArgs.topicId,
               subtopicId: scopeArgs.subtopicId,

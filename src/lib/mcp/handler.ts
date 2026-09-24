@@ -1,5 +1,9 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { createMingyuMcpServer, SERVER_INFO } from '../../../mcp/src/create-server.js';
+import {
+  createMingyuMcpServer,
+  SERVER_INFO,
+  type MingyuMcpPreset,
+} from '../../../mcp/src/create-server.js';
 
 export const MCP_CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +12,10 @@ export const MCP_CORS_HEADERS: Record<string, string> = {
     'Content-Type, Authorization, X-Requested-With, mcp-session-id, Accept, mcp-protocol-version',
   'Access-Control-Max-Age': '86400',
 };
+
+export interface HandleMcpRequestOptions {
+  preset?: MingyuMcpPreset;
+}
 
 const ONLINE_ALMANAC_MAX_DAYS = 7;
 const ONLINE_QIMEN_LIFETIME_MAX_YEARS = 10;
@@ -195,7 +203,10 @@ async function checkOnlineResourceLimit(request: Request) {
 /**
  * 统一处理 Streamable HTTP 协议的 MCP 请求（兼容 Cloudflare Pages、Node.js 与 Docker）
  */
-export async function handleMcpRequest(request: Request): Promise<Response> {
+export async function handleMcpRequest(
+  request: Request,
+  options?: HandleMcpRequestOptions,
+): Promise<Response> {
   const method = request.method.toUpperCase();
 
   // 1. CORS 预检
@@ -267,7 +278,11 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   }
 
   // 4. 创建无状态 Transport 并执行请求
-  const server = createMingyuMcpServer();
+  const preset: MingyuMcpPreset =
+    options?.preset ??
+    ((typeof process !== 'undefined' && (process.env?.MINGYU_MCP_PRESET as MingyuMcpPreset)) ||
+      'online');
+  const server = createMingyuMcpServer({ preset });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

@@ -5,5 +5,5 @@ type PagesContext = {
 };
 
 export function onRequest(context: PagesContext): Promise<Response> {
-  return handleMcpRequest(context.request);
+  return handleMcpRequest(context.request, { preset: 'online' });
 }
