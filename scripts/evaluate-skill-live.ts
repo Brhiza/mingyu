@@ -55,7 +55,7 @@ export function buildCleanModelInputBundle(
   scenario: SkillScenario,
   mode: ProviderMode,
 ): CleanModelInputBundle {
-  const baseDir = join(process.cwd(), 'public/skills/aov-mingyu-api');
+  const baseDir = join(process.cwd(), 'public/skills/mingyu');
   const skillPrompt = readFileSync(join(baseDir, 'SKILL.md'), 'utf8');
 
   const refNames = [

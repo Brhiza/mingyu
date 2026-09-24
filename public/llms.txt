@@ -21,7 +21,7 @@
 - 公共基础能力：https://aov.cc/api/v1/foundation/capabilities
 - Agent 发现元数据：https://aov.cc/.well-known/aov-mingyu-api.json
 - 在线 Remote MCP：https://aov.cc/mcp（Streamable HTTP；在线黄历单次最多7天、奇门终身局动态扫描单次最多10年）
-- Agent Skill：https://aov.cc/skills/aov-mingyu-api/SKILL.md
+- Agent Skill：https://aov.cc/skills/mingyu/SKILL.md
 - npm 核心包：https://www.npmjs.com/package/mingyu-core
 - 源代码：https://github.com/Brhiza/mingyu
 

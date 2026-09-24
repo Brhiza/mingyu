@@ -288,7 +288,7 @@ export function runFullEvaluation() {
   console.log('=== 通用算命 Skill 实战场景与反自证质量评测（离线确定性回归） ===\n');
 
   // 1. 验证参考文档链接完整性
-  const baseDir = join(process.cwd(), 'public/skills/aov-mingyu-api');
+  const baseDir = join(process.cwd(), 'public/skills/mingyu');
   const skillMd = readFileSync(join(baseDir, 'SKILL.md'), 'utf8');
 
   const docLinks = [

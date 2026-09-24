@@ -12,9 +12,9 @@ function files(root: string): string[] {
     )
     .sort();
 }
-test('两个公开 Skill 入口的文件清单和完整内容必须与安装源一致', () => {
+test('公开 Skill 入口的文件清单和完整内容必须与安装源一致', () => {
   const source = 'skills/mingyu';
-  for (const target of ['public/skills/mingyu', 'public/skills/aov-mingyu-api']) {
+  for (const target of ['public/skills/mingyu']) {
     assert.deepEqual(files(target), files(source), `${target} 文件清单漂移`);
     for (const name of files(source)) {
       assert.equal(
