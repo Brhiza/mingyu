@@ -294,7 +294,7 @@ test('本命 analysis 经各层岁运投影后深等值不变（禁止回写）'
   assert.deepEqual(chart.analysis, snapshot, '岁运投影计算绝对禁止回写或修改本命 analysis');
 });
 
-test('formatter 输出直接引用 action fact key 而不靠中文文本解析', () => {
+test('岁运事实提示词只输出可读事实，内部证据键仍留在结构化数据中', () => {
   const chart = createSyntheticChartWithLuck();
   const ctx2027 = buildFortuneSelectionContext(chart, {
     scope: 'year',
@@ -303,33 +303,33 @@ test('formatter 输出直接引用 action fact key 而不靠中文文本解析',
   });
   assert.ok(ctx2027?.actionEvidence);
 
-  // 1. formatFortuneActionFactLine 必须包含稳定 key
   const factDing = ctx2027.actionEvidence.facts.find(
     (f) => f.level === 'year' && f.placement === '岁运透干' && f.stem === '丁',
   );
   assert.ok(factDing);
+  assert.match(factDing.key, /^bazi:fortune-action:/);
   const factLine = formatFortuneActionFactLine(factDing);
-  assert.ok(factLine.startsWith(`[${factDing.key}]`));
+  assert.ok(factLine.startsWith('流年丁'));
+  assert.ok(!factLine.includes(factDing.key));
   assert.ok(factLine.includes('双向条件引用'));
 
-  // 2. formatFortuneActionEvidenceForPrompt
   const promptLines = formatFortuneActionEvidenceForPrompt(ctx2027.actionEvidence);
   assert.ok(promptLines.length > 1);
   for (const fact of ctx2027.actionEvidence.facts) {
     assert.ok(
-      promptLines.some((line) => line.includes(`[${fact.key}]`)),
-      `格式化提示词输出必须包含 key: ${fact.key}`,
+      promptLines.some((line) => line.includes(formatFortuneActionFactLine(fact))),
+      `格式化提示词输出应包含可读事实：${fact.层级}${fact.干}`,
     );
+    assert.ok(promptLines.every((line) => !line.includes(fact.key)));
   }
 
-  // 3. formatBaziFortuneSelection 任务书输出亦包含 action fact key
   const sections = formatBaziFortuneSelection(ctx2027);
   assert.ok(sections);
-  assert.ok(sections.focus.includes(`[${factDing.key}]`));
+  assert.ok(!sections.focus.includes(factDing.key));
   assert.equal(
-    sections.focus.split(`[${factDing.key}]`).length - 1,
+    sections.focus.split(factLine.replaceAll('｜', '；')).length - 1,
     1,
-    '同一 action fact key 在最终提示词中只应输出一次',
+    '同一岁运作用事实在最终提示词中只应输出一次',
   );
   assert.match(sections.focus, /岁运作用事实/);
 });

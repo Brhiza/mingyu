@@ -158,7 +158,11 @@ export function formatBaziFortuneSelection(
   const actionFacts = promptPayload.actionEvidence?.facts ?? [];
   const actionFactsAlreadyRendered =
     actionFacts.length > 0 &&
-    actionFacts.every((fact) => evidenceLines.some((line) => line.includes(`[${fact.key}]`)));
+    actionFacts.every((fact) =>
+      evidenceLines.some((line) =>
+        line.includes(formatFortuneActionFactLine(fact).replaceAll('｜', '；')),
+      ),
+    );
   if (actionFacts.length && !actionFactsAlreadyRendered) {
     lines.push(
       '岁运作用事实：\n' + actionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),

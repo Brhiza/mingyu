@@ -264,10 +264,10 @@ function formatAiChart(
     const item = data as AstrolabeData;
     base.push(
       `出生资料：${item.birth.dateTime}，${item.birth.location}`,
-      `星体：${item.planets.map((point) => `${point.name}${point.formatted}`).join('；')}`,
-      `四轴：${item.angles.map((point) => `${point.name}${point.formatted}`).join('；')}`,
+      `星体：${item.planets.map((point) => `${point.label}${point.formatted}`).join('；')}`,
+      `四轴：${item.angles.map((point) => `${point.label}${point.formatted}`).join('；')}`,
       `宫位：${item.houses.map((point) => `第${point.house}宫宫头${point.formatted}`).join('；')}`,
-      `相位：${item.aspects.map((aspect) => `${aspect.body1}${aspect.symbol}${aspect.body2}，容许度${aspect.orb.toFixed(2)}°`).join('；') || '无'}`,
+      `相位：${item.aspects.map((aspect) => `${aspect.body1}与${aspect.body2}：${aspect.type}，偏差${aspect.orb.toFixed(2)}°`).join('；') || '无'}`,
     );
   } else if (method === 'wuyun') {
     const item = data as WuyunLiuqiResult;

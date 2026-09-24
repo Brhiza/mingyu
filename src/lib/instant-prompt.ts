@@ -138,7 +138,9 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
       ? `观测坐标：${data.birth.latitude >= 0 ? '北纬' : '南纬'}${Math.abs(data.birth.latitude)}°，${data.birth.longitude >= 0 ? '东经' : '西经'}${Math.abs(data.birth.longitude)}°`
       : '',
     data.birth.timeZoneId ? `时区名称：${data.birth.timeZoneId}` : '',
-    data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
+    data.houseSystem
+      ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : '普拉西德斯宫制（Placidus）'}`
+      : '',
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime
       ? `真太阳时：${data.birth.trueSolarDateTime || data.birth.dateTime}`

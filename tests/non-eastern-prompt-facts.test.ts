@@ -24,6 +24,39 @@ test('星盘提示词保留出生坐标和历史时区标识', () => {
   assert.match(prompt, /出生坐标：纬度39\.9042°，经度116\.4074°；时区Asia\/Shanghai/);
 });
 
+test('星盘格局与宫位制以中文名称配必要英文术语', () => {
+  const chart = generateAstrolabe({
+    name: '样本',
+    gender: '女',
+    year: '1993',
+    month: '4',
+    day: '8',
+    hour: '23',
+    minute: '34',
+    latitude: '1.3521',
+    longitude: '103.8198',
+    timezone: '8',
+  });
+  const prompt = formatAstrolabeForPrompt(chart);
+  assert.match(prompt, /宫位制：普拉西德斯宫制（Placidus）/);
+  assert.ok(
+    chart.summary.patterns.some((pattern) => pattern.includes('北交点（True North Node）')),
+  );
+  assert.doesNotMatch(
+    chart.summary.patterns.join('、'),
+    /(?<!（)True North Node|kite|grand_trine|stellium_sign/,
+  );
+  assert.doesNotMatch(
+    prompt,
+    /(?<!（)(?:Placidus|True North Node)|Caelus|kite|grand_trine|stellium_sign/,
+  );
+  assert.match(
+    chart.evidenceAnalysis?.calculationFact.promptText ?? '',
+    /普拉西德斯宫制（Placidus）/,
+  );
+  assert.doesNotMatch(chart.evidenceAnalysis?.calculationFact.promptText ?? '', /Caelus/);
+});
+
 test('七政四余提示词保留十二宫映射及出生时空口径', () => {
   const result = generateQizheng({
     year: 1990,

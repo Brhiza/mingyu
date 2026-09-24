@@ -175,6 +175,8 @@ test('跨时区星盘即时提示词携带四轴、十二宫、坐标及星体�
     useTrueSolarTime: false,
   });
   const prompt = buildInstantAstrolabePrompt(chart, '请解读当前事件。', '纽约当地时间');
+  assert.match(prompt, /宫位制：普拉西德斯宫制/);
+  assert.match(prompt, /普拉西德斯宫制（Placidus）/);
   assert.equal(chart.angles.length, 4);
   for (const point of chart.angles) {
     const label = point.name === 'Ascendant' ? '上升点' : point.label;

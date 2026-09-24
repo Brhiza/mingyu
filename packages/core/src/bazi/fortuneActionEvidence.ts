@@ -164,7 +164,7 @@ export function formatFortuneActionFactLine(fact: FortuneActionFact): string {
       rootText = '｜根气：无明确同干根气';
     }
   }
-  return `[${fact.key}] ${fact.层级}${fact.干}（${fact.五行}，${fact.十神}，${placementText}）：${fact.conditionStatus}｜状态：${fact.currentActionStatus}${sourcesText}${rootText}${targetText}${timeRangeText}`;
+  return `${fact.层级}${fact.干}（${fact.五行}，${fact.十神}，${placementText}）：${fact.conditionStatus}｜状态：${fact.currentActionStatus}${sourcesText}${rootText}${targetText}${timeRangeText}`;
 }
 
 export function formatFortuneActionEvidenceForPrompt(

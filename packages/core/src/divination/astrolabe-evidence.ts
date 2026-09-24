@@ -432,7 +432,7 @@ function buildCalculationFact(
         houseCuspCount: data.houses.length,
       },
       dependsOnStepKeys: ['astrolabe:calculation:time'],
-      promptText: `由 Caelus 计算${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个宫头；宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : data.houseSystem === 'placidus' ? 'Placidus' : '未记录'}`,
+      promptText: `本命盘记录${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个宫头；宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : data.houseSystem === 'placidus' ? '普拉西德斯宫制（Placidus）' : '未记录'}`,
       sources: ['Caelus 黄道位置计算', 'Caelus 宫位与四轴计算'],
       limitation: STEP_FACT_LIMITATION,
     },
