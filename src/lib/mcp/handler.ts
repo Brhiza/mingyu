@@ -217,33 +217,37 @@ export async function handleMcpRequest(
     });
   }
 
-  // 2. 浏览器或爬虫直接 GET /mcp
+  // 2. 无状态服务不提供独立 SSE 流；浏览器 GET 仍返回服务信息
   if (method === 'GET') {
-    const accept = request.headers.get('accept') || '';
+    const accept = (request.headers.get('accept') || '').toLowerCase();
     const hasSession = request.headers.has('mcp-session-id');
     if (
-      !accept.includes('text/event-stream') &&
-      (!accept.includes('application/json') || !hasSession)
+      accept.includes('text/event-stream') ||
+      (accept.includes('application/json') && hasSession)
     ) {
-      return new Response(
-        JSON.stringify({
-          status: 'ok',
-          service: SERVER_INFO.name,
-          version: SERVER_INFO.version,
-          protocol: 'mcp-streamable-http',
-          endpoint: '/mcp',
-          transports: ['streamable-http'],
-          documentation: 'https://aov.cc/tutorial',
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            ...MCP_CORS_HEADERS,
-          },
-        },
-      );
+      return new Response(null, {
+        status: 405,
+        headers: { Allow: 'POST, OPTIONS', ...MCP_CORS_HEADERS },
+      });
     }
+    return new Response(
+      JSON.stringify({
+        status: 'ok',
+        service: SERVER_INFO.name,
+        version: SERVER_INFO.version,
+        protocol: 'mcp-streamable-http',
+        endpoint: '/mcp',
+        transports: ['streamable-http'],
+        documentation: 'https://aov.cc/tutorial',
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          ...MCP_CORS_HEADERS,
+        },
+      },
+    );
   }
 
   const resourceLimitResponse = await checkOnlineResourceLimit(request);

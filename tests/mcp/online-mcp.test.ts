@@ -3,6 +3,30 @@ import assert from 'node:assert/strict';
 import { onRequest } from '../../functions/mcp.js';
 import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
 
+test('在线 MCP 无状态端点拒绝独立 SSE GET，同时保留跨域响应头', async () => {
+  for (const accept of ['text/event-stream', 'application/json, text/event-stream']) {
+    const response = await onRequest({
+      request: new Request('https://aov.cc/mcp', {
+        method: 'GET',
+        headers: { Accept: accept },
+      }),
+    });
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get('allow'), 'POST, OPTIONS');
+    assert.equal(response.headers.get('access-control-allow-origin'), '*');
+    assert.equal(response.headers.get('content-type'), null);
+    assert.equal(await response.text(), '');
+  }
+
+  const sessionResponse = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'GET',
+      headers: { Accept: 'application/json', 'Mcp-Session-Id': 'stale-session' },
+    }),
+  });
+  assert.equal(sessionResponse.status, 405);
+});
+
 test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康检查与 JSON-RPC 工具请求', async () => {
   // 1. OPTIONS CORS 预检
   const optionsRes = await onRequest({

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": [
+    "/api/v1",
+    "/api/v1/*",
+    "/.well-known/aov-mingyu-api.json",
+    "/mcp",
+    "/sse",
+    "/mingyu-runtime-config.js"
+  ],
+  "exclude": []
+}
