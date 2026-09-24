@@ -7,7 +7,7 @@
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
-- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按旧版 SSE 类型配置；线上启用 `online` 预设（提示词默认 `summary`，星盘默认 `natal`）
+- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按旧版 SSE 类型配置；线上启用 `online` 预设（提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；星盘默认 `natal`）
 - 本地 MCP CLI：`npx -y mingyu-mcp`，默认启用 `full` 完整预设，保留全量结构化数据与默认流年推运
 - Skill 文档：[https://aov.cc/skills/mingyu/SKILL.md](https://aov.cc/skills/mingyu/SKILL.md)
 
@@ -115,16 +115,16 @@
 
 面向自动化代理与 MCP 客户端时：
 - **提示词优先**：优先使用 `/prompt` 一站式接口或 MCP `*_prompt` 工具，让服务端直接返回可交给 AI 解读的自包含 `prompt` 任务书，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`；
-- **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 默认使用 `summary` 和本命星盘 `natal`；仍可显式请求 `responseMode: "full"` 或 `astrolabeScope: "yearly"`，但这不会绕过在线资源范围保护或 Cloudflare 边缘运行限制。
-- **在线 MCP 的连接与请求用量**：Streamable HTTP 中每条 JSON-RPC 消息单独用一次 `POST`；初始化、工具列表和工具调用会形成多次 HTTP 请求。该端点不提供 SSE `GET` 流：普通浏览器 `GET` 返回端点元数据，带 `Accept: text/event-stream` 的 `GET` 返回 `405`；旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，也不是 SSE 服务。命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量；避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求；
+- **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 提示词通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只减少返回体，不减少计算 CPU。星盘默认本命 `natal`；`full` 和其他范围仍受在线资源保护与 Cloudflare 边缘运行限制。
+- **在线 MCP 的连接与请求用量**：Streamable HTTP 中每条 JSON-RPC 消息单独用一次 `POST`，在线端点拒绝 JSON-RPC batch；初始化、工具列表和工具调用会形成多次 HTTP 请求。该端点不提供 SSE `GET` 流：普通浏览器 `GET` 返回端点元数据，带 `Accept: text/event-stream` 的 `GET` 返回 `405`；旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，也不是 SSE 服务。命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量；避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求。
 
 默认优先级：
 
 1. 用户提供了完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先用 `POST /bazi-ziwei/prompt`。八字负责定命局主线、喜忌和岁运，紫微负责校验宫位、四化、三方四正和运限，通常比单独八字或单独紫微更稳。
 2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
 3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、大六壬。
-4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
-5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`（在线默认本命，行运推运传 `astrolabeScope: "yearly"`）；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
+4. 用户要从一段日期里挑日子，使用 `POST /divination/almanac/prompt`。REST API 单次范围最多 31 天、最多 30 位参与人；超出范围或人数上限时拆成多个请求。`page` 和 `pageSize` 只分页合法范围内的结果；在线 Remote MCP 单次最多 7 天，超出时须先按不超过 7 天分段，分页参数不能绕过该限制。
+5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；REST API 未指定 `astrolabeScope` 时默认当前年度 `yearly` 行运。在线 Remote MCP 的 `astrolabe_prompt` 未指定时默认本命 `natal`；需要行运时明确传入 `astrolabeScope: "yearly"`。提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
 7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世年月日时即时占断使用 `customDate`，六日逐爻公历占断可选 `calendarModel=six-day-seven-part`（现代冬至与岁周比例定位，不传显式历元）或 `calendarModel=six-day-explicit-epoch`（必须传显式历元），年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
 
@@ -179,7 +179,7 @@
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
-MCP 的在线端点与本地 CLI 复用同一套计算能力；在线 Remote MCP 的 `_prompt` 工具默认 `responseMode: "summary"`，本地 `npx -y mingyu-mcp` 默认 `full`。在线 Remote MCP 对黄历单次超过 7 天、奇门终身局动态扫描超过 10 年的请求会在计算前返回 `RESOURCE_LIMIT`，本地或自部署 MCP 仍支持各自文档声明的完整范围。此默认值不改变公开 HTTP `/prompt` API 的 `prompt-only` 默认值。
+MCP 的在线端点与本地 CLI 复用同一套计算能力；在线 Remote MCP 的提示词通常默认 `responseMode: "summary"`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；本地 `npx -y mingyu-mcp` 默认 `full`。`summary` 只精简返回体，不减少计算 CPU。在线 Remote MCP 的四柱反推必须提供 `startYear` 和 `endYear`，范围最多 10 年；黄历日期范围最多 7 天，奇门终身局动态范围最多 10 年，超限会在计算前返回 `RESOURCE_LIMIT`。此默认值不改变公开 HTTP `/prompt` API 的 `prompt-only` 默认值。
 
 为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 

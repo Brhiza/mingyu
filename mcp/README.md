@@ -63,7 +63,7 @@
 | `divine_almanac`               | 黄历择日排盘         | 建除十二神、丛辰神煞与多参与人四柱冲煞择吉                                                                                             |
 | `almanac_prompt`               | 黄历择日提示词       | 生成候选日期优选分析与自包含择日决策提示词；支持统一主题、主题细项和分析范围选择                                                       |
 | `divine_astrolabe`             | 西洋星盘排盘         | 本命星体黄道位置、宫位分界与相位交角                                                                                                   |
-| `astrolabe_prompt`             | 西洋星盘提示词       | 生成本命与行运过境解读自包含提示词；未指定范围时默认当前年度行运，流年自动包含太阳返照、次限推进和太阳弧                               |
+| `astrolabe_prompt`             | 西洋星盘提示词       | 生成本命与行运过境解读自包含提示词；在线 Remote MCP 默认 `natal`，本地 `full` 默认当前年度 `yearly`（含太阳返照、次限推进和太阳弧） |
 | `astrolabe_synastry`           | 西占双盘比较盘       | 计算双人星盘跨盘相位、角距、落宫与互溶接纳                                                                                             |
 | `astrolabe_synastry_prompt`    | 西占双盘提示词       | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择                                                               |
 | `metaphysics_bazhai`           | 八宅风水排盘         | 居者生年命卦、宅卦大游年与门主灶九星相配                                                                                               |
@@ -86,7 +86,7 @@
 
 七政四余的七政、罗睺、计都和月孛采用现代天文位置，二十八宿按 28 颗真实距星在目标日期的黄经划界；紫炁采用《七政算内篇》古法均速模型。结果逐星标明来源和精度层级，真太阳时只校正传统命身十二宫，不改变现代天体计算时刻。
 
-所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。
+所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。在线模式通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只精简返回体，不跳过计算或减少 CPU 使用。
 
 ### 运行环境预设（Preset）与默认选项说明
 
@@ -94,10 +94,10 @@
 
 | 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | **`summary`** | **`natal`**（本命盘） | 默认返回提示词与轻量摘要，星盘默认只计算本命；仍可显式请求 `responseMode: "full"` 或流年范围，但在线资源保护和 Cloudflare 边缘运行限制仍然适用 |
+| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | 通常 **`summary`**；非幂等的一次性起卦、抽牌、求签提示词为 **`full`** | **`natal`**（本命盘） | 显式 `responseMode` 优先；摘要只精简返回体，不减少计算 CPU。星盘默认只计算本命，在线资源范围保护与 Cloudflare 边缘限制仍然适用 |
 | **`full`（完整预设）** | 本地 CLI（`npx -y mingyu-mcp`、`pnpm mcp`）、本地 HTTP（`pnpm mcp --http`）及自部署 | **`full`** | **`yearly`**（流年） | 默认返回完整结构化结果，并按当前年度计算星盘流年范围；适合深度研究和二次计算 |
 
-Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。静态页面与资源不命中 `_routes.json` 中的动态路由时不会调用 Function。
+Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。在线端点拒绝 JSON-RPC batch，每条消息须单独发送。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。静态页面与资源不命中 `_routes.json` 中的动态路由时不会调用 Function。
 
 MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或官方 Pages 预设。
 
@@ -107,8 +107,8 @@ MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认
 
 在在线边缘或轻量调用环境下，推荐遵循以下“拆分与分段”模式：
 1. **星盘分析拆分**：在线模式默认分析本命（`astrolabeScope: "natal"`）；需要年度行运与推进时，显式指定 `astrolabeScope: "yearly"`；流月指定 `monthly`，流日指定 `daily`，无需每次强求多层推进。
-2. **黄历长区间拆分**：在线单次择日查询建议在 7 天以内（超过 7 天触发边缘保护）；多天或整月择日推荐使用 `page` 与 `pageSize` 分页查询。
-3. **奇门终身局拆分**：在线单次终身局扫描建议在 10 年以内；长远人生大运推荐分十年大运逐步查询。
+2. **黄历长区间拆分**：在线 MCP 单次输入日期范围最多 7 天。更长范围须拆成不超过 7 天的多个日期段分别调用；`page` 与 `pageSize` 只分页合法日期段内的结果，不能绕过 7 天范围保护。
+3. **奇门终身局拆分**：在线单次终身局动态扫描最多 10 年；长远人生大运推荐分段查询。在线四柱反推必须明确提供 `startYear` 和 `endYear`，单次最多 10 年。
 4. **八字未知时辰拆分**：未知时辰单盘使用 `unknownTimeBatch` 分页游标，按候选逐页续取，不一次性穷尽 12 个时辰导致计算堆积。
 
 ## 工具选择指南

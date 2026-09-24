@@ -908,9 +908,7 @@ export function getToolAnnotations(id: string): ToolMetadataAnnotations {
   return findTool(id)?.annotations ?? READONLY_IDEMPOTENT;
 }
 
-const TOOL_USAGE_GUIDANCE: Record<ToolCatalogItem['type'], string> = {
-  prompt:
-    '直接解读时优先调用；本工具已完成所需计算，返回 prompt，并支持 responseMode=prompt-only、summary、full（默认 full），无需先调同类排盘工具。按 prompt 回答，以 result/resultSummary 和 warnings 为事实边界',
+const TOOL_USAGE_GUIDANCE: Record<Exclude<ToolCatalogItem['type'], 'prompt'>, string> = {
   calculate:
     '只用于结构化盘面、表格展示或二次计算；直接解读应选同类提示词工具，避免重复计算。按 outputSchema 读取结构化字段和 warnings',
   utility:
@@ -924,19 +922,27 @@ function normalizeRegisteredDescription(description: string): string {
     .replace(/[，；。\s]+$/u, '');
 }
 
-export function getToolDescription(id: string, registeredDescription?: string): string {
+export function getToolDescription(
+  id: string,
+  registeredDescription?: string,
+  defaultResponseMode: 'prompt-only' | 'summary' | 'full' = 'full',
+): string {
   const tool = findTool(id);
   const baseDescription = normalizeRegisteredDescription(
     registeredDescription?.trim() || tool?.description || '返回结构化术数资料',
   );
   const type = tool?.type ?? 'utility';
+  const usageGuidance =
+    type === 'prompt'
+      ? `直接解读时优先调用；本工具已完成所需计算，返回 prompt，并支持 responseMode=prompt-only、summary、full（当前连接默认 ${defaultResponseMode}），无需先调同类排盘工具。按 prompt 回答，以 result/resultSummary 和 warnings 为事实边界`
+      : TOOL_USAGE_GUIDANCE[type];
   const replayGuidance =
     tool && !tool.annotations.idempotentHint
       ? '。本工具可能随机；同一问题只调用一次，复核时复用重放参数或固定输入'
       : '';
   const example = TOOL_MINIMAL_EXAMPLES[id];
   const exampleSuffix = example ? `。示例：${JSON.stringify(example)}` : '';
-  return `${baseDescription}。调用与读取：${TOOL_USAGE_GUIDANCE[type]}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论${exampleSuffix}。`;
+  return `${baseDescription}。调用与读取：${usageGuidance}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论${exampleSuffix}。`;
 }
 
 export function getToolsByCategory(category: ToolCatalogItem['category']): ToolCatalogItem[] {

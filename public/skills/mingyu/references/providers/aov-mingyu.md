@@ -14,7 +14,7 @@
   - **本地 STDIO（优先）**：`npx -y mingyu-mcp`，默认使用 `full` 预设，计算在本地运行，不消耗 Cloudflare Pages Functions 请求额度。仓库源码开发可用 `pnpm mcp`。
   - **工具版本核对**：调用前通过 `tools/list` 确认所需工具。npm 已发布包可能落后于当前源码；若包内缺少所需工具且本地有仓库源码，使用 `pnpm mcp` 运行当前源码。没有源码环境时可使用在线入口，并遵守在线资源范围保护。
   - **本地或自部署 HTTP**：使用 `pnpm mcp --http` 启动时，可连接 `http://localhost:3000/mcp`；本地服务另提供 SSE 兼容端点 `http://localhost:3000/sse`（消息投递：`/message`）。
-  - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词工具默认 `summary`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
+  - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词一般默认 `summary`，一次性占卜提示词默认 `full`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
   - Docker 服务默认使用 `full`，可通过环境变量 `MINGYU_MCP_PRESET=online|full` 配置。CLI 的默认值由服务入口确定，不读取该环境变量。
 - **MCP `tools/call` 成功响应**：JSON-RPC 外层使用 `result`；工具业务字段从 `result.structuredContent` 读取，工具元数据从 `result._meta` 读取。以下为最小结构示意：
   ```json
@@ -251,16 +251,16 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 1. **运行预设机制（Presets）**：
    - **`online`（在线边缘预设）**：线上 `https://aov.cc/mcp` 默认启用。
-     - 提示词工具默认返回 `summary`，包含自包含提示词与轻量结构化摘要；
+     - 提示词一般默认返回 `summary`；一次性起卦、抽牌和求签提示词默认 `full`，保留同一次占卜的完整结果。工具描述会标明本连接的实际默认值，显式 `responseMode` 始终优先；
      - 西洋星盘 `astrolabe_prompt` 默认使用 `astrolabeScope: "natal"`。需要行运资料时再指定相应范围。
    - **`full`（本地与私有部署预设）**：本地 `npx mingyu-mcp` 与 Docker 容器默认启用。
-     - 提示词工具 `responseMode` 默认使用 `full`，保留全部原始 AST 与多级推运细节；
+     - 提示词工具 `responseMode` 默认使用 `full`，返回完整结构化结果；
      - 西洋星盘默认包含太阳返照、次限推进和太阳弧三级推运；
      - Docker 部署可通过环境变量 `MINGYU_MCP_PRESET=online` 或 `MINGYU_MCP_PRESET=full` 配置；CLI 与 Pages 的预设由各自服务入口确定。
 
 2. **响应模式 `responseMode`**：
    - `prompt-only`：仅返回可直接交给 AI 的自包含完整任务书；MCP 从 `result.structuredContent.prompt` 读取，REST API 从 `data.prompt` 读取；
-   - `summary`：在线预设默认。返回提示词及核心盘面摘要，兼顾极速与基本盘面可读性；
+   - `summary`：在线多数提示词的默认值。返回提示词及核心盘面摘要，减少响应体积；工具仍先完成本次计算；
    - `full`：本地/自部署预设默认。返回全量原始数据与完整语法树，适合深度二次计算或桌面软件对接。
 
 3. **任务拆分与按需调用最佳实践**：
@@ -268,9 +268,11 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
    - **复用已返回资料**：完成一次计算后，直接依据当前盘面与提示词回答同一事项的后续追问；只有主体、问题范围或目标时间改变且需要新的计算资料时才再次调用工具；
    - **星盘推运按需选择**：在线环境默认使用 `natal` 本命盘；用户询问流年时再传入 `astrolabeScope: "yearly"`；需要同一基准日的本命、流年、流月和流日资料时，传入 `astrolabeScope: "full"` 与 `astrolabeScopeDate`；
    - **长周期与时限拆分**：
-     - 奇门终身局：使用 `periodRange` 将动态阶段限制在用户近期关注的 3~5 年区间，避免单次全量展开 31 年导致计算紧张；
-     - 在线黄历择日：每次最多 7 天（含起止日期），较长范围按不重叠的 7 天以内区间分次查询；
-     - 八字与紫微：默认聚焦当前大运或大限，定向看特定年份时传入具体流年，避免盲目拉取全生命周期流年列表；
+     - 奇门终身局：不传 `periodRange` 时先看基础局；需要动态事件时指定目标年段，在线每次最多 10 年，本地可按工具范围取得更长区间；
+     - 在线黄历择日：每次最多 7 天（含起止日期），较长范围按不重叠的日期区间分次查询；`page/pageSize` 只分页结果，不会缩小计算范围；
+     - 在线四柱反推：明确提供 `startYear`、`endYear`，每次最多 10 个公历年份，按年段续查；没有目标年份或需要全范围搜索时使用本地完整模式；
+     - 八字、紫微与合参：默认聚焦当前大运或大限，定向看特定年份时传入具体流年；在线查询完整命限时使用 `fortuneBatch`、`scopeBatch` 或 `combinedBatch` 按工具契约分批；
+   - **一次性占卜**：六爻、梅花、奇门、金口诀、大六壬、塔罗、雷诺曼、小六壬与灵签提示词在线默认保留完整结构化结果；同一问题沿用首次返回的盘面及重放参数，不重复随机取样；
    - **排盘明细 `detailMode`**：非深度神煞考证场景，常规排盘使用 `compact` 即可；`full` 会返回详细的判定依据链条；
    - **复杂全量运算**：若需全生命周期（八字全部大运流年 + 紫微全部大限流月 + 奇门长周期推演）大批量离线运算或研究，使用本地 `npx mingyu-mcp` 或自部署服务。
 

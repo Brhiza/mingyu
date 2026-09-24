@@ -60,6 +60,11 @@ export const SERVER_INSTRUCTIONS = [
   '解读规则：先说明采用的方法、时间和范围，再提炼主要证据、相反证据与限制，最后直接回答用户问题。计算事实与传统取义分开表达；只从返回资料推导，不补造盘面、古籍依据或确定性事件。',
 ].join('\n');
 
+const ONLINE_INSTRUCTIONS =
+  '当前连接采用在线轻量模式：长范围命理与择日提示词默认返回盘面摘要；一次性起卦、抽牌与求签提示词默认保留完整结果，便于复用同一次占卜。星盘默认本命；长日期、长年份查询请按工具范围分段，遇 RESOURCE_LIMIT 按 fallback 调整。';
+const FULL_INSTRUCTIONS =
+  '当前连接采用本地完整模式：提示词默认返回完整结构化结果，星盘默认包含当前年度行运；需要完整计算证据时可指定 detailMode=full。';
+
 type RegisterToolConfig = {
   title?: string;
   annotations?: ToolAnnotations;
@@ -162,7 +167,7 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
     capabilities: {
       tools: {},
     },
-    instructions: SERVER_INSTRUCTIONS,
+    instructions: `${preset === 'online' ? ONLINE_INSTRUCTIONS : FULL_INSTRUCTIONS}\n${SERVER_INSTRUCTIONS}`,
   });
 
   // 自动从统一工具契约注入元数据注解 (readOnlyHint, idempotentHint)
@@ -174,7 +179,15 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
   server.registerTool = ((name: string, config: RegisterToolConfig, cb: RegisterToolCallback) => {
     const title = config.title ?? getToolTitle(name);
     const annotations = config.annotations ?? getToolAnnotations(name);
-    const description = getToolDescription(name, config.description);
+    const isPromptTool = config.outputSchema === promptOutputSchema;
+    const toolDefaultResponseMode: PromptResponseMode =
+      options.defaultResponseMode === undefined &&
+      preset === 'online' &&
+      isPromptTool &&
+      annotations.idempotentHint === false
+        ? 'full'
+        : defaultResponseMode;
+    const description = getToolDescription(name, config.description, toolDefaultResponseMode);
     const toolMeta = getToolMetadata(name);
     const example = getToolExample(name);
     const metaRecord = {
@@ -184,7 +197,6 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
     };
     const _meta = Object.keys(metaRecord).length ? metaRecord : undefined;
 
-    const isPromptTool = config.outputSchema === promptOutputSchema;
     const inputSchema = isPromptTool
       ? addPromptResponseMode(config.inputSchema)
       : config.inputSchema;
@@ -204,7 +216,7 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
         const effectiveResponseMode: PromptResponseMode =
           responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
             ? responseMode
-            : defaultResponseMode;
+            : toolDefaultResponseMode;
         result = applyPromptResponseMode(result, effectiveResponseMode);
       }
 

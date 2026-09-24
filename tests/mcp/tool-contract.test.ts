@@ -10,6 +10,7 @@ import {
 } from '../../mcp/src/catalog/tool-catalog.js';
 import { birthInputSchema } from '../../mcp/src/schemas.js';
 import { createErrorToolResult, createStructuredToolResult } from '../../mcp/src/tool-results.js';
+import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
 
 test('MCP 独立发布包应声明命令入口和随包说明', () => {
   const manifest = JSON.parse(readFileSync('packages/mcp/package.json', 'utf8'));
@@ -89,6 +90,7 @@ test('统一工具描述应说明首选调用、结果读取和随机重放规�
   assert.match(promptDescription, /无需先调同类排盘工具/);
   assert.match(promptDescription, /返回 prompt/);
   assert.doesNotMatch(promptDescription, /仅返回提示词/);
+  assert.match(getToolDescription('bazi_prompt', '八字提示词', 'summary'), /当前连接默认 summary/);
 
   const calculationDescription = getToolDescription('bazi_calculate', '八字排盘');
   assert.match(calculationDescription, /只用于结构化盘面/);
@@ -97,6 +99,59 @@ test('统一工具描述应说明首选调用、结果读取和随机重放规�
   const randomDescription = getToolDescription('divine_liuyao', '六爻起卦');
   assert.match(randomDescription, /同一问题只调用一次/);
   assert.match(randomDescription, /重放参数或固定输入/);
+});
+
+test('在线与本地 MCP 应向 Agent 说明预设，并保留一次性占卜的完整结果', async () => {
+  const call = (id: number, method: string, params: Record<string, unknown> = {}) =>
+    new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    });
+
+  const onlineInit = await handleMcpRequest(
+    call(1, 'initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: 'profile-test', version: '1.0' },
+    }),
+    { preset: 'online' },
+  );
+  const onlineInitBody = await onlineInit.json();
+  assert.match(onlineInitBody.result?.instructions ?? '', /在线轻量模式/);
+
+  const fullInit = await handleMcpRequest(
+    call(2, 'initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: 'profile-test', version: '1.0' },
+    }),
+    { preset: 'full' },
+  );
+  const fullInitBody = await fullInit.json();
+  assert.match(fullInitBody.result?.instructions ?? '', /本地完整模式/);
+
+  const toolsResponse = await handleMcpRequest(call(3, 'tools/list'), { preset: 'online' });
+  const toolsBody = await toolsResponse.json();
+  const tools = toolsBody.result?.tools as Array<{ name: string; description: string }>;
+  assert.match(
+    tools.find((tool) => tool.name === 'bazi_prompt')?.description ?? '',
+    /默认 summary/,
+  );
+  assert.match(tools.find((tool) => tool.name === 'liuyao_prompt')?.description ?? '', /默认 full/);
+
+  const liuyaoResponse = await handleMcpRequest(
+    call(4, 'tools/call', {
+      name: 'liuyao_prompt',
+      arguments: { customDate: '2025-01-01T08:00:00+08:00', question: '今年事业如何？' },
+    }),
+    { preset: 'online' },
+  );
+  const liuyaoBody = await liuyaoResponse.json();
+  assert.equal(liuyaoResponse.status, 200);
+  assert.equal(liuyaoBody.result?.isError, undefined);
+  assert.ok(liuyaoBody.result?.structuredContent?.result);
+  assert.equal(liuyaoBody.result?.structuredContent?.resultSummary, undefined);
 });
 
 test('结构化错误应返回扩展错误字段 (code, missingFields, retryable, fallback)', () => {

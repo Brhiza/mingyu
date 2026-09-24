@@ -18,7 +18,7 @@ export const promptResponseModeShape = {
     .enum(PROMPT_RESPONSE_MODES)
     .optional()
     .describe(
-      '提示词工具返回模式：prompt-only 只返回提示词，summary 返回提示词和轻量结构化摘要，full 返回完整结构化结果与提示词；在线边缘模式默认 summary，本地/自部署完整模式默认 full',
+      '提示词工具返回模式：prompt-only 只返回提示词，summary 返回提示词和轻量结构化摘要，full 返回完整结构化结果与提示词；在线轻量模式一般默认 summary，一次性占卜提示词默认 full，本地完整模式默认 full',
     ),
 };
 

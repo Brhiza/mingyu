@@ -33,9 +33,9 @@ mingyu-mcp
 
 > **预设模式说明（Online 与 Full）**：
 > - **本地 CLI (`npx -y mingyu-mcp`) / 自部署**：默认采用 `full` 预设，提示词工具默认返回完整结构化结果，星盘默认包含当前年度行运。`MINGYU_MCP_PRESET` 只由 Docker 自部署 HTTP handler 读取，不适用于本地 CLI 的 stdio 运行，也不会切换官方在线端点。
-> - **在线端点 (`https://aov.cc/mcp`)**：无法启动本地进程或需要远程免安装时使用；线上采用 `online` 预设，提示词工具默认 `responseMode: "summary"`，星盘默认本命（`astrolabeScope: "natal"`）。也可显式传入 `responseMode: "full"` 或推运范围，但在线资源范围保护与边缘运行限制仍然生效。
+> - **在线端点 (`https://aov.cc/mcp`)**：无法启动本地进程或需要远程免安装时使用；线上采用 `online` 预设，提示词通常默认 `responseMode: "summary"`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先。`summary` 只精简返回体，不减少计算 CPU；星盘默认本命（`astrolabeScope: "natal"`），在线范围保护仍生效。
 
-在线端点使用 Streamable HTTP：每条 JSON-RPC 消息单独通过一次 `POST` 发送；初始化、工具列表和工具调用会产生多次请求。普通浏览器 `GET` 返回端点元数据；`Accept: text/event-stream` 的 `GET` 返回 `405`，因为在线端点不提供独立 SSE 流。旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，访问它也会运行 Pages Function。`/mcp` 请求会计入 Workers Free 每日请求额度；避免轮询、频繁重连和紧密重试。频繁或批量调用可用本地 stdio，以免消耗线上请求额度。
+在线端点使用 Streamable HTTP：每条 JSON-RPC 消息单独通过一次 `POST` 发送，拒绝 JSON-RPC batch；初始化、工具列表和工具调用会产生多次请求。普通浏览器 `GET` 返回端点元数据；`Accept: text/event-stream` 的 `GET` 返回 `405`，因为在线端点不提供独立 SSE 流。旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，访问它也会运行 Pages Function。`/mcp` 请求会计入 Workers Free 每日请求额度；避免轮询、频繁重连和紧密重试。频繁或批量调用可用本地 stdio，以免消耗线上请求额度。
 
 ---
 
@@ -74,13 +74,13 @@ mingyu-mcp
 
 ## 稳定调用方式
 
-1. 需要 AI 直接解读时，优先选择名称以 `_prompt` 结尾的工具。它会完成本次计算并返回顶层 `prompt`，可用时还会在 `result` 返回结构化盘面，不要先调用一次同类排盘工具。
+1. 需要 AI 直接解读时，优先选择名称以 `_prompt` 结尾的工具。MCP `tools/call` 在 `result.structuredContent.prompt` 返回任务书；全量模式的结构化盘面位于 `result.structuredContent.result`。该工具会完成本次计算，不要先调用一次同类排盘工具。
 2. 只需展示盘面、导出表格或继续程序计算时，使用 `*_calculate`、`divine_*` 或基础查询工具，并按 `outputSchema` 读取结构化字段与 `warnings`；多数工具使用 `result`，部分专用工具使用具名字段。
 3. 只传用户已经提供的资料。出生时辰、日期、地点、经纬度和时区缺失时，根据工具错误中的 `missingFields` 补问，不自行推定。
 4. 随机起卦、抽牌和求签，同一问题只调用一次；继续解读时复用返回的重放参数或固定结果。
 5. 解读时以计算结果为事实，以提示词中的传统取义完成分析；遇到 `warnings` 时相应收窄结论。
-6. 响应模式选择：提示词工具支持 `responseMode: "summary"`（提示词与轻量摘要，在线端点默认）、`"full"`（完整结构化结果，本地 CLI 默认）与 `"prompt-only"`（仅纯提示词）。
-7. 重型计算拆分：在在线端点使用时，西洋星盘优先使用默认本命盘（`natal`），有推运需求再显式传 `astrolabeScope: "yearly"`；奇门终身局使用 `periodRange` 限制关注年份；黄历择日按段请求。需要批量大运流年与全生命周期推演时，推荐直接使用本地 CLI。
+6. 响应模式选择：提示词工具支持 `responseMode: "summary"`（提示词与轻量摘要，在线通常默认）、`"full"`（完整结构化结果，本地 CLI 默认；在线非幂等的一次性起卦、抽牌、求签提示词也默认此模式）与 `"prompt-only"`（仅纯提示词）。显式传入的 `responseMode` 优先；`summary` 只精简返回体，不减少计算 CPU。
+7. 重型计算拆分：在线四柱反推必须提供 `startYear`、`endYear` 且范围最多 10 年；黄历单次最多 7 天，奇门终身动态最多 10 年，超限须分段。在线星盘默认本命（`natal`），有推运需求再显式传 `astrolabeScope: "yearly"`。需要批量大运流年与全生命周期推演时，推荐直接使用本地 CLI。
 
 ---
 
