@@ -4,6 +4,7 @@ import {
   formatLiurenOrdinaryTransmissionAdjudication,
   formatLiurenTransmission,
 } from './liuren-facts';
+import { formatLiurenJudgmentFacts } from './liuren-judgment';
 import { buildTaskText } from '../divination/engine/method-text';
 import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import { buildLiurenTemplateText } from '../divination/engine/liuren-template';
@@ -827,9 +828,14 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',
     buildPromptSection(
       '占卜资料',
-      formatDivinationInfo(options.method, options.data, question, options.supplementaryInfo, {
-        liuyaoTemplate,
-      }),
+      [
+        formatDivinationInfo(options.method, options.data, question, options.supplementaryInfo, {
+          liuyaoTemplate,
+        }),
+        ...(options.method === 'liuren'
+          ? formatLiurenJudgmentFacts(options.data as LiurenData)
+          : []),
+      ].join('\n'),
     ),
     buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
     selection ? buildPromptSection('解读选择', getPromptSelectionSection(selection)) : '',

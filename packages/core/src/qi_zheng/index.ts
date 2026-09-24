@@ -2370,7 +2370,9 @@ function generateQizhengInternal(
   const prompt = [
     `【七政四余 · 果老星宗】`,
     `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}${input.second ? `:${String(input.second).padStart(2, '0')}` : ''}。`,
+    `出生地点：纬度${calculationContext.latitude}°，经度${calculationContext.longitude}°；时区UTC${tz >= 0 ? '+' : ''}${tz}${input.timeZoneId ? `（${input.timeZoneId}）` : ''}；${calculationContext.palaceTimeNote}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
+    `十二宫：${twelvePalaces.map((item) => `${item.palace}在${item.signBranch}宫`).join('、')}。`,
     ...stars.map(
       (s) =>
         `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.signBranch}宫${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,

@@ -19,6 +19,32 @@ test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫�
   assert.doesNotMatch(prompt, /天干五合：癸与丁相合/);
 });
 
+test('奇门完整提示词写入复合格局与值符宫应期触发', () => {
+  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  const prompt = buildDivinationPrompt('qimen', '请做整体解读。', data);
+  assert.ok(data.yingQi);
+  assert.ok(prompt.includes(`值符宫应期参考：盘内相对节奏${data.yingQi.rhythm}`));
+  for (const source of data.yingQi.sources) {
+    if (source.startsWith('未选定事项用神')) {
+      assert.match(prompt, /当前以值符宫作通用参考，事项用神按问题确定/);
+    } else {
+      assert.ok(prompt.includes(source));
+    }
+  }
+  for (const trigger of data.yingQi.triggerConditions) {
+    assert.ok(prompt.includes(trigger));
+  }
+  for (const combo of data.patternCombos ?? []) {
+    assert.ok(prompt.includes(`${combo.name}`));
+    const factualSummary = combo.summary
+      .replaceAll('，不作通用吉凶评分', '')
+      .replaceAll('，不替代通用凶格评分', '');
+    assert.ok(prompt.includes(factualSummary.replaceAll('；', '；\n')));
+  }
+  assert.doesNotMatch(prompt, /不作通用吉凶评分|不替代通用凶格评分/);
+  assert.doesNotMatch(prompt, /minDays|maxDays|super-good|super-bad/);
+});
+
 test('奇门甲子时以旬首所遁戊分别定位天盘和地盘', () => {
   for (const method of ['zhuanpan', 'feipan'] as const) {
     const data = generateQimen(new Date('2026-05-20T00:30:00+08:00'), method);

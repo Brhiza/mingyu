@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
-import { formatDivinationInfo } from '../packages/core/src/prompt/divination';
+import {
+  buildDivinationPrompt,
+  formatDivinationInfo,
+} from '../packages/core/src/prompt/divination';
 import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
 
@@ -55,4 +58,37 @@ test('大六壬遥克提示词应说明直接克未命中且不得夹带贼克�
     assert.match(text, /最终按遥克法取.+发用/);
     assert.doesNotMatch(text, /贼克法：|四课先察上下相克/);
   }
+});
+
+test('大六壬完整提示词写入课体判据、取用定位和应期依据', () => {
+  const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
+  const prompt = formatDivinationInfo('liuren', data);
+  assert.ok(data.guaTiFacts?.length);
+  for (const fact of data.guaTiFacts) {
+    assert.ok(prompt.includes(`${fact.name}：${fact.matchedConditions.join('；')}`));
+    assert.ok(prompt.includes(fact.sourceTitle));
+  }
+  for (const focus of data.focusEvidence ?? []) {
+    assert.ok(prompt.includes(`${focus.role}${focus.target}`));
+  }
+  for (const timing of data.timingEvidence ?? []) {
+    if (timing.startsWith('未给出目标期限时')) {
+      assert.match(prompt, /以问题期限、三传先后和现实触发条件核对应期/);
+    } else {
+      assert.ok(prompt.includes(timing));
+    }
+  }
+  assert.doesNotMatch(prompt, /sourceUrl|stableKey|notApplicable/);
+});
+
+test('核心直调大六壬提示词含独立课传判据且只追加一次', () => {
+  const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
+  const prompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
+  assert.match(prompt, /【占卜资料】/);
+  assert.match(prompt, /取传说明：/);
+  assert.match(prompt, /取传条件：/);
+  assert.match(prompt, /课体条件：/);
+  assert.match(prompt, /课传反证：/);
+  assert.equal((prompt.match(/取传说明：/g) ?? []).length, 1);
+  assert.equal((prompt.match(/课传反证：/g) ?? []).length, 1);
 });

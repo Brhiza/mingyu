@@ -41,6 +41,12 @@ test('即时八字按日旬核对落空，并区分藏干与明透柱位', () =>
     });
     const prompt = buildInstantBaziPrompt(chart, '判断当前事件。', '当地民用时间');
     assert.match(prompt, /【解读对象】\n八字即时盘。盘面年月日时均为本次事件的起盘时间/);
+    assert.ok(prompt.includes(`日元${chart.analysis.dayMasterStrength.status}`));
+    assert.ok(prompt.includes(`格局${chart.analysis.mingGe.pattern}`));
+    assert.ok(prompt.includes(`取用${chart.analysis.usefulGod.useful}`));
+    for (const relation of Object.values(chart.pillarRelations).flat()) {
+      assert.ok(prompt.includes(relation));
+    }
     const decade = Math.floor(cycle.indexOf(chart.pillars.day.ganZhi) / 10);
     const empty = emptyByDecade[decade];
     seenDecades.add(decade);
@@ -110,6 +116,14 @@ test('紫微即时盘与合参区分命主身主和命身宫内主星', async ()
       prompt,
       /本宫官禄宫（辰）；三合会照[^\n]*；对宫夫妻宫（戌）；两侧邻宫田宅宫（卯）、仆役宫（巳）/,
     );
+    for (const palace of payload.palaces) {
+      for (const mutagen of palace.self_mutagens ?? []) {
+        assert.ok(prompt.includes(`自化${mutagen}`));
+      }
+      for (const item of palace.mutaged_palaces ?? []) {
+        if (item.palace_name) assert.ok(prompt.includes(`化${item.mutagen}入${item.palace_name}`));
+      }
+    }
   }
 
   const career = payload.palaces.find((palace) => palace.name === '官禄')!;
@@ -147,7 +161,7 @@ test('紫微即时盘与合参区分命主身主和命身宫内主星', async ()
   }
 });
 
-test('跨时区星盘即时提示词携带完整四轴，天顶天底来自实际星盘', () => {
+test('跨时区星盘即时提示词携带四轴、十二宫、坐标及星体尊贵', () => {
   const chart = generateAstrolabe({
     year: '2026',
     month: '5',
@@ -165,5 +179,13 @@ test('跨时区星盘即时提示词携带完整四轴，天顶天底来自实�
   for (const point of chart.angles) {
     const label = point.name === 'Ascendant' ? '上升点' : point.label;
     assert.ok(prompt.includes(`${label}：${point.formatted}`), `缺少${label}的计算位置`);
+  }
+  assert.match(prompt, /观测坐标：北纬40\.7128°，西经74\.006°/);
+  for (const house of chart.houses) {
+    assert.ok(prompt.includes(`第${house.house}宫：${house.formatted}`));
+  }
+  for (const point of chart.planets.filter((item) => item.dignityLabel)) {
+    assert.ok(prompt.includes(`${point.label}${point.formatted}，第${point.house}宫`));
+    assert.ok(prompt.includes(`，${point.dignityLabel}`));
   }
 });

@@ -32,6 +32,16 @@ function buildInstantTaskBook(options: {
 function formatInstantBaziData(result: BaziChartResult) {
   const lunar = result.lunarDate;
   const dayEmptyBranches = result.kongWang.day;
+  const pillarRelationGroups: Array<[string, string[]]> = [
+    ['伏吟', result.pillarRelations.fuxin],
+    ['反吟', result.pillarRelations.fanyin],
+    ['同干', result.pillarRelations.sameStem],
+    ['同支', result.pillarRelations.sameBranch],
+    ['刑冲合害破', result.pillarRelations.xingChong],
+  ];
+  const pillarRelations = pillarRelationGroups
+    .filter(([, values]) => values.length)
+    .map(([label, values]) => `${label}：${values.join('、')}`);
   const pillarLines = PILLAR_KEYS.map((key, index) => {
     const hidden = result.hiddenStems[key]
       .map((stem, stemIndex) => {
@@ -57,6 +67,9 @@ function formatInstantBaziData(result: BaziChartResult) {
     result.monthCommander ? `月令司权：${result.monthCommander}` : '',
     ...pillarLines,
     `五行：出现${result.wuxingStrength.present.join('、') || '无'}；结构比较优先${result.wuxingStrength.dominantByRule.join('、') || '无'}；缺失${result.wuxingStrength.missing.join('、') || '无'}`,
+    `事件盘结构：日元${result.analysis.dayMasterStrength.status}；格局${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `（${result.analysis.mingGe.basis}）` : ''}；取用${result.analysis.usefulGod.useful}；忌用${result.analysis.usefulGod.avoid}`,
+    result.climate ? `调候：${result.climate.summary}` : '',
+    pillarRelations.length ? `四柱关系：${pillarRelations.join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -78,9 +91,15 @@ function formatInstantZiweiData(payload: ZiweiPayload) {
     const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars]
       .map(formatZiweiStar)
       .join('、');
+    const selfMutagens = palace.self_mutagens?.length
+      ? `；${palace.self_mutagens.map((item) => `自化${item}`).join('、')}`
+      : '';
+    const flyingMutagens = palace.mutaged_palaces
+      ?.filter((item) => item.palace_name)
+      .map((item) => `化${item.mutagen}入${item.palace_name}`);
     return `${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）${
       palace.is_body_palace ? '，身宫' : ''
-    }：${stars || '无主星'}\n宫位关系：${formatPalaceRelations(payload, palace)}`;
+    }：${stars || '无主星'}${selfMutagens}${flyingMutagens?.length ? `；宫干飞化${flyingMutagens.join('、')}` : ''}\n宫位关系：${formatPalaceRelations(payload, palace)}`;
   });
   const mutagens = payload.palaces
     .flatMap((palace) =>
@@ -106,7 +125,8 @@ function formatInstantZiweiData(payload: ZiweiPayload) {
 function formatInstantAstrolabeData(data: AstrolabeData) {
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   const planets = data.planets.map(
-    (item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
+    (item) =>
+      `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}${item.dignityLabel ? `，${item.dignityLabel}` : ''}`,
   );
   const aspectSections = formatAstrolabeAspectSections(data.aspects, [
     ...data.planets,
@@ -114,6 +134,10 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
   ]);
   return [
     `起盘时刻：${data.birth.dateTime}；观测地点：${data.birth.location}；时区：UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
+    data.birth.latitude !== undefined && data.birth.longitude !== undefined
+      ? `观测坐标：${data.birth.latitude >= 0 ? '北纬' : '南纬'}${Math.abs(data.birth.latitude)}°，${data.birth.longitude >= 0 ? '东经' : '西经'}${Math.abs(data.birth.longitude)}°`
+      : '',
+    data.birth.timeZoneId ? `时区名称：${data.birth.timeZoneId}` : '',
     data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime
@@ -123,6 +147,8 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
     ...data.angles
       .filter((item) => item.name !== 'Ascendant')
       .map((item) => `${item.label}：${item.formatted}`),
+    '十二宫宫头：',
+    ...data.houses.map((house) => `第${house.house}宫：${house.formatted}`),
     `主要格局：${data.summary.patterns.join('、') || '未见明显格局'}`,
     '星体位置：',
     ...planets,

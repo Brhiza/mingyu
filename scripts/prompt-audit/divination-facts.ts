@@ -950,15 +950,20 @@ function extractAlmanacFacts(data: unknown): DivinationPromptFact[] {
   const dayFacts = days.map((item, index) =>
     (() => {
       const date = text(item.date);
-      const dayGanzhi = text(record(item.ganzhi)?.day);
+      const ganzhi = record(item.ganzhi);
+      const yearGanzhi = text(ganzhi?.year);
+      const monthGanzhi = text(ganzhi?.month);
+      const dayGanzhi = text(ganzhi?.day);
       return fact(
         `almanac.day.${index}`,
         date ? `第${index + 1}日：${date}` : '候选日期明细：',
         [
           date,
-          dayGanzhi ? `${dayGanzhi}日` : undefined,
-          text(item.dayOfficer) ? `建除${text(item.dayOfficer)}` : undefined,
-          text(item.twelveStar) ? `十二神${text(item.twelveStar)}` : undefined,
+          yearGanzhi && monthGanzhi && dayGanzhi
+            ? `干支${yearGanzhi}/${monthGanzhi}/${dayGanzhi}`
+            : undefined,
+          text(item.dayOfficer) ? `建${text(item.dayOfficer)}` : undefined,
+          text(item.twelveStar) ? `值神${text(item.twelveStar)}` : undefined,
         ],
         { unit: 'line', scope: { start: '候选日期明细：' } },
       );

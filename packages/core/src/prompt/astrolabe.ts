@@ -85,6 +85,11 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   return [
     `出生信息：${data.birth.name}；${data.birth.gender || '性别未填'}；${data.birth.dateTime}；位置${data.birth.location}；时区UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
+    data.birth.latitude !== undefined && data.birth.longitude !== undefined
+      ? `出生坐标：纬度${data.birth.latitude}°，经度${data.birth.longitude}°${data.birth.timeZoneId ? `；时区${data.birth.timeZoneId}` : ''}`
+      : data.birth.timeZoneId
+        ? `时区：${data.birth.timeZoneId}`
+        : '',
     data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime
