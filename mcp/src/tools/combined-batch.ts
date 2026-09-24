@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { BaziChartResult, BaziFortuneBatchMetadata } from '@core/bazi';
-import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
+import type { BaziChartResult, BaziFortuneBatchMetadata } from 'mingyu-core/bazi';
+import { formatCalculatedBaziFortuneBatch } from 'mingyu-core/prompt';
 import {
   COMBINED_BATCH_SECTIONS,
   getNextCombinedBatchCursor,
@@ -10,7 +10,7 @@ import {
   type ZiweiPromptScope,
 } from '../../../src/lib/public-api/prompt-builders.js';
 import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
-import type { ChartInput } from '@core/types';
+import type { ChartInput } from 'mingyu-core/types';
 
 export const combinedBatchSchema = z
   .object({

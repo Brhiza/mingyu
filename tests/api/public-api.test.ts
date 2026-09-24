@@ -9,7 +9,7 @@ import {
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
 } from '../../src/lib/public-api/prompt-builders';
-import { baziCalculator } from '@core/bazi/baziCalculator';
+import { baziCalculator } from 'mingyu-core/bazi';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';

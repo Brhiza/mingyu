@@ -1,6 +1,6 @@
 import { buildDivinationPrompt } from '../../../src/lib/divination/engine/index.js';
 import type { AstrolabePromptTopic } from '../../../src/lib/astrolabe-prompts.js';
-import type { DivinationMethodId } from '@core/divination/config';
+import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { PromptMode } from '../../../src/lib/public-api/prompt-builders.js';
 import type {
   DivinationData,

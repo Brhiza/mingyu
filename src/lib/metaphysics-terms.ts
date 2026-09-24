@@ -2,4 +2,4 @@
  * @file Metaphysics Terms Encyclopedia
  * Re-exports from mingyu-core
  */
-export * from '@core/terms';
+export * from 'mingyu-core/terms';
