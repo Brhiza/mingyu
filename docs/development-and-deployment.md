@@ -85,9 +85,11 @@ npx tsc --project mcp/tsconfig.json --noEmit
 
 ## Cloudflare Pages
 
-静态页面由 Pages 托管，`/api/v1/*` 由 Pages Functions 处理。
+静态页面由 Pages 托管，公开 API、MCP 等动态路由由 Pages Functions 处理。仓库中的 `public/_routes.json` 会随 `pnpm build` 复制为 `dist/_routes.json`，将 Function 调用限制在列出的动态路由；部署包含此文件的构建后，其他静态页面和资源不会调用 Function。Cloudflare Pages 的路由规则见 [官方文档](https://developers.cloudflare.com/pages/functions/routing/)。
 
-Pages Functions 使用 Workers 的运行额度。免费计划的 CPU 时间上限为每次10毫秒，长时限排盘可能触发1102资源超限；HTTP的1MiB成功响应上限则由应用自身执行。为保证在线 Remote MCP（`/mcp`）在此限制下稳定可靠运行，系统默认启用 `online` 预设（提示词默认 `summary` 精简模式，星盘默认 `natal` 本命模式），将单次 CPU 计算耗时压至 5~10ms 内；若需要全量结构化 AST 数据或默认推运，可在环境变量中配置 `MINGYU_MCP_PRESET=full`，或选择本地 `npx mingyu-mcp` 及 Docker 自部署。浏览器奇门终身局AI补算使用后台Worker，独立MCP在客户端运行；需要托管长时限API时，应选择有足够计算资源的Node/Docker部署或评估Workers额度。具体平台限制见 [Cloudflare官方文档](https://developers.cloudflare.com/workers/platform/limits/)。
+Pages Functions 请求计入 Workers 计划用量。Workers Free 的每日请求限额为 100,000 次，与同账户 Workers 请求共享，并在 UTC 午夜重置；Pages Functions 每次请求计为一次 Workers 请求。因而，`/mcp` 上每条 JSON-RPC 消息对应一次独立 `POST` 和一次 Function 调用，初始化、工具列表、工具调用以及额外的元数据探测或预检请求都可能增加用量。避免客户端轮询和紧密重试；频繁或批量调用可使用本地 `npx -y mingyu-mcp` stdio，或本地运行 HTTP 服务（`pnpm mcp --http`）。静态资源请求不计 Functions 请求。
+
+Workers Free 的 CPU 时间上限为每次请求 10 毫秒；较重的计算可能超过平台限制。在线 MCP 默认使用 `summary` 响应和星盘 `natal` 范围，但也接受显式的 `responseMode: "full"` 等更大范围请求；默认值和在线资源范围保护都不保证每次调用低于 CPU 限制。需要频繁调用或完整结构化结果时优先使用本地 stdio CLI；它默认 `full` 且不占 Pages Functions 请求额度。官方 Pages `/mcp` 路由在 `functions/mcp.ts` 中固定使用 `online` 预设；`MINGYU_MCP_PRESET` 仅适用于 Docker 自部署 HTTP handler，不会切换官方 Pages 或本地 stdio CLI 的预设。Docker 服务默认 `full`。公开 API 成功响应 1 MiB 上限由应用自身执行，与 Cloudflare 平台响应体限制无关。平台额度与限制见 [Cloudflare Workers 官方文档](https://developers.cloudflare.com/workers/platform/limits/) 和 [Pages Functions 定价说明](https://developers.cloudflare.com/pages/functions/pricing/)。
 
 | 配置项                 | 值           |
 | ---------------------- | ------------ |

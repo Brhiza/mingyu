@@ -6,9 +6,9 @@
 
 ---
 
-## 快速使用 (npx 零门槛)
+## 快速使用 (推荐本地 stdio)
 
-无需安装任何依赖，只需在终端中运行：
+MCP 客户端能够启动本地进程时，优先使用本地 stdio。请求由本机处理，不占用 Cloudflare Pages Functions 请求额度；默认采用 `full` 预设。Agent Skill 的安装不会自动注册 MCP 服务，两者需分别配置。
 
 ```bash
 npx -y mingyu-mcp
@@ -29,9 +29,11 @@ mingyu-mcp
 
 - **URL**: `https://aov.cc/mcp`
 
-> 💡 **预设模式说明（Online vs Full）**：
-> - **在线端点 (`https://aov.cc/mcp`)**：采用 `online` 边缘预设，深度适配 Cloudflare 免费套餐（单次 10ms CPU 限制）。提示词工具默认精简模式（`responseMode: "summary"`），星盘默认本命（`astrolabeScope: "natal"`），响应极速且规避超时。如需推运或全量数据可显式传入相应参数。
-> - **本地 CLI (`npx mingyu-mcp`) / 自部署**：采用 `full` 完整预设。默认返回全量原始 AST 结构，星盘默认包含太阳返照、次限推进和太阳弧三级推运，适合深度研究、二次开发与本地大模型直连。可通过环境变量 `MINGYU_MCP_PRESET=online` 按需切换。
+> **预设模式说明（Online 与 Full）**：
+> - **本地 CLI (`npx -y mingyu-mcp`) / 自部署**：默认采用 `full` 预设，提示词工具默认返回完整结构化结果，星盘默认包含当前年度行运。`MINGYU_MCP_PRESET` 只由 Docker 自部署 HTTP handler 读取，不适用于本地 CLI 的 stdio 运行，也不会切换官方在线端点。
+> - **在线端点 (`https://aov.cc/mcp`)**：无法启动本地进程或需要远程免安装时使用；线上采用 `online` 预设，提示词工具默认 `responseMode: "summary"`，星盘默认本命（`astrolabeScope: "natal"`）。也可显式传入 `responseMode: "full"` 或推运范围，但在线资源范围保护与边缘运行限制仍然生效。
+
+在线端点使用 Streamable HTTP：每条 JSON-RPC 消息单独通过一次 `POST` 发送；初始化、工具列表和工具调用会产生多次请求。普通浏览器 `GET` 返回端点元数据；`Accept: text/event-stream` 的 `GET` 返回 `405`，因为在线端点不提供独立 SSE 流。旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，访问它也会运行 Pages Function。`/mcp` 请求会计入 Workers Free 每日请求额度；避免轮询、频繁重连和紧密重试。频繁或批量调用可用本地 stdio，以免消耗线上请求额度。
 
 ---
 
@@ -75,7 +77,7 @@ mingyu-mcp
 3. 只传用户已经提供的资料。出生时辰、日期、地点、经纬度和时区缺失时，根据工具错误中的 `missingFields` 补问，不自行推定。
 4. 随机起卦、抽牌和求签，同一问题只调用一次；继续解读时复用返回的重放参数或固定结果。
 5. 解读时以计算结果为事实，以提示词中的传统取义完成分析；遇到 `warnings` 时相应收窄结论。
-6. 响应模式选择：提示词工具支持 `responseMode: "summary"`（轻量摘要，在线端点默认，省流极速防超时）、`"full"`（全量 AST，本地 CLI 默认）与 `"prompt-only"`（仅纯提示词）。
+6. 响应模式选择：提示词工具支持 `responseMode: "summary"`（提示词与轻量摘要，在线端点默认）、`"full"`（完整结构化结果，本地 CLI 默认）与 `"prompt-only"`（仅纯提示词）。
 7. 重型计算拆分：在在线端点使用时，西洋星盘优先使用默认本命盘（`natal`），有推运需求再显式传 `astrolabeScope: "yearly"`；奇门终身局使用 `periodRange` 限制关注年份；黄历择日按段请求。需要批量大运流年与全生命周期推演时，推荐直接使用本地 CLI。
 
 ---

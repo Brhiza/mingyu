@@ -1,4 +1,4 @@
-# AOV / Mingyu 数据提供方适配实现指南（AOV & Mingyu Provider Reference）
+# AOV / Mingyu 数据提供方适配指南
 
 本文档为 AOV 命理公开 API 与 Mingyu MCP Server 的具体端点、工具与参数映射参考。上层算命通用 Skill 通过本文档与具体服务对接。当更换为人工录入盘面或未来其他排盘器时，上层工作流不受影响。
 
@@ -10,26 +10,48 @@
 - **AOV REST 响应封装**：成功响应使用 `{ "ok": true, "data": {}, "meta": {} }`；接口结果在 `data` 中读取。
 - **OpenAPI 发现**：`GET /openapi.json` 返回的 JSON 也使用 `data` 包装层，端点正文位于 `spec["data"]["paths"]`；不要从顶层 `spec["paths"]` 读取。
 - **实际出生接口**：八字排盘使用 `POST /bazi/calculate`，出生真太阳时换算使用 `POST /calendar/true-solar-birth`；`/calendar/true-solar-time` 仅用于一般当地钟表时间换算。
-- **Remote MCP 服务地址（支持 CORS）**：
-  - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）。线上 Cloudflare Pages 边缘服务默认采用 `online` 预设，针对免费套餐优化，提示词类工具默认轻量 `summary` 响应，星盘默认 `natal` 本命模式，避免 CPU 超时；
-  - **自部署 CLI 的 SSE 端点**：`http://localhost:3000/sse`（消息投递：`/message`）；线上 `/sse` 返回迁移说明，线上连接使用 `/mcp`；
-  - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`。本地与自部署默认采用 `full` 全量预设，保留全量结构化数据与默认流年三级推进，亦可通过环境变量 `MINGYU_MCP_PRESET=online|full` 覆盖。
-- **MCP 成功响应与 Envelope 契约**：
+- **MCP 入口选择顺序**：Agent 环境已配置或支持启动本地 STDIO 时，优先使用本地入口；只有本地进程不可用或任务明确要求远程时，才连接在线入口。
+  - **本地 STDIO（优先）**：`npx -y mingyu-mcp`，默认使用 `full` 预设，计算在本地运行，不消耗 Cloudflare Pages Functions 请求额度。仓库源码开发可用 `pnpm mcp`。
+  - **本地或自部署 HTTP**：使用 `pnpm mcp --http` 启动时，可连接 `http://localhost:3000/mcp`；本地服务另提供 SSE 兼容端点 `http://localhost:3000/sse`（消息投递：`/message`）。
+  - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词工具默认 `summary`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
+  - Docker 服务默认使用 `full`，可通过环境变量 `MINGYU_MCP_PRESET=online|full` 配置。CLI 的默认值由服务入口确定，不读取该环境变量。
+- **MCP `tools/call` 成功响应**：JSON-RPC 外层使用 `result`；工具业务字段从 `result.structuredContent` 读取，工具元数据从 `result._meta` 读取。以下为最小结构示意：
   ```json
   {
-    "result": {},
-    "meta": { "tool": "bazi_calculate", "durationMs": 12, "system": "mingyu-mcp" },
-    "warnings": ["缺时辰已安全启用三柱降级分析"]
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+      "structuredContent": {
+        "result": {}
+      },
+      "content": [{ "type": "text", "text": "结构化结果已返回，请读取 structuredContent。" }],
+      "_meta": { "tool": "bazi_calculate", "durationMs": 12, "version": "服务版本" }
+    }
   }
   ```
-- **MCP 结构化业务错误响应**：
+- 提示词工具的 `responseMode: "prompt-only"` 将完整任务书放在 `result.structuredContent.prompt`，并省略 `result` 与 `resultSummary`；`summary` 模式使用 `result.structuredContent.resultSummary`，`full` 模式使用 `result.structuredContent.result`。工具级元数据位于 `result._meta`；工具如返回 `meta` 或 `warnings`，则从 `result.structuredContent` 读取。
+- **MCP 结构化业务错误响应**：业务错误仍是 JSON-RPC 成功封套中的工具结果，通过 `result.isError` 标记；错误字段在 `result.structuredContent` 中读取。
   ```json
   {
-    "error": "缺少必要出生时辰",
-    "code": "MISSING_BIRTH_TIME",
-    "missingFields": ["timeIndex"],
-    "retryable": true,
-    "fallback": "可选择三柱降级模式仅排年月日三柱"
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+      "isError": true,
+      "structuredContent": {
+        "error": "缺少必要出生时辰",
+        "code": "MISSING_BIRTH_TIME",
+        "missingFields": ["timeIndex"],
+        "retryable": true,
+        "fallback": "可选择三柱降级模式仅排年月日柱"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"error\":\"缺少必要出生时辰\",\"code\":\"MISSING_BIRTH_TIME\",\"missingFields\":[\"timeIndex\"],\"retryable\":true,\"fallback\":\"可选择三柱降级模式仅排年月日柱\"}"
+        }
+      ],
+      "_meta": { "tool": "bazi_calculate", "durationMs": 12, "version": "服务版本" }
+    }
   }
   ```
 
@@ -222,37 +244,38 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 ---
 
-## 七、高效调用实践与轻量参数（Cloudflare 边缘优化与拆分指南）
+## 七、在线调用与范围控制
 
-针对在线 Remote MCP（`https://aov.cc/mcp`）部署在 Cloudflare Pages 免费套餐环境（单次请求 CPU 时间限制为 10ms），命语服务端设计了分级预设与拆分策略：
+本地 `npx -y mingyu-mcp` 默认使用 `full` 预设，不经过 Cloudflare Pages Functions；只有本地进程不可用或任务明确要求远程时，才使用在线 Remote MCP（`https://aov.cc/mcp`）及其 `online` 预设。调用时按用户问题选一个主工具，并控制每次请求的时间范围：
 
 1. **运行预设机制（Presets）**：
    - **`online`（在线边缘预设）**：线上 `https://aov.cc/mcp` 默认启用。
-     - 提示词工具 `responseMode` 默认使用 `summary`，仅传输生成好的自包含提示词及核心关键指标摘要，消除百 KB 级 AST 原始对象的深拷贝与序列化耗时；
-     - 西洋星盘 `astrolabe_prompt` 默认使用 `astrolabeScope: "natal"`，阻断四套星盘推运的高额计算；
-     - 整体单次调用 CPU 耗时压低至 5~10ms，彻底消除 Cloudflare 1102 资源超限与 413 响应过大问题。
+     - 提示词工具默认返回 `summary`，包含自包含提示词与轻量结构化摘要；
+     - 西洋星盘 `astrolabe_prompt` 默认使用 `astrolabeScope: "natal"`。需要行运资料时再指定相应范围。
    - **`full`（本地与私有部署预设）**：本地 `npx mingyu-mcp` 与 Docker 容器默认启用。
      - 提示词工具 `responseMode` 默认使用 `full`，保留全部原始 AST 与多级推运细节；
      - 西洋星盘默认包含太阳返照、次限推进和太阳弧三级推运；
-     - 可通过环境变量 `MINGYU_MCP_PRESET=online` 或 `MINGYU_MCP_PRESET=full` 自由切换。
+     - Docker 部署可通过环境变量 `MINGYU_MCP_PRESET=online` 或 `MINGYU_MCP_PRESET=full` 配置；CLI 与 Pages 的预设由各自服务入口确定。
 
 2. **响应模式 `responseMode`**：
-   - `prompt-only`：仅返回可直接交给 AI 的自包含完整任务书（`data.prompt`），无需任何额外字段，传输体积最小；
+   - `prompt-only`：仅返回可直接交给 AI 的自包含完整任务书；MCP 从 `result.structuredContent.prompt` 读取，REST API 从 `data.prompt` 读取；
    - `summary`：在线预设默认。返回提示词及核心盘面摘要，兼顾极速与基本盘面可读性；
    - `full`：本地/自部署预设默认。返回全量原始数据与完整语法树，适合深度二次计算或桌面软件对接。
 
 3. **任务拆分与按需调用最佳实践**：
    - **提示词优先（Prompt First）**：AI 解读任务直接调用对应术数的 `*_prompt` 工具（如 `bazi_prompt`、`liuyao_prompt`），该接口在服务端一次性完成排盘并输出任务书，切忌先调用排盘工具（如 `bazi_calculate`）再二次调用提示词工具；
-   - **星盘推运按需拆分**：在线环境建议先调用默认的 `natal` 本命盘完成人格与基础潜能分析；仅在用户明确询问流年运势时，才显式传入 `astrolabeScope: "yearly"` 触发三级推运；查询具体流日时传入 `astrolabeScope: "full"` 与 `astrolabeScopeDate`；
+   - **复用已返回资料**：完成一次计算后，直接依据当前盘面与提示词回答同一事项的后续追问；只有主体、问题范围或目标时间改变且需要新的计算资料时才再次调用工具；
+   - **星盘推运按需选择**：在线环境默认使用 `natal` 本命盘；用户询问流年时再传入 `astrolabeScope: "yearly"`；需要同一基准日的本命、流年、流月和流日资料时，传入 `astrolabeScope: "full"` 与 `astrolabeScopeDate`；
    - **长周期与时限拆分**：
      - 奇门终身局：使用 `periodRange` 将动态阶段限制在用户近期关注的 3~5 年区间，避免单次全量展开 31 年导致计算紧张；
-     - 黄历择日：候选日期跨度较大时，拆分为 15~30 天区间分段查询；
+     - 在线黄历择日：每次最多 7 天（含起止日期），较长范围按不重叠的 7 天以内区间分次查询；
      - 八字与紫微：默认聚焦当前大运或大限，定向看特定年份时传入具体流年，避免盲目拉取全生命周期流年列表；
    - **排盘明细 `detailMode`**：非深度神煞考证场景，常规排盘使用 `compact` 即可；`full` 会返回详细的判定依据链条；
-   - **复杂全量运算迁移**：若需全生命周期（八字全部大运流年 + 紫微全部大限流月 + 奇门 31 年全推演）大批量离线运算或研究，推荐直接使用本地 `npx mingyu-mcp` 或独立 Docker 容器，无平台 CPU 上限限制。
+   - **复杂全量运算**：若需全生命周期（八字全部大运流年 + 紫微全部大限流月 + 奇门长周期推演）大批量离线运算或研究，使用本地 `npx mingyu-mcp` 或自部署服务。
 
 4. **服务异常与降级**：
-   - HTTP 成功响应上限为 1MiB；若遇 `413 / RESPONSE_TOO_LARGE` 或边缘 1102 限制，纯解读任务可切换为 `responseMode: "prompt-only"`，或缩减查询时间范围；
+   - `/api/v1` REST 响应由应用限制为 1 MiB；超过时返回 `413 / RESPONSE_TOO_LARGE`。只需要解读任务书时可选择 `responseMode: "prompt-only"`，需要结构化数据时缩小范围或使用分页接口。该响应上限不适用于 Remote MCP；
+   - 在线 MCP 返回 Cloudflare 1102、`RESOURCE_LIMIT` 或额度错误时，不要重复发送相同远程请求；优先通过可用的本地 STDIO 入口以相同输入计算。若本地入口不可用，再依据 `fallback` 缩小范围或分段请求；随机起卦、抽牌和求签应沿用已取得的结果或固定回放参数，避免重新随机取样；
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；
    - 将 HTTP 状态、超时和响应完整度记录为资料取得事实，与术数判断分层。
 

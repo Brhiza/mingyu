@@ -60,7 +60,7 @@ description: 传统命理、周易占问、星象、择日、宅居与签谱的�
 
 ## 传统资料与提供方
 
-盘面事实、传统文献和用户补充资料分层使用。需要查询固定原文、流派条文或计算数据时，先读取 [`references/providers.md`](references/providers.md) 与 [`references/providers/aov-mingyu.md`](references/providers/aov-mingyu.md)，核对来源、版本、时间精度和响应完整度。资料取得方式属于内部操作层，生成给在线 AI 的任务书只保留经过核实的盘面事实、传统依据和问题条件。
+盘面事实、传统文献和用户补充资料分层使用。需要查询固定原文、流派条文或计算数据时，先读取 [`references/providers.md`](references/providers.md) 与 [`references/providers/aov-mingyu.md`](references/providers/aov-mingyu.md)，核对来源、版本、时间精度和响应完整度。入口优先使用当前代理可调用的本地提供方；本地入口未配置、无法启动本地进程，或用户明确要求远程时，再依具体提供方指南选择远程入口。切换入口时沿用已核实的输入和盘面事实，避免重复计算。资料取得方式属于内部操作层，生成给在线 AI 的任务书只保留经过核实的盘面事实、传统依据和问题条件。
 
 ## 特殊情境
 

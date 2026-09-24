@@ -90,12 +90,16 @@
 
 ### 运行环境预设（Preset）与默认选项说明
 
-为了在 **Cloudflare Pages / Workers 免费套餐**（10ms CPU 上限、无状态边缘节点）与 **本地 / 自部署运行** 之间兼顾极致性能与完整能力，命语 MCP 划分了两套预设（Preset）：
+命语 MCP 根据运行方式使用两种预设。Cloudflare 的请求与 CPU 额度由平台单独计算；预设用于选择默认返回数据和排盘范围，不承诺特定 CPU 耗时：
 
-| 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明与优化收益 |
+| 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| **`online`（在线边缘预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | **`summary`** | **`natal`**（本命盘） | 自动精简冗余数据，省去数百 KB 庞大 AST 的 JSON 序列化 CPU 时间，彻底规避 10ms CPU 超时；星盘仅排本命（~5ms），避免强算返照/次限/太阳弧导致超时；AI 获取自包含 Prompt，大模型 Token 消耗直降 80%+。如需完整盘面或流年可显式传入参数 |
-| **`full`（本地/自部署完整预设）** | 本地 CLI（`npx mingyu-mcp`）、本地源码（`pnpm mcp`）、独立服务端与 Docker 容器 | **`full`** | **`yearly`**（流年全量推进） | 完整保留全套 77 个工具、全量大运流年、完整盘面 AST 对象与流年行运推进；学术排盘、科研二开和本地大模型直接获取全量结构化数据；支持环境变量 `MINGYU_MCP_PRESET=online` 按需切换 |
+| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | **`summary`** | **`natal`**（本命盘） | 默认返回提示词与轻量摘要，星盘默认只计算本命；仍可显式请求 `responseMode: "full"` 或流年范围，但在线资源保护和 Cloudflare 边缘运行限制仍然适用 |
+| **`full`（完整预设）** | 本地 CLI（`npx -y mingyu-mcp`、`pnpm mcp`）、本地 HTTP（`pnpm mcp --http`）及自部署 | **`full`** | **`yearly`**（流年） | 默认返回完整结构化结果，并按当前年度计算星盘流年范围；适合深度研究和二次计算 |
+
+Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。静态页面与资源不命中 `_routes.json` 中的动态路由时不会调用 Function。
+
+MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或官方 Pages 预设。
 
 #### 选项拆分与按需调用指引
 
@@ -162,7 +166,32 @@
 
 ## 快速开始
 
-### 方式一：连接在线 Remote MCP（最简单，免安装直接接入）
+### 方式一：使用 npx 在本地运行（推荐 MCP 客户端本地集成）
+
+如果客户端能够启动本地进程，优先使用本地 stdio：工具默认采用 `full` 预设，调用由本机处理，不会消耗 Cloudflare Pages Functions 请求额度。
+
+```bash
+npx -y mingyu-mcp
+```
+
+在 Claude Desktop 的配置文件（`claude_desktop_config.json`）中添加：
+
+```json
+{
+  "mcpServers": {
+    "mingyu": {
+      "command": "npx",
+      "args": ["-y", "mingyu-mcp"]
+    }
+  }
+}
+```
+
+> **Windows 提示**：若某些系统环境无法直接解析 `npx`，可将 `"command"` 设为 `"npx.cmd"`。
+
+---
+
+### 方式二：连接在线 Remote MCP（无法启动本地进程或需要远程免安装时）
 
 命语官方在 `aov.cc` 部署了全球 CDN 边缘加速的在线 MCP 服务，支持 **Streamable HTTP** 规范：
 
@@ -179,33 +208,6 @@
   }
 }
 ```
-
----
-
-### 方式二：使用 npx 开箱即用（推荐本地运行，无需克隆仓库）
-
-无需克隆代码、无需配置任何工程依赖，在终端中直接运行：
-
-```bash
-npx -y mingyu-mcp
-```
-
-在 Claude Desktop 的配置文件（`claude_desktop_config.json`）中直接添加：
-
-```json
-{
-  "mcpServers": {
-    "mingyu": {
-      "command": "npx",
-      "args": ["-y", "mingyu-mcp"]
-    }
-  }
-}
-```
-
-> **Windows 提示**：若某些系统环境无法直接解析 `npx`，可将 `"command"` 设为 `"npx.cmd"`。
-
----
 
 ### 方式三：从源码仓库运行（面向开发者与贡献者）
 
@@ -280,7 +282,7 @@ pnpm mcp
 
 ### 星盘行运提示词参数
 
-`astrolabe_prompt` 在线 Remote MCP（`online` 预设）未指定 `astrolabeScope` 时默认使用 `natal`（本命盘），以极速完成排盘，避免无谓的三级推运开销；本地 stdio/自部署服务（`full` 预设）未指定时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
+`astrolabe_prompt` 在线 Remote MCP（`online` 预设）未指定 `astrolabeScope` 时默认使用 `natal`（本命盘）；本地 stdio/自部署服务（`full` 预设）未指定时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
 
 `yearly` 与 `full` 的流年层会自动生成太阳返照、次限推进和太阳弧。结构化结果在 `scopeEvidence` 中返回 `solarReturnPeriods`（目标日历年内每期返照的有效区间与完整返照盘）、推进点、太阳弧点及与本命的主要相位；原有 `solarReturnEvidence` 保留目标年份对应的返照。`yearly` 的次限和太阳弧按 7 月 1 日取样，`full` 按指定的具体日期取样。提示词会将这些资料与普通行运交叉组织。
 

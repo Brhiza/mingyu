@@ -14,9 +14,9 @@
   ```bash
   npx skills add Brhiza/mingyu --skill mingyu -g -y
   ```
-- **在线 Remote MCP（云端直连 · 零依赖）**：
-  - **Claude Code**：`claude mcp add mingyu --transport http https://aov.cc/mcp`
-  - **Cursor / Windsurf / VS Code**：添加 **Streamable HTTP** 类型的 Server URL：`https://aov.cc/mcp`
+- Skill 安装不会自动注册 MCP 服务。需要连接 MCP 时，如果客户端能启动本地进程，优先单独配置 `npx -y mingyu-mcp` stdio；默认 `full`，请求在本机处理，不占用 Cloudflare Pages Functions 配额。
+- **在线 Remote MCP（本地进程不可用或需要远程免安装时）**：
+  - 在支持 Remote MCP 的客户端添加 **Streamable HTTP** 类型的 Server URL：`https://aov.cc/mcp`
 - **QQ 交流群**：命语 Mingyu 技术交流群（1080947018）
 
 ---
@@ -87,12 +87,13 @@ const tarot = drawTarotSpread('celtic');
 
 ### 3. MCP Server
 
-- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 等客户端中直接配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`（不要按 SSE 类型配置）。线上服务采用 `online` 预设，深度适配 Cloudflare Pages 边缘免费环境（提示词工具默认精简模式，星盘默认本命，毫秒级响应防超时）。
-- **本地 npx CLI（开箱即用，全量功能）**：
+- **本地 npx CLI（Agent/Skill 首选；开箱即用）**：
   ```bash
   npx -y mingyu-mcp
   ```
-  本地 CLI 与自部署默认采用 `full` 预设，保留全量结构化 AST 数据与默认流年三级推运，适合深度研究与复杂二次计算。
+  本地 CLI 默认采用 `full` 预设，返回完整结构化结果并默认计算当前年度星盘行运；请求在本地处理，不走 Cloudflare Pages Functions。
+- **在线 Remote MCP（本地进程不可用或需要远程免安装时）**：在 Cursor、Windsurf、Claude Desktop 等客户端中配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`（不要按旧版 SSE 类型配置）。线上默认 `summary` 响应和 `natal` 本命盘；也可显式请求 `full` 或行运范围，但仍受在线资源限制和边缘运行资源约束。
+- 在线 MCP 每条 JSON-RPC 消息单独发送一次 HTTP `POST`，会调用 Pages Function 并计入 Cloudflare 请求用量；避免轮询和紧密重试。
 
 （本地源码开发也可通过 `pnpm mcp` 启动，详见 [MCP 服务文档](mcp/README.md)）
 

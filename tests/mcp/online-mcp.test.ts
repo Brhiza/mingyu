@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { onRequest } from '../../functions/mcp.js';
 import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
 
@@ -25,6 +26,80 @@ test('在线 MCP 无状态端点拒绝独立 SSE GET，同时保留跨域响应�
     }),
   });
   assert.equal(sessionResponse.status, 405);
+});
+
+test('在线 MCP 对无会话删除请求返回 405，且完成 POST 后释放临时服务实例', async (t) => {
+  const deleteResponse = await onRequest({
+    request: new Request('https://aov.cc/mcp', { method: 'DELETE' }),
+  });
+  assert.equal(deleteResponse.status, 405);
+  assert.equal(deleteResponse.headers.get('allow'), 'GET, POST, OPTIONS');
+
+  const originalClose = McpServer.prototype.close;
+  let closeCount = 0;
+  t.mock.method(McpServer.prototype, 'close', async function (this: McpServer) {
+    closeCount += 1;
+    await originalClose.call(this);
+  });
+
+  const response = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray((await response.json()).result?.tools));
+  assert.equal(closeCount, 1);
+
+  const invalidResponse = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{',
+    }),
+  });
+  assert.equal(invalidResponse.status, 400);
+  assert.equal((await invalidResponse.json()).error?.code, -32700);
+  assert.equal(closeCount, 2);
+});
+
+test('在线预设限制长范围，本地 full 预设将同一请求交给工具校验', async () => {
+  const calls = [
+    {
+      name: 'almanac_prompt',
+      arguments: { startDate: '2026-01-01', endDate: '2026-01-08', page: 0 },
+    },
+    {
+      name: 'qimen_lifetime_prompt',
+      arguments: { periodRange: { startDate: '2000-01-01', endDate: '2010-12-31' } },
+    },
+  ];
+
+  for (const [index, call] of calls.entries()) {
+    const createRequest = () =>
+      new Request('https://aov.cc/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: index + 1,
+          method: 'tools/call',
+          params: { name: call.name, arguments: call.arguments },
+        }),
+      });
+
+    const onlineResponse = await onRequest({ request: createRequest() });
+    assert.equal(onlineResponse.status, 200);
+    assert.equal((await onlineResponse.json()).result?.structuredContent?.code, 'RESOURCE_LIMIT');
+
+    const fullResponse = await handleMcpRequest(createRequest(), { preset: 'full' });
+    assert.equal(fullResponse.status, 200);
+    const fullResult = (await fullResponse.json()).result;
+    assert.equal(fullResult?.structuredContent?.code, 'INVALID_ARGUMENTS');
+    assert.equal(fullResult?.isError, true);
+  }
 });
 
 test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康检查与 JSON-RPC 工具请求', async () => {
