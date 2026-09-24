@@ -101,6 +101,8 @@ Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请�
 
 MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或官方 Pages 预设。
 
+`full` 指返回数据与默认排盘范围，不表示 npm 包已包含当前源码的所有新工具。以实际 `tools/list` 为准；npm 包缺少所需工具时，可在当前仓库源码中运行 `pnpm mcp`，或在在线端点允许的范围内使用远程服务。
+
 #### 选项拆分与按需调用指引
 
 在在线边缘或轻量调用环境下，推荐遵循以下“拆分与分段”模式：

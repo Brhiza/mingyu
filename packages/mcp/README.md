@@ -10,6 +10,8 @@
 
 MCP 客户端能够启动本地进程时，优先使用本地 stdio。请求由本机处理，不占用 Cloudflare Pages Functions 请求额度；默认采用 `full` 预设。Agent Skill 的安装不会自动注册 MCP 服务，两者需分别配置。
 
+`full` 是返回数据与默认排盘范围的预设。npm 包的工具清单以客户端实际获取的 `tools/list` 为准；若所需工具尚未发布到 npm，可在当前仓库源码中运行 `pnpm mcp`，或在在线端点允许的范围内使用远程服务。
+
 ```bash
 npx -y mingyu-mcp
 ```

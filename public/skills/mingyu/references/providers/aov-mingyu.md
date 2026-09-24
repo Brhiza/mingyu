@@ -12,6 +12,7 @@
 - **实际出生接口**：八字排盘使用 `POST /bazi/calculate`，出生真太阳时换算使用 `POST /calendar/true-solar-birth`；`/calendar/true-solar-time` 仅用于一般当地钟表时间换算。
 - **MCP 入口选择顺序**：Agent 环境已配置或支持启动本地 STDIO 时，优先使用本地入口；只有本地进程不可用或任务明确要求远程时，才连接在线入口。
   - **本地 STDIO（优先）**：`npx -y mingyu-mcp`，默认使用 `full` 预设，计算在本地运行，不消耗 Cloudflare Pages Functions 请求额度。仓库源码开发可用 `pnpm mcp`。
+  - **工具版本核对**：调用前通过 `tools/list` 确认所需工具。npm 已发布包可能落后于当前源码；若包内缺少所需工具且本地有仓库源码，使用 `pnpm mcp` 运行当前源码。没有源码环境时可使用在线入口，并遵守在线资源范围保护。
   - **本地或自部署 HTTP**：使用 `pnpm mcp --http` 启动时，可连接 `http://localhost:3000/mcp`；本地服务另提供 SSE 兼容端点 `http://localhost:3000/sse`（消息投递：`/message`）。
   - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词工具默认 `summary`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
   - Docker 服务默认使用 `full`，可通过环境变量 `MINGYU_MCP_PRESET=online|full` 配置。CLI 的默认值由服务入口确定，不读取该环境变量。
