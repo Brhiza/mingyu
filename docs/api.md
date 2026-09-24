@@ -7,7 +7,7 @@
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
-- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按 SSE 类型配置；线上默认启用 `online` 预设（提示词默认 `summary`，星盘默认 `natal`，深度适配 Cloudflare 免费套餐 10ms CPU 限制）
+- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按旧版 SSE 类型配置；线上启用 `online` 预设（提示词默认 `summary`，星盘默认 `natal`）
 - 本地 MCP CLI：`npx -y mingyu-mcp`，默认启用 `full` 完整预设，保留全量结构化数据与默认流年推运
 - Skill 文档：[https://aov.cc/skills/mingyu/SKILL.md](https://aov.cc/skills/mingyu/SKILL.md)
 
@@ -115,8 +115,8 @@
 
 面向自动化代理与 MCP 客户端时：
 - **提示词优先**：优先使用 `/prompt` 一站式接口或 MCP `*_prompt` 工具，让服务端直接返回可交给 AI 解读的自包含 `prompt` 任务书，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`；
-- **在线 MCP 优化与拆分**：线上 Remote MCP（`https://aov.cc/mcp`）默认启用 `online` 预设，提示词默认 `summary` 响应，星盘默认本命（`astrolabeScope: "natal"`），以 5~10ms 极速响应规避 Cloudflare 免费套餐 10ms CPU 限制与 413 响应过大。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求；
-- **本地/自部署完整模式**：需获取全量 AST 数据或全生命周期推演时，使用本地 `npx -y mingyu-mcp` 或 Docker 部署（默认 `full` 预设）。
+- **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 默认使用 `summary` 和本命星盘 `natal`；仍可显式请求 `responseMode: "full"` 或 `astrolabeScope: "yearly"`，但这不会绕过在线资源范围保护或 Cloudflare 边缘运行限制。
+- **在线 MCP 的连接与请求用量**：Streamable HTTP 中每条 JSON-RPC 消息单独用一次 `POST`；初始化、工具列表和工具调用会形成多次 HTTP 请求。该端点不提供 SSE `GET` 流：普通浏览器 `GET` 返回端点元数据，带 `Accept: text/event-stream` 的 `GET` 返回 `405`；旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，也不是 SSE 服务。命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量；避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求；
 
 默认优先级：
 
@@ -179,11 +179,11 @@
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
-MCP 的在线端点与本地 stdio 工具复用同一套计算能力；MCP 的 `_prompt` 工具默认 `responseMode: "full"` 以保持兼容，在线 AI 直读时建议显式传 `prompt-only`。在线 Remote MCP 对黄历单次超过 7 天、奇门终身局动态扫描超过 10 年的请求会在计算前返回 `RESOURCE_LIMIT`，本地或自部署 MCP 仍支持各自文档声明的完整范围。
+MCP 的在线端点与本地 CLI 复用同一套计算能力；在线 Remote MCP 的 `_prompt` 工具默认 `responseMode: "summary"`，本地 `npx -y mingyu-mcp` 默认 `full`。在线 Remote MCP 对黄历单次超过 7 天、奇门终身局动态扫描超过 10 年的请求会在计算前返回 `RESOURCE_LIMIT`，本地或自部署 MCP 仍支持各自文档声明的完整范围。此默认值不改变公开 HTTP `/prompt` API 的 `prompt-only` 默认值。
 
 为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 
-公开 HTTP 成功响应的上限为 1 MiB，超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局最多31年是计算范围上限，实际 HTTP 返回还受响应大小和部署资源限制；分页或分段获取资料时应保留原目标范围并核对覆盖。
+公开 HTTP API 在应用层将成功响应限制为 1 MiB；超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。这是项目的 API 响应策略，不是 Cloudflare 对响应体大小的平台限制。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局最多31年是计算范围上限，实际 HTTP 返回还受响应大小和部署资源限制；分页或分段获取资料时应保留原目标范围并核对覆盖。
 
 奇门终身局可传 `stagePolicy: { "model": "decadalGanzhi" }` 选择十年干支大运，同时提供 `gender: "male"` 或 `"female"`。该模型采用八字交节起运合参奇门本命宫，默认模型仍为 `pillarFourLimits`。`basis.decadalLuck` 给出顺逆、起运年龄、时刻和定位口径；各运的 `ganzhi`、`startDateTime`、`endDateTimeExclusive` 和 `associatedMarkers` 在精简结果中也保留。精确交运区间含起点、不含终点，跨运事件通过 `stageIndices` 列出所涉及的全部阶段；已知具体时刻的交节事实另保留 Unix 毫秒 `timestamp`。`yearsPerStage` 用于九宫行限，十年干支大运固定每运十年。
 

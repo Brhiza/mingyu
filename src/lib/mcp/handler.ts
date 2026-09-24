@@ -7,7 +7,7 @@ import {
 
 export const MCP_CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers':
     'Content-Type, Authorization, X-Requested-With, mcp-session-id, Accept, mcp-protocol-version',
   'Access-Control-Max-Age': '86400',
@@ -143,14 +143,7 @@ function buildOnlineResourceLimitResponse(
   });
 }
 
-async function checkOnlineResourceLimit(request: Request) {
-  if (request.method.toUpperCase() !== 'POST') return undefined;
-  let body: unknown;
-  try {
-    body = await request.clone().json();
-  } catch {
-    return undefined;
-  }
+function checkOnlineResourceLimit(body: unknown) {
   if (!body || typeof body !== 'object') return undefined;
   const record = body as Record<string, unknown>;
   if (record.method !== 'tools/call' || record.id === undefined) return undefined;
@@ -217,36 +210,58 @@ export async function handleMcpRequest(
     });
   }
 
-  // 2. 浏览器或爬虫直接 GET /mcp
+  // 2. 无状态服务不提供独立 SSE 流；浏览器 GET 仍返回服务信息
   if (method === 'GET') {
-    const accept = request.headers.get('accept') || '';
+    const accept = (request.headers.get('accept') || '').toLowerCase();
     const hasSession = request.headers.has('mcp-session-id');
     if (
-      !accept.includes('text/event-stream') &&
-      (!accept.includes('application/json') || !hasSession)
+      accept.includes('text/event-stream') ||
+      (accept.includes('application/json') && hasSession)
     ) {
-      return new Response(
-        JSON.stringify({
-          status: 'ok',
-          service: SERVER_INFO.name,
-          version: SERVER_INFO.version,
-          protocol: 'mcp-streamable-http',
-          endpoint: '/mcp',
-          transports: ['streamable-http'],
-          documentation: 'https://aov.cc/tutorial',
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            ...MCP_CORS_HEADERS,
-          },
-        },
-      );
+      return new Response(null, {
+        status: 405,
+        headers: { Allow: 'POST, OPTIONS', ...MCP_CORS_HEADERS },
+      });
     }
+    return new Response(
+      JSON.stringify({
+        status: 'ok',
+        service: SERVER_INFO.name,
+        version: SERVER_INFO.version,
+        protocol: 'mcp-streamable-http',
+        endpoint: '/mcp',
+        transports: ['streamable-http'],
+        documentation: 'https://aov.cc/tutorial',
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          ...MCP_CORS_HEADERS,
+        },
+      },
+    );
   }
 
-  const resourceLimitResponse = await checkOnlineResourceLimit(request);
+  if (method !== 'POST') {
+    return new Response(null, {
+      status: 405,
+      headers: { Allow: 'GET, POST, OPTIONS', ...MCP_CORS_HEADERS },
+    });
+  }
+
+  const preset: MingyuMcpPreset =
+    options?.preset ??
+    ((typeof process !== 'undefined' && (process.env?.MINGYU_MCP_PRESET as MingyuMcpPreset)) ||
+      'online');
+  let parsedBody: unknown;
+  try {
+    parsedBody = await request.clone().json();
+  } catch {
+    // 无效 JSON 交由协议层返回标准解析错误。
+  }
+
+  const resourceLimitResponse = preset === 'online' && checkOnlineResourceLimit(parsedBody);
   if (resourceLimitResponse) return resourceLimitResponse;
 
   // 3. 规范化 Accept 请求标头，避免因客户端省略特定 mime 类型导致 406
@@ -262,34 +277,30 @@ export async function handleMcpRequest(
   }
 
   let requestedToolName: string | undefined;
-  if (method === 'POST') {
-    try {
-      const cloned = await request.clone().json();
-      if (cloned && typeof cloned === 'object') {
-        const r = cloned as Record<string, unknown>;
-        if (r.method === 'tools/call' && r.params && typeof r.params === 'object') {
-          const name = (r.params as Record<string, unknown>).name;
-          requestedToolName = typeof name === 'string' ? name : undefined;
-        }
-      }
-    } catch {
-      // ignore
+  if (parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
+    const body = parsedBody as Record<string, unknown>;
+    if (body.method === 'tools/call' && body.params && typeof body.params === 'object') {
+      const name = (body.params as Record<string, unknown>).name;
+      requestedToolName = typeof name === 'string' ? name : undefined;
     }
   }
 
   // 4. 创建无状态 Transport 并执行请求
-  const preset: MingyuMcpPreset =
-    options?.preset ??
-    ((typeof process !== 'undefined' && (process.env?.MINGYU_MCP_PRESET as MingyuMcpPreset)) ||
-      'online');
   const server = createMingyuMcpServer({ preset });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
-  await server.connect(transport);
-
-  const response = await transport.handleRequest(normalizedRequest);
+  let response: Response;
+  try {
+    await server.connect(transport);
+    response = await transport.handleRequest(
+      normalizedRequest,
+      parsedBody === undefined ? undefined : { parsedBody },
+    );
+  } finally {
+    await server.close();
+  }
 
   // 5. 注入 CORS 标头
   const headers = new Headers(response.headers);
@@ -299,7 +310,7 @@ export async function handleMcpRequest(
     }
   }
 
-  if ((headers.get('content-type') || '').includes('application/json')) {
+  if (requestedToolName && (headers.get('content-type') || '').includes('application/json')) {
     const body = await response.text();
     try {
       const normalizedBody = normalizeMcpValidationResponseBody(
