@@ -10,7 +10,7 @@ import {
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock } from '@core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
   BAZI_PROMPT_TOPICS,

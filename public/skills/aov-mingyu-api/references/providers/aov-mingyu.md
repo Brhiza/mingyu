@@ -11,9 +11,9 @@
 - **OpenAPI 发现**：`GET /openapi.json` 返回的 JSON 也使用 `data` 包装层，端点正文位于 `spec["data"]["paths"]`；不要从顶层 `spec["paths"]` 读取。
 - **实际出生接口**：八字排盘使用 `POST /bazi/calculate`，出生真太阳时换算使用 `POST /calendar/true-solar-birth`；`/calendar/true-solar-time` 仅用于一般当地钟表时间换算。
 - **Remote MCP 服务地址（支持 CORS）**：
-  - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）
-  - **自部署 CLI 的 SSE 端点**：`http://localhost:3000/sse`（消息投递：`/message`）；线上 `/sse` 返回迁移说明，线上连接使用 `/mcp`。
-  - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`
+  - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）。线上 Cloudflare Pages 边缘服务默认采用 `online` 预设，针对免费套餐优化，提示词类工具默认轻量 `summary` 响应，星盘默认 `natal` 本命模式，避免 CPU 超时；
+  - **自部署 CLI 的 SSE 端点**：`http://localhost:3000/sse`（消息投递：`/message`）；线上 `/sse` 返回迁移说明，线上连接使用 `/mcp`；
+  - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`。本地与自部署默认采用 `full` 全量预设，保留全量结构化数据与默认流年三级推进，亦可通过环境变量 `MINGYU_MCP_PRESET=online|full` 覆盖。
 - **MCP 成功响应与 Envelope 契约**：
   ```json
   {
@@ -97,7 +97,7 @@
 | 黄历择日排盘 | `POST /divination/almanac` | `divine_almanac` | 建除十二神、丛辰神煞与多参与人四柱冲煞择吉 |
 | 黄历择日提示词 | `POST /divination/almanac/prompt` | `almanac_prompt` | 生成候选日期优选分析与自包含择日决策提示词；支持统一主题、主题细项和分析范围选择 |
 | 西洋星盘排盘 | `POST /divination/astrolabe` | `divine_astrolabe` | 本命星体黄道位置、宫位分界与相位交角 |
-| 西洋星盘提示词 | `POST /divination/astrolabe/prompt` | `astrolabe_prompt` | 生成本命与行运过境解读自包含提示词；流年自动包含太阳返照、次限推进和太阳弧 |
+| 西洋星盘提示词 | `POST /divination/astrolabe/prompt` | `astrolabe_prompt` | 生成本命与行运过境解读自包含提示词；在线 MCP 默认本命（natal），本地 MCP 或显式传 yearly 自动包含太阳返照、次限推进和太阳弧 |
 | 西占双盘比较盘 | `POST /divination/astrolabe/synastry` | `astrolabe_synastry` | 计算双人星盘跨盘相位、角距、落宫与互溶接纳 |
 | 西占双盘提示词 | `POST /divination/astrolabe/synastry/prompt` | `astrolabe_synastry_prompt` | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | 八宅风水排盘 | `POST /metaphysics/bazhai/calculate` | `metaphysics_bazhai` | 居者生年命卦、宅卦大游年与门主灶九星相配 |
@@ -133,7 +133,7 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 
 太乙、皇极经世和五运六气属于目标时点或目标年度的占时资料，AI 补算时必须沿用本次会话的计式并明确传入目标年份或时刻；它们不作为出生本命资料处理。
 
-- **西洋星盘单盘**：`astrolabe_prompt` 未指定 `astrolabeScope` 时默认当前年度 `yearly` 行运，生成行运相位、周期事件、日历年内前后有效的太阳返照盘，以及按 7 月 1 日取样的次限和太阳弧资料；显式传 `natal` 时只保留本命盘。`full` 需要传入 `astrolabeScopeDate`（YYYY-MM-DD），返回同一参考日的本命、流年、流月和流日四层资料，并按该日取样次限与太阳弧，不表示全生命周期。
+- **西洋星盘单盘**：`astrolabe_prompt` 在线端点（`online` 预设）未指定 `astrolabeScope` 时默认 `natal` 本命模式，聚焦核心星体黄道位置、宫位与相位，极大节省边缘计算开销；如需推运可显式指定 `yearly`。本地或自部署 MCP（`full` 预设）未指定时默认当前年度 `yearly` 行运，生成行运相位、周期事件、日历年内前后有效的太阳返照盘，以及按 7 月 1 日取样的次限和太阳弧资料。`full` 范围需要传入 `astrolabeScopeDate`（YYYY-MM-DD），返回同一参考日的本命、流年、流月和流日四层资料，并按该日取样次限与太阳弧，不表示全生命周期。
 - **大运/大限**：返回实际起运或起限时间、交接边界，以及该阶段包含的流年列表。
 - **流年**：八字返回所属大运、全年节气月及交节边界；紫微返回所属大限、流年四化与宫位、十二个常规流月及目标日所在流月。紫微流月按实际农历或节令分界生成，闰月归属沿用排盘结果。
 - **流月**：八字携带所属大运、流年、节气月边界及当月流日窗口；紫微携带所属大限、流年与全年流月，明确标出目标日期所在流月。
@@ -222,17 +222,37 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 ---
 
-## 七、高效调用实践与轻量参数
+## 七、高效调用实践与轻量参数（Cloudflare 边缘优化与拆分指南）
 
-1. **响应模式 `responseMode`**：
-   - `prompt-only`：返回可直接交给 AI 的自包含完整任务书（`data.prompt`），适合直接解读；
-   - 轻量摘要：`summary`。返回提示词及核心盘面摘要；
-   - 完整原始数据：`full`。适合需要进一步核验盘面、补充证据、交互展示或导出原始数据的任务。
-2. **排盘明细 `detailMode`**：
-   - `compact`：在八字、紫微、奇门和黄历排盘中，过滤冗长计算步骤，仅保留核心盘面；八字仍保留逐柱神煞命中；
-   - `full`：返回全量证据节点。
-3. **服务异常与降级**：
-   - HTTP成功响应上限为1MiB；`413 / RESPONSE_TOO_LARGE` 时，纯解读任务可使用 `responseMode: "prompt-only"`，需要完整结构化时限资料时可切换独立MCP。Pages的1102属于运行资源限制。保留原主体、主题与目标范围，分段获取后核对完整覆盖；
+针对在线 Remote MCP（`https://aov.cc/mcp`）部署在 Cloudflare Pages 免费套餐环境（单次请求 CPU 时间限制为 10ms），命语服务端设计了分级预设与拆分策略：
+
+1. **运行预设机制（Presets）**：
+   - **`online`（在线边缘预设）**：线上 `https://aov.cc/mcp` 默认启用。
+     - 提示词工具 `responseMode` 默认使用 `summary`，仅传输生成好的自包含提示词及核心关键指标摘要，消除百 KB 级 AST 原始对象的深拷贝与序列化耗时；
+     - 西洋星盘 `astrolabe_prompt` 默认使用 `astrolabeScope: "natal"`，阻断四套星盘推运的高额计算；
+     - 整体单次调用 CPU 耗时压低至 5~10ms，彻底消除 Cloudflare 1102 资源超限与 413 响应过大问题。
+   - **`full`（本地与私有部署预设）**：本地 `npx mingyu-mcp` 与 Docker 容器默认启用。
+     - 提示词工具 `responseMode` 默认使用 `full`，保留全部原始 AST 与多级推运细节；
+     - 西洋星盘默认包含太阳返照、次限推进和太阳弧三级推运；
+     - 可通过环境变量 `MINGYU_MCP_PRESET=online` 或 `MINGYU_MCP_PRESET=full` 自由切换。
+
+2. **响应模式 `responseMode`**：
+   - `prompt-only`：仅返回可直接交给 AI 的自包含完整任务书（`data.prompt`），无需任何额外字段，传输体积最小；
+   - `summary`：在线预设默认。返回提示词及核心盘面摘要，兼顾极速与基本盘面可读性；
+   - `full`：本地/自部署预设默认。返回全量原始数据与完整语法树，适合深度二次计算或桌面软件对接。
+
+3. **任务拆分与按需调用最佳实践**：
+   - **提示词优先（Prompt First）**：AI 解读任务直接调用对应术数的 `*_prompt` 工具（如 `bazi_prompt`、`liuyao_prompt`），该接口在服务端一次性完成排盘并输出任务书，切忌先调用排盘工具（如 `bazi_calculate`）再二次调用提示词工具；
+   - **星盘推运按需拆分**：在线环境建议先调用默认的 `natal` 本命盘完成人格与基础潜能分析；仅在用户明确询问流年运势时，才显式传入 `astrolabeScope: "yearly"` 触发三级推运；查询具体流日时传入 `astrolabeScope: "full"` 与 `astrolabeScopeDate`；
+   - **长周期与时限拆分**：
+     - 奇门终身局：使用 `periodRange` 将动态阶段限制在用户近期关注的 3~5 年区间，避免单次全量展开 31 年导致计算紧张；
+     - 黄历择日：候选日期跨度较大时，拆分为 15~30 天区间分段查询；
+     - 八字与紫微：默认聚焦当前大运或大限，定向看特定年份时传入具体流年，避免盲目拉取全生命周期流年列表；
+   - **排盘明细 `detailMode`**：非深度神煞考证场景，常规排盘使用 `compact` 即可；`full` 会返回详细的判定依据链条；
+   - **复杂全量运算迁移**：若需全生命周期（八字全部大运流年 + 紫微全部大限流月 + 奇门 31 年全推演）大批量离线运算或研究，推荐直接使用本地 `npx mingyu-mcp` 或独立 Docker 容器，无平台 CPU 上限限制。
+
+4. **服务异常与降级**：
+   - HTTP 成功响应上限为 1MiB；若遇 `413 / RESPONSE_TOO_LARGE` 或边缘 1102 限制，纯解读任务可切换为 `responseMode: "prompt-only"`，或缩减查询时间范围；
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；
    - 将 HTTP 状态、超时和响应完整度记录为资料取得事实，与术数判断分层。
 

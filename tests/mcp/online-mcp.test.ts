@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequest } from '../../functions/mcp.js';
+import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
 
 test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康检查与 JSON-RPC 工具请求', async () => {
   // 1. OPTIONS CORS 预检
@@ -277,4 +278,123 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   assert.equal(callJson.result?._meta?.tool, 'foundation_capabilities');
   assert.equal(typeof callJson.result?._meta?.durationMs, 'number');
   assert.equal(callJson.result?._meta?.version, initJson.result?.serverInfo?.version);
+
+  // 10. 在线 MCP 默认优化选项：提示词工具省略 responseMode 时默认 summary，避免序列化数百 KB 原始盘面对象
+  const defaultSummaryRes = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 7,
+        method: 'tools/call',
+        params: {
+          name: 'bazi_prompt',
+          arguments: {
+            gender: 'male',
+            year: 1990,
+            month: 5,
+            day: 15,
+            timeIndex: 6,
+            dateType: 'solar',
+            question: '请分析事业重点',
+          },
+        },
+      }),
+    }),
+  });
+  const defaultSummaryJson = await defaultSummaryRes.json();
+  assert.equal(defaultSummaryJson.result?.isError, undefined);
+  assert.equal(typeof defaultSummaryJson.result?.structuredContent?.prompt, 'string');
+  assert.equal(defaultSummaryJson.result?.structuredContent?.result, undefined);
+  assert.ok(defaultSummaryJson.result?.structuredContent?.resultSummary);
+
+  // 11. 在线 MCP 显式要求 full 模式时仍可获取完整盘面
+  const explicitFullRes = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'bazi_prompt',
+          arguments: {
+            gender: 'male',
+            year: 1990,
+            month: 5,
+            day: 15,
+            timeIndex: 6,
+            dateType: 'solar',
+            question: '请分析事业重点',
+            responseMode: 'full',
+          },
+        },
+      }),
+    }),
+  });
+  const explicitFullJson = await explicitFullRes.json();
+  assert.equal(explicitFullJson.result?.isError, undefined);
+  assert.ok(explicitFullJson.result?.structuredContent?.result);
+
+  // 12. 在线 MCP 星盘提示词默认范围为 natal（秒级本命完成），避免流年返照/次限/太阳弧强算导致 10ms CPU 超时
+  const defaultAstrolabeRes = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: {
+          name: 'astrolabe_prompt',
+          arguments: {
+            year: 1990,
+            month: 5,
+            day: 15,
+            hour: 14,
+            minute: 30,
+            latitude: 39.9,
+            longitude: 116.4,
+            timezone: 8,
+            question: '看星盘',
+          },
+        },
+      }),
+    }),
+  });
+  const defaultAstrolabeJson = await defaultAstrolabeRes.json();
+  assert.equal(defaultAstrolabeJson.result?.isError, undefined);
+  assert.equal(typeof defaultAstrolabeJson.result?.structuredContent?.prompt, 'string');
+  assert.match(defaultAstrolabeJson.result?.structuredContent?.prompt ?? '', /本命/);
+
+  // 13. 本地/自部署模式 (preset: 'full') 保留完整默认选项 (responseMode: full, astrolabeScope: yearly)
+  const localFullRes = await handleMcpRequest(
+    new Request('http://localhost:3000/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: {
+          name: 'bazi_prompt',
+          arguments: {
+            gender: 'male',
+            year: 1990,
+            month: 5,
+            day: 15,
+            timeIndex: 6,
+            dateType: 'solar',
+            question: '请分析事业重点',
+          },
+        },
+      }),
+    }),
+    { preset: 'full' },
+  );
+  const localFullJson = await localFullRes.json();
+  assert.equal(localFullJson.result?.isError, undefined);
+  assert.ok(localFullJson.result?.structuredContent?.result, '本地 full 预设应默认返回完整 result');
 });
