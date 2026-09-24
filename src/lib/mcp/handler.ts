@@ -19,6 +19,7 @@ export interface HandleMcpRequestOptions {
 
 const ONLINE_ALMANAC_MAX_DAYS = 7;
 const ONLINE_QIMEN_LIFETIME_MAX_YEARS = 10;
+const ONLINE_BAZI_REVERSE_MAX_YEARS = 10;
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -155,6 +156,44 @@ function checkOnlineResourceLimit(body: unknown) {
   if (!args || typeof args !== 'object' || typeof name !== 'string') return undefined;
   const input = args as Record<string, unknown>;
 
+  if (name === 'calendar_bazi_reverse') {
+    const startYear = input.startYear;
+    const endYear = input.endYear;
+    if (
+      typeof startYear !== 'number' ||
+      !Number.isInteger(startYear) ||
+      typeof endYear !== 'number' ||
+      !Number.isInteger(endYear)
+    ) {
+      return buildOnlineResourceLimitResponse(
+        record.id,
+        '在线四柱反推需要明确提供 startYear 和 endYear。',
+        {
+          tool: name,
+          limit: ONLINE_BAZI_REVERSE_MAX_YEARS,
+          maxAllowed: ONLINE_BAZI_REVERSE_MAX_YEARS,
+          unit: 'years',
+          recommendation: `请指定 startYear 和 endYear，并按每次最多 ${ONLINE_BAZI_REVERSE_MAX_YEARS} 个公历年份分段查询；需要完整大范围结果时使用本地或自部署 MCP。`,
+        },
+      );
+    }
+    const years = endYear - startYear + 1;
+    if (years > ONLINE_BAZI_REVERSE_MAX_YEARS) {
+      return buildOnlineResourceLimitResponse(
+        record.id,
+        `在线四柱反推单次最多查询 ${ONLINE_BAZI_REVERSE_MAX_YEARS} 个公历年份；当前请求为 ${years} 年。`,
+        {
+          tool: name,
+          limit: ONLINE_BAZI_REVERSE_MAX_YEARS,
+          maxAllowed: ONLINE_BAZI_REVERSE_MAX_YEARS,
+          requested: years,
+          unit: 'years',
+          recommendation: `请将 ${startYear} 至 ${endYear} 拆成每次最多 ${ONLINE_BAZI_REVERSE_MAX_YEARS} 个公历年份的区间（首段 ${startYear} 至 ${Math.min(startYear + ONLINE_BAZI_REVERSE_MAX_YEARS - 1, endYear)}）；需要完整大范围结果时使用本地或自部署 MCP。`,
+        },
+      );
+    }
+  }
+
   if (name === 'divine_almanac' || name === 'almanac_prompt') {
     const days = readDateRangeDays(input.startDate, input.endDate);
     if (days !== undefined && days > ONLINE_ALMANAC_MAX_DAYS) {
@@ -259,6 +298,17 @@ export async function handleMcpRequest(
     parsedBody = await request.clone().json();
   } catch {
     // 无效 JSON 交由协议层返回标准解析错误。
+  }
+
+  if (preset === 'online' && Array.isArray(parsedBody)) {
+    return jsonResponse(
+      {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32600, message: '在线 MCP 每次只接受一条 JSON-RPC 消息，请逐条发送。' },
+      },
+      400,
+    );
   }
 
   const resourceLimitResponse = preset === 'online' && checkOnlineResourceLimit(parsedBody);

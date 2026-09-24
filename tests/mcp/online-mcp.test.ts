@@ -102,6 +102,90 @@ test('在线预设限制长范围，本地 full 预设将同一请求交给工�
   }
 });
 
+test('在线四柱反推要求明确年份且单次最多 10 年，本地 full 不受在线限额影响', async () => {
+  const pillars = { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' };
+  const createRequest = (id: number, argumentsValue: Record<string, unknown>) =>
+    new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id,
+        method: 'tools/call',
+        params: { name: 'calendar_bazi_reverse', arguments: argumentsValue },
+      }),
+    });
+
+  const missing = await onRequest({ request: createRequest(1, { pillars }) });
+  const missingResult = (await missing.json()).result;
+  assert.equal(missingResult?.structuredContent?.code, 'RESOURCE_LIMIT');
+  assert.match(missingResult?.structuredContent?.fallback ?? '', /startYear.*endYear/);
+
+  const tooWide = await onRequest({
+    request: createRequest(2, { pillars, startYear: 2000, endYear: 2010 }),
+  });
+  const tooWideResult = (await tooWide.json()).result;
+  assert.equal(tooWideResult?.structuredContent?.code, 'RESOURCE_LIMIT');
+  assert.equal(tooWideResult?.structuredContent?.requested, 11);
+  assert.equal(tooWideResult?.structuredContent?.maxAllowed, 10);
+  assert.match(tooWideResult?.structuredContent?.fallback ?? '', /2000 至 2009/);
+
+  const tenYears = await onRequest({
+    request: createRequest(3, { startYear: 2000, endYear: 2009 }),
+  });
+  assert.equal((await tenYears.json()).result?.structuredContent?.code, 'INVALID_ARGUMENTS');
+
+  const valid = await onRequest({
+    request: createRequest(4, { pillars, startYear: 2024, endYear: 2024 }),
+  });
+  const validResult = (await valid.json()).result;
+  assert.equal(validResult?.isError, undefined);
+  assert.equal(validResult?.structuredContent?.result?.startYear, 2024);
+  assert.equal(validResult?.structuredContent?.result?.endYear, 2024);
+
+  const full = await handleMcpRequest(
+    createRequest(5, { pillars, startYear: 2000, endYear: 2010 }),
+    { preset: 'full' },
+  );
+  const fullResult = (await full.json()).result;
+  assert.equal(fullResult?.isError, undefined);
+  assert.equal(fullResult?.structuredContent?.result?.startYear, 2000);
+  assert.equal(fullResult?.structuredContent?.result?.endYear, 2010);
+
+  const fullWithoutYears = await handleMcpRequest(createRequest(6, {}), { preset: 'full' });
+  assert.equal(
+    (await fullWithoutYears.json()).result?.structuredContent?.code,
+    'INVALID_ARGUMENTS',
+  );
+});
+
+test('在线 MCP 拒绝 JSON-RPC 批量请求，避免批量工具调用绕过范围限制', async () => {
+  const response = await onRequest({
+    request: new Request('https://aov.cc/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([
+        { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: {
+            name: 'almanac_prompt',
+            arguments: { startDate: '2026-01-01', endDate: '2026-01-08', page: 0 },
+          },
+        },
+      ]),
+    }),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  const result = await response.json();
+  assert.equal(result.id, null);
+  assert.equal(result.error?.code, -32600);
+  assert.match(result.error?.message ?? '', /逐条发送/);
+});
+
 test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康检查与 JSON-RPC 工具请求', async () => {
   // 1. OPTIONS CORS 预检
   const optionsRes = await onRequest({
@@ -378,7 +462,7 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   assert.equal(typeof callJson.result?._meta?.durationMs, 'number');
   assert.equal(callJson.result?._meta?.version, initJson.result?.serverInfo?.version);
 
-  // 10. 在线 MCP 默认优化选项：提示词工具省略 responseMode 时默认 summary，避免序列化数百 KB 原始盘面对象
+  // 10. 在线八字提示词省略 responseMode 时默认 summary，避免序列化数百 KB 原始盘面对象
   const defaultSummaryRes = await onRequest({
     request: new Request('https://aov.cc/mcp', {
       method: 'POST',
