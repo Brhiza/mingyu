@@ -36,8 +36,12 @@ test('奇门完整提示词写入复合格局与值符宫应期触发', () => {
   }
   for (const combo of data.patternCombos ?? []) {
     assert.ok(prompt.includes(`${combo.name}`));
-    assert.ok(prompt.includes(combo.summary.replaceAll('；', '；\n')));
+    const factualSummary = combo.summary
+      .replaceAll('，不作通用吉凶评分', '')
+      .replaceAll('，不替代通用凶格评分', '');
+    assert.ok(prompt.includes(factualSummary.replaceAll('；', '；\n')));
   }
+  assert.doesNotMatch(prompt, /不作通用吉凶评分|不替代通用凶格评分/);
   assert.doesNotMatch(prompt, /minDays|maxDays|super-good|super-bad/);
 });
 

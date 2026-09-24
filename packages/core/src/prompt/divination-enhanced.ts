@@ -780,7 +780,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const classicPatternLines = classicPatternFacts.map((item) => `${item.name}：${item.promptText}`);
   const comboLines = (data.patternCombos ?? []).map(
     (item) =>
-      `${item.name}${item.palace ? `（${data.jiuGongGe.find((palace) => palace.gong === item.palace)?.name ?? `${item.palace}宫`}）` : ''}：${item.summary}`,
+      `${item.name}${item.palace ? `（${data.jiuGongGe.find((palace) => palace.gong === item.palace)?.name ?? `${item.palace}宫`}）` : ''}：${item.summary.replaceAll('，不作通用吉凶评分', '').replaceAll('，不替代通用凶格评分', '')}`,
   );
   const palaceLines = data.jiuGongGe.map((palace) => {
     const voidMark = data.voidPalaces?.some((item) => item.palace === palace.gong) ? '，逢空' : '';
@@ -819,15 +819,11 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     palaceLines.length ? '九宫简表：' : '',
     ...palaceLines,
     `同干定位：\n${formatQimenStemLocations(data).join('\n')}`,
-    classicPatternLines.length
-      ? `格局索引：\n${classicPatternLines.map((item) => item.replaceAll('；', '；\n')).join('\n')}`
-      : '',
+    classicPatternLines.length ? `格局索引：\n${classicPatternLines.join('\n')}` : '',
     comboLines.length
       ? `复合格局：\n${comboLines.map((item) => item.replaceAll('；', '；\n')).join('\n')}`
       : '',
-    patternFulfillments.length
-      ? `格局条件：\n${patternFulfillments.map((item) => item.replaceAll('；', '；\n')).join('\n')}`
-      : '',
+    patternFulfillments.length ? `格局条件：\n${patternFulfillments.join('\n')}` : '',
     data.yingQi
       ? [
           `值符宫应期参考：盘内相对节奏${data.yingQi.rhythm}`,
