@@ -5,7 +5,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMingyuMcpServer } from '../../mcp/src/create-server';
 import { handlePublicApiRequest } from '../../src/lib/public-api/handler';
-import { baziCalculator } from '../../packages/core/src/bazi/baziCalculator';
+import { baziCalculator } from 'mingyu-core/bazi';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei';
 
 const input = {

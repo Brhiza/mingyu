@@ -1,17 +1,14 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import {
   analyzeBaziCompatibility,
+  baziCalculator,
   type BaziChartResult,
   type BaziUnknownTimeBatchMetadata,
   type Person,
   type ShenShaScope,
   type ShenShaVariantConfig,
 } from 'mingyu-core/bazi';
-import { baziCalculator } from '@core/bazi/baziCalculator';
-import {
-  formatCalculatedBaziFortuneBatch,
-  type BaziFortuneTextBatch,
-} from '@core/prompt/bazi-fortune';
+import { formatCalculatedBaziFortuneBatch, type BaziFortuneTextBatch } from 'mingyu-core/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
 import {
   buildBaziFortuneSelectionForDate,
@@ -84,16 +81,14 @@ import {
 } from 'mingyu-core';
 import { calculateBirthChartBundle, type BirthChartBundleOptions } from 'mingyu-core/birth';
 import {
+  birthProfileAtRangeTimestamp,
   birthProfileToZiweiChartInput,
   normalizeBirthProfile,
+  resolveBirthRangeBatch,
+  validateBirthProfileTimeRange,
   type BirthProfile,
   type BirthProfileTimeRange,
 } from 'mingyu-core/profile';
-import {
-  birthProfileAtRangeTimestamp,
-  resolveBirthRangeBatch,
-  validateBirthProfileTimeRange,
-} from '@core/profile/time-range';
 import { queryYilinEntry, type YilinSourcePreference } from 'mingyu-core/classics';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import {

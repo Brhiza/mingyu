@@ -180,6 +180,7 @@ export {
   intersectLocalTimeRanges,
   isDateWithinLuckCycle,
   shiftSolarDateTimeYears,
+  toChinaCivilDate,
   toNativeDate,
   toSolarDateTimeInfo,
 } from './luckTiming';

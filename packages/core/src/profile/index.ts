@@ -1,5 +1,10 @@
 import type { BirthProfileTimeRange } from './time-range';
-export type { BirthProfileTimeRange } from './time-range';
+export type { BirthProfileTimeRange, BirthRangeBatch, BirthRangeBatchOptions } from './time-range';
+export {
+  birthProfileAtRangeTimestamp,
+  resolveBirthRangeBatch,
+  validateBirthProfileTimeRange,
+} from './time-range';
 import {
   resolveBirthCalendarClockTime,
   resolveTrueSolarBirthTime,

@@ -1,12 +1,16 @@
 import { memo, useCallback, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
+  calculateKongWangBranches,
   filterCommonBaziShenSha,
   formatUsefulGodFunctions,
+  getLifeStage,
   getShenShaType,
   getTenGod,
   getTenGodForBranch,
   getWuxing,
+  HIDDEN_STEMS,
   isGanZhiPair,
+  NAYIN_MAP,
   ShenShaCalculator,
   type BaziChartResult,
 } from 'mingyu-core/bazi';
@@ -15,9 +19,6 @@ import {
   getBaziQiongtongAdvice,
   getBaziZipingPatternAdvice,
 } from 'mingyu-core/classics';
-import { HIDDEN_STEMS, NAYIN_MAP } from '@core/bazi/baziMappingsData';
-import { getLifeStage } from '@core/bazi/baziValues';
-import { calculateKongWangBranches } from '@core/bazi/kongWang';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import { formatBaziDecisionDetails } from '@/lib/bazi-decision-details';
 import {

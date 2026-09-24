@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { baziCalculator } from '@core/bazi/baziCalculator';
-import { formatCalculatedBaziFortuneBatch } from '@core/prompt/bazi-fortune';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
-import type { Person } from '@core/bazi/baziTypes';
 import {
+  baziCalculator,
+  analyzeBaziCompatibility,
   buildBaziFortuneSelectionForDate,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
-} from '@core/bazi/fortuneSelection';
-import { getTimeIndexFromClock } from '@core/calendar';
+  type Person,
+} from 'mingyu-core/bazi';
+import { formatCalculatedBaziFortuneBatch } from 'mingyu-core/prompt';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
   BAZI_PROMPT_TOPICS,

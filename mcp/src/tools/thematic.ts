@@ -1,11 +1,11 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
+  baziCalculator,
   buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
-} from '@core/bazi/fortuneSelection';
+} from 'mingyu-core/bazi';
 import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_MULTI_SCHOOLS,
