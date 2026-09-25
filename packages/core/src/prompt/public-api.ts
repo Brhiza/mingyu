@@ -499,7 +499,7 @@ function buildKeyPalaces(payload: AnalysisPayloadV1, isOriginScope: boolean) {
     `${formatPalaceBrief(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`;
   const lines = [`${title}\n${lead.map(format).join('\n')}`];
   if (!isOriginScope && ordered.length > lead.length) {
-    lines.push(`十二宫明细：\n${ordered.map(format).join('\n')}`);
+    lines.push(`十二宫明细：\n${ordered.slice(lead.length).map(format).join('\n')}`);
   }
   return lines.join('\n');
 }

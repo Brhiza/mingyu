@@ -1,7 +1,10 @@
 import type { LiurenData } from '../types/divination';
 import { formatLiurenOrdinaryTransmissionAdjudication } from './liuren-facts';
 
-export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
+export function formatLiurenJudgmentFacts(
+  data: LiurenData,
+  options: { includeOrdinaryAdjudication?: boolean } = {},
+): string[] {
   const lines: string[] = [];
   if (data.transmissionDetail) {
     const sourceMarker = '；古籍依据依次为：';
@@ -16,8 +19,8 @@ export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
     .filter(Boolean);
   if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
   const ordinaryAdjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
-  if (ordinaryAdjudication) lines.push(ordinaryAdjudication);
-
+  if (options.includeOrdinaryAdjudication !== false && ordinaryAdjudication)
+    lines.push(ordinaryAdjudication);
   const guaTiFacts = (data.guaTiFacts ?? [])
     .map((item) => `${item.name}（${item.matchedConditions.join('、')}）`)
     .filter(Boolean);

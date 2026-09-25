@@ -7,6 +7,7 @@ import {
 } from 'mingyu-core/divination/qimen';
 import { generateQimen as generateQimenFromSource } from '../packages/core/src/divination/algorithms/qimen/index';
 import type { QimenCandidateSource } from '../packages/core/src/divination/algorithms/qimen/index';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -204,4 +205,23 @@ test('奇门中性格局与多宫门迫保留各宫条件，空亡不直接翻�
   });
   const structured = evaluateQimenPatternFulfillment(data);
   assert.ok(structured.some((item) => item.includes('吉格组合') && item.includes('门迫')));
+});
+
+test('奇门格局条件只列盘面事实，应期来源不重复触发条件', () => {
+  const data = generateQimen(fixedDate);
+  const palace = data.jiuGongGe[0];
+  data.classicPatterns = [
+    { name: '空亡核验', type: 'good', summary: '盘面事实', palaces: [palace.gong] },
+  ];
+  data.voidPalaces = [{ branch: '子', palace: palace.gong, name: palace.name }];
+  const trigger = '驿马发动，出现行动时触发进展';
+  assert.ok(data.yingQi);
+  data.yingQi.sources.push(trigger);
+  data.yingQi.triggerConditions.push(trigger);
+  const prompt = formatEnhancedDivinationInfo('qimen', data);
+  assert.match(prompt, /格局条件：\n【空亡核验】落[^\n]+，属吉格，同宫见空亡。/);
+  assert.doesNotMatch(prompt, /结合本次用神与宫门星神，分别核对结果、程度和落实迟速/);
+  assert.equal(prompt.split(trigger).length - 1, 1);
+  assert.equal(prompt.split('触发条件：').length - 1, 1);
+  assert.ok(prompt.split('触发条件：')[1]?.split('\n').includes(`  ${trigger}`));
 });

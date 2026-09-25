@@ -798,9 +798,16 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
   const patternFulfillments = evaluateQimenPatternFulfillment(data);
-  const yingQiSources = (data.yingQi?.sources ?? []).map((source) =>
-    source.startsWith('未选定事项用神') ? '当前以值符宫作通用参考，事项用神按问题确定' : source,
-  );
+  const triggerConditions = [...new Set(data.yingQi?.triggerConditions ?? [])];
+  const yingQiSources = [
+    ...new Set(
+      (data.yingQi?.sources ?? []).map((source) =>
+        source.startsWith('未选定事项用神')
+          ? '当前以值符宫作通用参考，事项用神按问题确定'
+          : source,
+      ),
+    ),
+  ].filter((source) => !triggerConditions.includes(source));
 
   return [
     '占法：奇门遁甲',
@@ -828,8 +835,8 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
       ? [
           `值符宫应期参考：盘内相对节奏${data.yingQi.rhythm}`,
           ...yingQiSources.map((source) => `  ${source}`),
-          data.yingQi.triggerConditions.length ? '触发条件：' : '',
-          ...data.yingQi.triggerConditions.map((condition) => `  ${condition}`),
+          triggerConditions.length ? '触发条件：' : '',
+          ...triggerConditions.map((condition) => `  ${condition}`),
         ]
           .filter(Boolean)
           .join('\n')

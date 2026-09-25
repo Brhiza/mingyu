@@ -104,7 +104,7 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
       const identity =
         pattern.type === 'good' ? '吉格' : pattern.type === 'bad' ? '凶格' : '中性格局';
       results.push(
-        `【${pattern.name}】落${palace.name}，属${identity}，同宫见${conditions.join('、')}；结合本次用神与宫门星神，分别核对结果、程度和落实迟速，空亡填实与门宫制约各明条件。`,
+        `【${pattern.name}】落${palace.name}，属${identity}，同宫见${conditions.join('、')}。`,
       );
     }
   return results;

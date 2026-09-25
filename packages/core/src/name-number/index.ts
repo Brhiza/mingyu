@@ -1112,15 +1112,10 @@ function formatBirthContext(
     ...(fulfillment
       ? [
           `格局成败：${fulfillment.status}；${fulfillment.summary}`,
-          fulfillment.basis ? `格局判定依据：${fulfillment.basis}` : '',
+          fulfillment.basis && !fulfillment.summary.includes(fulfillment.basis)
+            ? `格局判定依据：${fulfillment.basis}`
+            : '',
           fulfillment.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
-          ...fulfillment.conditions.map((condition) => `成立条件：${condition}`),
-          ...fulfillment.conditionFacts
-            .filter((condition) => !condition.key.startsWith('path.'))
-            .map((condition) => `格局条件（${condition.status}）：${condition.detail}`),
-          ...fulfillment.pathEvaluations.map(
-            (path) => `制化路径：${path.label}（${path.position}）：${path.status}；${path.detail}`,
-          ),
         ].filter(Boolean)
       : []),
     ...(unknownTime

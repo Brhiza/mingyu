@@ -360,7 +360,12 @@ export function buildDivinationPrompt(
                 : method === 'jinkoujue' && jinkoujueRangeText
                   ? jinkoujueRangeText
                   : method === 'liuren'
-                    ? [defaultInfoText, ...formatLiurenJudgmentFacts(data as LiurenData)].join('\n')
+                    ? [
+                        defaultInfoText,
+                        ...formatLiurenJudgmentFacts(data as LiurenData, {
+                          includeOrdinaryAdjudication: false,
+                        }),
+                      ].join('\n')
                     : defaultInfoText;
   const currentTimeSection = options.omitCurrentTime ? '' : buildSection('【当前时间】', timeInfo);
   if (method === 'ssgw') {

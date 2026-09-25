@@ -5592,3 +5592,79 @@ test('MCP 提供焦氏易林固定索引并返回双底本来源状态', async (
     assert.equal(invalid.isError, true);
   });
 });
+
+test('MCP 紫微、大六壬与星盘提示词入口只输出一次完整重点资料', async () => {
+  await withMcpClient(async (client) => {
+    const ziweiResponse = await client.callTool({
+      name: 'ziwei_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1993',
+        month: '4',
+        day: '8',
+        timeIndex: 12,
+        promptScope: 'yearly',
+        scopeDate: '2026-05-19',
+        question: '请分析本年度事业发展重点。',
+      },
+    });
+    assert.equal(ziweiResponse.isError, undefined);
+    const ziweiPrompt = (ziweiResponse.structuredContent as { prompt: string }).prompt;
+    const palaceSection = ziweiPrompt.split('【重点宫位资料】')[1]?.split('\n【')[0] ?? '';
+    const [focusPalaces, remainingPalaces] = palaceSection.split('十二宫明细：');
+    const palaceLines = (text: string) =>
+      text
+        .split('\n')
+        .filter((line) =>
+          /^  [^\n]+（[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]）：主星：/.test(line),
+        );
+    const focusLines = palaceLines(focusPalaces ?? '');
+    const remainingLines = palaceLines(remainingPalaces ?? '');
+    assert.equal(focusLines.length, 7);
+    assert.equal(remainingLines.length, 5);
+    assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
+
+    const liurenResponse = await client.callTool({
+      name: 'liuren_prompt',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '我现在要不要换工作？',
+        liurenTemplate: 'shiye',
+      },
+    });
+    assert.equal(liurenResponse.isError, undefined);
+    const liurenPrompt = (liurenResponse.structuredContent as { prompt: string }).prompt;
+    assert.equal([...liurenPrompt.matchAll(/普通宗门裁决：/gu)].length, 1);
+
+    const astrolabeResponse = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: '男',
+        year: 1993,
+        month: 4,
+        day: 8,
+        hour: 23,
+        minute: 34,
+        latitude: 1.3521,
+        longitude: 103.8198,
+        timezone: 8,
+        locationName: '新加坡',
+        astrolabeScope: 'natal',
+        customDate: '2026-05-19T10:30:00+08:00',
+        question: '本命盘的事业主线是什么？',
+      },
+    });
+    assert.equal(astrolabeResponse.isError, undefined);
+    const astrolabePrompt = (astrolabeResponse.structuredContent as { prompt: string }).prompt;
+    const aspectLead = astrolabePrompt.split('相位主线：')[1]?.split('\n')[0] ?? '';
+    assert.ok(aspectLead);
+    assert.doesNotMatch(aspectLead, /偏差|目标角|实际角距|容许偏差上限|第\d+宫/u);
+    const aspectDetails = astrolabePrompt.split('相位明细：')[1]?.split('\n【')[0] ?? '';
+    const firstAspectLine = aspectDetails.split('\n').find((line) => line.trim());
+    assert.ok(firstAspectLine);
+    assert.equal(astrolabePrompt.split(firstAspectLine).length - 1, 1);
+  });
+});

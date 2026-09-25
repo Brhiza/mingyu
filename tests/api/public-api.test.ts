@@ -2530,6 +2530,23 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.match(prompt, /分析范围：流年/);
   assert.match(prompt, /【重点宫位资料】/);
   assert.match(prompt, /十二宫明细：/);
+  const palaceSection = prompt.split('【重点宫位资料】')[1]?.split('\n【')[0] ?? '';
+  const [focusPalaces, remainingPalaces] = palaceSection.split('十二宫明细：');
+  assert.ok(remainingPalaces);
+  const palaceLines = (text: string) =>
+    text
+      .split('\n')
+      .filter((line) =>
+        /^  [^\n]+（[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]）：主星：/.test(line),
+      );
+  const focusLines = palaceLines(focusPalaces);
+  const remainingLines = palaceLines(remainingPalaces);
+  assert.equal(focusLines.length, 7);
+  assert.equal(remainingLines.length, 5);
+  assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
+  const relations = palaceSection.split('\n').filter((line) => line.startsWith('  宫位关系：'));
+  assert.equal(relations.length, 12);
+  assert.equal(new Set(relations).size, 12);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
