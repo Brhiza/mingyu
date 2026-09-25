@@ -52,7 +52,11 @@ test('五种真化按化神顺势取用，原日主旺衰改变不能倒回普�
       assert.ok(result.matchedRules?.some((rule) => rule.id === 'transformed-element-following'));
       const text = formatUsefulGodFunctions(result).join('\n');
       assert.match(text, /原日主旺衰保留作本命事实/);
-      assert.match(text, /化神太过.*泄耗制化条件/);
+      assert.match(
+        result.decisionEvidence!.transformation!.conditions.join('；'),
+        /化神太过.*泄耗制化条件/,
+      );
+      assert.doesNotMatch(text, /取用条件：/);
       assert.doesNotMatch(result.strategyTrace.join('\n'), /身弱取印比|身强取泄耗克/);
     }
   }

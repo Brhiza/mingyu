@@ -131,6 +131,32 @@ test('普通成格提示词保留结论并省略重复的格局条件', () => {
   assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
 });
 
+test('已成化格保留结论与取用，省略重复的逐项核验', () => {
+  const result = createBaziResult({ year: 1994, month: 3, day: 17, timeIndex: 4 });
+  assert.equal(result.analysis.mingGe.transformation?.status, '成化');
+
+  for (const school of [undefined, 'ziping' as const]) {
+    const prompt = buildBaziPrompt({ result, fortuneScope: 'natal', school });
+    assert.match(prompt, /格局: 丁壬化木格[^\n]*化气判定：成化/);
+    assert.match(prompt, /化神取用：[^\n]*化神木/);
+    assert.doesNotMatch(prompt, /【格局条件】|取用条件：|化气证据：/);
+  }
+});
+
+test('流派格局资料不重复列已满足条件，判定理由不重复典籍依据', () => {
+  const formed = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  const schoolPrompt = buildBaziPrompt({ result: formed, school: 'ziping' });
+  assert.match(schoolPrompt, /当前成败判定：成格/);
+  assert.doesNotMatch(schoolPrompt, /^条件核验：满足；/m);
+
+  const broken = createBaziResult({ year: 2000, month: 1, day: 7, timeIndex: 5 });
+  const prompt = buildBaziPrompt({ result: broken });
+  const basis = broken.analysis.mingGe.fulfillment!.basis;
+  assert.ok(basis);
+  assert.equal(prompt.split(basis).length - 1, 1);
+  assert.match(prompt, /当前成败判定：破格；判定理由：/);
+});
+
 test('破格救应已在核心判断列明时省略重复格局条件', () => {
   const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
   assert.equal(result.analysis.mingGe.fulfillment?.status, '破格');

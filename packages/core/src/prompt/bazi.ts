@@ -166,20 +166,10 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
   const facts: string[] = [];
 
   // 排盘正文已有所取格局、成败和判定理由，此处只补充影响结论的实际作用。
-  if (
-    transformation &&
-    (transformation.status === '成化' || (!fulfillment && !specialAdjudication))
-  ) {
+  if (transformation && transformation.status !== '成化' && !fulfillment && !specialAdjudication) {
     facts.push(
-      `化气判定：${transformation.status}；化神${transformation.element}${transformation.status === '成化' ? '' : `；${transformation.basis}`}`,
+      `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
     );
-    if (transformation.status === '成化') {
-      facts.push(
-        ...transformation.evidence
-          .filter((item) => !transformation.basis.includes(item))
-          .map((item) => `化气证据：${item}`),
-      );
-    }
   }
 
   if (specialAdjudication && (specialAdjudication.status === '成立' || !fulfillment)) {
@@ -192,7 +182,11 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
       facts.push(
         `从儿五行流向：食伤${specialAdjudication.outputElement}生财${specialAdjudication.wealthElement}`,
       );
-      facts.push(...specialAdjudication.functionalResolutions.map((item) => `顺局作用：${item}`));
+      facts.push(
+        ...specialAdjudication.functionalResolutions
+          .filter((item) => !result.analysis.mingGe.basis?.includes(item))
+          .map((item) => `顺局作用：${item}`),
+      );
       if (specialAdjudication.retainedHiddenFacts.length) {
         facts.push(`原支藏印官事实：${specialAdjudication.retainedHiddenFacts.join('；')}`);
       }

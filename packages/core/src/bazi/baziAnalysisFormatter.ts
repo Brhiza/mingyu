@@ -70,12 +70,7 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
         ]
       : []),
     ...(usefulGod.decisionEvidence?.transformation
-      ? [
-          `化神取用：${usefulGod.decisionEvidence.transformation.basis}`,
-          ...usefulGod.decisionEvidence.transformation.conditions.map(
-            (condition) => `取用条件：${condition}`,
-          ),
-        ]
+      ? [`化神取用：${usefulGod.decisionEvidence.transformation.basis}`]
       : []),
     usefulGod.decisionEvidence?.balanceAdjustment
       ? `取用配合：${usefulGod.decisionEvidence.balanceAdjustment.reason}`
@@ -141,10 +136,11 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
             : '',
         ].filter(Boolean);
   if (!fulfillment) return [...patternCandidateFacts, ...specialFacts];
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
   return [
     ...patternCandidateFacts,
     ...specialFacts,
-    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
+    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}${fulfillment.basis && !decisionDetail?.includes(fulfillment.basis) ? `；${fulfillment.basis}` : ''}${decisionDetail ? `；判定理由：${decisionDetail}` : ''}`,
     fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
     ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
     ...(fulfillment.conditionFacts ?? [])
@@ -376,6 +372,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (includeRules && analysis.mingGe.basis) {
     result += `（${analysis.mingGe.basis}）`;
   }
+  if (analysis.mingGe.transformation?.status === '成化') {
+    result += '；化气判定：成化';
+  }
   result += '\n';
   const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
   if (
@@ -438,11 +437,14 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
         : `取用: ${favorableText}；${unfavorableText}\n`;
     const functionalUse = formatUsefulGodFunctions(analysis.usefulGod);
     if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
-    if (includeRules && analysis.usefulGod.primaryReason) {
+    if (
+      includeRules &&
+      analysis.usefulGod.primaryReason &&
+      !analysis.usefulGod.decisionEvidence?.transformation
+    ) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-      result += analysis.usefulGod.decisionEvidence?.transformation
-        ? `取用依据: 原日主旺衰${analysis.dayMasterStrength.status}与十神保留为本命事实，${analysis.mingGe.pattern}按化神${analysis.usefulGod.decisionEvidence.transformation.element}及其条件取用\n`
-        : analysis.usefulGod.incrementStatus === '待判'
+      result +=
+        analysis.usefulGod.incrementStatus === '待判'
           ? `取用依据: 日主旺衰${analysis.dayMasterStrength.status}，${analysis.mingGe.pattern}当前${analysis.mingGe.fulfillment?.status || '待核'}；增补五行喜忌结合司令、根气与制化作用待判\n`
           : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }

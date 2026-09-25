@@ -724,7 +724,9 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       : [];
   const thematicConfig = getThematicTopicConfig(topic);
   const ziweiFocusPalaces = thematicConfig?.ziweiFocusPalaces;
-  const baziPatternConditions = formatBaziPatternConditions(options.bazi);
+  const baziPatternConditions = selectedBaziSchools.length
+    ? ''
+    : formatBaziPatternConditions(options.bazi);
   const task = buildPromptTask(
     `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
     'bazi-ziwei',

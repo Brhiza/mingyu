@@ -163,10 +163,7 @@ function formatTransformationFacts(result: BaziChartResult) {
     return [];
   }
   return [
-    `化气判定：${transformation.status}；化神${transformation.element}${transformation.status === '成化' ? '' : `；${transformation.basis}`}`,
-    ...transformation.evidence
-      .filter((item) => !transformation.basis.includes(item))
-      .map((item) => `化气证据：${item}`),
+    `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
   ];
 }
 
@@ -200,7 +197,9 @@ function formatSchoolPatternFacts(result: BaziChartResult, embedded = false) {
           'pattern.target',
           'pattern.month-principal-control',
           'bazi.wealth-bearing',
-        ].includes(item.key) && !decisionDetail.includes(item.detail),
+        ].includes(item.key) &&
+        item.status !== '满足' &&
+        !decisionDetail.includes(item.detail),
     )
     .map((item) => `条件核验：${item.status}；${item.detail}`);
   const repairPathKeys = new Set(

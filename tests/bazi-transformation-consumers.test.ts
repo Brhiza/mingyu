@@ -77,21 +77,20 @@ function makeTransformedChart() {
 test('化气主格贯通流派、命录与普通提示词消费者', () => {
   const chart = makeTransformedChart();
   const patternFacts = formatBaziPatternConditions(chart);
-  assert.match(patternFacts, /化气判定：成化；化神木/);
-  assert.match(patternFacts, /丁壬同透并相合/);
-  assert.doesNotMatch(patternFacts, /成化取用：|化气条件：/);
+  assert.equal(patternFacts, '');
 
   for (const school of ['ziping', 'mangpai', 'xinpai'] as const) {
     const prompt = formatBaziSchoolPrompt(chart, school);
     assert.match(prompt, /化气判定：成化/);
     assert.match(prompt, /化神木/);
-    assert.match(prompt, /取用条件：岁运继续核验/);
+    assert.match(prompt, /丁壬紧贴相合，木得月令成势/);
+    assert.doesNotMatch(prompt, /取用条件：岁运继续核验|化气证据：/);
     assert.doesNotMatch(prompt, /化气条件：/);
   }
 
   const prompt = buildBaziPrompt({ result: chart, topic: 'general', school: 'ziping' });
   assert.doesNotMatch(prompt, /【格局条件】/);
-  assert.match(prompt, /化气判定：成化；化神木/);
+  assert.match(prompt, /格局: 丁壬化木格[^\n]*化气判定：成化/);
   assert.match(prompt, /化神取用：以化神木为取用主体/);
   assert.doesNotMatch(prompt, /身弱必补原日主|身弱取印比/);
 
@@ -124,8 +123,8 @@ test('化气依据进入合盘证据、命盘分享详情与起名出生资料',
   assert.match(compatibility.usefulGodCoverage[0]?.promptText ?? '', /取用主体：化神木/);
 
   const prompt = buildBaziCompatibilityPrompt({ result1: chart, result2: chart });
-  assert.match(prompt, /第一人格局条件[\s\S]*化神木/);
-  assert.match(prompt, /第二人格局条件[\s\S]*化神木/);
+  assert.equal(prompt.match(/格局: 丁壬化木格[^\n]*化气判定：成化/g)?.length, 2);
+  assert.doesNotMatch(prompt, /【第一人格局条件】|【第二人格局条件】/);
 
   const decisionDetails = formatBaziDecisionDetails(chart).join('\n');
   assert.match(decisionDetails, /化气判定：成化；化神木/);

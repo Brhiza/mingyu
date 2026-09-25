@@ -65,6 +65,29 @@ test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微�
   assert.match(baziZiwei, /【紫微盘面资料】/);
   assert.match(baziZiwei, /【八字多派合参】/);
   assert.match(baziZiwei, /【紫微多派合参】/);
+
+  const bazi = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  const fulfillment = bazi.analysis.mingGe.fulfillment!;
+  fulfillment.status = '未判定';
+  fulfillment.conditionFacts = [
+    { key: 'pattern.target', status: '资料不足', detail: '格神根气待核对' },
+  ];
+  const withSchool = buildBaziZiweiPrompt({
+    bazi,
+    ziwei: first,
+    topic: '事业财运',
+    baziSchool: 'ziping',
+  });
+  assert.doesNotMatch(withSchool, /【八字格局条件】/);
+  assert.equal(withSchool.match(/格神根气待核对/g)?.length, 1);
+  const withoutSchool = buildBaziZiweiPrompt({ bazi, ziwei: first, topic: '事业财运' });
+  assert.match(withoutSchool, /【八字格局条件】[\s\S]*格神根气待核对/);
 });
 
 test('紫微命身复合主轴断诀应准确对应身宫落宫', async () => {

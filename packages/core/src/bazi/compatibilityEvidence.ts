@@ -436,20 +436,17 @@ function calculateUsefulGodCoverage(
   const transformation = beneficiaryChart.analysis?.mingGe?.transformation;
   const transformationFacts = transformation
     ? [
-        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `取用主体：化神${transformation.element}；原日主${beneficiaryChart.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
+        transformation.status === '成化'
+          ? `化气判定：成化；取用主体：化神${transformation.element}`
+          : `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
       ]
     : [];
   const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
   const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
   const usefulGod = beneficiaryChart.analysis.usefulGod;
-  const functionalDescriptions = formatUsefulGodFunctions(usefulGod);
+  const functionalDescriptions = formatUsefulGodFunctions(usefulGod).filter(
+    (item) => !item.startsWith('化神取用：'),
+  );
   if (!favorable?.length && !unfavorable?.length) {
     const incrementPending = Boolean(beneficiaryChart.analysis?.usefulGod?.incrementStatus);
     const unavailableReason = incrementPending
