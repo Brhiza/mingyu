@@ -539,6 +539,31 @@ test('交节日的流时列表不应包含交节前时辰', () => {
   assert.ok(context.hourBreakdown.length < 12, '立春日交节前的时辰应被裁剪');
 });
 
+test('交节裁剪后的流时文字应与有效时间一致', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2024-02-04T17:00:00+08:00'));
+  assert.ok(selection);
+  const context = buildFortuneSelectionContext(result, selection);
+  const firstHour = context?.hourBreakdown?.[0];
+
+  assert.equal(firstHour?.interval.startTimestamp, Date.parse('2024-02-04T16:27:07+08:00'));
+  assert.equal(firstHour?.interval.endTimestamp, Date.parse('2024-02-04T17:00:00+08:00'));
+  assert.equal(firstHour?.timeRange, '2024-02-04 16:27:07至2024-02-04 17:00:00（终点不含）');
+  assert.match(
+    context?.promptPayload.breakdownLines?.[0] ?? '',
+    /申时 2024-02-04 16:27:07至2024-02-04 17:00:00（终点不含）/,
+  );
+});
+
 test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () => {
   const result = createMockResult();
   const cycle = result.luckInfo.cycles[0];
@@ -578,12 +603,42 @@ test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () =>
       (item) => item.interval.startTimestamp >= day.cycleTimeRange.startTimestamp,
     ),
   );
+  const clippedHour = day?.hourBreakdown?.find((item) => item.label === '午时');
+  assert.equal(clippedHour?.timeRange, '2008-02-08 12:00:00至2008-02-08 13:00:00（终点不含）');
+});
+
+test('2100 节令年末月的 2101 年流日应能构造流时详情', () => {
+  const days = getMonthDaysInfo(2100, 12);
+  assert.equal(days[0].solarDate, '2101-01-05');
+  assert.equal(days.at(-1)?.solarDate, '2101-02-04');
+  assert.equal(getDayHourBreakdown(2101, 1, 5).length, 12);
+  assert.equal(getDayHourBreakdown(2101, 2, 4).length, 12);
+
+  const result = createMockResult();
+  const cycle = result.luckInfo.cycles[0];
+  result.luckInfo.cycles[0] = {
+    ...cycle,
+    year: 2100,
+    years: [{ ...cycle.years[0], year: 2100 }],
+    startSolarTime: { year: 2100, month: 2, day: 4, hour: 0, minute: 0, second: 0 },
+    endSolarTime: { year: 2101, month: 2, day: 5, hour: 0, minute: 0, second: 0 },
+  };
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'day',
+    cycleIndex: 0,
+    year: 2100,
+    month: 12,
+    day: 1,
+  });
+  assert.equal(context?.dayBreakdown?.[0]?.date, '2101-01-05');
+  assert.ok(context?.hourBreakdown?.length);
 });
 
 test('流日时辰拆解应先拒绝无效日期', () => {
   assert.throws(() => getDayHourBreakdown(2026, 2, 31), /日期需在 1-28 之间/);
   assert.throws(() => getDayHourBreakdown(2026, 13, 1), /月份需在 1-12 之间/);
-  assert.throws(() => getDayHourBreakdown(1899, 1, 1), /年份需在 1900-2100 之间/);
+  assert.throws(() => getDayHourBreakdown(1899, 1, 1), /年份需在 1900-2101 之间/);
+  assert.throws(() => getDayHourBreakdown(2102, 1, 1), /年份需在 1900-2101 之间/);
 });
 
 test('交运年份默认应归到后一步大运，而不是继续挂在童运或前一步运里', () => {
