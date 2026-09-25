@@ -195,20 +195,27 @@ function formatSchoolPatternFacts(result: BaziChartResult, embedded = false) {
   }
   const fulfillment = result.analysis.mingGe.fulfillment;
   const decisionDetail = fulfillment?.decisionDetail || fulfillment?.summary || '';
-  const specialFacts = facts.filter(
-    (item) =>
-      (!fulfillment && item.startsWith('特殊格裁决：')) ||
-      (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
-      item.startsWith('食伤明透：') ||
-      item.startsWith('财星明透：') ||
-      item.startsWith('特殊格反证：') ||
-      item.startsWith('成员支藏干保留：') ||
-      item.startsWith('从儿五行流向：') ||
-      item.startsWith('食伤结构根：') ||
-      item.startsWith('财星结构根：') ||
-      item.startsWith('顺局作用：') ||
-      item.startsWith('原支藏印官事实：'),
-  );
+  const specialFacts = facts
+    .filter(
+      (item) =>
+        (!fulfillment && item.startsWith('特殊格裁决：')) ||
+        (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
+        item.startsWith('食伤明透：') ||
+        item.startsWith('财星明透：') ||
+        item.startsWith('特殊格反证：') ||
+        item.startsWith('成员支藏干保留：') ||
+        item.startsWith('从儿五行流向：') ||
+        item.startsWith('食伤结构根：') ||
+        item.startsWith('财星结构根：') ||
+        item.startsWith('顺局作用：') ||
+        item.startsWith('原支藏印官事实：'),
+    )
+    .map((item) =>
+      item.startsWith('原支藏印官事实：') &&
+      result.analysis.mingGe.specialAdjudication?.status === '成立'
+        ? '支藏印官未构成从儿格的实际反证'
+        : item,
+    );
   const conditionFacts = (fulfillment?.conditionFacts ?? [])
     .filter(
       (item) =>

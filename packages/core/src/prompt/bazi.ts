@@ -206,7 +206,7 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
           .map((item) => `顺局作用：${item}`),
       );
       if (specialAdjudication.retainedHiddenFacts.length) {
-        facts.push(`原支藏印官事实：${specialAdjudication.retainedHiddenFacts.join('；')}`);
+        facts.push('支藏印官未构成从儿格的实际反证');
       }
     }
     if (specialAdjudication.status === '不成立' && specialAdjudication.blockers.length) {
@@ -262,7 +262,12 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
             breaker.repairPathKeys.includes(item.key) && item.status === breaker.repairStatus,
         );
         if (path && !decisionDetail.includes(path.detail)) {
-          facts.push(`救应路径：${path.label}（${path.position}）；${path.detail}`);
+          const detail = path.detail.startsWith(`${path.label}的`)
+            ? path.detail.slice(path.label.length + 1)
+            : path.detail.startsWith(path.label)
+              ? path.detail.slice(path.label.length)
+              : path.detail;
+          facts.push(`救应路径：${path.label}（${path.position}）；${detail}`);
         }
       }
     }
