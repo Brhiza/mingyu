@@ -162,6 +162,17 @@ test('普通成格提示词保留结论并省略重复的格局条件', () => {
   assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
 });
 
+test('财格条件只补充身承财判断，不复述正文已有的旺衰状态', () => {
+  const result = createBaziResult({ year: 1990, month: 7, day: 7, timeIndex: 6 });
+  const conditions = formatBaziPatternConditions(result);
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+
+  assert.match(prompt, /旺衰: 身弱/);
+  assert.match(conditions, /条件核验：不满足；财格的身承财条件暂不能视为满足/);
+  assert.doesNotMatch(conditions, /日主旺衰为身弱/);
+  assert.ok(prompt.includes(`【格局条件】\n${conditions}`));
+});
+
 test('多候选格局提示词只在格局行列选中依据，另列未选候选', () => {
   const result = createBaziResult({
     year: 1993,
