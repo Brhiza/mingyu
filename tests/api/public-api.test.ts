@@ -6132,6 +6132,24 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assert.doesNotMatch(promptResponse.body.data.prompt, /宿界模型/);
   assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
 });
+test('公开 API 七政省略坐标时标出北京参考地点', async () => {
+  const input = { year: 2024, month: 6, day: 15, hour: 6, minute: 0 };
+  const calculate = await callApi('metaphysics/qizheng/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  assert.equal(calculate.response.status, 200);
+  assert.equal(calculate.body.data.calculationContext.locationSource, '默认北京坐标');
+  const promptResponse = await callApi('metaphysics/qizheng/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  assert.equal(promptResponse.response.status, 200);
+  assert.match(promptResponse.body.data.prompt, /计算参考地点：北京（纬度39\.9°，经度116\.4°）/);
+  assert.doesNotMatch(promptResponse.body.data.prompt, /出生地点：纬度39\.9°，经度116\.4°/);
+});
 test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   const { response, body } = await callApi('metaphysics/taiyi/calculate', {
     method: 'POST',

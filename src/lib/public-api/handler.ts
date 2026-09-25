@@ -2004,13 +2004,13 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -90,
               maximum: 90,
-              description: '纬度（七政四余）',
+              description: '纬度（七政四余；省略时采用北京参考坐标）',
             },
             longitude: {
               type: 'number',
               minimum: -180,
               maximum: 180,
-              description: '经度（七政四余）',
+              description: '经度（七政四余；省略时采用北京参考坐标）',
             },
             timezone: {
               type: 'number',
