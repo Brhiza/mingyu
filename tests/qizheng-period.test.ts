@@ -157,6 +157,49 @@ test('流年立春按目标 IANA 时区反解且不沿用出生时刻偏移', ()
   );
 });
 
+test('巴黎 1900 年流年立春按秒级历史偏移保持同一 UTC 瞬时', () => {
+  const result = generateQizheng({
+    year: 1900,
+    month: 1,
+    day: 20,
+    hour: 12,
+    minute: 0,
+    latitude: 48.8566,
+    longitude: 2.3522,
+    timeZoneId: 'Europe/Paris',
+    flowYear: 1900,
+  });
+  const flow = result.flowingStars;
+  assert.ok(flow);
+  const lichunUtc = calculateSolarTermEvidence(1900, 3).utcTimestamp;
+  const expectedParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(lichunUtc));
+  const part = (type: string) => expectedParts.find((item) => item.type === type)?.value;
+  assert.equal(
+    flow.localDateTime,
+    `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`,
+  );
+  const flowUtc = resolveCivilTime({
+    year: flow.year,
+    month: flow.month,
+    day: flow.day,
+    hour: flow.hour,
+    minute: flow.minute,
+    second: Number(part('second')),
+    timeZoneId: 'Europe/Paris',
+  }).utcTimestamp;
+  assert.equal(flowUtc, lichunUtc);
+  assert.match(result.prompt, /落宫时刻 1900-02-04T06:00:52/);
+});
+
 test('出生时刻的 IANA 与固定偏移冲突仍然拒绝排盘', () => {
   assert.throws(
     () =>

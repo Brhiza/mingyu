@@ -3977,6 +3977,26 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
   });
 });
 
+test('MCP 七政流年提示词保留巴黎秒级历史时区的立春当地时刻', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: {
+        year: 1900,
+        month: 1,
+        day: 20,
+        hour: 12,
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timeZoneId: 'Europe/Paris',
+        flowYear: 1900,
+      },
+    });
+    assert.equal(response.isError, undefined);
+    assert.match(String(response.structuredContent?.prompt), /落宫时刻 1900-02-04T06:00:52/);
+  });
+});
+
 test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [
