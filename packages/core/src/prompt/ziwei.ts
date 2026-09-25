@@ -747,7 +747,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       selectedBaziSchools.length
         ? buildPromptSection(
             selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',
-            formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools),
+            formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools, true),
           )
         : '',
       buildPromptSection(

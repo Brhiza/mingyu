@@ -319,6 +319,7 @@ export function buildBaziPromptForResult(params: {
         : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, taskMethod);
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
   const schoolScene = params.school || params.schools?.length;
+  const patternConditions = schoolScene ? '' : formatBaziPatternConditions(params.result);
   const chart = [
     formatBaziForPrompt(
       params.result,
@@ -333,9 +334,7 @@ export function buildBaziPromptForResult(params: {
     section('当前时间', formatPromptCurrentTime()),
     section('排盘信息', chart),
     formatBaziTopicFocus(topic) ? section('主题取用', formatBaziTopicFocus(topic)) : '',
-    formatBaziPatternConditions(params.result)
-      ? section('格局条件', formatBaziPatternConditions(params.result))
-      : '',
+    patternConditions ? section('格局条件', patternConditions) : '',
     section('分析对象', scopeText),
     effectiveFortuneScope === 'full'
       ? section('命限资料', params.fortuneTextBatch?.text ?? formatBaziFullFortune(params.result))
@@ -346,8 +345,8 @@ export function buildBaziPromptForResult(params: {
     section('问题', question),
   ]);
   const schoolSection = params.schools?.length
-    ? buildBaziSchoolsPromptSection(params.result, params.schools)
-    : buildBaziSchoolPromptSection(params.result, params.school);
+    ? buildBaziSchoolsPromptSection(params.result, params.schools, true)
+    : buildBaziSchoolPromptSection(params.result, params.school, true);
   return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
 }
 
@@ -861,12 +860,15 @@ export function buildBaziZiweiPromptForResults(params: {
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
-  const patternConditions = formatBaziPatternConditions(params.baziResult);
+  const patternConditions =
+    params.baziSchool || params.baziSchools?.length
+      ? ''
+      : formatBaziPatternConditions(params.baziResult);
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, ziweiScope);
   const guidance = [
     params.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools)
-      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
+      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools, true)
+      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool, true),
     params.ziweiSchools?.length
       ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', params.ziweiSchools)}`
       : params.ziweiSchool

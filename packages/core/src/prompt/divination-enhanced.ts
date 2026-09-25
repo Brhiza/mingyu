@@ -48,7 +48,7 @@ import {
   getDunJiaStem,
   hasTianPanStem,
 } from '../divination/algorithms/qimen/helpers/palace-utils';
-import { evaluateQimenPatternFulfillment } from '../divination/algorithms/qimen/helpers/guidance';
+import { formatQimenPatternConditionSummary } from '../divination/algorithms/qimen/helpers/guidance';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
@@ -797,7 +797,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
   const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
-  const patternFulfillments = evaluateQimenPatternFulfillment(data);
+  const patternFulfillments = formatQimenPatternConditionSummary(data);
   const triggerConditions = [...new Set(data.yingQi?.triggerConditions ?? [])];
   const yingQiSources = [
     ...new Set(

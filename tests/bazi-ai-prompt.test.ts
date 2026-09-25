@@ -131,16 +131,47 @@ test('普通成格提示词保留结论并省略重复的格局条件', () => {
   assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
 });
 
-test('破格提示词只补充当前破格作用', () => {
+test('破格救应已在核心判断列明时省略重复格局条件', () => {
   const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
   assert.equal(result.analysis.mingGe.fulfillment?.status, '破格');
 
   const conditions = formatBaziPatternConditions(result);
-  assert.match(conditions, /破格项：/);
-  assert.doesNotMatch(conditions, /取格分层候选：|候选取用：|格局条件：/);
+  assert.equal(conditions, '');
   const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
   assert.match(prompt, /当前成败判定：破格/);
-  assert.match(prompt, /【格局条件】\n破格项：/);
+  assert.match(prompt, /格局破格所忌：丁伤官（时柱）；伤官见官的救应明确不成立/);
+  assert.doesNotMatch(prompt, /【格局条件】/);
+
+  result.analysis.usefulGod.decisionEvidence!.patternBreakerRestrictions = [];
+  assert.match(formatBaziPatternConditions(result), /破格项：伤官见官/);
+});
+
+test('流派提示词只补充格局的盘面证据，不复述共同判定和未激活破格候选', () => {
+  const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
+    for (const options of [
+      { school: 'ziping' as const },
+      { schools: ['ziping', 'mangpai', 'xinpai'] as const },
+    ]) {
+      const prompt = build({ result, ...options });
+      assert.equal(prompt.match(/所取格局：/g)?.length, 1);
+      assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
+      assert.doesNotMatch(prompt, /^条件核验：[^\n]*官杀混杂未透干/gm);
+      assert.match(prompt, /透干通根：/);
+      assert.match(prompt, /当前成败判定：破格/);
+      const conditionLines = prompt
+        .split('\n')
+        .filter((line) => /^(?:条件核验|制化路径)：/.test(line));
+      assert.equal(conditionLines.length, new Set(conditionLines).size);
+    }
+  }
+});
+
+test('时辰未知的多派提示词保留候选资料', () => {
+  const result = createBaziResult({ timeIndex: undefined, isThreePillars: true });
+  const prompt = buildBaziPromptForResult({ result, schools: ['ziping', 'mangpai'] });
+  assert.match(prompt, /出生时辰未知/);
+  assert.match(prompt, /时辰候选/);
 });
 
 test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {

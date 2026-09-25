@@ -211,6 +211,37 @@ test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提�
   assert.ok(ziweiOnly.prompt.includes('官禄宫'));
 });
 
+test('主题及双盘流派提示词只呈现一次八字格局判定与破格限制', async () => {
+  const baziResult = baziCalculator.calculateBazi({
+    ...samplePerson,
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+  });
+  const ziweiResult = await getSampleZiweiResult();
+  const prompts = [
+    buildThematicConsultationPrompt({
+      baziResult,
+      system: 'bazi',
+      topic: 'career',
+      baziSchool: 'ziping',
+    }).prompt,
+    buildBaziZiweiPromptForResults({
+      baziResult,
+      ziweiResult,
+      question: '事业如何安排？',
+      baziSchool: 'ziping',
+    }),
+  ];
+  for (const prompt of prompts) {
+    assert.equal(prompt.match(/所取格局：/g)?.length, 1);
+    assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
+    assert.doesNotMatch(prompt, /【八字格局条件】/);
+    assert.match(prompt, /透干通根：/);
+  }
+});
+
 test('三柱缺时辰降级时八字主题提示词仍可稳定生成', () => {
   const threePillarsPerson = {
     ...samplePerson,

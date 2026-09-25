@@ -204,6 +204,8 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
 
   if (fulfillment && fulfillment.status !== '成格') {
     const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+    const statedBreakers =
+      result.analysis.usefulGod?.decisionEvidence?.patternBreakerRestrictions ?? [];
     facts.push(
       ...(fulfillment.conditionFacts ?? [])
         .filter(
@@ -217,6 +219,19 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
         .map((item) => `条件核验：${item.status}；${item.detail}`),
     );
     for (const breaker of fulfillment.activeBreakers ?? []) {
+      if (
+        breaker.repairStatus === '不满足' &&
+        breaker.stems.length > 0 &&
+        statedBreakers.some(
+          (stated) =>
+            stated.label === breaker.label &&
+            breaker.stems.every((stem) =>
+              stated.stems.some((item) => item.stem === stem.stem && item.pillar === stem.pillar),
+            ),
+        )
+      ) {
+        continue;
+      }
       const stems = breaker.stems
         .map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`)
         .join('、');
@@ -286,10 +301,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     selectedSchools.length
       ? buildPromptSection(
           selectedSchools.length > 1 ? '多派合参' : '解读流派',
-          formatBaziSchoolsPrompt(options.result, selectedSchools),
+          formatBaziSchoolsPrompt(options.result, selectedSchools, true),
         )
       : options.school
-        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school))
+        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school, true))
         : '',
     buildPromptSection('分析对象', scopeText),
     fortuneFocus ? buildPromptSection('岁运重点', fortuneFocus) : '',

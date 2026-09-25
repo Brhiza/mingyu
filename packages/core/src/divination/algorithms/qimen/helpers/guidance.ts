@@ -78,8 +78,15 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
   return Array.from(palaceMap.values());
 }
 
-/** 保留同宫格局及空迫条件，区分结构身份与落实判断。 */
-export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
+interface QimenPatternCondition {
+  name: string;
+  type: 'good' | 'bad' | 'neutral';
+  gong: number;
+  palaceName: string;
+  conditions: string[];
+}
+
+function collectQimenPatternConditions(data: QimenData): QimenPatternCondition[] {
   const voidGongs = new Set(data.voidPalaces?.map((p) => p.palace) ?? []);
   const patterns = data.classicPatterns ?? [];
   const menPoGongs = new Set(patterns.filter((p) => p.name === '门迫').flatMap((p) => p.palaces));
@@ -91,8 +98,8 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
         if (names.includes(palace.name)) menPoGongs.add(palace.gong);
       }
   }
-  const results: string[] = [];
-  for (const pattern of patterns)
+  const results: QimenPatternCondition[] = [];
+  for (const pattern of patterns) {
     for (const gong of pattern.palaces) {
       const palace = data.jiuGongGe.find((item) => item.gong === gong);
       if (!palace) continue;
@@ -100,12 +107,57 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
         voidGongs.has(gong) ? '空亡' : '',
         menPoGongs.has(gong) ? '门迫' : '',
       ].filter(Boolean);
-      if (!conditions.length) continue;
-      const identity =
-        pattern.type === 'good' ? '吉格' : pattern.type === 'bad' ? '凶格' : '中性格局';
-      results.push(
-        `【${pattern.name}】落${palace.name}，属${identity}，同宫见${conditions.join('、')}。`,
-      );
+      if (conditions.length) {
+        results.push({
+          name: pattern.name,
+          type: pattern.type,
+          gong,
+          palaceName: palace.name,
+          conditions,
+        });
+      }
     }
+  }
   return results;
+}
+
+/** 保留同宫格局及空迫条件，区分结构身份与落实判断。 */
+export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
+  return collectQimenPatternConditions(data).map(({ name, type, palaceName, conditions }) => {
+    const identity = type === 'good' ? '吉格' : type === 'bad' ? '凶格' : '中性格局';
+    return `【${name}】落${palaceName}，属${identity}，同宫见${conditions.join('、')}。`;
+  });
+}
+
+/** 提示词按宫保留实际空迫叠加，格局自身即为门迫时不重复描述。 */
+export function formatQimenPatternConditionSummary(data: QimenData): string[] {
+  const affectedPatterns = new Map<
+    number,
+    {
+      palaceName: string;
+      conditions: string[];
+      namesByType: Map<QimenPatternCondition['type'], Set<string>>;
+    }
+  >();
+  for (const item of collectQimenPatternConditions(data)) {
+    if (item.name === '门迫') continue;
+    const group = affectedPatterns.get(item.gong) ?? {
+      palaceName: item.palaceName,
+      conditions: item.conditions,
+      namesByType: new Map<QimenPatternCondition['type'], Set<string>>(),
+    };
+    const names = group.namesByType.get(item.type) ?? new Set<string>();
+    names.add(item.name);
+    group.namesByType.set(item.type, names);
+    affectedPatterns.set(item.gong, group);
+  }
+  return [...affectedPatterns.values()].map((group) => {
+    const names = (['good', 'bad', 'neutral'] as const)
+      .filter((type) => group.namesByType.has(type))
+      .map((type) => {
+        const label = type === 'good' ? '吉格' : type === 'bad' ? '凶格' : '中性格局';
+        return `${label}（${[...group.namesByType.get(type)!].join('、')}）`;
+      });
+    return `${group.palaceName}同宫见${group.conditions.join('、')}：${names.join('；')}`;
+  });
 }

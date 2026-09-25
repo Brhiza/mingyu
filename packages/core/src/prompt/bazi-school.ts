@@ -135,10 +135,10 @@ function usefulWuxing(result: BaziChartResult) {
   return { favorable, unfavorable };
 }
 
-function formatUsefulGod(result: BaziChartResult) {
+function formatUsefulGod(result: BaziChartResult, embedded = false) {
   const useful = result.analysis.usefulGod;
   const { favorable, unfavorable } = usefulWuxing(result);
-  const usefulGodFunctions = formatUsefulGodFunctions(useful);
+  const usefulGodFunctions = embedded ? [] : formatUsefulGodFunctions(useful);
   return joinFacts([
     useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
     useful.secondaryFavorableWuxing?.length
@@ -170,10 +170,46 @@ function formatTransformationFacts(result: BaziChartResult) {
   ];
 }
 
-function formatSchoolPatternFacts(result: BaziChartResult) {
-  return formatPatternFulfillmentFacts(result.analysis.mingGe).filter(
-    (item) => !item.startsWith('候选取用：') && !item.startsWith('格局条件：'),
+function formatSchoolPatternFacts(result: BaziChartResult, embedded = false) {
+  const facts = formatPatternFulfillmentFacts(result.analysis.mingGe);
+  if (!embedded) {
+    return facts.filter((item) => !item.startsWith('候选取用：') && !item.startsWith('格局条件：'));
+  }
+  const fulfillment = result.analysis.mingGe.fulfillment;
+  const decisionDetail = fulfillment?.decisionDetail || fulfillment?.summary || '';
+  const specialFacts = facts.filter(
+    (item) =>
+      item.startsWith('取格分层候选：') ||
+      (!fulfillment && item.startsWith('特殊格裁决：')) ||
+      (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
+      item.startsWith('食伤明透：') ||
+      item.startsWith('财星明透：') ||
+      item.startsWith('特殊格反证：') ||
+      item.startsWith('成员支藏干保留：') ||
+      item.startsWith('从儿五行流向：') ||
+      item.startsWith('食伤结构根：') ||
+      item.startsWith('财星结构根：') ||
+      item.startsWith('顺局作用：') ||
+      item.startsWith('原支藏印官事实：'),
   );
+  const conditionFacts = (fulfillment?.conditionFacts ?? [])
+    .filter(
+      (item) =>
+        [
+          'pattern.month-gate',
+          'pattern.target',
+          'pattern.month-principal-control',
+          'bazi.wealth-bearing',
+        ].includes(item.key) && !decisionDetail.includes(item.detail),
+    )
+    .map((item) => `条件核验：${item.status}；${item.detail}`);
+  const repairPathKeys = new Set(
+    (fulfillment?.activeBreakers ?? []).flatMap((breaker) => breaker.repairPathKeys),
+  );
+  const repairPaths = (fulfillment?.pathEvaluations ?? [])
+    .filter((item) => repairPathKeys.has(item.key) && !decisionDetail.includes(item.detail))
+    .map((item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`);
+  return [...specialFacts, ...conditionFacts, ...repairPaths];
 }
 
 function formatTenGodStructure(result: BaziChartResult) {
@@ -265,43 +301,49 @@ function formatFortune(result: BaziChartResult) {
   ]);
 }
 
-function formatZipingFacts(result: BaziChartResult) {
+function formatZipingFacts(result: BaziChartResult, embedded = false, patternEvidence = true) {
   const strength = result.analysis.dayMasterStrength;
   const details = strength.details;
   return [
     `月令与节候：月柱${result.pillars.month.ganZhi}，月支本气${result.hiddenStems.month?.[0] || '未记录'}，月令司权${result.monthCommander || '未记录'}，${result.seasonInfo.currentSeason || '当前'}令，节气${result.seasonInfo.currentJieqi || '未记录'}`,
     `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
     `透干通根：${formatRoots(result)}`,
-    `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
-    ...formatSchoolPatternFacts(result),
-    ...formatTransformationFacts(result),
-    `调候与取用：${formatUsefulGod(result)}；五行季节状态${
+    embedded
+      ? ''
+      : `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
+    ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
+    ...(patternEvidence ? formatTransformationFacts(result) : []),
+    `调候与取用：${formatUsefulGod(result, embedded)}；五行季节状态${
       Object.entries(result.wuxingSeasonStatus)
         .map(([element, status]) => `${element}${status}`)
         .join('、') || '未记录'
     }`,
     `岁运：${formatFortune(result)}`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-function formatMangpaiFacts(result: BaziChartResult) {
+function formatMangpaiFacts(result: BaziChartResult, embedded = false, patternEvidence = true) {
   return [
     '四柱宫位与十神落位：',
     formatPillars(result, { includePalace: true, includeLifeStage: true }),
     `主宾定位：主位为日柱${result.pillars.day.ganZhi}与时柱${result.pillars.hour.ganZhi}，其中日干${result.dayMaster.gan}代表命主，日支${result.pillars.day.zhi}为夫妻宫；宾位为年柱${result.pillars.year.ganZhi}与月柱${result.pillars.month.ganZhi}，再围绕所问事项从相应宫位和十神确定体用。`,
     `十神显隐：${formatTenGodStructure(result)}`,
     `透干通根：${formatRoots(result)}`,
-    `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatSchoolPatternFacts(result),
-    ...formatTransformationFacts(result),
+    embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
+    ...(patternEvidence ? formatTransformationFacts(result) : []),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
     `分柱年限：年柱约对应1至16岁，月柱约对应17至32岁，日柱约对应33至48岁，时柱约对应49岁以后；${formatFortune(result)}`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-function formatXinpaiFacts(result: BaziChartResult) {
+function formatXinpaiFacts(result: BaziChartResult, embedded = false, patternEvidence = true) {
   const strength = result.analysis.dayMasterStrength;
   const details = strength.details;
   const positiveRuleBasis = details.ruleBasis
@@ -319,14 +361,16 @@ function formatXinpaiFacts(result: BaziChartResult) {
     }`,
     `十神结构：${formatTenGodStructure(result)}`,
     `十神流通：候选链条${formatTenGodFlow(result)}`,
-    `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatSchoolPatternFacts(result),
-    ...formatTransformationFacts(result),
+    embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
+    ...(patternEvidence ? formatTransformationFacts(result) : []),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
     `原局作用：${formatRelations(result)}`,
     `动态岁运：${formatFortune(result)}`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function normalizeBaziPromptSchool(school: BaziPromptSchool): NormalizedBaziPromptSchool {
@@ -358,15 +402,24 @@ function formatUnknownTimeFacts(result: BaziChartResult) {
     .join('\n');
 }
 
-export function formatBaziSchoolFacts(result: BaziChartResult, school: BaziPromptSchool) {
+export function formatBaziSchoolFacts(
+  result: BaziChartResult,
+  school: BaziPromptSchool,
+  embedded = false,
+  patternEvidence = true,
+) {
   if (result.isThreePillars) return formatUnknownTimeFacts(result);
   const normalized = normalizeBaziPromptSchool(school);
-  if (normalized === 'ziping') return formatZipingFacts(result);
-  if (normalized === 'mangpai') return formatMangpaiFacts(result);
-  return formatXinpaiFacts(result);
+  if (normalized === 'ziping') return formatZipingFacts(result, embedded, patternEvidence);
+  if (normalized === 'mangpai') return formatMangpaiFacts(result, embedded, patternEvidence);
+  return formatXinpaiFacts(result, embedded, patternEvidence);
 }
 
-export function formatBaziSchoolPrompt(result: BaziChartResult, school: BaziPromptSchool) {
+export function formatBaziSchoolPrompt(
+  result: BaziChartResult,
+  school: BaziPromptSchool,
+  embedded = false,
+) {
   const normalized = normalizeBaziPromptSchool(school);
   const profile = BAZI_SCHOOL_PROFILES[normalized];
   return [
@@ -374,12 +427,16 @@ export function formatBaziSchoolPrompt(result: BaziChartResult, school: BaziProm
     `流派任务：${profile.task}`,
     `流派依据：${profile.basis}`,
     '流派盘面资料：',
-    formatBaziSchoolFacts(result, school),
+    formatBaziSchoolFacts(result, school, embedded),
   ].join('\n');
 }
 
-export function buildBaziSchoolPromptSection(result: BaziChartResult, school?: BaziPromptSchool) {
-  return school ? `【流派】\n${formatBaziSchoolPrompt(result, school)}` : '';
+export function buildBaziSchoolPromptSection(
+  result: BaziChartResult,
+  school?: BaziPromptSchool,
+  embedded = false,
+) {
+  return school ? `【流派】\n${formatBaziSchoolPrompt(result, school, embedded)}` : '';
 }
 
 export function normalizeBaziPromptSchools(
@@ -396,9 +453,14 @@ export function normalizeBaziPromptSchools(
 export function formatBaziSchoolsPrompt(
   result: BaziChartResult,
   schools?: readonly BaziPromptSchool[] | null,
+  embedded = false,
 ) {
   const selected = normalizeBaziPromptSchools(schools);
   if (!selected.length) return '';
+  const sharedPatternEvidence =
+    selected.length > 1 && !result.isThreePillars
+      ? [...formatSchoolPatternFacts(result, embedded), ...formatTransformationFacts(result)]
+      : [];
   const blocks = selected.map((school, index) => {
     const profile = BAZI_SCHOOL_PROFILES[school];
     return [
@@ -406,7 +468,7 @@ export function formatBaziSchoolsPrompt(
       `流派任务：${profile.task}`,
       `流派依据：${profile.basis}`,
       '本派盘面资料：',
-      formatBaziSchoolFacts(result, school),
+      formatBaziSchoolFacts(result, school, embedded, selected.length === 1),
     ].join('\n');
   });
   if (selected.length > 1) {
@@ -414,14 +476,20 @@ export function formatBaziSchoolsPrompt(
       '合参任务：请先按每个流派分别形成判断，再归纳共同结论、分歧及各自对应的盘面依据，最后围绕问题给出综合判断。',
     );
   }
-  return blocks.join('\n\n');
+  return [
+    sharedPatternEvidence.length ? `共同格局事实：\n${sharedPatternEvidence.join('\n')}` : '',
+    ...blocks,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function buildBaziSchoolsPromptSection(
   result: BaziChartResult,
   schools?: readonly BaziPromptSchool[] | null,
+  embedded = false,
 ) {
   const selected = normalizeBaziPromptSchools(schools);
-  const content = formatBaziSchoolsPrompt(result, selected);
+  const content = formatBaziSchoolsPrompt(result, selected, embedded);
   return content ? `【${selected.length > 1 ? '多派合参' : '解读流派'}】\n${content}` : '';
 }

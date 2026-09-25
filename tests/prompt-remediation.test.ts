@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import { baziCalculator } from '../packages/core/src/bazi/index.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { evaluateQimenPatternFulfillment } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
+import {
+  evaluateQimenPatternFulfillment,
+  formatQimenPatternConditionSummary,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { resolveSignByNumber } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { buildTaskText } from '../packages/core/src/divination/engine/method-text.ts';
@@ -62,7 +65,7 @@ test('梅花与皇极任务模板按实际输入资料收窄', () => {
   assert.doesNotMatch(cycleTask, /六十年统卦|时经卦/);
 });
 
-test('奇门提示资料完整保留超过三条格局实效', () => {
+test('奇门提示资料按宫归并格局条件并完整保留超过三条格局', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   const anchor = data.jiuGongGe[0];
   const expanded = {
@@ -79,8 +82,13 @@ test('奇门提示资料完整保留超过三条格局实效', () => {
   const text = formatEnhancedDivinationInfo('qimen', expanded);
 
   assert.equal(fulfillments.length, 8);
-  for (const fulfillment of fulfillments) {
-    assert.match(text, new RegExp(escapeRegExp(fulfillment)));
+  const summary = formatQimenPatternConditionSummary(expanded);
+  assert.deepEqual(summary, [
+    `${anchor.name}同宫见空亡：凶格（${expanded.classicPatterns.map((item) => item.name).join('、')}）`,
+  ]);
+  assert.ok(text.includes(`格局条件：\n${summary[0]}`));
+  for (const pattern of expanded.classicPatterns) {
+    assert.match(text, new RegExp(escapeRegExp(pattern.name)));
   }
   assert.doesNotMatch(text, /灾咎减半/);
 });
