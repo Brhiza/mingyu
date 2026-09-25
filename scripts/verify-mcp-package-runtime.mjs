@@ -120,7 +120,13 @@ try {
   });
   assert.notEqual(lifetimeResponse.isError, true);
   const lifetime = lifetimeResponse.structuredContent;
-  assert.ok(lifetime.prompt.length > 100_000);
+  assert.match(lifetime.prompt, /【周期触发与事件簇】/u);
+  for (let year = 2026; year <= 2056; year += 1) {
+    assert.ok(lifetime.prompt.includes(`${year}年`));
+  }
+  assert.match(lifetime.prompt, /可复核日期/u);
+  assert.match(lifetime.prompt, /共\d+个日辰/u);
+  assert.doesNotMatch(lifetime.prompt, /按当地民用日读取日支与本命/u);
   assert.deepEqual(lifetime.result.input.periodRange, lifetimeInput.periodRange);
   assert.equal(lifetime.result.eventClusters.length, 161);
   assert.equal(

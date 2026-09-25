@@ -58,13 +58,17 @@ try {
     timeStandard: 'civil',
     periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
     question: '分析完整目标时段的事业变化。',
+    responseMode: 'summary',
   };
   const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', lifetimeInput);
-  assert.ok(lifetime.prompt.length > 100_000);
+  assert.equal(lifetime.summary.eventClustersCount, 161);
+  assert.match(lifetime.prompt, /【周期触发与事件簇】/u);
   for (let year = 2026; year <= 2056; year += 1) {
     assert.ok(lifetime.prompt.includes(`${year}年`));
   }
   assert.match(lifetime.prompt, /可复核日期/u);
+  assert.match(lifetime.prompt, /共\d+个日辰/u);
+  assert.doesNotMatch(lifetime.prompt, /按当地民用日读取日支与本命/u);
   const oversizedLifetime = await fetch(`${origin}/api/v1/divination/qimen/lifetime/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
