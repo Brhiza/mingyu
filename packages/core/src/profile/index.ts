@@ -87,6 +87,7 @@ export interface BirthProfile {
   minute?: number;
   /** 明确传统时辰索引，范围 0-12；未启用真太阳时时可替代精准时分。 */
   timeIndex?: number;
+  /** 出生秒数；需与完整的 hour、minute 同时提供。 */
   second?: number;
   isLeapMonth?: boolean;
   location?: BirthProfileLocation;
@@ -260,6 +261,13 @@ function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
       'TIME_REQUIRED',
       '出生小时和分钟必须同时提供；也可以改为只提供明确的传统时辰。',
       hasHour ? 'minute' : 'hour',
+    );
+  }
+  if (profile.second !== undefined && !hasPreciseTime) {
+    throwBirthTimeError(
+      'PRECISE_TIME_REQUIRED',
+      '出生秒数必须与完整的出生小时和分钟同时提供。',
+      'second',
     );
   }
   if (!hasPreciseTime && !hasTimeIndex) {
@@ -618,7 +626,16 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
  */
 export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput {
   const normalized = normalizeBirthProfile(profile);
-  requireReady(normalized);
+  const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
+    normalized.timeInputMode !== 'precise-clock-time'
+      ? {
+          code: 'PRECISE_TIME_REQUIRED',
+          level: 'error',
+          field: 'hour',
+          message: '七政四余必须提供精确到分钟的出生时间，不能使用传统时辰代表值。',
+        }
+      : undefined;
+  requireReady(normalized, preciseTimeDiagnostic);
   const clock = normalized.solarClockTime;
   const location = normalized.resolvedLocation;
   return {

@@ -119,11 +119,37 @@ test('分钟级算法不得把传统时辰代表值当作精准出生时间', ()
       error.message === '星盘必须提供精确到分钟的出生时间，不能使用传统时辰代表值。',
   );
   assert.throws(
+    () => birthProfileToQizhengInput(profile),
+    (error: unknown) =>
+      error instanceof BirthProfileError &&
+      error.code === 'PRECISE_TIME_REQUIRED' &&
+      error.message === '七政四余必须提供精确到分钟的出生时间，不能使用传统时辰代表值。',
+  );
+  assert.throws(
     () => normalizeBirthProfile({ ...profile, useTrueSolarTime: true }),
     (error: unknown) =>
       error instanceof BirthProfileError &&
       error.code === 'PRECISE_TIME_REQUIRED' &&
       error.message === '真太阳时必须提供完整的出生小时和分钟，不能使用传统时辰代表值。',
+  );
+});
+
+test('单独出生秒数不能与传统时辰拼接为虚构的精确出生时刻', () => {
+  assert.throws(
+    () =>
+      normalizeBirthProfile({
+        gender: 'male',
+        calendarType: 'solar',
+        year: 2024,
+        month: 2,
+        day: 4,
+        timeIndex: 6,
+        second: 59,
+      }),
+    (error: unknown) =>
+      error instanceof BirthProfileError &&
+      error.code === 'PRECISE_TIME_REQUIRED' &&
+      error.field === 'second',
   );
 });
 

@@ -54,6 +54,21 @@ test('七政四余适配器应把原始民用时间交给引擎，避免真太�
   assert.deepEqual(direct.stars, generateQizheng(input).stars);
 });
 
+test('出生 Bundle 不以传统时辰代表时刻生成七政四余精确星体位置', async () => {
+  const traditionalProfile: BirthProfile = {
+    ...profile,
+    hour: undefined,
+    minute: undefined,
+    timeIndex: 6,
+    useTrueSolarTime: false,
+  };
+  await assert.rejects(
+    calculateBirthChartBundle(traditionalProfile, { systems: ['qizheng'] }),
+    (error: unknown) =>
+      error instanceof Error && 'code' in error && error.code === 'PRECISE_TIME_REQUIRED',
+  );
+});
+
 test('出生 Bundle 默认只计算八字，避免无意触发可选紫微依赖', async () => {
   const bundle = await calculateBirthChartBundle({ ...profile, useTrueSolarTime: false });
 
