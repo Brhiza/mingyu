@@ -802,9 +802,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const yingQiSources = [
     ...new Set(
       (data.yingQi?.sources ?? []).map((source) =>
-        source.startsWith('未选定事项用神')
-          ? '当前以值符宫作通用参考，事项用神按问题确定'
-          : source,
+        source.startsWith('未选定事项用神') ? '当前以值符宫作通用参考，事项用神按问题确定' : source,
       ),
     ),
   ].filter((source) => !triggerConditions.includes(source));
