@@ -18,7 +18,10 @@ function joinOrFallback(values: string[] | undefined, fallback = '无'): string 
 }
 
 /** 保留具体干的作用范围，供盘面、复制文本及解读资料共同使用。 */
-export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[] {
+export function formatUsefulGodFunctions(
+  usefulGod: UsefulGodAnalysis,
+  includeTransformationConditions = true,
+): string[] {
   const natalPatternGods = (usefulGod.decisionEvidence?.natalFunctions ?? [])
     .filter((item) => item.role === '格神')
     .map(
@@ -70,7 +73,14 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
         ]
       : []),
     ...(usefulGod.decisionEvidence?.transformation
-      ? [`化神取用：${usefulGod.decisionEvidence.transformation.basis}`]
+      ? [
+          `化神取用：${usefulGod.decisionEvidence.transformation.basis}`,
+          ...(includeTransformationConditions
+            ? usefulGod.decisionEvidence.transformation.conditions.map(
+                (condition) => `取用条件：${condition}`,
+              )
+            : []),
+        ]
       : []),
     usefulGod.decisionEvidence?.balanceAdjustment
       ? `取用配合：${usefulGod.decisionEvidence.balanceAdjustment.reason}`
@@ -435,7 +445,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       analysis.usefulGod.incrementStatus === '待判'
         ? '增补五行喜忌: 待判\n'
         : `取用: ${favorableText}；${unfavorableText}\n`;
-    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod);
+    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod, false);
     if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
     if (
       includeRules &&

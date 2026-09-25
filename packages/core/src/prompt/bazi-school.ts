@@ -138,7 +138,7 @@ function usefulWuxing(result: BaziChartResult) {
 function formatUsefulGod(result: BaziChartResult, embedded = false) {
   const useful = result.analysis.usefulGod;
   const { favorable, unfavorable } = usefulWuxing(result);
-  const usefulGodFunctions = embedded ? [] : formatUsefulGodFunctions(useful);
+  const usefulGodFunctions = embedded ? [] : formatUsefulGodFunctions(useful, false);
   return joinFacts([
     useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
     useful.secondaryFavorableWuxing?.length

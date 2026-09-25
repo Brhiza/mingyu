@@ -156,7 +156,7 @@ function calculateNamingPointBirthContext(input: NamingBirthInput) {
     unfavorableElements,
     incrementStatus: chart.analysis.usefulGod.incrementStatus ?? '待判',
     usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
-    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod),
+    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod, false),
     monthContext: {
       branch: chart.pillars.month.zhi,
       commander: chart.monthCommander,

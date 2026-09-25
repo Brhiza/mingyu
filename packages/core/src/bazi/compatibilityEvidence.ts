@@ -444,7 +444,7 @@ function calculateUsefulGodCoverage(
   const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
   const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
   const usefulGod = beneficiaryChart.analysis.usefulGod;
-  const functionalDescriptions = formatUsefulGodFunctions(usefulGod).filter(
+  const functionalDescriptions = formatUsefulGodFunctions(usefulGod, false).filter(
     (item) => !item.startsWith('化神取用：'),
   );
   if (!favorable?.length && !unfavorable?.length) {

@@ -56,7 +56,8 @@ test('五种真化按化神顺势取用，原日主旺衰改变不能倒回普�
         result.decisionEvidence!.transformation!.conditions.join('；'),
         /化神太过.*泄耗制化条件/,
       );
-      assert.doesNotMatch(text, /取用条件：/);
+      assert.match(text, /取用条件：.*化神太过/);
+      assert.doesNotMatch(formatUsefulGodFunctions(result, false).join('\n'), /取用条件：/);
       assert.doesNotMatch(result.strategyTrace.join('\n'), /身弱取印比|身强取泄耗克/);
     }
   }

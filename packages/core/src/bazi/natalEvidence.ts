@@ -330,7 +330,7 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
         : '',
     usefulGod.incrementStatus !== '待判' && usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
     usefulGod.incrementStatus !== '待判' && usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
-    ...formatUsefulGodFunctions(usefulGod),
+    ...formatUsefulGodFunctions(usefulGod, false),
   ]
     .filter(Boolean)
     .join('；');
