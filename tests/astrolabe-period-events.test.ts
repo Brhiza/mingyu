@@ -10,6 +10,7 @@ import {
   buildAstrolabeScopeContext,
   mergeAstrolabePeriodEvents,
   rankAstrolabeAspects,
+  resolveAstrolabePeriodWindow,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { formatAstrolabeForPrompt, formatAstrolabeInfo } from 'mingyu-core/prompt';
@@ -27,6 +28,86 @@ const astrolabeData = generateAstrolabe({
   longitude: '116.4074',
   timezone: '8',
   locationName: '北京',
+});
+
+test('圣地亚哥春季跳时日的周期从实际 01:00 起算', () => {
+  const context = { ...buildAstrolabePeriodContext(astrolabeData), timeZoneId: 'America/Santiago' };
+  const target = { year: 2024, month: 9, day: 8 };
+  const daily = resolveAstrolabePeriodWindow(context, 'daily', target);
+  const monthly = resolveAstrolabePeriodWindow(context, 'monthly', target);
+  const batch = resolveAstrolabePeriodWindow(context, 'monthly', target, {
+    start: target,
+    endExclusive: { year: 2024, month: 9, day: 9 },
+  });
+
+  assert.equal(daily.start.utcDateTime, '2024-09-08T04:00:00.000Z');
+  assert.equal(daily.startDateTime, '2024-09-08 01:00');
+  assert.equal(daily.end.utcDateTime, '2024-09-09T03:00:00.000Z');
+  assert.equal(daily.end.utcTimestamp - daily.start.utcTimestamp, 23 * 3600000);
+  assert.equal(monthly.start.utcDateTime, '2024-09-01T04:00:00.000Z');
+  assert.equal(monthly.end.utcDateTime, '2024-10-01T03:00:00.000Z');
+  assert.equal(batch.start.utcTimestamp, daily.start.utcTimestamp);
+  assert.equal(batch.end.utcTimestamp, daily.end.utcTimestamp);
+  assert.deepEqual(batch.batch?.range, {
+    startDate: '2024-09-08',
+    endDate: '2024-09-09',
+    endExclusive: true,
+  });
+});
+
+test('哈瓦那回拨重复零点取当地公历日的最早瞬时点', () => {
+  const context = { ...buildAstrolabePeriodContext(astrolabeData), timeZoneId: 'America/Havana' };
+  const window = resolveAstrolabePeriodWindow(context, 'daily', {
+    year: 2024,
+    month: 11,
+    day: 3,
+  });
+
+  assert.equal(window.start.utcDateTime, '2024-11-03T04:00:00.000Z');
+  assert.equal(window.startDateTime, '2024-11-03 00:00');
+  assert.equal(window.start.timezone, -4);
+  assert.equal(window.end.utcDateTime, '2024-11-04T05:00:00.000Z');
+  assert.equal(window.end.utcTimestamp - window.start.utcTimestamp, 25 * 3600000);
+});
+
+test('换日线回拨重复整日时采用首次当地零点', () => {
+  const context = {
+    ...buildAstrolabePeriodContext(astrolabeData),
+    timeZoneId: 'Pacific/Kwajalein',
+  };
+  const window = resolveAstrolabePeriodWindow(context, 'daily', {
+    year: 1969,
+    month: 9,
+    day: 30,
+  });
+
+  assert.equal(window.start.utcDateTime, '1969-09-29T13:00:00.000Z');
+  assert.equal(window.end.utcDateTime, '1969-10-01T12:00:00.000Z');
+});
+
+test('周期边界保留普通 IANA 日期与固定偏移，并明确拒绝整日不存在', () => {
+  const context = buildAstrolabePeriodContext(astrolabeData);
+  const newYork = resolveAstrolabePeriodWindow(
+    { ...context, timeZoneId: 'America/New_York' },
+    'daily',
+    { year: 2024, month: 7, day: 1 },
+  );
+  const fixed = resolveAstrolabePeriodWindow(context, 'daily', {
+    year: 2024,
+    month: 7,
+    day: 1,
+  });
+  assert.equal(newYork.start.utcDateTime, '2024-07-01T04:00:00.000Z');
+  assert.equal(fixed.start.utcDateTime, '2024-06-30T16:00:00.000Z');
+  assert.throws(
+    () =>
+      resolveAstrolabePeriodWindow({ ...context, timeZoneId: 'Pacific/Apia' }, 'daily', {
+        year: 2011,
+        month: 12,
+        day: 30,
+      }),
+    /Pacific\/Apia.*2011-12-30.*整日不存在/,
+  );
 });
 
 test('流年应列出周期内动态点的精准相位、停逆、换座、朔望或交食', () => {
