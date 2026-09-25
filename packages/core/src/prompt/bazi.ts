@@ -218,6 +218,7 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
     const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
     const statedBreakers =
       result.analysis.usefulGod?.decisionEvidence?.patternBreakerRestrictions ?? [];
+    const repeatedStrength = `日主旺衰为${result.analysis.dayMasterStrength.status}；`;
     facts.push(
       ...(fulfillment.conditionFacts ?? [])
         .filter(
@@ -228,7 +229,12 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
             !item.key.startsWith('pattern.breaker.') &&
             !decisionDetail.includes(item.detail),
         )
-        .map((item) => `条件核验：${item.status}；${item.detail}`),
+        .map((item) => {
+          const detail = item.detail.startsWith(repeatedStrength)
+            ? item.detail.slice(repeatedStrength.length)
+            : item.detail;
+          return `条件核验：${item.status}；${detail}`;
+        }),
     );
     for (const breaker of fulfillment.activeBreakers ?? []) {
       if (
