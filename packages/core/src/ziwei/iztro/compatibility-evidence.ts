@@ -377,6 +377,7 @@ function buildBaseCalculationSteps(params: {
   payload2: AnalysisPayloadV1;
   overlays: ZiweiPalaceOverlay[];
   mutagens: ZiweiCrossMutagenPlacement[];
+  gaps: ZiweiCrossMutagenGap[];
 }): ZiweiCompatibilityCalculationStep[] {
   const sourceMutagenCount = [params.payload1, params.payload2].reduce(
     (count, payload) =>
@@ -453,9 +454,12 @@ function buildBaseCalculationSteps(params: {
       stage: '跨盘生年四化',
       status: '已计算',
       inputs: { sourceMutagenStarCount: sourceMutagenCount, directionCount: 2 },
-      result: { placementCount: params.mutagens.length },
+      result: {
+        placementCount: params.mutagens.length,
+        missingTargetStarCount: params.gaps.length,
+      },
       dependsOnStepKeys: ['ziwei:compatibility:calculation:star-index'],
-      promptText: `来源方生年四化星曜已在目标方盘中按同名星曜定位，记录${params.mutagens.length}项跨盘四化落宫事实`,
+      promptText: `来源方生年四化星曜按目标方同名星曜定位，记录${params.mutagens.length}项跨盘四化落宫事实${params.gaps.length ? `，另有${params.gaps.length}项目标方星曜资料缺口` : ''}`,
       sources: ['来源方本命生年四化标记', '目标方同名星曜落宫资料'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -510,7 +514,7 @@ function buildCounterEvidenceFacts(params: {
       {
         key: `ziwei:compatibility:counter:cross-mutagens:${direction.key}`,
         type: '跨盘四化覆盖',
-        status: mutagens.length ? '有可用证据' : gaps.length ? '资料缺口' : '未命中',
+        status: gaps.length ? '资料缺口' : mutagens.length ? '有可用证据' : '未命中',
         direction: direction.key,
         ownerFactKeys: [
           'ziwei:compatibility:calculation:cross-mutagens',
@@ -553,6 +557,7 @@ function buildCounterEvidenceFacts(params: {
 function buildSummaryFact(params: {
   overlays: ZiweiPalaceOverlay[];
   mutagens: ZiweiCrossMutagenPlacement[];
+  gaps: ZiweiCrossMutagenGap[];
   counterEvidenceFacts: ZiweiCompatibilityCounterEvidenceFact[];
 }): ZiweiCompatibilitySummaryFact {
   const mutagenCounts: Partial<Record<MutagenName, number>> = {};
@@ -562,6 +567,9 @@ function buildSummaryFact(params: {
   const uncoveredMutagenDirections = params.counterEvidenceFacts
     .filter((item) => item.type === '跨盘四化覆盖' && item.status === '未命中' && item.direction)
     .map((item) => item.direction!);
+  const incompleteMutagenDirectionCount = params.counterEvidenceFacts.filter(
+    (item) => item.type === '跨盘四化覆盖' && item.status === '资料缺口',
+  ).length;
   const status = params.mutagens.length
     ? '宫位与四化均有交叉'
     : params.overlays.length
@@ -578,13 +586,14 @@ function buildSummaryFact(params: {
       'ziwei:compatibility:calculation:cross-mutagens',
       ...params.overlays.map((item) => item.key),
       ...params.mutagens.map((item) => item.key),
+      ...params.gaps.map((item) => item.key),
     ],
     palaceOverlayCount: params.overlays.length,
     importantPalaceOverlayCount: params.overlays.filter(isImportantOverlay).length,
     crossMutagenPlacementCount: params.mutagens.length,
     mutagenCounts,
     uncoveredMutagenDirections,
-    promptText: `已记录宫位叠盘${params.overlays.length}项（其中命宫、身宫或夫妻等重点叠盘${params.overlays.filter(isImportantOverlay).length}项）、跨盘生年四化${params.mutagens.length}项${uncoveredMutagenDirections.length ? `；${uncoveredMutagenDirections.length}个方向未形成可定位的跨盘四化` : ''}`,
+    promptText: `已记录宫位叠盘${params.overlays.length}项（其中命宫、身宫或夫妻等重点叠盘${params.overlays.filter(isImportantOverlay).length}项）、跨盘生年四化${params.mutagens.length}项${params.gaps.length ? `；另有${params.gaps.length}项同名星曜定位资料缺口，涉及${incompleteMutagenDirectionCount}个方向` : ''}${uncoveredMutagenDirections.length ? `；${uncoveredMutagenDirections.length}个方向未形成可定位的跨盘四化` : ''}`,
     sources: ['全部宫位叠盘与跨盘生年四化定位事实汇总'],
     limitation: SUMMARY_LIMITATION,
   };
@@ -779,6 +788,7 @@ export function analyzeZiweiCompatibility(
     payload2,
     overlays: palaceOverlays,
     mutagens: crossMutagenPlacements,
+    gaps: crossMutagenGaps,
   });
   const counterEvidenceFacts = buildCounterEvidenceFacts({
     overlays: palaceOverlays,
@@ -788,6 +798,7 @@ export function analyzeZiweiCompatibility(
   const summaryFact = buildSummaryFact({
     overlays: palaceOverlays,
     mutagens: crossMutagenPlacements,
+    gaps: crossMutagenGaps,
     counterEvidenceFacts,
   });
   calculationSteps.push({
