@@ -1134,11 +1134,10 @@ function MeihuaTraditionalBoard({
       </div>
       {meihuaJudgement ? (
         <ClassicalAnnotationCard
-          title={`${meihuaJudgement.relationType} · 基础释义（未计季节旺衰与互变卦）`}
-          source="梅花易数·体用总断"
+          title={`${meihuaJudgement.relationType} · 体用关系原文`}
+          source={meihuaJudgement.sourceBook}
           verse={meihuaJudgement.classicSummary}
-          modernAdvice={`【条目固定取象，未结合本盘季节旺衰、互卦与变卦，不能视为本局定断】
-【决策要领】${meihuaJudgement.actionAdvice}\n【求财】${meihuaJudgement.matterCategories.seekingWealth} | 【求事】${meihuaJudgement.matterCategories.wishing} | 【婚姻】${meihuaJudgement.matterCategories.marriage}`}
+          modernAdvice={meihuaJudgement.context}
         />
       ) : null}
       {tiTrigramClassic ? (

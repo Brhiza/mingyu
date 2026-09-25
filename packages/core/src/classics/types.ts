@@ -78,16 +78,9 @@ export interface LiuyaoMovementRule {
 
 export interface MeihuaBodyUseJudgement {
   relationType: '体用比和' | '体克用' | '用克体' | '体生用' | '用生体';
-  auspice: '大吉' | '吉' | '凶' | '大凶' | '小损';
+  sourceBook: '梅花易数·体用总诀';
   classicSummary: string;
-  actionAdvice: string;
-  matterCategories: {
-    wishing: string;
-    seekingWealth: string;
-    marriage: string;
-    travel: string;
-    illness: string;
-  };
+  context: string;
 }
 
 export interface XiaoliurenPalaceClassic {

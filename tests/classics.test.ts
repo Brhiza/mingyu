@@ -140,12 +140,14 @@ test('六爻《卜筮正宗》与《增删卜易》动变生克断语查询正�
 test('梅花易数体用生克与八卦类象查询正确', () => {
   const bihe = getMeihuaBodyUseJudgement('体用比和');
   assert.ok(bihe);
-  assert.equal(bihe.auspice, '大吉');
-  assert.ok(bihe.matterCategories.seekingWealth.includes('利于合伙经商'));
+  assert.equal(bihe.sourceBook, '梅花易数·体用总诀');
+  assert.equal(bihe.classicSummary, '体用比和，则百事顺遂。');
+  assert.match(bihe.context, /旺衰、互卦与变卦/);
 
   const yongKeTi = getMeihuaBodyUseJudgement('用克体');
   assert.ok(yongKeTi);
-  assert.equal(yongKeTi.auspice, '大凶');
+  assert.equal(yongKeTi.classicSummary, '用克体，诸事凶。');
+  assert.equal('matterCategories' in yongKeTi, false);
 
   const qianTrigram = getMeihuaTrigramClassic('乾');
   assert.ok(qianTrigram);
