@@ -426,10 +426,8 @@ function formatGeneralPalace(value: number): string {
 }
 
 function createYearProbeDate(year: number): Date {
-  const date = new Date(0);
-  date.setHours(12, 0, 0, 0);
-  date.setFullYear(year, 6, 1);
-  return date;
+  // 东八区 7 月 1 日正午，与下游 readCivilParts 的日期口径一致。
+  return new Date(createUtcTimestamp(year, 6, 1, 4));
 }
 
 /**

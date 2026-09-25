@@ -153,7 +153,7 @@ export function calculateLiuyue(year: number, month: number, dayMaster: string):
   const startDate = firstJie?.date ?? `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = nextJie
     ? nextJie.date
-    : `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
+    : `${year}-${String(month).padStart(2, '0')}-${daysInSolarMonth(year, month).toString().padStart(2, '0')}`;
 
   return {
     month,

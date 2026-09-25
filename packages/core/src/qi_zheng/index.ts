@@ -38,7 +38,7 @@ import {
   calculateSolarIlluminationEvidence,
   type SolarIlluminationEvidence,
 } from '../calendar/solar-illumination-evidence';
-import { getBranchIndex, getGanZhiFromDate, getGanZhiYinYang, getStemIndex } from '../ganzhi';
+import { getBranchIndex, getGanZhiYinYang, getStemIndex } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
@@ -2306,19 +2306,20 @@ function generateQizhengInternal(
   const aspects = buildQizhengAspects(stars);
 
   // 神煞（年支 + 日干）
-  const dateGanZhi = getGanZhiFromDate(
-    new Date(
-      input.year,
-      input.month - 1,
-      input.day,
-      input.hour,
-      input.minute ?? 0,
-      input.second ?? 0,
-    ),
-  );
+  const dayGan = SolarTime.fromYmdHms(
+    input.year,
+    input.month,
+    input.day,
+    input.hour,
+    input.minute ?? 0,
+    input.second ?? 0,
+  )
+    .getLunarHour()
+    .getEightChar()
+    .getDay()
+    .getName()[0];
   const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
   const yearBranch = birthSeasonalYear[1];
-  const dayGan = dateGanZhi.day[0];
   const ys = yearBranchShensha(yearBranch);
   const shensha = [
     { name: '天乙贵人', value: tianYiGuiRen(dayGan) },

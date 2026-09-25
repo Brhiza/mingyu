@@ -4,6 +4,7 @@
  */
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { getXunKongBranches } from '../ganzhi';
+import { daysInSolarMonth } from './date-validation';
 
 /**
  * 干支信息接口
@@ -75,12 +76,6 @@ export class LunarUtil {
   private static assertSolarYear(year: number): void {
     if (!Number.isInteger(year) || year < 1900 || year > 2100) {
       throw new Error('年份需在 1900-2100 之间。');
-    }
-  }
-
-  private static assertSolarMonth(month: number): void {
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
-      throw new Error('月份需在 1-12 之间。');
     }
   }
 
@@ -296,9 +291,7 @@ export class LunarUtil {
     year: number,
     month: number,
   ): { date: string; ganZhi: string; lunarDate: string }[] {
-    this.assertSolarYear(year);
-    this.assertSolarMonth(month);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth = daysInSolarMonth(year, month);
     const result = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const solar = SolarDay.fromYmd(year, month, day);

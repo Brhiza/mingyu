@@ -7,7 +7,7 @@ import { baziCalculator } from '../../bazi/baziCalculator';
 import { MONTH_COMMANDER } from '../../bazi/baziDefinitions';
 import { calculateSolarTermsForYear } from '../../calendar/solar-term-evidence';
 import { getCivilDateTimeAtFixedOffset } from '../../calendar/civil-time';
-import { getBirthDateValidationMessage } from '../../calendar/date-validation';
+import { createUtcTimestamp, getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
 import { getHuangliSolarDayGods } from '../../shensha';
@@ -162,8 +162,12 @@ function parseDateText(value: string, fieldName: string) {
   if (year < 1900 || year > 2100) {
     throw new Error(`${fieldName}年份需在 1900-2100 之间`);
   }
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+  const date = new Date(createUtcTimestamp(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     throw new Error(`${fieldName}不是有效日期`);
   }
 
@@ -171,9 +175,9 @@ function parseDateText(value: string, fieldName: string) {
 }
 
 function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -303,7 +307,14 @@ function normalizeTaboos(items: Array<{ getName(): string }>) {
 }
 
 function getNoonEightChar(date: Date) {
-  return SolarTime.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), 12, 0, 0)
+  return SolarTime.fromYmdHms(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    12,
+    0,
+    0,
+  )
     .getLunarHour()
     .getEightChar();
 }
@@ -1378,9 +1389,13 @@ function buildDayCandidate(
   // 黄历当前没有地点和时区入参，因此用中国标准时间正午作为整日月相的统一参照点。
   // 这项天文事实不参与传统宜忌评分，避免时区假设被包装成择日结论。
   const moonPhaseEvidence = calculateMoonPhaseEvidence(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 4),
+    createUtcTimestamp(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 4),
   );
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const solarDay = SolarDay.fromYmd(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+  );
   const lunarDay = solarDay.getLunarDay();
   const noonEightChar = getNoonEightChar(date);
   const dayCycle = lunarDay.getSixtyCycle();
@@ -1411,7 +1426,7 @@ function buildDayCandidate(
   return {
     date: dateKey,
     moonPhaseEvidence,
-    weekday: WEEKDAYS[date.getDay()],
+    weekday: WEEKDAYS[date.getUTCDay()],
     lunarDate: lunarDay.toString(),
     ganzhi: {
       year: noonEightChar.getYear().getName(),
@@ -1496,7 +1511,7 @@ export function generateAlmanacSelection(params: {
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
-    current.setDate(start.date.getDate() + index);
+    current.setUTCDate(start.date.getUTCDate() + index);
     return buildDayCandidate(current, params.topic, participants);
   }).sort((a, b) => {
     const statusDifference =
