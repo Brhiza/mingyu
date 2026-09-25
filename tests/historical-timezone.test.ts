@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from 'mingyu-core/calendar';
+import {
+  buildAstronomicalTimeEvidence,
+  getHistoricalTimezoneOffsetAt,
+  resolveHistoricalTimezone,
+} from 'mingyu-core/calendar';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng } from 'mingyu-core/qizheng';
 
@@ -30,6 +34,23 @@ function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalT
     ),
   );
 }
+
+test('巴黎 1900 年秒级历史偏移应保留完整秒数', () => {
+  const instant = new Date('1900-02-04T05:51:31.000Z');
+  const offset = getHistoricalTimezoneOffsetAt(instant, 'Europe/Paris');
+  assert.equal(offset * 3_600_000, 561_000);
+
+  const evidence = resolveHistoricalTimezone({
+    year: 1900,
+    month: 2,
+    day: 4,
+    hour: 6,
+    minute: 0,
+    second: 52,
+    timeZoneId: 'Europe/Paris',
+  });
+  assert.equal(evidence.selectedUtcDateTime, instant.toISOString());
+});
 
 test('IANA 历史时区应识别中国 1990 年夏令时', () => {
   const evidence = resolveHistoricalTimezone({

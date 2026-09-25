@@ -173,7 +173,8 @@ function offsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number) {
     parts.minute,
     parts.second,
   );
-  return Number(((representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000).toFixed(6));
+  // 历史偏移可精确到秒；截成六位小时小数会在反解墙钟时丢失一秒。
+  return (representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000;
 }
 
 /** 读取指定真实瞬时点在 IANA 时区中的历史 UTC 偏移。 */
