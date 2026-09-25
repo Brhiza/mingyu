@@ -299,6 +299,23 @@ test('破格救应已在核心判断列明时省略重复格局条件', () => {
   assert.match(formatBaziPatternConditions(result), /破格项：伤官见官/);
 });
 
+test('救应路径不重复写路径名称，从儿格不复述四柱藏干', () => {
+  const uncertain = createBaziResult({ year: 1980, month: 1, day: 3, timeIndex: 0 });
+  const uncertainConditions = formatBaziPatternConditions(uncertain);
+  assert.match(uncertainConditions, /救应路径：比劫制财存印（未判定）；来源仅藏不透/);
+  assert.doesNotMatch(uncertainConditions, /比劫制财存印的来源/);
+
+  const conger = createBaziResult({ year: 1980, month: 5, day: 3, timeIndex: 0 });
+  for (const prompt of [
+    buildBaziPrompt({ result: conger }),
+    buildBaziPrompt({ result: conger, schools: ['ziping', 'mangpai'] }),
+  ]) {
+    assert.match(prompt, /支藏印官未构成从儿格的实际反证/);
+    assert.doesNotMatch(prompt, /原支藏印官事实：/);
+    assert.match(prompt, /年柱: 庚申[^\n]*[\s\S]*藏干: [^\n]*壬\[七杀\]/);
+  }
+});
+
 test('流派提示词只补充格局的盘面证据，不复述共同判定和未激活破格候选', () => {
   const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
   for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
