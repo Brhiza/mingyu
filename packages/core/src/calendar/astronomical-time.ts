@@ -155,15 +155,24 @@ function decimalYearFromUtc(date: Date) {
 }
 
 /**
- * NASA/Espenak-Meeus 公布的分段多项式，限定项目当前支持的 1900-2200 年。
+ * NASA/Espenak-Meeus 公布的分段多项式；当地 1900-2200 年的 UTC 时刻可跨至 1899 或 2201 年。
  * 返回 TT-UT1 的估计秒数，不应解释为观测 DUT1。
  */
 export function estimateDeltaTSeconds(decimalYear: number) {
-  if (!Number.isFinite(decimalYear) || decimalYear < 1900 || decimalYear >= 2201) {
-    throw new Error('ΔT 估算年份需在 1900-2200 之间。');
+  if (!Number.isFinite(decimalYear) || decimalYear < 1899 || decimalYear >= 2202) {
+    throw new Error('ΔT 估算的 UTC 年份需在 1899-2201 之间。');
   }
   let value: number;
-  if (decimalYear < 1920) {
+  if (decimalYear < 1900) {
+    const t = decimalYear - 1860;
+    value =
+      7.62 +
+      0.5737 * t -
+      0.251754 * t ** 2 +
+      0.01680668 * t ** 3 -
+      0.0004473624 * t ** 4 +
+      t ** 5 / 233174;
+  } else if (decimalYear < 1920) {
     const t = decimalYear - 1900;
     value = -2.79 + 1.494119 * t - 0.0598939 * t ** 2 + 0.0061966 * t ** 3 - 0.000197 * t ** 4;
   } else if (decimalYear < 1941) {
@@ -225,9 +234,6 @@ export function buildAstronomicalTimeEvidence(
   const { timezone, timezoneEvidence, utcTimestamp } = civilTime;
   const timeZoneId = civilTime.timeZoneId;
   const utcDate = new Date(utcTimestamp);
-  if (utcDate.getUTCFullYear() < 1900 || utcDate.getUTCFullYear() > 2200) {
-    throw new Error('按时区换算后的 UTC 年份需在 1900-2200 之间，才能估算 ΔT。');
-  }
   const decimalYear = decimalYearFromUtc(utcDate);
   const deltaTSeconds = estimateDeltaTSeconds(decimalYear);
   const julianDayUtc = utcTimestamp / 86400000 + 2440587.5;
@@ -256,7 +262,7 @@ export function buildAstronomicalTimeEvidence(
     'ΔT 是分段多项式估计值，不是逐日观测值；未来年份的不确定性会逐渐增大。',
     'TT 儒略日用于说明天文计算时间尺度，不代表底层依赖库一定采用同一星历或同一时间模型。',
   ];
-  const source = 'UTC 儒略日采用 Unix 纪元换算；ΔT 采用 NASA/Espenak-Meeus 1900-2200 分段多项式';
+  const source = 'UTC 儒略日采用 Unix 纪元换算；ΔT 采用 NASA/Espenak-Meeus 分段多项式';
   const calculationSteps: AstronomicalTimeCalculationStep[] = [
     {
       key: 'astronomical-time:calculation:timezone',
@@ -321,7 +327,7 @@ export function buildAstronomicalTimeEvidence(
         precisionLevel,
       },
       promptText: `按 Espenak-Meeus 分段模型估算 ΔT≈${deltaTSeconds.toFixed(3)}秒，得 JD(TT)≈${julianDayTtApprox.toFixed(9)}，模型等级${precisionLevel}`,
-      sources: ['NASA/Espenak-Meeus 1900-2200 分段多项式'],
+      sources: ['NASA/Espenak-Meeus 分段多项式'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
   ];
@@ -441,7 +447,7 @@ export function buildAstronomicalTimeEvidence(
     deltaTSeconds,
     julianDayTtApprox: Number(julianDayTtApprox.toFixed(9)),
     decimalYear: Number(decimalYear.toFixed(6)),
-    deltaTModel: 'Espenak-Meeus 分段多项式（1900-2200）',
+    deltaTModel: 'Espenak-Meeus 分段多项式（UTC 1899-2201）',
     precisionLevel,
     assumptions,
     assumptionFacts,
