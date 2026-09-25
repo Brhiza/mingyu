@@ -463,13 +463,15 @@ export function analyzeZodiacEvidence(
   const limitations = limitationFacts.map((fact) => fact.promptText);
   // 轻量关系复验：按公共关系表重算犯太岁、贵人与会合，与传入资料比对，
   // 防止把固定条目数量当作已经执行独立关系校验
-  const recomputedConflictTypes = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch).map(
-    (item) => item.type,
-  );
-  const incomingConflictTypes = data.conflicts.map((item) => item.type);
+  const recomputedConflicts = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch);
+  const incomingConflicts = data.conflicts;
   const conflictsConsistent =
-    recomputedConflictTypes.length === incomingConflictTypes.length &&
-    recomputedConflictTypes.every((type, index) => type === incomingConflictTypes[index]);
+    recomputedConflicts.length === incomingConflicts.length &&
+    recomputedConflicts.every(
+      (conflict, index) =>
+        conflict.type === incomingConflicts[index]?.type &&
+        conflict.with === incomingConflicts[index]?.with,
+    );
   const sanhe = BRANCH_SANHE[data.zodiacBranch];
   const expectedNoble = isLiuhe(data.zodiacBranch, data.yearBranch)
     ? '六合贵人'
