@@ -66,7 +66,7 @@ test('梅花与皇极任务模板按实际输入资料收窄', () => {
   assert.doesNotMatch(cycleTask, /六十年统卦|时经卦/);
 });
 
-test('奇门提示资料按宫归并格局条件并完整保留超过三条格局', () => {
+test('奇门提示资料保留完整格局索引，空亡事实不重复列出', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   const anchor = data.jiuGongGe[0];
   const expanded = {
@@ -86,7 +86,11 @@ test('奇门提示资料按宫归并格局条件并完整保留超过三条格�
   assert.equal(fulfillments.length, 8);
   const summary = formatQimenPatternConditionSummary(expanded);
   assert.deepEqual(summary, [`${anchor.name}同宫见空亡`]);
-  assert.ok(text.includes(`格局条件：\n${summary[0]}`));
+  assert.doesNotMatch(text, /格局条件：/);
+  const palaceLine = text
+    .split('\n')
+    .find((line) => line.trimStart().startsWith(`${anchor.name}（`));
+  assert.match(palaceLine ?? '', /逢空/);
   for (const pattern of expanded.classicPatterns) {
     assert.match(text, new RegExp(escapeRegExp(pattern.name)));
     assert.equal(text.split(pattern.name).length - 1, 1);
