@@ -480,39 +480,5 @@ export function getBaziQiongtongAdvice(
   dayMaster: string,
   monthBranch: string,
 ): BaziQiongtongEntry | undefined {
-  const direct = BAZI_QIONGTONG_TABLE[`${dayMaster}+${monthBranch}`];
-  if (direct)
-    return {
-      ...direct,
-      requestedMonth: monthBranch,
-      matchedMonth: monthBranch,
-      seasonFallback: false,
-    };
-
-  // 季节 fallback
-  const seasonMonthMap: Record<string, string[]> = {
-    寅: ['寅', '卯', '辰'],
-    卯: ['卯', '寅', '辰'],
-    辰: ['辰', '寅', '卯'],
-    巳: ['巳', '午', '未'],
-    午: ['午', '巳', '未'],
-    未: ['未', '午', '巳'],
-    申: ['申', '酉', '戌'],
-    酉: ['酉', '申', '戌'],
-    戌: ['戌', '申', '酉'],
-    亥: ['亥', '子', '丑'],
-    子: ['子', '亥', '丑'],
-    丑: ['丑', '子', '亥'],
-  };
-
-  const candidates = seasonMonthMap[monthBranch] ?? [];
-  for (const branch of candidates) {
-    const entry = BAZI_QIONGTONG_TABLE[`${dayMaster}+${branch}`];
-    if (entry) {
-      // 同季借用：明确登记实际命中月份，避免跨月资料被当作本月专条展示
-      return { ...entry, requestedMonth: monthBranch, matchedMonth: branch, seasonFallback: true };
-    }
-  }
-
-  return undefined;
+  return BAZI_QIONGTONG_TABLE[`${dayMaster}+${monthBranch}`];
 }
