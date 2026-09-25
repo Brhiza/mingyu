@@ -19,6 +19,23 @@ import {
 } from '../iztro/palace-helpers';
 import type { ZiweiPromptContext } from './types';
 
+function conditionCoversZiweiPalace(palaceName: string, conditions: readonly string[]) {
+  const normalizedName = palaceName.replace(/宫$/u, '');
+  return conditions.some(
+    (condition) => condition.includes(palaceName) || condition.includes(normalizedName),
+  );
+}
+
+function conditionCoversZiweiStar(starName: string, conditions: readonly string[]) {
+  const transformedStar = /^(.*?)(化[禄权科忌])$/u.exec(starName);
+  return conditions.some(
+    (condition) =>
+      condition.includes(starName) ||
+      (transformedStar !== null &&
+        condition.includes(`${transformedStar[1]}生年${transformedStar[2]}`)),
+  );
+}
+
 function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
   const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
@@ -81,19 +98,28 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
     palaces: payload.palaces,
     birthYearHeavenlyStem,
   });
-  return patterns.map((pattern) => ({
-    格局: pattern.name,
-    传统分类:
-      pattern.kind === 'auspicious'
-        ? '传统吉格'
-        : pattern.kind === 'inauspicious'
-          ? '传统凶格'
-          : '传统中性格',
-    命中条件: pattern.matched_conditions?.join('；'),
-    涉及宫位: pattern.palace_names.join('、'),
-    涉及星曜: pattern.star_names.join('、'),
-    古籍依据: pattern.sources?.[0],
-  }));
+  return patterns.map((pattern) => {
+    const conditions = pattern.matched_conditions ?? [];
+    const uncoveredPalaces = pattern.palace_names.filter(
+      (name) => !conditionCoversZiweiPalace(name, conditions),
+    );
+    const uncoveredStars = pattern.star_names.filter(
+      (name) => !conditionCoversZiweiStar(name, conditions),
+    );
+    return {
+      格局: pattern.name,
+      传统分类:
+        pattern.kind === 'auspicious'
+          ? '传统吉格'
+          : pattern.kind === 'inauspicious'
+            ? '传统凶格'
+            : '传统中性格',
+      命中条件: conditions.length ? conditions.join('；') : undefined,
+      涉及宫位: uncoveredPalaces.length ? uncoveredPalaces.join('、') : undefined,
+      涉及星曜: uncoveredStars.length ? uncoveredStars.join('、') : undefined,
+      古籍依据: pattern.sources?.[0],
+    };
+  });
 }
 
 export function buildPromptContextSnapshot(params: {
