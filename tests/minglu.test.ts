@@ -338,7 +338,7 @@ test('岁运合冲判定穷举：十干100组、地支144组正反向与同字',
   assert.equal(checked, 144);
 });
 
-test('命录保留中和与实际取用，印星及透干比劫分别取证', () => {
+test('命录保留中和待判与实际原局作用，印星及透干比劫分别取证', () => {
   const chart = baziCalculator.calculateBazi({
     year: 1990,
     month: 1,
@@ -347,14 +347,16 @@ test('命录保留中和与实际取用，印星及透干比劫分别取证', ()
     gender: 'male',
   });
   assert.equal(chart.analysis.dayMasterStrength.status, '中和');
+  assert.equal(chart.analysis.usefulGod.incrementStatus, '待判');
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /日主中和/);
+  assert.match(guide.strengthPlain, /增补五行喜忌待判/);
   assert.ok(guide.strengthPlain.includes(chart.analysis.usefulGod.primaryUseful!));
   assert.ok(
     guide.strengthPlain.includes(chart.analysis.usefulGod.primaryFavorableWuxing!) ||
       chart.analysis.usefulGod.primaryFavorableWuxing === undefined,
   );
-  assert.match(guide.favorableHabitsPlain[0], /核心调和五行：/);
+  assert.match(guide.favorableHabitsPlain[0], /增补五行喜忌待判/);
   assert.doesNotMatch(guide.strengthPlain, /日主偏弱|印比为喜用/);
   const tenGods = buildEnhancedTenGodsSection(chart);
   assert.equal(tenGods.godsList.find((god) => god.tenGod === '正官')!.count, 0);

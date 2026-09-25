@@ -386,7 +386,10 @@ export function buildThematicConsultationPrompt(
       null,
       fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
     );
-    const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
+    const baziPatternConditions =
+      options.baziSchool || options.baziSchools?.length
+        ? ''
+        : formatBaziPatternConditions(options.baziResult);
     const taskText = buildPromptSelectionTask(
       isCustomMode
         ? buildCustomQuestionTask('八字排盘资料', 'bazi')
@@ -395,8 +398,8 @@ export function buildThematicConsultationPrompt(
     );
 
     const schoolSection = options.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools)
-      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool);
+      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools, true)
+      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool, true);
 
     const promptText = joinPromptSections([
       buildPromptGuidance('bazi'),
@@ -532,13 +535,16 @@ export function buildThematicConsultationPrompt(
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
-  const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
+  const baziPatternConditions =
+    options.baziSchool || options.baziSchools?.length
+      ? ''
+      : formatBaziPatternConditions(options.baziResult);
   const ziweiText = formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
   const schoolSections = [
     options.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools)
-      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool),
+      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools, true)
+      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool, true),
     options.ziweiSchools?.length
       ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', options.ziweiSchools)}`
       : options.ziweiSchool

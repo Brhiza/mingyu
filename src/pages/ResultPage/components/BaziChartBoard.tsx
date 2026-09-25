@@ -745,7 +745,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           ]
         : []),
       `四柱：年柱【${result.pillars.year.gan}${result.pillars.year.zhi}】 月柱【${result.pillars.month.gan}${result.pillars.month.zhi}】 日柱【${result.pillars.day.gan}${result.pillars.day.zhi}】 时柱【${result.pillars.hour.gan}${result.pillars.hour.zhi}】`,
-      `五行取用：${transformation?.status === '成化' ? `化神${transformation.element}` : result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
+      result.analysis.usefulGod.incrementStatus === '待判'
+        ? '增补五行喜忌：待判'
+        : `五行取用：${transformation?.status === '成化' ? `化神${transformation.element}` : result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
       ...formatUsefulGodFunctions(result.analysis.usefulGod),
       ...formatBaziDecisionDetails(result),
       activeFortuneColumns.length
@@ -927,8 +929,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <small>{result.analysis.mingGe.isSpecial ? '特殊格局' : '月令取格'}</small>
           </div>
           <div
-            className="result-stat-card is-clickable-term"
+            className={`result-stat-card${result.analysis.usefulGod.primaryFavorableWuxing ? ' is-clickable-term' : ''}`}
             onClick={() =>
+              result.analysis.usefulGod.primaryFavorableWuxing &&
               openTerm(
                 result.analysis.usefulGod.primaryUseful ||
                   result.analysis.usefulGod.useful ||
@@ -936,7 +939,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               )
             }
           >
-            <span>五行取用</span>
+            <span>增补五行取用</span>
             <strong>
               {transformation?.status === '成化'
                 ? `化神${transformation.element}`
@@ -951,14 +954,15 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             </small>
           </div>
           <div
-            className="result-stat-card is-clickable-term"
+            className={`result-stat-card${result.analysis.usefulGod.primaryUnfavorableWuxing ? ' is-clickable-term' : ''}`}
             onClick={() =>
+              result.analysis.usefulGod.primaryUnfavorableWuxing &&
               openTerm(
                 result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '忌神',
               )
             }
           >
-            <span>五行所忌</span>
+            <span>增补五行所忌</span>
             <strong>
               {result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '待定'}
             </strong>

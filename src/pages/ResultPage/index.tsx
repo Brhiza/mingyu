@@ -34,6 +34,7 @@ import {
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
+import { formatBaziCompatibilityFacts } from '@/lib/bazi-compatibility-facts';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
@@ -2041,7 +2042,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     if (inputState.analysisMode === 'compatibility') {
       if (
-        !promptEngine ||
         !baziPromptSample.primary ||
         !baziPromptSample.partner ||
         !currentZiweiPayload ||
@@ -2052,13 +2052,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         return '';
       }
 
-      const baziCompatibilityPrompt = promptEngine.getCompatibilityPrompt(
-        question,
-        baziPromptSample.primary,
-        baziPromptSample.partner,
-        resolveCompatType(promptState.baziPresetId),
-        { isCustomQuestion: activeBaziShortcutMode === '自定义' },
-      );
       const ziweiCompatibilityPrompt = buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
@@ -2081,9 +2074,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       );
       const primaryZiweiText = buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
       const partnerZiweiText = buildEnhancedZiweiPromptPack(partnerZiweiPayload, ziweiTopic);
-      const baziCompatibilityText = buildCombinedPromptText(
-        baziCompatibilityPrompt.system,
-        baziCompatibilityPrompt.user,
+      const baziCompatibilityText = formatBaziCompatibilityFacts(
+        baziPromptSample.primary,
+        baziPromptSample.partner,
       );
       return buildBaziZiweiCompatibilityPrompt({
         primaryBaziText: buildEnhancedBaziPromptPack(

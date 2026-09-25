@@ -52,7 +52,6 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
     for (const text of [
       fact?.promptText ?? '',
       formatBaziForPrompt(result),
-      formatBaziPatternConditions(result),
       buildBaziPrompt({ result }),
       ...(['ziping', 'mangpai', 'xinpai'] as const).map((school) =>
         formatBaziSchoolPrompt(result, school),
@@ -62,10 +61,16 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
       assert.ok(text.includes('官伤并见，须区分有效制化'), '限制条件不能在摘要中丢失');
       assert.ok(text.includes(fulfillment.decisionDetail!), '通用规则不能替代本次裁决理由');
     }
+    const supplemental = formatBaziPatternConditions(result);
+    assert.doesNotMatch(supplemental, /所取格局：|格局条件：|候选取用：/);
+    if (status !== '成格') {
+      assert.match(supplemental, /条件核验：不满足；制化来源缺少有效根气/);
+    }
     for (const school of ['ziping', 'mangpai', 'xinpai'] as const) {
       const text = formatBaziSchoolPrompt(result, school);
       assert.ok(text.includes('条件核验：不满足；制化来源缺少有效根气'));
       assert.ok(text.includes('制化路径：印护官（未判定）：不满足'));
+      assert.doesNotMatch(text, /格局条件：|候选取用：/);
     }
     assert.deepEqual(
       result.analysis.mingGe.fulfillment,

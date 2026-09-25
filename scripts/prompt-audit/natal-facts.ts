@@ -6,7 +6,10 @@
  */
 import type { BaziChartResult } from '../../packages/core/src/bazi/baziTypes';
 import type { FortuneSelectionContext } from '../../packages/core/src/bazi/fortuneSelection';
-import type { BaziCompatibilityEvidenceResult } from '../../packages/core/src/bazi';
+import {
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziCompatibilityEvidenceResult,
+} from '../../packages/core/src/bazi/compatibilityEvidence';
 import type {
   AstrolabeData,
   AstrolabeSynastryData,
@@ -320,6 +323,23 @@ export function extractBaziCompatibilityFacts(
       idPrefix: 'bazi.compatibility.person2',
     }),
   ];
+  for (const [index, coverage] of relation.usefulGodCoverage.entries()) {
+    const beneficiaryScope =
+      coverage.beneficiary === 'person1'
+        ? (options.person1Scope ?? { start: '【第一人排盘信息】', end: '【第二人排盘信息】' })
+        : (options.person2Scope ?? { start: '【第二人排盘信息】', end: '【双盘关系资料】' });
+    for (const [descriptionIndex, description] of (
+      coverage.functionalEvidence?.descriptions ?? []
+    ).entries()) {
+      const item = fact(
+        `bazi.compatibility.${coverage.beneficiary}.functional.${index}.${descriptionIndex}`,
+        description.split('：')[0],
+        [description],
+        { scope: beneficiaryScope },
+      );
+      if (item) facts.push(item);
+    }
+  }
   const scope = options.relationScope ?? { start: '【双盘关系资料】', end: '【任务】' };
   const add = (id: string, owner: string, value: string | undefined) => {
     const item = fact(id, owner, [value], { scope });
@@ -351,7 +371,7 @@ export function extractBaziCompatibilityFacts(
     'bazi.compatibility.useful-god',
     '喜忌覆盖',
     relation.usefulGodCoverage.length
-      ? relation.usefulGodCoverage.map((item) => item.promptText).join('；')
+      ? relation.usefulGodCoverage.map(formatBaziUsefulGodCoverageForPrompt).join('；')
       : '资料不足',
   );
   add('bazi.compatibility.summary', '已记录跨柱关系', relation.summaryFact.promptText);

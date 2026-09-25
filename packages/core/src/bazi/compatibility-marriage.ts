@@ -47,7 +47,7 @@ export interface UsefulGodComplementarityResult {
   /** 对方盘面出现第二人忌神五行的次数（仅按天干与地支主气计数，不含藏干） */
   person2AvoidCountInPerson1: number;
   /** 双方喜忌资料覆盖状态 */
-  dataStatus: '完整' | '一方缺失' | '双方缺失';
+  dataStatus: '完整' | '一方缺失' | '双方缺失' | '一方待判' | '双方待判';
   /** 只描述喜用五行的出现关系。 */
   level: '双向喜用覆盖' | '单向喜用覆盖' | '未见喜用覆盖' | '资料不足';
   judgment: string;
@@ -241,16 +241,34 @@ export function evaluateUsefulGodComplementarity(
   // 喜忌资料缺失与“未命中”分开处理：缺失不得判为分布平稳
   const p1HasData = p1Useful.length > 0 || p1Avoid.length > 0;
   const p2HasData = p2Useful.length > 0 || p2Avoid.length > 0;
+  const p1Pending =
+    chart1.analysis.usefulGod.incrementStatus === '待判' ||
+    chart1.analysis.usefulGod.incrementStatus === '部分判定';
+  const p2Pending =
+    chart2.analysis.usefulGod.incrementStatus === '待判' ||
+    chart2.analysis.usefulGod.incrementStatus === '部分判定';
   const dataStatus: UsefulGodComplementarityResult['dataStatus'] =
-    !p1HasData && !p2HasData ? '双方缺失' : !p1HasData || !p2HasData ? '一方缺失' : '完整';
-  const coverageText = `第一人喜用${p1Useful.join('、') || '无'}在第二人盘面出现${c1}次；第二人喜用${p2Useful.join('、') || '无'}在第一人盘面出现${c2}次；第一人忌神${p1Avoid.join('、') || '无'}在第二人盘面出现${avoid1}次；第二人忌神${p2Avoid.join('、') || '无'}在第一人盘面出现${avoid2}次`;
+    p1Pending && p2Pending
+      ? '双方待判'
+      : p1Pending || p2Pending
+        ? '一方待判'
+        : !p1HasData && !p2HasData
+          ? '双方缺失'
+          : !p1HasData || !p2HasData
+            ? '一方缺失'
+            : '完整';
+  const elementText = (elements: string[], pending: boolean) =>
+    elements.join('、') || (pending ? '待判' : '无');
+  const coverageText = `第一人喜用${elementText(p1Useful, p1Pending)}在第二人盘面出现${c1}次；第二人喜用${elementText(p2Useful, p2Pending)}在第一人盘面出现${c2}次；第一人忌神${elementText(p1Avoid, p1Pending)}在第二人盘面出现${avoid1}次；第二人忌神${elementText(p2Avoid, p2Pending)}在第一人盘面出现${avoid2}次`;
 
   let level: UsefulGodComplementarityResult['level'];
   let judgment: string;
 
   if (dataStatus !== '完整') {
     level = '资料不足';
-    judgment = `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
+    judgment = dataStatus.includes('待判')
+      ? `${dataStatus === '双方待判' ? '双方' : '一方'}增补喜忌五行尚待裁决，暂不判五行覆盖`
+      : `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
   } else if (c1 > 0 && c2 > 0) {
     level = '双向喜用覆盖';
     judgment = `${coverageText}；作用结合双方月令、根气与原局取用核验`;

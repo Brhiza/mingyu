@@ -63,7 +63,7 @@ test('跨中气的大六壬页面、摘要与分享保留两套月将四课三�
       .split(`分支${index + 1}：`)[1]
       ?.split(`分支${index + 2}：`)[0];
     assert.ok(branchPrompt);
-    for (const fact of formatLiurenJudgmentFacts(data)) {
+    for (const fact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true })) {
       assert.ok(branchPrompt.includes(fact), '每段提示词都应保留自己的判断条件与反证');
     }
     for (const lesson of data.fourLessons) {
@@ -130,7 +130,9 @@ test('稳定区间与普通单时刻大六壬提示词保留取传条件与反�
     divinationReverseSource: undefined,
   });
   for (const item of [session, ordinary]) {
-    const facts = formatLiurenJudgmentFacts(item.data as import('mingyu-core/types').LiurenData);
+    const facts = formatLiurenJudgmentFacts(item.data as import('mingyu-core/types').LiurenData, {
+      chartFactsIncluded: true,
+    });
     assert.ok(facts.some((fact) => fact.startsWith('课传反证：')));
     for (const fact of facts) assert.ok(item.prompt.includes(fact));
   }

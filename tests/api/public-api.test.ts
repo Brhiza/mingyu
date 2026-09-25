@@ -1582,7 +1582,8 @@ test('公开 API 八字完整结果与提示词共用从儿裁决和取用', asy
   );
   assert.deepEqual(calculated.body.data.analysis.usefulGod.favorableWuxing, ['火', '木']);
   assert.equal(prompted.response.status, 200);
-  assert.match(prompted.body.data.prompt, /特殊格裁决：从儿格成立/);
+  assert.match(prompted.body.data.prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+  assert.doesNotMatch(prompted.body.data.prompt, /特殊格裁决：从儿格成立/);
   assert.match(prompted.body.data.prompt, /取用: 主用火，辅木/);
 });
 
@@ -1766,6 +1767,42 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
     compactCandidates.every(
       (candidate: { adopted: boolean; status: string }) =>
         candidate.adopted || candidate.status === '冲突',
+    ),
+  );
+});
+
+test('公开 API 八字轻量结果保留中和待判与已证原局格神', async () => {
+  const input = {
+    gender: 'male',
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    dateType: 'solar',
+  };
+  const compact = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, detailMode: 'compact' }),
+  });
+  const full = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, detailMode: 'full' }),
+  });
+
+  assert.equal(compact.response.status, 200);
+  assert.equal(compact.body.data.analysis.dayMasterStrength.status, '中和');
+  assert.equal(compact.body.data.analysis.usefulGod.incrementStatus, '待判');
+  assert.deepEqual(compact.body.data.analysis.usefulGod.favorableWuxing, []);
+  assert.deepEqual(compact.body.data.analysis.usefulGod.unfavorableWuxing, []);
+  assert.deepEqual(
+    compact.body.data.analysis.usefulGod.decisionEvidence.natalFunctions,
+    full.body.data.analysis.usefulGod.decisionEvidence.natalFunctions,
+  );
+  assert.ok(
+    compact.body.data.analysis.usefulGod.decisionEvidence.natalFunctions.some(
+      (item: { stem: string; role: string }) => item.stem === '庚' && item.role === '格神',
     ),
   );
 });
@@ -2494,6 +2531,23 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.match(prompt, /分析范围：流年/);
   assert.match(prompt, /【重点宫位资料】/);
   assert.match(prompt, /十二宫明细：/);
+  const palaceSection = prompt.split('【重点宫位资料】')[1]?.split('\n【')[0] ?? '';
+  const [focusPalaces, remainingPalaces] = palaceSection.split('十二宫明细：');
+  assert.ok(remainingPalaces);
+  const palaceLines = (text: string) =>
+    text
+      .split('\n')
+      .filter((line) =>
+        /^  [^\n]+（[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]）：主星：/.test(line),
+      );
+  const focusLines = palaceLines(focusPalaces);
+  const remainingLines = palaceLines(remainingPalaces);
+  assert.equal(focusLines.length, 7);
+  assert.equal(remainingLines.length, 5);
+  assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
+  const relations = palaceSection.split('\n').filter((line) => line.startsWith('  宫位关系：'));
+  assert.equal(relations.length, 12);
+  assert.equal(new Set(relations).size, 12);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
@@ -6756,6 +6810,82 @@ test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用
   assert.ok(fullRes.body.data.prompt.includes('财运'));
   assert.ok(fullRes.body.data.result.bazi);
   assert.ok(fullRes.body.data.result.ziwei);
+});
+
+test('REST 主题咨询入口返回单份自包含合参任务书与真实盘面事实', async () => {
+  const response = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '张三',
+      year: 1990,
+      month: 5,
+      day: 15,
+      gender: 'male',
+      dateType: 'solar',
+      timeIndex: 6,
+      topic: 'relationship',
+      scope: 'natal',
+      question: '我想了解未来三年的感情发展。',
+      responseMode: 'full',
+    }),
+  });
+
+  assert.equal(response.response.status, 200);
+  assert.equal(response.body.ok, true);
+  const prompt = response.body.data.prompt as string;
+  const result = response.body.data.result;
+  const bazi = result.bazi as {
+    pillars: {
+      year: { ganZhi: string };
+      month: { ganZhi: string };
+      day: { ganZhi: string };
+      hour: { ganZhi: string };
+    };
+  };
+  const ziwei = result.ziwei as {
+    payloadByScope: {
+      origin: {
+        basic_info: { solar_date: string };
+        palaces: Array<{ name: string; major_stars?: Array<{ name: string }> }>;
+      };
+    };
+  };
+  const lifePalace = ziwei.payloadByScope.origin.palaces.find((palace) => palace.name === '命宫');
+  const lifePalaceStar = lifePalace?.major_stars?.[0]?.name;
+
+  assert.ok(prompt.includes('【分析主题】'));
+  assert.ok(prompt.includes('【八字排盘信息】'));
+  assert.ok(prompt.includes('【紫微盘面信息】'));
+  assert.ok(prompt.includes('【资料范围】'));
+  assert.ok(prompt.includes('【任务】'));
+  assert.ok(prompt.includes('【问题】\n我想了解未来三年的感情发展。'));
+  assert.ok(prompt.includes(`出生日期：${ziwei.payloadByScope.origin.basic_info.solar_date}`));
+  assert.ok(lifePalaceStar && prompt.includes(lifePalaceStar));
+  for (const [label, pillar] of [
+    ['年柱', bazi.pillars.year],
+    ['月柱', bazi.pillars.month],
+    ['日柱', bazi.pillars.day],
+    ['时柱', bazi.pillars.hour],
+  ] as const) {
+    assert.ok(prompt.includes(`${label}: ${pillar.ganZhi}`), `${label}应使用实际排盘值`);
+  }
+  for (const section of [
+    '【当前时间】',
+    '【分析主题】',
+    '【八字排盘信息】',
+    '【紫微盘面信息】',
+    '【资料范围】',
+    '【任务】',
+    '【问题】',
+  ]) {
+    assert.equal(prompt.split(section).length - 1, 1, `${section} 不应重复完整任务书`);
+  }
+  assert.doesNotMatch(
+    prompt,
+    /\b(?:methodId|topicId|subtopicId|promptScope|scopeDate|scopeHourIndex|focusPalaces|focusElements|baziResult|ziweiResult|payloadByScope|active_scope|calculation_config)\b/,
+  );
+  assertPromptIsPortableTaskText(prompt);
 });
 
 test('公开 API 提供起名、姓名、汉字与号码完整工具链', async () => {

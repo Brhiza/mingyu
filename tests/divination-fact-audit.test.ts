@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateQimenLifetimePrompt } from '../packages/core/src/divination/algorithms/qimen';
 import { generateXuanKong } from '../packages/core/src/xuan_kong';
 import { calculateWuyunLiuqi } from '../packages/core/src/wuyun-liuqi';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -32,6 +33,36 @@ test('实际奇门九宫的天地盘归属互换后，同样的奇仪仍在也�
   assert.equal(rows.length, 9);
   const changed = swapRowValues(prompt, rows, /天盘[^，]+/u);
   assert.ok(auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen.palace.')));
+});
+
+test('奇门终身局精简后仍逐日核对干支与关系归属', () => {
+  const { data, prompt } = generateQimenLifetimePrompt({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    periodRange: { startDate: '2026-01-01', endDate: '2026-12-31' },
+  });
+  const facts = extractDivinationPromptFacts('qimen-lifetime', data);
+  assert.deepEqual(auditPromptFacts(prompt, facts).missing, []);
+
+  const cluster = data.eventClusters?.find((item) => item.key.includes(':day:'));
+  const date = cluster?.triggerDates?.[0];
+  assert.ok(date?.ganzhi && date.relation);
+  const [year, month, day] = date.date.split('-');
+  const dateLine = prompt
+    .split('\n')
+    .find(
+      (line) =>
+        line.includes(`可复核日期：${year}年${month}月`) &&
+        line.includes(`${day}日（${date.ganzhi}）`) &&
+        line.includes(`日干支关系：${date.relation}`),
+    );
+  assert.ok(dateLine);
+  const changed = prompt.replace(
+    dateLine,
+    dateLine.replace(`${day}日（${date.ganzhi}）`, `${day}日（虚构干支）`),
+  );
+  assert.ok(
+    auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen-lifetime.event.')),
+  );
 });
 
 test('实际六爻的六神换到另一爻后不能通过全表事实核验', () => {

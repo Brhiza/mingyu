@@ -28,6 +28,7 @@ import {
 import {
   buildAstrolabeSynastryPrompt,
   buildBaziCompatibilityPrompt,
+  buildThematicConsultationPrompt,
   buildZiweiCompatibilityPrompt,
 } from 'mingyu-core/prompt';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
@@ -376,6 +377,18 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
     requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '流年'],
   },
   {
+    sampleName: '主题咨询合参',
+    requiredFields: [
+      '【分析主题】',
+      '咨询主题：事业',
+      '【八字排盘信息】',
+      '【紫微盘面信息】',
+      '【资料范围】',
+      '【任务】',
+      '【问题】',
+    ],
+  },
+  {
     sampleName: '八字即时盘',
     requiredFields: ['【传统依据】', '【任务】', '【问题】'],
   },
@@ -699,6 +712,29 @@ function assertAuditInputConsistency(samples: PromptSample[]) {
 
 function assertSamplePromptsAreClean(samples: PromptSample[]) {
   const leakedMessages: string[] = [];
+  const qimenSample = samples.find((sample) => sample.name === '奇门遁甲');
+  if (!qimenSample) {
+    leakedMessages.push('缺少奇门遁甲提示词样本');
+  } else {
+    const palaceText = qimenSample.prompt.split('九宫简表：')[1]?.split('同干定位：')[0] ?? '';
+    const patternText = qimenSample.prompt.split('格局索引：')[1]?.split('复合格局：')[0] ?? '';
+    if (!qimenSample.prompt.includes('旬空与马星：') || !palaceText.includes('逢空')) {
+      leakedMessages.push('奇门遁甲样本缺少旬空与九宫空亡事实');
+    }
+    if (!patternText.includes('门迫（凶格）')) {
+      leakedMessages.push('奇门遁甲样本缺少门迫格局事实');
+    }
+    if (qimenSample.prompt.includes('格局条件：')) {
+      leakedMessages.push('奇门遁甲样本重复列出格局条件段');
+    }
+    const timingReferenceCount = qimenSample.prompt.match(/^值符宫应期参考：/gmu)?.length ?? 0;
+    const triggerSectionCount = qimenSample.prompt.match(/^触发条件：/gmu)?.length ?? 0;
+    if (timingReferenceCount !== 1 || triggerSectionCount !== 1) {
+      leakedMessages.push(
+        `奇门遁甲应期依据或触发条件段落数量异常：应期=${timingReferenceCount}，触发=${triggerSectionCount}`,
+      );
+    }
+  }
   const forbiddenPatterns = [
     { label: 'undefined', pattern: /\bundefined\b/i },
     { label: 'null', pattern: /\bnull\b/i },
@@ -885,6 +921,18 @@ export async function buildSamples(): Promise<PromptSample[]> {
       scope: 'yearly',
       mode: 'framework',
       question: '请结合流年盘面分析当前事业与财务主题的阶段变化。',
+    });
+    const thematicPrompt = buildThematicConsultationPrompt({
+      system: 'bazi_ziwei',
+      methodId: 'bazi-ziwei',
+      topic: 'career',
+      scope: 'natal',
+      mode: 'framework',
+      currentTime: fixedNow,
+      baziResult: samePersonBazi,
+      ziweiResult: ziweiRuntime,
+      ziweiScope: 'origin',
+      question: '请结合八字与紫微本命资料分析事业方向及可核对的阶段依据。',
     });
 
     const contestAstrolabe = generateAstrolabe({
@@ -1236,6 +1284,7 @@ export async function buildSamples(): Promise<PromptSample[]> {
         question: '请交叉印证命局主线。',
         ziweiScope: 'origin',
       }),
+      thematicConsultation: thematicPrompt,
       instantBazi: buildInstantBaziPrompt(
         instantBaziResult,
         COMMON_PROJECT_QUESTION,
@@ -1591,6 +1640,26 @@ export async function buildSamples(): Promise<PromptSample[]> {
           mutagenValueStyle: 'public',
         }),
         notes: ['验证流年范围不是本命资料的误标，并保留所选运限事实。'],
+      },
+      {
+        name: '主题咨询合参',
+        source: '主题咨询 builder 使用真实八字排盘与紫微本命盘生成。',
+        inputSummary: '同一命例：公历 1993年4月8日；事业主题；八字与紫微本命合参。',
+        prompt: extraSamples.thematicConsultation.prompt,
+        facts: [
+          ...extractBaziFacts(samePersonBazi, null, {
+            scope: { start: '【八字排盘信息】', end: '【紫微盘面信息】' },
+            idPrefix: 'thematic.bazi',
+          }),
+          ...extractZiweiFacts(ziweiRuntime, {
+            scope: { start: '【紫微盘面信息】', end: '【任务】' },
+            payloadScopes: ['origin'],
+            palaceValueStyle: 'public',
+            mutagenValueStyle: 'public',
+            idPrefix: 'thematic.ziwei',
+          }),
+        ],
+        notes: ['覆盖主题咨询的真实双盘任务书、盘面事实和内部字段/噪音检查。'],
       },
       {
         name: '八字即时盘',

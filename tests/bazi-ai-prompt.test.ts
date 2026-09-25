@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPromptFromConfig, getCompatibilityPrompt } from '../src/utils/ai/aiPrompts';
+import { formatBaziCompatibilityFacts } from '../src/lib/bazi-compatibility-facts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
@@ -11,8 +12,16 @@ import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/baz
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasAnswerFramework, assertPromptHasSingleRole } from './prompt-assertions';
-import { buildBaziPrompt, formatBaziPatternConditions } from '../packages/core/src/prompt/bazi';
+import {
+  buildBaziCompatibilityPrompt,
+  buildBaziPrompt,
+  formatBaziPatternConditions,
+} from '../packages/core/src/prompt/bazi';
 import { buildBaziPromptForResult } from '../packages/core/src/prompt/public-api';
+import {
+  formatBaziSchoolPrompt,
+  formatBaziSchoolsPrompt,
+} from '../packages/core/src/prompt/bazi-school';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
@@ -69,12 +78,42 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assert.equal(prompt.system, '');
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【双盘关系资料】/);
-  assert.match(prompt.user, /【第一人格局条件】/);
-  assert.match(prompt.user, /【第二人格局条件】/);
   assert.match(prompt.user, /当前成败判定：/);
+  assert.doesNotMatch(prompt.user, /【第一人格局条件】|【第二人格局条件】/);
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
+});
+
+test('八字合盘喜忌覆盖不复述已在个人盘面呈现的功能事实', () => {
+  const result1 = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  const result2 = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  const prompts = [
+    getCompatibilityPrompt('请分析双方关系。', result1, result2).user,
+    buildBaziCompatibilityPrompt({ result1, result2 }),
+  ];
+
+  for (const prompt of prompts) {
+    const coverageLine =
+      prompt.split('\n').find((line) => /喜忌(?:五行对应|覆盖)：/.test(line)) ?? '';
+    assert.equal(prompt.match(/原局格神作用：庚正印（年柱）已参与成格/g)?.length, 1);
+    assert.equal(
+      prompt.match(/格局破格所忌：丁伤官（时柱）；伤官见官的救应明确不成立/g)?.length,
+      1,
+    );
+    assert.match(coverageLine, /第一人盘面命中第二人喜用五行/);
+    assert.doesNotMatch(coverageLine, /原局格神作用|格局破格所忌/);
+  }
+});
+
+test('八字紫微合参只复用双方关系事实，不嵌套整份八字合盘任务书', () => {
+  const { result1, result2 } = createCompatibilityBaziResults();
+  const facts = formatBaziCompatibilityFacts(result1, result2);
+  const prompt = getCompatibilityPrompt('双方如何协作？', result1, result2, 'career');
+
+  assert.match(facts, /日主关系：|四柱关系：/);
+  assert.ok(prompt.user.includes(`【双盘关系资料】\n${facts}`));
+  assert.doesNotMatch(facts, /【第一人排盘信息】|【第二人排盘信息】|【任务】|【问题】/);
 });
 
 test('八字输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
@@ -96,23 +135,185 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
   assertPromptHasSingleRole(combinedPrompt, PROMPT_ROLE_TEXT.bazi);
   assertNoEngineeringPromptText(combinedPrompt);
   const conditions = formatBaziPatternConditions(result);
-  assert.ok(conditions.includes('格局条件：'));
   assert.doesNotMatch(conditions, /(?:pattern|path)\.[a-z.-]+/);
-  assert.match(conditions, /条件核验：(?:满足|不满足|资料不足)/);
-  const strengthFact = result.analysis.mingGe.fulfillment!.conditionFacts!.find(
-    (item) => item.key === 'bazi.day-master-strength',
-  )!;
-  assert.equal(conditions.split(strengthFact.detail).length - 1, 1);
+  assert.doesNotMatch(conditions, /候选取用：|取格分层候选：|格局条件：/);
   for (const text of [
     combinedPrompt,
     buildBaziPrompt({ result, topic: 'career', fortuneScope: 'natal' }),
     buildBaziPromptForResult({ result, topic: 'career', fortuneScope: 'natal' }),
   ]) {
-    assert.ok(text.includes(conditions));
+    assert.match(text, /当前成败判定：/);
+    if (conditions) assert.ok(text.includes(conditions));
     const task = text.split('【任务】\n')[1]?.split('【问题】')[0] ?? '';
     assert.ok(task.length > 0);
     assert.doesNotMatch(task, /大运|流年|岁运/);
   }
+});
+
+test('普通成格提示词保留结论并省略重复的格局条件', () => {
+  const result = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  assert.equal(result.analysis.mingGe.fulfillment?.status, '成格');
+  assert.equal(formatBaziPatternConditions(result), '');
+
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+  assert.match(prompt, /格局: 正印格/);
+  assert.match(prompt, /^当前成败判定：成格/m);
+  assert.doesNotMatch(prompt, /所取格局：/);
+  assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
+});
+
+test('多候选格局提示词只在格局行列选中依据，另列未选候选', () => {
+  const result = createBaziResult({
+    year: 1993,
+    month: 4,
+    day: 8,
+    timeIndex: 12,
+    birthPlace: '新加坡',
+  });
+  const selected = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => candidate.selected,
+  );
+  const alternative = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => !candidate.selected && candidate.pattern !== result.analysis.mingGe.pattern,
+  );
+  assert.ok(selected);
+  assert.ok(alternative);
+
+  assert.ok(result.analysis.mingGe.basis);
+  for (const options of [
+    {},
+    { school: 'ziping' as const },
+    { schools: ['ziping', 'mangpai'] as const },
+  ]) {
+    const prompt = buildBaziPrompt({ result, fortuneScope: 'natal', ...options });
+    assert.equal(prompt.split(`其他取格候选：${alternative.pattern}`).length - 1, 1);
+    assert.equal(prompt.split(result.analysis.mingGe.basis).length - 1, 1);
+    assert.doesNotMatch(prompt, /取格分层候选：|所取格局：/);
+    assert.match(prompt, /^当前成败判定：/m);
+  }
+});
+
+test('独立流派资料中的选中取格依据和其他候选各出现一次', () => {
+  const result = createBaziResult({
+    year: 1993,
+    month: 4,
+    day: 8,
+    timeIndex: 12,
+    birthPlace: '新加坡',
+  });
+  const basis = result.analysis.mingGe.basis;
+  const alternative = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => !candidate.selected && candidate.pattern !== result.analysis.mingGe.pattern,
+  );
+  assert.ok(basis);
+  assert.ok(alternative);
+
+  for (const prompt of [
+    formatBaziSchoolPrompt(result, 'ziping'),
+    formatBaziSchoolPrompt(result, 'mangpai'),
+    formatBaziSchoolPrompt(result, 'xinpai'),
+    formatBaziSchoolsPrompt(result, ['ziping', 'mangpai']),
+  ]) {
+    assert.equal(prompt.split(basis).length - 1, 1);
+    assert.equal(prompt.split(`其他取格候选：${alternative.pattern}`).length - 1, 1);
+    assert.doesNotMatch(prompt, /取格分层候选：|所取格局：/);
+    assert.match(prompt, /当前成败判定：/);
+  }
+});
+
+test('已成化格保留结论与取用，省略重复的逐项核验', () => {
+  const result = createBaziResult({ year: 1994, month: 3, day: 17, timeIndex: 4 });
+  assert.equal(result.analysis.mingGe.transformation?.status, '成化');
+
+  for (const school of [undefined, 'ziping' as const]) {
+    const prompt = buildBaziPrompt({ result, fortuneScope: 'natal', school });
+    assert.match(prompt, /格局: 丁壬化木格[^\n]*化气判定：成化/);
+    assert.match(prompt, /化神取用：[^\n]*化神木/);
+    assert.doesNotMatch(prompt, /【格局条件】|取用条件：|化气证据：/);
+  }
+});
+
+test('成化状态在合盘与多派提示词只呈现一次', () => {
+  const formed = createBaziResult({ year: 1994, month: 3, day: 17, timeIndex: 4 });
+  const other = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+
+  for (const prompt of [
+    getCompatibilityPrompt('请分析双方关系。', formed, other).user,
+    buildBaziCompatibilityPrompt({ result1: formed, result2: other }),
+  ]) {
+    assert.equal(prompt.match(/化气判定：成化/g)?.length, 1);
+    assert.match(prompt, /化神取用：[^\n]*化神木/);
+    assert.match(prompt, /喜忌(?:覆盖|五行对应)：第二人盘面命中第一人喜用五行木、水/);
+    const relationFacts = prompt.split('【双盘关系资料】')[1] ?? '';
+    assert.doesNotMatch(relationFacts, /化气判定：成化|取用主体：化神木/);
+  }
+  assert.match(
+    buildBaziCompatibilityPrompt({ result1: formed, result2: other }),
+    /化气判定：存在反证/,
+  );
+
+  for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
+    const prompt = build({ result: formed, schools: ['ziping', 'mangpai'] });
+    assert.equal(prompt.match(/化气判定：成化/g)?.length, 1);
+    assert.match(prompt, /共同格局事实：\n化神木；依据《子平真诠/);
+  }
+});
+
+test('流派格局资料不重复列已满足条件，判定理由不重复典籍依据', () => {
+  const formed = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  const schoolPrompt = buildBaziPrompt({ result: formed, school: 'ziping' });
+  assert.match(schoolPrompt, /当前成败判定：成格/);
+  assert.doesNotMatch(schoolPrompt, /^条件核验：满足；/m);
+
+  const broken = createBaziResult({ year: 2000, month: 1, day: 7, timeIndex: 5 });
+  const prompt = buildBaziPrompt({ result: broken });
+  const basis = broken.analysis.mingGe.fulfillment!.basis;
+  assert.ok(basis);
+  assert.equal(prompt.split(basis).length - 1, 1);
+  assert.match(prompt, /当前成败判定：破格；判定理由：/);
+});
+
+test('破格救应已在核心判断列明时省略重复格局条件', () => {
+  const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  assert.equal(result.analysis.mingGe.fulfillment?.status, '破格');
+
+  const conditions = formatBaziPatternConditions(result);
+  assert.equal(conditions, '');
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+  assert.match(prompt, /当前成败判定：破格/);
+  assert.match(prompt, /格局破格所忌：丁伤官（时柱）；伤官见官的救应明确不成立/);
+  assert.doesNotMatch(prompt, /【格局条件】/);
+
+  result.analysis.usefulGod.decisionEvidence!.patternBreakerRestrictions = [];
+  assert.match(formatBaziPatternConditions(result), /破格项：伤官见官/);
+});
+
+test('流派提示词只补充格局的盘面证据，不复述共同判定和未激活破格候选', () => {
+  const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
+    for (const options of [
+      { school: 'ziping' as const },
+      { schools: ['ziping', 'mangpai', 'xinpai'] as const },
+    ]) {
+      const prompt = build({ result, ...options });
+      assert.doesNotMatch(prompt, /所取格局：/);
+      assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
+      assert.doesNotMatch(prompt, /^条件核验：[^\n]*官杀混杂未透干/gm);
+      assert.match(prompt, /透干通根：/);
+      assert.match(prompt, /当前成败判定：破格/);
+      const conditionLines = prompt
+        .split('\n')
+        .filter((line) => /^(?:条件核验|制化路径)：/.test(line));
+      assert.equal(conditionLines.length, new Set(conditionLines).size);
+    }
+  }
+});
+
+test('时辰未知的多派提示词保留候选资料', () => {
+  const result = createBaziResult({ timeIndex: undefined, isThreePillars: true });
+  const prompt = buildBaziPromptForResult({ result, schools: ['ziping', 'mangpai'] });
+  assert.match(prompt, /出生时辰未知/);
+  assert.match(prompt, /时辰候选/);
 });
 
 test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {

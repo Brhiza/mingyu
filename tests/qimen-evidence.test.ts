@@ -6,7 +6,9 @@ import {
   evaluateQimenPatternFulfillment,
 } from 'mingyu-core/divination/qimen';
 import { generateQimen as generateQimenFromSource } from '../packages/core/src/divination/algorithms/qimen/index';
+import { formatQimenPatternConditionSummary } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance';
 import type { QimenCandidateSource } from '../packages/core/src/divination/algorithms/qimen/index';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -180,21 +182,26 @@ test('奇门证据按排盘范围使用六甲遁干主动源并优先于日时�
   }
 });
 
-test('奇门中性格局与多宫门迫保留各宫条件，空亡不直接翻转吉凶', () => {
+test('奇门同宫空迫按宫汇总，门迫格局不重复列为自身条件', () => {
   const data = generateQimen(fixedDate);
   const [first, second] = data.jiuGongGe;
   data.classicPatterns = [
     { name: '中性组合', type: 'neutral', summary: '组合', palaces: [first.gong] },
+    { name: '同宫旁格', type: 'bad', summary: '组合', palaces: [first.gong] },
     { name: '吉格组合', type: 'good', summary: '组合', palaces: [second.gong] },
   ];
   data.patternTags = [`门迫（${first.name}、${second.name}）`];
   data.voidPalaces = [{ branch: '子', palace: first.gong, name: first.name }];
   const fulfillments = evaluateQimenPatternFulfillment(data);
-  assert.equal(fulfillments.length, 2);
+  assert.equal(fulfillments.length, 3);
   assert.match(fulfillments[0], /中性格局.*空亡、门迫/);
   assert.doesNotMatch(fulfillments[0], /吉力|凶势|减弱|虚浮/);
-  assert.match(fulfillments[1], /吉格.*门迫/);
-  assert.doesNotMatch(fulfillments[1], /同宫见空亡/);
+  assert.match(fulfillments[2], /吉格.*门迫/);
+  assert.doesNotMatch(fulfillments[2], /同宫见空亡/);
+  assert.deepEqual(formatQimenPatternConditionSummary(data), [
+    `${first.name}同宫见空亡、门迫`,
+    `${second.name}同宫见门迫`,
+  ]);
   data.patternTags = [];
   data.classicPatterns.push({
     name: '门迫',
@@ -202,6 +209,73 @@ test('奇门中性格局与多宫门迫保留各宫条件，空亡不直接翻�
     summary: '门克宫',
     palaces: [second.gong],
   });
-  const structured = evaluateQimenPatternFulfillment(data);
-  assert.ok(structured.some((item) => item.includes('吉格组合') && item.includes('门迫')));
+  const structured = formatQimenPatternConditionSummary(data);
+  assert.deepEqual(structured, [`${first.name}同宫见空亡`, `${second.name}同宫见门迫`]);
+  assert.ok(evaluateQimenPatternFulfillment(data).some((item) => item.startsWith('【门迫】')));
+  data.classicPatterns = data.classicPatterns.filter((pattern) => pattern.name === '门迫');
+  assert.deepEqual(formatQimenPatternConditionSummary(data), []);
+  assert.doesNotMatch(formatEnhancedDivinationInfo('qimen', data), /格局条件：/);
+});
+
+test('奇门格局空亡事实由九宫简表承载，应期来源不重复触发条件', () => {
+  const data = generateQimen(fixedDate);
+  const palace = data.jiuGongGe[0];
+  data.classicPatterns = [
+    { name: '空亡核验', type: 'good', summary: '盘面事实', palaces: [palace.gong] },
+  ];
+  data.voidPalaces = [{ branch: '子', palace: palace.gong, name: palace.name }];
+  data.evidenceAnalysis = analyzeQimenEvidence(data);
+  const trigger = '驿马发动，出现行动时触发进展';
+  assert.ok(data.yingQi);
+  data.yingQi.sources.push(trigger);
+  data.yingQi.triggerConditions.push(trigger);
+  const prompt = formatEnhancedDivinationInfo('qimen', data);
+  assert.doesNotMatch(prompt, /格局条件：/);
+  const palaceLine = prompt
+    .split('\n')
+    .find((line) => line.trimStart().startsWith(`${palace.name}（`));
+  assert.match(palaceLine ?? '', /逢空/);
+  assert.ok(prompt.includes(`空亡核验（吉格，${palace.name}）：盘面事实`));
+  assert.doesNotMatch(prompt, /结合本次用神与宫门星神，分别核对结果、程度和落实迟速/);
+  assert.equal(prompt.split(trigger).length - 1, 1);
+  assert.equal(prompt.split('触发条件：').length - 1, 1);
+  assert.ok(prompt.split('触发条件：')[1]?.split('\n').includes(`  ${trigger}`));
+});
+
+test('奇门提示词按问题展示专项复合格局，结构化盘面仍保留完整命中', () => {
+  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  assert.ok(data.patternCombos?.some((item) => item.name === '射覆物象克应'));
+  assert.ok(data.patternCombos?.some((item) => item.name === '星宫主客'));
+
+  const ordinary = formatEnhancedDivinationInfo('qimen', data, '工作进展如何？');
+  assert.match(ordinary, /坎一宫（正北，水）：[^\n]*逢空/);
+  assert.match(ordinary, /门迫（凶格）：[^\n]*巽四宫/);
+  assert.doesNotMatch(ordinary, /格局条件：/);
+  assert.doesNotMatch(
+    ordinary,
+    /八门余气|十干迫制|值符开通闭塞|三胜地|射覆物象克应|星宫主客|飞鸟跌穴利客|迷路法/,
+  );
+
+  const military = formatEnhancedDivinationInfo('qimen', data, '军事演习的行军攻守如何安排？');
+  assert.match(military, /星宫主客|飞鸟跌穴利客/);
+  assert.match(military, /迷路法/);
+  assert.doesNotMatch(military, /射覆物象克应|不作通用吉凶评分|不替代通用吉格评分/);
+
+  const object = formatEnhancedDivinationInfo('qimen', data, '寻找丢失的手表');
+  assert.match(object, /射覆物象克应/);
+  assert.doesNotMatch(object, /星宫主客/);
+
+  const travel = formatEnhancedDivinationInfo('qimen', data, '出行路线怎么选？');
+  assert.match(travel, /迷路法|天马方|孤虚/);
+  assert.doesNotMatch(travel, /星宫主客|射覆物象克应|四神用方/);
+  const timing = formatEnhancedDivinationInfo('qimen', data, '什么时候适合推进？');
+  assert.match(timing, /值符开通闭塞/);
+  assert.doesNotMatch(timing, /八门余气|星宫主客/);
+  const door = formatEnhancedDivinationInfo('qimen', data, '八门旺衰如何？');
+  assert.match(door, /八门余气/);
+  const cooperation = formatEnhancedDivinationInfo('qimen', data, '职场合作的主客关系如何？');
+  assert.doesNotMatch(cooperation, /星宫主客|飞鸟跌穴利客/);
+  const escape = formatEnhancedDivinationInfo('qimen', data, '避难时怎样隐蔽？');
+  assert.match(escape, /四神用方/);
+  assert.ok(ordinary.length < military.length);
 });

@@ -437,6 +437,8 @@ export interface UsefulGodAnalysis {
   secondaryUnfavorableWuxing?: string[];
   primaryUseful?: string;
   primaryAvoid?: string;
+  /** 可增补五行与具体天干的裁决程度；原局格神功能不自动转为增补喜忌。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
   /** 只适用于明确 policy.effects 的干级候选，不代表同五行全部可用。 */
   conditionalFavorableStems?: string[];
   /** 具体天干因调候条件或普通格局破格事实列忌，不把限制扩大到整个五行。 */
@@ -500,6 +502,16 @@ export interface UsefulGodDecisionEvidence {
   climateAppliedRuleId?: string;
   climateAppliedRuleIds?: string[];
   controlFunctions?: UsefulGodControlFunctionEvidence[];
+  /** 已证原局格神与制化作用；只说明本命结构，不判新来同干或整五行为喜。 */
+  natalFunctions?: Array<{
+    stem: string;
+    tenGod: string;
+    pillar: string;
+    placement: '透干' | '藏干';
+    role: '格神' | '制化来源' | '制化对象';
+    pathKey?: string;
+    detail: string;
+  }>;
   conditionalFavorableStems?: string[];
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
@@ -591,6 +603,7 @@ export interface BaziChartResult {
       pillars: Pillars;
       strength: DayMasterStrengthStatus;
       pattern: string;
+      incrementStatus?: UsefulGodAnalysis['incrementStatus'];
       favorableWuxing: string[];
       unfavorableWuxing: string[];
     }>;

@@ -91,7 +91,7 @@ export function formatAstrolabeAspectSections(
   const headlines = ranked.filter(isAstrolabeAspectHeadline);
   const lead = headlines.length ? headlines : ranked.slice(0, Math.min(6, ranked.length));
   return [
-    `相位主线：${lead.map((item) => formatAstrolabeAspectLine(item, points)).join('；')}。`,
+    `相位主线：${lead.map((item) => `${item.body1}与${item.body2}：${item.type}`).join('；')}。`,
     '相位明细：',
     ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item, points)}`),
   ];

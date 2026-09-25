@@ -300,10 +300,16 @@ function lifetimePalaceFacts(
   );
 }
 
+function lifetimeDailyRelationCount(cluster: AnyRecord): number {
+  const count = records(cluster.triggerDates).length;
+  return text(cluster.key)?.includes(':day:') ? count : 0;
+}
+
 function lifetimeEventHeader(cluster: AnyRecord): string | undefined {
   const timeSpan = text(cluster.timeSpan);
   const triggerFact = text(cluster.triggerFact);
   if (!timeSpan || !triggerFact) return undefined;
+  const dailyCount = lifetimeDailyRelationCount(cluster);
   const stageIndices = Array.isArray(cluster.stageIndices)
     ? cluster.stageIndices.map(text).filter((item): item is string => Boolean(item))
     : [];
@@ -313,7 +319,7 @@ function lifetimeEventHeader(cluster: AnyRecord): string | undefined {
     : stageIndex === undefined
       ? '（阶段表范围外）'
       : '';
-  return `${timeSpan}${scopeText} ${triggerFact}`;
+  return `${timeSpan}${scopeText} ${dailyCount ? `共${dailyCount}个日辰` : triggerFact}`;
 }
 
 function formatLifetimeTriggerDate(item: AnyRecord): string | undefined {
@@ -372,6 +378,18 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
   const markerScope = { start: '核心个人标记：', end: '人生重点主题候选宫：' };
   const candidateScope = { start: '人生重点主题候选宫：', end: '【人生阶段资料】' };
   const eventSectionScope = { start: '【周期触发与事件簇】', end: '【任务】' };
+  const classicPatterns = records(baseChart.classicPatterns);
+  const basePatternFacts = new Map<string, string>();
+  for (const pattern of classicPatterns) {
+    const name = text(pattern.name);
+    const summary = text(pattern.summary);
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (name && summary && label) {
+      basePatternFacts.set(`${label}「${name}」：${summary}`, `${label}「${name}」`);
+    }
+  }
+  const formatStageFacts = (value: unknown) =>
+    unique(texts(value).map((item) => basePatternFacts.get(item) ?? item)).join('；');
   const facts = collect([
     fact('qimen-lifetime.birth-date', '出生时刻：', [input.birthDateTime], { scope: basisScope }),
     fact('qimen-lifetime.birth-timezone', '出生时区：', [basis.timeZoneUsed], {
@@ -476,6 +494,21 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
       ...lifetimePalaceFacts(baseChart, baseScope),
     ]),
   );
+  facts.push(
+    ...collect(
+      classicPatterns.map((pattern, index) => {
+        const name = text(pattern.name);
+        const summary = text(pattern.summary);
+        const tone = pattern.type === 'good' ? '吉' : pattern.type === 'bad' ? '凶' : '中性';
+        return name && summary
+          ? fact(`qimen-lifetime.base-pattern.${index}`, `${name}（${tone}）：`, [summary], {
+              scope: baseScope,
+              unit: 'line',
+            })
+          : null;
+      }),
+    ),
+  );
 
   facts.push(
     ...collect(
@@ -570,7 +603,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             ? fact(
                 `qimen-lifetime.stage.${index}.support`,
                 '支持吉象：',
-                [join(stage.supportFacts, '；')],
+                [formatStageFacts(stage.supportFacts)],
                 { scope, unit: 'line' },
               )
             : null,
@@ -578,7 +611,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             ? fact(
                 `qimen-lifetime.stage.${index}.constraint`,
                 '考验反证：',
-                [join(stage.constraintFacts, '；')],
+                [formatStageFacts(stage.constraintFacts)],
                 { scope, unit: 'line' },
               )
             : null,
@@ -594,6 +627,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
       events.flatMap((event, index) => {
         const header = eventHeaders[index];
         if (!header) return [];
+        const dailyCount = lifetimeDailyRelationCount(event);
         const nextHeader = eventHeaders[index + 1];
         const scope = {
           start: header,
@@ -610,7 +644,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
         return [
           fact(
             `qimen-lifetime.event.${index}.header`,
-            text(event.triggerFact) || '',
+            dailyCount ? `共${dailyCount}个日辰` : text(event.triggerFact) || '',
             [text(event.rhythm) ? `节奏：${text(event.rhythm)}` : undefined, stageFact],
             { scope: eventSectionScope, unit: 'line' },
           ),
@@ -622,13 +656,15 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
               { scope, unit: 'line' },
             ),
           ),
-          fact(
-            `qimen-lifetime.event.${index}.interaction`,
-            '动态交互：',
-            [event.interactionAnalysis],
-            { scope, unit: 'line' },
-          ),
-          texts(event.supportEvidence).length
+          dailyCount
+            ? null
+            : fact(
+                `qimen-lifetime.event.${index}.interaction`,
+                '动态交互：',
+                [event.interactionAnalysis],
+                { scope, unit: 'line' },
+              ),
+          !dailyCount && texts(event.supportEvidence).length
             ? fact(
                 `qimen-lifetime.event.${index}.support`,
                 '增益因素：',
@@ -644,6 +680,8 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
                 { scope, unit: 'line' },
               )
             : null,
+          !dailyCount &&
+          !text(event.key)?.includes(':month-clash:') &&
           texts(event.verificationQuestions).length
             ? fact(
                 `qimen-lifetime.event.${index}.verification`,

@@ -203,7 +203,10 @@ export {
   formatHarmonyTransformProfile,
 } from './harmonyTransform';
 export type { HarmonyPillarInput } from './harmonyTransform';
-export { analyzeBaziCompatibility } from './compatibilityEvidence';
+export {
+  analyzeBaziCompatibility,
+  formatBaziUsefulGodCoverageForPrompt,
+} from './compatibilityEvidence';
 export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
 export { analyzeBaziNatalEvidence } from './natalEvidence';
 export type {

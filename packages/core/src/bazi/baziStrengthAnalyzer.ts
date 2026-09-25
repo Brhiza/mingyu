@@ -1,6 +1,6 @@
 import { BASIC_MAPPINGS } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
-import { getDirectClashSources } from './baziRootFacts';
+import { getDirectClashSources, hasStrongRootStage } from './baziRootFacts';
 import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
 import type {
   ConstraintAnalysis,
@@ -238,8 +238,15 @@ export function analyzeRoot(
     roots,
     totalStrength,
     hasRoot: roots.length > 0,
-    // 地支本气与日主同气且未被外支六冲，才作为未破的明根；冲根仍保留为有根事实。
-    strongRoot: roots.some((root) => isDirectEvidence(root.branch) && root.stable),
+    // 本气同类与日干同名且在长生、临官、帝旺的稳定藏根均属重根；
+    // 长生按日干判断，避免乙日借亥中甲木、戊日借午中己土抬高根气。
+    strongRoot: rootFacts.some(
+      (root) =>
+        root.stable &&
+        ((root.hiddenIndex === 0 && getWuxing(root.branch) === dayMasterWuxing) ||
+          (root.stem === dayMaster &&
+            hasStrongRootStage({ stem: dayMaster, branch: root.branch }))),
+    ),
   };
 }
 

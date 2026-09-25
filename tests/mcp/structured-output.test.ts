@@ -514,7 +514,9 @@ test('MCP 八字计算与提示词共用从儿裁决和取用', async () => {
     assert.equal(chart.analysis.usefulGod.decisionEvidence?.base.ruleId, 'follow-conger');
     assert.equal(prompted.isError, undefined);
     assert.equal(prompted.structuredContent?.result.analysis.mingGe.pattern, '从儿格');
-    assert.match(String(prompted.structuredContent?.prompt), /特殊格裁决：从儿格成立/);
+    const prompt = String(prompted.structuredContent?.prompt);
+    assert.match(prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+    assert.doesNotMatch(prompt, /特殊格裁决：从儿格成立/);
     assert.match(String(prompted.structuredContent?.prompt), /取用: 主用火，辅木/);
   });
 });
@@ -648,6 +650,86 @@ test('姓名与数字提示词工具应返回顶层 prompt 并兼容旧读取路
         `${name} 旧读取路径应保持兼容`,
       );
     }
+  });
+});
+
+test('MCP 主题咨询入口返回单份自包含合参任务书与真实盘面事实', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'thematic_consultation_prompt',
+      arguments: {
+        name: '张三',
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 6,
+        dateType: 'solar',
+        topic: 'relationship',
+        scope: 'natal',
+        question: '我想了解未来三年的感情发展。',
+      },
+    });
+
+    assert.equal(response.isError, undefined, JSON.stringify(response.content));
+    const prompt = String(response.structuredContent?.prompt);
+    const result = response.structuredContent?.result as {
+      bazi: {
+        pillars: {
+          year: { ganZhi: string };
+          month: { ganZhi: string };
+          day: { ganZhi: string };
+          hour: { ganZhi: string };
+        };
+      };
+      ziwei: {
+        payloadByScope: {
+          origin: {
+            basic_info: { solar_date: string };
+            palaces: Array<{ name: string; major_stars?: Array<{ name: string }> }>;
+          };
+        };
+      };
+    };
+    const lifePalace = result.ziwei.payloadByScope.origin.palaces.find(
+      (palace) => palace.name === '命宫',
+    );
+    const lifePalaceStar = lifePalace?.major_stars?.[0]?.name;
+
+    assert.ok(prompt.includes('【分析主题】'));
+    assert.ok(prompt.includes('【八字排盘信息】'));
+    assert.ok(prompt.includes('【紫微盘面信息】'));
+    assert.ok(prompt.includes('【资料范围】'));
+    assert.ok(prompt.includes('【任务】'));
+    assert.ok(prompt.includes('【问题】\n我想了解未来三年的感情发展。'));
+    assert.ok(
+      prompt.includes(`出生日期：${result.ziwei.payloadByScope.origin.basic_info.solar_date}`),
+    );
+    assert.ok(lifePalaceStar && prompt.includes(lifePalaceStar));
+    for (const [label, pillar] of [
+      ['年柱', result.bazi.pillars.year],
+      ['月柱', result.bazi.pillars.month],
+      ['日柱', result.bazi.pillars.day],
+      ['时柱', result.bazi.pillars.hour],
+    ] as const) {
+      assert.ok(prompt.includes(`${label}: ${pillar.ganZhi}`), `${label}应使用实际排盘值`);
+    }
+    for (const section of [
+      '【当前时间】',
+      '【分析主题】',
+      '【八字排盘信息】',
+      '【紫微盘面信息】',
+      '【资料范围】',
+      '【任务】',
+      '【问题】',
+    ]) {
+      assert.equal(prompt.split(section).length - 1, 1, `${section} 不应重复完整任务书`);
+    }
+    assert.doesNotMatch(
+      prompt,
+      /\b(?:methodId|topicId|subtopicId|promptScope|scopeDate|scopeHourIndex|focusPalaces|focusElements|baziResult|ziweiResult|payloadByScope|active_scope|calculation_config)\b/,
+    );
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -5590,5 +5672,81 @@ test('MCP 提供焦氏易林固定索引并返回双底本来源状态', async (
       arguments: { baseHexagram: '不存在', targetHexagram: '乾' },
     });
     assert.equal(invalid.isError, true);
+  });
+});
+
+test('MCP 紫微、大六壬与星盘提示词入口只输出一次完整重点资料', async () => {
+  await withMcpClient(async (client) => {
+    const ziweiResponse = await client.callTool({
+      name: 'ziwei_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1993',
+        month: '4',
+        day: '8',
+        timeIndex: 12,
+        promptScope: 'yearly',
+        scopeDate: '2026-05-19',
+        question: '请分析本年度事业发展重点。',
+      },
+    });
+    assert.equal(ziweiResponse.isError, undefined);
+    const ziweiPrompt = (ziweiResponse.structuredContent as { prompt: string }).prompt;
+    const palaceSection = ziweiPrompt.split('【重点宫位资料】')[1]?.split('\n【')[0] ?? '';
+    const [focusPalaces, remainingPalaces] = palaceSection.split('十二宫明细：');
+    const palaceLines = (text: string) =>
+      text
+        .split('\n')
+        .filter((line) =>
+          /^  [^\n]+（[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]）：主星：/.test(line),
+        );
+    const focusLines = palaceLines(focusPalaces ?? '');
+    const remainingLines = palaceLines(remainingPalaces ?? '');
+    assert.equal(focusLines.length, 7);
+    assert.equal(remainingLines.length, 5);
+    assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
+
+    const liurenResponse = await client.callTool({
+      name: 'liuren_prompt',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '我现在要不要换工作？',
+        liurenTemplate: 'shiye',
+      },
+    });
+    assert.equal(liurenResponse.isError, undefined);
+    const liurenPrompt = (liurenResponse.structuredContent as { prompt: string }).prompt;
+    assert.equal([...liurenPrompt.matchAll(/普通宗门裁决：/gu)].length, 1);
+
+    const astrolabeResponse = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: '男',
+        year: 1993,
+        month: 4,
+        day: 8,
+        hour: 23,
+        minute: 34,
+        latitude: 1.3521,
+        longitude: 103.8198,
+        timezone: 8,
+        locationName: '新加坡',
+        astrolabeScope: 'natal',
+        customDate: '2026-05-19T10:30:00+08:00',
+        question: '本命盘的事业主线是什么？',
+      },
+    });
+    assert.equal(astrolabeResponse.isError, undefined);
+    const astrolabePrompt = (astrolabeResponse.structuredContent as { prompt: string }).prompt;
+    const aspectLead = astrolabePrompt.split('相位主线：')[1]?.split('\n')[0] ?? '';
+    assert.ok(aspectLead);
+    assert.doesNotMatch(aspectLead, /偏差|目标角|实际角距|容许偏差上限|第\d+宫/u);
+    const aspectDetails = astrolabePrompt.split('相位明细：')[1]?.split('\n【')[0] ?? '';
+    const firstAspectLine = aspectDetails.split('\n').find((line) => line.trim());
+    assert.ok(firstAspectLine);
+    assert.equal(astrolabePrompt.split(firstAspectLine).length - 1, 1);
   });
 });

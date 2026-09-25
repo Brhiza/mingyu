@@ -7,6 +7,9 @@ import {
 } from '../packages/core/src/prompt/divination';
 import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { buildDivinationPrompt as buildAppDivinationPrompt } from '../src/lib/divination/engine';
+import { formatLiurenOrdinaryTransmissionAdjudication } from '../packages/core/src/prompt/liuren-facts';
+import { formatLiurenJudgmentFacts } from '../packages/core/src/prompt/liuren-judgment';
 
 test('大六壬四课和三传分别绑定实际上下位与前传，十二宫绑定天地盘及天将', () => {
   const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
@@ -81,14 +84,29 @@ test('大六壬完整提示词写入课体判据、取用定位和应期依据',
   assert.doesNotMatch(prompt, /sourceUrl|stableKey|notApplicable/);
 });
 
-test('核心直调大六壬提示词含独立课传判据且只追加一次', () => {
+test('大六壬完整提示词只补充尚未在盘面显示的判断事实', () => {
   const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
-  const prompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
-  assert.match(prompt, /【占卜资料】/);
-  assert.match(prompt, /取传说明：/);
-  assert.match(prompt, /取传条件：/);
-  assert.match(prompt, /课体条件：/);
-  assert.match(prompt, /课传反证：/);
-  assert.equal((prompt.match(/取传说明：/g) ?? []).length, 1);
-  assert.equal((prompt.match(/课传反证：/g) ?? []).length, 1);
+  const adjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
+  assert.ok(adjudication.includes('候选取舍：'));
+  assert.ok(formatLiurenJudgmentFacts(data).includes(adjudication));
+  for (const prompt of [
+    buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' }),
+    buildAppDivinationPrompt('liuren', '问合作进度', data),
+  ]) {
+    assert.match(prompt, /课传主线：/);
+    assert.match(prompt, /取传条件：/);
+    assert.match(prompt, /课体判据：/);
+    assert.match(prompt, /取用定位：/);
+    assert.match(prompt, /应期依据：/);
+    assert.match(prompt, /课传反证：/);
+    assert.doesNotMatch(prompt, /取传说明：|课体条件：|重点依据：|时令依据：/);
+    assert.equal(prompt.split(adjudication).length - 1, 1);
+    for (const fact of data.guaTiFacts ?? []) {
+      assert.equal(prompt.split(fact.matchedConditions.join('；')).length - 1, 1);
+    }
+    for (const focus of data.focusEvidence ?? []) {
+      assert.ok(prompt.includes(`${focus.role}${focus.target}（${focus.level}）`));
+      for (const limitation of focus.limitations) assert.ok(prompt.includes(limitation));
+    }
+  }
 });

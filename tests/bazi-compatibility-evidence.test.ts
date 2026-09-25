@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
-import { analyzeBaziCompatibility } from '../packages/core/src/bazi/compatibilityEvidence';
+import {
+  analyzeBaziCompatibility,
+  formatBaziUsefulGodCoverageForPrompt,
+} from '../packages/core/src/bazi/compatibilityEvidence';
 import {
   evaluateNayinCompatibility,
   evaluateUsefulGodComplementarity,
@@ -20,6 +23,75 @@ function createChart(): BaziChartResult {
     useTrueSolarTime: false,
   });
 }
+
+test('中和增补待判的合盘保留原局格神，不把空喜忌判为未命中', () => {
+  const neutral = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+  });
+  const other = createChart();
+  const coverage = analyzeBaziCompatibility(neutral, other).usefulGodCoverage[0];
+  const marriage = evaluateUsefulGodComplementarity(neutral, other);
+
+  assert.equal(neutral.analysis.usefulGod.incrementStatus, '待判');
+  assert.equal(coverage.status, '资料不足');
+  assert.match(coverage.unavailableReason ?? '', /增补喜忌五行待判/);
+  assert.match(coverage.functionalEvidence?.descriptions.join('；') ?? '', /原局格神作用：庚正印/);
+  assert.match(coverage.promptText, /原局格神作用：庚正印/);
+  assert.match(coverage.promptText, /无法核验第二人盘面的增补喜忌覆盖/);
+  assert.doesNotMatch(formatBaziUsefulGodCoverageForPrompt(coverage), /原局格神作用：庚正印/);
+  assert.equal(marriage.dataStatus, '一方待判');
+  assert.equal(marriage.level, '资料不足');
+  assert.match(marriage.judgment, /增补喜忌五行尚待裁决/);
+});
+
+test('完整喜忌覆盖保留低层功能事实并提供盘面内提示词简写', () => {
+  const first = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+  });
+  const second = baziCalculator.calculateBazi({
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+    gender: 'male',
+    isLunar: false,
+  });
+  const coverage = analyzeBaziCompatibility(first, second).usefulGodCoverage.find(
+    (item) => item.beneficiary === 'person2',
+  )!;
+
+  assert.equal(coverage.status, '已计算');
+  assert.match(coverage.functionalEvidence?.descriptions.join('；') ?? '', /格局破格所忌：丁伤官/);
+  assert.match(coverage.promptText, /第二人另有格局破格所忌：丁伤官/);
+  assert.doesNotMatch(formatBaziUsefulGodCoverageForPrompt(coverage), /第二人另有格局破格所忌/);
+  assert.ok(coverage.favorable.some((item) => item.sources.some((source) => source.pillar)));
+});
+
+test('合盘单侧喜忌尚待裁决时不将部分增补资料称为完整', () => {
+  const first = createChart();
+  const second = createChart();
+  first.analysis.usefulGod.incrementStatus = '部分判定';
+  first.analysis.usefulGod.favorableWuxing = ['木'];
+  first.analysis.usefulGod.unfavorableWuxing = [];
+  second.analysis.usefulGod.incrementStatus = '已判定';
+  second.analysis.usefulGod.favorableWuxing = ['火'];
+  second.analysis.usefulGod.unfavorableWuxing = ['水'];
+
+  const result = evaluateUsefulGodComplementarity(first, second);
+  assert.equal(result.dataStatus, '一方待判');
+  assert.equal(result.level, '资料不足');
+  assert.match(result.judgment, /增补喜忌五行尚待裁决/);
+});
 
 function withPillars(
   pillars: Pillars,

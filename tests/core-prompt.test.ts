@@ -222,9 +222,10 @@ test('npm 提示词入口应生成八字双盘关系资料', () => {
 
   assert.match(prompt, /【第一人排盘信息】/);
   assert.match(prompt, /【第二人排盘信息】/);
-  assert.ok(formatBaziPatternConditions(result1));
-  assert.match(prompt, /【第一人格局条件】/);
   assert.match(prompt, /当前成败判定：/);
+  const result1Conditions = formatBaziPatternConditions(result1);
+  if (result1Conditions) assert.match(prompt, /【第一人格局条件】/);
+  else assert.doesNotMatch(prompt, /【第一人格局条件】/);
   const result2Conditions = formatBaziPatternConditions(result2);
   if (result2Conditions) assert.match(prompt, /【第二人格局条件】/);
   assert.match(prompt, /【双盘关系资料】/);

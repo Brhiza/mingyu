@@ -296,9 +296,7 @@ export function analyzeFortuneActionEvidence(params: {
 
       // 3. 喜忌条件引用状态判定
       // 优先保留具体干级条件；同五行基础喜忌仅做独立基线
-      const isSpecificFav =
-        condFavStems.has(stem) ||
-        matchingControls.some((c) => c.sourceStems.includes(stem) && c.status === '满足');
+      const isSpecificFav = condFavStems.has(stem);
       const isSpecificUnfav = condUnfavStems.has(stem) || matchingBreakers.length > 0;
 
       const favorableHit = isSpecificFav || isBaseFav;

@@ -833,7 +833,10 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
           liuyaoTemplate,
         }),
         ...(options.method === 'liuren'
-          ? formatLiurenJudgmentFacts(options.data as LiurenData)
+          ? formatLiurenJudgmentFacts(options.data as LiurenData, {
+              includeOrdinaryAdjudication: false,
+              chartFactsIncluded: true,
+            })
           : []),
       ].join('\n'),
     ),

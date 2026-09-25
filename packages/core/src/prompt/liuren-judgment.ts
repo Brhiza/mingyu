@@ -1,9 +1,12 @@
 import type { LiurenData } from '../types/divination';
 import { formatLiurenOrdinaryTransmissionAdjudication } from './liuren-facts';
 
-export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
+export function formatLiurenJudgmentFacts(
+  data: LiurenData,
+  options: { includeOrdinaryAdjudication?: boolean; chartFactsIncluded?: boolean } = {},
+): string[] {
   const lines: string[] = [];
-  if (data.transmissionDetail) {
+  if (!options.chartFactsIncluded && data.transmissionDetail) {
     const sourceMarker = '；古籍依据依次为：';
     const sourceIndex = data.transmissionDetail.indexOf(sourceMarker);
     const transmissionBasis =
@@ -16,12 +19,17 @@ export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
     .filter(Boolean);
   if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
   const ordinaryAdjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
-  if (ordinaryAdjudication) lines.push(ordinaryAdjudication);
-
+  if (
+    !options.chartFactsIncluded &&
+    options.includeOrdinaryAdjudication !== false &&
+    ordinaryAdjudication
+  )
+    lines.push(ordinaryAdjudication);
   const guaTiFacts = (data.guaTiFacts ?? [])
     .map((item) => `${item.name}（${item.matchedConditions.join('、')}）`)
     .filter(Boolean);
-  if (guaTiFacts.length) lines.push(`课体条件：${guaTiFacts.join('；')}`);
+  if (!options.chartFactsIncluded && guaTiFacts.length)
+    lines.push(`课体条件：${guaTiFacts.join('；')}`);
 
   const focusEvidence = (data.focusEvidence ?? [])
     .map((item) => {
@@ -29,17 +37,23 @@ export function formatLiurenJudgmentFacts(data: LiurenData): string[] {
       return `${item.target}${item.role ? `（${item.role}）` : ''}，${item.level}：${evidence || '未列依据'}${item.limitations.length ? `；适用条件：${item.limitations.join('、')}` : ''}`;
     })
     .filter(Boolean);
-  if (focusEvidence.length) lines.push(`重点依据：${focusEvidence.join('；')}`);
+  if (!options.chartFactsIncluded && focusEvidence.length)
+    lines.push(`重点依据：${focusEvidence.join('；')}`);
 
   const timingEvidence = (data.timingEvidence ?? []).filter(Boolean);
-  if (timingEvidence.length) lines.push(`时令依据：${timingEvidence.join('；')}`);
+  if (!options.chartFactsIncluded && timingEvidence.length)
+    lines.push(`时令依据：${timingEvidence.join('；')}`);
   const analysis = data.evidenceAnalysis;
   if (analysis) {
     const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
     lines.push(
       `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
-      '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
     );
+    if (!options.chartFactsIncluded) {
+      lines.push(
+        '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
+      );
+    }
   }
   return lines;
 }
