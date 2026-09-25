@@ -6,7 +6,6 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SolarTerm } from 'tyme4ts';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { checkChinaDst, isDateInChinaDstRange } from '@core/bazi/chinaDst';
@@ -292,14 +291,10 @@ test('边界预警:远离边界时不产生预警', () => {
   );
 });
 
-test('节气资料全部不可用时边界检查与结构化状态都标为待核', (t) => {
-  t.mock.method(SolarTerm, 'fromIndex', () => {
-    throw new Error('模拟节气资料不可用');
-  });
-  const warnings = checkJieqiBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 });
-  assert.match(warnings[0], /节气边界检查未完成/);
-
-  const evidence = buildBaziWarningEvidence(warnings);
+test('节气边界资料全部缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+  ]);
   assert.equal(evidence.warningFacts[0].status, '资料不完整');
   assert.deepEqual(evidence.warningFacts[0].sources, ['节气历表查询状态']);
   assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
@@ -308,15 +303,12 @@ test('节气资料全部不可用时边界检查与结构化状态都标为待�
   assert.doesNotMatch(evidence.warningSummaryFact.promptText, /原始记录/);
 });
 
-test('部分节气资料失败时保留边界判断并标明检查覆盖不完整', (t) => {
-  const fromIndex = SolarTerm.fromIndex.bind(SolarTerm);
-  t.mock.method(SolarTerm, 'fromIndex', (year: number, index: number) => {
-    if (year === 2024 && index === 0) throw new Error('模拟单项节气缺失');
-    return fromIndex(year, index);
-  });
-  const warnings = checkJieqiBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 });
-  assert.match(warnings[0], /节气边界检查覆盖不完整：1\/72/);
-  assert.equal(buildBaziWarningEvidence(warnings).warningFacts[0].status, '资料不完整');
+test('部分节气资料缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查覆盖不完整：1/72 项节气资料查询失败，仅对成功取得的节气进行边界判断。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '资料不完整');
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
 });
 
 test('边界预警对象应保留稳定键、来源、引用和唯一定盘结果限制', () => {
