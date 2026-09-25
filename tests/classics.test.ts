@@ -114,6 +114,13 @@ test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
   assert.ok(renWu.classicVerse.includes('五月壬水'));
 });
 
+test('调候典籍只返回日干与月支直接对应的条目', () => {
+  assert.equal(getBaziQiongtongAdvice('乙', '辰'), undefined);
+  assert.equal(getBaziQiongtongAdvice('庚', '酉'), undefined);
+  assert.equal(getBaziQiongtongAdvice('乙', '寅')?.monthBranch, '寅');
+  assert.equal(getBaziQiongtongAdvice('庚', '申')?.monthBranch, '申');
+});
+
 test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {
   const fuMu = getLiuyaoChishiClassic('父母');
   assert.ok(fuMu);

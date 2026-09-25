@@ -9,8 +9,30 @@ import {
   buildBeginnerGuide,
   buildEnhancedFiveElementsSection,
   buildEnhancedInteractions,
+  buildEnhancedPatternUsefulGodSection,
   buildEnhancedTenGodsSection,
 } from '../packages/core/src/minglu/bazi-enhancer.ts';
+
+test('命录不把同季其他月份的调候条文列为本月评注', () => {
+  for (const sample of [
+    { year: 1990, month: 4, day: 10, dayMaster: '乙', monthBranch: '辰' },
+    { year: 1990, month: 9, day: 12, dayMaster: '庚', monthBranch: '酉' },
+  ]) {
+    const result = baziCalculator.calculateBazi({
+      year: sample.year,
+      month: sample.month,
+      day: sample.day,
+      timeIndex: 1,
+      gender: 'male',
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    assert.equal(result.dayMaster.gan, sample.dayMaster);
+    assert.equal(result.pillars.month.zhi, sample.monthBranch);
+    assert.equal(buildEnhancedPatternUsefulGodSection(result).qiongtongAdvice, undefined);
+  }
+});
 
 test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const person = {

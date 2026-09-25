@@ -1220,10 +1220,6 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               <p className="traditional-classic-verse">{qiongtongAdvice.classicVerse}</p>
               <p className="traditional-classic-advice">
                 {`【调候要领】${qiongtongAdvice.modernExplanation}`}
-                {qiongtongAdvice.seasonFallback
-                  ? `
-【覆盖提示】${qiongtongAdvice.requestedMonth}月暂无直接条目，本条借用同季${qiongtongAdvice.matchedMonth}月资料，属同季一般参考而非本月专条`
-                  : ''}
                 {qiongtongAdvice.primaryGods?.length
                   ? `\n【条文取用】${qiongtongAdvice.primaryGods.join('、')}`
                   : ''}
