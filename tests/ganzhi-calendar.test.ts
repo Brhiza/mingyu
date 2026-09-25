@@ -6,6 +6,7 @@ import {
   getBeijingTodayKey,
   getGanzhiCalendarDayDetail,
   getGanzhiCalendarMonth,
+  isGanzhiCalendarDateKeyInRange,
   shiftGanzhiCalendarMonth,
 } from '../src/lib/ganzhi-calendar';
 
@@ -86,4 +87,23 @@ test('月份导航和北京时间当前日期使用稳定的公历键', () => {
     formatChinaStandardDateTime(Date.parse('2026-09-13T16:30:00.000Z')),
     '2026-09-14 00:30:00',
   );
+});
+
+test('日历日期键范围覆盖 1900—2100 年', () => {
+  assert.equal(isGanzhiCalendarDateKeyInRange('1900-01-01'), true);
+  assert.equal(isGanzhiCalendarDateKeyInRange('2100-12-31'), true);
+  assert.equal(isGanzhiCalendarDateKeyInRange('0001-01-01'), false);
+  assert.equal(isGanzhiCalendarDateKeyInRange('0099-01-01'), false);
+  assert.equal(isGanzhiCalendarDateKeyInRange('1899-12-31'), false);
+  assert.equal(isGanzhiCalendarDateKeyInRange('2101-01-01'), false);
+  assert.equal(isGanzhiCalendarDateKeyInRange('not-a-date'), false);
+});
+
+test('日详情入口对不支持年份返回明确范围错误', () => {
+  for (const date of ['0001-01-01', '0099-01-01', '1899-12-31', '2101-01-01']) {
+    assert.throws(
+      () => getGanzhiCalendarDayDetail(date, '2026-09-14'),
+      /日期年份需在 1900-2100 年之间/u,
+    );
+  }
 });

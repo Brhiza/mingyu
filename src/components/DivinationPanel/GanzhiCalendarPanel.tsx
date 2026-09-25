@@ -4,6 +4,7 @@ import {
   getDefaultGanzhiCalendarMonth,
   getGanzhiCalendarDayDetail,
   getGanzhiCalendarMonth,
+  isGanzhiCalendarDateKeyInRange,
   shiftGanzhiCalendarMonth,
   type GanzhiCalendarCell,
   type GanzhiCalendarDayDetail,
@@ -275,6 +276,12 @@ function isDateKey(value: string | undefined): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/u.test(value));
 }
 
+function isSupportedDateKey(value: string | undefined): value is string {
+  if (!isGanzhiCalendarDateKeyInRange(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export function GanzhiCalendarPanel({
   participants = [],
   selectedDate: selectedDateProp,
@@ -283,14 +290,16 @@ export function GanzhiCalendarPanel({
 }: GanzhiCalendarPanelProps) {
   const todayKey = useMemo(() => getBeijingTodayKey(), []);
   const todayMonth = useMemo(() => getDefaultGanzhiCalendarMonth(), []);
-  const initialDate = isDateKey(selectedDateProp) ? selectedDateProp : todayKey;
+  const initialDate = isSupportedDateKey(selectedDateProp) ? selectedDateProp : todayKey;
   const [monthKey, setMonthKey] = useState(getDateMonthKey(initialDate));
   const [selectedDate, setSelectedDate] = useState(initialDate);
   useEffect(() => {
-    if (!isDateKey(selectedDateProp)) return;
+    if (!isSupportedDateKey(selectedDateProp)) return;
     setSelectedDate(selectedDateProp);
     setMonthKey(getDateMonthKey(selectedDateProp));
   }, [selectedDateProp]);
+  const selectedDateOutOfRange =
+    isDateKey(selectedDateProp) && !isGanzhiCalendarDateKeyInRange(selectedDateProp);
   const month = useMemo(
     () => getGanzhiCalendarMonth(monthKey, todayKey, participants),
     [monthKey, participants, todayKey],
@@ -316,6 +325,16 @@ export function GanzhiCalendarPanel({
   function showToday() {
     setMonthKey(todayMonth);
     selectDate(todayKey);
+  }
+
+  if (selectedDateOutOfRange) {
+    return (
+      <div className={`ganzhi-calendar-page${embedded ? ' is-embedded' : ''}`}>
+        <p className="ganzhi-calendar-intro" role="status">
+          干支历支持 1900—2100 年，所选日期 {selectedDateProp} 超出范围。
+        </p>
+      </div>
+    );
   }
 
   return (
