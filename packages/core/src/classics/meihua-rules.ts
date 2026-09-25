@@ -1,74 +1,36 @@
 import type { MeihuaBodyUseJudgement } from './types';
 
-/**
- * 《梅花易数》体用生克与万物类象断语表
- * 原典出处：《梅花易数·体用总断》《观梅数诀》
- */
+/** 《梅花易数》卷二《体用总诀》的本卦体用关系原句。 */
 export const MEIHUA_RELATION_JUDGEMENTS: Record<string, MeihuaBodyUseJudgement> = {
   体用比和: {
     relationType: '体用比和',
-    auspice: '大吉',
-    classicSummary: '体用比和，百事顺遂。主客意气相投，谋为无阻，彼此互利。',
-    actionAdvice: '双方目标一致，沟通极度顺畅，宜乘胜追击，全力推进计划。',
-    matterCategories: {
-      wishing: '求事必成，顺心遂意，得同道相助。',
-      seekingWealth: '利于合伙经商，买卖公平，获利丰厚。',
-      marriage: '琴瑟和鸣，门当户对，天作之合。',
-      travel: '一路顺风，结伴同欢，平安大吉。',
-      illness: '病势平稳，吉星拱照，指日可愈。',
-    },
+    sourceBook: '梅花易数·体用总诀',
+    classicSummary: '体用比和，则百事顺遂。',
+    context: '结合体卦旺衰、互卦与变卦判断本局。',
   },
   体克用: {
     relationType: '体克用',
-    auspice: '吉',
-    classicSummary: '体克用者事必成。我克彼为财，虽费心力，终能制伏对手，夺得主动。',
-    actionAdvice: '事在人为，需付出辛劳与耐心方见成效，切忌半途而废。',
-    matterCategories: {
-      wishing: '虽经波折与竞争，最终由我方胜出。',
-      seekingWealth: '求财有利，需主动争取，劳而有获。',
-      marriage: '我方处于主导地位，虽有微词终能成婚。',
-      travel: '可行，途中有小阻力但不影响大局。',
-      illness: '自身体质强健，能克制病魔，无大碍。',
-    },
+    sourceBook: '梅花易数·体用总诀',
+    classicSummary: '体克用，诸事吉。',
+    context: '结合体卦旺衰、互卦与变卦判断本局。',
   },
   用克体: {
     relationType: '用克体',
-    auspice: '大凶',
-    classicSummary: '用克体者事受阻。彼来克我，如泰山压顶，祸患潜藏，切忌盲进。',
-    actionAdvice: '当前局势受制于人，强行推进必遭惨败，应当退避三舍、静观其变。',
-    matterCategories: {
-      wishing: '谋事难成，处处受阻，防小人作祟。',
-      seekingWealth: '大忌投资！必见破财受损，宜严控资金。',
-      marriage: '多受对方掣肘或家庭反对，难谐琴瑟。',
-      travel: '不宜远行，谨防意外受阻或财物遗失。',
-      illness: '病情凶险，受克太重，急需名医救治。',
-    },
+    sourceBook: '梅花易数·体用总诀',
+    classicSummary: '用克体，诸事凶。',
+    context: '结合体卦旺衰、互卦与变卦判断本局。',
   },
   体生用: {
     relationType: '体生用',
-    auspice: '小损',
-    classicSummary: '体生用者有耗损。我生彼为泄气，劳碌费力，为他人作嫁衣裳。',
-    actionAdvice: '需警惕资源被过度消耗，不可打肿脸充胖子，合理设置投入止损线。',
-    matterCategories: {
-      wishing: '付出多而收获少，事倍功半。',
-      seekingWealth: '成本过高，利润微薄，甚至产生亏空。',
-      marriage: '我方单方面付出过多，对方珍惜不足。',
-      travel: '奔波劳碌，费用超支，心力交瘁。',
-      illness: '元气亏虚，免疫力低下，需大补元气。',
-    },
+    sourceBook: '梅花易数·体用总诀',
+    classicSummary: '体生用，有耗失之患。',
+    context: '结合体卦旺衰、互卦与变卦判断本局。',
   },
   用生体: {
     relationType: '用生体',
-    auspice: '大吉',
-    classicSummary: '用生体者进益无穷。彼来生我，如母哺乳，贵人扶持，坐享其成。',
-    actionAdvice: '天降良机，外部资源主动靠拢，宜敞开怀抱借力发展。',
-    matterCategories: {
-      wishing: '贵人鼎力相助，事半功倍，马到成功。',
-      seekingWealth: '财源主动送上门，投资回报超乎预期。',
-      marriage: '对方倾心相待，得贤良配偶，助益良多。',
-      travel: '出入贵人相迎，获益良多，大吉大利。',
-      illness: '得良方神药，宿疾速愈，精力倍增。',
-    },
+    sourceBook: '梅花易数·体用总诀',
+    classicSummary: '用生体，有进益之喜。',
+    context: '结合体卦旺衰、互卦与变卦判断本局。',
   },
 };
 

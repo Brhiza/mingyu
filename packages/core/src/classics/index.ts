@@ -176,7 +176,7 @@ export function getLiuyaoChishiClassic(sixRelation: string): LiuyaoChishiClassic
 }
 
 /**
- * 查询梅花易数体用生克决断
+ * 查询《梅花易数·体用总诀》中的体用关系原句
  */
 export function getMeihuaBodyUseJudgement(
   relationType: string,

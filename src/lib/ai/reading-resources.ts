@@ -57,6 +57,8 @@ const LABELS: Record<string, string> = {
   source: '典籍',
   verse: '原文',
   classicVerse: '条文参考',
+  classicSummary: '原文',
+  context: '合参',
   modernMeaning: '取义',
   modernExplanation: '释义',
   explanation: '释义',
