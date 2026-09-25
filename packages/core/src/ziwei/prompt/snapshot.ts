@@ -90,8 +90,6 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
           ? '传统凶格'
           : '传统中性格',
     命中条件: pattern.matched_conditions?.join('；'),
-    涉及宫位: pattern.palace_names.join('、'),
-    涉及星曜: pattern.star_names.join('、'),
     古籍依据: pattern.sources?.[0],
   }));
 }

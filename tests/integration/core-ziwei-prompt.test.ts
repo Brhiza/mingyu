@@ -7,6 +7,7 @@ import {
   buildZiweiCompatibilityPrompt,
   buildZiweiTaskBookPrompt,
 } from 'mingyu-core/prompt';
+import { buildCombinedZiweiPrompt } from 'mingyu-core/ziwei/prompt';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei/runtime';
 
 test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微联合资料', async () => {
@@ -121,4 +122,18 @@ test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自�
   assert.match(prompt, /主星：/);
   assert.match(prompt, /宫干支/);
   assert.match(prompt, /宫干飞化：/);
+
+  const combinedPrompt = buildCombinedZiweiPrompt(
+    runtime.payloadByScope.origin,
+    'destiny',
+    '请分析命局主线。',
+    { currentTime: new Date('2026-09-26T12:00:00+08:00') },
+  );
+  const patternSection = combinedPrompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
+  assert.match(patternSection, /格局：坐贵向贵/u);
+  assert.match(patternSection, /命中条件：天魁、天钺一曜坐命，另一曜在对宫/u);
+  assert.match(patternSection, /古籍依据：《紫微斗数全书》卷一/u);
+  assert.doesNotMatch(patternSection, /涉及宫位：|涉及星曜：/u);
+  const palaceSection = combinedPrompt.slice(combinedPrompt.indexOf('【全盘十二宫总览】'));
+  assert.match(palaceSection, /宫位：命宫[^\n]*辅星：天魁/u);
 });

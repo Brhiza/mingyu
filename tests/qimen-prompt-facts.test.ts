@@ -198,3 +198,22 @@ test('奇门候选排序不替代问事取用，也不自动决定主客进退',
     }
   }
 });
+
+test('奇门格局条件按同宫归并并保留空亡、门迫事实', () => {
+  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  const prompt = buildDivinationPrompt('qimen', '请做整体解读。', data);
+  const section = prompt.split('格局条件：\n')[1]?.split('\n值符宫应期参考：')[0] ?? '';
+  const lines = section.split('\n').filter(Boolean);
+
+  assert.equal(lines.length, 4);
+  assert.match(section, /坎一宫同宫见空亡/u);
+  assert.match(section, /巽四宫同宫见门迫/u);
+  assert.match(section, /艮八宫同宫见空亡/u);
+  assert.match(section, /吉格：日奇得使/u);
+  assert.match(section, /凶格：青龙逃走/u);
+  assert.match(section, /凶格：门迫/u);
+  assert.equal((section.match(/结合本次用神与宫门星神/gu) ?? []).length, 1);
+  assert.match(prompt, /坎一宫[^\n]*逢空/u);
+  assert.match(prompt, /艮八宫[^\n]*逢空/u);
+  assert.match(prompt, /门迫：惊门（金）克巽四宫（木）/u);
+});
