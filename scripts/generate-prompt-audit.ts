@@ -716,18 +716,16 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
   if (!qimenSample) {
     leakedMessages.push('缺少奇门遁甲提示词样本');
   } else {
-    const conditionText =
-      qimenSample.prompt.split('格局条件：')[1]?.split('值符宫应期参考：')[0] ?? '';
-    const conditionRows = conditionText
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (!conditionRows.length) leakedMessages.push('奇门遁甲样本缺少格局条件盘面事实');
-    if (new Set(conditionRows).size !== conditionRows.length) {
-      leakedMessages.push('奇门遁甲格局条件包含逐条重复的相同事实行');
+    const palaceText = qimenSample.prompt.split('九宫简表：')[1]?.split('同干定位：')[0] ?? '';
+    const patternText = qimenSample.prompt.split('格局索引：')[1]?.split('复合格局：')[0] ?? '';
+    if (!qimenSample.prompt.includes('旬空与马星：') || !palaceText.includes('逢空')) {
+      leakedMessages.push('奇门遁甲样本缺少旬空与九宫空亡事实');
     }
-    if (conditionText.includes('结合本次用神与宫门星神')) {
-      leakedMessages.push('奇门遁甲格局条件重复附加通用用神与宫门星神指令');
+    if (!patternText.includes('门迫（凶格）')) {
+      leakedMessages.push('奇门遁甲样本缺少门迫格局事实');
+    }
+    if (qimenSample.prompt.includes('格局条件：')) {
+      leakedMessages.push('奇门遁甲样本重复列出格局条件段');
     }
     const timingReferenceCount = qimenSample.prompt.match(/^值符宫应期参考：/gmu)?.length ?? 0;
     const triggerSectionCount = qimenSample.prompt.match(/^触发条件：/gmu)?.length ?? 0;

@@ -157,13 +157,16 @@ function formatUsefulGod(result: BaziChartResult, embedded = false) {
   ]);
 }
 
-function formatTransformationFacts(result: BaziChartResult) {
+function formatTransformationFacts(result: BaziChartResult, embedded = false) {
   const transformation = result.analysis.mingGe.transformation;
   if (!transformation || (transformation.status !== '成化' && result.analysis.mingGe.fulfillment)) {
     return [];
   }
+  const detail = `化神${transformation.element}；${transformation.basis}`;
   return [
-    `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+    embedded && transformation.status === '成化'
+      ? detail
+      : `化气判定：${transformation.status}；${detail}`,
   ];
 }
 
@@ -311,7 +314,7 @@ function formatZipingFacts(result: BaziChartResult, embedded = false, patternEvi
       ? ''
       : `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
-    ...(patternEvidence ? formatTransformationFacts(result) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     `调候与取用：${formatUsefulGod(result, embedded)}；五行季节状态${
       Object.entries(result.wuxingSeasonStatus)
         .map(([element, status]) => `${element}${status}`)
@@ -332,7 +335,7 @@ function formatMangpaiFacts(result: BaziChartResult, embedded = false, patternEv
     `透干通根：${formatRoots(result)}`,
     embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
-    ...(patternEvidence ? formatTransformationFacts(result) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
@@ -362,7 +365,7 @@ function formatXinpaiFacts(result: BaziChartResult, embedded = false, patternEvi
     `十神流通：候选链条${formatTenGodFlow(result)}`,
     embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
-    ...(patternEvidence ? formatTransformationFacts(result) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
     `原局作用：${formatRelations(result)}`,
@@ -458,7 +461,10 @@ export function formatBaziSchoolsPrompt(
   if (!selected.length) return '';
   const sharedPatternEvidence =
     selected.length > 1 && !result.isThreePillars
-      ? [...formatSchoolPatternFacts(result, embedded), ...formatTransformationFacts(result)]
+      ? [
+          ...formatSchoolPatternFacts(result, embedded),
+          ...formatTransformationFacts(result, embedded),
+        ]
       : [];
   const blocks = selected.map((school, index) => {
     const profile = BAZI_SCHOOL_PROFILES[school];

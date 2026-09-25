@@ -168,6 +168,32 @@ test('已成化格保留结论与取用，省略重复的逐项核验', () => {
   }
 });
 
+test('成化状态在合盘与多派提示词只呈现一次', () => {
+  const formed = createBaziResult({ year: 1994, month: 3, day: 17, timeIndex: 4 });
+  const other = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+
+  for (const prompt of [
+    getCompatibilityPrompt('请分析双方关系。', formed, other).user,
+    buildBaziCompatibilityPrompt({ result1: formed, result2: other }),
+  ]) {
+    assert.equal(prompt.match(/化气判定：成化/g)?.length, 1);
+    assert.match(prompt, /化神取用：[^\n]*化神木/);
+    assert.match(prompt, /喜忌(?:覆盖|五行对应)：第二人盘面命中第一人喜用五行木、水/);
+    const relationFacts = prompt.split('【双盘关系资料】')[1] ?? '';
+    assert.doesNotMatch(relationFacts, /化气判定：成化|取用主体：化神木/);
+  }
+  assert.match(
+    buildBaziCompatibilityPrompt({ result1: formed, result2: other }),
+    /化气判定：存在反证/,
+  );
+
+  for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
+    const prompt = build({ result: formed, schools: ['ziping', 'mangpai'] });
+    assert.equal(prompt.match(/化气判定：成化/g)?.length, 1);
+    assert.match(prompt, /共同格局事实：\n化神木；依据《子平真诠/);
+  }
+});
+
 test('流派格局资料不重复列已满足条件，判定理由不重复典籍依据', () => {
   const formed = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
   const schoolPrompt = buildBaziPrompt({ result: formed, school: 'ziping' });
