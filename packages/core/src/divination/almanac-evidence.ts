@@ -17,6 +17,8 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 
 export type AlmanacCandidateStatus = '可用候选' | '条件候选' | '慎用候选';
 
+const WORK_HOUR_BRANCHES = new Set(['巳', '午', '未', '申']);
+
 export function formatAlmanacGods(day: Pick<AlmanacDayCandidate, 'gods' | 'godFacts'>): string[] {
   const names = [...new Set([...day.gods, ...(day.godFacts ?? []).map((fact) => fact.name)])];
   const groups = new Map<string, string[]>();
@@ -488,7 +490,10 @@ function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
   };
 }
 
-export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
+export function classifyAlmanacCandidate(
+  day: AlmanacDayCandidate,
+  timePreferences: AlmanacTimePreference[] = [],
+): {
   status: AlmanacCandidateStatus;
   strongConstraintTexts: string[];
   constraintTexts: string[];
@@ -511,8 +516,13 @@ export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
     ),
   ]);
   const hasHourData = Array.isArray(day.hours) && day.hours.length > 0;
+  const hoursWithinTimePreferences = (day.hours ?? []).filter(
+    (hour) => !timePreferences.includes('work-hours') || WORK_HOUR_BRANCHES.has(hour.branch),
+  );
   const usableHourCount = hasHourData
-    ? day.hours!.filter((hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选').length
+    ? hoursWithinTimePreferences.filter(
+        (hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选',
+      ).length
     : 0;
   const constraintTexts = unique([
     ...day.cautions,
@@ -962,14 +972,15 @@ function buildCandidateEvidence(
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);
-  const workHourBranches = new Set(['巳', '午', '未', '申']);
   const morningBranches = new Set(['辰', '巳', '午']);
   const afternoonBranches = new Set(['未', '申', '酉']);
   const usableHourPool = (day.hours ?? [])
     .map((hour) => buildHourEvidence(day.date, hour))
     .filter((item) => item.status !== '慎用候选');
   const usableHours = usableHourPool
-    .filter((item) => !timePreferences.includes('work-hours') || workHourBranches.has(item.branch))
+    .filter(
+      (item) => !timePreferences.includes('work-hours') || WORK_HOUR_BRANCHES.has(item.branch),
+    )
     .sort((left, right) => {
       const preferenceScore = (branch: string) =>
         (timePreferences.includes('morning') && morningBranches.has(branch) ? 1 : 0) +
@@ -977,11 +988,14 @@ function buildCandidateEvidence(
       return preferenceScore(right.branch) - preferenceScore(left.branch);
     })
     .slice(0, 4);
-  const classification = classifyAlmanacCandidate({
-    ...day,
-    topicMatchFacts,
-    participantRelationFacts,
-  });
+  const classification = classifyAlmanacCandidate(
+    {
+      ...day,
+      topicMatchFacts,
+      participantRelationFacts,
+    },
+    timePreferences,
+  );
   const strongConstraintTexts = classification.strongConstraintTexts;
   const status = classification.status;
   const decisionFact = buildCandidateDecisionFact({

@@ -1515,8 +1515,8 @@ export function generateAlmanacSelection(params: {
     return buildDayCandidate(current, params.topic, participants);
   }).sort((a, b) => {
     const statusDifference =
-      statusPriority[classifyAlmanacCandidate(a).status] -
-      statusPriority[classifyAlmanacCandidate(b).status];
+      statusPriority[classifyAlmanacCandidate(a, params.timePreferences).status] -
+      statusPriority[classifyAlmanacCandidate(b, params.timePreferences).status];
     const aWeekend = a.weekday === '星期六' || a.weekday === '星期日' ? 1 : 0;
     const bWeekend = b.weekday === '星期六' || b.weekday === '星期日' ? 1 : 0;
     const weekendDifference =

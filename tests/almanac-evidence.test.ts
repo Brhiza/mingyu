@@ -133,6 +133,31 @@ test('黄历择日候选资料为空时应明确标记缺失，不生成伪最�
   assert.ok(evidence.limitationFacts.every((item) => item.ownerFactKeys.length > 0));
 });
 
+test('工作时段偏好下无可用时辰的日期不得仍列为可用候选，并保留原始时辰', () => {
+  const result = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-02-08',
+    endDate: '2026-03-15',
+    timePreferences: ['work-hours'],
+  });
+  const workHourBranches = new Set(['巳', '午', '未', '申']);
+
+  for (const date of ['2026-02-08', '2026-03-03', '2026-03-15']) {
+    const day = result.days.find((item) => item.date === date);
+    const candidate = result.evidenceAnalysis?.candidates.find((item) => item.date === date);
+
+    assert.ok(day?.hours?.length, `${date} 应保留原始逐时时辰`);
+    assert.ok(day.hours.some((hour) => !workHourBranches.has(hour.branch)));
+    assert.ok(candidate);
+    assert.equal(candidate.usableHours.length, 0);
+    assert.notEqual(candidate.status, '可用候选');
+    assert.equal(
+      candidate.decisionFact.steps.find((step) => step.stage === '可用时辰')?.result,
+      '未筛出无强冲突时辰',
+    );
+  }
+});
+
 test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {
   const result = generateAlmanacSelection({
     topic: 'travel',
