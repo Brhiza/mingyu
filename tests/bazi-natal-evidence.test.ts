@@ -112,6 +112,41 @@ test('八字本命证据应拒绝与地支不对应的藏干资料', () => {
   assert.doesNotMatch(fact?.promptText || '', /藏干癸|藏干十神偏印/);
 });
 
+test('八字本命证据应标出缺失或错位的派生资料，且不把可疑值写入提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  result.tenGods.year = '伪十神';
+  result.nayin.year = '';
+  result.pillarLifeStages.year = '伪十二运';
+  result.lifeStages.year = '';
+  result.ziZuo.year = '伪自坐';
+  result.kongWang.year = ['伪支', '伪支'];
+
+  const evidence = analyzeBaziNatalEvidence(result);
+  const yearFact = evidence.pillarFacts.find((item) => item.pillar === '年柱');
+
+  assert.ok(yearFact);
+  assert.equal(yearFact.status, '资料缺口');
+  assert.equal(yearFact.tenGod, '');
+  assert.equal(yearFact.nayin, '');
+  assert.equal(yearFact.pillarLifeStage, '');
+  assert.equal(yearFact.dayMasterLifeStage, '');
+  assert.equal(yearFact.ziZuo, '');
+  assert.deepEqual(yearFact.kongWang, []);
+  assert.match(yearFact.promptText, /待核资料：天干十神、纳音、柱干十二运、日主十二运、自坐、旬空/);
+  assert.doesNotMatch(yearFact.promptText, /伪十神|伪十二运|伪自坐|伪支/);
+  assert.equal(evidence.calculationSteps[1].status, '已计算');
+  assert.equal(evidence.calculationSteps[2].status, '存在资料缺口');
+  assert.equal(evidence.calculationSteps[4].result.missingFactCount, 1);
+  assert.equal(evidence.summaryFact.missingFactCount, 1);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+});
+
 test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共提示词', () => {
   const result = baziCalculator.calculateBazi({
     year: 1994,
