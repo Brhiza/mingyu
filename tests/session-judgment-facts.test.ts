@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { generateDivinationSession } from '../packages/core/src/divination/session';
+import { formatLiurenOrdinaryTransmissionAdjudication } from '../packages/core/src/prompt/liuren-facts';
 import type { LiurenData, TaiyiResult } from '../packages/core/src/types/divination';
 
 test('小六壬在线解读保留农历取数、口径与占得宫歌诀', () => {
@@ -32,6 +33,9 @@ test('六壬 aiPrompt 应保留取传与课体判断依据', () => {
     currentTime: '2024-01-02T12:00:00+08:00',
   });
   const data = session.data as LiurenData;
+  const adjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
+  assert.ok(adjudication);
+  assert.equal(session.aiPrompt.split(adjudication).length - 1, 1);
   const classicalRules = data.classicalRules ?? [];
   const guaTiFacts = data.guaTiFacts ?? [];
 

@@ -835,6 +835,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ...(options.method === 'liuren'
           ? formatLiurenJudgmentFacts(options.data as LiurenData, {
               includeOrdinaryAdjudication: false,
+              chartFactsIncluded: true,
             })
           : []),
       ].join('\n'),

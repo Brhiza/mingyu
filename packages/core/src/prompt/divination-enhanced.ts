@@ -1037,7 +1037,7 @@ function formatLiurenInfo(data: LiurenData) {
     transmissionLines.length ? '三传：' : '',
     ...transmissionLines.map((item) => `  ${item}`),
     data.focusEvidence?.length
-      ? `取用定位：${data.focusEvidence.map((item) => `${item.role}${item.target}：${item.evidence.filter(Boolean).join('、')}`).join('；')}`
+      ? `取用定位：${data.focusEvidence.map((item) => `${item.role}${item.target}（${item.level}）：${item.evidence.filter(Boolean).join('、')}${item.limitations.length ? `；${item.limitations.join('、')}` : ''}`).join('；')}`
       : '',
     timingEvidence.length ? `应期依据：${timingEvidence.join('；')}` : '',
     ...ridingFacts.map((item) => `乘神生克：${item.promptText}`),

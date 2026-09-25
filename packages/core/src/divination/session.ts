@@ -280,7 +280,10 @@ function formatAiChart(
   } else if (method === 'jinkoujue') {
     base.push('金口诀判断依据：', ...formatJinkoujueJudgmentFacts(data as JinkoujueData));
   } else if (method === 'liuren') {
-    base.push('六壬判断依据：', ...formatLiurenJudgmentFacts(data as LiurenData));
+    base.push(
+      '六壬判断依据：',
+      ...formatLiurenJudgmentFacts(data as LiurenData, { includeOrdinaryAdjudication: false }),
+    );
   } else if (method === 'taiyi') {
     base.push('太乙判断依据：', ...formatTaiyiJudgmentFacts(data as TaiyiResult));
   } else if (method === 'almanac') {

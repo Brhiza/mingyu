@@ -163,6 +163,13 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
   ].filter(Boolean);
 }
 
+export function formatAlternativePatternCandidates(pattern: PatternAnalysis): string {
+  const alternatives = pattern.patternCandidates?.filter((candidate) => !candidate.selected);
+  return alternatives?.some((candidate) => candidate.pattern !== pattern.pattern)
+    ? `其他取格候选：${alternatives.map((candidate) => `${candidate.pattern}（${candidate.source}；${candidate.basis}）`).join('；')}`
+    : '';
+}
+
 function formatLunarDate(baziResult: BaziChartResult): string {
   const lunarDate = baziResult.lunarDate;
   return `${lunarDate.year}年${lunarDate.monthName}${lunarDate.dayName}`;
@@ -378,8 +385,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `（${strengthRuleBasis.join('；')}）`;
   }
   result += '\n';
+  const alternativePatterns = formatAlternativePatternCandidates(analysis.mingGe);
   result += `格局: ${analysis.mingGe.pattern}`;
-  if (includeRules && analysis.mingGe.basis) {
+  if ((includeRules || alternativePatterns) && analysis.mingGe.basis) {
     result += `（${analysis.mingGe.basis}）`;
   }
   if (analysis.mingGe.transformation?.status === '成化') {
@@ -387,21 +395,18 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   result += '\n';
   const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
-  if (
-    includeRules &&
-    analysis.mingGe.patternCandidates?.some(
-      (candidate) => candidate.pattern !== analysis.mingGe.pattern,
-    )
-  ) {
-    const candidateFacts = patternFacts.filter((fact) => fact.startsWith('取格分层候选：'));
-    if (candidateFacts.length) result += `${candidateFacts.join('\n')}\n`;
-  }
+  if (alternativePatterns) result += `${alternativePatterns}\n`;
   if (analysis.mingGe.fulfillment) {
     const nonCandidateFacts = patternFacts.filter((fact) => !fact.startsWith('取格分层候选：'));
     const patternSummary = nonCandidateFacts.find((fact) => fact.startsWith('所取格局：'));
-    if (nonCandidateFacts[0]) result += `${nonCandidateFacts[0]}\n`;
+    const repeatedName = `所取格局：${analysis.mingGe.pattern}；`;
+    const conciseSummary = patternSummary?.startsWith(repeatedName)
+      ? patternSummary.slice(repeatedName.length)
+      : patternSummary;
+    if (nonCandidateFacts[0])
+      result += `${nonCandidateFacts[0] === patternSummary ? conciseSummary : nonCandidateFacts[0]}\n`;
     if (patternSummary && patternSummary !== nonCandidateFacts[0]) {
-      result += `${patternSummary}\n`;
+      result += `${conciseSummary}\n`;
     }
     if (analysis.mingGe.fulfillment.contradiction) {
       result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;

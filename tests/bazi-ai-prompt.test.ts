@@ -18,6 +18,10 @@ import {
   formatBaziPatternConditions,
 } from '../packages/core/src/prompt/bazi';
 import { buildBaziPromptForResult } from '../packages/core/src/prompt/public-api';
+import {
+  formatBaziSchoolPrompt,
+  formatBaziSchoolsPrompt,
+} from '../packages/core/src/prompt/bazi-school';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
@@ -152,8 +156,69 @@ test('普通成格提示词保留结论并省略重复的格局条件', () => {
   assert.equal(formatBaziPatternConditions(result), '');
 
   const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
-  assert.match(prompt, /所取格局：正印格；当前成败判定：成格/);
+  assert.match(prompt, /格局: 正印格/);
+  assert.match(prompt, /^当前成败判定：成格/m);
+  assert.doesNotMatch(prompt, /所取格局：/);
   assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
+});
+
+test('多候选格局提示词只在格局行列选中依据，另列未选候选', () => {
+  const result = createBaziResult({
+    year: 1993,
+    month: 4,
+    day: 8,
+    timeIndex: 12,
+    birthPlace: '新加坡',
+  });
+  const selected = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => candidate.selected,
+  );
+  const alternative = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => !candidate.selected && candidate.pattern !== result.analysis.mingGe.pattern,
+  );
+  assert.ok(selected);
+  assert.ok(alternative);
+
+  assert.ok(result.analysis.mingGe.basis);
+  for (const options of [
+    {},
+    { school: 'ziping' as const },
+    { schools: ['ziping', 'mangpai'] as const },
+  ]) {
+    const prompt = buildBaziPrompt({ result, fortuneScope: 'natal', ...options });
+    assert.equal(prompt.split(`其他取格候选：${alternative.pattern}`).length - 1, 1);
+    assert.equal(prompt.split(result.analysis.mingGe.basis).length - 1, 1);
+    assert.doesNotMatch(prompt, /取格分层候选：|所取格局：/);
+    assert.match(prompt, /^当前成败判定：/m);
+  }
+});
+
+test('独立流派资料中的选中取格依据和其他候选各出现一次', () => {
+  const result = createBaziResult({
+    year: 1993,
+    month: 4,
+    day: 8,
+    timeIndex: 12,
+    birthPlace: '新加坡',
+  });
+  const basis = result.analysis.mingGe.basis;
+  const alternative = result.analysis.mingGe.patternCandidates?.find(
+    (candidate) => !candidate.selected && candidate.pattern !== result.analysis.mingGe.pattern,
+  );
+  assert.ok(basis);
+  assert.ok(alternative);
+
+  for (const prompt of [
+    formatBaziSchoolPrompt(result, 'ziping'),
+    formatBaziSchoolPrompt(result, 'mangpai'),
+    formatBaziSchoolPrompt(result, 'xinpai'),
+    formatBaziSchoolsPrompt(result, ['ziping', 'mangpai']),
+  ]) {
+    assert.equal(prompt.split(basis).length - 1, 1);
+    assert.equal(prompt.split(`其他取格候选：${alternative.pattern}`).length - 1, 1);
+    assert.doesNotMatch(prompt, /取格分层候选：|所取格局：/);
+    assert.match(prompt, /当前成败判定：/);
+  }
 });
 
 test('已成化格保留结论与取用，省略重复的逐项核验', () => {
@@ -231,7 +296,7 @@ test('流派提示词只补充格局的盘面证据，不复述共同判定和�
       { schools: ['ziping', 'mangpai', 'xinpai'] as const },
     ]) {
       const prompt = build({ result, ...options });
-      assert.equal(prompt.match(/所取格局：/g)?.length, 1);
+      assert.doesNotMatch(prompt, /所取格局：/);
       assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
       assert.doesNotMatch(prompt, /^条件核验：[^\n]*官杀混杂未透干/gm);
       assert.match(prompt, /透干通根：/);

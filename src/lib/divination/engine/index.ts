@@ -364,6 +364,7 @@ export function buildDivinationPrompt(
                         defaultInfoText,
                         ...formatLiurenJudgmentFacts(data as LiurenData, {
                           includeOrdinaryAdjudication: false,
+                          chartFactsIncluded: true,
                         }),
                       ].join('\n')
                     : defaultInfoText;

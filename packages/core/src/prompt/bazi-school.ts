@@ -1,4 +1,7 @@
-import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
+import {
+  formatAlternativePatternCandidates,
+  formatPatternFulfillmentFacts,
+} from '../bazi/baziAnalysisFormatter';
 import {
   analyzeStemRootProfile,
   analyzeTenGodFlow,
@@ -173,13 +176,27 @@ function formatTransformationFacts(result: BaziChartResult, embedded = false) {
 function formatSchoolPatternFacts(result: BaziChartResult, embedded = false) {
   const facts = formatPatternFulfillmentFacts(result.analysis.mingGe);
   if (!embedded) {
-    return facts.filter((item) => !item.startsWith('候选取用：') && !item.startsWith('格局条件：'));
+    const alternatives = formatAlternativePatternCandidates(result.analysis.mingGe);
+    const repeatedName = `所取格局：${result.analysis.mingGe.pattern}；`;
+    return [
+      alternatives && result.analysis.mingGe.basis
+        ? `取格依据：${result.analysis.mingGe.basis}`
+        : '',
+      alternatives,
+      ...facts
+        .filter(
+          (item) =>
+            !item.startsWith('取格分层候选：') &&
+            !item.startsWith('候选取用：') &&
+            !item.startsWith('格局条件：'),
+        )
+        .map((item) => (item.startsWith(repeatedName) ? item.slice(repeatedName.length) : item)),
+    ].filter(Boolean);
   }
   const fulfillment = result.analysis.mingGe.fulfillment;
   const decisionDetail = fulfillment?.decisionDetail || fulfillment?.summary || '';
   const specialFacts = facts.filter(
     (item) =>
-      item.startsWith('取格分层候选：') ||
       (!fulfillment && item.startsWith('特殊格裁决：')) ||
       (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
       item.startsWith('食伤明透：') ||
@@ -312,7 +329,7 @@ function formatZipingFacts(result: BaziChartResult, embedded = false, patternEvi
     `透干通根：${formatRoots(result)}`,
     embedded
       ? ''
-      : `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
+      : `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis && !formatAlternativePatternCandidates(result.analysis.mingGe) ? `；${result.analysis.mingGe.basis}` : ''}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
     ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     `调候与取用：${formatUsefulGod(result, embedded)}；五行季节状态${

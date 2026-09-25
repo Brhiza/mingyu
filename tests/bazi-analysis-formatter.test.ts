@@ -69,7 +69,9 @@ test('核心判断应保留完整旺衰裁决并同时呈现特殊格与常规�
     assert.ok(text.includes(fact), `旺衰裁决依据未完整输出：${fact}`);
   }
   assert.match(text, /特殊格裁决：从儿格不成立/);
-  assert.match(text, /所取格局：食神格；当前成败判定：成格/);
+  assert.match(text, /格局: 食神格/);
+  assert.match(text, /^当前成败判定：成格/m);
+  assert.doesNotMatch(text, /所取格局：/);
 });
 
 test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {

@@ -166,7 +166,10 @@ function formatBranchFacts(data: LiurenData) {
     formatDivinationInfo('liuren', data, ''),
     data.lessonSummary ? `课情：${data.lessonSummary}` : '',
     data.transmissionSummary ? `传情：${data.transmissionSummary}` : '',
-    ...formatLiurenJudgmentFacts(data, { includeOrdinaryAdjudication: false }),
+    ...formatLiurenJudgmentFacts(data, {
+      includeOrdinaryAdjudication: false,
+      chartFactsIncluded: true,
+    }),
   ]
     .filter(Boolean)
     .join('\n');

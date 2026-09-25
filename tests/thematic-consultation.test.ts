@@ -235,7 +235,7 @@ test('主题及双盘流派提示词只呈现一次八字格局判定与破格�
     }),
   ];
   for (const prompt of prompts) {
-    assert.equal(prompt.match(/所取格局：/g)?.length, 1);
+    assert.doesNotMatch(prompt, /所取格局：/);
     assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
     assert.doesNotMatch(prompt, /【八字格局条件】/);
     assert.match(prompt, /透干通根：/);
