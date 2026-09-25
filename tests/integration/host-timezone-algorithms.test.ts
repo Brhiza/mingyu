@@ -42,6 +42,66 @@ test('紫微出生四柱和提示词不受宿主夏令时跳时影响', () => {
   assert.equal(newYork.wrongInPrompt, false);
 });
 
+test('紫微真太阳时落入宿主夏令时缺口时四柱与任务书保持输入民用时间', () => {
+  const script = `
+    import { buildZiweiChartInput, calculateZiweiChart } from './packages/core/src/ziwei/runtime.ts';
+    import { buildZiweiTaskBookSnapshot } from './packages/core/src/ziwei/prompt/snapshot.ts';
+    const input = buildZiweiChartInput({
+      name: '时区审计', gender: 'male', dateType: 'solar',
+      year: 2024, month: 3, day: 10, timeIndex: 0,
+      isLeapMonth: false, useTrueSolarTime: true,
+      birthHour: 2, birthMinute: 30, birthLongitude: 120, timezone: 8,
+    });
+    const result = await calculateZiweiChart(input, {
+      scopes: ['origin'],
+      horoscopeContext: { dateStr: '2026-09-04', hourIndex: 5 },
+    });
+    const snapshot = buildZiweiTaskBookSnapshot({
+      payload: result.payloadByScope.origin,
+      reportContext: { scope: 'origin', selectedTopic: 'chat' },
+    });
+    const text = JSON.stringify(snapshot);
+    console.log(JSON.stringify({
+      birthDate: input.birthDate,
+      birthTime: input.birthTime,
+      birthTimeIndex: input.birthTimeIndex,
+      astrolabeTime: result.astrolabe.time,
+      fourPillars: result.payloadByScope.origin.basic_info.four_pillars,
+      expectedInSnapshot: text.includes('甲辰 丁卯 癸酉 癸丑'),
+      wrongInSnapshot: text.includes('甲辰 丁卯 癸酉 甲寅'),
+    }));
+  `;
+  type Result = {
+    birthDate: string;
+    birthTime: { hour: number; minute: number; second: number };
+    birthTimeIndex: number;
+    astrolabeTime: string;
+    fourPillars: {
+      year_pillar: string;
+      month_pillar: string;
+      day_pillar: string;
+      hour_pillar: string;
+    };
+    expectedInSnapshot: boolean;
+    wrongInSnapshot: boolean;
+  };
+  const utc = runInTimeZone<Result>('UTC', script);
+  const newYork = runInTimeZone<Result>('America/New_York', script);
+  assert.deepEqual(newYork, utc);
+  assert.equal(utc.birthDate, '2024-03-10');
+  assert.deepEqual(utc.birthTime, { hour: 2, minute: 19, second: 13 });
+  assert.equal(utc.birthTimeIndex, 1);
+  assert.equal(utc.astrolabeTime, '丑时');
+  assert.deepEqual(utc.fourPillars, {
+    year_pillar: '甲辰',
+    month_pillar: '丁卯',
+    day_pillar: '癸酉',
+    hour_pillar: '癸丑',
+  });
+  assert.equal(utc.expectedInSnapshot, true);
+  assert.equal(utc.wrongInSnapshot, false);
+});
+
 test('太乙年计代表时刻与在线提示词不受宿主时区影响', () => {
   const script = `
     import { generateTaiyi } from './packages/core/src/taiyi/index.ts';
