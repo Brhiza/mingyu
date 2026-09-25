@@ -448,7 +448,13 @@ function calculateUsefulGodCoverage(
     : [];
   const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
   const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
+  const usefulGod = beneficiaryChart.analysis.usefulGod;
+  const functionalDescriptions = formatUsefulGodFunctions(usefulGod);
   if (!favorable?.length && !unfavorable?.length) {
+    const incrementPending = Boolean(beneficiaryChart.analysis?.usefulGod?.incrementStatus);
+    const unavailableReason = incrementPending
+      ? '增补喜忌五行待判，原局格神与制化作用另行记录。'
+      : '命盘未提供结构化喜忌五行。';
     return {
       key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
       status: '资料不足',
@@ -456,9 +462,18 @@ function calculateUsefulGodCoverage(
       provider,
       favorable: [],
       unfavorable: [],
-      unavailableReason: '命盘未提供结构化喜忌五行。',
+      unavailableReason,
+      ...(functionalDescriptions.length
+        ? {
+            functionalEvidence: {
+              favorableStems: [...(usefulGod.conditionalFavorableStems ?? [])],
+              unfavorableStems: [...(usefulGod.conditionalUnfavorableStems ?? [])],
+              descriptions: functionalDescriptions,
+            },
+          }
+        : {}),
       calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-      promptText: `${beneficiaryLabel}命盘未提供结构化喜忌五行，无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}`,
+      promptText: `${beneficiaryLabel}${unavailableReason}无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的增补喜忌覆盖${functionalDescriptions.length ? `；原局作用：${functionalDescriptions.join('；')}` : ''}${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}`,
       sources: ['受益方命盘结构化喜忌五行'],
       limitation: USEFUL_GOD_LIMITATION,
     };
@@ -502,8 +517,6 @@ function calculateUsefulGodCoverage(
       });
   const favorableCoverage = match('喜用', favorable);
   const unfavorableCoverage = match('忌神', unfavorable);
-  const usefulGod = beneficiaryChart.analysis.usefulGod;
-  const functionalDescriptions = formatUsefulGodFunctions(usefulGod);
   return {
     key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
     status: '已计算',

@@ -993,8 +993,12 @@ function formatAlmanacRangeTimestamp(timestamp: number) {
 }
 
 function formatAlmanacUsefulGods(
-  profile: Pick<AlmanacData['participants'][number], 'usefulGods' | 'avoidGods'>,
+  profile: Pick<
+    AlmanacData['participants'][number],
+    'usefulGods' | 'avoidGods' | 'incrementStatus'
+  >,
 ) {
+  if (profile.incrementStatus === '待判') return '增补五行喜忌待判';
   return profile.usefulGods.length > 0 &&
     profile.usefulGods.length <= 3 &&
     profile.avoidGods.length > 0
@@ -1024,7 +1028,7 @@ function formatAlmanacParticipantLines(item: AlmanacData['participants'][number]
     `  ${item.name}：${item.gender || '性别未填'}；出生时间范围${sourceText}；${pillars}；以下时间条件分别适用`,
     ...range.branches.map((branch) => {
       const useful = formatAlmanacUsefulGods(branch.profile);
-      return `    ${formatAlmanacRangeTimestamp(branch.startTimestamp)} 至 ${formatAlmanacRangeTimestamp(branch.endTimestamp)}（终点不含）${useful ? `：${useful}` : '：未列可直接采用的喜忌资料'}`;
+      return `    ${formatAlmanacRangeTimestamp(branch.startTimestamp)} 至 ${formatAlmanacRangeTimestamp(branch.endTimestamp)}（终点不含）：司令${branch.profile.monthCommander || '待核'}；${branch.profile.incrementStatus === '待判' ? '增补五行喜忌待判' : useful || '未列可直接采用的喜忌资料'}`;
     }),
   ];
 }

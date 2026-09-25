@@ -1770,6 +1770,42 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   );
 });
 
+test('公开 API 八字轻量结果保留中和待判与已证原局格神', async () => {
+  const input = {
+    gender: 'male',
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    dateType: 'solar',
+  };
+  const compact = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, detailMode: 'compact' }),
+  });
+  const full = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, detailMode: 'full' }),
+  });
+
+  assert.equal(compact.response.status, 200);
+  assert.equal(compact.body.data.analysis.dayMasterStrength.status, '中和');
+  assert.equal(compact.body.data.analysis.usefulGod.incrementStatus, '待判');
+  assert.deepEqual(compact.body.data.analysis.usefulGod.favorableWuxing, []);
+  assert.deepEqual(compact.body.data.analysis.usefulGod.unfavorableWuxing, []);
+  assert.deepEqual(
+    compact.body.data.analysis.usefulGod.decisionEvidence.natalFunctions,
+    full.body.data.analysis.usefulGod.decisionEvidence.natalFunctions,
+  );
+  assert.ok(
+    compact.body.data.analysis.usefulGod.decisionEvidence.natalFunctions.some(
+      (item: { stem: string; role: string }) => item.stem === '庚' && item.role === '格神',
+    ),
+  );
+});
+
 test('公开 API 八字轻量结果保留普通格局破格干限制', async () => {
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',

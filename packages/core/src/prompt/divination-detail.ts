@@ -227,7 +227,7 @@ function formatAlmanacDetail(data: AlmanacData) {
           const conditions = range.branches
             .map(
               (branch) =>
-                `${formatRangeTimestamp(branch.startTimestamp)} 至 ${formatRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+                `${formatRangeTimestamp(branch.startTimestamp)} 至 ${formatRangeTimestamp(branch.endTimestamp)}（终点不含）司令${branch.profile.monthCommander || '待核'}，${branch.profile.incrementStatus === '待判' ? '增补五行喜忌待判' : `喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`}`,
             )
             .join('；');
           return `${base}，出生时间范围${source}，时间条件：${conditions}）`;

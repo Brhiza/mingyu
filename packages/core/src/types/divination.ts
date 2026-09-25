@@ -1296,8 +1296,12 @@ export interface AlmanacParticipantProfileSnapshot {
   dayMaster: string;
   dayMasterElement: string;
   pillars: BaseGanZhi;
+  /** 区间内司令变化保留为不同画像，即使增补喜忌同为待判。 */
+  monthCommander?: string;
   usefulGods: string[];
   avoidGods: string[];
+  /** 增补喜忌可为空且待判；与原局格神功能分层。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
 }
 
 export interface AlmanacParticipantProfileRangeBranch {

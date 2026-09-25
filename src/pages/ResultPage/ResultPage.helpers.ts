@@ -550,6 +550,12 @@ export function joinMultilineText(values: Array<string | undefined>, fallback = 
 }
 
 export function formatUsefulGodPrioritySummary(result: BaziChartResult) {
+  if (result.analysis.usefulGod.incrementStatus === '待判') return '增补五行喜忌待判';
+  if (
+    result.analysis.usefulGod.incrementStatus === '部分判定' &&
+    !result.analysis.usefulGod.favorableWuxing?.length
+  )
+    return '增补五行取用待判';
   const primary =
     result.analysis.usefulGod.primaryFavorableWuxing ||
     result.analysis.usefulGod.favorableWuxing?.[0] ||
@@ -564,6 +570,12 @@ export function formatUsefulGodPrioritySummary(result: BaziChartResult) {
 }
 
 export function formatAvoidGodPrioritySummary(result: BaziChartResult) {
+  if (result.analysis.usefulGod.incrementStatus === '待判') return '增补五行喜忌待判';
+  if (
+    result.analysis.usefulGod.incrementStatus === '部分判定' &&
+    !result.analysis.usefulGod.unfavorableWuxing?.length
+  )
+    return '增补五行所忌待判';
   const primary =
     result.analysis.usefulGod.primaryUnfavorableWuxing ||
     result.analysis.usefulGod.unfavorableWuxing?.[0] ||

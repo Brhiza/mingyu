@@ -301,7 +301,9 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     conditionPortableBasis(usefulGod.primaryReason ?? ''),
     ...(usefulGod.decisionEvidence
       ? [
-          `基础取用${usefulGod.decisionEvidence.base.favorable.join('、')}；基础所忌${usefulGod.decisionEvidence.base.unfavorable.join('、')}`,
+          usefulGod.incrementStatus === '待判'
+            ? '增补五行喜忌待判；原局格神与制化作用另列'
+            : `基础取用${usefulGod.decisionEvidence.base.favorable.join('、') || '待判'}；基础所忌${usefulGod.decisionEvidence.base.unfavorable.join('、') || '待判'}`,
           ...(usefulGod.decisionEvidence.controlPaths ?? [])
             .filter((path) => path.status === '满足')
             .map((path) => `已见制化路径：${path.label}；${path.detail}`),
@@ -311,11 +313,13 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
   const favorableWuxing = usefulGod.favorableWuxing ?? [];
   const unfavorableWuxing = usefulGod.unfavorableWuxing ?? [];
   const usefulResult = [
-    usefulGod.primaryFavorableWuxing
-      ? `主用${usefulGod.primaryFavorableWuxing}`
-      : favorableWuxing.length
-        ? `喜用五行${favorableWuxing.join('、')}`
-        : '',
+    usefulGod.incrementStatus === '待判'
+      ? '增补五行喜忌待判'
+      : usefulGod.primaryFavorableWuxing
+        ? `主用${usefulGod.primaryFavorableWuxing}`
+        : favorableWuxing.length
+          ? `喜用五行${favorableWuxing.join('、')}`
+          : '',
     usefulGod.secondaryFavorableWuxing?.length
       ? `辅助${usefulGod.secondaryFavorableWuxing.join('、')}`
       : '',
@@ -324,8 +328,8 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
       : unfavorableWuxing.length
         ? `忌五行${unfavorableWuxing.join('、')}`
         : '',
-    usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
-    usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
+    usefulGod.incrementStatus !== '待判' && usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
+    usefulGod.incrementStatus !== '待判' && usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
     ...formatUsefulGodFunctions(usefulGod),
   ]
     .filter(Boolean)

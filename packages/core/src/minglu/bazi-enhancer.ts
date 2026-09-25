@@ -2083,7 +2083,11 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
     transformation?.status === '成化'
       ? `化气判定为成化，化神${transformation.element}为取用主体。${transformation.basis}。${transformation.evidence.join('；')}。原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`
       : '';
-  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。${transformationPlain || `本局五行取用为【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。`}${usefulFunctionFacts.length ? ` ${usefulFunctionFacts.join('；')}` : ''}`;
+  const incrementPlain =
+    usefulGod.incrementStatus === '待判'
+      ? '增补五行喜忌待判，原局格神与制化作用按已证条件分别记录。'
+      : `本局增补五行取用为【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。`;
+  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。${transformationPlain || incrementPlain}${usefulFunctionFacts.length ? ` ${usefulFunctionFacts.join('；')}` : ''}`;
 
   const favorableHabitsPlain =
     transformation?.status === '成化'
@@ -2093,7 +2097,9 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
           `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
         ]
       : [
-          `核心调和五行：【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】；建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
+          usefulGod.incrementStatus === '待判'
+            ? '增补五行喜忌待判；生活与工作取向结合已证原局作用和现实条件。'
+            : `核心调和五行：【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】；建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
           `格局定位：【${patternName}】，代表你的人生成就主要依托于这一核心天赋引擎的有效运转。`,
           `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
         ];

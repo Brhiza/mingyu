@@ -497,8 +497,10 @@ function buildParticipantProfileSnapshot(
       day: chart.pillars.day.ganZhi,
       hour: chart.pillars.hour.ganZhi,
     },
+    monthCommander: chart.monthCommander,
     usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
     avoidGods: chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+    incrementStatus: chart.analysis.usefulGod.incrementStatus,
   };
 }
 
