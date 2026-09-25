@@ -191,9 +191,9 @@ test('奇门中性格局与多宫门迫保留各宫条件，空亡不直接翻�
   data.voidPalaces = [{ branch: '子', palace: first.gong, name: first.name }];
   const fulfillments = evaluateQimenPatternFulfillment(data);
   assert.equal(fulfillments.length, 2);
-  assert.match(fulfillments[0], /中性格局.*空亡、门迫/);
+  assert.match(fulfillments[0], /同宫见空亡、门迫；中性格局：中性组合/);
   assert.doesNotMatch(fulfillments[0], /吉力|凶势|减弱|虚浮/);
-  assert.match(fulfillments[1], /吉格.*门迫/);
+  assert.match(fulfillments[1], /同宫见门迫；吉格：吉格组合/);
   assert.doesNotMatch(fulfillments[1], /同宫见空亡/);
   data.patternTags = [];
   data.classicPatterns.push({

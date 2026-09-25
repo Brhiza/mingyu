@@ -132,8 +132,44 @@ test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自�
   const patternSection = combinedPrompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
   assert.match(patternSection, /格局：坐贵向贵/u);
   assert.match(patternSection, /命中条件：天魁、天钺一曜坐命，另一曜在对宫/u);
+  assert.match(patternSection, /涉及宫位：迁移/u);
   assert.match(patternSection, /古籍依据：《紫微斗数全书》卷一/u);
-  assert.doesNotMatch(patternSection, /涉及宫位：|涉及星曜：/u);
+  assert.doesNotMatch(patternSection, /涉及星曜：/u);
+  assert.doesNotMatch(
+    patternSection,
+    /格局：君子在野\n传统分类：传统凶格\n命中条件：擎羊以“陷”亮度守财帛\n涉及宫位：/u,
+  );
   const palaceSection = combinedPrompt.slice(combinedPrompt.indexOf('【全盘十二宫总览】'));
   assert.match(palaceSection, /宫位：命宫[^\n]*辅星：天魁/u);
+});
+
+test('紫微命中条件已列出化忌星曜时省略重复星曜字段', async () => {
+  const runtime = await calculateZiweiChart(
+    buildZiweiChartInput({
+      name: '化忌格局核验',
+      gender: 'female',
+      dateType: 'solar',
+      year: 1967,
+      month: 4,
+      day: 4,
+      timeIndex: 9,
+      isLeapMonth: false,
+    }),
+    { scopes: ['origin'], skipAnalysis: false },
+  );
+  const prompt = buildCombinedZiweiPrompt(
+    runtime.payloadByScope.origin,
+    'destiny',
+    '请分析命局主线。',
+    { currentTime: new Date('2026-09-26T12:00:00+08:00') },
+  );
+  const patternSection = prompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
+  const targetPattern = patternSection
+    .split(/\n\n(?=格局：)/u)
+    .find((item) => item.includes('格局：羊陀夹忌'));
+
+  assert.ok(targetPattern);
+  assert.match(targetPattern, /巨门生年化忌坐命宫/u);
+  assert.match(targetPattern, /涉及宫位：兄弟、父母/u);
+  assert.doesNotMatch(targetPattern, /涉及星曜：/u);
 });
