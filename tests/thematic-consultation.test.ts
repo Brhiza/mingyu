@@ -97,7 +97,7 @@ test('八字紫微双盘默认通用主题 (general) 合参提示词', async () 
   assert.ok(result.prompt.includes('【分析主题】'));
   assert.ok(result.prompt.includes('咨询主题：通用（综合大局与命身全景）'));
   assert.ok(result.prompt.includes('【八字排盘信息】'));
-  assert.ok(result.prompt.includes('【八字格局条件】'));
+  assert.doesNotMatch(result.prompt, /【八字格局条件】/);
   assert.match(result.prompt, /当前成败判定：/);
   assert.ok(result.prompt.includes('【紫微盘面信息】'));
   assert.ok(result.prompt.includes('【任务】'));
@@ -120,7 +120,7 @@ test('八字紫微核心合参提示词默认使用当前阶段范围', async ()
     question: '当前阶段的事业重点是什么？',
   });
 
-  assert.match(prompt, /【八字格局条件】/);
+  assert.doesNotMatch(prompt, /【八字格局条件】/);
   assert.match(prompt, /当前成败判定：/);
   assert.match(prompt, /紫微已给出运限范围，八字仍为本命资料，二者尚未对齐到同一日期。/);
 });
@@ -194,7 +194,7 @@ test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提�
   assert.equal(baziOnly.system, 'bazi');
   assert.equal(baziOnly.topic, 'health');
   assert.ok(baziOnly.prompt.includes('【排盘信息】'));
-  assert.ok(baziOnly.prompt.includes('【八字格局条件】'));
+  assert.doesNotMatch(baziOnly.prompt, /【八字格局条件】/);
   assert.ok(!baziOnly.prompt.includes('【紫微盘面信息】'));
   assert.ok(baziOnly.prompt.includes('五行'));
 

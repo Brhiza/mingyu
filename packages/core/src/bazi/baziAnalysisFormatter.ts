@@ -378,7 +378,12 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   result += '\n';
   const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
-  if (includeRules && analysis.mingGe.patternCandidates?.length) {
+  if (
+    includeRules &&
+    analysis.mingGe.patternCandidates?.some(
+      (candidate) => candidate.pattern !== analysis.mingGe.pattern,
+    )
+  ) {
     const candidateFacts = patternFacts.filter((fact) => fact.startsWith('取格分层候选：'));
     if (candidateFacts.length) result += `${candidateFacts.join('\n')}\n`;
   }

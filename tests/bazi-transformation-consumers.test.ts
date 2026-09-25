@@ -79,18 +79,20 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
   const patternFacts = formatBaziPatternConditions(chart);
   assert.match(patternFacts, /化气判定：成化；化神木/);
   assert.match(patternFacts, /丁壬同透并相合/);
-  assert.match(patternFacts, /取用主体：化神木/);
+  assert.doesNotMatch(patternFacts, /成化取用：|化气条件：/);
 
   for (const school of ['ziping', 'mangpai', 'xinpai'] as const) {
     const prompt = formatBaziSchoolPrompt(chart, school);
     assert.match(prompt, /化气判定：成化/);
     assert.match(prompt, /化神木/);
-    assert.match(prompt, /化气条件：岁运继续核验/);
+    assert.match(prompt, /取用条件：岁运继续核验/);
+    assert.doesNotMatch(prompt, /化气条件：/);
   }
 
   const prompt = buildBaziPrompt({ result: chart, topic: 'general', school: 'ziping' });
-  assert.match(prompt, /成化主格取用主体：化神木/);
-  assert.match(prompt, /原日主癸旺衰与十神作为本命事实/);
+  assert.doesNotMatch(prompt, /【格局条件】/);
+  assert.match(prompt, /化气判定：成化；化神木/);
+  assert.match(prompt, /化神取用：以化神木为取用主体/);
   assert.doesNotMatch(prompt, /身弱必补原日主|身弱取印比/);
 
   const section = buildEnhancedPatternUsefulGodSection(chart);

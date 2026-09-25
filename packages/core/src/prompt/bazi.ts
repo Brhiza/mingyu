@@ -1,4 +1,3 @@
-import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
 import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
@@ -164,22 +163,79 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
   const transformation = result.analysis?.mingGe?.transformation;
   const fulfillment = result.analysis?.mingGe?.fulfillment;
   const specialAdjudication = result.analysis?.mingGe?.specialAdjudication;
-  if (!fulfillment && !transformation && !specialAdjudication) return '';
-  return [
-    transformation
-      ? `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`
-      : '',
-    ...(transformation?.evidence ?? []).map((item) => `化气证据：${item}`),
-    ...(transformation?.conditions ?? []).map((item) => `化气条件：${item}`),
-    ...(transformation?.status === '成化'
-      ? [
-          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-        ]
-      : []),
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const facts: string[] = [];
+
+  // 排盘正文已有所取格局、成败和判定理由，此处只补充影响结论的实际作用。
+  if (
+    transformation &&
+    (transformation.status === '成化' || (!fulfillment && !specialAdjudication))
+  ) {
+    facts.push(
+      `化气判定：${transformation.status}；化神${transformation.element}${transformation.status === '成化' ? '' : `；${transformation.basis}`}`,
+    );
+    if (transformation.status === '成化') {
+      facts.push(
+        ...transformation.evidence
+          .filter((item) => !transformation.basis.includes(item))
+          .map((item) => `化气证据：${item}`),
+      );
+    }
+  }
+
+  if (specialAdjudication && (specialAdjudication.status === '成立' || !fulfillment)) {
+    if (!fulfillment) {
+      facts.push(
+        `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}；${specialAdjudication.route}；${specialAdjudication.method}`,
+      );
+    }
+    if (specialAdjudication.status === '成立' && specialAdjudication.kind === '从儿格') {
+      facts.push(
+        `从儿五行流向：食伤${specialAdjudication.outputElement}生财${specialAdjudication.wealthElement}`,
+      );
+      facts.push(...specialAdjudication.functionalResolutions.map((item) => `顺局作用：${item}`));
+      if (specialAdjudication.retainedHiddenFacts.length) {
+        facts.push(`原支藏印官事实：${specialAdjudication.retainedHiddenFacts.join('；')}`);
+      }
+    }
+    if (specialAdjudication.status === '不成立' && specialAdjudication.blockers.length) {
+      facts.push(`特殊格反证：${specialAdjudication.blockers.join('；')}`);
+    }
+  }
+
+  if (fulfillment && fulfillment.status !== '成格') {
+    const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+    facts.push(
+      ...(fulfillment.conditionFacts ?? [])
+        .filter(
+          (item) =>
+            item.status !== '满足' &&
+            item.key !== 'bazi.day-master-strength' &&
+            !item.key.startsWith('path.') &&
+            !item.key.startsWith('pattern.breaker.') &&
+            !decisionDetail.includes(item.detail),
+        )
+        .map((item) => `条件核验：${item.status}；${item.detail}`),
+    );
+    for (const breaker of fulfillment.activeBreakers ?? []) {
+      const stems = breaker.stems
+        .map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`)
+        .join('、');
+      facts.push(
+        `破格项：${breaker.label}${stems ? `（${stems}）` : ''}；救应${breaker.repairStatus}`,
+      );
+      if (breaker.repairStatus === '满足' || breaker.repairStatus === '资料不足') {
+        const path = fulfillment.pathEvaluations?.find(
+          (item) =>
+            breaker.repairPathKeys.includes(item.key) && item.status === breaker.repairStatus,
+        );
+        if (path && !decisionDetail.includes(path.detail)) {
+          facts.push(`救应路径：${path.label}（${path.position}）；${path.detail}`);
+        }
+      }
+    }
+  }
+
+  return [...new Set(facts)].join('\n');
 }
 
 export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocument {
@@ -216,7 +272,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
       ? `分析对象：${options.fortuneScope === 'full' ? '本命盘与完整大运流年' : options.fortuneScope}`
       : '分析对象：本命盘';
   const patternConditions = formatBaziPatternConditions(options.result);
-  const focusSection = patternConditions ? buildPromptSection('格局条件', patternConditions) : '';
+  const focusSection =
+    !selectedSchools.length && !options.school && patternConditions
+      ? buildPromptSection('格局条件', patternConditions)
+      : '';
 
   const user = joinPromptSections([
     buildPromptGuidance('bazi'),

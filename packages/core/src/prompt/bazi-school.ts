@@ -159,17 +159,21 @@ function formatUsefulGod(result: BaziChartResult) {
 
 function formatTransformationFacts(result: BaziChartResult) {
   const transformation = result.analysis.mingGe.transformation;
-  if (!transformation) return [];
+  if (!transformation || (transformation.status !== '成化' && result.analysis.mingGe.fulfillment)) {
+    return [];
+  }
   return [
-    `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-    ...transformation.evidence.map((item) => `化气证据：${item}`),
-    ...transformation.conditions.map((item) => `化气条件：${item}`),
-    ...(transformation.status === '成化'
-      ? [
-          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-        ]
-      : []),
+    `化气判定：${transformation.status}；化神${transformation.element}${transformation.status === '成化' ? '' : `；${transformation.basis}`}`,
+    ...transformation.evidence
+      .filter((item) => !transformation.basis.includes(item))
+      .map((item) => `化气证据：${item}`),
   ];
+}
+
+function formatSchoolPatternFacts(result: BaziChartResult) {
+  return formatPatternFulfillmentFacts(result.analysis.mingGe).filter(
+    (item) => !item.startsWith('候选取用：') && !item.startsWith('格局条件：'),
+  );
 }
 
 function formatTenGodStructure(result: BaziChartResult) {
@@ -269,7 +273,7 @@ function formatZipingFacts(result: BaziChartResult) {
     `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
     `透干通根：${formatRoots(result)}`,
     `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
+    ...formatSchoolPatternFacts(result),
     ...formatTransformationFacts(result),
     `调候与取用：${formatUsefulGod(result)}；五行季节状态${
       Object.entries(result.wuxingSeasonStatus)
@@ -288,7 +292,7 @@ function formatMangpaiFacts(result: BaziChartResult) {
     `十神显隐：${formatTenGodStructure(result)}`,
     `透干通根：${formatRoots(result)}`,
     `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
+    ...formatSchoolPatternFacts(result),
     ...formatTransformationFacts(result),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
@@ -316,7 +320,7 @@ function formatXinpaiFacts(result: BaziChartResult) {
     `十神结构：${formatTenGodStructure(result)}`,
     `十神流通：候选链条${formatTenGodFlow(result)}`,
     `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
+    ...formatSchoolPatternFacts(result),
     ...formatTransformationFacts(result),
     '喜忌落位：',
     formatUsefulGodPlacements(result),

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPromptFromConfig, getCompatibilityPrompt } from '../src/utils/ai/aiPrompts';
+import { formatBaziCompatibilityFacts } from '../src/lib/bazi-compatibility-facts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
@@ -69,12 +70,21 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assert.equal(prompt.system, '');
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【双盘关系资料】/);
-  assert.match(prompt.user, /【第一人格局条件】/);
-  assert.match(prompt.user, /【第二人格局条件】/);
   assert.match(prompt.user, /当前成败判定：/);
+  assert.doesNotMatch(prompt.user, /【第一人格局条件】|【第二人格局条件】/);
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
+});
+
+test('八字紫微合参只复用双方关系事实，不嵌套整份八字合盘任务书', () => {
+  const { result1, result2 } = createCompatibilityBaziResults();
+  const facts = formatBaziCompatibilityFacts(result1, result2);
+  const prompt = getCompatibilityPrompt('双方如何协作？', result1, result2, 'career');
+
+  assert.match(facts, /日主关系：|四柱关系：/);
+  assert.ok(prompt.user.includes(`【双盘关系资料】\n${facts}`));
+  assert.doesNotMatch(facts, /【第一人排盘信息】|【第二人排盘信息】|【任务】|【问题】/);
 });
 
 test('八字输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
@@ -96,23 +106,41 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
   assertPromptHasSingleRole(combinedPrompt, PROMPT_ROLE_TEXT.bazi);
   assertNoEngineeringPromptText(combinedPrompt);
   const conditions = formatBaziPatternConditions(result);
-  assert.ok(conditions.includes('格局条件：'));
   assert.doesNotMatch(conditions, /(?:pattern|path)\.[a-z.-]+/);
-  assert.match(conditions, /条件核验：(?:满足|不满足|资料不足)/);
-  const strengthFact = result.analysis.mingGe.fulfillment!.conditionFacts!.find(
-    (item) => item.key === 'bazi.day-master-strength',
-  )!;
-  assert.equal(conditions.split(strengthFact.detail).length - 1, 1);
+  assert.doesNotMatch(conditions, /候选取用：|取格分层候选：|格局条件：/);
   for (const text of [
     combinedPrompt,
     buildBaziPrompt({ result, topic: 'career', fortuneScope: 'natal' }),
     buildBaziPromptForResult({ result, topic: 'career', fortuneScope: 'natal' }),
   ]) {
-    assert.ok(text.includes(conditions));
+    assert.match(text, /当前成败判定：/);
+    if (conditions) assert.ok(text.includes(conditions));
     const task = text.split('【任务】\n')[1]?.split('【问题】')[0] ?? '';
     assert.ok(task.length > 0);
     assert.doesNotMatch(task, /大运|流年|岁运/);
   }
+});
+
+test('普通成格提示词保留结论并省略重复的格局条件', () => {
+  const result = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  assert.equal(result.analysis.mingGe.fulfillment?.status, '成格');
+  assert.equal(formatBaziPatternConditions(result), '');
+
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+  assert.match(prompt, /所取格局：正印格；当前成败判定：成格/);
+  assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
+});
+
+test('破格提示词只补充当前破格作用', () => {
+  const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  assert.equal(result.analysis.mingGe.fulfillment?.status, '破格');
+
+  const conditions = formatBaziPatternConditions(result);
+  assert.match(conditions, /破格项：/);
+  assert.doesNotMatch(conditions, /取格分层候选：|候选取用：|格局条件：/);
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+  assert.match(prompt, /当前成败判定：破格/);
+  assert.match(prompt, /【格局条件】\n破格项：/);
 });
 
 test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {
