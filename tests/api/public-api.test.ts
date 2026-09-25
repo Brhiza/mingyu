@@ -4692,6 +4692,47 @@ test('公开 API 星盘周期端点只返回紧凑事件批次并拒绝非法上
   assert.match(invalidRange.body.error.message, /完整落在所选分析范围内|最多 31/);
 });
 
+test('公开 API 星盘流日接受圣地亚哥零点跳时的当地公历日', async () => {
+  const data = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '-33.4489',
+    longitude: '-70.6693',
+    timeZoneId: 'America/Santiago',
+  });
+  const result = await callApi('divination/astrolabe/period-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      astrolabeScope: 'daily',
+      astrolabeScopeDate: '2024-09-08',
+      astrolabePeriodRange: { startDate: '2024-09-08', endDate: '2024-09-09' },
+      astrolabePeriodContext: buildAstrolabePeriodContext(data),
+    }),
+  });
+
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.kind, 'astrolabe-period-batch');
+  assert.equal(result.body.data.timeZoneId, 'America/Santiago');
+  assert.equal(result.body.data.timezone, -3);
+  assert.deepEqual(result.body.data.range, {
+    startDate: '2024-09-08',
+    endDate: '2024-09-09',
+    endExclusive: true,
+  });
+  assert.ok(result.body.data.events.length > 0);
+  assert.ok(
+    result.body.data.events.every((event: { dateTime: string }) =>
+      event.dateTime.startsWith('2024-09-08 '),
+    ),
+  );
+});
+
 test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {
   const base = {
     name: '本人',

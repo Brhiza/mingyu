@@ -63,6 +63,7 @@ import {
 } from '../calendar/astronomical-time';
 import {
   getCivilDateTimeAtFixedOffset,
+  resolveCivilDayStart,
   resolveCivilTime,
   type CivilTimeZoneInput,
 } from '../calendar/civil-time';
@@ -2279,13 +2280,10 @@ function buildSolarReturnPeriods(
 ): SolarReturnPeriod[] {
   const timeZone = getScopeTimeZoneInput(data);
   const localMidnightUtc = (year: number) =>
-    resolveCivilTime({
+    resolveCivilDayStart({
       year,
       month: 1,
       day: 1,
-      hour: 0,
-      minute: 0,
-      second: 0,
       ...timeZone,
     }).utcTimestamp;
   const yearStart = localMidnightUtc(targetYear);

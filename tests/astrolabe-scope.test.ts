@@ -432,6 +432,27 @@ test('元旦附近生日的返照有效期完整覆盖目标日历年', () => {
   }
 });
 
+test('返照年度起点采用 IANA 当地公历日真实首瞬时点', () => {
+  const data = generateAstrolabe({
+    name: '几内亚比绍命例',
+    gender: '女',
+    year: '1960',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '0',
+    latitude: '11.8636',
+    longitude: '-15.5977',
+    timeZoneId: 'Africa/Bissau',
+  });
+  const periods = buildAstrolabeScopeContext(data, 'yearly', '1975', {
+    includePeriodEvents: false,
+  }).solarReturnPeriods!;
+  assert.ok(periods.length > 0);
+  assert.equal(periods[0].startUtcDateTime, '1975-01-01T01:00:00.000Z');
+  assert.equal(periods[0].startsAt, '1975-01-01 01:00:00');
+});
+
 test('太阳返照跨目标生日夏令时空洞仍按连续 UTC 求根', () => {
   const newYork = generateAstrolabe({
     name: '夏令时命例',
