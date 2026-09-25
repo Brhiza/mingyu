@@ -1,4 +1,8 @@
-import { analyzeBaziCompatibility, type BaziChartResult } from 'mingyu-core/bazi';
+import {
+  analyzeBaziCompatibility,
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziChartResult,
+} from 'mingyu-core/bazi';
 
 /** 合盘提示词与八字紫微合参共用的双方关系事实。 */
 export function formatBaziCompatibilityFacts(
@@ -12,7 +16,7 @@ export function formatBaziCompatibilityFacts(
   const tenGodLines = relation.tenGodMappings.map((item) => item.promptText);
   const coverageLines = relation.usefulGodCoverage
     .filter((item) => item.status === '已计算')
-    .map((item) => item.promptText);
+    .map((item) => formatBaziUsefulGodCoverageForPrompt(item));
 
   return [
     `日主关系：${relation.dayMasterRelation.promptText}。`,

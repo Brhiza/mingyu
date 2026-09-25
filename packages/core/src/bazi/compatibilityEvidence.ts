@@ -537,6 +537,18 @@ function calculateUsefulGodCoverage(
   };
 }
 
+/** 两人命盘正文已单独呈现时，省略覆盖说明中重复的受益方本命功能事实。 */
+export function formatBaziUsefulGodCoverageForPrompt(coverage: BaziUsefulGodCoverage): string {
+  if (!coverage.functionalEvidence?.descriptions.length) return coverage.promptText;
+  const beneficiaryLabel = coverage.beneficiary === 'person1' ? '第一人' : '第二人';
+  const descriptions = coverage.functionalEvidence.descriptions.join('；');
+  const suffix =
+    coverage.status === '资料不足'
+      ? `；原局作用：${descriptions}`
+      : `；${beneficiaryLabel}另有${descriptions}`;
+  return coverage.promptText.replace(suffix, '');
+}
+
 function sourceLabel(person: string, pillar: PillarKey) {
   return `${person}${PILLAR_LABELS[pillar]}`;
 }

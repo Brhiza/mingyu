@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { baziCalculator } from '../packages/core/src/bazi/index.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
+import { analyzeQimenEvidence } from '../packages/core/src/divination/qimen-evidence.ts';
 import {
   evaluateQimenPatternFulfillment,
   formatQimenPatternConditionSummary,
@@ -78,17 +79,17 @@ test('奇门提示资料按宫归并格局条件并完整保留超过三条格�
     })),
     voidPalaces: [{ branch: '子', palace: anchor.gong, name: anchor.name }],
   };
+  expanded.evidenceAnalysis = analyzeQimenEvidence(expanded);
   const fulfillments = evaluateQimenPatternFulfillment(expanded);
   const text = formatEnhancedDivinationInfo('qimen', expanded);
 
   assert.equal(fulfillments.length, 8);
   const summary = formatQimenPatternConditionSummary(expanded);
-  assert.deepEqual(summary, [
-    `${anchor.name}同宫见空亡：凶格（${expanded.classicPatterns.map((item) => item.name).join('、')}）`,
-  ]);
+  assert.deepEqual(summary, [`${anchor.name}同宫见空亡`]);
   assert.ok(text.includes(`格局条件：\n${summary[0]}`));
   for (const pattern of expanded.classicPatterns) {
     assert.match(text, new RegExp(escapeRegExp(pattern.name)));
+    assert.equal(text.split(pattern.name).length - 1, 1);
   }
   assert.doesNotMatch(text, /灾咎减半/);
 });

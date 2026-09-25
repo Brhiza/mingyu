@@ -124,6 +124,7 @@ test('化气依据进入合盘证据、命盘分享详情与起名出生资料',
 
   const prompt = buildBaziCompatibilityPrompt({ result1: chart, result2: chart });
   assert.equal(prompt.match(/格局: 丁壬化木格[^\n]*化气判定：成化/g)?.length, 2);
+  assert.match(prompt, /取用主体：化神木/);
   assert.doesNotMatch(prompt, /【第一人格局条件】|【第二人格局条件】/);
 
   const decisionDetails = formatBaziDecisionDetails(chart).join('\n');

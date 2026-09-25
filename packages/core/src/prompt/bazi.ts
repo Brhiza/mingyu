@@ -1,4 +1,9 @@
-import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
+import {
+  analyzeBaziCompatibility,
+  formatBaziForPrompt,
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziChartResult,
+} from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
@@ -174,8 +179,11 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
 
   if (specialAdjudication && (specialAdjudication.status === '成立' || !fulfillment)) {
     if (!fulfillment) {
+      const statedSpecialDetails = [specialAdjudication.route, specialAdjudication.method].filter(
+        (detail) => detail && !result.analysis.mingGe.basis?.includes(detail),
+      );
       facts.push(
-        `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}；${specialAdjudication.route}；${specialAdjudication.method}`,
+        `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}${statedSpecialDetails.length ? `；${statedSpecialDetails.join('；')}` : ''}`,
       );
     }
     if (specialAdjudication.status === '成立' && specialAdjudication.kind === '从儿格') {
@@ -359,7 +367,11 @@ export function buildBaziCompatibilityPromptDocument(
     `四柱关系：${relation.crossPillarRelations.map((item) => item.promptText).join('；') || '未见已列关系'}`,
     `跨盘组合：${relation.crossBranchCombinations.map((item) => item.promptText).join('；') || '未见已列组合'}`,
     `双向十神：${relation.tenGodMappings.map((item) => item.promptText).join('；') || '未记录'}`,
-    `喜忌覆盖：${relation.usefulGodCoverage.map((item) => item.promptText).join('；') || '资料不足'}`,
+    `喜忌覆盖：${
+      relation.usefulGodCoverage
+        .map((item) => formatBaziUsefulGodCoverageForPrompt(item))
+        .join('；') || '资料不足'
+    }`,
     relation.summaryFact.promptText,
   ].join('\n');
   const selectedSchools = normalizeBaziPromptSchools(options.schools);

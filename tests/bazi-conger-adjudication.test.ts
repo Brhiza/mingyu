@@ -449,6 +449,8 @@ test('格式化、提示词与命录消费同一从儿终局和取用，不泄�
   const minglu = buildEnhancedPatternUsefulGodSection(chart);
 
   assert.match(prompt, /特殊格裁决：从儿格成立/);
+  assert.equal(prompt.match(/三会食伤成气/g)?.length, 1);
+  assert.equal(prompt.match(/《滴天髓阐微·顺局》从儿法/g)?.length, 1);
   assert.match(prompt, /从儿五行流向：食伤木生财火/);
   assert.equal(prompt.match(/年干丁与月干壬紧贴合木/g)?.length, 1);
   assert.doesNotMatch(prompt, /顺局作用：年干丁与月干壬紧贴合木/);

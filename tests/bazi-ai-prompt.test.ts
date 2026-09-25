@@ -12,7 +12,11 @@ import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/baz
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasAnswerFramework, assertPromptHasSingleRole } from './prompt-assertions';
-import { buildBaziPrompt, formatBaziPatternConditions } from '../packages/core/src/prompt/bazi';
+import {
+  buildBaziCompatibilityPrompt,
+  buildBaziPrompt,
+  formatBaziPatternConditions,
+} from '../packages/core/src/prompt/bazi';
 import { buildBaziPromptForResult } from '../packages/core/src/prompt/public-api';
 
 function assertNoEngineeringPromptText(prompt: string) {
@@ -75,6 +79,27 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
+});
+
+test('八字合盘喜忌覆盖不复述已在个人盘面呈现的功能事实', () => {
+  const result1 = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
+  const result2 = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  const prompts = [
+    getCompatibilityPrompt('请分析双方关系。', result1, result2).user,
+    buildBaziCompatibilityPrompt({ result1, result2 }),
+  ];
+
+  for (const prompt of prompts) {
+    const coverageLine =
+      prompt.split('\n').find((line) => /喜忌(?:五行对应|覆盖)：/.test(line)) ?? '';
+    assert.equal(prompt.match(/原局格神作用：庚正印（年柱）已参与成格/g)?.length, 1);
+    assert.equal(
+      prompt.match(/格局破格所忌：丁伤官（时柱）；伤官见官的救应明确不成立/g)?.length,
+      1,
+    );
+    assert.match(coverageLine, /第一人盘面命中第二人喜用五行/);
+    assert.doesNotMatch(coverageLine, /原局格神作用|格局破格所忌/);
+  }
 });
 
 test('八字紫微合参只复用双方关系事实，不嵌套整份八字合盘任务书', () => {

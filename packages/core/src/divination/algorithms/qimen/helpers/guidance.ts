@@ -129,35 +129,25 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
   });
 }
 
-/** 提示词按宫保留实际空迫叠加，格局自身即为门迫时不重复描述。 */
+/** 提示词按宫保留实际空迫叠加；格局名称与吉凶身份由索引承载。 */
 export function formatQimenPatternConditionSummary(data: QimenData): string[] {
   const affectedPatterns = new Map<
     number,
     {
       palaceName: string;
-      conditions: string[];
-      namesByType: Map<QimenPatternCondition['type'], Set<string>>;
+      conditions: Set<string>;
     }
   >();
   for (const item of collectQimenPatternConditions(data)) {
     if (item.name === '门迫') continue;
     const group = affectedPatterns.get(item.gong) ?? {
       palaceName: item.palaceName,
-      conditions: item.conditions,
-      namesByType: new Map<QimenPatternCondition['type'], Set<string>>(),
+      conditions: new Set<string>(),
     };
-    const names = group.namesByType.get(item.type) ?? new Set<string>();
-    names.add(item.name);
-    group.namesByType.set(item.type, names);
+    item.conditions.forEach((condition) => group.conditions.add(condition));
     affectedPatterns.set(item.gong, group);
   }
-  return [...affectedPatterns.values()].map((group) => {
-    const names = (['good', 'bad', 'neutral'] as const)
-      .filter((type) => group.namesByType.has(type))
-      .map((type) => {
-        const label = type === 'good' ? '吉格' : type === 'bad' ? '凶格' : '中性格局';
-        return `${label}（${[...group.namesByType.get(type)!].join('、')}）`;
-      });
-    return `${group.palaceName}同宫见${group.conditions.join('、')}：${names.join('；')}`;
-  });
+  return [...affectedPatterns.values()].map(
+    (group) => `${group.palaceName}同宫见${[...group.conditions].join('、')}`,
+  );
 }

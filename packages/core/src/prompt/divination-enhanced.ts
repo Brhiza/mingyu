@@ -751,7 +751,77 @@ function getQimenScopePresentation(data: QimenData) {
   return { scope, ...(config[scope] ?? config.hour) };
 }
 
-function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
+const qimenComboKindsByIntent = {
+  general: ['triGood', 'triBad', 'mixed', 'dunPlusReturning', 'luckPlusQi'],
+  military: [
+    'baihuKaiJing',
+    'baihuXiuMen',
+    'dingRenBlocked',
+    'qinglongReturningHost',
+    'flyingBirdGuest',
+    'flyingBirdShengMen',
+    'zhuqueToujiangHost',
+    'tengsheYaoyaoHold',
+    'tengsheMoveWuJi',
+    'xingDeKaiHe',
+    'starPalaceHostGuest',
+    'doorPalaceHostGuest',
+    'starDoorHostGuestInjury',
+    'doorSeasonQi',
+    'sanShengDi',
+    'tianYiJiChong',
+    'wuBuJi',
+    'baJiangHuiMen',
+    'youDuLuDu',
+    'tianMuDiEr',
+    'xunGuXu',
+    'tianGangTime',
+    'lostRoute',
+    'tingTingBaiJian',
+    'tianMenDiHuTaiYinQingLong',
+    'campLayout',
+    'yangYinHourHostGuest',
+    'xunZhongDiBingDay',
+    'daJiangJunDirection',
+    'taiSuiDirection',
+    'yueJianDirection',
+    'taiYinDirection',
+    'fourGodDirections',
+    'heKuiDirection',
+    'wuJiangDirection',
+    'shiZhongJiangXing',
+    'xiongCiDirection',
+    'dayStemAttackAvoidance',
+  ],
+  route: [
+    'quSan',
+    'biWu',
+    'xunGuXu',
+    'tianMaDirection',
+    'lostRoute',
+    'tianSanMenDiSiHu',
+    'earthPrivateDoor',
+    'tianMenDiHuTaiYinQingLong',
+  ],
+  escape: [
+    'dingRenBlocked',
+    'dingRenShengMen',
+    'tengsheMoveWuJi',
+    'xunGuXu',
+    'tianMaDirection',
+    'tianSanMenDiSiHu',
+    'earthPrivateDoor',
+    'tianMenDiHuTaiYinQingLong',
+    'fourGodDirections',
+  ],
+  direction: ['sanShengDi', 'quSan', 'biWu', 'tianMaDirection', 'tianSanMenDiSiHu'],
+  object: ['objectClues'],
+  timing: ['zhiFuOpenClose'],
+  door: ['doorSeasonQi'],
+  stem: ['stemPressure'],
+} as const;
+
+function formatQimenInfo(data: QimenData, question = '', supplementaryInfo?: SupplementaryInfo) {
   const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
     ? data.evidenceAnalysis
     : analyzeQimenEvidence(data);
@@ -777,11 +847,69 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
   );
-  const classicPatternLines = classicPatternFacts.map((item) => `${item.name}：${item.promptText}`);
-  const comboLines = (data.patternCombos ?? []).map(
-    (item) =>
-      `${item.name}${item.palace ? `（${data.jiuGongGe.find((palace) => palace.gong === item.palace)?.name ?? `${item.palace}宫`}）` : ''}：${item.summary.replaceAll('，不作通用吉凶评分', '').replaceAll('，不替代通用凶格评分', '')}`,
-  );
+  const classicPatternLines = classicPatternFacts.map((item) => {
+    const tone =
+      item.traditionalTone === '有利'
+        ? '吉格'
+        : item.traditionalTone === '风险'
+          ? '凶格'
+          : '中性格局';
+    const missingPalaces = item.palaces
+      .map((gong) => data.jiuGongGe.find((palace) => palace.gong === gong)?.name ?? `${gong}宫`)
+      .filter((name) => !item.promptText.includes(name));
+    return `${item.name}（${tone}${missingPalaces.length ? `，${missingPalaces.join('、')}` : ''}）：${item.promptText}`;
+  });
+  const questionContext = [
+    question,
+    supplementaryInfo?.currentSituation,
+    supplementaryInfo?.knownFacts,
+    supplementaryInfo?.userSupplement,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const militaryQuestion =
+    /兵事|军事|战争|战斗|战役|打仗|作战|部队|军队|行军|攻守|攻防|敌军|演习|兵法|进攻|防守|交战|驻军|下营|战术/u.test(
+      questionContext,
+    );
+  const routeQuestion = /出行|旅行|旅途|行程|路线|导航|迷路|远行|赶路/u.test(questionContext);
+  const escapeQuestion = /避难|逃生|逃离|脱险|躲避|隐避|隐蔽|避犯|逃亡|隐遁/u.test(questionContext);
+  const directionQuestion = /择方|方位|方向|朝向|坐向|选址/u.test(questionContext);
+  const objectQuestion =
+    /射覆|寻物|找东西|找物|失物|物品|是什么东西|丢失.{0,6}(?:物|东西|手机|手表|钱包|钥匙)/u.test(
+      questionContext,
+    );
+  const timingQuestion = /应期|何时|什么时候|择时|时机|推进时间|几时|哪天/u.test(questionContext);
+  const doorQuestion = /用门|门气|八门旺衰|门旺衰|门的强弱|八门余气/u.test(questionContext);
+  const stemQuestion = /命宫|命干|奇仪受制|十干迫制|用神干|天盘干受制/u.test(questionContext);
+  const selectedComboKinds = new Set<string>([
+    ...qimenComboKindsByIntent.general,
+    ...(militaryQuestion ? qimenComboKindsByIntent.military : []),
+    ...(routeQuestion ? qimenComboKindsByIntent.route : []),
+    ...(escapeQuestion ? qimenComboKindsByIntent.escape : []),
+    ...(directionQuestion ? qimenComboKindsByIntent.direction : []),
+    ...(objectQuestion ? qimenComboKindsByIntent.object : []),
+    ...(timingQuestion ? qimenComboKindsByIntent.timing : []),
+    ...(doorQuestion ? qimenComboKindsByIntent.door : []),
+    ...(stemQuestion ? qimenComboKindsByIntent.stem : []),
+  ]);
+  const comboLines = (data.patternCombos ?? [])
+    .filter((item) => selectedComboKinds.has(item.key.split(':')[1] ?? ''))
+    .map((item) => {
+      const palaceName = item.palace
+        ? (data.jiuGongGe.find((palace) => palace.gong === item.palace)?.name ?? `${item.palace}宫`)
+        : '';
+      const name =
+        item.name.includes(palaceName) || !palaceName ? item.name : `${item.name}（${palaceName}）`;
+      const fullSummary = item.summary.replace(
+        /(?:，|；)?不(?:作|替代|重复加算)通用(?:(?:吉凶|吉格|凶格)评分|凶方扣分)。?/gu,
+        '',
+      );
+      const summary =
+        palaceName && fullSummary.startsWith(palaceName)
+          ? fullSummary.slice(palaceName.length)
+          : fullSummary;
+      return `${name}：${summary}`;
+    });
   const palaceLines = data.jiuGongGe.map((palace) => {
     const voidMark = data.voidPalaces?.some((item) => item.palace === palace.gong) ? '，逢空' : '';
     const horseMark = data.horseStar?.palace === palace.gong ? '，马星' : '';
@@ -1301,7 +1429,7 @@ export function formatEnhancedDivinationInfo(
     case 'jinkoujue':
       return formatJinkoujueInfo(data as JinkoujueData);
     case 'qimen':
-      return formatQimenInfo(data as QimenData, _supplementaryInfo);
+      return formatQimenInfo(data as QimenData, _question, _supplementaryInfo);
     case 'liuren':
       return formatLiurenInfo(data as LiurenData);
     case 'tarot':
