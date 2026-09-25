@@ -58,36 +58,6 @@ test('七政四余适配器应把原始民用时间交给引擎，避免真太�
   assert.deepEqual(direct.stars, generateQizheng(input).stars);
 });
 
-test('统一出生档案缺少完整出生地时不生成七政四余默认北京盘', async () => {
-  const withoutLocation: BirthProfile = {
-    ...profile,
-    location: undefined,
-    useTrueSolarTime: false,
-  };
-  assert.equal(normalizeBirthProfile(withoutLocation).resolvedLocation, undefined);
-  assert.throws(
-    () => birthProfileToQizhengInput(withoutLocation),
-    (error: unknown) =>
-      error instanceof BirthProfileError &&
-      error.code === 'LATITUDE_REQUIRED' &&
-      error.field === 'location.latitude',
-  );
-  await assert.rejects(
-    calculateBirthChartBundle(withoutLocation, { systems: ['qizheng'] }),
-    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
-  );
-  assert.throws(
-    () => birthProfileToQizhengInput({ ...withoutLocation, location: { longitude: 87.6 } }),
-    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
-  );
-  const regionOnly = birthProfileToQizhengInput({
-    ...withoutLocation,
-    location: { regionId: '110101' },
-  });
-  assert.equal(regionOnly.latitude, 39.928359);
-  assert.equal(regionOnly.longitude, 116.416334);
-});
-
 test('出生 Bundle 默认只计算八字，避免无意触发可选紫微依赖', async () => {
   const bundle = await calculateBirthChartBundle({ ...profile, useTrueSolarTime: false });
 
@@ -125,4 +95,34 @@ test('统一出生档案混用显式坐标与行政中心坐标时应保留精�
   assert.equal(mixed.resolvedLocation?.latitude, 39.928359);
   assert.equal(mixed.resolvedLocation?.coordinateAccuracy, 'mixed');
   assert.equal(provided.resolvedLocation?.coordinateAccuracy, 'user-provided');
+});
+
+test('统一出生档案缺少完整出生地时不生成七政四余默认北京盘', async () => {
+  const withoutLocation: BirthProfile = {
+    ...profile,
+    location: undefined,
+    useTrueSolarTime: false,
+  };
+  assert.equal(normalizeBirthProfile(withoutLocation).resolvedLocation, undefined);
+  assert.throws(
+    () => birthProfileToQizhengInput(withoutLocation),
+    (error: unknown) =>
+      error instanceof BirthProfileError &&
+      error.code === 'LATITUDE_REQUIRED' &&
+      error.field === 'location.latitude',
+  );
+  await assert.rejects(
+    calculateBirthChartBundle(withoutLocation, { systems: ['qizheng'] }),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
+  );
+  assert.throws(
+    () => birthProfileToQizhengInput({ ...withoutLocation, location: { longitude: 87.6 } }),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
+  );
+  const regionOnly = birthProfileToQizhengInput({
+    ...withoutLocation,
+    location: { regionId: '110101' },
+  });
+  assert.equal(regionOnly.latitude, 39.928359);
+  assert.equal(regionOnly.longitude, 116.416334);
 });
