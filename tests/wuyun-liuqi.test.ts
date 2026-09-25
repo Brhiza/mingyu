@@ -297,6 +297,12 @@ test('公历年换算应采用稳定年中口径，并校验显式干支一致�
   assert.throws(() => calculateWuyunLiuqi({ yearGanZhi: '甲丑' }), /年干支组合无效/);
 });
 
+test('五运六气应修剪显式年干支首尾空白后再校验和计算', () => {
+  const result = calculateWuyunLiuqi({ year: 2026, yearGanZhi: ' 丙午 ' });
+  assert.equal(result.input.yearGanZhi, '丙午');
+  assert.equal(result.annualMovement.name, '水运');
+});
+
 test('五运六气提示词应是可独立使用的完整任务书', () => {
   const prompt = calculateWuyunLiuqi({
     yearGanZhi: '丙午',

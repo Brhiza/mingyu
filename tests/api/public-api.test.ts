@@ -550,6 +550,15 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['year'] },
     { required: ['yearGanZhi'] },
   ]);
+  assert.equal(body.data.components.schemas.WuyunLiuqiRequest.properties.yearGanZhi.minLength, 2);
+  assert.equal(
+    body.data.components.schemas.WuyunLiuqiRequest.properties.yearGanZhi.maxLength,
+    undefined,
+  );
+  assert.match(
+    body.data.components.schemas.WuyunLiuqiRequest.properties.yearGanZhi.description,
+    /首尾空白会修剪/,
+  );
   assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.oneOf, [
     {
       required: ['customDate'],
@@ -6226,7 +6235,7 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   const calculation = await callApi('metaphysics/wuyun-liuqi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ year: 2026, yearGanZhi: '丙午' }),
+    body: JSON.stringify({ year: 2026, yearGanZhi: ' 丙午 ' }),
   });
 
   assert.equal(calculation.response.status, 200);
@@ -6268,7 +6277,7 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      yearGanZhi: '丙午',
+      yearGanZhi: ' 丙午 ',
       question: '请解释本年的气候节律。',
       responseMode: 'summary',
     }),

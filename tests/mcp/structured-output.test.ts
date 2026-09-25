@@ -1837,7 +1837,7 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
   await withMcpClient(async (client) => {
     const wuyun = await client.callTool({
       name: 'metaphysics_wuyun_liuqi',
-      arguments: { year: 2026, yearGanZhi: '丙午' },
+      arguments: { year: 2026, yearGanZhi: ' 丙午 ' },
     });
     const wuyunResult = wuyun.structuredContent?.result as {
       pathomechanism: {
@@ -2028,6 +2028,25 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
         );
       }
     }
+  });
+});
+
+test('MCP 五运六气计算与提示词应修剪显式年干支首尾空白', async () => {
+  await withMcpClient(async (client) => {
+    const calculation = await client.callTool({
+      name: 'metaphysics_wuyun_liuqi',
+      arguments: { yearGanZhi: ' 丙午 ' },
+    });
+    assert.equal(calculation.isError, undefined, JSON.stringify(calculation.content));
+    assert.equal(calculation.structuredContent?.result.input.yearGanZhi, '丙午');
+
+    const prompt = await client.callTool({
+      name: 'wuyun_liuqi_prompt',
+      arguments: { yearGanZhi: ' 丙午 ', question: '请解释本年的气候节律。' },
+    });
+    assert.equal(prompt.isError, undefined, JSON.stringify(prompt.content));
+    assert.equal(prompt.structuredContent?.result.input.yearGanZhi, '丙午');
+    assert.match(String(prompt.structuredContent?.prompt), /年干支：丙午/);
   });
 });
 
