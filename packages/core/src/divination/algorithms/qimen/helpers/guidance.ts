@@ -91,16 +91,7 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
         if (names.includes(palace.name)) menPoGongs.add(palace.gong);
       }
   }
-  const groups = new Map<
-    number,
-    {
-      palaceName: string;
-      conditions: Set<string>;
-      auspicious: Set<string>;
-      inauspicious: Set<string>;
-      neutral: Set<string>;
-    }
-  >();
+  const results: string[] = [];
   for (const pattern of patterns)
     for (const gong of pattern.palaces) {
       const palace = data.jiuGongGe.find((item) => item.gong === gong);
@@ -110,33 +101,11 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
         menPoGongs.has(gong) ? '门迫' : '',
       ].filter(Boolean);
       if (!conditions.length) continue;
-      let group = groups.get(gong);
-      if (!group) {
-        group = {
-          palaceName: palace.name,
-          conditions: new Set<string>(),
-          auspicious: new Set<string>(),
-          inauspicious: new Set<string>(),
-          neutral: new Set<string>(),
-        };
-        groups.set(gong, group);
-      }
-      conditions.forEach((condition) => group!.conditions.add(condition));
-      const category =
-        pattern.type === 'good'
-          ? group.auspicious
-          : pattern.type === 'bad'
-            ? group.inauspicious
-            : group.neutral;
-      category.add(pattern.name);
+      const identity =
+        pattern.type === 'good' ? '吉格' : pattern.type === 'bad' ? '凶格' : '中性格局';
+      results.push(
+        `【${pattern.name}】落${palace.name}，属${identity}，同宫见${conditions.join('、')}；结合本次用神与宫门星神，分别核对结果、程度和落实迟速，空亡填实与门宫制约各明条件。`,
+      );
     }
-
-  return [...groups.values()].map((group) => {
-    const patternCategories = [
-      group.auspicious.size ? `吉格：${[...group.auspicious].join('、')}` : '',
-      group.inauspicious.size ? `凶格：${[...group.inauspicious].join('、')}` : '',
-      group.neutral.size ? `中性格局：${[...group.neutral].join('、')}` : '',
-    ].filter(Boolean);
-    return `${group.palaceName}同宫见${[...group.conditions].join('、')}；${patternCategories.join('；')}`;
-  });
+  return results;
 }

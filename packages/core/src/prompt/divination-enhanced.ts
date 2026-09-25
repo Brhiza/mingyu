@@ -823,9 +823,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     comboLines.length
       ? `复合格局：\n${comboLines.map((item) => item.replaceAll('；', '；\n')).join('\n')}`
       : '',
-    patternFulfillments.length
-      ? `格局条件：\n${patternFulfillments.join('\n')}\n结合本次用神与宫门星神，核对条件对结果、程度和落实迟速的影响；空亡填实与门宫制约分别说明成立条件。`
-      : '',
+    patternFulfillments.length ? `格局条件：\n${patternFulfillments.join('\n')}` : '',
     data.yingQi
       ? [
           `值符宫应期参考：盘内相对节奏${data.yingQi.rhythm}`,

@@ -78,13 +78,10 @@ test('奇门提示资料完整保留超过三条格局实效', () => {
   const fulfillments = evaluateQimenPatternFulfillment(expanded);
   const text = formatEnhancedDivinationInfo('qimen', expanded);
 
-  assert.equal(fulfillments.length, 1);
-  assert.match(fulfillments[0]!, new RegExp(`${escapeRegExp(anchor.name)}同宫见空亡`));
-  assert.match(fulfillments[0]!, /凶格：/u);
-  for (let index = 1; index <= 8; index += 1) {
-    assert.ok(fulfillments[0]!.includes(`整改核验格${index}`));
+  assert.equal(fulfillments.length, 8);
+  for (const fulfillment of fulfillments) {
+    assert.match(text, new RegExp(escapeRegExp(fulfillment)));
   }
-  assert.match(text, new RegExp(escapeRegExp(fulfillments[0]!)));
   assert.doesNotMatch(text, /灾咎减半/);
 });
 
