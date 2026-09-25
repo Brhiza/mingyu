@@ -179,12 +179,22 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
 
   if (specialAdjudication && (specialAdjudication.status === '成立' || !fulfillment)) {
     if (!fulfillment) {
+      const pattern = result.analysis.mingGe;
+      const basis = pattern.basis ?? '';
+      const decisionAlreadySummarized =
+        specialAdjudication.status === '成立' &&
+        pattern.pattern === specialAdjudication.kind &&
+        basis.includes('成立') &&
+        Boolean(specialAdjudication.route && basis.includes(specialAdjudication.route)) &&
+        Boolean(specialAdjudication.method && basis.includes(specialAdjudication.method));
       const statedSpecialDetails = [specialAdjudication.route, specialAdjudication.method].filter(
-        (detail) => detail && !result.analysis.mingGe.basis?.includes(detail),
+        (detail) => detail && !basis.includes(detail),
       );
-      facts.push(
-        `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}${statedSpecialDetails.length ? `；${statedSpecialDetails.join('；')}` : ''}`,
-      );
+      if (!decisionAlreadySummarized) {
+        facts.push(
+          `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}${statedSpecialDetails.length ? `；${statedSpecialDetails.join('；')}` : ''}`,
+        );
+      }
     }
     if (specialAdjudication.status === '成立' && specialAdjudication.kind === '从儿格') {
       facts.push(

@@ -1582,7 +1582,8 @@ test('公开 API 八字完整结果与提示词共用从儿裁决和取用', asy
   );
   assert.deepEqual(calculated.body.data.analysis.usefulGod.favorableWuxing, ['火', '木']);
   assert.equal(prompted.response.status, 200);
-  assert.match(prompted.body.data.prompt, /特殊格裁决：从儿格成立/);
+  assert.match(prompted.body.data.prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+  assert.doesNotMatch(prompted.body.data.prompt, /特殊格裁决：从儿格成立/);
   assert.match(prompted.body.data.prompt, /取用: 主用火，辅木/);
 });
 

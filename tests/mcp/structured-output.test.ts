@@ -514,7 +514,9 @@ test('MCP 八字计算与提示词共用从儿裁决和取用', async () => {
     assert.equal(chart.analysis.usefulGod.decisionEvidence?.base.ruleId, 'follow-conger');
     assert.equal(prompted.isError, undefined);
     assert.equal(prompted.structuredContent?.result.analysis.mingGe.pattern, '从儿格');
-    assert.match(String(prompted.structuredContent?.prompt), /特殊格裁决：从儿格成立/);
+    const prompt = String(prompted.structuredContent?.prompt);
+    assert.match(prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+    assert.doesNotMatch(prompt, /特殊格裁决：从儿格成立/);
     assert.match(String(prompted.structuredContent?.prompt), /取用: 主用火，辅木/);
   });
 });
