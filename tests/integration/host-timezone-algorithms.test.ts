@@ -162,3 +162,16 @@ test('七政神煞按输入民用日期计算，不受宿主跳日影响', () =>
   assert.deepEqual(apia, utc);
   assert.match(apia.prompt, /天乙贵人子申/);
 });
+
+test('公历整月干支日期不受宿主跳日影响', () => {
+  const script = `
+    import { LunarUtil } from './packages/core/src/calendar/lunar.ts';
+    const days = LunarUtil.getGanZhiForMonth(1994, 12);
+    console.log(JSON.stringify({ count: days.length, first: days[0]?.date, last: days.at(-1)?.date }));
+  `;
+  type Result = { count: number; first: string; last: string };
+  const utc = runInTimeZone<Result>('UTC', script);
+  const kiritimati = runInTimeZone<Result>('Pacific/Kiritimati', script);
+  assert.deepEqual(utc, { count: 31, first: '1994-12-01', last: '1994-12-31' });
+  assert.deepEqual(kiritimati, utc);
+});
