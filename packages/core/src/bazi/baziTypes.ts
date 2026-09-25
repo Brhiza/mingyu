@@ -126,11 +126,13 @@ export interface WuxingStrengthDetails {
 export interface BaziWarningFact {
   key: string;
   type: '节气交接边界' | '时辰边界' | '换日流派边界' | '历史夏令时边界' | '输入时间边界';
-  status: '已确定当前口径' | '已校正' | '需核验原始记录';
+  status: '已确定当前口径' | '已校正' | '需核验原始记录' | '资料不完整';
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱';
+  limitation:
+    | '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱'
+    | '节气资料不完整只表示边界检查覆盖不足，交节距离仍待核验';
 }
 
 export interface BaziWarningSummaryFact {
@@ -141,6 +143,7 @@ export interface BaziWarningSummaryFact {
   sources: string[];
   limitation:
     | '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱'
+    | '节气资料不完整时交节距离待核验，时柱仍按当前输入确定'
     | '缺时辰说明用于标注待补资料，候选场景分别记录，完整命盘尚未确定';
 }
 

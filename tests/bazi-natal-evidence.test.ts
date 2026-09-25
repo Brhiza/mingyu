@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
 import { analyzeBaziNatalEvidence } from '../packages/core/src/bazi/natalEvidence.ts';
+import { buildBaziWarningEvidence } from '../packages/core/src/bazi/paipanWarnings.ts';
 
 test('八字本命应输出四柱、核心判断、反证、汇总与限制的统一证据链', () => {
   const result = baziCalculator.calculateBazi({
@@ -74,6 +75,27 @@ test('八字本命应输出四柱、核心判断、反证、汇总与限制的�
   );
   assert.match(analysis.promptText, /只采用明确时辰或真太阳时校正后的唯一时刻/);
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');
+});
+
+test('节气边界资料不完整时本命证据不能标为完整', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  const warningEvidence = buildBaziWarningEvidence([
+    '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+  ]);
+  const analysis = analyzeBaziNatalEvidence({ ...result, ...warningEvidence });
+
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '排盘边界覆盖')?.status,
+    '资料不足',
+  );
+  assert.equal(analysis.summaryFact.status, '证据链有缺口');
+  assert.equal(analysis.summaryFact.missingFactCount, 1);
 });
 
 test('八字本命提示词应保留用户选择的传统时辰且不混入工程证据话术', () => {

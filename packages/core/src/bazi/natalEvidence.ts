@@ -539,6 +539,7 @@ function buildCounterEvidenceFacts(args: {
   const { data, pillarFacts, analysisFacts, relationFacts } = args;
   const missingPillars = pillarFacts.filter((item) => item.status === '资料缺口');
   const missingAnalysis = analysisFacts.filter((item) => item.status === '资料缺口');
+  const incompleteBoundaryCheck = data.warningFacts.some((item) => item.status === '资料不完整');
 
   return [
     {
@@ -586,11 +587,12 @@ function buildCounterEvidenceFacts(args: {
     {
       key: 'bazi:natal:counter:boundary-coverage',
       type: '排盘边界覆盖',
-      status: data.isThreePillars
-        ? '资料不足'
-        : data.warningFacts.length
-          ? '存在边界提示'
-          : '无边界提示',
+      status:
+        data.isThreePillars || incompleteBoundaryCheck
+          ? '资料不足'
+          : data.warningFacts.length
+            ? '存在边界提示'
+            : '无边界提示',
       ownerFactKeys: [
         'bazi:natal:calculation:birth-time',
         data.warningSummaryFact.key,
@@ -598,9 +600,11 @@ function buildCounterEvidenceFacts(args: {
       ],
       promptText: data.isThreePillars
         ? '出生时分待补充，交节与子初换日范围尚未确定'
-        : data.warningFacts.length
-          ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
-          : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
+        : incompleteBoundaryCheck
+          ? data.warningSummaryFact.promptText
+          : data.warningFacts.length
+            ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
+            : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
       sources: ['出生时间定盘口径与排盘边界预警'],
       limitation: COUNTER_FACT_LIMITATION,
     },
@@ -814,9 +818,11 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     relationFacts,
     counterEvidenceFacts,
   });
+  const incompleteBoundaryCheck = data.warningFacts.some((item) => item.status === '资料不完整');
   const missingFactCount =
     pillarFacts.filter((item) => item.status === '资料缺口').length +
-    analysisFacts.filter((item) => item.status === '资料缺口').length;
+    analysisFacts.filter((item) => item.status === '资料缺口').length +
+    Number(incompleteBoundaryCheck);
   const summaryFact: BaziNatalSummaryFact = {
     key: 'bazi:natal:evidence-summary',
     status: missingFactCount ? '证据链有缺口' : '证据链完整',
