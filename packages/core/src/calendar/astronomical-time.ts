@@ -225,6 +225,9 @@ export function buildAstronomicalTimeEvidence(
   const { timezone, timezoneEvidence, utcTimestamp } = civilTime;
   const timeZoneId = civilTime.timeZoneId;
   const utcDate = new Date(utcTimestamp);
+  if (utcDate.getUTCFullYear() < 1900 || utcDate.getUTCFullYear() > 2200) {
+    throw new Error('按时区换算后的 UTC 年份需在 1900-2200 之间，才能估算 ΔT。');
+  }
   const decimalYear = decimalYearFromUtc(utcDate);
   const deltaTSeconds = estimateDeltaTSeconds(decimalYear);
   const julianDayUtc = utcTimestamp / 86400000 + 2440587.5;

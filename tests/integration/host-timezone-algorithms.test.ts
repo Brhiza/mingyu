@@ -83,3 +83,22 @@ test('黄历择日范围在宿主跳过整日时仍包含每个公历日期', ()
   assert.equal(utc.single, '2011-12-30');
   assert.deepEqual(apia, utc);
 });
+
+test('七政神煞按输入民用日期计算，不受宿主跳日影响', () => {
+  const script = `
+    import { generateQizheng } from './packages/core/src/qi_zheng/index.ts';
+    const result = generateQizheng({ year: 2011, month: 12, day: 30, hour: 12, timezone: 8 });
+    console.log(JSON.stringify({
+      utcDateTime: result.calculationContext.utcDateTime,
+      tianYi: result.shensha.find((item) => item.name === '天乙贵人')?.value,
+      prompt: result.prompt,
+    }));
+  `;
+  type Result = { utcDateTime: string; tianYi: string; prompt: string };
+  const utc = runInTimeZone<Result>('UTC', script);
+  const apia = runInTimeZone<Result>('Pacific/Apia', script);
+  assert.equal(utc.utcDateTime, '2011-12-30T04:00:00.000Z');
+  assert.equal(utc.tianYi, '子申');
+  assert.deepEqual(apia, utc);
+  assert.match(apia.prompt, /天乙贵人子申/);
+});

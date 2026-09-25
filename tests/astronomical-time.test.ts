@@ -115,6 +115,51 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
   );
 });
 
+test('时间尺度边界按换算后的 UTC 年份校验', () => {
+  assert.throws(
+    () =>
+      buildAstronomicalTimeEvidence({
+        year: 1900,
+        month: 1,
+        day: 1,
+        hour: 0,
+        timezone: 14,
+      }),
+    /按时区换算后的 UTC 年份需在 1900-2200/,
+  );
+  assert.throws(
+    () =>
+      buildAstronomicalTimeEvidence({
+        year: 2200,
+        month: 12,
+        day: 31,
+        hour: 23,
+        timezone: -12,
+      }),
+    /按时区换算后的 UTC 年份需在 1900-2200/,
+  );
+  assert.equal(
+    buildAstronomicalTimeEvidence({
+      year: 1900,
+      month: 1,
+      day: 1,
+      hour: 14,
+      timezone: 14,
+    }).utcDateTime,
+    '1900-01-01 00:00:00Z',
+  );
+  assert.equal(
+    buildAstronomicalTimeEvidence({
+      year: 2200,
+      month: 12,
+      day: 31,
+      hour: 11,
+      timezone: -12,
+    }).utcDateTime,
+    '2200-12-31 23:00:00Z',
+  );
+});
+
 test('天文时间汇总应拒绝歧义与冲突，并接受明确固定偏移消歧', () => {
   assert.throws(
     () =>
