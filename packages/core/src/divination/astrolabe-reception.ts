@@ -100,7 +100,8 @@ export function evaluateAstrolabeSynastryReceptions(
       const pairKey = `${p1.name}:${p2.name}`;
       if (processedPairs.has(pairKey)) continue;
 
-      if (p2.name === rulerOfSign1 && p1.name === rulerOfSign2) {
+      // 同名行星各自落在守护星座，不构成两颗不同行星交换守护星座。
+      if (p1.name !== p2.name && p2.name === rulerOfSign1 && p1.name === rulerOfSign2) {
         processedPairs.add(pairKey);
         const l1 = PLANET_LABELS[p1.name] ?? p1.name;
         const l2 = PLANET_LABELS[p2.name] ?? p2.name;
@@ -128,7 +129,7 @@ export function evaluateAstrolabeSynastryReceptions(
     const p2 = p2Planets.find((p) => p.name === aspect.point2Name);
     if (!p1 || !p2) continue;
 
-    const pairKey = `reception:${p1.name}:${p2.name}`;
+    const pairKey = `${p1.name}:${p2.name}`;
     if (processedPairs.has(pairKey)) continue;
 
     const sign1Index = Math.floor((((p1.longitude % 360) + 360) % 360) / 30);
