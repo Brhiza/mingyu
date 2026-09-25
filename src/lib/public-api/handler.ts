@@ -2288,8 +2288,7 @@ export function getPublicApiOpenApiDocument(
             yearGanZhi: {
               type: 'string',
               minLength: 2,
-              maxLength: 2,
-              description: '明确年干支，如「丙午」。',
+              description: '明确年干支，如「丙午」；首尾空白会修剪，修剪后必须是有效六十甲子。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             topicId: { type: 'string', description: '统一解读主题 ID。' },
