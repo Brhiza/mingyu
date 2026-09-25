@@ -74,6 +74,37 @@ test('七政四余提示词保留十二宫映射及出生时空口径', () => {
   }
 });
 
+test('七政四余省略坐标时把北京标为计算参考地点', () => {
+  const reference = generateQizheng({ year: 2024, month: 6, day: 15, hour: 6, minute: 0 });
+  const urumqi = generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 6,
+    minute: 0,
+    latitude: 43.8256,
+    longitude: 87.6168,
+    timezone: 8,
+  });
+  assert.equal(reference.calculationContext.locationSource, '默认北京坐标');
+  assert.notEqual(
+    reference.calculationContext.solarIllumination.solarAltitudeDegrees,
+    urumqi.calculationContext.solarIllumination.solarAltitudeDegrees,
+  );
+  assert.match(reference.prompt, /计算参考地点：北京（纬度39\.9°，经度116\.4°）/);
+  assert.doesNotMatch(reference.prompt, /出生地点：纬度39\.9°，经度116\.4°/);
+  const partial = generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 6,
+    minute: 0,
+    longitude: 87.6168,
+  });
+  assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
+  assert.match(partial.prompt, /计算参考坐标（部分采用北京参考值）：纬度39\.9°，经度87\.6168°/);
+});
+
 test('塔罗最终提示词保留已计算的相邻元素关系', () => {
   const data = drawTarotSpread('three', { seed: '牌序互参提示词' });
   const prompt = formatDivinationInfo('tarot', data);

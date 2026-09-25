@@ -3840,6 +3840,26 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
   });
 });
 
+test('MCP 七政省略坐标时标出北京参考地点', async () => {
+  await withMcpClient(async (client) => {
+    const arguments_ = { year: 2024, month: 6, day: 15, hour: 6, minute: 0 };
+    const chartResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: arguments_,
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = chartResponse.structuredContent?.result as {
+      calculationContext: { locationSource: string };
+    };
+    assert.equal(chart.calculationContext.locationSource, '默认北京坐标');
+    const promptResponse = await client.callTool({ name: 'qizheng_prompt', arguments: arguments_ });
+    assert.equal(promptResponse.isError, undefined);
+    const prompt = String(promptResponse.structuredContent?.prompt);
+    assert.match(prompt, /计算参考地点：北京（纬度39\.9°，经度116\.4°）/);
+    assert.doesNotMatch(prompt, /出生地点：纬度39\.9°，经度116\.4°/);
+  });
+});
+
 test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [

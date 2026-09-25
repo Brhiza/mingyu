@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import { calculateBirthChartBundle, type BirthProfile } from 'mingyu-core/birth';
 import { generateQizheng } from 'mingyu-core/qizheng';
-import { birthProfileToQizhengInput, normalizeBirthProfile } from 'mingyu-core/profile';
+import {
+  BirthProfileError,
+  birthProfileToQizhengInput,
+  normalizeBirthProfile,
+} from 'mingyu-core/profile';
 
 const profile: BirthProfile = {
   name: '统一档案样例',
@@ -52,6 +56,36 @@ test('七政四余适配器应把原始民用时间交给引擎，避免真太�
     ],
   );
   assert.deepEqual(direct.stars, generateQizheng(input).stars);
+});
+
+test('统一出生档案缺少完整出生地时不生成七政四余默认北京盘', async () => {
+  const withoutLocation: BirthProfile = {
+    ...profile,
+    location: undefined,
+    useTrueSolarTime: false,
+  };
+  assert.equal(normalizeBirthProfile(withoutLocation).resolvedLocation, undefined);
+  assert.throws(
+    () => birthProfileToQizhengInput(withoutLocation),
+    (error: unknown) =>
+      error instanceof BirthProfileError &&
+      error.code === 'LATITUDE_REQUIRED' &&
+      error.field === 'location.latitude',
+  );
+  await assert.rejects(
+    calculateBirthChartBundle(withoutLocation, { systems: ['qizheng'] }),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
+  );
+  assert.throws(
+    () => birthProfileToQizhengInput({ ...withoutLocation, location: { longitude: 87.6 } }),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'LATITUDE_REQUIRED',
+  );
+  const regionOnly = birthProfileToQizhengInput({
+    ...withoutLocation,
+    location: { regionId: '110101' },
+  });
+  assert.equal(regionOnly.latitude, 39.928359);
+  assert.equal(regionOnly.longitude, 116.416334);
 });
 
 test('出生 Bundle 默认只计算八字，避免无意触发可选紫微依赖', async () => {
