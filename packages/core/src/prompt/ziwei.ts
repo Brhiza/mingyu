@@ -281,7 +281,8 @@ export function formatZiweiPayloadForPrompt(
   const evidenceItems = payload.evidence_pool.map((item) => {
     const level = item.level ? `【${item.level}】` : '';
     const detail = item.promptText || item.description;
-    return `${level}${item.title}：${detail}`;
+    const title = `${item.title}：`;
+    return `${level}${detail.startsWith(title) ? detail : `${title}${detail}`}`;
   });
   const evidenceLimit = options.maxEvidence ?? 30;
   const evidencePrimary = evidenceItems.slice(0, evidenceLimit);

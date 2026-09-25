@@ -242,20 +242,26 @@ export function buildLifetimePrompt(
   if (data.eventClusters && data.eventClusters.length > 0) {
     lines.push(`【周期触发与事件簇】`);
     for (const ec of data.eventClusters) {
+      const triggerDates = ec.triggerDates ?? [];
+      const isDailyRelation = ec.key.includes(':day:') && triggerDates.length > 0;
       lines.push(
-        `${ec.timeSpan}${ec.stageIndices?.length ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）` : ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${ec.triggerFact}（节奏：${ec.rhythm}）`,
+        `${ec.timeSpan}${ec.stageIndices?.length ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）` : ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${isDailyRelation ? `共${triggerDates.length}个日辰` : ec.triggerFact}（节奏：${ec.rhythm}）`,
       );
-      if (ec.triggerDates && ec.triggerDates.length > 0) {
-        lines.push(...formatTriggerDates(ec.triggerDates));
+      if (triggerDates.length > 0) {
+        lines.push(...formatTriggerDates(triggerDates));
       }
-      lines.push(`  动态交互：${ec.interactionAnalysis}`);
-      if (ec.supportEvidence.length > 0) {
+      if (!isDailyRelation) lines.push(`  动态交互：${ec.interactionAnalysis}`);
+      if (!isDailyRelation && ec.supportEvidence.length > 0) {
         lines.push(`  增益因素：${ec.supportEvidence.join('；')}`);
       }
       if (ec.counterEvidence.length > 0) {
         lines.push(`  制约因素：${ec.counterEvidence.join('；')}`);
       }
-      if (ec.verificationQuestions.length > 0) {
+      if (
+        !isDailyRelation &&
+        !ec.key.includes(':month-clash:') &&
+        ec.verificationQuestions.length > 0
+      ) {
         lines.push(`  核验要点：${ec.verificationQuestions.join(' ')}`);
       }
     }

@@ -6811,6 +6811,82 @@ test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用
   assert.ok(fullRes.body.data.result.ziwei);
 });
 
+test('REST 主题咨询入口返回单份自包含合参任务书与真实盘面事实', async () => {
+  const response = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '张三',
+      year: 1990,
+      month: 5,
+      day: 15,
+      gender: 'male',
+      dateType: 'solar',
+      timeIndex: 6,
+      topic: 'relationship',
+      scope: 'natal',
+      question: '我想了解未来三年的感情发展。',
+      responseMode: 'full',
+    }),
+  });
+
+  assert.equal(response.response.status, 200);
+  assert.equal(response.body.ok, true);
+  const prompt = response.body.data.prompt as string;
+  const result = response.body.data.result;
+  const bazi = result.bazi as {
+    pillars: {
+      year: { ganZhi: string };
+      month: { ganZhi: string };
+      day: { ganZhi: string };
+      hour: { ganZhi: string };
+    };
+  };
+  const ziwei = result.ziwei as {
+    payloadByScope: {
+      origin: {
+        basic_info: { solar_date: string };
+        palaces: Array<{ name: string; major_stars?: Array<{ name: string }> }>;
+      };
+    };
+  };
+  const lifePalace = ziwei.payloadByScope.origin.palaces.find((palace) => palace.name === '命宫');
+  const lifePalaceStar = lifePalace?.major_stars?.[0]?.name;
+
+  assert.ok(prompt.includes('【分析主题】'));
+  assert.ok(prompt.includes('【八字排盘信息】'));
+  assert.ok(prompt.includes('【紫微盘面信息】'));
+  assert.ok(prompt.includes('【资料范围】'));
+  assert.ok(prompt.includes('【任务】'));
+  assert.ok(prompt.includes('【问题】\n我想了解未来三年的感情发展。'));
+  assert.ok(prompt.includes(`出生日期：${ziwei.payloadByScope.origin.basic_info.solar_date}`));
+  assert.ok(lifePalaceStar && prompt.includes(lifePalaceStar));
+  for (const [label, pillar] of [
+    ['年柱', bazi.pillars.year],
+    ['月柱', bazi.pillars.month],
+    ['日柱', bazi.pillars.day],
+    ['时柱', bazi.pillars.hour],
+  ] as const) {
+    assert.ok(prompt.includes(`${label}: ${pillar.ganZhi}`), `${label}应使用实际排盘值`);
+  }
+  for (const section of [
+    '【当前时间】',
+    '【分析主题】',
+    '【八字排盘信息】',
+    '【紫微盘面信息】',
+    '【资料范围】',
+    '【任务】',
+    '【问题】',
+  ]) {
+    assert.equal(prompt.split(section).length - 1, 1, `${section} 不应重复完整任务书`);
+  }
+  assert.doesNotMatch(
+    prompt,
+    /\b(?:methodId|topicId|subtopicId|promptScope|scopeDate|scopeHourIndex|focusPalaces|focusElements|baziResult|ziweiResult|payloadByScope|active_scope|calculation_config)\b/,
+  );
+  assertPromptIsPortableTaskText(prompt);
+});
+
 test('公开 API 提供起名、姓名、汉字与号码完整工具链', async () => {
   const birth = {
     gender: 'male',

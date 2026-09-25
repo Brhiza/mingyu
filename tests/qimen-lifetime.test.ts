@@ -768,6 +768,24 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
       '同一月份同一关系只应输出一次关系说明',
     );
   }
+  const dailyClusters =
+    data.eventClusters?.filter((cluster) => cluster.key.includes(':day:')) ?? [];
+  assert.ok(dailyClusters.length > 0);
+  for (const cluster of dailyClusters) {
+    assert.ok(
+      prompt
+        .split('\n')
+        .some(
+          (line) =>
+            line.startsWith(cluster.timeSpan) &&
+            line.includes(`共${cluster.triggerDates!.length}个日辰`),
+        ),
+    );
+  }
+  assert.doesNotMatch(prompt, /按当地民用日读取日支与本命/);
+  assert.doesNotMatch(prompt, /这些日辰是否对应/);
+  assert.doesNotMatch(prompt, /增益因素：日支关系：/);
+  assert.doesNotMatch(prompt, /交节日前后是否出现阶段性决策、迁动或环境变化/);
   assert.doesNotMatch(prompt, /指定日期窗口引动本命/u);
   assert.doesNotMatch(prompt, /至2027-12-31关键动应日/u);
 

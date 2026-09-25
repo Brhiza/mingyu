@@ -140,6 +140,12 @@ test('紫微即时盘与合参区分命主身主和命身宫内主星', async ()
   for (const prompt of [formatZiweiPayloadForPrompt(payload), formatZiweiEvidenceText(runtime)]) {
     assert.ok(prompt.includes(summary.宫位关系));
   }
+  const evidencePrompt = formatZiweiPayloadForPrompt(payload);
+  assert.ok(payload.evidence_pool.length > 0);
+  for (const item of payload.evidence_pool) {
+    assert.ok(evidencePrompt.includes(item.description), item.title);
+    assert.ok(!evidencePrompt.includes(`${item.title}：${item.title}：`), item.title);
+  }
   const trineGroups = ['申子辰', '亥卯未', '寅午戌', '巳酉丑'];
   const oppositePairs = ['子午', '丑未', '寅申', '卯酉', '辰戌', '巳亥'];
   const reordered = { ...payload, palaces: [...payload.palaces].reverse() };

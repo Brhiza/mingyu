@@ -651,6 +651,86 @@ test('姓名与数字提示词工具应返回顶层 prompt 并兼容旧读取路
   });
 });
 
+test('MCP 主题咨询入口返回单份自包含合参任务书与真实盘面事实', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'thematic_consultation_prompt',
+      arguments: {
+        name: '张三',
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 6,
+        dateType: 'solar',
+        topic: 'relationship',
+        scope: 'natal',
+        question: '我想了解未来三年的感情发展。',
+      },
+    });
+
+    assert.equal(response.isError, undefined, JSON.stringify(response.content));
+    const prompt = String(response.structuredContent?.prompt);
+    const result = response.structuredContent?.result as {
+      bazi: {
+        pillars: {
+          year: { ganZhi: string };
+          month: { ganZhi: string };
+          day: { ganZhi: string };
+          hour: { ganZhi: string };
+        };
+      };
+      ziwei: {
+        payloadByScope: {
+          origin: {
+            basic_info: { solar_date: string };
+            palaces: Array<{ name: string; major_stars?: Array<{ name: string }> }>;
+          };
+        };
+      };
+    };
+    const lifePalace = result.ziwei.payloadByScope.origin.palaces.find(
+      (palace) => palace.name === '命宫',
+    );
+    const lifePalaceStar = lifePalace?.major_stars?.[0]?.name;
+
+    assert.ok(prompt.includes('【分析主题】'));
+    assert.ok(prompt.includes('【八字排盘信息】'));
+    assert.ok(prompt.includes('【紫微盘面信息】'));
+    assert.ok(prompt.includes('【资料范围】'));
+    assert.ok(prompt.includes('【任务】'));
+    assert.ok(prompt.includes('【问题】\n我想了解未来三年的感情发展。'));
+    assert.ok(
+      prompt.includes(`出生日期：${result.ziwei.payloadByScope.origin.basic_info.solar_date}`),
+    );
+    assert.ok(lifePalaceStar && prompt.includes(lifePalaceStar));
+    for (const [label, pillar] of [
+      ['年柱', result.bazi.pillars.year],
+      ['月柱', result.bazi.pillars.month],
+      ['日柱', result.bazi.pillars.day],
+      ['时柱', result.bazi.pillars.hour],
+    ] as const) {
+      assert.ok(prompt.includes(`${label}: ${pillar.ganZhi}`), `${label}应使用实际排盘值`);
+    }
+    for (const section of [
+      '【当前时间】',
+      '【分析主题】',
+      '【八字排盘信息】',
+      '【紫微盘面信息】',
+      '【资料范围】',
+      '【任务】',
+      '【问题】',
+    ]) {
+      assert.equal(prompt.split(section).length - 1, 1, `${section} 不应重复完整任务书`);
+    }
+    assert.doesNotMatch(
+      prompt,
+      /\b(?:methodId|topicId|subtopicId|promptScope|scopeDate|scopeHourIndex|focusPalaces|focusElements|baziResult|ziweiResult|payloadByScope|active_scope|calculation_config)\b/,
+    );
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
