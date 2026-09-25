@@ -219,6 +219,18 @@ export function buildLifetimePrompt(
 
   // 6. 【人生阶段资料】
   lines.push(`【人生阶段资料】`);
+  const basePatternFacts = new Map<string, string>();
+  for (const pattern of data.baseChart.classicPatterns ?? []) {
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (label) {
+      basePatternFacts.set(
+        `${label}「${pattern.name}」：${pattern.summary}`,
+        `${label}「${pattern.name}」`,
+      );
+    }
+  }
+  const formatStageFacts = (facts: string[]) =>
+    [...new Set(facts.map((fact) => basePatternFacts.get(fact) ?? fact))].join('；');
   for (const st of data.stages) {
     const domNames = st.dominantPalaces.map((d) => d.name).join('、');
     lines.push(
@@ -230,10 +242,10 @@ export function buildLifetimePrompt(
       lines.push(`  精确区间：${st.startDateTime}起，至${st.endDateTimeExclusive}前。`);
     if (st.ganzhi) lines.push(`  干支定位：${st.associatedMarkers.join('；')}`);
     if (st.supportFacts.length > 0) {
-      lines.push(`  支持吉象：${st.supportFacts.join('；')}`);
+      lines.push(`  支持吉象：${formatStageFacts(st.supportFacts)}`);
     }
     if (st.constraintFacts.length > 0) {
-      lines.push(`  考验反证：${st.constraintFacts.join('；')}`);
+      lines.push(`  考验反证：${formatStageFacts(st.constraintFacts)}`);
     }
   }
   lines.push('');

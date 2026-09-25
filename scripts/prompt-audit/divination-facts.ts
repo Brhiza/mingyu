@@ -378,6 +378,18 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
   const markerScope = { start: '核心个人标记：', end: '人生重点主题候选宫：' };
   const candidateScope = { start: '人生重点主题候选宫：', end: '【人生阶段资料】' };
   const eventSectionScope = { start: '【周期触发与事件簇】', end: '【任务】' };
+  const classicPatterns = records(baseChart.classicPatterns);
+  const basePatternFacts = new Map<string, string>();
+  for (const pattern of classicPatterns) {
+    const name = text(pattern.name);
+    const summary = text(pattern.summary);
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (name && summary && label) {
+      basePatternFacts.set(`${label}「${name}」：${summary}`, `${label}「${name}」`);
+    }
+  }
+  const formatStageFacts = (value: unknown) =>
+    unique(texts(value).map((item) => basePatternFacts.get(item) ?? item)).join('；');
   const facts = collect([
     fact('qimen-lifetime.birth-date', '出生时刻：', [input.birthDateTime], { scope: basisScope }),
     fact('qimen-lifetime.birth-timezone', '出生时区：', [basis.timeZoneUsed], {
@@ -482,6 +494,21 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
       ...lifetimePalaceFacts(baseChart, baseScope),
     ]),
   );
+  facts.push(
+    ...collect(
+      classicPatterns.map((pattern, index) => {
+        const name = text(pattern.name);
+        const summary = text(pattern.summary);
+        const tone = pattern.type === 'good' ? '吉' : pattern.type === 'bad' ? '凶' : '中性';
+        return name && summary
+          ? fact(`qimen-lifetime.base-pattern.${index}`, `${name}（${tone}）：`, [summary], {
+              scope: baseScope,
+              unit: 'line',
+            })
+          : null;
+      }),
+    ),
+  );
 
   facts.push(
     ...collect(
@@ -576,7 +603,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             ? fact(
                 `qimen-lifetime.stage.${index}.support`,
                 '支持吉象：',
-                [join(stage.supportFacts, '；')],
+                [formatStageFacts(stage.supportFacts)],
                 { scope, unit: 'line' },
               )
             : null,
@@ -584,7 +611,7 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             ? fact(
                 `qimen-lifetime.stage.${index}.constraint`,
                 '考验反证：',
-                [join(stage.constraintFacts, '；')],
+                [formatStageFacts(stage.constraintFacts)],
                 { scope, unit: 'line' },
               )
             : null,
