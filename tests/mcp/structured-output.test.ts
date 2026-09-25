@@ -3938,6 +3938,42 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     );
     assert.doesNotMatch(prompt, /宿界模型/);
     assertPromptIsPortableTaskText(prompt);
+
+    const flowArguments = { ...arguments_, gender: 'male', flowYear: 2030 };
+    const flowResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: flowArguments,
+    });
+    assert.equal(flowResponse.isError, undefined);
+    const timeLords = (
+      flowResponse.structuredContent as {
+        result: {
+          timeLords: {
+            majorLimitStatus: string;
+            mingDegree: number | null;
+            childLimitEndNominalAge: number | null;
+            currentMajorLimit: unknown;
+            majorLimits: unknown[];
+            majorPalaceYears: Array<{ palace: string; years: number | null }>;
+          };
+        };
+      }
+    ).result.timeLords;
+    assert.equal(timeLords.majorLimitStatus, '命度与交限待核定');
+    assert.equal(timeLords.mingDegree, null);
+    assert.equal(timeLords.childLimitEndNominalAge, null);
+    assert.equal(timeLords.currentMajorLimit, null);
+    assert.deepEqual(timeLords.majorLimits, []);
+    assert.equal(timeLords.majorPalaceYears.find((item) => item.palace === '相貌')?.years, 10);
+
+    const flowPromptResponse = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: { ...flowArguments, question: '请分析目标流年。' },
+    });
+    assert.equal(flowPromptResponse.isError, undefined);
+    const flowPrompt = String(flowPromptResponse.structuredContent?.prompt);
+    assert.match(flowPrompt, /大限：命宫宿度、出童限岁数和当前大限宫位未定/);
+    assert.doesNotMatch(flowPrompt, /宫内命度\d|\d+虚岁出童限/);
   });
 });
 

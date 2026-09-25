@@ -241,6 +241,8 @@ function projectFlowDiscrete(result: QizhengResult): unknown {
           gender: timeLords.gender,
           direction: timeLords.direction,
           nominalAge: timeLords.nominalAge,
+          majorLimitStatus: timeLords.majorLimitStatus,
+          majorPalaceYears: timeLords.majorPalaceYears,
           currentMajorLimit: timeLords.currentMajorLimit,
           currentMinorLimit: timeLords.currentMinorLimit,
           annualBranch: timeLords.annualBranch,

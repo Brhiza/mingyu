@@ -66,10 +66,11 @@ test('给出性别与流年后应同时生成行限和流曜，并叠到本命�
   });
   assert.ok(result.timeLords);
   assert.equal(result.timeLords?.nominalAge, 35);
-  assert.equal(result.timeLords?.currentMajorLimit?.palace, '福德');
+  assert.equal(result.timeLords?.majorLimitStatus, '命度与交限待核定');
+  assert.equal(result.timeLords?.currentMajorLimit, null);
+  assert.deepEqual(result.timeLords?.majorLimits, []);
   assert.equal(
-    result.timeLords?.currentMajorLimit?.endNominalAge! -
-      result.timeLords?.currentMajorLimit?.startNominalAge!,
+    result.timeLords?.majorPalaceYears.find((item) => item.palace === '福德')?.years,
     11,
   );
   assert.ok(result.flowingStars);
@@ -79,10 +80,11 @@ test('给出性别与流年后应同时生成行限和流曜，并叠到本命�
     assert.equal(star.palace, natalPalace?.palace);
   }
   assert.match(result.prompt, /【行限】/);
+  assert.match(result.prompt, /大限：命宫宿度、出童限岁数和当前大限宫位未定/);
   assert.match(result.prompt, /【流曜】/);
   assert.match(result.prompt, /【流曜周期】/);
   assert.equal(result.flowingStars?.periodEvents?.mode, 'daily');
-  assert.match(result.prompt, /阶段判断只使用上面的行限与流曜资料/);
+  assert.equal(result.prompt.match(/当前大限宫位未定/g)?.length, 1);
   assert.doesNotMatch(result.prompt, /只解读根基、落宿、落宫和吊照/);
 });
 
