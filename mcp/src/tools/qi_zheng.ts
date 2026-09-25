@@ -45,7 +45,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照；可传性别与流年生成行限、流曜',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照；可传性别与流年生成流曜、小限、太岁及洞微大限宫序与各宫年数，命宫宿度和当前大限宫位未定',
       inputSchema: { ...qiZhengSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },

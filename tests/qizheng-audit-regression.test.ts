@@ -6,10 +6,7 @@ import {
   TWELVE_PALACES,
   type QizhengAspect,
 } from '../packages/core/src/qi_zheng/index.ts';
-import {
-  buildQizhengTimeLords,
-  resolveQizhengChildLimitEnd,
-} from '../packages/core/src/qi_zheng/time-lords.ts';
+import { buildQizhengTimeLords } from '../packages/core/src/qi_zheng/time-lords.ts';
 import { evaluateQizhengEnNan } from '../packages/core/src/qi_zheng/en-nan.ts';
 import { formatQizhengTimeLordPrompt } from '../packages/core/src/qi_zheng/time-lords.ts';
 import { extractQizhengFacts } from '../scripts/prompt-audit/natal-facts.ts';
@@ -54,7 +51,7 @@ test('宫支按太阳宫顺数见卯安命，十二宫地支逆布', () => {
   assert.equal(QIZHENG_SIGN_BRANCHES[noon.shenGong], branches[(noonMoon + 6 - 9 + 12) % 12]);
 });
 
-test('七政提示词事实核验覆盖排他年龄边界和单周行限以外的空值', () => {
+test('七政提示词事实核验覆盖未核定大限状态', () => {
   for (const flowYear of [2030, 2200]) {
     const chart = generateQizheng({
       year: 2000,
@@ -66,6 +63,11 @@ test('七政提示词事实核验覆盖排他年龄边界和单周行限以外�
       flowYear,
     });
     assert.ok(chart.timeLords);
+    assert.equal(chart.timeLords.majorLimitStatus, '命度与交限待核定');
+    assert.equal(chart.timeLords.childLimitEndNominalAge, null);
+    assert.equal(chart.timeLords.currentMajorLimit, null);
+    assert.equal(chart.timeLords.majorLimits.length, 0);
+    assert.doesNotMatch(chart.prompt, /宫内命度\d|虚岁\d+至未满\d+.*大限/);
     const facts = extractQizhengFacts(chart).filter((item) => item.id.includes('.limits.'));
     assert.ok(facts.length > 0);
     const audit = auditPromptFacts(formatQizhengTimeLordPrompt(chart.timeLords).join('\n'), facts);
@@ -73,7 +75,7 @@ test('七政提示词事实核验覆盖排他年龄边界和单周行限以外�
   }
 });
 
-test('洞微年分保留各宫不同年数与半年边界，不再以每宫十年替代', () => {
+test('洞微年分只列原典各宫年数，不用回归宫度推定童限与当前大限', () => {
   const twelvePalaces = TWELVE_PALACES.map((palace, index) => ({
     palace,
     signIndex: index,
@@ -87,13 +89,14 @@ test('洞微年分保留各宫不同年数与半年边界，不再以每宫十�
     flowYear: 2030,
     birthYearBranch: '辰',
     flowYearBranch: '戌',
-    mingDegree: 12,
     twelvePalaces,
   };
   const result = buildQizhengTimeLords(params);
-  assert.equal(result.childLimitEndNominalAge, 15);
+  assert.equal(result.childLimitEndNominalAge, null);
+  assert.equal(result.mingDegree, null);
+  assert.equal(result.majorLimitStatus, '命度与交限待核定');
   assert.deepEqual(
-    result.majorLimits.map((x) => x.palace),
+    result.majorPalaceYears.map((x) => x.palace),
     [
       '命宫',
       '相貌',
@@ -110,30 +113,39 @@ test('洞微年分保留各宫不同年数与半年边界，不再以每宫十�
     ],
   );
   assert.deepEqual(
-    result.majorLimits.map((x) => x.endNominalAge - x.startNominalAge),
-    [14, 10, 11, 15, 8, 7, 11, 4.5, 4.5, 4.5, 5, 5],
+    result.majorPalaceYears.map((x) => x.years),
+    [null, 10, 11, 15, 8, 7, 11, 4.5, 4.5, 4.5, 5, 5],
   );
-  for (let i = 1; i < 12; i++)
-    assert.equal(result.majorLimits[i].startNominalAge, result.majorLimits[i - 1].endNominalAge);
-  assert.equal(result.currentMajorLimit?.palace, '福德');
-  assert.equal(
-    buildQizhengTimeLords({ ...params, flowYear: 2014 }).currentMajorLimit?.palace,
-    '相貌',
-  );
+  assert.deepEqual(result.majorLimits, []);
+  assert.equal(result.currentMajorLimit, null);
+  assert.equal(buildQizhengTimeLords({ ...params, flowYear: 2014 }).currentMajorLimit, null);
   assert.equal(buildQizhengTimeLords({ ...params, flowYear: 2200 }).currentMajorLimit, null);
   assert.deepEqual(
-    buildQizhengTimeLords({ ...params, gender: 'female' }).majorLimits,
-    result.majorLimits,
+    buildQizhengTimeLords({ ...params, gender: 'female' }).majorPalaceYears,
+    result.majorPalaceYears,
   );
   assert.equal(result.currentMinorLimit.palace, '妻妾');
 });
 
-test('宫内命度每三度进入下一虚岁档，三十度须先换宫', () => {
-  assert.deepEqual(
-    [0, 2.999, 3, 12, 29.999].map(resolveQizhengChildLimitEnd),
-    [11, 11, 12, 15, 20],
-  );
-  assert.throws(() => resolveQizhengChildLimitEnd(30), /命度/);
+test('张果星宗小限盘例：甲子生、壬辰太岁、寅宫坐命，小限落戌', () => {
+  const mingSignIndex = QIZHENG_SIGN_BRANCHES.indexOf('寅');
+  const twelvePalaces = TWELVE_PALACES.map((palace, step) => {
+    const signIndex = (mingSignIndex + step) % 12;
+    return { palace, signIndex, signBranch: QIZHENG_SIGN_BRANCHES[signIndex] };
+  });
+  const result = buildQizhengTimeLords({
+    gender: 'male',
+    yearStem: '甲',
+    yearStemYinYang: '阳',
+    birthYear: 1984,
+    flowYear: 2012,
+    birthYearBranch: '子',
+    flowYearBranch: '辰',
+    twelvePalaces,
+  });
+  assert.equal(result.currentMinorLimit.signBranch, '戌');
+  assert.equal(result.currentMinorLimit.palace, '男女');
+  assert.equal(result.currentMajorLimit, null);
 });
 
 test('恩难相位中的四余加括注不改变星曜身份', () => {

@@ -865,24 +865,11 @@ export function extractQizhengFacts(
     const scope = { start: '【行限】' };
     facts.push(
       ...collect([
-        limits.currentMajorLimit
-          ? fact(
-              `${idPrefix}.limits.major-current`,
-              '当前大限',
-              [
-                `虚岁${limits.currentMajorLimit.startNominalAge}至未满${limits.currentMajorLimit.endNominalAge}`,
-                `${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}`,
-              ],
-              { scope },
-            )
-          : fact(`${idPrefix}.limits.major-current`, '当前虚岁', ['超出所列单周行限'], { scope }),
+        fact(`${idPrefix}.limits.major-current`, '大限', ['当前大限宫位未定'], { scope }),
         fact(
           `${idPrefix}.limits.minor-current`,
           '当前小限',
-          [
-            `虚岁${limits.currentMinorLimit.nominalAge}`,
-            `${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`,
-          ],
+          [`${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`],
           { scope },
         ),
         fact(
@@ -893,15 +880,15 @@ export function extractQizhengFacts(
         ),
       ]),
     );
-    for (const [index, item] of limits.majorLimits.entries()) {
+    for (const [index, item] of limits.majorPalaceYears.entries()) {
       facts.push(
         ...collect([
           fact(
-            `${idPrefix}.limits.major.${index}`,
-            '大限十二步',
+            `${idPrefix}.limits.palace-years.${index}`,
+            '洞微宫序与各宫年数',
             [
-              `虚岁${item.startNominalAge}至未满${item.endNominalAge}`,
               `${item.signBranch}宫${item.palace}`,
+              item.years === null ? '依命度定年数' : `${item.years}年`,
             ],
             { scope },
           ),

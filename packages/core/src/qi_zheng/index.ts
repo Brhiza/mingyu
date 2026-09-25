@@ -9,7 +9,7 @@
  *   - 二十八宿按明清修订距星目录，以 J2000/ICRS 坐标、自行和目标日期真黄道变换求边界。
  *   - 星曜喜怒：七政于十二宫之庙、旺、喜、乐，采用《星学大成》第三章明载歌诀。
  *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
- *   - 行限：命宫起大限十年一宫、小限一岁一宫，阳男阴女顺行、阴男阳女逆行。
+ *   - 行限：洞微大限列命宫起的宫序与各宫年数；命度及当前大限待核定，小限按生年支逆数至太岁。
  *   - 流曜：指定流年时刻的十一星按本命十二宫落点，并与本命星作吊照。
  *
  * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
@@ -425,7 +425,7 @@ export interface QizhengInput {
    * 七政四余天体位置仍按现代星历与天文时间尺度计算。
    */
   useTrueSolarTime?: boolean;
-  /** 排行限时需要；阳男阴女顺行，阴男阳女逆行 */
+  /** 排小限时需要；不改变洞微大限宫序 */
   gender?: 'male' | 'female';
   /** 流年公元年；不传则只排本命静态盘 */
   flowYear?: number;
@@ -2356,7 +2356,6 @@ function generateQizhengInternal(
       flowYear: input.flowYear as number,
       flowYearBranch: flowSeasonalYear[1],
       birthYearBranch: birthSeasonalYear[1],
-      mingDegree: ((sun.longitude % 30) + 30) % 30,
       twelvePalaces,
     });
   }
@@ -2397,7 +2396,7 @@ function generateQizhengInternal(
     ...(timeLords ? formatQizhengTimeLordPrompt(timeLords) : []),
     ...(flowingStars ? formatQizhengFlowingPrompt(flowingStars, stars) : []),
     timeLords || flowingStars
-      ? '本命盘为出生时点根基；阶段判断只使用上面的行限与流曜资料。'
+      ? '本命盘为出生时点根基；目标时段结合流曜、小限与太岁分析。'
       : '本盘为出生时点静态结构，只解读根基、落宿、落宫和吊照。',
   ].join('\n');
 
