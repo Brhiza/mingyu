@@ -99,7 +99,7 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
     birthYearHeavenlyStem,
   });
   return patterns.map((pattern) => {
-    const conditions = pattern.matched_conditions ?? [];
+    const conditions = [...new Set(pattern.matched_conditions ?? [])];
     const uncoveredPalaces = pattern.palace_names.filter(
       (name) => !conditionCoversZiweiPalace(name, conditions),
     );

@@ -15,7 +15,10 @@ import {
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
 } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
-import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
+import {
+  buildZiweiReadableSnapshot,
+  buildZiweiTaskBookSnapshot,
+} from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
 import {
   assertPromptCurrentTimeHasGanzhiCalendar,
@@ -180,7 +183,30 @@ test('紫微提示词快照应输出已校勘格局的条件与古籍依据', ()
   assert.match(snapshot, /格局：紫府同宫/);
   assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
   assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
+  assert.doesNotMatch(snapshot, /涉及宫位：命宫|涉及星曜：紫微、天府/);
+  const taskBook = buildZiweiTaskBookSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+  assert.match(taskBook, /命中条件：紫微与天府同坐命宫/);
+  assert.match(taskBook, /古籍依据：《紫微斗数全书》卷一/);
+  assert.doesNotMatch(taskBook, /涉及宫位：命宫|涉及星曜：紫微、天府/);
   assert.doesNotMatch(snapshot, /因此必然|命盘总分|保证实现/);
+});
+
+test('格局条件未列出具体宫位时保留必要的宫位资料', () => {
+  const payload = createPayload();
+  payload.palaces[1].minor_stars.push({ name: '左辅', kind: 'minor' });
+  payload.palaces[11].minor_stars.push({ name: '右弼', kind: 'minor' });
+  payload.patterns = detectPatterns({ palaces: payload.palaces });
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.match(snapshot, /格局：辅弼拱主[\s\S]*?涉及宫位：命宫、父母、兄弟/);
+  assert.doesNotMatch(snapshot, /涉及星曜：紫微、左辅、右弼/);
 });
 
 test('紫微提示词快照不得接受只伪造登记前缀的格局', () => {
