@@ -129,6 +129,28 @@ test('六日逐爻公历结果与提示词保留显式历元事实', () => {
   assert.match(result.prompt, /【问题】\n此时的主要变化是什么？/);
 });
 
+test('显式六日历元跨冬至时仅保留六日坐标，值年背景随真实瞬时换年', () => {
+  const epoch = '2025-12-21T00:00:00+08:00';
+  const before = calculateHuangjiJingshi({
+    sixDayDate: parseSixDay('2025-12-21T23:03:04+08:00', epoch),
+  });
+  const atTerm = calculateHuangjiJingshi({
+    sixDayDate: parseSixDay('2025-12-21T23:03:05+08:00', epoch),
+  });
+  const proportional = calculateHuangjiSixDayCycleFromDate(
+    parseProportionalSixDay('2025-12-21T23:03:05+08:00'),
+  );
+
+  assert.equal(before.sixDayCycle?.elapsedDays, 0);
+  assert.equal(atTerm.sixDayCycle?.elapsedDays, 0);
+  assert.equal(before.input.year, 2025);
+  assert.equal(atTerm.input.year, 2026);
+  assert.equal(atTerm.sixDayCycle?.calendar.targetYear, 2026);
+  assert.equal(atTerm.input.year, proportional.calendar.targetYear);
+  assert.equal(atTerm.forecast?.hexagrams.annual.shortName, '同人');
+  assert.match(atTerm.prompt, /值年背景：目标真实瞬时按北京时间冬至换年，取公元2026年/);
+});
+
 test('现代比例模型以实际冬至瞬时确定岁周并以当地冬至日子半为锚点', () => {
   const beforeTerm = calculateHuangjiSixDayCycleFromDate(
     parseProportionalSixDay('2025-12-21T12:00:00+08:00'),
