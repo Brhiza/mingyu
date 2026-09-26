@@ -41,9 +41,7 @@ test('太乙任务书的门将条件只呈现一次并保留独立判断', () =>
     const conditions = result.conditions;
     const summary = `${conditions.threeGates.status}（直使${conditions.threeGates.directGate}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}。`;
     assert.equal(result.prompt.split(summary).length - 1, 1);
-    assert.ok(
-      result.prompt.includes('主门具按太乙与文昌（主目）判定，始击（客目）门位另列。'),
-    );
+    assert.ok(result.prompt.includes('主门具按太乙与文昌（主目）判定，始击（客目）门位另列。'));
     const enhanced = formatTaiyiInfo(result);
     assert.ok(!enhanced.includes(summary));
     assert.equal(enhanced.split(`直使${conditions.threeGates.directGate}`).length - 1, 1);

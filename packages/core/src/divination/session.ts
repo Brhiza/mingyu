@@ -13,11 +13,7 @@ import { generateMeihua } from './algorithms/meihua/index';
 import { generateQimen, type QimenMethod, type QimenScope } from './algorithms/qimen/index';
 import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
-import {
-  formatTaiyiConditionSummary,
-  formatTaiyiTacticBasis,
-  generateTaiyi,
-} from '../taiyi/index';
+import { formatTaiyiConditionSummary, formatTaiyiTacticBasis, generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { calculateWuyunLiuqi } from '../wuyun-liuqi';
 import { calculateZhugeNumber, castKongmingHexagram } from '../name-number/oracles';

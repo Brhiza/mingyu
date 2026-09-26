@@ -102,7 +102,10 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
   assert.equal(session.aiPrompt.split('三门：').length - 1, 1);
   assert.equal(session.aiPrompt.split('五将：').length - 1, 1);
   assert.equal(session.aiPrompt.split('阴阳和：').length - 1, 1);
-  assert.equal(session.aiPrompt.split(`直使${data.conditions.threeGates.directGate}`).length - 1, 1);
+  assert.equal(
+    session.aiPrompt.split(`直使${data.conditions.threeGates.directGate}`).length - 1,
+    1,
+  );
   assert.ok(session.aiPrompt.includes(`攻守参考：主算${data.lordCount}`));
   assert.ok(session.aiPrompt.includes('主客吉凶条件相等时，再以算之长短比较'));
   assert.doesNotMatch(session.aiPrompt, /盘面条件：/);
