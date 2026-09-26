@@ -124,8 +124,22 @@ export const MingluZiweiSection: React.FC<Props> = ({ data }) => {
                     {p.type}
                   </span>
                 </div>
-                {p.sourceTitle && (
-                  <div className="text-xs text-slate-500 mb-2">出处：{p.sourceTitle}</div>
+                {(p.sourceTitle || p.sourceUrl) && (
+                  <div className="text-xs text-slate-500 mb-2">
+                    出处：
+                    {p.sourceUrl ? (
+                      <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer">
+                        {p.sourceTitle || '原文链接'}
+                      </a>
+                    ) : (
+                      p.sourceTitle
+                    )}
+                  </div>
+                )}
+                {p.conditions.length > 0 && (
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 leading-relaxed">
+                    命中条件：{p.conditions.join('；')}
+                  </p>
                 )}
                 <p className="text-xs text-slate-700 dark:text-slate-300 mb-2 leading-relaxed">
                   {p.traditionalInterpretation}

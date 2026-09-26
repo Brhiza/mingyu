@@ -69,9 +69,9 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
     matched: true,
     conditions: pat.matched_conditions || [],
     traditionalInterpretation: pat.traditional_interpretation || pat.description,
-    // 出处仅在资料确实提供时呈现，不得以默认书名填补；引文身份同样以来源存在为前提
-    sourceTitle: pat.source,
-    sourceQuote: pat.source ? pat.description : undefined,
+    sourceTitle: pat.source_title,
+    sourceUrl: pat.source,
+    sourceQuote: pat.source_quote,
   }));
 
   const mutagens: MingluZiweiSectionData['mutagens'] = [];

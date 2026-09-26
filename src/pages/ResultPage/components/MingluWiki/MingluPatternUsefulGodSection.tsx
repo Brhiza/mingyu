@@ -234,7 +234,7 @@ export const MingluPatternUsefulGodSection: React.FC<Props> = ({ data }) => {
 
       {/* 古籍评注三篇 */}
       <div id="bazi-classics-advice" className="minglu-subblock">
-        <h3 className="minglu-subblock-title">典籍精微考据与古籍原文评注</h3>
+        <h3 className="minglu-subblock-title">典籍原文与释义</h3>
         <div className="minglu-classics-list">
           {ditiansuiAdvice && (
             <div className="minglu-classic-box">

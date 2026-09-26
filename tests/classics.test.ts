@@ -90,19 +90,19 @@ test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
   assert.ok(zhengguan);
   assert.equal(zhengguan.category, '正格');
   assert.ok(zhengguan.rule.includes('月令正官'));
-  assert.ok(zhengguan.taboos.includes('伤官见官'));
+  assert.ok(zhengguan.taboos.includes('官逢伤而无救应'));
 
   const qisha = getBaziZipingPatternAdvice('七杀格（身杀两停）');
   assert.ok(qisha);
   assert.equal(qisha.pattern, '七杀格');
-  assert.ok(qisha.verse?.includes('七杀有制化为权'));
+  assert.ok(qisha.verse?.includes('煞重身轻，用食则身不能当，不若转而就印'));
 });
 
 test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
   const jiaYin = getBaziQiongtongAdvice('甲', '寅');
   assert.ok(jiaYin);
   assert.deepEqual(jiaYin.primaryGods, ['丙', '癸']);
-  assert.ok(jiaYin.classicVerse.includes('初春甲木'));
+  assert.ok(jiaYin.classicVerse.includes('正月甲木'));
 
   const gengShen = getBaziQiongtongAdvice('庚', '申');
   assert.ok(gengShen);
@@ -111,7 +111,7 @@ test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
 
   const renWu = getBaziQiongtongAdvice('壬', '午');
   assert.ok(renWu);
-  assert.deepEqual(renWu.primaryGods, ['庚', '辛', '癸']);
+  assert.deepEqual(renWu.primaryGods, ['癸', '庚']);
   assert.ok(renWu.classicVerse.includes('五月壬水'));
 });
 

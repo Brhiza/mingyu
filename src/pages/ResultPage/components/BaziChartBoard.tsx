@@ -1217,11 +1217,20 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           </div>
           {qiongtongExpanded ? (
             <div className="traditional-classic-body">
-              <p className="traditional-classic-verse">{qiongtongAdvice.classicVerse}</p>
+              <p className="traditional-classic-verse">
+                {qiongtongAdvice.classicVerse}{' '}
+                <a
+                  href="https://zh.wikisource.org/w/index.php?title=穷通宝鉴&oldid=2294674"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  查看原文
+                </a>
+              </p>
               <p className="traditional-classic-advice">
                 {`【调候要领】${qiongtongAdvice.modernExplanation}`}
                 {qiongtongAdvice.primaryGods?.length
-                  ? `\n【条文取用】${qiongtongAdvice.primaryGods.join('、')}`
+                  ? `\n【条文取用候选】${qiongtongAdvice.primaryGods.join('、')}`
                   : ''}
                 {qiongtongAdvice.taboos?.length
                   ? `\n【条文所忌】${qiongtongAdvice.taboos.join('、')}`

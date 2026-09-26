@@ -299,6 +299,8 @@ export type PatternFact = {
   matched_conditions?: string[];
   traditional_interpretation?: string;
   source?: string;
+  source_title?: string;
+  source_quote?: string;
   sources?: string[];
   calculation?: string;
   calculationStepKey?: string;

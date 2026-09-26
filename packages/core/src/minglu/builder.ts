@@ -354,10 +354,10 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     },
     {
       id: 'section-shensha',
-      title: '第五章：全息神煞谱系与典故考据',
+      title: '第五章：八字神煞与传统取象',
       anchorId: 'bazi-shensha-pantheon',
       level: 1,
-      badge: `${shenShaSection.length} 尊神煞`,
+      badge: `${shenShaSection.length} 项神煞`,
       itemCount: shenShaSection.length,
     },
     {

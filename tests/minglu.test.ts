@@ -81,7 +81,7 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.tableOfContents.some((item) => item.title.includes('五行能量')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('格局成败')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('全量柱间作用')));
-  assert.ok(article.tableOfContents.some((item) => item.title.includes('全息神煞谱系')));
+  assert.ok(article.tableOfContents.some((item) => item.title.includes('八字神煞与传统取象')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('术语百科词典')));
 
   // 3. 四柱全息矩阵（含三垣、月令司令、命卦）

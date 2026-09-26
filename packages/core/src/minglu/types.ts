@@ -460,6 +460,7 @@ export interface MingluZiweiSectionData {
     conditions: string[];
     traditionalInterpretation: string;
     sourceTitle?: string;
+    sourceUrl?: string;
     sourceQuote?: string;
   }>;
   mutagens: Array<{
