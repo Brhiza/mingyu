@@ -205,7 +205,7 @@ test('格局条件未列出具体宫位时保留必要的宫位资料', () => {
     reportContext: createReportContext(),
   });
 
-  assert.match(snapshot, /格局：辅弼拱主[\s\S]*?涉及宫位：命宫、父母、兄弟/);
+  assert.match(snapshot, /格局：辅弼拱主[\s\S]*?涉及宫位：父母、兄弟/);
   assert.doesNotMatch(snapshot, /涉及星曜：紫微、左辅、右弼/);
 });
 
