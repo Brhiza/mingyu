@@ -4,7 +4,11 @@ import {
   formatLiurenTransmission,
 } from './liuren-facts';
 import type { DivinationMethodId } from '../divination/config';
-import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
+import {
+  formatJinkoujueRelations,
+  formatJinkoujueMovementRules,
+  formatJinkoujueBihe,
+} from './jinkoujue-facts';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -149,7 +153,7 @@ function formatJinkoujueDetail(data: JinkoujueData) {
       ? `阴阳取用：${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '，落空' : ''}）`
       : '',
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
-    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
+    formatJinkoujueBihe(data),
     formatJinkoujueRelations(data),
     formatJinkoujueMovementRules(),
   ].filter(Boolean);

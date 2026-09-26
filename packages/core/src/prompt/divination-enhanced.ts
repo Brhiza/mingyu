@@ -63,6 +63,7 @@ import {
   formatJinkoujueRelations,
   formatJinkoujueMovementRules,
   formatJinkoujueJudgmentFacts,
+  formatJinkoujueBihe,
 } from './jinkoujue-facts';
 
 function formatZhugeInfo(data: ZhugeNumberResult) {
@@ -665,10 +666,10 @@ function formatMeihuaInfo(data: MeihuaData) {
       : '',
     `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
     data.analysis.tiYongSeasonEvaluation
-      ? `体用吉凶实效：${data.analysis.tiYongSeasonEvaluation}`
+      ? `主卦体用月令条件：${data.analysis.tiYongSeasonEvaluation}`
       : '',
     data.analysis.timelineTrend
-      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；阶段趋势${data.analysis.timelineTrend.trend}` : ''}`
+      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；盘内关系走势${data.analysis.timelineTrend.trend}` : ''}；体用强弱与应期合参主互变、所问事项及现实进展`
       : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
     yingQiText,
@@ -1265,7 +1266,7 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     `阴阳发用：${data.yinYangUse.rule}；发用位${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '旬空' : '不空'}`,
     `四位：地分${p.diFen.branch}（${p.diFen.yinYang}${p.diFen.element}，月令${p.diFen.seasonState}${p.diFen.isVoid ? '，空' : ''}）；将神${p.jiangShen.stem || ''}${p.jiangShen.branch}（${p.jiangShen.yinYang}${p.jiangShen.element}，月令${p.jiangShen.seasonState}${p.jiangShen.isVoid ? '，空' : ''}）；贵神${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}（${p.guiShen.yinYang}${p.guiShen.element}，月令${p.guiShen.seasonState}${p.guiShen.isVoid ? '，空' : ''}）；人元${p.renYuan.stem || ''}${p.renYuan.branch}（${p.renYuan.yinYang}${p.renYuan.element}，月令${p.renYuan.seasonState}${p.renYuan.isVoid ? '，空' : ''}）`,
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '无'}`,
-    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
+    formatJinkoujueBihe(data),
     formatJinkoujueRelations(data),
     formatJinkoujueMovementRules(),
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',

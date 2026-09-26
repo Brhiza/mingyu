@@ -1,76 +1,85 @@
+import type { JinkoujueMovement } from '../types/divination';
 import type { JinkoujueMovementClassic } from './types';
 
 /**
- * 《大六壬金口诀》五动、三动与阴阳生克断语全录
- * 原典出处：《金口诀大全》《入式歌解》
+ * 《六壬神课金口诀》卷之上“阴阳次第五用”“五动爻诵”“三动”原文节录。
  */
-export const JINKOUJUE_MOVEMENT_CLASSICS: Record<string, JinkoujueMovementClassic> = {
+export const JINKOUJUE_MOVEMENT_CLASSICS: Record<
+  JinkoujueMovement['name'],
+  JinkoujueMovementClassic
+> = {
   妻动: {
     key: '妻动',
-    name: '妻动（下克上）',
+    name: '妻动（上克下）',
     category: '五动',
-    sourceBook: '金口诀大全',
-    verse: '妻动妻愁夫不宁，谋事难成财耗倾；门户不和生变异，求谋迟滞见虚惊。',
-    modernAdvice: '家庭或内部合伙之间容易产生分歧与财物耗损。切勿意气用事，宜以退为进、厘清权责。',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse:
+      '妻动于妻妾；官财防损折；占人人在家；访人人不悦；外边来索取；卑下有口舌；论物多翻正；下旁或有缺。',
+    modernAdvice: '原文以妻妾为事类，并记官财损折及上下、内外应象。',
   },
-  鬼动: {
-    key: '鬼动',
-    name: '鬼动（上克下）',
+  官动: {
+    key: '官动',
+    name: '官动（下克上）',
     category: '五动',
-    sourceBook: '金口诀大全',
-    verse: '鬼动官灾祸事侵，病临门户损资身；小人暗算防官讼，静守安分福自臻。',
-    modernAdvice: '外部压力或监管阻力较大，易惹是非纠纷。宜依法合规、低调防守，不可强行出头。',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse:
+      '官动利求官；相逢禄位迁；常人公府事；有官望财难；合得官中物；休从外处干；得财防暗损；问病在喉咽。',
+    modernAdvice: '原文记求官、禄位与公府之事，并提示有官望财难。',
   },
   贼动: {
     key: '贼动',
-    name: '贼动（下克上）',
+    name: '贼动（上克下）',
     category: '五动',
-    sourceBook: '金口诀大全',
-    verse: '贼动失脱盗贼来，防非防损祸胎开；出门在外谨防盗，财物深藏免破灾。',
-    modernAdvice: '注意财产安全与合同陷阱，防范暗中窃取利益的小人或突发破费。',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse:
+      '贼动内贼生；勾连诈不明；损财卑幼病；谋望必无成；架媾奸私意；偷攘宛转名；卦爻终暗昧；病恐亦非轻。',
+    modernAdvice: '原文记内财受克、失盗、奸私与暗昧等象。',
+  },
+  财动: {
+    key: '财动',
+    name: '财动（下克上）',
+    category: '五动',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse:
+      '财动利求财；占官定不谐；家中人出外；妻妾并身灾；疾病忧难瘥；营求喜自来；财物终有损；职位恐多乖。',
+    modernAdvice: '原文记求财、营求之象，同时指出官位与财物受损。',
+  },
+  鬼动: {
+    key: '鬼动',
+    name: '鬼动（下克上）',
+    category: '五动',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse:
+      '鬼动忧灾怪；官亨人出外；争讼带他人；乖戾因间外；口舌共喧争；冤仇皆损害；痊病物仰合；家宅未安泰。',
+    modernAdvice: '原文记灾怪、争讼、口舌与家宅不宁等象。',
   },
   父母动: {
     key: '父母动',
-    name: '父母动（生出/泄气）',
-    category: '五动',
-    sourceBook: '金口诀大全',
-    verse: '父母动出忧子孙，劳碌辛苦耗心神；虽有文书印信在，事多掣肘费精神。',
-    modernAdvice: '利文书契约、学习深造与政策申报，但过程较为繁琐劳碌，需要付出较多心血。',
+    name: '父母动（下生上）',
+    category: '三动',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse: '方生干为父母动：为印绶，凡占，小干尊，大吉。',
+    modernAdvice: '原文称父母动为印绶，并断小干尊、大吉。',
   },
   子孙动: {
     key: '子孙动',
-    name: '子孙动（生入/进益）',
-    category: '五动',
-    sourceBook: '金口诀大全',
-    verse: '子孙动入喜事连，求财求谋福禄全；解灾除疾无忧虑，吉庆欢欣喜万般。',
-    modernAdvice: '进益之兆！外部资源与好消息主动进入，利于求财、合作开拓、化解危机。',
-  },
-  方主移动: {
-    key: '方主移动',
-    name: '方主移动',
+    name: '子孙动（上生下）',
     category: '三动',
-    sourceBook: '金口诀大全',
-    verse: '方主移动心多变，事体迁延不定居；求谋远向他方去，在此无成往彼宜。',
-    modernAdvice: '地基与立足点面临变动，适合异地发展、出差拓展或改变现有工作策略。',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse: '干生方为子孙动：凡占，主干子孙之事，小吉。',
+    modernAdvice: '原文主子孙之事，断小吉。',
   },
-  神主移动: {
-    key: '神主移动',
-    name: '神主移动',
+  兄弟动: {
+    key: '兄弟动',
+    name: '兄弟动（比和）',
     category: '三动',
-    sourceBook: '金口诀大全',
-    verse: '神主移动求贵人，官长相催事急迫；吉神动者蒙恩宠，凶神动处起波折。',
-    modernAdvice: '领导、贵人或外部环境出现调整，宜紧跟政策与主管指示，灵活应对。',
-  },
-  将主移动: {
-    key: '将主移动',
-    name: '将主移动',
-    category: '三动',
-    sourceBook: '金口诀大全',
-    verse: '将主移动自身忙，出门求利走四方；吉将扶持多获益，凶将相随事多妨。',
-    modernAdvice: '自身行程奔波忙碌，适合积极主动出击，在动态调整中把握商机。',
+    sourceBook: '《六壬神课金口诀》卷之上',
+    verse: '干方同为兄弟动：凡占，事在比肩朋友，小凶。',
+    modernAdvice: '原文主比肩朋友之事，断小凶。',
   },
 };
 
 export function getJinkoujueMovementClassic(key: string): JinkoujueMovementClassic | undefined {
-  return JINKOUJUE_MOVEMENT_CLASSICS[key];
+  if (!Object.prototype.hasOwnProperty.call(JINKOUJUE_MOVEMENT_CLASSICS, key)) return undefined;
+  return JINKOUJUE_MOVEMENT_CLASSICS[key as JinkoujueMovement['name']];
 }

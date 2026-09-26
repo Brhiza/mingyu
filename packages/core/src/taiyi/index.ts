@@ -296,7 +296,7 @@ export const TAIYI_16_GODS: { name: string; branch: string }[] = [
   { name: '吕申', branch: '寅' },
   { name: '高丛', branch: '卯' },
   { name: '太阳', branch: '辰' },
-  { name: '大旲', branch: '巽' },
+  { name: '大炅', branch: '巽' },
   { name: '大神', branch: '巳' },
   { name: '大威', branch: '午' },
   { name: '天道', branch: '未' },
