@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import type { JinkoujueMovement } from 'mingyu-core/types';
 
 import {
   getAlmanacOfficerClassic,
@@ -245,15 +246,81 @@ test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () =>
   }
 });
 
-test('金口诀《金口诀大全》五动三动歌诀查询正确', () => {
-  const qiDong = getJinkoujueMovementClassic('妻动');
-  assert.ok(qiDong);
-  assert.equal(qiDong.category, '五动');
-  assert.ok(qiDong.verse.includes('妻动妻愁夫不宁'));
+test('金口诀五动三动资料与算法名称、方位和卷上原文一致', () => {
+  const expectedMovements: Array<{
+    key: JinkoujueMovement['name'];
+    category: JinkoujueMovement['category'];
+    name: string;
+    verse: string;
+  }> = [
+    {
+      key: '妻动',
+      category: '五动',
+      name: '妻动（上克下）',
+      verse:
+        '妻动于妻妾；官财防损折；占人人在家；访人人不悦；外边来索取；卑下有口舌；论物多翻正；下旁或有缺。',
+    },
+    {
+      key: '官动',
+      category: '五动',
+      name: '官动（下克上）',
+      verse:
+        '官动利求官；相逢禄位迁；常人公府事；有官望财难；合得官中物；休从外处干；得财防暗损；问病在喉咽。',
+    },
+    {
+      key: '贼动',
+      category: '五动',
+      name: '贼动（上克下）',
+      verse:
+        '贼动内贼生；勾连诈不明；损财卑幼病；谋望必无成；架媾奸私意；偷攘宛转名；卦爻终暗昧；病恐亦非轻。',
+    },
+    {
+      key: '财动',
+      category: '五动',
+      name: '财动（下克上）',
+      verse:
+        '财动利求财；占官定不谐；家中人出外；妻妾并身灾；疾病忧难瘥；营求喜自来；财物终有损；职位恐多乖。',
+    },
+    {
+      key: '鬼动',
+      category: '五动',
+      name: '鬼动（下克上）',
+      verse:
+        '鬼动忧灾怪；官亨人出外；争讼带他人；乖戾因间外；口舌共喧争；冤仇皆损害；痊病物仰合；家宅未安泰。',
+    },
+    {
+      key: '父母动',
+      category: '三动',
+      name: '父母动（下生上）',
+      verse: '方生干为父母动：为印绶，凡占，小干尊，大吉。',
+    },
+    {
+      key: '子孙动',
+      category: '三动',
+      name: '子孙动（上生下）',
+      verse: '干生方为子孙动：凡占，主干子孙之事，小吉。',
+    },
+    {
+      key: '兄弟动',
+      category: '三动',
+      name: '兄弟动（比和）',
+      verse: '干方同为兄弟动：凡占，事在比肩朋友，小凶。',
+    },
+  ];
 
-  const ziSunDong = getJinkoujueMovementClassic('子孙动');
-  assert.ok(ziSunDong);
-  assert.ok(ziSunDong.verse.includes('子孙动入喜事连'));
+  for (const expected of expectedMovements) {
+    const classic = getJinkoujueMovementClassic(expected.key);
+    assert.ok(classic, `${expected.key} 应有与算法名称相同的典籍资料键`);
+    assert.equal(classic.key, expected.key);
+    assert.equal(classic.category, expected.category);
+    assert.equal(classic.name, expected.name);
+    assert.equal(classic.sourceBook, '《六壬神课金口诀》卷之上');
+    assert.equal(classic.verse, expected.verse);
+  }
+
+  for (const fakeMovement of ['方主移动', '神主移动', '将主移动']) {
+    assert.equal(getJinkoujueMovementClassic(fakeMovement), undefined);
+  }
 });
 
 test('大六壬《大六壬大全》《六壬指南》九宗门与十二天将查询正确', () => {
