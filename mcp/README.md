@@ -296,7 +296,7 @@ pnpm mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时；六日逐爻公历占断传 `sixDayDateTime` 并选择 `calendarModel=six-day-seven-part`（以现代冬至与岁周比例定位，不传 `sixDayEpochDateTime`）或 `calendarModel=six-day-explicit-epoch`（必须同时传经校定当地子半 `sixDayEpochDateTime`）。两种模型在未带时区偏移时都需 `timezone` 或 `timeZoneId`，响应会保留相应模型的适用边界；五运六气应明确目标 `year` 或 `yearGanZhi`，这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时；六日逐爻公历占断传 `sixDayDateTime` 并选择 `calendarModel=six-day-seven-part`（以现代冬至与岁周比例定位，不传 `sixDayEpochDateTime`）或 `calendarModel=six-day-explicit-epoch`（必须同时传经校定当地子半 `sixDayEpochDateTime`）。显式历元只定位六日逐爻坐标；值年背景按目标真实瞬时的北京时间冬至换年。两种模型在未带时区偏移时都需 `timezone` 或 `timeZoneId`，响应会保留相应模型的适用边界；五运六气应明确目标 `year` 或 `yearGanZhi`，这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_jinkoujue`、`jinkoujue_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`、`metaphysics_taiyi`、`taiyi_prompt`、`metaphysics_huangji_jingshi` 和 `huangji_jingshi_prompt`。
 
