@@ -79,6 +79,19 @@ function formatPoint(point: AstrolabeData['planets'][number]) {
   return `${point.label}${point.formatted}，第${point.house}宫${point.retrograde ? '，逆行' : ''}${dignity}`;
 }
 
+function formatCoordinateAccuracy(accuracy: string | undefined) {
+  switch (accuracy) {
+    case 'administrative-center':
+      return '出生坐标精度：行政中心位置';
+    case 'province-approximation':
+      return '出生坐标精度：省级近似位置';
+    case 'mixed':
+      return '出生坐标精度：部分坐标采用地点近似值';
+    default:
+      return '';
+  }
+}
+
 export function formatAstrolabeForPrompt(data: AstrolabeData) {
   const sun = data.planets.find((item) => item.name === 'Sun');
   const moon = data.planets.find((item) => item.name === 'Moon');
@@ -90,9 +103,11 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
       : data.birth.timeZoneId
         ? `时区：${data.birth.timeZoneId}`
         : '',
+    formatCoordinateAccuracy(data.birth.coordinateAccuracy),
     data.houseSystem
       ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : '普拉西德斯宫制（Placidus）'}`
       : '',
+    data.dayChart === undefined ? '' : `昼夜盘：${data.dayChart ? '昼盘' : '夜盘'}`,
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}；真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}`

@@ -687,11 +687,12 @@ function buildLineFacts(
             ? '日辰冲动'
             : '',
       yao.isRiMu ? '入日墓' : '',
-      yao.isDongMu ? '入动墓' : '',
-      yao.isHuaMu ? '动而化墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
+    const movingRelations = [yao.isDongMu ? '入动墓' : '', yao.isHuaMu ? '动而化墓' : ''].filter(
+      Boolean,
+    );
     const activity: LiuyaoLineFact['activity'] = yao.isChanging
       ? '明动'
       : yao.isHiddenMove
@@ -720,6 +721,7 @@ function buildLineFacts(
       yao.seasonState ? `月令${yao.seasonState}` : '',
       monthRelations.join('、'),
       dayRelations.join('、'),
+      movingRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
       yao.dayLifeStage && ['长生', '帝旺', '墓', '绝'].includes(yao.dayLifeStage)
         ? `日辰生旺墓绝${yao.dayLifeStage}`

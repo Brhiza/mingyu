@@ -148,7 +148,7 @@ export function getBaziQiongtongAdvice(
 }
 
 /**
- * 查询八字《滴天髓》日主十干体象与性情
+ * 查询八字《滴天髓》日干静态体象资料
  */
 export function getBaziDitiansuiAdvice(dayMaster: string): BaziDitiansuiEntry | undefined {
   return queryBaziDitiansuiAdvice(dayMaster);

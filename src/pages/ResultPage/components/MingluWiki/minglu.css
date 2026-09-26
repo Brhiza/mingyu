@@ -1531,6 +1531,12 @@
   }
 }
 
+@container minglu (max-width: 600px) {
+  .minglu-ziwei-palaces-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media print {
   .minglu-wiki-toolbar,
   .minglu-wiki-sidebar {

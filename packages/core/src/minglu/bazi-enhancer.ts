@@ -854,15 +854,18 @@ export function buildEnhancedPatternUsefulGodSection(
       : undefined,
     ditiansuiAdvice: ditiansuiRaw
       ? {
-          title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）`,
-          source: ditiansuiRaw.sourceBook || '《滴天髓》干支论性',
-          summary: `${classicPrefix}十干体象与性情概括：${ditiansuiRaw.nature}`,
+          title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）日干体象`,
+          source: ditiansuiRaw.sourceBook || '《滴天髓》天干论',
+          summary: `十干静态体象：${ditiansuiRaw.nature}${ditiansuiRaw.modernAdvice}`,
           quotes: [ditiansuiRaw.verse],
         }
       : undefined,
     zipingAdvice: zipingRaw
       ? {
-          title: zipingRaw.pattern,
+          title:
+            zipingRaw.pattern === baziResult.analysis.mingGe.pattern
+              ? zipingRaw.pattern
+              : `${baziResult.analysis.mingGe.pattern}（参照${zipingRaw.pattern}）`,
           source: zipingRaw.sourceBook || '《子平真诠》格局精微',
           summary: `${classicPrefix}${zipingRaw.rule}${zipingRaw.modernAdvice}`,
           quotes: [zipingRaw.verse].filter((q): q is string => Boolean(q)),

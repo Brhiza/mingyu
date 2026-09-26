@@ -26,6 +26,45 @@ test('子平格局引文依论财、论印绶合论正偏的原典章节归属',
   assert.match(getBaziZipingPatternAdvice('伤官格')?.verse ?? '', /查其气候，量其强弱/);
 });
 
+test('本局格名只映射同一原典格局，杂气取格不套普通格条文', () => {
+  assert.equal(getBaziZipingPatternAdvice('建禄格')?.pattern, '建禄月劫格');
+  assert.equal(getBaziZipingPatternAdvice('劫财格')?.pattern, '建禄月劫格');
+  assert.equal(getBaziZipingPatternAdvice('月刃格')?.pattern, '阳刃格');
+  assert.equal(getBaziZipingPatternAdvice('七杀格（身杀两停）')?.pattern, '七杀格');
+  for (const pattern of ['杂气正官格', '杂气正财格', '杂气偏印格', '非正官格']) {
+    assert.equal(getBaziZipingPatternAdvice(pattern), undefined, pattern);
+  }
+
+  const miscChart = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 12,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+  });
+  assert.equal(miscChart.analysis.mingGe.pattern, '杂气正财格');
+  assert.equal(buildEnhancedPatternUsefulGodSection(miscChart).zipingAdvice, undefined);
+
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+    useTrueSolarTime: false,
+  });
+  const withPattern = (pattern: string) =>
+    buildEnhancedPatternUsefulGodSection({
+      ...result,
+      analysis: {
+        ...result.analysis,
+        mingGe: { ...result.analysis.mingGe, pattern },
+      },
+    });
+  assert.equal(withPattern('建禄格').zipingAdvice?.title, '建禄格（参照建禄月劫格）');
+});
+
 test('命录格局将原文单独引用并保留格局条件和释义', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

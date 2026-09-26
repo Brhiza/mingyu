@@ -103,18 +103,9 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
   assert.match(section.usefulGods.reasoning, /化神取用：/);
   assert.equal(
     section.ditiansuiAdvice?.summary ?? '',
-    `原日主癸的经典调候与格局资料作旁参，主格取用以化神木为主体。十干体象与性情概括：${getBaziDitiansuiAdvice('癸')?.nature}`,
+    `十干静态体象：${getBaziDitiansuiAdvice('癸')?.nature}${getBaziDitiansuiAdvice('癸')?.modernAdvice}`,
   );
-  assert.match(
-    [
-      section.qiongtongAdvice?.summary,
-      section.ditiansuiAdvice?.summary,
-      section.zipingAdvice?.summary,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-    /原日主癸的经典调候与格局资料作旁参/,
-  );
+  assert.doesNotMatch(section.ditiansuiAdvice?.summary ?? '', /格局资料作旁参|行运判断/);
 
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /化神木为取用主体/);

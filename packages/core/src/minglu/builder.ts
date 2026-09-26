@@ -539,7 +539,12 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       ),
       totalZiweiStarsCount: ziweiSection
         ? ziweiSection.palaces.reduce(
-            (acc, p) => acc + p.majorStars.length + p.minorStars.length + p.maleficStars.length,
+            (acc, p) =>
+              acc +
+              p.majorStars.length +
+              p.minorStars.length +
+              p.maleficStars.length +
+              p.otherStars.length,
             0,
           )
         : undefined,

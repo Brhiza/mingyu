@@ -69,7 +69,7 @@ test('奇门遁甲九星、八门、八神经典赋文查询正确', () => {
   assert.ok(zhiFu.verse.includes('值符九星之领袖'));
 });
 
-test('八字《滴天髓》十干体象与性情查询正确', () => {
+test('八字《滴天髓》十干体象摘录与静态释义正确', () => {
   const jiaMu = getBaziDitiansuiAdvice('甲');
   assert.ok(jiaMu);
   assert.equal(jiaMu.wuxing, '木');
@@ -78,11 +78,29 @@ test('八字《滴天髓》十干体象与性情查询正确', () => {
   const bingHuo = getBaziDitiansuiAdvice('丙');
   assert.ok(bingHuo);
   assert.equal(bingHuo.wuxing, '火');
-  assert.ok(bingHuo.verse.includes('丙火猛烈，欺霜傲雪'));
+  assert.equal(bingHuo.verse, '丙火猛烈，欺霜侮雪。');
 
   const guiShui = getBaziDitiansuiAdvice('癸');
   assert.ok(guiShui);
   assert.ok(guiShui.verse.includes('癸水至弱，达于天津'));
+
+  const checkedVerses = {
+    甲: '甲木参天，脱胎要火。',
+    乙: '乙木虽柔，刲羊解牛。',
+    丙: '丙火猛烈，欺霜侮雪。',
+    丁: '丁火柔中，内性昭融。',
+    戊: '戊土固重，既中且正。',
+    己: '己土卑湿，中正蓄藏。',
+    庚: '庚金带煞，刚强为最。',
+    辛: '辛金软弱，温润而清。',
+    壬: '壬水汪洋，能泄金气。',
+    癸: '癸水至弱，达于天津。',
+  };
+  for (const [stem, verse] of Object.entries(checkedVerses)) {
+    const entry = getBaziDitiansuiAdvice(stem);
+    assert.equal(entry?.verse, verse);
+    assert.doesNotMatch(`${entry?.nature}${entry?.modernAdvice}`, /性情|职业|适合|必然/);
+  }
 });
 
 test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {

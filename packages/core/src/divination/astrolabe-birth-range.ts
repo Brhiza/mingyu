@@ -443,6 +443,7 @@ function projectDiscreteFacts(result: AstrolabeData): unknown {
   const birth = result.birth;
   return {
     houseSystem: result.houseSystem ?? null,
+    dayChart: result.dayChart ?? null,
     ephemerisWarnings: projectEphemerisWarnings(result.ephemerisWarnings),
     birth: {
       name: birth.name,

@@ -6,6 +6,19 @@ import { isKe, isSheng } from 'mingyu-core/ganzhi';
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
 
+test('六爻动墓和化墓不归入日辰关系', () => {
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  data.yaosDetail[0] = {
+    ...data.yaosDetail[0],
+    isDongMu: true,
+    isHuaMu: true,
+    isRiMu: false,
+  };
+  const firstLine = analyzeLiuyaoEvidence(data).lineFacts[0];
+  assert.doesNotMatch(firstLine.dayState.relations.join('、'), /入动墓|动而化墓/u);
+  assert.match(firstLine.promptText, /入动墓、动而化墓/u);
+});
+
 test('六爻主用神缺失时保留已命中辅证，并保持主取用缺口', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   data.yaosDetail = data.yaosDetail.map((line) => ({ ...line, sixRelative: '父母' }));

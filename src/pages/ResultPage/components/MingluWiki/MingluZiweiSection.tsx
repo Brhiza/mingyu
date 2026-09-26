@@ -34,10 +34,12 @@ export const MingluZiweiSection: React.FC<Props> = ({ data }) => {
               <div className="minglu-palace-card-header">
                 <span className="font-bold text-base">
                   {pal.name}
-                  {pal.isOriginSoulPalace && (
+                  {pal.isOriginSoulPalace && pal.name !== '命宫' && (
                     <span className="minglu-palace-badge is-soul">命宫</span>
                   )}
-                  {pal.isBodyPalace && <span className="minglu-palace-badge is-body">身宫</span>}
+                  {pal.isBodyPalace && pal.name !== '身宫' && (
+                    <span className="minglu-palace-badge is-body">身宫</span>
+                  )}
                   {pal.isLaiYinPalace && (
                     <span className="minglu-palace-badge is-laiyin">来因</span>
                   )}
@@ -64,30 +66,59 @@ export const MingluZiweiSection: React.FC<Props> = ({ data }) => {
                   ))
                 ) : (
                   <span className="text-xs text-slate-400 italic">
-                    空宫（借对宫【{pal.oppositePalaceName}】安星）
+                    主星空宫 · 对宫【{pal.oppositePalaceName}】
                   </span>
                 )}
               </div>
 
               {/* 辅星吉煞 */}
-              <div className="minglu-palace-minor-stars">
-                {pal.minorStars.map((s, idx) => (
-                  <span key={idx} className="minglu-minor-star-tag">
-                    {s.name}
-                  </span>
-                ))}
-                {pal.maleficStars.map((s, idx) => (
-                  <span key={idx} className="minglu-malefic-star-tag">
-                    {s.name}
-                  </span>
-                ))}
-              </div>
+              {[
+                { label: '辅曜', stars: pal.minorStars },
+                { label: '煞曜', stars: pal.maleficStars },
+                { label: '杂曜', stars: pal.otherStars },
+              ].map(({ label, stars }) =>
+                stars.length > 0 ? (
+                  <div key={label} className="minglu-palace-minor-stars">
+                    <span>{label}：</span>
+                    {stars.map((s, idx) => (
+                      <React.Fragment key={s.name}>
+                        {idx > 0 && '、'}
+                        <span
+                          className={
+                            s.type === 'malefic'
+                              ? 'minglu-malefic-star-tag'
+                              : 'minglu-minor-star-tag'
+                          }
+                        >
+                          {s.name}
+                          {s.brightness && (
+                            <span className="minglu-star-bright">[{s.brightness}]</span>
+                          )}
+                          {s.birthMutagen && (
+                            <span className="minglu-star-mutagen">化{s.birthMutagen}</span>
+                          )}
+                        </span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ) : null,
+              )}
 
               {/* 宫位三方四正指示 */}
               <div className="minglu-palace-footer-info">
                 <span>对宫: {pal.oppositePalaceName}</span>
                 <span>长生: {pal.changsheng12}</span>
               </div>
+              {pal.surroundedPalaceNames.length > 0 && (
+                <div className="minglu-palace-footer-info">
+                  三方四正：{pal.surroundedPalaceNames.join('、')}
+                </div>
+              )}
+              {pal.selfMutagens.length > 0 && (
+                <div className="minglu-palace-footer-info">
+                  宫干自化：{pal.selfMutagens.map((mutagen) => `化${mutagen}`).join('、')}
+                </div>
+              )}
             </div>
           ))}
         </div>

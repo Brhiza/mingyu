@@ -7,6 +7,8 @@ import type { ZiweiRuntime } from '../ziwei/runtime';
 import type { MingluZiweiPalaceData, MingluZiweiSectionData, MingluZiweiStarFact } from './types';
 import type { StarFact } from '../types/analysis';
 
+const MALEFIC_STAR_NAMES = new Set(['擎羊', '陀罗', '火星', '铃星', '地空', '地劫']);
+
 function mapStar(star: StarFact, type: MingluZiweiStarFact['type']): MingluZiweiStarFact {
   return {
     name: star.name,
@@ -44,12 +46,14 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
       isLaiYinPalace: Boolean(p.is_original_palace),
       decadalRange: p.decadal_range,
       majorStars: p.major_stars.map((s) => mapStar(s, 'major')),
-      minorStars: p.minor_stars.map((s) => mapStar(s, 'minor')),
-      maleficStars: p.other_stars
-        .filter((s) => ['擎羊', '陀罗', '火星', '铃星', '地空', '地劫'].includes(s.name))
+      minorStars: p.minor_stars
+        .filter((s) => !MALEFIC_STAR_NAMES.has(s.name))
+        .map((s) => mapStar(s, 'minor')),
+      maleficStars: [...p.minor_stars, ...p.other_stars]
+        .filter((s) => MALEFIC_STAR_NAMES.has(s.name))
         .map((s) => mapStar(s, 'malefic')),
       otherStars: p.other_stars
-        .filter((s) => !['擎羊', '陀罗', '火星', '铃星', '地空', '地劫'].includes(s.name))
+        .filter((s) => !MALEFIC_STAR_NAMES.has(s.name))
         .map((s) => mapStar(s, 'other')),
       changsheng12: p.changsheng12 || '—',
       boshi12: p.boshi12 || '—',

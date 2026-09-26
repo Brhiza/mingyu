@@ -160,7 +160,44 @@ test('梅花物象锚点只由完整方位起卦资料形成', () => {
   formatMeihuaFacts(direction);
   assert.deepEqual(direction, before);
   delete direction.calculation!.objectType;
-  assert.doesNotMatch(formatMeihuaFacts(direction).join('\n'), /物象锚点/);
+  const incompleteFacts = formatMeihuaFacts(direction).join('\n');
+  assert.doesNotMatch(incompleteFacts, /物象锚点|所见物类|起卦取数：|undefined/u);
+});
+
+test('梅花旧盘缺少取数输入时不把卦象反填为起卦输入', () => {
+  const date = new Date('2026-05-19T10:30:00+08:00');
+  const number = generateMeihua(date, { method: 'number', number: 42 });
+  delete number.calculation!.timeZhi;
+  assert.doesNotMatch(formatMeihuaFacts(number).join('\n'), /起卦取数：|undefined/u);
+
+  const character = generateMeihua(date, {
+    method: 'character',
+    characterText: '明',
+    characterLeftStrokes: 4,
+    characterRightStrokes: 4,
+  });
+  delete character.calculation!.characterRightStrokes;
+  assert.doesNotMatch(formatMeihuaFacts(character).join('\n'), /起卦取数：|undefined/u);
+});
+
+test('梅花旧盘缺少动爻取数结果时不输出不完整算式', () => {
+  const date = new Date('2026-05-19T10:30:00+08:00');
+  const cases = [
+    generateMeihua(date, { method: 'time' }),
+    generateMeihua(date, { method: 'number', number: 42 }),
+    generateMeihua(date, { method: 'sound', soundCount: 4 }),
+    generateMeihua(date, {
+      method: 'character',
+      characterText: '明',
+      characterLeftStrokes: 4,
+      characterRightStrokes: 4,
+    }),
+    generateMeihua(date, { method: 'direction', direction: 'north', objectType: 'earth' }),
+  ];
+  for (const data of cases) {
+    delete data.calculation!.movingYaoIndex;
+    assert.doesNotMatch(formatMeihuaFacts(data).join('\n'), /起卦取数：|undefined/u);
+  }
 });
 
 test('梅花比和判辞保留同盘在五种月令中的实际旺衰', () => {

@@ -1572,6 +1572,8 @@ export interface AstrolabeAspect {
 
 export interface AstrolabeData {
   houseSystem?: 'placidus' | 'whole_sign';
+  /** 与福点、精神点计算使用同一太阳地平线上下判定。 */
+  dayChart?: boolean;
   ephemerisWarnings?: string[];
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
