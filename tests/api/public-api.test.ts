@@ -1204,7 +1204,7 @@ test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', 
   assert.match(body.data.sunriseSunset.morningLocalDateTime, /2024-06-21 04:4\d:/);
   assert.match(body.data.sunriseSunset.key, /^光照交点:日出\/日落$/);
   assert.ok(body.data.sunriseSunset.sources.length >= 2);
-  assert.match(body.data.sunriseSunset.calculation, /求时角交点/);
+  assert.match(body.data.sunriseSunset.calculation, /求该民用日期内的高度交点/);
   assert.match(body.data.sunriseSunset.limitation, /不代表实际可见性/);
   assert.equal(
     body.data.key,
