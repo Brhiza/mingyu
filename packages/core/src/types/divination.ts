@@ -1332,7 +1332,7 @@ export interface AlmanacTopicMatchFact {
   scope: '候选日' | '时辰';
   topic: AlmanacTopic;
   topicLabel: string;
-  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神';
+  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神' | '值日神煞事项规则';
   status: AlmanacRuleFactStatus;
   inputItems: string[];
   keywords: string[];

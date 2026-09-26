@@ -187,7 +187,7 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只说明当前事项关键词是否出现在原始宜忌、建除值日或十二神规则中，不证明事项必然成功，也不得替代现实条件核验';
+  '事项命中事实只说明原始宜忌或已核对的传统事项规则是否触及当前事项，不证明事项必然成功，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
   '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
@@ -1196,6 +1196,27 @@ function buildDayFacts(params: {
   }
   if (avoidMatches.length) {
     cautions.push(`黄历忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}`);
+  }
+
+  // 《钦定协纪辨方书》卷十「上朔四离四绝晦日」：四离只不忌祭祀、解除等列项，余事皆忌；与德合并仍忌。
+  // 原始宜忌保留历法库原值，明确事项裁决另列事实，不把所有凶神一律用于分组。
+  if (params.topic !== 'custom' && params.gods.some((god) => god.getName() === '四离')) {
+    const text = `四离日：${ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    cautions.push(text);
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-four-separations`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '值日神煞事项规则',
+        status: '限制',
+        inputItems: ['四离'],
+        keywords: [ALMANAC_TOPIC_LABELS[params.topic]],
+        matchedItems: ['四离'],
+        promptText: text,
+        sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
+      }),
+    );
   }
 
   const godFacts = buildGodFacts(params.dateKey, params.gods);

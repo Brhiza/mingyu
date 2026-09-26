@@ -6,6 +6,47 @@ import {
   generateAlmanacSelection,
 } from 'mingyu-core/divination/almanac';
 
+test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证据', () => {
+  const result = generateAlmanacSelection({
+    topic: 'marriage',
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  });
+  const day = result.days[0];
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  const fourSeparations = day.topicMatchFacts?.find(
+    (fact) => fact.key === '2026-12-21:topic:rule-four-separations',
+  );
+
+  assert.ok(day.recommends.includes('嫁娶'));
+  assert.ok(day.gods.includes('四离'));
+  assert.ok(day.gods.includes('不将'));
+  assert.ok(fourSeparations);
+  assert.equal(fourSeparations.sourceType, '值日神煞事项规则');
+  assert.equal(fourSeparations.status, '限制');
+  assert.ok(fourSeparations.sources.some((source) => source.includes('协纪辨方书')));
+  assert.ok(candidate);
+  assert.deepEqual(candidate.rawTabooFact.recommends, day.recommends);
+  assert.equal(candidate.status, '慎用候选');
+  assert.ok(candidate.decisionFact.limitingFactKeys.includes(fourSeparations.key));
+  assert.ok(!candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:四离'));
+  assert.ok(candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:不将'));
+  assert.match(
+    candidate.decisionFact.steps.find((step) => step.stage === '事项命中')?.promptText ?? '',
+    /四离日：订婚结婚属本日避忌事项/,
+  );
+
+  const custom = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  });
+  assert.ok(custom.days[0].gods.includes('四离'));
+  assert.ok(
+    !custom.days[0].topicMatchFacts?.some((fact) => fact.sourceType === '值日神煞事项规则'),
+  );
+});
+
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
     topic: 'move',

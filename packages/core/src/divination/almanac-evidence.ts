@@ -65,7 +65,7 @@ export interface AlmanacCandidateDecisionFact {
   steps: AlmanacDecisionStep[];
   supportingFactKeys: string[];
   limitingFactKeys: string[];
-  /** 值日神煞作为背景资料登记，不参与当前候选分组裁决 */
+  /** 未命中明确事项规则的值日神煞作为背景资料登记 */
   backgroundGodFactKeys: string[];
   strongConstraintTexts: string[];
   promptText: string;
@@ -451,7 +451,7 @@ function getParticipantSupportTexts(
 function isStrongTopicConstraint(fact: AlmanacTopicMatchFact): boolean {
   return (
     fact.status === '限制' &&
-    /:topic:(?:day-avoids|day-general-constraint|rule-day-officer|rule-gods-constraint|day-officer-constraint)$/.test(
+    /:topic:(?:day-avoids|day-general-constraint|rule-day-officer|rule-gods-constraint|rule-four-separations|day-officer-constraint)$/.test(
       fact.key,
     )
   );
@@ -743,10 +743,18 @@ function buildCandidateDecisionFact(params: {
   strongConstraintTexts: string[];
   usableHours: AlmanacHourEvidence[];
 }): AlmanacCandidateDecisionFact {
-  // 值日神煞仅作背景登记（见 backgroundGodFactKeys），不计入分组依据；
-  // 分组依据只包含实际参与裁决的事项宜忌、参与人关系、可用时辰与传统限制。
+  // 只有另列明确事项规则的神煞参与分组，其他神煞仅作背景登记。
+  const appliedGods = new Set(
+    params.topicMatchFacts
+      .filter((item) => item.sourceType === '值日神煞事项规则')
+      .flatMap((item) => item.matchedItems),
+  );
   const backgroundGodFactKeys = params.godFacts
-    .filter((item) => item.classification === '吉神' || item.classification === '凶神')
+    .filter(
+      (item) =>
+        !appliedGods.has(item.name) &&
+        (item.classification === '吉神' || item.classification === '凶神'),
+    )
     .map((item) => item.key);
   const supportingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '支持').map((item) => item.key),
@@ -819,7 +827,7 @@ function buildCandidateDecisionFact(params: {
       result: `吉神${params.godFacts.filter((item) => item.classification === '吉神').length}项，凶神${params.godFacts.filter((item) => item.classification === '凶神').length}项，未分级${params.godFacts.filter((item) => item.classification === '未分级').length}项`,
       promptText: `${
         params.godFacts.map((item) => item.promptText).join('；') || '未列值日神煞'
-      }；值日神煞作为背景资料登记，不直接参与当前候选分组裁决`,
+      }；仅有明确事项规则的神煞参与当前候选分组，其余作为背景资料登记`,
       sources: unique(params.godFacts.flatMap((item) => item.sources)),
     },
     {
