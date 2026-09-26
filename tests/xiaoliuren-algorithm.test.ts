@@ -5,6 +5,7 @@ import {
   analyzeXiaoliurenEvidence,
   generateXiaoliuren,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
+import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'] as const;
@@ -152,6 +153,48 @@ test('小六壬：闰月沿用同名月序并显式标注口径', () => {
   assert.equal(leapMonth.isLeapMonth, true);
   assert.equal(leapMonth.sequence.month.name, regularMonth.sequence.month.name);
   assert.equal(leapMonth.calculation.leapMonthRule, '闰月沿用同名月序');
+});
+
+test('小六壬：全局时区变化不改变东八区农历日、时辰和闰月课位', () => {
+  const instants = [
+    new Date('2025-06-29T23:30:00+08:00'),
+    new Date('2025-06-30T00:30:00+08:00'),
+    new Date('2025-07-25T00:30:00+08:00'),
+  ];
+  const baseline = instants.map((customDate) => generateXiaoliuren({ customDate }));
+  const duonengBaseline = generateXiaoliuren({ rule: 'duoneng', customDate: instants[1] });
+  assert.equal(baseline[2]?.isLeapMonth, true);
+  TimeManager.setTimezoneOffsetMinutesOverride(0);
+  try {
+    for (const [index, customDate] of instants.entries()) {
+      const actual = generateXiaoliuren({ customDate });
+      const expected = baseline[index]!;
+      assert.deepEqual(
+        {
+          lunarMonth: actual.lunarMonth,
+          lunarDay: actual.lunarDay,
+          isLeapMonth: actual.isLeapMonth,
+          hourLabel: actual.hourLabel,
+          sequence: actual.sequence,
+          primary: actual.primary,
+        },
+        {
+          lunarMonth: expected.lunarMonth,
+          lunarDay: expected.lunarDay,
+          isLeapMonth: expected.isLeapMonth,
+          hourLabel: expected.hourLabel,
+          sequence: expected.sequence,
+          primary: expected.primary,
+        },
+      );
+      assert.equal(actual.calculation.dayBoundary, '东八区民用日零点换日');
+    }
+    const duonengActual = generateXiaoliuren({ rule: 'duoneng', customDate: instants[1] });
+    assert.equal(duonengActual.primary.name, duonengBaseline.primary.name);
+    assert.equal(duonengActual.calculation.hourNumber, duonengBaseline.calculation.hourNumber);
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
 });
 
 test('小六壬：只有时宫是主证，月宫和日宫必须标为计算轨迹', () => {

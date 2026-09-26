@@ -5,7 +5,6 @@ import {
   buildEnhancedBaziPromptPack,
   buildAstrolabeFullScopePromptText,
   getZiweiDisplaySurroundedPalaces,
-  buildZiweiMonthAnchorDate,
   findZiweiDayOptionDate,
   findZiweiDecadalIndexByDate,
   findZiweiMonthOptionDate,
@@ -81,14 +80,6 @@ test('parseZiweiDateParts 对非法日期返回 null', () => {
   assert.equal(parseZiweiDateParts('2201-01-01'), null);
 });
 
-test('buildZiweiMonthAnchorDate 返回月中日期', () => {
-  assert.equal(buildZiweiMonthAnchorDate('2024-05-13'), '2024-05-15');
-  assert.equal(buildZiweiMonthAnchorDate('2024-01-01'), '2024-01-15');
-  assert.equal(buildZiweiMonthAnchorDate('2101-02-28'), '2101-02-15');
-  assert.equal(buildZiweiMonthAnchorDate('invalid'), '');
-  assert.equal(buildZiweiMonthAnchorDate('2024-02-31'), '');
-});
-
 test('findZiweiDecadalIndexByDate 按日期范围查找大限索引', () => {
   const options = [
     { dateStr: '2000-01-01', label: '0-9' },
@@ -105,32 +96,52 @@ test('findZiweiDecadalIndexByDate 按日期范围查找大限索引', () => {
   assert.equal(findZiweiDecadalIndexByDate(options, '', 1), 1);
 });
 
-test('findZiweiYearOptionDate 按年份匹配', () => {
+test('findZiweiYearOptionDate 按取盘日期匹配流年', () => {
   const options = [
-    { year: 2022, dateStr: '2022-01-01' },
-    { year: 2023, dateStr: '2023-01-01' },
-    { year: 2024, dateStr: '2024-01-01' },
-    { year: 2101, dateStr: '2101-02-28' },
-  ];
+    { year: 2022, dateStr: '2022-01-01', endDateStr: '2022-12-31' },
+    { year: 2023, dateStr: '2023-01-01', endDateStr: '2023-12-31' },
+    { year: 2024, dateStr: '2024-01-01', endDateStr: '2024-12-31' },
+    { year: 2101, dateStr: '2101-02-28', endDateStr: '2101-12-31' },
+  ] as Parameters<typeof findZiweiYearOptionDate>[0];
 
   assert.equal(findZiweiYearOptionDate(options, '2023-06-15'), '2023-01-01');
   assert.equal(findZiweiYearOptionDate(options, '2101-05-15'), '2101-02-28');
   assert.equal(findZiweiYearOptionDate(options, 'invalid'), '2022-01-01');
   assert.equal(findZiweiYearOptionDate([], '2023-01-01'), '');
+
+  const springBoundaryOptions = [
+    { year: 1992, dateStr: '1992-02-03', endDateStr: '1992-02-03' },
+    { year: 1992, dateStr: '1992-02-04', endDateStr: '1993-01-22' },
+    { year: 1993, dateStr: '1993-01-23', endDateStr: '1994-02-09' },
+  ] as Parameters<typeof findZiweiYearOptionDate>[0];
+  assert.equal(findZiweiYearOptionDate(springBoundaryOptions, '1992-02-03'), '1992-02-03');
+  assert.equal(findZiweiYearOptionDate(springBoundaryOptions, '1992-02-04'), '1992-02-04');
+  assert.equal(findZiweiYearOptionDate(springBoundaryOptions, '1993-01-22'), '1992-02-04');
+  assert.equal(findZiweiYearOptionDate(springBoundaryOptions, '1993-01-23'), '1993-01-23');
+  assert.equal(findZiweiYearOptionDate(springBoundaryOptions, '1995-01-01'), '1992-02-03');
 });
 
-test('findZiweiMonthOptionDate 按年月匹配', () => {
+test('findZiweiMonthOptionDate 按实际流月起日匹配', () => {
   const options = [
-    { dateStr: '2023-01-01', label: '1月' },
-    { dateStr: '2023-05-01', label: '5月' },
-    { dateStr: '2024-03-01', label: '3月' },
-    { dateStr: '2101-02-15', label: '2月' },
+    { dateStr: '2023-01-01', endDateStr: '2023-04-30', label: '1月' },
+    { dateStr: '2023-05-01', endDateStr: '2023-05-31', label: '5月' },
+    { dateStr: '2024-03-01', endDateStr: '2024-03-31', label: '3月' },
+    { dateStr: '2101-02-15', endDateStr: '2101-02-28', label: '2月' },
   ] as Parameters<typeof findZiweiMonthOptionDate>[0];
 
   assert.equal(findZiweiMonthOptionDate(options, '2023-05-15'), '2023-05-01');
   assert.equal(findZiweiMonthOptionDate(options, '2024-03-10'), '2024-03-01');
   assert.equal(findZiweiMonthOptionDate(options, '2101-02-28'), '2101-02-15');
   assert.equal(findZiweiMonthOptionDate(options, 'invalid'), '2023-01-01');
+
+  const sameCivilMonthOptions = [
+    { dateStr: '2026-02-04', endDateStr: '2026-02-16', label: '上年12月末' },
+    { dateStr: '2026-02-17', endDateStr: '2026-03-18', label: '1月' },
+    { dateStr: '2026-03-19', endDateStr: '2026-04-16', label: '2月' },
+  ] as Parameters<typeof findZiweiMonthOptionDate>[0];
+  assert.equal(findZiweiMonthOptionDate(sameCivilMonthOptions, '2026-02-16'), '2026-02-04');
+  assert.equal(findZiweiMonthOptionDate(sameCivilMonthOptions, '2026-02-17'), '2026-02-17');
+  assert.equal(findZiweiMonthOptionDate(sameCivilMonthOptions, '2026-03-18'), '2026-02-17');
 });
 
 test('findZiweiDayOptionDate 按日匹配', () => {

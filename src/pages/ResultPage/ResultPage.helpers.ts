@@ -703,15 +703,6 @@ function daysInZiweiScopeMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-export function buildZiweiMonthAnchorDate(dateStr: string) {
-  const parts = parseZiweiDateParts(dateStr);
-  if (!parts) {
-    return '';
-  }
-
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}-15`;
-}
-
 export function findZiweiDecadalIndexByDate(
   decadalOptions: DecadalTimelineOption[],
   dateStr: string,
@@ -732,27 +723,24 @@ export function findZiweiDecadalIndexByDate(
 }
 
 export function findZiweiYearOptionDate(yearOptions: ZiweiYearOption[], dateStr: string) {
-  const parts = parseZiweiDateParts(dateStr);
-  if (!parts) {
+  if (!parseZiweiDateParts(dateStr)) {
     return yearOptions[0]?.dateStr ?? '';
   }
 
   return (
-    yearOptions.find((item) => item.year === parts.year)?.dateStr ?? yearOptions[0]?.dateStr ?? ''
+    yearOptions.find((item) => item.dateStr <= dateStr && dateStr <= item.endDateStr)?.dateStr ??
+    yearOptions[0]?.dateStr ??
+    ''
   );
 }
 
 export function findZiweiMonthOptionDate(monthOptions: ZiweiMonthOption[], dateStr: string) {
-  const parts = parseZiweiDateParts(dateStr);
-  if (!parts) {
+  if (!parseZiweiDateParts(dateStr)) {
     return monthOptions[0]?.dateStr ?? '';
   }
 
   return (
-    monthOptions.find((item) => {
-      const optionParts = parseZiweiDateParts(item.dateStr);
-      return optionParts?.year === parts.year && optionParts?.month === parts.month;
-    })?.dateStr ??
+    monthOptions.find((item) => item.dateStr <= dateStr && dateStr <= item.endDateStr)?.dateStr ??
     monthOptions[0]?.dateStr ??
     ''
   );

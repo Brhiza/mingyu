@@ -103,8 +103,11 @@ test('npm 紫微运限便捷入口应一次生成流年、流月和流日选项'
   assert.equal(options.yearOptions.length, 1);
   assert.equal(options.yearOptions[0]?.age, 1);
   assert.equal(options.yearOptions[0]?.ganZhi.length, 2);
-  assert.equal(options.monthOptions.length, 12);
-  assert.equal(options.dayOptions.length, 31);
+  assert.equal(options.monthOptions.length, 9);
+  assert.equal(options.monthOptions[0]?.dateStr, '1990-05-15');
+  assert.equal(options.monthOptions[0]?.endDateStr, '1990-05-23');
+  assert.equal(options.dayOptions.length, 9);
+  assert.equal(options.dayOptions.at(-1)?.dateStr, '1990-05-23');
   assert.equal(options.effectiveYearDateStr, options.yearOptions[0]?.dateStr);
   assert.equal(options.effectiveMonthDateStr, options.monthOptions[0]?.dateStr);
 });

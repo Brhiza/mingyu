@@ -11,6 +11,7 @@ import type {
   XiaoliurenRule,
 } from '../../types/divination';
 import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUtils';
+import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../calendar/civil-time';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
@@ -111,10 +112,13 @@ export function generateXiaoliuren(params?: {
     throw new Error('小六壬当前仅保留有明确顺数规则的时间起课。');
   }
 
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(params?.customDate);
+  const { ganzhi, timeInfo, timestamp } = getDivinationTime(
+    params?.customDate,
+    DEFAULT_CHINA_TIMEZONE_HOURS * 60,
+  );
   const lunarMonth = timeInfo.lunar.monthNumber;
   const lunarDay = timeInfo.lunar.dayNumber;
-  const isLeapMonth = timeInfo.lunar.monthInChinese.startsWith('闰');
+  const isLeapMonth = timeInfo.lunar.isLeapMonth;
   const clockHourIndex = getTimeIndexFromClock(timeInfo.solar.hour, timeInfo.solar.minute);
   const shichen = getShichenByIndex(clockHourIndex);
   if (!shichen) {

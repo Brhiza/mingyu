@@ -346,7 +346,7 @@ export function buildHuangjiJingshiPrompt(
         ? '具体时点以冬至换年，每个节气按十五个皇极日定位，超过十五日的尾段归第十五日；值年卦每六十日变一爻得月经卦，月经卦每十日变一爻得旬纬卦，日卦从月经卦依六十卦序逐日顺行，日卦自子半起每四小时变一爻得时经卦。'
         : '';
     const prompt = [
-      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeBasis}`,
+      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(position.yuan.startYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeBasis}`,
       [
         '【排盘资料】',
         ...dateTimeLines,
@@ -603,7 +603,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
     },
     calculationChain: forecast
       ? [
-          `${formatHuangjiCivilYear(normalized.year)}距本元起点已过${elapsed}年，位于第${huiIndex}会（${forecast.hui.branch}会）`,
+          `${formatHuangjiCivilYear(normalized.year)}距本元起点已过${offsetInYuan}年，位于第${huiIndex}会（${forecast.hui.branch}会）`,
           `${forecast.hexagrams.governing.hexagram.shortName}统卦第${forecast.hexagrams.yun.changedLine}爻变为${forecast.hexagrams.yun.hexagram.shortName}运卦`,
           `${forecast.hexagrams.yun.hexagram.shortName}运卦第${forecast.hexagrams.sixtyYear.changedLine}爻变为${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦`,
           `${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦第${forecast.hexagrams.decade.changedLine}爻变为${forecast.hexagrams.decade.hexagram.shortName}十年卦；本年轮值${forecast.hexagrams.annual.shortName}卦`,
