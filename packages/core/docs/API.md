@@ -149,6 +149,8 @@
 | `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)`                               | 太阳时、性别、日干、十神函数             | `XiaoYunProfile`            | 小运（童限逐年干支）                                |
 | `buildLuckDirectionProfile(gender, yearStem)`                                                       | 性别、年干                               | `LuckDirectionProfile`      | 大运顺逆方向                                        |
 
+`TenGodLifeStageProfile.items` 的 `evidence` 按天干列出出现次数、来源位置，以及年、月、日、时四支的长生阶段与旺弱评分。相同天干只计算一次四支评分，出现次数另行统计；自定义十神函数将多个天干归为同一项时，`stem` 以顿号连接，`evidence` 保留各干明细。
+
 ---
 
 ## 六爻 Liuyao
