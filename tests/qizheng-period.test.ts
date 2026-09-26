@@ -339,7 +339,5 @@ test('圣地亚哥午夜跳时日从首个真实时刻扫描至次日零时', ()
   assert.equal(period.endDateTime, '2024-09-09 00:00');
   const startUtc = Date.UTC(2024, 8, 8, 4);
   const endUtc = Date.UTC(2024, 8, 9, 3);
-  assert.ok(
-    period.events.every((event) => event.utcMs >= startUtc && event.utcMs <= endUtc),
-  );
+  assert.ok(period.events.every((event) => event.utcMs >= startUtc && event.utcMs < endUtc));
 });

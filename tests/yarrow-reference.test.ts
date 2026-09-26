@@ -46,6 +46,22 @@ test('蓍草支持种子与分堆重放并拒绝非法记录', () => {
   assert.throws(() => generateYarrow({ splits, seed: 1 }), /同时/);
 });
 
+test('蓍草保留拒绝采样后的完整轨迹并拒绝多余样本', () => {
+  const date = new Date('2026-09-06T12:00:00+08:00');
+  // 第一变分堆有十二个候选，接近 1 的样本会触发无偏抽样的重抽。
+  const samples = [0, 1 - Number.EPSILON, ...Array<number>(35).fill(0)];
+  const result = generateLiuyao(date, { method: 'yarrow', replay: samples });
+  const accepted = generateLiuyao(date, { method: 'yarrow', replay: Array<number>(36).fill(0) });
+  assert.deepEqual(result.meta!.random!.samples, samples);
+  assert.deepEqual(result.generation, accepted.generation);
+  assert.deepEqual(result.yaoArray, accepted.yaoArray);
+  assert.doesNotThrow(() => analyzeLiuyaoEvidence(result));
+
+  const extra = structuredClone(result);
+  extra.meta!.random!.samples.push(0);
+  assert.throws(() => analyzeLiuyaoEvidence(extra), /不一致/);
+});
+
 test('蓍草六爻排盘保留来源并核验过程与随机样本', () => {
   const date = new Date(2026, 8, 6, 12);
   const result = generateLiuyao(date, { method: 'yarrow', seed: '十八变' });

@@ -1479,7 +1479,7 @@ export function analyzeLiuyaoEvidence(
   if (generationMethod === 'yarrow' && randomFact.status === '可重放') {
     const replayed = generateYarrow({ replay: randomFact.samples });
     if (
-      randomFact.samples.length !== 36 ||
+      replayed.randomTrace?.samples.length !== randomFact.samples.length ||
       !equalYarrowLines(replayed.lines, generationFact.yarrow?.lines)
     ) {
       throw new Error('蓍草随机轨迹与分堆记录不一致。');
