@@ -6597,11 +6597,24 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.equal(body.data.result.xuankong.flowStars.monthPlate.month, 2);
   assert.equal(body.data.result.xuankong.flowStars.monthPlate.day, 10);
   for (const palace of body.data.result.bazhai.mingPalace) {
-    const line = body.data.prompt
-      .split('\n')
-      .find((item: string) => item.trim().startsWith(palace.gua) && item.includes('：飞星运'));
-    assert.ok(line?.endsWith(`；命卦${palace.direction}${palace.label}`));
+    assert.ok(body.data.prompt.includes(`${palace.direction}${palace.label}（${palace.luck}`));
   }
+  for (const palace of body.data.result.xuankong.palaces) {
+    const lines = body.data.prompt
+      .split('\n')
+      .filter((item: string) => item.startsWith(`${palace.name}（${palace.direction}）：`));
+    assert.equal(lines.length, 1);
+    for (const [label, star] of [
+      ['运', palace.yunStar],
+      ['山', palace.shanStar],
+      ['向', palace.xiangStar],
+      ['年', palace.yearStar],
+      ['月', palace.monthStar],
+    ]) {
+      assert.ok(lines[0].includes(`${label}${star}（`));
+    }
+  }
+  assert.doesNotMatch(body.data.prompt, /方位合参：/);
   assert.match(body.data.prompt, /【住宅风水排盘】/);
   assert.match(body.data.prompt, /【传统依据】/);
   assert.match(body.data.prompt, /流年飞星/);
