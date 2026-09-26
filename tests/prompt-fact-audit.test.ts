@@ -24,6 +24,21 @@ const facts: PromptFactExpectation[] = [
 ];
 const prompt = '【本人】\n年柱：甲子\n月柱：乙丑\n【对方】\n年柱：乙丑';
 
+test('住宅事实审查从输入摘要读取坐向与宅运年份', () => {
+  const residentialFacts = extractDivinationPromptFacts('residential', {
+    inputSummary: { orientationText: '坐子向午', houseYear: 2024 },
+  });
+  assert.deepEqual(
+    residentialFacts.map((item) => item.id),
+    ['residential.orientation', 'residential.house-year'],
+  );
+  const chart = '山向：坐子向午\n宅运年份：2024';
+  assert.equal(auditPromptFacts(chart, residentialFacts).present, 2);
+  assert.deepEqual(auditPromptFacts(chart.replace('2024', '2023'), residentialFacts).missing, [
+    'residential.house-year',
+  ]);
+});
+
 test('梅花事实审查在结果阶段核对变后体用与生克归属', () => {
   const changedFacts = extractDivinationPromptFacts('meihua', {
     changedName: '天火同人',

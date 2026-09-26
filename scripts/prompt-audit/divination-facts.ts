@@ -1059,22 +1059,10 @@ function extractResidentialFacts(data: unknown): DivinationPromptFact[] {
   if (!d) return [];
   const bazhai = record(d.bazhai);
   const xuankong = record(d.xuankong);
-  const xuankongPeriod = record(xuankong?.period);
-  const dao = record(xuankong?.daoShanXiang);
+  const input = record(d.inputSummary);
   return collect([
-    fact('residential.orientation', '山向：', [d.orientationText]),
-    fact('residential.house-year', '宅运年份：', [d.houseYear]),
-    fact('residential.xuankong-summary', '玄空：', [
-      xuankongPeriod?.label,
-      xuankong?.sitMountain && xuankong?.facingMountain
-        ? `坐${text(xuankong.sitMountain)}向${text(xuankong.facingMountain)}`
-        : undefined,
-      xuankong?.guaType,
-      dao?.summary,
-    ]),
-    bazhai
-      ? fact('residential.bazhai-summary', '八宅：', [bazhai.mingGua, bazhai.mingGroup])
-      : null,
+    fact('residential.orientation', '山向：', [input?.orientationText]),
+    fact('residential.house-year', '宅运年份：', [input?.houseYear]),
     ...(xuankong
       ? extractXuanKongFacts(xuankong).map((item) => ({ ...item, id: `residential.${item.id}` }))
       : []),
