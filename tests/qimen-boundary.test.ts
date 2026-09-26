@@ -11,7 +11,7 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-relations.ts';
 import {
   evaluateSingleStar,
-  getZhiFuStarJudgement,
+  getZhiFuStarPalaceFact,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace.ts';
 import {
   getDayOfficerInfo,
@@ -152,14 +152,42 @@ test('奇门门星神关系应返回逐项关系与计数，不展示综合评�
   assert.match(result.description, /不能压缩成单一吉凶结论/);
 });
 
-test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默认休囚', () => {
-  assert.equal(evaluateSingleStar('天蓬', 1, '水').state, '旺');
+test('奇门九星与落宫五行关系独立于月令旺衰', () => {
+  assert.deepEqual(
+    [
+      evaluateSingleStar('天蓬', 1, '水'),
+      evaluateSingleStar('天芮', 5, '土'),
+      evaluateSingleStar('天蓬', 6, '金'),
+      evaluateSingleStar('天蓬', 3, '木'),
+      evaluateSingleStar('天蓬', 9, '火'),
+      evaluateSingleStar('天蓬', 2, '土'),
+    ].map(({ relation, atOriginalPalace }) => [relation, atOriginalPalace]),
+    [
+      ['星宫比和', true],
+      ['星宫比和', false],
+      ['宫生星', false],
+      ['星生宫', false],
+      ['星克宫', false],
+      ['宫克星', false],
+    ],
+  );
+  const value = getZhiFuStarPalaceFact({
+    zhiFu: '天蓬',
+    jiuGongGe: [{ gong: 1, element: '水', tianPan: { star: '天蓬' } }],
+  });
+  assert.equal(value.detail, '天蓬落1宫，星宫比和，归本宫');
+  assert.equal('state' in value, false);
+  assert.equal('score' in value, false);
+  assert.equal('specialJudgement' in value, false);
+});
+
+test('奇门九星关系：未知星或非法宫位应明确报错', () => {
   assert.throws(() => evaluateSingleStar('假星', 1, '水'), /九星 "假星" 无法识别/);
   assert.throws(() => evaluateSingleStar('天蓬', 10, '水'), /宫位 "10" 无效/);
   assert.throws(() => evaluateSingleStar('天蓬', 1, '风'), /宫位五行 "风" 无法识别/);
   assert.throws(
     () =>
-      getZhiFuStarJudgement({
+      getZhiFuStarPalaceFact({
         zhiFu: '天英',
         jiuGongGe: [{ gong: 1, element: '水', tianPan: { star: '天蓬' } }],
       }),
