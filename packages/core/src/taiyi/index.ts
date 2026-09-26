@@ -771,7 +771,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
     `大局攻守：${formatTaiyiTacticBasis({ lordCount, guestCount, lordNature, guestNature })}。`,
-    `门将阴阳和：${conditionSummary}${conditions.threeGates.blockedRoles.length ? `主门具涉及${conditions.threeGates.blockedRoles.join('、')}。` : ''}`,
+    `门将阴阳和：${conditionSummary}主门具按太乙与文昌（主目）判定，始击（客目）门位另列。${conditions.threeGates.blockedRoles.length ? `主门具涉及${conditions.threeGates.blockedRoles.join('、')}。` : ''}`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `十六神：${sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}。`,
     ...(() => {
