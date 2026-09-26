@@ -56,6 +56,15 @@ test('太乙任务书的门将条件只呈现一次并保留独立判断', () =>
     for (const role of conditions.threeGates.blockedRoles) {
       assert.ok(result.prompt.includes(role));
     }
+    const withoutNatures = formatTaiyiInfo({ ...result, countNatures: undefined });
+    for (const judgment of result.judgments.filter((item) =>
+      /^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+    )) {
+      assert.ok(withoutNatures.includes(judgment));
+    }
+    if (result.countNatures?.set) {
+      assert.ok(enhanced.includes(`定算${result.setCount}（${result.countNatures.set}）`));
+    }
     assert.match(result.tacticGuidance, /盘面条件：/);
   }
 });

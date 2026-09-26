@@ -603,7 +603,9 @@ function formatMeihuaInfo(data: MeihuaData) {
   const facts = formatMeihuaFacts(data);
   const hasCalculationFact = facts.some((fact) => fact.startsWith('起卦取数：'));
   const stages = data.evidenceAnalysis?.stages ?? [];
-  const hasOriginStage = stages.some((stage) => stage.stage === 'origin');
+  const hasOriginStage = stages.some(
+    (stage) => stage.stage === 'origin' && stage.status === '已计算',
+  );
   const hasResultStage = stages.some(
     (stage) => stage.stage === 'result' && stage.status === '已计算',
   );
@@ -1177,8 +1179,15 @@ export function formatTaiyiTradition(data: TaiyiResult) {
 export function formatTaiyiInfo(data: TaiyiResult) {
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
   const conditionSummary = data.conditions ? formatTaiyiConditionSummary(data.conditions) : '';
+  const repeatedCountJudgments = new Set(
+    [
+      data.countNatures?.lord ? `主算 ${data.lordCount} 为${data.countNatures.lord}。` : '',
+      data.countNatures?.guest ? `客算 ${data.guestCount} 为${data.countNatures.guest}。` : '',
+      data.countNatures?.set ? `定算 ${data.setCount} 为${data.countNatures.set}。` : '',
+    ].filter(Boolean),
+  );
   const specialJudgments = data.judgments.filter(
-    (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item) && item !== conditionSummary,
+    (item) => !repeatedCountJudgments.has(item) && item !== conditionSummary,
   );
   const sixteenGods = data.sixteenGods?.length
     ? `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`
@@ -1209,7 +1218,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `起局时间：${data.dateTime}；本计干支：${data.ganZhi}；${data.yinYang}第${data.bureau}局`,
     `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
     `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
-    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
+    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}${data.countNatures?.set ? `（${data.countNatures.set}）` : ''}`,
     `大局攻守：${formatTaiyiTacticBasis({ lordCount: data.lordCount, guestCount: data.guestCount, lordNature: data.countNatures?.lord, guestNature: data.countNatures?.guest })}`,
     `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
     sixteenGods,
