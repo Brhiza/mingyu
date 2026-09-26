@@ -141,7 +141,7 @@
 | `analyzeKongWangProfile(pillars, dayMasterStem)`                                                    | 四柱、日干                               | `KongWangProfile`           | 空亡全分析                                          |
 | `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)`                                      | 四柱、日干、五行函数、十神函数           | `TombStorageProfile`        | 辰戌丑未墓库分析                                    |
 | `analyzeLifeStageProfile(pillars)`                                                                  | 四柱                                     | `LifeStageItem[]`           | 各柱十二长生                                        |
-| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 十神在十二长生的旺弱分布                            |
+| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 十神旺弱分布及按天干记录的来源、四柱支位证据          |
 | `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 用神落点（喜神得力/受制/忌神等）                    |
 | `analyzeNayinProfile(pillars)`                                                                      | 四柱                                     | `NayinProfile`              | 各柱纳音五行                                        |
 | `analyzeMonthQiProfile(monthBranch, commanderStem?)`                                                | 月支、司令                               | `MonthQiProfile`            | 月令气数（五行旺相休囚死）                          |
