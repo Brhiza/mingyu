@@ -224,10 +224,10 @@ test('奇门十干格局应正常返回合法组合并拒绝非法输入', () =>
   assert.throws(() => getNamedStemPairPattern('A', '癸'), /合法十天干/);
 });
 
-test('奇门应期必须有明确基准宫并校验宫位与日干', () => {
+test('奇门应期必须有明确基准宫并校验宫位', () => {
   assert.throws(() => estimateYingQi([]), /必须提供用神落宫/);
   assert.throws(() => estimateYingQi([], 0), /用神落宫必须是 1-9/);
-  assert.throws(() => estimateYingQi([], 1, { dayGanZhi: 'A子' }), /无法识别日干/);
+  assert.throws(() => estimateYingQi([{ gong: 10 }], 1), /九宫格宫位必须是 1-9/);
 });
 
 test('奇门定局方法应支持拆补与置闰，并在结果中标明', () => {
