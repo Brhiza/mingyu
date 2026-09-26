@@ -20,6 +20,8 @@ function makePalace(index: number, name: string, mutagen?: string) {
     minor_stars: [],
     other_stars: [],
     self_mutagens: mutagen ? [mutagen] : [],
+    scope_hits: [],
+    summary_tags: [],
   };
 }
 
