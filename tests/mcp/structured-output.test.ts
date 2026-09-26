@@ -366,7 +366,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       flowDay: 10,
       question: '这套房怎么看？',
     },
-    /【住宅风水排盘】[\s\S]*八宅：[\s\S]*【问题】\n这套房怎么看？/,
+    /【住宅风水排盘】[\s\S]*八宅完整盘面：[\s\S]*命卦：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
     'xuankong_prompt',

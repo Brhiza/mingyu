@@ -370,31 +370,15 @@ function buildPrompt(result: {
       .trim();
   const lines = [
     '【住宅风水排盘】',
-    `山向：${result.orientationText}`,
+    result.xuankong ? '' : `山向：${result.orientationText}`,
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
-    result.xuankong
-      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
-      : result.bazhai
-        ? result.xuankongStatus === '缺少建造年或起运年'
-          ? '玄空：未排盘（缺少建造年或起运年）'
-          : '玄空：未排盘'
-        : '',
-    result.bazhai
-      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}）${result.bazhai.houseGua ? `，宅卦${result.bazhai.houseGua}，命宅关系${result.bazhai.match}` : ''}`
+    !result.xuankong && result.bazhai
+      ? result.xuankongStatus === '缺少建造年或起运年'
+        ? '玄空：未排盘（缺少建造年或起运年）'
+        : '玄空：未排盘'
       : '',
     result.xuankong ? `玄空完整盘面：\n${stripHeading(result.xuankong.prompt)}` : '',
     result.bazhai ? `八宅完整盘面：\n${stripHeading(result.bazhai.prompt)}` : '',
-    result.bazhai?.mingPalace?.length && result.xuankong?.palaces?.length
-      ? [
-          '方位合参：',
-          ...result.xuankong.palaces.map((palace) => {
-            const mansion = result.bazhai?.mingPalace.find(
-              (item) => palace.direction.replace(/宫$/u, '') === item.direction.replace(/方$/u, ''),
-            );
-            return `  ${palace.name}${palace.direction}：飞星运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${palace.yearStar !== undefined ? `年${palace.yearStar}` : ''}${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}${mansion ? `；命卦${mansion.direction}${mansion.label}` : ''}`;
-          }),
-        ].join('\n')
-      : '',
   ];
   return lines.filter(Boolean).join('\n');
 }
