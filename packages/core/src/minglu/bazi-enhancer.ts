@@ -918,7 +918,7 @@ export function buildEnhancedPatternUsefulGodSection(
       ? {
           title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）`,
           source: ditiansuiRaw.sourceBook || '《滴天髓》干支论性',
-          summary: `${classicPrefix}【十干一般释义（现代概括，非原典逐字内容；仅按日干固定索引，未结合本盘旺衰、合化与岁运，不能视为当前行运判断）】${ditiansuiRaw.modernAdvice}`,
+          summary: `十干体象与性情概括：${ditiansuiRaw.nature}`,
           quotes: [ditiansuiRaw.verse],
         }
       : undefined,

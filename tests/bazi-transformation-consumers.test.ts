@@ -8,6 +8,7 @@ import {
   buildBaziCompatibilityPrompt,
   formatBaziPatternConditions,
 } from '../packages/core/src/prompt/bazi.ts';
+import { getBaziDitiansuiAdvice } from '../packages/core/src/classics/index.ts';
 import { formatBaziSchoolPrompt } from '../packages/core/src/prompt/bazi-school.ts';
 import {
   buildBeginnerGuide,
@@ -99,10 +100,9 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
   assert.match(section.pattern.formationAnalysis, /取用主体：化神木/);
   assert.equal(section.usefulGods.transformation?.element, '木');
   assert.match(section.usefulGods.reasoning, /化神取用：/);
-  assert.match(section.ditiansuiAdvice?.summary ?? '', /现代概括，非原典逐字内容/);
-  assert.match(
+  assert.equal(
     section.ditiansuiAdvice?.summary ?? '',
-    /仅按日干固定索引，未结合本盘旺衰、合化与岁运，不能视为当前行运判断/,
+    `十干体象与性情概括：${getBaziDitiansuiAdvice('癸')?.nature}`,
   );
   assert.match(
     [
