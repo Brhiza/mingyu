@@ -668,7 +668,7 @@ function formatMeihuaInfo(data: MeihuaData) {
       ? `主卦体用月令条件：${data.analysis.tiYongSeasonEvaluation}`
       : '',
     data.analysis.timelineTrend
-      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；盘内关系走势${data.analysis.timelineTrend.trend}，结合所问事项核验` : ''}`
+      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；盘内关系走势${data.analysis.timelineTrend.trend}` : ''}；体用强弱与应期合参主互变、所问事项及现实进展`
       : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
     yingQiText,

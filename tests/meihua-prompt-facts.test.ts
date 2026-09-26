@@ -41,9 +41,9 @@ test('梅花完整提示词保留主互变逐阶段体用旺衰与制约条件',
 
 test('梅花主卦生体而变卦克体时保留条件，不把旺衰写成吉凶或固定快慢', () => {
   const settings = { method: 'number' as const, number: 1 };
-  for (const [date, state] of [
-    ['2025-06-18', '死'],
-    ['2025-08-18', '旺'],
+  for (const [date, state, speed, strength] of [
+    ['2025-06-18', '死', '偏缓', '较强'],
+    ['2025-08-18', '旺', '偏快', '较弱'],
   ]) {
     const data = generateMeihua(new Date(`${date}T10:30:00+08:00`), settings);
     const prompt = buildDivinationPrompt('meihua', '请分析后续进展。', data, {
@@ -55,15 +55,12 @@ test('梅花主卦生体而变卦克体时保留条件，不把旺衰写成吉�
     assert.equal(data.analysis.tiYongRaw, '用生体');
     assert.equal(data.analysis.changedTiYongRelation, '用克体');
     assert.equal(data.analysis.tiSeasonState, state);
-    assert.match(data.analysis.tiYongSeasonEvaluation ?? '', /结合互变与现实条件核验生扶能否应事/u);
-    assert.ok(
-      data.analysis.yingQi?.includes(
-        `体卦月令${state}，作为相对快慢的参考，结合互变与现实进展核验`,
-      ),
-    );
+    assert.ok(data.analysis.tiYongSeasonEvaluation?.includes(`生体条件${strength}`));
+    assert.ok(data.analysis.yingQi?.includes(`体卦月令${state}，可作应期${speed}的盘内参考`));
     assert.match(prompt, /主卦体用月令条件：主卦用生体/u);
     assert.match(prompt, /变后体用用克体/u);
-    assert.match(prompt, /盘内关系走势先顺后阻，结合所问事项核验/u);
+    assert.match(prompt, /盘内关系走势先顺后阻；体用强弱与应期合参主互变、所问事项及现实进展/u);
+    assert.equal(prompt.split('体用强弱与应期合参主互变').length - 1, 1);
     assert.doesNotMatch(prompt, /贵人相助，大吉之象|应期迟缓|应期快于常规|体用吉凶实效/u);
   }
 });
@@ -81,11 +78,30 @@ test('梅花各类体用关系的月令描述保持盘面条件', () => {
       number,
     });
     assert.equal(data.analysis.tiYongRaw, relation);
-    assert.match(data.analysis.tiYongSeasonEvaluation ?? '', /结合互变与现实条件核验/u);
+    assert.ok(
+      data.analysis.tiYongSeasonEvaluation?.includes(
+        relation === '比和' ? '体用同五行' : `主卦${relation}`,
+      ),
+    );
     assert.doesNotMatch(
       data.analysis.tiYongSeasonEvaluation ?? '',
       /有惊无险|受制受损|诸事受阻|胜任其事|贵人相助|大吉之象|亦可受益|破耗消耗/u,
     );
+  }
+});
+
+test('梅花用克体保留体旺用衰与用旺体衰的局部强弱差异', () => {
+  for (const [date, expected] of [
+    ['2025-05-18', '体旺用衰，克体条件较轻'],
+    ['2025-02-18', '用旺体衰，克体条件较重'],
+  ]) {
+    const data = generateMeihua(new Date(`${date}T10:30:00+08:00`), {
+      method: 'number',
+      number: 7,
+    });
+    assert.equal(data.analysis.tiYongRaw, '用克体');
+    assert.ok(data.analysis.tiYongSeasonEvaluation?.includes(expected));
+    assert.doesNotMatch(data.analysis.tiYongSeasonEvaluation ?? '', /有惊无险|受制受损/u);
   }
 });
 

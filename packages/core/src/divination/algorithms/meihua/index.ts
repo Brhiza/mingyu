@@ -79,21 +79,29 @@ function getMeihuaTiYongSeasonEvaluation(
   tiSeason: string,
   yongSeason: string,
 ): string {
+  const isTiStrong = tiSeason === '旺' || tiSeason === '相';
+  const isYongStrong = yongSeason === '旺' || yongSeason === '相';
   const seasonContext = `体卦月令${tiSeason}、用卦月令${yongSeason}`;
 
   switch (relation) {
     case '用克体':
-      return `主卦用克体，${seasonContext}；结合互变与现实条件核验克体影响`;
+      if (isTiStrong && !isYongStrong) {
+        return `主卦用克体，${seasonContext}；体旺用衰，克体条件较轻`;
+      }
+      if (!isTiStrong && isYongStrong) {
+        return `主卦用克体，${seasonContext}；用旺体衰，克体条件较重`;
+      }
+      return `主卦用克体，${seasonContext}`;
     case '体克用':
-      return `主卦体克用，${seasonContext}；结合互变与现实条件核验制约与投入`;
+      return `主卦体克用，${seasonContext}；体卦${isTiStrong ? '旺相，制用条件较强' : '休囚死，制用条件较弱'}`;
     case '用生体':
-      return `主卦用生体，${seasonContext}；结合互变与现实条件核验生扶能否应事`;
+      return `主卦用生体，${seasonContext}；用卦${isYongStrong ? '旺相，生体条件较强' : '休囚死，生体条件较弱'}`;
     case '体生用':
-      return `主卦体生用，${seasonContext}；结合互变与现实条件核验投入与消耗`;
+      return `主卦体生用，${seasonContext}；体卦向用卦泄气`;
     case '比和':
-      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}，实际助力结合互变与现实条件核验`;
+      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}`;
     default:
-      return `主卦体用关系未定，${seasonContext}；结合卦象与现实条件核验`;
+      return `主卦体用关系未定，${seasonContext}`;
   }
 }
 
@@ -228,9 +236,11 @@ function estimateYingQi(params: {
     periods.push('体克用，体卦能够制约事项，但须核验投入和消耗是否可承受');
   }
 
-  // 4. 旺衰只作为相对迟速条件，不能脱离互变与现实进展定断。
-  if (seasonState !== '平') {
-    periods.push(`体卦月令${seasonState}，作为相对快慢的参考，结合互变与现实进展核验`);
+  // 4. 旺衰提供相对迟速条件，须与体用生克、互变共同判断。
+  if (seasonState === '旺' || seasonState === '相') {
+    periods.push(`体卦月令${seasonState}，可作应期偏快的盘内参考`);
+  } else if (seasonState === '休' || seasonState === '囚' || seasonState === '死') {
+    periods.push(`体卦月令${seasonState}，可作应期偏缓的盘内参考`);
   }
 
   return periods;
