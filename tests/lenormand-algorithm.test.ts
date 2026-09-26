@@ -218,6 +218,7 @@ test('雷诺曼手工录入应按牌位成盘，并将随机轨迹标为不适�
 
 test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
   for (const [firstName, secondName] of [
+    ['骑士', '心'],
     ['月亮', '太阳'],
     ['星星', '月亮'],
     ['锚', '星星'],
@@ -226,12 +227,14 @@ test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
     const first = LENORMAND_CARDS.find((card) => card.name === firstName);
     const second = LENORMAND_CARDS.find((card) => card.name === secondName);
     assert.ok(first && second);
+    const thirdId = [1, 2, 3].find((id) => id !== first.id && id !== second.id);
+    assert.ok(thirdId);
 
     const forward = drawLenormandSpread('three', {
-      manualCardIds: [first.id, second.id, 1],
+      manualCardIds: [first.id, second.id, thirdId],
     });
     const reverse = drawLenormandSpread('three', {
-      manualCardIds: [second.id, first.id, 1],
+      manualCardIds: [second.id, first.id, thirdId],
     });
 
     assert.equal(forward.combinations?.[0].source, '固定组合');
@@ -258,6 +261,9 @@ test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
     reverseMoonSun.evidenceAnalysis?.promptText ?? '',
     /从迷茫走向清晰|信息由模糊转向清晰的线索/,
   );
+
+  const reverseRiderHeart = drawLenormandSpread('three', { manualCardIds: [24, 1, 2] });
+  assert.doesNotMatch(reverseRiderHeart.evidenceAnalysis?.promptText ?? '', /消息带来感情进展/);
 
   const reversible = drawLenormandSpread('three', { manualCardIds: [25, 24, 1] });
   assert.equal(reversible.combinations?.[0].source, '固定组合');

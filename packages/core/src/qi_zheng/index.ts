@@ -21,7 +21,7 @@
 import * as AstronomyEngine from 'astronomy-engine';
 import type { Body } from 'astronomy-engine';
 import { SevenStar, SolarTerm, SolarTime, TwentyEightStar } from 'tyme4ts';
-import { getCivilDateTimeAtFixedOffset, resolveCivilTime } from '../calendar/civil-time';
+import { getCivilDateTimeAtFixedOffset, resolveCivilDayStart } from '../calendar/civil-time';
 import { createUtcTimestamp, daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
 import { getHistoricalTimezoneOffsetAt } from '../calendar/historical-timezone';
@@ -1911,13 +1911,15 @@ function collectQizhengStars(input: QizhengInput): {
   return { stars, mansionBoundaries, ziqi, calculationContext };
 }
 
-/** 将目标日期的当地墙钟时刻按该日期的时区规则解析为 UTC。 */
-function resolveQizhengLocalTimestamp(parts: QizhengCivilMinute, natal: QizhengInput): number {
-  // 派生日期不复用出生时刻的 numeric timezone；IANA 模式按目标日期实际偏移解析。
+/** 周期边界是当地公历日的起点；午夜跳时的日期仍可从首个真实瞬时开始扫描。 */
+function resolveQizhengDayStart(
+  parts: Pick<QizhengCivilMinute, 'year' | 'month' | 'day'>,
+  natal: QizhengInput,
+): number {
   const timezoneInput = natal.timeZoneId
     ? { timeZoneId: natal.timeZoneId }
     : { timezone: natal.timezone ?? 8 };
-  return resolveCivilTime({ ...parts, ...timezoneInput }).utcTimestamp;
+  return resolveCivilDayStart({ ...parts, ...timezoneInput }).utcTimestamp;
 }
 
 /**
@@ -1969,8 +1971,8 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
     const endDate = nextQizhengCivilDate(startParts.year, startParts.month, startParts.day);
     const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
-      startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
-      endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
+      startUtcMs: resolveQizhengDayStart(startParts, natal),
+      endUtcMs: resolveQizhengDayStart(endParts, natal),
       mode: 'daily',
     };
   }
@@ -1989,8 +1991,8 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
       month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 };
     const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
-      startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
-      endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
+      startUtcMs: resolveQizhengDayStart(startParts, natal),
+      endUtcMs: resolveQizhengDayStart(endParts, natal),
       mode: 'monthly',
     };
   }

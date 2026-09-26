@@ -362,3 +362,27 @@ test('纽约跳时和回拨日的扫描周期均止于次日当地午夜', () =>
     );
   }
 });
+
+test('圣地亚哥午夜跳时日从首个真实时刻扫描至次日零时', () => {
+  const result = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: -33.4489,
+    longitude: -70.6693,
+    timeZoneId: 'America/Santiago',
+    flowYear: 2024,
+    flowMonth: 9,
+    flowDay: 8,
+  });
+  const period = result.flowingStars?.periodEvents;
+  assert.ok(period);
+  assert.equal(period.mode, 'daily');
+  assert.equal(period.startDateTime, '2024-09-08 01:00');
+  assert.equal(period.endDateTime, '2024-09-09 00:00');
+  const startUtc = Date.UTC(2024, 8, 8, 4);
+  const endUtc = Date.UTC(2024, 8, 9, 3);
+  assert.ok(period.events.every((event) => event.utcMs >= startUtc && event.utcMs < endUtc));
+});

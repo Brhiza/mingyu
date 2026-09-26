@@ -28,8 +28,10 @@ export interface LunarInfo {
   monthInChinese: string;
   dayInChinese: string;
   hourInChinese: string;
-  // 添加数字格式的月日
+  /** 农历纪年公元年；与干支年字段分开，供日期往返换算。 */
+  yearNumber: number;
   monthNumber: number;
+  isLeapMonth: boolean;
   dayNumber: number;
 }
 
@@ -139,8 +141,9 @@ export class LunarUtil {
           monthInChinese: lunarText.monthInChinese,
           dayInChinese: lunarText.dayInChinese,
           hourInChinese: lunarHour.getName(),
-          // 添加数字格式的月日（tyme4ts 闰月返回负数，规范为正数月序，闰月标志另行处理）
+          yearNumber: lunar.getYear(),
           monthNumber: Math.abs(lunar.getMonth()),
+          isLeapMonth: lunar.getMonth() < 0,
           dayNumber: lunar.getDay(),
         },
         ganzhi: {
@@ -221,8 +224,9 @@ export class LunarUtil {
         monthInChinese: lunarText.monthInChinese,
         dayInChinese: lunarText.dayInChinese,
         hourInChinese: lunarHour.getName(),
-        // 添加数字格式的月日（tyme4ts 闰月返回负数，此处规范为正数月序，闰月标志另行处理）
+        yearNumber: lunar.getYear(),
         monthNumber: Math.abs(lunar.getMonth()),
+        isLeapMonth: lunar.getMonth() < 0,
         dayNumber: lunar.getDay(),
       };
     } catch (error) {
