@@ -1340,7 +1340,7 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       housesSixKin: pillarNames.map((label, index) => ({
         pillar: PILLAR_KEYS[index],
         pillarLabel: `${label}（${index === 3 ? '待补时' : '已确定柱'}）`,
-        ageRange: ['1 - 16 岁', '17 - 32 岁', '33 - 48 岁', '49 岁以后'][index]!,
+        ageRange: ['早年取象', '青年取象', '中年取象', '晚年取象'][index]!,
         sixKinSignificance:
           index === 3 ? '时柱资料待补。' : '仅列已确定柱位，十神及六亲细断待补时。',
         environmentSignificance: '待出生时分确定后再作完整推断。',
@@ -1378,7 +1378,7 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       isExposed,
       isHidden,
       pillars: Array.from(new Set(involvedPillars)),
-      psychology: `${god}心性：代表内在思维驱动力与行事风格。`,
+      psychology: TEN_GODS_DEFINITIONS[god].description,
       careerSymbol: '在事业中象征相关资源与发展路径。',
       wealthSymbol: '在财富中体现求财模式与管理格局。',
       relationshipSymbol: '在人际六亲中对应相应伦理关系。',
@@ -1416,49 +1416,43 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       desc: `${channel.from}见${familyPositions(channel.from).join('、')}；${channel.to}见${familyPositions(channel.to).join('、')}。`,
     }));
 
+  const actualTenGods = (key: (typeof PILLAR_KEYS)[number]) => [
+    key === 'day' ? '日元自身' : baziResult.tenGods[key],
+    ...baziResult.hiddenTenGods[key],
+  ];
+
   const housesSixKin = [
     {
       pillar: 'year',
       pillarLabel: '年柱 (祖上/父母/早年)',
-      ageRange: '1 - 16 岁',
-      sixKinSignificance: '代表祖辈家风、父母庇荫与早年生活环境。',
-      environmentSignificance: '外部宏观环境、早期根基与社会大背景。',
-      actualTenGods: [
-        baziResult.tenGods.year,
-        getTenGodForBranch(pillars.year.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '早年取象',
+      sixKinSignificance: '年柱用于观察祖辈与早年家庭背景，具体六亲须结合十神实际落位。',
+      environmentSignificance: '早期家庭背景与成长环境的取象。',
+      actualTenGods: actualTenGods('year'),
     },
     {
       pillar: 'month',
       pillarLabel: '月柱 (父母/兄弟/青年/提纲)',
-      ageRange: '17 - 32 岁',
-      sixKinSignificance: '代表父母手足、同侪人脉与青年学业事业开端。',
-      environmentSignificance: '职场平台、核心机遇与人际核心圈。',
-      actualTenGods: [
-        baziResult.tenGods.month,
-        getTenGodForBranch(pillars.month.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '青年取象',
+      sixKinSignificance: '月柱用于观察父母手足与成长环境，具体六亲须结合十神实际落位。',
+      environmentSignificance: '成长过程与社会环境的取象。',
+      actualTenGods: actualTenGods('month'),
     },
     {
       pillar: 'day',
       pillarLabel: '日柱 (自身/配偶/中年)',
-      ageRange: '33 - 48 岁',
-      sixKinSignificance: '日干为命主自身，日支为配偶宫，代表夫妻关系与家庭核心。',
-      environmentSignificance: '中年立业安家、婚姻家庭与自我价值实现。',
-      actualTenGods: ['日元自身', getTenGodForBranch(pillars.day.zhi, dayMasterGan)].filter(
-        Boolean,
-      ),
+      ageRange: '中年取象',
+      sixKinSignificance: '日干为命主自身，日支为配偶宫；日支藏干须逐一核对。',
+      environmentSignificance: '自身及家庭生活环境的取象。',
+      actualTenGods: actualTenGods('day'),
     },
     {
       pillar: 'hour',
       pillarLabel: '时柱 (子女/晚年/归宿)',
-      ageRange: '49 岁以后',
-      sixKinSignificance: '代表子女晚辈、下属团队与晚年福禄归宿。',
-      environmentSignificance: '事业终极成就、晚年安康与精神传承。',
-      actualTenGods: [
-        baziResult.tenGods.hour,
-        getTenGodForBranch(pillars.hour.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '晚年取象',
+      sixKinSignificance: '时柱用于观察子女晚辈，具体六亲须结合十神实际落位。',
+      environmentSignificance: '子女晚辈与晚年环境的取象。',
+      actualTenGods: actualTenGods('hour'),
     },
   ];
 

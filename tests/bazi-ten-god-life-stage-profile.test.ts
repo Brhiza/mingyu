@@ -91,3 +91,10 @@ test('自定义十神合并不同天干时保留各自证据并汇总半分', ()
     ],
   );
 });
+
+test('十神长生分析要求完整四柱，避免把缺失柱位写成其他阶段', () => {
+  assert.throws(
+    () => analyzeTenGodLifeStageProfile(pillars.slice(0, 3), '甲', getTenGod),
+    /四柱数量无效：3/,
+  );
+});

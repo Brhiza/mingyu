@@ -362,7 +362,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     },
     {
       id: 'section-ten-gods',
-      title: '第六章：十神心性与六亲宫位意象',
+      title: '第六章：十神透藏与四柱传统取象',
       anchorId: 'bazi-ten-gods-symbology',
       level: 1,
       badge: '十神六亲',

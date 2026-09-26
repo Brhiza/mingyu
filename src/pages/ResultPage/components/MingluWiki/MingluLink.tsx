@@ -6,6 +6,18 @@ interface MingluLinkProps {
   title?: string;
   category?: string;
   className?: string;
+  onNavigate?: (anchorId: string) => void;
+}
+
+export function scrollToMingluAnchor(anchorId: string): boolean {
+  const elem = document.getElementById(anchorId);
+  if (!elem) return false;
+  elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  elem.classList.remove('minglu-anchor-flash');
+  void elem.offsetWidth;
+  elem.classList.add('minglu-anchor-flash');
+  window.history.replaceState(null, '', `#${anchorId}`);
+  return true;
 }
 
 export const MingluLink: React.FC<MingluLinkProps> = ({
@@ -14,17 +26,12 @@ export const MingluLink: React.FC<MingluLinkProps> = ({
   title,
   category,
   className = '',
+  onNavigate,
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const elem = document.getElementById(targetAnchorId);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      elem.classList.remove('minglu-anchor-flash');
-      void elem.offsetWidth; // trigger reflow
-      elem.classList.add('minglu-anchor-flash');
-      window.history.replaceState(null, '', `#${targetAnchorId}`);
-    }
+    if (onNavigate) onNavigate(targetAnchorId);
+    else scrollToMingluAnchor(targetAnchorId);
   };
 
   return (

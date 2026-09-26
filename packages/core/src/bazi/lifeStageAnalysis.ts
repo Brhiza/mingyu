@@ -35,6 +35,9 @@ export function analyzeTenGodLifeStageProfile(
   getTenGod: (g: string, d: string) => string,
 ): TenGodLifeStageProfile {
   assertHeavenlyStem(dayMaster, '日主');
+  if (pillars.length !== 4) {
+    throw new Error(`四柱数量无效：${pillars.length}`);
+  }
   const stageScores: Record<string, number> = { 临官: 1, 帝旺: 1, 长生: 0.5, 冠带: 0.5 };
   const lowScores: Record<string, number> = { 死: 1, 绝: 1, 病: 0.5, 墓: 0.5 };
 
@@ -66,7 +69,7 @@ export function analyzeTenGodLifeStageProfile(
     const branchStages = pillars.map((p, idx) => {
       const stage = getLifeStage(stem, p.zhi);
       return {
-        pillar: pillarNames[idx] ?? String(idx),
+        pillar: pillarNames[idx]!,
         branch: p.zhi,
         stage,
         strongScore: stageScores[stage] ?? 0,
@@ -97,11 +100,11 @@ export function analyzeTenGodLifeStageProfile(
   >();
 
   pillars.forEach((p, idx) => {
-    const pillar = pillarNames[idx] ?? String(idx);
+    const pillar = pillarNames[idx]!;
     processStem(p.gan, `${pillar}透干`, idx === 2);
   });
   pillars.forEach((p, idx) => {
-    const pillar = pillarNames[idx] ?? String(idx);
+    const pillar = pillarNames[idx]!;
     (p.hiddenStems || []).forEach((s, hiddenIndex) => {
       processStem(s, `${pillar}藏干第${hiddenIndex + 1}位`, false);
     });

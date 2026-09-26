@@ -1,13 +1,25 @@
 import React from 'react';
-import type { MingluPillarsSectionData, MingluMetadata } from 'mingyu-core/minglu';
+import type {
+  MingluGlossaryEntry,
+  MingluPillarsSectionData,
+  MingluMetadata,
+} from 'mingyu-core/minglu';
 import { MingluLink } from './MingluLink';
 
 interface Props {
   data: MingluPillarsSectionData;
   metadata: MingluMetadata;
+  glossaryEntries: MingluGlossaryEntry[];
+  onNavigateGlossary: (anchorId: string) => void;
 }
 
-export const MingluPillarsSection: React.FC<Props> = ({ data, metadata }) => {
+export const MingluPillarsSection: React.FC<Props> = ({
+  data,
+  metadata,
+  glossaryEntries,
+  onNavigateGlossary,
+}) => {
+  const glossaryByTerm = new Map(glossaryEntries.map((entry) => [entry.term, entry]));
   return (
     <section id="bazi-pillars-matrix" className="minglu-section">
       <div className="minglu-section-header">
@@ -91,9 +103,17 @@ export const MingluPillarsSection: React.FC<Props> = ({ data, metadata }) => {
                   key={col.key}
                   className={`minglu-td-cell font-bolder text-xl ${col.isDayMaster ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600' : ''}`}
                 >
-                  <MingluLink targetAnchorId={`glossary-${col.gan}`} category="天干">
-                    {col.gan}
-                  </MingluLink>
+                  {glossaryByTerm.get(`${col.gan}${col.ganWuxing}`) ? (
+                    <MingluLink
+                      targetAnchorId={glossaryByTerm.get(`${col.gan}${col.ganWuxing}`)!.anchorId}
+                      category="干支"
+                      onNavigate={onNavigateGlossary}
+                    >
+                      {col.gan}
+                    </MingluLink>
+                  ) : (
+                    col.gan
+                  )}
                   <span className="minglu-sub-wuxing">({col.ganWuxing})</span>
                 </td>
               ))}
@@ -102,9 +122,7 @@ export const MingluPillarsSection: React.FC<Props> = ({ data, metadata }) => {
               <td className="minglu-td-label">地支字样</td>
               {data.columns.map((col) => (
                 <td key={col.key} className="minglu-td-cell font-bolder text-xl">
-                  <MingluLink targetAnchorId={`glossary-${col.zhi}`} category="地支">
-                    {col.zhi}
-                  </MingluLink>
+                  {col.zhi}
                   <span className="minglu-sub-wuxing">({col.zhiWuxing})</span>
                 </td>
               ))}

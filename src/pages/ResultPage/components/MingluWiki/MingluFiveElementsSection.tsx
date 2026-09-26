@@ -1,6 +1,5 @@
 import React from 'react';
 import type { MingluFiveElementsSectionData } from 'mingyu-core/minglu';
-import { MingluLink } from './MingluLink';
 
 interface Props {
   data: MingluFiveElementsSectionData;
@@ -37,9 +36,7 @@ export const MingluFiveElementsSection: React.FC<Props> = ({ data }) => {
             <div key={el.wuxing} className="minglu-element-card">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-lg" style={{ color: WUXING_COLORS[el.wuxing] }}>
-                  <MingluLink targetAnchorId={`glossary-${el.wuxing}`} category="五行">
-                    {el.wuxing}行
-                  </MingluLink>
+                  {el.wuxing}行
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-medium">
                   {el.seasonStatus}

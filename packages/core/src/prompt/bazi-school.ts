@@ -323,7 +323,7 @@ function formatMangpaiFacts(result: BaziChartResult, embedded = false, patternEv
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
-    `分柱年限：年柱约对应1至16岁，月柱约对应17至32岁，日柱约对应33至48岁，时柱约对应49岁以后；${formatFortune(result)}`,
+    `柱位阶段取象：年柱早年、月柱青年、日柱中年、时柱晚年；${formatFortune(result)}`,
   ]
     .filter(Boolean)
     .join('\n');
