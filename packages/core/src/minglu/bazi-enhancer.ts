@@ -847,7 +847,7 @@ export function buildEnhancedPatternUsefulGodSection(
       ? {
           title: `${qiongtongRaw.dayMaster}生于${qiongtongRaw.monthBranch}月`,
           source: '《穷通宝鉴》十干四季调候',
-          summary: `${classicPrefix}${qiongtongRaw.seasonSummary}`,
+          summary: `${classicPrefix}${qiongtongRaw.modernExplanation}`,
           quotes: [qiongtongRaw.classicVerse],
         }
       : undefined,

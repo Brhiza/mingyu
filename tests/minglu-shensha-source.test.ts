@@ -52,7 +52,10 @@ test('命录天罗地网说明应符合实际排盘所用戌亥、辰巳查法',
     assert.match(item.traditionalDescription, /戌亥相见称天罗，辰巳相见称地网/);
     assert.doesNotMatch(item.traditionalDescription, /辰戌为天罗|丑未为地网|《渊海子平》/);
   }
-  assert.equal(buildSection(unmatched).some((entry) => entry.name === '天罗地网'), false);
+  assert.equal(
+    buildSection(unmatched).some((entry) => entry.name === '天罗地网'),
+    false,
+  );
 });
 
 test('命录神煞沿用排盘分类与有用取象，不伪造典籍引文或兜底出处', () => {
