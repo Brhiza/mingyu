@@ -4,6 +4,7 @@ import {
   formatBaziUsefulGodCoverageForPrompt,
   type BaziChartResult,
 } from '../bazi/index';
+import { hasConfirmedPatternTarget } from '../bazi/baziAnalysisFormatter';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
@@ -205,37 +206,20 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
           .filter((item) => !result.analysis.mingGe.basis?.includes(item))
           .map((item) => `顺局作用：${item}`),
       );
-      if (specialAdjudication.retainedHiddenFacts.length) {
-        facts.push('支藏印官未构成从儿格的实际反证');
-      }
     }
     if (specialAdjudication.status === '不成立' && specialAdjudication.blockers.length) {
       facts.push(`特殊格反证：${specialAdjudication.blockers.join('；')}`);
     }
   }
 
-  if (fulfillment && fulfillment.status !== '成格') {
+  if (
+    fulfillment &&
+    fulfillment.status !== '成格' &&
+    hasConfirmedPatternTarget(result.analysis.mingGe)
+  ) {
     const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
     const statedBreakers =
       result.analysis.usefulGod?.decisionEvidence?.patternBreakerRestrictions ?? [];
-    const repeatedStrength = `日主旺衰为${result.analysis.dayMasterStrength.status}；`;
-    facts.push(
-      ...(fulfillment.conditionFacts ?? [])
-        .filter(
-          (item) =>
-            item.status !== '满足' &&
-            item.key !== 'bazi.day-master-strength' &&
-            !item.key.startsWith('path.') &&
-            !item.key.startsWith('pattern.breaker.') &&
-            !decisionDetail.includes(item.detail),
-        )
-        .map((item) => {
-          const detail = item.detail.startsWith(repeatedStrength)
-            ? item.detail.slice(repeatedStrength.length)
-            : item.detail;
-          return `条件核验：${item.status}；${detail}`;
-        }),
-    );
     for (const breaker of fulfillment.activeBreakers ?? []) {
       if (
         breaker.repairStatus === '不满足' &&
@@ -253,21 +237,18 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
       const stems = breaker.stems
         .map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`)
         .join('、');
-      facts.push(
-        `破格项：${breaker.label}${stems ? `（${stems}）` : ''}；救应${breaker.repairStatus}`,
-      );
-      if (breaker.repairStatus === '满足' || breaker.repairStatus === '资料不足') {
+      facts.push(`破格项：${breaker.label}${stems ? `（${stems}）` : ''}`);
+      if (breaker.repairStatus === '满足') {
         const path = fulfillment.pathEvaluations?.find(
           (item) =>
             breaker.repairPathKeys.includes(item.key) && item.status === breaker.repairStatus,
         );
         if (path && !decisionDetail.includes(path.detail)) {
-          const detail = path.detail.startsWith(`${path.label}的`)
-            ? path.detail.slice(path.label.length + 1)
-            : path.detail.startsWith(path.label)
-              ? path.detail.slice(path.label.length)
-              : path.detail;
-          facts.push(`救应路径：${path.label}（${path.position}）；${detail}`);
+          facts.push(
+            path.source.length && path.target.length
+              ? `救应路径：${path.label}；${path.source.join('、')}作用于${path.target.join('、')}（${path.position}、根气可用）`
+              : `救应路径：${path.label}；${path.detail}`,
+          );
         }
       }
     }

@@ -1,10 +1,11 @@
 import {
   formatAlternativePatternCandidates,
+  formatPatternDecisionForPrompt,
   formatPatternFulfillmentFacts,
+  hasConfirmedPatternTarget,
 } from '../bazi/baziAnalysisFormatter';
 import {
   analyzeStemRootProfile,
-  analyzeTenGodFlow,
   analyzeTenGodStructure,
   analyzeTombStorage,
   formatUsefulGodFunctions,
@@ -175,67 +176,36 @@ function formatTransformationFacts(result: BaziChartResult, embedded = false) {
 
 function formatSchoolPatternFacts(result: BaziChartResult, embedded = false) {
   const facts = formatPatternFulfillmentFacts(result.analysis.mingGe);
-  if (!embedded) {
-    const alternatives = formatAlternativePatternCandidates(result.analysis.mingGe);
-    const repeatedName = `所取格局：${result.analysis.mingGe.pattern}；`;
-    return [
-      alternatives && result.analysis.mingGe.basis
-        ? `取格依据：${result.analysis.mingGe.basis}`
-        : '',
-      alternatives,
-      ...facts
-        .filter(
-          (item) =>
-            !item.startsWith('取格分层候选：') &&
-            !item.startsWith('候选取用：') &&
-            !item.startsWith('格局条件：'),
-        )
-        .map((item) => (item.startsWith(repeatedName) ? item.slice(repeatedName.length) : item)),
-    ].filter(Boolean);
-  }
+  const special = result.analysis.mingGe.specialAdjudication;
   const fulfillment = result.analysis.mingGe.fulfillment;
-  const decisionDetail = fulfillment?.decisionDetail || fulfillment?.summary || '';
   const specialFacts = facts
     .filter(
       (item) =>
-        (!fulfillment && item.startsWith('特殊格裁决：')) ||
-        (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
-        item.startsWith('食伤明透：') ||
-        item.startsWith('财星明透：') ||
-        item.startsWith('特殊格反证：') ||
-        item.startsWith('成员支藏干保留：') ||
-        item.startsWith('从儿五行流向：') ||
-        item.startsWith('食伤结构根：') ||
-        item.startsWith('财星结构根：') ||
-        item.startsWith('顺局作用：') ||
-        item.startsWith('原支藏印官事实：'),
+        special?.status === '成立' &&
+        ((!fulfillment && item.startsWith('特殊格裁决：')) ||
+          (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
+          item.startsWith('食伤明透：') ||
+          item.startsWith('财星明透：') ||
+          item.startsWith('成员支藏干保留：') ||
+          item.startsWith('从儿五行流向：') ||
+          item.startsWith('食伤结构根：') ||
+          item.startsWith('财星结构根：') ||
+          item.startsWith('顺局作用：') ||
+          item.startsWith('原支藏印官事实：')),
     )
-    .map((item) =>
-      item.startsWith('原支藏印官事实：') &&
-      result.analysis.mingGe.specialAdjudication?.status === '成立'
-        ? '支藏印官未构成从儿格的实际反证'
-        : item,
-    );
-  const conditionFacts = (fulfillment?.conditionFacts ?? [])
-    .filter(
-      (item) =>
-        [
-          'pattern.month-gate',
-          'pattern.target',
-          'pattern.month-principal-control',
-          'bazi.wealth-bearing',
-        ].includes(item.key) &&
-        item.status !== '满足' &&
-        !decisionDetail.includes(item.detail),
-    )
-    .map((item) => `条件核验：${item.status}；${item.detail}`);
-  const repairPathKeys = new Set(
-    (fulfillment?.activeBreakers ?? []).flatMap((breaker) => breaker.repairPathKeys),
-  );
-  const repairPaths = (fulfillment?.pathEvaluations ?? [])
-    .filter((item) => repairPathKeys.has(item.key) && !decisionDetail.includes(item.detail))
-    .map((item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`);
-  return [...specialFacts, ...conditionFacts, ...repairPaths];
+    .filter((item) => !item.startsWith('原支藏印官事实：'));
+  if (embedded) return specialFacts;
+  const alternatives = formatAlternativePatternCandidates(result.analysis.mingGe);
+  return [
+    alternatives && result.analysis.mingGe.basis ? `取格依据：${result.analysis.mingGe.basis}` : '',
+    alternatives,
+    ...specialFacts,
+    formatPatternDecisionForPrompt(result.analysis.mingGe),
+    hasConfirmedPatternTarget(result.analysis.mingGe) &&
+    result.analysis.mingGe.fulfillment?.contradiction
+      ? `相互制约：${result.analysis.mingGe.fulfillment.contradiction}`
+      : '',
+  ].filter(Boolean);
 }
 
 function formatTenGodStructure(result: BaziChartResult) {
@@ -250,16 +220,6 @@ function formatTenGodStructure(result: BaziChartResult) {
     present.length ? `已见${present.join('、')}` : undefined,
     missing.length ? `原局未见${missing.join('、')}` : undefined,
   ]);
-}
-
-function formatTenGodFlow(result: BaziChartResult) {
-  const structure = analyzeTenGodStructure(pillarInputs(result), result.dayMaster.gan, getTenGod);
-  const flow = analyzeTenGodFlow(structure);
-  return flow.items.length
-    ? flow.items
-        .map((item) => `${item.name}（${item.description}；条件核验：${item.caution}）`)
-        .join('、')
-    : '原局已列十神未形成完整的相邻生化链';
 }
 
 function formatRoots(result: BaziChartResult) {
@@ -372,13 +332,8 @@ function formatMangpaiFacts(result: BaziChartResult, embedded = false, patternEv
 function formatXinpaiFacts(result: BaziChartResult, embedded = false, patternEvidence = true) {
   const strength = result.analysis.dayMasterStrength;
   const details = strength.details;
-  const positiveRuleBasis = details.ruleBasis
-    .flatMap((item) => item.split(/[；。]/))
-    .map((item) => item.trim())
-    .filter((item) => item && !/^(?:不|不得|不能|禁止|避免)/.test(item));
   return [
     `旺衰判定：日主${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，结论${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}；月令作用${details.seasonalEffect}，司令作用${details.commanderEffect}，成局作用${details.formationEffect}`,
-    `旺衰依据：${positiveRuleBasis.join('；') || '月令、司令、通根、帮扶与克泄耗合看'}`,
     `透干通根：${formatRoots(result)}`,
     `五行结构：已见${result.wuxingStrength.present.join('、') || '未记录'}；结构偏重${result.wuxingStrength.dominantByRule.join('、') || '未记录'}；原局缺项${result.wuxingStrength.missing.join('、') || '无'}；月令状态${
       Object.entries(result.wuxingSeasonStatus)
@@ -386,7 +341,6 @@ function formatXinpaiFacts(result: BaziChartResult, embedded = false, patternEvi
         .join('、') || '未记录'
     }`,
     `十神结构：${formatTenGodStructure(result)}`,
-    `十神流通：候选链条${formatTenGodFlow(result)}`,
     embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded) : []),
     ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
