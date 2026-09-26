@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateQimenLifetimePrompt } from '../packages/core/src/divination/algorithms/qimen';
 import { generateXuanKong } from '../packages/core/src/xuan_kong';
 import { calculateWuyunLiuqi } from '../packages/core/src/wuyun-liuqi';
@@ -76,6 +77,23 @@ test('实际六爻的六神换到另一爻后不能通过全表事实核验', ()
   assert.equal(rows.length, 6);
   const changed = swapRowValues(prompt, rows, /六神[\u4e00-\u9fff]{2}/u);
   assert.ok(auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('liuyao.yao.')));
+});
+
+test('雷诺曼提示词按逐牌资料核验普通相邻关系，并保留固定组合判词核验', () => {
+  const ordinary = drawLenormandSpread('three', { manualCardIds: [31, 32, 8] });
+  const ordinaryPrompt = buildDivinationPrompt('lenormand', '请分析事情走向。', ordinary);
+  const ordinaryFacts = extractDivinationPromptFacts('lenormand', ordinary);
+  assert.deepEqual(auditPromptFacts(ordinaryPrompt, ordinaryFacts).missing, []);
+  assert.ok(ordinaryFacts.some((item) => item.id.startsWith('lenormand.card.')));
+  assert.ok(!ordinaryFacts.some((item) => item.id.startsWith('lenormand.combination.')));
+
+  const fixed = drawLenormandSpread('three', { manualCardIds: [32, 31, 1] });
+  const fixedPrompt = buildDivinationPrompt('lenormand', '请分析事情走向。', fixed);
+  const fixedFacts = extractDivinationPromptFacts('lenormand', fixed);
+  assert.deepEqual(auditPromptFacts(fixedPrompt, fixedFacts).missing, []);
+  assert.ok(fixedFacts.some((item) => item.id === 'lenormand.combination.0'));
+  const changed = fixedPrompt.replace('从迷茫走向清晰', '从清晰走向迷茫');
+  assert.ok(auditPromptFacts(changed, fixedFacts).missing.includes('lenormand.combination.0'));
 });
 
 test('实际玄空飞星和五运六气按宫位及步序绑定，交换数字或客运不能蒙混通过', () => {

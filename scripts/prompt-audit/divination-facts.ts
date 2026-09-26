@@ -913,22 +913,18 @@ function extractLenormandFacts(data: unknown): DivinationPromptFact[] {
         { scope: { start: '牌位明细：', end: '【任务】' } },
       );
     }),
-    ...combinations.map((item, index) => {
+    ...combinations.flatMap((item, index) => {
+      if (item.source !== '固定组合') return [];
       const card1 = text(item.card1);
       const card2 = text(item.card2);
       const pair = card1 && card2 ? `${card1}+${card2}` : undefined;
       return pair
-        ? fact(`lenormand.combination.${index}`, `${pair}：`, [item.meaning], {
-            scope: {
-              start: item.source === '固定组合' ? '固定组合：' : '相邻合读：',
-              end:
-                item.source === '固定组合' &&
-                combinations.some((combo) => combo.source !== '固定组合')
-                  ? '相邻合读：'
-                  : '【任务】',
-            },
-          })
-        : null;
+        ? [
+            fact(`lenormand.combination.${index}`, `${pair}：`, [item.meaning], {
+              scope: { start: '固定组合：', end: '【任务】' },
+            }),
+          ]
+        : [];
     }),
   ]);
 }
