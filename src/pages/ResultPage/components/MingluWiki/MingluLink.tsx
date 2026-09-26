@@ -27,7 +27,19 @@ export function scrollToMingluAnchor(anchorId: string): boolean {
         break;
       }
     }
-    elem.style.scrollMarginTop = `${Math.max(0, toolbar.getBoundingClientRect().bottom - scrollportTop) + 16}px`;
+    const workspace = elem.closest('.workspace-shell');
+    const occludingBottom = [
+      toolbar,
+      workspace?.querySelector<HTMLElement>('.workspace-mobile-header'),
+      workspace?.querySelector<HTMLElement>('.workspace-case-tabbar'),
+    ].reduce((bottom, candidate) => {
+      if (!candidate || window.getComputedStyle(candidate).display === 'none') return bottom;
+      const rect = candidate.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0
+        ? Math.max(bottom, rect.bottom)
+        : bottom;
+    }, scrollportTop);
+    elem.style.scrollMarginTop = `${Math.max(0, occludingBottom - scrollportTop) + 16}px`;
   }
   elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
   elem.classList.remove('minglu-anchor-flash');
