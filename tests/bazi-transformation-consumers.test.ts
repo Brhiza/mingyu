@@ -102,7 +102,7 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
   assert.match(section.usefulGods.reasoning, /化神取用：/);
   assert.equal(
     section.ditiansuiAdvice?.summary ?? '',
-    `十干体象与性情概括：${getBaziDitiansuiAdvice('癸')?.nature}`,
+    `原日主癸的经典调候与格局资料作旁参，主格取用以化神木为主体。十干体象与性情概括：${getBaziDitiansuiAdvice('癸')?.nature}`,
   );
   assert.match(
     [
