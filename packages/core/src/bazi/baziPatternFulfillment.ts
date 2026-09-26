@@ -1515,7 +1515,9 @@ export function evaluatePatternFulfillment(
               status: '未判定',
               detail: `七杀虽见月令、透干与根气，但${uncertainPaths
                 .map((path) => path.label)
-                .join('、')}仍有柱位或作用条件资料不足，不能直接定成或破。${disconnectedSealRelay ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。' : ''}`,
+                .join(
+                  '、',
+                )}仍有柱位或作用条件资料不足，不能直接定成或破。${disconnectedSealRelay ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。' : ''}`,
             }
           : {
               status: '破格',

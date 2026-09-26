@@ -14,9 +14,9 @@ function findAlmanacAvoidDate(keyword: string, scope: 'day' | 'hour'): string {
     const matches =
       scope === 'day'
         ? lunarDay.getAvoids().some((item) => item.getName().includes(keyword))
-        : lunarDay.getHours().some((hour) =>
-            hour.getAvoids().some((item) => item.getName().includes(keyword)),
-          );
+        : lunarDay
+            .getHours()
+            .some((hour) => hour.getAvoids().some((item) => item.getName().includes(keyword)));
     if (matches) return date.toISOString().slice(0, 10);
   }
   throw new Error(`历法资料缺少${scope === 'day' ? '日' : '时'}忌${keyword}样本`);

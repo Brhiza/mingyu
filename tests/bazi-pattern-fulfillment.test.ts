@@ -162,9 +162,15 @@ test('真实排盘七杀格的年时同印不跨柱拼成印化杀', () => {
   );
   assert.equal(chart.analysis.mingGe.pattern, '七杀格');
   const fulfillment = chart.analysis.mingGe.fulfillment!;
-  assert.equal(fulfillment.pathEvaluations?.find((item) => item.key === '七杀生印')?.status, '满足');
+  assert.equal(
+    fulfillment.pathEvaluations?.find((item) => item.key === '七杀生印')?.status,
+    '满足',
+  );
   assert.equal(fulfillment.pathEvaluations?.find((item) => item.key === '印生身')?.status, '满足');
-  assert.equal(fulfillment.pathEvaluations?.find((item) => item.key === '印化杀')?.status, '不满足');
+  assert.equal(
+    fulfillment.pathEvaluations?.find((item) => item.key === '印化杀')?.status,
+    '不满足',
+  );
   assert.equal(fulfillment.status, '未判定');
   assert.match(formatBaziForPrompt(chart), /中间印星却未由同一柱位连续承接/);
 });
@@ -187,7 +193,10 @@ test('真实建禄格同字食神只将时干记作日主泄秀对象', () => {
     (item) => item.key === '食伤泄秀',
   );
   assert.equal(path?.status, '满足');
-  assert.deepEqual(path?.effectivePairs?.map((pair) => pair.targetPillar), ['hour']);
+  assert.deepEqual(
+    path?.effectivePairs?.map((pair) => pair.targetPillar),
+    ['hour'],
+  );
   assert.deepEqual(
     chart.analysis.usefulGod.decisionEvidence?.natalFunctions
       ?.filter((item) => item.pathKey === '食伤泄秀' && item.role === '制化对象')

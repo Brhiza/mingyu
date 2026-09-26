@@ -369,16 +369,14 @@ function buildControlFunctionEvidence(
     const sourceRootEvidence = rootEvidence.filter((evidence) =>
       path.status === '满足' && path.effectivePairs?.length
         ? path.effectivePairs.some(
-            (pair) =>
-              pair.sourceStem === evidence.stem && pair.sourcePillar === evidence.pillar,
+            (pair) => pair.sourceStem === evidence.stem && pair.sourcePillar === evidence.pillar,
           ) && evidence.placement === '透干'
         : sourceStems.includes(evidence.stem),
     );
     const targetRootEvidence = rootEvidence.filter((evidence) =>
       path.status === '满足' && path.effectivePairs?.length
         ? path.effectivePairs.some(
-            (pair) =>
-              pair.targetStem === evidence.stem && pair.targetPillar === evidence.pillar,
+            (pair) => pair.targetStem === evidence.stem && pair.targetPillar === evidence.pillar,
           ) && evidence.placement === '透干'
         : targetStems.includes(evidence.stem),
     );
