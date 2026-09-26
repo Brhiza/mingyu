@@ -421,74 +421,70 @@ test('金口诀：六十日柱乘昼夜与十二地分的 1440 课应逐项符�
   assert.equal(hasDifferentGuiAndJiang, true, '贵神本属支不得继续复制将神支');
 });
 
-test('金口诀四位比合歌诀应准确识别二木为爻、二火为灾、二土为滞、二金为刑与二水为盗', () => {
-  const dummyPos = (el: string) => ({
-    name: '地分' as const,
-    role: '地分',
-    branch: '子',
-    element: el,
-    yinYang: '阳' as const,
-    seasonState: '旺',
-    isVoid: false,
-    promptText: `地分子（${el}）`,
+test('金口诀二水比合保留实际神将位次，不直接定为盗耗', () => {
+  const data = generateJinkoujue({
+    customDate: new Date('2025-03-28T12:00:00+08:00'),
+    method: 'branch',
+    branch: '申',
   });
+  assert.equal(data.positions.guiShen.god, '玄武');
+  assert.equal(data.positions.guiShen.element, '水');
+  assert.equal(data.positions.jiangShen.element, '水');
+  assert.equal(data.bihePoem, '水见二位（贵神、将神）');
+  assert.doesNotMatch(data.bihePoem!, /为盗|暗耗|走失/);
+});
 
-  // 二木为爻
+test('金口诀四木实盘应按四位计数，不折作三木或扩成严重程度', () => {
+  const data = generateJinkoujue({
+    customDate: new Date('2025-08-02T12:00:00+08:00'),
+    method: 'branch',
+    branch: '寅',
+  });
+  assert.ok(Object.values(data.positions).every((position) => position.element === '木'));
+  assert.equal(data.bihePoem, '木见四位（人元、贵神、将神、地分）');
+});
+
+test('金口诀双组比合保留各自位置，无同气组合时省略比合摘要', () => {
+  const data = generateJinkoujue({ customDate: SAMPLE_DATE });
+  const p = data.positions;
   assert.equal(
     evaluateJinkoujueBihePoems({
-      renYuan: dummyPos('木'),
-      guiShen: dummyPos('木'),
-      jiangShen: dummyPos('火'),
-      diFen: dummyPos('土'),
+      renYuan: { ...p.renYuan, element: '土' },
+      guiShen: { ...p.guiShen, element: '土' },
+      jiangShen: { ...p.jiangShen, element: '金' },
+      diFen: { ...p.diFen, element: '金' },
     }),
-    '二木为爻，事多牵连分争',
+    '土见二位（人元、贵神）；金见二位（将神、地分）',
   );
-
-  // 二火为灾
   assert.equal(
     evaluateJinkoujueBihePoems({
-      renYuan: dummyPos('火'),
-      guiShen: dummyPos('火'),
-      jiangShen: dummyPos('金'),
-      diFen: dummyPos('水'),
+      renYuan: { ...p.renYuan, element: '金' },
+      guiShen: { ...p.guiShen, element: '木' },
+      jiangShen: { ...p.jiangShen, element: '水' },
+      diFen: { ...p.diFen, element: '火' },
     }),
-    '二火为灾，多生口舌焦躁是非',
+    '',
   );
+});
 
-  // 二土为滞 + 二金为刑 (复合)
-  assert.equal(
-    evaluateJinkoujueBihePoems({
-      renYuan: dummyPos('土'),
-      guiShen: dummyPos('土'),
-      jiangShen: dummyPos('金'),
-      diFen: dummyPos('金'),
-    }),
-    '二土为滞，事多迟疑阻滞不通；二金为刑，互见争斗刑伤折损',
-  );
-
-  // 三水为盗
-  assert.equal(
-    evaluateJinkoujueBihePoems({
-      renYuan: dummyPos('水'),
-      guiShen: dummyPos('水'),
-      jiangShen: dummyPos('水'),
-      diFen: dummyPos('木'),
-    }),
-    '三水为盗，暗流损耗漂流难聚',
-  );
-
-  // 全不同
-  assert.equal(
-    evaluateJinkoujueBihePoems({
-      renYuan: dummyPos('金'),
-      guiShen: dummyPos('木'),
-      jiangShen: dummyPos('水'),
-      diFen: dummyPos('火'),
-    }),
-    '四位五行周流，无极偏比合之患',
-  );
-
-  // generateJinkoujue 应输出 bihePoem
-  const result = generateJinkoujue({ date: SAMPLE_DATE });
-  assert.ok(result.bihePoem, '金口诀结果中应包含四位比合断语');
+test('金口诀详情与增强提示词按实盘复算比合，保留生克条件与传统依据', async () => {
+  const { formatDetailedDivinationInfo } =
+    await import('../packages/core/src/prompt/divination-detail');
+  const { formatEnhancedDivinationInfo } =
+    await import('../packages/core/src/prompt/divination-enhanced');
+  const data = generateJinkoujue({
+    customDate: new Date('2025-03-28T12:00:00+08:00'),
+    method: 'branch',
+    branch: '申',
+  });
+  data.bihePoem = '二水为盗，多有暗耗漂流走失';
+  for (const prompt of [
+    formatDetailedDivinationInfo('jinkoujue', data),
+    formatEnhancedDivinationInfo('jinkoujue', data),
+  ]) {
+    assert.match(prompt, /四位比合：水见二位（贵神、将神）/);
+    assert.match(prompt, /入式歌解/);
+    assert.match(prompt, /贵神水克人元火/);
+    assert.doesNotMatch(prompt, /二水为盗|暗耗漂流走失/);
+  }
 });

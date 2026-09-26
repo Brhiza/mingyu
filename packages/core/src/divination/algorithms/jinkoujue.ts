@@ -389,8 +389,9 @@ function buildMovements(positions: Record<string, JinkoujueFourPosition>) {
 }
 
 /**
- * 依据《六壬神课金口诀古本》卷二“四位比合歌”推导四位五行比合定性：
- * 二木为爻（事多牵连）、二火为灾（防口舌焦躁）、二土为滞（迟疑不通）、二金为刑（刑伤折损）、二水为盗（暗耗漂流）。
+ * 按四位实盘列出同五行的数量与位置。
+ * 《六壬神课金口诀古本》卷上“入式歌解”对二木、二土、二金、二火、二水
+ * 均结合神将、位次及生克举例，数量只作为比合条件。
  */
 export function evaluateJinkoujueBihePoems(positions: {
   renYuan: JinkoujueFourPosition;
@@ -398,43 +399,18 @@ export function evaluateJinkoujueBihePoems(positions: {
   jiangShen: JinkoujueFourPosition;
   diFen: JinkoujueFourPosition;
 }): string {
-  const elements = [
-    positions.renYuan.element,
-    positions.guiShen.element,
-    positions.jiangShen.element,
-    positions.diFen.element,
-  ];
-  const counts: Record<string, number> = {};
-  for (const el of elements) {
-    counts[el] = (counts[el] || 0) + 1;
-  }
-
-  const poems: string[] = [];
-  if ((counts['木'] ?? 0) >= 2) {
-    const c = counts['木'];
-    poems.push(c >= 3 ? '三木为爻，同气分争牵连尤甚' : '二木为爻，事多牵连分争');
-  }
-  if ((counts['火'] ?? 0) >= 2) {
-    const c = counts['火'];
-    poems.push(c >= 3 ? '三火为灾，口舌官非焦躁极重' : '二火为灾，多生口舌焦躁是非');
-  }
-  if ((counts['土'] ?? 0) >= 2) {
-    const c = counts['土'];
-    poems.push(c >= 3 ? '三土为滞，重滞凝塞迟疑难通' : '二土为滞，事多迟疑阻滞不通');
-  }
-  if ((counts['金'] ?? 0) >= 2) {
-    const c = counts['金'];
-    poems.push(c >= 3 ? '三金为刑，争斗刑伤折损极烈' : '二金为刑，互见争斗刑伤折损');
-  }
-  if ((counts['水'] ?? 0) >= 2) {
-    const c = counts['水'];
-    poems.push(c >= 3 ? '三水为盗，暗流损耗漂流难聚' : '二水为盗，多有暗耗漂流走失');
-  }
-
-  if (poems.length === 0) {
-    return '四位五行周流，无极偏比合之患';
-  }
-  return poems.join('；');
+  const all = [positions.renYuan, positions.guiShen, positions.jiangShen, positions.diFen];
+  const numerals = ['', '一', '二', '三', '四'];
+  return ['木', '火', '土', '金', '水']
+    .flatMap((element) => {
+      const members = all.filter((position) => position.element === element);
+      return members.length >= 2
+        ? [
+            `${element}见${numerals[members.length]}位（${members.map((position) => position.name).join('、')}）`,
+          ]
+        : [];
+    })
+    .join('；');
 }
 
 function resolveDiFenBranch(params: {
