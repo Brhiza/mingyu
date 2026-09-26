@@ -56,9 +56,11 @@ export interface FortuneTriggerFormationFact {
   label: string;
   group: string;
   branches: string[];
+  /** 三支在原局和所选岁运中出现的全部层级。 */
   participantLayerKeys: string[];
   natalLayerKeys: string[];
   activeLayerKeys: string[];
+  /** 原局未具备的地支在所选岁运中的来源层级。 */
   triggerLayerKeys: string[];
   calculationStepKey: string;
   sources: string[];
@@ -513,29 +515,31 @@ function buildFormationFacts(params: {
     const complete = definition.branches.every((branch) => allBranches.has(branch));
     if (natalComplete || !complete) return [];
 
-    // 同一支可能由多个岁运层级共同补全（如大运与流年同为辰）；
-    // 补支时保留该支的全部层级，不以取首冒充唯一触发者
-    const participants = definition.branches.flatMap((branch) => {
-      const matchingNatal = params.natalLayers.filter(
-        (layer) => splitGanZhi(layer.ganZhi).zhi === branch,
-      );
-      if (matchingNatal.length) return matchingNatal;
-      return params.activeLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch);
-    });
-    if (participants.some((layer) => !layer)) return [];
-
-    const resolvedParticipants = participants as FortuneTriggerResolvedLayer[];
+    const branchSources = definition.branches.map((branch) => ({
+      branch,
+      natal: params.natalLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch),
+      active: params.activeLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch),
+    }));
+    const resolvedParticipants = branchSources.flatMap(({ natal, active }) => [
+      ...natal,
+      ...active,
+    ]);
     const natalParticipants = resolvedParticipants.filter((layer) => layer.type === 'natal');
     const activeParticipants = resolvedParticipants.filter((layer) => layer.type !== 'natal');
-    if (!activeParticipants.length) return [];
+    const missingBranchSources = branchSources.filter(({ natal }) => !natal.length);
+    const triggerParticipants = missingBranchSources.flatMap(({ active }) => active);
+    if (!triggerParticipants.length) return [];
 
-    const triggerLabels = activeParticipants.map((layer) => layer.label);
+    const triggerLabels = triggerParticipants.map((layer) => layer.label);
     const formationLabel =
       definition.type === 'branch-sanhe'
         ? `${definition.branches.join('')}三合${definition.group}`
         : `${definition.branches.join('')}${definition.group}三会`;
-    const triggerPrefix =
-      triggerLabels.length > 1 ? `${triggerLabels.join('、')}共同补全` : `${triggerLabels[0]}补全`;
+    const triggerPrefix = missingBranchSources.some(({ active }) => active.length > 1)
+      ? `${missingBranchSources.map(({ branch, active }) => `${branch}见于${active.map((layer) => layer.label).join('、')}`).join('；')}，补全`
+      : triggerLabels.length > 1
+        ? `${triggerLabels.join('、')}共同补全`
+        : `${triggerLabels[0]}补全`;
 
     return [
       {
@@ -548,7 +552,7 @@ function buildFormationFacts(params: {
         participantLayerKeys: resolvedParticipants.map((layer) => layer.key),
         natalLayerKeys: natalParticipants.map((layer) => layer.key),
         activeLayerKeys: activeParticipants.map((layer) => layer.key),
-        triggerLayerKeys: activeParticipants.map((layer) => layer.key),
+        triggerLayerKeys: triggerParticipants.map((layer) => layer.key),
         calculationStepKey: params.calculationStepKey,
         sources:
           definition.type === 'branch-sanhe'

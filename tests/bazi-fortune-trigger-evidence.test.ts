@@ -244,6 +244,54 @@ test('多个岁运层级共同补齐时应记录完整三会结构', () => {
   assertEvidenceReferences(result);
 });
 
+test('大运与流年同支均可补齐缺支时应保留两项来源而不称共同补全', () => {
+  const activeLayers = [
+    { id: 'dayun', type: 'dayun' as const, label: '戊辰大运', ganZhi: '戊辰' },
+    { id: 'year', type: 'year' as const, label: '庚辰流年', ganZhi: '庚辰' },
+  ];
+  const expectedKeys = [
+    'bazi:fortune-trigger:layer:dayun:dayun',
+    'bazi:fortune-trigger:layer:year:year',
+  ];
+
+  for (const layers of [activeLayers, [...activeLayers].reverse()]) {
+    const result = analyzeFortuneTriggers(createResult(), layers);
+    const formation = result.formations.find(
+      (item) => item.type === 'branch-sanhe' && item.group === '水局',
+    );
+
+    assert.ok(formation);
+    assert.deepEqual([...formation.triggerLayerKeys].sort(), [...expectedKeys].sort());
+    assert.deepEqual([...formation.activeLayerKeys].sort(), [...expectedKeys].sort());
+    assert.match(formation.label, /^辰见于/);
+    assert.match(formation.label, /戊辰大运/);
+    assert.match(formation.label, /庚辰流年/);
+    assert.match(formation.label, /补全申子辰三合水局$/);
+    assert.doesNotMatch(formation.label, /共同补全/);
+    assertEvidenceReferences(result);
+  }
+});
+
+test('岁运重复原局已有地支时应列入参与层级而不当作补支来源', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'dayun', type: 'dayun', label: '庚申大运', ganZhi: '庚申' },
+    { id: 'year', type: 'year', label: '戊辰流年', ganZhi: '戊辰' },
+  ]);
+  const formation = result.formations.find(
+    (item) => item.type === 'branch-sanhe' && item.group === '水局',
+  );
+
+  assert.ok(formation);
+  assert.ok(formation.participantLayerKeys.includes('bazi:fortune-trigger:layer:dayun:dayun'));
+  assert.deepEqual(formation.activeLayerKeys, [
+    'bazi:fortune-trigger:layer:dayun:dayun',
+    'bazi:fortune-trigger:layer:year:year',
+  ]);
+  assert.deepEqual(formation.triggerLayerKeys, ['bazi:fortune-trigger:layer:year:year']);
+  assert.match(formation.label, /戊辰流年补全申子辰三合水局/);
+  assertEvidenceReferences(result);
+});
+
 test('原局已经完整成局时不应重复报告为岁运补全', () => {
   const natal = createResult();
   natal.pillars.month = { gan: '戊', zhi: '辰', ganZhi: '戊辰' };
