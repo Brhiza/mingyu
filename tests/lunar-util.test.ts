@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LunarUtil, TimeManager } from '@core/calendar';
+import { LunarUtil, TimeManager, resolveBirthCalendarClockTime } from '@core/calendar';
 
 const GANZHI_FIXTURES = [
   [2024, 2, 4, 16, 20, { year: '癸卯', month: '乙丑', day: '戊戌', hour: '庚申' }],
@@ -61,6 +61,74 @@ test('农历工具显示文本不应保留 tyme4ts toString 的农历前缀，�
   assert.equal(leapMonth.monthInChinese, '闰二月');
   assert.equal(leapMonth.dayInChinese, '初一');
   assert.equal(leapMonth.monthNumber, 2);
+});
+
+test('农历数值年月日与闰月标志应能还原公历日期', () => {
+  const cases = [
+    {
+      year: 2023,
+      month: 2,
+      day: 20,
+      lunarYear: 2023,
+      lunarMonth: 2,
+      lunarDay: 1,
+      isLeapMonth: false,
+    },
+    {
+      year: 2023,
+      month: 3,
+      day: 22,
+      lunarYear: 2023,
+      lunarMonth: 2,
+      lunarDay: 1,
+      isLeapMonth: true,
+    },
+    // 立春已过、春节未到，干支年与农历纪年不同。
+    {
+      year: 2024,
+      month: 2,
+      day: 9,
+      lunarYear: 2023,
+      lunarMonth: 12,
+      lunarDay: 30,
+      isLeapMonth: false,
+    },
+  ] as const;
+
+  for (const example of cases) {
+    const date = new Date(example.year, example.month - 1, example.day, 12);
+    const lunar = LunarUtil.getLunar(date);
+    const fromTimeInfo = LunarUtil.getTimeInfo(date).lunar;
+    const fromTimeManager = TimeManager.getDivinationTime(
+      new Date(Date.UTC(example.year, example.month - 1, example.day, 4)),
+    ).timeInfo.lunar;
+
+    for (const result of [lunar, fromTimeInfo, fromTimeManager]) {
+      assert.equal(result.yearNumber, example.lunarYear);
+      assert.equal(result.monthNumber, example.lunarMonth);
+      assert.equal(result.dayNumber, example.lunarDay);
+      assert.equal(result.isLeapMonth, example.isLeapMonth);
+      assert.deepEqual(
+        resolveBirthCalendarClockTime({
+          dateType: 'lunar',
+          year: result.yearNumber,
+          month: result.monthNumber,
+          day: result.dayNumber,
+          isLeapMonth: result.isLeapMonth,
+          hour: 12,
+          minute: 0,
+        }),
+        {
+          year: example.year,
+          month: example.month,
+          day: example.day,
+          hour: 12,
+          minute: 0,
+          second: 0,
+        },
+      );
+    }
+  }
 });
 
 test('农历工具公历年每月代表干支应统一取 EightChar 月柱', () => {
