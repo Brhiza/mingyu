@@ -229,6 +229,55 @@ test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证�
   assert.match(result.evidenceAnalysis.promptText, /同元|辰山替为6逆飞|甲山替为1顺飞/);
 });
 
+test('《沈氏玄空学》六运壬山丙向替卦：山二不变、向一替二并顺飞到向六', () => {
+  const result = generateXuanKong({ year: 1974, sitMountain: '壬', guaType: '替卦' });
+  assert.deepEqual(result.replacement?.mountain, {
+    originalCenterStar: 2,
+    referenceMountain: '未',
+    replacementStar: 2,
+    direction: '逆飞',
+  });
+  assert.deepEqual(result.replacement?.facing, {
+    originalCenterStar: 1,
+    referenceMountain: '壬',
+    replacementStar: 2,
+    direction: '顺飞',
+  });
+  assert.equal(result.plates.xiang[9 - 1], 6);
+  assert.equal(result.formation, '旺山旺向');
+  assert.equal(result.replacementApplied, true);
+});
+
+test('《沈氏玄空学》不可替兼向虽到山到向，不作旺山旺向局', () => {
+  // 卷一“论起星”明列四运甲庚、庚甲与八运丑未、未丑。
+  for (const [year, sitMountain] of [
+    [1930, '甲'],
+    [1930, '庚'],
+    [2010, '丑'],
+    [2010, '未'],
+  ] as const) {
+    const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
+    assert.equal(
+      result.replacement?.mountain.originalCenterStar,
+      result.replacement?.mountain.replacementStar,
+    );
+    assert.equal(
+      result.replacement?.facing.originalCenterStar,
+      result.replacement?.facing.replacementStar,
+    );
+    assert.equal(result.replacementApplied, false);
+    assert.equal(result.formation, '替卦到山到向未成旺局');
+    assert.equal(result.daoShanXiang.shanToMountain, true);
+    assert.equal(result.daoShanXiang.xiangToFacing, true);
+    assert.match(result.prompt, /未发生替星/);
+    assert.match(result.prompt, /局型：替卦到山到向未成旺局/);
+    assert.ok(
+      result.evidenceAnalysis.sources.some((source) => source.title.includes('沈氏玄空学')),
+    );
+    assert.equal(generateXuanKong({ year, sitMountain }).formation, '旺山旺向');
+  }
+});
+
 test('玄空九运子山替卦应保持五黄入中并按同元参考山排向盘', () => {
   const result = generateXuanKong({ year: 2024, sitMountain: '子', guaType: '替卦' });
 
@@ -368,7 +417,13 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
       const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
 
       assert.equal(result.guaType, '替卦');
-      assert.equal(result.replacementApplied, true);
+      assert.equal(
+        result.replacementApplied,
+        result.replacement!.mountain.originalCenterStar !==
+          result.replacement!.mountain.replacementStar ||
+          result.replacement!.facing.originalCenterStar !==
+            result.replacement!.facing.replacementStar,
+      );
       assert.ok(result.replacement);
       assert.deepEqual(
         result.plates.shan,

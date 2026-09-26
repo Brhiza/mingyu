@@ -61,6 +61,21 @@ test('易林查询拒绝无效底本和不完整卦名', () => {
   assert.throws(() => queryYilinEntry('壮', '乾'), /有效卦名/);
 });
 
+test('易林六十四卦简体名称均可作为本卦和变卦查询', () => {
+  const simplifiedNames = (
+    '乾 坤 屯 蒙 需 讼 师 比 小畜 履 泰 否 同人 大有 谦 豫 随 蛊 临 观 噬嗑 贲 剥 复 ' +
+    '无妄 大畜 颐 大过 坎 离 咸 恒 遁 大壮 晋 明夷 家人 睽 蹇 解 损 益 夬 姤 萃 升 ' +
+    '困 井 革 鼎 震 艮 渐 归妹 丰 旅 巽 兑 涣 节 中孚 小过 既济 未济'
+  ).split(' ');
+  assert.equal(simplifiedNames.length, 64);
+  for (const [index, name] of simplifiedNames.entries()) {
+    const canonical = YILIN_HEXAGRAM_ORDER[index];
+    assert.deepEqual(queryYilinEntry(name, '乾'), queryYilinEntry(canonical, '乾'));
+    assert.deepEqual(queryYilinEntry('乾', name), queryYilinEntry('乾', canonical));
+  }
+  assert.deepEqual(queryYilinEntry('無妄', '恆'), queryYilinEntry('无妄', '恒'));
+});
+
 test('易林卦名别名规范化且原始标签差异不会被静默改写', () => {
   const entry = queryYilinEntry('兑', '随');
   assert.equal(entry.key, '兌→隨');

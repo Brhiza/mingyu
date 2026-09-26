@@ -151,3 +151,33 @@ test('七政周期扫描保留同类夹角的正逆向多次出现', () => {
   assert.ok(sextiles.filter((event) => event.aspectDirection === '逆向').length >= 2);
   assert.ok(sextiles.every((event) => !/顺行|逆行/u.test(event.promptText)));
 });
+
+test('周期主轴筛出重点事件后仍按实际发生时序列示', () => {
+  const result = scanQizhengPeriodEvents({
+    natalStars: [{ name: '本命星', longitude: 28.5 }],
+    twelvePalaces: boundaryPalaces,
+    startUtcMs: boundaryStart,
+    endUtcMs: boundaryStart + 6 * boundaryHour,
+    timezone: 0,
+    mode: 'daily',
+    sampleLongitudes: (utcMs) => {
+      const hours = (utcMs - boundaryStart) / boundaryHour;
+      return [{ name: '太阳', longitude: 28 + 2 * hours - (hours * hours) / 3 }];
+    },
+  });
+  const axisEvents = result.axis.map((line) =>
+    result.events.find((event) => event.promptText === line),
+  );
+  assert.ok(axisEvents.length >= 4);
+  assert.ok(axisEvents.every((event) => event));
+  assert.equal(axisEvents[0]!.kind, '精确吊照');
+  assert.ok(axisEvents.some((event) => event!.kind === '换宫'));
+  assert.ok(axisEvents.some((event) => event!.kind === '停逆'));
+  assert.deepEqual(
+    axisEvents.map((event) => event!.utcMs),
+    [...axisEvents].sort((left, right) => left!.utcMs - right!.utcMs).map((event) => event!.utcMs),
+  );
+  const summary = result.promptText.split('\n').find((line) => line.startsWith('周期主轴：'))!;
+  assert.ok(summary.indexOf('吊照太阳') < summary.indexOf('换宫太阳'));
+  assert.ok(summary.indexOf('换宫太阳') < summary.indexOf('停逆太阳'));
+});

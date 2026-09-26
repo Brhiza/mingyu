@@ -1,478 +1,524 @@
 import type { BaziQiongtongEntry } from './types';
 
+// 校勘底本：https://zh.wikisource.org/w/index.php?title=穷通宝鉴&oldid=2294674
+// classicVerse 为该修订版逐字摘录；primaryGods 只列条文取用候选，具体先后以原文条件为准。
+
 export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
   // 甲木
+  // 出处：三春甲木·正月。
   '甲+寅': {
     dayMaster: '甲',
     monthBranch: '寅',
-    seasonSummary: '孟春甲木，初春余寒未尽，木性方萌。',
+    seasonSummary: '初春余寒，原文以丙癸相济。',
     primaryGods: ['丙', '癸'],
-    classicVerse:
-      '初春甲木，余寒犹存，得丙火以暄之，癸水以润之，水火相济，则根深叶茂。无丙则不发，无癸则枯槁。',
-    modernExplanation:
-      '初春之木，最喜火来暖局、水来滋养，忌金强克伐幼芽。事业上宜循序渐进，贵人多在南方与北方。',
-    taboos: ['重金伤根', '过湿无阳'],
+    classicVerse: '正月甲木，初春尚有余寒，得丙癸逢，富贵双全。',
+    modernExplanation: '丙火温木，癸水滋养春木。',
+    taboos: [],
   },
+  // 出处：三春甲木·二月。
   '甲+卯': {
     dayMaster: '甲',
     monthBranch: '卯',
-    seasonSummary: '仲春甲木，阳刃当权，木气极盛。',
-    primaryGods: ['庚', '丁'],
-    classicVerse:
-      '仲春甲木，乘权极旺，木盛则喜庚金修剪，无庚则不成梁栋。庚丁双显，木火通明，大贵之格。',
-    modernExplanation:
-      '羊刃月令，精力充沛、魄力过人，但需有明确目标（金来雕琢）与技术输出（火来泄秀），方成大器。',
-    taboos: ['无制过刚', '刑冲羊刃'],
+    seasonSummary: '仲春甲木，庚金得所另须财资。',
+    primaryGods: ['庚', '戊', '丁'],
+    classicVerse: '二月甲木，庚金得所，名阳刃驾杀，可云小贵，异途显达，或主武职，但要财资之。',
+    modernExplanation: '庚金制旺木，戊土资庚；丁火透出时另论。',
+    taboos: [],
   },
+  // 出处：三春甲木·三月。
   '甲+辰': {
     dayMaster: '甲',
     monthBranch: '辰',
-    seasonSummary: '季春甲木，木气渐老，土旺当令。',
-    // 依维基文库《穷通宝鉴》三月甲木"先取庚金，次用壬水……支成金局方可用丁"校正次序
-    primaryGods: ['庚', '壬', '丁'],
-    classicVerse: '三月甲木，木气相竭。先取庚金修剪，次用壬水润根；支成金局方可用丁。',
-    modernExplanation: '根深叶茂，兼具才智与耐力，适合统筹规划与管理工作，兼修技术更具竞争力。',
-    taboos: ['土重埋根', '木盛无金'],
+    seasonSummary: '三月木气相竭，先庚后壬。',
+    primaryGods: ['庚', '壬'],
+    classicVerse: '三月甲木，木气相竭。先取庚金，次用壬水。',
+    modernExplanation: '庚金修木、壬水滋扶；支成金局时再论丁火。',
+    taboos: [],
   },
+  // 出处：三夏甲木·四月。
   '甲+巳': {
     dayMaster: '甲',
     monthBranch: '巳',
-    seasonSummary: '孟夏甲木，天气渐热，火旺木焦。',
-    primaryGods: ['癸', '丁', '庚'],
+    seasonSummary: '四月甲木退气，丙火司权，先癸后丁。',
+    primaryGods: ['癸', '丁'],
     classicVerse: '四月甲木退气，丙火司权，先癸后丁。',
-    modernExplanation:
-      '夏季之木，首重降温滋养。事业与生活中宜保持冷静，多与智者交流，忌盲目扩张引发内耗。',
-    taboos: ['火多木焚', '无水干枯'],
+    modernExplanation: '癸水润木，丁火与庚金的配合依原局另论。',
+    taboos: [],
   },
+  // 出处：三夏甲木·五月。
   '甲+午': {
     dayMaster: '甲',
     monthBranch: '午',
-    seasonSummary: '仲夏甲木，火炎土燥，木极虚弱。',
+    seasonSummary: '五月木性虚焦，癸先、丁次、庚再次。',
     primaryGods: ['癸', '丁', '庚'],
     classicVerse: '五月先癸后丁庚金次之。',
-    modernExplanation:
-      '先核对癸水润燥的需要，再分别论丁火与庚金的制化；原局已经具备的作用与后续所需分开判断。',
-    taboos: ['重火烈炎', '土燥金脆'],
+    modernExplanation: '癸水滋木；木盛先庚、庚盛先丁是同篇另列的条件。',
+    taboos: [],
   },
+  // 出处：三夏甲木·六月。
   '甲+未': {
     dayMaster: '甲',
     monthBranch: '未',
-    seasonSummary: '季夏甲木，燥土当权，木气受困。',
+    seasonSummary: '六月三伏生寒，先丁后庚。',
     primaryGods: ['丁', '庚'],
     classicVerse: '六月三伏生寒，丁火退气。先丁后庚，无癸亦可。',
-    modernExplanation:
-      '此为未月丁庚取用的一般提纲，同篇另分木盛先庚、庚盛先丁。具体需结合原局制化：身弱而火土偏盛时，扶抑重在水木；丁火制金是否适用，须看庚金与日主承载。',
-    taboos: ['燥烈焦枯', '水气全无'],
+    modernExplanation: '木盛改先庚、庚盛改先丁；原文说无癸亦可。',
+    taboos: [],
   },
+  // 出处：三秋甲木·七月。
   '甲+申': {
     dayMaster: '甲',
     monthBranch: '申',
-    seasonSummary: '孟秋甲木，绝地逢克，金气肃杀。',
-    primaryGods: ['丁', '庚', '壬'],
-    classicVerse:
-      '七月甲木，木在绝地，庚金乘令。先取丁火制煞，次取庚金，见壬水化煞生身，富贵不凡。',
-    modernExplanation:
-      '抗压能力极强，置之死地而后生之象。遇逆境能爆发惊人战斗力，宜学一技之长或担任管理实权。',
-    taboos: ['无制纯煞', '水多木漂'],
+    seasonSummary: '七月金旺，丁为尊、庚次之。',
+    primaryGods: ['丁', '庚'],
+    classicVerse: '七月甲木，丁火为尊，庚金次之，庚金不可少。',
+    modernExplanation: '丁火镕庚，庚金造甲；癸水阻隔丁火时须另看制水。',
+    taboos: [],
   },
+  // 出处：三秋甲木·八月。
   '甲+酉': {
     dayMaster: '甲',
     monthBranch: '酉',
-    seasonSummary: '仲秋甲木，正官当权，金肃木凋。',
+    seasonSummary: '八月木囚金旺，丁先、丙次、庚再次。',
     primaryGods: ['丁', '丙', '庚'],
     classicVerse: '八月甲木，木囚金旺。丁火为先，次用丙火，庚金再次。',
-    modernExplanation:
-      '丁火制金、丙火照暖与庚金裁木各有对象；结合金木根气、透干与合绊核对作用能否成立。',
-    taboos: ['金多折木', '无火抗金'],
+    modernExplanation: '丁火应对旺金；丙火与庚金仍须依原局配合。',
+    taboos: [],
   },
+  // 出处：三秋甲木·九月。
   '甲+戌': {
     dayMaster: '甲',
     monthBranch: '戌',
-    seasonSummary: '季秋甲木，深秋木凋，土燥金坚。',
+    seasonSummary: '九月木星凋零，重丁火与壬癸滋扶。',
     primaryGods: ['丁', '壬', '癸'],
-    classicVerse: '九月甲木，木星凋零，独爱丁火，壬癸滋扶。',
-    modernExplanation:
-      '丁火与壬癸分别承担火气与滋扶作用，需结合土的燥湿、甲木根气及水火制化确定实际所需。',
-    taboos: ['燥土无湿', '重金劈伐'],
+    classicVerse:
+      '九月甲木，木星凋零，独爱丁火，壬癸滋扶，丁壬癸透，戊己亦透，此命配得中和，可许一榜。',
+    modernExplanation: '壬癸滋扶甲木，丁火与戊己同时透出时另论中和。',
+    taboos: [],
   },
+  // 出处：三冬甲木·十月。
   '甲+亥': {
     dayMaster: '甲',
     monthBranch: '亥',
-    seasonSummary: '孟冬甲木，长生得令，水旺初寒。',
+    seasonSummary: '十月庚丁为要，丙火次之。',
     primaryGods: ['庚', '丁', '丙'],
-    classicVerse: '十月甲木，小春之候，木气萌动。喜庚金以修剪，取丁火以暖局，水不宜过多。',
-    modernExplanation: '根基得生，潜藏生机，宜以温暖明朗的心态开拓事业，忌过度消极等待。',
-    taboos: ['水冷无阳', '土冻根折'],
+    classicVerse: '十月甲木，庚丁为要，丙火次之。忌壬水泛身，须戊土制之。',
+    modernExplanation: '壬水泛身时，原文另取戊土制水。',
+    taboos: ['壬水泛身'],
   },
+  // 出处：三冬甲木·十一月。
   '甲+子': {
     dayMaster: '甲',
     monthBranch: '子',
-    seasonSummary: '仲冬甲木，严寒彻骨，水泛木浮。',
+    seasonSummary: '十一月木性生寒，丁先庚后，丙火佐之。',
     primaryGods: ['丁', '庚', '丙'],
-    classicVerse: '十一月甲木，为寒枝，不比春木清茂，耑取庚丁。',
-    modernExplanation:
-      '此条以庚丁配合为提纲，并另论丙火佐助；需核对庚丁根气与作用链，水土喜忌仍结合完整原局判断。',
-    taboos: ['湿寒无阳', '水旺冲堤'],
+    classicVerse: '十一月甲木，木性生寒，丁先庚后，丙火佐之。癸水司权，为火金之病。',
+    modernExplanation: '丁暖寒木，庚丁配合；癸水透出会伤丁。',
+    taboos: ['癸水伤丁'],
   },
+  // 出处：三冬甲木·十二月。
   '甲+丑': {
     dayMaster: '甲',
     monthBranch: '丑',
-    seasonSummary: '季冬甲木，天寒地冻，冰封土冷。',
+    seasonSummary: '十二月天寒木冻，先庚后丁。',
     primaryGods: ['庚', '丁'],
     classicVerse:
       '十二月甲木，天寒气冻，木性极寒，无生发之象，先用庚噼甲，方引丁火始得木火有通明之象，故丁次之。',
-    modernExplanation:
-      '庚劈甲、甲引丁是相互配合的作用链；需核对庚丁是否具备根气与位置条件，并保留扶抑承载判断。',
-    taboos: ['冰雪深寒', '无阳自枯'],
+    modernExplanation: '庚噼甲以引丁，原文将二者写作连续作用。',
+    taboos: [],
   },
 
   // 乙木
+  // 出处：三春乙木·正月。
   '乙+寅': {
     dayMaster: '乙',
     monthBranch: '寅',
-    seasonSummary: '孟春乙木，余寒犹存，向阳而生。',
+    seasonSummary: '正月乙木余寒，丙先癸后。',
     primaryGods: ['丙', '癸'],
-    classicVerse: '正月乙木，初春得禄，喜丙火照暖，配癸水滋润。水火相济，花繁叶茂。',
-    modernExplanation: '温润灵秀，学习与领悟力极强，得良师益友启发可迅速崭露头角。',
-    taboos: ['强金折损', '水多泛滥'],
+    classicVerse:
+      '正月乙木，必须用丙，因天气尤有余寒，非丙不暖，虽有癸水，恐凝寒气，故以丙火为先，癸水次之。',
+    modernExplanation: '丙火先暖乙木；癸水过多会增寒并困丙。',
+    taboos: [],
   },
+  // 出处：三春乙木·二月。
   '乙+卯': {
     dayMaster: '乙',
     monthBranch: '卯',
-    seasonSummary: '仲春乙木，得令得时，春深木茂。',
-    primaryGods: ['癸', '丙'],
-    classicVerse: '二月乙木，木旺之极。专用癸水滋木，取丙火泄秀。木火通明，文章显赫。',
-    modernExplanation: '文采风流、悟性极高，善于表达与创作，宜走文化、艺术、传媒路线。',
-    taboos: ['顽金硬伐', '埋没才华'],
+    seasonSummary: '二月阳气渐升，以丙为君、癸为臣。',
+    primaryGods: ['丙', '癸'],
+    classicVerse: '二月乙木，阳气渐升，木不寒矣，以丙为君，癸为臣，丙癸两透，不透庚金，大富大贵。',
+    modernExplanation: '丙火泄旺木，癸水滋根；庚金透出时另核对原文分支。',
+    taboos: ['水多困丙'],
   },
+  // 出处：三夏乙木·五月。
   '乙+午': {
     dayMaster: '乙',
     monthBranch: '午',
-    seasonSummary: '仲夏乙木，草木焦枯，极需甘霖。',
-    primaryGods: ['癸', '壬'],
-    classicVerse: '五月乙木，火炎土燥，禾稼枯槁。专取癸水为上，壬水次之。无水必主夭折残疾。',
-    modernExplanation: '思维敏捷但易劳心耗力，需多休息调养身心，事业宜依托稳定大平台。',
-    taboos: ['重火烈焚', '水竭无救'],
+    seasonSummary: '五月丁火司权，取用随月内时段与金水多少而变。',
+    primaryGods: ['癸', '丙'],
+    classicVerse:
+      '五月乙木，丁火司权，禾稼俱旱。上半月属阳，仍用癸水。下半月属阴，三伏生寒，丙癸齐用。柱多金水，丙火为先，余皆用癸水为先。',
+    modernExplanation: '上半月仍用癸；下半月丙癸齐用；金水偏多时丙先，其余癸先。',
+    taboos: [],
   },
+  // 出处：三秋乙木·八月。
   '乙+酉': {
     dayMaster: '乙',
     monthBranch: '酉',
-    seasonSummary: '仲秋乙木，金气肃杀，绝地受克。',
-    primaryGods: ['癸', '丙', '丁'],
-    classicVerse: '八月乙木，秋深木凋。先用癸水化金生身，次用丙火温润暖局，丁火制煞。',
-    modernExplanation: '处事细腻谨慎，危机意识强，善于在复杂的职场关系中明哲保身。',
-    taboos: ['金多木折', '无水化煞'],
+    seasonSummary: '八月乙木，白露后至秋分前用癸，秋分后丙先癸后。',
+    primaryGods: ['癸', '丙'],
+    classicVerse:
+      '八月乙木，芝兰禾稼均退。以丹桂为乙木。在白露之后，桂蕊未开，耑用癸水以滋桂萼。若秋分后，桂花已开，却喜向阳，又宜用丙，癸水次之，丙癸两透，科甲名臣。',
+    modernExplanation: '白露后桂蕊未开，癸水滋养；秋分后桂花已开，转取丙火向阳。',
+    taboos: [],
   },
+  // 出处：三冬乙木·十一月。
   '乙+子': {
     dayMaster: '乙',
     monthBranch: '子',
-    seasonSummary: '仲冬乙木，冰封雪盖，寒木向阳。',
+    seasonSummary: '十一月花木寒冻，专用丙火。',
     primaryGods: ['丙'],
-    classicVerse: '十一月乙木，天寒地冻，花木凋残。专取丙火解冻，无丙则生机全无，见丙则花繁叶茂。',
-    modernExplanation:
-      '极度渴求阳光与正能量，宜从事令人身心愉悦的行业，在积极环境中能绽放惊人魅力。',
-    taboos: ['无火冻毙', '水多漂根'],
+    classicVerse:
+      '十一月乙木，花木寒冻，一阳来复，喜用丙火解冻，则花木有向阳之意，不宜用癸以冻花木，故耑用丙火。',
+    modernExplanation: '丙火解冻，癸水会加重花木寒冻。',
+    taboos: ['癸水冻木'],
   },
 
   // 丙火
+  // 出处：三春丙火·正月。
   '丙+寅': {
     dayMaster: '丙',
     monthBranch: '寅',
-    seasonSummary: '孟春丙火，长生得令，三阳开泰。',
+    seasonSummary: '正月三阳开泰，壬水为尊、庚金佐之。',
     primaryGods: ['壬', '庚'],
-    classicVerse: '正月丙火，阳气渐升。专用壬水映照，次用庚金劈木发水源。壬丙双透，名魁天下。',
-    modernExplanation: '气宇轩昂，领袖气质明显，喜壬水形成“水火既济”，格局宏大、威权在握。',
-    taboos: ['土多晦火', '无水枯燥'],
+    classicVerse: '正月丙火，三阳开泰，火气渐炎，取壬为尊，庚金佐之。',
+    modernExplanation: '壬水辅映丙火，庚金为壬水之源。',
+    taboos: ['戊土晦光'],
   },
+  // 出处：三夏丙火·五月。
   '丙+午': {
     dayMaster: '丙',
     monthBranch: '午',
-    seasonSummary: '仲夏丙火，日正中天，阳极之势。',
+    seasonSummary: '五月火炎，原文专用壬水。',
     primaryGods: ['壬', '庚'],
-    classicVerse: '五月丙火，阳极火炎。专取壬水辅阳光，用庚金生壬水，无水则火炎自焚。',
-    modernExplanation: '能量惊人、开拓力拉满，但极需制度（水）来规范与平衡，防刚愎自用。',
-    taboos: ['火炎土燥', '无水制炎'],
+    classicVerse: '四月耑用壬水，金为佐。五月亦耑用壬。',
+    modernExplanation: '壬水辅映丙火，庚金可发水源；炎上格须按其条件另论。',
+    taboos: [],
   },
+  // 出处：三秋丙火·七月。
   '丙+申': {
     dayMaster: '丙',
     monthBranch: '申',
-    seasonSummary: '孟秋丙火，阳气渐收，气势衰退。',
-    primaryGods: ['壬', '丙', '戊'],
-    classicVerse: '七月丙火，金旺火退。专取壬水辅映，次见比肩帮扶，名显四方。',
-    modernExplanation: '善于整合资源，商业敏锐度高，利于拓展外部合作与金融投资。',
-    taboos: ['金多耗气', '土多晦光'],
+    seasonSummary: '七月阳气渐衰，仍以壬水辅映。',
+    primaryGods: ['壬', '戊'],
+    classicVerse:
+      '七月丙火，太阳转西，阳气衰矣。日近西山，见土皆晦，惟日照湖海，暮夜光天，故仍用壬水，辅映光辉。',
+    modernExplanation: '壬水偏多时，原文另取戊土制水。',
+    taboos: ['土多晦光'],
   },
+  // 出处：三冬丙火·十一月。
   '丙+子': {
     dayMaster: '丙',
     monthBranch: '子',
-    seasonSummary: '仲冬丙火，日照寒潭，水旺火衰。',
-    primaryGods: ['壬', '戊', '甲'],
-    classicVerse: '十一月丙火，冬至一阳生。专用壬水映日，用戊土制水培火，甲木引丁通关。',
-    modernExplanation: '外柔内刚，善解人意，具有极高的情商与同理心，适合公关、管理与咨询。',
-    taboos: ['水泛无制', '阴寒太盛'],
+    seasonSummary: '十一月冬至阳生，壬水为最、戊土佐之。',
+    primaryGods: ['壬', '戊'],
+    classicVerse: '十一月丙火，冬至一阳生，弱中复强，壬水为最，戊土佐之。',
+    modernExplanation: '戊土佐壬水，原文将壬戊配合作为本月提纲。',
+    taboos: [],
   },
 
   // 丁火
+  // 出处：三春丁火·二月。
   '丁+卯': {
     dayMaster: '丁',
     monthBranch: '卯',
-    seasonSummary: '仲春丁火，印旺生身，木火通明。',
+    seasonSummary: '二月湿乙伤丁，先庚后甲。',
     primaryGods: ['庚', '甲'],
-    classicVerse: '二月丁火，木旺秉令。专取庚金劈甲以引丁，无庚则木旺火塞。庚甲双显，大富大贵。',
-    modernExplanation: '才思敏捷，钻研能力极强，在专业领域有卓越造诣，适合深耕技术与学术。',
-    taboos: ['木多火窒', '水多灭火'],
+    classicVerse: '二月丁火，溼乙伤丁，先庚后甲，非庚不能去乙，非甲不能引丁。',
+    modernExplanation: '庚金去乙，甲木引丁，二者作用相接。',
+    taboos: [],
   },
+  // 出处：三夏丁火·五月。
   '丁+午': {
     dayMaster: '丁',
     monthBranch: '午',
-    seasonSummary: '仲夏丁火，得禄建刃，火势极旺。',
-    primaryGods: ['壬', '庚', '癸'],
-    classicVerse: '五月丁火，火势极旺。专取壬水调候，庚金发水源，无水则烈火自焚。',
-    modernExplanation: '行事雷厉风行，原则性强，需戒骄戒躁，以柔克刚能成大事。',
-    taboos: ['火烈无水', '木多自焚'],
+    seasonSummary: '五月丁火建禄，庚壬两透为一分支。',
+    primaryGods: ['壬', '庚'],
+    classicVerse: '五月丁火，时归建禄，不宜乱用甲木。',
+    modernExplanation: '庚金发水源、壬水解炎；癸透及无火局而水透另有分支。',
+    taboos: ['乱用甲木'],
   },
+  // 出处：三秋丁火·八月。
   '丁+酉': {
     dayMaster: '丁',
     monthBranch: '酉',
-    seasonSummary: '仲秋丁火，退气火衰，财旺身弱。',
+    seasonSummary: '三秋丁火退气，甲木为主、庚金劈甲。',
     primaryGods: ['甲', '庚', '丙'],
-    classicVerse: '八月丁火，金旺火死。专取甲木生火，庚金劈木，丙火暖局相助。',
-    modernExplanation: '理财意识强，眼光精准，宜结伴创业或依托团队协同获取财富。',
-    taboos: ['财多身弱', '无木引火'],
+    classicVerse:
+      '三秋丁火，退气柔弱，耑用甲木，金虽乘旺司权，无伤丁之理，仍取庚噼甲，为引火之物，或借丙暖金晒木，不虑丙夺丁火。',
+    modernExplanation: '甲木引丁，庚金劈甲；丙火可暖金晒木。',
+    taboos: [],
   },
+  // 出处：三冬丁火·十一月。
   '丁+子': {
     dayMaster: '丁',
     monthBranch: '子',
-    seasonSummary: '仲冬丁火，天寒水旺，绝地求生。',
+    seasonSummary: '三冬丁火微寒，甲木为尊、庚金佐之。',
     primaryGods: ['甲', '庚'],
-    classicVerse: '十一月丁火，水旺冰封。专取甲木通关引火，庚金劈木以生丁，富贵天然。',
-    modernExplanation: '有极强的逆境适应力与抗挫折力，重情重义，深受信赖。',
-    taboos: ['水旺灭丁', '无木救助'],
+    classicVerse: '三冬丁火，甲木为尊，庚金佐之，癸戊权宜酌用可也。',
+    modernExplanation: '甲木引丁，庚金劈甲；十一月水多癸旺且无比印时另论从杀。',
+    taboos: [],
   },
 
   // 戊土
+  // 出处：三春戊土·三月。
   '戊+辰': {
     dayMaster: '戊',
     monthBranch: '辰',
-    seasonSummary: '季春戊土，木余气在，水湿土润。',
+    seasonSummary: '三月戊土司权，甲先、丙次、癸再次。',
     primaryGods: ['甲', '丙', '癸'],
-    classicVerse: '三月戊土，渐有生发之机。先用甲木疏土，次用丙火照暖，癸水滋润。',
-    modernExplanation: '为人忠厚稳健，包容度极高，适合从事大局管理、人力资源或资产运营。',
-    taboos: ['土厚木折', '无火无生'],
+    classicVerse: '三月先甲后丙，癸又次之，因戊土司权故也。',
+    modernExplanation: '甲木疏土，丙火照暖，癸水滋润。',
+    taboos: [],
   },
+  // 出处：三夏戊土·五月。
   '戊+午': {
     dayMaster: '戊',
     monthBranch: '午',
-    seasonSummary: '仲夏戊土，阳刃得地，火炎土燥。',
+    seasonSummary: '五月火炎，先壬后甲，丙火酌用。',
     primaryGods: ['壬', '甲', '丙'],
-    classicVerse: '五月戊土，火炎土燥。先取壬水调候滋润，次取甲木疏土，无水则焦脆不生。',
-    modernExplanation: '魄力宏大、信念坚实，需注重团队沟通与倾听意见，以水润局方显温和。',
-    taboos: ['火炎土焦', '水气全无'],
+    classicVerse: '五月戊土，仲夏火炎，先看壬水，次取甲木，丙火酌用，用癸力微。',
+    modernExplanation: '壬水润燥，甲木疏土；丙火按原局酌用。',
+    taboos: [],
   },
+  // 出处：三秋戊土·九月。
   '戊+戌': {
     dayMaster: '戊',
     monthBranch: '戌',
-    seasonSummary: '季秋戊土，土重当权，万物归藏。',
-    primaryGods: ['甲', '丙', '癸'],
-    classicVerse: '九月戊土，土重当权。专取甲木疏土，见丙癸配合，大富大贵。',
-    modernExplanation: '做事严谨规矩，信誉卓著，适合做长线战略布局或专业技术沉淀。',
-    taboos: ['厚土无疏', '土重埋金'],
+    seasonSummary: '九月戊土当权，先甲后癸。',
+    primaryGods: ['甲', '癸', '丙'],
+    classicVerse: '九月戊土当权，不可专用丙，先看甲木，次取癸水，却忌化合。',
+    modernExplanation: '甲木疏土、癸水润土；见金时原文另论丙火。',
+    taboos: ['戊癸化合'],
   },
+  // 出处：三冬戊土·十一月。
   '戊+子': {
     dayMaster: '戊',
     monthBranch: '子',
-    seasonSummary: '仲冬戊土，冻土冰封，寒气凝结。',
+    seasonSummary: '十一月严寒冰冻，丙火为专、甲木为佐。',
     primaryGods: ['丙', '甲'],
-    classicVerse: '十一月戊土，严寒水盛，冻土不生。专用丙火解冻，次取甲木疏土发荣。',
-    modernExplanation: '极喜暖局火相生扶，在温馨包容的团队中能最大程度发挥领导潜能。',
-    taboos: ['冰封千里', '湿寒无阳'],
+    classicVerse: '十一二月严寒冰冻，丙火为专，甲木为佐。',
+    modernExplanation: '丙火解冻，甲木疏土以助生发。',
+    taboos: [],
   },
 
   // 己土
+  // 出处：三春己土·二月。
   '己+卯': {
     dayMaster: '己',
     monthBranch: '卯',
-    seasonSummary: '仲春己土，官煞当权，木旺土虚。',
-    // 依维基文库《穷通宝鉴》二月己土"先取甲木疏之……次取癸水润之……加以一丙出透"校正
+    seasonSummary: '二月阳气渐升，甲木先疏、癸水次润。',
     primaryGods: ['甲', '癸', '丙'],
     classicVerse:
-      '二月己土，阳气渐升，木旺土虚。先取甲木疏土，次取癸水润泽；甲癸出干科甲，一丙出透尤佳。',
-    modernExplanation: '心思细腻，善于协调各方利益，适合走策划、文职或咨询管理路线。',
-    taboos: ['木多克破', '无火生身'],
+      '二月己土，阳气渐升，虽禾稼未成，万物出土，田园未展，先取甲木疏之，忌合。次取癸水润之。',
+    modernExplanation: '甲木疏田园，癸水润土；丙火透出时原文另论。',
+    taboos: ['甲木被合'],
   },
+  // 出处：三夏己土·六月。
   '己+未': {
     dayMaster: '己',
     monthBranch: '未',
-    seasonSummary: '季夏己土，燥气当令，田园干涸。',
+    seasonSummary: '三夏己土，癸水为要、丙火次之。',
     primaryGods: ['癸', '丙'],
-    classicVerse: '六月己土，三伏生寒，然燥土需润。专取癸水润土，丙火相生，水火调和。',
-    modernExplanation: '忍耐力强，富有奉献精神，注意防范过度劳累，合理调节身心节奏。',
-    taboos: ['燥土无湿', '过烈自焚'],
+    classicVerse: '三夏己土，杂气才官，禾稼在田，最喜甘沛，取癸为要，次用丙火。',
+    modernExplanation: '癸水润禾稼，丙火照暖；原文忌戊癸化合。',
+    taboos: ['戊癸化合'],
   },
+  // 出处：三冬己土·十一月。
   '己+子': {
     dayMaster: '己',
     monthBranch: '子',
-    seasonSummary: '仲冬己土，严寒冰封，土凝水冻。',
+    seasonSummary: '三冬湿泥寒冻，丙火为尊、甲木参酌。',
     primaryGods: ['丙', '甲'],
-    classicVerse: '十一月己土，天寒地冻，非丙火不能化冻生土。丙透甲辅，官贵天然。',
-    modernExplanation: '深谋远虑，善于守财与规避风险，得贵人温暖指引能成就大业。',
-    taboos: ['冰雪深寒', '无阳枯灭'],
+    classicVerse: '三冬己土，溼泥寒冻，非丙暖不生，取丙为尊，甲木参酌。',
+    modernExplanation: '丙火暖土；戊己土偏多时，原文另取甲木制之。',
+    taboos: [],
   },
 
   // 庚金
+  // 出处：三春庚金·正月。
   '庚+寅': {
     dayMaster: '庚',
     monthBranch: '寅',
-    seasonSummary: '孟春庚金，绝地逢春，木旺金绝。',
+    seasonSummary: '正月木旺余寒，先丙暖庚、再甲疏土。',
     primaryGods: ['丙', '甲', '丁'],
-    classicVerse: '正月庚金，木旺金绝。先取丙火暖局，次取甲木通关，丁火熔炼。',
-    modernExplanation: '具有极强的开拓意识与商业头脑，宜借助平台与贵人借力打力。',
-    taboos: ['木多金缺', '过寒无暖'],
+    classicVerse:
+      '正月庚金，木旺之际，有土皆死，不能生金，且金之寒气未除，先用丙暖庚性，又虑土厚埋金，须甲疏洩。',
+    modernExplanation: '土厚埋金时以甲木疏土；丁火为同篇列出的次选。',
+    taboos: ['春金多火'],
   },
+  // 出处：三夏庚金·五月。
   '庚+午': {
     dayMaster: '庚',
     monthBranch: '午',
-    seasonSummary: '仲夏庚金，败地受克，火炎金熔。',
+    seasonSummary: '五月丁火旺烈，庚金败地，壬先癸后。',
     primaryGods: ['壬', '癸'],
-    classicVerse: '五月庚金，火炎土燥，金气消融。专取壬水癸水调候淬火，无水则金销。',
-    modernExplanation: '经历过严格锻造与磨砺，人格魅力与职业能力突出，宜保持谦逊包容。',
-    taboos: ['火炎金销', '水气全无'],
+    classicVerse: '五月庚金，丁火旺烈，庚金败地，专用壬水，癸又次之。',
+    modernExplanation: '壬水应旺火，癸水为次；戊己透干会制水。',
+    taboos: ['戊己制水'],
   },
+  // 出处：三秋庚金·七月。
   '庚+申': {
     dayMaster: '庚',
     monthBranch: '申',
-    seasonSummary: '孟秋庚金，专禄得令，刚锐无比。',
+    seasonSummary: '七月庚金刚锐，丁火煅炼、甲木引丁。',
     primaryGods: ['丁', '甲'],
-    classicVerse: '七月庚金，刚锐极矣。专取丁火熔炼成材，配甲木引丁，庚丁甲三透，名登金榜。',
-    modernExplanation:
-      '意志坚如钢铁，执行力极强，需经过严格磨砺（丁火）方成国家栋梁，适合硬核技术与攻坚。',
-    taboos: ['顽金无炼', '土重埋金'],
+    classicVerse:
+      '七月庚金，刚锐极矣。专用丁火煅炼，次取甲木引丁，故曰：秋金锐锐最为奇，壬癸相逢总不宜，如逢木火来成局，试看福寿与天齐。',
+    modernExplanation: '丁火煅庚，甲木为丁火之引。',
+    taboos: [],
   },
+  // 出处：三冬庚金·十一月。
   '庚+子': {
     dayMaster: '庚',
     monthBranch: '子',
-    seasonSummary: '仲冬庚金，死地逢寒，金寒水冷。',
+    seasonSummary: '十一月天气严寒，丁甲并取、丙火次之。',
     primaryGods: ['丁', '甲', '丙'],
-    classicVerse: '十一月庚金，水旺金冷。专取丁火解冻炼金，甲木引火生丁，丙火暖局。',
-    modernExplanation: '冷峻睿智，分析判断力惊人，宜用热情与行动力温暖身心与事业。',
-    taboos: ['金寒水冻', '无火无生'],
+    classicVerse: '十一月庚金，天气严寒，仍取丁甲，次取丙火照暖。',
+    modernExplanation: '丁火炼庚，甲木引丁，丙火照暖。',
+    taboos: [],
   },
 
   // 辛金
+  // 出处：三春辛金·二月。
   '辛+卯': {
     dayMaster: '辛',
     monthBranch: '卯',
-    seasonSummary: '仲春辛金，春深木旺，金气虚弱。',
+    seasonSummary: '二月阳和，壬水为尊，戊己为病。',
     primaryGods: ['壬', '甲'],
-    classicVerse: '二月辛金，阳和之气，木旺金绝。专取壬水淘洗，甲木疏土，温润显贵。',
-    modernExplanation: '气质高雅，注重品质与细节，在艺术、设计、金融或法务领域得心应手。',
-    taboos: ['火多熔金', '土重埋没'],
+    classicVerse:
+      '二月辛金，阳和之际，壬水为尊，见戊己为病。得甲制伏，则辛金不致埋没，壬水不致混浊，合此者必身入玉堂。',
+    modernExplanation: '壬水淘洗辛金；见戊己埋金时取甲木制土。',
+    taboos: ['戊己埋金'],
   },
+  // 出处：三夏辛金·四月。
   '辛+巳': {
     dayMaster: '辛',
     monthBranch: '巳',
-    seasonSummary: '孟夏辛金，官星得令，火炎金脆。',
+    seasonSummary: '四月首夏，喜壬水洗淘辛金。',
     primaryGods: ['壬', '癸'],
-    classicVerse: '四月辛金，火旺金衰。专取壬水调候淬金，癸水润局，见水则珠玉发光。',
-    modernExplanation: '责任心极强，善解人意，宜在成熟规范的体系中展现专业才华。',
-    taboos: ['火烈熔金', '燥土脆金'],
+    classicVerse: '四月辛金，时逢首夏，忌丙火之燥烈，喜壬水之洗淘。',
+    modernExplanation: '壬水洗金；癸水透出而壬水藏支时另论。',
+    taboos: ['丙火燥烈'],
   },
+  // 出处：三秋辛金·八月。
   '辛+酉': {
     dayMaster: '辛',
     monthBranch: '酉',
-    seasonSummary: '仲秋辛金，专禄得令，润泽温清。',
+    seasonSummary: '八月辛金当权，专用壬水淘洗。',
     primaryGods: ['壬', '甲'],
-    classicVerse: '八月辛金，专禄当权。专取壬水淘洗，金水双清，世称才子；见甲木疏土更妙。',
-    modernExplanation: '金白水清，才智出众，口才与文笔俱佳，极富个人魅力与影响力。',
-    taboos: ['厚土埋金', '火烈伤金'],
+    classicVerse:
+      '八月辛金，当权得令，旺之极矣，专用壬水淘洗火，故云：金见水以流通。如见戊己，则生扶太过，故以土为病，见甲制土、方妙。无戊、不宜用甲。',
+    modernExplanation: '戊己土偏多时取甲木制土；原文说无戊不宜用甲。',
+    taboos: ['戊己土重'],
   },
+  // 出处：三冬辛金·十月。
   '辛+亥': {
     dayMaster: '辛',
     monthBranch: '亥',
-    seasonSummary: '孟冬辛金，水旺伤官，金白水清。',
-    primaryGods: ['丙', '壬'],
-    classicVerse: '十月辛金，水旺金冷。专取丙火解冻照暖，壬水淘金泄秀，水火既济大贵。',
-    modernExplanation: '聪明绝顶，悟性超群，具有极佳的创新能力与洞察力。',
-    taboos: ['金寒水冻', '无丙照暖'],
+    seasonSummary: '十月小阳而寒气渐降，壬先丙后。',
+    primaryGods: ['壬', '丙'],
+    classicVerse:
+      '十月辛金，时值小阳，阳气渐升，寒气将降，先用壬水，次取丙火，壬丙两透，金榜题名，何也？盖辛金有壬水丙火，名金白水清，又在亥月故发。',
+    modernExplanation: '壬水洗金，丙火暖金水。',
+    taboos: [],
   },
 
   // 壬水
+  // 出处：三春壬水·正月。
   '壬+寅': {
     dayMaster: '壬',
     monthBranch: '寅',
-    seasonSummary: '孟春壬水，春水生发，水木清华。',
-    primaryGods: ['戊', '辛', '丙'],
-    classicVerse: '正月壬水，水旺泄于木。专取戊土作堤防，辛金生水，丙火暖局。',
-    modernExplanation: '思维开阔，具有极强的包容性与创造力，适合综合性战略统筹。',
-    taboos: ['木多泄尽', '水寒无阳'],
+    seasonSummary: '正月壬水汪洋，重庚金发源。',
+    primaryGods: ['庚', '丙', '戊'],
+    classicVerse:
+      '正月壬水，汪洋之象，能并百川之流，然水性柔弱，宜用庚金之源，庶不致汪洋无度。有庚丙戊三者齐透，科甲功名。',
+    modernExplanation: '庚金为源，丙火与戊土同透是原文另列的配合。',
+    taboos: [],
   },
+  // 出处：三夏壬水·五月。
   '壬+午': {
     dayMaster: '壬',
     monthBranch: '午',
-    seasonSummary: '仲夏壬水，财旺司权，水势休囚。',
-    primaryGods: ['庚', '辛', '癸'],
-    classicVerse: '五月壬水，火炎土燥，水极虚竭。专取庚金发水源，辛金相辅，癸水帮身。',
-    modernExplanation: '商业天赋出众，适应能力强，宜建立稳固的财务防火墙与安全底线。',
-    taboos: ['火土焦干', '水源断绝'],
+    seasonSummary: '五月丁旺壬弱，癸水为用、庚金为佐。',
+    primaryGods: ['癸', '庚'],
+    classicVerse: '五月壬水，丁旺壬弱，取癸为用，取庚为佐。无庚不能发水，无癸不能伤丁。',
+    modernExplanation: '癸水伤丁，庚金发水源；辛癸亦可参用。',
+    taboos: [],
   },
+  // 出处：三秋壬水·七月。
   '壬+申': {
     dayMaster: '壬',
     monthBranch: '申',
-    seasonSummary: '孟秋壬水，长生得令，水源充沛。',
+    seasonSummary: '七月壬水长生，专戊土、丁火佐之。',
     primaryGods: ['戊', '丁'],
-    classicVerse: '七月壬水，长生母旺，水势浩瀚。专取戊土为堤防，丁火暖局制金，大贵之格。',
-    modernExplanation: '精力充沛，格局宏阔，有成为行业领军者之潜能，重在自我约束与规则建立。',
-    taboos: ['金多水浊', '水泛无制'],
+    classicVerse:
+      '七月壬水，庚金司令，壬得申之长生，源流自远，转弱为强，专用戊土，次取丁火佐戊制庚。',
+    modernExplanation: '戊土取辰戌之戊，丁火佐戊制庚；申中之戊受病。',
+    taboos: ['戊癸化合'],
   },
+  // 出处：三冬壬水·十一月。
   '壬+子': {
     dayMaster: '壬',
     monthBranch: '子',
-    seasonSummary: '仲冬壬水，阳刃当权，汪洋大海。',
+    seasonSummary: '十一月壬水羊刃帮身，先戊后丙。',
     primaryGods: ['戊', '丙'],
-    classicVerse:
-      '十一月壬水，乘权司令，汪洋大海。专取戊土作堤防，用丙火暖水解冻。水得戊制，方成大器。',
-    modernExplanation:
-      '才智浩瀚如海，志向极其远大，需要强大的规则与目标约束（戊土筑堤）方能成就惊天伟业。',
-    taboos: ['冲破堤防', '冰封千里'],
+    classicVerse: '十一月壬水，阳刃帮身，较前更旺，先取戊土，次用丙火，丙戊两透，富贵荣华。',
+    modernExplanation: '戊土制旺水，丙火暖冬水。',
+    taboos: [],
   },
 
   // 癸水
+  // 出处：三春癸水·二月。
   '癸+卯': {
     dayMaster: '癸',
     monthBranch: '卯',
-    seasonSummary: '仲春癸水，木旺泄水，雨露滋润。',
-    primaryGods: ['辛', '丙'],
-    classicVerse: '二月癸水，雨露滋木。木旺则水虚，专取辛金生水，丙火照暖，水火既济。',
-    modernExplanation: '温婉谦逊，善于默默付出与滋养他人，在教育、文艺、公益等领域广受赞誉。',
-    taboos: ['木多水竭', '土多浊水'],
+    seasonSummary: '二月乙木司令泄水，庚金为用、辛金次之。',
+    primaryGods: ['庚', '辛'],
+    classicVerse: '二月癸水，不刚不柔，乙木司令，洩弱元神，专以庚金为用，辛金次之。',
+    modernExplanation: '庚辛发癸水之源，原文以庚金为先。',
+    taboos: [],
   },
+  // 出处：三夏癸水·四月。
   '癸+巳': {
     dayMaster: '癸',
     monthBranch: '巳',
-    seasonSummary: '孟夏癸水，火旺水枯，极需发源。',
-    primaryGods: ['辛', '壬', '癸'],
-    classicVerse: '四月癸水，火土并旺，水将涸竭。专取辛金发水源，壬水帮身，无金则夭折。',
-    modernExplanation: '处事机敏细腻，能感知细微变化，需依托强大后盾方能尽情施展才华。',
-    taboos: ['火炎干涸', '燥土克灭'],
+    seasonSummary: '四月癸水，喜辛金，无辛用庚。',
+    primaryGods: ['辛', '庚'],
+    classicVerse: '四月癸水，喜辛金为用，无辛用庚。',
+    modernExplanation: '辛金发水源；庚金为替代，壬透须按原文条件分看。',
+    taboos: ['丁火破辛'],
   },
+  // 出处：三秋癸水·八月。
   '癸+酉': {
     dayMaster: '癸',
     monthBranch: '酉',
-    seasonSummary: '仲秋癸水，金旺水生，母旺子相。',
+    seasonSummary: '八月金白水清，辛金为用、丙火佐之。',
     primaryGods: ['辛', '丙'],
-    classicVerse: '八月癸水，金白水清。专取辛金发源，丙火照暖。丙辛双透，名利兼全。',
-    modernExplanation: '品行纯洁高尚，逻辑推理与审美鉴赏力极强，名望与威信日隆。',
-    taboos: ['土多浊水', '水多泛滥'],
+    classicVerse: '八月癸水，辛金虚灵，非顽金可比，正金白水清，故取辛金为用，丙火佐之。',
+    modernExplanation: '辛金生癸水，丙火暖金水。',
+    taboos: [],
   },
+  // 出处：三冬癸水·十一月。
   '癸+子': {
     dayMaster: '癸',
     monthBranch: '子',
-    seasonSummary: '仲冬癸水，专禄当权，冰霜雨雪。',
+    seasonSummary: '十一月水凝成冰，丙火解冻、辛金滋扶。',
     primaryGods: ['丙', '辛'],
     classicVerse:
-      '十一月癸水，严冬冰雪，水凝成冰。专取丙火解冻，辛金生水源。见丙火解冻，富贵非凡。',
-    modernExplanation: '内省内敛，智谋深藏不露，在热情关怀与阳光氛围中可爆发惊人成就。',
-    taboos: ['无火冰封', '水旺冲天'],
+      '十一月癸水，值冰冻之时，金水无交欢之象，专用丙火解冻，庶不致成冰，又要辛金滋扶，无丙有辛，不妙。',
+    modernExplanation: '丙火解冻，辛金滋扶癸水。',
+    taboos: [],
   },
 };
 
@@ -480,39 +526,5 @@ export function getBaziQiongtongAdvice(
   dayMaster: string,
   monthBranch: string,
 ): BaziQiongtongEntry | undefined {
-  const direct = BAZI_QIONGTONG_TABLE[`${dayMaster}+${monthBranch}`];
-  if (direct)
-    return {
-      ...direct,
-      requestedMonth: monthBranch,
-      matchedMonth: monthBranch,
-      seasonFallback: false,
-    };
-
-  // 季节 fallback
-  const seasonMonthMap: Record<string, string[]> = {
-    寅: ['寅', '卯', '辰'],
-    卯: ['卯', '寅', '辰'],
-    辰: ['辰', '寅', '卯'],
-    巳: ['巳', '午', '未'],
-    午: ['午', '巳', '未'],
-    未: ['未', '午', '巳'],
-    申: ['申', '酉', '戌'],
-    酉: ['酉', '申', '戌'],
-    戌: ['戌', '申', '酉'],
-    亥: ['亥', '子', '丑'],
-    子: ['子', '亥', '丑'],
-    丑: ['丑', '子', '亥'],
-  };
-
-  const candidates = seasonMonthMap[monthBranch] ?? [];
-  for (const branch of candidates) {
-    const entry = BAZI_QIONGTONG_TABLE[`${dayMaster}+${branch}`];
-    if (entry) {
-      // 同季借用：明确登记实际命中月份，避免跨月资料被当作本月专条展示
-      return { ...entry, requestedMonth: monthBranch, matchedMonth: branch, seasonFallback: true };
-    }
-  }
-
-  return undefined;
+  return BAZI_QIONGTONG_TABLE[`${dayMaster}+${monthBranch}`];
 }

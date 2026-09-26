@@ -63,7 +63,7 @@ export type AnnualConformityName = '天符' | '岁会' | '太乙天符' | '同�
 export interface WuyunLiuqiInput {
   /** 公历年；按该年年中所属年柱换算，避免元旦与立春边界混淆。 */
   year?: number;
-  /** 明确指定年干支；提供后以此为准。 */
+  /** 明确指定年干支；首尾空白会修剪，提供后以此为准。 */
   yearGanZhi?: string;
   /** 可选问题，只用于生成完整提示词，不改变排盘。 */
   question?: string;
@@ -405,15 +405,16 @@ function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'
   }
 
   const year = hasYear ? normalizeYear(input.year as number) : undefined;
-  if (hasGanZhi) {
-    assertValidGanZhi(input.yearGanZhi, '年干支');
+  if (input.yearGanZhi !== undefined) {
+    const yearGanZhi = input.yearGanZhi.trim();
+    assertValidGanZhi(yearGanZhi, '年干支');
     if (year !== undefined) {
       const derived = getWuyunLiuqiYearGanZhi(year);
-      if (derived !== input.yearGanZhi) {
+      if (derived !== yearGanZhi) {
         throw new Error(`year 与 yearGanZhi 不一致：${year} 年年中为 ${derived}。`);
       }
     }
-    return { year, yearGanZhi: input.yearGanZhi, yearGanZhiSource: '明确年干支' };
+    return { year, yearGanZhi, yearGanZhiSource: '明确年干支' };
   }
 
   const yearGanZhi = getWuyunLiuqiYearGanZhi(year as number);

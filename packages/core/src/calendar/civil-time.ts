@@ -4,7 +4,11 @@
  */
 
 import { createUtcTimestamp, daysInGregorianMonth, isValidClockTime } from './date-validation';
-import { resolveHistoricalTimezone, type HistoricalTimezoneEvidence } from './historical-timezone';
+import {
+  getHistoricalTimezoneOffsetAt,
+  resolveHistoricalTimezone,
+  type HistoricalTimezoneEvidence,
+} from './historical-timezone';
 
 export const MIN_FIXED_TIMEZONE_HOURS = -12;
 export const MAX_FIXED_TIMEZONE_HOURS = 14;
@@ -194,4 +198,92 @@ export function resolveCivilTime(
     utcTimestamp,
     utcDateTime: new Date(utcTimestamp).toISOString(),
   };
+}
+
+/** 按 IANA 当地公历日寻找首个真实瞬时点；固定偏移时沿用严格的 00:00 换算。 */
+export function resolveCivilDayStart(
+  input: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'> & CivilTimeZoneInput,
+): CivilTimeResolution {
+  const midnight = {
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: 0,
+    minute: 0,
+    second: 0,
+  };
+  const timeZoneId = normalizeTimeZoneId(input.timeZoneId);
+  if (!timeZoneId) return resolveCivilTime({ ...midnight, timezone: input.timezone });
+
+  const maxDay = daysInGregorianMonth(input.year, input.month);
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > maxDay) {
+    throw new Error(`${input.year}年${input.month}月不存在第${input.day}日。`);
+  }
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZoneId,
+      calendar: 'gregory',
+      numberingSystem: 'latn',
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    throw new Error(`无法识别 IANA 时区 ${timeZoneId}。`);
+  }
+  try {
+    const midnightEvidence = resolveHistoricalTimezone({ ...midnight, timeZoneId });
+    return resolveCivilTime({
+      ...midnight,
+      timeZoneId,
+      timezone: midnightEvidence.resolvedOffsetHours,
+    });
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('不存在，通常由夏令时跳时造成')) {
+      throw error;
+    }
+  }
+  const localTimeAt = (timestamp: number): CivilDateTimeParts => {
+    const parts = Object.fromEntries(
+      formatter
+        .formatToParts(new Date(timestamp))
+        .filter((part) => part.type !== 'literal')
+        .map((part) => [part.type, Number(part.value)]),
+    );
+    return {
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      hour: parts.hour,
+      minute: parts.minute,
+      second: parts.second,
+    };
+  };
+  const dateKey = (value: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'>) =>
+    value.year * 10000 + value.month * 100 + value.day;
+  const targetKey = dateKey(input);
+  const wallTimestamp = createUtcTimestamp(input.year, input.month - 1, input.day);
+  let before = wallTimestamp - 36 * 3600000;
+  let after = wallTimestamp + 36 * 3600000;
+  while (after - before > 1000) {
+    const middle = before + Math.floor((after - before) / 2000) * 1000;
+    if (dateKey(localTimeAt(middle)) < targetKey) before = middle;
+    else after = middle;
+  }
+  const localTime = localTimeAt(after);
+  if (dateKey(localTime) !== targetKey) {
+    throw new Error(
+      `${timeZoneId} 的当地公历日 ${input.year}-${pad(input.month)}-${pad(input.day)} 整日不存在。`,
+    );
+  }
+  return resolveCivilTime({
+    ...localTime,
+    timeZoneId,
+    timezone: getHistoricalTimezoneOffsetAt(new Date(after), timeZoneId),
+  });
 }

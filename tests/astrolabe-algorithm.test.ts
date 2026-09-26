@@ -141,6 +141,11 @@ test('星盘应返回筛选阈值内全部相位，不得只截取最强十二�
 
   assert.ok(result.aspects.length > 12);
   assert.equal(result.evidenceAnalysis?.aspectFacts.length, result.aspects.length);
+  const selectionLimit = result.evidenceAnalysis?.limitationFacts.find(
+    (fact) => fact.key === 'astrolabe:limitation:aspect-selection',
+  );
+  assert.match(selectionLimit?.promptText ?? '', /通过相位角、容许度与强度筛选的全部相位/);
+  assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /只保留.*十二组相位/);
 });
 
 test('星盘应返回可复用的位置、相位、计算链与限制证据', () => {

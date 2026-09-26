@@ -119,7 +119,13 @@ test('2024雨水11至13点按整秒月将切成两套大六壬课', () => {
       assert.ok(facts.includes(evidence.target));
       for (const item of evidence.evidence) assert.ok(facts.includes(item));
     }
-    for (const evidence of data.timingEvidence ?? []) assert.ok(facts.includes(evidence));
+    for (const evidence of data.timingEvidence ?? []) {
+      if (evidence.startsWith('未给出目标期限时')) {
+        assert.match(facts, /以问题期限、三传先后和现实触发条件核对应期/);
+      } else {
+        assert.ok(facts.includes(evidence));
+      }
+    }
     assert.ok(facts.includes(data.lessonSummary));
     assert.ok(facts.includes(data.transmissionSummary));
     const judgmentFacts = formatLiurenJudgmentFacts(data);
@@ -130,7 +136,8 @@ test('2024雨水11至13点按整秒月将切成两套大六壬课', () => {
       Boolean(data.guaTiFacts?.length),
     );
     assert.ok(judgmentFacts.some((item) => item.startsWith('课传反证：')));
-    for (const judgmentFact of judgmentFacts) assert.ok(facts.includes(judgmentFact));
+    for (const judgmentFact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true }))
+      assert.ok(facts.includes(judgmentFact));
   }
 });
 
@@ -240,7 +247,7 @@ test('引擎条件提示词按每个六壬分支保留四课三传和判断事�
         session.prompt.includes(`${transmission.stage}${transmission.branch}乘${transmission.god}`),
       );
     }
-    for (const judgmentFact of formatLiurenJudgmentFacts(data)) {
+    for (const judgmentFact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true })) {
       assert.ok(session.prompt.includes(judgmentFact));
     }
   }

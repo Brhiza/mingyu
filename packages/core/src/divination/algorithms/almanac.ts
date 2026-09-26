@@ -7,7 +7,7 @@ import { baziCalculator } from '../../bazi/baziCalculator';
 import { MONTH_COMMANDER } from '../../bazi/baziDefinitions';
 import { calculateSolarTermsForYear } from '../../calendar/solar-term-evidence';
 import { getCivilDateTimeAtFixedOffset } from '../../calendar/civil-time';
-import { getBirthDateValidationMessage } from '../../calendar/date-validation';
+import { createUtcTimestamp, getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
 import { getHuangliSolarDayGods } from '../../shensha';
@@ -83,18 +83,7 @@ const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
   custom: [],
 };
 
-const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
-  move: ['入宅', '移徙'],
-  marriage: ['嫁娶', '纳采', '订盟'],
-  opening: ['开市'],
-  contract: ['交易', '立券'],
-  travel: ['出行', '赴任'],
-  medical: ['求医', '治病'],
-  study: ['入学'],
-  burial: ['安葬', '修坟', '启钻'],
-  renovation: ['修造', '动土', '竖柱', '上梁'],
-  custom: [],
-};
+const TOPIC_AVOID_KEYWORDS = TOPIC_RECOMMEND_KEYWORDS;
 
 function getGeneralRestriction(
   recommends: string[],
@@ -162,8 +151,12 @@ function parseDateText(value: string, fieldName: string) {
   if (year < 1900 || year > 2100) {
     throw new Error(`${fieldName}年份需在 1900-2100 之间`);
   }
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+  const date = new Date(createUtcTimestamp(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     throw new Error(`${fieldName}不是有效日期`);
   }
 
@@ -171,9 +164,9 @@ function parseDateText(value: string, fieldName: string) {
 }
 
 function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -183,7 +176,7 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只说明当前事项关键词是否出现在原始宜忌、建除值日或十二神规则中，不证明事项必然成功，也不得替代现实条件核验';
+  '事项命中事实只说明原始宜忌或已核对的传统事项规则是否触及当前事项，不证明事项必然成功，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
   '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
@@ -303,7 +296,14 @@ function normalizeTaboos(items: Array<{ getName(): string }>) {
 }
 
 function getNoonEightChar(date: Date) {
-  return SolarTime.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), 12, 0, 0)
+  return SolarTime.fromYmdHms(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    12,
+    0,
+    0,
+  )
     .getLunarHour()
     .getEightChar();
 }
@@ -497,8 +497,10 @@ function buildParticipantProfileSnapshot(
       day: chart.pillars.day.ganZhi,
       hour: chart.pillars.hour.ganZhi,
     },
+    monthCommander: chart.monthCommander,
     usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
     avoidGods: chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+    incrementStatus: chart.analysis.usefulGod.incrementStatus,
   };
 }
 
@@ -1185,6 +1187,27 @@ function buildDayFacts(params: {
     cautions.push(`黄历忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}`);
   }
 
+  // 《钦定协纪辨方书》卷十「上朔四离四绝晦日」：四离只不忌祭祀、解除等列项，余事皆忌；与德合并仍忌。
+  // 原始宜忌保留历法库原值，明确事项裁决另列事实，不把所有凶神一律用于分组。
+  if (params.topic !== 'custom' && params.gods.some((god) => god.getName() === '四离')) {
+    const text = `四离日：${ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    cautions.push(text);
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-four-separations`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '值日神煞事项规则',
+        status: '限制',
+        inputItems: ['四离'],
+        keywords: [ALMANAC_TOPIC_LABELS[params.topic]],
+        matchedItems: ['四离'],
+        promptText: text,
+        sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
+      }),
+    );
+  }
+
   const godFacts = buildGodFacts(params.dateKey, params.gods);
 
   params.participants.forEach((participant) => {
@@ -1376,9 +1399,13 @@ function buildDayCandidate(
   // 黄历当前没有地点和时区入参，因此用中国标准时间正午作为整日月相的统一参照点。
   // 这项天文事实不参与传统宜忌评分，避免时区假设被包装成择日结论。
   const moonPhaseEvidence = calculateMoonPhaseEvidence(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 4),
+    createUtcTimestamp(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 4),
   );
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const solarDay = SolarDay.fromYmd(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+  );
   const lunarDay = solarDay.getLunarDay();
   const noonEightChar = getNoonEightChar(date);
   const dayCycle = lunarDay.getSixtyCycle();
@@ -1409,7 +1436,7 @@ function buildDayCandidate(
   return {
     date: dateKey,
     moonPhaseEvidence,
-    weekday: WEEKDAYS[date.getDay()],
+    weekday: WEEKDAYS[date.getUTCDay()],
     lunarDate: lunarDay.toString(),
     ganzhi: {
       year: noonEightChar.getYear().getName(),
@@ -1494,12 +1521,12 @@ export function generateAlmanacSelection(params: {
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
-    current.setDate(start.date.getDate() + index);
+    current.setUTCDate(start.date.getUTCDate() + index);
     return buildDayCandidate(current, params.topic, participants);
   }).sort((a, b) => {
     const statusDifference =
-      statusPriority[classifyAlmanacCandidate(a).status] -
-      statusPriority[classifyAlmanacCandidate(b).status];
+      statusPriority[classifyAlmanacCandidate(a, params.timePreferences).status] -
+      statusPriority[classifyAlmanacCandidate(b, params.timePreferences).status];
     const aWeekend = a.weekday === '星期六' || a.weekday === '星期日' ? 1 : 0;
     const bWeekend = b.weekday === '星期六' || b.weekday === '星期日' ? 1 : 0;
     const weekendDifference =

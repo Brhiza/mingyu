@@ -4,6 +4,8 @@
  */
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { getXunKongBranches } from '../ganzhi';
+import { daysInSolarMonth } from './date-validation';
+import { TimeManager } from './timeManager';
 
 /**
  * 干支信息接口
@@ -27,8 +29,10 @@ export interface LunarInfo {
   monthInChinese: string;
   dayInChinese: string;
   hourInChinese: string;
-  // 添加数字格式的月日
+  /** 农历纪年公元年；与干支年字段分开，供日期往返换算。 */
+  yearNumber: number;
   monthNumber: number;
+  isLeapMonth: boolean;
   dayNumber: number;
 }
 
@@ -78,12 +82,6 @@ export class LunarUtil {
     }
   }
 
-  private static assertSolarMonth(month: number): void {
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
-      throw new Error('月份需在 1-12 之间。');
-    }
-  }
-
   private static parseLunarDayText(lunarText: string): {
     yearInChinese: string;
     monthInChinese: string;
@@ -112,13 +110,14 @@ export class LunarUtil {
   static getTimeInfo(date: Date): TimeInfo {
     this.assertValidDate(date);
     try {
+      const parts = TimeManager.getWallClockParts(date);
       const solarTime = SolarTime.fromYmdHms(
-        date.getFullYear(),
-        date.getMonth() + 1,
-        date.getDate(),
-        date.getHours(),
-        date.getMinutes(),
-        date.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const solar = solarTime.getSolarDay();
       const lunarHour = solarTime.getLunarHour();
@@ -132,8 +131,8 @@ export class LunarUtil {
           year: solar.getYear(),
           month: solar.getMonth(),
           day: solar.getDay(),
-          hour: date.getHours(),
-          minute: date.getMinutes(),
+          hour: parts.hour,
+          minute: parts.minute,
         },
         lunar: {
           year: eightChar.getYear().getName(),
@@ -144,8 +143,9 @@ export class LunarUtil {
           monthInChinese: lunarText.monthInChinese,
           dayInChinese: lunarText.dayInChinese,
           hourInChinese: lunarHour.getName(),
-          // 添加数字格式的月日（tyme4ts 闰月返回负数，规范为正数月序，闰月标志另行处理）
+          yearNumber: lunar.getYear(),
           monthNumber: Math.abs(lunar.getMonth()),
+          isLeapMonth: lunar.getMonth() < 0,
           dayNumber: lunar.getDay(),
         },
         ganzhi: {
@@ -175,13 +175,14 @@ export class LunarUtil {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
+      const parts = TimeManager.getWallClockParts(targetDate);
       const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const eightChar = solarTime.getLunarHour().getEightChar();
 
@@ -204,13 +205,14 @@ export class LunarUtil {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
+      const parts = TimeManager.getWallClockParts(targetDate);
       const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const lunarHour = solarTime.getLunarHour();
       const lunar = lunarHour.getLunarDay();
@@ -226,8 +228,9 @@ export class LunarUtil {
         monthInChinese: lunarText.monthInChinese,
         dayInChinese: lunarText.dayInChinese,
         hourInChinese: lunarHour.getName(),
-        // 添加数字格式的月日（tyme4ts 闰月返回负数，此处规范为正数月序，闰月标志另行处理）
+        yearNumber: lunar.getYear(),
         monthNumber: Math.abs(lunar.getMonth()),
+        isLeapMonth: lunar.getMonth() < 0,
         dayNumber: lunar.getDay(),
       };
     } catch (error) {
@@ -296,9 +299,7 @@ export class LunarUtil {
     year: number,
     month: number,
   ): { date: string; ganZhi: string; lunarDate: string }[] {
-    this.assertSolarYear(year);
-    this.assertSolarMonth(month);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth = daysInSolarMonth(year, month);
     const result = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const solar = SolarDay.fromYmd(year, month, day);

@@ -47,12 +47,16 @@ export const MingluPatternUsefulGodSection: React.FC<Props> = ({ data }) => {
               查阅格局百科
             </MingluLink>
           </div>
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-            立格依据：{pattern.basis}
-          </div>
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            {pattern.formationAnalysis}
-          </p>
+          {pattern.basis && pattern.basis !== pattern.transformation?.basis ? (
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+              立格依据：{pattern.basis}
+            </div>
+          ) : null}
+          {pattern.formationAnalysis ? (
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {pattern.formationAnalysis}
+            </p>
+          ) : null}
           {pattern.transformation && (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
               <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
@@ -199,9 +203,11 @@ export const MingluPatternUsefulGodSection: React.FC<Props> = ({ data }) => {
                 ? `化神${pattern.transformation.element}`
                 : usefulGods.primaryUseful}
             </div>
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              喜用五行：{usefulGods.favorable.join('、') || '顺应大势'}
-            </div>
+            {usefulGods.favorable.length ? (
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                喜用十神：{usefulGods.favorable.join('、')}
+              </div>
+            ) : null}
             {pattern.transformation?.status === '成化' ? (
               <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
                 原日主十神映射：{usefulGods.primaryUseful}（本命事实）
@@ -217,24 +223,22 @@ export const MingluPatternUsefulGodSection: React.FC<Props> = ({ data }) => {
               <span className="font-bold text-rose-800 dark:text-rose-300 text-lg">
                 核心忌神 / 仇神
               </span>
-              <span className="minglu-pill is-red">防微杜渐</span>
             </div>
             <div className="text-2xl font-black text-rose-700 dark:text-rose-400 mb-2">
               {usefulGods.primaryAvoid}
             </div>
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              忌讳五行：{usefulGods.unfavorable.join('、') || '暂无明显大忌'}
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              岁运逢忌神干支透干会局时，宜守成求稳、注重修身静气。
-            </p>
+            {usefulGods.unfavorable.length ? (
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                忌神：{usefulGods.unfavorable.join('、')}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
       {/* 古籍评注三篇 */}
       <div id="bazi-classics-advice" className="minglu-subblock">
-        <h3 className="minglu-subblock-title">典籍精微考据与古籍原文评注</h3>
+        <h3 className="minglu-subblock-title">典籍原文与释义</h3>
         <div className="minglu-classics-list">
           {ditiansuiAdvice && (
             <div className="minglu-classic-box">

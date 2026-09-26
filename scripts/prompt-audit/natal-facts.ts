@@ -6,7 +6,10 @@
  */
 import type { BaziChartResult } from '../../packages/core/src/bazi/baziTypes';
 import type { FortuneSelectionContext } from '../../packages/core/src/bazi/fortuneSelection';
-import type { BaziCompatibilityEvidenceResult } from '../../packages/core/src/bazi';
+import {
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziCompatibilityEvidenceResult,
+} from '../../packages/core/src/bazi/compatibilityEvidence';
 import type {
   AstrolabeData,
   AstrolabeSynastryData,
@@ -320,6 +323,23 @@ export function extractBaziCompatibilityFacts(
       idPrefix: 'bazi.compatibility.person2',
     }),
   ];
+  for (const [index, coverage] of relation.usefulGodCoverage.entries()) {
+    const beneficiaryScope =
+      coverage.beneficiary === 'person1'
+        ? (options.person1Scope ?? { start: '【第一人排盘信息】', end: '【第二人排盘信息】' })
+        : (options.person2Scope ?? { start: '【第二人排盘信息】', end: '【双盘关系资料】' });
+    for (const [descriptionIndex, description] of (
+      coverage.functionalEvidence?.descriptions ?? []
+    ).entries()) {
+      const item = fact(
+        `bazi.compatibility.${coverage.beneficiary}.functional.${index}.${descriptionIndex}`,
+        description.split('：')[0],
+        [description],
+        { scope: beneficiaryScope },
+      );
+      if (item) facts.push(item);
+    }
+  }
   const scope = options.relationScope ?? { start: '【双盘关系资料】', end: '【任务】' };
   const add = (id: string, owner: string, value: string | undefined) => {
     const item = fact(id, owner, [value], { scope });
@@ -351,7 +371,7 @@ export function extractBaziCompatibilityFacts(
     'bazi.compatibility.useful-god',
     '喜忌覆盖',
     relation.usefulGodCoverage.length
-      ? relation.usefulGodCoverage.map((item) => item.promptText).join('；')
+      ? relation.usefulGodCoverage.map(formatBaziUsefulGodCoverageForPrompt).join('；')
       : '资料不足',
   );
   add('bazi.compatibility.summary', '已记录跨柱关系', relation.summaryFact.promptText);
@@ -865,24 +885,11 @@ export function extractQizhengFacts(
     const scope = { start: '【行限】' };
     facts.push(
       ...collect([
-        limits.currentMajorLimit
-          ? fact(
-              `${idPrefix}.limits.major-current`,
-              '当前大限',
-              [
-                `虚岁${limits.currentMajorLimit.startNominalAge}至未满${limits.currentMajorLimit.endNominalAge}`,
-                `${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}`,
-              ],
-              { scope },
-            )
-          : fact(`${idPrefix}.limits.major-current`, '当前虚岁', ['超出所列单周行限'], { scope }),
+        fact(`${idPrefix}.limits.major-current`, '大限', ['当前大限宫位未定'], { scope }),
         fact(
           `${idPrefix}.limits.minor-current`,
           '当前小限',
-          [
-            `虚岁${limits.currentMinorLimit.nominalAge}`,
-            `${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`,
-          ],
+          [`${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`],
           { scope },
         ),
         fact(
@@ -893,15 +900,15 @@ export function extractQizhengFacts(
         ),
       ]),
     );
-    for (const [index, item] of limits.majorLimits.entries()) {
+    for (const [index, item] of limits.majorPalaceYears.entries()) {
       facts.push(
         ...collect([
           fact(
-            `${idPrefix}.limits.major.${index}`,
-            '大限十二步',
+            `${idPrefix}.limits.palace-years.${index}`,
+            '洞微宫序与各宫年数',
             [
-              `虚岁${item.startNominalAge}至未满${item.endNominalAge}`,
               `${item.signBranch}宫${item.palace}`,
+              item.years === null ? '依命度定年数' : `${item.years}年`,
             ],
             { scope },
           ),

@@ -221,6 +221,8 @@ function projectDiscreteFacts(result: QizhengResult): unknown {
         gender: result.timeLords.gender,
         direction: result.timeLords.direction,
         nominalAge: result.timeLords.nominalAge,
+        majorLimitStatus: result.timeLords.majorLimitStatus,
+        majorPalaceYears: result.timeLords.majorPalaceYears,
         majorLimits: result.timeLords.majorLimits.map((item) => ({
           palace: item.palace,
           signIndex: item.signIndex,

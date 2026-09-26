@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   analyzeChineseCharacters,
+  analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   analyzeChineseName,
   analyzeNameSancai,
@@ -23,6 +24,36 @@ test('汉字解析区分现代笔画与康熙笔画并报告未知字', () => {
   assert.equal(result.characters[1].detail?.kangxiStrokes, 16);
   assert.equal(result.totalKangxiStrokes, 31);
   assert.deepEqual(result.unknownCharacters, []);
+});
+
+test('“發”和“髮”按不同繁体字义与康熙笔画解析', async () => {
+  const [hair, emit] = ['髮', '發'].map(
+    (char) => analyzeChineseCharacters(char).characters[0].detail!,
+  );
+  assert.equal(hair.simplified, '发');
+  assert.equal(hair.char, '髮');
+  assert.equal(hair.traditional, '髮');
+  assert.equal(hair.kangxiStrokes, 15);
+  assert.equal(hair.radical, '髟');
+  assert.match(hair.definition!, /头皮上生长的毛/);
+  assert.equal(emit.traditional, '發');
+  assert.equal(emit.kangxiStrokes, 12);
+  assert.ok(
+    selectChineseCharacters({ commonOnly: false, strokes: 15, radical: '髟', limit: 200 }).some(
+      (item) => item.char === '髮',
+    ),
+  );
+
+  const [hairReferences, emitReferences] = await Promise.all([
+    analyzeChineseCharactersWithReferences('髮'),
+    analyzeChineseCharactersWithReferences('發'),
+  ]);
+  assert.notEqual(
+    hairReferences.characters[0].detail?.kangxiText,
+    emitReferences.characters[0].detail?.kangxiText,
+  );
+  assert.deepEqual(calculateZhugeNumber('髮发發').strokes, [15, 12, 12]);
+  assert.equal(analyzeChineseName({ fullName: '李髮' }).chars[1].kangxiStrokes, 15);
 });
 
 test('汉字查询、候选字与姓名资料的返回值不会污染后续解读', () => {

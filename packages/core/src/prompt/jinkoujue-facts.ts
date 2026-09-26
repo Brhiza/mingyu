@@ -1,4 +1,12 @@
 import type { JinkoujueData, JinkoujueFourPosition } from '../types/divination';
+import { evaluateJinkoujueBihePoems } from '../divination/algorithms/jinkoujue';
+
+export function formatJinkoujueBihe(data: JinkoujueData): string {
+  const facts = evaluateJinkoujueBihePoems(data.positions);
+  return facts
+    ? `四位比合：${facts}；依《六壬神课金口诀古本》卷上“入式歌解”，结合神将、位次与生克制化判断同气作用。`
+    : '';
+}
 
 export function formatJinkoujueMovementRules(): string {
   return [
@@ -29,35 +37,57 @@ export function formatJinkoujueRelations(data: JinkoujueData): string {
 }
 
 /** 四位取用的起课依据、具体生扶与制约，供单时刻和时间区间共用。 */
-export function formatJinkoujueJudgmentFacts(data: JinkoujueData): string[] {
+export function formatJinkoujueJudgmentFacts(
+  data: JinkoujueData,
+  options: { compact?: boolean } = {},
+): string[] {
+  const compact = options.compact ?? false;
   const lines = [
     `起课：${data.methodLabel}；${data.calculation.diFenNote}`,
     `月将：${data.monthLeader}加占时${data.divinationBranch}；${data.calculation.monthLeaderRule}`,
     `贵神起例：${data.calculation.noblemanRule}；${data.calculation.guiShenRule}`,
     `遁干依据：${data.calculation.yuanDunRule}`,
     `昼夜口径：${data.calculation.dayNightRule}`,
-    ...Object.values(data.positions).map((position) =>
-      [
-        `四位依据：${position.promptText}`,
-        `取象${position.role}`,
-        position.support.length ? `生扶：${position.support.join('、')}` : '',
-        position.constraints.length ? `制约：${position.constraints.join('、')}` : '',
-      ]
-        .filter(Boolean)
-        .join('；'),
-    ),
-    `阴阳次第：${data.yinYangUse.yinCount}阴${data.yinYangUse.yangCount}阳；${data.yinYangUse.rule}`,
   ];
-  for (const focus of data.focusEvidence ?? []) {
+
+  const positions = Object.values(data.positions);
+  if (compact) {
     lines.push(
-      `取用依据：${focus.target}（${focus.role}），${focus.level}：${focus.evidence.join('、')}${focus.limitations.length ? `；条件：${focus.limitations.join('、')}` : ''}`,
+      `四位取象：${positions.map((position) => `${position.name}${position.role}`).join('；')}`,
+      `四位五行依据：${positions.map((position) => `${position.name}按${position.elementBasis}`).join('；')}`,
     );
+    const stemElements = positions
+      .filter(
+        (position) => position.stem && position.stemElement && position.elementBasis !== '人元干',
+      )
+      .map((position) => `${position.name}遁干${position.stem}属${position.stemElement}`);
+    if (stemElements.length) lines.push(`遁干五行：${stemElements.join('；')}`);
+  } else {
+    lines.push(
+      ...positions.map((position) =>
+        [
+          `四位依据：${position.promptText}`,
+          `取象${position.role}`,
+          position.support.length ? `生扶：${position.support.join('、')}` : '',
+          position.constraints.length ? `制约：${position.constraints.join('、')}` : '',
+        ]
+          .filter(Boolean)
+          .join('；'),
+      ),
+      `阴阳次第：${data.yinYangUse.yinCount}阴${data.yinYangUse.yangCount}阳；${data.yinYangUse.rule}`,
+    );
+    for (const focus of data.focusEvidence ?? []) {
+      lines.push(
+        `取用依据：${focus.target}（${focus.role}），${focus.level}：${focus.evidence.join('、')}${focus.limitations.length ? `；条件：${focus.limitations.join('、')}` : ''}`,
+      );
+    }
   }
   const counters = data.evidenceAnalysis?.counterEvidenceFacts ?? [];
   if (counters.length)
     lines.push(`四位反证：${counters.map((item) => item.promptText).join('；')}`);
-  lines.push(
-    '以阴阳次第定发用，四位的生克、旺衰、空亡与动变条件合看，结合所问事项判断主客和进退。',
-  );
+  if (!compact)
+    lines.push(
+      '以阴阳次第定发用，四位的生克、旺衰、空亡与动变条件合看，结合所问事项判断主客和进退。',
+    );
   return lines;
 }

@@ -97,6 +97,30 @@ test('真实星盘相位将跨星座合相的位置与角距偏差分别给出',
     assert.ok(formatAstrolabeForPrompt(chart).includes(`${point.label}：${point.formatted}`));
   }
   assert.ok(formatAstrolabeAspectSections(chart.aspects, points).join('\n').includes(line));
+  const prompts = [
+    [formatAstrolabeForPrompt(chart), 1],
+    [
+      buildAstrolabeSynastryPrompt({
+        chart1: chart,
+        chart2: chart,
+        synastry: analyzeAstrolabeSynastry(chart, chart),
+      }),
+      2,
+    ],
+  ] as const;
+  for (const [prompt, natalChartCount] of prompts) {
+    const headlines = prompt.match(/^相位主线：.*$/gm) ?? [];
+    assert.equal(headlines.length, natalChartCount);
+    for (const headline of headlines) {
+      assert.match(headline, new RegExp(`共${chart.aspects.length}项，主要相位\\d+项`));
+      assert.match(headline, /日月参与\d+项，四轴参与\d+项，紧密\d+项/);
+      assert.doesNotMatch(headline, /太阳与水星：合相/);
+    }
+    assert.equal(prompt.split(line).length - 1, natalChartCount);
+    for (const headline of headlines) {
+      assert.doesNotMatch(headline, /实际角距|容许偏差上限|第\d+宫/);
+    }
+  }
 });
 
 test('相位保留已知入相出相，未知时不补造阶段', () => {

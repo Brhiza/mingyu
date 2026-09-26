@@ -730,6 +730,18 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   const functionalUse = formatUsefulGodFunctions(result.analysis.usefulGod);
   const decisionDetails = formatBaziDecisionDetails(result);
   const transformation = result.analysis.mingGe.transformation;
+  const primaryUsefulWuxing =
+    result.analysis.usefulGod.incrementStatus === '待判'
+      ? undefined
+      : result.analysis.usefulGod.primaryFavorableWuxing ||
+        result.analysis.usefulGod.favorableWuxing?.[0];
+  const primaryAvoidWuxing =
+    result.analysis.usefulGod.incrementStatus === '待判'
+      ? undefined
+      : result.analysis.usefulGod.primaryUnfavorableWuxing ||
+        result.analysis.usefulGod.unfavorableWuxing?.[0];
+  const displayedUsefulWuxing =
+    transformation?.status === '成化' ? transformation.element : primaryUsefulWuxing;
 
   const formatBaziChartText = useCallback(() => {
     return [
@@ -745,7 +757,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           ]
         : []),
       `四柱：年柱【${result.pillars.year.gan}${result.pillars.year.zhi}】 月柱【${result.pillars.month.gan}${result.pillars.month.zhi}】 日柱【${result.pillars.day.gan}${result.pillars.day.zhi}】 时柱【${result.pillars.hour.gan}${result.pillars.hour.zhi}】`,
-      `五行取用：${transformation?.status === '成化' ? `化神${transformation.element}` : result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
+      result.analysis.usefulGod.incrementStatus === '待判'
+        ? '增补五行喜忌：待判'
+        : `五行取用：${transformation?.status === '成化' ? `化神${transformation.element}` : primaryUsefulWuxing || '待判'}  所忌：${primaryAvoidWuxing || '待判'}`,
       ...formatUsefulGodFunctions(result.analysis.usefulGod),
       ...formatBaziDecisionDetails(result),
       activeFortuneColumns.length
@@ -757,7 +771,15 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
     ]
       .filter(Boolean)
       .join('\n');
-  }, [name, result, transformation, activeFortuneColumns, interactions]);
+  }, [
+    name,
+    result,
+    transformation,
+    primaryUsefulWuxing,
+    primaryAvoidWuxing,
+    activeFortuneColumns,
+    interactions,
+  ]);
 
   const handleOpenBaziTerm = useCallback(
     (term: string, column?: BaziBoardColumn) => {
@@ -927,22 +949,14 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <small>{result.analysis.mingGe.isSpecial ? '特殊格局' : '月令取格'}</small>
           </div>
           <div
-            className="result-stat-card is-clickable-term"
-            onClick={() =>
-              openTerm(
-                result.analysis.usefulGod.primaryUseful ||
-                  result.analysis.usefulGod.useful ||
-                  '调候用神',
-              )
-            }
+            className={`result-stat-card${displayedUsefulWuxing ? ' is-clickable-term' : ''}`}
+            onClick={() => displayedUsefulWuxing && openTerm(displayedUsefulWuxing)}
           >
-            <span>五行取用</span>
+            <span>增补五行取用</span>
             <strong>
               {transformation?.status === '成化'
                 ? `化神${transformation.element}`
-                : result.analysis.usefulGod.primaryUseful ||
-                  result.analysis.usefulGod.useful ||
-                  '待定'}
+                : primaryUsefulWuxing || '待判'}
             </strong>
             <small>
               {transformation?.status === '成化'
@@ -951,17 +965,11 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             </small>
           </div>
           <div
-            className="result-stat-card is-clickable-term"
-            onClick={() =>
-              openTerm(
-                result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '忌神',
-              )
-            }
+            className={`result-stat-card${primaryAvoidWuxing ? ' is-clickable-term' : ''}`}
+            onClick={() => primaryAvoidWuxing && openTerm(primaryAvoidWuxing)}
           >
-            <span>五行所忌</span>
-            <strong>
-              {result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '待定'}
-            </strong>
+            <span>增补五行所忌</span>
+            <strong>{primaryAvoidWuxing || '待判'}</strong>
             <small>{formatAvoidGodPrioritySummary(result)}</small>
           </div>
         </div>
@@ -1213,15 +1221,20 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           </div>
           {qiongtongExpanded ? (
             <div className="traditional-classic-body">
-              <p className="traditional-classic-verse">{qiongtongAdvice.classicVerse}</p>
+              <p className="traditional-classic-verse">
+                {qiongtongAdvice.classicVerse}{' '}
+                <a
+                  href="https://zh.wikisource.org/w/index.php?title=穷通宝鉴&oldid=2294674"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  查看原文
+                </a>
+              </p>
               <p className="traditional-classic-advice">
                 {`【调候要领】${qiongtongAdvice.modernExplanation}`}
-                {qiongtongAdvice.seasonFallback
-                  ? `
-【覆盖提示】${qiongtongAdvice.requestedMonth}月暂无直接条目，本条借用同季${qiongtongAdvice.matchedMonth}月资料，属同季一般参考而非本月专条`
-                  : ''}
                 {qiongtongAdvice.primaryGods?.length
-                  ? `\n【条文取用】${qiongtongAdvice.primaryGods.join('、')}`
+                  ? `\n【条文取用候选】${qiongtongAdvice.primaryGods.join('、')}`
                   : ''}
                 {qiongtongAdvice.taboos?.length
                   ? `\n【条文所忌】${qiongtongAdvice.taboos.join('、')}`
@@ -1247,7 +1260,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               <span className="traditional-classic-badge">滴天髓</span>
               <strong>
                 {dayMasterGan}
-                {ditiansuiAdvice.wuxing} · 十干体象与性情
+                {ditiansuiAdvice.wuxing} · 日干体象
               </strong>
             </div>
             <span className="traditional-classic-toggle">
@@ -1258,8 +1271,8 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <div className="traditional-classic-body">
               <p className="traditional-classic-verse">{ditiansuiAdvice.verse}</p>
               <p className="traditional-classic-advice">
-                {`【原典精解】${ditiansuiAdvice.nature}`}
-                {`\n【十干一般释义（未结合本盘旺衰、合化与岁运，不能视为当前行运判断）】${ditiansuiAdvice.modernAdvice}`}
+                {`【体象概述】${ditiansuiAdvice.nature}`}
+                {`\n【条件释义】${ditiansuiAdvice.modernAdvice}`}
               </p>
             </div>
           ) : null}
@@ -1279,7 +1292,12 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           >
             <div>
               <span className="traditional-classic-badge">子平真诠</span>
-              <strong>{zipingAdvice.pattern} · 格局精义</strong>
+              <strong>
+                {result.analysis.mingGe.pattern === zipingAdvice.pattern
+                  ? zipingAdvice.pattern
+                  : `${result.analysis.mingGe.pattern} · 参照${zipingAdvice.pattern}`}{' '}
+                · 格局精义
+              </strong>
             </div>
             <span className="traditional-classic-toggle">
               {zipingExpanded ? '收起典籍 ▴' : '展开典籍 ▾'}

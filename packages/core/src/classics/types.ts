@@ -54,12 +54,6 @@ export interface BaziQiongtongEntry {
   classicVerse: string;
   modernExplanation: string;
   taboos: string[];
-  /** 查询的月支（条目本身仍是所命中月份的资料） */
-  requestedMonth?: string;
-  /** 实际命中的月支；与 requestedMonth 不同时属同季借用 */
-  matchedMonth?: string;
-  /** 同季借用标记：该日干本月无直接条目，展示时须注明为同季一般参考 */
-  seasonFallback?: boolean;
 }
 
 export interface LiuyaoMovementRule {
@@ -78,16 +72,9 @@ export interface LiuyaoMovementRule {
 
 export interface MeihuaBodyUseJudgement {
   relationType: '体用比和' | '体克用' | '用克体' | '体生用' | '用生体';
-  auspice: '大吉' | '吉' | '凶' | '大凶' | '小损';
+  sourceBook: '梅花易数·体用总诀';
   classicSummary: string;
-  actionAdvice: string;
-  matterCategories: {
-    wishing: string;
-    seekingWealth: string;
-    marriage: string;
-    travel: string;
-    illness: string;
-  };
+  context: string;
 }
 
 export interface XiaoliurenPalaceClassic {

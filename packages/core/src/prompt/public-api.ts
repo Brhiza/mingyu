@@ -319,6 +319,7 @@ export function buildBaziPromptForResult(params: {
         : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, taskMethod);
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
   const schoolScene = params.school || params.schools?.length;
+  const patternConditions = schoolScene ? '' : formatBaziPatternConditions(params.result);
   const chart = [
     formatBaziForPrompt(
       params.result,
@@ -333,9 +334,7 @@ export function buildBaziPromptForResult(params: {
     section('当前时间', formatPromptCurrentTime()),
     section('排盘信息', chart),
     formatBaziTopicFocus(topic) ? section('主题取用', formatBaziTopicFocus(topic)) : '',
-    formatBaziPatternConditions(params.result)
-      ? section('格局条件', formatBaziPatternConditions(params.result))
-      : '',
+    patternConditions ? section('格局条件', patternConditions) : '',
     section('分析对象', scopeText),
     effectiveFortuneScope === 'full'
       ? section('命限资料', params.fortuneTextBatch?.text ?? formatBaziFullFortune(params.result))
@@ -346,8 +345,8 @@ export function buildBaziPromptForResult(params: {
     section('问题', question),
   ]);
   const schoolSection = params.schools?.length
-    ? buildBaziSchoolsPromptSection(params.result, params.schools)
-    : buildBaziSchoolPromptSection(params.result, params.school);
+    ? buildBaziSchoolsPromptSection(params.result, params.schools, true)
+    : buildBaziSchoolPromptSection(params.result, params.school, true);
   return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
 }
 
@@ -499,7 +498,7 @@ function buildKeyPalaces(payload: AnalysisPayloadV1, isOriginScope: boolean) {
     `${formatPalaceBrief(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`;
   const lines = [`${title}\n${lead.map(format).join('\n')}`];
   if (!isOriginScope && ordered.length > lead.length) {
-    lines.push(`十二宫明细：\n${ordered.map(format).join('\n')}`);
+    lines.push(`十二宫明细：\n${ordered.slice(lead.length).map(format).join('\n')}`);
   }
   return lines.join('\n');
 }
@@ -508,7 +507,6 @@ export function formatZiweiEvidenceText(
   result: ZiweiRuntimeFacts,
   scope: ZiweiPromptScope = 'origin',
 ) {
-  const batchedFullScope = isBatchedFullScope(result, scope);
   const payload =
     scope === 'full'
       ? (result.payloadByScope.origin ?? Object.values(result.payloadByScope)[0])
@@ -524,6 +522,7 @@ export function formatZiweiEvidenceText(
       .filter(Boolean)
       .join('\n\n');
   }
+  if (scope === 'full') return formatPublicZiweiFullScopeText(result);
   const activePalace = payload.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -535,7 +534,7 @@ export function formatZiweiEvidenceText(
       .filter(Boolean)
       .join('、');
   const baseText = [
-    `分析对象：${scope === 'full' ? (batchedFullScope ? '本次所列紫微资料' : '本命盘、童限与大限流年；目标日期下附流月、流日与流时') : payload.active_scope.label || scopeLabel(scope)}`,
+    `分析对象：${payload.active_scope.label || scopeLabel(scope)}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     payload.calculation_config.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
@@ -558,11 +557,9 @@ export function formatZiweiEvidenceText(
     .join('\n');
   return [
     baseText,
-    scope === 'full'
-      ? formatPublicZiweiFullScopeText(result)
-      : result.fortuneTimeline && scope !== 'origin'
-        ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
-        : '',
+    result.fortuneTimeline && scope !== 'origin'
+      ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -861,12 +858,15 @@ export function buildBaziZiweiPromptForResults(params: {
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
-  const patternConditions = formatBaziPatternConditions(params.baziResult);
+  const patternConditions =
+    params.baziSchool || params.baziSchools?.length
+      ? ''
+      : formatBaziPatternConditions(params.baziResult);
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, ziweiScope);
   const guidance = [
     params.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools)
-      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
+      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools, true)
+      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool, true),
     params.ziweiSchools?.length
       ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', params.ziweiSchools)}`
       : params.ziweiSchool

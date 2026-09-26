@@ -19,6 +19,8 @@ test('命盘基础提示词默认不展开完整大运流年', () => {
 
   const text = formatBaziForPrompt(result);
 
+  assert.equal(result.climate?.nature, '未见明显偏向');
+  assert.doesNotMatch(text, /水火分布参考:|调候特征:/);
   assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
 });
 
@@ -49,7 +51,7 @@ test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
   assert.doesNotMatch(text, /喜忌五行:|喜忌十神:|十神归类:|取用脉络:/);
 });
 
-test('核心判断应保留完整旺衰裁决并同时呈现特殊格与常规格局成败', () => {
+test('核心判断保留本盘旺衰依据并同时呈现特殊格与常规格局成败', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 8,
@@ -65,11 +67,16 @@ test('核心判断应保留完整旺衰裁决并同时呈现特殊格与常规�
   assert.ok(ruleBasis.length > 1);
   const text = formatBaziForPrompt(result);
 
-  for (const fact of ruleBasis) {
-    assert.ok(text.includes(fact), `旺衰裁决依据未完整输出：${fact}`);
-  }
+  const strength = result.analysis.dayMasterStrength.details;
+  assert.match(text, /旺衰: [^\n]+（月令[^\n]+；司令[^\n]+；(?:有根|无根)；成局[^\n]+）/);
+  assert.match(text, new RegExp(`月令${strength.seasonalEffect}`));
+  assert.match(text, new RegExp(`司令${strength.commanderEffect}`));
+  assert.match(text, new RegExp(`成局${strength.formationEffect}`));
+  assert.ok(ruleBasis.some((fact) => !text.includes(fact)));
   assert.match(text, /特殊格裁决：从儿格不成立/);
-  assert.match(text, /所取格局：食神格；当前成败判定：成格/);
+  assert.match(text, /格局: 食神格/);
+  assert.match(text, /^当前成败判定：成格/m);
+  assert.doesNotMatch(text, /所取格局：/);
 });
 
 test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {

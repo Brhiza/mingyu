@@ -9,6 +9,7 @@ import {
   isAstrolabeBirthRangeSource,
 } from 'mingyu-core/divination/astrolabe-birth-range';
 import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
+import { formatAstrolabeBirthRangeFacts } from '../src/lib/astrolabe-birth-range-prompt';
 
 const OFFSET_HOURS = 8;
 const SECOND = 1_000;
@@ -46,9 +47,47 @@ function inputAt(timestamp: number, base: AstrolabeBirthInput = BASE_INPUT): Ast
   };
 }
 
+test('未知出生时刻跨日出时按真实昼夜盘分段', () => {
+  const chartAt = (timestamp: number) => generateAstrolabe(inputAt(timestamp));
+  let nightTimestamp = beijingTimestamp('1990-05-20 03:00:00');
+  let dayTimestamp = beijingTimestamp('1990-05-20 08:00:00');
+  assert.equal(chartAt(nightTimestamp).dayChart, false);
+  assert.equal(chartAt(dayTimestamp).dayChart, true);
+
+  while (dayTimestamp - nightTimestamp > SECOND) {
+    const midpoint =
+      nightTimestamp + Math.floor((dayTimestamp - nightTimestamp) / (2 * SECOND)) * SECOND;
+    if (chartAt(midpoint).dayChart) dayTimestamp = midpoint;
+    else nightTimestamp = midpoint;
+  }
+
+  const range = generateAstrolabeBirthRange(inputAt(nightTimestamp), {
+    startTimestamp: nightTimestamp,
+    endTimestamp: dayTimestamp + SECOND,
+  });
+  assert.equal(range.branches.length, 2);
+  assert.equal(range.branches[1]?.startTimestamp, dayTimestamp);
+  assert.deepEqual(
+    range.branches.map((branch) => branch.representative.dayChart),
+    [false, true],
+  );
+  const facts = formatAstrolabeBirthRangeFacts(range);
+  assert.match(facts, /昼夜盘：夜盘/);
+  assert.match(facts, /昼夜盘：昼盘/);
+});
+
 function withoutGenerationTimestamp(data: AstrolabeData) {
   return { ...data, timestamp: 0 };
 }
+
+test('出生区间离散指纹区分昼盘与夜盘', () => {
+  const chart = generateAstrolabe(BASE_INPUT);
+  assert.equal(chart.dayChart, true);
+  assert.notEqual(
+    getAstrolabeBirthRangeDiscreteFingerprint(chart),
+    getAstrolabeBirthRangeDiscreteFingerprint({ ...chart, dayChart: false }),
+  );
+});
 
 function sun(result: AstrolabeData) {
   return result.planets.find((point) => point.name === 'Sun');

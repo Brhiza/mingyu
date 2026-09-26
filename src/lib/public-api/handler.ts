@@ -2004,13 +2004,13 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -90,
               maximum: 90,
-              description: '纬度（七政四余）',
+              description: '纬度（七政四余；省略时采用北京参考坐标）',
             },
             longitude: {
               type: 'number',
               minimum: -180,
               maximum: 180,
-              description: '经度（七政四余）',
+              description: '经度（七政四余；省略时采用北京参考坐标）',
             },
             timezone: {
               type: 'number',
@@ -2288,8 +2288,7 @@ export function getPublicApiOpenApiDocument(
             yearGanZhi: {
               type: 'string',
               minLength: 2,
-              maxLength: 2,
-              description: '明确年干支，如「丙午」。',
+              description: '明确年干支，如「丙午」；首尾空白会修剪，修剪后必须是有效六十甲子。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             topicId: { type: 'string', description: '统一解读主题 ID。' },
@@ -7728,6 +7727,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
                 baseUnfavorableStems: path.baseUnfavorableStems,
                 evidenceGaps: path.evidenceGaps,
               })),
+              natalFunctions: decision.natalFunctions,
               patternBreakerRestrictions: decision.patternBreakerRestrictions,
               transformation: decision.transformation,
             }

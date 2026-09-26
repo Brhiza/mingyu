@@ -355,15 +355,12 @@ export function getDivinationSummaryBlocks(
           `人元：${positions.renYuan.stem || ''}${positions.renYuan.branch}`,
         ],
         lines: [
-          item.mainLine,
           `阴阳发用：${item.yinYangUse.rule}；发用位${item.yinYangUse.usePosition}`,
           `动爻：${item.movements.map((movement) => `${movement.name}（${movement.trigger}）`).join('、') || '未触发五动或三动'}`,
           `月将贵人：月将${item.monthLeader}；${item.dayNight}贵人起${item.noblemanBranch}${item.calculation.noblemanDirection}`,
-          `四位：地分${positions.diFen.branch}；将神${positions.jiangShen.branch}；贵神${positions.guiShen.branch}；人元${positions.renYuan.branch}`,
           formatJinkoujueRelations(item),
           formatJinkoujueMovementRules(),
           item.xunKong.length ? `旬空：${item.xunKong.join('、')}` : '',
-          item.summary,
         ].filter(Boolean),
       };
     }
@@ -833,7 +830,10 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
           liuyaoTemplate,
         }),
         ...(options.method === 'liuren'
-          ? formatLiurenJudgmentFacts(options.data as LiurenData)
+          ? formatLiurenJudgmentFacts(options.data as LiurenData, {
+              includeOrdinaryAdjudication: false,
+              chartFactsIncluded: true,
+            })
           : []),
       ].join('\n'),
     ),

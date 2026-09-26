@@ -9,7 +9,7 @@
  *   - 二十八宿按明清修订距星目录，以 J2000/ICRS 坐标、自行和目标日期真黄道变换求边界。
  *   - 星曜喜怒：七政于十二宫之庙、旺、喜、乐，采用《星学大成》第三章明载歌诀。
  *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
- *   - 行限：命宫起大限十年一宫、小限一岁一宫，阳男阴女顺行、阴男阳女逆行。
+ *   - 行限：洞微大限列命宫起的宫序与各宫年数；命度及当前大限待核定，小限按生年支逆数至太岁。
  *   - 流曜：指定流年时刻的十一星按本命十二宫落点，并与本命星作吊照。
  *
  * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
@@ -21,7 +21,7 @@
 import * as AstronomyEngine from 'astronomy-engine';
 import type { Body } from 'astronomy-engine';
 import { SevenStar, SolarTerm, SolarTime, TwentyEightStar } from 'tyme4ts';
-import { getCivilDateTimeAtFixedOffset, resolveCivilTime } from '../calendar/civil-time';
+import { getCivilDateTimeAtFixedOffset, resolveCivilDayStart } from '../calendar/civil-time';
 import { createUtcTimestamp, daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
 import { getHistoricalTimezoneOffsetAt } from '../calendar/historical-timezone';
@@ -38,7 +38,7 @@ import {
   calculateSolarIlluminationEvidence,
   type SolarIlluminationEvidence,
 } from '../calendar/solar-illumination-evidence';
-import { getBranchIndex, getGanZhiFromDate, getGanZhiYinYang, getStemIndex } from '../ganzhi';
+import { getBranchIndex, getGanZhiYinYang, getStemIndex } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
@@ -425,7 +425,7 @@ export interface QizhengInput {
    * 七政四余天体位置仍按现代星历与天文时间尺度计算。
    */
   useTrueSolarTime?: boolean;
-  /** 排行限时需要；阳男阴女顺行，阴男阳女逆行 */
+  /** 排小限时需要；不改变洞微大限宫序 */
   gender?: 'male' | 'female';
   /** 流年公元年；不传则只排本命静态盘 */
   flowYear?: number;
@@ -1911,13 +1911,15 @@ function collectQizhengStars(input: QizhengInput): {
   return { stars, mansionBoundaries, ziqi, calculationContext };
 }
 
-/** 将目标日期的当地墙钟时刻按该日期的时区规则解析为 UTC。 */
-function resolveQizhengLocalTimestamp(parts: QizhengCivilMinute, natal: QizhengInput): number {
-  // 派生日期不复用出生时刻的 numeric timezone；IANA 模式按目标日期实际偏移解析。
+/** 周期边界是当地公历日的起点；午夜跳时的日期仍可从首个真实瞬时开始扫描。 */
+function resolveQizhengDayStart(
+  parts: Pick<QizhengCivilMinute, 'year' | 'month' | 'day'>,
+  natal: QizhengInput,
+): number {
   const timezoneInput = natal.timeZoneId
     ? { timeZoneId: natal.timeZoneId }
     : { timezone: natal.timezone ?? 8 };
-  return resolveCivilTime({ ...parts, ...timezoneInput }).utcTimestamp;
+  return resolveCivilDayStart({ ...parts, ...timezoneInput }).utcTimestamp;
 }
 
 /**
@@ -1969,8 +1971,8 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
     const endDate = nextQizhengCivilDate(startParts.year, startParts.month, startParts.day);
     const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
-      startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
-      endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
+      startUtcMs: resolveQizhengDayStart(startParts, natal),
+      endUtcMs: resolveQizhengDayStart(endParts, natal),
       mode: 'daily',
     };
   }
@@ -1989,8 +1991,8 @@ function resolveQizhengPeriodWindow(natal: QizhengInput): {
       month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 };
     const endParts: QizhengCivilMinute = { ...endDate, hour: 0, minute: 0, second: 0 };
     return {
-      startUtcMs: resolveQizhengLocalTimestamp(startParts, natal),
-      endUtcMs: resolveQizhengLocalTimestamp(endParts, natal),
+      startUtcMs: resolveQizhengDayStart(startParts, natal),
+      endUtcMs: resolveQizhengDayStart(endParts, natal),
       mode: 'monthly',
     };
   }
@@ -2306,19 +2308,20 @@ function generateQizhengInternal(
   const aspects = buildQizhengAspects(stars);
 
   // 神煞（年支 + 日干）
-  const dateGanZhi = getGanZhiFromDate(
-    new Date(
-      input.year,
-      input.month - 1,
-      input.day,
-      input.hour,
-      input.minute ?? 0,
-      input.second ?? 0,
-    ),
-  );
+  const dayGan = SolarTime.fromYmdHms(
+    input.year,
+    input.month,
+    input.day,
+    input.hour,
+    input.minute ?? 0,
+    input.second ?? 0,
+  )
+    .getLunarHour()
+    .getEightChar()
+    .getDay()
+    .getName()[0];
   const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
   const yearBranch = birthSeasonalYear[1];
-  const dayGan = dateGanZhi.day[0];
   const ys = yearBranchShensha(yearBranch);
   const shensha = [
     { name: '天乙贵人', value: tianYiGuiRen(dayGan) },
@@ -2346,7 +2349,7 @@ function generateQizhengInternal(
   if (input.gender && flowCivil) {
     const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
     const flowSeasonalYear = getQizhengSeasonalYear(
-      buildAstronomicalTimeEvidence({ ...flowCivil.flowInput, second: 0 }).unixMilliseconds,
+      buildAstronomicalTimeEvidence(flowCivil.flowInput).unixMilliseconds,
     );
     timeLords = buildQizhengTimeLords({
       gender: input.gender,
@@ -2356,7 +2359,6 @@ function generateQizhengInternal(
       flowYear: input.flowYear as number,
       flowYearBranch: flowSeasonalYear[1],
       birthYearBranch: birthSeasonalYear[1],
-      mingDegree: ((sun.longitude % 30) + 30) % 30,
       twelvePalaces,
     });
   }
@@ -2367,10 +2369,22 @@ function generateQizhengInternal(
     aspects,
   });
 
+  const locationSource = calculationContext.locationSource;
+  const locationLabel =
+    locationSource === '用户提供'
+      ? '出生地点'
+      : locationSource === '默认北京坐标'
+        ? '计算参考地点'
+        : '计算参考坐标（部分采用北京参考值）';
+  const locationText =
+    locationSource === '默认北京坐标'
+      ? `北京（纬度${calculationContext.latitude}°，经度${calculationContext.longitude}°）`
+      : `纬度${calculationContext.latitude}°，经度${calculationContext.longitude}°`;
+
   const prompt = [
     `【七政四余 · 果老星宗】`,
     `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}${input.second ? `:${String(input.second).padStart(2, '0')}` : ''}。`,
-    `出生地点：纬度${calculationContext.latitude}°，经度${calculationContext.longitude}°；时区UTC${tz >= 0 ? '+' : ''}${tz}${input.timeZoneId ? `（${input.timeZoneId}）` : ''}；${calculationContext.palaceTimeNote}。`,
+    `${locationLabel}：${locationText}；时区UTC${tz >= 0 ? '+' : ''}${tz}${input.timeZoneId ? `（${input.timeZoneId}）` : ''}；${calculationContext.palaceTimeNote}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     `十二宫：${twelvePalaces.map((item) => `${item.palace}在${item.signBranch}宫`).join('、')}。`,
     ...stars.map(
@@ -2397,7 +2411,7 @@ function generateQizhengInternal(
     ...(timeLords ? formatQizhengTimeLordPrompt(timeLords) : []),
     ...(flowingStars ? formatQizhengFlowingPrompt(flowingStars, stars) : []),
     timeLords || flowingStars
-      ? '本命盘为出生时点根基；阶段判断只使用上面的行限与流曜资料。'
+      ? '本命盘为出生时点根基；目标时段结合流曜、小限与太岁分析。'
       : '本盘为出生时点静态结构，只解读根基、落宿、落宫和吊照。',
   ].join('\n');
 

@@ -797,7 +797,7 @@ function buildLimitationFacts(
   push(
     'astrolabe:limitation:aspect-selection',
     '相位筛选边界',
-    '结果只保留筛选后排序靠前的十二组相位；未列出不等于两点之间不存在其他角度关系',
+    '结果列出通过相位角、容许度与强度筛选的全部相位；未列出不等于两点之间不存在其他角度关系',
     ['astrolabe:calculation:aspects', ...aspectFacts.map((fact) => fact.key)],
     ['主要相位筛选范围与排序记录'],
   );

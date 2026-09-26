@@ -296,7 +296,7 @@ export const TAIYI_16_GODS: { name: string; branch: string }[] = [
   { name: '吕申', branch: '寅' },
   { name: '高丛', branch: '卯' },
   { name: '太阳', branch: '辰' },
-  { name: '大旲', branch: '巽' },
+  { name: '大炅', branch: '巽' },
   { name: '大神', branch: '巳' },
   { name: '大威', branch: '午' },
   { name: '天道', branch: '未' },
@@ -387,7 +387,28 @@ function countNature(value: number): string | undefined {
   return map[value];
 }
 
-/** 按《太乙统宗宝鉴》卷五的长短缓急法描述主客算，并结合门将条件审其胜负。 */
+/** 《太乙统宗宝鉴》卷五的长短缓急与主客比较依据。 */
+export function formatTaiyiTacticBasis(params: {
+  lordCount: number;
+  guestCount: number;
+  lordNature?: string;
+  guestNature?: string;
+}): string {
+  const { lordCount, guestCount, lordNature, guestNature } = params;
+  const describe = (side: string, count: number, nature?: string) =>
+    `${side}算${count}${nature ? `（${nature}）` : ''}，${count >= 11 ? '为长算，传统取缓而深入' : '为短算，传统取急而浅为'}`;
+  return [
+    describe('主', lordCount, lordNature),
+    describe('客', guestCount, guestNature),
+    '主客胜负须合看三门具否、五将发否、阴阳和否；主客吉凶条件相等时，再以算之长短比较',
+  ].join('；');
+}
+
+export function formatTaiyiConditionSummary(conditions: TaiyiRuleConditions): string {
+  return `${conditions.threeGates.status}（直使${conditions.threeGates.directGate}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}。`;
+}
+
+/** 按长短缓急法描述主客算，并结合门将条件审其胜负。 */
 export function evaluateTaiyiTacticGuidance(params: {
   lordCount: number;
   guestCount: number;
@@ -395,17 +416,11 @@ export function evaluateTaiyiTacticGuidance(params: {
   guestNature?: string;
   conditions?: TaiyiRuleConditions;
 }): string {
-  const { lordCount, guestCount, lordNature, guestNature, conditions } = params;
-  const describe = (side: string, count: number, nature?: string) =>
-    `${side}算${count}${nature ? `（${nature}）` : ''}，${count >= 11 ? '为长算，传统取缓而深入' : '为短算，传统取急而浅为'}`;
+  const { conditions } = params;
   const conditionText = conditions
     ? `盘面条件：${conditions.threeGates.status}（直使${conditions.threeGates.directGate}，${conditions.threeGates.blockedRoles.length ? `涉及${conditions.threeGates.blockedRoles.join('、')}` : '太乙与文昌主目均未落三吉门，始击门位单列'}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}`
     : '当前未传入三门、五将、阴阳和盘面事实，不能据长短单独断胜负';
-  return [
-    describe('主', lordCount, lordNature),
-    describe('客', guestCount, guestNature),
-    `主客胜负须合看三门具否、五将发否、阴阳和否；${conditionText}；主客吉凶条件相等时，再以算之长短比较`,
-  ].join('；');
+  return `${formatTaiyiTacticBasis(params)}；${conditionText}`;
 }
 
 function generalPalaceFromCount(value: number, side: 'lord' | 'guest' | 'set'): number {
@@ -426,10 +441,8 @@ function formatGeneralPalace(value: number): string {
 }
 
 function createYearProbeDate(year: number): Date {
-  const date = new Date(0);
-  date.setHours(12, 0, 0, 0);
-  date.setFullYear(year, 6, 1);
-  return date;
+  // 东八区 7 月 1 日正午，与下游 readCivilParts 的日期口径一致。
+  return new Date(createUtcTimestamp(year, 6, 1, 4));
 }
 
 /**
@@ -689,9 +702,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   if (guestGeneral === 5 || guestAssistant === 5) {
     judgments.push('客大将或客参将居中宫。');
   }
-  judgments.push(
-    `${conditions.threeGates.status}（直使${conditions.threeGates.directGate}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}。`,
-  );
+  const conditionSummary = formatTaiyiConditionSummary(conditions);
+  judgments.push(conditionSummary);
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
@@ -756,13 +768,13 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
-    `大局攻守：${tacticGuidance}。`,
-    `门将阴阳和：${conditions.threeGates.status}（直使${conditions.threeGates.directGate}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}。`,
+    `大局攻守：${formatTaiyiTacticBasis({ lordCount, guestCount, lordNature, guestNature })}。`,
+    `门将阴阳和：${conditionSummary}主门具按太乙与文昌（主目）判定，始击（客目）门位另列。${conditions.threeGates.blockedRoles.length ? `主门具涉及${conditions.threeGates.blockedRoles.join('、')}。` : ''}`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `十六神：${sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}。`,
     ...(() => {
       const specialJudgments = judgments.filter(
-        (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+        (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item) && item !== conditionSummary,
       );
       return specialJudgments.length ? [`判断：${specialJudgments.join('；')}`] : [];
     })(),

@@ -27,15 +27,19 @@ const draft = {
 };
 const dateStr = '2026-09-10';
 
-test('八字各层提示词保留全部明细，标题去重，完整范围覆盖每步大运', () => {
+test('八字所选层提示词只展开必要明细，完整范围覆盖每步大运', () => {
   const result = calculateFullBaziChart(buildPersonFromInput(draft));
   const current = buildCurrentBaziFortuneSelection(result, new Date(`${dateStr}T12:00:00+08:00`))!;
   for (const scope of ['dayun', 'year', 'month', 'day'] as const) {
     const context = buildFortuneSelectionContext(result, { ...current, scope })!;
     const text = formatBaziFortuneSelection(context)!.focus;
     for (const group of context.promptPayload.detailGroups ?? []) {
-      assert.equal(text.split(group.title).length - 1, 1);
-      for (const line of group.lines) assert.ok(text.includes(line), line);
+      if (scope === 'dayun' && group.title === '该大运包含的流年') {
+        assert.equal(text.split(group.title).length - 1, 1);
+        for (const line of group.lines) assert.ok(text.includes(line), line);
+      } else {
+        assert.ok(!text.includes(group.title), `${scope} 不展开${group.title}`);
+      }
     }
     assert.doesNotMatch(text, /关系取义：/);
   }

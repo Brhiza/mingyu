@@ -103,14 +103,14 @@ test('npm 八字提示词入口应输出完整且有差异的盲派与新派资�
   assert.match(mangpai, /墓库与空亡/);
   assert.match(xinpai, /旺衰判定/);
   assert.match(xinpai, /十神结构/);
-  assert.match(xinpai, /十神流通/);
+  assert.match(xinpai, /十神结构/);
   assert.match(xinpai, /喜忌落位/);
   assert.match(xinpai, /动态岁运/);
   assert.notEqual(mangpai, xinpai);
   assert.doesNotMatch(`${mangpai}\n${xinpai}`, /API|MCP|仓库|项目名|工程上下文/);
 });
 
-test('新派提示词保留十神流通的候选条件', () => {
+test('新派提示词保留十神显隐事实，不把共现组合写成已成立的流通', () => {
   const result = baziCalculator.calculateBazi({
     year: 2000,
     month: 1,
@@ -120,13 +120,12 @@ test('新派提示词保留十神流通的候选条件', () => {
   });
   const prompt = formatBaziSchoolFacts(result, 'xinpai');
 
-  assert.match(prompt, /十神流通：候选链条/);
-  assert.match(prompt, /条件核验：/);
-  assert.match(prompt, /需日主能担财|食伤为用则吉/);
+  assert.match(prompt, /十神结构：已见/);
+  assert.doesNotMatch(prompt, /十神流通：候选链条|条件核验：|需日主能担财|食伤为用则吉/);
   assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
 });
 
-test('npm 八字提示词应保留指定岁运的上下层资料', () => {
+test('npm 八字提示词应保留所选岁运与上层资料', () => {
   const result = createChart('female', 15);
   const cycle = result.luckInfo.cycles.find((item) => item.years.length > 0);
   assert.ok(cycle);
@@ -149,7 +148,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   assert.match(prompt, new RegExp(String(year.year)));
   assert.match(prompt, new RegExp(context.cycleLabel));
   assert.match(prompt, /上层岁运/);
-  assert.match(prompt, /该流年包含的流月/);
+  assert.doesNotMatch(prompt, /该流年包含的流月/);
   assert.doesNotMatch(prompt, /交节时刻/);
 
   const sections = formatBaziFortuneSelection(context);
@@ -168,7 +167,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
     },
   };
   const boundary = formatBaziFortuneSelection(boundaryContext)!;
-  assert.ok(boundary.focus.includes(`所选岁运背景：${context.cycleGanZhi}`));
+  assert.ok(boundary.focus.includes(`上层岁运：${context.cycleLabel}`));
   assert.match(boundary.focus, /1997年9月21日 03:04:05起，至2007年9月21日 03:04:05交接/);
   assert.match(boundary.focus, /起点归本运，终点归后续运段/);
   assert.ok(boundary.focus.includes(`该运交接年龄：${context.cycleAge}岁`));
@@ -222,9 +221,10 @@ test('npm 提示词入口应生成八字双盘关系资料', () => {
 
   assert.match(prompt, /【第一人排盘信息】/);
   assert.match(prompt, /【第二人排盘信息】/);
-  assert.ok(formatBaziPatternConditions(result1));
-  assert.match(prompt, /【第一人格局条件】/);
   assert.match(prompt, /当前成败判定：/);
+  const result1Conditions = formatBaziPatternConditions(result1);
+  if (result1Conditions) assert.match(prompt, /【第一人格局条件】/);
+  else assert.doesNotMatch(prompt, /【第一人格局条件】/);
   const result2Conditions = formatBaziPatternConditions(result2);
   if (result2Conditions) assert.match(prompt, /【第二人格局条件】/);
   assert.match(prompt, /【双盘关系资料】/);
@@ -245,7 +245,7 @@ test('统一占法摘要应覆盖小六壬且不落回通用文案', () => {
   assert.match(info, /占得宫/);
   assert.match(info, /起课过程/);
   assert.match(info, /定位用途：月宫.+用于确定初一的起数位置/);
-  assert.ok(info.includes(`断事主证：时宫${data.primary.name}及其下列歌诀`));
+  assert.ok(info.includes(`占得宫：${data.primary.name}`));
   assert.doesNotMatch(info, /顺数轨迹/);
   assert.doesNotMatch(info, /mod\s*6|时序\d+/);
   assert.match(prompt, /依据本次顺数结果、时宫与歌诀/);

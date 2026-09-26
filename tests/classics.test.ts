@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import type { JinkoujueMovement } from 'mingyu-core/types';
 
 import {
   getAlmanacOfficerClassic,
@@ -68,7 +69,7 @@ test('奇门遁甲九星、八门、八神经典赋文查询正确', () => {
   assert.ok(zhiFu.verse.includes('值符九星之领袖'));
 });
 
-test('八字《滴天髓》十干体象与性情查询正确', () => {
+test('八字《滴天髓》十干体象摘录与静态释义正确', () => {
   const jiaMu = getBaziDitiansuiAdvice('甲');
   assert.ok(jiaMu);
   assert.equal(jiaMu.wuxing, '木');
@@ -77,11 +78,29 @@ test('八字《滴天髓》十干体象与性情查询正确', () => {
   const bingHuo = getBaziDitiansuiAdvice('丙');
   assert.ok(bingHuo);
   assert.equal(bingHuo.wuxing, '火');
-  assert.ok(bingHuo.verse.includes('丙火猛烈，欺霜傲雪'));
+  assert.equal(bingHuo.verse, '丙火猛烈，欺霜侮雪。');
 
   const guiShui = getBaziDitiansuiAdvice('癸');
   assert.ok(guiShui);
   assert.ok(guiShui.verse.includes('癸水至弱，达于天津'));
+
+  const checkedVerses = {
+    甲: '甲木参天，脱胎要火。',
+    乙: '乙木虽柔，刲羊解牛。',
+    丙: '丙火猛烈，欺霜侮雪。',
+    丁: '丁火柔中，内性昭融。',
+    戊: '戊土固重，既中且正。',
+    己: '己土卑湿，中正蓄藏。',
+    庚: '庚金带煞，刚强为最。',
+    辛: '辛金软弱，温润而清。',
+    壬: '壬水汪洋，能泄金气。',
+    癸: '癸水至弱，达于天津。',
+  };
+  for (const [stem, verse] of Object.entries(checkedVerses)) {
+    const entry = getBaziDitiansuiAdvice(stem);
+    assert.equal(entry?.verse, verse);
+    assert.doesNotMatch(`${entry?.nature}${entry?.modernAdvice}`, /性情|职业|适合|必然/);
+  }
 });
 
 test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
@@ -89,19 +108,19 @@ test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
   assert.ok(zhengguan);
   assert.equal(zhengguan.category, '正格');
   assert.ok(zhengguan.rule.includes('月令正官'));
-  assert.ok(zhengguan.taboos.includes('伤官见官'));
+  assert.ok(zhengguan.taboos.includes('官逢伤而无救应'));
 
   const qisha = getBaziZipingPatternAdvice('七杀格（身杀两停）');
   assert.ok(qisha);
   assert.equal(qisha.pattern, '七杀格');
-  assert.ok(qisha.verse?.includes('七杀有制化为权'));
+  assert.ok(qisha.verse?.includes('煞重身轻，用食则身不能当，不若转而就印'));
 });
 
 test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
   const jiaYin = getBaziQiongtongAdvice('甲', '寅');
   assert.ok(jiaYin);
   assert.deepEqual(jiaYin.primaryGods, ['丙', '癸']);
-  assert.ok(jiaYin.classicVerse.includes('初春甲木'));
+  assert.ok(jiaYin.classicVerse.includes('正月甲木'));
 
   const gengShen = getBaziQiongtongAdvice('庚', '申');
   assert.ok(gengShen);
@@ -110,8 +129,15 @@ test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
 
   const renWu = getBaziQiongtongAdvice('壬', '午');
   assert.ok(renWu);
-  assert.deepEqual(renWu.primaryGods, ['庚', '辛', '癸']);
+  assert.deepEqual(renWu.primaryGods, ['癸', '庚']);
   assert.ok(renWu.classicVerse.includes('五月壬水'));
+});
+
+test('调候典籍只返回日干与月支直接对应的条目', () => {
+  assert.equal(getBaziQiongtongAdvice('乙', '辰'), undefined);
+  assert.equal(getBaziQiongtongAdvice('庚', '酉'), undefined);
+  assert.equal(getBaziQiongtongAdvice('乙', '寅')?.monthBranch, '寅');
+  assert.equal(getBaziQiongtongAdvice('庚', '申')?.monthBranch, '申');
 });
 
 test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {
@@ -140,12 +166,14 @@ test('六爻《卜筮正宗》与《增删卜易》动变生克断语查询正�
 test('梅花易数体用生克与八卦类象查询正确', () => {
   const bihe = getMeihuaBodyUseJudgement('体用比和');
   assert.ok(bihe);
-  assert.equal(bihe.auspice, '大吉');
-  assert.ok(bihe.matterCategories.seekingWealth.includes('利于合伙经商'));
+  assert.equal(bihe.sourceBook, '梅花易数·体用总诀');
+  assert.equal(bihe.classicSummary, '体用比和，则百事顺遂。');
+  assert.match(bihe.context, /旺衰、互卦与变卦/);
 
   const yongKeTi = getMeihuaBodyUseJudgement('用克体');
   assert.ok(yongKeTi);
-  assert.equal(yongKeTi.auspice, '大凶');
+  assert.equal(yongKeTi.classicSummary, '用克体，诸事凶。');
+  assert.equal('matterCategories' in yongKeTi, false);
 
   const qianTrigram = getMeihuaTrigramClassic('乾');
   assert.ok(qianTrigram);
@@ -245,15 +273,81 @@ test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () =>
   }
 });
 
-test('金口诀《金口诀大全》五动三动歌诀查询正确', () => {
-  const qiDong = getJinkoujueMovementClassic('妻动');
-  assert.ok(qiDong);
-  assert.equal(qiDong.category, '五动');
-  assert.ok(qiDong.verse.includes('妻动妻愁夫不宁'));
+test('金口诀五动三动资料与算法名称、方位和卷上原文一致', () => {
+  const expectedMovements: Array<{
+    key: JinkoujueMovement['name'];
+    category: JinkoujueMovement['category'];
+    name: string;
+    verse: string;
+  }> = [
+    {
+      key: '妻动',
+      category: '五动',
+      name: '妻动（上克下）',
+      verse:
+        '妻动于妻妾；官财防损折；占人人在家；访人人不悦；外边来索取；卑下有口舌；论物多翻正；下旁或有缺。',
+    },
+    {
+      key: '官动',
+      category: '五动',
+      name: '官动（下克上）',
+      verse:
+        '官动利求官；相逢禄位迁；常人公府事；有官望财难；合得官中物；休从外处干；得财防暗损；问病在喉咽。',
+    },
+    {
+      key: '贼动',
+      category: '五动',
+      name: '贼动（上克下）',
+      verse:
+        '贼动内贼生；勾连诈不明；损财卑幼病；谋望必无成；架媾奸私意；偷攘宛转名；卦爻终暗昧；病恐亦非轻。',
+    },
+    {
+      key: '财动',
+      category: '五动',
+      name: '财动（下克上）',
+      verse:
+        '财动利求财；占官定不谐；家中人出外；妻妾并身灾；疾病忧难瘥；营求喜自来；财物终有损；职位恐多乖。',
+    },
+    {
+      key: '鬼动',
+      category: '五动',
+      name: '鬼动（下克上）',
+      verse:
+        '鬼动忧灾怪；官亨人出外；争讼带他人；乖戾因间外；口舌共喧争；冤仇皆损害；痊病物仰合；家宅未安泰。',
+    },
+    {
+      key: '父母动',
+      category: '三动',
+      name: '父母动（下生上）',
+      verse: '方生干为父母动：为印绶，凡占，小干尊，大吉。',
+    },
+    {
+      key: '子孙动',
+      category: '三动',
+      name: '子孙动（上生下）',
+      verse: '干生方为子孙动：凡占，主干子孙之事，小吉。',
+    },
+    {
+      key: '兄弟动',
+      category: '三动',
+      name: '兄弟动（比和）',
+      verse: '干方同为兄弟动：凡占，事在比肩朋友，小凶。',
+    },
+  ];
 
-  const ziSunDong = getJinkoujueMovementClassic('子孙动');
-  assert.ok(ziSunDong);
-  assert.ok(ziSunDong.verse.includes('子孙动入喜事连'));
+  for (const expected of expectedMovements) {
+    const classic = getJinkoujueMovementClassic(expected.key);
+    assert.ok(classic, `${expected.key} 应有与算法名称相同的典籍资料键`);
+    assert.equal(classic.key, expected.key);
+    assert.equal(classic.category, expected.category);
+    assert.equal(classic.name, expected.name);
+    assert.equal(classic.sourceBook, '《六壬神课金口诀》卷之上');
+    assert.equal(classic.verse, expected.verse);
+  }
+
+  for (const fakeMovement of ['方主移动', '神主移动', '将主移动']) {
+    assert.equal(getJinkoujueMovementClassic(fakeMovement), undefined);
+  }
 });
 
 test('大六壬《大六壬大全》《六壬指南》九宗门与十二天将查询正确', () => {

@@ -782,6 +782,15 @@ test('古籍查询读取真实条文并限定术式', async () => {
   assert.equal(absent.usable, false);
 });
 
+test('梅花体用查询只提供原文关系和合参依据', async () => {
+  const item = await lookupReadingClassics('meihua', '用克体');
+  assert.equal(item.usable, true);
+  assert.match(item.text, /典籍：梅花易数·体用总诀/);
+  assert.match(item.text, /原文：用克体，诸事凶/);
+  assert.match(item.text, /合参：结合体卦旺衰、互卦与变卦判断本局/);
+  assert.doesNotMatch(item.text, /必见破财|病情凶险|婚姻不成/);
+});
+
 test('古籍查询支持自然语言日主与月令，并返回稳定条文来源编号', async () => {
   const ditiansui = await lookupReadingClassics('bazi', '滴天髓论甲木');
   assert.equal(ditiansui.usable, true);

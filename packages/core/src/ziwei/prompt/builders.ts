@@ -8,14 +8,15 @@ import {
   getSurroundedPalaces,
 } from '../iztro/palace-helpers';
 import { formatPalaceName, mapZiweiScopeLabel, normalizePalaceName } from './labels';
+import { getSelectedScopeHits } from './scope-selection';
 import type { ZiweiPromptContext } from './types';
 
-function formatStarFact(star: StarFact): string {
+function formatStarFact(star: StarFact, includeScope: boolean): string {
   const tags = [
     star.brightness,
     star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
-    star.horoscope_mutagen ? `流耀化${star.horoscope_mutagen}` : '',
-    star.active_scope_mutagen ? `当前运限化${star.active_scope_mutagen}` : '',
+    includeScope && star.horoscope_mutagen ? `流耀化${star.horoscope_mutagen}` : '',
+    includeScope && star.active_scope_mutagen ? `当前运限化${star.active_scope_mutagen}` : '',
   ].filter(Boolean);
   return tags.length ? `${star.name}(${tags.join('/')})` : star.name;
 }
@@ -59,12 +60,11 @@ function compareEvidenceStarPriority(left: string, right: string, palaces: Palac
 
 function resolveEvidencePalaces(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: { palace_indexes: number[]; palace_names: string[] },
 ) {
   const byIndexes = item.palace_indexes.map((index) => getPalaceByIndex(payload, index));
   const byNames = item.palace_names.map((name) => getPalaceByName(payload, name));
-  return [...focusPalaces, ...byIndexes, ...byNames].filter(
+  return [...byIndexes, ...byNames].filter(
     (candidate, index, list): candidate is PalaceFact =>
       Boolean(candidate) && list.findIndex((entry) => entry?.index === candidate?.index) === index,
   );
@@ -72,43 +72,41 @@ function resolveEvidencePalaces(
 
 function deriveEvidenceStars(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: {
+    type: string;
+    scope: string;
     palace_indexes: number[];
     palace_names: string[];
     star_names: string[];
     mutagens: string[];
   },
 ) {
-  const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
+  const palaces = resolveEvidencePalaces(payload, item);
   const directStars = uniqueStrings(item.star_names);
+  if (directStars.length) {
+    return directStars.sort((left, right) => compareEvidenceStarPriority(left, right, palaces));
+  }
+  if (item.type !== 'surrounded_mutagen' || item.scope !== 'origin') return [];
+
+  const matchesMutagen = (mutagen?: string) =>
+    mutagen !== undefined && (!item.mutagens.length || item.mutagens.includes(mutagen));
   const mutagenTaggedStars = uniqueStrings(
     palaces.flatMap((palace) =>
-      getAllStars(palace)
-        .filter(
-          (star) =>
-            Boolean(star.birth_mutagen) ||
-            Boolean(star.horoscope_mutagen) ||
-            Boolean(star.active_scope_mutagen) ||
-            payload.active_scope.mutagen_map.some(
-              (mapped) =>
-                mapped.star === star.name &&
-                (mapped.palace_index === undefined || mapped.palace_index === palace.index),
-            ),
-        )
+      [...palace.major_stars, ...palace.minor_stars]
+        .filter((star) => matchesMutagen(star.birth_mutagen))
         .map((star) => star.name),
     ),
   );
-  const merged = directStars.length
-    ? uniqueStrings([...directStars, ...mutagenTaggedStars])
-    : mutagenTaggedStars;
-  return merged.sort((left, right) => compareEvidenceStarPriority(left, right, palaces));
+  return mutagenTaggedStars.sort((left, right) =>
+    compareEvidenceStarPriority(left, right, palaces),
+  );
 }
 
 function deriveEvidenceMutagens(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: {
+    type: string;
+    scope: string;
     palace_indexes: number[];
     palace_names: string[];
     star_names: string[];
@@ -117,22 +115,13 @@ function deriveEvidenceMutagens(
 ) {
   const directMutagens = uniqueStrings(item.mutagens).sort(compareMutagenPriority);
   if (directMutagens.length) return directMutagens;
+  if (item.type !== 'surrounded_mutagen' || item.scope !== 'origin') return [];
 
-  const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
+  const palaces = resolveEvidencePalaces(payload, item);
   return uniqueStrings(
-    palaces.flatMap((palace) => [
-      ...getAllStars(palace).flatMap((star) =>
-        [star.birth_mutagen, star.horoscope_mutagen, star.active_scope_mutagen].filter(Boolean),
-      ),
-      ...(palace.self_mutagens ?? []),
-      ...payload.active_scope.mutagen_map
-        .filter(
-          (mapped) =>
-            mapped.palace_index === palace.index ||
-            (!mapped.palace_index && mapped.palace_name === palace.name),
-        )
-        .map((mapped) => mapped.mutagen),
-    ]),
+    palaces.flatMap((palace) =>
+      [...palace.major_stars, ...palace.minor_stars].map((star) => star.birth_mutagen),
+    ),
   ).sort(compareMutagenPriority);
 }
 
@@ -169,8 +158,16 @@ export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFac
     palace.boshi12 ? `博士十二神:${palace.boshi12}` : '',
     palace.base_jiangqian12 ? `原局将前十二神:${palace.base_jiangqian12}` : '',
     palace.base_suiqian12 ? `原局岁前十二神:${palace.base_suiqian12}` : '',
-    palace.yearly_jiangqian12 ? `流年将前十二神:${palace.yearly_jiangqian12}` : '',
-    palace.yearly_suiqian12 ? `流年岁前十二神:${palace.yearly_suiqian12}` : '',
+    payload.active_scope.scope !== 'origin' &&
+    payload.active_scope.scope !== 'decadal' &&
+    palace.yearly_jiangqian12
+      ? `流年将前十二神:${palace.yearly_jiangqian12}`
+      : '',
+    payload.active_scope.scope !== 'origin' &&
+    payload.active_scope.scope !== 'decadal' &&
+    palace.yearly_suiqian12
+      ? `流年岁前十二神:${palace.yearly_suiqian12}`
+      : '',
   ].filter(Boolean);
   const emptyPalaceText = palace.empty_state
     ? oppositePalace
@@ -183,10 +180,12 @@ export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFac
     宫干支: `${palace.heavenly_stem}${palace.earthly_branch}`,
     宫位关系: formatPalaceRelations(payload, palace),
     空宫: emptyPalaceText,
-    主星: palace.major_stars.map(formatStarFact),
-    辅星: palace.minor_stars.map(formatStarFact),
-    杂曜: palace.other_stars.map(formatStarFact),
-    当前运限加临星曜: includeScope ? palace.scope_stars.map(formatStarFact) : undefined,
+    主星: palace.major_stars.map((star) => formatStarFact(star, includeScope)),
+    辅星: palace.minor_stars.map((star) => formatStarFact(star, includeScope)),
+    杂曜: palace.other_stars.map((star) => formatStarFact(star, includeScope)),
+    当前运限加临星曜: includeScope
+      ? palace.scope_stars.map((star) => formatStarFact(star, true))
+      : undefined,
     生年四化: collectMutagenStars(allStars, 'birth_mutagen'),
     流耀四化: includeScope ? horoscopeMutagens : undefined,
     当前运限四化: includeScope ? collectMutagenStars(allStars, 'active_scope_mutagen') : undefined,
@@ -194,7 +193,7 @@ export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFac
     飞星走向: (palace.mutaged_palaces ?? [])
       .filter((item) => item.palace_name)
       .map((item) => `化${item.mutagen}入${formatPalaceName(item.palace_name!)}`),
-    运限命中: includeScope ? palace.scope_hits : undefined,
+    运限命中: includeScope ? getSelectedScopeHits(payload, palace) : undefined,
     对宫: oppositePalace ? formatPalaceName(oppositePalace.name) : '无',
     三方四正: surroundedPalaces.map((item) => formatPalaceName(item.name)),
     大限范围: `${palace.decadal_range[0]}-${palace.decadal_range[1]}岁`,
@@ -209,20 +208,25 @@ export function buildEvidenceSummary(
 ) {
   const focusIndexes = new Set(focusPalaces.map((item) => item.index));
   const focusNames = new Set(focusPalaces.map((item) => normalizePalaceName(item.name)));
-  const fallbackList =
-    reportContext.selectedTopic === 'risk'
-      ? payload.evidence_pool.filter((item) => item.mutagens.includes('忌'))
-      : payload.evidence_pool;
-  const matchedEvidence = payload.evidence_pool.filter(
+  // 宫内星曜、四化和运限落宫已在盘面正文呈现，这里只保留跨宫关系与动态宫名映射。
+  const relevantEvidence = payload.evidence_pool.filter(
     (item) =>
-      item.palace_indexes.some((index) => focusIndexes.has(index)) ||
-      item.palace_names.some((name) => focusNames.has(normalizePalaceName(name))) ||
+      (item.scope === 'origin' || item.scope === payload.active_scope.scope) &&
+      (item.type === 'surrounded_mutagen' || item.type === 'scope_dynamic_name'),
+  );
+  // 三方四正的首项是本宫；其余宫位用于说明会照关系，不代表该线索的主题宫。
+  const matchedEvidence = relevantEvidence.filter(
+    (item) =>
+      (item.type === 'surrounded_mutagen'
+        ? focusIndexes.has(item.palace_indexes[0]) ||
+          focusNames.has(normalizePalaceName(item.palace_names[0] ?? ''))
+        : item.palace_indexes.some((index) => focusIndexes.has(index)) ||
+          item.palace_names.some((name) => focusNames.has(normalizePalaceName(name)))) ||
       (reportContext.selectedTopic === 'risk' && item.mutagens.includes('忌')),
   );
-  const evidencePool = matchedEvidence.length ? matchedEvidence : fallbackList;
-  const picked: typeof evidencePool = [];
+  const picked: typeof matchedEvidence = [];
   const seen = new Set<string>();
-  for (const item of evidencePool) {
+  for (const item of matchedEvidence) {
     const key = item.stable_key || item.id;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -233,9 +237,8 @@ export function buildEvidenceSummary(
     判断线索: item.title,
     适用范围: mapZiweiScopeLabel(item.scope),
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
-    关联星曜: deriveEvidenceStars(payload, focusPalaces, item),
-    关联四化: deriveEvidenceMutagens(payload, focusPalaces, item),
-    说明: item.description,
+    关联星曜: deriveEvidenceStars(payload, item),
+    关联四化: deriveEvidenceMutagens(payload, item),
   }));
 }
 
@@ -243,13 +246,13 @@ export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {
   if (isOriginScope(payload)) return [];
 
   const scopeLandings = payload.palaces.flatMap((palace) =>
-    palace.scope_hits.map((hit) => ({
+    getSelectedScopeHits(payload, palace).map((hit) => ({
       类型: '运限落宫',
       运限: hit.replace(/落宫$/, ''),
       本命落宫: formatPalaceName(palace.name),
       当前动态宫名: palace.dynamic_scope_name || undefined,
       宫位干支: `${palace.heavenly_stem}${palace.earthly_branch}`,
-      主星: palace.major_stars.map(formatStarFact),
+      主星: palace.major_stars.map((star) => formatStarFact(star, true)),
     })),
   );
   const activeMutagens = payload.active_scope.mutagen_map.map((item) => ({
@@ -269,12 +272,12 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
   const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const scopeLabel = mapZiweiScopeLabel(payload.active_scope.scope);
   const landingLines = payload.palaces.flatMap((palace) =>
-    palace.scope_hits.map((hit) => {
+    getSelectedScopeHits(payload, palace).map((hit) => {
       const dynamicName = palace.dynamic_scope_name
         ? `，动态宫名：${palace.dynamic_scope_name}`
         : '';
       const majorStars = palace.major_stars.length
-        ? `，主星：${palace.major_stars.map(formatStarFact).join('、')}`
+        ? `，主星：${palace.major_stars.map((star) => formatStarFact(star, true)).join('、')}`
         : '';
       return `${hit}→本命${formatPalaceName(palace.name)}${dynamicName}${majorStars}`;
     }),
@@ -294,8 +297,8 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
 export function buildPalaceIndex(payload: AnalysisPayloadV1) {
   const includeScope = !isOriginScope(payload);
   return payload.palaces.map((item) => {
-    const majorStars = item.major_stars.map(formatStarFact);
-    const minorStars = item.minor_stars.map(formatStarFact);
+    const majorStars = item.major_stars.map((star) => formatStarFact(star, includeScope));
+    const minorStars = item.minor_stars.map((star) => formatStarFact(star, includeScope));
     const opposite = getOppositePalace(payload, item);
     const emptyText = item.empty_state
       ? opposite

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
 
-test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本地硬规则事实', () => {
+test('黄历择日：无四离等明确事项规则时只映射历法库原始宜忌', () => {
   const result = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2025-06-01',
@@ -10,6 +10,7 @@ test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本�
   });
 
   assert.ok(result.days.length > 0);
+  assert.ok(result.days.every((day) => !day.gods.includes('四离')));
   assert.ok(
     result.days.every(
       (day) =>
@@ -96,4 +97,61 @@ test('黄历择日：参与人适配证据字段应完整生成', () => {
 
   assert.equal(result.participants.length, 1);
   assert.ok(result.days.every((day) => Array.isArray(day.participantRelationFacts)));
+});
+
+test('安葬和修造的原始忌项同时约束候选日与具体时辰', () => {
+  for (const { topic, date, keyword, forbiddenHours } of [
+    {
+      topic: 'burial',
+      date: '2025-01-06',
+      keyword: '入殓',
+      forbiddenHours: [
+        { name: '早子时', range: '00:00-01:00', ganzhi: '丙子' },
+        { name: '戌时', range: '19:00-21:00', ganzhi: '丙戌' },
+      ],
+    },
+    {
+      topic: 'renovation',
+      date: '2025-01-05',
+      keyword: '盖屋',
+      forbiddenHours: [
+        { name: '寅时', range: '03:00-05:00', ganzhi: '丙寅' },
+        { name: '晚子时', range: '23:00-24:00', ganzhi: '丙子' },
+      ],
+    },
+  ] as const) {
+    const result = generateAlmanacSelection({ topic, startDate: date, endDate: date });
+    assert.equal(result.days.length, 1);
+    const day = result.days[0];
+    assert.equal(day.date, date);
+    assert.ok(day.avoids.includes(keyword));
+    assert.ok(
+      day.topicMatchFacts?.some(
+        (fact) =>
+          fact.status === '限制' &&
+          fact.sourceType === '原始忌项' &&
+          fact.matchedItems.includes(keyword),
+      ),
+    );
+    const candidate = result.evidenceAnalysis?.candidates[0];
+    assert.ok(candidate);
+    assert.equal(candidate.status, '慎用候选');
+
+    for (const expected of forbiddenHours) {
+      const hour = day.hours?.find((item) => item.name === expected.name);
+      assert.ok(hour);
+      assert.equal(hour.range, expected.range);
+      assert.equal(hour.ganzhi, expected.ganzhi);
+      assert.ok(hour.avoids?.includes(keyword));
+      assert.ok(
+        hour.topicMatchFacts?.some(
+          (fact) =>
+            fact.status === '限制' &&
+            fact.sourceType === '原始忌项' &&
+            fact.matchedItems.includes(keyword),
+        ),
+      );
+      assert.ok(!candidate.usableHours.some((usable) => usable.name === expected.name));
+    }
+  }
 });

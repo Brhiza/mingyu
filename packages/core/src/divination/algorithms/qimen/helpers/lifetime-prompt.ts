@@ -219,6 +219,18 @@ export function buildLifetimePrompt(
 
   // 6. 【人生阶段资料】
   lines.push(`【人生阶段资料】`);
+  const basePatternFacts = new Map<string, string>();
+  for (const pattern of data.baseChart.classicPatterns ?? []) {
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (label) {
+      basePatternFacts.set(
+        `${label}「${pattern.name}」：${pattern.summary}`,
+        `${label}「${pattern.name}」`,
+      );
+    }
+  }
+  const formatStageFacts = (facts: string[]) =>
+    [...new Set(facts.map((fact) => basePatternFacts.get(fact) ?? fact))].join('；');
   for (const st of data.stages) {
     const domNames = st.dominantPalaces.map((d) => d.name).join('、');
     lines.push(
@@ -230,10 +242,10 @@ export function buildLifetimePrompt(
       lines.push(`  精确区间：${st.startDateTime}起，至${st.endDateTimeExclusive}前。`);
     if (st.ganzhi) lines.push(`  干支定位：${st.associatedMarkers.join('；')}`);
     if (st.supportFacts.length > 0) {
-      lines.push(`  支持吉象：${st.supportFacts.join('；')}`);
+      lines.push(`  支持吉象：${formatStageFacts(st.supportFacts)}`);
     }
     if (st.constraintFacts.length > 0) {
-      lines.push(`  考验反证：${st.constraintFacts.join('；')}`);
+      lines.push(`  考验反证：${formatStageFacts(st.constraintFacts)}`);
     }
   }
   lines.push('');
@@ -242,20 +254,26 @@ export function buildLifetimePrompt(
   if (data.eventClusters && data.eventClusters.length > 0) {
     lines.push(`【周期触发与事件簇】`);
     for (const ec of data.eventClusters) {
+      const triggerDates = ec.triggerDates ?? [];
+      const isDailyRelation = ec.key.includes(':day:') && triggerDates.length > 0;
       lines.push(
-        `${ec.timeSpan}${ec.stageIndices?.length ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）` : ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${ec.triggerFact}（节奏：${ec.rhythm}）`,
+        `${ec.timeSpan}${ec.stageIndices?.length ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）` : ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${isDailyRelation ? `共${triggerDates.length}个日辰` : ec.triggerFact}（节奏：${ec.rhythm}）`,
       );
-      if (ec.triggerDates && ec.triggerDates.length > 0) {
-        lines.push(...formatTriggerDates(ec.triggerDates));
+      if (triggerDates.length > 0) {
+        lines.push(...formatTriggerDates(triggerDates));
       }
-      lines.push(`  动态交互：${ec.interactionAnalysis}`);
-      if (ec.supportEvidence.length > 0) {
+      if (!isDailyRelation) lines.push(`  动态交互：${ec.interactionAnalysis}`);
+      if (!isDailyRelation && ec.supportEvidence.length > 0) {
         lines.push(`  增益因素：${ec.supportEvidence.join('；')}`);
       }
       if (ec.counterEvidence.length > 0) {
         lines.push(`  制约因素：${ec.counterEvidence.join('；')}`);
       }
-      if (ec.verificationQuestions.length > 0) {
+      if (
+        !isDailyRelation &&
+        !ec.key.includes(':month-clash:') &&
+        ec.verificationQuestions.length > 0
+      ) {
         lines.push(`  核验要点：${ec.verificationQuestions.join(' ')}`);
       }
     }

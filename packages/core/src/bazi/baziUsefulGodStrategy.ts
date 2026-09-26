@@ -254,11 +254,93 @@ function buildDecisionEvidence(
     base: { favorable: [...favorable], unfavorable: [...unfavorable], ruleId },
     climateCandidates: [],
     controlFunctions,
+    natalFunctions: collectNatalPatternFunctions(pattern),
     controlPaths: pattern.fulfillment?.pathEvaluations,
     controlRemedies: pattern.fulfillment?.remedies,
     appliedLayers: [],
     conflicts: [],
   };
+}
+
+function collectNatalPatternFunctions(
+  pattern: PatternAnalysis,
+): NonNullable<UsefulGodDecisionEvidence['natalFunctions']> {
+  const fulfillment = pattern.fulfillment;
+  if (pattern.isSpecial || !fulfillment || !['成格', '破而复成'].includes(fulfillment.status)) {
+    return [];
+  }
+
+  const functions: NonNullable<UsefulGodDecisionEvidence['natalFunctions']> = [];
+  const rootEvidence = fulfillment.rootEvidence ?? [];
+  const monthGate = fulfillment.conditionFacts?.find((fact) => fact.key === 'pattern.month-gate');
+  const target = fulfillment.conditionFacts?.find((fact) => fact.key === 'pattern.target');
+  const targetGod = ['正官', '七杀', '正财', '偏财', '正印', '偏印', '食神', '伤官'].find((god) =>
+    pattern.pattern.includes(god),
+  );
+
+  if (monthGate?.status === '满足' && target?.status === '满足' && targetGod) {
+    for (const evidence of rootEvidence) {
+      if (evidence.tenGod !== targetGod || evidence.placement !== '透干' || !evidence.rooted) {
+        continue;
+      }
+      functions.push({
+        stem: evidence.stem,
+        tenGod: evidence.tenGod,
+        pillar: evidence.pillar,
+        placement: evidence.placement,
+        role: '格神',
+        detail: target.detail,
+      });
+    }
+  }
+
+  for (const path of fulfillment.pathEvaluations ?? []) {
+    if (path.status !== '满足') continue;
+    const endpoints = path.effectivePairs?.length
+      ? path.effectivePairs.flatMap((pair) => [
+          { stem: pair.sourceStem, pillar: pair.sourcePillar, role: '制化来源' as const },
+          { stem: pair.targetStem, pillar: pair.targetPillar, role: '制化对象' as const },
+        ])
+      : [
+          ...path.sourceStems.map((stem) => ({ stem, role: '制化来源' as const })),
+          ...path.targetStems.map((stem) => ({ stem, role: '制化对象' as const })),
+        ];
+    for (const endpoint of endpoints) {
+      const evidence =
+        'pillar' in endpoint
+          ? rootEvidence.find(
+              (item) =>
+                item.stem === endpoint.stem &&
+                item.pillar === endpoint.pillar &&
+                item.placement === '透干',
+            )
+          : (rootEvidence.find(
+              (item) => item.stem === endpoint.stem && item.placement === '透干',
+            ) ?? rootEvidence.find((item) => item.stem === endpoint.stem));
+      if (!evidence) continue;
+      functions.push({
+        stem: endpoint.stem,
+        tenGod: evidence.tenGod,
+        pillar: evidence.pillar,
+        placement: evidence.placement,
+        role: endpoint.role,
+        pathKey: path.key,
+        detail: path.detail,
+      });
+    }
+  }
+
+  return functions.filter(
+    (item, index) =>
+      functions.findIndex(
+        (candidate) =>
+          candidate.stem === item.stem &&
+          candidate.pillar === item.pillar &&
+          candidate.placement === item.placement &&
+          candidate.role === item.role &&
+          candidate.pathKey === item.pathKey,
+      ) === index,
+  );
 }
 
 function buildControlFunctionEvidence(
@@ -285,10 +367,18 @@ function buildControlFunctionEvidence(
       (interaction) => interaction.relation === path.key,
     );
     const sourceRootEvidence = rootEvidence.filter((evidence) =>
-      sourceStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) => pair.sourceStem === evidence.stem && pair.sourcePillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : sourceStems.includes(evidence.stem),
     );
     const targetRootEvidence = rootEvidence.filter((evidence) =>
-      targetStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) => pair.targetStem === evidence.stem && pair.targetPillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : targetStems.includes(evidence.stem),
     );
     const evidenceGaps = [
       ...(path.status === '满足' ? [] : [`路径:${path.status}`]),
@@ -422,9 +512,12 @@ function buildBaseDecisionState(
   const officer = getKeMe(dmWuxing);
   const resource = getShengMe(dmWuxing);
   const bundles: Record<UsefulGodWuxingBundle, string[]> = {
+    none: [],
     resource_companion_output: [resource, companion, output].filter(Boolean),
     wealth_officer: [wealth, officer].filter(Boolean),
+    officer_wealth: [officer, wealth].filter(Boolean),
     output_wealth_officer: [output, wealth, officer].filter(Boolean),
+    output_resource_companion: [output, resource, companion].filter(Boolean),
     resource_companion: [resource, companion].filter(Boolean),
     wealth_output: [wealth, output].filter(Boolean),
     resource_officer: [resource, officer].filter(Boolean),
@@ -679,6 +772,16 @@ function finalizeUsefulGodAnalysis(
   const secondaryFavorableWuxing = state.favorableWuxing.slice(1);
   const primaryUnfavorableWuxing = state.unfavorableWuxing[0] || '';
   const secondaryUnfavorableWuxing = state.unfavorableWuxing.slice(1);
+  const decidedWuxing = new Set([...state.favorableWuxing, ...state.unfavorableWuxing]);
+  const hasSpecificDecision = Boolean(
+    state.conditionalFavorableStems?.length || state.conditionalUnfavorableStems?.length,
+  );
+  const incrementStatus =
+    decidedWuxing.size === WUXING.length
+      ? '已判定'
+      : decidedWuxing.size || hasSpecificDecision
+        ? '部分判定'
+        : '待判';
   const favorableGods = excludeRestrictedGods(
     state.favorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
   );
@@ -708,11 +811,11 @@ function finalizeUsefulGodAnalysis(
       ? primaryFavorableGods[0]
       : primaryFavorableGods.length > 1
         ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
-        : '暂无'
-    : '暂无';
+        : '待判'
+    : '待判';
   const avoidGod = primaryUnfavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryUnfavorableWuxing)
-    : '暂无';
+    : '待判';
 
   return {
     favorable: favorableGods,
@@ -731,6 +834,7 @@ function finalizeUsefulGodAnalysis(
     secondaryUnfavorableWuxing,
     primaryUseful: usefulGod,
     primaryAvoid: avoidGod,
+    incrementStatus,
     conditionalFavorableStems: state.conditionalFavorableStems,
     conditionalUnfavorableStems: state.conditionalUnfavorableStems,
     conditionalFavorableWuxing: state.conditionalFavorableWuxing,

@@ -12,9 +12,9 @@ export const MingluShenShaSection: React.FC<Props> = ({ items }) => {
       <div className="minglu-section-header">
         <span className="minglu-section-num">05</span>
         <div className="minglu-section-title-wrap">
-          <h2 className="minglu-section-title">第五章：全息神煞谱系与典籍考据</h2>
+          <h2 className="minglu-section-title">第五章：八字神煞与传统取象</h2>
           <p className="minglu-section-subtitle">
-            天乙文昌华盖将星驿马羊刃等全盘吉凶神煞（已查考出 {items.length} 尊神煞）
+            天乙文昌华盖将星驿马羊刃等全盘神煞（排盘显示 {items.length} 项）
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ export const MingluShenShaSection: React.FC<Props> = ({ items }) => {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
-              {s.traditionalDescription}
+              常见取象：{s.traditionalDescription}
             </p>
 
             <div className="text-xs text-slate-800 dark:text-slate-200 border-t border-slate-100 dark:border-slate-800 pt-2 mt-auto">

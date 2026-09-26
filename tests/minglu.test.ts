@@ -9,8 +9,30 @@ import {
   buildBeginnerGuide,
   buildEnhancedFiveElementsSection,
   buildEnhancedInteractions,
+  buildEnhancedPatternUsefulGodSection,
   buildEnhancedTenGodsSection,
 } from '../packages/core/src/minglu/bazi-enhancer.ts';
+
+test('命录不把同季其他月份的调候条文列为本月评注', () => {
+  for (const sample of [
+    { year: 1990, month: 4, day: 10, dayMaster: '乙', monthBranch: '辰' },
+    { year: 1990, month: 9, day: 12, dayMaster: '庚', monthBranch: '酉' },
+  ]) {
+    const result = baziCalculator.calculateBazi({
+      year: sample.year,
+      month: sample.month,
+      day: sample.day,
+      timeIndex: 1,
+      gender: 'male',
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    assert.equal(result.dayMaster.gan, sample.dayMaster);
+    assert.equal(result.pillars.month.zhi, sample.monthBranch);
+    assert.equal(buildEnhancedPatternUsefulGodSection(result).qiongtongAdvice, undefined);
+  }
+});
 
 test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const person = {
@@ -59,7 +81,7 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.tableOfContents.some((item) => item.title.includes('五行能量')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('格局成败')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('全量柱间作用')));
-  assert.ok(article.tableOfContents.some((item) => item.title.includes('全息神煞谱系')));
+  assert.ok(article.tableOfContents.some((item) => item.title.includes('八字神煞与传统取象')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('术语百科词典')));
 
   // 3. 四柱全息矩阵（含三垣、月令司令、命卦）
@@ -125,7 +147,12 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.luckChronicleSection.cycles.length > 0);
   const firstCycle = article.luckChronicleSection.cycles[0];
   assert.ok(firstCycle.lifeTheme);
-  assert.ok(firstCycle.careerAdvice);
+  assert.equal(firstCycle.entryType, '小运');
+  assert.equal(firstCycle.careerAdvice, '');
+  const firstDayun = article.luckChronicleSection.cycles.find(
+    (cycle) => cycle.entryType === '大运',
+  );
+  assert.ok(firstDayun?.careerAdvice);
   assert.equal(firstCycle.healthAdvice, undefined);
   assert.ok(
     article.luckChronicleSection.cycles.every(
@@ -137,7 +164,8 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const firstYear = firstCycle.annualYears[0];
   assert.ok(firstYear.yearTheme);
   assert.ok(firstYear.months);
-  assert.equal(firstYear.months.length, 12);
+  assert.ok(firstYear.months.length > 0 && firstYear.months.length <= 12);
+  assert.equal(firstYear.months[0].startDateTime, firstCycle.startDateTime);
   assert.ok(firstYear.months[0].solarTerm);
   assert.ok(firstYear.months[0].ganZhi);
   assert.ok(firstYear.months[0].commander);
@@ -338,7 +366,7 @@ test('岁运合冲判定穷举：十干100组、地支144组正反向与同字',
   assert.equal(checked, 144);
 });
 
-test('命录保留中和与实际取用，印星及透干比劫分别取证', () => {
+test('命录保留中和待判与实际原局作用，印星及透干比劫分别取证', () => {
   const chart = baziCalculator.calculateBazi({
     year: 1990,
     month: 1,
@@ -347,14 +375,16 @@ test('命录保留中和与实际取用，印星及透干比劫分别取证', ()
     gender: 'male',
   });
   assert.equal(chart.analysis.dayMasterStrength.status, '中和');
+  assert.equal(chart.analysis.usefulGod.incrementStatus, '待判');
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /日主中和/);
+  assert.match(guide.strengthPlain, /增补五行喜忌待判/);
   assert.ok(guide.strengthPlain.includes(chart.analysis.usefulGod.primaryUseful!));
   assert.ok(
     guide.strengthPlain.includes(chart.analysis.usefulGod.primaryFavorableWuxing!) ||
       chart.analysis.usefulGod.primaryFavorableWuxing === undefined,
   );
-  assert.match(guide.favorableHabitsPlain[0], /核心调和五行：/);
+  assert.match(guide.favorableHabitsPlain[0], /增补五行喜忌待判/);
   assert.doesNotMatch(guide.strengthPlain, /日主偏弱|印比为喜用/);
   const tenGods = buildEnhancedTenGodsSection(chart);
   assert.equal(tenGods.godsList.find((god) => god.tenGod === '正官')!.count, 0);

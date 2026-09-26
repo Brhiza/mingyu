@@ -77,7 +77,7 @@ test('住宅坐向度数与等效门向使用相同磁偏角并保留测量候�
   assert.equal(facing.bazhai?.evidenceAnalysis.measurementFact.method, '按住宅坐山度数换算');
 });
 
-test('住宅方位合参按八个完整方向对应命卦而非方位字串包含', () => {
+test('住宅合参保留各方向完整盘面并只呈现一次', () => {
   const directions = {
     坎: '北',
     艮: '东北',
@@ -90,18 +90,23 @@ test('住宅方位合参按八个完整方向对应命卦而非方位字串包�
   };
   for (const mingGua of Object.keys(directions)) {
     const result = generateResidentialFengshui({ mingGua, year: 2024, sitMountain: '子' });
-    const lines = result.prompt.split('方位合参：')[1].trim().split('\n');
-    assert.equal(lines.length, 9);
+    const lines = result.prompt.split('\n');
     for (const [gua, direction] of Object.entries(directions)) {
       const palace = result.bazhai!.mingPalace.find((item) => item.gua === gua)!;
-      const line = lines.find((item) => item.trim().startsWith(gua))!;
-      assert.ok(line.includes(`${direction}：飞星`), `${mingGua}命${gua}宫方向不符`);
-      assert.ok(
-        line.endsWith(`；命卦${palace.direction}${palace.label}`),
-        `${mingGua}命${gua}宫误配：${line}`,
-      );
+      const flying = result.xuankong!.palaces.find((item) => item.name.startsWith(gua))!;
+      assert.equal(flying.direction, direction);
+      const matching = lines.filter((line) => line.startsWith(`${flying.name}（${direction}）：`));
+      assert.equal(matching.length, 1, `${mingGua}命${gua}宫完整飞星只呈现一次`);
+      assert.ok(matching[0].includes(`运${flying.yunStar}（`));
+      assert.ok(matching[0].includes(`山${flying.shanStar}（`));
+      assert.ok(matching[0].includes(`向${flying.xiangStar}（`));
+      assert.ok(result.prompt.includes(`${palace.direction}${palace.label}（${palace.luck}`));
     }
-    assert.ok(!lines.find((line) => line.trim().startsWith('中五'))!.includes('命卦'));
+    for (const chart of [result.xuankong!, result.bazhai!]) {
+      const facts = chart.prompt.split('\n').filter((line) => !/^【.+】$/.test(line.trim()));
+      for (const fact of facts) assert.ok(result.prompt.includes(fact));
+    }
+    assert.doesNotMatch(result.prompt, /方位合参：|^玄空：|^八宅：/m);
   }
 });
 
@@ -132,7 +137,6 @@ test('住宅风水入口传递替卦并保留玄空替星完整盘面', () => {
   assert.equal(result.xuankong?.guaType, '替卦');
   assert.equal(result.xuankong?.replacement?.mountain.referenceMountain, '辰');
   assert.equal(result.xuankong?.replacement?.facing.referenceMountain, '甲');
-  assert.match(result.prompt, /玄空：.*替卦/);
   assert.match(result.prompt, /玄空完整盘面：[\s\S]*卦型：替卦/);
 });
 
@@ -227,8 +231,8 @@ test('住宅风水门向度数会同步八宅与玄空山向', () => {
   assert.match(result.prompt, /玄空完整盘面：/);
   assert.match(result.prompt, /三盘九宫：/);
   assert.match(result.prompt, /八宅完整盘面：/);
-  assert.match(result.prompt, /四吉方：/);
-  assert.match(result.prompt, /四凶方：/);
+  assert.match(result.prompt, /命卦八方：/);
+  assert.match(result.prompt, /宅卦八方：/);
   assert.doesNotMatch(result.prompt, /合参要点|命宅相合可提高关注优先级/);
 });
 

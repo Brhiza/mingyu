@@ -12,6 +12,45 @@ import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe'
 import { formatAstrolabeInfo } from '../packages/core/src/prompt/divination-enhanced';
 import { buildInstantAstrolabePrompt } from '../src/lib/instant-prompt';
 
+test('昼夜盘口径与福点计算同源，省级近似坐标如实进入提示词', () => {
+  const input = {
+    name: '坐标口径用例',
+    gender: '女' as const,
+    year: '1995',
+    month: '5',
+    day: '20',
+    minute: '30',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+    coordinateAccuracy: 'province-approximation',
+  };
+  const day = generateAstrolabe({ ...input, hour: '12' });
+  const night = generateAstrolabe({ ...input, hour: '0' });
+
+  assert.equal(day.dayChart, true);
+  assert.equal(night.dayChart, false);
+  assert.equal(day.birth.coordinateAccuracy, 'province-approximation');
+  assert.match(formatAstrolabeForPrompt(day), /昼夜盘：昼盘/);
+  assert.match(formatAstrolabeForPrompt(night), /昼夜盘：夜盘/);
+  assert.match(formatAstrolabeForPrompt(day), /出生坐标精度：省级近似位置/);
+  assert.doesNotMatch(formatAstrolabeForPrompt(day), /province-approximation/);
+  assert.match(
+    formatAstrolabeForPrompt({
+      ...day,
+      birth: { ...day.birth, coordinateAccuracy: 'mixed' },
+    }),
+    /出生坐标精度：部分坐标采用地点近似值/,
+  );
+  assert.doesNotMatch(
+    formatAstrolabeForPrompt({
+      ...day,
+      birth: { ...day.birth, coordinateAccuracy: 'user-provided' },
+    }),
+    /出生坐标精度：/,
+  );
+});
+
 test('2100年星历精度说明贯通结果、证据、页面和三条提示词', () => {
   const data = generateAstrolabe({
     name: '精度用例',

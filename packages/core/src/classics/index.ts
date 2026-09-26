@@ -148,7 +148,7 @@ export function getBaziQiongtongAdvice(
 }
 
 /**
- * 查询八字《滴天髓》日主十干体象与性情
+ * 查询八字《滴天髓》日干静态体象资料
  */
 export function getBaziDitiansuiAdvice(dayMaster: string): BaziDitiansuiEntry | undefined {
   return queryBaziDitiansuiAdvice(dayMaster);
@@ -176,7 +176,7 @@ export function getLiuyaoChishiClassic(sixRelation: string): LiuyaoChishiClassic
 }
 
 /**
- * 查询梅花易数体用生克决断
+ * 查询《梅花易数·体用总诀》中的体用关系原句
  */
 export function getMeihuaBodyUseJudgement(
   relationType: string,

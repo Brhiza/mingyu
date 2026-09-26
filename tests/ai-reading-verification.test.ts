@@ -121,5 +121,5 @@ test('命盘历史忽略当前时钟并恢复当时的完整资料', () => {
 test('实测的自然语言日主查询能取得对应滴天髓原句', async () => {
   const result = await lookupReadingClassics('bazi', '滴天髓庚金日主相关条文');
   assert.equal(result.usable, true);
-  assert.match(result.text, /庚金带杀/u);
+  assert.match(result.text, /庚金带煞/u);
 });

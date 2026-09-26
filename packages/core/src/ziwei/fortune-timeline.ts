@@ -214,7 +214,7 @@ async function findFirstYearChange(
  * 年龄分界和流年分界可能不在同一天。按公历每年一月至三月的实际引擎结果
  * 找到流年切换，再把该日期与年龄分界合并；这样不会把两个流年压成一条年龄行。
  */
-async function collectYearBoundaryDates(
+export async function collectYearBoundaryDates(
   startDateStr: string,
   endDateStr: string,
   hourIndex: number,
@@ -277,19 +277,20 @@ async function findTargetYearBoundary(
  * 年龄边界沿用 iztro 的虚岁口径：普通分界在对应农历年正月初一，
  * 生日分界则从引擎真正返回该虚岁的首日开始。不能用出生日期的公历年直移。
  */
-async function buildYearDate(
+export async function buildYearDate(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   age: number,
   hourIndex: number,
   resolveHoroscope: ZiweiHoroscopeResolver,
+  birthSolarDate = astrolabe.solarDate,
 ) {
   if (age === 1) {
     return formatSolarDay(
-      SolarDay.fromYmd(...(astrolabe.solarDate.split('-').map(Number) as [number, number, number])),
+      SolarDay.fromYmd(...(birthSolarDate.split('-').map(Number) as [number, number, number])),
     );
   }
-  const anniversary = shiftLunarYear(astrolabe.solarDate, age - 1);
+  const anniversary = shiftLunarYear(birthSolarDate, age - 1);
   const anniversarySolar = SolarDay.fromYmd(
     ...(anniversary.split('-').map(Number) as [number, number, number]),
   );
@@ -369,22 +370,16 @@ async function splitYearAtBoundaries(
   return segments;
 }
 
-async function addLowerLayers(
-  year: ZiweiFortuneYear,
+/** 与运限时间线共用引擎实际流月边界，供日期选择器逐层展开。 */
+export async function buildZiweiFlowMonths(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   targetDateStr: string,
   targetHourIndex: number,
-  includeMonths: boolean,
-  includeDay: boolean,
-  includeHour: boolean,
   targetHoroscope: IztroHoroscope,
   resolveHoroscope: ZiweiHoroscopeResolver,
-) {
-  if (!includeMonths) return;
-
+): Promise<ZiweiFortuneMonth[]> {
   const targetYearlySignature = `${targetHoroscope.yearly.heavenlyStem}${targetHoroscope.yearly.earthlyBranch}`;
-  const targetMonthlySignature = `${targetHoroscope.monthly.heavenlyStem}${targetHoroscope.monthly.earthlyBranch}`;
   const monthAnchors: string[] = [];
 
   if ((input.horoscopeDivide ?? 'normal') === 'exact') {
@@ -456,8 +451,33 @@ async function addLowerLayers(
       `紫微未能按${input.horoscopeDivide === 'exact' ? '节气' : '农历'}边界生成十二个常规流月。`,
     );
   }
+  return months;
+}
+
+async function addLowerLayers(
+  year: ZiweiFortuneYear,
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  targetDateStr: string,
+  targetHourIndex: number,
+  includeMonths: boolean,
+  includeDay: boolean,
+  includeHour: boolean,
+  targetHoroscope: IztroHoroscope,
+  resolveHoroscope: ZiweiHoroscopeResolver,
+) {
+  if (!includeMonths) return;
+  const months = await buildZiweiFlowMonths(
+    astrolabe,
+    input,
+    targetDateStr,
+    targetHourIndex,
+    targetHoroscope,
+    resolveHoroscope,
+  );
   year.months = months;
 
+  const targetMonthlySignature = `${targetHoroscope.monthly.heavenlyStem}${targetHoroscope.monthly.earthlyBranch}`;
   const targetMonthIndex = months.findIndex((month) => {
     const horoscopeSignature = `${month.layer.heavenlyStem}${month.layer.earthlyBranch}`;
     return horoscopeSignature === targetMonthlySignature;

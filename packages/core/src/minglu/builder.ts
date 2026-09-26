@@ -35,18 +35,6 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     baziResult.unknownTimeAnalysis?.summary ||
     '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。';
   const transformation = baziResult.analysis.mingGe.transformation;
-  const transformationFacts = transformation
-    ? [
-        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `取用主体：化神${transformation.element}；原日主${baziResult.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
-      ]
-    : [];
 
   // 1. 基础八字全量增强
   const pillarsSection = buildEnhancedPillarsSection(baziResult);
@@ -120,7 +108,6 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
         : [
             `日主${baziResult.dayMaster.gan}(${baziResult.dayMaster.element})，${baziResult.analysis.dayMasterStrength.status}`,
             `主格局为【${baziResult.analysis.mingGe.pattern}】`,
-            ...transformationFacts,
           ],
       ziweiEvidence: ziweiSection
         ? [
@@ -155,7 +142,9 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
         : [
             `核心用神：${baziResult.analysis.usefulGod.primaryUseful || baziResult.analysis.usefulGod.useful || '待定'}`,
             `核心忌神：${baziResult.analysis.usefulGod.primaryAvoid || baziResult.analysis.usefulGod.avoid || '待定'}`,
-            ...transformationFacts,
+            ...(transformation?.status === '成化'
+              ? [`成化取用以化神${transformation.element}为主体`]
+              : []),
           ],
       ziweiEvidence: ziweiSection
         ? [
@@ -354,32 +343,32 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     },
     {
       id: 'section-shensha',
-      title: '第五章：全息神煞谱系与典故考据',
+      title: '第五章：八字神煞与传统取象',
       anchorId: 'bazi-shensha-pantheon',
       level: 1,
-      badge: `${shenShaSection.length} 尊神煞`,
+      badge: `${shenShaSection.length} 项神煞`,
       itemCount: shenShaSection.length,
     },
     {
       id: 'section-ten-gods',
-      title: '第六章：十神心性与六亲宫位意象',
+      title: '第六章：十神透藏与四柱传统取象',
       anchorId: 'bazi-ten-gods-symbology',
       level: 1,
       badge: '十神六亲',
     },
     {
       id: 'section-life-stages',
-      title: '第七章：十二长生全景矩阵与自坐星运',
+      title: '第七章：十二长生阶段与四柱自坐',
       anchorId: 'bazi-life-stages-matrix',
       level: 1,
       badge: '十二长生',
     },
     {
       id: 'section-luck',
-      title: '第八章：大运流年流月全息编年大表',
+      title: '第八章：岁运与流年流月',
       anchorId: 'bazi-luck-chronicle',
       level: 1,
-      badge: `${luckChronicleSection.cycles.length} 步大运`,
+      badge: `${luckChronicleSection.cycles.filter((cycle) => cycle.entryType === '大运').length} 步大运`,
     },
   ];
 
@@ -550,7 +539,12 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       ),
       totalZiweiStarsCount: ziweiSection
         ? ziweiSection.palaces.reduce(
-            (acc, p) => acc + p.majorStars.length + p.minorStars.length + p.maleficStars.length,
+            (acc, p) =>
+              acc +
+              p.majorStars.length +
+              p.minorStars.length +
+              p.maleficStars.length +
+              p.otherStars.length,
             0,
           )
         : undefined,

@@ -3,6 +3,7 @@ import {
   formatFortuneActionFactLine,
   type BaziChartResult,
   type BaziFortuneBatchMetadata,
+  type FortuneActionFact,
 } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { getLuckCycleTimeRange, formatSolarDateTime } from '../bazi/luckTiming';
@@ -39,16 +40,8 @@ const READABLE_FORTUNE_EVIDENCE_TITLES = new Set([
   '应期边界',
 ]);
 
-/** detailGroups 是岁运下钻的固定四层，标题之外的内部分组不进入任务书。 */
-const READABLE_FORTUNE_DETAIL_TITLES = new Set([
-  '该大运包含的流年',
-  '所属大运包含的流年',
-  '该流年包含的流月',
-  '所属流年包含的流月',
-  '该流月包含的流日',
-  '所属流月包含的流日',
-  '该流日包含的流时',
-]);
+/** 所选大运覆盖整段年份；更细的年、月、日选择只呈现所选层与上层。 */
+const DAYUN_FORTUNE_DETAIL_TITLES = new Set(['该大运包含的流年']);
 
 /**
  * 岁运选择层已经计算过分级证据；任务书保留权重和事实，但把内部证据
@@ -79,6 +72,54 @@ function formatFortuneEvidenceLines(lines: string[] | undefined) {
   return [...new Set(formatted)];
 }
 
+/** 同一层同干的明透与本气若只重复相同裁决，则并列位置并注明根气归属。 */
+function consolidateFortuneActionLines(lines: string[], facts: FortuneActionFact[]): string[] {
+  const skipped = new Set<number>();
+  const merged = new Map<number, string>();
+  for (const exposed of facts) {
+    if (exposed.placement !== '岁运透干') continue;
+    const hidden = facts.find(
+      (fact) =>
+        fact.placement === '岁运藏干' &&
+        fact.hiddenCategory === '本气' &&
+        fact.layerKey === exposed.layerKey &&
+        fact.stem === exposed.stem &&
+        fact.element === exposed.element &&
+        fact.tenGod === exposed.tenGod &&
+        fact.conditionStatus === exposed.conditionStatus &&
+        fact.currentActionStatus === exposed.currentActionStatus &&
+        fact.applicableTimeRange === exposed.applicableTimeRange &&
+        fact.parentLayerKey === exposed.parentLayerKey &&
+        !fact.rootEvidence &&
+        JSON.stringify(fact.hitSources) === JSON.stringify(exposed.hitSources) &&
+        JSON.stringify(fact.targetObjects) === JSON.stringify(exposed.targetObjects) &&
+        JSON.stringify(fact.supportingFactKeys) === JSON.stringify(exposed.supportingFactKeys) &&
+        JSON.stringify(fact.opposingFactKeys) ===
+          JSON.stringify([
+            ...exposed.opposingFactKeys,
+            `bazi:fortune-action:counter:hidden-not-transparent:${fact.layerKey}:${fact.stem}:${fact.hiddenCategory}`,
+          ]),
+    );
+    if (!hidden) continue;
+    const exposedText = formatFortuneActionFactLine(exposed).replaceAll('｜', '；');
+    const hiddenText = formatFortuneActionFactLine(hidden).replaceAll('｜', '；');
+    const exposedIndex = lines.findIndex((line) => line.endsWith(exposedText));
+    const hiddenIndex = lines.findIndex((line) => line.endsWith(hiddenText));
+    if (exposedIndex < 0 || hiddenIndex < 0 || exposedIndex === hiddenIndex) continue;
+    const exposedTitle = lines[exposedIndex].split('：', 1)[0];
+    const hiddenTitle = lines[hiddenIndex].split('：', 1)[0];
+    if (exposedTitle !== hiddenTitle) continue;
+    merged.set(
+      exposedIndex,
+      lines[exposedIndex]
+        .replace('，岁运透干）', '，岁运透干、岁运藏干·本气）')
+        .replace('；根气：', '；透干根气：'),
+    );
+    skipped.add(hiddenIndex);
+  }
+  return lines.flatMap((line, index) => (skipped.has(index) ? [] : [merged.get(index) ?? line]));
+}
+
 /**
  * 把八字岁运选择结果整理为面向提示词的稳定文本。
  *
@@ -96,9 +137,14 @@ export function formatBaziFortuneSelection(
   const cycleRange = context.cycleTimeRange;
   const rangeStart = `${formatSolarDateTime(cycleRange.start, true)}:${String(cycleRange.start.second).padStart(2, '0')}`;
   const rangeEnd = `${formatSolarDateTime(cycleRange.end, true)}:${String(cycleRange.end.second).padStart(2, '0')}`;
-  lines.push(
-    `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
-  );
+  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
+  const consolidateYearDayun = scope === 'year' && Boolean(upperDayun);
+  const selectedLayerName = { dayun: '大运', year: '流年', month: '流月', day: '流日' }[scope];
+  if (!consolidateYearDayun) {
+    lines.push(
+      `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
+    );
+  }
   lines.push(`该运交接范围：${rangeStart}起，至${rangeEnd}交接；起点归本运，终点归后续运段。`);
   lines.push(`该运交接年龄：${context.cycleAge}岁`);
 
@@ -119,8 +165,10 @@ export function formatBaziFortuneSelection(
     if (jieqiLine) lines.push(jieqiLine.replace('交节时刻：', '交节：'));
   }
 
-  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
-  if (upperDayun) lines.push(upperDayun.replace('所属大运：', '上层岁运：'));
+  if (upperDayun) {
+    const label = upperDayun.replace('所属大运：', '上层岁运：');
+    lines.push(consolidateYearDayun ? `${label}；年度判断必须承接该十年阶段。` : label);
+  }
 
   const upperYear = summary.find((line) => line.startsWith('所属流年：'));
   if (upperYear) lines.push(upperYear.replace('所属流年：', '上层流年：'));
@@ -143,35 +191,64 @@ export function formatBaziFortuneSelection(
 
   const selectedFacts = [
     ...new Set((promptPayload.selectedFacts ?? []).map((line) => line.trim()).filter(Boolean)),
-  ];
-  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines);
+  ].filter(
+    (fact) =>
+      !(
+        promptPayload.triggerEvidence?.relations.length &&
+        fact.startsWith(`${selectedLayerName}触发：`)
+      ),
+  );
+  // 已展示所选层、上层岁运和干支关系时，证据区不再复述同一事实。
+  const actionFacts = promptPayload.actionEvidence?.facts ?? [];
+  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines).filter((line) => {
+    if (
+      selectedFacts.some((fact) => fact.startsWith(`${selectedLayerName}十神：`)) &&
+      line.startsWith(`主要依据（${selectedLayerName}干支与十神）：`)
+    )
+      return false;
+    if (scope === 'year' && line.startsWith('时间依据（应期边界）：')) return false;
+    if (
+      promptPayload.triggerEvidence?.relations.length &&
+      line.startsWith('主要依据（刑冲合害触发）：')
+    )
+      return false;
+    if (line.startsWith('主要依据（指定年限运限）：')) return false;
+    if (upperDayun || upperYear) {
+      if (line.startsWith('补充依据（上层岁运背景）：')) return false;
+    }
+    return true;
+  });
+  const renderedActionFacts = new Set(
+    actionFacts.filter((fact) =>
+      evidenceLines.some((line) =>
+        line.includes(formatFortuneActionFactLine(fact).replaceAll('｜', '；')),
+      ),
+    ),
+  );
+  const consolidatedEvidenceLines = consolidateFortuneActionLines(evidenceLines, actionFacts);
   const selectedFactsToRender = selectedFacts.filter(
-    (fact) => !evidenceLines.some((line) => line.includes(fact)),
+    (fact) => !consolidatedEvidenceLines.some((line) => line.includes(fact)),
   );
   if (selectedFactsToRender.length) {
     lines.push(`所选层关键事实：\n${selectedFactsToRender.join('\n')}`);
   }
 
-  if (evidenceLines.length) lines.push(`岁运取证：\n${evidenceLines.join('\n')}`);
+  if (consolidatedEvidenceLines.length) {
+    lines.push(`岁运取证：\n${consolidatedEvidenceLines.join('\n')}`);
+  }
 
   lines.push(...formatTriggerRelations(promptPayload.triggerEvidence));
-  const actionFacts = promptPayload.actionEvidence?.facts ?? [];
-  const actionFactsAlreadyRendered =
-    actionFacts.length > 0 &&
-    actionFacts.every((fact) =>
-      evidenceLines.some((line) =>
-        line.includes(formatFortuneActionFactLine(fact).replaceAll('｜', '；')),
-      ),
-    );
-  if (actionFacts.length && !actionFactsAlreadyRendered) {
+  const missingActionFacts = actionFacts.filter((fact) => !renderedActionFacts.has(fact));
+  if (missingActionFacts.length) {
     lines.push(
-      '岁运作用事实：\n' + actionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),
+      '岁运作用事实：\n' +
+        missingActionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),
     );
   }
   const groups = new Map<string, Set<string>>();
-  for (const group of promptPayload.detailGroups ?? []) {
+  for (const group of scope === 'dayun' ? (promptPayload.detailGroups ?? []) : []) {
     const title = group.title.trim();
-    if (!READABLE_FORTUNE_DETAIL_TITLES.has(title)) continue;
+    if (!DAYUN_FORTUNE_DETAIL_TITLES.has(title)) continue;
     const entries = groups.get(title) ?? new Set<string>();
     for (const line of group.lines) {
       const value = line.trim();

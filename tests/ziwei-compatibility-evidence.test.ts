@@ -106,6 +106,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeZiweiCompatib
     ...result.calculationSteps.map((item) => item.key),
     ...result.palaceOverlays.map((item) => item.key),
     ...result.crossMutagenPlacements.map((item) => item.key),
+    ...result.crossMutagenGaps.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
   ]);
   assert.ok(result.summaryFact.factKeys.length > 0);
@@ -162,6 +163,29 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
     ).length,
   );
   assertEvidenceReferences(result);
+});
+
+test('紫微双盘地支或宫位索引重复时不生成叠盘事实', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  second.palaces[1].earthly_branch = second.palaces[0].earthly_branch;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位地支无效或重复/);
+
+  second.palaces[1].earthly_branch = BRANCHES[3];
+  second.palaces[1].index = second.palaces[0].index;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位索引无效或重复/);
+});
+
+test('双方输入流年盘时静态交叉证据不误称运限资料未提供', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.active_scope.scope = 'yearly';
+  second.active_scope.scope = 'yearly';
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const timing = result.counterEvidenceFacts.find((item) => item.type === '静态应期边界');
+  assert.match(timing?.promptText ?? '', /运限未作同层级交叉核对/);
+  assert.doesNotMatch(timing?.promptText ?? '', /未提供双方同层级/);
 });
 
 test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
@@ -306,6 +330,37 @@ test('紫微双盘没有生年四化定位时应保留未命中反证', () => {
   );
   assertEvidenceReferences(result);
   assert.match(result.promptText, /未形成可定位的跨盘生年四化事实/);
+});
+
+test('紫微双盘部分四化星曜缺失时应把该方向记为资料缺口并写入提示词', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.palaces[4].major_stars[0].birth_mutagen = '权';
+  second.palaces[4].major_stars = [];
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const directionFact = result.counterEvidenceFacts.find(
+    (item) => item.type === '跨盘四化覆盖' && item.direction === 'person1-to-person2',
+  );
+
+  assert.equal(
+    result.crossMutagenPlacements.filter((item) => item.sourcePerson === 'person1').length,
+    1,
+  );
+  assert.equal(result.crossMutagenGaps.length, 1);
+  assert.equal(result.crossMutagenGaps[0].star, '天府');
+  assert.equal(directionFact?.status, '资料缺口');
+  assert.ok(result.summaryFact.factKeys.includes(result.crossMutagenGaps[0].key));
+  assert.equal(
+    result.calculationSteps.find((item) => item.stage === '跨盘生年四化')?.result
+      .missingTargetStarCount,
+    1,
+  );
+  assert.match(result.summaryFact.promptText, /另有1项同名星曜定位资料缺口/);
+  assert.match(result.counterEvidence.join('；'), /天府化权.*该方向四化资料不完备/);
+  assert.match(result.promptText, /【反证】跨盘四化覆盖：资料缺口/);
+  assertEvidenceReferences(result);
+  assertPromptIsPortableTaskText(result.promptText);
 });
 
 test('紫微双盘应拒绝缺少完整十二宫的资料', () => {

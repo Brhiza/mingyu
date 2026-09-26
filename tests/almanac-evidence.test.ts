@@ -6,6 +6,47 @@ import {
   generateAlmanacSelection,
 } from 'mingyu-core/divination/almanac';
 
+test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证据', () => {
+  const result = generateAlmanacSelection({
+    topic: 'marriage',
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  });
+  const day = result.days[0];
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  const fourSeparations = day.topicMatchFacts?.find(
+    (fact) => fact.key === '2026-12-21:topic:rule-four-separations',
+  );
+
+  assert.ok(day.recommends.includes('嫁娶'));
+  assert.ok(day.gods.includes('四离'));
+  assert.ok(day.gods.includes('不将'));
+  assert.ok(fourSeparations);
+  assert.equal(fourSeparations.sourceType, '值日神煞事项规则');
+  assert.equal(fourSeparations.status, '限制');
+  assert.ok(fourSeparations.sources.some((source) => source.includes('协纪辨方书')));
+  assert.ok(candidate);
+  assert.deepEqual(candidate.rawTabooFact.recommends, day.recommends);
+  assert.equal(candidate.status, '慎用候选');
+  assert.ok(candidate.decisionFact.limitingFactKeys.includes(fourSeparations.key));
+  assert.ok(!candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:四离'));
+  assert.ok(candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:不将'));
+  assert.match(
+    candidate.decisionFact.steps.find((step) => step.stage === '事项命中')?.promptText ?? '',
+    /四离日：订婚结婚属本日避忌事项/,
+  );
+
+  const custom = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  });
+  assert.ok(custom.days[0].gods.includes('四离'));
+  assert.ok(
+    !custom.days[0].topicMatchFacts?.some((fact) => fact.sourceType === '值日神煞事项规则'),
+  );
+});
+
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
     topic: 'move',
@@ -131,6 +172,31 @@ test('黄历择日候选资料为空时应明确标记缺失，不生成伪最�
   assert.deepEqual(evidence.conditionalDates, []);
   assert.deepEqual(evidence.cautionDates, []);
   assert.ok(evidence.limitationFacts.every((item) => item.ownerFactKeys.length > 0));
+});
+
+test('工作时段偏好下无可用时辰的日期不得仍列为可用候选，并保留原始时辰', () => {
+  const result = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-02-08',
+    endDate: '2026-03-15',
+    timePreferences: ['work-hours'],
+  });
+  const workHourBranches = new Set(['巳', '午', '未', '申']);
+
+  for (const date of ['2026-02-08', '2026-03-03', '2026-03-15']) {
+    const day = result.days.find((item) => item.date === date);
+    const candidate = result.evidenceAnalysis?.candidates.find((item) => item.date === date);
+
+    assert.ok(day?.hours?.length, `${date} 应保留原始逐时时辰`);
+    assert.ok(day.hours.some((hour) => !workHourBranches.has(hour.branch)));
+    assert.ok(candidate);
+    assert.equal(candidate.usableHours.length, 0);
+    assert.notEqual(candidate.status, '可用候选');
+    assert.equal(
+      candidate.decisionFact.steps.find((step) => step.stage === '可用时辰')?.result,
+      '未筛出无强冲突时辰',
+    );
+  }
 });
 
 test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {

@@ -18,7 +18,16 @@ function joinOrFallback(values: string[] | undefined, fallback = '无'): string 
 }
 
 /** 保留具体干的作用范围，供盘面、复制文本及解读资料共同使用。 */
-export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[] {
+export function formatUsefulGodFunctions(
+  usefulGod: UsefulGodAnalysis,
+  includeTransformationConditions = true,
+): string[] {
+  const natalPatternGods = (usefulGod.decisionEvidence?.natalFunctions ?? [])
+    .filter((item) => item.role === '格神')
+    .map(
+      (item) =>
+        `${item.stem}${item.tenGod}（${item.pillar === 'year' ? '年柱' : item.pillar === 'month' ? '月柱' : item.pillar === 'day' ? '日柱' : '时柱'}）`,
+    );
   const adoptedStems = new Set(usefulGod.conditionalFavorableStems ?? []);
   const effects =
     usefulGod.decisionEvidence?.climateCandidates
@@ -58,12 +67,19 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       )
     : [];
   return [
+    ...(natalPatternGods.length
+      ? [
+          `原局格神作用：${[...new Set(natalPatternGods)].join('、')}已参与成格；增补五行与新来同干另按取用条件判断`,
+        ]
+      : []),
     ...(usefulGod.decisionEvidence?.transformation
       ? [
           `化神取用：${usefulGod.decisionEvidence.transformation.basis}`,
-          ...usefulGod.decisionEvidence.transformation.conditions.map(
-            (condition) => `取用条件：${condition}`,
-          ),
+          ...(includeTransformationConditions
+            ? usefulGod.decisionEvidence.transformation.conditions.map(
+                (condition) => `取用条件：${condition}`,
+              )
+            : []),
         ]
       : []),
     usefulGod.decisionEvidence?.balanceAdjustment
@@ -130,10 +146,11 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
             : '',
         ].filter(Boolean);
   if (!fulfillment) return [...patternCandidateFacts, ...specialFacts];
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
   return [
     ...patternCandidateFacts,
     ...specialFacts,
-    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
+    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}${fulfillment.basis && !decisionDetail?.includes(fulfillment.basis) ? `；${fulfillment.basis}` : ''}${decisionDetail ? `；判定理由：${decisionDetail}` : ''}`,
     fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
     ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
     ...(fulfillment.conditionFacts ?? [])
@@ -144,6 +161,37 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
     ),
     ...(fulfillment.conditions ?? []).map((item) => `格局条件：${item}`),
   ].filter(Boolean);
+}
+
+/** 提示词只保留本盘判定理由，通用成败规则留在结构化分析中。 */
+export function formatPatternDecisionForPrompt(pattern: PatternAnalysis): string {
+  const fulfillment = pattern.fulfillment;
+  if (!fulfillment) return '';
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+  const factualDecision =
+    fulfillment.basis && decisionDetail.includes(fulfillment.basis)
+      ? decisionDetail
+          .replace(fulfillment.basis, '')
+          .replace(/\s+/g, ' ')
+          .replace(/([。；]) (?=\S)/g, '$1')
+          .trim()
+      : decisionDetail;
+  return `当前成败判定：${fulfillment.status}${factualDecision ? `；判定理由：${factualDecision}` : ''}`;
+}
+
+export function hasConfirmedPatternTarget(pattern: PatternAnalysis): boolean {
+  return Boolean(
+    pattern.fulfillment?.conditionFacts?.some(
+      (item) => item.key === 'pattern.target' && item.status === '满足',
+    ),
+  );
+}
+
+export function formatAlternativePatternCandidates(pattern: PatternAnalysis): string {
+  const alternatives = pattern.patternCandidates?.filter((candidate) => !candidate.selected);
+  return alternatives?.some((candidate) => candidate.pattern !== pattern.pattern)
+    ? `其他取格候选：${alternatives.map((candidate) => `${candidate.pattern}（${candidate.source}；${candidate.basis}）`).join('；')}`
+    : '';
 }
 
 function formatLunarDate(baziResult: BaziChartResult): string {
@@ -356,29 +404,29 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
   result += `旺衰: ${analysis.dayMasterStrength.status}`;
-  const strengthRuleBasis = analysis.dayMasterStrength.details?.ruleBasis ?? [];
-  if (includeRules && strengthRuleBasis.length) {
-    result += `（${strengthRuleBasis.join('；')}）`;
+  if (includeRules) {
+    const strength = analysis.dayMasterStrength.details;
+    result += `（月令${strength.seasonalEffect}；司令${strength.commanderEffect}；${strength.hasRoot ? '有根' : '无根'}；成局${strength.formationEffect}）`;
   }
   result += '\n';
+  const alternativePatterns = formatAlternativePatternCandidates(analysis.mingGe);
   result += `格局: ${analysis.mingGe.pattern}`;
-  if (includeRules && analysis.mingGe.basis) {
+  if ((includeRules || alternativePatterns) && analysis.mingGe.basis) {
     result += `（${analysis.mingGe.basis}）`;
+  }
+  if (analysis.mingGe.transformation?.status === '成化') {
+    result += '；化气判定：成化';
   }
   result += '\n';
   const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
-  if (includeRules && analysis.mingGe.patternCandidates?.length) {
-    const candidateFacts = patternFacts.filter((fact) => fact.startsWith('取格分层候选：'));
-    if (candidateFacts.length) result += `${candidateFacts.join('\n')}\n`;
-  }
+  if (alternativePatterns) result += `${alternativePatterns}\n`;
   if (analysis.mingGe.fulfillment) {
     const nonCandidateFacts = patternFacts.filter((fact) => !fact.startsWith('取格分层候选：'));
-    const patternSummary = nonCandidateFacts.find((fact) => fact.startsWith('所取格局：'));
-    if (nonCandidateFacts[0]) result += `${nonCandidateFacts[0]}\n`;
-    if (patternSummary && patternSummary !== nonCandidateFacts[0]) {
-      result += `${patternSummary}\n`;
+    if (nonCandidateFacts[0] && !nonCandidateFacts[0].startsWith('所取格局：')) {
+      result += `${nonCandidateFacts[0]}\n`;
     }
-    if (analysis.mingGe.fulfillment.contradiction) {
+    result += `${formatPatternDecisionForPrompt(analysis.mingGe)}\n`;
+    if (hasConfirmedPatternTarget(analysis.mingGe) && analysis.mingGe.fulfillment.contradiction) {
       result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;
     }
   }
@@ -405,18 +453,36 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.primaryUnfavorableWuxing
         ? analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.unfavorable?.slice(0, 2) || []
         : [];
+    const favorableText =
+      analysis.usefulGod.incrementStatus === '部分判定' &&
+      !analysis.usefulGod.favorableWuxing?.length
+        ? '增补喜用待判'
+        : `主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）`;
+    const unfavorableText =
+      analysis.usefulGod.incrementStatus === '部分判定' &&
+      !analysis.usefulGod.unfavorableWuxing?.length
+        ? '增补所忌待判'
+        : `忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）`;
 
-    result += `取用: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）；忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）\n`;
-    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod);
+    result +=
+      analysis.usefulGod.incrementStatus === '待判'
+        ? '增补五行喜忌: 待判\n'
+        : `取用: ${favorableText}；${unfavorableText}\n`;
+    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod, false);
     if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
-    if (includeRules && analysis.usefulGod.primaryReason) {
+    if (
+      includeRules &&
+      analysis.usefulGod.primaryReason &&
+      !analysis.usefulGod.decisionEvidence?.transformation
+    ) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-      result += analysis.usefulGod.decisionEvidence?.transformation
-        ? `取用依据: 原日主旺衰${analysis.dayMasterStrength.status}与十神保留为本命事实，${analysis.mingGe.pattern}按化神${analysis.usefulGod.decisionEvidence.transformation.element}及其条件取用\n`
-        : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
+      result +=
+        analysis.usefulGod.incrementStatus === '待判'
+          ? `取用依据: 日主旺衰${analysis.dayMasterStrength.status}，${analysis.mingGe.pattern}当前${analysis.mingGe.fulfillment?.status || '待核'}；增补五行喜忌结合司令、根气与制化作用待判\n`
+          : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }
-    if (includeRules && baziResult.climate && baziResult.climate.nature !== '中和') {
-      result += `调候特征: ${baziResult.climate.summary}\n`;
+    if (includeRules && baziResult.climate && baziResult.climate.nature !== '未见明显偏向') {
+      result += `水火分布参考: ${baziResult.climate.summary}\n`;
     }
   }
 

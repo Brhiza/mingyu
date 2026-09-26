@@ -9,7 +9,7 @@ import {
   unixToJulianDate,
 } from '../astrology/engine';
 import { daysInGregorianMonth } from '../calendar/date-validation';
-import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
+import { resolveCivilDayStart, type CivilTimeZoneInput } from '../calendar/civil-time';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 
 export type AstrolabePeriodScopeMode = 'yearly' | 'monthly' | 'daily';
@@ -464,17 +464,8 @@ function buildNextBatchRange(
 function resolveLocalInstant(
   source: AstrolabePeriodSource,
   date: { year: number; month: number; day: number },
-  hour = 0,
-  minute = 0,
-  second = 0,
 ) {
-  return resolveCivilTime({
-    ...date,
-    hour,
-    minute,
-    second,
-    ...getTimeZoneInput(source),
-  });
+  return resolveCivilDayStart({ ...date, ...getTimeZoneInput(source) });
 }
 
 function formatCivilStamp(value: {

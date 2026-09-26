@@ -126,11 +126,13 @@ export interface WuxingStrengthDetails {
 export interface BaziWarningFact {
   key: string;
   type: '节气交接边界' | '时辰边界' | '换日流派边界' | '历史夏令时边界' | '输入时间边界';
-  status: '已确定当前口径' | '已校正' | '需核验原始记录';
+  status: '已确定当前口径' | '已校正' | '需核验原始记录' | '资料不完整';
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱';
+  limitation:
+    | '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱'
+    | '节气资料不完整只表示边界检查覆盖不足，交节距离仍待核验';
 }
 
 export interface BaziWarningSummaryFact {
@@ -141,6 +143,7 @@ export interface BaziWarningSummaryFact {
   sources: string[];
   limitation:
     | '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱'
+    | '节气资料不完整时交节距离待核验，时柱仍按当前输入确定'
     | '缺时辰说明用于标注待补资料，候选场景分别记录，完整命盘尚未确定';
 }
 
@@ -437,6 +440,8 @@ export interface UsefulGodAnalysis {
   secondaryUnfavorableWuxing?: string[];
   primaryUseful?: string;
   primaryAvoid?: string;
+  /** 可增补五行与具体天干的裁决程度；原局格神功能不自动转为增补喜忌。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
   /** 只适用于明确 policy.effects 的干级候选，不代表同五行全部可用。 */
   conditionalFavorableStems?: string[];
   /** 具体天干因调候条件或普通格局破格事实列忌，不把限制扩大到整个五行。 */
@@ -500,6 +505,16 @@ export interface UsefulGodDecisionEvidence {
   climateAppliedRuleId?: string;
   climateAppliedRuleIds?: string[];
   controlFunctions?: UsefulGodControlFunctionEvidence[];
+  /** 已证原局格神与制化作用；只说明本命结构，不判新来同干或整五行为喜。 */
+  natalFunctions?: Array<{
+    stem: string;
+    tenGod: string;
+    pillar: string;
+    placement: '透干' | '藏干';
+    role: '格神' | '制化来源' | '制化对象';
+    pathKey?: string;
+    detail: string;
+  }>;
   conditionalFavorableStems?: string[];
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
@@ -591,6 +606,7 @@ export interface BaziChartResult {
       pillars: Pillars;
       strength: DayMasterStrengthStatus;
       pattern: string;
+      incrementStatus?: UsefulGodAnalysis['incrementStatus'];
       favorableWuxing: string[];
       unfavorableWuxing: string[];
     }>;
@@ -636,9 +652,9 @@ export interface BaziChartResult {
   shenShaAnalysis: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
-  /** 调候寒暖燥湿定性（依据《穷通宝鉴》《滴天髓》） */
+  /** 四柱水火分布的启发式辅助指标；不代表完整调候裁决。 */
   climate?: {
-    nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+    nature: '偏寒' | '偏燥' | '未见明显偏向' | '微偏寒' | '微偏燥';
     medicine: string;
     summary: string;
   };

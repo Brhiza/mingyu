@@ -225,6 +225,69 @@ test('西占合盘互溶与接纳判定：识别金火互溶与接纳断诀', ()
   assert.match(mutual.summary, /甲的金星落白羊座，乙的火星落金牛座/);
   assert.doesNotMatch(mutual.summary, /庙旺互溶/);
   assert.match(result.promptText, /【古典接纳互溶】/);
+  const filtered = analyzeAstrolabeSynastry(chart1, chart2, { pointNames: ['Sun', 'Moon'] });
+  assert.equal(
+    filtered.receptions?.some((item) => item.type === '互溶'),
+    false,
+  );
+});
+
+test('同名行星各守本宫不构成守护互溶', () => {
+  const first = { ...chart('甲', 120, 0), planets: [point('Sun', '太阳', 120)] };
+  const second = { ...chart('乙', 120, 0), planets: [point('Sun', '太阳', 120)] };
+  const result = analyzeAstrolabeSynastry(first, second, { pointNames: ['Sun'] });
+
+  assert.equal(result.receptions?.filter((item) => item.type === '互溶').length, 0);
+});
+
+test('守护互溶伴随相位时不重复记录两个单向接纳', () => {
+  const first = { ...chart('甲', 0, 0), planets: [point('Venus', '金星', 0)] };
+  const second = { ...chart('乙', 180, 0), planets: [point('Mars', '火星', 180)] };
+  const result = analyzeAstrolabeSynastry(first, second, {
+    pointNames: ['Venus', 'Mars'],
+    includeHouseOverlays: false,
+  });
+
+  assert.equal(result.aspects.length, 1);
+  assert.equal(result.aspects[0].type, '冲相');
+  assert.deepEqual(
+    result.receptions?.map((item) => item.type),
+    ['互溶'],
+  );
+  assert.match(result.receptionSummary ?? '', /守护互溶/);
+});
+
+test('接纳使用全部命中相位且沿用计算点筛选', () => {
+  const first = {
+    ...chart('甲', 90, 0),
+    planets: [point('Sun', '太阳', 90), point('Venus', '金星', 1)],
+  };
+  const second = {
+    ...chart('乙', 90, 0),
+    planets: [point('Sun', '太阳', 90), point('Mars', '火星', 2)],
+  };
+  const limited = analyzeAstrolabeSynastry(first, second, { maxAspects: 1 });
+  const complete = analyzeAstrolabeSynastry(first, second);
+  const selected = analyzeAstrolabeSynastry(first, second, { pointNames: ['Sun'] });
+
+  assert.equal(limited.aspects.length, 1);
+  assert.deepEqual(limited.receptions, complete.receptions);
+  assert.ok(limited.receptions?.some((item) => item.person1Planet === 'Venus'));
+  assert.equal(selected.receptions?.length, 0);
+});
+
+test('曜升形成双向接纳时分别保留两人方向', () => {
+  const first = { ...chart('甲', 59, 0), planets: [point('Sun', '太阳', 59)] };
+  const second = { ...chart('乙', 0, 0), planets: [point('Moon', '月亮', 0)] };
+  const result = analyzeAstrolabeSynastry(first, second, { pointNames: ['Sun', 'Moon'] });
+  const directed = result.receptions?.filter((item) => item.type === '接纳') ?? [];
+
+  assert.equal(result.aspects.length, 1);
+  assert.equal(result.aspects[0].type, '六合');
+  assert.equal(directed.length, 2);
+  assert.ok(directed.some((item) => item.summary.includes('乙的月亮接纳甲的太阳')));
+  assert.ok(directed.some((item) => item.summary.includes('甲的太阳接纳乙的月亮')));
+  assert.ok(directed.every((item) => item.summary.includes('曜升')));
 });
 
 test('同名水星接纳分别保留双方实际星座与接纳方向', () => {

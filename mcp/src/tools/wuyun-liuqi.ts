@@ -21,9 +21,12 @@ const wuyunLiuqiSchema = z.object({
     .describe('公历年，按该年年中所属年柱换算；year 与 yearGanZhi 至少提供一项'),
   yearGanZhi: z
     .string()
+    .trim()
     .refine(isValidGanZhi, 'yearGanZhi 必须是有效的六十甲子')
     .optional()
-    .describe('明确年干支，如「丙午」；year 与 yearGanZhi 至少提供一项，同时提供时会校验一致性'),
+    .describe(
+      '明确年干支，如「丙午」；首尾空白会修剪；year 与 yearGanZhi 至少提供一项，同时提供时会校验一致性',
+    ),
   question: z.string().min(1).optional().describe('希望 AI 重点解释的问题'),
   topicId: z.string().optional().describe('统一解读主题 ID'),
   subtopicId: z.string().optional().describe('统一解读主题细项 ID'),

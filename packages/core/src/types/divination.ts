@@ -179,7 +179,7 @@ export interface JinkoujueData {
   };
   movements: JinkoujueMovement[];
   mainLine: string;
-  /** 四位比合歌诀定性（二木为爻、二火为灾、二土为滞、二金为刑、二水为盗） */
+  /** 四位比合条件：同五行的实际数量与位次；无同五行组合时为空字符串。 */
   bihePoem?: string;
   calculation: {
     method: JinkoujueDivinationMethod;
@@ -1094,7 +1094,7 @@ export interface LiurenGuaTiFact {
     | '贵人临地'
     | '三传冲合'
     | '传干生克'
-    | '旬尾发用';
+    | '闭口发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
@@ -1296,8 +1296,12 @@ export interface AlmanacParticipantProfileSnapshot {
   dayMaster: string;
   dayMasterElement: string;
   pillars: BaseGanZhi;
+  /** 区间内司令变化保留为不同画像，即使增补喜忌同为待判。 */
+  monthCommander?: string;
   usefulGods: string[];
   avoidGods: string[];
+  /** 增补喜忌可为空且待判；与原局格神功能分层。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
 }
 
 export interface AlmanacParticipantProfileRangeBranch {
@@ -1328,7 +1332,7 @@ export interface AlmanacTopicMatchFact {
   scope: '候选日' | '时辰';
   topic: AlmanacTopic;
   topicLabel: string;
-  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神';
+  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神' | '值日神煞事项规则';
   status: AlmanacRuleFactStatus;
   inputItems: string[];
   keywords: string[];
@@ -1568,6 +1572,8 @@ export interface AstrolabeAspect {
 
 export interface AstrolabeData {
   houseSystem?: 'placidus' | 'whole_sign';
+  /** 与福点、精神点计算使用同一太阳地平线上下判定。 */
+  dayChart?: boolean;
   ephemerisWarnings?: string[];
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;

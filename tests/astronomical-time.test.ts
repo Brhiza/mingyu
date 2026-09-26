@@ -24,7 +24,7 @@ function assertEvidenceReferences(evidence: ReturnType<typeof buildAstronomicalT
   );
 }
 
-test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
+test('天文时间尺度应以 2000 年元旦 UTC 正午校验 UTC 儒略日', () => {
   const evidence = buildAstronomicalTimeEvidence({
     year: 2000,
     month: 1,
@@ -102,7 +102,8 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
   assert.equal(evidence.precisionLevel, '长期外推');
   assert.equal(evidence.summaryFact.status, '含长期外推');
   assertEvidenceReferences(evidence);
-  assert.throws(() => estimateDeltaTSeconds(1899), /1900-2200/);
+  assert.throws(() => estimateDeltaTSeconds(1898), /1899-2201/);
+  assert.throws(() => estimateDeltaTSeconds(2202), /1899-2201/);
   assert.throws(
     () =>
       buildAstronomicalTimeEvidence({
@@ -113,6 +114,32 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
       }),
     /不存在第30日/,
   );
+});
+
+test('当地年份边界跨 UTC 年仍可构造天文时间尺度', () => {
+  const early = buildAstronomicalTimeEvidence({
+    year: 1900,
+    month: 1,
+    day: 1,
+    hour: 0,
+    timezone: 14,
+  });
+  const late = buildAstronomicalTimeEvidence({
+    year: 2200,
+    month: 12,
+    day: 31,
+    hour: 23,
+    timezone: -12,
+  });
+
+  assert.equal(early.utcDateTime, '1899-12-31 10:00:00Z');
+  assert.equal(late.utcDateTime, '2201-01-01 11:00:00Z');
+  assert.ok(early.deltaTSeconds < 0);
+  assert.ok(late.deltaTSeconds > 0);
+  assert.equal(early.precisionLevel, '历史拟合');
+  assert.equal(late.precisionLevel, '长期外推');
+  assertEvidenceReferences(early);
+  assertEvidenceReferences(late);
 });
 
 test('天文时间汇总应拒绝歧义与冲突，并接受明确固定偏移消歧', () => {

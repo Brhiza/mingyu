@@ -68,7 +68,9 @@ function formatInstantBaziData(result: BaziChartResult) {
     ...pillarLines,
     `五行：出现${result.wuxingStrength.present.join('、') || '无'}；结构比较优先${result.wuxingStrength.dominantByRule.join('、') || '无'}；缺失${result.wuxingStrength.missing.join('、') || '无'}`,
     `事件盘结构：日元${result.analysis.dayMasterStrength.status}；格局${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `（${result.analysis.mingGe.basis}）` : ''}；取用${result.analysis.usefulGod.useful}；忌用${result.analysis.usefulGod.avoid}`,
-    result.climate ? `调候：${result.climate.summary}` : '',
+    result.climate && result.climate.nature !== '未见明显偏向'
+      ? `水火分布参考：${result.climate.summary}`
+      : '',
     pillarRelations.length ? `四柱关系：${pillarRelations.join('；')}` : '',
   ]
     .filter(Boolean)

@@ -62,6 +62,13 @@ export interface PatternPathEvaluation {
   /** 只记录四柱外干之间的实际位置，不把距离折算为分数。 */
   position: PatternPathPosition;
   positionPairs: string[];
+  /** 两端均可用且紧贴的具体柱位组合，供连续制化核对同一中继干。 */
+  effectivePairs?: Array<{
+    sourceStem: string;
+    sourcePillar: PillarPosition;
+    targetStem: string;
+    targetPillar: PillarPosition;
+  }>;
   detail: string;
 }
 
@@ -645,6 +652,24 @@ function evaluatePath(
       targetStems: targetItems.map((item) => item.stem),
       position: positionEvidence.position,
       positionPairs: positionEvidence.pairs,
+      effectivePairs:
+        status === '满足'
+          ? sourceItems.flatMap((sourceItem) =>
+              targetItems
+                .filter(
+                  (targetItem) =>
+                    Math.abs(
+                      POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar),
+                    ) === 1,
+                )
+                .map((targetItem) => ({
+                  sourceStem: sourceItem.stem,
+                  sourcePillar: sourceItem.pillar,
+                  targetStem: targetItem.stem,
+                  targetPillar: targetItem.pillar,
+                })),
+            )
+          : [],
       detail,
     };
   };
@@ -720,15 +745,33 @@ function evaluatePath(
     );
   }
 
+  const effectiveSource = availableSource.filter((sourceItem) =>
+    availableTarget.some(
+      (targetItem) =>
+        Math.abs(POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar)) === 1,
+    ),
+  );
+  const effectiveTarget = availableTarget.filter((targetItem) =>
+    effectiveSource.some(
+      (sourceItem) =>
+        Math.abs(POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar)) === 1,
+    ),
+  );
+  const effectiveUsesAdjudicatedClashedRoot = [...effectiveSource, ...effectiveTarget].some(
+    (item) => {
+      const root = getRootInfo(item, pillars);
+      return root.actionable && !root.hasStableActionableRoot;
+    },
+  );
   return createResult(
     '满足',
-    `${label}来源${availableSource.map(formatObserved).join('、')}与作用对象${availableTarget
+    `${label}来源${effectiveSource.map(formatObserved).join('、')}与作用对象${effectiveTarget
       .map(formatObserved)
       .join(
         '、',
-      )}均透干、有${usesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}，${formatPathPosition(availablePosition)}且未见合绊阻断。`,
-    availableSource,
-    availableTarget,
+      )}均透干、有${effectiveUsesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}，${formatPathPosition(getPathPositionEvidence(effectiveSource, effectiveTarget))}且未见合绊阻断。`,
+    effectiveSource,
+    effectiveTarget,
   );
 }
 
@@ -776,7 +819,26 @@ function combinePathChain(
 ): PatternPathEvaluation {
   const hasFailure = parts.some((part) => part.status === '不满足');
   const hasUnknown = parts.some((part) => part.status === '资料不足');
-  const status: PatternConditionStatus = hasFailure ? '不满足' : hasUnknown ? '资料不足' : '满足';
+  let continuousPairs = parts[0]?.effectivePairs ?? [];
+  for (const part of parts.slice(1)) {
+    continuousPairs = continuousPairs.flatMap((previous) =>
+      (part.effectivePairs ?? [])
+        .filter(
+          (current) =>
+            current.sourceStem === previous.targetStem &&
+            current.sourcePillar === previous.targetPillar,
+        )
+        .map((current) => ({
+          sourceStem: previous.sourceStem,
+          sourcePillar: previous.sourcePillar,
+          targetStem: current.targetStem,
+          targetPillar: current.targetPillar,
+        })),
+    );
+  }
+  const disconnected = !hasFailure && !hasUnknown && parts.length > 1 && !continuousPairs.length;
+  const status: PatternConditionStatus =
+    hasFailure || disconnected ? '不满足' : hasUnknown ? '资料不足' : '满足';
   const position: PatternPathPosition = parts.every((part) => part.position === '紧贴')
     ? '紧贴'
     : parts.some((part) => part.position === '未判定')
@@ -792,9 +854,10 @@ function combinePathChain(
     targetStems: parts.at(-1)?.targetStems ?? [],
     position,
     positionPairs: parts.flatMap((part) => part.positionPairs),
+    effectivePairs: status === '满足' ? continuousPairs : [],
     detail: `${label}由${parts
       .map((part) => `${part.label}=${part.status}（${part.detail}）`)
-      .join('；')}组成。`,
+      .join('；')}组成${disconnected ? '；各段虽分别成立，但未由同一柱位的中继干连续承接' : ''}。`,
   };
 }
 
@@ -842,10 +905,6 @@ function getMonthGateEvidence(
     }
   }
 
-  const monthGanGod = getTenGod(pillars.month.gan, dayMaster);
-  if (targetGods.includes(monthGanGod)) {
-    add(`月干${pillars.month.gan}（${monthGanGod}）`);
-  }
   return evidence;
 }
 
@@ -1438,6 +1497,10 @@ export function evaluatePatternFulfillment(
     if (monthGate && targetCondition.status === '满足') {
       const validPaths = [foodPath, sealPath].filter((path) => path.status === '满足');
       const uncertainPaths = [foodPath, sealPath].filter((path) => path.status === '资料不足');
+      const disconnectedSealRelay =
+        killToSealPath.status === '满足' &&
+        sealToSelfPath.status === '满足' &&
+        sealPath.status === '不满足';
       decision = validPaths.length
         ? {
             status: '成格',
@@ -1448,12 +1511,17 @@ export function evaluatePatternFulfillment(
               status: '未判定',
               detail: `七杀虽见月令、透干与根气，但${uncertainPaths
                 .map((path) => path.label)
-                .join('、')}仍有柱位或作用条件资料不足，不能直接定成或破。`,
+                .join(
+                  '、',
+                )}仍有柱位或作用条件资料不足，不能直接定成或破。${disconnectedSealRelay ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。' : ''}`,
             }
           : {
               status: '破格',
               detail:
-                '七杀虽见月令、透干与根气，但未见双方有根且未被合绊阻断的食神制杀或印化杀路径。',
+                '七杀虽见月令、透干与根气，但食神制杀与印化杀均未形成完整有效的制化路径。' +
+                (disconnectedSealRelay
+                  ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。'
+                  : ''),
             };
     } else {
       decision = evaluateStatusForOrdinaryPattern({

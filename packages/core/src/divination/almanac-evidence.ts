@@ -17,6 +17,8 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 
 export type AlmanacCandidateStatus = '可用候选' | '条件候选' | '慎用候选';
 
+const WORK_HOUR_BRANCHES = new Set(['巳', '午', '未', '申']);
+
 export function formatAlmanacGods(day: Pick<AlmanacDayCandidate, 'gods' | 'godFacts'>): string[] {
   const names = [...new Set([...day.gods, ...(day.godFacts ?? []).map((fact) => fact.name)])];
   const groups = new Map<string, string[]>();
@@ -63,7 +65,7 @@ export interface AlmanacCandidateDecisionFact {
   steps: AlmanacDecisionStep[];
   supportingFactKeys: string[];
   limitingFactKeys: string[];
-  /** 值日神煞作为背景资料登记，不参与当前候选分组裁决 */
+  /** 未命中明确事项规则的值日神煞作为背景资料登记 */
   backgroundGodFactKeys: string[];
   strongConstraintTexts: string[];
   promptText: string;
@@ -449,7 +451,7 @@ function getParticipantSupportTexts(
 function isStrongTopicConstraint(fact: AlmanacTopicMatchFact): boolean {
   return (
     fact.status === '限制' &&
-    /:topic:(?:day-avoids|day-general-constraint|rule-day-officer|rule-gods-constraint|day-officer-constraint)$/.test(
+    /:topic:(?:day-avoids|day-general-constraint|rule-day-officer|rule-gods-constraint|rule-four-separations|day-officer-constraint)$/.test(
       fact.key,
     )
   );
@@ -488,7 +490,10 @@ function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
   };
 }
 
-export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
+export function classifyAlmanacCandidate(
+  day: AlmanacDayCandidate,
+  timePreferences: AlmanacTimePreference[] = [],
+): {
   status: AlmanacCandidateStatus;
   strongConstraintTexts: string[];
   constraintTexts: string[];
@@ -511,8 +516,13 @@ export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
     ),
   ]);
   const hasHourData = Array.isArray(day.hours) && day.hours.length > 0;
+  const hoursWithinTimePreferences = (day.hours ?? []).filter(
+    (hour) => !timePreferences.includes('work-hours') || WORK_HOUR_BRANCHES.has(hour.branch),
+  );
   const usableHourCount = hasHourData
-    ? day.hours!.filter((hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选').length
+    ? hoursWithinTimePreferences.filter(
+        (hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选',
+      ).length
     : 0;
   const constraintTexts = unique([
     ...day.cautions,
@@ -733,10 +743,18 @@ function buildCandidateDecisionFact(params: {
   strongConstraintTexts: string[];
   usableHours: AlmanacHourEvidence[];
 }): AlmanacCandidateDecisionFact {
-  // 值日神煞仅作背景登记（见 backgroundGodFactKeys），不计入分组依据；
-  // 分组依据只包含实际参与裁决的事项宜忌、参与人关系、可用时辰与传统限制。
+  // 只有另列明确事项规则的神煞参与分组，其他神煞仅作背景登记。
+  const appliedGods = new Set(
+    params.topicMatchFacts
+      .filter((item) => item.sourceType === '值日神煞事项规则')
+      .flatMap((item) => item.matchedItems),
+  );
   const backgroundGodFactKeys = params.godFacts
-    .filter((item) => item.classification === '吉神' || item.classification === '凶神')
+    .filter(
+      (item) =>
+        !appliedGods.has(item.name) &&
+        (item.classification === '吉神' || item.classification === '凶神'),
+    )
     .map((item) => item.key);
   const supportingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '支持').map((item) => item.key),
@@ -809,7 +827,7 @@ function buildCandidateDecisionFact(params: {
       result: `吉神${params.godFacts.filter((item) => item.classification === '吉神').length}项，凶神${params.godFacts.filter((item) => item.classification === '凶神').length}项，未分级${params.godFacts.filter((item) => item.classification === '未分级').length}项`,
       promptText: `${
         params.godFacts.map((item) => item.promptText).join('；') || '未列值日神煞'
-      }；值日神煞作为背景资料登记，不直接参与当前候选分组裁决`,
+      }；仅有明确事项规则的神煞参与当前候选分组，其余作为背景资料登记`,
       sources: unique(params.godFacts.flatMap((item) => item.sources)),
     },
     {
@@ -962,14 +980,15 @@ function buildCandidateEvidence(
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);
-  const workHourBranches = new Set(['巳', '午', '未', '申']);
   const morningBranches = new Set(['辰', '巳', '午']);
   const afternoonBranches = new Set(['未', '申', '酉']);
   const usableHourPool = (day.hours ?? [])
     .map((hour) => buildHourEvidence(day.date, hour))
     .filter((item) => item.status !== '慎用候选');
   const usableHours = usableHourPool
-    .filter((item) => !timePreferences.includes('work-hours') || workHourBranches.has(item.branch))
+    .filter(
+      (item) => !timePreferences.includes('work-hours') || WORK_HOUR_BRANCHES.has(item.branch),
+    )
     .sort((left, right) => {
       const preferenceScore = (branch: string) =>
         (timePreferences.includes('morning') && morningBranches.has(branch) ? 1 : 0) +
@@ -977,11 +996,14 @@ function buildCandidateEvidence(
       return preferenceScore(right.branch) - preferenceScore(left.branch);
     })
     .slice(0, 4);
-  const classification = classifyAlmanacCandidate({
-    ...day,
-    topicMatchFacts,
-    participantRelationFacts,
-  });
+  const classification = classifyAlmanacCandidate(
+    {
+      ...day,
+      topicMatchFacts,
+      participantRelationFacts,
+    },
+    timePreferences,
+  );
   const strongConstraintTexts = classification.strongConstraintTexts;
   const status = classification.status;
   const decisionFact = buildCandidateDecisionFact({

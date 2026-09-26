@@ -69,7 +69,7 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
         item.key.startsWith('光照交点:') &&
         item.promptText.includes('阈值') &&
         item.sources.length >= 2 &&
-        item.calculation.includes('求时角交点') &&
+        item.calculation.includes('求该民用日期内的高度交点') &&
         item.limitation.includes('不代表实际可见性'),
     ),
   );
@@ -140,10 +140,10 @@ test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
 
   assert.equal(winter.sunriseSunset.status, '全天低于阈值');
   assert.equal(winter.sunriseSunset.morningUtcDateTime, null);
-  assert.match(winter.sunriseSunset.calculation, /余弦时角大于1/);
+  assert.match(winter.sunriseSunset.calculation, /全天低于阈值/);
   assert.equal(summer.sunriseSunset.status, '全天高于阈值');
   assert.equal(summer.civilTwilight.status, '全天高于阈值');
-  assert.match(summer.sunriseSunset.calculation, /余弦时角小于-1/);
+  assert.match(summer.sunriseSunset.calculation, /全天高于阈值/);
   assert.equal(winter.status, '存在全天状态');
   assert.equal(winter.crossingSummaryFact.status, '存在全天状态');
   assert.equal(summer.status, '存在全天状态');
@@ -151,6 +151,36 @@ test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
   assert.equal(summer.summaryFact.status, '含全天状态');
   assertEvidenceReferences(winter);
   assertEvidenceReferences(summer);
+});
+
+test('极昼起始前的交点应按民用日期归属，并允许当日只有日出', () => {
+  // USNO 逐日结果：https://aa.usno.navy.mil/api/rstt/oneday?date=2024-05-17&coords=69.6492,18.9553&tz=2
+  const calculateAt = (day: number) =>
+    calculateSolarIlluminationEvidence({
+      year: 2024,
+      month: 5,
+      day,
+      hour: 12,
+      timezone: 2,
+      latitude: 69.6492,
+      longitude: 18.9553,
+    }).sunriseSunset;
+
+  const may16 = calculateAt(16);
+  const may17 = calculateAt(17);
+  const may18 = calculateAt(18);
+  assert.match(may16.morningLocalDateTime ?? '', /^2024-05-16 01:2[4-7]:/);
+  assert.equal(may16.eveningLocalDateTime, null);
+  assert.equal(may16.status, '正常交点');
+  assert.match(may16.promptText, /下行交点当日无/);
+  assert.match(may17.morningLocalDateTime ?? '', /^2024-05-17 01:0[6-9]:/);
+  assert.match(may17.eveningLocalDateTime ?? '', /^2024-05-17 00:1[0-4]:/);
+  assert.ok(
+    Date.parse(may17.eveningUtcDateTime ?? '') < Date.parse(may17.morningUtcDateTime ?? ''),
+  );
+  assert.equal(may18.status, '全天高于阈值');
+  assert.equal(may18.morningLocalDateTime, null);
+  assert.equal(may18.eveningLocalDateTime, null);
 });
 
 test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {
@@ -251,11 +281,11 @@ test('经度端点在 UTC-12 和 UTC+14 应保持同子午线事件日期与时�
     longitude: 180,
   });
   assert.match(crossingMidnight.apparentSolarNoonLocalDateTime, /^2024-01-01 00:/);
-  assert.match(crossingMidnight.sunriseSunset.morningLocalDateTime ?? '', /^2023-12-31 /);
-  assert.match(crossingMidnight.sunriseSunset.eveningLocalDateTime ?? '', /^2024-01-01 /);
+  assert.match(crossingMidnight.sunriseSunset.morningLocalDateTime ?? '', /^2024-01-01 17:/);
+  assert.match(crossingMidnight.sunriseSunset.eveningLocalDateTime ?? '', /^2024-01-01 06:/);
   assert.ok(
-    Date.parse(crossingMidnight.sunriseSunset.morningUtcDateTime ?? '') <
-      Date.parse(crossingMidnight.sunriseSunset.eveningUtcDateTime ?? ''),
+    Date.parse(crossingMidnight.sunriseSunset.eveningUtcDateTime ?? '') <
+      Date.parse(crossingMidnight.sunriseSunset.morningUtcDateTime ?? ''),
   );
 });
 

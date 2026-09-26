@@ -436,19 +436,22 @@ function calculateUsefulGodCoverage(
   const transformation = beneficiaryChart.analysis?.mingGe?.transformation;
   const transformationFacts = transformation
     ? [
-        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `取用主体：化神${transformation.element}；原日主${beneficiaryChart.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
+        transformation.status === '成化'
+          ? `化气判定：成化；取用主体：化神${transformation.element}`
+          : `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
       ]
     : [];
   const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
   const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
+  const usefulGod = beneficiaryChart.analysis.usefulGod;
+  const functionalDescriptions = formatUsefulGodFunctions(usefulGod, false).filter(
+    (item) => !item.startsWith('化神取用：'),
+  );
   if (!favorable?.length && !unfavorable?.length) {
+    const incrementPending = Boolean(beneficiaryChart.analysis?.usefulGod?.incrementStatus);
+    const unavailableReason = incrementPending
+      ? '增补喜忌五行待判，原局格神与制化作用另行记录。'
+      : '命盘未提供结构化喜忌五行。';
     return {
       key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
       status: '资料不足',
@@ -456,9 +459,18 @@ function calculateUsefulGodCoverage(
       provider,
       favorable: [],
       unfavorable: [],
-      unavailableReason: '命盘未提供结构化喜忌五行。',
+      unavailableReason,
+      ...(functionalDescriptions.length
+        ? {
+            functionalEvidence: {
+              favorableStems: [...(usefulGod.conditionalFavorableStems ?? [])],
+              unfavorableStems: [...(usefulGod.conditionalUnfavorableStems ?? [])],
+              descriptions: functionalDescriptions,
+            },
+          }
+        : {}),
       calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-      promptText: `${beneficiaryLabel}命盘未提供结构化喜忌五行，无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}`,
+      promptText: `${beneficiaryLabel}${unavailableReason}无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的增补喜忌覆盖${functionalDescriptions.length ? `；原局作用：${functionalDescriptions.join('；')}` : ''}${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}`,
       sources: ['受益方命盘结构化喜忌五行'],
       limitation: USEFUL_GOD_LIMITATION,
     };
@@ -502,8 +514,6 @@ function calculateUsefulGodCoverage(
       });
   const favorableCoverage = match('喜用', favorable);
   const unfavorableCoverage = match('忌神', unfavorable);
-  const usefulGod = beneficiaryChart.analysis.usefulGod;
-  const functionalDescriptions = formatUsefulGodFunctions(usefulGod);
   return {
     key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
     status: '已计算',
@@ -525,6 +535,19 @@ function calculateUsefulGodCoverage(
     sources: ['受益方结构化喜忌五行', '提供方四柱天干、地支与藏干五行来源'],
     limitation: USEFUL_GOD_LIMITATION,
   };
+}
+
+/** 两人命盘正文已单独呈现时，省略覆盖说明中重复的受益方本命事实。 */
+export function formatBaziUsefulGodCoverageForPrompt(coverage: BaziUsefulGodCoverage): string {
+  const promptText = coverage.promptText.replace(/；化气判定：成化；取用主体：化神[^；]+/u, '');
+  if (!coverage.functionalEvidence?.descriptions.length) return promptText;
+  const beneficiaryLabel = coverage.beneficiary === 'person1' ? '第一人' : '第二人';
+  const descriptions = coverage.functionalEvidence.descriptions.join('；');
+  const suffix =
+    coverage.status === '资料不足'
+      ? `；原局作用：${descriptions}`
+      : `；${beneficiaryLabel}另有${descriptions}`;
+  return promptText.replace(suffix, '');
 }
 
 function sourceLabel(person: string, pillar: PillarKey) {

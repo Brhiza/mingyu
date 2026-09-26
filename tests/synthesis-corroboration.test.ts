@@ -115,6 +115,40 @@ test('合参煞曜的弱、中和与缺盘状态不得误触发强分支', () =>
   assert.equal(missingOrigin.ziweiCheckStatus, 'origin-missing');
 });
 
+test('缺少紫微原盘时不把未核验的星曜与运限判为未命中', () => {
+  const ziwei = {
+    payloadByScope: {
+      yearly: {
+        active_scope: {
+          scope: 'yearly',
+          label: '流年',
+          solar_date: '2026-09-14',
+          palace_index: 0,
+          mutagen_map: [],
+        },
+      },
+    },
+  } as unknown as ZiweiRuntime;
+
+  for (const [result, prefix] of [
+    [evaluateShaYaoCorroboration(buildBazi('身强'), ziwei), 'sha'],
+    [evaluateGuiRenCorroboration(buildGuiBazi(), ziwei), 'gui'],
+  ] as const) {
+    assert.equal(result.ziweiCheckStatus, 'origin-missing');
+    for (const key of [
+      'ziwei.origin',
+      `ziwei.${prefix}-star-position`,
+      `ziwei.${prefix}-star-state`,
+      'timing.period',
+    ]) {
+      const condition = result.effectConditions.find((item) => item.key === key);
+      assert.equal(condition?.status, '资料不足', key);
+      assert.doesNotMatch(condition!.detail, /未记录|未命中/, key);
+    }
+    assert.match(result.judgment, /紫微原盘资料缺失.*未核验/);
+  }
+});
+
 test('贵人合参保留八字柱位、紫微宫位与星曜状态，不把共现写成终身断语', () => {
   const result = evaluateGuiRenCorroboration(buildGuiBazi(), buildGuiZiwei({ brightness: '旺' }));
 

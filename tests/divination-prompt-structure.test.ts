@@ -1159,8 +1159,8 @@ test('六爻鬼神怪异模板只写入问题范围，不附加控制话术', ()
 test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论重点', () => {
   const expectedFocus: Record<keyof typeof tarotSpreads, RegExp> = {
     single: /唯一牌位/,
-    three: /过去、现在、未来/,
-    love: /双方内心/,
+    three: /背景、当前表现与后续主题/,
+    love: /双方视角/,
     career: /事业现状/,
     decision: /选择A、选择B/,
     celtic: /当前与阻碍/,
@@ -1168,13 +1168,13 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     year: /全年主题/,
     mindBodySpirit: /思想、身体行动与精神状态/,
     horseshoe: /过去、现在、未来展开/,
-    holyTriangle: /问题根源、当前状况、发展结果/,
+    holyTriangle: /问题根源、当前状况与发展结果/,
     universal: /阻力、资源、行动与发展趋势/,
-    fourElements: /火、\s水、风、土/,
+    fourElements: /火、水、风、土/,
     hexagram: /隐藏因素/,
-    relationship: /双方状态与需求/,
+    relationship: /双方视角、需求/,
     wealth: /收入机会、支出风险/,
-    problemSolving: /问题表象深入根本原因/,
+    problemSolving: /问题表象、成因线索/,
     twelveHouses: /依十二宫逐一分析/,
   };
 
@@ -1186,9 +1186,9 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     );
     assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
     if (spreadType === 'celtic') {
-      assert.match(prompt, /目标与可达潜能/);
-      assert.match(prompt, /已形成的现实基础/);
-      assert.match(prompt, /正在消退的过去影响/);
+      assert.match(prompt, /目标与潜能/);
+      assert.match(prompt, /现实基础/);
+      assert.match(prompt, /过去影响和近期未来牌位/);
       assert.match(prompt, /希望与恐惧/);
     }
     if (spreadType === 'single') {
@@ -1198,6 +1198,43 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
       assert.match(prompt, /牌位联动：/);
       assert.match(prompt, /结论重点：/);
     }
+  }
+});
+
+test('塔罗最终任务以事实和现实条件核对因果、关系、健康与财务主题', () => {
+  const cases = [
+    ['three', /背景、当前表现与后续主题/],
+    ['love', /关系视角的象征线索/],
+    ['year', /健康牌位/],
+    ['holyTriangle', /根源线索与当前牌位的主题呼应/],
+    ['problemSolving', /成因线索与表象、阻力牌位的主题关联/],
+    ['relationship', /双方视角、需求、关系核心与走向牌位/],
+    ['wealth', /已提供的收支信息/],
+  ] as const;
+
+  for (const [spreadType, expectedTask] of cases) {
+    const prompt = buildDivinationPrompt(
+      'tarot',
+      '请结合当前情况解读。',
+      drawTarotSpread(spreadType, { seed: `塔罗任务边界-${spreadType}` }),
+    );
+    const task = prompt.match(/【任务】\n([\s\S]*?)\n\n【问题】/)?.[1];
+
+    assert.ok(task, `${spreadType} 应进入最终提示词任务段`);
+    assert.match(task, expectedTask, `${spreadType} 应保留牌阵用途`);
+    assert.match(task, /可观察的?信息/);
+    assert.match(task, /现实条件/);
+    assert.equal(task.match(/现实核对/g)?.length, 1);
+    if (spreadType === 'love' || spreadType === 'relationship') {
+      assert.match(task, /关系视角的象征线索/);
+    }
+    if (spreadType === 'year') {
+      assert.match(task, /身心照料的象征主题/);
+    }
+    assert.doesNotMatch(
+      task,
+      /过去如何形成现在|现在又如何推动或改变未来|判断双方内心|分别判断双方内心|根因如何造成表象|医疗诊断|预测疾病/,
+    );
   }
 });
 
@@ -1226,8 +1263,8 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
   assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
-  assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期线索：动爻第3爻/);
+  assert.match(prompt, /月令：春季，体卦相，用卦旺；起卦法：数字起卦法；起卦数字123/);
+  assert.doesNotMatch(prompt, /应期线索：/);
   assert.match(prompt, /主卦卦辞：雷火丰，先盛后谨/);
   assert.match(prompt, /动爻爻辞：第3爻，三爻发动取象/);
   assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);
@@ -1396,10 +1433,10 @@ test('小六壬提示词保留可复核顺数，并明确只有时宫承担主�
   assert.match(prompt, /起课：农历.+，巳时/);
   assert.match(prompt, /起课过程：/);
   assert.match(prompt, /定月宫：.+月从大安顺数，落/);
-  assert.match(prompt, /定日宫：从月宫.+起初一，顺数至.+日，落/);
+  assert.match(prompt, /定日宫：从月宫.+起初一（.+），顺数至.+日，落/);
   assert.match(prompt, /定时宫：从日宫.+起子时，顺数至巳时，落/);
   assert.match(prompt, /定位用途：月宫赤口用于确定初一的起数位置；日宫空亡用于确定子时的起数位置/);
-  assert.match(prompt, /断事主证：时宫小吉及其下列歌诀/);
+  assert.match(prompt, /占得宫：小吉/);
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
   assert.doesNotMatch(prompt, /mod\s*6|时序\d+/);
   assert.doesNotMatch(prompt, /五行生克与落宫方位/);
@@ -1421,6 +1458,20 @@ test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普�
   );
   assert.match(fivePrompt, /基础牌义：/);
   assert.doesNotMatch(fivePrompt, /固定组合：[\s\S]*牌序相邻|相邻牌义合读/);
+
+  const reverseData = drawLenormandSpread('three', { manualCardIds: [31, 32, 8] });
+  const reversePrompt = buildDivinationPrompt('lenormand', '这件事接下来如何发展？', reverseData);
+  assert.equal(reverseData.combinations?.[0].source, '相邻牌义合读');
+  assert.match(reversePrompt, /起因：太阳；关键词：成功、清晰、能量/);
+  assert.match(reversePrompt, /现状：月亮；关键词：情绪、名声、直觉/);
+  assert.doesNotMatch(reversePrompt, /相邻合读：|从迷茫走向清晰|登记判词/);
+
+  const fixedPrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事接下来如何发展？',
+    drawLenormandSpread('three', { manualCardIds: [24, 25, 1] }),
+  );
+  assert.match(fixedPrompt, /固定组合：\n  心\+戒指：/);
 
   const ninePrompt = buildDivinationPrompt(
     'lenormand',

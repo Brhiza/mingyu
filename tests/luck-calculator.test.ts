@@ -343,6 +343,26 @@ test('立春前交运按实际交运立春年去重，末步不生成无交集�
   assert.equal(new Set(resolvedYears).size, resolvedYears.length);
 });
 
+test('立春前出生时出生区间的流年年龄从一岁起记且完整与分页一致', () => {
+  const input = {
+    year: 1950,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'male' as const,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  };
+  const full = baziCalculator.calculateBazi(input);
+  const firstYear = full.luckInfo.cycles[0]?.years[0];
+  const page = baziCalculator.calculateBaziBatch(input, { section: 'fortune', startIndex: 0 });
+
+  assert.equal(firstYear?.year, 1949);
+  assert.equal(firstYear?.age, 1);
+  assert.deepEqual(page.result.luckInfo.cycles[0]?.years[0], firstYear);
+});
+
 test('流年区间按半开区间处理，结束恰逢立春不含新年且空区间无流年', () => {
   // 固定真值：公开节气证据 calculateSolarTermEvidence(2008, 3) 的
   // UTC 时刻为 2008-02-04T11:00:24.000Z，即北京时间 19:00:24。

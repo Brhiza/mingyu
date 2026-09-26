@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
+import {
+  formatBaziForPrompt,
+  formatPatternFulfillmentFacts,
+} from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { assessCongErPattern } from '../packages/core/src/bazi/baziCongErStrategy.ts';
 import { SIXTY_CYCLE } from '../packages/core/src/bazi/baziDefinitions.ts';
@@ -104,6 +107,33 @@ test('辛财轻根与癸比肩争财只记原局质量，不把已证从儿结�
     companionCompetes.blockers.some((item) => /比肩|争财/.test(item)),
     false,
   );
+});
+
+test('从儿仅见受冲待核的藏财根时不把食伤生财写成已满足', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1988,
+    month: 7,
+    day: 30,
+    timeIndex: 10,
+    gender: 'male',
+  });
+  assert.deepEqual(
+    Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    ['戊辰', '己未', '丙戌', '戊戌'],
+  );
+  const assessment = assessCongErPattern(chart.pillars, getTenGod);
+  assert.equal(assessment.structuralMatch, true);
+  assert.equal(assessment.established, false);
+  assert.match(assessment.adjudication?.wealthRootFacts.join('；') || '', /戌藏辛余气（受冲待核）/);
+  assert.doesNotMatch(assessment.matchedConditions.join('；'), /承接食伤所生/);
+  assert.match(assessment.blockers.join('；'), /结构藏财根气受冲待核，未见可用财气承接食伤/);
+  assert.notEqual(chart.analysis.mingGe.pattern, '从儿格');
+  assert.equal(chart.analysis.mingGe.specialAdjudication?.status, '不成立');
+  const patternFacts = formatPatternFulfillmentFacts(chart.analysis.mingGe);
+  assert.match(patternFacts.join('；'), /从儿格不成立/);
+  assert.match(patternFacts.join('；'), /结构藏财根气受冲待核/);
+  assert.doesNotMatch(patternFacts.join('；'), /受冲待核.*为结构财气，承接食伤所生/);
+  assert.match(formatBaziForPrompt(chart), /结构藏财根气受冲待核/);
 });
 
 test('顺局章九个原典命例均由月建、成局或食伤并透坐支同气的结构路径闭合', () => {
@@ -364,6 +394,36 @@ test('合法完整历法输入按五合终局区分破合后的原干作用与�
   );
 });
 
+test('真实历法输入的支藏印星救应不误作同柱明透天干五合', () => {
+  const examples = [
+    { input: [2008, 6, 3, 6], pillars: ['戊子', '丁巳', '甲戌', '庚午'], hidden: '年柱子藏癸正印' },
+    { input: [2008, 7, 3, 7], pillars: ['戊子', '戊午', '甲辰', '辛未'], hidden: '年柱子藏癸正印' },
+    { input: [2014, 3, 3, 3], pillars: ['甲午', '丙寅', '癸酉', '乙卯'], hidden: '日柱酉藏辛偏印' },
+  ] as const;
+
+  for (const { input, pillars, hidden } of examples) {
+    const [year, month, day, timeIndex] = input;
+    const chart = baziCalculator.calculateBazi({
+      year,
+      month,
+      day,
+      timeIndex,
+      gender: 'male',
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    assert.deepEqual(
+      Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+      pillars,
+    );
+    const resolutions =
+      chart.analysis.mingGe.specialAdjudication?.functionalResolutions.join('；') || '';
+    assert.match(resolutions, new RegExp(`制${hidden}，印夺食有救`));
+    assert.doesNotMatch(resolutions, /戊癸五合|丙辛五合|年干癸|日干辛/);
+  }
+});
+
 test('合成位置单元不把甲己等其余天干五合泛化成从儿顺局的已解决作用', () => {
   const unsupportedHarmony = assessCongErPattern(
     makePillars(['甲寅', '己未', '丙辰', '庚申']),
@@ -431,6 +491,34 @@ test('缺少财星承接或明透有根印官形成实际逆局时回落普通�
   );
 });
 
+test('同干异柱的七杀反证合并作用理由并保留各柱位', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1991,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const pattern = chart.analysis.mingGe;
+  const blocker = '年干、时干同见辛七杀，均明透有根，财星顺生转向官杀并与食伤交战';
+  assert.equal(pattern.pattern, '正官格');
+  assert.deepEqual(pattern.specialAdjudication?.blockers, [blocker]);
+  assert.ok(pattern.basis?.includes(`从儿结构未立：${blocker}`));
+  assert.deepEqual(
+    pattern.fulfillment?.activeBreakers[0]?.stems.map((item) => item.pillar),
+    ['year', 'hour'],
+  );
+  const prompt = formatBaziForPrompt(chart);
+  assert.ok(prompt.includes(`从儿结构未立：${blocker}`));
+  assert.equal(prompt.match(/财星顺生转向官杀并与食伤交战/g)?.length, 1);
+  assert.doesNotMatch(prompt, /格局条件：|条件核验：|此处要求正官月令/);
+  const completePrompt = buildBaziPromptForResult({ result: chart, question: '请合参本命格局。' });
+  assert.equal(completePrompt.match(/财星顺生转向官杀并与食伤交战/g)?.length, 1);
+});
+
 test('月建食伤路径仍受异柱明透有根印星制约，不把普通食神格破格升级成从儿', () => {
   const ordinaryBroken = makePillars(['丙申', '己巳', '甲子', '壬申']);
   const assessment = assessCongErPattern(ordinaryBroken, getTenGod, '丙');
@@ -448,10 +536,15 @@ test('格式化、提示词与命录消费同一从儿终局和取用，不泄�
   const prompt = buildBaziPromptForResult({ result: chart, question: '请分析本命格局与取用。' });
   const minglu = buildEnhancedPatternUsefulGodSection(chart);
 
-  assert.match(prompt, /特殊格裁决：从儿格成立/);
+  assert.match(prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+  assert.doesNotMatch(prompt, /特殊格裁决：从儿格成立/);
+  assert.equal(prompt.match(/三会食伤成气/g)?.length, 1);
+  assert.equal(prompt.match(/《滴天髓阐微·顺局》从儿法/g)?.length, 1);
   assert.match(prompt, /从儿五行流向：食伤木生财火/);
-  assert.match(prompt, /顺局作用：年干丁与月干壬紧贴合木/);
-  assert.match(prompt, /原支藏印官事实：.*辰藏戊正官/);
+  assert.equal(prompt.match(/年干丁与月干壬紧贴合木/g)?.length, 1);
+  assert.doesNotMatch(prompt, /顺局作用：年干丁与月干壬紧贴合木/);
+  assert.doesNotMatch(prompt, /支藏印官未构成从儿格的实际反证/);
+  assert.doesNotMatch(prompt, /原支藏印官事实：/);
   assert.match(prompt, /取用: 主用火，辅木/);
   assert.doesNotMatch(prompt, /specialAdjudication|functionalResolutions|retainedHiddenFacts/);
   assert.match(chartText, /格局: 从儿格/);

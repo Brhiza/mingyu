@@ -291,6 +291,26 @@ test('边界预警:远离边界时不产生预警', () => {
   );
 });
 
+test('节气边界资料全部缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '资料不完整');
+  assert.deepEqual(evidence.warningFacts[0].sources, ['节气历表查询状态']);
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+  assert.match(evidence.warningSummaryFact.promptText, /节气资料不完整，交节距离待核验/);
+  assert.match(evidence.warningSummaryFact.limitation, /交节距离待核验/);
+  assert.doesNotMatch(evidence.warningSummaryFact.promptText, /原始记录/);
+});
+
+test('部分节气资料缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查覆盖不完整：1/72 项节气资料查询失败，仅对成功取得的节气进行边界判断。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '资料不完整');
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+});
+
 test('边界预警对象应保留稳定键、来源、引用和唯一定盘结果限制', () => {
   const evidence = buildBaziWarningEvidence([
     '出生时刻距「立春」交节仅约 1 分钟（交节前）。本次年柱与月柱已按节气历表与输入时刻确定，并作为唯一定盘结果使用。',

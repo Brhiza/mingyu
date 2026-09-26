@@ -49,7 +49,6 @@ export function formatQizhengFlowRangeFacts(
   const flow = data.flowingStars;
   if (!flow) return [];
   const limits = data.timeLords;
-  const currentMajor = limits?.currentMajorLimit;
   return [
     '流曜落宫落宿：',
     ...flow.stars.map(
@@ -60,8 +59,8 @@ export function formatQizhengFlowRangeFacts(
     ...(limits
       ? [
           `行限：${limits.gender === 'male' ? '男命' : '女命'}，生年干${limits.yearStem}属${limits.yearStemYinYang}，${limits.direction}，虚岁${limits.nominalAge}；${limits.ageNote}。`,
-          `大限：${currentMajor ? `虚岁${currentMajor.startNominalAge}至${currentMajor.endNominalAge}，${currentMajor.signBranch}宫${currentMajor.palace}` : '当前虚岁超出单周行限'}；小限：${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；太岁${limits.annualBranch}入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}。`,
-          `大限次序：${limits.majorLimits.map((item) => `${item.startNominalAge}至${item.endNominalAge}虚岁${item.signBranch}宫${item.palace}`).join('；')}。`,
+          `大限：命宫宿度、出童限岁数和当前大限宫位未定；小限：${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；太岁${limits.annualBranch}入${limits.annualPalace.signBranch}宫${limits.annualPalace.palace}。`,
+          `洞微宫序与各宫年数：${limits.majorPalaceYears.map((item) => `${item.signBranch}宫${item.palace}${item.years === null ? '依命度定年数' : `${item.years}年`}`).join('；')}。`,
         ]
       : ['行限：性别未提供。']),
     '周期事件（北京时间；按本段出生秒核对）：',
@@ -89,7 +88,7 @@ export function formatQizhengBirthRangePrompt(
     `区间按整秒核对，共${range.sampleCount}个时刻、${range.branches.length}段。各段列出保持一致的命身宫、星曜落宫落宿、吊照与恩难关系，并汇总连续量。`,
     '【任务】',
     flow
-      ? '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系，结合目标时段的流曜与行限解读。区分整个出生范围共同成立的判断与各出生分段的差异，逐项写明出生时段和目标周期。周期事件的时刻范围表示出生时间不确定带来的变化。'
+      ? '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系，结合目标时段的流曜、小限与太岁解读。区分整个出生范围共同成立的判断与各出生分段的差异，逐项写明出生时段和目标周期。周期事件的时刻范围表示出生时间不确定带来的变化。'
       : '依据《果老星宗》的落宫、落宿、吊照及恩难仇用关系解读本命根基。区分整个出生范围均成立的结论与仅在部分时段成立的结论，逐项写明适用时间。流年与行限属于另外的时段资料。',
     ...(flow
       ? [

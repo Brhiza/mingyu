@@ -6,6 +6,19 @@ import { isKe, isSheng } from 'mingyu-core/ganzhi';
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
 
+test('六爻动墓和化墓不归入日辰关系', () => {
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  data.yaosDetail[0] = {
+    ...data.yaosDetail[0],
+    isDongMu: true,
+    isHuaMu: true,
+    isRiMu: false,
+  };
+  const firstLine = analyzeLiuyaoEvidence(data).lineFacts[0];
+  assert.doesNotMatch(firstLine.dayState.relations.join('、'), /入动墓|动而化墓/u);
+  assert.match(firstLine.promptText, /入动墓、动而化墓/u);
+});
+
 test('六爻主用神缺失时保留已命中辅证，并保持主取用缺口', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   data.yaosDetail = data.yaosDetail.map((line) => ({ ...line, sixRelative: '父母' }));
@@ -198,6 +211,37 @@ test('六爻证据应同时保留基础动变关系与化空条件', () => {
   assert.ok(changedFact?.constraints.includes('变爻空亡'));
   assert.match(changedFact?.promptText || '', /回头生、化空/);
   assert.doesNotMatch(changedFact?.promptText || '', /化空.*变爻空亡|变爻空亡.*化空/);
+});
+
+test('六爻无空爻时仅列旬空背景，不生成出空应期', () => {
+  const data = Array.from({ length: 64 }, (_, mask) =>
+    generateLiuyao(fixedDate, {
+      method: 'manual',
+      yaos: Array.from({ length: 6 }, (_, position) => (mask & (1 << position) ? 7 : 8)),
+    }),
+  ).find(
+    (item) =>
+      item.yaosDetail.every((line) => !line.isVoid) &&
+      item.hiddenSpirits?.every((spirit) => !spirit.isVoid),
+  );
+  assert.ok(data, '固定日期应有本卦与伏神均未落空的静卦');
+  assert.equal(data.voidBranches.length, 2);
+  assert.equal(
+    data.evidenceAnalysis?.timingFacts.some((item) => item.type === '空亡填实'),
+    false,
+  );
+  assert.doesNotMatch(data.evidenceAnalysis?.promptText ?? '', /出空、冲实可作为应期核对条件/);
+});
+
+test('六爻变爻落空时应期事实归属到对应动爻', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const voidFact = data.evidenceAnalysis?.timingFacts.find((item) => item.type === '空亡填实');
+  assert.ok(voidFact);
+  assert.match(voidFact.promptText, /第6爻变爻/);
+  assert.ok(voidFact.ownerFactKeys.includes(data.evidenceAnalysis!.lineFacts[5].key));
 });
 
 test('六爻原神忌神仇神应按生克作用链推导', () => {

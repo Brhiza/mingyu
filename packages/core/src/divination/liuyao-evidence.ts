@@ -687,11 +687,12 @@ function buildLineFacts(
             ? '日辰冲动'
             : '',
       yao.isRiMu ? '入日墓' : '',
-      yao.isDongMu ? '入动墓' : '',
-      yao.isHuaMu ? '动而化墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
+    const movingRelations = [yao.isDongMu ? '入动墓' : '', yao.isHuaMu ? '动而化墓' : ''].filter(
+      Boolean,
+    );
     const activity: LiuyaoLineFact['activity'] = yao.isChanging
       ? '明动'
       : yao.isHiddenMove
@@ -720,6 +721,7 @@ function buildLineFacts(
       yao.seasonState ? `月令${yao.seasonState}` : '',
       monthRelations.join('、'),
       dayRelations.join('、'),
+      movingRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
       yao.dayLifeStage && ['长生', '帝旺', '墓', '绝'].includes(yao.dayLifeStage)
         ? `日辰生旺墓绝${yao.dayLifeStage}`
@@ -1479,7 +1481,7 @@ export function analyzeLiuyaoEvidence(
   if (generationMethod === 'yarrow' && randomFact.status === '可重放') {
     const replayed = generateYarrow({ replay: randomFact.samples });
     if (
-      randomFact.samples.length !== 36 ||
+      replayed.randomTrace?.samples.length !== randomFact.samples.length ||
       !equalYarrowLines(replayed.lines, generationFact.yarrow?.lines)
     ) {
       throw new Error('蓍草随机轨迹与分堆记录不一致。');
@@ -1526,17 +1528,23 @@ export function analyzeLiuyaoEvidence(
         limitation: TIMING_FACT_LIMITATION,
       }),
     );
-  if (data.voidBranches?.length) {
+  const voidLineFacts = lineFacts.filter((item) => item.isVoid || item.changedYao?.isVoid);
+  const voidHiddenFacts = hiddenSpiritFacts.filter((item) => item.isVoid);
+  if (voidLineFacts.length || voidHiddenFacts.length) {
+    const voidLocations = [
+      ...voidLineFacts.flatMap((item) => [
+        ...(item.isVoid ? [`第${item.position}爻${item.najia.branch}`] : []),
+        ...(item.changedYao?.isVoid ? [`第${item.position}爻变爻${item.changedYao.branch}`] : []),
+      ]),
+      ...voidHiddenFacts.map((item) => `第${item.position}爻伏神${item.najia.branch}`),
+    ];
     timingFacts.push({
       key: 'liuyao:timing:void',
       type: '空亡填实',
       sourceStatus: '由盘面生成',
-      ownerFactKeys: [
-        ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
-        ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
-      ],
-      promptText: `空亡${data.voidBranches.join('、')}，传统以出空、冲实或透出为应期触发`,
-      sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
+      ownerFactKeys: [...voidLineFacts, ...voidHiddenFacts].map((item) => item.key),
+      promptText: `旬空${data.voidBranches.join('、')}命中${voidLocations.join('、')}；对应爻的出空、冲实可作为应期核对条件`,
+      sources: ['日柱旬空地支', '本卦、变爻与伏神空亡标记'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }

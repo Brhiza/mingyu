@@ -14,6 +14,7 @@ import { MingluAstrolabeSection } from './MingluAstrolabeSection';
 import { MingluFengshuiSection } from './MingluFengshuiSection';
 import { MingluCrossSynthesisSection } from './MingluCrossSynthesisSection';
 import { MingluGlossarySection } from './MingluGlossarySection';
+import { scrollToMingluAnchor } from './MingluLink';
 import './minglu.css';
 
 interface MingluWikiViewProps {
@@ -24,6 +25,14 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
   const [activeAnchorId, setActiveAnchorId] = useState<string>('bazi-pillars-matrix');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [isMobileTocOpen, setIsMobileTocOpen] = useState<boolean>(false);
+  const [glossaryNavigation, setGlossaryNavigation] = useState<{
+    anchorId: string;
+    requestId: number;
+  }>();
+
+  const handleNavigateGlossary = useCallback((anchorId: string) => {
+    setGlossaryNavigation((current) => ({ anchorId, requestId: (current?.requestId ?? 0) + 1 }));
+  }, []);
 
   // 滚动时监听当前章节
   useEffect(() => {
@@ -47,13 +56,10 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
   }, []);
 
   const handleSelectAnchor = useCallback((anchorId: string) => {
-    const elem = document.getElementById(anchorId);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActiveAnchorId(anchorId);
-      setIsMobileTocOpen(false);
-      window.history.replaceState(null, '', `#${anchorId}`);
-    }
+    setIsMobileTocOpen(false);
+    requestAnimationFrame(() => {
+      if (scrollToMingluAnchor(anchorId)) setActiveAnchorId(anchorId);
+    });
   }, []);
 
   // 生成并复制 Markdown 大报告
@@ -291,12 +297,21 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
             </section>
           )}
 
-          <MingluPillarsSection data={article.pillarsSection} metadata={article.metadata} />
+          <MingluPillarsSection
+            data={article.pillarsSection}
+            metadata={article.metadata}
+            glossaryEntries={article.glossary}
+            onNavigateGlossary={handleNavigateGlossary}
+          />
           <MingluFiveElementsSection data={article.fiveElementsSection} />
           <MingluPatternUsefulGodSection data={article.patternUsefulGodSection} />
           <MingluInteractionsSection items={article.interactionsSection} />
           <MingluShenShaSection items={article.shenShaSection} />
-          <MingluTenGodsSection data={article.tenGodsSection} />
+          <MingluTenGodsSection
+            data={article.tenGodsSection}
+            glossaryEntries={article.glossary}
+            onNavigateGlossary={handleNavigateGlossary}
+          />
           <MingluLifeStagesSection data={article.lifeStagesSection} />
           <MingluLuckChronicleSection data={article.luckChronicleSection} />
 
@@ -307,7 +322,7 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
             <MingluCrossSynthesisSection themes={article.crossSynthesisSection} />
           )}
 
-          <MingluGlossarySection entries={article.glossary} />
+          <MingluGlossarySection entries={article.glossary} navigation={glossaryNavigation} />
         </main>
       </div>
     </div>

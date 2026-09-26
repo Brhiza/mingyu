@@ -83,11 +83,13 @@ test('黄历参与人完整出生区间按实际司令边界保留条件画像�
       branch.startTimestamp,
       branch.endTimestamp,
       branch.endExclusive,
+      branch.profile.monthCommander,
+      branch.profile.incrementStatus,
       branch.profile.usefulGods,
     ]),
     [
-      [RANGE_START, RANGE_CHANGE, true, ['土', '火', '金']],
-      [RANGE_CHANGE, RANGE_END, true, ['火', '土', '金']],
+      [RANGE_START, RANGE_CHANGE, true, '戊', '待判', []],
+      [RANGE_CHANGE, RANGE_END, true, '丙', '待判', []],
     ],
   );
   assert.equal(result.participants[1]!.gender, '');
@@ -95,16 +97,12 @@ test('黄历参与人完整出生区间按实际司令边界保留条件画像�
 
   const dayFacts = result.days[0]!.participantRelationFacts ?? [];
   const rangedDayFacts = dayFacts.filter((fact) => fact.participantId === ranged.id);
-  const usefulConditionFacts = rangedDayFacts.filter(
-    (fact) => fact.relation === '未采用' && fact.birthTimeRange?.status === 'conditional',
-  );
-  assert.equal(usefulConditionFacts.length, 2);
+  const usefulConditionFacts = rangedDayFacts.filter((fact) => fact.relation === '未采用');
+  assert.equal(usefulConditionFacts.length, 1);
+  assert.equal(usefulConditionFacts[0]?.birthTimeRange?.status, 'stable');
   assert.deepEqual(
     usefulConditionFacts.flatMap((fact) => fact.birthTimeRange?.intervals ?? []),
-    [
-      { startTimestamp: RANGE_START, endTimestamp: RANGE_CHANGE, endExclusive: true },
-      { startTimestamp: RANGE_CHANGE, endTimestamp: RANGE_END, endExclusive: true },
-    ],
+    [{ startTimestamp: RANGE_START, endTimestamp: RANGE_END, endExclusive: true }],
   );
 
   for (const hour of result.days[0]!.hourCandidates ?? []) {
@@ -157,8 +155,9 @@ test('黄历前端会话、提示词、结果页和历史重开保留一人范�
       '2024-02-11 15:00:00',
       '2024-02-11 16:27:07',
       '2024-02-11 17:00:00',
-      '土、火、金',
-      '火、土、金',
+      '司令戊',
+      '司令丙',
+      '增补五行喜忌待判',
       '合成参与人乙',
     ]) {
       assert.ok(text.includes(expected), `${consumer}缺少${expected}`);

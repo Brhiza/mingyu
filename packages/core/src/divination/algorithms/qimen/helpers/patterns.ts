@@ -212,8 +212,8 @@ export interface QimenPatternTagParams {
  * 依次检测以下标签（每类标签可能输出0到多条）：
  *
  * **伏吟 / 反吟（全局层面）**
- *   - 星伏吟：值符星落回原宫（九星原位），主事缓盘桓
- *   - 星反吟：值符星落原宫对冲宫，主波动反复
+ *   - 星伏吟：九星各归本位，转盘天禽随天芮寄坤，主事缓盘桓
+ *   - 星反吟：外宫九星各临对宫，飞盘中宫天禽仍居中，主波动反复
  *   - 门伏吟：值使门落回原宫（八门本位），主事迟待机
  *   - 门反吟：值使门落原宫对冲宫，主突变调整
  *
@@ -268,16 +268,24 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   const tags: string[] = [];
 
   // ── 1. 星伏吟 / 星反吟 ──
-  // 《烟波钓叟歌》：「星反吟兮门反吟」
-  // 星伏吟：值符落回原宫（palaceStars 索引+1）
-  // 星反吟：值符落原宫的对冲宫
-  const zhiFuOriginalPalace = palaceStars.indexOf(zhiFu) + 1;
-  if (zhiFu && zhiFuOriginalPalace === 0) {
+  // 《遁甲演义》伏吟格以九星仍在本宫为据，反吟格以星临对宫为据。
+  // 按完整星盘核对，天禽随天芮时以坤二为寄宫；独居中五时保留中宫本位。
+  if (zhiFu && !palaceStars.includes(zhiFu)) {
     throw new Error(`值符星 "${zhiFu}" 无法识别。`);
   }
-  if (zhiFu && zhiFuLandingPalace === zhiFuOriginalPalace) {
+  const starPlacements = palaceStars.map((star, index) => {
+    const palace = jiuGongGe.find((item) => hasTianPanStar(item, star));
+    const homePalace = star === '天禽' && palace?.tianPan.companionStar === star ? 2 : index + 1;
+    return { homePalace, landingPalace: palace?.gong };
+  });
+  if (zhiFu && starPlacements.every((star) => star.landingPalace === star.homePalace)) {
     tags.push('星伏吟');
-  } else if (zhiFu && getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
+  } else if (
+    zhiFu &&
+    starPlacements.every(
+      (star) => star.landingPalace === (getOppositePalace(star.homePalace) ?? star.homePalace),
+    )
+  ) {
     tags.push('星反吟');
   }
 

@@ -352,7 +352,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*四吉方：[\s\S]*【问题】\n办公桌朝向怎么选？/,
+    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*命卦八方：[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
   [
     'residential_prompt',
@@ -366,7 +366,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       flowDay: 10,
       question: '这套房怎么看？',
     },
-    /【住宅风水排盘】[\s\S]*八宅：[\s\S]*【问题】\n这套房怎么看？/,
+    /【住宅风水排盘】[\s\S]*八宅完整盘面：[\s\S]*命卦：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
     'xuankong_prompt',
@@ -514,7 +514,9 @@ test('MCP 八字计算与提示词共用从儿裁决和取用', async () => {
     assert.equal(chart.analysis.usefulGod.decisionEvidence?.base.ruleId, 'follow-conger');
     assert.equal(prompted.isError, undefined);
     assert.equal(prompted.structuredContent?.result.analysis.mingGe.pattern, '从儿格');
-    assert.match(String(prompted.structuredContent?.prompt), /特殊格裁决：从儿格成立/);
+    const prompt = String(prompted.structuredContent?.prompt);
+    assert.match(prompt, /格局: 从儿格（[^\n]*从儿法成立：三会食伤成气/);
+    assert.doesNotMatch(prompt, /特殊格裁决：从儿格成立/);
     assert.match(String(prompted.structuredContent?.prompt), /取用: 主用火，辅木/);
   });
 });
@@ -648,6 +650,86 @@ test('姓名与数字提示词工具应返回顶层 prompt 并兼容旧读取路
         `${name} 旧读取路径应保持兼容`,
       );
     }
+  });
+});
+
+test('MCP 主题咨询入口返回单份自包含合参任务书与真实盘面事实', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'thematic_consultation_prompt',
+      arguments: {
+        name: '张三',
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 6,
+        dateType: 'solar',
+        topic: 'relationship',
+        scope: 'natal',
+        question: '我想了解未来三年的感情发展。',
+      },
+    });
+
+    assert.equal(response.isError, undefined, JSON.stringify(response.content));
+    const prompt = String(response.structuredContent?.prompt);
+    const result = response.structuredContent?.result as {
+      bazi: {
+        pillars: {
+          year: { ganZhi: string };
+          month: { ganZhi: string };
+          day: { ganZhi: string };
+          hour: { ganZhi: string };
+        };
+      };
+      ziwei: {
+        payloadByScope: {
+          origin: {
+            basic_info: { solar_date: string };
+            palaces: Array<{ name: string; major_stars?: Array<{ name: string }> }>;
+          };
+        };
+      };
+    };
+    const lifePalace = result.ziwei.payloadByScope.origin.palaces.find(
+      (palace) => palace.name === '命宫',
+    );
+    const lifePalaceStar = lifePalace?.major_stars?.[0]?.name;
+
+    assert.ok(prompt.includes('【分析主题】'));
+    assert.ok(prompt.includes('【八字排盘信息】'));
+    assert.ok(prompt.includes('【紫微盘面信息】'));
+    assert.ok(prompt.includes('【资料范围】'));
+    assert.ok(prompt.includes('【任务】'));
+    assert.ok(prompt.includes('【问题】\n我想了解未来三年的感情发展。'));
+    assert.ok(
+      prompt.includes(`出生日期：${result.ziwei.payloadByScope.origin.basic_info.solar_date}`),
+    );
+    assert.ok(lifePalaceStar && prompt.includes(lifePalaceStar));
+    for (const [label, pillar] of [
+      ['年柱', result.bazi.pillars.year],
+      ['月柱', result.bazi.pillars.month],
+      ['日柱', result.bazi.pillars.day],
+      ['时柱', result.bazi.pillars.hour],
+    ] as const) {
+      assert.ok(prompt.includes(`${label}: ${pillar.ganZhi}`), `${label}应使用实际排盘值`);
+    }
+    for (const section of [
+      '【当前时间】',
+      '【分析主题】',
+      '【八字排盘信息】',
+      '【紫微盘面信息】',
+      '【资料范围】',
+      '【任务】',
+      '【问题】',
+    ]) {
+      assert.equal(prompt.split(section).length - 1, 1, `${section} 不应重复完整任务书`);
+    }
+    assert.doesNotMatch(
+      prompt,
+      /\b(?:methodId|topicId|subtopicId|promptScope|scopeDate|scopeHourIndex|focusPalaces|focusElements|baziResult|ziweiResult|payloadByScope|active_scope|calculation_config)\b/,
+    );
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -1837,7 +1919,7 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
   await withMcpClient(async (client) => {
     const wuyun = await client.callTool({
       name: 'metaphysics_wuyun_liuqi',
-      arguments: { year: 2026, yearGanZhi: '丙午' },
+      arguments: { year: 2026, yearGanZhi: ' 丙午 ' },
     });
     const wuyunResult = wuyun.structuredContent?.result as {
       pathomechanism: {
@@ -2028,6 +2110,25 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
         );
       }
     }
+  });
+});
+
+test('MCP 五运六气计算与提示词应修剪显式年干支首尾空白', async () => {
+  await withMcpClient(async (client) => {
+    const calculation = await client.callTool({
+      name: 'metaphysics_wuyun_liuqi',
+      arguments: { yearGanZhi: ' 丙午 ' },
+    });
+    assert.equal(calculation.isError, undefined, JSON.stringify(calculation.content));
+    assert.equal(calculation.structuredContent?.result.input.yearGanZhi, '丙午');
+
+    const prompt = await client.callTool({
+      name: 'wuyun_liuqi_prompt',
+      arguments: { yearGanZhi: ' 丙午 ', question: '请解释本年的气候节律。' },
+    });
+    assert.equal(prompt.isError, undefined, JSON.stringify(prompt.content));
+    assert.equal(prompt.structuredContent?.result.input.yearGanZhi, '丙午');
+    assert.match(String(prompt.structuredContent?.prompt), /年干支：丙午/);
   });
 });
 
@@ -3089,10 +3190,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(tarotResult.isError, undefined, 'tarot_prompt custom 不应返回错误');
     const tarotPrompt = String(tarotResult.structuredContent?.prompt);
-    assert.match(
-      tarotPrompt,
-      /【任务】\n依据唯一牌位、牌名、正逆位、关键词与单牌牌义回答【问题】。/,
-    );
+    assert.match(tarotPrompt, /【任务】\n依据唯一牌位、牌名、正逆位、关键词与牌面象征/);
     assert.doesNotMatch(tarotPrompt, /牌序组合|牌序互动|相邻牌/);
     assertPromptHasAnswerFramework(tarotPrompt);
     assert.doesNotMatch(tarotPrompt, /【输出要求】/);
@@ -3837,6 +3935,82 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     );
     assert.doesNotMatch(prompt, /宿界模型/);
     assertPromptIsPortableTaskText(prompt);
+
+    const flowArguments = { ...arguments_, gender: 'male', flowYear: 2030 };
+    const flowResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: flowArguments,
+    });
+    assert.equal(flowResponse.isError, undefined);
+    const timeLords = (
+      flowResponse.structuredContent as {
+        result: {
+          timeLords: {
+            majorLimitStatus: string;
+            mingDegree: number | null;
+            childLimitEndNominalAge: number | null;
+            currentMajorLimit: unknown;
+            majorLimits: unknown[];
+            majorPalaceYears: Array<{ palace: string; years: number | null }>;
+          };
+        };
+      }
+    ).result.timeLords;
+    assert.equal(timeLords.majorLimitStatus, '命度与交限待核定');
+    assert.equal(timeLords.mingDegree, null);
+    assert.equal(timeLords.childLimitEndNominalAge, null);
+    assert.equal(timeLords.currentMajorLimit, null);
+    assert.deepEqual(timeLords.majorLimits, []);
+    assert.equal(timeLords.majorPalaceYears.find((item) => item.palace === '相貌')?.years, 10);
+
+    const flowPromptResponse = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: { ...flowArguments, question: '请分析目标流年。' },
+    });
+    assert.equal(flowPromptResponse.isError, undefined);
+    const flowPrompt = String(flowPromptResponse.structuredContent?.prompt);
+    assert.match(flowPrompt, /大限：命宫宿度、出童限岁数和当前大限宫位未定/);
+    assert.doesNotMatch(flowPrompt, /宫内命度\d|\d+虚岁出童限/);
+  });
+});
+
+test('MCP 七政流年提示词保留巴黎秒级历史时区的立春当地时刻', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: {
+        year: 1900,
+        month: 1,
+        day: 20,
+        hour: 12,
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timeZoneId: 'Europe/Paris',
+        flowYear: 1900,
+      },
+    });
+    assert.equal(response.isError, undefined);
+    assert.match(String(response.structuredContent?.prompt), /落宫时刻 1900-02-04T06:00:52/);
+  });
+});
+
+test('MCP 七政省略坐标时标出北京参考地点', async () => {
+  await withMcpClient(async (client) => {
+    const arguments_ = { year: 2024, month: 6, day: 15, hour: 6, minute: 0 };
+    const chartResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: arguments_,
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = chartResponse.structuredContent?.result as {
+      calculationContext: { locationSource: string };
+    };
+    assert.equal(chart.calculationContext.locationSource, '默认北京坐标');
+    const promptResponse = await client.callTool({ name: 'qizheng_prompt', arguments: arguments_ });
+    assert.equal(promptResponse.isError, undefined);
+    const prompt = String(promptResponse.structuredContent?.prompt);
+    assert.match(prompt, /计算参考地点：北京（纬度39\.9°，经度116\.4°）/);
+    assert.doesNotMatch(prompt, /出生地点：纬度39\.9°，经度116\.4°/);
   });
 });
 
@@ -4235,7 +4409,10 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     });
     const promptText = String(prompt.structuredContent?.prompt);
     assert.match(promptText, /占法：梅花易数/);
-    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*互卦：[\s\S]*变卦：/);
+    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*互卦：[\s\S]*体用阶段：/);
+    for (const stage of result.evidenceAnalysis.stages) {
+      assert.ok(promptText.includes(stage.promptText), `${stage.stage}阶段事实应进入提示词`);
+    }
     assert.doesNotMatch(promptText, /结构明细：|静爻/);
     assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
@@ -5590,5 +5767,81 @@ test('MCP 提供焦氏易林固定索引并返回双底本来源状态', async (
       arguments: { baseHexagram: '不存在', targetHexagram: '乾' },
     });
     assert.equal(invalid.isError, true);
+  });
+});
+
+test('MCP 紫微、大六壬与星盘提示词入口只输出一次完整重点资料', async () => {
+  await withMcpClient(async (client) => {
+    const ziweiResponse = await client.callTool({
+      name: 'ziwei_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1993',
+        month: '4',
+        day: '8',
+        timeIndex: 12,
+        promptScope: 'yearly',
+        scopeDate: '2026-05-19',
+        question: '请分析本年度事业发展重点。',
+      },
+    });
+    assert.equal(ziweiResponse.isError, undefined);
+    const ziweiPrompt = (ziweiResponse.structuredContent as { prompt: string }).prompt;
+    const palaceSection = ziweiPrompt.split('【重点宫位资料】')[1]?.split('\n【')[0] ?? '';
+    const [focusPalaces, remainingPalaces] = palaceSection.split('十二宫明细：');
+    const palaceLines = (text: string) =>
+      text
+        .split('\n')
+        .filter((line) =>
+          /^  [^\n]+（[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]）：主星：/.test(line),
+        );
+    const focusLines = palaceLines(focusPalaces ?? '');
+    const remainingLines = palaceLines(remainingPalaces ?? '');
+    assert.equal(focusLines.length, 7);
+    assert.equal(remainingLines.length, 5);
+    assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
+
+    const liurenResponse = await client.callTool({
+      name: 'liuren_prompt',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '我现在要不要换工作？',
+        liurenTemplate: 'shiye',
+      },
+    });
+    assert.equal(liurenResponse.isError, undefined);
+    const liurenPrompt = (liurenResponse.structuredContent as { prompt: string }).prompt;
+    assert.equal([...liurenPrompt.matchAll(/普通宗门裁决：/gu)].length, 1);
+
+    const astrolabeResponse = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '提示词复核',
+        gender: '男',
+        year: 1993,
+        month: 4,
+        day: 8,
+        hour: 23,
+        minute: 34,
+        latitude: 1.3521,
+        longitude: 103.8198,
+        timezone: 8,
+        locationName: '新加坡',
+        astrolabeScope: 'natal',
+        customDate: '2026-05-19T10:30:00+08:00',
+        question: '本命盘的事业主线是什么？',
+      },
+    });
+    assert.equal(astrolabeResponse.isError, undefined);
+    const astrolabePrompt = (astrolabeResponse.structuredContent as { prompt: string }).prompt;
+    const aspectLead = astrolabePrompt.split('相位主线：')[1]?.split('\n')[0] ?? '';
+    assert.ok(aspectLead);
+    assert.doesNotMatch(aspectLead, /偏差|目标角|实际角距|容许偏差上限|第\d+宫/u);
+    const aspectDetails = astrolabePrompt.split('相位明细：')[1]?.split('\n【')[0] ?? '';
+    const firstAspectLine = aspectDetails.split('\n').find((line) => line.trim());
+    assert.ok(firstAspectLine);
+    assert.equal(astrolabePrompt.split(firstAspectLine).length - 1, 1);
   });
 });

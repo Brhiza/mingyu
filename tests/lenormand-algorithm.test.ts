@@ -216,6 +216,59 @@ test('雷诺曼手工录入应按牌位成盘，并将随机轨迹标为不适�
   );
 });
 
+test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
+  for (const [firstName, secondName] of [
+    ['骑士', '心'],
+    ['月亮', '太阳'],
+    ['星星', '月亮'],
+    ['锚', '星星'],
+    ['船', '鹳'],
+  ]) {
+    const first = LENORMAND_CARDS.find((card) => card.name === firstName);
+    const second = LENORMAND_CARDS.find((card) => card.name === secondName);
+    assert.ok(first && second);
+    const thirdId = [1, 2, 3].find((id) => id !== first.id && id !== second.id);
+    assert.ok(thirdId);
+
+    const forward = drawLenormandSpread('three', {
+      manualCardIds: [first.id, second.id, thirdId],
+    });
+    const reverse = drawLenormandSpread('three', {
+      manualCardIds: [second.id, first.id, thirdId],
+    });
+
+    assert.equal(forward.combinations?.[0].source, '固定组合');
+    assert.equal(
+      forward.combinations?.[0].meaning,
+      LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`],
+    );
+    assert.equal(reverse.combinations?.[0].source, '相邻牌义合读');
+    assert.doesNotMatch(reverse.combinations?.[0].meaning ?? '', /。，/);
+    assert.ok(
+      reverse.evidenceAnalysis?.traditionalFacts.some(
+        (item) =>
+          item.kind === '相邻合读' && item.cardNames.join('+') === `${secondName}+${firstName}`,
+      ),
+    );
+    assert.doesNotMatch(
+      `${forward.evidenceAnalysis?.promptText}\n${reverse.evidenceAnalysis?.promptText}`,
+      /登记次序|登记判词|本抽牌为反序/,
+    );
+  }
+
+  const reverseMoonSun = drawLenormandSpread('three', { manualCardIds: [31, 32, 1] });
+  assert.doesNotMatch(
+    reverseMoonSun.evidenceAnalysis?.promptText ?? '',
+    /从迷茫走向清晰|信息由模糊转向清晰的线索/,
+  );
+
+  const reverseRiderHeart = drawLenormandSpread('three', { manualCardIds: [24, 1, 2] });
+  assert.doesNotMatch(reverseRiderHeart.evidenceAnalysis?.promptText ?? '', /消息带来感情进展/);
+
+  const reversible = drawLenormandSpread('three', { manualCardIds: [25, 24, 1] });
+  assert.equal(reversible.combinations?.[0].source, '固定组合');
+});
+
 test('雷诺曼九宫固定组合应按纵向空间相邻命中并保留牌位', () => {
   const result = drawLenormandSpread('nine', {
     manualCardIds: [24, 1, 2, 25, 3, 4, 5, 6, 7],

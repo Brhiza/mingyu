@@ -215,6 +215,18 @@ test('六爻：伏神旬空应单独保留出伏边界，不得与实伏得到�
   assert.notEqual(voidHidden, solidHidden);
 });
 
+test('六爻伏神克飞只记录五行克制，不补造地支相冲', () => {
+  const relation = evaluateLiuyaoHiddenSpiritInteraction({
+    hiddenWuxing: '木',
+    hiddenVoid: false,
+    flyingWuxing: '土',
+    flyingDizhi: '辰',
+    flyingVoid: false,
+  });
+  assert.match(relation, /伏神克飞，存在伏神克制飞神条件/);
+  assert.doesNotMatch(relation, /冲破/);
+});
+
 test('六爻：回头冲与五行生克应分别保存', () => {
   assert.deepEqual(getLiuyaoChangeRelations('木', '金', '卯', '酉', false), ['回头冲', '回头克']);
   assert.deepEqual(getLiuyaoChangeRelations('金', '木', '酉', '卯', false), ['回头冲', '化耗']);

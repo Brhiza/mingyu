@@ -313,6 +313,28 @@ test('大六壬旧结果缺少天地盘时应明确标为证据缺口，不反�
   );
 });
 
+test('大六壬天地盘十二条记录含重复位置时不得标为完整', () => {
+  const data = generateLiuren(fixedDate);
+  data.heavenlyPlate[1] = { ...data.heavenlyPlate[0] };
+
+  const evidence = analyzeLiurenEvidence(data);
+  assert.equal(evidence.platePositionFacts.length, 12);
+  assert.equal(evidence.plateFact.status, '缺少');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.match(evidence.plateFact.promptText, /存在重复/);
+});
+
+test('大六壬天地盘十二条记录含未知支或天将时不得标为完整', () => {
+  for (const field of ['under', 'branch', 'god'] as const) {
+    const data = generateLiuren(fixedDate);
+    data.heavenlyPlate[0] = { ...data.heavenlyPlate[0], [field]: '未知' };
+
+    const evidence = analyzeLiurenEvidence(data);
+    assert.equal(evidence.plateFact.status, '缺少', field);
+    assert.equal(evidence.summaryFact.status, '证据链有缺口', field);
+  }
+});
+
 test('大六壬传统事实应保留原文并为提示词生成条件化副本', () => {
   const data = generateLiuren(fixedDate);
   const evidence = data.evidenceAnalysis;

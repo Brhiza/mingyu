@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
 import { analyzeBaziNatalEvidence } from '../packages/core/src/bazi/natalEvidence.ts';
+import { buildBaziWarningEvidence } from '../packages/core/src/bazi/paipanWarnings.ts';
 
 test('八字本命应输出四柱、核心判断、反证、汇总与限制的统一证据链', () => {
   const result = baziCalculator.calculateBazi({
@@ -76,6 +77,27 @@ test('八字本命应输出四柱、核心判断、反证、汇总与限制的�
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');
 });
 
+test('节气边界资料不完整时本命证据不能标为完整', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  const warningEvidence = buildBaziWarningEvidence([
+    '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+  ]);
+  const analysis = analyzeBaziNatalEvidence({ ...result, ...warningEvidence });
+
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '排盘边界覆盖')?.status,
+    '资料不足',
+  );
+  assert.equal(analysis.summaryFact.status, '证据链有缺口');
+  assert.equal(analysis.summaryFact.missingFactCount, 1);
+});
+
 test('八字本命提示词应保留用户选择的传统时辰且不混入工程证据话术', () => {
   const result = baziCalculator.calculateBazi({
     year: 1992,
@@ -112,6 +134,41 @@ test('八字本命证据应拒绝与地支不对应的藏干资料', () => {
   assert.doesNotMatch(fact?.promptText || '', /藏干癸|藏干十神偏印/);
 });
 
+test('八字本命证据应标出缺失或错位的派生资料，且不把可疑值写入提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  result.tenGods.year = '伪十神';
+  result.nayin.year = '';
+  result.pillarLifeStages.year = '伪十二运';
+  result.lifeStages.year = '';
+  result.ziZuo.year = '伪自坐';
+  result.kongWang.year = ['伪支', '伪支'];
+
+  const evidence = analyzeBaziNatalEvidence(result);
+  const yearFact = evidence.pillarFacts.find((item) => item.pillar === '年柱');
+
+  assert.ok(yearFact);
+  assert.equal(yearFact.status, '资料缺口');
+  assert.equal(yearFact.tenGod, '');
+  assert.equal(yearFact.nayin, '');
+  assert.equal(yearFact.pillarLifeStage, '');
+  assert.equal(yearFact.dayMasterLifeStage, '');
+  assert.equal(yearFact.ziZuo, '');
+  assert.deepEqual(yearFact.kongWang, []);
+  assert.match(yearFact.promptText, /待核资料：天干十神、纳音、柱干十二运、日主十二运、自坐、旬空/);
+  assert.doesNotMatch(yearFact.promptText, /伪十神|伪十二运|伪自坐|伪支/);
+  assert.equal(evidence.calculationSteps[1].status, '已计算');
+  assert.equal(evidence.calculationSteps[2].status, '存在资料缺口');
+  assert.equal(evidence.calculationSteps[4].result.missingFactCount, 1);
+  assert.equal(evidence.summaryFact.missingFactCount, 1);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+});
+
 test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共提示词', () => {
   const result = baziCalculator.calculateBazi({
     year: 1994,
@@ -139,7 +196,7 @@ test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共�
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /取用: 主用金，辅水/);
-  assert.match(prompt, /调候特征: 生于夏月，原局见少量水气分布，寒暖燥湿指标微偏燥/);
+  assert.match(prompt, /水火分布参考: 生于夏月，原局见少量水气分布，可作为核对润燥的线索/);
   assert.doesNotMatch(prompt, /取用: 主用火/);
 });
 

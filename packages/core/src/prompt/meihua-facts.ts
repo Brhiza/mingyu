@@ -32,34 +32,52 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
   }
   const c = data.calculation;
   if (c) {
+    const hasResolvedIndices =
+      typeof c.upperTrigramIndex === 'number' &&
+      typeof c.lowerTrigramIndex === 'number' &&
+      typeof c.movingYaoIndex === 'number';
+    const objectLabel = MEIHUA_OBJECT_OPTIONS.find((item) => item.value === c.objectType)?.label;
+    const directionLabel = MEIHUA_DIRECTION_OPTIONS.find(
+      (item) => item.value === c.direction,
+    )?.label;
     if (
+      hasResolvedIndices &&
       (c.methodKey === 'time' || c.methodKey === 'timeTrigram') &&
+      c.yearZhi &&
+      c.timeZhi &&
       [c.yearZhiIndex, c.month, c.day, c.timeZhiIndex].every((value) => typeof value === 'number')
     ) {
       facts.push(
         `起卦取数：农历年支${c.yearZhi}序数${c.yearZhiIndex}、农历月数${c.month}、农历日数${c.day}、时支${c.timeZhi}序数${c.timeZhiIndex}；年支序数加月数加日数除8取余得上卦数${c.upperTrigramIndex}，再加时支序数除8取余得下卦数${c.lowerTrigramIndex}，同一总数除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'number' &&
       typeof c.number === 'number' &&
+      c.timeZhi &&
       typeof c.timeZhiIndex === 'number'
     ) {
       facts.push(
         `起卦取数：数字${c.number}除8取余得上卦数${c.upperTrigramIndex}；数字${c.number}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'sound' &&
       typeof c.soundCount === 'number' &&
+      c.timeZhi &&
       typeof c.timeZhiIndex === 'number'
     ) {
       facts.push(
         `起卦取数：所闻声音数${c.soundCount}除8取余得上卦数${c.upperTrigramIndex}；声音数${c.soundCount}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'character' &&
       typeof c.characterCount === 'number' &&
       typeof c.characterUpperNumber === 'number' &&
-      typeof c.characterLowerNumber === 'number'
+      typeof c.characterLowerNumber === 'number' &&
+      (c.characterCount !== 1 ||
+        (typeof c.characterLeftStrokes === 'number' && typeof c.characterRightStrokes === 'number'))
     ) {
       const toneText = Array.isArray(c.characterTones)
         ? `，传统声类按平1、上2、去3、入4取数为${c.characterTones.join('、')}`
@@ -72,28 +90,21 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
         `起卦取数：${c.characterText ? `文字「${c.characterText}」，` : ''}字数${c.characterCount}${toneText}，上卦取数${c.characterUpperNumber}，下卦取数${c.characterLowerNumber}；分别除8取余得上卦数${c.upperTrigramIndex}、下卦数${c.lowerTrigramIndex}，上下卦取数之和除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'direction' &&
       typeof c.objectTrigramIndex === 'number' &&
       typeof c.directionTrigramIndex === 'number' &&
+      c.timeZhi &&
+      objectLabel &&
+      directionLabel &&
       typeof c.timeZhiIndex === 'number'
     ) {
-      const objectLabel =
-        MEIHUA_OBJECT_OPTIONS.find((item) => item.value === c.objectType)?.label ??
-        data.mainHexagram.upper;
-      const directionLabel =
-        MEIHUA_DIRECTION_OPTIONS.find((item) => item.value === c.direction)?.label ??
-        data.mainHexagram.lower;
       facts.push(
         `起卦取数：所见物类${objectLabel}取上卦数${c.objectTrigramIndex}，方位${directionLabel}取下卦数${c.directionTrigramIndex}；上卦数加下卦数及时支${c.timeZhi}序数${c.timeZhiIndex}除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
-      if (
-        MEIHUA_OBJECT_OPTIONS.some((item) => item.value === c.objectType) &&
-        MEIHUA_DIRECTION_OPTIONS.some((item) => item.value === c.direction)
-      ) {
-        facts.push(
-          `物象锚点：本次所选物类${objectLabel}、所记方位${directionLabel}；本卦${data.mainHexagram.name}，体卦${data.tiGua.name}、用卦${data.yongGua.name}${data.interHexagram ? `，互卦${data.interHexagram.name}` : ''}${data.changedHexagram ? `，变卦${data.changedHexagram.name}` : ''}。物类与方位承担本次取象起点，具体形态、材质与人物对应按已知情境取义；多种象意并存时保留待核实条件。`,
-        );
-      }
+      facts.push(
+        `物象锚点：本次所选物类${objectLabel}、所记方位${directionLabel}；本卦${data.mainHexagram.name}，体卦${data.tiGua.name}、用卦${data.yongGua.name}${data.interHexagram ? `，互卦${data.interHexagram.name}` : ''}${data.changedHexagram ? `，变卦${data.changedHexagram.name}` : ''}。物类与方位承担本次取象起点，具体形态、材质与人物对应按已知情境取义；多种象意并存时保留待核实条件。`,
+      );
     }
   }
   const branch = data.analysis.monthBranch;

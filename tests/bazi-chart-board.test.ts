@@ -88,6 +88,79 @@ test('八字女命日柱应标注元女', () => {
   assert.ok(html.indexOf('命式') < html.indexOf('元女'));
 });
 
+test('排盘五行卡展示五行值，日干典籍仅展示静态体象', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 5,
+    day: 20,
+    timeIndex: 6,
+    gender: 'female',
+  });
+  const html = renderToStaticMarkup(
+    createElement(BaziChartBoard, {
+      title: '八字排盘',
+      name: '取用单位核对',
+      result: {
+        ...result,
+        analysis: {
+          ...result.analysis,
+          mingGe: { ...result.analysis.mingGe, transformation: undefined },
+          usefulGod: {
+            ...result.analysis.usefulGod,
+            incrementStatus: '已判定',
+            primaryFavorableWuxing: '木',
+            primaryUnfavorableWuxing: '金',
+            favorableWuxing: ['木'],
+            unfavorableWuxing: ['金'],
+            primaryUseful: '正官',
+            primaryAvoid: '七杀',
+          },
+        },
+      },
+    }),
+  );
+
+  assert.match(html, /增补五行取用<\/span><strong>木<\/strong>/);
+  assert.match(html, /增补五行所忌<\/span><strong>金<\/strong>/);
+  assert.doesNotMatch(html, /增补五行取用<\/span><strong>正官<\/strong>/);
+  assert.match(html, /日干体象/);
+  assert.match(html, /【条件释义】/);
+  assert.doesNotMatch(html, /十干一般释义（未结合本盘/);
+});
+
+test('增补五行待判时不把旧十神值显示为五行结论', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 5,
+    day: 20,
+    timeIndex: 6,
+    gender: 'female',
+  });
+  const html = renderToStaticMarkup(
+    createElement(BaziChartBoard, {
+      title: '八字排盘',
+      name: '待判取用核对',
+      result: {
+        ...result,
+        analysis: {
+          ...result.analysis,
+          mingGe: { ...result.analysis.mingGe, transformation: undefined },
+          usefulGod: {
+            ...result.analysis.usefulGod,
+            incrementStatus: '待判',
+            primaryFavorableWuxing: '木',
+            primaryUnfavorableWuxing: '金',
+            primaryUseful: '正官',
+            primaryAvoid: '七杀',
+          },
+        },
+      },
+    }),
+  );
+  assert.match(html, /增补五行取用<\/span><strong>待判<\/strong>/);
+  assert.match(html, /增补五行所忌<\/span><strong>待判<\/strong>/);
+});
+
 test('八字结果盘默认展示常用神煞并过滤扩展项', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,

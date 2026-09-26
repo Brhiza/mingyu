@@ -708,20 +708,20 @@ export function calculateChart(
         ),
       ]
     : [];
+  const dayChart = isDayChart(astrologyEngine, jd, latitude, longitude);
   const chartLots = options.includeLots
     ? (() => {
-        const day = isDayChart(astrologyEngine, jd, latitude, longitude);
         const fortune = lotFortune(
           chart.angles.asc,
           chart.bodies.sun.lon,
           chart.bodies.moon.lon,
-          day,
+          dayChart,
         );
         const spirit = lotSpirit(
           chart.angles.asc,
           chart.bodies.sun.lon,
           chart.bodies.moon.lon,
-          day,
+          dayChart,
         );
         return [
           createPoint('Part of Fortune', fortune, chart.cusps),
@@ -764,6 +764,7 @@ export function calculateChart(
         ...positionFields(longitude),
       })),
     },
+    dayChart,
     aspects: { all: allAspects },
     summary: {
       ...distributions,

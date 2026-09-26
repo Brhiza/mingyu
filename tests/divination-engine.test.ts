@@ -379,30 +379,20 @@ test('奇门八神应按宝鉴坎一起例分阳逆阴顺', () => {
   });
 });
 
-test('奇门庚格应期应按日干阴阳判断，不应误用时干', () => {
-  const result = estimateYingQi(
-    [
-      {
-        gong: 1,
-        tianPan: { stem: '庚', star: '' },
-        diPan: { stem: '甲' },
-      },
-      {
-        gong: 2,
-        tianPan: { stem: '乙', star: '' },
-        diPan: { stem: '庚' },
-      },
-    ],
-    2,
-    {
-      dayGanZhi: '甲子',
-      hourGanZhi: '乙丑',
-    },
-  );
-
-  const sourcesText = result.sources.join('\n');
-  assert.match(sourcesText, /阳日（甲日）见庚在地盘2宫/);
-  assert.doesNotMatch(sourcesText, /阴日（乙日）见庚在天盘1宫/);
+test('奇门通用应期不套用占行人归期的庚格', () => {
+  const charts = [
+    generateQimen(new Date('2024-01-01T00:00:00+08:00')),
+    generateQimen(new Date('2024-01-02T00:00:00+08:00')),
+  ];
+  for (const chart of charts) {
+    const yingQi = chart.yingQi;
+    assert.ok(yingQi);
+    assert.match(yingQi.sources.join('\n'), /值符通用参考落/);
+    assert.doesNotMatch(
+      [...yingQi.sources, ...yingQi.triggerConditions, ...yingQi.limitations].join('\n'),
+      /庚格|见庚在|庚落\d宫|应期以日或月计|应期以月计/,
+    );
+  }
 });
 
 test('奇门应期内外宫应随阴阳遁切换', () => {

@@ -304,8 +304,9 @@ export class TimeManager {
         monthInChinese: lunarDayText.split('年')[1].split('月')[0] + '月',
         dayInChinese: lunarDayText.split('月')[1],
         hourInChinese: lunarHour.getName(),
-        // tyme4ts 闰月返回负数，规范为正数月序供起卦取模使用（闰月标志另行处理）
+        yearNumber: lunarDay.getYear(),
         monthNumber: Math.abs(lunarDay.getMonth()),
+        isLeapMonth: lunarDay.getMonth() < 0,
         dayNumber: lunarDay.getDay(),
       },
       ganzhi: {

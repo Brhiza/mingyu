@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
+import { generateQimenLifetimePrompt } from '../packages/core/src/divination/algorithms/qimen';
 import { generateXuanKong } from '../packages/core/src/xuan_kong';
 import { calculateWuyunLiuqi } from '../packages/core/src/wuyun-liuqi';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -34,6 +36,36 @@ test('实际奇门九宫的天地盘归属互换后，同样的奇仪仍在也�
   assert.ok(auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen.palace.')));
 });
 
+test('奇门终身局精简后仍逐日核对干支与关系归属', () => {
+  const { data, prompt } = generateQimenLifetimePrompt({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    periodRange: { startDate: '2026-01-01', endDate: '2026-12-31' },
+  });
+  const facts = extractDivinationPromptFacts('qimen-lifetime', data);
+  assert.deepEqual(auditPromptFacts(prompt, facts).missing, []);
+
+  const cluster = data.eventClusters?.find((item) => item.key.includes(':day:'));
+  const date = cluster?.triggerDates?.[0];
+  assert.ok(date?.ganzhi && date.relation);
+  const [year, month, day] = date.date.split('-');
+  const dateLine = prompt
+    .split('\n')
+    .find(
+      (line) =>
+        line.includes(`可复核日期：${year}年${month}月`) &&
+        line.includes(`${day}日（${date.ganzhi}）`) &&
+        line.includes(`日干支关系：${date.relation}`),
+    );
+  assert.ok(dateLine);
+  const changed = prompt.replace(
+    dateLine,
+    dateLine.replace(`${day}日（${date.ganzhi}）`, `${day}日（虚构干支）`),
+  );
+  assert.ok(
+    auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen-lifetime.event.')),
+  );
+});
+
 test('实际六爻的六神换到另一爻后不能通过全表事实核验', () => {
   const data = generateLiuyao(new Date('2026-05-19T10:30:00+08:00'));
   const prompt = buildDivinationPrompt('liuyao', '请分析事业。', data);
@@ -45,6 +77,23 @@ test('实际六爻的六神换到另一爻后不能通过全表事实核验', ()
   assert.equal(rows.length, 6);
   const changed = swapRowValues(prompt, rows, /六神[\u4e00-\u9fff]{2}/u);
   assert.ok(auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('liuyao.yao.')));
+});
+
+test('雷诺曼提示词按逐牌资料核验普通相邻关系，并保留固定组合判词核验', () => {
+  const ordinary = drawLenormandSpread('three', { manualCardIds: [31, 32, 8] });
+  const ordinaryPrompt = buildDivinationPrompt('lenormand', '请分析事情走向。', ordinary);
+  const ordinaryFacts = extractDivinationPromptFacts('lenormand', ordinary);
+  assert.deepEqual(auditPromptFacts(ordinaryPrompt, ordinaryFacts).missing, []);
+  assert.ok(ordinaryFacts.some((item) => item.id.startsWith('lenormand.card.')));
+  assert.ok(!ordinaryFacts.some((item) => item.id.startsWith('lenormand.combination.')));
+
+  const fixed = drawLenormandSpread('three', { manualCardIds: [32, 31, 1] });
+  const fixedPrompt = buildDivinationPrompt('lenormand', '请分析事情走向。', fixed);
+  const fixedFacts = extractDivinationPromptFacts('lenormand', fixed);
+  assert.deepEqual(auditPromptFacts(fixedPrompt, fixedFacts).missing, []);
+  assert.ok(fixedFacts.some((item) => item.id === 'lenormand.combination.0'));
+  const changed = fixedPrompt.replace('从迷茫走向清晰', '从清晰走向迷茫');
+  assert.ok(auditPromptFacts(changed, fixedFacts).missing.includes('lenormand.combination.0'));
 });
 
 test('实际玄空飞星和五运六气按宫位及步序绑定，交换数字或客运不能蒙混通过', () => {

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import type { BaziChartResult, Pillars } from '@core/bazi/baziTypes';
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import { normalizeFortuneSelection } from '@core/bazi/fortuneSelection';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
   formatFortuneActionEvidenceForPrompt,
   formatFortuneActionFactLine,
@@ -332,6 +334,89 @@ test('岁运事实提示词只输出可读事实，内部证据键仍留在结�
     '同一岁运作用事实在最终提示词中只应输出一次',
   );
   assert.match(sections.focus, /岁运作用事实/);
+});
+
+test('真实流年与流月把同层己土明透及本气合列，保留根气归属和跨层事实', () => {
+  const chart = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1991,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  for (const selection of [
+    { scope: 'year' as const, year: 2026 },
+    { scope: 'month' as const, year: 2026, month: 5 },
+  ]) {
+    const context = buildFortuneSelectionContext(
+      chart,
+      normalizeFortuneSelection(chart, selection),
+    );
+    assert.ok(context);
+    const rawDayunJi = context.actionEvidence?.facts.filter(
+      (fact) => fact.level === 'dayun' && fact.stem === '己',
+    );
+    assert.deepEqual(
+      rawDayunJi?.map((fact) => [fact.placement, fact.hiddenCategory]),
+      [
+        ['岁运透干', undefined],
+        ['岁运藏干', '本气'],
+      ],
+    );
+
+    const focus = formatBaziFortuneSelection(context)!.focus;
+    const dayunJiLines = focus.split('\n').filter((line) => line.includes('大运己（土'));
+    assert.equal(dayunJiLines.length, 1);
+    assert.match(
+      dayunJiLines[0],
+      /岁运透干、岁运藏干·本气.*引用已裁决所忌条件；状态：资料不足；命中：基础五行喜忌；透干根气：原局及岁运均见同干根气；适用范围：2024年起，约34岁交运/,
+    );
+    assert.match(focus, /流年己（土，偏财，岁运藏干·中气）.*适用范围：2026年/);
+    if (selection.scope === 'month') {
+      assert.match(focus, /流月己（土，偏财，岁运藏干·中气）.*适用范围：2026-06-05至2026-07-07/);
+    }
+    assert.doesNotMatch(focus, /^岁运作用事实：/m);
+  }
+});
+
+test('同层同干的作用对象不同时保留两条独立取证', () => {
+  const chart = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1991,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const context = buildFortuneSelectionContext(
+    chart,
+    normalizeFortuneSelection(chart, { scope: 'year', year: 2026 }),
+  );
+  assert.ok(context?.actionEvidence);
+  const hidden = context.actionEvidence.facts.find(
+    (fact) => fact.level === 'dayun' && fact.stem === '己' && fact.placement === '岁运藏干',
+  );
+  assert.ok(hidden);
+  const original = formatFortuneActionFactLine(hidden);
+  hidden.targetObjects = ['甲'];
+  const updated = formatFortuneActionFactLine(hidden);
+  context.promptPayload.evidenceLines = context.promptPayload.evidenceLines.map((line) =>
+    line.replace(original, updated),
+  );
+
+  const dayunJiLines = formatBaziFortuneSelection(context)!
+    .focus.split('\n')
+    .filter((line) => line.includes('大运己（土'));
+  assert.equal(dayunJiLines.length, 2);
+  assert.ok(dayunJiLines.some((line) => line.includes('岁运透干')));
+  assert.ok(
+    dayunJiLines.some((line) => line.includes('岁运藏干·本气') && line.includes('作用对象：甲')),
+  );
 });
 
 test('关系事实只有合冲时，currentActionStatus 不得升级为满足或不满足', () => {

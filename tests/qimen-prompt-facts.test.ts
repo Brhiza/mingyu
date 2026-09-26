@@ -19,7 +19,7 @@ test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫�
   assert.doesNotMatch(prompt, /天干五合：癸与丁相合/);
 });
 
-test('奇门完整提示词写入复合格局与值符宫应期触发', () => {
+test('奇门完整提示词按问题写入复合格局与值符宫应期触发', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   const prompt = buildDivinationPrompt('qimen', '请做整体解读。', data);
   assert.ok(data.yingQi);
@@ -33,14 +33,17 @@ test('奇门完整提示词写入复合格局与值符宫应期触发', () => {
   }
   for (const trigger of data.yingQi.triggerConditions) {
     assert.ok(prompt.includes(trigger));
+    assert.equal(prompt.split(trigger).length - 1, 1, `应期触发条件不应重复：${trigger}`);
   }
-  for (const combo of data.patternCombos ?? []) {
-    assert.ok(prompt.includes(`${combo.name}`));
-    const factualSummary = combo.summary
-      .replaceAll('，不作通用吉凶评分', '')
-      .replaceAll('，不替代通用凶格评分', '');
-    assert.ok(prompt.includes(factualSummary.replaceAll('；', '；\n')));
-  }
+  const generalKinds = new Set(['triGood', 'triBad', 'mixed', 'dunPlusReturning', 'luckPlusQi']);
+  const generalCombos = (data.patternCombos ?? []).filter((combo) =>
+    generalKinds.has(combo.key.split(':')[1] ?? ''),
+  );
+  assert.ok(generalCombos.length > 0);
+  for (const combo of generalCombos) assert.ok(prompt.includes(combo.name));
+  assert.doesNotMatch(prompt, /八门余气|星宫主客|射覆物象克应/);
+  assert.match(buildDivinationPrompt('qimen', '军事演习的行军攻守如何安排？', data), /星宫主客/);
+  assert.match(buildDivinationPrompt('qimen', '寻找丢失的手表', data), /射覆物象克应/);
   assert.doesNotMatch(prompt, /不作通用吉凶评分|不替代通用凶格评分/);
   assert.doesNotMatch(prompt, /minDays|maxDays|super-good|super-bad/);
 });

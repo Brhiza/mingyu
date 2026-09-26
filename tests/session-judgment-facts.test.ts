@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { generateDivinationSession } from '../packages/core/src/divination/session';
+import { formatLiurenOrdinaryTransmissionAdjudication } from '../packages/core/src/prompt/liuren-facts';
+import { formatTaiyiConditionSummary } from '../packages/core/src/taiyi';
 import type { LiurenData, TaiyiResult } from '../packages/core/src/types/divination';
 
 test('小六壬在线解读保留农历取数、口径与占得宫歌诀', () => {
@@ -32,6 +34,9 @@ test('六壬 aiPrompt 应保留取传与课体判断依据', () => {
     currentTime: '2024-01-02T12:00:00+08:00',
   });
   const data = session.data as LiurenData;
+  const adjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
+  assert.ok(adjudication);
+  assert.equal(session.aiPrompt.split(adjudication).length - 1, 1);
   const classicalRules = data.classicalRules ?? [];
   const guaTiFacts = data.guaTiFacts ?? [];
 
@@ -98,6 +103,16 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
   assert.ok(
     session.aiPrompt.includes(`阴阳和：${data.conditions.yinYangHarmony.matched ? '和' : '不和'}`),
   );
+  assert.equal(session.aiPrompt.split('三门：').length - 1, 1);
+  assert.equal(session.aiPrompt.split('五将：').length - 1, 1);
+  assert.equal(session.aiPrompt.split('阴阳和：').length - 1, 1);
+  assert.equal(
+    session.aiPrompt.split(`直使${data.conditions.threeGates.directGate}`).length - 1,
+    1,
+  );
+  assert.ok(session.aiPrompt.includes(`攻守参考：主算${data.lordCount}`));
+  assert.ok(session.aiPrompt.includes('主客吉凶条件相等时，再以算之长短比较'));
+  assert.doesNotMatch(session.aiPrompt, /盘面条件：/);
   assert.ok(session.aiPrompt.includes(`主大将${data.lordGeneral}宫`));
   assert.ok(
     session.aiPrompt.includes(data.conditions.fiveGenerals.hostGuestElementRelation.relation),
@@ -110,4 +125,43 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
     /二目五行（位置关系）.*日计纳音另论.*五将发不发依同宫关等条件另判/,
   );
   assert.doesNotMatch(session.aiPrompt, /sourceUrl|evidenceAnalysis|https?:\/\//);
+});
+
+test('太乙 aiPrompt 保留主客定算性且只呈现一次', () => {
+  const session = generateDivinationSession({
+    method: 'taiyi',
+    question: '核对主客定算性',
+    taiyi: { scope: 'year', year: 1951 },
+    currentTime: '1951-01-01T12:00:00+08:00',
+  });
+  const data = session.data as TaiyiResult;
+  for (const [label, count, nature] of [
+    ['主', data.lordCount, data.countNatures?.lord],
+    ['客', data.guestCount, data.countNatures?.guest],
+    ['定', data.setCount, data.countNatures?.set],
+  ] as const) {
+    assert.ok(nature);
+    assert.equal(session.aiPrompt.split(`${label}算${count}（${nature}）`).length - 1, 1);
+  }
+  for (const judgment of data.judgments) {
+    if (
+      judgment !== formatTaiyiConditionSummary(data.conditions) &&
+      !/^(主算|客算|定算)\s*\d+\s*为/u.test(judgment)
+    ) {
+      assert.ok(session.aiPrompt.includes(judgment), judgment);
+    }
+  }
+});
+
+test('五运六气 aiPrompt 保留岁运五音并只列一次年度阶段与平气条件', () => {
+  const session = generateDivinationSession({
+    method: 'wuyun',
+    question: '核对年度条件',
+    wuyun: { year: 2026 },
+    currentTime: '2026-01-01T12:00:00+08:00',
+  });
+  for (const label of ['五步主客运：', '六步主客气：', '平气条件：']) {
+    assert.equal(session.aiPrompt.split(label).length - 1, 1, label);
+  }
+  assert.match(session.aiPrompt, /岁运五音：/);
 });

@@ -1,7 +1,18 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiSuiConflict, ZodiacYearFortune } from './index';
-import { BRANCH_SANHE, SANHUI_GROUPS, getBranchWuxing, getStemWuxing, isLiuhe } from '../ganzhi';
+import {
+  BRANCH_SANHE,
+  EARTHLY_BRANCHES,
+  SANHUI_GROUPS,
+  ZODIACS,
+  getBranchWuxing,
+  getStemWuxing,
+  isKe,
+  isLiuhe,
+  isSheng,
+  isValidGanZhi,
+} from '../ganzhi';
 import { getTaiSuiConflicts } from './index';
 
 export interface ZodiacRelationEvidence {
@@ -463,13 +474,15 @@ export function analyzeZodiacEvidence(
   const limitations = limitationFacts.map((fact) => fact.promptText);
   // 轻量关系复验：按公共关系表重算犯太岁、贵人与会合，与传入资料比对，
   // 防止把固定条目数量当作已经执行独立关系校验
-  const recomputedConflictTypes = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch).map(
-    (item) => item.type,
-  );
-  const incomingConflictTypes = data.conflicts.map((item) => item.type);
+  const recomputedConflicts = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch);
+  const incomingConflicts = data.conflicts;
   const conflictsConsistent =
-    recomputedConflictTypes.length === incomingConflictTypes.length &&
-    recomputedConflictTypes.every((type, index) => type === incomingConflictTypes[index]);
+    recomputedConflicts.length === incomingConflicts.length &&
+    recomputedConflicts.every(
+      (conflict, index) =>
+        conflict.type === incomingConflicts[index]?.type &&
+        conflict.with === incomingConflicts[index]?.with,
+    );
   const sanhe = BRANCH_SANHE[data.zodiacBranch];
   const expectedNoble = isLiuhe(data.zodiacBranch, data.yearBranch)
     ? '六合贵人'
@@ -483,13 +496,41 @@ export function analyzeZodiacEvidence(
       data.zodiacBranch !== data.yearBranch,
   );
   const expectedMeeting = sanhuiGroup ? `三会关系（${sanhuiGroup[0]}）` : null;
-  const consistencyGap = !conflictsConsistent
-    ? '犯太岁关系重算结果与传入资料不一致'
-    : (data.noble ?? null) !== expectedNoble
-      ? '贵人关系重算结果与传入资料不一致'
-      : (data.meeting ?? null) !== expectedMeeting
-        ? '三会关系重算结果与传入资料不一致'
-        : null;
+  const yearStemWuxing = getStemWuxing(data.yearGanZhi[0]);
+  const zodiacWuxing = getBranchWuxing(data.zodiacBranch);
+  const expectedElementRelation = isSheng(yearStemWuxing, zodiacWuxing)
+    ? { kind: '年干生生肖', label: '年干五行生生肖地支本气', classification: '有利关系' }
+    : isSheng(zodiacWuxing, yearStemWuxing)
+      ? { kind: '生肖生年干', label: '生肖地支本气生年干五行', classification: '风险关系' }
+      : isKe(yearStemWuxing, zodiacWuxing)
+        ? { kind: '年干克生肖', label: '年干五行克生肖地支本气', classification: '风险关系' }
+        : isKe(zodiacWuxing, yearStemWuxing)
+          ? { kind: '生肖克年干', label: '生肖地支本气克年干五行', classification: '中性关系' }
+          : { kind: '同类', label: '年干五行与生肖地支本气同类', classification: '中性关系' };
+  const elementConsistent =
+    data.elementRelation.kind === expectedElementRelation.kind &&
+    data.elementRelation.label === expectedElementRelation.label &&
+    data.elementRelation.classification === expectedElementRelation.classification &&
+    data.elementRelation.yearStemWuxing === yearStemWuxing &&
+    data.elementRelation.zodiacWuxing === zodiacWuxing &&
+    data.relation === expectedElementRelation.label;
+  let consistencyGap: string | null = null;
+  if (
+    ZODIACS[EARTHLY_BRANCHES.indexOf(data.zodiacBranch as (typeof EARTHLY_BRANCHES)[number])] !==
+    data.zodiac
+  ) {
+    consistencyGap = '生肖名称与出生年支不一致';
+  } else if (!isValidGanZhi(data.yearGanZhi) || data.yearBranch !== data.yearGanZhi[1]) {
+    consistencyGap = '流年干支与流年年支不一致';
+  } else if (!elementConsistent) {
+    consistencyGap = '年干与生肖五行关系重算结果与传入资料不一致';
+  } else if (!conflictsConsistent) {
+    consistencyGap = '犯太岁关系重算结果与传入资料不一致';
+  } else if ((data.noble ?? null) !== expectedNoble) {
+    consistencyGap = '贵人关系重算结果与传入资料不一致';
+  } else if ((data.meeting ?? null) !== expectedMeeting) {
+    consistencyGap = '三会关系重算结果与传入资料不一致';
+  }
   const summaryFact = buildSummaryFact({
     calculationSteps,
     relations,

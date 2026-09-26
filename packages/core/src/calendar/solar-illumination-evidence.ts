@@ -1,7 +1,8 @@
 /**
  * @file 太阳高度、日出日落与曙暮光证据
- * @description 采用 NOAA/Meeus 低阶太阳模型，输出地点相关的光照事件和计算限制。
+ * @description 采用太阳星历与 NOAA/Meeus 太阳模型，输出地点相关的光照事件和计算限制。
  */
+import * as AstronomyEngine from 'astronomy-engine';
 import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
@@ -9,6 +10,10 @@ import {
 } from './astronomical-time';
 
 const DAY_MS = 86_400_000;
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
+const { Body, Equator, Horizon, Observer, SearchAltitude, SearchRiseSet } = Astronomy;
 
 export type SolarCrossingStatus = '正常交点' | '全天高于阈值' | '全天低于阈值';
 
@@ -26,7 +31,7 @@ export interface SolarCrossingEvidence {
   calculationStepKeys: string[];
   sources: string[];
   calculation: string;
-  limitation: '太阳高度阈值交点只描述低阶太阳模型在理想地平线条件下的几何时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果';
+  limitation: '太阳高度阈值交点只描述太阳星历按对应阈值和折射口径、在理想地平线条件下的计算时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果';
 }
 
 export interface SolarIlluminationCalculationStep {
@@ -89,10 +94,11 @@ export interface SolarIlluminationSummaryFact {
 const CROSSING_SOURCES = [
   'NOAA Solar Calculator 太阳赤纬、时间方程与时角公式',
   'Meeus《Astronomical Algorithms》低阶太阳模型',
+  'VSOP87 太阳星历与球面天文高度计算',
 ] as const;
 
 const CROSSING_LIMITATION =
-  '太阳高度阈值交点只描述低阶太阳模型在理想地平线条件下的几何时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果' as const;
+  '太阳高度阈值交点只描述太阳星历按对应阈值和折射口径、在理想地平线条件下的计算时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果' as const;
 
 export interface SolarIlluminationInput extends AstronomicalTimeInput {
   latitude: number;
@@ -204,36 +210,51 @@ function crossingEvidence(
   longitude: number,
   timezone: number,
   localMidnightUtcTimestamp: number,
-  equationOfTimeMinutes: number,
-  declinationRadians: number,
 ): SolarCrossingEvidence {
   const key = `光照交点:${name}`;
   const calculationStepKeys = ['solar-illumination:calculation:crossings'];
-  const calculation = `以太阳中心高度${altitudeDegrees}°为阈值，结合纬度${latitude}°、经度${longitude}°、时区UTC${timezone >= 0 ? '+' : ''}${timezone}、时间方程${equationOfTimeMinutes.toFixed(4)}分钟与太阳赤纬${radiansToDegrees(declinationRadians).toFixed(6)}°求时角交点`;
-  const latitudeRadians = degreesToRadians(latitude);
-  const zenithRadians = degreesToRadians(90 - altitudeDegrees);
-  const cosineHourAngle =
-    Math.cos(zenithRadians) / (Math.cos(latitudeRadians) * Math.cos(declinationRadians)) -
-    Math.tan(latitudeRadians) * Math.tan(declinationRadians);
-  if (cosineHourAngle > 1) {
-    return {
-      key,
-      name,
-      solarAltitudeDegrees: altitudeDegrees,
-      status: '全天低于阈值',
-      morningUtcDateTime: null,
-      eveningUtcDateTime: null,
-      morningLocalDateTime: null,
-      eveningLocalDateTime: null,
-      promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天低于阈值`,
-      ownerFactKeys: calculationStepKeys,
-      calculationStepKeys,
-      sources: [...CROSSING_SOURCES],
-      calculation: `${calculation}；余弦时角大于1，判定全天低于阈值`,
-      limitation: CROSSING_LIMITATION,
-    };
-  }
-  if (cosineHourAngle < -1) {
+  const calculation = `以${altitudeDegrees === -0.833 ? '标准太阳上缘与近地平折射（太阳中心名义高度-0.833°）' : `太阳中心高度${altitudeDegrees}°`}为阈值，结合纬度${latitude}°、经度${longitude}°、时区UTC${timezone >= 0 ? '+' : ''}${timezone}，按太阳星历求该民用日期内的高度交点`;
+  const observer = new Observer(latitude, longitude, 0);
+  const endTimestamp = localMidnightUtcTimestamp + DAY_MS;
+  const searchCrossing = (direction: 1 | -1) =>
+    altitudeDegrees === -0.833
+      ? SearchRiseSet(Body.Sun, observer, direction, new Date(localMidnightUtcTimestamp), 1)
+      : SearchAltitude(
+          Body.Sun,
+          observer,
+          direction,
+          new Date(localMidnightUtcTimestamp),
+          1,
+          altitudeDegrees,
+        );
+  const rising = searchCrossing(1);
+  const setting = searchCrossing(-1);
+  const morningTimestamp =
+    rising && rising.date.getTime() < endTimestamp ? rising.date.getTime() : undefined;
+  const eveningTimestamp =
+    setting && setting.date.getTime() < endTimestamp ? setting.date.getTime() : undefined;
+  if (morningTimestamp === undefined && eveningTimestamp === undefined) {
+    const midpoint = new Date(localMidnightUtcTimestamp + DAY_MS / 2);
+    const equator = Equator(Body.Sun, midpoint, observer, true, true);
+    const altitude = Horizon(midpoint, observer, equator.ra, equator.dec, '').altitude;
+    if (altitude < altitudeDegrees) {
+      return {
+        key,
+        name,
+        solarAltitudeDegrees: altitudeDegrees,
+        status: '全天低于阈值',
+        morningUtcDateTime: null,
+        eveningUtcDateTime: null,
+        morningLocalDateTime: null,
+        eveningLocalDateTime: null,
+        promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天低于阈值`,
+        ownerFactKeys: calculationStepKeys,
+        calculationStepKeys,
+        sources: [...CROSSING_SOURCES],
+        calculation: `${calculation}；当日无交点且太阳高度低于阈值，判定全天低于阈值`,
+        limitation: CROSSING_LIMITATION,
+      };
+    }
     return {
       key,
       name,
@@ -247,22 +268,18 @@ function crossingEvidence(
       ownerFactKeys: calculationStepKeys,
       calculationStepKeys,
       sources: [...CROSSING_SOURCES],
-      calculation: `${calculation}；余弦时角小于-1，判定全天高于阈值`,
+      calculation: `${calculation}；当日无交点且太阳高度高于阈值，判定全天高于阈值`,
       limitation: CROSSING_LIMITATION,
     };
   }
-  const hourAngleDegrees = radiansToDegrees(Math.acos(cosineHourAngle));
-  const solarNoonMinutes = normalizeDayMinutes(
-    720 - 4 * longitude - equationOfTimeMinutes + timezone * 60,
-  );
-  const morningMinutes = solarNoonMinutes - 4 * hourAngleDegrees;
-  const eveningMinutes = solarNoonMinutes + 4 * hourAngleDegrees;
-  const morningTimestamp = localMidnightUtcTimestamp + morningMinutes * 60_000;
-  const eveningTimestamp = localMidnightUtcTimestamp + eveningMinutes * 60_000;
-  const morningUtcDateTime = new Date(morningTimestamp).toISOString();
-  const eveningUtcDateTime = new Date(eveningTimestamp).toISOString();
-  const morningLocalDateTime = formatLocalTimestamp(morningTimestamp, timezone);
-  const eveningLocalDateTime = formatLocalTimestamp(eveningTimestamp, timezone);
+  const morningUtcDateTime =
+    morningTimestamp === undefined ? null : new Date(morningTimestamp).toISOString();
+  const eveningUtcDateTime =
+    eveningTimestamp === undefined ? null : new Date(eveningTimestamp).toISOString();
+  const morningLocalDateTime =
+    morningTimestamp === undefined ? null : formatLocalTimestamp(morningTimestamp, timezone);
+  const eveningLocalDateTime =
+    eveningTimestamp === undefined ? null : formatLocalTimestamp(eveningTimestamp, timezone);
   return {
     key,
     name,
@@ -272,11 +289,11 @@ function crossingEvidence(
     eveningUtcDateTime,
     morningLocalDateTime,
     eveningLocalDateTime,
-    promptText: `${name}：太阳高度${altitudeDegrees}°阈值的当地上午交点为${morningLocalDateTime}、下午交点为${eveningLocalDateTime}`,
+    promptText: `${name}：太阳高度${altitudeDegrees}°阈值的当地上行交点${morningLocalDateTime ?? '当日无'}、下行交点${eveningLocalDateTime ?? '当日无'}`,
     ownerFactKeys: calculationStepKeys,
     calculationStepKeys,
     sources: [...CROSSING_SOURCES],
-    calculation: `${calculation}；余弦时角位于[-1,1]，解得上午与下午两个交点`,
+    calculation: `${calculation}；在该民用日期内解得${Number(morningTimestamp !== undefined) + Number(eveningTimestamp !== undefined)}个交点`,
     limitation: CROSSING_LIMITATION,
   };
 }
@@ -329,21 +346,15 @@ export function calculateSolarIlluminationEvidence(
     720 - 4 * input.longitude - daily.equationOfTimeMinutes + timezone * 60,
   );
   const solarNoonTimestamp = localMidnightUtcTimestamp + solarNoonMinutes * 60_000;
-  const eventArgs = [
-    input.latitude,
-    input.longitude,
-    timezone,
-    localMidnightUtcTimestamp,
-    daily.equationOfTimeMinutes,
-    daily.declinationRadians,
-  ] as const;
+  const eventArgs = [input.latitude, input.longitude, timezone, localMidnightUtcTimestamp] as const;
   const sunriseSunset = crossingEvidence('日出/日落', -0.833, ...eventArgs);
   const civilTwilight = crossingEvidence('民用曙暮光', -6, ...eventArgs);
   const nauticalTwilight = crossingEvidence('航海曙暮光', -12, ...eventArgs);
   const astronomicalTwilight = crossingEvidence('天文曙暮光', -18, ...eventArgs);
   const method =
-    '采用 NOAA/Meeus 低阶太阳赤纬与时间方程；日出日落以太阳中心高度 -0.833°，民用、航海、天文曙暮光分别以 -6°、-12°、-18° 求时角交点';
-  const source = 'NOAA Solar Calculator equations，核心公式源自 Meeus《Astronomical Algorithms》';
+    '参考位置与视太阳正午采用 NOAA/Meeus 低阶太阳赤纬和时间方程；日期内交点按太阳星历计算，日出日落采用标准太阳上缘与近地平折射（太阳中心名义高度约 -0.833°），民用、航海、天文曙暮光分别以太阳中心高度 -6°、-12°、-18° 求交点';
+  const source =
+    'NOAA Solar Calculator equations，Meeus《Astronomical Algorithms》，VSOP87 太阳星历';
   const assumptions = [
     '日出日落的 -0.833° 阈值包含标准太阳半径与近地平大气折射近似。',
     '同一民用日期内采用参考时刻解析出的 UTC 偏移计算事件。',
@@ -351,7 +362,7 @@ export function calculateSolarIlluminationEvidence(
   const limitations = [
     '未考虑实际海拔、山体与建筑遮挡、逐时气象折射和局部地平线起伏，实际可见时刻可能偏移。',
     'IANA 时区在当天发生偏移切换时，事件当地时间仍按参考时刻偏移表达，应结合时区诊断复核。',
-    '低阶模型适合民用历法和光照背景，不宣称达到观测级或导航级精度。',
+    '参考位置和视太阳正午的低阶模型适合民用历法和光照背景，交点采用太阳星历；均不宣称达到观测级或导航级精度。',
   ];
   const localDate = `${String(input.year).padStart(4, '0')}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}`;
   const calculationSteps: SolarIlluminationCalculationStep[] = [
@@ -469,7 +480,7 @@ export function calculateSolarIlluminationEvidence(
     crossingFactKeys: crossings.map((item) => item.key),
     promptText:
       normalCrossingCount === crossings.length
-        ? '四类太阳高度阈值均找到上午和下午正常交点'
+        ? '四类太阳高度阈值均找到至少一次正常交点'
         : `${crossings.length - normalCrossingCount}类太阳高度阈值呈全天高于或低于阈值状态，未形成常规交点`,
     sources: [...CROSSING_SOURCES],
     limitation: CROSSING_SUMMARY_LIMITATION,

@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { PersonRole } from '@/lib/input-labels';
 import type { QueryInputState } from '@/lib/query-state';
-import { resolveBirthPlaceLatitude } from '@/utils/core/birthPlaceCoordinates';
+import { resolveBirthPlaceCoordinates } from '@/utils/core/birthPlaceCoordinates';
 
 type BirthPlaceCascadeModule = typeof import('@/utils/core/birthPlaceCascade');
 
@@ -230,6 +230,8 @@ export function useBirthPlace<T extends BirthPlaceFormState>({
     if (!matched) {
       return;
     }
+    const coordinates = resolveBirthPlaceCoordinates(matched.district.id);
+    if (!coordinates) return;
 
     setForm((current) => {
       const next = { ...current };
@@ -239,8 +241,8 @@ export function useBirthPlace<T extends BirthPlaceFormState>({
       return {
         ...next,
         [placeKey]: matched.district.displayName,
-        [longitudeKey]: String(matched.district.longitude),
-        [latitudeKey]: String(resolveBirthPlaceLatitude(matched.district.id)),
+        [longitudeKey]: String(coordinates.longitude),
+        [latitudeKey]: coordinates.latitude === undefined ? '' : String(coordinates.latitude),
       } as T;
     });
     closeBirthPlaceModal();

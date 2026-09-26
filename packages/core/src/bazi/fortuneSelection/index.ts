@@ -376,6 +376,12 @@ function clipToCycle(range: LocalTimeRange, cycleRange: LocalTimeRange) {
   return intersectLocalTimeRanges(range, cycleRange);
 }
 
+function formatClippedHourTimeRange(range: LocalTimeRange): string {
+  const formatEndpoint = (time: LocalTimeRange['start']) =>
+    `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')} ${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(time.second).padStart(2, '0')}`;
+  return `${formatEndpoint(range.start)}至${formatEndpoint(range.end)}（终点不含）`;
+}
+
 export function normalizeFortuneSelection(
   result: BaziChartResult,
   selection: BaziFortuneSelectionValue,
@@ -854,7 +860,17 @@ export function buildFortuneSelectionContext(
     const interval = clipToCycle(item.interval, cycleTimeRange);
     if (!interval || !monthTimeRangeForHours) return [];
     const clippedToMonth = clipToCycle(interval, monthTimeRangeForHours);
-    return clippedToMonth ? [{ ...item, interval: clippedToMonth }] : [];
+    if (!clippedToMonth) return [];
+    const isClipped =
+      clippedToMonth.startTimestamp !== item.interval.startTimestamp ||
+      clippedToMonth.endTimestamp !== item.interval.endTimestamp;
+    return [
+      {
+        ...item,
+        interval: clippedToMonth,
+        timeRange: isClipped ? formatClippedHourTimeRange(clippedToMonth) : item.timeRange,
+      },
+    ];
   });
   const hoursClippedByBoundary = hourBreakdown.length < rawHourBreakdown.length;
   const previousDate = createCivilDate(actualYear, actualMonth, actualDay);

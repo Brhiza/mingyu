@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import { baziCalculator } from '../packages/core/src/bazi/index.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { evaluateQimenPatternFulfillment } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
+import { analyzeQimenEvidence } from '../packages/core/src/divination/qimen-evidence.ts';
+import {
+  evaluateQimenPatternFulfillment,
+  formatQimenPatternConditionSummary,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { resolveSignByNumber } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { buildTaskText } from '../packages/core/src/divination/engine/method-text.ts';
@@ -62,7 +66,7 @@ test('梅花与皇极任务模板按实际输入资料收窄', () => {
   assert.doesNotMatch(cycleTask, /六十年统卦|时经卦/);
 });
 
-test('奇门提示资料完整保留超过三条格局实效', () => {
+test('奇门提示资料保留完整格局索引，空亡事实不重复列出', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   const anchor = data.jiuGongGe[0];
   const expanded = {
@@ -75,12 +79,21 @@ test('奇门提示资料完整保留超过三条格局实效', () => {
     })),
     voidPalaces: [{ branch: '子', palace: anchor.gong, name: anchor.name }],
   };
+  expanded.evidenceAnalysis = analyzeQimenEvidence(expanded);
   const fulfillments = evaluateQimenPatternFulfillment(expanded);
   const text = formatEnhancedDivinationInfo('qimen', expanded);
 
   assert.equal(fulfillments.length, 8);
-  for (const fulfillment of fulfillments) {
-    assert.match(text, new RegExp(escapeRegExp(fulfillment)));
+  const summary = formatQimenPatternConditionSummary(expanded);
+  assert.deepEqual(summary, [`${anchor.name}同宫见空亡`]);
+  assert.doesNotMatch(text, /格局条件：/);
+  const palaceLine = text
+    .split('\n')
+    .find((line) => line.trimStart().startsWith(`${anchor.name}（`));
+  assert.match(palaceLine ?? '', /逢空/);
+  for (const pattern of expanded.classicPatterns) {
+    assert.match(text, new RegExp(escapeRegExp(pattern.name)));
+    assert.equal(text.split(pattern.name).length - 1, 1);
   }
   assert.doesNotMatch(text, /灾咎减半/);
 });

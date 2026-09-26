@@ -97,7 +97,7 @@ test('八字紫微双盘默认通用主题 (general) 合参提示词', async () 
   assert.ok(result.prompt.includes('【分析主题】'));
   assert.ok(result.prompt.includes('咨询主题：通用（综合大局与命身全景）'));
   assert.ok(result.prompt.includes('【八字排盘信息】'));
-  assert.ok(result.prompt.includes('【八字格局条件】'));
+  assert.doesNotMatch(result.prompt, /【八字格局条件】/);
   assert.match(result.prompt, /当前成败判定：/);
   assert.ok(result.prompt.includes('【紫微盘面信息】'));
   assert.ok(result.prompt.includes('【任务】'));
@@ -120,7 +120,7 @@ test('八字紫微核心合参提示词默认使用当前阶段范围', async ()
     question: '当前阶段的事业重点是什么？',
   });
 
-  assert.match(prompt, /【八字格局条件】/);
+  assert.doesNotMatch(prompt, /【八字格局条件】/);
   assert.match(prompt, /当前成败判定：/);
   assert.match(prompt, /紫微已给出运限范围，八字仍为本命资料，二者尚未对齐到同一日期。/);
 });
@@ -194,7 +194,7 @@ test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提�
   assert.equal(baziOnly.system, 'bazi');
   assert.equal(baziOnly.topic, 'health');
   assert.ok(baziOnly.prompt.includes('【排盘信息】'));
-  assert.ok(baziOnly.prompt.includes('【八字格局条件】'));
+  assert.doesNotMatch(baziOnly.prompt, /【八字格局条件】/);
   assert.ok(!baziOnly.prompt.includes('【紫微盘面信息】'));
   assert.ok(baziOnly.prompt.includes('五行'));
 
@@ -209,6 +209,37 @@ test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提�
   assert.ok(ziweiOnly.prompt.includes('【紫微盘面资料】'));
   assert.ok(!ziweiOnly.prompt.includes('【八字排盘信息】'));
   assert.ok(ziweiOnly.prompt.includes('官禄宫'));
+});
+
+test('主题及双盘流派提示词只呈现一次八字格局判定与破格限制', async () => {
+  const baziResult = baziCalculator.calculateBazi({
+    ...samplePerson,
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+  });
+  const ziweiResult = await getSampleZiweiResult();
+  const prompts = [
+    buildThematicConsultationPrompt({
+      baziResult,
+      system: 'bazi',
+      topic: 'career',
+      baziSchool: 'ziping',
+    }).prompt,
+    buildBaziZiweiPromptForResults({
+      baziResult,
+      ziweiResult,
+      question: '事业如何安排？',
+      baziSchool: 'ziping',
+    }),
+  ];
+  for (const prompt of prompts) {
+    assert.doesNotMatch(prompt, /所取格局：/);
+    assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
+    assert.doesNotMatch(prompt, /【八字格局条件】/);
+    assert.match(prompt, /透干通根：/);
+  }
 });
 
 test('三柱缺时辰降级时八字主题提示词仍可稳定生成', () => {

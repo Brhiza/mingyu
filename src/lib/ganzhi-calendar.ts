@@ -89,6 +89,19 @@ function assertYear(year: number): void {
   }
 }
 
+export function isGanzhiCalendarDateKeyInRange(dateKey: string | undefined): dateKey is string {
+  if (!dateKey) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return false;
+  const year = Number(match[1]);
+  return year >= MIN_YEAR && year <= MAX_YEAR;
+}
+
+function assertDayDetailYear(dateKey: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || isGanzhiCalendarDateKeyInRange(dateKey)) return;
+  throw new Error(`日期年份需在 ${MIN_YEAR}-${MAX_YEAR} 年之间。`);
+}
+
 function formatNumber(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -429,6 +442,7 @@ export function getGanzhiCalendarDayDetail(
   todayKey = getBeijingTodayKey(),
   participants: readonly AlmanacParticipantInput[] = [],
 ): GanzhiCalendarDayDetail {
+  assertDayDetailYear(dateKey);
   parseDateKey(dateKey);
   const participantKey = participantCacheKey(participants);
   const cacheKey = `${dateKey}:${todayKey}:${participantKey}`;

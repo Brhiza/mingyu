@@ -3,6 +3,7 @@
  * @description 为命录补齐所有能计算的八字数据，包括三垣、五行加权、全量柱间作用、神煞典故、十神流通与大运流年矩阵。
  */
 
+import { SolarTerm } from 'tyme4ts';
 import {
   formatUsefulGodFunctions,
   getShenShaType,
@@ -25,6 +26,14 @@ import {
 } from '../bazi/baziMappingsData';
 import { getLifeStage } from '../bazi/baziValues';
 import { calculateKongWangBranches } from '../bazi/kongWang';
+import {
+  createLocalTimeRange,
+  getLuckCycleTimeRange,
+  intersectLocalTimeRanges,
+  toNativeDate,
+  toSolarDateTimeInfo,
+} from '../bazi/luckTiming';
+import type { SolarDateTimeInfo } from '../bazi/baziTypes';
 import { tallyWuxing } from '../wuxing';
 import { isKe } from '../ganzhi';
 import { TEN_GODS_DEFINITIONS } from '../bazi/baziElementData';
@@ -334,190 +343,127 @@ const BRANCH_ANHE = [
   { pair: ['子', '巳'], name: '子巳暗合', desc: '子中癸水与巳中戊土暗合，水火交融，暗生默契。' },
 ];
 
-// 神煞典故库
-const SHENSHA_DETAILS_MAP: Record<
-  string,
-  { type: '吉' | '凶' | '中性'; origin: string; desc: string; significance: string }
-> = {
+// 神煞常见取象摘要；典籍原文须另行校勘，不将摘要标作引文。
+const SHENSHA_DETAILS_MAP: Record<string, { desc: string; significance: string }> = {
   天乙贵人: {
-    type: '吉',
-    origin: '《李虚中命书》：“天乙者，乃天上之神，在紫微垣、阊阖门外，与太乙并列。”',
     desc: '百神之首，遇难呈祥，逢凶化吉，一生少灾少病，常得长辈贵人提携。',
     significance: '主清高尊贵、事业机遇多、关键时刻逢凶化吉。',
   },
   太极贵人: {
-    type: '吉',
-    origin: '《渊海子平》：“太极者，太初也，始也。造化始终相保，故名太极。”',
     desc: '主为人端庄正直、好学深思、喜玄学哲学、终有成就。',
     significance: '主学问通达、行事有始有终、福寿双全。',
   },
   天德贵人: {
-    type: '吉',
-    origin: '《三命通会》：“天德者，三合之德也，天之所祐，诸煞避之。”',
     desc: '天降福德，主一生安康、少受刑伤、品行宽厚、名望清吉。',
     significance: '消灾免祸，遇凶化解，提升名誉与人缘。',
   },
   月德贵人: {
-    type: '吉',
-    origin: '《三命通会》：“月德者，三合之德也。与天德同，主仁慈福寿。”',
     desc: '月令德秀，主心地善良、福泽深厚、人见人爱、福禄悠远。',
     significance: '化解凶煞，提升贵人运与家庭福气。',
   },
   文昌贵人: {
-    type: '吉',
-    origin: '《星平会海》：“文昌者，食神之禄也。主聪明秀拔，利于科考文章。”',
     desc: '文采斐然，才思敏捷，学业优异，擅长思考与文字创作。',
     significance: '主考学顺遂、文化功名、专业领域脱颖而出。',
   },
   学堂: {
-    type: '吉',
-    origin: '《三命通会》：“学堂者，长生之位也，如人入官学，有学问名誉。”',
     desc: '主文思泉涌、好学博闻、利于学术研究与名校深造。',
     significance: '主学力深厚，多为书香世家或学者导师之才。',
   },
   词馆: {
-    type: '吉',
-    origin: '《三命通会》：“词馆者，临官之所也。词章翰墨，灿然成文。”',
     desc: '文辞华美，口才出众，著作等身，名扬四方。',
     significance: '利于写作、演讲、教育、宣传与文化事业。',
   },
   国印贵人: {
-    type: '吉',
-    origin: '《三命通会》：“国印者，禄前九位也。掌印秉权，守信重节。”',
     desc: '主为人诚实稳重、掌权秉印、严谨守则、受人重托。',
     significance: '主职权升迁、管理才能、企事业单位掌章印。',
   },
   将星: {
-    type: '吉',
-    origin: '《三命通会》：“将星者，三合之旺位也。常欲吉星相助，贵气威武。”',
     desc: '领导才能，威严决断，临危不惧，能统领团队或掌权柄。',
     significance: '主管理领导力、军警政界或企业高管之象。',
   },
   金舆: {
-    type: '吉',
-    origin: '《三命通会》：“金舆者，黄金之车也，君子居之有车马之富。”',
     desc: '主出入豪轩、享福康宁、得配偶家力相助、财源丰厚。',
     significance: '主物质富足、出行平安、配偶贤惠富贵。',
   },
   华盖: {
-    type: '吉',
-    origin: '《渊海子平》：“华盖者，喻如宝盖，天星之名也。性喜幽静，好佛道艺术。”',
     desc: '才华超群，清高孤傲，喜好哲学、心理、艺术、宗教，具玄学灵性。',
     significance: '主才华与艺术灵感，但略显孤高出世。',
   },
   驿马: {
-    type: '中性',
-    origin: '《三命通会》：“驿马者，少阳之气，主动不主静。吉神乘之多升迁，凶煞乘之多奔波。”',
     desc: '主迁变远行、出国进修、经商走动、事业开拓。',
     significance: '逢吉神则步步高升，逢冲刑则劳碌奔波。',
   },
   红鸾: {
-    type: '吉',
-    origin: '《三命通会》：“红鸾星动，喜气盈门。主婚姻喜庆、人缘和美。”',
     desc: '主容貌秀美、桃花正缘、人缘上佳、婚恋喜庆。',
     significance: '主正缘桃花、异性贵人相助、情感幸福。',
   },
   天喜: {
-    type: '吉',
-    origin: '《三命通会》：“天喜为红鸾对宫，主开朗吉祥、添丁进禄。”',
     desc: '主性格乐观、喜笑颜开、逢凶化吉、喜事连连。',
     significance: '主身心愉悦、家庭和顺、带来吉祥福运。',
   },
-  天赦: {
-    type: '吉',
-    origin: '《渊海子平》：“天赦者，天帝赦免众罪之日也。命中逢之，诸凶化解。”',
+  天赦日: {
     desc: '至德吉神，遇险消灾，免除刑罚官非，绝处逢生。',
     significance: '主官非不侵、遇险逢生、晚景福寿绵长。',
   },
   禄神: {
-    type: '吉',
-    origin: '《三命通会》：“禄，爵禄也。当得势而享福，丰衣足食之本。”',
     desc: '福禄丰厚，自立自强，衣食无忧，事业财运根基扎实。',
     significance: '主身强任财官、薪禄优厚、一生食禄无亏。',
   },
   金神: {
-    type: '吉',
-    origin: '《相心赋》：“金神入火乡，富贵天下响。”',
     desc: '性情坚毅威严，聪慧果敢，行火运大发富贵。',
     significance: '主威武不屈、敢作敢当、后劲十足。',
   },
   魁罡: {
-    type: '吉',
-    origin: '《三命通会》：“魁罡四位日最昌，叠叠相逢大异常。聪明果断，掌生杀之权。”',
     desc: '性格刚烈，才思敏捷，见义勇为，临事果决，具非凡魄力。',
     significance: '主掌权得势、领袖风范，忌逢财官冲破。',
   },
   羊刃: {
-    type: '凶',
-    origin: '《滴天髓》：“羊刃者，极旺之所，司掌刑伤与威武。”',
     desc: '刚烈果决，胆识过人。有制化则成大将威权，无制化则性躁易伤。',
     significance: '配七杀为“羊刃驾杀”大贵，无制防冲动与损伤。',
   },
-  咸池: {
-    type: '中性',
-    origin: '《三命通会》：“咸池者，沐浴之乡，主风雅多情，艺术才华。”',
+  桃花: {
     desc: '容貌清秀，多情多思，人缘极佳，具审美与表演艺术天分。',
     significance: '主艺术审美与异性人缘，须重克己修身。',
   },
   童子煞: {
-    type: '中性',
-    origin: '传统命理术数传抄：“童子清修，仙缘夙慧，清奇俊秀。”',
     desc: '容貌俊秀，聪颖灵动，体质略显敏感，常带玄学道缘或艺术天分。',
     significance: '多主悟性极高、心思纯粹，宜重身心养护与修身。',
   },
   阴差阳错: {
-    type: '中性',
-    origin: '《三命通会》：“阴差阳错日，多主姻缘迟缓或波折，先难后顺。”',
     desc: '情路波折，沟通需多包容理解，宜晚婚或同舟共济。',
     significance: '提醒在婚恋交往中多体谅沟通，化解误会。',
   },
   孤辰: {
-    type: '凶',
-    origin: '《三命通会》：“男怕孤辰，女怕寡宿。主独立清冷，个性自立。”',
     desc: '性格独立清高，喜静不喜喧闹，耐得住寂寞，宜科研艺术。',
     significance: '主内心独具天地，独立创业或专注专研可成大器。',
   },
   寡宿: {
-    type: '凶',
-    origin: '《三命通会》：“寡宿独守，清净自修。”',
     desc: '孤芳自赏，思想深邃，重精神追求，少逐世俗名利。',
     significance: '主精神世界丰富，利于学术、技术精深钻研。',
   },
   亡神: {
-    type: '凶',
-    origin: '《三命通会》：“亡神者，吉则深谋远虑，凶则争讼是非。”',
     desc: '城府深密，智谋过人，敏锐洞察。吉则谋略超群，凶则思虑过度。',
     significance: '主深谋远虑与策略策划能力。',
   },
   劫煞: {
-    type: '凶',
-    origin: '《三命通会》：“劫煞主执拗，吉则威严刚决，凶则破耗阻隔。”',
     desc: '刚毅果决，行动迅猛。吉则果断成就，凶则防突发波折。',
     significance: '主魄力担当，宜谋定而后动。',
   },
   灾煞: {
-    type: '凶',
-    origin: '《三命通会》：“灾煞者，冲太岁之位也，常防外来阻滞。”',
     desc: '警惕外在风险，宜防口舌争端与行车安全，小心谨慎为上。',
     significance: '提醒居安思危、防微杜渐。',
   },
   元辰: {
-    type: '凶',
-    origin: '《三命通会》：“元辰者，大耗也。形貌清癯，喜怒不形于色。”',
     desc: '思维深沉，善于观察，不拘俗礼，防口舌误解。',
     significance: '宜多表达沟通，广结善缘。',
   },
   天罗地网: {
-    type: '凶',
-    origin: '《渊海子平》：“辰戌为天罗，丑未为地网。主滞留羁绊，宜修心破局。”',
-    desc: '行事常遇瓶颈羁绊，须耐住性子，沉潜蓄力，突破方见光明。',
-    significance: '主磨炼心志、突破瓶颈后格局更广。',
+    desc: '戌亥相见称天罗，辰巳相见称地网；传统以罗网比喻阻滞。',
+    significance: '仅作传统辅助取象，仍须结合四柱结构参看。',
   },
   十恶大败: {
-    type: '凶',
-    origin: '《三命通会》：“六甲旬中，无禄之日为大败。”',
-    desc: '开销慷慨，散财聚人，金钱观念豁达，须重理性规划储蓄。',
-    significance: '提醒加强财务预算与稳健投资。',
+    desc: '传统以日柱旬中禄入空亡为此名，原典亦要求参看其他吉神。',
+    significance: '不能只凭此项推断财务状况或整盘吉凶。',
   },
 };
 
@@ -855,23 +801,16 @@ export function buildEnhancedPatternUsefulGodSection(
   const useful = baziResult.analysis.usefulGod;
   const transformation = baziResult.analysis.mingGe.transformation;
   const usefulTransformation = useful.decisionEvidence?.transformation;
-  const transformationFacts = transformation
-    ? [
-        `化气判定：${transformation.status}；化神${transformation.element}。${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `成化主格取用主体：化神${transformation.element}；原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
-      ]
-    : [];
   const classicPrefix =
     transformation?.status === '成化'
       ? `原日主${dayMasterGan}的经典调候与格局资料作旁参，主格取用以化神${transformation.element}为主体。`
       : '';
-  const functionFacts = formatUsefulGodFunctions(useful);
+  const functionFacts = formatUsefulGodFunctions(useful, transformation?.status !== '成化');
+  const strategyTrace = (useful.strategyTrace ?? []).filter(
+    (item) =>
+      transformation?.status !== '成化' ||
+      (item !== usefulTransformation?.basis && !transformation.conditions.includes(item)),
+  );
 
   return {
     pattern: {
@@ -887,8 +826,8 @@ export function buildEnhancedPatternUsefulGodSection(
         baziResult.analysis.mingGe.basis || `由月令${baziResult.pillars.month.zhi}藏干透出立格`,
       transformation,
       specialAdjudication: baziResult.analysis.mingGe.specialAdjudication,
-      formationAnalysis: transformationFacts.length
-        ? transformationFacts.join('；')
+      formationAnalysis: transformation
+        ? ''
         : baziResult.analysis.mingGe.isSpecial
           ? '全局气势专一或极度顺应某类五行，取顺势化裁为用。'
           : '依子平正理以月令提纲为枢机，兼看透干会局以定格局清浊高下。',
@@ -901,33 +840,35 @@ export function buildEnhancedPatternUsefulGodSection(
       unfavorable: useful.unfavorable || [],
       usefulGodCategory: useful.primaryReason || '扶抑取中',
       reasoning:
-        [...(useful.strategyTrace ?? []), ...functionFacts].join('；') ||
-        '综合日主旺衰与全局五行流通评定。',
-      strategyTrace: useful.strategyTrace || [],
+        [...strategyTrace, ...functionFacts].join('；') || '综合日主旺衰与全局五行流通评定。',
+      strategyTrace,
       transformation: usefulTransformation,
     },
     qiongtongAdvice: qiongtongRaw
       ? {
           title: `${qiongtongRaw.dayMaster}生于${qiongtongRaw.monthBranch}月`,
           source: '《穷通宝鉴》十干四季调候',
-          summary: `${classicPrefix}${qiongtongRaw.seasonSummary}`,
+          summary: `${classicPrefix}${qiongtongRaw.modernExplanation}`,
           quotes: [qiongtongRaw.classicVerse],
         }
       : undefined,
     ditiansuiAdvice: ditiansuiRaw
       ? {
-          title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）`,
-          source: ditiansuiRaw.sourceBook || '《滴天髓》干支论性',
-          summary: `${classicPrefix}${ditiansuiRaw.modernAdvice}`,
+          title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）日干体象`,
+          source: ditiansuiRaw.sourceBook || '《滴天髓》天干论',
+          summary: `十干静态体象：${ditiansuiRaw.nature}${ditiansuiRaw.modernAdvice}`,
           quotes: [ditiansuiRaw.verse],
         }
       : undefined,
     zipingAdvice: zipingRaw
       ? {
-          title: zipingRaw.pattern,
+          title:
+            zipingRaw.pattern === baziResult.analysis.mingGe.pattern
+              ? zipingRaw.pattern
+              : `${baziResult.analysis.mingGe.pattern}（参照${zipingRaw.pattern}）`,
           source: zipingRaw.sourceBook || '《子平真诠》格局精微',
-          summary: `${classicPrefix}${zipingRaw.modernAdvice}`,
-          quotes: [zipingRaw.verse, zipingRaw.rule].filter((q): q is string => Boolean(q)),
+          summary: `${classicPrefix}${zipingRaw.rule}${zipingRaw.modernAdvice}`,
+          quotes: [zipingRaw.verse].filter((q): q is string => Boolean(q)),
         }
       : undefined,
   };
@@ -1306,7 +1247,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
   });
 }
 
-/** 整理全息神煞谱系与典故考据 */
+/** 整理八字神煞与传统取象 */
 export function buildEnhancedShenShaSection(baziResult: BaziChartResult): MingluShenShaItem[] {
   const items: MingluShenShaItem[] = [];
   const rawShensha = baziResult.shensha;
@@ -1353,19 +1294,18 @@ export function buildEnhancedShenShaSection(baziResult: BaziChartResult): Minglu
   // 组装神煞详细卡片
   shenshaMap.forEach((info, name) => {
     const detail = SHENSHA_DETAILS_MAP[name] || {
-      type: getShenShaType(name === '天罗地网' ? '天罗' : name),
-      origin: '《三命通会》与《渊海子平》诸篇所载吉凶神煞。',
-      desc: '传统经典吉凶神煞，主命局所受特殊能量磁场之感应。',
-      significance: '依所在柱位与喜忌神配合参看。',
+      desc: '排盘规则命中的神煞，需结合四柱结构参看。',
+      significance: '作为传统辅助取象，不单独推断现实结果。',
     };
 
     items.push({
       id: `shensha-${name}`,
       name,
-      type: detail.type,
+      type: getShenShaType(name),
       pillars: Array.from(info.pillars),
-      foundRuleBasis: '查四柱干支与日干月令而得',
-      traditionalDescription: detail.origin + ' ' + detail.desc,
+      foundRuleBasis:
+        name === '天罗地网' ? '戌亥相见为天罗，辰巳相见为地网' : '按排盘神煞规则核对四柱',
+      traditionalDescription: detail.desc,
       significance: detail.significance,
       tenGodCombo: Array.from(info.tenGodCombos).join('；') || undefined,
       anchorId: `shensha-${name}`,
@@ -1404,7 +1344,7 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       housesSixKin: pillarNames.map((label, index) => ({
         pillar: PILLAR_KEYS[index],
         pillarLabel: `${label}（${index === 3 ? '待补时' : '已确定柱'}）`,
-        ageRange: ['1 - 16 岁', '17 - 32 岁', '33 - 48 岁', '49 岁以后'][index]!,
+        ageRange: ['早年取象', '青年取象', '中年取象', '晚年取象'][index]!,
         sixKinSignificance:
           index === 3 ? '时柱资料待补。' : '仅列已确定柱位，十神及六亲细断待补时。',
         environmentSignificance: '待出生时分确定后再作完整推断。',
@@ -1442,7 +1382,7 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       isExposed,
       isHidden,
       pillars: Array.from(new Set(involvedPillars)),
-      psychology: `${god}心性：代表内在思维驱动力与行事风格。`,
+      psychology: TEN_GODS_DEFINITIONS[god].description,
       careerSymbol: '在事业中象征相关资源与发展路径。',
       wealthSymbol: '在财富中体现求财模式与管理格局。',
       relationshipSymbol: '在人际六亲中对应相应伦理关系。',
@@ -1480,49 +1420,43 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
       desc: `${channel.from}见${familyPositions(channel.from).join('、')}；${channel.to}见${familyPositions(channel.to).join('、')}。`,
     }));
 
+  const actualTenGods = (key: (typeof PILLAR_KEYS)[number]) => [
+    key === 'day' ? '日元自身' : baziResult.tenGods[key],
+    ...baziResult.hiddenTenGods[key],
+  ];
+
   const housesSixKin = [
     {
       pillar: 'year',
       pillarLabel: '年柱 (祖上/父母/早年)',
-      ageRange: '1 - 16 岁',
-      sixKinSignificance: '代表祖辈家风、父母庇荫与早年生活环境。',
-      environmentSignificance: '外部宏观环境、早期根基与社会大背景。',
-      actualTenGods: [
-        baziResult.tenGods.year,
-        getTenGodForBranch(pillars.year.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '早年取象',
+      sixKinSignificance: '年柱用于观察祖辈与早年家庭背景，具体六亲须结合十神实际落位。',
+      environmentSignificance: '早期家庭背景与成长环境的取象。',
+      actualTenGods: actualTenGods('year'),
     },
     {
       pillar: 'month',
       pillarLabel: '月柱 (父母/兄弟/青年/提纲)',
-      ageRange: '17 - 32 岁',
-      sixKinSignificance: '代表父母手足、同侪人脉与青年学业事业开端。',
-      environmentSignificance: '职场平台、核心机遇与人际核心圈。',
-      actualTenGods: [
-        baziResult.tenGods.month,
-        getTenGodForBranch(pillars.month.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '青年取象',
+      sixKinSignificance: '月柱用于观察父母手足与成长环境，具体六亲须结合十神实际落位。',
+      environmentSignificance: '成长过程与社会环境的取象。',
+      actualTenGods: actualTenGods('month'),
     },
     {
       pillar: 'day',
       pillarLabel: '日柱 (自身/配偶/中年)',
-      ageRange: '33 - 48 岁',
-      sixKinSignificance: '日干为命主自身，日支为配偶宫，代表夫妻关系与家庭核心。',
-      environmentSignificance: '中年立业安家、婚姻家庭与自我价值实现。',
-      actualTenGods: ['日元自身', getTenGodForBranch(pillars.day.zhi, dayMasterGan)].filter(
-        Boolean,
-      ),
+      ageRange: '中年取象',
+      sixKinSignificance: '日干为命主自身，日支为配偶宫；日支藏干须逐一核对。',
+      environmentSignificance: '自身及家庭生活环境的取象。',
+      actualTenGods: actualTenGods('day'),
     },
     {
       pillar: 'hour',
       pillarLabel: '时柱 (子女/晚年/归宿)',
-      ageRange: '49 岁以后',
-      sixKinSignificance: '代表子女晚辈、下属团队与晚年福禄归宿。',
-      environmentSignificance: '事业终极成就、晚年安康与精神传承。',
-      actualTenGods: [
-        baziResult.tenGods.hour,
-        getTenGodForBranch(pillars.hour.zhi, dayMasterGan),
-      ].filter(Boolean),
+      ageRange: '晚年取象',
+      sixKinSignificance: '时柱用于观察子女晚辈，具体六亲须结合十神实际落位。',
+      environmentSignificance: '子女晚辈与晚年环境的取象。',
+      actualTenGods: actualTenGods('hour'),
     },
   ];
 
@@ -1699,7 +1633,10 @@ function getFirstMonthStem(yearStem: string): string {
   return '甲';
 }
 
-function calculateYearlyMonths(yearGanZhi: string, dayMasterGan: string): MingluMonthlyData[] {
+function calculateYearlyMonths(
+  yearGanZhi: string,
+  dayMasterGan: string,
+): Omit<MingluMonthlyData, 'startDateTime' | 'endDateTime'>[] {
   const yGan = yearGanZhi.slice(0, 1);
   const firstStem = getFirstMonthStem(yGan);
   const startStemIndex = HEAVENLY_STEMS.indexOf(firstStem as (typeof HEAVENLY_STEMS)[number]);
@@ -1853,6 +1790,8 @@ export function buildEnhancedLuckChronicleSection(
 ): MingluLuckChronicleSectionData {
   const { luckInfo, dayMaster } = baziResult;
   const dayMasterGan = dayMaster.gan;
+  const formatBoundary = (time: SolarDateTimeInfo) =>
+    `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')} ${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(time.second).padStart(2, '0')}`;
 
   if (isUnknownTimeChart(baziResult)) {
     return {
@@ -1865,7 +1804,9 @@ export function buildEnhancedLuckChronicleSection(
   }
 
   const cycles = luckInfo.cycles.map((cycle, cIndex) => {
-    const sourceYears = cycle.resolvedYears || cycle.years || [];
+    const cycleRange = getLuckCycleTimeRange(cycle);
+    // 交运节令年在前后两运各占一段，须以原始流年和精确时间交集保留两段。
+    const sourceYears = cycle.years?.length ? cycle.years : cycle.resolvedYears || [];
     const cleanGanZhi = (cycle.ganZhi || '').replace(
       /[^甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]/g,
       '',
@@ -1880,7 +1821,7 @@ export function buildEnhancedLuckChronicleSection(
     const luckZhiTenGod = isZhiValid ? getTenGodForBranch(zhi, dayMasterGan) : '—';
     const luckStage = isZhiValid ? getLifeStage(dayMasterGan, zhi) : '—';
 
-    const { lifeTheme, careerAdvice } = getLuckThemeAndAdvice(
+    const { lifeTheme: dayunLifeTheme, careerAdvice } = getLuckThemeAndAdvice(
       cycle.age,
       luckTenGod,
       luckZhiTenGod,
@@ -1888,7 +1829,7 @@ export function buildEnhancedLuckChronicleSection(
       baziResult.analysis.usefulGod,
     );
 
-    const annualYears: MingluAnnualYearItem[] = sourceYears.map((y) => {
+    const annualYears: MingluAnnualYearItem[] = sourceYears.flatMap((y) => {
       const cleanYearGZ = (y.ganZhi || '').replace(
         /[^甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]/g,
         '',
@@ -1898,7 +1839,39 @@ export function buildEnhancedLuckChronicleSection(
       const isYGanValid = isHeavenlyStem(yGan);
       const isYZhiValid = isEarthlyBranch(yZhi);
 
-      const months = calculateYearlyMonths(y.ganZhi, dayMasterGan);
+      // 与节令日历共用同一交节算法，流月边界取起节至下一起节。
+      const calendarMonths = Array.from({ length: 12 }, (_, index) => {
+        const term = SolarTerm.fromIndex(y.year, 3 + index * 2);
+        const start = toNativeDate(toSolarDateTimeInfo(term.getJulianDay().getSolarTime()));
+        const end = toNativeDate(toSolarDateTimeInfo(term.next(2).getJulianDay().getSolarTime()));
+        return { timeRange: createLocalTimeRange(start, end) };
+      });
+      const firstMonth = calendarMonths[0];
+      const lastMonth = calendarMonths.at(-1);
+      const yearRange =
+        firstMonth && lastMonth
+          ? intersectLocalTimeRanges(
+              createLocalTimeRange(
+                new Date(firstMonth.timeRange.startTimestamp),
+                new Date(lastMonth.timeRange.endTimestamp),
+              ),
+              cycleRange,
+            )
+          : null;
+      if (!yearRange) return [];
+
+      const baseMonths = calculateYearlyMonths(y.ganZhi, dayMasterGan);
+      const months: MingluMonthlyData[] = calendarMonths.flatMap((month, index) => {
+        const covered = intersectLocalTimeRanges(month.timeRange, cycleRange);
+        if (!covered) return [];
+        return [
+          {
+            ...baseMonths[index]!,
+            startDateTime: formatBoundary(covered.start),
+            endDateTime: formatBoundary(covered.end),
+          },
+        ];
+      });
       // 童限条目无干支，不参与岁运合冲判定
       const { specialEvents, natalInteractions, luckInteractions, yearTheme } = isXiaoyun
         ? {
@@ -1909,38 +1882,39 @@ export function buildEnhancedLuckChronicleSection(
           }
         : detectSpecialEvents(baziResult, cycle.ganZhi, y.ganZhi);
 
-      return {
-        year: y.year,
-        ganZhi: y.ganZhi,
-        age: y.age,
-        tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
-        zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
-        nayin: NAYIN_MAP[y.ganZhi] || '—',
-        taiSuiShensha: isYZhiValid ? [`太岁值${yZhi}`, `本命${y.ganZhi}`] : [],
-        interactionWithNatal: natalInteractions,
-        interactionWithLuck: luckInteractions,
-        specialEvents,
-        yearTheme,
-        months,
-      };
+      return [
+        {
+          year: y.year,
+          startDateTime: formatBoundary(yearRange.start),
+          endDateTime: formatBoundary(yearRange.end),
+          ganZhi: y.ganZhi,
+          age: y.age,
+          ...(isXiaoyun && y.xiaoyun ? { xiaoyun: y.xiaoyun } : {}),
+          tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
+          zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
+          nayin: NAYIN_MAP[y.ganZhi] || '—',
+          taiSuiShensha: [],
+          interactionWithNatal: natalInteractions,
+          interactionWithLuck: luckInteractions,
+          specialEvents,
+          yearTheme,
+          months,
+        },
+      ];
     });
-
-    // 依据真实起止时间推算跨度，避免把童限统一按十年标注
-    const startSolarYear = cycle.startSolarTime?.year;
-    const endSolarYear = cycle.endSolarTime?.year;
-    const spanYears =
-      startSolarYear !== undefined && endSolarYear !== undefined
-        ? Math.max(1, endSolarYear - startSolarYear)
-        : 10;
+    const firstYear = annualYears[0];
+    const lastYear = annualYears.at(-1);
 
     return {
       cycleIndex: cIndex + 1,
+      startDateTime: formatBoundary(cycleRange.start),
+      endDateTime: formatBoundary(cycleRange.end),
       entryType: isXiaoyun ? ('小运' as const) : ('大运' as const),
       isXiaoyun,
-      startAge: cycle.age,
-      endAge: cycle.age + spanYears - 1,
-      startYear: cycle.year,
-      endYear: cycle.year + spanYears - 1,
+      startAge: firstYear?.age ?? cycle.age,
+      endAge: lastYear?.age ?? cycle.age,
+      startYear: firstYear?.year ?? cycle.year,
+      endYear: lastYear?.year ?? cycle.year,
       ganZhi: cycle.ganZhi,
       tenGod: luckTenGod,
       zhiTenGod: luckZhiTenGod,
@@ -1952,8 +1926,8 @@ export function buildEnhancedLuckChronicleSection(
       interactionWithNatal: isXiaoyun
         ? ['童限期统领起运前岁月，流年备查']
         : [`大运${cycle.ganZhi}主事十年，统领岁干流变`],
-      lifeTheme,
-      careerAdvice,
+      lifeTheme: isXiaoyun ? '出生至首运交接前为童限，逐年小运见对应流年。' : dayunLifeTheme,
+      careerAdvice: isXiaoyun ? '' : careerAdvice,
       annualYears,
     };
   });
@@ -2077,23 +2051,28 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
 
   const usefulGod = baziResult.analysis.usefulGod;
   const transformation = baziResult.analysis.mingGe.transformation;
-  const transformationEvidence = usefulGod.decisionEvidence?.transformation;
-  const usefulFunctionFacts = formatUsefulGodFunctions(usefulGod);
+  const usefulFunctionFacts = formatUsefulGodFunctions(
+    usefulGod,
+    transformation?.status !== '成化',
+  ).filter((fact) => transformation?.status !== '成化' || !fact.startsWith('化神取用：'));
   const transformationPlain =
-    transformation?.status === '成化'
-      ? `化气判定为成化，化神${transformation.element}为取用主体。${transformation.basis}。${transformation.evidence.join('；')}。原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`
-      : '';
-  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。${transformationPlain || `本局五行取用为【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。`}${usefulFunctionFacts.length ? ` ${usefulFunctionFacts.join('；')}` : ''}`;
+    transformation?.status === '成化' ? `化神${transformation.element}为取用主体。` : '';
+  const incrementPlain =
+    usefulGod.incrementStatus === '待判'
+      ? '增补五行喜忌待判，原局格神与制化作用按已证条件分别记录。'
+      : `本局增补五行取用为【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。`;
+  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。${transformationPlain || incrementPlain}${usefulFunctionFacts.length ? ` ${usefulFunctionFacts.join('；')}` : ''}`;
 
   const favorableHabitsPlain =
     transformation?.status === '成化'
       ? [
-          `化神取用主体：【${transformation.element}】；${transformationEvidence?.basis || transformation.basis}。原日主十神【${primaryUseful}】保留为本命事实，生活与工作取向结合化神及其条件核验。`,
-          `成化格局：【${patternName}】；判定条件：${transformation.conditions.join('；') || '按盘面化气依据复核'}。`,
+          `原日主十神【${primaryUseful}】保留为本命事实，生活与工作取向结合化神及其条件核验。`,
           `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
         ]
       : [
-          `核心调和五行：【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】；建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
+          usefulGod.incrementStatus === '待判'
+            ? '增补五行喜忌待判；生活与工作取向结合已证原局作用和现实条件。'
+            : `核心调和五行：【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】；建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
           `格局定位：【${patternName}】，代表你的人生成就主要依托于这一核心天赋引擎的有效运转。`,
           `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
         ];

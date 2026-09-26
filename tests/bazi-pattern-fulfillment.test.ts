@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { evaluatePatternFulfillment } from '../packages/core/src/bazi/baziPatternFulfillment';
 import { getTenGod } from '../packages/core/src/bazi/baziUtils';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
+import { determineUsefulGod } from '../packages/core/src/bazi/baziUsefulGodStrategy';
+import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import type { Pillars } from '../packages/core/src/bazi/baziTypes';
 
 function pillars(values: [string, string, string, string]): Pillars {
@@ -17,6 +19,20 @@ function pillars(values: [string, string, string, string]): Pillars {
     ]),
   ) as unknown as Pillars;
 }
+
+test('月干正官若非月支所藏，不能仅凭其透干认作正官月令', () => {
+  const result = evaluatePatternFulfillment(
+    pillars(['戊申', '辛亥', '甲子', '乙亥']),
+    '甲',
+    '正官格',
+    getTenGod,
+  );
+  assert.equal(
+    result.conditionFacts?.find((item) => item.key === 'pattern.month-gate')?.status,
+    '不满足',
+  );
+  assert.equal(result.status, '平常');
+});
 
 test('正官见伤印财保留柱位与相碍条件，透印本身不判破而复成', () => {
   const chart = pillars(['壬申', '己酉', '甲子', '丁卯']);
@@ -77,6 +93,135 @@ test('食印并见的七杀格保留两条取用与印制食反证', () => {
   );
   assert.ok(
     !withoutExposedYin.remedies.some((item) => item.tenGod === '偏印' && item.placement === '透干'),
+  );
+});
+
+test('印化杀两段须由同一柱位印星承接，不能拼接同字异柱', () => {
+  const disconnected = evaluatePatternFulfillment(
+    pillars(['壬子', '庚申', '甲辰', '壬子']),
+    '甲',
+    '七杀格',
+    getTenGod,
+  );
+  const killingToSeal = disconnected.pathEvaluations!.find((path) => path.key === '七杀生印')!;
+  const sealToSelf = disconnected.pathEvaluations!.find((path) => path.key === '印生身')!;
+  const brokenChain = disconnected.pathEvaluations!.find((path) => path.key === '印化杀')!;
+  assert.equal(killingToSeal.status, '满足');
+  assert.equal(sealToSelf.status, '满足');
+  assert.deepEqual(
+    killingToSeal.effectivePairs?.map((pair) => [pair.targetPillar, pair.targetStem]),
+    [['year', '壬']],
+  );
+  assert.deepEqual(
+    sealToSelf.effectivePairs?.map((pair) => [pair.sourcePillar, pair.sourceStem]),
+    [['hour', '壬']],
+  );
+  assert.equal(brokenChain.status, '不满足');
+  assert.match(brokenChain.detail, /同一柱位的中继干/);
+  assert.equal(disconnected.status, '破格');
+  assert.match(disconnected.decisionDetail!, /中间印星却未由同一柱位连续承接/);
+
+  const connected = evaluatePatternFulfillment(
+    pillars(['庚申', '壬申', '甲午', '辛卯']),
+    '甲',
+    '七杀格',
+    getTenGod,
+  );
+  const validChain = connected.pathEvaluations!.find((path) => path.key === '印化杀')!;
+  assert.equal(validChain.status, '满足');
+  assert.ok(
+    validChain.effectivePairs?.some(
+      (pair) => pair.sourcePillar === 'year' && pair.sourceStem === '庚',
+    ),
+  );
+  assert.equal(connected.status, '成格');
+
+  const duplicatedSeal = evaluatePatternFulfillment(
+    pillars(['庚申', '壬申', '甲辰', '壬子']),
+    '甲',
+    '七杀格',
+    getTenGod,
+  );
+  assert.equal(duplicatedSeal.status, '成格');
+  const useful = determineUsefulGod(
+    '身弱',
+    { pattern: '七杀格', isSpecial: false, fulfillment: duplicatedSeal },
+    '木',
+  );
+  assert.deepEqual(
+    useful.decisionEvidence?.natalFunctions
+      ?.filter((item) => item.pathKey === '印生身' && item.role === '制化来源')
+      .map((item) => item.pillar),
+    ['month', 'hour'],
+  );
+  assert.deepEqual(
+    useful.decisionEvidence?.controlFunctions
+      ?.find((item) => item.key === '七杀生印')
+      ?.targetRootEvidence.map((item) => item.pillar),
+    ['month'],
+  );
+});
+
+test('真实排盘七杀格的年时同印不跨柱拼成印化杀', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1943,
+    month: 9,
+    day: 14,
+    timeIndex: 7,
+    gender: 'male',
+  });
+  assert.deepEqual(
+    Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    ['癸未', '辛酉', '乙亥', '癸未'],
+  );
+  assert.equal(chart.analysis.mingGe.pattern, '七杀格');
+  const fulfillment = chart.analysis.mingGe.fulfillment!;
+  assert.equal(
+    fulfillment.pathEvaluations?.find((item) => item.key === '七杀生印')?.status,
+    '满足',
+  );
+  assert.equal(fulfillment.pathEvaluations?.find((item) => item.key === '印生身')?.status, '满足');
+  assert.equal(
+    fulfillment.pathEvaluations?.find((item) => item.key === '印化杀')?.status,
+    '不满足',
+  );
+  assert.equal(fulfillment.status, '未判定');
+  assert.match(formatBaziForPrompt(chart), /中间印星却未由同一柱位连续承接/);
+});
+
+test('真实建禄格同字食神只将时干记作日主泄秀对象', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1966,
+    month: 2,
+    day: 14,
+    timeIndex: 2,
+    gender: 'male',
+  });
+  assert.deepEqual(
+    Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    ['丙午', '庚寅', '甲辰', '丙寅'],
+  );
+  assert.equal(chart.analysis.mingGe.pattern, '建禄格');
+  assert.equal(chart.analysis.mingGe.fulfillment?.status, '成格');
+  const path = chart.analysis.mingGe.fulfillment?.pathEvaluations?.find(
+    (item) => item.key === '食伤泄秀',
+  );
+  assert.equal(path?.status, '满足');
+  assert.deepEqual(
+    path?.effectivePairs?.map((pair) => pair.targetPillar),
+    ['hour'],
+  );
+  assert.deepEqual(
+    chart.analysis.usefulGod.decisionEvidence?.natalFunctions
+      ?.filter((item) => item.pathKey === '食伤泄秀' && item.role === '制化对象')
+      .map((item) => item.pillar),
+    ['hour'],
+  );
+  assert.deepEqual(
+    chart.analysis.usefulGod.decisionEvidence?.controlFunctions
+      ?.find((item) => item.key === '食伤泄秀')
+      ?.targetRootEvidence.map((item) => item.pillar),
+    ['hour'],
   );
 });
 

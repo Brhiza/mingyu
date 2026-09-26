@@ -678,7 +678,8 @@ export function useZiweiCalculations(
       !shouldLoadZiweiPromptPayload ||
       inputState.analysisMode !== 'single' ||
       !primaryZiweiInput ||
-      promptState.ziweiScope === 'origin'
+      promptState.ziweiScope === 'origin' ||
+      promptState.ziweiScope === 'decadal'
     )
       return null;
     const dateStr = promptState.ziweiScopeDate || fixedHoroscopeContext.dateStr;

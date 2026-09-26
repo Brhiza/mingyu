@@ -186,7 +186,11 @@ function buildStarStateCondition(
   key: string,
   evidence: ZiweiStarEvidence[],
   label: string,
+  hasOrigin: boolean,
 ): CorroborationCondition {
+  if (!hasOrigin) {
+    return { key, status: '资料不足', detail: `紫微本命十二宫资料缺失，无法核验${label}状态。` };
+  }
   if (!evidence.length) {
     return { key, status: '不满足', detail: `未在关键宫记录${label}。` };
   }
@@ -231,7 +235,15 @@ function buildOriginCondition(origin: boolean): CorroborationCondition {
 function buildTimingCondition(
   ziwei: ZiweiRuntime,
   evidence: ZiweiStarEvidence[],
+  hasOrigin: boolean,
 ): CorroborationCondition {
+  if (!hasOrigin) {
+    return {
+      key: 'timing.period',
+      status: '资料不足',
+      detail: '紫微本命十二宫资料缺失，无法将运限与本命目标星曜核对。',
+    };
+  }
   const scopes = Object.values(ziwei.payloadByScope).filter(
     (payload) =>
       payload?.active_scope?.scope !== 'origin' && Boolean(payload?.active_scope?.solar_date),
@@ -316,13 +328,15 @@ export function evaluateShaYaoCorroboration(
     buildOriginCondition(Boolean(origin)),
     {
       key: 'ziwei.sha-star-position',
-      status: ziweiShaEvidence.length ? '满足' : '不满足',
-      detail: ziweiShaEvidence.length
-        ? `紫微关键宫记录${formatZiweiEvidence(ziweiShaEvidence)}。`
-        : '紫微关键宫未记录擎羊、陀罗、火星或铃星。',
+      status: !origin ? '资料不足' : ziweiShaEvidence.length ? '满足' : '不满足',
+      detail: !origin
+        ? '紫微本命十二宫资料缺失，无法核验关键宫煞曜。'
+        : ziweiShaEvidence.length
+          ? `紫微关键宫记录${formatZiweiEvidence(ziweiShaEvidence)}。`
+          : '紫微关键宫未记录擎羊、陀罗、火星或铃星。',
     },
-    buildStarStateCondition('ziwei.sha-star-state', ziweiShaEvidence, '紫微煞曜'),
-    buildTimingCondition(ziwei, ziweiShaEvidence),
+    buildStarStateCondition('ziwei.sha-star-state', ziweiShaEvidence, '紫微煞曜', Boolean(origin)),
+    buildTimingCondition(ziwei, ziweiShaEvidence, Boolean(origin)),
   ];
 
   let judgment: string;
@@ -398,13 +412,20 @@ export function evaluateGuiRenCorroboration(
     buildOriginCondition(Boolean(origin)),
     {
       key: 'ziwei.gui-star-position',
-      status: ziweiGuiEvidence.length ? '满足' : '不满足',
-      detail: ziweiGuiEvidence.length
-        ? `紫微关键宫记录${formatZiweiEvidence(ziweiGuiEvidence)}。`
-        : '紫微关键宫未记录左辅、右弼、天魁或天钺。',
+      status: !origin ? '资料不足' : ziweiGuiEvidence.length ? '满足' : '不满足',
+      detail: !origin
+        ? '紫微本命十二宫资料缺失，无法核验关键宫贵人星。'
+        : ziweiGuiEvidence.length
+          ? `紫微关键宫记录${formatZiweiEvidence(ziweiGuiEvidence)}。`
+          : '紫微关键宫未记录左辅、右弼、天魁或天钺。',
     },
-    buildStarStateCondition('ziwei.gui-star-state', ziweiGuiEvidence, '紫微贵人星'),
-    buildTimingCondition(ziwei, ziweiGuiEvidence),
+    buildStarStateCondition(
+      'ziwei.gui-star-state',
+      ziweiGuiEvidence,
+      '紫微贵人星',
+      Boolean(origin),
+    ),
+    buildTimingCondition(ziwei, ziweiGuiEvidence, Boolean(origin)),
   ];
   let judgment: string;
 

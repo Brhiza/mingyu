@@ -1134,11 +1134,10 @@ function MeihuaTraditionalBoard({
       </div>
       {meihuaJudgement ? (
         <ClassicalAnnotationCard
-          title={`${meihuaJudgement.relationType} · 基础释义（未计季节旺衰与互变卦）`}
-          source="梅花易数·体用总断"
+          title={`${meihuaJudgement.relationType} · 体用关系原文`}
+          source={meihuaJudgement.sourceBook}
           verse={meihuaJudgement.classicSummary}
-          modernAdvice={`【条目固定取象，未结合本盘季节旺衰、互卦与变卦，不能视为本局定断】
-【决策要领】${meihuaJudgement.actionAdvice}\n【求财】${meihuaJudgement.matterCategories.seekingWealth} | 【求事】${meihuaJudgement.matterCategories.wishing} | 【婚姻】${meihuaJudgement.matterCategories.marriage}`}
+          modernAdvice={meihuaJudgement.context}
         />
       ) : null}
       {tiTrigramClassic ? (
@@ -2701,7 +2700,7 @@ function formatAlmanacParticipantSummary(item: AlmanacData['participants'][numbe
   const conditions = range.branches
     .map(
       (branch) =>
-        `${formatAlmanacParticipantRangeTimestamp(branch.startTimestamp)}至${formatAlmanacParticipantRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+        `${formatAlmanacParticipantRangeTimestamp(branch.startTimestamp)}至${formatAlmanacParticipantRangeTimestamp(branch.endTimestamp)}（终点不含）司令${branch.profile.monthCommander || '待核'}，${branch.profile.incrementStatus === '待判' ? '增补五行喜忌待判' : `喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`}`,
     )
     .join('；');
   return `${item.name}：${source}；${conditions}`;
@@ -3278,7 +3277,7 @@ function HuangjiTraditionalBoard({
           ],
           [
             '元会运世',
-            `第${data.position.yuan.indexFromEpoch + 1}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
+            `第${data.position.yuan.indexFromEpoch}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
           ],
         ]}
       />

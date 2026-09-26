@@ -38,9 +38,16 @@ test('星盘各提示词入口保留全部计算点和十二宫宫头', () => {
 
 test('六爻全动卦保留全部动爻应期线索', () => {
   const data = generateLiuyao(date, { yaos: [9, 9, 9, 9, 9, 9] });
-  const text = formatDivinationInfo('liuyao', data).split('应期断诀：')[1];
+  const text = formatDivinationInfo('liuyao', data).split('应期观察条件：')[1];
   assert.ok(text);
   for (let position = 1; position <= 6; position += 1) assert.ok(text.includes(`第${position}爻`));
+  assert.doesNotMatch(text, /谋事有成|必待|方可图谋|见分晓|见转机|应期在/);
+  for (const line of data.yaosDetail) {
+    if (line.isVoid) assert.match(text, new RegExp(`第${line.position}爻[^\n]*本爻旬空`));
+    if (line.isMonthBreak) assert.match(text, new RegExp(`第${line.position}爻[^\n]*本爻月破`));
+    if (line.changedYao?.isVoid)
+      assert.match(text, new RegExp(`第${line.position}爻[^\n]*变爻${line.changedYao.dizhi}旬空`));
+  }
 });
 
 test('六爻提示词逐爻保留原爻、月日旺衰、十二长生与反伏吟详情', () => {

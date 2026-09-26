@@ -58,6 +58,7 @@ const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
   initialGroundBranch?: string;
+  initialGod?: string;
   yearBranch?: string;
   monthBranch?: string;
   monthLeader?: string;
@@ -353,10 +354,10 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
   {
     id: 'bi-kou',
     name: '闭口课',
-    category: '旬尾发用',
-    sourceTitle: '《六壬大全》卷七·毕法赋',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
-    sourceQuote: '旬尾加寅为闭口，发用事关隐密或难启齿。',
+    category: '闭口发用',
+    sourceTitle: '《六壬大全》·闭口课',
+    sourceUrl: 'https://www.shidianguji.com/book/SK1599/chapter/1k1lqkvtq89hm',
+    sourceQuote: '凡旬尾加旬首，或旬首乘玄武，或旬首位上神乘玄武，发用者，为闭口课。',
     detect(context) {
       if (!context.dayStem || !context.dayBranch) return null;
       const chu = context.transmissionBranches[0];
@@ -377,12 +378,26 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         甲寅: '亥',
       };
       const xunTailBranch = xunTailMap[xunHead];
-      return chu === xunTailBranch
-        ? {
-            branches: [chu],
-            matchedConditions: [`初传${chu}为${xunHead}旬尾（六癸之位）发用，事关隐密或难言伏匿`],
-          }
-        : null;
+      const xunHeadBranch = xunHead.charAt(1);
+      if (chu === xunTailBranch && context.initialGroundBranch === xunHeadBranch) {
+        return {
+          branches: [chu, xunHeadBranch],
+          matchedConditions: [`初传${chu}为${xunHead}旬尾，临地盘旬首${xunHeadBranch}发用`],
+        };
+      }
+      if (context.initialGod === '玄武' && chu === xunHeadBranch) {
+        return {
+          branches: [chu],
+          matchedConditions: [`初传${chu}为${xunHead}旬首，乘玄武发用`],
+        };
+      }
+      if (context.initialGod === '玄武' && context.initialGroundBranch === xunHeadBranch) {
+        return {
+          branches: [chu, xunHeadBranch],
+          matchedConditions: [`初传${chu}为地盘旬首${xunHeadBranch}上神，乘玄武发用`],
+        };
+      }
+      return null;
     },
   },
 ];

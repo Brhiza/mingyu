@@ -1,5 +1,10 @@
-import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
-import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
+import {
+  analyzeBaziCompatibility,
+  formatBaziForPrompt,
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziChartResult,
+} from '../bazi/index';
+import { hasConfirmedPatternTarget } from '../bazi/baziAnalysisFormatter';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
@@ -164,22 +169,105 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
   const transformation = result.analysis?.mingGe?.transformation;
   const fulfillment = result.analysis?.mingGe?.fulfillment;
   const specialAdjudication = result.analysis?.mingGe?.specialAdjudication;
-  if (!fulfillment && !transformation && !specialAdjudication) return '';
-  return [
-    transformation
-      ? `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`
-      : '',
-    ...(transformation?.evidence ?? []).map((item) => `化气证据：${item}`),
-    ...(transformation?.conditions ?? []).map((item) => `化气条件：${item}`),
-    ...(transformation?.status === '成化'
-      ? [
-          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-        ]
-      : []),
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const facts: string[] = [];
+
+  // 排盘正文已有所取格局、成败和判定理由，此处只补充影响结论的实际作用。
+  if (transformation && transformation.status !== '成化' && !fulfillment && !specialAdjudication) {
+    facts.push(
+      `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+    );
+  }
+
+  if (specialAdjudication && (specialAdjudication.status === '成立' || !fulfillment)) {
+    if (!fulfillment) {
+      const pattern = result.analysis.mingGe;
+      const basis = pattern.basis ?? '';
+      const decisionAlreadySummarized =
+        specialAdjudication.status === '成立' &&
+        pattern.pattern === specialAdjudication.kind &&
+        basis.includes('成立') &&
+        Boolean(specialAdjudication.route && basis.includes(specialAdjudication.route)) &&
+        Boolean(specialAdjudication.method && basis.includes(specialAdjudication.method));
+      const statedSpecialDetails = [specialAdjudication.route, specialAdjudication.method].filter(
+        (detail) => detail && !basis.includes(detail),
+      );
+      if (!decisionAlreadySummarized) {
+        facts.push(
+          `特殊格裁决：${specialAdjudication.kind}${specialAdjudication.status}${statedSpecialDetails.length ? `；${statedSpecialDetails.join('；')}` : ''}`,
+        );
+      }
+    }
+    if (specialAdjudication.status === '成立' && specialAdjudication.kind === '从儿格') {
+      facts.push(
+        `从儿五行流向：食伤${specialAdjudication.outputElement}生财${specialAdjudication.wealthElement}`,
+      );
+      facts.push(
+        ...specialAdjudication.functionalResolutions
+          .filter((item) => !result.analysis.mingGe.basis?.includes(item))
+          .map((item) => `顺局作用：${item}`),
+      );
+    }
+    if (specialAdjudication.status === '不成立' && specialAdjudication.blockers.length) {
+      facts.push(`特殊格反证：${specialAdjudication.blockers.join('；')}`);
+    }
+  }
+
+  if (
+    fulfillment &&
+    fulfillment.status !== '成格' &&
+    hasConfirmedPatternTarget(result.analysis.mingGe)
+  ) {
+    const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+    const statedBreakers =
+      result.analysis.usefulGod?.decisionEvidence?.patternBreakerRestrictions ?? [];
+    for (const breaker of fulfillment.activeBreakers ?? []) {
+      if (
+        breaker.repairStatus === '不满足' &&
+        breaker.stems.length > 0 &&
+        statedBreakers.some(
+          (stated) =>
+            stated.label === breaker.label &&
+            breaker.stems.every((stem) =>
+              stated.stems.some((item) => item.stem === stem.stem && item.pillar === stem.pillar),
+            ),
+        )
+      ) {
+        continue;
+      }
+      const stems = breaker.stems
+        .map((item) => `${item.stem}${item.tenGod}（${item.pillarName}）`)
+        .join('、');
+      facts.push(`破格项：${breaker.label}${stems ? `（${stems}）` : ''}`);
+      if (breaker.repairStatus === '满足') {
+        const path = fulfillment.pathEvaluations?.find(
+          (item) =>
+            breaker.repairPathKeys.includes(item.key) && item.status === breaker.repairStatus,
+        );
+        const alreadyStated =
+          path &&
+          result.analysis.usefulGod?.decisionEvidence?.controlFunctions?.some(
+            (item) =>
+              item.status === '满足' &&
+              item.sourceStems.length > 0 &&
+              item.targetStems.length > 0 &&
+              item.label === path.label &&
+              item.sourceStems.length === path.sourceStems.length &&
+              item.sourceStems.every((stem) => path.sourceStems.includes(stem)) &&
+              item.targetStems.length === path.targetStems.length &&
+              item.targetStems.every((stem) => path.targetStems.includes(stem)),
+          );
+        if (path && !decisionDetail.includes(path.detail) && !alreadyStated) {
+          facts.push(
+            path.source.length && path.target.length
+              ? `救应路径：${path.label}；${path.source.join('、')}作用于${path.target.join('、')}（${path.position}、根气可用）`
+              : `救应路径：${path.label}；${path.detail}`,
+          );
+        }
+      }
+    }
+  }
+
+  return [...new Set(facts)].join('\n');
 }
 
 export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocument {
@@ -216,7 +304,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
       ? `分析对象：${options.fortuneScope === 'full' ? '本命盘与完整大运流年' : options.fortuneScope}`
       : '分析对象：本命盘';
   const patternConditions = formatBaziPatternConditions(options.result);
-  const focusSection = patternConditions ? buildPromptSection('格局条件', patternConditions) : '';
+  const focusSection =
+    !selectedSchools.length && !options.school && patternConditions
+      ? buildPromptSection('格局条件', patternConditions)
+      : '';
 
   const user = joinPromptSections([
     buildPromptGuidance('bazi'),
@@ -227,10 +318,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     selectedSchools.length
       ? buildPromptSection(
           selectedSchools.length > 1 ? '多派合参' : '解读流派',
-          formatBaziSchoolsPrompt(options.result, selectedSchools),
+          formatBaziSchoolsPrompt(options.result, selectedSchools, true),
         )
       : options.school
-        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school))
+        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school, true))
         : '',
     buildPromptSection('分析对象', scopeText),
     fortuneFocus ? buildPromptSection('岁运重点', fortuneFocus) : '',
@@ -291,7 +382,11 @@ export function buildBaziCompatibilityPromptDocument(
     `四柱关系：${relation.crossPillarRelations.map((item) => item.promptText).join('；') || '未见已列关系'}`,
     `跨盘组合：${relation.crossBranchCombinations.map((item) => item.promptText).join('；') || '未见已列组合'}`,
     `双向十神：${relation.tenGodMappings.map((item) => item.promptText).join('；') || '未记录'}`,
-    `喜忌覆盖：${relation.usefulGodCoverage.map((item) => item.promptText).join('；') || '资料不足'}`,
+    `喜忌覆盖：${
+      relation.usefulGodCoverage
+        .map((item) => formatBaziUsefulGodCoverageForPrompt(item))
+        .join('；') || '资料不足'
+    }`,
     relation.summaryFact.promptText,
   ].join('\n');
   const selectedSchools = normalizeBaziPromptSchools(options.schools);

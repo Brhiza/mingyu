@@ -96,9 +96,12 @@ test('司令变化保留每段取用顺序，稳定区间不虚增分支', () =>
       branch.context.favorableElements,
     ]),
     [
-      ['戊', ['土', '火', '金']],
-      ['丙', ['火', '土', '金']],
+      ['戊', []],
+      ['丙', []],
     ],
+  );
+  assert.ok(
+    commander.birthRange?.branches.every((branch) => branch.context.incrementStatus === '待判'),
   );
 
   const stable = calculateNamingBirthContext({
@@ -138,13 +141,7 @@ test('各段喜用集合不同时只登记条件取用，姓名匹配不冒充�
   };
   const context = calculateNamingBirthContext(input);
   assert.deepEqual(context.birthRange?.stableFavorableElements, []);
-  assert.deepEqual(context.birthRange?.conditionalFavorableElements, [
-    '金',
-    '水',
-    '木',
-    '火',
-    '土',
-  ]);
+  assert.deepEqual(context.birthRange?.conditionalFavorableElements, ['金', '水']);
   assert.deepEqual(
     context.birthRange?.branches.map((branch) => [
       branch.context.monthContext.commander,
@@ -152,13 +149,13 @@ test('各段喜用集合不同时只登记条件取用，姓名匹配不冒充�
     ]),
     [
       ['戊', ['金', '水']],
-      ['庚', ['木', '火', '土']],
+      ['庚', []],
     ],
   );
 
   const analysis = analyzeChineseName({ fullName: '李清和', birth: input });
   assert.deepEqual(analysis.preferredElements, []);
-  assert.deepEqual(analysis.conditionalPreferredElements, ['金', '水', '木', '火', '土']);
+  assert.deepEqual(analysis.conditionalPreferredElements, ['金', '水']);
   assert.deepEqual(analysis.elementMatches, []);
   assert.ok(analysis.conditionalElementMatches.length > 0);
 });

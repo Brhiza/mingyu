@@ -311,8 +311,6 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
     lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
     lines.push(`命宅配合：${r.match}`);
   }
-  lines.push(`四吉方：${r.luckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
-  lines.push(`四凶方：${r.unluckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
   if (r.mingPalace?.length) {
     lines.push('命卦八方：');
     for (const palace of r.mingPalace) {

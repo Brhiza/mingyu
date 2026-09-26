@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   buildPatternAnalysis,
@@ -9,7 +11,10 @@ import {
   ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
   ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
 } from '@core/ziwei/iztro';
-import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis';
+import { buildEnhancedZiweiSection } from '../packages/core/src/minglu/ziwei-enhancer';
+import type { ZiweiRuntime } from '../packages/core/src/ziwei/runtime';
+import { MingluZiweiSection } from '../src/pages/ResultPage/components/MingluWiki/MingluZiweiSection';
+import type { PalaceFact, PatternFact, StarFact } from '../packages/core/src/types/analysis';
 
 const PALACE_NAMES = [
   '命宫',
@@ -71,6 +76,14 @@ function addStar(
 
 function detectedNames(palaces: PalaceFact[]): string[] {
   return detectPatterns({ palaces }).map((pattern) => pattern.name);
+}
+
+function buildZiweiSectionWithPatterns(patterns: PatternFact[]) {
+  return buildEnhancedZiweiSection({
+    payloadByScope: {
+      origin: { palaces: [], patterns, basic_info: {} },
+    },
+  } as unknown as ZiweiRuntime);
 }
 
 test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料', () => {
@@ -249,6 +262,55 @@ test('原有仍可复算的紫微格局应按各自盘面条件命中', () => {
     assert.match(pattern.source ?? '', /oldid=\d+/);
     assert.match(pattern.limitation ?? '', /不得.*现实因果|不得被反向/);
   });
+});
+
+test('命录应将紫微格局命中条件、解释与古籍原文分别展示', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const pattern = detectPatterns({ palaces }).find((item) => item.name === '紫府同宫');
+  assert.ok(pattern);
+  assert.equal(pattern.description, '紫微与天府同坐命宫。');
+  assert.deepEqual(pattern.matched_conditions, ['紫微与天府同坐命宫']);
+  assert.equal(pattern.source_title, '《紫微斗数全书》卷一·太微赋');
+  assert.equal(pattern.source_quote, '紫府同宫终身福厚。');
+
+  const section = buildZiweiSectionWithPatterns([pattern]);
+  assert.deepEqual(section.patterns[0].conditions, pattern.matched_conditions);
+  assert.equal(section.patterns[0].traditionalInterpretation, pattern.traditional_interpretation);
+  assert.equal(section.patterns[0].sourceTitle, pattern.source_title);
+  assert.equal(section.patterns[0].sourceUrl, pattern.source);
+  assert.equal(section.patterns[0].sourceQuote, pattern.source_quote);
+
+  const html = renderToStaticMarkup(createElement(MingluZiweiSection, { data: section }));
+  assert.match(html, /命中条件：紫微与天府同坐命宫/);
+  assert.match(html, /出处：<a[^>]*>《紫微斗数全书》卷一·太微赋<\/a>/);
+  assert.match(html, /<blockquote[^>]*>“紫府同宫终身福厚。”<\/blockquote>/);
+  assert.doesNotMatch(html, /<blockquote[^>]*>“紫微与天府同坐命宫。<\/blockquote>/);
+});
+
+test('命录不将只有出处 URL 的格局说明包装为古籍引文', () => {
+  const section = buildZiweiSectionWithPatterns([
+    {
+      id: 'legacy-pattern',
+      name: '旧格局',
+      kind: 'neutral',
+      description: '盘面条件说明。',
+      palace_indexes: [0],
+      palace_names: ['命宫'],
+      star_names: [],
+      matched_conditions: ['命中条件'],
+      source: 'https://example.com/original',
+    },
+  ]);
+  assert.equal(section.patterns[0].sourceTitle, undefined);
+  assert.equal(section.patterns[0].sourceQuote, undefined);
+  assert.equal(section.patterns[0].sourceUrl, 'https://example.com/original');
+
+  const html = renderToStaticMarkup(createElement(MingluZiweiSection, { data: section }));
+  assert.match(html, /出处：<a[^>]*>原文链接<\/a>/);
+  assert.match(html, /命中条件：命中条件/);
+  assert.doesNotMatch(html, /<blockquote/);
 });
 
 test('新增仍可复算的传统格局应逐条满足完整原文条件', () => {

@@ -276,7 +276,7 @@ export class LuckCalculator {
     startFortune: FortuneInstance,
   ): LiunianInfo {
     const currentYear = startYear + offset;
-    const age = currentYear - birthYear + 1;
+    const age = this.getLiunianAge(currentYear, birthYear);
     const liunian = this.calculateLiunian(currentYear, dayMaster);
     return {
       year: currentYear,
@@ -312,7 +312,7 @@ export class LuckCalculator {
 
     for (let i = 0; i < yearCount; i++) {
       const currentYear = startYear + i;
-      const age = currentYear - birthYear + 1;
+      const age = this.getLiunianAge(currentYear, birthYear);
       const liunian = this.calculateLiunian(currentYear, dayMaster);
       const xiaoyun = startFortune
         ? this.getXiaoyunForAge(startFortune, age, dayMaster)
@@ -328,6 +328,11 @@ export class LuckCalculator {
       });
     }
     return liunianList;
+  }
+
+  private getLiunianAge(currentYear: number, birthYear: number): number {
+    // 沿用大运的公历年虚岁口径；立春前出生者的首段虽属上一干支年，仍从一岁起记。
+    return Math.max(1, currentYear - birthYear + 1);
   }
 
   private getXiaoyunForAge(

@@ -345,14 +345,13 @@ export function scanQizhengPeriodEvents(params: {
       item.kind === '精确吊照' &&
       (item.aspectType === '同宫' || item.aspectType === '对照' || item.aspectType === '三方'),
   );
-  const axis = [...stations, ...palaceHits, ...tightAspects]
+  const priorityEvents = [...stations, ...palaceHits, ...tightAspects];
+  const axis = priorityEvents
     .slice(0, 12)
+    .sort((left, right) => left.utcMs - right.utcMs)
     .map((item) => item.promptText);
   const windows = clusterWindows(ordered).slice(0, 8);
-  const axisSummary = formatAxisSummary(
-    [...stations, ...palaceHits, ...tightAspects],
-    ordered.length,
-  );
+  const axisSummary = formatAxisSummary(priorityEvents, ordered.length);
   const promptText = [
     `范围：${startDateTime} 至 ${endDateTime}`,
     axisSummary
@@ -407,15 +406,18 @@ function clusterWindows(events: QizhengPeriodEvent[]) {
 function formatAxisSummary(events: QizhengPeriodEvent[], total: number) {
   const unique = [...new Map(events.map((item) => [item.key, item])).values()];
   if (!unique.length) return '';
-  const labels = unique.slice(0, 12).map((item) => {
-    if (item.kind === '停逆') {
-      return `${item.dateTime}停逆${item.movingStar}${item.stationDirection ? `（${item.stationDirection}）` : ''}`;
-    }
-    if (item.kind === '换宫') {
-      return `${item.dateTime}换宫${item.movingStar}入${item.signBranch ?? ''}宫${item.palace ?? '宫位未记录'}`;
-    }
-    return `${item.dateTime}吊照${item.movingStar}与${item.targetStar ?? '本命目标'}${item.aspectType ? `成${item.aspectType}` : ''}${item.aspectDirection ? `（${item.aspectDirection}）` : ''}`;
-  });
+  const labels = unique
+    .slice(0, 12)
+    .sort((left, right) => left.utcMs - right.utcMs)
+    .map((item) => {
+      if (item.kind === '停逆') {
+        return `${item.dateTime}停逆${item.movingStar}${item.stationDirection ? `（${item.stationDirection}）` : ''}`;
+      }
+      if (item.kind === '换宫') {
+        return `${item.dateTime}换宫${item.movingStar}入${item.signBranch ?? ''}宫${item.palace ?? '宫位未记录'}`;
+      }
+      return `${item.dateTime}吊照${item.movingStar}与${item.targetStar ?? '本命目标'}${item.aspectType ? `成${item.aspectType}` : ''}${item.aspectDirection ? `（${item.aspectDirection}）` : ''}`;
+    });
   const suffix =
     labels.length < unique.length
       ? `；主轴列${labels.length}项，完整明细共${total}项`

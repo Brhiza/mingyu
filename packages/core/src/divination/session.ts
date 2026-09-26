@@ -13,7 +13,7 @@ import { generateMeihua } from './algorithms/meihua/index';
 import { generateQimen, type QimenMethod, type QimenScope } from './algorithms/qimen/index';
 import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
-import { generateTaiyi } from '../taiyi/index';
+import { formatTaiyiConditionSummary, formatTaiyiTacticBasis, generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { calculateWuyunLiuqi } from '../wuyun-liuqi';
 import { calculateZhugeNumber, castKongmingHexagram } from '../name-number/oracles';
@@ -202,8 +202,20 @@ function buildDivinationAiPrompt(options: {
 
 function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
   const conditions = data.conditions;
+  const conditionSummary = conditions ? formatTaiyiConditionSummary(conditions) : '';
+  const repeatedCountJudgments = new Set(
+    [
+      data.countNatures?.lord ? `主算 ${data.lordCount} 为${data.countNatures.lord}。` : '',
+      data.countNatures?.guest ? `客算 ${data.guestCount} 为${data.countNatures.guest}。` : '',
+      data.countNatures?.set ? `定算 ${data.setCount} 为${data.countNatures.set}。` : '',
+    ].filter(Boolean),
+  );
+  const specialJudgments = data.judgments.filter(
+    (item) => item !== conditionSummary && !repeatedCountJudgments.has(item),
+  );
   const lines = [
-    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
+    `主客定算：主算${data.lordCount}${data.countNatures?.lord ? `（${data.countNatures.lord}）` : ''}；客算${data.guestCount}${data.countNatures?.guest ? `（${data.countNatures.guest}）` : ''}；定算${data.setCount}${data.countNatures?.set ? `（${data.countNatures.set}）` : ''}`,
+    `文昌${data.wenChangPosition}；始击${data.shiJiPosition}；计神${data.jiShenPosition}`,
     `将参：主大将${data.lordGeneral}宫、主参将${data.lordAssistant}宫；客大将${data.guestGeneral}宫、客参将${data.guestAssistant}宫；定大将${data.setGeneral}宫、定参将${data.setAssistant}宫`,
   ];
 
@@ -229,7 +241,10 @@ function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
     );
   }
 
-  if (data.tacticGuidance) lines.push(`攻守参考：${data.tacticGuidance}`);
+  if (specialJudgments.length) lines.push(`判断：${specialJudgments.join('；')}`);
+  lines.push(
+    `攻守参考：${formatTaiyiTacticBasis({ lordCount: data.lordCount, guestCount: data.guestCount })}`,
+  );
   return lines;
 }
 
@@ -238,9 +253,11 @@ function formatAiChart(
   data: DivinationData,
   summary: ReturnType<typeof getDivinationSummaryBlocks>,
 ) {
-  const base = [summary.title, summary.tags.filter(Boolean).join('；'), ...summary.lines].filter(
-    Boolean,
-  );
+  const base = [
+    summary.title,
+    summary.tags.filter(Boolean).join('；'),
+    ...(method === 'taiyi' ? [] : summary.lines),
+  ].filter(Boolean);
   if (method === 'xiaoliuren') return formatDivinationInfo(method, data);
   if (method === 'liuyao') {
     const item = data as LiuyaoData;
@@ -271,16 +288,14 @@ function formatAiChart(
     );
   } else if (method === 'wuyun') {
     const item = data as WuyunLiuqiResult;
-    base.push(
-      `年度资料：${item.input.year === undefined ? '' : `${item.input.year}年`}${item.input.yearGanZhi}；岁运${item.annualMovement.name}${item.annualMovement.toneName}${item.annualMovement.strength}；司天${item.sitian.name}；在泉${item.zaiquan.name}`,
-      `五步主客运：${item.movementSteps.map((step) => `${step.label}${step.hostMovement.element}/${step.guestMovement.element}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      item.pathomechanism?.summary ?? '',
-    );
+    base.push(`岁运五音：${item.annualMovement.toneName}`);
   } else if (method === 'jinkoujue') {
     base.push('金口诀判断依据：', ...formatJinkoujueJudgmentFacts(data as JinkoujueData));
   } else if (method === 'liuren') {
-    base.push('六壬判断依据：', ...formatLiurenJudgmentFacts(data as LiurenData));
+    base.push(
+      '六壬判断依据：',
+      ...formatLiurenJudgmentFacts(data as LiurenData, { includeOrdinaryAdjudication: false }),
+    );
   } else if (method === 'taiyi') {
     base.push('太乙判断依据：', ...formatTaiyiJudgmentFacts(data as TaiyiResult));
   } else if (method === 'almanac') {
@@ -330,6 +345,7 @@ function assertRequestRecord(request: DivinationRequest): void {
     request.method !== 'astrolabe' &&
     request.method !== 'almanac' &&
     request.method !== 'huangji' &&
+    request.method !== 'wuyun' &&
     request.method !== 'zhuge' &&
     request.method !== 'kongming'
   ) {

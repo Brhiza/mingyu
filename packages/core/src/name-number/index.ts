@@ -154,8 +154,9 @@ function calculateNamingPointBirthContext(input: NamingBirthInput) {
     },
     favorableElements,
     unfavorableElements,
+    incrementStatus: chart.analysis.usefulGod.incrementStatus ?? '待判',
     usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
-    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod),
+    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod, false),
     monthContext: {
       branch: chart.pillars.month.zhi,
       commander: chart.monthCommander,
@@ -458,6 +459,11 @@ function calculateNamingRangeContext(input: NamingBirthInput): NamingBirthContex
     ),
     favorableElements: stableFavorableElements,
     unfavorableElements: stableUnfavorableElements,
+    incrementStatus: contexts.every((context) => context.incrementStatus === '已判定')
+      ? '已判定'
+      : contexts.some((context) => context.incrementStatus !== '待判')
+        ? '部分判定'
+        : '待判',
     usefulGodReason: commonValue(
       contexts.map((context) => context.usefulGodReason),
       '各出生时段的取用依据不同，按条件分支列示。',
@@ -551,6 +557,23 @@ for (const item of allCharacters) {
   characterData[item.simplified] = item;
   characterData[item.traditional] = item;
 }
+// “发”同时对应“發”和“髮”；毛发义须保留独立字形及康熙笔画。
+const HAIR_TRADITIONAL_VARIANT: CharacterDetail = {
+  char: '髮',
+  simplified: '发',
+  traditional: '髮',
+  kangxiStrokes: 15,
+  radical: '髟',
+  wuxing: null,
+  definition: '人的头皮上生长的毛；形似头发的。',
+  simplifiedStrokes: 5,
+  traditionalStrokes: 15,
+  structure: null,
+  kangxiVolume: null,
+  kangxiSection: null,
+  common: false,
+};
+characterData[HAIR_TRADITIONAL_VARIANT.traditional] = HAIR_TRADITIONAL_VARIANT;
 const characterEntries = Object.entries(characterData);
 
 function charDetail(char: string): CharacterDetail | null {
@@ -798,7 +821,9 @@ export function selectChineseCharacters(filter: CharacterSearchFilter) {
 export async function analyzeChineseCharactersWithReferences(text: string) {
   const analysis = analyzeChineseCharacters(text);
   const characters = analysis.characters
-    .map((item) => item.detail?.simplified)
+    .map((item) =>
+      item.detail ? (item.char === '髮' ? item.char : item.detail.simplified) : undefined,
+    )
     .filter((char): char is string => Boolean(char));
   if (characters.length === 0) return analysis;
   const references = await loadKangxiReferences(characters).catch((cause: unknown) => {
@@ -808,7 +833,12 @@ export async function analyzeChineseCharactersWithReferences(text: string) {
     ...analysis,
     characters: analysis.characters.map(({ char, detail }) => ({
       char,
-      detail: detail ? { ...detail, kangxiText: references[detail.simplified] ?? null } : null,
+      detail: detail
+        ? {
+            ...detail,
+            kangxiText: references[char === '髮' ? char : detail.simplified] ?? null,
+          }
+        : null,
     })),
   };
 }
@@ -1059,7 +1089,9 @@ function formatBirthContext(
     return [
       `出生范围：北京时间 ${formatBeijingRangeTime(range.source.startTimestamp)} 至 ${formatBeijingRangeTime(range.source.endTimestamp)}（起点含、终点不含），共${range.totalSamples}个整秒。`,
       `稳定四柱：${context.pillars.join(' ')}；日主${context.dayMaster}。`,
-      `全段共同喜用：${range.stableFavorableElements.join('、') || '无共同五行，按时段分别比较'}`,
+      context.incrementStatus === '待判'
+        ? '全段增补喜用：待判'
+        : `全段共同喜用：${range.stableFavorableElements.join('、') || '未见已判定的共同五行，按时段分别比较'}`,
       ...(conditional.length ? [`条件喜用：${conditional.join('、')}，只适用于对应时段。`] : []),
       ...range.branches.flatMap((branch, index) => [
         '',
@@ -1076,7 +1108,7 @@ function formatBirthContext(
         `待补时说明：${unknownTime.summary}`,
         ...unknownTime.scenarios.map(
           (scenario) =>
-            `候选${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}`,
+            `候选${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；增补喜用${scenario.favorableWuxing.join('、')}` : scenario.incrementStatus === '待判' ? '；增补喜用待判' : ''}`,
         ),
       ]
     : [];
@@ -1104,15 +1136,10 @@ function formatBirthContext(
     ...(fulfillment
       ? [
           `格局成败：${fulfillment.status}；${fulfillment.summary}`,
-          fulfillment.basis ? `格局判定依据：${fulfillment.basis}` : '',
+          fulfillment.basis && !fulfillment.summary.includes(fulfillment.basis)
+            ? `格局判定依据：${fulfillment.basis}`
+            : '',
           fulfillment.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
-          ...fulfillment.conditions.map((condition) => `成立条件：${condition}`),
-          ...fulfillment.conditionFacts
-            .filter((condition) => !condition.key.startsWith('path.'))
-            .map((condition) => `格局条件（${condition.status}）：${condition.detail}`),
-          ...fulfillment.pathEvaluations.map(
-            (path) => `制化路径：${path.label}（${path.position}）：${path.status}；${path.detail}`,
-          ),
         ].filter(Boolean)
       : []),
     ...(unknownTime
@@ -1127,15 +1154,17 @@ function formatBirthContext(
     ...(unknownTime
       ? []
       : [`旺衰：${context.strength.status}；${context.strength.basis.join('；')}`]),
-    ...(context.climate
+    ...(context.climate && context.climate.nature !== '未见明显偏向'
       ? [
-          `寒暖分布：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
+          `水火分布参考：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
         ]
       : []),
     ...(unknownTime
       ? ['喜用五行：待补时；取用依据待出生时分确定后复核。']
       : [
-          `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
+          context.incrementStatus === '待判'
+            ? '增补喜用五行：待判'
+            : `增补喜用五行：${context.favorableElements.join('、') || '待判'}`,
           `取用依据：${context.usefulGodReason}`,
           ...context.functionalUse,
         ]),

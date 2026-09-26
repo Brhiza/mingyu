@@ -3,8 +3,9 @@ import { getWuxing } from './baziUtils';
 import { HIDDEN_STEMS } from './baziDefinitions';
 
 export interface BaziClimateBalanceResult {
-  nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
-  /** 寒暖指标对应的候选作用方向；具体干与适用条件由取用决策给出。 */
+  /** 四柱水火分布的启发式方向，不代表完整命局或调候结论。 */
+  nature: '偏寒' | '偏燥' | '未见明显偏向' | '微偏寒' | '微偏燥';
+  /** 值仍供旧消费方读取；仅是待核的作用方向，不是已确定的药神。 */
   medicine: string;
   summary: string;
 }
@@ -38,22 +39,22 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
   if (['亥', '子', '丑'].includes(monthZhi)) {
     if (fireCount <= 0.5) {
       return {
-        nature: '寒局',
-        medicine: '照暖与解冻',
-        summary: '生于冬月，透干及藏干中的火气分布稀少，寒暖指标偏寒',
+        nature: '偏寒',
+        medicine: '可核对照暖作用',
+        summary: '生于冬月，透干及藏干中的火气分布稀少，可作为核对寒暖的线索',
       };
     }
     if (fireCount >= 2.5) {
       return {
-        nature: '中和',
+        nature: '未见明显偏向',
         medicine: '核对已有温暖作用',
-        summary: '生于冬月，原局已见较多火气分布，需结合火的根气与制化核对暖局作用',
+        summary: '生于冬月，原局已见较多火气分布，需结合火的根气与制化核对实际暖局作用',
       };
     }
     return {
       nature: '微偏寒',
-      medicine: '温暖作用',
-      summary: '生于冬月，原局见少量火气分布，寒暖指标微偏寒',
+      medicine: '可核对温暖作用',
+      summary: '生于冬月，原局见少量火气分布，可作为核对寒暖的线索',
     };
   }
 
@@ -61,45 +62,44 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
   if (['巳', '午', '未'].includes(monthZhi)) {
     if (waterCount <= 0.5) {
       return {
-        nature: '燥局',
-        medicine: '润燥作用',
-        summary: '生于夏月，透干及藏干中的水气分布稀少，寒暖燥湿指标偏燥',
+        nature: '偏燥',
+        medicine: '可核对润燥作用',
+        summary: '生于夏月，透干及藏干中的水气分布稀少，可作为核对润燥的线索',
       };
     }
     if (waterCount >= 2.5) {
       return {
-        nature: '中和',
+        nature: '未见明显偏向',
         medicine: '核对已有润燥作用',
-        summary: '生于夏月，原局已见较多水气分布，需结合水的根气与制化核对润燥作用',
+        summary: '生于夏月，原局已见较多水气分布，需结合水的根气与制化核对实际润燥作用',
       };
     }
     return {
       nature: '微偏燥',
-      medicine: '润燥作用',
-      summary: '生于夏月，原局见少量水气分布，寒暖燥湿指标微偏燥',
+      medicine: '可核对润燥作用',
+      summary: '生于夏月，原局见少量水气分布，可作为核对润燥的线索',
     };
   }
 
   // 春秋平月（寅卯辰、申酉戌）
   if (waterCount >= 4.0 && fireCount <= 1.0) {
     return {
-      nature: '寒局',
-      medicine: '照暖作用',
-      summary: '原局水气分布多、火气分布少，寒暖指标偏寒',
+      nature: '偏寒',
+      medicine: '可核对照暖作用',
+      summary: '原局水气分布多、火气分布少，可作为核对寒暖的线索',
     };
   }
   if (fireCount >= 4.0 && waterCount <= 1.0) {
     return {
-      nature: '燥局',
-      medicine: '润燥作用',
-      summary: '原局火气分布多、水气分布少，寒暖燥湿指标偏燥',
+      nature: '偏燥',
+      medicine: '可核对润燥作用',
+      summary: '原局火气分布多、水气分布少，可作为核对润燥的线索',
     };
   }
 
   return {
-    nature: '中和',
-    medicine: '气序中和',
-    summary:
-      '按水火分布统计，寒暖燥湿指标未见明显失衡；此为寒暖单项指标，完整调候仍需结合日主与月令细分规则另核',
+    nature: '未见明显偏向',
+    medicine: '结合日干月令核对调候条件',
+    summary: '按四柱水火分布统计未触发单项阈值，完整调候仍需结合日主与月令细分规则另核',
   };
 }

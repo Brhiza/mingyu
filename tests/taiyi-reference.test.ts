@@ -21,6 +21,55 @@ test('太乙在线任务书保留三门、将目与阴阳配对的实际依据',
   assert.doesNotMatch(legacy, /利主不利客|利客不利主/);
 });
 
+test('太乙巽位十六神名称传入盘面证据与任务书', () => {
+  const result = generateTaiyi({ year: 2026, scope: 'year' });
+  assert.deepEqual(
+    result.sixteenGods.find((item) => item.branch === '巽'),
+    {
+      branch: '巽',
+      god: '大炅',
+    },
+  );
+  assert.match(result.prompt, /巽大炅/);
+  assert.match(result.evidenceAnalysis.promptText, /巽大炅/);
+  assert.match(formatTaiyiInfo(result), /巽大炅/);
+});
+
+test('太乙任务书的门将条件只呈现一次并保留独立判断', () => {
+  for (const year of [2004, 2026]) {
+    const result = generateTaiyi({ year, scope: 'year' });
+    const conditions = result.conditions;
+    const summary = `${conditions.threeGates.status}（直使${conditions.threeGates.directGate}）；五将${conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${conditions.yinYangHarmony.matched ? '和' : '不和'}。`;
+    assert.equal(result.prompt.split(summary).length - 1, 1);
+    assert.ok(result.prompt.includes('主门具按太乙与文昌（主目）判定，始击（客目）门位另列。'));
+    const enhanced = formatTaiyiInfo(result);
+    assert.ok(!enhanced.includes(summary));
+    assert.equal(enhanced.split(`直使${conditions.threeGates.directGate}`).length - 1, 1);
+    for (const text of [result.prompt, enhanced]) {
+      assert.match(text, /主客吉凶条件相等时，再以算之长短比较/);
+      assert.doesNotMatch(text, /盘面条件：/);
+      for (const judgment of result.judgments) {
+        if (judgment !== summary && !/^(主算|客算|定算)\s*\d+\s*为/u.test(judgment)) {
+          assert.ok(text.includes(judgment), judgment);
+        }
+      }
+    }
+    for (const role of conditions.threeGates.blockedRoles) {
+      assert.ok(result.prompt.includes(role));
+    }
+    const withoutNatures = formatTaiyiInfo({ ...result, countNatures: undefined });
+    for (const judgment of result.judgments.filter((item) =>
+      /^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+    )) {
+      assert.ok(withoutNatures.includes(judgment));
+    }
+    if (result.countNatures?.set) {
+      assert.ok(enhanced.includes(`定算${result.setCount}（${result.countNatures.set}）`));
+    }
+    assert.match(result.tacticGuidance, /盘面条件：/);
+  }
+});
+
 type TaiyiTruthRow = readonly [
   year: number,
   accumulatedYears: number,
@@ -294,7 +343,7 @@ test('太乙长短算按十一分界，和算结合门将审断', () => {
   assert.match(harmony, /客算16（下和）/);
   assert.doesNotMatch(harmony, /调停|和解|不战屈人/);
   const result = generateTaiyi({ year: 2026 });
-  assert.ok(result.prompt.includes(result.tacticGuidance));
+  assert.ok(result.prompt.includes(`大局攻守：主算${result.lordCount}`));
   assert.match(result.tacticGuidance, /盘面条件：(?:三门具|两门不具|三门不具)/);
   assert.match(result.prompt, /门将阴阳和：(?:三门具|两门不具|三门不具)/);
   assert.doesNotMatch(result.evidenceAnalysis.promptText, /taiyi:calculation:/);

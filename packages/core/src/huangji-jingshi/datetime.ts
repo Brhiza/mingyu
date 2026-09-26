@@ -148,6 +148,7 @@ export interface HuangjiSixDayExplicitDateResult extends HuangjiSixDayDateResult
   calendar: {
     model: typeof HUANGJI_SIX_DAY_CALENDAR_MODEL;
     mapping: 'explicit-epoch-civil-days';
+    /** 目标真实瞬时按北京时间冬至换年后的值年背景年份。 */
     targetYear: number;
     actualElapsedDays: number;
     actualElapsedSeconds: number;
@@ -648,7 +649,7 @@ function calculateHuangjiSixDayCycleFromExplicitDate(
   const calendar: HuangjiSixDayExplicitDateResult['calendar'] = {
     model: HUANGJI_SIX_DAY_CALENDAR_MODEL,
     mapping: 'explicit-epoch-civil-days',
-    targetYear: target.localTime.year,
+    targetYear: resolveCalendar(new Date(targetTimestamp)).forecastYear,
     actualElapsedDays,
     actualElapsedSeconds,
     logicalElapsedDays: actualElapsedDays,
@@ -680,11 +681,13 @@ function calculateHuangjiSixDayCycleFromExplicitDate(
       `${targetDateTime}解析为 UTC${target.timezone >= 0 ? '+' : ''}${target.timezone} 的当地公历时刻，保留真实 UTC 瞬时点。`,
       `${epochDateTime}是经校定的当地子半起点，对应六日逐爻已过日数0、子半时刻。`,
       `按当地公历日期从显式历元至目标时间经过${actualElapsedDays}个完整日，直接取得六日逐爻坐标第${cycleElapsedDays + 1}日；实际 UTC 瞬时相隔${actualElapsedSeconds}秒。`,
+      `长期值年背景按目标真实瞬时的北京时间冬至换年，取${calendar.targetYear}年。`,
       `第${cycle.jingIndex}经卦第${cycle.dayLine}爻当日，第${cycle.hourLine}个四小时段取${cycle.hexagrams.hourly.shortName}卦。`,
     ],
     sources: HUANGJI_SIX_DAY_SOURCES.map((source) => ({ ...source })),
     limitations: [
       '原典的冬至甲子子半是抽象条件，并未给出现代公历唯一历元；本入口要求调用者提供已经校定的公历子半起点。',
+      '显式历元只确定六日逐爻坐标；长期值年背景按目标真实瞬时的北京时间冬至换年。',
       '公历适配直接使用显式历元与目标当地日期的整数日差，未使用太阳年比例压缩，也未把日干支序号加入六日坐标。',
       '三百六十日坐标之后的六日余分没有在本入口定义换算，目标时间必须位于显式历元后第0至359个当地公历日。',
       '小时爻沿用当地子半起的四小时段；分钟、秒和毫秒保留在真实时刻资料中，不改变四小时段。',

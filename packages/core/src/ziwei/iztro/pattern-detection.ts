@@ -1786,6 +1786,8 @@ export function detectPatterns(params: {
         matched_conditions: match.conditions,
         traditional_interpretation: rule.traditionalInterpretation,
         source: rule.sourceUrl,
+        source_title: rule.sourceTitle,
+        source_quote: rule.sourceQuote,
         sources,
         calculation: rule.calculation,
         calculationStepKey: PATTERN_MATCHED_FACTS_STEP_KEY,

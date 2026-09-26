@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { generateJinkoujue } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
-import { formatDivinationInfo } from '../packages/core/src/prompt/divination.ts';
+import {
+  formatDivinationInfo,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 
@@ -11,6 +14,31 @@ const formatters = [
   formatDetailedDivinationInfo,
   formatEnhancedDivinationInfo,
 ];
+
+test('金口诀摘要和详细提示不重复展开四位、发用、动爻与比合资料', () => {
+  const data = generateJinkoujue({
+    customDate: new Date('2025-03-28T12:00:00+08:00'),
+    method: 'branch',
+    branch: '申',
+  });
+  const summary = getDivinationSummaryBlocks('jinkoujue', data);
+  assert.ok(!summary.lines.includes(data.mainLine));
+  assert.ok(!summary.lines.includes(data.summary));
+  assert.ok(!summary.lines.some((line) => line.startsWith('四位：')));
+  assert.match(summary.lines.join('\n'), /阴阳发用：/);
+  assert.match(summary.lines.join('\n'), /动爻：/);
+  assert.match(summary.tags.join('\n'), /地分：/);
+
+  const detailed = formatDetailedDivinationInfo('jinkoujue', data);
+  assert.doesNotMatch(detailed, /^详细资料：$/m);
+  assert.equal(detailed.match(/^阴阳发用：/gm)?.length, 1);
+  assert.equal(detailed.match(/^四位：/gm)?.length, 1);
+  assert.equal(detailed.match(/^五动三动：/gm)?.length, 1);
+  assert.equal(detailed.match(/^四位比合：/gm)?.length, 1);
+  assert.doesNotMatch(detailed, /^四位依据：|^取用依据：|^阴阳次第：/m);
+  assert.match(detailed, /^四位取象：/m);
+  assert.match(detailed, /^四位五行依据：/m);
+});
 
 test('金口诀三种提示资料均保留兄弟动的实际双方而非凭名称补判', () => {
   const data = generateJinkoujue({
