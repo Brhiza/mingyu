@@ -634,7 +634,7 @@ export function evaluateLiuyaoHiddenSpiritInteraction(params: {
   if (isSheng(flyingWuxing, hiddenWuxing)) {
     relation = '飞神生伏，存在飞神生扶条件';
   } else if (isKe(hiddenWuxing, flyingWuxing)) {
-    relation = '伏神克飞，存在伏神冲破覆盖条件';
+    relation = '伏神克飞，存在伏神克制飞神条件';
   } else if (isKe(flyingWuxing, hiddenWuxing)) {
     relation = '飞神克伏，存在飞神压制条件';
   } else if (isSheng(hiddenWuxing, flyingWuxing)) {

@@ -227,49 +227,37 @@ function createLiuyaoTimingEvidence(data: LiuyaoData): string {
     const yaoName = `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}`;
     const chongBranch = LIUCHONG_MAP[yao.najiaDizhi] || '';
     const heBranch = LIUHE_MAP[yao.najiaDizhi] || '';
-
+    const conditions: string[] = [];
     if (yao.changeDirection === '化进神' && yao.changedYao) {
-      clues.push(
-        `${yaoName}动化进神，应期以进神当值（逢${yao.changedYao.dizhi}）之时力量倍增、谋事有成`,
-      );
+      conditions.push(`化进神，逢变爻${yao.changedYao.dizhi}当值可核进神作用`);
     } else if (yao.changeDirection === '化退神' && yao.changedYao) {
-      clues.push(`${yaoName}动化退神，气数渐退，宜防中途受阻或热情消退`);
-    } else if (yao.changeRelations?.includes('回头克') && yao.changedYao) {
-      clues.push(`${yaoName}动化回头克，逢变爻${yao.changedYao.dizhi}当值之时防事态反复或受阻`);
-    } else if (yao.isVoid) {
-      clues.push(
-        `${yaoName}动而逢空，应期在出空（逢${yao.najiaDizhi}）或逢冲（${chongBranch ? `逢${chongBranch}` : '冲空'}）之时`,
-      );
-    } else if (yao.isMonthBreak) {
-      clues.push(
-        `${yaoName}动而月破，目下不利，必待出月逢合（${heBranch ? `逢${heBranch}` : '合破'}）之时方可图谋`,
-      );
-    } else {
-      clues.push(
-        `${yaoName}发动，以逢值（逢${yao.najiaDizhi}）或逢合（${heBranch ? `逢${heBranch}` : '合动'}）之时为应期节点`,
-      );
+      conditions.push(`化退神，逢变爻${yao.changedYao.dizhi}当值可核退神作用`);
     }
+    if (yao.changeRelations?.includes('回头克') && yao.changedYao)
+      conditions.push(`回头克，逢变爻${yao.changedYao.dizhi}当值可核克制条件`);
+    if (yao.isVoid) conditions.push(`本爻旬空，逢${yao.najiaDizhi}出空或逢${chongBranch}冲空可核`);
+    if (yao.changedYao?.isVoid)
+      conditions.push(`变爻${yao.changedYao.dizhi}旬空，逢其出空或冲空可核`);
+    if (yao.isMonthBreak) conditions.push(`本爻月破，出月或逢${heBranch}合破可核`);
+    if (!conditions.length) conditions.push(`逢${yao.najiaDizhi}当值或逢${heBranch}合动可核`);
+    clues.push(`${yaoName}发动：${conditions.join('；')}`);
   }
 
   if (!changingYaos.length) {
     const hiddenMoves = data.yaosDetail.filter((item) => item.isHiddenMove);
     if (hiddenMoves.length) {
       for (const yao of hiddenMoves)
-        clues.push(
-          `静卦见第${yao.position}爻${yao.najiaDizhi}暗动，暗动主急，应期多在冲动或当值之时`,
-        );
+        clues.push(`静卦见第${yao.position}爻${yao.najiaDizhi}暗动，逢冲动或当值可核`);
     } else {
       const worldYao = data.yaosDetail.find((item) => item.isWorld);
       if (worldYao) {
         if (worldYao.isVoid) {
-          clues.push(
-            `世爻${worldYao.najiaDizhi}逢旬空，以出空（逢${worldYao.najiaDizhi}）或冲空之日时见分晓`,
-          );
-        } else if (worldYao.isMonthBreak) {
-          clues.push(`世爻${worldYao.najiaDizhi}逢月破，须待出月逢合或逢生之时见转机`);
-        } else {
-          clues.push(`静卦以世爻${worldYao.najiaDizhi}逢值、逢生旺之时为谋事机先`);
+          clues.push(`世爻${worldYao.najiaDizhi}旬空，逢其出空或冲空可核`);
         }
+        if (worldYao.isMonthBreak)
+          clues.push(`世爻${worldYao.najiaDizhi}月破，出月、逢合或逢生可核`);
+        if (!worldYao.isVoid && !worldYao.isMonthBreak)
+          clues.push(`静卦世爻${worldYao.najiaDizhi}逢值或生旺可作观察条件`);
       }
     }
   }
@@ -525,7 +513,7 @@ function formatLiuyaoInfo(
     `月日触发：${monthDayEvidence}`,
     sanheDetail ? sanheDetail : '',
     sanxingDetail ? sanxingDetail : '',
-    createLiuyaoTimingEvidence(data) ? `应期断诀：${createLiuyaoTimingEvidence(data)}` : '',
+    createLiuyaoTimingEvidence(data) ? `应期观察条件：${createLiuyaoTimingEvidence(data)}` : '',
   ]
     .filter(Boolean)
     .join('\n');
