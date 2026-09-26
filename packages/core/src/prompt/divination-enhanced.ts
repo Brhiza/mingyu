@@ -840,15 +840,14 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
 }
 
 function formatLiurenInfo(data: LiurenData) {
-  const ridingFacts = analyzeLiurenEvidence(data).traditionalFacts.filter(
-    (item) => item.kind === '天将乘神',
-  );
+  const analysis = analyzeLiurenEvidence(data);
+  const ridingFacts = analysis.traditionalFacts.filter((item) => item.kind === '天将乘神');
   const lessonLines = data.fourLessons.map(formatLiurenLesson);
   const transmissionLines = data.threeTransmissions.map((_, index) =>
     formatLiurenTransmission(data, index),
   );
-  const voidHits = data.threeTransmissions
-    .filter((item) => data.xunKong?.includes(item.branch))
+  const voidHits = analysis.transmissions
+    .filter((item) => item.isVoid)
     .map((item) => `${item.stage}${item.branch}`);
   const mainLineText = [
     data.transmissionRule ? `取传${data.transmissionRule}` : '',
@@ -882,9 +881,11 @@ function formatLiurenInfo(data: LiurenData) {
     : data.shenShaSummary || [];
   const shenShaText = shenShaAll.slice(0, 6).join('、');
   const shenShaAppendix = shenShaAll.slice(6).join('、');
-  const timingEvidence = (data.timingEvidence ?? []).map((item) =>
-    item.startsWith('未给出目标期限时') ? '以问题期限、三传先后和现实触发条件核对应期' : item,
-  );
+  const timingEvidence = analysis.timingFacts
+    .map((item) => item.promptText)
+    .map((item) =>
+      item.startsWith('未给出目标期限时') ? '以问题期限、三传先后和现实触发条件核对应期' : item,
+    );
   return [
     '占法：大六壬',
     `核心结构：${plateSummaryText.join('；')}`,
@@ -893,7 +894,7 @@ function formatLiurenInfo(data: LiurenData) {
     formatLiurenOrdinaryTransmissionAdjudication(data),
     guaTiSection,
     guaTiFacts.length ? `课体判据：\n${guaTiFacts.join('\n')}` : '',
-    data.xunKong?.includes(data.threeTransmissions[0]?.branch)
+    analysis.transmissions[0]?.isVoid
       ? '毕法断诀：【旬在空亡发用虚】，发端有声无实，谋事防中途落空'
       : '',
     shenShaText ? `神煞：${shenShaText}` : '',

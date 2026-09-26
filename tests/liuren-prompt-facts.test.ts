@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
+import {
+  analyzeLiurenEvidence,
+  generateLiuren,
+} from '../packages/core/src/divination/algorithms/liuren';
 import {
   buildDivinationPrompt,
   formatDivinationInfo,
@@ -79,6 +82,37 @@ test('大六壬完整提示词写入课体判据、取用定位和应期依据',
     }
   }
   assert.doesNotMatch(prompt, /sourceUrl|stableKey|notApplicable/);
+});
+
+test('大六壬旧结果旬空变化后提示词应同步三传与应期状态', () => {
+  const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
+  const initial = data.threeTransmissions[0];
+  const wasVoid = data.xunKong?.includes(initial.branch) ?? false;
+  data.xunKong = wasVoid
+    ? data.xunKong?.filter((branch) => branch !== initial.branch)
+    : [...(data.xunKong ?? []), initial.branch];
+
+  const evidence = analyzeLiurenEvidence(data);
+  const expectedVoid = !wasVoid;
+  for (const format of [
+    formatDivinationInfo,
+    formatDetailedDivinationInfo,
+    formatEnhancedDivinationInfo,
+  ]) {
+    const prompt = format('liuren', data);
+    assert.equal(
+      prompt.includes(`初传${initial.branch}乘${initial.god}，${initial.relation}（空）`),
+      expectedVoid,
+    );
+  }
+  const prompt = formatEnhancedDivinationInfo('liuren', data);
+  assert.ok(prompt.includes(evidence.timingFacts[0].promptText));
+  assert.ok(prompt.includes(evidence.timingFacts[1].promptText));
+  assert.equal(prompt.includes(`初传${initial.branch}${wasVoid ? '空亡' : '不空'}`), false);
+  const fullPrompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
+  assert.ok(fullPrompt.includes(evidence.timingFacts[0].promptText));
+  assert.ok(fullPrompt.includes(evidence.timingFacts[1].promptText));
+  assert.equal(fullPrompt.includes(`初传${initial.branch}${wasVoid ? '空亡' : '不空'}`), false);
 });
 
 test('核心直调大六壬提示词含独立课传判据且只追加一次', () => {
