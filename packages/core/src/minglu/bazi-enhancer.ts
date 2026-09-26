@@ -918,7 +918,7 @@ export function buildEnhancedPatternUsefulGodSection(
       ? {
           title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）`,
           source: ditiansuiRaw.sourceBook || '《滴天髓》干支论性',
-          summary: `十干体象与性情概括：${ditiansuiRaw.nature}`,
+          summary: `${classicPrefix}十干体象与性情概括：${ditiansuiRaw.nature}`,
           quotes: [ditiansuiRaw.verse],
         }
       : undefined,
