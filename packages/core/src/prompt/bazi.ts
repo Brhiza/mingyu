@@ -243,7 +243,20 @@ export function formatBaziPatternConditions(result: BaziChartResult): string {
           (item) =>
             breaker.repairPathKeys.includes(item.key) && item.status === breaker.repairStatus,
         );
-        if (path && !decisionDetail.includes(path.detail)) {
+        const alreadyStated =
+          path &&
+          result.analysis.usefulGod?.decisionEvidence?.controlFunctions?.some(
+            (item) =>
+              item.status === '满足' &&
+              item.sourceStems.length > 0 &&
+              item.targetStems.length > 0 &&
+              item.label === path.label &&
+              item.sourceStems.length === path.sourceStems.length &&
+              item.sourceStems.every((stem) => path.sourceStems.includes(stem)) &&
+              item.targetStems.length === path.targetStems.length &&
+              item.targetStems.every((stem) => path.targetStems.includes(stem)),
+          );
+        if (path && !decisionDetail.includes(path.detail) && !alreadyStated) {
           facts.push(
             path.source.length && path.target.length
               ? `救应路径：${path.label}；${path.source.join('、')}作用于${path.target.join('、')}（${path.position}、根气可用）`

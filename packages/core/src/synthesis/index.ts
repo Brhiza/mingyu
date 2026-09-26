@@ -524,17 +524,65 @@ export function formatBaziZiweiSynthesisForPrompt(
       : options.detailLevel === 'professional'
         ? '使用专业术语完整展开取象、体用、宫位、四化与运限逻辑'
         : '兼顾传统术语与白话解释，完整交代判断依据';
+  const evidenceIdentity = (item: SynthesisEvidenceFact) =>
+    JSON.stringify([
+      item.system,
+      item.key,
+      item.detail,
+      item.sourceKeys,
+      item.truncatedEvidenceCount,
+    ]);
+  const evidenceCounts = new Map<string, number>();
+  const evidenceByIdentity = new Map<string, SynthesisEvidenceFact>();
+  for (const theme of synthesis.themes) {
+    for (const item of [...theme.baziEvidence, ...theme.ziweiEvidence]) {
+      const identity = evidenceIdentity(item);
+      evidenceCounts.set(identity, (evidenceCounts.get(identity) ?? 0) + 1);
+      evidenceByIdentity.set(identity, item);
+    }
+  }
+  const sharedEvidence = [...evidenceByIdentity.values()].filter(
+    (item) => (evidenceCounts.get(evidenceIdentity(item)) ?? 0) > 1,
+  );
+  const formatEvidence = (item: SynthesisEvidenceFact) =>
+    `  ${item.title}：${item.detail}${item.truncatedEvidenceCount ? `\n  同一运限另有${item.truncatedEvidenceCount}项资料未列。` : ''}`;
+  const formatThemeEvidence = (items: SynthesisEvidenceFact[]) => {
+    const shared = items.some((item) => (evidenceCounts.get(evidenceIdentity(item)) ?? 0) > 1);
+    const uniqueFacts = items
+      .filter((item) => (evidenceCounts.get(evidenceIdentity(item)) ?? 0) === 1)
+      .map(formatEvidence);
+    return (
+      [shared ? '  同时参照【共同盘面资料】中的相关事实。' : '', ...uniqueFacts]
+        .filter(Boolean)
+        .join('\n') || '  本主题资料未提供'
+    );
+  };
+  const sharedText = sharedEvidence.length
+    ? [
+        '【共同盘面资料】',
+        ...(sharedEvidence.some((item) => item.system === 'bazi')
+          ? [
+              '八字资料：',
+              ...sharedEvidence.filter((item) => item.system === 'bazi').map(formatEvidence),
+            ]
+          : []),
+        ...(sharedEvidence.some((item) => item.system === 'ziwei')
+          ? [
+              '紫微资料：',
+              ...sharedEvidence.filter((item) => item.system === 'ziwei').map(formatEvidence),
+            ]
+          : []),
+      ].join('\n')
+    : '';
   const themeText = synthesis.themes
     .map((theme) => {
-      const bazi = theme.baziEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
-      const ziwei = theme.ziweiEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
       return [
         `【${theme.label}】`,
         `分析主线：${theme.focus}`,
         '八字资料：',
-        bazi || '  本主题资料未提供',
+        formatThemeEvidence(theme.baziEvidence),
         '紫微资料：',
-        ziwei || '  本主题资料未提供',
+        formatThemeEvidence(theme.ziweiEvidence),
       ].join('\n');
     })
     .join('\n\n');
@@ -554,6 +602,7 @@ export function formatBaziZiweiSynthesisForPrompt(
     synthesis.corroboration ? synthesis.corroboration.summary : '',
     '',
     '【合参资料】',
+    sharedText,
     themeText,
   ]
     .filter((line) => line !== '')

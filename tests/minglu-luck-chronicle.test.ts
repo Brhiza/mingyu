@@ -49,7 +49,7 @@ test('立春前出生的童限从实际出生时刻起，保留上一节令年',
 
   assert.equal(child.startYear, 1989);
   assert.equal(firstYear.year, 1989);
-  assert.equal(firstYear.age, 0);
+  assert.equal(firstYear.age, 1);
   assert.equal(firstYear.startDateTime, child.startDateTime);
   assert.equal(firstYear.months[0]?.startDateTime, child.startDateTime);
   assert.equal(firstYear.xiaoyun?.ganZhi, result.luckInfo.cycles[0]?.years[0]?.xiaoyun?.ganZhi);

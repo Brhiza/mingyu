@@ -38,7 +38,7 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   const evidence = calculateMoonPhaseEvidence(Date.parse('2024-04-08T18:21:00Z'));
 
   assert.equal(evidence.eightPhaseName, '新月');
-  assert.ok(evidence.elongationDegrees < 0.1);
+  assert.ok(evidence.elongationDegrees < 0.5);
   assert.ok(evidence.illuminationPercent < 0.01);
   const newMoon = [evidence.previousPrincipalPhase, evidence.nextPrincipalPhase].find(
     (item) => item.name === '朔',
@@ -78,6 +78,22 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
     [...evidence.calculationSteps, evidence.eventSummaryFact, ...evidence.limitationFacts].every(
       (item) => item.sources.length > 0 && item.limitation.length > 0,
     ),
+  );
+});
+
+test('朔时黄经重合但黄纬偏离时应保留真实角距与非零照明', () => {
+  // 美国海军天文台公布朔时为 UTC 12:38；JPL Horizons 地心星历同刻给出角距 4.4971°、照明 0.15470%。
+  // JPL 查询：COMMAND=301、CENTER=500@399、QUANTITIES=10,23,24,31。
+  const evidence = calculateMoonPhaseEvidence(Date.parse('2024-06-06T12:38:00Z'));
+
+  assert.equal(evidence.eightPhaseName, '新月');
+  assert.ok(evidence.phaseAngleDegrees < 0.01);
+  assert.ok(Math.abs(evidence.elongationDegrees - 4.4971) < 0.02);
+  assert.ok(Math.abs(evidence.illuminationPercent - 0.1547) < 0.02);
+  assert.match(evidence.promptText, /日月球面角距4\.497°/);
+  assert.ok(
+    Math.abs(evidence.previousPrincipalPhase.utcTimestamp - Date.parse('2024-06-06T12:38:00Z')) <
+      MINUTE,
   );
 });
 

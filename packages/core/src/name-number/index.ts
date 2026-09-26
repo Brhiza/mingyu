@@ -557,6 +557,23 @@ for (const item of allCharacters) {
   characterData[item.simplified] = item;
   characterData[item.traditional] = item;
 }
+// “发”同时对应“發”和“髮”；毛发义须保留独立字形及康熙笔画。
+const HAIR_TRADITIONAL_VARIANT: CharacterDetail = {
+  char: '髮',
+  simplified: '发',
+  traditional: '髮',
+  kangxiStrokes: 15,
+  radical: '髟',
+  wuxing: null,
+  definition: '人的头皮上生长的毛；形似头发的。',
+  simplifiedStrokes: 5,
+  traditionalStrokes: 15,
+  structure: null,
+  kangxiVolume: null,
+  kangxiSection: null,
+  common: false,
+};
+characterData[HAIR_TRADITIONAL_VARIANT.traditional] = HAIR_TRADITIONAL_VARIANT;
 const characterEntries = Object.entries(characterData);
 
 function charDetail(char: string): CharacterDetail | null {
@@ -804,7 +821,9 @@ export function selectChineseCharacters(filter: CharacterSearchFilter) {
 export async function analyzeChineseCharactersWithReferences(text: string) {
   const analysis = analyzeChineseCharacters(text);
   const characters = analysis.characters
-    .map((item) => item.detail?.simplified)
+    .map((item) =>
+      item.detail ? (item.char === '髮' ? item.char : item.detail.simplified) : undefined,
+    )
     .filter((char): char is string => Boolean(char));
   if (characters.length === 0) return analysis;
   const references = await loadKangxiReferences(characters).catch((cause: unknown) => {
@@ -814,7 +833,12 @@ export async function analyzeChineseCharactersWithReferences(text: string) {
     ...analysis,
     characters: analysis.characters.map(({ char, detail }) => ({
       char,
-      detail: detail ? { ...detail, kangxiText: references[detail.simplified] ?? null } : null,
+      detail: detail
+        ? {
+            ...detail,
+            kangxiText: references[char === '髮' ? char : detail.simplified] ?? null,
+          }
+        : null,
     })),
   };
 }

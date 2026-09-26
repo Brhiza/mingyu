@@ -32,6 +32,14 @@ test('偏好字与忌用字按字典繁简对应处理并以忌用字优先', ()
   assert.equal(pool.length, new Set(pool.map((item) => item.simplified)).size);
 });
 
+test('“髮”按简体键“发”参与候选偏好与回避', () => {
+  const preferred = selectNamingCharacters({ preferredCharacters: '髮', limit: 100 });
+  assert.ok(preferred.some((item) => item.simplified === '发'));
+
+  const forbidden = selectNamingCharacters({ forbiddenCharacters: '髮', limit: 100 });
+  assert.ok(forbidden.every((item) => item.simplified !== '发'));
+});
+
 test('给AI的用字条件与繁简回避规则一致', () => {
   const candidates = generateChineseNames({ surname: '李', forbiddenCharacters: '樂', limit: 2 });
   const prompt = buildChineseNamingPrompt({

@@ -339,13 +339,15 @@ test('格神已成立时保留实际破格干和已成立的救应作用', () =>
   assert.equal(repaired.analysis.mingGe.fulfillment?.status, '破而复成');
   const conditions = formatBaziPatternConditions(repaired);
   assert.ok(conditions.includes('破格项：伤官见官（辛伤官（月柱））'));
-  assert.ok(
-    conditions.includes(
-      '救应路径：印星制伤官护官；年柱透干丙（偏印）作用于月柱透干辛（伤官）（紧贴、根气可用）',
-    ),
-  );
+  assert.doesNotMatch(conditions, /救应路径：印星制伤官护官/);
   assert.doesNotMatch(conditions, /资料不足|不满足|仅见隔位/);
-  assert.ok(buildBaziPrompt({ result: repaired }).includes(`【格局条件】\n${conditions}`));
+  const prompt = buildBaziPrompt({ result: repaired });
+  assert.ok(prompt.includes(`【格局条件】\n${conditions}`));
+  assert.equal(prompt.match(/印星制伤官护官；丙作用于辛/g)?.length, 1);
+  assert.doesNotMatch(prompt, /救应路径：印星制伤官护官/);
+
+  repaired.analysis.usefulGod.decisionEvidence!.controlFunctions = [];
+  assert.match(formatBaziPatternConditions(repaired), /救应路径：印星制伤官护官/);
 
   const broken = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
   assert.equal(broken.analysis.mingGe.fulfillment?.status, '破格');

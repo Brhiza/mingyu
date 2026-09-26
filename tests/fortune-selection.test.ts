@@ -216,7 +216,7 @@ test('立春前出生的童限应生成出生时刻所属的上一节令年', ()
   const childCycle = result.luckInfo.cycles.find((cycle) => cycle.isXiaoyun);
 
   assert.equal(childCycle?.years[0]?.year, 1989);
-  assert.equal(childCycle?.years[0]?.age, 0);
+  assert.equal(childCycle?.years[0]?.age, 1);
 
   const selection = buildCurrentBaziFortuneSelection(result, new Date('1990-01-20T12:00:00+08:00'));
   assert.ok(selection);

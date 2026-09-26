@@ -9,6 +9,8 @@ for (const [simplified, traditional, count] of CHARACTER_STROKE_TUPLES) {
   characterStrokes.set(simplified, count);
   characterStrokes.set(traditional, count);
 }
+// “髮”对应发的毛发义，康熙十五画；“發”仍按现有数据计十二画。
+characterStrokes.set('髮', 15);
 
 const KONGMING_HEXAGRAMS = [
   ['●●●●●', '星震卦', '上上', '彩凤呈祥瑞，麒麟降帝都，祸除迎福到，喜气自然生。'],

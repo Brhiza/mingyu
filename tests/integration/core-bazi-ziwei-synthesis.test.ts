@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildBaziZiweiSynthesis,
   calculateBaziZiweiCombinedReading,
   formatBaziZiweiSynthesisForPrompt,
 } from 'mingyu-core/synthesis';
@@ -91,6 +92,54 @@ test('合参提示词应支持不同解读层级并保持完整任务结构', as
   assert.match(prompt, /重点分析未来十年的事业与迁移/);
   assert.match(prompt, /八字资料/);
   assert.match(prompt, /紫微资料/);
+  const repeatedPattern = reading.synthesis.themes
+    .flatMap((theme) => theme.baziEvidence)
+    .find((fact) => fact.title === '格局');
+  assert.ok(repeatedPattern);
+  assert.match(prompt, /【共同盘面资料】/);
+  assert.equal(prompt.split(`${repeatedPattern.title}：${repeatedPattern.detail}`).length - 1, 1);
+});
+
+test('运限证据超过展示范围时合参任务书明确标出未列条数', async () => {
+  const reading = await getCombinedReading();
+  const { bazi, ziwei: runtime } = reading.bundle;
+  assert.ok(bazi);
+  assert.ok(runtime);
+  const yearly = runtime.payloadByScope.yearly;
+  assert.ok(yearly);
+  const template = yearly.evidence_pool[0];
+  assert.ok(template);
+  const evidence_pool = Array.from({ length: 13 }, (_, index) => ({
+    ...template,
+    id: `T${index + 1}`,
+    key: `ziwei:timing:test:${index + 1}`,
+    stable_key: `timing:test:${index + 1}`,
+    type: 'scope_landing',
+    scope: yearly.active_scope.scope,
+    title: `运限证据${index + 1}`,
+    description: index === 12 ? '第13项反证' : `第${index + 1}项资料`,
+    promptText: index === 12 ? '第13项反证' : `第${index + 1}项资料`,
+  }));
+  const synthesis = buildBaziZiweiSynthesis({
+    bazi,
+    ziwei: {
+      ...runtime,
+      payloadByScope: {
+        ...runtime.payloadByScope,
+        yearly: { ...yearly, evidence_pool },
+      },
+    },
+  });
+  const yearlyFact = synthesis.themes
+    .find((theme) => theme.id === 'timing')
+    ?.ziweiEvidence.find((fact) => fact.scope === 'yearly');
+  assert.ok(yearlyFact);
+  assert.equal(yearlyFact.truncatedEvidenceCount, 1);
+  assert.equal(yearlyFact.sourceKeys.length, 12);
+
+  const prompt = formatBaziZiweiSynthesisForPrompt(synthesis);
+  assert.match(prompt, /同一运限另有1项资料未列/);
+  assert.doesNotMatch(prompt, /第13项反证/);
 });
 
 test('八字紫微跨体系合参互证应准确分析羊刃煞曜与天乙贵人吉曜同参', async () => {
