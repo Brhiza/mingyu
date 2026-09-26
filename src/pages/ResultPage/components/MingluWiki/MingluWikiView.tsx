@@ -14,6 +14,7 @@ import { MingluAstrolabeSection } from './MingluAstrolabeSection';
 import { MingluFengshuiSection } from './MingluFengshuiSection';
 import { MingluCrossSynthesisSection } from './MingluCrossSynthesisSection';
 import { MingluGlossarySection } from './MingluGlossarySection';
+import { scrollToMingluAnchor } from './MingluLink';
 import './minglu.css';
 
 interface MingluWikiViewProps {
@@ -55,12 +56,9 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
   }, []);
 
   const handleSelectAnchor = useCallback((anchorId: string) => {
-    const elem = document.getElementById(anchorId);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scrollToMingluAnchor(anchorId)) {
       setActiveAnchorId(anchorId);
       setIsMobileTocOpen(false);
-      window.history.replaceState(null, '', `#${anchorId}`);
     }
   }, []);
 
