@@ -2289,7 +2289,12 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   assert.match(mangpai, /主位为日柱.+与时柱/);
   assert.match(mangpai, /十神显隐：/);
   assert.match(mangpai, /墓库与空亡：/);
-  assert.match(mangpai, /分柱年限：年柱约对应1至16岁/);
+  assert.match(mangpai, /柱位阶段取象：年柱早年、月柱青年、日柱中年、时柱晚年/);
+  assert.match(mangpai, /起运出生后[^；\n]+；大运[^；\n]+（\d{4}年起，约\d+岁/);
+  assert.doesNotMatch(
+    mangpai,
+    /年柱约对应1至16岁|月柱约对应17至32岁|日柱约对应33至48岁|时柱约对应49岁以后/,
+  );
   assert.match(mangpai, /《渊海子平》/);
   assert.notEqual(ziping, mangpai);
 
