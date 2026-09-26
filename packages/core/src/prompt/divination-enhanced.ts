@@ -62,6 +62,7 @@ import {
   formatJinkoujueRelations,
   formatJinkoujueMovementRules,
   formatJinkoujueJudgmentFacts,
+  formatJinkoujueBihe,
 } from './jinkoujue-facts';
 
 function formatZhugeInfo(data: ZhugeNumberResult) {
@@ -1384,7 +1385,7 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     `阴阳发用：${data.yinYangUse.rule}；发用位${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '旬空' : '不空'}`,
     `四位：地分${p.diFen.branch}（${p.diFen.yinYang}${p.diFen.element}，月令${p.diFen.seasonState}${p.diFen.isVoid ? '，空' : ''}）；将神${p.jiangShen.stem || ''}${p.jiangShen.branch}（${p.jiangShen.yinYang}${p.jiangShen.element}，月令${p.jiangShen.seasonState}${p.jiangShen.isVoid ? '，空' : ''}）；贵神${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}（${p.guiShen.yinYang}${p.guiShen.element}，月令${p.guiShen.seasonState}${p.guiShen.isVoid ? '，空' : ''}）；人元${p.renYuan.stem || ''}${p.renYuan.branch}（${p.renYuan.yinYang}${p.renYuan.element}，月令${p.renYuan.seasonState}${p.renYuan.isVoid ? '，空' : ''}）`,
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '无'}`,
-    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
+    formatJinkoujueBihe(data),
     formatJinkoujueRelations(data),
     formatJinkoujueMovementRules(),
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',

@@ -1,4 +1,12 @@
 import type { JinkoujueData, JinkoujueFourPosition } from '../types/divination';
+import { evaluateJinkoujueBihePoems } from '../divination/algorithms/jinkoujue';
+
+export function formatJinkoujueBihe(data: JinkoujueData): string {
+  const facts = evaluateJinkoujueBihePoems(data.positions);
+  return facts
+    ? `四位比合：${facts}；依《六壬神课金口诀古本》卷上“入式歌解”，结合神将、位次与生克制化判断同气作用。`
+    : '';
+}
 
 export function formatJinkoujueMovementRules(): string {
   return [
