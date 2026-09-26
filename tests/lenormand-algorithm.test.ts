@@ -227,12 +227,14 @@ test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
     const first = LENORMAND_CARDS.find((card) => card.name === firstName);
     const second = LENORMAND_CARDS.find((card) => card.name === secondName);
     assert.ok(first && second);
+    const thirdId = [1, 2, 3].find((id) => id !== first.id && id !== second.id);
+    assert.ok(thirdId);
 
     const forward = drawLenormandSpread('three', {
-      manualCardIds: [first.id, second.id, 1],
+      manualCardIds: [first.id, second.id, thirdId],
     });
     const reverse = drawLenormandSpread('three', {
-      manualCardIds: [second.id, first.id, 1],
+      manualCardIds: [second.id, first.id, thirdId],
     });
 
     assert.equal(forward.combinations?.[0].source, '固定组合');
