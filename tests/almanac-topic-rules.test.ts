@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
 
-test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本地硬规则事实', () => {
+test('黄历择日：无四离等明确事项规则时只映射历法库原始宜忌', () => {
   const result = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2025-06-01',
@@ -10,6 +10,7 @@ test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本�
   });
 
   assert.ok(result.days.length > 0);
+  assert.ok(result.days.every((day) => !day.gods.includes('四离')));
   assert.ok(
     result.days.every(
       (day) =>
