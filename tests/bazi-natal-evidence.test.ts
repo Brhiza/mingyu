@@ -139,7 +139,7 @@ test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共�
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /取用: 主用金，辅水/);
-  assert.match(prompt, /调候特征: 生于夏月，原局见少量水气分布，寒暖燥湿指标微偏燥/);
+  assert.match(prompt, /水火分布参考: 生于夏月，原局见少量水气分布，可作为核对润燥的线索/);
   assert.doesNotMatch(prompt, /取用: 主用火/);
 });
 

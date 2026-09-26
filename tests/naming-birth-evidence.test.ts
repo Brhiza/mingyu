@@ -9,7 +9,7 @@ import {
 } from '../packages/core/src/name-number/index.ts';
 import { calculateBaziChartFromInput } from '../packages/core/src/bazi/input.ts';
 
-test('起名出生依据逐柱保留藏干十神并复用八字月令旺衰调候', () => {
+test('起名出生依据逐柱保留藏干十神并复用八字月令旺衰与水火参考', () => {
   for (const month of [1, 4, 7, 10]) {
     const input = { gender: 'male' as const, year: 2000, month, day: 15, timeIndex: 6 };
     const chart = calculateBaziChartFromInput(input);
@@ -48,6 +48,16 @@ test('起名出生依据逐柱保留藏干十神并复用八字月令旺衰调�
     ]) {
       assert.ok(prompt.includes(`月令：${context.monthContext.branch}月`));
       assert.ok(prompt.includes(`旺衰：${context.strength.status}`));
+      if (context.climate && context.climate.nature !== '未见明显偏向') {
+        assert.ok(
+          prompt.includes(
+            `水火分布参考：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
+          ),
+        );
+        assert.doesNotMatch(prompt, /寒暖分布：(?:寒局|燥局|中和)/);
+      } else {
+        assert.doesNotMatch(prompt, /水火分布参考：|寒暖分布：/);
+      }
       for (const pillar of context.pillarDetails)
         assert.ok(prompt.includes(`${pillar.label}${pillar.ganZhi}藏干：`));
       for (const basis of context.strength.basis) assert.ok(prompt.includes(basis));

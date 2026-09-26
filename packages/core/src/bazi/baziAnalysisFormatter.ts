@@ -415,8 +415,8 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
         ? `取用依据: 原日主旺衰${analysis.dayMasterStrength.status}与十神保留为本命事实，${analysis.mingGe.pattern}按化神${analysis.usefulGod.decisionEvidence.transformation.element}及其条件取用\n`
         : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }
-    if (includeRules && baziResult.climate && baziResult.climate.nature !== '中和') {
-      result += `调候特征: ${baziResult.climate.summary}\n`;
+    if (includeRules && baziResult.climate && baziResult.climate.nature !== '未见明显偏向') {
+      result += `水火分布参考: ${baziResult.climate.summary}\n`;
     }
   }
 

@@ -636,9 +636,9 @@ export interface BaziChartResult {
   shenShaAnalysis: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
-  /** 调候寒暖燥湿定性（依据《穷通宝鉴》《滴天髓》） */
+  /** 四柱水火分布的启发式辅助指标；不代表完整调候裁决。 */
   climate?: {
-    nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+    nature: '偏寒' | '偏燥' | '未见明显偏向' | '微偏寒' | '微偏燥';
     medicine: string;
     summary: string;
   };
