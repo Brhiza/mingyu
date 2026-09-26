@@ -714,6 +714,10 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
   const day = record(sequence?.day);
   const hour = record(sequence?.hour);
   const primary = record(d.primary);
+  const monthIndex = typeof month?.index === 'number' ? month.index : null;
+  const firstDayIndex =
+    monthIndex === null ? null : (monthIndex + (text(d.rule) === 'duoneng' ? 1 : 0)) % 6;
+  const firstDayPalace = records(d.palaceOrder).find((palace) => palace.index === firstDayIndex);
   const leapLabel = d.isLeapMonth === true ? '闰' : '';
   return collect([
     fact('xiaoliuren.start', '起课：', [
@@ -721,25 +725,41 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
       text(d.hourLabel),
     ]),
     fact(
-      'xiaoliuren.process',
-      '起课过程：',
+      'xiaoliuren.month',
+      '定月宫：',
       [
         month
-          ? `定月宫：${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
-          : undefined,
-        day
-          ? `定日宫：从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一，顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
-          : undefined,
-        hour
-          ? `定时宫：从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}，落${text(hour.name) || ''}`
+          ? `${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
           : undefined,
       ],
-      { unit: 'block', scope: { start: '起课过程：', end: '定位用途' } },
+      { scope: { start: '起课过程：', end: '定位用途' } },
+    ),
+    fact(
+      'xiaoliuren.first-day',
+      '定日宫：',
+      [
+        day && firstDayPalace
+          ? `从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一（${text(firstDayPalace.name) || ''}），顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
+          : undefined,
+      ],
+      { scope: { start: '起课过程：', end: '定位用途' } },
+    ),
+    fact(
+      'xiaoliuren.hour',
+      '定时宫：',
+      [
+        hour
+          ? `从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}，落${text(hour.name) || ''}`
+          : undefined,
+      ],
+      { scope: { start: '起课过程：', end: '定位用途' } },
     ),
     fact('xiaoliuren.location', '定位用途：', [
       month ? `月宫${text(month.name)}` : undefined,
       day ? `日宫${text(day.name)}` : undefined,
-      hour ? `时宫${text(hour.name)}` : undefined,
+    ]),
+    fact('xiaoliuren.rule', '起课口径：', [
+      text(d.rule) === 'duoneng' ? '《多能鄙事》' : '通行俗传小六壬掌诀',
     ]),
     fact('xiaoliuren.primary', '占得宫：', [primary?.name]),
     fact('xiaoliuren.verse', '歌诀原文：', [primary?.verse]),
