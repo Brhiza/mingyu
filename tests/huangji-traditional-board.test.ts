@@ -22,6 +22,8 @@ test('皇极经世传统盘应完整展示卦序层级和值年互错综', () =>
 
   const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
   assert.match(html, /皇极经世盘/);
+  assert.match(html, /第1元 · 第7会（午会）/);
+  assert.doesNotMatch(html, /第2元 · 第7会（午会）/);
   assert.match(html, /会内统卦/);
   assert.match(html, /六十年统卦/);
   assert.match(html, /火风鼎/);

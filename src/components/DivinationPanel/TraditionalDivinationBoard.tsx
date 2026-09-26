@@ -3278,7 +3278,7 @@ function HuangjiTraditionalBoard({
           ],
           [
             '元会运世',
-            `第${data.position.yuan.indexFromEpoch + 1}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
+            `第${data.position.yuan.indexFromEpoch}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
           ],
         ]}
       />
