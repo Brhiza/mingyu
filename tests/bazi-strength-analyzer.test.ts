@@ -201,7 +201,7 @@ test('另有未被六冲的本气根时，不能因一处冲根误删稳定强�
   assert.equal(result.strongRoot, true);
 });
 
-test('甲日亥中长生根计入重根，乙日不借甲木长生抬高旺衰', () => {
+test('甲乙日亥中甲木保留通根事实，不把长生直接升级为重根', () => {
   const analyze = (dayGanZhi: '甲午' | '乙酉') => {
     const values = ['戊戌', '己亥', dayGanZhi, '庚午'];
     const pillars = Object.fromEntries(
@@ -232,9 +232,11 @@ test('甲日亥中长生根计入重根，乙日不借甲木长生抬高旺衰',
   const yi = analyze('乙酉');
   assert.equal(jia.root.roots[0]?.branch, '亥(甲)');
   assert.equal(yi.root.roots[0]?.branch, '亥(甲)');
-  assert.equal(jia.root.strongRoot, true);
+  assert.equal(jia.root.hasRoot, true);
+  assert.equal(yi.root.hasRoot, true);
+  assert.equal(jia.root.strongRoot, false);
   assert.equal(yi.root.strongRoot, false);
-  assert.equal(jia.strength.status, '偏强');
+  assert.equal(jia.strength.status, '中和');
   assert.equal(yi.strength.status, '中和');
 });
 
