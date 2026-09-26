@@ -4,16 +4,10 @@ import {
   formatLiurenTransmission,
 } from './liuren-facts';
 import type { DivinationMethodId } from '../divination/config';
-import {
-  formatJinkoujueRelations,
-  formatJinkoujueMovementRules,
-  formatJinkoujueBihe,
-} from './jinkoujue-facts';
 import type {
   AlmanacData,
   AstrolabeData,
   DivinationData,
-  JinkoujueData,
   LenormandData,
   LiurenData,
   LiuyaoData,
@@ -135,28 +129,9 @@ function formatMeihuaDetail(data: MeihuaData) {
 
 function formatXiaoliurenDetail(data: XiaoliurenData) {
   return [
-    `顺数：月宫${data.sequence.month.name}（${data.sequence.month.verse}）→日宫${data.sequence.day.name}（${data.sequence.day.verse}）→时宫${data.sequence.hour.name}（${data.sequence.hour.verse}）`,
+    `顺数：月宫${data.sequence.month.name}→日宫${data.sequence.day.name}→时宫${data.sequence.hour.name}；占得宫歌诀：${data.primary.verse}`,
     `历法：农历${data.lunarMonth}月${data.lunarDay}日，${data.isLeapMonth ? '闰月' : '平月'}，${data.calculation.dayBoundary}，${data.calculation.leapMonthRule}`,
   ];
-}
-
-function formatJinkoujueDetail(data: JinkoujueData) {
-  const positions = [
-    data.positions.diFen,
-    data.positions.jiangShen,
-    data.positions.guiShen,
-    data.positions.renYuan,
-  ];
-  return [
-    `四位：${positions.map((item) => `${item.name}${item.stem ?? ''}${item.branch}（${item.element}，${item.yinYang}，月令${item.seasonState}${item.isVoid ? '，空' : ''}）`).join('；')}`,
-    data.yinYangUse
-      ? `阴阳取用：${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '，落空' : ''}）`
-      : '',
-    `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
-    formatJinkoujueBihe(data),
-    formatJinkoujueRelations(data),
-    formatJinkoujueMovementRules(),
-  ].filter(Boolean);
 }
 
 function formatQimenDetail(data: QimenData) {
@@ -301,6 +276,7 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
 /** 输出比摘要更完整的、可直接拼入任务书的占法资料。 */
 export function formatDetailedDivinationInfo(method: SupportedMethod, data: DivinationData) {
   if (method === 'wuyun') return formatDivinationInfo(method, data);
+  if (method === 'jinkoujue') return formatDivinationInfo(method, data);
   const detail = (() => {
     switch (method) {
       case 'liuyao':
@@ -309,8 +285,6 @@ export function formatDetailedDivinationInfo(method: SupportedMethod, data: Divi
         return formatMeihuaDetail(data as MeihuaData);
       case 'xiaoliuren':
         return formatXiaoliurenDetail(data as XiaoliurenData);
-      case 'jinkoujue':
-        return formatJinkoujueDetail(data as JinkoujueData);
       case 'qimen':
         return formatQimenDetail(data as QimenData);
       case 'liuren':

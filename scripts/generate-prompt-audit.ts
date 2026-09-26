@@ -241,15 +241,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '八宅风水',
-    requiredFields: [
-      '【当前时间】',
-      '【问题】',
-      '【任务】',
-      '【传统依据】',
-      '四吉方',
-      '四凶方',
-      '命卦八方',
-    ],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '命卦八方'],
   },
   {
     sampleName: '住宅风水',
@@ -264,8 +256,8 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '玄空完整盘面',
       '三盘九宫',
       '八宅完整盘面',
-      '四吉方',
-      '四凶方',
+      '命卦八方',
+      '宅卦八方',
     ],
   },
   {
@@ -304,11 +296,15 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '起课',
       '起课过程',
       '定位用途',
-      '断事主证',
+      '占得宫',
       '历法口径',
       '时点范围',
       '歌诀原文',
     ],
+  },
+  {
+    sampleName: '小六壬《多能鄙事》',
+    requiredFields: ['【传统依据】', '起课过程', '定日宫', '占得宫', '歌诀原文', '《多能鄙事》'],
   },
   {
     sampleName: '金口诀',
@@ -568,6 +564,16 @@ function assertSamplePromptScopesAreSupported(samples: PromptSample[]) {
         { label: '未提供的五行生克', pattern: /五行生克与落宫方位/ },
         { label: '把月日宫扩写为三段现实过程', pattern: /起因、过程、结果/ },
         { label: '内部取模公式', pattern: /mod\s*6|\([^\n]+\)\s*mod/u },
+        { label: '通行掌诀样本混入多能鄙事口径', pattern: /《多能鄙事》/ },
+      ],
+    },
+    {
+      sampleName: '小六壬《多能鄙事》',
+      patterns: [
+        { label: '未提供的五行生克', pattern: /五行生克与落宫方位/ },
+        { label: '把月日宫扩写为三段现实过程', pattern: /起因、过程、结果/ },
+        { label: '内部取模公式', pattern: /mod\s*6|\([^\n]+\)\s*mod/u },
+        { label: '多能鄙事样本混入通行掌诀口径', pattern: /通行俗传/ },
       ],
     },
     {
@@ -1077,6 +1083,13 @@ export async function buildSamples(): Promise<PromptSample[]> {
       xiaoliurenData,
       commonInfo,
     );
+    const xiaoliurenDuonengData = generateXiaoliuren({ rule: 'duoneng', customDate: auditDate });
+    const xiaoliurenDuonengPrompt = buildDivinationPrompt(
+      'xiaoliuren',
+      commonQuestion,
+      xiaoliurenDuonengData,
+      commonInfo,
+    );
 
     const jinkoujueData = generateJinkoujue({ customDate: auditDate, method: 'time' });
     const jinkoujuePrompt = buildDivinationPrompt(
@@ -1453,6 +1466,14 @@ export async function buildSamples(): Promise<PromptSample[]> {
         inputSummary: buildCommonProjectInputSummary('时间起课'),
         prompt: xiaoliurenPrompt,
         facts: extractDivinationPromptFacts('xiaoliuren', xiaoliurenData),
+        notes: [],
+      },
+      {
+        name: '小六壬《多能鄙事》',
+        source: '《多能鄙事》口径小六壬时间课真实生成；固定时间 2026-05-19T10:30:00+08:00。',
+        inputSummary: buildCommonProjectInputSummary('时间起课；《多能鄙事》起日口径'),
+        prompt: xiaoliurenDuonengPrompt,
+        facts: extractDivinationPromptFacts('xiaoliuren', xiaoliurenDuonengData),
         notes: [],
       },
       {

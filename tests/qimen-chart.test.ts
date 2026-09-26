@@ -17,7 +17,7 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
 import {
   evaluateStarPalaces,
-  getZhiFuStarJudgement,
+  getZhiFuStarPalaceFact,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace';
 
 const outerPalaces = [1, 8, 3, 4, 9, 2, 7, 6];
@@ -144,7 +144,7 @@ test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干',
   assert.equal(new Set(starStates.map((item) => item.star)).size, 9);
   assert.equal(starStates.find((item) => item.star === '天禽')?.gong, zhiFuPalace?.gong);
   assert.equal(
-    getZhiFuStarJudgement({ jiuGongGe: palaces, zhiFu: '天禽' })?.gong,
+    getZhiFuStarPalaceFact({ jiuGongGe: palaces, zhiFu: '天禽' }).gong,
     zhiFuPalace?.gong,
   );
 });

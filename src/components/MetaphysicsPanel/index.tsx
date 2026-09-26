@@ -638,7 +638,7 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四吉方</h3>
-                <p>{measurement ? '当前宅卦可优先利用的方向。' : '个人命卦可优先利用的方向。'}</p>
+                <p>个人命卦可优先利用的方向。</p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.luckyDirections.map((item) => (
@@ -654,7 +654,7 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四凶方</h3>
-                <p>布置时需要谨慎权衡的方向。</p>
+                <p>个人命卦中布置时需要谨慎权衡的方向。</p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.unluckyDirections.map((item) => (
@@ -694,7 +694,7 @@ export function MetaphysicsPanel({
               一白二黑三碧巡，四绿五黄六白明。七赤八白九紫位，当令生旺百事成。
             </p>
             <p className="traditional-classic-advice">
-              【八宅与玄空要义】八宅定八方吉凶之本底，玄空论三元九运之飞星气运。吉方逢当运生旺之星（如九运九紫、一白、八白）为大发之象；凶方宜静不宜动，施以五行生克调和。
+              【八宅与玄空要义】八宅分别列出命卦与宅卦的八方关系，玄空按所属运期判断飞星状态；结合各宫星气、生克与实际山水形势解读。
             </p>
           </div>
         </div>

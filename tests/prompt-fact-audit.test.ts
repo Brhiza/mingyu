@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
 import {
   auditPromptFacts,
   assertPromptFactCoverage,
@@ -22,6 +23,36 @@ const facts: PromptFactExpectation[] = [
   { id: '对方年柱', owner: '年柱', values: ['乙丑'], scope: { start: '【对方】' } },
 ];
 const prompt = '【本人】\n年柱：甲子\n月柱：乙丑\n【对方】\n年柱：乙丑';
+
+test('住宅事实审查从输入摘要读取坐向与宅运年份', () => {
+  const residentialFacts = extractDivinationPromptFacts('residential', {
+    inputSummary: { orientationText: '坐子向午', houseYear: 2024 },
+  });
+  assert.deepEqual(
+    residentialFacts.map((item) => item.id),
+    ['residential.orientation', 'residential.house-year'],
+  );
+  const chart = '山向：坐子向午\n宅运年份：2024';
+  assert.equal(auditPromptFacts(chart, residentialFacts).present, 2);
+  assert.deepEqual(auditPromptFacts(chart.replace('2024', '2023'), residentialFacts).missing, [
+    'residential.house-year',
+  ]);
+});
+
+test('梅花事实审查在结果阶段核对变后体用与生克归属', () => {
+  const changedFacts = extractDivinationPromptFacts('meihua', {
+    changedName: '天火同人',
+    changedTiGua: { name: '乾', element: '金' },
+    changedYongGua: { name: '离', element: '火' },
+    analysis: { changedTiYongRelation: '用克体' },
+    evidenceAnalysis: { stages: [{ stage: 'result', status: '已计算' }] },
+  }).filter((item) => item.id === 'meihua.changed');
+  assert.equal(changedFacts.length, 1);
+  const resultLine = '结果天火同人：体卦乾金（月令死），用卦离火（月令旺），关系用克体';
+  assert.equal(auditPromptFacts(resultLine, changedFacts).present, 1);
+  assert.equal(auditPromptFacts(resultLine.replace('用克体', '用生体'), changedFacts).present, 0);
+  assert.equal(auditPromptFacts(resultLine.replace('结果', '过程'), changedFacts).present, 0);
+});
 
 test('事实覆盖核验归属及值，交换柱位仍有相同关键词时应检出错绑', () => {
   assert.equal(auditPromptFacts(prompt, facts).present, 3);

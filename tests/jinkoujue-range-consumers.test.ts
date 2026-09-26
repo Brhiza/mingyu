@@ -39,6 +39,42 @@ function createDraft(day = 19): DivinationDraft {
   };
 }
 
+function assertJinkoujuePromptFacts(prompt: string, data: JinkoujueData) {
+  assert.ok(prompt.includes(data.methodLabel));
+  assert.ok(prompt.includes(data.yinYangUse.rule));
+  assert.ok(prompt.includes(data.yinYangUse.usePosition));
+  for (const fact of [
+    data.calculation.diFenNote,
+    data.calculation.monthLeaderRule,
+    data.calculation.noblemanRule,
+    data.calculation.guiShenRule,
+    data.calculation.yuanDunRule,
+    data.calculation.dayNightRule,
+  ]) {
+    assert.ok(prompt.includes(fact));
+  }
+  assert.match(prompt, new RegExp(`月将[：:]?${data.monthLeader}加占时${data.divinationBranch}`));
+
+  for (const position of Object.values(data.positions)) {
+    const compactPosition = `${position.name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`;
+    assert.ok(prompt.includes(position.promptText) || prompt.includes(compactPosition));
+    assert.ok(prompt.includes(position.role));
+    assert.ok(prompt.includes(`按${position.elementBasis}`));
+    if (position.stem && position.stemElement && position.elementBasis !== '人元干') {
+      assert.ok(prompt.includes(`${position.stem}属${position.stemElement}`));
+    }
+  }
+
+  if (data.xunKong.length) assert.ok(prompt.includes(data.xunKong.join('、')));
+  for (const movement of data.movements) {
+    assert.ok(prompt.includes(movement.name));
+    assert.ok(prompt.includes(movement.trigger));
+  }
+  for (const fact of data.evidenceAnalysis?.counterEvidenceFacts ?? []) {
+    assert.ok(prompt.includes(fact.promptText));
+  }
+}
+
 test('金口诀跨中气页面摘要分享保留两段四位与发用', async () => {
   const session = await generateDivinationSession(createDraft());
   assert.equal(session.jinkoujueRange?.status, 'conditional');
@@ -65,7 +101,7 @@ test('金口诀跨中气页面摘要分享保留两段四位与发用', async ()
       .split(`分支${index + 1}：`)[1]
       ?.split(`分支${index + 2}：`)[0];
     assert.ok(branchPrompt);
-    for (const fact of formatJinkoujueJudgmentFacts(data)) assert.ok(branchPrompt.includes(fact));
+    assertJinkoujuePromptFacts(branchPrompt, data);
     for (const position of Object.values(data.positions)) {
       const stemBranch = `${position.stem ?? ''}${position.branch}`;
       assert.ok(share.includes(stemBranch));
@@ -173,12 +209,11 @@ test('金口诀普通网页与核心会话使用完整四位判断资料', async
   ] as const) {
     const item = data as JinkoujueData;
     assert.ok(item.evidenceAnalysis?.counterEvidenceFacts.length);
-    for (const fact of formatJinkoujueJudgmentFacts(item)) assert.ok(prompt.includes(fact));
+    assertJinkoujuePromptFacts(prompt, item);
     assert.doesNotMatch(prompt, /事态主轴：见|evidenceAnalysis|schemaVersion|randomTrace/);
-    for (const position of Object.values(item.positions)) {
-      assert.ok(prompt.includes(position.elementBasis));
-      for (const limitation of position.constraints) assert.ok(prompt.includes(limitation));
-    }
+  }
+  for (const fact of formatJinkoujueJudgmentFacts(core.data as JinkoujueData)) {
+    assert.ok(core.aiPrompt.includes(fact));
   }
 });
 

@@ -146,6 +146,10 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
   const changedTi = record(d.changedTiGua);
   const changedYong = record(d.changedYongGua);
   const analysis = record(d.analysis);
+  const changedName = text(d.changedName) || text(record(d.changedHexagram)?.name) || '无';
+  const hasResultStage = records(record(d.evidenceAnalysis)?.stages).some(
+    (stage) => stage.stage === 'result' && stage.status === '已计算',
+  );
   const facts = collect([
     fact('meihua.core', '核心结构：', [
       `主卦${text(d.originalName)}`,
@@ -163,10 +167,11 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
       record(d.interTiGua) ? `体互${text(record(d.interTiGua)?.name)}` : undefined,
       record(d.interYongGua) ? `用互${text(record(d.interYongGua)?.name)}` : undefined,
     ]),
-    fact('meihua.changed', '变卦：', [
-      ` ${text(d.changedName) || text(record(d.changedHexagram)?.name) || '无'}`,
-      changedTi ? `变后体卦${text(changedTi.name)}` : undefined,
-      changedYong ? `变后用卦${text(changedYong.name)}` : undefined,
+    fact('meihua.changed', hasResultStage ? `结果${changedName}：` : '变卦：', [
+      changedName,
+      changedTi ? `${hasResultStage ? '' : '变后'}体卦${text(changedTi.name)}` : undefined,
+      changedYong ? `${hasResultStage ? '' : '变后'}用卦${text(changedYong.name)}` : undefined,
+      hasResultStage && analysis ? `关系${text(analysis.changedTiYongRelation)}` : undefined,
     ]),
   ]);
   return facts;
@@ -747,6 +752,10 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
   const day = record(sequence?.day);
   const hour = record(sequence?.hour);
   const primary = record(d.primary);
+  const monthIndex = typeof month?.index === 'number' ? month.index : null;
+  const firstDayIndex =
+    monthIndex === null ? null : (monthIndex + (text(d.rule) === 'duoneng' ? 1 : 0)) % 6;
+  const firstDayPalace = records(d.palaceOrder).find((palace) => palace.index === firstDayIndex);
   const leapLabel = d.isLeapMonth === true ? '闰' : '';
   return collect([
     fact('xiaoliuren.start', '起课：', [
@@ -754,25 +763,41 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
       text(d.hourLabel),
     ]),
     fact(
-      'xiaoliuren.process',
-      '起课过程：',
+      'xiaoliuren.month',
+      '定月宫：',
       [
         month
-          ? `定月宫：${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
-          : undefined,
-        day
-          ? `定日宫：从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一，顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
-          : undefined,
-        hour
-          ? `定时宫：从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}，落${text(hour.name) || ''}`
+          ? `${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
           : undefined,
       ],
-      { unit: 'block', scope: { start: '起课过程：', end: '定位用途' } },
+      { scope: { start: '起课过程：', end: '定位用途' } },
+    ),
+    fact(
+      'xiaoliuren.first-day',
+      '定日宫：',
+      [
+        day && firstDayPalace
+          ? `从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一（${text(firstDayPalace.name) || ''}），顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
+          : undefined,
+      ],
+      { scope: { start: '起课过程：', end: '定位用途' } },
+    ),
+    fact(
+      'xiaoliuren.hour',
+      '定时宫：',
+      [
+        hour
+          ? `从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}，落${text(hour.name) || ''}`
+          : undefined,
+      ],
+      { scope: { start: '起课过程：', end: '定位用途' } },
     ),
     fact('xiaoliuren.location', '定位用途：', [
       month ? `月宫${text(month.name)}` : undefined,
       day ? `日宫${text(day.name)}` : undefined,
-      hour ? `时宫${text(hour.name)}` : undefined,
+    ]),
+    fact('xiaoliuren.rule', '起课口径：', [
+      text(d.rule) === 'duoneng' ? '《多能鄙事》' : '通行俗传小六壬掌诀',
     ]),
     fact('xiaoliuren.primary', '占得宫：', [primary?.name]),
     fact('xiaoliuren.verse', '歌诀原文：', [primary?.verse]),
@@ -1016,21 +1041,12 @@ function extractAlmanacFacts(data: unknown): DivinationPromptFact[] {
 function extractBaZhaiFacts(data: unknown): DivinationPromptFact[] {
   const d = record(data);
   if (!d) return [];
-  const lucky = records(d.luckyDirections);
-  const unlucky = records(d.unluckyDirections);
   const mingPalace = records(d.mingPalace);
   const housePalace = records(d.housePalace);
-  const direction = (item: AnyRecord) => {
-    const name = firstText(item.direction, item.name);
-    const label = firstText(item.label, item.fortune, item.type);
-    return name ? `${name}${label ? `(${label})` : ''}` : undefined;
-  };
   return collect([
     fact('bazhai.ming', '命卦：', [d.mingGua, d.mingGroup]),
     fact('bazhai.house', '宅卦：', [d.houseGua, d.houseGroup]),
     fact('bazhai.match', '命宅配合：', [d.match]),
-    fact('bazhai.lucky', '四吉方：', lucky.map(direction)),
-    fact('bazhai.unlucky', '四凶方：', unlucky.map(direction)),
     ...mingPalace.map((item, index) =>
       fact(
         `bazhai.ming-palace.${index}`,
@@ -1088,22 +1104,10 @@ function extractResidentialFacts(data: unknown): DivinationPromptFact[] {
   if (!d) return [];
   const bazhai = record(d.bazhai);
   const xuankong = record(d.xuankong);
-  const xuankongPeriod = record(xuankong?.period);
-  const dao = record(xuankong?.daoShanXiang);
+  const input = record(d.inputSummary);
   return collect([
-    fact('residential.orientation', '山向：', [d.orientationText]),
-    fact('residential.house-year', '宅运年份：', [d.houseYear]),
-    fact('residential.xuankong-summary', '玄空：', [
-      xuankongPeriod?.label,
-      xuankong?.sitMountain && xuankong?.facingMountain
-        ? `坐${text(xuankong.sitMountain)}向${text(xuankong.facingMountain)}`
-        : undefined,
-      xuankong?.guaType,
-      dao?.summary,
-    ]),
-    bazhai
-      ? fact('residential.bazhai-summary', '八宅：', [bazhai.mingGua, bazhai.mingGroup])
-      : null,
+    fact('residential.orientation', '山向：', [input?.orientationText]),
+    fact('residential.house-year', '宅运年份：', [input?.houseYear]),
     ...(xuankong
       ? extractXuanKongFacts(xuankong).map((item) => ({ ...item, id: `residential.${item.id}` }))
       : []),
