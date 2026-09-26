@@ -58,7 +58,7 @@ test('梅花主卦生体而变卦克体时保留条件，不把旺衰写成吉�
     assert.ok(data.analysis.tiYongSeasonEvaluation?.includes(`生体条件${strength}`));
     assert.ok(data.analysis.yingQi?.includes(`体卦月令${state}，可作应期${speed}的盘内参考`));
     assert.match(prompt, /主卦体用月令条件：主卦用生体/u);
-    assert.match(prompt, /变卦天火同人：.*关系用克体/u);
+    assert.match(prompt, /结果天火同人：.*关系用克体/u);
     assert.match(prompt, /盘内关系走势先顺后阻；体用强弱与应期合参主互变、所问事项及现实进展/u);
     assert.equal(prompt.split('体用强弱与应期合参主互变').length - 1, 1);
     assert.match(prompt, /起卦取数：数字1除8取余/u);
