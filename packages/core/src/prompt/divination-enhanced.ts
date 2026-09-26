@@ -59,6 +59,7 @@ import { getKongmingInterpretation } from '../name-number/kongming-interpretatio
 import { getZhugeInterpretation } from '../name-number/zhuge-interpretations';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
+import { formatTaiyiConditionSummary, formatTaiyiTacticBasis } from '../taiyi';
 import {
   formatJinkoujueRelations,
   formatJinkoujueMovementRules,
@@ -1177,8 +1178,9 @@ export function formatTaiyiTradition(data: TaiyiResult) {
 
 export function formatTaiyiInfo(data: TaiyiResult) {
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
+  const conditionSummary = data.conditions ? formatTaiyiConditionSummary(data.conditions) : '';
   const specialJudgments = data.judgments.filter(
-    (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+    (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item) && item !== conditionSummary,
   );
   const sixteenGods = data.sixteenGods?.length
     ? `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`
@@ -1197,6 +1199,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
             `将目关系：${item.left}第${item.leftPalace}宫与${item.right}第${item.rightPalace}宫，${item.kind}（${item.relation}）`,
         ),
         `二目五行：文昌${conditions.fiveGenerals.hostGuestElementRelation.hostPosition}属${conditions.fiveGenerals.hostGuestElementRelation.hostElement ?? '待核'}，始击${conditions.fiveGenerals.hostGuestElementRelation.guestPosition}属${conditions.fiveGenerals.hostGuestElementRelation.guestElement ?? '待核'}，${conditions.fiveGenerals.hostGuestElementRelation.relation}；此为二目所在十六神五行关系，日计纳音另论`,
+        `阴阳合判：${conditions.yinYangHarmony.matched ? '和' : '不和'}`,
         ...conditions.yinYangHarmony.pairFacts.map(
           (item) =>
             `阴阳配对：${item.role}，${item.position ?? `第${item.palace}宫`}为${item.polarity}，算${item.count}为${item.countPolarity}；${item.matched ? '阴阳和' : '阴阳不和'}`,
@@ -1209,7 +1212,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
     `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
     `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
-    `大局攻守：${data.tacticGuidance || '主客算长短结合三门、五将和阴阳配合条件判断，条件相等时再比较长短'}`,
+    `大局攻守：${formatTaiyiTacticBasis({ lordCount: data.lordCount, guestCount: data.guestCount, lordNature: data.countNatures?.lord, guestNature: data.countNatures?.guest })}`,
     `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
     sixteenGods,
     ...conditionLines,
