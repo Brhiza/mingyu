@@ -19,6 +19,8 @@ test('命盘基础提示词默认不展开完整大运流年', () => {
 
   const text = formatBaziForPrompt(result);
 
+  assert.equal(result.climate?.nature, '未见明显偏向');
+  assert.doesNotMatch(text, /水火分布参考:|调候特征:/);
   assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
 });
 

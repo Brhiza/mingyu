@@ -44,6 +44,12 @@ test('即时八字按日旬核对落空，并区分藏干与明透柱位', () =>
     assert.ok(prompt.includes(`日元${chart.analysis.dayMasterStrength.status}`));
     assert.ok(prompt.includes(`格局${chart.analysis.mingGe.pattern}`));
     assert.ok(prompt.includes(`取用${chart.analysis.usefulGod.useful}`));
+    if (chart.climate && chart.climate.nature !== '未见明显偏向') {
+      assert.ok(prompt.includes(`水火分布参考：${chart.climate.summary}`));
+      assert.doesNotMatch(prompt, /\n调候：/);
+    } else {
+      assert.doesNotMatch(prompt, /\n水火分布参考：|\n调候：/);
+    }
     for (const relation of Object.values(chart.pillarRelations).flat()) {
       assert.ok(prompt.includes(relation));
     }
@@ -72,6 +78,24 @@ test('即时八字按日旬核对落空，并区分藏干与明透柱位', () =>
   assert.ok(hitCounts.has(0));
   assert.ok(hitCounts.has(1));
   assert.ok([...hitCounts].some((count) => count > 1));
+});
+
+test('中性水火指标不占用即时八字盘面资料', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 8,
+    day: 15,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  assert.equal(chart.climate?.nature, '未见明显偏向');
+  assert.doesNotMatch(
+    buildInstantBaziPrompt(chart, '判断当前事件。', '当地民用时间'),
+    /水火分布参考：|调候：/,
+  );
 });
 
 test('紫微即时盘与合参区分命主身主和命身宫内主星', async () => {

@@ -1130,9 +1130,9 @@ function formatBirthContext(
     ...(unknownTime
       ? []
       : [`旺衰：${context.strength.status}；${context.strength.basis.join('；')}`]),
-    ...(context.climate
+    ...(context.climate && context.climate.nature !== '未见明显偏向'
       ? [
-          `寒暖分布：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
+          `水火分布参考：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
         ]
       : []),
     ...(unknownTime
