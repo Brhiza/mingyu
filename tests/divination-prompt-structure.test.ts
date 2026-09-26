@@ -1226,8 +1226,8 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
   assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
-  assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期线索：动爻第3爻/);
+  assert.match(prompt, /月令：春季，体卦相，用卦旺；起卦法：数字起卦法；起卦数字123/);
+  assert.doesNotMatch(prompt, /应期线索：/);
   assert.match(prompt, /主卦卦辞：雷火丰，先盛后谨/);
   assert.match(prompt, /动爻爻辞：第3爻，三爻发动取象/);
   assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);

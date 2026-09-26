@@ -365,39 +365,6 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   return `${branchText}${directions.length ? `\n月日五行：${directions.join('；')}` : ''}`;
 }
 
-function createMeihuaTimingEvidence(data: MeihuaData) {
-  const calculation = data.calculation;
-  const methodLabel = getMeihuaMethodLabel(calculation);
-  const numberEvidence =
-    typeof calculation?.number === 'number'
-      ? `起卦数字${calculation.number}可作卦数旁证`
-      : calculation?.numbers?.length
-        ? `起卦数字${calculation.numbers.join('、')}可作卦数旁证`
-        : '';
-  const timeEvidence = [
-    calculation?.month ? `月数${calculation.month}` : '',
-    calculation?.day ? `日数${calculation.day}` : '',
-    calculation?.timeZhi ? `时支${calculation.timeZhi}` : '',
-  ]
-    .filter(Boolean)
-    .join('、');
-  const seasonBasis =
-    data.analysis.monthBranch && data.analysis.monthElement
-      ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
-      : `${data.analysis.season}季`;
-
-  return [
-    `动爻第${data.movingYao.position}爻`,
-    `${seasonBasis}体卦${data.analysis.tiSeasonState}、用卦${data.analysis.yongSeasonState}`,
-    `互卦${data.interName || data.interHexagram?.name || '无'}主过程，变卦${data.changedName || data.changedHexagram?.name || '无'}主结果`,
-    numberEvidence,
-    timeEvidence ? `时间数：${timeEvidence}` : '',
-    `起卦法：${methodLabel}`,
-  ]
-    .filter(Boolean)
-    .join('；');
-}
-
 function formatLiuyaoInfo(
   data: LiuyaoData,
   topic: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' = 'general',
@@ -633,46 +600,77 @@ function formatMeihuaClassicalText(data: MeihuaData) {
 function formatMeihuaInfo(data: MeihuaData) {
   const calculation = data.calculation;
   const methodLabel = getMeihuaMethodLabel(calculation);
+  const facts = formatMeihuaFacts(data);
+  const hasCalculationFact = facts.some((fact) => fact.startsWith('起卦取数：'));
+  const stages = data.evidenceAnalysis?.stages ?? [];
+  const hasOriginStage = stages.some((stage) => stage.stage === 'origin');
+  const hasResultStage = stages.some(
+    (stage) => stage.stage === 'result' && stage.status === '已计算',
+  );
+  const hasCompleteStages =
+    stages.length === 3 && stages.every((stage) => stage.status === '已计算');
   const processHexagram = data.interHexagram?.name || data.interName || '无';
   const resultHexagram = data.changedHexagram?.name || data.changedName || '无';
   const interRoleText =
     data.interTiGua && data.interYongGua
       ? `；体互${data.interTiGua.name}（${data.interTiGua.element}）；用互${data.interYongGua.name}（${data.interYongGua.element}）`
       : '';
+  const interRelationText = [data.analysis.inter1Relation, data.analysis.inter2Relation]
+    .filter(Boolean)
+    .map((relation) => `；${relation}`)
+    .join('');
   const changedTiYongText =
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
   const classicalLines = formatMeihuaClassicalText(data);
-  const timingEvidence = createMeihuaTimingEvidence(data);
-  const yingQiConditions = (data.analysis.yingQi ?? []).map((condition) =>
-    condition.replace('，只作取数来源旁证，不换算绝对日期', '；取数来源旁证'),
-  );
+  const yingQiConditions = (data.analysis.yingQi ?? [])
+    .filter(
+      (condition) =>
+        condition.trim() && (!hasCalculationFact || !condition.startsWith('上下卦数和为')),
+    )
+    .map((condition) => condition.replace('，只作取数来源旁证，不换算绝对日期', '；取数来源旁证'));
   const yingQiText = yingQiConditions.length ? `应期条件：${yingQiConditions.join('；')}` : '';
   const seasonBasis =
     data.analysis.monthBranch && data.analysis.monthElement
       ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
       : `${data.analysis.season}季`;
+  const generationText =
+    calculation && methodLabel !== '未给出'
+      ? `起卦法：${methodLabel}${!hasCalculationFact && typeof calculation.number === 'number' ? `；起卦数字${calculation.number}` : ''}`
+      : '';
+  const seasonText = hasOriginStage
+    ? ''
+    : `月令：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`;
+  const timeline = data.analysis.timelineTrend;
+  const timelineParts = [
+    !hasCompleteStages && timeline?.summary?.trim() ? timeline.summary.trim() : '',
+    timeline?.trend ? `盘内关系走势${timeline.trend}` : '',
+  ].filter(Boolean);
+  const timelineText = timelineParts.length
+    ? `阶段关系：${timelineParts.join('；')}；体用强弱与应期合参主互变、所问事项及现实进展`
+    : '';
 
   return [
     '占法：梅花易数',
-    `核心结构：主卦${data.originalName}；互卦${data.interName || '无'}；变卦${data.changedName || '无'}`,
+    `核心结构：主卦${data.originalName}${processHexagram !== '无' ? `；互卦${processHexagram}` : ''}${resultHexagram !== '无' ? `；变卦${resultHexagram}` : ''}`,
     `体用：体卦${data.tiGua.name}（${data.tiGua.element}）；用卦${data.yongGua.name}（${data.yongGua.element}）；动爻第${data.movingYao.position}爻；体用关系${data.analysis.tiYongRelation}`,
-    ...formatMeihuaFacts(data),
+    ...facts,
     classicalLines.length ? `卦辞与爻辞：\n${classicalLines.join('\n')}` : '',
-    `互卦：${processHexagram}${interRoleText}；${data.analysis.inter1Relation}；${data.analysis.inter2Relation}`,
-    `变卦：${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
-    data.evidenceAnalysis?.stages.length
-      ? `体用阶段：\n${data.evidenceAnalysis.stages.map((stage) => stage.promptText).join('\n')}`
+    processHexagram !== '无' && (interRoleText || interRelationText)
+      ? `互卦：${processHexagram}${interRoleText}${interRelationText}`
       : '',
-    `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
+    !hasResultStage &&
+    resultHexagram !== '无' &&
+    (changedTiYongText || data.analysis.changedRelation)
+      ? `变卦：${resultHexagram}${changedTiYongText}${data.analysis.changedRelation ? `；结果关系${data.analysis.changedRelation}` : ''}`
+      : '',
+    stages.length ? `体用阶段：\n${stages.map((stage) => stage.promptText).join('\n')}` : '',
+    [seasonText, generationText].filter(Boolean).join('；'),
     data.analysis.tiYongSeasonEvaluation
       ? `主卦体用月令条件：${data.analysis.tiYongSeasonEvaluation}`
       : '',
-    data.analysis.timelineTrend
-      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；盘内关系走势${data.analysis.timelineTrend.trend}` : ''}；体用强弱与应期合参主互变、所问事项及现实进展`
-      : '',
-    timingEvidence ? `应期线索：${timingEvidence}` : '',
+    timelineText,
     yingQiText,
   ]
     .filter(Boolean)

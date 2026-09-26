@@ -58,9 +58,12 @@ test('梅花主卦生体而变卦克体时保留条件，不把旺衰写成吉�
     assert.ok(data.analysis.tiYongSeasonEvaluation?.includes(`生体条件${strength}`));
     assert.ok(data.analysis.yingQi?.includes(`体卦月令${state}，可作应期${speed}的盘内参考`));
     assert.match(prompt, /主卦体用月令条件：主卦用生体/u);
-    assert.match(prompt, /变后体用用克体/u);
+    assert.match(prompt, /变卦天火同人：.*关系用克体/u);
     assert.match(prompt, /盘内关系走势先顺后阻；体用强弱与应期合参主互变、所问事项及现实进展/u);
     assert.equal(prompt.split('体用强弱与应期合参主互变').length - 1, 1);
+    assert.match(prompt, /起卦取数：数字1除8取余/u);
+    assert.match(prompt, /起卦法：数字起卦法/u);
+    assert.doesNotMatch(prompt, /应期线索：|上下卦数和为8|月令与起卦：|阶段关系：主卦用\/体：/u);
     assert.doesNotMatch(prompt, /贵人相助，大吉之象|应期迟缓|应期快于常规|体用吉凶实效/u);
   }
 });
@@ -103,6 +106,44 @@ test('梅花用克体保留体旺用衰与用旺体衰的局部强弱差异', ()
     assert.ok(data.analysis.tiYongSeasonEvaluation?.includes(expected));
     assert.doesNotMatch(data.analysis.tiYongSeasonEvaluation ?? '', /有惊无险|受制受损/u);
   }
+});
+
+test('梅花旧盘缺少互变与应期时不输出空内容行', () => {
+  const complete = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
+    method: 'number',
+    number: 1,
+  });
+  const data = {
+    ...complete,
+    interName: '',
+    changedName: '',
+    interHexagram: undefined,
+    changedHexagram: undefined,
+    interTiGua: undefined,
+    interYongGua: undefined,
+    changedTiGua: undefined,
+    changedYongGua: undefined,
+    evidenceAnalysis: undefined,
+    analysis: {
+      ...complete.analysis,
+      tiYongSeasonEvaluation: undefined,
+      timelineTrend: undefined,
+      yingQi: [],
+    },
+  };
+  const prompt = buildDivinationPrompt('meihua', '请分析当前情境。', data);
+
+  assert.match(prompt, /核心结构：主卦天山遁/u);
+  assert.doesNotMatch(prompt, /互卦：无|变卦：无|阶段关系：|应期条件：|起卦法：未给出|undefined/u);
+
+  const nameOnly = buildDivinationPrompt('meihua', '请分析当前情境。', {
+    ...data,
+    interName: complete.interName,
+    changedName: complete.changedName,
+    analysis: { ...data.analysis, inter1Relation: '', inter2Relation: '', changedRelation: '' },
+  });
+  assert.match(nameOnly, /核心结构：主卦天山遁；互卦天风姤；变卦天火同人/u);
+  assert.doesNotMatch(nameOnly, /^互卦：|^变卦：/mu);
 });
 
 test('梅花物象锚点只由完整方位起卦资料形成', () => {
