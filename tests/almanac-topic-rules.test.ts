@@ -1,26 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { SolarDay } from 'tyme4ts';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
-
-function findAlmanacAvoidDate(keyword: string, scope: 'day' | 'hour'): string {
-  for (let utc = Date.UTC(2025, 0, 1); utc < Date.UTC(2027, 0, 1); utc += 86400000) {
-    const date = new Date(utc);
-    const lunarDay = SolarDay.fromYmd(
-      date.getUTCFullYear(),
-      date.getUTCMonth() + 1,
-      date.getUTCDate(),
-    ).getLunarDay();
-    const matches =
-      scope === 'day'
-        ? lunarDay.getAvoids().some((item) => item.getName().includes(keyword))
-        : lunarDay
-            .getHours()
-            .some((hour) => hour.getAvoids().some((item) => item.getName().includes(keyword)));
-    if (matches) return date.toISOString().slice(0, 10);
-  }
-  throw new Error(`历法资料缺少${scope === 'day' ? '日' : '时'}忌${keyword}样本`);
-}
 
 test('黄历择日：无四离等明确事项规则时只映射历法库原始宜忌', () => {
   const result = generateAlmanacSelection({
@@ -120,43 +100,58 @@ test('黄历择日：参与人适配证据字段应完整生成', () => {
 });
 
 test('安葬和修造的原始忌项同时约束候选日与具体时辰', () => {
-  for (const { topic, keyword } of [
-    { topic: 'burial', keyword: '入殓' },
-    { topic: 'renovation', keyword: '盖屋' },
+  for (const { topic, date, keyword, forbiddenHours } of [
+    {
+      topic: 'burial',
+      date: '2025-01-06',
+      keyword: '入殓',
+      forbiddenHours: [
+        { name: '早子时', range: '00:00-01:00', ganzhi: '丙子' },
+        { name: '戌时', range: '19:00-21:00', ganzhi: '丙戌' },
+      ],
+    },
+    {
+      topic: 'renovation',
+      date: '2025-01-05',
+      keyword: '盖屋',
+      forbiddenHours: [
+        { name: '寅时', range: '03:00-05:00', ganzhi: '丙寅' },
+        { name: '晚子时', range: '23:00-24:00', ganzhi: '丙子' },
+      ],
+    },
   ] as const) {
-    const dayDate = findAlmanacAvoidDate(keyword, 'day');
-    const dayResult = generateAlmanacSelection({ topic, startDate: dayDate, endDate: dayDate });
-    const day = dayResult.days[0];
-    assert.ok(day.avoids.some((item) => item.includes(keyword)));
+    const result = generateAlmanacSelection({ topic, startDate: date, endDate: date });
+    assert.equal(result.days.length, 1);
+    const day = result.days[0];
+    assert.equal(day.date, date);
+    assert.ok(day.avoids.includes(keyword));
     assert.ok(
       day.topicMatchFacts?.some(
         (fact) =>
+          fact.status === '限制' &&
           fact.sourceType === '原始忌项' &&
-          fact.matchedItems.some((item) => item.includes(keyword)),
+          fact.matchedItems.includes(keyword),
       ),
     );
-    assert.equal(dayResult.evidenceAnalysis?.candidates[0].status, '慎用候选');
+    const candidate = result.evidenceAnalysis?.candidates[0];
+    assert.ok(candidate);
+    assert.equal(candidate.status, '慎用候选');
 
-    const hourDate = findAlmanacAvoidDate(keyword, 'hour');
-    const hourResult = generateAlmanacSelection({ topic, startDate: hourDate, endDate: hourDate });
-    const hourDay = hourResult.days[0];
-    const forbidden = hourDay.hours?.filter((hour) =>
-      hour.avoids?.some((item) => item.includes(keyword)),
-    );
-    assert.ok(forbidden?.length);
-    for (const hour of forbidden) {
+    for (const expected of forbiddenHours) {
+      const hour = day.hours?.find((item) => item.name === expected.name);
+      assert.ok(hour);
+      assert.equal(hour.range, expected.range);
+      assert.equal(hour.ganzhi, expected.ganzhi);
+      assert.ok(hour.avoids?.includes(keyword));
       assert.ok(
         hour.topicMatchFacts?.some(
           (fact) =>
+            fact.status === '限制' &&
             fact.sourceType === '原始忌项' &&
-            fact.matchedItems.some((item) => item.includes(keyword)),
+            fact.matchedItems.includes(keyword),
         ),
       );
-      assert.ok(
-        !hourResult.evidenceAnalysis?.candidates[0].usableHours.some(
-          (candidate) => candidate.name === hour.name,
-        ),
-      );
+      assert.ok(!candidate.usableHours.some((usable) => usable.name === expected.name));
     }
   }
 });
