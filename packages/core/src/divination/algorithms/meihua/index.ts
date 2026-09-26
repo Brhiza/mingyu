@@ -389,13 +389,15 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     throw new Error(`梅花易数${mainHexagram.name}缺少第${movingYaoIndex}爻爻辞。`);
   }
 
-  const yaosDetail = mainLines.map((line, index) => ({
-    position: index + 1,
-    yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
-    isChanging: index === movingYaoIndex - 1,
-    tiYong: ((index < 3 ? lowerTrigram.name : upperTrigram.name) === tiGua.name ? '体' : '用') as
-      '体' | '用',
-  }));
+  const yaosDetail = mainLines.map((line, index) => {
+    const isYong = index < 3 ? movingInLower : !movingInLower;
+    return {
+      position: index + 1,
+      yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
+      isChanging: index === movingYaoIndex - 1,
+      tiYong: (isYong ? '用' : '体') as '用' | '体',
+    };
+  });
 
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
   // 复用六爻的 getSeasonState（同令→旺，令生我→相，我生令→休，我克令→囚，令克我→死）。

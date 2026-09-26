@@ -12,6 +12,7 @@ import {
   buildEvidenceAnalysis,
   buildEvidencePool,
   buildPatternAnalysis,
+  calculateZiweiChart,
   detectPatterns,
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
 } from '@core/ziwei/iztro';
@@ -924,6 +925,42 @@ test('紫微本命三方四正线索只从生年四化补全关联星曜与四�
   assert.ok(!('数据来源' in (summary[0] ?? {})));
   assert.ok(!('计算依据' in (summary[0] ?? {})));
   assert.ok(!('适用边界' in (summary[0] ?? {})));
+});
+
+test('大限提示词只选当前焦点宫的三方四正化曜，保留各宫独立线索', async () => {
+  const runtime = await calculateZiweiChart(
+    {
+      name: '三方四正焦点核对',
+      gender: '男',
+      dateType: 'solar',
+      birthDate: '1991-05-15',
+      birthTimeIndex: 5,
+      algorithm: 'default',
+    },
+    { scopes: ['decadal'], horoscopeContext: { dateStr: '2026-09-27', hourIndex: 5 } },
+  );
+  const payload = runtime.payloadByScope.decadal;
+  const reportContext = { scope: 'decadal' as const, selectedTopic: 'chat' };
+  const snapshot = buildZiweiTaskBookSnapshot({ payload, reportContext });
+  const lines = snapshot
+    .split('\n')
+    .filter((line) => line.startsWith('本命｜') && line.includes('三方四正见化'));
+
+  assert.deepEqual(
+    lines.map((line) => line.split('｜')[1]),
+    [
+      '子女三方四正见化忌',
+      '命宫三方四正见化禄',
+      '田宅三方四正见化科',
+      '子女三方四正见化科',
+      '命宫三方四正见化权',
+    ],
+  );
+  assert.ok(payload.evidence_pool.some((item) => item.title === '仆役三方四正见化忌'));
+  assert.match(snapshot, /文昌.*生年化忌/);
+  assert.match(snapshot, /巨门.*生年化禄/);
+  assert.match(snapshot, /太阳.*生年化权/);
+  assert.match(snapshot, /文曲.*生年化科/);
 });
 
 test('紫微线索只从自身关联宫位补全星曜与四化', () => {

@@ -217,10 +217,14 @@ export function buildEvidenceSummary(
     reportContext.selectedTopic === 'risk'
       ? relevantEvidence.filter((item) => item.mutagens.includes('忌'))
       : relevantEvidence;
+  // 三方四正的首项是本宫；其余宫位用于说明会照关系，不代表该线索的主题宫。
   const matchedEvidence = relevantEvidence.filter(
     (item) =>
-      item.palace_indexes.some((index) => focusIndexes.has(index)) ||
-      item.palace_names.some((name) => focusNames.has(normalizePalaceName(name))) ||
+      (item.type === 'surrounded_mutagen'
+        ? focusIndexes.has(item.palace_indexes[0]) ||
+          focusNames.has(normalizePalaceName(item.palace_names[0] ?? ''))
+        : item.palace_indexes.some((index) => focusIndexes.has(index)) ||
+          item.palace_names.some((name) => focusNames.has(normalizePalaceName(name)))) ||
       (reportContext.selectedTopic === 'risk' && item.mutagens.includes('忌')),
   );
   const evidencePool = matchedEvidence.length ? matchedEvidence : fallbackList;

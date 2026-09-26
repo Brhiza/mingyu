@@ -133,6 +133,22 @@ test('梅花：爻位详情应从初爻往上排列并准确标出动爻', () =>
   );
 });
 
+test('梅花：上下同卦时仍须按动爻所在位置区分体用', () => {
+  const data = generateMeihua(SAMPLE_DATE, {
+    method: 'direction',
+    direction: 'south',
+    objectType: 'fire',
+  });
+
+  assert.equal(data.mainHexagram.upper, '离');
+  assert.equal(data.mainHexagram.lower, '离');
+  assert.equal(data.movingYao.position, 5);
+  assert.deepEqual(
+    data.yaosDetail.map((yao) => yao.tiYong),
+    ['体', '体', '体', '用', '用', '用'],
+  );
+});
+
 test('梅花：用生体应期描述应保留验证条件且不带多余标点', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 1 });
 

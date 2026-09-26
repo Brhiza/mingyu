@@ -167,7 +167,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
     },
   };
   const boundary = formatBaziFortuneSelection(boundaryContext)!;
-  assert.ok(boundary.focus.includes(`所选岁运背景：${context.cycleGanZhi}`));
+  assert.ok(boundary.focus.includes(`上层岁运：${context.cycleLabel}`));
   assert.match(boundary.focus, /1997年9月21日 03:04:05起，至2007年9月21日 03:04:05交接/);
   assert.match(boundary.focus, /起点归本运，终点归后续运段/);
   assert.ok(boundary.focus.includes(`该运交接年龄：${context.cycleAge}岁`));

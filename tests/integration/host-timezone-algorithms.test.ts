@@ -175,3 +175,57 @@ test('公历整月干支日期不受宿主跳日影响', () => {
   assert.deepEqual(utc, { count: 31, first: '1994-12-01', last: '1994-12-31' });
   assert.deepEqual(kiritimati, utc);
 });
+
+test('农历公开时间入口与统一时间管理在不同时区及配置偏移下保持一致', () => {
+  const script = `
+    import { LunarUtil } from './packages/core/src/calendar/lunar.ts';
+    import { TimeManager } from './packages/core/src/calendar/timeManager.ts';
+    const instant = new Date('2024-02-09T16:30:00Z');
+    const read = () => {
+      const info = LunarUtil.getTimeInfo(instant);
+      const managed = TimeManager.getDivinationTime(instant);
+      return {
+        solar: info.solar,
+        lunar: { year: info.lunar.yearNumber, month: info.lunar.monthNumber, day: info.lunar.dayNumber },
+        ganzhi: LunarUtil.getGanZhi(instant),
+        lunarEntry: LunarUtil.getLunar(instant),
+        consistent: JSON.stringify(info) === JSON.stringify(managed.timeInfo)
+          && JSON.stringify(LunarUtil.getGanZhi(instant)) === JSON.stringify(managed.ganzhi)
+          && JSON.stringify(LunarUtil.getLunar(instant)) === JSON.stringify(managed.timeInfo.lunar),
+      };
+    };
+    const beijing = read();
+    TimeManager.setTimezoneOffsetMinutesOverride(0);
+    const offsetZero = read();
+    console.log(JSON.stringify({ beijing, offsetZero }));
+  `;
+  type Result = {
+    beijing: {
+      solar: { year: number; month: number; day: number; hour: number; minute: number };
+      lunar: { year: number; month: number; day: number };
+      ganzhi: { day: string; hour: string };
+      consistent: boolean;
+    };
+    offsetZero: {
+      solar: { year: number; month: number; day: number; hour: number; minute: number };
+      lunar: { year: number; month: number; day: number };
+      ganzhi: { day: string; hour: string };
+      consistent: boolean;
+    };
+  };
+  const utc = runInTimeZone<Result>('UTC', script);
+  const shanghai = runInTimeZone<Result>('Asia/Shanghai', script);
+  assert.deepEqual(shanghai, utc);
+  assert.deepEqual(utc.beijing.solar, { year: 2024, month: 2, day: 10, hour: 0, minute: 30 });
+  assert.deepEqual(utc.beijing.lunar, { year: 2024, month: 1, day: 1 });
+  assert.deepEqual(utc.offsetZero.solar, {
+    year: 2024,
+    month: 2,
+    day: 9,
+    hour: 16,
+    minute: 30,
+  });
+  assert.deepEqual(utc.offsetZero.lunar, { year: 2023, month: 12, day: 30 });
+  assert.equal(utc.beijing.consistent, true);
+  assert.equal(utc.offsetZero.consistent, true);
+});

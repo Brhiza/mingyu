@@ -8,6 +8,10 @@ const GANZHI_FIXTURES = [
   [1998, 8, 13, 23, 30, { year: '戊寅', month: '庚申', day: '癸巳', hour: '壬子' }],
 ] as const;
 
+function chinaDate(year: number, month: number, day: number, hour: number, minute = 0): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour - 8, minute));
+}
+
 test('农历工具应拒绝无效时间对象', () => {
   const invalidDate = new Date(Number.NaN);
 
@@ -33,7 +37,7 @@ test('农历工具应拒绝越界年月参数', () => {
 
 test('农历工具干支应符合交节与晚子时固定真值', () => {
   GANZHI_FIXTURES.forEach(([year, month, day, hour, minute, expected]) => {
-    const date = new Date(year, month - 1, day, hour, minute, 0);
+    const date = chinaDate(year, month, day, hour, minute);
 
     assert.deepEqual(LunarUtil.getGanZhi(date), expected);
     assert.deepEqual(LunarUtil.getTimeInfo(date).ganzhi, expected);
@@ -51,12 +55,12 @@ test('农历工具干支应符合交节与晚子时固定真值', () => {
 });
 
 test('农历工具显示文本不应保留 tyme4ts toString 的农历前缀，并应保留闰月', () => {
-  const springFestival = LunarUtil.getLunar(new Date(2024, 1, 10, 12, 0, 0));
+  const springFestival = LunarUtil.getLunar(chinaDate(2024, 2, 10, 12));
   assert.equal(springFestival.yearInChinese, '甲辰年');
   assert.equal(springFestival.monthInChinese, '正月');
   assert.equal(springFestival.dayInChinese, '初一');
 
-  const leapMonth = LunarUtil.getLunar(new Date(2023, 2, 22, 12, 0, 0));
+  const leapMonth = LunarUtil.getLunar(chinaDate(2023, 3, 22, 12));
   assert.equal(leapMonth.yearInChinese, '癸卯年');
   assert.equal(leapMonth.monthInChinese, '闰二月');
   assert.equal(leapMonth.dayInChinese, '初一');
@@ -96,7 +100,7 @@ test('农历数值年月日与闰月标志应能还原公历日期', () => {
   ] as const;
 
   for (const example of cases) {
-    const date = new Date(example.year, example.month - 1, example.day, 12);
+    const date = chinaDate(example.year, example.month, example.day, 12);
     const lunar = LunarUtil.getLunar(date);
     const fromTimeInfo = LunarUtil.getTimeInfo(date).lunar;
     const fromTimeManager = TimeManager.getDivinationTime(

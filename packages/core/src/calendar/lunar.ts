@@ -5,6 +5,7 @@
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { getXunKongBranches } from '../ganzhi';
 import { daysInSolarMonth } from './date-validation';
+import { TimeManager } from './timeManager';
 
 /**
  * 干支信息接口
@@ -109,13 +110,14 @@ export class LunarUtil {
   static getTimeInfo(date: Date): TimeInfo {
     this.assertValidDate(date);
     try {
+      const parts = TimeManager.getWallClockParts(date);
       const solarTime = SolarTime.fromYmdHms(
-        date.getFullYear(),
-        date.getMonth() + 1,
-        date.getDate(),
-        date.getHours(),
-        date.getMinutes(),
-        date.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const solar = solarTime.getSolarDay();
       const lunarHour = solarTime.getLunarHour();
@@ -129,8 +131,8 @@ export class LunarUtil {
           year: solar.getYear(),
           month: solar.getMonth(),
           day: solar.getDay(),
-          hour: date.getHours(),
-          minute: date.getMinutes(),
+          hour: parts.hour,
+          minute: parts.minute,
         },
         lunar: {
           year: eightChar.getYear().getName(),
@@ -173,13 +175,14 @@ export class LunarUtil {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
+      const parts = TimeManager.getWallClockParts(targetDate);
       const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const eightChar = solarTime.getLunarHour().getEightChar();
 
@@ -202,13 +205,14 @@ export class LunarUtil {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
+      const parts = TimeManager.getWallClockParts(targetDate);
       const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
+        parts.year,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
       );
       const lunarHour = solarTime.getLunarHour();
       const lunar = lunarHour.getLunarDay();

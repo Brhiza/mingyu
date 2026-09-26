@@ -3,6 +3,7 @@ import {
   formatFortuneActionFactLine,
   type BaziChartResult,
   type BaziFortuneBatchMetadata,
+  type FortuneActionFact,
 } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { getLuckCycleTimeRange, formatSolarDateTime } from '../bazi/luckTiming';
@@ -77,6 +78,54 @@ function formatFortuneEvidenceLines(lines: string[] | undefined) {
     .map((line) => formatFortuneEvidenceLine(line))
     .filter((line): line is string => Boolean(line));
   return [...new Set(formatted)];
+}
+
+/** 同一层同干的明透与本气若只重复相同裁决，则并列位置并注明根气归属。 */
+function consolidateFortuneActionLines(lines: string[], facts: FortuneActionFact[]): string[] {
+  const skipped = new Set<number>();
+  const merged = new Map<number, string>();
+  for (const exposed of facts) {
+    if (exposed.placement !== '岁运透干') continue;
+    const hidden = facts.find(
+      (fact) =>
+        fact.placement === '岁运藏干' &&
+        fact.hiddenCategory === '本气' &&
+        fact.layerKey === exposed.layerKey &&
+        fact.stem === exposed.stem &&
+        fact.element === exposed.element &&
+        fact.tenGod === exposed.tenGod &&
+        fact.conditionStatus === exposed.conditionStatus &&
+        fact.currentActionStatus === exposed.currentActionStatus &&
+        fact.applicableTimeRange === exposed.applicableTimeRange &&
+        fact.parentLayerKey === exposed.parentLayerKey &&
+        !fact.rootEvidence &&
+        JSON.stringify(fact.hitSources) === JSON.stringify(exposed.hitSources) &&
+        JSON.stringify(fact.targetObjects) === JSON.stringify(exposed.targetObjects) &&
+        JSON.stringify(fact.supportingFactKeys) === JSON.stringify(exposed.supportingFactKeys) &&
+        JSON.stringify(fact.opposingFactKeys) ===
+          JSON.stringify([
+            ...exposed.opposingFactKeys,
+            `bazi:fortune-action:counter:hidden-not-transparent:${fact.layerKey}:${fact.stem}:${fact.hiddenCategory}`,
+          ]),
+    );
+    if (!hidden) continue;
+    const exposedText = formatFortuneActionFactLine(exposed).replaceAll('｜', '；');
+    const hiddenText = formatFortuneActionFactLine(hidden).replaceAll('｜', '；');
+    const exposedIndex = lines.findIndex((line) => line.endsWith(exposedText));
+    const hiddenIndex = lines.findIndex((line) => line.endsWith(hiddenText));
+    if (exposedIndex < 0 || hiddenIndex < 0 || exposedIndex === hiddenIndex) continue;
+    const exposedTitle = lines[exposedIndex].split('：', 1)[0];
+    const hiddenTitle = lines[hiddenIndex].split('：', 1)[0];
+    if (exposedTitle !== hiddenTitle) continue;
+    merged.set(
+      exposedIndex,
+      lines[exposedIndex]
+        .replace('，岁运透干）', '，岁运透干、岁运藏干·本气）')
+        .replace('；根气：', '；透干根气：'),
+    );
+    skipped.add(hiddenIndex);
+  }
+  return lines.flatMap((line, index) => (skipped.has(index) ? [] : [merged.get(index) ?? line]));
 }
 
 /**
@@ -159,27 +208,32 @@ export function formatBaziFortuneSelection(
           line.startsWith('补充依据（上层岁运背景）：'))
       ),
   );
+  const actionFacts = promptPayload.actionEvidence?.facts ?? [];
+  const renderedActionFacts = new Set(
+    actionFacts.filter((fact) =>
+      evidenceLines.some((line) =>
+        line.includes(formatFortuneActionFactLine(fact).replaceAll('｜', '；')),
+      ),
+    ),
+  );
+  const consolidatedEvidenceLines = consolidateFortuneActionLines(evidenceLines, actionFacts);
   const selectedFactsToRender = selectedFacts.filter(
-    (fact) => !evidenceLines.some((line) => line.includes(fact)),
+    (fact) => !consolidatedEvidenceLines.some((line) => line.includes(fact)),
   );
   if (selectedFactsToRender.length) {
     lines.push(`所选层关键事实：\n${selectedFactsToRender.join('\n')}`);
   }
 
-  if (evidenceLines.length) lines.push(`岁运取证：\n${evidenceLines.join('\n')}`);
+  if (consolidatedEvidenceLines.length) {
+    lines.push(`岁运取证：\n${consolidatedEvidenceLines.join('\n')}`);
+  }
 
   lines.push(...formatTriggerRelations(promptPayload.triggerEvidence));
-  const actionFacts = promptPayload.actionEvidence?.facts ?? [];
-  const actionFactsAlreadyRendered =
-    actionFacts.length > 0 &&
-    actionFacts.every((fact) =>
-      evidenceLines.some((line) =>
-        line.includes(formatFortuneActionFactLine(fact).replaceAll('｜', '；')),
-      ),
-    );
-  if (actionFacts.length && !actionFactsAlreadyRendered) {
+  const missingActionFacts = actionFacts.filter((fact) => !renderedActionFacts.has(fact));
+  if (missingActionFacts.length) {
     lines.push(
-      '岁运作用事实：\n' + actionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),
+      '岁运作用事实：\n' +
+        missingActionFacts.map((fact) => formatFortuneActionFactLine(fact)).join('\n'),
     );
   }
   const groups = new Map<string, Set<string>>();
