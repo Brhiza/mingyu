@@ -146,6 +146,10 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
   const changedTi = record(d.changedTiGua);
   const changedYong = record(d.changedYongGua);
   const analysis = record(d.analysis);
+  const changedName = text(d.changedName) || text(record(d.changedHexagram)?.name) || '无';
+  const hasResultStage = records(record(d.evidenceAnalysis)?.stages).some(
+    (stage) => stage.stage === 'result' && stage.status === '已计算',
+  );
   const facts = collect([
     fact('meihua.core', '核心结构：', [
       `主卦${text(d.originalName)}`,
@@ -163,10 +167,11 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
       record(d.interTiGua) ? `体互${text(record(d.interTiGua)?.name)}` : undefined,
       record(d.interYongGua) ? `用互${text(record(d.interYongGua)?.name)}` : undefined,
     ]),
-    fact('meihua.changed', '变卦：', [
-      ` ${text(d.changedName) || text(record(d.changedHexagram)?.name) || '无'}`,
-      changedTi ? `变后体卦${text(changedTi.name)}` : undefined,
-      changedYong ? `变后用卦${text(changedYong.name)}` : undefined,
+    fact('meihua.changed', hasResultStage ? `结果${changedName}：` : '变卦：', [
+      changedName,
+      changedTi ? `${hasResultStage ? '' : '变后'}体卦${text(changedTi.name)}` : undefined,
+      changedYong ? `${hasResultStage ? '' : '变后'}用卦${text(changedYong.name)}` : undefined,
+      hasResultStage && analysis ? `关系${text(analysis.changedTiYongRelation)}` : undefined,
     ]),
   ]);
   return facts;
