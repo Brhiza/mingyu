@@ -364,6 +364,36 @@ test('合法完整历法输入按五合终局区分破合后的原干作用与�
   );
 });
 
+test('真实历法输入的支藏印星救应不误作同柱明透天干五合', () => {
+  const examples = [
+    { input: [2008, 6, 3, 6], pillars: ['戊子', '丁巳', '甲戌', '庚午'], hidden: '年柱子藏癸正印' },
+    { input: [2008, 7, 3, 7], pillars: ['戊子', '戊午', '甲辰', '辛未'], hidden: '年柱子藏癸正印' },
+    { input: [2014, 3, 3, 3], pillars: ['甲午', '丙寅', '癸酉', '乙卯'], hidden: '日柱酉藏辛偏印' },
+  ] as const;
+
+  for (const { input, pillars, hidden } of examples) {
+    const [year, month, day, timeIndex] = input;
+    const chart = baziCalculator.calculateBazi({
+      year,
+      month,
+      day,
+      timeIndex,
+      gender: 'male',
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    assert.deepEqual(
+      Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+      pillars,
+    );
+    const resolutions =
+      chart.analysis.mingGe.specialAdjudication?.functionalResolutions.join('；') || '';
+    assert.match(resolutions, new RegExp(`制${hidden}，印夺食有救`));
+    assert.doesNotMatch(resolutions, /戊癸五合|丙辛五合|年干癸|日干辛/);
+  }
+});
+
 test('合成位置单元不把甲己等其余天干五合泛化成从儿顺局的已解决作用', () => {
   const unsupportedHarmony = assessCongErPattern(
     makePillars(['甲寅', '己未', '丙辰', '庚申']),
