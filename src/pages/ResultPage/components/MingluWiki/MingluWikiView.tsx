@@ -56,10 +56,10 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
   }, []);
 
   const handleSelectAnchor = useCallback((anchorId: string) => {
-    if (scrollToMingluAnchor(anchorId)) {
-      setActiveAnchorId(anchorId);
-      setIsMobileTocOpen(false);
-    }
+    setIsMobileTocOpen(false);
+    requestAnimationFrame(() => {
+      if (scrollToMingluAnchor(anchorId)) setActiveAnchorId(anchorId);
+    });
   }, []);
 
   // 生成并复制 Markdown 大报告
