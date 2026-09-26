@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei';
 import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
+import { formatZiweiEvidenceText } from '../packages/core/src/prompt/public-api';
 
 test('紫微完整提示词仅列一次本命十二宫并保留长生博士与安星口径', async () => {
   const input = buildZiweiChartInput({
@@ -39,4 +40,50 @@ test('紫微完整提示词仅列一次本命十二宫并保留长生博士与�
     if (palace.changsheng12) assert.ok(line.includes(`长生：${palace.changsheng12}`), palace.name);
     if (palace.boshi12) assert.ok(line.includes(`博士：${palace.boshi12}`), palace.name);
   }
+});
+
+test('紫微合参完整范围不重复本命十二宫，年龄年分册仍保留本命快照', async () => {
+  const input = buildZiweiChartInput({
+    name: '合参去重',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+  });
+  const runtime = await calculateZiweiChart(input, {
+    scopes: ['origin', 'monthly'],
+    skipAnalysis: true,
+    horoscopeContext: { dateStr: '2026-08-06', hourIndex: 4 },
+  });
+
+  const fullText = formatZiweiEvidenceText(runtime, 'full');
+  assert.equal((fullText.match(/宫位关系：本宫/g) ?? []).length, 24);
+  assert.match(fullText, /本命：分析对象：本命/);
+  assert.match(fullText, /流月：分析对象：/);
+  assert.equal(
+    (formatZiweiEvidenceText(runtime, 'origin').match(/宫位关系：本宫/g) ?? []).length,
+    12,
+  );
+  assert.equal(
+    (formatZiweiEvidenceText(runtime, 'monthly').match(/宫位关系：本宫/g) ?? []).length,
+    12,
+  );
+
+  const fortuneBatch = await calculateZiweiChart(input, {
+    scopes: [],
+    independentBatch: 'fortune',
+    horoscopeContext: { dateStr: '2026-08-06', hourIndex: 4 },
+    fortuneRange: {
+      scope: 'all',
+      dateStr: '2026-08-06',
+      hourIndex: 4,
+      batch: { startIndex: 0, limit: 1 },
+    },
+  });
+  const batchText = formatZiweiEvidenceText(fortuneBatch, 'full');
+  assert.equal((batchText.match(/宫位关系：本宫/g) ?? []).length, 12);
+  assert.match(batchText, /十二宫本命资料：/);
+  assert.match(batchText, /运限范围资料：/);
 });

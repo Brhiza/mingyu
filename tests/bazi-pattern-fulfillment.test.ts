@@ -20,6 +20,20 @@ function pillars(values: [string, string, string, string]): Pillars {
   ) as unknown as Pillars;
 }
 
+test('月干正官若非月支所藏，不能仅凭其透干认作正官月令', () => {
+  const result = evaluatePatternFulfillment(
+    pillars(['戊申', '辛亥', '甲子', '乙亥']),
+    '甲',
+    '正官格',
+    getTenGod,
+  );
+  assert.equal(
+    result.conditionFacts?.find((item) => item.key === 'pattern.month-gate')?.status,
+    '不满足',
+  );
+  assert.equal(result.status, '平常');
+});
+
 test('正官见伤印财保留柱位与相碍条件，透印本身不判破而复成', () => {
   const chart = pillars(['壬申', '己酉', '甲子', '丁卯']);
   const result = evaluatePatternFulfillment(chart, '甲', '正官格', getTenGod);

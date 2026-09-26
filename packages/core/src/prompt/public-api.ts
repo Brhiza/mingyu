@@ -507,7 +507,6 @@ export function formatZiweiEvidenceText(
   result: ZiweiRuntimeFacts,
   scope: ZiweiPromptScope = 'origin',
 ) {
-  const batchedFullScope = isBatchedFullScope(result, scope);
   const payload =
     scope === 'full'
       ? (result.payloadByScope.origin ?? Object.values(result.payloadByScope)[0])
@@ -523,6 +522,7 @@ export function formatZiweiEvidenceText(
       .filter(Boolean)
       .join('\n\n');
   }
+  if (scope === 'full') return formatPublicZiweiFullScopeText(result);
   const activePalace = payload.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -534,7 +534,7 @@ export function formatZiweiEvidenceText(
       .filter(Boolean)
       .join('、');
   const baseText = [
-    `分析对象：${scope === 'full' ? (batchedFullScope ? '本次所列紫微资料' : '本命盘、童限与大限流年；目标日期下附流月、流日与流时') : payload.active_scope.label || scopeLabel(scope)}`,
+    `分析对象：${payload.active_scope.label || scopeLabel(scope)}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     payload.calculation_config.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
@@ -557,11 +557,9 @@ export function formatZiweiEvidenceText(
     .join('\n');
   return [
     baseText,
-    scope === 'full'
-      ? formatPublicZiweiFullScopeText(result)
-      : result.fortuneTimeline && scope !== 'origin'
-        ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
-        : '',
+    result.fortuneTimeline && scope !== 'origin'
+      ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n\n');

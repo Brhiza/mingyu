@@ -40,16 +40,8 @@ const READABLE_FORTUNE_EVIDENCE_TITLES = new Set([
   '应期边界',
 ]);
 
-/** detailGroups 是岁运下钻的固定四层，标题之外的内部分组不进入任务书。 */
-const READABLE_FORTUNE_DETAIL_TITLES = new Set([
-  '该大运包含的流年',
-  '所属大运包含的流年',
-  '该流年包含的流月',
-  '所属流年包含的流月',
-  '该流月包含的流日',
-  '所属流月包含的流日',
-  '该流日包含的流时',
-]);
+/** 所选大运覆盖整段年份；更细的年、月、日选择只呈现所选层与上层。 */
+const DAYUN_FORTUNE_DETAIL_TITLES = new Set(['该大运包含的流年']);
 
 /**
  * 岁运选择层已经计算过分级证据；任务书保留权重和事实，但把内部证据
@@ -147,6 +139,7 @@ export function formatBaziFortuneSelection(
   const rangeEnd = `${formatSolarDateTime(cycleRange.end, true)}:${String(cycleRange.end.second).padStart(2, '0')}`;
   const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
   const consolidateYearDayun = scope === 'year' && Boolean(upperDayun);
+  const selectedLayerName = { dayun: '大运', year: '流年', month: '流月', day: '流日' }[scope];
   if (!consolidateYearDayun) {
     lines.push(
       `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
@@ -198,17 +191,33 @@ export function formatBaziFortuneSelection(
 
   const selectedFacts = [
     ...new Set((promptPayload.selectedFacts ?? []).map((line) => line.trim()).filter(Boolean)),
-  ];
-  // 流年提示已在“上层岁运”合并保留所属大运和承接关系，省去证据区同义的两行。
-  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines).filter(
-    (line) =>
+  ].filter(
+    (fact) =>
       !(
-        consolidateYearDayun &&
-        (line.startsWith('主要依据（指定年限运限）：') ||
-          line.startsWith('补充依据（上层岁运背景）：'))
+        promptPayload.triggerEvidence?.relations.length &&
+        fact.startsWith(`${selectedLayerName}触发：`)
       ),
   );
+  // 已展示所选层、上层岁运和干支关系时，证据区不再复述同一事实。
   const actionFacts = promptPayload.actionEvidence?.facts ?? [];
+  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines).filter((line) => {
+    if (
+      selectedFacts.some((fact) => fact.startsWith(`${selectedLayerName}十神：`)) &&
+      line.startsWith(`主要依据（${selectedLayerName}干支与十神）：`)
+    )
+      return false;
+    if (scope === 'year' && line.startsWith('时间依据（应期边界）：')) return false;
+    if (
+      promptPayload.triggerEvidence?.relations.length &&
+      line.startsWith('主要依据（刑冲合害触发）：')
+    )
+      return false;
+    if (line.startsWith('主要依据（指定年限运限）：')) return false;
+    if (upperDayun || upperYear) {
+      if (line.startsWith('补充依据（上层岁运背景）：')) return false;
+    }
+    return true;
+  });
   const renderedActionFacts = new Set(
     actionFacts.filter((fact) =>
       evidenceLines.some((line) =>
@@ -237,9 +246,9 @@ export function formatBaziFortuneSelection(
     );
   }
   const groups = new Map<string, Set<string>>();
-  for (const group of promptPayload.detailGroups ?? []) {
+  for (const group of scope === 'dayun' ? (promptPayload.detailGroups ?? []) : []) {
     const title = group.title.trim();
-    if (!READABLE_FORTUNE_DETAIL_TITLES.has(title)) continue;
+    if (!DAYUN_FORTUNE_DETAIL_TITLES.has(title)) continue;
     const entries = groups.get(title) ?? new Set<string>();
     for (const line of group.lines) {
       const value = line.trim();

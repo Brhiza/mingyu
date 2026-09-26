@@ -3190,10 +3190,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(tarotResult.isError, undefined, 'tarot_prompt custom 不应返回错误');
     const tarotPrompt = String(tarotResult.structuredContent?.prompt);
-    assert.match(
-      tarotPrompt,
-      /【任务】\n依据唯一牌位、牌名、正逆位、关键词与单牌牌义回答【问题】。/,
-    );
+    assert.match(tarotPrompt, /【任务】\n依据唯一牌位、牌名、正逆位、关键词与牌面象征/);
     assert.doesNotMatch(tarotPrompt, /牌序组合|牌序互动|相邻牌/);
     assertPromptHasAnswerFramework(tarotPrompt);
     assert.doesNotMatch(tarotPrompt, /【输出要求】/);

@@ -24,7 +24,7 @@ function assertEvidenceReferences(evidence: ReturnType<typeof buildAstronomicalT
   );
 }
 
-test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
+test('天文时间尺度应以 2000 年元旦 UTC 正午校验 UTC 儒略日', () => {
   const evidence = buildAstronomicalTimeEvidence({
     year: 2000,
     month: 1,

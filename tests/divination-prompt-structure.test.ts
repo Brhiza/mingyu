@@ -1159,8 +1159,8 @@ test('六爻鬼神怪异模板只写入问题范围，不附加控制话术', ()
 test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论重点', () => {
   const expectedFocus: Record<keyof typeof tarotSpreads, RegExp> = {
     single: /唯一牌位/,
-    three: /过去、现在、未来/,
-    love: /双方内心/,
+    three: /背景、当前表现与后续主题/,
+    love: /双方视角/,
     career: /事业现状/,
     decision: /选择A、选择B/,
     celtic: /当前与阻碍/,
@@ -1168,13 +1168,13 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     year: /全年主题/,
     mindBodySpirit: /思想、身体行动与精神状态/,
     horseshoe: /过去、现在、未来展开/,
-    holyTriangle: /问题根源、当前状况、发展结果/,
+    holyTriangle: /问题根源、当前状况与发展结果/,
     universal: /阻力、资源、行动与发展趋势/,
-    fourElements: /火、\s水、风、土/,
+    fourElements: /火、水、风、土/,
     hexagram: /隐藏因素/,
-    relationship: /双方状态与需求/,
+    relationship: /双方视角、需求/,
     wealth: /收入机会、支出风险/,
-    problemSolving: /问题表象深入根本原因/,
+    problemSolving: /问题表象、成因线索/,
     twelveHouses: /依十二宫逐一分析/,
   };
 
@@ -1186,9 +1186,9 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     );
     assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
     if (spreadType === 'celtic') {
-      assert.match(prompt, /目标与可达潜能/);
-      assert.match(prompt, /已形成的现实基础/);
-      assert.match(prompt, /正在消退的过去影响/);
+      assert.match(prompt, /目标与潜能/);
+      assert.match(prompt, /现实基础/);
+      assert.match(prompt, /过去影响和近期未来牌位/);
       assert.match(prompt, /希望与恐惧/);
     }
     if (spreadType === 'single') {
@@ -1198,6 +1198,43 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
       assert.match(prompt, /牌位联动：/);
       assert.match(prompt, /结论重点：/);
     }
+  }
+});
+
+test('塔罗最终任务以事实和现实条件核对因果、关系、健康与财务主题', () => {
+  const cases = [
+    ['three', /背景、当前表现与后续主题/],
+    ['love', /关系视角的象征线索/],
+    ['year', /健康牌位/],
+    ['holyTriangle', /根源线索与当前牌位的主题呼应/],
+    ['problemSolving', /成因线索与表象、阻力牌位的主题关联/],
+    ['relationship', /双方视角、需求、关系核心与走向牌位/],
+    ['wealth', /已提供的收支信息/],
+  ] as const;
+
+  for (const [spreadType, expectedTask] of cases) {
+    const prompt = buildDivinationPrompt(
+      'tarot',
+      '请结合当前情况解读。',
+      drawTarotSpread(spreadType, { seed: `塔罗任务边界-${spreadType}` }),
+    );
+    const task = prompt.match(/【任务】\n([\s\S]*?)\n\n【问题】/)?.[1];
+
+    assert.ok(task, `${spreadType} 应进入最终提示词任务段`);
+    assert.match(task, expectedTask, `${spreadType} 应保留牌阵用途`);
+    assert.match(task, /可观察的?信息/);
+    assert.match(task, /现实条件/);
+    assert.equal(task.match(/现实核对/g)?.length, 1);
+    if (spreadType === 'love' || spreadType === 'relationship') {
+      assert.match(task, /关系视角的象征线索/);
+    }
+    if (spreadType === 'year') {
+      assert.match(task, /身心照料的象征主题/);
+    }
+    assert.doesNotMatch(
+      task,
+      /过去如何形成现在|现在又如何推动或改变未来|判断双方内心|分别判断双方内心|根因如何造成表象|医疗诊断|预测疾病/,
+    );
   }
 });
 

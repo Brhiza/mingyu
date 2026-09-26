@@ -461,10 +461,10 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
   assert.match(prompt.user, /上层岁运：/);
   assert.match(prompt.user, /所选干支：/);
   assert.match(prompt.user, /岁运干支关系：/);
-  assert.match(prompt.user, /该流年包含的流月/);
+  assert.doesNotMatch(prompt.user, /该流年包含的流月/);
   assert.ok(prompt.user.includes(`结合当前所选岁运（${fortuneContext.promptPayload.scopeLabel}）`));
   assert.doesNotMatch(prompt.user, /undefined|NaN/);
-  assert.match(prompt.user, /所属大运包含的流年/);
+  assert.doesNotMatch(prompt.user, /所属大运包含的流年/);
   assert.doesNotMatch(prompt.user, /结构化证据|【主证】|【辅证】|【限制】|【解读方法】|解读范围：/);
   assert.ok(prompt.user.indexOf('【分析对象】') < prompt.user.indexOf('【岁运重点】'));
   assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【问题】'));
@@ -530,10 +530,10 @@ test('八字流月提示词应突出所选日期范围并保留必要触发资�
   assert.match(fortuneSection, /选择日期：\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/);
   assert.match(fortuneSection, /节气月：/);
   assert.match(fortuneSection, /上层岁运：/);
-  assert.match(prompt.user, /该流月包含的流日/);
+  assert.doesNotMatch(prompt.user, /该流月包含的流日/);
   assert.ok(prompt.user.includes(`结合当前所选岁运（${fortuneContext.promptPayload.scopeLabel}）`));
   assert.doesNotMatch(prompt.user, /undefined|NaN/);
-  assert.match(prompt.user, /所属流年包含的流月/);
+  assert.doesNotMatch(prompt.user, /所属流年包含的流月/);
   assert.doesNotMatch(fortuneSection, /结构化证据|来源：|解释边界|断事层级限制/);
 });
 

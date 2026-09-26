@@ -338,7 +338,7 @@ test('问题灵感草稿应与自定义草稿分开存储，避免互相覆盖',
   }
 });
 
-test('合参八字正文包含所选月份的上层岁运和逐日资料', () => {
+test('合参八字正文包含所选月份与上层岁运，不展开逐日清单', () => {
   const result = calculateFullBaziChart(
     buildPersonFromInput({
       gender: 'male',
@@ -366,7 +366,8 @@ test('合参八字正文包含所选月份的上层岁运和逐日资料', () =>
   assert.ok(text.includes(context.cycleGanZhi));
   assert.ok(text.includes(context.yearGanZhi!));
   assert.ok(text.includes(context.monthGanZhi!));
-  assert.match(text, /该流月包含的流日/);
+  assert.match(text, /选择日期：2028-06-05 至 2028-07-06/);
+  assert.doesNotMatch(text, /该流月包含的流日|所属流年包含的流月/);
   const mapped = mapBaziFortuneToZiweiScope({ ...selection, scope: 'month' }, context);
   assert.ok(context.dayBreakdown?.some((day) => day.date === mapped.dateStr));
   const cycleContext = buildFortuneSelectionContext(result, { ...selection, scope: 'dayun' });

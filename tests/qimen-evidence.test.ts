@@ -250,6 +250,7 @@ test('奇门提示词按问题展示专项复合格局，结构化盘面仍保�
   const ordinary = formatEnhancedDivinationInfo('qimen', data, '工作进展如何？');
   assert.match(ordinary, /坎一宫（正北，水）：[^\n]*逢空/);
   assert.match(ordinary, /门迫（凶格）：[^\n]*巽四宫/);
+  assert.doesNotMatch(ordinary, /^候选宫.+(?:盘面洞察|经典格局)/m);
   assert.doesNotMatch(ordinary, /格局条件：/);
   assert.doesNotMatch(
     ordinary,

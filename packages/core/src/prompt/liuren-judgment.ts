@@ -1,6 +1,10 @@
 import type { LiurenData } from '../types/divination';
 import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
-import { formatLiurenOrdinaryTransmissionAdjudication } from './liuren-facts';
+import {
+  formatLiurenLesson,
+  formatLiurenOrdinaryTransmissionAdjudication,
+  formatLiurenTransmission,
+} from './liuren-facts';
 
 export function formatLiurenJudgmentFacts(
   data: LiurenData,
@@ -45,10 +49,39 @@ export function formatLiurenJudgmentFacts(
   const timingEvidence = analysis.timingFacts.map((item) => item.promptText);
   if (!options.chartFactsIncluded && timingEvidence.length)
     lines.push(`时令依据：${timingEvidence.join('；')}`);
-  const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
-  lines.push(
-    `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
-  );
+  const counters = analysis.counterEvidenceFacts
+    .filter((item) => {
+      if (!options.chartFactsIncluded) return true;
+      if (item.scope === '四课' && item.basis === '上下神关系') {
+        const lesson = analysis.lessons.find((entry) => entry.key === item.ownerKey);
+        return !lesson || !formatLiurenLesson(lesson).includes(item.detail);
+      }
+      if (item.scope === '三传') {
+        const index = analysis.transmissions.findIndex((entry) => entry.key === item.ownerKey);
+        if (index < 0) return true;
+        if (item.basis === '相邻传关系') {
+          return !formatLiurenTransmission(data, index).includes(item.detail);
+        }
+        if (item.basis === '月令旺衰') {
+          return !analysis.traditionalFacts.some(
+            (fact) =>
+              fact.kind === '天将乘神' &&
+              fact.stages?.includes(analysis.transmissions[index].stage) &&
+              fact.promptText.includes(`月令${item.detail}`),
+          );
+        }
+        if (item.basis === '旬空') {
+          return !formatLiurenTransmission(data, index).includes('（空）');
+        }
+      }
+      return true;
+    })
+    .map((item) => item.promptText);
+  if (counters.length || !options.chartFactsIncluded) {
+    lines.push(
+      `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
+    );
+  }
   if (!options.chartFactsIncluded) {
     lines.push(
       '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',

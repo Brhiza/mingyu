@@ -87,6 +87,25 @@ test('农历数值年月日与闰月标志应能还原公历日期', () => {
       lunarDay: 1,
       isLeapMonth: true,
     },
+    // 2033 年闰十一月在冬至后，检验跨公历年的月序。
+    {
+      year: 2033,
+      month: 12,
+      day: 22,
+      lunarYear: 2033,
+      lunarMonth: 11,
+      lunarDay: 1,
+      isLeapMonth: true,
+    },
+    {
+      year: 2034,
+      month: 1,
+      day: 20,
+      lunarYear: 2033,
+      lunarMonth: 12,
+      lunarDay: 1,
+      isLeapMonth: false,
+    },
     // 立春已过、春节未到，干支年与农历纪年不同。
     {
       year: 2024,

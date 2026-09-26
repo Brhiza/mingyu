@@ -125,7 +125,7 @@ test('新派提示词保留十神显隐事实，不把共现组合写成已成�
   assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
 });
 
-test('npm 八字提示词应保留指定岁运的上下层资料', () => {
+test('npm 八字提示词应保留所选岁运与上层资料', () => {
   const result = createChart('female', 15);
   const cycle = result.luckInfo.cycles.find((item) => item.years.length > 0);
   assert.ok(cycle);
@@ -148,7 +148,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   assert.match(prompt, new RegExp(String(year.year)));
   assert.match(prompt, new RegExp(context.cycleLabel));
   assert.match(prompt, /上层岁运/);
-  assert.match(prompt, /该流年包含的流月/);
+  assert.doesNotMatch(prompt, /该流年包含的流月/);
   assert.doesNotMatch(prompt, /交节时刻/);
 
   const sections = formatBaziFortuneSelection(context);

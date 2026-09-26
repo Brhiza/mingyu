@@ -808,10 +808,6 @@ function formatQimenInfo(data: QimenData, question = '', supplementaryInfo?: Sup
   const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
     ? data.evidenceAnalysis
     : analyzeQimenEvidence(data);
-  const focusLines = [
-    '取用主线：先按问题确定主体、事项用神与主客身份，再到九宫核对落点；值符值使提供全局背景。',
-    ...evidenceAnalysis.candidates.map((item) => `候选宫${item.name}：${item.sources.join('、')}`),
-  ];
   const zhiFuPalace = data.jiuGongGe.find(
     (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
   );
@@ -920,7 +916,7 @@ function formatQimenInfo(data: QimenData, question = '', supplementaryInfo?: Sup
   return [
     '占法：奇门遁甲',
     `起局方法：${data.method === 'feipan' ? '飞盘法' : '转盘法'}；${data.juMethod === 'zhirun' ? '置闰法定局' : '拆补法定局'}；${scopePresentation.scopeLabel}`,
-    ...focusLines,
+    '取用主线：先按问题确定主体、事项用神与主客身份，再到九宫核对落点；值符值使提供全局背景。',
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}`,
     birthInfo,
     seasonalitySummary ? `节令：${seasonalitySummary}` : '',

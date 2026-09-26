@@ -905,10 +905,6 @@ function getMonthGateEvidence(
     }
   }
 
-  const monthGanGod = getTenGod(pillars.month.gan, dayMaster);
-  if (targetGods.includes(monthGanGod)) {
-    add(`月干${pillars.month.gan}（${monthGanGod}）`);
-  }
   return evidence;
 }
 

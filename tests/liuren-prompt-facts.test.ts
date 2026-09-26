@@ -133,6 +133,9 @@ test('大六壬完整提示词只补充尚未在盘面显示的判断事实', ()
     assert.match(prompt, /取用定位：/);
     assert.match(prompt, /应期依据：/);
     assert.match(prompt, /课传反证：/);
+    assert.match(prompt, /初传酉与日支关系火克金/);
+    assert.doesNotMatch(prompt, /课传反证：[^\n]*一课巳临癸，上下神关系水克火/);
+    assert.doesNotMatch(prompt, /课传反证：[^\n]*初传酉月令状态死/);
     assert.doesNotMatch(prompt, /取传说明：|课体条件：|重点依据：|时令依据：/);
     assert.equal(prompt.split(adjudication).length - 1, 1);
     for (const fact of data.guaTiFacts ?? []) {
@@ -143,4 +146,11 @@ test('大六壬完整提示词只补充尚未在盘面显示的判断事实', ()
       for (const limitation of focus.limitations) assert.ok(prompt.includes(limitation));
     }
   }
+});
+
+test('大六壬未在四课行标明的空亡反证仍保留', () => {
+  const data = generateLiuren(new Date('2026-05-19T10:30:00+08:00'));
+  data.xunKong = [...new Set([...(data.xunKong ?? []), data.fourLessons[0].upper])];
+  const prompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
+  assert.match(prompt, /课传反证：[^\n]*一课上神巳落日柱旬空/);
 });

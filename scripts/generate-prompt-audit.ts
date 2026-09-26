@@ -141,7 +141,8 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【任务】',
       '【传统依据】',
       '【排盘信息】',
-      '该流年包含的流月',
+      '上层岁运：',
+      '岁运干支关系：',
     ],
   },
   {
