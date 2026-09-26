@@ -23,10 +23,13 @@ test('太乙在线任务书保留三门、将目与阴阳配对的实际依据',
 
 test('太乙巽位十六神名称传入盘面证据与任务书', () => {
   const result = generateTaiyi({ year: 2026, scope: 'year' });
-  assert.deepEqual(result.sixteenGods.find((item) => item.branch === '巽'), {
-    branch: '巽',
-    god: '大炅',
-  });
+  assert.deepEqual(
+    result.sixteenGods.find((item) => item.branch === '巽'),
+    {
+      branch: '巽',
+      god: '大炅',
+    },
+  );
   assert.match(result.prompt, /巽大炅/);
   assert.match(result.evidenceAnalysis.promptText, /巽大炅/);
   assert.match(formatTaiyiInfo(result), /巽大炅/);
