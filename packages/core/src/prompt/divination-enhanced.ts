@@ -798,9 +798,12 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
   const patternFulfillments = evaluateQimenPatternFulfillment(data);
-  const yingQiSources = (data.yingQi?.sources ?? []).map((source) =>
-    source.startsWith('未选定事项用神') ? '当前以值符宫作通用参考，事项用神按问题确定' : source,
-  );
+  const triggerConditions = new Set(data.yingQi?.triggerConditions ?? []);
+  const yingQiSources = (data.yingQi?.sources ?? [])
+    .filter((source) => !triggerConditions.has(source))
+    .map((source) =>
+      source.startsWith('未选定事项用神') ? '当前以值符宫作通用参考，事项用神按问题确定' : source,
+    );
 
   return [
     '占法：奇门遁甲',

@@ -5,22 +5,15 @@
  *   2. 未选事项用神 → 仅以值符落宫作通用参考
  *   3. 事项用神与值符分宫时，值符落宫 → 辅助基线
  *   4. 值使落宫数 → 辅助基线
- *   5. 庚格定应期：阳日看庚下（地盘庚），阴日看庚上（天盘庚），地支逢冲为应
- *   6. 马星加快、基准宫位落空则待填实/冲实、伏吟延迟、反吟加快
- *   7. 格局只作快慢辅助，不机械换算固定天数
+ *   5. 马星加快、基准宫位落空则待填实/冲实、伏吟延迟、反吟加快
+ *   6. 格局只作快慢辅助，不机械换算固定天数
  */
 
-import { palaceBranches } from './_constants';
 import { LIUCHONG_MAP } from '../../../../ganzhi';
-import { hasTianPanStem } from './palace-utils';
 
 // ============================================================================
 // 常量
 // ============================================================================
-
-/** 阳干 */
-const YANG_STEMS = ['甲', '丙', '戊', '庚', '壬'];
-const ALL_STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 
 /** 阳遁内四宫：冬至以后，自坎至巽四宫为内 */
 const YANG_DUN_INNER_PALACES = new Set([1, 8, 3, 4]);
@@ -90,7 +83,7 @@ export interface YingQiEstimate {
 /**
  * 估算应期
  *
- * @param jiuGongGe     - 九宫格数据（含天盘星干、地盘干）
+ * @param jiuGongGe     - 九宫格宫位资料
  * @param useShenPalace - 已按事项选定的用神落宫；省略时仅回退到值符通用参考
  * @param options       - 可选参数
  * @returns 应期估算结果
@@ -104,18 +97,13 @@ export interface YingQiEstimate {
  *   hasVoid: true,
  *   zhiFuLandingPalace: 1,
  *   zhiShiLandingPalace: 8,
- *   dayGanZhi: '甲子',
  *   classicPatterns: [{ name: '青龙返首', tone: 'good' }],
  *   voidBranches: ['寅', '卯'],
  * });
  * ```
  */
 export function estimateYingQi(
-  jiuGongGe: Array<{
-    gong: number;
-    tianPan: { stem: string; star: string };
-    diPan: { stem: string };
-  }>,
+  jiuGongGe: Array<{ gong: number }>,
   useShenPalace?: number,
   options?: {
     /** 是否伏吟 */
@@ -130,10 +118,6 @@ export function estimateYingQi(
     zhiFuLandingPalace?: number;
     /** 值使落宫 */
     zhiShiLandingPalace?: number;
-    /** 日干支（如 "甲子"），用于庚格定应期的阳日/阴日判断 */
-    dayGanZhi?: string;
-    /** 旧字段兼容：历史上误传时干支，新调用请使用 dayGanZhi */
-    hourGanZhi?: string;
     /** 经典格局列表 */
     classicPatterns?: Array<{
       name: string;
@@ -241,74 +225,7 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 4. 庚格定应期
-  // ==========================================================================
-  // 《奇门遁甲大全》庚格章：
-  //   阳日（甲丙戊庚壬）看庚下 → 地盘庚所在宫
-  //   阴日（乙丁己辛癸）看庚上 → 天盘庚所在宫
-  //   地支逢冲为应 → 庚所在宫的地支逢其六冲之日/月为应期
-
-  const ganZhi = options?.dayGanZhi || options?.hourGanZhi || '';
-  if (ganZhi) {
-    const dayStem = ganZhi.charAt(0);
-    if (!ALL_STEMS.has(dayStem)) {
-      throw new Error(`奇门应期无法识别日干 "${dayStem || '空'}"。`);
-    }
-    const isYangDay = YANG_STEMS.includes(dayStem);
-
-    // 遍历九宫查找庚的位置
-    for (const gong of jiuGongGe) {
-      if (gong.gong === 5) continue; // 中五宫无明确地支定位
-
-      if (isYangDay && gong.diPan.stem === '庚') {
-        // 阳日：看庚下（地盘庚）
-        const gongNum = gong.gong;
-        const branches = palaceBranches[gongNum] || [];
-        const chongDesc = branches
-          .map((b) => {
-            const opp = LIUCHONG_MAP[b];
-            return opp ? `${b}冲${opp}` : b;
-          })
-          .join('、');
-
-        sources.push(
-          `阳日（${dayStem}日）见庚在地盘${gongNum}宫，` +
-            `${chongDesc ? '逢' + chongDesc : '依宫数'}应`,
-        );
-
-        // 奇数宫（阳宫）以日/月计，偶数宫（阴宫）以月计
-        if (gongNum % 2 === 1) {
-          sources.push(`庚落${gongNum}宫（阳宫），应期以日或月计`);
-        } else {
-          sources.push(`庚落${gongNum}宫（阴宫），应期以月计`);
-        }
-      } else if (!isYangDay && hasTianPanStem(gong, '庚')) {
-        // 阴日：看庚上（天盘庚）
-        const gongNum = gong.gong;
-        const branches = palaceBranches[gongNum] || [];
-        const chongDesc = branches
-          .map((b) => {
-            const opp = LIUCHONG_MAP[b];
-            return opp ? `${b}冲${opp}` : b;
-          })
-          .join('、');
-
-        sources.push(
-          `阴日（${dayStem}日）见庚在天盘${gongNum}宫，` +
-            `${chongDesc ? '逢' + chongDesc : '依宫数'}应`,
-        );
-
-        if (gongNum % 2 === 1) {
-          sources.push(`庚落${gongNum}宫（阳宫），应期以日或月计`);
-        } else {
-          sources.push(`庚落${gongNum}宫（阴宫），应期以月计`);
-        }
-      }
-    }
-  }
-
-  // ==========================================================================
-  // 5. 伏吟延迟 / 反吟加快
+  // 4. 伏吟延迟 / 反吟加快
   // ==========================================================================
 
   if (options?.isFuyin) {
@@ -321,7 +238,7 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 6. 马星加快
+  // 5. 马星加快
   // ==========================================================================
 
   if (options?.hasHorse) {
@@ -330,7 +247,7 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 7. 空亡延迟 → 需填实 / 冲实
+  // 6. 空亡延迟 → 需填实 / 冲实
   // ==========================================================================
 
   if (options?.hasVoid) {
@@ -349,7 +266,7 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 8. 经典格局调整
+  // 7. 经典格局调整
   // ==========================================================================
   // 格局只按传统类别作为支持或限制信号，不读取内部排序分，也不换算应期程度。
 
@@ -384,14 +301,14 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 9. 汇总节奏
+  // 8. 汇总节奏
   // ==========================================================================
 
   const rhythm: '快' | '中' | '慢' =
     slowSignals >= fastSignals + 2 ? '慢' : fastSignals >= slowSignals + 2 ? '快' : '中';
 
   // ==========================================================================
-  // 10. 综合描述
+  // 9. 综合描述
   // ==========================================================================
 
   const matchedTriggerConditions = sources.filter((source) =>
@@ -404,7 +321,7 @@ export function estimateYingQi(
       ];
   const limitations = [
     '快、中、慢只表示盘内相对节奏，不对应固定日数、月数或公历日期',
-    '庚格、空亡、马星等只给候选触发条件，必须结合问题期限和现实事件核验',
+    '空亡、马星等只给候选触发条件，必须结合问题期限和现实事件核验',
     ...(hasUseShen ? [] : ['未按具体问题选定用神时，本结果只能作为值符落宫的通用参考']),
   ];
   const parts: string[] = [`盘内应期节奏为${rhythm}，不机械换算固定天数。`];

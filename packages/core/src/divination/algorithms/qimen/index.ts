@@ -446,7 +446,6 @@ export function generateQimen(
     isYangDun,
     zhiFuLandingPalace,
     zhiShiLandingPalace,
-    dayGanZhi: ganzhi.day,
     classicPatterns: classicPatternsRaw,
     voidBranches: yingQiVoidBranches,
   });

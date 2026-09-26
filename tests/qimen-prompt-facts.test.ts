@@ -33,6 +33,7 @@ test('奇门完整提示词写入复合格局与值符宫应期触发', () => {
   }
   for (const trigger of data.yingQi.triggerConditions) {
     assert.ok(prompt.includes(trigger));
+    assert.equal(prompt.split(trigger).length - 1, 1, `应期触发条件不应重复：${trigger}`);
   }
   for (const combo of data.patternCombos ?? []) {
     assert.ok(prompt.includes(`${combo.name}`));
