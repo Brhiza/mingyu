@@ -59,13 +59,11 @@ function compareEvidenceStarPriority(left: string, right: string, palaces: Palac
 
 function resolveEvidencePalaces(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: { palace_indexes: number[]; palace_names: string[] },
 ) {
   const byIndexes = item.palace_indexes.map((index) => getPalaceByIndex(payload, index));
   const byNames = item.palace_names.map((name) => getPalaceByName(payload, name));
-  const located = [...byIndexes, ...byNames].filter(Boolean);
-  return (located.length ? located : focusPalaces).filter(
+  return [...byIndexes, ...byNames].filter(
     (candidate, index, list): candidate is PalaceFact =>
       Boolean(candidate) && list.findIndex((entry) => entry?.index === candidate?.index) === index,
   );
@@ -73,7 +71,6 @@ function resolveEvidencePalaces(
 
 function deriveEvidenceStars(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: {
     type: string;
     scope: string;
@@ -83,36 +80,19 @@ function deriveEvidenceStars(
     mutagens: string[];
   },
 ) {
-  const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
+  const palaces = resolveEvidencePalaces(payload, item);
   const directStars = uniqueStrings(item.star_names);
   if (directStars.length) {
     return directStars.sort((left, right) => compareEvidenceStarPriority(left, right, palaces));
   }
-  if (item.type !== 'surrounded_mutagen') return [];
+  if (item.type !== 'surrounded_mutagen' || item.scope !== 'origin') return [];
 
   const matchesMutagen = (mutagen?: string) =>
     mutagen !== undefined && (!item.mutagens.length || item.mutagens.includes(mutagen));
-  const hasMappedMutagen = (star: StarFact, palace: PalaceFact) =>
-    payload.active_scope.mutagen_map.some(
-      (mapped) =>
-        mapped.star === star.name &&
-        matchesMutagen(mapped.mutagen) &&
-        (mapped.palace_index !== undefined
-          ? mapped.palace_index === palace.index
-          : !mapped.palace_name ||
-            normalizePalaceName(mapped.palace_name) === normalizePalaceName(palace.name)),
-    );
   const mutagenTaggedStars = uniqueStrings(
     palaces.flatMap((palace) =>
-      getAllStars(palace)
-        .filter(
-          (star) =>
-            matchesMutagen(star.birth_mutagen) ||
-            (item.scope !== 'origin' &&
-              (matchesMutagen(star.horoscope_mutagen) ||
-                matchesMutagen(star.active_scope_mutagen) ||
-                hasMappedMutagen(star, palace))),
-        )
+      [...palace.major_stars, ...palace.minor_stars]
+        .filter((star) => matchesMutagen(star.birth_mutagen))
         .map((star) => star.name),
     ),
   );
@@ -123,7 +103,6 @@ function deriveEvidenceStars(
 
 function deriveEvidenceMutagens(
   payload: AnalysisPayloadV1,
-  focusPalaces: PalaceFact[],
   item: {
     type: string;
     scope: string;
@@ -135,26 +114,13 @@ function deriveEvidenceMutagens(
 ) {
   const directMutagens = uniqueStrings(item.mutagens).sort(compareMutagenPriority);
   if (directMutagens.length) return directMutagens;
-  if (item.type !== 'surrounded_mutagen') return [];
+  if (item.type !== 'surrounded_mutagen' || item.scope !== 'origin') return [];
 
-  const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
+  const palaces = resolveEvidencePalaces(payload, item);
   return uniqueStrings(
-    palaces.flatMap((palace) => [
-      ...getAllStars(palace).flatMap((star) =>
-        [
-          star.birth_mutagen,
-          ...(item.scope === 'origin' ? [] : [star.horoscope_mutagen, star.active_scope_mutagen]),
-        ].filter(Boolean),
-      ),
-      ...(palace.self_mutagens ?? []),
-      ...(item.scope === 'origin' ? [] : payload.active_scope.mutagen_map)
-        .filter(
-          (mapped) =>
-            mapped.palace_index === palace.index ||
-            (mapped.palace_index === undefined && mapped.palace_name === palace.name),
-        )
-        .map((mapped) => mapped.mutagen),
-    ]),
+    palaces.flatMap((palace) =>
+      [...palace.major_stars, ...palace.minor_stars].map((star) => star.birth_mutagen),
+    ),
   ).sort(compareMutagenPriority);
 }
 
@@ -255,8 +221,8 @@ export function buildEvidenceSummary(
     判断线索: item.title,
     适用范围: mapZiweiScopeLabel(item.scope),
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
-    关联星曜: deriveEvidenceStars(payload, focusPalaces, item),
-    关联四化: deriveEvidenceMutagens(payload, focusPalaces, item),
+    关联星曜: deriveEvidenceStars(payload, item),
+    关联四化: deriveEvidenceMutagens(payload, item),
     说明: item.description,
   }));
 }

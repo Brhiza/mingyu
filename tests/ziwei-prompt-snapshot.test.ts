@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data';
 
 import {
   buildCombinedZiweiCompatibilityPrompt,
@@ -37,8 +38,6 @@ function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /需要补充|请补充|再选择/);
   assert.doesNotMatch(prompt, /预设|模板|接口|API|MCP|调试/);
 }
-
-const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
   return {
@@ -788,7 +787,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
 });
 
-test('紫微关键判断线索在原始资料缺少关联星曜与关联四化时应自动补全', () => {
+test('紫微本命三方四正线索只从生年四化补全关联星曜与四化', () => {
   const payload = createPayload();
   payload.active_scope = {
     ...payload.active_scope,
@@ -825,13 +824,13 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
       id: 'E1',
       stable_key: 'derived-evidence',
       type: 'surrounded_mutagen',
-      title: '命宫三方四正见化忌',
-      scope: 'yearly',
+      title: '命宫三方四正见化禄',
+      scope: 'origin',
       palace_indexes: [0],
       palace_names: ['命宫'],
       star_names: [],
       mutagens: [],
-      description: '命宫在当前阶段受四化牵动。',
+      description: '命宫三方四正见生年化禄。',
     },
   ];
 
@@ -845,11 +844,11 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
     }),
   );
 
-  assert.deepEqual(summary[0]?.关联星曜, ['天机', '太阴', '文昌']);
-  assert.deepEqual(summary[0]?.关联四化, ['禄', '科', '忌']);
-  assert.equal(summary[0]?.判断线索, '命宫三方四正见化忌');
-  assert.equal(summary[0]?.适用范围, '流年');
-  assert.equal(summary[0]?.说明, '命宫在当前阶段受四化牵动。');
+  assert.deepEqual(summary[0]?.关联星曜, ['天机']);
+  assert.deepEqual(summary[0]?.关联四化, ['禄']);
+  assert.equal(summary[0]?.判断线索, '命宫三方四正见化禄');
+  assert.equal(summary[0]?.适用范围, '本命');
+  assert.equal(summary[0]?.说明, '命宫三方四正见生年化禄。');
   assert.ok(!('证据等级' in (summary[0] ?? {})));
   assert.ok(!('数据来源' in (summary[0] ?? {})));
   assert.ok(!('计算依据' in (summary[0] ?? {})));
@@ -926,6 +925,31 @@ test('本命三方四正化曜线索不引用仅在流年出现的化曜', () =>
   const summary = buildEvidenceSummary(payload, [payload.palaces[4]], createReportContext());
   assert.deepEqual(summary[0]?.关联星曜, ['天机']);
   assert.deepEqual(summary[0]?.关联四化, ['忌']);
+});
+
+test('流年四化飞入线索不借同宫生年四化补全', () => {
+  const payload = createPayload();
+  payload.active_scope.scope = 'yearly';
+  payload.palaces[0].major_stars = [{ name: '天机', kind: 'major', birth_mutagen: '禄' }];
+  payload.palaces[4].minor_stars = [{ name: '太阴', kind: 'minor', active_scope_mutagen: '科' }];
+  payload.evidence_pool = [
+    {
+      id: 'E3',
+      stable_key: 'yearly-mutagen-destination',
+      type: 'scope_mutagen_destination',
+      title: '流年太阴化科入财帛宫',
+      scope: 'yearly',
+      palace_indexes: [0, 4],
+      palace_names: ['命宫', '财帛'],
+      star_names: ['太阴'],
+      mutagens: ['科'],
+      description: '太阴流年化科对应本命财帛宫。',
+    },
+  ];
+
+  const summary = buildEvidenceSummary(payload, [payload.palaces[0]], createReportContext());
+  assert.deepEqual(summary[0]?.关联星曜, ['太阴']);
+  assert.deepEqual(summary[0]?.关联四化, ['科']);
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {

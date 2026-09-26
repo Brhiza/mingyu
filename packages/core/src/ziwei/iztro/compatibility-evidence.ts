@@ -1,23 +1,10 @@
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../../prompt-evidence/types';
+import { EARTHLY_BRANCHES } from '../../ganzhi/data';
 import type { AnalysisPayloadV1, MutagenName, PalaceFact, StarFact } from '../../types/analysis';
 import type { IztroAstrolabe, IztroPalace, IztroStar } from '../../types/iztro';
 
 const KEY_PALACES = new Set(['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移']);
-const EARTHLY_BRANCHES = new Set([
-  '子',
-  '丑',
-  '寅',
-  '卯',
-  '辰',
-  '巳',
-  '午',
-  '未',
-  '申',
-  '酉',
-  '戌',
-  '亥',
-]);
 
 export interface ZiweiCompatibilityOptions {
   person1Name?: string;
@@ -189,7 +176,10 @@ function assertPayload(payload: AnalysisPayloadV1, label: string) {
     ) {
       throw new Error(`${label}宫位索引无效或重复。`);
     }
-    if (!EARTHLY_BRANCHES.has(palace.earthly_branch) || branches.has(palace.earthly_branch)) {
+    if (
+      !(EARTHLY_BRANCHES as readonly string[]).includes(palace.earthly_branch) ||
+      branches.has(palace.earthly_branch)
+    ) {
       throw new Error(`${label}宫位地支无效或重复。`);
     }
     indexes.add(palace.index);
