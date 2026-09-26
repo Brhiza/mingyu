@@ -361,6 +361,22 @@ test('中和正印格只列本盘旺衰依据和成格事实', () => {
   assert.doesNotMatch(prompt, /先看得令|不把旺相休囚死|此处按印星位置|【格局条件】/);
 });
 
+test('破格候选未判定时移除夹在事实与结论之间的通用规则', () => {
+  const result = createBaziResult({ year: 1986, month: 3, day: 15, timeIndex: 3 });
+  const fulfillment = result.analysis.mingGe.fulfillment!;
+  assert.equal(fulfillment.status, '未判定');
+  assert.ok(fulfillment.decisionDetail?.includes(fulfillment.basis));
+  assert.ok(!fulfillment.decisionDetail?.endsWith(fulfillment.basis));
+  for (const prompt of [
+    buildBaziPrompt({ result }),
+    buildBaziPrompt({ result, school: 'ziping' }),
+  ]) {
+    assert.ok(prompt.includes('伤官见官虽透，但月柱透干辛（伤官）无同类藏根'));
+    assert.match(prompt, /存在破格候选，但救应条件尚未完备/);
+    assert.ok(!prompt.includes(fulfillment.basis));
+  }
+});
+
 test('流派提示词只补充格局的盘面证据，不复述共同判定和未激活破格候选', () => {
   const result = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
   for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {

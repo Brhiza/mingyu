@@ -169,8 +169,12 @@ export function formatPatternDecisionForPrompt(pattern: PatternAnalysis): string
   if (!fulfillment) return '';
   const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
   const factualDecision =
-    fulfillment.basis && decisionDetail.endsWith(fulfillment.basis)
-      ? decisionDetail.slice(0, -fulfillment.basis.length).trim()
+    fulfillment.basis && decisionDetail.includes(fulfillment.basis)
+      ? decisionDetail
+          .replace(fulfillment.basis, '')
+          .replace(/\s+/g, ' ')
+          .replace(/([。；]) (?=\S)/g, '$1')
+          .trim()
       : decisionDetail;
   return `当前成败判定：${fulfillment.status}${factualDecision ? `；判定理由：${factualDecision}` : ''}`;
 }
