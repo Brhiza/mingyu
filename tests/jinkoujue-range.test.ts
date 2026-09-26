@@ -98,8 +98,12 @@ test('金口诀雨水前后按月将切成两段并保留独立手算四位预�
   assert.match(facts, /分支1：/u);
   assert.match(facts, /分支2：/u);
   for (const branch of range.branches) {
-    for (const fact of formatJinkoujueJudgmentFacts(branch.data)) {
+    for (const fact of formatJinkoujueJudgmentFacts(branch.data, { compact: true })) {
       assert.ok(facts.includes(fact));
+    }
+    assert.ok(facts.includes(branch.data.yinYangUse.rule));
+    for (const position of Object.values(branch.data.positions)) {
+      assert.ok(facts.includes(`${position.name}${position.stem ?? ''}${position.branch}`));
     }
   }
 });

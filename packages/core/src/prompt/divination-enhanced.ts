@@ -627,10 +627,7 @@ function formatMeihuaInfo(data: MeihuaData) {
       : '';
   const classicalLines = formatMeihuaClassicalText(data);
   const yingQiConditions = (data.analysis.yingQi ?? [])
-    .filter(
-      (condition) =>
-        condition.trim() && (!hasCalculationFact || !condition.startsWith('上下卦数和为')),
-    )
+    .filter((condition) => condition.trim())
     .map((condition) => condition.replace('，只作取数来源旁证，不换算绝对日期', '；取数来源旁证'));
   const yingQiText = yingQiConditions.length ? `应期条件：${yingQiConditions.join('；')}` : '';
   const seasonBasis =

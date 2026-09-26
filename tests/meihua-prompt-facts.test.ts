@@ -63,7 +63,8 @@ test('梅花主卦生体而变卦克体时保留条件，不把旺衰写成吉�
     assert.equal(prompt.split('体用强弱与应期合参主互变').length - 1, 1);
     assert.match(prompt, /起卦取数：数字1除8取余/u);
     assert.match(prompt, /起卦法：数字起卦法/u);
-    assert.doesNotMatch(prompt, /应期线索：|上下卦数和为8|月令与起卦：|阶段关系：主卦用\/体：/u);
+    assert.doesNotMatch(prompt, /应期线索：|月令与起卦：|阶段关系：主卦用\/体：/u);
+    assert.equal(prompt.split('上下卦数和为8').length - 1, 1);
     assert.doesNotMatch(prompt, /贵人相助，大吉之象|应期迟缓|应期快于常规|体用吉凶实效/u);
   }
 });
