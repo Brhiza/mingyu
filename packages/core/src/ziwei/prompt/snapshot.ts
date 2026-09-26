@@ -37,22 +37,16 @@ function conditionCoversZiweiStar(starName: string, conditions: readonly string[
 }
 
 function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
-  const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
   const isOrigin = payload.active_scope.scope === 'origin';
   if (isOrigin) return { 分析对象: `本命盘（${payload.active_scope.solar_date}）。` };
 
+  const scopeLabel = mapZiweiScopeLabel(payload.active_scope.scope);
+  const objectLabel = payload.active_scope.label || scopeLabel;
+
   return {
-    分析对象: payload.active_scope.label || mapZiweiScopeLabel(payload.active_scope.scope),
-    对象类型: mapZiweiScopeLabel(payload.active_scope.scope),
-    当前落宫: currentPalace ? formatPalaceName(currentPalace.name) : undefined,
-    当前四化: currentMutagens.length
-      ? currentMutagens.map((item) =>
-          item.palace_name
-            ? `${item.star}化${item.mutagen}→${formatPalaceName(item.palace_name)}${item.dynamic_palace_name ? `（动态${formatPalaceName(item.dynamic_palace_name)}）` : ''}`
-            : `${item.star}化${item.mutagen}`,
-        )
-      : undefined,
+    分析对象: objectLabel,
+    对象类型: objectLabel.includes(scopeLabel) ? undefined : scopeLabel,
     对宫冲照: (() => {
       const jiItem = currentMutagens.find((item) => item.mutagen === '忌');
       if (!jiItem || !jiItem.palace_name) return undefined;
@@ -183,7 +177,7 @@ export function buildZiweiReadableSnapshot(params: {
     formatKeyValueBlock(snapshot.命主基础信息),
     '',
     '【分析对象】',
-    formatKeyValueBlock(snapshot.当前运限信息),
+    formatKeyValueBlock(buildTaskBookAnalysisObject(params.payload)),
     ...patternSection,
     ['', '【运限资料】', yunxianBody || '无'],
     ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '无'],
@@ -222,7 +216,7 @@ export function buildZiweiTaskBookSnapshot(params: {
     )
     .join('\n');
   const evidenceBody = buildEvidenceSummary(payload, focusPalaces, reportContext)
-    .map((item) => `${item.适用范围}｜${item.判断线索}｜${item.说明}`)
+    .map((item) => `${item.适用范围}｜${item.判断线索}`)
     .join('\n');
 
   const sections = [

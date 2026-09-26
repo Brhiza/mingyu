@@ -208,15 +208,12 @@ export function buildEvidenceSummary(
 ) {
   const focusIndexes = new Set(focusPalaces.map((item) => item.index));
   const focusNames = new Set(focusPalaces.map((item) => normalizePalaceName(item.name)));
+  // 宫内星曜、四化和运限落宫已在盘面正文呈现，这里只保留跨宫关系与动态宫名映射。
   const relevantEvidence = payload.evidence_pool.filter(
     (item) =>
       (item.scope === 'origin' || item.scope === payload.active_scope.scope) &&
-      item.type !== 'palace_scope_hit',
+      (item.type === 'surrounded_mutagen' || item.type === 'scope_dynamic_name'),
   );
-  const fallbackList =
-    reportContext.selectedTopic === 'risk'
-      ? relevantEvidence.filter((item) => item.mutagens.includes('忌'))
-      : relevantEvidence;
   // 三方四正的首项是本宫；其余宫位用于说明会照关系，不代表该线索的主题宫。
   const matchedEvidence = relevantEvidence.filter(
     (item) =>
@@ -227,10 +224,9 @@ export function buildEvidenceSummary(
           item.palace_names.some((name) => focusNames.has(normalizePalaceName(name)))) ||
       (reportContext.selectedTopic === 'risk' && item.mutagens.includes('忌')),
   );
-  const evidencePool = matchedEvidence.length ? matchedEvidence : fallbackList;
-  const picked: typeof evidencePool = [];
+  const picked: typeof matchedEvidence = [];
   const seen = new Set<string>();
-  for (const item of evidencePool) {
+  for (const item of matchedEvidence) {
     const key = item.stable_key || item.id;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -243,7 +239,6 @@ export function buildEvidenceSummary(
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
     关联星曜: deriveEvidenceStars(payload, item),
     关联四化: deriveEvidenceMutagens(payload, item),
-    说明: item.description,
   }));
 }
 

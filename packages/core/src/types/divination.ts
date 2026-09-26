@@ -1094,7 +1094,7 @@ export interface LiurenGuaTiFact {
     | '贵人临地'
     | '三传冲合'
     | '传干生克'
-    | '旬尾发用';
+    | '闭口发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;

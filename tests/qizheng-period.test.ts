@@ -103,6 +103,47 @@ test('只有流年没有性别时只排流曜，不编造行限', () => {
   assert.doesNotMatch(result.prompt, /【行限】/);
 });
 
+test('流年落宫取立春交节秒数时，行限太岁也应进入新年', () => {
+  const result = generateQizheng({
+    ...NATAL,
+    gender: 'male',
+    flowYear: 2024,
+  });
+
+  assert.equal(result.flowingStars?.localDateTime, '2024-02-04T16:27:07');
+  assert.equal(result.timeLords?.annualBranch, '辰');
+  assert.equal(result.timeLords?.annualPalace.signBranch, '辰');
+  assert.match(result.prompt, /落宫时刻 2024-02-04T16:27:07/);
+  assert.match(result.prompt, /流年太岁辰入辰宫/);
+
+  const termUtc = calculateSolarTermEvidence(2024, 3).utcTimestamp;
+  const termChart = generateQizheng({
+    year: 2024,
+    month: 2,
+    day: 4,
+    hour: 16,
+    minute: 27,
+    second: 7,
+    timezone: 8,
+  });
+  assert.equal(
+    result.flowingStars?.periodEvents?.events.every((item) => item.utcMs >= termUtc),
+    true,
+  );
+  assert.equal(
+    result.flowingStars?.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
+    termChart.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
+  );
+
+  const newYork = generateQizheng({
+    ...NEW_YORK_SUMMER_BIRTH,
+    gender: 'male',
+    flowYear: 2024,
+  });
+  assert.equal(newYork.flowingStars?.localDateTime, '2024-02-04T03:27:07');
+  assert.equal(newYork.timeLords?.annualBranch, '辰');
+});
+
 test('流年上限 2200 的年度周期应闭合到次年立春', () => {
   const result = generateQizheng({
     ...NATAL,

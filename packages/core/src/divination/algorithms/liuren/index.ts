@@ -510,6 +510,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
     initialGroundBranch,
+    initialGod: threeTransmissions[0].god,
     yearBranch: ganzhi.year.charAt(1),
     monthBranch: ganzhi.month.charAt(1),
     monthLeader,

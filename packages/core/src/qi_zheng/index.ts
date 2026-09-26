@@ -2349,7 +2349,7 @@ function generateQizhengInternal(
   if (input.gender && flowCivil) {
     const birthSeasonalYear = getQizhengSeasonalYear(Date.parse(calculationContext.utcDateTime));
     const flowSeasonalYear = getQizhengSeasonalYear(
-      buildAstronomicalTimeEvidence({ ...flowCivil.flowInput, second: 0 }).unixMilliseconds,
+      buildAstronomicalTimeEvidence(flowCivil.flowInput).unixMilliseconds,
     );
     timeLords = buildQizhengTimeLords({
       gender: input.gender,

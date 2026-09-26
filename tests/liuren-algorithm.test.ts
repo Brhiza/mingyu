@@ -347,6 +347,90 @@ test('大六壬核心课体应准确识别初末相冲、传归生处与闭口�
   assert.ok(!otherGroundFacts.some((item) => item.id === 'bi-kou'));
 });
 
+test('大六壬闭口课的旬首乘玄武与旬首位上神乘玄武均须发用', () => {
+  const common = { dayStem: '甲', dayBranch: '子' };
+  const findBiKou = (context: Parameters<typeof getLiurenGuaTiFacts>[0]) =>
+    getLiurenGuaTiFacts(context).find((item) => item.id === 'bi-kou');
+
+  const headOnHeavenlyPlate = findBiKou({
+    ...common,
+    transmissionBranches: ['子', '寅', '辰'],
+    initialGroundBranch: '戌',
+    initialGod: '玄武',
+  });
+  assert.ok(headOnHeavenlyPlate);
+  assert.deepEqual(headOnHeavenlyPlate.matchedConditions, ['初传子为甲子旬首，乘玄武发用']);
+
+  const headOnGroundPlate = findBiKou({
+    ...common,
+    transmissionBranches: ['辰', '午', '申'],
+    initialGroundBranch: '子',
+    initialGod: '玄武',
+  });
+  assert.ok(headOnGroundPlate);
+  assert.deepEqual(headOnGroundPlate.matchedConditions, ['初传辰为地盘旬首子上神，乘玄武发用']);
+
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['子', '寅', '辰'],
+      initialGroundBranch: '戌',
+      initialGod: '白虎',
+    }),
+    undefined,
+  );
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['辰', '午', '申'],
+      initialGroundBranch: '子',
+      initialGod: '白虎',
+    }),
+    undefined,
+  );
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['子', '寅', '辰'],
+      initialGroundBranch: '戌',
+      initialGod: '玄武',
+      dayBranch: '申',
+    }),
+    undefined,
+  );
+});
+
+test('大六壬实盘应识别两种乘玄武发用的闭口课', () => {
+  const cases = [
+    {
+      time: '2026-01-07T16:00:00+08:00',
+      day: '辛巳',
+      initial: '卯',
+      ground: '戌',
+      condition: '初传卯为地盘旬首戌上神，乘玄武发用',
+    },
+    {
+      time: '2026-02-03T16:00:00+08:00',
+      day: '戊申',
+      initial: '辰',
+      ground: '子',
+      condition: '初传辰为甲辰旬首，乘玄武发用',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = generateLiuren(new Date(item.time));
+    const chu = result.threeTransmissions[0];
+    assert.equal(result.ganzhi.day, item.day);
+    assert.equal(chu.branch, item.initial);
+    assert.equal(chu.god, '玄武');
+    assert.equal(getPlateItemByBranch(result.heavenlyPlate, chu.branch).under, item.ground);
+    assert.deepEqual(result.guaTiFacts?.find((fact) => fact.id === 'bi-kou')?.matchedConditions, [
+      item.condition,
+    ]);
+  }
+});
+
 test('大六壬新增六类课体应按完整起课条件命中', () => {
   const cases = [
     {
