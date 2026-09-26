@@ -275,7 +275,11 @@ export function assessCongErPattern(
         continue;
       }
       if (BASIC_MAPPINGS.WUXING_KE[wealthElement] !== getWuxing(resourceStem)) continue;
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem) {
+      // 支藏印星不是该柱明透天干，不能作为天干五合参与者。
+      if (
+        pillars[resourcePosition].gan !== resourceStem ||
+        BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem
+      ) {
         return { wealth, harmonyNote: '' };
       }
       const harmony = assessStemHarmonyTransform(
@@ -306,8 +310,13 @@ export function assessCongErPattern(
   ) => {
     const rescue = findWealthRescue(resourcePosition, resourceStem);
     if (!rescue) return false;
+    const resourceLabel =
+      pillars[resourcePosition].gan === resourceStem
+        ? POSITION_LABELS[resourcePosition]
+        : `${PILLAR_LABELS[resourcePosition]}${pillars[resourcePosition].zhi}藏`;
+    const constraintAction = pillars[resourcePosition].gan === resourceStem ? '紧贴制' : '制';
     functionalResolutions.push(
-      `${rescue.harmonyNote}${POSITION_LABELS[rescue.wealth.position]}${rescue.wealth.stem}财星有可用根，紧贴制${POSITION_LABELS[resourcePosition]}${resourceStem}${resourceGod}，印夺食有救`,
+      `${rescue.harmonyNote}${POSITION_LABELS[rescue.wealth.position]}${rescue.wealth.stem}财星有可用根，${constraintAction}${resourceLabel}${resourceStem}${resourceGod}，印夺食有救`,
     );
     return true;
   };
