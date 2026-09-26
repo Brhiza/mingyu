@@ -681,20 +681,17 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
   const firstDayPalace = data.palaceOrder.find(
     (palace) => palace.index === (data.sequence.month.index + rule.dayStartOffset) % 6,
   );
+  if (!firstDayPalace) throw new Error('小六壬初一对应宫位缺失');
   return [
     '占法：小六壬',
     `起课：农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
-    '起课过程：',
+    '起课过程：月、日、时各段起点计为第一位',
     `  定月宫：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月从大安顺数，落${data.sequence.month.name}`,
-    `  定日宫：从月宫${data.sequence.month.name}${data.rule === 'duoneng' ? '下一宫' : ''}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
+    `  定日宫：从月宫${data.sequence.month.name}${rule.dayStartOffset ? '下一宫' : ''}起初一（${firstDayPalace.name}），顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
     `  定时宫：从日宫${data.sequence.day.name}起子时，顺数至${data.hourLabel}，落${data.sequence.hour.name}`,
-    firstDayPalace
-      ? `起数对应：初一对应${firstDayPalace.name}，本月${data.lunarDay}日对应${data.sequence.day.name}；子时对应${data.sequence.day.name}，本次${data.hourLabel}对应${data.sequence.hour.name}。各段起点计为第一位`
-      : '',
-    `定位用途：月宫${data.sequence.month.name}用于确定初一的起数位置；日宫${data.sequence.day.name}用于确定子时的起数位置；顺数所得时宫${data.sequence.hour.name}为本次占得宫`,
-    `断事主证：时宫${data.primary.name}及其下列歌诀。总体判断、分项解释和总结均以该宫歌诀的对应句义为依据`,
+    `定位用途：月宫${data.sequence.month.name}用于确定初一的起数位置；日宫${data.sequence.day.name}用于确定子时的起数位置`,
     data.calculation
-      ? `历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}；子时序数为1，晚子时与早子时各按所在民用日的农历日期起课`
+      ? `历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}${data.calculation.hourNumber === 1 ? '；子时序数为1，晚子时与早子时各按所在民用日的农历日期起课' : ''}`
       : '',
     '时点范围：本课说明当前起课时点的占得宫；其他日期或时辰的宫位采用对应农历月日与时辰重新顺数',
     `起课口径：${rule.source}`,

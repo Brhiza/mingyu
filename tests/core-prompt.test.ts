@@ -245,7 +245,7 @@ test('统一占法摘要应覆盖小六壬且不落回通用文案', () => {
   assert.match(info, /占得宫/);
   assert.match(info, /起课过程/);
   assert.match(info, /定位用途：月宫.+用于确定初一的起数位置/);
-  assert.ok(info.includes(`断事主证：时宫${data.primary.name}及其下列歌诀`));
+  assert.ok(info.includes(`占得宫：${data.primary.name}`));
   assert.doesNotMatch(info, /顺数轨迹/);
   assert.doesNotMatch(info, /mod\s*6|时序\d+/);
   assert.match(prompt, /依据本次顺数结果、时宫与歌诀/);

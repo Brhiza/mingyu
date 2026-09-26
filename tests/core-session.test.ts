@@ -28,7 +28,7 @@ test('统一占法会话应覆盖时间课、摘要、提示词和稳定序列�
   );
   assert.ok(
     session.formattedResult.includes(
-      `断事主证：时宫${(session.data as import('../packages/core/src/types/divination').XiaoliurenData).primary.name}及其下列歌诀`,
+      `占得宫：${(session.data as import('../packages/core/src/types/divination').XiaoliurenData).primary.name}`,
     ),
   );
   assert.doesNotMatch(session.formattedResult, /mod\s*6|时序\d+/);

@@ -1396,10 +1396,10 @@ test('小六壬提示词保留可复核顺数，并明确只有时宫承担主�
   assert.match(prompt, /起课：农历.+，巳时/);
   assert.match(prompt, /起课过程：/);
   assert.match(prompt, /定月宫：.+月从大安顺数，落/);
-  assert.match(prompt, /定日宫：从月宫.+起初一，顺数至.+日，落/);
+  assert.match(prompt, /定日宫：从月宫.+起初一（.+），顺数至.+日，落/);
   assert.match(prompt, /定时宫：从日宫.+起子时，顺数至巳时，落/);
   assert.match(prompt, /定位用途：月宫赤口用于确定初一的起数位置；日宫空亡用于确定子时的起数位置/);
-  assert.match(prompt, /断事主证：时宫小吉及其下列歌诀/);
+  assert.match(prompt, /占得宫：小吉/);
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
   assert.doesNotMatch(prompt, /mod\s*6|时序\d+/);
   assert.doesNotMatch(prompt, /五行生克与落宫方位/);
