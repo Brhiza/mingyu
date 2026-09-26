@@ -653,10 +653,10 @@ function formatMeihuaInfo(data: MeihuaData) {
       : '',
     `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
     data.analysis.tiYongSeasonEvaluation
-      ? `体用吉凶实效：${data.analysis.tiYongSeasonEvaluation}`
+      ? `主卦体用月令条件：${data.analysis.tiYongSeasonEvaluation}`
       : '',
     data.analysis.timelineTrend
-      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；阶段趋势${data.analysis.timelineTrend.trend}` : ''}`
+      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；盘内关系走势${data.analysis.timelineTrend.trend}` : ''}；体用强弱与应期合参主互变、所问事项及现实进展`
       : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
     yingQiText,
