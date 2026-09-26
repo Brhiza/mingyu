@@ -1,6 +1,26 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { SolarDay } from 'tyme4ts';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
+
+function findAlmanacAvoidDate(keyword: string, scope: 'day' | 'hour'): string {
+  for (let utc = Date.UTC(2025, 0, 1); utc < Date.UTC(2027, 0, 1); utc += 86400000) {
+    const date = new Date(utc);
+    const lunarDay = SolarDay.fromYmd(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + 1,
+      date.getUTCDate(),
+    ).getLunarDay();
+    const matches =
+      scope === 'day'
+        ? lunarDay.getAvoids().some((item) => item.getName().includes(keyword))
+        : lunarDay.getHours().some((hour) =>
+            hour.getAvoids().some((item) => item.getName().includes(keyword)),
+          );
+    if (matches) return date.toISOString().slice(0, 10);
+  }
+  throw new Error(`历法资料缺少${scope === 'day' ? '日' : '时'}忌${keyword}样本`);
+}
 
 test('黄历择日：无四离等明确事项规则时只映射历法库原始宜忌', () => {
   const result = generateAlmanacSelection({
@@ -97,4 +117,46 @@ test('黄历择日：参与人适配证据字段应完整生成', () => {
 
   assert.equal(result.participants.length, 1);
   assert.ok(result.days.every((day) => Array.isArray(day.participantRelationFacts)));
+});
+
+test('安葬和修造的原始忌项同时约束候选日与具体时辰', () => {
+  for (const { topic, keyword } of [
+    { topic: 'burial', keyword: '入殓' },
+    { topic: 'renovation', keyword: '盖屋' },
+  ] as const) {
+    const dayDate = findAlmanacAvoidDate(keyword, 'day');
+    const dayResult = generateAlmanacSelection({ topic, startDate: dayDate, endDate: dayDate });
+    const day = dayResult.days[0];
+    assert.ok(day.avoids.some((item) => item.includes(keyword)));
+    assert.ok(
+      day.topicMatchFacts?.some(
+        (fact) =>
+          fact.sourceType === '原始忌项' &&
+          fact.matchedItems.some((item) => item.includes(keyword)),
+      ),
+    );
+    assert.equal(dayResult.evidenceAnalysis?.candidates[0].status, '慎用候选');
+
+    const hourDate = findAlmanacAvoidDate(keyword, 'hour');
+    const hourResult = generateAlmanacSelection({ topic, startDate: hourDate, endDate: hourDate });
+    const hourDay = hourResult.days[0];
+    const forbidden = hourDay.hours?.filter((hour) =>
+      hour.avoids?.some((item) => item.includes(keyword)),
+    );
+    assert.ok(forbidden?.length);
+    for (const hour of forbidden) {
+      assert.ok(
+        hour.topicMatchFacts?.some(
+          (fact) =>
+            fact.sourceType === '原始忌项' &&
+            fact.matchedItems.some((item) => item.includes(keyword)),
+        ),
+      );
+      assert.ok(
+        !hourResult.evidenceAnalysis?.candidates[0].usableHours.some(
+          (candidate) => candidate.name === hour.name,
+        ),
+      );
+    }
+  }
 });

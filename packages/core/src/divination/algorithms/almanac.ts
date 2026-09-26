@@ -83,18 +83,7 @@ const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
   custom: [],
 };
 
-const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
-  move: ['入宅', '移徙'],
-  marriage: ['嫁娶', '纳采', '订盟'],
-  opening: ['开市'],
-  contract: ['交易', '立券'],
-  travel: ['出行', '赴任'],
-  medical: ['求医', '治病'],
-  study: ['入学'],
-  burial: ['安葬', '修坟', '启钻'],
-  renovation: ['修造', '动土', '竖柱', '上梁'],
-  custom: [],
-};
+const TOPIC_AVOID_KEYWORDS = TOPIC_RECOMMEND_KEYWORDS;
 
 function getGeneralRestriction(
   recommends: string[],
