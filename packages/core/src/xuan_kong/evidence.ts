@@ -307,7 +307,7 @@ export function analyzeXuanKongEvidence(
   };
 
   const sources = [
-    ...(result.replacementApplied
+    ...(result.guaType === '替卦'
       ? [
           {
             title: '《沈氏玄空学》上卷替卦章',
