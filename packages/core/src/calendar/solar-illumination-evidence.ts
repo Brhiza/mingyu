@@ -2,7 +2,7 @@
  * @file 太阳高度、日出日落与曙暮光证据
  * @description 采用太阳星历与 NOAA/Meeus 太阳模型，输出地点相关的光照事件和计算限制。
  */
-import { Body, Equator, Horizon, Observer, SearchAltitude, SearchRiseSet } from 'astronomy-engine';
+import * as AstronomyEngine from 'astronomy-engine';
 import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
@@ -10,6 +10,10 @@ import {
 } from './astronomical-time';
 
 const DAY_MS = 86_400_000;
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
+const { Body, Equator, Horizon, Observer, SearchAltitude, SearchRiseSet } = Astronomy;
 
 export type SolarCrossingStatus = '正常交点' | '全天高于阈值' | '全天低于阈值';
 
