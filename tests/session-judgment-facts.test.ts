@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { generateDivinationSession } from '../packages/core/src/divination/session';
+import { formatTaiyiConditionSummary } from '../packages/core/src/taiyi';
 import type { LiurenData, TaiyiResult } from '../packages/core/src/types/divination';
 
 test('小六壬在线解读保留农历取数、口径与占得宫歌诀', () => {
@@ -98,6 +99,13 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
   assert.ok(
     session.aiPrompt.includes(`阴阳和：${data.conditions.yinYangHarmony.matched ? '和' : '不和'}`),
   );
+  assert.equal(session.aiPrompt.split('三门：').length - 1, 1);
+  assert.equal(session.aiPrompt.split('五将：').length - 1, 1);
+  assert.equal(session.aiPrompt.split('阴阳和：').length - 1, 1);
+  assert.equal(session.aiPrompt.split(`直使${data.conditions.threeGates.directGate}`).length - 1, 1);
+  assert.ok(session.aiPrompt.includes(`攻守参考：主算${data.lordCount}`));
+  assert.ok(session.aiPrompt.includes('主客吉凶条件相等时，再以算之长短比较'));
+  assert.doesNotMatch(session.aiPrompt, /盘面条件：/);
   assert.ok(session.aiPrompt.includes(`主大将${data.lordGeneral}宫`));
   assert.ok(
     session.aiPrompt.includes(data.conditions.fiveGenerals.hostGuestElementRelation.relation),
@@ -110,4 +118,30 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
     /二目五行（位置关系）.*日计纳音另论.*五将发不发依同宫关等条件另判/,
   );
   assert.doesNotMatch(session.aiPrompt, /sourceUrl|evidenceAnalysis|https?:\/\//);
+});
+
+test('太乙 aiPrompt 保留主客定算性且只呈现一次', () => {
+  const session = generateDivinationSession({
+    method: 'taiyi',
+    question: '核对主客定算性',
+    taiyi: { scope: 'year', year: 1951 },
+    currentTime: '1951-01-01T12:00:00+08:00',
+  });
+  const data = session.data as TaiyiResult;
+  for (const [label, count, nature] of [
+    ['主', data.lordCount, data.countNatures?.lord],
+    ['客', data.guestCount, data.countNatures?.guest],
+    ['定', data.setCount, data.countNatures?.set],
+  ] as const) {
+    assert.ok(nature);
+    assert.equal(session.aiPrompt.split(`${label}算${count}（${nature}）`).length - 1, 1);
+  }
+  for (const judgment of data.judgments) {
+    if (
+      judgment !== formatTaiyiConditionSummary(data.conditions) &&
+      !/^(主算|客算|定算)\s*\d+\s*为/u.test(judgment)
+    ) {
+      assert.ok(session.aiPrompt.includes(judgment), judgment);
+    }
+  }
 });
