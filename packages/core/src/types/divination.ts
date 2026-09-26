@@ -179,7 +179,7 @@ export interface JinkoujueData {
   };
   movements: JinkoujueMovement[];
   mainLine: string;
-  /** 四位比合歌诀定性（二木为爻、二火为灾、二土为滞、二金为刑、二水为盗） */
+  /** 四位比合条件：同五行的实际数量与位次；无同五行组合时为空字符串。 */
   bihePoem?: string;
   calculation: {
     method: JinkoujueDivinationMethod;
