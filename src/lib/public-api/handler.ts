@@ -255,6 +255,9 @@ const MAX_ALMANAC_PAGE_SIZE = 31;
 const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
 const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
 const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
+const ONLINE_BAZI_REVERSE_MAX_YEARS = 10;
+const ONLINE_ALMANAC_MAX_DAYS = 7;
+const ONLINE_QIMEN_LIFETIME_MAX_YEARS = 10;
 const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
 const DETAIL_MODES = RESULT_DETAIL_MODES;
 const ASTROLABE_PROMPT_SCOPES = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
@@ -264,6 +267,7 @@ type RouteContext = {
   segments: string[];
   runtime: PublicApiRuntime;
   env?: AiEnv;
+  preset: 'full' | 'online';
 };
 
 class ApiError extends Error {
@@ -666,6 +670,8 @@ export function getPublicApiOpenApiDocument(
       '/calendar/bazi-reverse': {
         post: {
           summary: '根据四柱反推公历北京时间候选区间',
+          description:
+            '官方 Pages 在线入口必须提供 startYear、endYear，单次最多 10 个公历年份；超限返回 RESOURCE_LIMIT。Docker 自部署保留原有范围。',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziReverseRequest'),
           responses: {
             '200': {
@@ -901,6 +907,8 @@ export function getPublicApiOpenApiDocument(
       '/ziwei/calculate': {
         post: {
           summary: '紫微斗数排盘',
+          description:
+            '官方 Pages 在线入口的单点 full 请求须传 scopeBatch 或 fortuneBatch 分批续取；默认当前大限与出生时间范围模式保持原行为。',
           requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiRequest'),
           responses: {
             '200': {
@@ -913,6 +921,8 @@ export function getPublicApiOpenApiDocument(
       '/ziwei/prompt': {
         post: {
           summary: '紫微斗数排盘并生成 AI 解读提示词',
+          description:
+            '官方 Pages 在线入口选择 full 时须传 scopeBatch 或 fortuneBatch 分批续取；scope=full 同样适用。',
           requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiPromptRequest'),
           responses: {
             '200': {
@@ -1003,7 +1013,8 @@ export function getPublicApiOpenApiDocument(
       '/divination/qimen/lifetime': {
         post: {
           summary: '奇门遁甲终身局排盘',
-          description: '生成奇门终身局基础盘、个人标记、阶段卡与动态事件簇。',
+          description:
+            '生成奇门终身局基础盘、个人标记、阶段卡与动态事件簇。官方 Pages 在线入口的 periodRange 单次最多覆盖 10 个公历年份。',
           requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimeRequest', false),
           responses: { '200': { description: '奇门终身局结构化盘面数据' } },
         },
@@ -1011,7 +1022,8 @@ export function getPublicApiOpenApiDocument(
       '/divination/qimen/lifetime/prompt': {
         post: {
           summary: '奇门遁甲终身局提示词',
-          description: '生成奇门终身局结构化数据并输出自包含提示词任务书。',
+          description:
+            '生成奇门终身局结构化数据并输出自包含提示词任务书。官方 Pages 在线入口的 periodRange 单次最多覆盖 10 个公历年份。',
           requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimePromptRequest'),
           responses: { '200': { description: '奇门终身局盘面与自包含提示词' } },
         },
@@ -1049,6 +1061,7 @@ export function getPublicApiOpenApiDocument(
       '/divination/almanac': {
         post: {
           summary: '黄历择日',
+          description: '官方 Pages 在线入口单次最多 7 天；Docker 自部署单次最多 31 天。',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
           responses: { '200': { description: '择日结果' } },
         },
@@ -1098,6 +1111,7 @@ export function getPublicApiOpenApiDocument(
       '/divination/{method}/prompt': {
         post: {
           summary: '起卦、抽牌或排盘并生成 AI 解读提示词',
+          description: 'method=almanac 时，官方 Pages 在线入口单次最多 7 天。',
           parameters: [
             {
               name: 'method',
@@ -1583,7 +1597,7 @@ export function getPublicApiOpenApiDocument(
         BaziReverseRequest: {
           type: 'object',
           required: ['pillars'],
-          description: `按北京时间（UTC+8）、节气月和 23:00 子时换日口径，根据完整四柱查找候选公历时间区间。默认查询 1900 年至当前北京时间年份，并分批返回 ${BAZI_REVERSE_DEFAULT_PAGE_SIZE} 条候选。`,
+          description: `按北京时间（UTC+8）、节气月和 23:00 子时换日口径，根据完整四柱查找候选公历时间区间。官方 Pages 在线入口必须指定起止年份，单次最多 10 年；Docker 自部署省略时默认查询 1900 年至当前北京时间年份。分批返回 ${BAZI_REVERSE_DEFAULT_PAGE_SIZE} 条候选。`,
           properties: {
             pillars: {
               type: 'object',
@@ -1604,14 +1618,15 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 1900,
               maximum: 2100,
-              default: 1900,
-              description: '查询公历年份起点（含）',
+              description:
+                '查询公历年份起点（含）；官方 Pages 在线入口必填，自部署不传时默认 1900 年。',
             },
             endYear: {
               type: 'integer',
               minimum: 1900,
               maximum: 2100,
-              description: '查询公历年份终点（含）；不传时使用当前北京时间年份',
+              description:
+                '查询公历年份终点（含）；官方 Pages 在线入口必填，自部署不传时使用当前北京时间年份。',
             },
             startIndex: {
               type: 'integer',
@@ -3009,7 +3024,7 @@ export function getPublicApiOpenApiDocument(
                 endDate: { type: 'string', format: 'date' },
               },
               description:
-                '需要补充动态流年资料的目标日期区间；日期须为有效 YYYY-MM-DD，最多覆盖连续31个年份。',
+                '需要补充动态流年资料的目标日期区间；日期须为有效 YYYY-MM-DD，官方 Pages 在线入口单次最多覆盖 10 个公历年份，Docker 自部署最多覆盖连续31个年份。',
             },
             topics: { type: 'array', items: { enum: [...QIMEN_LIFETIME_TOPICS] } },
             name: { type: 'string' },
@@ -3188,6 +3203,7 @@ export async function handlePublicApiRequest(
   segments?: string[],
   env?: AiEnv,
   aiRuntime?: AiRuntime,
+  options?: { preset?: 'full' | 'online' },
 ) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -3209,7 +3225,13 @@ export async function handlePublicApiRequest(
   }
 
   try {
-    const data = await route({ request, segments: routeSegments, runtime, env });
+    const data = await route({
+      request,
+      segments: routeSegments,
+      runtime,
+      env,
+      preset: options?.preset ?? 'full',
+    });
     return json(success(data, runtime));
   } catch (error) {
     return handleError(error, runtime);
@@ -3249,7 +3271,9 @@ async function route(context: RouteContext) {
     case 'calendar/true-solar-birth':
       return calculateTrueSolarBirthApi(await readJson(context.request));
     case 'calendar/bazi-reverse':
-      return calculateApiResult(context.request, calculateBaziReverseApi);
+      return calculateApiResult(context.request, (input) =>
+        calculateBaziReverseApi(checkOnlineResourceLimit(context, path, input)),
+      );
     case 'calendar/solar-illumination':
       return calculateSolarIlluminationApi(await readJson(context.request));
     case 'calendar/astronomical-time':
@@ -3322,12 +3346,15 @@ async function route(context: RouteContext) {
     case 'ziwei/calculate':
       return calculateApiResult(
         context.request,
-        (input) => calculateZiwei(input, context.request.signal),
+        (input) =>
+          calculateZiwei(checkOnlineResourceLimit(context, path, input), context.request.signal),
         false,
         true,
       );
     case 'ziwei/prompt':
-      return buildZiweiPrompt(await readJson(context.request));
+      return buildZiweiPrompt(
+        checkOnlineResourceLimit(context, path, await readJson(context.request)),
+      );
     case 'ziwei/compatibility':
       return calculateApiResult(context.request, calculateZiweiCompatibilityApi);
     case 'ziwei/compatibility/prompt':
@@ -3357,9 +3384,15 @@ async function route(context: RouteContext) {
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readJson(context.request));
     case 'divination/qimen/lifetime':
-      return calculateApiResult(context.request, calculateQimenLifetimeApi, true);
+      return calculateApiResult(
+        context.request,
+        (input) => calculateQimenLifetimeApi(checkOnlineResourceLimit(context, path, input)),
+        true,
+      );
     case 'divination/qimen/lifetime/prompt':
-      return buildQimenLifetimePromptResult(await readJson(context.request));
+      return buildQimenLifetimePromptResult(
+        checkOnlineResourceLimit(context, path, await readJson(context.request)),
+      );
     case 'divination/liuren':
       return calculateApiResult(context.request, calculateLiuren, true);
     case 'divination/liuren/prompt':
@@ -3373,9 +3406,14 @@ async function route(context: RouteContext) {
     case 'divination/ssgw/prompt':
       return buildDivinationPromptResult('ssgw', await readJson(context.request));
     case 'divination/almanac':
-      return calculateApiResult(context.request, calculateAlmanacApi);
+      return calculateApiResult(context.request, (input) =>
+        calculateAlmanacApi(checkOnlineResourceLimit(context, path, input)),
+      );
     case 'divination/almanac/prompt':
-      return buildDivinationPromptResult('almanac', await readJson(context.request));
+      return buildDivinationPromptResult(
+        'almanac',
+        checkOnlineResourceLimit(context, path, await readJson(context.request)),
+      );
     case 'divination/lenormand':
       return calculateApiResult(context.request, calculateLenormand, true);
     case 'divination/lenormand/prompt':
@@ -3646,6 +3684,79 @@ function calculateKongmingApi(input: JsonRecord) {
   const pattern = readString(input, 'pattern', '').trim() || undefined;
   if (pattern) assertNoRandomOptions(input, '指定卦象时不接受 seed 或 replay。');
   return castKongmingHexagram(pattern, pattern ? undefined : readRandomOptions(input));
+}
+
+function checkOnlineResourceLimit(context: RouteContext, path: string, input: JsonRecord) {
+  if (context.preset !== 'online') return input;
+
+  if (path === 'calendar/bazi-reverse') {
+    if (input.startYear === undefined || input.endYear === undefined) {
+      throw new ApiError(
+        400,
+        'RESOURCE_LIMIT',
+        `在线四柱反推必须指定 startYear 和 endYear，每次最多 ${ONLINE_BAZI_REVERSE_MAX_YEARS} 个公历年份；更大范围请分段查询。`,
+      );
+    }
+    const startYear = readIntegerLike(input, 'startYear', 1900, 2100);
+    const endYear = readIntegerLike(input, 'endYear', 1900, 2100);
+    if (endYear - startYear + 1 > ONLINE_BAZI_REVERSE_MAX_YEARS) {
+      throw new ApiError(
+        400,
+        'RESOURCE_LIMIT',
+        `在线四柱反推每次最多 ${ONLINE_BAZI_REVERSE_MAX_YEARS} 个公历年份；请将 ${startYear} 至 ${endYear} 分段查询，或使用本地/自部署服务。`,
+      );
+    }
+  }
+
+  if (path === 'divination/almanac' || path === 'divination/almanac/prompt') {
+    const { startDate, endDate } = readAlmanacDateRange(input);
+    const days =
+      (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86_400_000 + 1;
+    if (days > ONLINE_ALMANAC_MAX_DAYS) {
+      throw new ApiError(
+        400,
+        'RESOURCE_LIMIT',
+        `在线黄历择日每次最多 ${ONLINE_ALMANAC_MAX_DAYS} 天；请将 ${startDate} 至 ${endDate} 分段查询，或使用本地/自部署服务。`,
+      );
+    }
+  }
+
+  if (path === 'divination/qimen/lifetime' || path === 'divination/qimen/lifetime/prompt') {
+    const periodRange = readQimenLifetimePeriodRange(input);
+    if (periodRange) {
+      const startYear = Number(periodRange.startDate.slice(0, 4));
+      const endYear = Number(periodRange.endDate.slice(0, 4));
+      if (endYear - startYear + 1 > ONLINE_QIMEN_LIFETIME_MAX_YEARS) {
+        throw new ApiError(
+          400,
+          'RESOURCE_LIMIT',
+          `在线奇门终身局动态扫描每次最多 ${ONLINE_QIMEN_LIFETIME_MAX_YEARS} 个公历年份；请将 ${periodRange.startDate} 至 ${periodRange.endDate} 分段查询，或使用本地/自部署服务。`,
+        );
+      }
+    }
+  }
+
+  if (path === 'ziwei/calculate' || path === 'ziwei/prompt') {
+    const selectedScope =
+      path === 'ziwei/prompt'
+        ? toZiweiPromptScope(readSharedPromptSelection(input, 'ziwei')?.scope)
+        : undefined;
+    const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, selectedScope ?? 'decadal');
+    if (
+      scope === 'full' &&
+      (path !== 'ziwei/calculate' || input.birthTimeRange === undefined) &&
+      input.scopeBatch === undefined &&
+      input.fortuneBatch === undefined
+    ) {
+      throw new ApiError(
+        400,
+        'RESOURCE_LIMIT',
+        '在线紫微 full 单点计算请显式传 scopeBatch: {startIndex: 0, limit: 1}，按返回的 batch.scopeBatch.nextIndex 续取；运限年龄年可改传 fortuneBatch: {startIndex: 0, limit: 1}。需要完整整包结果时使用本地/自部署服务。',
+      );
+    }
+  }
+
+  return input;
 }
 
 async function calculateApiResult(

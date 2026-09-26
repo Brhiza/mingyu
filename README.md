@@ -93,7 +93,7 @@ const tarot = drawTarotSpread('celtic');
   ```
   本地 CLI 默认采用 `full` 预设，返回完整结构化结果并默认计算当前年度星盘行运；请求在本地处理，不走 Cloudflare Pages Functions。
 - **在线 Remote MCP（本地进程不可用或需要远程免安装时）**：在 Cursor、Windsurf、Claude Desktop 等客户端中配置 **Streamable HTTP** 远程端点：`https://aov.cc/mcp`（不要按旧版 SSE 类型配置）。在线提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只精简返回体，不减少计算 CPU；星盘默认本命 `natal`。在线四柱反推须提供 `startYear`、`endYear` 且范围不超过 10 年，黄历最多 7 天，奇门终身动态最多 10 年。
-- 在线 MCP 每条 JSON-RPC 消息单独发送一次 HTTP `POST`，不接受 JSON-RPC batch；每次请求会调用 Pages Function 并计入 Cloudflare 请求用量。避免轮询和紧密重试。
+- 在线 MCP 每条 JSON-RPC 消息单独发送一次 HTTP `POST`，不接受 JSON-RPC batch；单条请求体最多 512 KiB。每次请求会调用 Pages Function 并计入 Cloudflare 请求用量，避免轮询和紧密重试。官方在线 `/api/v1` 对四柱反推、黄历、奇门终身动态和单点紫微 `full` 也有计算前范围保护，详见 [API 文档](docs/api.md#官方在线请求范围)。
 
 （本地源码开发也可通过 `pnpm mcp` 启动，详见 [MCP 服务文档](mcp/README.md)）
 

@@ -27,5 +27,7 @@ export function onRequest(context: PagesContext) {
   }
   const trustedRequest = new Request(context.request, { headers });
 
-  return handlePublicApiRequest(trustedRequest, segments, context.env);
+  return handlePublicApiRequest(trustedRequest, segments, context.env, undefined, {
+    preset: 'online',
+  });
 }

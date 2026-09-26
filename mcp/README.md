@@ -99,6 +99,8 @@
 
 Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。在线端点拒绝 JSON-RPC batch，每条消息须单独发送。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。静态页面与资源不命中 `_routes.json` 中的动态路由时不会调用 Function。
 
+官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超出时返回 `HTTP 413`。限制在读取 JSON-RPC 消息时执行，适用于没有 `Content-Length` 的流式上传。本地 stdio 与使用 `full` 预设的 Docker MCP 不采用此限制；Docker 显式切换为 `online` 预设时也会应用。
+
 MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或官方 Pages 预设。
 
 `full` 指返回数据与默认排盘范围，不表示 npm 包已包含当前源码的所有新工具。以实际 `tools/list` 为准；npm 包缺少所需工具时，可在当前仓库源码中运行 `pnpm mcp`，或在在线端点允许的范围内使用远程服务。

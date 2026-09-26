@@ -20,6 +20,10 @@ export interface HandleMcpRequestOptions {
 const ONLINE_ALMANAC_MAX_DAYS = 7;
 const ONLINE_QIMEN_LIFETIME_MAX_YEARS = 10;
 const ONLINE_BAZI_REVERSE_MAX_YEARS = 10;
+const ONLINE_MCP_MAX_REQUEST_BODY_BYTES = 512 * 1024;
+const ONLINE_MCP_MAX_REQUEST_BODY_BYTES_BIGINT = BigInt(ONLINE_MCP_MAX_REQUEST_BODY_BYTES);
+
+type BoundedRequestBodyResult = { tooLarge: true } | { tooLarge: false; parsedBody: unknown };
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -29,6 +33,94 @@ function jsonResponse(payload: unknown, status = 200) {
       ...MCP_CORS_HEADERS,
     },
   });
+}
+
+function cancelOversizedRequestBody(
+  request: Request,
+  reader?: ReadableStreamDefaultReader<Uint8Array>,
+) {
+  const cancel = (startCancellation: () => Promise<void>) => {
+    try {
+      void startCancellation().catch(() => undefined);
+    } catch {
+      // 取消尽力而为，不等待输入流，以免 413 响应被挂起。
+    }
+  };
+
+  const reason = '在线 MCP 请求体超出大小上限';
+  if (reader) {
+    cancel(() => reader.cancel(reason));
+  }
+  const body = request.body;
+  if (body) cancel(() => body.cancel(reason));
+}
+
+async function readBoundedOnlineMcpRequestBody(
+  request: Request,
+): Promise<BoundedRequestBodyResult> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && /^\d+$/.test(contentLength)) {
+    let declaredTooLarge = false;
+    try {
+      declaredTooLarge = BigInt(contentLength) > ONLINE_MCP_MAX_REQUEST_BODY_BYTES_BIGINT;
+    } catch {
+      // Content-Length 无法解析时，继续按下面实际接收的字节数检查。
+    }
+    if (declaredTooLarge) {
+      cancelOversizedRequestBody(request);
+      return { tooLarge: true };
+    }
+  }
+
+  const reader = request.clone().body?.getReader();
+  if (!reader) return { tooLarge: false, parsedBody: undefined };
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > ONLINE_MCP_MAX_REQUEST_BODY_BYTES) {
+        cancelOversizedRequestBody(request, reader);
+        return { tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { tooLarge: false, parsedBody: undefined };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return { tooLarge: false, parsedBody: JSON.parse(new TextDecoder().decode(bodyBytes)) };
+  } catch {
+    // 无效 JSON 继续交给 SDK 返回标准的 JSON 解析错误。
+    return { tooLarge: false, parsedBody: undefined };
+  }
+}
+
+function buildOnlineRequestBodyLimitResponse() {
+  return jsonResponse(
+    {
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32600,
+        message: `在线 MCP 请求体最多 ${ONLINE_MCP_MAX_REQUEST_BODY_BYTES} 字节（512 KiB），请缩减请求体后重试。`,
+      },
+    },
+    413,
+  );
 }
 
 function getValidationFieldNames(message: string) {
@@ -294,10 +386,16 @@ export async function handleMcpRequest(
     ((typeof process !== 'undefined' && (process.env?.MINGYU_MCP_PRESET as MingyuMcpPreset)) ||
       'online');
   let parsedBody: unknown;
-  try {
-    parsedBody = await request.clone().json();
-  } catch {
-    // 无效 JSON 交由协议层返回标准解析错误。
+  if (preset === 'online') {
+    const boundedBody = await readBoundedOnlineMcpRequestBody(request);
+    if (boundedBody.tooLarge) return buildOnlineRequestBodyLimitResponse();
+    parsedBody = boundedBody.parsedBody;
+  } else {
+    try {
+      parsedBody = await request.clone().json();
+    } catch {
+      // 无效 JSON 交由协议层返回标准解析错误。
+    }
   }
 
   if (preset === 'online' && Array.isArray(parsedBody)) {

@@ -46,6 +46,19 @@
 }
 ```
 
+## 官方在线请求范围
+
+`https://aov.cc/api/v1` 运行在 Cloudflare Pages。下列请求会在计算前检查范围；超出时返回 `HTTP 400` 和 `RESOURCE_LIMIT`，按错误提示拆分请求。Docker 自部署的公开 API 保留原有范围。
+
+| 请求 | 官方在线入口 | Docker 自部署 |
+| --- | --- | --- |
+| `POST /calendar/bazi-reverse` | 必须传 `startYear`、`endYear`，单次最多 10 个公历年份 | 可省略年份，按原有年份范围查询 |
+| `POST /divination/almanac` 及 `/prompt` | 单次最多 7 天（含起止日） | 单次最多 31 天（含起止日） |
+| `POST /divination/qimen/lifetime` 及 `/prompt` | `periodRange` 动态资料单次最多 10 个年份 | 单次最多 31 个年份 |
+| `POST /ziwei/calculate` 及 `/prompt` | 单点输入选择 `full` 时，同时传 `scopeBatch` 或 `fortuneBatch` 分批续取；`/prompt` 的 `scope: "full"` 同样适用 | 保留原有完整请求方式 |
+
+紫微未指定 `promptScope` 或 `scope` 时仍返回当前大限。`scopeBatch` 和 `fortuneBatch` 互斥；续取时使用响应 `batch` 中的游标。`page`、`pageSize` 与 `responseMode` 只控制结果呈现，不能缩小计算范围。
+
 ## 接口列表
 
 | 接口                                           | 说明                                                                                                        |
@@ -76,7 +89,7 @@
 | `POST /divination/qimen`                       | 奇门遁甲排盘                                                                                                |
 | `POST /divination/qimen/prompt`                | 奇门遁甲排盘并生成 AI 解读提示词                                                                            |
 | `POST /divination/qimen/lifetime`              | 奇门终身局排盘：输入出生信息返回本命局、个人标记、阶段卡与事件簇                                            |
-| `POST /divination/qimen/lifetime/prompt`       | 奇门终身局排盘并生成自包含 AI 解读提示词；按出生时区、真太阳时和最多31年 `periodRange` 补充实际阶段动态资料 |
+| `POST /divination/qimen/lifetime/prompt`       | 奇门终身局排盘并生成自包含 AI 解读提示词；按出生时区、真太阳时和指定 `periodRange` 补充阶段动态资料             |
 | `POST /divination/liuren`                      | 大六壬排盘                                                                                                  |
 | `POST /divination/liuren/prompt`               | 大六壬排盘并生成 AI 解读提示词                                                                              |
 | `POST /divination/tarot`                       | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                                                                |
@@ -118,12 +131,14 @@
 - **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 提示词通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只减少返回体，不减少计算 CPU。星盘默认本命 `natal`；`full` 和其他范围仍受在线资源保护与 Cloudflare 边缘运行限制。
 - **在线 MCP 的连接与请求用量**：Streamable HTTP 中每条 JSON-RPC 消息单独用一次 `POST`，在线端点拒绝 JSON-RPC batch；初始化、工具列表和工具调用会形成多次 HTTP 请求。该端点不提供 SSE `GET` 流：普通浏览器 `GET` 返回端点元数据，带 `Accept: text/event-stream` 的 `GET` 返回 `405`；旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，也不是 SSE 服务。命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量；避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求。
 
+官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超过时返回 `HTTP 413`；可缩小输入或使用本地 stdio。该限制与公开 REST API 的 512 KiB 请求体上限分别执行。
+
 默认优先级：
 
 1. 用户提供了完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先用 `POST /bazi-ziwei/prompt`。八字负责定命局主线、喜忌和岁运，紫微负责校验宫位、四化、三方四正和运限，通常比单独八字或单独紫微更稳。
 2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
 3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、大六壬。
-4. 用户要从一段日期里挑日子，使用 `POST /divination/almanac/prompt`。REST API 单次范围最多 31 天、最多 30 位参与人；超出范围或人数上限时拆成多个请求。`page` 和 `pageSize` 只分页合法范围内的结果；在线 Remote MCP 单次最多 7 天，超出时须先按不超过 7 天分段，分页参数不能绕过该限制。
+4. 用户要从一段日期里挑日子，使用 `POST /divination/almanac/prompt`。官方在线 REST API 与在线 Remote MCP 单次最多 7 天；Docker 自部署 REST API 最多 31 天。参与人最多 30 位；超出日期范围或人数上限时拆成多个请求。`page` 和 `pageSize` 只分页合法范围内的结果，不能绕过日期范围保护。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；REST API 未指定 `astrolabeScope` 时默认当前年度 `yearly` 行运。在线 Remote MCP 的 `astrolabe_prompt` 未指定时默认本命 `natal`；需要行运时明确传入 `astrolabeScope: "yearly"`。提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
 7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世年月日时即时占断使用 `customDate`，六日逐爻公历占断可选 `calendarModel=six-day-seven-part`（现代冬至与岁周比例定位，不传显式历元）或 `calendarModel=six-day-explicit-epoch`（必须传显式历元），年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
@@ -170,7 +185,7 @@
 参数选择建议：
 
 - `responseMode` 默认为 `prompt-only`；需要提示词及轻量盘面摘要时用 `summary`；需要完整结构化排盘时用 `full`。
-- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。
+- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，官方在线的单点紫微请求还需用 `scopeBatch` 或 `fortuneBatch` 分批续取；星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。
 - 只问某一年、某月、某日时，优先选择对应范围，避免把短期问题做成泛泛终身解读。
 - `promptMode` 默认用 `framework`，这样返回的提示词结构更完整；只有用户明确要自由问答或自己已经写好完整问题时，才用 `custom`。
 - 出生时辰未知时，不要自行补时辰；八字只能保守使用已知信息，紫微和八字紫微合参应等用户补足时辰后再调用。
@@ -183,7 +198,7 @@ MCP 的在线端点与本地 CLI 复用同一套计算能力；在线 Remote MCP
 
 为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 
-公开 HTTP API 在应用层将成功响应限制为 1 MiB；超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。这是项目的 API 响应策略，不是 Cloudflare 对响应体大小的平台限制。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局最多31年是计算范围上限，实际 HTTP 返回还受响应大小和部署资源限制；分页或分段获取资料时应保留原目标范围并核对覆盖。
+公开 HTTP API 在应用层将成功响应限制为 1 MiB；超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。这是项目的 API 响应策略，不是 Cloudflare 对响应体大小的平台限制。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局在 Docker 自部署 API 中最多 31 年，官方在线 API 单次最多 10 年；实际 HTTP 返回还受响应大小和部署资源限制。分段获取资料时应保留原目标范围并核对覆盖。
 
 奇门终身局可传 `stagePolicy: { "model": "decadalGanzhi" }` 选择十年干支大运，同时提供 `gender: "male"` 或 `"female"`。该模型采用八字交节起运合参奇门本命宫，默认模型仍为 `pillarFourLimits`。`basis.decadalLuck` 给出顺逆、起运年龄、时刻和定位口径；各运的 `ganzhi`、`startDateTime`、`endDateTimeExclusive` 和 `associatedMarkers` 在精简结果中也保留。精确交运区间含起点、不含终点，跨运事件通过 `stageIndices` 列出所涉及的全部阶段；已知具体时刻的交节事实另保留 Unix 毫秒 `timestamp`。`yearsPerStage` 用于九宫行限，十年干支大运固定每运十年。
 
@@ -215,7 +230,7 @@ curl -X POST https://aov.cc/api/v1/calendar/bazi-reverse \
   -d '{"pillars":{"year":"甲辰","month":"丙寅","day":"己亥","hour":"甲子"},"startYear":2024,"endYear":2024}'
 ```
 
-`pillars` 必须完整提供年、月、日、时四个六十甲子名称。`startYear` 和 `endYear` 按公历年闭区间筛选，省略时分别默认为 1900 年和当前北京时间年份。结果中的每个候选区间采用北京时间（`Asia/Shanghai`、UTC+8）、节气月和 23:00 子时换日口径，起点包含、终点不包含；`startBoundary` 与 `endBoundary` 说明是查询范围、节气交接、子时换日还是时辰交接导致边界。
+`pillars` 必须完整提供年、月、日、时四个六十甲子名称。`startYear` 和 `endYear` 按公历年闭区间筛选；官方在线入口必须同时提供，单次最多 10 个年份。Docker 自部署时省略年份分别默认为 1900 年和当前北京时间年份。结果中的每个候选区间采用北京时间（`Asia/Shanghai`、UTC+8）、节气月和 23:00 子时换日口径，起点包含、终点不包含；`startBoundary` 与 `endBoundary` 说明是查询范围、节气交接、子时换日还是时辰交接导致边界。
 
 八字真太阳时排盘：
 
@@ -309,12 +324,12 @@ curl -X POST https://aov.cc/api/v1/ziwei/compatibility/prompt \
 
 该接口只使用双方本命盘，输出关键宫位地支叠盘和“来源方生年四化星曜 → 对方同名星曜落宫”的可复核链路；不生成匹配总分，也不把静态双盘写成具体年份应期。
 
-紫微 `promptScope` 可传 `full` 生成完整输出版，会写入本命、已验证童限与大限及各阶段流年资料；流月、流日和流时在 `yearly`、`monthly`、`daily`、`hourly` 范围按指定日期展开：
+紫微 `promptScope` 可传 `full` 查询本命、已验证童限与大限及各阶段流年资料；`/prompt` 的 `scope: "full"` 效果相同。官方在线单点请求必须使用 `scopeBatch` 或 `fortuneBatch` 分批获取，以下示例先取一个资料范围。流月、流日和流时在 `yearly`、`monthly`、`daily`、`hourly` 范围按指定日期展开：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"整体人生和近期重点怎么看？","promptTopic":"life","promptScope":"full"}'
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"整体人生和近期重点怎么看？","promptTopic":"life","promptScope":"full","scopeBatch":{"startIndex":0,"limit":1}}'
 ```
 
 八字紫微合参提示词适合“八字定主线、紫微校验宫位和运限”的深度问题，`promptScope` 同样支持 `full`：
@@ -453,7 +468,7 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/almanac \
   -H "Content-Type: application/json" \
-  -d '{"topic":"burial","startDate":"2026-07-01","endDate":"2026-07-15"}'
+  -d '{"topic":"burial","startDate":"2026-07-01","endDate":"2026-07-07"}'
 ```
 
 黄历择日分页轻量返回：
@@ -461,7 +476,7 @@ curl -X POST https://aov.cc/api/v1/divination/almanac \
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/almanac \
   -H "Content-Type: application/json" \
-  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-30","page":1,"pageSize":5,"detailMode":"compact"}'
+  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-07","page":1,"pageSize":5,"detailMode":"compact"}'
 ```
 
 黄历提示词也支持分页；大范围或多参与人时建议按页生成提示词，多次请求合并判断：
@@ -469,7 +484,7 @@ curl -X POST https://aov.cc/api/v1/divination/almanac \
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/almanac/prompt \
   -H "Content-Type: application/json" \
-  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-30","page":1,"pageSize":5}'
+  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-07","page":1,"pageSize":5}'
 ```
 
 AI 流式解读：
@@ -507,7 +522,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 八字 `/bazi/prompt` 未指定范围时默认使用当前大运；也可传 `baziFortuneScope` 指定 `natal`、`full`、`dayun`、`year`、`month`、`day`。`dayun`、`year`、`month`、`day` 推荐配合 `baziFortuneDate` 直传公历日期，并按北京时间正午定位；兼容序号中流月按寅月=1 的节令月、流日按子初换日且由交节时刻裁剪。日期参数与大运序号及其他兼容序号不得混用，工具不会静默套用第一项。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
-- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、已验证童限与大限及各阶段流年资料，下层流月、流日和流时按指定范围展开。
+- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 可查询本命、已验证童限与大限及各阶段流年资料，官方在线单点请求须用 `scopeBatch` 或 `fortuneBatch` 分批取得；下层流月、流日和流时按指定范围展开。
 - 紫微公开 API 未指定 `promptScope` 时默认返回当前大限，并保留 `origin` 作为本命基础范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。
 - 紫微 `algorithm` 支持 `default`（传统通行安星法，默认）和 `zhongzhou`（中州派安星法）。它改变底层安星结果；`school` 仍只改变提示词的解读侧重点，不能替代 `algorithm`。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。本命 `active_scope.palace_index` / `palace_name` 明确指向 `iztro` 的命宫，不使用宫位数组首项代替。
@@ -535,7 +550,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 大六壬排盘结果的 `evidenceAnalysis` 返回四课上下关系、九宗门取传规则、初传来源、初中末三传推进、天将、月令旺衰、旬空、日支关系、反证与触发条件。未按问题选择类神时会明确保留限制，不把日支或神煞固定当作用神，也不输出数字权重、吉凶总分或成功率。
 - 奇门排盘结果的 `evidenceAnalysis` 返回值符、值使、日干、时干对应的用神宫候选，以及逐宫门、星、神、天地盘干、空亡、马星、格局、宫间生克、反证、方位条件和时间触发条件。候选不等于已经按具体问题选定用神；核心结果、公开 API、MCP 与提示词均不返回内部宫位、格局或方位排序分数，也不机械换算绝对日期。
 - 奇门遁甲 `qimenScope` 支持 `hour`（时家，默认）、`day`（日家）、`month`（月家）、`year`（年家）；`qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；`qimenJuMethod` 支持 `chaibu`（拆补法，默认）、`zhirun`（置闰法，仅时家/日家）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（复合格局）。
-- 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
+- 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。官方在线单次最多 7 天，Docker 自部署单次最多 31 天；`participants` 一次最多 30 位，更大范围或更多参与人请拆成多次请求。
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
 - 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。历史日期及实行夏令时的地区推荐使用 IANA 时区；秋季回拨的一时两刻必须再传与原始记录一致的 `timezone` 消歧，春季跳时中不存在的当地时刻以及固定偏移冲突都会被拒绝。可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历始终采用民用出生时间对应的真实 UTC 瞬间。

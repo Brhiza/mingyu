@@ -108,7 +108,7 @@
 | 奇门遁甲时局排盘 | `POST /divination/qimen` | `divine_qimen` | 时家奇门九星、九宫、八门、八神与三奇六仪盘面 |
 | 奇门遁甲提示词 | `POST /divination/qimen/prompt` | `qimen_prompt` | 生成奇门时空方位与动静主客策略自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | 奇门终身局排盘 | `POST /divination/qimen/lifetime` | `divine_qimen_lifetime` | 根据出生时刻与时区排布终身本命盘，提取阶段卡和目标区间动态事件 |
-| 奇门终身局提示词 | `POST /divination/qimen/lifetime/prompt` | `qimen_lifetime_prompt` | 生成奇门终身局长远运势与阶段动态提示词；支持最多31年 `periodRange` 与 `topics` |
+| 奇门终身局提示词 | `POST /divination/qimen/lifetime/prompt` | `qimen_lifetime_prompt` | 生成奇门终身局长远运势与阶段动态提示词；官方在线单次最多10年，Docker 自部署最多31年 `periodRange`，支持 `topics` |
 | 大六壬排盘 | `POST /divination/liuren` | `divine_liuren` | 大六壬天地盘、四课、三传九宗门与十二天将 |
 | 大六壬提示词 | `POST /divination/liuren/prompt` | `liuren_prompt` | 生成大六壬课体演化与人事博弈自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | 塔罗抽牌排阵 | `POST /divination/tarot` | `divine_tarot` | 78张塔罗牌多牌阵抽取、正逆位与牌位结构化证据 |
@@ -177,7 +177,7 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 - `timeZoneId` 使用 IANA 时区标识（例如 `Asia/Shanghai` 或 `America/New_York`），优先用于需要按出生日期解析历史时区或夏令时的场景。
 - `useTrueSolarTime: true` 用于八字或紫微真太阳时排盘。提供 `birthHour`、`birthMinute`、`birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。
 - `POST /calendar/true-solar-birth` 是出生资料专用的真太阳时换算接口；一般当地钟表时间换算使用 `POST /calendar/true-solar-time`。两个接口的结果都从 AOV REST 响应的 `data` 字段读取。
-- `POST /calendar/bazi-reverse` 接收完整 `pillars`（年、月、日、时四柱）及可选 `startYear`、`endYear`，按北京时间、节气月和 23:00 子时换日返回全部候选区间；起点包含、终点不包含，结果边界会标注原因。
+- `POST /calendar/bazi-reverse` 接收完整 `pillars`（年、月、日、时四柱）及 `startYear`、`endYear`，按北京时间、节气月和 23:00 子时换日返回全部候选区间；起点包含、终点不包含，结果边界会标注原因。官方在线 API 必须传起止年份，单次最多 10 年；Docker 自部署可省略年份。
 - `detailMode: "compact"` 适合常规调用和前端展示；八字排盘会保留逐柱神煞命中，省略神煞解释、完整证据链与计算过程。`detailMode: "full"` 返回神煞解释、完整证据链与计算过程，适合深度解读、核验或研究。
 
 八字真太阳时排盘示例：
@@ -247,7 +247,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 ## 七、在线调用与范围控制
 
-本地 `npx -y mingyu-mcp` 默认使用 `full` 预设，不经过 Cloudflare Pages Functions；只有本地进程不可用或任务明确要求远程时，才使用在线 Remote MCP（`https://aov.cc/mcp`）及其 `online` 预设。调用时按用户问题选一个主工具，并控制每次请求的时间范围：
+本地 `npx -y mingyu-mcp` 默认使用 `full` 预设，不经过 Cloudflare Pages Functions；只有本地进程不可用或任务明确要求远程时，才使用在线 Remote MCP（`https://aov.cc/mcp`）及其 `online` 预设。官方在线 REST API（`https://aov.cc/api/v1`）也在 Pages 上运行，但不使用 MCP 预设。调用时按用户问题选一个主工具，并控制每次请求的时间范围：
 
 1. **运行预设机制（Presets）**：
    - **`online`（在线边缘预设）**：线上 `https://aov.cc/mcp` 默认启用。
@@ -264,6 +264,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
    - `full`：本地/自部署预设默认。返回全量原始数据与完整语法树，适合深度二次计算或桌面软件对接。
 
 3. **任务拆分与按需调用最佳实践**：
+   - **官方在线 REST 范围**：四柱反推须显式传 `startYear` 和 `endYear`，单次最多 10 年；黄历单次最多 7 天；奇门终身局 `periodRange` 单次最多 10 年。`POST /ziwei/calculate` 与 `/ziwei/prompt` 的单点输入选择 `full` 时，传 `scopeBatch` 或 `fortuneBatch` 分批续取；`/prompt` 的 `scope: "full"` 同样适用，未指定范围的默认当前大限结果不变。范围超限返回 `HTTP 400 / RESOURCE_LIMIT`，按错误提示缩小范围。Docker 自部署 REST 保留黄历 31 天、奇门 31 年等原有范围。
    - **提示词优先（Prompt First）**：AI 解读任务直接调用对应术数的 `*_prompt` 工具（如 `bazi_prompt`、`liuyao_prompt`），该接口在服务端一次性完成排盘并输出任务书，切忌先调用排盘工具（如 `bazi_calculate`）再二次调用提示词工具；
    - **复用已返回资料**：完成一次计算后，直接依据当前盘面与提示词回答同一事项的后续追问；只有主体、问题范围或目标时间改变且需要新的计算资料时才再次调用工具；
    - **星盘推运按需选择**：在线环境默认使用 `natal` 本命盘；用户询问流年时再传入 `astrolabeScope: "yearly"`；需要同一基准日的本命、流年、流月和流日资料时，传入 `astrolabeScope: "full"` 与 `astrolabeScopeDate`；
@@ -278,6 +279,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 4. **服务异常与降级**：
    - `/api/v1` REST 响应由应用限制为 1 MiB；超过时返回 `413 / RESPONSE_TOO_LARGE`。只需要解读任务书时可选择 `responseMode: "prompt-only"`，需要结构化数据时缩小范围或使用分页接口。该响应上限不适用于 Remote MCP；
+   - 官方在线 `/mcp` 每条 `POST` 请求体最多 512 KiB，超过时返回 `HTTP 413`。缩小输入范围或改用本地 stdio；
    - 在线 MCP 返回 Cloudflare 1102、`RESOURCE_LIMIT` 或额度错误时，不要重复发送相同远程请求；优先通过可用的本地 STDIO 入口以相同输入计算。若本地入口不可用，再依据 `fallback` 缩小范围或分段请求；随机起卦、抽牌和求签应沿用已取得的结果或固定回放参数，避免重新随机取样；
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；
    - 将 HTTP 状态、超时和响应完整度记录为资料取得事实，与术数判断分层。
