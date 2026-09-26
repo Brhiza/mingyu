@@ -128,9 +128,9 @@ test('部分判定仅有单侧增补结论时另一侧明确待判', () => {
 
 test('偏强正印格保留原局格神功能与扶抑增补结论的不同作用域', () => {
   const chart = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 1,
-    day: 25,
+    year: 1988,
+    month: 7,
+    day: 24,
     timeIndex: 6,
     gender: 'male',
     isLunar: false,
