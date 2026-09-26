@@ -23,11 +23,12 @@ export function formatLiurenLesson(item: LiurenLesson): string {
 
 export function formatLiurenTransmission(data: LiurenData, index: number): string {
   const item = data.threeTransmissions[index];
+  const isVoid = data.xunKong ? data.xunKong.includes(item.branch) : item.isVoid;
   const previous =
     index === 0 ? data.fourLessons[0]?.lower : data.threeTransmissions[index - 1]?.branch;
   const previousName = index === 0 ? '一课下位' : data.threeTransmissions[index - 1].stage;
   const relation = previous ? formatRelation(item.branch, previous, item.stage, previousName) : '';
-  return `${item.stage}${item.branch}乘${item.god}，${item.relation}${item.isVoid ? '（空）' : ''}${relation ? `；${relation}` : ''}`;
+  return `${item.stage}${item.branch}乘${item.god}，${item.relation}${isVoid ? '（空）' : ''}${relation ? `；${relation}` : ''}`;
 }
 
 export function formatLiurenOrdinaryTransmissionAdjudication(data: LiurenData): string {

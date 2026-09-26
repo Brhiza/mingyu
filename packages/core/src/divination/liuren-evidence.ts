@@ -8,6 +8,7 @@ import type {
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import { getBranchWuxing, getStemWuxing, isKe, isSheng } from '../ganzhi';
+import { DIZHI, TIANJIANG } from './algorithms/liuren/helpers/plate';
 import {
   formatLiurenOrdinaryStage,
   getLiurenOrdinaryCandidateStatusLabel,
@@ -399,6 +400,7 @@ function buildTraditionalFacts(
   const dayStem = data.ganzhi.day.charAt(0);
   const dayElement = getStemWuxing(dayStem);
   const ridingFacts = data.threeTransmissions.map((transmission): LiurenTraditionalFact => {
+    const isVoid = data.xunKong?.includes(transmission.branch);
     const element = getBranchWuxing(transmission.branch);
     const relation =
       element === dayElement
@@ -415,7 +417,7 @@ function buildTraditionalFacts(
       kind: '天将乘神',
       name: `${transmission.god}乘${transmission.branch}`,
       originalText: '而用者专取天盘乘神决之',
-      promptText: `${transmission.stage}${transmission.god}乘天盘${transmission.branch}${element}，与日干${dayStem}${dayElement}为${relation}${transmission.seasonState ? `，月令${transmission.seasonState}` : ''}${typeof transmission.isVoid === 'boolean' ? `，${transmission.isVoid ? '旬空' : '不逢旬空'}` : ''}`,
+      promptText: `${transmission.stage}${transmission.god}乘天盘${transmission.branch}${element}，与日干${dayStem}${dayElement}为${relation}${transmission.seasonState ? `，月令${transmission.seasonState}` : ''}${typeof isVoid === 'boolean' ? `，${isVoid ? '旬空' : '不逢旬空'}` : ''}`,
       sources: [
         '《六壬大全》卷二·天将总论',
         'https://www.shidianguji.com/zh/book/SK1599/chapter/1k1lqkhebd2cy',
@@ -674,7 +676,19 @@ function buildTimingFacts(
   transmissions: LiurenTransmissionEvidence[],
 ): { timingFacts: LiurenTimingFact[]; normalizedInput: string[] } {
   const initial = transmissions[0];
+  const transmissionSequence = transmissions
+    .map(
+      (item) =>
+        `${item.stage}${item.branch}（月令${item.seasonState ?? '未定'}${item.isVoid ? '、空' : ''}）`,
+    )
+    .join('→');
   const normalizedInput = Array.from(new Set(data.timingEvidence ?? [])).filter((item) => {
+    if (item.startsWith('一级发用：')) {
+      return item.includes(`初传${initial.branch}${initial.isVoid ? '空亡' : '不空'}`);
+    }
+    if (item.startsWith('二级三传：')) {
+      return item === `二级三传：${transmissionSequence}`;
+    }
     if (!item.includes(`初传${initial.branch}`)) return true;
     return initial.isVoid ? !item.includes('不空') : !item.includes('空亡');
   });
@@ -695,7 +709,7 @@ function buildTimingFacts(
     {
       type: '三传顺序',
       matcher: (text) => text.startsWith('二级三传：'),
-      computed: `二级三传：${transmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState ?? '未定'}${item.isVoid ? '、空' : ''}）`).join('→')}`,
+      computed: `二级三传：${transmissionSequence}`,
       sources: ['初中末传顺序、月令旺衰与旬空状态'],
     },
     {
@@ -799,7 +813,14 @@ function buildPlatePositionFacts(data: LiurenData): LiurenPlateFact[] {
 }
 
 function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCoverageFact {
-  const status = positions.length === 12 ? '完整' : '缺少';
+  const earthBranches = new Set(positions.map((item) => item.earthBranch));
+  const heavenBranches = new Set(positions.map((item) => item.heavenBranch));
+  const gods = new Set(positions.map((item) => item.god));
+  const completeBranches =
+    positions.length === 12 &&
+    DIZHI.every((branch) => earthBranches.has(branch) && heavenBranches.has(branch)) &&
+    TIANJIANG.every((god) => gods.has(god));
+  const status = completeBranches ? '完整' : '缺少';
   return {
     key: 'liuren:plate:coverage',
     status,
@@ -809,7 +830,7 @@ function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCovera
     promptText:
       status === '完整'
         ? '天地盘十二位与十二天将资料完整，可逐位核验月将加时和贵人顺逆排布。'
-        : `当前结果仅保留${positions.length}/12位天地盘资料，无法完整核验月将加时和十二天将排布；不得反推或补造缺失位置。`,
+        : `${positions.length < 12 ? `当前结果仅保留${positions.length}/12位天地盘资料` : `当前结果保留${positions.length}/12位天地盘资料，但地盘、天盘或天将不完整或存在重复`}，无法完整核验月将加时和十二天将排布；不得反推或补造缺失位置。`,
     sources: ['当前大六壬结果的天地盘逐位记录', '十二地支与十二天将完整性检查'],
     limitation: PLATE_COVERAGE_LIMITATION,
   };

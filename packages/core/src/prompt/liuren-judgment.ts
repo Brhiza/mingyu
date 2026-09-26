@@ -1,4 +1,5 @@
 import type { LiurenData } from '../types/divination';
+import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
 import { formatLiurenOrdinaryTransmissionAdjudication } from './liuren-facts';
 
 export function formatLiurenJudgmentFacts(
@@ -40,20 +41,18 @@ export function formatLiurenJudgmentFacts(
   if (!options.chartFactsIncluded && focusEvidence.length)
     lines.push(`重点依据：${focusEvidence.join('；')}`);
 
-  const timingEvidence = (data.timingEvidence ?? []).filter(Boolean);
+  const analysis = analyzeLiurenEvidence(data);
+  const timingEvidence = analysis.timingFacts.map((item) => item.promptText);
   if (!options.chartFactsIncluded && timingEvidence.length)
     lines.push(`时令依据：${timingEvidence.join('；')}`);
-  const analysis = data.evidenceAnalysis;
-  if (analysis) {
-    const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
+  const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
+  lines.push(
+    `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
+  );
+  if (!options.chartFactsIncluded) {
     lines.push(
-      `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
+      '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
     );
-    if (!options.chartFactsIncluded) {
-      lines.push(
-        '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
-      );
-    }
   }
   return lines;
 }
