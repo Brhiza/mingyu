@@ -91,6 +91,8 @@ Pages Functions 请求计入 Workers 计划用量。Workers Free 的每日请求
 
 Workers Free 的 CPU 时间上限为每次请求 10 毫秒；较重的计算可能超过平台限制。在线 MCP 提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；`summary` 只精简返回体，不减少计算 CPU。星盘默认使用 `natal`；显式要求 `full` 或较大范围也不保证每次调用低于 CPU 限制。在线四柱反推必须提供 `startYear`、`endYear` 且最多 10 年，黄历最多 7 天，奇门终身动态最多 10 年；在线 MCP 拒绝 JSON-RPC batch。需要频繁调用或完整结构化结果时优先使用本地 stdio CLI；它默认 `full` 且不占 Pages Functions 请求额度。官方 Pages `/mcp` 路由在 `functions/mcp.ts` 中固定使用 `online` 预设；`MINGYU_MCP_PRESET` 仅适用于 Docker 自部署 HTTP handler，不会切换官方 Pages 或本地 stdio CLI 的预设。Docker 服务默认 `full`。公开 API 成功响应 1 MiB 上限由应用自身执行，与 Cloudflare 平台响应体限制无关。平台额度与限制见 [Cloudflare Workers 官方文档](https://developers.cloudflare.com/workers/platform/limits/) 和 [Pages Functions 定价说明](https://developers.cloudflare.com/pages/functions/pricing/)。
 
+官方 Pages `/api/v1` 入口也在计算前限制高成本范围：四柱反推须显式指定不超过 10 年，黄历单次最多 7 天，奇门终身动态最多 10 年，单点紫微选择 `full` 时须提供 `scopeBatch` 或 `fortuneBatch`（`/prompt` 的 `scope: "full"` 同样适用）。超限返回 `HTTP 400 / RESOURCE_LIMIT`；默认紫微当前大限结果不变。共享公开 API handler 在 Docker 自部署时仍使用原有范围。在线 MCP 的 `POST` 请求体上限为 512 KiB，超过时在解析和创建工具服务前拒绝；本地 stdio 和使用 `full` 预设的 Docker MCP 不采用此限制。
+
 | 配置项                 | 值           |
 | ---------------------- | ------------ |
 | Build command          | `pnpm build` |
