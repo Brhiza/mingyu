@@ -9,6 +9,7 @@ import {
   calculateHuangjiJingshi,
 } from '@core/huangji-jingshi';
 import { calculateHuangjiDateTimeForecast } from '../packages/core/src/huangji-jingshi/datetime.ts';
+import { formatHuangjiInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('皇极经世换算常量应满足元会运世层级恒等式', () => {
@@ -22,6 +23,7 @@ test('皇极经世换算常量应满足元会运世层级恒等式', () => {
 test('纪元第一年应位于第一元第一会第一运第一世第一年', () => {
   const result = calculateHuangjiJingshi({ epochYear: 1000, year: 1000 });
   assert.equal(result.position.yuan.indexFromEpoch, 1);
+  assert.match(formatHuangjiInfo(result), /元会运世：第1元，第1会，第1运，第1世/);
   assert.equal(result.position.hui.indexInYuan, 1);
   assert.equal(result.position.yun.indexInYuan, 1);
   assert.equal(result.position.yun.indexInHui, 1);
@@ -147,6 +149,13 @@ test('皇极经世年月日时盘应由值年卦继续推至月经、旬纬、�
   const dateTime = result.dateTimeForecast;
   assert.ok(dateTime);
   assert.equal(dateTime.model, '经纬卦年月日时推衍');
+  const formatted = formatHuangjiInfo(result);
+  assert.ok(
+    formatted.includes(
+      `当前时点以时经卦${dateTime.hexagrams.hourJing.name}与日卦${dateTime.hexagrams.daily.name}为主要取象`,
+    ),
+  );
+  assert.ok(formatted.includes(`旬纬卦辞：${dateTime.hexagrams.xunWei.judgment}`));
   assert.match(dateTime.sources[0].title, /皇极经世书绪言.*卷三/);
   assert.match(result.prompt, /每个节气按十五个皇极日定位/);
   assert.match(result.prompt, /每六十日变一爻得月经卦/);

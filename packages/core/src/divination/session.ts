@@ -288,12 +288,7 @@ function formatAiChart(
     );
   } else if (method === 'wuyun') {
     const item = data as WuyunLiuqiResult;
-    base.push(
-      `年度资料：${item.input.year === undefined ? '' : `${item.input.year}年`}${item.input.yearGanZhi}；岁运${item.annualMovement.name}${item.annualMovement.toneName}${item.annualMovement.strength}；司天${item.sitian.name}；在泉${item.zaiquan.name}`,
-      `五步主客运：${item.movementSteps.map((step) => `${step.label}${step.hostMovement.element}/${step.guestMovement.element}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      item.pathomechanism?.summary ?? '',
-    );
+    base.push(`岁运五音：${item.annualMovement.toneName}`);
   } else if (method === 'jinkoujue') {
     base.push('金口诀判断依据：', ...formatJinkoujueJudgmentFacts(data as JinkoujueData));
   } else if (method === 'liuren') {

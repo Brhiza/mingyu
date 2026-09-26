@@ -5,6 +5,7 @@ import {
   calculateHuangjiSixDayCycleFromDate,
   parseHuangjiSixDayDateTime,
 } from '@core/huangji-jingshi';
+import { formatHuangjiInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 
 const MODEL = 'six-day-explicit-epoch' as const;
 const PROPORTIONAL_MODEL = 'six-day-seven-part' as const;
@@ -127,6 +128,28 @@ test('六日逐爻公历结果与提示词保留显式历元事实', () => {
   assert.match(result.prompt, /每六日一经卦、每日一爻、每四小时一爻/);
   assert.doesNotMatch(result.prompt, /冬至定位依据|太阳年|日干支/);
   assert.match(result.prompt, /【问题】\n此时的主要变化是什么？/);
+  const cycle = result.sixDayCycle;
+  assert.ok(cycle);
+  const formatted = formatHuangjiInfo(result);
+  assert.ok(formatted.includes(cycle.civilTime.dateTime));
+  assert.ok(formatted.includes(cycle.anchor.dateTime));
+  assert.ok(formatted.includes(`三百六十日周期第${cycle.dayOfCycle}日`));
+  assert.ok(formatted.includes(`六日经卦${cycle.hexagrams.jing.name}`));
+  assert.ok(formatted.includes(`时变卦${cycle.hexagrams.hourly.name}`));
+  assert.doesNotMatch(formatted, /目标年份以【.*】值年承接大局气数/);
+});
+
+test('六日逐爻现代冬至岁周换算在网页盘面写明比例历元', () => {
+  const result = calculateHuangjiJingshi({
+    sixDayDate: parseProportionalSixDay('2025-12-21T23:03:05+08:00'),
+  });
+  const cycle = result.sixDayCycle;
+  assert.ok(cycle);
+  assert.ok(cycle.model === '书绪言六日逐爻·现代冬至岁周换算');
+  const formatted = formatHuangjiInfo(result);
+  assert.ok(formatted.includes(cycle.anchor.dayStartDateTime));
+  assert.match(formatted, /按冬至岁周实际跨度映射三百六十逻辑日/);
+  assert.ok(formatted.includes(`六日时变卦辞：${cycle.hexagrams.hourly.judgment}`));
 });
 
 test('现代比例模型以实际冬至瞬时确定岁周并以当地冬至日子半为锚点', () => {

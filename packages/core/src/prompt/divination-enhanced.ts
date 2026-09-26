@@ -1233,16 +1233,25 @@ export function formatHuangjiInfo(data: HuangjiJingshiResult) {
     return [
       '占法：皇极经世',
       `目标年坐标：${data.input.year}`,
-      `元会运世：第${data.position.yuan.indexFromEpoch + 1}元，第${data.position.hui.indexInYuan}会，第${data.position.yun.indexInHui}运，第${data.position.shi.indexInYun}世`,
+      `元会运世：第${data.position.yuan.indexFromEpoch}元，第${data.position.hui.indexInYuan}会，第${data.position.yun.indexInHui}运，第${data.position.shi.indexInYun}世`,
     ].join('\n');
   }
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
   const dateTime = data.dateTimeForecast;
+  const sixDay = data.sixDayCycle;
   return [
     '占法：皇极经世',
     dateTime
       ? `起盘时间：${dateTime.civilTime.dateTime}（${dateTime.civilTime.timezone}）；皇极历${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日；节气${dateTime.calendar.activeSolarTerm}`
+      : sixDay
+        ? `起盘时间：${sixDay.civilTime.dateTime}（UTC${sixDay.civilTime.timezone >= 0 ? '+' : ''}${sixDay.civilTime.timezone}）`
+        : '',
+    sixDay
+      ? sixDay.model === '书绪言六日逐爻·显式历元'
+        ? `六日逐爻历元：以经校定的${sixDay.anchor.dateTime}当地子半为起点，至目标当地日期已过${sixDay.calendar.actualElapsedDays}个完整公历日。`
+        : `六日逐爻历元：以${sixDay.anchor.dayStartDateTime}当地子半为起点，按冬至岁周实际跨度映射三百六十逻辑日。`
       : '',
+    sixDay ? `六日逐爻位置：三百六十日周期第${sixDay.dayOfCycle}日，${sixDay.hourRange}时段。` : '',
     `目标年份：${formatHuangjiCivilYear(annual.year)}（${annual.ganzhi}）`,
     `周期位置：第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），会内第${data.position.yun.indexInHui}运，运内第${data.position.shi.indexInYun}世，世内第${data.position.year.indexInShi}年`,
     `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
@@ -1250,12 +1259,19 @@ export function formatHuangjiInfo(data: HuangjiJingshiResult) {
     `六十年统卦：${sixtyYear.hexagram.name}，${formatHuangjiCivilYear(sixtyYear.startYear)}至${formatHuangjiCivilYear(sixtyYear.endYear)}`,
     `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}`,
     `值年卦：${annual.name}（${annual.upper}上、${annual.lower}下）`,
-    `时势主轴：目标年份以【${annual.name}】值年承接大局气数`,
+    `时势主轴：${sixDay ? `当前时点以六日经卦${sixDay.hexagrams.jing.name}、当日卦${sixDay.hexagrams.daily.name}和时变卦${sixDay.hexagrams.hourly.name}为主要取象，值年卦${annual.name}为长期背景` : dateTime ? `当前时点以时经卦${dateTime.hexagrams.hourJing.name}与日卦${dateTime.hexagrams.daily.name}为主要取象，值年卦${annual.name}为长期背景` : `目标年份以【${annual.name}】值年承接大局气数`}`,
     `值年卦辞：${annual.judgment}`,
+    sixDay
+      ? `六日逐爻卦：经卦${sixDay.hexagrams.jing.name}第${sixDay.dayLine}爻当日；日变卦${sixDay.hexagrams.daily.name}；${sixDay.hourRange}时变卦${sixDay.hexagrams.hourly.name}。`
+      : '',
+    sixDay ? `六日经卦辞：${sixDay.hexagrams.jing.judgment}` : '',
+    sixDay ? `六日当日卦辞：${sixDay.hexagrams.daily.judgment}` : '',
+    sixDay ? `六日时变卦辞：${sixDay.hexagrams.hourly.judgment}` : '',
     dateTime
       ? `年月日时卦：月经${dateTime.hexagrams.monthJing.name}；旬纬${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经${dateTime.hexagrams.hourJing.name}（${dateTime.calendar.hourRange}）`
       : '',
     dateTime ? `月经卦辞：${dateTime.hexagrams.monthJing.judgment}` : '',
+    dateTime ? `旬纬卦辞：${dateTime.hexagrams.xunWei.judgment}` : '',
     dateTime ? `日卦卦辞：${dateTime.hexagrams.daily.judgment}` : '',
     dateTime ? `时经卦辞：${dateTime.hexagrams.hourJing.judgment}` : '',
   ]

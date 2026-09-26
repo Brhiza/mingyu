@@ -148,3 +148,16 @@ test('太乙 aiPrompt 保留主客定算性且只呈现一次', () => {
     }
   }
 });
+
+test('五运六气 aiPrompt 保留岁运五音并只列一次年度阶段与平气条件', () => {
+  const session = generateDivinationSession({
+    method: 'wuyun',
+    question: '核对年度条件',
+    wuyun: { year: 2026 },
+    currentTime: '2026-01-01T12:00:00+08:00',
+  });
+  for (const label of ['五步主客运：', '六步主客气：', '平气条件：']) {
+    assert.equal(session.aiPrompt.split(label).length - 1, 1, label);
+  }
+  assert.match(session.aiPrompt, /岁运五音：/);
+});
