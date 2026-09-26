@@ -491,6 +491,34 @@ test('缺少财星承接或明透有根印官形成实际逆局时回落普通�
   );
 });
 
+test('同干异柱的七杀反证合并作用理由并保留各柱位', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1991,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const pattern = chart.analysis.mingGe;
+  const blocker = '年干、时干同见辛七杀，均明透有根，财星顺生转向官杀并与食伤交战';
+  assert.equal(pattern.pattern, '正官格');
+  assert.deepEqual(pattern.specialAdjudication?.blockers, [blocker]);
+  assert.ok(pattern.basis?.includes(`从儿结构未立：${blocker}`));
+  assert.deepEqual(
+    pattern.fulfillment?.activeBreakers[0]?.stems.map((item) => item.pillar),
+    ['year', 'hour'],
+  );
+  const prompt = formatBaziForPrompt(chart);
+  assert.ok(prompt.includes(`从儿结构未立：${blocker}`));
+  assert.equal(prompt.match(/财星顺生转向官杀并与食伤交战/g)?.length, 1);
+  assert.doesNotMatch(prompt, /格局条件：|条件核验：|此处要求正官月令/);
+  const completePrompt = buildBaziPromptForResult({ result: chart, question: '请合参本命格局。' });
+  assert.equal(completePrompt.match(/财星顺生转向官杀并与食伤交战/g)?.length, 1);
+});
+
 test('月建食伤路径仍受异柱明透有根印星制约，不把普通食神格破格升级成从儿', () => {
   const ordinaryBroken = makePillars(['丙申', '己巳', '甲子', '壬申']);
   const assessment = assessCongErPattern(ordinaryBroken, getTenGod, '丙');

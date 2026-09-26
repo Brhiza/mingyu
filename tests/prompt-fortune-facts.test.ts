@@ -43,6 +43,10 @@ test('八字指定流年任务书保留已计算的十神与触发事实且各�
     (line) => line.startsWith('流年十神：') || line.startsWith('流年触发：'),
   );
   const selectedFacts = context.promptPayload.selectedFacts ?? [];
+  const selectedDayun = context.promptPayload.summaryLines
+    .find((line) => line.startsWith('所属大运：'))
+    ?.replace('所属大运：', '');
+  assert.ok(selectedDayun);
   assert.equal(expectedFacts.length, 2);
   assert.ok(expectedFacts.every((fact) => selectedFacts.includes(fact)));
   assert.ok(selectedFacts.length >= expectedFacts.length);
@@ -52,6 +56,10 @@ test('八字指定流年任务书保留已计算的十神与触发事实且各�
   }
   assert.match(prompt, /选择日期：2026年/);
   assert.match(prompt, /上层岁运：/);
+  assert.match(focus, /上层岁运：.+；年度判断必须承接该十年阶段。/);
+  assert.equal(focus.split('\n岁运取证：')[0].split(selectedDayun).length - 1, 1);
+  assert.equal(focus.match(/年度判断必须承接该十年阶段/g)?.length, 1);
+  assert.doesNotMatch(focus, /所选岁运背景：|指定年限运限|上层岁运背景/);
   assert.match(prompt, /所选干支：丙午/);
   assert.doesNotMatch(focus, /结构化证据|计算链|计算链概览|关系汇总：|反证核验：|解释限制：/);
   assert.doesNotMatch(focus, /来源：|标签：|sourceLayerKey|已计算|不得/);

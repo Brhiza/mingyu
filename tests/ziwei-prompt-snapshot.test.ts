@@ -348,7 +348,7 @@ test('紫微近期专题快照保留主题和盘面资料', () => {
   assert.doesNotMatch(snapshot, /【解读目标】|焦点提示|主题只作为问题范围/);
 });
 
-test('紫微重点宫位资料应输出星曜亮度四化与空宫传统辅证', () => {
+test('紫微本命重点宫位资料保留亮度生年四化与原局辅证', () => {
   const payload = createPayload();
   payload.palaces[0] = {
     ...payload.palaces[0],
@@ -382,13 +382,15 @@ test('紫微重点宫位资料应输出星曜亮度四化与空宫传统辅证',
   });
 
   assert.match(snapshot, /天机\(庙\/生年化禄\)/);
-  assert.match(snapshot, /太阴\(陷\/当前运限化忌\)/);
-  assert.match(snapshot, /文昌\(流耀化科\)/);
+  assert.match(snapshot, /太阴\(陷\)/);
+  assert.match(snapshot, /文昌/);
+  assert.doesNotMatch(snapshot, /当前运限化忌|流耀化科/);
   assert.match(snapshot, /空宫，需借对宫官禄宫共同判断/);
   assert.match(snapshot, /传统辅证：/);
   assert.match(snapshot, /博士十二神:博士/);
-  assert.match(snapshot, /流年将前十二神:岁驿/);
-  assert.match(snapshot, /流年岁前十二神:太岁/);
+  assert.match(snapshot, /原局将前十二神:岁建/);
+  assert.match(snapshot, /原局岁前十二神:将星/);
+  assert.doesNotMatch(snapshot, /流年将前十二神:岁驿|流年岁前十二神:太岁/);
 });
 
 test('紫微提示词快照应单独输出运限落宫与当前四化飞入结构', () => {
@@ -482,6 +484,75 @@ test('紫微运限提示词应保留分析对象和简短任务', () => {
     prompt,
     /【解读目标】|【解读范围】|【解读方法】|【断盘要点】|证据汇总|解释边界/,
   );
+});
+
+test('紫微大限提示词只呈现本命与所选大限的落宫和判断线索', () => {
+  const payload = createPayload();
+  payload.active_scope = {
+    ...payload.active_scope,
+    scope: 'decadal',
+    label: '36-45岁',
+    palace_index: 4,
+  };
+  payload.palaces[4] = {
+    ...payload.palaces[4],
+    scope_hits: ['36-45岁落宫', '流年落宫', '流月落宫'],
+    yearly_jiangqian12: '岁驿',
+    yearly_suiqian12: '太岁',
+  };
+  payload.palaces[8] = {
+    ...payload.palaces[8],
+    scope_hits: ['小限落宫', '流日落宫', '流时落宫'],
+  };
+  payload.evidence_pool = [
+    ...(['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age'] as const).map(
+      (scope, index) => ({
+        id: `E${index}`,
+        stable_key: `scope-${scope}`,
+        type: scope === 'origin' ? 'palace_major_stars' : 'scope_landing',
+        title: `${scope}判断线索`,
+        scope,
+        palace_indexes: [4],
+        palace_names: ['财帛'],
+        star_names: [],
+        mutagens: [],
+        description: `${scope}宫位事实`,
+      }),
+    ),
+    {
+      id: 'E7',
+      stable_key: 'scope-hit-all-levels',
+      type: 'palace_scope_hit',
+      title: '36-45岁落宫、流年落宫、流月落宫位于财帛',
+      scope: 'decadal',
+      palace_indexes: [4],
+      palace_names: ['财帛'],
+      star_names: [],
+      mutagens: [],
+      description: '财帛宫被多个运限命中。',
+    },
+  ];
+  const reportContext = createReportContext({
+    report_key: 'life:decadal:2026-05-16',
+    scope_type: 'decadal',
+    scope_label: '大限',
+  });
+
+  for (const prompt of [
+    buildZiweiReadableSnapshot({ payload, reportContext }),
+    buildZiweiTaskBookSnapshot({ payload, reportContext }),
+    buildCombinedZiweiPrompt(payload, 'life', '请分析此大限。'),
+  ]) {
+    assert.match(prompt, /36-45岁落宫→本命财帛宫/);
+    assert.match(prompt, /origin判断线索/);
+    assert.match(prompt, /decadal判断线索/);
+    assert.doesNotMatch(prompt, /流年落宫|流月落宫|流日落宫|流时落宫|小限落宫/);
+    assert.doesNotMatch(
+      prompt,
+      /yearly判断线索|monthly判断线索|daily判断线索|hourly判断线索|age判断线索/,
+    );
+    assert.doesNotMatch(prompt, /流年将前十二神|流年岁前十二神/);
+  }
 });
 
 test('紫微本命完整提示词应输出本命分析对象且不输出空运限重点', () => {

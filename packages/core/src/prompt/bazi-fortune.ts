@@ -96,9 +96,13 @@ export function formatBaziFortuneSelection(
   const cycleRange = context.cycleTimeRange;
   const rangeStart = `${formatSolarDateTime(cycleRange.start, true)}:${String(cycleRange.start.second).padStart(2, '0')}`;
   const rangeEnd = `${formatSolarDateTime(cycleRange.end, true)}:${String(cycleRange.end.second).padStart(2, '0')}`;
-  lines.push(
-    `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
-  );
+  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
+  const consolidateYearDayun = scope === 'year' && Boolean(upperDayun);
+  if (!consolidateYearDayun) {
+    lines.push(
+      `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
+    );
+  }
   lines.push(`该运交接范围：${rangeStart}起，至${rangeEnd}交接；起点归本运，终点归后续运段。`);
   lines.push(`该运交接年龄：${context.cycleAge}岁`);
 
@@ -119,8 +123,10 @@ export function formatBaziFortuneSelection(
     if (jieqiLine) lines.push(jieqiLine.replace('交节时刻：', '交节：'));
   }
 
-  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
-  if (upperDayun) lines.push(upperDayun.replace('所属大运：', '上层岁运：'));
+  if (upperDayun) {
+    const label = upperDayun.replace('所属大运：', '上层岁运：');
+    lines.push(consolidateYearDayun ? `${label}；年度判断必须承接该十年阶段。` : label);
+  }
 
   const upperYear = summary.find((line) => line.startsWith('所属流年：'));
   if (upperYear) lines.push(upperYear.replace('所属流年：', '上层流年：'));
@@ -144,7 +150,15 @@ export function formatBaziFortuneSelection(
   const selectedFacts = [
     ...new Set((promptPayload.selectedFacts ?? []).map((line) => line.trim()).filter(Boolean)),
   ];
-  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines);
+  // 流年提示已在“上层岁运”合并保留所属大运和承接关系，省去证据区同义的两行。
+  const evidenceLines = formatFortuneEvidenceLines(promptPayload.evidenceLines).filter(
+    (line) =>
+      !(
+        consolidateYearDayun &&
+        (line.startsWith('主要依据（指定年限运限）：') ||
+          line.startsWith('补充依据（上层岁运背景）：'))
+      ),
+  );
   const selectedFactsToRender = selectedFacts.filter(
     (fact) => !evidenceLines.some((line) => line.includes(fact)),
   );

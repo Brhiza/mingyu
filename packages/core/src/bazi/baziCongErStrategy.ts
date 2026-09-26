@@ -416,10 +416,13 @@ export function assessCongErPattern(
       ? [monthPrincipalResource + '，直接生身并制食伤']
       : []),
     ...hiddenResourceClashes,
-    ...activeOfficers.map(
-      (fact) =>
-        `${POSITION_LABELS[fact.position]}${fact.stem}${fact.tenGod}明透有根，财星顺生转向官杀并与食伤交战`,
-    ),
+    ...unique(activeOfficers.map((fact) => `${fact.stem}${fact.tenGod}`)).map((god) => {
+      const facts = activeOfficers.filter((fact) => `${fact.stem}${fact.tenGod}` === god);
+      const positions = facts.map((fact) => POSITION_LABELS[fact.position]);
+      return facts.length === 1
+        ? `${positions[0]}${god}明透有根，财星顺生转向官杀并与食伤交战`
+        : `${positions.join('、')}同见${god}，均明透有根，财星顺生转向官杀并与食伤交战`;
+    }),
     ...(monthPrincipalOfficer ? [monthPrincipalOfficer + '，财气转向官杀并与食伤交战'] : []),
   ]);
   const wealthSettlesInDayAndHour =
