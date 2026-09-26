@@ -319,7 +319,13 @@ type LenormandCardPlacement = LenormandData['cards'][number];
 type LenormandCombination = NonNullable<LenormandData['combinations']>[number];
 
 /** 判词含先后/过程语义的组合仅在牌序与判词顺序一致时取用。 */
-const DIRECTIONAL_COMBINATION_KEYS = new Set(['月亮+太阳', '星星+月亮', '锚+星星', '船+鹳']);
+const DIRECTIONAL_COMBINATION_KEYS = new Set([
+  '骑士+心',
+  '月亮+太阳',
+  '星星+月亮',
+  '锚+星星',
+  '船+鹳',
+]);
 
 function getFixedCombinationMeaning(firstName: string, secondName: string): string | null {
   const direct = LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`];
