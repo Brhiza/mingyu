@@ -1526,17 +1526,23 @@ export function analyzeLiuyaoEvidence(
         limitation: TIMING_FACT_LIMITATION,
       }),
     );
-  if (data.voidBranches?.length) {
+  const voidLineFacts = lineFacts.filter((item) => item.isVoid || item.changedYao?.isVoid);
+  const voidHiddenFacts = hiddenSpiritFacts.filter((item) => item.isVoid);
+  if (voidLineFacts.length || voidHiddenFacts.length) {
+    const voidLocations = [
+      ...voidLineFacts.flatMap((item) => [
+        ...(item.isVoid ? [`第${item.position}爻${item.najia.branch}`] : []),
+        ...(item.changedYao?.isVoid ? [`第${item.position}爻变爻${item.changedYao.branch}`] : []),
+      ]),
+      ...voidHiddenFacts.map((item) => `第${item.position}爻伏神${item.najia.branch}`),
+    ];
     timingFacts.push({
       key: 'liuyao:timing:void',
       type: '空亡填实',
       sourceStatus: '由盘面生成',
-      ownerFactKeys: [
-        ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
-        ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
-      ],
-      promptText: `空亡${data.voidBranches.join('、')}，传统以出空、冲实或透出为应期触发`,
-      sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
+      ownerFactKeys: [...voidLineFacts, ...voidHiddenFacts].map((item) => item.key),
+      promptText: `旬空${data.voidBranches.join('、')}命中${voidLocations.join('、')}；对应爻的出空、冲实可作为应期核对条件`,
+      sources: ['日柱旬空地支', '本卦、变爻与伏神空亡标记'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }
