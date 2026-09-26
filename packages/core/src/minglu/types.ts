@@ -8,6 +8,7 @@ import type {
   PatternTransformationEvidence,
   UsefulGodDecisionEvidence,
   Wuxing,
+  XiaoyunInfo,
 } from '../bazi/baziTypes';
 import type { PatternFulfillmentResult } from '../bazi/baziPatternFulfillment';
 import type { ZiweiRuntime } from '../ziwei/runtime';
@@ -356,6 +357,9 @@ export interface MingluLifeStagesSectionData {
 
 // 8. 大运流年流月全息编年
 export interface MingluMonthlyData {
+  /** 北京时间半开区间；结束时刻不属于本流月 */
+  startDateTime: string;
+  endDateTime: string;
   monthIndex: number;
   monthName: string;
   solarTerm: string;
@@ -368,8 +372,12 @@ export interface MingluMonthlyData {
 
 export interface MingluAnnualYearItem {
   year: number;
+  /** 节令年与当前运限的实际交集，结束时刻不含 */
+  startDateTime: string;
+  endDateTime: string;
   ganZhi: string;
   age: number;
+  xiaoyun?: XiaoyunInfo;
   tenGod: string;
   zhiTenGod: string;
   nayin: string;
@@ -383,6 +391,9 @@ export interface MingluAnnualYearItem {
 
 export interface MingluLuckCycleItem {
   cycleIndex: number;
+  /** 北京时间交运半开区间；结束时刻归下一运 */
+  startDateTime: string;
+  endDateTime: string;
   /** 条目类型：大运，或起运前的童限（小运） */
   entryType: '大运' | '小运';
   isXiaoyun: boolean;

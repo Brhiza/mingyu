@@ -724,6 +724,7 @@
   padding: 0.45rem 0.6rem;
   border: 1px solid #e2e8f0;
   text-align: center;
+  white-space: nowrap;
 }
 
 .dark .minglu-monthly-table th,

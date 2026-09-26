@@ -98,7 +98,7 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
   const section = buildEnhancedPatternUsefulGodSection(chart);
   assert.equal(section.pattern.transformation?.status, '成化');
   assert.equal(section.pattern.transformation?.element, '木');
-  assert.match(section.pattern.formationAnalysis, /取用主体：化神木/);
+  assert.equal(section.pattern.formationAnalysis, '');
   assert.equal(section.usefulGods.transformation?.element, '木');
   assert.match(section.usefulGods.reasoning, /化神取用：/);
   assert.equal(
@@ -118,7 +118,7 @@ test('化气主格贯通流派、命录与普通提示词消费者', () => {
 
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /化神木为取用主体/);
-  assert.match(guide.favorableHabitsPlain.join('\n'), /化神取用主体/);
+  assert.match(guide.favorableHabitsPlain.join('\n'), /生活与工作取向结合化神及其条件核验/);
 });
 
 test('化气依据进入合盘证据、命盘分享详情与起名出生资料', () => {

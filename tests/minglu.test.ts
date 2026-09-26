@@ -147,7 +147,12 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.luckChronicleSection.cycles.length > 0);
   const firstCycle = article.luckChronicleSection.cycles[0];
   assert.ok(firstCycle.lifeTheme);
-  assert.ok(firstCycle.careerAdvice);
+  assert.equal(firstCycle.entryType, '小运');
+  assert.equal(firstCycle.careerAdvice, '');
+  const firstDayun = article.luckChronicleSection.cycles.find(
+    (cycle) => cycle.entryType === '大运',
+  );
+  assert.ok(firstDayun?.careerAdvice);
   assert.equal(firstCycle.healthAdvice, undefined);
   assert.ok(
     article.luckChronicleSection.cycles.every(
@@ -159,7 +164,8 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const firstYear = firstCycle.annualYears[0];
   assert.ok(firstYear.yearTheme);
   assert.ok(firstYear.months);
-  assert.equal(firstYear.months.length, 12);
+  assert.ok(firstYear.months.length > 0 && firstYear.months.length <= 12);
+  assert.equal(firstYear.months[0].startDateTime, firstCycle.startDateTime);
   assert.ok(firstYear.months[0].solarTerm);
   assert.ok(firstYear.months[0].ganZhi);
   assert.ok(firstYear.months[0].commander);

@@ -3,6 +3,7 @@
  * @description 为命录补齐所有能计算的八字数据，包括三垣、五行加权、全量柱间作用、神煞典故、十神流通与大运流年矩阵。
  */
 
+import { SolarTerm } from 'tyme4ts';
 import {
   formatUsefulGodFunctions,
   getShenShaType,
@@ -25,6 +26,14 @@ import {
 } from '../bazi/baziMappingsData';
 import { getLifeStage } from '../bazi/baziValues';
 import { calculateKongWangBranches } from '../bazi/kongWang';
+import {
+  createLocalTimeRange,
+  getLuckCycleTimeRange,
+  intersectLocalTimeRanges,
+  toNativeDate,
+  toSolarDateTimeInfo,
+} from '../bazi/luckTiming';
+import type { SolarDateTimeInfo } from '../bazi/baziTypes';
 import { tallyWuxing } from '../wuxing';
 import { isKe } from '../ganzhi';
 import { TEN_GODS_DEFINITIONS } from '../bazi/baziElementData';
@@ -792,23 +801,16 @@ export function buildEnhancedPatternUsefulGodSection(
   const useful = baziResult.analysis.usefulGod;
   const transformation = baziResult.analysis.mingGe.transformation;
   const usefulTransformation = useful.decisionEvidence?.transformation;
-  const transformationFacts = transformation
-    ? [
-        `化气判定：${transformation.status}；化神${transformation.element}。${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `成化主格取用主体：化神${transformation.element}；原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
-      ]
-    : [];
   const classicPrefix =
     transformation?.status === '成化'
       ? `原日主${dayMasterGan}的经典调候与格局资料作旁参，主格取用以化神${transformation.element}为主体。`
       : '';
-  const functionFacts = formatUsefulGodFunctions(useful);
+  const functionFacts = formatUsefulGodFunctions(useful, transformation?.status !== '成化');
+  const strategyTrace = (useful.strategyTrace ?? []).filter(
+    (item) =>
+      transformation?.status !== '成化' ||
+      (item !== usefulTransformation?.basis && !transformation.conditions.includes(item)),
+  );
 
   return {
     pattern: {
@@ -824,8 +826,8 @@ export function buildEnhancedPatternUsefulGodSection(
         baziResult.analysis.mingGe.basis || `由月令${baziResult.pillars.month.zhi}藏干透出立格`,
       transformation,
       specialAdjudication: baziResult.analysis.mingGe.specialAdjudication,
-      formationAnalysis: transformationFacts.length
-        ? transformationFacts.join('；')
+      formationAnalysis: transformation
+        ? ''
         : baziResult.analysis.mingGe.isSpecial
           ? '全局气势专一或极度顺应某类五行，取顺势化裁为用。'
           : '依子平正理以月令提纲为枢机，兼看透干会局以定格局清浊高下。',
@@ -838,9 +840,8 @@ export function buildEnhancedPatternUsefulGodSection(
       unfavorable: useful.unfavorable || [],
       usefulGodCategory: useful.primaryReason || '扶抑取中',
       reasoning:
-        [...(useful.strategyTrace ?? []), ...functionFacts].join('；') ||
-        '综合日主旺衰与全局五行流通评定。',
-      strategyTrace: useful.strategyTrace || [],
+        [...strategyTrace, ...functionFacts].join('；') || '综合日主旺衰与全局五行流通评定。',
+      strategyTrace,
       transformation: usefulTransformation,
     },
     qiongtongAdvice: qiongtongRaw
@@ -1629,7 +1630,10 @@ function getFirstMonthStem(yearStem: string): string {
   return '甲';
 }
 
-function calculateYearlyMonths(yearGanZhi: string, dayMasterGan: string): MingluMonthlyData[] {
+function calculateYearlyMonths(
+  yearGanZhi: string,
+  dayMasterGan: string,
+): Omit<MingluMonthlyData, 'startDateTime' | 'endDateTime'>[] {
   const yGan = yearGanZhi.slice(0, 1);
   const firstStem = getFirstMonthStem(yGan);
   const startStemIndex = HEAVENLY_STEMS.indexOf(firstStem as (typeof HEAVENLY_STEMS)[number]);
@@ -1783,6 +1787,8 @@ export function buildEnhancedLuckChronicleSection(
 ): MingluLuckChronicleSectionData {
   const { luckInfo, dayMaster } = baziResult;
   const dayMasterGan = dayMaster.gan;
+  const formatBoundary = (time: SolarDateTimeInfo) =>
+    `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')} ${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(time.second).padStart(2, '0')}`;
 
   if (isUnknownTimeChart(baziResult)) {
     return {
@@ -1795,7 +1801,9 @@ export function buildEnhancedLuckChronicleSection(
   }
 
   const cycles = luckInfo.cycles.map((cycle, cIndex) => {
-    const sourceYears = cycle.resolvedYears || cycle.years || [];
+    const cycleRange = getLuckCycleTimeRange(cycle);
+    // 交运节令年在前后两运各占一段，须以原始流年和精确时间交集保留两段。
+    const sourceYears = cycle.years?.length ? cycle.years : cycle.resolvedYears || [];
     const cleanGanZhi = (cycle.ganZhi || '').replace(
       /[^甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]/g,
       '',
@@ -1810,7 +1818,7 @@ export function buildEnhancedLuckChronicleSection(
     const luckZhiTenGod = isZhiValid ? getTenGodForBranch(zhi, dayMasterGan) : '—';
     const luckStage = isZhiValid ? getLifeStage(dayMasterGan, zhi) : '—';
 
-    const { lifeTheme, careerAdvice } = getLuckThemeAndAdvice(
+    const { lifeTheme: dayunLifeTheme, careerAdvice } = getLuckThemeAndAdvice(
       cycle.age,
       luckTenGod,
       luckZhiTenGod,
@@ -1818,7 +1826,7 @@ export function buildEnhancedLuckChronicleSection(
       baziResult.analysis.usefulGod,
     );
 
-    const annualYears: MingluAnnualYearItem[] = sourceYears.map((y) => {
+    const annualYears: MingluAnnualYearItem[] = sourceYears.flatMap((y) => {
       const cleanYearGZ = (y.ganZhi || '').replace(
         /[^甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]/g,
         '',
@@ -1828,7 +1836,39 @@ export function buildEnhancedLuckChronicleSection(
       const isYGanValid = isHeavenlyStem(yGan);
       const isYZhiValid = isEarthlyBranch(yZhi);
 
-      const months = calculateYearlyMonths(y.ganZhi, dayMasterGan);
+      // 与节令日历共用同一交节算法，流月边界取起节至下一起节。
+      const calendarMonths = Array.from({ length: 12 }, (_, index) => {
+        const term = SolarTerm.fromIndex(y.year, 3 + index * 2);
+        const start = toNativeDate(toSolarDateTimeInfo(term.getJulianDay().getSolarTime()));
+        const end = toNativeDate(toSolarDateTimeInfo(term.next(2).getJulianDay().getSolarTime()));
+        return { timeRange: createLocalTimeRange(start, end) };
+      });
+      const firstMonth = calendarMonths[0];
+      const lastMonth = calendarMonths.at(-1);
+      const yearRange =
+        firstMonth && lastMonth
+          ? intersectLocalTimeRanges(
+              createLocalTimeRange(
+                new Date(firstMonth.timeRange.startTimestamp),
+                new Date(lastMonth.timeRange.endTimestamp),
+              ),
+              cycleRange,
+            )
+          : null;
+      if (!yearRange) return [];
+
+      const baseMonths = calculateYearlyMonths(y.ganZhi, dayMasterGan);
+      const months: MingluMonthlyData[] = calendarMonths.flatMap((month, index) => {
+        const covered = intersectLocalTimeRanges(month.timeRange, cycleRange);
+        if (!covered) return [];
+        return [
+          {
+            ...baseMonths[index]!,
+            startDateTime: formatBoundary(covered.start),
+            endDateTime: formatBoundary(covered.end),
+          },
+        ];
+      });
       // 童限条目无干支，不参与岁运合冲判定
       const { specialEvents, natalInteractions, luckInteractions, yearTheme } = isXiaoyun
         ? {
@@ -1839,38 +1879,39 @@ export function buildEnhancedLuckChronicleSection(
           }
         : detectSpecialEvents(baziResult, cycle.ganZhi, y.ganZhi);
 
-      return {
-        year: y.year,
-        ganZhi: y.ganZhi,
-        age: y.age,
-        tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
-        zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
-        nayin: NAYIN_MAP[y.ganZhi] || '—',
-        taiSuiShensha: isYZhiValid ? [`太岁值${yZhi}`, `本命${y.ganZhi}`] : [],
-        interactionWithNatal: natalInteractions,
-        interactionWithLuck: luckInteractions,
-        specialEvents,
-        yearTheme,
-        months,
-      };
+      return [
+        {
+          year: y.year,
+          startDateTime: formatBoundary(yearRange.start),
+          endDateTime: formatBoundary(yearRange.end),
+          ganZhi: y.ganZhi,
+          age: y.age,
+          ...(isXiaoyun && y.xiaoyun ? { xiaoyun: y.xiaoyun } : {}),
+          tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
+          zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
+          nayin: NAYIN_MAP[y.ganZhi] || '—',
+          taiSuiShensha: [],
+          interactionWithNatal: natalInteractions,
+          interactionWithLuck: luckInteractions,
+          specialEvents,
+          yearTheme,
+          months,
+        },
+      ];
     });
-
-    // 依据真实起止时间推算跨度，避免把童限统一按十年标注
-    const startSolarYear = cycle.startSolarTime?.year;
-    const endSolarYear = cycle.endSolarTime?.year;
-    const spanYears =
-      startSolarYear !== undefined && endSolarYear !== undefined
-        ? Math.max(1, endSolarYear - startSolarYear)
-        : 10;
+    const firstYear = annualYears[0];
+    const lastYear = annualYears.at(-1);
 
     return {
       cycleIndex: cIndex + 1,
+      startDateTime: formatBoundary(cycleRange.start),
+      endDateTime: formatBoundary(cycleRange.end),
       entryType: isXiaoyun ? ('小运' as const) : ('大运' as const),
       isXiaoyun,
-      startAge: cycle.age,
-      endAge: cycle.age + spanYears - 1,
-      startYear: cycle.year,
-      endYear: cycle.year + spanYears - 1,
+      startAge: firstYear?.age ?? cycle.age,
+      endAge: lastYear?.age ?? cycle.age,
+      startYear: firstYear?.year ?? cycle.year,
+      endYear: lastYear?.year ?? cycle.year,
       ganZhi: cycle.ganZhi,
       tenGod: luckTenGod,
       zhiTenGod: luckZhiTenGod,
@@ -1882,8 +1923,8 @@ export function buildEnhancedLuckChronicleSection(
       interactionWithNatal: isXiaoyun
         ? ['童限期统领起运前岁月，流年备查']
         : [`大运${cycle.ganZhi}主事十年，统领岁干流变`],
-      lifeTheme,
-      careerAdvice,
+      lifeTheme: isXiaoyun ? '出生至首运交接前为童限，逐年小运见对应流年。' : dayunLifeTheme,
+      careerAdvice: isXiaoyun ? '' : careerAdvice,
       annualYears,
     };
   });
@@ -2007,12 +2048,12 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
 
   const usefulGod = baziResult.analysis.usefulGod;
   const transformation = baziResult.analysis.mingGe.transformation;
-  const transformationEvidence = usefulGod.decisionEvidence?.transformation;
-  const usefulFunctionFacts = formatUsefulGodFunctions(usefulGod);
+  const usefulFunctionFacts = formatUsefulGodFunctions(
+    usefulGod,
+    transformation?.status !== '成化',
+  ).filter((fact) => transformation?.status !== '成化' || !fact.startsWith('化神取用：'));
   const transformationPlain =
-    transformation?.status === '成化'
-      ? `化气判定为成化，化神${transformation.element}为取用主体。${transformation.basis}。${transformation.evidence.join('；')}。原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`
-      : '';
+    transformation?.status === '成化' ? `化神${transformation.element}为取用主体。` : '';
   const incrementPlain =
     usefulGod.incrementStatus === '待判'
       ? '增补五行喜忌待判，原局格神与制化作用按已证条件分别记录。'
@@ -2022,8 +2063,7 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
   const favorableHabitsPlain =
     transformation?.status === '成化'
       ? [
-          `化神取用主体：【${transformation.element}】；${transformationEvidence?.basis || transformation.basis}。原日主十神【${primaryUseful}】保留为本命事实，生活与工作取向结合化神及其条件核验。`,
-          `成化格局：【${patternName}】；判定条件：${transformation.conditions.join('；') || '按盘面化气依据复核'}。`,
+          `原日主十神【${primaryUseful}】保留为本命事实，生活与工作取向结合化神及其条件核验。`,
           `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
         ]
       : [
