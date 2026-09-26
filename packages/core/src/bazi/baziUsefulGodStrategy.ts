@@ -296,25 +296,37 @@ function collectNatalPatternFunctions(
 
   for (const path of fulfillment.pathEvaluations ?? []) {
     if (path.status !== '满足') continue;
-    for (const [role, stems] of [
-      ['制化来源', path.sourceStems],
-      ['制化对象', path.targetStems],
-    ] as const) {
-      for (const stem of stems) {
-        const evidence =
-          rootEvidence.find((item) => item.stem === stem && item.placement === '透干') ??
-          rootEvidence.find((item) => item.stem === stem);
-        if (!evidence) continue;
-        functions.push({
-          stem,
-          tenGod: evidence.tenGod,
-          pillar: evidence.pillar,
-          placement: evidence.placement,
-          role,
-          pathKey: path.key,
-          detail: path.detail,
-        });
-      }
+    const endpoints = path.effectivePairs?.length
+      ? path.effectivePairs.flatMap((pair) => [
+          { stem: pair.sourceStem, pillar: pair.sourcePillar, role: '制化来源' as const },
+          { stem: pair.targetStem, pillar: pair.targetPillar, role: '制化对象' as const },
+        ])
+      : [
+          ...path.sourceStems.map((stem) => ({ stem, role: '制化来源' as const })),
+          ...path.targetStems.map((stem) => ({ stem, role: '制化对象' as const })),
+        ];
+    for (const endpoint of endpoints) {
+      const evidence =
+        'pillar' in endpoint
+          ? rootEvidence.find(
+              (item) =>
+                item.stem === endpoint.stem &&
+                item.pillar === endpoint.pillar &&
+                item.placement === '透干',
+            )
+          : (rootEvidence.find(
+              (item) => item.stem === endpoint.stem && item.placement === '透干',
+            ) ?? rootEvidence.find((item) => item.stem === endpoint.stem));
+      if (!evidence) continue;
+      functions.push({
+        stem: endpoint.stem,
+        tenGod: evidence.tenGod,
+        pillar: evidence.pillar,
+        placement: evidence.placement,
+        role: endpoint.role,
+        pathKey: path.key,
+        detail: path.detail,
+      });
     }
   }
 
@@ -355,10 +367,20 @@ function buildControlFunctionEvidence(
       (interaction) => interaction.relation === path.key,
     );
     const sourceRootEvidence = rootEvidence.filter((evidence) =>
-      sourceStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) =>
+              pair.sourceStem === evidence.stem && pair.sourcePillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : sourceStems.includes(evidence.stem),
     );
     const targetRootEvidence = rootEvidence.filter((evidence) =>
-      targetStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) =>
+              pair.targetStem === evidence.stem && pair.targetPillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : targetStems.includes(evidence.stem),
     );
     const evidenceGaps = [
       ...(path.status === '满足' ? [] : [`路径:${path.status}`]),

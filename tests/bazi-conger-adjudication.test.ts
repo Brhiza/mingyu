@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
+import {
+  formatBaziForPrompt,
+  formatPatternFulfillmentFacts,
+} from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { assessCongErPattern } from '../packages/core/src/bazi/baziCongErStrategy.ts';
 import { SIXTY_CYCLE } from '../packages/core/src/bazi/baziDefinitions.ts';
@@ -104,6 +107,33 @@ test('辛财轻根与癸比肩争财只记原局质量，不把已证从儿结�
     companionCompetes.blockers.some((item) => /比肩|争财/.test(item)),
     false,
   );
+});
+
+test('从儿仅见受冲待核的藏财根时不把食伤生财写成已满足', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1988,
+    month: 7,
+    day: 30,
+    timeIndex: 10,
+    gender: 'male',
+  });
+  assert.deepEqual(
+    Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    ['戊辰', '己未', '丙戌', '戊戌'],
+  );
+  const assessment = assessCongErPattern(chart.pillars, getTenGod);
+  assert.equal(assessment.structuralMatch, true);
+  assert.equal(assessment.established, false);
+  assert.match(assessment.adjudication?.wealthRootFacts.join('；') || '', /戌藏辛余气（受冲待核）/);
+  assert.doesNotMatch(assessment.matchedConditions.join('；'), /承接食伤所生/);
+  assert.match(assessment.blockers.join('；'), /结构藏财根气受冲待核，未见可用财气承接食伤/);
+  assert.notEqual(chart.analysis.mingGe.pattern, '从儿格');
+  assert.equal(chart.analysis.mingGe.specialAdjudication?.status, '不成立');
+  const patternFacts = formatPatternFulfillmentFacts(chart.analysis.mingGe);
+  assert.match(patternFacts.join('；'), /从儿格不成立/);
+  assert.match(patternFacts.join('；'), /结构藏财根气受冲待核/);
+  assert.doesNotMatch(patternFacts.join('；'), /受冲待核.*为结构财气，承接食伤所生/);
+  assert.match(formatBaziForPrompt(chart), /结构藏财根气受冲待核/);
 });
 
 test('顺局章九个原典命例均由月建、成局或食伤并透坐支同气的结构路径闭合', () => {

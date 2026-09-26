@@ -250,7 +250,7 @@ export function assessCongErPattern(
   const wealthRoots = structuralRootsFor(wealthElement);
   const actionableWealthRoots = rootsFor(wealthElement);
   const wealthFlowSatisfied = Boolean(
-    visibleWealth.length || wealthFormation || wealthRoots.length,
+    visibleWealth.length || wealthFormation || actionableWealthRoots.length,
   );
   const rootedResources = rootedVisible(['正印', '偏印']);
   const rootedOfficers = rootedVisible(['正官', '七杀']);
@@ -396,12 +396,18 @@ export function assessCongErPattern(
         ? `${unique(visibleWealth.map((fact) => fact.stem)).join('、')}财星明透，承接食伤所生`
         : wealthFormation
           ? `${wealthFormation.branches.join('')}成${wealthFormation.type}${wealthElement}局，承接食伤所生`
-          : `${unique(wealthRoots.map((root) => `${root.position === 'year' ? '年' : root.position === 'month' ? '月' : root.position === 'day' ? '日' : '时'}支${root.branch}藏${root.stem}${getRootTraditionalKind(root)}${root.actionable ? '' : '（受冲待核）'}`)).join('、')}为结构财气，承接食伤所生`
+          : `${unique(actionableWealthRoots.map((root) => `${root.position === 'year' ? '年' : root.position === 'month' ? '月' : root.position === 'day' ? '日' : '时'}支${root.branch}藏${root.stem}${getRootTraditionalKind(root)}`)).join('、')}为可用结构财气，承接食伤所生`
       : '',
     ...resolvedFunctions,
   ].filter(Boolean);
   const structuralBlockers = unique([
-    ...(!wealthFlowSatisfied ? ['未见财星明透、财局或结构藏财承接食伤'] : []),
+    ...(!wealthFlowSatisfied
+      ? [
+          wealthRoots.length
+            ? '结构藏财根气受冲待核，未见可用财气承接食伤'
+            : '未见财星明透、财局或结构藏财承接食伤',
+        ]
+      : []),
     ...activeResources.map(
       (fact) =>
         `${POSITION_LABELS[fact.position]}${fact.stem}${fact.tenGod}明透有根，对食伤成气形成实际制约${resourceConstraintNotes.has(`${fact.position}:${fact.stem}`) ? `；${resourceConstraintNotes.get(`${fact.position}:${fact.stem}`)}` : ''}`,
