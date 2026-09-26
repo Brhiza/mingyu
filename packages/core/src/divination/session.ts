@@ -342,6 +342,7 @@ function assertRequestRecord(request: DivinationRequest): void {
     request.method !== 'astrolabe' &&
     request.method !== 'almanac' &&
     request.method !== 'huangji' &&
+    request.method !== 'wuyun' &&
     request.method !== 'zhuge' &&
     request.method !== 'kongming'
   ) {
