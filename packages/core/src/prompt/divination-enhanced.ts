@@ -1143,9 +1143,6 @@ function formatLenormandInfo(data: LenormandData) {
   const combinationLines = (data.combinations ?? [])
     .filter((item) => item.source === '固定组合')
     .map((item) => `  ${item.card1}+${item.card2}：${item.meaning}`);
-  const adjacentLines = (data.combinations ?? [])
-    .filter((item) => item.source !== '固定组合')
-    .map((item) => `  ${item.card1}+${item.card2}：${item.meaning}`);
   const evidenceAnalysis = data.evidenceAnalysis?.structuredLayoutFacts
     ? data.evidenceAnalysis
     : analyzeLenormandEvidence(data);
@@ -1159,7 +1156,6 @@ function formatLenormandInfo(data: LenormandData) {
     ...cardLines,
     ...(layoutLines.length ? ['布局关系：', ...layoutLines] : []),
     ...(combinationLines.length ? ['固定组合：', ...combinationLines] : []),
-    ...(adjacentLines.length ? ['相邻合读：', ...adjacentLines] : []),
   ]
     .filter(Boolean)
     .join('\n');

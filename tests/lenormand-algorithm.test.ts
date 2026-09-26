@@ -240,6 +240,7 @@ test('雷诺曼含先后语义的固定组合只在原牌序命中', () => {
       LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`],
     );
     assert.equal(reverse.combinations?.[0].source, '相邻牌义合读');
+    assert.doesNotMatch(reverse.combinations?.[0].meaning ?? '', /。，/);
     assert.ok(
       reverse.evidenceAnalysis?.traditionalFacts.some(
         (item) =>
