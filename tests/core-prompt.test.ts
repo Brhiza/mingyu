@@ -103,14 +103,14 @@ test('npm 八字提示词入口应输出完整且有差异的盲派与新派资�
   assert.match(mangpai, /墓库与空亡/);
   assert.match(xinpai, /旺衰判定/);
   assert.match(xinpai, /十神结构/);
-  assert.match(xinpai, /十神流通/);
+  assert.match(xinpai, /十神结构/);
   assert.match(xinpai, /喜忌落位/);
   assert.match(xinpai, /动态岁运/);
   assert.notEqual(mangpai, xinpai);
   assert.doesNotMatch(`${mangpai}\n${xinpai}`, /API|MCP|仓库|项目名|工程上下文/);
 });
 
-test('新派提示词保留十神流通的候选条件', () => {
+test('新派提示词保留十神显隐事实，不把共现组合写成已成立的流通', () => {
   const result = baziCalculator.calculateBazi({
     year: 2000,
     month: 1,
@@ -120,9 +120,8 @@ test('新派提示词保留十神流通的候选条件', () => {
   });
   const prompt = formatBaziSchoolFacts(result, 'xinpai');
 
-  assert.match(prompt, /十神流通：候选链条/);
-  assert.match(prompt, /条件核验：/);
-  assert.match(prompt, /需日主能担财|食伤为用则吉/);
+  assert.match(prompt, /十神结构：已见/);
+  assert.doesNotMatch(prompt, /十神流通：候选链条|条件核验：|需日主能担财|食伤为用则吉/);
   assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
 });
 

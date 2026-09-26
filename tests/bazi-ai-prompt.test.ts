@@ -162,15 +162,14 @@ test('普通成格提示词保留结论并省略重复的格局条件', () => {
   assert.doesNotMatch(prompt, /【格局条件】|取格分层候选：正印格|候选取用：/);
 });
 
-test('财格条件只补充身承财判断，不复述正文已有的旺衰状态', () => {
+test('财格身承财条件已在成败理由和旺衰事实呈现时不另起条件段', () => {
   const result = createBaziResult({ year: 1990, month: 7, day: 7, timeIndex: 6 });
   const conditions = formatBaziPatternConditions(result);
   const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
 
   assert.match(prompt, /旺衰: 身弱/);
-  assert.match(conditions, /条件核验：不满足；财格的身承财条件暂不能视为满足/);
-  assert.doesNotMatch(conditions, /日主旺衰为身弱/);
-  assert.ok(prompt.includes(`【格局条件】\n${conditions}`));
+  assert.doesNotMatch(conditions, /财格的身承财条件/);
+  assert.match(prompt, /当前成败判定：/);
 });
 
 test('多候选格局提示词只在格局行列选中依据，另列未选候选', () => {
@@ -270,7 +269,7 @@ test('成化状态在合盘与多派提示词只呈现一次', () => {
   }
 });
 
-test('流派格局资料不重复列已满足条件，判定理由不重复典籍依据', () => {
+test('流派格局资料只保留本盘成败理由与实际旺衰事实', () => {
   const formed = createBaziResult({ year: 1990, month: 9, day: 5, timeIndex: 6 });
   const schoolPrompt = buildBaziPrompt({ result: formed, school: 'ziping' });
   assert.match(schoolPrompt, /当前成败判定：成格/);
@@ -280,7 +279,9 @@ test('流派格局资料不重复列已满足条件，判定理由不重复典�
   const prompt = buildBaziPrompt({ result: broken });
   const basis = broken.analysis.mingGe.fulfillment!.basis;
   assert.ok(basis);
-  assert.equal(prompt.split(basis).length - 1, 1);
+  assert.doesNotMatch(prompt, /先看得令，再看地支明根|不把旺相休囚死/);
+  assert.doesNotMatch(prompt, /此处要求正官月令、透干/);
+  assert.match(prompt, /旺衰: [^\n]+月令[^\n]+司令[^\n]+成局/);
   assert.match(prompt, /当前成败判定：破格；判定理由：/);
 });
 
@@ -299,21 +300,65 @@ test('破格救应已在核心判断列明时省略重复格局条件', () => {
   assert.match(formatBaziPatternConditions(result), /破格项：伤官见官/);
 });
 
-test('救应路径不重复写路径名称，从儿格不复述四柱藏干', () => {
+test('格神前提未满足时不附加救应条件，从儿格只写已成立的五行流向', () => {
   const uncertain = createBaziResult({ year: 1980, month: 1, day: 3, timeIndex: 0 });
   const uncertainConditions = formatBaziPatternConditions(uncertain);
-  assert.match(uncertainConditions, /救应路径：比劫制财存印（未判定）；来源仅藏不透/);
-  assert.doesNotMatch(uncertainConditions, /比劫制财存印的来源/);
+  assert.equal(uncertainConditions, '');
 
   const conger = createBaziResult({ year: 1980, month: 5, day: 3, timeIndex: 0 });
   for (const prompt of [
     buildBaziPrompt({ result: conger }),
     buildBaziPrompt({ result: conger, schools: ['ziping', 'mangpai'] }),
   ]) {
-    assert.match(prompt, /支藏印官未构成从儿格的实际反证/);
+    assert.doesNotMatch(prompt, /支藏印官未构成从儿格的实际反证/);
+    assert.match(prompt, /从儿五行流向：/);
     assert.doesNotMatch(prompt, /原支藏印官事实：/);
     assert.match(prompt, /年柱: 庚申[^\n]*[\s\S]*藏干: [^\n]*壬\[七杀\]/);
   }
+});
+
+test('格神未成立的真实命盘不把破格候选和救应路径当作提示词结论', () => {
+  for (const input of [
+    { year: 1980, month: 3, day: 15, timeIndex: 3 },
+    { year: 1988, month: 12, day: 15, timeIndex: 0 },
+  ]) {
+    const result = createBaziResult(input);
+    const target = result.analysis.mingGe.fulfillment?.conditionFacts?.find(
+      (item) => item.key === 'pattern.target',
+    );
+    assert.notEqual(target?.status, '满足');
+    assert.equal(formatBaziPatternConditions(result), '');
+    const prompt = buildBaziPrompt({ result });
+    assert.match(prompt, /当前成败判定：/);
+    assert.doesNotMatch(prompt, /【格局条件】|破格项：|救应路径：|^相互制约：/m);
+  }
+});
+
+test('格神已成立时保留实际破格干和已成立的救应作用', () => {
+  const repaired = createBaziResult({ year: 2016, month: 3, day: 17, timeIndex: 3 });
+  assert.equal(repaired.analysis.mingGe.fulfillment?.status, '破而复成');
+  const conditions = formatBaziPatternConditions(repaired);
+  assert.ok(conditions.includes('破格项：伤官见官（辛伤官（月柱））'));
+  assert.ok(
+    conditions.includes(
+      '救应路径：印星制伤官护官；年柱透干丙（偏印）作用于月柱透干辛（伤官）（紧贴、根气可用）',
+    ),
+  );
+  assert.doesNotMatch(conditions, /资料不足|不满足|仅见隔位/);
+  assert.ok(buildBaziPrompt({ result: repaired }).includes(`【格局条件】\n${conditions}`));
+
+  const broken = createBaziResult({ year: 2013, month: 9, day: 25, timeIndex: 3 });
+  assert.equal(broken.analysis.mingGe.fulfillment?.status, '破格');
+  assert.match(buildBaziPrompt({ result: broken }), /格局破格所忌：丁伤官（时柱）/);
+});
+
+test('中和正印格只列本盘旺衰依据和成格事实', () => {
+  const result = createBaziResult({ year: 1990, month: 1, day: 25, timeIndex: 6 });
+  assert.equal(result.analysis.dayMasterStrength.status, '中和');
+  const prompt = buildBaziPrompt({ result });
+  assert.ok(prompt.includes('旺衰: 中和（月令支持；司令生身；有根；成局中性）'));
+  assert.match(prompt, /当前成败判定：成格；判定理由：格神已透干且有可用根气/);
+  assert.doesNotMatch(prompt, /先看得令|不把旺相休囚死|此处按印星位置|【格局条件】/);
 });
 
 test('流派提示词只补充格局的盘面证据，不复述共同判定和未激活破格候选', () => {

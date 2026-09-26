@@ -163,6 +163,26 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
   ].filter(Boolean);
 }
 
+/** 提示词只保留本盘判定理由，通用成败规则留在结构化分析中。 */
+export function formatPatternDecisionForPrompt(pattern: PatternAnalysis): string {
+  const fulfillment = pattern.fulfillment;
+  if (!fulfillment) return '';
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+  const factualDecision =
+    fulfillment.basis && decisionDetail.endsWith(fulfillment.basis)
+      ? decisionDetail.slice(0, -fulfillment.basis.length).trim()
+      : decisionDetail;
+  return `当前成败判定：${fulfillment.status}${factualDecision ? `；判定理由：${factualDecision}` : ''}`;
+}
+
+export function hasConfirmedPatternTarget(pattern: PatternAnalysis): boolean {
+  return Boolean(
+    pattern.fulfillment?.conditionFacts?.some(
+      (item) => item.key === 'pattern.target' && item.status === '满足',
+    ),
+  );
+}
+
 export function formatAlternativePatternCandidates(pattern: PatternAnalysis): string {
   const alternatives = pattern.patternCandidates?.filter((candidate) => !candidate.selected);
   return alternatives?.some((candidate) => candidate.pattern !== pattern.pattern)
@@ -380,9 +400,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
   result += `旺衰: ${analysis.dayMasterStrength.status}`;
-  const strengthRuleBasis = analysis.dayMasterStrength.details?.ruleBasis ?? [];
-  if (includeRules && strengthRuleBasis.length) {
-    result += `（${strengthRuleBasis.join('；')}）`;
+  if (includeRules) {
+    const strength = analysis.dayMasterStrength.details;
+    result += `（月令${strength.seasonalEffect}；司令${strength.commanderEffect}；${strength.hasRoot ? '有根' : '无根'}；成局${strength.formationEffect}）`;
   }
   result += '\n';
   const alternativePatterns = formatAlternativePatternCandidates(analysis.mingGe);
@@ -398,17 +418,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (alternativePatterns) result += `${alternativePatterns}\n`;
   if (analysis.mingGe.fulfillment) {
     const nonCandidateFacts = patternFacts.filter((fact) => !fact.startsWith('取格分层候选：'));
-    const patternSummary = nonCandidateFacts.find((fact) => fact.startsWith('所取格局：'));
-    const repeatedName = `所取格局：${analysis.mingGe.pattern}；`;
-    const conciseSummary = patternSummary?.startsWith(repeatedName)
-      ? patternSummary.slice(repeatedName.length)
-      : patternSummary;
-    if (nonCandidateFacts[0])
-      result += `${nonCandidateFacts[0] === patternSummary ? conciseSummary : nonCandidateFacts[0]}\n`;
-    if (patternSummary && patternSummary !== nonCandidateFacts[0]) {
-      result += `${conciseSummary}\n`;
+    if (nonCandidateFacts[0] && !nonCandidateFacts[0].startsWith('所取格局：')) {
+      result += `${nonCandidateFacts[0]}\n`;
     }
-    if (analysis.mingGe.fulfillment.contradiction) {
+    result += `${formatPatternDecisionForPrompt(analysis.mingGe)}\n`;
+    if (hasConfirmedPatternTarget(analysis.mingGe) && analysis.mingGe.fulfillment.contradiction) {
       result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;
     }
   }
