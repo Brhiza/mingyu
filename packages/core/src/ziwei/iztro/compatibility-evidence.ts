@@ -4,6 +4,20 @@ import type { AnalysisPayloadV1, MutagenName, PalaceFact, StarFact } from '../..
 import type { IztroAstrolabe, IztroPalace, IztroStar } from '../../types/iztro';
 
 const KEY_PALACES = new Set(['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移']);
+const EARTHLY_BRANCHES = new Set([
+  '子',
+  '丑',
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+]);
 
 export interface ZiweiCompatibilityOptions {
   person1Name?: string;
@@ -163,8 +177,23 @@ function assertPayload(payload: AnalysisPayloadV1, label: string) {
   if (!payload || !Array.isArray(payload.palaces) || payload.palaces.length !== 12) {
     throw new Error(`${label}必须包含完整十二宫资料。`);
   }
+  const indexes = new Set<number>();
+  const branches = new Set<string>();
   for (const palace of payload.palaces) {
     if (!palace.name || !palace.earthly_branch) throw new Error(`${label}宫位名称或地支缺失。`);
+    if (
+      !Number.isInteger(palace.index) ||
+      palace.index < 0 ||
+      palace.index >= 12 ||
+      indexes.has(palace.index)
+    ) {
+      throw new Error(`${label}宫位索引无效或重复。`);
+    }
+    if (!EARTHLY_BRANCHES.has(palace.earthly_branch) || branches.has(palace.earthly_branch)) {
+      throw new Error(`${label}宫位地支无效或重复。`);
+    }
+    indexes.add(palace.index);
+    branches.add(palace.earthly_branch);
   }
 }
 
@@ -547,7 +576,7 @@ function buildCounterEvidenceFacts(params: {
       ...params.mutagens.map((item) => item.key),
     ],
     promptText:
-      '当前只比较双方本命盘长期结构，未提供双方同层级大限、流年、流月或流日资料，不生成具体年份、月份或日期应期',
+      '当前交叉定位只比较双方本命盘长期结构，双方运限未作同层级交叉核对，未形成具体年份、月份或日期应期证据',
     sources: ['当前分析对象为双方静态本命盘'],
     limitation: COUNTER_FACT_LIMITATION,
   });
@@ -637,7 +666,7 @@ function buildLimitationFacts(params: {
       type: '静态应期边界',
       ownerFactKeys: [params.summaryFact.key, ...params.summaryFact.factKeys],
       promptText:
-        '静态本命双盘只描述长期结构；没有双方同层级运限资料时，不生成具体年份、月份、日期或唯一应期',
+        '静态本命双盘只描述长期结构；双方运限尚未作同层级交叉核对，未形成具体年份、月份、日期或唯一应期证据',
       sources: ['本命盘与运限盘分析层级边界'],
     },
     {

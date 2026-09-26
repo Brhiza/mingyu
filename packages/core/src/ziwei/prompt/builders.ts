@@ -64,7 +64,8 @@ function resolveEvidencePalaces(
 ) {
   const byIndexes = item.palace_indexes.map((index) => getPalaceByIndex(payload, index));
   const byNames = item.palace_names.map((name) => getPalaceByName(payload, name));
-  return [...focusPalaces, ...byIndexes, ...byNames].filter(
+  const located = [...byIndexes, ...byNames].filter(Boolean);
+  return (located.length ? located : focusPalaces).filter(
     (candidate, index, list): candidate is PalaceFact =>
       Boolean(candidate) && list.findIndex((entry) => entry?.index === candidate?.index) === index,
   );
@@ -74,6 +75,8 @@ function deriveEvidenceStars(
   payload: AnalysisPayloadV1,
   focusPalaces: PalaceFact[],
   item: {
+    type: string;
+    scope: string;
     palace_indexes: number[];
     palace_names: string[];
     star_names: string[];
@@ -82,33 +85,48 @@ function deriveEvidenceStars(
 ) {
   const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
   const directStars = uniqueStrings(item.star_names);
+  if (directStars.length) {
+    return directStars.sort((left, right) => compareEvidenceStarPriority(left, right, palaces));
+  }
+  if (item.type !== 'surrounded_mutagen') return [];
+
+  const matchesMutagen = (mutagen?: string) =>
+    mutagen !== undefined && (!item.mutagens.length || item.mutagens.includes(mutagen));
+  const hasMappedMutagen = (star: StarFact, palace: PalaceFact) =>
+    payload.active_scope.mutagen_map.some(
+      (mapped) =>
+        mapped.star === star.name &&
+        matchesMutagen(mapped.mutagen) &&
+        (mapped.palace_index !== undefined
+          ? mapped.palace_index === palace.index
+          : !mapped.palace_name ||
+            normalizePalaceName(mapped.palace_name) === normalizePalaceName(palace.name)),
+    );
   const mutagenTaggedStars = uniqueStrings(
     palaces.flatMap((palace) =>
       getAllStars(palace)
         .filter(
           (star) =>
-            Boolean(star.birth_mutagen) ||
-            Boolean(star.horoscope_mutagen) ||
-            Boolean(star.active_scope_mutagen) ||
-            payload.active_scope.mutagen_map.some(
-              (mapped) =>
-                mapped.star === star.name &&
-                (mapped.palace_index === undefined || mapped.palace_index === palace.index),
-            ),
+            matchesMutagen(star.birth_mutagen) ||
+            (item.scope !== 'origin' &&
+              (matchesMutagen(star.horoscope_mutagen) ||
+                matchesMutagen(star.active_scope_mutagen) ||
+                hasMappedMutagen(star, palace))),
         )
         .map((star) => star.name),
     ),
   );
-  const merged = directStars.length
-    ? uniqueStrings([...directStars, ...mutagenTaggedStars])
-    : mutagenTaggedStars;
-  return merged.sort((left, right) => compareEvidenceStarPriority(left, right, palaces));
+  return mutagenTaggedStars.sort((left, right) =>
+    compareEvidenceStarPriority(left, right, palaces),
+  );
 }
 
 function deriveEvidenceMutagens(
   payload: AnalysisPayloadV1,
   focusPalaces: PalaceFact[],
   item: {
+    type: string;
+    scope: string;
     palace_indexes: number[];
     palace_names: string[];
     star_names: string[];
@@ -117,19 +135,23 @@ function deriveEvidenceMutagens(
 ) {
   const directMutagens = uniqueStrings(item.mutagens).sort(compareMutagenPriority);
   if (directMutagens.length) return directMutagens;
+  if (item.type !== 'surrounded_mutagen') return [];
 
   const palaces = resolveEvidencePalaces(payload, focusPalaces, item);
   return uniqueStrings(
     palaces.flatMap((palace) => [
       ...getAllStars(palace).flatMap((star) =>
-        [star.birth_mutagen, star.horoscope_mutagen, star.active_scope_mutagen].filter(Boolean),
+        [
+          star.birth_mutagen,
+          ...(item.scope === 'origin' ? [] : [star.horoscope_mutagen, star.active_scope_mutagen]),
+        ].filter(Boolean),
       ),
       ...(palace.self_mutagens ?? []),
-      ...payload.active_scope.mutagen_map
+      ...(item.scope === 'origin' ? [] : payload.active_scope.mutagen_map)
         .filter(
           (mapped) =>
             mapped.palace_index === palace.index ||
-            (!mapped.palace_index && mapped.palace_name === palace.name),
+            (mapped.palace_index === undefined && mapped.palace_name === palace.name),
         )
         .map((mapped) => mapped.mutagen),
     ]),

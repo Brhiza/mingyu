@@ -48,3 +48,37 @@ test('紫微飞星四化专题应优先聚焦四化落宫并给出专题主线',
   assert.ok(bundle.focusPalaces.some((item) => item.name === '兄弟'));
   assert.ok(bundle.focusPalaces.some((item) => item.name === '夫妻'));
 });
+
+test('无星曜标记时仍应聚焦自化宫和运限四化实际落宫', () => {
+  const palaces = [
+    makePalace(0, '命宫'),
+    makePalace(1, '兄弟'),
+    makePalace(2, '夫妻'),
+    makePalace(3, '子女'),
+  ];
+  palaces[1].self_mutagens = ['忌'];
+  const payload = {
+    active_scope: {
+      scope: 'yearly',
+      palace_index: 0,
+      label: '流年',
+      mutagen_map: [{ star: '太阴', mutagen: '禄', palace_index: 2, palace_name: '夫妻' }],
+    },
+    palaces,
+  } as unknown as AnalysisPayloadV1;
+
+  const bundle = buildFocusTaskBundle(payload, {
+    report_key: 'feixing-sihua',
+    report_title: '飞星四化专题',
+    report_type: 'mutagen',
+    selected_topic: '飞星四化',
+    scope_type: 'yearly',
+    scope_label: '流年',
+    focus_notes: [],
+  });
+
+  assert.deepEqual(
+    bundle.focusPalaces.slice(0, 2).map((palace) => palace.name),
+    ['夫妻', '兄弟'],
+  );
+});

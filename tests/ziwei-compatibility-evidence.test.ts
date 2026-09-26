@@ -165,6 +165,29 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
   assertEvidenceReferences(result);
 });
 
+test('紫微双盘地支或宫位索引重复时不生成叠盘事实', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  second.palaces[1].earthly_branch = second.palaces[0].earthly_branch;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位地支无效或重复/);
+
+  second.palaces[1].earthly_branch = BRANCHES[3];
+  second.palaces[1].index = second.palaces[0].index;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位索引无效或重复/);
+});
+
+test('双方输入流年盘时静态交叉证据不误称运限资料未提供', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.active_scope.scope = 'yearly';
+  second.active_scope.scope = 'yearly';
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const timing = result.counterEvidenceFacts.find((item) => item.type === '静态应期边界');
+  assert.match(timing?.promptText ?? '', /运限未作同层级交叉核对/);
+  assert.doesNotMatch(timing?.promptText ?? '', /未提供双方同层级/);
+});
+
 test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
   const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
   const placement = result.crossMutagenPlacements.find(

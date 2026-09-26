@@ -38,6 +38,8 @@ function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /预设|模板|接口|API|MCP|调试/);
 }
 
+const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
   return {
     index,
@@ -45,7 +47,7 @@ function createPalace(index: number, name: string, stars: string[] = []): Palace
     is_body_palace: name === '身宫',
     is_original_palace: false,
     heavenly_stem: '甲',
-    earthly_branch: '子',
+    earthly_branch: EARTHLY_BRANCHES[index],
     major_stars: stars.map((star) => ({ name: star, kind: 'major' })),
     minor_stars: [],
     other_stars: [],
@@ -852,6 +854,78 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
   assert.ok(!('数据来源' in (summary[0] ?? {})));
   assert.ok(!('计算依据' in (summary[0] ?? {})));
   assert.ok(!('适用边界' in (summary[0] ?? {})));
+});
+
+test('紫微线索只从自身关联宫位补全星曜与四化', () => {
+  const payload = createPayload();
+  payload.palaces[0].major_stars = [{ name: '紫微', kind: 'major', birth_mutagen: '禄' }];
+  payload.palaces[4].minor_stars = [{ name: '文昌', kind: 'minor', birth_mutagen: '忌' }];
+  payload.evidence_pool = [
+    {
+      id: 'E1',
+      stable_key: 'wealth-mutagen',
+      type: 'surrounded_mutagen',
+      title: '财帛见化忌',
+      scope: 'origin',
+      palace_indexes: [4],
+      palace_names: ['财帛'],
+      star_names: [],
+      mutagens: [],
+      description: '财帛宫见文昌化忌。',
+    },
+  ];
+
+  const summary = buildEvidenceSummary(payload, [payload.palaces[0]], createReportContext());
+  assert.deepEqual(summary[0]?.关联星曜, ['文昌']);
+  assert.deepEqual(summary[0]?.关联四化, ['忌']);
+
+  payload.evidence_pool[0].star_names = ['文昌'];
+  assert.deepEqual(
+    buildEvidenceSummary(payload, [payload.palaces[0]], createReportContext())[0]?.关联星曜,
+    ['文昌'],
+  );
+
+  payload.evidence_pool = [
+    {
+      ...payload.evidence_pool[0],
+      type: 'scope_landing',
+      title: '流年命宫落在财帛宫',
+      star_names: [],
+      description: '流年命宫落在本命财帛宫。',
+    },
+  ];
+  assert.deepEqual(
+    buildEvidenceSummary(payload, [payload.palaces[0]], createReportContext())[0]?.关联星曜,
+    [],
+  );
+  assert.deepEqual(
+    buildEvidenceSummary(payload, [payload.palaces[0]], createReportContext())[0]?.关联四化,
+    [],
+  );
+});
+
+test('本命三方四正化曜线索不引用仅在流年出现的化曜', () => {
+  const payload = createPayload();
+  payload.palaces[0].major_stars = [{ name: '天机', kind: 'major', birth_mutagen: '忌' }];
+  payload.palaces[4].minor_stars = [{ name: '文昌', kind: 'minor', active_scope_mutagen: '忌' }];
+  payload.evidence_pool = [
+    {
+      id: 'E2',
+      stable_key: 'origin-surrounding-ji',
+      type: 'surrounded_mutagen',
+      title: '财帛三方见生年化忌',
+      scope: 'origin',
+      palace_indexes: [0, 4],
+      palace_names: ['命宫', '财帛'],
+      star_names: [],
+      mutagens: ['忌'],
+      description: '财帛三方见生年化忌。',
+    },
+  ];
+
+  const summary = buildEvidenceSummary(payload, [payload.palaces[4]], createReportContext());
+  assert.deepEqual(summary[0]?.关联星曜, ['天机']);
+  assert.deepEqual(summary[0]?.关联四化, ['忌']);
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {
