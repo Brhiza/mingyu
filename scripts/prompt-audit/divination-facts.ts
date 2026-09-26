@@ -1007,21 +1007,12 @@ function extractAlmanacFacts(data: unknown): DivinationPromptFact[] {
 function extractBaZhaiFacts(data: unknown): DivinationPromptFact[] {
   const d = record(data);
   if (!d) return [];
-  const lucky = records(d.luckyDirections);
-  const unlucky = records(d.unluckyDirections);
   const mingPalace = records(d.mingPalace);
   const housePalace = records(d.housePalace);
-  const direction = (item: AnyRecord) => {
-    const name = firstText(item.direction, item.name);
-    const label = firstText(item.label, item.fortune, item.type);
-    return name ? `${name}${label ? `(${label})` : ''}` : undefined;
-  };
   return collect([
     fact('bazhai.ming', '命卦：', [d.mingGua, d.mingGroup]),
     fact('bazhai.house', '宅卦：', [d.houseGua, d.houseGroup]),
     fact('bazhai.match', '命宅配合：', [d.match]),
-    fact('bazhai.lucky', '四吉方：', lucky.map(direction)),
-    fact('bazhai.unlucky', '四凶方：', unlucky.map(direction)),
     ...mingPalace.map((item, index) =>
       fact(
         `bazhai.ming-palace.${index}`,

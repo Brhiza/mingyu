@@ -231,8 +231,8 @@ test('住宅风水门向度数会同步八宅与玄空山向', () => {
   assert.match(result.prompt, /玄空完整盘面：/);
   assert.match(result.prompt, /三盘九宫：/);
   assert.match(result.prompt, /八宅完整盘面：/);
-  assert.match(result.prompt, /四吉方：/);
-  assert.match(result.prompt, /四凶方：/);
+  assert.match(result.prompt, /命卦八方：/);
+  assert.match(result.prompt, /宅卦八方：/);
   assert.doesNotMatch(result.prompt, /合参要点|命宅相合可提高关注优先级/);
 });
 

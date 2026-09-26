@@ -638,7 +638,7 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四吉方</h3>
-                <p>{measurement ? '当前宅卦可优先利用的方向。' : '个人命卦可优先利用的方向。'}</p>
+                <p>个人命卦可优先利用的方向。</p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.luckyDirections.map((item) => (
@@ -654,7 +654,7 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四凶方</h3>
-                <p>布置时需要谨慎权衡的方向。</p>
+                <p>个人命卦中布置时需要谨慎权衡的方向。</p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.unluckyDirections.map((item) => (

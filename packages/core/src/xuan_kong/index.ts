@@ -648,9 +648,6 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
     `${label}${star}（${FLYING_STAR_WUXING[star]}，${resolveFlyingStarYunState(star, result.period.yun)}）`;
   const palaceLines = result.palaces
     .map((item) => {
-      const combos = result.combinations
-        .filter((combo) => combo.palaces?.includes(item.gong))
-        .map((combo) => combo.name);
       const yearText =
         item.yearStar !== undefined
           ? ` 年${item.yearStar}（${FLYING_STAR_WUXING[item.yearStar]}）`
@@ -664,7 +661,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
         formatStarRelation('运星', item.yunStar, '山星', item.shanStar),
         formatStarRelation('运星', item.yunStar, '向星', item.xiangStar),
       ];
-      return `${item.name}（${item.direction}）：${natalStar('运', item.yunStar)} ${natalStar('山', item.shanStar)} ${natalStar('向', item.xiangStar)}${yearText}${monthText}\n  ${relations.join('；')}${combos.length ? `；组合${combos.join('、')}` : ''}`;
+      return `${item.name}（${item.direction}）：${natalStar('运', item.yunStar)} ${natalStar('山', item.shanStar)} ${natalStar('向', item.xiangStar)}${yearText}${monthText}\n  ${relations.join('；')}`;
     })
     .join('\n');
   return [
@@ -687,8 +684,8 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
       : '',
     `局型：${result.formation}`,
     result.combinations.length
-      ? `组合：${result.combinations.map((item) => item.name).join('、')}`
-      : '组合：未检出特殊组合',
+      ? `组合：${result.combinations.map((item) => `${item.name}${item.palaces?.length ? `（${item.palaces.map((gong) => `${GONG_NAMES[gong]}${GONG_DIRECTION[gong]}`).join('、')}）` : ''}`).join('；')}`
+      : '',
     `到山到向：${result.daoShanXiang.summary}`,
     result.castleGate?.summary ?? '',
     (() => {
@@ -719,7 +716,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
     result.flowStars?.monthPlate
       ? `流月飞星：${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`
       : '',
-    result.flowStars ? '宅盘与流年流月逐宫叠加：' : '',
+    result.flowStars ? `宅盘与${result.flowStars.monthPlate ? '流年流月' : '流年'}逐宫叠加：` : '',
     '三盘九宫：',
     palaceLines,
   ]

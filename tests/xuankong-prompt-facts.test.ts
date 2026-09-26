@@ -18,7 +18,8 @@ test('九运玄空正文明确星数五行与山向运的生克施受', () => {
 test('玄空年盘月盘仅随实际计算结果加入正文层级与各宫', () => {
   const yearly = generateXuanKong({ year: 2024, sitMountain: '午', flowYear: 2026 });
   assert.match(yearly.prompt, /本次资料层级：宅盘（运盘、山盘、向盘）、流年盘。/);
-  assert.doesNotMatch(yearly.prompt, /流月盘/);
+  assert.doesNotMatch(yearly.prompt, /流月/);
+  assert.doesNotMatch(JSON.stringify(yearly.evidenceAnalysis.limitationFacts), /流月/);
   const monthly = generateXuanKong({
     year: 2024,
     sitMountain: '午',
@@ -31,6 +32,21 @@ test('玄空年盘月盘仅随实际计算结果加入正文层级与各宫', ()
   assert.deepEqual([...monthly.plates.year!].sort(), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const center = monthly.prompt.split('\n').find((line) => line.startsWith('中五（中）：'))!;
   assert.match(center, /年1（水）/);
+  assert.match(monthly.prompt, /宅盘与流年流月逐宫叠加/);
+});
+
+test('玄空命中组合集中列出实际宫位', () => {
+  const result = generateXuanKong({ year: 2024, sitMountain: '午' });
+  assert.ok(result.combinations.length > 0);
+  const line = result.prompt.split('\n').find((item) => item.startsWith('组合：'))!;
+  for (const combo of result.combinations) {
+    assert.ok(line.includes(combo.name));
+    for (const gong of combo.palaces ?? []) {
+      const palace = result.palaces.find((item) => item.gong === gong)!;
+      assert.ok(line.includes(`${palace.name}${palace.direction}`));
+    }
+  }
+  assert.doesNotMatch(result.prompt, /；组合|组合：未检出/);
 });
 
 test('住宅合参保留玄空原生星性与关系而非另行补写', () => {

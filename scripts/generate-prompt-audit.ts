@@ -240,15 +240,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '八宅风水',
-    requiredFields: [
-      '【当前时间】',
-      '【问题】',
-      '【任务】',
-      '【传统依据】',
-      '四吉方',
-      '四凶方',
-      '命卦八方',
-    ],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '命卦八方'],
   },
   {
     sampleName: '住宅风水',
@@ -263,8 +255,8 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '玄空完整盘面',
       '三盘九宫',
       '八宅完整盘面',
-      '四吉方',
-      '四凶方',
+      '命卦八方',
+      '宅卦八方',
     ],
   },
   {
@@ -311,14 +303,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '小六壬《多能鄙事》',
-    requiredFields: [
-      '【传统依据】',
-      '起课过程',
-      '定日宫',
-      '占得宫',
-      '歌诀原文',
-      '《多能鄙事》',
-    ],
+    requiredFields: ['【传统依据】', '起课过程', '定日宫', '占得宫', '歌诀原文', '《多能鄙事》'],
   },
   {
     sampleName: '金口诀',
