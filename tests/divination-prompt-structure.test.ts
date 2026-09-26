@@ -1422,6 +1422,20 @@ test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普�
   assert.match(fivePrompt, /基础牌义：/);
   assert.doesNotMatch(fivePrompt, /固定组合：[\s\S]*牌序相邻|相邻牌义合读/);
 
+  const reverseData = drawLenormandSpread('three', { manualCardIds: [31, 32, 8] });
+  const reversePrompt = buildDivinationPrompt('lenormand', '这件事接下来如何发展？', reverseData);
+  assert.equal(reverseData.combinations?.[0].source, '相邻牌义合读');
+  assert.match(reversePrompt, /起因：太阳；关键词：成功、清晰、能量/);
+  assert.match(reversePrompt, /现状：月亮；关键词：情绪、名声、直觉/);
+  assert.doesNotMatch(reversePrompt, /相邻合读：|从迷茫走向清晰|登记判词/);
+
+  const fixedPrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事接下来如何发展？',
+    drawLenormandSpread('three', { manualCardIds: [24, 25, 1] }),
+  );
+  assert.match(fixedPrompt, /固定组合：\n  心\+戒指：/);
+
   const ninePrompt = buildDivinationPrompt(
     'lenormand',
     '这件事的核心和路径是什么？',
