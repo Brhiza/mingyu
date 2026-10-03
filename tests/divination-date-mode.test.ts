@@ -106,22 +106,63 @@ function buildDraft(overrides: Partial<DivinationDraft>): DivinationDraft {
 }
 
 test('四柱时间模式必须保留秒、使用北京时间并把候选区间写入占卜事实', async () => {
-  const session = await generateDivinationSession(
-    buildDraft({
-      divinationTimeMode: 'pillars',
-      customDivinationDate: '2024-01-01',
-      customDivinationTime: '08:30:37',
-      divinationTimeStandard: 'true-solar',
-      divinationReverseSource: SOURCE,
-    }),
-  );
+  const draft = buildDraft({
+    divinationTimeMode: 'pillars',
+    customDivinationDate: '2024-01-01',
+    customDivinationTime: '08:30:37',
+    divinationTimeStandard: 'true-solar',
+    divinationReverseSource: structuredClone(SOURCE),
+  });
+  const submitted = structuredClone(draft);
+  const pending = generateDivinationSession(draft);
+  draft.method = 'meihua';
+  draft.question = '随后编辑的新问题';
+  draft.questionSource = 'inspiration';
+  draft.qimenMethod = 'feipan';
+  draft.qimenScope = 'year';
+  draft.qimenJuMethod = 'zhirun';
+  draft.customDivinationTime = '09:00:00';
+  const edited = structuredClone(draft);
+  const session = await pending;
 
+  assert.equal(session.method, 'qimen');
+  assert.equal(session.requestedMethod, 'qimen');
+  assert.equal(session.question, submitted.question);
+  const data = session.data as { method: string; scope: string; juMethod: string };
+  assert.equal(data.method, 'zhuanpan');
+  assert.equal(data.scope, 'hour');
+  assert.equal(data.juMethod, 'chaibu');
+  assert.deepEqual(draft, edited, '完成原请求不应回写后来编辑的草稿');
   assert.equal(session.timeContext?.standard, 'beijing');
   assert.equal(session.timeContext?.clockDateTime, '2024-01-01T08:30:37');
   assert.equal(session.timeContext?.effectiveDateTime, '2024-01-01T08:30:37');
   assert.match(session.timeContext?.promptText ?? '', /北京时间/);
   assert.match(session.prompt, /2024-01-01 08:30:37 至 2024-01-01 09:30:37/);
   assert.doesNotMatch(session.prompt, /真太阳时/);
+
+  const normal = await generateDivinationSession(submitted);
+  assert.deepEqual(session.data, normal.data);
+  assert.deepEqual(session.timeContext, normal.timeContext);
+  const withoutCurrentTime = (text: string) =>
+    text.replace(/(?:^|\n\n)【当前时间】\n[\s\S]*?(?=\n\n【|$)/u, '');
+  assert.equal(withoutCurrentTime(session.prompt), withoutCurrentTime(normal.prompt));
+  assert.deepEqual(
+    submitted,
+    buildDraft({
+      divinationTimeMode: 'pillars',
+      customDivinationDate: '2024-01-01',
+      customDivinationTime: '08:30:37',
+      divinationTimeStandard: 'true-solar',
+      divinationReverseSource: structuredClone(SOURCE),
+    }),
+  );
+
+  const fresh = await generateDivinationSession({ ...draft, method: 'qimen' });
+  assert.equal(fresh.requestedMethod, 'qimen');
+  assert.equal((fresh.data as { method: string }).method, 'feipan');
+  assert.equal((fresh.data as { scope: string }).scope, 'year');
+  assert.equal(fresh.question, '随后编辑的新问题');
+  assert.equal(fresh.timeContext?.clockDateTime, '2024-01-01T09:00:00');
 });
 
 test('六种时间起局在真太阳时跨晚子时保留原秒、校正秒与实际时柱', async () => {

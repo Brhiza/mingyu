@@ -1419,6 +1419,7 @@ export async function generateDivinationSession(
   draft: DivinationDraft,
 ): Promise<DivinationSession> {
   validateDraft(draft);
+  draft = structuredClone(draft);
   const method = resolveMethod(draft.method);
   const isHuangjiSixDay = method === 'huangji' && draft.huangjiMethod === 'six-day';
   const customDate = isHuangjiSixDay ? undefined : resolveCustomDivinationDate(method, draft);

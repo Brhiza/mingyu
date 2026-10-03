@@ -14,7 +14,7 @@ import { getPromptMethodCapability, type PromptMethodCapability } from '../promp
 
 export { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
-export const SYSTEM_CAPABILITY_IDS = [
+export const SYSTEM_CAPABILITY_IDS = Object.freeze([
   'calendar.trueSolarBirth',
   'calendar.astronomicalTime',
   'calendar.moonPhase',
@@ -48,7 +48,7 @@ export const SYSTEM_CAPABILITY_IDS = [
   'name.numberEnergy',
   'name.zhugeDivination',
   'name.kongmingDivination',
-] as const;
+] as const);
 
 export type SystemCapabilityId = (typeof SYSTEM_CAPABILITY_IDS)[number];
 

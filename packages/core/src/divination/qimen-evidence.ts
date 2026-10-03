@@ -1,5 +1,6 @@
 import type { QimenData, QimenJiuGongGe } from '../types/divination';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { getNamedStemPairPattern } from './algorithms/qimen/helpers/stem-pair-patterns';
 import {
   formatTianPanStars,
   formatTianPanStems,
@@ -482,6 +483,22 @@ export function formatQimenClassicPatternBasisForPrompt(
   data?: QimenData,
 ): string {
   const basis = formatQimenPatternBasis(item).replaceAll(`；乃${item.name}之格`, '');
+  const stemPair = basis.match(/^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于(.+)$/u);
+  if (data && item.palaces.length === 1 && stemPair) {
+    const palaces = data.jiuGongGe.filter((palace) => palace.gong === item.palaces[0]);
+    const palace = palaces[0];
+    const registered = getNamedStemPairPattern(stemPair[1], stemPair[2]);
+    if (
+      palaces.length === 1 &&
+      palace.name === stemPair[3] &&
+      hasTianPanStem(palace, stemPair[1]) &&
+      palace.diPan.stem === stemPair[2] &&
+      registered?.name === item.name &&
+      item.originalText === `${basis}，${registered.summary}`
+    ) {
+      return item.name;
+    }
+  }
   if (item.name === '符使同宫' && data?.zhiFu && data.zhiShi && item.palaces.length === 1) {
     const zhiFuPalaces = data.jiuGongGe.filter((palace) => hasTianPanStar(palace, data.zhiFu));
     const zhiShiPalaces = data.jiuGongGe.filter((palace) => palace.renPan.door === data.zhiShi);

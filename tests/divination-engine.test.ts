@@ -2359,6 +2359,53 @@ test('奇门天地盘干命名格局应进入实际排盘输出', () => {
         relation.pattern?.includes('白虎猖狂'),
     ),
   );
+
+  const unchanged = structuredClone(baiHu.data);
+  const analysis = analyzeQimenEvidence(baiHu.data);
+  const fact = analysis.patternFacts.find(
+    (item) =>
+      item.kind === '经典格局' && item.name === '白虎猖狂' && item.palaces.includes(baiHu.gong),
+  )!;
+  const palace = baiHu.data.jiuGongGe.find((item) => item.gong === baiHu.gong)!;
+  const basis = `天盘辛加地盘乙于${palace.name}`;
+  assert.equal(formatQimenClassicPatternBasisForPrompt(fact, [fact]), basis);
+  assert.equal(formatQimenClassicPatternBasisForPrompt(fact, [fact], baiHu.data), '白虎猖狂');
+  assert.ok(analysis.promptText.includes(`凶格：白虎猖狂（${palace.name}）`));
+  for (const prompt of [
+    formatEnhancedDivinationInfo('qimen', baiHu.data),
+    buildDivinationPrompt({ method: 'qimen', data: baiHu.data }),
+    buildAppDivinationPrompt('qimen', '请分析盘面条件', baiHu.data),
+  ]) {
+    const row = prompt.split('\n').find((line) => line.trimStart().startsWith(`${palace.name}（`));
+    assert.ok(row?.includes('天盘辛'));
+    assert.ok(row?.includes('地盘乙'));
+    assert.ok(prompt.includes(`白虎猖狂（凶格，${palace.name}）`));
+    assert.ok(!prompt.includes(`白虎猖狂（凶格）：${basis}`));
+  }
+  assert.deepEqual(baiHu.data, unchanged);
+
+  const missingStem = structuredClone(baiHu.data);
+  const missingPalace = missingStem.jiuGongGe.find((item) => item.gong === baiHu.gong)!;
+  missingPalace.tianPan.stem = '';
+  missingPalace.tianPan.companionStem = undefined;
+  assert.equal(formatQimenClassicPatternBasisForPrompt(fact, [fact], missingStem), basis);
+  const wrongEarth = structuredClone(baiHu.data);
+  wrongEarth.jiuGongGe.find((item) => item.gong === baiHu.gong)!.diPan.stem = '丁';
+  assert.equal(formatQimenClassicPatternBasisForPrompt(fact, [fact], wrongEarth), basis);
+  const multiple = { ...fact, palaces: [baiHu.gong, baiHu.gong === 1 ? 2 : 1] };
+  assert.equal(formatQimenClassicPatternBasisForPrompt(multiple, [multiple], baiHu.data), basis);
+  const duplicatedPalace = structuredClone(baiHu.data);
+  duplicatedPalace.jiuGongGe.push(structuredClone(palace));
+  assert.equal(formatQimenClassicPatternBasisForPrompt(fact, [fact], duplicatedPalace), basis);
+  const extra = {
+    ...fact,
+    originalText: `${fact.originalText}甲子旬另有寄干条件。`,
+    promptText: `${fact.promptText}；甲子旬另有寄干条件`,
+  };
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(extra, [extra], baiHu.data),
+    `${basis}；甲子旬另有寄干条件`,
+  );
 });
 
 test('奇门乙加乙应识别为日奇伏刑，不应退化为比和', () => {
@@ -4648,6 +4695,44 @@ test('前端占卜链路应支持手动塔罗与灵签', async () => {
   assert.equal(ssgw.number, 36);
   assert.equal(ssgw.draw?.method, 'manual');
   assert.equal(ssgw.meta?.random, undefined);
+
+  const submittedDraft = buildDraft({
+    method: 'tarot',
+    tarotSpread: 'three',
+    tarotMethod: 'manual',
+    tarotManualCards: [
+      { id: 1, reversed: false },
+      { id: 22, reversed: true },
+      { id: 78, reversed: false },
+    ],
+  });
+  const callerCards = submittedDraft.tarotManualCards;
+  assert.ok(callerCards);
+  const pending = generateDivinationSession(submittedDraft);
+  callerCards[0].id = 3;
+  callerCards[0].reversed = true;
+  const editedCards = structuredClone(callerCards);
+  const submitted = (await pending).data as TarotData;
+  assert.deepEqual(
+    submitted.cards.map(({ id, name, reversed }) => ({ id, name, reversed })),
+    [
+      { id: 1, name: '愚者', reversed: false },
+      { id: 22, name: '世界', reversed: true },
+      { id: 78, name: '钱币国王', reversed: false },
+    ],
+  );
+  assert.deepEqual(callerCards, editedCards);
+  const edited = (await generateDivinationSession(submittedDraft)).data as TarotData;
+  assert.deepEqual(
+    edited.cards.map(({ id, name, reversed }) => ({ id, name, reversed })),
+    [
+      { id: 3, name: '女祭司', reversed: true },
+      { id: 22, name: '世界', reversed: true },
+      { id: 78, name: '钱币国王', reversed: false },
+    ],
+  );
+  assert.equal(submittedDraft.tarotManualCards, callerCards);
+  assert.deepEqual(callerCards, editedCards);
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {
