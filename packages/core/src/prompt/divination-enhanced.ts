@@ -950,7 +950,7 @@ function formatQimenInfo(data: QimenData, question = '', supplementaryInfo?: Sup
             : item.traditionalTone === '风险'
               ? '凶格'
               : '中性格局';
-        const basis = formatQimenClassicPatternBasisForPrompt(item, allClassicPatternFacts);
+        const basis = formatQimenClassicPatternBasisForPrompt(item, allClassicPatternFacts, data);
         const missingPalaces = item.palaces
           .map((gong) => data.jiuGongGe.find((palace) => palace.gong === gong)?.name ?? `${gong}宫`)
           .filter((name) => !basis.includes(name));

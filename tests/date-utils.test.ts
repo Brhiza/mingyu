@@ -9,8 +9,11 @@ import {
   getShichenFromClock,
   getTimeIndexFromClock,
 } from 'mingyu-core/calendar';
+import { getFoundationCapabilities } from 'mingyu-core/foundation';
 
 test('时辰索引工具应拒绝非法小时或分钟', () => {
+  const initialFoundation = getFoundationCapabilities();
+  const initialShichen = SHICHEN_PERIODS.map((period) => ({ ...period }));
   assert.equal(getTimeIndexFromClock(1, 30), 1);
   assert.equal(getTimeIndexFromClock(23, 0), 12);
   assert.equal(getTimeIndexFromClock(24, 0), 12);
@@ -67,6 +70,23 @@ test('时辰索引工具应拒绝非法小时或分钟', () => {
     minute: 30,
   });
   assert.equal(getShichenFromClock(24, 0)?.name, '晚子时');
+
+  assert.equal(Object.isFrozen(SHICHEN_PERIODS), true);
+  assert.equal(Reflect.set(SHICHEN_PERIODS, '0', SHICHEN_PERIODS[12]), false);
+  assert.throws(() => (SHICHEN_PERIODS as unknown as unknown[]).reverse(), TypeError);
+  for (const period of SHICHEN_PERIODS) {
+    assert.equal(Object.isFrozen(period), true);
+    assert.equal(Reflect.set(period, 'hour', period.hour + 1), false);
+    assert.deepEqual(
+      initialShichen.map((_, index) => getShichenByIndex(index)),
+      initialShichen,
+    );
+    assert.deepEqual(getFoundationCapabilities(), initialFoundation);
+  }
+  const publicCopy = getFoundationCapabilities();
+  publicCopy.constants.shichenPeriods.reverse();
+  publicCopy.constants.shichenPeriods[0].hour = 12;
+  assert.deepEqual(getFoundationCapabilities(), initialFoundation);
 });
 
 test('月份天数工具应拒绝无效年月', () => {

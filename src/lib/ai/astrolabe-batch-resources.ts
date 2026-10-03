@@ -332,6 +332,7 @@ export async function fetchAstrolabePeriodCollection(args: {
       if (!events.has(event.key)) events.set(event.key, event);
     }
     args.onProgress?.(batchCount, expectedBatchCount);
+    assertNotAborted(args.signal);
 
     if (!batch.nextRange) {
       if (batch.range.endDate !== parentRange.endDate) {

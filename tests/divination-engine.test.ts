@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateDivinationSession } from '../src/lib/divination/engine';
+import {
+  buildDivinationPrompt as buildAppDivinationPrompt,
+  generateDivinationSession,
+} from '../src/lib/divination/engine';
 import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { formatQimenClassicPatternBasisForPrompt } from '../packages/core/src/divination/qimen-evidence';
 import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
@@ -670,6 +676,66 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   assert.equal(incomplete.summaryFact.palaceFactCount, 8);
   assert.deepEqual(incomplete.palaceCoverageFact.missingGongs, [5]);
   assert.match(incomplete.palaceCoverageFact.promptText, /不得补造缺失宫位内容/);
+
+  const samePalace = generateQimen(new Date('2026-06-18T12:00:00+08:00'));
+  const samePalaceBefore = structuredClone(samePalace);
+  const sameAnalysis = analyzeQimenEvidence(samePalace);
+  const sameFact = sameAnalysis.patternFacts.find((item) => item.name === '符使同宫')!;
+  const classicFacts = sameAnalysis.patternFacts.filter((item) => item.kind === '经典格局');
+  assert.equal(samePalace.zhiFu, '天禽');
+  assert.equal(samePalace.zhiShi, '死门');
+  assert.deepEqual(sameFact.palaces, [9]);
+  assert.match(sameAnalysis.promptText, /值符天禽落离九宫；值使死门落离九宫/u);
+  assert.match(sameAnalysis.promptText, /^吉格：符使同宫（离九宫）$/mu);
+  const sameBasis = '值符天禽与值使死门同落离九宫';
+  const question = '请分析这件事的推进条件';
+  for (const prompt of [
+    formatEnhancedDivinationInfo('qimen', samePalace, question),
+    buildDivinationPrompt({ method: 'qimen', data: samePalace, question }),
+    buildAppDivinationPrompt('qimen', question, samePalace),
+  ]) {
+    assert.match(prompt, /值符天禽落离九宫；值使死门落离九宫/u);
+    assert.match(prompt, /^符使同宫（吉格，离九宫）$/mu);
+    assert.ok(!prompt.includes(sameBasis));
+  }
+  assert.deepEqual(samePalace, samePalaceBefore);
+  assert.equal(formatQimenClassicPatternBasisForPrompt(sameFact, classicFacts), sameBasis);
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(sameFact, classicFacts, {
+      ...samePalace,
+      zhiFu: '',
+    }),
+    sameBasis,
+  );
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(sameFact, classicFacts, {
+      ...samePalace,
+      jiuGongGe: samePalace.jiuGongGe.filter((palace) => palace.gong !== 9),
+    }),
+    sameBasis,
+  );
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(
+      { ...sameFact, palaces: [7] },
+      classicFacts,
+      samePalace,
+    ),
+    sameBasis,
+  );
+  const differentPalaces = structuredClone(samePalace);
+  differentPalaces.jiuGongGe.find((palace) => palace.gong === 9)!.renPan.door = '景门';
+  differentPalaces.jiuGongGe.find((palace) => palace.gong === 1)!.renPan.door = '死门';
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(sameFact, classicFacts, differentPalaces),
+    sameBasis,
+  );
+  const extraBasis = formatQimenClassicPatternBasisForPrompt(
+    { ...sameFact, promptText: `${sameFact.promptText}甲子旬另有寄干条件。` },
+    classicFacts,
+    samePalace,
+  );
+  assert.ok(extraBasis.includes(sameBasis));
+  assert.ok(extraBasis.includes('甲子旬另有寄干条件'));
 });
 
 test('奇门复合格局应按同宫门神叠加识别', () => {

@@ -23,7 +23,7 @@ export interface ChinaDstCheckResult {
 
 type DstBoundary = [year: number, month: number, day: number, hour: number];
 
-export const CHINA_DST_YEARS = [1986, 1987, 1988, 1989, 1990, 1991] as const;
+export const CHINA_DST_YEARS = Object.freeze([1986, 1987, 1988, 1989, 1990, 1991] as const);
 
 /** 钟表时刻区间 [start, end)。 */
 const CHINA_DST_RANGES: ReadonlyArray<{ start: DstBoundary; end: DstBoundary }> = [

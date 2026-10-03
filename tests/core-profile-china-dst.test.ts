@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { resolveCivilTime } from '../packages/core/src/calendar/civil-time';
+import { CHINA_DST_YEARS } from '../packages/core/src/calendar/china-dst';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe';
 import { generateQizheng } from '../packages/core/src/qi_zheng';
 import {
@@ -107,6 +108,11 @@ test('中国夏令时跨日出生：统一档案、八字、紫微、星盘、�
 });
 
 test('1986—1991 真实起止边界只在夏令时有效段校正，跳时和重复时刻拒绝', () => {
+  assert.deepEqual(CHINA_DST_YEARS, [1986, 1987, 1988, 1989, 1990, 1991]);
+  assert.equal(Object.isFrozen(CHINA_DST_YEARS), true);
+  assert.equal(Reflect.set(CHINA_DST_YEARS, '4', 2000), false);
+  assert.equal(Reflect.deleteProperty(CHINA_DST_YEARS, '4'), false);
+  assert.throws(() => (CHINA_DST_YEARS as unknown as number[]).reverse(), TypeError);
   const cases = [
     [1986, 5, 4, 1, 59, '1986-05-03T17:59:17.000Z'],
     [1986, 5, 4, 3, 0, '1986-05-03T18:00:17.000Z'],

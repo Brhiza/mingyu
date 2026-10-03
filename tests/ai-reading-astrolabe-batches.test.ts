@@ -507,6 +507,41 @@ test('星盘周期分批遵从同一 AbortSignal，取消时不返回部分集�
     }),
     (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
   );
+
+  const finalController = new AbortController();
+  let finalBatchCalls = 0;
+  const progress: Array<[number, number]> = [];
+  const finalArgs = {
+    scope: 'daily' as const,
+    dateStr: '2028-06-12',
+    periodContext,
+    signal: finalController.signal,
+    onProgress(completed: number, total: number) {
+      progress.push([completed, total]);
+      finalArgs.signal = new AbortController().signal;
+      finalController.abort();
+    },
+    fetchBatch: async (_input: Record<string, unknown>, signal?: AbortSignal) => {
+      finalBatchCalls += 1;
+      assert.equal(signal, finalController.signal);
+      return makeBatchResponse(
+        'daily',
+        '2028-06-12',
+        '2028-06-12',
+        '2028-06-13',
+        { startDate: '2028-06-12', endDate: '2028-06-13' },
+        null,
+      );
+    },
+  };
+  await assert.rejects(fetchAstrolabePeriodCollection(finalArgs), {
+    name: 'AbortError',
+    message: '已停止解读',
+  });
+  assert.equal(finalBatchCalls, 1);
+  assert.deepEqual(progress, [[1, 1]]);
+  assert.equal(finalController.signal.aborted, true);
+  assert.equal(finalArgs.signal.aborted, false);
 });
 
 function createAstrolabeResult() {

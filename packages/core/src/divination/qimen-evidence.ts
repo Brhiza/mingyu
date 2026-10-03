@@ -479,8 +479,24 @@ export function selectQimenPatternFactsForPrompt(
 export function formatQimenClassicPatternBasisForPrompt(
   item: QimenPatternEvidenceFact,
   classicFacts: QimenPatternEvidenceFact[],
+  data?: QimenData,
 ): string {
   const basis = formatQimenPatternBasis(item).replaceAll(`；乃${item.name}之格`, '');
+  if (item.name === '符使同宫' && data?.zhiFu && data.zhiShi && item.palaces.length === 1) {
+    const zhiFuPalaces = data.jiuGongGe.filter((palace) => hasTianPanStar(palace, data.zhiFu));
+    const zhiShiPalaces = data.jiuGongGe.filter((palace) => palace.renPan.door === data.zhiShi);
+    const palace = zhiFuPalaces[0];
+    if (
+      zhiFuPalaces.length === 1 &&
+      zhiShiPalaces.length === 1 &&
+      palace.gong === zhiShiPalaces[0].gong &&
+      palace.gong === item.palaces[0] &&
+      basis === `值符${data.zhiFu}与值使${data.zhiShi}同落${palace.name}` &&
+      item.originalText === `${basis}，乃符使同宫之格，事情有极强的集中力量。`
+    ) {
+      return item.name;
+    }
+  }
   const parentName = item.name.match(/^([日月星]奇得使)临吉门$/u)?.[1];
   if (!parentName) return basis;
   const parentBases = classicFacts
@@ -510,7 +526,7 @@ export function formatQimenPatternLinesForPrompt(
             : '中性格局';
     const basis =
       item.kind === '经典格局'
-        ? formatQimenClassicPatternBasisForPrompt(item, classicFacts)
+        ? formatQimenClassicPatternBasisForPrompt(item, classicFacts, data)
         : formatQimenPatternBasis(item);
     const palaceNames = item.palaces
       .map((gong) => data.jiuGongGe.find((palace) => palace.gong === gong)?.name ?? `${gong}宫`)
