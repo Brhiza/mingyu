@@ -5,6 +5,7 @@ import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import {
   COMMON_BAZI_SHENSHA_NAMES,
   filterCommonBaziShenSha,
+  resolveShenShaVariantConfig,
 } from '../packages/core/src/bazi/baziShenSha';
 import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { ShenShaCalculator as AppShenShaCalculator } from '@core/bazi/baziShenSha';
@@ -228,7 +229,10 @@ test('问真默认口径应修正红艳、九丑、童子、天转地转与拱�
     ['癸', '亥'],
     ['癸', '丑'],
   ] as const;
-  for (const calculator of createCalculators()) {
+  for (const calculator of [
+    ...createCalculators(),
+    new ShenShaCalculator({ variants: { referenceProfile: undefined } }),
+  ]) {
     const redBeauty = calculator.calculateAllShenSha(
       [
         ['甲', '寅'],
@@ -291,7 +295,45 @@ test('问真默认口径应修正红艳、九丑、童子、天转地转与拱�
 });
 
 test('问真默认口径应合并年日旬空并纳入阴干羊刃', () => {
-  for (const calculator of createCalculators()) {
+  const unspecifiedVariants = {
+    referenceProfile: undefined,
+    kongWangBasis: undefined,
+    yangRenMode: undefined,
+    tongZiScope: undefined,
+  };
+  assert.deepEqual(resolveShenShaVariantConfig(unspecifiedVariants), {
+    referenceProfile: 'wenzhen',
+    kongWangBasis: 'day-and-year',
+    yangRenMode: 'include-yin-ren',
+    tongZiScope: 'day-hour',
+  });
+  assert.deepEqual(
+    resolveShenShaVariantConfig({ ...unspecifiedVariants, referenceProfile: 'classical' }),
+    {
+      referenceProfile: 'classical',
+      kongWangBasis: 'day',
+      yangRenMode: 'yang-stems-only',
+      tongZiScope: 'day-hour',
+    },
+  );
+  assert.deepEqual(
+    resolveShenShaVariantConfig({
+      referenceProfile: 'classical',
+      kongWangBasis: 'day-and-year',
+      yangRenMode: 'include-yin-ren',
+      tongZiScope: 'all-pillars',
+    }),
+    {
+      referenceProfile: 'classical',
+      kongWangBasis: 'day-and-year',
+      yangRenMode: 'include-yin-ren',
+      tongZiScope: 'all-pillars',
+    },
+  );
+  for (const calculator of [
+    ...createCalculators(),
+    new ShenShaCalculator({ variants: unspecifiedVariants }),
+  ]) {
     const kongWang = calculator.calculateAllShenSha(
       [
         ['甲', '子'],
@@ -427,6 +469,20 @@ test('童子煞应只按日支或时支查，不应把年柱月柱也算进去',
 
   assert.ok(!result.year.includes('童子煞'));
   assert.ok(!result.month.includes('童子煞'));
+  const unspecifiedScopeResult = new ShenShaCalculator({
+    variants: { tongZiScope: undefined },
+  }).calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丙', '寅'],
+      ['庚', '午'],
+      ['丁', '酉'],
+    ],
+    'male',
+  );
+  assert.ok(!unspecifiedScopeResult.year.includes('童子煞'));
+  assert.ok(!unspecifiedScopeResult.month.includes('童子煞'));
+  assert.deepEqual(unspecifiedScopeResult, result);
 });
 
 test('童子煞按常用口诀应识别春秋寅子贵', () => {
@@ -1336,14 +1392,28 @@ test('癸干禄位逆数跨子支仍命中禄九地、禄九天和离祖杀', ()
   ] as const;
 
   for (const sample of samples) {
-    const chart = baziCalculator.calculateBazi({
+    const input = {
       year: 2024,
       month: 1,
       day: 10,
       timeIndex: sample.timeIndex,
       gender: 'male',
       shenShaScope: 'all',
+    } as const;
+    const chart = baziCalculator.calculateBazi(input);
+    const unspecifiedVariantsChart = baziCalculator.calculateBazi({
+      ...input,
+      shenShaVariants: {
+        referenceProfile: undefined,
+        kongWangBasis: undefined,
+        yangRenMode: undefined,
+        tongZiScope: undefined,
+      },
     });
+    assert.deepEqual(unspecifiedVariantsChart.pillars, chart.pillars);
+    assert.deepEqual(unspecifiedVariantsChart.shensha, chart.shensha);
+    assert.deepEqual(unspecifiedVariantsChart.shenShaAnalysis, chart.shenShaAnalysis);
+    assert.equal(formatBaziForPrompt(unspecifiedVariantsChart), formatBaziForPrompt(chart));
 
     assert.equal(chart.pillars.year.ganZhi, '癸卯');
     assert.equal(chart.pillars.day.ganZhi, '癸酉');
