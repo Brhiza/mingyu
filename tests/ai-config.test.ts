@@ -32,13 +32,14 @@ test('内置 AI 可显示但默认仍保持提示词模式', (t) => {
     aiProviderName: '内置（不稳定）',
   };
 
+  const defaultSettings = getDefaultAiSettings();
   assert.equal(isServerBuiltinAiEnabled(), true);
   assert.equal(isServerDefaultAiEnabled(), false);
   assert.equal(getServerBuiltinAiLabel(), '内置（不稳定）');
   assert.deepEqual(
     {
-      enabled: getDefaultAiSettings().enabled,
-      mode: getDefaultAiSettings().mode,
+      enabled: defaultSettings.enabled,
+      mode: defaultSettings.mode,
     },
     {
       enabled: false,
