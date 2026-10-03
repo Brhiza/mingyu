@@ -181,7 +181,7 @@ function assertObserver(
     throw new Error('观测地点经度需在 -180 到 180 之间。');
   }
   if (
-    options.requireLatitude &&
+    (options.requireLatitude || value.latitude !== undefined) &&
     (!Number.isFinite(value.latitude) || value.latitude! < -90 || value.latitude! > 90)
   ) {
     throw new Error('该即时盘需要提供 -90 到 90 之间的观测地点纬度。');

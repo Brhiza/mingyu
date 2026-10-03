@@ -189,7 +189,54 @@ test('即时盘保留 IANA 秒级历史偏移，按给定瞬时点生成真太�
   );
 });
 
-test('星盘和七政四余即时盘始终要求完整观测地点', async () => {
+test('即时盘校验已提供的纬度，星盘和七政四余始终要求完整观测地点', async () => {
+  for (const type of INSTANT_CHART_TYPES) {
+    for (const timeStandard of ['beijing', 'true-solar'] as const) {
+      for (const latitude of [91, -91, Number.NaN, Number.POSITIVE_INFINITY]) {
+        assert.throws(
+          () =>
+            buildInstantChartContext({
+              type,
+              customDate: fixedInstant,
+              timeStandard,
+              observer: { ...beijingObserver, latitude },
+            }),
+          /观测地点纬度/,
+          `${type} ${timeStandard} 纬度 ${latitude}`,
+        );
+      }
+      for (const latitude of [-90, 0, 90]) {
+        const context = buildInstantChartContext({
+          type,
+          customDate: fixedInstant,
+          timeStandard,
+          observer: { ...beijingObserver, latitude },
+        });
+        assert.equal(context.observer?.latitude, latitude);
+      }
+    }
+  }
+  const { latitude: _latitude, ...observerWithoutLatitude } = beijingObserver;
+  for (const type of ['bazi', 'ziwei', 'bazi-ziwei'] as const) {
+    for (const timeStandard of ['beijing', 'true-solar'] as const) {
+      const context = buildInstantChartContext({
+        type,
+        customDate: fixedInstant,
+        timeStandard,
+        observer: observerWithoutLatitude,
+      });
+      assert.equal('latitude' in context.observer!, false);
+    }
+  }
+  await assert.rejects(
+    () =>
+      calculateInstantChart({
+        type: 'bazi',
+        customDate: fixedInstant,
+        observer: { ...beijingObserver, latitude: 91 },
+      }),
+    /观测地点纬度/,
+  );
   await assert.rejects(
     () =>
       calculateInstantChart({

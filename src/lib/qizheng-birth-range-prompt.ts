@@ -109,6 +109,22 @@ export function formatQizhengBirthRangePrompt(
 ): string {
   const first = range.branches[0].representative;
   const context = first.calculationContext;
+  const locationLabel =
+    context.locationSource === '用户提供'
+      ? '出生地点'
+      : context.locationSource === '部分坐标使用默认值'
+        ? '计算参考坐标（部分采用北京参考值）'
+        : '计算参考地点';
+  const locationAccuracy =
+    context.coordinateAccuracy === 'administrative-center'
+      ? '（行政中心位置）'
+      : context.coordinateAccuracy === 'province-approximation'
+        ? '（省级近似位置）'
+        : context.coordinateAccuracy === 'mixed'
+          ? '（部分坐标采用地点近似值）'
+          : context.locationSource === '默认北京坐标'
+            ? '（北京参考坐标）'
+            : '';
   const flow = first.flowingStars;
   const natalFacts = range.branches.map((branch) => formatNatalFacts(branch.representative));
   const flowFacts = range.branches.map((branch) => formatFlowDiscreteFacts(branch.representative));
@@ -138,7 +154,7 @@ export function formatQizhengBirthRangePrompt(
         ]
       : []),
     '【时间与地点】',
-    `东八区；纬度${context.latitude}、经度${context.longitude}；传统宫位采用${context.palaceTimeMode || '民用时间'}。`,
+    `东八区；${locationLabel}：纬度${context.latitude}、经度${context.longitude}${locationAccuracy}；传统宫位采用${context.palaceTimeMode || '民用时间'}。`,
     '连续量列出本段所有整秒的极值；圆周量按相对首值的最短弧展开，折回零至三百六十度可得圆周位置。事件时间统一列为北京时间。',
     ...(commonNatal.length || commonFlow.length
       ? ['【全范围共同盘面】', ...commonNatal, ...commonFlow]

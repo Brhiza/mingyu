@@ -13,6 +13,7 @@ test('七政本命区间资料保留月亮换宫两侧、整秒范围与完整�
     { startTimestamp, endTimestamp: startTimestamp + 2_000 },
   );
   const text = formatQizhengBirthRangePrompt(range);
+  assert.ok(text.includes('东八区；计算参考地点：纬度39.9、经度116.4（北京参考坐标）；'));
   assert.equal(range.branches.length, 2);
   assert.match(text, /共2个时刻、2段/);
   assert.match(text, /2024-02-19 11:24:48 至 2024-02-19 11:24:49/);

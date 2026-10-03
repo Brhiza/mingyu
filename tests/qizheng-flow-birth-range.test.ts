@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { calculateSolarTermEvidence } from 'mingyu-core/calendar';
+import { formatQizhengBirthRangePrompt } from '../src/lib/qizheng-birth-range-prompt';
 import {
   createQizhengFlowRangeCalculator,
   generateQizheng,
   generateQizhengFlowBirthRange,
+  type QizhengBirthRange,
   type QizhengFlowBirthRangeSource,
   type QizhengInput,
 } from '../packages/core/src/qi_zheng/index.ts';
@@ -384,6 +386,28 @@ test('七政本命与流曜保留用户、行政中心、省级近似和混合�
   assert.equal(userChart.calculationContext.coordinateAccuracy, 'user-provided');
   assert.equal(userChart.calculationContext.locationSource, '用户提供');
   assert.ok(userChart.prompt.includes('出生地点：纬度39.9°，经度116.4°；'));
+  const chartRangePrompt = (chart: typeof userChart) => {
+    const startTimestamp = beijingTimestamp('2024-02-19 11:24:48');
+    const range: QizhengBirthRange = {
+      coverage: 'natal',
+      status: 'stable',
+      source: source('2024-02-19 11:24:48', '2024-02-19 11:24:49'),
+      resolutionSeconds: 1,
+      sampleCount: 1,
+      branches: [
+        {
+          startTimestamp,
+          endTimestamp: startTimestamp + SECOND,
+          endExclusive: true,
+          sampleCount: 1,
+          representative: chart,
+          last: chart,
+          continuous: [],
+        },
+      ],
+    };
+    return formatQizhengBirthRangePrompt(range);
+  };
   for (const [coordinateAccuracy, locationSource] of [
     ['administrative-center', '行政中心坐标'],
     ['province-approximation', '省级近似坐标'],
@@ -398,6 +422,16 @@ test('七政本命与流曜保留用户、行政中心、省级近似和混合�
     );
     assert.equal(chart.evidenceAnalysis.calculationFact.context.locationSource, locationSource);
     assert.ok(chart.prompt.includes(`计算参考地点：纬度39.9°，经度116.4°（${locationSource}）`));
+    const displayAccuracy = {
+      'administrative-center': '行政中心位置',
+      'province-approximation': '省级近似位置',
+      mixed: '部分坐标采用地点近似值',
+    }[coordinateAccuracy];
+    assert.ok(
+      chartRangePrompt(chart).includes(
+        `东八区；计算参考地点：纬度39.9、经度116.4（${displayAccuracy}）；`,
+      ),
+    );
     assert.deepEqual(chart.stars, userChart.stars);
     assert.deepEqual(
       chart.calculationContext.solarIllumination,
@@ -405,6 +439,9 @@ test('七政本命与流曜保留用户、行政中心、省级近似和混合�
     );
     assert.equal(chart.evidenceAnalysis.calculationFact.status, '输入明确');
   }
+  const explicitRangePrompt = chartRangePrompt(userChart);
+  assert.ok(explicitRangePrompt.includes('东八区；出生地点：纬度39.9、经度116.4；'));
+  assert.doesNotMatch(explicitRangePrompt, /省级近似位置|部分坐标采用地点近似值|行政中心位置/u);
 
   const approximateInput: QizhengInput = {
     ...DAILY_INPUT,
@@ -426,6 +463,11 @@ test('七政本命与流曜保留用户、行政中心、省级近似和混合�
     source('2024-02-19 11:24:48', '2024-02-19 11:24:49'),
   );
   assert.equal(range.branches[0]?.representative.flowingStars?.locationSource, '省级近似坐标');
+  assert.ok(
+    formatQizhengBirthRangePrompt(range).includes(
+      '东八区；计算参考地点：纬度39.9、经度116.4（省级近似位置）；',
+    ),
+  );
   assert.equal(
     range.branches[0]?.representative.calculationContext.coordinateAccuracy,
     'province-approximation',
