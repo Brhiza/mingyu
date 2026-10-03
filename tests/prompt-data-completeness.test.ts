@@ -175,12 +175,47 @@ test('奇门经典格局保留触发事实而非只列名称', () => {
       const door = fact.promptText.match(/[休生开]门/u)?.[0];
       assert.ok(door && lines.some((line) => line.includes(`同宫临${door}`)), fact.name);
     } else {
-      const factualBasis = formatQimenPatternBasis(fact).split('；')[0];
-      if (factualBasis !== fact.name) {
-        assert.ok(
-          lines.some((line) => line.includes(factualBasis)),
+      const factualBasis = formatQimenPatternBasis(fact);
+      const stemPair = factualBasis.match(
+        /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([坎坤震巽中乾兑艮离][一二三四五六七八九]宫)$/u,
+      );
+      const tone =
+        fact.traditionalTone === '有利'
+          ? '吉格'
+          : fact.traditionalTone === '风险'
+            ? '凶格'
+            : '中性格局';
+      const compactLine = stemPair ? `${fact.name}（${tone}，${stemPair[3]}）` : undefined;
+      if (stemPair && compactLine && lines.includes(compactLine)) {
+        const palaces = data.jiuGongGe.filter((palace) => palace.name === stemPair[3]);
+        assert.equal(palaces.length, 1, fact.name);
+        const palace = palaces[0]!;
+        assert.deepEqual(fact.palaces, [palace.gong], fact.name);
+        const heavenStems = [palace.tianPan.stem, palace.tianPan.companionStem].filter(Boolean);
+        assert.ok(heavenStems.includes(stemPair[1]), fact.name);
+        assert.equal(palace.diPan.stem, stemPair[2], fact.name);
+        const palaceLines = text
+          .split('\n')
+          .filter((line) =>
+            line
+              .trimStart()
+              .startsWith(`${palace.name}（${palace.direction}，${palace.element}）：`),
+          );
+        assert.equal(palaceLines.length, 1, fact.name);
+        const heavenText = `${heavenStems.join('、')}${palace.tianPan.companionStem ? `（${palace.tianPan.companionStem}为寄干）` : ''}`;
+        assert.equal(
+          palaceLines[0]!.split('，天盘')[1],
+          `${heavenText}，地盘${stemPair[2]}`,
           fact.name,
         );
+        assert.ok(lines.includes(compactLine), fact.name);
+      } else if (factualBasis !== fact.name) {
+        for (const clause of factualBasis.split('；')) {
+          assert.ok(
+            lines.some((line) => line.includes(clause)),
+            `${fact.name}：${clause}`,
+          );
+        }
       }
     }
   }
