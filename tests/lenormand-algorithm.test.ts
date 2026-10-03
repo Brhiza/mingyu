@@ -10,7 +10,10 @@ import {
   resolveInteractiveLenormandCards,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import type { LenormandData, LenormandSpreadType } from '../packages/core/src/types/divination.ts';
-import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 import { generateDivinationSession } from '../packages/core/src/divination/session.ts';
@@ -1043,6 +1046,56 @@ test('雷诺曼抽牌序号、牌面或布局落点不一致时应明确标记',
       (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
     ),
   );
+  const normal = analyzeLenormandEvidence(result);
+  const normalEnhanced = formatEnhancedDivinationInfo('lenormand', result);
+  const currentTime = new Date('2026-10-03T12:00:00+08:00');
+  const normalPrompt = buildDivinationPrompt({
+    currentTime,
+    method: 'lenormand',
+    data: result,
+    question: '结合牌位解读当前问题。',
+  });
+  for (const missingRecord of ['sparse', 'null'] as const) {
+    const partial = structuredClone(result);
+    if (missingRecord === 'sparse') delete partial.draw!.order[1];
+    else partial.draw!.order[1] = null as never;
+    const inputBefore = structuredClone(partial);
+    const recovered = analyzeLenormandEvidence(partial);
+    assert.equal(recovered.drawFact.status, '来源链缺失');
+    assert.equal(recovered.drawFact.recordedCardCount, result.cards.length - 1);
+    assert.deepEqual(recovered.drawFact.missingIndexes, [2]);
+    assert.deepEqual(recovered.drawFact.mismatchIndexes, [2]);
+    assert.deepEqual(
+      recovered.drawOrderFacts.map((item) => item.index),
+      Array.from({ length: result.cards.length }, (_, index) => index + 1).filter(
+        (index) => index !== 2,
+      ),
+    );
+    assert.ok(recovered.drawOrderFacts.every((item) => item.status === '一致'));
+    assert.equal(recovered.summaryFact.status, '证据链有缺口');
+    assert.deepEqual(recovered.cards, normal.cards);
+    assert.deepEqual(recovered.traditionalFacts, normal.traditionalFacts);
+    assert.equal(formatEnhancedDivinationInfo('lenormand', partial), normalEnhanced);
+    assert.equal(
+      buildDivinationPrompt({
+        currentTime,
+        method: 'lenormand',
+        data: partial,
+        question: '结合牌位解读当前问题。',
+      }),
+      normalPrompt,
+    );
+    assert.deepEqual(partial, inputBefore);
+  }
+  const shortened = structuredClone(result);
+  shortened.draw!.order = shortened.draw!.order.slice(0, 1);
+  const shortenedEvidence = analyzeLenormandEvidence(shortened);
+  assert.equal(shortenedEvidence.drawFact.status, '来源链缺失');
+  assert.deepEqual(
+    shortenedEvidence.drawFact.missingIndexes,
+    Array.from({ length: result.cards.length - 1 }, (_, index) => index + 2),
+  );
+  assert.equal(shortenedEvidence.drawFact.recordedCardCount, 1);
 });
 
 test('雷诺曼抽牌记录中的牌组规模不符时不得标记为可核验', () => {

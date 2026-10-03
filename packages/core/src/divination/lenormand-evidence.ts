@@ -382,7 +382,8 @@ function buildDrawOrderFacts(
   data: LenormandData,
   cards: LenormandCardEvidence[],
 ): LenormandDrawOrderFact[] {
-  return (data.draw?.order ?? []).map((item, orderIndex) => {
+  return (data.draw?.order ?? []).flatMap((item, orderIndex) => {
+    if (!item || typeof item !== 'object') return [];
     const expectedIndex = orderIndex + 1;
     const card = cards[orderIndex];
     const mismatches = card
@@ -463,13 +464,15 @@ function buildDrawFact(
 ): LenormandDrawFact {
   const isManual = data.draw?.method === '用户按牌位手工录入';
   const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
-  const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
-  const missingIndexes = Array.from(
-    { length: Math.max(0, data.cards.length - order.length) },
-    (_, index) => order.length + index + 1,
+  const recordedOrder = data.draw?.order ?? [];
+  const order = recordedOrder
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({ ...item }));
+  const missingIndexes = Array.from({ length: data.cards.length }, (_, index) => index + 1).filter(
+    (index) => !recordedOrder[index - 1] || typeof recordedOrder[index - 1] !== 'object',
   );
   const extraIndexes = Array.from(
-    { length: Math.max(0, order.length - data.cards.length) },
+    { length: Math.max(0, recordedOrder.length - data.cards.length) },
     (_, index) => data.cards.length + index + 1,
   );
   const mismatchIndexes = [
@@ -486,7 +489,7 @@ function buildDrawFact(
       ].filter(Boolean)
     : [];
   const status: LenormandDrawFact['status'] =
-    !data.draw || order.length !== data.cards.length
+    !data.draw || missingIndexes.length || order.length !== data.cards.length
       ? '来源链缺失'
       : mismatchIndexes.length || metadataMismatches.length
         ? '来源链不一致'
