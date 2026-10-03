@@ -38,6 +38,7 @@ import {
   assertPromptHasSingleRole,
 } from './prompt-assertions';
 import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
+import type { ZiweiRuntimeFacts } from '../packages/core/src/ziwei/runtime';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 
 function assertNoEngineeringPromptText(prompt: string) {
@@ -1153,6 +1154,76 @@ test('紫微私有公共资料复用四化去重并保留额外动态落点', as
 test('紫微在线提示词无四化事实时不输出资料状态占位', () => {
   const prompt = formatZiweiPayloadForPrompt(createPayload());
   assert.doesNotMatch(prompt, /生年四化：|当前四化：|未记录生年四化|未记录当前四化/);
+});
+
+test('紫微宫位证据仅省标准复述，附加条件与未展示运限事实继续进入完整任务书', () => {
+  const payload = createPayload();
+  const life = payload.palaces[0];
+  life.major_stars[0].birth_mutagen = '禄';
+  life.major_stars[0].active_scope_mutagen = '科';
+  life.summary_tags.push('三方四正见化禄');
+  life.self_mutagens = ['忌'];
+  life.mutaged_palaces = [{ mutagen: '权', palace_index: 4, palace_name: '财帛' }];
+  life.scope_hits = ['流年落宫', '流月落宫'];
+  life.dynamic_scope_name = '财帛';
+  payload.palaces[1].empty_state = true;
+  payload.active_scope = { ...payload.active_scope, scope: 'yearly', label: '流年' };
+
+  const facts = [
+    ['palace_major_stars', 0, '命宫主星为紫微、天府', '命宫登记主星紫微、天府。'],
+    [
+      'palace_empty',
+      1,
+      '兄弟为空宫',
+      '兄弟的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。',
+    ],
+    ['palace_birth_mutagen', 0, '命宫见生年化禄', '紫微在命宫带有生年化禄。'],
+    ['palace_scope_mutagen', 0, '命宫见流年化科', '紫微在当前运限下带有化科。'],
+    ['surrounded_mutagen', 0, '命宫三方四正见化禄', '命宫及其三方四正宫位中可见化禄信息。'],
+    ['palace_self_mutaged', 0, '命宫出现自化忌', '命宫的自化列表包含化忌。'],
+    ['palace_mutaged_place', 0, '命宫化权入财帛', '命宫化权落财帛宫。'],
+    ['palace_scope_hit', 0, '流年落宫位于命宫', '本命命宫的宫干支为甲子。'],
+    ['scope_dynamic_name', 0, '流年视角下命宫转为财帛', '在流年视角下，命宫对应的动态宫名为财帛。'],
+  ] as const;
+  payload.evidence_pool = facts.map(([type, index, title, description]) => ({
+    id: type,
+    stable_key: type,
+    type,
+    title,
+    description,
+    scope: 'yearly',
+    palace_indexes: [index],
+    palace_names: [payload.palaces[index].name],
+    star_names: ['紫微'],
+    mutagens: [],
+  }));
+  const runtime = { payloadByScope: { yearly: payload } } as ZiweiRuntimeFacts;
+  const options = {
+    runtime,
+    scope: 'yearly' as const,
+    currentTime: new Date('2026-10-03T00:00:00Z'),
+  };
+  assert.doesNotMatch(buildZiweiPrompt(options), /证据资料：/);
+
+  for (const item of payload.evidence_pool) {
+    item.description += '；会照宫有化忌时需合参';
+    item.promptText = `${item.title}：${item.description}`;
+  }
+  const extended = buildZiweiPrompt(options);
+  assert.equal(extended.match(/会照宫有化忌时需合参/gu)?.length, 9);
+  for (const item of payload.evidence_pool) assert.ok(extended.includes(item.promptText!));
+
+  payload.evidence_pool = [
+    {
+      ...payload.evidence_pool[7],
+      title: '流月落宫位于命宫',
+      description: '本命命宫的宫干支为甲子。',
+      promptText: undefined,
+    },
+  ];
+  const otherScope = buildZiweiPrompt(options);
+  assert.match(otherScope, /证据资料：\n\s+流月落宫位于命宫：本命命宫的宫干支为甲子。/u);
+  assert.doesNotMatch(otherScope, /运限命中：流年落宫、流月落宫/u);
 });
 
 test('紫微公共提示词只省略已由所展示宫位表达的四化落点', () => {

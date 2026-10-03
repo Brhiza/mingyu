@@ -368,8 +368,9 @@ function isShownInZiweiPalaces(
   item: AnalysisPayloadV1['evidence_pool'][number],
   palaces: PalaceFact[],
   isOriginScope: boolean,
-  active: AnalysisPayloadV1['active_scope'],
+  payload: AnalysisPayloadV1,
 ) {
+  const active = payload.active_scope;
   if (
     item.status === '资料缺口' ||
     (item.promptText && item.promptText !== `${item.title}：${item.description}`)
@@ -379,7 +380,10 @@ function isShownInZiweiPalaces(
   if (item.type === 'surrounded_mutagen') {
     return palaces.some((palace) =>
       palace.summary_tags.some(
-        (tag) => tag.startsWith('三方四正见化') && item.title === `${palace.name}${tag}`,
+        (tag) =>
+          tag.startsWith('三方四正见化') &&
+          item.title === `${palace.name}${tag}` &&
+          item.description === `${palace.name}及其三方四正宫位中可见化${tag.slice(-1)}信息。`,
       ),
     );
   }
@@ -433,42 +437,67 @@ function isShownInZiweiPalaces(
     case 'palace_major_stars':
       return (
         item.title ===
-        `${palace.name}主星为${palace.major_stars.map((star) => star.name).join('、')}`
+          `${palace.name}主星为${palace.major_stars.map((star) => star.name).join('、')}` &&
+        item.description ===
+          `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`
       );
     case 'palace_empty':
-      return palace.empty_state && item.title === `${palace.name}为空宫`;
+      return (
+        palace.empty_state &&
+        item.title === `${palace.name}为空宫` &&
+        item.description ===
+          `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`
+      );
     case 'palace_birth_mutagen':
       return stars.some(
         (star) =>
           item.title === `${palace.name}见生年化${star.birth_mutagen}` &&
-          item.star_names.includes(star.name),
+          item.star_names.includes(star.name) &&
+          item.description === `${star.name}在${palace.name}带有生年化${star.birth_mutagen}。`,
       );
     case 'palace_scope_mutagen':
       return (
         !isOriginScope &&
         stars.some(
           (star) =>
-            item.title.endsWith(`化${star.active_scope_mutagen}`) &&
-            item.star_names.includes(star.name),
+            item.title ===
+              `${palace.name}见${active.label || SCOPE_LABELS[active.scope]}化${star.active_scope_mutagen}` &&
+            item.star_names.includes(star.name) &&
+            item.description === `${star.name}在当前运限下带有化${star.active_scope_mutagen}。`,
         )
       );
     case 'palace_self_mutaged':
       return (palace.self_mutagens ?? []).some(
-        (mutagen) => item.title === `${palace.name}出现自化${mutagen}`,
+        (mutagen) =>
+          item.title === `${palace.name}出现自化${mutagen}` &&
+          item.description === `${palace.name}的自化列表包含化${mutagen}。`,
       );
     case 'palace_mutaged_place':
       return (palace.mutaged_palaces ?? []).some(
-        (target) => item.title === `${palace.name}化${target.mutagen}入${target.palace_name}`,
+        (target) =>
+          item.title === `${palace.name}化${target.mutagen}入${target.palace_name}` &&
+          item.description ===
+            (target.palace_index === palace.index
+              ? `${palace.name}化${target.mutagen}回入本宫。`
+              : `${palace.name}化${target.mutagen}落${target.palace_name}宫。`),
       );
     case 'palace_scope_hit':
       return (
-        !isOriginScope && palace.scope_hits.some((hit) => item.title === `${hit}位于${palace.name}`)
+        !isOriginScope &&
+        getSelectedScopeHits(payload, palace).some(
+          (hit) => item.title === `${hit}位于${palace.name}`,
+        ) &&
+        item.description ===
+          `本命${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}的宫干支为${palace.heavenly_stem}${palace.earthly_branch}。`
       );
     case 'scope_dynamic_name':
       return (
         !isOriginScope &&
         Boolean(palace.dynamic_scope_name) &&
-        item.title.endsWith(`${palace.name}转为${palace.dynamic_scope_name}`)
+        item.title ===
+          `${active.label || SCOPE_LABELS[active.scope]}视角下${palace.name}转为${palace.dynamic_scope_name}` &&
+        item.description ===
+          `在${active.label || SCOPE_LABELS[active.scope]}视角下，${palace.name}对应的动态宫名为${palace.dynamic_scope_name}。`
       );
     default:
       return false;
@@ -496,7 +525,7 @@ export function formatZiweiPayloadForPrompt(
   const isOriginScope = active.scope === 'origin';
   const evidenceItems = payload.evidence_pool
     .filter((item) => item.scope === 'origin' || item.scope === active.scope)
-    .filter((item) => !isShownInZiweiPalaces(item, selectedPalaces, isOriginScope, active))
+    .filter((item) => !isShownInZiweiPalaces(item, selectedPalaces, isOriginScope, payload))
     .map((item) => {
       const level = item.level ? `【${item.level}】` : '';
       const detail = item.promptText || item.description;

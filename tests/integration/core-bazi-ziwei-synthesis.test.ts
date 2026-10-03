@@ -198,6 +198,64 @@ test('合参提示词应支持不同解读层级并保持完整任务结构', as
   assert.match(prompt, /【共同盘面资料】/);
   assert.equal(prompt.split(`${repeatedPattern.title}：${repeatedPattern.detail}`).length - 1, 1);
   assert.doesNotMatch(prompt, /同时参照【共同盘面资料】/);
+
+  const runtime = reading.bundle.ziwei;
+  assert.ok(runtime);
+  const yearly = runtime.payloadByScope.yearly;
+  assert.ok(yearly);
+  const destination = yearly.evidence_pool.find(
+    (fact) =>
+      fact.type === 'scope_mutagen_destination' &&
+      fact.scope === 'yearly' &&
+      fact.status === '已记录',
+  );
+  assert.ok(destination);
+  const yearlyEvidence = yearly.evidence_pool.filter((fact) => fact.scope === 'yearly');
+  assert.ok(yearlyEvidence.length > 12);
+  assert.ok(yearlyEvidence.indexOf(destination) < 12);
+  const mapping = yearly.active_scope.mutagen_map.find(
+    (item) => item.star === destination.star_names[0] && item.mutagen === destination.mutagens[0],
+  );
+  assert.ok(mapping?.palace_name);
+  const summary = `${mapping.star}化${mapping.mutagen}入${mapping.palace_name}`;
+  const timing = reading.synthesis.themes.find((theme) => theme.id === 'timing');
+  const yearlyFact = timing?.ziweiEvidence.find((fact) => fact.scope === 'yearly');
+  assert.ok(yearlyFact);
+  assert.equal(yearlyFact.detail.split('；').includes(summary), false);
+  assert.ok(prompt.includes(destination.promptText ?? destination.description));
+  assert.ok(prompt.includes(`当前${yearly.active_scope.label}`));
+  assert.ok(yearlyFact.sourceKeys.includes(destination.key ?? destination.stable_key));
+
+  const baselineRuntime = JSON.stringify(runtime.payloadByScope);
+  for (const control of ['缺项', '截断', '附加条件', '错星', '错宫', '独立正文'] as const) {
+    const pool = structuredClone(yearly.evidence_pool);
+    const index = pool.findIndex((fact) => fact.key === destination.key);
+    if (control === '缺项') pool.splice(index, 1);
+    if (control === '截断') pool.push(...pool.splice(index, 1));
+    if (control === '附加条件') {
+      pool[index].description += '；另有本次独立条件';
+      pool[index].promptText = `${pool[index].title}：${pool[index].description}`;
+    }
+    if (control === '错星') pool[index].star_names = ['其他星曜'];
+    if (control === '错宫') pool[index].palace_indexes = [-1];
+    if (control === '独立正文') pool[index].promptText = '本次另列的四化条件';
+    const synthesis = buildBaziZiweiSynthesis({
+      bazi: reading.bundle.bazi,
+      ziwei: {
+        ...runtime,
+        payloadByScope: { ...runtime.payloadByScope, yearly: { ...yearly, evidence_pool: pool } },
+      },
+    });
+    const fact = synthesis.themes
+      .find((theme) => theme.id === 'timing')
+      ?.ziweiEvidence.find((item) => item.scope === 'yearly');
+    assert.ok(fact?.detail.split('；').includes(summary), control);
+    const text = formatBaziZiweiSynthesisForPrompt(synthesis);
+    assert.ok(text.includes(summary), control);
+    if (control === '附加条件') assert.ok(text.includes('另有本次独立条件'));
+    if (control === '独立正文') assert.ok(text.includes('本次另列的四化条件'));
+    assert.equal(JSON.stringify(runtime.payloadByScope), baselineRuntime);
+  }
 });
 
 test('运限证据超过展示范围时合参任务书明确标出未列条数', async () => {

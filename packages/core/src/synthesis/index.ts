@@ -495,6 +495,41 @@ function createZiweiThemeFacts(
           : [];
         // 来源键与实际写入 detail 的证据保持同一范围，避免登记范围大于实际使用范围
         const usedEvidence = relevantEvidence.slice(0, 12);
+        const remainingMutagens = active.mutagen_map.filter((mapping) => {
+          const target = runtime.payloadByScope.origin?.palaces.find(
+            (palace) => palace.index === mapping.palace_index,
+          );
+          if (
+            !landingPalace ||
+            !target ||
+            !active.label ||
+            !mapping.palace_name ||
+            normalizePalaceName(mapping.palace_name) !== normalizePalaceName(target.name)
+          ) {
+            return true;
+          }
+          const targetName = `${normalizePalaceName(target.name)}宫`;
+          const landingName = `${normalizePalaceName(landingPalace.name)}宫`;
+          const dynamicName = mapping.dynamic_palace_name
+            ? `${normalizePalaceName(mapping.dynamic_palace_name)}宫`
+            : '';
+          const title = `${active.label}${mapping.star}化${mapping.mutagen}入本命${targetName}${dynamicName ? `（当前${active.label}${dynamicName}）` : ''}`;
+          const description = `${active.label}四化序列中的${mapping.star}对应化${mapping.mutagen}；该星的本命物理落宫为${targetName}${dynamicName ? `，当前对应${active.label}${dynamicName}` : ''}，运限命宫落于本命${landingName}。`;
+          return !usedEvidence.some(
+            (fact) =>
+              fact.type === 'scope_mutagen_destination' &&
+              fact.scope === active.scope &&
+              fact.status === '已记录' &&
+              fact.star_names.length === 1 &&
+              fact.star_names[0] === mapping.star &&
+              fact.mutagens.length === 1 &&
+              fact.mutagens[0] === mapping.mutagen &&
+              fact.palace_indexes.includes(target.index) &&
+              fact.title === title &&
+              fact.description === description &&
+              (fact.promptText ?? fact.description) === `${title}：${description}`,
+          );
+        });
         return [
           {
             key: `ziwei:synthesis:${active.scope}:active`,
@@ -504,7 +539,7 @@ function createZiweiThemeFacts(
             detail: unique([
               `${active.solar_date}，虚岁${active.nominal_age}`,
               landingPalace ? `运限命宫落${landingPalace.name}` : '',
-              ...active.mutagen_map.map(
+              ...remainingMutagens.map(
                 (item) =>
                   `${item.star}化${item.mutagen}${item.palace_name ? `入${item.palace_name}` : ''}`,
               ),

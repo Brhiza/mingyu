@@ -567,7 +567,10 @@ export function getDivinationSummaryBlocks(
           : [];
       return {
         title: '雷诺曼抽牌结果',
-        tags: [`牌阵：${item.spreadName}`, `张数：${item.cards.length}张`],
+        tags: [
+          `牌阵：${evidence.spreadCoverageFact.expectedSpreadName ?? item.spreadName}`,
+          `张数：${item.cards.length}张`,
+        ],
         lines: [
           wrapMainEvidence(
             evidence.cards

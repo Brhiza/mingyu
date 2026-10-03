@@ -1306,4 +1306,8 @@ test('雷诺曼牌阵名称不符时按牌阵类型显示规范名称', () => {
   assert.match(prompt, /核心结构：牌阵三牌事件线；共3张牌/u);
   assert.doesNotMatch(prompt, /九宫牌阵/u);
   assert.doesNotMatch(prompt, /来源链|算法标识|随机样本|随机轨迹/u);
+  assert.deepEqual(getDivinationSummaryBlocks('lenormand', data).tags, [
+    '牌阵：三牌事件线',
+    '张数：3张',
+  ]);
 });

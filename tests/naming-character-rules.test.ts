@@ -176,12 +176,15 @@ test('辈分字保留所填字形且繁简冲突与同字重复都能识别', ()
 test('拼音检索兼容声调和键盘输入并区分ü与u', () => {
   const chars = (pinyin: string) =>
     selectChineseCharacters({ pinyin, limit: 200 }).map((item) => item.char);
+  const lvChars = chars('lv');
   for (const query of ['lǚ', 'lü', 'lv', ' LV3 ', 'lu:3']) {
-    assert.ok(chars(query).includes('吕'), query);
-    assert.deepEqual(chars(query), chars('lv'), query);
+    const matched = chars(query);
+    assert.ok(matched.includes('吕'), query);
+    assert.deepEqual(matched, lvChars, query);
   }
-  assert.ok(!chars('lu').includes('吕'));
-  assert.ok(chars('lu').includes('路'));
+  const luChars = chars('lu');
+  assert.ok(!luChars.includes('吕'));
+  assert.ok(luChars.includes('路'));
   assert.deepEqual(chars('nǚ'), chars('nv3'));
   assert.deepEqual(chars('yuè'), chars('yue4'));
 });
