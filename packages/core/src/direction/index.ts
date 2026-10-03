@@ -7,7 +7,13 @@
 import { NineStar, Zone } from 'tyme4ts';
 
 /** 八卦（后天方位） */
-export const BAGUA: string[] = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
+const CANONICAL_BAGUA: string[] = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
+export const BAGUA: string[] = [...CANONICAL_BAGUA];
+
+/** 后天方位顺序的八卦名称；每次返回独立数组。 */
+export function getBaguaNames(): string[] {
+  return [...CANONICAL_BAGUA];
+}
 
 /** 八卦方位（后天八卦） */
 export const BAGUA_DIRECTION: Record<string, string> = {
@@ -34,7 +40,7 @@ export const BAGUA_DEGREE: Record<string, number> = {
 };
 
 /** 二十四山（罗盘顺序，自正北子山起顺时针） */
-export const TWENTY_FOUR_MOUNTAINS: string[] = [
+const CANONICAL_TWENTY_FOUR_MOUNTAINS: string[] = [
   '子',
   '癸',
   '丑',
@@ -60,6 +66,12 @@ export const TWENTY_FOUR_MOUNTAINS: string[] = [
   '亥',
   '壬',
 ];
+export const TWENTY_FOUR_MOUNTAINS: string[] = [...CANONICAL_TWENTY_FOUR_MOUNTAINS];
+
+/** 自正北子山起顺时针的二十四山名称；每次返回独立数组。 */
+export function getTwentyFourMountainNames(): string[] {
+  return [...CANONICAL_TWENTY_FOUR_MOUNTAINS];
+}
 
 export interface CompassMountainPosition {
   /** 归一化后的罗盘度数；360° 归入 0°。 */
@@ -165,13 +177,14 @@ function normalizeCompassDegree(degree: number): number {
 export function getMountainFromDegree(degree: number): CompassMountainPosition {
   const normalized = normalizeCompassDegree(degree);
   const index = Math.floor(((normalized + 7.5) % 360) / 15);
-  const mountain = TWENTY_FOUR_MOUNTAINS[index];
+  const mountain = CANONICAL_TWENTY_FOUR_MOUNTAINS[index];
   const centerDegree = index * 15;
   const boundaryRemainder = (((normalized - 7.5) % 15) + 15) % 15;
   const isBoundary =
     boundaryRemainder < Number.EPSILON * 16 ||
     Math.abs(boundaryRemainder - 15) < Number.EPSILON * 16;
-  const previousIndex = (index + TWENTY_FOUR_MOUNTAINS.length - 1) % TWENTY_FOUR_MOUNTAINS.length;
+  const previousIndex =
+    (index + CANONICAL_TWENTY_FOUR_MOUNTAINS.length - 1) % CANONICAL_TWENTY_FOUR_MOUNTAINS.length;
 
   return {
     degree: normalized,
@@ -182,7 +195,12 @@ export function getMountainFromDegree(degree: number): CompassMountainPosition {
     endDegree: (centerDegree + 7.5) % 360,
     isBoundary,
     ...(isBoundary
-      ? { boundaryMountains: [TWENTY_FOUR_MOUNTAINS[previousIndex], mountain] as [string, string] }
+      ? {
+          boundaryMountains: [CANONICAL_TWENTY_FOUR_MOUNTAINS[previousIndex], mountain] as [
+            string,
+            string,
+          ],
+        }
       : {}),
   };
 }
@@ -485,8 +503,8 @@ export function getHouseTrigramFromSitFacing(sitMountain: string): string {
     if (match) {
       const sit = sitMountain[0];
       const facing = sitMountain[2];
-      const index = TWENTY_FOUR_MOUNTAINS.indexOf(sit);
-      if (index < 0 || TWENTY_FOUR_MOUNTAINS[(index + 12) % 24] !== facing) {
+      const index = CANONICAL_TWENTY_FOUR_MOUNTAINS.indexOf(sit);
+      if (index < 0 || CANONICAL_TWENTY_FOUR_MOUNTAINS[(index + 12) % 24] !== facing) {
         throw new Error(`坐向须为相对的二十四山：${sitMountain}`);
       }
       return getHouseTrigram(sit);
@@ -535,7 +553,7 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
   }
   const row = BA_ZHAI_TABLE[baseGua];
   if (!row) throw new Error(`基准卦无效（需为八卦之一）：${baseGua}`);
-  return BAGUA.map((gua, i) => ({
+  return CANONICAL_BAGUA.map((gua, i) => ({
     gua,
     direction: BAGUA_DIRECTION[gua],
     degree: BAGUA_DEGREE[gua],
@@ -546,7 +564,7 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
 
 /** 命卦所属东四/西四 */
 export function getEastWestGroup(gua: string): '东四命' | '西四命' {
-  if (!BAGUA.includes(gua)) {
+  if (!CANONICAL_BAGUA.includes(gua)) {
     throw new Error(`八卦无效：${gua}`);
   }
   return ['坎', '离', '震', '巽'].includes(gua) ? '东四命' : '西四命';
@@ -585,6 +603,8 @@ export const direction = {
   FOUR_ZONES,
   NINE_STARS,
   MOUNTAIN_TO_BAGUA,
+  getBaguaNames,
+  getTwentyFourMountainNames,
   getNineStarProfile,
   getMountainFromDegree,
   getSitFacingFromFacingDegree,

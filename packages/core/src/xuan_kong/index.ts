@@ -14,7 +14,7 @@ import {
 
 import {
   getMountainFromDegree,
-  TWENTY_FOUR_MOUNTAINS,
+  getTwentyFourMountainNames,
   type CompassMountainPosition,
 } from '../direction';
 import { buildPromptTask } from '../prompt/guidance';
@@ -37,6 +37,8 @@ import {
   type ShanXiangRelation,
   type XuanKongFlowStars,
 } from './period-stars';
+
+const TWENTY_FOUR_MOUNTAINS = getTwentyFourMountainNames();
 
 export {
   evaluateCastleGate,
