@@ -22,6 +22,10 @@ import {
   type ZiweiHoroscopeResolver,
 } from '../packages/core/src/ziwei/iztro/decadal';
 import { buildAnalysisPayloadV1 } from '../packages/core/src/ziwei/iztro/build-analysis-payload/index';
+import {
+  buildZiweiCalculationConfig,
+  DEFAULT_ZIWEI_CALCULATION_CONFIG,
+} from '../packages/core/src/ziwei/iztro/runtime-helpers';
 import { buildEvidencePool } from '../packages/core/src/ziwei/iztro/build-evidence-pool';
 import { buildNormalZiweiFortuneBatchTimelineFromAstrolabe } from '../packages/core/src/ziwei/fortune-timeline';
 import { buildSerializableZiweiResult } from '../packages/core/src/prompt/ziwei';
@@ -283,6 +287,58 @@ test('紫微同一星盘上当前 scope 不越层且年龄年批次复用运限�
     currentScope: 'yearly',
     skipAnalysis: true,
   }).palaces;
+
+  const savedDefaultConfig = { ...DEFAULT_ZIWEI_CALCULATION_CONFIG };
+  const explicitConfig = buildZiweiCalculationConfig(input);
+  const savedExplicitConfig = { ...explicitConfig };
+  const formatPayload = (payload: ReturnType<typeof buildAnalysisPayloadV1>) =>
+    buildZiweiPrompt({
+      runtime: {
+        astrolabe,
+        horoscope,
+        horoscopeContext: currentContext,
+        payloadByScope: { yearly: payload } as Parameters<
+          typeof buildZiweiPrompt
+        >[0]['runtime']['payloadByScope'],
+        decadalTimeline: [],
+      },
+      scope: 'yearly',
+      question: '请解读本次流年盘面。',
+      currentTime: new Date('2026-10-04T00:00:00Z'),
+    });
+  try {
+    for (const calculationConfig of [undefined, explicitConfig]) {
+      const params = {
+        astrolabe,
+        horoscope,
+        currentScope: 'yearly' as const,
+        skipAnalysis: true,
+        calculationConfig,
+      };
+      const first = buildAnalysisPayloadV1(params);
+      const baseline = structuredClone(first);
+      const baselinePrompt = formatPayload(first);
+      assert.equal(first.calculation_config.year_divide_rule, '以农历正月初一分年');
+      assert.equal(first.calculation_config.algorithm, 'default');
+      assert.equal(first.calculation_config.fix_leap, true);
+      assert.notEqual(
+        first.calculation_config,
+        calculationConfig ?? DEFAULT_ZIWEI_CALCULATION_CONFIG,
+      );
+      first.calculation_config.algorithm_basis = '被返回对象改写的规则依据';
+      first.calculation_config.year_divide_rule = '被返回对象改写的年界';
+      first.calculation_config.fix_leap = false;
+      const fresh = buildAnalysisPayloadV1(params);
+      assert.notEqual(fresh.calculation_config, first.calculation_config);
+      assert.deepEqual(fresh, baseline);
+      assert.equal(formatPayload(fresh), baselinePrompt);
+    }
+    assert.deepEqual(DEFAULT_ZIWEI_CALCULATION_CONFIG, savedDefaultConfig);
+    assert.deepEqual(explicitConfig, savedExplicitConfig);
+  } finally {
+    Object.assign(DEFAULT_ZIWEI_CALCULATION_CONFIG, savedDefaultConfig);
+    Object.assign(explicitConfig, savedExplicitConfig);
+  }
 
   const buildCountingHoroscope = () => {
     const calls: string[] = [];

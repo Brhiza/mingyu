@@ -499,6 +499,7 @@ export function* scanAstrolabeDynamicRange(
   request: AstrolabeDynamicRangeRequest,
   options: AstrolabeBirthRangeOptions = {},
 ): Generator<AstrolabeDynamicRangeBranch, AstrolabeDynamicRangeSummary, void> {
+  options = { ...options };
   const lockedInput = { ...input };
   const lockedRange = { ...range };
   const total = validateAstrolabeRangeInput(lockedInput, lockedRange);

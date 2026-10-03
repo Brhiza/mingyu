@@ -6,11 +6,22 @@
  */
 
 /** 十天干（顺序） */
-export const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+export const HEAVENLY_STEMS = Object.freeze([
+  '甲',
+  '乙',
+  '丙',
+  '丁',
+  '戊',
+  '己',
+  '庚',
+  '辛',
+  '壬',
+  '癸',
+] as const);
 export type HeavenlyStem = (typeof HEAVENLY_STEMS)[number];
 
 /** 十二地支（顺序） */
-export const EARTHLY_BRANCHES = [
+export const EARTHLY_BRANCHES = Object.freeze([
   '子',
   '丑',
   '寅',
@@ -23,11 +34,11 @@ export const EARTHLY_BRANCHES = [
   '酉',
   '戌',
   '亥',
-] as const;
+] as const);
 export type EarthlyBranch = (typeof EARTHLY_BRANCHES)[number];
 
 /** 十二生肖（与地支一一对应） */
-export const ZODIACS = [
+export const ZODIACS = Object.freeze([
   '鼠',
   '牛',
   '虎',
@@ -40,16 +51,20 @@ export const ZODIACS = [
   '鸡',
   '狗',
   '猪',
-] as const;
+] as const);
 
 /** 六十甲子（甲子起，癸亥止）。 */
-export const SIXTY_CYCLE: readonly string[] = Array.from(
-  { length: 60 },
-  (_, index) => `${HEAVENLY_STEMS[index % 10]}${EARTHLY_BRANCHES[index % 12]}`,
+export const SIXTY_CYCLE: readonly string[] = Object.freeze(
+  Array.from(
+    { length: 60 },
+    (_, index) => `${HEAVENLY_STEMS[index % 10]}${EARTHLY_BRANCHES[index % 12]}`,
+  ),
 );
 
 /** 六旬旬首（每旬第一个甲日/甲时）。 */
-export const SIX_XUN_HEADS: readonly string[] = SIXTY_CYCLE.filter((_, index) => index % 10 === 0);
+export const SIX_XUN_HEADS: readonly string[] = Object.freeze(
+  SIXTY_CYCLE.filter((_, index) => index % 10 === 0),
+);
 
 /** 天干五行 */
 export const STEM_WUXING: Record<string, string> = {
@@ -172,7 +187,7 @@ export const NAYIN_WUXING: Record<string, string> = {
 };
 
 /** 十二长生次序 */
-export const CHANGSHENG_ORDER = [
+export const CHANGSHENG_ORDER = Object.freeze([
   '长生',
   '沐浴',
   '冠带',
@@ -185,7 +200,7 @@ export const CHANGSHENG_ORDER = [
   '绝',
   '胎',
   '养',
-] as const;
+] as const);
 export type ChangShengState = (typeof CHANGSHENG_ORDER)[number];
 
 /** 五行长生起地支（火土同宫，土长生在寅） */

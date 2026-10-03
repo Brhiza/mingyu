@@ -341,7 +341,7 @@ export const BRANCH_ORDER: readonly string[] = EARTHLY_BRANCHES;
  */
 export const STEM_ORDER: readonly string[] = HEAVENLY_STEMS;
 
-export const WUXING = ['木', '火', '土', '金', '水'] as const;
+export const WUXING = Object.freeze(['木', '火', '土', '金', '水'] as const);
 export type Wuxing = (typeof WUXING)[number];
 
 export const SHENG_MAP: Record<string, string> = {

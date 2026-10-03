@@ -152,29 +152,54 @@ async function withWorker(run: () => Promise<void>) {
   }
 }
 
-test('动态区间保存当前段完成后才拉取下一段，最终只返回汇总', async () => {
+test('动态区间保存当前段完成后才拉取下一段，最终只返回汇总', async (context) => {
   await withWorker(async () => {
     let saved!: () => void;
     const saving = new Promise<void>((resolve) => {
       saved = resolve;
     });
     const received: AstrolabeDynamicRangeBranch[] = [];
-    const pending = executeAstrolabeDynamicRangeWorker(input, source, request, async (value) => {
-      received.push(value);
-      await saving;
-    });
+    const controller = new AbortController();
+    const replacement = new AbortController();
+    const removedOriginal = context.mock.method(controller.signal, 'removeEventListener');
+    const removedReplacement = context.mock.method(replacement.signal, 'removeEventListener');
+    const progress: Array<[number, number]> = [];
+    const replacementProgress: Array<[number, number]> = [];
+    const options = {
+      signal: controller.signal,
+      onProgress: (completed: number, total: number) => progress.push([completed, total]),
+    };
+    const pending = executeAstrolabeDynamicRangeWorker(
+      input,
+      source,
+      request,
+      async (value) => {
+        received.push(value);
+        await saving;
+      },
+      options,
+    );
     const worker = FakeWorker.current;
     assert.equal(worker.posted[0].type, 'start');
     worker.emit({ type: 'branch', branch });
     await Promise.resolve();
     assert.equal(worker.posted.length, 1);
+    options.signal = replacement.signal;
+    options.onProgress = (completed, total) => replacementProgress.push([completed, total]);
     saved();
     await saving;
     await Promise.resolve();
     assert.deepEqual(worker.posted[1], { type: 'next' });
+    worker.emit({ type: 'progress', completed: 2, total: 2 });
     worker.emit({ type: 'complete', summary });
     assert.deepEqual(await pending, summary);
     assert.deepEqual(received, [branch]);
+    assert.deepEqual(progress, [[2, 2]]);
+    assert.deepEqual(replacementProgress, []);
+    assert.equal(removedOriginal.mock.callCount(), 1);
+    assert.equal(removedOriginal.mock.calls[0].arguments[0], 'abort');
+    assert.equal(removedReplacement.mock.callCount(), 0);
+    assert.equal(options.signal, replacement.signal);
     assert.equal(worker.terminated, true);
   });
 });

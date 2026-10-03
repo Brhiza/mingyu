@@ -7,6 +7,7 @@ import {
   generateAstrolabeBirthRange,
   getAstrolabeBirthRangeDiscreteFingerprint,
   isAstrolabeBirthRangeSource,
+  type AstrolabeBirthRangeOptions,
 } from 'mingyu-core/divination/astrolabe-birth-range';
 import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
 import { formatAstrolabeBirthRangeFacts } from '../src/lib/astrolabe-birth-range-prompt';
@@ -221,16 +222,21 @@ test('西占本命区间锁定输入与半开整秒边界并逐秒复现完整�
   const progress: Array<[number, number]> = [];
   const mutableInput = inputAt(start);
   const mutableSource = { startTimestamp: start, endTimestamp: end };
-  const range = generateAstrolabeBirthRange(mutableInput, mutableSource, {
+  const replacementController = new AbortController();
+  replacementController.abort();
+  const mutableOptions: AstrolabeBirthRangeOptions = {
     onProgress: (completed, total) => {
       progress.push([completed, total]);
       if (completed === 1) {
         mutableInput.longitude = '-74.0060';
         mutableSource.startTimestamp += 3_600_000;
         mutableSource.endTimestamp += 3_600_000;
+        mutableOptions.signal = replacementController.signal;
+        mutableOptions.onProgress = () => assert.fail('进度回调应沿用本次调用开始时的选项');
       }
     },
-  });
+  };
+  const range = generateAstrolabeBirthRange(mutableInput, mutableSource, mutableOptions);
 
   assert.equal(range.coverage, 'natal');
   assert.equal(range.status, 'stable');
@@ -411,12 +417,19 @@ test('西占本命区间支持取消并拒绝时区、错位、非整秒和超�
   );
 
   const lastSample = new AbortController();
+  const lastSampleOptions: AstrolabeBirthRangeOptions = {
+    signal: lastSample.signal,
+    onProgress: () => {
+      lastSampleOptions.signal = undefined;
+      lastSample.abort();
+    },
+  };
   assert.throws(
     () =>
       generateAstrolabeBirthRange(
         inputAt(start),
         { startTimestamp: start, endTimestamp: start + SECOND },
-        { signal: lastSample.signal, onProgress: () => lastSample.abort() },
+        lastSampleOptions,
       ),
     /已取消/u,
   );

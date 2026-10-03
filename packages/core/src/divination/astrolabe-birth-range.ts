@@ -744,6 +744,7 @@ export function generateAstrolabeBirthRange(
   range: AstrolabeBirthRangeInput,
   options: AstrolabeBirthRangeOptions = {},
 ): AstrolabeBirthRange {
+  options = { ...options };
   const lockedInput = { ...input };
   const lockedRange = { ...range };
   const total = validateAstrolabeRangeInput(lockedInput, lockedRange);

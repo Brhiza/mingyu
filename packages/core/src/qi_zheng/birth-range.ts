@@ -724,6 +724,7 @@ export function generateQizhengBirthRange(
   range: QizhengBirthRangeInput,
   options: QizhengBirthRangeOptions = {},
 ): QizhengBirthRange {
+  options = { ...options };
   const total = assertRange(range);
   assertNatalOnlyInput(input);
   assertInputMatchesStart(input, range.startTimestamp);

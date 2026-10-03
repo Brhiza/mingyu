@@ -35,13 +35,24 @@ const start = Date.parse('2024-03-20T11:00:00+08:00');
 const independentNatalCharts = [0, 1, 2].map((second) =>
   generateAstrolabe({ ...input, second: String(second) }),
 );
-const fixedDailyScopeSample = (() => {
-  const natal = structuredClone(independentNatalCharts[0]!);
+const sharedFullContextsMarch2028: Array<
+  ReturnType<typeof buildAstrolabeFullScopeContexts> | undefined
+> = [];
+
+function getIndependentFullContexts(secondIndex: number) {
+  sharedFullContextsMarch2028[secondIndex] ??= buildAstrolabeFullScopeContexts(
+    structuredClone(independentNatalCharts[secondIndex]!),
+    '2028-03-20',
+  );
+  return structuredClone(sharedFullContextsMarch2028[secondIndex]!);
+}
+
+function getIndependentDailySample() {
   return {
-    natal,
-    scopes: [buildAstrolabeScopeContext(natal, 'daily', '2028-03-20')],
+    natal: structuredClone(independentNatalCharts[0]!),
+    scopes: [getIndependentFullContexts(0).daily],
   };
-})();
+}
 
 test('精确周期缓存跨本命、经纬度和目标范围复用时保留逐项结果', () => {
   const calculationCache = new AstrolabePeriodCalculationCache();
@@ -99,16 +110,15 @@ test('流年、流月、流日和完整范围锁定输入与目标并逐出生�
     assert.equal(result.source.startTimestamp, start);
     assert.equal(result.source.endTimestamp, start + 3000);
     const independent = independentNatalCharts.map((birthChart, secondIndex) => {
-      if (request.scope === 'daily' && secondIndex === 0) {
-        return structuredClone(fixedDailyScopeSample);
-      }
       const natal = structuredClone(birthChart);
       return {
         natal,
         scopes:
           request.scope === 'full'
-            ? Object.values(buildAstrolabeFullScopeContexts(natal, request.referenceDate))
-            : [buildAstrolabeScopeContext(natal, request.scope, request.referenceDate)],
+            ? Object.values(getIndependentFullContexts(secondIndex))
+            : request.scope === 'monthly' || request.scope === 'daily'
+              ? [getIndependentFullContexts(secondIndex)[request.scope]]
+              : [buildAstrolabeScopeContext(natal, request.scope, request.referenceDate)],
       };
     });
     let cursor = start;
@@ -189,7 +199,7 @@ test('流年、流月、流日和完整范围锁定输入与目标并逐出生�
 });
 
 test('动态离散变化独立于本命盘，事件时刻微移进入连续统计', () => {
-  const sample = structuredClone(fixedDailyScopeSample);
+  const sample = getIndependentDailySample();
   const baseline = projectAstrolabeDynamicSample(sample);
   const changed = structuredClone(sample);
   const aspect = changed.scopes[0].transitFacts!.facts[0];
@@ -426,14 +436,26 @@ test('动态范围沿用整秒来源校验，取消不返回部分结果', () =>
   );
   assert.equal(completed, 1);
   const last = new AbortController();
+  const lastOptions: {
+    signal?: AbortSignal;
+    onProgress: () => void;
+  } = {
+    signal: last.signal,
+    onProgress: () => {
+      lastOptions.signal = undefined;
+      last.abort();
+    },
+  };
   assert.throws(
     () =>
       generateAstrolabeDynamicRange(
         input,
         { startTimestamp: start, endTimestamp: start + 1000 },
         request,
-        { signal: last.signal, onProgress: () => last.abort() },
+        lastOptions,
       ),
     /取消/,
   );
+  assert.equal(last.signal.aborted, true);
+  assert.equal(lastOptions.signal, undefined);
 });

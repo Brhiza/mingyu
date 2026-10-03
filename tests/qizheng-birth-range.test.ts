@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import { getCivilDateTimeAtFixedOffset } from '../packages/core/src/calendar/civil-time.ts';
 import { generateQizheng, type QizhengInput } from '../packages/core/src/qi_zheng/index.ts';
-import { generateQizhengBirthRange } from '../packages/core/src/qi_zheng/birth-range.ts';
+import {
+  generateQizhengBirthRange,
+  type QizhengBirthRangeOptions,
+} from '../packages/core/src/qi_zheng/birth-range.ts';
 
 const OFFSET_HOURS = 8;
 const SECOND = 1_000;
@@ -232,15 +235,26 @@ test('七政本命区间支持单秒范围与进度回调', () => {
 
   const mutableInput = inputAt(start);
   const mutableRange = { startTimestamp: start, endTimestamp: start + 2 * SECOND };
-  const lockedRange = generateQizhengBirthRange(mutableInput, mutableRange, {
-    onProgress: (completed) => {
+  const lockedProgress: Array<[number, number]> = [];
+  const replacementController = new AbortController();
+  replacementController.abort();
+  const mutableOptions: QizhengBirthRangeOptions = {
+    onProgress: (completed, total) => {
+      lockedProgress.push([completed, total]);
       if (completed === 1) {
         mutableInput.longitude = 0;
         mutableRange.startTimestamp += SECOND;
         mutableRange.endTimestamp += SECOND;
+        mutableOptions.signal = replacementController.signal;
+        mutableOptions.onProgress = () => assert.fail('进度回调应沿用本次调用开始时的选项');
       }
     },
-  });
+  };
+  const lockedRange = generateQizhengBirthRange(mutableInput, mutableRange, mutableOptions);
+  assert.deepEqual(lockedProgress, [
+    [1, 2],
+    [2, 2],
+  ]);
   assert.equal(lockedRange.source.startTimestamp, start);
   assert.equal(lockedRange.source.endTimestamp, start + 2 * SECOND);
   assert.equal(lockedRange.branches.at(-1)?.endTimestamp, start + 2 * SECOND);
@@ -269,18 +283,20 @@ test('七政本命区间支持取消且不吞掉取消状态', () => {
   );
 
   const lastSampleController = new AbortController();
+  const lastSampleOptions: QizhengBirthRangeOptions = {
+    onProgress: (completed, total) => {
+      assert.deepEqual([completed, total], [1, 1]);
+      lastSampleOptions.signal = undefined;
+      lastSampleController.abort();
+    },
+    signal: lastSampleController.signal,
+  };
   assert.throws(
     () =>
       generateQizhengBirthRange(
         inputAt(start),
         { startTimestamp: start, endTimestamp: start + SECOND },
-        {
-          onProgress: (completed, total) => {
-            assert.deepEqual([completed, total], [1, 1]);
-            lastSampleController.abort();
-          },
-          signal: lastSampleController.signal,
-        },
+        lastSampleOptions,
       ),
     /已取消/u,
   );
