@@ -11,6 +11,7 @@ import {
   getQizhengSignBranch,
   longitudeToQizhengMansion,
   QIZHENG_MANSION_MODEL,
+  QIZHENG_MANSION_STARS,
   QIZHENG_POSITION_SOURCES,
   QIZHENG_SIGN_BRANCHES,
   ZIQI_MODEL_INFO,
@@ -224,6 +225,9 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
 
   const original = structuredClone(result);
+  const originalSignBranches = [...QIZHENG_SIGN_BRANCHES];
+  const originalMansionStars = [...QIZHENG_MANSION_STARS];
+  const originalMansionStarValues = originalMansionStars.map((star) => ({ ...star }));
   try {
     Reflect.set(result.mansionModel, 'id', '变造模型身份');
     Reflect.set(result.mansionModel, 'mappingSource', '变造星宿对应资料');
@@ -242,6 +246,22 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
     assert.deepEqual(QIZHENG_MANSION_MODEL, original.mansionModel);
     assert.deepEqual(ZIQI_MODEL_INFO, original.ziqiModel);
     assert.deepEqual(QIZHENG_POSITION_SOURCES, original.positionSources);
+
+    Reflect.set(QIZHENG_SIGN_BRANCHES, 2, '子');
+    const ziMansionStar = QIZHENG_MANSION_STARS.find((star) => star.mansion === '觜');
+    assert.ok(ziMansionStar);
+    const originalZiRa = ziMansionStar.raJ2000Degrees;
+    ziMansionStar.raJ2000Degrees += 0.1;
+    Reflect.set(QIZHENG_MANSION_STARS, 'length', 27);
+    Reflect.set(QIZHENG_MANSION_MODEL, 'id', '变造公开模型身份');
+    Reflect.set(QIZHENG_MANSION_MODEL, 'astrometrySource', '变造公开距星坐标依据');
+    assert.equal(QIZHENG_SIGN_BRANCHES[2], '子');
+    assert.equal(ziMansionStar.raJ2000Degrees, originalZiRa + 0.1);
+    assert.equal(QIZHENG_MANSION_STARS.length, 27);
+    assert.equal(QIZHENG_MANSION_MODEL.id, '变造公开模型身份');
+    assert.equal(QIZHENG_MANSION_MODEL.astrometrySource, '变造公开距星坐标依据');
+    assert.equal(getQizhengSignBranch(2), '申');
+    assert.equal(getQizhengMingZhu(2), '水');
     const fresh = generateQizheng({
       year: 1990,
       month: 6,
@@ -254,6 +274,14 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
     });
     assert.deepEqual(fresh, original);
   } finally {
+    originalSignBranches.forEach((branch, index) => {
+      Reflect.set(QIZHENG_SIGN_BRANCHES, index, branch);
+    });
+    originalMansionStars.forEach((star, index) => {
+      Object.assign(star, originalMansionStarValues[index]);
+      Reflect.set(QIZHENG_MANSION_STARS, index, star);
+    });
+    Reflect.set(QIZHENG_MANSION_STARS, 'length', originalMansionStars.length);
     Object.assign(QIZHENG_MANSION_MODEL, original.mansionModel);
     Object.assign(ZIQI_MODEL_INFO, structuredClone(original.ziqiModel));
     QIZHENG_POSITION_SOURCES.splice(

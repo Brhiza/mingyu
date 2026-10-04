@@ -50,6 +50,7 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import {
   calculateQizhengMansionBoundaries,
+  getQizhengMansionModel,
   longitudeToQizhengMansion,
   QIZHENG_MANSION_MODEL,
   QIZHENG_MANSION_STARS,
@@ -117,7 +118,7 @@ export const TWELVE_PALACES = [
  * 现代回归黄经十二宫与传统宫支的固定对应。
  * astronomy-engine 的 0 宫从白羊起，而传统果老盘按戌、酉……亥排列，二者不可共用同一数字序。
  */
-export const QIZHENG_SIGN_BRANCHES = [
+const SIGN_BRANCHES = [
   '戌',
   '酉',
   '申',
@@ -131,6 +132,7 @@ export const QIZHENG_SIGN_BRANCHES = [
   '子',
   '亥',
 ] as const;
+export const QIZHENG_SIGN_BRANCHES = [...SIGN_BRANCHES] as const;
 
 export type QizhengSignBranch = (typeof QIZHENG_SIGN_BRANCHES)[number];
 
@@ -1077,7 +1079,7 @@ export function getQizhengSignBranch(signIndex: number): QizhengSignBranch {
   if (!Number.isInteger(signIndex) || signIndex < 0 || signIndex > 11) {
     throw new Error(`七政四余黄道宫位无效：${String(signIndex)}。`);
   }
-  const branch = QIZHENG_SIGN_BRANCHES[signIndex];
+  const branch = SIGN_BRANCHES[signIndex];
   if (!branch) throw new Error(`七政四余宫支映射缺失：${String(signIndex)}。`);
   return branch;
 }
@@ -1393,8 +1395,10 @@ function buildQizhengEvidence(
     shensha: { name: string; value: string }[];
     ziqi: ZiqiPosition;
     ziqiModel: ZiqiModelInfo;
+    mansionBoundaries: QizhengMansionBoundary[];
   },
 ): QizhengEvidenceAnalysis {
+  const mansionModel = getQizhengMansionModel();
   const locationSourceText =
     context.locationSource === '用户提供' ? '地点输入明确' : context.locationSource;
   const timezoneSourceText =
@@ -1484,13 +1488,13 @@ function buildQizhengEvidence(
       stage: '距星宿界换算',
       status: '已计算',
       inputs: { objectCount: stars.length },
-      result: { mansionStarCount: QIZHENG_MANSION_STARS.length },
+      result: { mansionStarCount: structure.mansionBoundaries.length },
       dependsOnStepKeys: ['qizheng:calculation:modern-positions', 'qizheng:calculation:ziqi'],
       promptText: '二十八宿距星按J2000坐标、自行和目标时刻转换为同日真黄经宿界',
       sources: [
-        QIZHENG_MANSION_MODEL.mappingSource,
-        QIZHENG_MANSION_MODEL.astrometrySource,
-        QIZHENG_MANSION_MODEL.transformSource,
+        mansionModel.mappingSource,
+        mansionModel.astrometrySource,
+        mansionModel.transformSource,
       ],
       limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
@@ -1498,7 +1502,7 @@ function buildQizhengEvidence(
       key: 'qizheng:calculation:xiu-palace',
       stage: '宿度与落宫',
       status: '已计算',
-      inputs: { mansionStarCount: QIZHENG_MANSION_STARS.length },
+      inputs: { mansionStarCount: structure.mansionBoundaries.length },
       result: { starFactCount: stars.length, palaceCount: 12 },
       dependsOnStepKeys: ['qizheng:calculation:mansion-boundaries'],
       promptText: '各星目标日期黄经按相邻距星实际弧段换算宿度，并映射十二宫、命宫与身宫',
@@ -1587,8 +1591,8 @@ function buildQizhengEvidence(
     sources: [
       star.sourceLabel,
       `位置源标识${star.sourceId}`,
-      QIZHENG_MANSION_MODEL.astrometrySource,
-      QIZHENG_MANSION_MODEL.transformSource,
+      mansionModel.astrometrySource,
+      mansionModel.transformSource,
     ],
     limitation: STAR_FACT_LIMITATION,
   }));
@@ -2404,6 +2408,7 @@ function generateQizhengInternal(
     shensha,
     ziqi,
     ziqiModel: ZIQI_MODEL_INFO,
+    mansionBoundaries,
   });
 
   const flowCivil = flowRangeContext?.flow ?? resolveQizhengFlowCivilInput(input);
@@ -2518,7 +2523,7 @@ function generateQizhengInternal(
       limitations: [...source.limitations],
     })),
     mansionBoundaries,
-    mansionModel: { ...QIZHENG_MANSION_MODEL },
+    mansionModel: getQizhengMansionModel(),
     evidenceAnalysis,
     enNan,
     ...(timeLords ? { timeLords } : {}),

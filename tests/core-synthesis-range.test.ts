@@ -56,7 +56,7 @@ const ZIWEI_OPTIONS = {
   horoscopeContext: { dateStr: '2025-01-01', hourIndex: 6 },
 };
 
-test('合参范围必须固定紫微上下文，并逐秒使用真实 synthesis', async () => {
+test('合参范围固定上下文并逐秒对应单点事实，缺少岁限时保留资料缺口', async () => {
   await assert.rejects(
     () => calculateBaziZiweiCombinedReading(PROFILE, { rangeBatch: { limit: 1 } }),
     /必须显式提供/u,
@@ -106,48 +106,45 @@ test('合参范围必须固定紫微上下文，并逐秒使用真实 synthesis'
     );
     assert.match(sample.promptText, sample.index === 0 ? /时柱辛巳/u : /时柱壬午/u);
     assert.doesNotMatch(point.promptText, /【出生范围】|本份盘面对应候选出生时刻/u);
+
+    if (sample.index === 0) {
+      assert.equal(point.synthesis.status, '资料完整');
+      const { bazi, ziwei: runtime } = point.bundle;
+      assert.ok(bazi);
+      assert.ok(runtime);
+
+      for (const missingScope of ['decadal', 'yearly'] as const) {
+        const payloadByScope = { ...runtime.payloadByScope };
+        delete (payloadByScope as Partial<typeof payloadByScope>)[missingScope];
+        const synthesis = buildBaziZiweiSynthesis({
+          bazi,
+          ziwei: { ...runtime, payloadByScope },
+        });
+
+        assert.equal(synthesis.status, '资料有缺口');
+        assert.ok(
+          synthesis.missingFacts.includes(
+            missingScope === 'decadal'
+              ? '运限基准日期缺少对应紫微大限'
+              : '运限基准年份缺少对应紫微流年',
+          ),
+        );
+      }
+
+      const originOnly = buildBaziZiweiSynthesis({
+        bazi,
+        ziwei: {
+          ...runtime,
+          payloadByScope: {
+            origin: runtime.payloadByScope.origin,
+          } as typeof runtime.payloadByScope,
+        },
+      });
+      assert.ok(originOnly.missingFacts.includes('运限基准日期缺少对应紫微大限'));
+      assert.ok(originOnly.missingFacts.includes('运限基准年份缺少对应紫微流年'));
+      assert.ok(!originOnly.missingFacts.includes('大运与流年缺少紫微资料'));
+    }
   }
-});
-
-test('紫微大限或流年未提供时合参不应报告资料完整', async () => {
-  const { birthTimeRange: _birthTimeRange, ...pointProfile } = PROFILE;
-  const reading = await calculateBaziZiweiCombinedReading(pointProfile, {
-    ziwei: ZIWEI_OPTIONS,
-  });
-  if (reading.range) throw new Error('测试预期得到单点合参结果。');
-  assert.equal(reading.synthesis.status, '资料完整');
-  const { bazi, ziwei: runtime } = reading.bundle;
-  assert.ok(bazi);
-  assert.ok(runtime);
-
-  for (const missingScope of ['decadal', 'yearly'] as const) {
-    const payloadByScope = { ...runtime.payloadByScope };
-    delete (payloadByScope as Partial<typeof payloadByScope>)[missingScope];
-    const synthesis = buildBaziZiweiSynthesis({
-      bazi,
-      ziwei: { ...runtime, payloadByScope },
-    });
-
-    assert.equal(synthesis.status, '资料有缺口');
-    assert.ok(
-      synthesis.missingFacts.includes(
-        missingScope === 'decadal'
-          ? '运限基准日期缺少对应紫微大限'
-          : '运限基准年份缺少对应紫微流年',
-      ),
-    );
-  }
-
-  const originOnly = buildBaziZiweiSynthesis({
-    bazi,
-    ziwei: {
-      ...runtime,
-      payloadByScope: { origin: runtime.payloadByScope.origin } as typeof runtime.payloadByScope,
-    },
-  });
-  assert.ok(originOnly.missingFacts.includes('运限基准日期缺少对应紫微大限'));
-  assert.ok(originOnly.missingFacts.includes('运限基准年份缺少对应紫微流年'));
-  assert.ok(!originOnly.missingFacts.includes('大运与流年缺少紫微资料'));
 });
 
 test('同一公历年立春前后，合参流年事实与提示词按节令年切换', async () => {

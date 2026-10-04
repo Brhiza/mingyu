@@ -22,7 +22,7 @@ export interface QizhengMansionBoundary extends QizhengMansionStar {
  * 修订采用觜宿一（猎户座 lambda）与参宿一（猎户座 zeta）。ICRS/J2000 坐标及自行
  * 来自 SIMBAD TAP `basic` 表的 ra、dec、pmra、pmdec 字段，查询日期 2026-07-27。
  */
-export const QIZHENG_MANSION_STARS: readonly QizhengMansionStar[] = [
+const MANSION_STARS: readonly QizhengMansionStar[] = [
   ['角', '角宿一', '* alf Vir', 201.298247361563, -11.161319485112, -42.35, -30.67],
   ['亢', '亢宿一', '* kap Vir', 213.223936885957, -10.273703461482, 6.674, 138.987],
   ['氐', '氐宿一', '* alf Lib', 222.71963789158, -16.041776519834, -105.68, -68.4],
@@ -64,7 +64,11 @@ export const QIZHENG_MANSION_STARS: readonly QizhengMansionStar[] = [
     }) as QizhengMansionStar,
 );
 
-export const QIZHENG_MANSION_MODEL = {
+export const QIZHENG_MANSION_STARS: readonly QizhengMansionStar[] = MANSION_STARS.map((star) => ({
+  ...star,
+}));
+
+const MANSION_MODEL = {
   id: 'qizheng-mansion-stars-simbad-astronomy-engine',
   catalogEpoch: 'J2000.0 / ICRS',
   mappingSource: 'https://zh.wikipedia.org/w/index.php?title=二十八宿&oldid=92223725',
@@ -74,6 +78,12 @@ export const QIZHENG_MANSION_MODEL = {
   limitation:
     '宿界按距星目标日期真黄经至下一距星真黄经的实际弧段划分；这是可复算的现代坐标复原，不等同于某一历史历元的古赤道距度表，也不证明占星解释有效。',
 } as const;
+
+export const QIZHENG_MANSION_MODEL = { ...MANSION_MODEL };
+
+export function getQizhengMansionModel(): typeof QIZHENG_MANSION_MODEL {
+  return { ...MANSION_MODEL };
+}
 
 function normalizeLongitude(value: number): number {
   return ((value % 360) + 360) % 360;
@@ -274,7 +284,7 @@ export function calculateQizhengMansionBoundaries(date: Date): QizhengMansionBou
   }
   const yearsSinceJ2000 = decimalYear(date) - 2000;
   const toTrueEcliptic = createEquatorialJ2000ToTrueEcliptic(date);
-  const boundaries = QIZHENG_MANSION_STARS.map((star) => {
+  const boundaries = MANSION_STARS.map((star) => {
     const dec = star.decJ2000Degrees + (star.pmDecMasPerYear * yearsSinceJ2000) / 3_600_000;
     const ra =
       star.raJ2000Degrees +
@@ -310,7 +320,7 @@ export function longitudeToQizhengMansion(
     throw new Error(`七政四余黄经无效：${String(longitude)}。`);
   }
   if (boundaries.length !== 28) throw new Error('七政四余距星边界必须完整包含二十八宿。');
-  const expectedMansions = new Set(QIZHENG_MANSION_STARS.map((item) => item.mansion));
+  const expectedMansions = new Set(MANSION_STARS.map((item) => item.mansion));
   const actualMansions = new Set(boundaries.map((item) => item.mansion));
   if (
     actualMansions.size !== expectedMansions.size ||

@@ -4,7 +4,10 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { getTenGod } from '@core/bazi/baziUtils';
 import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { TEN_GODS_DEFINITIONS } from '@core/bazi/baziElementData';
-import { buildEnhancedTenGodsSection } from '@core/minglu/bazi-enhancer';
+import {
+  buildEnhancedLuckChronicleSection,
+  buildEnhancedTenGodsSection,
+} from '@core/minglu/bazi-enhancer';
 
 test('命录十神透藏统计与核心结构一致，四柱保留全部藏干且日干标记为自身', () => {
   const chart = baziCalculator.calculateBazi({
@@ -25,6 +28,7 @@ test('命录十神透藏统计与核心结构一致，四柱保留全部藏干�
     getTenGod,
   );
   const section = buildEnhancedTenGodsSection(chart);
+  const luckChronicle = buildEnhancedLuckChronicleSection(chart);
 
   for (const god of section.godsList) {
     const distribution = structure.distributions.find((item) => item.tenGod === god.tenGod);
@@ -44,5 +48,25 @@ test('命录十神透藏统计与核心结构一致，四柱保留全部藏干�
       ...chart.hiddenTenGods[key],
     ]);
     assert.doesNotMatch(house.ageRange, /\d/);
+  }
+
+  const luckCycle = luckChronicle.cycles.find((cycle) =>
+    cycle.careerAdvice.includes('运干十神取象：'),
+  );
+  assert.ok(luckCycle);
+  const definition = TEN_GODS_DEFINITIONS[luckCycle.tenGod];
+  assert.ok(definition);
+  assert.ok(
+    section.godsList.some(
+      (god) => god.tenGod === luckCycle.tenGod && god.psychology === definition.description,
+    ),
+  );
+  const originalDescription = definition.description;
+  try {
+    definition.description = '公开十神说明已被改写';
+    assert.deepEqual(buildEnhancedTenGodsSection(chart), section);
+    assert.deepEqual(buildEnhancedLuckChronicleSection(chart), luckChronicle);
+  } finally {
+    definition.description = originalDescription;
   }
 });

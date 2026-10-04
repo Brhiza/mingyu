@@ -31,7 +31,7 @@ import {
 import type { SolarDateTimeInfo } from '../bazi/baziTypes';
 import { tallyWuxing } from '../wuxing';
 import { isKe } from '../ganzhi';
-import { TEN_GODS_DEFINITIONS } from '../bazi/baziElementData';
+import { getBaziTenGodDefinitions } from '../bazi/baziElementData';
 import { assessAllHarmonyTransforms } from '../bazi/harmonyTransform';
 import {
   collectCompleteBranchFormations,
@@ -56,6 +56,7 @@ import { getBaziRelationMappings } from '../bazi/baziMappingsData';
 import { getNayinTable } from '../ganzhi/data';
 
 const NAYIN_MAP = getNayinTable();
+const TEN_GODS_DEFINITIONS = getBaziTenGodDefinitions();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

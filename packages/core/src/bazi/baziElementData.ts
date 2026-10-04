@@ -2,7 +2,7 @@
  * 五行与十神基础参考数据
  */
 
-export const TEN_GODS_DEFINITIONS: Record<
+const CANONICAL_TEN_GODS_DEFINITIONS: Record<
   string,
   { wuxing: string; yinyang: string; description: string }
 > = {
@@ -57,6 +57,18 @@ export const TEN_GODS_DEFINITIONS: Record<
     description: '生助日主、异阴阳，属印星，传统取象涉及学识、养育与庇护。',
   },
 };
+
+export const TEN_GODS_DEFINITIONS = getBaziTenGodDefinitions();
+
+/** 返回固定十神取象资料的独立副本。 */
+export function getBaziTenGodDefinitions(): typeof CANONICAL_TEN_GODS_DEFINITIONS {
+  return Object.fromEntries(
+    Object.entries(CANONICAL_TEN_GODS_DEFINITIONS).map(([god, definition]) => [
+      god,
+      { ...definition },
+    ]),
+  );
+}
 
 const CANONICAL_SEASON_STATUS: Record<string, Record<string, string>> = {
   寅: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
