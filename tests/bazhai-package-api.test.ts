@@ -353,7 +353,16 @@ test('命卦与宅卦分组分别写作东四命和东四宅，并贯通候选�
     ['西四宅', '东四宅'],
   );
   assert.match(result.prompt, /命卦：坎（东四命）/);
-  assert.match(result.prompt, /宅卦：艮（西四宅，中心读数）/);
+  assert.match(result.prompt, /宅卦：艮（西四宅）/);
+  assert.equal(
+    result.prompt.split('以下宅卦、命宅配合、命宅五行及宅卦八方与星宫关系按中心读数列示。').length -
+      1,
+    1,
+  );
+  assert.match(
+    result.prompt,
+    /命宅五行：宅卦克命卦。[\s\S]*宅卦星宫生克（伏位取左辅木）：[\s\S]*候选震宅八方：/,
+  );
   assert.match(result.gasRegulation!.doorMasterSummary, /坎命属东四命，艮宅属西四宅；命宅异组/);
   assert.match(result.evidenceAnalysis.promptText, /艮宅西四宅/);
   assert.doesNotMatch(result.prompt, /艮宅属西四命|宅卦：艮（西四命/);

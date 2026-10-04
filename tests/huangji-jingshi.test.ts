@@ -6,6 +6,7 @@ import {
   HUANGJI_CYCLE_YEARS,
   HUANGJI_CIRCLE_HEXAGRAMS,
   HUANGJI_STANDARD_EPOCH,
+  buildHuangjiJingshiPrompt,
   calculateHuangjiJingshi,
 } from '@core/huangji-jingshi';
 import { calculateHuangjiDateTimeForecast } from '../packages/core/src/huangji-jingshi/datetime.ts';
@@ -331,11 +332,21 @@ test('皇极经世普通提示词应包含完整占断资料且保持精简自�
 });
 
 test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
-  const prompt = calculateHuangjiJingshi({
+  const result = calculateHuangjiJingshi({
     epochYear: 1000,
     year: 2026,
     question: '请解释当前周期位置。',
-  }).prompt;
+  });
+  const prompt = result.prompt;
+  const originalResult = structuredClone(result);
+  assert.equal(result.input.calendar, '整数坐标');
+  assert.equal(result.forecast, undefined);
+  assert.equal(buildHuangjiJingshiPrompt(result, '请解释当前周期位置。'), prompt);
+  assert.equal(
+    buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(result)), '请解释当前周期位置。'),
+    prompt,
+  );
+  assert.deepEqual(result, originalResult);
   assert.match(prompt, /【任务】/);
   assert.match(prompt, /【周期资料】/);
   assert.match(prompt, /纪元年坐标：1000/);

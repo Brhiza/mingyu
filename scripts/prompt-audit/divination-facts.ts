@@ -1351,8 +1351,7 @@ function extractBaZhaiFacts(data: unknown): DivinationPromptFact[] {
   const housePalace = records(d.housePalace);
   const measurement = record(d.directionMeasurement);
   const mingHeading = d.birthYearBoundaryStatus === '待复核' ? '命卦八方（暂按）：' : '命卦八方：';
-  const houseHeading =
-    measurement?.stability === '宅卦不稳定' ? '宅卦八方（中心读数）：' : '宅卦八方：';
+  const houseHeading = '宅卦八方：';
   const alternateHouseGuas = new Set<string>();
   const alternateHouseFacts = records(measurement?.candidateDirections).flatMap((candidate) => {
     const houseGua = text(candidate.houseGua);

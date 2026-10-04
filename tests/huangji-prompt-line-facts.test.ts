@@ -42,6 +42,7 @@ test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻',
     summary: getDivinationSummaryBlocks('huangji', data),
   });
   const baseline = capture(annual);
+  const originalAnnual = structuredClone(annual);
   assert.equal(baseline.native, annual.prompt);
   assert.deepEqual(capture(JSON.parse(JSON.stringify(annual))), baseline);
   assert.deepEqual(
@@ -53,6 +54,20 @@ test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻',
     }),
     baseline,
   );
+  const changedLine = structuredClone(annual);
+  changedLine.forecast!.hexagrams.decade.changedLine = 1;
+  const changedSource = structuredClone(annual);
+  changedSource.forecast!.hexagrams.decade.derivedFrom = '乾';
+  const changedPeriod = structuredClone(annual);
+  changedPeriod.forecast!.hexagrams.decade.startYear = 2099;
+  changedPeriod.forecast!.hexagrams.decade.endYear = 2108;
+  for (const data of [changedLine, changedSource, changedPeriod]) {
+    const suppliedData = structuredClone(data);
+    assert.equal(buildHuangjiJingshiPrompt(data), baseline.native);
+    assert.equal(buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(data))), baseline.native);
+    assert.deepEqual(data, suppliedData);
+  }
+  assert.deepEqual(annual, originalAnnual);
   const annualJudgment = structuredClone(annual);
   annualJudgment.forecast!.hexagrams.annual.judgment = '卦辞已被改写';
   const governingName = structuredClone(annual);

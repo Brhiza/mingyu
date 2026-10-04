@@ -314,7 +314,10 @@ export function buildHuangjiJingshiPrompt(
   const { input, position } = result;
 
   if (result.forecast) {
-    const { forecast } = result;
+    const forecast =
+      input.calendar === '公元纪年（无公元0年）'
+        ? calculateStandardHuangjiForecast(input.year)
+        : result.forecast;
     const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
     const dateTimeForecast = result.dateTimeForecast;
     const sixDayCycle = result.sixDayCycle;

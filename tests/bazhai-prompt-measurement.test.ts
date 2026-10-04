@@ -117,11 +117,20 @@ test('八宅宅卦跨界时提示词并列候选并标明中心读数盘', () =>
     ],
   );
   assert.match(result.prompt, /候选坐向：寅山申向（艮宅、命宅相冲）、甲山庚向（震宅、命宅相合）/);
-  assert.match(result.prompt, /宅卦：艮（西四宅，中心读数）/);
-  assert.match(result.prompt, /命宅配合：相冲（暂按命卦）（中心读数）/);
-  assert.match(result.prompt, /宅卦八方（中心读数）：/);
+  assert.match(result.prompt, /宅卦：艮（西四宅）/);
+  assert.match(result.prompt, /命宅配合：相冲（暂按命卦）/);
+  assert.match(result.prompt, /宅卦八方：/);
   assert.match(result.prompt, /【任务】[\s\S]*【盘面资料】/);
   assert.match(result.prompt, /候选震宅八方：[\s\S]*东伏位/);
+  assert.equal(
+    result.prompt.split('以下宅卦、命宅配合、命宅五行及宅卦八方与星宫关系按中心读数列示。').length -
+      1,
+    1,
+  );
+  assert.match(
+    result.prompt,
+    /命宅五行：宅卦克命卦。[\s\S]*宅卦星宫生克（伏位取左辅木）：[\s\S]*北坎宫水：五鬼廉贞火，宫克星。[\s\S]*候选震宅八方：/,
+  );
   assert.match(result.prompt, /【传统依据】[\s\S]*大游年八方/);
 
   const stable = analyzeBaZhaiByDoorDegree({

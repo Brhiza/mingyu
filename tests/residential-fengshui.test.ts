@@ -69,9 +69,18 @@ test('八宅与住宅核心盘及在线包装各保留一份完整任务', () =>
     assert.match(prompt, /候选坐向：寅山申向/);
     assert.match(prompt, /候选震宅八方：/);
     assert.match(prompt, /^命宅五行：宅卦克命卦。$/mu);
+    assert.equal(
+      prompt.split('以下宅卦、命宅配合、命宅五行及宅卦八方与星宫关系按中心读数列示。').length - 1,
+      1,
+    );
+    assert.match(
+      prompt,
+      /命宅五行：宅卦克命卦。[\s\S]*宅卦星宫生克（伏位取左辅木）：[\s\S]*北坎宫水：五鬼廉贞火，宫克星。[\s\S]*候选震宅八方：[\s\S]*东伏位/,
+    );
+    assert.match(prompt, /寅山申向（艮宅、命宅相冲）、甲山庚向（震宅、命宅相合）/);
     assert.doesNotMatch(prompt, /^命宅关系：|^坐山：/mu);
     assert.equal(prompt.split('命卦：坎（东四命）').length - 1, 1);
-    assert.equal(prompt.split('宅卦：艮（西四宅，中心读数）').length - 1, 1);
+    assert.equal(prompt.split('宅卦：艮（西四宅）').length - 1, 1);
     assertPromptIsPortableTaskText(prompt);
   }
 });
@@ -575,6 +584,15 @@ test('住宅风水仅有山向时可出玄空，不出八宅', () => {
   assert.equal(result.inputSummary.xuankongStatus, '已排盘');
   assert.match(result.prompt, /玄空/);
   assert.match(result.prompt, /^【任务】\n请依据以下玄空宅运盘/);
+  const chartLines = result.xuankong.prompt
+    .split('【盘面资料】\n')[1]
+    .split('\n')
+    .filter((item) => !/^【.+】$/.test(item));
+  for (const line of chartLines) {
+    assert.ok(result.prompt.includes(line.trim()), `住宅正文缺少玄空资料：${line}`);
+  }
+  assert.match(result.prompt, /山向克出：山星8土克向星1水/);
+  assert.match(result.prompt, /运8（土，暂按9运退气）/);
 });
 
 test('住宅风水不得静默忽略已填写但不完整的居住人资料', () => {
@@ -617,6 +635,10 @@ test('住宅风水门向度数会同步八宅与玄空山向', () => {
   assert.match(result.prompt, /^【任务】\n请依据以下玄空宅运盘与八宅人宅盘/);
   assert.equal(result.prompt.match(/【任务】/g)?.length, 1);
   assert.doesNotMatch(result.prompt, /合参要点|命宅相合可提高关注优先级/);
+  assert.doesNotMatch(
+    result.prompt,
+    /以下宅卦、命宅配合、命宅五行及宅卦八方与星宫关系按中心读数列示。/,
+  );
 });
 
 test('住宅风水缺少山向与居住人时应报错', () => {

@@ -707,14 +707,4 @@ test('玄空组合只登记盘式，交运首年证据保持暂列口径', () =>
     )?.promptText ?? '',
     /乾、震、离三宫向星成一四七、二五八或三六九组/,
   );
-
-  const boundary = generateXuanKong({ year: 2024, sitMountain: '子' });
-  assert.equal(boundary.period.boundaryStatus, '待核定');
-  assert.ok(boundary.combinations.length > 0);
-  assert.ok(boundary.combinations.every((item) => item.note.startsWith('暂按9运盘：')));
-  assert.ok(
-    boundary.evidenceAnalysis.facts
-      .filter((item) => item.key.startsWith('xuankong:fact:combination:'))
-      .every((item) => item.promptText.includes('暂按9运盘：')),
-  );
 });

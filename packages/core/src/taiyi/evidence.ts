@@ -1,6 +1,6 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiyiModelInfo, TaiyiScope } from '../types/divination';
-import type { TaiyiRuleConditions } from './conditions';
+import { evaluateTaiyiConditions, type TaiyiRuleConditions } from './conditions';
 import { getTaiyiPalaces, getTaiyiSixteenGods } from './fixed-data';
 
 const taiyiPalaces = getTaiyiPalaces();
@@ -625,6 +625,7 @@ function buildSummaryFact(args: {
 
 export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnalysis {
   assertTaiyiFixedFacts(data);
+  data = { ...data, conditions: evaluateTaiyiConditions(data) };
   const scopeLabel = SCOPE_LABELS[data.scope];
   const mainGateRolesText = data.conditions.threeGates.roles
     .filter((role) => role.usedForThreeGate)
@@ -893,7 +894,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     '【传统依据】',
     ...(data.scope === 'month' ? ['月计按逐月节气换局。'] : []),
     '积数按七十二局循环；主客定大将取算数个位，整十以九去余，参将以大将宫数乘三取个位。',
-    `三门${data.conditions.threeGates.status}，直使${data.conditions.threeGates.directGate}，主门位${mainGateRolesText}，始击（客目）另临${guestGateRole?.gate ?? '门位未定'}；五将${data.conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${data.conditions.yinYangHarmony.matched ? '和' : '不和'}。`,
+    `${data.conditions.threeGates.status === '两门不具' ? '三门：两门不具' : data.conditions.threeGates.status}，直使${data.conditions.threeGates.directGate}，主门位${mainGateRolesText}，始击（客目）另临${guestGateRole?.gate ?? '门位未定'}；五将${data.conditions.fiveGenerals.launched ? '发' : '不发'}；阴阳${data.conditions.yinYangHarmony.matched ? '和' : '不和'}。`,
   ].join('\n');
 
   return {

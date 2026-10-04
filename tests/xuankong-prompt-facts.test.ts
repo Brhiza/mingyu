@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateXuanKong } from '../packages/core/src/xuan_kong/index.ts';
-import { generateResidentialFengshui } from '../packages/core/src/residential_fengshui/index.ts';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
@@ -33,6 +32,14 @@ test('玄空提示词只列起法与盘面，不夹带输入过程说明', () =>
   const defaultChart = generateXuanKong({ year: 2024, sitMountain: '子' });
   const replacementChart = generateXuanKong({ year: 2008, sitMountain: '壬', guaType: '替卦' });
   assert.match(defaultChart.prompt, /卦型：下卦/);
+  assert.equal(defaultChart.period.boundaryStatus, '待核定');
+  assert.ok(defaultChart.combinations.length > 0);
+  assert.ok(defaultChart.combinations.every((item) => item.note.startsWith('暂按9运盘：')));
+  assert.ok(
+    defaultChart.evidenceAnalysis.facts
+      .filter((item) => item.key.startsWith('xuankong:fact:combination:'))
+      .every((item) => item.promptText.includes('暂按9运盘：')),
+  );
   assert.match(replacementChart.prompt, /卦型：替卦/);
   for (const chart of [defaultChart, replacementChart]) {
     assert.doesNotMatch(chart.prompt, /输入明确指定|未指定卦型|由调用方核定/);
@@ -123,18 +130,4 @@ test('旺山旺向只列一次成立条件，替卦到山到向例外仍明确�
   assert.equal(exception.daoShanXiang.xiangToFacing, true);
   assert.match(exception.prompt, /局型：替卦到山到向未成旺局/);
   assert.match(exception.prompt, /到山到向：本宅运星到山且到向/);
-});
-
-test('住宅合参保留玄空原生星性与关系而非另行补写', () => {
-  const result = generateResidentialFengshui({ year: 2024, sitMountain: '子' });
-  assert.ok(result.xuankong);
-  const chartLines = result.xuankong.prompt
-    .split('【盘面资料】\n')[1]
-    .split('\n')
-    .filter((item) => !/^【.+】$/.test(item));
-  for (const line of chartLines) {
-    assert.ok(result.prompt.includes(line.trim()), `住宅正文缺少玄空资料：${line}`);
-  }
-  assert.match(result.prompt, /山向克出：山星8土克向星1水/);
-  assert.match(result.prompt, /运8（土，暂按9运退气）/);
 });

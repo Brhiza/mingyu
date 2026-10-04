@@ -680,6 +680,34 @@ test('太乙月计按节气、日时计按固定版本样例生成完整基础�
       fixture.expected,
       `${fixture.scope}:${fixture.date.toISOString()}`,
     );
+    if (fixture.scope === 'hour' && result.bureau === 56) {
+      const originalResult = structuredClone(result);
+      assert.equal(result.conditions.threeGates.status, '三门不具');
+      assert.equal(result.conditions.yinYangHarmony.matched, false);
+      assert.equal(result.conditions.fiveGenerals.launched, true);
+      const evidence = buildTaiyiEvidence(result);
+      assert.match(evidence.promptText, /三门不具/);
+      assert.doesNotMatch(evidence.promptText, /三门三门/);
+      assert.deepEqual(buildTaiyiEvidence(JSON.parse(JSON.stringify(result))), evidence);
+
+      const changed = structuredClone(result);
+      changed.conditions.threeGates.status = '三门具';
+      changed.conditions.yinYangHarmony.matched = true;
+      changed.conditions.fiveGenerals.launched = false;
+      const suppliedData = structuredClone(changed);
+      assert.deepEqual(buildTaiyiEvidence(changed), evidence);
+      assert.deepEqual(buildTaiyiEvidence(JSON.parse(JSON.stringify(changed))), evidence);
+      const fullTask = (data: typeof result) =>
+        buildDivinationPrompt({
+          method: 'taiyi',
+          data,
+          question: '本次太乙主客与三门条件如何？',
+          currentTime: new Date('2026-01-01T00:00:00Z'),
+        });
+      assert.equal(fullTask(changed), fullTask(result));
+      assert.deepEqual(changed, suppliedData);
+      assert.deepEqual(result, originalResult);
+    }
   }
 });
 

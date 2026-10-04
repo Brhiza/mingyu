@@ -453,7 +453,6 @@ function formatBirthYearBasis(input: BaZhaiResult['calculationInput']): string {
 
 function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>, measurement?: BaZhaiDoorMeasurement): string {
   const lines: string[] = [];
-  const houseUnstable = measurement?.stability === '宅卦不稳定';
   const northReferenceUnspecified = measurement?.northReference === 'unspecified';
   lines.push('【任务】');
   lines.push(
@@ -494,13 +493,13 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>, measurement?: BaZhaiDoorMe
   lines.push(`立春年界：${r.birthYearBoundaryNote}`);
   if (measurement?.stability === '宅卦不稳定') {
     lines.push(
-      `测量误差跨越宅卦边界；候选坐向：${measurement.candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、命宅${item.match}）`).join('、')}。以下宅卦及八方以中心读数列示。`,
+      `测量误差跨越宅卦边界；候选坐向：${measurement.candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、命宅${item.match}）`).join('、')}。以下宅卦、命宅配合、命宅五行及宅卦八方与星宫关系按中心读数列示。`,
     );
   }
   if (r.houseGua) {
-    lines.push(`宅卦：${r.houseGua}（${r.houseGroup}${houseUnstable ? '，中心读数' : ''}）`);
+    lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
     lines.push(
-      `命宅配合：${northReferenceUnspecified ? '暂按' : ''}${r.match}${r.birthYearBoundaryStatus === '待复核' ? '（暂按命卦）' : ''}${houseUnstable ? '（中心读数）' : ''}`,
+      `命宅配合：${northReferenceUnspecified ? '暂按' : ''}${r.match}${r.birthYearBoundaryStatus === '待复核' ? '（暂按命卦）' : ''}`,
     );
   }
   if (r.mingPalace?.length) {
@@ -510,10 +509,13 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>, measurement?: BaZhaiDoorMe
     }
   }
   if (r.housePalace?.length) {
-    lines.push(`宅卦八方${houseUnstable ? '（中心读数）' : ''}：`);
+    lines.push('宅卦八方：');
     for (const palace of r.housePalace) {
       lines.push(`  ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
     }
+  }
+  if (r.gasRegulation?.promptSummary) {
+    lines.push(r.gasRegulation.promptSummary);
   }
   if (measurement?.stability === '宅卦不稳定') {
     const alternateHouseGuas = new Set<string>();
@@ -525,9 +527,6 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>, measurement?: BaZhaiDoorMe
         lines.push(`  ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
       }
     }
-  }
-  if (r.gasRegulation?.promptSummary) {
-    lines.push(r.gasRegulation.promptSummary);
   }
   lines.push('【传统依据】');
   lines.push(
