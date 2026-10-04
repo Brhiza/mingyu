@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { STEM_WUXING } from '../packages/core/src/ganzhi/data';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -46,6 +47,21 @@ test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫�
   assert.match(prompt, /值符宫与值使宫五行：值使宫乾六宫金克值符宫巽四宫木/);
   assert.match(prompt, /巽四宫天地盘干：天盘癸水克地盘丁火；天干相冲：癸与丁相冲/);
   assert.doesNotMatch(prompt, /天干五合：癸与丁相合/);
+  const capturePrompt = () => buildDivinationPrompt('qimen', '请做整体解读。', cloneFixedQimen());
+  const baseline = capturePrompt();
+  assert.equal(baseline, prompt);
+  const original = { gui: STEM_WUXING.癸, ding: STEM_WUXING.丁 };
+  try {
+    STEM_WUXING.癸 = '土';
+    STEM_WUXING.丁 = '水';
+    assert.deepEqual([STEM_WUXING.癸, STEM_WUXING.丁], ['土', '水']);
+    assert.equal(capturePrompt(), baseline);
+  } finally {
+    STEM_WUXING.癸 = original.gui;
+    STEM_WUXING.丁 = original.ding;
+  }
+  assert.deepEqual([STEM_WUXING.癸, STEM_WUXING.丁], Object.values(original));
+  assert.equal(capturePrompt(), baseline);
 });
 
 test('奇门时家任务保留取象换象造象流程且不追加重复通用框架', () => {

@@ -7,6 +7,7 @@ import {
   getLiuyaoTermContext,
 } from 'mingyu-core/terms';
 import { baziCalculator } from 'mingyu-core/bazi';
+import { STEM_WUXING } from 'mingyu-core/ganzhi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 
 const baziTermContextFixture = baziCalculator.calculateCoreBazi({
@@ -73,6 +74,20 @@ test('八字术语只将有效六十甲子和天干五行名归为对应盘面�
     getBaziTermContext('炉中火', bazi, { pillarLabel: '年柱', ganZhi: '甲子' }),
     undefined,
   );
+  const baseline = structuredClone(getBaziTermContext('甲木', bazi));
+  assert.ok(baseline);
+  assert.equal(baseline.chartTitle, '天干实盘作用');
+  const original = STEM_WUXING.甲;
+  try {
+    STEM_WUXING.甲 = '水';
+    assert.equal(STEM_WUXING.甲, '水');
+    assert.deepEqual(getBaziTermContext('甲木', bazi), baseline);
+    assert.equal(getBaziTermContext('甲水', bazi), undefined);
+  } finally {
+    STEM_WUXING.甲 = original;
+  }
+  assert.equal(STEM_WUXING.甲, original);
+  assert.deepEqual(getBaziTermContext('甲木', bazi), baseline);
 });
 
 test('六爻术语盘面情境推断：应准确识别世爻、应爻与动变作用', () => {

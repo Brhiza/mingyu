@@ -1,20 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 
 import * as core from '../packages/core/src/index.ts';
 import {
   BASIC_MAPPINGS,
+  getBaziRelationMappings,
   HIDDEN_STEMS,
   NAYIN_MAP as BAZI_NAYIN_MAP,
   SIXTY_CYCLE as BAZI_SIXTY_CYCLE,
 } from '../packages/core/src/bazi/baziMappingsData.ts';
 import {
   CHANGSHENG_ORDER,
+  BRANCH_YINYANG,
   EARTHLY_BRANCHES,
   HEAVENLY_STEMS,
+  getGanZhiAttributeTables,
   NAYIN_MAP,
   SIX_XUN_HEADS,
   SIXTY_CYCLE,
+  STEM_WUXING,
+  STEM_YINYANG,
   ZODIACS,
 } from '../packages/core/src/ganzhi/data.ts';
 import {
@@ -39,6 +45,91 @@ test('公共地基层应成为八字与占卜旧路径的单一真相源', () =>
   }
   assert.deepEqual(HIDDEN_STEMS.子, ['癸']);
   assert.equal(LEGACY_LIUCHONG_MAP, LIUCHONG_MAP);
+
+  const captureAttributes = () => ({
+    profile: core.foundation.describeGanZhi('甲子'),
+    analysis: core.foundation.analyzeWuxing(['甲', '子'], { weightHidden: false }),
+    tally: core.wuxing.tallyWuxing(['甲', '子']),
+    bazi: getBaziRelationMappings().BASIC_MAPPINGS,
+  });
+  const baseline = structuredClone(captureAttributes());
+  assert.deepEqual([baseline.profile.stem.wuxing, baseline.profile.stem.yinYang], ['木', '阳']);
+  assert.deepEqual([baseline.profile.branch.wuxing, baseline.profile.branch.yinYang], ['水', '阳']);
+  assert.deepEqual(baseline.analysis.counts, { 木: 1, 火: 0, 土: 0, 金: 0, 水: 1 });
+  assert.deepEqual(baseline.tally, baseline.analysis.counts);
+  assert.equal(baseline.bazi.STEM_WUXING[0], '木');
+  assert.equal(baseline.bazi.STEM_YINYANG[0], '阳');
+  const original = {
+    wuxing: STEM_WUXING.甲,
+    stemYinYang: STEM_YINYANG.甲,
+    branchYinYang: BRANCH_YINYANG.子,
+  };
+  try {
+    STEM_WUXING.甲 = '水';
+    STEM_YINYANG.甲 = '阴';
+    BRANCH_YINYANG.子 = '阴';
+    assert.deepEqual([STEM_WUXING.甲, STEM_YINYANG.甲, BRANCH_YINYANG.子], ['水', '阴', '阴']);
+    assert.deepEqual(captureAttributes(), baseline);
+    const copy = getGanZhiAttributeTables();
+    assert.deepEqual(
+      [copy.STEM_WUXING.甲, copy.STEM_YINYANG.甲, copy.BRANCH_YINYANG.子],
+      ['木', '阳', '阳'],
+    );
+    assert.notStrictEqual(copy.STEM_WUXING, STEM_WUXING);
+    assert.notStrictEqual(copy.STEM_YINYANG, STEM_YINYANG);
+    assert.notStrictEqual(copy.BRANCH_YINYANG, BRANCH_YINYANG);
+    copy.STEM_WUXING.甲 = '金';
+    copy.STEM_YINYANG.甲 = '阴';
+    copy.BRANCH_YINYANG.子 = '阴';
+    assert.deepEqual(
+      [copy.STEM_WUXING.甲, copy.STEM_YINYANG.甲, copy.BRANCH_YINYANG.子],
+      ['金', '阴', '阴'],
+    );
+    const fresh = getGanZhiAttributeTables();
+    assert.notStrictEqual(fresh.STEM_WUXING, copy.STEM_WUXING);
+    assert.notStrictEqual(fresh.STEM_YINYANG, copy.STEM_YINYANG);
+    assert.notStrictEqual(fresh.BRANCH_YINYANG, copy.BRANCH_YINYANG);
+    assert.deepEqual(
+      [fresh.STEM_WUXING.甲, fresh.STEM_YINYANG.甲, fresh.BRANCH_YINYANG.子],
+      ['木', '阳', '阳'],
+    );
+    assert.deepEqual(captureAttributes(), baseline);
+  } finally {
+    STEM_WUXING.甲 = original.wuxing;
+    STEM_YINYANG.甲 = original.stemYinYang;
+    BRANCH_YINYANG.子 = original.branchYinYang;
+  }
+  assert.deepEqual([STEM_WUXING.甲, STEM_YINYANG.甲, BRANCH_YINYANG.子], Object.values(original));
+  assert.deepEqual(captureAttributes(), baseline);
+
+  // 八字映射在首次载入时建立，隔离进程覆盖载入前公开表已被修改的情况。
+  const initialized = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '-e',
+      `
+      import * as data from './packages/core/src/ganzhi/data.ts';
+      const original = [data.STEM_WUXING.甲, data.STEM_YINYANG.甲];
+      try {
+        data.STEM_WUXING.甲 = '水';
+        data.STEM_YINYANG.甲 = '阴';
+        const { getBaziRelationMappings } = await import('./packages/core/src/bazi/baziMappingsData.ts');
+        const mappings = getBaziRelationMappings().BASIC_MAPPINGS;
+        process.stdout.write(JSON.stringify([mappings.STEM_WUXING[0], mappings.STEM_YINYANG[0]]));
+      } finally {
+        data.STEM_WUXING.甲 = original[0];
+        data.STEM_YINYANG.甲 = original[1];
+      }
+    `,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8', timeout: 30_000 },
+  );
+  assert.equal(initialized.error, undefined);
+  assert.equal(initialized.status, 0, initialized.stderr);
+  assert.deepEqual(JSON.parse(initialized.stdout), ['木', '阳']);
 });
 
 test('六十甲子工具应返回完整序列与结构化关系', () => {

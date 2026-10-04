@@ -16,11 +16,12 @@ import type { BaziChartResult } from './baziTypes';
 import { getTenGod } from './baziUtils';
 import { getRootTraditionalKind, type RootTraditionalKind } from './baziRootFacts';
 
-import { STEM_WUXING } from '../ganzhi/data';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import type { FortuneTriggerEvidenceResult } from './fortuneTriggerEvidence';
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 export type FortuneActionLevel = 'dayun' | 'year' | 'month' | 'day';
 export type FortuneActionLevelChinese = '大运' | '流年' | '流月' | '流日';

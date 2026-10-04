@@ -8,14 +8,15 @@ import {
   EARTHLY_BRANCHES,
   ZODIACS,
   SIXTY_CYCLE,
-  STEM_WUXING as STEM_WUXING_BY_NAME,
-  STEM_YINYANG as STEM_YINYANG_BY_NAME,
+  getGanZhiAttributeTables,
   NAYIN_MAP,
 } from '../ganzhi/data';
 
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING: STEM_WUXING_BY_NAME, STEM_YINYANG: STEM_YINYANG_BY_NAME } =
+  getGanZhiAttributeTables();
 
 type RelationMap = { [key: string]: string };
 type MultiRelationMap = { [key: string]: string[] };

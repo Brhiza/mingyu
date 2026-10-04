@@ -1,9 +1,11 @@
 import type { QimenData } from '../types/divination';
-import { isKe, isSheng, STEM_WUXING } from '../ganzhi';
+import { isKe, isSheng } from '../ganzhi';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import { getDunJiaStem, hasTianPanStem } from '../divination/algorithms/qimen/helpers/palace-utils';
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 type Palace = QimenData['jiuGongGe'][number];
 

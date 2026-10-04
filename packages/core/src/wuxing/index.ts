@@ -15,10 +15,11 @@ import {
   isSheng,
   isKe,
 } from '../ganzhi/relations';
-import { STEM_WUXING } from '../ganzhi/data';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 export { WUXING } from '../ganzhi/relations';
 export type { Wuxing } from '../ganzhi/relations';

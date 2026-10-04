@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { STEM_WUXING } from '../packages/core/src/ganzhi/data';
 import {
   analyzeLiurenEvidence,
   generateLiuren,
@@ -81,6 +82,19 @@ test('大六壬四课和三传分别绑定实际上下位与前传，十二宫�
     formatLiurenTransmission(extra, 0),
     /，金生水，另有独立条件；初传酉金生一课下位癸水/u,
   );
+  const capturePrompt = () => buildAppDivinationPrompt('liuren', '问合作进度', makeFixedChart());
+  const baseline = capturePrompt();
+  assert.match(baseline, /下位癸水克上神巳火/u);
+  const original = STEM_WUXING.癸;
+  try {
+    STEM_WUXING.癸 = '土';
+    assert.equal(STEM_WUXING.癸, '土');
+    assert.equal(capturePrompt(), baseline);
+  } finally {
+    STEM_WUXING.癸 = original;
+  }
+  assert.equal(STEM_WUXING.癸, original);
+  assert.equal(capturePrompt(), baseline);
 });
 
 test('大六壬概览只列一组四课与三传，贵人临地仍保留', () => {

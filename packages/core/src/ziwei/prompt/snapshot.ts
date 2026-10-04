@@ -107,9 +107,25 @@ export function buildZiweiMatchedPatternSummary(
     const uncoveredPalaces = pattern.palace_names.filter(
       (name) => !conditionCoversZiweiPalace(name, conditions),
     );
-    const uncoveredStars = pattern.star_names.filter(
-      (name) => !conditionCoversZiweiStar(name, conditions),
-    );
+    const uncoveredStars = pattern.star_names.filter((name) => {
+      if (conditionCoversZiweiStar(name, conditions)) return false;
+      const transformedStar = /^(.*?)化([禄权科忌])$/u.exec(name);
+      return !options.displayedPalaces?.some((palace) => {
+        const palaceIndex = pattern.palace_indexes.indexOf(palace.index);
+        const patternPalaceName = pattern.palace_names[palaceIndex];
+        if (
+          !patternPalaceName ||
+          palace.name.replace(/宫$/u, '') !== patternPalaceName.replace(/宫$/u, '')
+        ) {
+          return false;
+        }
+        return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars].some((star) =>
+          transformedStar
+            ? star.name === transformedStar[1] && star.birth_mutagen === transformedStar[2]
+            : star.name === name,
+        );
+      });
+    });
     return {
       格局: pattern.name,
       传统分类:

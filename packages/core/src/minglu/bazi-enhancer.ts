@@ -752,7 +752,7 @@ export function buildEnhancedFiveElementsSection(
         hasRoot: dayMasterDetails.hasRoot,
         hasStrongRoot: dayMasterDetails.hasStrongRoot,
       },
-      ruleBasis: dayMasterDetails.ruleBasis,
+      ruleBasis: [...dayMasterDetails.ruleBasis],
       judgmentSummary: `日主${dayMaster.gan}(${dayMasterWuxing})在${pillars.month.zhi}月${dayMasterDetails.seasonalEffect}，旺衰为【${baziResult.analysis.dayMasterStrength.status}】。${dayMasterDetails.ruleBasis.join('；')}。结构加权计数中，同类占${sameRatio}%，异类占${diffRatio}%。`,
     },
   };
@@ -764,7 +764,7 @@ export function buildEnhancedPatternUsefulGodSection(
 ): MingluPatternUsefulGodSectionData {
   if (isUnknownTimeChart(baziResult)) {
     const summary = unknownTimeSummary(baziResult);
-    return {
+    return structuredClone({
       unknownTimeAnalysis: baziResult.unknownTimeAnalysis,
       pattern: {
         name: '待补时',
@@ -782,7 +782,7 @@ export function buildEnhancedPatternUsefulGodSection(
         reasoning: summary,
         strategyTrace: [],
       },
-    };
+    });
   }
   const dayMasterGan = baziResult.dayMaster.gan;
   const monthBranchZhi = baziResult.pillars.month.zhi;
@@ -805,7 +805,7 @@ export function buildEnhancedPatternUsefulGodSection(
       (item !== usefulTransformation?.basis && !transformation.conditions.includes(item)),
   );
 
-  return {
+  return structuredClone({
     pattern: {
       name: baziResult.analysis.mingGe.pattern,
       isSpecial: baziResult.analysis.mingGe.isSpecial,
@@ -864,7 +864,7 @@ export function buildEnhancedPatternUsefulGodSection(
           quotes: [zipingRaw.verse].filter((q): q is string => Boolean(q)),
         }
       : undefined,
-  };
+  });
 }
 
 /** 挖掘全量柱间作用网络（合冲刑害破暗合伏吟反吟） */
@@ -939,7 +939,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
         category: '地支三会',
         name: hui.name,
         involvedPillars: Array.from(new Set(involved)),
-        involvedStemsBranches: hui.branches,
+        involvedStemsBranches: [...hui.branches],
         transformElement: hui.wuxing,
         nature: '吉',
         description: hui.desc,
@@ -959,7 +959,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
         category: '地支三合',
         name: sanhe.name,
         involvedPillars: Array.from(new Set(involved)),
-        involvedStemsBranches: sanhe.branches,
+        involvedStemsBranches: [...sanhe.branches],
         transformElement: sanhe.wuxing,
         nature: '吉',
         description: sanhe.desc,
@@ -982,7 +982,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
         category: '地支半合',
         name: banhe.name,
         involvedPillars: Array.from(new Set(involved)),
-        involvedStemsBranches: banhe.pair,
+        involvedStemsBranches: [...banhe.pair],
         transformElement: banhe.wuxing,
         nature: '吉',
         description: banhe.desc,
@@ -1051,7 +1051,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
           category: '地支相刑',
           name: xing.name,
           involvedPillars: Array.from(new Set(involved)),
-          involvedStemsBranches: xing.group,
+          involvedStemsBranches: [...xing.group],
           nature: '凶',
           description: xing.desc,
           influence: `原局聚齐${xing.name}，须注意人际相处之宽厚包容与规则守正。`,
@@ -1084,7 +1084,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
           category: '地支相刑',
           name: xing.name,
           involvedPillars: Array.from(new Set(involved)),
-          involvedStemsBranches: xing.pair,
+          involvedStemsBranches: [...xing.pair],
           nature: '凶',
           description: xing.desc,
           influence: `见${xing.name}，提示注重言行礼仪与规矩秩序。`,

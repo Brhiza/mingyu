@@ -752,4 +752,35 @@ test('命录保留中和待判与实际原局作用，印星及透干比劫分�
     harmony.every((item) => item.conditionEvidence?.some((evidence) => evidence.includes('争合'))),
   );
   assert.ok(harmony.every((item) => item.conditionStatus !== '成化' && item.nature !== '吉'));
+
+  // 复用盘面资料，独立核对三会、三合、半合及两种相刑返回数组的可写边界。
+  for (const sample of [
+    {
+      pillars: ['甲寅', '乙卯', '甲辰', '壬子'],
+      names: ['寅卯辰三会东方木', '子卯相刑（无礼之刑）'],
+    },
+    {
+      pillars: ['癸亥', '乙卯', '己未', '壬子'],
+      names: ['亥卯未三合木局', '亥卯半合木局（生地半合）'],
+    },
+    { pillars: ['丙寅', '丁巳', '甲申', '戊午'], names: ['寅巳申三刑（无恩之刑）'] },
+  ]) {
+    const projected = structuredClone(chart);
+    for (const [index, key] of (['year', 'month', 'day', 'hour'] as const).entries()) {
+      const ganZhi = sample.pillars[index]!;
+      Object.assign(projected.pillars[key], { gan: ganZhi[0], zhi: ganZhi[1], ganZhi });
+    }
+    const originalProjection = structuredClone(projected);
+    const expected = structuredClone(buildEnhancedInteractions(projected));
+    for (const name of sample.names) {
+      assert.ok(
+        expected.some((item) => item.name === name),
+        name,
+      );
+    }
+    const returned = buildEnhancedInteractions(projected);
+    for (const item of returned) item.involvedStemsBranches[0] = '临时地支';
+    assert.deepEqual(projected, originalProjection);
+    assert.deepEqual(buildEnhancedInteractions(projected), expected);
+  }
 });

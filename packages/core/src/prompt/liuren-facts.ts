@@ -1,9 +1,11 @@
 import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
-import { STEM_WUXING, isSheng, isKe } from '../ganzhi';
+import { isSheng, isKe } from '../ganzhi';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import { getLiurenOrdinaryCandidateStatusLabel } from '../divination/liuren-ordinary-adjudication';
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 function isTransmissionMonthStateInTiming(
   timingEvidence: readonly string[],

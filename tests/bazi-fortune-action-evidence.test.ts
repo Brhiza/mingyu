@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { STEM_WUXING } from '@core/ganzhi/data';
 import type { BaziChartResult, Pillars } from '@core/bazi/baziTypes';
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
@@ -213,6 +214,7 @@ test('真实岁运只引用本命已采纳主作用，次作用及五行排序�
     { stem: '丁', wuxing: '火', role: '锻炼', targetStems: ['庚'], rank: 'secondary' },
   ]);
   const analysisBefore = structuredClone(chart.analysis);
+  const promptCurrentTime = new Date('2026-05-19T10:30:00+08:00');
 
   for (const [year, ganZhi, stem, hasAction] of [
     [2026, '丙午', '丙', true],
@@ -232,7 +234,11 @@ test('真实岁运只引用本命已采纳主作用，次作用及五行排序�
     assert.deepEqual(fact.targetObjects, hasAction ? ['庚'] : []);
     assert.equal(fact.currentActionStatus, '资料不足');
     if (!hasAction) assert.ok(fact.hitSources.includes('conditionalUnfavorableStems'));
-    const prompt = buildBaziPrompt({ result: chart, fortuneSelectionContext: context });
+    const prompt = buildBaziPrompt({
+      result: chart,
+      fortuneSelectionContext: context,
+      currentTime: promptCurrentTime,
+    });
     assert.match(prompt, /条件取用：丙火用于照暖（作用对象：庚）/u);
     assert.match(prompt, /干级所忌：丁/u);
     const actionLine = prompt.split('\n').find((line) => line.includes(`流年${stem}（火，`));
@@ -246,6 +252,33 @@ test('真实岁运只引用本命已采纳主作用，次作用及五行排序�
     );
     assert.match(prompt, /【任务】/u);
     assert.match(prompt, /【问题】/u);
+    const baselineContext = structuredClone(context);
+    const original = STEM_WUXING[stem];
+    try {
+      STEM_WUXING[stem] = '水';
+      assert.equal(STEM_WUXING[stem], '水');
+      const changedContext = buildFortuneSelectionContext(chart, {
+        scope: 'year',
+        cycleIndex,
+        year,
+      });
+      assert.deepEqual(changedContext, baselineContext);
+      assert.equal(
+        buildBaziPrompt({
+          result: chart,
+          fortuneSelectionContext: changedContext,
+          currentTime: promptCurrentTime,
+        }),
+        prompt,
+      );
+    } finally {
+      STEM_WUXING[stem] = original;
+    }
+    assert.equal(STEM_WUXING[stem], original);
+    assert.deepEqual(
+      buildFortuneSelectionContext(chart, { scope: 'year', cycleIndex, year }),
+      baselineContext,
+    );
   }
   assert.deepEqual(chart.analysis, analysisBefore);
 

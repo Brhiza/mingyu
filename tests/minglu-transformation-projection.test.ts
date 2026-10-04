@@ -5,6 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import { buildMingluArticle } from '../packages/core/src/minglu/builder';
+import {
+  buildEnhancedFiveElementsSection,
+  buildEnhancedPatternUsefulGodSection,
+} from '../packages/core/src/minglu/bazi-enhancer';
 import { MingluPatternUsefulGodSection } from '../src/pages/ResultPage/components/MingluWiki/MingluPatternUsefulGodSection';
 import { formatMingluPatternCopy } from '../src/pages/ResultPage/components/MingluWiki/minglu-copy';
 
@@ -92,5 +96,29 @@ for (const sample of [
       assert.doesNotMatch(guideAndSynthesis, /成化取用以化神/);
       assert.doesNotMatch(html, /取用主体：化神/);
     }
+
+    const originalChart = structuredClone(baziResult);
+    const originalArticle = structuredClone(article);
+    const originalPattern = structuredClone(buildEnhancedPatternUsefulGodSection(baziResult));
+    const originalElements = structuredClone(buildEnhancedFiveElementsSection(baziResult));
+    const returnedPattern = buildEnhancedPatternUsefulGodSection(baziResult);
+    const returnedElements = buildEnhancedFiveElementsSection(baziResult);
+    returnedPattern.pattern.transformation!.conditions.push('临时化气条件');
+    returnedPattern.usefulGods.favorable.push('临时喜神');
+    returnedPattern.usefulGods.unfavorable.push('临时忌神');
+    if (returnedPattern.usefulGods.transformation) {
+      returnedPattern.usefulGods.transformation.conditions.push('临时取用条件');
+    }
+    if (returnedPattern.pattern.specialAdjudication) {
+      returnedPattern.pattern.specialAdjudication.satisfied.push('临时特殊格局条件');
+    }
+    returnedElements.dayMasterStrength.ruleBasis.push('临时旺衰依据');
+    assert.deepEqual(baziResult, originalChart);
+    assert.deepEqual(buildEnhancedPatternUsefulGodSection(baziResult), originalPattern);
+    assert.deepEqual(buildEnhancedFiveElementsSection(baziResult), originalElements);
+    assert.deepEqual(
+      buildMingluArticle({ person: { name: '化气核验', gender: 'male' }, baziResult }),
+      originalArticle,
+    );
   });
 }

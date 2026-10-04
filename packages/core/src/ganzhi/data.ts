@@ -67,7 +67,7 @@ export const SIX_XUN_HEADS: readonly string[] = Object.freeze(
 );
 
 /** 天干五行 */
-export const STEM_WUXING: Record<string, string> = {
+const CANONICAL_STEM_WUXING: Record<string, string> = {
   甲: '木',
   乙: '木',
   丙: '火',
@@ -80,8 +80,10 @@ export const STEM_WUXING: Record<string, string> = {
   癸: '水',
 };
 
+export const STEM_WUXING: Record<string, string> = { ...CANONICAL_STEM_WUXING };
+
 /** 天干阴阳（阳干：甲丙戊庚壬；阴干：乙丁己辛癸） */
-export const STEM_YINYANG: Record<string, '阳' | '阴'> = {
+const CANONICAL_STEM_YINYANG: Record<string, '阳' | '阴'> = {
   甲: '阳',
   乙: '阴',
   丙: '阳',
@@ -94,8 +96,10 @@ export const STEM_YINYANG: Record<string, '阳' | '阴'> = {
   癸: '阴',
 };
 
+export const STEM_YINYANG: Record<string, '阳' | '阴'> = { ...CANONICAL_STEM_YINYANG };
+
 /** 地支阴阳（阳支：子寅辰午申戌；阴支：丑卯巳未酉亥） */
-export const BRANCH_YINYANG: Record<string, '阳' | '阴'> = {
+const CANONICAL_BRANCH_YINYANG: Record<string, '阳' | '阴'> = {
   子: '阳',
   丑: '阴',
   寅: '阳',
@@ -109,6 +113,17 @@ export const BRANCH_YINYANG: Record<string, '阳' | '阴'> = {
   戌: '阳',
   亥: '阴',
 };
+
+export const BRANCH_YINYANG: Record<string, '阳' | '阴'> = { ...CANONICAL_BRANCH_YINYANG };
+
+/** 返回固定干支属性资料副本，公开映射的临时修改不参与计算。 */
+export function getGanZhiAttributeTables() {
+  return {
+    STEM_WUXING: { ...CANONICAL_STEM_WUXING },
+    STEM_YINYANG: { ...CANONICAL_STEM_YINYANG },
+    BRANCH_YINYANG: { ...CANONICAL_BRANCH_YINYANG },
+  };
+}
 
 /**
  * 纳音五行表（六十甲子纳音）

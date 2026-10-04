@@ -243,6 +243,21 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
       );
       for (const name of sample.stars) assert.ok(text.includes(name), name);
       if (sample.retainedCondition) assert.ok(text.includes(sample.retainedCondition));
+      if (sample.patternName === '权禄生逢') {
+        const lifePalaceLine = text
+          .split('\n')
+          .find((line) => /^\s*命宫(?:（[^）]+）)?；|^宫位：命宫｜/u.test(line));
+        assert.ok(lifePalaceLine);
+        assert.match(
+          lifePalaceLine,
+          new RegExp(`宫干支：?${lifePalace.heavenly_stem}${lifePalace.earthly_branch}`, 'u'),
+        );
+        assert.match(lifePalaceLine, /天同(?:，亮度：旺，生年化权|\(旺\/生年化权\))/u);
+        assert.match(lifePalaceLine, /太阴(?:，亮度：庙，生年化禄|\(庙\/生年化禄\))/u);
+        const targetPattern = text.split('格局：权禄生逢\n')[1]?.split('\n\n')[0];
+        assert.ok(targetPattern);
+        assert.doesNotMatch(targetPattern, /命中条件：|涉及星曜：/u);
+      }
     }
     const focused = buildZiweiPrompt({
       runtime,
@@ -340,6 +355,9 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
       ]);
     }
     if (sample.patternName === '权禄生逢') {
+      assert.deepEqual(pattern.star_names, ['天同化权', '太阴化禄']);
+      assert.match(focused, /涉及星曜：天同化权、太阴化禄/u);
+      assert.doesNotMatch(focused, /^\s*命宫(?:（[^）]+）)?；/mu);
       assert.deepEqual(
         natalStars
           .filter((star) => star.birth_mutagen)
@@ -375,6 +393,73 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
           ),
         },
       ]);
+      const assertStarIdentities = (
+        displayedPalaces: readonly PalaceFact[],
+        expected: string | undefined,
+      ) => {
+        const summary = buildZiweiMatchedPatternSummary(payload, { displayedPalaces }).find(
+          (item) => item.格局 === '权禄生逢',
+        );
+        assert.ok(summary);
+        assert.equal(summary.涉及星曜, expected);
+      };
+      for (const displayedPalaces of [
+        [],
+        [{ ...lifePalace, index: (lifePalace.index + 1) % 12 }],
+        [{ ...lifePalace, name: '夫妻宫' }],
+        [
+          {
+            ...lifePalace,
+            major_stars: [],
+            minor_stars: [],
+            other_stars: [],
+            scope_stars: natalStars.map((star) => ({ ...star, scope: 'yearly' })),
+          },
+        ],
+        [
+          {
+            ...lifePalace,
+            major_stars: lifePalace.major_stars.map((star) => ({
+              ...star,
+              birth_mutagen: undefined,
+              horoscope_mutagen: star.birth_mutagen,
+              active_scope_mutagen: star.birth_mutagen,
+            })),
+          },
+        ],
+      ]) {
+        assertStarIdentities(displayedPalaces, '天同化权、太阴化禄');
+        const summary = buildZiweiMatchedPatternSummary(payload, { displayedPalaces }).find(
+          (item) => item.格局 === '权禄生逢',
+        );
+        assert.ok(summary?.命中条件?.includes('生年化权、生年化禄同守命宫'));
+        assert.ok(summary?.命中条件?.includes(sample.condition));
+      }
+      assertStarIdentities([missingPalace], '天同化权');
+      assertStarIdentities(
+        [
+          {
+            ...lifePalace,
+            major_stars: lifePalace.major_stars.map((star) =>
+              star.name === '天同'
+                ? { ...star, birth_mutagen: undefined, horoscope_mutagen: '权' }
+                : star,
+            ),
+          },
+        ],
+        '天同化权',
+      );
+      assertStarIdentities(
+        [
+          {
+            ...lifePalace,
+            major_stars: lifePalace.major_stars.map((star) =>
+              star.name === '天同' ? { ...star, brightness: undefined } : star,
+            ),
+          },
+        ],
+        undefined,
+      );
     }
     assert.deepEqual(payload, before);
   }

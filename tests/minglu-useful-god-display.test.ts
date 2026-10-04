@@ -43,4 +43,12 @@ test('命录缺时辰的空喜忌保留待补时，不生成顺势或无忌结�
   );
   assert.match(html, /出生时辰待补/u);
   assert.doesNotMatch(html, /喜用十神：|忌神：|顺应大势|暂无明显大忌|防微杜渐/u);
+
+  const originalResult = structuredClone(result);
+  const originalSection = structuredClone(section);
+  assert.ok(section.unknownTimeAnalysis);
+  section.unknownTimeAnalysis.uncertainPillars.push('year');
+  section.unknownTimeAnalysis.scenarios[0]!.timeName = '临时时辰';
+  assert.deepEqual(result, originalResult);
+  assert.deepEqual(buildEnhancedPatternUsefulGodSection(result), originalSection);
 });

@@ -12,6 +12,7 @@ import {
   isRepeatedZiweiCoLocationCondition,
   isZiweiConditionRestatedByPalaces,
 } from '../packages/core/src/ziwei/prompt/pattern-condition-visibility';
+import { buildZiweiMatchedPatternSummary } from '../packages/core/src/ziwei/prompt/snapshot';
 
 import {
   buildCombinedZiweiCompatibilityPrompt,
@@ -513,16 +514,27 @@ test('真实空曜与生年化曜盘在完整宫位已列事实时不重复格�
       }),
       /命宫；[^\n]*廉贞，亮度：庙，生年化禄；辅曜：禄存、地空/u,
     ],
+    [
+      buildCombinedZiweiPrompt(natalPayload, 'life', '请分析命局结构。', {
+        currentTime: new Date('2026-10-03T00:00:00Z'),
+      }),
+      /宫位：命宫｜宫干支：丙寅｜[^\n]*主星：廉贞\(庙\/生年化禄\)｜辅星：禄存、地空/u,
+    ],
   ] as const) {
     assert.match(text, identity);
     assert.match(text, /格局：两重华盖/u);
     assert.match(text, /两重华盖，谓禄存化禄坐命遇空劫是也。/u);
     assert.doesNotMatch(text, /禄存与生年化禄同坐命宫|命宫见地空/u);
+    const targetPattern = text.split('格局：两重华盖\n')[1]?.split('\n\n')[0];
+    assert.ok(targetPattern);
+    assert.doesNotMatch(targetPattern, /涉及星曜：/u);
   }
   const natalFocused = formatZiweiPayloadForPrompt(natalPayload, {
     focusPalaceNames: ['夫妻宫'],
   });
   assert.match(natalFocused, /命中条件：禄存与生年化禄同坐命宫；命宫见地空/u);
+  assert.match(natalFocused, /涉及星曜：廉贞化禄/u);
+  assert.doesNotMatch(natalFocused, /^\s*命宫(?:（[^）]+）)?；/mu);
   for (const condition of natalPattern.matched_conditions) {
     assert.equal(isZiweiConditionRestatedByPalaces(natalPattern, condition, [lifePalace]), true);
     for (const displayed of [
@@ -544,6 +556,11 @@ test('真实空曜与生年化曜盘在完整宫位已列事实时不重复格�
       ],
     ]) {
       assert.equal(isZiweiConditionRestatedByPalaces(natalPattern, condition, displayed), false);
+      const summary = buildZiweiMatchedPatternSummary(natalPayload, {
+        displayedPalaces: displayed,
+      }).find((item) => item.格局 === '两重华盖');
+      assert.ok(summary?.命中条件?.includes(condition));
+      assert.equal(summary?.涉及星曜, '廉贞化禄');
     }
     assert.equal(
       isZiweiConditionRestatedByPalaces(natalPattern, `${condition}，且不见化忌`, [lifePalace]),
@@ -575,6 +592,21 @@ test('真实空曜与生年化曜盘在完整宫位已列事实时不重复格�
       ]),
       false,
     );
+    const summary = buildZiweiMatchedPatternSummary(natalPayload, {
+      displayedPalaces: [
+        {
+          ...lifePalace,
+          major_stars: lifePalace.major_stars.map((star) => ({
+            ...star,
+            birth_mutagen: birthMutagen,
+            active_scope_mutagen: '禄' as const,
+            horoscope_mutagen: '禄' as const,
+          })),
+        },
+      ],
+    }).find((item) => item.格局 === '两重华盖');
+    assert.ok(summary?.命中条件?.includes('禄存与生年化禄同坐命宫'));
+    assert.equal(summary?.涉及星曜, '廉贞化禄');
   }
   assert.equal(
     isZiweiConditionRestatedByPalaces(
