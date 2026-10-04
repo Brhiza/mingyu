@@ -1,4 +1,5 @@
-import type { WuyunLiuqiResult } from '../wuyun-liuqi';
+import { assertWuyunLiuqiFacts, type WuyunLiuqiResult } from '../wuyun-liuqi';
+import { assertTaiyiFixedFacts } from '../taiyi';
 import {
   formatLiurenLesson,
   formatLiurenOrdinaryTransmissionAdjudication,
@@ -618,6 +619,7 @@ export function getDivinationSummaryBlocks(
     }
     case 'taiyi': {
       const item = data as TaiyiResult;
+      assertTaiyiFixedFacts(item);
       const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[item.scope];
       return {
         title: `太乙神数${scopeLabel}结果`,
@@ -662,6 +664,7 @@ export function getDivinationSummaryBlocks(
     }
     case 'wuyun': {
       const item = data as WuyunLiuqiResult;
+      assertWuyunLiuqiFacts(item);
       const targetYear =
         item.input.year === undefined
           ? item.input.yearGanZhi

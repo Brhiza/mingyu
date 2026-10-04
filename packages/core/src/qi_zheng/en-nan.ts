@@ -4,11 +4,13 @@
  */
 import type { QizhengAspect, QizhengStar } from './index';
 import type { SolarCrossingEvidence } from '../calendar/solar-illumination-evidence';
-import { QIZHENG_ASPECTS } from './aspect-rules';
+import { getQizhengAspectRules } from './aspect-rules';
+
+const qizhengAspectRules = getQizhengAspectRules();
 
 export type WuxingElement = '木' | '火' | '土' | '金' | '水';
 
-export const STAR_WUXING: Record<string, WuxingElement> = {
+const starWuxing: Record<string, WuxingElement> = {
   太阳: '火',
   太阴: '水',
   水星: '水',
@@ -21,6 +23,8 @@ export const STAR_WUXING: Record<string, WuxingElement> = {
   罗睺: '火',
   计都: '土',
 };
+
+export const STAR_WUXING: Record<string, WuxingElement> = { ...starWuxing };
 
 const ELEMENT_SHENG: Record<WuxingElement, WuxingElement> = {
   木: '火',
@@ -56,11 +60,11 @@ const STAR_ALIAS_TO_CANONICAL: Record<string, string> = {
 
 /** 将命主或相位星曜名称归一到 STAR_WUXING 的标准名；无法识别时返回 undefined */
 function resolveCanonicalStar(name: string): string | undefined {
-  if (STAR_WUXING[name]) return name;
+  if (starWuxing[name]) return name;
   if (STAR_ALIAS_TO_CANONICAL[name]) return STAR_ALIAS_TO_CANONICAL[name];
   // 兼容“辰星(水)”“罗睺(火余)”等带括注的展示名
   const base = name.replace(/[（(].*$/, '').trim();
-  if (STAR_WUXING[base]) return base;
+  if (starWuxing[base]) return base;
   if (STAR_ALIAS_TO_CANONICAL[base]) return STAR_ALIAS_TO_CANONICAL[base];
   return undefined;
 }
@@ -120,7 +124,7 @@ export function evaluateQizhengEnNan(params: {
   if (!canonicalMingZhu) {
     throw new Error(`七政四余恩难命主名称无法识别：${mingZhu}`);
   }
-  const mingElement = STAR_WUXING[canonicalMingZhu]!;
+  const mingElement = starWuxing[canonicalMingZhu]!;
 
   // 生我者为恩
   const enElement = Object.entries(ELEMENT_SHENG).find(
@@ -142,7 +146,7 @@ export function evaluateQizhengEnNan(params: {
   const chouStars: string[] = [];
   const yongStars: string[] = [];
 
-  for (const [starName, element] of Object.entries(STAR_WUXING)) {
+  for (const [starName, element] of Object.entries(starWuxing)) {
     if (starName === canonicalMingZhu) continue;
     if (element === enElement) enStars.push(starName);
     else if (element === nanElement) nanStars.push(starName);
@@ -170,7 +174,7 @@ export function evaluateQizhengEnNan(params: {
     if (!counterpartCanonical) continue;
     const firstLongitude = longitudeByStar.get(s1);
     const secondLongitude = longitudeByStar.get(resolveCanonicalStar(aspect.star2));
-    const rule = QIZHENG_ASPECTS.find((item) => item.type === aspect.type);
+    const rule = qizhengAspectRules.find((item) => item.type === aspect.type);
     if (
       firstLongitude === undefined ||
       secondLongitude === undefined ||
@@ -182,7 +186,7 @@ export function evaluateQizhengEnNan(params: {
     const separation = Math.abs((((firstLongitude - secondLongitude) % 360) + 360) % 360);
     const actualAngle = Math.min(separation, 360 - separation);
     if (Math.abs(actualAngle - rule.angle) > rule.orb) continue;
-    const counterpartElement = STAR_WUXING[counterpartCanonical]!;
+    const counterpartElement = starWuxing[counterpartCanonical]!;
     const relation = aspect.type === '同宫' ? '合相' : aspect.type;
     if (counterpartElement === nanElement) {
       aspectInteraction.push(`难星${counterpart}与命主形成${relation}吊照`);

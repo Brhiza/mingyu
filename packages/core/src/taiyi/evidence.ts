@@ -1,6 +1,10 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiyiModelInfo, TaiyiScope } from '../types/divination';
 import type { TaiyiRuleConditions } from './conditions';
+import { getTaiyiPalaces, getTaiyiSixteenGods } from './fixed-data';
+
+const taiyiPalaces = getTaiyiPalaces();
+const taiyiSixteenGods = getTaiyiSixteenGods();
 
 const TAIYI_COUNT_NATURES: Record<number, string> = {
   1: '杂阴',
@@ -37,6 +41,44 @@ const TAIYI_COUNT_NATURES: Record<number, string> = {
 
 export function getTaiyiCountNature(value: number): string | undefined {
   return TAIYI_COUNT_NATURES[value];
+}
+
+/** 核对宫位、十六神与算性所引用的固定资料。 */
+export function assertTaiyiFixedFacts(
+  data: Pick<
+    TaiyiEvidenceInput,
+    'taiyiPalace' | 'sixteenGods' | 'lordCount' | 'guestCount' | 'setCount' | 'countNatures'
+  > & { taiyiGua?: string; taiyiDir?: string },
+): void {
+  const palace = taiyiPalaces[data.taiyiPalace];
+  if (
+    !palace ||
+    (data.taiyiGua !== undefined && data.taiyiGua !== palace.gua) ||
+    (data.taiyiDir !== undefined && data.taiyiDir !== palace.dir)
+  ) {
+    throw new Error('太乙宫位与卦象、方位资料不一致。');
+  }
+  if (
+    data.sixteenGods?.length &&
+    (data.sixteenGods.length !== taiyiSixteenGods.length ||
+      data.sixteenGods.some(
+        (item, index) =>
+          item.branch !== taiyiSixteenGods[index].branch ||
+          item.god !== taiyiSixteenGods[index].name,
+      ))
+  ) {
+    throw new Error('太乙十六神与固定定位资料不一致。');
+  }
+  for (const [side, count] of [
+    ['lord', data.lordCount],
+    ['guest', data.guestCount],
+    ['set', data.setCount],
+  ] as const) {
+    const nature = data.countNatures?.[side];
+    if (nature !== undefined && nature !== getTaiyiCountNature(count)) {
+      throw new Error('太乙算性与主客定算不一致。');
+    }
+  }
 }
 
 export interface TaiyiEvidenceInput {
@@ -582,6 +624,7 @@ function buildSummaryFact(args: {
 }
 
 export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnalysis {
+  assertTaiyiFixedFacts(data);
   const scopeLabel = SCOPE_LABELS[data.scope];
   const mainGateRolesText = data.conditions.threeGates.roles
     .filter((role) => role.usedForThreeGate)

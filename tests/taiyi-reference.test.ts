@@ -13,7 +13,12 @@ import {
   TAIYI_POINT_WUXING,
 } from '../packages/core/src/taiyi/conditions.ts';
 import { formatTaiyiInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
-import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
+import { buildTaiyiEvidence } from '../packages/core/src/taiyi/evidence.ts';
+import { getTaiyiPalaces, getTaiyiSixteenGods } from '../packages/core/src/taiyi/fixed-data.ts';
 
 test('太乙阳遁十三、二十二、二十八局与金镜式经卷六局式一致', () => {
   // 《太乙金鏡式經》卷六的三则日计古例只用于独立比对同局静态盘式；
@@ -157,6 +162,75 @@ test('太乙在线任务书合并实际条件，并按盘面重算而忽略旧�
   assert.match(baselineTaskbook, /三门：三门具；直使伤门/);
   assert.match(baselineTaskbook, /子地主/);
 
+  const consumers = (data: typeof baseline) => ({
+    facts: buildTaiyiEvidence(data),
+    native: data.prompt,
+    formatted: formatTaiyiInfo(data),
+    fullTask: buildDivinationPrompt({ method: 'taiyi', data, question, currentTime }),
+    summary: getDivinationSummaryBlocks('taiyi', data),
+  });
+  const baselineConsumers = consumers(baseline);
+  assert.deepEqual(consumers(JSON.parse(JSON.stringify(baseline))), baselineConsumers);
+  assert.deepEqual(baseline.countNatures, { lord: '下和', guest: '杂重阴', set: '纯阳' });
+  const mutations = [
+    { mutate: (data: typeof baseline) => (data.sixteenGods[0].god = '变造神名'), error: /十六神/ },
+    {
+      mutate: (data: typeof baseline) => {
+        data.taiyiGua = '坎';
+        data.taiyiDir = '北';
+      },
+      error: /宫位与卦象、方位/,
+    },
+    { mutate: (data: typeof baseline) => (data.countNatures!.lord = '纯阳'), error: /算性/ },
+  ];
+  for (const { mutate, error } of mutations) {
+    const bad = structuredClone(baseline);
+    mutate(bad);
+    assert.notDeepEqual(bad, baseline);
+    assert.equal(bad.prompt, baselineConsumers.native);
+    for (const consume of [
+      () => buildTaiyiEvidence(bad),
+      () => formatTaiyiInfo(bad),
+      () => buildDivinationPrompt({ method: 'taiyi', data: bad, question, currentTime }),
+      () => getDivinationSummaryBlocks('taiyi', bad),
+    ]) {
+      assert.throws(consume, error);
+    }
+  }
+  for (const countNatures of [undefined, { guest: '杂重阴', set: '纯阳' }]) {
+    const legacyData = { ...baseline, countNatures };
+    const legacyConsumers = consumers(legacyData);
+    assert.equal(legacyConsumers.facts.forceFacts[0].nature, undefined);
+    assert.deepEqual(
+      legacyConsumers.facts.forceFacts.map((fact) => fact.count),
+      baselineConsumers.facts.forceFacts.map((fact) => fact.count),
+    );
+    assert.equal(legacyConsumers.native, baselineConsumers.native);
+    assert.equal(legacyConsumers.formatted, baselineConsumers.formatted);
+    assert.equal(legacyConsumers.fullTask, baselineConsumers.fullTask);
+    assert.deepEqual(legacyConsumers.summary, baselineConsumers.summary);
+  }
+  const omittedPalaceMetadata = structuredClone(baseline);
+  Reflect.deleteProperty(omittedPalaceMetadata, 'taiyiGua');
+  Reflect.deleteProperty(omittedPalaceMetadata, 'taiyiDir');
+  assert.doesNotThrow(() => consumers(omittedPalaceMetadata));
+
+  const palaceCopy = getTaiyiPalaces();
+  const godCopy = getTaiyiSixteenGods();
+  const originalPalaces = getTaiyiPalaces();
+  const originalGods = getTaiyiSixteenGods();
+  assert.notStrictEqual(palaceCopy, originalPalaces);
+  assert.notStrictEqual(palaceCopy[2], originalPalaces[2]);
+  assert.notStrictEqual(godCopy, originalGods);
+  assert.notStrictEqual(godCopy[0], originalGods[0]);
+  assert.equal(Reflect.set(palaceCopy[2], 'dir', '北'), true);
+  assert.equal(Reflect.set(godCopy[0], 'name', '变造神名'), true);
+  godCopy.reverse();
+  assert.equal(palaceCopy[2].dir, '北');
+  assert.equal(godCopy.at(-1)!.name, '变造神名');
+  assert.deepEqual(getTaiyiPalaces(), originalPalaces);
+  assert.deepEqual(getTaiyiSixteenGods(), originalGods);
+
   // 公开资料仍可改写；新盘使用固定盘式，二目五行同时核结构资料。
   const catalogWrites = [
     [TAIYI_16_GODS[0], 'name', '本次神名'],
@@ -172,6 +246,9 @@ test('太乙在线任务书合并实际条件，并按盘面重算而忽略旧�
       assert.equal(Reflect.get(target, key), value);
     }
     const freshCatalog = generateTaiyi(catalogInput);
+    assert.deepEqual(consumers(freshCatalog), baselineConsumers);
+    assert.deepEqual(getTaiyiPalaces(), originalPalaces);
+    assert.deepEqual(getTaiyiSixteenGods(), originalGods);
     assert.deepEqual(freshCatalog, baseline);
     assert.equal(freshCatalog.prompt, baseline.prompt);
     assert.equal(

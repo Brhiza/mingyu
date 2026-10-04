@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateWuyunLiuqi } from '@core/wuyun-liuqi';
+import {
+  buildWuyunLiuqiPrompt,
+  calculateWuyunLiuqi,
+  formatWuyunLiuqiFacts,
+} from '@core/wuyun-liuqi';
 import { SIXTY_CYCLE } from '@core/ganzhi';
 import {
+  buildDivinationPrompt,
   formatDivinationInfo,
   getDivinationSummaryBlocks,
 } from '../packages/core/src/prompt/divination';
@@ -66,6 +71,72 @@ test('丙午年保留运克气、客生主与客克主的施受双方', () => {
   assert.doesNotMatch(prompt, /司天少阴君火（火）克中运（水）/);
   assert.match(prompt, /三之气.*主客关系同气；二火加临：君位臣则顺/);
   assert.doesNotMatch(prompt, /主客关系同气（/);
+
+  const baseline = getWuyunResult('丙午');
+  const currentTime = new Date('2025-01-01T00:00:00.000Z');
+  const question = '本年主客运气如何分层理解？';
+  const consumers = (data: typeof baseline) => ({
+    facts: formatWuyunLiuqiFacts(data),
+    native: buildWuyunLiuqiPrompt(data),
+    fullTask: buildDivinationPrompt({ method: 'wuyun', data, question, currentTime }),
+    summary: getDivinationSummaryBlocks('wuyun', data),
+    formatted: formatDivinationInfo('wuyun', data),
+    detailed: formatDetailedDivinationInfo('wuyun', data),
+    enhanced: formatEnhancedDivinationInfo('wuyun', data),
+  });
+  const baselineConsumers = consumers(baseline);
+  assert.equal(baselineConsumers.native, prompt);
+  assert.deepEqual(consumers(JSON.parse(JSON.stringify(baseline))), baselineConsumers);
+  const mutations = [
+    {
+      mutate: (data: typeof baseline) => {
+        data.pathomechanism!.summary = '平气核定：已经确定为平气';
+      },
+      error: /平气及岁运纪/,
+    },
+    {
+      mutate: (data: typeof baseline) => {
+        data.annualRelation.kind = '同气';
+      },
+      error: /年度气运关系/,
+    },
+    {
+      mutate: (data: typeof baseline) => {
+        data.qiSteps[2].guestQi.name = '厥阴风木';
+      },
+      error: /六步主客气属性/,
+    },
+  ];
+  for (const { mutate, error } of mutations) {
+    const bad = structuredClone(baseline);
+    mutate(bad);
+    assert.notDeepEqual(bad, baseline);
+    assert.equal(bad.prompt, prompt);
+    for (const consume of [
+      () => formatWuyunLiuqiFacts(bad),
+      () => buildWuyunLiuqiPrompt(bad),
+      () => buildDivinationPrompt({ method: 'wuyun', data: bad, question, currentTime }),
+      () => getDivinationSummaryBlocks('wuyun', bad),
+      () => formatDivinationInfo('wuyun', bad),
+      () => formatDetailedDivinationInfo('wuyun', bad),
+      () => formatEnhancedDivinationInfo('wuyun', bad),
+    ]) {
+      assert.throws(consume, error);
+    }
+  }
+  const legacyConsumers = consumers({ ...baseline, pathomechanism: undefined });
+  assert.deepEqual(legacyConsumers, {
+    ...baselineConsumers,
+    summary: {
+      ...baselineConsumers.summary,
+      lines: baselineConsumers.summary.lines.filter(
+        (line) => line !== baseline.pathomechanism!.summary,
+      ),
+    },
+  });
+  const fresh = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  assert.deepEqual(fresh, baseline);
+  assert.deepEqual(consumers(fresh), baselineConsumers);
 });
 
 test('丁亥年同气事实只列一次，平气参考条件仍保持独立', () => {

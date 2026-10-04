@@ -1,5 +1,6 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { getBaZhaiPalace } from '../direction';
 import type {
   BaZhaiDoorMeasurement,
   BaZhaiHouseGroup,
@@ -693,6 +694,25 @@ export function analyzeBaZhaiEvidence(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   measurement?: BaZhaiDoorMeasurement,
 ): BaZhaiEvidenceAnalysis {
+  for (const [gua, palaces] of [
+    [data.mingGua, data.mingPalace],
+    [data.houseGua, data.housePalace],
+  ] as const) {
+    if (!gua || !palaces) continue;
+    const expected = getBaZhaiPalace(gua);
+    for (const palace of palaces) {
+      const canonical = expected.find((item) => item.gua === palace.gua);
+      if (
+        !canonical ||
+        palace.direction !== canonical.direction ||
+        palace.degree !== canonical.degree ||
+        palace.label !== canonical.label ||
+        palace.luck !== canonical.luck
+      ) {
+        throw new Error('八宅方位记录与命卦或宅卦大游年表不一致。');
+      }
+    }
+  }
   const calculationFact = buildCalculationFact(data);
   const directionFacts = data.mingPalace.map((mingPalace): BaZhaiDirectionFact => {
     const housePalace = data.housePalace?.find((item) => item.gua === mingPalace.gua) ?? null;

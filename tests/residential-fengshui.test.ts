@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { NINE_STAR_WUXING } from '../packages/core/src/ba_zhai/suppression.ts';
 import { MOUNTAIN_PROFILES } from '../packages/core/src/xuan_kong/castle-gate.ts';
 import { FLYING_STAR_WUXING } from '../packages/core/src/xuan_kong/period-stars.ts';
-import { analyzeBaZhaiByDoorDegree } from '../packages/core/src/ba_zhai/index.ts';
+import {
+  analyzeBaZhaiByDoorDegree,
+  analyzeBaZhaiEvidence,
+} from '../packages/core/src/ba_zhai/index.ts';
 import { PROMPT_GUIDANCE_TEXT } from '../packages/core/src/prompt/guidance.ts';
 import { buildMetaphysicsPrompt } from '../packages/core/src/prompt/metaphysics.ts';
 import { generateResidentialFengshui } from '../packages/core/src/residential_fengshui/index.ts';
@@ -399,6 +402,25 @@ test('住宅合参保留各方向完整盘面并只呈现一次', () => {
   assertPromptIsPortableTaskText(baselineTaskbook);
   assert.match(baselineTaskbook, /【盘面资料】[\s\S]*玄空完整盘面：[\s\S]*八宅完整盘面：/u);
   assert.match(baselineTaskbook, /【传统依据】/u);
+  const jsonRestored = JSON.parse(JSON.stringify(baseline)) as typeof baseline;
+  assert.equal(JSON.stringify(jsonRestored), JSON.stringify(baseline));
+  assert.equal(
+    buildMetaphysicsPrompt(jsonRestored.prompt, question, promptOptions),
+    baselineTaskbook,
+  );
+  const changed = structuredClone(baseline);
+  const north = changed.bazhai!.mingPalace.find((palace) => palace.gua === '坎')!;
+  assert.deepEqual([north.direction, north.label, north.luck], ['北', '伏位', '吉']);
+  assert.equal(Reflect.set(north, 'label', '生气'), true);
+  assert.equal(north.label, '生气');
+  assert.throws(
+    () => analyzeBaZhaiEvidence(changed.bazhai!),
+    /八宅方位记录与命卦或宅卦大游年表不一致/u,
+  );
+  assert.equal(buildMetaphysicsPrompt(changed.prompt, question, promptOptions), baselineTaskbook);
+  north.label = '伏位';
+  assert.deepEqual(changed, baseline);
+  assert.deepEqual(analyzeBaZhaiEvidence(changed.bazhai!), analyzeBaZhaiEvidence(baseline.bazhai!));
   const original = {
     lifeElement: NINE_STAR_WUXING.生气.element,
     flyingElement: FLYING_STAR_WUXING[1],

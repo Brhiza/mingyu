@@ -7,7 +7,9 @@ import {
   type QizhengAspect,
 } from '../packages/core/src/qi_zheng/index.ts';
 import { buildQizhengTimeLords } from '../packages/core/src/qi_zheng/time-lords.ts';
-import { evaluateQizhengEnNan } from '../packages/core/src/qi_zheng/en-nan.ts';
+import { evaluateQizhengEnNan, STAR_WUXING } from '../packages/core/src/qi_zheng/en-nan.ts';
+import { QIZHENG_ASPECTS } from '../packages/core/src/qi_zheng/aspect-rules.ts';
+import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt.ts';
 import { formatQizhengTimeLordPrompt } from '../packages/core/src/qi_zheng/time-lords.ts';
 import { extractQizhengFacts } from '../scripts/prompt-audit/natal-facts.ts';
 import { auditPromptFacts } from '../scripts/prompt-audit/facts.ts';
@@ -343,7 +345,7 @@ test('恩难相位以合相描述零度吊照，不把跨宫关系写成同宫',
 });
 
 test('实际七政盘三项恩难交会在完整任务书中保留全部角色', () => {
-  const chart = generateQizheng({
+  const input = {
     year: 2020,
     month: 8,
     day: 15,
@@ -351,7 +353,8 @@ test('实际七政盘三项恩难交会在完整任务书中保留全部角色',
     timezone: 8,
     latitude: 39.9,
     longitude: 116.4,
-  });
+  };
+  const chart = generateQizheng(input);
   assert.equal(chart.mingZhu, '火');
   assert.deepEqual(chart.enNan?.aspectInteraction, [
     '难星月孛(水余)与命主形成合相吊照',
@@ -368,6 +371,35 @@ test('实际七政盘三项恩难交会在完整任务书中保留全部角色',
     assert.ok(chart.prompt.includes(role));
     assert.equal(chart.prompt.split(role).length - 1, 1);
   }
+  assert.equal(chart.enNan?.mingElement, '火');
+  assert.equal(chart.aspects.length, 18);
+  assert.equal(STAR_WUXING.火星, '火');
+  const fourRight = QIZHENG_ASPECTS.find((aspect) => aspect.type === '四正')!;
+  assert.equal(fourRight.angle, 90);
+  const question = '请解读本次盘面。';
+  const options = { method: 'qizheng' as const, currentTime: new Date('2026-01-01T00:00:00Z') };
+  const fullTask = buildMetaphysicsPrompt(chart.prompt, question, options);
+  const original = { element: STAR_WUXING.火星, angle: fourRight.angle };
+  try {
+    STAR_WUXING.火星 = '水';
+    assert.equal(STAR_WUXING.火星, '水');
+    assert.equal(Reflect.set(fourRight, 'angle', 180), true);
+    assert.equal(fourRight.angle, 180);
+    const changed = generateQizheng(input);
+    assert.deepEqual(changed, chart);
+    assert.equal(buildMetaphysicsPrompt(changed.prompt, question, options), fullTask);
+  } finally {
+    STAR_WUXING.火星 = original.element;
+    Reflect.set(fourRight, 'angle', original.angle);
+  }
+  assert.equal(STAR_WUXING.火星, '火');
+  assert.equal(fourRight.angle, 90);
+  const fresh = generateQizheng(input);
+  assert.deepEqual(fresh, chart);
+  assert.equal(buildMetaphysicsPrompt(fresh.prompt, question, options), fullTask);
+  const restored = JSON.parse(JSON.stringify(chart)) as typeof chart;
+  assert.equal(JSON.stringify(restored), JSON.stringify(chart));
+  assert.equal(buildMetaphysicsPrompt(restored.prompt, question, options), fullTask);
 });
 
 test('恩难只采用本命当前黄经支持的吊照，不沿用旧角距或缺位星曜', () => {

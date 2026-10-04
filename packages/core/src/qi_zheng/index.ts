@@ -67,7 +67,7 @@ import {
   type QizhengTimeLordResult,
 } from './time-lords';
 import { evaluateQizhengEnNan, type QizhengEnNanProfile } from './en-nan';
-import { QIZHENG_ASPECTS } from './aspect-rules';
+import { getQizhengAspectRules } from './aspect-rules';
 
 // astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
 // 则通常直接暴露具名导出。动态读取只用于选择运行时模块形态，避免静态读取
@@ -94,6 +94,8 @@ export {
   QIZHENG_MANSION_STARS,
 } from './mansion-boundaries';
 export type { QizhengMansionBoundary, QizhengMansionStar } from './mansion-boundaries';
+
+const qizhengAspectRules = getQizhengAspectRules();
 
 /** 黄道十二宫（七政四余职名，子丑寅卯…自命宫逆布十二职） */
 export const TWELVE_PALACES = [
@@ -515,10 +517,11 @@ function buildQizhengAspects(stars: QizhengStar[]): QizhengAspect[] {
     for (let second = first + 1; second < stars.length; second += 1) {
       const raw = Math.abs(stars[first].longitude - stars[second].longitude);
       const actualAngle = raw > 180 ? 360 - raw : raw;
-      const matched = QIZHENG_ASPECTS.map((aspect) => ({
-        ...aspect,
-        deviation: Math.abs(actualAngle - aspect.angle),
-      }))
+      const matched = qizhengAspectRules
+        .map((aspect) => ({
+          ...aspect,
+          deviation: Math.abs(actualAngle - aspect.angle),
+        }))
         .filter((aspect) => aspect.deviation <= aspect.orb)
         .sort((a, b) => a.deviation / a.orb - b.deviation / b.orb)[0];
       if (!matched) continue;
@@ -2149,10 +2152,11 @@ function overlayQizhengFlowingStars(
     for (const natalStar of natalStars) {
       const raw = Math.abs(flowStar.longitude - natalStar.longitude);
       const actualAngle = raw > 180 ? 360 - raw : raw;
-      const matched = QIZHENG_ASPECTS.map((aspect) => ({
-        ...aspect,
-        deviation: Math.abs(actualAngle - aspect.angle),
-      }))
+      const matched = qizhengAspectRules
+        .map((aspect) => ({
+          ...aspect,
+          deviation: Math.abs(actualAngle - aspect.angle),
+        }))
         .filter((aspect) => aspect.deviation <= aspect.orb)
         .sort((a, b) => a.deviation / a.orb - b.deviation / b.orb)[0];
       if (!matched) continue;

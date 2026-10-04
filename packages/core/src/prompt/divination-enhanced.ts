@@ -69,7 +69,7 @@ import { ZHUGE_SIGNS } from '../name-number/zhuge-signs';
 import { getZhugeInterpretation } from '../name-number/zhuge-interpretations';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 import { resolveSsgwSignFacts, resolveSsgwStoryContent } from '../divination/ssgw-content';
-import { evaluateTaiyiConditions, formatTaiyiTacticBasis } from '../taiyi';
+import { assertTaiyiFixedFacts, evaluateTaiyiConditions, formatTaiyiTacticBasis } from '../taiyi';
 import { getTaiyiCountNature } from '../taiyi/evidence';
 import {
   formatJinkoujueRelations,
@@ -1661,6 +1661,7 @@ export function formatTaiyiTradition(data: TaiyiResult) {
 }
 
 export function formatTaiyiInfo(data: TaiyiResult) {
+  assertTaiyiFixedFacts(data);
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
   const conditions = evaluateTaiyiConditions({
     accumulatedValue: data.accumulatedValue,

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeBaZhai,
+  analyzeBaZhaiEvidence,
   analyzeBaZhaiByDoorDegree,
   getBaZhaiSitFacingFromDoorDegree,
 } from 'mingyu-core/bazhai';
@@ -446,6 +447,38 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.match(result.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);
+  const northMing = result.mingPalace.find((palace) => palace.gua === '坎')!;
+  const northHouse = result.housePalace!.find((palace) => palace.gua === '坎')!;
+  assert.equal(result.mingGua, '坎');
+  assert.equal(result.houseGua, '震');
+  assert.deepEqual([northMing.direction, northMing.label, northMing.luck], ['北', '伏位', '吉']);
+  assert.deepEqual([northHouse.direction, northHouse.label, northHouse.luck], ['北', '天医', '吉']);
+  assert.deepEqual(
+    analyzeBaZhaiEvidence(result, result.directionMeasurement),
+    result.evidenceAnalysis,
+  );
+  const restored = JSON.parse(JSON.stringify(result)) as typeof result;
+  assert.equal(JSON.stringify(restored), JSON.stringify(result));
+  assert.deepEqual(
+    analyzeBaZhaiEvidence(restored, restored.directionMeasurement),
+    result.evidenceAnalysis,
+  );
+  assert.deepEqual(analyzeBaZhaiEvidence(restored), analyzeBaZhaiEvidence(result));
+  const changed = structuredClone(result);
+  for (const palace of [changed.mingPalace[0], changed.housePalace![0]]) {
+    const original = structuredClone(palace);
+    assert.equal(Reflect.set(palace, 'label', '生气'), true);
+    assert.equal(palace.label, '生气');
+    assert.throws(
+      () => analyzeBaZhaiEvidence(changed, changed.directionMeasurement),
+      /八宅方位记录与命卦或宅卦大游年表不一致/u,
+    );
+    Object.assign(palace, original);
+    assert.deepEqual(
+      analyzeBaZhaiEvidence(changed, changed.directionMeasurement),
+      result.evidenceAnalysis,
+    );
+  }
 });
 
 test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', () => {

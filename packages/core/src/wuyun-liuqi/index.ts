@@ -755,7 +755,164 @@ function formatElementDirection(
   return isKe(firstElement, secondElement) ? `${first}克${second}` : `${second}克${first}`;
 }
 
+function buildAnnualMovement(yearGanZhi: string): AnnualMovement {
+  const stem = yearGanZhi[0];
+  const movement = getStemMovement(stem);
+  return {
+    stem,
+    element: movement.element,
+    name: `${movement.element}运`,
+    tone: MOVEMENT_TONE[movement.element],
+    toneStrength: toToneStrength(movement.strength),
+    toneName: `${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}`,
+    yinYang: movement.yinYang,
+    strength: movement.strength,
+    basis: `${stem}干化${movement.element}运；${movement.yinYang}干为${movement.strength}，五音为${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}。`,
+  };
+}
+
+function buildAnnualClassification(
+  yearGanZhi: string,
+): WuyunLiuqiCalculation['annualClassification'] {
+  return {
+    sitianTransformation: '寅午未酉戌亥'.includes(yearGanZhi[1]) ? '正化' : '对化',
+    governance: yearGanZhi[0] === '甲' || yearGanZhi[0] === '己' ? '南政' : '北政',
+    basis: [
+      '司天正对化按年支区分：寅午未酉戌亥为正化，子丑卯辰巳申为对化。',
+      '南北政按年干所化中运区分：甲己土运为南政，其余四运为北政。',
+    ],
+  };
+}
+
+/** 按选定年干支核对年度及分步资料，不重排公历交节。 */
+export function assertWuyunLiuqiFacts(result: WuyunLiuqiCalculation): void {
+  const { yearGanZhi } = resolveYearInput(result.input);
+  const movement = buildAnnualMovement(yearGanZhi);
+  if (
+    (
+      [
+        'stem',
+        'element',
+        'name',
+        'tone',
+        'toneStrength',
+        'toneName',
+        'yinYang',
+        'strength',
+      ] as const
+    ).some((key) => result.annualMovement[key] !== movement[key])
+  )
+    throw new Error('岁运资料与年干支不一致。');
+  const pair = getBranchSitianZaiquan(yearGanZhi[1]);
+  const sitian = profile(pair[0]),
+    zaiquan = profile(pair[1]);
+  for (const [actual, expected] of [
+    [result.sitian, sitian],
+    [result.zaiquan, zaiquan],
+  ]) {
+    if (
+      (['name', 'phase', 'qi', 'element'] as const).some((key) => actual[key] !== expected[key])
+    ) {
+      throw new Error('司天在泉资料与年干支不一致。');
+    }
+  }
+  const annualRelation = buildAnnualRelation(movement.element, sitian.element);
+  if (
+    (['kind', 'movementElement', 'sitianElement'] as const).some(
+      (key) => result.annualRelation[key] !== annualRelation[key],
+    )
+  ) {
+    throw new Error('年度气运关系与岁运、司天不一致。');
+  }
+  const classification = buildAnnualClassification(yearGanZhi);
+  if (
+    result.annualClassification.sitianTransformation !== classification.sitianTransformation ||
+    result.annualClassification.governance !== classification.governance
+  ) {
+    throw new Error('司天化令与南北政资料不一致。');
+  }
+  const conformities = buildAnnualConformities(yearGanZhi, movement, sitian, zaiquan);
+  if (
+    (['tianfu', 'suihui', 'taiyiTianfu', 'tongTianfu', 'tongSuihui'] as const).some(
+      (key) => result.annualConformities[key] !== conformities[key],
+    ) ||
+    result.annualConformities.names.length !== conformities.names.length ||
+    conformities.names.some((name) => !result.annualConformities.names.includes(name))
+  )
+    throw new Error('年度符会资料与年干支不一致。');
+  const movements = buildMovementSteps(movement);
+  if (result.movementSteps.length !== movements.length) throw new Error('五步主客运资料不完整。');
+  for (const [index, expected] of movements.entries()) {
+    const actual = result.movementSteps[index];
+    if (
+      actual.order !== expected.order ||
+      actual.label !== expected.label ||
+      actual.periodRule !== expected.periodRule ||
+      actual.guestRole !== expected.guestRole ||
+      actual.hostGuestRelation.kind !== expected.hostGuestRelation.kind
+    ) {
+      throw new Error('五步主客运位置或关系与岁运不一致。');
+    }
+    for (const [actualProfile, expectedProfile] of [
+      [actual.hostMovement, expected.hostMovement],
+      [actual.guestMovement, expected.guestMovement],
+    ]) {
+      if (
+        (['element', 'tone', 'toneStrength', 'toneName', 'strength', 'climateQi'] as const).some(
+          (key) => actualProfile[key] !== expectedProfile[key],
+        )
+      ) {
+        throw new Error('五步主客运属性与岁运不一致。');
+      }
+    }
+  }
+  const qiSteps = buildQiSteps(sitian.name);
+  if (result.qiSteps.length !== qiSteps.length) throw new Error('六步主客气资料不完整。');
+  for (const [index, expected] of qiSteps.entries()) {
+    const actual = result.qiSteps[index];
+    if (
+      actual.order !== expected.order ||
+      actual.label !== expected.label ||
+      actual.guestRole !== expected.guestRole ||
+      actual.solarTerms.length !== expected.solarTerms.length ||
+      actual.solarTerms.some((term, at) => term !== expected.solarTerms[at]) ||
+      actual.hostGuestRelation.kind !== expected.hostGuestRelation.kind ||
+      actual.hostGuestRelation.fireOrder !== expected.hostGuestRelation.fireOrder
+    ) {
+      throw new Error('六步主客气位置或关系与司天在泉不一致。');
+    }
+    for (const [actualProfile, expectedProfile] of [
+      [actual.hostQi, expected.hostQi],
+      [actual.guestQi, expected.guestQi],
+    ]) {
+      if (
+        (['name', 'phase', 'qi', 'element'] as const).some(
+          (key) => actualProfile[key] !== expectedProfile[key],
+        )
+      ) {
+        throw new Error('六步主客气属性与司天在泉不一致。');
+      }
+    }
+  }
+  if (result.pathomechanism) {
+    const expected = evaluateWuyunLiuqiPathomechanism({
+      annualMovement: movement,
+      sitian,
+      yearGanZhi,
+      annualConformities: conformities,
+    });
+    if (
+      result.pathomechanism.summary !== expected.summary ||
+      result.pathomechanism.isPingQi !== null ||
+      result.pathomechanism.classicalReference.conditionEstablished !== null
+    ) {
+      throw new Error('平气及岁运纪资料与年度条件不一致。');
+    }
+  }
+}
+
 export function formatWuyunLiuqiFacts(result: WuyunLiuqiCalculation): string {
+  assertWuyunLiuqiFacts(result);
   const firstQiBoundary = result.qiSteps[0]?.boundaryTime;
   const lastQiBoundary = result.qiSteps.at(-1)?.boundaryTime;
   const annualPeriod =
@@ -833,21 +990,8 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   const resolved = resolveYearInput(input);
   const stem = resolved.yearGanZhi[0];
   const branch = resolved.yearGanZhi[1];
-  const movement = getStemMovement(stem);
   const pair = getBranchSitianZaiquan(branch);
-  if (!movement || !pair) throw new Error(`五运六气基础表缺失：${resolved.yearGanZhi}`);
-
-  const annualMovement: AnnualMovement = {
-    stem,
-    element: movement.element,
-    name: `${movement.element}运`,
-    tone: MOVEMENT_TONE[movement.element],
-    toneStrength: toToneStrength(movement.strength),
-    toneName: `${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}`,
-    yinYang: movement.yinYang,
-    strength: movement.strength,
-    basis: `${stem}干化${movement.element}运；${movement.yinYang}干为${movement.strength}，五音为${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}。`,
-  };
+  const annualMovement = buildAnnualMovement(resolved.yearGanZhi);
   const sitian = profile(pair[0]);
   const zaiquan = profile(pair[1]);
   // 全年末步延续至下一年大寒，公历日期因此最多支持到 2199 年。
@@ -861,14 +1005,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }
   const annualRelation = buildAnnualRelation(annualMovement.element, sitian.element);
-  const annualClassification: WuyunLiuqiCalculation['annualClassification'] = {
-    sitianTransformation: '寅午未酉戌亥'.includes(branch) ? '正化' : '对化',
-    governance: stem === '甲' || stem === '己' ? '南政' : '北政',
-    basis: [
-      '司天正对化按年支区分：寅午未酉戌亥为正化，子丑卯辰巳申为对化。',
-      '南北政按年干所化中运区分：甲己土运为南政，其余四运为北政。',
-    ],
-  };
+  const annualClassification = buildAnnualClassification(resolved.yearGanZhi);
   const annualConformities = buildAnnualConformities(
     resolved.yearGanZhi,
     annualMovement,

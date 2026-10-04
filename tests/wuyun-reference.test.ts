@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateWuyunLiuqi, evaluateWuyunLiuqiPathomechanism } from '@core/wuyun-liuqi';
+import {
+  calculateWuyunLiuqi,
+  evaluateWuyunLiuqiPathomechanism,
+  formatWuyunLiuqiFacts,
+  buildWuyunLiuqiPrompt,
+} from '@core/wuyun-liuqi';
 import { TimeManager } from '../packages/core/src/calendar/timeManager';
 
 // 只缓存显式年干支的只读计算结果；公历年与时区覆盖测试保持独立计算。
@@ -232,4 +237,30 @@ test('病机资料入口拒绝未知司天及与年份矛盾的资料', () => {
     assert.throws(() => evaluateWuyunLiuqiPathomechanism(bad), /符会/);
   }
   assert.throws(() => evaluateWuyunLiuqiPathomechanism({ ...input, yearGanZhi: 'constructor' }));
+
+  // 年层参考条件不确定实际平气或本年病候；返回资料也须保留这一确定度。
+  assert.equal(base.pathomechanism!.isPingQi, null);
+  assert.equal(base.pathomechanism!.classicalReference.conditionEstablished, null);
+  for (const mutate of [
+    (data: typeof base) => {
+      assert.equal(Reflect.set(data.pathomechanism!, 'isPingQi', true), true);
+      assert.equal(Reflect.get(data.pathomechanism!, 'isPingQi'), true);
+    },
+    (data: typeof base) => {
+      assert.equal(
+        Reflect.set(data.pathomechanism!.classicalReference, 'conditionEstablished', true),
+        true,
+      );
+      assert.equal(
+        Reflect.get(data.pathomechanism!.classicalReference, 'conditionEstablished'),
+        true,
+      );
+    },
+  ]) {
+    const bad = structuredClone(base);
+    mutate(bad);
+    assert.notDeepEqual(bad.pathomechanism, base.pathomechanism);
+    assert.throws(() => formatWuyunLiuqiFacts(bad), /平气及岁运纪/);
+    assert.throws(() => buildWuyunLiuqiPrompt(bad), /平气及岁运纪/);
+  }
 });
