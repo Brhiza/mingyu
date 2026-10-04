@@ -372,7 +372,7 @@ test('雷诺曼整组随机记录应与牌面顺序一致并完整消耗', () =>
     const changed = structuredClone(data);
     [changed.cards[0], changed.cards[1]] = [changed.cards[1], changed.cards[0]];
     assert.throws(() => analyzeLenormandEvidence(changed), /随机轨迹与牌面或顺序不一致/);
-    assert.equal(analyzeLenormandEvidence(data).randomFact.status, '可重放');
+    assert.equal(data.evidenceAnalysis?.randomFact.status, '可重放');
   }
 });
 
@@ -1143,7 +1143,7 @@ test('雷诺曼抽牌序号、牌面或布局落点不一致时应明确标记',
       (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
     ),
   );
-  const normal = analyzeLenormandEvidence(result);
+  const normal = result.evidenceAnalysis!;
   const normalEnhanced = formatEnhancedDivinationInfo('lenormand', result);
   const currentTime = new Date('2026-10-03T12:00:00+08:00');
   const normalPrompt = buildDivinationPrompt({

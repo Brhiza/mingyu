@@ -156,7 +156,8 @@ test('精确周期缓存跨本命、经纬度和目标范围复用时保留逐�
   assert.deepEqual({ position, solar, lunar }, callerEdited);
 });
 
-test('流年、流月、流日和完整范围锁定输入与目标并逐出生秒等价', () => {
+test('各动态范围锁定输入并逐秒等价，完整范围扫描一致且交付后可取消', () => {
+  let whole: ReturnType<typeof generateAstrolabeDynamicRange> | undefined;
   for (const request of [
     { scope: 'yearly', referenceDate: '2028' },
     { scope: 'monthly', referenceDate: '2028-03' },
@@ -272,7 +273,59 @@ test('流年、流月、流日和完整范围锁定输入与目标并逐出生�
       cursor = branch.endTimestamp;
     }
     assert.equal(cursor, start + 3000);
+    if (request.scope === 'full') whole = result;
   }
+  assert.ok(whole);
+  const range = { startTimestamp: start, endTimestamp: start + 3000 };
+  const request = { scope: 'full', referenceDate: '2028-03-20' } as const;
+  const mutableInput = { ...input };
+  const mutableSource = { ...range };
+  const mutableRequest: AstrolabeDynamicRangeRequest = { ...request };
+  const scanner = scanAstrolabeDynamicRange(mutableInput, mutableSource, mutableRequest);
+  const first = scanner.next();
+  assert.equal(first.done, false);
+  if (first.done) throw new Error('必须先交付分段');
+  mutableInput.longitude = '-74.0060';
+  mutableSource.startTimestamp += 3_600_000;
+  mutableSource.endTimestamp += 3_600_000;
+  mutableRequest.scope = 'daily';
+  mutableRequest.referenceDate = '2030-04-01';
+  const firstText = JSON.stringify(first.value);
+  const branches = [first.value];
+  for (;;) {
+    const next = scanner.next();
+    if (next.done) {
+      assert.equal(next.value.branchCount, whole.branchCount);
+      assert.equal(next.value.sampleCount, whole.sampleCount);
+      assert.deepEqual(next.value.source, whole.source);
+      assert.equal(next.value.scope, whole.scope);
+      assert.equal(next.value.referenceDate, whole.referenceDate);
+      break;
+    }
+    branches.push(next.value);
+  }
+  assert.equal(branches.length, whole.branches.length);
+  assert.equal(JSON.stringify(branches[0]), firstText);
+  for (const [index, branch] of branches.entries()) {
+    assert.equal(branch.startTimestamp, whole.branches[index].startTimestamp);
+    assert.equal(branch.endTimestamp, whole.branches[index].endTimestamp);
+    assert.deepEqual(branch.continuous, whole.branches[index].continuous);
+    assert.deepEqual(branch.representative.scopes, whole.branches[index].representative.scopes);
+    assert.deepEqual(branch.last.scopes, whole.branches[index].last.scopes);
+  }
+  const controller = new AbortController();
+  let progress = 0;
+  const cancelled = scanAstrolabeDynamicRange(input, range, request, {
+    signal: controller.signal,
+    onProgress: (count) => {
+      progress = count;
+    },
+  });
+  assert.equal(cancelled.next().done, false);
+  const deliveredProgress = progress;
+  controller.abort();
+  assert.throws(() => cancelled.next(), /取消/);
+  assert.equal(progress, deliveredProgress);
 });
 
 test('动态离散变化独立于本命盘，事件时刻微移进入连续统计', () => {
@@ -417,60 +470,6 @@ test('跨公历年保留正确推进年龄和完整出生秒', () => {
   assert.ok(ages.every((age) => age > 3 && age < 4));
   assert.ok(ages[0] > ages[1]);
   assert.equal(result.branches[1].startTimestamp, rangeStart + 1000);
-});
-
-test('分段扫描与整体结果一致，交付后取消不继续接收下一秒', () => {
-  const range = { startTimestamp: start, endTimestamp: start + 3000 };
-  const request = { scope: 'full', referenceDate: '2028-03-20' } as const;
-  const whole = generateAstrolabeDynamicRange(input, range, request);
-  const mutableInput = { ...input };
-  const mutableSource = { ...range };
-  const mutableRequest: AstrolabeDynamicRangeRequest = { ...request };
-  const scanner = scanAstrolabeDynamicRange(mutableInput, mutableSource, mutableRequest);
-  const first = scanner.next();
-  assert.equal(first.done, false);
-  if (first.done) throw new Error('必须先交付分段');
-  mutableInput.longitude = '-74.0060';
-  mutableSource.startTimestamp += 3_600_000;
-  mutableSource.endTimestamp += 3_600_000;
-  mutableRequest.scope = 'daily';
-  mutableRequest.referenceDate = '2030-04-01';
-  const firstText = JSON.stringify(first.value);
-  const branches = [first.value];
-  for (;;) {
-    const next = scanner.next();
-    if (next.done) {
-      assert.equal(next.value.branchCount, whole.branchCount);
-      assert.equal(next.value.sampleCount, whole.sampleCount);
-      assert.deepEqual(next.value.source, whole.source);
-      assert.equal(next.value.scope, whole.scope);
-      assert.equal(next.value.referenceDate, whole.referenceDate);
-      break;
-    }
-    branches.push(next.value);
-  }
-  assert.equal(branches.length, whole.branches.length);
-  assert.equal(JSON.stringify(branches[0]), firstText);
-  for (const [index, branch] of branches.entries()) {
-    assert.equal(branch.startTimestamp, whole.branches[index].startTimestamp);
-    assert.equal(branch.endTimestamp, whole.branches[index].endTimestamp);
-    assert.deepEqual(branch.continuous, whole.branches[index].continuous);
-    assert.deepEqual(branch.representative.scopes, whole.branches[index].representative.scopes);
-    assert.deepEqual(branch.last.scopes, whole.branches[index].last.scopes);
-  }
-  const controller = new AbortController();
-  let progress = 0;
-  const cancelled = scanAstrolabeDynamicRange(input, range, request, {
-    signal: controller.signal,
-    onProgress: (count) => {
-      progress = count;
-    },
-  });
-  assert.equal(cancelled.next().done, false);
-  const deliveredProgress = progress;
-  controller.abort();
-  assert.throws(() => cancelled.next(), /取消/);
-  assert.equal(progress, deliveredProgress);
 });
 
 test('动态范围沿用整秒来源校验，取消不返回部分结果', () => {

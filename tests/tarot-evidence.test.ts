@@ -33,7 +33,7 @@ test('塔罗自动与逐张抽牌的随机记录必须完整并对应实际牌�
     const changed = structuredClone(data);
     changed.cards[0].reversed = !changed.cards[0].reversed;
     assert.throws(() => analyzeTarotEvidence(changed), /随机轨迹与牌面、顺序或正逆位不一致/);
-    assert.equal(analyzeTarotEvidence(data).randomFact.status, '可重放');
+    assert.equal(data.evidenceAnalysis?.randomFact.status, '可重放');
   }
 });
 
@@ -455,7 +455,7 @@ test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {
   const data = drawTarotSpread('three', {
     manualCards: [1, 2, 3].map((id, index) => ({ id, reversed: index === 1 })),
   });
-  const evidence = analyzeTarotEvidence(data);
+  const evidence = data.evidenceAnalysis!;
 
   assert.equal(evidence.counterEvidenceFacts.length, 1);
   assert.equal(evidence.counterSummaryFact.status, '有逆位约束');
@@ -523,7 +523,7 @@ test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () =>
       (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
     ),
   );
-  const normal = analyzeTarotEvidence(data);
+  const normal = data.evidenceAnalysis!;
   const normalEnhanced = formatEnhancedDivinationInfo('tarot', data);
   const currentTime = new Date('2026-10-03T12:00:00+08:00');
   const normalPrompt = buildDivinationPrompt({
@@ -806,7 +806,7 @@ test('塔罗主题对象只做标签计数，不生成权重或吉凶评分', ()
       { id: 1, reversed: false },
     ],
   });
-  const evidence = analyzeTarotEvidence(data);
+  const evidence = data.evidenceAnalysis!;
   const fire = evidence.themeFacts.find((fact) => fact.theme === '火');
 
   assert.ok(fire);

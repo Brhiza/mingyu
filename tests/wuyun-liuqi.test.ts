@@ -7,6 +7,7 @@ import {
   HOST_QI_ORDER,
   MOVEMENT_STEP_BOUNDARIES,
   QI_STEP_SOLAR_TERMS,
+  WUYUN_LIUQI_SOURCES,
   calculateWuyunLiuqi,
   getWuyunLiuqiYearAt,
   getWuyunLiuqiYearGanZhi,
@@ -450,20 +451,43 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
     [QI_STEP_SOLAR_TERMS[0], 1, '清明'],
   ] as const;
   const originalValues = catalogWrites.map(([target, key]) => Reflect.get(target, key));
+  const originalSourceRows = [...WUYUN_LIUQI_SOURCES];
+  const originalSources = structuredClone(baseline.sources);
+  const originalSourceTitle = WUYUN_LIUQI_SOURCES[0].title;
+  const originalSourceScope = WUYUN_LIUQI_SOURCES[0].scope;
   try {
+    baseline.sources[0].title = '返回资料变造典籍';
+    baseline.sources.splice(1);
+    assert.notDeepEqual(baseline.sources, originalSources);
+    assert.equal(Reflect.set(WUYUN_LIUQI_SOURCES[0], 'title', '公开资料变造典籍'), true);
+    assert.equal(Reflect.set(WUYUN_LIUQI_SOURCES[0], 'scope', '公开资料变造依据'), true);
+    assert.equal(Reflect.set(WUYUN_LIUQI_SOURCES, 'length', 1), true);
+    assert.equal(WUYUN_LIUQI_SOURCES.length, 1);
     for (const [target, key, value] of catalogWrites) {
       assert.equal(Reflect.set(target, key, value), true);
       assert.equal(Reflect.get(target, key), value);
     }
     const freshCatalog = calculateWuyunLiuqi(catalogInput);
+    assert.deepEqual(freshCatalog.sources, originalSources);
+    baseline.sources.splice(0, baseline.sources.length, ...originalSources);
     assert.deepEqual(freshCatalog, baseline);
     assert.equal(freshCatalog.prompt, baseline.prompt);
     assertPromptIsPortableTaskText(freshCatalog.prompt);
   } finally {
+    baseline.sources.splice(0, baseline.sources.length, ...originalSources);
+    Reflect.set(originalSourceRows[0], 'title', originalSourceTitle);
+    Reflect.set(originalSourceRows[0], 'scope', originalSourceScope);
+    Array.prototype.splice.call(
+      WUYUN_LIUQI_SOURCES,
+      0,
+      WUYUN_LIUQI_SOURCES.length,
+      ...originalSourceRows,
+    );
     catalogWrites.forEach(([target, key], index) => {
       assert.equal(Reflect.set(target, key, originalValues[index]), true);
       assert.equal(Reflect.get(target, key), originalValues[index]);
     });
+    assert.deepEqual(WUYUN_LIUQI_SOURCES, originalSources);
   }
 });
 

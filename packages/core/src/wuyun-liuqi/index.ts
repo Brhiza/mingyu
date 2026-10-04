@@ -27,7 +27,7 @@ import {
 export { evaluateWuyunLiuqiPathomechanism };
 export type { WuyunLiuqiPathomechanismResult };
 
-export const WUYUN_LIUQI_SOURCES = [
+const CANONICAL_WUYUN_LIUQI_SOURCES = [
   {
     title: '《素问·天元纪大论》',
     scope: '天干化五运、地支配司天以及运气年度纲领。',
@@ -50,6 +50,8 @@ export const WUYUN_LIUQI_SOURCES = [
     scope: '司天制运、岁会及同岁会、辛亥癸巳同气相佐；平气还须核交气日时与气候应期。',
   },
 ] as const;
+
+export const WUYUN_LIUQI_SOURCES = structuredClone(CANONICAL_WUYUN_LIUQI_SOURCES);
 
 export type WuyunElement = '木' | '火' | '土' | '金' | '水';
 export type WuyunStrength = '太过' | '不及';
@@ -913,8 +915,16 @@ export function assertWuyunLiuqiFacts(result: WuyunLiuqiCalculation): void {
 
 export function formatWuyunLiuqiFacts(result: WuyunLiuqiCalculation): string {
   assertWuyunLiuqiFacts(result);
-  const firstQiBoundary = result.qiSteps[0]?.boundaryTime;
-  const lastQiBoundary = result.qiSteps.at(-1)?.boundaryTime;
+  const year = result.input.year;
+  const calendarYear = year !== undefined && year >= 1900 && year <= 2199 ? year : undefined;
+  const movementDates =
+    calendarYear === undefined
+      ? undefined
+      : buildMovementSteps(result.annualMovement, calendarYear);
+  const qiDates =
+    calendarYear === undefined ? undefined : buildQiSteps(result.sitian.name, calendarYear);
+  const firstQiBoundary = result.qiSteps[0]?.boundaryTime && qiDates?.[0].boundaryTime;
+  const lastQiBoundary = result.qiSteps.at(-1)?.boundaryTime && qiDates?.at(-1)?.boundaryTime;
   const annualPeriod =
     firstQiBoundary && lastQiBoundary
       ? `${firstQiBoundary.startBeijing}大寒节令起，至${lastQiBoundary.endBeijingExclusive}次年大寒节令前（北京时间，按现代节气交节时刻标示）`
@@ -939,17 +949,19 @@ export function formatWuyunLiuqiFacts(result: WuyunLiuqiCalculation): string {
           annualConformities: result.annualConformities,
         }).summary,
     '五步主客运：',
-    ...result.movementSteps.map((step) => {
+    ...result.movementSteps.map((step, index) => {
+      const canonicalDates = movementDates?.[index];
       const dates =
-        step.gregorianStart && step.gregorianEnd
-          ? `；公历${step.gregorianStart}至${step.gregorianEnd}`
+        step.gregorianStart && step.gregorianEnd && canonicalDates
+          ? `；公历${canonicalDates.gregorianStart}至${canonicalDates.gregorianEnd}`
           : '';
       return `${step.order}. ${step.label}（${step.periodRule}${dates}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.kind === '同气' ? '' : `（${formatElementDirection(`主运${step.hostMovement.toneName}`, step.hostMovement.element, `客运${step.guestMovement.toneName}`, step.guestMovement.element)}）`}`;
     }),
     '六步主客气：',
-    ...result.qiSteps.map((step) => {
-      const dates = step.boundaryTime
-        ? `；现代节气交节参考（北京时间）${step.boundaryTime.startBeijing}至${step.boundaryTime.endBeijingExclusive}前`
+    ...result.qiSteps.map((step, index) => {
+      const boundary = step.boundaryTime && qiDates?.[index].boundaryTime;
+      const dates = boundary
+        ? `；现代节气交节参考（北京时间）${boundary.startBeijing}至${boundary.endBeijingExclusive}前`
         : '';
       return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.kind === '同气' ? '' : `（${formatElementDirection(`主气${step.hostQi.name}`, step.hostQi.element, `客气${step.guestQi.name}`, step.guestQi.element)}）`}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
     }),
@@ -1044,7 +1056,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
       `客气以${sitian.name}落三之气，依客气次序前后轮转，${zaiquan.name}落终之气`,
       '二十四节气自大寒起按每四气一组分为六步，并逐步核验主客气五行关系',
     ],
-    sources: WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
+    sources: CANONICAL_WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
     limitations: [
       '公历交司日期支持1900—2199年；其他年份按节气和传统序日表达五步、六步边界。',
       '五步交司按《运气要诀》所列传统日期序号表达，不把“节气后第几日”换算成现代精确到时分秒的交运时刻。',

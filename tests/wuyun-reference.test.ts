@@ -48,6 +48,56 @@ test('五运六气2026年公历边界与独立年历的节气日期一致', () =
       ['2026-11-22', '2027-01-20'],
     ],
   );
+  const original = structuredClone(result);
+  const facts = formatWuyunLiuqiFacts(result);
+  const native = buildWuyunLiuqiPrompt(result);
+  assert.equal(native, result.prompt);
+  const restored = JSON.parse(JSON.stringify(result));
+  assert.equal(formatWuyunLiuqiFacts(restored), facts);
+  assert.equal(buildWuyunLiuqiPrompt(restored), native);
+  for (const mutate of [
+    (data: typeof result) => {
+      data.movementSteps[1].gregorianStart = '2026-01-01';
+    },
+    (data: typeof result) => {
+      data.qiSteps[0].boundaryTime!.endBeijingExclusive = '2099-01-01 00:00:00';
+    },
+  ]) {
+    const changed = structuredClone(result);
+    mutate(changed);
+    const changedBeforeFormatting = structuredClone(changed);
+    assert.equal(formatWuyunLiuqiFacts(changed), facts);
+    assert.equal(buildWuyunLiuqiPrompt(changed), native);
+    assert.deepEqual(changed, changedBeforeFormatting);
+  }
+  const omitted = structuredClone(result);
+  for (const step of omitted.movementSteps) {
+    delete step.gregorianStart;
+    delete step.gregorianEnd;
+  }
+  for (const step of omitted.qiSteps) {
+    delete step.gregorianStart;
+    delete step.gregorianEnd;
+    delete step.boundaryTime;
+  }
+  const omittedBeforeFormatting = structuredClone(omitted);
+  const omittedFacts = facts
+    .replace(/^运气年度：.*$/m, '运气年度：大寒节令起，至次年大寒节令前')
+    .replace(/；公历\d{4}-\d{2}-\d{2}至\d{4}-\d{2}-\d{2}/g, '')
+    .replace(/；现代节气交节参考（北京时间）[^）]+前/g, '');
+  const omittedNative = native.replace(facts, omittedFacts);
+  assert.equal(formatWuyunLiuqiFacts(omitted), omittedFacts);
+  assert.equal(buildWuyunLiuqiPrompt(omitted), omittedNative);
+  assert.deepEqual(omitted, omittedBeforeFormatting);
+  const stemOnly = structuredClone(omitted);
+  stemOnly.input = { yearGanZhi: '丙午', yearGanZhiSource: '明确年干支' };
+  stemOnly.calendarDateStatus = '节令边界';
+  const stemOnlyBeforeFormatting = structuredClone(stemOnly);
+  const stemOnlyFacts = omittedFacts.replace('（公历 2026 年对应的运气年度）', '');
+  assert.equal(formatWuyunLiuqiFacts(stemOnly), stemOnlyFacts);
+  assert.equal(buildWuyunLiuqiPrompt(stemOnly), omittedNative.replace(omittedFacts, stemOnlyFacts));
+  assert.deepEqual(stemOnly, stemOnlyBeforeFormatting);
+  assert.deepEqual(result, original);
   try {
     TimeManager.setTimezoneOffsetMinutesOverride(-480);
     const shifted = calculateWuyunLiuqi({ year: 2026 });
