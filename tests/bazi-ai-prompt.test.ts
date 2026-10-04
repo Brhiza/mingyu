@@ -1665,14 +1665,20 @@ test('八字提示词不应由五行百分比阈值自动生成通关结论', ()
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
-test('八字提示词不默认展开桃花神煞详解', () => {
+test('婚恋提示词保留原局事实并省略重复详解', () => {
   const { result, prompt } = getMarriagePromptFixture();
 
   assert.equal(result.shensha.global?.some((name) => name.includes('桃花')) ?? false, false);
   assert.ok(result.shensha.month.includes('桃花'));
   assert.ok(result.shensha.hour.includes('桃花'));
-
   assert.doesNotMatch(prompt.user, /【桃花详解】|墙外桃花/);
+
+  assert.match(prompt.user, /年柱丁与月柱壬合/);
+  assert.match(prompt.user, /年柱卯与月柱子刑/);
+  assert.doesNotMatch(
+    prompt.user,
+    /【干支相合条件】|逢冲破合，作用破合|非日干配合，只记相合，不作化气|合化评分/,
+  );
 });
 
 test('八字提示词只在柱位标记空亡，不另起详解段', () => {
@@ -1767,22 +1773,6 @@ test('八字提示词保留原局同支关系且不重复展开段落', () => {
   );
 
   assert.doesNotMatch(withoutPrompt.user, /【伏吟反吟】/);
-});
-
-test('八字提示词保留原局刑冲合会破事实', () => {
-  const { prompt } = getMarriagePromptFixture();
-
-  assert.match(prompt.user, /年柱丁与月柱壬合/);
-  assert.match(prompt.user, /年柱卯与月柱子刑/);
-});
-
-test('八字提示词不展开内部相合成化判定过程', () => {
-  const { prompt } = getMarriagePromptFixture();
-
-  assert.doesNotMatch(
-    prompt.user,
-    /【干支相合条件】|逢冲破合，作用破合|非日干配合，只记相合，不作化气|合化评分/,
-  );
 });
 
 test('八字增强资料包不再按用户分类切换本地模板', () => {
