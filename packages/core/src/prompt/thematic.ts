@@ -61,7 +61,7 @@ export interface ThematicTopicConfig {
   subtopics?: ReadonlyArray<{ id: string; label: string }>;
 }
 
-export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> = {
+const TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> = {
   general: {
     topic: 'general',
     name: '通用',
@@ -184,6 +184,8 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
   },
 };
 
+export const THEMATIC_TOPIC_CONFIGS = structuredClone(TOPIC_CONFIGS);
+
 function buildThematicTask(
   config: ThematicTopicConfig,
   selection: PromptSelection,
@@ -232,7 +234,7 @@ export function normalizeThematicTopic(topic?: string | null): ThematicTopic {
   const clean = topic.trim().toLowerCase();
 
   // 1. 直接精确匹配
-  if ((THEMATIC_TOPICS as readonly string[]).includes(clean)) {
+  if (Object.hasOwn(TOPIC_CONFIGS, clean)) {
     return clean as ThematicTopic;
   }
 
@@ -269,7 +271,7 @@ export function normalizeThematicTopic(topic?: string | null): ThematicTopic {
 export function getThematicTopicConfig(topic?: string | null): ThematicTopicConfig {
   const normalized = normalizeThematicTopic(topic);
   return {
-    ...THEMATIC_TOPIC_CONFIGS[normalized],
+    ...structuredClone(TOPIC_CONFIGS[normalized]),
     subtopics: getPromptSubtopicOptions(normalized),
   };
 }

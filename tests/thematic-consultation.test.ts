@@ -25,7 +25,14 @@ const samplePerson = {
   isLunar: false,
 };
 
-async function getSampleZiweiResult() {
+let sampleBaziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+function getSampleBaziResult() {
+  return (sampleBaziResult ??= baziCalculator.calculateBazi(samplePerson));
+}
+
+let sampleZiweiResult: ReturnType<typeof calculateZiweiChartForScopes> | undefined;
+function getSampleZiweiResult() {
+  if (sampleZiweiResult) return sampleZiweiResult;
   const chartInput = buildZiweiChartInput({
     name: '张三',
     gender: 'male',
@@ -37,7 +44,8 @@ async function getSampleZiweiResult() {
     isLeapMonth: false,
     useTrueSolarTime: false,
   });
-  return calculateZiweiChartForScopes(chartInput, ['origin' as ScopeType]);
+  sampleZiweiResult = calculateZiweiChartForScopes(chartInput, ['origin' as ScopeType]);
+  return sampleZiweiResult;
 }
 
 test('大类主题枚举完整性与别名/旧子主题平滑归一化', () => {
@@ -80,10 +88,30 @@ test('大类主题枚举完整性与别名/旧子主题平滑归一化', () => {
   assert.equal(normalizeThematicTopic('settle-relocate'), 'family');
   assert.equal(normalizeThematicTopic('recent'), 'timing');
   assert.equal(normalizeThematicTopic('流年运势'), 'timing');
+
+  const originalCareer = getThematicTopicConfig('career');
+  const editedCareer = getThematicTopicConfig('career');
+  editedCareer.baziFocusElements[0] = '变造返回八字焦点';
+  editedCareer.ziweiFocusPalaces[0] = '变造返回紫微焦点';
+  assert.deepEqual(getThematicTopicConfig('career'), originalCareer);
+
+  const publicCareer = THEMATIC_TOPIC_CONFIGS.career;
+  const originalPublicCareer = structuredClone(publicCareer);
+  try {
+    publicCareer.name = '变造公开主题';
+    publicCareer.baziFocusElements[0] = '变造公开八字焦点';
+    publicCareer.ziweiFocusPalaces[0] = '变造公开紫微焦点';
+    assert.equal(publicCareer.name, '变造公开主题');
+    assert.equal(publicCareer.baziFocusElements[0], '变造公开八字焦点');
+    assert.equal(publicCareer.ziweiFocusPalaces[0], '变造公开紫微焦点');
+    assert.deepEqual(getThematicTopicConfig('career'), originalCareer);
+  } finally {
+    Object.assign(publicCareer, originalPublicCareer);
+  }
 });
 
 test('八字紫微双盘默认通用主题 (general) 合参提示词', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
 
   const result = buildThematicConsultationPrompt({
@@ -112,7 +140,7 @@ test('八字紫微双盘默认通用主题 (general) 合参提示词', async () 
 });
 
 test('八字紫微核心合参提示词默认使用当前阶段范围', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
 
   const prompt = buildBaziZiweiPromptForResults({
@@ -127,7 +155,7 @@ test('八字紫微核心合参提示词默认使用当前阶段范围', async ()
 });
 
 test('感情大类主题 (relationship) 必须重点聚焦夫妻宫与配偶星', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
 
   const result = buildThematicConsultationPrompt({
@@ -148,13 +176,16 @@ test('感情大类主题 (relationship) 必须重点聚焦夫妻宫与配偶星'
 });
 
 test('事业大类主题 (career) 重点聚焦官禄宫与官杀印星', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
+  const currentTime = new Date('2025-01-01T00:00:00Z');
+  const inputBefore = JSON.stringify({ baziResult, payloadByScope: ziweiResult.payloadByScope });
 
   const result = buildThematicConsultationPrompt({
     baziResult,
     ziweiResult,
     topic: 'career',
+    currentTime,
   });
 
   assert.equal(result.topic, 'career');
@@ -162,10 +193,37 @@ test('事业大类主题 (career) 重点聚焦官禄宫与官杀印星', async (
   assert.ok(result.focusPalaces.includes('官禄'));
   assert.ok(result.focusElements.includes('正偏官杀'));
   assert.ok(result.prompt.includes('咨询主题：事业（事业职场与发展变动）'));
+
+  const originalResult = structuredClone(result);
+  result.focusElements[0] = '变造返回八字焦点';
+  result.focusPalaces[0] = '变造返回紫微焦点';
+  assert.equal(result.focusElements[0], '变造返回八字焦点');
+  assert.equal(result.focusPalaces[0], '变造返回紫微焦点');
+  const publicCareer = THEMATIC_TOPIC_CONFIGS.career;
+  const originalPublicCareer = structuredClone(publicCareer);
+  try {
+    publicCareer.baziTask = '变造公开八字任务';
+    publicCareer.ziweiTask = '变造公开紫微任务';
+    publicCareer.combinedTask = '变造公开合参任务';
+    assert.equal(publicCareer.combinedTask, '变造公开合参任务');
+    const fresh = buildThematicConsultationPrompt({
+      baziResult,
+      ziweiResult,
+      topic: 'career',
+      currentTime,
+    });
+    assert.deepEqual(fresh, originalResult);
+    assert.equal(
+      JSON.stringify({ baziResult, payloadByScope: ziweiResult.payloadByScope }),
+      inputBefore,
+    );
+  } finally {
+    Object.assign(publicCareer, originalPublicCareer);
+  }
 });
 
 test('财运大类主题 (wealth) 重点聚焦财帛宫、田宅宫与财星财库', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
 
   const result = buildThematicConsultationPrompt({
@@ -183,7 +241,7 @@ test('财运大类主题 (wealth) 重点聚焦财帛宫、田宅宫与财星财�
 });
 
 test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提示词', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
 
   // 1. 纯八字
@@ -213,7 +271,7 @@ test('单系统模式 (system: bazi 或 system: ziwei) 独立生成自包含提�
 });
 
 test('本命主题任务只依据已列本命盘事实，不生成岁运应期任务', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
   for (const system of ['bazi', 'ziwei', 'bazi_ziwei'] as const) {
     const result = buildThematicConsultationPrompt({
@@ -233,7 +291,7 @@ test('本命主题任务只依据已列本命盘事实，不生成岁运应期�
 });
 
 test('本命健康主题结合医学资料核对传统取象', async () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const ziweiResult = await getSampleZiweiResult();
   for (const system of ['bazi', 'ziwei', 'bazi_ziwei'] as const) {
     const prompt = buildThematicConsultationPrompt({
@@ -254,7 +312,7 @@ test('本命健康主题结合医学资料核对传统取象', async () => {
 });
 
 test('主题任务说明以已列盘面及现实条件为依据', () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const prompt = buildThematicConsultationPrompt({
     system: 'bazi',
     baziResult,
@@ -268,7 +326,7 @@ test('主题任务说明以已列盘面及现实条件为依据', () => {
 });
 
 test('本命时机主题的默认问题定位于本命条件', () => {
-  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const baziResult = getSampleBaziResult();
   const prompt = buildThematicConsultationPrompt({
     system: 'bazi',
     baziResult,

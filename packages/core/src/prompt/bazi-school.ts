@@ -47,7 +47,7 @@ const MANGPAI_PALACE_REFERENCES: Record<BaziPillarKey, string> = {
   hour: '子女、晚景、成果与归宿，通常与日柱同归主位',
 };
 
-export const BAZI_SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProfile> = {
+const SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProfile> = {
   ziping: {
     label: '子平派（传统）',
     task: '依据已给出的月令、旺衰、格局成败及制化条件，解释调候取用与岁运引动对所问事项的作用。',
@@ -67,6 +67,8 @@ export const BAZI_SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProf
       '月令、旺衰、调候和生克制化参照《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》；喜忌落位、五行流通与岁运动态采用近现代新派的通行整理口径。',
   },
 };
+
+export const BAZI_SCHOOL_PROFILES = structuredClone(SCHOOL_PROFILES);
 
 function joinFacts(values: Array<string | undefined | null>, fallback = '未记录') {
   const text = values.filter((value): value is string => Boolean(value?.trim())).join('；');
@@ -461,7 +463,7 @@ export function normalizeBaziPromptSchool(school: BaziPromptSchool): NormalizedB
 
 export function getBaziSchoolGuidance(school?: BaziPromptSchool) {
   if (!school) return '';
-  const profile = BAZI_SCHOOL_PROFILES[normalizeBaziPromptSchool(school)];
+  const profile = SCHOOL_PROFILES[normalizeBaziPromptSchool(school)];
   return `${profile.label}：${profile.task}\n依据：${profile.basis}`;
 }
 
@@ -509,7 +511,7 @@ export function formatBaziSchoolPrompt(
   chartShowsPatternBasis = false,
 ) {
   const normalized = normalizeBaziPromptSchool(school);
-  const profile = BAZI_SCHOOL_PROFILES[normalized];
+  const profile = SCHOOL_PROFILES[normalized];
   const facts = formatBaziSchoolFacts(result, school, embedded, true, chartShowsPatternBasis);
   return [
     `八字流派：${profile.label}`,
@@ -573,7 +575,7 @@ export function formatBaziSchoolsPrompt(
       ].filter(Boolean)
     : [];
   const blocks = selected.map((school, index) => {
-    const profile = BAZI_SCHOOL_PROFILES[school];
+    const profile = SCHOOL_PROFILES[school];
     const priorSchools = selected.slice(0, index);
     const facts = formatBaziSchoolFacts(result, school, embedded, selected.length === 1)
       .split('\n')

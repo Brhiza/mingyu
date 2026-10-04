@@ -13,6 +13,9 @@ import { formatHuangjiInfo } from '../packages/core/src/prompt/divination-enhanc
 import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
+const year2026Result = calculateHuangjiJingshi({ year: 2026 });
+const year1984Result = calculateHuangjiJingshi({ year: 1984 });
+
 test('皇极经世换算常量应满足元会运世层级恒等式', () => {
   assert.equal(HUANGJI_CYCLE_YEARS.shi, 30);
   assert.equal(HUANGJI_CYCLE_YEARS.yun, 30 * HUANGJI_CYCLE_COUNTS.shiPerYun);
@@ -80,7 +83,7 @@ test('绝对年坐标与已过年数入口应得到同一位置', () => {
 });
 
 test('皇极经世应支持普通公元年，并严格区分通行排法与自定义纪元', () => {
-  const standard = calculateHuangjiJingshi({ year: 2026 });
+  const standard = year2026Result;
   assert.equal(standard.input.mode, '通行公元年');
   assert.equal(standard.input.epochYear, HUANGJI_STANDARD_EPOCH.yuanStartYear);
   assert.equal(standard.input.elapsedYears, 69042);
@@ -106,7 +109,7 @@ test('皇极经世应支持普通公元年，并严格区分通行排法与自�
 });
 
 test('通行值年卦应完整返回会、统卦、运卦、六十年卦、十年卦和值年卦', () => {
-  const result = calculateHuangjiJingshi({ year: 2026 });
+  const result = year2026Result;
   const forecast = result.forecast;
   assert.ok(forecast);
   assert.equal(forecast.hui.indexInYuan, 7);
@@ -287,11 +290,16 @@ test('值年卦六十卦序应完整唯一并复现1984至2043通行表', () => 
     '姤',
     '大过',
   ];
-  const actual = Array.from(
-    { length: 60 },
-    (_, index) =>
-      calculateHuangjiJingshi({ year: 1984 + index }).forecast?.hexagrams.annual.shortName,
-  );
+  const actual = Array.from({ length: 60 }, (_, index) => {
+    const year = 1984 + index;
+    const result =
+      year === 1984
+        ? year1984Result
+        : year === 2026
+          ? year2026Result
+          : calculateHuangjiJingshi({ year });
+    return result.forecast?.hexagrams.annual.shortName;
+  });
   assert.deepEqual(actual, expected);
 });
 
@@ -343,13 +351,13 @@ test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
 });
 
 test('皇极经世世运消息与阳息阴消算法应准确判定圆图阶段与世运断诀', () => {
-  const result2026 = calculateHuangjiJingshi({ year: 2026 });
+  const result2026 = year2026Result;
   assert.ok(result2026.eraTrend);
   assert.equal(result2026.eraTrend.phase, '阳息进取');
   assert.match(result2026.eraTrend.trendNature, /复至乾的阳半周/);
   assert.match(result2026.prompt, /圆图消息：值年同人卦为5阳1阴/);
 
-  const epochTest = calculateHuangjiJingshi({ year: 1984 });
+  const epochTest = year1984Result;
   assert.ok(epochTest.eraTrend);
   assert.equal(typeof epochTest.eraTrend.summary, 'string');
 });

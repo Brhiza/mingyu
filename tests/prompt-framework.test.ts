@@ -5,10 +5,16 @@ import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { resolveSignByNumber } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { buildDivinationPromptDocument } from '../packages/core/src/prompt/divination.ts';
 import {
+  PROMPT_METHOD_CAPABILITIES,
+  PROMPT_METHOD_IDS,
+  PROMPT_SCOPE_IDS,
+  PROMPT_TOPIC_IDS,
   buildBaziPromptForResult,
   buildPromptSelectionTask,
+  getPromptMethodCapabilities,
   getPromptMethodCapability,
   getPromptSubtopicOptions,
+  getPromptTopicOptions,
   requirePromptSelection,
   resolvePromptSelection,
 } from '../packages/core/src/prompt/public-api.ts';
@@ -63,6 +69,53 @@ test('方法能力目录提供类别、主题细项和范围约束', () => {
   const input = { methodId: 'bazi', topicId: 'career', subtopicId: 'job-change' };
   const selection = requirePromptSelection(input);
   const task = buildPromptSelectionTask('请依据盘面完成解读。', selection);
+  assert.equal(selection.scope, 'decadal');
+  assert.equal(selection.subtopicLabel, '工作变动');
+  const readFrameworkFacts = () => ({
+    selection: requirePromptSelection(input),
+    defaultSelection: requirePromptSelection({ methodId: 'bazi' }),
+    capabilities: getPromptMethodCapabilities(),
+    bazi: getPromptMethodCapability('bazi'),
+    topics: getPromptTopicOptions(),
+    baziTopics: getPromptTopicOptions('bazi'),
+    subtopics: getPromptSubtopicOptions('career', 'bazi'),
+  });
+  const originalFacts = readFrameworkFacts();
+  const originalCapabilities = structuredClone(PROMPT_METHOD_CAPABILITIES);
+  const publicIds = [PROMPT_TOPIC_IDS, PROMPT_SCOPE_IDS, PROMPT_METHOD_IDS].map((values) => ({
+    values: values as unknown as string[],
+    original: [...values],
+  }));
+  try {
+    PROMPT_METHOD_CAPABILITIES.bazi.defaultScope = 'natal';
+    PROMPT_METHOD_CAPABILITIES.bazi.subtopics.career![0].label = '变造公开细项';
+    for (const { values } of publicIds) values.splice(0, values.length, 'not-a-topic');
+    assert.deepEqual(
+      {
+        scope: PROMPT_METHOD_CAPABILITIES.bazi.defaultScope,
+        label: PROMPT_METHOD_CAPABILITIES.bazi.subtopics.career![0].label,
+        ids: publicIds.map(({ values }) => [...values]),
+      },
+      {
+        scope: 'natal',
+        label: '变造公开细项',
+        ids: [['not-a-topic'], ['not-a-topic'], ['not-a-topic']],
+      },
+    );
+    assert.deepEqual(readFrameworkFacts(), originalFacts);
+    assert.deepEqual(
+      [
+        resolvePromptSelection({ methodId: 'not-a-topic' }),
+        resolvePromptSelection({ methodId: 'bazi', topicId: 'not-a-topic' }),
+        resolvePromptSelection({ methodId: 'bazi', scope: 'not-a-topic' }),
+      ].map((resolution) => ('code' in resolution ? resolution.code : undefined)),
+      ['INVALID_METHOD', 'INVALID_TOPIC', 'INVALID_SCOPE'],
+    );
+  } finally {
+    Object.assign(PROMPT_METHOD_CAPABILITIES, originalCapabilities);
+    for (const { values, original } of publicIds) values.splice(0, values.length, ...original);
+  }
+
   const careerOption = bazi.subtopics.career![0];
   const originalCareerLabel = careerOption.label;
   try {

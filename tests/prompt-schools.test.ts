@@ -6,11 +6,13 @@ import { generateQimen } from 'mingyu-core/divination/qimen';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { huangjiJingshi, wuyunLiuqi } from 'mingyu-core';
 import {
+  BAZI_SCHOOL_PROFILES,
   PROMPT_SCHOOL_PROFILES,
   buildBaziCompatibilityPrompt,
   buildBaziPrompt,
   buildDivinationPrompt,
   formatPromptSchoolGuidance,
+  getBaziSchoolGuidance,
   getPromptSchoolIds,
   getPromptSchoolProfiles,
   getPromptSchoolSectionTitle,
@@ -76,17 +78,27 @@ test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
 test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
   const result1 = createChart('female', 15);
   const result2 = createChart('male', 20);
-  const singlePrompt = buildBaziPrompt({
+  const currentTime = new Date('2026-10-05T12:00:00+08:00');
+  const singleOptions = {
     result: result1,
-    schools: ['ziping', 'mangpai', 'xinpai'],
+    schools: ['ziping', 'mangpai', 'xinpai'] as const,
     question: '事业主线如何？',
-  });
-  const compatibilityPrompt = buildBaziCompatibilityPrompt({
+    currentTime,
+  };
+  const compatibilityOptions = {
     result1,
     result2,
-    schools: ['ziping', 'mangpai', 'xinpai'],
+    schools: ['ziping', 'mangpai', 'xinpai'] as const,
     question: '双方适合长期合作吗？',
-  });
+    currentTime,
+  };
+  const singleSchoolOptions = { ...singleOptions, schools: ['ziping'] as const };
+  const singlePrompt = buildBaziPrompt(singleOptions);
+  const compatibilityPrompt = buildBaziCompatibilityPrompt(compatibilityOptions);
+  const singleSchoolPrompt = buildBaziPrompt(singleSchoolOptions);
+  const guidance = getBaziSchoolGuidance('ziping');
+  assert.match(singleSchoolPrompt, /子平派（传统）/);
+  assert.match(guidance, /《子平真诠》/);
 
   for (const prompt of [singlePrompt, compatibilityPrompt]) {
     assert.match(prompt, /【多派合参】/);
@@ -94,6 +106,35 @@ test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
     assert.match(prompt, /盲派/);
     assert.match(prompt, /新派/);
     assert.match(prompt, /共同结论、分歧/);
+  }
+
+  const profile = BAZI_SCHOOL_PROFILES.ziping;
+  const originalProfile = { ...profile };
+  try {
+    profile.label = '变造公开流派';
+    profile.task = '变造公开任务';
+    profile.basis = '变造公开依据';
+    assert.deepEqual(profile, {
+      label: '变造公开流派',
+      task: '变造公开任务',
+      basis: '变造公开依据',
+    });
+    assert.deepEqual(
+      {
+        guidance: getBaziSchoolGuidance('ziping'),
+        single: buildBaziPrompt(singleSchoolOptions),
+        multiple: buildBaziPrompt(singleOptions),
+        compatibility: buildBaziCompatibilityPrompt(compatibilityOptions),
+      },
+      {
+        guidance,
+        single: singleSchoolPrompt,
+        multiple: singlePrompt,
+        compatibility: compatibilityPrompt,
+      },
+    );
+  } finally {
+    Object.assign(profile, originalProfile);
   }
 });
 
