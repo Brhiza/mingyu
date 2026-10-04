@@ -1,4 +1,7 @@
-import { hexagramsData, trigramsByIndex } from '../../../../divination/hexagram-data';
+import { getHexagramsData, getTrigramsByIndex } from '../../../../divination/hexagram-data';
+
+const hexagramsData = getHexagramsData();
+const trigramsByIndex = getTrigramsByIndex();
 
 const hexagrams = hexagramsData.map((hex) => ({
   number: hex.id,

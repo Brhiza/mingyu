@@ -25,12 +25,14 @@
  */
 
 import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
-import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
+import { tiangan, jiazi, getQimenData } from '../../../../divination/divination-data';
 import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
 import { DEFAULT_CHINA_TIMEZONE_HOURS, resolveCivilTime } from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { TimeManager } from '../../../../calendar/timeManager';
 import { sanQiLiuYi } from './_constants';
+
+const qimen = getQimenData();
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 type TymeSolarDay = ReturnType<typeof SolarDay.fromYmd>;

@@ -17,14 +17,8 @@ import {
 } from '../ganzhi';
 import { getSixAnimals, getVoidBranches } from '../calendar/lunar';
 import { getDivinationTime } from '../calendar/timeManager';
-import {
-  hexagramNaJia,
-  hexagramPalaceMap,
-  liuqinRelations,
-  palaceHexagrams,
-  palaces,
-} from './divination-data';
-import { hexagramsData } from './hexagram-data';
+import { getLiuyaoData } from './divination-data';
+import { getHexagramsData } from './hexagram-data';
 import {
   getLiuyaoChangeDirection,
   getLiuyaoChangeRelation,
@@ -50,6 +44,10 @@ import {
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
+
+const { hexagramNaJia, hexagramPalaceMap, liuqinRelations, palaceHexagrams, palaces } =
+  getLiuyaoData();
+const hexagramsData = getHexagramsData();
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 

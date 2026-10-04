@@ -6,9 +6,11 @@ import {
   type RandomTraceFact,
 } from '../shared/random';
 import type { TarotData } from '../types/divination';
-import { tarotCards, tarotSpreads } from './tarot-data';
+import { getTarotReferenceData } from './tarot-data';
 import { drawSpreadCards, getCardEvidence, resolveInteractiveTarotCards } from './tarot';
 import { MingyuCoreError } from '../shared/result';
+
+const { tarotCards, tarotSpreads } = getTarotReferenceData();
 
 export interface TarotCardEvidence {
   key: string;

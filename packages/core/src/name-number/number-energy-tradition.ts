@@ -1,5 +1,7 @@
 import { getBaZhaiPalace, type BaZhaiLabel } from '../direction';
-import { trigramsByIndex } from '../divination/hexagram-data';
+import { getTrigramsByIndex } from '../divination/hexagram-data';
+
+const trigramsByIndex = getTrigramsByIndex();
 
 const NUMBER_TRIGRAM_NAMES: Readonly<Record<number, string>> = {
   1: '坎',

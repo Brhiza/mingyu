@@ -79,9 +79,9 @@ import { buildLiurenTemplateText } from 'mingyu-core/divination/engine/liuren-te
 import { analyzeLiurenEvidence } from 'mingyu-core/divination/liuren';
 import { buildLiuyaoTemplateText } from 'mingyu-core/divination/engine/liuyao-template';
 import { buildPromptGuidanceSections, buildPromptTask } from '../../prompt-guidance';
-import { tarotSpreads } from 'mingyu-core/divination/tarot';
+import { getTarotReferenceData } from 'mingyu-core/divination/tarot-data';
 import { resolveSsgwSignFacts } from 'mingyu-core/divination/ssgw-content';
-import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
+import { getLenormandReferenceData } from 'mingyu-core/divination/lenormand';
 import { secureRandomInt } from 'mingyu-core/random';
 import {
   formatLiurenJudgmentFacts,
@@ -137,6 +137,9 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'ssgw',
   'lenormand',
 ];
+
+const { tarotSpreads } = getTarotReferenceData();
+const { LENORMAND_SPREADS } = getLenormandReferenceData();
 
 function buildLiurenAnalysisObjectText(_data: LiurenData) {
   return '大六壬起课盘';

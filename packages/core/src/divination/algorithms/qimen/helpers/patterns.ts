@@ -14,7 +14,7 @@
  */
 
 import type { QimenJiuGongGe } from '../../../../types/divination';
-import { qimen } from '../../../../divination/divination-data';
+import { getQimenData } from '../../../../divination/divination-data';
 import { isKe } from '../../../../ganzhi';
 import {
   getDoorElement,
@@ -25,6 +25,8 @@ import {
   hasTianPanStar,
 } from './palace-utils';
 import { STEM_TOMB_MAP } from './_constants';
+
+const qimen = getQimenData();
 
 const { palaceStars, doorPalaceMap } = qimen;
 

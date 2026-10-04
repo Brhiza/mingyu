@@ -2,8 +2,10 @@ import type { MeihuaData } from '../types/divination';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../ganzhi';
 import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from '../divination/config';
 import { dizhi } from '../divination/divination-data';
-import { trigramsByIndex } from '../divination/hexagram-data';
+import { getTrigramsByIndex } from '../divination/hexagram-data';
 import { hasCompleteCharacterCalculation } from '../divination/algorithms/meihua/helpers/methods';
+
+const trigramsByIndex = getTrigramsByIndex();
 
 export function formatMeihuaFacts(data: MeihuaData): string[] {
   const lines = [...data.yaosDetail].sort((a, b) => a.position - b.position);

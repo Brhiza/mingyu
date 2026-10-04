@@ -15,7 +15,7 @@
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
-import { trigramsByIndex } from '../../../divination/hexagram-data';
+import { getTrigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
@@ -35,6 +35,8 @@ import {
 import { attachResultMeta } from '../../../shared/result';
 import { hasRandomOptions } from '../../../shared/random';
 import { analyzeMeihuaEvidence } from '../../meihua-evidence';
+
+const trigramsByIndex = getTrigramsByIndex();
 
 const trigrams = trigramsByIndex;
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);

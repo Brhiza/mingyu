@@ -7,6 +7,7 @@ import {
   drawLenormandSpread,
   LENORMAND_CARDS,
   LENORMAND_FIXED_COMBINATIONS,
+  LENORMAND_SPREADS,
   resolveInteractiveLenormandCards,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import type { LenormandData, LenormandSpreadType } from '../packages/core/src/types/divination.ts';
@@ -721,6 +722,47 @@ test('雷诺曼在线任务书保留关系牌阵完整牌位事实与并列组�
   assert.equal(fixedCombinationSession.data.combinations?.[0]?.card2, '戒指');
   assert.match(fixedCombinationSession.aiPrompt, /固定组合：\n  心\+戒指：传统固定组合/u);
   assert.match(fixedCombinationSession.aiPrompt, /关系承诺、契约或婚约议题/u);
+
+  const originalNow = Date.now;
+  const originalKeyword = LENORMAND_CARDS[23]!.keywords[0]!;
+  const originalPosition = LENORMAND_SPREADS.nine.positions[0]!;
+  const originalCombination = LENORMAND_FIXED_COMBINATIONS['心+戒指']!;
+  Date.now = () => Date.parse('2026-10-04T08:00:00+08:00');
+  try {
+    const input = {
+      method: 'lenormand' as const,
+      question: '本次牌位与牌面关系如何解读？',
+      currentTime: new Date('2026-10-04T08:00:00+08:00'),
+      lenormand: {
+        spread: 'nine' as const,
+        manualCardIds: [24, 25, 1, 2, 3, 4, 5, 6, 7],
+      },
+    };
+    const normal = generateDivinationSession(input);
+    assert.equal(normal.data.cards[0]!.name, '心');
+    assert.equal(normal.data.cards[0]!.position, '左上');
+    assert.equal(normal.data.cards[0]!.keywords[0], '感情');
+    assert.equal(normal.data.cards[1]!.name, '戒指');
+    assert.equal(normal.data.cards[1]!.position, '上方');
+    assert.equal(normal.data.combinations?.[0]?.meaning, '感情的承诺或婚约');
+    assert.match(normal.aiPrompt, /左上：心；关键词：感情、喜欢、热情/u);
+    assert.ok(normal.aiPrompt.includes(input.question));
+    assert.match(normal.aiPrompt, /关系承诺、契约或婚约议题/u);
+    assert.equal(Reflect.set(LENORMAND_CARDS[23]!.keywords, 0, '另一关键词'), true);
+    assert.equal(Reflect.set(LENORMAND_SPREADS.nine.positions, 0, '另一左上'), true);
+    assert.equal(Reflect.set(LENORMAND_FIXED_COMBINATIONS, '心+戒指', '另一组合判词'), true);
+    assert.equal(LENORMAND_CARDS[23]!.keywords[0], '另一关键词');
+    assert.equal(LENORMAND_SPREADS.nine.positions[0], '另一左上');
+    assert.equal(LENORMAND_FIXED_COMBINATIONS['心+戒指'], '另一组合判词');
+    const fresh = generateDivinationSession(input);
+    assert.deepEqual(fresh, normal);
+    assert.equal(fresh.aiPrompt, normal.aiPrompt);
+  } finally {
+    LENORMAND_CARDS[23]!.keywords[0] = originalKeyword;
+    LENORMAND_SPREADS.nine.positions[0] = originalPosition;
+    LENORMAND_FIXED_COMBINATIONS['心+戒指'] = originalCombination;
+    Date.now = originalNow;
+  }
 });
 
 test('雷诺曼关系牌阵旧版组合文案可核验并在证据输出中重算', () => {

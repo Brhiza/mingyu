@@ -6,7 +6,18 @@ import {
 } from '../packages/core/src/divination/algorithms/liuyao.ts';
 import { isKe, isSheng } from 'mingyu-core/ganzhi';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
-import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
+import {
+  wuxing,
+  liuqinRelations,
+  palaces,
+  palaceHexagrams,
+  hexagramPalaceMap,
+  hexagramNaJia,
+} from '../packages/core/src/divination/divination-data.ts';
 import {
   buildTimeInfoText,
   buildSolarTimeInfoText,
@@ -938,6 +949,56 @@ test('六爻三合结构须由动变爻和月日支复算，旧结果缺少该�
   assert.equal(fresh.changedName, '乾为天');
   assert.deepEqual(fresh, completeSnapshot);
   assert.equal(formatEnhancedDivinationInfo('liuyao', fresh), prompt);
+
+  const normal = structuredClone(fresh);
+  const promptOptions = {
+    method: 'liuyao' as const,
+    question: '本卦动变爻与三合关系如何对应？',
+    currentTime: new Date('2026-10-04T08:00:00Z'),
+  };
+  const normalTask = buildDivinationPrompt({ ...promptOptions, data: normal });
+  assert.match(normalTask, /泽火革/u);
+  assert.match(normalTask, /寅、午、戌/u);
+  assert.deepEqual(normal.palace, { name: '坎', wuxing: '水' });
+  assert.deepEqual(
+    normal.yaosDetail.map((yao) => yao.najiaDizhi),
+    ['卯', '丑', '亥', '亥', '酉', '未'],
+  );
+  const publicEdits = [
+    { target: wuxing.金, key: 2, value: '亥' },
+    { target: liuqinRelations.水, key: '水', value: '官鬼' },
+    { target: palaces.坎, key: 'wuxing', value: '土' },
+    { target: palaceHexagrams.坎, key: 4, value: '乾为天' },
+    { target: hexagramPalaceMap, key: '泽火革', value: '乾' },
+    { target: hexagramNaJia.泽火革, key: 0, value: '子' },
+  ];
+  const saved = publicEdits.map(({ target, key }) => ({
+    existed: Object.hasOwn(target, key),
+    value: Reflect.get(target, key),
+  }));
+  const metalLength = wuxing.金.length;
+  try {
+    for (const { target, key, value } of publicEdits) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    assert.equal(Reflect.set(fresh.palace, 'wuxing', '土'), true);
+    assert.equal(fresh.palace.wuxing, '土');
+    const next = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+      method: 'manual',
+      yaos: [7, 6, 7, 7, 7, 6],
+    });
+    assert.notEqual(next.palace, fresh.palace);
+    assert.deepEqual(next, normal);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: next }), normalTask);
+  } finally {
+    publicEdits.forEach(({ target, key }, index) => {
+      if (saved[index].existed) Reflect.set(target, key, saved[index].value);
+      else Reflect.deleteProperty(target, key);
+    });
+    wuxing.金.length = metalLength;
+    fresh.palace.wuxing = normal.palace.wuxing;
+  }
 });
 
 test('六爻三刑须由本卦纳甲支复算后才进入提示词', () => {

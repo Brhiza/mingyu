@@ -2,8 +2,10 @@
  * 先天圆图阴阳半周与值年卦爻数。
  * 《朱子语类》卷六十五：复至乾属阳，姤至坤属阴；内卦震离兑乾与巽坎艮坤分列两边。
  */
-import { hexagramsData } from '../divination/hexagram-data';
+import { getHexagramsData } from '../divination/hexagram-data';
 import type { HuangjiStandardForecast } from './standard';
+
+const hexagramsData = getHexagramsData();
 
 export interface HuangjiEraTrendResult {
   /** 圆图消息象意分类。 */

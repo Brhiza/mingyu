@@ -13,19 +13,12 @@
  * 7. 变卦分析：分析动爻变化后的爻，形成“父化财”等判断依据。
  */
 
-import { hexagramsData } from '../../divination/hexagram-data';
+import { getHexagramsData } from '../../divination/hexagram-data';
 export { generateYarrow } from './yarrow';
 import { generateYarrow } from './yarrow';
 export type { YarrowChange, YarrowLine, YarrowOptions, YarrowResult } from './yarrow';
 import { getSixAnimals, getVoidBranches } from '../../calendar/lunar';
-import {
-  wuxing,
-  liuqinRelations,
-  hexagramNaJia, // 使用新的完整纳甲数据
-  palaces,
-  hexagramPalaceMap,
-  palaceHexagrams,
-} from '../../divination/divination-data';
+import { getLiuyaoData } from '../../divination/divination-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
@@ -51,6 +44,10 @@ import {
   getBranchWuxing,
   isLiuchong,
 } from '../../ganzhi';
+
+const hexagramsData = getHexagramsData();
+const { wuxing, liuqinRelations, hexagramNaJia, palaces, hexagramPalaceMap, palaceHexagrams } =
+  getLiuyaoData();
 
 export { getLiuyaoChangeDirection, getLiuyaoChangeRelation, getLiuyaoChangeRelations };
 
@@ -414,7 +411,7 @@ function findPalace(hexagramName: string) {
   if (!palace) {
     throw new Error(`找不到卦象 "${hexagramName}" 的所属宫位。`);
   }
-  return palace;
+  return { ...palace };
 }
 
 /**

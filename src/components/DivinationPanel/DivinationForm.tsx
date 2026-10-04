@@ -12,16 +12,10 @@ import {
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from 'mingyu-core/divination/config';
-import {
-  resolveInteractiveTarotCards,
-  tarotCards,
-  tarotSpreads,
-} from 'mingyu-core/divination/tarot';
-import {
-  LENORMAND_CARDS,
-  LENORMAND_SPREADS,
-  resolveInteractiveLenormandCards,
-} from 'mingyu-core/divination/lenormand';
+import { resolveInteractiveTarotCards } from 'mingyu-core/divination/tarot';
+import { resolveInteractiveLenormandCards } from 'mingyu-core/divination/lenormand';
+import { getTarotReferenceData } from 'mingyu-core/divination/tarot-data';
+import { getLenormandReferenceData } from 'mingyu-core/divination/lenormand';
 import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import {
   getPromptMethodCapability,
@@ -45,6 +39,9 @@ import {
 } from '@/components/SupplementaryInfoModal';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import { AlmanacForm } from './AlmanacForm';
+
+const { tarotCards, tarotSpreads } = getTarotReferenceData();
+const { LENORMAND_CARDS, LENORMAND_SPREADS } = getLenormandReferenceData();
 
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },

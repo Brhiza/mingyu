@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {
   buildDivinationPrompt as buildAppDivinationPrompt,
   generateDivinationSession,
+  rebuildSavedDivinationSession,
 } from '../src/lib/divination/engine';
+import { tarotSpreads } from 'mingyu-core/divination/tarot';
+import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
 import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
@@ -4754,7 +4757,7 @@ test('前端占卜链路应使用逐张抽取样本复算塔罗牌阵', async ()
   assert.equal(tarot.evidenceAnalysis?.randomFact.status, '可重放');
 });
 
-test('前端占卜链路应支持手动塔罗与灵签', async () => {
+test('前端占卜链路应支持手动塔罗与灵签', async (context) => {
   const tarotSession = await generateDivinationSession(
     buildDraft({
       method: 'tarot',
@@ -4820,6 +4823,63 @@ test('前端占卜链路应支持手动塔罗与灵签', async () => {
   );
   assert.equal(submittedDraft.tarotManualCards, callerCards);
   assert.deepEqual(callerCards, editedCards);
+
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2025-06-18T02:30:00Z') });
+  const catalogDrafts = [
+    buildDraft({
+      method: 'tarot',
+      tarotSpread: 'three',
+      tarotMethod: 'manual',
+      tarotManualCards: [
+        { id: 1, reversed: false },
+        { id: 2, reversed: true },
+        { id: 3, reversed: false },
+      ],
+      question: '这段关系如何推进？',
+    }),
+    buildDraft({
+      method: 'lenormand',
+      lenormandSpread: 'nine',
+      lenormandMethod: 'manual',
+      lenormandManualCardIds: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      question: '这段关系如何推进？',
+    }),
+  ];
+  const normalSessions = [
+    await generateDivinationSession(catalogDrafts[0]),
+    await generateDivinationSession(catalogDrafts[1]),
+  ];
+  const normalRestore = rebuildSavedDivinationSession(normalSessions[0], catalogDrafts[0]);
+  assert.equal((normalSessions[0].data as TarotData).spreadName, '时间流牌阵');
+  assert.equal((normalSessions[0].data as TarotData).cards.length, 3);
+  assert.equal((normalSessions[1].data as { cards: unknown[] }).cards.length, 9);
+  const catalogs = structuredClone({ tarotSpreads, LENORMAND_SPREADS });
+  try {
+    assert.equal(Reflect.set(tarotSpreads.three, 'name', tarotSpreads.celtic.name), true);
+    assert.equal(tarotSpreads.three.name, tarotSpreads.celtic.name);
+    assert.deepEqual(
+      rebuildSavedDivinationSession(normalSessions[0], catalogDrafts[0]),
+      normalRestore,
+    );
+    assert.equal(Reflect.set(tarotSpreads.three, 'cardCount', 4), true);
+    LENORMAND_SPREADS.nine.positions.pop();
+    assert.equal(tarotSpreads.three.cardCount, 4);
+    assert.equal(LENORMAND_SPREADS.nine.positions.length, 8);
+    const freshSessions = [
+      await generateDivinationSession(catalogDrafts[0]),
+      await generateDivinationSession(catalogDrafts[1]),
+    ];
+    assert.deepEqual(freshSessions, normalSessions);
+  } finally {
+    tarotSpreads.three.name = catalogs.tarotSpreads.three.name;
+    tarotSpreads.three.cardCount = catalogs.tarotSpreads.three.cardCount;
+    LENORMAND_SPREADS.nine.positions.splice(
+      0,
+      LENORMAND_SPREADS.nine.positions.length,
+      ...catalogs.LENORMAND_SPREADS.nine.positions,
+    );
+  }
+  assert.deepEqual({ tarotSpreads, LENORMAND_SPREADS }, catalogs);
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {

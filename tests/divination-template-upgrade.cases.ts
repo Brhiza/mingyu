@@ -4,7 +4,11 @@ import { generateLiuren } from '../packages/core/src/divination/algorithms/liure
 import { buildLiurenTemplateText } from '../packages/core/src/divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '../packages/core/src/divination/engine/liuyao-template';
 import { drawTarotSpread } from '../packages/core/src/divination/tarot';
-import { buildTarotSpreadTask } from '../packages/core/src/prompt/tarot-spread';
+import {
+  buildTarotSpreadTask,
+  TAROT_SPREAD_PROMPT_FRAMEWORKS,
+} from '../packages/core/src/prompt/tarot-spread';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
 
 const fixtureDate = new Date('2026-05-19T10:30:00+08:00');
 
@@ -43,7 +47,7 @@ test('大六壬主题模板应把候选类神与实际课传条件并列核对',
   assert.doesNotMatch(text, /undefined|null/);
 });
 
-test('塔罗任务应把牌位条件与逐张事实核对写入解读主线', () => {
+test('塔罗任务应把牌位条件与逐张事实核对写入解读主线', (context) => {
   const single = buildTarotSpreadTask(drawTarotSpread('single', { seed: 'template-single' }));
   assert.match(single, /唯一牌位、牌名、正逆位、关键词与牌面象征/);
   assert.doesNotMatch(single, /相邻牌|牌序组合|牌位联动/);
@@ -53,4 +57,44 @@ test('塔罗任务应把牌位条件与逐张事实核对写入解读主线', ()
   assert.match(three, /现实核对：联系问题中可观察的信息/);
   assert.match(three, /解读主线：/);
   assert.doesNotMatch(three, /undefined|null/);
+
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2025-06-18T02:30:00Z') });
+  const manualCards = [
+    { id: 1, reversed: false },
+    { id: 2, reversed: true },
+    { id: 3, reversed: false },
+  ];
+  const normal = drawTarotSpread('three', { manualCards });
+  const taskbook = (data: typeof normal) =>
+    buildDivinationPrompt({
+      method: 'tarot',
+      data,
+      question: '这段关系如何推进？',
+      currentTime: new Date(),
+    });
+  const normalTaskbook = taskbook(normal);
+  assert.deepEqual(
+    normal.cards.map(({ name, position, reversed }) => [name, position, reversed]),
+    [
+      ['愚者', '过去', false],
+      ['魔术师', '现在', true],
+      ['女祭司', '未来', false],
+    ],
+  );
+  assert.match(normalTaskbook, /按过去、现在、未来三个牌位整理背景、当前表现与后续主题/u);
+  const frameworks = structuredClone(TAROT_SPREAD_PROMPT_FRAMEWORKS);
+  try {
+    const changedMainLine = TAROT_SPREAD_PROMPT_FRAMEWORKS.celtic.mainLine;
+    assert.equal(
+      Reflect.set(TAROT_SPREAD_PROMPT_FRAMEWORKS.three, 'mainLine', changedMainLine),
+      true,
+    );
+    assert.equal(TAROT_SPREAD_PROMPT_FRAMEWORKS.three.mainLine, changedMainLine);
+    const fresh = drawTarotSpread('three', { manualCards });
+    assert.deepEqual(fresh, normal);
+    assert.equal(taskbook(fresh), normalTaskbook);
+  } finally {
+    TAROT_SPREAD_PROMPT_FRAMEWORKS.three.mainLine = frameworks.three.mainLine;
+  }
+  assert.deepEqual(TAROT_SPREAD_PROMPT_FRAMEWORKS, frameworks);
 });

@@ -5,7 +5,7 @@
  */
 
 import { SolarTerm, SolarTime } from 'tyme4ts';
-import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
+import { type HexagramData, getHexagramsData } from '../divination/hexagram-data';
 import {
   assertFixedTimezoneHours,
   createUtcTimestamp,
@@ -24,6 +24,8 @@ import {
   calculateStandardHuangjiForecast,
   type HuangjiHexagramSummary,
 } from './standard';
+
+const hexagramsData = getHexagramsData();
 
 const HUANGJI_MONTH_BRANCHES = [
   '子',

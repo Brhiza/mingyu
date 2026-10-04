@@ -1,3 +1,4 @@
+import { getLenormandReferenceData } from './lenormand-data';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -9,12 +10,12 @@ import {
 import type { LenormandCombinationRelation, LenormandData } from '../types/divination';
 import { MingyuCoreError } from '../shared/result';
 import {
-  LENORMAND_CARDS,
-  LENORMAND_SPREADS,
   buildLenormandCombinations,
   resolveInteractiveLenormandCards,
   shuffleLenormandCards,
 } from './algorithms/lenormand';
+
+const { LENORMAND_CARDS, LENORMAND_SPREADS } = getLenormandReferenceData();
 
 export interface LenormandCardEvidence {
   key: string;

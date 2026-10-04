@@ -6,6 +6,7 @@ import {
   analyzeTarotEvidence,
   drawTarotSpread,
   resolveInteractiveTarotCards,
+  tarotCards,
   tarotSpreads,
 } from '../packages/core/src/divination/tarot.ts';
 import type { TarotData, TarotSpreadType } from '../packages/core/src/types/divination.ts';
@@ -339,48 +340,89 @@ test('塔罗相邻牌应计算四元素互参且大阿卡纳不强行归入元�
 });
 
 test('塔罗手工录入应保留牌位与正逆位，并将随机轨迹标为不适用', () => {
-  const data = drawTarotSpread('three', {
-    manualCards: [
-      { id: 1, reversed: false },
-      { id: 22, reversed: true },
-      { id: 78, reversed: false },
-    ],
-  });
+  const originalNow = Date.now;
+  Date.now = () => Date.parse('2026-10-04T08:00:00+08:00');
+  try {
+    const data = drawTarotSpread('three', {
+      manualCards: [
+        { id: 1, reversed: false },
+        { id: 22, reversed: true },
+        { id: 78, reversed: false },
+      ],
+    });
 
-  assert.deepEqual(
-    data.cards.map((card) => [card.id, card.position, card.reversed]),
-    [
-      [1, '过去', false],
-      [22, '现在', true],
-      [78, '未来', false],
-    ],
-  );
-  assert.equal(data.draw?.method, '用户按牌位手工录入');
-  assert.equal(data.meta?.algorithm, 'tarot.spread.manual');
-  assert.equal(data.meta?.random, undefined);
-  assert.equal(data.evidenceAnalysis?.randomFact.status, '不适用');
-  assert.equal(data.evidenceAnalysis?.summaryFact.status, '证据链完整');
-  assert.ok(data.evidenceAnalysis?.evidence.items.some((item) => item.title === '手工录入来源'));
+    assert.deepEqual(
+      data.cards.map((card) => [card.id, card.position, card.reversed]),
+      [
+        [1, '过去', false],
+        [22, '现在', true],
+        [78, '未来', false],
+      ],
+    );
+    assert.equal(data.draw?.method, '用户按牌位手工录入');
+    assert.equal(data.meta?.algorithm, 'tarot.spread.manual');
+    assert.equal(data.meta?.random, undefined);
+    assert.equal(data.evidenceAnalysis?.randomFact.status, '不适用');
+    assert.equal(data.evidenceAnalysis?.summaryFact.status, '证据链完整');
+    assert.ok(data.evidenceAnalysis?.evidence.items.some((item) => item.title === '手工录入来源'));
 
-  assert.throws(
-    () =>
-      drawTarotSpread('three', {
+    assert.deepEqual(
+      data.cards.map((card) => card.name),
+      ['愚者', '世界', '钱币国王'],
+    );
+    const promptOptions = {
+      method: 'tarot' as const,
+      question: '本次牌位与牌面关系如何解读？',
+      currentTime: new Date('2026-10-04T08:00:00+08:00'),
+    };
+    const normalPrompt = buildDivinationPrompt({ ...promptOptions, data });
+    assert.match(normalPrompt, /过去：愚者（正位）；关键词：新开始、冒险、纯真/u);
+    assert.match(normalPrompt, /现在：世界（逆位）；关键词：完成、成就、圆满/u);
+    assert.match(normalPrompt, /未来：钱币国王（正位）；关键词：富裕、成功、安全/u);
+    assert.ok(normalPrompt.includes(promptOptions.question));
+    const originalName = tarotCards[0]!.name;
+    const originalPosition = tarotSpreads.three.positions[0]!;
+    try {
+      assert.equal(Reflect.set(tarotCards[0]!, 'name', '女祭司'), true);
+      assert.equal(Reflect.set(tarotSpreads.three.positions, 0, '另一牌位'), true);
+      assert.equal(tarotCards[0]!.name, '女祭司');
+      assert.equal(tarotSpreads.three.positions[0], '另一牌位');
+      const fresh = drawTarotSpread('three', {
         manualCards: [
           { id: 1, reversed: false },
-          { id: 1, reversed: true },
-          { id: 2, reversed: false },
+          { id: 22, reversed: true },
+          { id: 78, reversed: false },
         ],
-      }),
-    /不能重复录入/,
-  );
-  assert.throws(
-    () =>
-      drawTarotSpread('single', {
-        seed: '冲突参数',
-        manualCards: [{ id: 1, reversed: false }],
-      }),
-    /不能同时提供随机选项/,
-  );
+      });
+      assert.deepEqual(fresh, data);
+      assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), normalPrompt);
+    } finally {
+      tarotCards[0]!.name = originalName;
+      tarotSpreads.three.positions[0] = originalPosition;
+    }
+
+    assert.throws(
+      () =>
+        drawTarotSpread('three', {
+          manualCards: [
+            { id: 1, reversed: false },
+            { id: 1, reversed: true },
+            { id: 2, reversed: false },
+          ],
+        }),
+      /不能重复录入/,
+    );
+    assert.throws(
+      () =>
+        drawTarotSpread('single', {
+          seed: '冲突参数',
+          manualCards: [{ id: 1, reversed: false }],
+        }),
+      /不能同时提供随机选项/,
+    );
+  } finally {
+    Date.now = originalNow;
+  }
 });
 
 test('塔罗手动抽取应按样本逐张无重复翻牌并保留可重放轨迹', () => {

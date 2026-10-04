@@ -1,6 +1,8 @@
-import { wuxing } from './divination-data';
+import { getLiuyaoData } from './divination-data';
 import type { LiuyaoChangeRelation } from '../types/divination';
 import { BRANCH_ORDER, isKe, isLiuchong, isSheng } from '../ganzhi';
+
+const { wuxing } = getLiuyaoData();
 
 /**
  * 回头生克冲：动爻变出之爻对动爻本身的关系。

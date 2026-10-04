@@ -5,7 +5,8 @@ import {
   conditionMeihuaTraditionalText,
 } from '../packages/core/src/divination/meihua-evidence.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
-import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
+import { hexagramsData, trigramsByIndex } from '../packages/core/src/divination/hexagram-data.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 
 const fixedDate = new Date('2025-01-01T08:00:00+08:00');
 const fixedNumberChart = generateMeihua(fixedDate, { method: 'number', number: 123 });
@@ -72,6 +73,38 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /主卦.*→.*互卦.*；.*互卦.*→.*变卦/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
+
+  const promptOptions = {
+    method: 'meihua' as const,
+    question: '主互变卦及本次动爻如何对应？',
+    currentTime: new Date('2026-10-04T08:00:00Z'),
+  };
+  const normalTask = buildDivinationPrompt({ ...promptOptions, data });
+  assert.equal(data.mainHexagram.name, '火风鼎');
+  assert.equal(data.movingYao.position, 2);
+  assert.match(normalTask, /火风鼎/u);
+  assert.match(normalTask, /鼎有实，我仇有疾/u);
+  const ding = hexagramsData.find((hexagram) => hexagram.name === '火风鼎')!;
+  assert.ok(ding.yaoCi);
+  const element = trigramsByIndex[3].element;
+  const line = trigramsByIndex[3].lines[0];
+  const yaoCi = ding.yaoCi[1];
+  try {
+    assert.equal(Reflect.set(trigramsByIndex[3], 'element', '水'), true);
+    assert.equal(trigramsByIndex[3].element, '水');
+    assert.equal(Reflect.set(trigramsByIndex[3].lines, 0, 0), true);
+    assert.equal(trigramsByIndex[3].lines[0], 0);
+    assert.equal(Reflect.set(ding.yaoCi, 1, '变造爻辞'), true);
+    assert.equal(ding.yaoCi[1], '变造爻辞');
+    const fresh = generateMeihua(fixedDate, { method: 'number', number: 123 });
+    assert.deepEqual(fresh, data);
+    assert.notEqual(fresh.mainHexagram.yaoCi, ding.yaoCi);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), normalTask);
+  } finally {
+    trigramsByIndex[3].element = element;
+    trigramsByIndex[3].lines[0] = line;
+    ding.yaoCi[1] = yaoCi;
+  }
 });
 
 test('梅花起卦证据应核对取数与盘面，并准确表达整除时的余数', () => {

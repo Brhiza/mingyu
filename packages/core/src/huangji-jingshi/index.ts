@@ -28,7 +28,7 @@ import {
   type HuangjiSixDayDateResult,
 } from './datetime';
 import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
-import { hexagramsData } from '../divination/hexagram-data';
+import { getHexagramsData } from '../divination/hexagram-data';
 import { formatFixedTimezoneOffset } from '../calendar';
 
 export * from './standard';
@@ -36,6 +36,8 @@ export * from './datetime';
 export * from './trend';
 export * from './references';
 import { queryHuangjiReference } from './references';
+
+const hexagramsData = getHexagramsData();
 
 export const HUANGJI_CYCLE_YEARS = Object.freeze({
   shi: 30,

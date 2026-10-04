@@ -1,5 +1,7 @@
-import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
+import { type HexagramData, getHexagramsData } from '../divination/hexagram-data';
 import { EARTHLY_BRANCHES, SIXTY_CYCLE } from '../ganzhi/data';
+
+const hexagramsData = getHexagramsData();
 
 export const HUANGJI_STANDARD_EPOCH = Object.freeze({
   model: '先天圆图值年卦通行排法',

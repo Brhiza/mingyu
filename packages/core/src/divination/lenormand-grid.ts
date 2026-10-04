@@ -3,7 +3,9 @@
  * @计算口径 九张牌按三行三列排列，以中心位置计算曼哈顿距离。
  * 方位和距离仅记录牌面几何关系，具体象意结合牌位设定与问题解读。
  */
-import { LENORMAND_CARDS } from './algorithms/lenormand';
+import { getLenormandReferenceData } from './lenormand-data';
+
+const { LENORMAND_CARDS } = getLenormandReferenceData();
 
 export interface LenormandCardRef {
   id: number;

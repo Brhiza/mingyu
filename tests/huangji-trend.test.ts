@@ -17,8 +17,10 @@ const yangCounts: Record<string, number> = {
   坤: 0,
 };
 
+const annual2026Forecast = calculateHuangjiJingshi({ year: 2026 }).forecast!;
+
 test('皇极圆图六十四卦均按卦画计数并按内卦划分阴阳半周', () => {
-  const base = calculateHuangjiJingshi({ year: 2026 }).forecast!;
+  const base = annual2026Forecast;
   for (const hexagram of hexagramsData) {
     const shortName = hexagram.upper === hexagram.lower ? hexagram.upper : hexagram.name.slice(2);
     const forecast = structuredClone(base);
@@ -52,7 +54,7 @@ test('皇极实际值年鼎卦应为四阳二阴且属于姤至坤半周', () =>
 });
 
 test('皇极消息分析拒绝不存在或互相矛盾的值年卦资料', () => {
-  const base = calculateHuangjiJingshi({ year: 2026 }).forecast!;
+  const base = annual2026Forecast;
   for (const patch of [{ id: 0 }, { shortName: '未知' }, { lower: '坤' }, { name: '地水师' }]) {
     const forecast = structuredClone(base);
     Object.assign(forecast.hexagrams.annual, patch);

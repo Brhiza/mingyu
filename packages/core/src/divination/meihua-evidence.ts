@@ -1,5 +1,5 @@
 import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
-import { trigramsByIndex } from './hexagram-data';
+import { getTrigramsByIndex } from './hexagram-data';
 import { dizhi } from './divination-data';
 import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from './config';
 import { getBranchWuxing, getSeasonState, isKe, isSheng } from '../ganzhi';
@@ -18,6 +18,8 @@ import {
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
+
+const trigramsByIndex = getTrigramsByIndex();
 
 export type MeihuaEvidenceStageKey = 'origin' | 'process' | 'result';
 

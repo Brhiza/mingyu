@@ -9,7 +9,11 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance';
 import type { QimenCandidateSource } from '../packages/core/src/divination/algorithms/qimen/index';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
-import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination';
+import { qimen } from '../packages/core/src/divination/divination-data';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -144,6 +148,36 @@ test('奇门排盘应内置用神宫与宫间作用结构化证据', () => {
     evidence.limitationFacts.some((item) => item.promptText.includes('不得输出吉凶总分、成功率')),
   );
   assert.doesNotMatch(evidence.promptText, /不得|不等于|来源[：:]|标签[：:]|限制[：:]/);
+
+  const normal = generateQimenFromSource(fixedDate);
+  const promptOptions = {
+    method: 'qimen' as const,
+    question: '九宫星门神干及本次格局如何对应？',
+    currentTime: new Date('2026-10-04T08:00:00Z'),
+  };
+  const normalTask = buildDivinationPrompt({ ...promptOptions, data: normal });
+  assert.match(normalTask, /九宫/u);
+  assert.match(normalTask, /天盘/u);
+  assert.match(normalTask, /地盘/u);
+  assert.equal(normal.jiuGongGe[0].name, '坎一宫');
+  assert.equal(normal.jiuGongGe[0].element, '水');
+  assert.equal(normal.evidenceAnalysis?.palaceFacts[0].element, '水');
+  assert.equal(qimen.ninePositions[0].name, '坎一宫');
+  assert.equal(qimen.ninePositions[0].element, '水');
+  const element = qimen.ninePositions[0].element;
+  const star = qimen.palaceStars[0];
+  try {
+    assert.equal(Reflect.set(qimen.ninePositions[0], 'element', '土'), true);
+    assert.equal(qimen.ninePositions[0].element, '土');
+    assert.equal(Reflect.set(qimen.palaceStars, 0, '天英'), true);
+    assert.equal(qimen.palaceStars[0], '天英');
+    const fresh = generateQimenFromSource(fixedDate);
+    assert.deepEqual(fresh, normal);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), normalTask);
+  } finally {
+    qimen.ninePositions[0].element = element;
+    qimen.palaceStars[0] = star;
+  }
 });
 
 test('奇门在线提示词只输出任务、盘面与传统依据并去掉重复格局条件', () => {

@@ -16,7 +16,7 @@ export const tiangan: readonly string[] = HEAVENLY_STEMS;
 export const jiazi = SIXTY_CYCLE;
 
 // 五行
-export const wuxing = {
+const CANONICAL_wuxing = {
   金: ['申', '酉'],
   木: ['寅', '卯'],
   水: ['子', '亥'],
@@ -25,7 +25,7 @@ export const wuxing = {
 };
 
 // 六亲关系
-export const liuqinRelations = {
+const CANONICAL_liuqinRelations = {
   金: { 金: '兄弟', 木: '妻财', 水: '子孙', 火: '官鬼', 土: '父母' },
   木: { 木: '兄弟', 土: '妻财', 火: '子孙', 金: '官鬼', 水: '父母' },
   水: { 水: '兄弟', 火: '妻财', 木: '子孙', 土: '官鬼', 金: '父母' },
@@ -34,7 +34,7 @@ export const liuqinRelations = {
 };
 
 // 宫位
-export const palaces = {
+const CANONICAL_palaces = {
   乾: { name: '乾', wuxing: '金' },
   兑: { name: '兑', wuxing: '金' },
   离: { name: '离', wuxing: '火' },
@@ -48,7 +48,7 @@ export const palaces = {
 // 按京房八宫卦序排列的卦象
 // 此顺序定义了“世”在卦中位置的演进规则，是安世应的基础。
 // 顺序：八纯卦（首卦，世在六）、一世卦、二世卦、三世卦、四世卦、五世卦、游魂卦（四世）、归魂卦（三世）。
-export const palaceHexagrams: { [key: string]: string[] } = {
+const CANONICAL_palaceHexagrams: { [key: string]: string[] } = {
   乾: ['乾为天', '天风姤', '天山遁', '天地否', '风地观', '山地剥', '火地晋', '火天大有'],
   坎: ['坎为水', '水泽节', '水雷屯', '水火既济', '泽火革', '雷火丰', '地火明夷', '地水师'],
   艮: ['艮为山', '山火贲', '山天大畜', '山泽损', '火泽睽', '天泽履', '风泽中孚', '风山渐'],
@@ -60,7 +60,9 @@ export const palaceHexagrams: { [key: string]: string[] } = {
 };
 
 // 用于快速查找卦象所属宫位
-export const hexagramPalaceMap: { [key: string]: string } = Object.entries(palaceHexagrams).reduce(
+const CANONICAL_hexagramPalaceMap: { [key: string]: string } = Object.entries(
+  CANONICAL_palaceHexagrams,
+).reduce(
   (acc, [palace, hexagrams]) => {
     hexagrams.forEach((hexagram) => {
       acc[hexagram] = palace;
@@ -77,7 +79,7 @@ export const hexagramPalaceMap: { [key: string]: string } = Object.entries(palac
 // 2. 阳四宫（乾坎艮震）地支顺行，阴四宫（坤巽离兑）地支逆行。
 // 3. 内外卦地支遵循其所属八纯卦的规则。
 // 4. 游魂卦、归魂卦有特殊变化规则。
-export const hexagramNaJia: { [key: string]: string[] } = {
+const CANONICAL_hexagramNaJia: { [key: string]: string[] } = {
   // 乾宫 (金)
   乾为天: ['子', '寅', '辰', '午', '申', '戌'],
   天风姤: ['丑', '亥', '酉', '午', '申', '戌'],
@@ -159,7 +161,7 @@ export const hexagramNaJia: { [key: string]: string[] } = {
   雷泽归妹: ['巳', '卯', '丑', '午', '申', '戌'], // 归魂
 };
 
-export const qimen = {
+const CANONICAL_QIMEN = {
   dizhi: [...EARTHLY_BRANCHES],
   diPanPalaces: {
     子: 1,
@@ -232,3 +234,58 @@ export const qimen = {
     大雪: { dun: '阴', ju: [4, 7, 1] },
   },
 };
+
+/** 返回六爻固定五行、六亲、宫序与纳甲资料的独立副本。 */
+export function getLiuyaoData() {
+  return {
+    wuxing: Object.fromEntries(
+      Object.entries(CANONICAL_wuxing).map(([key, values]) => [key, [...values]]),
+    ) as typeof CANONICAL_wuxing,
+    liuqinRelations: Object.fromEntries(
+      Object.entries(CANONICAL_liuqinRelations).map(([key, value]) => [key, { ...value }]),
+    ) as typeof CANONICAL_liuqinRelations,
+    palaces: Object.fromEntries(
+      Object.entries(CANONICAL_palaces).map(([key, value]) => [key, { ...value }]),
+    ) as typeof CANONICAL_palaces,
+    palaceHexagrams: Object.fromEntries(
+      Object.entries(CANONICAL_palaceHexagrams).map(([key, values]) => [key, [...values]]),
+    ) as typeof CANONICAL_palaceHexagrams,
+    hexagramPalaceMap: { ...CANONICAL_hexagramPalaceMap },
+    hexagramNaJia: Object.fromEntries(
+      Object.entries(CANONICAL_hexagramNaJia).map(([key, values]) => [key, [...values]]),
+    ) as typeof CANONICAL_hexagramNaJia,
+  };
+}
+
+export const {
+  wuxing,
+  liuqinRelations,
+  palaces,
+  palaceHexagrams,
+  hexagramPalaceMap,
+  hexagramNaJia,
+} = getLiuyaoData();
+
+/** 返回奇门固定九宫与定局资料的独立副本。 */
+export function getQimenData() {
+  return {
+    ...CANONICAL_QIMEN,
+    dizhi: [...CANONICAL_QIMEN.dizhi],
+    diPanPalaces: { ...CANONICAL_QIMEN.diPanPalaces },
+    palaceStars: [...CANONICAL_QIMEN.palaceStars],
+    palaceDoors: [...CANONICAL_QIMEN.palaceDoors],
+    doorPalaceMap: { ...CANONICAL_QIMEN.doorPalaceMap },
+    palaceDoorMap: { ...CANONICAL_QIMEN.palaceDoorMap },
+    yangGods: [...CANONICAL_QIMEN.yangGods],
+    yinGods: [...CANONICAL_QIMEN.yinGods],
+    ninePositions: CANONICAL_QIMEN.ninePositions.map((position) => ({ ...position })),
+    jieQiJuShuMap: Object.fromEntries(
+      Object.entries(CANONICAL_QIMEN.jieQiJuShuMap).map(([term, value]) => [
+        term,
+        { ...value, ju: [...value.ju] },
+      ]),
+    ) as typeof CANONICAL_QIMEN.jieQiJuShuMap,
+  };
+}
+
+export const qimen = getQimenData();

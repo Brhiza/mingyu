@@ -8,7 +8,10 @@ export interface TarotSpreadPromptFramework {
   conclusion: string;
 }
 
-export const TAROT_SPREAD_PROMPT_FRAMEWORKS: Record<TarotSpreadType, TarotSpreadPromptFramework> = {
+const CANONICAL_TAROT_SPREAD_PROMPT_FRAMEWORKS: Record<
+  TarotSpreadType,
+  TarotSpreadPromptFramework
+> = {
   single: {
     mainLine: '围绕唯一牌位提炼当前问题的核心主题与启示。',
     connections: '结合问题语境说明牌义与正逆位如何落到当下。',
@@ -108,6 +111,13 @@ export const TAROT_SPREAD_PROMPT_FRAMEWORKS: Record<TarotSpreadType, TarotSpread
   },
 };
 
+export const TAROT_SPREAD_PROMPT_FRAMEWORKS = Object.fromEntries(
+  Object.entries(CANONICAL_TAROT_SPREAD_PROMPT_FRAMEWORKS).map(([key, framework]) => [
+    key,
+    { ...framework },
+  ]),
+) as Record<TarotSpreadType, TarotSpreadPromptFramework>;
+
 const INCOMPLETE_TAROT_SPREAD_PROMPT_FRAMEWORK: TarotSpreadPromptFramework = {
   mainLine: '围绕已记录牌位与牌面整理本次问题的象征主题。',
   connections: '比较当前已有牌位之间能够对应的主题，并联系可观察信息与现实条件。',
@@ -126,7 +136,7 @@ export function buildTarotSpreadTask(data: TarotData) {
   }
   const framework =
     coverage.status === '完整'
-      ? TAROT_SPREAD_PROMPT_FRAMEWORKS[data.spreadType as TarotSpreadType]
+      ? CANONICAL_TAROT_SPREAD_PROMPT_FRAMEWORKS[data.spreadType as TarotSpreadType]
       : INCOMPLETE_TAROT_SPREAD_PROMPT_FRAMEWORK;
   return buildPromptTask(
     [

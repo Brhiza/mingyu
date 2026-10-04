@@ -1,4 +1,4 @@
-export const tarotCards = [
+const CANONICAL_TAROT_CARDS = [
   // 大阿卡纳 (22张)
   { name: '愚者', type: '大阿卡纳', number: 1 },
   { name: '魔术师', type: '大阿卡纳', number: 2 },
@@ -88,7 +88,7 @@ export const tarotCards = [
   { name: '钱币国王', type: '小阿卡纳', suit: '钱币', number: 78 },
 ];
 
-export const tarotSpreads = {
+const CANONICAL_TAROT_SPREADS = {
   single: {
     name: '单牌指引',
     description: '以一张牌给出当前问题的核心线索，适合快速聚焦当下状态。',
@@ -259,3 +259,24 @@ export const tarotSpreads = {
     cardCount: 12,
   },
 };
+
+export const tarotCards = CANONICAL_TAROT_CARDS.map((card) => ({ ...card }));
+export const tarotSpreads: typeof CANONICAL_TAROT_SPREADS = Object.fromEntries(
+  Object.entries(CANONICAL_TAROT_SPREADS).map(([key, spread]) => [
+    key,
+    { ...spread, positions: [...spread.positions] },
+  ]),
+) as typeof CANONICAL_TAROT_SPREADS;
+
+/** 返回固定牌面与牌阵资料的独立副本。 */
+export function getTarotReferenceData() {
+  return {
+    tarotCards: CANONICAL_TAROT_CARDS.map((card) => ({ ...card })),
+    tarotSpreads: Object.fromEntries(
+      Object.entries(CANONICAL_TAROT_SPREADS).map(([key, spread]) => [
+        key,
+        { ...spread, positions: [...spread.positions] },
+      ]),
+    ) as typeof CANONICAL_TAROT_SPREADS,
+  };
+}
