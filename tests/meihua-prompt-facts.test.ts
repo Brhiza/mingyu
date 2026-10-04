@@ -250,7 +250,7 @@ test('梅花字占保留原字及分笔，方位取象使用中文资料', () =>
   assert.doesNotMatch(direction.evidenceAnalysis?.promptText ?? '', /所见物类earth|方位north/u);
 });
 
-test('梅花在线提示词保留六个体用角色的月令关系且阶段不重复状态分类', () => {
+test('梅花在线提示词合并同经卦月令角色，保留不同经卦与独有条件', () => {
   for (const fixture of [
     {
       number: 42,
@@ -260,6 +260,14 @@ test('梅花在线提示词保留六个体用角色的月令关系且阶段不�
       misplacedProcess: '互卦风火家人：体卦巽木，用卦离火，关系用生体',
       misplacedOriginalRelation: '互卦：风火家人；体互克原体；原体生用互',
       result: '变卦天水讼：体卦坎水，用卦乾金，关系用生体',
+      seasonCondition: '主卦体用月令条件：体卦月令囚、用卦月令死；用卦休囚死，生体条件较弱',
+      monthFacts: [
+        '月令作用：原体、变后体卦坎水克巳月令火，卦气耗用，原体、变后体卦为囚',
+        '月令作用：巳月令火克原用兑金，原用为死',
+        '月令作用：体互离火与巳月令火同类，体互为旺',
+        '月令作用：用互巽木生巳月令火，卦气泄出，用互为休',
+        '月令作用：巳月令火克变后用卦乾金，变后用卦为死',
+      ],
     },
     {
       number: 123,
@@ -269,6 +277,12 @@ test('梅花在线提示词保留六个体用角色的月令关系且阶段不�
       misplacedProcess: '互卦水火既济：体卦离火，用卦坎水，关系体克用',
       misplacedOriginalRelation: '互卦：水火既济；原体克体互；用互与原体比和',
       result: '变卦火风鼎：体卦离火，用卦巽木，关系用生体',
+      seasonCondition: '主卦体用月令条件：体卦月令旺、用卦月令囚；体旺用衰，克体条件较轻',
+      monthFacts: [
+        '月令作用：原体、用互、变后体卦离火与巳月令火同类，原体、用互、变后体卦为旺',
+        '月令作用：原用、体互坎水克巳月令火，卦气耗用，原用、体互为囚',
+        '月令作用：变后用卦巽木生巳月令火，卦气泄出，变后用卦为休',
+      ],
     },
   ]) {
     const data = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
@@ -301,12 +315,13 @@ test('梅花在线提示词保留六个体用角色的月令关系且阶段不�
     }
     assert.doesNotMatch(prompt, /^互卦：[^\n]*；体互.+（.+）；用互/u);
     const monthFacts = formatMeihuaFacts(data).filter((fact) => fact.startsWith('月令作用：'));
-    assert.equal(monthFacts.length, 6);
+    assert.deepEqual(monthFacts, fixture.monthFacts);
     for (const fact of monthFacts) assert.equal(prompt.split(fact).length - 1, 1, fact);
     const origin = data.evidenceAnalysis.stages.find((stage) => stage.stage === 'origin');
     assert.ok(origin);
     assert.match(prompt, new RegExp(`体用关系${origin.relation}`, 'u'));
     assert.doesNotMatch(prompt, new RegExp(`主卦${origin.relation}，体卦月令`, 'u'));
+    assert.ok(prompt.includes(fixture.seasonCondition));
     for (const [role, state] of [
       ['体', origin.ti.seasonState],
       ['用', origin.yong.seasonState],
@@ -735,8 +750,9 @@ test('梅花各卦月令作用覆盖火令下五种关系，随机法保留自�
     });
     data.tiGua = { ...data.tiGua, name, element };
     const facts = formatMeihuaFacts(data).join('\n');
-    assert.ok(facts.includes(relation), facts);
-    assert.ok(facts.includes(`原体为${state}`), facts);
+    const originalRole = '原体(?:、(?:原用|体互|用互|变后体卦|变后用卦))*';
+    assert.match(facts, new RegExp(relation.replace('原体', originalRole), 'u'));
+    assert.match(facts, new RegExp(`${originalRole}为${state}`, 'u'));
     assert.doesNotMatch(facts, /起卦取数：/);
   }
 });

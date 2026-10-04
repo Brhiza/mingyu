@@ -243,6 +243,7 @@ export function generateMeihua(
     options?.timezoneOffsetMinutes,
     options?.termReferenceDate,
   );
+  const termReferenceTimestamp = options?.termReferenceDate?.getTime();
   const { lunar } = timeInfo;
   const method = settings?.method ?? 'time';
   const acceptedInputs = Object.prototype.hasOwnProperty.call(MEIHUA_METHOD_INPUTS, method)
@@ -407,9 +408,7 @@ export function generateMeihua(
       : MeihuaHelpers.getSeasonByMonth(lunar.monthNumber);
 
   const result: MeihuaData = {
-    ...(options?.termReferenceDate
-      ? { termReferenceTimestamp: options.termReferenceDate.getTime() }
-      : {}),
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
     originalName: mainHexagram.name,
     changedName: changingHexagram.name,
     interName: interHexagram.name,
@@ -535,9 +534,7 @@ export function generateMeihua(
       direction: settings?.direction,
       objectType: settings?.objectType,
       timestamp,
-      ...(options?.termReferenceDate
-        ? { termReferenceTimestamp: options.termReferenceDate.getTime() }
-        : {}),
+      ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
     },
     calculatedAt: timestamp,
     random: randomTrace,

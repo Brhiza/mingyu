@@ -331,11 +331,12 @@ export function generateJinkoujue(
     params?.timezoneOffsetMinutes,
     params?.termReferenceDate,
   );
+  const termReferenceTimestamp = params?.termReferenceDate?.getTime();
   const dayStem = ganzhi.day.charAt(0);
   const monthBranch = ganzhi.month.charAt(1);
   const hourBranch = ganzhi.hour.charAt(1);
   const dayNight: '昼占' | '夜占' = DAYTIME_BRANCHES.has(hourBranch) ? '昼占' : '夜占';
-  const monthLeader = getJinkoujueMonthLeader(params?.termReferenceDate?.getTime() ?? timestamp);
+  const monthLeader = getJinkoujueMonthLeader(termReferenceTimestamp ?? timestamp);
   const noblemanBranch = getJinkouNoblemanBranch(dayStem, dayNight);
   const xunKong = getVoidBranches(ganzhi.day);
 
@@ -438,9 +439,7 @@ export function generateJinkoujue(
   ].join('；');
 
   const result: JinkoujueData = {
-    ...(params?.termReferenceDate
-      ? { termReferenceTimestamp: params.termReferenceDate.getTime() }
-      : {}),
+    ...(termReferenceTimestamp === undefined ? {} : { termReferenceTimestamp }),
     method,
     methodLabel: METHOD_LABELS[method],
     ganzhi,
@@ -508,9 +507,7 @@ export function generateJinkoujue(
       ...(method === 'branch' ? { branch: params?.branch ?? null } : {}),
       ...(method === 'number' ? { number: params?.number ?? null } : {}),
       timestamp,
-      ...(params?.termReferenceDate
-        ? { termReferenceTimestamp: params.termReferenceDate.getTime() }
-        : {}),
+      ...(termReferenceTimestamp === undefined ? {} : { termReferenceTimestamp }),
       diFenBranch: diFen.branch,
     },
     calculatedAt: timestamp,

@@ -694,11 +694,15 @@ function buildOrdinaryTransmissionAdjudication(args: {
       const depth = item.assessment.depth;
       if (depth < maxDepth) {
         output.reasons.push(`涉害深度${depth}低于最大深度${maxDepth}`);
+      } else if (tied.length === 1) {
+        output.reasons.push(`涉害深度${depth}为唯一最大值，取为初传`);
       } else if (
         selectedClass &&
         !selectedClass.has(getUnderByUpper(args.context.heavenlyPlate, output.upper))
       ) {
         output.reasons.push(`涉害深度同为${maxDepth}，所临地盘孟仲季次序未取`);
+      } else if (classTied.length === 1) {
+        output.reasons.push(`涉害深度同为${maxDepth}，按所临地盘孟仲季次序取定`);
       } else if (preferred) {
         output.reasons.push(
           output.upper === preferredUpper

@@ -18,7 +18,10 @@ import {
 import { MeihuaHelpers } from '../packages/core/src/divination/divination-helpers.ts';
 import { getDivinationTime } from '../packages/core/src/calendar/timeManager.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
-import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 import {
   getMeihuaSelectionOptions,
   MEIHUA_DIRECTION_OPTIONS,
@@ -63,6 +66,49 @@ test('梅花随机轨迹重放应识别缺失、多余、篡改及拒绝采样',
       () => analyzeMeihuaEvidence(changed),
       /随机重放样本已用尽|随机重放样本有剩余|随机轨迹与起卦计算记录不一致/,
     );
+  }
+
+  const corrected = new Date('2024-05-05T07:30:00+08:00');
+  const actual = new Date('2024-05-05T08:40:00+08:00');
+  const baseline = generateMeihua(
+    corrected,
+    { method: 'random', random: () => 0.5 },
+    { termReferenceDate: actual },
+  );
+  const capture = (chart: typeof baseline) => ({
+    native: formatEnhancedDivinationInfo('meihua', chart),
+    fullTask: buildDivinationPrompt({
+      method: 'meihua',
+      data: chart,
+      question: '本次体用关系如何？',
+      currentTime: actual,
+    }),
+    summary: getDivinationSummaryBlocks('meihua', chart),
+  });
+  const baselineConsumers = capture(baseline);
+  assert.equal(baseline.analysis.monthBranch, '巳');
+  for (const replaceDate of [false, true]) {
+    const options = { termReferenceDate: new Date(actual.getTime()) };
+    const changed = generateMeihua(
+      corrected,
+      {
+        method: 'random',
+        random: () => {
+          if (replaceDate) options.termReferenceDate = new Date(corrected.getTime());
+          else options.termReferenceDate.setTime(corrected.getTime());
+          return 0.5;
+        },
+      },
+      options,
+    );
+    assert.equal(options.termReferenceDate.getTime(), corrected.getTime());
+    assert.equal(changed.termReferenceTimestamp, actual.getTime());
+    assert.equal(changed.meta!.inputHash, baseline.meta!.inputHash);
+    assert.equal(changed.meta!.resultId, baseline.meta!.resultId);
+    assert.deepEqual(changed, baseline);
+    assert.deepEqual(capture(changed), baselineConsumers);
+    assert.deepEqual(capture(JSON.parse(JSON.stringify(changed))), baselineConsumers);
+    assert.deepEqual(changed, baseline);
   }
 });
 

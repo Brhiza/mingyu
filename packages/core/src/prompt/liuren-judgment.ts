@@ -26,7 +26,11 @@ export function formatLiurenJudgmentFacts(
   const classicalRules = (plateVerified ? (data.classicalRules ?? []) : [])
     .map((item) => `${item.category}：${item.summary}`)
     .filter(Boolean);
-  if (classicalRules.length) lines.push(`取传条件：${classicalRules.join('；')}`);
+  if (
+    classicalRules.length &&
+    !(options.chartFactsIncluded && data.ordinaryTransmissionAdjudication?.status === 'selected')
+  )
+    lines.push(`取传条件：${classicalRules.join('；')}`);
   const ordinaryAdjudication = formatLiurenOrdinaryTransmissionAdjudication(data);
   if (
     !options.chartFactsIncluded &&

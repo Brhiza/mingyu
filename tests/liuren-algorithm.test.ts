@@ -5,6 +5,9 @@ import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { calculateSolarTermEvidence, TimeManager } from 'mingyu-core/calendar';
 import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
 import { buildTimeInfoText } from 'mingyu-core/prompt';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { formatLiurenGuaTiWithTransmissions } from '../packages/core/src/prompt/liuren-facts';
 import {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,
@@ -409,6 +412,15 @@ test('大六壬实盘应识别两种乘玄武发用的闭口课', () => {
     assert.deepEqual(result.guaTiFacts?.find((fact) => fact.id === 'bi-kou')?.matchedConditions, [
       item.condition,
     ]);
+    for (const prompt of [
+      formatEnhancedDivinationInfo('liuren', result),
+      buildDivinationPrompt({ method: 'liuren', data: result, question: '核对此课发用' }),
+    ]) {
+      assert.ok(prompt.includes(`闭口课：${item.condition}`));
+      assert.ok(
+        prompt.includes(result.guaTiFacts!.find((fact) => fact.id === 'bi-kou')!.sourceTitle),
+      );
+    }
   }
 });
 
@@ -467,6 +479,15 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
     assert.ok(fact.matchedConditions.length > 0);
     assert.match(fact.stableKey, /^liuren:verified-guati:/);
     assert.match(fact.sourceUrl, new RegExp(`oldid=${item.sourceOldId}`));
+    if (item.name === '龙德课') {
+      assert.ok(
+        formatLiurenGuaTiWithTransmissions(fact).includes('龙德课：初传子同时为太岁、月将并乘贵人'),
+      );
+    }
+    if (item.name === '高盖乘轩卦') {
+      assert.equal(formatLiurenGuaTiWithTransmissions(fact), `高盖乘轩卦（${fact.sourceTitle}）`);
+      assert.deepEqual(fact.matchedConditions, ['三传依次为午、卯、子']);
+    }
   }
 });
 

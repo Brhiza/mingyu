@@ -273,7 +273,7 @@ test('金口诀目标年末只查当前与下一轮冬至，避免预取越过�
   assert.equal(result.monthLeader, '丑');
 });
 
-test('金口诀随机记录应重放拒绝采样并核对起课数字与地分', () => {
+test('金口诀随机记录核对拒绝采样，并保存抽样前的节气参考时刻', () => {
   const samples = [0xffffffff / 0x100000000, 0.5];
   const data = generateJinkoujue({ customDate: SAMPLE_DATE, method: 'random', replay: samples });
   assert.equal(data.calculation.inputBase, 7);
@@ -290,6 +290,44 @@ test('金口诀随机记录应重放拒绝采样并核对起课数字与地分',
   const changed = structuredClone(data);
   changed.positions.diFen.branch = '子';
   assert.throws(() => analyzeJinkoujueEvidence(changed), /随机轨迹与起课数字或地分不一致/);
+
+  const referenceTimestamp = SAMPLE_DATE.getTime();
+  const changedTimestamp = new Date('2025-06-29T08:00:00+08:00').getTime();
+  const referenceChart = generateJinkoujue({
+    customDate: SAMPLE_DATE,
+    method: 'random',
+    timezoneOffsetMinutes: 480,
+    termReferenceDate: new Date(referenceTimestamp),
+    random: () => 0.5,
+  });
+  const referencePrompt = buildDivinationPrompt({
+    method: 'jinkoujue',
+    data: referenceChart,
+    question: '进展如何',
+  });
+  for (const replaceReference of [false, true]) {
+    const parameters = {
+      customDate: SAMPLE_DATE,
+      method: 'random' as const,
+      timezoneOffsetMinutes: 480,
+      termReferenceDate: new Date(referenceTimestamp),
+      random: () => 0.5,
+    };
+    parameters.random = () => {
+      if (replaceReference) parameters.termReferenceDate = new Date(changedTimestamp);
+      else parameters.termReferenceDate.setTime(changedTimestamp);
+      return 0.5;
+    };
+    const chart = generateJinkoujue(parameters);
+    assert.equal(parameters.termReferenceDate.getTime(), changedTimestamp);
+    assert.equal(chart.termReferenceTimestamp, referenceTimestamp);
+    assert.equal(chart.monthLeader, '丑');
+    assert.deepEqual(chart, referenceChart);
+    assert.equal(
+      buildDivinationPrompt({ method: 'jinkoujue', data: chart, question: '进展如何' }),
+      referencePrompt,
+    );
+  }
 });
 
 test('金口诀证据拒绝地分与人元、月将加时及五动条件错位', () => {

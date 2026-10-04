@@ -96,7 +96,7 @@ test('雨水中气也切开月家和年家节令背景', () => {
   }
 });
 
-test('年家和月家合并短周期背景分支并保留实际节气边界', () => {
+test('年家和月家范围合并短周期分支并保留节气与正式定局事实', () => {
   const phaseBoundary = calculateSolarTermEvidence(2024, 3).utcTimestamp + 5 * 86_400_000;
   const beijingText = (timestamp: number) =>
     new Date(timestamp + 8 * 3_600_000).toISOString().slice(0, 19).replace('T', ' ');
@@ -118,6 +118,17 @@ test('年家和月家合并短周期背景分支并保留实际节气边界', ()
     termRange.branches.map(({ data }) => data.timeInfo.solarTerm),
     ['立春', '雨水'],
   );
+  for (const range of [termRange, rangeFor(RAIN_WATER_SOURCE, { scope: 'year' })]) {
+    const facts = formatQimenRangeFacts(range);
+    const context = formatQimenRangeContext(range);
+
+    assert.match(facts, /正式定局依据：干支年甲辰/u);
+    assert.match(facts, /雨水/u);
+    assert.doesNotMatch(facts, /交节后自然日阶段|月相|建除|节气五行|日干.{0,8}被耗/u);
+    assert.equal(formatQimenRangeMoonPhase(range.branches[0]!), '');
+    assert.match(context, /实际节气交接/u);
+    assert.doesNotMatch(context, /节令阶段|月相/u);
+  }
 });
 
 test('同一离散盘面范围合并为稳定分支并保留月相起止采样', () => {
@@ -213,21 +224,6 @@ test('范围格式化保留分支、月相参照和北京时间半开语义', ()
   assert.match(facts, /交节后自然日阶段：/u);
   assert.match(facts, /月相参照（起止采样）/u);
   assert.match(formatQimenRangeContext(range), /各段起点与终点前一秒参照/u);
-});
-
-test('年家和月家范围资料只保留实际节气与正式三元定局', () => {
-  for (const scope of ['month', 'year'] as const) {
-    const range = rangeFor(RAIN_WATER_SOURCE, { scope });
-    const facts = formatQimenRangeFacts(range);
-    const context = formatQimenRangeContext(range);
-
-    assert.match(facts, /正式定局依据：干支年甲辰/u);
-    assert.match(facts, /雨水/u);
-    assert.doesNotMatch(facts, /交节后自然日阶段|月相|建除|节气五行|日干.{0,8}被耗/u);
-    assert.equal(formatQimenRangeMoonPhase(range.branches[0]!), '');
-    assert.match(context, /实际节气交接/u);
-    assert.doesNotMatch(context, /节令阶段|月相/u);
-  }
 });
 
 test('范围来源坚持完整机器边界、文本一致和两小时上限', () => {

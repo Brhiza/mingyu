@@ -157,6 +157,7 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
       : data.analysis.monthBranch;
   if (branch) {
     const month = getBranchWuxing(branch);
+    const monthRoles: Array<{ roles: string[]; name: string; element: string }> = [];
     for (const [role, gua] of [
       ['原体', data.tiGua],
       ['原用', data.yongGua],
@@ -166,6 +167,14 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
       ['变后用卦', data.changedHexagram ? data.changedYongGua : undefined],
     ] as const) {
       if (!gua) continue;
+      const existing = monthRoles.find(
+        (item) => item.name === gua.name && item.element === gua.element,
+      );
+      if (existing) existing.roles.push(role);
+      else monthRoles.push({ roles: [role], name: gua.name, element: gua.element });
+    }
+    for (const gua of monthRoles) {
+      const role = gua.roles.join('、');
       const subject = `${role}${gua.name}${gua.element}`;
       const order = `${branch}月令${month}`;
       const relation =

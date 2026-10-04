@@ -36,8 +36,9 @@ function createDraft(hour = '11'): DivinationDraft {
   };
 }
 
-test('奇门四柱候选在交中气处切盘，页面、摘要、分享和提示词保留各段', async () => {
-  const session = await generateDivinationSession(createDraft());
+test('奇门四柱候选在交中气处切盘并保留页面、摘要、分享、提示词与历史恢复', async () => {
+  const draft = createDraft();
+  const session = await generateDivinationSession(draft);
   assert.equal(session.qimenRange?.status, 'conditional');
   assert.deepEqual(
     session.qimenRange.branches.map(({ data }) => data.juShu),
@@ -59,6 +60,36 @@ test('奇门四柱候选在交中气处切盘，页面、摘要、分享和提�
     }
   }
   assert.doesNotMatch(session.prompt, /【当前时间】|当前盘面采用区间起点/);
+  assert.equal(session.qimenRange?.branches.length, 2);
+
+  const values = new Map<string, string>();
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+      dispatchEvent: () => true,
+    },
+  });
+  try {
+    const saved = addDivinationHistory(draft, session);
+    assert.ok(saved);
+    const restored = getDivinationHistoryById(saved.id);
+    assert.ok(restored);
+    assert.deepEqual(restored.session.qimenRange, JSON.parse(JSON.stringify(session.qimenRange)));
+    assert.equal(restored.session.prompt, session.prompt);
+    assert.equal(
+      formatDivinationSessionShareText(restored.session),
+      formatDivinationSessionShareText(session),
+    );
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'window', original);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
 });
 
 test('奇门稳定时段仍保留完整范围与起止月相参照', async () => {
@@ -132,40 +163,6 @@ test('奇门区间按各段九宫保留补充年命的落宫资料', async () =>
   assert.equal(session.qimenRange?.branches.length, 2);
   assert.equal((session.prompt.match(/年命资料：公历2000年/g) ?? []).length, 2);
   assert.equal((session.prompt.match(/年命落宫（年中口径）/g) ?? []).length, 2);
-});
-
-test('奇门分段经历史恢复后保留所有盘面与月相采样', async () => {
-  const draft = createDraft();
-  const session = await generateDivinationSession(draft);
-  assert.equal(session.qimenRange?.branches.length, 2);
-  const values = new Map<string, string>();
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem: (key: string) => values.get(key) ?? null,
-        setItem: (key: string, value: string) => values.set(key, value),
-        removeItem: (key: string) => values.delete(key),
-      },
-      dispatchEvent: () => true,
-    },
-  });
-  try {
-    const saved = addDivinationHistory(draft, session);
-    assert.ok(saved);
-    const restored = getDivinationHistoryById(saved.id);
-    assert.ok(restored);
-    assert.deepEqual(restored.session.qimenRange, JSON.parse(JSON.stringify(session.qimenRange)));
-    assert.equal(restored.session.prompt, session.prompt);
-    assert.equal(
-      formatDivinationSessionShareText(restored.session),
-      formatDivinationSessionShareText(session),
-    );
-  } finally {
-    if (original) Object.defineProperty(globalThis, 'window', original);
-    else Reflect.deleteProperty(globalThis, 'window');
-  }
 });
 
 test('奇门旧文本日期来源继续兼容单盘', async () => {

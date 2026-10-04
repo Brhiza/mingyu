@@ -156,13 +156,14 @@ test('大六壬复合取传规则只列当前有克或无克条件，重复课�
 
   const data = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
   assert.equal(data.transmissionRule, '返吟重审法');
+  assert.equal(data.ordinaryTransmissionAdjudication?.status, 'deferredToSpecial');
   assert.deepEqual(
     data.fourLessons.map((item) => item.upper),
     ['申', '寅', '申', '寅'],
   );
   const structuredBefore = structuredClone(data);
   const prompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
-  assert.match(prompt, /返吟课兼四课下贼上：天盘与地盘相冲；四课见下贼上/);
+  assert.match(prompt, /取传条件：返吟课兼四课下贼上：天盘与地盘相冲；四课见下贼上/);
   assert.match(prompt, /四课下贼上候选只有一个不同上神/);
   assert.doesNotMatch(prompt, /四课只有一处下贼上|无克另按井栏射取传/);
   assert.match(prompt, /初传取法：按返吟重审法取寅发用/);
@@ -174,8 +175,14 @@ test('大六壬完整提示词写入课体判据、取用定位和应期依据',
   const data = makeFixedChart();
   const prompt = formatDivinationInfo('liuren', data);
   assert.ok(data.guaTiFacts?.length);
+  assert.deepEqual(
+    data.guaTiFacts.map((fact) => [fact.name, fact.matchedConditions]),
+    [['从革卦', ['三传巳酉丑全']]],
+  );
+  assert.match(prompt, /初传酉乘勾陈[\s\S]*中传丑乘太常[\s\S]*末传巳乘贵人/);
+  assert.doesNotMatch(prompt, /三传巳酉丑全/);
   for (const fact of data.guaTiFacts) {
-    assert.ok(prompt.includes(`${fact.name}：${fact.matchedConditions.join('；')}`));
+    assert.ok(prompt.includes(`${fact.name}（${fact.sourceTitle}）`));
     assert.ok(prompt.includes(fact.sourceTitle));
   }
   for (const focus of data.focusEvidence ?? []) {
@@ -199,7 +206,7 @@ test('大六壬详细课体判据已含名称时省略重复摘要，旧数据�
   assert.match(prompt, /课体判据：/);
   assert.doesNotMatch(prompt, /^课体：/m);
   for (const fact of data.guaTiFacts ?? []) {
-    assert.match(prompt, new RegExp(`${fact.name}：`));
+    assert.ok(prompt.includes(`${fact.name}（${fact.sourceTitle}）`));
   }
 
   const legacyPrompt = formatEnhancedDivinationInfo('liuren', {
@@ -302,7 +309,7 @@ test('大六壬完整提示词只补充尚未在盘面显示的判断事实', ()
     assert.match(prompt, /课传主线：传态递传/);
     assert.doesNotMatch(prompt, /课传主线：取传涉害法/);
     assert.match(prompt, /初传取法：/);
-    assert.match(prompt, /取传条件：/);
+    assert.doesNotMatch(prompt, /取传条件：/);
     assert.match(prompt, /课体判据：/);
     assert.match(prompt, /取用定位：/);
     assert.match(prompt, /应期依据：/);
@@ -314,14 +321,26 @@ test('大六壬完整提示词只补充尚未在盘面显示的判断事实', ()
     assert.doesNotMatch(prompt, /取传说明：|课体条件：|重点依据：|时令依据：/);
     assert.equal(prompt.split(adjudication).length - 1, 1);
     for (const fact of data.guaTiFacts ?? []) {
-      assert.equal(prompt.split(fact.matchedConditions.join('；')).length - 1, 1);
+      assert.equal(prompt.split(fact.matchedConditions.join('；')).length - 1, 0);
+      assert.equal(prompt.split(`${fact.name}（${fact.sourceTitle}）`).length - 1, 1);
     }
     for (const focus of data.focusEvidence ?? []) {
       assert.ok(prompt.includes(`${focus.role}${focus.target}（${focus.level}）`));
       for (const limitation of focus.limitations) assert.ok(prompt.includes(limitation));
     }
   }
-  assert.match(formatLiurenJudgmentFacts(data).join('\n'), /一课巳临癸，上下神关系水克火/);
+  const standalone = formatLiurenJudgmentFacts(data).join('\n');
+  assert.match(standalone, /一课巳临癸，上下神关系水克火/);
+  assert.match(standalone, /取传条件：涉害法：多个相克候选经阴阳比用后仍未唯一/);
+  assert.match(standalone, /课体条件：从革卦（三传巳酉丑全）/);
+  const legacy = { ...data, ordinaryTransmissionAdjudication: undefined };
+  const legacyPrompt = buildDivinationPrompt({
+    method: 'liuren',
+    data: legacy,
+    question: '问合作进度',
+  });
+  assert.match(legacyPrompt, /取传条件：涉害法：多个相克候选经阴阳比用后仍未唯一/);
+  assert.match(legacyPrompt, /课传主线：取传涉害法/);
 });
 
 test('大六壬月令旺衰集中在应期段，取用与乘神仍保留各自依据', () => {
@@ -370,6 +389,15 @@ test('大六壬在线提示词用取传依据和期限条件表达候选取舍',
   assert.ok(analysis.ordinaryTransmissionAdjudicationFact.candidateFacts.length > 0);
   assert.ok(analysis.counterEvidenceFacts.length > 0);
   const structuredBefore = structuredClone(data);
+  assert.deepEqual(
+    data
+      .ordinaryTransmissionAdjudication!.candidates.filter((candidate) => candidate.harmAssessment)
+      .map((candidate) => [candidate.upper, candidate.harmAssessment!.depth]),
+    [
+      ['巳', 0],
+      ['酉', 2],
+    ],
+  );
 
   for (const prompt of [
     buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' }),
@@ -382,7 +410,8 @@ test('大六壬在线提示词用取传依据和期限条件表达候选取舍',
     assert.doesNotMatch(prompt, /遥克不得抢占|未给出目标期限时|不硬换成唯一日期/);
     assert.equal(prompt.split('四课直接上下克前置成立，取传采用直接克候选').length - 1, 1);
     assert.match(prompt, /下贼上巳（排除：涉害深度0低于最大深度2）/);
-    assert.match(prompt, /下贼上酉（采用：涉害深度及所临孟仲季复等，先取支上神）/);
+    assert.match(prompt, /下贼上酉（采用：涉害深度2为唯一最大值，取为初传）/);
+    assert.doesNotMatch(prompt, /涉害深度及所临孟仲季复等，先取支上神/);
     assert.doesNotMatch(prompt, /蒿矢丑|被前置宗门压制/);
   }
   assert.deepEqual(data, structuredBefore);

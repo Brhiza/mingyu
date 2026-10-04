@@ -1,4 +1,9 @@
-import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
+import type {
+  LiurenData,
+  LiurenGuaTiFact,
+  LiurenLesson,
+  LiurenTransmission,
+} from '../types/divination';
 import { isSheng, isKe } from '../ganzhi';
 import { getGanZhiAttributeTables } from '../ganzhi/data';
 import { getLiurenOrdinaryCandidateStatusLabel } from '../divination/liuren-ordinary-adjudication';
@@ -6,6 +11,24 @@ import { getGanZhiRelationTables } from '../ganzhi/relations';
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 const { STEM_WUXING } = getGanZhiAttributeTables();
+
+const TRANSMISSION_MEMBER_CONDITIONS = new Set([
+  '三传各为子午卯酉四仲之一',
+  '三传各为寅申巳亥四孟之一',
+  '三传各为辰戌丑未四季之一',
+  '三传亥卯未全',
+  '三传巳酉丑全',
+  '三传寅午戌全',
+  '三传申子辰全',
+  '三传依次为午、卯、子',
+]);
+
+export function formatLiurenGuaTiWithTransmissions(fact: LiurenGuaTiFact): string {
+  const conditions = fact.matchedConditions.filter(
+    (condition) => !TRANSMISSION_MEMBER_CONDITIONS.has(condition),
+  );
+  return `${fact.name}${conditions.length ? `：${conditions.join('；')}` : ''}（${fact.sourceTitle}）`;
+}
 
 function isTransmissionMonthStateInTiming(
   timingEvidence: readonly string[],

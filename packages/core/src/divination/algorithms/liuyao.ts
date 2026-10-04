@@ -833,6 +833,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     options?.timezoneOffsetMinutes,
     options?.termReferenceDate,
   );
+  const termReferenceTimestamp = options?.termReferenceDate?.getTime();
   const resolvedGeneration = resolveRawYaos(timestamp, options);
   const rawYaos = resolvedGeneration.yaos;
 
@@ -1052,9 +1053,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     : null;
 
   const result: LiuyaoData = {
-    ...(options?.termReferenceDate
-      ? { termReferenceTimestamp: options.termReferenceDate.getTime() }
-      : {}),
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
     originalName: mainHexagram.name,
     changedName: changedHexagram.name,
     interName: interHexagram.name,
@@ -1091,9 +1090,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       method: resolvedGeneration.generation.method,
       timestamp,
       timezoneOffsetMinutes,
-      ...(options?.termReferenceDate
-        ? { termReferenceTimestamp: options.termReferenceDate.getTime() }
-        : {}),
+      ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
       yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
     },
     calculatedAt: timestamp,

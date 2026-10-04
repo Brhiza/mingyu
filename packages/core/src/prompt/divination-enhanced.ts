@@ -4,6 +4,7 @@ import { DEFAULT_CHINA_TIMEZONE_HOURS, formatFixedTimezoneOffset } from '../cale
 import { TimeManager } from '../calendar/timeManager';
 import { formatAstrolabeForPrompt } from './astrolabe';
 import {
+  formatLiurenGuaTiWithTransmissions,
   formatLiurenLesson,
   formatLiurenOrdinaryTransmissionAdjudication,
   formatLiurenTransmission,
@@ -1167,9 +1168,7 @@ function formatLiurenInfo(data: LiurenData) {
   const guaTiText = plateVerified && data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiFacts =
     plateVerified && data.guaTiFacts?.length
-      ? data.guaTiFacts.map(
-          (item) => `${item.name}：${item.matchedConditions.join('；')}（${item.sourceTitle}）`,
-        )
+      ? data.guaTiFacts.map(formatLiurenGuaTiWithTransmissions)
       : [];
   const guaTiSection = guaTiText && guaTiFacts.length === 0 ? `课体：${guaTiText}` : '';
   const shenShaAll = data.shenShaFacts?.length
