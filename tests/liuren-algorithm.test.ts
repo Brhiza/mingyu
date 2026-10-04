@@ -196,6 +196,13 @@ function createLesson(
   };
 }
 
+const DEFAULT_RESOLVE_HEAVENLY_PLATE = buildHeavenlyPlate({
+  monthLeader: '亥',
+  divinationBranch: '卯',
+  noblemanBranch: '丑',
+  dayNight: '昼占',
+});
+
 function createResolveContext(
   overrides: Partial<Parameters<typeof resolveInitialTransmission>[1]> = {},
 ) {
@@ -203,12 +210,7 @@ function createResolveContext(
     dayStem: '甲',
     dayBranch: '子',
     dayStemResidence: '寅',
-    heavenlyPlate: buildHeavenlyPlate({
-      monthLeader: '亥',
-      divinationBranch: '卯',
-      noblemanBranch: '丑',
-      dayNight: '昼占',
-    }),
+    heavenlyPlate: DEFAULT_RESOLVE_HEAVENLY_PLATE.map((item) => ({ ...item })),
     ...overrides,
   };
 }
@@ -568,11 +570,9 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
 
   for (const monthLeader of DIZHI) {
     for (const hourBranch of DIZHI) {
-      for (const day of SIXTY_DAYS) {
+      for (const dayStem of TIANGAN) {
         for (const dayNight of ['昼占', '夜占'] as const) {
-          const dayStem = day.charAt(0);
-          const dayBranch = day.charAt(1);
-          const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
+          const dayStemIndex = TIANGAN.indexOf(dayStem);
           const hourBranchIndex = DIZHI.indexOf(hourBranch);
           const hourStem = TIANGAN[((dayStemIndex % 5) * 2 + hourBranchIndex) % 10];
           const heavenlyPlate = buildHeavenlyPlate({
@@ -582,95 +582,99 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             dayNight,
           });
           const dayStemResidence = getDayStemResidence(dayStem);
-          const lessons = buildFourLessons({
-            heavenlyPlate,
-            dayStem,
-            dayBranch,
-            dayStemResidence,
-            xunKong: [],
-          });
-          const initial = resolveInitialTransmission(lessons, {
-            dayStem,
-            dayBranch,
-            dayStemResidence,
-            hourStem,
-            hourBranch,
-            heavenlyPlate,
-          });
-          const branches = initial.branches || [
-            initial.initial,
-            getUpperByUnder(heavenlyPlate, initial.initial),
-            getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
-          ];
-          const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
+          for (const day of SIXTY_DAYS.filter((value) => value.startsWith(dayStem))) {
+            const dayBranch = day.charAt(1);
+            const lessons = buildFourLessons({
+              heavenlyPlate,
+              dayStem,
+              dayBranch,
+              dayStemResidence,
+              xunKong: [],
+            });
+            const initial = resolveInitialTransmission(lessons, {
+              dayStem,
+              dayBranch,
+              dayStemResidence,
+              hourStem,
+              hourBranch,
+              heavenlyPlate,
+            });
+            const branches = initial.branches || [
+              initial.initial,
+              getUpperByUnder(heavenlyPlate, initial.initial),
+              getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
+            ];
+            const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
 
-          assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
-          assert.equal(heavenlyPlate.length, 12, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.branch)).size, 12, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.god)).size, 12, label);
-          if (day === '甲子' && dayNight === '昼占') {
-            const monthLeaderIndex = DIZHI.indexOf(monthLeader);
-            assert.deepEqual(
-              new Map(heavenlyPlate.map((item) => [item.under, item.branch] as const)),
-              new Map(
-                DIZHI.map(
-                  (under, underIndex) =>
-                    [
-                      under,
-                      DIZHI[
-                        (underIndex + monthLeaderIndex - hourBranchIndex + DIZHI.length) %
-                          DIZHI.length
-                      ],
-                    ] as const,
-                ),
-              ),
-              `${label}十二地盘支与上神应逐位按月将加占时旋转`,
-            );
-          }
-          assert.equal(lessons.length, 4, label);
-          assert.equal(branches.length, 3, label);
-          assert.ok(
-            branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
-            label,
-          );
-          const adjudication = initial.ordinaryAdjudication;
-          assert.ok(adjudication, label);
-          const isSpecialRule = /伏吟|返吟|八专|别责|昴星/.test(initial.rule);
-          assert.equal(
-            adjudication.status,
-            isSpecialRule ? 'deferredToSpecial' : 'selected',
-            label,
-          );
-          for (const candidate of adjudication.candidates) {
-            for (const source of candidate.sourceLessons) {
+            assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
+            assert.equal(heavenlyPlate.length, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.branch)).size, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.god)).size, 12, label);
+            if (day === '甲子' && dayNight === '昼占') {
+              const monthLeaderIndex = DIZHI.indexOf(monthLeader);
               assert.deepEqual(
-                { name: source.name, lower: source.lower },
-                {
-                  name: lessons[source.position - 1]?.name,
-                  lower: lessons[source.position - 1]?.lower,
-                },
+                new Map(heavenlyPlate.map((item) => [item.under, item.branch] as const)),
+                new Map(
+                  DIZHI.map(
+                    (under, underIndex) =>
+                      [
+                        under,
+                        DIZHI[
+                          (underIndex + monthLeaderIndex - hourBranchIndex + DIZHI.length) %
+                            DIZHI.length
+                        ],
+                      ] as const,
+                  ),
+                ),
+                `${label}十二地盘支与上神应逐位按月将加占时旋转`,
+              );
+            }
+            assert.equal(lessons.length, 4, label);
+            assert.equal(branches.length, 3, label);
+            assert.ok(
+              branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
+              label,
+            );
+            const adjudication = initial.ordinaryAdjudication;
+            assert.ok(adjudication, label);
+            const isSpecialRule = /伏吟|返吟|八专|别责|昴星/.test(initial.rule);
+            assert.equal(
+              adjudication.status,
+              isSpecialRule ? 'deferredToSpecial' : 'selected',
+              label,
+            );
+            for (const candidate of adjudication.candidates) {
+              for (const source of candidate.sourceLessons) {
+                assert.deepEqual(
+                  { name: source.name, lower: source.lower },
+                  {
+                    name: lessons[source.position - 1]?.name,
+                    lower: lessons[source.position - 1]?.lower,
+                  },
+                  label,
+                );
+              }
+            }
+            if (!isSpecialRule) {
+              assert.equal(adjudication.selectedRule, initial.rule, label);
+              assert.equal(adjudication.selectedInitial, initial.initial, label);
+              assert.equal(
+                adjudication.candidates.filter((candidate) => candidate.status === 'selected')
+                  .length,
+                1,
+                label,
+              );
+              assert.equal(
+                adjudication.selectedCandidateKey,
+                adjudication.candidates.find((candidate) => candidate.status === 'selected')?.key,
                 label,
               );
             }
-          }
-          if (!isSpecialRule) {
-            assert.equal(adjudication.selectedRule, initial.rule, label);
-            assert.equal(adjudication.selectedInitial, initial.initial, label);
-            assert.equal(
-              adjudication.candidates.filter((candidate) => candidate.status === 'selected').length,
-              1,
-              label,
-            );
-            assert.equal(
-              adjudication.selectedCandidateKey,
-              adjudication.candidates.find((candidate) => candidate.status === 'selected')?.key,
-              label,
-            );
-          }
 
-          ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
-          caseCount += 1;
+            ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
+            caseCount += 1;
+          }
         }
       }
     }

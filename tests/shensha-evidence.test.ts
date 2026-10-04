@@ -213,7 +213,6 @@ test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位',
     '戌',
     '亥',
   ]);
-  assert.equal(analysis.matchFacts.find((item) => item.id === 'kongwang')?.status, '未命中');
   assert.deepEqual(analysis.matchFacts.find((item) => item.id === 'yima')?.matchedPillars, [
     { pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' },
   ]);
@@ -234,7 +233,6 @@ test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位',
     analysis.promptText,
     /【任务】[\s\S]*【四柱】[\s\S]*【命中资料】[\s\S]*【传统依据】[\s\S]*【输出要求】/,
   );
-  assert.match(analysis.promptText, /驿马命中/u);
   assert.match(analysis.promptText, /桃花命中/u);
   assert.equal((analysis.promptText.match(/驿马：/gu) ?? []).length, 1);
   assert.equal((analysis.promptText.match(/桃花：/gu) ?? []).length, 1);

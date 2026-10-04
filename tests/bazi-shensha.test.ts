@@ -1413,7 +1413,8 @@ test('癸干禄位逆数跨子支仍命中禄九地、禄九天和离祖杀', ()
     assert.deepEqual(unspecifiedVariantsChart.pillars, chart.pillars);
     assert.deepEqual(unspecifiedVariantsChart.shensha, chart.shensha);
     assert.deepEqual(unspecifiedVariantsChart.shenShaAnalysis, chart.shenShaAnalysis);
-    assert.equal(formatBaziForPrompt(unspecifiedVariantsChart), formatBaziForPrompt(chart));
+    const prompt = formatBaziForPrompt(chart);
+    assert.equal(formatBaziForPrompt(unspecifiedVariantsChart), prompt);
 
     assert.equal(chart.pillars.year.ganZhi, '癸卯');
     assert.equal(chart.pillars.day.ganZhi, '癸酉');
@@ -1422,7 +1423,7 @@ test('癸干禄位逆数跨子支仍命中禄九地、禄九天和离祖杀', ()
       assert.ok(chart.shensha.hour.includes(name), `${sample.hourPillar} 应列出${name}`);
     }
 
-    const promptLines = formatBaziForPrompt(chart).split('\n');
+    const promptLines = prompt.split('\n');
     const hourLineIndex = promptLines.findIndex((line) =>
       line.startsWith(`时柱: ${sample.hourPillar}`),
     );
