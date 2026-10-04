@@ -3,7 +3,10 @@ import test from 'node:test';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
-import { generateQimenLifetimePrompt } from '../packages/core/src/divination/algorithms/qimen';
+import {
+  buildLifetimePrompt,
+  generateQimenLifetimePrompt,
+} from '../packages/core/src/divination/algorithms/qimen';
 import { generateXuanKong } from '../packages/core/src/xuan_kong';
 import { calculateWuyunLiuqi } from '../packages/core/src/wuyun-liuqi';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -44,6 +47,39 @@ test('奇门终身局精简后仍核对完整干支日期分组与关系归属',
   const facts = extractDivinationPromptFacts('qimen-lifetime', data);
   assert.deepEqual(auditPromptFacts(prompt, facts).missing, []);
 
+  for (const index of [10, 11]) {
+    const retainedPattern = data.baseChart.classicPatterns![index];
+    assert.ok(/甲|旬|遁|星奇游/u.test(retainedPattern.summary));
+    assert.equal(retainedPattern.palaces.length, 1);
+    const retainedPalace = data.baseChart.jiuGongGe.find(
+      (item) => item.gong === retainedPattern.palaces[0],
+    )!;
+    const stemPair = retainedPattern.summary.match(
+      /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([^，]+)，/u,
+    )!;
+    assert.equal(stemPair[3], retainedPalace.name);
+    assert.ok(
+      [retainedPalace.tianPan.stem, retainedPalace.tianPan.companionStem].includes(stemPair[1]),
+    );
+    assert.equal(retainedPalace.diPan.stem, stemPair[2]);
+    const retainedId = `qimen-lifetime.base-pattern.${index}`;
+    const retainedFact = facts.find((item) => item.id === retainedId)!;
+    assert.equal(retainedFact.unit, 'line');
+    const tone =
+      retainedPattern.type === 'good' ? '吉' : retainedPattern.type === 'bad' ? '凶' : '中性';
+    assert.equal(retainedFact.owner, `${retainedPattern.name}（${tone}）：`);
+    const retainedLine = prompt
+      .split('\n')
+      .find((line) => line.startsWith(`  ${retainedFact.owner}`))!;
+    assert.ok(retainedLine.includes('甲'));
+    assert.ok(
+      auditPromptFacts(
+        prompt.replace(retainedLine, retainedLine.replaceAll('甲', '乙')),
+        facts,
+      ).missing.includes(retainedId),
+    );
+  }
+
   const cluster = data.eventClusters?.find((item) => item.key.includes(':day:'));
   const firstDate = cluster?.triggerDates?.[0];
   const date = cluster?.triggerDates?.find(
@@ -82,6 +118,181 @@ test('奇门终身局精简后仍核对完整干支日期分组与关系归属',
     auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen-lifetime.event.')),
     '将同一干支组的非首日期移到其他组后应审计失败',
   );
+
+  const patternIndex = data.baseChart.classicPatterns!.findIndex(
+    (pattern) => pattern.name === '干合蛇刑',
+  );
+  assert.ok(patternIndex >= 0);
+  const pattern = data.baseChart.classicPatterns![patternIndex];
+  assert.deepEqual(pattern.palaces, [1]);
+  const patternId = `qimen-lifetime.base-pattern.${patternIndex}`;
+  const compactLine = '  干合蛇刑（中性，坎一宫）：主文书财喜，宜阴人，贵人官禄，常人平平';
+  assert.ok(prompt.split('\n').includes(compactLine));
+  const palace = data.baseChart.jiuGongGe.find((item) => item.gong === 1)!;
+  assert.equal(palace.tianPan.stem, '壬');
+  assert.equal(palace.diPan.stem, '丁');
+  const palaceLine = prompt.split('\n').find((line) => line.startsWith('  坎一宫（水）：'))!;
+  assert.match(palaceLine, /天盘\[[^\n]*干壬\][^\n]*地盘干\[丁\]/u);
+  for (const wrongPattern of [
+    '  干合蛇刑（中性，坎一宫）：',
+    '  干合蛇刑（中性，离九宫）：主文书财喜，宜阴人，贵人官禄，常人平平',
+    '  干合蛇刑（凶，坎一宫）：主文书财喜，宜阴人，贵人官禄，常人平平',
+  ]) {
+    assert.ok(
+      auditPromptFacts(prompt.replace(compactLine, wrongPattern), facts).missing.includes(
+        patternId,
+      ),
+    );
+  }
+  for (const wrongPalace of [
+    palaceLine.replace('坎一宫', '离九宫'),
+    palaceLine.replace('干壬', '干甲'),
+    palaceLine.replace('地盘干[丁]', '地盘干[庚]'),
+  ]) {
+    assert.ok(
+      auditPromptFacts(prompt.replace(palaceLine, wrongPalace), facts).missing.includes(patternId),
+    );
+  }
+
+  const fuShiData = structuredClone(data);
+  const fuShiSourcePalace = fuShiData.baseChart.jiuGongGe.find((item) => item.gong === 1)!;
+  fuShiData.baseChart.zhiFu = fuShiSourcePalace.tianPan.star;
+  fuShiData.baseChart.zhiShi = fuShiSourcePalace.renPan.door;
+  const fuShiSummary = `值符${fuShiData.baseChart.zhiFu}与值使${fuShiData.baseChart.zhiShi}同落坎一宫，乃符使同宫之格，事情有极强的集中力量。`;
+  fuShiData.baseChart.classicPatterns!.push({
+    name: '符使同宫',
+    type: 'good',
+    palaces: [1],
+    summary: fuShiSummary,
+  });
+  const fuShiEvidence = structuredClone(
+    fuShiData.baseChart.evidenceAnalysis!.patternFacts.find((item) => item.kind === '经典格局')!,
+  );
+  Object.assign(fuShiEvidence, {
+    key: 'qimen:classic:fu-shi-control',
+    name: '符使同宫',
+    traditionalTone: '有利',
+    originalText: fuShiSummary,
+    promptText: `值符${fuShiData.baseChart.zhiFu}与值使${fuShiData.baseChart.zhiShi}同落坎一宫`,
+    palaces: [1],
+  });
+  fuShiData.baseChart.evidenceAnalysis!.patternFacts.push(fuShiEvidence);
+  const fuShiPrompt = buildLifetimePrompt(fuShiData, undefined, { includeCurrentTime: false });
+  const fuShiFacts = extractDivinationPromptFacts('qimen-lifetime', fuShiData);
+  assert.deepEqual(auditPromptFacts(fuShiPrompt, fuShiFacts).missing, []);
+  assert.equal(fuShiFacts.length, facts.length + 1);
+
+  const fuShiIndex = fuShiData.baseChart.classicPatterns!.findIndex(
+    (item) => item.name === '符使同宫',
+  );
+  assert.ok(fuShiIndex >= 0);
+  const fuShiPattern = fuShiData.baseChart.classicPatterns![fuShiIndex];
+  assert.equal(fuShiPattern.type, 'good');
+  assert.equal(fuShiPattern.palaces.length, 1);
+  const fuShiPalace = fuShiData.baseChart.jiuGongGe.find(
+    (item) => item.gong === fuShiPattern.palaces[0],
+  )!;
+  assert.ok(
+    [fuShiPalace.tianPan.star, fuShiPalace.tianPan.companionStar].includes(
+      fuShiData.baseChart.zhiFu,
+    ),
+  );
+  assert.equal(fuShiPalace.renPan.door, fuShiData.baseChart.zhiShi);
+  assert.ok(
+    fuShiPrompt.split('\n').includes(`  符使同宫（吉，${fuShiPalace.name}）：事情有极强的集中力量`),
+  );
+  const fuShiId = `qimen-lifetime.base-pattern.${fuShiIndex}`;
+  const roleLine = `值符星：${fuShiData.baseChart.zhiFu} | 值使门：${fuShiData.baseChart.zhiShi}`;
+  assert.ok(fuShiPrompt.split('\n').includes(roleLine));
+  const fuShiPalaceLine = prompt
+    .split('\n')
+    .find((line) => line.startsWith(`  ${fuShiPalace.name}（`))!;
+  assert.ok(fuShiPalaceLine.includes(fuShiData.baseChart.zhiFu));
+  assert.ok(fuShiPalaceLine.includes(`人盘[${fuShiData.baseChart.zhiShi}]`));
+  const wrongFu = fuShiData.baseChart.zhiFu === '天蓬' ? '天任' : '天蓬';
+  const wrongShi = fuShiData.baseChart.zhiShi === '休门' ? '开门' : '休门';
+  for (const wrongRoleLine of [
+    '',
+    roleLine.replace(`值符星：${fuShiData.baseChart.zhiFu}`, `值符星：${wrongFu}`),
+    roleLine.replace(`值使门：${fuShiData.baseChart.zhiShi}`, `值使门：${wrongShi}`),
+  ]) {
+    assert.ok(
+      auditPromptFacts(fuShiPrompt.replace(roleLine, wrongRoleLine), fuShiFacts).missing.includes(
+        fuShiId,
+      ),
+    );
+  }
+  for (const wrongFuShiPalaceLine of [
+    fuShiPalaceLine.replace(fuShiData.baseChart.zhiFu, wrongFu),
+    fuShiPalaceLine.replace(`人盘[${fuShiData.baseChart.zhiShi}]`, `人盘[${wrongShi}]`),
+  ]) {
+    assert.notEqual(wrongFuShiPalaceLine, fuShiPalaceLine);
+    assert.ok(
+      auditPromptFacts(
+        fuShiPrompt.replace(fuShiPalaceLine, wrongFuShiPalaceLine),
+        fuShiFacts,
+      ).missing.includes(fuShiId),
+    );
+  }
+
+  const companionData = structuredClone(data);
+  const companionPalace = companionData.baseChart.jiuGongGe.find((item) => item.gong === 1)!;
+  companionPalace.tianPan.stem = '甲';
+  companionPalace.tianPan.companionStem = '壬';
+  const companionPrompt = buildLifetimePrompt(companionData, undefined, {
+    includeCurrentTime: false,
+  });
+  const companionFacts = extractDivinationPromptFacts('qimen-lifetime', companionData);
+  assert.ok(companionPrompt.split('\n').includes(compactLine));
+  assert.deepEqual(auditPromptFacts(companionPrompt, companionFacts).missing, []);
+  assert.ok(
+    auditPromptFacts(
+      companionPrompt.replace('干甲（携壬）', '干甲（携庚）'),
+      companionFacts,
+    ).missing.includes(patternId),
+  );
+
+  const extraData = structuredClone(data);
+  const extraPattern = extraData.baseChart.classicPatterns![patternIndex];
+  extraPattern.summary += '；另须核本次甲旬条件';
+  const extraFact = extraData.baseChart.evidenceAnalysis!.patternFacts.find(
+    (item) => item.kind === '经典格局' && item.name === '干合蛇刑',
+  )!;
+  extraFact.originalText = extraPattern.summary;
+  extraFact.promptText = extraPattern.summary;
+  const extraPrompt = buildLifetimePrompt(extraData, undefined, { includeCurrentTime: false });
+  const extraFacts = extractDivinationPromptFacts('qimen-lifetime', extraData);
+  assert.ok(
+    extraPrompt
+      .split('\n')
+      .includes(
+        '  干合蛇刑（中性）：天盘壬加地盘丁于坎一宫，主文书财喜，宜阴人，贵人官禄，常人平平；另须核本次甲旬条件',
+      ),
+  );
+  assert.deepEqual(auditPromptFacts(extraPrompt, extraFacts).missing, []);
+  assert.ok(
+    auditPromptFacts(extraPrompt.replace('；另须核本次甲旬条件', ''), extraFacts).missing.includes(
+      patternId,
+    ),
+  );
+
+  const missingEvidenceData = structuredClone(data);
+  delete missingEvidenceData.baseChart.evidenceAnalysis;
+  const missingEvidencePrompt = buildLifetimePrompt(missingEvidenceData, undefined, {
+    includeCurrentTime: false,
+  });
+  const missingEvidenceFacts = extractDivinationPromptFacts('qimen-lifetime', missingEvidenceData);
+  assert.ok(
+    missingEvidencePrompt
+      .split('\n')
+      .includes(
+        '  干合蛇刑（中性）：天盘壬加地盘丁于坎一宫，主文书财喜，宜阴人，贵人官禄，常人平平',
+      ),
+  );
+  assert.deepEqual(auditPromptFacts(missingEvidencePrompt, missingEvidenceFacts).missing, []);
+  assert.equal(facts.length, extraFacts.length);
+  assert.equal(facts.length, companionFacts.length);
+  assert.equal(facts.length, missingEvidenceFacts.length);
 });
 
 test('实际六爻的六神换到另一爻后不能通过全表事实核验', () => {

@@ -9,6 +9,7 @@ import type { PromptFactExpectation } from './facts';
 import { resolveSsgwStoryContent } from '../../packages/core/src/divination/ssgw-content';
 import { conditionLenormandTraditionalText } from '../../packages/core/src/divination/lenormand-evidence';
 import { formatLifetimePatternSummary } from '../../packages/core/src/divination/algorithms/qimen/helpers/lifetime-prompt';
+import { getNamedStemPairPattern } from '../../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns';
 import { BRANCH_WUXING, STEM_WUXING, isKe, isSheng } from '../../packages/core/src/ganzhi';
 import type {
   LenormandCombinationRelation,
@@ -598,6 +599,85 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
         const name = text(pattern.name);
         const summary = text(pattern.summary);
         const tone = pattern.type === 'good' ? '吉' : pattern.type === 'bad' ? '凶' : '中性';
+        const palaces = records(baseChart.jiuGongGe);
+        const patternPalaces = numbers(pattern.palaces);
+        const palaceMatches = palaces.filter((palace) => palace.gong === patternPalaces[0]);
+        const palace = palaceMatches[0];
+        const evidence = records(record(baseChart.evidenceAnalysis)?.patternFacts).find(
+          (item) =>
+            item.kind === '经典格局' &&
+            item.name === name &&
+            item.originalText === summary &&
+            Array.isArray(item.palaces) &&
+            item.palaces.length === 1 &&
+            numbers(item.palaces).length === 1 &&
+            numbers(item.palaces)[0] === patternPalaces[0],
+        );
+        if (
+          name &&
+          summary &&
+          evidence &&
+          Array.isArray(pattern.palaces) &&
+          pattern.palaces.length === 1 &&
+          patternPalaces.length === 1 &&
+          palaceMatches.length === 1
+        ) {
+          const tian = record(palace.tianPan);
+          const ren = record(palace.renPan);
+          const shen = record(palace.shenPan);
+          const di = record(palace.diPan);
+          const palaceName = text(palace.name);
+          const stemPair = summary.match(
+            /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([^，；]+)，/u,
+          );
+          const registered = stemPair ? getNamedStemPairPattern(stemPair[1], stemPair[2]) : null;
+          const stemPairShown = Boolean(
+            stemPair &&
+            palaceName === stemPair[3] &&
+            [tian?.stem, tian?.companionStem].includes(stemPair[1]) &&
+            di?.stem === stemPair[2] &&
+            registered?.name === name &&
+            summary === `${stemPair[0]}${registered.summary}` &&
+            !/甲|旬|遁|星奇游/u.test(registered.summary),
+          );
+          const zhiFu = text(baseChart.zhiFu);
+          const zhiShi = text(baseChart.zhiShi);
+          const fuShiLocation = `值符${zhiFu}与值使${zhiShi}同落${palaceName}，`;
+          const fuShiShown = Boolean(
+            name === '符使同宫' &&
+            zhiFu &&
+            zhiShi &&
+            palaces.filter((item) =>
+              [record(item.tianPan)?.star, record(item.tianPan)?.companionStar].includes(zhiFu),
+            ).length === 1 &&
+            [tian?.star, tian?.companionStar].includes(zhiFu) &&
+            palaces.filter((item) => record(item.renPan)?.door === zhiShi).length === 1 &&
+            ren?.door === zhiShi &&
+            summary === `${fuShiLocation}乃符使同宫之格，事情有极强的集中力量。`,
+          );
+          if (palaceName && (stemPairShown || fuShiShown)) {
+            const star = text(tian?.star) ?? '';
+            const stem = text(tian?.stem) ?? '';
+            const starText = tian?.companionStar
+              ? `${star}（携${text(tian.companionStar)}）`
+              : star;
+            const stemText = tian?.companionStem
+              ? `${stem}（携${text(tian.companionStem)}）`
+              : stem;
+            const palaceLine = `${palaceName}（${text(palace.element)}）：天盘[${starText}，干${stemText}]，人盘[${text(ren?.door) ?? ''}]，神盘[${text(shen?.god) ?? ''}]，地盘干[${text(di?.stem) ?? ''}]`;
+            const location = stemPairShown ? stemPair![0] : fuShiLocation;
+            const interpretation = formatLifetimePatternSummary(name, summary).slice(
+              location.length,
+            );
+            const patternLine = `${name}（${tone}，${palaceName}）：${interpretation}`;
+            return fact(
+              `qimen-lifetime.base-pattern.${index}`,
+              patternLine,
+              [palaceLine, ...(fuShiShown ? [`值符星：${zhiFu} | 值使门：${zhiShi}`] : [])],
+              { scope: baseScope, unit: 'block' },
+            );
+          }
+        }
         return name && summary
           ? fact(
               `qimen-lifetime.base-pattern.${index}`,
