@@ -110,6 +110,24 @@ function pathDisplayName(path: BirthPlaceCascadePath): string {
     : path.province.label;
 }
 
+function copyBirthPlaceCity(city: BirthPlaceCityOption): BirthPlaceCityOption {
+  return { ...city, districts: city.districts.map((district) => ({ ...district })) };
+}
+
+function copyBirthPlaceProvince(province: BirthPlaceProvinceOption): BirthPlaceProvinceOption {
+  return { ...province, cities: province.cities.map(copyBirthPlaceCity) };
+}
+
+function copyBirthPlacePath(path: BirthPlaceCascadePath): BirthPlaceCascadePath {
+  const province = copyBirthPlaceProvince(path.province);
+  const city = path.city ? province.cities[path.province.cities.indexOf(path.city)] : undefined;
+  const district =
+    path.district && path.city && city
+      ? city.districts[path.city.districts.indexOf(path.district)]
+      : undefined;
+  return { province, ...(city ? { city } : {}), ...(district ? { district } : {}) };
+}
+
 const PROVINCE_APPROXIMATE_LATITUDE_BY_ID_PREFIX: Readonly<Record<string, number>> = {
   '11': 39.9042,
   '12': 39.3434,
@@ -187,7 +205,7 @@ function resolvePath(
             : ('province-approximation' as const),
         }
       : {}),
-    path,
+    path: copyBirthPlacePath(path),
   };
 }
 
@@ -207,9 +225,10 @@ function searchScore(entry: SearchEntry, query: string): number | null {
   return null;
 }
 
-/** 从任意省市区树创建地点索引。 */
+/** 从任意省市区树创建地点索引，创建时保存节点快照，查询返回独立节点副本。 */
 export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[]): BirthPlaceIndex {
   const useProvinceApproximation = tree === CHINA_BIRTH_PLACE_TREE_DATA;
+  const indexedTree = tree.map(copyBirthPlaceProvince);
   const regionPathById = new Map<string, BirthPlaceCascadePath>();
   const pathByDisplayName = new Map<string, BirthPlaceCascadePath | null>();
   const searchEntries: SearchEntry[] = [];
@@ -252,7 +271,7 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
     });
   };
 
-  for (const province of tree) {
+  for (const province of indexedTree) {
     register({ province });
     for (const city of province.cities) {
       register({ province, city });
@@ -264,18 +283,26 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
     regionPathById.get(normalizeKey(value)) ?? pathByDisplayName.get(normalizeKey(value)) ?? null;
 
   return {
-    getProvinceOptions: () => tree,
+    getProvinceOptions: () => indexedTree.map(copyBirthPlaceProvince),
     getCityOptions: (provinceId) =>
-      tree.find((province) => normalizeKey(province.id) === normalizeKey(provinceId))?.cities ?? [],
+      indexedTree
+        .find((province) => normalizeKey(province.id) === normalizeKey(provinceId))
+        ?.cities.map(copyBirthPlaceCity) ?? [],
     getDistrictOptions: (cityId) => {
-      for (const province of tree) {
+      for (const province of indexedTree) {
         const city = province.cities.find((item) => normalizeKey(item.id) === normalizeKey(cityId));
-        if (city) return city.districts;
+        if (city) return city.districts.map((district) => ({ ...district }));
       }
       return [];
     },
-    findByRegionId: (regionId) => regionPathById.get(normalizeKey(regionId)) ?? null,
-    findByDisplayName: (displayName) => pathByDisplayName.get(normalizeKey(displayName)) ?? null,
+    findByRegionId: (regionId) => {
+      const path = regionPathById.get(normalizeKey(regionId));
+      return path ? copyBirthPlacePath(path) : null;
+    },
+    findByDisplayName: (displayName) => {
+      const path = pathByDisplayName.get(normalizeKey(displayName));
+      return path ? copyBirthPlacePath(path) : null;
+    },
     search: (query, options = {}) => {
       const normalizedQuery = normalizeSearchKey(query);
       if (!normalizedQuery) return [];

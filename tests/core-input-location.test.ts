@@ -185,10 +185,30 @@ test('npm 地点索引应支持级联查询、路径反查和经度读取', () =
     assert.equal(resolved?.longitude, longitude);
     assert.equal(resolved?.latitude, latitude);
     assert.equal(resolved?.coordinateAccuracy, 'administrative-center');
-    assert.equal(resolved?.path.district, valid[0].cities[0].districts[0]);
+    assert.deepEqual(resolved?.path.district, valid[0].cities[0].districts[0]);
+    assert.notStrictEqual(resolved?.path.district, valid[0].cities[0].districts[0]);
     assert.deepEqual(coordinates.search('东城区'), [resolved]);
     assert.equal(coordinates.resolveLongitude('dc'), longitude);
   }
+
+  tree[0].cities[0].districts[0].longitude = 0;
+  district!.path.district!.longitude = 1;
+  index.getProvinceOptions()[0].cities[0].districts[0].longitude = 2;
+  index.getCityOptions('bj')[0].districts[0].longitude = 3;
+  index.getDistrictOptions('bj-city')[0].longitude = 4;
+  const named = index.findByDisplayName('东城区')!;
+  named.district!.longitude = 5;
+  index.findByRegionId('dc')!.district!.longitude = 6;
+  index.search('东城区')[0].path.district!.longitude = 7;
+  assert.equal(index.resolveLongitude('dc'), 116.42);
+  assert.equal(index.resolve('dc')?.longitude, 116.42);
+  assert.equal(index.search('东城区')[0].longitude, 116.42);
+  assert.equal(named.city, named.province.cities[0]);
+  assert.equal(named.district, named.city?.districts[0]);
+
+  const extraMetadata = () => '地点说明';
+  const metadataIndex = createBirthPlaceIndex([{ ...tree[0], extraMetadata }]);
+  assert.equal(metadataIndex.getProvinceOptions()[0].extraMetadata, extraMetadata);
 });
 
 test('自定义地点索引应拒绝把重名简称静默解析为其中一项', () => {
