@@ -188,7 +188,7 @@ test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自�
   assert.match(palaceSection, /宫位：命宫[^\n]*辅星：天魁/u);
 });
 
-test('紫微命中条件已列出化忌星曜时省略重复星曜字段', async () => {
+test('紫微化忌星曜由宫位完整表达时省略重复条件与星曜字段', async () => {
   const runtime = await calculateZiweiChart(
     buildZiweiChartInput({
       name: '化忌格局核验',
@@ -202,19 +202,49 @@ test('紫微命中条件已列出化忌星曜时省略重复星曜字段', async
     }),
     { scopes: ['origin'], skipAnalysis: false },
   );
-  const prompt = buildCombinedZiweiPrompt(
-    runtime.payloadByScope.origin,
-    'destiny',
-    '请分析命局主线。',
-    { currentTime: new Date('2026-09-26T12:00:00+08:00') },
-  );
+  const payload = runtime.payloadByScope.origin;
+  const before = structuredClone(payload);
+  const lifePalace = payload.palaces.find((palace) => palace.name === '命宫');
+  const pattern = payload.patterns?.find((item) => item.name === '羊陀夹忌');
+  assert.ok(lifePalace);
+  assert.ok(pattern);
+  assert.equal(lifePalace.major_stars.find((star) => star.name === '巨门')?.birth_mutagen, '忌');
+  assert.deepEqual(pattern.matched_conditions, [
+    '巨门生年化忌坐命宫',
+    '擎羊、陀罗分居命宫相邻两宫',
+  ]);
+  const prompt = buildCombinedZiweiPrompt(payload, 'destiny', '请分析命局主线。', {
+    currentTime: new Date('2026-09-26T12:00:00+08:00'),
+  });
   const patternSection = prompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
   const targetPattern = patternSection
     .split(/\n\n(?=格局：)/u)
     .find((item) => item.includes('格局：羊陀夹忌'));
 
   assert.ok(targetPattern);
-  assert.match(targetPattern, /巨门生年化忌坐命宫/u);
+  const lifePalaceLine = prompt.split('\n').find((line) => line.startsWith('宫位：命宫｜'));
+  assert.ok(lifePalaceLine);
+  assert.ok(
+    lifePalaceLine.includes(`宫干支：${lifePalace.heavenly_stem}${lifePalace.earthly_branch}`),
+  );
+  assert.match(lifePalaceLine, /主星：巨门\([^)]*生年化忌\)/u);
+  assert.doesNotMatch(targetPattern, /巨门生年化忌坐命宫/u);
+  assert.match(targetPattern, /命中条件：擎羊、陀罗分居命宫相邻两宫/u);
+  assert.ok(targetPattern.includes(`古籍依据：${pattern.sources?.[0]}`));
   assert.match(targetPattern, /涉及宫位：兄弟、父母/u);
   assert.doesNotMatch(targetPattern, /涉及星曜：/u);
+
+  const focusedPrompt = buildZiweiTaskBookPrompt({
+    runtime,
+    scope: 'origin',
+    focusPalaceNames: ['夫妻宫'],
+    currentTime: new Date('2026-09-26T12:00:00+08:00'),
+    question: '请分析婚恋结构。',
+  });
+  assert.match(
+    focusedPrompt,
+    /格局：羊陀夹忌\n[^\n]*\n命中条件：巨门生年化忌坐命宫；擎羊、陀罗分居命宫相邻两宫/u,
+  );
+  assert.doesNotMatch(focusedPrompt, /^\s*命宫；/mu);
+  assert.deepEqual(payload, before);
 });
