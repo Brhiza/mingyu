@@ -516,7 +516,7 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
       assert.match(prompt, /互卦：泽天夬；原体克体互；原体克用互/);
       assert.match(prompt, /互卦泽天夬：体卦兑金，用卦乾金，关系比和/u);
       assert.match(prompt, /变卦火山旅：体卦离火，用卦艮土，关系体生用/);
-      assert.match(prompt, /月令作用：子月令水克变后体卦离火，变后体卦为死/);
+      assert.match(prompt, /月令作用：子月令水克原体、变后体卦离火，原体、变后体卦为死/);
       assert.match(prompt, /月令作用：变后用卦艮土克子月令水，卦气耗用，变后用卦为囚/);
       assert.match(prompt, /主卦体用月令条件：体卦月令死、用卦月令相/);
       assert.match(prompt, /起卦法：数字起卦法/);

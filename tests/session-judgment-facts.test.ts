@@ -9,6 +9,7 @@ import {
   formatLiurenOrdinaryTransmissionAdjudication,
   formatLiurenTransmission,
 } from '../packages/core/src/prompt/liuren-facts';
+import { formatLiurenJudgmentFacts } from '../packages/core/src/prompt/liuren-judgment';
 import { formatTaiyiConditionSummary } from '../packages/core/src/taiyi';
 import type { LiurenData, TaiyiResult } from '../packages/core/src/types/divination';
 import type { WuyunLiuqiResult } from '../packages/core/src/wuyun-liuqi';
@@ -54,8 +55,11 @@ test('六壬 aiPrompt 应保留取传与课体判断依据', () => {
   assert.match(session.aiPrompt, /六壬判断依据：/);
   assert.match(session.aiPrompt, /初传取法：/);
   assert.ok(session.aiPrompt.includes(data.transmissionRule));
+  assert.equal(data.ordinaryTransmissionAdjudication?.status, 'selected');
+  assert.doesNotMatch(session.aiPrompt, /取传条件：/);
+  const standaloneFacts = formatLiurenJudgmentFacts(data).join('\n');
   for (const rule of classicalRules) {
-    assert.ok(session.aiPrompt.includes(rule.summary));
+    assert.ok(standaloneFacts.includes(rule.summary));
   }
   for (const fact of guaTiFacts) {
     assert.ok(fact.matchedConditions.length > 0);
