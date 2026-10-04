@@ -75,7 +75,7 @@ test('北京时间即时盘应保留秒数并用于节气临界点排盘', async
   assert.equal(response.result.pillars.month.ganZhi, direct.pillars.month.ganZhi);
 });
 
-test('即时八字与紫微不暴露性别专属字段且盘面不随技术性性别改变', async () => {
+test('即时八字与紫微剔除个人命理字段且盘面不随技术性性别改变', async () => {
   const bazi = await calculateInstantChart({ type: 'bazi', customDate: fixedInstant });
   const baziResult = bazi.result as unknown as Record<string, unknown>;
 
@@ -99,6 +99,10 @@ test('即时八字与紫微不暴露性别专属字段且盘面不随技术性�
     birthMinute: 30,
     birthSecond: 0,
   }) as unknown as Record<string, unknown>;
+  for (const field of ['mingGong', 'shenGong', 'taiYuan', 'taiXi']) {
+    assert.equal(field in baziResult, false, `即时八字应剔除${field}`);
+    assert.equal(typeof femaleBazi[field], 'string', `出生八字应保留${field}`);
+  }
   for (const [key, value] of Object.entries(bazi.result)) {
     assert.deepEqual(value, femaleBazi[key], `八字即时盘字段 ${key} 不应依赖性别`);
   }

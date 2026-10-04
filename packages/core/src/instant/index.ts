@@ -103,7 +103,17 @@ export const INSTANT_CHART_DEFINITIONS: readonly InstantChartDefinition[] = [
 ] as const;
 
 type BaziPersonalField =
-  'gender' | 'age' | 'mingGua' | 'luckInfo' | 'liunian' | 'shensha' | 'shenShaAnalysis';
+  | 'gender'
+  | 'age'
+  | 'mingGua'
+  | 'luckInfo'
+  | 'liunian'
+  | 'shensha'
+  | 'shenShaAnalysis'
+  | 'mingGong'
+  | 'shenGong'
+  | 'taiYuan'
+  | 'taiXi';
 
 export type InstantBaziChartResult = Omit<BaziChartResult, BaziPersonalField>;
 
@@ -336,7 +346,7 @@ function buildBaziInput(
   const useTrueSolarTime = context.timeStandard === 'true-solar';
   return {
     // 即时盘不是个人命盘。底层完整八字计算仍需技术性性别参数，返回前会剔除
-    // 大运、命卦等全部个人性别相关字段，只保留当前四柱的共通盘面。
+    // 大运、命卦及胎元、胎息等个人命理字段，只保留当前四柱的共通盘面。
     gender: 'male' as const,
     year: parts.year,
     month: parts.month,
@@ -441,6 +451,10 @@ function calculateNeutralBazi(
   delete result.liunian;
   delete result.shensha;
   delete result.shenShaAnalysis;
+  delete result.mingGong;
+  delete result.shenGong;
+  delete result.taiYuan;
+  delete result.taiXi;
   return result as InstantBaziChartResult;
 }
 
