@@ -18,6 +18,12 @@ import {
 import { MeihuaHelpers } from '../packages/core/src/divination/divination-helpers.ts';
 import { getDivinationTime } from '../packages/core/src/calendar/timeManager.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+import {
+  getMeihuaSelectionOptions,
+  MEIHUA_DIRECTION_OPTIONS,
+  MEIHUA_OBJECT_OPTIONS,
+} from '../packages/core/src/divination/config.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
@@ -612,6 +618,84 @@ test('梅花：方位物类取数与同卦体用应按动爻位置记录', () =>
     () => generateMeihua(SAMPLE_DATE, { method: 'direction', direction: 'south' }),
     /必须提供 direction 和 objectType/,
   );
+
+  const expected = structuredClone(data);
+  const promptOptions = {
+    method: 'meihua' as const,
+    question: '方位物类与本次动爻如何对应？',
+    currentTime: SAMPLE_DATE,
+  };
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data });
+  assert.match(expectedPrompt, /所见物类火（离）取上卦数3，方位正南（离）取下卦数3/u);
+  const expectedOptions = getMeihuaSelectionOptions();
+  const originalDirections = [...MEIHUA_DIRECTION_OPTIONS];
+  const originalObjects = [...MEIHUA_OBJECT_OPTIONS];
+  const directionValues = structuredClone(originalDirections);
+  const objectValues = structuredClone(originalObjects);
+  const assertFixedResult = () => {
+    const fresh = generateMeihua(SAMPLE_DATE, {
+      method: 'direction',
+      direction: 'south',
+      objectType: 'fire',
+    });
+    assert.deepEqual(fresh, expected);
+    assert.deepEqual(analyzeMeihuaEvidence(structuredClone(data)), expected.evidenceAnalysis);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  };
+  try {
+    MEIHUA_DIRECTION_OPTIONS[2].label = '改写的南方（坎）';
+    MEIHUA_OBJECT_OPTIONS[2].label = '改写的火类（水）';
+    assert.equal(MEIHUA_DIRECTION_OPTIONS[2].label, '改写的南方（坎）');
+    assert.equal(MEIHUA_OBJECT_OPTIONS[2].label, '改写的火类（水）');
+    assertFixedResult();
+
+    [MEIHUA_DIRECTION_OPTIONS[0], MEIHUA_DIRECTION_OPTIONS[2]] = [
+      MEIHUA_DIRECTION_OPTIONS[2],
+      MEIHUA_DIRECTION_OPTIONS[0],
+    ];
+    [MEIHUA_OBJECT_OPTIONS[0], MEIHUA_OBJECT_OPTIONS[2]] = [
+      MEIHUA_OBJECT_OPTIONS[2],
+      MEIHUA_OBJECT_OPTIONS[0],
+    ];
+    assert.equal(MEIHUA_DIRECTION_OPTIONS[0].value, 'south');
+    assert.equal(MEIHUA_OBJECT_OPTIONS[0].value, 'fire');
+    assertFixedResult();
+
+    const copy = getMeihuaSelectionOptions();
+    assert.deepEqual(copy, expectedOptions);
+    assert.notStrictEqual(copy.directions, MEIHUA_DIRECTION_OPTIONS);
+    assert.notStrictEqual(copy.objects, MEIHUA_OBJECT_OPTIONS);
+    assert.notStrictEqual(copy.directions[2], originalDirections[2]);
+    assert.notStrictEqual(copy.objects[2], originalObjects[2]);
+    copy.directions[2].label = '副本南方（坎）';
+    copy.objects[2].label = '副本火类（水）';
+    copy.directions.reverse();
+    copy.objects.reverse();
+    assert.equal(copy.directions.find((item) => item.value === 'south')?.label, '副本南方（坎）');
+    assert.equal(copy.objects.find((item) => item.value === 'fire')?.label, '副本火类（水）');
+    const nextCopy = getMeihuaSelectionOptions();
+    assert.deepEqual(nextCopy, expectedOptions);
+    assert.notStrictEqual(
+      nextCopy.directions[2],
+      copy.directions.find((item) => item.value === 'south'),
+    );
+    assert.notStrictEqual(
+      nextCopy.objects[2],
+      copy.objects.find((item) => item.value === 'fire'),
+    );
+    assertFixedResult();
+  } finally {
+    originalDirections.forEach((item, index) => Object.assign(item, directionValues[index]));
+    originalObjects.forEach((item, index) => Object.assign(item, objectValues[index]));
+    MEIHUA_DIRECTION_OPTIONS.splice(0, MEIHUA_DIRECTION_OPTIONS.length, ...originalDirections);
+    MEIHUA_OBJECT_OPTIONS.splice(0, MEIHUA_OBJECT_OPTIONS.length, ...originalObjects);
+  }
+  assert.deepEqual(MEIHUA_DIRECTION_OPTIONS, directionValues);
+  assert.deepEqual(MEIHUA_OBJECT_OPTIONS, objectValues);
+  assert.ok(MEIHUA_DIRECTION_OPTIONS.every((item, index) => item === originalDirections[index]));
+  assert.ok(MEIHUA_OBJECT_OPTIONS.every((item, index) => item === originalObjects[index]));
+  assert.deepEqual(data, expected);
+  assertFixedResult();
 });
 
 test('梅花：六十四卦查询应拒绝越界八卦索引，不应取模折回', () => {

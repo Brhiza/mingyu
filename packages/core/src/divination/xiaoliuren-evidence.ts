@@ -4,7 +4,11 @@ import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils'
 import { getDivinationTime } from '../calendar/timeManager';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination';
 
-import { resolveXiaoliurenRule, getXiaoliurenPalaceName } from './xiaoliuren-rules';
+import {
+  resolveXiaoliurenRule,
+  getXiaoliurenPalaceName,
+  getXiaoliurenVerse,
+} from './xiaoliuren-rules';
 const SOURCE_LIMITATION =
   '《多能鄙事》卷八“小六壬课时”以正月初一留连起子时，与通行掌诀正月初一大安起子时的起日口径不同；“李淳风六壬时课”等署名不作为已证实的古籍归属';
 const EDITION_REFERENCE =
@@ -261,7 +265,8 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
         !Object.hasOwn(data.palaceOrder, index) ||
         palace === undefined ||
         palace.index !== index ||
-        palace.name !== getXiaoliurenPalaceName(index),
+        palace.name !== getXiaoliurenPalaceName(index) ||
+        palace.verse !== getXiaoliurenVerse(index, rule.id),
     ) ||
     data.sequence.month.index !== monthIndex ||
     data.sequence.day.index !== dayIndex ||

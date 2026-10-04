@@ -33,6 +33,15 @@ test('立春前跨公历年交运，前后两运均保留交运节令年的实�
   assert.equal(dayunYear.months[0]?.startDateTime, firstDayun.startDateTime);
   assert.equal(childYear.xiaoyun?.ganZhi, result.luckInfo.cycles[0]?.years.at(-1)?.xiaoyun?.ganZhi);
   assert.deepEqual(dayunYear.taiSuiShensha, []);
+
+  const originalChart = structuredClone(result);
+  const originalChronicle = structuredClone(chronicle);
+  assert.ok(childYear.xiaoyun);
+  childYear.xiaoyun.ganZhi = '临时小运';
+  childYear.xiaoyun.tenGod = '临时十神';
+  childYear.xiaoyun.tenGodZhi = '临时地支十神';
+  assert.deepEqual(result, originalChart);
+  assert.deepEqual(buildEnhancedLuckChronicleSection(result), originalChronicle);
 });
 
 test('立春前出生的童限从实际出生时刻起，保留上一节令年', () => {

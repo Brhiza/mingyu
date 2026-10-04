@@ -510,12 +510,14 @@ export function buildEnhancedPillarsSection(baziResult: BaziChartResult): Minglu
       ziZuo: baziResult.ziZuo[key] || (unknownTime ? '待补时' : getLifeStage(p.gan, p.zhi)),
       lifeStage:
         baziResult.lifeStages[key] || (unknownTime ? '待补时' : getLifeStage(dayMasterGan, p.zhi)),
-      kongWang:
-        baziResult.kongWang[key] || (unknownTime ? [] : calculateKongWangBranches(p.gan, p.zhi)),
+      kongWang: [
+        ...(baziResult.kongWang[key] ||
+          (unknownTime ? [] : calculateKongWangBranches(p.gan, p.zhi))),
+      ],
       shensha:
         key === 'year'
           ? [...(baziResult.shensha.global ?? []), ...(baziResult.shensha[key] || [])]
-          : baziResult.shensha[key] || [],
+          : [...(baziResult.shensha[key] || [])],
       isDayMaster: key === 'day',
     };
   });
@@ -1894,7 +1896,7 @@ export function buildEnhancedLuckChronicleSection(
           endDateTime: formatBoundary(yearRange.end),
           ganZhi: y.ganZhi,
           age: y.age,
-          ...(isXiaoyun && y.xiaoyun ? { xiaoyun: y.xiaoyun } : {}),
+          ...(isXiaoyun && y.xiaoyun ? { xiaoyun: { ...y.xiaoyun } } : {}),
           tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
           zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
           nayin: NAYIN_MAP[y.ganZhi] || '—',

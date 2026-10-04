@@ -141,7 +141,7 @@ export const MEIHUA_METHOD_OPTIONS: Array<{
   { value: 'random', label: '随机起卦' },
 ];
 
-export const MEIHUA_DIRECTION_OPTIONS: Array<{ value: MeihuaDirection; label: string }> = [
+const CANONICAL_MEIHUA_DIRECTION_OPTIONS: Array<{ value: MeihuaDirection; label: string }> = [
   { value: 'northwest', label: '西北（乾）' },
   { value: 'west', label: '正西（兑）' },
   { value: 'south', label: '正南（离）' },
@@ -152,7 +152,7 @@ export const MEIHUA_DIRECTION_OPTIONS: Array<{ value: MeihuaDirection; label: st
   { value: 'southwest', label: '西南（坤）' },
 ];
 
-export const MEIHUA_OBJECT_OPTIONS: Array<{ value: MeihuaObjectType; label: string }> = [
+const CANONICAL_MEIHUA_OBJECT_OPTIONS: Array<{ value: MeihuaObjectType; label: string }> = [
   { value: 'heaven', label: '天（乾）' },
   { value: 'lake', label: '泽（兑）' },
   { value: 'fire', label: '火（离）' },
@@ -162,6 +162,16 @@ export const MEIHUA_OBJECT_OPTIONS: Array<{ value: MeihuaObjectType; label: stri
   { value: 'mountain', label: '山（艮）' },
   { value: 'earth', label: '地（坤）' },
 ];
+
+export function getMeihuaSelectionOptions() {
+  return {
+    directions: CANONICAL_MEIHUA_DIRECTION_OPTIONS.map((item) => ({ ...item })),
+    objects: CANONICAL_MEIHUA_OBJECT_OPTIONS.map((item) => ({ ...item })),
+  };
+}
+
+export const MEIHUA_DIRECTION_OPTIONS = getMeihuaSelectionOptions().directions;
+export const MEIHUA_OBJECT_OPTIONS = getMeihuaSelectionOptions().objects;
 
 export const XIAOLIUREN_METHOD_OPTIONS: Array<{
   value: XiaoliurenDivinationMethod;

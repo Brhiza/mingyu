@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateXiaoliuren } from '@core/divination/algorithms/xiaoliuren';
+import {
+  analyzeXiaoliurenEvidence,
+  generateXiaoliuren,
+} from '@core/divination/algorithms/xiaoliuren';
+import { getXiaoliurenVerse } from '@core/divination/xiaoliuren-rules';
 import { formatDetailedDivinationInfo } from '@core/prompt/divination-detail';
 import { buildDivinationPrompt as buildCoreDivinationPrompt } from '@core/prompt/divination';
 import { generateDivinationSession } from '@core/divination/session';
@@ -67,6 +71,52 @@ test('小六壬双口径在原生提示词中绑定起点位置与时宫歌诀',
     assert.ok(!prompt.includes(data.sequence.month.verse));
     assert.ok(!prompt.includes(data.sequence.day.verse));
     assert.doesNotMatch(prompt, rule === 'common' ? /多能鄙事/ : /通行俗传/);
+
+    const expectedVerse =
+      rule === 'common'
+        ? '小吉最吉昌，路上好商量，阴人来报喜，失物在坤方，行人立便至，交关甚是强，凡事皆和合，病者叩穷苍。'
+        : '空亡时勾陈主事，求财无利，行人有灾，失物难觅，百事无成。';
+    assert.equal(data.primary.verse, expectedVerse);
+    assert.equal(getXiaoliurenVerse(data.primary.index, rule), expectedVerse);
+    const original = structuredClone(data);
+    const chartTime = new Date('2026-05-19T10:30:00+08:00');
+    const coreOptions = {
+      method: 'xiaoliuren' as const,
+      question: '请做整体解读。',
+      currentTime: chartTime,
+    };
+    const corePrompt = buildCoreDivinationPrompt({ ...coreOptions, data });
+    const oppositeRule = rule === 'common' ? 'duoneng' : 'common';
+    for (const verse of [
+      '改写歌诀：本次必然成功。',
+      promptScopeCharts[oppositeRule].palaceOrder[data.primary.index].verse,
+    ]) {
+      assert.notEqual(verse, expectedVerse);
+      const changed = structuredClone(data);
+      const index = changed.primary.index;
+      changed.palaceOrder[index].verse = verse;
+      for (const palace of Object.values(changed.sequence)) {
+        if (palace.index === index) palace.verse = verse;
+      }
+      changed.primary.verse = verse;
+      assert.equal(changed.palaceOrder[index].verse, verse);
+      assert.equal(changed.sequence.hour.verse, verse);
+      assert.equal(changed.primary.verse, verse);
+      assert.throws(() => analyzeXiaoliurenEvidence(changed), /顺数或占得宫与盘面不一致/u);
+      assert.throws(
+        () => buildCoreDivinationPrompt({ ...coreOptions, data: changed }),
+        /顺数或占得宫与盘面不一致/u,
+      );
+      assert.throws(
+        () => buildDivinationPrompt('xiaoliuren', '请做整体解读。', changed),
+        /顺数或占得宫与盘面不一致/u,
+      );
+    }
+    assert.deepEqual(data, original);
+    const fresh = generateXiaoliuren({ rule, customDate: chartTime });
+    assert.deepEqual(fresh, original);
+    assert.equal(buildCoreDivinationPrompt({ ...coreOptions, data: fresh }), corePrompt);
+    assert.equal(buildDivinationPrompt('xiaoliuren', '请做整体解读。', fresh), prompt);
   }
 });
 

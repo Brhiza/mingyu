@@ -11,6 +11,7 @@ import { MingluCrossSynthesisSection } from '../src/pages/ResultPage/components/
 import { MingluGlossarySection } from '../src/pages/ResultPage/components/MingluWiki/MingluGlossarySection';
 import {
   buildBeginnerGuide,
+  buildEnhancedPillarsSection,
   buildEnhancedFiveElementsSection,
   buildEnhancedInteractions,
   buildEnhancedPatternUsefulGodSection,
@@ -319,6 +320,9 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const publicGlossaryLength = MINGLU_GLOSSARY_DATABASE.length;
   const returnedJiaMu = article.glossary[0]!;
   const returnedRelatedTerms = returnedJiaMu.relatedTerms!;
+  const originalChart = structuredClone(baziResult);
+  const returnedPillars = buildEnhancedPillarsSection(baziResult);
+  assert.deepEqual(returnedPillars, originalArticle.pillarsSection);
 
   let freshArticle: typeof article | undefined;
   try {
@@ -333,6 +337,16 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
     article.glossary.push({ ...structuredClone(article.glossary[1]!), term: '文章新增词条' });
     assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '外部变造词条');
     assert.deepEqual(MINGLU_GLOSSARY_DATABASE[0]?.relatedTerms, ['外部变造相关词条']);
+
+    for (const column of [...returnedPillars.columns, ...article.pillarsSection.columns]) {
+      column.kongWang.push('临时空亡');
+      column.shensha.push('临时神煞');
+    }
+    assert.ok(firstYear.xiaoyun);
+    firstYear.xiaoyun.ganZhi = '临时小运';
+    firstYear.xiaoyun.tenGod = '临时十神';
+    firstYear.xiaoyun.tenGodZhi = '临时地支十神';
+    assert.deepEqual(baziResult, originalChart);
 
     freshArticle = buildMingluArticle({
       person,
@@ -414,6 +428,15 @@ test('命录缺时辰只保留已确定柱与候选场景，不套用空日主�
   assert.ok(article.crossSynthesisSection?.every((theme) => theme.themeId !== 'timing-cycles'));
   assert.deepEqual(article.interactionsSection, []);
   assert.match(article.beginnerGuide?.strengthPlain ?? '', /旺衰、格局与喜忌暂不判定/);
+
+  const originalChart = structuredClone(baziResult);
+  const originalPillars = structuredClone(article.pillarsSection);
+  for (const column of article.pillarsSection.columns) {
+    column.kongWang.push('临时空亡');
+    column.shensha.push('临时神煞');
+  }
+  assert.deepEqual(baziResult, originalChart);
+  assert.deepEqual(buildEnhancedPillarsSection(baziResult), originalPillars);
 });
 
 test('命录未知时辰按各柱稳定状态展示事实，不把未见五行断为缺失', () => {

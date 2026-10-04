@@ -1,7 +1,7 @@
 import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
 import { getTrigramsByIndex } from './hexagram-data';
 import { dizhi } from './divination-data';
-import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from './config';
+import { getMeihuaSelectionOptions } from './config';
 import { getBranchWuxing, getSeasonState, isKe, isSheng } from '../ganzhi';
 import { getDivinationTime } from '../calendar/timeManager';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -20,6 +20,8 @@ import {
 } from '../shared/random';
 
 const trigramsByIndex = getTrigramsByIndex();
+const { directions: MEIHUA_DIRECTION_OPTIONS, objects: MEIHUA_OBJECT_OPTIONS } =
+  getMeihuaSelectionOptions();
 
 export type MeihuaEvidenceStageKey = 'origin' | 'process' | 'result';
 
