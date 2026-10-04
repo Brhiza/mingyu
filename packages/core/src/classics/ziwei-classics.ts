@@ -322,15 +322,15 @@ export const ZIWEI_FU_CLASSICS: ZiweiFuClassic[] = [
 export function getZiweiStarClassic(star: string): ZiweiStarClassic | undefined {
   if (!star) return undefined;
   for (const [key, val] of Object.entries(ZIWEI_STAR_CLASSICS)) {
-    if (star.includes(key)) return val;
+    if (star.includes(key)) return structuredClone(val);
   }
   return undefined;
 }
 
 export function getZiweiFuClassic(key: string): ZiweiFuClassic | undefined {
-  return ZIWEI_FU_CLASSICS.find((f) => f.key === key);
+  return structuredClone(ZIWEI_FU_CLASSICS.find((f) => f.key === key));
 }
 
 export function getAllZiweiFuClassics(): ZiweiFuClassic[] {
-  return ZIWEI_FU_CLASSICS;
+  return structuredClone(ZIWEI_FU_CLASSICS);
 }

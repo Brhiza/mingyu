@@ -220,14 +220,26 @@ test('夏令时:仅时辰精度时只提示不校正', () => {
     applyChinaDst: true,
   });
   assert.ok(r.warnings.some((w) => w.includes('夏令时')));
+  assert.ok(r.warningFacts.some((fact) => fact.status === '需核验原始记录'));
+  assert.equal(r.warningSummaryFact.status, '存在需核验事项');
+  assert.match(r.warningSummaryFact.promptText, /当前时柱仅对应本次输入口径/);
+  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(
+    r.evidenceAnalysis.counterEvidenceFacts.find((fact) => fact.type === '排盘边界覆盖')?.status,
+    '资料不足',
+  );
 });
 
 test('夏令时区间函数:边界与非夏令时年份', () => {
   // 区间内
   assert.equal(checkChinaDst(1988, 7, 15, 12).inDst, true);
-  // 1988 区间外(4月10日 03:00 起)
+  // 1988 年 4 月 17 日 02:00 拨到 03:00。
   assert.equal(checkChinaDst(1988, 4, 9, 12).inDst, false);
-  assert.equal(checkChinaDst(1988, 4, 10, 3).inDst, true);
+  assert.equal(checkChinaDst(1988, 4, 10, 3).inDst, false);
+  assert.equal(checkChinaDst(1988, 4, 16, 23, 59).inDst, false);
+  assert.equal(checkChinaDst(1988, 4, 17, 3).inDst, true);
+  assert.equal(isDateInChinaDstRange(1988, 4, 10), false);
+  assert.equal(isDateInChinaDstRange(1988, 4, 17), true);
   // 结束日 02:00 后恢复标准时
   assert.equal(checkChinaDst(1988, 9, 11, 2).inDst, false);
   // 结束日 01:30 为重复时段
@@ -235,7 +247,7 @@ test('夏令时区间函数:边界与非夏令时年份', () => {
   assert.equal(amb.inDst, true);
   assert.equal(amb.ambiguous, true);
   // 开始日 02:30 为不存在时段
-  const gap = checkChinaDst(1988, 4, 10, 2, 30);
+  const gap = checkChinaDst(1988, 4, 17, 2, 30);
   assert.equal(gap.nonexistent, true);
   // 非夏令时年份
   assert.equal(checkChinaDst(1994, 7, 15, 12).inDst, false);
@@ -289,6 +301,36 @@ test('边界预警:远离边界时不产生预警', () => {
     checkShichenBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 }),
     [],
   );
+});
+
+test('节气边界资料全部缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '资料不完整');
+  assert.deepEqual(evidence.warningFacts[0].sources, ['节气历表查询状态']);
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+  assert.match(evidence.warningSummaryFact.promptText, /节气资料不完整，交节距离待核验/);
+  assert.match(evidence.warningSummaryFact.limitation, /交节距离待核验/);
+  assert.doesNotMatch(evidence.warningSummaryFact.promptText, /原始记录/);
+});
+
+test('部分节气资料缺失时结构化状态标为待核', () => {
+  const evidence = buildBaziWarningEvidence([
+    '节气边界检查覆盖不完整：1/72 项节气资料查询失败，仅对成功取得的节气进行边界判断。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '资料不完整');
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+});
+
+test('出生时刻重复时段不可标为唯一定盘', () => {
+  const evidence = buildBaziWarningEvidence([
+    '出生时刻落在夏令时结束日 01:00-02:00 的重复时段：该钟表时刻当天会出现两次，本次排盘无法在缺少原始记录标注时唯一定时。',
+  ]);
+  assert.equal(evidence.warningFacts[0].status, '需核验原始记录');
+  assert.match(evidence.warningFacts[0].limitation, /仍待核验/);
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+  assert.doesNotMatch(evidence.warningSummaryFact.promptText, /已确认输入确定当前时柱/);
 });
 
 test('边界预警对象应保留稳定键、来源、引用和唯一定盘结果限制', () => {

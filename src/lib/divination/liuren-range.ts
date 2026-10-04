@@ -149,7 +149,7 @@ function factsFingerprint(data: LiurenData) {
 }
 
 function generateAt(timestamp: number) {
-  return generateLiuren(new Date(timestamp));
+  return generateLiuren(new Date(timestamp), { timezoneOffsetMinutes: CHINA_OFFSET_MINUTES });
 }
 
 function hasSourcePillars(data: LiurenData, source: BaziReverseSource) {
@@ -166,7 +166,10 @@ function formatBranchFacts(data: LiurenData) {
     formatDivinationInfo('liuren', data, ''),
     data.lessonSummary ? `课情：${data.lessonSummary}` : '',
     data.transmissionSummary ? `传情：${data.transmissionSummary}` : '',
-    ...formatLiurenJudgmentFacts(data),
+    ...formatLiurenJudgmentFacts(data, {
+      includeOrdinaryAdjudication: false,
+      chartFactsIncluded: true,
+    }),
   ]
     .filter(Boolean)
     .join('\n');

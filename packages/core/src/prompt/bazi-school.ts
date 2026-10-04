@@ -1,7 +1,12 @@
-import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
+import {
+  formatAlternativePatternCandidates,
+  formatPatternBasisForPrompt,
+  formatPatternDecisionForPrompt,
+  formatPatternFulfillmentFacts,
+  hasConfirmedPatternTarget,
+} from '../bazi/baziAnalysisFormatter';
 import {
   analyzeStemRootProfile,
-  analyzeTenGodFlow,
   analyzeTenGodStructure,
   analyzeTombStorage,
   formatUsefulGodFunctions,
@@ -10,6 +15,7 @@ import {
   getWuxing,
   type BaziChartResult,
 } from '../bazi';
+import { analyzePillarRelations } from '../bazi/baziPromptEnhancement';
 
 export const BAZI_PROMPT_SCHOOLS = ['traditional', 'ziping', 'mangpai', 'xinpai'] as const;
 export const BAZI_PROMPT_MULTI_SCHOOLS = ['ziping', 'mangpai', 'xinpai'] as const;
@@ -56,7 +62,7 @@ export const BAZI_SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProf
   },
   xinpai: {
     label: '新派',
-    task: '结合已给出的日主旺衰、扶抑取用、调候及格局条件，解释喜忌在各柱的显隐与作用；按原局、大运、流年逐层说明五行与十神的动态关系。',
+    task: '结合已给出的日主旺衰、扶抑取用、调候及格局成败，解释喜忌在各柱的显隐与作用；按原局、大运、流年逐层说明五行与十神的动态关系。',
     basis:
       '月令、旺衰、调候和生克制化参照《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》；喜忌落位、五行流通与岁运动态采用近现代新派的通行整理口径。',
   },
@@ -100,7 +106,7 @@ function formatPillars(
 }
 
 function formatRelations(result: BaziChartResult) {
-  const relations = result.pillarRelations;
+  const relations = analyzePillarRelations(result);
   return joinFacts([
     relations.fuxin.length ? `同柱伏吟${relations.fuxin.join('、')}` : undefined,
     relations.fanyin.length ? `反吟与天克地冲${relations.fanyin.join('、')}` : undefined,
@@ -135,10 +141,10 @@ function usefulWuxing(result: BaziChartResult) {
   return { favorable, unfavorable };
 }
 
-function formatUsefulGod(result: BaziChartResult) {
+function formatUsefulGod(result: BaziChartResult, embedded = false) {
   const useful = result.analysis.usefulGod;
   const { favorable, unfavorable } = usefulWuxing(result);
-  const usefulGodFunctions = formatUsefulGodFunctions(useful);
+  const usefulGodFunctions = embedded ? [] : formatUsefulGodFunctions(useful, false);
   return joinFacts([
     useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
     useful.secondaryFavorableWuxing?.length
@@ -157,19 +163,117 @@ function formatUsefulGod(result: BaziChartResult) {
   ]);
 }
 
-function formatTransformationFacts(result: BaziChartResult) {
+function formatTransformationFacts(result: BaziChartResult, embedded = false) {
   const transformation = result.analysis.mingGe.transformation;
-  if (!transformation) return [];
+  if (!transformation || (transformation.status !== '成化' && result.analysis.mingGe.fulfillment)) {
+    return [];
+  }
+  const detail = `化神${transformation.element}；${transformation.basis}`;
   return [
-    `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-    ...transformation.evidence.map((item) => `化气证据：${item}`),
-    ...transformation.conditions.map((item) => `化气条件：${item}`),
-    ...(transformation.status === '成化'
-      ? [
-          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-        ]
-      : []),
+    embedded && transformation.status === '成化'
+      ? detail
+      : `化气判定：${transformation.status}；${detail}`,
   ];
+}
+
+function formatSchoolPatternFacts(
+  result: BaziChartResult,
+  embedded = false,
+  chartShowsPatternBasis = false,
+) {
+  const pattern = result.analysis.mingGe;
+  const facts = formatPatternFulfillmentFacts(pattern);
+  const special = pattern.specialAdjudication;
+  const fulfillment = pattern.fulfillment;
+  const basis = pattern.basis ?? '';
+  const alternatives = formatAlternativePatternCandidates(pattern);
+  const patternBasisIsVisible = Boolean(basis && (chartShowsPatternBasis || alternatives));
+  const specialDecisionIsVisible =
+    patternBasisIsVisible &&
+    special?.status === '成立' &&
+    pattern.pattern === special.kind &&
+    basis.includes('成立') &&
+    Boolean(special.route && basis.includes(special.route)) &&
+    Boolean(special.method && basis.includes(special.method));
+  const curveFactsInChart = special?.kind === '曲直格';
+  const conciseCurveBasis =
+    special?.status === '成立' && special.kind === '曲直格' && basis && !patternBasisIsVisible
+      ? `成格依据：${formatPatternBasisForPrompt(basis)}`
+      : '';
+  const ordinaryPatternBasis =
+    embedded &&
+    basis &&
+    !patternBasisIsVisible &&
+    special?.status !== '成立' &&
+    pattern.transformation?.status !== '成化'
+      ? `取格依据：${formatPatternBasisForPrompt(basis)}`
+      : '';
+  const specialFacts = facts
+    .filter(
+      (item) =>
+        special?.status === '成立' &&
+        ((!fulfillment && item.startsWith('特殊格裁决：')) ||
+          (item.startsWith('特殊格条件：') && item !== '特殊格条件：') ||
+          item.startsWith('食伤明透：') ||
+          item.startsWith('财星明透：') ||
+          item.startsWith('成员支藏干保留：') ||
+          item.startsWith('从儿五行流向：') ||
+          item.startsWith('食伤结构根：') ||
+          item.startsWith('财星结构根：') ||
+          item.startsWith('顺局作用：') ||
+          item.startsWith('原支藏印官事实：')),
+    )
+    .flatMap((item) => {
+      if (item.startsWith('特殊格裁决：')) {
+        if (specialDecisionIsVisible || conciseCurveBasis) return [];
+        if (
+          special?.kind === '从儿格' &&
+          special.satisfied.some((condition) => condition.includes('食伤在月建当权'))
+        ) {
+          return [item.replace('；路径：月建食伤当权', '')];
+        }
+      }
+      if (item.startsWith('特殊格条件：') && special) {
+        const conditions = special.satisfied.filter(
+          (condition) =>
+            !(patternBasisIsVisible && basis.includes(condition)) &&
+            !(special.kind === '从儿格' && special.functionalResolutions.includes(condition)),
+        );
+        return conditions.length
+          ? [`特殊格条件：${conditions.map(formatPatternBasisForPrompt).join('；')}`]
+          : [];
+      }
+      return [item];
+    })
+    .filter((item) => !item.startsWith('原支藏印官事实：'))
+    .filter((item) => {
+      const detail = item.split('：').slice(1).join('：');
+      return !patternBasisIsVisible || !detail || !basis.includes(detail);
+    })
+    // 透干已列在四柱或通根资料中；内嵌盘面的藏根也无需重复。
+    .filter(
+      (item) =>
+        !/^(?:食伤明透|财星明透)：/u.test(item) &&
+        (!embedded || !/^(?:食伤结构根|财星结构根)：/u.test(item)),
+    )
+    .filter((item) => !curveFactsInChart || !/^(?:特殊格条件|成员支藏干保留)：/u.test(item));
+  if (embedded)
+    return [
+      ordinaryPatternBasis,
+      conciseCurveBasis,
+      ...specialFacts.filter((item) => !item.startsWith('从儿五行流向：')),
+    ].filter(Boolean);
+  return [
+    alternatives && basis ? `取格依据：${formatPatternBasisForPrompt(basis)}` : '',
+    alternatives,
+    conciseCurveBasis,
+    ...specialFacts,
+    formatPatternDecisionForPrompt(result.analysis.mingGe),
+    hasConfirmedPatternTarget(result.analysis.mingGe) &&
+    result.analysis.mingGe.fulfillment?.contradiction
+      ? `相互制约：${result.analysis.mingGe.fulfillment.contradiction}`
+      : '',
+  ].filter(Boolean);
 }
 
 function formatTenGodStructure(result: BaziChartResult) {
@@ -184,16 +288,6 @@ function formatTenGodStructure(result: BaziChartResult) {
     present.length ? `已见${present.join('、')}` : undefined,
     missing.length ? `原局未见${missing.join('、')}` : undefined,
   ]);
-}
-
-function formatTenGodFlow(result: BaziChartResult) {
-  const structure = analyzeTenGodStructure(pillarInputs(result), result.dayMaster.gan, getTenGod);
-  const flow = analyzeTenGodFlow(structure);
-  return flow.items.length
-    ? flow.items
-        .map((item) => `${item.name}（${item.description}；条件核验：${item.caution}）`)
-        .join('、')
-    : '原局已列十神未形成完整的相邻生化链';
 }
 
 function formatRoots(result: BaziChartResult) {
@@ -261,68 +355,104 @@ function formatFortune(result: BaziChartResult) {
   ]);
 }
 
-function formatZipingFacts(result: BaziChartResult) {
+function formatZipingFacts(
+  result: BaziChartResult,
+  embedded = false,
+  patternEvidence = true,
+  chartShowsPatternBasis = false,
+) {
   const strength = result.analysis.dayMasterStrength;
   const details = strength.details;
   return [
-    `月令与节候：月柱${result.pillars.month.ganZhi}，月支本气${result.hiddenStems.month?.[0] || '未记录'}，月令司权${result.monthCommander || '未记录'}，${result.seasonInfo.currentSeason || '当前'}令，节气${result.seasonInfo.currentJieqi || '未记录'}`,
+    embedded
+      ? ''
+      : `月令与节候：月柱${result.pillars.month.ganZhi}，月支本气${result.hiddenStems.month?.[0] || '未记录'}，月令司权${result.monthCommander || '未记录'}，${result.seasonInfo.currentSeason || '当前'}令，节气${result.seasonInfo.currentJieqi || '未记录'}`,
     `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
     `透干通根：${formatRoots(result)}`,
-    `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
-    ...formatTransformationFacts(result),
-    `调候与取用：${formatUsefulGod(result)}；五行季节状态${
-      Object.entries(result.wuxingSeasonStatus)
-        .map(([element, status]) => `${element}${status}`)
-        .join('、') || '未记录'
-    }`,
-    `岁运：${formatFortune(result)}`,
-  ].join('\n');
+    embedded
+      ? ''
+      : `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis && !formatAlternativePatternCandidates(result.analysis.mingGe) ? `；${formatPatternBasisForPrompt(result.analysis.mingGe.basis)}` : ''}`,
+    ...(patternEvidence
+      ? formatSchoolPatternFacts(
+          result,
+          embedded,
+          chartShowsPatternBasis || (!embedded && Boolean(result.analysis.mingGe.basis)),
+        )
+      : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
+    embedded
+      ? result.analysis.usefulGod.primaryReason
+        ? `取用主线: ${result.analysis.usefulGod.primaryReason}`
+        : ''
+      : `调候与取用：${formatUsefulGod(result)}；五行季节状态${
+          Object.entries(result.wuxingSeasonStatus)
+            .map(([element, status]) => `${element}${status}`)
+            .join('、') || '未记录'
+        }`,
+    embedded ? '' : `岁运：${formatFortune(result)}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-function formatMangpaiFacts(result: BaziChartResult) {
+function formatMangpaiFacts(
+  result: BaziChartResult,
+  embedded = false,
+  patternEvidence = true,
+  chartShowsPatternBasis = false,
+) {
   return [
-    '四柱宫位与十神落位：',
-    formatPillars(result, { includePalace: true, includeLifeStage: true }),
+    embedded ? '四柱宫位参照：' : '四柱宫位与十神落位：',
+    embedded
+      ? PILLAR_KEYS.map(
+          (key) =>
+            `${PILLAR_LABELS[key]}${result.pillars[key].ganZhi}：${MANGPAI_PALACE_REFERENCES[key]}`,
+        ).join('\n')
+      : formatPillars(result, { includePalace: true, includeLifeStage: true }),
     `主宾定位：主位为日柱${result.pillars.day.ganZhi}与时柱${result.pillars.hour.ganZhi}，其中日干${result.dayMaster.gan}代表命主，日支${result.pillars.day.zhi}为夫妻宫；宾位为年柱${result.pillars.year.ganZhi}与月柱${result.pillars.month.ganZhi}，再围绕所问事项从相应宫位和十神确定体用。`,
     `十神显隐：${formatTenGodStructure(result)}`,
     `透干通根：${formatRoots(result)}`,
-    `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
-    ...formatTransformationFacts(result),
+    embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...(patternEvidence ? formatSchoolPatternFacts(result, embedded, chartShowsPatternBasis) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
-    `分柱年限：年柱约对应1至16岁，月柱约对应17至32岁，日柱约对应33至48岁，时柱约对应49岁以后；${formatFortune(result)}`,
-  ].join('\n');
+    `柱位阶段取象：年柱早年、月柱青年、日柱中年、时柱晚年${embedded ? '' : `；${formatFortune(result)}`}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-function formatXinpaiFacts(result: BaziChartResult) {
+function formatXinpaiFacts(
+  result: BaziChartResult,
+  embedded = false,
+  patternEvidence = true,
+  chartShowsPatternBasis = false,
+) {
   const strength = result.analysis.dayMasterStrength;
   const details = strength.details;
-  const positiveRuleBasis = details.ruleBasis
-    .flatMap((item) => item.split(/[；。]/))
-    .map((item) => item.trim())
-    .filter((item) => item && !/^(?:不|不得|不能|禁止|避免)/.test(item));
   return [
     `旺衰判定：日主${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，结论${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}；月令作用${details.seasonalEffect}，司令作用${details.commanderEffect}，成局作用${details.formationEffect}`,
-    `旺衰依据：${positiveRuleBasis.join('；') || '月令、司令、通根、帮扶与克泄耗合看'}`,
     `透干通根：${formatRoots(result)}`,
-    `五行结构：已见${result.wuxingStrength.present.join('、') || '未记录'}；结构偏重${result.wuxingStrength.dominantByRule.join('、') || '未记录'}；原局缺项${result.wuxingStrength.missing.join('、') || '无'}；月令状态${
-      Object.entries(result.wuxingSeasonStatus)
-        .map(([element, status]) => `${element}${status}`)
-        .join('、') || '未记录'
-    }`,
+    embedded
+      ? ''
+      : `五行结构：已见${result.wuxingStrength.present.join('、') || '未记录'}；结构偏重${result.wuxingStrength.dominantByRule.join('、') || '未记录'}；原局缺项${result.wuxingStrength.missing.join('、') || '无'}；月令状态${
+          Object.entries(result.wuxingSeasonStatus)
+            .map(([element, status]) => `${element}${status}`)
+            .join('、') || '未记录'
+        }`,
     `十神结构：${formatTenGodStructure(result)}`,
-    `十神流通：候选链条${formatTenGodFlow(result)}`,
-    `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
-    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
-    ...formatTransformationFacts(result),
+    embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...(patternEvidence ? formatSchoolPatternFacts(result, embedded, chartShowsPatternBasis) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
     `原局作用：${formatRelations(result)}`,
-    `动态岁运：${formatFortune(result)}`,
-  ].join('\n');
+    embedded ? '' : `动态岁运：${formatFortune(result)}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function normalizeBaziPromptSchool(school: BaziPromptSchool): NormalizedBaziPromptSchool {
@@ -341,7 +471,7 @@ function formatUnknownTimeFacts(result: BaziChartResult) {
     analysis?.summary || '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。';
   const scenarios = (analysis?.scenarios ?? []).map(
     (scenario) =>
-      `${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}`,
+      `${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.patternStatus ? `（${scenario.patternStatus}）` : ''}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}${scenario.unfavorableWuxing.length ? `；所忌${scenario.unfavorableWuxing.join('、')}` : ''}${scenario.incrementStatus === '部分判定' ? '；增补取用部分判定' : ''}`,
   );
   return [
     `出生时辰资料：${summary}`,
@@ -354,28 +484,53 @@ function formatUnknownTimeFacts(result: BaziChartResult) {
     .join('\n');
 }
 
-export function formatBaziSchoolFacts(result: BaziChartResult, school: BaziPromptSchool) {
-  if (result.isThreePillars) return formatUnknownTimeFacts(result);
+export function formatBaziSchoolFacts(
+  result: BaziChartResult,
+  school: BaziPromptSchool,
+  embedded = false,
+  patternEvidence = true,
+  chartShowsPatternBasis = false,
+) {
+  if (result.isThreePillars) return embedded ? '' : formatUnknownTimeFacts(result);
   const normalized = normalizeBaziPromptSchool(school);
-  if (normalized === 'ziping') return formatZipingFacts(result);
-  if (normalized === 'mangpai') return formatMangpaiFacts(result);
-  return formatXinpaiFacts(result);
+  if (normalized === 'ziping') {
+    return formatZipingFacts(result, embedded, patternEvidence, chartShowsPatternBasis);
+  }
+  if (normalized === 'mangpai') {
+    return formatMangpaiFacts(result, embedded, patternEvidence, chartShowsPatternBasis);
+  }
+  return formatXinpaiFacts(result, embedded, patternEvidence, chartShowsPatternBasis);
 }
 
-export function formatBaziSchoolPrompt(result: BaziChartResult, school: BaziPromptSchool) {
+export function formatBaziSchoolPrompt(
+  result: BaziChartResult,
+  school: BaziPromptSchool,
+  embedded = false,
+  chartShowsPatternBasis = false,
+) {
   const normalized = normalizeBaziPromptSchool(school);
   const profile = BAZI_SCHOOL_PROFILES[normalized];
+  const facts = formatBaziSchoolFacts(result, school, embedded, true, chartShowsPatternBasis);
   return [
     `八字流派：${profile.label}`,
     `流派任务：${profile.task}`,
     `流派依据：${profile.basis}`,
-    '流派盘面资料：',
-    formatBaziSchoolFacts(result, school),
-  ].join('\n');
+    facts ? '流派盘面资料：' : '',
+    facts,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-export function buildBaziSchoolPromptSection(result: BaziChartResult, school?: BaziPromptSchool) {
-  return school ? `【流派】\n${formatBaziSchoolPrompt(result, school)}` : '';
+export function buildBaziSchoolPromptSection(
+  result: BaziChartResult,
+  school?: BaziPromptSchool,
+  embedded = false,
+  chartShowsPatternBasis = false,
+) {
+  return school
+    ? `【流派】\n${formatBaziSchoolPrompt(result, school, embedded, chartShowsPatternBasis)}`
+    : '';
 }
 
 export function normalizeBaziPromptSchools(
@@ -392,32 +547,94 @@ export function normalizeBaziPromptSchools(
 export function formatBaziSchoolsPrompt(
   result: BaziChartResult,
   schools?: readonly BaziPromptSchool[] | null,
+  embedded = false,
+  chartShowsPatternBasis = false,
 ) {
   const selected = normalizeBaziPromptSchools(schools);
   if (!selected.length) return '';
+  const pattern = result.analysis.mingGe;
+  const sharesPatternFacts = selected.length > 1 && !result.isThreePillars;
+  const sharedPatternBasis =
+    sharesPatternFacts && !embedded && pattern.basis && !formatAlternativePatternCandidates(pattern)
+      ? `取格依据：${formatPatternBasisForPrompt(pattern.basis)}`
+      : '';
+  const sharedPatternEvidence = sharesPatternFacts
+    ? [
+        `透干通根：${formatRoots(result)}`,
+        ...(!embedded
+          ? [`格局与取用：格局${pattern.pattern}；${formatUsefulGod(result)}`, sharedPatternBasis]
+          : []),
+        ...formatSchoolPatternFacts(
+          result,
+          embedded,
+          chartShowsPatternBasis || Boolean(sharedPatternBasis),
+        ),
+        ...formatTransformationFacts(result, embedded),
+      ].filter(Boolean)
+    : [];
   const blocks = selected.map((school, index) => {
     const profile = BAZI_SCHOOL_PROFILES[school];
+    const priorSchools = selected.slice(0, index);
+    const facts = formatBaziSchoolFacts(result, school, embedded, selected.length === 1)
+      .split('\n')
+      .filter((line) => !(sharesPatternFacts && line.startsWith('透干通根：')))
+      .flatMap((line) => {
+        if (!embedded) {
+          if (sharesPatternFacts && /^(?:格局与成败|格局与取用)：/u.test(line)) return [];
+          if (sharesPatternFacts && line.startsWith('调候与取用：')) {
+            return [
+              `五行季节状态：${
+                Object.entries(result.wuxingSeasonStatus)
+                  .map(([element, status]) => `${element}${status}`)
+                  .join('、') || '未记录'
+              }`,
+            ];
+          }
+          return [line];
+        }
+        if (line.startsWith('日主旺衰：') && priorSchools.includes('xinpai')) return [];
+        if (line.startsWith('旺衰判定：') && priorSchools.includes('ziping')) {
+          return [`旺衰作用：${line.slice(line.indexOf('；月令作用') + 1)}`];
+        }
+        if (
+          (line.startsWith('十神显隐：') && priorSchools.includes('xinpai')) ||
+          (line.startsWith('十神结构：') && priorSchools.includes('mangpai'))
+        ) {
+          return [];
+        }
+        return [line];
+      })
+      .join('\n');
     return [
       `派系${index + 1}：${profile.label}`,
       `流派任务：${profile.task}`,
       `流派依据：${profile.basis}`,
-      '本派盘面资料：',
-      formatBaziSchoolFacts(result, school),
-    ].join('\n');
+      facts ? '本派盘面资料：' : '',
+      facts,
+    ]
+      .filter(Boolean)
+      .join('\n');
   });
   if (selected.length > 1) {
     blocks.push(
       '合参任务：请先按每个流派分别形成判断，再归纳共同结论、分歧及各自对应的盘面依据，最后围绕问题给出综合判断。',
     );
   }
-  return blocks.join('\n\n');
+  return [
+    sharedPatternEvidence.length ? `共同格局事实：\n${sharedPatternEvidence.join('\n')}` : '',
+    ...blocks,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function buildBaziSchoolsPromptSection(
   result: BaziChartResult,
   schools?: readonly BaziPromptSchool[] | null,
+  embedded = false,
+  chartShowsPatternBasis = false,
 ) {
   const selected = normalizeBaziPromptSchools(schools);
-  const content = formatBaziSchoolsPrompt(result, selected);
+  const content = formatBaziSchoolsPrompt(result, selected, embedded, chartShowsPatternBasis);
   return content ? `【${selected.length > 1 ? '多派合参' : '解读流派'}】\n${content}` : '';
 }

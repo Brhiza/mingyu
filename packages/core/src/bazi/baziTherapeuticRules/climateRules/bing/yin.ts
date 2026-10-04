@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const BING_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'yin-month-bing-ren-geng-first',
+    label: '丙日寅月壬水为尊庚金为佐规则',
+    description: '正月丙火渐炎，原文以壬水为尊、庚金佐壬；透藏与格局层次另依原局判断。',
+    priority: 115,
+    months: ['寅'],
+    dayMasters: ['火'],
+    dayStems: ['丙'],
+    usefulWuxing: '水',
+    favorableOrder: ['水', '金'],
+    hint: '丙火寅月，壬水为尊，庚金佐之',
+  },
+  {
     id: 'yin-month-bing-no-ren-use-gui',
     label: '丙日寅月无壬用癸规则',
     description:

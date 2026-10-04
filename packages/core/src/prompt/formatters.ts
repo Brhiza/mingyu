@@ -16,18 +16,47 @@ function resolveDivinationDate(data?: DivinationData): Date | undefined {
   return date;
 }
 
+export function resolveDivinationTimezoneOffset(data?: DivinationData): number | undefined {
+  if (data && 'timezoneOffsetMinutes' in data) return data.timezoneOffsetMinutes;
+  return data && 'mainHexagram' in data ? data.calculation?.timezoneOffsetMinutes : undefined;
+}
+
 /** 格式化占课时间；没有时间戳时使用当前时间，显式无效时间戳直接报错。 */
 export function buildTimeInfoText(data?: DivinationData) {
   const date = resolveDivinationDate(data);
-  const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
-  const display = LunarUtil.formatTimeDisplay(timeInfo);
+  const termTimestamp =
+    data && 'termReferenceTimestamp' in data ? data.termReferenceTimestamp : undefined;
+  if (
+    termTimestamp !== undefined &&
+    (typeof termTimestamp !== 'number' || !Number.isFinite(termTimestamp))
+  ) {
+    throw new TypeError('节气参考时间戳必须是有限毫秒数。');
+  }
+  const termReferenceDate = termTimestamp === undefined ? undefined : new Date(termTimestamp);
+  const isXiaoliuren = Boolean(data && 'lunarMonth' in data && 'hourIndex' in data);
+  const savedOffset = resolveDivinationTimezoneOffset(data);
+  const timeInfo = date
+    ? getDivinationTime(date, isXiaoliuren ? 480 : savedOffset, termReferenceDate).timeInfo
+    : getDivinationTime().timeInfo;
+  const civilLunar =
+    isXiaoliuren && termReferenceDate
+      ? getDivinationTime(termReferenceDate, 480).timeInfo.lunar
+      : undefined;
+  const display = LunarUtil.formatTimeDisplay(
+    civilLunar
+      ? { ...timeInfo, lunar: { ...civilLunar, hourInChinese: timeInfo.lunar.hourInChinese } }
+      : timeInfo,
+  );
   return [display.solar, display.lunar, display.ganzhi, `节气：${timeInfo.jieQi}`].join('\n');
 }
 
 /** 只格式化当地民用公历时间；显式无效时间戳直接报错。 */
 export function buildSolarTimeInfoText(data?: DivinationData) {
   const date = resolveDivinationDate(data);
-  const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
+  const savedOffset = resolveDivinationTimezoneOffset(data);
+  const timeInfo = date
+    ? getDivinationTime(date, savedOffset).timeInfo
+    : getDivinationTime().timeInfo;
   return LunarUtil.formatTimeDisplay(timeInfo).solar;
 }
 

@@ -29,6 +29,8 @@ test('精准排盘资料必须包含时分、地点和经纬度，并允许北�
   assert.equal(hasCompletePreciseBirthData({ ...complete, birthMinute: '' }), false);
   assert.equal(hasCompletePreciseBirthData({ ...complete, useTrueSolarTime: false }), true);
   assert.equal(hasCompletePreciseBirthData({ ...complete, birthPlace: '' }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, birthLongitude: '' }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, birthLatitude: '' }), false);
   assert.equal(hasCompletePreciseBirthData({ ...complete, analysisMode: 'compatibility' }), false);
 });
 

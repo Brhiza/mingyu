@@ -208,23 +208,65 @@ test('西占本命区间 Worker 按请求 ID隔离进度和结果并清理', asy
   assert.equal(FakeWorker.instances[0]?.terminated, true);
 });
 
-test('西占本命区间 Worker 取消后终止并忽略迟到结果', async () => {
-  let worker: FakeWorker | undefined;
+test('西占本命区间 Worker 最后进度回调取消后忽略迟到消息且不影响后续请求', async () => {
+  let cancelledWorker: FakeWorker | undefined;
   const controller = new AbortController();
-  const pending = withFakeWorker(
-    (current) => {
-      worker = current;
+  await withFakeWorker(
+    (worker, message) => {
+      cancelledWorker = worker;
+      worker.emit({ id: message.id, type: 'progress', completed: 1, total: 2 });
+      worker.emit({ id: message.id, type: 'progress', completed: 2, total: 2 });
+      worker.emit({ id: message.id, type: 'progress', completed: 2, total: 2 });
+      worker.emit({ id: message.id, type: 'result', result: FAKE_RESULT });
     },
-    () => executeAstrolabeBirthRangeWorker(INPUT, SOURCE, controller.signal),
-  );
+    async () => {
+      const cancelledProgress: Array<[number, number]> = [];
+      await assert.rejects(
+        executeAstrolabeBirthRangeWorker(INPUT, SOURCE, controller.signal, (completed, total) => {
+          cancelledProgress.push([completed, total]);
+          if (completed === total) controller.abort();
+        }),
+        (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+      );
+      assert.deepEqual(cancelledProgress, [
+        [1, 2],
+        [2, 2],
+      ]);
+      assert.equal(cancelledWorker?.terminated, true);
 
-  await new Promise<void>((resolve) => queueMicrotask(resolve));
-  controller.abort();
-  await assert.rejects(pending, (error: unknown) => {
-    return error instanceof DOMException && error.name === 'AbortError';
-  });
-  assert.equal(worker?.terminated, true);
-  worker?.emit({ id: worker.postedMessage?.id, type: 'result', result: FAKE_RESULT });
+      const nextProgress: Array<[number, number]> = [];
+      FakeWorker.behavior = (worker, message) => {
+        worker.emit({ id: message.id, type: 'progress', completed: 1, total: 2 });
+        worker.emit({ id: message.id, type: 'result', result: FAKE_RESULT });
+      };
+      const nextResult = await executeAstrolabeBirthRangeWorker(
+        INPUT,
+        SOURCE,
+        undefined,
+        (completed, total) => nextProgress.push([completed, total]),
+      );
+      assert.equal(nextResult, FAKE_RESULT);
+      assert.deepEqual(nextProgress, [[1, 2]]);
+
+      cancelledWorker?.emit({
+        id: cancelledWorker.postedMessage?.id,
+        type: 'progress',
+        completed: 2,
+        total: 2,
+      });
+      cancelledWorker?.emit({
+        id: cancelledWorker.postedMessage?.id,
+        type: 'result',
+        result: FAKE_RESULT,
+      });
+      assert.deepEqual(cancelledProgress, [
+        [1, 2],
+        [2, 2],
+      ]);
+      assert.deepEqual(nextProgress, [[1, 2]]);
+      assert.equal(FakeWorker.instances.length, 2);
+    },
+  );
 });
 
 test('西占本命区间 Worker 传递当前错误并清理', async () => {

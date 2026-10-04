@@ -2,8 +2,13 @@ import type { ChartInput } from '../types/chart';
 import type { IztroAstrolabe, IztroHoroscope } from '../types/iztro';
 import { LunarDay, SolarDay } from 'tyme4ts';
 import { SHICHEN_PERIODS } from '../calendar/dateUtils';
-import { getDefaultHoroscopeContext } from './iztro/runtime-helpers';
-import { buildAstrolabeFromInput, shiftLunarYear } from './iztro/runtime-helpers';
+import {
+  buildAstrolabeFromInput,
+  getDefaultHoroscopeContext,
+  getZiweiFortuneBirthSolarDate,
+  shiftLunarYear,
+  normalizeChartInput,
+} from './iztro/runtime-helpers';
 import {
   buildVerifiedDecadalTimelineOptions,
   createZiweiHoroscopeResolver,
@@ -214,7 +219,7 @@ async function findFirstYearChange(
  * 年龄分界和流年分界可能不在同一天。按公历每年一月至三月的实际引擎结果
  * 找到流年切换，再把该日期与年龄分界合并；这样不会把两个流年压成一条年龄行。
  */
-async function collectYearBoundaryDates(
+export async function collectYearBoundaryDates(
   startDateStr: string,
   endDateStr: string,
   hourIndex: number,
@@ -277,19 +282,20 @@ async function findTargetYearBoundary(
  * 年龄边界沿用 iztro 的虚岁口径：普通分界在对应农历年正月初一，
  * 生日分界则从引擎真正返回该虚岁的首日开始。不能用出生日期的公历年直移。
  */
-async function buildYearDate(
+export async function buildYearDate(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   age: number,
   hourIndex: number,
   resolveHoroscope: ZiweiHoroscopeResolver,
+  birthSolarDate = getZiweiFortuneBirthSolarDate(astrolabe, input),
 ) {
   if (age === 1) {
     return formatSolarDay(
-      SolarDay.fromYmd(...(astrolabe.solarDate.split('-').map(Number) as [number, number, number])),
+      SolarDay.fromYmd(...(birthSolarDate.split('-').map(Number) as [number, number, number])),
     );
   }
-  const anniversary = shiftLunarYear(astrolabe.solarDate, age - 1);
+  const anniversary = shiftLunarYear(birthSolarDate, age - 1);
   const anniversarySolar = SolarDay.fromYmd(
     ...(anniversary.split('-').map(Number) as [number, number, number]),
   );
@@ -369,22 +375,16 @@ async function splitYearAtBoundaries(
   return segments;
 }
 
-async function addLowerLayers(
-  year: ZiweiFortuneYear,
+/** 与运限时间线共用引擎实际流月边界，供日期选择器逐层展开。 */
+export async function buildZiweiFlowMonths(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
   targetDateStr: string,
   targetHourIndex: number,
-  includeMonths: boolean,
-  includeDay: boolean,
-  includeHour: boolean,
   targetHoroscope: IztroHoroscope,
   resolveHoroscope: ZiweiHoroscopeResolver,
-) {
-  if (!includeMonths) return;
-
+): Promise<ZiweiFortuneMonth[]> {
   const targetYearlySignature = `${targetHoroscope.yearly.heavenlyStem}${targetHoroscope.yearly.earthlyBranch}`;
-  const targetMonthlySignature = `${targetHoroscope.monthly.heavenlyStem}${targetHoroscope.monthly.earthlyBranch}`;
   const monthAnchors: string[] = [];
 
   if ((input.horoscopeDivide ?? 'normal') === 'exact') {
@@ -414,15 +414,37 @@ async function addLowerLayers(
       }
     }
   } else {
-    const targetLunarYear = SolarDay.fromYmd(
+    const lunarYear = SolarDay.fromYmd(
       ...(targetDateStr.split('-').map(Number) as [number, number, number]),
     )
       .getLunarDay()
       .getLunarMonth()
-      .getLunarYear()
-      .getYear();
+      .getLunarYear();
+    const targetLunarYear = lunarYear.getYear();
     for (let month = 1; month <= 12; month += 1) {
       monthAnchors.push(formatSolarDay(LunarDay.fromYmd(targetLunarYear, month, 1).getSolarDay()));
+    }
+    const leapMonth = lunarYear.getLeapMonth();
+    if (leapMonth) {
+      const leapStart = LunarDay.fromYmd(targetLunarYear, -leapMonth, 1).getSolarDay();
+      const nextMonthStart =
+        leapMonth < 12
+          ? LunarDay.fromYmd(targetLunarYear, leapMonth + 1, 1).getSolarDay()
+          : LunarDay.fromYmd(targetLunarYear + 1, 1, 1).getSolarDay();
+      const spanDays = nextMonthStart.subtract(leapStart);
+      const precedingDate = formatSolarDay(leapStart.next(-1));
+      const precedingHoroscope = await resolveHoroscope(precedingDate, targetHourIndex);
+      let previousMonthlySignature = `${precedingHoroscope.monthly.heavenlyStem}${precedingHoroscope.monthly.earthlyBranch}`;
+      // 闰月可能在月中切换到下月，逐日读取该闰月的真实切换日。
+      for (let offset = 0; offset < spanDays; offset += 1) {
+        const dateStr = formatSolarDay(leapStart.next(offset));
+        const horoscope = await resolveHoroscope(dateStr, targetHourIndex);
+        const monthlySignature = `${horoscope.monthly.heavenlyStem}${horoscope.monthly.earthlyBranch}`;
+        if (monthlySignature !== previousMonthlySignature) {
+          monthAnchors.push(dateStr);
+          previousMonthlySignature = monthlySignature;
+        }
+      }
     }
   }
 
@@ -432,7 +454,10 @@ async function addLowerLayers(
     const horoscope = await resolveHoroscope(dateStr, targetHourIndex);
     const monthlySignature = `${horoscope.monthly.heavenlyStem}${horoscope.monthly.earthlyBranch}`;
     if (monthlySignature === previousMonthlySignature) {
-      throw new Error('紫微流月边界未产生新的月干支，不能把重复月份压缩为一层。');
+      if (input.horoscopeDivide === 'exact') {
+        throw new Error('紫微流月边界未产生新的月干支，不能把重复月份压缩为一层。');
+      }
+      continue;
     }
     previousMonthlySignature = monthlySignature;
     const layer = serializeLayer(horoscope, 'monthly', astrolabe);
@@ -456,8 +481,33 @@ async function addLowerLayers(
       `紫微未能按${input.horoscopeDivide === 'exact' ? '节气' : '农历'}边界生成十二个常规流月。`,
     );
   }
+  return months;
+}
+
+async function addLowerLayers(
+  year: ZiweiFortuneYear,
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  targetDateStr: string,
+  targetHourIndex: number,
+  includeMonths: boolean,
+  includeDay: boolean,
+  includeHour: boolean,
+  targetHoroscope: IztroHoroscope,
+  resolveHoroscope: ZiweiHoroscopeResolver,
+) {
+  if (!includeMonths) return;
+  const months = await buildZiweiFlowMonths(
+    astrolabe,
+    input,
+    targetDateStr,
+    targetHourIndex,
+    targetHoroscope,
+    resolveHoroscope,
+  );
   year.months = months;
 
+  const targetMonthlySignature = `${targetHoroscope.monthly.heavenlyStem}${targetHoroscope.monthly.earthlyBranch}`;
   const targetMonthIndex = months.findIndex((month) => {
     const horoscopeSignature = `${month.layer.heavenlyStem}${month.layer.earthlyBranch}`;
     return horoscopeSignature === targetMonthlySignature;
@@ -766,10 +816,14 @@ export async function buildZiweiFortuneTimelineFromAstrolabe(
     verifiedBatch?: VerifiedDecadalTimelineBatch;
   },
 ): Promise<ZiweiFortuneTimeline> {
-  const context = options.dateStr
-    ? { dateStr: options.dateStr, hourIndex: options.hourIndex ?? input.birthTimeIndex }
-    : getDefaultHoroscopeContext();
-  const hourIndex = options.hourIndex ?? context.hourIndex;
+  input = normalizeChartInput(input);
+  decadalTimeline = decadalTimeline.map((period) => ({ ...period }));
+  const defaultContext = getDefaultHoroscopeContext();
+  const context = {
+    dateStr: options.dateStr ?? defaultContext.dateStr,
+    hourIndex: options.hourIndex ?? defaultContext.hourIndex,
+  };
+  const hourIndex = context.hourIndex;
   assertHourIndex(hourIndex);
   parseDateParts(context.dateStr);
   const resolveHoroscope =
@@ -813,6 +867,9 @@ export async function buildNormalZiweiFortuneBatchTimelineFromAstrolabe(
     verifiedTargetAge: number;
   },
 ): Promise<ZiweiFortuneTimeline> {
+  input = normalizeChartInput(input);
+  decadalTimeline = decadalTimeline.map((period) => ({ ...period }));
+  options = { ...options, batch: { ...options.batch } };
   return buildTimelineFromAstrolabe(astrolabe, input, decadalTimeline, options, {
     ...calculationContext,
   });
@@ -823,6 +880,14 @@ export async function buildZiweiFortuneTimeline(
   input: ChartInput,
   options: ZiweiFortuneRangeOptions,
 ): Promise<ZiweiFortuneTimeline> {
+  input = normalizeChartInput(input);
+  const defaultContext = getDefaultHoroscopeContext();
+  options = {
+    ...options,
+    dateStr: options.dateStr ?? defaultContext.dateStr,
+    hourIndex: options.hourIndex ?? defaultContext.hourIndex,
+    ...(options.batch ? { batch: { ...options.batch } } : {}),
+  };
   const astrolabe = await buildAstrolabeFromInput(input);
   const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
   const decadalTimeline = await buildVerifiedDecadalTimelineOptions(
@@ -1159,11 +1224,16 @@ export function formatZiweiFortuneTimelinePhase(
       years: source.years.slice(selection.startYearIndex, selection.endYearIndex + 1),
     };
   });
-  const phaseTimeline: ZiweiFortuneTimeline = { ...timeline, periods };
   const firstPeriod = periods[0]!;
   const firstYear = firstPeriod.years[0]!;
   const lastPeriod = periods.at(-1)!;
   const lastYear = lastPeriod.years.at(-1)!;
+  const phaseTimeline: ZiweiFortuneTimeline = {
+    ...timeline,
+    periods,
+    actualStartDateStr: firstYear.dateStr,
+    actualEndDateStr: lastYear.endDateStr ?? lastYear.dateStr,
+  };
   const selectionText = selections
     .map((selection) => {
       const period = timeline.periods[selection.periodIndex]!;
@@ -1179,7 +1249,6 @@ export function formatZiweiFortuneTimelinePhase(
   return [
     `紫微完整运限阶段 ${phaseNumber}/${phaseCount}`,
     `本阶段覆盖：${selectionText}`,
-    `本阶段事实日期：${firstYear.dateStr} 至 ${lastYear.endDateStr ?? lastYear.dateStr}`,
     `完整资料全局覆盖：${timeline.actualStartDateStr} 至 ${timeline.actualEndDateStr}`,
     timelineText,
   ].join('\n');

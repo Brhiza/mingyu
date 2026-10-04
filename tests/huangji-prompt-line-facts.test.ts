@@ -14,10 +14,10 @@ test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻',
     annual.prompt,
     /值年取序：以公元1984年的六十年统卦火风鼎为起点.*已过42年，顺行42位，取得天火同人为本年静态值年卦/,
   );
-  assert.match(
-    annual.prompt,
-    /十年取卦：以六十年统卦火风鼎第5爻变化，得到天风姤，统摄公元2024年至公元2033年/,
-  );
+  assert.match(annual.prompt, /十年卦：天风姤，公元2024年至公元2033年；由鼎卦第5爻变得/);
+  assert.equal(annual.prompt.split('\n').filter((line) => line.startsWith('十年卦：')).length, 1);
+  assert.match(annual.prompt, /层级取序：值年取序与十年取卦分别以六十年统卦火风鼎为起点。/);
+  assert.doesNotMatch(annual.prompt, /十年取卦：.*第5爻变化.*统摄公元2024/);
   const ding = calculateHuangjiJingshi({ year: 1984 });
   assert.match(
     ding.prompt,
@@ -36,6 +36,14 @@ test('皇极值年偏移在六十年末年归59且下一统卦重置为0，跨�
   assert.ok(start < 0);
   assert.ok(before.prompt.includes(`已过${-1 - start}年，顺行${-1 - start}位`));
   assert.ok(after.prompt.includes(`已过${-start}年，顺行${-start}位`));
+});
+
+test('六十年统卦遇四正卦时保留变爻原卦与圆图顺取两步', () => {
+  const result = calculateHuangjiJingshi({ year: 2164 });
+  assert.equal(result.forecast?.hexagrams.sixtyYear.normalizedFrom, '离');
+  assert.equal(result.forecast?.hexagrams.sixtyYear.hexagram.shortName, '革');
+  assert.match(result.calculationChain[2], /大有运卦第2爻变为离卦，再依六十卦圆图顺取革六十年统卦/);
+  assert.match(result.prompt, /由大有卦第2爻变得离卦，再依去四正卦的六十卦圆图顺取革卦/);
 });
 
 test('皇极时点盘的四个近层各自保留卦体及实际推演爻位', () => {

@@ -952,9 +952,10 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
                 {result.birthContext.strength.basis.join('；')}
               </p>
             ) : null}
-            {result.birthContext.climate ? (
+            {result.birthContext.climate &&
+            result.birthContext.climate.nature !== '未见明显偏向' ? (
               <p>
-                寒暖分布：{result.birthContext.climate.nature} ·{' '}
+                水火分布参考：{result.birthContext.climate.nature} ·{' '}
                 {result.birthContext.climate.summary} · {result.birthContext.climate.medicine}
               </p>
             ) : null}

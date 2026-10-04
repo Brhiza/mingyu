@@ -1,5 +1,11 @@
 import type { BaziChartResult } from '../bazi/index.js';
+import { NAYIN_MAP, STEM_WUXING } from '../ganzhi/data.js';
+
+import { isGanZhiPair } from '../ganzhi/validation.js';
 import type { TermContextData } from './types.js';
+import { getGanZhiRelationTables } from '../ganzhi/relations.js';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 const BRANCHES = new Set(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']);
@@ -113,15 +119,7 @@ export function getBaziTermContext(
   }
 
   // 4. 纳音五行（海中金、炉中火等）
-  if (
-    options?.pillarLabel &&
-    clean.length === 3 &&
-    (clean.endsWith('金') ||
-      clean.endsWith('木') ||
-      clean.endsWith('水') ||
-      clean.endsWith('火') ||
-      clean.endsWith('土'))
-  ) {
+  if (options?.pillarLabel && options.ganZhi && NAYIN_MAP[options.ganZhi] === clean) {
     return {
       chartTitle: `柱位纳音气象`,
       roleInChart: `${options.pillarLabel}（${options.ganZhi || ''}）纳音为【${clean}】，主导${stageDesc || '该阶段'}之气象品格与环境基调。`,
@@ -233,7 +231,7 @@ export function getBaziTermContext(
   }
 
   // 6. 干支组合与单天干地支（精确区分）
-  const isGanzhiPair = clean.length === 2 && STEMS.has(clean[0]) && BRANCHES.has(clean[1]);
+  const isGanzhiPair = clean.length === 2 && isGanZhiPair(clean[0], clean[1]);
   if (isGanzhiPair) {
     return {
       chartTitle: `四柱干支气数`,
@@ -245,12 +243,7 @@ export function getBaziTermContext(
   }
 
   const isSingleStem =
-    STEMS.has(clean) ||
-    (clean.length === 2 && clean.endsWith('木')) ||
-    clean.endsWith('火') ||
-    clean.endsWith('土') ||
-    clean.endsWith('金') ||
-    (clean.endsWith('水') && STEMS.has(clean[0]));
+    STEMS.has(clean) || (clean.length === 2 && STEM_WUXING[clean[0]!] === clean[1]);
   if (isSingleStem) {
     const stemChar = clean[0];
     const isUseful = useful.includes(stemChar);
@@ -266,13 +259,7 @@ export function getBaziTermContext(
 
   const isSingleBranch =
     BRANCHES.has(clean) ||
-    (clean.length === 2 &&
-      (clean.endsWith('水') ||
-        clean.endsWith('土') ||
-        clean.endsWith('木') ||
-        clean.endsWith('火') ||
-        clean.endsWith('金')) &&
-      BRANCHES.has(clean[0]));
+    (clean.length === 2 && GANZHI_RELATION_TABLES.BRANCH_WUXING[clean[0]!] === clean[1]);
   if (isSingleBranch) {
     const branchChar = clean[0];
     const isUseful = useful.includes(branchChar);

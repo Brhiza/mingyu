@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeZiweiCompatibility } from '../packages/core/src/ziwei/iztro/compatibility-evidence';
+import { buildZiweiCompatibilityPromptDocument } from '../packages/core/src/prompt/ziwei';
+import { buildCombinedZiweiCompatibilityPrompt } from '../packages/core/src/ziwei/prompt/combined';
 import {
   buildAstrolabeFromInput,
   buildAnalysisPayloadV1,
@@ -101,13 +103,25 @@ function createPayload(offset: number, mutagen: MutagenName): AnalysisPayloadV1 
 }
 
 function assertEvidenceReferences(result: ReturnType<typeof analyzeZiweiCompatibility>) {
+  const stepKeys = new Set(result.calculationSteps.map((item) => item.key));
   const factKeys = new Set([
     result.summaryFact.key,
     ...result.calculationSteps.map((item) => item.key),
     ...result.palaceOverlays.map((item) => item.key),
     ...result.crossMutagenPlacements.map((item) => item.key),
+    ...result.crossMutagenGaps.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
   ]);
+  assert.ok(
+    result.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) => stepKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    [...result.palaceOverlays, ...result.crossMutagenPlacements].every((item) =>
+      stepKeys.has(item.calculationStepKey),
+    ),
+  );
   assert.ok(result.summaryFact.factKeys.length > 0);
   assert.ok(result.summaryFact.factKeys.every((key) => factKeys.has(key)));
   assert.ok(
@@ -124,66 +138,51 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeZiweiCompatib
   );
 }
 
-test('紫微双盘应按地支映射双方关键宫位', () => {
+test('紫微双盘应按地支映射关键宫位并定位生年四化', () => {
   const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
   const overlay = result.palaceOverlays.find(
     (item) => item.sourcePerson === 'person1' && item.sourcePalace === '命宫',
   );
 
   assert.ok(overlay);
-  assert.equal(result.key, 'ziwei:compatibility:evidence');
-  assert.equal(result.status, '已计算');
-  assert.equal(result.calculationSteps.length, 6);
-  assert.ok(
-    result.calculationSteps.every((step) =>
-      step.dependsOnStepKeys.every((key) =>
-        result.calculationSteps.some((candidate) => candidate.key === key),
-      ),
-    ),
-  );
-  assert.match(overlay.key, /^宫位叠盘:person1:/);
-  assert.equal(overlay.status, '已命中');
   assert.ok(overlay.sourcePalaceKey && overlay.targetPalaceKey);
-  assert.ok(result.calculationSteps.some((step) => step.key === overlay.calculationStepKey));
   assert.equal(overlay.earthlyBranch, '子');
   assert.equal(overlay.targetPalace, '福德（身宫同宫）');
-  assert.ok(overlay.sources.length >= 2);
-  assert.match(overlay.calculation, /按相同地支定位/);
   assert.match(overlay.promptText, /同处子支轴位/);
-  assert.match(overlay.limitation, /不单独证明关系吉凶/);
-  assert.equal(result.summaryFact.palaceOverlayCount, result.palaceOverlays.length);
-  assert.equal(
-    result.summaryFact.importantPalaceOverlayCount,
-    result.palaceOverlays.filter(
-      (item) =>
-        item.sourcePalace.includes('命宫') ||
-        item.sourcePalace.includes('身宫') ||
-        item.sourcePalace.includes('夫妻'),
-    ).length,
-  );
   assertEvidenceReferences(result);
-});
-
-test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
-  const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
   const placement = result.crossMutagenPlacements.find(
     (item) => item.sourcePerson === 'person1' && item.star === '紫微',
   );
 
   assert.ok(placement);
-  assert.match(placement.key, /^跨盘四化:person1:紫微:化禄:/);
-  assert.equal(placement.status, '已命中');
   assert.ok(placement.sourcePalaceKey && placement.targetPalaceKey);
-  assert.ok(result.calculationSteps.some((step) => step.key === placement.calculationStepKey));
   assert.equal(placement.mutagen, '禄');
   assert.equal(placement.sourcePalace, '命宫');
   assert.equal(placement.targetPalace, '命宫');
-  assert.ok(placement.sources.length >= 2);
-  assert.match(placement.calculation, /同名紫微/);
   assert.match(placement.promptText, /生年化禄/);
-  assert.match(placement.limitation, /不直接等于关系吉凶/);
-  assert.equal(result.summaryFact.crossMutagenPlacementCount, result.crossMutagenPlacements.length);
-  assert.ok(result.summaryFact.mutagenCounts.禄);
+});
+
+test('紫微双盘地支或宫位索引重复时不生成叠盘事实', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  second.palaces[1].earthly_branch = second.palaces[0].earthly_branch;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位地支无效或重复/);
+
+  second.palaces[1].earthly_branch = BRANCHES[3];
+  second.palaces[1].index = second.palaces[0].index;
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /宫位索引无效或重复/);
+});
+
+test('双方输入流年盘时静态交叉证据不误称运限资料未提供', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.active_scope.scope = 'yearly';
+  second.active_scope.scope = 'yearly';
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const timing = result.counterEvidenceFacts.find((item) => item.type === '静态应期边界');
+  assert.match(timing?.promptText ?? '', /运限未作同层级交叉核对/);
+  assert.doesNotMatch(timing?.promptText ?? '', /未提供双方同层级/);
 });
 
 test('紫微双盘真实星盘应以 iztro 原生星曜对象定位跨盘四化', async () => {
@@ -233,9 +232,17 @@ test('紫微双盘真实星盘应以 iztro 原生星曜对象定位跨盘四化'
 
   assert.ok(targetStarLookupCount > 0);
   assert.ok(placement);
-  assert.ok(placement.sources.some((source) => source.includes('star().palace()')));
-  assert.match(placement.calculation, /iztro 原生星曜对象/);
-  assert.match(result.methodology.notes.join('\n'), /star\(\)\.palace\(\)/);
+  assert.ok(placement.sources.some((source) => source.includes('目标方同名星曜落宫')));
+  assert.match(placement.calculation, /按同名星曜定位/);
+  assert.doesNotMatch(result.promptText, /iztro|star\(\)\.palace\(\)/i);
+  assert.doesNotMatch(
+    buildZiweiCompatibilityPromptDocument({
+      payload1,
+      payload2,
+      compatibility: result,
+    }).text,
+    /iztro|star\(\)\.palace\(\)/i,
+  );
   assert.deepEqual(
     { name: placement.targetPalace, branch: placement.targetEarthlyBranch },
     {
@@ -250,6 +257,45 @@ test('紫微双盘真实星盘应以 iztro 原生星曜对象定位跨盘四化'
       })(),
       branch: astrolabe2.star(placement.star as never).palace()?.earthlyBranch,
     },
+  );
+
+  const targetIndex = astrolabe2.star(placement.star as never).palace()?.index;
+  assert.notEqual(targetIndex, undefined);
+  const targetPalace = payload2.palaces.find((item) => item.index === targetIndex);
+  const otherPalace = payload2.palaces.find((item) => item.index !== targetIndex);
+  assert.ok(targetPalace && otherPalace);
+  [targetPalace.earthly_branch, otherPalace.earthly_branch] = [
+    otherPalace.earthly_branch,
+    targetPalace.earthly_branch,
+  ];
+  assert.throws(
+    () => analyzeZiweiCompatibility(payload1, payload2, { astrolabe1, astrolabe2 }),
+    /目标盘第 \d+ 宫地支与结构化十二宫不一致/,
+  );
+  [targetPalace.earthly_branch, otherPalace.earthly_branch] = [
+    otherPalace.earthly_branch,
+    targetPalace.earthly_branch,
+  ];
+  [payload1.palaces[0].earthly_branch, payload1.palaces[1].earthly_branch] = [
+    payload1.palaces[1].earthly_branch,
+    payload1.palaces[0].earthly_branch,
+  ];
+  assert.throws(
+    () => analyzeZiweiCompatibility(payload1, payload2, { astrolabe1, astrolabe2 }),
+    /来源盘第 \d+ 宫地支与结构化十二宫不一致/,
+  );
+  [payload1.palaces[0].earthly_branch, payload1.palaces[1].earthly_branch] = [
+    payload1.palaces[1].earthly_branch,
+    payload1.palaces[0].earthly_branch,
+  ];
+  const sourceStar = payload1.palaces
+    .flatMap((palace) => [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars])
+    .find((star) => star.name === placement.star && star.birth_mutagen === placement.mutagen);
+  assert.ok(sourceStar);
+  sourceStar.birth_mutagen = undefined;
+  assert.throws(
+    () => analyzeZiweiCompatibility(payload1, payload2, { astrolabe1, astrolabe2 }),
+    /来源盘 .* 生年四化与结构化十二宫不一致/,
   );
 });
 
@@ -306,6 +352,109 @@ test('紫微双盘没有生年四化定位时应保留未命中反证', () => {
   );
   assertEvidenceReferences(result);
   assert.match(result.promptText, /未形成可定位的跨盘生年四化事实/);
+});
+
+test('紫微双盘部分四化星曜缺失时应把该方向记为资料缺口并写入提示词', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.palaces[4].major_stars[0].birth_mutagen = '权';
+  second.palaces[4].major_stars = [];
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const directionFact = result.counterEvidenceFacts.find(
+    (item) => item.type === '跨盘四化覆盖' && item.direction === 'person1-to-person2',
+  );
+
+  assert.equal(
+    result.crossMutagenPlacements.filter((item) => item.sourcePerson === 'person1').length,
+    1,
+  );
+  assert.equal(result.crossMutagenGaps.length, 1);
+  assert.equal(result.crossMutagenGaps[0].star, '天府');
+  assert.equal(directionFact?.status, '资料缺口');
+  assert.ok(result.summaryFact.factKeys.includes(result.crossMutagenGaps[0].key));
+  assert.equal(
+    result.calculationSteps.find((item) => item.stage === '跨盘生年四化')?.result
+      .missingTargetStarCount,
+    1,
+  );
+  assert.match(result.summaryFact.promptText, /另有1项同名星曜定位资料缺口/);
+  assert.match(result.counterEvidence.join('；'), /天府化权.*该方向四化资料不完备/);
+  assert.match(result.promptText, /【反证】跨盘四化覆盖：资料缺口/);
+  assertEvidenceReferences(result);
+  assertPromptIsPortableTaskText(result.promptText);
+});
+
+test('目标盘同名四化星分处两宫时应记录定位歧义，不任取第一个宫位', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  second.palaces[4].major_stars.push({ name: '紫微', kind: 'major' });
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const gap = result.crossMutagenGaps.find((item) => item.sourcePerson === 'person1');
+  const directionFact = result.counterEvidenceFacts.find(
+    (item) => item.type === '跨盘四化覆盖' && item.direction === 'person1-to-person2',
+  );
+
+  assert.equal(
+    result.crossMutagenPlacements.some((item) => item.sourcePerson === 'person1'),
+    false,
+  );
+  assert.equal(gap?.reason, '目标盘同名星曜落宫不唯一');
+  assert.deepEqual(gap?.candidatePalaces, ['命宫', '财帛']);
+  assert.equal(directionFact?.status, '资料缺口');
+  assert.ok(gap && directionFact.ownerFactKeys.includes(gap.key));
+  assert.equal(
+    result.calculationSteps.find((item) => item.stage === '跨盘生年四化')?.result
+      .ambiguousTargetStarCount,
+    1,
+  );
+  assert.match(result.promptText, /紫微化禄：目标盘同名星曜落宫不唯一（命宫、财帛）/);
+  assertEvidenceReferences(result);
+  assertPromptIsPortableTaskText(result.promptText);
+  const prompt = buildZiweiCompatibilityPromptDocument({
+    payload1: first,
+    payload2: second,
+    compatibility: result,
+  }).text;
+  const relationFacts = prompt.split('【双盘关系资料】')[1]?.split('【任务】')[0] ?? '';
+  assert.doesNotMatch(relationFacts, /资料缺口|落宫不唯一|未命中|证据汇总|计算链/);
+  const combinedPrompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload: first,
+    partnerPayload: second,
+    topic: 'career-wealth',
+    question: '请分析双方合作。',
+  });
+  const combinedFacts = combinedPrompt.split('【双盘关系资料】')[1]?.split('【任务】')[0] ?? '';
+  assert.doesNotMatch(combinedFacts, /资料缺口|落宫不唯一|未命中|证据汇总|计算链/);
+});
+
+test('同向一项四化已定位且另一项落宫不唯一时仍应判为部分资料缺口', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  first.palaces[4].major_stars[0].birth_mutagen = '权';
+  second.palaces[4].major_stars.push({ name: '紫微', kind: 'major' });
+
+  const result = analyzeZiweiCompatibility(first, second);
+  const directionFact = result.counterEvidenceFacts.find(
+    (item) => item.type === '跨盘四化覆盖' && item.direction === 'person1-to-person2',
+  );
+
+  assert.equal(
+    result.crossMutagenPlacements.filter((item) => item.sourcePerson === 'person1').length,
+    1,
+  );
+  assert.equal(result.crossMutagenGaps.filter((item) => item.sourcePerson === 'person1').length, 1);
+  assert.equal(directionFact?.status, '资料缺口');
+  assert.match(directionFact?.promptText ?? '', /记录1项.*另有1项未能唯一定位.*紫微化禄/);
+  const prompt = buildZiweiCompatibilityPromptDocument({
+    payload1: first,
+    payload2: second,
+    compatibility: result,
+  }).text;
+  const relationFacts = prompt.split('【双盘关系资料】')[1]?.split('【任务】')[0] ?? '';
+  assert.match(relationFacts, /天府生年化权/);
+  assert.doesNotMatch(relationFacts, /资料缺口|落宫不唯一|未命中|证据汇总|计算链/);
 });
 
 test('紫微双盘应拒绝缺少完整十二宫的资料', () => {

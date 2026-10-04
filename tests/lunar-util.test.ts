@@ -1,12 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LunarUtil, TimeManager } from '@core/calendar';
+import {
+  LunarUtil,
+  TimeManager,
+  calculateSolarTermEvidence,
+  resolveBirthCalendarClockTime,
+} from '@core/calendar';
 
 const GANZHI_FIXTURES = [
   [2024, 2, 4, 16, 20, { year: '癸卯', month: '乙丑', day: '戊戌', hour: '庚申' }],
   [2024, 2, 4, 16, 30, { year: '甲辰', month: '丙寅', day: '戊戌', hour: '庚申' }],
   [1998, 8, 13, 23, 30, { year: '戊寅', month: '庚申', day: '癸巳', hour: '壬子' }],
 ] as const;
+
+function chinaDate(year: number, month: number, day: number, hour: number, minute = 0): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour - 8, minute));
+}
 
 test('农历工具应拒绝无效时间对象', () => {
   const invalidDate = new Date(Number.NaN);
@@ -33,7 +42,7 @@ test('农历工具应拒绝越界年月参数', () => {
 
 test('农历工具干支应符合交节与晚子时固定真值', () => {
   GANZHI_FIXTURES.forEach(([year, month, day, hour, minute, expected]) => {
-    const date = new Date(year, month - 1, day, hour, minute, 0);
+    const date = chinaDate(year, month, day, hour, minute);
 
     assert.deepEqual(LunarUtil.getGanZhi(date), expected);
     assert.deepEqual(LunarUtil.getTimeInfo(date).ganzhi, expected);
@@ -50,17 +59,131 @@ test('农历工具干支应符合交节与晚子时固定真值', () => {
   });
 });
 
+test('全局时区改变时节气与年月柱仍按同一交节瞬时点切换', () => {
+  const boundary = calculateSolarTermEvidence(2024, 3).utcTimestamp;
+  const cases = [
+    { timestamp: boundary - 1000, term: '大寒', year: '癸卯', month: '乙丑' },
+    { timestamp: boundary, term: '立春', year: '甲辰', month: '丙寅' },
+  ];
+
+  try {
+    for (const offsetMinutes of [-300, 0, 840]) {
+      TimeManager.setTimezoneOffsetMinutesOverride(offsetMinutes);
+      for (const { timestamp, term, year, month } of cases) {
+        const date = new Date(timestamp);
+        const managed = TimeManager.getDivinationTime(date);
+        const info = LunarUtil.getTimeInfo(date);
+        assert.equal(managed.timeInfo.jieQi, term);
+        assert.equal(managed.ganzhi.year, year);
+        assert.equal(managed.ganzhi.month, month);
+        assert.deepEqual(info, managed.timeInfo);
+        assert.deepEqual(LunarUtil.getGanZhi(date), managed.ganzhi);
+        assert.deepEqual(LunarUtil.getLunar(date), managed.timeInfo.lunar);
+      }
+    }
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
+});
+
 test('农历工具显示文本不应保留 tyme4ts toString 的农历前缀，并应保留闰月', () => {
-  const springFestival = LunarUtil.getLunar(new Date(2024, 1, 10, 12, 0, 0));
+  const springFestival = LunarUtil.getLunar(chinaDate(2024, 2, 10, 12));
   assert.equal(springFestival.yearInChinese, '甲辰年');
   assert.equal(springFestival.monthInChinese, '正月');
   assert.equal(springFestival.dayInChinese, '初一');
 
-  const leapMonth = LunarUtil.getLunar(new Date(2023, 2, 22, 12, 0, 0));
+  const leapMonth = LunarUtil.getLunar(chinaDate(2023, 3, 22, 12));
   assert.equal(leapMonth.yearInChinese, '癸卯年');
   assert.equal(leapMonth.monthInChinese, '闰二月');
   assert.equal(leapMonth.dayInChinese, '初一');
   assert.equal(leapMonth.monthNumber, 2);
+});
+
+test('农历数值年月日与闰月标志应能还原公历日期', () => {
+  const cases = [
+    {
+      year: 2023,
+      month: 2,
+      day: 20,
+      lunarYear: 2023,
+      lunarMonth: 2,
+      lunarDay: 1,
+      isLeapMonth: false,
+    },
+    {
+      year: 2023,
+      month: 3,
+      day: 22,
+      lunarYear: 2023,
+      lunarMonth: 2,
+      lunarDay: 1,
+      isLeapMonth: true,
+    },
+    // 2033 年闰十一月在冬至后，检验跨公历年的月序。
+    {
+      year: 2033,
+      month: 12,
+      day: 22,
+      lunarYear: 2033,
+      lunarMonth: 11,
+      lunarDay: 1,
+      isLeapMonth: true,
+    },
+    {
+      year: 2034,
+      month: 1,
+      day: 20,
+      lunarYear: 2033,
+      lunarMonth: 12,
+      lunarDay: 1,
+      isLeapMonth: false,
+    },
+    // 立春已过、春节未到，干支年与农历纪年不同。
+    {
+      year: 2024,
+      month: 2,
+      day: 9,
+      lunarYear: 2023,
+      lunarMonth: 12,
+      lunarDay: 30,
+      isLeapMonth: false,
+    },
+  ] as const;
+
+  for (const example of cases) {
+    const date = chinaDate(example.year, example.month, example.day, 12);
+    const lunar = LunarUtil.getLunar(date);
+    const fromTimeInfo = LunarUtil.getTimeInfo(date).lunar;
+    const fromTimeManager = TimeManager.getDivinationTime(
+      new Date(Date.UTC(example.year, example.month - 1, example.day, 4)),
+    ).timeInfo.lunar;
+
+    for (const result of [lunar, fromTimeInfo, fromTimeManager]) {
+      assert.equal(result.yearNumber, example.lunarYear);
+      assert.equal(result.monthNumber, example.lunarMonth);
+      assert.equal(result.dayNumber, example.lunarDay);
+      assert.equal(result.isLeapMonth, example.isLeapMonth);
+      assert.deepEqual(
+        resolveBirthCalendarClockTime({
+          dateType: 'lunar',
+          year: result.yearNumber,
+          month: result.monthNumber,
+          day: result.dayNumber,
+          isLeapMonth: result.isLeapMonth,
+          hour: 12,
+          minute: 0,
+        }),
+        {
+          year: example.year,
+          month: example.month,
+          day: example.day,
+          hour: 12,
+          minute: 0,
+          second: 0,
+        },
+      );
+    }
+  }
 });
 
 test('农历工具公历年每月代表干支应统一取 EightChar 月柱', () => {

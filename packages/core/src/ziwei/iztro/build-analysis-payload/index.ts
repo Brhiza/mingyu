@@ -73,7 +73,7 @@ export function buildAnalysisPayloadV1(params: {
   return {
     payload_version: 'analysis_payload_v1',
     language: 'zh-CN',
-    calculation_config: calculationConfig ?? DEFAULT_ZIWEI_CALCULATION_CONFIG,
+    calculation_config: { ...(calculationConfig ?? DEFAULT_ZIWEI_CALCULATION_CONFIG) },
     basic_info,
     active_scope,
     palaces,

@@ -1,11 +1,8 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  baziCalculator,
-  buildCurrentBaziFortuneSelectionForScope,
-  buildFortuneSelectionContext,
-} from 'mingyu-core/bazi';
+import { baziCalculator, buildFortuneSelectionContext } from 'mingyu-core/bazi';
+import { selectBaziFortuneForZiweiScope } from '../../../src/lib/public-api/fortune-selection.js';
 import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_PROMPT_TOPICS,
@@ -55,19 +52,19 @@ const baziZiweiPromptSchema = z.object({
   timeIndex: z
     .number()
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；精确标准北京时间传时分秒时可省略'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；提供完整时分时从钟表推导，可省略本字段'),
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时或精确标准北京时间时必填'),
-  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时或精确标准北京时间时必填'),
+  birthHour: z.number().optional().describe('精准出生小时；与 birthMinute 成对提供'),
+  birthMinute: z.number().optional().describe('精准出生分钟；与 birthHour 成对提供'),
   birthSecond: z
     .number()
     .int()
     .min(0)
     .max(59)
     .optional()
-    .describe('八字精确标准北京时间秒数（0-59）；紫微安星仍按时辰索引'),
+    .describe('出生秒数（0-59）；提供时分后可省略，省略按 00 秒计算'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
@@ -197,11 +194,10 @@ function mapZiweiScopeToBaziFortuneScope(scope: ZiweiPromptScope) {
   return mapped[scope as keyof typeof mapped];
 }
 
-function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
-  const standardTimeIndex =
-    !args.useTrueSolarTime && args.birthSecond !== undefined
-      ? buildBaziPerson(args).timeIndex
-      : args.timeIndex;
+function buildCombinedZiweiInput(
+  args: z.infer<typeof baziZiweiPromptSchema>,
+  baziPerson: ReturnType<typeof buildBaziPerson>,
+) {
   return buildMcpZiweiChartInput({
     name: args.name,
     gender: args.gender,
@@ -209,7 +205,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     year: String(args.year),
     month: String(args.month),
     day: String(args.day),
-    timeIndex: standardTimeIndex,
+    timeIndex: baziPerson.timeIndex,
     promptScope:
       args.scope === undefined
         ? args.promptScope
@@ -218,9 +214,9 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     scopeHourIndex: args.scopeHourIndex,
     isLeapMonth: args.isLeapMonth,
     useTrueSolarTime: args.useTrueSolarTime,
-    birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
-    birthMinute: args.birthMinute === undefined ? undefined : String(args.birthMinute),
-    birthSecond: args.birthSecond === undefined ? undefined : String(args.birthSecond),
+    birthHour: baziPerson.birthHour === undefined ? undefined : String(baziPerson.birthHour),
+    birthMinute: baziPerson.birthMinute === undefined ? undefined : String(baziPerson.birthMinute),
+    birthSecond: baziPerson.birthSecond === undefined ? undefined : String(baziPerson.birthSecond),
     birthLongitude: args.birthLongitude === undefined ? undefined : String(args.birthLongitude),
     timezone: args.timezone,
     timeZoneId: args.timeZoneId,
@@ -234,7 +230,7 @@ export function registerBaziZiweiTool(server: McpServer) {
     'bazi_ziwei_prompt',
     {
       description:
-        '八字紫微合参：同一份出生信息同时计算八字和紫微斗数，生成可直接解读的完整任务书并返回两套结构化盘面',
+        '八字紫微合参：同一份出生信息按统一时辰计算八字和紫微斗数；提供完整出生时分时按钟表推导，秒数省略按 00 秒，返回两套结构化盘面与完整解读任务书',
       inputSchema: baziZiweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -265,7 +261,7 @@ export function registerBaziZiweiTool(server: McpServer) {
           fortuneBatch: args.fortuneBatch,
           supported: true,
         });
-        const ziweiInput = buildCombinedZiweiInput(args);
+        const ziweiInput = buildCombinedZiweiInput(args, baziPerson);
         const currentContext = getDefaultHoroscopeContext();
         const horoscopeContext = {
           dateStr: args.scopeDate ?? currentContext.dateStr,
@@ -350,7 +346,7 @@ export function registerBaziZiweiTool(server: McpServer) {
         const baziFortuneScope = mapZiweiScopeToBaziFortuneScope(scope);
         const baziFortuneSelection =
           baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
-            ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+            ? selectBaziFortuneForZiweiScope(baziResult, baziFortuneScope, args.scopeDate)
             : null;
         const baziFortuneSelectionContext = baziFortuneSelection
           ? buildFortuneSelectionContext(baziResult, baziFortuneSelection)

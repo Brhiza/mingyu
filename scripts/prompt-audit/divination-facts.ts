@@ -7,7 +7,13 @@
  */
 import type { PromptFactExpectation } from './facts';
 import { resolveSsgwStoryContent } from '../../packages/core/src/divination/ssgw-content';
-import type { SsgwData } from '../../packages/core/src/types/divination';
+import { conditionLenormandTraditionalText } from '../../packages/core/src/divination/lenormand-evidence';
+import { formatLifetimePatternSummary } from '../../packages/core/src/divination/algorithms/qimen/helpers/lifetime-prompt';
+import { BRANCH_WUXING, STEM_WUXING, isKe, isSheng } from '../../packages/core/src/ganzhi';
+import type {
+  LenormandCombinationRelation,
+  SsgwData,
+} from '../../packages/core/src/types/divination';
 
 export type DivinationPromptFact = PromptFactExpectation;
 export type DivinationFactExtractor = (data: unknown) => DivinationPromptFact[];
@@ -100,6 +106,48 @@ function yaoBrief(item: AnyRecord): string | undefined {
   return `第${position}爻${relative}${branch}${element}`;
 }
 
+function yaoChangeFacts(item: AnyRecord): string[] {
+  const changed = record(item.changedYao);
+  const brief = yaoBrief(item);
+  if (!brief || !changed) return brief ? [brief] : [];
+
+  const changedRelative = text(changed.liuqin);
+  const changedBranch = text(changed.dizhi);
+  const changedElement = text(changed.wuxing);
+  const originalElement = text(item.wuxing);
+  const originalBranch = firstText(item.najiaDizhi, item.branch, item.dizhi);
+  const result = [brief, '动'];
+
+  if (changedRelative && changedBranch && changedElement) {
+    const suffix =
+      changed.isVoid === true
+        ? '（变空）'
+        : texts(item.changeRelations).length
+          ? `（${unique(texts(item.changeRelations)).join('、')}）`
+          : text(item.changeDirection)
+            ? `（${text(item.changeDirection)}）`
+            : '';
+    result.push(`化${changedRelative}${changedBranch}${changedElement}${suffix}`);
+
+    if (originalBranch && originalElement) {
+      const original = `本爻${originalBranch}${originalElement}`;
+      const converted = `变爻${changedBranch}${changedElement}`;
+      const relation = isSheng(changedElement, originalElement)
+        ? `${converted}生${original}`
+        : isKe(changedElement, originalElement)
+          ? `${converted}克${original}`
+          : isSheng(originalElement, changedElement)
+            ? `${original}生${converted}，${converted}泄${original}`
+            : isKe(originalElement, changedElement)
+              ? `${original}克${converted}`
+              : `${original}与${converted}同五行`;
+      result.push(`动变五行：${relation}`);
+    }
+  }
+
+  return result;
+}
+
 function extractLiuyaoFacts(data: unknown): DivinationPromptFact[] {
   const d = record(data);
   if (!d) return [];
@@ -111,7 +159,7 @@ function extractLiuyaoFacts(data: unknown): DivinationPromptFact[] {
   const facts = collect([
     fact('liuyao.core', '核心结构：', [
       text(d.originalName) ? `主卦${text(d.originalName)}` : undefined,
-      `变卦${text(d.changedName) || '无'}`,
+      `变卦${records(d.changingYaos).length ? text(d.changedName) || '未列' : '无'}`,
       `互卦${text(d.interName) || '无'}`,
     ]),
     fact('liuyao.palace-stage', '八宫卦位：', [d.palaceStage]),
@@ -121,16 +169,15 @@ function extractLiuyaoFacts(data: unknown): DivinationPromptFact[] {
           response ? `应爻${yaoBrief(response)}` : '应爻未列',
         ])
       : null,
-    fact(
-      'liuyao.changing',
-      '动变：',
-      changing.length
-        ? changing.map(yaoBrief).filter((item): item is string => Boolean(item))
-        : ['无'],
-    ),
+    changing.length
+      ? fact('liuyao.changing', '六爻全表：', changing.flatMap(yaoChangeFacts), {
+          scope: { start: '六爻全表：', end: '\n旬空' },
+          unit: 'block',
+        })
+      : null,
     ...yaos.map((item, index) =>
       fact(`liuyao.yao.${index}`, yaoBrief(item) ?? '', [`六神${text(item.sixGod)}`], {
-        scope: { start: '六爻全表：', end: '月日触发：' },
+        scope: { start: '六爻全表：', end: '\n旬空' },
       }),
     ),
     fact('liuyao.void', '旬空', [voidBranches.length ? voidBranches.join('、') : '未列']),
@@ -146,6 +193,16 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
   const changedTi = record(d.changedTiGua);
   const changedYong = record(d.changedYongGua);
   const analysis = record(d.analysis);
+  const interName = text(d.interName) || text(record(d.interHexagram)?.name) || '无';
+  const interTi = record(d.interTiGua);
+  const interYong = record(d.interYongGua);
+  const processStage = records(record(d.evidenceAnalysis)?.stages).find(
+    (stage) => stage.stage === 'process' && stage.status === '已计算',
+  );
+  const changedName = text(d.changedName) || text(record(d.changedHexagram)?.name) || '无';
+  const hasResultStage = records(record(d.evidenceAnalysis)?.stages).some(
+    (stage) => stage.stage === 'result' && stage.status === '已计算',
+  );
   const facts = collect([
     fact('meihua.core', '核心结构：', [
       `主卦${text(d.originalName)}`,
@@ -158,15 +215,23 @@ function extractMeihuaFacts(data: unknown): DivinationPromptFact[] {
       d.movingYao && isRecord(d.movingYao) ? `动爻第${text(d.movingYao.position)}爻` : undefined,
       analysis ? `体用关系${text(analysis.tiYongRelation)}` : undefined,
     ]),
-    fact('meihua.inter', '互卦：', [
-      ` ${text(d.interName) || text(record(d.interHexagram)?.name) || '无'}`,
-      record(d.interTiGua) ? `体互${text(record(d.interTiGua)?.name)}` : undefined,
-      record(d.interYongGua) ? `用互${text(record(d.interYongGua)?.name)}` : undefined,
+    fact('meihua.inter', `互卦${interName}：`, [
+      interTi ? `体卦${text(interTi.name)}${text(interTi.element)}` : undefined,
+      interYong ? `用卦${text(interYong.name)}${text(interYong.element)}` : undefined,
+      processStage ? `关系${text(processStage.relation)}` : undefined,
     ]),
-    fact('meihua.changed', '变卦：', [
-      ` ${text(d.changedName) || text(record(d.changedHexagram)?.name) || '无'}`,
-      changedTi ? `变后体卦${text(changedTi.name)}` : undefined,
-      changedYong ? `变后用卦${text(changedYong.name)}` : undefined,
+    analysis && (text(analysis.inter1Relation) || text(analysis.inter2Relation))
+      ? fact('meihua.inter-original-relations', '互卦：', [
+          interName,
+          analysis.inter1Relation,
+          analysis.inter2Relation,
+        ])
+      : null,
+    fact('meihua.changed', hasResultStage ? `变卦${changedName}：` : '变卦：', [
+      changedName,
+      changedTi ? `${hasResultStage ? '' : '变后'}体卦${text(changedTi.name)}` : undefined,
+      changedYong ? `${hasResultStage ? '' : '变后'}用卦${text(changedYong.name)}` : undefined,
+      hasResultStage && analysis ? `关系${text(analysis.changedTiYongRelation)}` : undefined,
     ]),
   ]);
   return facts;
@@ -195,7 +260,7 @@ function qimenPalaceFacts(data: AnyRecord): DivinationPromptFact[] {
             : undefined,
           di && text(di.stem) ? `地盘${text(di.stem)}` : undefined,
         ],
-        { scope: { start: '九宫简表：', end: '同干定位：' } },
+        { scope: { start: '九宫简表：' } },
       );
     }),
   );
@@ -300,20 +365,34 @@ function lifetimePalaceFacts(
   );
 }
 
+function lifetimeDailyRelationCount(cluster: AnyRecord): number {
+  const count = records(cluster.triggerDates).length;
+  return text(cluster.key)?.includes(':day:') ? count : 0;
+}
+
 function lifetimeEventHeader(cluster: AnyRecord): string | undefined {
   const timeSpan = text(cluster.timeSpan);
   const triggerFact = text(cluster.triggerFact);
   if (!timeSpan || !triggerFact) return undefined;
+  const dailyCount = lifetimeDailyRelationCount(cluster);
   const stageIndices = Array.isArray(cluster.stageIndices)
     ? cluster.stageIndices.map(text).filter((item): item is string => Boolean(item))
     : [];
   const stageIndex = text(cluster.stageIndex);
-  const scopeText = stageIndices.length
-    ? `（涉及阶段${stageIndices.map((item) => String(Number(item) + 1)).join('、')}）`
-    : stageIndex === undefined
-      ? '（阶段表范围外）'
-      : '';
-  return `${timeSpan}${scopeText} ${triggerFact}`;
+  const scopeText =
+    stageIndices.length && (stageIndices.length > 1 || stageIndex === undefined)
+      ? `（涉及阶段${stageIndices.map((item) => String(Number(item) + 1)).join('、')}）`
+      : stageIndex === undefined
+        ? '（阶段表范围外）'
+        : '';
+  if (text(cluster.key)?.includes(':month-clash:')) return `${triggerFact}${scopeText}`;
+  const annualLabel = /^(\d{4}年（[^）]+)）/u.exec(timeSpan)?.[1];
+  const annualPrefix = annualLabel ? `${annualLabel}太岁）` : undefined;
+  const promptFact =
+    annualPrefix && triggerFact.startsWith(annualPrefix)
+      ? `太岁${triggerFact.slice(annualPrefix.length)}`
+      : triggerFact;
+  return `${timeSpan}${scopeText} ${dailyCount ? `共${dailyCount}个日辰` : promptFact}`;
 }
 
 function formatLifetimeTriggerDate(item: AnyRecord): string | undefined {
@@ -323,7 +402,32 @@ function formatLifetimeTriggerDate(item: AnyRecord): string | undefined {
   return detail ? `${dateTime}（${detail}）` : dateTime;
 }
 
-function formatLifetimeTriggerLines(items: AnyRecord[]): string[] {
+function formatLifetimeTriggerLines(items: AnyRecord[], compactDaily = false): string[] {
+  if (
+    compactDaily &&
+    items.length > 0 &&
+    items.every(
+      (item) =>
+        !text(item.dateTime) &&
+        text(item.ganzhi) &&
+        text(item.relation) &&
+        /^\d{4}-\d{2}-\d{2}$/u.test(text(item.date) || ''),
+    )
+  ) {
+    const relations = unique(items.map((item) => text(item.relation)).filter(Boolean));
+    if (relations.length === 1) {
+      const datesByGanzhi = new Map<string, string[]>();
+      for (const item of items) {
+        const ganzhi = text(item.ganzhi)!;
+        const dates = datesByGanzhi.get(ganzhi) ?? [];
+        dates.push(text(item.date)!);
+        datesByGanzhi.set(ganzhi, dates);
+      }
+      const entries = [...datesByGanzhi].map(([ganzhi, dates]) => `${ganzhi}：${dates.join('、')}`);
+      return [`可复核日期：${entries.join('；')}；日干支关系：${relations[0]}`];
+    }
+  }
+
   type DateGroup = { month: string; relation: string; entries: string[] };
   type Output = { kind: 'group'; group: DateGroup } | { kind: 'single'; text: string };
   const outputs: Output[] = [];
@@ -372,6 +476,18 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
   const markerScope = { start: '核心个人标记：', end: '人生重点主题候选宫：' };
   const candidateScope = { start: '人生重点主题候选宫：', end: '【人生阶段资料】' };
   const eventSectionScope = { start: '【周期触发与事件簇】', end: '【任务】' };
+  const classicPatterns = records(baseChart.classicPatterns);
+  const basePatternFacts = new Map<string, string>();
+  for (const pattern of classicPatterns) {
+    const name = text(pattern.name);
+    const summary = text(pattern.summary);
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (name && summary && label) {
+      basePatternFacts.set(`${label}「${name}」：${summary}`, `${label}「${name}」`);
+    }
+  }
+  const formatStageFacts = (value: unknown) =>
+    unique(texts(value).map((item) => basePatternFacts.get(item) ?? item)).join('；');
   const facts = collect([
     fact('qimen-lifetime.birth-date', '出生时刻：', [input.birthDateTime], { scope: basisScope }),
     fact('qimen-lifetime.birth-timezone', '出生时区：', [basis.timeZoneUsed], {
@@ -476,6 +592,26 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
       ...lifetimePalaceFacts(baseChart, baseScope),
     ]),
   );
+  facts.push(
+    ...collect(
+      classicPatterns.map((pattern, index) => {
+        const name = text(pattern.name);
+        const summary = text(pattern.summary);
+        const tone = pattern.type === 'good' ? '吉' : pattern.type === 'bad' ? '凶' : '中性';
+        return name && summary
+          ? fact(
+              `qimen-lifetime.base-pattern.${index}`,
+              `${name}（${tone}）：`,
+              [formatLifetimePatternSummary(name, summary)],
+              {
+                scope: baseScope,
+                unit: 'line',
+              },
+            )
+          : null;
+      }),
+    ),
+  );
 
   facts.push(
     ...collect(
@@ -569,16 +705,16 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
           texts(stage.supportFacts).length
             ? fact(
                 `qimen-lifetime.stage.${index}.support`,
-                '支持吉象：',
-                [join(stage.supportFacts, '；')],
+                '宫位支持类象：',
+                [formatStageFacts(stage.supportFacts)],
                 { scope, unit: 'line' },
               )
             : null,
           texts(stage.constraintFacts).length
             ? fact(
                 `qimen-lifetime.stage.${index}.constraint`,
-                '考验反证：',
-                [join(stage.constraintFacts, '；')],
+                '宫位制约类象：',
+                [formatStageFacts(stage.constraintFacts)],
                 { scope, unit: 'line' },
               )
             : null,
@@ -589,11 +725,45 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
   );
 
   const eventHeaders = events.map(lifetimeEventHeader);
+  const dailyVoidFillEvents = events.filter(
+    (event) => text(event.key)?.includes(':day:void-fill:') && records(event.triggerDates).length,
+  );
+  if (dailyVoidFillEvents.length) {
+    const branches = texts(baseChart.voidBranches);
+    const dates = unique(
+      dailyVoidFillEvents.flatMap((event) =>
+        records(event.triggerDates)
+          .map((item) => text(item.date))
+          .filter((date): date is string => Boolean(date)),
+      ),
+    ).sort();
+    const range = record(input.periodRange);
+    if (branches.length && dates.length) {
+      facts.push(
+        ...collect([
+          fact(
+            'qimen-lifetime.event.void-fill-rule',
+            '日级空亡填实条件：',
+            [
+              `日支逢本命旬空地支${branches.join('、')}`,
+              `核验范围${text(range?.startDate) ?? dates[0]}至${text(range?.endDate) ?? dates.at(-1)}`,
+            ],
+            { scope: eventSectionScope, unit: 'line' },
+          ),
+        ]),
+      );
+    }
+  }
   facts.push(
     ...collect(
       events.flatMap((event, index) => {
         const header = eventHeaders[index];
         if (!header) return [];
+        const dailyCount = lifetimeDailyRelationCount(event);
+        const isMonthClash = text(event.key)?.includes(':month-clash:');
+        const isAnnual = /^cluster:\d{4}:[^:]+:(?:(?:before|after)-lichun:)?\d+$/u.test(
+          text(event.key) ?? '',
+        );
         const nextHeader = eventHeaders[index + 1];
         const scope = {
           start: header,
@@ -605,12 +775,19 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
               .filter(Number.isFinite)
               .join('、')
           : '';
-        const stageFact = stageIndices ? `涉及阶段${stageIndices}` : undefined;
-        const triggerDateLines = formatLifetimeTriggerLines(records(event.triggerDates));
+        const stageFact =
+          stageIndices && (stageIndices.includes('、') || event.stageIndex === undefined)
+            ? `涉及阶段${stageIndices}`
+            : undefined;
+        const triggerDates = records(event.triggerDates);
+        const triggerDateLines =
+          isMonthClash || text(event.key)?.includes(':day:void-fill:')
+            ? []
+            : formatLifetimeTriggerLines(triggerDates, dailyCount > 0);
         return [
           fact(
             `qimen-lifetime.event.${index}.header`,
-            text(event.triggerFact) || '',
+            header,
             [text(event.rhythm) ? `节奏：${text(event.rhythm)}` : undefined, stageFact],
             { scope: eventSectionScope, unit: 'line' },
           ),
@@ -622,13 +799,25 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
               { scope, unit: 'line' },
             ),
           ),
-          fact(
-            `qimen-lifetime.event.${index}.interaction`,
-            '动态交互：',
-            [event.interactionAnalysis],
-            { scope, unit: 'line' },
-          ),
-          texts(event.supportEvidence).length
+          ...(isMonthClash
+            ? triggerDates.map((date, dateIndex) =>
+                fact(
+                  `qimen-lifetime.event.${index}.date.${dateIndex}`,
+                  header,
+                  [firstText(date.dateTime, date.date)],
+                  { scope: eventSectionScope, unit: 'line' },
+                ),
+              )
+            : []),
+          dailyCount || isMonthClash || isAnnual
+            ? null
+            : fact(
+                `qimen-lifetime.event.${index}.interaction`,
+                '动态交互：',
+                [event.interactionAnalysis],
+                { scope, unit: 'line' },
+              ),
+          !dailyCount && !isMonthClash && texts(event.supportEvidence).length
             ? fact(
                 `qimen-lifetime.event.${index}.support`,
                 '增益因素：',
@@ -644,6 +833,8 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
                 { scope, unit: 'line' },
               )
             : null,
+          !dailyCount &&
+          !text(event.key)?.includes(':month-clash:') &&
           texts(event.verificationQuestions).length
             ? fact(
                 `qimen-lifetime.event.${index}.verification`,
@@ -657,6 +848,30 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
     ),
   );
   return facts;
+}
+
+function liurenRoleRelation(
+  source: string,
+  target: string,
+  sourceRole: string,
+  targetRole: string,
+) {
+  const sourceElement = STEM_WUXING[source] || BRANCH_WUXING[source];
+  const targetElement = STEM_WUXING[target] || BRANCH_WUXING[target];
+  if (!sourceElement || !targetElement) return undefined;
+  const from = sourceRole + source + sourceElement;
+  const to = targetRole + target + targetElement;
+  if (sourceElement === targetElement)
+    return { summary: '比和', detail: from + '与' + to + '比和' };
+  if (isSheng(sourceElement, targetElement))
+    return { summary: sourceElement + '生' + targetElement, detail: from + '生' + to };
+  if (isSheng(targetElement, sourceElement))
+    return { summary: targetElement + '生' + sourceElement, detail: to + '生' + from };
+  if (isKe(sourceElement, targetElement))
+    return { summary: sourceElement + '克' + targetElement, detail: from + '克' + to };
+  if (isKe(targetElement, sourceElement))
+    return { summary: targetElement + '克' + sourceElement, detail: to + '克' + from };
+  return undefined;
 }
 
 function extractLiurenFacts(data: unknown): DivinationPromptFact[] {
@@ -678,10 +893,11 @@ function extractLiurenFacts(data: unknown): DivinationPromptFact[] {
       const lower = text(item.lower);
       const god = text(item.god);
       if (!name || !upper || !lower || !god) return null;
+      const relation = liurenRoleRelation(upper, lower, '上神', '下位');
       return fact(
         `liuren.four-lesson.${index}`,
-        `${name}${upper}临${lower}乘${god}，`,
-        [item.relation],
+        `${name}${upper}临${lower}乘${god}`,
+        [relation?.detail, item.relation === relation?.summary ? undefined : item.relation],
         { unit: 'line', scope: { start: '四课：', end: '三传：' } },
       );
     }),
@@ -690,10 +906,17 @@ function extractLiurenFacts(data: unknown): DivinationPromptFact[] {
       const branch = text(item.branch);
       const god = text(item.god);
       if (!stage || !branch || !god) return null;
+      const previous =
+        index === 0 ? text(lessons[0]?.lower) : text(transmissions[index - 1]?.branch);
+      const previousRole = index === 0 ? '一课下位' : text(transmissions[index - 1]?.stage);
+      const relation =
+        previous && previousRole
+          ? liurenRoleRelation(branch, previous, stage, previousRole)
+          : undefined;
       return fact(
         `liuren.three-transmission.${index}`,
-        `${stage}${branch}乘${god}，`,
-        [item.relation],
+        `${stage}${branch}乘${god}`,
+        [relation?.detail, item.relation === relation?.summary ? undefined : item.relation],
         { unit: 'line', scope: { start: '三传：' } },
       );
     }),
@@ -709,32 +932,57 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
   const day = record(sequence?.day);
   const hour = record(sequence?.hour);
   const primary = record(d.primary);
+  const monthIndex = typeof month?.index === 'number' ? month.index : null;
+  const firstDayIndex =
+    monthIndex === null ? null : (monthIndex + (text(d.rule) === 'duoneng' ? 1 : 0)) % 6;
+  const firstDayPalace = records(d.palaceOrder).find((palace) => palace.index === firstDayIndex);
   const leapLabel = d.isLeapMonth === true ? '闰' : '';
+  const locationFact =
+    day && firstDayPalace
+      ? fact(
+          'xiaoliuren.location',
+          '定日宫：',
+          [
+            `从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一（${text(firstDayPalace.name) || ''}）`,
+            `定时宫：从日宫${text(day.name) || ''}起子时`,
+          ],
+          { scope: { start: '起课过程：', end: '时点范围：' } },
+        )
+      : null;
   return collect([
     fact('xiaoliuren.start', '起课：', [
       `农历${leapLabel}${text(d.lunarMonth) || ''}月${text(d.lunarDay) || ''}日`,
       text(d.hourLabel),
     ]),
     fact(
-      'xiaoliuren.process',
-      '起课过程：',
+      'xiaoliuren.month',
+      '定月宫：',
       [
         month
-          ? `定月宫：${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
-          : undefined,
-        day
-          ? `定日宫：从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一，顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
-          : undefined,
-        hour
-          ? `定时宫：从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}，落${text(hour.name) || ''}`
+          ? `${leapLabel}${text(d.lunarMonth) || ''}月从大安顺数，落${text(month.name) || ''}`
           : undefined,
       ],
-      { unit: 'block', scope: { start: '起课过程：', end: '定位用途' } },
+      { scope: { start: '起课过程：', end: '时点范围：' } },
     ),
-    fact('xiaoliuren.location', '定位用途：', [
-      month ? `月宫${text(month.name)}` : undefined,
-      day ? `日宫${text(day.name)}` : undefined,
-      hour ? `时宫${text(hour.name)}` : undefined,
+    fact(
+      'xiaoliuren.first-day',
+      '定日宫：',
+      [
+        day && firstDayPalace
+          ? `从月宫${text(month?.name) || ''}${text(d.rule) === 'duoneng' ? '下一宫' : ''}起初一（${text(firstDayPalace.name) || ''}），顺数至${text(d.lunarDay) || ''}日，落${text(day.name) || ''}`
+          : undefined,
+      ],
+      { scope: { start: '起课过程：', end: '时点范围：' } },
+    ),
+    fact(
+      'xiaoliuren.hour',
+      '定时宫：',
+      [hour ? `从日宫${text(day?.name) || ''}起子时，顺数至${text(d.hourLabel) || ''}` : undefined],
+      { scope: { start: '起课过程：', end: '时点范围：' } },
+    ),
+    locationFact ? { ...locationFact, includeNextLine: true } : null,
+    fact('xiaoliuren.rule', '起课口径：', [
+      text(d.rule) === 'duoneng' ? '《多能鄙事》' : '通行俗传小六壬掌诀',
     ]),
     fact('xiaoliuren.primary', '占得宫：', [primary?.name]),
     fact('xiaoliuren.verse', '歌诀原文：', [primary?.verse]),
@@ -783,6 +1031,11 @@ function extractJinkoujueFacts(data: unknown): DivinationPromptFact[] {
     ['renYuan', 'diFen', text(record(d.relations)?.renToDi) || ''],
     ['guiShen', 'diFen', text(record(d.relations)?.guiToDi) || ''],
   ];
+  const movementPairs = new Set(
+    movementItems.map(
+      (item) => `${text(item.from) || ''}|${text(item.to) || ''}|${text(item.relation) || ''}`,
+    ),
+  );
   const relationText = (fromKey: string, toKey: string, relation: string) => {
     const from = record(positions[fromKey]);
     const to = record(positions[toKey]);
@@ -815,7 +1068,13 @@ function extractJinkoujueFacts(data: unknown): DivinationPromptFact[] {
     fact(
       'jinkoujue.relations',
       '四位关系：',
-      relationPairs.map(([from, to, relation]) => relationText(from, to, relation)),
+      relationPairs
+        .filter(([from, to, relation]) => {
+          const fromName = text(record(positions[from])?.name) || from;
+          const toName = text(record(positions[to])?.name) || to;
+          return !movementPairs.has(`${fromName}|${toName}|${relation}`);
+        })
+        .map(([from, to, relation]) => relationText(from, to, relation)),
     ),
   ]);
 }
@@ -838,7 +1097,11 @@ function extractTarotFacts(data: unknown): DivinationPromptFact[] {
         `${position}：${name}`,
         [
           `${position}：${name}`,
-          card.reversed === true ? '（逆位）' : '（正位）',
+          typeof card.reversed === 'boolean'
+            ? card.reversed
+              ? '（逆位）'
+              : '（正位）'
+            : '（未记录）',
           join(card.keywords) ? `关键词：${join(card.keywords)}` : undefined,
           text(card.element) ? `牌组属性：${text(card.element)}` : undefined,
           text(card.archetype) ? `基础牌义：${text(card.archetype)}` : undefined,
@@ -854,6 +1117,7 @@ function extractLenormandFacts(data: unknown): DivinationPromptFact[] {
   if (!d) return [];
   const cards = records(d.cards);
   const combinations = records(d.combinations);
+  const cardByName = new Map(cards.map((card) => [text(card.name), card]));
   return collect([
     fact('lenormand.core', '核心结构：', [`牌阵${text(d.spreadName)}`, `共${cards.length}张牌`]),
     ...cards.map((card, index) => {
@@ -866,7 +1130,9 @@ function extractLenormandFacts(data: unknown): DivinationPromptFact[] {
         [
           `${position}：${name}`,
           `关键词：${join(card.keywords) || '未列'}`,
-          text(card.meaning) ? `基础牌义：${text(card.meaning)}` : undefined,
+          text(card.meaning)
+            ? `基础牌义：${conditionLenormandTraditionalText(text(card.meaning)!, { cardNames: [name], keywords: texts(card.keywords) }).split('；')[0]}`
+            : undefined,
           text(card.house) ? `落${text(card.house)}宫` : undefined,
           card.row !== undefined && card.column !== undefined
             ? `第${text(card.row)}排第${text(card.column)}列`
@@ -875,22 +1141,38 @@ function extractLenormandFacts(data: unknown): DivinationPromptFact[] {
         { scope: { start: '牌位明细：', end: '【任务】' } },
       );
     }),
-    ...combinations.map((item, index) => {
+    ...combinations.flatMap((item, index) => {
+      if (item.source !== '固定组合') return [];
       const card1 = text(item.card1);
       const card2 = text(item.card2);
       const pair = card1 && card2 ? `${card1}+${card2}` : undefined;
+      const first = card1 ? cardByName.get(card1) : undefined;
+      const second = card2 ? cardByName.get(card2) : undefined;
+      const positions = [
+        text(item.position1) ?? text(first?.position),
+        text(item.position2) ?? text(second?.position),
+      ].filter((value): value is string => Boolean(value));
+      const meaning = text(item.meaning);
       return pair
-        ? fact(`lenormand.combination.${index}`, `${pair}：`, [item.meaning], {
-            scope: {
-              start: item.source === '固定组合' ? '固定组合：' : '相邻合读：',
-              end:
-                item.source === '固定组合' &&
-                combinations.some((combo) => combo.source !== '固定组合')
-                  ? '相邻合读：'
-                  : '【任务】',
-            },
-          })
-        : null;
+        ? [
+            fact(
+              `lenormand.combination.${index}`,
+              `${pair}：`,
+              [
+                conditionLenormandTraditionalText(meaning ?? '', {
+                  kind: '固定组合',
+                  cardNames: [card1!, card2!],
+                  keywords: [...texts(first?.keywords), ...texts(second?.keywords)],
+                  relation: text(item.relation) as LenormandCombinationRelation | undefined,
+                  positions,
+                }).split('；')[0],
+              ],
+              {
+                scope: { start: '固定组合：', end: '【任务】' },
+              },
+            ),
+          ]
+        : [];
     }),
   ]);
 }
@@ -900,6 +1182,11 @@ function extractSsgwFacts(data: unknown): DivinationPromptFact[] {
   if (!d) return [];
   const details: AnyRecord = record(d.details) || {};
   const poemLines = nonEmptyLines(d.poem);
+  const compactText = (value: string) => value.replace(/[\s，。；、！？!?]/gu, '');
+  const poemText = compactText(text(d.poem) || '');
+  const basicInterpretation = ['核心寓意', '解签', '签意', '解签总论']
+    .map((key) => text(details[key])?.trim())
+    .find((value) => value && !poemText.includes(compactText(value)));
   // 本签典故按签谱口径合并；跨签引用不属于本次签谱资料。
   const storyContent = resolveSsgwStoryContent(d as unknown as SsgwData);
   const stories = [storyContent.canonicalStory, storyContent.extraStory].filter(Boolean);
@@ -915,12 +1202,10 @@ function extractSsgwFacts(data: unknown): DivinationPromptFact[] {
       unit: 'block',
       scope: { start: '典故：', end: '基础解签：' },
     }),
-    fact(
-      'ssgw.basic-interpretation',
-      '基础解签：',
-      [details['核心寓意'], details['解签'], details['签意'], details['解签总论']],
-      { unit: 'block', scope: { start: '基础解签：' } },
-    ),
+    fact('ssgw.basic-interpretation', '基础解签：', [basicInterpretation], {
+      unit: 'block',
+      scope: { start: '基础解签：' },
+    }),
   ]);
 }
 
@@ -982,27 +1267,39 @@ function extractAlmanacFacts(data: unknown): DivinationPromptFact[] {
 function extractBaZhaiFacts(data: unknown): DivinationPromptFact[] {
   const d = record(data);
   if (!d) return [];
-  const lucky = records(d.luckyDirections);
-  const unlucky = records(d.unluckyDirections);
   const mingPalace = records(d.mingPalace);
   const housePalace = records(d.housePalace);
-  const direction = (item: AnyRecord) => {
-    const name = firstText(item.direction, item.name);
-    const label = firstText(item.label, item.fortune, item.type);
-    return name ? `${name}${label ? `(${label})` : ''}` : undefined;
-  };
+  const measurement = record(d.directionMeasurement);
+  const mingHeading = d.birthYearBoundaryStatus === '待复核' ? '命卦八方（暂按）：' : '命卦八方：';
+  const houseHeading =
+    measurement?.stability === '宅卦不稳定' ? '宅卦八方（中心读数）：' : '宅卦八方：';
+  const alternateHouseGuas = new Set<string>();
+  const alternateHouseFacts = records(measurement?.candidateDirections).flatMap((candidate) => {
+    const houseGua = text(candidate.houseGua);
+    if (!houseGua || houseGua === text(d.houseGua) || alternateHouseGuas.has(houseGua)) return [];
+    alternateHouseGuas.add(houseGua);
+    return records(candidate.housePalace).map((item, index) =>
+      fact(
+        `bazhai.candidate-house-palace.${houseGua}.${index}`,
+        `${item.direction}${item.label}`,
+        [item.luck, `约${item.degree}°`],
+        { scope: { start: `候选${houseGua}宅八方：` } },
+      ),
+    );
+  });
   return collect([
+    measurement
+      ? fact('bazhai.orientation', '测向资料：', [measurement.label])
+      : fact('bazhai.orientation', '坐山：', [record(d.calculationInput)?.sitMountain]),
     fact('bazhai.ming', '命卦：', [d.mingGua, d.mingGroup]),
     fact('bazhai.house', '宅卦：', [d.houseGua, d.houseGroup]),
     fact('bazhai.match', '命宅配合：', [d.match]),
-    fact('bazhai.lucky', '四吉方：', lucky.map(direction)),
-    fact('bazhai.unlucky', '四凶方：', unlucky.map(direction)),
     ...mingPalace.map((item, index) =>
       fact(
         `bazhai.ming-palace.${index}`,
         `${item.direction}${item.label}`,
         [item.luck, `约${item.degree}°`],
-        { scope: { start: '命卦八方：', ...(housePalace.length ? { end: '宅卦八方：' } : {}) } },
+        { scope: { start: mingHeading, ...(housePalace.length ? { end: houseHeading } : {}) } },
       ),
     ),
     ...housePalace.map((item, index) =>
@@ -1010,9 +1307,10 @@ function extractBaZhaiFacts(data: unknown): DivinationPromptFact[] {
         `bazhai.house-palace.${index}`,
         `${item.direction}${item.label}`,
         [item.luck, `约${item.degree}°`],
-        { scope: { start: '宅卦八方：' } },
+        { scope: { start: houseHeading } },
       ),
     ),
+    ...alternateHouseFacts,
   ]);
 }
 
@@ -1029,7 +1327,7 @@ function extractXuanKongFacts(data: unknown): DivinationPromptFact[] {
         ? `坐${text(d.sitMountain)}向${text(d.facingMountain)}`
         : undefined,
     ]),
-    fact('xuankong.gua-type', '卦型：', [d.guaType, d.replacementReason]),
+    fact('xuankong.gua-type', '卦型：', [d.guaType]),
     fact('xuankong.formation', '局型：', [d.formation]),
     fact('xuankong.dao-shan-xiang', '到山到向：', [dao?.summary]),
     ...palaces.map((item, index) =>
@@ -1054,24 +1352,19 @@ function extractResidentialFacts(data: unknown): DivinationPromptFact[] {
   if (!d) return [];
   const bazhai = record(d.bazhai);
   const xuankong = record(d.xuankong);
-  const xuankongPeriod = record(xuankong?.period);
-  const dao = record(xuankong?.daoShanXiang);
+  const input = record(d.inputSummary);
+  const orientationScope = xuankong ? { start: '玄空完整盘面：', end: '卦型：' } : undefined;
   return collect([
-    fact('residential.orientation', '山向：', [d.orientationText]),
-    fact('residential.house-year', '宅运年份：', [d.houseYear]),
-    fact('residential.xuankong-summary', '玄空：', [
-      xuankongPeriod?.label,
-      xuankong?.sitMountain && xuankong?.facingMountain
-        ? `坐${text(xuankong.sitMountain)}向${text(xuankong.facingMountain)}`
-        : undefined,
-      xuankong?.guaType,
-      dao?.summary,
-    ]),
-    bazhai
-      ? fact('residential.bazhai-summary', '八宅：', [bazhai.mingGua, bazhai.mingGroup])
-      : null,
+    fact('residential.orientation', '山向：', [input?.orientationText], {
+      scope: orientationScope,
+    }),
+    fact('residential.house-year', '宅运年份：', [input?.houseYear]),
     ...(xuankong
-      ? extractXuanKongFacts(xuankong).map((item) => ({ ...item, id: `residential.${item.id}` }))
+      ? extractXuanKongFacts(xuankong).map((item) => ({
+          ...item,
+          id: `residential.${item.id}`,
+          ...(item.id === 'xuankong.orientation' ? { scope: orientationScope } : {}),
+        }))
       : []),
     ...(bazhai
       ? extractBaZhaiFacts(bazhai).map((item) => ({ ...item, id: `residential.${item.id}` }))
@@ -1130,7 +1423,7 @@ function extractWuyunLiuqiFacts(data: unknown): DivinationPromptFact[] {
   return collect([
     fact('wuyun.year', '年干支：', [
       input?.yearGanZhi,
-      input?.year !== undefined ? `（公历 ${text(input.year)} 年）` : undefined,
+      input?.year !== undefined ? `（公历 ${text(input.year)} 年对应的运气年度）` : undefined,
     ]),
     fact('wuyun.annual-movement', '岁运：', [
       annualMovement?.name,
@@ -1165,9 +1458,14 @@ function extractWuyunLiuqiFacts(data: unknown): DivinationPromptFact[] {
           record(item.hostGuestRelation)?.kind
             ? `主客关系${text(record(item.hostGuestRelation)?.kind)}`
             : undefined,
-          ...(item.gregorianStart && item.gregorianEnd
-            ? [`公历${item.gregorianStart}至${item.gregorianEnd}`]
-            : []),
+          ...(record(item.boundaryTime)?.startBeijing &&
+          record(item.boundaryTime)?.endBeijingExclusive
+            ? [
+                `现代节气交节参考（北京时间）${record(item.boundaryTime)?.startBeijing}至${record(item.boundaryTime)?.endBeijingExclusive}`,
+              ]
+            : item.gregorianStart && item.gregorianEnd
+              ? [`公历${item.gregorianStart}至${item.gregorianEnd}`]
+              : []),
         ],
         { scope: { start: '六步主客气：' } },
       ),
@@ -1219,18 +1517,15 @@ function extractZodiacFacts(data: unknown): DivinationPromptFact[] {
     害太岁: '相害',
     破太岁: '相破',
   };
-  const taiSuiValues = conflicts.length
-    ? conflicts.map((item) => {
-        const type = text(item.type) || '';
-        const withBranch = text(item.with) || '';
-        return `${type}（生肖年支${text(d.zodiacBranch) || ''}与流年年支${withBranch}${conflictLabel[type] || ''}）`;
-      })
-    : ['未命中值、冲、刑、害、破关系'];
+  const taiSuiValues = conflicts.map((item) => {
+    const type = text(item.type) || '';
+    const withBranch = text(item.with) || '';
+    return `${type}（生肖年支${text(d.zodiacBranch) || ''}与流年年支${withBranch}${conflictLabel[type] || ''}）`;
+  });
   return collect([
-    fact('zodiac.core', '参与关系的资料：', [
-      d.zodiacBranch ? `出生年支${text(d.zodiacBranch)}` : undefined,
-      d.yearGanZhi
-        ? `目标流年年干${text(d.yearGanZhi)?.charAt(0)}、年支${text(d.yearBranch)}`
+    fact('zodiac.core', '遇', [
+      d.zodiac && d.zodiacBranch && d.yearGanZhi
+        ? `${text(d.zodiac)}（${text(d.zodiacBranch)}）遇${text(d.yearGanZhi)}年`
         : undefined,
     ]),
     fact('zodiac.summary', '五行关系：', [d.relation, elementRelation?.kind]),

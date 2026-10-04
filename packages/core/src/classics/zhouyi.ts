@@ -3136,3 +3136,9 @@ export const ZHOUYI_HEXAGRAMS_TEXT: Record<number, ZhouyiHexagramText> = {
     ],
   },
 };
+
+export function getZhouyiHexagramClassic(hexagramId: number): ZhouyiHexagramText | undefined {
+  return Object.hasOwn(ZHOUYI_HEXAGRAMS_TEXT, hexagramId)
+    ? structuredClone(ZHOUYI_HEXAGRAMS_TEXT[hexagramId])
+    : undefined;
+}

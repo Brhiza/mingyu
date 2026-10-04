@@ -18,7 +18,7 @@ import {
 } from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
-import { TimeManager, getDivinationTime } from '../../../../calendar/timeManager';
+import { TimeManager } from '../../../../calendar/timeManager';
 import { generateQimen } from '../index';
 import { diPanPalaces } from './_constants';
 
@@ -135,6 +135,17 @@ function nextLifetimeDate(value: LifetimeDateParts): LifetimeDateParts {
     year: next.getUTCFullYear(),
     month: next.getUTCMonth() + 1,
     day: next.getUTCDate(),
+  };
+}
+
+function previousLifetimeDate(value: LifetimeDateParts): LifetimeDateParts {
+  const previous = new Date(
+    createUtcTimestamp(value.year, value.month - 1, value.day, 12, 0, 0) - 86400000,
+  );
+  return {
+    year: previous.getUTCFullYear(),
+    month: previous.getUTCMonth() + 1,
+    day: previous.getUTCDate(),
   };
 }
 
@@ -333,6 +344,93 @@ function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): numbe
   return matched.length === 1 ? matched[0].stageIndex : undefined;
 }
 
+interface FlowYearSlice {
+  civilYear: number;
+  flowYear: number;
+  phase: 'before-lichun' | 'after-lichun';
+  start: LifetimeDateParts;
+  end: LifetimeDateParts;
+  term: LifetimeDateFact;
+}
+
+function getFlowYearSlices(
+  year: number,
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+  timeContext: QimenDynamicTimeContext | undefined,
+): FlowYearSlice[] {
+  const term = getLocalTermFact(year, 3, timeContext);
+  const termDate = parseLifetimePeriodDate(term.date, '立春日期');
+  const beforeEnd = term.dateTime?.endsWith('00:00:00') ? previousLifetimeDate(termDate) : termDate;
+  const yearStart = { year, month: 1, day: 1 };
+  const yearEnd = { year, month: 12, day: 31 };
+  const slices: FlowYearSlice[] = [];
+  for (const [phase, flowYear, sliceStart, sliceEnd] of [
+    ['before-lichun', year - 1, yearStart, beforeEnd],
+    ['after-lichun', year, termDate, yearEnd],
+  ] as const) {
+    const clippedStart = dateKey(start) > dateKey(sliceStart) ? start : sliceStart;
+    const clippedEnd = dateKey(end) < dateKey(sliceEnd) ? end : sliceEnd;
+    if (dateKey(clippedStart) > dateKey(clippedEnd)) continue;
+    if (flowYear < 1) {
+      throw new RangeError('立春前的上一干支年超出公历年份支持范围。');
+    }
+    slices.push({ civilYear: year, flowYear, phase, start: clippedStart, end: clippedEnd, term });
+  }
+  return slices;
+}
+
+function getSliceStageIndices(stages: QimenLifetimeStage[], slice: FlowYearSlice): number[] {
+  const startDate = formatLifetimeDate(slice.start);
+  const endDate = formatLifetimeDate(slice.end);
+  return stages
+    .filter((stage) => {
+      if (stage.calendarStart > endDate || stage.calendarEnd < startDate) return false;
+      if (stage.startDateTime && stage.endDateTimeExclusive && slice.term.timestamp !== undefined) {
+        if (
+          slice.phase === 'before-lichun' &&
+          Date.parse(stage.startDateTime) >= slice.term.timestamp
+        ) {
+          return false;
+        }
+        if (
+          slice.phase === 'after-lichun' &&
+          Date.parse(stage.endDateTimeExclusive) <= slice.term.timestamp
+        ) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .map((stage) => stage.stageIndex);
+}
+
+function formatFlowYearSlice(slice: FlowYearSlice, ganzhi: string): string {
+  const start = formatLifetimeDate(slice.start);
+  const end = formatLifetimeDate(slice.end);
+  const boundary = slice.term.dateTime!;
+  if (slice.phase === 'before-lichun') {
+    const span =
+      end === slice.term.date
+        ? start === end
+          ? `${boundary}前`
+          : `${start}至${boundary}前`
+        : start === end
+          ? start
+          : `${start}至${end}`;
+    return `${slice.civilYear}年（${ganzhi}）立春前（${span}）`;
+  }
+  const span =
+    start === slice.term.date
+      ? start === end
+        ? `${boundary}起`
+        : `${boundary}起至${end}`
+      : start === end
+        ? start
+        : `${start}至${end}`;
+  return `${slice.civilYear}年（${ganzhi}）立春后（${span}）`;
+}
+
 function collectDailyRelationFacts(
   start: LifetimeDateParts,
   end: LifetimeDateParts,
@@ -456,191 +554,178 @@ export function scanLifetimeDynamicEvents(
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
   let ianaNoonValidator: IanaNoonValidator | undefined;
 
-  // 查询从一月开始时，补查上一干支年的丑月小寒节点；该节点落在当前公历年一月。
-  if (start.month === 1 && startYear > 1) {
-    const previousFlowYear = startYear - 1;
-    const previousMidYearDate = new Date(createUtcTimestamp(previousFlowYear, 5, 15, 12, 0, 0));
-    const previousYearGanZhi = getDivinationTime(
-      previousMidYearDate,
-      DEFAULT_CHINA_TIMEZONE_HOURS * 60,
-    ).ganzhi.year;
-    if (previousYearGanZhi[1] === '未') {
+  for (let y = startYear; y <= maxEndYear; y++) {
+    let yearSlices: FlowYearSlice[];
+    try {
+      yearSlices = getFlowYearSlices(y, start, end, timeContext);
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      const message = `${y}年动态年盘生成失败：${detail}`;
+      throw cause instanceof RangeError
+        ? new RangeError(message, { cause })
+        : new Error(message, { cause });
+    }
+    for (const slice of yearSlices) {
+      const midYearDate = new Date(createUtcTimestamp(slice.flowYear, 5, 15, 12, 0, 0));
+      let flowYearGanZhi: string;
+      let yearQimen: QimenData;
+      try {
+        const targetOffsetMinutes = getDynamicOffsetMinutes(midYearDate, timeContext);
+        yearQimen = generateQimen(
+          midYearDate,
+          method,
+          'year',
+          juMethod,
+          targetOffsetMinutes,
+          timeContext?.timeZoneId,
+        );
+        flowYearGanZhi = yearQimen.ganzhi.year;
+      } catch (cause) {
+        const detail = cause instanceof Error ? cause.message : String(cause);
+        const message = `${slice.flowYear}年动态年盘生成失败：${detail}`;
+        throw cause instanceof RangeError
+          ? new RangeError(message, { cause })
+          : new Error(message, { cause });
+      }
+
+      const flowYearBranch = flowYearGanZhi[1];
+      const taiSuiPalaceNum = diPanPalaces[flowYearBranch];
+      if (!taiSuiPalaceNum) continue;
+
+      const basePalace = baseChart.jiuGongGe.find((p) => p.gong === taiSuiPalaceNum);
+      if (!basePalace) continue;
+
+      const stageIndices = getSliceStageIndices(stages, slice);
+      const stageIndex = stageIndices.length === 1 ? stageIndices[0] : undefined;
+
+      const topics: QimenTopic[] = [];
+      const supportEvidence: string[] = [];
+      const counterEvidence: string[] = [];
+      let rhythm: '快' | '中' | '慢' | '待机' = '中';
+      const verificationQuestions: string[] = [];
+
+      let triggerDescription = `${y}年（${flowYearGanZhi}太岁）值临${getPalaceName(taiSuiPalaceNum)}。`;
+
+      // 1. 太岁入局引动本命宫位
+      const baseDoor = basePalace.renPan.door;
+      const baseGod = basePalace.shenPan.god;
+
+      if (baseDoor === '生门') {
+        topics.push('wealth');
+        supportEvidence.push('太岁临本命生门，传统门象关联生发与经营');
+        verificationQuestions.push('当年是否有重点投资落地、资产买卖或经营收益周转？');
+      } else if (baseDoor === '开门') {
+        topics.push('career');
+        supportEvidence.push('太岁临本命开门，传统门象关联对外事务与启动');
+        verificationQuestions.push('当年是否有晋升变动、独立领衔项目或事业新起点？');
+      } else if (baseDoor === '休门') {
+        topics.push('family', 'marriage');
+        supportEvidence.push('太岁临本命休门，传统门象关联休养、交流与家庭议题');
+        verificationQuestions.push('当年家庭人际、长辈关系或感情婚姻是否处于和缓推进阶段？');
+      } else if (baseDoor === '死门') {
+        topics.push('health');
+        counterEvidence.push('太岁临本命死门，传统门象涉及收束与停滞');
+        verificationQuestions.push('当年是否出现长期劳累、慢性不适或重大阻滞需调整？');
+      } else if (baseDoor === '伤门') {
+        topics.push('relocation');
+        counterEvidence.push('太岁临本命伤门，传统门象涉及冲突、损耗与迁动议题');
+        verificationQuestions.push('当年是否出差频繁、奔波操劳或遭遇琐碎争议？');
+      } else if (baseDoor === '景门') {
+        topics.push('academic', 'career');
+        supportEvidence.push('太岁临本命景门，传统门象涉及文书、呈现与声誉议题');
+        verificationQuestions.push('当年是否有进修考试、资质评审、文书签约或公开展示？');
+      } else if (baseDoor === '杜门') {
+        topics.push('career');
+        counterEvidence.push('太岁临本命杜门，传统门象涉及闭藏与专注');
+        verificationQuestions.push('当年是否处于闭关深耕、技术打磨或遇有事务暂缓？');
+      } else if (baseDoor === '惊门') {
+        topics.push('career');
+        counterEvidence.push('太岁临本命惊门，传统门象涉及突发变化与言语争议');
+        verificationQuestions.push('当年是否有关键商务谈判、合同交涉、是非申辩或法律咨询？');
+      }
+
+      if (verificationQuestions.length === 0) {
+        verificationQuestions.push(
+          `当年太岁入临${basePalace.name}，是否有重大生活节奏调整或关键环境变迁？`,
+        );
+      }
+
+      if (baseGod === '六合') {
+        if (!topics.includes('marriage')) topics.push('marriage');
+        if (!topics.includes('partnership')) topics.push('partnership');
+        supportEvidence.push('太岁宫同见六合，传统神象关联合作与协调');
+      }
+
+      // 2. 虚实填实检查
+      if (baseChart.voidBranches && baseChart.voidBranches.includes(flowYearBranch)) {
+        triggerDescription += `本命空亡地支【${flowYearBranch}】逢流年填实。`;
+        supportEvidence.push(`本命旬空支${flowYearBranch}逢太岁同支，构成传统填实条件`);
+        verificationQuestions.push('此前悬而未决、等待推进的事宜是否在当年取得实质进展？');
+      }
+
+      // 3. 驿马引动检查
+      if (baseChart.horseStar) {
+        if (baseChart.horseStar.branch === flowYearBranch) {
+          triggerDescription += `流年并临本命驿马【${flowYearBranch}】。`;
+          rhythm = '快';
+          if (!topics.includes('relocation')) topics.push('relocation');
+          supportEvidence.push('流年支同本命驿马，传统取象涉及出行与迁动');
+          verificationQuestions.push('当年是否发生长途出行、居所搬迁或异地发展？');
+        } else if (OPPOSITE_BRANCHES[baseChart.horseStar.branch] === flowYearBranch) {
+          triggerDescription += `流年地支【${flowYearBranch}】对冲本命驿马【${baseChart.horseStar.branch}】。`;
+          rhythm = '快';
+          if (!topics.includes('relocation')) topics.push('relocation');
+          supportEvidence.push('流年支冲本命驿马，传统取象涉及变动与节奏变化');
+          verificationQuestions.push('当年是否有预期之外的快速差旅、职位调动或环境变迁？');
+        }
+      }
+
+      // 4. 年家奇门局合参
+      if (yearQimen.classicPatterns && yearQimen.classicPatterns.length > 0) {
+        for (const yp of yearQimen.classicPatterns) {
+          if (yp.palaces.includes(taiSuiPalaceNum)) {
+            if (yp.type === 'good') {
+              supportEvidence.push(`岁盘吉格「${yp.name}」命中太岁所在宫`);
+            } else if (yp.type === 'bad') {
+              counterEvidence.push(`岁盘凶格「${yp.name}」命中太岁所在宫`);
+            }
+          }
+        }
+      }
+
+      // 若未命中任何特定主题，默认归为事业与大势
+      if (topics.length === 0) {
+        topics.push('career');
+      }
+
+      const key = `cluster:${y}:${flowYearGanZhi}:${slice.phase}:${taiSuiPalaceNum}`;
+
+      clusters.push({
+        key,
+        stageIndex,
+        stageIndices,
+        timeSpan: formatFlowYearSlice(slice, flowYearGanZhi),
+        topics,
+        triggerFact: triggerDescription,
+        interactionAnalysis: `流年岁气与本命${getPalaceName(taiSuiPalaceNum)}交织：门星神干产生交互响应。`,
+        supportEvidence: Array.from(new Set(supportEvidence)),
+        counterEvidence: Array.from(new Set(counterEvidence)),
+        rhythm,
+        verificationQuestions: Array.from(new Set(verificationQuestions)),
+      });
+
+      // 细化年月日关键节点：节令只记录真实交节日，日级只记录已有本命关系命中的当地日期。
       appendMonthClashCluster(
         clusters,
         stages,
-        previousFlowYear,
-        previousYearGanZhi,
-        start,
-        end,
+        slice.flowYear,
+        flowYearGanZhi,
+        slice.start,
+        slice.end,
         timeContext,
         getPalaceName,
       );
     }
-  }
-
-  for (let y = startYear; y <= maxEndYear; y++) {
-    const midYearDate = new Date(createUtcTimestamp(y, 5, 15, 12, 0, 0));
-    let flowYearGanZhi: string;
-    let yearQimen: QimenData;
-    try {
-      const targetOffsetMinutes = getDynamicOffsetMinutes(midYearDate, timeContext);
-      yearQimen = generateQimen(
-        midYearDate,
-        method,
-        'year',
-        juMethod,
-        targetOffsetMinutes,
-        timeContext?.timeZoneId,
-      );
-      flowYearGanZhi = yearQimen.ganzhi.year;
-    } catch (cause) {
-      const detail = cause instanceof Error ? cause.message : String(cause);
-      throw new Error(`${y}年动态年盘生成失败：${detail}`, { cause });
-    }
-
-    const flowYearBranch = flowYearGanZhi[1];
-    const taiSuiPalaceNum = diPanPalaces[flowYearBranch];
-    if (!taiSuiPalaceNum) continue;
-
-    const basePalace = baseChart.jiuGongGe.find((p) => p.gong === taiSuiPalaceNum);
-    if (!basePalace) continue;
-
-    // 用请求范围内的年度代表日匹配阶段卡，避免年初或年末窗口落到代表日之外。
-    const yearRepresentative = { year: y, month: 6, day: 15 };
-    const representativeDate =
-      dateKey(yearRepresentative) < dateKey(start)
-        ? start
-        : dateKey(yearRepresentative) > dateKey(end)
-          ? end
-          : yearRepresentative;
-    const stageIndex = getStageIndexForDate(stages, formatLifetimeDate(representativeDate));
-
-    const topics: QimenTopic[] = [];
-    const supportEvidence: string[] = [];
-    const counterEvidence: string[] = [];
-    let rhythm: '快' | '中' | '慢' | '待机' = '中';
-    const verificationQuestions: string[] = [];
-
-    let triggerDescription = `${y}年（${flowYearGanZhi}太岁）值临${getPalaceName(taiSuiPalaceNum)}。`;
-
-    // 1. 太岁入局引动本命宫位
-    const baseDoor = basePalace.renPan.door;
-    const baseGod = basePalace.shenPan.god;
-
-    if (baseDoor === '生门') {
-      topics.push('wealth');
-      supportEvidence.push(`太岁落临生门财帛宫，生机旺相，利于资产沉淀与收益变现`);
-      verificationQuestions.push('当年是否有重点投资落地、资产买卖或经营收益周转？');
-    } else if (baseDoor === '开门') {
-      topics.push('career');
-      supportEvidence.push(`太岁引动开门事业之宫，主新局开展、职权扩张或平台转换`);
-      verificationQuestions.push('当年是否有晋升变动、独立领衔项目或事业新起点？');
-    } else if (baseDoor === '休门') {
-      topics.push('family', 'marriage');
-      supportEvidence.push(`太岁引动休门贵人家庭之宫，利于安顿调养、婚恋交好`);
-      verificationQuestions.push('当年家庭人际、长辈关系或感情婚姻是否处于和缓推进阶段？');
-    } else if (baseDoor === '死门') {
-      topics.push('health');
-      counterEvidence.push(`太岁引动死门滞塞之宫，防气机滞缓或精力透支`);
-      verificationQuestions.push('当年是否出现长期劳累、慢性不适或重大阻滞需调整？');
-    } else if (baseDoor === '伤门') {
-      topics.push('relocation');
-      counterEvidence.push(`太岁临伤门，主车马奔波与变动磨耗`);
-      verificationQuestions.push('当年是否出差频繁、奔波操劳或遭遇琐碎争议？');
-    } else if (baseDoor === '景门') {
-      topics.push('academic', 'career');
-      supportEvidence.push(`太岁引动景门文书声誉之宫，利于学术考察、资质认证与名气外显`);
-      verificationQuestions.push('当年是否有进修考试、资质评审、文书签约或公开展示？');
-    } else if (baseDoor === '杜门') {
-      topics.push('career');
-      counterEvidence.push(`太岁临杜门，主隐秘积蓄与潜沉防守，多有技术钻研或暂时等待`);
-      verificationQuestions.push('当年是否处于闭关深耕、技术打磨或遇有事务暂缓？');
-    } else if (baseDoor === '惊门') {
-      topics.push('career');
-      counterEvidence.push(`太岁临惊门，防口舌是非、法律咨询或突发谈判`);
-      verificationQuestions.push('当年是否有关键商务谈判、合同交涉、是非申辩或法律咨询？');
-    }
-
-    if (verificationQuestions.length === 0) {
-      verificationQuestions.push(
-        `当年太岁入临${basePalace.name}，是否有重大生活节奏调整或关键环境变迁？`,
-      );
-    }
-
-    if (baseGod === '六合') {
-      if (!topics.includes('marriage')) topics.push('marriage');
-      if (!topics.includes('partnership')) topics.push('partnership');
-      supportEvidence.push('太岁同值六合，促成合作契约或婚盟机缘');
-    }
-
-    // 2. 虚实填实检查
-    if (baseChart.voidBranches && baseChart.voidBranches.includes(flowYearBranch)) {
-      triggerDescription += `本命空亡地支【${flowYearBranch}】逢流年填实，该宫潜藏势能全面激活。`;
-      supportEvidence.push(`原局逢空之${basePalace.name}得太岁填实，虚转为实`);
-      verificationQuestions.push('此前悬而未决、等待推进的事宜是否在当年取得实质进展？');
-    }
-
-    // 3. 驿马引动检查
-    if (baseChart.horseStar) {
-      if (baseChart.horseStar.branch === flowYearBranch) {
-        triggerDescription += `流年并临本命驿马【${flowYearBranch}】。`;
-        rhythm = '快';
-        if (!topics.includes('relocation')) topics.push('relocation');
-        supportEvidence.push(`流年同值驿马，主主动出行、跨区域拓展或生活节奏加速`);
-        verificationQuestions.push('当年是否发生长途出行、居所搬迁或异地发展？');
-      } else if (OPPOSITE_BRANCHES[baseChart.horseStar.branch] === flowYearBranch) {
-        triggerDescription += `流年地支【${flowYearBranch}】对冲本命驿马【${baseChart.horseStar.branch}】。`;
-        rhythm = '快';
-        if (!topics.includes('relocation')) topics.push('relocation');
-        supportEvidence.push(`驿马星逢岁支相冲（马星逢冲事必速），多突发性变动与快速推进`);
-        verificationQuestions.push('当年是否有预期之外的快速差旅、职位调动或环境变迁？');
-      }
-    }
-
-    // 4. 年家奇门局合参
-    if (yearQimen.classicPatterns && yearQimen.classicPatterns.length > 0) {
-      for (const yp of yearQimen.classicPatterns) {
-        if (yp.palaces.includes(taiSuiPalaceNum)) {
-          if (yp.type === 'good') {
-            supportEvidence.push(`岁盘吉格「${yp.name}」叠合临宫：${yp.summary}`);
-          } else if (yp.type === 'bad') {
-            counterEvidence.push(`岁盘凶格「${yp.name}」叠合临宫：${yp.summary}`);
-          }
-        }
-      }
-    }
-
-    // 若未命中任何特定主题，默认归为事业与大势
-    if (topics.length === 0) {
-      topics.push('career');
-    }
-
-    const key = `cluster:${y}:${flowYearGanZhi}:${taiSuiPalaceNum}`;
-
-    clusters.push({
-      key,
-      stageIndex,
-      timeSpan: `${y}年（${flowYearGanZhi}）`,
-      topics,
-      triggerFact: triggerDescription,
-      interactionAnalysis: `流年岁气与本命${getPalaceName(taiSuiPalaceNum)}交织：门星神干产生交互响应。`,
-      supportEvidence: Array.from(new Set(supportEvidence)),
-      counterEvidence: Array.from(new Set(counterEvidence)),
-      rhythm,
-      verificationQuestions: Array.from(new Set(verificationQuestions)),
-    });
-
-    // 细化年月日关键节点：节令只记录真实交节日，日级只记录已有本命关系命中的当地日期。
-    appendMonthClashCluster(
-      clusters,
-      stages,
-      y,
-      flowYearGanZhi,
-      start,
-      end,
-      timeContext,
-      getPalaceName,
-    );
 
     const yearStart = { year: y, month: 1, day: 1 };
     const yearEnd = { year: y, month: 12, day: 31 };
@@ -715,6 +800,10 @@ export function scanLifetimeDynamicEvents(
   // 精确交运模型保留窗口覆盖的每一运；整年或交运日可同时涉及前后两运。
   if (stages.some((stage) => stage.startDateTime)) {
     for (const cluster of clusters) {
+      // 年度片段已按立春瞬时与请求窗口求交，不能再用整公历年覆盖阶段。
+      if (cluster.key.includes(':before-lichun:') || cluster.key.includes(':after-lichun:')) {
+        continue;
+      }
       const facts = cluster.triggerDates;
       const year = Number(cluster.key.split(':')[1]);
       const rangeStart = [periodRange.startDate, `${year}-01-01`].sort().at(-1)!;

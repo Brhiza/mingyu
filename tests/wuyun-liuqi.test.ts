@@ -8,10 +8,26 @@ import {
   MOVEMENT_STEP_BOUNDARIES,
   QI_STEP_SOLAR_TERMS,
   calculateWuyunLiuqi,
+  getWuyunLiuqiYearAt,
   getWuyunLiuqiYearGanZhi,
 } from '@core/wuyun-liuqi';
+import {
+  STEM_MOVEMENT,
+  QI_PROFILES,
+  BRANCH_SITIAN_ZAIQUAN,
+  SUIHUI_BRANCH_ELEMENT,
+} from '../packages/core/src/wuyun-liuqi/annual-data.ts';
 import { SIXTY_CYCLE } from '@core/ganzhi';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
+
+const cycleResults = new Map<string, ReturnType<typeof calculateWuyunLiuqi>>();
+function getCycleResult(yearGanZhi: string) {
+  const cached = cycleResults.get(yearGanZhi);
+  if (cached) return cached;
+  const result = calculateWuyunLiuqi({ yearGanZhi });
+  cycleResults.set(yearGanZhi, result);
+  return result;
+}
 
 test('五运六气天干化运与太过不及应覆盖六十甲子', () => {
   const expected: Record<string, readonly [string, string]> = {
@@ -28,7 +44,7 @@ test('五运六气天干化运与太过不及应覆盖六十甲子', () => {
   };
 
   SIXTY_CYCLE.forEach((yearGanZhi) => {
-    const result = calculateWuyunLiuqi({ yearGanZhi });
+    const result = getCycleResult(yearGanZhi);
     assert.deepEqual(
       [result.annualMovement.element, result.annualMovement.strength],
       expected[yearGanZhi[0]],
@@ -53,7 +69,7 @@ test('五运六气司天在泉应覆盖十二支固定配对', () => {
   };
 
   SIXTY_CYCLE.forEach((yearGanZhi) => {
-    const result = calculateWuyunLiuqi({ yearGanZhi });
+    const result = getCycleResult(yearGanZhi);
     assert.deepEqual([result.sitian.name, result.zaiquan.name], expected[yearGanZhi[1]]);
     assert.equal(result.qiSteps[2].guestQi.name, result.sitian.name);
     assert.equal(result.qiSteps[2].guestRole, '司天');
@@ -117,7 +133,7 @@ test('五步主运应固定木火土金水，并由中运推定五音太少', ()
   ];
 
   cases.forEach(({ yearGanZhi, annualTone, hostTones, guestTones }) => {
-    const result = calculateWuyunLiuqi({ yearGanZhi });
+    const result = getCycleResult(yearGanZhi);
     assert.equal(result.annualMovement.toneName, annualTone);
     assert.deepEqual(
       result.movementSteps.map((step) => step.hostMovement.toneName),
@@ -134,7 +150,7 @@ test('五步主运应固定木火土金水，并由中运推定五音太少', ()
 
 test('五步客运应以中运起步相生轮转，并按太少相生逐步交替', () => {
   SIXTY_CYCLE.forEach((yearGanZhi) => {
-    const result = calculateWuyunLiuqi({ yearGanZhi });
+    const result = getCycleResult(yearGanZhi);
     assert.equal(result.movementSteps.length, 5);
     assert.deepEqual(
       result.movementSteps.map((step) => step.hostMovement.element),
@@ -196,7 +212,7 @@ test('五步交司应保留古籍日期序号，不伪装成精确时刻', () =>
       periodRule: '立冬后第4日起，至小寒末日',
     },
   ]);
-  const result = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  const result = getCycleResult('丙午');
   assert.deepEqual(
     result.movementSteps.map((step) => step.startBoundary.precision),
     Array(5).fill('传统日期序号'),
@@ -207,7 +223,7 @@ test('五步交司应保留古籍日期序号，不伪装成精确时刻', () =>
 test('气运相临应在六十甲子中各得十二年同气、顺化、天刑、小逆与不和', () => {
   const counts = new Map<string, number>();
   SIXTY_CYCLE.forEach((yearGanZhi) => {
-    const kind = calculateWuyunLiuqi({ yearGanZhi }).annualRelation.kind;
+    const kind = getCycleResult(yearGanZhi).annualRelation.kind;
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   });
   ['同气', '顺化', '天刑', '小逆', '不和'].forEach((kind) => {
@@ -217,6 +233,9 @@ test('气运相临应在六十甲子中各得十二年同气、顺化、天刑�
 
 test('天符岁会等五类符会应按通行六十年固定集合核验', () => {
   type ConformityField = 'tianfu' | 'suihui' | 'taiyiTianfu' | 'tongTianfu' | 'tongSuihui';
+  const results = new Map(
+    SIXTY_CYCLE.map((yearGanZhi) => [yearGanZhi, getCycleResult(yearGanZhi)] as const),
+  );
   const expected: Record<ConformityField, string[]> = {
     tianfu: [
       '丁巳',
@@ -241,29 +260,22 @@ test('天符岁会等五类符会应按通行六十年固定集合核验', () =>
   for (const field of Object.keys(expected) as ConformityField[]) {
     const years = expected[field];
     const actual = SIXTY_CYCLE.filter(
-      (yearGanZhi) => calculateWuyunLiuqi({ yearGanZhi }).annualConformities[field],
+      (yearGanZhi) => results.get(yearGanZhi)!.annualConformities[field],
     );
     assert.deepEqual([...actual].sort(), [...years].sort(), field);
   }
 
   const allConformityYears = SIXTY_CYCLE.filter(
-    (yearGanZhi) => calculateWuyunLiuqi({ yearGanZhi }).annualConformities.names.length > 0,
+    (yearGanZhi) => results.get(yearGanZhi)!.annualConformities.names.length > 0,
   );
   assert.equal(allConformityYears.length, 26);
-  assert.deepEqual(
-    calculateWuyunLiuqi({ yearGanZhi: '甲子' }).annualConformities.sourceReconciliation,
-    {
-      distinctYearsByListedRules: 26,
-      sourceSummaryYears: 28,
-      handling:
-        '吴谦《运气要诀》逐项名单按六十甲子去重为26年，与原文“二十八年”汇总不一致；计算采用逐项定义和逐年名单，不用汇总数反改规则。',
-    },
-  );
-  assert.deepEqual(calculateWuyunLiuqi({ yearGanZhi: '戊午' }).annualConformities.names, [
-    '天符',
-    '岁会',
-    '太乙天符',
-  ]);
+  assert.deepEqual(results.get('甲子')!.annualConformities.sourceReconciliation, {
+    distinctYearsByListedRules: 26,
+    sourceSummaryYears: 28,
+    handling:
+      '吴谦《运气要诀》逐项名单按六十甲子去重为26年，与原文“二十八年”汇总不一致；计算采用逐项定义和逐年名单，不用汇总数反改规则。',
+  });
+  assert.deepEqual(results.get('戊午')!.annualConformities.names, ['天符', '岁会', '太乙天符']);
 });
 
 test('六步节令和主客气关系应完整覆盖二十四节气', () => {
@@ -275,7 +287,7 @@ test('六步节令和主客气关系应完整覆盖二十四节气', () => {
     ['秋分', '寒露', '霜降', '立冬'],
     ['小雪', '大雪', '冬至', '小寒'],
   ]);
-  const result = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  const result = getCycleResult('丙午');
   assert.equal(result.qiSteps.flatMap((step) => step.solarTerms).length, 24);
   result.qiSteps.forEach((step) => {
     assert.ok(
@@ -297,6 +309,21 @@ test('公历年换算应采用稳定年中口径，并校验显式干支一致�
   assert.throws(() => calculateWuyunLiuqi({ yearGanZhi: '甲丑' }), /年干支组合无效/);
 });
 
+test('运气年度在北京时间大寒交节瞬时切换', () => {
+  const boundary = calculateWuyunLiuqi({ year: 2026 }).qiSteps[0].boundaryTime?.startTimestamp;
+  assert.ok(boundary);
+  assert.equal(getWuyunLiuqiYearAt(new Date(boundary - 1)), 2025);
+  assert.equal(getWuyunLiuqiYearAt(new Date(boundary)), 2026);
+  assert.equal(getWuyunLiuqiYearAt(new Date('2026-01-01T12:00:00+08:00')), 2025);
+  assert.equal(getWuyunLiuqiYearAt(new Date('2026-07-01T12:00:00+08:00')), 2026);
+});
+
+test('五运六气应修剪显式年干支首尾空白后再校验和计算', () => {
+  const result = calculateWuyunLiuqi({ year: 2026, yearGanZhi: ' 丙午 ' });
+  assert.equal(result.input.yearGanZhi, '丙午');
+  assert.equal(result.annualMovement.name, '水运');
+});
+
 test('五运六气提示词应是可独立使用的完整任务书', () => {
   const prompt = calculateWuyunLiuqi({
     yearGanZhi: '丙午',
@@ -309,34 +336,106 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assert.match(prompt, /五步主客运/);
   assert.match(prompt, /初运（大寒日起，至春分后第12日）/);
   assert.match(prompt, /少阴君火/);
-  assert.match(prompt, /司天与中运：不和/);
+  assert.match(prompt, /年度五行作用：中运（水）克司天少阴君火（火）（不和）/);
+  assert.doesNotMatch(prompt, /司天与中运：不和/);
   assert.match(prompt, /大寒、立春、雨水、惊蛰/);
   assert.match(prompt, /以年干定岁运太过不及/);
   assert.match(prompt, /以年支定司天在泉/);
   assert.doesNotMatch(prompt, /参考《|《素问·天元纪大论》|《运气要诀》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
+
+  const catalogInput = { year: 2024, question: '本年主客运气如何分层理解？' };
+  const baseline = calculateWuyunLiuqi(catalogInput);
+  assert.equal(baseline.input.yearGanZhi, '甲辰');
+  assert.deepEqual(
+    [
+      baseline.annualMovement.element,
+      baseline.annualMovement.toneName,
+      baseline.annualMovement.strength,
+    ],
+    ['土', '太宫', '太过'],
+  );
+  assert.deepEqual([baseline.sitian.name, baseline.sitian.element], ['太阳寒水', '水']);
+  assert.deepEqual([baseline.zaiquan.name, baseline.zaiquan.element], ['太阴湿土', '土']);
+  assert.equal(baseline.annualConformities.suihui, true);
+  assert.equal(baseline.annualConformities.tongTianfu, true);
+  assert.deepEqual(
+    baseline.movementSteps.map((step) => step.hostMovement.element),
+    ['木', '火', '土', '金', '水'],
+  );
+  assert.equal(baseline.movementSteps[1].gregorianStart, '2024-04-02');
+  assert.deepEqual(baseline.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
+  assert.deepEqual(
+    baseline.qiSteps.map((step) => step.hostQi.name),
+    ['厥阴风木', '少阴君火', '少阳相火', '太阴湿土', '阳明燥金', '太阳寒水'],
+  );
+  assert.equal(baseline.qiSteps[2].guestQi.name, '太阳寒水');
+  assert.match(baseline.prompt, /【任务】/);
+  assert.match(baseline.prompt, /本年主客运气如何分层理解？/);
+  assert.match(baseline.prompt, /土运（太宫），太过/);
+  assert.match(baseline.prompt, /太阳寒水/);
+  assertPromptIsPortableTaskText(baseline.prompt);
+
+  // 各公开表按原对象写入并恢复，新年度盘和完整任务书不承接表的临时修改。
+  const catalogWrites = [
+    [STEM_MOVEMENT.甲, 'element', '木'],
+    [QI_PROFILES.太阳寒水, 'element', '火'],
+    [BRANCH_SITIAN_ZAIQUAN.辰, 0, '厥阴风木'],
+    [SUIHUI_BRANCH_ELEMENT, '辰', '火'],
+    [HOST_MOVEMENT_ORDER, 0, '水'],
+    [HOST_QI_ORDER, 0, '太阳寒水'],
+    [GUEST_QI_ORDER, 0, '太阳寒水'],
+    [MOVEMENT_STEP_BOUNDARIES[1], 'offsetDays', 14],
+    [QI_STEP_SOLAR_TERMS[0], 1, '清明'],
+  ] as const;
+  const originalValues = catalogWrites.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of catalogWrites) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    const freshCatalog = calculateWuyunLiuqi(catalogInput);
+    assert.deepEqual(freshCatalog, baseline);
+    assert.equal(freshCatalog.prompt, baseline.prompt);
+    assertPromptIsPortableTaskText(freshCatalog.prompt);
+  } finally {
+    catalogWrites.forEach(([target, key], index) => {
+      assert.equal(Reflect.set(target, key, originalValues[index]), true);
+      assert.equal(Reflect.get(target, key), originalValues[index]);
+    });
+  }
 });
 
 test('五运六气年度资料列出平气条件，不据年干支确认全年平气', () => {
-  const result2026 = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  const result2026 = getCycleResult('丙午');
   assert.ok(result2026.pathomechanism);
   assert.equal(result2026.pathomechanism.isPingQi, null);
   assert.equal(result2026.pathomechanism.movementRegime, '流衍之纪');
-  assert.match(result2026.prompt, /平气条件：/);
+  assert.match(result2026.prompt, /岁运纪：流衍之纪（按年干太过不及推得的基准）/);
+  assert.doesNotMatch(result2026.prompt, /平气参考条件：|年度符会：/);
   assert.doesNotMatch(result2026.prompt, /五脏受候|心神亢燥|病机偏胜与平气/);
 
   // 丁亥具司天同气资助；交司日时逢壬的干德符及实际平气仍须另核。
-  const resultDingHai = calculateWuyunLiuqi({ yearGanZhi: '丁亥' });
+  const resultDingHai = getCycleResult('丁亥');
   assert.ok(resultDingHai.pathomechanism);
   assert.equal(resultDingHai.pathomechanism.isPingQi, null);
   assert.equal(resultDingHai.pathomechanism.pingQiType, '具平气条件');
   assert.match(resultDingHai.pathomechanism.pingQiConditions.join('；'), /司天与木运同气/);
+  assert.match(resultDingHai.prompt, /平气参考条件：/);
   assert.match(resultDingHai.pathomechanism.pingQiBasis, /平气成立时称敷和之纪/);
   assert.match(resultDingHai.pathomechanism.pingQiBasis, /交气日时干德符/);
 });
 
-test('五运六气跨节气精度范围保留完整年度结构并明确日期口径', () => {
+test('具平气条件的年度提示词不把年干太过所对应之纪写成已定的实际气候', () => {
+  const result = getCycleResult('庚午');
+  assert.equal(result.pathomechanism?.isPingQi, null);
+  assert.equal(result.pathomechanism?.movementRegime, '坚成之纪');
+  assert.match(result.pathomechanism?.pingQiBasis ?? '', /按年干推得坚成之纪为基准/);
+  assert.match(result.prompt, /岁运纪：坚成之纪（按年干太过不及推得的基准）；平气参考条件：/);
+});
+
+test('五运六气跨节气精度范围保留完整年度结构并省略计算状态', () => {
   for (const year of [1, 99, 1899, 2200, 9999]) {
     const result = calculateWuyunLiuqi({ year });
     const reference = calculateWuyunLiuqi({ yearGanZhi: getWuyunLiuqiYearGanZhi(year) });
@@ -351,7 +450,8 @@ test('五运六气跨节气精度范围保留完整年度结构并明确日期�
         (step) => step.gregorianStart === undefined && step.gregorianEnd === undefined,
       ),
     );
-    assert.match(result.prompt, /按节气与传统序日表示各步边界/);
+    assert.match(result.prompt, /运气年度：大寒节令起，至次年大寒节令前/);
+    assert.doesNotMatch(result.prompt, /日期口径：/);
   }
   for (const year of [1900, 2199]) {
     const result = calculateWuyunLiuqi({ year });
@@ -362,12 +462,13 @@ test('五运六气跨节气精度范围保留完整年度结构并明确日期�
       ),
     );
     assert.ok(result.qiSteps[5].gregorianEnd?.startsWith(`${year + 1}-01-`));
+    assert.match(result.prompt, /现代节气交节参考（北京时间）/);
   }
 });
 
 test('六十甲子二火加临保留君臣顺逆并与五行同气分别表达', () => {
   for (const yearGanZhi of SIXTY_CYCLE) {
-    const result = calculateWuyunLiuqi({ yearGanZhi });
+    const result = getCycleResult(yearGanZhi);
     for (const step of result.qiSteps) {
       const expected =
         '子午'.includes(yearGanZhi[1]) && step.order === 3
@@ -413,7 +514,7 @@ test('运气要诀六十年正对化与南北政按各自年支年干分类', ()
     '北政',
   ];
   for (let index = 0; index < SIXTY_CYCLE.length; index += 1) {
-    const result = calculateWuyunLiuqi({ yearGanZhi: SIXTY_CYCLE[index] });
+    const result = getCycleResult(SIXTY_CYCLE[index]);
     assert.equal(result.annualClassification.sitianTransformation, transformations[index % 12]);
     assert.equal(result.annualClassification.governance, governance[index % 10]);
     assert.ok(

@@ -1,11 +1,8 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  baziCalculator,
-  buildCurrentBaziFortuneSelectionForScope,
-  buildFortuneSelectionContext,
-} from 'mingyu-core/bazi';
+import { baziCalculator, buildFortuneSelectionContext } from 'mingyu-core/bazi';
+import { selectBaziFortuneForZiweiScope } from '../../../src/lib/public-api/fortune-selection.js';
 import { calculateZiweiFactsForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_MULTI_SCHOOLS,
@@ -367,7 +364,7 @@ export function registerThematicTool(server: McpServer) {
           baziFortuneScope &&
           baziFortuneScope !== 'natal' &&
           baziFortuneScope !== 'full'
-            ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+            ? selectBaziFortuneForZiweiScope(baziResult, baziFortuneScope, args.scopeDate)
             : null;
         const baziFortuneSelectionContext =
           baziResult && baziFortuneSelection

@@ -58,5 +58,8 @@ export function findHexagramByTrigrams(upper: number, lower: number) {
     throw new Error(`未能匹配到符号为 "${upperTrigram.symbol}${lowerTrigram.symbol}" 的六十四卦。`);
   }
 
-  return hexagram;
+  return {
+    ...hexagram,
+    yaoCi: hexagram.yaoCi ? [...hexagram.yaoCi] : undefined,
+  };
 }

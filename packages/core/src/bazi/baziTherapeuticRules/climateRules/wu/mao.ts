@@ -14,18 +14,4 @@ export const WU_MAO_CLIMATE_RULES: ClimateRule[] = [
     favorableOrder: ['火', '木'],
     hint: '戊土卯月，先丙后甲',
   },
-  {
-    id: 'mao-month-wu-bing-jia-geng-all',
-    label: '戊日卯月丙甲庚全透极品规则',
-    description: '戊土生卯月，丙甲庚三者全透，较合原文"戊土生卯月，三者全透，鼎甲可期"。',
-    priority: 126,
-    months: ['卯'],
-    dayMasters: ['土'],
-    dayStems: ['戊'],
-    requiredVisibleStems: ['丙', '甲', '庚'],
-    usefulWuxing: '火',
-    favorableOrder: ['火', '木', '金'],
-    traceHints: ['取用层次:丙甲庚三者全透', '成格层次:鼎甲可期'],
-    hint: '戊土卯月丙甲庚三者全透，鼎甲可期',
-  },
 ];

@@ -34,7 +34,7 @@ test('皇极圆图六十四卦均按卦画计数并按内卦划分阴阳半周',
           ? '剥极将生'
           : ['震', '离', '兑', '乾'].includes(hexagram.lower)
             ? '阳息进取'
-            : '阴消蓄养';
+            : '阴长阳消';
     assert.equal(result.phase, phase, hexagram.name);
     assert.match(result.summary, new RegExp(`${yang}阳${6 - yang}阴`));
     assert.doesNotMatch(result.summary, /处于.*期|气机进取|万物收敛/);
@@ -46,7 +46,7 @@ test('皇极实际值年鼎卦应为四阳二阴且属于姤至坤半周', () =>
   assert.equal(result.forecast!.hexagrams.annual.shortName, '鼎');
   assert.equal(result.eraTrend!.yangLineCount, 4);
   assert.equal(result.eraTrend!.yinLineCount, 2);
-  assert.equal(result.eraTrend!.phase, '阴消蓄养');
+  assert.equal(result.eraTrend!.phase, '阴长阳消');
   assert.match(result.prompt, /4阳2阴/);
   assert.match(result.prompt, /姤至坤/);
 });

@@ -8,8 +8,12 @@
  *
  * 不在此处判定身强身弱、拔根程度、格局成败或合会是否成化。
  */
-import { BASIC_MAPPINGS, TWELVE_STAGES_MAP } from './baziDefinitions';
+
+import { TWELVE_STAGES_MAP } from './baziDefinitions';
 import type { HiddenStems, Wuxing } from './baziTypes';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export const ROOT_PILLAR_POSITIONS = ['year', 'month', 'day', 'hour'] as const;
 export type RootPillarPosition = (typeof ROOT_PILLAR_POSITIONS)[number];
@@ -100,7 +104,7 @@ export function getDirectClashSources(
   ownPosition: RootPillarPosition,
   pillars: RootPillars,
 ): RootClashSource[] {
-  const clashBranch = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
+  const clashBranch = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
   if (!clashBranch) return [];
 
   return ROOT_PILLAR_POSITIONS.filter(

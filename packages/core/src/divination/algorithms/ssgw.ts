@@ -2,7 +2,7 @@ import type { SsgwData } from '../../types/divination';
 import { SSGW_SIGNS } from '../../divination/ssgw-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
-import { createRandomContext, randomInt } from '../../shared/random';
+import { assertReplaySamplesConsumed, createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 
 /**
@@ -53,6 +53,8 @@ export function drawRandomSign(
   const { ganzhi, timestamp } = getDivinationTime(customDate);
   const context = createRandomContext(randomOptions);
   const randomIndex = randomInt(ssgwSigns.length, context.random);
+  const randomTrace = context.getTrace();
+  assertReplaySamplesConsumed(randomOptions, randomTrace);
   const sign = ssgwSigns[randomIndex];
   return attachResultMeta(
     {
@@ -71,7 +73,7 @@ export function drawRandomSign(
       algorithm: 'ssgw.draw',
       input: { timestamp },
       calculatedAt: timestamp,
-      random: context.getTrace(),
+      random: randomTrace,
     },
   );
 }

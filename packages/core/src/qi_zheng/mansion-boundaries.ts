@@ -341,7 +341,8 @@ export function longitudeToQizhengMansion(
   }
   const exactBoundary = sortedBoundaries.find((item) => {
     const separation = normalizeLongitude(target - item.longitude);
-    return Math.min(separation, 360 - separation) < 1e-7;
+    // 仅合并黄经取模带来的浮点舍入；距星前侧的实际角距仍属于上一宿。
+    return Math.min(separation, 360 - separation) <= 4 * Number.EPSILON * 360;
   });
   const boundary =
     exactBoundary ??

@@ -102,3 +102,40 @@ test('起名提示词携带候选和适配字的音义条件', () => {
   assert.match(prompt, /shàn 用于单姓/);
   assert.doesNotMatch(prompt, /readingNote|surnameReading|https?:\/\/|undefined/);
 });
+
+test('万俟的复姓读音与两字独立音义分别保留，单姓不借用复姓读法', () => {
+  for (const [char, readings, strokes] of [
+    ['万', 'wàn、mò', 15],
+    ['俟', 'sì、qí', 9],
+  ] as const) {
+    const detail = analyzeChineseCharacters(char).characters[0].detail!;
+    assert.equal(detail.pinyin, readings);
+    assert.equal(detail.kangxiStrokes, strokes);
+    const query = char === '万' ? 'mo4' : 'si4';
+    assert.ok(
+      selectChineseCharacters({ pinyin: query, strokes, commonOnly: false, limit: 200 }).some(
+        (item) => item.char === char,
+      ),
+    );
+  }
+  for (const surname of ['万俟', '萬俟']) {
+    const analysis = analyzeChineseName({ fullName: `${surname}清`, surnameLength: 2 });
+    assert.deepEqual(
+      analysis.chars.map((item) => item.char),
+      [...surname, '清'],
+    );
+    assert.deepEqual(
+      analysis.chars.slice(0, 2).map((item) => item.surnameReading),
+      ['mò', 'qí'],
+    );
+    assert.deepEqual(analysis.rawGrids, { tian: 24, ren: 21, di: 13, wai: 16, zong: 36 });
+  }
+  assert.equal(analyzeChineseName({ fullName: '万清' }).chars[0].surnameReading, 'wàn');
+  assert.equal(analyzeChineseName({ fullName: '俟清' }).chars[0].surnameReading, 'sì');
+  assert.equal(analyzeChineseName({ fullName: '李俟' }).chars[1].surnameReading, undefined);
+  const prompt = buildChineseCharacterPrompt({ analysis: analyzeChineseCharacters('万俟') });
+  assert.match(prompt, /读音：wàn、mò/);
+  assert.match(prompt, /读音：sì、qí/);
+  assert.match(prompt, /sì 表等待/);
+  assert.match(prompt, /全姓读 mò qí/);
+});

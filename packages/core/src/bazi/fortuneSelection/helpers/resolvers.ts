@@ -63,6 +63,7 @@ export function resolveSelectedMonth(selection: BaziFortuneSelectionValue) {
   const monthOptions = getYearInfo(selection.year).months;
   if (
     typeof selection.month === 'number' &&
+    Number.isInteger(selection.month) &&
     selection.month >= 1 &&
     selection.month <= monthOptions.length
   ) {
@@ -82,6 +83,7 @@ export function resolveSelectedDay(
 
   if (
     typeof selection.day === 'number' &&
+    Number.isInteger(selection.day) &&
     selection.day >= 1 &&
     selection.day <= dayOptions.length
   ) {

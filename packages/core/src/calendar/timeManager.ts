@@ -18,6 +18,8 @@ export interface DivinationTime {
   ganzhi: GanZhiInfo;
   /** 时间戳 */
   timestamp: number;
+  /** 本次四柱计算采用的当地时区偏移，单位分钟。 */
+  timezoneOffsetMinutes: number;
 }
 
 /**
@@ -137,9 +139,8 @@ export class TimeManager {
       throw new Error('自定义时间不是有效日期。');
     }
     const offsetMinutes = this.getTimezoneOffsetMinutes(targetTime, explicitOffsetMinutes);
-    // 显式地点时区下，节气仍按采用历表的中国标准时瞬时点定位；未显式传入时保留原有全局口径。
-    const termOffsetMinutes =
-      explicitOffsetMinutes === undefined ? offsetMinutes : DEFAULT_CHINA_TIMEZONE_HOURS * 60;
+    // 节气是同一个真实瞬时点，全局时区配置只影响当地钟表与日时柱。
+    const termOffsetMinutes = DEFAULT_CHINA_TIMEZONE_HOURS * 60;
     const termDate = referenceDate ?? targetTime;
     if (!(termDate instanceof Date) || Number.isNaN(termDate.getTime())) {
       throw new Error('节气参考时间不是有效日期。');
@@ -149,7 +150,7 @@ export class TimeManager {
     const ganzhi = this.getGanZhi(targetTime, offsetMinutes, termSolarTime);
     const timestamp = targetTime.getTime();
 
-    return { timeInfo, ganzhi, timestamp };
+    return { timeInfo, ganzhi, timestamp, timezoneOffsetMinutes: offsetMinutes };
   }
 
   /**
@@ -304,8 +305,9 @@ export class TimeManager {
         monthInChinese: lunarDayText.split('年')[1].split('月')[0] + '月',
         dayInChinese: lunarDayText.split('月')[1],
         hourInChinese: lunarHour.getName(),
-        // tyme4ts 闰月返回负数，规范为正数月序供起卦取模使用（闰月标志另行处理）
+        yearNumber: lunarDay.getYear(),
         monthNumber: Math.abs(lunarDay.getMonth()),
+        isLeapMonth: lunarDay.getMonth() < 0,
         dayNumber: lunarDay.getDay(),
       },
       ganzhi: {

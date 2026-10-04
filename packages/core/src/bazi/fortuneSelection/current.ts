@@ -12,6 +12,14 @@ import {
 } from '../luckTiming';
 import type { BaziFortuneSelectionValue } from './helpers/types';
 
+type CurrentBaziFortuneSelection = BaziFortuneSelectionValue & {
+  scope: 'day';
+  cycleIndex: number;
+  year: number;
+  month: number;
+  day: number;
+};
+
 function assertValidDate(value: Date): void {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
     throw new TypeError('当前运势定位需要有效日期。');
@@ -38,7 +46,7 @@ export function getCurrentBaziLuckCycle(
 export function buildCurrentBaziFortuneSelection(
   result: BaziChartResult,
   now = new Date(),
-): BaziFortuneSelectionValue | null {
+): CurrentBaziFortuneSelection | null {
   assertValidDate(now);
   const civilNow = toChinaCivilDate(now);
   const currentCycle = getCurrentBaziLuckCycle(result, now);

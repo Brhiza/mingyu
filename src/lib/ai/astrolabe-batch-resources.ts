@@ -7,6 +7,7 @@ import {
   type AstrolabePeriodEventCollection,
   type AstrolabePeriodScopeMode,
 } from 'mingyu-core/divination/astrolabe-scope';
+import { formatFixedTimezoneOffset } from 'mingyu-core/calendar';
 
 export const DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS = 7;
 
@@ -271,6 +272,14 @@ export async function fetchAstrolabePeriodCollection(args: {
   batchDays?: number;
   onProgress?: (completed: number, total: number) => void;
 }): Promise<AstrolabePeriodCollectionResult> {
+  args = {
+    ...args,
+    periodContext: {
+      ...args.periodContext,
+      points: args.periodContext.points.map((point) => ({ ...point })),
+      houseCusps: [...args.periodContext.houseCusps],
+    },
+  };
   const parentRange = resolvePeriodRange(args.scope, args.dateStr);
   const batchDays = args.batchDays ?? DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS;
   if (!Number.isInteger(batchDays) || batchDays < 1 || batchDays > 31) {
@@ -323,6 +332,7 @@ export async function fetchAstrolabePeriodCollection(args: {
       if (!events.has(event.key)) events.set(event.key, event);
     }
     args.onProgress?.(batchCount, expectedBatchCount);
+    assertNotAborted(args.signal);
 
     if (!batch.nextRange) {
       if (batch.range.endDate !== parentRange.endDate) {
@@ -351,8 +361,8 @@ export async function fetchAstrolabePeriodCollection(args: {
     startDateTime,
     endDateTime,
     timezoneLabel: timeZoneId
-      ? `${timeZoneId}（UTC${timezone >= 0 ? '+' : ''}${timezone}）`
-      : `UTC${timezone >= 0 ? '+' : ''}${timezone}`,
+      ? `${timeZoneId}（UTC${formatFixedTimezoneOffset(timezone)}）`
+      : `UTC${formatFixedTimezoneOffset(timezone)}`,
     events: sortedEvents,
     ...layers,
     parentRange,

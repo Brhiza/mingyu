@@ -4,8 +4,10 @@ import assert from 'node:assert/strict';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
+  evaluateBaziZiweiCorroboration,
   evaluateGuiRenCorroboration,
   evaluateShaYaoCorroboration,
+  hasCompleteZiweiOrigin,
 } from '@core/synthesis/corroboration';
 import type { ZiweiRuntime } from '@core/ziwei/runtime';
 
@@ -30,18 +32,43 @@ function buildBazi(status: string, hasYangRen = true): BaziChartResult {
   } as unknown as BaziChartResult;
 }
 
+const PALACE_NAMES = [
+  '命宫',
+  '兄弟宫',
+  '夫妻宫',
+  '子女宫',
+  '财帛宫',
+  '疾厄宫',
+  '迁移宫',
+  '交友宫',
+  '官禄宫',
+  '田宅宫',
+  '福德宫',
+  '父母宫',
+];
+
+function completePalaces(first: Record<string, unknown>): Record<string, unknown>[] {
+  return PALACE_NAMES.map((name, index) => ({
+    name,
+    index,
+    is_body_palace: index === 10,
+    major_stars: [],
+    minor_stars: [],
+    other_stars: [],
+    ...(index === 0 ? first : {}),
+  }));
+}
+
 function buildZiwei(hasShaStar = true): ZiweiRuntime {
   return {
     payloadByScope: {
       origin: {
-        palaces: [
-          {
-            name: '命宫',
-            is_body_palace: false,
-            major_stars: [],
-            minor_stars: hasShaStar ? [{ name: '擎羊' }] : [],
-          },
-        ],
+        palaces: completePalaces({
+          name: '命宫',
+          is_body_palace: false,
+          major_stars: [],
+          minor_stars: hasShaStar ? [{ name: '擎羊' }] : [],
+        }),
       },
     },
   } as unknown as ZiweiRuntime;
@@ -51,21 +78,19 @@ function buildGuiZiwei(options: { brightness?: string; palaceName?: string } = {
   return {
     payloadByScope: {
       origin: {
-        palaces: [
-          {
-            name: options.palaceName ?? '命宫',
-            index: 0,
-            is_body_palace: false,
-            major_stars: [
-              {
-                name: '天魁',
-                kind: '辅星',
-                ...(options.brightness ? { brightness: options.brightness } : {}),
-              },
-            ],
-            minor_stars: [],
-          },
-        ],
+        palaces: completePalaces({
+          name: options.palaceName ?? '命宫',
+          index: 0,
+          is_body_palace: false,
+          major_stars: [
+            {
+              name: '天魁',
+              kind: '辅星',
+              ...(options.brightness ? { brightness: options.brightness } : {}),
+            },
+          ],
+          minor_stars: [],
+        }),
       },
     },
   } as unknown as ZiweiRuntime;
@@ -113,6 +138,161 @@ test('合参煞曜的弱、中和与缺盘状态不得误触发强分支', () =>
   } as unknown as ZiweiRuntime);
   assert.equal(missingOrigin.isHarmonized, false);
   assert.equal(missingOrigin.ziweiCheckStatus, 'origin-missing');
+});
+
+test('缺少紫微原盘时不把未核验的星曜与运限判为未命中', () => {
+  const ziwei = {
+    payloadByScope: {
+      yearly: {
+        active_scope: {
+          scope: 'yearly',
+          label: '流年',
+          solar_date: '2026-09-14',
+          palace_index: 0,
+          mutagen_map: [],
+        },
+      },
+    },
+  } as unknown as ZiweiRuntime;
+
+  for (const [result, prefix] of [
+    [evaluateShaYaoCorroboration(buildBazi('身强'), ziwei), 'sha'],
+    [evaluateGuiRenCorroboration(buildGuiBazi(), ziwei), 'gui'],
+  ] as const) {
+    assert.equal(result.ziweiCheckStatus, 'origin-missing');
+    for (const key of [
+      'ziwei.origin',
+      `ziwei.${prefix}-star-position`,
+      `ziwei.${prefix}-star-state`,
+      'timing.period',
+    ]) {
+      const condition = result.effectConditions.find((item) => item.key === key);
+      assert.equal(condition?.status, '资料不足', key);
+      assert.doesNotMatch(condition!.detail, /未记录|未命中/, key);
+    }
+    assert.match(result.judgment, /紫微原盘资料缺失.*未核验/);
+  }
+});
+
+test('十二宫缺位时保留已见星曜，但不宣称双盘条件已满足', () => {
+  const shaZiwei = buildZiwei();
+  shaZiwei.payloadByScope.origin.palaces.pop();
+  const sha = evaluateShaYaoCorroboration(buildBazi('身强'), shaZiwei);
+  assert.equal(sha.ziweiShaEvidence.length, 1);
+  assert.equal(sha.isHarmonized, false);
+  assert.equal(sha.ziweiCheckStatus, 'origin-missing');
+  assert.equal(
+    sha.effectConditions.find((item) => item.key === 'ziwei.origin')?.status,
+    '资料不足',
+  );
+  assert.equal(
+    sha.effectConditions.find((item) => item.key === 'ziwei.sha-star-position')?.status,
+    '资料不足',
+  );
+  assert.match(sha.judgment, /十二宫资料不完整.*未核验/);
+
+  const guiZiwei = buildGuiZiwei();
+  guiZiwei.payloadByScope.origin.palaces[1].index = 0;
+  const gui = evaluateGuiRenCorroboration(buildGuiBazi(), guiZiwei);
+  assert.equal(gui.ziweiGuiEvidence.length, 1);
+  assert.equal(gui.isDoubleBlessed, false);
+  assert.equal(
+    gui.effectConditions.find((item) => item.key === 'ziwei.origin')?.status,
+    '资料不足',
+  );
+});
+
+test('十二个不同宫名或缺失星曜列表不构成完整紫微原盘', () => {
+  const ziwei = buildZiwei(false);
+  assert.equal(hasCompleteZiweiOrigin(ziwei), true);
+
+  ziwei.payloadByScope.origin.palaces[1].name = '未知宫';
+  assert.equal(hasCompleteZiweiOrigin(ziwei), false);
+  const sha = evaluateShaYaoCorroboration(buildBazi('身强'), ziwei);
+  assert.equal(sha.ziweiCheckStatus, 'origin-missing');
+  assert.equal(
+    sha.effectConditions.find((item) => item.key === 'ziwei.sha-star-position')?.status,
+    '资料不足',
+  );
+
+  ziwei.payloadByScope.origin.palaces[1].name = '兄弟宫';
+  delete (ziwei.payloadByScope.origin.palaces[1] as { minor_stars?: unknown }).minor_stars;
+  assert.equal(hasCompleteZiweiOrigin(ziwei), false);
+});
+
+test('真实紫微仆役宫与交友宫为同一宫位，别名重复仍属十二宫缺口', () => {
+  const ziwei = buildZiwei(false);
+  ziwei.payloadByScope.origin.palaces[7].name = '仆役';
+  assert.equal(hasCompleteZiweiOrigin(ziwei), true);
+  ziwei.payloadByScope.origin.palaces[6].name = '交友宫';
+  assert.equal(hasCompleteZiweiOrigin(ziwei), false);
+});
+
+test('身宫定位缺失或重复时不把关键宫未命中写成已核验', () => {
+  const missingBodyPalace = buildZiwei(false);
+  const palaces = missingBodyPalace.payloadByScope.origin.palaces;
+  palaces[10].minor_stars = [{ name: '擎羊' }];
+  delete (palaces[10] as { is_body_palace?: boolean }).is_body_palace;
+
+  assert.equal(hasCompleteZiweiOrigin(missingBodyPalace), false);
+  const result = evaluateShaYaoCorroboration(buildBazi('身强', false), missingBodyPalace);
+  assert.equal(result.ziweiCheckStatus, 'origin-missing');
+  assert.equal(result.ziweiShaEvidence.length, 0);
+  assert.equal(
+    result.effectConditions.find((item) => item.key === 'ziwei.sha-star-position')?.status,
+    '资料不足',
+  );
+  assert.match(result.judgment, /原盘十二宫资料不完整.*未核验/);
+  assert.doesNotMatch(result.judgment, /紫微关键宫未记录目标煞曜/);
+
+  const noBodyPalace = buildZiwei(false);
+  for (const palace of noBodyPalace.payloadByScope.origin.palaces) {
+    palace.is_body_palace = false;
+  }
+  assert.equal(hasCompleteZiweiOrigin(noBodyPalace), false);
+
+  const duplicateBodyPalaces = buildZiwei(false);
+  duplicateBodyPalaces.payloadByScope.origin.palaces[8].is_body_palace = true;
+  assert.equal(hasCompleteZiweiOrigin(duplicateBodyPalaces), false);
+});
+
+test('真实待补时八字的羊刃与天乙位置资料不足，不把空列表解释为未命中', () => {
+  const bazi = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    gender: 'male',
+  });
+  assert.equal(bazi.isThreePillars, true);
+  assert.equal(bazi.unknownTimeAnalysis?.status, '待补时');
+  assert.ok(bazi.pillars.year.ganZhi);
+  assert.ok(bazi.pillars.month.ganZhi);
+  assert.equal(bazi.unknownTimeAnalysis?.uncertainPillars.includes('day'), true);
+  assert.equal(bazi.pillars.day.ganZhi, '');
+  assert.equal(bazi.pillars.hour.ganZhi, '');
+  assert.deepEqual(bazi.shensha, {
+    year: [],
+    month: [],
+    day: [],
+    hour: [],
+    global: [],
+  });
+
+  const corroboration = evaluateBaziZiweiCorroboration(bazi, buildGuiZiwei());
+  const yangRenCondition = corroboration.shaYao.effectConditions.find(
+    (item) => item.key === 'bazi.yang-ren-position',
+  );
+  const tianYiCondition = corroboration.guiRen.effectConditions.find(
+    (item) => item.key === 'bazi.tianyi-position',
+  );
+  assert.equal(yangRenCondition?.status, '资料不足');
+  assert.equal(tianYiCondition?.status, '资料不足');
+  assert.match(yangRenCondition?.detail ?? '', /出生时辰待补/);
+  assert.match(tianYiCondition?.detail ?? '', /出生时辰待补/);
+  assert.doesNotMatch(
+    corroboration.summary,
+    /八字四柱未命中|八字四柱未记录|未命中八字羊刃|未命中八字天乙/,
+  );
 });
 
 test('贵人合参保留八字柱位、紫微宫位与星曜状态，不把共现写成终身断语', () => {
@@ -204,6 +384,18 @@ test('合参缺少八字神煞资料时应保留无法核验状态', () => {
   assert.match(gui.judgment, /资料未提供.*无法核验天乙/);
 });
 
+test('八字神煞缺少任一柱时不把局部命中误报为完整双盘条件', () => {
+  const bazi = buildBazi('身强');
+  delete (bazi.shensha as { hour?: unknown }).hour;
+  const result = evaluateShaYaoCorroboration(bazi, buildZiwei());
+  assert.equal(result.hasBaziYangRen, false);
+  assert.equal(result.isHarmonized, false);
+  assert.equal(
+    result.effectConditions.find((item) => item.key === 'bazi.yang-ren-position')?.status,
+    '资料不足',
+  );
+});
+
 test('合参区分亮度已列与落陷制约，运限按宫位及四化星曜双重定位', () => {
   const ziwei = buildGuiZiwei({ brightness: '陷' });
   ziwei.payloadByScope.yearly = {
@@ -239,12 +431,19 @@ test('合参区分亮度已列与落陷制约，运限按宫位及四化星曜�
     '不满足',
   );
   ziwei.payloadByScope.yearly.active_scope.palace_index = undefined;
+  const missingLanding = evaluateGuiRenCorroboration(buildGuiBazi(), ziwei).effectConditions.find(
+    (item) => item.key === 'timing.period',
+  );
+  assert.equal(missingLanding?.status, '资料不足');
+  assert.match(missingLanding!.detail, /落宫未定位/);
+  ziwei.payloadByScope.yearly.active_scope.palace_index = 99;
   assert.equal(
     evaluateGuiRenCorroboration(buildGuiBazi(), ziwei).effectConditions.find(
       (item) => item.key === 'timing.period',
     )?.status,
-    '不满足',
+    '资料不足',
   );
+  ziwei.payloadByScope.yearly.active_scope.palace_index = undefined;
   ziwei.payloadByScope.origin.palaces[0].major_stars[0].name = '左辅';
   ziwei.payloadByScope.yearly.active_scope.mutagen_map = [
     { mutagen: '科', star: '左辅', palace_index: 0, palace_name: '命宫' },
@@ -254,6 +453,8 @@ test('合参区分亮度已列与落陷制约，运限按宫位及四化星曜�
   )!;
   assert.equal(transformed.status, '满足');
   assert.match(transformed.detail, /左辅化科入命宫/);
+  assert.match(transformed.detail, /落宫未定位/);
+  ziwei.payloadByScope.yearly.active_scope.palace_index = 1;
   ziwei.payloadByScope.yearly.active_scope.mutagen_map[0].palace_index = 1;
   assert.equal(
     evaluateGuiRenCorroboration(buildGuiBazi(), ziwei).effectConditions.find(

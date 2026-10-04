@@ -8,7 +8,6 @@ import { BING_WEI_CLIMATE_RULES } from './wei';
 import { BING_SHEN_CLIMATE_RULES } from './shen';
 import { BING_YOU_CLIMATE_RULES } from './you';
 import { BING_XU_CLIMATE_RULES } from './xu';
-import { BING_HAI_CLIMATE_RULES } from './hai';
 import { BING_ZI_CLIMATE_RULES } from './zi';
 import { BING_CHOU_CLIMATE_RULES } from './chou';
 
@@ -22,7 +21,6 @@ export const BING_CLIMATE_RULES: ClimateRule[] = [
   ...BING_SHEN_CLIMATE_RULES,
   ...BING_YOU_CLIMATE_RULES,
   ...BING_XU_CLIMATE_RULES,
-  ...BING_HAI_CLIMATE_RULES,
   ...BING_ZI_CLIMATE_RULES,
   ...BING_CHOU_CLIMATE_RULES,
 ];

@@ -260,6 +260,12 @@ const HEXAGRAM_ALIASES: Record<string, YilinHexagramName> = {
   贲: '賁',
   颐: '頤',
   讼: '訟',
+  师: '師',
+  复: '復',
+  晋: '晉',
+  遁: '遯',
+  無妄: '无妄',
+  恆: '恒',
   㤗: '泰',
   睽: '睽',
   丰: '豐',
@@ -314,30 +320,69 @@ export const YILIN_EDITION: YilinEditionMetadata = {
 };
 
 export function normalizeYilinHexagramName(value: string): YilinHexagramName | undefined {
+  if (typeof value !== 'string') return undefined;
   const normalized = value.trim();
   if (!normalized) return undefined;
   if ((YILIN_HEXAGRAM_ORDER as readonly string[]).includes(normalized)) {
     return normalized as YilinHexagramName;
   }
-  return HEXAGRAM_ALIASES[normalized];
+  return Object.hasOwn(HEXAGRAM_ALIASES, normalized) ? HEXAGRAM_ALIASES[normalized] : undefined;
 }
 
-function normalizeSourceText(text: string) {
-  const marker = /焦氏易林卷[一二三四]/gu.exec(text);
-  if (!marker || text.length - marker.index > 256) {
-    return { text: text.trim(), textNormalization: 'none' as const };
+function normalizeSourceText(
+  text: string,
+  sourceKind: YilinSourceKind,
+): Pick<YilinSourceEntry, 'text' | 'editorialNotes' | 'textNormalization'> {
+  let body = text;
+  let textNormalization: YilinSourceEntry['textNormalization'] = 'none';
+  const marker = /焦氏易林卷[一二三四]/gu.exec(body);
+  if (marker && body.length - marker.index <= 256) {
+    const anchorStart = body.lastIndexOf('{{SK anchor|焦氏易林卷', marker.index);
+    body = body.slice(0, anchorStart >= 0 ? anchorStart : marker.index);
+    textNormalization = 'fixed-volume-footer';
+  } else if (/\n[\s\u3000]*\{\{SK anchor\|$/u.test(body)) {
+    body = body.replace(/\n[\s\u3000]*\{\{SK anchor\|$/u, '');
+    textNormalization = 'fixed-section-anchor';
   }
 
-  const anchorStart = text.lastIndexOf('{{SK anchor|焦氏易林卷', marker.index);
-  const cutoff = anchorStart >= 0 ? anchorStart : marker.index;
-  return {
-    text: text.slice(0, cutoff).trim(),
-    textNormalization: 'fixed-volume-footer' as const,
-  };
+  const editorialNotes: string[] = [];
+  if (sourceKind === 'kanripo-wyg') {
+    body = body.replace(/\(([^()]*)\)/gu, (_match, note: string) => {
+      editorialNotes.push(note);
+      return '';
+    });
+    if (body.includes('(') || body.includes(')')) {
+      throw new Error('焦氏易林固定索引校注括号未闭合。');
+    }
+    return { text: body.trim(), editorialNotes, textNormalization };
+  }
+
+  const notePrefix = '{{SK notes|';
+  let noteStart = body.indexOf(notePrefix);
+  while (noteStart >= 0) {
+    let depth = 1;
+    let cursor = noteStart + notePrefix.length;
+    while (cursor < body.length && depth > 0) {
+      if (body.startsWith('{{', cursor)) {
+        depth += 1;
+        cursor += 2;
+      } else if (body.startsWith('}}', cursor)) {
+        depth -= 1;
+        cursor += 2;
+      } else {
+        cursor += 1;
+      }
+    }
+    if (depth !== 0) throw new Error('焦氏易林固定索引校注模板未闭合。');
+    editorialNotes.push(body.slice(noteStart + notePrefix.length, cursor - 2));
+    body = body.slice(0, noteStart) + body.slice(cursor);
+    noteStart = body.indexOf(notePrefix, noteStart);
+  }
+  return { text: body.trim(), editorialNotes, textNormalization };
 }
 
 function createSourceEntry(source: RawYilinSource, digest: string): YilinSourceEntry {
-  const normalized = normalizeSourceText(source.text);
+  const normalized = normalizeSourceText(source.text, source.sourceKind);
   return {
     sourceKind: source.sourceKind,
     source: source.source,
@@ -347,6 +392,7 @@ function createSourceEntry(source: RawYilinSource, digest: string): YilinSourceE
     rawLabel: source.rawLabel,
     observedLabel: source.observedLabel,
     text: normalized.text,
+    editorialNotes: normalized.editorialNotes,
     markers: {
       kanripoRefs: [...source.markers.kanripoRefs],
       wikisourceSKchars: [...source.markers.wikisourceSKchars],
@@ -396,7 +442,13 @@ export function getYilinEntry(
     wikisource: createSourceEntry(pair.wikisource, pair.textDigest.wikisource),
     kanripo: createSourceEntry(pair.kanripo, pair.textDigest.kanripo),
   };
-  const selectedSource = source === 'kanripo' ? 'kanripo' : 'wikisource';
+  const selectedSource =
+    source === 'kanripo' ||
+    (source === 'both' &&
+      sources.wikisource.text.includes('{{SKchar|') &&
+      !sources.kanripo.text.includes('&KR'))
+      ? 'kanripo'
+      : 'wikisource';
   const gaps = (gapsByKey.get(key) ?? []).map((gap) => summarizeGap(gap, key));
   const dataStatus: YilinDataStatus =
     gaps.length || sources.wikisource.text !== sources.kanripo.text

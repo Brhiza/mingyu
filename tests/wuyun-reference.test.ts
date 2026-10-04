@@ -18,6 +18,7 @@ const getCachedWuyunLiuqi = (yearGanZhi: string) => {
 
 // 香港天文台2026年历及2027年大寒：五运按《运气要诀》节后序日换算。
 // https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2026.pdf
+// https://www.hko.gov.hk/en/gts/astron2026/files/2026cal03.pdf （春分 3 月 20 日 22:46）
 // https://www.hko.gov.hk/tc/gts/astron2027/files/2027SolarTerms24.pdf
 test('五运六气2026年公历边界与独立年历的节气日期一致', () => {
   const result = calculateWuyunLiuqi({ year: 2026 });
@@ -34,12 +35,12 @@ test('五运六气2026年公历边界与独立年历的节气日期一致', () =
   assert.deepEqual(
     result.qiSteps.map((step) => [step.gregorianStart, step.gregorianEnd]),
     [
-      ['2026-01-20', '2026-03-19'],
-      ['2026-03-20', '2026-05-20'],
-      ['2026-05-21', '2026-07-22'],
-      ['2026-07-23', '2026-09-22'],
-      ['2026-09-23', '2026-11-21'],
-      ['2026-11-22', '2027-01-19'],
+      ['2026-01-20', '2026-03-20'],
+      ['2026-03-20', '2026-05-21'],
+      ['2026-05-21', '2026-07-23'],
+      ['2026-07-23', '2026-09-23'],
+      ['2026-09-23', '2026-11-22'],
+      ['2026-11-22', '2027-01-20'],
     ],
   );
   try {
@@ -52,7 +53,37 @@ test('五运六气2026年公历边界与独立年历的节气日期一致', () =
   }
 });
 
-test('五运六气支持的300个公历年各步日期连续且两种划分覆盖同一年段', () => {
+test('六步保留现代节气交节参考，提示词不把它写成传统交司时刻', () => {
+  const result = calculateWuyunLiuqi({ year: 2026 });
+  const first = result.qiSteps[0].boundaryTime;
+  const second = result.qiSteps[1].boundaryTime;
+  assert.ok(first && second);
+  assert.equal(first.endTimestampExclusive, second.startTimestamp);
+  assert.equal(first.endBeijingExclusive, second.startBeijing);
+  assert.equal(result.qiSteps[0].gregorianEnd, '2026-03-20');
+  assert.equal(result.qiSteps[1].gregorianStart, '2026-03-20');
+  assert.ok(first.endTimestampExclusive > Date.parse('2026-03-20T00:00:00+08:00'));
+  assert.ok(
+    result.prompt.includes(
+      `初之气（大寒、立春、雨水、惊蛰；现代节气交节参考（北京时间）${first.startBeijing}至${first.endBeijingExclusive}前）`,
+    ),
+  );
+  assert.ok(
+    result.prompt.includes(
+      `二之气（春分、清明、谷雨、立夏；现代节气交节参考（北京时间）${second.startBeijing}至${second.endBeijingExclusive}前）`,
+    ),
+  );
+  assert.match(second.startBeijing, /^2026-03-20 \d{2}:\d{2}:\d{2}$/);
+  assert.ok(second.startTimestamp > Date.parse('2026-03-19T16:00:00Z'));
+  assert.ok(second.startTimestamp < Date.parse('2026-03-20T16:00:00Z'));
+  assert.match(result.prompt, /运气年度：2026-01-20 .*大寒节令起，至2027-01-20 .*次年大寒节令前/u);
+  assert.match(result.prompt, /初之气.*现代节气交节参考（北京时间）2026-01-20 .*至2026-03-20 /u);
+  assert.match(result.prompt, /二之气.*现代节气交节参考（北京时间）2026-03-20 /u);
+  assert.doesNotMatch(result.prompt, /年中落在此步|\d{2}:\d{2}:\d{2}交接/u);
+  assert.match(result.limitations.join('；'), /并非传统六气交司时刻/u);
+});
+
+test('五运六气支持的300个公历年五运日期连续且六气交节日期覆盖时段', () => {
   const day = (value: string | undefined) => {
     assert.ok(value);
     const timestamp = Date.parse(`${value}T00:00:00Z`);
@@ -60,20 +91,40 @@ test('五运六气支持的300个公历年各步日期连续且两种划分覆�
     return timestamp / 86_400_000;
   };
   let previousEnd: number | undefined;
+  let previousQiEnd: number | undefined;
   for (let year = 1900; year <= 2199; year += 1) {
     const result = calculateWuyunLiuqi({ year });
-    for (const steps of [result.movementSteps, result.qiSteps]) {
-      for (let index = 0; index < steps.length; index += 1) {
-        const start = day(steps[index].gregorianStart);
-        const end = day(steps[index].gregorianEnd);
-        assert.ok(end >= start, `${year}年第${index + 1}步`);
-        if (index > 0) assert.equal(start, day(steps[index - 1].gregorianEnd) + 1);
-      }
+    for (let index = 0; index < result.movementSteps.length; index += 1) {
+      const step = result.movementSteps[index];
+      const start = day(step.gregorianStart);
+      const end = day(step.gregorianEnd);
+      assert.ok(end >= start, `${year}年第${index + 1}运`);
+      if (index > 0) assert.equal(start, day(result.movementSteps[index - 1].gregorianEnd) + 1);
     }
+    result.qiSteps.forEach((step, index) => {
+      const range = step.boundaryTime;
+      assert.ok(range, `${year}年第${index + 1}步缺少交节时界`);
+      assert.ok(range.endTimestampExclusive > range.startTimestamp);
+      const beijingDate = (timestamp: number) =>
+        new Date(timestamp + 8 * 3_600_000).toISOString().slice(0, 10);
+      assert.equal(step.gregorianStart, beijingDate(range.startTimestamp));
+      assert.equal(step.gregorianEnd, beijingDate(range.endTimestampExclusive - 1));
+      assert.ok(day(step.gregorianEnd) >= day(step.gregorianStart));
+      if (index > 0) {
+        assert.equal(
+          range.startTimestamp,
+          result.qiSteps[index - 1].boundaryTime?.endTimestampExclusive,
+        );
+      }
+    });
+    if (previousQiEnd !== undefined) {
+      assert.equal(result.qiSteps[0].boundaryTime?.startTimestamp, previousQiEnd);
+    }
+    previousQiEnd = result.qiSteps[5].boundaryTime?.endTimestampExclusive;
     const start = day(result.movementSteps[0].gregorianStart);
     const end = day(result.movementSteps[4].gregorianEnd);
     assert.equal(start, day(result.qiSteps[0].gregorianStart));
-    assert.equal(end, day(result.qiSteps[5].gregorianEnd));
+    assert.ok(day(result.qiSteps[5].gregorianEnd) >= end);
     if (previousEnd !== undefined) assert.equal(start, previousEnd + 1);
     assert.ok([365, 366].includes(end - start + 1), String(year));
     previousEnd = end;

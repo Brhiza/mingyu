@@ -4,15 +4,14 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'hai-month-ren-wu-bing',
     label: '壬日亥月戊丙并用规则',
-    description:
-      '壬水生亥月，水旺需堤，戊土为岸为先，丙火佐暖为后。戊丙两透，富贵可期，不宜仍按冬水泛取火概之。',
+    description: '壬水生亥月，水旺先取戊土，丙火佐之；原文另以行火土运为丙戊两透论名利的条件。',
     priority: 118,
     months: ['亥'],
     dayMasters: ['水'],
     dayStems: ['壬'],
     usefulWuxing: '土',
     favorableOrder: ['土', '火'],
-    hint: '壬水亥月，戊土为堤，丙火佐暖，戊丙两透富贵',
+    hint: '壬水亥月，先取戊土，丙火佐之',
   },
   {
     id: 'hai-month-ren-wu-no-bing',

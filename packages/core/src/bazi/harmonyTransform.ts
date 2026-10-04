@@ -9,9 +9,15 @@ import type {
 } from '../types/analysis';
 import { WUXING, type Wuxing } from './baziTypes';
 import { SEASON_STATUS } from './baziElementData';
-import { BASIC_MAPPINGS, HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziMappingsData';
+import { TWELVE_STAGES_MAP } from './baziMappingsData';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
-import { BRANCH_WUXING } from '../ganzhi/relations';
+
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface HarmonyPillarInput {
   label?: string;
@@ -98,7 +104,7 @@ function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPilla
       label: normalizePillarLabel(pillar.label, index),
       gan: pillar.gan,
       zhi: pillar.zhi,
-      hiddenStems: pillar.hiddenStems || HIDDEN_STEMS[pillar.zhi] || [],
+      hiddenStems: pillar.hiddenStems || BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [],
     }))
     .map((pillar, index) => {
       assertHeavenlyStem(pillar.gan, `${pillar.label || `第${index + 1}柱`}天干`);
@@ -141,8 +147,9 @@ function getMonthCondition(
 }
 
 function getControllingElement(element: Wuxing): Wuxing | undefined {
-  return Object.entries(BASIC_MAPPINGS.WUXING_KE).find(([, target]) => target === element)?.[0] as
-    Wuxing | undefined;
+  return Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE).find(
+    ([, target]) => target === element,
+  )?.[0] as Wuxing | undefined;
 }
 
 function getStemRootCount(element: Wuxing, pillars: NormalizedHarmonyPillar[]): number {
@@ -246,7 +253,10 @@ function getHiddenControlEvidence(
   const controllingStems = ELEMENT_STEMS[controllingElement];
 
   return pillars.flatMap((pillar, index) => {
-    if (participantIndexes.includes(index) || BRANCH_WUXING[pillar.zhi] === controllingElement) {
+    if (
+      participantIndexes.includes(index) ||
+      GANZHI_RELATION_TABLES.BRANCH_WUXING[pillar.zhi] === controllingElement
+    ) {
       return [];
     }
     return pillar.hiddenStems
@@ -389,8 +399,8 @@ export function assessStemHarmonyTransform(
   evidence.push(...participantRootAssessment.evidence);
 
   const clashEvidence: string[] = [];
-  const clash1 = BASIC_MAPPINGS.TIAN_GAN_CHONG[stem1];
-  const clash2 = BASIC_MAPPINGS.TIAN_GAN_CHONG[stem2];
+  const clash1 = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[stem1];
+  const clash2 = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[stem2];
   if (
     clash1 &&
     pillars.some((pillar, index) => pillar.gan === clash1 && !participantIndexes.includes(index))
@@ -410,13 +420,14 @@ export function assessStemHarmonyTransform(
   const hasControl = pillars.some(
     (pillar, index) =>
       (!participantIndexes.includes(index) && controllingStems.includes(pillar.gan)) ||
-      BRANCH_WUXING[pillar.zhi] === controllingElement,
+      GANZHI_RELATION_TABLES.BRANCH_WUXING[pillar.zhi] === controllingElement,
   );
   const participantBranchControlEvidence = controllingElement
     ? pillars
         .filter(
           (pillar, index) =>
-            participantIndexes.includes(index) && BRANCH_WUXING[pillar.zhi] === controllingElement,
+            participantIndexes.includes(index) &&
+            GANZHI_RELATION_TABLES.BRANCH_WUXING[pillar.zhi] === controllingElement,
         )
         .map(
           (pillar) =>
@@ -525,8 +536,8 @@ export function assessBranchHarmonyTransform(
   ];
 
   const clashEvidence: string[] = [];
-  const clash1 = BASIC_MAPPINGS.DI_ZHI_CHONG[branch1];
-  const clash2 = BASIC_MAPPINGS.DI_ZHI_CHONG[branch2];
+  const clash1 = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[branch1];
+  const clash2 = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[branch2];
   if (
     clash1 &&
     pillars.some((pillar, index) => pillar.zhi === clash1 && !participantIndexes.includes(index))
@@ -604,7 +615,7 @@ export function assessAllHarmonyTransforms(
       const left = normalizedPillars[i];
       const right = normalizedPillars[j];
 
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
         profiles.push(
           assessStemHarmonyTransform(
             left.gan,
@@ -617,7 +628,7 @@ export function assessAllHarmonyTransforms(
         );
       }
 
-      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
         profiles.push(
           assessBranchHarmonyTransform(
             left.zhi,

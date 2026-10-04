@@ -1,5 +1,12 @@
 import type { XiaoliurenRule } from '../types/divination';
 
+const CANONICAL_XIAOLIUREN_PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'] as const;
+export const XIAOLIUREN_PALACE_NAMES = [...CANONICAL_XIAOLIUREN_PALACE_NAMES] as const;
+
+export function getXiaoliurenPalaceName(index: number) {
+  return CANONICAL_XIAOLIUREN_PALACE_NAMES[index];
+}
+
 export const XIAOLIUREN_RULE_OPTIONS = [
   { value: 'common', label: '通行掌诀' },
   { value: 'duoneng', label: '《多能鄙事》' },
@@ -27,7 +34,7 @@ export function resolveXiaoliurenRule(rule: XiaoliurenRule = 'common') {
 }
 
 // 《多能鄙事》卷八，小六壬课时；上海本扫描第196—197页。
-export const DUONENG_XIAOLIUREN_VERSES = [
+const CANONICAL_DUONENG_XIAOLIUREN_VERSES = [
   '大安时青龙主事，百事吉，失物在，行人未动。',
   '留连时玄武主事，凡事难成，求谋日未明，官事只可缓，去者未回程，失物巽上见，急讨方称情，更须防口舌，人口且平平。',
   '速喜时朱雀用事，有喜即至，行人来，公事了，失物离上可觅见。',
@@ -35,3 +42,9 @@ export const DUONENG_XIAOLIUREN_VERSES = [
   '小吉时六合主事，去行人至，失物坤方寻得，交关宜利。',
   '空亡时勾陈主事，求财无利，行人有灾，失物难觅，百事无成。',
 ] as const;
+
+export const DUONENG_XIAOLIUREN_VERSES = [...CANONICAL_DUONENG_XIAOLIUREN_VERSES] as const;
+
+export function getDuonengXiaoliurenVerse(index: number) {
+  return CANONICAL_DUONENG_XIAOLIUREN_VERSES[index];
+}

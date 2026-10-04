@@ -1,5 +1,5 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS, LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
-import { TIAN_GAN_HE } from '../ganzhi/relations';
+import { LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
+
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import type { HarmonyTransformProfile } from '../types/analysis';
 import type { Pillars } from './baziTypes';
@@ -14,6 +14,12 @@ import {
   type RootTraditionalKind,
 } from './baziRootFacts';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
 
@@ -32,6 +38,8 @@ export interface PatternStemEvidence {
   placement: '透干' | '藏干';
   hiddenRole?: '本气' | '中气' | '余气';
   rooted: boolean;
+  /** 明透、有可用根气且未受合绊，才可作为本次有效作用干。 */
+  effective: boolean;
   rootType: '本根' | '同类根' | '无根';
   rootPositions: string[];
   clashedRootPositions: string[];
@@ -62,6 +70,13 @@ export interface PatternPathEvaluation {
   /** 只记录四柱外干之间的实际位置，不把距离折算为分数。 */
   position: PatternPathPosition;
   positionPairs: string[];
+  /** 两端均可用且紧贴的具体柱位组合，供连续制化核对同一中继干。 */
+  effectivePairs?: Array<{
+    sourceStem: string;
+    sourcePillar: PillarPosition;
+    targetStem: string;
+    targetPillar: PillarPosition;
+  }>;
   detail: string;
 }
 
@@ -209,7 +224,7 @@ function buildObserved(
               placement: '透干' as const,
             },
           ];
-    const hidden = (HIDDEN_STEMS[current.zhi] ?? []).map((stem, index) => ({
+    const hidden = (BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[current.zhi] ?? []).map((stem, index) => ({
       stem,
       tenGod: getTenGod(stem, dayMaster),
       pillar,
@@ -294,11 +309,12 @@ function resolveRootQuality(roots: AdjudicatedRootFact[]): string {
  */
 function getMonthPrincipalControl(item: ObservedStem, pillars: Pillars): string | undefined {
   if (item.pillar !== 'month') return undefined;
-  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  const principal = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi]?.[0];
   if (!principal || principal === item.stem) return undefined;
   const principalWuxing = getWuxing(principal);
   const itemWuxing = getWuxing(item.stem);
-  if (BASIC_MAPPINGS.WUXING_KE[principalWuxing] !== itemWuxing) return undefined;
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[principalWuxing] !== itemWuxing)
+    return undefined;
   return `月令${pillars.month.zhi}本气${principal}（${principalWuxing}）克${item.stem}（${itemWuxing}）`;
 }
 
@@ -306,10 +322,10 @@ function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const itemWuxing = getWuxing(item.stem);
   if (itemWuxing === '未知') throw new Error(`根气天干五行无效：${item.stem}`);
   const hiddenStems = {
-    year: HIDDEN_STEMS[pillars.year.zhi],
-    month: HIDDEN_STEMS[pillars.month.zhi],
-    day: HIDDEN_STEMS[pillars.day.zhi],
-    hour: HIDDEN_STEMS[pillars.hour.zhi],
+    year: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.year.zhi],
+    month: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi],
+    day: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.day.zhi],
+    hour: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.hour.zhi],
   };
   const roots = collectAdjudicatedRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
   const exactRoots = roots.filter((candidate) => candidate.stem === item.stem);
@@ -380,7 +396,11 @@ function getGodGroup(
   };
 }
 
-function toStemEvidence(item: ObservedStem, pillars: Pillars): PatternStemEvidence {
+function toStemEvidence(
+  item: ObservedStem,
+  pillars: Pillars,
+  harmonyProfiles: HarmonyTransformProfile[],
+): PatternStemEvidence {
   const root = getRootInfo(item, pillars);
   return {
     stem: item.stem,
@@ -391,6 +411,8 @@ function toStemEvidence(item: ObservedStem, pillars: Pillars): PatternStemEviden
     placement: item.placement,
     ...(item.hiddenRole ? { hiddenRole: item.hiddenRole } : {}),
     rooted: root.rooted,
+    effective:
+      item.placement === '透干' && root.actionable && !isStemBlocked(item, harmonyProfiles),
     rootType: root.rootType,
     rootPositions: root.rootPositions,
     clashedRootPositions: root.clashedRootPositions,
@@ -406,7 +428,7 @@ function buildHarmonyProfiles(pillars: Pillars): HarmonyTransformProfile[] {
       label: PILLAR_NAMES[pillar],
       gan: pillars[pillar].gan,
       zhi: pillars[pillar].zhi,
-      hiddenStems: HIDDEN_STEMS[pillars[pillar].zhi],
+      hiddenStems: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[pillar].zhi],
     })),
     pillars.month.zhi,
   );
@@ -544,7 +566,11 @@ function formatGroup(group: GodGroup): string {
   return group.entries.length ? group.entries.map(formatObserved).join('、') : '未见';
 }
 
-function buildRootEvidence(groups: readonly GodGroup[], pillars: Pillars): PatternStemEvidence[] {
+function buildRootEvidence(
+  groups: readonly GodGroup[],
+  pillars: Pillars,
+  harmonyProfiles: HarmonyTransformProfile[],
+): PatternStemEvidence[] {
   const keys = new Set<string>();
   return groups
     .flatMap((group) => group.entries)
@@ -554,7 +580,7 @@ function buildRootEvidence(groups: readonly GodGroup[], pillars: Pillars): Patte
       keys.add(key);
       return true;
     })
-    .map((item) => toStemEvidence(item, pillars));
+    .map((item) => toStemEvidence(item, pillars, harmonyProfiles));
 }
 
 function buildGroupCondition(
@@ -597,13 +623,7 @@ function buildGroupCondition(
         detail: usability.detail,
       };
     }
-    if (usability.uncertain) {
-      return {
-        key,
-        status: '资料不足',
-        detail: `${usability.detail} 格神尚有未闭合的根气条件，不能直接定成格。`,
-      };
-    }
+    // 同类格神有一处已经可用时，另一处透干待核不抹去已闭合的格神事实。
   }
   return {
     key,
@@ -645,6 +665,24 @@ function evaluatePath(
       targetStems: targetItems.map((item) => item.stem),
       position: positionEvidence.position,
       positionPairs: positionEvidence.pairs,
+      effectivePairs:
+        status === '满足'
+          ? sourceItems.flatMap((sourceItem) =>
+              targetItems
+                .filter(
+                  (targetItem) =>
+                    Math.abs(
+                      POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar),
+                    ) === 1,
+                )
+                .map((targetItem) => ({
+                  sourceStem: sourceItem.stem,
+                  sourcePillar: sourceItem.pillar,
+                  targetStem: targetItem.stem,
+                  targetPillar: targetItem.pillar,
+                })),
+            )
+          : [],
       detail,
     };
   };
@@ -720,15 +758,33 @@ function evaluatePath(
     );
   }
 
+  const effectiveSource = availableSource.filter((sourceItem) =>
+    availableTarget.some(
+      (targetItem) =>
+        Math.abs(POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar)) === 1,
+    ),
+  );
+  const effectiveTarget = availableTarget.filter((targetItem) =>
+    effectiveSource.some(
+      (sourceItem) =>
+        Math.abs(POSITIONS.indexOf(sourceItem.pillar) - POSITIONS.indexOf(targetItem.pillar)) === 1,
+    ),
+  );
+  const effectiveUsesAdjudicatedClashedRoot = [...effectiveSource, ...effectiveTarget].some(
+    (item) => {
+      const root = getRootInfo(item, pillars);
+      return root.actionable && !root.hasStableActionableRoot;
+    },
+  );
   return createResult(
     '满足',
-    `${label}来源${availableSource.map(formatObserved).join('、')}与作用对象${availableTarget
+    `${label}来源${effectiveSource.map(formatObserved).join('、')}与作用对象${effectiveTarget
       .map(formatObserved)
       .join(
         '、',
-      )}均透干、有${usesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}，${formatPathPosition(availablePosition)}且未见合绊阻断。`,
-    availableSource,
-    availableTarget,
+      )}均透干、有${effectiveUsesAdjudicatedClashedRoot ? '可用根气（含经冲根裁决仍可作用者）' : '稳定根气'}，${formatPathPosition(getPathPositionEvidence(effectiveSource, effectiveTarget))}且未见合绊阻断。`,
+    effectiveSource,
+    effectiveTarget,
   );
 }
 
@@ -776,7 +832,26 @@ function combinePathChain(
 ): PatternPathEvaluation {
   const hasFailure = parts.some((part) => part.status === '不满足');
   const hasUnknown = parts.some((part) => part.status === '资料不足');
-  const status: PatternConditionStatus = hasFailure ? '不满足' : hasUnknown ? '资料不足' : '满足';
+  let continuousPairs = parts[0]?.effectivePairs ?? [];
+  for (const part of parts.slice(1)) {
+    continuousPairs = continuousPairs.flatMap((previous) =>
+      (part.effectivePairs ?? [])
+        .filter(
+          (current) =>
+            current.sourceStem === previous.targetStem &&
+            current.sourcePillar === previous.targetPillar,
+        )
+        .map((current) => ({
+          sourceStem: previous.sourceStem,
+          sourcePillar: previous.sourcePillar,
+          targetStem: current.targetStem,
+          targetPillar: current.targetPillar,
+        })),
+    );
+  }
+  const disconnected = !hasFailure && !hasUnknown && parts.length > 1 && !continuousPairs.length;
+  const status: PatternConditionStatus =
+    hasFailure || disconnected ? '不满足' : hasUnknown ? '资料不足' : '满足';
   const position: PatternPathPosition = parts.every((part) => part.position === '紧贴')
     ? '紧贴'
     : parts.some((part) => part.position === '未判定')
@@ -792,9 +867,10 @@ function combinePathChain(
     targetStems: parts.at(-1)?.targetStems ?? [],
     position,
     positionPairs: parts.flatMap((part) => part.positionPairs),
+    effectivePairs: status === '满足' ? continuousPairs : [],
     detail: `${label}由${parts
       .map((part) => `${part.label}=${part.status}（${part.detail}）`)
-      .join('；')}组成。`,
+      .join('；')}组成${disconnected ? '；各段虽分别成立，但未由同一柱位的中继干连续承接' : ''}。`,
   };
 }
 
@@ -842,10 +918,6 @@ function getMonthGateEvidence(
     }
   }
 
-  const monthGanGod = getTenGod(pillars.month.gan, dayMaster);
-  if (targetGods.includes(monthGanGod)) {
-    add(`月干${pillars.month.gan}（${monthGanGod}）`);
-  }
   return evidence;
 }
 
@@ -857,7 +929,7 @@ function buildMonthPrincipalControlFact(
   dayMaster: string,
   getTenGod: GetTenGodFn,
 ): PatternConditionFact | undefined {
-  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  const principal = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi]?.[0];
   if (!principal) return undefined;
   const principalGod = getTenGod(principal, dayMaster);
   if (!['正财', '偏财'].includes(principalGod)) return undefined;
@@ -1004,6 +1076,29 @@ function evaluateStatusForOrdinaryPattern(params: {
       activeBreakers,
     };
   }
+  const effectiveBreakers = assessedBreakers.filter((item) => item.usability.effective);
+  const unresolved = effectiveBreakers.filter(
+    (item) => !item.repairStatuses.some((status) => status === '满足'),
+  );
+  const indeterminate = unresolved.filter((item) =>
+    item.repairStatuses.some((status) => status === '资料不足'),
+  );
+  const unrescued = unresolved.filter((item) => item.repairStatus === '不满足');
+  if (unrescued.length) {
+    return {
+      status: '破格',
+      detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}；${unrescued
+        .map((item) => {
+          const details = item.repairOptions
+            .flat()
+            .map((path) => path.detail)
+            .join('；');
+          return details || item.repair?.detail || `${item.label}未见有效救应`;
+        })
+        .join('；')}`,
+      activeBreakers,
+    };
+  }
   const uncertainBreakers = assessedBreakers.filter((item) => item.usability.uncertain);
   if (uncertainBreakers.length) {
     return {
@@ -1014,7 +1109,6 @@ function evaluateStatusForOrdinaryPattern(params: {
       activeBreakers,
     };
   }
-  const effectiveBreakers = assessedBreakers.filter((item) => item.usability.effective);
   if (!effectiveBreakers.length) {
     const suppressed = assessedBreakers
       .filter((item) => item.group.visible.length > 0)
@@ -1026,12 +1120,6 @@ function evaluateStatusForOrdinaryPattern(params: {
       activeBreakers,
     };
   }
-  const unresolved = effectiveBreakers.filter(
-    (item) => !item.repairStatuses.some((status) => status === '满足'),
-  );
-  const indeterminate = unresolved.filter((item) =>
-    item.repairStatuses.some((status) => status === '资料不足'),
-  );
   if (indeterminate.length) {
     return {
       status: '未判定',
@@ -1047,24 +1135,9 @@ function evaluateStatusForOrdinaryPattern(params: {
       activeBreakers,
     };
   }
-  if (!unresolved.length) {
-    return {
-      status: '破而复成',
-      detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}，但每项均有明示且有效的救应路径。`,
-      activeBreakers,
-    };
-  }
   return {
-    status: '破格',
-    detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}；${unresolved
-      .map((item) => {
-        const details = item.repairOptions
-          .flat()
-          .map((path) => path.detail)
-          .join('；');
-        return details || item.repair?.detail || `${item.label}未见有效救应`;
-      })
-      .join('；')}`,
+    status: '破而复成',
+    detail: `原局见${effectiveBreakers.map((item) => item.label).join('、')}，但每项均有明示且有效的救应路径。`,
     activeBreakers,
   };
 }
@@ -1239,7 +1312,7 @@ export function evaluatePatternFulfillment(
         (entry) =>
           entry.placement === '透干' &&
           entry.tenGod === '七杀' &&
-          TIAN_GAN_HE[item.stem]?.partner === entry.stem,
+          GANZHI_RELATION_TABLES.TIAN_GAN_HE[item.stem]?.partner === entry.stem,
       );
       if (targets.length) {
         remedies.push({
@@ -1438,6 +1511,10 @@ export function evaluatePatternFulfillment(
     if (monthGate && targetCondition.status === '满足') {
       const validPaths = [foodPath, sealPath].filter((path) => path.status === '满足');
       const uncertainPaths = [foodPath, sealPath].filter((path) => path.status === '资料不足');
+      const disconnectedSealRelay =
+        killToSealPath.status === '满足' &&
+        sealToSelfPath.status === '满足' &&
+        sealPath.status === '不满足';
       decision = validPaths.length
         ? {
             status: '成格',
@@ -1448,12 +1525,17 @@ export function evaluatePatternFulfillment(
               status: '未判定',
               detail: `七杀虽见月令、透干与根气，但${uncertainPaths
                 .map((path) => path.label)
-                .join('、')}仍有柱位或作用条件资料不足，不能直接定成或破。`,
+                .join(
+                  '、',
+                )}仍有柱位或作用条件资料不足，不能直接定成或破。${disconnectedSealRelay ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。' : ''}`,
             }
           : {
               status: '破格',
               detail:
-                '七杀虽见月令、透干与根气，但未见双方有根且未被合绊阻断的食神制杀或印化杀路径。',
+                '七杀虽见月令、透干与根气，但食神制杀与印化杀均未形成完整有效的制化路径。' +
+                (disconnectedSealRelay
+                  ? '七杀生印与印生身虽各自成立，中间印星却未由同一柱位连续承接。'
+                  : ''),
             };
     } else {
       decision = evaluateStatusForOrdinaryPattern({
@@ -1604,7 +1686,7 @@ export function evaluatePatternFulfillment(
     getGodGroup(['食神', '伤官'], observed, pillars),
     getGodGroup(['比肩', '劫财'], observed, pillars),
   ];
-  const rootEvidence = buildRootEvidence(allGroups, pillars);
+  const rootEvidence = buildRootEvidence(allGroups, pillars, harmonyProfiles);
   rootEvidence.push(
     toStemEvidence(
       {
@@ -1615,6 +1697,7 @@ export function evaluatePatternFulfillment(
         placement: '透干',
       },
       pillars,
+      harmonyProfiles,
     ),
   );
 

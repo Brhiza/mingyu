@@ -11,7 +11,7 @@ export interface XiaoliurenPalaceInfo {
   auspice: '大吉' | '吉' | '小吉' | '平' | '凶';
 }
 
-export const XIAOLIUREN_PALACE_ATTRIBUTES: Record<string, XiaoliurenPalaceInfo> = {
+const CANONICAL_XIAOLIUREN_PALACE_ATTRIBUTES: Record<string, XiaoliurenPalaceInfo> = {
   大安: { name: '大安', wuxing: '木', auspice: '大吉' },
   留连: { name: '留连', wuxing: '水', auspice: '平' },
   速喜: { name: '速喜', wuxing: '火', auspice: '吉' },
@@ -19,6 +19,14 @@ export const XIAOLIUREN_PALACE_ATTRIBUTES: Record<string, XiaoliurenPalaceInfo> 
   小吉: { name: '小吉', wuxing: '木', auspice: '小吉' },
   空亡: { name: '空亡', wuxing: '土', auspice: '凶' },
 };
+
+export const XIAOLIUREN_PALACE_ATTRIBUTES: Record<string, XiaoliurenPalaceInfo> =
+  Object.fromEntries(
+    Object.entries(CANONICAL_XIAOLIUREN_PALACE_ATTRIBUTES).map(([name, info]) => [
+      name,
+      { ...info },
+    ]),
+  );
 
 function elementRelation(source: string, target: string): string {
   if (source === target) return '比和';
@@ -28,10 +36,10 @@ function elementRelation(source: string, target: string): string {
 }
 
 function resolvePalace(name: string): XiaoliurenPalaceInfo {
-  if (typeof name !== 'string' || !Object.hasOwn(XIAOLIUREN_PALACE_ATTRIBUTES, name)) {
+  if (typeof name !== 'string' || !Object.hasOwn(CANONICAL_XIAOLIUREN_PALACE_ATTRIBUTES, name)) {
     throw new Error(`未知的小六壬宫名：${name}`);
   }
-  return { ...XIAOLIUREN_PALACE_ATTRIBUTES[name] };
+  return { ...CANONICAL_XIAOLIUREN_PALACE_ATTRIBUTES[name] };
 }
 
 export interface XiaoliurenFlowResult {

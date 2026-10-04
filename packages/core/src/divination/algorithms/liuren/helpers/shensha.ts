@@ -1,0 +1,334 @@
+import type { LiurenShenShaFact } from '../../../../types/divination';
+import { getYiMa } from '../../../../ganzhi';
+import { DIZHI } from './plate';
+
+/**
+ * 按《六壬大全》分层计算无需本命资料即可确定的月煞和日煞。
+ * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
+ */
+export function buildShenShaFacts(
+  monthBranch: string,
+  dayBranch: string,
+  dayStem: string,
+): LiurenShenShaFact[] {
+  const facts: LiurenShenShaFact[] = [];
+  const commonLimitations = [
+    '只定位神煞所在干支',
+    '须核对是否入课、入传或临干支',
+    '不得单项定吉凶',
+  ];
+  const addFact = (
+    fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
+      source: string;
+    },
+  ) => {
+    const { source, ...rest } = fact;
+    facts.push({ ...rest, sources: [source], limitations: [...commonLimitations] });
+  };
+
+  const branchHorse = getYiMa(dayBranch);
+  if (branchHorse) {
+    addFact({
+      name: '支马',
+      target: branchHorse,
+      targetType: '地支',
+      category: '十二地支神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '日支所属三合局取支马：申子辰寅、亥卯未巳、寅午戌申、巳酉丑亥',
+      source: '《六壬大全》卷一“十二地支神煞”支马表',
+    });
+  }
+
+  const monthHorse = getYiMa(monthBranch);
+  if (monthHorse) {
+    addFact({
+      name: '驿马',
+      target: monthHorse,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取驿马：寅午戌月申、亥卯未月巳、申子辰月寅、巳酉丑月亥',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const jieShaMap: Record<string, string> = {
+    子: '巳',
+    申: '巳',
+    辰: '巳',
+    亥: '申',
+    卯: '申',
+    未: '申',
+    寅: '亥',
+    午: '亥',
+    戌: '亥',
+    巳: '寅',
+    酉: '寅',
+    丑: '寅',
+  };
+  const jieSha = jieShaMap[monthBranch];
+  if (jieSha) {
+    addFact({
+      name: '劫煞',
+      target: jieSha,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取劫煞：寅午戌月亥、亥卯未月申、申子辰月巳、巳酉丑月寅',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const wangShenMap: Record<string, string> = {
+    子: '亥',
+    申: '亥',
+    辰: '亥',
+    亥: '寅',
+    卯: '寅',
+    未: '寅',
+    寅: '巳',
+    午: '巳',
+    戌: '巳',
+    巳: '申',
+    酉: '申',
+    丑: '申',
+  };
+  const wangShen = wangShenMap[monthBranch];
+  if (wangShen) {
+    addFact({
+      name: '亡神',
+      target: wangShen,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取亡神：寅午戌月巳、亥卯未月寅、申子辰月亥、巳酉丑月申',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const xianChiMap: Record<string, string> = {
+    寅: '卯',
+    午: '卯',
+    戌: '卯',
+    亥: '子',
+    卯: '子',
+    未: '子',
+    申: '酉',
+    子: '酉',
+    辰: '酉',
+    巳: '午',
+    酉: '午',
+    丑: '午',
+  };
+  const xianChi = xianChiMap[monthBranch];
+  if (xianChi) {
+    addFact({
+      name: '咸池',
+      target: xianChi,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取咸池：寅午戌月卯、亥卯未月子、申子辰月酉、巳酉丑月午',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const poSuiMap: Record<string, string> = {
+    寅: '酉',
+    申: '酉',
+    巳: '酉',
+    亥: '酉',
+
+    子: '巳',
+    卯: '巳',
+    午: '巳',
+    酉: '巳',
+
+    辰: '丑',
+    戌: '丑',
+    丑: '丑',
+    未: '丑',
+  };
+  const poSui = poSuiMap[monthBranch];
+  if (poSui) {
+    addFact({
+      name: '破碎',
+      target: poSui,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '月建四孟在酉、四仲在巳、四季在丑',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const dayBranchIndex = DIZHI.findIndex((branch) => branch === dayBranch);
+  if (dayBranchIndex >= 0) {
+    const tianLuo = DIZHI[(dayBranchIndex + 1) % DIZHI.length];
+    const diWang = DIZHI[(dayBranchIndex + 7) % DIZHI.length];
+    addFact({
+      name: '天罗',
+      target: tianLuo,
+      targetType: '地支',
+      category: '罗网神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '日前一支为天罗',
+      source: '《六壬大全》卷七“天罗地网卦”',
+    });
+    addFact({
+      name: '地网',
+      target: diWang,
+      targetType: '地支',
+      category: '罗网神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '天罗对冲之支为地网',
+      source: '《六壬大全》卷七“天罗地网卦”',
+    });
+  }
+
+  const tianDeMap: Record<string, string> = {
+    寅: '丁',
+    卯: '申',
+    辰: '壬',
+    巳: '辛',
+    午: '亥',
+    未: '甲',
+    申: '癸',
+    酉: '寅',
+    戌: '丙',
+    亥: '乙',
+    子: '巳',
+    丑: '庚',
+  };
+  const tianDe = tianDeMap[monthBranch];
+  if (tianDe) {
+    addFact({
+      name: '天德',
+      target: tianDe,
+      targetType: DIZHI.includes(tianDe as (typeof DIZHI)[number]) ? '地支' : '天干',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按十二月天德表定位',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const yueDeMap: Record<string, string> = {
+    寅: '丙',
+    午: '丙',
+    戌: '丙',
+    申: '壬',
+    子: '壬',
+    辰: '壬',
+    亥: '甲',
+    卯: '甲',
+    未: '甲',
+    巳: '庚',
+    酉: '庚',
+    丑: '庚',
+  };
+  const yueDe = yueDeMap[monthBranch];
+  if (yueDe) {
+    addFact({
+      name: '月德',
+      target: yueDe,
+      targetType: '天干',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '寅午戌月丙、申子辰月壬、亥卯未月甲、巳酉丑月庚',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const tianMaMap: Record<string, string> = {
+    寅: '午',
+    卯: '申',
+    辰: '戌',
+    巳: '子',
+    午: '寅',
+    未: '辰',
+    申: '午',
+    酉: '申',
+    戌: '戌',
+    亥: '子',
+    子: '寅',
+    丑: '辰',
+  };
+  const tianMa = tianMaMap[monthBranch];
+  if (tianMa) {
+    addFact({
+      name: '天马',
+      target: tianMa,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '正月午起，逐月顺行两支',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
+
+  const riDeMap: Record<string, string> = {
+    甲: '寅',
+    己: '寅',
+    乙: '申',
+    庚: '申',
+    丙: '巳',
+    辛: '巳',
+    丁: '亥',
+    壬: '亥',
+    戊: '巳',
+    癸: '巳',
+  };
+  const riDe = riDeMap[dayStem];
+  if (riDe) {
+    addFact({
+      name: '日德',
+      target: riDe,
+      targetType: '地支',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '甲己寅、乙庚申、丙辛巳、丁壬亥、戊癸巳',
+      source: '《六壬大全》卷一“十天干神煞”日德表',
+    });
+  }
+
+  const luMap: Record<string, string> = {
+    甲: '寅',
+    乙: '卯',
+    丙: '巳',
+    丁: '午',
+    戊: '巳',
+    己: '午',
+    庚: '申',
+    辛: '酉',
+    壬: '亥',
+    癸: '子',
+  };
+  const lu = luMap[dayStem];
+  if (lu) {
+    addFact({
+      name: '日禄',
+      target: lu,
+      targetType: '地支',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '甲寅、乙卯、丙戊巳、丁己午、庚申、辛酉、壬亥、癸子',
+      source: '《六壬大全》卷一“十天干神煞”日禄表',
+    });
+  }
+
+  return facts;
+}

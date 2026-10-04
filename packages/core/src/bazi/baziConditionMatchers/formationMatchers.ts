@@ -1,6 +1,9 @@
-import { SAN_HE_MAP, SAN_HUI_MAP, SI_KU } from '../baziDefinitions';
+import { SI_KU } from '../baziDefinitions';
 import { branchesContain } from './helpers';
 import type { Matcher } from './types';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 const SAN_HE_KEYWORD_MAP: Record<string, string> = {
   三合金: '巳酉丑',
@@ -19,12 +22,15 @@ const SAN_HUI_KEYWORD_MAP: Record<string, string> = {
 export const sanHeMatcher: Matcher = ({ condition, pillars }) => {
   if (!condition.includes('三合')) return null;
 
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HE_MAP)) {
+    if (condition.includes(name)) return branchesContain(pillars, branches);
+  }
   for (const [keyword, key] of Object.entries(SAN_HE_KEYWORD_MAP)) {
     if (condition.includes(keyword)) {
-      return branchesContain(pillars, SAN_HE_MAP[key]);
+      return branchesContain(pillars, BAZI_RELATION_MAPPINGS.SAN_HE_MAP[key]);
     }
   }
-  for (const branches of Object.values(SAN_HE_MAP)) {
+  for (const branches of Object.values(BAZI_RELATION_MAPPINGS.SAN_HE_MAP)) {
     if (branchesContain(pillars, branches)) return true;
   }
   return false;
@@ -33,12 +39,15 @@ export const sanHeMatcher: Matcher = ({ condition, pillars }) => {
 export const sanHuiMatcher: Matcher = ({ condition, pillars }) => {
   if (!condition.includes('三会')) return null;
 
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HUI_MAP)) {
+    if (condition.includes(name)) return branchesContain(pillars, branches);
+  }
   for (const [keyword, key] of Object.entries(SAN_HUI_KEYWORD_MAP)) {
     if (condition.includes(keyword)) {
-      return branchesContain(pillars, SAN_HUI_MAP[key]);
+      return branchesContain(pillars, BAZI_RELATION_MAPPINGS.SAN_HUI_MAP[key]);
     }
   }
-  for (const branches of Object.values(SAN_HUI_MAP)) {
+  for (const branches of Object.values(BAZI_RELATION_MAPPINGS.SAN_HUI_MAP)) {
     if (branchesContain(pillars, branches)) return true;
   }
   return false;

@@ -2,15 +2,15 @@ import type { ClimateRule } from '../../types';
 
 export const JI_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
-    id: 'chen-month-ji-bing-jia-first',
-    label: '己日辰月先丙后甲规则',
-    description: '己土生辰月，春深土湿，传统多以丙火暖局、甲木疏土，先后有序。',
+    id: 'chen-month-ji-bing-gui-jia',
+    label: '己日辰月先丙后癸再甲规则',
+    description: '己土生辰月，原文先丙暖土，后癸润土，再随局取甲木疏土。',
     priority: 119,
     months: ['辰'],
     dayMasters: ['土'],
     dayStems: ['己'],
     usefulWuxing: '火',
-    favorableOrder: ['火', '木'],
-    hint: '己土辰月，先丙后甲',
+    favorableOrder: ['火', '水', '木'],
+    hint: '己土辰月，先丙后癸，再随局取甲疏土',
   },
 ];

@@ -1,13 +1,19 @@
 import { LunarHour, SolarTime } from 'tyme4ts';
+import * as AstronomyEngine from 'astronomy-engine';
 import { daysInSolarMonth, getBirthDateValidationMessage } from './date-validation';
 import { getShichenFromClock } from './dateUtils';
 import { checkChinaDst, type ChinaDstCheckResult } from './china-dst';
 import {
   DEFAULT_CHINA_TIMEZONE_HOURS,
+  formatFixedTimezoneOffset,
   resolveCivilTime,
   type CivilDateTimeParts,
 } from './civil-time';
 import type { HistoricalTimezoneEvidence } from './historical-timezone';
+
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
 
 export interface SolarDateTimeParts extends CivilDateTimeParts {}
 
@@ -192,6 +198,9 @@ interface TrueSolarTimeEvidenceInput {
 function buildTrueSolarTimeEvidence(
   input: TrueSolarTimeEvidenceInput,
 ): TrueSolarTimeEvidenceFields {
+  const utcDateTime = new Date(
+    Date.parse(`${input.standardDateTime}Z`) - input.timezone * 3600000,
+  ).toISOString();
   const inputStepKey = 'true-solar-time:calculation:input';
   const timezoneStepKey = 'true-solar-time:calculation:historical-timezone';
   const dstStepKey = 'true-solar-time:calculation:china-dst';
@@ -217,7 +226,7 @@ function buildTrueSolarTimeEvidence(
               mappingStatus: input.timezoneEvidence.status,
               offsetConflict: input.timezoneEvidence.offsetConflict,
             },
-            promptText: `按 IANA 时区 ${input.timezoneEvidence.timeZoneId} 的历史规则，将当地钟表时间${input.clockDateTime}解析为 UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}${input.timezoneEvidence.status === 'ambiguous' ? '，并已用明确固定偏移消解回拨歧义' : ''}`,
+            promptText: `按 IANA 时区 ${input.timezoneEvidence.timeZoneId} 的历史规则，将当地钟表时间${input.clockDateTime}解析为 UTC${formatFixedTimezoneOffset(input.timezone)}${input.timezoneEvidence.status === 'ambiguous' ? '，并已用明确固定偏移消解回拨歧义' : ''}`,
             sources: ['IANA Time Zone Database 与 Intl.DateTimeFormat 历史时区解析'],
             limitation: TRUE_SOLAR_STEP_LIMITATION,
           },
@@ -239,7 +248,7 @@ function buildTrueSolarTimeEvidence(
         ...(input.timeZoneId ? { timeZoneId: input.timeZoneId } : {}),
       },
       result: { standardMeridian: input.standardMeridian },
-      promptText: `核验当地钟表时间${input.clockDateTime}、经度${input.longitude}°与法定时区 UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}，对应标准经线${input.standardMeridian}°`,
+      promptText: `核验当地钟表时间${input.clockDateTime}、经度${input.longitude}°与法定时区 UTC${formatFixedTimezoneOffset(input.timezone)}，对应标准经线${input.standardMeridian}°`,
       sources: ['明确当地钟表时间、经度与法定 UTC 偏移'],
       limitation: TRUE_SOLAR_STEP_LIMITATION,
     },
@@ -280,10 +289,10 @@ function buildTrueSolarTimeEvidence(
       stage: '均时差计算',
       status: '已计算',
       dependsOnStepKeys: [dstStepKey],
-      inputs: { standardDateTime: input.standardDateTime },
+      inputs: { utcDateTime },
       result: { equationOfTimeMinutes: input.equationOfTimeMinutes },
-      promptText: `按标准日期计算均时差${input.equationOfTimeMinutes.toFixed(3)}分钟`,
-      sources: ['基于年内日序的均时差近似公式'],
+      promptText: `按 UTC 瞬时${utcDateTime}的太阳地心视赤经与格林尼治视恒星时计算均时差${input.equationOfTimeMinutes.toFixed(3)}分钟`,
+      sources: ['Astronomy Engine 太阳地心视位置与视恒星时'],
       limitation: TRUE_SOLAR_STEP_LIMITATION,
     },
     {
@@ -331,7 +340,7 @@ function buildTrueSolarTimeEvidence(
             status: '已解析' as const,
             ownerFactKeys: [timezoneStepKey],
             ownerStepKeys: [timezoneStepKey],
-            promptText: `IANA 时区 ${input.timezoneEvidence.timeZoneId} 的当地历史偏移解析为 UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}`,
+            promptText: `IANA 时区 ${input.timezoneEvidence.timeZoneId} 的当地历史偏移解析为 UTC${formatFixedTimezoneOffset(input.timezone)}`,
             sources: ['IANA 历史时区映射结果'],
             limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
           },
@@ -367,7 +376,7 @@ function buildTrueSolarTimeEvidence(
       ownerFactKeys: [equationStepKey],
       ownerStepKeys: [equationStepKey],
       promptText: `均时差为${input.equationOfTimeMinutes.toFixed(3)}分钟`,
-      sources: ['年内日序均时差近似公式'],
+      sources: ['Astronomy Engine 太阳地心视位置与视恒星时'],
       limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
     },
     {
@@ -405,7 +414,7 @@ function buildTrueSolarTimeEvidence(
     },
   ];
   const equationLimitation =
-    '均时差采用年内日序近似公式，用于民用排盘校正，不宣称达到观测级或航海级精度。';
+    '均时差采用当前瞬时太阳星历，以 UTC 近似 UT1，时间尺度和底层星历仍含近似。';
   const longitudeTimezoneLimitation =
     '经度时差依赖已确认的出生地经度与当地法定时区；时区口径错误会直接改变校正结果。';
   const historicalTimezoneLimitation =
@@ -429,7 +438,7 @@ function buildTrueSolarTimeEvidence(
       ownerFactKeys: ['true-solar-time:fact:equation-of-time'],
       ownerStepKeys: [equationStepKey],
       promptText: equationLimitation,
-      sources: ['均时差近似公式精度说明'],
+      sources: ['太阳星历与 UT1≈UTC 的时间尺度口径'],
       limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
     },
     {
@@ -510,7 +519,7 @@ function buildTrueSolarTimeEvidence(
     ...(input.timezoneEvidence ? ['IANA 历史时区由 Intl.DateTimeFormat 所带时区数据库解析'] : []),
     '中国历史夏令时按明确规则还原',
     '经度时差按4分钟/度',
-    '均时差采用年内日序近似公式',
+    '均时差采用 Astronomy Engine 太阳地心视位置与格林尼治视恒星时',
   ].join('；');
   return {
     key: input.key,
@@ -523,14 +532,8 @@ function buildTrueSolarTimeEvidence(
     limitationFacts,
     ...(input.timezoneEvidence ? { timezoneEvidence: input.timezoneEvidence } : {}),
     source,
-    promptText: `真太阳时证据：钟表时间${input.clockDateTime}${input.timezoneEvidence ? `，IANA 时区 ${input.timezoneEvidence.timeZoneId} 的历史偏移为 UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}` : ''}，标准时间${input.standardDateTime}，经度时差${input.longitudeCorrectionMinutes.toFixed(3)}分钟，均时差${input.equationOfTimeMinutes.toFixed(3)}分钟，总校正${input.totalCorrectionMinutes.toFixed(3)}分钟，采用${input.correctedDateTime}与${input.shichen.name}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+    promptText: `真太阳时证据：钟表时间${input.clockDateTime}${input.timezoneEvidence ? `，IANA 时区 ${input.timezoneEvidence.timeZoneId} 的历史偏移为 UTC${formatFixedTimezoneOffset(input.timezone)}` : ''}，标准时间${input.standardDateTime}，经度时差${input.longitudeCorrectionMinutes.toFixed(3)}分钟，均时差${input.equationOfTimeMinutes.toFixed(3)}分钟，总校正${input.totalCorrectionMinutes.toFixed(3)}分钟，采用${input.correctedDateTime}与${input.shichen.name}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
   };
-}
-
-function getDayOfYear(year: number, month: number, day: number): number {
-  const current = new Date(Date.UTC(year, month - 1, day));
-  const start = new Date(Date.UTC(year, 0, 1));
-  return Math.floor((current.getTime() - start.getTime()) / 86400000) + 1;
 }
 
 function assertIntegerInRange(value: number, label: string, min: number, max: number): void {
@@ -615,11 +618,20 @@ export function parseLocalDateTime(value: string): SolarDateTimeParts {
   return result;
 }
 
+/** 返回所给公历日 UTC 正午的均时差，单位为分钟。 */
 export function calculateEquationOfTimeMinutes(year: number, month: number, day: number): number {
   validateSolarDate(year, month, day);
-  const dayOfYear = getDayOfYear(year, month, day);
-  const angle = (2 * Math.PI * (dayOfYear - 81)) / 364;
-  return 9.87 * Math.sin(2 * angle) - 7.53 * Math.cos(angle) - 1.5 * Math.sin(angle);
+  return equationOfTimeMinutesForInstant(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+function equationOfTimeMinutesForInstant(date: Date): number {
+  const geocentric = Astronomy.GeoVector(Astronomy.Body.Sun, date, true);
+  const equator = Astronomy.EquatorFromVector(
+    Astronomy.RotateVector(Astronomy.Rotation_EQJ_EQD(date), geocentric),
+  );
+  const utcMinutes = (date.getTime() / 60000) % 1440;
+  const differenceMinutes = (Astronomy.SiderealTime(date) - equator.ra) * 60 + 720 - utcMinutes;
+  return ((((differenceMinutes + 720) % 1440) + 1440) % 1440) - 720;
 }
 
 export function calculateTrueSolarTime(
@@ -634,25 +646,22 @@ export function calculateTrueSolarTime(
   assertNumberInRange(longitude, '经度', -180, 180);
   assertNumberInRange(standardMeridian, '标准经线', -180, 210);
 
-  const equationOfTimeMinutes = calculateEquationOfTimeMinutes(
-    standardTime.year,
-    standardTime.month,
-    standardTime.day,
-  );
+  // 保留日期线两侧的整日差：太阳时钟表可按 24 小时取模，但排盘日期需要完整校正量。
   const longitudeCorrectionMinutes = (longitude - standardMeridian) * 4;
-  const totalCorrectionMinutes = equationOfTimeMinutes + longitudeCorrectionMinutes;
-
-  const correctedDate = new Date(
-    Date.UTC(
-      standardTime.year,
-      standardTime.month - 1,
-      standardTime.day,
-      standardTime.hour,
-      standardTime.minute,
-      second,
-    ),
+  const standardTimestamp = Date.UTC(
+    standardTime.year,
+    standardTime.month - 1,
+    standardTime.day,
+    standardTime.hour,
+    standardTime.minute,
+    second,
   );
-  correctedDate.setTime(correctedDate.getTime() + totalCorrectionMinutes * 60000);
+  // 标准经线表达法定 UTC 偏移；同一瞬时的不同钟表口径使用相同星历。
+  const equationOfTimeMinutes = equationOfTimeMinutesForInstant(
+    new Date(standardTimestamp - standardMeridian * 4 * 60000),
+  );
+  const totalCorrectionMinutes = equationOfTimeMinutes + longitudeCorrectionMinutes;
+  const correctedDate = new Date(standardTimestamp + totalCorrectionMinutes * 60000);
 
   return {
     correctedTime: toDateTimeParts(correctedDate),
@@ -687,6 +696,9 @@ export function convertTrueSolarTime(
     throw new Error('timeZoneId 已包含历史夏令时规则，不能同时启用 applyChinaDst。');
   }
   const requestedChinaDst = input.applyChinaDst ?? false;
+  if (requestedChinaDst && timezone !== DEFAULT_CHINA_TIMEZONE_HOURS) {
+    throw new Error('中国历史夏令时校正仅适用于东八区钟表时间。');
+  }
   const chinaDstCheck = requestedChinaDst
     ? checkChinaDst(
         clockTime.year,

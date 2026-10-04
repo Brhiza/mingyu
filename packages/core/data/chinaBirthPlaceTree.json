@@ -3571,7 +3571,7 @@
             "label": "高州市",
             "displayName": "广东省 茂名市 高州市",
             "pinyin": "gao zhou",
-            "longitude": 110.853169,
+            "longitude": 110.85402,
             "latitude": 21.919654
           },
           {
@@ -6448,7 +6448,7 @@
             "label": "南沙区",
             "displayName": "海南省 三沙市 南沙区",
             "pinyin": "nan sha",
-            "longitude": 112.896229,
+            "longitude": 112.346961,
             "latitude": 16.834372
           },
           {
@@ -9906,7 +9906,7 @@
             "label": "城子河区",
             "displayName": "黑龙江省 鸡西市 城子河区",
             "pinyin": "cheng zi he",
-            "longitude": 131.011504,
+            "longitude": 131.011476,
             "latitude": 45.336804
           },
           {
@@ -10462,7 +10462,7 @@
             "label": "庆安县",
             "displayName": "黑龙江省 绥化市 庆安县",
             "pinyin": "qing an",
-            "longitude": 127.507586,
+            "longitude": 127.505861,
             "latitude": 46.864084
           },
           {
@@ -10552,7 +10552,7 @@
             "label": "汤旺县",
             "displayName": "黑龙江省 伊春市 汤旺县",
             "pinyin": "tang wang",
-            "longitude": 129.570935,
+            "longitude": 129.56205,
             "latitude": 48.456644
           },
           {
@@ -12112,7 +12112,7 @@
             "label": "双峰县",
             "displayName": "湖南省 娄底市 双峰县",
             "pinyin": "shuang feng",
-            "longitude": 112.174623,
+            "longitude": 112.174265,
             "latitude": 27.457996
           },
           {
@@ -12903,7 +12903,7 @@
             "label": "南关区",
             "displayName": "吉林省 长春市 南关区",
             "pinyin": "nan guan",
-            "longitude": 125.350341,
+            "longitude": 125.307232,
             "latitude": 43.798665
           },
           {
@@ -16026,7 +16026,7 @@
             "label": "大石桥市",
             "displayName": "辽宁省 营口市 大石桥市",
             "pinyin": "da shi qiao",
-            "longitude": 122.509006,
+            "longitude": 122.482393,
             "latitude": 40.664851
           },
           {
@@ -16437,7 +16437,7 @@
             "label": "准格尔旗",
             "displayName": "内蒙古自治区 鄂尔多斯市 准格尔旗",
             "pinyin": "zhun ge er qi",
-            "longitude": 111.239436,
+            "longitude": 111.27416,
             "latitude": 40.092513
           }
         ],
@@ -17088,7 +17088,7 @@
             "label": "大武口区",
             "displayName": "宁夏回族自治区 石嘴山市 大武口区",
             "pinyin": "da wu kou",
-            "longitude": 106.368128,
+            "longitude": 106.379323,
             "latitude": 39.018409
           },
           {
@@ -17130,7 +17130,7 @@
             "label": "利通区",
             "displayName": "宁夏回族自治区 吴忠市 利通区",
             "pinyin": "li tong",
-            "longitude": 106.212479,
+            "longitude": 106.235842,
             "latitude": 38.00298
           },
           {
@@ -17381,7 +17381,7 @@
             "label": "化隆回族自治县",
             "displayName": "青海省 海东市 化隆回族自治县",
             "pinyin": "hua long",
-            "longitude": 102.266031,
+            "longitude": 102.031294,
             "latitude": 36.011257
           },
           {
@@ -17582,7 +17582,7 @@
         "label": "西宁市",
         "displayName": "青海省 西宁市",
         "pinyin": "xi ning",
-        "longitude": 101.777795,
+        "longitude": 101.758249,
         "districts": [
           {
             "id": "630105",
@@ -19215,7 +19215,7 @@
             "label": "泽州县",
             "displayName": "山西省 晋城市 泽州县",
             "pinyin": "ze zhou",
-            "longitude": 112.922243,
+            "longitude": 112.954123,
             "latitude": 35.543499
           }
         ],
@@ -26209,7 +26209,7 @@
             "label": "仲巴县",
             "displayName": "西藏自治区 日喀则市 仲巴县",
             "pinyin": "zhong ba",
-            "longitude": 84.03153,
+            "longitude": 84.03793,
             "latitude": 29.758021
           }
         ],
@@ -26743,7 +26743,7 @@
             "label": "奇台县",
             "displayName": "新疆维吾尔自治区 昌吉回族自治州 奇台县",
             "pinyin": "qi tai",
-            "longitude": 89.593879,
+            "longitude": 89.590929,
             "latitude": 44.021383
           }
         ],
@@ -28696,7 +28696,7 @@
         "label": "杭州市",
         "displayName": "浙江省 杭州市",
         "pinyin": "hang zhou",
-        "longitude": 120.210792,
+        "longitude": 120.209903,
         "districts": [
           {
             "id": "330108",

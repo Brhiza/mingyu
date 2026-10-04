@@ -15,7 +15,7 @@ export interface MountainProfile {
   yinYang: '阳' | '阴';
 }
 
-export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
+const CANONICAL_MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
   // 坎一宫
   壬: { mountain: '壬', gong: 1, trigram: '坎', yuanLong: '地元龙', yinYang: '阳' },
   子: { mountain: '子', gong: 1, trigram: '坎', yuanLong: '天元龙', yinYang: '阴' },
@@ -50,6 +50,10 @@ export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
   亥: { mountain: '亥', gong: 6, trigram: '乾', yuanLong: '人元龙', yinYang: '阳' },
 };
 
+export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = Object.fromEntries(
+  Object.entries(CANONICAL_MOUNTAIN_PROFILES).map(([key, profile]) => [key, { ...profile }]),
+);
+
 /** 八卦宫位按顺时针排列（用于取向首左右相邻两宫） */
 const CLOCKWISE_GONG_RING = [1, 8, 3, 4, 9, 2, 7, 6];
 
@@ -74,12 +78,15 @@ export interface CastleGateCandidate {
   yunStar: number;
   flyDirection: FlyDirection;
   arrivalStar: number;
-  status: '得旺可用' | '不得旺不可用';
+  status: '旺星到位' | '旺星未到位';
   summary: string;
 }
 
 export interface CastleGateEvaluation {
-  hasUsableGate: boolean;
+  /** @deprecated 旧字段曾以旺星到位代表可用；缺实地水口、门路与形势时，实际可用性未定，此字段为 null。盘面判断使用 hasWangStarGate。 */
+  hasUsableGate: null;
+  /** 仅表示按本宅运盘推得的城门旺星到位。 */
+  hasWangStarGate: boolean;
   candidates: CastleGateCandidate[];
   summary: string;
 }
@@ -101,13 +108,17 @@ export function evaluateCastleGate(params: {
   ) {
     throw new Error('城门运盘须为当运入中顺飞的完整九宫盘。');
   }
-  if (typeof facingMountain !== 'string' || !Object.hasOwn(MOUNTAIN_PROFILES, facingMountain)) {
+  if (
+    typeof facingMountain !== 'string' ||
+    !Object.hasOwn(CANONICAL_MOUNTAIN_PROFILES, facingMountain)
+  ) {
     throw new Error('城门朝向须为有效的二十四山。');
   }
-  const facingProfile = MOUNTAIN_PROFILES[facingMountain];
+  const facingProfile = CANONICAL_MOUNTAIN_PROFILES[facingMountain];
   if (!facingProfile) {
     return {
-      hasUsableGate: false,
+      hasUsableGate: null,
+      hasWangStarGate: false,
       candidates: [],
       summary: '城门诀：未识别朝向，无法推导',
     };
@@ -117,7 +128,8 @@ export function evaluateCastleGate(params: {
   const ringIdx = CLOCKWISE_GONG_RING.indexOf(facingGong);
   if (ringIdx === -1) {
     return {
-      hasUsableGate: false,
+      hasUsableGate: null,
+      hasWangStarGate: false,
       candidates: [],
       summary: '城门诀：中宫不立向',
     };
@@ -132,13 +144,13 @@ export function evaluateCastleGate(params: {
   const candidates: CastleGateCandidate[] = [];
 
   for (const gong of adjacentGongs) {
-    const matchingMountain = Object.values(MOUNTAIN_PROFILES).find(
+    const matchingMountain = Object.values(CANONICAL_MOUNTAIN_PROFILES).find(
       (m) => m.gong === gong && m.yuanLong === targetYuanLong,
     );
     if (!matchingMountain) continue;
 
     const yunStar = yunPlate[gong - 1];
-    const baseMountain = Object.values(MOUNTAIN_PROFILES).find(
+    const baseMountain = Object.values(CANONICAL_MOUNTAIN_PROFILES).find(
       (m) => m.gong === (yunStar === 5 ? yun : yunStar) && m.yuanLong === targetYuanLong,
     );
     const flyDirection: FlyDirection =
@@ -146,7 +158,7 @@ export function evaluateCastleGate(params: {
     const plate = flyStars(yunStar, flyDirection);
     const arrivalStar = plate[gong - 1];
 
-    const status: CastleGateCandidate['status'] = arrivalStar === yun ? '得旺可用' : '不得旺不可用';
+    const status: CastleGateCandidate['status'] = arrivalStar === yun ? '旺星到位' : '旺星未到位';
 
     // 元旦盘宫数合一六、二七、三八、四九为正城门。
     const role: CastleGateCandidate['role'] =
@@ -155,9 +167,9 @@ export function evaluateCastleGate(params: {
     const arrivalProfile = getNineStarProfile(arrivalStar - 1);
     const arrivalName = `${arrivalProfile.number}${arrivalProfile.color}`;
     const statusDesc =
-      status === '得旺可用'
-        ? `飞临当令${arrivalName}旺星，城门旺星到位`
-        : `飞临${arrivalName}，未得当运旺星，城门不合`;
+      status === '旺星到位'
+        ? `飞临本宅${yun}运${arrivalName}旺星，城门旺星到位`
+        : `飞临${arrivalName}，未得本宅${yun}运旺星，城门不合`;
 
     candidates.push({
       gong,
@@ -172,13 +184,14 @@ export function evaluateCastleGate(params: {
     });
   }
 
-  const usable = candidates.filter((c) => c.status === '得旺可用');
-  const summary = usable.length
-    ? `城门诀：${usable.map((u) => `${u.role}${u.mountain}方旺星到位`).join('、')}；须结合该方实际水口、周围形势及生克判断`
-    : '城门诀：两旁城门未得旺星飞临，正向纳气为要';
+  const wangStarCandidates = candidates.filter((c) => c.status === '旺星到位');
+  const summary = wangStarCandidates.length
+    ? `城门诀：${wangStarCandidates.map((candidate) => `${candidate.role}${candidate.mountain}方旺星到位`).join('、')}；须结合该方实际水口、周围形势及生克判断`
+    : '城门诀：两旁城门未得旺星飞临；正向纳气仍须结合实际门路与形势核对';
 
   return {
-    hasUsableGate: usable.length > 0,
+    hasUsableGate: null,
+    hasWangStarGate: wangStarCandidates.length > 0,
     candidates,
     summary,
   };

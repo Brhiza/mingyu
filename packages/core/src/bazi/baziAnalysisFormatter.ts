@@ -1,5 +1,6 @@
 import type { BaziChartResult, PatternAnalysis, UsefulGodAnalysis } from './baziTypes';
 import { WUXING, isSheng, isKe } from '../wuxing';
+import { analyzePillarRelations } from './baziPromptEnhancement';
 
 interface FormatBaziOptions {
   includeRules?: boolean;
@@ -18,7 +19,16 @@ function joinOrFallback(values: string[] | undefined, fallback = '无'): string 
 }
 
 /** 保留具体干的作用范围，供盘面、复制文本及解读资料共同使用。 */
-export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[] {
+export function formatUsefulGodFunctions(
+  usefulGod: UsefulGodAnalysis,
+  includeTransformationConditions = true,
+): string[] {
+  const natalPatternGods = (usefulGod.decisionEvidence?.natalFunctions ?? [])
+    .filter((item) => item.role === '格神')
+    .map(
+      (item) =>
+        `${item.stem}${item.tenGod}（${item.pillar === 'year' ? '年柱' : item.pillar === 'month' ? '月柱' : item.pillar === 'day' ? '日柱' : '时柱'}）`,
+    );
   const adoptedStems = new Set(usefulGod.conditionalFavorableStems ?? []);
   const effects =
     usefulGod.decisionEvidence?.climateCandidates
@@ -58,12 +68,19 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       )
     : [];
   return [
+    ...(natalPatternGods.length
+      ? [
+          `原局格神作用：${[...new Set(natalPatternGods)].join('、')}已参与成格；增补五行与新来同干另按取用条件判断`,
+        ]
+      : []),
     ...(usefulGod.decisionEvidence?.transformation
       ? [
           `化神取用：${usefulGod.decisionEvidence.transformation.basis}`,
-          ...usefulGod.decisionEvidence.transformation.conditions.map(
-            (condition) => `取用条件：${condition}`,
-          ),
+          ...(includeTransformationConditions
+            ? usefulGod.decisionEvidence.transformation.conditions.map(
+                (condition) => `取用条件：${condition}`,
+              )
+            : []),
         ]
       : []),
     usefulGod.decisionEvidence?.balanceAdjustment
@@ -83,6 +100,19 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
 }
 
 /** 格局名称与成败条件分开呈现，所有解读入口复用同一份已计算结论。 */
+export function formatPatternBasisForPrompt(basis: string): string {
+  if (basis.startsWith('《三命通会》卷六亥卯未曲直法条件成立')) {
+    return '《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  if (basis.startsWith('《渊海子平·神趣八法·类象》春生寅卯辰法条件成立')) {
+    return '《渊海子平·神趣八法·类象》春生寅卯辰法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  const selectedBasis = basis.split(/；(?:曲直|从儿)结构未立：/u, 1)[0];
+  return selectedBasis
+    .replace(/；分日司权[^；]*仅作当日月气事实/gu, '')
+    .replace(/^(《滴天髓阐微·顺局》从儿法成立：)月建食伤当权；(?=月支[^；]*食伤在月建当权)/u, '$1');
+}
+
 export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
   const fulfillment = pattern.fulfillment;
   const special = pattern.specialAdjudication;
@@ -130,10 +160,11 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
             : '',
         ].filter(Boolean);
   if (!fulfillment) return [...patternCandidateFacts, ...specialFacts];
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
   return [
     ...patternCandidateFacts,
     ...specialFacts,
-    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
+    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}${fulfillment.basis && !decisionDetail?.includes(fulfillment.basis) ? `；${fulfillment.basis}` : ''}${decisionDetail ? `；判定理由：${decisionDetail}` : ''}`,
     fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
     ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
     ...(fulfillment.conditionFacts ?? [])
@@ -144,6 +175,39 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
     ),
     ...(fulfillment.conditions ?? []).map((item) => `格局条件：${item}`),
   ].filter(Boolean);
+}
+
+/** 提示词只保留本盘判定理由，通用成败规则留在结构化分析中。 */
+export function formatPatternDecisionForPrompt(pattern: PatternAnalysis): string {
+  const fulfillment = pattern.fulfillment;
+  if (!fulfillment) return '';
+  const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;
+  const factualDecision =
+    fulfillment.basis && decisionDetail.includes(fulfillment.basis)
+      ? decisionDetail
+          .replace(fulfillment.basis, '')
+          .replace(/\s+/g, ' ')
+          .replace(/([。；]) (?=\S)/g, '$1')
+          .trim()
+      : decisionDetail;
+  return `当前成败判定：${fulfillment.status}${factualDecision ? `；判定理由：${factualDecision}` : ''}`;
+}
+
+export function hasConfirmedPatternTarget(pattern: PatternAnalysis): boolean {
+  return Boolean(
+    pattern.fulfillment?.conditionFacts?.some(
+      (item) => item.key === 'pattern.target' && item.status === '满足',
+    ),
+  );
+}
+
+export function formatAlternativePatternCandidates(pattern: PatternAnalysis): string {
+  const alternatives = pattern.patternCandidates?.filter(
+    (candidate) => !candidate.selected && candidate.pattern !== pattern.pattern,
+  );
+  return alternatives?.length
+    ? `其他取格候选：${alternatives.map((candidate) => `${candidate.pattern}（${candidate.source}；${formatPatternBasisForPrompt(candidate.basis)}）`).join('；')}`
+    : '';
 }
 
 function formatLunarDate(baziResult: BaziChartResult): string {
@@ -250,8 +314,9 @@ function formatSolarDateTime(value: {
   day: number;
   hour: number;
   minute: number;
+  second?: number;
 }) {
-  return `${value.year}年${value.month}月${value.day}日 ${value.hour}:${String(value.minute).padStart(2, '0')}`;
+  return `${value.year}年${value.month}月${value.day}日 ${value.hour}:${String(value.minute).padStart(2, '0')}${value.second ? `:${String(value.second).padStart(2, '0')}` : ''}`;
 }
 
 function formatPromptLuckOverview(baziResult: BaziChartResult): string {
@@ -283,14 +348,35 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (!baziResult) return '无法获取八字数据。';
   if (baziResult.isThreePillars) {
     const { solarDate, unknownTimeAnalysis } = baziResult;
+    const calendarDateUncertain = Boolean(unknownTimeAnalysis?.uncertainCalendarDates?.length);
+    const scenarioCalendarDate = (
+      scenario: NonNullable<BaziChartResult['unknownTimeAnalysis']>['scenarios'][number],
+    ): string => {
+      if (!calendarDateUncertain || !scenario.solarDate || !scenario.lunarDate) return '';
+      const actualSolar = scenario.solarDate;
+      const actualLunar = scenario.lunarDate;
+      if (
+        actualSolar.year === solarDate.year &&
+        actualSolar.month === solarDate.month &&
+        actualSolar.day === solarDate.day &&
+        actualLunar.year === baziResult.lunarDate.year &&
+        actualLunar.month === baziResult.lunarDate.month &&
+        actualLunar.day === baziResult.lunarDate.day &&
+        actualLunar.monthName === baziResult.lunarDate.monthName &&
+        actualLunar.dayName === baziResult.lunarDate.dayName
+      ) {
+        return '';
+      }
+      return `排盘历日公历${actualSolar.year}年${actualSolar.month}月${actualSolar.day}日、农历${actualLunar.year}年${actualLunar.monthName}${actualLunar.dayName}；`;
+    };
+    const knownPillarLines = (['year', 'month', 'day'] as const).flatMap((key, index) => {
+      const ganZhi = baziResult.pillars[key].ganZhi;
+      return ganZhi ? [`${['年柱', '月柱', '日柱'][index]}：${ganZhi}`] : [];
+    });
     return [
       '【命盘】',
-      `公历${solarDate.year}年${solarDate.month}月${solarDate.day}日，${baziResult.gender === 'male' ? '男命' : '女命'}，出生时辰未知。`,
-      '【已确定的柱】',
-      ...(['year', 'month', 'day'] as const).map(
-        (key, index) =>
-          `${['年柱', '月柱', '日柱'][index]}：${baziResult.pillars[key].ganZhi || '待出生时分确定'}`,
-      ),
+      `${calendarDateUncertain ? `输入日期对应公历${solarDate.year}年${solarDate.month}月${solarDate.day}日，参考农历${formatLunarDate(baziResult)}` : `公历${solarDate.year}年${solarDate.month}月${solarDate.day}日`}，${baziResult.gender === 'male' ? '男命' : '女命'}，出生时辰未知。`,
+      ...(knownPillarLines.length ? ['【已确定的柱】', ...knownPillarLines] : []),
       '【待补时判断】',
       unknownTimeAnalysis?.summary ?? '旺衰、格局与喜忌待出生时分确定后再判。',
       unknownTimeAnalysis?.batch
@@ -298,11 +384,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
         : '【时辰候选比较】',
       ...(unknownTimeAnalysis?.scenarios ?? []).map(
         (scenario) =>
-          `${scenario.timeName}：${Object.values(scenario.pillars)
+          `${scenario.timeName}：${scenarioCalendarDate(scenario)}${Object.values(scenario.pillars)
             .map((pillar) => pillar.ganZhi)
             .join(
               ' ',
-            )}；${scenario.strength}；${scenario.pattern}；候选喜用${scenario.favorableWuxing.join('、') || '待判'}，候选所忌${scenario.unfavorableWuxing.join('、') || '待判'}`,
+            )}；${scenario.strength}；${scenario.pattern}${scenario.patternStatus ? `（${scenario.patternStatus}）` : ''}；候选喜用${scenario.favorableWuxing.join('、') || '待判'}，候选所忌${scenario.unfavorableWuxing.join('、') || '待判'}${scenario.incrementStatus === '部分判定' ? '；增补取用部分判定' : ''}`,
       ),
     ].join('\n');
   }
@@ -329,8 +415,20 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   let result = '【命盘】\n';
   const isMale = baziResult.gender === 'male';
+  const birthClock =
+    baziResult.birthClockTime ??
+    (baziResult.timing?.enabled ? baziResult.timing.standardTime : undefined);
+  const calendarCorrected =
+    baziResult.timing?.enabled ||
+    (birthClock &&
+      (birthClock.year !== solarDate.year ||
+        birthClock.month !== solarDate.month ||
+        birthClock.day !== solarDate.day));
   result += `基本信息: ${isMale ? '乾造' : '坤造'} | ${solarDate.year}年${solarDate.month}月${solarDate.day}日 ${timeInfo.name}\n`;
-  result += `出生历法: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
+  if (birthClock) {
+    result += `出生钟表时间: ${formatSolarDateTime(birthClock)}\n`;
+  }
+  result += `${calendarCorrected ? '排盘历法' : '出生历法'}: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
   if (baziResult.timing?.enabled && baziResult.timing.correctedTime) {
     result += `真太阳时: ${formatSolarDateTime(baziResult.timing.correctedTime)}`;
     if (baziResult.timing.birthPlace) {
@@ -356,31 +454,31 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
   result += `旺衰: ${analysis.dayMasterStrength.status}`;
-  const strengthRuleBasis = analysis.dayMasterStrength.details?.ruleBasis ?? [];
-  if (includeRules && strengthRuleBasis.length) {
-    result += `（${strengthRuleBasis.join('；')}）`;
+  if (includeRules) {
+    const strength = analysis.dayMasterStrength.details;
+    result += `（月令${strength.seasonalEffect}；司令${strength.commanderEffect}；${strength.hasRoot ? '有根' : '无根'}；成局${strength.formationEffect}）`;
   }
   result += '\n';
+  const alternativePatterns = formatAlternativePatternCandidates(analysis.mingGe);
   result += `格局: ${analysis.mingGe.pattern}`;
-  if (includeRules && analysis.mingGe.basis) {
-    result += `（${analysis.mingGe.basis}）`;
+  if ((includeRules || alternativePatterns) && analysis.mingGe.basis) {
+    result += `（${formatPatternBasisForPrompt(analysis.mingGe.basis)}）`;
+  }
+  if (analysis.mingGe.transformation?.status === '成化') {
+    result += '；化气判定：成化';
   }
   result += '\n';
   const patternFacts = formatPatternFulfillmentFacts(analysis.mingGe);
-  if (includeRules && analysis.mingGe.patternCandidates?.length) {
-    const candidateFacts = patternFacts.filter((fact) => fact.startsWith('取格分层候选：'));
-    if (candidateFacts.length) result += `${candidateFacts.join('\n')}\n`;
-  }
+  if (alternativePatterns) result += `${alternativePatterns}\n`;
   if (analysis.mingGe.fulfillment) {
     const nonCandidateFacts = patternFacts.filter((fact) => !fact.startsWith('取格分层候选：'));
-    const patternSummary = nonCandidateFacts.find((fact) => fact.startsWith('所取格局：'));
-    if (nonCandidateFacts[0]) result += `${nonCandidateFacts[0]}\n`;
-    if (patternSummary && patternSummary !== nonCandidateFacts[0]) {
-      result += `${patternSummary}\n`;
+    if (
+      analysis.mingGe.specialAdjudication?.status === '成立' &&
+      nonCandidateFacts[0]?.startsWith('特殊格裁决：')
+    ) {
+      result += `${nonCandidateFacts[0]}\n`;
     }
-    if (analysis.mingGe.fulfillment.contradiction) {
-      result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;
-    }
+    result += `${formatPatternDecisionForPrompt(analysis.mingGe)}\n`;
   }
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
@@ -405,18 +503,32 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.primaryUnfavorableWuxing
         ? analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.unfavorable?.slice(0, 2) || []
         : [];
+    const favorableText =
+      analysis.usefulGod.incrementStatus === '部分判定' &&
+      !analysis.usefulGod.favorableWuxing?.length
+        ? '增补喜用待判'
+        : `主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）`;
+    const unfavorableText =
+      analysis.usefulGod.incrementStatus === '部分判定' &&
+      !analysis.usefulGod.unfavorableWuxing?.length
+        ? '增补所忌待判'
+        : `忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）`;
 
-    result += `取用: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）；忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）\n`;
-    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod);
+    result +=
+      analysis.usefulGod.incrementStatus === '待判'
+        ? '增补五行喜忌: 待判\n'
+        : `取用: ${favorableText}；${unfavorableText}\n`;
+    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod, false);
     if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
-    if (includeRules && analysis.usefulGod.primaryReason) {
+    if (
+      includeRules &&
+      analysis.usefulGod.primaryReason &&
+      !analysis.usefulGod.decisionEvidence?.transformation
+    ) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-      result += analysis.usefulGod.decisionEvidence?.transformation
-        ? `取用依据: 原日主旺衰${analysis.dayMasterStrength.status}与十神保留为本命事实，${analysis.mingGe.pattern}按化神${analysis.usefulGod.decisionEvidence.transformation.element}及其条件取用\n`
-        : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }
-    if (includeRules && baziResult.climate && baziResult.climate.nature !== '中和') {
-      result += `调候特征: ${baziResult.climate.summary}\n`;
+    if (includeRules && baziResult.climate && baziResult.climate.nature !== '未见明显偏向') {
+      result += `水火分布参考: ${baziResult.climate.summary}\n`;
     }
   }
 
@@ -498,8 +610,8 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += '\n';
   }
 
-  if (includeNatalDetails && baziResult.pillarRelations) {
-    const relations = Object.values(baziResult.pillarRelations).flat();
+  if (includeNatalDetails) {
+    const relations = Object.values(analyzePillarRelations(baziResult)).flat();
     if (relations.length) result += `\n【原局干支关系】\n${[...new Set(relations)].join('；')}\n`;
   }
 

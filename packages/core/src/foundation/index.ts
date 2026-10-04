@@ -13,7 +13,7 @@ import {
 } from '../ganzhi/data';
 import { describeGanZhi, getBranchRelations, getStemRelations } from '../ganzhi';
 import { WUXING, analyzeWuxing } from '../wuxing';
-import { BAGUA, TWENTY_FOUR_MOUNTAINS, analyzeCompassDirection } from '../direction';
+import { getBaguaNames, getTwentyFourMountainNames, analyzeCompassDirection } from '../direction';
 import { analyzeShenshaEvidence, listShenshaCatalog } from '../shensha';
 import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -310,8 +310,8 @@ export function getFoundationCapabilities(): FoundationCapabilities {
     sixXunHeads: [...SIX_XUN_HEADS],
     changshengOrder: [...CHANGSHENG_ORDER],
     wuxing: [...WUXING],
-    bagua: [...BAGUA],
-    twentyFourMountains: [...TWENTY_FOUR_MOUNTAINS],
+    bagua: getBaguaNames(),
+    twentyFourMountains: getTwentyFourMountainNames(),
     shichenPeriods: SHICHEN_PERIODS.map((period) => ({ ...period })),
     chinaDstYears: [...CHINA_DST_YEARS],
   };

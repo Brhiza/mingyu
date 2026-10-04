@@ -6,7 +6,7 @@ import {
   calculateNamingBirthContext,
   analyzeChineseName,
   buildChineseNameAnalysisPrompt,
-} from 'mingyu-core/name-number';
+} from '../packages/core/src/name-number/index.ts';
 import { calculateBaziChartFromInput } from '../packages/core/src/bazi/input.ts';
 
 test('姓名案例保留精确时空资料并与八字跨日四柱一致', () => {
@@ -60,7 +60,9 @@ test('姓名案例保留精确时空资料并与八字跨日四柱一致', () =>
     });
     assert.ok(prompt.includes(`出生记录：${naming.timeBasis.inputDate} 00:30`));
     assert.ok(prompt.includes(`排盘公历：${naming.solarDate} ${naming.timeBasis.calculatedTime}`));
-    assert.ok(prompt.includes('时间口径：真太阳时；出生地新疆；经度75°'));
+    assert.ok(
+      prompt.includes('时间口径：真太阳时；地点记录：新疆；真太阳时校正经度：75°；时区：UTC+08:00'),
+    );
     draft.birthHour = '12';
     assert.equal(saved.birthHour, '00');
   }
@@ -110,4 +112,30 @@ test('姓名案例展示精确标准北京时间秒而非整段时辰', () => {
   assert.equal(context.timeBasis.inputTime, '09:00:37');
   assert.equal(context.timeBasis.mode, '标准北京时间（精确到秒）');
   assert.equal(context.timeBasis.calculatedTime, '09:00:37');
+});
+
+test('姓名在线提示词保留巴黎历史时区的秒级偏移', () => {
+  const prompt = buildChineseNameAnalysisPrompt({
+    analysis: analyzeChineseName({
+      fullName: '李明',
+      birth: {
+        gender: 'male',
+        year: 1900,
+        month: 2,
+        day: 4,
+        dateType: 'solar',
+        timeIndex: '',
+        useTrueSolarTime: true,
+        birthHour: 6,
+        birthMinute: 0,
+        birthSecond: 52,
+        birthPlace: 'Paris',
+        birthLongitude: 2.3522,
+        timeZoneId: 'Europe/Paris',
+      },
+    }),
+  });
+
+  assert.match(prompt, /Europe\/Paris，UTC\+00:09:21/);
+  assert.doesNotMatch(prompt, /UTC\+0\.155/);
 });

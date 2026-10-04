@@ -71,6 +71,63 @@ const successfulStream: AstrolabeDynamicReadingStream = async (
   streamOptions.onDone();
 };
 
+test('多主体分轮等待后仍按本轮主体资料与回调推进', async () => {
+  const mutableSource = {
+    ...makeSource('primary', 'fixed-subject'),
+    summary: structuredClone(summary),
+  };
+  const mutableSources = [mutableSource];
+  let originalChunks = 0;
+  let replacedChunks = 0;
+  const progress: string[] = [];
+  let replacedProgress = 0;
+  const mutableOptions = {
+    question: '本轮集合问题',
+    onChunk() {
+      originalChunks += 1;
+    },
+    onProgress(text: string) {
+      progress.push(text);
+    },
+  };
+  mutableSource.readBranch = async (index) => {
+    mutableSource.target = 'partner';
+    mutableSource.summary.branchCount = 999;
+    mutableSources.push(makeSource('partner', 'later-subject'));
+    mutableOptions.onChunk = () => {
+      replacedChunks += 1;
+    };
+    mutableOptions.onProgress = () => {
+      replacedProgress += 1;
+    };
+    return branches[index];
+  };
+  const prompts: string[] = [];
+  const checkpoint = await runAstrolabeDynamicCollectionRound(
+    mutableSources,
+    [],
+    undefined,
+    mutableOptions,
+    async (messages, streamOptions) => {
+      prompts.push(messages[0].content);
+      await successfulStream(messages, streamOptions);
+    },
+  );
+  assert.equal(checkpoint.sources.length, 1);
+  assert.equal(checkpoint.sources[0].target, 'primary');
+  assert.equal(checkpoint.completedPages, 1);
+  assert.match(prompts[0], /【主体】本人/u);
+  assert.doesNotMatch(prompts[0], /【主体】对方/u);
+  assert.match(progress[0], new RegExp(`本人主体1/1，出生分段1/${summary.branchCount}`, 'u'));
+  assert.equal(originalChunks, 1);
+  assert.equal(replacedChunks, 0);
+  assert.equal(progress.length, 2);
+  assert.equal(replacedProgress, 0);
+  assert.equal(mutableSources.length, 2);
+  assert.equal(mutableSource.target, 'partner');
+  assert.equal(mutableSource.summary.branchCount, 999);
+});
+
 test('v2按补充资料页、主体页、最终归纳顺序推进且不把全文写入检查点', async () => {
   const supplemental: AstrolabeDynamicCollectionSupplemental[] = [
     {

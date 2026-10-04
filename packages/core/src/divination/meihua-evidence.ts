@@ -1,10 +1,17 @@
 import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
 import { trigramsByIndex } from './hexagram-data';
+import { dizhi } from './divination-data';
 import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from './config';
-import { getSeasonState, isKe, isSheng } from '../ganzhi';
+import { getBranchWuxing, getSeasonState, isKe, isSheng } from '../ganzhi';
+import { getDivinationTime } from '../calendar/timeManager';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import { MingyuCoreError } from '../shared/result';
-import { resolveRandomMethod } from './algorithms/meihua/helpers/methods';
+import {
+  hasCompleteCharacterCalculation,
+  resolveRandomMethod,
+} from './algorithms/meihua/helpers/methods';
+import { findHexagramByTrigrams } from './algorithms/meihua/helpers/hexagram';
+import { estimateYingQi } from './algorithms/meihua/helpers/timing';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
@@ -163,13 +170,14 @@ export interface MeihuaCalculationStep {
   target: '上卦' | '下卦' | '动爻';
   expression: string;
   modulus?: 6 | 8;
+  remainder?: number;
   result?: number;
   promptText: string;
 }
 
 export interface MeihuaCalculationFact {
   key: string;
-  status: '完整' | '缺少中间参数';
+  status: '完整' | '缺少中间参数' | '计算不一致';
   methodKey: MeihuaDivinationMethod | '未记录';
   methodLabel: string;
   inputs: Record<string, string | number>;
@@ -455,6 +463,15 @@ function relationOf(yong: string, ti: string) {
   return '关系未定';
 }
 
+function relationToOriginalTi(label: '体互' | '用互', source: string, originalTi: string) {
+  if (source === originalTi) return `${label}与原体比和`;
+  if (isSheng(source, originalTi)) return `${label}生原体`;
+  if (isSheng(originalTi, source)) return `原体生${label}`;
+  if (isKe(source, originalTi)) return `${label}克原体`;
+  if (isKe(originalTi, source)) return `原体克${label}`;
+  return '关系未定';
+}
+
 function relationEvidence(relation: string) {
   switch (relation) {
     case '用生体':
@@ -518,12 +535,12 @@ function createStage(params: {
     ],
     limitation: STAGE_FACT_LIMITATION,
   };
-  stage.promptText = `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明确盘内限制'}${stage.status === '卦象资料缺失' ? '；对应卦象结构资料缺失，不得补造卦名、卦符或上下经卦' : ''}`;
+  stage.promptText = `${formatStage(stage)}；依据：${stage.basis}${stage.status === '卦象资料缺失' ? '；卦象结构资料未记录' : ''}`;
   return stage;
 }
 
 function formatStage(stage: MeihuaStageEvidence) {
-  return `${stage.label}${stage.hexagram}：体卦${stage.ti.name}${stage.ti.element}（月令${stage.ti.seasonState}），用卦${stage.yong.name}${stage.yong.element}（月令${stage.yong.seasonState}），关系${stage.relation}`;
+  return `${stage.label}${stage.hexagram}：体卦${stage.ti.name}${stage.ti.element}，用卦${stage.yong.name}${stage.yong.element}，关系${stage.relation}`;
 }
 
 function hasFiniteNumber(value: unknown): value is number {
@@ -532,6 +549,532 @@ function hasFiniteNumber(value: unknown): value is number {
 
 function hasText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function normalizedRemainder(value: number, modulus: 6 | 8): number {
+  return value % modulus || modulus;
+}
+
+function formatRemainderCalculation(
+  target: MeihuaCalculationStep['target'],
+  expression: string,
+  value: unknown,
+  modulus: 6 | 8,
+  index: unknown,
+): string {
+  if (!Number.isSafeInteger(value) || !Number.isSafeInteger(index)) {
+    return `${target}取数资料不完整`;
+  }
+  const remainder = (value as number) % modulus;
+  const zeroRemainderNote = remainder === 0 ? `（余0按${modulus}计索引）` : '';
+  return `${target}=(${expression})除以${modulus}，余数为${remainder}${zeroRemainderNote}，索引为${index as number}`;
+}
+
+function sumSafeIntegers(...values: unknown[]): number | undefined {
+  if (!values.every(Number.isSafeInteger)) return undefined;
+  const total = values.reduce<number>((current, value) => current + (value as number), 0);
+  return Number.isSafeInteger(total) ? total : undefined;
+}
+
+function safeInteger(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) ? (value as number) : undefined;
+}
+
+function hasCharacterCalculationInputs(
+  calculation: NonNullable<MeihuaData['calculation']>,
+): boolean {
+  const count = calculation.characterCount;
+  if (!Number.isSafeInteger(count) || count! < 1 || count! > 100) return false;
+  if (count === 1) {
+    return (
+      Number.isSafeInteger(calculation.characterLeftStrokes) &&
+      calculation.characterLeftStrokes! > 0 &&
+      Number.isSafeInteger(calculation.characterRightStrokes) &&
+      calculation.characterRightStrokes! > 0
+    );
+  }
+  if (count! <= 3) {
+    const strokeCounts = calculation.characterStrokeCounts;
+    return (
+      strokeCounts !== undefined &&
+      strokeCounts.length === count &&
+      strokeCounts.every((value) => Number.isSafeInteger(value) && value > 0)
+    );
+  }
+  if (count! <= 10) {
+    const tones = calculation.characterTones;
+    return (
+      tones !== undefined &&
+      tones.length === count &&
+      tones.every((value) => Number.isInteger(value) && value >= 1 && value <= 4)
+    );
+  }
+  return true;
+}
+
+function getExpectedCharacterNumbers(
+  calculation: NonNullable<MeihuaData['calculation']>,
+): { upper: number; lower: number; total: number } | undefined {
+  if (!hasCharacterCalculationInputs(calculation)) return undefined;
+  const count = calculation.characterCount as number;
+  let upper: number | undefined;
+  let lower: number | undefined;
+  if (count === 1) {
+    upper = calculation.characterLeftStrokes;
+    lower = calculation.characterRightStrokes;
+  } else if (count <= 3) {
+    const strokeCounts = calculation.characterStrokeCounts as number[];
+    const split = Math.floor(count / 2);
+    upper = sumSafeIntegers(...strokeCounts.slice(0, split));
+    lower = sumSafeIntegers(...strokeCounts.slice(split));
+  } else if (count <= 10) {
+    const tones = calculation.characterTones as number[];
+    const split = Math.floor(count / 2);
+    upper = sumSafeIntegers(...tones.slice(0, split));
+    lower = sumSafeIntegers(...tones.slice(split));
+  } else {
+    upper = Math.floor(count / 2);
+    lower = count - upper;
+  }
+  if (upper === undefined || lower === undefined) return undefined;
+  const total = sumSafeIntegers(upper, lower);
+  return total === undefined ? undefined : { upper, lower, total };
+}
+
+function validateMeihuaCalculation(data: MeihuaData): {
+  missing: string[];
+  mismatches: string[];
+} {
+  const calculation = data.calculation;
+  const missing: string[] = [];
+  const mismatches: string[] = [];
+  if (!calculation) missing.push('起卦计算记录');
+
+  const requireSafeInteger = (value: unknown, label: string): number | undefined => {
+    if (!Number.isSafeInteger(value)) {
+      missing.push(label);
+      return undefined;
+    }
+    return value as number;
+  };
+  const compare = (label: string, recorded: unknown, expected: number | undefined) => {
+    if (expected !== undefined && recorded !== expected) {
+      mismatches.push(`${label}记录${recorded ?? '缺失'}，按输入应为${expected}`);
+    }
+  };
+  const branchIndex = (branch: unknown): number | undefined => {
+    if (typeof branch !== 'string') return undefined;
+    const index = dizhi.indexOf(branch);
+    return index < 0 ? undefined : index + 1;
+  };
+  const compareRemainder = (
+    label: string,
+    recorded: unknown,
+    value: number | undefined,
+    modulus: 6 | 8,
+  ) => {
+    if (value !== undefined) compare(label, recorded, normalizedRemainder(value, modulus));
+  };
+  const sum = (...values: Array<number | undefined>): number | undefined => {
+    if (values.some((value) => value === undefined)) return undefined;
+    const total = values.reduce<number>((current, value) => current + (value as number), 0);
+    if (!Number.isSafeInteger(total)) return undefined;
+    return total;
+  };
+
+  if (calculation) {
+    switch (calculation.methodKey) {
+      case 'time':
+      case 'timeTrigram': {
+        const yearZhiIndex = branchIndex(calculation.yearZhi);
+        const timeZhiIndex = branchIndex(calculation.timeZhi);
+        const month = requireSafeInteger(calculation.month, '农历月份');
+        const day = requireSafeInteger(calculation.day, '农历日期');
+        if (yearZhiIndex === undefined) missing.push('有效的农历年支');
+        if (timeZhiIndex === undefined) missing.push('有效的时支');
+        if (month !== undefined && (month < 1 || month > 12)) missing.push('有效的农历月份');
+        if (day !== undefined && (day < 1 || day > 30)) missing.push('有效的农历日期');
+        compare('年支序', calculation.yearZhiIndex, yearZhiIndex);
+        compare('时支序', calculation.timeZhiIndex, timeZhiIndex);
+        const upperTotal = sum(yearZhiIndex, month, day);
+        const fullTotal = sum(upperTotal, timeZhiIndex);
+        compareRemainder('上卦索引', calculation.upperTrigramIndex, upperTotal, 8);
+        compareRemainder('下卦索引', calculation.lowerTrigramIndex, fullTotal, 8);
+        compareRemainder('动爻索引', calculation.movingYaoIndex, fullTotal, 6);
+        break;
+      }
+      case 'number':
+      case 'sound': {
+        const sourceValue = requireSafeInteger(
+          calculation.methodKey === 'number' ? calculation.number : calculation.soundCount,
+          calculation.methodKey === 'number' ? '起卦数字' : '声音数',
+        );
+        if (sourceValue !== undefined && sourceValue <= 0) {
+          missing.push(calculation.methodKey === 'number' ? '正起卦数字' : '正声音数');
+        }
+        const timeZhiIndex = branchIndex(calculation.timeZhi);
+        if (timeZhiIndex === undefined) missing.push('有效的时支');
+        compare('时支序', calculation.timeZhiIndex, timeZhiIndex);
+        const totalWithTime = sum(sourceValue, timeZhiIndex);
+        compare('数字与时支合数', calculation.totalWithTime, totalWithTime);
+        compareRemainder('上卦索引', calculation.upperTrigramIndex, sourceValue, 8);
+        compareRemainder(
+          '下卦索引',
+          calculation.lowerTrigramIndex,
+          calculation.methodKey === 'number' ? timeZhiIndex : totalWithTime,
+          8,
+        );
+        compareRemainder('动爻索引', calculation.movingYaoIndex, totalWithTime, 6);
+        break;
+      }
+      case 'character': {
+        const expected = getExpectedCharacterNumbers(calculation);
+        if (!expected) {
+          missing.push('字占原始分段、笔画或声类取数');
+          break;
+        }
+        if (
+          calculation.characterText !== undefined &&
+          Array.from(calculation.characterText).length !== calculation.characterCount
+        ) {
+          mismatches.push('字占原文字符数与记录数量不一致');
+          break;
+        }
+        const compareCharacterCache = (label: string, recorded: unknown, value: number) => {
+          if (recorded === undefined || recorded === null) {
+            missing.push(label);
+          } else if (!Number.isSafeInteger(recorded)) {
+            mismatches.push(`${label}记录值无效`);
+          } else {
+            compare(label, recorded, value);
+          }
+        };
+        compareCharacterCache('字占上卦取数', calculation.characterUpperNumber, expected.upper);
+        compareCharacterCache('字占下卦取数', calculation.characterLowerNumber, expected.lower);
+        compareCharacterCache(
+          '上卦索引',
+          calculation.upperTrigramIndex,
+          normalizedRemainder(expected.upper, 8),
+        );
+        compareCharacterCache(
+          '下卦索引',
+          calculation.lowerTrigramIndex,
+          normalizedRemainder(expected.lower, 8),
+        );
+        compareCharacterCache(
+          '动爻索引',
+          calculation.movingYaoIndex,
+          normalizedRemainder(expected.total, 6),
+        );
+        break;
+      }
+      case 'direction': {
+        const objectIndex =
+          MEIHUA_OBJECT_OPTIONS.findIndex((item) => item.value === calculation.objectType) + 1;
+        const directionIndex =
+          MEIHUA_DIRECTION_OPTIONS.findIndex((item) => item.value === calculation.direction) + 1;
+        const timeZhiIndex = branchIndex(calculation.timeZhi);
+        if (!objectIndex) missing.push('有效的所见物类');
+        if (!directionIndex) missing.push('有效的后天方位');
+        if (timeZhiIndex === undefined) missing.push('有效的时支');
+        compare('所见物类卦数', calculation.objectTrigramIndex, objectIndex || undefined);
+        compare('方位卦数', calculation.directionTrigramIndex, directionIndex || undefined);
+        compare('时支序', calculation.timeZhiIndex, timeZhiIndex);
+        const total = sum(objectIndex || undefined, directionIndex || undefined, timeZhiIndex);
+        compare('物类、方位与时支合数', calculation.totalWithTime, total);
+        compare('上卦索引', calculation.upperTrigramIndex, objectIndex || undefined);
+        compare('下卦索引', calculation.lowerTrigramIndex, directionIndex || undefined);
+        compareRemainder('动爻索引', calculation.movingYaoIndex, total, 6);
+        break;
+      }
+      case 'random': {
+        const upper = requireSafeInteger(calculation.upperTrigramIndex, '随机上卦索引');
+        const lower = requireSafeInteger(calculation.lowerTrigramIndex, '随机下卦索引');
+        const moving = requireSafeInteger(calculation.movingYaoIndex, '随机动爻索引');
+        if (upper !== undefined && (upper < 1 || upper > 8))
+          mismatches.push(`随机上卦索引${upper}超出1-8`);
+        if (lower !== undefined && (lower < 1 || lower > 8))
+          mismatches.push(`随机下卦索引${lower}超出1-8`);
+        if (moving !== undefined && (moving < 1 || moving > 6))
+          mismatches.push(`随机动爻索引${moving}超出1-6`);
+        break;
+      }
+      default:
+        missing.push('可识别的梅花起卦方式');
+    }
+
+    const usesClockInCalculation =
+      calculation.methodKey === 'time' ||
+      calculation.methodKey === 'timeTrigram' ||
+      calculation.methodKey === 'number' ||
+      calculation.methodKey === 'sound' ||
+      calculation.methodKey === 'direction';
+    if (usesClockInCalculation || calculation.timezoneOffsetMinutes !== undefined) {
+      const offset = calculation.timezoneOffsetMinutes;
+      if (
+        typeof offset !== 'number' ||
+        !Number.isInteger(offset) ||
+        offset < -720 ||
+        offset > 840
+      ) {
+        missing.push('起卦民用时区偏移');
+      } else if (!Number.isSafeInteger(data.timestamp)) {
+        missing.push('有效的起卦时间戳');
+      } else if (
+        data.termReferenceTimestamp !== undefined &&
+        !Number.isSafeInteger(data.termReferenceTimestamp)
+      ) {
+        missing.push('有效的节气参考时间戳');
+      } else {
+        try {
+          const sourceTime = getDivinationTime(
+            new Date(data.timestamp),
+            offset,
+            data.termReferenceTimestamp === undefined
+              ? undefined
+              : new Date(data.termReferenceTimestamp),
+          );
+          const sourceHourBranch = sourceTime.ganzhi.hour.slice(-1);
+          const pillarLabels = {
+            year: '年柱',
+            month: '月柱',
+            day: '日柱',
+            hour: '时柱',
+          } as const;
+          for (const pillar of Object.keys(pillarLabels) as Array<keyof typeof pillarLabels>) {
+            if (data.ganzhi[pillar] !== sourceTime.ganzhi[pillar]) {
+              mismatches.push(`盘面${pillarLabels[pillar]}与时间戳重算结果不一致`);
+            }
+          }
+          if (usesClockInCalculation && calculation.timeZhi !== sourceHourBranch) {
+            mismatches.push('起卦时支与时间戳重算结果不一致');
+          }
+          if (calculation.methodKey === 'time' || calculation.methodKey === 'timeTrigram') {
+            const sourceLunar = sourceTime.timeInfo.lunar;
+            const sourceYearZhi = sourceLunar.yearInChinese.replace(/^农历/, '').charAt(1);
+            if (
+              calculation.yearZhi !== sourceYearZhi ||
+              calculation.month !== sourceLunar.monthNumber ||
+              calculation.day !== sourceLunar.dayNumber
+            ) {
+              mismatches.push('农历年支、月、日与时间戳重算结果不一致');
+            }
+          }
+        } catch {
+          missing.push('可重算的起卦时间资料');
+        }
+      }
+      if (usesClockInCalculation) {
+        const chartHourBranch = data.ganzhi.hour.slice(-1);
+        if (!dizhi.includes(chartHourBranch) || calculation.timeZhi !== chartHourBranch) {
+          mismatches.push('起卦时支与盘面时柱不一致');
+        }
+      }
+    }
+
+    const checkBoardTrigram = (label: string, index: unknown, name: string) => {
+      if (!Number.isSafeInteger(index)) return;
+      const trigram = trigramsByIndex[index as number];
+      if (!trigram || trigram.name !== name) {
+        mismatches.push(`${label}记录索引${index}与主卦${name}不一致`);
+      }
+    };
+    checkBoardTrigram('上卦', calculation.upperTrigramIndex, data.mainHexagram.upper);
+    checkBoardTrigram('下卦', calculation.lowerTrigramIndex, data.mainHexagram.lower);
+    compare('主卦动爻位置', data.movingYao.position, calculation.movingYaoIndex);
+  }
+
+  const upper = trigramByName.get(data.mainHexagram.upper);
+  const lower = trigramByName.get(data.mainHexagram.lower);
+  const moving = data.movingYao.position;
+  if (upper && lower && Number.isInteger(moving) && moving >= 1 && moving <= 6) {
+    const mainLines = [...lower.lines, ...upper.lines];
+    const expectedYaoName = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][moving - 1];
+    if (data.movingYao.yaoName !== expectedYaoName) {
+      mismatches.push('动爻名称与爻位不一致');
+    }
+    for (const line of data.yaosDetail ?? []) {
+      const position = line.position;
+      if (!Number.isInteger(position) || position < 1 || position > 6) {
+        mismatches.push('逐爻记录含无效爻位');
+        continue;
+      }
+      const expectedType = mainLines[position - 1] === 1 ? '阳' : '阴';
+      const expectedRole = position <= 3 === moving <= 3 ? '用' : '体';
+      if (
+        line.yaoType !== expectedType ||
+        line.tiYong !== expectedRole ||
+        line.isChanging !== (position === moving)
+      ) {
+        mismatches.push(`第${position}爻记录与主卦、动爻体用不一致`);
+      }
+    }
+    const recordedPositions = (data.yaosDetail ?? []).map((line) => line.position);
+    if (new Set(recordedPositions).size !== recordedPositions.length) {
+      mismatches.push('逐爻记录含重复爻位');
+    }
+    const changedLines = [...mainLines];
+    changedLines[moving - 1] = 1 - changedLines[moving - 1];
+    const isPureQianOrKun =
+      upper.name === lower.name && (upper.name === '乾' || upper.name === '坤');
+    const interSource = isPureQianOrKun ? changedLines : mainLines;
+    const findTrigram = (lines: number[]) =>
+      Object.values(trigramsByIndex).find(
+        (item) => item && item.lines.every((line, index) => line === lines[index]),
+      );
+    const interLower = findTrigram(interSource.slice(1, 4));
+    const interUpper = findTrigram(interSource.slice(2, 5));
+    const changedLower = findTrigram(changedLines.slice(0, 3));
+    const changedUpper = findTrigram(changedLines.slice(3, 6));
+    if (interLower && interUpper && changedLower && changedUpper) {
+      const checkHexagram = (
+        label: string,
+        recorded:
+          | {
+              name: string;
+              symbol: string;
+              upper: string;
+              lower: string;
+              description: string;
+              yaoCi?: string[];
+              yongCi?: string;
+              movingYaoCi?: string;
+            }
+          | null
+          | undefined,
+        alias: string | undefined,
+        expectedUpper: typeof upper,
+        expectedLower: typeof lower,
+      ) => {
+        const expected = findHexagramByTrigrams(
+          Number(Object.entries(trigramsByIndex).find(([, item]) => item === expectedUpper)?.[0]),
+          Number(Object.entries(trigramsByIndex).find(([, item]) => item === expectedLower)?.[0]),
+        );
+        if (alias?.trim() && alias !== expected.name) {
+          mismatches.push(`${label}别名与主卦六爻推得的${expected.name}不一致`);
+        }
+        if (
+          recorded &&
+          (recorded.name !== expected.name ||
+            recorded.symbol !== expected.symbol ||
+            recorded.upper !== expectedUpper.name ||
+            recorded.lower !== expectedLower.name)
+        ) {
+          mismatches.push(`${label}记录与主卦六爻推得的${expected.name}不一致`);
+        }
+        if (
+          recorded &&
+          ((recorded.description && recorded.description !== expected.description) ||
+            (recorded.yaoCi &&
+              (recorded.yaoCi.length !== expected.yaoCi?.length ||
+                recorded.yaoCi.some((line, index) => line !== expected.yaoCi?.[index]))) ||
+            (recorded.yongCi && recorded.yongCi !== expected.yongCi) ||
+            (recorded.movingYaoCi && recorded.movingYaoCi !== expected.yaoCi?.[moving - 1]))
+        ) {
+          mismatches.push(`${label}${expected.name}卦爻辞与固定文本不一致`);
+        }
+      };
+      checkHexagram('主卦', data.mainHexagram, data.originalName, upper, lower);
+      checkHexagram('互卦', data.interHexagram, data.interName, interUpper, interLower);
+      checkHexagram('变卦', data.changedHexagram, data.changedName, changedUpper, changedLower);
+
+      const movingInLower = moving <= 3;
+      const checkGua = (
+        label: string,
+        recorded: { name: string; element: string } | null | undefined,
+        expected: typeof upper,
+      ) => {
+        if (
+          recorded &&
+          (recorded.name !== expected.name || recorded.element !== expected.element)
+        ) {
+          mismatches.push(`${label}记录与动爻及卦象不一致`);
+        }
+      };
+      checkGua('体卦', data.tiGua, movingInLower ? upper : lower);
+      checkGua('用卦', data.yongGua, movingInLower ? lower : upper);
+      checkGua('体互', data.interTiGua, movingInLower ? interUpper : interLower);
+      checkGua('用互', data.interYongGua, movingInLower ? interLower : interUpper);
+      checkGua('变后体卦', data.changedTiGua, movingInLower ? changedUpper : changedLower);
+      checkGua('变后用卦', data.changedYongGua, movingInLower ? changedLower : changedUpper);
+
+      const expectedTi = movingInLower ? upper : lower;
+      const expectedYong = movingInLower ? lower : upper;
+      const expectedRelation = relationOf(expectedYong.element, expectedTi.element);
+      const expectedDisplayRelation = expectedRelation === '比和' ? '体用比和' : expectedRelation;
+      if (
+        data.analysis.tiYongRelation &&
+        data.analysis.tiYongRelation !== expectedDisplayRelation
+      ) {
+        mismatches.push('主卦体用关系记录与卦象不一致');
+      }
+      if (data.analysis.tiYongRaw && data.analysis.tiYongRaw !== expectedRelation) {
+        mismatches.push('主卦体用原始关系记录与卦象不一致');
+      }
+      const expectedInterTi = movingInLower ? interUpper : interLower;
+      const expectedInterYong = movingInLower ? interLower : interUpper;
+      if (
+        data.analysis.inter1Relation &&
+        data.analysis.inter1Relation !==
+          relationToOriginalTi('体互', expectedInterTi.element, expectedTi.element)
+      ) {
+        mismatches.push('体互对原体关系记录与互卦不一致');
+      }
+      if (
+        data.analysis.inter2Relation &&
+        data.analysis.inter2Relation !==
+          relationToOriginalTi('用互', expectedInterYong.element, expectedTi.element)
+      ) {
+        mismatches.push('用互对原体关系记录与互卦不一致');
+      }
+      const expectedChangedRelation = relationOf(
+        (movingInLower ? changedLower : changedUpper).element,
+        (movingInLower ? changedUpper : changedLower).element,
+      );
+      const expectedChangedDisplay =
+        expectedChangedRelation === '比和' ? '体用比和' : expectedChangedRelation;
+      if (
+        (data.analysis.changedRelation &&
+          data.analysis.changedRelation !== expectedChangedDisplay) ||
+        (data.analysis.changedTiYongRelation &&
+          data.analysis.changedTiYongRelation !== expectedChangedDisplay)
+      ) {
+        mismatches.push('变卦体用关系记录与卦象不一致');
+      }
+
+      const monthBranch = data.ganzhi.month.slice(-1);
+      if (dizhi.includes(monthBranch)) {
+        const ti = movingInLower ? upper : lower;
+        const yong = movingInLower ? lower : upper;
+        const tiSeasonState = getSeasonState(ti.element, monthBranch);
+        if (
+          data.analysis.monthBranch !== monthBranch ||
+          data.analysis.monthElement !== getBranchWuxing(monthBranch) ||
+          data.analysis.tiSeasonState !== tiSeasonState ||
+          data.analysis.yongSeasonState !== getSeasonState(yong.element, monthBranch)
+        ) {
+          mismatches.push('体用月令旺衰记录与月建及主卦不一致');
+        }
+        if (data.analysis.yingQi !== undefined) {
+          const expected = estimateYingQi({
+            movingYaoIndex: moving,
+            tiElement: ti.element,
+            yongElement: yong.element,
+            seasonState: tiSeasonState,
+          });
+          if (
+            !Array.isArray(data.analysis.yingQi) ||
+            data.analysis.yingQi.length !== expected.length ||
+            data.analysis.yingQi.some((item, index) => item !== expected[index])
+          ) {
+            mismatches.push('原应期条件与动爻、体用和月令重算结果不一致');
+          }
+        }
+      }
+    }
+  }
+
+  return { missing: Array.from(new Set(missing)), mismatches: Array.from(new Set(mismatches)) };
 }
 
 function appendResolvedResultFacts(facts: string[], data: MeihuaData) {
@@ -558,9 +1101,37 @@ function buildCalculationFacts(data: MeihuaData): string[] {
     if (hasCompleteTimeInputs) {
       facts.push(
         `时间取数：农历年支${calculation.yearZhi}序${calculation.yearZhiIndex}、月数${calculation.month}、日数${calculation.day}、时支${calculation.timeZhi}序${calculation.timeZhiIndex}`,
-        `上卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day})除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+        formatRemainderCalculation(
+          '上卦',
+          `${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}`,
+          sumSafeIntegers(calculation.yearZhiIndex, calculation.month, calculation.day),
+          8,
+          calculation.upperTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '下卦',
+          `${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex}`,
+          sumSafeIntegers(
+            calculation.yearZhiIndex,
+            calculation.month,
+            calculation.day,
+            calculation.timeZhiIndex,
+          ),
+          8,
+          calculation.lowerTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '动爻',
+          `${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex}`,
+          sumSafeIntegers(
+            calculation.yearZhiIndex,
+            calculation.month,
+            calculation.day,
+            calculation.timeZhiIndex,
+          ),
+          6,
+          calculation.movingYaoIndex,
+        ),
       );
     } else {
       facts.push('现有资料未附完整时间取数中间参数，仅保留已确定卦象与动爻结果');
@@ -579,9 +1150,27 @@ function buildCalculationFacts(data: MeihuaData): string[] {
     if (hasCompleteNumberInputs) {
       facts.push(
         `数字取数：输入${calculation.number}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
-        `上卦=${calculation.number}除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+        formatRemainderCalculation(
+          '上卦',
+          String(calculation.number),
+          calculation.number,
+          8,
+          calculation.upperTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '下卦',
+          String(calculation.timeZhiIndex),
+          calculation.timeZhiIndex,
+          8,
+          calculation.lowerTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '动爻',
+          String(calculation.totalWithTime),
+          calculation.totalWithTime,
+          6,
+          calculation.movingYaoIndex,
+        ),
       );
     } else {
       facts.push('现有资料未附完整数字取数中间参数，仅保留已确定卦象与动爻结果');
@@ -599,22 +1188,34 @@ function buildCalculationFacts(data: MeihuaData): string[] {
     if (hasCompleteSoundInputs) {
       facts.push(
         `声音取数：所闻声音数${calculation.soundCount}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
-        `上卦=${calculation.soundCount}除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+        formatRemainderCalculation(
+          '上卦',
+          String(calculation.soundCount),
+          calculation.soundCount,
+          8,
+          calculation.upperTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '下卦',
+          String(calculation.totalWithTime),
+          calculation.totalWithTime,
+          8,
+          calculation.lowerTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '动爻',
+          String(calculation.totalWithTime),
+          calculation.totalWithTime,
+          6,
+          calculation.movingYaoIndex,
+        ),
       );
     } else {
       facts.push('现有资料未附完整声音取数中间参数，仅保留已确定卦象与动爻结果');
       appendResolvedResultFacts(facts, data);
     }
   } else if (calculation.methodKey === 'character') {
-    const hasCharacterNumbers =
-      hasFiniteNumber(calculation.characterCount) &&
-      hasFiniteNumber(calculation.characterUpperNumber) &&
-      hasFiniteNumber(calculation.characterLowerNumber) &&
-      hasFiniteNumber(calculation.upperTrigramIndex) &&
-      hasFiniteNumber(calculation.lowerTrigramIndex) &&
-      hasFiniteNumber(calculation.movingYaoIndex);
+    const hasCharacterNumbers = hasCompleteCharacterCalculation(calculation);
     if (hasCharacterNumbers) {
       const toneText = Array.isArray(calculation.characterTones)
         ? `，传统平上去入声数${calculation.characterTones.join('、')}（不等同于普通话一至四声）`
@@ -623,9 +1224,27 @@ function buildCalculationFacts(data: MeihuaData): string[] {
           : '';
       facts.push(
         `字数取数：字符数${calculation.characterCount}${toneText}；上卦取数${calculation.characterUpperNumber}，下卦取数${calculation.characterLowerNumber}`,
-        `上卦=${calculation.characterUpperNumber}除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=${calculation.characterLowerNumber}除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=(${calculation.characterUpperNumber}+${calculation.characterLowerNumber})除6取余为${calculation.movingYaoIndex}`,
+        formatRemainderCalculation(
+          '上卦',
+          String(calculation.characterUpperNumber),
+          calculation.characterUpperNumber,
+          8,
+          calculation.upperTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '下卦',
+          String(calculation.characterLowerNumber),
+          calculation.characterLowerNumber,
+          8,
+          calculation.lowerTrigramIndex,
+        ),
+        formatRemainderCalculation(
+          '动爻',
+          `${calculation.characterUpperNumber}+${calculation.characterLowerNumber}`,
+          sumSafeIntegers(calculation.characterUpperNumber, calculation.characterLowerNumber),
+          6,
+          calculation.movingYaoIndex,
+        ),
       );
     } else {
       facts.push('现有资料未附完整字数取数中间参数，仅保留已确定卦象与动爻结果');
@@ -674,10 +1293,16 @@ function buildCalculationFacts(data: MeihuaData): string[] {
   return facts;
 }
 
-function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
+function buildMeihuaCalculationFact(
+  data: MeihuaData,
+  validation = validateMeihuaCalculation(data),
+): MeihuaCalculationFact {
   const calculation = data.calculation;
   const methodKey = calculation?.methodKey ?? '未记录';
   const inputs: Record<string, string | number> = {};
+  if (typeof calculation?.timezoneOffsetMinutes === 'number') {
+    inputs.timezoneOffsetMinutes = calculation.timezoneOffsetMinutes;
+  }
   const steps: MeihuaCalculationStep[] = [];
   if (calculation && (methodKey === 'time' || methodKey === 'timeTrigram')) {
     if (hasText(calculation.yearZhi)) inputs.yearZhi = calculation.yearZhi;
@@ -703,24 +1328,61 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
           target: '上卦',
           expression: upperExpression,
           modulus: 8,
+          remainder: (calculation.yearZhiIndex + calculation.month + calculation.day) % 8,
           result: calculation.upperTrigramIndex,
-          promptText: `上卦=(${upperExpression})除8取余为${calculation.upperTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '上卦',
+            upperExpression,
+            calculation.yearZhiIndex + calculation.month + calculation.day,
+            8,
+            calculation.upperTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:lower',
           target: '下卦',
           expression: totalExpression,
           modulus: 8,
+          remainder:
+            (calculation.yearZhiIndex +
+              calculation.month +
+              calculation.day +
+              calculation.timeZhiIndex) %
+            8,
           result: calculation.lowerTrigramIndex,
-          promptText: `下卦=(${totalExpression})除8取余为${calculation.lowerTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '下卦',
+            totalExpression,
+            calculation.yearZhiIndex +
+              calculation.month +
+              calculation.day +
+              calculation.timeZhiIndex,
+            8,
+            calculation.lowerTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:moving',
           target: '动爻',
           expression: totalExpression,
           modulus: 6,
+          remainder:
+            (calculation.yearZhiIndex +
+              calculation.month +
+              calculation.day +
+              calculation.timeZhiIndex) %
+            6,
           result: calculation.movingYaoIndex,
-          promptText: `动爻=(${totalExpression})除6取余为${calculation.movingYaoIndex}`,
+          promptText: formatRemainderCalculation(
+            '动爻',
+            totalExpression,
+            calculation.yearZhiIndex +
+              calculation.month +
+              calculation.day +
+              calculation.timeZhiIndex,
+            6,
+            calculation.movingYaoIndex,
+          ),
         },
       );
     }
@@ -732,6 +1394,7 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
       inputs.totalWithTime = calculation.totalWithTime;
     if (
       hasFiniteNumber(calculation.number) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
       hasFiniteNumber(calculation.totalWithTime) &&
       hasFiniteNumber(calculation.upperTrigramIndex) &&
       hasFiniteNumber(calculation.lowerTrigramIndex) &&
@@ -743,24 +1406,45 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
           target: '上卦',
           expression: String(calculation.number),
           modulus: 8,
+          remainder: calculation.number % 8,
           result: calculation.upperTrigramIndex,
-          promptText: `上卦=${calculation.number}除8取余为${calculation.upperTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '上卦',
+            String(calculation.number),
+            calculation.number,
+            8,
+            calculation.upperTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:lower',
           target: '下卦',
-          expression: String(calculation.totalWithTime),
+          expression: String(calculation.timeZhiIndex),
           modulus: 8,
+          remainder: calculation.timeZhiIndex % 8,
           result: calculation.lowerTrigramIndex,
-          promptText: `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '下卦',
+            String(calculation.timeZhiIndex),
+            calculation.timeZhiIndex,
+            8,
+            calculation.lowerTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:moving',
           target: '动爻',
           expression: String(calculation.totalWithTime),
           modulus: 6,
+          remainder: calculation.totalWithTime % 6,
           result: calculation.movingYaoIndex,
-          promptText: `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+          promptText: formatRemainderCalculation(
+            '动爻',
+            String(calculation.totalWithTime),
+            calculation.totalWithTime,
+            6,
+            calculation.movingYaoIndex,
+          ),
         },
       );
     }
@@ -783,24 +1467,45 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
           target: '上卦',
           expression: String(calculation.soundCount),
           modulus: 8,
+          remainder: calculation.soundCount % 8,
           result: calculation.upperTrigramIndex,
-          promptText: `上卦=${calculation.soundCount}除8取余为${calculation.upperTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '上卦',
+            String(calculation.soundCount),
+            calculation.soundCount,
+            8,
+            calculation.upperTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:lower',
           target: '下卦',
           expression: String(calculation.totalWithTime),
           modulus: 8,
+          remainder: calculation.totalWithTime % 8,
           result: calculation.lowerTrigramIndex,
-          promptText: `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+          promptText: formatRemainderCalculation(
+            '下卦',
+            String(calculation.totalWithTime),
+            calculation.totalWithTime,
+            8,
+            calculation.lowerTrigramIndex,
+          ),
         },
         {
           key: 'meihua:calculation:moving',
           target: '动爻',
           expression: String(calculation.totalWithTime),
           modulus: 6,
+          remainder: calculation.totalWithTime % 6,
           result: calculation.movingYaoIndex,
-          promptText: `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+          promptText: formatRemainderCalculation(
+            '动爻',
+            String(calculation.totalWithTime),
+            calculation.totalWithTime,
+            6,
+            calculation.movingYaoIndex,
+          ),
         },
       );
     }
@@ -821,39 +1526,63 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
     if (Array.isArray(calculation.characterStrokeCounts)) {
       inputs.characterStrokeCounts = calculation.characterStrokeCounts.join(',');
     }
-    if (
-      hasFiniteNumber(calculation.characterUpperNumber) &&
-      hasFiniteNumber(calculation.characterLowerNumber) &&
-      hasFiniteNumber(calculation.upperTrigramIndex) &&
-      hasFiniteNumber(calculation.lowerTrigramIndex) &&
-      hasFiniteNumber(calculation.movingYaoIndex)
-    ) {
-      steps.push(
-        {
-          key: 'meihua:calculation:upper',
-          target: '上卦',
-          expression: String(calculation.characterUpperNumber),
-          modulus: 8,
-          result: calculation.upperTrigramIndex,
-          promptText: `上卦取数${calculation.characterUpperNumber}除8取余为${calculation.upperTrigramIndex}`,
-        },
-        {
-          key: 'meihua:calculation:lower',
-          target: '下卦',
-          expression: String(calculation.characterLowerNumber),
-          modulus: 8,
-          result: calculation.lowerTrigramIndex,
-          promptText: `下卦取数${calculation.characterLowerNumber}除8取余为${calculation.lowerTrigramIndex}`,
-        },
-        {
-          key: 'meihua:calculation:moving',
-          target: '动爻',
-          expression: `${calculation.characterUpperNumber}+${calculation.characterLowerNumber}`,
-          modulus: 6,
-          result: calculation.movingYaoIndex,
-          promptText: `动爻=(${calculation.characterUpperNumber}+${calculation.characterLowerNumber})除6取余为${calculation.movingYaoIndex}`,
-        },
-      );
+    if (hasCompleteCharacterCalculation(calculation)) {
+      const characterUpperNumber = safeInteger(calculation.characterUpperNumber);
+      const characterLowerNumber = safeInteger(calculation.characterLowerNumber);
+      const characterTotal = sumSafeIntegers(characterUpperNumber, characterLowerNumber);
+      if (
+        characterUpperNumber !== undefined &&
+        characterLowerNumber !== undefined &&
+        characterTotal !== undefined
+      ) {
+        steps.push(
+          {
+            key: 'meihua:calculation:upper',
+            target: '上卦',
+            expression: String(characterUpperNumber),
+            modulus: 8,
+            remainder: characterUpperNumber % 8,
+            result: calculation.upperTrigramIndex,
+            promptText: formatRemainderCalculation(
+              '上卦',
+              String(characterUpperNumber),
+              characterUpperNumber,
+              8,
+              calculation.upperTrigramIndex,
+            ),
+          },
+          {
+            key: 'meihua:calculation:lower',
+            target: '下卦',
+            expression: String(characterLowerNumber),
+            modulus: 8,
+            remainder: characterLowerNumber % 8,
+            result: calculation.lowerTrigramIndex,
+            promptText: formatRemainderCalculation(
+              '下卦',
+              String(characterLowerNumber),
+              characterLowerNumber,
+              8,
+              calculation.lowerTrigramIndex,
+            ),
+          },
+          {
+            key: 'meihua:calculation:moving',
+            target: '动爻',
+            expression: `${characterUpperNumber}+${characterLowerNumber}`,
+            modulus: 6,
+            remainder: characterTotal % 6,
+            result: calculation.movingYaoIndex,
+            promptText: formatRemainderCalculation(
+              '动爻',
+              `${characterUpperNumber}+${characterLowerNumber}`,
+              characterTotal,
+              6,
+              calculation.movingYaoIndex,
+            ),
+          },
+        );
+      }
     }
   } else if (calculation && methodKey === 'direction') {
     if (hasText(calculation.direction)) inputs.direction = calculation.direction;
@@ -896,8 +1625,21 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
           target: '动爻',
           expression: `${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex}`,
           modulus: 6,
+          remainder:
+            (calculation.objectTrigramIndex +
+              calculation.directionTrigramIndex +
+              calculation.timeZhiIndex) %
+            6,
           result: calculation.movingYaoIndex,
-          promptText: `动爻=(${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+          promptText: formatRemainderCalculation(
+            '动爻',
+            `${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex}`,
+            calculation.objectTrigramIndex +
+              calculation.directionTrigramIndex +
+              calculation.timeZhiIndex,
+            6,
+            calculation.movingYaoIndex,
+          ),
         },
       );
     }
@@ -932,15 +1674,32 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
       );
     }
   }
-  const status = steps.length === 3 ? '完整' : '缺少中间参数';
-  const calculationFacts = buildCalculationFacts(data);
+  const status = validation.mismatches.length
+    ? '计算不一致'
+    : steps.length === 3 && validation.missing.length === 0
+      ? '完整'
+      : '缺少中间参数';
+  const calculationFacts =
+    status === '完整'
+      ? buildCalculationFacts(data)
+      : status === '计算不一致'
+        ? [
+            `起卦取数核验不一致：${validation.mismatches.join('；')}`,
+            `排盘记录结果：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}、动爻第${data.movingYao.position}爻`,
+          ]
+        : data.calculation
+          ? [
+              `起卦取数资料不足：${validation.missing.join('、') || '必要中间参数'}`,
+              `排盘记录结果：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}、动爻第${data.movingYao.position}爻`,
+            ]
+          : buildCalculationFacts(data);
   return {
     key: `calculation:meihua:${methodKey}`,
     status,
     methodKey,
     methodLabel: calculation?.method ?? '未记录起卦方式',
     inputs,
-    steps,
+    steps: status === '完整' ? steps : [],
     resolvedResult: {
       upperTrigram: data.mainHexagram.upper,
       lowerTrigram: data.mainHexagram.lower,
@@ -971,6 +1730,9 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
 }
 
 function buildHexagramStructureFacts(data: MeihuaData): MeihuaHexagramFact[] {
+  const isPureQianOrKun =
+    data.mainHexagram.upper === data.mainHexagram.lower &&
+    (data.mainHexagram.upper === '乾' || data.mainHexagram.upper === '坤');
   const definitions = [
     { stage: 'origin', label: '主卦', hexagram: data.mainHexagram },
     { stage: 'process', label: '互卦', hexagram: data.interHexagram },
@@ -993,7 +1755,9 @@ function buildHexagramStructureFacts(data: MeihuaData): MeihuaHexagramFact[] {
               stage === 'origin'
                 ? '起卦上下经卦索引与六十四卦映射'
                 : stage === 'process'
-                  ? '主卦二三四爻为下互、三四五爻为上互'
+                  ? isPureQianOrKun
+                    ? '《梅花易数》载“乾坤无互，互其变卦”；据变卦二三四爻取下互、三四五爻取上互'
+                    : '主卦二三四爻为下互、三四五爻为上互'
                   : '主卦动爻阴阳翻转与六十四卦映射',
             ],
             limitation: HEXAGRAM_FACT_LIMITATION,
@@ -1096,10 +1860,10 @@ function buildStageCoverageFact(stages: MeihuaStageEvidence[]): MeihuaStageCover
     stageFactKeys: stages.map((item) => item.key),
     promptText:
       status === '阶段缺失'
-        ? `主互变阶段资料缺少${missingStages.map((stage) => ({ origin: '主卦起因', process: '互卦过程', result: '变卦结果' })[stage]).join('、')}，不得反推缺失阶段体用关系`
+        ? `主互变阶段资料缺少${missingStages.map((stage) => ({ origin: '主卦阶段', process: '互卦阶段', result: '变卦阶段' })[stage]).join('、')}，不得反推缺失阶段体用关系`
         : status === '阶段资料不完整'
-          ? `${incompleteStages.map((stage) => ({ origin: '主卦起因', process: '互卦过程', result: '变卦结果' })[stage]).join('、')}缺少对应卦象结构资料，不得补造卦名、卦符或上下经卦`
-          : '主卦起因、互卦过程、变卦结果三阶段体用资料完整，可逐段核验',
+          ? `${incompleteStages.map((stage) => ({ origin: '主卦阶段', process: '互卦阶段', result: '变卦阶段' })[stage]).join('、')}缺少对应卦象结构资料，不得补造卦名、卦符或上下经卦`
+          : '主卦、互卦、变卦三阶段体用资料完整，可逐段核验',
     sources: ['主卦、互卦、变卦及其体用资料完整性核验'],
     limitation: STAGE_COVERAGE_LIMITATION,
   };
@@ -1162,7 +1926,11 @@ function buildTimingFacts(
     if (facts.some((item) => item.promptText === fact.promptText)) return;
     facts.push({ ...fact, order: facts.length + 1 });
   };
-  (data.analysis.yingQi ?? []).forEach((promptText, index) =>
+  const verifiedOriginalTiming =
+    calculationFact.status === '完整' && Array.isArray(data.analysis.yingQi)
+      ? data.analysis.yingQi
+      : [];
+  verifiedOriginalTiming.forEach((promptText, index) =>
     add({
       key: `meihua:timing:input:${index + 1}`,
       type: '原应期条件',
@@ -1261,6 +2029,8 @@ function buildSummaryFact(params: {
           params.transitionFacts.some((item) => item.status === '跨阶段缺口')
         ? '阶段链不完整'
         : '证据链完整';
+  const diagnosticStatus =
+    params.calculationFact.status === '计算不一致' ? '计算不一致' : undefined;
   return {
     key: 'meihua:evidence-summary',
     status,
@@ -1272,7 +2042,7 @@ function buildSummaryFact(params: {
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、体用阶段${params.stages.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}${diagnosticStatus ? '；起卦计算记录不一致' : ''}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、体用阶段${params.stages.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: ['全部起卦、主互变卦象、逐爻、阶段体用、推进、传统文本、反证与应期事实逐项汇总'],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -1502,7 +2272,7 @@ function buildLimitationFacts(params: {
       type: '传统文本与高风险输出边界',
       ownerFactKeys: [params.summaryFact.key, ...params.traditionalFacts.map((item) => item.key)],
       promptText:
-        '互卦用于过程、变卦用于结果，卦名与卦爻辞只能结合问题作辅助取象；不得按阶段、旺衰、传统吉凶词或卦数生成总分、成功率，也不得直接输出婚育、疾病、伤亡、诉讼、财物得失或人物意图结论',
+        '主卦、互卦、变卦按《梅花易数》“用为始、互为中、变为终”的次序记录；卦名与卦爻辞结合问题作辅助取象，不按阶段、旺衰、传统吉凶词或卦数生成总分、成功率，也不直接输出婚育、疾病、伤亡、诉讼、财物得失或人物意图结论',
       sources: ['传统卦爻辞条件化事实、证据汇总与高风险解释约束'],
     },
   ];
@@ -1517,8 +2287,32 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   if (!data?.tiGua || !data?.yongGua || !data?.movingYao) {
     throw new Error('梅花体用推进证据缺少完整体用或动爻资料。');
   }
+  if (data.meta && Date.parse(data.meta.calculatedAt) !== data.timestamp) {
+    throw new Error('梅花起卦时间戳与结果元数据不一致，无法生成证据。');
+  }
   const monthBranch = data.ganzhi.month.slice(-1);
-  const calculationFact = buildMeihuaCalculationFact(data);
+  if (dizhi.includes(monthBranch)) {
+    data = {
+      ...data,
+      analysis: {
+        ...data.analysis,
+        monthBranch:
+          data.analysis.monthBranch === undefined ? monthBranch : data.analysis.monthBranch,
+        monthElement:
+          data.analysis.monthElement === undefined
+            ? getBranchWuxing(monthBranch)
+            : data.analysis.monthElement,
+      },
+    };
+  }
+  const calculationValidation = validateMeihuaCalculation(data);
+  const timePillarMismatches = calculationValidation.mismatches.filter((item) =>
+    /^盘面(?:年|月|日|时)柱与时间戳重算结果不一致$/u.test(item),
+  );
+  if (timePillarMismatches.length) {
+    throw new Error(`梅花盘面干支与起卦时间不一致：${timePillarMismatches.join('；')}。`);
+  }
+  const calculationFact = buildMeihuaCalculationFact(data, calculationValidation);
   const calculationFacts = buildCalculationFacts(data);
   const hexagramStructureFacts = buildHexagramStructureFacts(data);
   const hexagramFacts = hexagramStructureFacts.map((item) => item.promptText);
@@ -1529,7 +2323,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const stages: MeihuaStageEvidence[] = [
     createStage({
       stage: 'origin',
-      label: '起因',
+      label: '主卦',
       hexagram: data.originalName,
       hexagramFactKey: 'meihua:hexagram:origin',
       ti: data.tiGua,
@@ -1552,7 +2346,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stages.push(
       createStage({
         stage: 'process',
-        label: '过程',
+        label: '互卦',
         hexagram: data.interHexagram?.name || data.interName || '互卦',
         hexagramFactKey: 'meihua:hexagram:process',
         ti: interTi,
@@ -1569,7 +2363,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stages.push(
       createStage({
         stage: 'result',
-        label: '结果',
+        label: '变卦',
         hexagram: data.changedHexagram?.name || data.changedName || '变卦',
         hexagramFactKey: data.changedHexagram ? 'meihua:hexagram:result' : null,
         ti: data.changedTiGua,
@@ -1775,7 +2569,10 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       source: fact.sources.join('、'),
       tags: ['阶段推进', fact.status, fact.toStage],
     })),
-    ...(data.analysis.inter1Relation && data.analysis.inter1Relation !== '无'
+    ...(calculationFact.status === '完整' &&
+    stageCoverageFact.status === '完整' &&
+    data.analysis.inter1Relation &&
+    data.analysis.inter1Relation !== '无'
       ? [
           {
             level: '辅证' as const,
@@ -1786,7 +2583,10 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
           },
         ]
       : []),
-    ...(data.analysis.inter2Relation && data.analysis.inter2Relation !== '无'
+    ...(calculationFact.status === '完整' &&
+    stageCoverageFact.status === '完整' &&
+    data.analysis.inter2Relation &&
+    data.analysis.inter2Relation !== '无'
       ? [
           {
             level: '辅证' as const,
@@ -1887,7 +2687,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     evidence,
     promptText,
     methodology: [
-      '主卦定起因与当前体用，互卦定过程，变卦定变化后的结果关系。',
+      '主卦、互卦、变卦依《梅花易数》“用为始、互为中、变为终”的次序记录各阶段体用关系。',
       '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
       '每个阶段分别计算体用生克和月建旺衰，不把某一阶段扩大为全局结论。',
       '动爻只标记变化层位与触发顺序，卦数只保留原始计算资料，不机械换算绝对日期。',

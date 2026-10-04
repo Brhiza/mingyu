@@ -131,23 +131,48 @@ test('逐段保存并返回只读分段，dispose 幂等且不聚合整批结果
     receivedInput = workerInput;
     receivedSource = workerSource;
     assert.deepEqual(workerRequest, request);
+    assert.equal(options.signal, controller.signal);
     options.onProgress?.(4, 4);
     for (const branch of branches) await onBranch(branch);
     return makeSummary();
   };
   const { fakeStore, dependencies } = dependenciesFor(executeWorker);
-
-  const prepared = await prepareAstrolabeDynamicResource(
-    input,
-    source,
-    request,
-    { onProgress: (completed, total) => progress.push([completed, total]) },
+  const controller = new AbortController();
+  const mutableInput = { ...input };
+  const mutableSource = { ...source, pillars: { ...source.pillars } };
+  const mutableRequest = { ...request };
+  const options = {
+    signal: controller.signal,
+    onProgress: (completed: number, total: number) => progress.push([completed, total]),
+  };
+  let releaseStore!: (store: AstrolabeDynamicRangeStore) => void;
+  dependencies.createStore = () =>
+    new Promise((resolve) => {
+      releaseStore = resolve;
+    });
+  const pending = prepareAstrolabeDynamicResource(
+    mutableInput,
+    mutableSource,
+    mutableRequest,
+    options,
     dependencies,
   );
+  mutableInput.hour = '12';
+  mutableSource.pillars.hour = '甲子';
+  mutableRequest.referenceDate = '2029-03-20';
+  options.signal = new AbortController().signal;
+  options.onProgress = () => {
+    throw new Error('不应改用后来的进度回调');
+  };
+  releaseStore(fakeStore.store);
+  const prepared = await pending;
 
   assert.deepEqual(receivedInput, input);
   assert.deepEqual(receivedSource, source);
   assert.deepEqual(progress, [[4, 4]]);
+  assert.equal(mutableInput.hour, '12');
+  assert.equal(mutableSource.pillars.hour, '甲子');
+  assert.equal(mutableRequest.referenceDate, '2029-03-20');
   assert.equal(prepared.summary.branchCount, 2);
   assert.deepEqual(await prepared.readBranch(0), branches[0]);
   assert.deepEqual(await prepared.readBranch(1), branches[1]);
@@ -298,6 +323,7 @@ test('Worker 失败或取消都会清理已创建的临时库', async () => {
   assert.equal(cancelledStore.disposeCount, 1);
 
   const creationController = new AbortController();
+  const creationOptions: { signal?: AbortSignal } = { signal: creationController.signal };
   const creationCancelledStore = createFakeStore();
   let workerCalled = false;
   const creationCancelledWorker: WorkerExecutor = async () => {
@@ -305,19 +331,14 @@ test('Worker 失败或取消都会清理已创建的临时库', async () => {
     return makeSummary();
   };
   await assert.rejects(
-    prepareAstrolabeDynamicResource(
-      input,
-      source,
-      request,
-      { signal: creationController.signal },
-      {
-        createStore: async () => {
-          creationController.abort();
-          return creationCancelledStore.store;
-        },
-        executeWorker: creationCancelledWorker,
+    prepareAstrolabeDynamicResource(input, source, request, creationOptions, {
+      createStore: async () => {
+        creationOptions.signal = undefined;
+        creationController.abort();
+        return creationCancelledStore.store;
       },
-    ),
+      executeWorker: creationCancelledWorker,
+    }),
     { name: 'AbortError' },
   );
   assert.equal(workerCalled, false);

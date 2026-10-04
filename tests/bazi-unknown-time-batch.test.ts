@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BaziAnalyzer } from '../packages/core/src/bazi/baziAnalysis';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
+import { discoverUnknownTimeCandidates } from '../packages/core/src/bazi/baziUnknownTime';
 import type { BaziChartResult, Person } from '../packages/core/src/bazi/baziTypes';
 import { LuckCalculator } from '../packages/core/src/bazi/LuckCalculator';
 
@@ -80,6 +81,186 @@ test('未知时辰候选批次穷尽普通日与全部真实历法临界且逐�
     { year: 1990, month: 5, day: 15, gender: 'female', applyChinaDst: true },
   ];
   for (const person of cases) compareAllPagesWithLegacy(person);
+});
+
+test('中国历史夏令时未知时辰候选跳过不存在时刻并展开回拨重复时段', () => {
+  const summer: Person = {
+    year: 1990,
+    month: 5,
+    day: 15,
+    gender: 'female',
+    applyChinaDst: true,
+  };
+  const summerResult = baziCalculator.calculateBazi(summer);
+  assert.equal(summerResult.isThreePillars, true);
+  assert.ok(!summerResult.unknownTimeAnalysis?.uncertainPillars.includes('day'));
+  const lateZi = discoverUnknownTimeCandidates(summer).find(
+    ({ point }) => point.source === 'shichen-representative' && point.hour === 23,
+  );
+  assert.equal(lateZi?.person.birthHour, 22);
+  assert.deepEqual(
+    baziCalculator.calculateBazi(lateZi!.person).pillars,
+    baziCalculator.calculateBazi({
+      ...summer,
+      birthHour: 23,
+      birthMinute: 30,
+      birthSecond: 0,
+    }).pillars,
+  );
+
+  const spring: Person = {
+    year: 1988,
+    month: 4,
+    day: 17,
+    gender: 'female',
+    applyChinaDst: true,
+  };
+  const springCandidates = discoverUnknownTimeCandidates(spring);
+  assert.ok(springCandidates.every(({ point }) => point.hour !== 2));
+  const springAfter = springCandidates.find(
+    ({ point }) => point.source === 'dst-boundary' && point.hour === 3,
+  );
+  assert.ok(springAfter);
+  assert.deepEqual(
+    [
+      springAfter.person.year,
+      springAfter.person.month,
+      springAfter.person.day,
+      springAfter.person.birthHour,
+    ],
+    [1988, 4, 17, 2],
+  );
+
+  const autumn: Person = {
+    year: 1988,
+    month: 9,
+    day: 11,
+    gender: 'female',
+    applyChinaDst: true,
+  };
+  const autumnCandidates = discoverUnknownTimeCandidates(autumn);
+  const repeated = autumnCandidates.filter(
+    ({ point }) => point.source === 'dst-boundary' && point.hour === 1 && point.minute === 0,
+  );
+  assert.deepEqual(
+    repeated.map(({ point }) => point.dstInterpretation),
+    ['daylight', 'standard'],
+  );
+  assert.deepEqual(
+    repeated.map(({ person }) => person.birthHour),
+    [0, 1],
+  );
+  assert.notEqual(repeated[0]?.scenarioKey, repeated[1]?.scenarioKey);
+
+  for (const [person, candidates] of [
+    [spring, springCandidates],
+    [autumn, autumnCandidates],
+  ] as const) {
+    const full = baziCalculator.calculateBazi(person);
+    assert.equal(full.isThreePillars, true);
+    for (const index of candidates.flatMap((candidate, index) =>
+      candidate.point.source === 'dst-boundary' ? [index] : [],
+    )) {
+      const page = baziCalculator.calculateBaziUnknownTimeBatch(person, { startIndex: index });
+      assert.deepEqual(
+        page.result.unknownTimeAnalysis?.scenarios[0],
+        full.unknownTimeAnalysis?.scenarios[index],
+      );
+      assert.deepEqual(
+        page.result.unknownTimeAnalysis?.uncertainPillars,
+        full.unknownTimeAnalysis?.uncertainPillars,
+      );
+    }
+  }
+});
+
+test('夏令时跨标准日期的分页仍标明全日历日待定，并保留当前候选的实际历日', () => {
+  const person: Person = {
+    year: 1988,
+    month: 5,
+    day: 1,
+    gender: 'female',
+    applyChinaDst: true,
+  };
+  const full = baziCalculator.calculateBazi(person);
+  const scenarios = full.unknownTimeAnalysis?.scenarios ?? [];
+  for (const index of [
+    scenarios.findIndex((scenario) => scenario.source === 'day-start'),
+    scenarios.findIndex((scenario) => scenario.inputClockTime === '12:00:00'),
+  ]) {
+    assert.ok(index >= 0);
+    const page = baziCalculator.calculateBaziUnknownTimeBatch(person, { startIndex: index });
+    assert.deepEqual(page.result.unknownTimeAnalysis?.uncertainCalendarDates, ['solar', 'lunar']);
+    assert.deepEqual(page.result.unknownTimeAnalysis?.scenarios, [scenarios[index]]);
+    assert.deepEqual(page.result.solarDate, full.solarDate);
+    assert.deepEqual(page.result.lunarDate, full.lunarDate);
+  }
+});
+
+test('重复民用日的未知时辰先选有效占位，保留两个偏移的午时候选与分页身份', () => {
+  const person: Person = {
+    year: 1969,
+    month: 9,
+    day: 30,
+    gender: 'female',
+    timeZoneId: 'Pacific/Kwajalein',
+  };
+  const full = baziCalculator.calculateBazi(person);
+  const scenarios = full.unknownTimeAnalysis?.scenarios ?? [];
+  const noon = scenarios.flatMap((scenario, index) =>
+    scenario.inputClockTime === '12:00:00' && scenario.source === 'shichen-representative'
+      ? [{ scenario, index }]
+      : [],
+  );
+  assert.equal(noon.length, 2);
+  assert.deepEqual(
+    noon.map(({ scenario }) => scenario.timeName),
+    ['午时候选（UTC+11）', '午时候选（UTC-12）'],
+  );
+  assert.notEqual(noon[0]!.scenario.scenarioKey, noon[1]!.scenario.scenarioKey);
+  assert.ok(full.unknownTimeAnalysis?.uncertainPillars.includes('day'));
+  assert.equal(full.pillars.day.ganZhi, '');
+
+  for (const { scenario, index } of noon) {
+    const timezone = scenario.timeName.includes('UTC+11') ? 11 : -12;
+    const explicit = baziCalculator.calculateBazi({
+      ...person,
+      timezone,
+      birthHour: 12,
+      birthMinute: 0,
+      birthSecond: 0,
+    });
+    assert.deepEqual(scenario.pillars, explicit.pillars);
+    const page = baziCalculator.calculateBaziUnknownTimeBatch(person, { startIndex: index });
+    assert.deepEqual(page.result.unknownTimeAnalysis?.scenarios, [scenario]);
+    assert.equal(page.batch.candidateKey, scenario.scenarioKey);
+    assert.equal(page.result.pillars.day.ganZhi, '');
+  }
+  assert.throws(
+    () =>
+      baziCalculator.calculateBazi({
+        year: 2011,
+        month: 12,
+        day: 30,
+        gender: 'female',
+        timeZoneId: 'Pacific/Apia',
+      }),
+    /没有有效的出生钟表时刻/,
+  );
+  assert.throws(
+    () =>
+      baziCalculator.calculateBaziUnknownTimeBatch(
+        {
+          year: 2011,
+          month: 12,
+          day: 30,
+          gender: 'female',
+          timeZoneId: 'Pacific/Apia',
+        },
+        { startIndex: 0 },
+      ),
+    /没有有效的出生钟表时刻/,
+  );
 });
 
 test('未知时辰候选页仅展开当前候选一次本命分析且不生成完整命限', () => {

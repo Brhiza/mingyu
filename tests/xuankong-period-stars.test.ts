@@ -24,6 +24,8 @@ test('流月紫白按节气月入中后顺飞，十五日口径可复现', () =>
   assert.equal(monthStar.plate[4], monthStar.centerStar);
   assert.deepEqual([...monthStar.plate].sort(), NINE_STARS);
   assert.equal(resolveMonthFlyingStar(2024, 3, 15).centerStar, monthStar.centerStar);
+  assert.match(monthStar.calendarNote, /15日中国标准时间12:00代表该流月/);
+  assert.doesNotMatch(monthStar.calendarNote, /未指定日期|未提供具体时刻/);
 });
 
 test('宅盘可叠加流年流月飞星，且不把建造年当成流年', () => {
@@ -115,6 +117,64 @@ test('玄空年盘与月盘在立春前后使用同一节气年', () => {
   }
 });
 
+test('交节当日按中国标准时间正午取月盘，标明交节前后所属月份不同', () => {
+  const beforeXiaohan = resolveMonthFlyingStar(2026, 1, 5);
+  assert.equal(beforeXiaohan.solarTermYear, 2025);
+  assert.equal(beforeXiaohan.centerStar, 1);
+  assert.match(beforeXiaohan.calendarNote, /12:00所属节气月（子月）/);
+  assert.match(beforeXiaohan.calendarNote, /小寒于2026年1月5日 16:23:10交节/);
+  assert.match(beforeXiaohan.calendarNote, /交节前后分属不同节气月/);
+  assert.doesNotMatch(beforeXiaohan.calendarNote, /未指定日期|未提供具体时刻/);
+  const beforeXiaohanPlate = generateXuanKong({
+    year: 2024,
+    sitMountain: '子',
+    flowYear: 2026,
+    flowMonth: 1,
+    flowDay: 5,
+  });
+  assert.equal(beforeXiaohanPlate.flowStars?.yearPlate.year, 2025);
+  assert.equal(beforeXiaohanPlate.flowStars?.yearPlate.centerStar, 2);
+  assert.equal(beforeXiaohanPlate.flowStars?.monthPlate?.solarTermYear, 2025);
+
+  const afterLichun = resolveMonthFlyingStar(2026, 2, 4);
+  assert.equal(afterLichun.solarTermYear, 2026);
+  assert.equal(afterLichun.centerStar, 8);
+  assert.match(afterLichun.calendarNote, /立春于2026年2月4日 04:02:08交节/);
+
+  const beforeJingzhe = generateXuanKong({
+    year: 2024,
+    sitMountain: '子',
+    flowYear: 2026,
+    flowMonth: 3,
+    flowDay: 5,
+  });
+  assert.equal(beforeJingzhe.flowStars?.monthPlate?.centerStar, 8);
+  assert.equal(beforeJingzhe.flowStars?.yearPlate.year, 2026);
+  assert.equal(beforeJingzhe.plates.month?.[4], 8);
+  assert.ok(
+    beforeJingzhe.palaces.every(
+      (palace) => palace.monthStar === beforeJingzhe.plates.month?.[palace.gong - 1],
+    ),
+  );
+  assert.match(beforeJingzhe.prompt, /惊蛰于2026年3月5日 21:59:00交节/);
+  assert.equal(resolveMonthFlyingStar(2026, 3, 6).centerStar, 7);
+});
+
+test('替卦未成四正局时证据范围仍列出实际叠加的流年流月盘', () => {
+  const result = generateXuanKong({
+    year: 2024,
+    sitMountain: '子',
+    guaType: '替卦',
+    flowYear: 2026,
+    flowMonth: 3,
+    flowDay: 5,
+  });
+  assert.equal(result.formation, '替卦未成四正局');
+  assert.match(result.evidenceAnalysis.limitationFacts[0].promptText, /三盘、流年流月飞星/);
+  assert.deepEqual(result.plates.year, result.flowStars?.yearPlate.plate);
+  assert.deepEqual(result.plates.month, result.flowStars?.monthPlate?.plate);
+});
+
 test('月紫白按协纪辨方书十二年支三组表逐月逆行', () => {
   const firstMonthStars = [8, 5, 2, 8, 5, 2, 8, 5, 2, 8, 5, 2];
   for (let yearOffset = 0; yearOffset < 12; yearOffset++) {
@@ -156,4 +216,27 @@ test('低年份与年份上界流月叠盘保留实际节气年', () => {
       );
     }
   }
+});
+
+test('流月年份两端跨节令时仍可排盘，不依赖越界的相邻干支月', () => {
+  const beforeXiaohan = resolveMonthFlyingStar(1, 1, 1);
+  assert.equal(beforeXiaohan.solarTermYear, 0);
+  assert.equal(beforeXiaohan.centerStar, 1);
+  assert.match(beforeXiaohan.calendarNote, /子月/);
+
+  const lateYear = generateXuanKong({
+    year: 2024,
+    sitMountain: '子',
+    flowYear: 9999,
+    flowMonth: 12,
+    flowDay: 31,
+  });
+  assert.equal(lateYear.flowStars?.monthPlate?.solarTermYear, 9999);
+  assert.equal(lateYear.flowStars?.monthPlate?.centerStar, 1);
+  assert.equal(lateYear.plates.month?.[4], 1);
+
+  // 中段年份仍沿用历法库的节气月，不让两端修复改变历史年份排盘。
+  const historical = resolveMonthFlyingStar(680, 2, 1);
+  assert.equal(historical.solarTermYear, 679);
+  assert.equal(historical.centerStar, 6);
 });

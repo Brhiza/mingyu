@@ -80,21 +80,21 @@ export const baziSchema = z.object({
     .number()
     .optional()
     .describe(
-      '时辰索引：0=早子时,1=丑时,...,12=晚子时；单盘传-1或省略表示时辰未知；精确标准北京时间传时分秒时可省略',
+      '时辰索引：0=早子时,1=丑时,...,12=晚子时；单盘传-1或省略表示时辰未知；提供完整时分时从钟表推导，可省略本字段',
     ),
 
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时或精确标准北京时间时必填'),
-  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时或精确标准北京时间时必填'),
+  birthHour: z.number().optional().describe('精准出生小时；与 birthMinute 成对提供'),
+  birthMinute: z.number().optional().describe('精准出生分钟；与 birthHour 成对提供'),
   birthSecond: z
     .number()
     .int()
     .min(0)
     .max(59)
     .optional()
-    .describe('出生秒数（0-59）；与标准北京时间时分一起表示精确时刻'),
+    .describe('出生秒数（0-59）；提供时分后可省略，省略按 00 秒计算'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z
     .number()
@@ -286,7 +286,7 @@ export function buildBaziPerson(args: BaziPersonInput): Person {
     const birthMinute = readMcpIntegerLikeInRange(args.birthMinute, 'birthMinute', 0, 59);
     const birthSecond =
       args.birthSecond === undefined
-        ? undefined
+        ? 0
         : readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59);
     const birthLongitude = readMcpNumberLikeInRange(
       args.birthLongitude,
@@ -310,7 +310,7 @@ export function buildBaziPerson(args: BaziPersonInput): Person {
       useTrueSolarTime,
       birthHour,
       birthMinute,
-      ...(birthSecond === undefined ? {} : { birthSecond }),
+      birthSecond,
       birthPlace: args.birthPlace ?? '',
       birthLongitude,
       timezone: args.timezone,
@@ -321,31 +321,36 @@ export function buildBaziPerson(args: BaziPersonInput): Person {
     };
   }
 
-  const hasPreciseStandardTime = args.birthSecond !== undefined;
-  if (hasPreciseStandardTime && (args.birthHour === undefined || args.birthMinute === undefined)) {
-    throw new Error('精确标准北京时间需要同时提供 birthHour、birthMinute 和 birthSecond。');
+  const hasPreciseClock =
+    args.birthHour !== undefined ||
+    args.birthMinute !== undefined ||
+    args.birthSecond !== undefined;
+  if (hasPreciseClock && (args.birthHour === undefined || args.birthMinute === undefined)) {
+    throw new Error('精确钟表时间需要同时提供 birthHour 和 birthMinute。');
   }
-  const birthHour = hasPreciseStandardTime
+  const birthHour = hasPreciseClock
     ? readMcpIntegerLikeInRange(args.birthHour, 'birthHour', 0, 23)
     : undefined;
-  const birthMinute = hasPreciseStandardTime
+  const birthMinute = hasPreciseClock
     ? readMcpIntegerLikeInRange(args.birthMinute, 'birthMinute', 0, 59)
     : undefined;
-  const birthSecond = hasPreciseStandardTime
-    ? readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59)
+  const birthSecond = hasPreciseClock
+    ? args.birthSecond === undefined
+      ? 0
+      : readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59)
     : undefined;
   const derivedTimeIndex =
-    hasPreciseStandardTime && birthHour !== undefined && birthMinute !== undefined
+    hasPreciseClock && birthHour !== undefined && birthMinute !== undefined
       ? getTimeIndexFromClock(birthHour, birthMinute)
       : -1;
-  if (hasPreciseStandardTime && derivedTimeIndex < 0) {
+  if (hasPreciseClock && derivedTimeIndex < 0) {
     throw new Error('birthHour 和 birthMinute 无法换算为有效时辰。');
   }
   const isUnknownTime =
-    !hasPreciseStandardTime && (typeof args.timeIndex !== 'number' || args.timeIndex < 0);
+    !hasPreciseClock && (typeof args.timeIndex !== 'number' || args.timeIndex < 0);
   const timeIndex = isUnknownTime
     ? 6
-    : hasPreciseStandardTime
+    : hasPreciseClock
       ? derivedTimeIndex
       : readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', 0, 12);
 
@@ -409,7 +414,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_calculate',
     {
       description:
-        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；出生时辰未知时默认只返回第一个候选及 unknownTimeBatch 续取参数，每次续取一个候选',
+        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；提供完整出生时分时按钟表推导时辰，秒数省略按 00 秒；出生时辰未知时默认只返回第一个候选及 unknownTimeBatch 续取参数，每次续取一个候选',
       inputSchema: { ...baziSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
@@ -436,7 +441,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成可直接交给 AI 的完整任务书，同时返回本次计算的命盘与所选运限资料；时辰未知时默认只生成首个本命候选，可按 unknownTimeBatch 逐项续取',
+        '八字排盘并生成可直接交给 AI 的完整任务书，提供完整出生时分时按钟表推导时辰、秒数省略按 00 秒；时辰未知时默认只生成首个本命候选，可按 unknownTimeBatch 逐项续取',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -660,6 +665,7 @@ export function registerBaziTool(server: McpServer) {
             isCustomQuestion: args.promptMode === 'custom',
             person1Name: args.person1.name,
             person2Name: args.person2.name,
+            compatibility,
           },
         );
         const basePrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');

@@ -55,6 +55,63 @@ test('十二宫共享运限落宫查询并完整保留各层落宫标记', async
   }
 });
 
+test('紫微运限落宫证据归入运限采集与统计', async () => {
+  const input: ChartInput = {
+    name: '运限证据归类样例',
+    gender: '男',
+    dateType: 'solar',
+    birthDate: '1990-06-14',
+    birthTimeIndex: 5,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, '2025-01-01', 6);
+  const payload = buildAnalysisPayloadV1({ astrolabe, horoscope, currentScope: 'yearly' });
+  const scopeHits = payload.evidence_pool.filter((fact) => fact.type === 'palace_scope_hit');
+  assert.ok(scopeHits.length > 0);
+  assert.ok(scopeHits.every((fact) => fact.scope === 'yearly'));
+  assert.ok(scopeHits.every((fact) => fact.title.startsWith('流年落宫')));
+  assert.ok(
+    scopeHits.every((fact) =>
+      payload.palaces
+        .find((palace) => palace.index === fact.palace_indexes[0])
+        ?.scope_hits.includes('流年落宫'),
+    ),
+  );
+  assert.ok(
+    scopeHits.every(
+      (fact) =>
+        fact.calculationStepKey === 'ziwei:evidence:calculation:scope-facts' &&
+        fact.dependsOnStepKeys.includes('ziwei:evidence:calculation:scope-facts'),
+    ),
+  );
+  const scopeFactCount = payload.evidence_pool.filter(
+    (fact) => fact.calculationStepKey === 'ziwei:evidence:calculation:scope-facts',
+  ).length;
+  const natalFactCount = payload.evidence_pool.length - scopeFactCount;
+  assert.equal(payload.evidence_analysis.summaryFact.scopeFactCount, scopeFactCount);
+  assert.equal(payload.evidence_analysis.summaryFact.natalFactCount, natalFactCount);
+});
+
+test('紫微大限证据只记录大限落宫，不混入同一时点的流年流日落宫', async () => {
+  const input: ChartInput = {
+    name: '大限证据层级样例',
+    gender: '男',
+    dateType: 'solar',
+    birthDate: '1990-06-14',
+    birthTimeIndex: 5,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, '2025-01-01', 6);
+  const payload = buildAnalysisPayloadV1({ astrolabe, horoscope, currentScope: 'decadal' });
+  const scopeHits = payload.evidence_pool.filter((fact) => fact.type === 'palace_scope_hit');
+  assert.equal(scopeHits.length, 1);
+  assert.equal(
+    scopeHits[0]?.title,
+    `${horoscope.decadal.name || '大限'}落宫位于${scopeHits[0]?.palace_names[0]}`,
+  );
+  assert.equal(scopeHits[0]?.palace_indexes[0], horoscope.palace('命宫', 'decadal')?.index);
+});
+
 test('星曜精确名称查找与原引擎的星体、落宫和完整分析资料一致', async () => {
   const input = normalizeChartInput({
     name: '公开合成星曜查询样例',

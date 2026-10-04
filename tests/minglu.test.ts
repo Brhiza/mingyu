@@ -1,16 +1,150 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { buildMingluArticle, formsPairRelation } from '../packages/core/src/minglu/index.ts';
 import { MINGLU_GLOSSARY_DATABASE } from '../packages/core/src/minglu/glossary-data.ts';
 import { getBaZhaiPalace } from '../packages/core/src/direction/index.ts';
+import { MingluCrossSynthesisSection } from '../src/pages/ResultPage/components/MingluWiki/MingluCrossSynthesisSection';
+import { MingluGlossarySection } from '../src/pages/ResultPage/components/MingluWiki/MingluGlossarySection';
 import {
   buildBeginnerGuide,
   buildEnhancedFiveElementsSection,
   buildEnhancedInteractions,
+  buildEnhancedPatternUsefulGodSection,
   buildEnhancedTenGodsSection,
 } from '../packages/core/src/minglu/bazi-enhancer.ts';
+import { MingluInteractionsSection } from '../src/pages/ResultPage/components/MingluWiki/MingluInteractionsSection';
+import { MingluFiveElementsSection } from '../src/pages/ResultPage/components/MingluWiki/MingluFiveElementsSection';
+
+let sharedMingluBaziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+
+function getSharedMingluBaziResult() {
+  sharedMingluBaziResult ??= baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  return structuredClone(sharedMingluBaziResult);
+}
+
+test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
+  const samples = [
+    {
+      date: [1990, 1, 7, 5],
+      category: '地支六合',
+      name: '巳申六合',
+      status: '合而不化',
+      transformElement: undefined,
+    },
+    {
+      date: [1990, 9, 5, 6],
+      category: '天干五合',
+      name: '戊癸相合',
+      status: '合而不化',
+      transformElement: undefined,
+    },
+    {
+      date: [1994, 1, 3, 0],
+      category: '天干五合',
+      name: '甲己相合',
+      status: '争合不专',
+      transformElement: undefined,
+    },
+    {
+      date: [1994, 3, 17, 4],
+      category: '天干五合',
+      name: '丁壬相合',
+      status: '成化',
+      transformElement: '木',
+    },
+    {
+      date: [1994, 3, 17, 4],
+      category: '地支六合',
+      name: '卯戌六合',
+      status: '逢冲破合',
+      transformElement: undefined,
+    },
+  ] as const;
+  for (const sample of samples) {
+    const [year, month, day, timeIndex] = sample.date;
+    const chart = baziCalculator.calculateBazi({
+      year,
+      month,
+      day,
+      timeIndex,
+      gender: 'male',
+      useTrueSolarTime: false,
+    });
+    const items = buildEnhancedInteractions(chart);
+    const item = items.find(
+      (entry) =>
+        entry.category === sample.category &&
+        entry.name === sample.name &&
+        (sample.name !== '巳申六合' || entry.involvedPillars.join('、') === '日柱、时柱'),
+    );
+    assert.ok(item, `${sample.date.join('-')} ${sample.name}`);
+    assert.equal(item.conditionStatus, sample.status);
+    assert.equal(item.transformElement, sample.transformElement);
+    assert.equal(item.nature, '中性');
+    assert.doesNotMatch(item.name, /合化|六合化/u);
+    assert.doesNotMatch(item.description, /厚德重信|安定稳固|晚景光明/u);
+    if (sample.status !== '成化') {
+      assert.doesNotMatch(item.conditionEvidence?.join('；') ?? '', /合化[木火土金水]/u);
+      if (sample.category === '天干五合') {
+        assert.ok(item.conditionEvidence?.some((evidence) => evidence.startsWith('月令')));
+      }
+    }
+    const html = renderToStaticMarkup(createElement(MingluInteractionsSection, { items: [item] }));
+    assert.match(html, new RegExp(sample.name, 'u'));
+    assert.match(html, new RegExp(sample.status, 'u'));
+    assert.equal(html.includes('对应五行：'), sample.status === '成化');
+  }
+});
+
+test('命录只将当前月直录的调候条文列为本月评注', () => {
+  for (const sample of [
+    {
+      year: 1990,
+      month: 4,
+      day: 10,
+      dayMaster: '乙',
+      monthBranch: '辰',
+      verse: '三月乙木，阳气愈炽，先癸后丙。',
+      adjacentVerse: /二月乙木|四月乙木/u,
+    },
+    {
+      year: 1990,
+      month: 9,
+      day: 12,
+      dayMaster: '庚',
+      monthBranch: '酉',
+      verse: '八月庚金，刚锐未退，用丁用甲，丙不可少。',
+      adjacentVerse: /七月庚金|九月庚金/u,
+    },
+  ]) {
+    const result = baziCalculator.calculateBazi({
+      year: sample.year,
+      month: sample.month,
+      day: sample.day,
+      timeIndex: 1,
+      gender: 'male',
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    assert.equal(result.dayMaster.gan, sample.dayMaster);
+    assert.equal(result.pillars.month.zhi, sample.monthBranch);
+    const advice = buildEnhancedPatternUsefulGodSection(result).qiongtongAdvice;
+    assert.equal(advice?.title, `${sample.dayMaster}生于${sample.monthBranch}月`);
+    assert.deepEqual(advice?.quotes, [sample.verse]);
+    assert.doesNotMatch(advice?.quotes.join('；') ?? '', sample.adjacentVerse);
+  }
+});
 
 test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const person = {
@@ -23,18 +157,28 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
     birthMinute: 30,
   };
 
-  const baziResult = baziCalculator.calculateBazi({
-    year: person.birthYear,
-    month: person.birthMonth,
-    day: person.birthDay,
-    timeIndex: 5,
-    gender: person.gender,
-  });
+  const baziResult = getSharedMingluBaziResult();
 
   const article = buildMingluArticle({
     person,
     baziResult,
   });
+
+  const themes = article.crossSynthesisSection!;
+  assert.deepEqual(
+    themes.map((theme) => theme.themeId),
+    ['temperament', 'career-wealth', 'timing-cycles'],
+  );
+  assert.ok(themes.every((theme) => theme.ziweiEvidence.length === 0));
+  assert.ok(themes.every((theme) => !theme.astrolabeEvidence?.length));
+  assert.ok(themes.every((theme) => theme.crossVerificationNotes.length === 0));
+  assert.deepEqual(themes.find((theme) => theme.themeId === 'timing-cycles')?.baziEvidence, [
+    `起运岁数：约${article.luckChronicleSection.startAge}岁起运`,
+    `首步大运：${article.luckChronicleSection.cycles.find((cycle) => !cycle.isXiaoyun)?.ganZhi}运（约${article.luckChronicleSection.startAge}岁起始）`,
+  ]);
+  const themeHtml = renderToStaticMarkup(createElement(MingluCrossSynthesisSection, { themes }));
+  assert.match(themeHtml, /第十二章：盘面主题资料/);
+  assert.doesNotMatch(themeHtml, /紫微资料|占星资料|互证|同步对齐|行运重在时位相应/);
 
   // 1. 元数据验证
   assert.ok(article.metadata);
@@ -59,7 +203,7 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.tableOfContents.some((item) => item.title.includes('五行能量')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('格局成败')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('全量柱间作用')));
-  assert.ok(article.tableOfContents.some((item) => item.title.includes('全息神煞谱系')));
+  assert.ok(article.tableOfContents.some((item) => item.title.includes('八字神煞与传统取象')));
   assert.ok(article.tableOfContents.some((item) => item.title.includes('术语百科词典')));
 
   // 3. 四柱全息矩阵（含三垣、月令司令、命卦）
@@ -125,7 +269,12 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.luckChronicleSection.cycles.length > 0);
   const firstCycle = article.luckChronicleSection.cycles[0];
   assert.ok(firstCycle.lifeTheme);
-  assert.ok(firstCycle.careerAdvice);
+  assert.equal(firstCycle.entryType, '小运');
+  assert.equal(firstCycle.careerAdvice, '');
+  const firstDayun = article.luckChronicleSection.cycles.find(
+    (cycle) => cycle.entryType === '大运',
+  );
+  assert.ok(firstDayun?.careerAdvice);
   assert.equal(firstCycle.healthAdvice, undefined);
   assert.ok(
     article.luckChronicleSection.cycles.every(
@@ -137,15 +286,108 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const firstYear = firstCycle.annualYears[0];
   assert.ok(firstYear.yearTheme);
   assert.ok(firstYear.months);
-  assert.equal(firstYear.months.length, 12);
+  assert.ok(firstYear.months.length > 0 && firstYear.months.length <= 12);
+  assert.equal(firstYear.months[0].startDateTime, firstCycle.startDateTime);
   assert.ok(firstYear.months[0].solarTerm);
   assert.ok(firstYear.months[0].ganZhi);
   assert.ok(firstYear.months[0].commander);
 
   // 11. 术语百科词典
-  assert.ok(article.glossary.length >= 20);
+  assert.equal(MINGLU_GLOSSARY_DATABASE.length, 33);
+  assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '甲木');
+  assert.equal(article.glossary.length, 33);
   assert.ok(article.statistics.totalSections >= 8);
-  assert.ok(article.statistics.totalGlossaryEntries >= 20);
+  assert.equal(article.statistics.totalGlossaryEntries, 33);
+  assert.equal(article.glossary[0]?.term, '甲木');
+  assert.deepEqual(article.glossary[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+  assert.equal(
+    article.glossary[0]?.classicSource,
+    '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+  );
+  const originalArticle = structuredClone(article);
+  const originalGlossary = originalArticle.glossary;
+  const originalGlossaryMarkup = renderToStaticMarkup(
+    createElement(MingluGlossarySection, { entries: originalGlossary }),
+  );
+  const publicJiaMu = MINGLU_GLOSSARY_DATABASE[0]!;
+  const publicRelatedTerms = publicJiaMu.relatedTerms!;
+  const publicJiaMuSnapshot = {
+    term: publicJiaMu.term,
+    classicSource: publicJiaMu.classicSource,
+    relatedTerms: [...publicRelatedTerms],
+  };
+  const publicGlossaryLength = MINGLU_GLOSSARY_DATABASE.length;
+  const returnedJiaMu = article.glossary[0]!;
+  const returnedRelatedTerms = returnedJiaMu.relatedTerms!;
+
+  let freshArticle: typeof article | undefined;
+  try {
+    publicJiaMu.term = '外部变造词条';
+    publicJiaMu.classicSource = '外部变造典籍';
+    publicRelatedTerms.splice(0, publicRelatedTerms.length, '外部变造相关词条');
+    MINGLU_GLOSSARY_DATABASE.push({ ...structuredClone(publicJiaMu), term: '外部新增词条' });
+    assert.deepEqual(article.glossary, originalGlossary);
+    returnedJiaMu.term = '文章变造词条';
+    returnedJiaMu.classicSource = '文章变造典籍';
+    returnedRelatedTerms.splice(0, returnedRelatedTerms.length, '文章变造相关词条');
+    article.glossary.push({ ...structuredClone(article.glossary[1]!), term: '文章新增词条' });
+    assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '外部变造词条');
+    assert.deepEqual(MINGLU_GLOSSARY_DATABASE[0]?.relatedTerms, ['外部变造相关词条']);
+
+    freshArticle = buildMingluArticle({
+      person,
+      baziResult: structuredClone(baziResult),
+    });
+    assert.equal(freshArticle.glossary.length, 33);
+    assert.deepEqual(freshArticle, originalArticle);
+    assert.deepEqual(freshArticle.glossary, originalGlossary);
+    assert.equal(freshArticle.glossary[0]?.term, '甲木');
+    assert.deepEqual(freshArticle.glossary[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+    assert.equal(
+      freshArticle.glossary[0]?.classicSource,
+      '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+    );
+    assert.equal(freshArticle.statistics.totalGlossaryEntries, 33);
+    const freshGlossaryMarkup = renderToStaticMarkup(
+      createElement(MingluGlossarySection, { entries: freshArticle.glossary }),
+    );
+    assert.equal(freshGlossaryMarkup, originalGlossaryMarkup);
+    assert.match(freshGlossaryMarkup, /共收录 33 个词条/u);
+    assert.match(freshGlossaryMarkup, /相关词条：乙木 · 阳木 · 天干五合 · 仁/u);
+    assert.match(freshGlossaryMarkup, /《滴天髓·天干论·甲木》/u);
+    assert.doesNotMatch(freshGlossaryMarkup, /外部变造|文章变造|新增词条/u);
+  } finally {
+    publicJiaMu.term = publicJiaMuSnapshot.term;
+    publicJiaMu.classicSource = publicJiaMuSnapshot.classicSource;
+    publicRelatedTerms.splice(0, publicRelatedTerms.length, ...publicJiaMuSnapshot.relatedTerms);
+    MINGLU_GLOSSARY_DATABASE.splice(publicGlossaryLength);
+  }
+  assert.equal(MINGLU_GLOSSARY_DATABASE.length, 33);
+  assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '甲木');
+  assert.deepEqual(MINGLU_GLOSSARY_DATABASE[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+  assert.equal(
+    MINGLU_GLOSSARY_DATABASE[0]?.classicSource,
+    '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+  );
+});
+
+test('命录性别元数据按排盘结果标注，未指定性别不冒充男命或女命', () => {
+  const input = { year: 1990, month: 5, day: 15, timeIndex: 5 };
+  const femaleChart = baziCalculator.calculateBazi({ ...input, gender: 'female' });
+  const femaleArticle = buildMingluArticle({
+    person: { name: '样例', gender: 'male' },
+    baziResult: femaleChart,
+  });
+  assert.equal(femaleArticle.metadata.gender, 'female');
+  assert.equal(femaleArticle.metadata.genderLabel, '坤造 (女命)');
+
+  const unspecifiedChart = { ...femaleChart, gender: '' };
+  const unspecifiedArticle = buildMingluArticle({
+    person: { name: '样例', gender: '' },
+    baziResult: unspecifiedChart,
+  });
+  assert.equal(unspecifiedArticle.metadata.gender, '');
+  assert.equal(unspecifiedArticle.metadata.genderLabel, '未指定');
 });
 
 test('命录缺时辰只保留已确定柱与候选场景，不套用空日主或空时柱', () => {
@@ -169,18 +411,121 @@ test('命录缺时辰只保留已确定柱与候选场景，不套用空日主�
   assert.equal(article.fiveElementsSection.dayMasterStrength.status, '未知（待补时）');
   assert.equal(article.luckChronicleSection.direction, '待补时');
   assert.deepEqual(article.luckChronicleSection.cycles, []);
+  assert.ok(article.crossSynthesisSection?.every((theme) => theme.themeId !== 'timing-cycles'));
   assert.deepEqual(article.interactionsSection, []);
   assert.match(article.beginnerGuide?.strengthPlain ?? '', /旺衰、格局与喜忌暂不判定/);
 });
 
-test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
-  const baziResult = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 5,
+test('命录未知时辰按各柱稳定状态展示事实，不把未见五行断为缺失', () => {
+  const boundary = baziCalculator.calculateBazi({
+    year: 2024,
+    month: 2,
+    day: 4,
+    gender: 'female',
+  });
+  assert.deepEqual(boundary.unknownTimeAnalysis?.uncertainPillars, ['year', 'month', 'day']);
+  const article = buildMingluArticle({
+    person: { name: '临界', gender: 'female' },
+    baziResult: boundary,
+  });
+  assert.deepEqual(Object.values(article.metadata.baziFourPillars), Array(4).fill('待补时'));
+  assert.equal(
+    article.patternUsefulGodSection.unknownTimeAnalysis?.scenarios.length,
+    boundary.unknownTimeAnalysis?.scenarios.length,
+  );
+  assert.ok(
+    article.tenGodsSection.housesSixKin.every((item) => item.pillarLabel.includes('待补时')),
+  );
+  assert.doesNotMatch(
+    Object.values(article.beginnerGuide!.fourPillarsMetaphor).join('；'),
+    /已确定资料/,
+  );
+  assert.ok(article.fiveElementsSection.elements.every((item) => !item.isMissing));
+  const fiveElementsMarkup = renderToStaticMarkup(
+    createElement(MingluFiveElementsSection, { data: article.fiveElementsSection }),
+  );
+  assert.doesNotMatch(
+    fiveElementsMarkup,
+    /已确定柱|缺此行|加权计数 \(0%\)|不得令|无明显根|无印生|透干无比劫|同类生扶 \(印比帮身\): 0分/,
+  );
+  assert.match(fiveElementsMarkup, /同类生扶：待补时/);
+  assert.match(fiveElementsMarkup, /异类耗泄：待补时/);
+  assert.doesNotMatch(article.crossSynthesisSection![0].focus, /已确定柱/);
+  assert.doesNotMatch(boundary.evidenceAnalysis!.calculationChain.join('；'), /已确定的柱/);
+  assert.doesNotMatch(
+    boundary.evidenceAnalysis!.calculationChain.join('；'),
+    /日主资料与日柱不一致|由四柱和日主推导|形成旺衰未知/,
+  );
+  assert.match(
+    boundary.evidenceAnalysis!.calculationChain.join('；'),
+    /年、月、日、时柱按出生时分候选定位；日主待补时/,
+  );
+  assert.match(
+    boundary.evidenceAnalysis!.counterEvidenceFacts.find((item) => item.type === '排盘边界覆盖')
+      ?.promptText ?? '',
+    /年柱、月柱、日柱按候选场景核对/,
+  );
+
+  const partlyKnown = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
     gender: 'male',
   });
+  const partialArticle = buildMingluArticle({
+    person: { name: '部分确定', gender: 'male' },
+    baziResult: partlyKnown,
+  });
+  assert.deepEqual(partlyKnown.unknownTimeAnalysis?.uncertainPillars, ['day']);
+  assert.equal(partialArticle.metadata.baziFourPillars.year, '己卯');
+  assert.equal(partialArticle.metadata.baziFourPillars.month, '丁丑');
+  assert.equal(partialArticle.metadata.baziFourPillars.day, '待补时');
+  assert.deepEqual(
+    partialArticle.pillarsSection.columns[0].hiddenStems.map((item) => item.stem),
+    ['乙'],
+  );
+  assert.deepEqual(
+    partialArticle.pillarsSection.columns[1].hiddenStems.map((item) => item.stem),
+    ['己', '癸', '辛'],
+  );
+  assert.deepEqual(
+    partlyKnown.evidenceAnalysis?.pillarFacts.find((item) => item.pillar === '年柱')?.hiddenStems,
+    ['乙'],
+  );
+  assert.doesNotMatch(
+    partlyKnown.evidenceAnalysis?.pillarFacts.find((item) => item.pillar === '日柱')?.promptText ??
+      '',
+    /藏干资料与地支不一致/,
+  );
+  assert.match(partialArticle.tenGodsSection.housesSixKin[0].pillarLabel, /年柱（已确定柱）/);
+  assert.match(partialArticle.tenGodsSection.housesSixKin[2].pillarLabel, /日柱（待补时）/);
+
+  const stableDay = baziCalculator.calculateBazi({
+    year: 2026,
+    month: 4,
+    day: 5,
+    gender: 'female',
+    timeZoneId: 'Pacific/Auckland',
+    timezone: 13,
+  });
+  assert.deepEqual(stableDay.unknownTimeAnalysis?.uncertainPillars, []);
+  const stableDayArticle = buildMingluArticle({
+    person: { name: '日柱确定', gender: 'female' },
+    baziResult: stableDay,
+  });
+  assert.equal(stableDayArticle.metadata.baziFourPillars.day, '己酉');
+  assert.match(
+    stableDay.evidenceAnalysis!.counterEvidenceFacts.find((item) => item.type === '排盘边界覆盖')
+      ?.promptText ?? '',
+    /年、月、日柱已确定；出生时分与时柱待补充/,
+  );
+  assert.match(stableDayArticle.tenGodsSection.godsList[0].psychology, /日主己已确定/);
+  assert.match(stableDayArticle.crossSynthesisSection![0].baziEvidence.join('；'), /日主己已确定/);
+  assert.doesNotMatch(stableDayArticle.tenGodsSection.godsList[0].psychology, /日主未定/);
+});
+
+test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
+  const baziResult = getSharedMingluBaziResult();
   const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
 
   let sawBinglin = false;
@@ -251,13 +596,7 @@ test('岁运天克地冲包含戊壬己癸的土水相克，关系标签保留�
 });
 
 test('命录命卦方位应与公共八宅大游年表逐卦一致', () => {
-  const baziResult = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 5,
-    gender: 'male',
-  });
+  const baziResult = getSharedMingluBaziResult();
   const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
   const gua = baziResult.mingGua!.gua;
   const palaceTable = getBaZhaiPalace(gua);
@@ -338,7 +677,7 @@ test('岁运合冲判定穷举：十干100组、地支144组正反向与同字',
   assert.equal(checked, 144);
 });
 
-test('命录保留中和与实际取用，印星及透干比劫分别取证', () => {
+test('命录保留中和待判与实际原局作用，印星及透干比劫分别取证', () => {
   const chart = baziCalculator.calculateBazi({
     year: 1990,
     month: 1,
@@ -347,14 +686,16 @@ test('命录保留中和与实际取用，印星及透干比劫分别取证', ()
     gender: 'male',
   });
   assert.equal(chart.analysis.dayMasterStrength.status, '中和');
+  assert.equal(chart.analysis.usefulGod.incrementStatus, '待判');
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /日主中和/);
+  assert.match(guide.strengthPlain, /增补五行喜忌待判/);
   assert.ok(guide.strengthPlain.includes(chart.analysis.usefulGod.primaryUseful!));
   assert.ok(
     guide.strengthPlain.includes(chart.analysis.usefulGod.primaryFavorableWuxing!) ||
       chart.analysis.usefulGod.primaryFavorableWuxing === undefined,
   );
-  assert.match(guide.favorableHabitsPlain[0], /核心调和五行：/);
+  assert.match(guide.favorableHabitsPlain[0], /增补五行喜忌待判/);
   assert.doesNotMatch(guide.strengthPlain, /日主偏弱|印比为喜用/);
   const tenGods = buildEnhancedTenGodsSection(chart);
   assert.equal(tenGods.godsList.find((god) => god.tenGod === '正官')!.count, 0);

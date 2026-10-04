@@ -189,19 +189,17 @@ export function getEssentialDignity(
   const rule = ESSENTIAL_DIGNITIES[planetName];
   if (!rule) return null;
 
-  if (rule.domicile.includes(signName)) {
-    return { dignity: 'domicile', label: '入庙' };
-  }
-  if (rule.exaltation.includes(signName)) {
-    return { dignity: 'exaltation', label: '曜升' };
-  }
-  if (rule.detriment.includes(signName)) {
-    return { dignity: 'detriment', label: '落陷' };
-  }
-  if (rule.fall.includes(signName)) {
-    return { dignity: 'fall', label: '坠落' };
-  }
-  return null;
+  const matches = (
+    [
+      ['domicile', '入庙'],
+      ['exaltation', '曜升'],
+      ['detriment', '落陷'],
+      ['fall', '坠落'],
+    ] as const
+  ).filter(([dignity]) => rule[dignity].includes(signName));
+  return matches.length
+    ? { dignity: matches[0][0], label: matches.map(([, label]) => label).join('、') }
+    : null;
 }
 
 function mapPlanet(
@@ -283,7 +281,8 @@ function mapAspect(aspect: {
   isApplying: boolean | null;
   isOutOfSign: boolean;
 }): AstrolabeAspect {
-  const normalizedOrbRatio = Number((aspect.deviation / aspect.orb).toFixed(4));
+  const rawOrbRatio = aspect.deviation / aspect.orb;
+  const normalizedOrbRatio = Number(rawOrbRatio.toFixed(4));
   return {
     body1: PLANET_LABELS[aspect.body1] ?? aspect.body1,
     body2: PLANET_LABELS[aspect.body2] ?? aspect.body2,
@@ -294,7 +293,7 @@ function mapAspect(aspect: {
     orb: Number(aspect.deviation.toFixed(2)),
     strength: aspect.strength,
     allowedOrb: Number(aspect.orb.toFixed(4)),
-    closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
+    closeness: classifyAspectClosenessByRatio(rawOrbRatio),
     normalizedOrbRatio,
     isOutOfSign: aspect.isOutOfSign,
     source: 'Caelus 星体位置与明御相位计算；紧密等级按偏差占本次允许容许度的比例换算',
@@ -379,6 +378,9 @@ function readOptionalText(value: unknown, fallback: string) {
  */
 export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const standardBirth = localTimestamp(input);
+  if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
+    throw new Error('useTrueSolarTime 必须是布尔值。');
+  }
   const latitude = requireNumber(input.latitude, '出生地纬度');
   const longitude = requireNumber(input.longitude, '出生地经度');
   if (input.timezone === undefined && !input.timeZoneId) {
@@ -487,7 +489,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       coordinateAccuracy: input.coordinateAccuracy,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult
-        ? formatDateTime(trueSolarResult.correctedTime, standardBirth.second !== 0)
+        ? formatDateTime(trueSolarResult.correctedTime, trueSolarResult.correctedTime.second !== 0)
         : undefined,
       trueSolarEvidence: trueSolarResult
         ? {
@@ -507,6 +509,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     },
     planets: calculatedPoints,
     houseSystem: chart.houses.system,
+    dayChart: chart.dayChart,
     ephemerisWarnings: chart.warnings,
     angles,
     houses: chart.houses.cusps.map((cusp) => ({
@@ -536,6 +539,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       },
       retrograde: chart.summary.retrograde.map((item) => PLANET_LABELS[item] ?? item),
       patterns: [...new Set(chart.summary.patterns.map((item) => item.trim()).filter(Boolean))],
+      patternBasis: 'ten-main-bodies-selected-aspects',
     },
     timestamp: Date.now(),
   };

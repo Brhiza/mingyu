@@ -272,7 +272,7 @@ export function formatXiaoliurenRangeFacts(range: XiaoliurenRange) {
     lines.push(
       `分支${index + 1}：${formatXiaoliurenRangeInterval(branch.startTimestamp, branch.endTimestamp)}`,
       `农历：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日；时辰：${data.hourLabel}`,
-      `顺数：月宫${data.sequence.month.name}；日宫${data.sequence.day.name}；时宫${data.sequence.hour.name}`,
+      `顺数起点：月宫${data.sequence.month.name}；日宫${data.sequence.day.name}`,
       `占得宫：${data.primary.name}；时宫歌诀：${data.primary.verse}`,
       `起数：月${data.calculation.monthSeed}、日${data.calculation.daySeed}、时${data.calculation.hourSeed}；干支：${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
       `历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}`,

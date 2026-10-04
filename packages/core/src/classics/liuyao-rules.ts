@@ -379,21 +379,24 @@ export const LIUYAO_CHISHI_TABLE: Record<string, LiuyaoChishiClassic> = {
 export function getLiuyaoChishiClassic(sixRelation: string): LiuyaoChishiClassic | undefined {
   if (!sixRelation) return undefined;
   const clean = sixRelation.replace(/爻$/, '').slice(0, 2);
-  return LIUYAO_CHISHI_TABLE[clean] || LIUYAO_CHISHI_TABLE[sixRelation];
+  const key = [clean, sixRelation].find((value) => Object.hasOwn(LIUYAO_CHISHI_TABLE, value));
+  return key === undefined ? undefined : structuredClone(LIUYAO_CHISHI_TABLE[key]);
 }
 
 export function getLiuyaoMovementRule(key: string): LiuyaoMovementRule | undefined {
-  return LIUYAO_MOVEMENT_RULES[key];
+  return Object.hasOwn(LIUYAO_MOVEMENT_RULES, key)
+    ? structuredClone(LIUYAO_MOVEMENT_RULES[key])
+    : undefined;
 }
 
 export function getAllLiuyaoMovementRules(): LiuyaoMovementRule[] {
-  return Object.values(LIUYAO_MOVEMENT_RULES);
+  return structuredClone(Object.values(LIUYAO_MOVEMENT_RULES));
 }
 
 export function getLiuyaoCategoryChapter(category: string): LiuyaoCategoryChapter | undefined {
-  return LIUYAO_CATEGORY_CHAPTERS.find((c) => c.category === category);
+  return structuredClone(LIUYAO_CATEGORY_CHAPTERS.find((c) => c.category === category));
 }
 
 export function getAllLiuyaoCategoryChapters(): LiuyaoCategoryChapter[] {
-  return LIUYAO_CATEGORY_CHAPTERS;
+  return structuredClone(LIUYAO_CATEGORY_CHAPTERS);
 }

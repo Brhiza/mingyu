@@ -57,7 +57,7 @@ export const ziweiSchema = z.object({
     .min(0)
     .max(12)
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；未指定精准时分秒或真太阳时时必填'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；提供完整时分后从钟表推导，可省略本字段'),
   promptScope: z
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
@@ -95,12 +95,15 @@ export const ziweiSchema = z.object({
   birthHour: z
     .string()
     .optional()
-    .describe('精准出生小时（0-23），启用真太阳时（useTrueSolarTime=true）时必填，如 1'),
+    .describe('精准出生小时（0-23），与 birthMinute 成对提供；启用真太阳时时必填，如 1'),
   birthMinute: z
     .string()
     .optional()
-    .describe('精准出生分钟（0-59），启用真太阳时（useTrueSolarTime=true）时必填，如 20'),
-  birthSecond: z.string().optional().describe('出生秒数（0-59）；与时分共同指定精准出生时间'),
+    .describe('精准出生分钟（0-59），与 birthHour 成对提供；启用真太阳时时必填，如 20'),
+  birthSecond: z
+    .string()
+    .optional()
+    .describe('出生秒数（0-59）；提供时分后可省略，省略按 00 秒计算'),
   birthLongitude: z
     .string()
     .optional()
@@ -144,9 +147,17 @@ const ziweiPromptSchema = ziweiSchema.extend({
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步紫微运限层'),
 });
 
+const ziweiCompatibilityBirthSchema = ziweiSchema.omit({
+  promptScope: true,
+  scopeDate: true,
+  scopeHourIndex: true,
+  scopeBatch: true,
+  fortuneBatch: true,
+});
+
 const ziweiCompatibilitySchema = z.object({
-  person1: ziweiSchema.omit({ promptScope: true, scopeBatch: true, fortuneBatch: true }),
-  person2: ziweiSchema.omit({ promptScope: true, scopeBatch: true, fortuneBatch: true }),
+  person1: ziweiCompatibilityBirthSchema,
+  person2: ziweiCompatibilityBirthSchema,
 });
 
 const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
@@ -327,7 +338,9 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     dateType: args.dateType,
     isLeapMonth: args.isLeapMonth ?? false,
   });
-  const hasPreciseClock = args.birthSecond !== undefined && args.birthSecond.trim() !== '';
+  const hasPreciseClock = [args.birthHour, args.birthMinute, args.birthSecond].some(
+    (value) => value !== undefined && value.trim() !== '',
+  );
   if (!useTrueSolarTime && !hasPreciseClock && typeof args.timeIndex !== 'number') {
     throw new Error('请选择出生时辰。');
   }
@@ -368,7 +381,14 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     useTrueSolarTime,
     birthHour: trueSolarTimeInput?.birthHour ?? args.birthHour ?? '',
     birthMinute: trueSolarTimeInput?.birthMinute ?? args.birthMinute ?? '',
-    birthSecond: args.birthSecond,
+    birthSecond:
+      useTrueSolarTime || hasPreciseClock
+        ? String(
+            args.birthSecond?.trim()
+              ? readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59)
+              : 0,
+          )
+        : undefined,
     birthLongitude: trueSolarTimeInput?.birthLongitude ?? args.birthLongitude ?? '',
     timezone: args.timezone,
     timeZoneId: args.timeZoneId,
@@ -382,7 +402,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘与当前大限；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。通过 promptScope 可指定本命、当前阶段、具体流年或全部运限范围',
+        '紫微斗数排盘：根据出生信息计算紫微命盘与当前大限；提供完整出生时分时按钟表推导时辰，秒数省略按 00 秒；启用真太阳时时返回统一校正计算链、事实、汇总与限制。通过 promptScope 可指定本命、当前阶段、具体流年或全部运限范围',
       inputSchema: { ...ziweiSchema.shape, ...calculationDetailShape },
       outputSchema: ziweiOutputSchema,
     },
@@ -430,7 +450,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成可直接交给 AI 的完整任务书，同时返回本命十二宫、四化和所选运限资料',
+        '紫微斗数排盘并生成可直接交给 AI 的完整任务书，提供完整出生时分时按钟表推导时辰、秒数省略按 00 秒，同时返回本命十二宫、四化和所选运限资料',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

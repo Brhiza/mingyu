@@ -1,9 +1,14 @@
-import { BASIC_MAPPINGS } from './baziMappingsData';
 import type { BaziChartResult } from './baziTypes';
-import { assertGanZhiPair } from './baziUtils';
+import { areHeavenlyStemsOvercoming, assertGanZhiPair } from './baziUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import { SANHE_GROUPS, SANHUI_GROUPS } from '../ganzhi/relations';
+
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export type FortuneLayerType = 'natal' | 'dayun' | 'year' | 'month' | 'day' | 'hour';
 export type FortuneTriggerRelationType =
@@ -56,9 +61,11 @@ export interface FortuneTriggerFormationFact {
   label: string;
   group: string;
   branches: string[];
+  /** 三支在原局和所选岁运中出现的全部层级。 */
   participantLayerKeys: string[];
   natalLayerKeys: string[];
   activeLayerKeys: string[];
+  /** 原局未具备的地支在所选岁运中的来源层级。 */
   triggerLayerKeys: string[];
   calculationStepKey: string;
   sources: string[];
@@ -76,7 +83,7 @@ export interface FortuneTriggerRelation {
   targetLayerKey: string;
   calculationStepKey: string;
   dependsOnStepKeys: string[];
-  stemRelation?: 'same' | 'combine' | 'clash';
+  stemRelation?: 'same' | 'combine' | 'clash' | 'overcome';
   branchRelation?: 'same' | 'combine' | 'clash' | 'punishment' | 'harm' | 'break';
   rule: string;
   sources: string[];
@@ -225,9 +232,12 @@ function compareLayers(
   const items: FortuneTriggerRelation[] = [];
   const prefix = `${source.label}${source.ganZhi}与${target.label}${target.ganZhi}`;
   const stemSame = sourceParts.gan === targetParts.gan;
-  const stemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[sourceParts.gan] === targetParts.gan;
+  const stemClash =
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[sourceParts.gan] === targetParts.gan;
+  const stemOvercome = areHeavenlyStemsOvercoming(sourceParts.gan, targetParts.gan);
   const branchSame = sourceParts.zhi === targetParts.zhi;
-  const branchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[sourceParts.zhi] === targetParts.zhi;
+  const branchClash =
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[sourceParts.zhi] === targetParts.zhi;
 
   const samePillar = source.ganZhi === target.ganZhi;
   if (samePillar) {
@@ -257,7 +267,7 @@ function compareLayers(
       );
     }
   }
-  if (stemClash && branchClash) {
+  if (stemOvercome && branchClash) {
     items.push(
       relation(
         'tianke-dichong',
@@ -265,8 +275,8 @@ function compareLayers(
         source,
         target,
         calculationStepKey,
-        '两层天干相冲且地支相冲',
-        { stemRelation: 'clash', branchRelation: 'clash' },
+        '两层天干五行相克且地支相冲',
+        { stemRelation: stemClash ? 'clash' : 'overcome', branchRelation: 'clash' },
       ),
     );
   }
@@ -283,7 +293,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[sourceParts.gan] === targetParts.gan) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[sourceParts.gan] === targetParts.gan) {
     items.push(
       relation(
         'stem-combine',
@@ -322,7 +332,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-combine',
@@ -348,7 +358,9 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_XING[sourceParts.zhi]?.includes(targetParts.zhi)) {
+  if (
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[sourceParts.zhi]?.includes(targetParts.zhi)
+  ) {
     items.push(
       relation(
         'branch-punishment',
@@ -361,7 +373,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_HAI[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-harm',
@@ -374,7 +386,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_PO[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-break',
@@ -449,8 +461,8 @@ function buildComparisonStep(params: {
       `bazi:fortune-trigger:calculation:layer:${source.type}:${source.id}`,
       `bazi:fortune-trigger:calculation:layer:${target.type}:${target.id}`,
     ],
-    promptText: `${source.label}${source.ganZhi}与${target.label}${target.ganZhi}已逐项核验同干、五合、天干冲、同支、六合、六冲、刑、害、破、同柱伏吟、天克地冲与岁运并临，命中${relations.length}项关系`,
-    sources: ['天干同干、五合与相冲固定关系', '地支同支、六合、六冲、刑、害、破固定关系'],
+    promptText: `${source.label}${source.ganZhi}与${target.label}${target.ganZhi}已逐项核验同干、五合、天干冲、天干五行相克、同支、六合、六冲、刑、害、破、同柱伏吟、天克地冲与岁运并临，命中${relations.length}项关系`,
+    sources: ['天干同干、五合、五行相克与相冲固定关系', '地支同支、六合、六冲、刑、害、破固定关系'],
     limitation: CALCULATION_STEP_LIMITATION,
   };
 }
@@ -496,12 +508,12 @@ function buildFormationFacts(params: {
   const allLayers = [...params.natalLayers, ...params.activeLayers];
   const allBranches = new Set(allLayers.map((layer) => splitGanZhi(layer.ganZhi).zhi));
   const definitions = [
-    ...Object.entries(SANHE_GROUPS).map(([group, branches]) => ({
+    ...Object.entries(GANZHI_RELATION_TABLES.SANHE_GROUPS).map(([group, branches]) => ({
       type: 'branch-sanhe' as const,
       group,
       branches,
     })),
-    ...Object.entries(SANHUI_GROUPS).map(([group, branches]) => ({
+    ...Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).map(([group, branches]) => ({
       type: 'branch-sanhui' as const,
       group,
       branches,
@@ -513,29 +525,31 @@ function buildFormationFacts(params: {
     const complete = definition.branches.every((branch) => allBranches.has(branch));
     if (natalComplete || !complete) return [];
 
-    // 同一支可能由多个岁运层级共同补全（如大运与流年同为辰）；
-    // 补支时保留该支的全部层级，不以取首冒充唯一触发者
-    const participants = definition.branches.flatMap((branch) => {
-      const matchingNatal = params.natalLayers.filter(
-        (layer) => splitGanZhi(layer.ganZhi).zhi === branch,
-      );
-      if (matchingNatal.length) return matchingNatal;
-      return params.activeLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch);
-    });
-    if (participants.some((layer) => !layer)) return [];
-
-    const resolvedParticipants = participants as FortuneTriggerResolvedLayer[];
+    const branchSources = definition.branches.map((branch) => ({
+      branch,
+      natal: params.natalLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch),
+      active: params.activeLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch),
+    }));
+    const resolvedParticipants = branchSources.flatMap(({ natal, active }) => [
+      ...natal,
+      ...active,
+    ]);
     const natalParticipants = resolvedParticipants.filter((layer) => layer.type === 'natal');
     const activeParticipants = resolvedParticipants.filter((layer) => layer.type !== 'natal');
-    if (!activeParticipants.length) return [];
+    const missingBranchSources = branchSources.filter(({ natal }) => !natal.length);
+    const triggerParticipants = missingBranchSources.flatMap(({ active }) => active);
+    if (!triggerParticipants.length) return [];
 
-    const triggerLabels = activeParticipants.map((layer) => layer.label);
+    const triggerLabels = triggerParticipants.map((layer) => layer.label);
     const formationLabel =
       definition.type === 'branch-sanhe'
         ? `${definition.branches.join('')}三合${definition.group}`
         : `${definition.branches.join('')}${definition.group}三会`;
-    const triggerPrefix =
-      triggerLabels.length > 1 ? `${triggerLabels.join('、')}共同补全` : `${triggerLabels[0]}补全`;
+    const triggerPrefix = missingBranchSources.some(({ active }) => active.length > 1)
+      ? `${missingBranchSources.map(({ branch, active }) => `${branch}见于${active.map((layer) => layer.label).join('、')}`).join('；')}，补全`
+      : triggerLabels.length > 1
+        ? `${triggerLabels.join('、')}共同补全`
+        : `${triggerLabels[0]}补全`;
 
     return [
       {
@@ -548,7 +562,7 @@ function buildFormationFacts(params: {
         participantLayerKeys: resolvedParticipants.map((layer) => layer.key),
         natalLayerKeys: natalParticipants.map((layer) => layer.key),
         activeLayerKeys: activeParticipants.map((layer) => layer.key),
-        triggerLayerKeys: activeParticipants.map((layer) => layer.key),
+        triggerLayerKeys: triggerParticipants.map((layer) => layer.key),
         calculationStepKey: params.calculationStepKey,
         sources:
           definition.type === 'branch-sanhe'
@@ -572,8 +586,8 @@ function buildFormationCalculationStep(params: {
     inputs: {
       layerKeys: params.layers.map((layer) => layer.key),
       branches: params.layers.map((layer) => splitGanZhi(layer.ganZhi).zhi),
-      sanheGroups: Object.keys(SANHE_GROUPS),
-      sanhuiGroups: Object.keys(SANHUI_GROUPS),
+      sanheGroups: Object.keys(GANZHI_RELATION_TABLES.SANHE_GROUPS),
+      sanhuiGroups: Object.keys(GANZHI_RELATION_TABLES.SANHUI_GROUPS),
     },
     result: {
       formationCount: params.formations.length,
@@ -909,7 +923,7 @@ export function analyzeFortuneTriggers(
     methodology: {
       notes: [
         '原局四柱与所选大运、流年、流月、流日逐层比对天干同干、五合、相冲及地支同支、六合、六冲、刑、害、破。',
-        '大运与流年干支完全相同时单列岁运并临；两层天干相冲且地支相冲时单列天克地冲。',
+        '大运与流年干支完全相同时单列岁运并临；两层天干五行相克且地支六冲时单列天克地冲。',
         '汇总原局与所选岁运层级的地支；仅在原局尚未完整、岁运补齐第三支时记录完整三合或三会结构，不据此断定成化。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',

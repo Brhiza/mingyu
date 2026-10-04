@@ -9,6 +9,14 @@ import {
 import { baziCalculator } from 'mingyu-core/bazi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 
+const baziTermContextFixture = baziCalculator.calculateCoreBazi({
+  year: 1990,
+  month: 5,
+  day: 15,
+  timeIndex: 6,
+  gender: 'male',
+});
+
 test('术语词典库：应覆盖各主要术数门类并支持精准与模糊检索', () => {
   assert.ok(METAPHYSICS_TERMS.length > 150, '术语库条目数量应大于150条');
 
@@ -40,18 +48,31 @@ test('术语词典库：应覆盖各主要术数门类并支持精准与模糊�
 });
 
 test('八字术语盘面情境推断：应根据日主旺衰与喜忌动态生成角色', () => {
-  const bazi = baziCalculator.calculateCoreBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 6,
-    gender: 'male',
-  });
+  const bazi = baziTermContextFixture;
 
   const termCtx = getBaziTermContext('正官', bazi, { pillarLabel: '月柱' });
   assert.ok(termCtx, '应返回十神情境数据');
   assert.ok(termCtx.roleInChart.length > 10, '应生成具体的盘面作用解析');
   assert.ok(termCtx.relationshipSummary?.includes('日主'), '应包含日主旺衰与格局摘要');
+});
+
+test('八字术语只将有效六十甲子和天干五行名归为对应盘面事实', () => {
+  const bazi = baziTermContextFixture;
+
+  assert.equal(getBaziTermContext('甲子', bazi)?.chartTitle, '四柱干支气数');
+  assert.equal(getBaziTermContext('甲木', bazi)?.chartTitle, '天干实盘作用');
+  assert.equal(getBaziTermContext('甲丑', bazi), undefined);
+  assert.equal(getBaziTermContext('甲火', bazi), undefined);
+  assert.equal(getBaziTermContext('子土', bazi), undefined);
+  assert.equal(getBaziTermContext('炉中火', bazi), undefined);
+  assert.equal(
+    getBaziTermContext('炉中火', bazi, { pillarLabel: '年柱', ganZhi: '丙寅' })?.chartTitle,
+    '柱位纳音气象',
+  );
+  assert.equal(
+    getBaziTermContext('炉中火', bazi, { pillarLabel: '年柱', ganZhi: '甲子' }),
+    undefined,
+  );
 });
 
 test('六爻术语盘面情境推断：应准确识别世爻、应爻与动变作用', () => {

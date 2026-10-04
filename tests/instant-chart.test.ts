@@ -7,6 +7,10 @@ import {
   calculateInstantChart,
 } from 'mingyu-core/instant';
 import { calculateBaziChartFromInput } from '../packages/core/src/bazi';
+import {
+  buildZiweiChartInput,
+  calculateZiweiChartForScopes,
+} from '../packages/core/src/ziwei/runtime';
 
 const fixedInstant = new Date('2026-08-24T12:30:00+08:00');
 const beijingObserver = {
@@ -71,34 +75,68 @@ test('北京时间即时盘应保留秒数并用于节气临界点排盘', async
   assert.equal(response.result.pillars.month.ganZhi, direct.pillars.month.ganZhi);
 });
 
-test('八字即时盘不返回性别、大运和命卦等个人字段', async () => {
-  const response = await calculateInstantChart({
-    type: 'bazi',
-    customDate: fixedInstant,
-    timeStandard: 'beijing',
+test('即时八字与紫微不暴露性别专属字段且盘面不随技术性性别改变', async () => {
+  const bazi = await calculateInstantChart({ type: 'bazi', customDate: fixedInstant });
+  const baziResult = bazi.result as unknown as Record<string, unknown>;
+
+  assert.equal(bazi.generatedAt, fixedInstant.toISOString());
+  assert.equal(bazi.timeStandard, 'beijing');
+  assert.equal('gender' in baziResult, false);
+  assert.equal('luckInfo' in baziResult, false);
+  assert.equal('mingGua' in baziResult, false);
+  assert.equal('liunian' in baziResult, false);
+  assert.equal(typeof bazi.result.pillars.hour.ganZhi, 'string');
+
+  const femaleBazi = calculateBaziChartFromInput({
+    gender: 'female',
+    year: 2026,
+    month: 8,
+    day: 24,
+    timeIndex: 6,
+    dateType: 'solar',
+    isLeapMonth: false,
+    birthHour: 12,
+    birthMinute: 30,
+    birthSecond: 0,
+  }) as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(bazi.result)) {
+    assert.deepEqual(value, femaleBazi[key], `八字即时盘字段 ${key} 不应依赖性别`);
+  }
+
+  const ziwei = await calculateInstantChart({ type: 'ziwei', customDate: fixedInstant });
+  assert.equal('gender' in ziwei.result.basicInfo, false);
+  assert.equal(ziwei.result.palaces.length, 12);
+  assert.equal('changsheng12' in ziwei.result.palaces[0], false);
+  assert.equal('boshi12' in ziwei.result.palaces[0], false);
+  assert.equal('ages' in ziwei.result.palaces[0], false);
+
+  const femaleInput = buildZiweiChartInput({
+    name: '紫微即时盘',
+    gender: 'female',
+    dateType: 'solar',
+    year: 2026,
+    month: 8,
+    day: 24,
+    timeIndex: 6,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: 12,
+    birthMinute: 30,
+    birthSecond: 0,
   });
-  const result = response.result as unknown as Record<string, unknown>;
-
-  assert.equal(response.generatedAt, fixedInstant.toISOString());
-  assert.equal(response.timeStandard, 'beijing');
-  assert.equal('gender' in result, false);
-  assert.equal('luckInfo' in result, false);
-  assert.equal('mingGua' in result, false);
-  assert.equal('liunian' in result, false);
-  assert.equal(typeof response.result.pillars.hour.ganZhi, 'string');
-});
-
-test('紫微即时盘只返回无性别的共通宫位资料', async () => {
-  const response = await calculateInstantChart({
-    type: 'ziwei',
-    customDate: fixedInstant,
-  });
-
-  assert.equal('gender' in response.result.basicInfo, false);
-  assert.equal(response.result.palaces.length, 12);
-  assert.equal('changsheng12' in response.result.palaces[0], false);
-  assert.equal('boshi12' in response.result.palaces[0], false);
-  assert.equal('ages' in response.result.palaces[0], false);
+  const femaleZiwei = (await calculateZiweiChartForScopes(femaleInput, ['origin'])).payloadByScope
+    .origin;
+  const compareFields = (actual: object, expected: object, label: string) => {
+    const expectedRecord = expected as Record<string, unknown>;
+    for (const [key, value] of Object.entries(actual)) {
+      assert.deepEqual(value, expectedRecord[key], `${label}字段 ${key} 不应依赖性别`);
+    }
+  };
+  compareFields(ziwei.result.basicInfo, femaleZiwei.basic_info, '紫微基础资料');
+  compareFields(ziwei.result.activeScope, femaleZiwei.active_scope, '紫微当前范围');
+  ziwei.result.palaces.forEach((palace, index) =>
+    compareFields(palace, femaleZiwei.palaces[index], `紫微第 ${index + 1} 宫`),
+  );
 });
 
 test('真太阳时即时盘必须提供地点并返回校正结果', async () => {
@@ -123,7 +161,82 @@ test('真太阳时即时盘必须提供地点并返回校正结果', async () =>
   assert.ok(response.trueSolarTime?.correctedDateTime);
 });
 
-test('星盘和七政四余即时盘始终要求完整观测地点', async () => {
+test('即时盘保留 IANA 秒级历史偏移，按给定瞬时点生成真太阳时', () => {
+  const customDate = new Date('1900-02-04T05:51:31.000Z');
+  const context = buildInstantChartContext({
+    type: 'bazi',
+    customDate,
+    timeStandard: 'true-solar',
+    observer: { longitude: 2.35, timeZoneId: 'Europe/Paris' },
+  });
+
+  assert.equal(context.wallClock.offsetHours! * 3_600_000, 561_000);
+  assert.deepEqual(
+    [
+      context.wallClock.year,
+      context.wallClock.month,
+      context.wallClock.day,
+      context.wallClock.hour,
+      context.wallClock.minute,
+      context.wallClock.second,
+    ],
+    [1900, 2, 4, 6, 0, 52],
+  );
+  assert.equal(context.trueSolarTime?.timezoneEvidence?.offsetConflict, false);
+  assert.equal(
+    context.trueSolarTime?.timezoneEvidence?.selectedUtcDateTime,
+    customDate.toISOString(),
+  );
+});
+
+test('即时盘校验已提供的纬度，星盘和七政四余始终要求完整观测地点', async () => {
+  for (const type of INSTANT_CHART_TYPES) {
+    for (const timeStandard of ['beijing', 'true-solar'] as const) {
+      for (const latitude of [91, -91, Number.NaN, Number.POSITIVE_INFINITY]) {
+        assert.throws(
+          () =>
+            buildInstantChartContext({
+              type,
+              customDate: fixedInstant,
+              timeStandard,
+              observer: { ...beijingObserver, latitude },
+            }),
+          /观测地点纬度/,
+          `${type} ${timeStandard} 纬度 ${latitude}`,
+        );
+      }
+      for (const latitude of [-90, 0, 90]) {
+        const context = buildInstantChartContext({
+          type,
+          customDate: fixedInstant,
+          timeStandard,
+          observer: { ...beijingObserver, latitude },
+        });
+        assert.equal(context.observer?.latitude, latitude);
+      }
+    }
+  }
+  const { latitude: _latitude, ...observerWithoutLatitude } = beijingObserver;
+  for (const type of ['bazi', 'ziwei', 'bazi-ziwei'] as const) {
+    for (const timeStandard of ['beijing', 'true-solar'] as const) {
+      const context = buildInstantChartContext({
+        type,
+        customDate: fixedInstant,
+        timeStandard,
+        observer: observerWithoutLatitude,
+      });
+      assert.equal('latitude' in context.observer!, false);
+    }
+  }
+  await assert.rejects(
+    () =>
+      calculateInstantChart({
+        type: 'bazi',
+        customDate: fixedInstant,
+        observer: { ...beijingObserver, latitude: 91 },
+      }),
+    /观测地点纬度/,
+  );
   await assert.rejects(
     () =>
       calculateInstantChart({
@@ -149,5 +262,9 @@ test('星盘和七政四余即时盘始终要求完整观测地点', async () =>
   assert.equal(qizheng.result.stars.length >= 11, true);
   assert.equal(qizheng.result.calculationContext.longitude, beijingObserver.longitude);
   assert.match(qizheng.result.prompt, /起盘时间/);
-  assert.doesNotMatch(qizheng.result.prompt, /出生时间|命主/);
+  assert.match(qizheng.result.prompt, /起盘地点：/);
+  assert.match(qizheng.result.prompt, /按起盘时刻与当地太阳高度阈值/);
+  assert.match(qizheng.result.prompt, /命宫主宰星/);
+  assert.match(qizheng.result.prompt, /本盘记录起盘时刻的星曜位置、落宿、落宫和吊照/);
+  assert.doesNotMatch(qizheng.result.prompt, /出生|昼生|夜生|命主|命宫主星/);
 });

@@ -1,13 +1,25 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiSuiConflict, ZodiacYearFortune } from './index';
-import { BRANCH_SANHE, SANHUI_GROUPS, getBranchWuxing, getStemWuxing, isLiuhe } from '../ganzhi';
+import {
+  EARTHLY_BRANCHES,
+  ZODIACS,
+  getBranchWuxing,
+  getStemWuxing,
+  isKe,
+  isLiuhe,
+  isSheng,
+  isValidGanZhi,
+} from '../ganzhi';
 import { getTaiSuiConflicts } from './index';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface ZodiacRelationEvidence {
   key: string;
-  status: '已命中';
-  category: '流年同支' | '地支冲突' | '地支助缘' | '地支会合' | '年干五行';
+  status: '已命中' | '两支同组';
+  category: '流年同支' | '地支冲突' | '地支助缘' | '地支成员' | '年干五行';
   relation: string;
   source: string;
   sources: string[];
@@ -108,6 +120,65 @@ const LIMITATION_FACT_LIMITATION =
 const SUMMARY_FACT_LIMITATION =
   '生肖证据汇总只统计生肖年支、流年干支、关系表、五行辅助、反证与限制覆盖；不得按数量生成个人吉凶等级、成功率、灾祸概率、固定应期或化解效果保证' as const;
 
+function sameTextList(actual: string[], expected: string[]) {
+  return (
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    actual.every((value, index) => typeof value === 'string' && value === expected[index])
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sameConflictList(actual: unknown, expected: TaiSuiConflict[]): boolean {
+  return (
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    expected.every((conflict, index) => {
+      const incoming = actual[index];
+      return (
+        isRecord(incoming) &&
+        incoming.type === conflict.type &&
+        incoming.with === conflict.with &&
+        incoming.desc === conflict.desc
+      );
+    })
+  );
+}
+
+function hasExactKeyCoverage(items: Array<{ key: string }>, expectedKeys: string[]): boolean {
+  const actualKeys = items.map((item) => item.key);
+  const actual = new Set(actualKeys);
+  const expected = new Set(expectedKeys);
+  return (
+    actual.size === actualKeys.length &&
+    expected.size === expectedKeys.length &&
+    actual.size === expected.size &&
+    [...expected].every((key) => actual.has(key))
+  );
+}
+
+const REQUIRED_CALCULATION_STEP_KEYS = [
+  'zodiac:calculation:branch',
+  'zodiac:calculation:year',
+  'zodiac:calculation:branch-relations',
+  'zodiac:calculation:stem-element',
+];
+const REQUIRED_COUNTER_EVIDENCE_KEYS = [
+  'zodiac:counter:tai-sui-relations',
+  'zodiac:counter:noble-relations',
+  'zodiac:counter:information-scope',
+];
+const REQUIRED_LIMITATION_FACT_KEYS = [
+  'zodiac:limitation:information-scope',
+  'zodiac:limitation:relation-tables',
+  'zodiac:limitation:stem-element',
+  'zodiac:limitation:high-risk-output',
+  'zodiac:limitation:reality-check',
+];
+
 function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): ZodiacRelationEvidence {
   const rule =
     conflict.type === '值太岁'
@@ -139,7 +210,7 @@ function buildCounterEvidenceFacts(
     (relation) => relation.category === '流年同支' || relation.category === '地支冲突',
   );
   const harmonyRelations = relations.filter(
-    (relation) => relation.category === '地支助缘' || relation.category === '地支会合',
+    (relation) => relation.category === '地支助缘' || relation.category === '地支成员',
   );
   return [
     {
@@ -165,9 +236,9 @@ function buildCounterEvidenceFacts(
         ? harmonyRelations.map((relation) => relation.key)
         : ['zodiac:calculation:branch-relations'],
       promptText: harmonyRelations.length
-        ? `命中${harmonyRelations.length}项六合、三合或三会关系，并保留逐项关系事实`
+        ? `核验到${harmonyRelations.length}项六合关系、三合成员关系或三会成员关系，并保留逐项参与地支`
         : '本年未命中六合、三合或三会关系，不补造生肖贵人或会合关系',
-      sources: ['生肖年支与流年年支的六合、三合、三会逐项核验'],
+      sources: ['生肖年支与流年年支的六合关系、三合组成员和三会组成员逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
@@ -193,7 +264,7 @@ function buildCounterSummaryFact(
     factKeys: unmatched.map((fact) => fact.key),
     promptText: unmatched.length
       ? `未命中${unmatched.map((fact) => fact.type).join('、')}；未命中不代表现实有利或不利，只按已有关系事实解释`
-      : '值冲刑害破与三合六合三会均有可列关系；不得据命中数量生成吉凶或概率结论',
+      : '值冲刑害破与六合、三合成员、三会成员关系均已逐项核验；按各关系的参与地支分别列示',
     sources: ['太岁关系覆盖与三合六合三会覆盖逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
@@ -267,6 +338,7 @@ function buildLimitationFacts(
 function buildSummaryFact(args: {
   calculationSteps: ZodiacCalculationStep[];
   relations: ZodiacRelationEvidence[];
+  expectedRelationKeys: string[];
   primaryEvidence: ZodiacRelationEvidence[];
   supportingEvidence: ZodiacRelationEvidence[];
   counterEvidenceFacts: ZodiacCounterEvidenceFact[];
@@ -276,10 +348,10 @@ function buildSummaryFact(args: {
   consistencyGap: string | null;
 }): ZodiacSummaryFact {
   const status =
-    args.calculationSteps.length === 4 &&
-    args.relations.length > 0 &&
-    args.counterEvidenceFacts.length === 3 &&
-    args.limitationFacts.length === 5 &&
+    hasExactKeyCoverage(args.calculationSteps, REQUIRED_CALCULATION_STEP_KEYS) &&
+    hasExactKeyCoverage(args.relations, args.expectedRelationKeys) &&
+    hasExactKeyCoverage(args.counterEvidenceFacts, REQUIRED_COUNTER_EVIDENCE_KEYS) &&
+    hasExactKeyCoverage(args.limitationFacts, REQUIRED_LIMITATION_FACT_KEYS) &&
     !args.consistencyGap
       ? '证据链完整'
       : '证据链有缺口';
@@ -311,19 +383,123 @@ function buildSummaryFact(args: {
 export function analyzeZodiacEvidence(
   data: Omit<ZodiacYearFortune, 'evidenceAnalysis' | 'prompt'>,
 ): ZodiacEvidenceAnalysis {
+  const zodiacIndex = EARTHLY_BRANCHES.indexOf(
+    data.zodiacBranch as (typeof EARTHLY_BRANCHES)[number],
+  );
+  if (zodiacIndex < 0) throw new TypeError(`生肖地支无效：${data.zodiacBranch}`);
+  if (!isValidGanZhi(data.yearGanZhi)) {
+    throw new TypeError(`流年干支无效：${data.yearGanZhi}`);
+  }
+
+  const normalizedZodiac = ZODIACS[zodiacIndex];
+  const normalizedYearBranch = data.yearGanZhi[1];
+  const recomputedConflicts = getTaiSuiConflicts(data.zodiacBranch, normalizedYearBranch);
+  const sanhe = GANZHI_RELATION_TABLES.BRANCH_SANHE[data.zodiacBranch];
+  const expectedNoble = isLiuhe(data.zodiacBranch, normalizedYearBranch)
+    ? '六合贵人'
+    : sanhe?.partners.includes(normalizedYearBranch)
+      ? `三合组成员关系（${sanhe.group}）`
+      : null;
+  const hasSanheMemberRelation = expectedNoble?.startsWith('三合组成员关系') ?? false;
+  const sanhuiGroup = Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(
+    ([, members]) =>
+      members.includes(data.zodiacBranch) &&
+      members.includes(normalizedYearBranch) &&
+      data.zodiacBranch !== normalizedYearBranch,
+  );
+  const expectedMeeting = sanhuiGroup ? `三会组成员关系（${sanhuiGroup[0]}）` : null;
+  const yearStemWuxing = getStemWuxing(data.yearGanZhi[0]);
+  const zodiacWuxing = getBranchWuxing(data.zodiacBranch);
+  const expectedElementRelation = isSheng(yearStemWuxing, zodiacWuxing)
+    ? { kind: '年干生生肖', label: '年干五行生生肖地支本气', classification: '有利关系' }
+    : isSheng(zodiacWuxing, yearStemWuxing)
+      ? { kind: '生肖生年干', label: '生肖地支本气生年干五行', classification: '风险关系' }
+      : isKe(yearStemWuxing, zodiacWuxing)
+        ? { kind: '年干克生肖', label: '年干五行克生肖地支本气', classification: '风险关系' }
+        : isKe(zodiacWuxing, yearStemWuxing)
+          ? { kind: '生肖克年干', label: '生肖地支本气克年干五行', classification: '中性关系' }
+          : { kind: '同类', label: '年干五行与生肖地支本气同类', classification: '中性关系' };
+  const expectedFavorableRelations = [
+    expectedNoble && !hasSanheMemberRelation ? expectedNoble : '',
+    expectedElementRelation.classification === '有利关系' ? expectedElementRelation.label : '',
+  ].filter(Boolean);
+  const expectedRiskRelations = [
+    ...recomputedConflicts.map((conflict) => `${conflict.type}：${conflict.desc}`),
+    expectedElementRelation.classification === '风险关系' ? expectedElementRelation.label : '',
+  ].filter(Boolean);
+  const expectedActionSignals = [
+    recomputedConflicts.some((item) => item.type === '冲太岁') ? '涉及变动时预留备选方案' : '',
+    recomputedConflicts.some((item) => item.type === '值太岁') ? '作重要决定时核对现实条件' : '',
+    recomputedConflicts.some((item) => item.type === '刑太岁')
+      ? '涉及合同、规则或沟通时明确约定并留存记录'
+      : '',
+    expectedNoble && !hasSanheMemberRelation ? '出现合作或求助机会时核对具体条件与对方可靠性' : '',
+  ].filter(Boolean);
+  const incomingConflicts: unknown = data.conflicts;
+  const incomingElementRelation: unknown = data.elementRelation;
+  const hasDefinedInput = (key: string) =>
+    Object.prototype.hasOwnProperty.call(data, key) &&
+    (data as unknown as Record<string, unknown>)[key] !== undefined;
+  const missingRelationInputs = [
+    !Array.isArray(incomingConflicts) ? '犯太岁关系' : '',
+    !hasDefinedInput('noble') ? '六合、三合与贵人关系' : '',
+    !hasDefinedInput('meeting') ? '三会关系' : '',
+    !Array.isArray(data.favorableRelations) ? '有利关系列表' : '',
+    !Array.isArray(data.riskRelations) ? '风险关系列表' : '',
+    !Array.isArray(data.actionSignals) ? '行动提示列表' : '',
+    !isRecord(incomingElementRelation) || typeof data.relation !== 'string'
+      ? '年干五行辅助关系'
+      : '',
+  ].filter(Boolean);
+  const conflictsConsistent = sameConflictList(incomingConflicts, recomputedConflicts);
+  const elementConsistent =
+    isRecord(incomingElementRelation) &&
+    incomingElementRelation.kind === expectedElementRelation.kind &&
+    incomingElementRelation.label === expectedElementRelation.label &&
+    incomingElementRelation.classification === expectedElementRelation.classification &&
+    incomingElementRelation.yearStemWuxing === yearStemWuxing &&
+    incomingElementRelation.zodiacWuxing === zodiacWuxing &&
+    data.relation === expectedElementRelation.label;
+  let consistencyGap: string | null = null;
+  if (missingRelationInputs.length) {
+    consistencyGap = `关系输入资料缺失或格式无效（${missingRelationInputs.join('、')}），不能按“未命中”处理`;
+  } else if (normalizedZodiac !== data.zodiac) {
+    consistencyGap = '生肖名称与出生年支不一致';
+  } else if (data.yearBranch !== normalizedYearBranch) {
+    consistencyGap = '流年干支与流年年支不一致';
+  } else if (!elementConsistent) {
+    consistencyGap = '年干与生肖五行关系重算结果与传入资料不一致';
+  } else if (!conflictsConsistent) {
+    consistencyGap = '犯太岁关系重算结果与传入资料不一致';
+  } else if (data.noble !== expectedNoble) {
+    consistencyGap = '六合及三合成员关系重算结果与传入资料不一致';
+  } else if (data.meeting !== expectedMeeting) {
+    consistencyGap = '三会组成员关系重算结果与传入资料不一致';
+  } else if (!sameTextList(data.favorableRelations, expectedFavorableRelations)) {
+    consistencyGap = '有利关系列表重算结果与传入资料不一致';
+  } else if (!sameTextList(data.riskRelations, expectedRiskRelations)) {
+    consistencyGap = '风险关系列表重算结果与传入资料不一致';
+  } else if (!sameTextList(data.actionSignals, expectedActionSignals)) {
+    consistencyGap = '行动提示重算结果与传入资料不一致';
+  }
+
   const relations: ZodiacRelationEvidence[] = [
-    ...data.conflicts.map((conflict) => conflictEvidence(conflict, data.zodiacBranch)),
-    ...(data.noble
+    ...recomputedConflicts.map((conflict) => conflictEvidence(conflict, data.zodiacBranch)),
+    ...(expectedNoble
       ? [
           {
-            key: `关系:${data.noble}:${data.zodiacBranch}:${data.yearBranch}`,
-            status: '已命中' as const,
-            category: '地支助缘' as const,
-            relation: data.noble,
-            source: '生肖年支与流年年支的六合或三合关系',
+            key: `关系:${expectedNoble}:${data.zodiacBranch}:${normalizedYearBranch}`,
+            status: hasSanheMemberRelation ? ('两支同组' as const) : ('已命中' as const),
+            category: hasSanheMemberRelation ? ('地支成员' as const) : ('地支助缘' as const),
+            relation: expectedNoble,
+            source: hasSanheMemberRelation
+              ? '生肖年支与流年年支同属一个三合组的成员关系'
+              : '生肖年支与流年年支的六合关系',
             sources: ['十二地支六合与三合固定关系表', '干支关系公共规则'],
             role: '辅证' as const,
-            detail: '只表示传统关系表中的相合条件，不证明现实中必然出现贵人。',
+            detail: hasSanheMemberRelation
+              ? `生肖年支${data.zodiacBranch}与流年年支${normalizedYearBranch}同属${sanhe!.group}，当前可核验两支；另一成员${sanhe!.partners.find((branch) => branch !== normalizedYearBranch)}需结合完整四柱核验三支齐备及成化条件。`
+              : '只表示传统关系表中的六合条件。',
             operands: [
               {
                 label: '生肖年支',
@@ -332,27 +508,31 @@ export function analyzeZodiacEvidence(
               },
               {
                 label: '流年年支',
-                value: data.yearBranch,
-                wuxing: getBranchWuxing(data.yearBranch),
+                value: normalizedYearBranch,
+                wuxing: getBranchWuxing(normalizedYearBranch),
               },
             ],
-            rule: data.noble.startsWith('六合') ? '十二地支六合表命中' : '十二地支三合组命中',
-            promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验，按“${data.noble.startsWith('六合') ? '十二地支六合表命中' : '十二地支三合组命中'}”得到${data.noble}传统关系分类`,
+            rule: hasSanheMemberRelation
+              ? '十二地支三合组成员关系；当前两支同组'
+              : '十二地支六合表命中',
+            promptText: hasSanheMemberRelation
+              ? `生肖年支${data.zodiacBranch}与流年年支${normalizedYearBranch}逐项核验，同属${sanhe!.group}三合组，当前可见两支；另一成员${sanhe!.partners.find((branch) => branch !== normalizedYearBranch)}需结合完整四柱核验三支齐备及成化条件`
+              : `生肖年支${data.zodiacBranch}与流年年支${normalizedYearBranch}逐项核验，按“十二地支六合表命中”得到${expectedNoble}传统关系分类`,
             limitation: RELATION_FACT_LIMITATION,
           },
         ]
       : []),
-    ...(data.meeting
+    ...(expectedMeeting
       ? [
           {
-            key: `关系:${data.meeting}:${data.zodiacBranch}:${data.yearBranch}`,
-            status: '已命中' as const,
-            category: '地支会合' as const,
-            relation: data.meeting,
-            source: '生肖年支与流年年支同属固定三会组',
+            key: `关系:${expectedMeeting}:${data.zodiacBranch}:${normalizedYearBranch}`,
+            status: '两支同组' as const,
+            category: '地支成员' as const,
+            relation: expectedMeeting,
+            source: '生肖年支与流年年支同属一个三会组的成员关系',
             sources: ['十二地支三会固定关系表', '干支关系公共规则'],
             role: '辅证' as const,
-            detail: '只表示两支同属三会组，不表示三支齐全、成局或成化。',
+            detail: `生肖年支${data.zodiacBranch}与流年年支${normalizedYearBranch}同属${sanhuiGroup![0]}三会组，当前可核验两支；另一成员${sanhuiGroup![1].find((branch) => branch !== data.zodiacBranch && branch !== normalizedYearBranch)}需结合完整四柱核验三支齐备及成化条件。`,
             operands: [
               {
                 label: '生肖年支',
@@ -361,12 +541,12 @@ export function analyzeZodiacEvidence(
               },
               {
                 label: '流年年支',
-                value: data.yearBranch,
-                wuxing: getBranchWuxing(data.yearBranch),
+                value: normalizedYearBranch,
+                wuxing: getBranchWuxing(normalizedYearBranch),
               },
             ],
-            rule: '十二地支三会组成员关系命中；两支不等同完整三会成局',
-            promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验，同属${data.meeting.replace(/^三会关系（|）$/g, '')}三会组，记录为${data.meeting}；两支不等同完整三会成局`,
+            rule: '十二地支三会组成员关系；当前两支同组',
+            promptText: `生肖年支${data.zodiacBranch}与流年年支${normalizedYearBranch}逐项核验，同属${sanhuiGroup![0]}三会组，当前可见两支；另一成员${sanhuiGroup![1].find((branch) => branch !== data.zodiacBranch && branch !== normalizedYearBranch)}需结合完整四柱核验三支齐备及成化条件`,
             limitation: RELATION_FACT_LIMITATION,
           },
         ]
@@ -375,7 +555,7 @@ export function analyzeZodiacEvidence(
       key: `关系:年干五行:${data.yearGanZhi[0]}:${data.zodiacBranch}`,
       status: '已命中',
       category: '年干五行',
-      relation: data.relation,
+      relation: expectedElementRelation.label,
       source: '流年天干五行与生肖地支本气五行的生克关系',
       sources: ['天干五行与地支本气五行映射表', '五行生克公共规则'],
       role: '辅证',
@@ -388,8 +568,8 @@ export function analyzeZodiacEvidence(
           wuxing: getBranchWuxing(data.zodiacBranch),
         },
       ],
-      rule: `五行同类、生克方向逐项判断；结构化类型为${data.elementRelation.kind}，分类为${data.elementRelation.classification}`,
-      promptText: `流年年干${data.yearGanZhi[0]}属${getStemWuxing(data.yearGanZhi[0])}，生肖年支${data.zodiacBranch}本气属${getBranchWuxing(data.zodiacBranch)}；按五行同类与生克方向逐项判断为“${data.relation}”，结构化类型为${data.elementRelation.kind}`,
+      rule: `五行同类、生克方向逐项判断；结构化类型为${expectedElementRelation.kind}，分类为${expectedElementRelation.classification}`,
+      promptText: `流年年干${data.yearGanZhi[0]}属${yearStemWuxing}，生肖年支${data.zodiacBranch}本气属${zodiacWuxing}；按五行同类与生克方向逐项判断为“${expectedElementRelation.label}”，结构化类型为${expectedElementRelation.kind}`,
       limitation: RELATION_FACT_LIMITATION,
     },
   ];
@@ -403,7 +583,7 @@ export function analyzeZodiacEvidence(
       inputs: { zodiac: data.zodiac },
       result: { zodiacBranch: data.zodiacBranch },
       dependsOnStepKeys: [],
-      promptText: `生肖${data.zodiac}换算为年支${data.zodiacBranch}`,
+      promptText: `出生年支${data.zodiacBranch}对应生肖${normalizedZodiac}`,
       sources: ['十二生肖与十二地支固定映射', '生肖地支公共数据'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -412,9 +592,9 @@ export function analyzeZodiacEvidence(
       stage: '流年拆分',
       status: '已计算',
       inputs: { yearGanZhi: data.yearGanZhi },
-      result: { yearStem: data.yearGanZhi[0], yearBranch: data.yearBranch },
+      result: { yearStem: data.yearGanZhi[0], yearBranch: normalizedYearBranch },
       dependsOnStepKeys: [],
-      promptText: `流年${data.yearGanZhi}拆分为年干${data.yearGanZhi[0]}与年支${data.yearBranch}`,
+      promptText: `流年${data.yearGanZhi}拆分为年干${data.yearGanZhi[0]}与年支${normalizedYearBranch}`,
       sources: ['六十甲子干支结构', '干支合法性与拆分规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -422,14 +602,18 @@ export function analyzeZodiacEvidence(
       key: 'zodiac:calculation:branch-relations',
       stage: '地支关系核验',
       status: '已计算',
-      inputs: { zodiacBranch: data.zodiacBranch, yearBranch: data.yearBranch },
+      inputs: {
+        zodiacBranch: data.zodiacBranch,
+        yearBranch: normalizedYearBranch,
+        incomingYearBranch: data.yearBranch,
+      },
       result: {
-        conflictCount: data.conflicts.length,
-        nobleRelation: data.noble ?? '未命中',
-        meetingRelation: data.meeting ?? '未命中',
+        conflictCount: recomputedConflicts.length,
+        nobleRelation: expectedNoble ?? '未命中',
+        meetingRelation: expectedMeeting ?? '未命中',
       },
       dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
-      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合、三合与三会`,
+      promptText: `生肖年支${data.zodiacBranch}与由流年干支拆分的年支${normalizedYearBranch}逐项核验同支、六冲、相刑、六害、六破、六合、三合与三会`,
       sources: ['十二地支固定关系表', '干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -442,14 +626,14 @@ export function analyzeZodiacEvidence(
         zodiacBranch: data.zodiacBranch,
       },
       result: {
-        yearStemWuxing: getStemWuxing(data.yearGanZhi[0]),
-        zodiacBranchWuxing: getBranchWuxing(data.zodiacBranch),
-        relation: data.relation,
-        relationKind: data.elementRelation.kind,
-        relationClassification: data.elementRelation.classification,
+        yearStemWuxing,
+        zodiacBranchWuxing: zodiacWuxing,
+        relation: expectedElementRelation.label,
+        relationKind: expectedElementRelation.kind,
+        relationClassification: expectedElementRelation.classification,
       },
       dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
-      promptText: `流年年干${data.yearGanZhi[0]}五行与生肖年支${data.zodiacBranch}本气五行单独作为辅助关系`,
+      promptText: `流年年干${data.yearGanZhi[0]}五行与生肖年支${data.zodiacBranch}本气五行单独作为辅助关系；复算分类为${expectedElementRelation.kind}`,
       sources: ['天干五行与地支本气五行映射', '五行生克公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -461,38 +645,22 @@ export function analyzeZodiacEvidence(
     .map((fact) => fact.promptText);
   const limitationFacts = buildLimitationFacts(calculationSteps, relations);
   const limitations = limitationFacts.map((fact) => fact.promptText);
-  // 轻量关系复验：按公共关系表重算犯太岁、贵人与会合，与传入资料比对，
-  // 防止把固定条目数量当作已经执行独立关系校验
-  const recomputedConflictTypes = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch).map(
-    (item) => item.type,
-  );
-  const incomingConflictTypes = data.conflicts.map((item) => item.type);
-  const conflictsConsistent =
-    recomputedConflictTypes.length === incomingConflictTypes.length &&
-    recomputedConflictTypes.every((type, index) => type === incomingConflictTypes[index]);
-  const sanhe = BRANCH_SANHE[data.zodiacBranch];
-  const expectedNoble = isLiuhe(data.zodiacBranch, data.yearBranch)
-    ? '六合贵人'
-    : sanhe?.partners.includes(data.yearBranch)
-      ? `三合贵人（${sanhe.group}）`
-      : null;
-  const sanhuiGroup = Object.entries(SANHUI_GROUPS).find(
-    ([, members]) =>
-      members.includes(data.zodiacBranch) &&
-      members.includes(data.yearBranch) &&
-      data.zodiacBranch !== data.yearBranch,
-  );
-  const expectedMeeting = sanhuiGroup ? `三会关系（${sanhuiGroup[0]}）` : null;
-  const consistencyGap = !conflictsConsistent
-    ? '犯太岁关系重算结果与传入资料不一致'
-    : (data.noble ?? null) !== expectedNoble
-      ? '贵人关系重算结果与传入资料不一致'
-      : (data.meeting ?? null) !== expectedMeeting
-        ? '三会关系重算结果与传入资料不一致'
-        : null;
+  const expectedRelationKeys = [
+    ...recomputedConflicts.map(
+      (conflict) => `关系:${conflict.type}:${data.zodiacBranch}:${conflict.with}`,
+    ),
+    ...(expectedNoble
+      ? [`关系:${expectedNoble}:${data.zodiacBranch}:${normalizedYearBranch}`]
+      : []),
+    ...(expectedMeeting
+      ? [`关系:${expectedMeeting}:${data.zodiacBranch}:${normalizedYearBranch}`]
+      : []),
+    `关系:年干五行:${data.yearGanZhi[0]}:${data.zodiacBranch}`,
+  ];
   const summaryFact = buildSummaryFact({
     calculationSteps,
     relations,
+    expectedRelationKeys,
     primaryEvidence,
     supportingEvidence,
     counterEvidenceFacts,
@@ -518,7 +686,7 @@ export function analyzeZodiacEvidence(
       title: '生肖流年输入与计算链事实',
       detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
       source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
-      tags: ['计算链', data.zodiac, data.yearGanZhi],
+      tags: ['计算链', normalizedZodiac, data.yearGanZhi],
     },
     ...primaryEvidence.map((item): PromptEvidenceItem => ({
       level: '主证',
@@ -571,8 +739,8 @@ export function analyzeZodiacEvidence(
     '【生肖流年关系矩阵结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
-    `有利关系：${data.favorableRelations.join('；') || '未命中三合六合或明确年干辅助关系'}。`,
-    `风险关系：${data.riskRelations.join('；') || '未命中值、冲、刑、害、破关系'}。`,
+    `有利关系：${expectedFavorableRelations.join('；') || '暂未列符合有利分类的六合或年干辅助关系'}。`,
+    `风险关系：${expectedRiskRelations.join('；') || '未命中值、冲、刑、害、破关系'}。`,
     `反证限制：${counterSummaryFact.promptText}。`,
     `证据汇总：${summaryFact.promptText}。`,
     `解释限制：${limitations.join('；')}。`,

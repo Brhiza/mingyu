@@ -98,10 +98,28 @@ test('金口诀雨水前后按月将切成两段并保留独立手算四位预�
   assert.match(facts, /分支1：/u);
   assert.match(facts, /分支2：/u);
   for (const branch of range.branches) {
-    for (const fact of formatJinkoujueJudgmentFacts(branch.data)) {
-      assert.ok(facts.includes(fact));
+    for (const fact of formatJinkoujueJudgmentFacts(branch.data, { compact: true })) {
+      if (!fact.startsWith('四位反证：')) assert.ok(facts.includes(fact));
     }
+    assert.ok(facts.includes(branch.data.yinYangUse.rule));
+    for (const position of Object.values(branch.data.positions)) {
+      assert.ok(facts.includes(`${position.name}${position.stem ?? ''}${position.branch}`));
+    }
+    assert.deepEqual(
+      branch.data.evidenceAnalysis?.counterEvidenceFacts
+        .filter((item) => item.type === '受克')
+        .map((item) => item.detail),
+      ['贵神受人元克', '将神受人元克', '地分受将神克', '地分受贵神克'],
+    );
   }
+  assert.equal(facts.split('人元土克将神水').length - 1, 2);
+  assert.equal(facts.split('人元土克贵神水').length - 1, 2);
+  assert.equal(facts.split('将神水克地分火').length - 1, 2);
+  assert.equal(facts.split('贵神水克地分火').length - 1, 2);
+  assert.equal(facts.split('将神处月令休，力量条件偏弱').length - 1, 2);
+  assert.equal(facts.split('人元处月令死，力量条件偏弱').length - 1, 2);
+  assert.equal(facts.split('贵神处月令休，力量条件偏弱').length - 1, 2);
+  assert.doesNotMatch(facts, /将神受人元克|贵神受人元克|地分受将神克|地分受贵神克/u);
 });
 
 test('金口诀半开边界和稳定窗口按完整来源校验', () => {

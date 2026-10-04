@@ -154,6 +154,11 @@ test('皇极范围事实只保留依据与分支资料，任务书合并为一�
   assert.match(prompt, /2024-02-19 12:13:12 至 2024-02-19 13:00:00/u);
   assert.match(prompt, /立春/u);
   assert.match(prompt, /雨水/u);
+  assert.doesNotMatch(
+    prompt.split('【传统依据】\n')[1]?.split('\n\n【时间范围】')[0] ?? '',
+    /每个节气按十五|日卦从月经卦/u,
+  );
+  assert.match(prompt, /分支盘面资料：\n本次年月日时映射口径：/u);
   assert.doesNotMatch(prompt, /【当前时间】/u);
   const originalPrompt = range.branches[0]!.data.prompt;
   const sections = originalPrompt.matchAll(/(?:^|\n\n)【([^】]+)】\n([\s\S]*?)(?=\n\n【|$)/gu);

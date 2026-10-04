@@ -1,13 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { MingluGlossaryEntry } from 'mingyu-core/minglu';
+import { scrollToMingluAnchor } from './MingluLink';
 
 interface Props {
   entries: MingluGlossaryEntry[];
+  navigation?: { anchorId: string; requestId: number };
 }
 
-export const MingluGlossarySection: React.FC<Props> = ({ entries }) => {
+export const MingluGlossarySection: React.FC<Props> = ({ entries, navigation }) => {
   const [filterCategory, setFilterCategory] = useState<string>('全部');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const handledRequestId = useRef(0);
+
+  useEffect(() => {
+    if (!navigation || navigation.requestId === handledRequestId.current) return;
+    if (filterCategory !== '全部' || searchTerm) {
+      setFilterCategory('全部');
+      setSearchTerm('');
+      return;
+    }
+    if (scrollToMingluAnchor(navigation.anchorId)) {
+      handledRequestId.current = navigation.requestId;
+    }
+  }, [navigation, filterCategory, searchTerm]);
 
   const categories = [
     '全部',
@@ -39,7 +54,7 @@ export const MingluGlossarySection: React.FC<Props> = ({ entries }) => {
         <div className="minglu-section-title-wrap">
           <h2 className="minglu-section-title">第十三章：命理全息术语百科词典</h2>
           <p className="minglu-section-subtitle">
-            传统术数经典核心概念权威释义与考证（共收录 {entries.length} 个词条）
+            传统术数概念释义与资料出处（共收录 {entries.length} 个词条）
           </p>
         </div>
       </div>
@@ -89,7 +104,7 @@ export const MingluGlossarySection: React.FC<Props> = ({ entries }) => {
 
             {e.classicSource && (
               <div className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/80 p-2 rounded mb-2">
-                <span className="font-bold">典籍考证：</span>
+                <span className="font-bold">典籍资料：</span>
                 {e.classicSource}
               </div>
             )}

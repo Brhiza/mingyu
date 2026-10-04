@@ -95,7 +95,11 @@ export const PersonForm = memo(function PersonForm({
   const isLunar = getPersonValue(form, role, 'dateType') === 'lunar';
   const useTrueSolarTime = Boolean(getPersonValue(form, role, 'useTrueSolarTime'));
   const trueSolarTimeLabel = getTrueSolarTimeLabel(form, role);
-  const hasPreciseStandardTime = getPersonValue(form, role, 'birthSecond') !== '';
+  const hasSecondPrecision = getPersonValue(form, role, 'birthSecond') !== '';
+  const hasStandardClockInput =
+    getPersonValue(form, role, 'birthHour') !== '' ||
+    getPersonValue(form, role, 'birthMinute') !== '' ||
+    hasSecondPrecision;
   const canChooseInputMode = Boolean(onInputModeChange && reversePanel);
 
   return (
@@ -235,22 +239,22 @@ export const PersonForm = memo(function PersonForm({
               </div>
             )}
 
-            {forcePreciseBirthPlace || useTrueSolarTime || hasPreciseStandardTime ? (
+            {forcePreciseBirthPlace || useTrueSolarTime || hasStandardClockInput ? (
               <>
                 <div className="workspace-ui-form-row">
                   <div className="workspace-ui-field">
                     <label htmlFor={`${role}-birth-time-input`}>
                       {useTrueSolarTime
                         ? '精准时间'
-                        : hasPreciseStandardTime
+                        : hasSecondPrecision
                           ? '标准北京时间（精确到秒）'
-                          : '北京时间'}
+                          : '标准北京时间（精确到分）'}
                     </label>
                     <input
                       id={`${role}-birth-time-input`}
                       value={birthTimeValue}
                       type="time"
-                      step={hasPreciseStandardTime ? 1 : undefined}
+                      step={hasSecondPrecision ? 1 : undefined}
                       className="workspace-ui-control"
                       onChange={(event) => updateBirthTime(role, event.target.value)}
                     />

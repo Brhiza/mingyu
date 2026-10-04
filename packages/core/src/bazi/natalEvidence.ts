@@ -1,8 +1,17 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult, PatternAnalysis } from './baziTypes';
-import { formatPatternFulfillmentFacts, formatUsefulGodFunctions } from './baziAnalysisFormatter';
-import { HIDDEN_STEMS } from './baziMappingsData';
-import { getTenGod } from './baziUtils';
+import {
+  formatAlternativePatternCandidates,
+  formatPatternDecisionForPrompt,
+  formatUsefulGodFunctions,
+} from './baziAnalysisFormatter';
+import { HEAVENLY_STEMS, NAYIN_MAP, SIXTY_CYCLE, TWELVE_STAGES_MAP } from './baziMappingsData';
+import { getGanYinYang, getTenGod, getWuxing } from './baziUtils';
+import { analyzePillarRelations } from './baziPromptEnhancement';
+import { calculateKongWangBranches } from './kongWang';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -164,8 +173,84 @@ function hasText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/** 本命提示证据保留本盘裁决所需事实，通用核验条件留在结构化 fulfillment 中。 */
+export function formatNatalPatternFacts(pattern: PatternAnalysis): string[] {
+  const decision = formatPatternDecisionForPrompt(pattern);
+  const knownEvidence = [
+    pattern.basis,
+    pattern.fulfillment?.basis,
+    pattern.fulfillment?.decisionDetail,
+    pattern.fulfillment?.summary,
+  ]
+    .map((item) => conditionPortableBasis(item ?? ''))
+    .filter(hasText);
+  const facts: string[] = [];
+  const appendIfNew = (label: string, value: string, evidence = value) => {
+    const normalized = conditionPortableBasis(value);
+    const normalizedEvidence = conditionPortableBasis(evidence);
+    if (
+      !hasText(normalized) ||
+      !hasText(normalizedEvidence) ||
+      knownEvidence.some((item) => item.includes(normalizedEvidence))
+    ) {
+      return;
+    }
+    facts.push(label ? `${label}：${normalized}` : normalized);
+    knownEvidence.push(normalizedEvidence);
+  };
+
+  const alternatives = formatAlternativePatternCandidates(pattern);
+  if (alternatives) facts.push(alternatives);
+
+  const special = pattern.specialAdjudication;
+  if (pattern.isSpecial && special) {
+    appendIfNew('特殊格裁决', `${special.kind}${special.status}；路径：${special.route}`);
+    for (const item of special.satisfied) appendIfNew('特殊格条件', item);
+    for (const item of special.blockers) appendIfNew('特殊格反证', item);
+  }
+
+  if (decision) facts.push(decision);
+
+  const contradiction = pattern.fulfillment?.contradiction ?? '';
+  appendIfNew('相互制约', contradiction);
+
+  for (const item of pattern.fulfillment?.conditionFacts ?? []) {
+    if (item.key.startsWith('path.') || item.key === 'bazi.day-master-strength') continue;
+    appendIfNew('条件核验', `${item.status}；${item.detail}`, item.detail);
+  }
+
+  for (const item of pattern.fulfillment?.pathEvaluations ?? []) {
+    appendIfNew(
+      '制化路径',
+      `${item.label}（${item.position}）：${item.status}；${item.detail}`,
+      item.detail,
+    );
+  }
+
+  return facts;
+}
+
 function joinOrNone(values: string[]) {
   return values.filter(hasText).join('、') || '未记录';
+}
+
+function hasValidPillarGanZhi(pillar: BaziChartResult['pillars'][PillarKey]) {
+  return (
+    hasText(pillar.gan) &&
+    hasText(pillar.zhi) &&
+    pillar.ganZhi === `${pillar.gan}${pillar.zhi}` &&
+    SIXTY_CYCLE.includes(pillar.ganZhi)
+  );
+}
+
+function hasConsistentDayMaster(data: BaziChartResult): boolean {
+  const gan = data.dayMaster.gan;
+  return (
+    HEAVENLY_STEMS.some((stem) => stem === gan) &&
+    gan === data.pillars.day.gan &&
+    data.dayMaster.element === getWuxing(gan) &&
+    data.dayMaster.yinYang === getGanYinYang(gan)
+  );
 }
 
 function conditionPortableBasis(text: string) {
@@ -192,55 +277,88 @@ function filterPortableStrategyTrace(values: string[] | undefined) {
 }
 
 function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
+  const dayMasterValid = hasConsistentDayMaster(data);
+  const dayStemValid =
+    hasValidPillarGanZhi(data.pillars.day) && data.dayMaster.gan === data.pillars.day.gan;
   return PILLAR_KEYS.map((key) => {
     const pillar = data.pillars[key];
     const hiddenStems = data.hiddenStems[key] ?? [];
     const hiddenTenGods = data.hiddenTenGods[key] ?? [];
-    // 除干支本身外，同时核对派生字段的对应关系：
-    // 藏干必须与地支真相表一致，藏干十神必须与藏干和日主一致，避免篡改或错位资料仍记“已记录”。
-    const coreMissing = !hasText(pillar.gan) || !hasText(pillar.zhi) || !hasText(pillar.ganZhi);
-    const expectedHiddenStems = HIDDEN_STEMS[pillar.zhi] ?? [];
+    // 核对四柱资料与派生资料，避免缺失或错位字段仍被标为“已记录”。
+    const expectedHiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] ?? [];
     const hiddenStemsMismatch =
       expectedHiddenStems.length === 0 ||
       hiddenStems.length !== expectedHiddenStems.length ||
       hiddenStems.some((stem, index) => stem !== expectedHiddenStems[index]);
     const hiddenTenGodLengthMismatch = hiddenTenGods.length !== hiddenStems.length;
     const hiddenTenGodValueMismatch =
-      !hiddenTenGodLengthMismatch &&
-      hiddenStems.some(
-        (stem, index) => getTenGod(stem, data.dayMaster.gan) !== hiddenTenGods[index],
-      );
-    const ganZhiMismatch =
-      hasText(pillar.gan) && hasText(pillar.zhi) && hasText(pillar.ganZhi)
-        ? pillar.ganZhi !== `${pillar.gan}${pillar.zhi}`
-        : false;
+      !dayStemValid ||
+      (!hiddenTenGodLengthMismatch &&
+        hiddenStems.some(
+          (stem, index) => getTenGod(stem, data.dayMaster.gan) !== hiddenTenGods[index],
+        ));
+    const ganZhiValid = hasValidPillarGanZhi(pillar);
+    const expectedTenGod =
+      ganZhiValid && dayMasterValid
+        ? key === 'day'
+          ? '日主'
+          : getTenGod(pillar.gan, data.dayMaster.gan)
+        : '';
+    const expectedPillarLifeStage = ganZhiValid ? TWELVE_STAGES_MAP[pillar.gan]?.[pillar.zhi] : '';
+    const expectedDayMasterLifeStage =
+      ganZhiValid && dayMasterValid ? TWELVE_STAGES_MAP[data.dayMaster.gan]?.[pillar.zhi] : '';
+    const expectedKongWang = ganZhiValid ? calculateKongWangBranches(pillar.gan, pillar.zhi) : [];
+    const tenGodValid = Boolean(expectedTenGod) && data.tenGods[key] === expectedTenGod;
+    const expectedNayin = ganZhiValid ? NAYIN_MAP[pillar.ganZhi] : '';
+    const nayinValid = Boolean(expectedNayin) && data.nayin[key] === expectedNayin;
+    const pillarLifeStageValid =
+      Boolean(expectedPillarLifeStage) && data.pillarLifeStages[key] === expectedPillarLifeStage;
+    const dayMasterLifeStageValid =
+      Boolean(expectedDayMasterLifeStage) && data.lifeStages[key] === expectedDayMasterLifeStage;
+    const ziZuoValid =
+      Boolean(expectedPillarLifeStage) && data.ziZuo[key] === expectedPillarLifeStage;
+    const kongWangValid =
+      expectedKongWang.length === 2 &&
+      data.kongWang[key]?.length === expectedKongWang.length &&
+      expectedKongWang.every((branch, index) => data.kongWang[key][index] === branch);
+    const unverifiedDerived = [
+      !tenGodValid && '天干十神',
+      !nayinValid && '纳音',
+      !pillarLifeStageValid && '柱干十二运',
+      !dayMasterLifeStageValid && '日主十二运',
+      !ziZuoValid && '自坐',
+      !kongWangValid && '旬空',
+    ].filter((value): value is string => Boolean(value));
     const status =
-      coreMissing ||
       hiddenStemsMismatch ||
       hiddenTenGodLengthMismatch ||
       hiddenTenGodValueMismatch ||
-      ganZhiMismatch
+      !ganZhiValid ||
+      unverifiedDerived.length > 0
         ? '资料缺口'
         : '已记录';
-    const hiddenPrompt = hiddenStemsMismatch
-      ? [`藏干资料与地支${pillar.zhi}不一致，暂不采用`]
-      : [
-          `藏干${joinOrNone(hiddenStems)}`,
-          hiddenTenGodLengthMismatch || hiddenTenGodValueMismatch
-            ? '藏干十神资料与藏干或日主不一致，暂不采用'
-            : hiddenTenGods.length
-              ? `藏干十神${hiddenTenGods.join('、')}`
-              : '',
-        ];
+    const hiddenPrompt = !ganZhiValid
+      ? ['藏干待柱位确定']
+      : hiddenStemsMismatch
+        ? [`藏干资料与地支${pillar.zhi}不一致，暂不采用`]
+        : [
+            `藏干${joinOrNone(hiddenStems)}`,
+            hiddenTenGodLengthMismatch || hiddenTenGodValueMismatch
+              ? '藏干十神资料与藏干或日主不一致，暂不采用'
+              : hiddenTenGods.length
+                ? `藏干十神${hiddenTenGods.join('、')}`
+                : '',
+          ];
     const promptText = [
-      `${PILLAR_LABELS[key]}${pillar.ganZhi || '未记录干支'}`,
-      `天干十神${data.tenGods[key] || '未记录'}`,
+      `${PILLAR_LABELS[key]}${ganZhiValid ? pillar.ganZhi : '未记录干支'}`,
+      tenGodValid ? `天干十神${data.tenGods[key]}` : '',
       ...hiddenPrompt,
-      data.nayin[key] ? `纳音${data.nayin[key]}` : '',
-      data.pillarLifeStages[key] ? `柱干十二运${data.pillarLifeStages[key]}` : '',
-      data.lifeStages[key] ? `日主十二运${data.lifeStages[key]}` : '',
-      data.ziZuo[key] ? `自坐${data.ziZuo[key]}` : '',
-      data.kongWang[key]?.length ? `旬空${data.kongWang[key].join('、')}` : '',
+      nayinValid ? `纳音${data.nayin[key]}` : '',
+      pillarLifeStageValid ? `柱干十二运${data.pillarLifeStages[key]}` : '',
+      dayMasterLifeStageValid ? `日主十二运${data.lifeStages[key]}` : '',
+      ziZuoValid ? `自坐${data.ziZuo[key]}` : '',
+      kongWangValid ? `旬空${data.kongWang[key].join('、')}` : '',
+      unverifiedDerived.length ? `待核资料：${unverifiedDerived.join('、')}` : '',
     ]
       .filter(Boolean)
       .join('；');
@@ -252,14 +370,17 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
       gan: pillar.gan,
       zhi: pillar.zhi,
       ganZhi: pillar.ganZhi,
-      tenGod: data.tenGods[key] ?? '',
-      hiddenStems,
-      hiddenTenGods,
-      nayin: data.nayin[key] ?? '',
-      pillarLifeStage: data.pillarLifeStages[key] ?? '',
-      dayMasterLifeStage: data.lifeStages[key] ?? '',
-      ziZuo: data.ziZuo[key] ?? '',
-      kongWang: data.kongWang[key] ?? [],
+      tenGod: tenGodValid ? data.tenGods[key] : '',
+      hiddenStems: hiddenStemsMismatch ? [] : [...hiddenStems],
+      hiddenTenGods:
+        hiddenStemsMismatch || hiddenTenGodLengthMismatch || hiddenTenGodValueMismatch
+          ? []
+          : [...hiddenTenGods],
+      nayin: nayinValid ? data.nayin[key] : '',
+      pillarLifeStage: pillarLifeStageValid ? data.pillarLifeStages[key] : '',
+      dayMasterLifeStage: dayMasterLifeStageValid ? data.lifeStages[key] : '',
+      ziZuo: ziZuoValid ? data.ziZuo[key] : '',
+      kongWang: kongWangValid ? [...data.kongWang[key]] : [],
       calculationStepKeys: ['bazi:natal:calculation:pillars', 'bazi:natal:calculation:derived'],
       promptText,
       sources: ['四柱干支、十神、藏干、纳音、十二运、自坐与旬空结构化资料'],
@@ -268,7 +389,7 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
   });
 }
 
-function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
+export function buildBaziNatalAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
   if (data.isThreePillars) {
     return (['日主旺衰', '格局', '用神取忌'] as const).map((type, index) => ({
       key: `bazi:natal:analysis:${['strength', 'pattern', 'useful-god'][index]}`,
@@ -295,13 +416,21 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     ...strengthDetails.ruleBasis.map(conditionPortableBasis),
   ];
   const pattern = data.analysis.mingGe;
-  const patternFacts = formatPatternFulfillmentFacts(pattern);
+  const patternFacts = formatNatalPatternFacts(pattern);
+  const patternBasis = conditionPortableBasis(pattern.basis ?? '');
+  const patternBasisAlreadyShown = Boolean(
+    patternBasis && patternFacts.some((fact) => fact.includes(patternBasis)),
+  );
   const usefulGod = data.analysis.usefulGod;
+  const incrementIncomplete =
+    usefulGod.incrementStatus === '待判' || usefulGod.incrementStatus === '部分判定';
   const usefulBasis = [
     conditionPortableBasis(usefulGod.primaryReason ?? ''),
     ...(usefulGod.decisionEvidence
       ? [
-          `基础取用${usefulGod.decisionEvidence.base.favorable.join('、')}；基础所忌${usefulGod.decisionEvidence.base.unfavorable.join('、')}`,
+          usefulGod.incrementStatus === '待判'
+            ? '增补五行喜忌待判；原局格神与制化作用另列'
+            : `基础取用${usefulGod.decisionEvidence.base.favorable.join('、') || '待判'}；基础所忌${usefulGod.decisionEvidence.base.unfavorable.join('、') || '待判'}`,
           ...(usefulGod.decisionEvidence.controlPaths ?? [])
             .filter((path) => path.status === '满足')
             .map((path) => `已见制化路径：${path.label}；${path.detail}`),
@@ -311,11 +440,14 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
   const favorableWuxing = usefulGod.favorableWuxing ?? [];
   const unfavorableWuxing = usefulGod.unfavorableWuxing ?? [];
   const usefulResult = [
-    usefulGod.primaryFavorableWuxing
-      ? `主用${usefulGod.primaryFavorableWuxing}`
-      : favorableWuxing.length
-        ? `喜用五行${favorableWuxing.join('、')}`
-        : '',
+    usefulGod.incrementStatus === '部分判定' ? '增补五行喜忌部分判定' : '',
+    usefulGod.incrementStatus === '待判'
+      ? '增补五行喜忌待判'
+      : usefulGod.primaryFavorableWuxing
+        ? `主用${usefulGod.primaryFavorableWuxing}`
+        : favorableWuxing.length
+          ? `喜用五行${favorableWuxing.join('、')}`
+          : '',
     usefulGod.secondaryFavorableWuxing?.length
       ? `辅助${usefulGod.secondaryFavorableWuxing.join('、')}`
       : '',
@@ -324,9 +456,9 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
       : unfavorableWuxing.length
         ? `忌五行${unfavorableWuxing.join('、')}`
         : '',
-    usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
-    usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
-    ...formatUsefulGodFunctions(usefulGod),
+    usefulGod.incrementStatus !== '待判' && usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
+    usefulGod.incrementStatus !== '待判' && usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
+    ...formatUsefulGodFunctions(usefulGod, false),
   ]
     .filter(Boolean)
     .join('；');
@@ -351,18 +483,18 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
       patternFulfillment: pattern.fulfillment,
       transformation: pattern.transformation,
       basis: [
-        conditionPortableBasis(pattern.basis ?? ''),
+        patternBasisAlreadyShown ? '' : patternBasis,
         ...patternFacts.map(conditionPortableBasis),
         pattern.isSpecial ? '当前规则标记为特殊格局' : '当前规则未标记为特殊格局',
       ].filter(hasText),
       calculationStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `格局：${pattern.pattern || '未记录'}${pattern.basis ? `；依据：${conditionPortableBasis(pattern.basis)}` : ''}；特殊格局标记：${pattern.isSpecial ? '是' : '否'}${patternFacts.length ? `\n${patternFacts.join('\n')}` : ''}`,
+      promptText: `格局：${pattern.pattern || '未记录'}${patternBasis && !patternBasisAlreadyShown ? `；依据：${patternBasis}` : ''}；特殊格局标记：${pattern.isSpecial ? '是' : '否'}${patternFacts.length ? `\n${patternFacts.join('\n')}` : ''}`,
       sources: ['月令司权、透干、根气、成局与格局规则条件'],
       limitation: ANALYSIS_FACT_LIMITATION,
     },
     {
       key: 'bazi:natal:analysis:useful-god',
-      status: usefulResult ? '已记录' : '资料缺口',
+      status: usefulResult && !incrementIncomplete ? '已记录' : '资料缺口',
       type: '用神取忌',
       result: usefulResult,
       basis: usefulBasis,
@@ -375,6 +507,7 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
 }
 
 function buildRelationFacts(data: BaziChartResult): BaziNatalRelationFact[] {
+  const relations = analyzePillarRelations(data);
   const groups: Array<{
     type: BaziNatalRelationFact['type'];
     key: 'fuxin' | 'fanyin' | 'sameStem' | 'sameBranch' | 'xingChong';
@@ -387,7 +520,7 @@ function buildRelationFacts(data: BaziChartResult): BaziNatalRelationFact[] {
   ];
 
   return groups.flatMap((group) =>
-    data.pillarRelations[group.key].map((relation, index) => ({
+    relations[group.key].map((relation, index) => ({
       key: `bazi:natal:relation:${group.key}:${index + 1}`,
       status: '已命中' as const,
       type: group.type,
@@ -410,17 +543,28 @@ function buildCalculationSteps(args: {
   const correctedTime = data.timing?.enabled
     ? `${data.timing.correctedTime.year}-${String(data.timing.correctedTime.month).padStart(2, '0')}-${String(data.timing.correctedTime.day).padStart(2, '0')} ${String(data.timing.correctedTime.hour).padStart(2, '0')}:${String(data.timing.correctedTime.minute).padStart(2, '0')}`
     : '';
-  const missingPillarCount = pillarFacts.filter((item) => item.status === '资料缺口').length;
+  const missingCorePillarCount = PILLAR_KEYS.filter(
+    (key) => !hasValidPillarGanZhi(data.pillars[key]),
+  ).length;
+  const hasKnownPillars = missingCorePillarCount < PILLAR_KEYS.length;
+  const knownPillarText = PILLAR_KEYS.filter((key) => hasValidPillarGanZhi(data.pillars[key]))
+    .map((key) => `${PILLAR_LABELS[key]}${data.pillars[key].ganZhi}`)
+    .join('、');
+  const dayMasterValid = hasConsistentDayMaster(data);
+  const missingPillarFactCount = pillarFacts.filter((item) => item.status === '资料缺口').length;
   const missingAnalysisCount = analysisFacts.filter((item) => item.status === '资料缺口').length;
-  const missingDerivedCount = pillarFacts.filter(
-    (item) => item.hiddenStems.length > 0 && item.hiddenTenGods.length !== item.hiddenStems.length,
+  const unresolvedBoundaryCount = data.warningFacts.filter(
+    (item) => item.status === '资料不完整' || item.status === '需核验原始记录',
+  ).length;
+  const hiddenTenGodMismatchCount = PILLAR_KEYS.filter(
+    (key) => data.hiddenTenGods[key]?.length !== data.hiddenStems[key]?.length,
   ).length;
 
   return [
     {
       key: 'bazi:natal:calculation:birth-time',
       stage: '出生时间定盘',
-      status: data.isThreePillars ? '存在资料缺口' : '已计算',
+      status: data.isThreePillars || unresolvedBoundaryCount ? '存在资料缺口' : '已计算',
       inputs: {
         solarDate: `${data.solarDate.year}-${data.solarDate.month}-${data.solarDate.day}`,
         birthTime: `${data.timeInfo.name}（${data.timeInfo.range}）`,
@@ -432,7 +576,9 @@ function buildCalculationSteps(args: {
       },
       dependsOnStepKeys: [],
       promptText: data.isThreePillars
-        ? '出生日期已知，出生时分待补充，已确定的柱与时辰候选分别记录'
+        ? hasKnownPillars
+          ? '出生日期已知，出生时分待补充，已确定的柱与时辰候选分别记录'
+          : '出生日期已知，出生时分待补充，年、月、日柱按候选场景定位'
         : data.timing?.enabled
           ? `出生钟表时间经真太阳时校正后采用${correctedTime}，对应${data.timeInfo.name}`
           : `出生时间按明确选择的${data.timeInfo.name}（${data.timeInfo.range}）直接定盘`,
@@ -444,25 +590,29 @@ function buildCalculationSteps(args: {
     {
       key: 'bazi:natal:calculation:pillars',
       stage: '四柱生成',
-      status: missingPillarCount ? '存在资料缺口' : '已计算',
+      status: missingCorePillarCount || !dayMasterValid ? '存在资料缺口' : '已计算',
       inputs: {
         resolvedBirthTime: correctedTime || `${data.timeInfo.name}（${data.timeInfo.range}）`,
         currentJieqi: data.seasonInfo.currentJieqi,
       },
       result: {
         pillars: PILLAR_KEYS.map((key) => data.pillars[key].ganZhi),
-        dayMaster: `${data.dayMaster.gan}${data.dayMaster.element}${data.dayMaster.yinYang}`,
-        missingPillarCount,
+        dayMaster: dayMasterValid
+          ? `${data.dayMaster.gan}${data.dayMaster.element}${data.dayMaster.yinYang}`
+          : '待核',
+        missingPillarCount: missingCorePillarCount,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:birth-time'],
-      promptText: `按节气换年换月与当前换日口径生成四柱：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${data.pillars[key].ganZhi}`).join('、')}；日主为${data.dayMaster.gan}${data.dayMaster.element}${data.dayMaster.yinYang}`,
+      promptText: data.isThreePillars
+        ? `${knownPillarText ? `已确定柱：${knownPillarText}；其余柱位` : '年、月、日、时柱'}按出生时分候选定位；${dayMasterValid ? `日主为${data.dayMaster.gan}${data.dayMaster.element}${data.dayMaster.yinYang}` : '日主待补时'}`
+        : `按节气换年换月与当前换日口径生成四柱：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${data.pillars[key].ganZhi}`).join('、')}；${dayMasterValid ? `日主为${data.dayMaster.gan}${data.dayMaster.element}${data.dayMaster.yinYang}` : '日主资料与日柱不一致，待核'}`,
       sources: ['公历农历换算、节气换月、六十甲子与时柱推导'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'bazi:natal:calculation:derived',
       stage: '派生资料计算',
-      status: missingPillarCount || missingDerivedCount ? '存在资料缺口' : '已计算',
+      status: missingPillarFactCount ? '存在资料缺口' : '已计算',
       inputs: {
         pillars: PILLAR_KEYS.map((key) => data.pillars[key].ganZhi),
         dayMaster: data.dayMaster.gan,
@@ -473,12 +623,14 @@ function buildCalculationSteps(args: {
           (total, key) => total + (data.hiddenStems[key]?.length ?? 0),
           0,
         ),
-        hiddenTenGodMismatchCount: missingDerivedCount,
+        hiddenTenGodMismatchCount,
         relationFactCount: relationFacts.length,
         presentWuxing: data.wuxingStrength.present,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:pillars'],
-      promptText: `由四柱和日主推导月令司权${data.monthCommander || '未记录'}、十神、藏干、纳音、十二运、自坐、旬空、五行出现情况及${relationFacts.length}项柱间关系事实`,
+      promptText: data.isThreePillars
+        ? `${hasKnownPillars ? '已确定柱的干支与藏干分别记录' : '四柱干支与藏干按候选场景定位'}；十神、五行旺衰及完整柱间关系待出生时分确定后核验`
+        : `由四柱和日主推导月令司权${data.monthCommander || '未记录'}、十神、藏干、纳音、十二运、自坐、旬空、五行出现情况及${relationFacts.length}项柱间关系事实`,
       sources: ['藏干表、十神生克、纳音、十二长生、旬空与干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -498,7 +650,9 @@ function buildCalculationSteps(args: {
         missingAnalysisCount,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:derived'],
-      promptText: `按月令、司令、成局、根气、帮扶与克泄耗形成旺衰${data.analysis.dayMasterStrength.status || '未记录'}、格局${data.analysis.mingGe.pattern || '未记录'}与取用结果`,
+      promptText: data.isThreePillars
+        ? '日主旺衰、格局与取用待出生时分确定后判定'
+        : `按月令、司令、成局、根气、帮扶与克泄耗形成旺衰${data.analysis.dayMasterStrength.status || '未记录'}、格局${data.analysis.mingGe.pattern || '未记录'}与取用结果`,
       sources: ['旺衰、格局与取用规则链及其逐项条件'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -506,7 +660,7 @@ function buildCalculationSteps(args: {
       key: 'bazi:natal:calculation:summary',
       stage: '证据汇总',
       status:
-        missingPillarCount || missingAnalysisCount || missingDerivedCount
+        missingPillarFactCount || missingAnalysisCount || unresolvedBoundaryCount
           ? '存在资料缺口'
           : '已计算',
       inputs: {
@@ -516,10 +670,10 @@ function buildCalculationSteps(args: {
         warningFactCount: data.warningFacts.length,
       },
       result: {
-        missingFactCount: missingPillarCount + missingAnalysisCount + missingDerivedCount,
+        missingFactCount: missingPillarFactCount + missingAnalysisCount + unresolvedBoundaryCount,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarCount + missingAnalysisCount + missingDerivedCount}项`,
+      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarFactCount + missingAnalysisCount + unresolvedBoundaryCount}项`,
       sources: ['出生时间、四柱、派生资料、核心判断与排盘边界逐项汇总'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -535,6 +689,12 @@ function buildCounterEvidenceFacts(args: {
   const { data, pillarFacts, analysisFacts, relationFacts } = args;
   const missingPillars = pillarFacts.filter((item) => item.status === '资料缺口');
   const missingAnalysis = analysisFacts.filter((item) => item.status === '资料缺口');
+  const unresolvedBoundaryCheck = data.warningFacts.some(
+    (item) => item.status === '资料不完整' || item.status === '需核验原始记录',
+  );
+  const uncertainPillarNames = (data.unknownTimeAnalysis?.uncertainPillars ?? [])
+    .map((key) => PILLAR_LABELS[key])
+    .join('、');
 
   return [
     {
@@ -582,21 +742,26 @@ function buildCounterEvidenceFacts(args: {
     {
       key: 'bazi:natal:counter:boundary-coverage',
       type: '排盘边界覆盖',
-      status: data.isThreePillars
-        ? '资料不足'
-        : data.warningFacts.length
-          ? '存在边界提示'
-          : '无边界提示',
+      status:
+        data.isThreePillars || unresolvedBoundaryCheck
+          ? '资料不足'
+          : data.warningFacts.length
+            ? '存在边界提示'
+            : '无边界提示',
       ownerFactKeys: [
         'bazi:natal:calculation:birth-time',
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
       promptText: data.isThreePillars
-        ? '出生时分待补充，交节与子初换日范围尚未确定'
-        : data.warningFacts.length
-          ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
-          : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
+        ? uncertainPillarNames
+          ? `出生时分待补充，${uncertainPillarNames}按候选场景核对，时柱待补时`
+          : '年、月、日柱已确定；出生时分与时柱待补充'
+        : unresolvedBoundaryCheck
+          ? data.warningSummaryFact.promptText
+          : data.warningFacts.length
+            ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
+            : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
       sources: ['出生时间定盘口径与排盘边界预警'],
       limitation: COUNTER_FACT_LIMITATION,
     },
@@ -788,7 +953,7 @@ function buildEvidenceBundle(args: {
 
 export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEvidenceAnalysis {
   const pillarFacts = buildPillarFacts(data);
-  const analysisFacts = buildAnalysisFacts(data);
+  const analysisFacts = buildBaziNatalAnalysisFacts(data);
   const relationFacts = buildRelationFacts(data);
   const calculationSteps = buildCalculationSteps({
     data,
@@ -810,9 +975,13 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     relationFacts,
     counterEvidenceFacts,
   });
+  const unresolvedBoundaryCount = data.warningFacts.filter(
+    (item) => item.status === '资料不完整' || item.status === '需核验原始记录',
+  ).length;
   const missingFactCount =
     pillarFacts.filter((item) => item.status === '资料缺口').length +
-    analysisFacts.filter((item) => item.status === '资料缺口').length;
+    analysisFacts.filter((item) => item.status === '资料缺口').length +
+    unresolvedBoundaryCount;
   const summaryFact: BaziNatalSummaryFact = {
     key: 'bazi:natal:evidence-summary',
     status: missingFactCount ? '证据链有缺口' : '证据链完整',
@@ -886,7 +1055,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     ].join('\n'),
     methodology: data.isThreePillars
       ? [
-          '先记录已知出生日期与确定的柱，交节或子初换日影响的柱待出生时分确定。',
+          '先记录已知出生日期与各柱确定状态，交节或子初换日影响的柱待出生时分确定。',
           '各时辰的完整排盘单独登记为候选比较，旺衰格局取用与起运均待补时。',
         ]
       : [

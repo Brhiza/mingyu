@@ -5,8 +5,10 @@ import { baziCalculator } from 'mingyu-core/bazi';
 import {
   buildBaziZiweiPrompt,
   buildZiweiCompatibilityPrompt,
+  buildZiweiPromptDocument,
   buildZiweiTaskBookPrompt,
 } from 'mingyu-core/prompt';
+import { buildCombinedZiweiPrompt } from 'mingyu-core/ziwei/prompt';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei/runtime';
 
 test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微联合资料', async () => {
@@ -19,6 +21,11 @@ test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微�
     day: 15,
     timeIndex: 4,
     isLeapMonth: false,
+    useTrueSolarTime: true,
+    birthHour: '8',
+    birthMinute: '30',
+    birthLongitude: '116.4074',
+    timezone: 8,
   } as const;
   const input = buildZiweiChartInput(draft);
   const first = await calculateZiweiChart(input, {
@@ -36,6 +43,7 @@ test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微�
     topic: 'career-wealth',
     focusPalaceNames: ['命宫', '官禄'],
   });
+  const document = buildZiweiPromptDocument({ runtime: first, scope: 'origin' });
   const compatibility = buildZiweiCompatibilityPrompt({
     payload1: first.payloadByScope.origin,
     payload2: second.payloadByScope.origin,
@@ -58,13 +66,47 @@ test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微�
 
   assert.match(taskBook, /【任务】/);
   assert.match(taskBook, /事业财运/);
-  assert.match(taskBook, /命身主轴/);
+  assert.match(taskBook, /身宫落宫：/);
+  assert.match(document.user, /【出生时间校正】/);
+  assert.match(
+    document.user,
+    /当地钟表时间：1990-05-15T08:30:00；法定时区：UTC\+08:00；出生经度：116\.4074°；真太阳时：/,
+  );
+  assert.match(document.user, /；时辰：辰时/);
+  assert.doesNotMatch(
+    document.user,
+    /Astronomy Engine|Caelus|来源：|限制：|证据汇总|证据状态|计算链|已核验|未请求/,
+  );
   assert.match(compatibility, /【双盘关系资料】/);
   assert.match(compatibility, /【多派合参】/);
   assert.match(baziZiwei, /【八字盘面资料】/);
   assert.match(baziZiwei, /【紫微盘面资料】/);
   assert.match(baziZiwei, /【八字多派合参】/);
   assert.match(baziZiwei, /【紫微多派合参】/);
+
+  const bazi = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  const fulfillment = bazi.analysis.mingGe.fulfillment!;
+  fulfillment.status = '未判定';
+  fulfillment.conditionFacts = [
+    { key: 'pattern.target', status: '资料不足', detail: '格神根气待核对' },
+  ];
+  const withSchool = buildBaziZiweiPrompt({
+    bazi,
+    ziwei: first,
+    topic: '事业财运',
+    baziSchool: 'ziping',
+  });
+  assert.doesNotMatch(withSchool, /【八字格局条件】/);
+  assert.doesNotMatch(withSchool, /格神根气待核对/);
+  const withoutSchool = buildBaziZiweiPrompt({ bazi, ziwei: first, topic: '事业财运' });
+  assert.doesNotMatch(withoutSchool, /【八字格局条件】|格神根气待核对/);
+  assert.equal(fulfillment.conditionFacts[0].detail, '格神根气待核对');
 });
 
 test('紫微命身复合主轴断诀应准确对应身宫落宫', async () => {
@@ -121,4 +163,58 @@ test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自�
   assert.match(prompt, /主星：/);
   assert.match(prompt, /宫干支/);
   assert.match(prompt, /宫干飞化：/);
+  assert.match(prompt, /命盘格局：\n格局：/u);
+  assert.match(prompt, /命中条件：/u);
+  assert.equal(prompt.match(/命盘格局：/gu)?.length, 1);
+  assert.doesNotMatch(prompt, /传统目录\d+项|未命中规则|不可唯一复算边界/u);
+
+  const combinedPrompt = buildCombinedZiweiPrompt(
+    runtime.payloadByScope.origin,
+    'destiny',
+    '请分析命局主线。',
+    { currentTime: new Date('2026-09-26T12:00:00+08:00') },
+  );
+  const patternSection = combinedPrompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
+  assert.match(patternSection, /格局：坐贵向贵/u);
+  assert.match(patternSection, /命中条件：天魁、天钺一曜坐命，另一曜在对宫/u);
+  assert.match(patternSection, /涉及宫位：迁移/u);
+  assert.match(patternSection, /古籍依据：《紫微斗数全书》卷一/u);
+  assert.doesNotMatch(patternSection, /涉及星曜：/u);
+  assert.doesNotMatch(
+    patternSection,
+    /格局：君子在野\n传统分类：传统凶格\n命中条件：擎羊以“陷”亮度守财帛\n涉及宫位：/u,
+  );
+  const palaceSection = combinedPrompt.slice(combinedPrompt.indexOf('【全盘十二宫总览】'));
+  assert.match(palaceSection, /宫位：命宫[^\n]*辅星：天魁/u);
+});
+
+test('紫微命中条件已列出化忌星曜时省略重复星曜字段', async () => {
+  const runtime = await calculateZiweiChart(
+    buildZiweiChartInput({
+      name: '化忌格局核验',
+      gender: 'female',
+      dateType: 'solar',
+      year: 1967,
+      month: 4,
+      day: 4,
+      timeIndex: 9,
+      isLeapMonth: false,
+    }),
+    { scopes: ['origin'], skipAnalysis: false },
+  );
+  const prompt = buildCombinedZiweiPrompt(
+    runtime.payloadByScope.origin,
+    'destiny',
+    '请分析命局主线。',
+    { currentTime: new Date('2026-09-26T12:00:00+08:00') },
+  );
+  const patternSection = prompt.match(/【命盘格局】([\s\S]*?)(?=\n【)/u)?.[1] ?? '';
+  const targetPattern = patternSection
+    .split(/\n\n(?=格局：)/u)
+    .find((item) => item.includes('格局：羊陀夹忌'));
+
+  assert.ok(targetPattern);
+  assert.match(targetPattern, /巨门生年化忌坐命宫/u);
+  assert.match(targetPattern, /涉及宫位：兄弟、父母/u);
+  assert.doesNotMatch(targetPattern, /涉及星曜：/u);
 });

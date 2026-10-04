@@ -1,6 +1,6 @@
 /**
  * @file 命录全息聚合器 (Minglu Article Builder)
- * @description 将八字、紫微、占星、风水及跨术数互证数据整合成具备全量目录、交叉索引与百科词典的 MingluArticle。
+ * @description 将八字、紫微、占星、风水及跨术数盘面资料整合成具备全量目录、交叉索引与百科词典的 MingluArticle。
  */
 
 import type {
@@ -12,6 +12,7 @@ import type {
   MingluTOCItem,
 } from './types';
 import type { Wuxing } from '../bazi';
+import { SolarDay } from 'tyme4ts';
 import {
   buildBeginnerGuide,
   buildEnhancedFiveElementsSection,
@@ -26,27 +27,23 @@ import {
 import { buildEnhancedZiweiSection } from './ziwei-enhancer';
 import { buildEnhancedAstrolabeSection } from './astrolabe-enhancer';
 import { getBaZhaiPalace, type BaZhaiLabel } from '../direction';
-import { MINGLU_GLOSSARY_DATABASE } from './glossary-data';
+import { getMingluGlossaryEntries } from './glossary-data';
 
 export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
   const { person, baziResult, ziweiRuntime, astrolabeData } = options;
+  const glossary = getMingluGlossaryEntries();
   const unknownTime = baziResult.isThreePillars === true;
   const unknownTimeNotice =
     baziResult.unknownTimeAnalysis?.summary ||
     '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。';
+  const knownPillars = (['year', 'month', 'day'] as const)
+    .filter((key) => baziResult.pillars[key].ganZhi)
+    .map(
+      (key) =>
+        `${{ year: '年柱', month: '月柱', day: '日柱' }[key]}${baziResult.pillars[key].ganZhi}`,
+    );
+  const knownPillarFocus = knownPillars.length ? '八字已确定柱' : '八字候选柱';
   const transformation = baziResult.analysis.mingGe.transformation;
-  const transformationFacts = transformation
-    ? [
-        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
-        ...transformation.evidence.map((item) => `化气证据：${item}`),
-        ...transformation.conditions.map((item) => `化气条件：${item}`),
-        ...(transformation.status === '成化'
-          ? [
-              `取用主体：化神${transformation.element}；原日主${baziResult.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
-            ]
-          : []),
-      ]
-    : [];
 
   // 1. 基础八字全量增强
   const pillarsSection = buildEnhancedPillarsSection(baziResult);
@@ -63,6 +60,16 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
 
   // 3. 可选占星增强
   const astrolabeSection = astrolabeData ? buildEnhancedAstrolabeSection(astrolabeData) : undefined;
+  const careerAstrolabeEvidence = astrolabeSection
+    ? [
+        ...astrolabeSection.angles
+          .filter((angle) => angle.name === 'Midheaven')
+          .map((angle) => `天顶位于${angle.sign}`),
+        ...astrolabeSection.houses
+          .filter((house) => house.house === 2 || house.house === 10)
+          .map((house) => `第${house.house}宫宫头位于${house.sign}`),
+      ]
+    : [];
 
   // 4. 可选风水数据
   let fengshuiSection = undefined;
@@ -109,18 +116,22 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     };
   }
 
-  // 5. 跨术数互证
+  // 5. 跨术数盘面资料
   const crossSynthesisSection: MingluCrossSynthesisThemeData[] = [
     {
       themeId: 'temperament',
-      title: '性情禀赋与心理结构',
-      focus: '八字日主十神与紫微命身星曜、占星日月上升之相互印证。',
+      title: '本命盘面要素',
+      focus: `${[unknownTime ? knownPillarFocus : '八字日主与格局', ...(ziweiSection ? ['紫微命身'] : []), ...(astrolabeSection ? ['占星日月上升'] : [])].join('、')}的本命资料。`,
       baziEvidence: unknownTime
-        ? [unknownTimeNotice, '已确定的柱保留为基础资料，日主十神与格局待补时。']
+        ? [
+            unknownTimeNotice,
+            knownPillars.length
+              ? `${knownPillars.join('、')}为已确定资料；${baziResult.dayMaster.gan ? `日主${baziResult.dayMaster.gan}已确定，` : '日主待补时，'}完整十神分布与格局待补时。`
+              : '年、月、日柱须按候选场景定位；日主十神与格局待补时。',
+          ]
         : [
             `日主${baziResult.dayMaster.gan}(${baziResult.dayMaster.element})，${baziResult.analysis.dayMasterStrength.status}`,
             `主格局为【${baziResult.analysis.mingGe.pattern}】`,
-            ...transformationFacts,
           ],
       ziweiEvidence: ziweiSection
         ? [
@@ -132,30 +143,31 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
             }`,
             `身主${ziweiSection.bodyMaster}，命主${ziweiSection.soulMaster}`,
           ]
-        : ['紫微排盘未载入'],
+        : [],
       astrolabeEvidence: astrolabeSection
         ? [
-            `太阳落${astrolabeSection.points.find((p) => p.name === 'Sun')?.sign || '—'}`,
-            `月亮落${astrolabeSection.points.find((p) => p.name === 'Moon')?.sign || '—'}`,
-            `上升点位于${astrolabeSection.angles.find((a) => a.name === 'Ascendant')?.sign || '—'}`,
+            ...astrolabeSection.points
+              .filter((point) => point.name === 'Sun' || point.name === 'Moon')
+              .map((point) => `${point.name === 'Sun' ? '太阳' : '月亮'}落${point.sign}`),
+            ...astrolabeSection.angles
+              .filter((angle) => angle.name === 'Ascendant')
+              .map((angle) => `上升点位于${angle.sign}`),
           ]
         : undefined,
-      crossVerificationNotes: [
-        unknownTime ? unknownTimeNotice : '八字日元与十神体现内在能量结构与处事原则。',
-        ziweiSection ? '紫微星系呈现外在气度与人际行事风采，与八字格局互为表里。' : '',
-        astrolabeSection ? '占星日月升三位一体对应八字精气神，可与八字结构对照阅读。' : '',
-      ].filter(Boolean),
+      crossVerificationNotes: [],
     },
     {
       themeId: 'career-wealth',
-      title: '事业抱负与财富格局',
-      focus: '八字财官印食伤与紫微官禄财帛田宅、占星中天第二第十宫之印证。',
+      title: '事业与财富相关盘面',
+      focus: `${[unknownTime ? knownPillarFocus : '八字喜忌', ...(ziweiSection ? ['紫微官禄财帛宫'] : []), ...(careerAstrolabeEvidence.length ? ['占星本命资料'] : [])].join('、')}的本命资料。`,
       baziEvidence: unknownTime
         ? [unknownTimeNotice, '喜用五行与财官印食伤作用待出生时分确定后再核验。']
         : [
             `核心用神：${baziResult.analysis.usefulGod.primaryUseful || baziResult.analysis.usefulGod.useful || '待定'}`,
             `核心忌神：${baziResult.analysis.usefulGod.primaryAvoid || baziResult.analysis.usefulGod.avoid || '待定'}`,
-            ...transformationFacts,
+            ...(transformation?.status === '成化'
+              ? [`成化取用以化神${transformation.element}为主体`]
+              : []),
           ],
       ziweiEvidence: ziweiSection
         ? [
@@ -163,74 +175,91 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
               ziweiSection.palaces
                 .find((p) => p.name.includes('官禄'))
                 ?.majorStars.map((s) => s.name)
-                .join('、') || '诸星'
+                .join('、') || '无主星'
             }`,
             `财帛宫坐${
               ziweiSection.palaces
                 .find((p) => p.name.includes('财帛'))
                 ?.majorStars.map((s) => s.name)
-                .join('、') || '诸星'
+                .join('、') || '无主星'
             }`,
           ]
-        : ['紫微排盘未载入'],
-      crossVerificationNotes: [
-        unknownTime ? unknownTimeNotice : '八字喜用神指明顺应天地之行业与取财路径。',
-        ziweiSection ? '紫微三方四正展现具体职场平台与财富蓄积形态。' : '',
-      ].filter(Boolean),
+        : [],
+      astrolabeEvidence: careerAstrolabeEvidence.length ? careerAstrolabeEvidence : undefined,
+      crossVerificationNotes: [],
     },
     {
       themeId: 'timing-cycles',
-      title: '大运岁运与行运脉络',
-      focus: '八字大运流年与紫微十年大限、占星行星推运之同步对齐。',
+      title: '起运与运限资料',
+      focus: '八字起运岁数与首步大运。',
       baziEvidence: unknownTime
-        ? [unknownTimeNotice, '命身宫、起运与岁运资料待出生时分确定后再展开。']
+        ? []
         : [
             `起运岁数：约${luckChronicleSection.startAge}岁起运`,
             `首步大运：${
               luckChronicleSection.cycles.find((c) => !c.isXiaoyun)?.ganZhi || '—'
             }运（约${luckChronicleSection.startAge}岁起始）`,
           ],
-      ziweiEvidence: ziweiSection
-        ? [`大限按十年步进，起于命宫，顺逆依阳男阴女局数推求。`]
-        : ['紫微大限未载入'],
-      crossVerificationNotes: [
-        unknownTime ? unknownTimeNotice : '行运重在时位相应，逢吉运则乘势而上，逢磨砺则沉潜蓄势。',
-      ],
+      ziweiEvidence: [],
+      crossVerificationNotes: [],
     },
-  ];
+  ].filter((theme) => theme.baziEvidence.length > 0);
 
   // 6. 元数据组装
+  const gender =
+    baziResult.gender === 'male' || baziResult.gender === 'female' ? baziResult.gender : '';
+  const timing = baziResult.timing?.enabled ? baziResult.timing : undefined;
+  const birthClock = unknownTime ? undefined : (baziResult.birthClockTime ?? timing?.standardTime);
+  const birthSolarDay = birthClock
+    ? SolarDay.fromYmd(birthClock.year, birthClock.month, birthClock.day)
+    : undefined;
+  const birthLunarDay = birthSolarDay?.getLunarDay();
+  const showBirthSecond =
+    !unknownTime &&
+    (person.birthSecond !== undefined || (birthClock !== undefined && birthClock.second !== 0));
+  const correctedClock = timing?.correctedTime;
+  const correctedCrossesDate =
+    birthClock !== undefined &&
+    correctedClock !== undefined &&
+    (birthClock.year !== correctedClock.year ||
+      birthClock.month !== correctedClock.month ||
+      birthClock.day !== correctedClock.day);
   const metadata: MingluMetadata = {
     subjectName: person.name || '命主',
-    gender: person.gender || 'male',
-    genderLabel: person.gender === 'male' ? '乾造 (男命)' : '坤造 (女命)',
-    solarDateStr: `${baziResult.solarDate.year}年${baziResult.solarDate.month}月${baziResult.solarDate.day}日`,
-    lunarDateStr: `农历${baziResult.lunarDate.monthName}${baziResult.lunarDate.dayName}`,
+    gender,
+    genderLabel: gender === 'male' ? '乾造 (男命)' : gender === 'female' ? '坤造 (女命)' : '未指定',
+    solarDateStr: birthClock
+      ? `${birthClock.year}年${birthClock.month}月${birthClock.day}日`
+      : `${baziResult.solarDate.year}年${baziResult.solarDate.month}月${baziResult.solarDate.day}日`,
+    lunarDateStr: birthLunarDay
+      ? `农历${birthLunarDay.getLunarMonth().getName()}${birthLunarDay.getName()}`
+      : `农历${baziResult.lunarDate.monthName}${baziResult.lunarDate.dayName}`,
     shichenName: baziResult.timeInfo.name,
-    exactBirthTime:
-      person.birthHour !== undefined && person.birthMinute !== undefined
-        ? `${String(person.birthHour).padStart(2, '0')}:${String(person.birthMinute).padStart(2, '0')}${
-            person.birthSecond === undefined
-              ? ''
-              : `:${String(person.birthSecond).padStart(2, '0')}`
-          }`
-        : undefined,
-    ...(person.birthSecond === undefined ? {} : { birthSecond: person.birthSecond }),
-    birthPlace: person.birthPlace,
-    longitude: person.birthLongitude,
+    exactBirthTime: unknownTime
+      ? undefined
+      : birthClock
+        ? `${String(birthClock.hour).padStart(2, '0')}:${String(birthClock.minute).padStart(2, '0')}${showBirthSecond ? `:${String(birthClock.second).padStart(2, '0')}` : ''}`
+        : person.birthHour !== undefined && person.birthMinute !== undefined
+          ? `${String(person.birthHour).padStart(2, '0')}:${String(person.birthMinute).padStart(2, '0')}${
+              person.birthSecond === undefined
+                ? ''
+                : `:${String(person.birthSecond).padStart(2, '0')}`
+            }`
+          : undefined,
+    ...(showBirthSecond ? { birthSecond: birthClock?.second ?? person.birthSecond } : {}),
+    birthPlace: timing ? timing.birthPlace : person.birthPlace,
+    longitude: timing ? timing.birthLongitude : person.birthLongitude,
     latitude: person.birthLatitude,
-    timezone: person.timezone,
-    timeZoneId: person.timeZoneId,
-    isTrueSolarTime: person.useTrueSolarTime ?? false,
-    trueSolarTimeStr: baziResult.timing
-      ? `${baziResult.timing.correctedTime.hour}时${baziResult.timing.correctedTime.minute}分${
-          person.birthSecond === undefined ? '' : `${baziResult.timing.correctedTime.second}秒`
-        }`
+    timezone: timing ? timing.timezone : person.timezone,
+    timeZoneId: timing ? timing.timeZoneId : person.timeZoneId,
+    isTrueSolarTime: timing?.enabled === true,
+    trueSolarTimeStr: correctedClock
+      ? `${correctedCrossesDate ? `${correctedClock.year}年${correctedClock.month}月${correctedClock.day}日 ` : ''}${correctedClock.hour}时${correctedClock.minute}分${person.birthSecond !== undefined || correctedClock.second !== 0 ? `${correctedClock.second}秒` : ''}`
       : undefined,
     baziFourPillars: {
-      year: baziResult.pillars.year.ganZhi,
-      month: baziResult.pillars.month.ganZhi,
-      day: baziResult.pillars.day.ganZhi,
+      year: baziResult.pillars.year.ganZhi || (unknownTime ? '待补时' : ''),
+      month: baziResult.pillars.month.ganZhi || (unknownTime ? '待补时' : ''),
+      day: baziResult.pillars.day.ganZhi || (unknownTime ? '待补时' : ''),
       hour: baziResult.pillars.hour.ganZhi || (unknownTime ? '待补时' : ''),
     },
     dayMaster: {
@@ -238,8 +267,18 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       wuxing: (baziResult.dayMaster.element || (unknownTime ? '待补时' : '')) as Wuxing,
       yinYang: (baziResult.dayMaster.yinYang || (unknownTime ? '待补时' : '')) as '阴' | '阳',
     },
-    zodiac: baziResult.zodiac,
-    constellation: baziResult.constellation,
+    zodiac: birthLunarDay
+      ? birthLunarDay
+          .getLunarMonth()
+          .getLunarYear()
+          .getSixtyCycle()
+          .getEarthBranch()
+          .getZodiac()
+          .getName()
+      : baziResult.zodiac,
+    constellation: birthSolarDay
+      ? birthSolarDay.getConstellation().getName()
+      : baziResult.constellation,
     mingGua: baziResult.mingGua
       ? {
           gua: baziResult.mingGua.gua,
@@ -354,32 +393,32 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     },
     {
       id: 'section-shensha',
-      title: '第五章：全息神煞谱系与典故考据',
+      title: '第五章：八字神煞与传统取象',
       anchorId: 'bazi-shensha-pantheon',
       level: 1,
-      badge: `${shenShaSection.length} 尊神煞`,
+      badge: `${shenShaSection.length} 项神煞`,
       itemCount: shenShaSection.length,
     },
     {
       id: 'section-ten-gods',
-      title: '第六章：十神心性与六亲宫位意象',
+      title: '第六章：十神透藏与四柱传统取象',
       anchorId: 'bazi-ten-gods-symbology',
       level: 1,
       badge: '十神六亲',
     },
     {
       id: 'section-life-stages',
-      title: '第七章：十二长生全景矩阵与自坐星运',
+      title: '第七章：十二长生阶段与四柱自坐',
       anchorId: 'bazi-life-stages-matrix',
       level: 1,
       badge: '十二长生',
     },
     {
       id: 'section-luck',
-      title: '第八章：大运流年流月全息编年大表',
+      title: '第八章：岁运与流年流月',
       anchorId: 'bazi-luck-chronicle',
       level: 1,
-      badge: `${luckChronicleSection.cycles.length} 步大运`,
+      badge: `${luckChronicleSection.cycles.filter((cycle) => cycle.entryType === '大运').length} 步大运`,
     },
   ];
 
@@ -435,7 +474,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
         },
         {
           id: 'sub-astro-elements',
-          title: '元素形态能量分布',
+          title: '元素与形态星体统计',
           anchorId: 'astrolabe-elements-chart',
           level: 2,
         },
@@ -455,10 +494,10 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
 
   tableOfContents.push({
     id: 'section-synthesis',
-    title: '第十二章：跨术数命理全景互证',
+    title: '第十二章：盘面主题资料',
     anchorId: 'cross-synthesis-section',
     level: 1,
-    badge: '多维印证',
+    badge: '主题资料',
   });
 
   tableOfContents.push({
@@ -466,7 +505,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     title: '第十三章：命理全息术语百科词典',
     anchorId: 'glossary-encyclopedia',
     level: 1,
-    badge: `${MINGLU_GLOSSARY_DATABASE.length} 条目`,
+    badge: `${glossary.length} 条目`,
   });
 
   // 8. 交叉链接网络 (Cross Links)
@@ -525,7 +564,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     metadata,
     tableOfContents,
     beginnerGuide: buildBeginnerGuide(baziResult),
-    glossary: MINGLU_GLOSSARY_DATABASE,
+    glossary,
     crossLinks,
     pillarsSection,
     fiveElementsSection,
@@ -541,7 +580,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     crossSynthesisSection,
     statistics: {
       totalSections: tableOfContents.length,
-      totalGlossaryEntries: MINGLU_GLOSSARY_DATABASE.length,
+      totalGlossaryEntries: glossary.length,
       totalShenShaCount: shenShaSection.length,
       totalInteractionsCount: interactionsSection.length,
       totalLuckYearsCount: luckChronicleSection.cycles.reduce(
@@ -550,7 +589,12 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       ),
       totalZiweiStarsCount: ziweiSection
         ? ziweiSection.palaces.reduce(
-            (acc, p) => acc + p.majorStars.length + p.minorStars.length + p.maleficStars.length,
+            (acc, p) =>
+              acc +
+              p.majorStars.length +
+              p.minorStars.length +
+              p.maleficStars.length +
+              p.otherStars.length,
             0,
           )
         : undefined,

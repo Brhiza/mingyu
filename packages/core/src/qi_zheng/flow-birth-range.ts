@@ -214,6 +214,8 @@ function projectFlowDiscrete(result: QizhengResult): unknown {
       })
     : undefined;
   return {
+    coordinateAccuracy: flowing?.coordinateAccuracy ?? null,
+    locationSource: flowing?.locationSource ?? null,
     stars: flowing?.stars.map((star) => ({
       name: star.name,
       xiu: star.xiu,
@@ -241,6 +243,8 @@ function projectFlowDiscrete(result: QizhengResult): unknown {
           gender: timeLords.gender,
           direction: timeLords.direction,
           nominalAge: timeLords.nominalAge,
+          majorLimitStatus: timeLords.majorLimitStatus,
+          majorPalaceYears: timeLords.majorPalaceYears,
           currentMajorLimit: timeLords.currentMajorLimit,
           currentMinorLimit: timeLords.currentMinorLimit,
           annualBranch: timeLords.annualBranch,
@@ -515,14 +519,16 @@ export function generateQizhengFlowBirthRange(
 ): QizhengFlowBirthRange {
   const sampleCount = assertSource(source);
   assertFlowBirthInput(input, source);
-  const calculator = createQizhengFlowRangeCalculator(input);
+  const lockedInput = { ...input };
+  const lockedSource = { ...source };
+  const calculator = createQizhengFlowRangeCalculator(lockedInput);
   let active: ActiveBranch | undefined;
   const branches: QizhengFlowBirthRangeBranch[] = [];
 
   for (let index = 0; index < sampleCount; index += 1) {
     assertNotAborted(options?.signal);
-    const timestamp = source.startTimestamp + index * SECOND_MILLISECONDS;
-    const sampleInput = inputAtTimestamp(input, timestamp);
+    const timestamp = lockedSource.startTimestamp + index * SECOND_MILLISECONDS;
+    const sampleInput = inputAtTimestamp(lockedInput, timestamp);
     const result = calculator.generate(sampleInput);
     const fingerprint = createFingerprint(result);
     if (!active) {
@@ -537,11 +543,11 @@ export function generateQizhengFlowBirthRange(
   }
   assertNotAborted(options?.signal);
   if (!active) throw new Error('七政流曜出生区间没有可计算的整秒样本。');
-  branches.push(finalizeBranch(active, source.endTimestamp));
+  branches.push(finalizeBranch(active, lockedSource.endTimestamp));
   return {
     coverage: 'flow',
     status: branches.length === 1 ? 'stable' : 'conditional',
-    source,
+    source: lockedSource,
     resolutionSeconds: 1,
     sampleCount,
     target: buildTarget(calculator),

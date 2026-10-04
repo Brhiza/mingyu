@@ -3,6 +3,13 @@
  * @description 中国历史钟表时间修正属于公共日历能力，供八字、紫微、真太阳时等统一复用。
  */
 
+import {
+  getCivilDateTimeAtFixedOffset,
+  resolveCivilTime,
+  type CivilTimeResolutionInput,
+} from './civil-time';
+import { normalizeCoreError } from '../shared/result';
+
 export interface ChinaDstCheckResult {
   /** 输入的钟表时刻是否处于夏令时期间。 */
   inDst: boolean;
@@ -16,13 +23,13 @@ export interface ChinaDstCheckResult {
 
 type DstBoundary = [year: number, month: number, day: number, hour: number];
 
-export const CHINA_DST_YEARS = [1986, 1987, 1988, 1989, 1990, 1991] as const;
+export const CHINA_DST_YEARS = Object.freeze([1986, 1987, 1988, 1989, 1990, 1991] as const);
 
 /** 钟表时刻区间 [start, end)。 */
 const CHINA_DST_RANGES: ReadonlyArray<{ start: DstBoundary; end: DstBoundary }> = [
   { start: [1986, 5, 4, 3], end: [1986, 9, 14, 2] },
   { start: [1987, 4, 12, 3], end: [1987, 9, 13, 2] },
-  { start: [1988, 4, 10, 3], end: [1988, 9, 11, 2] },
+  { start: [1988, 4, 17, 3], end: [1988, 9, 11, 2] },
   { start: [1989, 4, 16, 3], end: [1989, 9, 17, 2] },
   { start: [1990, 4, 15, 3], end: [1990, 9, 16, 2] },
   { start: [1991, 4, 14, 3], end: [1991, 9, 15, 2] },
@@ -86,4 +93,48 @@ export function isDateInChinaDstRange(year: number, month: number, day: number):
     const endMs = toUtcMs(...end);
     return dayStart < endMs && dayEnd > startMs;
   });
+}
+
+/** 精确出生钟表先按民用规则定时，再还原中国历史夏令时的标准日期与时辰。 */
+export function resolveChinaStandardBirthTime(
+  input: CivilTimeResolutionInput & { applyChinaDst?: boolean },
+) {
+  try {
+    if (input.timeZoneId && input.applyChinaDst) {
+      throw new Error('timeZoneId 已包含历史夏令时规则，不能同时启用 applyChinaDst。');
+    }
+    if (input.applyChinaDst && input.timezone !== undefined && input.timezone !== 8) {
+      throw new Error('中国历史夏令时校正仅适用于东八区钟表时间。');
+    }
+    const civilTime = resolveCivilTime(input, { defaultTimezone: 8 });
+    const dst = checkChinaDst(input.year, input.month, input.day, input.hour, input.minute);
+    if (input.applyChinaDst && dst.nonexistent) {
+      throw new Error('该中国历史钟表时间处于夏令时跳时缺口，实际并不存在。');
+    }
+    if (input.applyChinaDst && dst.ambiguous) {
+      throw new Error('该中国历史钟表时间处于夏令时回拨重复时段，无法唯一定时。');
+    }
+    const ianaChinaDst =
+      civilTime.timeZoneId !== undefined &&
+      civilTime.timezone === 9 &&
+      dst.inDst &&
+      new Intl.DateTimeFormat('en', { timeZone: civilTime.timeZoneId }).resolvedOptions()
+        .timeZone === 'Asia/Shanghai';
+    const usedChinaDstCorrection = ianaChinaDst || (input.applyChinaDst === true && dst.inDst);
+    const utcTimestamp =
+      civilTime.utcTimestamp - (usedChinaDstCorrection && !ianaChinaDst ? 3600000 : 0);
+    const effectiveTime = usedChinaDstCorrection
+      ? getCivilDateTimeAtFixedOffset(new Date(utcTimestamp), 8)
+      : civilTime.localTime;
+    return {
+      effectiveTime,
+      usedChinaDstCorrection,
+      utcDateTime: new Date(utcTimestamp).toISOString(),
+    };
+  } catch (error) {
+    throw normalizeCoreError(error, {
+      code: 'BIRTH_CIVIL_TIME_INVALID',
+      category: 'validation',
+    });
+  }
 }

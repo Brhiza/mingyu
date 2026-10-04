@@ -21,6 +21,11 @@ const syntheticAstrolabe = generateAstrolabe({
   timezone: '8',
   locationName: '北京',
 });
+const june2028MonthlyBaseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', {
+  year: 2028,
+  month: 6,
+  day: 15,
+});
 
 function normalizeLongitude(value: number) {
   const normalized = value % 360;
@@ -43,8 +48,7 @@ function withLunationOffsets(lunationLongitude: number, offsets: Record<string, 
 
 test('朔望本命触碰保留结构化角距并由同一事实生成原文本', () => {
   const target = { year: 2028, month: 6, day: 15 };
-  const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
-  const lunation = baseline.events.find((event) => event.kind === '朔望');
+  const lunation = june2028MonthlyBaseline.events.find((event) => event.kind === '朔望');
   assert.ok(lunation, '合成月份应至少有一个朔望事件');
 
   const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
@@ -96,8 +100,7 @@ test('朔望本命触碰保留结构化角距并由同一事实生成原文本',
 
 test('朔望触碰按最小角距覆盖正反刑相并保留完整候选', () => {
   const target = { year: 2028, month: 6, day: 15 };
-  const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
-  const lunation = baseline.events.find((event) => event.kind === '朔望');
+  const lunation = june2028MonthlyBaseline.events.find((event) => event.kind === '朔望');
   assert.ok(lunation, '合成月份应至少有一个朔望事件');
   const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
   const aligned = withLunationOffsets(moonLongitude, {
@@ -150,8 +153,7 @@ test('朔望触碰按最小角距覆盖正反刑相并保留完整候选', () =>
 
 test('朔望刑相正反两侧的三度边界命中，超出边界排除', () => {
   const target = { year: 2028, month: 6, day: 15 };
-  const baseline = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target);
-  const lunation = baseline.events.find((event) => event.kind === '朔望');
+  const lunation = june2028MonthlyBaseline.events.find((event) => event.kind === '朔望');
   assert.ok(lunation, '合成月份应至少有一个朔望事件');
   const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
   const aligned = withLunationOffsets(moonLongitude, {
@@ -188,9 +190,7 @@ test('朔望刑相正反两侧的三度边界命中，超出边界排除', () =>
 
 test('朔望刑相九十三度边界及邻近越界按同一容许度判断', () => {
   const target = { year: 2028, month: 6, day: 15 };
-  const lunation = buildAstrolabePeriodEvents(syntheticAstrolabe, 'monthly', target).events.find(
-    (event) => event.kind === '朔望',
-  )!;
+  const lunation = june2028MonthlyBaseline.events.find((event) => event.kind === '朔望')!;
   const moonLongitude = getApparentPosition('moon', lunation.julianDate).longitude;
   const aligned = withLunationOffsets(moonLongitude, {
     Sun: 93,
@@ -258,6 +258,9 @@ test('周期主轴暴露归组展开成员与单事件成员', () => {
   const singleAxis = layers.axis.find((item) => item.key === singleEvent.key);
   assert.ok(singleAxis);
   assert.deepEqual(singleAxis.eventKeys, [singleEvent.key]);
-  assert.match(layers.promptText, /周期主轴：/);
+  for (const event of [...groupedEvents, singleEvent]) {
+    assert.equal(layers.promptText.split(`${event.dateTime} ${event.promptText}`).length - 1, 1);
+  }
+  assert.doesNotMatch(layers.promptText, /周期主轴：|具体时刻见|具体星象见/);
   assert.match(layers.promptText, /完整明细：/);
 });

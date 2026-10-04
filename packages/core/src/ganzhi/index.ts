@@ -12,6 +12,7 @@
  * 对外函数签名与返回形状保持不变，已接入 API/MCP 的模块无需改动。
  */
 import { SolarTime, SixtyCycle, HeavenStem, EarthBranch } from 'tyme4ts';
+import { TimeManager } from '../calendar/timeManager';
 import {
   BRANCH_ORDER,
   BRANCH_WUXING,
@@ -70,6 +71,9 @@ import {
   assertWuxing,
   isValidGanZhi,
 } from './validation';
+import { getGanZhiRelationTables } from './relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export * from './data';
 export * from './validation';
@@ -373,7 +377,19 @@ function buildGanZhiEvidence(profile: GanZhiBaseProfile): GanZhiEvidenceFields {
     limitations,
     limitationFacts,
     source,
-    promptText: `干支资料：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.map((item) => item.replace(/[。；]+$/, '')).join('；')}。`,
+    promptText: [
+      '【任务】',
+      '说明给定干支的天干、地支、纳音属性，并解释资料中列出的传统干支关系。',
+      '【干支资料】',
+      `干支：${profile.ganZhi}（${profile.yinYang}）。`,
+      `天干：${profile.stem.name}，${profile.stem.yinYang}${profile.stem.wuxing}；五合${profile.stem.name}${profile.stem.combine}，合化${profile.stem.combineWuxing}${profile.stem.clash ? `；相冲${profile.stem.name}${profile.stem.clash}` : ''}。`,
+      `地支：${profile.branch.name}，${profile.branch.yinYang}${profile.branch.wuxing}，生肖${profile.branch.zodiac}；藏干${profile.branch.hiddenStems.join('、') || '无'}；六合${profile.branch.name}${profile.branch.combine}（化${profile.branch.combineWuxing}），六冲${profile.branch.name}${profile.branch.clash}，六害${profile.branch.name}${profile.branch.harm}，六破${profile.branch.name}${profile.branch.break}${profile.branch.hiddenCombine ? `，暗合${profile.branch.name}${profile.branch.hiddenCombine}` : ''}${profile.branch.punishments.length ? `，相刑对应${profile.branch.punishments.join('、')}` : ''}；三合${profile.branch.sanhe.group}（${[profile.branch.name, ...profile.branch.sanhe.partners].join('、')}）${profile.branch.sanhui ? `，三会${profile.branch.sanhui.group}（${profile.branch.sanhui.members.join('、')}）` : ''}。`,
+      `纳音：${profile.nayin}，五行属${profile.nayinWuxing}。`,
+      '【传统依据】',
+      '天干五合与合化五行、地支藏干及合冲刑害破关系按传统干支对应，纳音按六十甲子配对取值。',
+      '【输出要求】',
+      '分别说明天干、地支、纳音的传统属性，并按名称解释各项地支关系。',
+    ].join('\n'),
   };
 }
 
@@ -393,7 +409,7 @@ export function getXunKongBranches(ganZhi: string): string[] {
 /** 天干基础属性与合冲关系。 */
 export function getStemRelations(stem: string): StemRelationProfile {
   const index = getStemIndex(stem);
-  const combine = TIAN_GAN_HE[stem];
+  const combine = GANZHI_RELATION_TABLES.TIAN_GAN_HE[stem];
   if (!combine) throw new Error(`天干五合数据缺失：${stem}`);
   return {
     name: stem,
@@ -402,31 +418,33 @@ export function getStemRelations(stem: string): StemRelationProfile {
     yinYang: getStemYinYang(stem),
     combine: combine.partner,
     combineWuxing: combine.wuxing,
-    clash: TIAN_GAN_CHONG[stem],
+    clash: GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[stem],
   };
 }
 
 /** 地支基础属性、藏干与合冲刑害破关系。 */
 export function getBranchRelations(branch: string): BranchRelationProfile {
   const index = getBranchIndex(branch);
-  const sanhe = BRANCH_SANHE[branch];
+  const sanhe = GANZHI_RELATION_TABLES.BRANCH_SANHE[branch];
   if (!sanhe) throw new Error(`地支三合数据缺失：${branch}`);
-  const sanhui = Object.entries(SANHUI_GROUPS).find(([, members]) => members.includes(branch));
+  const sanhui = Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(([, members]) =>
+    members.includes(branch),
+  );
   return {
     name: branch,
     index,
     zodiac: getZodiac(branch),
     wuxing: getBranchWuxing(branch),
     yinYang: getBranchYinYang(branch),
-    hiddenStems: [...(BRANCH_HIDDEN_STEMS[branch] ?? [])],
-    combine: LIUHE_MAP[branch],
-    combineWuxing: LIUHE_WUXING[branch],
-    clash: LIUCHONG_MAP[branch],
-    harm: LIUHAI_MAP[branch],
-    break: LIUPO_MAP[branch],
-    hiddenCombine: ANHE_MAP[branch],
-    punishment: SANXING_MAP[branch],
-    punishments: [...(BRANCH_SANXING[branch] ?? [])],
+    hiddenStems: [...(GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[branch] ?? [])],
+    combine: GANZHI_RELATION_TABLES.LIUHE_MAP[branch],
+    combineWuxing: GANZHI_RELATION_TABLES.LIUHE_WUXING[branch],
+    clash: GANZHI_RELATION_TABLES.LIUCHONG_MAP[branch],
+    harm: GANZHI_RELATION_TABLES.LIUHAI_MAP[branch],
+    break: GANZHI_RELATION_TABLES.LIUPO_MAP[branch],
+    hiddenCombine: GANZHI_RELATION_TABLES.ANHE_MAP[branch],
+    punishment: GANZHI_RELATION_TABLES.SANXING_MAP[branch],
+    punishments: [...(GANZHI_RELATION_TABLES.BRANCH_SANXING[branch] ?? [])],
     punishmentType: getSanxingType(branch) ?? undefined,
     sanhe: { group: sanhe.group, partners: [...sanhe.partners] },
     sanhui: sanhui ? { group: sanhui[0], members: [...sanhui[1]] } : undefined,
@@ -457,32 +475,28 @@ export interface GanZhiDate {
 }
 
 /**
- * 把公历时间统一转换为 tyme4ts 的农历时辰对象。
+ * 把 Date 所代表的真实瞬时按统一占卜时区转换为 tyme4ts 的农历时辰对象。
  *
  * 注意：`LunarHour.fromYmdHms` 接收的是农历年月日，不能直接用于公历输入；
  * 公历必须先创建 `SolarTime`，再调用 `getLunarHour()`。
  */
 export function getLunarHourFromDate(date: Date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new Error('日期无效');
+  const parts = TimeManager.getWallClockParts(date);
   return SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
   ).getLunarHour();
 }
 
-/** 从公历时间获取四柱干支（委托 tyme4ts，已含节气换月、真太阳时请在上层处理） */
+/** 从真实瞬时按统一时区获取四柱干支；节气参考同 TimeManager，真太阳时请在上层处理。 */
 export function getGanZhiFromDate(date: Date): GanZhiDate {
-  const eightChar = getLunarHourFromDate(date).getEightChar();
-  return {
-    year: eightChar.getYear().getName(),
-    month: eightChar.getMonth().getName(),
-    day: eightChar.getDay().getName(),
-    hour: eightChar.getHour().getName(),
-  };
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new Error('日期无效');
+  return TimeManager.getDivinationTime(date).ganzhi;
 }
 
 /** 天干五行（委托 tyme4ts，回退到本地表） */
@@ -629,7 +643,7 @@ export function getBranchWuxing(branch: string): string {
   try {
     return EarthBranch.fromName(branch).getElement().getName();
   } catch {
-    const w = BRANCH_WUXING[branch];
+    const w = GANZHI_RELATION_TABLES.BRANCH_WUXING[branch];
     if (!w) throw new Error(`地支五行数据缺失：${branch}`);
     return w;
   }

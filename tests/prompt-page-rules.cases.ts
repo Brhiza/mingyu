@@ -14,22 +14,27 @@ test('折叠屏展开时使用桌面布局，普通手机和矮横屏使用手�
   assert.equal(shouldUsePhoneLayout({ viewportWidth: 1024, viewportHeight: 500 }), false);
 });
 
-test('八字切换到自定义时会清空已有快捷问题', () => {
-  assert.deepEqual(buildBaziCustomPromptPatch(), {
-    baziShortcutMode: '自定义',
-    baziPresetId: 'ai-mingge-zonglun',
-    baziTopicId: '',
-    baziSubtopicId: '',
-    baziQuickQuestion: '',
-  });
-});
-
-test('紫微切换到自定义时会清空已有快捷问题', () => {
-  assert.deepEqual(buildZiweiCustomPromptPatch(), {
-    ziweiShortcutMode: '自定义',
-    ziweiTopic: 'chat',
-    ziweiTopicId: '',
-    ziweiSubtopicId: '',
-    ziweiQuickQuestion: '',
-  });
+test('八字与紫微切换到自定义时都会清空旧快捷状态', () => {
+  assert.deepEqual(
+    {
+      bazi: buildBaziCustomPromptPatch(),
+      ziwei: buildZiweiCustomPromptPatch(),
+    },
+    {
+      bazi: {
+        baziShortcutMode: '自定义',
+        baziPresetId: 'ai-mingge-zonglun',
+        baziTopicId: '',
+        baziSubtopicId: '',
+        baziQuickQuestion: '',
+      },
+      ziwei: {
+        ziweiShortcutMode: '自定义',
+        ziweiTopic: 'chat',
+        ziweiTopicId: '',
+        ziweiSubtopicId: '',
+        ziweiQuickQuestion: '',
+      },
+    },
+  );
 });

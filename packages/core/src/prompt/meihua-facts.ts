@@ -1,6 +1,9 @@
 import type { MeihuaData } from '../types/divination';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../ganzhi';
 import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from '../divination/config';
+import { dizhi } from '../divination/divination-data';
+import { trigramsByIndex } from '../divination/hexagram-data';
+import { hasCompleteCharacterCalculation } from '../divination/algorithms/meihua/helpers/methods';
 
 export function formatMeihuaFacts(data: MeihuaData): string[] {
   const lines = [...data.yaosDetail].sort((a, b) => a.position - b.position);
@@ -11,17 +14,24 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
       `主卦爻象：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}；自下而上为${lines.map((line) => `第${line.position}爻${line.yaoType}`).join('、')}`,
     );
     facts.push(
-      `逐爻体用：${lines.map((line) => `第${line.position}爻${line.yaoType}属${line.tiYong}${line.isChanging ? '（动爻）' : ''}`).join('、')}`,
+      `逐爻体用：${lines.map((line) => `第${line.position}爻属${line.tiYong}${line.isChanging ? '（动爻）' : ''}`).join('、')}`,
     );
     if (data.interHexagram) {
+      const useChangedLines =
+        data.mainHexagram.upper === data.mainHexagram.lower &&
+        (data.mainHexagram.upper === '乾' || data.mainHexagram.upper === '坤') &&
+        !!moving;
+      const interSourceLines = useChangedLines
+        ? lines.map((line) =>
+            line.position === data.movingYao.position
+              ? line.yaoType === '阳'
+                ? '阴'
+                : '阳'
+              : line.yaoType,
+          )
+        : lines.map((line) => line.yaoType);
       facts.push(
-        `互卦取爻：主卦第2至4爻${lines
-          .slice(1, 4)
-          .map((line) => line.yaoType)
-          .join('')}为下卦${data.interHexagram.lower}；第3至5爻${lines
-          .slice(2, 5)
-          .map((line) => line.yaoType)
-          .join('')}为上卦${data.interHexagram.upper}，合为${data.interHexagram.name}`,
+        `互卦取爻：${useChangedLines ? '乾坤无互，改取变卦' : '主卦'}第2至4爻${interSourceLines.slice(1, 4).join('')}为下卦${data.interHexagram.lower}；第3至5爻${interSourceLines.slice(2, 5).join('')}为上卦${data.interHexagram.upper}，合为${data.interHexagram.name}`,
       );
     }
     if (moving && data.changedHexagram) {
@@ -32,35 +42,73 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
   }
   const c = data.calculation;
   if (c) {
+    const hasMatchingHourBranch = c.timeZhi === data.ganzhi.hour.slice(-1);
+    const hasResolvedIndices =
+      trigramsByIndex[c.upperTrigramIndex ?? 0]?.name === data.mainHexagram.upper &&
+      trigramsByIndex[c.lowerTrigramIndex ?? 0]?.name === data.mainHexagram.lower &&
+      c.movingYaoIndex === data.movingYao.position;
+    const objectLabel = MEIHUA_OBJECT_OPTIONS.find((item) => item.value === c.objectType)?.label;
+    const directionLabel = MEIHUA_DIRECTION_OPTIONS.find(
+      (item) => item.value === c.direction,
+    )?.label;
     if (
+      hasResolvedIndices &&
       (c.methodKey === 'time' || c.methodKey === 'timeTrigram') &&
-      [c.yearZhiIndex, c.month, c.day, c.timeZhiIndex].every((value) => typeof value === 'number')
+      hasMatchingHourBranch &&
+      c.yearZhi &&
+      c.timeZhi &&
+      c.yearZhiIndex === dizhi.indexOf(c.yearZhi) + 1 &&
+      c.timeZhiIndex === dizhi.indexOf(c.timeZhi) + 1 &&
+      c.yearZhiIndex > 0 &&
+      c.timeZhiIndex > 0 &&
+      Number.isInteger(c.month) &&
+      Number.isInteger(c.day) &&
+      c.month! >= 1 &&
+      c.month! <= 12 &&
+      c.day! >= 1 &&
+      c.day! <= 30 &&
+      c.upperTrigramIndex === ((c.yearZhiIndex + c.month! + c.day!) % 8 || 8) &&
+      c.lowerTrigramIndex === ((c.yearZhiIndex + c.month! + c.day! + c.timeZhiIndex) % 8 || 8) &&
+      c.movingYaoIndex === ((c.yearZhiIndex + c.month! + c.day! + c.timeZhiIndex) % 6 || 6)
     ) {
       facts.push(
         `起卦取数：农历年支${c.yearZhi}序数${c.yearZhiIndex}、农历月数${c.month}、农历日数${c.day}、时支${c.timeZhi}序数${c.timeZhiIndex}；年支序数加月数加日数除8取余得上卦数${c.upperTrigramIndex}，再加时支序数除8取余得下卦数${c.lowerTrigramIndex}，同一总数除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'number' &&
-      typeof c.number === 'number' &&
-      typeof c.timeZhiIndex === 'number'
+      hasMatchingHourBranch &&
+      Number.isSafeInteger(c.number) &&
+      c.number! > 0 &&
+      c.timeZhi &&
+      c.timeZhiIndex === dizhi.indexOf(c.timeZhi) + 1 &&
+      c.timeZhiIndex > 0 &&
+      Number.isSafeInteger(c.number! + c.timeZhiIndex) &&
+      c.upperTrigramIndex === (c.number! % 8 || 8) &&
+      c.lowerTrigramIndex === (c.timeZhiIndex % 8 || 8) &&
+      c.movingYaoIndex === ((c.number! + c.timeZhiIndex) % 6 || 6)
     ) {
       facts.push(
-        `起卦取数：数字${c.number}除8取余得上卦数${c.upperTrigramIndex}；数字${c.number}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
+        `起卦取数：数字${c.number}除8取余得上卦数${c.upperTrigramIndex}；时支${c.timeZhi}序数${c.timeZhiIndex}除8取余得下卦数${c.lowerTrigramIndex}；数字${c.number}与时支序数相加除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'sound' &&
-      typeof c.soundCount === 'number' &&
-      typeof c.timeZhiIndex === 'number'
+      hasMatchingHourBranch &&
+      Number.isSafeInteger(c.soundCount) &&
+      c.soundCount! > 0 &&
+      c.timeZhi &&
+      c.timeZhiIndex === dizhi.indexOf(c.timeZhi) + 1 &&
+      c.timeZhiIndex > 0 &&
+      Number.isSafeInteger(c.soundCount! + c.timeZhiIndex) &&
+      c.upperTrigramIndex === (c.soundCount! % 8 || 8) &&
+      c.lowerTrigramIndex === ((c.soundCount! + c.timeZhiIndex) % 8 || 8) &&
+      c.movingYaoIndex === ((c.soundCount! + c.timeZhiIndex) % 6 || 6)
     ) {
       facts.push(
         `起卦取数：所闻声音数${c.soundCount}除8取余得上卦数${c.upperTrigramIndex}；声音数${c.soundCount}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
-    } else if (
-      c.methodKey === 'character' &&
-      typeof c.characterCount === 'number' &&
-      typeof c.characterUpperNumber === 'number' &&
-      typeof c.characterLowerNumber === 'number'
-    ) {
+    } else if (hasResolvedIndices && hasCompleteCharacterCalculation(c)) {
       const toneText = Array.isArray(c.characterTones)
         ? `，传统声类按平1、上2、去3、入4取数为${c.characterTones.join('、')}`
         : Array.isArray(c.characterStrokeCounts)
@@ -72,40 +120,46 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
         `起卦取数：${c.characterText ? `文字「${c.characterText}」，` : ''}字数${c.characterCount}${toneText}，上卦取数${c.characterUpperNumber}，下卦取数${c.characterLowerNumber}；分别除8取余得上卦数${c.upperTrigramIndex}、下卦数${c.lowerTrigramIndex}，上下卦取数之和除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     } else if (
+      hasResolvedIndices &&
       c.methodKey === 'direction' &&
+      hasMatchingHourBranch &&
       typeof c.objectTrigramIndex === 'number' &&
       typeof c.directionTrigramIndex === 'number' &&
-      typeof c.timeZhiIndex === 'number'
+      c.timeZhi &&
+      objectLabel &&
+      directionLabel &&
+      c.timeZhiIndex === dizhi.indexOf(c.timeZhi) + 1 &&
+      c.timeZhiIndex > 0 &&
+      c.objectTrigramIndex ===
+        MEIHUA_OBJECT_OPTIONS.findIndex((item) => item.value === c.objectType) + 1 &&
+      c.objectTrigramIndex === c.upperTrigramIndex &&
+      c.directionTrigramIndex ===
+        MEIHUA_DIRECTION_OPTIONS.findIndex((item) => item.value === c.direction) + 1 &&
+      c.directionTrigramIndex === c.lowerTrigramIndex &&
+      c.movingYaoIndex ===
+        ((c.objectTrigramIndex + c.directionTrigramIndex + c.timeZhiIndex) % 6 || 6)
     ) {
-      const objectLabel =
-        MEIHUA_OBJECT_OPTIONS.find((item) => item.value === c.objectType)?.label ??
-        data.mainHexagram.upper;
-      const directionLabel =
-        MEIHUA_DIRECTION_OPTIONS.find((item) => item.value === c.direction)?.label ??
-        data.mainHexagram.lower;
       facts.push(
         `起卦取数：所见物类${objectLabel}取上卦数${c.objectTrigramIndex}，方位${directionLabel}取下卦数${c.directionTrigramIndex}；上卦数加下卦数及时支${c.timeZhi}序数${c.timeZhiIndex}除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
-      if (
-        MEIHUA_OBJECT_OPTIONS.some((item) => item.value === c.objectType) &&
-        MEIHUA_DIRECTION_OPTIONS.some((item) => item.value === c.direction)
-      ) {
-        facts.push(
-          `物象锚点：本次所选物类${objectLabel}、所记方位${directionLabel}；本卦${data.mainHexagram.name}，体卦${data.tiGua.name}、用卦${data.yongGua.name}${data.interHexagram ? `，互卦${data.interHexagram.name}` : ''}${data.changedHexagram ? `，变卦${data.changedHexagram.name}` : ''}。物类与方位承担本次取象起点，具体形态、材质与人物对应按已知情境取义；多种象意并存时保留待核实条件。`,
-        );
-      }
+      facts.push(
+        `物象锚点：本次所选物类${objectLabel}、所记方位${directionLabel}；本卦${data.mainHexagram.name}，体卦${data.tiGua.name}、用卦${data.yongGua.name}${data.interHexagram ? `，互卦${data.interHexagram.name}` : ''}${data.changedHexagram ? `，变卦${data.changedHexagram.name}` : ''}。物类与方位承担本次取象起点，具体形态、材质与人物对应按已知情境取义；多种象意并存时保留待核实条件。`,
+      );
     }
   }
-  const branch = data.analysis.monthBranch;
+  const branch =
+    data.analysis.monthBranch === undefined
+      ? data.ganzhi.month.slice(-1)
+      : data.analysis.monthBranch;
   if (branch) {
     const month = getBranchWuxing(branch);
     for (const [role, gua] of [
       ['原体', data.tiGua],
       ['原用', data.yongGua],
-      ['体互', data.interTiGua],
-      ['用互', data.interYongGua],
-      ['变后体卦', data.changedTiGua],
-      ['变后用卦', data.changedYongGua],
+      ['体互', data.interHexagram ? data.interTiGua : undefined],
+      ['用互', data.interHexagram ? data.interYongGua : undefined],
+      ['变后体卦', data.changedHexagram ? data.changedTiGua : undefined],
+      ['变后用卦', data.changedHexagram ? data.changedYongGua : undefined],
     ] as const) {
       if (!gua) continue;
       const subject = `${role}${gua.name}${gua.element}`;

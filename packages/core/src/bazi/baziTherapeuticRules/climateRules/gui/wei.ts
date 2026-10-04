@@ -3,6 +3,17 @@ import type { ClimateRule } from '../../types';
 export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   // “金水会夏天”跨午未两月规则登记于 gui/wu.ts，此处不再重复登记
   {
+    id: 'wei-month-gui-geng-xin-first',
+    label: '癸日未月专用庚辛规则',
+    description: '六月癸水原文专用庚辛，庚辛在小暑后休囚、大暑后有气；成格条件另依节令及原局判断。',
+    priority: 115,
+    months: ['未'],
+    dayMasters: ['水'],
+    dayStems: ['癸'],
+    usefulWuxing: '金',
+    hint: '癸水未月，庚辛为用；小暑后与大暑后强弱分别核对',
+  },
+  {
     id: 'wei-month-gui-xiaoshu-metal-water-rich',
     label: '癸日未月小暑后庚辛比劫同扶规则',
     description:

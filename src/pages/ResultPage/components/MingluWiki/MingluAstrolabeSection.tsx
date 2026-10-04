@@ -16,15 +16,20 @@ export const MingluAstrolabeSection: React.FC<Props> = ({ data }) => {
         <div className="minglu-section-title-wrap">
           <h2 className="minglu-section-title">第十章：西洋占星本命图谱与相位网格</h2>
           <p className="minglu-section-subtitle">
-            十大行星、四轴四宫、全量本命相位网格与元素形态分布（
-            {dayNight.isDayChart ? '日生盘' : '夜生盘'}）
+            本命星体、四轴、全量本命相位网格与元素形态分布（
+            {dayNight.isDayChart === undefined
+              ? '昼夜待定'
+              : dayNight.isDayChart
+                ? '日生盘'
+                : '夜生盘'}
+            ）
           </p>
         </div>
       </div>
 
       {/* 行星与四轴落宫表格 */}
       <div id="astrolabe-planets-table" className="minglu-subblock">
-        <h3 className="minglu-subblock-title">十大星体与四轴落点</h3>
+        <h3 className="minglu-subblock-title">星体、计算点与四轴落点</h3>
         <div className="minglu-table-wrap">
           <table className="minglu-table">
             <thead>
@@ -33,12 +38,12 @@ export const MingluAstrolabeSection: React.FC<Props> = ({ data }) => {
                 <th>黄道星座</th>
                 <th>度数分秒</th>
                 <th>落入宫位</th>
-                <th>状态</th>
+                <th>逆行状态</th>
               </tr>
             </thead>
             <tbody>
-              {[...points, ...angles].map((p, idx) => (
-                <tr key={idx}>
+              {points.map((p) => (
+                <tr key={p.name}>
                   <td className="font-bold">
                     <MingluLink targetAnchorId="glossary-encyclopedia" category="占星">
                       {p.label} ({p.name})
@@ -46,8 +51,21 @@ export const MingluAstrolabeSection: React.FC<Props> = ({ data }) => {
                   </td>
                   <td className="font-medium text-amber-700 dark:text-amber-400">{p.sign}</td>
                   <td className="font-mono text-sm">{p.formatted}</td>
-                  <td>第 {p.house} 宫</td>
-                  <td>{p.isRetrograde ? '逆行 ℞' : '顺行'}</td>
+                  <td>{p.house === undefined ? '未定' : `第 ${p.house} 宫`}</td>
+                  <td>{p.isRetrograde === undefined ? '—' : p.isRetrograde ? '逆行 ℞' : '顺行'}</td>
+                </tr>
+              ))}
+              {angles.map((p) => (
+                <tr key={p.name}>
+                  <td className="font-bold">
+                    <MingluLink targetAnchorId="glossary-encyclopedia" category="占星">
+                      {p.label} ({p.name})
+                    </MingluLink>
+                  </td>
+                  <td className="font-medium text-amber-700 dark:text-amber-400">{p.sign}</td>
+                  <td className="font-mono text-sm">{p.formatted}</td>
+                  <td>四轴</td>
+                  <td>—</td>
                 </tr>
               ))}
             </tbody>
@@ -84,10 +102,13 @@ export const MingluAstrolabeSection: React.FC<Props> = ({ data }) => {
 
       {/* 四元素与三形态 */}
       <div id="astrolabe-elements-chart" className="minglu-subblock">
-        <h3 className="minglu-subblock-title">四元素与三形态能量分布</h3>
+        <h3 className="minglu-subblock-title">四元素与三形态星体统计</h3>
+        <p className="text-xs text-slate-500 mb-3">
+          按太阳至冥王星十颗本命星体逐颗计数；各组百分比以十颗星体为分母。
+        </p>
         <div className="minglu-card-grid minglu-card-grid-2">
           <div className="minglu-card">
-            <h4 className="font-bold text-base mb-3">四元素能量比例</h4>
+            <h4 className="font-bold text-base mb-3">四元素星体数占比</h4>
             {Object.entries(distributions.elements).map(([elem, info]) => (
               <div key={elem} className="mb-2">
                 <div className="flex justify-between text-xs font-semibold mb-1">
@@ -109,7 +130,7 @@ export const MingluAstrolabeSection: React.FC<Props> = ({ data }) => {
           </div>
 
           <div className="minglu-card">
-            <h4 className="font-bold text-base mb-3">三形态能量分布</h4>
+            <h4 className="font-bold text-base mb-3">三形态星体数占比</h4>
             {Object.entries(distributions.modalities).map(([mod, info]) => (
               <div key={mod} className="mb-2">
                 <div className="flex justify-between text-xs font-semibold mb-1">

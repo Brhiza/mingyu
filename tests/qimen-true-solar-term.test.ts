@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   calculateQimenLifetime,
+  generateQimen,
   normalizeQimenLifetimeTime,
 } from '../packages/core/src/divination/algorithms/qimen';
 import { getDivinationTime } from '../packages/core/src/calendar/timeManager';
+import { getHistoricalTimezoneOffsetAt } from '../packages/core/src/calendar/historical-timezone';
 
 test('太阳时钟表落入民用跳时缺口时保持原出生瞬时点', () => {
   const input = {
@@ -19,6 +21,39 @@ test('太阳时钟表落入民用跳时缺口时保持原出生瞬时点', () =>
   assert.equal(normalized.timezoneOffsetMinutes, -240);
   const result = calculateQimenLifetime(input);
   assert.equal(result.baseChart.ganzhi.hour.at(-1), '丑');
+});
+
+test('真太阳时伪瞬时跨越夏令时边界时，IANA 偏移按原始真实瞬时点取', () => {
+  const normalized = normalizeQimenLifetimeTime({
+    birthDateTime: '2024-03-10T04:00:00',
+    timeZoneId: 'America/New_York',
+    timeStandard: 'trueSolar',
+    location: { longitude: -74 },
+  });
+  assert.equal(getHistoricalTimezoneOffsetAt(normalized.normalizedDate, 'America/New_York'), -5);
+  assert.equal(getHistoricalTimezoneOffsetAt(normalized.referenceDate, 'America/New_York'), -4);
+
+  const iana = generateQimen(
+    normalized.normalizedDate,
+    'zhuanpan',
+    'hour',
+    'chaibu',
+    undefined,
+    'America/New_York',
+    normalized.referenceDate,
+  );
+  const explicit = generateQimen(
+    normalized.normalizedDate,
+    'zhuanpan',
+    'hour',
+    'chaibu',
+    normalized.timezoneOffsetMinutes,
+    'America/New_York',
+    normalized.referenceDate,
+  );
+  assert.deepEqual(iana.ganzhi, explicit.ganzhi);
+  assert.deepEqual(iana.timeInfo, explicit.timeInfo);
+  assert.equal(iana.juShu, explicit.juShu);
 });
 
 test('历史夏令时两种明确入口保留相同真实出生瞬时点', () => {

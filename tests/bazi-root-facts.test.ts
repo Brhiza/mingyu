@@ -161,6 +161,28 @@ test('真实历法夹具共享同类根与六冲来源，保留根事实和受�
       strength: 1.6,
     },
   );
+
+  const originalHidden = [...HIDDEN_STEMS['寅']];
+  assert.deepEqual(originalHidden, ['甲', '丙', '戊']);
+  try {
+    chart.hiddenStems.day[0] = '乙';
+    assert.deepEqual(HIDDEN_STEMS['寅'], ['甲', '丙', '戊']);
+    const fresh = baziCalculator.calculateBazi({
+      year: 1989,
+      month: 8,
+      day: 22,
+      timeIndex: 9,
+      gender: 'male',
+    });
+    assert.deepEqual(fresh.hiddenStems.day, ['甲', '丙', '戊']);
+    assert.deepEqual(fresh.hiddenTenGods.day, ['比肩', '食神', '偏财']);
+    assert.match(
+      fresh.evidenceAnalysis!.pillarFacts.find((fact) => fact.pillar === '日柱')!.promptText,
+      /日柱甲寅；[^\n]*藏干甲、丙、戊；藏干十神比肩、食神、偏财/,
+    );
+  } finally {
+    HIDDEN_STEMS['寅'].splice(0, HIDDEN_STEMS['寅'].length, ...originalHidden);
+  }
 });
 
 test('透干画像与格局根证据复用同一根源及六冲柱位', () => {

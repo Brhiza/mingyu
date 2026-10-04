@@ -4,7 +4,12 @@ import test from 'node:test';
 import { getYearMonthsGanZhi } from '@core/bazi/calendarTool';
 import { calculateSeasonInfoFromDate } from '@core/bazi/baziCalculatorTime';
 import { getJieQiPhaseByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
-import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
+import {
+  calculateSolarTermEvidence,
+  calculateSolarTermsForYear,
+  findCivilSolarTermEvidence,
+  findSolarTermEvidence,
+} from 'mingyu-core/calendar';
 
 test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {
   const evidence = calculateSolarTermEvidence(2024, 3);
@@ -67,27 +72,24 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
   );
 });
 
-test('全年二十四节气应保持名称、黄经和节气属性顺序', () => {
-  const terms = calculateSolarTermsForYear(2024);
-
-  assert.equal(terms.length, 24);
+test('多历元节气日期基准与全年二十四节气次序应通过核验', () => {
+  const annualTerms = calculateSolarTermsForYear(2024);
+  assert.equal(annualTerms.length, 24);
   assert.deepEqual(
-    terms.slice(0, 4).map((item) => item.name),
+    annualTerms.slice(0, 4).map((item) => item.name),
     ['小寒', '大寒', '立春', '雨水'],
   );
   assert.deepEqual(
-    terms.slice(0, 4).map((item) => item.targetLongitudeDegrees),
+    annualTerms.slice(0, 4).map((item) => item.targetLongitudeDegrees),
     [285, 300, 315, 330],
   );
   assert.deepEqual(
-    terms.slice(0, 4).map((item) => item.isJie),
+    annualTerms.slice(0, 4).map((item) => item.isJie),
     [true, false, true, false],
   );
-  assert.equal(terms.at(-1)?.name, '冬至');
-  assert.match(terms.at(-1)?.utcDateTime ?? '', /^2024-12/);
-});
+  assert.equal(annualTerms.at(-1)?.name, '冬至');
+  assert.match(annualTerms.at(-1)?.utcDateTime ?? '', /^2024-12/);
 
-test('唯一采用的 tyme4ts 节气日期应通过香港天文台多历元基准核验', () => {
   // 基准来源：https://www.hko.gov.hk/tc/gts/time/calendar/text/files/T{year}c.txt
   const expectedDates = {
     1901: { 立春: '02-04', 春分: '03-21', 夏至: '06-22', 秋分: '09-24', 冬至: '12-22' },
@@ -119,6 +121,61 @@ test('唯一采用的 tyme4ts 节气日期应通过香港天文台多历元基�
   }
 });
 
+test('节气历表残差与独立模型根残差应分别绑定各自UTC瞬时', () => {
+  // 独立数学定值：NOAA官方main.js的太阳视黄经公式按50位精度重算。
+  // https://gml.noaa.gov/grad/solcalc/main.js
+  // 固定UTC只定位数学核验输入，不作为外部交节时刻或观测精度金标。
+  // 现模型附加的极小平近点角三次项与NOAA式在这些输入相差小于3e-10°。
+  const cases = [
+    {
+      index: 3,
+      adoptedUtc: '2024-02-04T08:27:07.000Z',
+      modelUtc: '2024-02-04T08:21:25.000Z',
+      adoptedResidual: 0.004005702071726603,
+      modelResidual: 0.000009208280540663296,
+    },
+    {
+      index: 6,
+      adoptedUtc: '2024-03-20T03:06:25.000Z',
+      modelUtc: '2024-03-20T03:04:17.000Z',
+      adoptedResidual: 0.0014759315585743938,
+      modelResidual: 0.000003813763612657926,
+    },
+    {
+      index: 12,
+      adoptedUtc: '2024-06-20T20:51:00.000Z',
+      modelUtc: '2024-06-20T20:49:29.000Z',
+      adoptedResidual: 0.001011429545935472,
+      modelResidual: 0.000006338199408903046,
+    },
+    {
+      index: 18,
+      adoptedUtc: '2024-09-22T12:43:42.000Z',
+      modelUtc: '2024-09-22T12:37:16.000Z',
+      adoptedResidual: 0.004374823784849924,
+      modelResidual: 0.000003404874123517093,
+    },
+  ];
+  for (const row of cases) {
+    const evidence = calculateSolarTermEvidence(2024, row.index);
+    const adopted = evidence.calculationSteps[1].result;
+    const root = evidence.calculationSteps[2].result;
+    assert.equal(evidence.utcDateTime, row.adoptedUtc);
+    assert.equal(adopted.utcDateTime, row.adoptedUtc);
+    assert.equal(adopted.utcTimestamp, evidence.utcTimestamp);
+    assert.equal(adopted.solarLongitudeDegrees, evidence.solarLongitudeDegrees);
+    assert.equal(adopted.residualDegrees, evidence.residualDegrees);
+    assert.ok(Math.abs(evidence.residualDegrees - row.adoptedResidual) < 1e-8, evidence.name);
+    assert.equal(root.modelRootUtcDateTime, row.modelUtc);
+    assert.equal(root.modelRootUtcDateTime, evidence.modelRootUtcDateTime);
+    assert.ok(
+      Math.abs(Number(root.residualDegrees) - row.modelResidual) < 1e-8,
+      `${evidence.name}模型根残差`,
+    );
+    assert.notEqual(root.residualDegrees, adopted.residualDegrees);
+  }
+});
+
 test('八字节令月应携带起止交节的结构化证据', () => {
   const firstMonth = getYearMonthsGanZhi(2024)[0];
 
@@ -146,4 +203,28 @@ test('八字本命节令与奇门节令阶段应复用同一节气证据', () =>
 test('节气证据应拒绝越界年份和索引', () => {
   assert.throws(() => calculateSolarTermEvidence(1899, 3), /1900-2200/);
   assert.throws(() => calculateSolarTermEvidence(2024, 24), /0-23/);
+});
+
+test('民用2200年末只读取编号2201的冬至，公共节气年份契约保持不变', () => {
+  const winter = findCivilSolarTermEvidence('冬至', 2201);
+  assert.equal(winter.name, '冬至');
+  assert.equal(winter.index, 0);
+  assert.equal(winter.targetLongitudeDegrees, 270);
+  assert.match(winter.utcDateTime, /^2200-12-/);
+  assert.equal(winter.utcTimestamp, Date.parse(winter.seedUtcDateTime));
+  assert.equal(winter.status, '历表已采用并独立核验');
+  assert.ok(winter.refinementIterations > 0);
+  assert.equal(winter.verificationFact.adoptedStepKey, winter.calculationSteps[1].key);
+  const phase = getJieQiPhaseByDate(new Date('2201-01-01T11:59:59Z'), -720);
+  assert.equal(phase.jieQi, '冬至');
+  assert.deepEqual(phase.solarTermEvidence, winter);
+  assert.deepEqual(findCivilSolarTermEvidence('冬至', 2025), calculateSolarTermEvidence(2025, 0));
+  for (const name of ['小寒', '立春', '大雪'] as const) {
+    assert.throws(() => findCivilSolarTermEvidence(name, 2201), /1900-2200/);
+  }
+  assert.throws(() => findCivilSolarTermEvidence('冬至', 2202), /1900-2200/);
+  assert.throws(() => findCivilSolarTermEvidence('冬至', Number.NaN), /1900-2200/);
+  assert.throws(() => calculateSolarTermEvidence(2201, 0), /1900-2200/);
+  assert.throws(() => findSolarTermEvidence('冬至', 2201), /1900-2200/);
+  assert.throws(() => calculateSolarTermsForYear(2200), /1900-2199/);
 });

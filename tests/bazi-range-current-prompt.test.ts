@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { BaziChartResult, Person } from 'mingyu-core/bazi';
+import {
+  analyzeBaziCompatibility,
+  baziCalculator,
+  type BaziChartResult,
+  type Person,
+} from 'mingyu-core/bazi';
 import type { BirthChartPointBundle } from 'mingyu-core/birth';
 import type { BirthProfile } from 'mingyu-core/profile';
 import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
+import { formatCalculatedBaziCompatibilityFacts } from '../src/lib/bazi-compatibility-facts';
+import { getCompatibilityPrompt } from '../src/utils/ai/aiPrompts';
 import type { BaziRangePage, BaziRangePageSide } from '../src/lib/full-chart-engine/bazi-range';
 import {
   buildBaziZiweiRangeReadingSubject,
@@ -13,14 +20,15 @@ import {
   formatCurrentBirthSampleContext,
   selectBaziPromptSample,
 } from '../src/pages/ResultPage/bazi-range-prompt';
-import { buildBaziZiweiCompatibilityPrompt } from '../src/pages/ResultPage/ResultPage.helpers';
+import {
+  buildBaziZiweiCompatibilityPrompt,
+  buildEnhancedBaziPromptPack,
+} from '../src/pages/ResultPage/ResultPage.helpers';
 import {
   getZiweiPayloadKey,
   getZiweiRuntimeKey,
 } from '../src/pages/ResultPage/utils/ziweiCalculationCache';
 
-const PRIMARY_RESULT = { marker: 'primary' } as unknown as BaziChartResult;
-const PARTNER_RESULT = { marker: 'partner' } as unknown as BaziChartResult;
 const POINT_BUNDLE = {} as BirthChartPointBundle;
 const PRIMARY_TIMESTAMP = Date.UTC(1990, 0, 1, 0, 0, 0);
 const PARTNER_TIMESTAMP = Date.UTC(1990, 0, 1, 0, 0, 1);
@@ -49,6 +57,28 @@ const PARTNER_PROFILE: BirthProfile = {
   second: 1,
 };
 
+const PRIMARY_RESULT = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 1,
+  day: 1,
+  birthHour: 8,
+  birthMinute: 0,
+  birthSecond: 0,
+  gender: 'female',
+  isLunar: false,
+});
+const PARTNER_RESULT = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 1,
+  day: 1,
+  birthHour: 8,
+  birthMinute: 0,
+  birthSecond: 1,
+  gender: 'male',
+  isLunar: false,
+});
+const PAIR_COMPATIBILITY = analyzeBaziCompatibility(PRIMARY_RESULT, PARTNER_RESULT);
+
 function side(
   index: number,
   profile: BirthProfile,
@@ -70,9 +100,7 @@ function page(index = 0): BaziRangePage {
     nextIndex: index < 2 ? index + 1 : null,
     primary: side(index, PRIMARY_PROFILE, PRIMARY_RESULT, PRIMARY_TIMESTAMP + index * 1_000),
     partner: side(0, PARTNER_PROFILE, PARTNER_RESULT, PARTNER_TIMESTAMP + index * 1_000),
-    compatibility: {
-      promptText: '当前合成双方关系证据',
-    } as unknown as BaziRangePage['compatibility'],
+    compatibility: PAIR_COMPATIBILITY,
   };
 }
 
@@ -96,7 +124,7 @@ test('提示词只描述当前逐秒样本和当前组合，缓存身份随页�
   assert.match(context, /当前八字组合样本：第 1\/3 条（本次仅解读当前样本）/);
   assert.match(context, /第一人：1990-01-01 08:00:00（北京时间）/);
   assert.match(context, /第二人：1990-01-01 08:00:01（北京时间）/);
-  assert.match(context, /当前组合关系证据：当前合成双方关系证据/);
+  assert.doesNotMatch(context, /当前组合关系证据：/);
   assert.doesNotMatch(context, /样本索引/);
   assert.doesNotMatch(context, /区间起点作为代表时刻/);
   assert.doesNotMatch(context, /bazi-range:/);
@@ -104,6 +132,72 @@ test('提示词只描述当前逐秒样本和当前组合，缓存身份随页�
     selection.identity,
     selectBaziPromptSample(true, nextPage, PRIMARY_RESULT, PARTNER_RESULT).identity,
   );
+  const fullPrompt = `${getCompatibilityPrompt('请分析双方关系。', PRIMARY_RESULT, PARTNER_RESULT).user}\n\n${context}`;
+  assert.equal(fullPrompt.match(/日主关系：/g)?.length, 1);
+  assert.equal(fullPrompt.match(/喜忌五行对应：/g)?.length, 1);
+});
+
+test('范围组合任务书保留喜忌待判方向且只列当前关系事实', () => {
+  const first = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+  });
+  const second = baziCalculator.calculateBazi({
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+    gender: 'male',
+    isLunar: false,
+  });
+  const original = page();
+  const current: BaziRangePage = {
+    ...original,
+    primary: {
+      ...original.primary,
+      profile: { ...PRIMARY_PROFILE, gender: 'male', year: 1990, month: 9, day: 5, hour: 12 },
+      result: first,
+      timestamp: Date.UTC(1990, 8, 5, 4),
+    },
+    partner: {
+      ...original.partner!,
+      profile: { ...PARTNER_PROFILE, year: 2013, month: 9, day: 25, hour: 6, second: 0 },
+      result: second,
+      timestamp: Date.UTC(2013, 8, 24, 22),
+    },
+    compatibility: analyzeBaziCompatibility(first, second),
+  };
+  const context = formatCurrentBirthSampleContext(current);
+  const baziContext = formatBaziCurrentSampleContext(current);
+  const fullPrompt = `${getCompatibilityPrompt('请分析双方关系。', first, second).user}\n\n${baziContext}`;
+
+  assert.match(context, /当前组合关系证据：日主关系：/);
+  assert.match(context, /第一人增补喜忌五行待判/);
+  assert.match(context, /无法核验第二人盘面的增补喜忌覆盖/);
+  assert.match(context, /第一人盘面命中第二人喜用五行水、木/);
+  assert.doesNotMatch(context, /计算链概览|解释限制|【反证】|【限制】|bazi:compatibility:/);
+  assert.doesNotMatch(baziContext, /当前组合关系证据：/);
+  assert.equal(fullPrompt.match(/第一人增补喜忌五行待判/g)?.length, 1);
+  assert.equal(fullPrompt.match(/无法核验第二人盘面的增补喜忌覆盖/g)?.length, 1);
+  assert.equal(fullPrompt.match(/喜忌五行对应：/g)?.length, 1);
+
+  const combinedPrompt = buildBaziZiweiCompatibilityPrompt({
+    primaryBaziText: buildEnhancedBaziPromptPack(first, null),
+    partnerBaziText: buildEnhancedBaziPromptPack(second, null),
+    primaryZiweiText: '第一人紫微本命资料。',
+    partnerZiweiText: '第二人紫微本命资料。',
+    baziCompatibilityText: formatCalculatedBaziCompatibilityFacts(current.compatibility!),
+    ziweiCompatibilityText: '紫微关系依据。',
+    question: '请分析双方关系。',
+    currentSampleContext: formatCurrentBirthSampleContext(current, false),
+  });
+  assert.equal(combinedPrompt.match(/第一人增补喜忌五行待判/g)?.length, 1);
+  assert.equal(combinedPrompt.match(/无法核验第二人盘面的增补喜忌覆盖/g)?.length, 1);
+  assert.equal(combinedPrompt.match(/喜忌五行对应：/g)?.length, 1);
 });
 
 test('非范围输入继续使用固定单点结果并不生成范围样本说明', () => {
@@ -318,7 +412,7 @@ test('混合范围组合保留仅名称地点、坐标 IANA 时区和固定侧�
   const context = formatBaziCurrentSampleContext(currentPage);
   assert.match(context, /出生地：范围主方/u);
   assert.match(context, /出生地：有坐标对方/u);
-  assert.match(context, /时区：UTC\+8/u);
+  assert.match(context, /时区：UTC\+08:00/u);
   assert.match(context, /时区：Asia\/Shanghai/u);
   assert.match(context, /第一人：.*输入精度：秒/u);
   assert.match(context, /第二人：.*输入精度：分钟/u);

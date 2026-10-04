@@ -45,12 +45,12 @@ test('大六壬主题模板应把候选类神与实际课传条件并列核对',
 
 test('塔罗任务应把牌位条件与逐张事实核对写入解读主线', () => {
   const single = buildTarotSpreadTask(drawTarotSpread('single', { seed: 'template-single' }));
-  assert.match(single, /唯一牌位、牌名、正逆位、关键词与单牌牌义/);
+  assert.match(single, /唯一牌位、牌名、正逆位、关键词与牌面象征/);
   assert.doesNotMatch(single, /相邻牌|牌序组合|牌位联动/);
 
   const three = buildTarotSpreadTask(drawTarotSpread('three', { seed: 'template-three' }));
-  assert.match(three, /事实核对：逐张对应牌位、牌名、正逆位、关键词与基础牌义/);
-  assert.match(three, /牌位职能作为该牌落到问题中的条件/);
+  assert.match(three, /事实核对：逐张对应牌位、牌名、正逆位、关键词、元素与牌阶主题/);
+  assert.match(three, /现实核对：联系问题中可观察的信息/);
   assert.match(three, /解读主线：/);
   assert.doesNotMatch(three, /undefined|null/);
 });

@@ -58,6 +58,18 @@ export function validateBirthInput(
   if (!Number.isInteger(month) || month < 1 || month > 12) {
     return invalid('month', `${personLabel}月份需在 1-12 之间`);
   }
+  if (fields.dateType !== undefined && dateType !== 'solar' && dateType !== 'lunar') {
+    return invalid('dateType', `${personLabel}日期类型必须是 solar 或 lunar`);
+  }
+  if (fields.isLeapMonth !== undefined && typeof fields.isLeapMonth !== 'boolean') {
+    return invalid('isLeapMonth', `${personLabel}闰月标志必须是布尔值`);
+  }
+  if (dateType === 'solar' && fields.isLeapMonth === true) {
+    return invalid('isLeapMonth', `${personLabel}公历日期不能设置农历闰月`);
+  }
+  if (fields.useTrueSolarTime !== undefined && typeof fields.useTrueSolarTime !== 'boolean') {
+    return invalid('useTrueSolarTime', `${personLabel}真太阳时标志必须是布尔值`);
+  }
 
   if (dateType === 'lunar') {
     const message = getBirthDateValidationMessage({

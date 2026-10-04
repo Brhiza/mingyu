@@ -1,11 +1,13 @@
 import type { BaziChartResult, Person } from 'mingyu-core/bazi';
 import type { BirthProfile } from 'mingyu-core/profile';
+import { formatFixedTimezoneOffset } from 'mingyu-core/calendar';
 import type {
   BaziRangePage,
   BaziRangePageSide,
   BaziRangeSideIdentity,
 } from '@/lib/full-chart-engine/bazi-range';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
+import { formatCalculatedBaziCompatibilityFacts } from '@/lib/bazi-compatibility-facts';
 
 export interface BaziPromptSampleSelection {
   page: BaziRangePage | null;
@@ -243,7 +245,7 @@ function formatBaziSampleSide(side: BaziRangePageSide): string {
     timeZoneId !== undefined
       ? `时区：${timeZoneId}`
       : timezone !== undefined
-        ? `时区：UTC${timezone >= 0 ? '+' : ''}${timezone}`
+        ? `时区：UTC${formatFixedTimezoneOffset(timezone)}`
         : '';
   const precision =
     side.profile.second !== undefined
@@ -265,6 +267,7 @@ function formatCurrentRangeSampleContext(
   page: BaziRangePage | null,
   singleLabel: string,
   pairLabel: string,
+  includeCompatibilityFacts: boolean,
 ): string {
   if (!page) return '';
   const sampleLabel = page.partner ? pairLabel : singleLabel;
@@ -273,16 +276,25 @@ function formatCurrentRangeSampleContext(
     `第一人：${formatBaziSampleSide(page.primary)}`,
   ];
   if (page.partner) lines.push(`第二人：${formatBaziSampleSide(page.partner)}`);
-  if (page.compatibility) lines.push(`当前组合关系证据：${page.compatibility.promptText}`);
+  if (includeCompatibilityFacts && page.compatibility)
+    lines.push(`当前组合关系证据：${formatCalculatedBaziCompatibilityFacts(page.compatibility)}`);
   return lines.join('\n');
 }
 
 /** 只描述当前 page，供紫微提示词和预览显示；不描述整个出生范围的结论。 */
-export function formatCurrentBirthSampleContext(page: BaziRangePage | null): string {
-  return formatCurrentRangeSampleContext(page, '当前出生样本', '当前出生组合样本');
+export function formatCurrentBirthSampleContext(
+  page: BaziRangePage | null,
+  includeCompatibilityFacts = true,
+): string {
+  return formatCurrentRangeSampleContext(
+    page,
+    '当前出生样本',
+    '当前出生组合样本',
+    includeCompatibilityFacts,
+  );
 }
 
 /** 只描述当前 page，供八字提示词和预览显示；不描述整个出生范围的结论。 */
 export function formatBaziCurrentSampleContext(page: BaziRangePage | null): string {
-  return formatCurrentRangeSampleContext(page, '当前八字样本', '当前八字组合样本');
+  return formatCurrentRangeSampleContext(page, '当前八字样本', '当前八字组合样本', false);
 }

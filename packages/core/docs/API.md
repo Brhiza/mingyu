@@ -142,12 +142,14 @@
 | `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)`                                      | 四柱、日干、五行函数、十神函数           | `TombStorageProfile`        | 辰戌丑未墓库分析                                    |
 | `analyzeLifeStageProfile(pillars)`                                                                  | 四柱                                     | `LifeStageItem[]`           | 各柱十二长生                                        |
 | `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 十神在十二长生的旺弱分布                            |
-| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 用神落点（喜神得力/受制/忌神等）                    |
+| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 喜忌五行在透干与藏干的落位及条目数；不判力量或制约 |
 | `analyzeNayinProfile(pillars)`                                                                      | 四柱                                     | `NayinProfile`              | 各柱纳音五行                                        |
 | `analyzeMonthQiProfile(monthBranch, commanderStem?)`                                                | 月支、司令                               | `MonthQiProfile`            | 月令气数（五行旺相休囚死）                          |
 | `calculateMingGua(birthYear, gender)`                                                               | 出生年、性别                             | `MingGuaProfile`            | 命卦（东四命/西四命）                               |
 | `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)`                               | 太阳时、性别、日干、十神函数             | `XiaoYunProfile`            | 小运（童限逐年干支）                                |
 | `buildLuckDirectionProfile(gender, yearStem)`                                                       | 性别、年干                               | `LuckDirectionProfile`      | 大运顺逆方向                                        |
+
+`TenGodLifeStageProfile.items` 的 `evidence` 按天干列出出现次数、来源位置，以及年、月、日、时四支的长生阶段与旺弱评分。相同天干只计算一次四支评分，出现次数另行统计；自定义十神函数将多个天干归为同一项时，`stem` 以顿号连接，`evidence` 保留各干明细。
 
 ---
 
@@ -382,7 +384,7 @@
 | `normalizeBirth(profile)`                   | 校验并标准化公历/农历、传统时辰、精准时分和真太阳时输入   |
 | `trueSolarBirth(input)`                     | 换算出生真太阳时、跨日日期和传统时辰索引                  |
 | `astronomicalTime(input)`                   | 换算历史时区、UTC、JD、近似 UT1、ΔT 与 TT                 |
-| `moonPhase(utcDateTime)`                    | 计算月相、照明比例及前后朔弦望事件                        |
+| `moonPhase(utcDateTime)`                    | 计算月相、照明比例及前后朔弦望事件；字符串须为带 `Z` 或明确偏移的 ISO 日期时间 |
 | `solarTerm(year, index)`                    | 返回单个节气历表时刻与太阳视黄经独立核验                  |
 | `solarTerms(year)`                          | 按公历年份返回从小寒至冬至的 24 个节气证据                |
 | `solarIllumination(input)`                  | 返回太阳高度、方位、视太阳正午、日出日落和曙暮光          |

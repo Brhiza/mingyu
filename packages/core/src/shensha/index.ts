@@ -15,7 +15,7 @@
  *       分属不同层面，故独立暴露，不并入命理注册表，以免与八字/六壬/奇门各自的
  *       神煞体系混淆。
  */
-import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
+import { SolarDay, SolarTime, SixtyCycle, God } from 'tyme4ts';
 import {
   EARTHLY_BRANCHES,
   getYiMa,
@@ -558,21 +558,40 @@ export function analyzeShenshaEvidence(
   const source = Array.from(
     new Set(matchFacts.flatMap((item) => item.sources).filter((item) => !item.includes('未声明'))),
   ).join('、');
-  const promptSourceFor = (itemSources: string[]) =>
-    Array.from(
-      new Set(
-        itemSources
-          .filter((item) => !item.includes('未声明'))
-          .map((item) => item.replace(/^tyme4ts /, '').replace(/^公共/, '')),
-      ),
-    ).join('、') || '未提供公开出处';
+  const promptableMatches = matchFacts.filter(
+    (item) =>
+      item.status === '命中' &&
+      item.evidenceStatus === '来源已声明' &&
+      !item.ruleText.includes('未声明'),
+  );
+  const hitFacts = promptableMatches.map((item) =>
+    [
+      `${item.name}命中`,
+      item.targetBranches.length ? `目标地支${item.targetBranches.join('、')}` : '',
+      item.matchedPillars.length
+        ? `落柱${item.matchedPillars.map((pillar) => `${pillar.label}${pillar.ganZhi}`).join('、')}`
+        : '',
+      !item.targetBranches.length ? item.result?.detail?.trim() || '' : '',
+    ]
+      .filter(Boolean)
+      .join('；'),
+  );
   const promptText = [
-    '【通用神煞资料】',
+    '【任务】',
+    promptableMatches.length > 0
+      ? '根据以下四柱与列出的神煞事实，说明传统起法及其对应的盘面信息，并结合整体四柱作辅助解读。'
+      : '说明给定四柱与本次神煞资料的列示情况。',
     `【四柱】${pillarFacts.map((item) => `${item.label}${item.ganZhi}`).join('、')}。`,
-    `【神煞】${matchFacts.map((item) => item.promptText).join('；')}。`,
-    `【传统依据】${matchFacts
-      .map((item) => `${item.name}：${item.ruleText}（${promptSourceFor(item.sources)}）`)
-      .join('；')}。`,
+    `【命中资料】${hitFacts.length > 0 ? `${hitFacts.join('；')}。` : '本次可用神煞资料未列命中项。'}`,
+    ...(promptableMatches.length > 0
+      ? [
+          `【传统依据】${promptableMatches.map((item) => `${item.name}：${item.ruleText}`).join('；')}。`,
+        ]
+      : []),
+    '【输出要求】',
+    promptableMatches.length > 0
+      ? '逐项说明传统起法及已列盘面命中依据。'
+      : '列出四柱与本次神煞资料的列示结果。',
   ].join('\n');
 
   return {
@@ -760,26 +779,36 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   return gods;
 }
 
-/** 整日黄历以节气所在民用日期分界，土王用事取四立前十八日。 */
-export function getHuangliSolarDayGods(solarDay: SolarDay): God[] {
-  const cycleDay = solarDay.getSixtyCycleDay();
+/** 日期查询以中国标准时间正午取月令；土王用事取四立前十八日。 */
+export function getHuangliSolarDayGods(
+  solarDay: SolarDay,
+  referenceTime = SolarTime.fromYmdHms(
+    solarDay.getYear(),
+    solarDay.getMonth(),
+    solarDay.getDay(),
+    12,
+    0,
+    0,
+  ),
+): God[] {
+  if (referenceTime.getSolarDay().toString() !== solarDay.toString()) {
+    throw new Error('黄历参考时刻与查询日期必须是同一天。');
+  }
+  const cycleDay = referenceTime.getSixtyCycleHour().getSixtyCycleDay();
   const month = cycleDay.getMonth();
   const day = cycleDay.getSixtyCycle();
-  const term = solarDay.getTerm();
+  const term = referenceTime.getTerm();
   const nextSeason = term.next((3 - term.getIndex() + 24) % 6 || 6);
-  const daysToNextSeason = nextSeason
-    .getJulianDay()
-    .getSolarTime()
-    .getSolarDay()
-    .subtract(solarDay);
-  const earthPeriod = daysToNextSeason > 0 && daysToNextSeason <= 18;
+  const secondsToNextSeason = nextSeason.getJulianDay().getSolarTime().subtract(referenceTime);
+  const earthPeriod = secondsToNextSeason > 0 && secondsToNextSeason <= 18 * 86400;
   const season = Math.floor(month.getEarthBranch().next(-2).getIndex() / 3);
   const motherBranches = earthPeriod ? '巳午' : ['亥子', '寅卯', '辰戌丑未', '申酉'][season];
   const gods = getHuangliDayGods(month.getName(), day.getName()).filter(
     (god) => god.getName() !== '母仓',
   );
   if (motherBranches.includes(day.getEarthBranch().getName())) gods.push(God.fromName('母仓'));
-  const nextPrincipalTerm = term.next((24 - term.getIndex()) % 6 || 6);
+  const dayTerm = solarDay.getTerm();
+  const nextPrincipalTerm = dayTerm.next((24 - dayTerm.getIndex()) % 6 || 6);
   if (nextPrincipalTerm.getJulianDay().getSolarTime().getSolarDay().subtract(solarDay) === 1) {
     gods.push(God.fromName('四离'));
   }
@@ -796,8 +825,9 @@ export function getHuangliShensha(year: number, month: number, day: number): Hua
     throw new Error('黄历查询日期不存在。');
   }
   const solarDay = SolarDay.fromYmd(year, month, day);
-  const scDay = SixtyCycleDay.fromSolarDay(solarDay);
-  const gods = getHuangliSolarDayGods(solarDay);
+  const noonTime = SolarTime.fromYmdHms(year, month, day, 12, 0, 0);
+  const scDay = noonTime.getSixtyCycleHour().getSixtyCycleDay();
+  const gods = getHuangliSolarDayGods(solarDay, noonTime);
   const shensha: HuangliShensha[] = gods.map((g) => ({
     name: g.getName(),
     luck: g.getLuck().getName(),

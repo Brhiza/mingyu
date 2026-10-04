@@ -2,9 +2,9 @@
  * @file 玄空流年、流月飞星
  * @description 以三元紫白入中后顺飞九宫，叠到下卦运、山、向盘上。
  * @传统依据 《协纪辨方书》三元紫白；年星随三元甲子逆计入中，月星按节气月紫白；飞布沿洛书顺飞。
- * 入中星委托 tyme4ts 干支年、节气月九星，与黄历紫白同源。
+ * 入中星委托 tyme4ts 干支年、节气月九星；纪年两端越界时按月紫白表推算。
  */
-import { SolarDay, SixtyCycleYear } from 'tyme4ts';
+import { SolarDay, SolarTerm, SolarTime, SixtyCycleYear } from 'tyme4ts';
 
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getNineStarProfile } from '../direction';
@@ -33,7 +33,7 @@ export function flyStars(centerStar: number, direction: FlyDirection): number[] 
   return stars;
 }
 
-export const FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | '火'> = {
+const CANONICAL_FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | '火'> = {
   1: '水',
   2: '土',
   3: '木',
@@ -44,6 +44,14 @@ export const FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | 
   8: '土',
   9: '火',
 };
+
+export const FLYING_STAR_WUXING: typeof CANONICAL_FLYING_STAR_WUXING = {
+  ...CANONICAL_FLYING_STAR_WUXING,
+};
+
+export function getFlyingStarElement(star: number) {
+  return CANONICAL_FLYING_STAR_WUXING[star];
+}
 
 export type FlyingStarYunState = '当运' | '生气' | '退气' | '死气' | '煞气';
 export type ShanXiangRelation = '生入' | '生出' | '克入' | '克出' | '比和';
@@ -80,6 +88,47 @@ function plateFromCenter(centerStar: number): number[] {
   return flyStars(centerStar, '顺飞');
 }
 
+const MONTH_JIE = [
+  '小寒',
+  '立春',
+  '惊蛰',
+  '清明',
+  '立夏',
+  '芒种',
+  '小暑',
+  '立秋',
+  '白露',
+  '寒露',
+  '立冬',
+  '大雪',
+] as const;
+
+const MONTH_BRANCHES = [
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+  '子',
+  '丑',
+] as const;
+
+/** 《钦定协纪辨方书·三元月九星入中宫》：子午卯酉年正月八白，辰戌丑未年五黄，寅申巳亥年二黑。 */
+function firstMonthStar(solarTermYear: number): number {
+  const yearBranch = SixtyCycleYear.fromYear(solarTermYear)
+    .getSixtyCycle()
+    .getEarthBranch()
+    .getName();
+  if ('子午卯酉'.includes(yearBranch)) return 8;
+  if ('辰戌丑未'.includes(yearBranch)) return 5;
+  return 2;
+}
+
 export function resolveYearFlyingStar(year: number): XuanKongPeriodStarPlate {
   if (!Number.isSafeInteger(year) || year < 1 || year > 9999) {
     throw new Error('流年必须是 1-9999 的整数年份。');
@@ -91,7 +140,7 @@ export function resolveYearFlyingStar(year: number): XuanKongPeriodStarPlate {
     centerStar,
     starName: starName(centerStar),
     plate: plateFromCenter(centerStar),
-    calendarNote: `按公元${year}年干支取三元紫白入中，再顺飞九宫`,
+    calendarNote: `按${year}年立春起的节气年取三元紫白入中，再顺飞九宫`,
   };
 }
 
@@ -112,21 +161,49 @@ export function resolveMonthFlyingStar(
     throw new Error(`流月日期必须是 1-${maxDay} 的整数。`);
   }
   const solarDay = SolarDay.fromYmd(year, month, resolvedDay);
-  const sixtyMonth = solarDay.getSixtyCycleDay().getSixtyCycleMonth();
-  const centerStar = sixtyMonth.getNineStar().getIndex() + 1;
+  const jie = SolarTerm.fromName(year, MONTH_JIE[month - 1]);
+  const jieTime = jie.getJulianDay().getSolarTime();
+  const onJieDay = solarDay.subtract(jie.getSolarDay()) === 0;
+  // SolarDay 在交节当天整日归新月；日期输入约定用中国标准时间正午作参照。
+  const referenceTime = SolarTime.fromYmdHms(year, month, resolvedDay, 12, 0, 0);
+  const effectiveDay = onJieDay && referenceTime.isBefore(jieTime) ? solarDay.next(-1) : solarDay;
+  let centerStar: number;
+  let solarTermYear: number;
+  let monthBranch: string;
+  try {
+    const sixtyMonth = effectiveDay.getSixtyCycleDay().getSixtyCycleMonth();
+    centerStar = sixtyMonth.getNineStar().getIndex() + 1;
+    solarTermYear = sixtyMonth.getSixtyCycleYear().getYear();
+    monthBranch = sixtyMonth.getSixtyCycle().getEarthBranch().getName();
+  } catch (error) {
+    // tyme4ts 在公元 1 年初和 9999 年末查询相邻干支年时越界。
+    if (
+      !((year === 1 && month === 1) || (year === 9999 && month === 12)) ||
+      !(error instanceof Error) ||
+      !/^illegal (solar|sixty cycle) year: (0|10000)$/.test(error.message)
+    ) {
+      throw error;
+    }
+    const beforeJie = referenceTime.isBefore(jieTime);
+    const monthIndex = (month + 10 - (beforeJie ? 1 : 0) + 12) % 12;
+    solarTermYear = year === 1 ? 0 : 9999;
+    centerStar = ((firstMonthStar(solarTermYear) - 1 - monthIndex + 18) % 9) + 1;
+    monthBranch = MONTH_BRANCHES[monthIndex];
+  }
   assertStar(centerStar);
-  const monthBranch = sixtyMonth.getSixtyCycle().getEarthBranch().getName();
+  const dateBasis =
+    day === undefined
+      ? `以${year}年${month}月${resolvedDay}日中国标准时间12:00代表该流月，取所属节气月`
+      : `按${year}年${month}月${resolvedDay}日中国标准时间12:00所属节气月`;
   return {
     year,
-    solarTermYear: sixtyMonth.getSixtyCycleYear().getYear(),
+    solarTermYear,
     month,
     day: resolvedDay,
     centerStar,
     starName: starName(centerStar),
     plate: plateFromCenter(centerStar),
-    calendarNote: day
-      ? `按${year}年${month}月${resolvedDay}日所属节气月（${monthBranch}月）取月紫白入中，再顺飞九宫`
-      : `未指定日期时按${year}年${month}月15日所属节气月（${monthBranch}月）取月紫白入中，再顺飞九宫`,
+    calendarNote: `${dateBasis}（${monthBranch}月）取月紫白入中，再顺飞九宫${onJieDay ? `；当日${jie.getName()}于${jieTime.toString()}交节，交节前后分属不同节气月` : ''}`,
   };
 }
 
@@ -181,8 +258,8 @@ export function resolveFlyingStarYunState(star: number, yun: number): FlyingStar
 export function resolveShanXiangRelation(shanStar: number, xiangStar: number): ShanXiangRelation {
   assertStar(shanStar);
   assertStar(xiangStar);
-  const mountain = FLYING_STAR_WUXING[shanStar];
-  const facing = FLYING_STAR_WUXING[xiangStar];
+  const mountain = CANONICAL_FLYING_STAR_WUXING[shanStar];
+  const facing = CANONICAL_FLYING_STAR_WUXING[xiangStar];
   if (mountain === facing) return '比和';
   if (isSheng(facing, mountain)) return '生入';
   if (isSheng(mountain, facing)) return '生出';

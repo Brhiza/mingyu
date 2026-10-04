@@ -18,7 +18,7 @@ const VALID_AGE_DIVIDES = ['normal', 'birthday'] as const;
 const VALID_DAY_DIVIDES = ['current', 'forward'] as const;
 
 type IztroAstro = typeof import('iztro').astro;
-type BirthdayTools = [
+type HoroscopeTools = [
   typeof import('iztro/lib/astro/index.js'),
   typeof import('iztro/lib/star/index.js'),
   typeof import('iztro/lib/utils/index.js'),
@@ -93,6 +93,14 @@ async function loadIztroAstro(): Promise<IztroAstro> {
   }
 }
 
+async function loadIztroHoroscopeTools(): Promise<HoroscopeTools> {
+  return Promise.all([
+    import('iztro/lib/astro/index.js'),
+    import('iztro/lib/star/index.js'),
+    import('iztro/lib/utils/index.js'),
+  ]);
+}
+
 function normalizeTextField(value: unknown, label: string, fallback = ''): string {
   if (value === undefined || value === null) {
     return fallback;
@@ -106,6 +114,7 @@ function normalizeTextField(value: unknown, label: string, fallback = ''): strin
 export function normalizeChartInput(input: ChartInput): ChartInput {
   return {
     ...input,
+    ...(input.birthTime ? { birthTime: { ...input.birthTime } } : {}),
     name: normalizeTextField(input.name, '姓名'),
     birthDate: normalizeTextField(input.birthDate, '出生日期'),
     fixLeap: input.fixLeap ?? true,
@@ -144,7 +153,9 @@ export function buildZiweiCalculationConfig(input: ChartInput): ZiweiCalculation
     year_divide_rule: normalized.yearDivide === 'exact' ? '以立春分年' : '以农历正月初一分年',
     horoscope_divide: normalized.horoscopeDivide!,
     horoscope_divide_rule:
-      normalized.horoscopeDivide === 'exact' ? '运限月份以节气分界' : '运限月份以农历月份分界',
+      normalized.horoscopeDivide === 'exact'
+        ? '运限流年以立春、流月以节气分界'
+        : '运限流年以农历年、流月以农历月分界',
     age_divide: normalized.ageDivide!,
     age_divide_rule:
       normalized.ageDivide === 'birthday' ? '小限年龄以生日分界' : '小限年龄只按年份计算',
@@ -172,8 +183,10 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
   const normalized = normalizeChartInput(input);
   assertValidChartInput(normalized);
   const astro = await loadIztroAstro();
+  const horoscopeTools = await loadIztroHoroscopeTools();
+  let effectiveBirthSolarDate: string | undefined;
 
-  const astrolabe = astro.withOptions({
+  const options = {
     type: normalized.dateType,
     dateStr: normalized.birthDate,
     timeIndex: normalized.birthTimeIndex,
@@ -182,7 +195,68 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
     fixLeap: normalized.fixLeap,
     language: 'zh-CN',
     config: buildIztroConfig(normalized),
-  }) as FunctionalAstrolabe;
+  };
+  let astrolabe = astro.withOptions(options) as FunctionalAstrolabe;
+
+  if (normalized.dayDivide === 'forward' && normalized.birthTimeIndex === 12) {
+    // iztro 只对晚子时部分日数计算做次日处理；改用次日早子时统一计算完整盘面，
+    // 否则闰月月序、宫位和依赖日期的星曜仍会落在原日口径。
+    const originalBirth = astrolabe;
+    const effectiveDate = getNextSolarBirthDate(normalized);
+    effectiveBirthSolarDate = effectiveDate;
+    const effectiveAstrolabe = astro.withOptions({
+      ...options,
+      type: 'solar',
+      dateStr: effectiveDate,
+      timeIndex: 0,
+    }) as FunctionalAstrolabe;
+
+    // rawDates 和盘面保留次日计算口径；展示字段仍保留实际出生日期、时刻与星座。
+    effectiveAstrolabe.solarDate = originalBirth.solarDate;
+    effectiveAstrolabe.lunarDate = originalBirth.lunarDate;
+    effectiveAstrolabe.time = originalBirth.time;
+    effectiveAstrolabe.timeRange = originalBirth.timeRange;
+    effectiveAstrolabe.sign = originalBirth.sign;
+    effectiveAstrolabe.zodiac = originalBirth.zodiac;
+    astrolabe = effectiveAstrolabe;
+  }
+
+  // iztro 的运限计算读取全局配置；星盘构造后若又创建其他口径的盘，
+  // 这张盘的同步 horoscope 调用也必须恢复自己的分界口径。
+  const calculateHoroscope = astrolabe.horoscope.bind(astrolabe);
+  const calculationConfig = buildIztroConfig(normalized);
+  astrolabe.horoscope = (dateStr, hourIndex) => {
+    astro.config(calculationConfig);
+    // iztro 2.5.8 的运限查询未使用 dayDivide；当天口径的晚子时须按当日早子时取干支。
+    const effectiveHourIndex =
+      normalized.dayDivide === 'current' && hourIndex === 12 ? 0 : hourIndex;
+    const displayBirthSolarDate = astrolabe.solarDate;
+    if (effectiveBirthSolarDate) astrolabe.solarDate = effectiveBirthSolarDate;
+    try {
+      let horoscope = calculateHoroscope(dateStr, effectiveHourIndex) as FunctionalHoroscope;
+      // 带钟表日期的显式早子时及当天口径晚子时，按实际公历日取同日子时干支。
+      if (
+        (effectiveHourIndex === 0 ||
+          (normalized.dayDivide === 'current' &&
+            hourIndex === undefined &&
+            horoscope.hourly.earthlyBranch === '子')) &&
+        (typeof dateStr !== 'string' || !/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr))
+      ) {
+        horoscope = calculateHoroscope(horoscope.solarDate, 0) as FunctionalHoroscope;
+      }
+      return normalized.ageDivide === 'birthday'
+        ? applyBirthdayAgeBoundary(
+            astrolabe,
+            horoscope,
+            horoscope.solarDate,
+            normalized,
+            horoscopeTools,
+          )
+        : applyAgePalaceCycle(astrolabe, horoscope, horoscope.age.nominalAge, horoscopeTools);
+    } finally {
+      if (effectiveBirthSolarDate) astrolabe.solarDate = displayBirthSolarDate;
+    }
+  };
 
   // 盘内星名已经按同一语言生成，精确名称无需逐星反查全部翻译词条。
   // 别名与其他语言仍交给引擎处理；遍历当前星表，保留引擎的末项匹配语义。
@@ -205,6 +279,26 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
   return astrolabe;
 }
 
+function getNextSolarBirthDate(input: ChartInput): string {
+  const { year, month, day } = parseBirthDateKey(input.birthDate);
+  const solarDay =
+    input.dateType === 'solar'
+      ? SolarDay.fromYmd(year, month, day)
+      : LunarDay.fromYmd(year, input.isLeapMonth ? -month : month, day).getSolarDay();
+  const nextDay = solarDay.next(1);
+  return formatSolarDateKey(nextDay.getYear(), nextDay.getMonth(), nextDay.getDay());
+}
+
+/** 运限沿用安星实际出生日；晚子跨日时展示日期仍为原始出生日期。 */
+export function getZiweiFortuneBirthSolarDate(
+  astrolabe: IFunctionalAstrolabe,
+  input: ChartInput,
+): string {
+  return (input.dayDivide ?? 'forward') === 'forward' && input.birthTimeIndex === 12
+    ? getNextSolarBirthDate(input)
+    : astrolabe.solarDate;
+}
+
 function assertValidChartInput(input: ChartInput) {
   if (input.isLeapMonth !== undefined && typeof input.isLeapMonth !== 'boolean') {
     throw new Error('闰月标志必须是布尔值。');
@@ -214,6 +308,9 @@ function assertValidChartInput(input: ChartInput) {
   }
   if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
     throw new Error('出生日期类型必须是公历或农历。');
+  }
+  if (input.dateType === 'solar' && input.isLeapMonth === true) {
+    throw new Error('公历日期不能设置农历闰月。');
   }
 
   assertOneOf(input.gender, VALID_GENDERS, '性别必须是男或女。');
@@ -323,19 +420,12 @@ export async function buildHoroscopeFromInput(
 
   // iztro 的配置是全局状态；每次取运限前恢复本盘配置，避免不同口径串盘。
   // 可选依赖只在调用紫微能力时加载，并在恢复配置前完成异步导入。
-  const birthdayTools: BirthdayTools | undefined =
-    normalized.ageDivide === 'birthday'
-      ? await Promise.all([
-          import('iztro/lib/astro/index.js'),
-          import('iztro/lib/star/index.js'),
-          import('iztro/lib/utils/index.js'),
-        ])
-      : undefined;
+  const horoscopeTools = await loadIztroHoroscopeTools();
   astro.config(buildIztroConfig(normalized));
   const horoscope = astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
-  return birthdayTools
-    ? applyBirthdayAgeBoundary(astrolabe, horoscope, dateStr, birthdayTools)
-    : horoscope;
+  return normalized.ageDivide === 'birthday'
+    ? applyBirthdayAgeBoundary(astrolabe, horoscope, dateStr, normalized, horoscopeTools)
+    : applyAgePalaceCycle(astrolabe, horoscope, horoscope.age.nominalAge, horoscopeTools);
 }
 
 type LunarBirthdayParts = {
@@ -384,9 +474,10 @@ function applyBirthdayAgeBoundary(
   astrolabe: IFunctionalAstrolabe,
   horoscope: FunctionalHoroscope,
   targetDateStr: string,
-  [{ getPalaceNames }, { getHoroscopeStar }, { getMutagensByHeavenlyStem }]: BirthdayTools,
+  input: ChartInput,
+  horoscopeTools: HoroscopeTools,
 ): FunctionalHoroscope {
-  const birthDateStr = normalizeSolarDateKey(astrolabe.solarDate);
+  const birthDateStr = normalizeSolarDateKey(getZiweiFortuneBirthSolarDate(astrolabe, input));
   const birth = getLunarBirthdayParts(birthDateStr);
   const target = getLunarBirthdayParts(targetDateStr);
   const birthdayComparison = compareLunarBirthday(
@@ -396,16 +487,34 @@ function applyBirthdayAgeBoundary(
     birth.year,
   );
   const nominalAge = Math.max(1, target.year - birth.year + (birthdayComparison >= 0 ? 1 : 0));
+  return applyAgePalaceCycle(astrolabe, horoscope, nominalAge, horoscopeTools);
+}
 
-  const agePalace = astrolabe.palaces.find((palace) => palace.ages.includes(nominalAge));
-  if (!agePalace) {
-    // iztro 对超出小限支持范围的输入本来也返回 -1；保留其结构，只纠正可确定的年龄。
-    horoscope.age = { ...horoscope.age, nominalAge };
+/** 小限每十二岁同宫，大限从五行局起限后每十年一宫，十二宫后循原宫序续行。 */
+function applyAgePalaceCycle(
+  astrolabe: IFunctionalAstrolabe,
+  horoscope: FunctionalHoroscope,
+  nominalAge: number,
+  [{ getPalaceNames }, { getHoroscopeStar }, { getMutagensByHeavenlyStem }]: HoroscopeTools,
+): FunctionalHoroscope {
+  if (
+    horoscope.age.nominalAge === nominalAge &&
+    (nominalAge <= 120 || (horoscope.age.index >= 0 && horoscope.decadal.index >= 0))
+  ) {
     return horoscope;
   }
 
+  const ageInFirstCycle = ((nominalAge - 1) % 12) + 1;
+  const agePalace = astrolabe.palaces.find((palace) => palace.ages.includes(ageInFirstCycle))!;
+  const decadalStartAge = Math.min(...astrolabe.palaces.map((palace) => palace.decadal.range[0]));
+  // 起限之前仍按童限；起限之后以首限年龄为原点，避免将末限的 121 岁误归首限。
+  const ageInDecadalCycle =
+    nominalAge < decadalStartAge
+      ? nominalAge
+      : decadalStartAge + ((nominalAge - decadalStartAge) % 120);
   const regularDecadalPalace = astrolabe.palaces.find(
-    (palace) => nominalAge >= palace.decadal.range[0] && nominalAge <= palace.decadal.range[1],
+    (palace) =>
+      ageInDecadalCycle >= palace.decadal.range[0] && ageInDecadalCycle <= palace.decadal.range[1],
   );
   const childhoodPalaceName = ['命宫', '财帛', '疾厄', '夫妻', '福德', '官禄'][nominalAge - 1];
   const childhoodPalace = childhoodPalaceName

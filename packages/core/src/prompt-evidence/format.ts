@@ -56,9 +56,13 @@ function normalizePromptEvidenceItem(item: PromptEvidenceItem): PromptEvidenceIt
 }
 
 function buildEvidenceKey(item: PromptEvidenceItem) {
-  return [item.level, item.title, item.detail, item.source]
-    .map((value) => cleanOptionalText(value, '证据内容') ?? '')
-    .join('|');
+  return JSON.stringify([
+    item.level,
+    item.title,
+    item.detail ?? '',
+    item.source ?? '',
+    item.tags ?? [],
+  ]);
 }
 
 export function normalizePromptEvidenceItems(items: PromptEvidenceItem[]): PromptEvidenceItem[] {

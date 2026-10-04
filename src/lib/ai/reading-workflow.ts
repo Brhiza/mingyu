@@ -538,7 +538,7 @@ const QIZHENG_PHASE_DIALECT: BirthRangePhaseDialect = {
   mergeInstruction:
     '请保留每个七政四余出生分段、目标时段、周期事件和连续量的适用边界，依据各阶段已列事实归并判断；阶段间有差异时保留各自适用范围。',
   summaryHeading: '七政四余出生区间阶段覆盖核对',
-  summaryCoverage: '每个阶段列出的七政四余本命、流曜、行限、周期事件和连续量均已参与分析。',
+  summaryCoverage: '每个阶段已列的七政四余资料均已参与分析。',
   summaryInstruction:
     '请综合全部七政四余出生分段阶段分析回答本轮问题；结论需对应出生分段与目标时段，保留主判断、直接原始依据、成立条件、反向证据和未决事项。',
   phaseProgressLabel: '正在分析七政四余',

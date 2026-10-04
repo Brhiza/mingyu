@@ -36,5 +36,5 @@ test('专业骨架保持紧凑，单盘、单牌、合参和时限任务保持�
   assert.match(getPromptAnswerFramework('ziwei-compatibility'), /发出方.*接收方/);
   assert.match(getPromptAnswerFramework('tarot-single'), /唯一牌位/);
   assert.doesNotMatch(getPromptAnswerFramework('tarot-single'), /邻牌|过去.*未来/);
-  assert.match(getPromptAnswerFramework('almanac'), /参与人.*冲犯.*日层.*时辰/);
+  assert.match(getPromptAnswerFramework('almanac'), /参与人.*冲犯.*每个候选日.*首选与备选/);
 });

@@ -50,19 +50,38 @@ function makeRange(seconds: number): QizhengBirthRange {
   });
 }
 
-let longFlowRange: QizhengFlowBirthRange | undefined;
-function getLongFlowRange() {
-  const startTimestamp = timestamp('2024-02-19 11:24:48');
-  return (longFlowRange ??= generateQizhengFlowBirthRange(
-    { ...input, flowYear: 2024, flowMonth: 3, flowDay: 15, flowHour: 12, flowMinute: 0 },
-    {
-      startTimestamp,
-      endTimestamp: startTimestamp + 7_200 * 1_000,
-      endExclusive: true,
-      timezone: 'Asia/Shanghai',
-      offsetHours: 8,
-    },
-  ));
+const phaseFlowBirthInput: QizhengInput = {
+  ...input,
+  hour: 12,
+  minute: 59,
+  second: 59,
+  flowYear: 2024,
+  flowMonth: 3,
+};
+let phaseFlowRanges: QizhengFlowBirthRange[] | undefined;
+function getPhaseFlowRanges() {
+  return (phaseFlowRanges ??= [
+    { start: '2024-02-19 12:59:59', hour: 12, minute: 59, second: 59 },
+    { start: '2024-02-19 13:00:01', hour: 13, minute: 0, second: 1 },
+  ].map(({ start, hour, minute, second }) => {
+    const startTimestamp = timestamp(start);
+    return generateQizhengFlowBirthRange(
+      { ...phaseFlowBirthInput, hour, minute, second },
+      {
+        startTimestamp,
+        endTimestamp: startTimestamp + 2_000,
+        endExclusive: true,
+        timezone: 'Asia/Shanghai',
+        offsetHours: 8,
+      },
+    );
+  }));
+}
+
+function makePhaseFlowResources() {
+  return getPhaseFlowRanges().map((range, index) =>
+    makeResource(range, `qizheng-phase-${index}`, `七政四余流曜出生时段${index + 1}`),
+  );
 }
 
 function makeResource(
@@ -115,17 +134,17 @@ function makeSingleLongRange(): QizhengBirthRange {
   };
 }
 
-function makeSubject(): ReadingSubjectSnapshot {
+function makeSubject(lockedInput: QizhengInput = input): ReadingSubjectSnapshot {
   return {
     id: 'qizheng-reading-phase-test',
     source: 'qizheng',
-    lockedInputs: { 'qi-zheng': input },
+    lockedInputs: { 'qi-zheng': lockedInput },
     allowedMethods: ['qi-zheng'],
     range: {},
   };
 }
 
-function makeHarness(resources: ReadingResource[]) {
+function makeHarness(resources: ReadingResource[], lockedInput?: QizhengInput) {
   const sent: ChatMessage[][] = [];
   const errors: string[] = [];
   const notices: string[] = [];
@@ -133,7 +152,7 @@ function makeHarness(resources: ReadingResource[]) {
   const memory: ReadingMemory = { resources };
   const options: ReadingOptions = {
     memory,
-    subject: makeSubject(),
+    subject: makeSubject(lockedInput),
     onProgress: () => {},
     onNotice: (text) => notices.push(text),
     onError: (text) => errors.push(text),
@@ -184,20 +203,23 @@ test('七政四余小区间容量足够时沿用单次最终解读', async () =>
   );
 });
 
-test('七政四余超容量时按出生分段完整消费并汇总', async () => {
-  const resource = makeResource(getLongFlowRange(), 'qizheng-long', '七政四余流曜长区间');
-  const h = makeHarness([resource]);
+test('七政四余多段真实出生资料超容量时逐段完整消费并汇总', async () => {
+  const resources = makePhaseFlowResources();
+  assert.ok(resources.reduce((sum, resource) => sum + resource.text.length, 0) > 49_000);
+  const h = makeHarness(resources, phaseFlowBirthInput);
   const stream = makeStream(h);
 
   await runReadingWorkflow(
-    [{ role: 'user', content: '七政四余流曜出生区间，问全部分段的事业变化。' }],
+    [{ role: 'user', content: '七政四余流月出生区间，问全部分段的事业变化。' }],
     h.options,
-    { stream, execute: async () => resource },
+    { stream, execute: async () => resources[0]! },
   );
 
   assert.deepEqual(h.errors, []);
   assert.equal(h.done(), 1);
-  assert.ok((h.memory.qizhengPhaseReading?.phases.length ?? 0) > 1);
+  const branchCount = getPhaseFlowRanges().reduce((sum, range) => sum + range.branches.length, 0);
+  assert.equal(branchCount, 3);
+  assert.ok((h.memory.qizhengPhaseReading?.phases.length ?? 0) >= branchCount);
   assert.equal(
     h.memory.qizhengPhaseReading?.phases.every((phase) => phase.status === 'succeeded'),
     true,
@@ -212,32 +234,40 @@ test('七政四余超容量时按出生分段完整消费并汇总', async () =>
     ),
   );
   const phaseText = phaseMessages.map((messages) => messages[0]!.content).join('\n');
-  for (const [index, branch] of (
-    resource.structured as unknown as QizhengFlowBirthRange
-  ).branches.entries()) {
-    const start = new Date(branch.startTimestamp + OFFSET_MILLISECONDS)
-      .toISOString()
-      .slice(0, 19)
-      .replace('T', ' ');
-    assert.match(phaseText, new RegExp(`出生分段${index + 1}/`, 'u'));
-    assert.match(phaseText, new RegExp(start.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+  for (const range of getPhaseFlowRanges()) {
+    for (const [index, branch] of range.branches.entries()) {
+      const start = new Date(branch.startTimestamp + OFFSET_MILLISECONDS)
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' ');
+      assert.match(phaseText, new RegExp(`出生分段${index + 1}/${range.branches.length}`, 'u'));
+      assert.match(phaseText, new RegExp(start.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+    }
   }
+  assert.match(phaseText, /流曜落宫落宿/u);
+  assert.match(phaseText, /周期事件/u);
+  assert.match(phaseText, /连续量（最小至最大）/u);
   assert.match(h.sent.at(-1)?.[0]?.content ?? '', /七政四余出生区间阶段覆盖核对/u);
+  assert.doesNotMatch(
+    h.sent.at(-1)?.[0]?.content ?? '',
+    /本命、流曜、行限、周期事件和连续量均已参与分析/u,
+  );
 });
 
 test('七政四余原始任务书包装在分阶段资料中保留', async () => {
-  const resource = makeWrappedResource(
-    getLongFlowRange(),
-    'qizheng-wrapped-long',
-    '七政四余带任务书包装长区间',
+  const resources = makePhaseFlowResources();
+  resources[0] = makeWrappedResource(
+    getPhaseFlowRanges()[0]!,
+    'qizheng-wrapped-phase',
+    '七政四余带任务书包装出生时段',
   );
-  const h = makeHarness([resource]);
+  const h = makeHarness(resources, phaseFlowBirthInput);
   const stream = makeStream(h);
 
   await runReadingWorkflow(
-    [{ role: 'user', content: '七政四余带任务书包装的流曜区间，问目标流日变化。' }],
+    [{ role: 'user', content: '七政四余带任务书包装的流曜区间，问目标流月变化。' }],
     h.options,
-    { stream, execute: async () => resource },
+    { stream, execute: async () => resources[0]! },
   );
 
   assert.deepEqual(h.errors, []);
@@ -251,30 +281,6 @@ test('七政四余原始任务书包装在分阶段资料中保留', async () =>
   assert.match(phaseText, /2026年9月16日/u);
   assert.match(phaseText, /【任务】/u);
   assert.match(phaseText, /【问题】\n资源生成问题/u);
-});
-
-test('七政四余流曜区间阶段保留本命、流曜、周期事件和连续量', async () => {
-  const range = getLongFlowRange();
-  const resource = makeResource(range, 'qizheng-flow-long', '七政四余流曜长区间');
-  const h = makeHarness([resource]);
-  const stream = makeStream(h);
-
-  await runReadingWorkflow(
-    [{ role: 'user', content: '七政四余流曜出生区间，问目标流日变化。' }],
-    h.options,
-    { stream, execute: async () => resource },
-  );
-
-  assert.deepEqual(h.errors, []);
-  assert.equal(h.done(), 1);
-  const phaseMessages = h.sent.filter((messages) =>
-    messages[0]?.content.includes('七政四余出生区间阶段资料'),
-  );
-  assert.ok(phaseMessages.length > 1);
-  const phaseText = phaseMessages.map((messages) => messages[0]!.content).join('\n');
-  assert.match(phaseText, /流曜落宫落宿/u);
-  assert.match(phaseText, /周期事件/u);
-  assert.match(phaseText, /连续量（最小至最大）/u);
 });
 
 test('七政四余单一出生分段过长时按完整连续量行拆分', async () => {
@@ -446,10 +452,11 @@ test('七政四余阶段缓存身份包含引导与当前时间上下文', async
 });
 
 test('七政四余多份超容量资料的阶段覆盖键保持独立', async () => {
-  const range = getLongFlowRange();
-  const primary = makeResource(range, 'qizheng-primary', '本人七政四余长区间');
-  const partner = makeResource(range, 'qizheng-partner', '对方七政四余长区间');
-  const h = makeHarness([primary, partner]);
+  const range = getPhaseFlowRanges()[0]!;
+  const primary = makeResource(range, 'qizheng-primary', '本人七政四余出生时段');
+  const partner = makeResource(range, 'qizheng-partner', '对方七政四余出生时段');
+  assert.ok(primary.text.length + partner.text.length > 49_000);
+  const h = makeHarness([primary, partner], phaseFlowBirthInput);
   const stream = makeStream(h);
 
   await runReadingWorkflow(

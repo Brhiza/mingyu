@@ -221,6 +221,8 @@ function projectDiscreteFacts(result: QizhengResult): unknown {
         gender: result.timeLords.gender,
         direction: result.timeLords.direction,
         nominalAge: result.timeLords.nominalAge,
+        majorLimitStatus: result.timeLords.majorLimitStatus,
+        majorPalaceYears: result.timeLords.majorPalaceYears,
         majorLimits: result.timeLords.majorLimits.map((item) => ({
           palace: item.palace,
           signIndex: item.signIndex,
@@ -279,6 +281,7 @@ function projectDiscreteFacts(result: QizhengResult): unknown {
       waxing: moon.waxing,
       previousPrincipalPhase: moon.previousPrincipalPhase.name,
       nextPrincipalPhase: moon.nextPrincipalPhase.name,
+      currentPrincipalPhase: moon.currentPrincipalPhase?.name ?? null,
     },
     solarIllumination: {
       localDate: result.calculationContext.solarIllumination.localDate,
@@ -286,6 +289,7 @@ function projectDiscreteFacts(result: QizhengResult): unknown {
       crossings: projectSolarCrossings(result),
     },
     evidence: {
+      coordinateAccuracy: result.calculationContext.coordinateAccuracy ?? null,
       locationSource: result.calculationContext.locationSource,
       timezoneSource: result.calculationContext.timezoneSource,
       palaceTimeMode: result.calculationContext.palaceTimeMode,
@@ -405,14 +409,6 @@ function collectContinuousSamples(result: QizhengResult): ContinuousSample[] {
     result.ziqi.tropicalLongitude,
     360,
   );
-  addSample(
-    samples,
-    'ziqi.siderealLongitude',
-    '紫炁恒星黄经',
-    '度',
-    result.ziqi.siderealLongitude,
-    360,
-  );
   addSample(samples, 'ziqi.cycleProgress', '紫炁周期进度', '比例', result.ziqi.cycleProgress);
   addSample(
     samples,
@@ -526,6 +522,15 @@ function collectContinuousSamples(result: QizhengResult): ContinuousSample[] {
     '毫秒时间戳',
     moon.nextPrincipalPhase.utcTimestamp,
   );
+  if (moon.currentPrincipalPhase) {
+    addSample(
+      samples,
+      'calculationContext.moonPhase.currentPrincipalPhase.utcTimestamp',
+      '当前主相位' + moon.currentPrincipalPhase.name + '时刻',
+      '毫秒时间戳',
+      moon.currentPrincipalPhase.utcTimestamp,
+    );
+  }
 
   const illumination = result.calculationContext.solarIllumination;
   addSample(
@@ -719,17 +724,20 @@ export function generateQizhengBirthRange(
   range: QizhengBirthRangeInput,
   options: QizhengBirthRangeOptions = {},
 ): QizhengBirthRange {
+  options = { ...options };
   const total = assertRange(range);
   assertNatalOnlyInput(input);
   assertInputMatchesStart(input, range.startTimestamp);
   assertNotAborted(options.signal);
+  const lockedInput = { ...input };
+  const { startTimestamp, endTimestamp } = range;
 
   let active: ActiveBranch | undefined;
   const branches: QizhengBirthRangeBranch[] = [];
   for (let completed = 0; completed < total; completed += 1) {
     assertNotAborted(options.signal);
-    const timestamp = range.startTimestamp + completed * SECOND_MILLISECONDS;
-    const result = generateQizheng(inputAtTimestamp(input, timestamp));
+    const timestamp = startTimestamp + completed * SECOND_MILLISECONDS;
+    const result = generateQizheng(inputAtTimestamp(lockedInput, timestamp));
     const currentFingerprint = fingerprint(result);
     if (!active) {
       active = {
@@ -760,15 +768,16 @@ export function generateQizhengBirthRange(
     options.onProgress?.(completed + 1, total);
   }
 
+  assertNotAborted(options.signal);
   if (!active) throw new Error('七政本命区间没有可计算的整秒样本。');
-  branches.push(finalizeBranch(active, range.endTimestamp));
+  branches.push(finalizeBranch(active, endTimestamp));
 
   return {
     coverage: 'natal',
     status: branches.length === 1 ? 'stable' : 'conditional',
     source: {
-      startTimestamp: range.startTimestamp,
-      endTimestamp: range.endTimestamp,
+      startTimestamp,
+      endTimestamp,
       endExclusive: true,
       timezone: 'Asia/Shanghai',
       offsetHours: CHINA_OFFSET_HOURS,

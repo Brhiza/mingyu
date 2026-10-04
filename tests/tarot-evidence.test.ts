@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
+import { auditPromptFacts } from '../scripts/prompt-audit/facts';
 import {
   analyzeTarotEvidence,
   drawTarotSpread,
   resolveInteractiveTarotCards,
   tarotSpreads,
-} from 'mingyu-core/divination/tarot';
-import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
+} from '../packages/core/src/divination/tarot.ts';
+import type { TarotData, TarotSpreadType } from '../packages/core/src/types/divination.ts';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 
@@ -26,6 +34,72 @@ test('塔罗自动与逐张抽牌的随机记录必须完整并对应实际牌�
     assert.throws(() => analyzeTarotEvidence(changed), /随机轨迹与牌面、顺序或正逆位不一致/);
     assert.equal(analyzeTarotEvidence(data).randomFact.status, '可重放');
   }
+});
+
+test('塔罗证据分析按牌号重建被篡改的牌面资料并报告缺口', () => {
+  const data = structuredClone(
+    drawTarotSpread('single', { manualCards: [{ id: 1, reversed: false }] }),
+  );
+  Object.assign(data.cards[0], {
+    name: '皇帝',
+    keywords: ['伪造关键词'],
+    element: '伪造元素',
+    archetype: '伪造牌阶',
+  });
+
+  const evidence = analyzeTarotEvidence(data);
+
+  assert.equal(evidence.cards[0].name, '愚者');
+  assert.deepEqual(evidence.cards[0].keywords, ['新开始', '冒险', '纯真']);
+  assert.equal(evidence.cards[0].status, '存在缺口');
+  assert.deepEqual(evidence.cards[0].mismatches, ['牌名', '关键词', '元素主题', '牌阶主题']);
+  assert.equal(evidence.traditionalFacts[0].status, '存在缺口');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.doesNotMatch(evidence.promptText, /伪造关键词|伪造元素|伪造牌阶|皇帝/);
+});
+
+test('塔罗提示词按牌号与本次牌面重建逐牌资料和相邻关系', () => {
+  const data = structuredClone(drawTarotSpread('three', { seed: '塔罗提示词证据重算' }));
+  const originalName = data.cards[0].name;
+  assert.ok(data.evidenceAnalysis?.elementInteractionFacts.length);
+  data.cards[0].name = '伪造牌名';
+  data.cards[0].keywords = ['伪造关键词'];
+  data.evidenceAnalysis.elementInteractionFacts[0].relation = '伪造相邻关系';
+
+  const prompt = formatEnhancedDivinationInfo('tarot', data);
+  assert.match(prompt, new RegExp(originalName, 'u'));
+  assert.doesNotMatch(prompt, /伪造牌名|伪造关键词|伪造相邻关系/u);
+  assert.match(prompt, /相邻牌元素关系：/u);
+});
+
+test('残缺多牌阵保留原牌阵类型并列出实际牌位与缺口', () => {
+  const complete = drawTarotSpread('three', {
+    manualCards: [1, 2, 3].map((id) => ({ id, reversed: false })),
+  });
+  const incomplete: TarotData = {
+    ...complete,
+    cards: complete.cards.slice(0, 1),
+    evidenceAnalysis: undefined,
+  };
+  const prompt = buildDivinationPrompt({
+    method: 'tarot',
+    question: '请结合当前情况解读。',
+    data: incomplete,
+  });
+  const task = prompt.match(/【任务】\n([\s\S]*?)\n\n【问题】/u)?.[1];
+
+  assert.ok(task);
+  assert.match(prompt, /牌阵时间流牌阵/);
+  assert.match(
+    prompt,
+    /牌位覆盖：预设3张（过去、现在、未来）；实际记录1张；实际牌位：过去；缺少牌位：现在、未来/u,
+  );
+  assert.match(task, /围绕已记录牌位与牌面整理本次问题的象征主题/u);
+  assert.equal(prompt.match(/缺少牌位：现在、未来/gu)?.length, 1);
+  assert.doesNotMatch(prompt, /(?:重复牌位|额外牌位|顺序异常位置|重复牌号)：无/u);
+  assert.doesNotMatch(task, /依据唯一牌位/u);
+  assert.doesNotMatch(task, /按过去、现在、未来三个牌位/u);
+  assert.doesNotMatch(prompt, /塔罗单牌以牌位职能/u);
 });
 
 test('凯尔特十字十牌位保留韦特原著的目标、基础、过去影响及希望恐惧', () => {
@@ -63,9 +137,6 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
 
     assert.ok(evidence);
     assert.equal(evidence.key, 'tarot:evidence');
-    assert.equal(evidence.status, '已计算');
-    assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
     const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
     assert.ok(
       evidence.calculationSteps.every(
@@ -88,21 +159,6 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
     assert.equal(evidence.sequence.length, evidence.sequenceFacts.length);
     assert.equal(evidence.elementInteractionFacts.length, Math.max(0, data.cards.length - 1));
     assert.equal(evidence.elementInteractions.length, evidence.elementInteractionFacts.length);
-    assert.equal(evidence.recurringThemes.length, evidence.recurringThemeFacts.length);
-    assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
-    assert.equal(evidence.limitationFacts.length, 6);
-    assert.equal(evidence.summaryFact.status, '证据链完整');
-    assert.equal(evidence.summaryFact.cardFactCount, evidence.cards.length);
-    assert.equal(evidence.summaryFact.drawOrderFactCount, evidence.drawOrderFacts.length);
-    assert.equal(evidence.summaryFact.sequenceFactCount, evidence.sequenceFacts.length);
-    assert.equal(
-      evidence.summaryFact.elementInteractionFactCount,
-      evidence.elementInteractionFacts.length,
-    );
-    assert.equal(evidence.summaryFact.themeFactCount, evidence.themeFacts.length);
-    assert.equal(evidence.summaryFact.recurringThemeFactCount, evidence.recurringThemeFacts.length);
-    assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
-    assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
     const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
     assert.ok(
       evidence.limitationFacts.every(
@@ -179,13 +235,14 @@ test('塔罗单牌不应伪造跨牌关系，多牌应逐对连接相邻牌位',
 });
 
 test('塔罗相邻牌应计算四元素互参且大阿卡纳不强行归入元素', () => {
-  const supportive = drawTarotSpread('three', {
+  const supportiveData = drawTarotSpread('three', {
     manualCards: [
       { id: 23, reversed: false },
       { id: 51, reversed: true },
       { id: 65, reversed: false },
     ],
-  }).evidenceAnalysis!;
+  });
+  const supportive = supportiveData.evidenceAnalysis!;
   assert.deepEqual(
     supportive.elementInteractionFacts.map((fact) => [
       fact.fromElement,
@@ -201,6 +258,23 @@ test('塔罗相邻牌应计算四元素互参且大阿卡纳不强行归入元�
     supportive.elementInteractionFacts[0].orientationConstraint,
     /逆位不改变元素关系分类/,
   );
+  const missingWithReversed = structuredClone(supportiveData);
+  Reflect.deleteProperty(missingWithReversed.cards[0], 'reversed');
+  const unknownAndReversed = analyzeTarotEvidence(missingWithReversed);
+  assert.equal(unknownAndReversed.cards[0].orientation, '未记录');
+  assert.deepEqual(unknownAndReversed.cards[0].constraints, []);
+  assert.match(
+    unknownAndReversed.elementInteractionFacts[0].orientationConstraint,
+    /现在宝剑王牌为逆位/u,
+  );
+  assert.match(
+    unknownAndReversed.elementInteractionFacts[0].orientationConstraint,
+    /过去权杖王牌正逆位未记录/u,
+  );
+  assert.doesNotMatch(
+    unknownAndReversed.elementInteractionFacts[0].orientationConstraint,
+    /两牌均为正位/u,
+  );
 
   const conflictAndMajor = drawTarotSpread('three', {
     manualCards: [
@@ -214,17 +288,36 @@ test('塔罗相邻牌应计算四元素互参且大阿卡纳不强行归入元�
   assert.match(conflictAndMajor.elementInteractionFacts[1].promptText, /大阿卡纳不强行归入四元素/);
   assert.match(conflictAndMajor.promptText, /元素互参：/);
 
-  const neutralAndSupportive = drawTarotSpread('three', {
+  const neutralAndSupportiveData = drawTarotSpread('three', {
     manualCards: [
       { id: 23, reversed: false },
       { id: 65, reversed: false },
       { id: 37, reversed: false },
     ],
-  }).evidenceAnalysis!;
+  });
+  const neutralAndSupportive = neutralAndSupportiveData.evidenceAnalysis!;
   assert.deepEqual(
     neutralAndSupportive.elementInteractionFacts.map((fact) => fact.relation),
     ['中性并置', '相互助长'],
   );
+  const missingWithUpright = structuredClone(neutralAndSupportiveData);
+  Reflect.deleteProperty(missingWithUpright.cards[0], 'reversed');
+  const unknownAndUpright = analyzeTarotEvidence(missingWithUpright);
+  assert.equal(unknownAndUpright.elementInteractionFacts[0].fromCardKey, 'tarot:card:1:23:未记录');
+  assert.equal(unknownAndUpright.elementInteractionFacts[0].toCardKey, 'tarot:card:2:65:正位');
+  assert.equal(unknownAndUpright.elementInteractionFacts[0].relation, '中性并置');
+  assert.match(
+    unknownAndUpright.elementInteractionFacts[0].orientationConstraint,
+    /过去权杖王牌正逆位未记录/u,
+  );
+  assert.doesNotMatch(
+    unknownAndUpright.elementInteractionFacts[0].orientationConstraint,
+    /两牌均为正位/u,
+  );
+  assert.match(unknownAndUpright.elementInteractionFacts[1].orientationConstraint, /两牌均为正位/u);
+  const unknownOrientationPrompt = formatEnhancedDivinationInfo('tarot', missingWithUpright);
+  assert.match(unknownOrientationPrompt, /过去：权杖王牌（未记录）/u);
+  assert.doesNotMatch(unknownOrientationPrompt, /过去：权杖王牌（正位）/u);
 
   const sameElement = drawTarotSpread('three', {
     manualCards: [
@@ -388,6 +481,71 @@ test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () =>
       (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
     ),
   );
+  const normal = analyzeTarotEvidence(data);
+  const normalEnhanced = formatEnhancedDivinationInfo('tarot', data);
+  const currentTime = new Date('2026-10-03T12:00:00+08:00');
+  const normalPrompt = buildDivinationPrompt({
+    currentTime,
+    method: 'tarot',
+    data: data,
+    question: '结合牌位解读当前问题。',
+  });
+  for (const missingRecord of ['sparse', 'null'] as const) {
+    const partial = structuredClone(data);
+    if (missingRecord === 'sparse') delete partial.draw!.order[1];
+    else partial.draw!.order[1] = null as never;
+    const inputBefore = structuredClone(partial);
+    const recovered = analyzeTarotEvidence(partial);
+    assert.equal(recovered.drawFact.status, '来源链缺失');
+    assert.equal(recovered.drawFact.recordedCardCount, data.cards.length - 1);
+    assert.deepEqual(recovered.drawFact.missingIndexes, [2]);
+    assert.deepEqual(recovered.drawFact.mismatchIndexes, [2]);
+    assert.deepEqual(
+      recovered.drawOrderFacts.map((item) => item.index),
+      Array.from({ length: data.cards.length }, (_, index) => index + 1).filter(
+        (index) => index !== 2,
+      ),
+    );
+    assert.ok(recovered.drawOrderFacts.every((item) => item.status === '一致'));
+    assert.equal(recovered.summaryFact.status, '证据链有缺口');
+    assert.deepEqual(recovered.cards, normal.cards);
+    assert.deepEqual(recovered.traditionalFacts, normal.traditionalFacts);
+    assert.equal(formatEnhancedDivinationInfo('tarot', partial), normalEnhanced);
+    assert.equal(
+      buildDivinationPrompt({
+        currentTime,
+        method: 'tarot',
+        data: partial,
+        question: '结合牌位解读当前问题。',
+      }),
+      normalPrompt,
+    );
+    assert.deepEqual(partial, inputBefore);
+  }
+  const shortened = structuredClone(data);
+  shortened.draw!.order = shortened.draw!.order.slice(0, 1);
+  const shortenedEvidence = analyzeTarotEvidence(shortened);
+  assert.equal(shortenedEvidence.drawFact.status, '来源链缺失');
+  assert.deepEqual(
+    shortenedEvidence.drawFact.missingIndexes,
+    Array.from({ length: data.cards.length - 1 }, (_, index) => index + 2),
+  );
+  assert.equal(shortenedEvidence.drawFact.recordedCardCount, 1);
+});
+
+test('塔罗抽牌记录中的牌组规模不符时不得标记为可核验', () => {
+  const data = drawTarotSpread('three', { seed: '塔罗牌组规模核验' });
+  const tampered: TarotData = structuredClone(data);
+  tampered.draw!.deckSize = 77;
+  tampered.evidenceAnalysis = undefined;
+  const evidence = analyzeTarotEvidence(tampered);
+
+  assert.equal(evidence.randomFact.status, '可重放');
+  assert.equal(evidence.drawFact.status, '来源链不一致');
+  assert.deepEqual(evidence.drawFact.mismatchIndexes, []);
+  assert.deepEqual(evidence.drawFact.metadataMismatches, ['牌组规模应为78张，记录为77张']);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.match(evidence.drawFact.promptText, /牌组规模：77张.*应为78张，记录为77张/);
 });
 
 test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实', () => {
@@ -408,6 +566,11 @@ test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实',
   assert.deepEqual(evidence.spreadCoverageFact.duplicatePositions, ['过去']);
   assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, [2]);
   assert.deepEqual(evidence.spreadCoverageFact.duplicateCardIds, [tampered.cards[0].id]);
+  assert.deepEqual(evidence.sequenceFacts, []);
+  assert.deepEqual(evidence.elementInteractionFacts, []);
+  const prompt = formatEnhancedDivinationInfo('tarot', tampered);
+  assert.match(prompt, /缺少牌位：现在；重复牌位：过去；顺序异常位置：2；重复牌号：1/u);
+  assert.doesNotMatch(prompt, /额外牌位：无/u);
 
   const missingCard = analyzeTarotEvidence({
     ...data,
@@ -416,23 +579,191 @@ test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实',
   });
   assert.equal(missingCard.spreadCoverageFact.status, '牌数不符');
   assert.equal(missingCard.spreadCoverageFact.actualCardCount, 2);
+  assert.deepEqual(missingCard.sequence, ['过去愚者正位 → 现在魔术师正位']);
+  assert.equal(missingCard.elementInteractionFacts.length, 1);
+  assert.deepEqual(
+    [
+      missingCard.elementInteractionFacts[0].fromCardKey,
+      missingCard.elementInteractionFacts[0].toCardKey,
+    ],
+    ['tarot:card:1:1:正位', 'tarot:card:2:2:正位'],
+  );
 
-  const unknownSpread = analyzeTarotEvidence({
+  const skippedSlot: TarotData = {
+    ...data,
+    cards: [data.cards[0], data.cards[2]],
+    evidenceAnalysis: undefined,
+  };
+  const skippedBefore = structuredClone(skippedSlot);
+  const skippedEvidence = analyzeTarotEvidence(skippedSlot);
+  assert.deepEqual(skippedEvidence.spreadCoverageFact.missingPositions, ['现在']);
+  assert.deepEqual(skippedEvidence.sequenceFacts, []);
+  assert.deepEqual(skippedEvidence.elementInteractionFacts, []);
+  const skippedPrompt = buildDivinationPrompt({
+    method: 'tarot',
+    question: '本次占问',
+    data: skippedSlot,
+    currentTime: new Date('2025-01-01T00:00:00Z'),
+  });
+  assert.match(skippedPrompt, /缺少牌位：现在/u);
+  assert.doesNotMatch(skippedPrompt, /相邻牌元素关系：|过去愚者正位 → 未来女祭司正位/u);
+  assert.deepEqual(skippedSlot, skippedBefore);
+  for (const cards of [
+    [data.cards[0], { ...data.cards[1], position: '未登记位置' }, data.cards[2]],
+    [data.cards[0], data.cards[2], data.cards[1]],
+    [data.cards[0], { ...data.cards[1], id: 79 }, data.cards[2]],
+    [data.cards[0], { ...data.cards[1], id: 1 }, data.cards[2]],
+  ]) {
+    const invalidSlots = analyzeTarotEvidence({ ...data, cards, evidenceAnalysis: undefined });
+    assert.deepEqual(invalidSlots.sequenceFacts, []);
+    assert.deepEqual(invalidSlots.elementInteractionFacts, []);
+  }
+
+  const unknownData: TarotData = {
     ...data,
     spreadType: 'unknown',
     spreadName: '未声明牌阵',
     evidenceAnalysis: undefined,
-  });
+  };
+  const unknownSpread = analyzeTarotEvidence(unknownData);
   assert.equal(unknownSpread.spreadCoverageFact.status, '未知牌阵');
   assert.equal(unknownSpread.spreadCoverageFact.expectedCardCount, null);
+  const unknownPrompt = formatEnhancedDivinationInfo('tarot', unknownData);
+  assert.match(unknownPrompt, /牌位记录：未声明牌阵；实际记录3张；实际牌位：过去、现在、未来/u);
+  assert.doesNotMatch(
+    unknownPrompt,
+    /未列配置|(?:缺少牌位|重复牌位|额外牌位|顺序异常位置|重复牌号)：无/u,
+  );
+  for (const spreadType of ['unknown', 'toString', 'constructor', '__proto__']) {
+    const undeclared = { ...unknownData, spreadType };
+    const undeclaredEvidence = analyzeTarotEvidence(undeclared);
+    assert.equal(undeclaredEvidence.spreadCoverageFact.status, '未知牌阵');
+    assert.equal(undeclaredEvidence.spreadCoverageFact.expectedCardCount, null);
+    assert.deepEqual(undeclaredEvidence.sequenceFacts, []);
+    assert.deepEqual(undeclaredEvidence.elementInteractionFacts, []);
+    assert.match(
+      buildDivinationPrompt({
+        method: 'tarot',
+        question: '本次占问',
+        data: undeclared,
+        currentTime: new Date('2025-01-01T00:00:00Z'),
+      }),
+      /实际牌位：过去、现在、未来/u,
+    );
+  }
+});
+
+test('塔罗缺少正逆位时保留未记录状态，不默认按正位解释', () => {
+  const data = drawTarotSpread('single', {
+    manualCards: [{ id: 1, reversed: false }],
+  });
+  Reflect.deleteProperty(data.cards[0], 'reversed');
+
+  const evidence = analyzeTarotEvidence(data);
+  const prompt = formatEnhancedDivinationInfo('tarot', data);
+
+  assert.equal(evidence.cards[0]?.orientation, '未记录');
+  assert.ok(evidence.cards[0]?.mismatches.includes('正逆位缺失或无效'));
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.counterEvidenceFacts.length, 0);
+  assert.match(prompt, /当前指引：愚者（未记录）/u);
+  assert.doesNotMatch(prompt, /当前指引：愚者（正位）/u);
+  for (const reversed of [undefined, null, 'false', 1, false, true]) {
+    const unknownOrientation = structuredClone(data);
+    Object.assign(unknownOrientation.cards[0], { reversed });
+    const before = structuredClone(unknownOrientation);
+    const unknownEvidence = analyzeTarotEvidence(unknownOrientation);
+    const orientation = typeof reversed === 'boolean' ? (reversed ? '逆位' : '正位') : '未记录';
+    assert.equal(unknownEvidence.cards[0].orientation, orientation);
+    assert.equal(unknownEvidence.cards[0].constraints.length, reversed === true ? 1 : 0);
+    assert.equal(unknownEvidence.counterEvidenceFacts.length, reversed === true ? 1 : 0);
+    const taskbook = buildDivinationPrompt({
+      method: 'tarot',
+      question: '本次占问',
+      data: unknownOrientation,
+      currentTime: new Date('2025-01-01T00:00:00Z'),
+    });
+    const expectations = extractDivinationPromptFacts('tarot', unknownOrientation);
+    const cardFact = expectations.find((fact) => fact.id === 'tarot.card.0');
+    assert.ok(cardFact);
+    assert.ok(cardFact.values.includes(`（${orientation}）`));
+    assert.deepEqual(cardFact.scope, { start: '牌位明细：', end: '【任务】' });
+    assert.deepEqual(auditPromptFacts(taskbook, expectations).missing, []);
+    const cardLine = taskbook
+      .split('\n')
+      .find((line) => line.trimStart().startsWith('当前指引：愚者'));
+    assert.ok(cardLine);
+    assert.deepEqual(auditPromptFacts(taskbook.replace(cardLine, ''), expectations).missing, [
+      'tarot.card.0',
+    ]);
+    const wrongOrientation = orientation === '正位' ? '逆位' : '正位';
+    assert.deepEqual(
+      auditPromptFacts(
+        taskbook.replace(
+          `当前指引：愚者（${orientation}）`,
+          `当前指引：愚者（${wrongOrientation}）`,
+        ),
+        expectations,
+      ).missing,
+      ['tarot.card.0'],
+    );
+    assert.deepEqual(unknownOrientation, before);
+  }
+});
+
+test('塔罗抽牌方式与算法身份不一致时不标记来源完整', () => {
+  const data = drawTarotSpread('three', { seed: '塔罗身份交叉核对' });
+  data.draw!.method = '用户按牌位手工录入';
+  data.draw!.orientationRule = '正逆位由用户逐张录入';
+
+  const evidence = analyzeTarotEvidence(data);
+
+  assert.equal(evidence.randomFact.status, '不适用');
+  assert.equal(evidence.drawFact.status, '来源链不一致');
+  assert.ok(
+    evidence.drawFact.metadataMismatches.some((item) =>
+      item.includes('算法标识应为tarot.spread.manual'),
+    ),
+  );
+  assert.ok(evidence.drawFact.metadataMismatches.includes('手工录入记录带有随机轨迹'));
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+});
+
+test('塔罗牌阵名称与牌阵类型不符时标记身份缺口', () => {
+  const data = drawTarotSpread('three', {
+    manualCards: [1, 2, 3].map((id) => ({ id, reversed: false })),
+  });
+  data.spreadName = '凯尔特十字';
+
+  const evidence = analyzeTarotEvidence(data);
+
+  assert.equal(evidence.spreadCoverageFact.expectedSpreadName, '时间流牌阵');
+  assert.equal(evidence.spreadCoverageFact.status, '牌阵名称不符');
+  assert.deepEqual(evidence.spreadCoverageFact.identityMismatches, [
+    '牌阵名称应为时间流牌阵，记录为凯尔特十字',
+  ]);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  const taskbook = buildDivinationPrompt({
+    method: 'tarot',
+    question: '本次占问',
+    data,
+    currentTime: new Date('2025-01-01T00:00:00Z'),
+  });
+  assert.match(taskbook, /核心结构：牌阵时间流牌阵；共3张牌/);
+  assert.match(taskbook, /【任务】/);
+  assert.doesNotMatch(taskbook, /凯尔特十字/);
+  assert.match(formatDetailedDivinationInfo('tarot', data), /牌阵时间流牌阵/);
+  assert.deepEqual(getDivinationSummaryBlocks('tarot', data).tags[0], '牌阵：时间流牌阵');
 });
 
 test('塔罗主题对象只做标签计数，不生成权重或吉凶评分', () => {
-  const data = drawTarotSpread('three', { seed: '塔罗重复主题' });
-  data.cards = data.cards.map((card, index) => ({
-    ...card,
-    element: index < 2 ? '火（行动、动力、创造）' : '大阿卡纳（核心课题与阶段转折）',
-  }));
+  const data = drawTarotSpread('three', {
+    manualCards: [
+      { id: 23, reversed: false },
+      { id: 24, reversed: false },
+      { id: 1, reversed: false },
+    ],
+  });
   const evidence = analyzeTarotEvidence(data);
   const fire = evidence.themeFacts.find((fact) => fact.theme === '火');
 

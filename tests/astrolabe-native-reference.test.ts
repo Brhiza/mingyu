@@ -156,6 +156,12 @@ function assertSameAspect(
     `${label}允许容许度`,
   );
   assert.equal(actual.strength, expected.strength, `${label}相位强度`);
+  const rawOrbRatio = expected.deviation / expected.orb;
+  assert.equal(
+    actual.closeness,
+    rawOrbRatio <= 1 / 3 ? '紧密' : rawOrbRatio <= 2 / 3 ? '中等' : '宽松',
+    `${label}原始几何比例分级`,
+  );
   assert.equal(actual.applying, expected.isApplying, `${label}入相位`);
   assert.equal(actual.isOutOfSign, expected.isOutOfSign, `${label}跨星座`);
 }

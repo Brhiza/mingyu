@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { calculateHuangjiJingshi } from 'mingyu-core/huangji-jingshi';
+import { calculateHuangjiJingshi, parseHuangjiSixDayDateTime } from 'mingyu-core/huangji-jingshi';
 import { HuangjiReferenceTable } from '../src/components/DivinationPanel/HuangjiReferenceTable';
 import { TraditionalDivinationBoard } from '../src/components/DivinationPanel/TraditionalDivinationBoard';
 import type { DivinationSession } from '../src/lib/divination/engine';
@@ -22,6 +22,8 @@ test('皇极经世传统盘应完整展示卦序层级和值年互错综', () =>
 
   const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
   assert.match(html, /皇极经世盘/);
+  assert.match(html, /第1元 · 第7会（午会）/);
+  assert.doesNotMatch(html, /第2元 · 第7会（午会）/);
   assert.match(html, /会内统卦/);
   assert.match(html, /六十年统卦/);
   assert.match(html, /火风鼎/);
@@ -52,6 +54,27 @@ test('皇极经世传统盘应展示年月日时四层卦象', () => {
   assert.match(html, /时经卦/);
   assert.match(html, /雷山小过/);
   assert.match(html, /地山谦/);
+});
+
+test('皇极六日逐爻传统盘以秒级精度展示历史时区偏移', () => {
+  const data = calculateHuangjiJingshi({
+    sixDayDate: parseHuangjiSixDayDateTime(
+      '1900-01-02T12:00:00',
+      undefined,
+      'Asia/Shanghai',
+      'six-day-seven-part',
+    ),
+  });
+  const session: DivinationSession = {
+    method: 'huangji',
+    requestedMethod: 'huangji',
+    question: '此时如何？',
+    prompt: data.prompt,
+    data,
+  };
+  const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+  assert.match(html, /UTC\+08:05:43/u);
+  assert.doesNotMatch(html, /8\.095277/u);
 });
 
 test('皇极经世传统盘提供显式资料表入口而不自动绑定当前世序', () => {

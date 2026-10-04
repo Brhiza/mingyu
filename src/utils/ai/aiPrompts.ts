@@ -1,7 +1,7 @@
 import {
   formatBaziForPrompt,
-  analyzeBaziCompatibility,
   type BaziChartResult,
+  type BaziCompatibilityEvidenceResult,
   type FortuneSelectionContext,
   type PromptChartScene,
 } from 'mingyu-core/bazi';
@@ -9,6 +9,10 @@ import {
   getBaziCompatibilityDefaultQuestion,
   getBaziDefaultQuestion,
 } from '../../lib/prompt-default-questions';
+import {
+  formatBaziCompatibilityFacts,
+  formatCalculatedBaziCompatibilityFacts,
+} from '../../lib/bazi-compatibility-facts';
 import {
   BAZI_COMPATIBILITY_PROMPT_PRESETS,
   BAZI_PROMPT_PRESETS,
@@ -253,31 +257,18 @@ function getCompatibilityTask(compatType?: CompatType): string {
   return `${prefix}请依据双方盘面回答【问题】。`;
 }
 
-function formatCompatibilityFacts(result: ReturnType<typeof analyzeBaziCompatibility>): string {
-  const relationLines = result.crossPillarRelations.map((item) => item.promptText);
-  const combinationLines = result.crossBranchCombinations.map((item) => item.promptText);
-  const tenGodLines = result.tenGodMappings.map((item) => item.promptText);
-  const coverageLines = result.usefulGodCoverage
-    .filter((item) => item.status === '已计算')
-    .map((item) => item.promptText);
-
-  return [
-    `日主关系：${result.dayMasterRelation.promptText}。`,
-    `四柱关系：${relationLines.length ? relationLines.join('；') : '双方四柱未见列出的合冲刑害破关系'}。`,
-    combinationLines.length ? `跨盘组合：${combinationLines.join('；')}。` : '',
-    `双向十神：${tenGodLines.join('；')}。`,
-    coverageLines.length ? `喜忌五行对应：${coverageLines.join('；')}。` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
-
 export function getCompatibilityPrompt(
   questionText: string,
   baziResult1: BaziChartResult | null,
   baziResult2: BaziChartResult | null,
   compatType?: CompatType,
-  options: { isCustomQuestion?: boolean; person1Name?: string; person2Name?: string } = {},
+  options: {
+    isCustomQuestion?: boolean;
+    person1Name?: string;
+    person2Name?: string;
+    /** 同一请求已按这两份盘及姓名计算的双盘关系。 */
+    compatibility?: BaziCompatibilityEvidenceResult;
+  } = {},
 ): { system: string; user: string } {
   const data1 = baziResult1
     ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult1, null, 'compatibility'))
@@ -287,12 +278,12 @@ export function getCompatibilityPrompt(
     : '';
   const compatibilityEvidence =
     baziResult1 && baziResult2
-      ? formatCompatibilityFacts(
-          analyzeBaziCompatibility(baziResult1, baziResult2, {
+      ? options.compatibility
+        ? formatCalculatedBaziCompatibilityFacts(options.compatibility)
+        : formatBaziCompatibilityFacts(baziResult1, baziResult2, {
             person1Name: options.person1Name,
             person2Name: options.person2Name,
-          }),
-        )
+          })
       : '';
   const patternConditions1 = baziResult1 ? formatBaziPatternConditions(baziResult1) : '';
   const patternConditions2 = baziResult2 ? formatBaziPatternConditions(baziResult2) : '';

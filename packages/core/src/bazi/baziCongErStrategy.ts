@@ -1,10 +1,12 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { assessStemHarmonyTransform } from './harmonyTransform';
 import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
 import { getRootTraditionalKind, isStructuralRoot, type RootPillarPosition } from './baziRootFacts';
 import type { CongErPatternAdjudication, HiddenStems, Pillars, Wuxing } from './baziTypes';
 import { getSeasonStatus, getWuxing } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 
@@ -48,12 +50,15 @@ const PILLAR_LABELS: Record<RootPillarPosition, string> = {
 };
 
 function getGeneratedElement(element: Wuxing): Wuxing {
-  return BASIC_MAPPINGS.WUXING_SHENG[element] as Wuxing;
+  return BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[element] as Wuxing;
 }
 
 function buildHiddenStems(pillars: Pillars): HiddenStems {
   return Object.fromEntries(
-    POSITIONS.map((position) => [position, [...(HIDDEN_STEMS[pillars[position].zhi] || [])]]),
+    POSITIONS.map((position) => [
+      position,
+      [...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[position].zhi] || [])],
+    ]),
   ) as unknown as HiddenStems;
 }
 
@@ -171,7 +176,7 @@ export function assessCongErPattern(
     const representative = formation.wuxing;
     return (
       representative === dayMasterElement ||
-      BASIC_MAPPINGS.WUXING_SHENG[representative] === dayMasterElement
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[representative] === dayMasterElement
     );
   });
   const allPrincipalWealthSupportBlockers = unique([
@@ -250,7 +255,7 @@ export function assessCongErPattern(
   const wealthRoots = structuralRootsFor(wealthElement);
   const actionableWealthRoots = rootsFor(wealthElement);
   const wealthFlowSatisfied = Boolean(
-    visibleWealth.length || wealthFormation || wealthRoots.length,
+    visibleWealth.length || wealthFormation || actionableWealthRoots.length,
   );
   const rootedResources = rootedVisible(['正印', '偏印']);
   const rootedOfficers = rootedVisible(['正官', '七杀']);
@@ -274,8 +279,15 @@ export function assessCongErPattern(
       if (wealth.position !== resourcePosition && !areAdjacent(resourcePosition, wealth.position)) {
         continue;
       }
-      if (BASIC_MAPPINGS.WUXING_KE[wealthElement] !== getWuxing(resourceStem)) continue;
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem) {
+      if (
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[wealthElement] !== getWuxing(resourceStem)
+      )
+        continue;
+      // 支藏印星不是该柱明透天干，不能作为天干五合参与者。
+      if (
+        pillars[resourcePosition].gan !== resourceStem ||
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem
+      ) {
         return { wealth, harmonyNote: '' };
       }
       const harmony = assessStemHarmonyTransform(
@@ -306,8 +318,13 @@ export function assessCongErPattern(
   ) => {
     const rescue = findWealthRescue(resourcePosition, resourceStem);
     if (!rescue) return false;
+    const resourceLabel =
+      pillars[resourcePosition].gan === resourceStem
+        ? POSITION_LABELS[resourcePosition]
+        : `${PILLAR_LABELS[resourcePosition]}${pillars[resourcePosition].zhi}藏`;
+    const constraintAction = pillars[resourcePosition].gan === resourceStem ? '紧贴制' : '制';
     functionalResolutions.push(
-      `${rescue.harmonyNote}${POSITION_LABELS[rescue.wealth.position]}${rescue.wealth.stem}财星有可用根，紧贴制${POSITION_LABELS[resourcePosition]}${resourceStem}${resourceGod}，印夺食有救`,
+      `${rescue.harmonyNote}${POSITION_LABELS[rescue.wealth.position]}${rescue.wealth.stem}财星有可用根，${constraintAction}${resourceLabel}${resourceStem}${resourceGod}，印夺食有救`,
     );
     return true;
   };
@@ -363,7 +380,8 @@ export function assessCongErPattern(
     const clashTarget = principalOutputPositions.find(
       (targetPosition) =>
         targetPosition !== position &&
-        BASIC_MAPPINGS.DI_ZHI_CHONG[pillars[position].zhi] === pillars[targetPosition].zhi,
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[pillars[position].zhi] ===
+          pillars[targetPosition].zhi,
     );
     if (!clashTarget) return [];
     if (recordWealthRescue(position, principalStem, tenGod)) return [];
@@ -387,12 +405,18 @@ export function assessCongErPattern(
         ? `${unique(visibleWealth.map((fact) => fact.stem)).join('、')}财星明透，承接食伤所生`
         : wealthFormation
           ? `${wealthFormation.branches.join('')}成${wealthFormation.type}${wealthElement}局，承接食伤所生`
-          : `${unique(wealthRoots.map((root) => `${root.position === 'year' ? '年' : root.position === 'month' ? '月' : root.position === 'day' ? '日' : '时'}支${root.branch}藏${root.stem}${getRootTraditionalKind(root)}${root.actionable ? '' : '（受冲待核）'}`)).join('、')}为结构财气，承接食伤所生`
+          : `${unique(actionableWealthRoots.map((root) => `${root.position === 'year' ? '年' : root.position === 'month' ? '月' : root.position === 'day' ? '日' : '时'}支${root.branch}藏${root.stem}${getRootTraditionalKind(root)}`)).join('、')}为可用结构财气，承接食伤所生`
       : '',
     ...resolvedFunctions,
   ].filter(Boolean);
   const structuralBlockers = unique([
-    ...(!wealthFlowSatisfied ? ['未见财星明透、财局或结构藏财承接食伤'] : []),
+    ...(!wealthFlowSatisfied
+      ? [
+          wealthRoots.length
+            ? '结构藏财根气受冲待核，未见可用财气承接食伤'
+            : '未见财星明透、财局或结构藏财承接食伤',
+        ]
+      : []),
     ...activeResources.map(
       (fact) =>
         `${POSITION_LABELS[fact.position]}${fact.stem}${fact.tenGod}明透有根，对食伤成气形成实际制约${resourceConstraintNotes.has(`${fact.position}:${fact.stem}`) ? `；${resourceConstraintNotes.get(`${fact.position}:${fact.stem}`)}` : ''}`,
@@ -401,10 +425,13 @@ export function assessCongErPattern(
       ? [monthPrincipalResource + '，直接生身并制食伤']
       : []),
     ...hiddenResourceClashes,
-    ...activeOfficers.map(
-      (fact) =>
-        `${POSITION_LABELS[fact.position]}${fact.stem}${fact.tenGod}明透有根，财星顺生转向官杀并与食伤交战`,
-    ),
+    ...unique(activeOfficers.map((fact) => `${fact.stem}${fact.tenGod}`)).map((god) => {
+      const facts = activeOfficers.filter((fact) => `${fact.stem}${fact.tenGod}` === god);
+      const positions = facts.map((fact) => POSITION_LABELS[fact.position]);
+      return facts.length === 1
+        ? `${positions[0]}${god}明透有根，财星顺生转向官杀并与食伤交战`
+        : `${positions.join('、')}同见${god}，均明透有根，财星顺生转向官杀并与食伤交战`;
+    }),
     ...(monthPrincipalOfficer ? [monthPrincipalOfficer + '，财气转向官杀并与食伤交战'] : []),
   ]);
   const wealthSettlesInDayAndHour =

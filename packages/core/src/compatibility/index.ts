@@ -142,11 +142,35 @@ function createChartOptions(
   systems: CompatibilitySystem[],
   options: CompatibilityBundleOptions,
 ): BirthChartBundleOptions {
+  const ziwei = options.chart?.ziwei;
+  if (systems.includes('ziwei') && ziwei?.independentBatch) {
+    if (ziwei.independentBatch === 'fortune' || ziwei.scopes?.[0] !== 'origin') {
+      throw new RangeError('紫微合盘需要双方本命 origin 资料，不能使用不含本命盘的独立批次。');
+    }
+  }
   return {
     ...options.chart,
     systems,
     signal: options.signal ?? options.chart?.signal,
+    ...(systems.includes('ziwei') && ziwei?.scopes?.length && !ziwei.independentBatch
+      ? { ziwei: { ...ziwei, scopes: Array.from(new Set(['origin' as const, ...ziwei.scopes])) } }
+      : {}),
   };
+}
+
+function createPointChartOptions(
+  systems: CompatibilitySystem[],
+  options: CompatibilityBundleOptions,
+): BirthChartBundleOptions {
+  const chartOptions = createChartOptions(systems, options);
+  if (!systems.includes('ziwei')) return chartOptions;
+  const ziwei = chartOptions.ziwei ?? {};
+  const horoscopeContext = ziwei.horoscopeContext
+    ? { ...ziwei.horoscopeContext }
+    : getDefaultHoroscopeContext(ziwei.now);
+  const ziweiWithoutNow = { ...ziwei };
+  delete ziweiWithoutNow.now;
+  return { ...chartOptions, ziwei: { ...ziweiWithoutNow, horoscopeContext } };
 }
 
 function createRangeChartOptions(
@@ -181,7 +205,7 @@ function createRangeChartOptions(
   };
 }
 
-function lockRangeInputs(
+function lockInputs(
   primary: BirthProfile,
   partner: BirthProfile,
   options: CompatibilityBundleOptions,
@@ -198,11 +222,17 @@ function lockRangeInputs(
     delete chartWithoutSignal.signal;
     optionsWithoutSignal.chart = chartWithoutSignal;
   }
+  if (options.ziwei) {
+    const ziweiOptions = { ...options.ziwei };
+    delete ziweiOptions.astrolabe1;
+    delete ziweiOptions.astrolabe2;
+    optionsWithoutSignal.ziwei = ziweiOptions;
+  }
   const lockedOptions = structuredClone(optionsWithoutSignal);
   lockedOptions.signal = effectiveSignal;
   return {
-    primary: structuredClone(primary),
-    partner: structuredClone(partner),
+    primary: { ...structuredClone(primary), name: primary.name?.trim() ? primary.name : '第一人' },
+    partner: { ...structuredClone(partner), name: partner.name?.trim() ? partner.name : '第二人' },
     options: lockedOptions,
   };
 }
@@ -214,7 +244,7 @@ async function calculatePointCompatibilityBundle(
   options: CompatibilityBundleOptions,
 ): Promise<CompatibilityPointBundle> {
   checkAborted(options.signal);
-  const chartOptions = createChartOptions(systems, options);
+  const chartOptions = createPointChartOptions(systems, options);
   const [primaryChartValue, partnerChartValue] = await Promise.all([
     calculateBirthChartBundle(primary, chartOptions),
     calculateBirthChartBundle(partner, chartOptions),
@@ -248,9 +278,9 @@ function addPairRelations(
   if (systems.includes('bazi')) {
     if (!primaryChart.bazi || !partnerChart.bazi) throw new Error('八字合盘资料生成失败。');
     bundle.bazi = analyzeBaziCompatibility(primaryChart.bazi, partnerChart.bazi, {
+      ...options.bazi,
       person1Name: primaryChart.profile.name,
       person2Name: partnerChart.profile.name,
-      ...options.bazi,
     });
   }
 
@@ -275,11 +305,11 @@ function addPairRelations(
       primaryChart.ziwei.payloadByScope.origin,
       partnerChart.ziwei.payloadByScope.origin,
       {
+        ...options.ziwei,
         person1Name: primaryChart.profile.name,
         person2Name: partnerChart.profile.name,
         astrolabe1: primaryChart.ziwei.astrolabe,
         astrolabe2: partnerChart.ziwei.astrolabe,
-        ...options.ziwei,
       },
     );
   }
@@ -404,9 +434,15 @@ export async function calculateCompatibilityBundle(
   options: CompatibilityBundleOptions = {},
 ): Promise<CompatibilityBundle> {
   const systems = normalizeSystems(options.systems);
-  if (primary.birthTimeRange === undefined && partner.birthTimeRange === undefined) {
-    return calculatePointCompatibilityBundle(primary, partner, systems, options);
+  checkAborted(options.signal ?? options.chart?.signal);
+  const locked = lockInputs(primary, partner, options);
+  if (locked.primary.birthTimeRange === undefined && locked.partner.birthTimeRange === undefined) {
+    return calculatePointCompatibilityBundle(
+      locked.primary,
+      locked.partner,
+      systems,
+      locked.options,
+    );
   }
-  const locked = lockRangeInputs(primary, partner, options);
   return calculateRangeCompatibilityBundle(locked.primary, locked.partner, systems, locked.options);
 }

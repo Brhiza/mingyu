@@ -5,7 +5,9 @@ import { LunarDay, SolarDay } from 'tyme4ts';
 import {
   assertValidHoroscopeInput,
   buildHoroscopeFromInput,
+  getZiweiFortuneBirthSolarDate,
   shiftLunarYear,
+  normalizeChartInput,
 } from './runtime-helpers';
 
 export type DecadalTimelineOption = {
@@ -57,6 +59,7 @@ export function createZiweiHoroscopeResolver(
   astrolabe: IztroAstrolabe,
   input: ChartInput,
 ): ZiweiHoroscopeResolver {
+  input = normalizeChartInput(input);
   const cache = new Map<string, Promise<IztroHoroscope>>();
   return (dateStr, hourIndex) => {
     const key = `${dateStr}#${hourIndex}`;
@@ -142,8 +145,14 @@ function normalizeAstrolabeSolarDate(dateStr: string) {
   return formatSolarDay(SolarDay.fromYmd(Number(match[1]), Number(match[2]), Number(match[3])));
 }
 
-function buildNormalAgeBoundaryDate(astrolabe: IztroAstrolabe, nominalAge: number) {
-  const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
+function buildNormalAgeBoundaryDate(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  nominalAge: number,
+) {
+  const birthSolarDate = normalizeAstrolabeSolarDate(
+    getZiweiFortuneBirthSolarDate(astrolabe, input),
+  );
   if (nominalAge === 1) return birthSolarDate;
   const anniversary = shiftLunarYear(birthSolarDate, nominalAge - 1);
   const [year, month, day] = anniversary.split('-').map(Number);
@@ -161,7 +170,7 @@ async function resolveSelectedAgeHoroscope(
   if ((input.ageDivide ?? 'normal') !== 'normal') {
     throw new Error('仅普通虚岁独立批次可复用所选年龄年运限对象。');
   }
-  const dateStr = buildNormalAgeBoundaryDate(astrolabe, age);
+  const dateStr = buildNormalAgeBoundaryDate(astrolabe, input, age);
   const horoscope = await resolveHoroscope(dateStr, hourIndex);
   if (horoscope.age.nominalAge !== age) {
     throw new Error(`iztro 无法验证虚岁 ${age} 的农历年分界。`);
@@ -191,7 +200,7 @@ async function findVerifiedHoroscope(
   resolveHoroscope: ZiweiHoroscopeResolver,
 ) {
   if ((input.ageDivide ?? 'normal') !== 'birthday') {
-    const dateStr = buildNormalAgeBoundaryDate(astrolabe, nominalAge);
+    const dateStr = buildNormalAgeBoundaryDate(astrolabe, input, nominalAge);
     const horoscope = await resolveHoroscope(dateStr, input.birthTimeIndex);
     if (horoscope.age.nominalAge !== nominalAge) {
       throw new Error(
@@ -203,7 +212,9 @@ async function findVerifiedHoroscope(
     return { dateStr, horoscope };
   }
 
-  const birthSolarDate = normalizeAstrolabeSolarDate(astrolabe.solarDate);
+  const birthSolarDate = normalizeAstrolabeSolarDate(
+    getZiweiFortuneBirthSolarDate(astrolabe, input),
+  );
   const anniversary = shiftLunarYear(birthSolarDate, nominalAge - 1);
   const buildAtOffset = async (offset: number) => {
     const dateStr = shiftSolarDay(anniversary, offset);
@@ -260,6 +271,7 @@ export async function buildVerifiedDecadalTimelineOptions(
   input: ChartInput,
   resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
 ): Promise<DecadalTimelineOption[]> {
+  input = normalizeChartInput(input);
   const ranges = collectIztroDecadalRanges(astrolabe);
   const firstRange = ranges[0];
   if (!firstRange) {
@@ -350,6 +362,8 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
   },
   resolveHoroscope: ZiweiHoroscopeResolver = createZiweiHoroscopeResolver(astrolabe, input),
 ): Promise<VerifiedDecadalTimelineBatch> {
+  input = normalizeChartInput(input);
+  options = { ...options, batch: { ...options.batch } };
   const ranges = collectIztroDecadalRanges(astrolabe);
   const firstRange = ranges[0];
   if (!firstRange) throw new Error('iztro 未返回可用的大限范围。');
@@ -429,7 +443,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
     }
     const stageVerification = selectedAgeHoroscope
       ? {
-          dateStr: buildNormalAgeBoundaryDate(astrolabe, period.startAge),
+          dateStr: buildNormalAgeBoundaryDate(astrolabe, input, period.startAge),
           horoscope: selectedAgeHoroscope.horoscope,
         }
       : await findVerifiedHoroscope(astrolabe, input, period.startAge, resolveHoroscope);
@@ -449,7 +463,7 @@ export async function buildVerifiedDecadalTimelineBatchOptions(
       (input.ageDivide ?? 'normal') === 'birthday'
         ? (await findVerifiedHoroscope(astrolabe, input, period.endAge + 1, resolveHoroscope))
             .dateStr
-        : buildNormalAgeBoundaryDate(astrolabe, period.endAge + 1);
+        : buildNormalAgeBoundaryDate(astrolabe, input, period.endAge + 1);
     const endDateStr = shiftSolarDay(nextDateStr, -1);
     const verifiedPeriod: DecadalTimelineOption =
       period.kind === 'childhood'

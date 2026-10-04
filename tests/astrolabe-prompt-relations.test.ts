@@ -29,6 +29,7 @@ test('倍五分相在普通、双盘与即时提示词中只呈现中文关系�
   assert.ok(aspect);
   assert.equal(aspect.type, '倍五分相');
   const line = formatAstrolabeAspectLine(aspect, [...chart.planets, ...chart.angles]);
+  const compactLine = formatAstrolabeAspectLine(aspect, [...chart.planets, ...chart.angles], false);
   assert.match(line, /：倍五分相，目标角144°，实际角距/);
   assert.doesNotMatch(line, /bQ/);
 
@@ -38,7 +39,8 @@ test('倍五分相在普通、双盘与即时提示词中只呈现中文关系�
     buildAstrolabeSynastryPrompt({ chart1: chart, chart2: chart, synastry }),
     buildInstantAstrolabePrompt(chart, '请解读当前情况', '当地钟表时间'),
   ]) {
-    assert.ok(prompt.includes(line));
+    assert.ok(prompt.includes(compactLine));
+    assert.ok(!prompt.includes(line));
     assert.doesNotMatch(prompt, /bQ/);
   }
 
@@ -48,9 +50,20 @@ test('倍五分相在普通、双盘与即时提示词中只呈现中文关系�
     astrolabe: birth,
   });
   assert.ok(session.summary.lines.join('\n').includes('倍五分相'));
-  assert.match(session.aiPrompt, /星体：太阳/);
-  assert.match(session.aiPrompt, /四轴：上升/);
-  assert.match(session.aiPrompt, /相位：[^\n]*倍五分相，偏差/);
+  const sun = chart.planets.find((point) => point.name === 'Sun');
+  assert.ok(sun);
+  assert.match(session.aiPrompt, /星体位置：\n/);
+  assert.ok(
+    session.aiPrompt.includes(
+      `  ${sun.label}${sun.formatted}${sun.house > 0 ? `，第${sun.house}宫` : ''}`,
+    ),
+  );
+  for (const angle of chart.angles) {
+    assert.ok(session.aiPrompt.includes(`${angle.label}：${angle.formatted}`));
+  }
+  assert.match(session.aiPrompt, /相位明细：\n/);
+  assert.match(compactLine, /倍五分相，目标角144°，实际角距[\d.]+°，偏差[\d.]+°/);
+  assert.equal(session.aiPrompt.split(compactLine).length - 1, 1);
   assert.doesNotMatch(session.aiPrompt, /bQ|\bSun\b|\bAscendant\b/);
   assert.doesNotMatch(session.prompt, /bQ/);
   assert.equal(
@@ -88,15 +101,45 @@ test('真实星盘相位将跨星座合相的位置与角距偏差分别给出',
   assert.ok(Math.abs(angle - aspect.actualAngle!) < 0.01);
   assert.ok(Math.abs(angle - aspect.orb) < 0.01);
   const line = formatAstrolabeAspectLine(aspect, points);
+  const compactLine = formatAstrolabeAspectLine(aspect, points, false);
+  const natalPrompt = formatAstrolabeForPrompt(chart);
   assert.ok(line.includes(sun.formatted));
   assert.ok(line.includes(mercury.formatted));
+  assert.doesNotMatch(compactLine, new RegExp(`${sun.formatted}|${mercury.formatted}`));
   assert.match(line, /跨星座/);
   assert.match(line, /目标角0°，实际角距[\d.]+°，偏差[\d.]+°，容许偏差上限/);
-  assert.ok(formatAstrolabeForPrompt(chart).includes(line));
+  assert.ok(natalPrompt.includes(compactLine));
+  assert.ok(natalPrompt.includes(`  ${sun.label}${sun.formatted}`));
+  assert.ok(natalPrompt.includes(`  ${mercury.label}${mercury.formatted}`));
   for (const point of chart.angles) {
-    assert.ok(formatAstrolabeForPrompt(chart).includes(`${point.label}：${point.formatted}`));
+    assert.ok(natalPrompt.includes(`${point.label}：${point.formatted}`));
   }
-  assert.ok(formatAstrolabeAspectSections(chart.aspects, points).join('\n').includes(line));
+  assert.ok(formatAstrolabeAspectSections(chart.aspects, points).join('\n').includes(compactLine));
+  const prompts = [
+    [natalPrompt, 1],
+    [
+      buildAstrolabeSynastryPrompt({
+        chart1: chart,
+        chart2: chart,
+        synastry: analyzeAstrolabeSynastry(chart, chart),
+      }),
+      2,
+    ],
+  ] as const;
+  for (const [prompt, natalChartCount] of prompts) {
+    const headlines = prompt.match(/^相位主线：.*$/gm) ?? [];
+    assert.equal(headlines.length, natalChartCount);
+    for (const headline of headlines) {
+      assert.match(headline, new RegExp(`共${chart.aspects.length}项，主要相位\\d+项`));
+      assert.match(headline, /日月参与\d+项，四轴参与\d+项，紧密\d+项/);
+      assert.doesNotMatch(headline, /太阳与水星：合相/);
+    }
+    assert.equal(prompt.split(compactLine).length - 1, natalChartCount);
+    assert.ok(!prompt.includes(line));
+    for (const headline of headlines) {
+      assert.doesNotMatch(headline, /实际角距|容许偏差上限|第\d+宫/);
+    }
+  }
 });
 
 test('相位保留已知入相出相，未知时不补造阶段', () => {
@@ -156,4 +199,31 @@ test('旧相位缺少角距和上限时只输出已有偏差，不补造角度�
   });
   assert.match(line, /偏差3\.32°/);
   assert.doesNotMatch(line, /目标角|实际角距|上限|第\d+宫|同星座|跨星座/);
+});
+
+test('本命提示词将真太阳时列为传统参考，并省略未计算的宫位', () => {
+  const chart = generateAstrolabe({
+    name: '样本',
+    gender: '女',
+    year: '1993',
+    month: '4',
+    day: '8',
+    hour: '23',
+    minute: '34',
+    latitude: '1.3521',
+    longitude: '103.8198',
+    timezone: '8',
+    useTrueSolarTime: true,
+  });
+  chart.planets[0].house = 0;
+
+  const prompt = formatAstrolabeForPrompt(chart);
+  assert.match(
+    prompt,
+    /出生时间校正：当地钟表时间.*真太阳时.*传统时间参考.*星盘依据当地钟表时间对应的出生瞬间计算/,
+  );
+  assert.doesNotMatch(prompt, /第0宫/);
+
+  delete chart.birth.trueSolarDateTime;
+  assert.doesNotMatch(formatAstrolabeForPrompt(chart), /出生时间校正|真太阳时/);
 });

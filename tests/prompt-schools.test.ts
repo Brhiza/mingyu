@@ -12,6 +12,7 @@ import {
   buildDivinationPrompt,
   formatPromptSchoolGuidance,
   getPromptSchoolIds,
+  getPromptSchoolProfiles,
   getPromptSchoolSectionTitle,
 } from 'mingyu-core/prompt';
 
@@ -33,6 +34,20 @@ test('解读口径注册表只覆盖规划内适用术数且每种至少提供�
     );
   }
   assert.equal('ssgw' in PROMPT_SCHOOL_PROFILES, false);
+
+  const profiles = getPromptSchoolProfiles('liuyao');
+  const profile = profiles.huozhulin;
+  const original = { ...profile };
+  const guidance = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
+  try {
+    profile.label = '变造断法';
+    profile.task = '变造任务';
+    profile.basis = '变造依据';
+    assert.deepEqual(getPromptSchoolProfiles('liuyao').huozhulin, original);
+    assert.equal(formatPromptSchoolGuidance('liuyao', ['huozhulin']), guidance);
+  } finally {
+    Object.assign(profile, original);
+  }
 });
 
 test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
@@ -83,7 +98,7 @@ test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
   }
 });
 
-test('缺时辰流派资料只列待补时场景，合盘入口明确要求补时', () => {
+test('缺时辰流派资料复用排盘候选，合盘入口明确要求补时', () => {
   const result = baziCalculator.calculateBazi({
     year: 2000,
     month: 1,
@@ -96,9 +111,11 @@ test('缺时辰流派资料只列待补时场景，合盘入口明确要求补�
     question: '请说明目前可核的资料。',
   });
 
-  assert.match(singlePrompt, /出生时辰资料：/);
+  assert.match(singlePrompt, /出生时辰未知/);
+  assert.match(singlePrompt, /【时辰候选比较】/);
   assert.match(singlePrompt, /丑时候选/);
-  assert.match(singlePrompt, /已确定的柱作为基础资料/);
+  assert.match(singlePrompt, /【已确定的柱】/);
+  assert.doesNotMatch(singlePrompt, /出生时辰资料：|已确定的柱作为基础资料/);
   assert.throws(
     () =>
       buildBaziCompatibilityPrompt({

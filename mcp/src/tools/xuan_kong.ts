@@ -17,7 +17,12 @@ const mountainSchema = z
   .optional();
 
 const xuanKongSchema = z.object({
-  year: z.number().int().min(1).max(9999).describe('建造年或起运年'),
+  year: z
+    .number()
+    .int()
+    .min(1)
+    .max(9999)
+    .describe('建造年或起运年；交运首年只有年份时，运期待按立春前后核定'),
   sitMountain: mountainSchema.describe('坐山二十四山'),
   facingMountain: mountainSchema.describe('朝向二十四山'),
   facingDegree: z.number().min(0).max(360).optional().describe('朝向度数，正北 0°'),

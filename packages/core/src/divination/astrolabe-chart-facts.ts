@@ -41,14 +41,18 @@ export function rankAstrolabeAspects(aspects: AstrolabeAspect[]) {
     .map((item) => item.aspect);
 }
 
-export function formatAstrolabeAspectLine(aspect: AstrolabeAspect, points: AstrolabePoint[] = []) {
+export function formatAstrolabeAspectLine(
+  aspect: AstrolabeAspect,
+  points: AstrolabePoint[] = [],
+  includePointPositions = true,
+) {
   const closeness = aspect.closeness ?? '未分级';
   const first = points.find((point) => point.label === aspect.body1 || point.name === aspect.body1);
   const second = points.find(
     (point) => point.label === aspect.body2 || point.name === aspect.body2,
   );
   const position = (label: string, point: AstrolabePoint | undefined) =>
-    point
+    includePointPositions && point
       ? `${label}（${point.formatted}${point.house > 0 ? `，第${point.house}宫` : ''}）`
       : label;
   const facts = [
@@ -89,10 +93,9 @@ export function formatAstrolabeAspectSections(
   if (aspects.length === 0) return [];
   const ranked = rankAstrolabeAspects(aspects);
   const headlines = ranked.filter(isAstrolabeAspectHeadline);
-  const lead = headlines.length ? headlines : ranked.slice(0, Math.min(6, ranked.length));
   return [
-    `相位主线：${lead.map((item) => formatAstrolabeAspectLine(item, points)).join('；')}。`,
+    `相位主线：共${ranked.length}项，主要相位${headlines.length}项；日月参与${ranked.filter((item) => involves(item, LUMINARY_LABELS)).length}项，四轴参与${ranked.filter((item) => involves(item, ANGLE_LABELS)).length}项，紧密${ranked.filter((item) => item.closeness === '紧密').length}项。`,
     '相位明细：',
-    ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item, points)}`),
+    ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item, points, false)}`),
   ];
 }

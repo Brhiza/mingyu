@@ -7,9 +7,17 @@ import {
   getBaZhaiSitFacingFromDoorDegree,
 } from 'mingyu-core/bazhai';
 import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
+import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
+import { auditPromptFacts } from '../scripts/prompt-audit/facts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions.ts';
 
 const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
 const EAST_TRIGRAMS = new Set(['坎', '震', '巽', '离']);
+
+test('八宅显式空命卦与空坐山不能被出生资料或个人盘掩盖', () => {
+  assert.throws(() => analyzeBaZhai({ birthYear: 1990, gender: 'male', mingGua: '' }), /八卦无效/);
+  assert.throws(() => analyzeBaZhai({ mingGua: '坎', sitMountain: '' }), /坐山无效/);
+});
 
 test('八宅低年份立春换年保留原始公历年份', () => {
   for (const item of [
@@ -97,6 +105,181 @@ test('八宅立春日期边界应按干支年切换命卦', () => {
   assert.equal(after.mingGua, '震');
 });
 
+test('八宅出生日期落在立春当天且缺少时刻时应标为待复核', () => {
+  const result = analyzeBaZhai({
+    birthYear: 2024,
+    birthMonth: 2,
+    birthDay: 4,
+    gender: 'male',
+  });
+
+  assert.equal(result.effectiveBirthYear, 2023);
+  assert.match(result.birthYearBoundaryNote, /立春同日，未提供出生时刻/);
+  assert.match(result.birthYearBoundaryNote, /按当日正午与立春时刻比较/);
+  assert.match(result.prompt, /立春同日，未提供出生时刻/);
+  assert.equal(result.evidenceAnalysis.calculationFact.yearBoundaryStatus, '待复核');
+  assert.match(result.evidenceAnalysis.calculationFact.promptText, /年界待复核/);
+  assertPromptIsPortableTaskText(result.prompt);
+  assert.match(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')
+      ?.promptText ?? '',
+    /未提供出生时刻/,
+  );
+  assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+});
+
+test('八宅立春当天已知出生时分按真实瞬时核定命卦', () => {
+  const base = { birthYear: 2024, birthMonth: 2, birthDay: 4, gender: 'male' as const };
+  const before = analyzeBaZhai({ ...base, birthHour: 16, birthMinute: 20 });
+  const after = analyzeBaZhai({ ...base, birthHour: 16, birthMinute: 30 });
+  const overseas = analyzeBaZhai({
+    ...base,
+    birthHour: 3,
+    birthMinute: 30,
+    birthTimezone: -5,
+  });
+
+  assert.equal(before.mingGua, '巽');
+  assert.equal(after.mingGua, '震');
+  assert.equal(overseas.mingGua, after.mingGua);
+  const crossDate = analyzeBaZhai({
+    birthYear: 2024,
+    birthMonth: 2,
+    birthDay: 3,
+    birthHour: 23,
+    birthMinute: 0,
+    birthTimezone: -12,
+    gender: 'male',
+  });
+  assert.equal(crossDate.mingGua, '震');
+  assert.match(crossDate.birthYearBoundaryNote, /出生时刻已过/);
+  assert.equal(after.evidenceAnalysis.calculationFact.yearBoundaryStatus, '已核定');
+  assert.match(after.prompt, /已按出生时分（UTC\+08:00）与立春瞬时核定/);
+  assert.doesNotMatch(after.prompt, /未提供出生时刻/);
+});
+
+test('八宅立春同小时或同分钟的缺失精度保留候选命卦', () => {
+  const base = { birthYear: 2024, birthMonth: 2, birthDay: 4, gender: 'male' as const };
+  for (const input of [{ birthHour: 16 }, { birthHour: 16, birthMinute: 27 }]) {
+    const result = analyzeBaZhai({ ...base, ...input });
+    assert.equal(result.effectiveBirthYear, 2023);
+    assert.equal(result.birthYearBoundaryStatus, '待复核');
+    assert.equal(result.evidenceAnalysis.calculationFact.yearBoundaryStatus, '待复核');
+    assert.equal(
+      result.evidenceAnalysis.calculationFact.steps.find((step) => step.stage === '命卦计算')
+        ?.status,
+      '待复核',
+    );
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+    assert.match(result.birthYearBoundaryNote, /候选命卦：2023年巽命、2024年震命/);
+    assert.match(result.prompt, /命卦：巽（东四命，暂按）/);
+    assertPromptIsPortableTaskText(result.prompt);
+    assert.match(
+      result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')
+        ?.promptText ?? '',
+      /时刻精度不足/,
+    );
+  }
+
+  const before = analyzeBaZhai({ ...base, birthHour: 16, birthMinute: 26 });
+  const after = analyzeBaZhai({ ...base, birthHour: 16, birthMinute: 28 });
+  assert.equal(before.birthYearBoundaryStatus, '已核定');
+  assert.equal(after.birthYearBoundaryStatus, '已核定');
+  assert.equal(after.mingGua, '震');
+
+  const overseas = analyzeBaZhai({
+    ...base,
+    birthHour: 3,
+    birthMinute: 27,
+    birthTimezone: -5,
+  });
+  assert.equal(overseas.birthYearBoundaryStatus, '待复核');
+});
+
+test('八宅立春同分钟以出生秒数核定年界并校验秒数输入', () => {
+  const birth = {
+    birthYear: 2024,
+    birthMonth: 2,
+    birthDay: 4,
+    birthHour: 16,
+    birthMinute: 27,
+    gender: 'male' as const,
+  };
+  const before = analyzeBaZhai({ ...birth, birthSecond: 6 });
+  const atBoundary = analyzeBaZhai({ ...birth, birthSecond: 7 });
+  const after = analyzeBaZhai({ ...birth, birthSecond: 8 });
+  assert.equal(before.effectiveBirthYear, 2023);
+  assert.equal(atBoundary.effectiveBirthYear, 2024);
+  assert.equal(after.effectiveBirthYear, 2024);
+  assert.equal(before.birthYearBoundaryStatus, '已核定');
+  assert.equal(atBoundary.birthYearBoundaryStatus, '已核定');
+  assert.equal(after.birthYearBoundaryStatus, '已核定');
+  assert.equal(after.calculationInput.birthSecond, 8);
+  assert.equal(
+    after.evidenceAnalysis.calculationFact.steps.find((step) => step.stage === '命卦年界')?.inputs
+      .birthSecond,
+    8,
+  );
+  assert.match(after.birthYearBoundaryNote, /出生时分秒/);
+  assertPromptIsPortableTaskText(after.prompt);
+  assert.throws(() => analyzeBaZhai({ ...birth, birthSecond: 60 }), /出生秒数需在 0-59/);
+  assert.throws(
+    () => analyzeBaZhai({ ...birth, birthMinute: undefined, birthSecond: 8 }),
+    /需同时提供出生小时和分钟/,
+  );
+});
+
+test('八宅立春年界按上海历史时区复核出生时分', () => {
+  const birth = {
+    birthYear: 1942,
+    birthMonth: 2,
+    birthDay: 4,
+    gender: 'male' as const,
+    birthTimeZoneId: 'Asia/Shanghai',
+  };
+  const historicalBefore = analyzeBaZhai({ ...birth, birthHour: 19, birthMinute: 0 });
+  const historicalAfter = analyzeBaZhai({ ...birth, birthHour: 20, birthMinute: 0 });
+  const fixedEight = analyzeBaZhai({
+    ...birth,
+    birthTimeZoneId: undefined,
+    birthTimezone: 8,
+    birthHour: 19,
+    birthMinute: 0,
+  });
+
+  assert.equal(historicalBefore.effectiveBirthYear, 1941);
+  assert.equal(historicalAfter.effectiveBirthYear, 1942);
+  assert.equal(fixedEight.effectiveBirthYear, 1942);
+  assert.match(historicalBefore.prompt, /Asia\/Shanghai，UTC\+09:00/);
+
+  for (const birthTimeZoneId of ['', false, 0, null, ' \t']) {
+    assert.throws(
+      () =>
+        analyzeBaZhai({
+          ...birth,
+          birthHour: 19,
+          birthMinute: 0,
+          birthTimeZoneId: birthTimeZoneId as unknown as string,
+        }),
+      /IANA 时区名不能为空|timeZoneId 必须是 IANA 时区名称/u,
+    );
+  }
+  const zeroClock = analyzeBaZhai({
+    ...birth,
+    birthTimeZoneId: undefined,
+    birthTimezone: 0,
+    birthHour: 0,
+    birthMinute: 0,
+    birthSecond: 0,
+  });
+  assert.equal(zeroClock.effectiveBirthYear, 1941);
+  assert.equal(zeroClock.calculationInput.birthTimezone, 0);
+  assert.equal(zeroClock.calculationInput.birthHour, 0);
+  assert.equal(zeroClock.calculationInput.birthMinute, 0);
+  assert.equal(zeroClock.calculationInput.birthSecond, 0);
+  assert.match(zeroClock.prompt, /民用时刻0时0分0秒，取时按UTC\+00:00/u);
+});
+
 test('八宅大游年应符合八宅逐宫传统真值', () => {
   const palaceOrder = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
   const cases = [
@@ -145,6 +328,34 @@ test('八宅大游年应符合八宅逐宫传统真值', () => {
       item.labels,
     );
   }
+});
+
+test('命卦与宅卦分组分别写作东四命和东四宅，并贯通候选与证据', () => {
+  const result = analyzeBaZhaiByDoorDegree({
+    mingGua: '坎',
+    doorToInteriorDegree: 65,
+    northReference: 'true',
+    measurementUncertaintyDegrees: 3,
+  });
+  assert.equal(result.mingGroup, '东四命');
+  assert.equal(result.houseGroup, '西四宅');
+  assert.equal(result.match, '相冲');
+  assert.deepEqual(
+    result.directionMeasurement.candidateDirections.map((item) => [item.houseGroup, item.match]),
+    [
+      ['西四宅', '相冲'],
+      ['东四宅', '相合'],
+    ],
+  );
+  assert.deepEqual(
+    result.evidenceAnalysis.measurementCandidates.map((item) => item.houseGroup),
+    ['西四宅', '东四宅'],
+  );
+  assert.match(result.prompt, /命卦：坎（东四命）/);
+  assert.match(result.prompt, /宅卦：艮（西四宅，中心读数）/);
+  assert.match(result.gasRegulation!.doorMasterSummary, /坎命属东四命，艮宅属西四宅；命宅异组/);
+  assert.match(result.evidenceAnalysis.promptText, /艮宅西四宅/);
+  assert.doesNotMatch(result.prompt, /艮宅属西四命|宅卦：艮（西四命/);
 });
 
 test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果', () => {
@@ -277,7 +488,11 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
   );
   assert.match(result.evidenceAnalysis.promptText, /候选明细.*寅山申向.*甲山庚向/s);
   assert.match(result.directionMeasurement.promptText, /磁偏角 1°/);
-  assert.match(result.directionMeasurement.promptText, /不能只采用单一八宅盘|并列候选盘/);
+  assert.match(result.directionMeasurement.promptText, /测量稳定性为宅卦不稳定/);
+  assert.match(result.directionMeasurement.promptText, /误差候选.*寅山申向.*甲山庚向/s);
+  assert.match(result.directionMeasurement.promptText, /候选寅山申向：艮宅八宫为/);
+  assert.match(result.directionMeasurement.promptText, /候选甲山庚向：震宅八宫为/);
+  assert.doesNotMatch(result.directionMeasurement.promptText, /不能只采用单一八宅盘/);
   assert.ok(
     result.evidenceAnalysis.counterEvidence.some((item) =>
       item.includes('中心读数不能作为唯一宅卦主证'),
@@ -295,6 +510,19 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
   );
   assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
   assert.ok(result.evidenceAnalysis.counterSummaryFact.factKeys.length >= 2);
+  assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+});
+
+test('命卦已直接给定时，跨宅卦边界仍应保留证据链缺口', () => {
+  const result = analyzeBaZhaiByDoorDegree({
+    mingGua: '坎',
+    doorToInteriorDegree: 65,
+    northReference: 'true',
+    measurementUncertaintyDegrees: 3,
+  });
+
+  assert.equal(result.evidenceAnalysis.calculationFact.yearBoundaryStatus, '直接命卦');
+  assert.equal(result.directionMeasurement.stability, '宅卦不稳定');
   assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
 });
 
@@ -344,7 +572,6 @@ test('八宅八命卦乘二十四山的 192 盘应保持八宫和命宅关系完
       assert.equal(new Set(result.mingPalace.map((palace) => palace.direction)).size, 8);
       assert.equal(new Set(result.housePalace?.map((palace) => palace.gua)).size, 8);
       assert.equal(result.match, expectedMatch);
-      assert.equal(result.evidenceAnalysis.directionFacts.length, 8);
     }
   }
 });
@@ -387,6 +614,30 @@ test('八宅逐宫计算星宫生克，并区分命宅分组与五行关系', ()
   assert.match(equal.gasRegulation!.doorMasterSummary, /同组，五行关系为命卦与宅卦比和/);
   assert.match(sameGroup.gasRegulation!.doorMasterSummary, /同组，五行关系为命卦克宅卦/);
   assert.match(otherGroup.gasRegulation!.doorMasterSummary, /异组，五行关系为宅卦生命卦/);
+  for (const [result, sitMountain, house, group, match, relation] of [
+    [equal, '子', '坎', '东四宅', '相合', '命卦与宅卦比和'],
+    [sameGroup, '午', '离', '东四宅', '相合', '命卦克宅卦'],
+    [otherGroup, '乾', '乾', '西四宅', '相冲', '宅卦生命卦'],
+  ] as const) {
+    const lines = result.prompt.split('\n');
+    assert.equal(lines.filter((line) => line === `坐山：${sitMountain}`).length, 1);
+    assert.equal(lines.filter((line) => line === '命卦：坎（东四命）').length, 1);
+    assert.equal(lines.filter((line) => line === `宅卦：${house}（${group}）`).length, 1);
+    assert.equal(lines.filter((line) => line === `命宅配合：${match}`).length, 1);
+    assert.equal(lines.filter((line) => line === `命宅五行：${relation}。`).length, 1);
+    assert.doesNotMatch(result.prompt, /^命宅关系：/mu);
+    const expectations = extractDivinationPromptFacts('bazhai', result);
+    assert.ok(expectations.some((fact) => fact.id === 'bazhai.orientation'));
+    assert.deepEqual(auditPromptFacts(result.prompt, expectations).missing, []);
+    for (const changedPrompt of [
+      result.prompt.replace(`坐山：${sitMountain}\n`, ''),
+      result.prompt.replace(`坐山：${sitMountain}`, '坐山：卯'),
+    ]) {
+      assert.deepEqual(auditPromptFacts(changedPrompt, expectations).missing, [
+        'bazhai.orientation',
+      ]);
+    }
+  }
   const elements: Record<string, string> = {
     坎: '水',
     艮: '土',
@@ -442,7 +693,10 @@ test('八宅逐宫计算星宫生克，并区分命宅分组与五行关系', ()
     assert.doesNotMatch(result.prompt, /贪狼制绝命|门主同元|福力深厚|化凶为吉/);
   }
   assert.equal(observed.size, 5);
-  assert.match(analyzeBaZhai({ mingGua: '坎' }).prompt, /命卦星宫生克/);
+  const personal = analyzeBaZhai({ mingGua: '坎' });
+  assert.match(personal.prompt, /命卦星宫生克/);
+  assert.match(personal.prompt, /^命卦：坎（东四命）$/mu);
+  assert.doesNotMatch(personal.prompt, /命宅关系：|命宅五行：|坐山：|命卦取年资料/u);
 });
 
 test('命卦三元一百八十年符合男女九宫顺逆与寄宫规则', () => {

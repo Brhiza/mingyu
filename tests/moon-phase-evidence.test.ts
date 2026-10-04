@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateMoonPhaseEvidence } from '../packages/core/src/calendar/moon-phase-evidence.ts';
+import {
+  calculateCivilMoonPhaseEvidence,
+  calculateMoonPhaseEvidence,
+  calculateQizhengMoonPhaseEvidence,
+} from '../packages/core/src/calendar/moon-phase-evidence.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 
 const MINUTE = 60_000;
@@ -9,7 +13,7 @@ function assertEvidenceReferences(evidence: ReturnType<typeof calculateMoonPhase
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
   assert.equal(evidence.summaryFact.status, '证据链完整');
   assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
-  assert.equal(evidence.summaryFact.principalEventCount, 2);
+  assert.equal(evidence.summaryFact.principalEventCount, evidence.currentPrincipalPhase ? 3 : 2);
   assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
   assert.ok(evidence.eventSummaryFact.factKeys.every((key) => factKeys.has(key)));
   assert.ok(
@@ -38,7 +42,7 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   const evidence = calculateMoonPhaseEvidence(Date.parse('2024-04-08T18:21:00Z'));
 
   assert.equal(evidence.eightPhaseName, '新月');
-  assert.ok(evidence.elongationDegrees < 0.1);
+  assert.ok(evidence.elongationDegrees < 0.5);
   assert.ok(evidence.illuminationPercent < 0.01);
   const newMoon = [evidence.previousPrincipalPhase, evidence.nextPrincipalPhase].find(
     (item) => item.name === '朔',
@@ -81,6 +85,22 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   );
 });
 
+test('朔时黄经重合但黄纬偏离时应保留真实角距与非零照明', () => {
+  // 美国海军天文台公布朔时为 UTC 12:38；JPL Horizons 地心星历同刻给出角距 4.4971°、照明 0.15470%。
+  // JPL 查询：COMMAND=301、CENTER=500@399、QUANTITIES=10,23,24,31。
+  const evidence = calculateMoonPhaseEvidence(Date.parse('2024-06-06T12:38:00Z'));
+
+  assert.equal(evidence.eightPhaseName, '新月');
+  assert.ok(evidence.phaseAngleDegrees < 0.01);
+  assert.ok(Math.abs(evidence.elongationDegrees - 4.4971) < 0.02);
+  assert.ok(Math.abs(evidence.illuminationPercent - 0.1547) < 0.02);
+  assert.match(evidence.promptText, /日月球面角距4\.497°/);
+  assert.ok(
+    Math.abs(evidence.previousPrincipalPhase.utcTimestamp - Date.parse('2024-06-06T12:38:00Z')) <
+      MINUTE,
+  );
+});
+
 test('月相证据应区分望、上弦、下弦及盈亏方向', () => {
   const fullMoon = calculateMoonPhaseEvidence(Date.parse('2024-03-25T07:00:00Z'));
   const firstQuarter = calculateMoonPhaseEvidence(Date.parse('2024-04-15T19:13:00Z'));
@@ -119,6 +139,32 @@ test('一般日期的月相证据应由前后四正相位稳定包围', () => {
   assertEvidenceReferences(evidence);
 });
 
+test('四正事件交界秒应独立列当前事件，并保持前后事件严格包围', () => {
+  for (const anchor of [
+    '2024-04-02T02:00:00Z',
+    '2024-04-08T18:00:00Z',
+    '2024-04-15T18:00:00Z',
+    '2024-04-23T23:00:00Z',
+  ]) {
+    const boundary = calculateMoonPhaseEvidence(Date.parse(anchor)).nextPrincipalPhase;
+    for (const offset of [-1000, -1, 0, 1, 1000]) {
+      const timestamp = boundary.utcTimestamp + offset;
+      const evidence = calculateMoonPhaseEvidence(timestamp);
+      assert.ok(evidence.previousPrincipalPhase.utcTimestamp < timestamp);
+      assert.ok(evidence.nextPrincipalPhase.utcTimestamp > timestamp);
+      assert.equal(evidence.currentPrincipalPhase?.key, offset === 0 ? boundary.key : undefined);
+      if (offset < 0) assert.equal(evidence.nextPrincipalPhase.key, boundary.key);
+      if (offset > 0) assert.equal(evidence.previousPrincipalPhase.key, boundary.key);
+      assert.equal(evidence.eventSummaryFact.currentEventKey, evidence.currentPrincipalPhase?.key);
+      if (offset === 0) {
+        assert.match(evidence.promptText, /当前四正相位/);
+        assert.ok(evidence.summaryFact.factKeys.includes(boundary.key));
+        assertEvidenceReferences(evidence);
+      }
+    }
+  }
+});
+
 test('月相证据应拒绝无效时间戳和超出支持范围的年份', () => {
   assert.throws(() => calculateMoonPhaseEvidence(Number.NaN), /有效的 UTC 时间戳/);
   assert.throws(
@@ -136,4 +182,33 @@ test('奇门应携带月相证据且不将其解释为吉凶', () => {
 
   assert.equal(qimen.seasonality?.moonPhaseEvidence.eightPhaseName, '新月');
   assert.equal(typeof qimen.seasonality?.lunarPhaseConsistency, 'boolean');
+});
+
+test('合法民用年界月相仅接受固定偏移可产生的UTC边缘窗口', () => {
+  const first = Date.parse('1899-12-31T10:00:00Z');
+  const endExclusive = Date.parse('2201-01-01T12:00:00Z');
+  for (const calculate of [calculateCivilMoonPhaseEvidence, calculateQizhengMoonPhaseEvidence]) {
+    for (const timestamp of [first, endExclusive - 1]) {
+      const result = calculate(timestamp);
+      assert.equal(result.utcTimestamp, timestamp);
+      assert.ok(result.previousPrincipalPhase.utcTimestamp < timestamp);
+      assert.ok(result.nextPrincipalPhase.utcTimestamp > timestamp);
+      assertEvidenceReferences(result);
+    }
+    for (const timestamp of [first - 1, endExclusive]) {
+      assert.throws(() => calculate(timestamp), /当地钟表范围/);
+    }
+    assert.throws(() => calculate(Number.NaN), /有效的 UTC 时间戳/);
+  }
+  for (const timestamp of [first, endExclusive - 1]) {
+    assert.throws(() => calculateMoonPhaseEvidence(timestamp), /支持 1900-2200 年/);
+  }
+  // 美国海军天文台朔时12:38，JPL同刻地心角距4.4971°、照明0.15470%。
+  const timestamp = Date.parse('2024-06-06T12:38:00Z');
+  const publicResult = calculateMoonPhaseEvidence(timestamp);
+  assert.deepEqual(calculateCivilMoonPhaseEvidence(timestamp), publicResult);
+  const qizheng = calculateQizhengMoonPhaseEvidence(timestamp);
+  assert.ok(Math.abs(qizheng.elongationDegrees - 4.4971) < 0.02);
+  assert.ok(Math.abs(qizheng.illuminationPercent - 0.1547) < 0.02);
+  assert.ok(Math.abs(qizheng.previousPrincipalPhase.utcTimestamp - timestamp) < MINUTE);
 });

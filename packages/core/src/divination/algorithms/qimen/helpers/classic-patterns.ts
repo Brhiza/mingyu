@@ -1,13 +1,11 @@
 /**
  * @file 奇门遁甲经典格局识别
- * @description 实现九大遁格、三奇格局、三诈五假、值符值使关系、相佐、守户、玉女守门、门迫、击刑、入墓、
+ * @description 实现九大遁格、三奇格局、三诈五假、值符值使关系、相佐、玉女守门、门迫、击刑、入墓、
  * 天地盘干关系等经典格局的完整检测。
  *
  * 古籍依据：
- *   - 《烟波钓叟歌》：「天遁地遁与人遁，龙遁虎遁与风遁，云遁鬼遁与神遁，九遁合参最上乘」
- *   - 《遁甲演义》：「三奇得使最为良，玉女守门喜非常」
- *   - 《奇门遁甲秘籍大全》：「符使同宫事必成，门迫宫兮事难行」
- *   - 《烟波钓叟歌》：「十干入墓主事迟，击刑之处防官非」
+ *   - 《烟波钓叟歌》：「天地人分三遁名，天遁月精华盖临」
+ *   - 《烟波钓叟歌》：「十干加符若加错，入墓休囚吉事危」；《烟波钓叟歌》：「六仪击刑何太凶，甲子值符愁向东」
  *
  * 本模块集中输出会进入主排盘的经典格局。单一干干加临格局
  * （青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂等）由
@@ -295,10 +293,10 @@ const wuJiaThingStems = ['乙', '丁', '己'];
 
 /**
  * 干击刑：六仪遁干落入特定自刑/相刑宫位为击刑
- * 《烟波钓叟歌》：「击刑之处防官非」
+ * 《烟波钓叟歌》：「六仪击刑何太凶，甲子值符愁向东」
  * 戊在震3（子刑卯），己在坤2（戌刑未），
  * 庚在艮8（申刑寅），辛在离9（午自刑），
- * 壬在巽4（辰自刑），癸在巽4（巳自刑）
+ * 壬在巽4（辰自刑），癸在巽4（甲寅遁干，寅刑巳）
  */
 const stemJiXingPalace: Record<string, number[]> = {
   甲: [3],
@@ -312,7 +310,6 @@ const stemJiXingPalace: Record<string, number[]> = {
 
 /**
  * 三奇升殿宫位
- * 《烟波钓叟歌》：「三奇得地升殿吉，各归本气最为良」
  * 乙（木）临震3巽4（木地），丙（火）临离9（火地），
  * 丁（火）临兑7（火克金得制为升殿）
  */
@@ -329,7 +326,7 @@ const sanQiShengDian: Record<string, number[]> = {
  *   地遁：休门+乙 或 休门+丁+地盘乙
  *   人遁：丁+休门+太阴
  *   神遁：丙+生门+九天
- *   鬼遁：乙+杜门+九地 或 开门+丁奇+九地
+ *   鬼遁：乙+杜门/开门+九地 或 丁+休门+九地
  *   龙遁：乙+癸+休门/开门 或 休门+乙+坎一
  *   虎遁：辛+生门/休门+艮 或 生门+乙+艮八
  *   风遁：乙+杜门+巽 或 开门+乙+巽四
@@ -362,7 +359,7 @@ function findDoorPalace(jiuGongGe: QimenJiuGongGe[], door: string): QimenJiuGong
 
 /**
  * 识别九遁格局（天遁、地遁、人遁、神遁、鬼遁、龙遁、虎遁、风遁、云遁）
- * 《遁甲演义》：「九遁为奇门第一等吉格，各有所主，合参用之。」
+ * 九遁各有所主，按对应盘面组合合参。
  *
  * @param jiuGongGe - 九宫格数据
  * @returns 检测到的遁格列表
@@ -428,7 +425,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     }
 
     // ── 神遁 ──
-    // 《奇门遁甲秘籍大全》：生门+丙奇+九天 同宫，主神助、机缘自显
+    // 生门+丙奇+九天同宫
     if (door === '生门' && hasTianPanStem(palace, '丙') && god === '九天') {
       out.push({
         key: `pattern:shenDun:${gong}`,
@@ -461,7 +458,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         name: '鬼遁',
         tone: 'good',
         score: 8,
-        summary: '乙/丁、九地与杜门/开门同宫，乃鬼遁之格，主暗中操作、私下成事。',
+        summary: `${guiDunStem}奇、九地与${door}同宫，乃鬼遁之格，主暗中操作、私下成事。`,
         modern: '今天用私下沟通、内部协调的方式更容易成事，别公开摊牌。',
         manifestation: '暗中成事、私下沟通有效',
         palace: gong,
@@ -470,7 +467,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     }
 
     // ── 龙遁 ──
-    // 《烟波钓叟歌》：乙+癸+休门/开门 或 休门+乙+坎一宫
+    // 乙+癸+休门/开门 或 休门+乙+坎一宫
     // 主深藏蓄势、暗助得力
     if (
       ((hasTianPanStem(palace, '乙') && earth === '癸') ||
@@ -505,7 +502,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     }
 
     // ── 虎遁 ──
-    // 《烟波钓叟歌》：辛+生门/休门+艮宫 或 生门+乙+艮八宫
+    // 辛+生门/休门+艮宫 或 生门+乙+艮八宫
     // 主威严稳固、资源回归
     if (
       (hasTianPanStem(palace, '辛') || earth === '辛') &&
@@ -538,7 +535,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     }
 
     // ── 风遁 ──
-    // 《烟波钓叟歌》：乙+杜门+巽宫 或 开门+乙+巽四宫
+    // 乙+杜门+巽宫 或 开门+乙+巽四宫
     // 主消息流通、文书传递
     if (hasTianPanStem(palace, '乙') && door === '杜门' && gong === 4) {
       out.push({
@@ -567,7 +564,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     }
 
     // ── 云遁 ──
-    // 《烟波钓叟歌》：乙+辛+开门 或 开门+乙+坎一宫
+    // 乙+辛+开门 或 开门+乙+坎一宫
     // 主升迁、求职、上行通达
     if (door === '开门' && hasTianPanStem(palace, '乙') && earth === '辛') {
       out.push({
@@ -575,7 +572,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         name: '云遁',
         tone: 'good',
         score: 7,
-        summary: '开门、乙奇加天盘辛，乃云遁之格，主升迁、求职、上行通达。',
+        summary: '开门、天盘乙奇加地盘辛，乃云遁之格，主升迁、求职、上行通达。',
         modern: '今天适合求贵人、跑升职、谈进阶，向上的事会有回应。',
         manifestation: '机会向上升、贵人从远方来',
         palace: gong,
@@ -606,7 +603,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 /**
  * 识别三奇得使格局
  *
- * 《烟波钓叟歌》：「三奇得使最为良」
+ * 《烟波钓叟歌》：「三奇得使诚堪使，六甲遇之非小补」
  * 《遁甲演义》：「甲戌甲午乙为使，甲子甲申丙为使，甲辰甲寅丁为使。」
  *
  * @param jiuGongGe - 九宫格数据
@@ -637,7 +634,7 @@ function getSanQiDeShiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         const qiNameMap: Record<string, string> = { 乙: '日奇', 丙: '月奇', 丁: '星奇' };
         out.push({
           key: `pattern:deShiPlusGoodDoor:${palace.gong}:${heavenStem}`,
-          name: `${qiNameMap[heavenStem]}得地`,
+          name: `${qiNameMap[heavenStem]}得使临吉门`,
           tone: 'good',
           score: 11,
           summary: `${qiNameMap[heavenStem]}得使又临吉门${palace.renPan.door}，得门得使，双重吉利。`,
@@ -666,8 +663,8 @@ function getBaoJianSanQiDeShiPatterns(
   if (!zhiShi || !auspiciousDoors.includes(zhiShi)) return [];
 
   const palace = findDoorPalace(jiuGongGe, zhiShi);
-  const qiStem = palace ? getTianPanStems(palace).find((stem) => sanQi.includes(stem)) : undefined;
-  if (!palace || !qiStem) return [];
+  const qiStem = palace?.diPan.stem;
+  if (!palace || !qiStem || !sanQi.includes(qiStem)) return [];
 
   const qiNameMap: Record<string, string> = { 乙: '日奇', 丙: '月奇', 丁: '星奇' };
   const qiName = qiNameMap[qiStem] || `${qiStem}奇`;
@@ -678,8 +675,8 @@ function getBaoJianSanQiDeShiPatterns(
       name: '宝鉴三奇得使',
       tone: 'good',
       score: 9,
-      summary: `值使${zhiShi}为三吉门，直使加天盘${qiStem}奇于${palace.name}，合《奇门宝鉴御定》“得三吉门、直使加奇”为三奇得使，谋为尤利。`,
-      modern: `值使门本身带${qiName}，关键入口和关键资源重合，适合推进重要谋划。`,
+      summary: `值使${zhiShi}为三吉门，加临地盘${qiStem}奇于${palace.name}，合《奇门宝鉴御定》“得三吉门、直使加奇”为三奇得使，谋为尤利。`,
+      modern: `值使门加临地盘${qiName}，关键入口和关键资源重合，适合推进重要谋划。`,
       manifestation: '关键入口得奇、谋事尤利、资源与行动窗口重合',
       palace: palace.gong,
       tokens: [zhiShi, qiStem],
@@ -908,13 +905,10 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 /**
  * 识别三奇升殿格局
  *
- * 《烟波钓叟歌》：「三奇得地升殿吉」
- * 三奇各临本气得地之宫为升殿：
- *   乙奇（木）临震三宫/巽四宫（木地）为升殿
- *   丙奇（火）临离九宫（火地）为升殿
- *   丁奇（火）临兑七宫（火克金得制）为升殿
+ * 乙奇临震三宫/巽四宫、丙奇临离九宫、丁奇临兑七宫为升殿；
+ * 丁奇在兑七宫属火克金，不属于火的本气宫。
  *
- * @param jiuGongGe - 九宫格数据（检查地盘三奇位置）
+ * @param jiuGongGe - 九宫格数据（检查天盘三奇位置）
  * @returns 检测到的三奇升殿格局列表
  */
 function getSanQiShengDianPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
@@ -924,7 +918,7 @@ function getSanQiShengDianPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[
     const allowedGongs = sanQiShengDian[qi];
     if (!allowedGongs) return;
 
-    // 天盘或地盘落升殿宫都算升殿（以天盘为准，地盘为辅）
+    // 本格只按天盘三奇落宫判断。
     const palace = jiuGongGe.find((p) => hasTianPanStem(p, qi) && allowedGongs.includes(p.gong));
     if (!palace) return;
 
@@ -945,7 +939,7 @@ function getSanQiShengDianPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[
       name: shengDianName[qi],
       tone: 'good',
       score: 5,
-      summary: `${qiDisplay}入${palace.name}，得本气之地，升殿得位。`,
+      summary: `${qiDisplay}入${palace.name}，${qi === '丁' ? '火临兑金，' : '得本气之地，'}升殿得位。`,
       modern:
         qi === '乙'
           ? '今天柔性的、协商的、文书的事更容易出效果。'
@@ -1038,37 +1032,6 @@ function getSanQiShouZhiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] 
   return out;
 }
 
-/**
- * 识别三奇会甲格局
- *
- * 《奇门遁甲秘籍大全》：甲日或己日盘中同时出现乙丙丁三奇，主贵人助力汇聚。
- *
- * @param jiuGongGe - 九宫格数据
- * @param dayStem - 日干
- * @returns 检测到的三奇会甲格局列表
- */
-function getSanQiHuiJiaPattern(jiuGongGe: QimenJiuGongGe[], dayStem: string): ClassicPattern[] {
-  const out: ClassicPattern[] = [];
-
-  if (dayStem !== '甲' && dayStem !== '己') return out;
-
-  const allQiPresent = sanQi.every((qi) => !!findStemPalace(jiuGongGe, qi, 'tianPan'));
-  if (allQiPresent) {
-    out.push({
-      key: 'pattern:sanQiHuiJia',
-      name: '三奇会甲',
-      tone: 'good',
-      score: 7,
-      summary: '甲（己）日三奇乙丙丁齐显，主贵人助力、机会汇聚。',
-      modern: '今天三奇都在盘上，主线很容易找到帮忙的人和机会，重要的事可以出手。',
-      manifestation: '贵人助力汇聚、主线方向有人支持',
-      tokens: ['甲', '乙', '丙', '丁'],
-    });
-  }
-
-  return out;
-}
-
 // ============================================================================
 // 3. 值符值使关系
 // ============================================================================
@@ -1076,7 +1039,6 @@ function getSanQiHuiJiaPattern(jiuGongGe: QimenJiuGongGe[], dayStem: string): Cl
 /**
  * 识别符使同宫格局
  *
- * 《烟波钓叟歌》：「符使同宫事必成」
  * 值符星与值使门落在同一宫，代表神与门合一，事情有极强的集中力量。
  *
  * @param jiuGongGe - 九宫格数据
@@ -1115,21 +1077,16 @@ function getZhiFuZhiShiPatterns(
 }
 
 /**
- * 识别相佐、守户格局
+ * 识别相佐格局
  *
  * 《遁甲演义》：「符加丙丁为相佐，使加六丁为守户。」
- * 相佐看值符星所在宫的地盘丙/丁；守户看值使门所在宫的地盘丁。
+ * 相佐看值符星所在宫的地盘丙/丁；使加六丁与玉女守门同一条件，统一由玉女守门输出。
  *
  * @param jiuGongGe - 九宫格数据
  * @param zhiFu - 值符星
- * @param zhiShi - 值使门
- * @returns 检测到的相佐、守户格局列表
+ * @returns 检测到的相佐格局列表
  */
-function getXiangZuoShouHuPatterns(
-  jiuGongGe: QimenJiuGongGe[],
-  zhiFu: string,
-  zhiShi: string,
-): ClassicPattern[] {
+function getXiangZuoPatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): ClassicPattern[] {
   const out: ClassicPattern[] = [];
 
   if (zhiFu) {
@@ -1145,23 +1102,6 @@ function getXiangZuoShouHuPatterns(
         manifestation: '贵人助力、关键资源配合、推进有人相帮',
         palace: fuPalace.gong,
         tokens: [zhiFu, fuPalace.diPan.stem],
-      });
-    }
-  }
-
-  if (zhiShi) {
-    const shiPalace = findDoorPalace(jiuGongGe, zhiShi);
-    if (shiPalace && shiPalace.diPan.stem === '丁') {
-      out.push({
-        key: `pattern:shouHu:${shiPalace.gong}`,
-        name: '守户',
-        tone: 'good',
-        score: 4,
-        summary: `值使${zhiShi}加地盘丁奇于${shiPalace.name}，合“使加六丁为守户”，主门户得护。`,
-        modern: '今天行动入口、沟通窗口或办事通道有保护与缓冲，适合稳住关键环节后再推进。',
-        manifestation: '入口得护、手续有缓冲、关键通道较稳',
-        palace: shiPalace.gong,
-        tokens: [zhiShi, '丁'],
       });
     }
   }
@@ -1227,8 +1167,9 @@ function getTianYiGongGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): Cl
 /**
  * 识别六庚值符勃格与格勃
  *
- * 《奇门宝鉴御定》：「丙加地盘直符之庚为勃格。天上直符之庚，
+ * 《奇门宝鉴御定》：「丙加地盘直符之庚为勃格。天上直浮之庚，
  * 加于地之六丙为飞勃，亦名符勃。」
+ * 底本“直浮”在此按“直符”释义。
  * 此处必须先满足“当前值符星携带天盘庚”，再分别识别丙加庚与庚加丙。
  * 不替代普通丙加庚的荧入太白、庚加丙的太白入荧天地盘干格局。
  *
@@ -1650,7 +1591,7 @@ function getYuNvShouMenPattern(jiuGongGe: QimenJiuGongGe[], zhiShi: string): Cla
       name: '玉女守门',
       tone: 'good',
       score: isGoodDoor ? 8 : 4,
-      summary: `值使${zhiShi}加地盘丁奇于${zhiShiPal.name}，合《奇门宝鉴御定》“地盘六丁守直使之门”为玉女守门；${doorText}`,
+      summary: `值使${zhiShi}加地盘丁奇于${zhiShiPal.name}，合《奇门宝鉴御定》“地盘六丁守直使之门”为玉女守门，亦称守户；${doorText}`,
       modern: isGoodDoor
         ? '今天适合柔性协商、和合关系、处理文书或需要保密推进的事。'
         : '今天可借柔性方式守住沟通入口，适合保密协调；大事仍要结合门星吉凶再定。',
@@ -1672,8 +1613,8 @@ function getYuNvShouMenPattern(jiuGongGe: QimenJiuGongGe[], zhiShi: string): Cla
 /**
  * 识别门迫格局
  *
- * 《烟波钓叟歌》：「门迫宫兮事难行」
- * 门克宫为门迫。如惊门（金）落离九宫（火）或开门（金）落离九宫（火）等。
+ * 《烟波钓叟歌》：「门制其宫是迫雄」
+ * 门克宫为门迫。如惊门（金）落巽四宫（木）或开门（金）落震三宫（木）等。
  * 门迫主该宫位的事情受阻、不易推进。
  *
  * @param jiuGongGe - 九宫格数据
@@ -1769,7 +1710,7 @@ function getMenGongXiangShengPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPatte
 /**
  * 识别击刑格局
  *
- * 《烟波钓叟歌》：「击刑之处防官非」
+ * 《烟波钓叟歌》：「六仪击刑何太凶，甲子值符愁向东」
  * 时干或值符落在击刑位。击刑代表该干在本宫的地支相刑，
  * 主规则束缚、口舌是非、压力增大。
  *
@@ -1814,13 +1755,14 @@ function getJiXingPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 /**
  * 识别天干入墓格局
  *
- * 《烟波钓叟歌》：「十干入墓主事迟」
+ * 入墓休囚概论：《烟波钓叟歌》：「十干加符若加错，入墓休囚吉事危」。此句未列各干墓支、墓宫。
  * 天干入墓宫，主能量收敛、事情停滞或难以施展。
  *
  * 墓宫以 _constants.STEM_TOMB_MAP 为唯一来源：
  *   乙入未（坤2），丙入戌（乾6），丁入丑（艮8），
  *   戊入戌（乾6），己入辰（巽4），庚入未（坤2），
  *   辛入丑（艮8），壬入辰（巽4），癸入辰（巽4）
+ * 天盘三奇入墓由三奇专名格局输出，此处保留其余天干的通用格局。
  *
  * @param jiuGongGe - 九宫格数据
  * @param position - 检查天盘或地盘，默认为天盘
@@ -1836,6 +1778,8 @@ function getRuMuPatterns(
     const stems = position === 'tianPan' ? getTianPanStems(palace) : [palace.diPan.stem];
     for (const stem of stems) {
       if (!stem) continue;
+      // 天盘三奇已由日奇、月奇、星奇入墓按同一墓宫输出。
+      if (position === 'tianPan' && sanQi.includes(stem)) continue;
 
       const muGong = getStemTombPalace(stem);
       if (!muGong) continue;
@@ -1895,10 +1839,10 @@ function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[]
 /**
  * 识别天地盘干关系
  *
- * 每个宫位最多输出一条主关系，并附加最多一条特殊（入墓/击刑/奇仪相合）。
+ * 每组天地盘干最多输出一条主关系，入墓、击刑分别作为独立事实附加。
  *
- * 入墓与击刑为独立判定，与五行关系可以共存不同宫位，但同宫内
- * 若已有入墓或击刑，则不再输出五行生克/奇仪相合（避免关系过多）。
+ * 命名格局不遮蔽同宫入墓或击刑；若已命中这些事实，则不再输出
+ * 普通五行生克或奇仪相合关系。
  *
  * @param jiuGongGe - 九宫格数据
  * @returns 天地盘干关系列表
@@ -1923,7 +1867,6 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
           type: '命名格局',
           note: `${namedPattern.name}：${namedPattern.summary}`,
         });
-        continue;
       }
 
       // 入墓判断：天盘干落入统一入墓表对应墓宫（入墓与击刑可同宫并存，均独立判定）
@@ -1955,7 +1898,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
       }
 
       // 入墓或击刑命中后，不再输出五行生克/奇仪相合（避免同宫关系过多）
-      if (muHit || xingHit) continue;
+      if (namedPattern || muHit || xingHit) continue;
 
       // 奇仪相合
       const heAndPairs: Array<[string, string, string]> = [
@@ -2059,17 +2002,17 @@ export interface PatternContext {
  * 涵盖：
  *   九大遁格（天遁、地遁、人遁、神遁、鬼遁、龙遁、虎遁、风遁、云遁）
  *   三奇格局（得使、升殿、入墓、会甲）与三诈五假
- *   值符值使关系（符使同宫、相佐、守户、天乙飞宫格、天乙伏宫格、天辅时）
+ *   值符值使关系（符使同宫、相佐、天乙飞宫格、天乙伏宫格、天辅时）
  *   玉女守门
  *   门迫与门宫相生
  *   击刑
  *   入墓
  *
  * 古籍依据：
- *   - 《烟波钓叟歌》：「天遁地遁与人遁，龙遁虎遁与风遁，云遁鬼遁与神遁」
- *   - 《奇门遁甲秘籍大全》：「三奇得使最为良，玉女守门喜非常」
- *   - 《烟波钓叟歌》：「十干入墓主事迟，击刑之处防官非」
- *   - 《五行大义》：「门迫则事阻，宫生则事成」
+ *   - 《烟波钓叟歌》：「天地人分三遁名，天遁月精华盖临」
+ *   - 《烟波钓叟歌》：「三奇得使诚堪使，六甲遇之非小补」
+ *   - 《烟波钓叟歌》：「十干加符若加错，入墓休囚吉事危」；《烟波钓叟歌》：「六仪击刑何太凶，甲子值符愁向东」
+ * 门迫主受阻，门宫相生主助益。
  *
  * @param ctx - 识别上下文
  * @returns 检测到的所有经典格局列表
@@ -2089,10 +2032,9 @@ export function getClassicPatterns(ctx: PatternContext): ClassicPattern[] {
     ...getSanQiShengDianPatterns(jiuGongGe),
     ...getSanQiRuMuPatterns(jiuGongGe),
     ...getSanQiShouZhiPatterns(jiuGongGe),
-    ...(dayStem ? getSanQiHuiJiaPattern(jiuGongGe, dayStem) : []),
     // 3. 值符值使关系
     ...getZhiFuZhiShiPatterns(jiuGongGe, zhiFu, zhiShi),
-    ...getXiangZuoShouHuPatterns(jiuGongGe, zhiFu, zhiShi),
+    ...getXiangZuoPatterns(jiuGongGe, zhiFu),
     ...getTianYiGongGePatterns(jiuGongGe, zhiFu),
     ...getGengZhiFuBoGePatterns(jiuGongGe, zhiFu),
     ...getDayGanFeiFuPatterns(jiuGongGe, dayStem, dayGanZhi),

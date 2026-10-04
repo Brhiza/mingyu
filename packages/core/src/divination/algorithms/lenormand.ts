@@ -4,7 +4,12 @@
  */
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
 import type { RandomOptions, RandomSource } from '../../shared/random';
-import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
+import {
+  assertReplaySamplesConsumed,
+  createRandomContext,
+  hasRandomOptions,
+  randomInt,
+} from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLenormandEvidence } from '../lenormand-evidence';
 
@@ -318,25 +323,22 @@ export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
 type LenormandCardPlacement = LenormandData['cards'][number];
 type LenormandCombination = NonNullable<LenormandData['combinations']>[number];
 
-/**
- * 判词含先后/过程语义的组合键：这些条目的文字按登记次序描述过程（如“从迷茫走向清晰”），
- * 反序抽到时附注登记次序，方向信息不丢失；其余组合按可交换主题处理。
- * 有序读法的完整依据仍待核对历史牌组规则书。
- */
-const DIRECTIONAL_COMBINATION_KEYS = new Set(['月亮+太阳', '星星+月亮', '锚+星星', '船+鹳']);
+/** 判词含先后/过程语义的组合仅在牌序与判词顺序一致时取用。 */
+const DIRECTIONAL_COMBINATION_KEYS = new Set([
+  '骑士+心',
+  '月亮+太阳',
+  '星星+月亮',
+  '锚+星星',
+  '船+鹳',
+]);
 
 function getFixedCombinationMeaning(firstName: string, secondName: string): string | null {
   const direct = LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`];
-  if (direct) {
-    return DIRECTIONAL_COMBINATION_KEYS.has(`${firstName}+${secondName}`)
-      ? `${direct}（登记次序：${firstName}→${secondName}）`
-      : direct;
-  }
-  const reversed = LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`];
-  if (!reversed) return null;
-  return DIRECTIONAL_COMBINATION_KEYS.has(`${secondName}+${firstName}`)
-    ? `${reversed}（登记判词按“${secondName}→${firstName}”次序，本抽牌为反序）`
-    : reversed;
+  if (direct) return direct;
+  const reverseKey = `${secondName}+${firstName}`;
+  return DIRECTIONAL_COMBINATION_KEYS.has(reverseKey)
+    ? null
+    : (LENORMAND_FIXED_COMBINATIONS[reverseKey] ?? null);
 }
 
 function getGridCombinationCandidates(cards: LenormandCardPlacement[]) {
@@ -371,20 +373,31 @@ function getGridCombinationCandidates(cards: LenormandCardPlacement[]) {
   );
 }
 
-function buildLenormandCombinations(
+export function buildLenormandCombinations(
   spreadType: LenormandSpreadType,
   cards: LenormandCardPlacement[],
 ): NonNullable<LenormandData['combinations']> {
   const candidates =
     spreadType === 'nine' || spreadType === 'grandTableau'
       ? getGridCombinationCandidates(cards)
-      : cards.slice(1).map((second, index) => ({
-          first: cards[index],
-          second,
-          rowDistance: 0,
-          columnDistance: 0,
-          relation: '牌序相邻' as const,
-        }));
+      : cards
+          .slice(1)
+          .map((second, index) => ({
+            first: cards[index],
+            second,
+            rowDistance: 0,
+            columnDistance: 0,
+            relation: '牌序相邻' as const,
+          }))
+          // 选择A走向与选择B分属两条支线，不按牌序互作组合。
+          .filter(
+            ({ first, second }) =>
+              !(
+                spreadType === 'decision' &&
+                first.position === '选择A走向' &&
+                second.position === '选择B'
+              ),
+          );
 
   return candidates.flatMap(({ first, second, relation, rowDistance, columnDistance }) => {
     const fixedMeaning = getFixedCombinationMeaning(first.name, second.name);
@@ -398,10 +411,13 @@ function buildLenormandCombinations(
       return [];
     }
     const isSequential = relation === '牌序相邻';
+    const firstMeaning = first.meaning.replace(/[。！？]$/u, '');
     const meaning =
       fixedMeaning ??
       (isSequential
-        ? `${first.position}${first.name}的“${first.keywords.slice(0, 2).join('、')}”与${second.position}${second.name}的“${second.keywords.slice(0, 2).join('、')}”前后相接，先按${first.meaning}，再看${second.meaning}`
+        ? spreadType === 'three'
+          ? `${first.position}${first.name}的“${first.keywords.slice(0, 2).join('、')}”与${second.position}${second.name}的“${second.keywords.slice(0, 2).join('、')}”前后相接，先按${firstMeaning}，再看${second.meaning}`
+          : `${first.position}${first.name}（${first.keywords.slice(0, 2).join('、')}）与${second.position}${second.name}（${second.keywords.slice(0, 2).join('、')}）是牌序相邻的两组线索，可按各自牌位并读`
         : `${first.position}${first.name}与${second.position}${second.name}为${relation}，互参“${first.keywords.slice(0, 2).join('、')}”与“${second.keywords.slice(0, 2).join('、')}”两组线索`);
     const combination: LenormandCombination = {
       card1: first.name,
@@ -517,6 +533,8 @@ export function drawLenormandSpread(
     : interactiveSamples
       ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
       : shuffleLenormandCards(context!.random).slice(0, spread.positions.length);
+  const randomTrace = context?.getTrace();
+  if (randomTrace) assertReplaySamplesConsumed(options, randomTrace);
   const cards = selectedCards.map((card, index) => {
     const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
     const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;

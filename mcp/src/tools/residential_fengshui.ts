@@ -27,6 +27,34 @@ const residentialSchema = z.object({
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份'),
   birthMonth: z.number().int().min(1).max(12).optional().describe('出生公历月份'),
   birthDay: z.number().int().min(1).max(31).optional().describe('出生公历日期'),
+  birthHour: z
+    .number()
+    .int()
+    .min(0)
+    .max(23)
+    .optional()
+    .describe('出生地民用小时（用于八宅立春换年）'),
+  birthMinute: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生地民用分钟；省略时立春年界按整个小时核对'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生地民用秒数；省略时立春年界按整个分钟核对'),
+  birthTimezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('出生地固定 UTC 小时偏移；省略按北京时间'),
+  birthTimeZoneId: z.string().min(1).optional().describe('出生地 IANA 历史时区，如 Asia/Shanghai'),
   gender: z.enum(['male', 'female']).optional().describe('性别'),
   mingGua: z
     .string()
@@ -86,6 +114,11 @@ function calculateResidential(args: z.infer<typeof residentialSchema>) {
     ...(args.birthYear !== undefined ? { birthYear: args.birthYear } : {}),
     ...(args.birthMonth !== undefined ? { birthMonth: args.birthMonth } : {}),
     ...(args.birthDay !== undefined ? { birthDay: args.birthDay } : {}),
+    ...(args.birthHour !== undefined ? { birthHour: args.birthHour } : {}),
+    ...(args.birthMinute !== undefined ? { birthMinute: args.birthMinute } : {}),
+    ...(args.birthSecond !== undefined ? { birthSecond: args.birthSecond } : {}),
+    ...(args.birthTimezone !== undefined ? { birthTimezone: args.birthTimezone } : {}),
+    ...(args.birthTimeZoneId !== undefined ? { birthTimeZoneId: args.birthTimeZoneId } : {}),
     ...(args.gender ? { gender: args.gender } : {}),
     ...(args.mingGua ? { mingGua: args.mingGua } : {}),
     ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),

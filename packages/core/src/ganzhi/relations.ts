@@ -11,7 +11,7 @@ import {
   assertWuxing as assertWuxingValue,
 } from './validation';
 
-export const BRANCH_WUXING: Record<string, string> = {
+const CANONICAL_BRANCH_WUXING: Record<string, string> = {
   子: '水',
   丑: '土',
   寅: '木',
@@ -26,10 +26,12 @@ export const BRANCH_WUXING: Record<string, string> = {
   亥: '水',
 };
 
+export const BRANCH_WUXING: Record<string, string> = { ...CANONICAL_BRANCH_WUXING };
+
 // 月令当令五行（按月建地支本气定当令之神）：
 // 同令为旺，令生我为相，我生令为休，我克令为囚，令克我为死。
 // 六爻、梅花共用月建本气简表；交节深浅与四季土旺十八日须另按日期判断。
-export const MONTH_LING_WUXING: Record<string, string> = {
+const CANONICAL_MONTH_LING_WUXING: Record<string, string> = {
   子: '水',
   丑: '土',
   寅: '木',
@@ -43,12 +45,14 @@ export const MONTH_LING_WUXING: Record<string, string> = {
   戌: '土',
   亥: '水',
 };
+
+export const MONTH_LING_WUXING: Record<string, string> = { ...CANONICAL_MONTH_LING_WUXING };
 
 /**
  * 地支六合（《蠡海集》《三命通会》）：
  * 子丑合土、寅亥合木、卯戌合火、辰酉合金、巳申合水、午未合土
  */
-export const LIUHE_MAP: Record<string, string> = {
+const CANONICAL_LIUHE_MAP: Record<string, string> = {
   子: '丑',
   丑: '子',
   寅: '亥',
@@ -63,8 +67,10 @@ export const LIUHE_MAP: Record<string, string> = {
   未: '午',
 };
 
+export const LIUHE_MAP: Record<string, string> = { ...CANONICAL_LIUHE_MAP };
+
 /** 六合化五行 */
-export const LIUHE_WUXING: Record<string, string> = {
+const CANONICAL_LIUHE_WUXING: Record<string, string> = {
   子: '土',
   丑: '土',
   寅: '木',
@@ -79,19 +85,25 @@ export const LIUHE_WUXING: Record<string, string> = {
   未: '土',
 };
 
+export const LIUHE_WUXING: Record<string, string> = { ...CANONICAL_LIUHE_WUXING };
+
 /**
  * 地支三合局（十二支三合化一局）：
  * 申子辰合水局、亥卯未合木局、寅午戌合火局、巳酉丑合金局
  */
-export const SANHE_GROUPS: Record<string, string[]> = {
+const CANONICAL_SANHE_GROUPS: Record<string, string[]> = {
   水局: ['申', '子', '辰'],
   木局: ['亥', '卯', '未'],
   火局: ['寅', '午', '戌'],
   金局: ['巳', '酉', '丑'],
 };
 
+export const SANHE_GROUPS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CANONICAL_SANHE_GROUPS).map(([key, members]) => [key, [...members]]),
+);
+
 /** 各支所属三合局 */
-export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }> = {
+const CANONICAL_BRANCH_SANHE: Record<string, { group: string; partners: string[] }> = {
   申: { group: '水局', partners: ['子', '辰'] },
   子: { group: '水局', partners: ['申', '辰'] },
   辰: { group: '水局', partners: ['申', '子'] },
@@ -106,6 +118,14 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
   丑: { group: '金局', partners: ['巳', '酉'] },
 };
 
+export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }> =
+  Object.fromEntries(
+    Object.entries(CANONICAL_BRANCH_SANHE).map(([key, relation]) => [
+      key,
+      { ...relation, partners: [...relation.partners] },
+    ]),
+  );
+
 /**
  * 地支半合 — 三合中缺一
  * 如有申子而无辰，为水局半合，合而不全
@@ -113,7 +133,7 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
 export function isHalfSanhe(branches: string[]): string | null {
   branches.forEach((branch, index) => assertEarthlyBranch(branch, `第 ${index + 1} 个地支`));
   const uniqueBranches = Array.from(new Set(branches));
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+  for (const [group, members] of Object.entries(CANONICAL_SANHE_GROUPS)) {
     const present = uniqueBranches.filter((b) => members.includes(b));
     if (present.length === 2) {
       return group;
@@ -127,18 +147,22 @@ export function isHalfSanhe(branches: string[]): string | null {
  * 寅卯辰会木局（东方）、巳午未会火局（南方）、
  * 申酉戌会金局（西方）、亥子丑会水局（北方）
  */
-export const SANHUI_GROUPS: Record<string, string[]> = {
+const CANONICAL_SANHUI_GROUPS: Record<string, string[]> = {
   东方木: ['寅', '卯', '辰'],
   南方火: ['巳', '午', '未'],
   西方金: ['申', '酉', '戌'],
   北方水: ['亥', '子', '丑'],
 };
 
+export const SANHUI_GROUPS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CANONICAL_SANHUI_GROUPS).map(([key, members]) => [key, [...members]]),
+);
+
 /**
  * 地支相穿/六害（《协纪辨方书》）：
  * 子未害、丑午害、寅巳害、卯辰害、申亥害、酉戌害
  */
-export const LIUHAI_MAP: Record<string, string> = {
+const CANONICAL_LIUHAI_MAP: Record<string, string> = {
   子: '未',
   未: '子',
   丑: '午',
@@ -153,11 +177,13 @@ export const LIUHAI_MAP: Record<string, string> = {
   戌: '酉',
 };
 
+export const LIUHAI_MAP: Record<string, string> = { ...CANONICAL_LIUHAI_MAP };
+
 /**
  * 地支六冲（六冲为对宫相冲）：
  * 子午冲、丑未冲、寅申冲、卯酉冲、辰戌冲、巳亥冲
  */
-export const LIUCHONG_MAP: Record<string, string> = {
+const CANONICAL_LIUCHONG_MAP: Record<string, string> = {
   子: '午',
   午: '子',
   丑: '未',
@@ -172,11 +198,13 @@ export const LIUCHONG_MAP: Record<string, string> = {
   亥: '巳',
 };
 
+export const LIUCHONG_MAP: Record<string, string> = { ...CANONICAL_LIUCHONG_MAP };
+
 /**
  * 地支六破/相破：
  * 子酉破、丑辰破、寅亥破、卯午破、巳申破、未戌破
  */
-export const LIUPO_MAP: Record<string, string> = {
+const CANONICAL_LIUPO_MAP: Record<string, string> = {
   子: '酉',
   酉: '子',
   丑: '辰',
@@ -191,8 +219,10 @@ export const LIUPO_MAP: Record<string, string> = {
   戌: '未',
 };
 
+export const LIUPO_MAP: Record<string, string> = { ...CANONICAL_LIUPO_MAP };
+
 /** 地支暗合。 */
-export const ANHE_MAP: Record<string, string> = {
+const CANONICAL_ANHE_MAP: Record<string, string> = {
   寅: '丑',
   丑: '寅',
   卯: '申',
@@ -201,6 +231,8 @@ export const ANHE_MAP: Record<string, string> = {
   亥: '午',
 };
 
+export const ANHE_MAP: Record<string, string> = { ...CANONICAL_ANHE_MAP };
+
 /**
  * 地支三刑（《御定星历考原》岁刑所列递刑与自刑）：
  * - 无礼之刑：子刑卯、卯刑子
@@ -208,7 +240,7 @@ export const ANHE_MAP: Record<string, string> = {
  * - 恃势之刑：丑刑戌、戌刑未、未刑丑
  * - 自刑：辰刑辰、午刑午、酉刑酉、亥刑亥
  */
-export const SANXING_MAP: Record<string, string> = {
+const CANONICAL_SANXING_MAP: Record<string, string> = {
   子: '卯',
   卯: '子',
   寅: '巳',
@@ -223,8 +255,10 @@ export const SANXING_MAP: Record<string, string> = {
   亥: '亥',
 };
 
+export const SANXING_MAP: Record<string, string> = { ...CANONICAL_SANXING_MAP };
+
 /** 每个地支对应的完整相刑成员。 */
-export const BRANCH_SANXING: Record<string, string[]> = {
+const CANONICAL_BRANCH_SANXING: Record<string, string[]> = {
   子: ['卯'],
   卯: ['子'],
   寅: ['巳', '申'],
@@ -238,6 +272,10 @@ export const BRANCH_SANXING: Record<string, string[]> = {
   酉: ['酉'],
   亥: ['亥'],
 };
+
+export const BRANCH_SANXING: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CANONICAL_BRANCH_SANXING).map(([key, members]) => [key, [...members]]),
+);
 
 export enum SanxingType {
   WULI = '无礼之刑', // 子卯
@@ -261,7 +299,7 @@ export function getSanxingType(branch: string): SanxingType | null {
  * 首项为主气，其余采用本库固定次序；中气、余气字段及统计权重沿用此顺序。
  * 此表不是月令司事分日表，不能按数组位置推断交节后的用事天数。
  */
-export const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
+const CANONICAL_BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
   子: ['癸'],
   丑: ['己', '癸', '辛'],
   寅: ['甲', '丙', '戊'],
@@ -276,10 +314,14 @@ export const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
   亥: ['壬', '甲'],
 };
 
+export const BRANCH_HIDDEN_STEMS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CANONICAL_BRANCH_HIDDEN_STEMS).map(([key, members]) => [key, [...members]]),
+);
+
 /** 地支所藏本气（主气） */
 export function getHiddenMainStem(branch: string): string {
   assertBranch(branch);
-  const stems = BRANCH_HIDDEN_STEMS[branch];
+  const stems = CANONICAL_BRANCH_HIDDEN_STEMS[branch];
   const stem = stems?.[0];
   if (!stem) {
     throw new Error(`地支藏干数据缺失：${branch}`);
@@ -290,20 +332,20 @@ export function getHiddenMainStem(branch: string): string {
 /** 地支所藏中气（次气） */
 export function getHiddenMediumStem(branch: string): string | undefined {
   assertEarthlyBranch(branch);
-  return BRANCH_HIDDEN_STEMS[branch]?.[1];
+  return CANONICAL_BRANCH_HIDDEN_STEMS[branch]?.[1];
 }
 
 /** 地支所藏余气 */
 export function getHiddenResidualStem(branch: string): string | undefined {
   assertEarthlyBranch(branch);
-  return BRANCH_HIDDEN_STEMS[branch]?.[2];
+  return CANONICAL_BRANCH_HIDDEN_STEMS[branch]?.[2];
 }
 
 /**
  * 天干合化（《三命通会》天干五合）：
  * 甲己合化土、乙庚合化金、丙辛合化水、丁壬合化木、戊癸合化火
  */
-export const TIAN_GAN_HE: Record<string, { partner: string; wuxing: string }> = {
+const CANONICAL_TIAN_GAN_HE: Record<string, { partner: string; wuxing: string }> = {
   甲: { partner: '己', wuxing: '土' },
   乙: { partner: '庚', wuxing: '金' },
   丙: { partner: '辛', wuxing: '水' },
@@ -316,11 +358,15 @@ export const TIAN_GAN_HE: Record<string, { partner: string; wuxing: string }> = 
   癸: { partner: '戊', wuxing: '火' },
 };
 
+export const TIAN_GAN_HE: Record<string, { partner: string; wuxing: string }> = Object.fromEntries(
+  Object.entries(CANONICAL_TIAN_GAN_HE).map(([key, relation]) => [key, { ...relation }]),
+);
+
 /**
  * 天干相冲：
  * 甲庚冲、乙辛冲、丙壬冲、丁癸冲
  */
-export const TIAN_GAN_CHONG: Record<string, string> = {
+const CANONICAL_TIAN_GAN_CHONG: Record<string, string> = {
   甲: '庚',
   庚: '甲',
   乙: '辛',
@@ -330,6 +376,8 @@ export const TIAN_GAN_CHONG: Record<string, string> = {
   丁: '癸',
   癸: '丁',
 };
+
+export const TIAN_GAN_CHONG: Record<string, string> = { ...CANONICAL_TIAN_GAN_CHONG };
 
 /**
  * 地支顺序索引
@@ -341,10 +389,10 @@ export const BRANCH_ORDER: readonly string[] = EARTHLY_BRANCHES;
  */
 export const STEM_ORDER: readonly string[] = HEAVENLY_STEMS;
 
-export const WUXING = ['木', '火', '土', '金', '水'] as const;
+export const WUXING = Object.freeze(['木', '火', '土', '金', '水'] as const);
 export type Wuxing = (typeof WUXING)[number];
 
-export const SHENG_MAP: Record<string, string> = {
+const CANONICAL_SHENG_MAP: Record<string, string> = {
   木: '火',
   火: '土',
   土: '金',
@@ -352,13 +400,17 @@ export const SHENG_MAP: Record<string, string> = {
   水: '木',
 };
 
-export const KE_MAP: Record<string, string> = {
+export const SHENG_MAP: Record<string, string> = { ...CANONICAL_SHENG_MAP };
+
+const CANONICAL_KE_MAP: Record<string, string> = {
   木: '土',
   土: '水',
   水: '火',
   火: '金',
   金: '木',
 };
+
+export const KE_MAP: Record<string, string> = { ...CANONICAL_KE_MAP };
 
 function assertBranch(branch: string, label = '地支'): void {
   assertEarthlyBranch(branch, label);
@@ -378,7 +430,7 @@ export function getSeasonState(
 ): '旺' | '相' | '休' | '囚' | '死' {
   assertWuxing(yaoWuxing, '爻五行');
   assertBranch(monthBranch, '月支');
-  const lingWuxing = MONTH_LING_WUXING[monthBranch];
+  const lingWuxing = CANONICAL_MONTH_LING_WUXING[monthBranch];
   if (!lingWuxing) {
     throw new Error(`月令五行数据缺失：${monthBranch}`);
   }
@@ -392,7 +444,7 @@ export function getSeasonState(
 
 export function getBranchWuxing(branch: string): string {
   assertBranch(branch);
-  const wuxing = BRANCH_WUXING[branch];
+  const wuxing = CANONICAL_BRANCH_WUXING[branch];
   if (!wuxing) {
     throw new Error(`地支五行数据缺失：${branch}`);
   }
@@ -402,41 +454,41 @@ export function getBranchWuxing(branch: string): string {
 export function isSheng(source: string, target: string): boolean {
   assertWuxing(source, '生方五行');
   assertWuxing(target, '受生方五行');
-  return SHENG_MAP[source] === target;
+  return CANONICAL_SHENG_MAP[source] === target;
 }
 
 export function isKe(source: string, target: string): boolean {
   assertWuxing(source, '克方五行');
   assertWuxing(target, '受克方五行');
-  return KE_MAP[source] === target;
+  return CANONICAL_KE_MAP[source] === target;
 }
 
 /** 检查两个地支是否为六合关系 */
 export function isLiuhe(a: string, b: string): boolean {
   assertBranch(a, '第一个地支');
   assertBranch(b, '第二个地支');
-  return LIUHE_MAP[a] === b;
+  return CANONICAL_LIUHE_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六冲关系 */
 export function isLiuchong(a: string, b: string): boolean {
   assertBranch(a, '第一个地支');
   assertBranch(b, '第二个地支');
-  return LIUCHONG_MAP[a] === b;
+  return CANONICAL_LIUCHONG_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六破/相破关系 */
 export function isLiupo(a: string, b: string): boolean {
   assertBranch(a, '第一个地支');
   assertBranch(b, '第二个地支');
-  return LIUPO_MAP[a] === b;
+  return CANONICAL_LIUPO_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六害关系 */
 export function isLiuhai(a: string, b: string): boolean {
   assertBranch(a, '第一个地支');
   assertBranch(b, '第二个地支');
-  return LIUHAI_MAP[a] === b;
+  return CANONICAL_LIUHAI_MAP[a] === b;
 }
 
 /** 检查两个地支是否存在三刑关系；判断单向所刑须查询 SANXING_MAP。 */
@@ -453,7 +505,7 @@ export function isSanxing(a: string, b: string): boolean {
 /** 检查数组中是否构成完整的三合局 */
 export function isCompleteSanhe(branches: string[]): string | null {
   branches.forEach((branch, index) => assertBranch(branch, `第 ${index + 1} 个地支`));
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+  for (const [group, members] of Object.entries(CANONICAL_SANHE_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {
       return group;
     }
@@ -464,7 +516,7 @@ export function isCompleteSanhe(branches: string[]): string | null {
 /** 检查数组中是否构成三会局 */
 export function isCompleteSanhui(branches: string[]): string | null {
   branches.forEach((branch, index) => assertBranch(branch, `第 ${index + 1} 个地支`));
-  for (const [group, members] of Object.entries(SANHUI_GROUPS)) {
+  for (const [group, members] of Object.entries(CANONICAL_SANHUI_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {
       return group;
     }
@@ -476,13 +528,13 @@ export function isCompleteSanhui(branches: string[]): string | null {
 export function isTianGanHe(a: string, b: string): boolean {
   assertHeavenlyStem(a, '第一个天干');
   assertHeavenlyStem(b, '第二个天干');
-  return TIAN_GAN_HE[a]?.partner === b;
+  return CANONICAL_TIAN_GAN_HE[a]?.partner === b;
 }
 
 /** 获取天干五合的化气五行 */
 export function getTianGanHeWuxing(stem: string): string | null {
   assertHeavenlyStem(stem);
-  return TIAN_GAN_HE[stem]?.wuxing || null;
+  return CANONICAL_TIAN_GAN_HE[stem]?.wuxing || null;
 }
 
 /** 按起例地支取得驿马（寅午戌马在申等）。 */
@@ -536,7 +588,7 @@ export function getTaoHua(sourceBranch: string): string {
 /** 获取地支对冲（对宫位） */
 export function getOppositeBranch(branch: string): string {
   assertBranch(branch);
-  const opposite = LIUCHONG_MAP[branch];
+  const opposite = CANONICAL_LIUCHONG_MAP[branch];
   if (!opposite) {
     throw new Error(`地支对冲数据缺失：${branch}`);
   }
@@ -563,4 +615,43 @@ export function getWuxingChangSheng(wuxing: string): string {
     throw new Error(`五行长生数据缺失：${wuxing}`);
   }
   return branch;
+}
+
+/** 返回固定干支关系资料的独立副本，供实际计算读取。 */
+export function getGanZhiRelationTables() {
+  return {
+    BRANCH_WUXING: { ...CANONICAL_BRANCH_WUXING },
+    MONTH_LING_WUXING: { ...CANONICAL_MONTH_LING_WUXING },
+    LIUHE_MAP: { ...CANONICAL_LIUHE_MAP },
+    LIUHE_WUXING: { ...CANONICAL_LIUHE_WUXING },
+    SANHE_GROUPS: Object.fromEntries(
+      Object.entries(CANONICAL_SANHE_GROUPS).map(([key, members]) => [key, [...members]]),
+    ),
+    BRANCH_SANHE: Object.fromEntries(
+      Object.entries(CANONICAL_BRANCH_SANHE).map(([key, relation]) => [
+        key,
+        { ...relation, partners: [...relation.partners] },
+      ]),
+    ),
+    SANHUI_GROUPS: Object.fromEntries(
+      Object.entries(CANONICAL_SANHUI_GROUPS).map(([key, members]) => [key, [...members]]),
+    ),
+    LIUHAI_MAP: { ...CANONICAL_LIUHAI_MAP },
+    LIUCHONG_MAP: { ...CANONICAL_LIUCHONG_MAP },
+    LIUPO_MAP: { ...CANONICAL_LIUPO_MAP },
+    ANHE_MAP: { ...CANONICAL_ANHE_MAP },
+    SANXING_MAP: { ...CANONICAL_SANXING_MAP },
+    BRANCH_SANXING: Object.fromEntries(
+      Object.entries(CANONICAL_BRANCH_SANXING).map(([key, members]) => [key, [...members]]),
+    ),
+    BRANCH_HIDDEN_STEMS: Object.fromEntries(
+      Object.entries(CANONICAL_BRANCH_HIDDEN_STEMS).map(([key, members]) => [key, [...members]]),
+    ),
+    TIAN_GAN_HE: Object.fromEntries(
+      Object.entries(CANONICAL_TIAN_GAN_HE).map(([key, relation]) => [key, { ...relation }]),
+    ),
+    TIAN_GAN_CHONG: { ...CANONICAL_TIAN_GAN_CHONG },
+    SHENG_MAP: { ...CANONICAL_SHENG_MAP },
+    KE_MAP: { ...CANONICAL_KE_MAP },
+  };
 }

@@ -67,6 +67,19 @@ test('核心包地点能力应提供区县行政中心纬度和坐标精度', ()
   assert.equal(taiwanDistrict?.coordinateAccuracy, 'province-approximation');
 });
 
+test('同一行政中心的经纬度应成对取自地点数据', () => {
+  for (const { regionId, longitude, latitude } of [
+    { regionId: '460302', longitude: 112.346961, latitude: 16.834372 },
+    { regionId: '630224', longitude: 102.031294, latitude: 36.011257 },
+  ]) {
+    const place = resolveBirthPlace(regionId);
+    assert.equal(place?.longitude, longitude);
+    assert.equal(place?.latitude, latitude);
+    assert.equal(place?.coordinateAccuracy, 'administrative-center');
+    assert.equal(resolveBirthPlaceLongitude(regionId), longitude);
+  }
+});
+
 test('地点搜索应支持拼音和代码，并保留重名区县的完整路径', () => {
   const byPinyin = searchBirthPlaces('dong cheng', { levels: ['district'] });
   const byCode = searchBirthPlaces('110101');

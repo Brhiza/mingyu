@@ -5,9 +5,130 @@ import {
   analyzeXiaoliurenEvidence,
   generateXiaoliuren,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
+import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
+import {
+  DUONENG_XIAOLIUREN_VERSES,
+  XIAOLIUREN_PALACE_NAMES,
+} from '../packages/core/src/divination/xiaoliuren-rules.ts';
+import { buildTimeInfoText } from '../packages/core/src/prompt/formatters.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination.ts';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'] as const;
+// 同一固定时刻的只读回归共用基准盘；各测试克隆，避免跨注册共享可变对象。
+const JUNE_FIFTH_CHEN_CHART = generateXiaoliuren({
+  customDate: new Date('2025-06-29T08:00:00+08:00'),
+});
+const CIVIL_MIDNIGHT_CROSSING_CHART = generateXiaoliuren({
+  customDate: new Date('2025-06-29T21:15:00+08:00'),
+  termReferenceDate: new Date('2025-06-30T00:20:00+08:00'),
+});
+
+test('小六壬证据与提示词拒绝时宫、占得宫及顺数索引错位', () => {
+  const source = generateXiaoliuren({ customDate: new Date('2026-05-19T10:30:00+08:00') });
+  const wrongPrimary = structuredClone(source);
+  wrongPrimary.primary = wrongPrimary.sequence.day;
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongPrimary), /顺数或占得宫与盘面不一致/);
+  assert.throws(
+    () => buildDivinationPrompt({ method: 'xiaoliuren', data: wrongPrimary, question: '进展如何' }),
+    /顺数或占得宫与盘面不一致/,
+  );
+
+  const wrongIndex = structuredClone(source);
+  wrongIndex.calculation.hourPalaceIndex = (wrongIndex.calculation.hourPalaceIndex + 1) % 6;
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongIndex), /顺数或占得宫与盘面不一致/);
+
+  const wrongHourLabel = structuredClone(source);
+  wrongHourLabel.hourLabel = '子时';
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongHourLabel), /顺数或占得宫与盘面不一致/);
+});
+
+test('小六壬旧盘时支与农历取日必须和校正时刻及实际占时戳一致', () => {
+  const corrected = new Date('2025-06-29T21:15:00+08:00');
+  const actual = new Date('2025-06-30T00:20:00+08:00');
+  const source = structuredClone(CIVIL_MIDNIGHT_CROSSING_CHART);
+  assert.equal(source.hourLabel, '亥时');
+  assert.equal(source.ganzhi.hour.slice(-1), '亥');
+  assert.equal(source.lunarDay, 6);
+
+  const wrongHourBranch = structuredClone(source);
+  wrongHourBranch.ganzhi.hour = '甲子';
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongHourBranch), /顺数或占得宫与盘面不一致/);
+  assert.throws(
+    () =>
+      buildDivinationPrompt({
+        method: 'xiaoliuren',
+        data: wrongHourBranch,
+        question: '请核对这课。',
+      }),
+    /顺数或占得宫与盘面不一致/,
+  );
+
+  const wrongCivilDate = structuredClone(source);
+  wrongCivilDate.termReferenceTimestamp = new Date('2025-06-29T23:20:00+08:00').getTime();
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongCivilDate), /顺数或占得宫与盘面不一致/);
+  assert.throws(
+    () =>
+      buildDivinationPrompt({
+        method: 'xiaoliuren',
+        data: wrongCivilDate,
+        question: '请核对这课。',
+      }),
+    /顺数或占得宫与盘面不一致/,
+  );
+});
+
+test('小六壬真太阳时跨民用零点时，农历日按实际东八区日期、时辰按校正钟表', () => {
+  const actual = new Date('2025-06-30T00:20:00+08:00');
+  const corrected = new Date('2025-06-29T21:15:00+08:00');
+  const chart = structuredClone(CIVIL_MIDNIGHT_CROSSING_CHART);
+  const civil = generateXiaoliuren({ customDate: actual });
+  const clockOnly = generateXiaoliuren({ customDate: corrected });
+
+  assert.notEqual(clockOnly.lunarDay, civil.lunarDay);
+  assert.equal(chart.lunarMonth, civil.lunarMonth);
+  assert.equal(chart.lunarDay, civil.lunarDay);
+  assert.equal(chart.isLeapMonth, civil.isLeapMonth);
+  assert.equal(chart.hourIndex, clockOnly.hourIndex);
+  assert.equal(chart.termReferenceTimestamp, actual.getTime());
+  assert.match(
+    chart.evidenceAnalysis!.promptText,
+    /起课农历月日、节气与年月柱参照实际占时，时辰与日时柱取校正钟表时刻/,
+  );
+  assert.match(
+    chart.evidenceAnalysis!.limitationFacts.find((fact) => fact.type === '历法边界')!.promptText,
+    /起课农历月日、节气与年月柱参照实际占时，时辰与日时柱取校正钟表时刻/,
+  );
+  const lunarLine = (data: typeof chart) =>
+    buildTimeInfoText(data).split('\n')[1]?.split(' ').slice(0, -1).join(' ');
+  assert.equal(lunarLine(chart), lunarLine(civil));
+});
+
+test('小六壬真太阳时跨节气时，年月柱按实际交节、日时柱按校正钟表', () => {
+  const actual = new Date('2025-06-05T18:00:00+08:00');
+  const corrected = new Date('2025-06-05T17:30:00+08:00');
+  const chart = generateXiaoliuren({ customDate: corrected, termReferenceDate: actual });
+  const correctedClock = generateXiaoliuren({ customDate: corrected });
+  const actualClock = generateXiaoliuren({ customDate: actual });
+
+  assert.equal(correctedClock.ganzhi.month, '辛巳');
+  assert.equal(actualClock.ganzhi.month, '壬午');
+  assert.equal(chart.ganzhi.year, actualClock.ganzhi.year);
+  assert.equal(chart.ganzhi.month, '壬午');
+  assert.equal(chart.ganzhi.day, correctedClock.ganzhi.day);
+  assert.equal(chart.ganzhi.hour, correctedClock.ganzhi.hour);
+  assert.equal(chart.lunarMonth, actualClock.lunarMonth);
+  assert.equal(chart.lunarDay, actualClock.lunarDay);
+  assert.equal(chart.hourIndex, correctedClock.hourIndex);
+  const chartTimeText = buildTimeInfoText(chart);
+  assert.equal(
+    chartTimeText.split('\n')[2],
+    `干支：${chart.ganzhi.year}年 ${chart.ganzhi.month}月 ${chart.ganzhi.day}日 ${chart.ganzhi.hour}时`,
+  );
+  assert.equal(chartTimeText.split('\n')[3], buildTimeInfoText(actualClock).split('\n')[3]);
+});
 
 test('小六壬：古法二月例、闰月与子时边界保持同一偏移，旧盘沿用通行法', () => {
   const secondMonth = generateXiaoliuren({
@@ -86,10 +207,40 @@ test('小六壬：修改已返回宫位不会污染后续起课及同盘其他�
   } finally {
     palaces.forEach((palace, index) => Object.assign(palace, originals[index]));
   }
+
+  const ancientParams = {
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+    rule: 'duoneng' as const,
+  };
+  const ancient = generateXiaoliuren(ancientParams);
+  const currentTime = new Date('2026-10-04T12:00:00+08:00');
+  const promptOptions = { method: 'xiaoliuren' as const, question: '核对本次起课', currentTime };
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: ancient });
+  const originalName = XIAOLIUREN_PALACE_NAMES[0];
+  const originalVerse = DUONENG_XIAOLIUREN_VERSES[5];
+  const verse = '空亡时勾陈主事，求财无利，行人有灾，失物难觅，百事无成。';
+  assert.equal(ancient.primary.name, '空亡');
+  assert.equal(ancient.primary.verse, verse);
+  assert.ok(expectedPrompt.includes(`歌诀原文：${verse}`));
+  assert.ok(expectedPrompt.includes('占得宫：空亡'));
+  try {
+    assert.equal(Reflect.set(XIAOLIUREN_PALACE_NAMES, 0, '变造宫名'), true);
+    assert.equal(Reflect.set(DUONENG_XIAOLIUREN_VERSES, 5, '变造歌诀'), true);
+    assert.equal(XIAOLIUREN_PALACE_NAMES[0], '变造宫名');
+    assert.equal(DUONENG_XIAOLIUREN_VERSES[5], '变造歌诀');
+    const fresh = generateXiaoliuren(ancientParams);
+    assert.deepEqual(fresh, ancient);
+    assert.equal(fresh.primary.name, '空亡');
+    assert.equal(fresh.primary.verse, verse);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  } finally {
+    Reflect.set(XIAOLIUREN_PALACE_NAMES, 0, originalName);
+    Reflect.set(DUONENG_XIAOLIUREN_VERSES, 5, originalVerse);
+  }
 });
 
 test('小六壬：六宫顺序和通行歌诀应完整且稳定', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
 
   assert.deepEqual(
     data.palaceOrder.map((palace) => palace.name),
@@ -105,7 +256,7 @@ test('小六壬：六宫顺序和通行歌诀应完整且稳定', () => {
 });
 
 test('小六壬：农历六月初五辰时通行样例应为月空亡、日赤口、时留连', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
 
   assert.equal(data.lunarMonth, 6);
   assert.equal(data.lunarDay, 5);
@@ -136,6 +287,13 @@ test('小六壬：晚子时按子一计数，但农历日到零点才换日', ()
   assert.equal(chou.hourLabel, '丑时');
   assert.equal(chou.calculation.hourNumber, 2);
   assert.equal(lateZi.calculation.dayBoundary, '东八区民用日零点换日');
+  assert.notEqual(lateZi.ganzhi.day, beforeZi.ganzhi.day);
+  assert.equal(lateZi.ganzhi.day, earlyZi.ganzhi.day);
+  assert.match(
+    lateZi.evidenceAnalysis!.promptText,
+    /晚子时四柱日干支按子初换日，起课农历日到东八区零点才换日/,
+  );
+  assert.doesNotMatch(earlyZi.evidenceAnalysis!.promptText, /晚子时四柱日干支按子初换日/);
 });
 
 test('小六壬：闰月沿用同名月序并显式标注口径', () => {
@@ -154,8 +312,50 @@ test('小六壬：闰月沿用同名月序并显式标注口径', () => {
   assert.equal(leapMonth.calculation.leapMonthRule, '闰月沿用同名月序');
 });
 
+test('小六壬：全局时区变化不改变东八区农历日、时辰和闰月课位', () => {
+  const instants = [
+    new Date('2025-06-29T23:30:00+08:00'),
+    new Date('2025-06-30T00:30:00+08:00'),
+    new Date('2025-07-25T00:30:00+08:00'),
+  ];
+  const baseline = instants.map((customDate) => generateXiaoliuren({ customDate }));
+  const duonengBaseline = generateXiaoliuren({ rule: 'duoneng', customDate: instants[1] });
+  assert.equal(baseline[2]?.isLeapMonth, true);
+  TimeManager.setTimezoneOffsetMinutesOverride(0);
+  try {
+    for (const [index, customDate] of instants.entries()) {
+      const actual = generateXiaoliuren({ customDate });
+      const expected = baseline[index]!;
+      assert.deepEqual(
+        {
+          lunarMonth: actual.lunarMonth,
+          lunarDay: actual.lunarDay,
+          isLeapMonth: actual.isLeapMonth,
+          hourLabel: actual.hourLabel,
+          sequence: actual.sequence,
+          primary: actual.primary,
+        },
+        {
+          lunarMonth: expected.lunarMonth,
+          lunarDay: expected.lunarDay,
+          isLeapMonth: expected.isLeapMonth,
+          hourLabel: expected.hourLabel,
+          sequence: expected.sequence,
+          primary: expected.primary,
+        },
+      );
+      assert.equal(actual.calculation.dayBoundary, '东八区民用日零点换日');
+    }
+    const duonengActual = generateXiaoliuren({ rule: 'duoneng', customDate: instants[1] });
+    assert.equal(duonengActual.primary.name, duonengBaseline.primary.name);
+    assert.equal(duonengActual.calculation.hourNumber, duonengBaseline.calculation.hourNumber);
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
+});
+
 test('小六壬：只有时宫是主证，月宫和日宫必须标为计算轨迹', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
   const evidence = data.evidenceAnalysis;
 
   assert.ok(evidence);
@@ -174,7 +374,7 @@ test('小六壬：只有时宫是主证，月宫和日宫必须标为计算轨�
 });
 
 test('小六壬：证据步骤依赖与限制归属应全部闭合', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
   const evidence = data.evidenceAnalysis;
   assert.ok(evidence);
 
@@ -201,7 +401,7 @@ test('小六壬：证据步骤依赖与限制归属应全部闭合', () => {
 });
 
 test('小六壬：来源限制必须明确，提示词不得恢复无来源扩展', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
   const evidenceText = data.evidenceAnalysis?.promptText ?? '';
   const limitationText = data.evidenceAnalysis?.limitations.join('\n') ?? '';
 
@@ -237,7 +437,7 @@ test('小六壬：非时间起课必须明确拒绝', () => {
 });
 
 test('小六壬：缺少计算参数时证据不得伪装成可复核', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const data = structuredClone(JUNE_FIFTH_CHEN_CHART);
   const incomplete = { ...data, calculation: undefined } as unknown as Parameters<
     typeof analyzeXiaoliurenEvidence
   >[0];
@@ -247,4 +447,68 @@ test('小六壬：缺少计算参数时证据不得伪装成可复核', () => {
   assert.equal(evidence.calculationSteps.length, 0);
   assert.equal(evidence.summaryFact.status, '证据链有缺口');
   assert.match(evidence.calculationFact.promptText, /不能复核落宫/);
+
+  assert.doesNotThrow(() => getDivinationSummaryBlocks('xiaoliuren', incomplete));
+  assert.doesNotThrow(() => formatDetailedDivinationInfo('xiaoliuren', incomplete));
+  assert.doesNotThrow(() =>
+    buildDivinationPrompt({ method: 'xiaoliuren', data: incomplete, question: '请核对这课。' }),
+  );
+});
+
+test('小六壬旧盘的历法说明与起课方式必须和当前采用口径一致', () => {
+  const source = structuredClone(JUNE_FIFTH_CHEN_CHART);
+  const wrongBoundary = structuredClone(source);
+  wrongBoundary.calculation.dayBoundary = '子初换日' as typeof source.calculation.dayBoundary;
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongBoundary), /顺数或占得宫与盘面不一致/u);
+  assert.throws(
+    () =>
+      buildDivinationPrompt({
+        method: 'xiaoliuren',
+        data: wrongBoundary,
+        question: '请核对这课。',
+      }),
+    /顺数或占得宫与盘面不一致/u,
+  );
+
+  const wrongMethodLabel = structuredClone(source);
+  wrongMethodLabel.methodLabel = '数字起课';
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongMethodLabel), /顺数或占得宫与盘面不一致/u);
+});
+
+test('小六壬恢复不能用同一旧宫序表证明被改写的月日时宫名', () => {
+  const source = generateXiaoliuren({ customDate: new Date('2025-06-18T10:30:00+08:00') });
+  assert.deepEqual([source.lunarMonth, source.lunarDay, source.calculation.hourNumber], [5, 23, 6]);
+  // 月宫(5-1)%6=4，日宫(5+23-2)%6=2，时宫(2+6-1)%6=1。
+  assert.deepEqual(
+    [source.sequence.month.name, source.sequence.day.name, source.sequence.hour.name],
+    ['小吉', '速喜', '留连'],
+  );
+  const wrong = structuredClone(source);
+  for (const palace of [...wrong.palaceOrder, ...Object.values(wrong.sequence), wrong.primary]) {
+    if (palace.name === '小吉') palace.name = '空亡';
+    else if (palace.name === '空亡') palace.name = '小吉';
+  }
+  assert.throws(() => analyzeXiaoliurenEvidence(wrong), /顺数或占得宫与盘面不一致/u);
+  assert.throws(
+    () => buildDivinationPrompt({ method: 'xiaoliuren', data: wrong, question: '进展如何？' }),
+    /顺数或占得宫与盘面不一致/u,
+  );
+  const wrongIndex = structuredClone(source);
+  wrongIndex.palaceOrder[4].index = 5;
+  assert.throws(() => analyzeXiaoliurenEvidence(wrongIndex), /顺数或占得宫与盘面不一致/u);
+
+  const missingPalace = structuredClone(source);
+  delete missingPalace.palaceOrder[5];
+  assert.equal(missingPalace.palaceOrder.length, 6);
+  assert.equal(Object.hasOwn(missingPalace.palaceOrder, 5), false);
+  assert.throws(() => analyzeXiaoliurenEvidence(missingPalace), /顺数或占得宫与盘面不一致/u);
+  assert.throws(
+    () =>
+      buildDivinationPrompt({
+        method: 'xiaoliuren',
+        data: missingPalace,
+        question: '请核对这课。',
+      }),
+    /顺数或占得宫与盘面不一致/u,
+  );
 });

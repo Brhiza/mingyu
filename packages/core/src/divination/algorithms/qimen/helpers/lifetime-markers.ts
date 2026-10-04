@@ -13,6 +13,7 @@ import type {
 } from '../../../../types/divination';
 import { diPanPalaces } from './_constants';
 import { getDunJiaStem } from './jushu';
+import { hasTianPanStar } from './palace-utils';
 
 const STEM_WUXING: Record<string, '木' | '火' | '土' | '金' | '水'> = {
   甲: '木',
@@ -158,7 +159,7 @@ export function extractPersonalMarkers(baseChart: QimenData): QimenPersonalMarke
   }
 
   // 5. 值符星落宫
-  const zhiFuPalace = baseChart.jiuGongGe.find((p) => p.tianPan.star === baseChart.zhiFu);
+  const zhiFuPalace = baseChart.jiuGongGe.find((p) => hasTianPanStar(p, baseChart.zhiFu));
   if (zhiFuPalace) {
     markers.push({
       markerType: 'zhiFuStar',

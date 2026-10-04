@@ -5,7 +5,7 @@
  * 不把条件命中数转换成分数、概率或现实成败。
  */
 
-export const TAIYI_GATE_ORDER = [
+const CANONICAL_TAIYI_GATE_ORDER = [
   '开门',
   '休门',
   '生门',
@@ -16,10 +16,16 @@ export const TAIYI_GATE_ORDER = [
   '惊门',
 ] as const;
 
+export const TAIYI_GATE_ORDER: typeof CANONICAL_TAIYI_GATE_ORDER = [...CANONICAL_TAIYI_GATE_ORDER];
+
 export type TaiyiGateName = (typeof TAIYI_GATE_ORDER)[number];
 
 /** 太乙八宫左行顺序：乾一、坎八、艮三、震四、巽九、离二、坤七、兑六。 */
-export const TAIYI_GATE_PALACE_ORDER = [1, 8, 3, 4, 9, 2, 7, 6] as const;
+const CANONICAL_TAIYI_GATE_PALACE_ORDER = [1, 8, 3, 4, 9, 2, 7, 6] as const;
+
+export const TAIYI_GATE_PALACE_ORDER: typeof CANONICAL_TAIYI_GATE_PALACE_ORDER = [
+  ...CANONICAL_TAIYI_GATE_PALACE_ORDER,
+];
 
 const TAIYI_THREE_AUSPICIOUS_GATES = new Set<TaiyiGateName>(['开门', '休门', '生门']);
 const TAIYI_TWO_GATE_INCOMPLETE = new Set<TaiyiGateName>(['开门', '生门']);
@@ -30,12 +36,12 @@ const TAIYI_YANG_PALACES = new Set([8, 3, 4, 9]);
 /** 十六神中八个正宫位为阳，其余八个间辰为阴。 */
 const TAIYI_YANG_POINTS = new Set(['乾', '子', '艮', '卯', '巽', '午', '坤', '酉']);
 
-export type TaiyiPalaceRelation = '同宫' | '迫' | '格';
+export type TaiyiPalaceRelation = '同宫' | '击' | '迫' | '格';
 export type TaiyiPolarity = '阳' | '阴';
 export type TaiyiWuxing = '木' | '火' | '土' | '金' | '水';
 
 /** 十六神所在神名的五行，取《古今图书集成·太乙淘金歌·定胜负》所列二目五行。 */
-export const TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> = {
+const CANONICAL_TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> = {
   子: '水',
   丑: '土',
   艮: '土',
@@ -52,6 +58,10 @@ export const TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> 
   戌: '土',
   乾: '金',
   亥: '水',
+};
+
+export const TAIYI_POINT_WUXING: typeof CANONICAL_TAIYI_POINT_WUXING = {
+  ...CANONICAL_TAIYI_POINT_WUXING,
 };
 
 export type TaiyiHostGuestElementRelation =
@@ -172,38 +182,62 @@ function relationBetweenPalaces(
   // 中宫不参加八宫的前后邻宫、对宫关系，但两将同入中宫仍属于同宫相关。
   if (leftPalace === rightPalace) return '同宫';
   if (leftPalace === 5 || rightPalace === 5) return undefined;
-  const leftIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    leftPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const leftIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    leftPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
-  const rightIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    rightPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const rightIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    rightPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
   if (leftIndex < 0 || rightIndex < 0) return undefined;
   const distance = Math.abs(leftIndex - rightIndex);
-  const circularDistance = Math.min(distance, TAIYI_GATE_PALACE_ORDER.length - distance);
+  const circularDistance = Math.min(distance, CANONICAL_TAIYI_GATE_PALACE_ORDER.length - distance);
   if (circularDistance === 0) return '同宫';
   if (circularDistance === 1) return '迫';
   if (circularDistance === 4) return '格';
   return undefined;
 }
 
+/** 二目按十六神原位判同宫与邻位，不能先把间辰折入相邻八宫。 */
+function relationBetweenEyeAndTaiyi(
+  eyePosition: string,
+  taiyiPosition: string,
+  eyePalace: number,
+  taiyiPalace: number,
+  adjacentRelation: '击' | '迫',
+): TaiyiPalaceRelation | undefined {
+  const positions = '子丑艮寅卯辰巽巳午未坤申酉戌乾亥';
+  const eyeIndex = positions.indexOf(eyePosition);
+  const taiyiIndex = positions.indexOf(taiyiPosition);
+  if (eyeIndex >= 0 && taiyiIndex >= 0) {
+    const distance = Math.abs(eyeIndex - taiyiIndex);
+    const circularDistance = Math.min(distance, positions.length - distance);
+    if (circularDistance === 0) return '同宫';
+    if (circularDistance <= 2) return adjacentRelation;
+  }
+  return relationBetweenPalaces(eyePalace, taiyiPalace) === '格' ? '格' : undefined;
+}
+
 function buildGateCondition(data: TaiyiConditionInput): TaiyiThreeGateCondition {
   const directGateRemainder = positiveOneBased(data.accumulatedValue, 240);
-  // 上元甲子起开门，每满三十转下一门；余 0 为完整一周后的开门。
-  const directGateIndex = Math.floor((directGateRemainder % 240) / 30);
-  const directGate = TAIYI_GATE_ORDER[directGateIndex]!;
+  // 周内第 1 至 30 数为开门，第 31 数起换休门；第 240 数仍属惊门。
+  const directGateIndex = Math.floor((directGateRemainder - 1) / 30);
+  const directGate = CANONICAL_TAIYI_GATE_ORDER[directGateIndex]!;
   const directGateNumber = directGateIndex + 1;
-  const anchorIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    data.taiyiPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const anchorIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    data.taiyiPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
   if (anchorIndex < 0) {
     throw new Error(`太乙直门无法加临中宫：第${data.taiyiPalace}宫`);
   }
 
   const gateByPalace: Record<number, TaiyiGateName> = {};
-  for (let offset = 0; offset < TAIYI_GATE_ORDER.length; offset += 1) {
-    const palace = TAIYI_GATE_PALACE_ORDER[(anchorIndex + offset) % TAIYI_GATE_PALACE_ORDER.length];
-    gateByPalace[palace] = TAIYI_GATE_ORDER[(directGateIndex + offset) % TAIYI_GATE_ORDER.length]!;
+  for (let offset = 0; offset < CANONICAL_TAIYI_GATE_ORDER.length; offset += 1) {
+    const palace =
+      CANONICAL_TAIYI_GATE_PALACE_ORDER[
+        (anchorIndex + offset) % CANONICAL_TAIYI_GATE_PALACE_ORDER.length
+      ];
+    gateByPalace[palace] =
+      CANONICAL_TAIYI_GATE_ORDER[(directGateIndex + offset) % CANONICAL_TAIYI_GATE_ORDER.length]!;
   }
 
   const roles: TaiyiGateRoleFact[] = [
@@ -255,55 +289,46 @@ function buildGateCondition(data: TaiyiConditionInput): TaiyiThreeGateCondition 
     missingGateCount,
     blockedRoles,
     basis:
-      '依《太乙金镜式经·推三门具不具》：积数入二百四十周，每三十换一门；年月日时直使同此法，时计八门另见卷一。按乾一、坎八、艮三、震四、巽九、离二、坤七、兑六左行，以直门加临太乙。卷二“天目者……名曰文昌”及主门具传本明确取太乙与文昌（主目）判定；始击（客目）门位保留为事实，不静默并入本栏，客方专用门具另行取客大将宫。',
+      '依《太乙金镜式经·推三门具不具》按积数入二百四十周、每三十数更一直使，并以直门加临太乙。八宫左行次序为乾一、坎八、艮三、震四、巽九、离二、坤七、兑六，时计八门另见卷一。《太乙统宗宝鉴》卷五“明三门具不具”载：太乙天目在开、生门下为两门不具，在休门下为三门不具，不在开、休、生三门下名为门具。本栏依主目传本取太乙与文昌（主目）判定，并列各自所临之门；始击（客目）门位单列，客方专用门具另取客大将宫。',
   };
 }
 
-function controls(source: TaiyiWuxing, target: TaiyiWuxing): boolean {
-  return (
-    (source === '木' && target === '土') ||
-    (source === '土' && target === '水') ||
-    (source === '水' && target === '火') ||
-    (source === '火' && target === '金') ||
-    (source === '金' && target === '木')
-  );
-}
-
 function buildHostGuestElementRelation(data: TaiyiConditionInput): TaiyiHostGuestElementFact {
-  const hostElement = TAIYI_POINT_WUXING[data.wenChangPosition];
-  const guestElement = TAIYI_POINT_WUXING[data.shiJiPosition];
-  let relation: TaiyiHostGuestElementRelation = '未判定';
-  if (hostElement && guestElement) {
-    relation =
-      hostElement === guestElement
-        ? '同类'
-        : controls(guestElement, hostElement)
-          ? '客关主'
-          : controls(hostElement, guestElement)
-            ? '主关客'
-            : '未形成五行相制';
-  }
+  const hostElement = CANONICAL_TAIYI_POINT_WUXING[data.wenChangPosition];
+  const guestElement = CANONICAL_TAIYI_POINT_WUXING[data.shiJiPosition];
   return {
     hostPosition: data.wenChangPosition,
     hostElement,
     guestPosition: data.shiJiPosition,
     guestElement,
-    relation,
+    relation: '未判定',
     complete: false,
     usedForFiveGeneralsLaunch: false,
     basis:
-      '卷四《推主客相关法》称“皆用日计纳音以决之”，并以地目、天目五行相制举例；本栏按二目所在十六神的五行记录客关主、主关客或未形成相制，未接入独立日计纳音判层，不能替代卷三同宫关，也不参与五将发不发。',
+      '卷四《推主客相关法》称“皆用日计纳音以决之”，并以地目、天目五行相制举例；本栏只记录二目所在十六神的五行，尚未接入独立日计纳音判层，故不判主客相关，亦不参与五将发不发。',
   };
 }
 
 function buildFiveGeneralsCondition(data: TaiyiConditionInput): TaiyiFiveGeneralsCondition {
-  const shiJiRelationToTaiyi = relationBetweenPalaces(data.shiJiPalace, data.taiyiPalace);
-  const wenChangRelationToTaiyi = relationBetweenPalaces(data.wenChangPalace, data.taiyiPalace);
-  const shiJiNoCoverOrHit = shiJiRelationToTaiyi !== '同宫' && shiJiRelationToTaiyi !== '迫';
+  const shiJiRelationToTaiyi = relationBetweenEyeAndTaiyi(
+    data.shiJiPosition,
+    data.taiyiPosition,
+    data.shiJiPalace,
+    data.taiyiPalace,
+    '击',
+  );
+  const wenChangRelationToTaiyi = relationBetweenEyeAndTaiyi(
+    data.wenChangPosition,
+    data.taiyiPosition,
+    data.wenChangPalace,
+    data.taiyiPalace,
+    '迫',
+  );
+  const shiJiNoCoverOrHit = shiJiRelationToTaiyi !== '同宫' && shiJiRelationToTaiyi !== '击';
   const wenChangNoImprisonOrPressure =
     wenChangRelationToTaiyi !== '同宫' && wenChangRelationToTaiyi !== '迫';
   const relations: TaiyiFiveGeneralsRelation[] = [];
-  if (shiJiRelationToTaiyi === '同宫' || shiJiRelationToTaiyi === '迫') {
+  if (shiJiRelationToTaiyi === '同宫' || shiJiRelationToTaiyi === '击') {
     relations.push({
       relation: shiJiRelationToTaiyi,
       left: '始击',

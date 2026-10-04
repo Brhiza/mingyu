@@ -3,15 +3,17 @@ import test from 'node:test';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziDecisionDetails } from '../src/lib/bazi-decision-details';
 
+const sharedDecisionDetailsResult = baziCalculator.calculateBazi({
+  year: 2000,
+  month: 1,
+  day: 7,
+  timeIndex: 5,
+  gender: 'male',
+  isLunar: false,
+});
+
 test('展示依据保留旺衰、格局成败及调候与扶抑区别', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 2000,
-    month: 1,
-    day: 7,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-  });
+  const result = sharedDecisionDetailsResult;
   const text = formatBaziDecisionDetails(result).join('\n');
   assert.match(text, /取用基线：.*扶抑，喜/);
   assert.ok(text.includes(result.analysis.mingGe.basis!));
@@ -52,14 +54,7 @@ test('展示依据完整保留旺衰裁决的每条规则依据', () => {
 });
 
 test('成格名称与成败状态分别保留，待核条件和反证不会被隐藏', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 2000,
-    month: 1,
-    day: 7,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-  });
+  const result = structuredClone(sharedDecisionDetailsResult);
   result.analysis.mingGe.fulfillment = {
     patternName: '正财格',
     status: '未判定',

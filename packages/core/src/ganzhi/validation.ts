@@ -11,7 +11,7 @@ import {
   type HeavenlyStem,
 } from './data';
 
-export const WUXING_VALUES = ['木', '火', '土', '金', '水'] as const;
+export const WUXING_VALUES = Object.freeze(['木', '火', '土', '金', '水'] as const);
 export type WuxingValue = (typeof WUXING_VALUES)[number];
 
 export function isHeavenlyStem(value: unknown): value is HeavenlyStem {

@@ -53,7 +53,7 @@ function hashText(value: string) {
 }
 
 function numberOrString(value: string | undefined) {
-  return value === '' || value === undefined ? '' : Number(value);
+  return value === undefined || String(value).trim() === '' ? '' : Number(value);
 }
 
 function addIfPresent(target: Record<string, unknown>, key: string, value: unknown) {
@@ -179,6 +179,9 @@ function buildResidentialInputs(input: QueryInputState, prompt: QueryPromptState
     });
   const houseYear = numberOrString(prompt.residentialHouseYear);
   const doorToInteriorDegree = numberOrString(prompt.bazhaiFacingDegree);
+  const birthHour = numberOrString(input.birthHour);
+  const birthMinute = numberOrString(input.birthMinute);
+  const birthSecond = numberOrString(input.birthSecond);
   return buildResidentialCoreInput({
     guaType: prompt.residentialGuaType,
     birthData: hasBirth
@@ -188,6 +191,14 @@ function buildResidentialInputs(input: QueryInputState, prompt: QueryPromptState
             month: Number(birthMonth),
             day: Number(birthDay),
             gender: input.gender,
+            ...(birthHour !== ''
+              ? {
+                  hour: birthHour,
+                  ...(birthMinute === '' ? {} : { minute: birthMinute }),
+                  ...(birthSecond === '' ? {} : { second: birthSecond }),
+                  ...getFrontendBirthTimeZone(input.birthReverseSource),
+                }
+              : {}),
           },
           input.dateType,
           input.isLeapMonth,
@@ -204,18 +215,16 @@ export function buildQimenLifetimeInputs(
   input: QueryInputState,
   stageModel: QimenLifetimeStageModel = 'pillarFourLimits',
 ): QimenLifetimeInput {
-  const birthSecond = input.birthSecond ?? '';
+  const birthHour = numberOrString(input.birthHour);
+  const birthMinute = numberOrString(input.birthMinute);
+  const birthSecond = numberOrString(input.birthSecond);
   let hour = 12;
   let minute = 0;
   let second = 0;
-  if (input.useTrueSolarTime && input.birthHour !== '') {
-    hour = Number(input.birthHour);
-    minute = input.birthMinute === '' ? 0 : Number(input.birthMinute);
-    second = birthSecond === '' ? 0 : Number(birthSecond);
-  } else if (!input.useTrueSolarTime && birthSecond !== '' && input.birthHour !== '') {
-    hour = Number(input.birthHour);
-    minute = input.birthMinute === '' ? 0 : Number(input.birthMinute);
-    second = Number(birthSecond);
+  if (birthHour !== '') {
+    hour = birthHour;
+    minute = birthMinute === '' ? 0 : birthMinute;
+    second = birthSecond === '' ? 0 : birthSecond;
   } else if (input.timeIndex !== '') {
     const option = BIRTH_TIME_OPTIONS[Number(input.timeIndex)];
     if (option) {

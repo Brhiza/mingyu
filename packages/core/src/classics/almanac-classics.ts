@@ -117,5 +117,6 @@ export const ALMANAC_OFFICER_CLASSICS: Record<string, AlmanacOfficerClassic> = {
 export function getAlmanacOfficerClassic(officer: string): AlmanacOfficerClassic | undefined {
   if (!officer) return undefined;
   const clean = officer.replace(/[日值神]/gu, '').slice(0, 1);
-  return ALMANAC_OFFICER_CLASSICS[clean] || ALMANAC_OFFICER_CLASSICS[officer];
+  const key = [clean, officer].find((value) => Object.hasOwn(ALMANAC_OFFICER_CLASSICS, value));
+  return key === undefined ? undefined : structuredClone(ALMANAC_OFFICER_CLASSICS[key]);
 }

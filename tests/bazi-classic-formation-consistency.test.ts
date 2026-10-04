@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { identifyClassicPattern } from '@core/bazi/baziEnhancement/classicPatterns';
+import {
+  identifyClassicPattern,
+  identifyClassicPatternCandidates,
+} from '@core/bazi/baziEnhancement/classicPatterns';
+import { checkCondition } from '@core/bazi/baziConditionMatchers';
 import {
   collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
@@ -55,4 +59,46 @@ test('辰月寅冲申的普通格局不会被扩展分析升级成润下格', ()
   assert.equal(collectCompleteBranchFormations(pillars).length, 1);
   assert.equal(collectEstablishedBranchFormations(pillars).length, 0);
   assert.notEqual(identify(pillars)?.name, '润下格');
+});
+
+test('写明三支的三合三会条件只接受本局，不借别局冒认', () => {
+  const woodCombination = makePillars(['乙亥', '己卯', '庚戌', '癸未']);
+  const metalMeeting = makePillars(['壬戌', '庚申', '辛酉', '癸亥']);
+  const hidden: HiddenStems = { year: [], month: [], day: [], hour: [] };
+
+  assert.equal(checkCondition('亥卯未三合木局', '庚', woodCombination, hidden), true);
+  assert.equal(checkCondition('申子辰三合水局', '庚', woodCombination, hidden), false);
+  assert.equal(checkCondition('申酉戌三会金局', '辛', metalMeeting, hidden), true);
+  assert.equal(checkCondition('亥子丑三会水局', '辛', metalMeeting, hidden), false);
+});
+
+test('未登记的羊刃透出和当令条件不由通用匹配器猜测成立', () => {
+  const pillars = makePillars(['甲辰', '丁卯', '甲戌', '甲子']);
+  const hidden: HiddenStems = { year: [], month: [], day: [], hour: [] };
+
+  assert.equal(checkCondition('羊刃透出', '甲', pillars, hidden), false);
+  assert.equal(checkCondition('羊刃当令', '甲', pillars, hidden), false);
+  assert.equal(checkCondition('当令', '甲', pillars, hidden), true);
+});
+
+test('庚日只有木局时不输出声称申子辰齐全的井栏叉候选', () => {
+  const woodCombination = makePillars(['乙亥', '己卯', '庚戌', '癸未']);
+  const waterCombination = makePillars(['甲申', '戊子', '庚辰', '癸丑']);
+  const candidates = (pillars: Pillars) =>
+    identifyClassicPatternCandidates(
+      pillars.day.gan,
+      pillars.month.zhi,
+      pillars,
+      Object.fromEntries(
+        Object.entries(pillars).map(([key, pillar]) => [key, HIDDEN_STEMS[pillar.zhi]]),
+      ) as HiddenStems,
+      '普通格局',
+    );
+
+  assert.ok(
+    !candidates(woodCombination).some((candidate) => candidate.pattern.id === 'jing-lan-cha'),
+  );
+  assert.ok(
+    candidates(waterCombination).some((candidate) => candidate.pattern.id === 'jing-lan-cha'),
+  );
 });

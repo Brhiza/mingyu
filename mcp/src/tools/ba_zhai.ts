@@ -15,6 +15,28 @@ const baZhaiSchema = z.object({
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份（用于推命卦）'),
   birthMonth: z.number().int().min(1).max(12).optional().describe('出生公历月份（用于立春换年）'),
   birthDay: z.number().int().min(1).max(31).optional().describe('出生公历日期（用于立春换年）'),
+  birthHour: z.number().int().min(0).max(23).optional().describe('出生地民用小时（用于立春换年）'),
+  birthMinute: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生地民用分钟；省略时立春年界按整个小时核对'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生地民用秒数；省略时立春年界按整个分钟核对'),
+  birthTimezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('出生地固定 UTC 小时偏移；省略按北京时间'),
+  birthTimeZoneId: z.string().min(1).optional().describe('出生地 IANA 历史时区，如 Asia/Shanghai'),
   gender: z.enum(['male', 'female']).optional().describe('性别'),
   mingGua: z
     .string()
@@ -62,6 +84,11 @@ function calculateBaZhai(args: z.infer<typeof baZhaiSchema>) {
     birthYear: args.birthYear,
     birthMonth: args.birthMonth,
     birthDay: args.birthDay,
+    birthHour: args.birthHour,
+    birthMinute: args.birthMinute,
+    birthSecond: args.birthSecond,
+    birthTimezone: args.birthTimezone,
+    birthTimeZoneId: args.birthTimeZoneId,
     gender: args.gender,
     mingGua: args.mingGua,
   };

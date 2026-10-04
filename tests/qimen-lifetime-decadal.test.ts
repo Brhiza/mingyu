@@ -81,7 +81,13 @@ test('十年运的交运年和交运日同时保留前后两运，提示词提�
     ...input,
     periodRange: { startDate: `${year}-01-01`, endDate: `${year}-12-31` },
   });
-  const annual = data.eventClusters?.find((cluster) => !cluster.triggerDates?.length);
+  const annual = data.eventClusters?.find(
+    (cluster) =>
+      cluster.key.includes(':after-lichun:') &&
+      cluster.stageIndices?.includes(1) &&
+      cluster.stageIndices.includes(2),
+  );
+  assert.ok(annual);
   assert.deepEqual(annual?.stageIndices, [1, 2]);
   assert.equal(annual?.stageIndex, undefined);
   assert.match(prompt, /八字交节起运/);

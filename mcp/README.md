@@ -152,7 +152,7 @@ MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认
 | 奇门终身格局、阶段运限、指定年份     | `qimen_lifetime_prompt`        | `birthDateTime`、`timeZoneId`，可选 `timeStandard`、`location`、`periodRange`、`topics`、`question`                                                    |
 | 临时小事快速判断                     | `xiaoliuren_prompt`            | `question`、可选 `customDate`                                                                                                                          |
 | 金口诀四位课                         | `jinkoujue_prompt`             | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`                                                                                    |
-| 生肖犯太岁、流年贵人                 | `zodiac_prompt`                | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                       |
+| 生肖太岁与合会关系                   | `zodiac_prompt`                | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                       |
 | 时间、数字、声音、字数或方位象意判断 | `meihua_prompt`                | `question`、可选 `method`、`number`、`soundCount`、`characterText`、`characterStrokeCounts`、`characterTones`、`direction`、`objectType`、`customDate` |
 | 传统复杂事项推演                     | `liuren_prompt`                | `question`、可选 `liurenTemplate`、`customDate`                                                                                                        |
 | 结婚、搬家、开业、签约、安葬择日     | `almanac_prompt`               | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                                                                               |
@@ -296,7 +296,7 @@ pnpm mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时；六日逐爻公历占断传 `sixDayDateTime` 并选择 `calendarModel=six-day-seven-part`（以现代冬至与岁周比例定位，不传 `sixDayEpochDateTime`）或 `calendarModel=six-day-explicit-epoch`（必须同时传经校定当地子半 `sixDayEpochDateTime`）。两种模型在未带时区偏移时都需 `timezone` 或 `timeZoneId`，响应会保留相应模型的适用边界；五运六气应明确目标 `year` 或 `yearGanZhi`，这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时；六日逐爻公历占断传 `sixDayDateTime` 并选择 `calendarModel=six-day-seven-part`（以现代冬至与岁周比例定位，不传 `sixDayEpochDateTime`）或 `calendarModel=six-day-explicit-epoch`（必须同时传经校定当地子半 `sixDayEpochDateTime`）。显式历元只定位六日逐爻坐标；值年背景按目标真实瞬时的北京时间冬至换年。两种模型在未带时区偏移时都需 `timezone` 或 `timeZoneId`，响应会保留相应模型的适用边界；五运六气应明确目标 `year` 或 `yearGanZhi`，这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_jinkoujue`、`jinkoujue_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`、`metaphysics_taiyi`、`taiyi_prompt`、`metaphysics_huangji_jingshi` 和 `huangji_jingshi_prompt`。
 
@@ -306,8 +306,8 @@ pnpm mcp
 
 ### 奇门遁甲排盘方法
 
-奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）；`qimenScope` 可选 `hour`（时家，默认）、`day`、`month`、`year`；`qimenJuMethod` 可选 `chaibu`（拆补，默认）或 `zhirun`（置闰），后者只对时家、日家生效。
-返回结果会包含 `timeInfo`（正式定局节气与三元）、`seasonality`（实际节气、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局），提示词工具会把这些字段作为解读证据。
+奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）；`qimenScope` 可选 `hour`（时家，默认）、`day`、`month`、`year`。时家、日家的 `qimenJuMethod` 可选 `chaibu`（拆补，默认）或 `zhirun`（置闰）；年家、月家按《奇门遁甲统宗》三元阴遁定局。
+返回结果的 `timeInfo.solarTerm` 记录实际节气；时家、日家另有正式定局节气 `juTerm`，年家、月家以干支年和三元确定局数。`seasonality` 保留实际节气、节气五行、月相、建除十二神和四柱互动等时间事实；提示词按排盘级别选取相关资料。`patternCombos` 记录同宫格局、格局逢空等复合命中。
 
 奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，本地 stdio/自部署服务最多连续31个年份；在线 Remote MCP 为保证边缘稳定，单次最多10个年份，超过时会返回 `RESOURCE_LIMIT`，请按年份分段调用。`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 

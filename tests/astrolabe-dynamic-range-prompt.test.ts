@@ -60,6 +60,8 @@ test('动态解读逐页限量且保留每段全部连续事实与首末秒候�
       nextFact += page.factCount;
     }
     const text = branchPages.map((page) => page.text).join('\n');
+    assert.match(text, /以60角秒为周期，范围相对首值按最短弧展开，首末值保留原值/u);
+    assert.match(text, /以360度为周期，范围相对首值按最短弧展开，首末值保留原值/u);
     assert.equal(
       text.match(/整段连续事实：/gu)?.length,
       branch.continuous.filter((fact) => isAstrolabeDynamicReadingFact(fact.path)).length,
@@ -84,6 +86,32 @@ test('动态解读逐页限量且保留每段全部连续事实与首末秒候�
   }
 });
 
+test('行运相位只列一次偏差并保留两端、角度、容许度和入相出相', async () => {
+  const pages = [];
+  for await (const page of iterateAstrolabeDynamicPromptPages(
+    range,
+    async (index) => range.branches[index],
+  )) {
+    pages.push(page.text);
+  }
+  const text = pages.join('\n');
+  for (const sample of [range.branches[0].representative, range.branches[0].last]) {
+    for (const scope of sample.scopes) {
+      const fact = scope.transitFacts?.facts[0];
+      if (!fact) continue;
+      const line = text.split('\n').find((item) => item.includes(fact.promptText));
+      assert.ok(line);
+      assert.equal(line.match(/偏差/g)?.length, 1);
+      assert.ok(line.includes(fact.transiting.label));
+      assert.ok(line.includes(fact.natal.label));
+      assert.ok(line.includes(`实际夹角${fact.actualAngle}度`));
+      assert.ok(line.includes(`精确角${fact.exactAngle}度`));
+      assert.ok(line.includes(`容许度${fact.allowedOrb}度`));
+      assert.match(line, /入相|出相|精准|未判定/);
+    }
+  }
+});
+
 test('连续推运时刻显示北京时间并保留毫秒，不向解读输出机器时间戳', () => {
   const value = start + 123;
   const text = formatAstrolabeRangeContinuousFact(
@@ -104,19 +132,39 @@ test('连续推运时刻显示北京时间并保留毫秒，不向解读输出�
 });
 
 test('各页任务书重复问题、主题和时间地点口径', async () => {
+  const summary = { ...range, source: { ...range.source } };
+  const options = { maxCharacters: 3000, question: '请分析事业节奏。', topicId: 'career' };
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const iterator = iterateAstrolabeDynamicPromptPages(
-    range,
-    async (index) => range.branches[index],
-    { maxCharacters: 3000, question: '请分析事业节奏。', topicId: 'career' },
+    summary,
+    async (index) => {
+      await gate;
+      return range.branches[index];
+    },
+    options,
   );
+  const pending = iterator.next();
+  summary.referenceDate = '2029-03-20';
+  summary.source.endTimestamp += 1000;
+  options.question = '后来问题';
+  options.maxCharacters = 2000;
+  release();
   for (let index = 0; index < 2; index += 1) {
-    const page = await iterator.next();
+    const page = await (index === 0 ? pending : iterator.next());
     assert.equal(page.done, false);
     assert.match(page.value!.text, /【问题】\n请分析事业节奏。/u);
     assert.match(page.value!.text, /【解读选择】/u);
     assert.match(page.value!.text, /时间与地点：北京时间东八区/u);
+    assert.match(page.value!.text, /推运目标：2028-03-20/u);
+    assert.ok(page.value!.text.length <= 3000);
+    assert.doesNotMatch(page.value!.text, /后来问题|2029-03-20/u);
     assert.doesNotMatch(page.value!.text, /undefined|null/u);
   }
+  assert.equal(options.question, '后来问题');
+  assert.equal(summary.referenceDate, '2029-03-20');
   await iterator.return(undefined);
 });
 
@@ -129,12 +177,24 @@ test('序列化续读位置恢复下一页内容，越界页明确失败', async
   const first = await original.next();
   assert.ok(!first.done && first.value.nextCursor);
   const second = await original.next();
+  const cursor = JSON.parse(JSON.stringify(first.value.nextCursor));
+  let releaseRead!: () => void;
+  const readGate = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
   const resumed = iterateAstrolabeDynamicPromptPages(
     range,
-    async (index) => range.branches[index],
-    { maxCharacters: 3000, startAt: JSON.parse(JSON.stringify(first.value.nextCursor)) },
+    async (index) => {
+      await readGate;
+      return range.branches[index];
+    },
+    { maxCharacters: 3000, startAt: cursor },
   );
-  assert.deepEqual(await resumed.next(), second);
+  const pendingRead = resumed.next();
+  cursor.pageIndex = 999999;
+  releaseRead();
+  assert.deepEqual(await pendingRead, second);
+  assert.equal(cursor.pageIndex, 999999);
   await original.return(undefined);
   await resumed.return(undefined);
   const invalid = iterateAstrolabeDynamicPromptPages(

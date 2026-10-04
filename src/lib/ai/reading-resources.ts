@@ -19,9 +19,12 @@ import { getAiApiEndpoint } from './stream-client';
 import {
   DEFAULT_CHINA_TIMEZONE_HOURS,
   getTimeIndexFromClock,
+  resolveBirthCalendarClockTime,
+  resolveChinaStandardBirthTime,
   resolveCivilTime,
   TimeManager,
 } from 'mingyu-core/calendar';
+import { SolarDay } from 'tyme4ts';
 import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
 import { parseBaziReverseSource, formatBirthTimeInterval } from '../bazi-reverse-input';
 import {
@@ -57,15 +60,15 @@ const LABELS: Record<string, string> = {
   source: '典籍',
   verse: '原文',
   classicVerse: '条文参考',
-  modernMeaning: '取义',
+  classicSummary: '原文',
+  context: '合参',
   modernExplanation: '释义',
   explanation: '释义',
-  modernAdvice: '取义',
   careerAdvice: '事业取义',
   nature: '性质',
   dayMaster: '日主',
   monthBranch: '月令',
-  primaryGods: '条文取用',
+  primaryGods: '条文取用候选（依原文条件）',
   seasonSummary: '月令概要',
   name: '名称',
   star: '星曜',
@@ -345,10 +348,15 @@ const QIZHENG_BIRTH_RANGE_FLOW_FIELDS = [
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
+const CLASSIC_MODERN_INTERPRETATION_FIELDS = new Set(['modernAdvice', 'modernMeaning']);
+
 function textValues(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.flatMap(textValues);
-  if (record(value)) return Object.values(value).flatMap(textValues);
+  if (record(value))
+    return Object.entries(value).flatMap(([key, item]) =>
+      CLASSIC_MODERN_INTERPRETATION_FIELDS.has(key) ? [] : textValues(item),
+    );
   return [];
 }
 
@@ -401,6 +409,7 @@ export function formatClassicEntry(value: unknown): string {
   if (!record(value)) return textValues(value).join('；');
   return Object.entries(value)
     .flatMap(([key, item]) => {
+      if (CLASSIC_MODERN_INTERPRETATION_FIELDS.has(key)) return [];
       if (['id', 'key', 'score', 'type', 'category'].includes(key)) return [];
       if (key === 'yaos' && Array.isArray(item)) return item.map(formatClassicEntry);
       const text = textValues(item).join('；');
@@ -460,7 +469,9 @@ export async function lookupReadingClassics(
     sourceIds: selected.map((item) => item.identity),
     text: selected.length
       ? `${selected.map((item) => item.text).join('\n\n')}${unique.length > 5 ? `\n另有${unique.length - 5}条相关条文，可使用更具体的名称查询。` : ''}`
-      : '本次检索未找到对应条文，可依据已附盘面和传统资料继续解读。',
+      : normalized.book === 'qiongtong' && normalized.dayMaster && normalized.monthBranch
+        ? `本次检索未找到${normalized.dayMaster}日${normalized.monthBranch}月的《穷通宝鉴》本月条文；该月调候典籍依据留待核对。`
+        : '本次检索未找到对应条文，可依据已附盘面和传统资料继续解读。',
   };
 }
 
@@ -646,7 +657,7 @@ function assertIdentityBirth(
     for (const field of ['birthHour', 'birthMinute', 'birthSecond', 'birthLongitude']) {
       assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
     }
-  } else if (locked.birthSecond !== undefined) {
+  } else if (locked.birthHour !== undefined && locked.birthMinute !== undefined) {
     for (const field of ['birthHour', 'birthMinute', 'birthSecond']) {
       assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
     }
@@ -758,23 +769,106 @@ function assertBaziResultFacts(
   const useTrueSolarTime = locked.useTrueSolarTime === true;
   const timeInfo = result.timeInfo;
   if (!record(timeInfo)) throw new Error('补算返回缺少八字实际出生时辰。');
-  if (!useTrueSolarTime) {
-    if (dateType === 'lunar') {
-      assertDateParts('八字实际农历出生日期', birth, result.lunarDate);
-    } else {
-      assertDateParts('八字实际公历出生日期', birth, result.solarDate);
+  const birthClockTime = record(result.birthClockTime) ? result.birthClockTime : undefined;
+  if (birthClockTime) {
+    const originalClock = resolveBirthCalendarClockTime({
+      dateType: dateType as 'solar' | 'lunar',
+      year: Number(birth.year),
+      month: Number(birth.month),
+      day: Number(birth.day),
+      isLeapMonth: birth.isLeapMonth === true,
+      hour: Number(locked.birthHour),
+      minute: Number(locked.birthMinute),
+      second: Number(locked.birthSecond ?? 0),
+    });
+    for (const field of ['year', 'month', 'day', 'hour', 'minute', 'second']) {
+      assertStructuredField(
+        `八字原始公历出生日期.${field}`,
+        originalClock[field as keyof typeof originalClock],
+        birthClockTime[field],
+      );
     }
-    const expectedTimeIndex =
-      locked.birthSecond !== undefined
-        ? getTimeIndexFromClock(Number(locked.birthHour), Number(locked.birthMinute))
-        : locked.timeIndex;
+  }
+  if (!useTrueSolarTime) {
+    let expectedTimeIndex: unknown;
+    if (birthClockTime) {
+      const { year, month, day, hour, minute } = birthClockTime;
+      if (
+        ![year, month, day, hour, minute].every(
+          (value) => typeof value === 'number' && Number.isInteger(value),
+        )
+      ) {
+        throw new Error('补算返回缺少八字原始精确出生钟表。');
+      }
+      const { effectiveTime } = resolveChinaStandardBirthTime({
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+        hour: Number(hour),
+        minute: Number(minute),
+        second: Number(birthClockTime.second ?? 0),
+        timezone: typeof locked.timezone === 'number' ? locked.timezone : undefined,
+        timeZoneId: typeof locked.timeZoneId === 'string' ? locked.timeZoneId : undefined,
+        applyChinaDst: locked.applyChinaDst === true,
+      });
+      const adjustedDate = {
+        year: effectiveTime.year,
+        month: effectiveTime.month,
+        day: effectiveTime.day,
+      };
+      assertDateParts('八字实际校正公历出生日期', adjustedDate, result.solarDate);
+      const lunar = SolarDay.fromYmd(
+        adjustedDate.year,
+        adjustedDate.month,
+        adjustedDate.day,
+      ).getLunarDay();
+      assertDateParts(
+        '八字实际校正农历出生日期',
+        { year: lunar.getYear(), month: lunar.getMonth(), day: lunar.getDay() },
+        result.lunarDate,
+      );
+      expectedTimeIndex = getTimeIndexFromClock(effectiveTime.hour, effectiveTime.minute);
+    } else {
+      if (dateType === 'lunar') {
+        assertDateParts('八字实际农历出生日期', birth, result.lunarDate);
+      } else {
+        assertDateParts('八字实际公历出生日期', birth, result.solarDate);
+      }
+      expectedTimeIndex =
+        locked.birthSecond !== undefined
+          ? getTimeIndexFromClock(Number(locked.birthHour), Number(locked.birthMinute))
+          : locked.timeIndex;
+    }
     assertStructuredField('bazi.result.timeInfo.index', expectedTimeIndex, timeInfo.index);
     return;
   }
 
   const timing = record(result.timing) ? result.timing : undefined;
   const { standardTime, correctedTime } = assertTrueSolarEvidence('八字', timing);
+  if (birthClockTime) {
+    for (const field of ['year', 'month', 'day', 'hour', 'minute', 'second']) {
+      assertStructuredField(
+        `bazi.timing.standardTime.${field}`,
+        birthClockTime[field],
+        standardTime[field],
+      );
+    }
+  }
   assertDateParts('八字实际校正公历出生日期', correctedTime, result.solarDate);
+  const correctedLunar = SolarDay.fromYmd(
+    Number(correctedTime.year),
+    Number(correctedTime.month),
+    Number(correctedTime.day),
+  ).getLunarDay();
+  assertDateParts(
+    '八字实际校正农历出生日期',
+    {
+      year: correctedLunar.getYear(),
+      month: correctedLunar.getMonth(),
+      day: correctedLunar.getDay(),
+    },
+    result.lunarDate,
+  );
   assertStructuredField(
     'bazi.result.timeInfo.index',
     getTimeIndexFromClock(Number(correctedTime.hour), Number(correctedTime.minute)),
@@ -970,13 +1064,19 @@ function assertAstrolabeResult(
   }
 
   const evidence = result.scopeEvidence;
-  const scope =
-    typeof calculationInput.astrolabeScopeText === 'string' &&
-    calculationInput.astrolabeScopeText.trim()
-      ? 'custom'
-      : (calculationInput.astrolabeScope ?? 'natal');
+  const customText =
+    typeof calculationInput.astrolabeScopeText === 'string'
+      ? calculationInput.astrolabeScopeText.trim()
+      : '';
+  const scope = customText ? 'custom' : (calculationInput.astrolabeScope ?? 'natal');
   if (record(evidence)) {
     assertStructuredField('astrolabe.scopeEvidence.scope', scope, evidence.scope);
+    if (customText) {
+      assertStructuredField('astrolabe.scopeEvidence.promptText', customText, evidence.promptText);
+      if (typeof data.prompt !== 'string' || !data.prompt.includes(customText)) {
+        throw new Error('补算身份核验失败：astrolabe.prompt。');
+      }
+    }
     const expectedDate = calculationInput.astrolabeScopeDate;
     if (expectedDate !== undefined && scope !== 'custom') {
       const actualDate = evidence.referenceDate ?? evidence.dateStr;
@@ -1254,6 +1354,9 @@ function assertQimenLifetimeResult(
         !clusters.some(
           (cluster) =>
             record(cluster) &&
+            typeof cluster.key === 'string' &&
+            cluster.key.startsWith(`cluster:${year}:`) &&
+            /:(?:before|after)-lichun:\d+$/u.test(cluster.key) &&
             typeof cluster.timeSpan === 'string' &&
             cluster.timeSpan.startsWith(`${year}年`),
         )
@@ -1372,6 +1475,14 @@ function assertResidentialResult(
       assertStructuredField('fengshui.flowYear', year, monthPlate.year);
       assertStructuredField('fengshui.flowMonth', calculationInput.flowMonth, monthPlate.month);
       assertStructuredField('fengshui.flowDay', calculationInput.flowDay, monthPlate.day);
+      if (!Number.isInteger(monthPlate.solarTermYear)) {
+        throw new Error('补算返回缺少住宅玄空流月所属节气年。');
+      }
+      assertStructuredField(
+        'fengshui.flowSolarTermYear',
+        monthPlate.solarTermYear,
+        flowStars.yearPlate.year,
+      );
     }
     const palaces = xuankong.palaces;
     if (
@@ -2024,6 +2135,8 @@ export async function executeReadingAction(
   subject?: ReadingSubjectSnapshot,
 ): Promise<ReadingResource> {
   if (action.kind === 'classic') return lookupReadingClassics(action.method, action.query);
+  action = structuredClone(action);
+  if (subject) subject = structuredClone(subject);
   const path = Object.hasOwn(ROUTES, action.method) ? ROUTES[action.method] : undefined;
   if (!path) throw new Error('此方法暂不支持自动补算。');
   let locked: Record<string, unknown> | undefined;

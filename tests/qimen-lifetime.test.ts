@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
+  buildLifetimePrompt,
   normalizeQimenLifetimeTime,
   extractPersonalMarkers,
   buildTopicCandidates,
@@ -13,6 +14,21 @@ import {
 import { getDivinationTime } from '../packages/core/src/calendar/timeManager';
 import { resolveCivilTime } from '../packages/core/src/calendar/civil-time';
 
+const qimenCurrentYearInput: Parameters<typeof calculateQimenLifetime>[0] = {
+  birthDateTime: '1990-05-15T14:30:00',
+  timeZoneId: 'Asia/Shanghai',
+  periodRange: { startDate: '2026-01-01', endDate: '2026-12-31' },
+};
+const qimenCurrentYearQuestion = '未来一年的事业如何？';
+const qimenCurrentYearSeed = calculateQimenLifetime(qimenCurrentYearInput);
+
+function buildQimenCurrentYearFixture() {
+  const data = structuredClone(qimenCurrentYearSeed);
+  const prompt = buildLifetimePrompt(data, qimenCurrentYearQuestion);
+  data.prompt = prompt;
+  return { data, prompt };
+}
+
 function verifiedChartSolar(chart: ReturnType<typeof generateQimen>, offset: number) {
   const expected = getDivinationTime(new Date(chart.timestamp), offset);
   assert.deepEqual(chart.ganzhi, expected.ganzhi);
@@ -20,6 +36,29 @@ function verifiedChartSolar(chart: ReturnType<typeof generateQimen>, offset: num
 }
 
 import { diPanPalaces } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
+
+test('天禽为值符时终身局个人标记与符使阶段均采用实际寄宫', () => {
+  const lifetime = calculateQimenLifetime({
+    birthDateTime: '2026-01-01T08:00:00',
+    gender: 'male',
+    stagePolicy: { model: 'fuShiHexagramOrbit' },
+  });
+  const chart = lifetime.baseChart;
+  assert.equal(chart.zhiFu, '天禽');
+  const companionPalace = chart.jiuGongGe.find((palace) => palace.tianPan.companionStar === '天禽');
+  assert.equal(companionPalace?.gong, 6);
+  assert.deepEqual(
+    lifetime.personalMarkers
+      .filter((marker) => marker.markerType === 'zhiFuStar')
+      .map((marker) => marker.palace),
+    [6],
+  );
+  assert.equal(lifetime.stages[0].dominantPalaces[0].palace, 6);
+  assert.equal(lifetime.stages[2].dominantPalaces[0].palace, 6);
+  const prompt = buildLifetimePrompt(lifetime, undefined, { includeCurrentTime: false });
+  assert.match(prompt, /值符星落宫（天禽）：[^\n]*乾六宫/);
+  assert.match(prompt, /阶段1：[^\n]*\n  主导宫位：乾六宫/);
+});
 
 function annualPatternFacts(
   chart: ReturnType<typeof generateQimen>,
@@ -51,21 +90,22 @@ function clusterPatternFacts(cluster: {
   ].sort();
 }
 
-function findTimezoneSensitiveAnnualYear(targetOffsetMinutes: number): number {
-  for (let year = 2024; year <= 2050; year += 1) {
-    const date = new Date(Date.UTC(year, 5, 15, 12, 0, 0));
-    const defaultChart = generateQimen(date, 'zhuanpan', 'year', 'chaibu', 480);
-    const targetChart = generateQimen(date, 'zhuanpan', 'year', 'chaibu', targetOffsetMinutes);
-    const taiSuiPalace = diPanPalaces[targetChart.ganzhi.year[1]];
-    if (
-      taiSuiPalace &&
-      JSON.stringify(annualPatternFacts(defaultChart, taiSuiPalace)) !==
-        JSON.stringify(annualPatternFacts(targetChart, taiSuiPalace))
-    ) {
-      return year;
-    }
-  }
-  throw new Error(`未找到 UTC${targetOffsetMinutes / 60} 对年盘经典格局产生差异的年度样本`);
+function assertMonthClashLocalTime(
+  clusters: NonNullable<ReturnType<typeof calculateQimenLifetime>['eventClusters']>,
+  year: number,
+  offsetMinutes: number,
+) {
+  const monthClash = clusters.find((cluster) =>
+    cluster.key.startsWith(`cluster:${year}:month-clash:`),
+  );
+  assert.ok(monthClash?.triggerDates?.length);
+  const term = monthClash.triggerDates[0];
+  assert.equal(typeof term.timestamp, 'number');
+  const expected = new Date(term.timestamp! + offsetMinutes * 60_000)
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', ' ');
+  assert.equal(term.dateTime, expected);
 }
 
 test('奇门终身局 P0：时间标准化与真太阳时校正', () => {
@@ -111,6 +151,42 @@ test('奇门终身局 P0：时间标准化与真太阳时校正', () => {
   }, /启用真太阳时必须提供出生地经度/);
 });
 
+test('奇门终身局显式出生偏移与时区必须指向同一真实瞬时', () => {
+  const birthDateTime = '2024-02-04T03:27:08+08:00';
+  const implicit = normalizeQimenLifetimeTime({ birthDateTime });
+  assert.equal(implicit.referenceDate.toISOString(), '2024-02-03T19:27:08.000Z');
+  assert.equal(implicit.basis.timeZoneUsed, 'UTC+08:00');
+  const chart = calculateQimenLifetime({ birthDateTime, timezone: 8 });
+  assert.equal(chart.baseChart.timestamp, Date.parse(birthDateTime));
+  assert.equal(chart.basis.timeZoneUsed, 'UTC+08:00');
+  assert.equal(chart.baseChart.timeInfo.solarTerm, '大寒');
+  assert.equal(chart.baseChart.ganzhi.year, '癸卯');
+
+  const otherInstant = calculateQimenLifetime({
+    birthDateTime: '2024-02-04T03:27:08',
+    timezone: -5,
+  });
+  assert.equal(
+    new Date(otherInstant.baseChart.timestamp).toISOString(),
+    '2024-02-04T08:27:08.000Z',
+  );
+  assert.equal(otherInstant.baseChart.timeInfo.solarTerm, '立春');
+  assert.equal(otherInstant.baseChart.ganzhi.year, '甲辰');
+
+  const quarter = normalizeQimenLifetimeTime({ birthDateTime: '2024-02-04T03:27:00+05:45' });
+  assert.equal(quarter.referenceDate.toISOString(), '2024-02-03T21:42:00.000Z');
+  assert.equal(quarter.basis.timeZoneUsed, 'UTC+05:45');
+
+  assert.throws(
+    () => calculateQimenLifetime({ birthDateTime, timezone: -5 }),
+    /出生时刻的 UTC 偏移与 timezone 不一致/u,
+  );
+  assert.throws(
+    () => normalizeQimenLifetimeTime({ birthDateTime: '2024-02-04T03:27:00+08:60', timezone: 9 }),
+    /出生时刻的 UTC 偏移分钟无效/u,
+  );
+});
+
 test('奇门终身局应沿用固定非东八区的 civil 与真实瞬时点', () => {
   const input = {
     birthDateTime: '1990-05-15T14:30:00',
@@ -152,7 +228,7 @@ test('奇门终身局 IANA 夏令时应让基础盘保持当地 civil', () => {
     hour: 14,
     minute: 30,
   });
-  assert.match(lifetime.basis.timeZoneUsed, /America\/New_York \(UTC-4\)/);
+  assert.match(lifetime.basis.timeZoneUsed, /America\/New_York \(UTC-04:00\)/);
 });
 
 test('奇门终身局真太阳时应沿用非东八区修正后的 civil', () => {
@@ -361,6 +437,31 @@ test('奇门终身局 P2：阶段划分引擎（四柱分限 vs 九宫巡行）'
   assert.equal(resultNominal.stages[0].ageEnd, 17);
 });
 
+test('奇门终身局阶段门神空马取象进入提示词时保留盘面与核对条件', () => {
+  const { data, prompt } = generateQimenLifetimePrompt({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    stagePolicy: { model: 'palaceWalk' },
+  });
+  const stageText = prompt.split('【人生阶段资料】')[1]?.split('【任务】')[0] ?? '';
+  const doorAndGodFacts = data.stages.flatMap((stage) => [
+    ...stage.supportFacts,
+    ...stage.constraintFacts,
+  ]);
+
+  assert.ok(doorAndGodFacts.some((fact) => fact.includes('传统门象')));
+  assert.ok(doorAndGodFacts.some((fact) => fact.includes('传统神象')));
+  assert.ok(doorAndGodFacts.some((fact) => fact.includes('宫逢旬空')));
+  assert.ok(doorAndGodFacts.some((fact) => fact.includes('临驿马星')));
+  assert.match(stageText, /宫位支持类象：/);
+  assert.match(stageText, /宫位制约类象：/);
+  assert.match(prompt, /多种解释用可核实的现实信息区分/);
+  assert.doesNotMatch(stageText, /结合本宫配置与现实条件核对|结合本宫星神干与现实条件核对/);
+  assert.doesNotMatch(
+    stageText,
+    /人事实质通达顺畅|贵人引路|名气外显|吉凶能量暂未落地|中年鼎盛|晚景安泰/u,
+  );
+});
+
 test('奇门终身局动态扫描不得将阶段范围外日期归入首阶段', () => {
   const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
   const clusters = scanLifetimeDynamicEvents(
@@ -521,7 +622,11 @@ test('奇门终身局日级关系应跨年裁切并保留当地日干支', () =>
   assert.ok(dates.length > 0);
   assert.ok(dates.some((date) => date.startsWith('2025-')));
   assert.ok(dates.some((date) => date.startsWith('2026-')));
-  assert.ok(result.eventClusters?.every((cluster) => !cluster.timeSpan.includes('至')));
+  assert.ok(
+    result.eventClusters
+      ?.filter((cluster) => cluster.key.includes(':day:'))
+      .every((cluster) => !cluster.timeSpan.includes('至')),
+  );
 });
 
 test('奇门终身局日级关系应按纽约夏令时读取当地日期', () => {
@@ -640,7 +745,7 @@ test('奇门终身局动态年盘失败应保留年份与原始原因', () => {
 
 test('奇门终身局动态年盘应采用固定 UTC 偏移而非默认东八区', () => {
   const targetOffsetMinutes = 14 * 60;
-  const year = findTimezoneSensitiveAnnualYear(targetOffsetMinutes);
+  const year = 2024;
   const result = calculateQimenLifetime({
     birthDateTime: '1990-05-15T14:30:00',
     timezone: 14,
@@ -652,9 +757,7 @@ test('奇门终身局动态年盘应采用固定 UTC 偏移而非默认东八区
   });
   const annualCluster = result.eventClusters?.find(
     (cluster) =>
-      cluster.key.startsWith(`cluster:${year}:`) &&
-      !cluster.key.includes(':month-clash:') &&
-      !cluster.key.includes(':day-nodal'),
+      cluster.key.startsWith(`cluster:${year}:`) && cluster.key.includes(':after-lichun:'),
   );
   assert.ok(annualCluster, `应存在${year}年年度事件簇`);
 
@@ -666,11 +769,66 @@ test('奇门终身局动态年盘应采用固定 UTC 偏移而非默认东八区
     clusterPatternFacts(annualCluster),
     annualPatternFacts(expectedChart, taiSuiPalace),
   );
+  assertMonthClashLocalTime(result.eventClusters!, year, targetOffsetMinutes);
+});
+
+test('终身局流年景门六合与空马事实在在线提示词中保持条件取象', () => {
+  const birth = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  const year = 2026;
+  const range = { startDate: '2026-06-15', endDate: '2026-06-15' };
+  const annualChart = generateQimen(new Date(Date.UTC(year, 5, 15, 12)), 'zhuanpan', 'year');
+  const branch = annualChart.ganzhi.year[1];
+  const palaceNumber = diPanPalaces[branch];
+  assert.ok(palaceNumber);
+  const baseChart = structuredClone(birth.baseChart);
+  const palace = baseChart.jiuGongGe.find((item) => item.gong === palaceNumber);
+  assert.ok(palace);
+  palace.renPan.door = '景门';
+  palace.shenPan.god = '六合';
+  baseChart.voidBranches = [branch];
+  baseChart.horseStar = {
+    branch,
+    palace: palaceNumber,
+    name: palace.name,
+    sourceBranch: branch,
+  };
+  const eventClusters = scanLifetimeDynamicEvents(baseChart, birth.stages, range);
+  const annual = eventClusters.find((cluster) => cluster.key.startsWith(`cluster:${year}:丙午:`));
+  assert.ok(annual);
+  const prompt = buildLifetimePrompt(
+    { ...birth, baseChart, eventClusters, input: { ...birth.input, periodRange: range } },
+    '本年有哪些可核对的事项？',
+    { includeCurrentTime: false },
+  );
+  const dynamicText = prompt.split('【周期触发与事件簇】')[1]?.split('【任务】')[0] ?? '';
+
+  assert.ok(
+    annual.supportEvidence.some((fact) => fact.includes('景门') && fact.includes('传统门象')),
+  );
+  assert.ok(
+    annual.supportEvidence.some((fact) => fact.includes('六合') && fact.includes('传统神象')),
+  );
+  assert.ok(annual.supportEvidence.some((fact) => fact.includes('传统填实条件')));
+  assert.ok(
+    annual.supportEvidence.some((fact) => fact.includes('驿马') && fact.includes('传统取象')),
+  );
+  assert.match(dynamicText, /太岁临本命景门，传统门象涉及文书、呈现与声誉议题/);
+  assert.ok(annual.supportEvidence.every((fact) => !/现实核对|现实安排核对/u.test(fact)));
+  assert.doesNotMatch(dynamicText, /名气外显|促成合作契约|虚转为实|主主动出行|事必速/u);
+
+  palace.renPan.door = '伤门';
+  const constrained = scanLifetimeDynamicEvents(baseChart, birth.stages, range).find((cluster) =>
+    cluster.key.startsWith(`cluster:${year}:丙午:`),
+  );
+  assert.ok(constrained);
+  assert.ok(
+    constrained.counterEvidence.some((fact) => fact.includes('伤门') && fact.includes('传统门象')),
+  );
 });
 
 test('奇门终身局动态年盘应按目标年度读取 IANA 夏令时偏移', () => {
   const targetOffsetMinutes = -4 * 60;
-  const year = findTimezoneSensitiveAnnualYear(targetOffsetMinutes);
+  const year = 2024;
   const result = calculateQimenLifetime({
     birthDateTime: '2023-01-15T14:30:00',
     timeZoneId: 'America/New_York',
@@ -682,9 +840,7 @@ test('奇门终身局动态年盘应按目标年度读取 IANA 夏令时偏移',
   });
   const annualCluster = result.eventClusters?.find(
     (cluster) =>
-      cluster.key.startsWith(`cluster:${year}:`) &&
-      !cluster.key.includes(':month-clash:') &&
-      !cluster.key.includes(':day-nodal'),
+      cluster.key.startsWith(`cluster:${year}:`) && cluster.key.includes(':after-lichun:'),
   );
   assert.ok(annualCluster, `应存在${year}年年度事件簇`);
 
@@ -696,6 +852,7 @@ test('奇门终身局动态年盘应按目标年度读取 IANA 夏令时偏移',
     clusterPatternFacts(annualCluster),
     annualPatternFacts(expectedChart, taiSuiPalace),
   );
+  assertMonthClashLocalTime(result.eventClusters!, year, targetOffsetMinutes);
 });
 
 test('奇门终身局 P4：自包含提示词规范、多流派依据与合规红线核验', () => {
@@ -717,7 +874,8 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.ok(prompt.length > 500);
   assert.match(prompt, /换象：/);
   assert.match(prompt, /造象：/);
-  assert.match(prompt, /同干定位（本命局）：/);
+  assert.match(prompt, /九宫四盘明细：[\s\S]*天盘\[[^\n]+地盘干\[/);
+  assert.doesNotMatch(prompt, /同干定位（本命局）：/);
   assert.match(prompt, /阶段与流年各用本层已列盘面/);
   assert.equal(data.topicCandidates.length, 2, 'topics 过滤应真正生效');
   assert.match(data.basis.timeZoneUsed, /America\/New_York/);
@@ -735,6 +893,17 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.match(prompt, /【个人标记与主题宫】/);
   assert.match(prompt, /【人生阶段资料】/);
   assert.match(prompt, /【周期触发与事件簇】/);
+  const annualLine = prompt.split('\n').find((line) => line.startsWith('2027年（丁未）立春后'));
+  assert.ok(annualLine);
+  assert.match(annualLine, /太岁值临/u);
+  assert.equal(annualLine.match(/2027年/gu)?.length, 1);
+  assert.doesNotMatch(prompt, /动态交互：流年岁气与本命/u);
+  const monthClash = data.eventClusters?.find((cluster) => cluster.key.includes(':month-clash:'));
+  assert.ok(monthClash?.triggerDates?.length);
+  assert.ok(prompt.includes(monthClash.triggerFact));
+  assert.ok(prompt.includes(monthClash.triggerDates[0]!.dateTime!));
+  assert.doesNotMatch(prompt, /动态交互：月建[^\n]+构成相冲/u);
+  assert.doesNotMatch(prompt, /增益因素：[^\n]*月建交节日：/u);
   assert.match(prompt, /【传统依据】/);
   assert.doesNotMatch(prompt, /【输出要求】/);
 
@@ -743,33 +912,71 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.match(prompt, /《奇门遁甲统宗》/);
   assert.match(prompt, /参考流派：宝鉴派、统宗派/);
   const promptDateFact = data.eventClusters
+    ?.filter((cluster) => !cluster.key.includes(':day:void-fill:'))
     ?.flatMap((cluster) => cluster.triggerDates ?? [])
     .find((fact) => fact.ganzhi);
   assert.ok(promptDateFact?.date, '提示词应带具体日级日期事实');
-  const [promptFactYear, promptFactMonth, promptFactDay] = promptDateFact!.date.split('-');
-  assert.match(prompt, new RegExp(`${promptFactYear}年${promptFactMonth}月.*${promptFactDay}日`));
+  assert.ok(prompt.includes(promptDateFact!.date), '提示词应保留可复核的完整日期');
   const promptDateLines = prompt.split('\n').filter((line) => line.includes('可复核日期：'));
-  const dailyFacts =
-    data.eventClusters
-      ?.flatMap((cluster) => cluster.triggerDates ?? [])
-      .filter((fact) => fact.ganzhi && fact.relation) ?? [];
-  for (const fact of dailyFacts) {
-    const [year, month, day] = fact.date.split('-');
-    const line = promptDateLines.find(
-      (candidate) =>
-        candidate.includes(`${year}年${month}月`) &&
-        candidate.includes(`${day}日（${fact.ganzhi}）`) &&
-        candidate.includes(`日干支关系：${fact.relation}`),
+  const dailyVoidFillClusters = data.eventClusters?.filter((cluster) =>
+    cluster.key.includes(':day:void-fill:'),
+  );
+  const dailyVoidFillDates = [
+    ...new Set(
+      dailyVoidFillClusters?.flatMap((cluster) =>
+        (cluster.triggerDates ?? []).map((fact) => fact.date),
+      ) ?? [],
+    ),
+  ].sort();
+  assert.ok(dailyVoidFillDates.length);
+  assert.ok(
+    prompt.includes(
+      `日级空亡填实条件：日支逢本命旬空地支${data.baseChart.voidBranches?.join('、')}；核验范围${data.input.periodRange?.startDate ?? dailyVoidFillDates[0]}至${data.input.periodRange?.endDate ?? dailyVoidFillDates.at(-1)}，各年符合条件的日数见下。`,
+    ),
+  );
+  const dailyClusters =
+    data.eventClusters?.filter((cluster) => cluster.key.includes(':day:')) ?? [];
+  assert.ok(dailyClusters.length > 0);
+  for (const cluster of dailyClusters) {
+    const firstDate = cluster.triggerDates![0]!;
+    assert.ok(
+      prompt
+        .split('\n')
+        .some(
+          (line) =>
+            line.startsWith(cluster.timeSpan) &&
+            line.includes(`共${cluster.triggerDates!.length}个日辰`),
+        ),
     );
-    assert.ok(line, `提示词应保留 ${fact.date} ${fact.ganzhi} ${fact.relation}`);
+    if (cluster.key.includes(':day:void-fill:')) {
+      assert.ok(
+        !promptDateLines.some((line) => line.includes(`日干支关系：${firstDate.relation}`)),
+        '本命空亡填实保留年份数量，不逐日展开日期清单',
+      );
+      continue;
+    }
+    const datesByGanzhi = new Map<string, string[]>();
+    for (const fact of cluster.triggerDates!) {
+      const dates = datesByGanzhi.get(fact.ganzhi!) ?? [];
+      dates.push(fact.date);
+      datesByGanzhi.set(fact.ganzhi!, dates);
+    }
+    const entries = [...datesByGanzhi].map(([ganzhi, dates]) => `${ganzhi}：${dates.join('、')}`);
+    const expectedDateLine = `  可复核日期：${entries.join('；')}；日干支关系：${firstDate.relation}`;
+    assert.ok(promptDateLines.includes(expectedDateLine), '同一日辰事件簇应保留完整干支分组与日期');
     assert.equal(
-      line!.split(`日干支关系：${fact.relation}`).length - 1,
+      expectedDateLine.split(`日干支关系：${firstDate.relation}`).length - 1,
       1,
-      '同一月份同一关系只应输出一次关系说明',
+      '同一事件簇只应输出一次关系说明',
     );
   }
+  assert.doesNotMatch(prompt, /按当地民用日读取日支与本命/);
+  assert.doesNotMatch(prompt, /这些日辰是否对应/);
+  assert.doesNotMatch(prompt, /增益因素：日支关系：/);
+  assert.doesNotMatch(prompt, /交节日前后是否出现阶段性决策、迁动或环境变化/);
   assert.doesNotMatch(prompt, /指定日期窗口引动本命/u);
   assert.doesNotMatch(prompt, /至2027-12-31关键动应日/u);
+  assert.doesNotMatch(prompt, /日干支关系：本命空亡填实/u);
 
   // 3. 严禁泄漏工程术语与内部层位键名
   assert.doesNotMatch(prompt, /ownerFactKeys/);
@@ -787,6 +994,306 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   // 4. 严禁出现无古籍依据的数字总分与成功率
   assert.doesNotMatch(prompt, /综合评分\s*\d+/);
   assert.doesNotMatch(prompt, /成功率\s*\d+%/);
+});
+
+test('奇门终身局提示词将年支空亡填实保留为事实并折叠日级日期', () => {
+  const { data, prompt } = generateQimenLifetimePrompt(
+    {
+      birthDateTime: '1990-05-15T14:30:00',
+      timeZoneId: 'Asia/Shanghai',
+      periodRange: { startDate: '2026-01-01', endDate: '2029-12-31' },
+    },
+    '未来四年的阶段变化',
+  );
+
+  assert.match(prompt, /2028年（戊申）[^\n]*本命空亡地支【申】逢流年填实。/u);
+  assert.match(prompt, /2029年（己酉）[^\n]*本命空亡地支【酉】逢流年填实。/u);
+  assert.doesNotMatch(prompt, /潜藏势能全面激活/u);
+  assert.doesNotMatch(prompt, /日干支关系：本命空亡填实/u);
+
+  const annualVoidFillClusters =
+    data.eventClusters?.filter(
+      (cluster) =>
+        cluster.timeSpan.startsWith('2028年（戊申）立春后') ||
+        cluster.timeSpan.startsWith('2029年（己酉）立春后'),
+    ) ?? [];
+  assert.equal(annualVoidFillClusters.length, 2);
+  assert.ok(
+    annualVoidFillClusters.every(
+      (cluster) =>
+        cluster.triggerFact.includes('本命空亡地支') &&
+        !cluster.triggerFact.includes('潜藏势能全面激活'),
+    ),
+  );
+
+  const dailyVoidFillClusters =
+    data.eventClusters?.filter((cluster) => cluster.key.includes(':day:void-fill:')) ?? [];
+  assert.ok(dailyVoidFillClusters.length);
+  const dailyVoidFillDates = [
+    ...new Set(
+      dailyVoidFillClusters.flatMap((cluster) =>
+        (cluster.triggerDates ?? []).map((fact) => fact.date),
+      ),
+    ),
+  ].sort();
+  assert.ok(
+    prompt.includes(
+      `日级空亡填实条件：日支逢本命旬空地支${data.baseChart.voidBranches?.join('、')}；核验范围${data.input.periodRange?.startDate ?? dailyVoidFillDates[0]}至${data.input.periodRange?.endDate ?? dailyVoidFillDates.at(-1)}，各年符合条件的日数见下。`,
+    ),
+  );
+  for (const cluster of dailyVoidFillClusters) {
+    assert.ok(cluster.triggerDates?.length);
+    assert.ok(
+      prompt
+        .split('\n')
+        .some(
+          (line) =>
+            line.startsWith(cluster.timeSpan) &&
+            line.includes(`共${cluster.triggerDates!.length}个日辰`),
+        ),
+    );
+  }
+});
+
+test('奇门终身局阶段只引用本命格局名称，完整条件保留在基础盘', () => {
+  const { data, prompt } = buildQimenCurrentYearFixture();
+  const pattern = data.baseChart.classicPatterns?.find((item) =>
+    data.stages.some((stage) =>
+      [...stage.supportFacts, ...stage.constraintFacts].some((fact) =>
+        fact.includes(`「${item.name}」：${item.summary}`),
+      ),
+    ),
+  );
+  assert.ok(pattern);
+  const label = pattern.type === 'good' ? '成吉格' : '逢凶格';
+  const fullFact = `${label}「${pattern.name}」：${pattern.summary}`;
+  assert.ok(
+    data.stages.some((stage) =>
+      [...stage.supportFacts, ...stage.constraintFacts].includes(fullFact),
+    ),
+  );
+  const baseSection = prompt.split('【终身局基础盘】')[1].split('【个人标记与主题宫】')[0];
+  const topicSection = prompt.split('【个人标记与主题宫】')[1].split('【人生阶段资料】')[0];
+  const stageSection = prompt.split('【人生阶段资料】')[1].split('【周期触发与事件簇】')[0];
+  const taskSection = prompt.split('【任务】')[1].split('\n\n【问题】')[0];
+  const basePatternLine = baseSection
+    .split('\n')
+    .find((line) => line.trimStart().startsWith(`${pattern.name}（`));
+  assert.ok(basePatternLine);
+  assert.ok(
+    pattern.palaces.every((gong) =>
+      basePatternLine.includes(
+        data.baseChart.jiuGongGe.find((palace) => palace.gong === gong)?.name ?? `${gong}宫`,
+      ),
+    ),
+  );
+  assert.ok(data.topicCandidates.some((item) => item.patternSummary.length > 0));
+  assert.match(topicSection, /人生重点主题候选宫：/);
+  assert.doesNotMatch(topicSection, /宫位现状：/);
+  assert.ok(stageSection.includes(`${label}「${pattern.name}」`));
+  assert.ok(!stageSection.includes(fullFact));
+  assert.match(taskSection, /取象：先按问题确定主体、事项用神、主客与原宫/);
+  assert.match(taskSection, /分层说明原盘现状与条件变化后的方案/);
+  assert.match(taskSection, /终身局取象以本命为根，阶段与流年各用本层已列盘面/);
+  assert.match(taskSection, /先综述全盘态势，再围绕所问事项整理主判断及可观察的应期线索/);
+  assert.doesNotMatch(taskSection, /不视为原盘改动/);
+  assert.doesNotMatch(taskSection, /按事项定用神与主客，以用神宫门星神干核对格局和空迫墓的作用/);
+});
+
+test('奇门终身局基础盘省略同格局复述并保留独有组合与遁干依据', () => {
+  const { data, prompt } = buildQimenCurrentYearFixture();
+  const patterns = prompt.split('盘面吉凶格局：')[1]?.split('【个人标记与主题宫】')[0] ?? '';
+
+  assert.match(patterns, /虎遁（吉）：生门、乙奇落艮八宫，主威严稳固、资源回归/u);
+  assert.match(patterns, /休诈（吉）：丁奇、开门、六合同宫于乾六宫，主和合调停、协作成事/u);
+  assert.doesNotMatch(patterns, /乃(?:虎遁|休诈)之格|三奇、吉门、六合同宫/u);
+  assert.match(patterns, /丙奇升殿（吉）：月奇·光明显达入离九宫，得本气之地/u);
+  assert.doesNotMatch(patterns, /升殿得位/u);
+  assert.match(patterns, /戊击刑（凶）：戊在震三宫击刑，主规则、口舌、文书/u);
+  assert.doesNotMatch(patterns, /在此宫落于相刑之位/u);
+  assert.match(patterns, /干合蛇刑（中性，坎一宫）：主文书财喜/u);
+  assert.match(prompt, /坎一宫（水）：天盘\[[^\n]*干壬\][^\n]*地盘干\[丁\]/u);
+  assert.doesNotMatch(patterns, /天盘壬加地盘丁于坎一宫/u);
+  assert.doesNotMatch(patterns, /壬加地盘丁为干合蛇刑/u);
+  assert.match(patterns, /罗网青龙（中性）：[^\n]*癸加地盘甲为罗网青龙；排盘时以甲子戊代甲/u);
+  assert.doesNotMatch(patterns, /故癸加地盘戊按此格论/u);
+  assert.ok(data.baseChart.classicPatterns?.some((item) => item.summary.includes('乃虎遁之格')));
+  const duplicate = data.baseChart.classicPatterns!.find((item) => item.name === '虎遁')!;
+  data.baseChart.classicPatterns!.push(structuredClone(duplicate));
+  data.stages[0].supportFacts = [`成吉格「虎遁」：${duplicate.summary}`];
+  const duplicatePrompt = buildLifetimePrompt(data, undefined, { includeCurrentTime: false });
+  const duplicatePatterns =
+    duplicatePrompt.split('盘面吉凶格局：')[1]?.split('【个人标记与主题宫】')[0] ?? '';
+  assert.equal(duplicatePatterns.match(/^  虎遁（吉）：/gmu)?.length, 1);
+  assert.equal(data.baseChart.classicPatterns!.filter((item) => item.name === '虎遁').length, 2);
+  assert.match(duplicatePrompt.split('阶段1：')[1].split('阶段2：')[0], /成吉格「虎遁」/u);
+
+  const trueZhaData = calculateQimenLifetime({
+    birthDateTime: '2026-06-18T12:00:00',
+    timeZoneId: 'Asia/Shanghai',
+    periodRange: { startDate: '2026-06-18', endDate: '2026-06-18' },
+  });
+  const before = structuredClone(trueZhaData);
+  const trueZhaPrompt = buildLifetimePrompt(trueZhaData, undefined, { includeCurrentTime: false });
+  assert.match(trueZhaPrompt, /真诈（吉）：丁奇、开门、太阴同宫于兑七宫，主隐蔽得助、柔性成事/u);
+  assert.doesNotMatch(trueZhaPrompt, /三奇、吉门、太阴同宫/u);
+  assert.equal(
+    trueZhaData.baseChart.classicPatterns!.find((item) => item.name === '真诈')!.summary,
+    '丁奇、开门、太阴同宫于兑七宫，三奇、吉门、太阴同宫，乃真诈之格，主隐蔽得助、柔性成事。',
+  );
+  assert.deepEqual(trueZhaData, before);
+
+  const trueZhaLines = trueZhaPrompt.split('\n');
+  assert.equal(trueZhaData.baseChart.zhiFu, '天禽');
+  assert.equal(trueZhaData.baseChart.zhiShi, '死门');
+  assert.ok(trueZhaLines.includes('值符星：天禽 | 值使门：死门'));
+  for (const palaceLine of [
+    '  坎一宫（水）：天盘[天任，干乙]，人盘[生门]，神盘[白虎]，地盘干[己]【旬空】',
+    '  坤二宫（土）：天盘[天柱，干丙]，人盘[惊门]，神盘[螣蛇]，地盘干[庚]【临马】',
+    '  震三宫（木）：天盘[天辅，干壬]，人盘[杜门]，神盘[九地]，地盘干[辛]',
+    '  巽四宫（木）：天盘[天英，干戊]，人盘[景门]，神盘[九天]，地盘干[壬]',
+    '  中五宫（土）：天盘[，干]，人盘[]，神盘[]，地盘干[癸]',
+    '  乾六宫（金）：天盘[天蓬，干己]，人盘[休门]，神盘[六合]，地盘干[丁]',
+    '  兑七宫（金）：天盘[天心，干丁]，人盘[开门]，神盘[太阴]，地盘干[丙]',
+    '  艮八宫（土）：天盘[天冲，干辛]，人盘[伤门]，神盘[玄武]，地盘干[乙]【旬空】',
+    '  离九宫（火）：天盘[天芮（携天禽），干庚（携癸）]，人盘[死门]，神盘[值符]，地盘干[戊]',
+  ]) {
+    assert.ok(trueZhaLines.includes(palaceLine), palaceLine);
+  }
+  for (const patternLine of [
+    '  符使同宫（吉，离九宫）：事情有极强的集中力量',
+    '  日奇入雾（凶，坎一宫）：乙为日奇（太阳），己为地户土雾，日入雾中，主被遮蔽、才能难伸',
+    '  荧入太白（凶，坤二宫）：丙为荧惑（火星），庚为太白（金星），火克金，荧入太白，主贼盗破财',
+    '  螣蛇格干（凶，震三宫）：符门虽吉亦不可安，谋事内生欺瞒',
+    '  奇入墓（凶，乾六宫）：主文书诉讼先有理、后受惩',
+    '  加中复奇（中性，兑七宫）：主口舌跷蹊，贵招官禄，常人防刑',
+    '  白虎猖狂（凶，艮八宫）：辛为白虎，乙为青龙，金克木，白虎势盛而猖狂，主争斗破坏',
+  ]) {
+    assert.equal(trueZhaLines.filter((line) => line === patternLine).length, 1, patternLine);
+  }
+  const trueZhaPatterns = trueZhaPrompt.split('盘面吉凶格局：')[1].split('【个人标记与主题宫】')[0];
+  assert.doesNotMatch(
+    trueZhaPatterns,
+    /天盘(?:乙加地盘己于坎一宫|丙加地盘庚于坤二宫|壬加地盘辛于震三宫|己加地盘丁于乾六宫|丁加地盘丙于兑七宫|辛加地盘乙于艮八宫)|值符天禽与值使死门同落离九宫/u,
+  );
+
+  const sunPatternLine =
+    '  日奇入雾（凶）：天盘乙加地盘己于坎一宫，乙为日奇（太阳），己为地户土雾，日入雾中，主被遮蔽、才能难伸';
+  const fuShiPatternLine = '  符使同宫（吉）：值符天禽与值使死门同落离九宫，事情有极强的集中力量';
+  const extraConditionData = structuredClone(trueZhaData);
+  const extraPattern = extraConditionData.baseChart.classicPatterns!.find(
+    (item) => item.name === '日奇入雾',
+  )!;
+  extraPattern.summary += '；另须核本次甲旬条件';
+  const extraFact = extraConditionData.baseChart.evidenceAnalysis!.patternFacts.find(
+    (item) => item.kind === '经典格局' && item.name === '日奇入雾',
+  )!;
+  extraFact.originalText = extraPattern.summary;
+  extraFact.promptText = extraPattern.summary;
+  const extraConditionBefore = structuredClone(extraConditionData);
+  const extraConditionPrompt = buildLifetimePrompt(extraConditionData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(extraConditionPrompt.split('\n').includes(`${sunPatternLine}；另须核本次甲旬条件`));
+  assert.deepEqual(extraConditionData, extraConditionBefore);
+
+  const missingStemData = structuredClone(trueZhaData);
+  missingStemData.baseChart.jiuGongGe.find((palace) => palace.gong === 1)!.tianPan.stem = '';
+  const missingStemBefore = structuredClone(missingStemData);
+  const missingStemPrompt = buildLifetimePrompt(missingStemData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingStemPrompt.split('\n').includes(sunPatternLine));
+  assert.match(missingStemPrompt, /坎一宫（水）：天盘\[天任，干\]/u);
+  assert.deepEqual(missingStemData, missingStemBefore);
+
+  const missingZhiFuData = structuredClone(trueZhaData);
+  missingZhiFuData.baseChart.zhiFu = '';
+  const missingZhiFuBefore = structuredClone(missingZhiFuData);
+  const missingZhiFuPrompt = buildLifetimePrompt(missingZhiFuData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingZhiFuPrompt.split('\n').includes(fuShiPatternLine));
+  assert.ok(missingZhiFuPrompt.split('\n').includes('值符星： | 值使门：死门'));
+  assert.deepEqual(missingZhiFuData, missingZhiFuBefore);
+
+  const missingEvidenceData = structuredClone(trueZhaData);
+  delete missingEvidenceData.baseChart.evidenceAnalysis;
+  const missingEvidenceBefore = structuredClone(missingEvidenceData);
+  const missingEvidencePrompt = buildLifetimePrompt(missingEvidenceData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingEvidencePrompt.split('\n').includes(sunPatternLine));
+  assert.ok(missingEvidencePrompt.split('\n').includes(fuShiPatternLine));
+  assert.deepEqual(missingEvidenceData, missingEvidenceBefore);
+});
+
+test('奇门终身局同宫得使合并基础条件，保留不同宫位的独立事实', () => {
+  const data = calculateQimenLifetime({
+    birthDateTime: '2026-01-01T08:00:00',
+    gender: 'male',
+    stagePolicy: { model: 'fuShiHexagramOrbit' },
+  });
+  const prompt = buildLifetimePrompt(data, undefined, { includeCurrentTime: false });
+  const baseSection = prompt.split('【终身局基础盘】')[1].split('【个人标记与主题宫】')[0];
+  const stageSection = prompt.split('【人生阶段资料】')[1].split('【任务】')[0];
+  assert.doesNotMatch(baseSection, /月奇得使（吉）/);
+  assert.match(
+    baseSection,
+    /月奇得使临吉门（吉）：丙奇加地盘[戊庚]（甲子\/甲申所遁）于[^；]+；同宫临(?:开|休|生)门/u,
+  );
+  assert.match(stageSection, /成吉格「月奇得使临吉门」/);
+  assert.doesNotMatch(stageSection, /成吉格「月奇得使」(?:；|\n|$)/u);
+  assert.ok(data.baseChart.classicPatterns?.some((item) => item.name === '月奇得使'));
+  assert.ok(data.baseChart.classicPatterns?.some((item) => item.name === '月奇得使临吉门'));
+  assert.doesNotMatch(baseSection, /月奇得使又临吉门|得门得使，双重吉利/u);
+
+  const emptyStageData = structuredClone(data);
+  const originalParent = emptyStageData.baseChart.classicPatterns!.find(
+    (item) => item.name === '月奇得使',
+  )!;
+  emptyStageData.stages[0].supportFacts = [
+    `成吉格「${originalParent.name}」：${originalParent.summary}`,
+  ];
+  emptyStageData.stages[0].constraintFacts = [];
+  const emptyStagePrompt = buildLifetimePrompt(emptyStageData, undefined, {
+    includeCurrentTime: false,
+  });
+  const firstStage = emptyStagePrompt.split('阶段1：')[1].split('阶段2：')[0];
+  assert.doesNotMatch(firstStage, /宫位支持类象：|宫位制约类象：/u);
+
+  // 模拟跨宫聚合资料，核对同名格局只在全部宫位被涵盖时省略。
+  const separatePalaceData = structuredClone(data);
+  const parent = separatePalaceData.baseChart.classicPatterns!.find(
+    (item) => item.name === '月奇得使',
+  )!;
+  const strengthened = separatePalaceData.baseChart.classicPatterns!.find(
+    (item) => item.name === '月奇得使临吉门',
+  )!;
+  const separatePalace = separatePalaceData.baseChart.jiuGongGe.find(
+    (palace) => !strengthened.palaces.includes(palace.gong),
+  )!;
+  parent.palaces.push(separatePalace.gong);
+  separatePalaceData.stages[0].supportFacts = [`成吉格「${parent.name}」：${parent.summary}`];
+  const separatePrompt = buildLifetimePrompt(separatePalaceData, undefined, {
+    includeCurrentTime: false,
+  });
+  const separateBase = separatePrompt.split('【终身局基础盘】')[1].split('【个人标记与主题宫】')[0];
+  const separateStages = separatePrompt.split('【人生阶段资料】')[1].split('【任务】')[0];
+  assert.match(separateBase, /月奇得使（吉）/);
+  assert.match(separateStages, /成吉格「月奇得使」/);
+});
+
+test('奇门终身局历史秒级偏移在出生时区和任务书中保持精度', () => {
+  const data = calculateQimenLifetime({
+    birthDateTime: '1900-01-02T12:00:00',
+    timeZoneId: 'Asia/Shanghai',
+  });
+  assert.equal(data.basis.timeZoneUsed, 'Asia/Shanghai (UTC+08:05:43)');
+  assert.equal(data.baseChart.timestamp, Date.parse('1900-01-02T03:54:17Z'));
+  const prompt = buildLifetimePrompt(data, undefined, { includeCurrentTime: false });
+  assert.match(prompt, /出生时区：Asia\/Shanghai \(UTC\+08:05:43\)/u);
+  assert.doesNotMatch(prompt, /8\.095277/u);
 });
 
 test('奇门终身局 P5：公开 API 接口验证', async () => {

@@ -4,17 +4,11 @@
  */
 import type { BaziChartResult, Wuxing } from './baziTypes';
 import { NAYIN_MAP } from './baziMappingsData';
-import {
-  TIAN_GAN_CHONG,
-  TIAN_GAN_HE,
-  LIUCHONG_MAP,
-  LIUHE_MAP,
-  LIUHAI_MAP,
-  isSanxing,
-  isSheng,
-  isKe,
-} from '../ganzhi/relations';
+import { isSanxing, isSheng, isKe } from '../ganzhi/relations';
 import { assertPillars, getWuxing } from './baziUtils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface NayinCompatibilityResult {
   person1YearGanZhi: string;
@@ -47,7 +41,7 @@ export interface UsefulGodComplementarityResult {
   /** 对方盘面出现第二人忌神五行的次数（仅按天干与地支主气计数，不含藏干） */
   person2AvoidCountInPerson1: number;
   /** 双方喜忌资料覆盖状态 */
-  dataStatus: '完整' | '一方缺失' | '双方缺失';
+  dataStatus: '完整' | '一方缺失' | '双方缺失' | '一方待判' | '双方待判';
   /** 只描述喜用五行的出现关系。 */
   level: '双向喜用覆盖' | '单向喜用覆盖' | '未见喜用覆盖' | '资料不足';
   judgment: string;
@@ -96,19 +90,19 @@ export function evaluateNayinCompatibility(
 
   if (elem1 === elem2) {
     relation = '比和';
-    judgment = '年命纳音同气比和，声气相求，门户根基相得益彰';
+    judgment = `双方年命纳音同属${elem1}，呈比和关系；实际相处结合双方原局与现实互动核验`;
   } else if (isSheng(elem1, elem2)) {
     relation = '生对方';
-    judgment = `年命纳音${elem1}生${elem2}，一方倾心相待，情意绵长`;
+    judgment = `年命纳音${elem1}生${elem2}；实际相处结合双方原局与现实互动核验`;
   } else if (isSheng(elem2, elem1)) {
     relation = '受对方生';
-    judgment = `年命纳音${elem2}生${elem1}，得配偶照拂滋养，根基敦实`;
+    judgment = `年命纳音${elem2}生${elem1}；实际相处结合双方原局与现实互动核验`;
   } else if (isKe(elem1, elem2)) {
     relation = '克对方';
-    judgment = `年命纳音${elem1}克${elem2}，以克为制，主导配合中见张力`;
+    judgment = `年命纳音${elem1}克${elem2}；实际相处结合双方原局与现实互动核验`;
   } else {
     relation = '受对方克';
-    judgment = `年命纳音${elem2}克${elem1}，顺承包容，宜多加调适理解`;
+    judgment = `年命纳音${elem2}克${elem1}；实际相处结合双方原局与现实互动核验`;
   }
 
   return {
@@ -130,6 +124,8 @@ export function evaluateSpousePalaceDeepRelation(
   chart1: BaziChartResult,
   chart2: BaziChartResult,
 ): SpousePalaceDeepRelationResult {
+  assertPillars(chart1.pillars);
+  assertPillars(chart2.pillars);
   const p1 = chart1.pillars.day;
   const p2 = chart2.pillars.day;
 
@@ -140,19 +136,16 @@ export function evaluateSpousePalaceDeepRelation(
 
   // 天干关系
   let stemRelation: SpousePalaceDeepRelationResult['stemRelation'] = '比和';
-  if (TIAN_GAN_HE[stem1]?.partner === stem2) {
+  if (GANZHI_RELATION_TABLES.TIAN_GAN_HE[stem1]?.partner === stem2) {
     stemRelation = '五合';
-  } else if (TIAN_GAN_CHONG[stem1] === stem2) {
+  } else if (GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[stem1] === stem2) {
     stemRelation = '天干冲';
   } else if (
-    isSheng(chart1.dayMaster.element, chart2.dayMaster.element) ||
-    isSheng(chart2.dayMaster.element, chart1.dayMaster.element)
+    isSheng(getWuxing(stem1), getWuxing(stem2)) ||
+    isSheng(getWuxing(stem2), getWuxing(stem1))
   ) {
     stemRelation = '相生';
-  } else if (
-    isKe(chart1.dayMaster.element, chart2.dayMaster.element) ||
-    isKe(chart2.dayMaster.element, chart1.dayMaster.element)
-  ) {
+  } else if (isKe(getWuxing(stem1), getWuxing(stem2)) || isKe(getWuxing(stem2), getWuxing(stem1))) {
     stemRelation = '相克';
   }
 
@@ -160,13 +153,13 @@ export function evaluateSpousePalaceDeepRelation(
   let branchRelation: SpousePalaceDeepRelationResult['branchRelation'] = '无明显刑冲合害';
   if (zhi1 === zhi2) {
     branchRelation = '同支';
-  } else if (LIUHE_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUHE_MAP[zhi1] === zhi2) {
     branchRelation = '六合';
-  } else if (LIUCHONG_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUCHONG_MAP[zhi1] === zhi2) {
     branchRelation = '六冲';
   } else if (isSanxing(zhi1, zhi2)) {
     branchRelation = '相刑';
-  } else if (LIUHAI_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUHAI_MAP[zhi1] === zhi2) {
     branchRelation = '相害';
   }
 
@@ -241,16 +234,34 @@ export function evaluateUsefulGodComplementarity(
   // 喜忌资料缺失与“未命中”分开处理：缺失不得判为分布平稳
   const p1HasData = p1Useful.length > 0 || p1Avoid.length > 0;
   const p2HasData = p2Useful.length > 0 || p2Avoid.length > 0;
+  const p1Pending =
+    chart1.analysis.usefulGod.incrementStatus === '待判' ||
+    chart1.analysis.usefulGod.incrementStatus === '部分判定';
+  const p2Pending =
+    chart2.analysis.usefulGod.incrementStatus === '待判' ||
+    chart2.analysis.usefulGod.incrementStatus === '部分判定';
   const dataStatus: UsefulGodComplementarityResult['dataStatus'] =
-    !p1HasData && !p2HasData ? '双方缺失' : !p1HasData || !p2HasData ? '一方缺失' : '完整';
-  const coverageText = `第一人喜用${p1Useful.join('、') || '无'}在第二人盘面出现${c1}次；第二人喜用${p2Useful.join('、') || '无'}在第一人盘面出现${c2}次；第一人忌神${p1Avoid.join('、') || '无'}在第二人盘面出现${avoid1}次；第二人忌神${p2Avoid.join('、') || '无'}在第一人盘面出现${avoid2}次`;
+    p1Pending && p2Pending
+      ? '双方待判'
+      : p1Pending || p2Pending
+        ? '一方待判'
+        : !p1HasData && !p2HasData
+          ? '双方缺失'
+          : !p1HasData || !p2HasData
+            ? '一方缺失'
+            : '完整';
+  const elementText = (elements: string[], pending: boolean) =>
+    elements.join('、') || (pending ? '待判' : '无');
+  const coverageText = `第一人喜用${elementText(p1Useful, p1Pending)}在第二人盘面出现${c1}次；第二人喜用${elementText(p2Useful, p2Pending)}在第一人盘面出现${c2}次；第一人忌神${elementText(p1Avoid, p1Pending)}在第二人盘面出现${avoid1}次；第二人忌神${elementText(p2Avoid, p2Pending)}在第一人盘面出现${avoid2}次`;
 
   let level: UsefulGodComplementarityResult['level'];
   let judgment: string;
 
   if (dataStatus !== '完整') {
     level = '资料不足';
-    judgment = `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
+    judgment = dataStatus.includes('待判')
+      ? `${dataStatus === '双方待判' ? '双方' : '一方'}增补喜忌五行尚待裁决，暂不判五行覆盖`
+      : `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
   } else if (c1 > 0 && c2 > 0) {
     level = '双向喜用覆盖';
     judgment = `${coverageText}；作用结合双方月令、根气与原局取用核验`;

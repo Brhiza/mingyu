@@ -60,6 +60,44 @@ test('逐年续取覆盖完整命限，交运年按所属大运分别保留', ()
   );
 });
 
+test('命限提示保留非零交运秒数，整分交运仍保持简洁', () => {
+  const preciseResult = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: '' as const,
+    birthHour: 13,
+    birthMinute: 5,
+    birthSecond: 37,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const childCycle = preciseResult.luckInfo.cycles[0];
+  assert.equal(childCycle.startSolarTime?.second, 37);
+  assert.equal(childCycle.endSolarTime?.second, 37);
+
+  const fullFortune = formatBaziFullFortune(preciseResult);
+  const fullCycleLine = fullFortune.split('\n').find((line) => line.startsWith('童运｜'));
+  assert.match(fullCycleLine ?? '', /1990年5月15日 13:05:37～1997年8月12日 22:27:37/u);
+
+  const firstPage = formatBaziFortuneBatch(preciseResult, 0);
+  const batchCycleLine = firstPage.text.split('\n').find((line) => line.startsWith('童运｜'));
+  assert.equal(batchCycleLine, fullCycleLine);
+
+  const minutePrecisionCycle = result.luckInfo.cycles[0];
+  assert.equal(minutePrecisionCycle.startSolarTime?.second, 0);
+  const minuteCycleLine = formatBaziFullFortune(result)
+    .split('\n')
+    .find((line) =>
+      line.startsWith(
+        minutePrecisionCycle.isXiaoyun ? '童运｜' : `${minutePrecisionCycle.ganZhi}大运｜`,
+      ),
+    );
+  assert.doesNotMatch(minuteCycleLine ?? '', /\d{2}:\d{2}:\d{2}～/u);
+});
+
 test('单年资料构造不读取其他年份的内容', () => {
   const source = result.luckInfo.cycles.find((cycle) => cycle.years.length > 1)!;
   const years = source.years.slice();

@@ -697,7 +697,9 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             stars: ['太阳', '太阴'],
             conditions: [
               '太阳与太阴同守田宅宫',
-              `田宅宫在${target.earthly_branch}${['辰', '戌', '丑', '未'].includes(target.earthly_branch) ? '，属于古籍所喜墓库' : '，不附加墓库条件'}`,
+              ...(['辰', '戌', '丑', '未'].includes(target.earthly_branch)
+                ? [`田宅宫在${target.earthly_branch}，属于古籍所喜墓库`]
+                : []),
             ],
           }
         : null;
@@ -841,7 +843,7 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             stars: ['文昌', '文曲', ...getMatchedStarNames(target, ['紫微'])],
             conditions: [
               '文昌与文曲同守福德宫',
-              hasStar(target, '紫微') ? '福德宫同时见紫微加强条件' : '未附加紫微加强条件',
+              ...(hasStar(target, '紫微') ? ['福德宫同时见紫微加强条件'] : []),
             ],
           }
         : null;
@@ -1786,6 +1788,8 @@ export function detectPatterns(params: {
         matched_conditions: match.conditions,
         traditional_interpretation: rule.traditionalInterpretation,
         source: rule.sourceUrl,
+        source_title: rule.sourceTitle,
+        source_quote: rule.sourceQuote,
         sources,
         calculation: rule.calculation,
         calculationStepKey: PATTERN_MATCHED_FACTS_STEP_KEY,

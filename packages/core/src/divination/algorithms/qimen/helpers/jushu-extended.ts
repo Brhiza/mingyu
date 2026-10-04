@@ -2,13 +2,11 @@
  * @file 月家、年家奇门局数计算
  * @description 月家奇门和年家奇门的定局算法。
  *
- * 月家奇门以月干支起局，用于查看一月运势；
- * 年家奇门以年干支起局，用于查看一年大势。
+ * 月家奇门以所属干支年的五年三元定地盘局，再以月干支定符使；
+ * 年家奇门以一百八十年三元定地盘局，再以年干支定符使。
  *
  * 古籍依据：
- *   - 《奇门遁甲秘籍大全》年家奇门："三元共一百八十年，上元甲子起一宫"
- *   - 《奇门旨归》年家阳遁诀："甲己一二三四五，乙庚三四五678..."
- *   - 《遁甲演义》月家奇门："寅上起月，顺逆布之"
+ *   - 《奇门遁甲统宗》“附年奇门起例”“附月奇门起例”
  */
 
 import { jiazi } from '../../../../divination/divination-data';
@@ -19,17 +17,15 @@ const SAN_YUAN_BASE_YEAR = 1864; // 甲子上元起点
 /**
  * 月家奇门定局
  *
- * 以月干支定阴阳遁和局数：
- *   寅~未（正月~六月）为阳遁，申~丑（七月~腊月）为阴遁。
- *   阳遁顺起：寅=1局，卯=2局，…
- *   阴遁逆起：申=9局，酉=8局，…
- *   月家每月一局，无"上中下三元"概念。
+ * 《奇门遁甲统宗》所载月家法以年干支每五年换元：
+ *   甲子至戊辰等为上元，阴遁一局；己巳至癸酉等为中元，阴遁四局；
+ *   甲戌至戊寅等为下元，阴遁七局。月干支用于定位当月旬首和符使。
  *
  * @param monthGanZhi 月干支（如 "甲寅"）
- * @param yearGanZhi  年干支（如 "甲辰"），部分流派可能需要，暂未使用
+ * @param yearGanZhi  年干支（如 "甲辰"），用于定位五年三元
  * @returns { isYangDun, juShu, yuan }
  *
- * @throws 当月支无法识别时
+ * @throws 当月或年干支无法识别时
  */
 export function getMonthQimenJuShu(
   monthGanZhi: string,
@@ -41,53 +37,19 @@ export function getMonthQimenJuShu(
 } {
   assertGanZhiName(monthGanZhi, '月干支');
   assertGanZhiName(yearGanZhi, '年干支');
-  const monthZhi = monthGanZhi.charAt(1);
+  const yearIndex = jiazi.indexOf(yearGanZhi);
+  const yuanIndex = Math.floor(yearIndex / 5) % 3;
+  const yuan = (['上元', '中元', '下元'] as const)[yuanIndex]!;
+  const juShu = [1, 4, 7][yuanIndex]!;
 
-  // 月支对应的月数（寅=1，卯=2，…，丑=12）
-  const monthZhiOrder: Record<string, number> = {
-    寅: 1,
-    卯: 2,
-    辰: 3,
-    巳: 4,
-    午: 5,
-    未: 6,
-    申: 7,
-    酉: 8,
-    戌: 9,
-    亥: 10,
-    子: 11,
-    丑: 12,
-  };
-
-  const monthNum = monthZhiOrder[monthZhi];
-  if (!monthNum) {
-    throw new Error(`无法识别月支 "${monthZhi}"。`);
-  }
-
-  // 月家阴阳遁：冬至后半年（寅~未）阳遁，夏至后半年（申~丑）阴遁
-  const yangZhiSet = new Set(['寅', '卯', '辰', '巳', '午', '未']);
-  const isYangDun = yangZhiSet.has(monthZhi);
-
-  // 阳遁顺起，阴遁逆起
-  const juShu = isYangDun ? ((monthNum - 1) % 9) + 1 : ((9 - ((monthNum - 1) % 9)) % 9) + 1;
-
-  // 月家无上中下三元概念
-  const yuan = '月局';
-
-  return { isYangDun, juShu, yuan };
+  return { isYangDun: false, juShu, yuan };
 }
 
 /**
  * 年家奇门定局
  *
- * 古法：甲己之年起1局，乙庚之年起7局，丙辛之年起4局，
- *       丁壬之年起1局，戊癸之年起7局。
- * 同年干各年均起同局，不随旬变。
- *
- * 阴阳遁以三元甲子定（180 年大循环）：
- *   上元（第 1-60 年）= 阳遁
- *   中元（第 61-120 年）= 阴遁
- *   下元（第 121-180 年）= 阳遁
+ * 《奇门遁甲统宗》所载年家法按一百八十年三元定局：
+ *   上元六十年阴遁一局，中元六十年阴遁四局，下元六十年阴遁七局。
  *   基准：1864 甲子年属上元，1924 甲子年属中元，1984 甲子年属下元。
  *
  * @param yearGanZhi 年干支（如 "甲辰"）
@@ -105,41 +67,19 @@ export function getYearQimenJuShu(
   yuan: string;
 } {
   assertGanZhiName(yearGanZhi, '年干支');
-  const yearGan = yearGanZhi.charAt(0);
   const yearIndex = jiazi.indexOf(yearGanZhi);
   if (yearIndex === -1) {
     throw new Error(`无法识别年干支 "${yearGanZhi}"。`);
   }
 
-  // 年家奇门按天干分组定起始局数
-  const ganJuMap: Record<string, number> = {
-    甲: 1,
-    己: 1,
-    乙: 7,
-    庚: 7,
-    丙: 4,
-    辛: 4,
-    丁: 1,
-    壬: 1,
-    戊: 7,
-    癸: 7,
-  };
-
-  // 三元甲子定阴阳遁（180 年大循环）。同一干支每 60 年重复一次，
-  // 必须结合实际年份才能区分上元、中元、下元。
+  // 同一干支每六十年重复一次，须结合实际年份定位三元。
   const cycleYear = resolveSanYuanCycleYear(yearGanZhi, yearIndex, solarYear);
   const cyclePos = positiveMod(cycleYear - SAN_YUAN_BASE_YEAR, 180);
-  const yuanCycle = cyclePos < 60 ? '上元' : cyclePos < 120 ? '中元' : '下元';
-  // 上元阳遁、中元阴遁、下元阳遁（《奇门旨归》）
-  const isYangDun = yuanCycle === '上元' || yuanCycle === '下元';
+  const yuanIndex = Math.floor(cyclePos / 60);
+  const yuan = (['上元', '中元', '下元'] as const)[yuanIndex]!;
+  const juShu = [1, 4, 7][yuanIndex]!;
 
-  // 古法按年干分组定局，同年干各年均起同局
-  const juShu = ganJuMap[yearGan];
-  if (!juShu) {
-    throw new Error(`年干定局数据缺失：${yearGan}`);
-  }
-
-  return { isYangDun, juShu, yuan: yuanCycle };
+  return { isYangDun: false, juShu, yuan };
 }
 
 function positiveMod(value: number, divisor: number): number {

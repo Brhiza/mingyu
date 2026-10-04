@@ -4,12 +4,10 @@ import {
   formatLiurenTransmission,
 } from './liuren-facts';
 import type { DivinationMethodId } from '../divination/config';
-import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import type {
   AlmanacData,
   AstrolabeData,
   DivinationData,
-  JinkoujueData,
   LenormandData,
   LiurenData,
   LiuyaoData,
@@ -22,9 +20,18 @@ import type {
 } from '../types/divination';
 import { formatAstrolabeForPrompt } from './astrolabe';
 import { formatDivinationInfo } from './divination';
+import { analyzeMeihuaEvidence } from '../divination/meihua-evidence';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
-import { formatAlmanacGods } from '../divination/almanac-evidence';
+import { analyzeAlmanacEvidence, formatAlmanacGods } from '../divination/almanac-evidence';
+import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
+import { analyzeTarotEvidence } from '../divination/tarot-evidence';
+import { resolveSsgwSignFacts } from '../divination/ssgw-content';
+import { formatLiuyaoSanxing } from './liuyao-facts';
+import {
+  analyzeQimenEvidence,
+  formatQimenPatternLinesForPrompt,
+} from '../divination/qimen-evidence';
 
 type SupportedMethod = Exclude<DivinationMethodId, 'random'>;
 
@@ -67,9 +74,7 @@ function formatLiuyaoDetail(data: LiuyaoData) {
     data.sanheWithMonth
       ? `月建三合：${data.sanheWithMonth.group}（${data.sanheWithMonth.members.join('、')}）`
       : '',
-    data.sanxingInYaos?.length
-      ? `三刑：${data.sanxingInYaos.map((item) => `${item.branches.join('、')}为${item.type}`).join('；')}`
-      : '',
+    data.sanxingInYaos?.length ? `刑支关系：${formatLiuyaoSanxing(data.sanxingInYaos)}` : '',
   ].filter(Boolean);
 }
 
@@ -105,6 +110,10 @@ function formatMeihuaCalculation(data: MeihuaData) {
 }
 
 function formatMeihuaDetail(data: MeihuaData) {
+  const evidence = analyzeMeihuaEvidence(data);
+  const resultStage = evidence.stages.find(
+    (stage) => stage.stage === 'result' && stage.status === '已计算',
+  );
   const hexagrams = [data.mainHexagram, data.interHexagram, data.changedHexagram]
     .map((item) => (item ? item : null))
     .filter((item) => item !== null)
@@ -123,7 +132,7 @@ function formatMeihuaDetail(data: MeihuaData) {
       )
       .join('；')}`,
     data.analysis
-      ? `体用分析：体卦${data.tiGua.name}（${data.tiGua.element}），用卦${data.yongGua.name}（${data.yongGua.element}），体用关系为【${data.analysis.tiYongRelation}】，体卦月令${data.analysis.tiSeasonState}，变后体用为【${data.analysis.changedTiYongRelation}】`
+      ? `体用分析：体卦${data.tiGua.name}（${data.tiGua.element}），用卦${data.yongGua.name}（${data.yongGua.element}），体用关系为【${data.analysis.tiYongRelation}】，体卦月令${data.analysis.tiSeasonState}${resultStage && data.analysis.changedTiYongRelation ? `，变后体用为【${data.analysis.changedTiYongRelation}】` : ''}`
       : '',
     formatMeihuaCalculation(data),
   ].filter(Boolean);
@@ -131,31 +140,18 @@ function formatMeihuaDetail(data: MeihuaData) {
 
 function formatXiaoliurenDetail(data: XiaoliurenData) {
   return [
-    `顺数：月宫${data.sequence.month.name}（${data.sequence.month.verse}）→日宫${data.sequence.day.name}（${data.sequence.day.verse}）→时宫${data.sequence.hour.name}（${data.sequence.hour.verse}）`,
-    `历法：农历${data.lunarMonth}月${data.lunarDay}日，${data.isLeapMonth ? '闰月' : '平月'}，${data.calculation.dayBoundary}，${data.calculation.leapMonthRule}`,
+    `顺数：月宫${data.sequence.month.name}→日宫${data.sequence.day.name}→时宫${data.sequence.hour.name}；占得宫歌诀：${data.primary.verse}`,
+    data.calculation
+      ? `历法：农历${data.lunarMonth}月${data.lunarDay}日，${data.isLeapMonth ? '闰月' : '平月'}，${data.calculation.dayBoundary}，${data.calculation.leapMonthRule}`
+      : `历法：农历${data.lunarMonth}月${data.lunarDay}日，${data.isLeapMonth ? '闰月' : '平月'}`,
   ];
-}
-
-function formatJinkoujueDetail(data: JinkoujueData) {
-  const positions = [
-    data.positions.diFen,
-    data.positions.jiangShen,
-    data.positions.guiShen,
-    data.positions.renYuan,
-  ];
-  return [
-    `四位：${positions.map((item) => `${item.name}${item.stem ?? ''}${item.branch}（${item.element}，${item.yinYang}，月令${item.seasonState}${item.isVoid ? '，空' : ''}）`).join('；')}`,
-    data.yinYangUse
-      ? `阴阳取用：${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '，落空' : ''}）`
-      : '',
-    `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
-    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
-    formatJinkoujueRelations(data),
-    formatJinkoujueMovementRules(),
-  ].filter(Boolean);
 }
 
 function formatQimenDetail(data: QimenData) {
+  const patternLines = formatQimenPatternLinesForPrompt(
+    data,
+    analyzeQimenEvidence(data).patternFacts,
+  );
   return [
     `九宫：${data.jiuGongGe
       .slice()
@@ -165,9 +161,7 @@ function formatQimenDetail(data: QimenData) {
           `${item.gong}宫${item.name}${item.direction}：天盘${item.tianPan.stem}${item.tianPan.star}；地盘${item.diPan.stem}；${item.renPan.door}；${item.shenPan.god}`,
       )
       .join('\n')}`,
-    data.patternDetails?.length
-      ? `格局明细：${data.patternDetails.map((item) => `${item.tag}：${item.summary}`).join('；')}`
-      : '',
+    patternLines.length ? `格局明细：\n${patternLines.join('\n')}` : '',
     data.directions
       ? `方位：宜${data.directions.goodDirections.map((item) => `${item.direction}（${item.use}）`).join('、') || '未列'}；慎${data.directions.avoidDirections.map((item) => `${item.direction}（${item.use}）`).join('、') || '未列'}`
       : '',
@@ -186,12 +180,14 @@ function formatLiurenDetail(data: LiurenData) {
 }
 
 function formatTarotDetail(data: TarotData) {
+  const cards = analyzeTarotEvidence(data).cards;
   return [
-    `牌位：${data.cards.map((card) => `${card.position}${card.name}（${card.reversed ? '逆位' : '正位'}${card.element ? `，${card.element}` : ''}）`).join('；')}`,
+    `牌位：${cards.map((card) => `${card.position}${card.name}（${card.orientation}${card.element !== '元素未列' ? `，${card.element}` : ''}）`).join('；')}`,
   ];
 }
 
 function formatSsgwDetail(data: SsgwData) {
+  data = resolveSsgwSignFacts(data);
   const details = data.details ?? {};
   const basic = details['核心寓意']?.trim() || details['解签']?.trim() || details['签意']?.trim();
   const supplementary = Object.entries(details)
@@ -210,6 +206,7 @@ function formatSsgwDetail(data: SsgwData) {
 }
 
 function formatAlmanacDetail(data: AlmanacData) {
+  analyzeAlmanacEvidence(data);
   const formatRangeTimestamp = (timestamp: number) => {
     const date = new Date(timestamp + 8 * 60 * 60 * 1_000);
     const pad = (value: number) => String(value).padStart(2, '0');
@@ -227,7 +224,7 @@ function formatAlmanacDetail(data: AlmanacData) {
           const conditions = range.branches
             .map(
               (branch) =>
-                `${formatRangeTimestamp(branch.startTimestamp)} 至 ${formatRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+                `${formatRangeTimestamp(branch.startTimestamp)} 至 ${formatRangeTimestamp(branch.endTimestamp)}（终点不含）司令${branch.profile.monthCommander || '待核'}，${branch.profile.incrementStatus === '待判' ? '增补五行喜忌待判' : `喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`}`,
             )
             .join('；');
           return `${base}，出生时间范围${source}，时间条件：${conditions}）`;
@@ -235,23 +232,29 @@ function formatAlmanacDetail(data: AlmanacData) {
         .join('；') || '未列'
     }`,
     `候选日：${data.days
-      .map(
-        (item) =>
-          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.join('、') || '无'}，忌${item.avoids.join('、') || '无'}，${item.clash}${formatAlmanacGods(
-            item,
-          )
-            .map((text) => `；${text}`)
-            .join('')}`,
-      )
+      .map((item) => {
+        const jieBoundaryNote = item.cautions.find((note) => note.includes('交节；'));
+        return `${item.date}：正午${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.join('、') || '无'}，忌${item.avoids.join('、') || '无'}，${item.clash}${jieBoundaryNote ? `；${jieBoundaryNote}` : ''}${formatAlmanacGods(
+          item,
+        )
+          .map((text) => `；${text}`)
+          .join('')}`;
+      })
       .join('\n')}`,
   ];
 }
 
 function formatLenormandDetail(data: LenormandData) {
+  const evidence = analyzeLenormandEvidence(data);
+  const combinations =
+    evidence.spreadCoverageFact.status === '完整' &&
+    evidence.cards.every((card) => card.status === '已映射')
+      ? evidence.traditionalFacts.filter((fact) => fact.kind !== '单牌牌义')
+      : [];
   return [
-    `牌位：${data.cards.map((card) => `${card.position}${card.name}（${card.keywords.join('、')}）`).join('；')}`,
-    data.combinations?.length
-      ? `组合：${data.combinations.map((item) => `${item.card1}+${item.card2}：${item.meaning}`).join('；')}`
+    `牌位：${evidence.cards.map((card) => `${card.position}${card.name}（${card.keywords.join('、')}）`).join('；')}`,
+    combinations?.length
+      ? `组合：${combinations.map((item) => `${item.kind} ${item.cardNames.join('+')}：${item.promptText.split('；')[0]}`).join('；')}`
       : '',
   ];
 }
@@ -287,6 +290,7 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
     `值年卦关系：本卦${forecast.hexagrams.annual.name}；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
     ...(dateTime
       ? [
+          '年月日时映射：每节气按十五日定位，超过十五日的尾段沿用第十五日；日卦按月经卦下的六十卦序顺行。',
           `皇极历位：${dateTime.civilTime.dateTime}，${dateTime.calendar.activeSolarTerm}，${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日，时段${dateTime.calendar.hourRange}`,
           `年月日时层级：月经卦${dateTime.hexagrams.monthJing.name}；旬纬卦${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经卦${dateTime.hexagrams.hourJing.name}`,
         ]
@@ -297,6 +301,7 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
 /** 输出比摘要更完整的、可直接拼入任务书的占法资料。 */
 export function formatDetailedDivinationInfo(method: SupportedMethod, data: DivinationData) {
   if (method === 'wuyun') return formatDivinationInfo(method, data);
+  if (method === 'jinkoujue') return formatDivinationInfo(method, data);
   const detail = (() => {
     switch (method) {
       case 'liuyao':
@@ -305,8 +310,6 @@ export function formatDetailedDivinationInfo(method: SupportedMethod, data: Divi
         return formatMeihuaDetail(data as MeihuaData);
       case 'xiaoliuren':
         return formatXiaoliurenDetail(data as XiaoliurenData);
-      case 'jinkoujue':
-        return formatJinkoujueDetail(data as JinkoujueData);
       case 'qimen':
         return formatQimenDetail(data as QimenData);
       case 'liuren':
@@ -330,5 +333,13 @@ export function formatDetailedDivinationInfo(method: SupportedMethod, data: Divi
     }
   })();
 
-  return [formatDivinationInfo(method, data), '详细资料：', ...detail].filter(Boolean).join('\n');
+  const summary = formatDivinationInfo(method, data);
+  const summaryText =
+    method === 'qimen'
+      ? summary.replace(
+          /(?:^|\n)盘面命中格局：\n[\s\S]*?(?=\n(?:复合格局：|值符宫应期参考：)|$)/u,
+          '',
+        )
+      : summary;
+  return [summaryText, '详细资料：', ...detail].filter(Boolean).join('\n');
 }

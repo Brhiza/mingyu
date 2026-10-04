@@ -7,12 +7,20 @@
 import type { QimenLifetimeData } from '../../../../types/divination';
 import { TimeManager } from '../../../../calendar/timeManager';
 import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../../../prompt/qimen-interpretation';
-import { formatQimenStemLocations } from '../../../../prompt/qimen-facts';
 import { buildPromptTask } from '../../../../prompt/guidance';
+import {
+  formatQimenClassicPatternBasisForPrompt,
+  formatQimenClassicPatternSummary,
+  selectQimenClassicPatternsForPrompt,
+} from '../../../qimen-evidence';
 
 type TriggerDate = NonNullable<
   NonNullable<QimenLifetimeData['eventClusters']>[number]['triggerDates']
 >[number];
+
+export function formatLifetimePatternSummary(name: string, summary: string): string {
+  return formatQimenClassicPatternSummary(name, summary);
+}
 
 function formatTriggerDate(item: TriggerDate): string {
   const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
@@ -48,6 +56,39 @@ function formatTriggerDates(items: TriggerDate[]): string[] {
   });
 }
 
+function formatDailyTriggerDates(items: TriggerDate[]): string[] {
+  const isCompactable = items.every(
+    (item) =>
+      !item.dateTime && item.ganzhi && item.relation && /^\d{4}-\d{2}-\d{2}$/u.test(item.date),
+  );
+  const relations = [...new Set(items.map((item) => item.relation).filter(Boolean))];
+  if (!isCompactable || relations.length !== 1) return formatTriggerDates(items);
+
+  const datesByGanzhi = new Map<string, string[]>();
+  for (const item of items) {
+    const dates = datesByGanzhi.get(item.ganzhi!) ?? [];
+    dates.push(item.date);
+    datesByGanzhi.set(item.ganzhi!, dates);
+  }
+  const entries = [...datesByGanzhi].map(([ganzhi, dates]) => `${ganzhi}：${dates.join('、')}`);
+
+  return [`  可复核日期：${entries.join('；')}；日干支关系：${relations[0]}`];
+}
+
+function formatDailyVoidFillSummary(data: QimenLifetimeData): string {
+  const clusters = (data.eventClusters ?? []).filter((item) =>
+    item.key.includes(':day:void-fill:'),
+  );
+  const branches = data.baseChart.voidBranches ?? [];
+  const dates = [
+    ...new Set(clusters.flatMap((item) => item.triggerDates ?? []).map((item) => item.date)),
+  ].sort();
+  if (branches.length === 0 || dates.length === 0) return '';
+  const startDate = data.input.periodRange?.startDate ?? dates[0]!;
+  const endDate = data.input.periodRange?.endDate ?? dates.at(-1)!;
+  return `日级空亡填实条件：日支逢本命旬空地支${branches.join('、')}；核验范围${startDate}至${endDate}，各年符合条件的日数见下。`;
+}
+
 /**
  * 构建终身局自包含提示词任务书
  */
@@ -65,7 +106,7 @@ export function buildLifetimePrompt(
 
   // 1. 【当前时间】
   if (options.includeCurrentTime !== false) {
-    const now = TimeManager.getWallClockParts();
+    const now = TimeManager.getWallClockParts(new Date(), 480);
     const nowStr = `${now.year}-${String(now.month).padStart(2, '0')}-${String(now.day).padStart(2, '0')} ${String(now.hour).padStart(2, '0')}:${String(now.minute).padStart(2, '0')}`;
     lines.push(`【当前时间】`);
     lines.push(`${nowStr}（UTC+08:00）\n`);
@@ -178,17 +219,63 @@ export function buildLifetimePrompt(
     );
   }
 
-  if (data.baseChart.classicPatterns && data.baseChart.classicPatterns.length > 0) {
+  const classicPatterns = data.baseChart.classicPatterns ?? [];
+  const classicFacts =
+    data.baseChart.evidenceAnalysis?.patternFacts.filter((fact) => fact.kind === '经典格局') ?? [];
+  const visibleClassicPatterns = selectQimenClassicPatternsForPrompt(classicPatterns);
+  if (visibleClassicPatterns.length > 0) {
     lines.push(`盘面吉凶格局：`);
-    for (const cp of data.baseChart.classicPatterns) {
+    for (const cp of visibleClassicPatterns) {
+      const parentName = cp.name.match(/^([日月星]奇得使)临吉门$/u)?.[1];
+      const parentSummaries = parentName
+        ? classicPatterns
+            .filter(
+              (pattern) =>
+                pattern.name === parentName &&
+                pattern.palaces.some((gong) => cp.palaces.includes(gong)),
+            )
+            .map((pattern) =>
+              formatLifetimePatternSummary(pattern.name, pattern.summary).replace(/[；。]+$/u, ''),
+            )
+        : [];
+      const summary = formatLifetimePatternSummary(cp.name, cp.summary);
+      const fact = classicFacts.find(
+        (item) =>
+          item.name === cp.name &&
+          item.originalText === cp.summary &&
+          item.palaces.length === cp.palaces.length &&
+          item.palaces.every((gong) => cp.palaces.includes(gong)),
+      );
+      const locationClause = summary.match(
+        /^(?:天盘[乙丙丁戊己庚辛壬癸]加地盘[乙丙丁戊己庚辛壬癸]于[^，；]+|值符.+与值使.+同落[^，；]+)[，；]/u,
+      )?.[0];
+      const locationAlreadyShown = Boolean(
+        fact &&
+        locationClause &&
+        formatQimenClassicPatternBasisForPrompt(fact, classicFacts, data.baseChart) === cp.name,
+      );
+      const palaceName = locationAlreadyShown
+        ? data.baseChart.jiuGongGe.find((palace) => palace.gong === cp.palaces[0])?.name
+        : '';
+      const remainingSummary = locationAlreadyShown
+        ? summary.slice(locationClause!.length)
+        : summary;
+      const mergedSummary = [
+        ...new Set([
+          ...parentSummaries,
+          parentSummaries.length
+            ? remainingSummary
+                .replace(`${parentName}又临吉门`, '同宫临')
+                .replace(/，得门得使，双重吉利。?$/u, '')
+            : remainingSummary,
+        ]),
+      ].join('；');
       lines.push(
-        `  ${cp.name}（${cp.type === 'good' ? '吉' : cp.type === 'bad' ? '凶' : '中性'}）：${cp.summary}`,
+        `  ${cp.name}（${cp.type === 'good' ? '吉' : cp.type === 'bad' ? '凶' : '中性'}${palaceName ? `，${palaceName}` : ''}）${mergedSummary ? `：${mergedSummary}` : ''}`,
       );
     }
   }
   lines.push('');
-
-  lines.push(`同干定位（本命局）：\n${formatQimenStemLocations(data.baseChart).join('\n')}\n`);
 
   // 5. 【个人标记与主题宫】
   lines.push(`【个人标记与主题宫】`);
@@ -211,14 +298,38 @@ export function buildLifetimePrompt(
       .map((g) => data.baseChart.jiuGongGe.find((item) => item.gong === g)?.name || `${g}宫`)
       .join('、');
     lines.push(`  ${t.topicName}：主落${pNames}。依据：${t.basis}`);
-    if (t.patternSummary.length > 0) {
-      lines.push(`    宫位现状：${t.patternSummary.join('；')}`);
-    }
   }
   lines.push('');
 
   // 6. 【人生阶段资料】
   lines.push(`【人生阶段资料】`);
+  const basePatternFacts = new Map<string, string>();
+  const redundantStagePatternFacts = new Set<string>();
+  for (const pattern of classicPatterns) {
+    const label = pattern.type === 'good' ? '成吉格' : pattern.type === 'bad' ? '逢凶格' : '';
+    if (label) {
+      const fullFact = `${label}「${pattern.name}」：${pattern.summary}`;
+      basePatternFacts.set(fullFact, `${label}「${pattern.name}」`);
+      if (
+        !visibleClassicPatterns.some(
+          (visible) =>
+            visible.name === pattern.name &&
+            formatLifetimePatternSummary(visible.name, visible.summary) ===
+              formatLifetimePatternSummary(pattern.name, pattern.summary),
+        )
+      ) {
+        redundantStagePatternFacts.add(fullFact);
+      }
+    }
+  }
+  const formatStageFacts = (facts: string[]) =>
+    [
+      ...new Set(
+        facts
+          .filter((fact) => !redundantStagePatternFacts.has(fact))
+          .map((fact) => basePatternFacts.get(fact) ?? fact),
+      ),
+    ].join('；');
   for (const st of data.stages) {
     const domNames = st.dominantPalaces.map((d) => d.name).join('、');
     lines.push(
@@ -229,11 +340,13 @@ export function buildLifetimePrompt(
     if (st.startDateTime)
       lines.push(`  精确区间：${st.startDateTime}起，至${st.endDateTimeExclusive}前。`);
     if (st.ganzhi) lines.push(`  干支定位：${st.associatedMarkers.join('；')}`);
-    if (st.supportFacts.length > 0) {
-      lines.push(`  支持吉象：${st.supportFacts.join('；')}`);
+    const supportFacts = formatStageFacts(st.supportFacts);
+    const constraintFacts = formatStageFacts(st.constraintFacts);
+    if (supportFacts) {
+      lines.push(`  宫位支持类象：${supportFacts}`);
     }
-    if (st.constraintFacts.length > 0) {
-      lines.push(`  考验反证：${st.constraintFacts.join('；')}`);
+    if (constraintFacts) {
+      lines.push(`  宫位制约类象：${constraintFacts}`);
     }
   }
   lines.push('');
@@ -241,21 +354,55 @@ export function buildLifetimePrompt(
   // 7. 【周期触发与事件簇】
   if (data.eventClusters && data.eventClusters.length > 0) {
     lines.push(`【周期触发与事件簇】`);
+    const dailyVoidFillSummary = formatDailyVoidFillSummary(data);
+    if (dailyVoidFillSummary) lines.push(dailyVoidFillSummary);
     for (const ec of data.eventClusters) {
-      lines.push(
-        `${ec.timeSpan}${ec.stageIndices?.length ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）` : ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${ec.triggerFact}（节奏：${ec.rhythm}）`,
-      );
-      if (ec.triggerDates && ec.triggerDates.length > 0) {
-        lines.push(...formatTriggerDates(ec.triggerDates));
+      const triggerDates = ec.triggerDates ?? [];
+      const isDailyRelation = ec.key.includes(':day:') && triggerDates.length > 0;
+      const isDailyVoidFill = isDailyRelation && ec.key.includes(':day:void-fill:');
+      const stageLabel =
+        ec.stageIndices?.length && (ec.stageIndices.length > 1 || ec.stageIndex === undefined)
+          ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）`
+          : ec.stageIndex === undefined
+            ? '（阶段表范围外）'
+            : '';
+      if (ec.key.includes(':month-clash:')) {
+        lines.push(`${ec.triggerFact}${stageLabel}（节奏：${ec.rhythm}）`);
+        continue;
       }
-      lines.push(`  动态交互：${ec.interactionAnalysis}`);
-      if (ec.supportEvidence.length > 0) {
+      const annualLabel = /^(\d{4}年（[^）]+)）/u.exec(ec.timeSpan)?.[1];
+      const annualPrefix = annualLabel ? `${annualLabel}太岁）` : undefined;
+      const triggerFact =
+        annualPrefix && ec.triggerFact.startsWith(annualPrefix)
+          ? `太岁${ec.triggerFact.slice(annualPrefix.length)}`
+          : ec.triggerFact;
+      lines.push(
+        `${ec.timeSpan}${stageLabel} ${isDailyRelation ? `共${triggerDates.length}个日辰` : triggerFact}（节奏：${ec.rhythm}）`,
+      );
+      if (triggerDates.length > 0 && !isDailyVoidFill) {
+        lines.push(
+          ...(isDailyRelation
+            ? formatDailyTriggerDates(triggerDates)
+            : formatTriggerDates(triggerDates)),
+        );
+      }
+      if (
+        !isDailyRelation &&
+        !/^cluster:\d{4}:[^:]+:(?:(?:before|after)-lichun:)?\d+$/u.test(ec.key)
+      ) {
+        lines.push(`  动态交互：${ec.interactionAnalysis}`);
+      }
+      if (!isDailyRelation && ec.supportEvidence.length > 0) {
         lines.push(`  增益因素：${ec.supportEvidence.join('；')}`);
       }
       if (ec.counterEvidence.length > 0) {
         lines.push(`  制约因素：${ec.counterEvidence.join('；')}`);
       }
-      if (ec.verificationQuestions.length > 0) {
+      if (
+        !isDailyRelation &&
+        !ec.key.includes(':month-clash:') &&
+        ec.verificationQuestions.length > 0
+      ) {
         lines.push(`  核验要点：${ec.verificationQuestions.join(' ')}`);
       }
     }

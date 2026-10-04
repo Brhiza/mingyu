@@ -39,12 +39,31 @@ const almanacParticipantSchema = z.object({
   year: z.number().describe('出生年'),
   month: z.number().describe('出生月'),
   day: z.number().describe('出生日'),
-  timeIndex: z.number().describe('出生时辰索引：0=早子时,...,12=晚子时'),
-  birthHour: z.number().int().min(0).max(23).optional().describe('出生区间起点小时'),
-  birthMinute: z.number().int().min(0).max(59).optional().describe('出生区间起点分钟'),
-  birthSecond: z.number().int().min(0).max(59).optional().describe('出生区间起点秒数'),
+  timeIndex: z
+    .number()
+    .optional()
+    .describe('出生时辰索引：0=早子时,...,12=晚子时；已提供出生小时和分钟时可省略'),
+  birthHour: z.number().int().min(0).max(23).optional().describe('原始出生钟表小时'),
+  birthMinute: z.number().int().min(0).max(59).optional().describe('原始出生钟表分钟'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('原始出生钟表秒数；普通精确钟表省略按 0 秒，出生区间需明确提供起点秒数'),
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为农历闰月'),
+  birthPlace: z.string().optional().describe('原始出生地点名称'),
+  birthLongitude: z.number().min(-180).max(180).optional().describe('原始出生地点经度，东经为正'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('原始出生钟表的固定 UTC 时差，单位小时'),
+  timeZoneId: z.string().trim().min(1).optional().describe('原始出生钟表的 IANA 时区'),
+  useTrueSolarTime: z.boolean().optional().describe('是否按出生经度换算真太阳时'),
   birthTimeRange: almanacParticipantBirthTimeRangeSchema
     .optional()
     .describe('四柱反推得到的完整北京时间出生半开区间及来源四柱'),
@@ -102,7 +121,10 @@ function buildAlmanacParticipants(
       isLeapMonth: item.isLeapMonth ?? false,
     });
 
-    const timeIndex = readMcpIntegerLikeInRange(item.timeIndex, 'timeIndex', 0, 12);
+    const timeIndex =
+      item.timeIndex === undefined
+        ? undefined
+        : readMcpIntegerLikeInRange(item.timeIndex, 'timeIndex', 0, 12);
     if (
       item.birthTimeRange &&
       (item.birthHour === undefined ||
@@ -121,12 +143,17 @@ function buildAlmanacParticipants(
       year: String(item.year),
       month: String(item.month),
       day: String(item.day),
-      timeIndex: String(timeIndex),
+      timeIndex: timeIndex === undefined ? '' : String(timeIndex),
       ...(item.birthHour === undefined ? {} : { birthHour: String(item.birthHour) }),
       ...(item.birthMinute === undefined ? {} : { birthMinute: String(item.birthMinute) }),
       ...(item.birthSecond === undefined ? {} : { birthSecond: String(item.birthSecond) }),
       dateType: item.dateType,
       isLeapMonth: item.isLeapMonth ?? false,
+      ...(item.birthPlace === undefined ? {} : { birthPlace: item.birthPlace }),
+      ...(item.birthLongitude === undefined ? {} : { birthLongitude: String(item.birthLongitude) }),
+      ...(item.timezone === undefined ? {} : { timezone: item.timezone }),
+      ...(item.timeZoneId === undefined ? {} : { timeZoneId: item.timeZoneId }),
+      ...(item.useTrueSolarTime === undefined ? {} : { useTrueSolarTime: item.useTrueSolarTime }),
       ...(item.birthTimeRange
         ? {
             birthTimeRange: {

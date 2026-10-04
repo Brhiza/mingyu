@@ -47,6 +47,21 @@ const PAGE_CHARACTERS = 6000;
 const SUMMARY_CHARACTERS = 8000;
 const ANSWER_CHARACTERS = 12000;
 
+export function captureAstrolabeDynamicReadingSource<T extends AstrolabeDynamicReadingSource>(
+  source: T,
+): T {
+  return {
+    ...source,
+    summary: { ...source.summary, source: { ...source.summary.source } },
+    promptOptions: source.promptOptions
+      ? {
+          ...source.promptOptions,
+          schools: source.promptOptions.schools ? [...source.promptOptions.schools] : undefined,
+        }
+      : undefined,
+  };
+}
+
 export function isAstrolabeDynamicReadingCheckpoint(
   value: unknown,
 ): value is AstrolabeDynamicReadingCheckpoint {
@@ -87,6 +102,7 @@ export async function collectAstrolabeDynamicReadingText(
   options: RoundOptions,
   stream: Stream,
 ) {
+  options = { ...options, aiConfig: options.aiConfig ? { ...options.aiConfig } : undefined };
   if (text.length > 40000) throw new Error('本轮解读资料超过容量，请缩短补充问题后重试。');
   options.signal?.throwIfAborted();
   const controller = new AbortController();
@@ -133,6 +149,8 @@ export async function runAstrolabeDynamicReadingRound(
   options: RoundOptions,
   stream: Stream,
 ): Promise<AstrolabeDynamicReadingCheckpoint> {
+  source = captureAstrolabeDynamicReadingSource(source);
+  options = { ...options, aiConfig: options.aiConfig ? { ...options.aiConfig } : undefined };
   const identity = JSON.stringify([
     source.key,
     source.subjectId,
@@ -142,20 +160,22 @@ export async function runAstrolabeDynamicReadingRound(
   if (!source.key || !source.subjectId) throw new Error('动态区间解读缺少锁定主体。');
   if (previous && (previous.version !== 1 || previous.identity !== identity))
     throw new Error('动态区间解读进度与当前主体、范围或问题不匹配，请切换回原资料后继续。');
-  const checkpoint: AstrolabeDynamicReadingCheckpoint = previous ?? {
-    version: 1,
-    identity,
-    stage: 'pages',
-    cursor: {
-      branchIndex: 0,
-      pageIndex: 0,
-      branchStartTimestamp: source.summary.source.startTimestamp,
-    },
-    completedPages: 0,
-    completedBranches: 0,
-    synopsis: '',
-    question: options.question,
-  };
+  const checkpoint: AstrolabeDynamicReadingCheckpoint = previous
+    ? { ...previous, cursor: previous.cursor ? { ...previous.cursor } : null }
+    : {
+        version: 1,
+        identity,
+        stage: 'pages',
+        cursor: {
+          branchIndex: 0,
+          pageIndex: 0,
+          branchStartTimestamp: source.summary.source.startTimestamp,
+        },
+        completedPages: 0,
+        completedBranches: 0,
+        synopsis: '',
+        question: options.question,
+      };
   if (
     !isAstrolabeDynamicReadingCheckpoint(checkpoint) ||
     !['pages', 'summary', 'complete'].includes(checkpoint.stage) ||

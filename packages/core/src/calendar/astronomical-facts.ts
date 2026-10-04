@@ -2,6 +2,7 @@ import { ASTROLOGY_ENGINE_MODEL, calculatePlanets } from '../astrology/engine';
 
 import { formatFixedTimezoneOffset, resolveCivilTime } from './civil-time';
 import type { HistoricalTimezoneEvidence } from './historical-timezone';
+import { calculateMoonGeometry } from './moon-geometry';
 
 export const ASTRONOMY_FACT_MODEL = {
   provider: ASTROLOGY_ENGINE_MODEL.provider,
@@ -66,6 +67,7 @@ export interface AstronomicalFacts {
   coordinate: typeof ASTRONOMY_FACT_MODEL.coordinate;
   bodies: AstronomicalBodyFact[];
   moonPhase: {
+    phaseAngleDegrees: number;
     elongationDegrees: number;
     illuminationFraction: number;
     waxing: boolean;
@@ -166,7 +168,15 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
   const sun = bodies.find((body) => body.name === 'Sun');
   const moon = bodies.find((body) => body.name === 'Moon');
   if (!sun || !moon) throw new Error('天文事实缺少太阳或月球位置。');
-  const elongationDegrees = normalizeDegrees(moon.longitudeDegrees - sun.longitudeDegrees);
+  const phaseAngleDegrees = normalizeDegrees(moon.longitudeDegrees - sun.longitudeDegrees);
+  const moonGeometry = calculateMoonGeometry({
+    sunLongitude: sun.longitudeDegrees,
+    sunLatitude: sun.latitudeDegrees,
+    sunDistance: sun.distance,
+    moonLongitude: moon.longitudeDegrees,
+    moonLatitude: moon.latitudeDegrees,
+    moonDistance: moon.distance,
+  });
 
   return {
     localDateTime: `${civilTime.localDateTime}${formatFixedTimezoneOffset(timezone)}`,
@@ -178,10 +188,15 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
     coordinate: ASTRONOMY_FACT_MODEL.coordinate,
     bodies,
     moonPhase: {
-      elongationDegrees,
-      illuminationFraction: (1 - Math.cos((elongationDegrees * Math.PI) / 180)) / 2,
-      waxing: elongationDegrees < 180,
+      phaseAngleDegrees,
+      elongationDegrees: moonGeometry.elongationDegrees,
+      illuminationFraction: moonGeometry.illuminationFraction,
+      waxing: phaseAngleDegrees < 180,
     },
-    model: ASTRONOMY_FACT_MODEL,
+    model: {
+      ...ASTRONOMY_FACT_MODEL,
+      recommendedYearRange: [...ASTRONOMY_FACT_MODEL.recommendedYearRange],
+      validation: { ...ASTRONOMY_FACT_MODEL.validation },
+    },
   };
 }

@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'xu-month-bing-jia-ren-first',
+    label: '丙日戌月先甲后壬规则',
+    description: '九月丙火退气而忌土晦光，原文先甲木、次壬水；无壬癸透时另论替用。',
+    priority: 115,
+    months: ['戌'],
+    dayMasters: ['火'],
+    dayStems: ['丙'],
+    usefulWuxing: '木',
+    favorableOrder: ['木', '水'],
+    hint: '丙火戌月，先甲木、次壬水',
+  },
+  {
     id: 'xu-month-bing-hidden-ren-gui-page',
     label: '丙日戌月壬癸藏支页监规则',
     description:
@@ -31,17 +43,18 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     id: 'xu-month-bing-geng-wu-trap-jia-ren',
     label: '丙日戌月庚戊困木水庸才规则',
     description:
-      '丙火生戌月，若甲木壬癸本可为用，却又见庚戊同透困其水木，传统多断庸才，不宜仍按甲壬并透上格直断。',
+      '丙火生戌月，若局中有甲木与壬癸水，又见庚戊同透困其水木，传统多断庸才，不宜仍按甲壬并透上格直断。',
     priority: 124,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
-    requiredVisibleStems: ['庚', '戊', '甲'],
+    requiredVisibleStems: ['庚', '戊'],
+    minStemTotalCounts: { 甲: 1 },
     distinctStemGroupCounts: [
       {
         stems: ['壬', '癸'],
         minDistinctCount: 1,
-        scope: 'visible',
+        scope: 'total',
       },
     ],
     usefulWuxing: '木',

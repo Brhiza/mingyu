@@ -3,7 +3,6 @@ import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { getDivinationTime, reverseBaziDates } from 'mingyu-core/calendar';
-import { formatJinkoujueJudgmentFacts } from 'mingyu-core/prompt';
 import { generateDivinationSession as generateCoreSession } from 'mingyu-core/divination/session';
 import type { JinkoujueData } from 'mingyu-core/types';
 import { defaultDraft } from '../src/components/DivinationPanel/constants';
@@ -16,7 +15,7 @@ import { generateDivinationSession, type DivinationDraft } from '../src/lib/divi
 import { getDivinationSessionSummary } from '../src/lib/divination/summary';
 import { addDivinationHistory, getDivinationHistoryById } from '../src/lib/history-records';
 
-function createDraft(day = 19): DivinationDraft {
+function findCandidate(day: 19 | 20) {
   const dateText = `2024-02-${day}`;
   const timestamp = Date.parse(`${dateText}T12:00:00+08:00`);
   const pillars = getDivinationTime(new Date(timestamp), 480).ganzhi;
@@ -24,6 +23,14 @@ function createDraft(day = 19): DivinationDraft {
     (item) => item.start.text.startsWith(dateText),
   );
   assert.ok(candidate);
+  return candidate;
+}
+
+const rainWaterCandidate = findCandidate(19);
+const stableCandidate = findCandidate(20);
+
+function createDraft(day: 19 | 20 = 19): DivinationDraft {
+  const candidate = day === 19 ? rainWaterCandidate : stableCandidate;
   const selection = resolveBaziReverseCandidate(candidate);
   assert.ok(selection);
   return {
@@ -37,6 +44,59 @@ function createDraft(day = 19): DivinationDraft {
     divinationReverseSource: selection.source,
     divinationTimeStandard: 'beijing',
   };
+}
+
+function assertJinkoujuePromptFacts(prompt: string, data: JinkoujueData) {
+  assert.ok(prompt.includes(data.methodLabel));
+  assert.ok(prompt.includes(data.yinYangUse.rule));
+  assert.ok(prompt.includes(data.yinYangUse.usePosition));
+  for (const fact of [
+    data.calculation.diFenNote,
+    data.calculation.monthLeaderRule,
+    data.calculation.noblemanRule,
+    data.calculation.guiShenRule,
+    data.calculation.yuanDunRule,
+    data.calculation.dayNightRule,
+  ]) {
+    assert.ok(prompt.includes(fact));
+  }
+  assert.match(prompt, new RegExp(`月将[：:]?${data.monthLeader}加占时${data.divinationBranch}`));
+
+  for (const position of Object.values(data.positions)) {
+    const compactPosition = `${position.name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`;
+    assert.ok(prompt.includes(position.promptText) || prompt.includes(compactPosition));
+    assert.ok(prompt.includes(position.role));
+    assert.ok(prompt.includes(`按${position.elementBasis}`));
+    if (position.stem && position.stemElement && position.elementBasis !== '人元干') {
+      assert.ok(prompt.includes(`${position.stem}属${position.stemElement}`));
+    }
+  }
+
+  if (data.xunKong.length) assert.ok(prompt.includes(data.xunKong.join('、')));
+  for (const movement of data.movements) {
+    assert.ok(prompt.includes(movement.name));
+    assert.ok(prompt.includes(movement.trigger));
+  }
+  const displayedRelations = prompt
+    .split('\n')
+    .filter((line) => /^(?:四位关系|五动三动)：/u.test(line));
+  const positions = Object.values(data.positions);
+  for (const fact of data.evidenceAnalysis?.counterEvidenceFacts ?? []) {
+    const standardCounter = fact.type === '受克' && fact.promptText === fact.detail;
+    const displayedSameDirection =
+      standardCounter &&
+      positions.some((source) =>
+        positions.some(
+          (target) =>
+            fact.ownerKey === `jinkoujue:position:${target.name}` &&
+            fact.detail === `${target.name}受${source.name}克` &&
+            displayedRelations.some((line) =>
+              line.includes(`${source.name}${source.element}克${target.name}${target.element}`),
+            ),
+        ),
+      );
+    assert.ok(prompt.includes(fact.promptText) || displayedSameDirection, fact.promptText);
+  }
 }
 
 test('金口诀跨中气页面摘要分享保留两段四位与发用', async () => {
@@ -65,7 +125,7 @@ test('金口诀跨中气页面摘要分享保留两段四位与发用', async ()
       .split(`分支${index + 1}：`)[1]
       ?.split(`分支${index + 2}：`)[0];
     assert.ok(branchPrompt);
-    for (const fact of formatJinkoujueJudgmentFacts(data)) assert.ok(branchPrompt.includes(fact));
+    assertJinkoujuePromptFacts(branchPrompt, data);
     for (const position of Object.values(data.positions)) {
       const stemBranch = `${position.stem ?? ''}${position.branch}`;
       assert.ok(share.includes(stemBranch));
@@ -152,7 +212,7 @@ test('随机金口诀分段历史重开保持同一次随机地分与全部课�
   }
 });
 
-test('金口诀普通网页与核心会话使用完整四位判断资料', async () => {
+test('金口诀普通网页与核心会话保留四位判断资料且核心提示词不重复', async () => {
   const draft = {
     ...createDraft(),
     divinationTimeMode: 'custom' as const,
@@ -173,13 +233,49 @@ test('金口诀普通网页与核心会话使用完整四位判断资料', async
   ] as const) {
     const item = data as JinkoujueData;
     assert.ok(item.evidenceAnalysis?.counterEvidenceFacts.length);
-    for (const fact of formatJinkoujueJudgmentFacts(item)) assert.ok(prompt.includes(fact));
+    assertJinkoujuePromptFacts(prompt, item);
     assert.doesNotMatch(prompt, /事态主轴：见|evidenceAnalysis|schemaVersion|randomTrace/);
-    for (const position of Object.values(item.positions)) {
-      assert.ok(prompt.includes(position.elementBasis));
-      for (const limitation of position.constraints) assert.ok(prompt.includes(limitation));
-    }
   }
+  assert.equal(core.aiPrompt.match(/^阴阳发用：/gm)?.length, 1);
+  assert.equal(core.aiPrompt.match(/^四位：/gm)?.length, 1);
+  assert.equal(core.aiPrompt.match(/^五动三动：/gm)?.length, 1);
+  assert.doesNotMatch(core.aiPrompt, /金口诀判断依据：/);
+
+  const coreData = core.data as JinkoujueData;
+  const structuredBefore = structuredClone(coreData);
+  for (const relation of ['人元土克将神水', '人元土克贵神水', '将神水克地分火', '贵神水克地分火']) {
+    assert.equal(core.formattedResult.split(relation).length - 1, 1);
+  }
+  assert.throws(() =>
+    assertJinkoujuePromptFacts(
+      core.formattedResult.replaceAll('人元土克将神水', '将神水克人元土'),
+      coreData,
+    ),
+  );
+  assert.throws(() =>
+    assertJinkoujuePromptFacts(
+      core.formattedResult.replaceAll('人元土克将神水', '人元土克贵神水'),
+      coreData,
+    ),
+  );
+  assert.throws(() =>
+    assertJinkoujuePromptFacts(
+      core.formattedResult.replaceAll('人元土克将神水', '人元火克将神水'),
+      coreData,
+    ),
+  );
+  const additionalCondition = structuredClone(coreData);
+  const counter = additionalCondition.evidenceAnalysis?.counterEvidenceFacts.find(
+    (fact) => fact.detail === '将神受人元克',
+  );
+  assert.ok(counter);
+  counter.promptText += '；将神处月令休，力量条件偏弱';
+  assert.throws(() => assertJinkoujuePromptFacts(core.formattedResult, additionalCondition));
+  assertJinkoujuePromptFacts(
+    core.formattedResult + '\n四位反证：' + counter.promptText,
+    additionalCondition,
+  );
+  assert.deepEqual(coreData, structuredBefore);
 });
 
 test('旧金口诀文本来源仍按代表时刻起课', async () => {

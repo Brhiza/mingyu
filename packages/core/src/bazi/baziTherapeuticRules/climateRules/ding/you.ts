@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const DING_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'you-month-ding-jia-geng-bing',
+    label: '丁日酉月甲庚丙参用规则',
+    description: '八月丁火以甲木引丁、庚金劈甲，丙火可暖金晒木；各干的实际作用依原局判断。',
+    priority: 115,
+    months: ['酉'],
+    dayMasters: ['火'],
+    dayStems: ['丁'],
+    usefulWuxing: '木',
+    favorableOrder: ['木', '金', '火'],
+    hint: '丁火酉月，甲木引丁、庚金劈甲，丙火参用',
+  },
+  {
     id: 'you-month-ding-xin-follow-wealth',
     label: '丁日酉月辛金从才规则',
     description:

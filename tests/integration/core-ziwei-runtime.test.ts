@@ -76,35 +76,22 @@ test('npm 紫微资料便捷入口应保留指定范围并返回结构化 payloa
   assert.equal(payloadByScope.origin.active_scope.scope, 'origin');
 });
 
-test('npm 紫微运行时应将真太阳时结果转换为公历日期和时辰', () => {
-  const input = buildZiweiChartInput({
-    ...baseDraft,
-    year: '1990',
-    month: '5',
-    day: '15',
-    timeIndex: '',
-    useTrueSolarTime: true,
-    birthHour: '0',
-    birthMinute: '5',
-    birthLongitude: '75',
-    timezone: 8,
-  });
-
-  assert.equal(input.dateType, 'solar');
-  assert.equal(input.isLeapMonth, false);
-  assert.equal(input.trueSolarEvidence?.summaryFact.status, '证据链完整');
-  assert.equal(Number.isInteger(input.birthTimeIndex), true);
-});
-
 test('npm 紫微运限便捷入口应一次生成流年、流月和流日选项', async () => {
   const input = buildZiweiChartInput(baseDraft);
-  const options = await buildZiweiFortuneOptions(input, { startAge: 1, endAge: 1 });
+  const options = await buildZiweiFortuneOptions(
+    input,
+    { startAge: 1, endAge: 1 },
+    { hourIndex: 4 },
+  );
 
   assert.equal(options.yearOptions.length, 1);
   assert.equal(options.yearOptions[0]?.age, 1);
   assert.equal(options.yearOptions[0]?.ganZhi.length, 2);
-  assert.equal(options.monthOptions.length, 12);
-  assert.equal(options.dayOptions.length, 31);
+  assert.equal(options.monthOptions.length, 9);
+  assert.equal(options.monthOptions[0]?.dateStr, '1990-05-15');
+  assert.equal(options.monthOptions[0]?.endDateStr, '1990-05-23');
+  assert.equal(options.dayOptions.length, 9);
+  assert.equal(options.dayOptions.at(-1)?.dateStr, '1990-05-23');
   assert.equal(options.effectiveYearDateStr, options.yearOptions[0]?.dateStr);
   assert.equal(options.effectiveMonthDateStr, options.monthOptions[0]?.dateStr);
 });

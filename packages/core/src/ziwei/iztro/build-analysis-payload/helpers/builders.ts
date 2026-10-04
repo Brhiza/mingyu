@@ -17,7 +17,7 @@ import type {
 import { resolveScopeLabel, type HoroscopeScopeItem } from './scope';
 import { MUTAGEN_ORDER, mapScopeMutagenMap, mapStarFact } from './mappers';
 import { SHICHEN_PERIODS, getTimeIndexFromClock } from '../../../../calendar/dateUtils';
-import { getGanZhiFromDate } from '../../../../ganzhi';
+import { SolarTime } from 'tyme4ts';
 import type { ChartInput } from '../../../../types/chart';
 import {
   buildBirthMutagensByPalaceIndex,
@@ -40,15 +40,21 @@ function buildFourPillars(
   if (!Number.isInteger(second) || second < 0 || second > 59) {
     throw new Error('紫微四柱展示秒数必须在 0-59 之间。');
   }
-  const date = new Date(0);
-  date.setFullYear(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
-  date.setHours(time.hour, time.minute, second, 0);
-  const pillars = getGanZhiFromDate(date);
+  const pillars = SolarTime.fromYmdHms(
+    Number(parts[1]),
+    Number(parts[2]),
+    Number(parts[3]),
+    time.hour,
+    time.minute,
+    second,
+  )
+    .getLunarHour()
+    .getEightChar();
   return {
-    year_pillar: pillars.year,
-    month_pillar: pillars.month,
-    day_pillar: pillars.day,
-    hour_pillar: pillars.hour,
+    year_pillar: pillars.getYear().getName(),
+    month_pillar: pillars.getMonth().getName(),
+    day_pillar: pillars.getDay().getName(),
+    hour_pillar: pillars.getHour().getName(),
   };
 }
 

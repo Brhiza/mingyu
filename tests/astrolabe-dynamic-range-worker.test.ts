@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateAstrolabeDynamicRange } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import { getDivinationTime } from 'mingyu-core/calendar';
 import {
   executeAstrolabeDynamicRangeWorker,
@@ -65,7 +64,7 @@ class FakeWorker {
   }
 }
 
-test('实际动态 Worker 按请求交付全部分段，结果与独立核心计算一致', async (context) => {
+test('实际动态 Worker 按请求交付连续完整分段并返回范围汇总', async (context) => {
   context.mock.method(Date, 'now', () => Date.parse('2028-03-20T00:00:00Z'));
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
   const messages: DynamicRangeWorkerResponse[] = [];
@@ -84,30 +83,58 @@ test('实际动态 Worker 按请求交付全部分段，结果与独立核心计
       intervalEnd: '2024-03-20 11:00:03',
       endTimestamp: start + 3000,
     };
-    const expected = generateAstrolabeDynamicRange(input, fullSource, fullRequest);
+    const expectedSampleCount = (fullSource.endTimestamp - fullSource.startTimestamp) / 1000;
     const delivered: AstrolabeDynamicRangeBranch[] = [];
+    let completedSummary: AstrolabeDynamicRangeSummary | undefined;
     let nextRequest: DynamicRangeWorkerRequest = {
       type: 'start',
       input,
       source: fullSource,
       request: fullRequest,
     };
-    for (let index = 0; index <= expected.branchCount; index++) {
+    for (let requestCount = 0; requestCount <= expectedSampleCount; requestCount++) {
       messages.length = 0;
       workerScope.onmessage!({ data: nextRequest } as MessageEvent<DynamicRangeWorkerRequest>);
       const responses = messages.filter((message) => message.type !== 'progress');
       assert.equal(responses.length, 1);
       const response = responses[0];
-      if (index < expected.branchCount) {
-        assert.equal(response.type, 'branch');
-        if (response.type === 'branch') delivered.push(response.branch);
+      if (response.type === 'branch') {
+        assert.ok(requestCount < expectedSampleCount, '分段数不能超过逐秒样本数');
+        delivered.push(response.branch);
         nextRequest = { type: 'next' };
       } else {
         assert.equal(response.type, 'complete');
-        if (response.type === 'complete')
-          assert.deepEqual({ ...response.summary, branches: delivered }, expected);
+        if (response.type === 'complete') completedSummary = response.summary;
+        break;
       }
     }
+    assert.ok(completedSummary, '全部分段交付后应收到完整汇总');
+    assert.equal(completedSummary.coverage, 'natal+dynamic');
+    assert.equal(completedSummary.scope, fullRequest.scope);
+    assert.equal(completedSummary.referenceDate, fullRequest.referenceDate);
+    assert.equal(completedSummary.source.startTimestamp, fullSource.startTimestamp);
+    assert.equal(completedSummary.source.endTimestamp, fullSource.endTimestamp);
+    assert.equal(completedSummary.resolutionSeconds, 1);
+    assert.equal(completedSummary.sampleCount, expectedSampleCount);
+    assert.equal(completedSummary.branchCount, delivered.length);
+
+    let cursor = fullSource.startTimestamp;
+    for (const item of delivered) {
+      assert.equal(item.startTimestamp, cursor);
+      assert.equal(item.endExclusive, true);
+      assert.ok(item.endTimestamp > item.startTimestamp);
+      assert.equal(item.sampleCount, (item.endTimestamp - item.startTimestamp) / 1000);
+      assert.deepEqual(
+        item.representative.scopes.map((scope) => scope.scope),
+        ['natal', 'yearly', 'monthly', 'daily'],
+      );
+      assert.deepEqual(
+        item.last.scopes.map((scope) => scope.scope),
+        ['natal', 'yearly', 'monthly', 'daily'],
+      );
+      cursor = item.endTimestamp;
+    }
+    assert.equal(cursor, fullSource.endTimestamp);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'self', descriptor);
     else Reflect.deleteProperty(globalThis, 'self');
@@ -125,29 +152,54 @@ async function withWorker(run: () => Promise<void>) {
   }
 }
 
-test('动态区间保存当前段完成后才拉取下一段，最终只返回汇总', async () => {
+test('动态区间保存当前段完成后才拉取下一段，最终只返回汇总', async (context) => {
   await withWorker(async () => {
     let saved!: () => void;
     const saving = new Promise<void>((resolve) => {
       saved = resolve;
     });
     const received: AstrolabeDynamicRangeBranch[] = [];
-    const pending = executeAstrolabeDynamicRangeWorker(input, source, request, async (value) => {
-      received.push(value);
-      await saving;
-    });
+    const controller = new AbortController();
+    const replacement = new AbortController();
+    const removedOriginal = context.mock.method(controller.signal, 'removeEventListener');
+    const removedReplacement = context.mock.method(replacement.signal, 'removeEventListener');
+    const progress: Array<[number, number]> = [];
+    const replacementProgress: Array<[number, number]> = [];
+    const options = {
+      signal: controller.signal,
+      onProgress: (completed: number, total: number) => progress.push([completed, total]),
+    };
+    const pending = executeAstrolabeDynamicRangeWorker(
+      input,
+      source,
+      request,
+      async (value) => {
+        received.push(value);
+        await saving;
+      },
+      options,
+    );
     const worker = FakeWorker.current;
     assert.equal(worker.posted[0].type, 'start');
     worker.emit({ type: 'branch', branch });
     await Promise.resolve();
     assert.equal(worker.posted.length, 1);
+    options.signal = replacement.signal;
+    options.onProgress = (completed, total) => replacementProgress.push([completed, total]);
     saved();
     await saving;
     await Promise.resolve();
     assert.deepEqual(worker.posted[1], { type: 'next' });
+    worker.emit({ type: 'progress', completed: 2, total: 2 });
     worker.emit({ type: 'complete', summary });
     assert.deepEqual(await pending, summary);
     assert.deepEqual(received, [branch]);
+    assert.deepEqual(progress, [[2, 2]]);
+    assert.deepEqual(replacementProgress, []);
+    assert.equal(removedOriginal.mock.callCount(), 1);
+    assert.equal(removedOriginal.mock.calls[0].arguments[0], 'abort');
+    assert.equal(removedReplacement.mock.callCount(), 0);
+    assert.equal(options.signal, replacement.signal);
     assert.equal(worker.terminated, true);
   });
 });
@@ -155,23 +207,42 @@ test('动态区间保存当前段完成后才拉取下一段，最终只返回�
 test('动态区间保存过程中取消立即终止，保存结束不再拉取', async () => {
   await withWorker(async () => {
     const controller = new AbortController();
+    const progress: Array<[number, number]> = [];
+    const received: AstrolabeDynamicRangeBranch[] = [];
     let saved!: () => void;
     const saving = new Promise<void>((resolve) => {
       saved = resolve;
     });
-    const pending = executeAstrolabeDynamicRangeWorker(input, source, request, () => saving, {
-      signal: controller.signal,
-    });
+    const pending = executeAstrolabeDynamicRangeWorker(
+      input,
+      source,
+      request,
+      (value) => {
+        received.push(value);
+        return saving;
+      },
+      {
+        signal: controller.signal,
+        onProgress: (completed, total) => progress.push([completed, total]),
+      },
+    );
     const rejected = assert.rejects(pending, { name: 'AbortError' });
     const worker = FakeWorker.current;
     worker.emit({ type: 'branch', branch });
     controller.abort();
     await rejected;
+    worker.emit({ type: 'progress', completed: 2, total: 2 });
+    worker.emit({ type: 'branch', branch });
+    worker.emit({ type: 'complete', summary });
+    assert.deepEqual(received, [branch]);
+    assert.deepEqual(progress, []);
     saved();
     await saving;
     await Promise.resolve();
     assert.equal(worker.terminated, true);
     assert.equal(worker.posted.length, 1);
+    assert.deepEqual(received, [branch]);
+    assert.deepEqual(progress, []);
   });
 });
 

@@ -1,4 +1,8 @@
-import { buildAstrolabeFromInput, buildHoroscopeFromInput } from 'mingyu-core/ziwei';
+import {
+  buildAstrolabeFromInput,
+  buildHoroscope,
+  buildHoroscopeFromInput,
+} from 'mingyu-core/ziwei';
 
 export async function runZiweiBrowserContract() {
   const input = {
@@ -27,5 +31,8 @@ export async function runZiweiBrowserContract() {
     palaceCount: astrolabe.palaces.length,
     horoscopeAge: horoscope.age,
     birthdayAge: birthdayHoroscope.age.nominalAge,
+    birthdayDirectAge: birthdayChart.horoscope('2001-07-04', 6).age.nominalAge,
+    birthdaySyncAge: buildHoroscope(birthdayChart, '2001-07-04', 6).age.nominalAge,
+    explicitEarlyZi: astrolabe.horoscope(new Date(2026, 7, 4, 12, 30), 0).hourly.earthlyBranch,
   };
 }

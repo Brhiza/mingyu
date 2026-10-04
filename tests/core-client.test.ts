@@ -33,6 +33,80 @@ test('统一客户端应提供出生盘、占法、能力发现和稳定序列�
   assert.equal(client.serialize({ b: 2, a: 1 }), '{"a":1,"b":2}');
 });
 
+test('统一客户端太乙时计保留阴九、十局的客算与将参', () => {
+  const client = createMingyuClient();
+  for (const [instant, bureau, taiyiPalace, shiJiPosition, guestCount, general, assistant] of [
+    ['2026-06-25T08:30:00Z', 9, 7, '酉', 33, 3, 9],
+    ['2026-06-25T10:30:00Z', 10, 6, '乾', 34, 4, 2],
+  ] as const) {
+    const result = client.taiyi({ scope: 'hour', date: new Date(instant) });
+    assert.equal(result.yinYang, '阴遁');
+    assert.equal(result.bureau, bureau);
+    assert.equal(result.taiyiPalace, taiyiPalace);
+    assert.equal(result.shiJiPosition, shiJiPosition);
+    assert.equal(result.guestCount, guestCount);
+    assert.equal(result.guestGeneral, general);
+    assert.equal(result.guestAssistant, assistant);
+  }
+});
+
+test('统一客户端太乙定算与逐宫定目同值', () => {
+  const client = createMingyuClient();
+  const cases = [
+    { input: { scope: 'year', year: 1998 }, bureau: 27, count: 24, general: 4, assistant: 2 },
+    {
+      input: { scope: 'hour', date: new Date('2026-06-25T16:30:00Z') },
+      bureau: 13,
+      count: 13,
+      general: 3,
+      assistant: 9,
+    },
+  ] as const;
+  for (const { input, bureau, count, general, assistant } of cases) {
+    const result = client.taiyi(input);
+    assert.equal(result.bureau, bureau);
+    assert.equal(result.setCount, count);
+    assert.equal(result.setGeneral, general);
+    assert.equal(result.setAssistant, assistant);
+  }
+});
+
+test('统一客户端八字结果保留真实出生钟表且传统时辰不生成精确钟表', async () => {
+  const client = createMingyuClient();
+  const birthProfile: BirthProfile = {
+    gender: 'male',
+    calendarType: 'solar',
+    year: 1988,
+    month: 6,
+    day: 1,
+    hour: 0,
+    minute: 30,
+    second: 42,
+    applyChinaDst: true,
+    location: { longitude: 116.4, latitude: 39.9, timezone: 8 },
+  };
+  const precise = await client.birth(birthProfile, { systems: ['bazi'] });
+  assert.deepEqual(precise.bazi?.birthClockTime, {
+    year: 1988,
+    month: 6,
+    day: 1,
+    hour: 0,
+    minute: 30,
+    second: 42,
+  });
+  assert.deepEqual(precise.bazi?.solarDate, { year: 1988, month: 5, day: 31 });
+  assert.deepEqual(
+    JSON.parse(client.serialize(precise.bazi)).birthClockTime,
+    precise.bazi?.birthClockTime,
+  );
+
+  const traditional = await client.birth(
+    { ...birthProfile, hour: undefined, minute: undefined, second: undefined, timeIndex: 1 },
+    { systems: ['bazi'] },
+  );
+  assert.equal(traditional.bazi?.birthClockTime, undefined);
+});
+
 test('统一客户端应提供无性别的即时排盘与安全调用', async () => {
   const client = createMingyuClient();
   const request = {
@@ -109,7 +183,6 @@ test('统一客户端应直接提供前端常用的时间、环境与轻量排�
     doorToInteriorDegree: 0,
     northReference: 'true',
   });
-  const zodiac = client.zodiac({ zodiac: '鼠', year: 2026 });
   const taiyi = client.taiyi({ year: 2026, scope: 'year' });
   const qizheng = client.qizheng({
     year: 1992,
@@ -141,12 +214,72 @@ test('统一客户端应直接提供前端常用的时间、环境与轻量排�
   assert.equal(solarIllumination.localDate, '2026-08-06');
   assert.equal(bazhai.houseGua, '坎');
   assert.equal(bazhaiByDoorDegree.directionMeasurement.sitMountain, '子');
-  assert.deepEqual(zodiac, getZodiacYearFortune('子', '丙午'));
   assert.equal(taiyi.scope, 'year');
   assert.equal(qizheng.stars.length, 11);
   assert.equal(xuankong.sitMountain, '子');
   assert.ok(residential.bazhai);
   assert.ok(residential.xuankong);
+});
+
+test('客户端在夸贾林重复民用日分别保留两次中午的昼生结果', () => {
+  const client = createMingyuClient();
+  const base = {
+    year: 1969,
+    month: 9,
+    day: 30,
+    hour: 12,
+    latitude: 8.7167,
+    longitude: 167.7333,
+    timeZoneId: 'Pacific/Kwajalein',
+  };
+  for (const [timezone, utcDateTime] of [
+    [11, '1969-09-30T01:00:00.000Z'],
+    [-12, '1969-10-01T00:00:00.000Z'],
+  ] as const) {
+    const input = { ...base, timezone };
+    const illumination = client.solarIllumination(input);
+    const chart = client.qizheng(input);
+    assert.equal(Date.parse(illumination.referenceUtcDateTime), Date.parse(utcDateTime));
+    assert.equal(chart.calculationContext.utcDateTime, utcDateTime);
+    assert.equal(
+      Date.parse(chart.calculationContext.solarIllumination.referenceUtcDateTime),
+      Date.parse(utcDateTime),
+    );
+    assert.equal(chart.enNan?.sect, '昼生');
+  }
+});
+
+test('客户端可计算阿皮亚跳日前的有效民用日并拒绝跳过日', () => {
+  const client = createMingyuClient();
+  const input = {
+    year: 2011,
+    month: 12,
+    day: 29,
+    hour: 12,
+    latitude: -13.8333,
+    longitude: -171.75,
+    timeZoneId: 'Pacific/Apia',
+  };
+  const illumination = client.solarIllumination(input);
+  const chart = client.qizheng(input);
+  assert.equal(illumination.localDate, '2011-12-29');
+  assert.equal(chart.calculationContext.solarIllumination.localDate, '2011-12-29');
+  assert.equal(chart.enNan?.sect, '昼生');
+  assert.throws(() => client.solarIllumination({ ...input, day: 30 }));
+});
+
+test('月相客户端只接受明确时区的有效时间文本', () => {
+  const client = createMingyuClient();
+  const utc = client.moonPhase('2026-08-06T04:00:00.000Z');
+  const offset = client.moonPhase('2026-08-06T12:00:00+08:00');
+  assert.equal(offset.utcDateTime, utc.utcDateTime);
+
+  for (const value of ['2026-08-06T04:00:00', '2026-08-06', '2026-02-30T04:00:00Z']) {
+    assert.throws(() => client.moonPhase(value), /UTC 时间文本必须是带 Z 或明确偏移/);
+    const safe = client.safe.moonPhase(value);
+    assert.equal(safe.ok, false);
+    if (!safe.ok) assert.equal(safe.error.category, 'validation');
+  }
 });
 
 test('safe 同步方法应保持同步，并区分校验、不支持和边界错误', () => {
@@ -206,7 +339,11 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
   assert.deepEqual(fromName, getZodiacYearFortune('子', '丙午'));
   assert.deepEqual(fromGanZhi, getZodiacYearFortune('子', '甲子'));
   assert.match(fromName.prompt, /太岁关系：冲太岁（生肖年支子与流年年支午相冲）/);
-  assert.match(fromName.prompt, /信息范围：仅使用出生年支与流年干支进行关系分类/);
+  assert.match(
+    fromName.prompt,
+    /五行关系：流年年干丙属火，生肖地支子属水，生肖地支本气克年干五行。/,
+  );
+  assert.doesNotMatch(fromName.prompt, /十神|出生日干/);
 
   for (const input of [
     { zodiac: '鼠' },
@@ -253,4 +390,13 @@ test('客户端默认设置可按单次调用覆盖且不会触发未请求的�
     referenceProfile: 'classical',
     tongZiScope: 'all-pillars',
   });
+});
+
+test('月相便捷入口应拒绝可被隐式转换成时间戳的非时间输入', () => {
+  const client = createMingyuClient();
+  for (const value of [true, null, [], { valueOf: () => Date.parse('2026-02-01T00:00:00Z') }]) {
+    const result = client.safe.moonPhase(value as never);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.category, 'validation');
+  }
 });

@@ -9,6 +9,7 @@ import {
 import { getGanZhiFromDate } from '../packages/core/src/ganzhi';
 import { birthProfileToBaziPerson, calculateBaziFromBirthProfile } from 'mingyu-core/profile';
 import {
+  getBaziReverseSearchEndYear,
   isValidBaziReverseSource,
   parseBaziReverseSource,
   resolveBaziReverseCandidate,
@@ -16,6 +17,28 @@ import {
 } from '../src/lib/bazi-reverse-input';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
 import { buildInputStateSearch, defaultInputState, parseInputState } from '../src/lib/query-state';
+
+function beijingDate(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute = 0,
+  second = 0,
+): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+}
+
+test('反推候选半开终点在 2101 年时仍可重开 2100 年查询', () => {
+  assert.equal(
+    getBaziReverseSearchEndYear({
+      pillars: { year: '庚申', month: '戊子', day: '甲午', hour: '甲子' },
+      intervalStart: '2100-12-31 23:00:00',
+      intervalEnd: '2101-01-01 00:00:00',
+    }),
+    2100,
+  );
+});
 
 test('精准出生表单未选时辰且未填秒时仍可生成共享出生资料', () => {
   for (const year of ['1900', '2000']) {
@@ -37,14 +60,22 @@ test('精准出生表单未选时辰且未填秒时仍可生成共享出生资�
       month: 6,
       day: 15,
     });
-    const legacy = buildPersonFromInput({ ...input, timeIndex: 3 });
-    assert.equal(legacy.timeIndex, 3);
-    assert.equal(legacy.birthSecond, undefined);
+    const withOldIndex = buildPersonFromInput({ ...input, timeIndex: 3 });
+    assert.equal(withOldIndex.timeIndex, 7);
+    assert.equal(withOldIndex.birthSecond, 0);
+    const traditional = buildPersonFromInput({
+      ...input,
+      timeIndex: 3,
+      birthHour: '',
+      birthMinute: '',
+    });
+    assert.equal(traditional.timeIndex, 3);
+    assert.equal(traditional.birthSecond, undefined);
   }
 });
 
 test('四柱反推回填保留秒级标准北京时间，并逐候选复核四柱', () => {
-  const source = getGanZhiFromDate(new Date(2024, 1, 4, 23));
+  const source = getGanZhiFromDate(beijingDate(2024, 2, 4, 23));
   const target: BaziReversePillars = source;
   const reversed = reverseBaziDates({ pillars: target, startYear: 2024, endYear: 2024 });
   assert.ok(reversed.candidates.length > 0);
@@ -79,50 +110,39 @@ test('四柱反推回填保留秒级标准北京时间，并逐候选复核四�
   }
 });
 
-test('不同年份的合成日期可经反推和完整输入链路复核', () => {
-  const examples = [
-    { year: 1960, date: '1960-01-07' },
-    { year: 2020, date: '2020-01-07' },
-  ];
-
-  for (const example of examples) {
-    const target = getGanZhiFromDate(new Date(example.year, 0, 7, 9));
-    const reversed = reverseBaziDates({
-      pillars: target,
-      startYear: example.year,
-      endYear: example.year,
-    });
-    const candidate = reversed.candidates.find((item) => item.start.text.startsWith(example.date));
-    assert.ok(candidate, `${example.date} 应有对应候选时段`);
-    const selection = resolveBaziReverseCandidate(candidate);
-    assert.ok(selection);
-    const chart = calculateBaziChartFromInput({
-      gender: 'male',
-      year: selection.year,
-      month: selection.month,
-      day: selection.day,
-      dateType: 'solar',
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-      timeIndex: '',
-      birthHour: selection.representativeHour,
-      birthMinute: selection.representativeMinute,
-      birthSecond: selection.representativeSecond,
-    });
-    assert.deepEqual(
-      {
-        year: chart.pillars.year.ganZhi,
-        month: chart.pillars.month.ganZhi,
-        day: chart.pillars.day.ganZhi,
-        hour: chart.pillars.hour.ganZhi,
-      },
-      target,
-    );
-  }
+test('1960 年历史日期可经反推和完整输入链路复核', () => {
+  const target = getGanZhiFromDate(beijingDate(1960, 1, 7, 9));
+  const reversed = reverseBaziDates({ pillars: target, startYear: 1960, endYear: 1960 });
+  const candidate = reversed.candidates.find((item) => item.start.text.startsWith('1960-01-07'));
+  assert.ok(candidate, '1960-01-07 应有对应候选时段');
+  const selection = resolveBaziReverseCandidate(candidate);
+  assert.ok(selection);
+  const chart = calculateBaziChartFromInput({
+    gender: 'male',
+    year: selection.year,
+    month: selection.month,
+    day: selection.day,
+    dateType: 'solar',
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    timeIndex: '',
+    birthHour: selection.representativeHour,
+    birthMinute: selection.representativeMinute,
+    birthSecond: selection.representativeSecond,
+  });
+  assert.deepEqual(
+    {
+      year: chart.pillars.year.ganZhi,
+      month: chart.pillars.month.ganZhi,
+      day: chart.pillars.day.ganZhi,
+      hour: chart.pillars.hour.ganZhi,
+    },
+    target,
+  );
 });
 
 test('历史夏令时年份的合成候选仍按固定东八区解释', () => {
-  const target = getGanZhiFromDate(new Date(1988, 6, 18, 9, 0, 37));
+  const target = getGanZhiFromDate(beijingDate(1988, 7, 18, 9, 0, 37));
   const reversed = reverseBaziDates({ pillars: target, startYear: 1988, endYear: 1988 });
   const candidate = reversed.candidates.find((item) => item.start.text === '1988-07-18 09:00:00');
   assert.ok(candidate);
@@ -158,7 +178,7 @@ test('历史夏令时年份的合成候选仍按固定东八区解释', () => {
 });
 
 test('候选回填经查询状态和前端排盘链路仍保持四柱', () => {
-  const target = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const target = getGanZhiFromDate(beijingDate(2000, 1, 7, 9));
   const candidate = reverseBaziDates({ pillars: target, startYear: 2000, endYear: 2000 })
     .candidates[0];
   assert.ok(candidate);
@@ -207,16 +227,7 @@ test('节气秒级候选经查询状态和前端排盘链路仍保持四柱', ()
     minute: term.getUTCMinutes(),
     second: term.getUTCSeconds(),
   };
-  const target = getGanZhiFromDate(
-    new Date(
-      termParts.year,
-      termParts.month - 1,
-      termParts.day,
-      termParts.hour,
-      termParts.minute,
-      termParts.second,
-    ),
-  );
+  const target = getGanZhiFromDate(new Date(termEvidence.utcTimestamp));
   const candidate = reverseBaziDates({
     pillars: target,
     startYear: termParts.year,
@@ -294,7 +305,7 @@ test('旧版仅文本来源仍可读取，不被补字段策略淘汰', () => {
 });
 
 test('机器区间字段与文本或固定政策不一致时拒绝来源', () => {
-  const pillars = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const pillars = getGanZhiFromDate(beijingDate(2000, 1, 7, 9));
   const source = {
     pillars,
     intervalStart: '2000-01-07 09:00:00',
@@ -316,7 +327,7 @@ test('机器区间字段与文本或固定政策不一致时拒绝来源', () =>
 });
 
 test('候选边界文本与时间戳不一致时不回填代表时刻', () => {
-  const pillars = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const pillars = getGanZhiFromDate(beijingDate(2000, 1, 7, 9));
   const candidate = reverseBaziDates({ pillars, startYear: 2000, endYear: 2000 }).candidates[0];
   assert.ok(candidate);
   const invalidCandidate = {

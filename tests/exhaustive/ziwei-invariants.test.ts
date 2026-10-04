@@ -361,6 +361,7 @@ test('紫微取运限时应恢复本盘配置，避免 iztro 全局设置串盘'
     dayDivide: 'forward',
   };
   const astrolabe = await buildAstrolabeFromInput(defaultInput);
+  const baseline = buildHoroscope(astrolabe, '2024-02-06', 12);
 
   await buildAstrolabeFromInput({
     ...defaultInput,
@@ -372,11 +373,25 @@ test('紫微取运限时应恢复本盘配置，避免 iztro 全局设置串盘'
     dayDivide: 'current',
   });
 
-  const contaminated = buildHoroscope(astrolabe, '2024-02-06', 12);
+  const isolated = buildHoroscope(astrolabe, '2024-02-06', 12);
   const restored = await buildHoroscopeFromInput(astrolabe, defaultInput, '2024-02-06', 12);
 
-  assert.equal(contaminated.yearly.heavenlyStem, '甲');
-  assert.equal(contaminated.yearly.earthlyBranch, '辰');
+  const scopeFacts = (horoscope: ReturnType<typeof buildHoroscope>) =>
+    (['yearly', 'daily', 'hourly'] as const).map((scope) => {
+      const layer = horoscope[scope];
+      return {
+        index: layer.index,
+        heavenlyStem: layer.heavenlyStem,
+        earthlyBranch: layer.earthlyBranch,
+        mutagen: layer.mutagen,
+        palaceNames: layer.palaceNames,
+        stars: layer.stars?.map((stars) => stars.map((star) => star.name)),
+      };
+    });
+  assert.deepEqual(scopeFacts(isolated), scopeFacts(baseline));
+  assert.deepEqual(scopeFacts(restored), scopeFacts(baseline));
+  assert.equal(isolated.yearly.heavenlyStem, '癸');
+  assert.equal(isolated.yearly.earthlyBranch, '卯');
   assert.equal(restored.yearly.heavenlyStem, '癸');
   assert.equal(restored.yearly.earthlyBranch, '卯');
 });

@@ -9,6 +9,9 @@ import { calculateSeasonInfoFromDate } from '../../packages/core/src/bazi/baziCa
 import { calculateSolarTermEvidence } from '../../packages/core/src/calendar/solar-term-evidence';
 import { buildCurrentBaziFortuneSelection } from '../../packages/core/src/bazi/fortuneSelection/current';
 import type { BaziChartResult, LuckCycle } from '../../packages/core/src/bazi/baziTypes';
+import { getGanZhiFromDate, getLunarHourFromDate } from '../../packages/core/src/ganzhi';
+import { LunarUtil } from '../../packages/core/src/calendar/lunar';
+import { TimeManager } from '../../packages/core/src/calendar/timeManager';
 import {
   createCivilDate,
   createLocalTimeRange,
@@ -68,67 +71,98 @@ const breakdown = getDayHourBreakdown(2026, 3, 8, 'splitZi').map((item) => ({
   interval: { start: item.interval.start, end: item.interval.end },
 }));
 
-process.stdout.write(
-  JSON.stringify({
-    restored: fromCivilDate(civil),
-    solar: fromNativeDate(toNativeDate(roundtripInput)),
-    instant: {
-      inputTimestamp: instantInput.getTime(),
-      outputTimestamp: instantOutput.getTime(),
-      civil: fromNativeDate(instantOutput),
+const result: Record<string, unknown> = {
+  restored: fromCivilDate(civil),
+  solar: fromNativeDate(toNativeDate(roundtripInput)),
+  instant: {
+    inputTimestamp: instantInput.getTime(),
+    outputTimestamp: instantOutput.getTime(),
+    civil: fromNativeDate(instantOutput),
+  },
+  historicalStandardTime: {
+    inputTimestamp: historicalInput.getTime(),
+    civil: historicalCivil,
+    outputTimestamp: toNativeDate(historicalCivil).getTime(),
+    season: {
+      currentJieqi: historicalSeason.currentJieqi,
+      nextJieqi: historicalSeason.nextJieqi,
+      currentSeason: historicalSeason.currentSeason,
     },
-    historicalStandardTime: {
-      inputTimestamp: historicalInput.getTime(),
-      civil: historicalCivil,
-      outputTimestamp: toNativeDate(historicalCivil).getTime(),
-      season: {
-        currentJieqi: historicalSeason.currentJieqi,
-        nextJieqi: historicalSeason.nextJieqi,
-        currentSeason: historicalSeason.currentSeason,
+  },
+  solarTermBoundary: {
+    evidence: {
+      name: boundaryEvidence.name,
+      index: boundaryEvidence.index,
+      utcTimestamp: boundaryEvidence.utcTimestamp,
+      utcDateTime: boundaryEvidence.utcDateTime,
+    },
+    before: {
+      currentJieqi: seasonBefore.currentJieqi,
+      nextJieqi: seasonBefore.nextJieqi,
+      currentSeason: seasonBefore.currentSeason,
+      nextTermUtcTimestamp: seasonBefore.nextTermEvidence?.utcTimestamp ?? null,
+    },
+    after: {
+      currentJieqi: seasonAfter.currentJieqi,
+      nextJieqi: seasonAfter.nextJieqi,
+      currentSeason: seasonAfter.currentSeason,
+      previousTermUtcTimestamp: seasonAfter.previousTermEvidence?.utcTimestamp ?? null,
+    },
+  },
+  range: {
+    start: range.start,
+    end: range.end,
+    startTimestamp: range.startTimestamp,
+    endTimestamp: range.endTimestamp,
+  },
+  calendar: {
+    before: calendarBefore,
+    after: calendarAfter,
+  },
+  monthBoundary: {
+    before: getBaziMonthIndexByDate(2024, boundaryBefore),
+    after: getBaziMonthIndexByDate(2024, boundaryAfter),
+    day: getBaziDayIndexByDate(2024, 1, new Date('2024-02-10T12:00:00+08:00')),
+  },
+  luckBoundary: {
+    before: getLuckCycleForDate([cycle], handoverBefore)?.year ?? null,
+    at: getLuckCycleForDate([cycle], handoverAt)?.year ?? null,
+  },
+  fortuneDateResolution: resolveBaziFortuneDate('2022-09-07'),
+  currentSelection: buildCurrentBaziFortuneSelection(chart, handoverAt),
+  breakdown,
+  months,
+};
+
+if (process.env.MINGYU_INCLUDE_GANZHI_CONTRACT === '1') {
+  const instant = new Date('2024-02-04T08:30:00.000Z');
+  const afterMidnight = new Date('2024-02-04T16:30:00.000Z');
+  const defaultResult = {
+    helper: getGanZhiFromDate(instant),
+    lunarUtil: LunarUtil.getGanZhi(instant),
+    lunarHour: getLunarHourFromDate(instant).getEightChar().getHour().getName(),
+    afterMidnight: {
+      helper: getGanZhiFromDate(afterMidnight),
+      lunarUtil: LunarUtil.getGanZhi(afterMidnight),
+    },
+    before: getGanZhiFromDate(new Date(boundaryEvidence.utcTimestamp - 1)),
+    at: getGanZhiFromDate(new Date(boundaryEvidence.utcTimestamp)),
+  };
+
+  TimeManager.setTimezoneOffsetMinutesOverride(-300);
+  try {
+    result.dateContract = {
+      defaultResult,
+      customResult: {
+        clock: TimeManager.getWallClockParts(instant),
+        helper: getGanZhiFromDate(instant),
+        managed: TimeManager.getDivinationTime(instant).ganzhi,
+        lunarHour: getLunarHourFromDate(instant).getEightChar().getHour().getName(),
       },
-    },
-    solarTermBoundary: {
-      evidence: {
-        name: boundaryEvidence.name,
-        index: boundaryEvidence.index,
-        utcTimestamp: boundaryEvidence.utcTimestamp,
-        utcDateTime: boundaryEvidence.utcDateTime,
-      },
-      before: {
-        currentJieqi: seasonBefore.currentJieqi,
-        nextJieqi: seasonBefore.nextJieqi,
-        currentSeason: seasonBefore.currentSeason,
-        nextTermUtcTimestamp: seasonBefore.nextTermEvidence?.utcTimestamp ?? null,
-      },
-      after: {
-        currentJieqi: seasonAfter.currentJieqi,
-        nextJieqi: seasonAfter.nextJieqi,
-        currentSeason: seasonAfter.currentSeason,
-        previousTermUtcTimestamp: seasonAfter.previousTermEvidence?.utcTimestamp ?? null,
-      },
-    },
-    range: {
-      start: range.start,
-      end: range.end,
-      startTimestamp: range.startTimestamp,
-      endTimestamp: range.endTimestamp,
-    },
-    calendar: {
-      before: calendarBefore,
-      after: calendarAfter,
-    },
-    monthBoundary: {
-      before: getBaziMonthIndexByDate(2024, boundaryBefore),
-      after: getBaziMonthIndexByDate(2024, boundaryAfter),
-      day: getBaziDayIndexByDate(2024, 1, new Date('2024-02-10T12:00:00+08:00')),
-    },
-    luckBoundary: {
-      before: getLuckCycleForDate([cycle], handoverBefore)?.year ?? null,
-      at: getLuckCycleForDate([cycle], handoverAt)?.year ?? null,
-    },
-    fortuneDateResolution: resolveBaziFortuneDate('2022-09-07'),
-    currentSelection: buildCurrentBaziFortuneSelection(chart, handoverAt),
-    breakdown,
-    months,
-  }),
-);
+    };
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
+}
+
+process.stdout.write(JSON.stringify(result));

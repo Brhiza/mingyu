@@ -4,7 +4,10 @@ import { generateQimen } from '../packages/core/src/divination/algorithms/qimen'
 import { detectQimenPatternCombos } from '../packages/core/src/divination/algorithms/qimen/helpers/pattern-combos';
 import { resolveNumberMethod } from '../packages/core/src/divination/algorithms/meihua/helpers/methods';
 import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
-import { analyzeLiurenEvidence } from '../packages/core/src/divination/liuren-evidence';
+import {
+  analyzeLiurenEvidence,
+  getLiurenRidingRelation,
+} from '../packages/core/src/divination/liuren-evidence';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 import { getTaiyiGeneralClassic } from '../packages/core/src/classics/taiyi-classics';
 
@@ -21,6 +24,8 @@ test('太乙五将属性按金镜式经文昌土、始击火、主将金、客�
     assert.ok(entry?.verse.includes(`受${element}德之正气`));
     assert.equal(entry?.sourceBook, '太乙金镜式经·卷二·推五将所主法');
   }
+  assert.equal(getTaiyiGeneralClassic('主参')?.role, '主方参将');
+  assert.equal(getTaiyiGeneralClassic('客参')?.role, '客方参将');
 });
 
 test('梅花数字加时辰的安全边界应覆盖十二时辰', () => {
@@ -28,7 +33,7 @@ test('梅花数字加时辰的安全边界应覆盖十二时辰', () => {
     const largest = Number.MAX_SAFE_INTEGER - index - 1;
     const result = resolveNumberMethod(largest, branch);
     assert.equal(result.calculation.totalWithTime, Number.MAX_SAFE_INTEGER);
-    assert.equal(result.lowerTrigramIndex, 7);
+    assert.equal(result.lowerTrigramIndex, (index + 1) % 8 || 8);
     assert.equal(result.movingYaoIndex, 1);
     assert.throws(() => resolveNumberMethod(largest + 1, branch), /之和必须在安全整数范围/);
   }
@@ -106,8 +111,6 @@ test('奇门真实排盘与公开接口在雨水前后采用不同月将', async
 });
 
 test('六壬天将乘神以天盘地支对日干判断，不以天将固有五行替代', () => {
-  const data = generateLiuren(new Date('2026-02-10T12:00:00+08:00'));
-  data.ganzhi.day = '甲子';
   const examples = [
     ['亥', '水', '乘神生日'],
     ['申', '金', '乘神克日'],
@@ -116,13 +119,20 @@ test('六壬天将乘神以天盘地支对日干判断，不以天将固有五�
     ['寅', '木', '乘神日干比和'],
   ];
   for (const [branch, element, relation] of examples) {
-    data.threeTransmissions[0] = { ...data.threeTransmissions[0], god: '贵人', branch };
-    const evidence = analyzeLiurenEvidence(data);
-    const fact = evidence.traditionalFacts.find((item) => item.kind === '天将乘神');
-    assert.equal(fact?.riding?.element, element);
-    assert.equal(fact?.riding?.relation, relation);
-    assert.ok(
-      evidence.evidence.items.some((item) => item.detail.includes(`贵人乘天盘${branch}${element}`)),
+    const riding = getLiurenRidingRelation('甲', branch);
+    assert.equal(riding.element, element);
+    assert.equal(riding.relation, relation);
+  }
+  const data = generateLiuren(new Date('2026-02-10T12:00:00+08:00'));
+  const evidence = analyzeLiurenEvidence(data);
+  for (const transmission of data.threeTransmissions) {
+    const fact = evidence.traditionalFacts.find(
+      (item) =>
+        item.kind === '天将乘神' && item.name === `${transmission.god}乘${transmission.branch}`,
+    );
+    assert.deepEqual(
+      fact?.riding,
+      getLiurenRidingRelation(data.ganzhi.day.charAt(0), transmission.branch),
     );
   }
 });

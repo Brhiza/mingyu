@@ -298,7 +298,7 @@ export function matchMinVisibleStemCounts(
     return true;
   }
 
-  if (!visibleStems || visibleStems.length === 0) {
+  if (!visibleStems) {
     return false;
   }
 
@@ -388,7 +388,7 @@ export function matchMinStemCounts(
     return true;
   }
 
-  if (!stems || stems.length === 0) {
+  if (!stems) {
     return false;
   }
 
@@ -424,7 +424,7 @@ function countExtraCompanionVisible(
   dayStem: string | undefined,
   visibleStems: string[] | undefined,
 ): number | null {
-  if (!dayStem || !visibleStems || visibleStems.length === 0) {
+  if (!dayStem || !visibleStems) {
     return null;
   }
 

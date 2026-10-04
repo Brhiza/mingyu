@@ -61,7 +61,7 @@ test('支持出生范围及后续十二步大运的流年干支应与原年中�
   // 出生后第 11 个公历年，十二步大运最后半开区间止于 2231 年立春前，
   // 因而实际可能生成的流年范围为 1899-2230。
   for (let year = 1899; year <= 2230; year++) {
-    const legacyGanZhi = getGanZhiFromDate(new Date(year, 5, 1, 12)).year;
+    const legacyGanZhi = getGanZhiFromDate(new Date(Date.UTC(year, 5, 1, 4))).year;
     const legacyGan = legacyGanZhi[0];
     const legacyZhi = legacyGanZhi[1];
     const legacy = {
@@ -166,6 +166,33 @@ test('男命大运序列和交运时间应符合仓库固定真值', () => {
   });
   assert.ok(!result.luckInfo.startInfo.includes('计算失败'));
   assert.ok(dayunCycles.length > 0);
+});
+
+test('精确出生秒数应在交运时间说明与首运边界保持一致', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 1,
+    day: 1,
+    timeIndex: 12,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: 23,
+    birthMinute: 30,
+    birthSecond: 59,
+  });
+  const firstDayun = result.luckInfo.cycles.find((cycle) => !cycle.isXiaoyun);
+
+  assert.deepEqual(firstDayun?.startSolarTime, {
+    year: 1998,
+    month: 7,
+    day: 2,
+    hour: 19,
+    minute: 34,
+    second: 59,
+  });
+  assert.match(result.luckInfo.handoverInfo, /1998年7月2日 19:34:59/);
 });
 
 test('女命大运逆行序列应符合仓库固定真值', () => {
@@ -341,6 +368,26 @@ test('立春前交运按实际交运立春年去重，末步不生成无交集�
     (cycle) => cycle.resolvedYears?.map((item) => item.year) ?? [],
   );
   assert.equal(new Set(resolvedYears).size, resolvedYears.length);
+});
+
+test('立春前出生时出生区间的流年年龄从一岁起记且完整与分页一致', () => {
+  const input = {
+    year: 1950,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'male' as const,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  };
+  const full = baziCalculator.calculateBazi(input);
+  const firstYear = full.luckInfo.cycles[0]?.years[0];
+  const page = baziCalculator.calculateBaziBatch(input, { section: 'fortune', startIndex: 0 });
+
+  assert.equal(firstYear?.year, 1949);
+  assert.equal(firstYear?.age, 1);
+  assert.deepEqual(page.result.luckInfo.cycles[0]?.years[0], firstYear);
 });
 
 test('流年区间按半开区间处理，结束恰逢立春不含新年且空区间无流年', () => {

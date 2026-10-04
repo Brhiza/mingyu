@@ -6,7 +6,7 @@ import {
   type ZiweiFortuneTimeline,
   type ZiweiFortuneTimelinePhaseSelection,
 } from '../ziwei/fortune-timeline';
-import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
+import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
@@ -16,6 +16,10 @@ import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-scho
 import { getThematicTopicConfig } from './thematic';
 import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
 import { formatPalaceRelations } from '../ziwei/prompt/builders';
+import { formatObjectList } from '../ziwei/prompt/formatters';
+import { getSelectedScopeHits } from '../ziwei/prompt/scope-selection';
+import { buildZiweiMatchedPatternSummary } from '../ziwei/prompt/snapshot';
+import { formatZiweiTrueSolarEvidence } from '../ziwei/prompt/combined';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -109,7 +113,7 @@ const TOPIC_FACT_FOCUS: Partial<Record<ZiweiPromptTopic, string>> = {
   'job-change': '官禄宫、迁移宫、福德宫与四化关系',
   'startup-partnership': '官禄宫、财帛宫、迁移宫、兄弟宫与关系四化',
   'investment-partnership': '财帛宫、田宅宫、福德宫、官禄宫与四化落点',
-  recent: '【分析对象】所列层级的落宫、四化及其与本命命身轴的关系',
+  recent: '本次分析资料所列层级的落宫、四化及其与本命命身轴的关系',
   family: '父母宫、兄弟宫、子女宫、田宅宫及相关四化',
   'home-move': '田宅宫、迁移宫及福德宫',
   'settle-relocate': '迁移宫、田宅宫及官禄宫',
@@ -163,7 +167,7 @@ const SCHOOL_TEXT: Record<ZiweiPromptSchool, { label: string; task: string; basi
 function formatStar(star: StarFact, isOriginScope: boolean) {
   return [
     star.name,
-    star.brightness ? `庙旺${star.brightness}` : '',
+    star.brightness ? `亮度：${star.brightness}` : '',
     star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
     !isOriginScope && star.horoscope_mutagen ? `运限化${star.horoscope_mutagen}` : '',
     !isOriginScope && star.active_scope_mutagen ? `当前化${star.active_scope_mutagen}` : '',
@@ -184,13 +188,18 @@ function natalTags(tags: string[]) {
   return tags.filter((tag) => !/大限|小限|流年|流月|流日|流时|运限/.test(tag));
 }
 
-function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
+function formatPalace(
+  palace: PalaceFact,
+  isOriginScope: boolean,
+  selectedScopeHits = palace.scope_hits,
+) {
   const majorStars = palace.major_stars.map((star) => formatStar(star, isOriginScope));
   const minorStars = palace.minor_stars.map((star) => formatStar(star, isOriginScope));
   const otherStars = palace.other_stars.map((star) => formatStar(star, isOriginScope));
-  const scopeStars = (!isOriginScope ? palace.scope_stars : []).map((star) =>
-    formatStar(star, isOriginScope),
-  );
+  const scopeStars = (!isOriginScope ? palace.scope_stars : []).map((star) => {
+    const scopeLabel = star.scope ? SCOPE_LABELS[star.scope as ScopeType] : undefined;
+    return `${formatStar(star, isOriginScope)}${scopeLabel ? `（${scopeLabel}）` : ''}`;
+  });
 
   let majorText: string;
   if (majorStars.length > 0) {
@@ -201,8 +210,9 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     majorText = '主星：无';
   }
 
-  const allSecondary = [...minorStars, ...otherStars, ...scopeStars];
+  const allSecondary = [...minorStars, ...otherStars];
   const secondaryText = allSecondary.length > 0 ? `辅曜：${formatStringList(allSecondary)}` : '';
+  const scopeText = scopeStars.length ? `运限曜：${formatStringList(scopeStars)}` : '';
 
   const selfMutagens = (palace.self_mutagens ?? []).map((m) => `自化${m}`).join('、');
   const selfText = selfMutagens ? `自化：${selfMutagens}` : '';
@@ -217,18 +227,43 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     !isOriginScope && palace.decadal_range?.length === 2
       ? `大限${palace.decadal_range[0]}-${palace.decadal_range[1]}岁`
       : '';
-  const tags = isOriginScope ? natalTags(palace.summary_tags) : palace.summary_tags;
+  const displayedTags = new Set([
+    ...(palace.name === '命' || palace.name === '命宫' ? ['命宫'] : []),
+    ...(palace.is_body_palace ? ['身宫'] : []),
+    ...(palace.is_original_palace ? ['来因宫'] : []),
+    ...(!majorStars.length && palace.empty_state ? ['空宫'] : []),
+    ...(palace.self_mutagens ?? []).map((mutagen) => `自化${mutagen}`),
+    ...(!isOriginScope ? selectedScopeHits : []),
+  ]);
+  const displayedStars = [
+    ...palace.major_stars,
+    ...palace.minor_stars,
+    ...palace.other_stars,
+    ...(!isOriginScope ? palace.scope_stars : []),
+  ];
+  if (displayedStars.some((star) => star.birth_mutagen)) displayedTags.add('有生年四化');
+  if (!isOriginScope && displayedStars.some((star) => star.active_scope_mutagen)) {
+    displayedTags.add('有当前运限四化');
+  }
+  const tags = (
+    isOriginScope
+      ? natalTags(palace.summary_tags)
+      : palace.summary_tags.filter(
+          (tag) => !tag.endsWith('落宫') || selectedScopeHits.includes(tag),
+        )
+  ).filter((tag) => !displayedTags.has(tag));
   return [
     `${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（来因宫）' : ''}`,
     `宫干支${palace.heavenly_stem}${palace.earthly_branch}`,
     ranges,
     majorText,
     secondaryText,
+    scopeText,
     palace.changsheng12 ? `长生：${palace.changsheng12}` : '',
     palace.boshi12 ? `博士：${palace.boshi12}` : '',
     selfText,
     flyText,
-    !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
+    !isOriginScope && selectedScopeHits.length ? `运限命中：${selectedScopeHits.join('、')}` : '',
     !isOriginScope && palace.dynamic_scope_name ? `动态宫名：${palace.dynamic_scope_name}` : '',
     tags.length ? `标签：${tags.join('、')}` : '',
   ]
@@ -255,16 +290,218 @@ export function formatZiweiNatalSnapshotForPrompt(snapshot: ZiweiNatalSnapshot) 
     .join('\n');
 }
 
-function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
-  const values = getPromptMutagenItems(payload, isOriginScope).map((item) => {
-    const palace = item.palace_name
-      ? `入${item.palace_name}${item.palace_name.endsWith('宫') ? '' : '宫'}`
-      : '';
-    const dynamic =
-      !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
-    return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
-  });
-  return values.length ? values.join('；') : isOriginScope ? '未记录生年四化' : '未记录当前四化';
+export function getUnshownZiweiMutagenItems(
+  payload: AnalysisPayloadV1,
+  isOriginScope = false,
+  displayedPalaces: readonly PalaceFact[] = [],
+) {
+  return getPromptMutagenItems(payload, isOriginScope).filter(
+    (item) =>
+      !displayedPalaces.some((palace) => {
+        const samePalace =
+          (item.palace_index !== undefined || Boolean(item.palace_name)) &&
+          (item.palace_index === undefined || item.palace_index === palace.index) &&
+          (!item.palace_name ||
+            item.palace_name.replace(/宫$/u, '') === palace.name.replace(/宫$/u, ''));
+        if (!samePalace) return false;
+        if (
+          !isOriginScope &&
+          item.dynamic_palace_name &&
+          item.dynamic_palace_name !== palace.dynamic_scope_name
+        ) {
+          return false;
+        }
+        return [
+          ...palace.major_stars,
+          ...palace.minor_stars,
+          ...palace.other_stars,
+          ...(!isOriginScope ? palace.scope_stars : []),
+        ].some(
+          (star) =>
+            star.name === item.star &&
+            (isOriginScope ? star.birth_mutagen : star.active_scope_mutagen) === item.mutagen,
+        );
+      }),
+  );
+}
+
+function formatMutagenMap(
+  payload: AnalysisPayloadV1,
+  isOriginScope = false,
+  displayedPalaces: readonly PalaceFact[] = [],
+) {
+  const values = getUnshownZiweiMutagenItems(payload, isOriginScope, displayedPalaces).map(
+    (item) => {
+      const palace = item.palace_name
+        ? `入${item.palace_name}${item.palace_name.endsWith('宫') ? '' : '宫'}`
+        : '';
+      const dynamic =
+        !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
+      return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
+    },
+  );
+  return values.join('；');
+}
+
+function isRestatedZiweiEvidence(title: string, detail: string) {
+  const text = detail.startsWith(`${title}：`) ? detail.slice(title.length + 1) : detail;
+  const majorStar = /^(.+?)主星为(.+)$/u.exec(title);
+  if (majorStar && text === `${majorStar[1]}登记主星${majorStar[2]}。`) return true;
+
+  const trine = /^(.+?)三方四正见化([禄权科忌])$/u.exec(title);
+  if (trine && text === `${trine[1]}及其三方四正宫位中可见化${trine[2]}信息。`) {
+    return true;
+  }
+
+  const flying = /^(.+?)化([禄权科忌])入(.+)$/u.exec(title);
+  if (flying) {
+    const target = flying[3];
+    return (
+      text === `${flying[1]}化${flying[2]}落${target}宫。` ||
+      (flying[1] === target && text === `${flying[1]}化${flying[2]}回入本宫。`)
+    );
+  }
+  return false;
+}
+
+function isShownInZiweiPalaces(
+  item: AnalysisPayloadV1['evidence_pool'][number],
+  palaces: PalaceFact[],
+  isOriginScope: boolean,
+  payload: AnalysisPayloadV1,
+) {
+  const active = payload.active_scope;
+  if (
+    item.status === '资料缺口' ||
+    (item.promptText && item.promptText !== `${item.title}：${item.description}`)
+  ) {
+    return false;
+  }
+  if (item.type === 'surrounded_mutagen') {
+    return palaces.some((palace) =>
+      palace.summary_tags.some(
+        (tag) =>
+          tag.startsWith('三方四正见化') &&
+          item.title === `${palace.name}${tag}` &&
+          item.description === `${palace.name}及其三方四正宫位中可见化${tag.slice(-1)}信息。`,
+      ),
+    );
+  }
+  if (item.type === 'scope_mutagen_destination') {
+    if (isOriginScope || item.scope !== active.scope) return false;
+    const landing = palaces.find((palace) => palace.index === active.palace_index);
+    if (!landing || landing.name !== active.palace_name) return false;
+    const scopeLabel = active.label || SCOPE_LABELS[active.scope];
+    const landingName = landing.name.endsWith('宫') ? landing.name : `${landing.name}宫`;
+    return active.mutagen_map.some((mapping) => {
+      const target = palaces.find((palace) => palace.index === mapping.palace_index);
+      if (
+        !target ||
+        target.name !== mapping.palace_name ||
+        !mapping.dynamic_palace_name ||
+        target.dynamic_scope_name !== mapping.dynamic_palace_name ||
+        item.star_names.length !== 1 ||
+        item.star_names[0] !== mapping.star ||
+        item.mutagens.length !== 1 ||
+        item.mutagens[0] !== mapping.mutagen ||
+        !item.palace_indexes.includes(landing.index) ||
+        !item.palace_indexes.includes(target.index)
+      ) {
+        return false;
+      }
+      const stars = [...target.major_stars, ...target.minor_stars, ...target.other_stars];
+      if (
+        !stars.some(
+          (star) => star.name === mapping.star && star.active_scope_mutagen === mapping.mutagen,
+        )
+      ) {
+        return false;
+      }
+      const targetName = target.name.endsWith('宫') ? target.name : `${target.name}宫`;
+      const dynamicName = mapping.dynamic_palace_name.endsWith('宫')
+        ? mapping.dynamic_palace_name
+        : `${mapping.dynamic_palace_name}宫`;
+      // 只省略宫位已完整表达的标准映射，额外条件与说明继续展示。
+      return (
+        item.title ===
+          `${scopeLabel}${mapping.star}化${mapping.mutagen}入本命${targetName}（当前${scopeLabel}${dynamicName}）` &&
+        item.description ===
+          `${scopeLabel}四化序列中的${mapping.star}对应化${mapping.mutagen}；该星的本命物理落宫为${targetName}，当前对应${scopeLabel}${dynamicName}，运限命宫落于本命${landingName}。`
+      );
+    });
+  }
+  const palace = palaces.find((value) => value.index === item.palace_indexes[0]);
+  if (!palace) return false;
+  const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
+  switch (item.type) {
+    case 'palace_major_stars':
+      return (
+        item.title ===
+          `${palace.name}主星为${palace.major_stars.map((star) => star.name).join('、')}` &&
+        item.description ===
+          `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`
+      );
+    case 'palace_empty':
+      return (
+        palace.empty_state &&
+        item.title === `${palace.name}为空宫` &&
+        item.description ===
+          `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`
+      );
+    case 'palace_birth_mutagen':
+      return stars.some(
+        (star) =>
+          item.title === `${palace.name}见生年化${star.birth_mutagen}` &&
+          item.star_names.includes(star.name) &&
+          item.description === `${star.name}在${palace.name}带有生年化${star.birth_mutagen}。`,
+      );
+    case 'palace_scope_mutagen':
+      return (
+        !isOriginScope &&
+        stars.some(
+          (star) =>
+            item.title ===
+              `${palace.name}见${active.label || SCOPE_LABELS[active.scope]}化${star.active_scope_mutagen}` &&
+            item.star_names.includes(star.name) &&
+            item.description === `${star.name}在当前运限下带有化${star.active_scope_mutagen}。`,
+        )
+      );
+    case 'palace_self_mutaged':
+      return (palace.self_mutagens ?? []).some(
+        (mutagen) =>
+          item.title === `${palace.name}出现自化${mutagen}` &&
+          item.description === `${palace.name}的自化列表包含化${mutagen}。`,
+      );
+    case 'palace_mutaged_place':
+      return (palace.mutaged_palaces ?? []).some(
+        (target) =>
+          item.title === `${palace.name}化${target.mutagen}入${target.palace_name}` &&
+          item.description ===
+            (target.palace_index === palace.index
+              ? `${palace.name}化${target.mutagen}回入本宫。`
+              : `${palace.name}化${target.mutagen}落${target.palace_name}宫。`),
+      );
+    case 'palace_scope_hit':
+      return (
+        !isOriginScope &&
+        getSelectedScopeHits(payload, palace).some(
+          (hit) => item.title === `${hit}位于${palace.name}`,
+        ) &&
+        item.description ===
+          `本命${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}的宫干支为${palace.heavenly_stem}${palace.earthly_branch}。`
+      );
+    case 'scope_dynamic_name':
+      return (
+        !isOriginScope &&
+        Boolean(palace.dynamic_scope_name) &&
+        item.title ===
+          `${active.label || SCOPE_LABELS[active.scope]}视角下${palace.name}转为${palace.dynamic_scope_name}` &&
+        item.description ===
+          `在${active.label || SCOPE_LABELS[active.scope]}视角下，${palace.name}对应的动态宫名为${palace.dynamic_scope_name}。`
+      );
+    default:
+      return false;
+  }
 }
 
 export function formatZiweiPayloadForPrompt(
@@ -278,15 +515,6 @@ export function formatZiweiPayloadForPrompt(
 ) {
   const basic = payload.basic_info;
   const active = payload.active_scope;
-  const evidenceItems = payload.evidence_pool.map((item) => {
-    const level = item.level ? `【${item.level}】` : '';
-    const detail = item.promptText || item.description;
-    return `${level}${item.title}：${detail}`;
-  });
-  const evidenceLimit = options.maxEvidence ?? 30;
-  const evidencePrimary = evidenceItems.slice(0, evidenceLimit);
-  const evidenceAppendix = evidenceItems.slice(evidenceLimit);
-
   const focusNames = new Set(
     (options.focusPalaceNames ?? []).map((name) => name.replace(/宫$/, '').trim()),
   );
@@ -295,10 +523,29 @@ export function formatZiweiPayloadForPrompt(
     : payload.palaces;
   const selectedPalaces = palaces.length ? palaces : payload.palaces;
   const isOriginScope = active.scope === 'origin';
+  const evidenceItems = payload.evidence_pool
+    .filter((item) => item.scope === 'origin' || item.scope === active.scope)
+    .filter((item) => !isShownInZiweiPalaces(item, selectedPalaces, isOriginScope, payload))
+    .map((item) => {
+      const level = item.level ? `【${item.level}】` : '';
+      const detail = item.promptText || item.description;
+      const title = `${item.title}：`;
+      const evidence = detail.startsWith(title) ? detail : `${title}${detail}`;
+      return `${level}${isRestatedZiweiEvidence(item.title, detail) ? item.title : evidence}`;
+    });
+  const evidenceLimit = options.maxEvidence ?? 30;
+  const evidencePrimary = evidenceItems.slice(0, evidenceLimit);
+  const evidenceAppendix = evidenceItems.slice(evidenceLimit);
+  const includeBasicInfo = options.includeBasicInfo ?? true;
+  const matchedPatterns = includeBasicInfo
+    ? formatObjectList(
+        buildZiweiMatchedPatternSummary(payload, { displayedPalaces: selectedPalaces }),
+      )
+    : '';
   const bodyPalace = payload.palaces.find((p) => p.is_body_palace);
   const bodyPalaceName = payload.basic_info.hidden_palaces?.body_palace_name || bodyPalace?.name;
-  const bodyAxis = getBodyPalaceAxisSummary(bodyPalaceName);
-  const includeBasicInfo = options.includeBasicInfo ?? true;
+  const birthMutagens = formatMutagenMap(payload, true, selectedPalaces);
+  const currentMutagens = formatMutagenMap(payload, false, selectedPalaces);
 
   return [
     `分析范围：${active.label || SCOPE_LABELS[active.scope]}`,
@@ -306,7 +553,7 @@ export function formatZiweiPayloadForPrompt(
       ? `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`
       : '',
     includeBasicInfo
-      ? `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyAxis ? `；命身主轴：${bodyAxis}` : ''}`
+      ? `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyPalaceName ? `；身宫落宫：${bodyPalaceName}${bodyPalaceName.endsWith('宫') ? '' : '宫'}` : ''}`
       : '',
     includeBasicInfo && basic.four_pillars
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
@@ -314,12 +561,19 @@ export function formatZiweiPayloadForPrompt(
     isOriginScope
       ? '本命盘：生年四化与十二宫本命星曜。'
       : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}${active.palace_name.endsWith('宫') ? '' : '宫'}` : '落宫未记录'}`,
-    `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
+    isOriginScope
+      ? birthMutagens
+        ? `生年四化：${birthMutagens}`
+        : ''
+      : currentMutagens
+        ? `当前四化：${currentMutagens}`
+        : '',
     '十二宫资料：',
     ...selectedPalaces.map(
       (palace) =>
-        `  ${formatPalace(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`,
+        `  ${formatPalace(palace, isOriginScope, getSelectedScopeHits(payload, palace))}\n  宫位关系：${formatPalaceRelations(payload, palace)}`,
     ),
+    matchedPatterns ? `命盘格局：\n${matchedPatterns}` : '',
     evidencePrimary.length ? '证据资料：' : '',
     ...evidencePrimary.map((item) => `  ${item}`),
     evidenceAppendix.length ? '证据附录：' : '',
@@ -426,7 +680,8 @@ export function formatZiweiTargetLowerScopeFacts(
     const payload = runtime.payloadByScope[scope];
     if (!payload) return [];
     const active = payload.active_scope;
-    const header = `${SCOPE_LABELS[scope]}：${active.solar_date}；${active.heavenly_stem ?? ''}${active.earthly_branch ?? ''}；农历${active.lunar_date}；虚岁${active.nominal_age}；落${active.palace_name ?? ''}；四化：${formatMutagenMap(payload, false)}`;
+    const mutagens = formatMutagenMap(payload, false);
+    const header = `${SCOPE_LABELS[scope]}：${active.solar_date}；${active.heavenly_stem ?? ''}${active.earthly_branch ?? ''}；农历${active.lunar_date}；虚岁${active.nominal_age}；落${active.palace_name ?? ''}${mutagens ? `；四化：${mutagens}` : ''}`;
     const palaces = payload.palaces.map((palace) => {
       const seenMutagenStars = new Set(palace.scope_stars.map(getDynamicMutagenStarKey));
       const stars = palace.scope_stars.map((star) => formatStar(star, false)).filter(Boolean);
@@ -512,12 +767,6 @@ export function formatZiweiFullScopeText(runtime: ZiweiRuntimeFacts) {
     .join('\n\n');
 }
 
-function formatTrueSolarEvidence(runtime: ZiweiRuntimeFacts) {
-  return runtime.trueSolarEvidence?.promptText
-    ? `出生时间校正：${runtime.trueSolarEvidence.promptText}`
-    : '';
-}
-
 export interface ZiweiPromptOptions extends PromptBuildOptions {
   runtime: ZiweiRuntimeFacts;
   scope?: ZiweiPromptScope;
@@ -585,12 +834,11 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     scope === 'origin' ? 'ziwei-natal' : 'ziwei',
   );
   const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
+  const trueSolarText = formatZiweiTrueSolarEvidence(options.runtime.trueSolarEvidence);
   const user = joinPromptSections([
     buildPromptGuidance('ziwei'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
-    formatTrueSolarEvidence(options.runtime)
-      ? buildPromptSection('出生时间校正', formatTrueSolarEvidence(options.runtime))
-      : '',
+    trueSolarText ? buildPromptSection('出生时间校正', trueSolarText) : '',
     formatZiweiTopicFocus(options.topic)
       ? buildPromptSection('主题取用', formatZiweiTopicFocus(options.topic))
       : '',
@@ -623,7 +871,6 @@ function formatZiweiCompatibilityFacts(result: ReturnType<typeof analyzeZiweiCom
   const overlays = result.palaceOverlays.map((item) => `  ${item.promptText}`);
   const mutagens = result.crossMutagenPlacements.map((item) => `  ${item.promptText}`);
   return [
-    `交叉资料：${result.summaryFact.promptText.replace(/^证据汇总：/, '')}`,
     overlays.length ? '宫位叠盘：' : '',
     ...overlays,
     mutagens.length ? '跨盘四化：' : '',
@@ -723,7 +970,9 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       : [];
   const thematicConfig = getThematicTopicConfig(topic);
   const ziweiFocusPalaces = thematicConfig?.ziweiFocusPalaces;
-  const baziPatternConditions = formatBaziPatternConditions(options.bazi);
+  const baziPatternConditions = selectedBaziSchools.length
+    ? ''
+    : formatBaziPatternConditions(options.bazi);
   const task = buildPromptTask(
     `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
     'bazi-ziwei',
@@ -746,7 +995,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       selectedBaziSchools.length
         ? buildPromptSection(
             selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',
-            formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools),
+            formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools, true, true),
           )
         : '',
       buildPromptSection(

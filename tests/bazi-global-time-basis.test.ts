@@ -78,6 +78,109 @@ test('纽约立春前后应按真实瞬时切换年月令，起运也沿真实�
   });
 });
 
+test('未启用真太阳时时，纽约民用钟表时间仍按真实瞬时判断立春年月', () => {
+  const input = {
+    useTrueSolarTime: false,
+    birthLongitude: undefined,
+    timezone: -5,
+    birthSecond: 0,
+    timeIndex: 2,
+    birthHour: 3,
+  } as const;
+  const before = baziCalculator.calculateBazi(makeInput({ ...input, birthMinute: 20 }));
+  const after = baziCalculator.calculateBazi(makeInput({ ...input, birthMinute: 40 }));
+  assert.equal(before.pillars.year.ganZhi, '癸卯');
+  assert.equal(before.pillars.month.ganZhi, '乙丑');
+  assert.equal(after.pillars.year.ganZhi, '甲辰');
+  assert.equal(after.pillars.month.ganZhi, '丙寅');
+  assert.equal(before.pillars.day.ganZhi, after.pillars.day.ganZhi);
+  assert.equal(before.pillars.hour.ganZhi, after.pillars.hour.ganZhi);
+  assert.equal(before.seasonInfo.nextJieqi, '立春');
+  assert.equal(after.seasonInfo.currentJieqi, '立春');
+  assert.deepEqual(before.luckInfo.cycles[0]?.startSolarTime, {
+    year: 2024,
+    month: 2,
+    day: 4,
+    hour: 16,
+    minute: 20,
+    second: 0,
+  });
+});
+
+test('未启用真太阳时时，纽约 IANA 夏令时与固定偏移对应相同年月令', () => {
+  const input = {
+    useTrueSolarTime: false,
+    birthLongitude: undefined,
+    birthSecond: 0,
+    year: 2024,
+    month: 7,
+    day: 1,
+    birthHour: 12,
+    birthMinute: 0,
+    timeIndex: 6,
+  } as const;
+  const fixed = baziCalculator.calculateBazi(makeInput({ ...input, timezone: -4 }));
+  const iana = baziCalculator.calculateBazi(
+    makeInput({ ...input, timezone: undefined, timeZoneId: 'America/New_York' }),
+  );
+  assert.deepEqual(getPillarNames(iana), getPillarNames(fixed));
+  assert.equal(iana.monthCommander, fixed.monthCommander);
+  assert.deepEqual(
+    iana.luckInfo.cycles[0]?.startSolarTime,
+    fixed.luckInfo.cycles[0]?.startSolarTime,
+  );
+});
+
+test('未启用真太阳时时，日期线东侧也按同一立春瞬时切换年月', () => {
+  const input = {
+    useTrueSolarTime: false,
+    birthLongitude: undefined,
+    timezone: undefined,
+    timeZoneId: 'Pacific/Kiritimati',
+    birthSecond: 0,
+    timeIndex: 11,
+    birthHour: 22,
+  } as const;
+  const before = baziCalculator.calculateBazi(makeInput({ ...input, birthMinute: 20 }));
+  const after = baziCalculator.calculateBazi(makeInput({ ...input, birthMinute: 40 }));
+  assert.equal(before.pillars.year.ganZhi, '癸卯');
+  assert.equal(before.pillars.month.ganZhi, '乙丑');
+  assert.equal(after.pillars.year.ganZhi, '甲辰');
+  assert.equal(after.pillars.month.ganZhi, '丙寅');
+  assert.equal(before.pillars.day.ganZhi, after.pillars.day.ganZhi);
+  assert.equal(before.pillars.hour.ganZhi, after.pillars.hour.ganZhi);
+});
+
+test('日期线东侧真太阳时应保留完整跨日校正，同一瞬时排盘日柱一致', () => {
+  const civilDay = baziCalculator.calculateBazi(
+    makeInput({
+      year: 2026,
+      month: 7,
+      day: 10,
+      birthHour: 12,
+      birthMinute: 0,
+      birthLongitude: -157.4,
+      timezone: undefined,
+      timeZoneId: 'Pacific/Kiritimati',
+    }),
+  );
+  const neighboringClock = baziCalculator.calculateBazi(
+    makeInput({
+      year: 2026,
+      month: 7,
+      day: 9,
+      birthHour: 12,
+      birthMinute: 0,
+      birthLongitude: -157.4,
+      timezone: -10,
+    }),
+  );
+
+  assert.equal(civilDay.timing?.correctedTime.day, 9);
+  assert.deepEqual(civilDay.timing?.correctedTime, neighboringClock.timing?.correctedTime);
+  assert.deepEqual(getPillarNames(civilDay), getPillarNames(neighboringClock));
+});
+
 test('纽约固定偏移与 IANA 夏令时应得到同一年月、司令和起运轴', () => {
   const fixed = baziCalculator.calculateBazi(
     makeInput({
@@ -119,8 +222,11 @@ test('纽约固定偏移与 IANA 夏令时应得到同一年月、司令和起�
   );
   assert.equal(iana.timing?.timezone, -4);
   assert.equal(iana.timing?.timeZoneId, 'America/New_York');
+  assert.equal(iana.timing?.correctedTime.hour, 10);
+  assert.equal(iana.timing?.correctedTime.minute, 59);
+  assert.equal(iana.timing?.correctedTime.second, 57);
   assertPublicTimeAxes(iana, {
-    pillars: { year: '甲辰', month: '庚午', day: '丙寅', hour: '甲午' },
+    pillars: { year: '甲辰', month: '庚午', day: '丙寅', hour: '癸巳' },
     currentJieqi: '夏至',
     nextJieqi: '小暑',
     monthCommander: '丁',
@@ -232,4 +338,126 @@ test('中国历史夏令时的 standardTime 只回拨一次，起运按还原后
     monthCommander: '丁',
     startSolarTime: { year: 1988, month: 7, day: 1, hour: 11, minute: 0, second: 0 },
   });
+});
+
+test('精确标准时间按中国历史夏令时回拨后统一四柱、时辰与起运', () => {
+  for (const [clockHour, standardDay, standardHour] of [
+    [0, 30, 23],
+    [1, 1, 0],
+  ] as const) {
+    const clock = baziCalculator.calculateBazi(
+      makeInput({
+        year: 1988,
+        month: 7,
+        day: 1,
+        birthHour: clockHour,
+        birthMinute: 30,
+        birthSecond: 0,
+        useTrueSolarTime: false,
+        timezone: 8,
+        applyChinaDst: true,
+      }),
+    );
+    const standard = baziCalculator.calculateBazi(
+      makeInput({
+        year: 1988,
+        month: standardDay === 30 ? 6 : 7,
+        day: standardDay,
+        birthHour: standardHour,
+        birthMinute: 30,
+        birthSecond: 0,
+        useTrueSolarTime: false,
+        timezone: 8,
+        applyChinaDst: false,
+      }),
+    );
+    assert.deepEqual(clock.pillars, standard.pillars);
+    assert.deepEqual(clock.solarDate, standard.solarDate);
+    assert.deepEqual(clock.timeInfo, standard.timeInfo);
+    assert.deepEqual(
+      clock.luckInfo.cycles[0]?.startSolarTime,
+      standard.luckInfo.cycles[0]?.startSolarTime,
+    );
+    assert.match(clock.warnings.join('；'), /已回拨 60 分钟/);
+  }
+});
+
+test('IANA 中国夏令时与固定偏移校正应得到同一日时柱和节气瞬时', () => {
+  const clock = makeInput({
+    year: 1988,
+    month: 7,
+    day: 1,
+    birthHour: 0,
+    birthMinute: 30,
+    birthSecond: 0,
+    useTrueSolarTime: false,
+  });
+  const iana = baziCalculator.calculateBazi({
+    ...clock,
+    timezone: undefined,
+    timeZoneId: 'Asia/Shanghai',
+  });
+  const fixed = baziCalculator.calculateBazi({
+    ...clock,
+    timezone: 8,
+    applyChinaDst: true,
+  });
+
+  assert.deepEqual(iana.pillars, fixed.pillars);
+  assert.deepEqual(iana.solarDate, fixed.solarDate);
+  assert.deepEqual(iana.timeInfo, fixed.timeInfo);
+  assert.deepEqual(
+    iana.luckInfo.cycles[0]?.startSolarTime,
+    fixed.luckInfo.cycles[0]?.startSolarTime,
+  );
+});
+
+test('普通八字 IANA 输入拒绝夏令时跳时缺口和未消歧回拨时刻', () => {
+  for (const [year, month, day, hour] of [
+    [1988, 4, 17, 2],
+    [1988, 9, 11, 1],
+  ] as const) {
+    assert.throws(
+      () =>
+        baziCalculator.calculateBazi({
+          ...makeInput({
+            year,
+            month,
+            day,
+            birthHour: hour,
+            birthMinute: 30,
+            birthSecond: 0,
+            useTrueSolarTime: false,
+          }),
+          timezone: undefined,
+          timeZoneId: 'Asia/Shanghai',
+        }),
+      /不存在|歧义/,
+    );
+  }
+});
+
+test('精确标准时间拒绝夏令时不存在与重复钟表时刻', () => {
+  for (const [year, month, day, hour, pattern] of [
+    [1986, 5, 4, 2, /跳时缺口/],
+    [1988, 9, 11, 1, /回拨重复时段/],
+  ] as const) {
+    assert.throws(
+      () =>
+        baziCalculator.calculateBazi(
+          makeInput({
+            year,
+            month,
+            day,
+            birthHour: hour,
+            birthMinute: 30,
+            birthSecond: 0,
+            useTrueSolarTime: false,
+            timezone: 8,
+            applyChinaDst: true,
+          }),
+        ),
+      pattern,
+    );
+  }
 });

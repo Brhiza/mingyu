@@ -90,6 +90,20 @@ export interface RandomContext {
   getTrace(): RandomTrace;
 }
 
+/** 重放记录必须与本次生成过程实际消费的样本一一对应。 */
+export function assertReplaySamplesConsumed(
+  options: RandomOptions | undefined,
+  trace: RandomTrace,
+): void {
+  if (options?.replay !== undefined && options.replay.length !== trace.samples.length) {
+    throwRandomError(
+      'RANDOM_REPLAY_UNUSED',
+      '随机重放样本有剩余，记录与本次生成过程不一致。',
+      'replay',
+    );
+  }
+}
+
 const UINT32_RANGE = 0x1_0000_0000;
 
 function getSystemCrypto(): Crypto {

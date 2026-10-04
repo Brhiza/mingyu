@@ -21,8 +21,11 @@ import {
   starElements,
   supportiveGods,
 } from './_constants';
-import { getXunHead, isValidGanZhi, LIUCHONG_MAP } from '../../../../ganzhi';
+import { getXunHead, isValidGanZhi } from '../../../../ganzhi';
 import { getTianPanStars, getTianPanStems, hasTianPanStar, hasTianPanStem } from './palace-utils';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface QimenPatternCombo {
   key: string;
@@ -754,12 +757,32 @@ function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): v
   }
 
   for (const [palace, list] of byPalace.entries()) {
-    if (list.length < 2) continue;
-
     const palaceName = getPalaceName(ctx.jiuGongGe, palace);
-    const goodPatterns = list.filter((pattern) => pattern.tone === 'good');
+    // 得使临吉门包含同宫的得使本格，聚气计数只取一次。
+    const goodPatterns = list.filter(
+      (pattern) =>
+        pattern.tone === 'good' &&
+        !(
+          pattern.key.startsWith('pattern:deShiPlusGoodDoor:') &&
+          list.some((other) => other.name === pattern.name.replace('临吉门', ''))
+        ),
+    );
     const badPatterns = list.filter((pattern) => pattern.tone === 'bad');
     const palaceIsVoid = voidPalaces.has(palace);
+
+    if (palaceIsVoid && goodPatterns.length > 0 && badPatterns.length === 0) {
+      out.push({
+        key: `combo:goodVoid:${palace}`,
+        name: `${palaceName}吉格逢空`,
+        tone: 'mixed',
+        score: -Math.round(goodPatterns.reduce((sum, pattern) => sum + pattern.score, 0) / 2),
+        summary: `${palaceName}虽见吉格，但宫位逢空亡，吉象有落空之忧。`,
+        palace,
+        sources: goodPatterns.map((pattern) => pattern.name),
+      });
+    }
+
+    if (list.length < 2) continue;
 
     if (goodPatterns.length >= 3 && badPatterns.length === 0 && !palaceIsVoid) {
       out.push({
@@ -796,18 +819,6 @@ function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): v
         sources: [...goodPatterns, ...badPatterns].map((pattern) => pattern.name),
       });
     }
-
-    if (palaceIsVoid && goodPatterns.length > 0 && badPatterns.length === 0) {
-      out.push({
-        key: `combo:goodVoid:${palace}`,
-        name: `${palaceName}吉格逢空`,
-        tone: 'mixed',
-        score: -Math.round(goodPatterns.reduce((sum, pattern) => sum + pattern.score, 0) / 2),
-        summary: `${palaceName}虽见吉格，但宫位逢空亡，吉象有落空之忧。`,
-        palace,
-        sources: goodPatterns.map((pattern) => pattern.name),
-      });
-    }
   }
 }
 
@@ -830,8 +841,8 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
     });
   }
 
-  const yiQiBlocked = hasName(patterns, '日奇入墓') || hasName(patterns, '日奇被刑');
-  const bingQiBlocked = hasName(patterns, '月奇入墓') || hasName(patterns, '月奇悖师');
+  const yiQiBlocked = hasName(patterns, '日奇入墓');
+  const bingQiBlocked = hasName(patterns, '月奇入墓');
   const dingQiBlocked = hasName(patterns, '星奇入墓');
   if (yiQiBlocked && bingQiBlocked && dingQiBlocked) {
     out.push({
@@ -912,17 +923,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         sources: ['白虎猖狂', `${palace.name}休门`],
       });
     }
-  }
-
-  if (hasName(patterns, '月奇悖师') && hasName(patterns, '月奇入墓')) {
-    out.push({
-      key: 'combo:bingDoubleBad',
-      name: '月奇双困',
-      tone: 'super-bad',
-      score: -10,
-      summary: '丙奇既悖师又入墓，公开表达与外显之力受困。',
-      sources: ['月奇悖师', '月奇入墓'],
-    });
   }
 
   if (hasName(patterns, '太白入荧') && hasName(patterns, '荧入太白')) {
@@ -1694,7 +1694,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const youDuBranch = ctx.dayStem ? youDuBranchByDayStem[ctx.dayStem] : undefined;
-  const luDuBranch = youDuBranch ? LIUCHONG_MAP[youDuBranch] : undefined;
+  const luDuBranch = youDuBranch ? GANZHI_RELATION_TABLES.LIUCHONG_MAP[youDuBranch] : undefined;
   const youDuPalace = youDuBranch ? getPalaceByBranch(ctx.jiuGongGe, youDuBranch) : undefined;
   const luDuPalace = luDuBranch ? getPalaceByBranch(ctx.jiuGongGe, luDuBranch) : undefined;
 
@@ -2063,7 +2063,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const xiongBranch = ctx.monthBranch ? xiongBranchByMonthBranch[ctx.monthBranch] : undefined;
-  const ciBranch = xiongBranch ? LIUCHONG_MAP[xiongBranch] : undefined;
+  const ciBranch = xiongBranch ? GANZHI_RELATION_TABLES.LIUCHONG_MAP[xiongBranch] : undefined;
   const xiongPalace = xiongBranch ? getPalaceByBranch(ctx.jiuGongGe, xiongBranch) : undefined;
   const ciPalace = ciBranch ? getPalaceByBranch(ctx.jiuGongGe, ciBranch) : undefined;
 

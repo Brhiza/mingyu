@@ -41,7 +41,13 @@ export function resolveShenShaVariantConfig(
       ? CLASSICAL_SHENSHA_VARIANT_CONFIG
       : DEFAULT_SHENSHA_VARIANT_CONFIG;
   return {
-    ...defaults,
-    ...variants,
+    referenceProfile:
+      variants?.referenceProfile === undefined
+        ? defaults.referenceProfile
+        : variants.referenceProfile,
+    kongWangBasis:
+      variants?.kongWangBasis === undefined ? defaults.kongWangBasis : variants.kongWangBasis,
+    yangRenMode: variants?.yangRenMode === undefined ? defaults.yangRenMode : variants.yangRenMode,
+    tongZiScope: variants?.tongZiScope === undefined ? defaults.tongZiScope : variants.tongZiScope,
   };
 }

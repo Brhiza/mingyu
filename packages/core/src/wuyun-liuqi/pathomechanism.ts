@@ -6,10 +6,10 @@ import type { AnnualConformities, AnnualMovement, LiuqiProfile, WuyunElement } f
 import { assertValidGanZhi } from '../ganzhi/validation';
 import { isKe, isSheng } from '../wuxing';
 import {
-  STEM_MOVEMENT,
-  QI_PROFILES,
-  BRANCH_SITIAN_ZAIQUAN,
-  SUIHUI_BRANCH_ELEMENT,
+  getStemMovement,
+  getQiProfile,
+  getBranchSitianZaiquan,
+  getSuihuiBranchElement,
 } from './annual-data';
 
 export interface WuyunLiuqiPathomechanismResult {
@@ -95,7 +95,7 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
   if (!params || typeof params !== 'object') throw new Error('五运六气资料不能为空。');
   const { annualMovement, sitian, yearGanZhi, annualConformities } = params;
   assertValidGanZhi(yearGanZhi);
-  const movement = STEM_MOVEMENT[yearGanZhi[0]];
+  const movement = getStemMovement(yearGanZhi[0]);
   if (
     !annualMovement ||
     annualMovement.stem !== yearGanZhi[0] ||
@@ -104,8 +104,8 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
     annualMovement.yinYang !== movement.yinYang
   )
     throw new Error('岁运资料与年干支不一致。');
-  const pair = BRANCH_SITIAN_ZAIQUAN[yearGanZhi[1]];
-  const expectedSitian = QI_PROFILES[pair[0]];
+  const pair = getBranchSitianZaiquan(yearGanZhi[1]);
+  const expectedSitian = getQiProfile(pair[0]);
   if (
     !sitian ||
     (['name', 'element', 'phase', 'qi'] as const).some((key) => sitian[key] !== expectedSitian[key])
@@ -114,9 +114,9 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
   }
   if (
     !annualConformities ||
-    annualConformities.suihui !== (SUIHUI_BRANCH_ELEMENT[yearGanZhi[1]] === movement.element) ||
+    annualConformities.suihui !== (getSuihuiBranchElement(yearGanZhi[1]) === movement.element) ||
     annualConformities.tongSuihui !==
-      (movement.yinYang === '阴' && QI_PROFILES[pair[1]].element === movement.element)
+      (movement.yinYang === '阴' && getQiProfile(pair[1]).element === movement.element)
   ) {
     throw new Error('平气所用符会资料与年干支不一致。');
   }
@@ -140,11 +140,11 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
   const names = MOVEMENT_REGIMES[annualMovement.element];
   const movementRegime = `${names[annualMovement.strength === '太过' ? 0 : 1]}之纪`;
   const pingQiType = pingQiConditions.length ? '具平气条件' : '平气待定';
-  const pingQiBasis = `${yearGanZhi}${annualMovement.element}运${annualMovement.strength}，属${movementRegime}${pingQiConditions.length ? `；${pingQiConditions.join('；')}` : ''}。平气成立时称${names[2]}之纪，仍须结合交气日时干德符及气候应期核定。`;
+  const pingQiBasis = `${yearGanZhi}${annualMovement.element}运${annualMovement.strength}，按年干推得${movementRegime}为基准${pingQiConditions.length ? `；${pingQiConditions.join('；')}` : ''}。平气成立时称${names[2]}之纪，仍须结合交气日时干德符及气候应期核定。`;
 
   const pathology = SITIAN_PATHOLOGY[sitian.name];
 
-  const summary = `平气条件：${pingQiBasis}`;
+  const summary = `岁运纪：${movementRegime}（按年干太过不及推得的基准）${pingQiConditions.length ? `；平气参考条件：${pingQiConditions.join('；')}` : ''}；平气核定：${pingQiType}，待结合交气日时与气候应期核定；平气成立时称${names[2]}之纪`;
 
   return {
     isPingQi: null,

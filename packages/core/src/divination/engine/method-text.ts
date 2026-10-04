@@ -1,5 +1,5 @@
 import type { DivinationMethodId } from '../config';
-import type { DivinationData, MeihuaData } from '../../types/divination';
+import type { AlmanacData, DivinationData, MeihuaData } from '../../types/divination';
 import type { HuangjiJingshiResult } from '../../huangji-jingshi';
 import { buildPromptTask } from '../../prompt/guidance';
 import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../prompt/qimen-interpretation';
@@ -51,7 +51,9 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>, data
     case 'kongming':
       return '依据本签卦名、等第、卦诗、典故与解卦回答【问题】。';
     case 'almanac':
-      return '';
+      return (data as AlmanacData | undefined)?.timePreferences?.length
+        ? '有候选时辰资料时，说明所列时段的取舍与适用条件。'
+        : '';
     case 'astrolabe':
       return '依据星体、宫位和相位回答【问题】。';
     case 'taiyi':

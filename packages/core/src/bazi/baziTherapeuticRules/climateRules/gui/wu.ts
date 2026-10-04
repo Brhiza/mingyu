@@ -2,6 +2,17 @@ import type { ClimateRule } from '../../types';
 
 export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'wu-month-gui-geng-xin-ren-reference',
+    label: '癸日午月庚辛壬参用规则',
+    description: '五月癸水原文以庚辛金与壬水参酌并用，具体根气及火的制约仍按原局判断。',
+    priority: 115,
+    months: ['午'],
+    dayMasters: ['水'],
+    dayStems: ['癸'],
+    usefulWuxing: '金',
+    hint: '癸水午月，庚辛壬参酌并用',
+  },
+  {
     id: 'wu-wei-month-gui-metal-water-summer-rich',
     label: '癸日午未月金水会夏天规则',
     description:

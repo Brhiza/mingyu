@@ -101,6 +101,42 @@ test('公开八字接口范围模式默认逐秒分页并保留完整事实', as
   assert.equal(tail.body.data.range.nextIndex, null);
 });
 
+test('公开八字年末单秒范围可排盘，越界末样本在首批及空尾页均提前拒绝', async () => {
+  const start = '2100-12-31 23:59:59';
+  const input = {
+    gender: 'male',
+    year: 2100,
+    month: 12,
+    day: 31,
+    birthHour: 23,
+    birthMinute: 59,
+    birthSecond: 59,
+    timeIndex: 12,
+    dateType: 'solar',
+    birthTimeRange: range(start, '2101-01-01 00:00:00'),
+    rangeBatch: { limit: 1 },
+  };
+  const valid = await callApi('bazi/calculate', input);
+  assert.equal(valid.response.status, 200, JSON.stringify(valid.body));
+  assert.equal(valid.body.data.range.totalSamples, 1);
+  assert.equal(valid.body.data.range.nextIndex, null);
+  assert.equal(valid.body.data.range.samples[0]?.timestamp, beijingTimestamp(start));
+  assert.equal(valid.body.data.range.samples[0]?.bundle.profile.year, 2100);
+  assert.ok(valid.body.data.range.samples[0]?.bundle.bazi?.pillars);
+
+  const invalid = { ...input, birthTimeRange: range(start, '2101-01-01 00:00:01') };
+  for (const rangeBatch of [
+    { limit: 1 },
+    { startIndex: 1, limit: 1 },
+    { startIndex: 2, limit: 1 },
+  ]) {
+    const result = await callApi('bazi/calculate', { ...invalid, rangeBatch });
+    assert.equal(result.response.status, 400, JSON.stringify(result.body));
+    assert.equal(result.body.error.code, 'BAD_REQUEST');
+    assert.match(result.body.error.message, /出生年份需在 1900-2100 之间/u);
+  }
+});
+
 test('公开紫微接口范围模式按 scope 与运限游标分页并保留完整事实', async () => {
   const input = {
     name: '公开合成紫微区间',

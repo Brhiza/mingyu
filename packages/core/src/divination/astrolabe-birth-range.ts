@@ -443,6 +443,7 @@ function projectDiscreteFacts(result: AstrolabeData): unknown {
   const birth = result.birth;
   return {
     houseSystem: result.houseSystem ?? null,
+    dayChart: result.dayChart ?? null,
     ephemerisWarnings: projectEphemerisWarnings(result.ephemerisWarnings),
     birth: {
       name: birth.name,
@@ -510,7 +511,7 @@ function collectPointSamples(
       '度/日',
       point.longitudeSpeed,
     );
-    addSample(samples, `${base}.second`, `${point.label}位置角秒`, '角秒', point.second);
+    addSample(samples, `${base}.second`, `${point.label}位置角秒`, '角秒', point.second, 60);
   }
 }
 
@@ -743,15 +744,18 @@ export function generateAstrolabeBirthRange(
   range: AstrolabeBirthRangeInput,
   options: AstrolabeBirthRangeOptions = {},
 ): AstrolabeBirthRange {
-  const total = validateAstrolabeRangeInput(input, range);
+  options = { ...options };
+  const lockedInput = { ...input };
+  const lockedRange = { ...range };
+  const total = validateAstrolabeRangeInput(lockedInput, lockedRange);
   assertNotAborted(options.signal);
 
   let active: ActiveBranch | undefined;
   const branches: AstrolabeBirthRangeBranch[] = [];
   for (let completed = 0; completed < total; completed += 1) {
     assertNotAborted(options.signal);
-    const timestamp = range.startTimestamp + completed * SECOND_MILLISECONDS;
-    const result = generateAstrolabe(getAstrolabeRangeInputAtTimestamp(input, timestamp));
+    const timestamp = lockedRange.startTimestamp + completed * SECOND_MILLISECONDS;
+    const result = generateAstrolabe(getAstrolabeRangeInputAtTimestamp(lockedInput, timestamp));
     const currentFingerprint = getAstrolabeBirthRangeDiscreteFingerprint(result);
     if (!active) {
       active = {
@@ -782,15 +786,16 @@ export function generateAstrolabeBirthRange(
     options.onProgress?.(completed + 1, total);
   }
 
+  assertNotAborted(options.signal);
   if (!active) throw new Error('西占星盘本命区间没有可计算的整秒样本。');
-  branches.push(finalizeBranch(active, range.endTimestamp));
+  branches.push(finalizeBranch(active, lockedRange.endTimestamp));
 
   return {
     coverage: 'natal',
     status: branches.length === 1 ? 'stable' : 'conditional',
     source: {
-      startTimestamp: range.startTimestamp,
-      endTimestamp: range.endTimestamp,
+      startTimestamp: lockedRange.startTimestamp,
+      endTimestamp: lockedRange.endTimestamp,
       endExclusive: true,
       timezone: 'Asia/Shanghai',
       offsetHours: CHINA_OFFSET_HOURS,

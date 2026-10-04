@@ -86,10 +86,14 @@ export function generateYarrow(options: YarrowOptions = {}): YarrowResult {
     }
     lines.push({ changes, value: (remaining / 4) as 6 | 7 | 8 | 9 });
   }
+  const randomTrace = context?.getTrace();
+  if (options.replay && options.replay.length !== randomTrace?.samples.length) {
+    invalidYarrowInput('蓍草随机重放样本有剩余，记录与十八变过程不一致。');
+  }
   return {
     lines,
     yaos: lines.map((line) => line.value),
     samplingModel: splits === undefined ? '余数等概率，类内分堆等概率' : '手工分堆',
-    ...(context ? { randomTrace: context.getTrace() } : {}),
+    ...(randomTrace ? { randomTrace } : {}),
   };
 }

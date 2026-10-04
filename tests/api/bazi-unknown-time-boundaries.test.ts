@@ -9,6 +9,7 @@ import { formatBaziForPrompt } from '../../packages/core/src/bazi/baziAnalysisFo
 import { formatBaziSchoolFacts } from '../../packages/core/src/prompt/bazi-school';
 import type { BaziChartResult } from '../../packages/core/src/bazi/baziTypes';
 import { BaziCalculator } from '../../packages/core/src/bazi/baziCalculator';
+import { discoverUnknownTimeCandidates } from '../../packages/core/src/bazi/baziUnknownTime';
 
 const input = {
   dateType: 'solar',
@@ -181,5 +182,158 @@ test('未知时辰交节两侧的同一时辰候选贯通 HTTP、MCP 与各流�
   } finally {
     await client.close();
     await server.close();
+  }
+});
+
+test('HTTP 重复民用日保留两个正午候选的钟表时刻、偏移与续页身份', async () => {
+  const person = {
+    year: 1969,
+    month: 9,
+    day: 30,
+    gender: 'female' as const,
+    timeZoneId: 'Pacific/Kwajalein',
+  };
+  const request = { ...person, dateType: 'solar', timeIndex: -1 };
+  const noon = discoverUnknownTimeCandidates(person).flatMap((candidate, index) =>
+    candidate.point.source === 'shichen-representative' &&
+    candidate.point.hour === 12 &&
+    candidate.point.minute === 0
+      ? [{ candidate, index }]
+      : [],
+  );
+  assert.deepEqual(
+    noon.map(({ candidate }) => candidate.person.timezone),
+    [11, -12],
+  );
+
+  const first = await handlePublicApiRequest(
+    new Request('https://example.test/api/v1/bazi/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    }),
+  );
+  assert.equal(first.status, 200);
+  const firstData = (await first.json()) as {
+    data: { batch: { unknownTimeBatch: { contextKey: string } } };
+  };
+  const contextKey = firstData.data.batch.unknownTimeBatch.contextKey;
+
+  for (const { candidate, index } of noon) {
+    const timezone = candidate.person.timezone!;
+    const response = await handlePublicApiRequest(
+      new Request('https://example.test/api/v1/bazi/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...request,
+          question: '比较两个正午候选。',
+          responseMode: 'full',
+          unknownTimeBatch: { startIndex: index, contextKey },
+        }),
+      }),
+    );
+    const body = (await response.json()) as {
+      data: {
+        result: BaziChartResult;
+        prompt: string;
+        batch: { unknownTimeBatch: { candidateKey: string; contextKey: string } };
+      };
+    };
+    assert.equal(response.status, 200, JSON.stringify(body));
+    const scenario = body.data.result.unknownTimeAnalysis?.scenarios[0];
+    assert.ok(scenario);
+    assert.equal(scenario.inputClockTime, '12:00:00');
+    assert.ok(scenario.timeName.includes(`UTC${timezone >= 0 ? '+' : ''}${timezone}`));
+    assert.equal(scenario.scenarioKey, candidate.scenarioKey);
+    assert.equal(body.data.batch.unknownTimeBatch.candidateKey, candidate.scenarioKey);
+    assert.equal(body.data.batch.unknownTimeBatch.contextKey, contextKey);
+    assert.ok(body.data.prompt.includes(scenario.timeName));
+    const clock = /^(\d{2}):(\d{2}):(\d{2})$/.exec(scenario.inputClockTime);
+    const offset = /UTC([+-]\d+)/.exec(scenario.timeName);
+    assert.ok(clock);
+    assert.ok(offset);
+    assert.equal(
+      new Date(
+        Date.UTC(1969, 8, 30, Number(clock[1]), Number(clock[2]), Number(clock[3])) -
+          Number(offset[1]) * 3_600_000,
+      ).toISOString(),
+      timezone === 11 ? '1969-09-30T01:00:00.000Z' : '1969-10-01T00:00:00.000Z',
+    );
+  }
+});
+
+test('HTTP 中国夏令时跨标准日期的未知时辰保留输入日期与逐候选实际历日', async () => {
+  const request = {
+    dateType: 'solar' as const,
+    gender: 'female' as const,
+    year: 1988,
+    month: 5,
+    day: 1,
+    timeIndex: -1,
+    applyChinaDst: true,
+    question: '核对候选出生日期。',
+  };
+  const full = new BaziCalculator().calculateBazi(request);
+  assert.deepEqual(full.unknownTimeAnalysis?.uncertainCalendarDates, ['solar', 'lunar']);
+  const scenarios = full.unknownTimeAnalysis!.scenarios;
+  const noonIndex = scenarios.findIndex(
+    (scenario) =>
+      scenario.source === 'shichen-representative' && scenario.inputClockTime === '12:00:00',
+  );
+  assert.ok(noonIndex > 0);
+  const firstResponse = await handlePublicApiRequest(
+    new Request('https://example.test/api/v1/bazi/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...request, responseMode: 'full' }),
+    }),
+  );
+  assert.equal(firstResponse.status, 200);
+  const first = (await firstResponse.json()) as {
+    data: {
+      result: BaziChartResult;
+      prompt: string;
+      batch: { unknownTimeBatch: { contextKey: string } };
+    };
+  };
+  const contextKey = first.data.batch.unknownTimeBatch.contextKey;
+
+  for (const [index, expectedSolar, expectedLunar] of [
+    [0, { year: 1988, month: 4, day: 30 }, { monthName: '三月', dayName: '十五' }],
+    [noonIndex, { year: 1988, month: 5, day: 1 }, { monthName: '三月', dayName: '十六' }],
+  ] as const) {
+    let data = first.data;
+    if (index !== 0) {
+      const response = await handlePublicApiRequest(
+        new Request('https://example.test/api/v1/bazi/prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...request,
+            responseMode: 'full',
+            unknownTimeBatch: { startIndex: index, contextKey },
+          }),
+        }),
+      );
+      assert.equal(response.status, 200);
+      data = ((await response.json()) as typeof first).data;
+    }
+    const result = data.result;
+    const scenario = result.unknownTimeAnalysis!.scenarios[0]!;
+    assert.deepEqual(result.unknownTimeAnalysis?.uncertainCalendarDates, ['solar', 'lunar']);
+    assert.deepEqual(result.solarDate, { year: 1988, month: 5, day: 1 });
+    assert.deepEqual(scenario, scenarios[index]);
+    assert.deepEqual(scenario.solarDate, expectedSolar);
+    assert.equal(scenario.lunarDate?.monthName, expectedLunar.monthName);
+    assert.equal(scenario.lunarDate?.dayName, expectedLunar.dayName);
+    assert.match(data.prompt, /输入日期对应公历1988年5月1日，参考农历1988年三月十六/);
+    if (index === 0) {
+      assert.match(data.prompt, /日初00:00:00候选：排盘历日公历1988年4月30日、农历1988年三月十五/);
+    } else {
+      assert.match(data.prompt, /午时候选：/);
+      assert.doesNotMatch(data.prompt, /午时候选：排盘历日/);
+      assert.equal(data.prompt.match(/农历1988年三月十六/g)?.length, 1);
+    }
   }
 });

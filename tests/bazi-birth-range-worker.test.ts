@@ -50,7 +50,7 @@ const primary = profileAtTimestamp(
 const partner = profileAtTimestamp(
   '公开合成对方',
   'female',
-  beijingTimestamp('1992-03-04 08:20:00'),
+  beijingTimestamp('1992-03-04 08:59:59'),
   3,
 );
 const fixedPartner = profileAtTimestamp(
@@ -126,6 +126,26 @@ test('双方范围按主方优先的真实笛卡尔积逐页映射且保留双�
     assert.ok(page.compatibility);
     assert.equal(page.compatibility?.people.person1, '公开合成主方');
     assert.equal(page.compatibility?.people.person2, '公开合成对方');
+    const primaryBazi = page.primary.bundle.bazi;
+    const partnerBazi = page.partner?.bundle.bazi;
+    assert.ok(primaryBazi);
+    assert.ok(partnerBazi);
+    assert.equal(partnerBazi.pillars.hour.ganZhi, ['戊辰', '己巳', '己巳'][partnerIndex]);
+    assert.equal(page.compatibility?.dayMasterRelation.person1Gan, primaryBazi.dayMaster.gan);
+    assert.equal(page.compatibility?.dayMasterRelation.person2Gan, partnerBazi.dayMaster.gan);
+    assert.ok(page.compatibility?.crossPillarRelations.length);
+    for (const relation of page.compatibility?.crossPillarRelations ?? []) {
+      const person1Pillar = primaryBazi.pillars[relation.person1Pillar];
+      const person2Pillar = partnerBazi.pillars[relation.person2Pillar];
+      assert.equal(
+        relation.person1Value,
+        relation.layer === '天干' ? person1Pillar.gan : person1Pillar.zhi,
+      );
+      assert.equal(
+        relation.person2Value,
+        relation.layer === '天干' ? person2Pillar.gan : person2Pillar.zhi,
+      );
+    }
     assert.deepEqual(page.primarySource, primary.birthTimeRange);
     assert.deepEqual(page.partnerSource, partner.birthTimeRange);
     assert.equal(page.nextIndex, index === expected.length - 1 ? null : index + 1);

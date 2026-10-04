@@ -67,7 +67,7 @@ export function getDivinationSessionSummary(session: DivinationSession): Divinat
         formatLiuyaoRangeOrigin(session.liuyaoRange),
         ...session.liuyaoRange.branches.map(
           (branch) =>
-            `${formatLiuyaoRangeInterval(branch.startTimestamp, branch.endTimestamp)}：本卦${branch.data.originalName}，变卦${branch.data.changedName || '无'}；${formatLiuyaoRangeBackground(branch)}`,
+            `${formatLiuyaoRangeInterval(branch.startTimestamp, branch.endTimestamp)}：本卦${branch.data.originalName}，变卦${branch.data.changingYaos.length ? branch.data.changedName || '未列' : '无'}；${formatLiuyaoRangeBackground(branch)}`,
         ),
       ],
     };
@@ -77,14 +77,23 @@ export function getDivinationSessionSummary(session: DivinationSession): Divinat
       title: '奇门遁甲时段排盘结果',
       tags: [
         session.qimenRange.status === 'stable'
-          ? '盘面与节令背景稳定'
+          ? session.qimenRange.branches[0]?.data.scope === 'year' ||
+            session.qimenRange.branches[0]?.data.scope === 'month'
+            ? '盘面与定局依据稳定'
+            : '盘面与节令背景稳定'
           : `时间范围内分为${session.qimenRange.branches.length}段`,
       ],
       lines: session.qimenRange.branches.flatMap((branch) => {
         const { startTimestamp, endTimestamp, data } = branch;
+        const isLongScope = data.scope === 'year' || data.scope === 'month';
+        const basis = isLongScope
+          ? `；干支年${data.ganzhi.year}${data.timeInfo.epoch}${data.scope === 'month' ? `；月建${data.ganzhi.month}` : ''}`
+          : data.seasonality
+            ? `；节令阶段${data.seasonality.jieQiPhase.phase}，月相${data.seasonality.lunarPhaseDetail}，建除${data.seasonality.dayOfficer}`
+            : '';
         return [
-          `${formatQimenRangeInterval(startTimestamp, endTimestamp)}：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；节气${data.timeInfo.solarTerm}；值符${data.zhiFu}、值使${data.zhiShi}${data.seasonality ? `；节令阶段${data.seasonality.jieQiPhase.phase}，月相${data.seasonality.lunarPhaseDetail}，建除${data.seasonality.dayOfficer}` : ''}`,
-          formatQimenRangeMoonPhase(branch),
+          `${formatQimenRangeInterval(startTimestamp, endTimestamp)}：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；节气${data.timeInfo.solarTerm}；值符${data.zhiFu}、值使${data.zhiShi}${basis}`,
+          ...(isLongScope ? [] : [formatQimenRangeMoonPhase(branch)]),
         ];
       }),
     };

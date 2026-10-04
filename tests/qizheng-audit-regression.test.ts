@@ -6,16 +6,110 @@ import {
   TWELVE_PALACES,
   type QizhengAspect,
 } from '../packages/core/src/qi_zheng/index.ts';
-import {
-  buildQizhengTimeLords,
-  resolveQizhengChildLimitEnd,
-} from '../packages/core/src/qi_zheng/time-lords.ts';
+import { buildQizhengTimeLords } from '../packages/core/src/qi_zheng/time-lords.ts';
 import { evaluateQizhengEnNan } from '../packages/core/src/qi_zheng/en-nan.ts';
 import { formatQizhengTimeLordPrompt } from '../packages/core/src/qi_zheng/time-lords.ts';
 import { extractQizhengFacts } from '../scripts/prompt-audit/natal-facts.ts';
 import { auditPromptFacts } from '../scripts/prompt-audit/facts.ts';
 
 const branches = '子丑寅卯辰巳午未申酉戌亥';
+
+test('真实七政相位审查绑定本命与流曜两端及本条数值，其他吊照不能补足', () => {
+  const chart = generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 20,
+    hour: 12,
+    timezone: 8,
+    flowYear: 2024,
+    flowMonth: 6,
+    flowDay: 20,
+    flowHour: 12,
+  });
+  const flowing = chart.flowingStars;
+  assert.ok(flowing);
+  const facts = extractQizhengFacts(chart);
+  const natalFacts = facts.filter((item) => item.id.includes('.natal.aspect.'));
+  const flowFacts = facts.filter((item) => item.id.includes('.flow.transit.'));
+  const publishedAspects = chart.aspects.filter(
+    (item) =>
+      !(
+        (item.star1 === '罗睺(火余)' && item.star2 === '计都(土余)') ||
+        (item.star1 === '计都(土余)' && item.star2 === '罗睺(火余)')
+      ),
+  );
+  assert.equal(natalFacts.length, publishedAspects.length);
+  assert.equal(flowFacts.length, flowing.transits.length);
+  assert.equal(
+    facts.length,
+    chart.stars.length +
+      publishedAspects.length +
+      1 +
+      flowing.stars.length +
+      flowing.transits.length +
+      (flowing.periodEvents?.events.length ?? 0),
+  );
+  assert.deepEqual(auditPromptFacts(chart.prompt, facts).missing, []);
+
+  const natalLine = chart.prompt.split('\n').find((line) => line.startsWith('七政四余吊照：'));
+  const flowLine = chart.prompt.split('\n').find((line) => line.startsWith('流曜与本命吊照：'));
+  assert.ok(natalLine && flowLine);
+  const withoutNatal = chart.prompt.replace(natalLine, '');
+  assert.ok(withoutNatal.includes(flowLine));
+  const removedNatal = auditPromptFacts(withoutNatal, facts);
+  assert.deepEqual(
+    removedNatal.missing.filter((id) => id.includes('.natal.aspect.')),
+    natalFacts.map((item) => item.id),
+  );
+  assert.ok(flowFacts.every((item) => !removedNatal.missing.includes(item.id)));
+  const removedFlow = auditPromptFacts(chart.prompt.replace(flowLine, ''), facts);
+  assert.deepEqual(
+    removedFlow.missing.filter((id) => id.includes('.flow.transit.')),
+    flowFacts.map((item) => item.id),
+  );
+
+  const sunIndex = flowing.transits.findIndex(
+    (item) => item.star1 === '流曜太阳' && item.star2 === '本命太阳',
+  );
+  assert.ok(sunIndex >= 0);
+  assert.equal(flowing.transits[sunIndex].actualAngle, 0);
+  const sun = '流曜太阳与本命太阳：合相；目标角0°，实际角距0.00°，偏差0.00°，容许偏差上限8°，紧密';
+  assert.ok(flowLine.includes(sun));
+  for (const corrupted of [
+    '',
+    sun.replace('流曜太阳与本命太阳', '本命太阳与流曜太阳'),
+    sun.replace('与本命太阳', '与本命太阴'),
+    sun.replace('：合相', '：六合'),
+    sun.replace('目标角0°', '目标角60°'),
+    sun.replace('实际角距0.00°', '实际角距0.01°'),
+    sun.replace('偏差0.00°', '偏差0.01°'),
+    sun.replace('容许偏差上限8°', '容许偏差上限9°'),
+    sun.replace('紧密', '宽松'),
+  ]) {
+    const changed = chart.prompt.replace(sun, corrupted);
+    assert.ok(
+      auditPromptFacts(changed, facts).missing.includes(`qizheng.flow.transit.${sunIndex}`),
+      corrupted || '删除本条相位',
+    );
+  }
+});
+
+test('同一瞬时异地地心曜度与宿界一致，位置计算证据不列出生坐标', () => {
+  const input = { year: 2026, month: 5, day: 19, hour: 10, minute: 30, timezone: 8 };
+  const beijing = generateQizheng({ ...input, latitude: 39.9, longitude: 116.4 });
+  const greenwich = generateQizheng({ ...input, latitude: 0, longitude: 0 });
+  assert.deepEqual(
+    beijing.stars.map((star) => [star.name, star.longitude, star.xiu, star.xiuDegree]),
+    greenwich.stars.map((star) => [star.name, star.longitude, star.xiu, star.xiuDegree]),
+  );
+  assert.deepEqual(beijing.mansionBoundaries, greenwich.mansionBoundaries);
+  assert.notEqual(beijing.enNan?.sect, greenwich.enNan?.sect);
+  const positionStep = beijing.evidenceAnalysis.calculationFact.steps.find(
+    (step) => step.key === 'qizheng:calculation:modern-positions',
+  );
+  assert.deepEqual(positionStep?.inputs, { utcDateTime: beijing.calculationContext.utcDateTime });
+  assert.match(beijing.calculationContext.coordinatePipeline.join('；'), /出生坐标用于光照/);
+});
 
 test('同一瞬时点采用不同民用时区时，七政立春年干和年支神煞保持一致', () => {
   const common = {
@@ -39,6 +133,26 @@ test('同一瞬时点采用不同民用时区时，七政立春年干和年支�
   );
 });
 
+test('七政完整提示词逐类写明四余位置口径', () => {
+  const chart = generateQizheng({ year: 2024, month: 6, day: 20, hour: 12, timezone: 8 });
+  assert.match(chart.prompt, /罗睺、计都取月球真交点/);
+  assert.match(chart.prompt, /月孛取月球平均远地点模型/);
+  assert.match(chart.prompt, /紫炁按古法均速/);
+  assert.doesNotMatch(chart.prompt, /月孛按星历位置/);
+});
+
+test('七政证据标题将零度吊照写成合相，避免暗示实际同宫', () => {
+  const chart = generateQizheng({ year: 2024, month: 6, day: 20, hour: 12, timezone: 8 });
+  const conjunctions = chart.aspects.filter((aspect) => aspect.type === '同宫');
+  assert.ok(conjunctions.length > 0);
+  for (const aspect of conjunctions) {
+    const item = chart.evidenceAnalysis.evidence.items.find(
+      (candidate) => candidate.title === `${aspect.star1}与${aspect.star2}合相`,
+    );
+    assert.ok(item, `${aspect.star1}与${aspect.star2}证据标题应明确为合相`);
+  }
+});
+
 test('宫支按太阳宫顺数见卯安命，十二宫地支逆布', () => {
   // 《张果星宗》例：太阳子宫，酉时生，午宫安命。
   const chart = generateQizheng({ year: 2025, month: 2, day: 3, hour: 18, timezone: 8 });
@@ -54,7 +168,7 @@ test('宫支按太阳宫顺数见卯安命，十二宫地支逆布', () => {
   assert.equal(QIZHENG_SIGN_BRANCHES[noon.shenGong], branches[(noonMoon + 6 - 9 + 12) % 12]);
 });
 
-test('七政提示词事实核验覆盖排他年龄边界和单周行限以外的空值', () => {
+test('七政提示词事实核验覆盖未核定大限状态', () => {
   for (const flowYear of [2030, 2200]) {
     const chart = generateQizheng({
       year: 2000,
@@ -66,6 +180,11 @@ test('七政提示词事实核验覆盖排他年龄边界和单周行限以外�
       flowYear,
     });
     assert.ok(chart.timeLords);
+    assert.equal(chart.timeLords.majorLimitStatus, '命度与交限待核定');
+    assert.equal(chart.timeLords.childLimitEndNominalAge, null);
+    assert.equal(chart.timeLords.currentMajorLimit, null);
+    assert.equal(chart.timeLords.majorLimits.length, 0);
+    assert.doesNotMatch(chart.prompt, /宫内命度\d|虚岁\d+至未满\d+.*大限/);
     const facts = extractQizhengFacts(chart).filter((item) => item.id.includes('.limits.'));
     assert.ok(facts.length > 0);
     const audit = auditPromptFacts(formatQizhengTimeLordPrompt(chart.timeLords).join('\n'), facts);
@@ -73,7 +192,7 @@ test('七政提示词事实核验覆盖排他年龄边界和单周行限以外�
   }
 });
 
-test('洞微年分保留各宫不同年数与半年边界，不再以每宫十年替代', () => {
+test('洞微年分只列原典各宫年数，不用回归宫度推定童限与当前大限', () => {
   const twelvePalaces = TWELVE_PALACES.map((palace, index) => ({
     palace,
     signIndex: index,
@@ -87,13 +206,14 @@ test('洞微年分保留各宫不同年数与半年边界，不再以每宫十�
     flowYear: 2030,
     birthYearBranch: '辰',
     flowYearBranch: '戌',
-    mingDegree: 12,
     twelvePalaces,
   };
   const result = buildQizhengTimeLords(params);
-  assert.equal(result.childLimitEndNominalAge, 15);
+  assert.equal(result.childLimitEndNominalAge, null);
+  assert.equal(result.mingDegree, null);
+  assert.equal(result.majorLimitStatus, '命度与交限待核定');
   assert.deepEqual(
-    result.majorLimits.map((x) => x.palace),
+    result.majorPalaceYears.map((x) => x.palace),
     [
       '命宫',
       '相貌',
@@ -110,30 +230,39 @@ test('洞微年分保留各宫不同年数与半年边界，不再以每宫十�
     ],
   );
   assert.deepEqual(
-    result.majorLimits.map((x) => x.endNominalAge - x.startNominalAge),
-    [14, 10, 11, 15, 8, 7, 11, 4.5, 4.5, 4.5, 5, 5],
+    result.majorPalaceYears.map((x) => x.years),
+    [null, 10, 11, 15, 8, 7, 11, 4.5, 4.5, 4.5, 5, 5],
   );
-  for (let i = 1; i < 12; i++)
-    assert.equal(result.majorLimits[i].startNominalAge, result.majorLimits[i - 1].endNominalAge);
-  assert.equal(result.currentMajorLimit?.palace, '福德');
-  assert.equal(
-    buildQizhengTimeLords({ ...params, flowYear: 2014 }).currentMajorLimit?.palace,
-    '相貌',
-  );
+  assert.deepEqual(result.majorLimits, []);
+  assert.equal(result.currentMajorLimit, null);
+  assert.equal(buildQizhengTimeLords({ ...params, flowYear: 2014 }).currentMajorLimit, null);
   assert.equal(buildQizhengTimeLords({ ...params, flowYear: 2200 }).currentMajorLimit, null);
   assert.deepEqual(
-    buildQizhengTimeLords({ ...params, gender: 'female' }).majorLimits,
-    result.majorLimits,
+    buildQizhengTimeLords({ ...params, gender: 'female' }).majorPalaceYears,
+    result.majorPalaceYears,
   );
   assert.equal(result.currentMinorLimit.palace, '妻妾');
 });
 
-test('宫内命度每三度进入下一虚岁档，三十度须先换宫', () => {
-  assert.deepEqual(
-    [0, 2.999, 3, 12, 29.999].map(resolveQizhengChildLimitEnd),
-    [11, 11, 12, 15, 20],
-  );
-  assert.throws(() => resolveQizhengChildLimitEnd(30), /命度/);
+test('张果星宗小限盘例：甲子生、壬辰太岁、寅宫坐命，小限落戌', () => {
+  const mingSignIndex = QIZHENG_SIGN_BRANCHES.indexOf('寅');
+  const twelvePalaces = TWELVE_PALACES.map((palace, step) => {
+    const signIndex = (mingSignIndex + step) % 12;
+    return { palace, signIndex, signBranch: QIZHENG_SIGN_BRANCHES[signIndex] };
+  });
+  const result = buildQizhengTimeLords({
+    gender: 'male',
+    yearStem: '甲',
+    yearStemYinYang: '阳',
+    birthYear: 1984,
+    flowYear: 2012,
+    birthYearBranch: '子',
+    flowYearBranch: '辰',
+    twelvePalaces,
+  });
+  assert.equal(result.currentMinorLimit.signBranch, '戌');
+  assert.equal(result.currentMinorLimit.palace, '男女');
+  assert.equal(result.currentMajorLimit, null);
 });
 
 test('恩难相位中的四余加括注不改变星曜身份', () => {
@@ -143,7 +272,18 @@ test('恩难相位中的四余加括注不改变星曜身份', () => {
     ['火', '紫炁'],
     ['水', '计都'],
   ] as const) {
-    const base = { hour: 12, mingZhu };
+    const base = {
+      birthUtcTimestamp: Date.parse('2024-06-21T12:00:00Z'),
+      sunriseSunset: {
+        status: '全天高于阈值' as const,
+        crossings: [],
+      },
+      mingZhu,
+      stars: [
+        { name: mingZhu, longitude: 0 },
+        { name: star, longitude: 90 },
+      ],
+    };
     const aspect: QizhengAspect = {
       star1: mingZhu,
       star2: star,
@@ -168,4 +308,119 @@ test('恩难相位中的四余加括注不改变星曜身份', () => {
       plain.aspectInteraction,
     );
   }
+});
+
+test('恩难相位以合相描述零度吊照，不把跨宫关系写成同宫', () => {
+  const result = evaluateQizhengEnNan({
+    birthUtcTimestamp: Date.parse('2024-06-21T12:00:00Z'),
+    sunriseSunset: {
+      status: '全天高于阈值',
+      crossings: [],
+    },
+    mingZhu: '火',
+    stars: [
+      { name: '荧惑(火)', longitude: 0 },
+      { name: '月孛(水余)', longitude: 2 },
+    ],
+    aspects: [
+      {
+        star1: '荧惑(火)',
+        star2: '月孛(水余)',
+        type: '同宫',
+        exactAngle: 0,
+        actualAngle: 2,
+        orb: 2,
+        allowedOrb: 8,
+        orbRatio: 0.25,
+        closeness: '紧密',
+        precisionClass: '同层现代天文',
+        source: '固定几何样本',
+      },
+    ],
+  });
+  assert.ok(result.aspectInteraction.some((item) => item.includes('合相吊照')));
+  assert.ok(result.aspectInteraction.every((item) => !item.includes('同宫吊照')));
+});
+
+test('实际七政盘三项恩难交会在完整任务书中保留全部角色', () => {
+  const chart = generateQizheng({
+    year: 2020,
+    month: 8,
+    day: 15,
+    hour: 12,
+    timezone: 8,
+    latitude: 39.9,
+    longitude: 116.4,
+  });
+  assert.equal(chart.mingZhu, '火');
+  assert.deepEqual(chart.enNan?.aspectInteraction, [
+    '难星月孛(水余)与命主形成合相吊照',
+    '难星辰星(水)与命主形成三方吊照',
+    '恩星岁星(木)与命主形成四正吊照',
+  ]);
+  const jupiterAspect = chart.aspects.find(
+    (item) => item.star1 === '荧惑(火)' && item.star2 === '岁星(木)',
+  );
+  assert.equal(jupiterAspect?.type, '四正');
+  assert.ok(jupiterAspect && Math.abs(jupiterAspect.actualAngle - 90) <= jupiterAspect.allowedOrb);
+  for (const role of ['命主难星：月孛(水余)', '命主难星：辰星(水)', '命主恩星：岁星(木)']) {
+    assert.ok(chart.enNan?.summary.includes(role));
+    assert.ok(chart.prompt.includes(role));
+    assert.equal(chart.prompt.split(role).length - 1, 1);
+  }
+});
+
+test('恩难只采用本命当前黄经支持的吊照，不沿用旧角距或缺位星曜', () => {
+  const base = {
+    birthUtcTimestamp: Date.parse('2024-06-21T12:00:00Z'),
+    sunriseSunset: {
+      status: '全天高于阈值' as const,
+      crossings: [],
+    },
+    mingZhu: '火',
+    aspects: [
+      {
+        star1: '荧惑(火)',
+        star2: '月孛(水余)',
+        type: '四正' as const,
+        exactAngle: 90,
+        actualAngle: 90,
+        orb: 0,
+        allowedOrb: 6,
+        orbRatio: 0,
+        closeness: '紧密' as const,
+        precisionClass: '混合模型' as const,
+        source: '旧盘相位',
+      },
+    ],
+  };
+  const current = evaluateQizhengEnNan({
+    ...base,
+    stars: [
+      { name: '荧惑(火)', longitude: 5 },
+      { name: '月孛(水余)', longitude: 95 },
+    ],
+  });
+  assert.equal(current.aspectInteraction.length, 1);
+
+  for (const stars of [
+    [
+      { name: '荧惑(火)', longitude: 5 },
+      { name: '月孛(水余)', longitude: 150 },
+    ],
+    [{ name: '荧惑(火)', longitude: 5 }],
+  ]) {
+    const stale = evaluateQizhengEnNan({ ...base, stars });
+    assert.deepEqual(stale.aspectInteraction, []);
+    assert.doesNotMatch(stale.summary, /命主难星：月孛/u);
+  }
+  const wrongType = evaluateQizhengEnNan({
+    ...base,
+    stars: [
+      { name: '荧惑(火)', longitude: 5 },
+      { name: '月孛(水余)', longitude: 95 },
+    ],
+    aspects: [{ ...base.aspects[0], type: '三方' }],
+  });
+  assert.deepEqual(wrongType.aspectInteraction, []);
 });

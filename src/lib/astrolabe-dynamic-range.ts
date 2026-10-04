@@ -29,6 +29,7 @@ export function executeAstrolabeDynamicRangeWorker(
   onBranch: (branch: AstrolabeDynamicRangeBranch) => void | Promise<void>,
   options: { signal?: AbortSignal; onProgress?: (completed: number, total: number) => void } = {},
 ): Promise<AstrolabeDynamicRangeSummary> {
+  options = { ...options };
   return new Promise((resolve, reject) => {
     const abortError = () => new DOMException('已停止西占动态区间计算。', 'AbortError');
     if (options.signal?.aborted) {

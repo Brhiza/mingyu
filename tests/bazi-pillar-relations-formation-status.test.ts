@@ -89,3 +89,20 @@ test('缺时辰的空时柱不会触发关系枚举或抛出异常', () => {
   });
   assert.match(prompt, /【待补时】/);
 });
+
+test('本命反吟按天干五行相克与地支六冲识别，不限于天干四冲', () => {
+  const pillars = makePillars(['甲子', '戊午', '甲寅', '丁卯']);
+  const relation = '年柱甲子与月柱戊午成天克地冲';
+  assert.ok(analyzePillarRelations({ pillars }).fanyin.includes(relation));
+  assert.match(
+    generateEnhancedAnalysisSection(makePromptChart(pillars)),
+    /年柱甲子与月柱戊午成天克地冲/,
+  );
+
+  const withoutStemOvercome = makePillars(['甲子', '壬午', '甲寅', '丁卯']);
+  assert.ok(
+    !analyzePillarRelations({ pillars: withoutStemOvercome }).fanyin.some((item) =>
+      item.includes('年柱甲子与月柱壬午'),
+    ),
+  );
+});

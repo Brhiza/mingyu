@@ -2,8 +2,8 @@
  * @file 奇门遁甲排盘算法（主入口）
  * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
  * 含定局、布盘、格局识别、方位建议、应期判断。
- * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
- * @古籍依据 《烟波钓叟歌》《御定奇门宝鉴》《遁甲演义》《奇门遁甲秘籍大全》
+ * @流派 转盘奇门为默认口径，飞盘奇门为可选口径
+ * @古籍依据 时家参考《烟波钓叟歌》《御定奇门宝鉴》；年家、月家采用《奇门遁甲统宗》附录起例
  *
  * @核心流程
  * 1. 定局数（拆补法/月家法/年家法）：根据 scope 选择不同定局方式
@@ -26,6 +26,7 @@ import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divin
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime, TimeManager } from '../../../calendar/timeManager';
+import { getHistoricalTimezoneOffsetAt } from '../../../calendar/historical-timezone';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
 import {
@@ -47,6 +48,7 @@ import { analyzeQimenEvidence } from '../../qimen-evidence';
 import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
+export { getDunJiaStem } from './helpers/jushu';
 export type { QimenPriorityPalace } from './helpers/guidance';
 export {
   calculateQimenLifetime,
@@ -193,7 +195,7 @@ function mapStemRelations(
  * 支持时家（hour）、日家（day）、月家（month）、年家（year）四种级别。
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
- * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
+ * 时家、日家按拆补或置闰定局，年家、月家按三元阴遁定局；再按所选转盘法或飞盘法输出九宫四盘（天地人神）、
  * 格局标签、经典格局（九遁、三奇、门迫、击刑、入墓等）、
  * 宫位洞察、方位吉凶指引和应期估算。
  *
@@ -202,10 +204,10 @@ function mapStemRelations(
  * 1. **时间信息**：《歌》"先须掌上排九宫，纵横十五在其中"
  *    - 获取公历、农历、节气、干支等完整时间数据
  *
- * 2. **定局数**：《歌》"阴阳二遁分顺逆，一气三元人莫测"
+ * 2. **定局数**：按各排盘级别所选口径计算
  *    - 时家/日家：拆补法（以节气为界）
- *    - 月家：月支循环定局
- *    - 年家：年干分组 + 三元甲子周期
+ *    - 月家：干支年五年三元阴遁局
+ *    - 年家：一百八十年三元阴遁局
  *
  * 3. **寻值符值使（旬首法）**：《歌》"直符直使各有时，时干直符时支使"
  *    - 由对应级别干支的旬首定位值符星和值使门
@@ -233,8 +235,9 @@ function mapStemRelations(
  * @param customDate 自定义时间（可选，默认当前时间）
  * @param method     排盘方法，默认 'zhuanpan'（转盘法）
  * @param scope      排盘级别，默认 'hour'（时家奇门）
- * @param timezoneOffsetMinutes 本次计算的显式 UTC 偏移（分钟），省略时沿用 TimeManager 默认值
- * @param timeZoneId 本次计算所用 IANA 时区；用于历史节气按真实瞬时点解析当地偏移
+ * @param timezoneOffsetMinutes 本次计算的显式 UTC 偏移（分钟），优先于 IANA 解析偏移
+ * @param timeZoneId 本次计算所用 IANA 时区；未传显式偏移时用于当地日时柱，并用于历史交节日换算
+ * @param referenceDate 真太阳时校正前的真实瞬时点，用于节气及 IANA 历史偏移
  * @returns 完整的奇门遁甲数据 QimenData
  *
  * @example
@@ -259,27 +262,35 @@ export function generateQimen(
   referenceDate?: Date,
 ): QimenData {
   assertQimenScope(scope);
+  const chartDate = customDate ?? new Date();
+  if (!(chartDate instanceof Date) || Number.isNaN(chartDate.getTime())) {
+    throw new Error('自定义时间不是有效日期。');
+  }
+  // 真太阳时校正后 chartDate 是排盘用伪瞬时；当地偏移应取原始真实瞬时点。
+  const effectiveOffsetMinutes =
+    timezoneOffsetMinutes ??
+    (timeZoneId
+      ? getHistoricalTimezoneOffsetAt(referenceDate ?? chartDate, timeZoneId) * 60
+      : undefined);
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
-  const { timeInfo, ganzhi, timestamp } = getDivinationTime(
-    customDate,
-    timezoneOffsetMinutes,
-    referenceDate,
-  );
+  const {
+    timeInfo,
+    ganzhi,
+    timestamp,
+    timezoneOffsetMinutes: actualOffsetMinutes,
+  } = getDivinationTime(chartDate, effectiveOffsetMinutes, referenceDate);
   const solarSecond = TimeManager.getWallClockParts(
     new Date(timestamp),
-    timezoneOffsetMinutes,
+    effectiveOffsetMinutes,
   ).second;
   const { jieQi } = timeInfo;
-  const termContext: QimenTermContext | undefined =
-    timezoneOffsetMinutes === undefined
-      ? undefined
-      : {
-          referenceDate: referenceDate ?? new Date(timestamp),
-          localOffsetMinutes: timezoneOffsetMinutes,
-          timeZoneId,
-        };
+  const termContext: QimenTermContext = {
+    referenceDate: referenceDate ?? new Date(timestamp),
+    localOffsetMinutes: actualOffsetMinutes,
+    timeZoneId,
+  };
 
   // 根据 scope 确定"主动干支"（用于定局、寻符使、空亡、驿马）
   const activeGanZhi = getActiveGanZhi(ganzhi, scope);
@@ -318,6 +329,7 @@ export function generateQimen(
     { hour: activeGanZhi },
     method,
   );
+  if (scope === 'day') checkDayRuMu(ganzhi.day, jiuGongGe, specialConditions);
   enrichLiuGuiTianWang(specialConditions, jiuGongGe);
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -380,10 +392,9 @@ export function generateQimen(
     zhiFu,
     zhiShi,
     yearGanZhi: ganzhi.year,
-    monthGanZhi: ganzhi.month,
-    dayStem,
-    dayGanZhi: ganzhi.day,
-    hourGanZhi: ganzhi.hour,
+    ...(scope !== 'year' ? { monthGanZhi: ganzhi.month } : {}),
+    ...(scope === 'day' || scope === 'hour' ? { dayStem, dayGanZhi: ganzhi.day } : {}),
+    ...(scope === 'hour' ? { hourGanZhi: ganzhi.hour } : {}),
   };
   const classicPatternsRaw = getClassicPatterns(classicPatternContext);
   const classicPatterns = mapClassicPatterns(classicPatternsRaw);
@@ -401,8 +412,8 @@ export function generateQimen(
     ganzhi,
     jushuResult.actualJieQi || jieQi,
     new Date(timestamp),
-    timezoneOffsetMinutes,
-    timezoneOffsetMinutes === undefined ? undefined : 480,
+    effectiveOffsetMinutes,
+    effectiveOffsetMinutes === undefined ? undefined : 480,
     referenceDate,
   );
 
@@ -446,7 +457,6 @@ export function generateQimen(
     isYangDun,
     zhiFuLandingPalace,
     zhiShiLandingPalace,
-    dayGanZhi: ganzhi.day,
     classicPatterns: classicPatternsRaw,
     voidBranches: yingQiVoidBranches,
   });
@@ -462,17 +472,13 @@ export function generateQimen(
     activeGanZhi,
     zhiFu,
     zhiShi,
-    dayGanZhi: ganzhi.day,
     yearBranch,
-    dayStem,
-    dayBranch,
-    monthBranch,
+    ...(scope === 'day' || scope === 'hour' ? { dayGanZhi: ganzhi.day, dayStem, dayBranch } : {}),
+    ...(scope !== 'year' ? { monthBranch } : {}),
     solarTerm: jushuResult.jieQi || jieQi,
     actualSolarTerm: jushuResult.actualJieQi || jieQi,
     epoch: yuan,
-    hourGanZhi: ganzhi.hour,
-    hourStem,
-    hourBranch,
+    ...(scope === 'hour' ? { hourGanZhi: ganzhi.hour, hourStem, hourBranch } : {}),
     jiuGongGe,
   });
   const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
@@ -480,19 +486,30 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
   // ──────────────────────────────────────────────────────────────────────────
+  const isYearOrMonthScope = scope === 'year' || scope === 'month';
   const result: QimenData = {
+    timezoneOffsetMinutes: actualOffsetMinutes,
+    ...(referenceDate ? { termReferenceTimestamp: referenceDate.getTime() } : {}),
     method,
     scope,
-    juMethod: jushuResult.juMethod,
+    ...(!isYearOrMonthScope ? { juMethod: jushuResult.juMethod } : {}),
     timeInfo: {
       solarTerm: jushuResult.actualJieQi || jieQi,
-      juTerm: jushuResult.jieQi || jieQi,
       epoch: jushuResult.yuan,
-      juMethod: jushuResult.juMethod,
-      ...(jushuResult.fuTou ? { fuTou: jushuResult.fuTou } : {}),
-      ...(jushuResult.fuTouDate ? { fuTouDate: jushuResult.fuTouDate } : {}),
-      ...(jushuResult.chaoShenOrJieQi ? { chaoShenOrJieQi: jushuResult.chaoShenOrJieQi } : {}),
-      ...(jushuResult.isZhiRun !== undefined ? { isZhiRun: String(jushuResult.isZhiRun) } : {}),
+      ...(!isYearOrMonthScope
+        ? {
+            juTerm: jushuResult.jieQi || jieQi,
+            juMethod: jushuResult.juMethod,
+            ...(jushuResult.fuTou ? { fuTou: jushuResult.fuTou } : {}),
+            ...(jushuResult.fuTouDate ? { fuTouDate: jushuResult.fuTouDate } : {}),
+            ...(jushuResult.chaoShenOrJieQi
+              ? { chaoShenOrJieQi: jushuResult.chaoShenOrJieQi }
+              : {}),
+            ...(jushuResult.isZhiRun !== undefined
+              ? { isZhiRun: String(jushuResult.isZhiRun) }
+              : {}),
+          }
+        : {}),
       ...(jushuResult.juMethodNote ? { juMethodNote: jushuResult.juMethodNote } : {}),
     },
     ganzhi,
@@ -580,7 +597,7 @@ function getJushuForScope(
         jieQi: timeInfo.jieQi,
         juMethod,
         isZhiRun: false,
-        juMethodNote: '年家奇门使用年干与三元甲子定局，拆补/置闰仅适用于时家与日家',
+        juMethodNote: '《奇门遁甲统宗》年家三元阴遁定局',
       };
     }
     case 'month': {
@@ -590,7 +607,7 @@ function getJushuForScope(
         jieQi: timeInfo.jieQi,
         juMethod,
         isZhiRun: false,
-        juMethodNote: '月家奇门使用月家定局法，拆补/置闰仅适用于时家与日家',
+        juMethodNote: '《奇门遁甲统宗》月家五年三元阴遁定局',
       };
     }
     case 'day':
@@ -626,7 +643,7 @@ function getZhiFuShiForScope(
   zhiFu: string;
   zhiShi: string;
   zhiFuPalace: number;
-  specialConditions: QimenData['specialConditions'];
+  specialConditions: NonNullable<QimenData['specialConditions']>;
 } {
   const defaultSpecialConditions = {
     isLiuJiaHour: false,
@@ -648,15 +665,13 @@ function getZhiFuShiForScope(
       };
     }
     case 'day': {
-      // 日家奇门：使用通用旬首法，补充日干入墓检查
+      // 日家奇门：使用通用旬首法；日干入墓待布盘后按天盘落宫核对。
       const result = getZhiFuZhiShiByGanZhi(activeGanZhi, jushuResult);
-      const conditions = { ...defaultSpecialConditions };
-      checkDayRuMu(ganzhi.day, conditions);
       return {
         zhiFu: result.zhiFu,
         zhiShi: result.zhiShi,
         zhiFuPalace: result.xunShouPalace,
-        specialConditions: conditions,
+        specialConditions: { ...defaultSpecialConditions },
       };
     }
     case 'month':
@@ -677,21 +692,25 @@ function getZhiFuShiForScope(
 /**
  * 检查日干入墓
  *
- * 日干五行入墓支：木墓在未、火墓在戌、金墓在丑、水土墓在辰
- * 与《烟波钓叟歌》"时干入墓凶无疑"同一套规则，但应用于日干级别。
+ * 按当前日干（甲日取六甲遁干）在天盘的实际落宫核对墓宫。
  */
 function checkDayRuMu(
   dayGanZhi: string,
+  jiuGongGe: QimenJiuGongGe[],
   conditions: Exclude<QimenData['specialConditions'], undefined>,
 ): void {
   const dayGan = dayGanZhi.charAt(0);
-  const dayZhi = dayGanZhi.charAt(1);
-  const ruMuMap = STEM_TOMB_MAP;
-  const ruMuInfo = ruMuMap[dayGan];
-  if (ruMuInfo && dayZhi === ruMuInfo.branch) {
-    conditions.isShiGanRuMu = true;
-    conditions.description += `日干${dayGan}入墓（${dayGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），大势迟滞，宜静不宜动；`;
-  }
+  const activeStem = getDunJiaStem(dayGanZhi);
+  const ruMuInfo = STEM_TOMB_MAP[activeStem];
+  if (!ruMuInfo) return;
+  const palace = jiuGongGe.find(
+    (item) => item.gong === ruMuInfo.palace && hasTianPanStem(item, activeStem),
+  );
+  if (!palace) return;
+  conditions.isRiGanRuMu = true;
+  const stemLabel =
+    dayGan === activeStem ? `日干${dayGan}` : `日干${dayGan}（${dayGanZhi}遁${activeStem}）`;
+  conditions.description += `${stemLabel}落${palace.name}入墓（墓支${ruMuInfo.branch}），大势迟滞，宜静不宜动；`;
 }
 
 /**

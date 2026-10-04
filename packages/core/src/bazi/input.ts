@@ -18,7 +18,7 @@ export interface BaziChartInputDraft {
   useTrueSolarTime?: boolean;
   birthHour?: BaziInputText;
   birthMinute?: BaziInputText;
-  /** useTrueSolarTime=false 时可用来表达精确到秒的标准北京时间。 */
+  /** 标准时分可省略秒，计算时按零秒；显式秒保留秒级精度。 */
   birthSecond?: BaziInputText;
   birthPlace?: string;
   birthLongitude?: BaziInputText;
@@ -31,12 +31,14 @@ export interface BaziChartInputDraft {
 
 function readInteger(value: BaziInputText | undefined, label: string): number {
   if (typeof value === 'number') {
-    if (!Number.isInteger(value)) throw new Error(`${label}必须是整数。`);
+    if (!Number.isSafeInteger(value)) throw new Error(`${label}必须是整数。`);
     return value;
   }
-  const text = value?.trim() ?? '';
+  const text = typeof value === 'string' ? value.trim() : '';
   if (!/^\d+$/.test(text)) throw new Error(`${label}必须是整数。`);
-  return Number(text);
+  const parsed = Number(text);
+  if (!Number.isSafeInteger(parsed)) throw new Error(`${label}必须是整数。`);
+  return parsed;
 }
 
 function readIntegerInRange(
@@ -88,31 +90,35 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
   });
   if (validationMessage) throw new Error(validationMessage);
 
-  const hasPreciseStandardTime =
-    !useTrueSolarTime && input.birthSecond !== undefined && input.birthSecond !== '';
-  if (!useTrueSolarTime && input.timeIndex === '' && !hasPreciseStandardTime) {
+  const hasHour = input.birthHour !== undefined && String(input.birthHour).trim() !== '';
+  const hasMinute = input.birthMinute !== undefined && String(input.birthMinute).trim() !== '';
+  const hasSecond = input.birthSecond !== undefined && String(input.birthSecond).trim() !== '';
+  const hasStandardClock = !useTrueSolarTime && hasHour && hasMinute;
+  if (!useTrueSolarTime && (hasHour || hasMinute || hasSecond) && !hasStandardClock) {
+    throw new Error('标准北京时间需同时提供出生小时和分钟。');
+  }
+  if (!useTrueSolarTime && input.timeIndex === '' && !hasStandardClock) {
     throw new Error('请选择出生时辰。');
   }
 
   const birthHour =
-    useTrueSolarTime || hasPreciseStandardTime
+    useTrueSolarTime || hasStandardClock
       ? readIntegerInRange(input.birthHour, '出生小时', 0, 23)
       : undefined;
   const birthMinute =
-    useTrueSolarTime || hasPreciseStandardTime
+    useTrueSolarTime || hasStandardClock
       ? readIntegerInRange(input.birthMinute, '出生分钟', 0, 59)
       : undefined;
-  const birthSecond =
-    input.birthSecond === undefined || input.birthSecond === ''
-      ? undefined
-      : readIntegerInRange(input.birthSecond, '出生秒数', 0, 59);
+  const birthSecond = hasSecond
+    ? readIntegerInRange(input.birthSecond, '出生秒数', 0, 59)
+    : hasStandardClock
+      ? 0
+      : undefined;
   const timeIndex = useTrueSolarTime
     ? 0
-    : hasPreciseStandardTime
+    : hasStandardClock
       ? getTimeIndexFromClock(birthHour!, birthMinute!)
-      : input.timeIndex !== ''
-        ? readIntegerInRange(input.timeIndex, '出生时辰', 0, 12)
-        : getTimeIndexFromClock(birthHour!, birthMinute!);
+      : readIntegerInRange(input.timeIndex, '出生时辰', 0, 12);
   if (!useTrueSolarTime && timeIndex < 0) {
     throw new Error('标准北京时间无法换算为有效时辰。');
   }

@@ -27,6 +27,42 @@ test('数量上限与成局排除条件同样需要实际核查证据', () => {
   );
 });
 
+test('已核查为空的干资料按零计数，未提供资料仍为待核', () => {
+  const visibleRule = {
+    id: 'no-visible-companion',
+    minVisibleStemCounts: { 甲: 0 },
+    maxTenGodCategoryVisibleCounts: { 比劫: 0 },
+    maxTenGodCategoryVisibleDistinctCounts: { 比劫: 0 },
+    maxCompanionVisibleCount: 0,
+  };
+  assert.equal(assessRuleMatch(visibleRule, { dayStem: '甲' }).status, '资料不足');
+  assert.equal(assessRuleMatch(visibleRule, { dayStem: '甲', visibleStems: [] }).status, '满足');
+  assert.equal(
+    assessRuleMatch(visibleRule, { dayStem: '甲', visibleStems: ['甲', '乙'] }).status,
+    '不满足',
+  );
+
+  const hiddenRule = {
+    id: 'no-hidden-resource',
+    minHiddenStemCounts: { 戊: 0 },
+    maxTenGodCategoryHiddenCounts: { 印星: 0 },
+    maxTenGodCategoryTotalDistinctCounts: { 印星: 0 },
+  };
+  assert.equal(
+    assessRuleMatch(hiddenRule, { dayStem: '辛', visibleStems: ['辛'] }).status,
+    '资料不足',
+  );
+  assert.equal(
+    assessRuleMatch(hiddenRule, { dayStem: '辛', visibleStems: ['辛'], hiddenStems: [] }).status,
+    '满足',
+  );
+  assert.equal(
+    assessRuleMatch(hiddenRule, { dayStem: '辛', visibleStems: ['辛'], hiddenStems: ['戊'] })
+      .status,
+    '不满足',
+  );
+});
+
 test('高优先级规则证据不足时保留基础规则，不把缺资料当作命中', () => {
   const fallback = { id: 'base', months: ['午'], priority: 1 };
   assert.equal(

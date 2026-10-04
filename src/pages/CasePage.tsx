@@ -169,6 +169,7 @@ export function CasePage() {
     setForm((current) => ({
       ...current,
       [fieldKey]: value,
+      ...(key === 'dateType' && value === 'solar' ? { isLeapMonth: false } : {}),
       ...(clearsReverseSource ? { birthReverseSource: '' } : {}),
     }));
   }
@@ -222,6 +223,7 @@ export function CasePage() {
         month: form.month,
         day: form.day,
         dateType: form.dateType,
+        isLeapMonth: form.isLeapMonth,
         useTrueSolarTime: form.useTrueSolarTime,
         birthHour: form.birthHour,
         birthMinute: form.birthMinute,

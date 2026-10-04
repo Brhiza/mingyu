@@ -58,6 +58,31 @@ test('普通精准时分秒应传入紫微四柱构造', () => {
   assert.deepEqual(normalized.birthTime, { hour: 16, minute: 1, second: 2 });
 });
 
+test('只填写精准时分时仍按实际分钟展示节气四柱', async () => {
+  const draft = {
+    name: '分钟交节',
+    gender: 'male' as const,
+    dateType: 'solar' as const,
+    year: 2024,
+    month: 3,
+    day: 5,
+    timeIndex: 5,
+    isLeapMonth: false,
+    birthHour: 10,
+    birthMinute: 24,
+    birthSecond: '',
+  };
+  const normalized = buildZiweiChartInput(draft);
+  assert.deepEqual(normalized.birthTime, { hour: 10, minute: 24 });
+  const chart = await buildAstrolabeFromInput(normalized);
+  assert.equal(buildBasicInfo(chart, normalized.birthTime).four_pillars?.month_pillar, '丁卯');
+  assert.equal(buildBasicInfo(chart).four_pillars?.month_pillar, '丙寅');
+  assert.throws(
+    () => buildZiweiChartInput({ ...draft, birthMinute: '' }),
+    /需要同时提供出生小时和分钟/,
+  );
+});
+
 test('合参案例四柱统一为节气月，紫微原始农历月及运限保持不变', async () => {
   const runtime = await calculateZiweiChart(input, {
     scopes: ['origin', 'monthly'],

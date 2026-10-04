@@ -41,11 +41,11 @@ export function getPeachBlossomDetail(
   pillarPosition: 'year' | 'month' | 'day' | 'hour',
 ): PeachBlossomDetail {
   if (pillarPosition === 'day' || pillarPosition === 'year') {
-    return PEACH_BLOSSOM_DETAILS['墙内桃花'];
+    return { ...PEACH_BLOSSOM_DETAILS['墙内桃花'] };
   } else if (pillarPosition === 'month' || pillarPosition === 'hour') {
-    return PEACH_BLOSSOM_DETAILS['墙外桃花'];
+    return { ...PEACH_BLOSSOM_DETAILS['墙外桃花'] };
   }
-  return PEACH_BLOSSOM_DETAILS['普通桃花'];
+  return { ...PEACH_BLOSSOM_DETAILS['普通桃花'] };
 }
 
 export interface PeriodAnalysis {

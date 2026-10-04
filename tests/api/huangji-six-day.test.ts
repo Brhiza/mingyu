@@ -14,7 +14,13 @@ type HuangjiResponse = {
   sixDayCycle?: {
     civilTime?: { timezone?: number };
     anchor?: { kind?: string };
-    calendar?: { model?: string; mapping?: string; actualElapsedDays?: number };
+    calendar?: {
+      model?: string;
+      mapping?: string;
+      actualElapsedDays?: number;
+      actualElapsedSeconds?: number;
+      cycleDay?: number;
+    };
   };
   result?: HuangjiResponse;
   prompt?: string;
@@ -101,6 +107,45 @@ test('皇极六日逐爻 HTTP 与 MCP 入口返回同一带时区公历结果', 
   assert.equal(http.body.data?.sixDayCycle?.civilTime?.timezone, 14);
   assert.equal(http.body.data?.sixDayCycle?.anchor?.kind, 'explicit-epoch');
   assert.equal(http.body.data?.sixDayCycle?.calendar?.actualElapsedDays, 1);
+});
+
+test('皇极计算与提示词入口按真实瞬时检查回拨重复日期的显式历元', async () => {
+  const args = {
+    sixDayEpochDateTime: '2016-11-06T00:00:00-05:00',
+    calendarModel: 'six-day-explicit-epoch',
+    timeZoneId: 'America/Havana',
+    detailMode: 'full',
+  };
+  for (const tool of ['metaphysics_huangji_jingshi', 'huangji_jingshi_prompt']) {
+    const isPrompt = tool === 'huangji_jingshi_prompt';
+    const beforeEpoch = { ...args, sixDayDateTime: '2016-11-06T00:30:00-04:00' };
+    const rejectedHttp = await callHttp(tool, beforeEpoch);
+    assert.equal(rejectedHttp.response.status, 400, JSON.stringify(rejectedHttp.body));
+    assert.match(JSON.stringify(rejectedHttp.body), /目标真实瞬时不能早于显式历元起点/);
+    const rejectedMcp = await client.callTool({ name: tool, arguments: beforeEpoch });
+    assert.equal(rejectedMcp.isError, true, JSON.stringify(rejectedMcp));
+    assert.match(JSON.stringify(rejectedMcp), /目标真实瞬时不能早于显式历元起点/);
+
+    for (const [sixDayDateTime, actualElapsedSeconds] of [
+      ['2016-11-06T00:00:00-05:00', 0],
+      ['2016-11-06T00:30:00-05:00', 1800],
+    ] as const) {
+      const validArgs = { ...args, sixDayDateTime };
+      const http = await callHttp(tool, {
+        ...validArgs,
+        ...(isPrompt ? { responseMode: 'full' } : {}),
+      });
+      assert.equal(http.response.status, 200, JSON.stringify(http.body));
+      const httpResult = isPrompt ? http.body.data?.result : http.body.data;
+      const mcp = await client.callTool({ name: tool, arguments: validArgs });
+      assert.notEqual(mcp.isError, true, JSON.stringify(mcp));
+      const mcpResult = (mcp.structuredContent as { result: HuangjiResponse }).result;
+      assert.deepEqual(mcpResult, httpResult);
+      assert.equal(httpResult?.sixDayCycle?.calendar?.actualElapsedSeconds, actualElapsedSeconds);
+      assert.equal(httpResult?.sixDayCycle?.calendar?.actualElapsedDays, 0);
+      assert.equal(httpResult?.sixDayCycle?.calendar?.cycleDay, 1);
+    }
+  }
 });
 
 test('皇极六日七分模型无需显式历元且 HTTP 与 MCP 均保留现代定位说明', async () => {

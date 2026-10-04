@@ -9,7 +9,12 @@ import {
   unixToJulianDate,
 } from '../astrology/engine';
 import { daysInGregorianMonth } from '../calendar/date-validation';
-import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
+import {
+  formatFixedTimezoneOffset,
+  resolveCivilDayEnd,
+  resolveCivilDayStart,
+  type CivilTimeZoneInput,
+} from '../calendar/civil-time';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 
 export type AstrolabePeriodScopeMode = 'yearly' | 'monthly' | 'daily';
@@ -295,7 +300,7 @@ export class AstrolabePeriodCalculationCache {
       }
       this.positions.set(key, value);
     }
-    return value;
+    return { ...value };
   }
 
   solar(start: number, end: number) {
@@ -305,7 +310,7 @@ export class AstrolabePeriodCalculationCache {
       value = findSolarEclipses(start, end);
       this.solarEclipses.set(key, value);
     }
-    return value;
+    return value.map((event) => ({ ...event }));
   }
 
   lunar(start: number, end: number) {
@@ -315,7 +320,7 @@ export class AstrolabePeriodCalculationCache {
       value = findLunarEclipses(start, end);
       this.lunarEclipses.set(key, value);
     }
-    return value;
+    return value.map((event) => ({ ...event }));
   }
 }
 
@@ -368,14 +373,15 @@ function sampleStepDays(scope: AstrolabePeriodScopeMode) {
   return 1;
 }
 
-function houseForLongitude(cusps: number[], longitude: number) {
+function hasValidHouseCusps(cusps: number[]) {
+  if (cusps.length !== 12 || !cusps.every(Number.isFinite)) return false;
+  let totalArc = 0;
   for (let index = 0; index < cusps.length; index += 1) {
-    const current = cusps[index];
-    const next = cusps[(index + 1) % cusps.length];
-    const span = normalizeLongitude(next - current) || 360;
-    if (normalizeLongitude(longitude - current) < span) return index + 1;
+    const arc = normalizeLongitude(cusps[(index + 1) % 12] - cusps[index]);
+    if (arc === 0) return false;
+    totalArc += arc;
   }
-  return 0;
+  return Math.abs(totalArc - 360) < 0.000001;
 }
 
 type AstrolabePeriodSource = AstrolabeData | AstrolabePeriodContext;
@@ -464,17 +470,26 @@ function buildNextBatchRange(
 function resolveLocalInstant(
   source: AstrolabePeriodSource,
   date: { year: number; month: number; day: number },
-  hour = 0,
-  minute = 0,
-  second = 0,
 ) {
-  return resolveCivilTime({
-    ...date,
-    hour,
-    minute,
-    second,
-    ...getTimeZoneInput(source),
-  });
+  return resolveCivilDayStart({ ...date, ...getTimeZoneInput(source) });
+}
+
+function resolveLocalBoundary(source: AstrolabePeriodSource, date: AstrolabePeriodDate) {
+  try {
+    return resolveLocalInstant(source, date);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('整日不存在')) throw error;
+  }
+  for (let daysBack = 1; daysBack <= 7; daysBack += 1) {
+    const previous = addCalendarDays(date, -daysBack);
+    try {
+      const boundary = resolveCivilDayEnd({ ...previous, ...getTimeZoneInput(source) });
+      if (compareCalendarDates(dateParts(boundary.localTime), date) >= 0) return boundary;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('整日不存在')) throw error;
+    }
+  }
+  throw new Error('无法定位星盘周期范围的真实民用日边界。');
 }
 
 function formatCivilStamp(value: {
@@ -524,12 +539,15 @@ export function resolveAstrolabePeriodWindow(
       : scope === 'monthly'
         ? addCalendarMonths(target.year, target.month, 1)
         : nextDate(target.year, target.month, target.day);
-  const scopeStart = resolveLocalInstant(source, scopeStartDate);
-  const scopeEnd = resolveLocalInstant(source, scopeEndDate);
+  const scopeStart =
+    scope === 'daily'
+      ? resolveLocalInstant(source, scopeStartDate)
+      : resolveLocalBoundary(source, scopeStartDate);
+  const scopeEnd = resolveLocalBoundary(source, scopeEndDate);
   const startDate = batch?.start ?? scopeStartDate;
   const endDate = batch?.endExclusive ?? scopeEndDate;
   const start = batch ? resolveLocalInstant(source, startDate) : scopeStart;
-  const end = batch ? resolveLocalInstant(source, endDate) : scopeEnd;
+  const end = batch ? resolveLocalBoundary(source, endDate) : scopeEnd;
   if (batch) {
     if (calendarDaySpan(startDate, endDate) <= 0) {
       throw new Error('星盘周期批次的 endDate 必须晚于 startDate。');
@@ -540,8 +558,8 @@ export function resolveAstrolabePeriodWindow(
   }
   const timeZoneId = getTimeZoneId(source);
   const timezoneLabel = timeZoneId
-    ? `${timeZoneId}（UTC${start.timezone >= 0 ? '+' : ''}${start.timezone}）`
-    : `UTC${start.timezone >= 0 ? '+' : ''}${start.timezone}`;
+    ? `${timeZoneId}（各时刻按当地历史时区规则换算）`
+    : `UTC${formatFixedTimezoneOffset(start.timezone)}`;
   return {
     start,
     end,
@@ -580,6 +598,7 @@ function bisectZero(fn: (jd: number) => number, left: number, right: number, lef
   for (let index = 0; index < 40 && high - low > MINUTE_IN_DAYS; index += 1) {
     const middle = (low + high) / 2;
     const middleValue = fn(middle);
+    if (middleValue === 0) return middle;
     if (lowValue * middleValue <= 0) {
       high = middle;
     } else {
@@ -599,8 +618,14 @@ function crossingsFromSamples(
   for (let index = 1; index < samples.length; index += 1) {
     const previous = residualAt(samples[index - 1], index - 1);
     const current = residualAt(samples[index], index);
+    // 精确采样点保留原时刻，避免把半开终点求根到窗口内；连续零值并非离散交点。
+    if (previous === 0 && current === 0) continue;
     if (previous === 0) {
       hits.push(samples[index - 1].jd);
+      continue;
+    }
+    if (current === 0) {
+      hits.push(samples[index].jd);
       continue;
     }
     if (previous * current <= 0 && Math.abs(current - previous) < 180) {
@@ -608,6 +633,23 @@ function crossingsFromSamples(
     }
   }
   return hits;
+}
+
+function insertTurningSamples(
+  samples: Sample[],
+  turningTimes: number[],
+  positionAt: (jd: number) => BodyPosition,
+) {
+  const first = samples[0]?.jd;
+  const last = samples[samples.length - 1]?.jd;
+  if (first === undefined || last === undefined) return samples;
+  const knownTimes = new Set(samples.map((sample) => sample.jd));
+  const additions = turningTimes
+    .filter((jd) => jd > first && jd < last && !knownTimes.has(jd))
+    .map((jd) => ({ jd, ...positionAt(jd) }));
+  return additions.length
+    ? [...samples, ...additions].sort((left, right) => left.jd - right.jd)
+    : samples;
 }
 
 function sampleBody(
@@ -654,18 +696,12 @@ function natalPointsOf(source: AstrolabePeriodSource) {
 
 function natalCuspsOf(source: AstrolabePeriodSource) {
   if (isAstrolabePeriodContext(source)) {
-    return source.houseCusps.length === 12 &&
-      source.houseCusps.every((item) => Number.isFinite(item))
-      ? source.houseCusps.map(normalizeLongitude)
-      : null;
+    return hasValidHouseCusps(source.houseCusps) ? source.houseCusps.map(normalizeLongitude) : null;
   }
-  const cusps = source.houses
-    .slice()
-    .sort((first, second) => first.house - second.house)
-    .map((item) => item.longitude);
-  return cusps.length === 12 && cusps.every((item) => Number.isFinite(item))
-    ? cusps.map(normalizeLongitude)
-    : null;
+  const houses = source.houses.slice().sort((first, second) => first.house - second.house);
+  if (houses.some((house, index) => house.house !== index + 1)) return null;
+  const cusps = houses.map((item) => item.longitude);
+  return hasValidHouseCusps(cusps) ? cusps.map(normalizeLongitude) : null;
 }
 
 export function buildAstrolabePeriodContext(data: AstrolabeData): AstrolabePeriodContext {
@@ -743,6 +779,9 @@ export function validateAstrolabePeriodContext(value: unknown): AstrolabePeriodC
   }
   if (!input.houseCusps.every((item) => typeof item === 'number' && Number.isFinite(item))) {
     throw new Error('astrolabePeriodContext.houseCusps 必须全部是有限数字。');
+  }
+  if (!hasValidHouseCusps(input.houseCusps as number[])) {
+    throw new Error('astrolabePeriodContext.houseCusps 必须形成不重叠的完整十二宫区间。');
   }
   return {
     timezone: input.timezone,
@@ -913,9 +952,7 @@ function transitGroupKey(event: AstrolabePeriodEvent) {
 }
 
 function formatDateRange(startDateTime: string, endDateTime: string) {
-  const startDay = startDateTime.slice(0, 10);
-  const endDay = endDateTime.slice(0, 10);
-  return startDay === endDay ? startDay : `${startDateTime}至${endDateTime}`;
+  return startDateTime === endDateTime ? startDateTime : `${startDateTime}至${endDateTime}`;
 }
 
 function buildTransitGroups(events: AstrolabePeriodEvent[]): AstrolabePeriodTransitGroup[] {
@@ -939,7 +976,7 @@ function buildTransitGroups(events: AstrolabePeriodEvent[]): AstrolabePeriodTran
         targetPoint: sample.targetPoint ?? '',
         aspectName: sample.aspectName ?? '',
         events: sorted,
-        promptText: `${sample.movingPoint}${sample.aspectName === '合相' ? '合' : sample.aspectName === '刑相' ? '刑' : sample.aspectName === '冲相' ? '冲' : sample.aspectName === '拱相' ? '拱' : sample.aspectName === '六合' ? '六合' : ''}${sample.targetPoint} ${countLabel}（${range}；具体时刻见完整明细）`,
+        promptText: `${sample.movingPoint}${sample.aspectName === '合相' ? '合' : sample.aspectName === '刑相' ? '刑' : sample.aspectName === '冲相' ? '冲' : sample.aspectName === '拱相' ? '拱' : sample.aspectName === '六合' ? '六合' : ''}${sample.targetPoint} ${countLabel}（${range}）`,
       };
     })
     .filter((item) => item.events.length >= 2)
@@ -989,7 +1026,7 @@ function buildKeyWindows(
         startDateTime,
         endDateTime,
         eventKeys: cluster.map((item) => item.key),
-        promptText: `${formatDateRange(startDateTime, endDateTime)}（共${cluster.length}项；具体星象见完整明细）`,
+        promptText: `${formatDateRange(startDateTime, endDateTime)}（共${cluster.length}项）`,
       };
     });
 }
@@ -1028,18 +1065,11 @@ export function buildAstrolabePeriodEventLayers(
   const groups = buildTransitGroups(events);
   const windows = buildKeyWindows(events, scope);
   const axis = buildAxis(events, groups);
-  const groupKeys = new Set(groups.map((item) => item.key));
-  const axisWithoutGroups = axis.filter((item) => !groupKeys.has(item.key));
   const lines = [
     events.length
       ? `周期关键星象（${startDateTime}至${endDateTime}，共${events.length}项）。`
       : `周期关键星象（${startDateTime}至${endDateTime}）：所选周期内未见当前筛选范围内的精准相位、停逆、换座、换宫、朔望或交食。`,
   ];
-  if (axisWithoutGroups.length) {
-    lines.push(`周期主轴：${axisWithoutGroups.map((item) => item.promptText).join('；')}。`);
-  } else if (axis.length) {
-    lines.push(`周期主轴：重复过境主线见过境归组，其他重点星象见完整明细。`);
-  }
   if (windows.length)
     lines.push(`关键窗口：${windows.map((item) => item.promptText).join('；')}。`);
   if (groups.length) lines.push(`过境归组：${groups.map((item) => item.promptText).join('；')}。`);
@@ -1125,8 +1155,26 @@ function buildAstrolabePeriodEventsInternal(
     ? alignBatchSampleEnd(window.scopeStartJd, window.endJd, window.scopeEndJd, step)
     : window.endJd;
   const samples = new Map<MovingBodyName, Sample[]>();
+  const stationAwareSamples = new Map<MovingBodyName, Sample[]>();
+  const stationTimes = new Map<MovingBodyName, number[]>();
   for (const body of bodies) {
-    samples.set(body, sampleBody(body, sampleStartJd, sampleEndJd, step, cachedPositionOf));
+    const bodySamples = sampleBody(body, sampleStartJd, sampleEndJd, step, cachedPositionOf);
+    samples.set(body, bodySamples);
+    if (body === 'Sun' || body === 'Moon') {
+      stationAwareSamples.set(body, bodySamples);
+      continue;
+    }
+    const turns = crossingsFromSamples(
+      bodySamples,
+      (sample) => sample.speed,
+      (jd) => cachedPositionOf(body, jd).speed,
+    );
+    stationTimes.set(body, turns);
+    // 停逆前后可能在同一原采样段内两次越过本命点、星座或宫头。
+    stationAwareSamples.set(
+      body,
+      insertTurningSamples(bodySamples, turns, (jd) => cachedPositionOf(body, jd)),
+    );
   }
 
   const events: AstrolabePeriodEvent[] = [];
@@ -1152,7 +1200,7 @@ function buildAstrolabePeriodEventsInternal(
   };
 
   for (const body of bodies) {
-    const bodySamples = samples.get(body);
+    const bodySamples = stationAwareSamples.get(body);
     if (!bodySamples) continue;
     const movingLabel = labelOf(body);
 
@@ -1179,9 +1227,7 @@ function buildAstrolabePeriodEventsInternal(
     }
 
     if (body !== 'Sun' && body !== 'Moon' && body !== 'North Node') {
-      const residualAt = (sample: Sample) => sample.speed;
-      const exactAt = (jd: number) => cachedPositionOf(body, jd).speed;
-      for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
+      for (const jd of stationTimes.get(body) ?? []) {
         const speedAfter = cachedPositionOf(body, jd + MINUTE_IN_DAYS).speed;
         const direction: '逆行' | '顺行' = speedAfter < 0 ? '逆行' : '顺行';
         pushEvent({
@@ -1221,8 +1267,7 @@ function buildAstrolabePeriodEventsInternal(
         const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - cusp);
         for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
           const speed = cachedPositionOf(body, jd).speed;
-          const arrivedHouse =
-            speed < 0 ? houseForLongitude(cusps, normalizeLongitude(cusp - 0.01)) : house;
+          const arrivedHouse = speed < 0 ? ((house + 10) % 12) + 1 : house;
           const verb = speed < 0 ? '退入' : '进入';
           pushEvent({
             kind: '换宫',
@@ -1248,13 +1293,25 @@ function buildAstrolabePeriodEventsInternal(
       if ((first === 'Sun' && second === 'Moon') || (first === 'Moon' && second === 'Sun')) {
         continue;
       }
+      const relativeTurns = crossingsFromSamples(
+        firstSamples,
+        (sample, index) => sample.speed - secondSamples[index].speed,
+        (jd) => cachedPositionOf(first, jd).speed - cachedPositionOf(second, jd).speed,
+      );
+      // 两颗流曜的相对经度也可能在双方均未停逆时转向。
+      const firstPairSamples = insertTurningSamples(firstSamples, relativeTurns, (jd) =>
+        cachedPositionOf(first, jd),
+      );
+      const secondPairSamples = insertTurningSamples(secondSamples, relativeTurns, (jd) =>
+        cachedPositionOf(second, jd),
+      );
       for (const aspect of MAJOR_ASPECTS) {
         for (const offset of aspectTargets(aspect.angle)) {
           const residualAt = (sample: Sample, index: number) =>
-            wrap180(sample.longitude - secondSamples[index].longitude - offset);
+            wrap180(sample.longitude - secondPairSamples[index].longitude - offset);
           const exactAt = (jd: number) =>
             wrap180(cachedLongitudeOf(first, jd) - cachedLongitudeOf(second, jd) - offset);
-          for (const jd of crossingsFromSamples(firstSamples, residualAt, exactAt)) {
+          for (const jd of crossingsFromSamples(firstPairSamples, residualAt, exactAt)) {
             pushEvent({
               kind: '天象相位',
               julianDate: jd,

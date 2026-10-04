@@ -1,5 +1,18 @@
 import { LunarHour } from 'tyme4ts';
 
+/** 将小时数表示的 UTC 偏移写成时分秒，保留历史时区的秒级精度。 */
+export function formatUtcOffsetHours(offsetHours: number): string {
+  if (!Number.isFinite(offsetHours)) {
+    throw new Error('UTC 偏移需要有效数字。');
+  }
+  const totalSeconds = Math.round(Math.abs(offsetHours) * 3600);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${offsetHours >= 0 ? '+' : '-'}${pad(hours)}:${pad(minutes)}${seconds ? `:${pad(seconds)}` : ''}`;
+}
+
 const ISO_DATE_TIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -103,6 +116,9 @@ export function getBirthDateValidationMessage(params: {
   }
   if (params.isLeapMonth !== undefined && typeof params.isLeapMonth !== 'boolean') {
     return '闰月标志必须是布尔值。';
+  }
+  if (params.dateType === 'solar' && params.isLeapMonth === true) {
+    return '公历日期不能设置农历闰月。';
   }
   if (!Number.isInteger(params.year) || params.year < 1900 || params.year > 2100) {
     return '年份需在 1900-2100 之间。';

@@ -42,6 +42,7 @@ import {
   type TrueSolarBirthTimeInput,
   type TrueSolarBirthTimeResult,
 } from '../calendar';
+import { isValidIsoDateTime } from '../calendar/date-validation';
 import {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
@@ -168,6 +169,16 @@ export interface MingyuClient {
 }
 
 function normalizeUtcTimestamp(value: Date | string | number): number {
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    if (!isValidIsoDateTime(value, date)) {
+      throw new TypeError('UTC 时间文本必须是带 Z 或明确偏移的有效 ISO 日期时间。');
+    }
+    return date.getTime();
+  }
+  if (!(value instanceof Date) && typeof value !== 'number') {
+    throw new TypeError('UTC 时刻必须是有效日期、毫秒时间戳或带时区的 ISO 日期时间。');
+  }
   const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
   if (!Number.isFinite(timestamp)) throw new TypeError('UTC 时刻必须是有效日期或时间戳。');
   return timestamp;

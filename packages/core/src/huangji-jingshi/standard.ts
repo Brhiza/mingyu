@@ -115,6 +115,8 @@ export interface HuangjiPeriodHexagram {
   derivedFrom?: string;
   changedLine?: number;
   changedLineText?: string;
+  /** 变爻先得到的四正卦；统卦再从六十卦圆图顺取。 */
+  normalizedFrom?: string;
 }
 
 export interface HuangjiStandardForecast {
@@ -324,13 +326,18 @@ export function calculateStandardHuangjiForecast(year: number): HuangjiStandardF
     governingHexagram,
     yunLine,
   );
-  const sixtyYear = buildPeriod(
-    sixtyYearHexagram,
-    sixtyYearStartSerial,
-    YEARS_PER_SIXTY_YEAR_HEXAGRAM,
-    yunHexagram,
-    sixtyYearLine,
-  );
+  const sixtyYear = {
+    ...buildPeriod(
+      sixtyYearHexagram,
+      sixtyYearStartSerial,
+      YEARS_PER_SIXTY_YEAR_HEXAGRAM,
+      yunHexagram,
+      sixtyYearLine,
+    ),
+    ...(rawSixtyYearHexagram.id !== sixtyYearHexagram.id
+      ? { normalizedFrom: shortHexagramName(rawSixtyYearHexagram) }
+      : {}),
+  };
   const decade = buildPeriod(
     decadeHexagram,
     decadeStartSerial,

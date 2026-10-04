@@ -1,7 +1,10 @@
 export type UsefulGodWuxingBundle =
+  | 'none'
   | 'resource_companion_output'
   | 'wealth_officer'
+  | 'officer_wealth'
   | 'output_wealth_officer'
+  | 'output_resource_companion'
   | 'resource_companion'
   | 'wealth_output'
   | 'resource_officer'
@@ -58,11 +61,33 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     primaryReason: '从儿顺局',
   },
   {
+    id: 'follow-kill',
+    label: '从杀格顺杀规则',
+    description: '从杀格以官杀顺势为主，财星生杀为辅；食伤制杀、印比扶身逆势。',
+    priority: 105,
+    patterns: ['从杀格'],
+    favorable: 'officer_wealth',
+    unfavorable: 'output_resource_companion',
+    trace: '从杀格取官杀顺势、财星生杀，忌食伤制杀与印比扶身',
+    primaryReason: '从杀顺势',
+  },
+  {
+    id: 'follow-wealth',
+    label: '从财格顺财规则',
+    description: '从财格以财星为主，食伤生财为辅；印比扶身逆势。',
+    priority: 105,
+    patterns: ['从财格'],
+    favorable: 'wealth_output',
+    unfavorable: 'resource_companion',
+    trace: '从财格取财星顺势、食伤生财，忌印比扶身',
+    primaryReason: '从财顺势',
+  },
+  {
     id: 'follow-special-weak',
     label: '从格从势规则',
-    description: '从格以从势为主，喜顺从克泄耗之气。',
+    description: '混杂从势格保留食伤、财星与官杀多种异党取向，具体作用仍按原局核验。',
     priority: 100,
-    patterns: ['从格', '从财格', '从杀格', '从势格'],
+    patterns: ['从格', '从势格'],
     favorable: 'output_wealth_officer',
     unfavorable: 'resource_companion',
     trace: '从格从势取用',
@@ -93,13 +118,12 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
   {
     id: 'balance-neutral',
     label: '中和基础取用规则',
-    description:
-      '中和属主旺衰合法状态，不得静默套用身强回退：先以泄耗克为基线登记，最终取用交由调候、司令与格局规则继续细化。',
+    description: '中和不预设整五行喜忌；原局格局作用、调候与具体干条件分别核验。',
     priority: 50,
     strengths: ['中和'],
-    favorable: 'output_wealth_officer',
-    unfavorable: 'resource_companion',
-    trace: '中和取泄耗克基线，待调候司令格局细化',
-    primaryReason: '中和基线',
+    favorable: 'none',
+    unfavorable: 'none',
+    trace: '中和不预设增补五行喜忌，按调候与具体作用另判',
+    primaryReason: '中和待判',
   },
 ];

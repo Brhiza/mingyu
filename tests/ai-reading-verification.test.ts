@@ -88,7 +88,9 @@ test('引用与实际查询条文对照，概括取义不当成引文', () => {
     { key: 'classic', title: '传统条文：庚', text: '原文：庚金带煞，刚健为最。', usable: true },
   ];
   assert.deepEqual(verifyReadingAnswer(chart, '原文：「庚金带煞，刚健为最。」', resources), []);
-  assert.ok(verifyReadingAnswer(chart, '原文：「得火而炼，方成器用。」', resources).length);
+  const citationIssues = verifyReadingAnswer(chart, '原文：「得火而炼，方成器用。」', resources);
+  assert.equal(citationIssues.length, 1);
+  assert.match(citationIssues[0]!, /所标原文.*不一致/u);
   assert.deepEqual(verifyReadingAnswer(chart, '取义为刚健、锻炼成器。', resources), []);
 });
 
@@ -121,5 +123,5 @@ test('命盘历史忽略当前时钟并恢复当时的完整资料', () => {
 test('实测的自然语言日主查询能取得对应滴天髓原句', async () => {
   const result = await lookupReadingClassics('bazi', '滴天髓庚金日主相关条文');
   assert.equal(result.usable, true);
-  assert.match(result.text, /庚金带杀/u);
+  assert.match(result.text, /庚金带煞/u);
 });

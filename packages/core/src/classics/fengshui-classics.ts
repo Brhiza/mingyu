@@ -82,7 +82,7 @@ export const BAZHAI_STAR_CLASSICS: Record<string, BazhaiStarClassic> = {
 export function getBazhaiStarClassic(star: string): BazhaiStarClassic | undefined {
   if (!star) return undefined;
   for (const [key, val] of Object.entries(BAZHAI_STAR_CLASSICS)) {
-    if (star.includes(key)) return val;
+    if (star.includes(key)) return structuredClone(val);
   }
   return undefined;
 }
@@ -189,7 +189,7 @@ export const XUANKONG_STAR_CLASSICS: Record<number, XuankongStarClassic> = {
 export function getXuankongStarClassic(
   starNumber: number | string,
 ): XuankongStarClassic | undefined {
-  const num = typeof starNumber === 'number' ? starNumber : parseInt(starNumber, 10);
-  if (isNaN(num)) return undefined;
-  return XUANKONG_STAR_CLASSICS[num];
+  const num = typeof starNumber === 'number' ? starNumber : Number(starNumber);
+  if (!Number.isInteger(num) || num < 1 || num > 9) return undefined;
+  return structuredClone(XUANKONG_STAR_CLASSICS[num]);
 }

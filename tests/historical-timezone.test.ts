@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from 'mingyu-core/calendar';
+import {
+  buildAstronomicalTimeEvidence,
+  getHistoricalTimezoneOffsetAt,
+  resolveHistoricalTimezone,
+} from 'mingyu-core/calendar';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng } from 'mingyu-core/qizheng';
 
@@ -30,6 +34,38 @@ function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalT
     ),
   );
 }
+
+test('巴黎 1900 年秒级历史偏移应保留完整秒数', () => {
+  const instant = new Date('1900-02-04T05:51:31.000Z');
+  const offset = getHistoricalTimezoneOffsetAt(instant, 'Europe/Paris');
+  assert.equal(offset * 3_600_000, 561_000);
+
+  const evidence = resolveHistoricalTimezone({
+    year: 1900,
+    month: 2,
+    day: 4,
+    hour: 6,
+    minute: 0,
+    second: 52,
+    timeZoneId: 'Europe/Paris',
+  });
+  assert.equal(evidence.selectedUtcDateTime, instant.toISOString());
+  assert.match(evidence.promptText, /UTC\+00:09:21/);
+  assert.doesNotMatch(evidence.promptText, /UTC\+0\.155/);
+
+  const astronomical = buildAstronomicalTimeEvidence({
+    year: 1900,
+    month: 2,
+    day: 4,
+    hour: 6,
+    minute: 0,
+    second: 52,
+    timeZoneId: 'Europe/Paris',
+  });
+  assert.equal(astronomical.utcDateTime, '1900-02-04 05:51:31Z');
+  assert.match(astronomical.promptText, /UTC\+00:09:21/);
+  assert.doesNotMatch(astronomical.promptText, /UTC\+0\.155/);
+});
 
 test('IANA 历史时区应识别中国 1990 年夏令时', () => {
   const evidence = resolveHistoricalTimezone({
@@ -108,7 +144,7 @@ test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => 
     fixedOffsetHours: 8,
   });
   assert.equal(historical.offsetConflict, true);
-  assert.match(historical.diagnostics.join('；'), /UTC\+8.*UTC\+9/);
+  assert.match(historical.diagnostics.join('；'), /UTC\+08:00.*UTC\+09:00/);
   assert.equal(historical.calculationSteps[3].status, '存在冲突');
   assert.equal(historical.diagnosticFacts[1].status, '存在冲突');
   assert.equal(historical.diagnosticSummaryFact.status, '唯一但偏移冲突');
@@ -169,7 +205,7 @@ test('固定偏移应选择秋季回拨时间中对应的唯一候选', () => {
   assert.equal(standard.selectedUtcDateTime, '2024-11-03T06:30:00.000Z');
   assert.equal(standard.resolvedOffsetHours, -5);
   assert.equal(standard.offsetConflict, false);
-  assert.match(standard.diagnostics[0], /固定偏移 UTC-5/);
+  assert.match(standard.diagnostics[0], /固定偏移 UTC-05:00/);
 });
 
 test('IANA 历史时区应拒绝春季跳时与无效时区', () => {
@@ -198,6 +234,24 @@ test('IANA 历史时区应拒绝春季跳时与无效时区', () => {
         timeZoneId: 'Invalid\/Zone',
       }),
     /无法识别 IANA 时区/,
+  );
+});
+
+test('IANA 历史时区应先拒绝无效当地日期时刻与固定偏移', () => {
+  const input = {
+    year: 2024,
+    month: 2,
+    day: 29,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'Asia/Shanghai',
+  };
+  assert.throws(() => resolveHistoricalTimezone({ ...input, day: 30 }), /当地日期/);
+  assert.throws(() => resolveHistoricalTimezone({ ...input, hour: 24 }), /当地时刻/);
+  assert.throws(
+    () => resolveHistoricalTimezone({ ...input, fixedOffsetHours: Number.NaN }),
+    /固定 UTC 偏移/,
   );
 });
 

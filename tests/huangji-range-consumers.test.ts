@@ -122,6 +122,63 @@ test('皇极六日逐爻继续使用明确目标和历元，不生成标准年�
   );
 });
 
+test('皇极精确占时的秒数在钟表、真太阳时盘面与完整任务书中一致', async () => {
+  const draft: DivinationDraft = {
+    ...defaultDraft,
+    method: 'huangji',
+    huangjiMethod: 'standard',
+    question: '当前时点如何？',
+    divinationTimeMode: 'custom',
+    customDivinationDate: '2025-12-21',
+    customDivinationTime: '23:04:42',
+  };
+  const beijing = await generateDivinationSession({
+    ...draft,
+    divinationTimeStandard: 'beijing',
+  });
+  assert.equal(beijing.timeContext?.clockDateTime, '2025-12-21T23:04:42');
+  assert.equal(beijing.timeContext?.effectiveDateTime, '2025-12-21T23:04:42');
+  assert.equal(
+    new Date(`${beijing.timeContext?.clockDateTime}+08:00`).toISOString(),
+    '2025-12-21T15:04:42.000Z',
+  );
+  assert.equal(
+    (beijing.data as ReturnType<typeof calculateHuangjiJingshi>).dateTimeForecast?.civilTime
+      .dateTime,
+    '2025-12-21 23:04:42',
+  );
+  assert.match(beijing.prompt, /采用时间：2025-12-21 23:04:42/u);
+  assert.match(beijing.prompt, /起盘时间：2025-12-21 23:04:42/u);
+
+  const trueSolar = await generateDivinationSession({
+    ...draft,
+    divinationTimeStandard: 'true-solar',
+    birthPlace: '测试地点',
+    birthLongitude: '73.5',
+  });
+  const trueSolarData = trueSolar.data as ReturnType<typeof calculateHuangjiJingshi>;
+  assert.equal(trueSolar.timeContext?.clockDateTime, '2025-12-21T23:04:42');
+  assert.equal(trueSolar.timeContext?.effectiveDateTime, '2025-12-21T20:00:27');
+  assert.equal(
+    new Date(`${trueSolar.timeContext?.effectiveDateTime}+08:00`).toISOString(),
+    '2025-12-21T12:00:27.000Z',
+  );
+  assert.equal(trueSolarData.dateTimeForecast?.civilTime.dateTime, '2025-12-21 20:00:27');
+  assert.equal(trueSolarData.dateTimeForecast?.calendar.hourSegment, 6);
+  assert.equal(
+    trueSolarData.dateTimeForecast?.civilTime.termReferenceDateTime,
+    '2025-12-21 23:04:42',
+  );
+  for (const fact of [
+    '当地钟表时间：2025-12-21 23:04:42',
+    '采用真太阳时：2025-12-21 20:00:27',
+    '起盘时间：2025-12-21 20:00:27',
+    '节气与皇极年参照实际占时：2025-12-21 23:04:42',
+  ]) {
+    assert.ok(trueSolar.prompt.includes(fact), `缺少${fact}`);
+  }
+});
+
 test('皇极区间历史恢复保留完整三盘及两类分享资料', async () => {
   const draft = createDraft();
   const session = await generateDivinationSession(draft);

@@ -276,7 +276,7 @@ export class LuckCalculator {
     startFortune: FortuneInstance,
   ): LiunianInfo {
     const currentYear = startYear + offset;
-    const age = currentYear - birthYear + 1;
+    const age = this.getLiunianAge(currentYear, birthYear);
     const liunian = this.calculateLiunian(currentYear, dayMaster);
     return {
       year: currentYear,
@@ -312,7 +312,7 @@ export class LuckCalculator {
 
     for (let i = 0; i < yearCount; i++) {
       const currentYear = startYear + i;
-      const age = currentYear - birthYear + 1;
+      const age = this.getLiunianAge(currentYear, birthYear);
       const liunian = this.calculateLiunian(currentYear, dayMaster);
       const xiaoyun = startFortune
         ? this.getXiaoyunForAge(startFortune, age, dayMaster)
@@ -328,6 +328,11 @@ export class LuckCalculator {
       });
     }
     return liunianList;
+  }
+
+  private getLiunianAge(currentYear: number, birthYear: number): number {
+    // 沿用大运的公历年虚岁口径；立春前出生者的首段虽属上一干支年，仍从一岁起记。
+    return Math.max(1, currentYear - birthYear + 1);
   }
 
   private getXiaoyunForAge(
@@ -401,7 +406,8 @@ export class LuckCalculator {
    * 根据起运月份推算交运时机
    */
   private getHandoverInfo(firstCycleStartTime: SolarDateTimeInfo): string {
-    return `首运于公历 ${formatSolarDateTime(firstCycleStartTime, true)}（北京时间 UTC+8）交脱大运，此后每隔十年于该日前后换运`;
+    const second = String(firstCycleStartTime.second).padStart(2, '0');
+    return `首运于公历 ${formatSolarDateTime(firstCycleStartTime, true)}:${second}（北京时间 UTC+8）交脱大运，此后每隔十年于该日前后换运`;
   }
 
   private hasPositiveSolarRange(

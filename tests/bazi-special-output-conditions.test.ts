@@ -34,7 +34,7 @@ function asSpecialPattern(pillars: Pillars): PatternAnalysis {
   };
 }
 
-test('完整专旺排盘保留印比为基础喜用，食伤只列有明确传统条件的候选', () => {
+test('专旺本命、提示词与命录保留印比基础喜用及食伤条件', () => {
   const chart = baziCalculator.calculateBazi(SPECIAL_INPUT);
   const useful = chart.analysis.usefulGod;
 
@@ -54,10 +54,6 @@ test('完整专旺排盘保留印比为基础喜用，食伤只列有明确传�
   assert.match(useful.matchedRules?.[0]?.description ?? '', /原局印轻且泄秀作用成立/);
   assert.match(useful.strategyTrace?.join('；') ?? '', /食伤条件:火仅在原局印轻/);
   assert.doesNotMatch(useful.strategyTrace?.join('；') ?? '', /资料不足|尚未实现/);
-});
-
-test('页面提示词与命录共用专旺食伤条件，不再把条件火写成已采用喜用', () => {
-  const chart = baziCalculator.calculateBazi(SPECIAL_INPUT);
   const functions = formatUsefulGodFunctions(chart.analysis.usefulGod);
   const prompt = formatBaziForPrompt(chart);
   const minglu = buildEnhancedPatternUsefulGodSection(chart);

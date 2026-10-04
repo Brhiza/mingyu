@@ -108,7 +108,7 @@ export const QIZHENG_STAR_CLASSICS: Record<string, QizhengStarClassic> = {
 export function getQizhengStarClassic(star: string): QizhengStarClassic | undefined {
   if (!star) return undefined;
   for (const [key, val] of Object.entries(QIZHENG_STAR_CLASSICS)) {
-    if (star.includes(key)) return val;
+    if (star.includes(key)) return structuredClone(val);
   }
   return undefined;
 }

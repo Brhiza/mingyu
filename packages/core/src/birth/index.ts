@@ -169,25 +169,32 @@ export async function calculateBirthChartBundle(
   options: BirthChartBundleOptions = {},
 ): Promise<BirthChartBundle> {
   const systems = normalizeSystems(options.systems);
-  if (profile.birthTimeRange === undefined) return calculatePointBundle(profile, systems, options);
   checkAborted(options.signal);
-  const source = validateBirthProfileTimeRange(profile, profile.birthTimeRange);
-  if (systems.includes('ziwei') && !options.ziwei?.horoscopeContext && !options.ziwei?.now) {
-    throw new Error('紫微出生区间需提供固定的运限日期或计算时间，以便各批次按同一时刻重算。');
-  }
   const lockedProfile = structuredClone(profile);
   const lockedOptions = {
     ...options,
     baziRules: options.baziRules ? structuredClone(options.baziRules) : undefined,
     ziweiRules: options.ziweiRules ? { ...options.ziweiRules } : undefined,
     ziwei: options.ziwei ? structuredClone(options.ziwei) : undefined,
+    rangeBatch: options.rangeBatch ? { ...options.rangeBatch } : undefined,
   };
+  if (lockedProfile.birthTimeRange === undefined) {
+    return calculatePointBundle(lockedProfile, systems, lockedOptions);
+  }
+  const source = validateBirthProfileTimeRange(lockedProfile, lockedProfile.birthTimeRange);
+  if (
+    systems.includes('ziwei') &&
+    !lockedOptions.ziwei?.horoscopeContext &&
+    !lockedOptions.ziwei?.now
+  ) {
+    throw new Error('紫微出生区间需提供固定的运限日期或计算时间，以便各批次按同一时刻重算。');
+  }
   if (systems.includes('ziwei') && lockedOptions.ziwei && !lockedOptions.ziwei.horoscopeContext) {
     lockedOptions.ziwei.horoscopeContext = getDefaultHoroscopeContext(lockedOptions.ziwei.now);
   }
   const bounds = resolveBirthRangeBatch(
     (source.endTimestamp - source.startTimestamp) / 1000,
-    options.rangeBatch,
+    lockedOptions.rangeBatch,
   );
   const samples: BirthChartRangeSample[] = [];
   for (let index = bounds.startIndex; index < bounds.endIndexExclusive; index += 1) {

@@ -1,20 +1,29 @@
 import { SolarTime } from 'tyme4ts';
 import { TimeManager } from '../calendar/timeManager';
+import { formatFixedTimezoneOffset } from '../calendar/civil-time';
 
 const promptTimeCache = new Map<string, string>();
 
 type PromptTimeParts = ReturnType<typeof TimeManager.getWallClockParts>;
 
 function getPromptTimeParts(date: Date): PromptTimeParts {
-  return TimeManager.getWallClockParts(new Date(date.getTime()));
+  return TimeManager.getWallClockParts(new Date(date.getTime()), 480);
 }
 
 function getCacheKey(parts: PromptTimeParts) {
   return [parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second].join('-');
 }
 
-function formatSolarTime(parts: PromptTimeParts) {
-  return `公历：${parts.year}年${parts.month}月${parts.day}日 ${parts.hour}时${parts.minute}分（UTC+08:00）`;
+function formatSolarTime(parts: PromptTimeParts, timezoneOffsetMinutes = 480) {
+  return `公历：${parts.year}年${parts.month}月${parts.day}日 ${parts.hour}时${parts.minute}分（UTC${formatFixedTimezoneOffset(timezoneOffsetMinutes / 60)}）`;
+}
+
+/** 按指定民用时区显示占时，并标明实际 UTC 偏移。 */
+export function formatPromptCivilTime(date: Date, timezoneOffsetMinutes = 480) {
+  return formatSolarTime(
+    TimeManager.getWallClockParts(date, timezoneOffsetMinutes),
+    timezoneOffsetMinutes,
+  );
 }
 
 function formatGanzhiCalendar(parts: PromptTimeParts) {

@@ -71,7 +71,7 @@ function createUtcDate(year: number, month: number, day: number): Date {
 }
 
 function formatLocalDateTime(time: SolarTimeInstance): string {
-  return `${time.getYear()}-${String(time.getMonth()).padStart(2, '0')}-${String(time.getDay()).padStart(2, '0')} ${String(time.getHour()).padStart(2, '0')}:${String(time.getMinute()).padStart(2, '0')}`;
+  return `${time.getYear()}-${String(time.getMonth()).padStart(2, '0')}-${String(time.getDay()).padStart(2, '0')} ${String(time.getHour()).padStart(2, '0')}:${String(time.getMinute()).padStart(2, '0')}:${String(time.getSecond()).padStart(2, '0')}`;
 }
 
 function parseDateKey(dateKey: string): { year: number; month: number; day: number } {
@@ -153,7 +153,7 @@ export function calculateLiuyue(year: number, month: number, dayMaster: string):
   const startDate = firstJie?.date ?? `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = nextJie
     ? nextJie.date
-    : `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
+    : `${year}-${String(month).padStart(2, '0')}-${daysInSolarMonth(year, month).toString().padStart(2, '0')}`;
 
   return {
     month,
@@ -341,7 +341,10 @@ export function calculateSeasonContext(solarTime: SolarTimeInstance, monthBranch
 function buildSeasonInfo(solarTime: SolarTimeInstance, scanTerms: SeasonTermFact[]): SeasonInfo {
   const currentYear = solarTime.getSolarDay().getYear();
   const birthJulianDay = solarTime.getJulianDay();
-  const solarTerms = scanTerms.filter((term) => term.year === currentYear);
+  // SolarTerm 的年度索引从上一年冬至开始；全年公历节气应按实际落日筛选。
+  const solarTerms = scanTerms
+    .filter((term) => Number(term.date.slice(0, 4)) === currentYear)
+    .sort((left, right) => left.jd - right.jd);
 
   const orderedTerms = Array.from(
     new Map(
@@ -461,7 +464,7 @@ export function getCategorizedYearShenSha(
     [baziResult.pillars.hour.gan, baziResult.pillars.hour.zhi],
   ];
   const shenShaResult = calculateAllShenSha(baziArray, baziResult.gender);
-  const yearShenSha = [...(shenShaResult.global || []), ...(shenShaResult.year || [])];
+  const yearShenSha = shenShaResult.year || [];
 
   return {
     lucky: yearShenSha.filter((shensha) => getShenShaType(shensha) === '吉'),

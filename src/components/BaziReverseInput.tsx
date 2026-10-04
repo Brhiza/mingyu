@@ -12,6 +12,7 @@ import {
 } from 'mingyu-core/ganzhi';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import {
+  getBaziReverseSearchEndYear,
   resolveBaziReverseCandidate,
   type BaziReverseResolvedInput,
   type BaziReverseSource,
@@ -59,7 +60,7 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
   const [pillars, setPillars] = useState<BaziReversePillars>(source?.pillars ?? EMPTY_PILLARS);
   const [startYear, setStartYear] = useState(source?.intervalStart.slice(0, 4) ?? '1900');
   const [endYear, setEndYear] = useState(
-    source?.intervalEnd.slice(0, 4) ?? String(currentBeijingYear),
+    source ? String(getBaziReverseSearchEndYear(source)) : String(currentBeijingYear),
   );
   const [result, setResult] = useState<BaziReverseResult | null>(null);
   const [error, setError] = useState('');

@@ -4,6 +4,7 @@ import { generateLiuren } from '../packages/core/src/divination/algorithms/liure
 import { buildLiurenTemplateText } from '../packages/core/src/divination/engine/liuren-template';
 
 const fixtureDate = new Date('2026-05-19T10:30:00+08:00');
+const fixedLiurenChart = generateLiuren(fixtureDate);
 
 function assertGodLocations(text: string, data: ReturnType<typeof generateLiuren>, god: string) {
   const plateHits = data.heavenlyPlate.filter((item) => item.god === god);
@@ -34,7 +35,7 @@ function assertGodLocations(text: string, data: ReturnType<typeof generateLiuren
 }
 
 test('大六壬主题类神定位应保留天地盘、四课、三传与已有条件', () => {
-  const data = generateLiuren(fixtureDate);
+  const data = fixedLiurenChart;
   const text = buildLiurenTemplateText('caifu', data);
 
   assert.match(text, /财富财运；类神：财运看青龙、太常、天空/);
@@ -61,7 +62,7 @@ test('大六壬主题类神定位应保留天地盘、四课、三传与已有�
 });
 
 test('大六壬类神定位应完整保留多命中并对零命中明确写未见', () => {
-  const source = generateLiuren(fixtureDate);
+  const source = fixedLiurenChart;
   const multiple = {
     ...source,
     heavenlyPlate: source.heavenlyPlate.map((item, index) =>
@@ -97,7 +98,7 @@ test('大六壬类神定位应完整保留多命中并对零命中明确写未�
 });
 
 test('大六壬通用模板保持原有类神语义', () => {
-  const data = generateLiuren(fixtureDate);
+  const data = fixedLiurenChart;
   assert.equal(
     buildLiurenTemplateText('general', data),
     '通用；类神：日干为我、日支为事；三传看发端、转折和归结',

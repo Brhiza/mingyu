@@ -1,6 +1,9 @@
-import { BASIC_MAPPINGS, SEASON_STATUS } from './baziDefinitions';
+import { SEASON_STATUS } from './baziDefinitions';
 import type { Pillars, Wuxing } from './baziTypes';
 import { assertPillars } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface CompleteBranchFormation {
   type: '三合' | '三会';
@@ -67,7 +70,9 @@ export function collectEstablishedBranchFormations(pillars: Pillars): Establishe
     const clashBreakBranches = [
       ...new Set(
         externalBranches.filter((branch) =>
-          formation.branches.some((member) => BASIC_MAPPINGS.DI_ZHI_CHONG[member] === branch),
+          formation.branches.some(
+            (member) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[member] === branch,
+          ),
         ),
       ),
     ];

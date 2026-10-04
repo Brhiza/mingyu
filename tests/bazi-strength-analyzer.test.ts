@@ -201,6 +201,45 @@ test('另有未被六冲的本气根时，不能因一处冲根误删稳定强�
   assert.equal(result.strongRoot, true);
 });
 
+test('甲乙日亥中甲木保留通根事实，不把长生直接升级为重根', () => {
+  const analyze = (dayGanZhi: '甲午' | '乙酉') => {
+    const values = ['戊戌', '己亥', dayGanZhi, '庚午'];
+    const pillars = Object.fromEntries(
+      (['year', 'month', 'day', 'hour'] as const).map((position, index) => [
+        position,
+        { gan: values[index][0], zhi: values[index][1], ganZhi: values[index] },
+      ]),
+    ) as Parameters<typeof analyzeRoot>[1];
+    const hiddenStems = Object.fromEntries(
+      (['year', 'month', 'day', 'hour'] as const).map((position) => [
+        position,
+        HIDDEN_STEMS[pillars[position].zhi],
+      ]),
+    ) as Parameters<typeof analyzeRoot>[2];
+    const dayMaster = pillars.day.gan;
+    const root = analyzeRoot(dayMaster, pillars, hiddenStems, getWuxing);
+    const strength = analyzeDayMasterStrength(
+      analyzeSeasonalStatus(dayMaster, '亥', getSeasonStatus, getWuxing, '壬'),
+      analyzeFormation(dayMaster, pillars, getWuxing),
+      root,
+      analyzeSupport(dayMaster, pillars, hiddenStems, getWuxing),
+      analyzeConstraint(dayMaster, pillars, hiddenStems, getWuxing),
+    );
+    return { root, strength };
+  };
+
+  const jia = analyze('甲午');
+  const yi = analyze('乙酉');
+  assert.equal(jia.root.roots[0]?.branch, '亥(甲)');
+  assert.equal(yi.root.roots[0]?.branch, '亥(甲)');
+  assert.equal(jia.root.hasRoot, true);
+  assert.equal(yi.root.hasRoot, true);
+  assert.equal(jia.root.strongRoot, false);
+  assert.equal(yi.root.strongRoot, false);
+  assert.equal(jia.strength.status, '中和');
+  assert.equal(yi.strength.status, '中和');
+});
+
 test('冲根仍保留有根事实，但不把未稳明根计入结构扶身证据', () => {
   const pillars = {
     year: { gan: '甲', zhi: '申', ganZhi: '甲申' },

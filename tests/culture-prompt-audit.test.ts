@@ -5,8 +5,15 @@ import {
   assertCulturePromptSamples,
 } from '../scripts/generate-culture-prompt-audit';
 
+let cultureSamplesPromise: ReturnType<typeof buildCulturePromptSamples> | undefined;
+
+function getCultureSamples() {
+  cultureSamplesPromise ??= buildCulturePromptSamples();
+  return cultureSamplesPromise;
+}
+
 test('文字数理及新增占问的实际完整提示词纳入固定审查', async () => {
-  const samples = await buildCulturePromptSamples();
+  const samples = await getCultureSamples();
   assertCulturePromptSamples(samples);
   for (const [index, sample] of samples.entries()) {
     const changed = [...samples];
@@ -19,7 +26,7 @@ test('文字数理及新增占问的实际完整提示词纳入固定审查', as
 });
 
 test('实际汉字样本交换笔画归属后，即使原有数值仍全部出现也不能通过审计', async () => {
-  const samples = await buildCulturePromptSamples();
+  const samples = await getCultureSamples();
   const index = samples.findIndex((sample) => sample.name === '汉字与选字');
   const sample = samples[index];
   const strokeLines = sample.prompt.match(/^简体笔画：.+$/gmu)!;
@@ -34,7 +41,7 @@ test('实际汉字样本交换笔画归属后，即使原有数值仍全部出�
 });
 
 test('两类实际签谱提示词仅承载本签材料，结构化起签过程不进入任务书', async () => {
-  const samples = await buildCulturePromptSamples();
+  const samples = await getCultureSamples();
   for (const sample of samples.filter((sample) => ['诸葛神数', '孔明神卦'].includes(sample.name))) {
     assert.doesNotMatch(
       sample.prompt,

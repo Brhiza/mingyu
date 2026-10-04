@@ -1,9 +1,14 @@
 import { getMonthDaysInfo, getYearInfo } from '../calendarTool';
-import { BASIC_MAPPINGS } from '../baziMappingsData';
+
 import type { BaziChartResult } from '../baziTypes';
 import type { LocalTimeRange } from '../baziTypes';
 import { createCivilDate, getLuckCycleTimeRange, intersectLocalTimeRanges } from '../luckTiming';
-import { getTenGod, getTenGodForBranch, isGanZhiPair } from '../baziUtils';
+import {
+  areHeavenlyStemsOvercoming,
+  getTenGod,
+  getTenGodForBranch,
+  isGanZhiPair,
+} from '../baziUtils';
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceItem } from '../../prompt-evidence/types';
 import {
@@ -31,6 +36,9 @@ import type {
   FortuneSelectionContext,
   FortuneSelectionOptions,
 } from './helpers/types';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export type {
   BaziFortuneSelectionValue,
@@ -58,7 +66,7 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
 const PILLAR_KEYS: PillarKey[] = ['year', 'month', 'day', 'hour'];
 
 function splitGanZhi(ganZhi: string | undefined) {
-  if (!ganZhi || ganZhi.length < 2) return null;
+  if (!ganZhi || ganZhi.length !== 2 || !isGanZhiPair(ganZhi[0], ganZhi[1])) return null;
   return {
     gan: ganZhi[0],
     zhi: ganZhi[1],
@@ -81,9 +89,13 @@ function compactTenGod(result: BaziChartResult, ganZhi: string) {
 
 function formatYearBreakdownLine(
   result: BaziChartResult,
-  item: { year: number; age: number; ganZhi: string },
+  item: { year: number; age: number; ganZhi: string; timeRange: LocalTimeRange; clipped: boolean },
 ) {
-  return `${item.year}年(${item.age}岁) ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}`;
+  return `${item.year}年(${item.age}岁) ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}${item.clipped ? `｜本运有效时段：${formatClippedHourTimeRange(item.timeRange)}` : ''}`;
+}
+
+function formatLocalDateTime(time: LocalTimeRange['start']): string {
+  return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')} ${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(time.second).padStart(2, '0')}`;
 }
 
 function formatMonthBreakdownLine(
@@ -98,9 +110,15 @@ function formatMonthBreakdownLine(
     endDateTime?: string;
     startTermName?: string;
     endTermName?: string;
+    timeRange: LocalTimeRange;
   },
 ) {
-  return `${item.label} ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}｜${item.startTermName || ''} ${item.startDateTime || item.startDate}～${item.endTermName || ''} ${item.endDateTime || item.endDate}`;
+  const start = formatLocalDateTime(item.timeRange.start);
+  const end = formatLocalDateTime(item.timeRange.end);
+  const startName =
+    !item.startDateTime || item.startDateTime === start ? item.startTermName || '' : '交运';
+  const endName = !item.endDateTime || item.endDateTime === end ? item.endTermName || '' : '交运';
+  return `${item.label} ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}｜${startName} ${start}～${endName} ${end}`;
 }
 
 function formatDayBreakdownLine(
@@ -118,23 +136,32 @@ function buildGanZhiTriggerSummary(
   result: BaziChartResult,
   ganZhi: string | undefined,
   scopeLabel: string,
-): string {
+): { summary: string; supplementalFacts: string[] } {
   const parts = splitGanZhi(ganZhi);
-  if (!parts || !result.pillars) return `${scopeLabel}触发：原局资料不足，暂无法判断合冲刑害。`;
+  if (!parts || !result.pillars) {
+    return {
+      summary: `${scopeLabel}触发：原局资料不足，暂无法判断合冲刑害。`,
+      supplementalFacts: [],
+    };
+  }
 
   const majorEvents: string[] = [];
   const triggers: string[] = [];
+  const supplementalFacts: string[] = [];
 
   PILLAR_KEYS.forEach((key) => {
     const pillar = result.pillars[key];
     if (!pillar) return;
     const pillarLabel = PILLAR_LABELS[key];
 
-    const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
-    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
+    const isStemClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
+    const isBranchClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
+    const isStemOvercome = areHeavenlyStemsOvercoming(parts.gan, pillar.gan);
     const isSamePillar = parts.gan === pillar.gan && parts.zhi === pillar.zhi;
 
-    if (isStemClash && isBranchClash) {
+    if (isStemOvercome && isBranchClash) {
       majorEvents.push(`与${pillarLabel}天克地冲`);
     } else if (isSamePillar) {
       triggers.push(`干支${parts.gan}${parts.zhi}与${pillarLabel}${pillar.ganZhi}同柱伏吟`);
@@ -142,7 +169,7 @@ function buildGanZhiTriggerSummary(
       if (parts.gan === pillar.gan) {
         triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}同干`);
       }
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
         triggers.push(`天干${parts.gan}合${pillarLabel}${pillar.gan}`);
       }
       if (isStemClash) {
@@ -152,50 +179,49 @@ function buildGanZhiTriggerSummary(
       if (parts.zhi === pillar.zhi) {
         triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}同支`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
         triggers.push(`地支${parts.zhi}合${pillarLabel}${pillar.zhi}`);
       }
       if (isBranchClash) {
         if (key === 'month') {
-          majorEvents.push(`冲提纲（月柱${pillar.zhi}受冲，主事业环境与家宅动荡）`);
+          majorEvents.push(`地支${parts.zhi}冲月柱${pillar.zhi}`);
         } else if (key === 'day') {
-          majorEvents.push(`冲夫妻宫（日支${pillar.zhi}受冲，主感情关系与生活节奏受冲击）`);
+          majorEvents.push(`地支${parts.zhi}冲日柱${pillar.zhi}`);
         } else {
           triggers.push(`地支${parts.zhi}冲${pillarLabel}${pillar.zhi}`);
         }
       }
     }
 
-    if (BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
       triggers.push(`地支${parts.zhi}刑${pillarLabel}${pillar.zhi}`);
     }
-    if (BASIC_MAPPINGS.DI_ZHI_HAI[parts.zhi] === pillar.zhi) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[parts.zhi] === pillar.zhi) {
       triggers.push(`地支${parts.zhi}害${pillarLabel}${pillar.zhi}`);
     }
-    if (BASIC_MAPPINGS.DI_ZHI_PO[parts.zhi] === pillar.zhi) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[parts.zhi] === pillar.zhi) {
       triggers.push(`地支${parts.zhi}破${pillarLabel}${pillar.zhi}`);
     }
   });
 
-  // 三垣（命宫、胎元）引动检测
-  const sanYuanList: Array<{ label: string; gz?: string; effect: string }> = [
-    { label: '命宫', gz: result.mingGong, effect: '立足根基动荡，主变迁变动' },
-    { label: '胎元', gz: result.taiYuan, effect: '元气受动，防长辈与身心耗损' },
+  const sanYuanList: Array<{ label: string; gz?: string }> = [
+    { label: '命宫', gz: result.mingGong },
+    { label: '胎元', gz: result.taiYuan },
   ];
-  sanYuanList.forEach(({ label, gz, effect }) => {
+  sanYuanList.forEach(({ label, gz }) => {
     if (!gz) return;
     const syParts = splitGanZhi(gz);
     if (!syParts) return;
 
-    const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === syParts.gan;
-    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === syParts.zhi;
+    const isBranchClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === syParts.zhi;
 
-    if (isStemClash && isBranchClash) {
-      majorEvents.push(`天克地冲${label}（${effect}）`);
+    if (areHeavenlyStemsOvercoming(parts.gan, syParts.gan) && isBranchClash) {
+      supplementalFacts.push(`${scopeLabel}干支${parts.gan}${parts.zhi}与${label}${gz}天克地冲`);
     } else if (isBranchClash) {
-      majorEvents.push(`地支冲${label}（${label}${syParts.zhi}受冲，${effect}）`);
-    } else if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === syParts.zhi) {
-      triggers.push(`地支合${label}`);
+      supplementalFacts.push(`${scopeLabel}地支${parts.zhi}冲${label}${syParts.zhi}`);
+    } else if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === syParts.zhi) {
+      supplementalFacts.push(`${scopeLabel}地支${parts.zhi}合${label}${syParts.zhi}`);
     }
   });
 
@@ -203,34 +229,21 @@ function buildGanZhiTriggerSummary(
   const natalZhis = PILLAR_KEYS.map((k) => result.pillars[k]?.zhi).filter(Boolean) as string[];
   const combinedZhis = new Set([parts.zhi, ...natalZhis]);
   if (combinedZhis.has('寅') && combinedZhis.has('巳') && combinedZhis.has('申')) {
-    if (parts.zhi === '寅' || parts.zhi === '巳' || parts.zhi === '申') {
-      majorEvents.push('引动【寅巳申】无恩之刑三刑齐备');
+    if (!['寅', '巳', '申'].every((zhi) => natalZhis.includes(zhi))) {
+      supplementalFacts.push(`${scopeLabel}补齐寅巳申三支（无恩之刑）`);
     }
   }
   if (combinedZhis.has('丑') && combinedZhis.has('戌') && combinedZhis.has('未')) {
-    if (parts.zhi === '丑' || parts.zhi === '戌' || parts.zhi === '未') {
-      majorEvents.push('引动【丑戌未】恃势之刑三刑齐备');
+    if (!['丑', '戌', '未'].every((zhi) => natalZhis.includes(zhi))) {
+      supplementalFacts.push(`${scopeLabel}补齐丑戌未三支（恃势之刑）`);
     }
   }
 
-  // 全局三合局齐备检测
-  const sanheList: Array<{ name: string; branches: string[] }> = [
-    { name: '申子辰三合水局', branches: ['申', '子', '辰'] },
-    { name: '亥卯未三合木局', branches: ['亥', '卯', '未'] },
-    { name: '寅午戌三合火局', branches: ['寅', '午', '戌'] },
-    { name: '巳酉丑三合金局', branches: ['巳', '酉', '丑'] },
-  ];
-  for (const group of sanheList) {
-    if (group.branches.includes(parts.zhi) && group.branches.every((b) => combinedZhis.has(b))) {
-      const natalCount = group.branches.filter((b) => natalZhis.includes(b)).length;
-      if (natalCount >= 2) {
-        majorEvents.push(`与原局会合成【${group.name}】`);
-      }
-    }
-  }
-
-  const allItems = [...majorEvents, ...triggers];
-  return `${scopeLabel}触发：${allItems.length ? allItems.join('；') : '未见明显合冲刑害破。'}`;
+  const allItems = [...majorEvents, ...triggers, ...supplementalFacts];
+  return {
+    summary: `${scopeLabel}触发：${allItems.length ? allItems.join('；') : '未见明显合冲刑害破。'}`,
+    supplementalFacts,
+  };
 }
 
 function buildFortuneEvidenceLines(params: {
@@ -241,7 +254,6 @@ function buildFortuneEvidenceLines(params: {
   selectedTitle: string;
   selectedGanZhi?: string;
   selectedTenGod?: string;
-  triggerSummary?: string;
   timingText?: string;
   parentText?: string;
   limitText: string;
@@ -252,7 +264,9 @@ function buildFortuneEvidenceLines(params: {
     {
       level: '主证',
       title: '指定年限运限',
-      detail: `${params.scopeLabel}，所属大运为${params.cycleLabel}（${params.cycleGanZhi}）。`,
+      detail: params.cycleGanZhi
+        ? `${params.scopeLabel}，所属大运为${params.cycleLabel}（${params.cycleGanZhi}）。`
+        : `${params.scopeLabel}，属于${params.cycleLabel}时段。`,
       source: '岁运资料',
       tags: [params.scope],
     },
@@ -276,15 +290,6 @@ function buildFortuneEvidenceLines(params: {
     });
   }
 
-  if (params.triggerSummary) {
-    items.push({
-      level: params.triggerSummary.includes('未见明显') ? '反证' : '主证',
-      title: '刑冲合害触发',
-      detail: params.triggerSummary,
-      source: '所选干支与原局四柱比对',
-    });
-  }
-
   if (params.actionEvidence?.facts.length) {
     params.actionEvidence.facts.forEach((fact) => {
       const level: PromptEvidenceItem['level'] =
@@ -292,9 +297,11 @@ function buildFortuneEvidenceLines(params: {
           ? '反证'
           : fact.conditionStatus === '双向条件引用'
             ? '主证'
-            : fact.placement === '岁运透干'
-              ? '主证'
-              : '辅证';
+            : fact.conditionStatus === '引用有前提的喜用条件'
+              ? '辅证'
+              : fact.placement === '岁运透干'
+                ? '主证'
+                : '辅证';
       items.push({
         level,
         title: '岁运作用事实',
@@ -358,6 +365,20 @@ function analyzeSelectionTriggers(result: BaziChartResult, layers: FortuneTrigge
   );
 }
 
+function analyzeSelectionActions(
+  result: BaziChartResult,
+  layers: FortuneActionLayerInput[],
+  triggerEvidence: FortuneTriggerEvidenceResult,
+) {
+  return analyzeFortuneActionEvidence({
+    result,
+    layers: layers.filter(
+      (layer) => layer.ganZhi.length === 2 && isGanZhiPair(layer.ganZhi[0], layer.ganZhi[1]),
+    ),
+    triggerEvidence,
+  });
+}
+
 function getYearTimeRange(year: number): LocalTimeRange {
   const months = getYearInfo(year).months;
   const first = months[0]?.timeRange;
@@ -374,6 +395,10 @@ function getYearTimeRange(year: number): LocalTimeRange {
 
 function clipToCycle(range: LocalTimeRange, cycleRange: LocalTimeRange) {
   return intersectLocalTimeRanges(range, cycleRange);
+}
+
+function formatClippedHourTimeRange(range: LocalTimeRange): string {
+  return `${formatLocalDateTime(range.start)}至${formatLocalDateTime(range.end)}（终点不含）`;
 }
 
 export function normalizeFortuneSelection(
@@ -462,6 +487,7 @@ export function buildFortuneSelectionContext(
   }
 
   const cycleLabel = formatCycleLabel(cycle);
+  const cycleGanZhi = cycle.isXiaoyun ? '' : cycle.ganZhi;
   const cycleTimeRange = getLuckCycleTimeRange(cycle);
   const yearItem = cycle.years.find((item) => item.year === normalized.year);
   const monthInfoList = normalized.year ? getYearInfo(normalized.year).months : [];
@@ -473,7 +499,7 @@ export function buildFortuneSelectionContext(
   const baseContext = {
     cycleIndex: normalized.cycleIndex ?? 0,
     cycleLabel,
-    cycleGanZhi: cycle.ganZhi,
+    cycleGanZhi,
     cycleStartYear: cycle.year,
     cycleAge: cycle.age,
     cycleType: cycle.type,
@@ -486,17 +512,33 @@ export function buildFortuneSelectionContext(
 
   if (normalized.scope === 'dayun') {
     const breakdown = cycle.years.flatMap((item) => {
-      const timeRange = clipToCycle(getYearTimeRange(item.year), cycleTimeRange);
-      return timeRange ? [{ year: item.year, ganZhi: item.ganZhi, age: item.age, timeRange }] : [];
+      const fullRange = getYearTimeRange(item.year);
+      const timeRange = clipToCycle(fullRange, cycleTimeRange);
+      return timeRange
+        ? [
+            {
+              year: item.year,
+              ganZhi: item.ganZhi,
+              age: item.age,
+              timeRange,
+              clipped:
+                timeRange.startTimestamp !== fullRange.startTimestamp ||
+                timeRange.endTimestamp !== fullRange.endTimestamp,
+            },
+          ]
+        : [];
     });
-    const cycleTenGod = formatGanZhiTenGod(result, cycle.ganZhi);
-    const cycleTriggerSummary = buildGanZhiTriggerSummary(result, cycle.ganZhi, '大运');
+    const cycleTenGod = cycleGanZhi ? formatGanZhiTenGod(result, cycleGanZhi) : undefined;
+    const cycleTrigger = cycleGanZhi
+      ? buildGanZhiTriggerSummary(result, cycleGanZhi, '大运')
+      : undefined;
+    const cycleTriggerSummary = cycleTrigger?.summary;
     const triggerEvidence = analyzeSelectionTriggers(result, [
       fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
     ]);
-    const actionEvidence = analyzeFortuneActionEvidence({
+    const actionEvidence = analyzeSelectionActions(
       result,
-      layers: [
+      [
         actionLayer(
           'dayun',
           'dayun',
@@ -506,7 +548,7 @@ export function buildFortuneSelectionContext(
         ),
       ],
       triggerEvidence,
-    });
+    );
 
     return {
       ...baseContext,
@@ -518,28 +560,32 @@ export function buildFortuneSelectionContext(
       promptPayload: {
         scopeLabel: `分析对象：${cycleLabel}`,
         summaryLines: [
-          `大运干支：${cycle.ganZhi}`,
-          `大运十神：${cycleTenGod}`,
-          cycleTriggerSummary,
-          `起运年份：${cycle.year}年`,
-          `起运年龄：${cycle.age}岁`,
+          ...(cycleGanZhi
+            ? [`大运干支：${cycleGanZhi}`, `大运十神：${cycleTenGod}`, cycleTriggerSummary!]
+            : []),
+          `${cycle.isXiaoyun ? '童运起始年份' : '起运年份'}：${cycle.year}年`,
+          `${cycle.isXiaoyun ? '童运起始年龄' : '起运年龄'}：${cycle.age}岁`,
           cycle.isXiaoyun
             ? '类型：未起运，行童运'
             : `类型：${cycle.type === '小运' ? '童运' : cycle.type}`,
         ],
-        selectedFacts: [`大运十神：${cycleTenGod}`, cycleTriggerSummary],
+        selectedFacts: cycleGanZhi
+          ? [`大运十神：${cycleTenGod}`, ...(cycleTrigger?.supplementalFacts ?? [])]
+          : [],
         evidenceLines: buildFortuneEvidenceLines({
           scope: 'dayun',
           scopeLabel: `${cycleLabel}`,
           cycleLabel,
-          cycleGanZhi: cycle.ganZhi,
+          cycleGanZhi,
           selectedTitle: '大运干支与十神',
-          selectedGanZhi: cycle.ganZhi,
+          selectedGanZhi: cycleGanZhi || undefined,
           selectedTenGod: cycleTenGod,
-          triggerSummary: cycleTriggerSummary,
-          timingText: `${cycle.year}年起，约${cycle.age}岁交运；只作为十年阶段主题与强弱背景。`,
-          limitText:
-            '大运不能替代流年给出精确年份；未给出具体流年时，只能判断十年阶段，不展开年度触发。',
+          timingText: cycle.isXiaoyun
+            ? `${formatLocalDateTime(cycleTimeRange.start)}起，至${formatLocalDateTime(cycleTimeRange.end)}交首运；童运时段。`
+            : `${cycle.year}年起，约${cycle.age}岁交运；只作为十年阶段主题与强弱背景。`,
+          limitText: cycle.isXiaoyun
+            ? '童运只表示首运前时段；未给出具体流年时，不展开年度触发。'
+            : '大运不能替代流年给出精确年份；未给出具体流年时，只能判断十年阶段，不展开年度触发。',
           triggerEvidence,
           actionEvidence,
         }),
@@ -561,8 +607,12 @@ export function buildFortuneSelectionContext(
     return null;
   }
 
-  const yearTimeRange = clipToCycle(getYearTimeRange(yearItem.year), cycleTimeRange);
+  const fullYearTimeRange = getYearTimeRange(yearItem.year);
+  const yearTimeRange = clipToCycle(fullYearTimeRange, cycleTimeRange);
   if (!yearTimeRange) return null;
+  const yearClippedByCycle =
+    yearTimeRange.startTimestamp !== fullYearTimeRange.startTimestamp ||
+    yearTimeRange.endTimestamp !== fullYearTimeRange.endTimestamp;
 
   if (normalized.scope === 'year') {
     const breakdown = monthInfoList.flatMap((item, index) => {
@@ -584,19 +634,32 @@ export function buildFortuneSelectionContext(
           ]
         : [];
     });
-    const cycleYearLines = cycle.years
-      .filter((item) => clipToCycle(getYearTimeRange(item.year), cycleTimeRange))
-      .map((item) => formatYearBreakdownLine(result, item));
+    const cycleYearLines = cycle.years.flatMap((item) => {
+      const fullRange = getYearTimeRange(item.year);
+      const timeRange = clipToCycle(fullRange, cycleTimeRange);
+      return timeRange
+        ? [
+            formatYearBreakdownLine(result, {
+              ...item,
+              timeRange,
+              clipped:
+                timeRange.startTimestamp !== fullRange.startTimestamp ||
+                timeRange.endTimestamp !== fullRange.endTimestamp,
+            }),
+          ]
+        : [];
+    });
     const monthLines = breakdown.map((item) => formatMonthBreakdownLine(result, item));
     const yearTenGod = formatGanZhiTenGod(result, yearItem.ganZhi);
-    const yearTriggerSummary = buildGanZhiTriggerSummary(result, yearItem.ganZhi, '流年');
+    const yearTrigger = buildGanZhiTriggerSummary(result, yearItem.ganZhi, '流年');
+    const yearTriggerSummary = yearTrigger.summary;
     const triggerEvidence = analyzeSelectionTriggers(result, [
       fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
       fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi, `${yearItem.year}年`),
     ]);
-    const actionEvidence = analyzeFortuneActionEvidence({
+    const actionEvidence = analyzeSelectionActions(
       result,
-      layers: [
+      [
         actionLayer(
           'dayun',
           'dayun',
@@ -613,40 +676,51 @@ export function buildFortuneSelectionContext(
         ),
       ],
       triggerEvidence,
-    });
+    );
 
     return {
       ...baseContext,
       scope: 'year',
       monthBreakdown: breakdown,
       displayLabel: formatYearLabel(yearItem),
-      displayText: `${yearItem.year}年 ${yearItem.ganZhi}（${yearItem.age}岁）`,
+      displayText: yearClippedByCycle
+        ? `${yearItem.year}年 ${yearItem.ganZhi}（${yearItem.age}岁，本运内 ${formatLocalDateTime(yearTimeRange.start)} 至 ${formatLocalDateTime(yearTimeRange.end)}）`
+        : `${yearItem.year}年 ${yearItem.ganZhi}（${yearItem.age}岁）`,
       actionEvidence,
       promptPayload: {
         scopeLabel: `分析对象：${yearItem.year}年流年`,
         summaryLines: [
-          `所属大运：${cycleLabel}`,
+          cycle.isXiaoyun ? '所属大运：未起运，童运时段' : `所属大运：${cycleLabel}`,
           `流年干支：${yearItem.ganZhi}`,
           `流年十神：${yearTenGod}`,
           yearTriggerSummary,
           `对应年龄：${yearItem.age}岁`,
+          ...(yearClippedByCycle
+            ? [`本运有效时段：${formatClippedHourTimeRange(yearTimeRange)}`]
+            : []),
         ].filter(Boolean) as string[],
         selectedFacts: [
           `流年十神：${yearTenGod}`,
-          yearTriggerSummary,
+          ...yearTrigger.supplementalFacts,
           `对应年龄：${yearItem.age}岁`,
+          ...(yearClippedByCycle
+            ? [`本运有效时段：${formatClippedHourTimeRange(yearTimeRange)}`]
+            : []),
         ],
         evidenceLines: buildFortuneEvidenceLines({
           scope: 'year',
           scopeLabel: `${yearItem.year}年流年`,
           cycleLabel,
-          cycleGanZhi: cycle.ganZhi,
+          cycleGanZhi,
           selectedTitle: '流年干支与十神',
           selectedGanZhi: yearItem.ganZhi,
           selectedTenGod: yearTenGod,
-          triggerSummary: yearTriggerSummary,
-          parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}），年度判断必须承接该十年阶段。`,
-          timingText: `${yearItem.year}年（${yearItem.age}岁）为年度触发；流月列表只作月份窗口参考。`,
+          parentText: cycle.isXiaoyun
+            ? '所属童运时段，流年需结合童运时间范围。'
+            : `所属大运：${cycleLabel}（${cycleGanZhi}），年度判断必须承接该十年阶段。`,
+          timingText: yearClippedByCycle
+            ? `${yearItem.year}年（${yearItem.age}岁）本运有效时段：${formatClippedHourTimeRange(yearTimeRange)}；流月列表对应此时段。`
+            : `${yearItem.year}年（${yearItem.age}岁）为年度触发；流月列表只作月份窗口参考。`,
           limitText: '未给出具体流月或流日时，不得把某月某日硬断成唯一应期。',
           triggerEvidence,
           actionEvidence,
@@ -674,6 +748,9 @@ export function buildFortuneSelectionContext(
   }
   const monthTimeRange = clipToCycle(monthInfo.timeRange, cycleTimeRange);
   if (!monthTimeRange) return null;
+  const monthClippedByCycle =
+    monthTimeRange.startTimestamp !== monthInfo.timeRange.startTimestamp ||
+    monthTimeRange.endTimestamp !== monthInfo.timeRange.endTimestamp;
 
   if (normalized.scope === 'month') {
     const breakdown = dayInfoList.flatMap((item) => {
@@ -714,7 +791,8 @@ export function buildFortuneSelectionContext(
     const yearMonthLines = yearMonthBreakdown.map((item) => formatMonthBreakdownLine(result, item));
     const dayLines = breakdown.map((item) => formatDayBreakdownLine(result, item));
     const monthTenGod = formatGanZhiTenGod(result, monthInfo.ganZhi);
-    const monthTriggerSummary = buildGanZhiTriggerSummary(result, monthInfo.ganZhi, '流月');
+    const monthTrigger = buildGanZhiTriggerSummary(result, monthInfo.ganZhi, '流月');
+    const monthTriggerSummary = monthTrigger.summary;
     const triggerEvidence = analyzeSelectionTriggers(result, [
       fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
       fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi),
@@ -726,9 +804,9 @@ export function buildFortuneSelectionContext(
         `${monthInfo.startDate}至${monthInfo.endDate}`,
       ),
     ]);
-    const actionEvidence = analyzeFortuneActionEvidence({
+    const actionEvidence = analyzeSelectionActions(
       result,
-      layers: [
+      [
         actionLayer(
           'dayun',
           'dayun',
@@ -752,7 +830,7 @@ export function buildFortuneSelectionContext(
         ),
       ],
       triggerEvidence,
-    });
+    );
 
     return {
       ...baseContext,
@@ -776,18 +854,23 @@ export function buildFortuneSelectionContext(
       ],
       dayBreakdown: breakdown,
       displayLabel: `${yearItem.year}年${monthInfo.month}`,
-      displayText: `${yearItem.year}年 ${monthInfo.month}（${monthInfo.ganZhi}，${monthInfo.startDateTime || monthInfo.startDate} 起，至 ${monthInfo.endDateTime || monthInfo.endDate} 交下节）`,
+      displayText: monthClippedByCycle
+        ? `${yearItem.year}年 ${monthInfo.month}（${monthInfo.ganZhi}，本运内 ${formatLocalDateTime(monthTimeRange.start)} 至 ${formatLocalDateTime(monthTimeRange.end)}）`
+        : `${yearItem.year}年 ${monthInfo.month}（${monthInfo.ganZhi}，${monthInfo.startDateTime || monthInfo.startDate} 起，至 ${monthInfo.endDateTime || monthInfo.endDate} 交下节）`,
       actionEvidence,
       promptPayload: {
         scopeLabel: `分析对象：${yearItem.year}年${monthInfo.month}流月`,
         summaryLines: [
-          `所属大运：${cycleLabel}`,
+          cycle.isXiaoyun ? '所属大运：未起运，童运时段' : `所属大运：${cycleLabel}`,
           `所属流年：${yearItem.year}年 ${yearItem.ganZhi}`,
           `流月：${monthInfo.month} ${monthInfo.ganZhi}`,
           `流月十神：${monthTenGod}`,
           monthTriggerSummary,
           `日期范围：${monthInfo.startDate} 至 ${monthInfo.endDate}`,
           `交节时刻：${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节`,
+          ...(monthClippedByCycle
+            ? [`本运有效时段：${formatClippedHourTimeRange(monthTimeRange)}`]
+            : []),
           ...(monthInfo.startTermEvidence
             ? [`起始交节核验：${monthInfo.startTermEvidence.promptText}`]
             : []),
@@ -795,18 +878,19 @@ export function buildFortuneSelectionContext(
             ? [`结束交节核验：${monthInfo.endTermEvidence.promptText}`]
             : []),
         ],
-        selectedFacts: [`流月十神：${monthTenGod}`, monthTriggerSummary],
+        selectedFacts: [`流月十神：${monthTenGod}`, ...monthTrigger.supplementalFacts],
         evidenceLines: [
           ...buildFortuneEvidenceLines({
             scope: 'month',
             scopeLabel: `${yearItem.year}年${monthInfo.month}流月`,
             cycleLabel,
-            cycleGanZhi: cycle.ganZhi,
+            cycleGanZhi,
             selectedTitle: '流月干支与十神',
             selectedGanZhi: monthInfo.ganZhi,
             selectedTenGod: monthTenGod,
-            triggerSummary: monthTriggerSummary,
-            parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}。`,
+            parentText: cycle.isXiaoyun
+              ? `所属童运时段；所属流年：${yearItem.year}年${yearItem.ganZhi}。`
+              : `所属大运：${cycleLabel}（${cycleGanZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}。`,
             timingText: `${monthInfo.startDate}至${monthInfo.endDate}，以节气月为准；${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节。`,
             limitText:
               '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
@@ -854,24 +938,50 @@ export function buildFortuneSelectionContext(
     const interval = clipToCycle(item.interval, cycleTimeRange);
     if (!interval || !monthTimeRangeForHours) return [];
     const clippedToMonth = clipToCycle(interval, monthTimeRangeForHours);
-    return clippedToMonth ? [{ ...item, interval: clippedToMonth }] : [];
+    if (!clippedToMonth) return [];
+    const isClipped =
+      clippedToMonth.startTimestamp !== item.interval.startTimestamp ||
+      clippedToMonth.endTimestamp !== item.interval.endTimestamp;
+    return [
+      {
+        ...item,
+        interval: clippedToMonth,
+        timeRange: isClipped ? formatClippedHourTimeRange(clippedToMonth) : item.timeRange,
+      },
+    ];
   });
-  const hoursClippedByBoundary = hourBreakdown.length < rawHourBreakdown.length;
+  const hoursClippedByBoundary =
+    hourBreakdown.length < rawHourBreakdown.length ||
+    hourBreakdown.some((item, index) => {
+      const original = rawHourBreakdown[index];
+      return (
+        original &&
+        (item.interval.startTimestamp !== original.interval.startTimestamp ||
+          item.interval.endTimestamp !== original.interval.endTimestamp)
+      );
+    });
+  const firstHour = hourBreakdown[0];
+  const lastHour = hourBreakdown.at(-1);
+  const effectiveHourSummary =
+    hoursClippedByBoundary && firstHour && lastHour
+      ? `流时有效时段：${formatLocalDateTime(firstHour.interval.start)}至${formatLocalDateTime(lastHour.interval.end)}（终点不含）`
+      : undefined;
   const previousDate = createCivilDate(actualYear, actualMonth, actualDay);
   previousDate.setUTCDate(previousDate.getUTCDate() - 1);
   const ziChuStart = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, '0')}-${String(previousDate.getUTCDate()).padStart(2, '0')} 23:00`;
   const ziChuEnd = `${actualDate} 22:59`;
   const dayTenGod = formatGanZhiTenGod(result, dayInfo.ganZhi);
-  const dayTriggerSummary = buildGanZhiTriggerSummary(result, dayInfo.ganZhi, '流日');
+  const dayTrigger = buildGanZhiTriggerSummary(result, dayInfo.ganZhi, '流日');
+  const dayTriggerSummary = dayTrigger.summary;
   const triggerEvidence = analyzeSelectionTriggers(result, [
     fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
     fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi),
     fortuneLayer('month', 'month', `${yearItem.year}年${monthInfo.month}流月`, monthInfo.ganZhi),
     fortuneLayer('day', 'day', `${actualDate}流日`, dayInfo.ganZhi, actualDate),
   ]);
-  const actionEvidence = analyzeFortuneActionEvidence({
+  const actionEvidence = analyzeSelectionActions(
     result,
-    layers: [
+    [
       actionLayer(
         'dayun',
         'dayun',
@@ -890,14 +1000,16 @@ export function buildFortuneSelectionContext(
       actionLayer('day', 'day', `${actualDate}流日`, dayInfo.ganZhi, actualDate),
     ],
     triggerEvidence,
-  });
-  const monthDayLines = dayInfoList.map((item) =>
-    formatDayBreakdownLine(result, {
-      date: item.solarDate,
-      ganZhi: item.ganZhi,
-      boundaryNote: item.boundaryNote,
-    }),
   );
+  const monthDayLines = dayInfoList
+    .filter((item) => clipToCycle(item.timeRange, cycleTimeRange))
+    .map((item) =>
+      formatDayBreakdownLine(result, {
+        date: item.solarDate,
+        ganZhi: item.ganZhi,
+        boundaryNote: item.boundaryNote,
+      }),
+    );
   const hourLines = hourBreakdown.map((item) =>
     `${item.label} ${item.timeRange || ''} ${item.ganZhi}`.trim(),
   );
@@ -927,7 +1039,7 @@ export function buildFortuneSelectionContext(
     promptPayload: {
       scopeLabel: `分析对象：${actualDate}流日`,
       summaryLines: [
-        `所属大运：${cycleLabel}`,
+        cycle.isXiaoyun ? '所属大运：未起运，童运时段' : `所属大运：${cycleLabel}`,
         `所属流年：${yearItem.year}年 ${yearItem.ganZhi}`,
         `所属流月：${monthInfo.month} ${monthInfo.ganZhi}`,
         `流日：${actualDate} ${dayInfo.ganZhi}`,
@@ -935,29 +1047,26 @@ export function buildFortuneSelectionContext(
         dayTriggerSummary,
         `按子初换日（命理日口径，与节令月有效范围分列）：${ziChuStart} 至 ${ziChuEnd}`,
         ...(dayInfo.boundaryNote ? [`交节提示：${dayInfo.boundaryNote}`] : []),
-        ...(hoursClippedByBoundary
-          ? ['流时列表已按节令月有效范围与交节时刻裁剪，交节前后各时辰仅保留落在所选节令月范围内者']
-          : []),
+        ...(effectiveHourSummary ? [effectiveHourSummary] : []),
       ],
       selectedFacts: [
         `流日十神：${dayTenGod}`,
-        dayTriggerSummary,
+        ...dayTrigger.supplementalFacts,
         `按子初换日（命理日口径，与节令月有效范围分列）：${ziChuStart} 至 ${ziChuEnd}`,
         ...(dayInfo.boundaryNote ? [`交节提示：${dayInfo.boundaryNote}`] : []),
-        ...(hoursClippedByBoundary
-          ? ['流时列表已按节令月有效范围与交节时刻裁剪，交节前后各时辰仅保留落在所选节令月范围内者']
-          : []),
+        ...(effectiveHourSummary ? [effectiveHourSummary] : []),
       ],
       evidenceLines: buildFortuneEvidenceLines({
         scope: 'day',
         scopeLabel: `${actualDate}流日`,
         cycleLabel,
-        cycleGanZhi: cycle.ganZhi,
+        cycleGanZhi,
         selectedTitle: '流日干支与十神',
         selectedGanZhi: dayInfo.ganZhi,
         selectedTenGod: dayTenGod,
-        triggerSummary: dayTriggerSummary,
-        parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}；所属流月：${monthInfo.month}${monthInfo.ganZhi}。`,
+        parentText: cycle.isXiaoyun
+          ? `所属童运时段；所属流年：${yearItem.year}年${yearItem.ganZhi}；所属流月：${monthInfo.month}${monthInfo.ganZhi}。`
+          : `所属大运：${cycleLabel}（${cycleGanZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}；所属流月：${monthInfo.month}${monthInfo.ganZhi}。`,
         timingText: `按子初换日：${ziChuStart}至${ziChuEnd}；流时列表只作当日内短时触发参考。`,
         limitText: '流日只判断当日执行、沟通、避险和即时触发，不得改写长期命局或整年趋势。',
         triggerEvidence,

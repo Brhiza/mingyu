@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  addDivinationHistory,
+  getDivinationHistoryById,
+  loadDivinationHistory,
   loadCompatibilityHistory,
   loadPersonalHistory,
   upsertCompatibilityHistory,
   upsertPersonalHistory,
 } from '../src/lib/history-records';
+import { defaultDraft } from '../src/components/DivinationPanel/constants';
+import { resolveSignByNumber } from 'mingyu-core/divination/ssgw';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
+import { calculateHuangjiJingshi } from 'mingyu-core/huangji-jingshi';
+import { calculateWuyunLiuqi } from 'mingyu-core/wuyun-liuqi';
+import { generateDivinationSession, type DivinationSession } from '../src/lib/divination/engine';
 import { buildCompatibilityRecordPath } from '../src/lib/case-navigation';
 import {
   defaultInputState,
@@ -68,6 +77,180 @@ function withMockStorage(
   }
 }
 
+test('历史签谱只用保存的签号与原盘重建任务书，缓存污染不进入复制和解读', () => {
+  withMockStorage((storage) => {
+    const data = resolveSignByNumber(18, new Date('2025-06-18T10:30:00+08:00'));
+    const draft = { ...defaultDraft, method: 'ssgw' as const, question: '合作何时推进？' };
+    const session: DivinationSession = {
+      method: 'ssgw',
+      requestedMethod: 'ssgw',
+      question: draft.question,
+      prompt: '【签谱】\n第99签：错误签题\n\n【任务】\n旧格局重复。',
+      data: { ...data, story: undefined, details: undefined },
+    };
+    const saved = addDivinationHistory(draft, session);
+    assert.ok(saved);
+    const storedBefore = storage.get('prompt_studio_divination_history_v1');
+    const restored = getDivinationHistoryById(saved.id);
+    assert.ok(restored);
+    assert.equal(restored.session.data.number, 18);
+    assert.equal(restored.session.question, draft.question);
+    assert.match(restored.session.prompt, /第十八签|第18签/u);
+    assert.ok(restored.session.prompt.includes(data.title));
+    assert.ok(restored.session.prompt.includes(data.poem));
+    assert.match(restored.session.prompt, /典故：/u);
+    assert.doesNotMatch(restored.session.prompt, /第99签|旧格局重复/u);
+    assert.equal(storage.get('prompt_studio_divination_history_v1'), storedBefore);
+  });
+});
+
+test('历史塔罗按已保存牌阵身份校正展示，保留原牌序、时间、问题与补充资料', () => {
+  withMockStorage(() => {
+    const generated = drawTarotSpread('three', {
+      manualCards: [
+        { id: 1, reversed: false },
+        { id: 2, reversed: true },
+        { id: 3, reversed: false },
+      ],
+    });
+    const timestamp = Date.parse('2025-01-01T08:30:00+08:00');
+    const data = {
+      ...generated,
+      timestamp,
+      meta: generated.meta ? { ...generated.meta, calculatedAt: timestamp } : undefined,
+    };
+    const draft = {
+      ...defaultDraft,
+      method: 'tarot' as const,
+      question: '合作如何推进？',
+      userSupplement: '已经约定下周讨论方案。',
+      tarotSpread: 'three' as const,
+    };
+    const saved = addDivinationHistory(draft, {
+      method: 'tarot',
+      requestedMethod: 'tarot',
+      question: draft.question,
+      prompt: '【当前时间】\n错误缓存时间\n\n【占卜信息】\n旧牌阵',
+      data: { ...data, spreadName: '错误牌阵' },
+    });
+    assert.ok(saved);
+    const restored = getDivinationHistoryById(saved.id);
+    assert.ok(restored);
+    assert.equal((restored.session.data as typeof data).spreadName, '时间流牌阵');
+    assert.deepEqual((restored.session.data as typeof data).cards, data.cards);
+    assert.ok(restored.session.prompt.includes('时间流牌阵'));
+    assert.ok(restored.session.prompt.includes('2025年1月1日 8时30分'));
+    assert.ok(restored.session.prompt.includes('已经约定下周讨论方案。'));
+    assert.ok(restored.session.prompt.includes(draft.question));
+    assert.doesNotMatch(restored.session.prompt, /错误缓存时间|错误牌阵|旧牌阵/u);
+  });
+});
+
+test('历史签谱身份矛盾时拒绝选中，原记录仍在列表与存储中', () => {
+  withMockStorage((storage) => {
+    const data = resolveSignByNumber(18, new Date('2025-06-18T10:30:00+08:00'));
+    const draft = { ...defaultDraft, method: 'ssgw' as const, question: '合作何时推进？' };
+    const saved = addDivinationHistory(draft, {
+      method: 'ssgw',
+      requestedMethod: 'ssgw',
+      question: draft.question,
+      prompt: '【签谱】\n错误缓存',
+      data: { ...data, title: '第十九签' },
+    });
+    assert.ok(saved);
+    const storedBefore = storage.get('prompt_studio_divination_history_v1');
+    assert.throws(() => getDivinationHistoryById(saved.id), /签号、签谱内容或抽签记录不一致/u);
+    assert.equal(loadDivinationHistory()[0]?.id, saved.id);
+    assert.equal(storage.get('prompt_studio_divination_history_v1'), storedBefore);
+  });
+});
+
+test('历史皇极从保存的周期结果重建任务书，两个旧缓存都不再发送', () => {
+  withMockStorage(() => {
+    const data = calculateHuangjiJingshi({ year: 2025, question: '旧缓存问题' });
+    const draft = { ...defaultDraft, method: 'huangji' as const, question: '2025 年应如何安排？' };
+    const saved = addDivinationHistory(draft, {
+      method: 'huangji',
+      requestedMethod: 'huangji',
+      question: draft.question,
+      prompt: '【任务】\n旧 session 提示词',
+      data: { ...data, prompt: '【任务】\n旧 data 提示词' },
+    });
+    assert.ok(saved);
+    const restored = getDivinationHistoryById(saved.id);
+    assert.ok(restored);
+    assert.ok(restored.session.prompt.includes(draft.question));
+    assert.ok(restored.session.prompt.includes('2025'));
+    assert.doesNotMatch(restored.session.prompt, /旧缓存问题|旧 session 提示词|旧 data 提示词/u);
+  });
+});
+
+test('历史六爻重建沿用原盘、模板、问题与原占时，不再起卦', async () => {
+  const draft = {
+    ...defaultDraft,
+    method: 'liuyao' as const,
+    question: '双方合作接下来如何推进？',
+    questionSource: 'inspiration' as const,
+    liuyaoMethod: 'manual' as const,
+    liuyaoYaos: [6, 7, 8, 9, 7, 8] as Array<6 | 7 | 8 | 9>,
+    liuyaoTemplate: 'ganqing' as const,
+    divinationTimeMode: 'custom' as const,
+    customDivinationDate: '2025-01-01',
+    customDivinationTime: '08:30',
+  };
+  const original = await generateDivinationSession(draft);
+  withMockStorage(() => {
+    const saved = addDivinationHistory(draft, { ...original, prompt: '旧缓存格局与占时' });
+    assert.ok(saved);
+    const restored = getDivinationHistoryById(saved.id);
+    assert.ok(restored);
+    assert.deepEqual(restored.session.data, saved.session.data);
+    assert.deepEqual(restored.session.timeContext, saved.session.timeContext);
+    assert.ok(restored.session.prompt.includes('感情关系'));
+    assert.ok(restored.session.prompt.includes('2025年1月1日'));
+    assert.ok(restored.session.prompt.includes(draft.question));
+    assert.doesNotMatch(restored.session.prompt, /旧缓存格局与占时/u);
+  });
+});
+
+test('年度历史盘无时间戳时只沿用原时间段，原段缺失则不填入当前时间', () => {
+  withMockStorage(() => {
+    const data = calculateWuyunLiuqi({ year: 2025 });
+    assert.equal('timestamp' in data, false);
+    const draft = {
+      ...defaultDraft,
+      method: 'wuyun' as const,
+      question: '2025 年运气如何？',
+      wuyunYear: '2025',
+    };
+    const originalTime = '2025年1月2日 3时4分';
+    const withTime = addDivinationHistory(draft, {
+      method: 'wuyun',
+      requestedMethod: 'wuyun',
+      question: draft.question,
+      prompt: `【当前时间】\n${originalTime}\n\n【任务】\n旧任务`,
+      data,
+    });
+    assert.ok(withTime);
+    const restoredTime = getDivinationHistoryById(withTime.id)?.session.prompt;
+    assert.ok(restoredTime);
+    assert.ok(restoredTime.includes(`【当前时间】\n${originalTime}`));
+    assert.doesNotMatch(restoredTime, /旧任务/u);
+
+    const withoutTime = addDivinationHistory(draft, {
+      method: 'wuyun',
+      requestedMethod: 'wuyun',
+      question: draft.question,
+      prompt: '【任务】\n旧任务',
+      data,
+    });
+    assert.ok(withoutTime);
+    const restoredWithoutTime = getDivinationHistoryById(withoutTime.id)?.session.prompt;
+    assert.ok(restoredWithoutTime);
+    assert.doesNotMatch(restoredWithoutTime, /【当前时间】|旧任务/u);
+  });
+});
+
 test('案例存储写入失败时保留旧记录并向调用方报告失败', () => {
   withMockStorage((storage, setFail) => {
     const original = upsertPersonalHistory(createInput('旧案例'), 'bazi')[0];
@@ -111,7 +294,7 @@ test('四柱日期保存、重开与跨术数引用保留候选区间和秒数',
     await import('../src/pages/InputPage.field-helpers');
   const { buildChartFeaturePathForCase } = await import('../src/lib/case-navigation');
   const { parseInputState } = await import('../src/lib/query-state');
-  const pillars = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const pillars = getGanZhiFromDate(new Date('2000-01-07T09:00:00+08:00'));
   const candidate = reverseBaziDates({ pillars, startYear: 2000, endYear: 2000 }).candidates[0];
   assert.ok(candidate);
   const selection = resolveBaziReverseCandidate(candidate);

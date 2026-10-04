@@ -34,6 +34,7 @@ import {
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
+import { formatBaziCompatibilityFacts } from '@/lib/bazi-compatibility-facts';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
@@ -134,7 +135,6 @@ import {
   buildResidentialChartInput,
   resolveResidentialBirthDate,
   calculateResidentialChart,
-  type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
@@ -437,8 +437,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
     null,
   );
-  const [residentialMeasurement, setResidentialMeasurement] =
-    useState<ResidentialMeasurement | null>(null);
   const [qimenLifetimeCalculationRevision, setQimenLifetimeCalculationRevision] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const instantChartType = searchParams.get('instant');
@@ -710,7 +708,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             month: Number(inputState.month),
             day: Number(inputState.day),
           }
-        : baziResult.solarDate),
+        : (baziResult.birthClockTime ?? baziResult.solarDate)),
       hour: selectedBirthTime?.hour ?? 12,
       minute: selectedBirthTime?.minute ?? 0,
       second: inputState.birthSecond === '' ? 0 : Number(inputState.birthSecond),
@@ -731,6 +729,18 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         month: Number(inputState.month),
         day: Number(inputState.day),
         gender: inputState.gender,
+        ...(inputState.birthHour.trim() !== ''
+          ? {
+              hour: Number(inputState.birthHour),
+              ...(inputState.birthMinute.trim() === ''
+                ? {}
+                : { minute: Number(inputState.birthMinute) }),
+              ...(inputState.birthSecond.trim() === ''
+                ? {}
+                : { second: Number(inputState.birthSecond) }),
+              ...getFrontendBirthTimeZone(inputState.birthReverseSource),
+            }
+          : {}),
       },
       inputState.dateType,
       inputState.isLeapMonth,
@@ -910,7 +920,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   useEffect(() => {
     if (!canUseResidentialFengshui) {
       setResidentialResult(null);
-      setResidentialMeasurement(null);
       return;
     }
     try {
@@ -940,10 +949,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         }),
       );
       setResidentialResult(next.result);
-      setResidentialMeasurement(next.measurement);
     } catch {
       setResidentialResult(null);
-      setResidentialMeasurement(null);
       // URL 中的旧值或人工修改值无法生成时，住宅风水页仍允许用户重新测量。
     }
   }, [
@@ -957,16 +964,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     residentialBirthData,
   ]);
 
-  const handleBazhaiResultChange = useCallback(
-    (
-      nextResult: ResidentialFengshuiResult | null,
-      nextMeasurement: ResidentialMeasurement | null,
-    ) => {
-      setResidentialResult(nextResult);
-      setResidentialMeasurement(nextMeasurement);
-    },
-    [],
-  );
+  const handleBazhaiResultChange = useCallback((nextResult: ResidentialFengshuiResult | null) => {
+    setResidentialResult(nextResult);
+  }, []);
   const handleBazhaiDirectionDegreeChange = useCallback(
     (value: string) => {
       if (value !== promptState.bazhaiFacingDegree) {
@@ -2041,7 +2041,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     if (inputState.analysisMode === 'compatibility') {
       if (
-        !promptEngine ||
         !baziPromptSample.primary ||
         !baziPromptSample.partner ||
         !currentZiweiPayload ||
@@ -2052,13 +2051,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         return '';
       }
 
-      const baziCompatibilityPrompt = promptEngine.getCompatibilityPrompt(
-        question,
-        baziPromptSample.primary,
-        baziPromptSample.partner,
-        resolveCompatType(promptState.baziPresetId),
-        { isCustomQuestion: activeBaziShortcutMode === '自定义' },
-      );
       const ziweiCompatibilityPrompt = buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
@@ -2081,9 +2073,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       );
       const primaryZiweiText = buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
       const partnerZiweiText = buildEnhancedZiweiPromptPack(partnerZiweiPayload, ziweiTopic);
-      const baziCompatibilityText = buildCombinedPromptText(
-        baziCompatibilityPrompt.system,
-        baziCompatibilityPrompt.user,
+      const baziCompatibilityText = formatBaziCompatibilityFacts(
+        baziPromptSample.primary,
+        baziPromptSample.partner,
       );
       return buildBaziZiweiCompatibilityPrompt({
         primaryBaziText: buildEnhancedBaziPromptPack(
@@ -2096,7 +2088,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         baziCompatibilityText,
         ziweiCompatibilityText,
         question: finalQuestion || question,
-        currentSampleContext: formatCurrentBirthSampleContext(baziBirthRange.page),
+        currentSampleContext: formatCurrentBirthSampleContext(baziBirthRange.page, false),
       });
     }
 
@@ -2457,14 +2449,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
     return buildMetaphysicsPrompt(residentialResult.prompt, metaphysicsQuestionDraft, {
       method: 'residential',
-      measurement: residentialMeasurement?.promptText,
     });
   }, [
     canUseResidentialFengshui,
     metaphysicsQuestionDraft,
     promptState.promptSource,
     showAssistantPane,
-    residentialMeasurement,
     residentialResult,
   ]);
   const qimenLifetimePromptText = useMemo(() => {
@@ -2587,18 +2577,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             hour: Number(inputState.birthHour),
             minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
           }
-        : inputState.timeIndex !== ''
-          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]
-          : undefined;
+        : undefined;
 
     const person = {
       name: inputState.name || '命主',
       gender: inputState.gender,
-      birthYear: baziResult.solarDate.year,
-      birthMonth: baziResult.solarDate.month,
-      birthDay: baziResult.solarDate.day,
+      birthYear: baziResult.birthClockTime?.year ?? baziResult.solarDate.year,
+      birthMonth: baziResult.birthClockTime?.month ?? baziResult.solarDate.month,
+      birthDay: baziResult.birthClockTime?.day ?? baziResult.solarDate.day,
       birthHour: birthTime?.hour,
       birthMinute: birthTime?.minute,
+      ...(birthTime && inputState.birthSecond !== ''
+        ? { birthSecond: Number(inputState.birthSecond) }
+        : {}),
       birthPlace: inputState.birthPlace,
       birthLongitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       birthLatitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
@@ -2622,11 +2613,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.birthLatitude,
     inputState.birthLongitude,
     inputState.birthMinute,
+    inputState.birthSecond,
     inputState.birthReverseSource,
     inputState.birthPlace,
     inputState.gender,
     inputState.name,
-    inputState.timeIndex,
     inputState.useTrueSolarTime,
     qizhengCalculation.data,
     ziweiRuntime,

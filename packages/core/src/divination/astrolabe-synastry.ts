@@ -83,6 +83,11 @@ function normalizeLongitude(longitude: number) {
   return ((longitude % 360) + 360) % 360;
 }
 
+function personLabel(person: 'person1' | 'person2', name: string, otherName: string) {
+  const role = person === 'person1' ? '第一人' : '第二人';
+  return name === otherName ? (name === role ? role : `${role}${name}`) : name;
+}
+
 function angularDistance(left: number, right: number) {
   const distance = Math.abs(normalizeLongitude(left) - normalizeLongitude(right));
   return Math.min(distance, 360 - distance);
@@ -120,12 +125,10 @@ function calculateAspects(
       const actualAngle = angularDistance(point1.longitude, point2.longitude);
       for (const definition of ASPECT_DEFINITIONS) {
         const allowedOrb = options.aspectOrbs?.[definition.type] ?? definition.defaultOrb;
-        if (!Number.isFinite(allowedOrb) || allowedOrb <= 0 || allowedOrb > 15) {
-          throw new Error(`${definition.type}容许度需在 0 到 15 度之间。`);
-        }
         const orb = Math.abs(actualAngle - definition.angle);
         if (orb > allowedOrb) continue;
-        const orbRatio = Number((orb / allowedOrb).toFixed(4));
+        const rawOrbRatio = orb / allowedOrb;
+        const orbRatio = Number(rawOrbRatio.toFixed(4));
         results.push({
           key: `astrolabe:synastry:aspect:${point1.name}:${point2.name}:${definition.type}`,
           status: '已命中',
@@ -141,13 +144,13 @@ function calculateAspects(
           actualAngle: Number(actualAngle.toFixed(4)),
           orb: Number(orb.toFixed(4)),
           allowedOrb,
-          closeness: classifyAspectClosenessByRatio(orbRatio),
+          closeness: classifyAspectClosenessByRatio(rawOrbRatio),
           orbRatio,
           source: '双方本命盘黄经最小夹角与当前相位允许容许度',
           sourcePointKey: `astrolabe:synastry:point:person1:${point1.name}`,
           targetPointKey: `astrolabe:synastry:point:person2:${point2.name}`,
           calculationStepKey: 'astrolabe:synastry:calculation:aspect-filter',
-          promptText: `${chart1.birth.name}${point1.label}与${chart2.birth.name}${point2.label}实际夹角${actualAngle.toFixed(4)}°，距${definition.type}精确角${definition.angle}°偏差${orb.toFixed(4)}°，进入允许容许度${allowedOrb}°`,
+          promptText: `${personLabel('person1', chart1.birth.name, chart2.birth.name)}${point1.label}与${personLabel('person2', chart2.birth.name, chart1.birth.name)}${point2.label}实际夹角${actualAngle.toFixed(4)}°，距${definition.type}精确角${definition.angle}°偏差${orb.toFixed(4)}°，进入允许容许度${allowedOrb}°`,
           sources: ['双方本命计算点黄经', '主要相位精确角与当前容许度配置'],
           limitation: ASPECT_FACT_LIMITATION,
           tendency: definition.tendency,
@@ -180,8 +183,29 @@ function isLongitudeInArc(longitude: number, start: number, end: number) {
     : value >= normalizedStart || value < normalizedEnd;
 }
 
+function hasValidHouseCusps(houses: AstrolabePoint[]) {
+  if (houses.length !== 12) return false;
+  const sorted = [...houses].sort((left, right) => left.house - right.house);
+  let arcTotal = 0;
+  for (let index = 0; index < sorted.length; index += 1) {
+    const current = sorted[index];
+    const next = sorted[(index + 1) % sorted.length];
+    if (
+      current.house !== index + 1 ||
+      !Number.isFinite(current.longitude) ||
+      !Number.isFinite(next.longitude)
+    )
+      return false;
+    const arc =
+      (normalizeLongitude(next.longitude) - normalizeLongitude(current.longitude) + 360) % 360;
+    if (arc === 0) return false;
+    arcTotal += arc;
+  }
+  return Math.abs(arcTotal - 360) < 0.000001;
+}
+
 function locateHouse(longitude: number, houses: AstrolabePoint[]) {
-  if (houses.length !== 12) return null;
+  if (!hasValidHouseCusps(houses)) return null;
   const sorted = [...houses].sort((left, right) => left.house - right.house);
   for (let index = 0; index < sorted.length; index += 1) {
     const current = sorted[index];
@@ -221,7 +245,7 @@ function calculateOverlays(
             ownerChartKey: `astrolabe:synastry:chart:${ownerPerson}`,
             visitorPointKey: `astrolabe:synastry:point:${visitorPerson}:${point.name}`,
             calculationStepKey: 'astrolabe:synastry:calculation:house-overlays',
-            promptText: `${visitor.birth.name}${point.label}黄经${normalizeLongitude(point.longitude).toFixed(4)}°落入${owner.birth.name}第${placement.house}宫区间${normalizeLongitude(placement.start).toFixed(4)}°至${normalizeLongitude(placement.end).toFixed(4)}°`,
+            promptText: `${personLabel(visitorPerson, visitor.birth.name, owner.birth.name)}${point.label}黄经${normalizeLongitude(point.longitude).toFixed(4)}°落入${personLabel(ownerPerson, owner.birth.name, visitor.birth.name)}第${placement.house}宫区间${normalizeLongitude(placement.start).toFixed(4)}°至${normalizeLongitude(placement.end).toFixed(4)}°`,
             sources: ['访客本命计算点黄经', '宫主本命十二宫宫头黄经区间'],
             limitation: HOUSE_OVERLAY_LIMITATION,
           },
@@ -260,7 +284,7 @@ function buildBaseCalculationSteps(params: {
         person2HouseCount: params.chart2.houses.length,
       },
       dependsOnStepKeys: [],
-      promptText: `已校验${params.chart1.birth.name}与${params.chart2.birth.name}两份本命盘及计算点黄经`,
+      promptText: `已校验${personLabel('person1', params.chart1.birth.name, params.chart2.birth.name)}与${personLabel('person2', params.chart2.birth.name, params.chart1.birth.name)}两份本命盘及计算点黄经`,
       sources: ['双方本命出生资料、计算点黄经与宫头资料'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -323,12 +347,12 @@ function buildBaseCalculationSteps(params: {
         person2HouseCount: params.chart2.houses.length,
       },
       result: {
-        person1HouseCuspsComplete: params.chart1.houses.length === 12,
-        person2HouseCuspsComplete: params.chart2.houses.length === 12,
+        person1HouseCuspsComplete: hasValidHouseCusps(params.chart1.houses),
+        person2HouseCuspsComplete: hasValidHouseCusps(params.chart2.houses),
       },
       dependsOnStepKeys: ['astrolabe:synastry:calculation:input'],
       promptText: houseOverlaysEnabled
-        ? `已核验双方宫头数量，第一人${params.chart1.houses.length}个、第二人${params.chart2.houses.length}个`
+        ? `已核验双方宫头序号与黄经区间，第一人${hasValidHouseCusps(params.chart1.houses) ? '完整有效' : '资料无效'}、第二人${hasValidHouseCusps(params.chart2.houses) ? '完整有效' : '资料无效'}`
         : '当前明确关闭跨盘落宫计算，仍保留关闭状态',
       sources: ['双方本命宫头序号与黄经资料', '跨盘落宫开关'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -351,7 +375,7 @@ function buildBaseCalculationSteps(params: {
         'astrolabe:synastry:calculation:house-cusps',
       ],
       promptText: houseOverlaysEnabled
-        ? `访客点黄经按宫主十二宫宫头区间完成双向定位，记录${params.overlays.length}项跨盘落宫事实`
+        ? `访客点黄经按宫主有效十二宫宫头区间定位，记录${params.overlays.length}项跨盘落宫事实`
         : '跨盘落宫计算已关闭，未生成落宫事实',
       sources: ['访客计算点黄经', '宫主十二宫宫头黄经区间'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -370,7 +394,7 @@ function buildCounterEvidenceFacts(params: {
   const tense = params.aspects.filter((item) => item.tendency === '紧张');
   const overlaysEnabled = params.options.includeHouseOverlays !== false;
   const houseDataComplete =
-    params.chart1.houses.length === 12 && params.chart2.houses.length === 12;
+    hasValidHouseCusps(params.chart1.houses) && hasValidHouseCusps(params.chart2.houses);
   return [
     {
       key: 'astrolabe:synastry:counter:aspect-coverage',
@@ -404,7 +428,7 @@ function buildCounterEvidenceFacts(params: {
       promptText: !overlaysEnabled
         ? '当前明确关闭跨盘落宫计算，不把缺少落宫事实误写成未命中'
         : !houseDataComplete
-          ? '至少一方未提供完整十二宫宫头，无法安全生成跨盘落宫事实'
+          ? `至少一方宫头序号或黄经区间无效；${params.overlays.length ? `仅保留${params.overlays.length}项可定位方向的落宫事实` : '无法生成跨盘落宫事实'}`
           : params.overlays.length
             ? `当前记录${params.overlays.length}项跨盘落宫事实`
             : '双方宫头完整但当前所选点未形成可定位落宫；不得补造宫位',
@@ -596,7 +620,7 @@ function createEvidence(
 ): PromptEvidenceBundle {
   const aspectItems = aspects.slice(0, 16).map((aspect): PromptEvidenceItem => ({
     level: aspect.closeness === '紧密' && aspect.tags.includes('核心点') ? '主证' : '辅证',
-    title: `${aspect.person1}${aspect.point1}${aspect.symbol}${aspect.person2}${aspect.point2}`,
+    title: `${personLabel('person1', aspect.person1, aspect.person2)}${aspect.point1}${aspect.symbol}${personLabel('person2', aspect.person2, aspect.person1)}${aspect.point2}`,
     detail: `${aspect.promptText}，属于${aspect.closeness}等级；此处只记录跨盘相位事实，不单独推导关系吉凶；边界：${aspect.limitation}`,
     source: aspect.sources.join('、'),
     tags: [...aspect.tags, aspect.tendency],
@@ -606,7 +630,7 @@ function createEvidence(
     .slice(0, 12)
     .map((overlay): PromptEvidenceItem => ({
       level: '辅证',
-      title: `${overlay.visitor}${overlay.point}落入${overlay.owner}第${overlay.house}宫`,
+      title: `${personLabel(overlay.visitorPerson, overlay.visitor, overlay.owner)}${overlay.point}落入${personLabel(overlay.ownerPerson, overlay.owner, overlay.visitor)}第${overlay.house}宫`,
       detail: `${overlay.promptText}；边界：${overlay.limitation}`,
       source: overlay.sources.join('、'),
       tags: ['西占合盘', '跨盘落宫'],
@@ -664,11 +688,19 @@ export function analyzeAstrolabeSynastry(
   options: AstrolabeSynastryOptions = {},
 ): AstrolabeSynastryData {
   if (!chart1?.birth || !chart2?.birth) throw new Error('西占合盘需要两份完整本命盘。');
+  chart1 = { ...chart1, birth: { ...chart1.birth, name: chart1.birth.name?.trim() || '第一人' } };
+  chart2 = { ...chart2, birth: { ...chart2.birth, name: chart2.birth.name?.trim() || '第二人' } };
   if (
     options.maxAspects !== undefined &&
     (!Number.isInteger(options.maxAspects) || options.maxAspects < 1 || options.maxAspects > 200)
   ) {
     throw new Error('西占合盘最大相位数需为 1 到 200 之间的整数。');
+  }
+  for (const definition of ASPECT_DEFINITIONS) {
+    const allowedOrb = options.aspectOrbs?.[definition.type] ?? definition.defaultOrb;
+    if (!Number.isFinite(allowedOrb) || allowedOrb <= 0 || allowedOrb > 15) {
+      throw new Error(`${definition.type}容许度需在 0 到 15 度之间。`);
+    }
   }
   const selectedNames = new Set(options.pointNames ?? DEFAULT_POINT_NAMES);
   const aspectCalculation = calculateAspects(chart1, chart2, options);
@@ -746,11 +778,26 @@ export function analyzeAstrolabeSynastry(
     summaryFact,
     limitationFacts,
   );
-  const evidenceLines = formatPromptEvidenceBundle(evidence);
+  const evidenceLines = formatPromptEvidenceBundle({
+    ...evidence,
+    items: evidence.items.map((item) => ({ ...item, source: undefined })),
+  });
   // 接纳与互溶基于全部命中相位计算，不受返回上限截断影响，并沿用计算点筛选
   const receptionsResult = evaluateAstrolabeSynastryReceptions(
-    chart1,
-    chart2,
+    {
+      ...chart1,
+      birth: {
+        ...chart1.birth,
+        name: personLabel('person1', chart1.birth.name, chart2.birth.name),
+      },
+    },
+    {
+      ...chart2,
+      birth: {
+        ...chart2.birth,
+        name: personLabel('person2', chart2.birth.name, chart1.birth.name),
+      },
+    },
     aspectCalculation.matchedAspects,
     { pointNames: selectedNames },
   );

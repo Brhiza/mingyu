@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'chen-month-xin-ren-jia-first',
+    label: '辛日辰月先壬后甲规则',
+    description: '三月辛金戊土司令，原文先壬水洗金、后甲木疏土；透藏不同另分层次。',
+    priority: 115,
+    months: ['辰'],
+    dayMasters: ['金'],
+    dayStems: ['辛'],
+    usefulWuxing: '水',
+    favorableOrder: ['水', '木'],
+    hint: '辛金辰月，先壬后甲',
+  },
+  {
     id: 'chen-month-xin-ren-jia-all',
     label: '辛日辰月壬甲两透富贵规则',
     description:

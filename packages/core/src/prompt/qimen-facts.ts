@@ -1,6 +1,9 @@
 import type { QimenData } from '../types/divination';
-import { isKe, isSheng, STEM_WUXING, TIAN_GAN_HE, TIAN_GAN_CHONG } from '../ganzhi';
+import { isKe, isSheng, STEM_WUXING } from '../ganzhi';
 import { getDunJiaStem, hasTianPanStem } from '../divination/algorithms/qimen/helpers/palace-utils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 type Palace = QimenData['jiuGongGe'][number];
 
@@ -30,13 +33,7 @@ function elementRelation(a: string, ae: string, b: string, be: string): string {
 export function formatQimenHourStem(data: QimenData): string {
   const hourStem = data.ganzhi.hour.charAt(0);
   const locatedStem = getDunJiaStem(data.ganzhi.hour);
-  const sky = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, locatedStem));
-  const earth = data.jiuGongGe.filter((palace) => palace.diPan.stem === locatedStem);
-  return [
-    `时干${hourStem}${hourStem === '甲' ? `（${data.ganzhi.hour}遁于${locatedStem}）` : ''}`,
-    `天盘${locatedStem}：${sky.map((palace) => palace.name).join('、') || '未见落宫'}`,
-    `地盘${locatedStem}：${earth.map((palace) => palace.name).join('、') || '未见落宫'}`,
-  ].join('；');
+  return `时干${hourStem}${hourStem === '甲' ? `（${data.ganzhi.hour}遁于${locatedStem}）` : ''}`;
 }
 
 /** 按奇门排盘范围格式化主动干及其六甲遁干落点。 */
@@ -52,17 +49,11 @@ export function formatQimenActiveStem(data: QimenData): string {
   const activeGanZhi = data.ganzhi[scope] ?? data.ganzhi.hour;
   const activeStem = activeGanZhi.charAt(0);
   const visibleStem = getDunJiaStem(activeGanZhi);
-  const sky = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, visibleStem));
-  const earth = data.jiuGongGe.filter((palace) => palace.diPan.stem === visibleStem);
   const label =
     activeStem === visibleStem
       ? `${config.label}${activeStem}`
       : `${config.label}${activeStem}（${activeGanZhi}遁于${visibleStem}）`;
-  return [
-    label,
-    `天盘${visibleStem}：${sky.map((palace) => palace.name).join('、') || '未见落宫'}`,
-    `地盘${visibleStem}：${earth.map((palace) => palace.name).join('、') || '未见落宫'}`,
-  ].join('；');
+  return label;
 }
 
 export function formatQimenRelationFacts(
@@ -89,8 +80,13 @@ export function formatQimenRelationFacts(
         earthElement,
       );
       const combine =
-        TIAN_GAN_HE[sky!]?.partner === earth ? `；天干五合：${sky}与${earth}相合` : '';
-      const clash = TIAN_GAN_CHONG[sky!] === earth ? `；天干相冲：${sky}与${earth}相冲` : '';
+        GANZHI_RELATION_TABLES.TIAN_GAN_HE[sky!]?.partner === earth
+          ? `；天干五合：${sky}与${earth}相合`
+          : '';
+      const clash =
+        GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[sky!] === earth
+          ? `；天干相冲：${sky}与${earth}相冲`
+          : '';
       lines.push(`${useful.name}天地盘干：${relation}${combine}${clash}`);
     }
   }

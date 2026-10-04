@@ -4,6 +4,8 @@
  */
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { getXunKongBranches } from '../ganzhi';
+import { daysInSolarMonth } from './date-validation';
+import { TimeManager } from './timeManager';
 
 /**
  * 干支信息接口
@@ -27,8 +29,10 @@ export interface LunarInfo {
   monthInChinese: string;
   dayInChinese: string;
   hourInChinese: string;
-  // 添加数字格式的月日
+  /** 农历纪年公元年；与干支年字段分开，供日期往返换算。 */
+  yearNumber: number;
   monthNumber: number;
+  isLeapMonth: boolean;
   dayNumber: number;
 }
 
@@ -78,12 +82,6 @@ export class LunarUtil {
     }
   }
 
-  private static assertSolarMonth(month: number): void {
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
-      throw new Error('月份需在 1-12 之间。');
-    }
-  }
-
   private static parseLunarDayText(lunarText: string): {
     yearInChinese: string;
     monthInChinese: string;
@@ -111,61 +109,7 @@ export class LunarUtil {
    */
   static getTimeInfo(date: Date): TimeInfo {
     this.assertValidDate(date);
-    try {
-      const solarTime = SolarTime.fromYmdHms(
-        date.getFullYear(),
-        date.getMonth() + 1,
-        date.getDate(),
-        date.getHours(),
-        date.getMinutes(),
-        date.getSeconds(),
-      );
-      const solar = solarTime.getSolarDay();
-      const lunarHour = solarTime.getLunarHour();
-      const lunar = lunarHour.getLunarDay();
-      const eightChar = lunarHour.getEightChar();
-      const jieQi = solarTime.getTerm();
-      const lunarText = this.parseLunarDayText(lunar.toString());
-
-      return {
-        solar: {
-          year: solar.getYear(),
-          month: solar.getMonth(),
-          day: solar.getDay(),
-          hour: date.getHours(),
-          minute: date.getMinutes(),
-        },
-        lunar: {
-          year: eightChar.getYear().getName(),
-          month: eightChar.getMonth().getName(),
-          day: eightChar.getDay().getName(),
-          hour: eightChar.getHour().getName(),
-          yearInChinese: lunarText.yearInChinese,
-          monthInChinese: lunarText.monthInChinese,
-          dayInChinese: lunarText.dayInChinese,
-          hourInChinese: lunarHour.getName(),
-          // 添加数字格式的月日（tyme4ts 闰月返回负数，规范为正数月序，闰月标志另行处理）
-          monthNumber: Math.abs(lunar.getMonth()),
-          dayNumber: lunar.getDay(),
-        },
-        ganzhi: {
-          year: eightChar.getYear().getName(),
-          month: eightChar.getMonth().getName(),
-          day: eightChar.getDay().getName(),
-          hour: eightChar.getHour().getName(),
-        },
-        eightChar: {
-          year: eightChar.getYear().getName(),
-          month: eightChar.getMonth().getName(),
-          day: eightChar.getDay().getName(),
-          hour: eightChar.getHour().getName(),
-        },
-        jieQi: jieQi.getName(),
-      };
-    } catch (error) {
-      console.error('tyme4ts库调用失败:', error);
-      throw error;
-    }
+    return TimeManager.getDivinationTime(date).timeInfo;
   }
 
   /**
@@ -174,27 +118,7 @@ export class LunarUtil {
   static getGanZhi(date?: Date): GanZhiInfo {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
-    try {
-      const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
-      );
-      const eightChar = solarTime.getLunarHour().getEightChar();
-
-      return {
-        year: eightChar.getYear().getName(),
-        month: eightChar.getMonth().getName(),
-        day: eightChar.getDay().getName(),
-        hour: eightChar.getHour().getName(),
-      };
-    } catch (error) {
-      console.error('tyme4ts库调用失败:', error);
-      throw error;
-    }
+    return TimeManager.getDivinationTime(targetDate).ganzhi;
   }
 
   /**
@@ -203,37 +127,7 @@ export class LunarUtil {
   static getLunar(date?: Date): LunarInfo {
     const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
-    try {
-      const solarTime = SolarTime.fromYmdHms(
-        targetDate.getFullYear(),
-        targetDate.getMonth() + 1,
-        targetDate.getDate(),
-        targetDate.getHours(),
-        targetDate.getMinutes(),
-        targetDate.getSeconds(),
-      );
-      const lunarHour = solarTime.getLunarHour();
-      const lunar = lunarHour.getLunarDay();
-      const eightChar = lunarHour.getEightChar();
-      const lunarText = this.parseLunarDayText(lunar.toString());
-
-      return {
-        year: eightChar.getYear().getName(),
-        month: eightChar.getMonth().getName(),
-        day: eightChar.getDay().getName(),
-        hour: eightChar.getHour().getName(),
-        yearInChinese: lunarText.yearInChinese,
-        monthInChinese: lunarText.monthInChinese,
-        dayInChinese: lunarText.dayInChinese,
-        hourInChinese: lunarHour.getName(),
-        // 添加数字格式的月日（tyme4ts 闰月返回负数，此处规范为正数月序，闰月标志另行处理）
-        monthNumber: Math.abs(lunar.getMonth()),
-        dayNumber: lunar.getDay(),
-      };
-    } catch (error) {
-      console.error('tyme4ts库调用失败:', error);
-      throw error;
-    }
+    return TimeManager.getDivinationTime(targetDate).timeInfo.lunar;
   }
 
   /**
@@ -296,9 +190,7 @@ export class LunarUtil {
     year: number,
     month: number,
   ): { date: string; ganZhi: string; lunarDate: string }[] {
-    this.assertSolarYear(year);
-    this.assertSolarMonth(month);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth = daysInSolarMonth(year, month);
     const result = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const solar = SolarDay.fromYmd(year, month, day);
