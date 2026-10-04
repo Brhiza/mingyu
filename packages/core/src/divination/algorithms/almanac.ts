@@ -1670,22 +1670,33 @@ export function generateAlmanacSelection(params: {
   weekendPreference?: 'any' | 'prefer' | 'avoid';
   timePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
 }): AlmanacData {
-  assertAlmanacTopic(params.topic);
+  const {
+    topic,
+    startDate,
+    endDate,
+    participants: participantInputs,
+    weekendPreference: requestedWeekendPreference,
+    timePreferences: requestedTimePreferences,
+  } = params;
+  const timePreferences = Array.isArray(requestedTimePreferences)
+    ? [...requestedTimePreferences]
+    : requestedTimePreferences;
+  assertAlmanacTopic(topic);
   if (
-    params.weekendPreference !== undefined &&
-    !['any', 'prefer', 'avoid'].includes(params.weekendPreference)
+    requestedWeekendPreference !== undefined &&
+    !['any', 'prefer', 'avoid'].includes(requestedWeekendPreference)
   ) {
     throw new Error('周末偏好必须为不限、优先周末或避开周末');
   }
   if (
-    params.timePreferences !== undefined &&
-    (!Array.isArray(params.timePreferences) ||
-      params.timePreferences.some((item) => !['work-hours', 'morning', 'afternoon'].includes(item)))
+    timePreferences !== undefined &&
+    (!Array.isArray(timePreferences) ||
+      timePreferences.some((item) => !['work-hours', 'morning', 'afternoon'].includes(item)))
   ) {
     throw new Error('时段偏好只能为工作时间、上午或下午');
   }
-  const start = parseDateText(params.startDate, '开始日期');
-  const end = parseDateText(params.endDate, '结束日期');
+  const start = parseDateText(startDate, '开始日期');
+  const end = parseDateText(endDate, '结束日期');
   const diffDays = Math.round((end.date.getTime() - start.date.getTime()) / 86400000);
 
   if (diffDays < 0) {
@@ -1695,19 +1706,19 @@ export function generateAlmanacSelection(params: {
     throw new Error('黄历择日一次最多比较 180 天，请缩小日期范围');
   }
 
-  const participants = createParticipantProfiles(params.participants ?? []);
-  const weekendPreference = params.timePreferences?.includes('work-hours')
+  const participants = createParticipantProfiles(participantInputs ?? []);
+  const weekendPreference = timePreferences?.includes('work-hours')
     ? 'avoid'
-    : (params.weekendPreference ?? 'any');
+    : (requestedWeekendPreference ?? 'any');
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
     current.setUTCDate(start.date.getUTCDate() + index);
-    return buildDayCandidate(current, params.topic, participants);
+    return buildDayCandidate(current, topic, participants);
   }).sort((a, b) => {
     const statusDifference =
-      statusPriority[classifyAlmanacCandidate(a, params.timePreferences).status] -
-      statusPriority[classifyAlmanacCandidate(b, params.timePreferences).status];
+      statusPriority[classifyAlmanacCandidate(a, timePreferences).status] -
+      statusPriority[classifyAlmanacCandidate(b, timePreferences).status];
     const aWeekend = a.weekday === '星期六' || a.weekday === '星期日' ? 1 : 0;
     const bWeekend = b.weekday === '星期六' || b.weekday === '星期日' ? 1 : 0;
     const weekendDifference =
@@ -1725,12 +1736,12 @@ export function generateAlmanacSelection(params: {
   });
 
   const result: AlmanacData = {
-    topic: params.topic,
-    topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
-    startDate: params.startDate,
-    endDate: params.endDate,
+    topic,
+    topicLabel: ALMANAC_TOPIC_LABELS[topic],
+    startDate,
+    endDate,
     weekendPreference,
-    timePreferences: [...(params.timePreferences ?? [])],
+    timePreferences: [...(timePreferences ?? [])],
     days,
     participants,
     timestamp: Date.now(),

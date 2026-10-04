@@ -300,13 +300,73 @@ test('六步节令和主客气关系应完整覆盖二十四节气', () => {
 test('公历年换算应采用稳定年中口径，并校验显式干支一致性', () => {
   assert.equal(getWuyunLiuqiYearGanZhi(1984), '甲子');
   assert.equal(getWuyunLiuqiYearGanZhi(2024), '甲辰');
-  assert.equal(calculateWuyunLiuqi({ year: 2026 }).input.yearGanZhi, '丙午');
+  const normalInput = { year: 2026 };
+  const originalInput = structuredClone(normalInput);
+  const normalResult = calculateWuyunLiuqi(normalInput);
+  assert.equal(normalResult.input.yearGanZhi, '丙午');
+  assert.deepEqual(normalInput, originalInput);
   assert.throws(
     () => calculateWuyunLiuqi({ year: 2026, yearGanZhi: '乙巳' }),
     /year 与 yearGanZhi 不一致/,
   );
   assert.throws(() => calculateWuyunLiuqi({}), /必须提供 year 或 yearGanZhi/);
   assert.throws(() => calculateWuyunLiuqi({ yearGanZhi: '甲丑' }), /年干支组合无效/);
+
+  const firstYearResult = getCycleResult('甲子');
+  let yearReads = 0;
+  let ganZhiReads = 0;
+  const dynamicResult = calculateWuyunLiuqi({
+    get year() {
+      yearReads += 1;
+      return yearReads === 1 ? undefined : 2025;
+    },
+    get yearGanZhi() {
+      ganZhiReads += 1;
+      return ganZhiReads === 1 ? '甲子' : '乙巳';
+    },
+  });
+  assert.equal(yearReads, 1);
+  assert.equal(ganZhiReads, 1);
+  assert.equal(dynamicResult.input.year, undefined);
+  assert.equal(dynamicResult.input.yearGanZhi, '甲子');
+  assert.deepEqual(
+    [dynamicResult.annualMovement.element, dynamicResult.annualMovement.strength],
+    ['土', '太过'],
+  );
+  assert.deepEqual(
+    [dynamicResult.sitian.name, dynamicResult.zaiquan.name],
+    ['少阴君火', '阳明燥金'],
+  );
+  assert.deepEqual(dynamicResult, firstYearResult);
+  assert.match(dynamicResult.prompt, /【任务】/);
+  assert.match(dynamicResult.prompt, /年干支：甲子/);
+  assert.match(dynamicResult.prompt, /土运（太宫），太过/);
+  assert.equal(dynamicResult.prompt, firstYearResult.prompt);
+
+  let invalidYearReads = 0;
+  assert.throws(
+    () =>
+      calculateWuyunLiuqi({
+        get year() {
+          invalidYearReads += 1;
+          return invalidYearReads === 1 ? 0 : 2026;
+        },
+      }),
+    /公历年必须是 1-9999 之间的整数/,
+  );
+  assert.equal(invalidYearReads, 1);
+  let invalidGanZhiReads = 0;
+  assert.throws(
+    () =>
+      calculateWuyunLiuqi({
+        get yearGanZhi() {
+          invalidGanZhiReads += 1;
+          return invalidGanZhiReads === 1 ? '' : '甲子';
+        },
+      }),
+    /年干支组合无效/,
+  );
+  assert.equal(invalidGanZhiReads, 1);
 });
 
 test('运气年度在北京时间大寒交节瞬时切换', () => {

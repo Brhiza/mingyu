@@ -429,15 +429,16 @@ export function getWuyunLiuqiYearAt(date: Date): number {
 }
 
 function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'] {
-  const hasYear = input.year !== undefined;
-  const hasGanZhi = input.yearGanZhi !== undefined;
+  const { year: inputYear, yearGanZhi: inputYearGanZhi } = input;
+  const hasYear = inputYear !== undefined;
+  const hasGanZhi = inputYearGanZhi !== undefined;
   if (!hasYear && !hasGanZhi) {
     throw new Error('必须提供 year 或 yearGanZhi。');
   }
 
-  const year = hasYear ? normalizeYear(input.year as number) : undefined;
-  if (input.yearGanZhi !== undefined) {
-    const yearGanZhi = input.yearGanZhi.trim();
+  const year = hasYear ? normalizeYear(inputYear as number) : undefined;
+  if (inputYearGanZhi !== undefined) {
+    const yearGanZhi = inputYearGanZhi.trim();
     assertValidGanZhi(yearGanZhi, '年干支');
     if (year !== undefined) {
       const derived = getWuyunLiuqiYearGanZhi(year);

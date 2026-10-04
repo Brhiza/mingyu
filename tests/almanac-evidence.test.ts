@@ -5,6 +5,7 @@ import {
   conditionAlmanacTraditionalText,
   generateAlmanacSelection,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 
 const moveSingleDaySelection = generateAlmanacSelection({
   topic: 'move',
@@ -71,12 +72,16 @@ test('同类事项的不同步骤宜忌并存时保留原始列项与慎用裁�
   assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /事项支持：/);
 });
 
-test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证据', () => {
-  const result = generateAlmanacSelection({
-    topic: 'marriage',
+test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证据', (t) => {
+  const currentTime = new Date('2026-10-04T08:00:00Z');
+  t.mock.method(Date, 'now', () => currentTime.getTime());
+  const normalInput = {
+    topic: 'marriage' as const,
     startDate: '2026-12-21',
     endDate: '2026-12-21',
-  });
+  };
+  const originalInput = structuredClone(normalInput);
+  const result = generateAlmanacSelection(normalInput);
   const day = result.days[0];
   const candidate = result.evidenceAnalysis?.candidates[0];
   const fourSeparations = day.topicMatchFacts?.find(
@@ -117,6 +122,70 @@ test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证�
   assert.deepEqual(customGodStep?.factKeys, []);
   assert.match(customGodStep?.result ?? '', /明确事项规则支持0项，限制0项/);
   assert.doesNotMatch(customDecision?.promptText ?? '', /值日神煞：吉神|值日神煞：凶神/);
+
+  const reads = { topic: 0, startDate: 0, endDate: 0, participants: 0, weekend: 0, times: 0 };
+  const dynamic = generateAlmanacSelection({
+    get topic() {
+      reads.topic += 1;
+      return reads.topic === 1 ? 'marriage' : 'travel';
+    },
+    get startDate() {
+      reads.startDate += 1;
+      return reads.startDate === 1 ? '2026-12-21' : '错误日期';
+    },
+    get endDate() {
+      reads.endDate += 1;
+      return reads.endDate === 1 ? '2026-12-21' : '错误日期';
+    },
+    get participants() {
+      reads.participants += 1;
+      return reads.participants === 1 ? undefined : [];
+    },
+    get weekendPreference() {
+      reads.weekend += 1;
+      return reads.weekend === 1 ? undefined : 'prefer';
+    },
+    get timePreferences() {
+      reads.times += 1;
+      return reads.times === 1 ? [] : (['work-hours'] as const).slice();
+    },
+  });
+  assert.deepEqual(reads, {
+    topic: 1,
+    startDate: 1,
+    endDate: 1,
+    participants: 1,
+    weekend: 1,
+    times: 1,
+  });
+  assert.equal(dynamic.topic, 'marriage');
+  assert.equal(dynamic.topicLabel, '订婚结婚');
+  assert.equal(dynamic.startDate, '2026-12-21');
+  assert.equal(dynamic.endDate, '2026-12-21');
+  assert.equal(dynamic.weekendPreference, 'any');
+  assert.deepEqual(dynamic.timePreferences, []);
+  assert.deepEqual(dynamic.participants, []);
+  assert.deepEqual(dynamic, result);
+  assert.deepEqual(normalInput, originalInput);
+
+  const normalTask = buildDivinationPrompt({
+    method: 'almanac',
+    data: result,
+    question: '这天适合婚嫁吗？',
+    currentTime,
+  });
+  const dynamicTask = buildDivinationPrompt({
+    method: 'almanac',
+    data: dynamic,
+    question: '这天适合婚嫁吗？',
+    currentTime,
+  });
+  assert.match(normalTask, /【任务】/);
+  assert.match(normalTask, /订婚结婚/);
+  assert.match(normalTask, /2026-12-21/);
+  assert.match(normalTask, /四离/);
+  assert.doesNotMatch(normalTask, /占卜信息暂不可用/);
+  assert.equal(dynamicTask, normalTask);
 });
 
 test('黄历择日应内置透明约束与候选证据', () => {
