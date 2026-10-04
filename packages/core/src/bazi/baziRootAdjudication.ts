@@ -1,11 +1,14 @@
 import type { HiddenStems, Wuxing } from './baziTypes';
-import { BASIC_MAPPINGS } from './baziDefinitions';
+
 import {
   collectSameElementRootFacts,
   type RootPillars,
   type SameElementRootFact,
 } from './baziRootFacts';
 import { getSeasonStatus } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export type RootClashStatus = '未受冲' | '得令本气受失令异类冲' | '库土本气同类冲动' | '受冲待核';
 
@@ -40,7 +43,7 @@ export function collectAdjudicatedRootFacts(
             ? '己'
             : undefined;
       // collectSameElementRootFacts 已由公共 DI_ZHI_CHONG 生成 clashSources；这里复用同一真相源。
-      const storageOpposite = BASIC_MAPPINGS.DI_ZHI_CHONG[root.branch];
+      const storageOpposite = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[root.branch];
       const isStorageEarthPrincipalClash =
         targetElement === '土' &&
         principal &&

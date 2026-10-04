@@ -4,7 +4,10 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildEnhancedAstrolabeSection } from '../packages/core/src/minglu/astrolabe-enhancer.ts';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe.ts';
-import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe.ts';
+import {
+  buildAstrolabePromptDocument,
+  formatAstrolabeForPrompt,
+} from '../packages/core/src/prompt/astrolabe.ts';
 import { MingluAstrolabeSection } from '../src/pages/ResultPage/components/MingluWiki/MingluAstrolabeSection.tsx';
 
 test('占星元素与模式占比以十大星体计数，并在界面和提示词中明确口径', () => {
@@ -57,6 +60,41 @@ test('占星元素与模式占比以十大星体计数，并在界面和提示�
   );
   assert.match(prompt, /元素分布（十大星体）：/u);
   assert.match(prompt, /模式分布（十大星体）：/u);
+
+  const originalChart = structuredClone(chart);
+  const originalSection = structuredClone(section);
+  const originalDistributions = originalSection.distributions;
+  const originalMarkup = html;
+  const originalTaskbook = buildAstrolabePromptDocument({
+    chart,
+    question: '核对元素与模式统计',
+    currentTime: new Date('2026-10-04T00:00:00.000Z'),
+  }).text;
+  assert.match(originalTaskbook, /【星盘资料】/u);
+  assert.match(originalTaskbook, /【任务】/u);
+  assert.match(originalTaskbook, /元素分布（十大星体）：/u);
+  assert.match(originalTaskbook, /模式分布（十大星体）：/u);
+
+  section.distributions.elements.火.points.push('污染元素点');
+  section.distributions.modalities.固定.points.push('污染形态点');
+  assert.deepEqual(chart, originalChart);
+
+  const freshSection = buildEnhancedAstrolabeSection(chart);
+  assert.deepEqual(freshSection, originalSection);
+  assert.deepEqual(freshSection.distributions, originalDistributions);
+  const freshMarkup = renderToStaticMarkup(
+    createElement(MingluAstrolabeSection, { data: freshSection }),
+  );
+  assert.equal(freshMarkup, originalMarkup);
+  assert.doesNotMatch(freshMarkup, /污染元素点|污染形态点/u);
+  assert.equal(formatAstrolabeForPrompt(chart), prompt);
+  const freshTaskbook = buildAstrolabePromptDocument({
+    chart,
+    question: '核对元素与模式统计',
+    currentTime: new Date('2026-10-04T00:00:00.000Z'),
+  }).text;
+  assert.equal(freshTaskbook, originalTaskbook);
+  assert.match(freshTaskbook, /【任务】[\s\S]*核对元素与模式统计/u);
 
   const sparse = {
     ...chart,

@@ -16,10 +16,13 @@ import {
   collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
 } from '../baziFormationUtils';
-import { HIDDEN_STEMS } from '../baziMappingsData';
+
 import { assessStemHarmonyTransform } from '../harmonyTransform';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
 import { assessQuzhiPattern } from '../baziQuzhiStrategy';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface ClassicPattern {
   id: string;
@@ -531,7 +534,9 @@ function resolveHiddenStems(
   key: ClassicPillarKey,
 ): string[] {
   const supplied = hiddenStems?.[key];
-  return supplied?.length ? [...supplied] : [...(HIDDEN_STEMS[pillars[key].zhi] ?? [])];
+  return supplied?.length
+    ? [...supplied]
+    : [...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi] ?? [])];
 }
 
 function getHarmonyPillars(

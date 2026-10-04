@@ -1,7 +1,10 @@
-import { HIDDEN_STEMS, NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
+import { NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
 export { calculateKongWang } from './kongWang';
 import { assertHeavenlyStem, assertPillars, getTenGod } from './baziUtils';
 import type { HiddenStems, Nayin, PillarLifeStages, Pillars, ZiZuoResult } from './baziTypes';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export function calculatePillarLifeStages(pillars: Pillars): PillarLifeStages {
   assertPillars(pillars);
@@ -35,7 +38,7 @@ export function calculateHiddenStems(pillars: Pillars): HiddenStems {
   assertPillars(pillars);
   const result = {} as HiddenStems;
   (Object.keys(pillars) as Array<keyof Pillars>).forEach((key) => {
-    const stems = HIDDEN_STEMS[pillars[key].zhi];
+    const stems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi];
     if (!stems) {
       throw new Error(`${key}柱藏干数据缺失：${pillars[key].zhi}`);
     }

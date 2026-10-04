@@ -1,9 +1,14 @@
-import { BASIC_MAPPINGS } from './baziMappingsData';
 import type { BaziChartResult } from './baziTypes';
 import { areHeavenlyStemsOvercoming, assertGanZhiPair } from './baziUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import { SANHE_GROUPS, SANHUI_GROUPS } from '../ganzhi/relations';
+
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export type FortuneLayerType = 'natal' | 'dayun' | 'year' | 'month' | 'day' | 'hour';
 export type FortuneTriggerRelationType =
@@ -227,10 +232,12 @@ function compareLayers(
   const items: FortuneTriggerRelation[] = [];
   const prefix = `${source.label}${source.ganZhi}与${target.label}${target.ganZhi}`;
   const stemSame = sourceParts.gan === targetParts.gan;
-  const stemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[sourceParts.gan] === targetParts.gan;
+  const stemClash =
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[sourceParts.gan] === targetParts.gan;
   const stemOvercome = areHeavenlyStemsOvercoming(sourceParts.gan, targetParts.gan);
   const branchSame = sourceParts.zhi === targetParts.zhi;
-  const branchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[sourceParts.zhi] === targetParts.zhi;
+  const branchClash =
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[sourceParts.zhi] === targetParts.zhi;
 
   const samePillar = source.ganZhi === target.ganZhi;
   if (samePillar) {
@@ -286,7 +293,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[sourceParts.gan] === targetParts.gan) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[sourceParts.gan] === targetParts.gan) {
     items.push(
       relation(
         'stem-combine',
@@ -325,7 +332,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-combine',
@@ -351,7 +358,9 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_XING[sourceParts.zhi]?.includes(targetParts.zhi)) {
+  if (
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[sourceParts.zhi]?.includes(targetParts.zhi)
+  ) {
     items.push(
       relation(
         'branch-punishment',
@@ -364,7 +373,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_HAI[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-harm',
@@ -377,7 +386,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_PO[sourceParts.zhi] === targetParts.zhi) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[sourceParts.zhi] === targetParts.zhi) {
     items.push(
       relation(
         'branch-break',
@@ -499,12 +508,12 @@ function buildFormationFacts(params: {
   const allLayers = [...params.natalLayers, ...params.activeLayers];
   const allBranches = new Set(allLayers.map((layer) => splitGanZhi(layer.ganZhi).zhi));
   const definitions = [
-    ...Object.entries(SANHE_GROUPS).map(([group, branches]) => ({
+    ...Object.entries(GANZHI_RELATION_TABLES.SANHE_GROUPS).map(([group, branches]) => ({
       type: 'branch-sanhe' as const,
       group,
       branches,
     })),
-    ...Object.entries(SANHUI_GROUPS).map(([group, branches]) => ({
+    ...Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).map(([group, branches]) => ({
       type: 'branch-sanhui' as const,
       group,
       branches,
@@ -577,8 +586,8 @@ function buildFormationCalculationStep(params: {
     inputs: {
       layerKeys: params.layers.map((layer) => layer.key),
       branches: params.layers.map((layer) => splitGanZhi(layer.ganZhi).zhi),
-      sanheGroups: Object.keys(SANHE_GROUPS),
-      sanhuiGroups: Object.keys(SANHUI_GROUPS),
+      sanheGroups: Object.keys(GANZHI_RELATION_TABLES.SANHE_GROUPS),
+      sanhuiGroups: Object.keys(GANZHI_RELATION_TABLES.SANHUI_GROUPS),
     },
     result: {
       formationCount: params.formations.length,

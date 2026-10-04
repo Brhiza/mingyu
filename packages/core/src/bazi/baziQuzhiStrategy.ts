@@ -1,6 +1,8 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziDefinitions';
 import { collectCompleteBranchFormations } from './baziFormationUtils';
 import type { Pillars, SpecialPatternAdjudication } from './baziTypes';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type PillarPosition = keyof Pillars;
 
@@ -88,14 +90,14 @@ export function assessQuzhiPattern(pillars: Pillars): QuzhiPatternAssessment {
     .filter(([, pillar]) => METAL_STEMS.has(pillar.gan))
     .map(([position, pillar]) => `${PILLAR_LABELS[position]}透${pillar.gan}`);
   const hiddenMetal = entries.flatMap(([position, pillar]) =>
-    (HIDDEN_STEMS[pillar.zhi] || [])
+    (BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [])
       .filter((stem) => METAL_STEMS.has(stem))
       .map((stem) => `${PILLAR_LABELS[position]}${pillar.zhi}藏${stem}`),
   );
   const externalClashes = entries.flatMap(([position, pillar]) => {
     if (formationBranches.includes(pillar.zhi)) return [];
     const clashedMembers = formationBranches.filter(
-      (member) => BASIC_MAPPINGS.DI_ZHI_CHONG[member] === pillar.zhi,
+      (member) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[member] === pillar.zhi,
     );
     return clashedMembers.length
       ? [`${PILLAR_LABELS[position]}${pillar.zhi}冲${clashedMembers.join('、')}`]
@@ -107,11 +109,11 @@ export function assessQuzhiPattern(pillars: Pillars): QuzhiPatternAssessment {
     ...(externalClashes.length ? [`局外支冲：${externalClashes.join('、')}`] : []),
   ];
   const memberHiddenFacts = formationBranches.map(
-    (branch) => `${branch}藏${(HIDDEN_STEMS[branch] || []).join('、')}`,
+    (branch) => `${branch}藏${(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[branch] || []).join('、')}`,
   );
   const observedStems = entries.flatMap(([, pillar]) => [
     pillar.gan,
-    ...(HIDDEN_STEMS[pillar.zhi] || []),
+    ...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || []),
   ]);
   const hasFire = observedStems.some((stem) => ['丙', '丁'].includes(stem));
   const hasEarth = observedStems.some((stem) => ['戊', '己'].includes(stem));

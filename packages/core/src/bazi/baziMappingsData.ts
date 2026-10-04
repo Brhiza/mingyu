@@ -12,30 +12,17 @@ import {
   STEM_YINYANG as STEM_YINYANG_BY_NAME,
   NAYIN_MAP,
 } from '../ganzhi/data';
-import {
-  ANHE_MAP,
-  BRANCH_HIDDEN_STEMS,
-  BRANCH_SANHE,
-  BRANCH_SANXING,
-  BRANCH_WUXING as BRANCH_WUXING_BY_NAME,
-  KE_MAP,
-  LIUHAI_MAP,
-  LIUCHONG_MAP,
-  LIUHE_MAP,
-  LIUPO_MAP,
-  SANHE_GROUPS,
-  SANHUI_GROUPS,
-  SHENG_MAP,
-  TIAN_GAN_CHONG,
-  TIAN_GAN_HE,
-} from '../ganzhi/relations';
+
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 type RelationMap = { [key: string]: string };
 type MultiRelationMap = { [key: string]: string[] };
 
 export { HEAVENLY_STEMS, EARTHLY_BRANCHES, ZODIACS, SIXTY_CYCLE, NAYIN_MAP };
 
-export const BASIC_MAPPINGS: {
+const CANONICAL_BASIC_MAPPINGS: {
   HEAVENLY_STEMS: typeof HEAVENLY_STEMS;
   EARTHLY_BRANCHES: typeof EARTHLY_BRANCHES;
   SIXTY_CYCLE: readonly string[];
@@ -59,30 +46,64 @@ export const BASIC_MAPPINGS: {
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
   STEM_WUXING: HEAVENLY_STEMS.map((stem) => STEM_WUXING_BY_NAME[stem]),
-  BRANCH_WUXING: EARTHLY_BRANCHES.map((branch) => BRANCH_WUXING_BY_NAME[branch]),
+  BRANCH_WUXING: EARTHLY_BRANCHES.map((branch) => GANZHI_RELATION_TABLES.BRANCH_WUXING[branch]),
   STEM_YINYANG: HEAVENLY_STEMS.map((stem) => STEM_YINYANG_BY_NAME[stem]),
-  WUXING_SHENG: SHENG_MAP,
-  WUXING_KE: KE_MAP,
+  WUXING_SHENG: GANZHI_RELATION_TABLES.SHENG_MAP,
+  WUXING_KE: GANZHI_RELATION_TABLES.KE_MAP,
   TIAN_GAN_WU_HE: Object.fromEntries(
-    Object.entries(TIAN_GAN_HE).map(([stem, relation]) => [stem, relation.partner]),
+    Object.entries(GANZHI_RELATION_TABLES.TIAN_GAN_HE).map(([stem, relation]) => [
+      stem,
+      relation.partner,
+    ]),
   ),
-  TIAN_GAN_CHONG,
-  DI_ZHI_LIU_HE: LIUHE_MAP,
+  TIAN_GAN_CHONG: GANZHI_RELATION_TABLES.TIAN_GAN_CHONG,
+  DI_ZHI_LIU_HE: GANZHI_RELATION_TABLES.LIUHE_MAP,
   DI_ZHI_SAN_HE: Object.fromEntries(
-    Object.entries(BRANCH_SANHE).map(([branch, relation]) => [branch, relation.partners]),
+    Object.entries(GANZHI_RELATION_TABLES.BRANCH_SANHE).map(([branch, relation]) => [
+      branch,
+      relation.partners,
+    ]),
   ),
-  DI_ZHI_CHONG: LIUCHONG_MAP,
+  DI_ZHI_CHONG: GANZHI_RELATION_TABLES.LIUCHONG_MAP,
   DI_ZHI_SAN_HUI: Object.fromEntries(
-    Object.values(SANHUI_GROUPS).map((members) => [members.join(''), members]),
+    Object.values(GANZHI_RELATION_TABLES.SANHUI_GROUPS).map((members) => [
+      members.join(''),
+      members,
+    ]),
   ),
-  DI_ZHI_AN_HE: ANHE_MAP,
-  DI_ZHI_XING: BRANCH_SANXING,
-  DI_ZHI_HAI: LIUHAI_MAP,
-  DI_ZHI_PO: LIUPO_MAP,
+  DI_ZHI_AN_HE: GANZHI_RELATION_TABLES.ANHE_MAP,
+  DI_ZHI_XING: GANZHI_RELATION_TABLES.BRANCH_SANXING,
+  DI_ZHI_HAI: GANZHI_RELATION_TABLES.LIUHAI_MAP,
+  DI_ZHI_PO: GANZHI_RELATION_TABLES.LIUPO_MAP,
 };
 
+export const BASIC_MAPPINGS: {
+  HEAVENLY_STEMS: typeof HEAVENLY_STEMS;
+  EARTHLY_BRANCHES: typeof EARTHLY_BRANCHES;
+  SIXTY_CYCLE: readonly string[];
+  STEM_WUXING: string[];
+  BRANCH_WUXING: string[];
+  STEM_YINYANG: string[];
+  WUXING_SHENG: RelationMap;
+  WUXING_KE: RelationMap;
+  TIAN_GAN_WU_HE: RelationMap;
+  TIAN_GAN_CHONG: RelationMap;
+  DI_ZHI_LIU_HE: RelationMap;
+  DI_ZHI_SAN_HE: MultiRelationMap;
+  DI_ZHI_CHONG: RelationMap;
+  DI_ZHI_SAN_HUI: MultiRelationMap;
+  DI_ZHI_AN_HE: RelationMap;
+  DI_ZHI_XING: MultiRelationMap;
+  DI_ZHI_HAI: RelationMap;
+  DI_ZHI_PO: RelationMap;
+} = copyBaziBasicMappings();
+
 /** 兼容八字旧名，实际与公共地支藏干表为同一真相源。 */
-export const HIDDEN_STEMS = BRANCH_HIDDEN_STEMS;
+const CANONICAL_HIDDEN_STEMS = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS;
+
+export const HIDDEN_STEMS: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CANONICAL_HIDDEN_STEMS).map(([key, members]) => [key, [...members]]),
+);
 
 /**
  * 月令人元司令分野（月令司权）日数分配表。
@@ -324,18 +345,78 @@ export const REN_BRANCH_MAP: Record<string, string> = Object.fromEntries(
  * 三合局定义（按局名→三支列表格式）
  * 与 BASIC_MAPPINGS.DI_ZHI_SAN_HE 互补：那边是每支→另两支，这边是局名→三支
  */
+const CANONICAL_SAN_HE_MAP: Record<string, string[]> = Object.fromEntries(
+  Object.values(GANZHI_RELATION_TABLES.SANHE_GROUPS).map((members) => [members.join(''), members]),
+);
+
 export const SAN_HE_MAP: Record<string, string[]> = Object.fromEntries(
-  Object.values(SANHE_GROUPS).map((members) => [members.join(''), members]),
+  Object.entries(CANONICAL_SAN_HE_MAP).map(([key, members]) => [key, [...members]]),
 );
 
 /**
  * 三会局定义（与 BASIC_MAPPINGS.DI_ZHI_SAN_HUI 数据一致，独立导出便于直接引用）
  */
+const CANONICAL_SAN_HUI_MAP: Record<string, string[]> = Object.fromEntries(
+  Object.values(GANZHI_RELATION_TABLES.SANHUI_GROUPS).map((members) => [members.join(''), members]),
+);
+
 export const SAN_HUI_MAP: Record<string, string[]> = Object.fromEntries(
-  Object.values(SANHUI_GROUPS).map((members) => [members.join(''), members]),
+  Object.entries(CANONICAL_SAN_HUI_MAP).map(([key, members]) => [key, [...members]]),
 );
 
 /**
  * 辰戌丑未四库全
  */
 export const SI_KU = ['辰', '戌', '丑', '未'];
+
+function copyBaziBasicMappings(): typeof CANONICAL_BASIC_MAPPINGS {
+  return {
+    ...CANONICAL_BASIC_MAPPINGS,
+    STEM_WUXING: [...CANONICAL_BASIC_MAPPINGS.STEM_WUXING],
+    BRANCH_WUXING: [...CANONICAL_BASIC_MAPPINGS.BRANCH_WUXING],
+    STEM_YINYANG: [...CANONICAL_BASIC_MAPPINGS.STEM_YINYANG],
+    WUXING_SHENG: { ...CANONICAL_BASIC_MAPPINGS.WUXING_SHENG },
+    WUXING_KE: { ...CANONICAL_BASIC_MAPPINGS.WUXING_KE },
+    TIAN_GAN_WU_HE: { ...CANONICAL_BASIC_MAPPINGS.TIAN_GAN_WU_HE },
+    TIAN_GAN_CHONG: { ...CANONICAL_BASIC_MAPPINGS.TIAN_GAN_CHONG },
+    DI_ZHI_LIU_HE: { ...CANONICAL_BASIC_MAPPINGS.DI_ZHI_LIU_HE },
+    DI_ZHI_CHONG: { ...CANONICAL_BASIC_MAPPINGS.DI_ZHI_CHONG },
+    DI_ZHI_AN_HE: { ...CANONICAL_BASIC_MAPPINGS.DI_ZHI_AN_HE },
+    DI_ZHI_HAI: { ...CANONICAL_BASIC_MAPPINGS.DI_ZHI_HAI },
+    DI_ZHI_PO: { ...CANONICAL_BASIC_MAPPINGS.DI_ZHI_PO },
+    DI_ZHI_SAN_HE: Object.fromEntries(
+      Object.entries(CANONICAL_BASIC_MAPPINGS.DI_ZHI_SAN_HE).map(([key, members]) => [
+        key,
+        [...members],
+      ]),
+    ),
+    DI_ZHI_SAN_HUI: Object.fromEntries(
+      Object.entries(CANONICAL_BASIC_MAPPINGS.DI_ZHI_SAN_HUI).map(([key, members]) => [
+        key,
+        [...members],
+      ]),
+    ),
+    DI_ZHI_XING: Object.fromEntries(
+      Object.entries(CANONICAL_BASIC_MAPPINGS.DI_ZHI_XING).map(([key, members]) => [
+        key,
+        [...members],
+      ]),
+    ),
+  };
+}
+
+/** 返回八字固定关系资料副本，公开映射的临时修改不参与计算。 */
+export function getBaziRelationMappings() {
+  return {
+    BASIC_MAPPINGS: copyBaziBasicMappings(),
+    HIDDEN_STEMS: Object.fromEntries(
+      Object.entries(CANONICAL_HIDDEN_STEMS).map(([key, members]) => [key, [...members]]),
+    ),
+    SAN_HE_MAP: Object.fromEntries(
+      Object.entries(CANONICAL_SAN_HE_MAP).map(([key, members]) => [key, [...members]]),
+    ),
+    SAN_HUI_MAP: Object.fromEntries(
+      Object.entries(CANONICAL_SAN_HUI_MAP).map(([key, members]) => [key, [...members]]),
+    ),
+  };
+}

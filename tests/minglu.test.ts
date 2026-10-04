@@ -8,6 +8,7 @@ import { buildMingluArticle, formsPairRelation } from '../packages/core/src/ming
 import { MINGLU_GLOSSARY_DATABASE } from '../packages/core/src/minglu/glossary-data.ts';
 import { getBaZhaiPalace } from '../packages/core/src/direction/index.ts';
 import { MingluCrossSynthesisSection } from '../src/pages/ResultPage/components/MingluWiki/MingluCrossSynthesisSection';
+import { MingluGlossarySection } from '../src/pages/ResultPage/components/MingluWiki/MingluGlossarySection';
 import {
   buildBeginnerGuide,
   buildEnhancedFiveElementsSection,
@@ -17,6 +18,19 @@ import {
 } from '../packages/core/src/minglu/bazi-enhancer.ts';
 import { MingluInteractionsSection } from '../src/pages/ResultPage/components/MingluWiki/MingluInteractionsSection';
 import { MingluFiveElementsSection } from '../src/pages/ResultPage/components/MingluWiki/MingluFiveElementsSection';
+
+let sharedMingluBaziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+
+function getSharedMingluBaziResult() {
+  sharedMingluBaziResult ??= baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  return structuredClone(sharedMingluBaziResult);
+}
 
 test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
   const samples = [
@@ -143,13 +157,7 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
     birthMinute: 30,
   };
 
-  const baziResult = baziCalculator.calculateBazi({
-    year: person.birthYear,
-    month: person.birthMonth,
-    day: person.birthDay,
-    timeIndex: 5,
-    gender: person.gender,
-  });
+  const baziResult = getSharedMingluBaziResult();
 
   const article = buildMingluArticle({
     person,
@@ -285,9 +293,82 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(firstYear.months[0].commander);
 
   // 11. 术语百科词典
-  assert.ok(article.glossary.length >= 20);
+  assert.equal(MINGLU_GLOSSARY_DATABASE.length, 33);
+  assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '甲木');
+  assert.equal(article.glossary.length, 33);
   assert.ok(article.statistics.totalSections >= 8);
-  assert.ok(article.statistics.totalGlossaryEntries >= 20);
+  assert.equal(article.statistics.totalGlossaryEntries, 33);
+  assert.equal(article.glossary[0]?.term, '甲木');
+  assert.deepEqual(article.glossary[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+  assert.equal(
+    article.glossary[0]?.classicSource,
+    '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+  );
+  const originalArticle = structuredClone(article);
+  const originalGlossary = originalArticle.glossary;
+  const originalGlossaryMarkup = renderToStaticMarkup(
+    createElement(MingluGlossarySection, { entries: originalGlossary }),
+  );
+  const publicJiaMu = MINGLU_GLOSSARY_DATABASE[0]!;
+  const publicRelatedTerms = publicJiaMu.relatedTerms!;
+  const publicJiaMuSnapshot = {
+    term: publicJiaMu.term,
+    classicSource: publicJiaMu.classicSource,
+    relatedTerms: [...publicRelatedTerms],
+  };
+  const publicGlossaryLength = MINGLU_GLOSSARY_DATABASE.length;
+  const returnedJiaMu = article.glossary[0]!;
+  const returnedRelatedTerms = returnedJiaMu.relatedTerms!;
+
+  let freshArticle: typeof article | undefined;
+  try {
+    publicJiaMu.term = '外部变造词条';
+    publicJiaMu.classicSource = '外部变造典籍';
+    publicRelatedTerms.splice(0, publicRelatedTerms.length, '外部变造相关词条');
+    MINGLU_GLOSSARY_DATABASE.push({ ...structuredClone(publicJiaMu), term: '外部新增词条' });
+    assert.deepEqual(article.glossary, originalGlossary);
+    returnedJiaMu.term = '文章变造词条';
+    returnedJiaMu.classicSource = '文章变造典籍';
+    returnedRelatedTerms.splice(0, returnedRelatedTerms.length, '文章变造相关词条');
+    article.glossary.push({ ...structuredClone(article.glossary[1]!), term: '文章新增词条' });
+    assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '外部变造词条');
+    assert.deepEqual(MINGLU_GLOSSARY_DATABASE[0]?.relatedTerms, ['外部变造相关词条']);
+
+    freshArticle = buildMingluArticle({
+      person,
+      baziResult: structuredClone(baziResult),
+    });
+    assert.equal(freshArticle.glossary.length, 33);
+    assert.deepEqual(freshArticle, originalArticle);
+    assert.deepEqual(freshArticle.glossary, originalGlossary);
+    assert.equal(freshArticle.glossary[0]?.term, '甲木');
+    assert.deepEqual(freshArticle.glossary[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+    assert.equal(
+      freshArticle.glossary[0]?.classicSource,
+      '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+    );
+    assert.equal(freshArticle.statistics.totalGlossaryEntries, 33);
+    const freshGlossaryMarkup = renderToStaticMarkup(
+      createElement(MingluGlossarySection, { entries: freshArticle.glossary }),
+    );
+    assert.equal(freshGlossaryMarkup, originalGlossaryMarkup);
+    assert.match(freshGlossaryMarkup, /共收录 33 个词条/u);
+    assert.match(freshGlossaryMarkup, /相关词条：乙木 · 阳木 · 天干五合 · 仁/u);
+    assert.match(freshGlossaryMarkup, /《滴天髓·天干论·甲木》/u);
+    assert.doesNotMatch(freshGlossaryMarkup, /外部变造|文章变造|新增词条/u);
+  } finally {
+    publicJiaMu.term = publicJiaMuSnapshot.term;
+    publicJiaMu.classicSource = publicJiaMuSnapshot.classicSource;
+    publicRelatedTerms.splice(0, publicRelatedTerms.length, ...publicJiaMuSnapshot.relatedTerms);
+    MINGLU_GLOSSARY_DATABASE.splice(publicGlossaryLength);
+  }
+  assert.equal(MINGLU_GLOSSARY_DATABASE.length, 33);
+  assert.equal(MINGLU_GLOSSARY_DATABASE[0]?.term, '甲木');
+  assert.deepEqual(MINGLU_GLOSSARY_DATABASE[0]?.relatedTerms, ['乙木', '阳木', '天干五合', '仁']);
+  assert.equal(
+    MINGLU_GLOSSARY_DATABASE[0]?.classicSource,
+    '《滴天髓·天干论·甲木》：“甲木参天，脱胎要火。”',
+  );
 });
 
 test('命录性别元数据按排盘结果标注，未指定性别不冒充男命或女命', () => {
@@ -444,13 +525,7 @@ test('命录未知时辰按各柱稳定状态展示事实，不把未见五行�
 });
 
 test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
-  const baziResult = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 5,
-    gender: 'male',
-  });
+  const baziResult = getSharedMingluBaziResult();
   const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
 
   let sawBinglin = false;
@@ -521,13 +596,7 @@ test('岁运天克地冲包含戊壬己癸的土水相克，关系标签保留�
 });
 
 test('命录命卦方位应与公共八宅大游年表逐卦一致', () => {
-  const baziResult = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 5,
-    gender: 'male',
-  });
+  const baziResult = getSharedMingluBaziResult();
   const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
   const gua = baziResult.mingGua!.gua;
   const palaceTable = getBaZhaiPalace(gua);

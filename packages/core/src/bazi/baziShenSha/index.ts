@@ -1,4 +1,3 @@
-import { BASIC_MAPPINGS } from '../baziDefinitions';
 import type { ShenShaResult } from '../baziTypes';
 import { assertBaziGender, assertGanZhiPair } from '../baziUtils';
 import { buildNobleRules } from './helpers/nobleRules';
@@ -15,6 +14,9 @@ import {
   type ShenShaCalculatorOptions,
   type ShenShaVariantConfig,
 } from './variants';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export { DEFAULT_SHENSHA_VARIANT_CONFIG, resolveShenShaVariantConfig } from './variants';
 export { COMMON_BAZI_SHENSHA_NAMES, filterCommonBaziShenSha } from './scope';
@@ -35,8 +37,8 @@ export class ShenShaCalculator {
   private scope: ShenShaScope;
 
   constructor(options: ShenShaCalculatorOptions = {}) {
-    this.ctg = BASIC_MAPPINGS.HEAVENLY_STEMS;
-    this.cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES;
+    this.ctg = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS;
+    this.cdz = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.EARTHLY_BRANCHES;
     this.variants = resolveShenShaVariantConfig(options.variants);
     this.scope = options.scope ?? 'common';
   }

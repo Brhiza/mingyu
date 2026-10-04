@@ -1111,7 +1111,9 @@ test('奇门终身局基础盘省略同格局复述并保留独有组合与遁�
   assert.doesNotMatch(patterns, /升殿得位/u);
   assert.match(patterns, /戊击刑（凶）：戊在震三宫击刑，主规则、口舌、文书/u);
   assert.doesNotMatch(patterns, /在此宫落于相刑之位/u);
-  assert.match(patterns, /干合蛇刑（中性）：天盘壬加地盘丁于坎一宫，主文书财喜/u);
+  assert.match(patterns, /干合蛇刑（中性，坎一宫）：主文书财喜/u);
+  assert.match(prompt, /坎一宫（水）：天盘\[[^\n]*干壬\][^\n]*地盘干\[丁\]/u);
+  assert.doesNotMatch(patterns, /天盘壬加地盘丁于坎一宫/u);
   assert.doesNotMatch(patterns, /壬加地盘丁为干合蛇刑/u);
   assert.match(patterns, /罗网青龙（中性）：[^\n]*癸加地盘甲为罗网青龙；排盘时以甲子戊代甲/u);
   assert.doesNotMatch(patterns, /故癸加地盘戊按此格论/u);
@@ -1140,6 +1142,90 @@ test('奇门终身局基础盘省略同格局复述并保留独有组合与遁�
     '丁奇、开门、太阴同宫于兑七宫，三奇、吉门、太阴同宫，乃真诈之格，主隐蔽得助、柔性成事。',
   );
   assert.deepEqual(trueZhaData, before);
+
+  const trueZhaLines = trueZhaPrompt.split('\n');
+  assert.equal(trueZhaData.baseChart.zhiFu, '天禽');
+  assert.equal(trueZhaData.baseChart.zhiShi, '死门');
+  assert.ok(trueZhaLines.includes('值符星：天禽 | 值使门：死门'));
+  for (const palaceLine of [
+    '  坎一宫（水）：天盘[天任，干乙]，人盘[生门]，神盘[白虎]，地盘干[己]【旬空】',
+    '  坤二宫（土）：天盘[天柱，干丙]，人盘[惊门]，神盘[螣蛇]，地盘干[庚]【临马】',
+    '  震三宫（木）：天盘[天辅，干壬]，人盘[杜门]，神盘[九地]，地盘干[辛]',
+    '  巽四宫（木）：天盘[天英，干戊]，人盘[景门]，神盘[九天]，地盘干[壬]',
+    '  中五宫（土）：天盘[，干]，人盘[]，神盘[]，地盘干[癸]',
+    '  乾六宫（金）：天盘[天蓬，干己]，人盘[休门]，神盘[六合]，地盘干[丁]',
+    '  兑七宫（金）：天盘[天心，干丁]，人盘[开门]，神盘[太阴]，地盘干[丙]',
+    '  艮八宫（土）：天盘[天冲，干辛]，人盘[伤门]，神盘[玄武]，地盘干[乙]【旬空】',
+    '  离九宫（火）：天盘[天芮（携天禽），干庚（携癸）]，人盘[死门]，神盘[值符]，地盘干[戊]',
+  ]) {
+    assert.ok(trueZhaLines.includes(palaceLine), palaceLine);
+  }
+  for (const patternLine of [
+    '  符使同宫（吉，离九宫）：事情有极强的集中力量',
+    '  日奇入雾（凶，坎一宫）：乙为日奇（太阳），己为地户土雾，日入雾中，主被遮蔽、才能难伸',
+    '  荧入太白（凶，坤二宫）：丙为荧惑（火星），庚为太白（金星），火克金，荧入太白，主贼盗破财',
+    '  螣蛇格干（凶，震三宫）：符门虽吉亦不可安，谋事内生欺瞒',
+    '  奇入墓（凶，乾六宫）：主文书诉讼先有理、后受惩',
+    '  加中复奇（中性，兑七宫）：主口舌跷蹊，贵招官禄，常人防刑',
+    '  白虎猖狂（凶，艮八宫）：辛为白虎，乙为青龙，金克木，白虎势盛而猖狂，主争斗破坏',
+  ]) {
+    assert.equal(trueZhaLines.filter((line) => line === patternLine).length, 1, patternLine);
+  }
+  const trueZhaPatterns = trueZhaPrompt.split('盘面吉凶格局：')[1].split('【个人标记与主题宫】')[0];
+  assert.doesNotMatch(
+    trueZhaPatterns,
+    /天盘(?:乙加地盘己于坎一宫|丙加地盘庚于坤二宫|壬加地盘辛于震三宫|己加地盘丁于乾六宫|丁加地盘丙于兑七宫|辛加地盘乙于艮八宫)|值符天禽与值使死门同落离九宫/u,
+  );
+
+  const sunPatternLine =
+    '  日奇入雾（凶）：天盘乙加地盘己于坎一宫，乙为日奇（太阳），己为地户土雾，日入雾中，主被遮蔽、才能难伸';
+  const fuShiPatternLine = '  符使同宫（吉）：值符天禽与值使死门同落离九宫，事情有极强的集中力量';
+  const extraConditionData = structuredClone(trueZhaData);
+  const extraPattern = extraConditionData.baseChart.classicPatterns!.find(
+    (item) => item.name === '日奇入雾',
+  )!;
+  extraPattern.summary += '；另须核本次甲旬条件';
+  const extraFact = extraConditionData.baseChart.evidenceAnalysis!.patternFacts.find(
+    (item) => item.kind === '经典格局' && item.name === '日奇入雾',
+  )!;
+  extraFact.originalText = extraPattern.summary;
+  extraFact.promptText = extraPattern.summary;
+  const extraConditionBefore = structuredClone(extraConditionData);
+  const extraConditionPrompt = buildLifetimePrompt(extraConditionData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(extraConditionPrompt.split('\n').includes(`${sunPatternLine}；另须核本次甲旬条件`));
+  assert.deepEqual(extraConditionData, extraConditionBefore);
+
+  const missingStemData = structuredClone(trueZhaData);
+  missingStemData.baseChart.jiuGongGe.find((palace) => palace.gong === 1)!.tianPan.stem = '';
+  const missingStemBefore = structuredClone(missingStemData);
+  const missingStemPrompt = buildLifetimePrompt(missingStemData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingStemPrompt.split('\n').includes(sunPatternLine));
+  assert.match(missingStemPrompt, /坎一宫（水）：天盘\[天任，干\]/u);
+  assert.deepEqual(missingStemData, missingStemBefore);
+
+  const missingZhiFuData = structuredClone(trueZhaData);
+  missingZhiFuData.baseChart.zhiFu = '';
+  const missingZhiFuBefore = structuredClone(missingZhiFuData);
+  const missingZhiFuPrompt = buildLifetimePrompt(missingZhiFuData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingZhiFuPrompt.split('\n').includes(fuShiPatternLine));
+  assert.ok(missingZhiFuPrompt.split('\n').includes('值符星： | 值使门：死门'));
+  assert.deepEqual(missingZhiFuData, missingZhiFuBefore);
+
+  const missingEvidenceData = structuredClone(trueZhaData);
+  delete missingEvidenceData.baseChart.evidenceAnalysis;
+  const missingEvidenceBefore = structuredClone(missingEvidenceData);
+  const missingEvidencePrompt = buildLifetimePrompt(missingEvidenceData, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.ok(missingEvidencePrompt.split('\n').includes(sunPatternLine));
+  assert.ok(missingEvidencePrompt.split('\n').includes(fuShiPatternLine));
+  assert.deepEqual(missingEvidenceData, missingEvidenceBefore);
 });
 
 test('奇门终身局同宫得使合并基础条件，保留不同宫位的独立事实', () => {

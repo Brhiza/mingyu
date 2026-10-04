@@ -18,12 +18,7 @@ import {
   getBaziQiongtongAdvice,
   getBaziZipingPatternAdvice,
 } from '../classics';
-import {
-  EARTHLY_BRANCHES,
-  HEAVENLY_STEMS,
-  HIDDEN_STEMS,
-  NAYIN_MAP,
-} from '../bazi/baziMappingsData';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS, NAYIN_MAP } from '../bazi/baziMappingsData';
 import { getLifeStage } from '../bazi/baziValues';
 import { calculateKongWangBranches } from '../bazi/kongWang';
 import {
@@ -57,6 +52,9 @@ import type {
   MingluShenShaItem,
   MingluTenGodsSectionData,
 } from './types';
+import { getBaziRelationMappings } from '../bazi/baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
@@ -473,7 +471,7 @@ export function buildEnhancedPillarsSection(baziResult: BaziChartResult): Minglu
     const p = pillars[key];
     const displayGan = unknownTime && !p.gan ? '待补时' : p.gan;
     const displayZhi = unknownTime && !p.zhi ? '待补时' : p.zhi;
-    const rawHiddenStems = HIDDEN_STEMS[p.zhi] || [];
+    const rawHiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[p.zhi] || [];
     const roles: Array<'本气' | '中气' | '余气'> = ['本气', '中气', '余气'];
 
     const hiddenStems = rawHiddenStems.map((stem, i) => ({
@@ -739,7 +737,7 @@ export function buildEnhancedFiveElementsSection(
         seasonalEffect: dayMasterDetails.seasonalEffect,
         grounded: dayMasterDetails.hasRoot,
         supported: Object.values(pillars).some((pillar) =>
-          [pillar.gan, ...(HIDDEN_STEMS[pillar.zhi] ?? [])].some((stem) =>
+          [pillar.gan, ...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] ?? [])].some((stem) =>
             ['正印', '偏印'].includes(getTenGod(stem, dayMaster.gan)),
           ),
         ),
@@ -1370,7 +1368,7 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
         involvedPillars.push(`${pillarNames[index]}天干`);
         count += 1;
       }
-      const hidden = HIDDEN_STEMS[pillars[key].zhi] || [];
+      const hidden = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi] || [];
       hidden.forEach((stem) => {
         if (getTenGod(stem, dayMasterGan) === god) {
           isHidden = true;

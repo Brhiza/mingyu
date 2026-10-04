@@ -5,16 +5,8 @@ import type {
   LiurenOrdinaryTransmissionStage,
   LiurenPlateItem,
 } from '../../../../types/divination';
-import { BASIC_MAPPINGS, HEAVENLY_STEMS } from '../../../../bazi/baziMappingsData';
-import {
-  BRANCH_WUXING,
-  getBranchIndex,
-  isKe,
-  LIUCHONG_MAP,
-  SANXING_MAP,
-  getYiMa,
-  TIAN_GAN_HE,
-} from '../../../../ganzhi';
+import { HEAVENLY_STEMS } from '../../../../bazi/baziMappingsData';
+import { getBranchIndex, isKe, getYiMa } from '../../../../ganzhi';
 import {
   describeRelation,
   getGanZhiWuxing,
@@ -29,6 +21,12 @@ import {
   TIANJIANG,
 } from './plate';
 import { formatLiurenOrdinaryStage } from '../../../liuren-ordinary-adjudication';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+import { getBaziRelationMappings } from '../../../../bazi/baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
@@ -209,7 +207,7 @@ function getStemWuxing(stem: string) {
   if (stemIndex < 0) {
     throw new Error(`无法识别天干 "${stem}" 的五行属性。`);
   }
-  const element = BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+  const element = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex];
   if (!VALID_WUXING.has(element)) {
     throw new Error(`天干 ${stem} 的五行数据缺失。`);
   }
@@ -228,7 +226,7 @@ function uniqueCandidatesByUpper(candidates: KeCandidate[]) {
 }
 
 function getBranchAt(rawIndex: number) {
-  const branches = Object.keys(BRANCH_WUXING);
+  const branches = Object.keys(GANZHI_RELATION_TABLES.BRANCH_WUXING);
   return branches[((rawIndex % branches.length) + branches.length) % branches.length];
 }
 
@@ -266,7 +264,7 @@ function getHarmAssessment(candidate: KeCandidate, context: ResolveTransmissionC
   const walkedBranches = walkBranches(startUnder, candidate.lesson.upper);
 
   const depth = walkedBranches.reduce((count, branch) => {
-    const branchElement = BRANCH_WUXING[branch];
+    const branchElement = GANZHI_RELATION_TABLES.BRANCH_WUXING[branch];
     if (!VALID_WUXING.has(branchElement)) {
       throw new Error(`地支 ${branch} 的五行数据缺失。`);
     }
@@ -1073,7 +1071,10 @@ function isFuyinPlate(plate: LiurenPlateItem[]) {
 }
 
 function isFanyinPlate(plate: LiurenPlateItem[]) {
-  return plate.length === 12 && plate.every((item) => LIUCHONG_MAP[item.under] === item.branch);
+  return (
+    plate.length === 12 &&
+    plate.every((item) => GANZHI_RELATION_TABLES.LIUCHONG_MAP[item.under] === item.branch)
+  );
 }
 
 function getLessonPairKey(lesson: LiurenLesson) {
@@ -1094,7 +1095,7 @@ function isThreeLessonPattern(lessons: LiurenLesson[], dayStemResidence: string)
 }
 
 function getPunishment(branch: string) {
-  const punishment = SANXING_MAP[branch];
+  const punishment = GANZHI_RELATION_TABLES.SANXING_MAP[branch];
   if (!punishment) {
     throw new Error(`地支 ${branch} 的三刑映射缺失。`);
   }
@@ -1112,7 +1113,7 @@ function buildFuyinBranches(initial: string, yiKeUpper: string, sanKeUpper: stri
   let final = getPunishment(middle);
   // 中传再次自刑，末传取冲神；否则按三刑推进。
   if (final === middle) {
-    const opposite = LIUCHONG_MAP[middle];
+    const opposite = GANZHI_RELATION_TABLES.LIUCHONG_MAP[middle];
     if (!opposite) {
       throw new Error(`地支 ${middle} 的六冲映射缺失。`);
     }
@@ -1233,7 +1234,7 @@ function resolveSpecialTransmission(
 
   if (hasThreeLessons) {
     if (isYangDay) {
-      const heStem = TIAN_GAN_HE[context.dayStem]?.partner;
+      const heStem = GANZHI_RELATION_TABLES.TIAN_GAN_HE[context.dayStem]?.partner;
       if (!heStem) {
         throw new Error(`日干 ${context.dayStem} 的天干五合映射缺失。`);
       }

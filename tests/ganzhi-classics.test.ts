@@ -1,3 +1,5 @@
+import * as relationTables from '../packages/core/src/ganzhi/relations.ts';
+import { describeGanZhi } from '../packages/core/src/ganzhi/index.ts';
 import { getNayin, getNayinWuxing } from '../packages/core/src/ganzhi/index.ts';
 import { NAYIN_MAP } from '../packages/core/src/ganzhi/data.ts';
 import test from 'node:test';
@@ -32,6 +34,60 @@ test('十二支递刑方向与星历考原一致，相刑关系与六冲六害�
       assert.equal(isLiuhai(a, b), harms.includes(a + b) || harms.includes(b + a), `${a}${b}害`);
     }
   }
+
+  const captureRelations = () => ({
+    profiles: [describeGanZhi('甲子'), describeGanZhi('甲寅')],
+    season: relationTables.getSeasonState('水', '子'),
+    sanhe: relationTables.isCompleteSanhe(['申', '子', '辰']),
+    halfSanhe: relationTables.isHalfSanhe(['申', '子']),
+    sanhui: relationTables.isCompleteSanhui(['亥', '子', '丑']),
+    sheng: relationTables.isSheng('水', '木'),
+    ke: relationTables.isKe('水', '火'),
+    liuhe: relationTables.isLiuhe('子', '丑'),
+    liuchong: relationTables.isLiuchong('子', '午'),
+    liuhai: relationTables.isLiuhai('子', '未'),
+    liupo: relationTables.isLiupo('子', '酉'),
+    tianganHe: relationTables.isTianGanHe('甲', '己'),
+  });
+  const baselineRelations = structuredClone(captureRelations());
+  assert.equal(baselineRelations.profiles[0].branch.wuxing, '水');
+  assert.deepEqual(baselineRelations.profiles[0].branch.hiddenStems, ['癸']);
+  assert.deepEqual(baselineRelations.profiles[0].branch.sanhe?.partners, ['申', '辰']);
+  assert.equal(baselineRelations.profiles[0].stem.combine, '己');
+  assert.equal(baselineRelations.season, '旺');
+  assert.equal(baselineRelations.sanhe, '水局');
+  assert.equal(baselineRelations.sanhui, '北方水');
+  const edits = [
+    [relationTables.BRANCH_WUXING, '子', '木'],
+    [relationTables.MONTH_LING_WUXING, '子', '木'],
+    [relationTables.LIUHE_MAP, '子', '未'],
+    [relationTables.LIUHE_WUXING, '子', '木'],
+    [relationTables.SANHE_GROUPS.水局, 0, '卯'],
+    [relationTables.BRANCH_SANHE.子.partners, 0, '卯'],
+    [relationTables.SANHUI_GROUPS.北方水, 0, '巳'],
+    [relationTables.LIUHAI_MAP, '子', '丑'],
+    [relationTables.LIUCHONG_MAP, '子', '丑'],
+    [relationTables.LIUPO_MAP, '子', '丑'],
+    [relationTables.ANHE_MAP, '寅', '辰'],
+    [relationTables.SANXING_MAP, '子', '辰'],
+    [relationTables.BRANCH_SANXING.子, 0, '辰'],
+    [relationTables.BRANCH_HIDDEN_STEMS.子, 0, '壬'],
+    [relationTables.TIAN_GAN_HE.甲, 'partner', '乙'],
+    [relationTables.TIAN_GAN_CHONG, '甲', '乙'],
+    [relationTables.SHENG_MAP, '水', '土'],
+    [relationTables.KE_MAP, '水', '木'],
+  ] as const;
+  const saved = edits.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of edits) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    assert.deepEqual(captureRelations(), baselineRelations);
+  } finally {
+    edits.forEach(([target, key], index) => Reflect.set(target, key, saved[index]));
+  }
+  assert.deepEqual(captureRelations(), baselineRelations);
 });
 
 test('十二支藏干集合与选择天镜支神藏干表一致，主气单独核验', () => {

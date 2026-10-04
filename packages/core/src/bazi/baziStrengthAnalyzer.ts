@@ -1,4 +1,3 @@
-import { BASIC_MAPPINGS } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { getDirectClashSources } from './baziRootFacts';
 import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
@@ -18,6 +17,9 @@ import {
   assertHiddenStemsMatchPillars,
   assertPillars,
 } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface SeasonalStatusAnalysis {
   status: string;
@@ -84,19 +86,19 @@ function resolveCommanderEffect(
     return { commanderScore: 1.5, commanderEffect: '助身' };
   }
 
-  if (BASIC_MAPPINGS.WUXING_SHENG[commanderWuxing] === dayMasterWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[commanderWuxing] === dayMasterWuxing) {
     return { commanderScore: 1, commanderEffect: '生身' };
   }
 
-  if (BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing] === commanderWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing] === commanderWuxing) {
     return { commanderScore: -0.8, commanderEffect: '泄身' };
   }
 
-  if (BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing] === commanderWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing] === commanderWuxing) {
     return { commanderScore: -1, commanderEffect: '耗身' };
   }
 
-  if (BASIC_MAPPINGS.WUXING_KE[commanderWuxing] === dayMasterWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[commanderWuxing] === dayMasterWuxing) {
     return { commanderScore: -1.3, commanderEffect: '克身' };
   }
 
@@ -255,7 +257,7 @@ export function analyzeSupport(
   const supporters: SupportAnalysis['supporters'] = [];
   let totalStrength = 0;
   const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
-  const generatingElement = Object.entries(BASIC_MAPPINGS.WUXING_SHENG).find(
+  const generatingElement = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG).find(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
@@ -365,9 +367,9 @@ export function analyzeConstraint(
   const constraints: ConstraintAnalysis['constraints'] = [];
   let totalStrength = 0;
   const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
-  const generatedElement = BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
-  const wealthElement = BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
-  const officerElement = Object.entries(BASIC_MAPPINGS.WUXING_KE).find(
+  const generatedElement = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
+  const wealthElement = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
+  const officerElement = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE).find(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
@@ -533,12 +535,12 @@ export function analyzeFormation(
   assertStrengthPillars(dayMaster, pillars);
 
   const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
-  const generatedElement = BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
-  const wealthElement = BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
-  const officerElement = Object.entries(BASIC_MAPPINGS.WUXING_KE).find(
+  const generatedElement = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
+  const wealthElement = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
+  const officerElement = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE).find(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
-  const resourceElement = Object.entries(BASIC_MAPPINGS.WUXING_SHENG).find(
+  const resourceElement = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG).find(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
@@ -640,7 +642,7 @@ export function analyzeDayMasterStrength(
   const effectiveSupporters = supportAnalysis.supporters.filter(isActionableEvidence);
   const effectiveConstraints = constraintAnalysis.constraints.filter(isActionableEvidence);
   const hasExposedConstraint = constraintAnalysis.constraints.some((item) =>
-    (BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).includes(item.stem),
+    (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).includes(item.stem),
   );
 
   let status: DayMasterStrengthAnalysis['status'] = '中和';

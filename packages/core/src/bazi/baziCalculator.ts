@@ -626,7 +626,7 @@ export class BaziCalculator {
         monthName: lunarHour.getLunarDay().getLunarMonth().getName(),
         dayName: lunarHour.getLunarDay().getName(),
       },
-      timeInfo: finalTimeInfo,
+      timeInfo: { ...finalTimeInfo },
       pillars,
       isThreePillars,
       pillarRelations: { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] },

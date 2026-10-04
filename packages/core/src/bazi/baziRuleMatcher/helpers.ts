@@ -1,12 +1,14 @@
-import { BASIC_MAPPINGS } from '../baziDefinitions';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export function getStemWuxing(stem: string): string {
-  const stemIndex = BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
+  const stemIndex = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
   if (stemIndex === -1) {
     return '';
   }
 
-  return BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+  return BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex];
 }
 
 export function includesOrWildcard(
@@ -71,19 +73,19 @@ export function getWuxingTenGodCategory(dayStem: string, targetWuxing: string): 
     return '比劫';
   }
 
-  if (BASIC_MAPPINGS.WUXING_SHENG[dayWuxing] === targetWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[dayWuxing] === targetWuxing) {
     return '食伤';
   }
 
-  if (BASIC_MAPPINGS.WUXING_KE[dayWuxing] === targetWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[dayWuxing] === targetWuxing) {
     return '财星';
   }
 
-  if (BASIC_MAPPINGS.WUXING_KE[targetWuxing] === dayWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[targetWuxing] === dayWuxing) {
     return '官杀';
   }
 
-  if (BASIC_MAPPINGS.WUXING_SHENG[targetWuxing] === dayWuxing) {
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[targetWuxing] === dayWuxing) {
     return '印星';
   }
 

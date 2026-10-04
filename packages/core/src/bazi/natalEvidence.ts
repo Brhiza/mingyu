@@ -5,16 +5,13 @@ import {
   formatPatternDecisionForPrompt,
   formatUsefulGodFunctions,
 } from './baziAnalysisFormatter';
-import {
-  HEAVENLY_STEMS,
-  HIDDEN_STEMS,
-  NAYIN_MAP,
-  SIXTY_CYCLE,
-  TWELVE_STAGES_MAP,
-} from './baziMappingsData';
+import { HEAVENLY_STEMS, NAYIN_MAP, SIXTY_CYCLE, TWELVE_STAGES_MAP } from './baziMappingsData';
 import { getGanYinYang, getTenGod, getWuxing } from './baziUtils';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { calculateKongWangBranches } from './kongWang';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -288,7 +285,7 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
     const hiddenStems = data.hiddenStems[key] ?? [];
     const hiddenTenGods = data.hiddenTenGods[key] ?? [];
     // 核对四柱资料与派生资料，避免缺失或错位字段仍被标为“已记录”。
-    const expectedHiddenStems = HIDDEN_STEMS[pillar.zhi] ?? [];
+    const expectedHiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] ?? [];
     const hiddenStemsMismatch =
       expectedHiddenStems.length === 0 ||
       hiddenStems.length !== expectedHiddenStems.length ||

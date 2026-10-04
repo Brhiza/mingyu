@@ -1,5 +1,8 @@
-import { BASIC_MAPPINGS, NAYIN_MAP } from '../../baziDefinitions';
+import { NAYIN_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
+import { getBaziRelationMappings } from '../../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 const JIE_LU_KONG_WANG_HOUR_BRANCHES: Record<string, string[]> = {
   甲: ['申', '酉'],
@@ -237,7 +240,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
         if (yearNayinElement === '土' && ['辰', '巳'].includes(zhi)) return true;
         return false;
       }
-      const riGanWuxing = BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(riGan)];
+      const riGanWuxing = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(riGan)];
       if ((riGanWuxing === '木' || riGanWuxing === '火') && (zhi === '丑' || zhi === '辰'))
         return true;
       if (

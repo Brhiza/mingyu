@@ -50,16 +50,7 @@ import {
   selectQimenClassicPatternsForPrompt,
 } from '../divination/qimen-evidence';
 import { analyzeAlmanacEvidence, formatAlmanacGods } from '../divination/algorithms/almanac';
-import {
-  LIUCHONG_MAP,
-  LIUHE_MAP,
-  SIXTY_CYCLE,
-  BRANCH_WUXING,
-  isSheng,
-  isKe,
-  isLiuhai,
-  isSanxing,
-} from '../ganzhi';
+import { SIXTY_CYCLE, isSheng, isKe, isLiuhai, isSanxing } from '../ganzhi';
 import {
   formatTianPanStars,
   formatTianPanStems,
@@ -86,6 +77,9 @@ import {
   formatJinkoujueBihe,
 } from './jinkoujue-facts';
 import { formatLiuyaoSanxing } from './liuyao-facts';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 function formatZhugeInfo(data: ZhugeNumberResult) {
   const sign = Number.isInteger(data.number) ? ZHUGE_SIGNS[data.number - 1] : undefined;
@@ -186,8 +180,12 @@ function formatLiuyaoTriggerRelations(
   if (!triggerBranch) return [];
   return [
     item.najiaDizhi === triggerBranch ? `值${triggerLabel}${triggerBranch}` : '',
-    LIUHE_MAP[item.najiaDizhi] === triggerBranch ? `合${triggerLabel}${triggerBranch}` : '',
-    LIUCHONG_MAP[item.najiaDizhi] === triggerBranch ? `冲${triggerLabel}${triggerBranch}` : '',
+    GANZHI_RELATION_TABLES.LIUHE_MAP[item.najiaDizhi] === triggerBranch
+      ? `合${triggerLabel}${triggerBranch}`
+      : '',
+    GANZHI_RELATION_TABLES.LIUCHONG_MAP[item.najiaDizhi] === triggerBranch
+      ? `冲${triggerLabel}${triggerBranch}`
+      : '',
     isLiuhai(item.najiaDizhi, triggerBranch) ? `害${triggerLabel}${triggerBranch}` : '',
     isSanxing(item.najiaDizhi, triggerBranch)
       ? `刑${triggerLabel}${triggerBranch}${sanxingType ? `（${sanxingType}）` : ''}`
@@ -321,8 +319,8 @@ function createLiuyaoTimingEvidence(data: LiuyaoData, lineFacts: LiuyaoLineFact[
   const changingYaos = data.yaosDetail.filter((item) => item.isChanging);
   for (const yao of changingYaos) {
     const yaoName = `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}`;
-    const chongBranch = LIUCHONG_MAP[yao.najiaDizhi] || '';
-    const heBranch = LIUHE_MAP[yao.najiaDizhi] || '';
+    const chongBranch = GANZHI_RELATION_TABLES.LIUCHONG_MAP[yao.najiaDizhi] || '';
+    const heBranch = GANZHI_RELATION_TABLES.LIUHE_MAP[yao.najiaDizhi] || '';
     const conditions: string[] = [];
     const changed = lineFacts.find((item) => item.position === yao.position)?.changedYao;
     if (changed?.direction === '化进神' && yao.changedYao) {
@@ -417,8 +415,8 @@ function formatLiuyaoElementDirection(
 function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
-  const monthClash = LIUCHONG_MAP[monthBranch] || '';
-  const dayClash = LIUCHONG_MAP[dayBranch] || '';
+  const monthClash = GANZHI_RELATION_TABLES.LIUCHONG_MAP[monthBranch] || '';
+  const dayClash = GANZHI_RELATION_TABLES.LIUCHONG_MAP[dayBranch] || '';
   const directions: string[] = [];
   const describeBranchHit = (label: string, branch: string, clashBranch: string) => {
     const sameYaos = data.yaosDetail
@@ -431,7 +429,7 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
       sameYaos.length ? `同支${sameYaos.join('、')}` : '',
       clashYaos.length ? `冲${clashYaos.join('、')}` : '',
     ].filter(Boolean);
-    const element = BRANCH_WUXING[branch];
+    const element = GANZHI_RELATION_TABLES.BRANCH_WUXING[branch];
     if (element)
       directions.push(
         ...data.yaosDetail.map((item) =>
@@ -472,10 +470,10 @@ function formatLiuyaoInfo(
     .map((item) => {
       const parts = [
         item.isVoid
-          ? `本爻空亡；本爻${item.najiaDizhi}逢值，${LIUCHONG_MAP[item.najiaDizhi]}冲${item.najiaDizhi}`
+          ? `本爻空亡；本爻${item.najiaDizhi}逢值，${GANZHI_RELATION_TABLES.LIUCHONG_MAP[item.najiaDizhi]}冲${item.najiaDizhi}`
           : '',
         item.changedYao?.isVoid
-          ? `变爻空亡；变爻${item.changedYao.dizhi}逢值，${LIUCHONG_MAP[item.changedYao.dizhi]}冲${item.changedYao.dizhi}`
+          ? `变爻空亡；变爻${item.changedYao.dizhi}逢值，${GANZHI_RELATION_TABLES.LIUCHONG_MAP[item.changedYao.dizhi]}冲${item.changedYao.dizhi}`
           : '',
       ].filter(Boolean);
       return `${formatLiuyaoYaoBrief(item)}（${parts.join('、')}）`;

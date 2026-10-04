@@ -67,7 +67,7 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
     if (elementsRecord[elem]) {
       elementsRecord[elem].count = list.length;
       elementsRecord[elem].percentage = Number(((list.length / totalPoints) * 100).toFixed(1));
-      elementsRecord[elem].points = list;
+      elementsRecord[elem].points = [...list];
     }
   });
 
@@ -82,7 +82,7 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
     if (modalitiesRecord[mod]) {
       modalitiesRecord[mod].count = list.length;
       modalitiesRecord[mod].percentage = Number(((list.length / totalPoints) * 100).toFixed(1));
-      modalitiesRecord[mod].points = list;
+      modalitiesRecord[mod].points = [...list];
     }
   });
 

@@ -2,9 +2,7 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiSuiConflict, ZodiacYearFortune } from './index';
 import {
-  BRANCH_SANHE,
   EARTHLY_BRANCHES,
-  SANHUI_GROUPS,
   ZODIACS,
   getBranchWuxing,
   getStemWuxing,
@@ -14,6 +12,9 @@ import {
   isValidGanZhi,
 } from '../ganzhi';
 import { getTaiSuiConflicts } from './index';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface ZodiacRelationEvidence {
   key: string;
@@ -393,14 +394,14 @@ export function analyzeZodiacEvidence(
   const normalizedZodiac = ZODIACS[zodiacIndex];
   const normalizedYearBranch = data.yearGanZhi[1];
   const recomputedConflicts = getTaiSuiConflicts(data.zodiacBranch, normalizedYearBranch);
-  const sanhe = BRANCH_SANHE[data.zodiacBranch];
+  const sanhe = GANZHI_RELATION_TABLES.BRANCH_SANHE[data.zodiacBranch];
   const expectedNoble = isLiuhe(data.zodiacBranch, normalizedYearBranch)
     ? '六合贵人'
     : sanhe?.partners.includes(normalizedYearBranch)
       ? `三合组成员关系（${sanhe.group}）`
       : null;
   const hasSanheMemberRelation = expectedNoble?.startsWith('三合组成员关系') ?? false;
-  const sanhuiGroup = Object.entries(SANHUI_GROUPS).find(
+  const sanhuiGroup = Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(
     ([, members]) =>
       members.includes(data.zodiacBranch) &&
       members.includes(normalizedYearBranch) &&

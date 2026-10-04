@@ -28,18 +28,11 @@ import {
 } from '../../../../calendar/moon-phase-evidence';
 import { TimeManager } from '../../../../calendar/timeManager';
 import { stemElements, isGenerating, isControlling } from './_constants';
-import {
-  LIUHE_MAP,
-  LIUCHONG_MAP,
-  LIUHAI_MAP,
-  SANHE_GROUPS,
-  TIAN_GAN_CHONG,
-  getSanxingType,
-  getTianGanHeWuxing,
-  isSanxing,
-  isTianGanHe,
-} from '../../../../ganzhi';
+import { getSanxingType, getTianGanHeWuxing, isSanxing, isTianGanHe } from '../../../../ganzhi';
 import type { BaseGanZhi } from '../../../../types/divination';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 // ============================================================================
 // 1. 二十四节气 → 五行映射
@@ -562,7 +555,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       // ── 地支互动 ──
 
       // 六合
-      if (LIUHE_MAP[a.zhi] === b.zhi) {
+      if (GANZHI_RELATION_TABLES.LIUHE_MAP[a.zhi] === b.zhi) {
         interactions.push({
           type: '六合',
           pillars: [a.key, b.key],
@@ -572,7 +565,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 六冲
-      if (LIUCHONG_MAP[a.zhi] === b.zhi) {
+      if (GANZHI_RELATION_TABLES.LIUCHONG_MAP[a.zhi] === b.zhi) {
         interactions.push({
           type: '六冲',
           pillars: [a.key, b.key],
@@ -582,7 +575,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 相害
-      if (LIUHAI_MAP[a.zhi] === b.zhi) {
+      if (GANZHI_RELATION_TABLES.LIUHAI_MAP[a.zhi] === b.zhi) {
         interactions.push({
           type: '相害',
           pillars: [a.key, b.key],
@@ -616,7 +609,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 天干相冲
-      if (TIAN_GAN_CHONG[a.gan] === b.gan) {
+      if (GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[a.gan] === b.gan) {
         interactions.push({
           type: '天干相冲',
           pillars: [a.key, b.key],
@@ -666,7 +659,7 @@ function findCompleteSanhe(branches: string[]): Array<{ group: string; members: 
   const results: Array<{ group: string; members: string[] }> = [];
   const used = new Set<string>();
 
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+  for (const [group, members] of Object.entries(GANZHI_RELATION_TABLES.SANHE_GROUPS)) {
     const membersArr = members as string[];
     const present = membersArr.filter((m) => branches.includes(m));
     if (present.length === 3 && !used.has(group)) {
@@ -687,7 +680,7 @@ function findHalfSanhe(branches: string[]): Array<{ group: string; members: stri
   const usedGroups = new Set<string>();
 
   // 对每个三合局检查是否有两个地支出现
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+  for (const [group, members] of Object.entries(GANZHI_RELATION_TABLES.SANHE_GROUPS)) {
     const membersArr = members as string[];
     const present = membersArr.filter((m) => branches.includes(m));
     if (present.length === 2 && !usedGroups.has(group)) {

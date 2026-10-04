@@ -9,7 +9,9 @@
  *   6. 格局只作快慢辅助，不机械换算固定天数
  */
 
-import { LIUCHONG_MAP } from '../../../../ganzhi';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 // ============================================================================
 // 常量
@@ -257,7 +259,7 @@ export function estimateYingQi(
     if (options?.voidBranches && options.voidBranches.length > 0) {
       const voidDesc = options.voidBranches
         .map((vb) => {
-          const chong = LIUCHONG_MAP[vb];
+          const chong = GANZHI_RELATION_TABLES.LIUCHONG_MAP[vb];
           return chong ? `${vb}（冲${chong}填实）` : vb;
         })
         .join('、');

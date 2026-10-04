@@ -1,8 +1,11 @@
 import type { BaziChartResult } from '../bazi/index.js';
 import { NAYIN_MAP, STEM_WUXING } from '../ganzhi/data.js';
-import { BRANCH_WUXING } from '../ganzhi/relations.js';
+
 import { isGanZhiPair } from '../ganzhi/validation.js';
 import type { TermContextData } from './types.js';
+import { getGanZhiRelationTables } from '../ganzhi/relations.js';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 const BRANCHES = new Set(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']);
@@ -255,7 +258,8 @@ export function getBaziTermContext(
   }
 
   const isSingleBranch =
-    BRANCHES.has(clean) || (clean.length === 2 && BRANCH_WUXING[clean[0]!] === clean[1]);
+    BRANCHES.has(clean) ||
+    (clean.length === 2 && GANZHI_RELATION_TABLES.BRANCH_WUXING[clean[0]!] === clean[1]);
   if (isSingleBranch) {
     const branchChar = clean[0];
     const isUseful = useful.includes(branchChar);

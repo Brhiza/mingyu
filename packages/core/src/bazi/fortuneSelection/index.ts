@@ -1,5 +1,5 @@
 import { getMonthDaysInfo, getYearInfo } from '../calendarTool';
-import { BASIC_MAPPINGS } from '../baziMappingsData';
+
 import type { BaziChartResult } from '../baziTypes';
 import type { LocalTimeRange } from '../baziTypes';
 import { createCivilDate, getLuckCycleTimeRange, intersectLocalTimeRanges } from '../luckTiming';
@@ -36,6 +36,9 @@ import type {
   FortuneSelectionContext,
   FortuneSelectionOptions,
 } from './helpers/types';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export type {
   BaziFortuneSelectionValue,
@@ -151,8 +154,10 @@ function buildGanZhiTriggerSummary(
     if (!pillar) return;
     const pillarLabel = PILLAR_LABELS[key];
 
-    const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
-    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
+    const isStemClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
+    const isBranchClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
     const isStemOvercome = areHeavenlyStemsOvercoming(parts.gan, pillar.gan);
     const isSamePillar = parts.gan === pillar.gan && parts.zhi === pillar.zhi;
 
@@ -164,7 +169,7 @@ function buildGanZhiTriggerSummary(
       if (parts.gan === pillar.gan) {
         triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}同干`);
       }
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
         triggers.push(`天干${parts.gan}合${pillarLabel}${pillar.gan}`);
       }
       if (isStemClash) {
@@ -174,7 +179,7 @@ function buildGanZhiTriggerSummary(
       if (parts.zhi === pillar.zhi) {
         triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}同支`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
         triggers.push(`地支${parts.zhi}合${pillarLabel}${pillar.zhi}`);
       }
       if (isBranchClash) {
@@ -188,13 +193,13 @@ function buildGanZhiTriggerSummary(
       }
     }
 
-    if (BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
       triggers.push(`地支${parts.zhi}刑${pillarLabel}${pillar.zhi}`);
     }
-    if (BASIC_MAPPINGS.DI_ZHI_HAI[parts.zhi] === pillar.zhi) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[parts.zhi] === pillar.zhi) {
       triggers.push(`地支${parts.zhi}害${pillarLabel}${pillar.zhi}`);
     }
-    if (BASIC_MAPPINGS.DI_ZHI_PO[parts.zhi] === pillar.zhi) {
+    if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[parts.zhi] === pillar.zhi) {
       triggers.push(`地支${parts.zhi}破${pillarLabel}${pillar.zhi}`);
     }
   });
@@ -208,13 +213,14 @@ function buildGanZhiTriggerSummary(
     const syParts = splitGanZhi(gz);
     if (!syParts) return;
 
-    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === syParts.zhi;
+    const isBranchClash =
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === syParts.zhi;
 
     if (areHeavenlyStemsOvercoming(parts.gan, syParts.gan) && isBranchClash) {
       supplementalFacts.push(`${scopeLabel}干支${parts.gan}${parts.zhi}与${label}${gz}天克地冲`);
     } else if (isBranchClash) {
       supplementalFacts.push(`${scopeLabel}地支${parts.zhi}冲${label}${syParts.zhi}`);
-    } else if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === syParts.zhi) {
+    } else if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === syParts.zhi) {
       supplementalFacts.push(`${scopeLabel}地支${parts.zhi}合${label}${syParts.zhi}`);
     }
   });

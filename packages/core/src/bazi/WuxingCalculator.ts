@@ -1,6 +1,9 @@
-import { HIDDEN_STEMS, SEASON_STATUS } from './baziDefinitions';
+import { SEASON_STATUS } from './baziDefinitions';
 import { assertHeavenlyStem, assertPillars, getWuxing as getWuxingUtil } from './baziUtils';
 import { WUXING, type Pillars, type Wuxing, type WuxingStrengthDetails } from './baziTypes';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 interface ElementPresence {
   direct: number;
@@ -76,7 +79,7 @@ export class WuxingCalculator {
         presence[ganWuxing].direct += 1;
       }
 
-      const zhiStems = HIDDEN_STEMS[pillar.zhi] || [];
+      const zhiStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [];
       zhiStems.forEach((stem, index) => {
         const stemWuxing = getWuxingUtil(stem);
         if (stemWuxing !== '未知') {

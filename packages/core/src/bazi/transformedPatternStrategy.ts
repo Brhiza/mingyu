@@ -6,7 +6,7 @@
  */
 
 import { assessStemHarmonyTransform, type HarmonyPillarInput } from './harmonyTransform';
-import { BASIC_MAPPINGS, HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziDefinitions';
+import { TWELVE_STAGES_MAP } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { collectAdjudicatedRootFacts, type RootClashStatus } from './baziRootAdjudication';
 import {
@@ -16,6 +16,9 @@ import {
 } from './baziRootFacts';
 import type { HiddenStems, PatternTransformationEvidence, Pillars, Wuxing } from './baziTypes';
 import { assertPillars, getWuxing } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface TransformedPatternAssessment extends PatternTransformationEvidence {
   pattern: string;
@@ -52,15 +55,17 @@ const TRANSFORM_RULES: TransformRule[] = [
 ];
 
 function getStemElement(stem: string): Wuxing {
-  const index = (BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).indexOf(stem);
+  const index = (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[]).indexOf(
+    stem,
+  );
   if (index < 0) {
     throw new Error('天干五行数据缺失：' + stem);
   }
-  return BASIC_MAPPINGS.STEM_WUXING[index] as Wuxing;
+  return BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[index] as Wuxing;
 }
 
 function getControllingElement(element: Wuxing): Wuxing {
-  const controller = Object.entries(BASIC_MAPPINGS.WUXING_KE).find(
+  const controller = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE).find(
     ([, target]) => target === element,
   )?.[0];
   if (!controller) {
@@ -70,7 +75,7 @@ function getControllingElement(element: Wuxing): Wuxing {
 }
 
 function getGeneratingElement(element: Wuxing): Wuxing {
-  const resource = Object.entries(BASIC_MAPPINGS.WUXING_SHENG).find(
+  const resource = Object.entries(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG).find(
     ([, target]) => target === element,
   )?.[0];
   if (!resource) {
@@ -85,7 +90,7 @@ function collectRootFacts(
   excludedIndexes = new Set<number>(),
 ): RootFact[] {
   const hiddenStems = Object.fromEntries(
-    PILLAR_KEYS.map((key) => [key, HIDDEN_STEMS[pillars[key].zhi]]),
+    PILLAR_KEYS.map((key) => [key, BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi]]),
   ) as unknown as HiddenStems;
   return collectAdjudicatedRootFacts(pillars, hiddenStems, element, getWuxing)
     .filter((root) => !excludedIndexes.has(PILLAR_KEYS.indexOf(root.position)))
@@ -143,7 +148,7 @@ function createHarmonyPillars(pillars: Pillars): HarmonyPillarInput[] {
     label: PILLAR_LABELS[index],
     gan: pillars[key].gan,
     zhi: pillars[key].zhi,
-    hiddenStems: HIDDEN_STEMS[pillars[key].zhi],
+    hiddenStems: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi],
   }));
 }
 
@@ -249,7 +254,7 @@ export function evaluateTransformedPattern(
     blockers.push('日干与配干隔位');
   }
 
-  const monthPrincipalStem = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  const monthPrincipalStem = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi]?.[0];
   const monthPrincipalElement = monthPrincipalStem ? getStemElement(monthPrincipalStem) : undefined;
   const establishedFormations = collectEstablishedBranchFormations(pillars).filter(
     (formation) => formation.wuxing === rule.element,

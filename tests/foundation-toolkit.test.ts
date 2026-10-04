@@ -32,7 +32,12 @@ test('公共地基层应成为八字与占卜旧路径的单一真相源', () =>
   assert.equal(BASIC_MAPPINGS.EARTHLY_BRANCHES, EARTHLY_BRANCHES);
   assert.equal(BAZI_SIXTY_CYCLE, SIXTY_CYCLE);
   assert.equal(BAZI_NAYIN_MAP, NAYIN_MAP);
-  assert.equal(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  assert.deepEqual(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  assert.notStrictEqual(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  for (const branch of EARTHLY_BRANCHES) {
+    assert.notStrictEqual(HIDDEN_STEMS[branch], BRANCH_HIDDEN_STEMS[branch], branch);
+  }
+  assert.deepEqual(HIDDEN_STEMS.子, ['癸']);
   assert.equal(LEGACY_LIUCHONG_MAP, LIUCHONG_MAP);
 });
 

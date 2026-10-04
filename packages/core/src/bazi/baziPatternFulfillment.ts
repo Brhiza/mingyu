@@ -1,5 +1,5 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS, LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
-import { TIAN_GAN_HE } from '../ganzhi/relations';
+import { LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
+
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import type { HarmonyTransformProfile } from '../types/analysis';
 import type { Pillars } from './baziTypes';
@@ -14,6 +14,12 @@ import {
   type RootTraditionalKind,
 } from './baziRootFacts';
 import { assertHeavenlyStem, assertPillars, getWuxing } from './baziUtils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export type PatternConditionStatus = '满足' | '不满足' | '资料不足';
 
@@ -218,7 +224,7 @@ function buildObserved(
               placement: '透干' as const,
             },
           ];
-    const hidden = (HIDDEN_STEMS[current.zhi] ?? []).map((stem, index) => ({
+    const hidden = (BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[current.zhi] ?? []).map((stem, index) => ({
       stem,
       tenGod: getTenGod(stem, dayMaster),
       pillar,
@@ -303,11 +309,12 @@ function resolveRootQuality(roots: AdjudicatedRootFact[]): string {
  */
 function getMonthPrincipalControl(item: ObservedStem, pillars: Pillars): string | undefined {
   if (item.pillar !== 'month') return undefined;
-  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  const principal = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi]?.[0];
   if (!principal || principal === item.stem) return undefined;
   const principalWuxing = getWuxing(principal);
   const itemWuxing = getWuxing(item.stem);
-  if (BASIC_MAPPINGS.WUXING_KE[principalWuxing] !== itemWuxing) return undefined;
+  if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[principalWuxing] !== itemWuxing)
+    return undefined;
   return `月令${pillars.month.zhi}本气${principal}（${principalWuxing}）克${item.stem}（${itemWuxing}）`;
 }
 
@@ -315,10 +322,10 @@ function getRootInfo(item: ObservedStem, pillars: Pillars): RootInfo {
   const itemWuxing = getWuxing(item.stem);
   if (itemWuxing === '未知') throw new Error(`根气天干五行无效：${item.stem}`);
   const hiddenStems = {
-    year: HIDDEN_STEMS[pillars.year.zhi],
-    month: HIDDEN_STEMS[pillars.month.zhi],
-    day: HIDDEN_STEMS[pillars.day.zhi],
-    hour: HIDDEN_STEMS[pillars.hour.zhi],
+    year: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.year.zhi],
+    month: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi],
+    day: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.day.zhi],
+    hour: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.hour.zhi],
   };
   const roots = collectAdjudicatedRootFacts(pillars, hiddenStems, itemWuxing, getWuxing);
   const exactRoots = roots.filter((candidate) => candidate.stem === item.stem);
@@ -421,7 +428,7 @@ function buildHarmonyProfiles(pillars: Pillars): HarmonyTransformProfile[] {
       label: PILLAR_NAMES[pillar],
       gan: pillars[pillar].gan,
       zhi: pillars[pillar].zhi,
-      hiddenStems: HIDDEN_STEMS[pillars[pillar].zhi],
+      hiddenStems: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[pillar].zhi],
     })),
     pillars.month.zhi,
   );
@@ -922,7 +929,7 @@ function buildMonthPrincipalControlFact(
   dayMaster: string,
   getTenGod: GetTenGodFn,
 ): PatternConditionFact | undefined {
-  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  const principal = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.month.zhi]?.[0];
   if (!principal) return undefined;
   const principalGod = getTenGod(principal, dayMaster);
   if (!['正财', '偏财'].includes(principalGod)) return undefined;
@@ -1305,7 +1312,7 @@ export function evaluatePatternFulfillment(
         (entry) =>
           entry.placement === '透干' &&
           entry.tenGod === '七杀' &&
-          TIAN_GAN_HE[item.stem]?.partner === entry.stem,
+          GANZHI_RELATION_TABLES.TIAN_GAN_HE[item.stem]?.partner === entry.stem,
       );
       if (targets.length) {
         remedies.push({

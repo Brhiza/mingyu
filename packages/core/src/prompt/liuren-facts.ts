@@ -1,6 +1,9 @@
 import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
-import { BRANCH_WUXING, STEM_WUXING, isSheng, isKe } from '../ganzhi';
+import { STEM_WUXING, isSheng, isKe } from '../ganzhi';
 import { getLiurenOrdinaryCandidateStatusLabel } from '../divination/liuren-ordinary-adjudication';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 function isTransmissionMonthStateInTiming(
   timingEvidence: readonly string[],
@@ -45,8 +48,8 @@ export function formatLiurenRoleRelation(
   sourceName: string,
   targetName: string,
 ) {
-  const sourceElement = STEM_WUXING[source] || BRANCH_WUXING[source];
-  const targetElement = STEM_WUXING[target] || BRANCH_WUXING[target];
+  const sourceElement = STEM_WUXING[source] || GANZHI_RELATION_TABLES.BRANCH_WUXING[source];
+  const targetElement = STEM_WUXING[target] || GANZHI_RELATION_TABLES.BRANCH_WUXING[target];
   if (!sourceElement || !targetElement) return undefined;
   const from = `${sourceName}${source}${sourceElement}`;
   const to = `${targetName}${target}${targetElement}`;

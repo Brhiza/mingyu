@@ -15,9 +15,12 @@
 import type { BaziChartResult } from './baziTypes';
 import { getTenGod } from './baziUtils';
 import { getRootTraditionalKind, type RootTraditionalKind } from './baziRootFacts';
-import { BRANCH_HIDDEN_STEMS } from '../ganzhi/relations';
+
 import { STEM_WUXING } from '../ganzhi/data';
 import type { FortuneTriggerEvidenceResult } from './fortuneTriggerEvidence';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export type FortuneActionLevel = 'dayun' | 'year' | 'month' | 'day';
 export type FortuneActionLevelChinese = '大运' | '流年' | '流月' | '流日';
@@ -253,7 +256,7 @@ export function analyzeFortuneActionEvidence(params: {
     const levelLabel = LEVEL_LABELS[level] ?? '大运';
     const gan = layer.ganZhi[0];
     const zhi = layer.ganZhi[1];
-    const hiddenStems = BRANCH_HIDDEN_STEMS[zhi] ?? [];
+    const hiddenStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[zhi] ?? [];
 
     const layerItems: Array<{
       stem: string;
@@ -457,7 +460,7 @@ export function analyzeFortuneActionEvidence(params: {
           positions.forEach((pos) => {
             const pillarZhi = result.pillars![pos]?.zhi;
             if (!pillarZhi) return;
-            const hStems = BRANCH_HIDDEN_STEMS[pillarZhi] || [];
+            const hStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[pillarZhi] || [];
             hStems.forEach((hs, idx) => {
               if (STEM_WUXING[hs] === element) {
                 natalRoots.push({
@@ -476,7 +479,7 @@ export function analyzeFortuneActionEvidence(params: {
         // 只纳入当前层及其父层，避免子层根气反向改变父层事实。
         layers.slice(0, layerIndex + 1).forEach((lyr) => {
           const lyrZhi = lyr.ganZhi[1];
-          const hStems = BRANCH_HIDDEN_STEMS[lyrZhi] || [];
+          const hStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[lyrZhi] || [];
           hStems.forEach((hs, idx) => {
             if (STEM_WUXING[hs] === element) {
               const isSameStem = hs === stem;

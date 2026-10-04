@@ -3,7 +3,7 @@
  */
 
 export * from './types';
-export * from './glossary-data';
+export { MINGLU_GLOSSARY_DATABASE } from './glossary-data';
 export * from './bazi-enhancer';
 export * from './ziwei-enhancer';
 export * from './astrolabe-enhancer';

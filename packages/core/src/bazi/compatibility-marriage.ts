@@ -4,17 +4,11 @@
  */
 import type { BaziChartResult, Wuxing } from './baziTypes';
 import { NAYIN_MAP } from './baziMappingsData';
-import {
-  TIAN_GAN_CHONG,
-  TIAN_GAN_HE,
-  LIUCHONG_MAP,
-  LIUHE_MAP,
-  LIUHAI_MAP,
-  isSanxing,
-  isSheng,
-  isKe,
-} from '../ganzhi/relations';
+import { isSanxing, isSheng, isKe } from '../ganzhi/relations';
 import { assertPillars, getWuxing } from './baziUtils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface NayinCompatibilityResult {
   person1YearGanZhi: string;
@@ -142,9 +136,9 @@ export function evaluateSpousePalaceDeepRelation(
 
   // 天干关系
   let stemRelation: SpousePalaceDeepRelationResult['stemRelation'] = '比和';
-  if (TIAN_GAN_HE[stem1]?.partner === stem2) {
+  if (GANZHI_RELATION_TABLES.TIAN_GAN_HE[stem1]?.partner === stem2) {
     stemRelation = '五合';
-  } else if (TIAN_GAN_CHONG[stem1] === stem2) {
+  } else if (GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[stem1] === stem2) {
     stemRelation = '天干冲';
   } else if (
     isSheng(getWuxing(stem1), getWuxing(stem2)) ||
@@ -159,13 +153,13 @@ export function evaluateSpousePalaceDeepRelation(
   let branchRelation: SpousePalaceDeepRelationResult['branchRelation'] = '无明显刑冲合害';
   if (zhi1 === zhi2) {
     branchRelation = '同支';
-  } else if (LIUHE_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUHE_MAP[zhi1] === zhi2) {
     branchRelation = '六合';
-  } else if (LIUCHONG_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUCHONG_MAP[zhi1] === zhi2) {
     branchRelation = '六冲';
   } else if (isSanxing(zhi1, zhi2)) {
     branchRelation = '相刑';
-  } else if (LIUHAI_MAP[zhi1] === zhi2) {
+  } else if (GANZHI_RELATION_TABLES.LIUHAI_MAP[zhi1] === zhi2) {
     branchRelation = '相害';
   }
 

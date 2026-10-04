@@ -4,6 +4,7 @@
  * @传统依据 十二地支同支、合冲刑害破与三合三会固定关系表，以及天干地支五行公共规则。
  * 复用 ganzhi 的干支关系函数。生肖按立春为年界（调用方传入立春校正后的年柱）。
  */
+
 import {
   getStemWuxing,
   getBranchWuxing,
@@ -16,8 +17,6 @@ import {
   isLiuhe,
   isValidGanZhi,
   getBranchIndex,
-  BRANCH_SANHE,
-  SANHUI_GROUPS,
   ZODIACS,
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
@@ -25,6 +24,9 @@ import {
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
 import { buildPromptTask } from '../prompt/guidance';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export { analyzeZodiacEvidence } from './evidence';
 export type {
@@ -307,7 +309,7 @@ function getElementRelation(yearStemWuxing: string, zodiacWuxing: string): Zodia
 
 function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | null {
   if (zodiacBranch === yearBranch) return null;
-  const group = Object.entries(SANHUI_GROUPS).find(
+  const group = Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(
     ([, members]) => members.includes(zodiacBranch) && members.includes(yearBranch),
   );
   return group ? `三会组成员关系（${group[0]}）` : null;
@@ -328,7 +330,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   let noble: string | null = null;
   if (isLiuhe(zodiacBranch, yearBranch)) noble = '六合贵人';
   else {
-    const sanhe = BRANCH_SANHE[zodiacBranch];
+    const sanhe = GANZHI_RELATION_TABLES.BRANCH_SANHE[zodiacBranch];
     if (sanhe?.partners.includes(yearBranch)) noble = `三合组成员关系（${sanhe.group}）`;
   }
   const hasSanheMemberRelation = noble?.startsWith('三合组成员关系') ?? false;
@@ -367,8 +369,8 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   };
   const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
   const presentBranches = new Set([zodiacBranch, yearBranch]);
-  const sanhePartners = BRANCH_SANHE[zodiacBranch].partners;
-  const sanhuiGroup = Object.values(SANHUI_GROUPS).find(
+  const sanhePartners = GANZHI_RELATION_TABLES.BRANCH_SANHE[zodiacBranch].partners;
+  const sanhuiGroup = Object.values(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(
     (members) => members.includes(zodiacBranch) && members.includes(yearBranch),
   );
   const prompt = [
@@ -382,7 +384,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,
     noble && !hasSanheMemberRelation ? `相合关系：按十二地支关系表命中${noble}。` : '',
     hasSanheMemberRelation
-      ? `三合组成员：生肖年支${zodiacBranch}与流年年支${yearBranch}同属${BRANCH_SANHE[zodiacBranch].group}，当前两支已知；另一成员为${sanhePartners.filter((branch) => !presentBranches.has(branch)).join('、')}，三支齐备及成化条件结合完整命盘核验。`
+      ? `三合组成员：生肖年支${zodiacBranch}与流年年支${yearBranch}同属${GANZHI_RELATION_TABLES.BRANCH_SANHE[zodiacBranch].group}，当前两支已知；另一成员为${sanhePartners.filter((branch) => !presentBranches.has(branch)).join('、')}，三支齐备及成化条件结合完整命盘核验。`
       : '',
     meeting && sanhuiGroup
       ? `三会组成员：${sanhuiGroup.join('、')}为一组，本次可见${[...presentBranches].join('、')}两支；另一成员${sanhuiGroup.filter((branch) => !presentBranches.has(branch)).join('、')}，三支齐备及成化条件结合完整命盘核验。`

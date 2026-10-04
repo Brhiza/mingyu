@@ -4,11 +4,14 @@
  */
 
 import type { BaziChartResult } from './baziTypes';
-import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
+
 import { identifyClassicPatternCandidates, getPeachBlossomDetail } from './baziEnhancement';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 import { areHeavenlyStemsOvercoming } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -115,32 +118,34 @@ export function analyzePillarRelations(
         }
       }
 
-      const stemChong = BASIC_MAPPINGS.TIAN_GAN_CHONG[left.gan] === right.gan;
-      const branchChong = BASIC_MAPPINGS.DI_ZHI_CHONG[left.zhi] === right.zhi;
+      const stemChong =
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[left.gan] === right.gan;
+      const branchChong =
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[left.zhi] === right.zhi;
 
       if (areHeavenlyStemsOvercoming(left.gan, right.gan) && branchChong) {
         fanyin.add(`${leftLabel}${left.ganZhi}与${rightLabel}${right.ganZhi}成天克地冲`);
       }
 
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
         xingChong.add(`${leftLabel}${left.gan}与${rightLabel}${right.gan}合`);
       }
       if (stemChong) {
         xingChong.add(`${leftLabel}${left.gan}与${rightLabel}${right.gan}冲`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}六合`);
       }
       if (branchChong) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}冲`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_XING[left.zhi]?.includes(right.zhi)) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[left.zhi]?.includes(right.zhi)) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}刑`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_HAI[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}害`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_PO[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}破`);
       }
     }
@@ -152,7 +157,7 @@ export function analyzePillarRelations(
     ),
   );
   const allBranches = PILLAR_KEYS.map((pillar) => pillars[pillar].zhi);
-  for (const [name, branches] of Object.entries(SAN_HE_MAP)) {
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HE_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
       const status = establishedFormations.has(`三合:${name}`) ? '已成势' : '结构齐全，成势待核';
       xingChong.add(
@@ -162,7 +167,7 @@ export function analyzePillarRelations(
       );
     }
   }
-  for (const [name, branches] of Object.entries(SAN_HUI_MAP)) {
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HUI_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
       const status = establishedFormations.has(`三会:${name}`) ? '已成势' : '结构齐全，成势待核';
       xingChong.add(

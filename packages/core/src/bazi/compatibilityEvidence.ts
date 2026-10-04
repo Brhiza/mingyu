@@ -1,17 +1,4 @@
-import {
-  LIUCHONG_MAP,
-  LIUHAI_MAP,
-  LIUHE_MAP,
-  LIUPO_MAP,
-  SANHE_GROUPS,
-  SANHUI_GROUPS,
-  TIAN_GAN_CHONG,
-  TIAN_GAN_HE,
-  BRANCH_HIDDEN_STEMS,
-  isKe,
-  isSanxing,
-  isSheng,
-} from '../ganzhi/relations';
+import { isKe, isSanxing, isSheng } from '../ganzhi/relations';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult, Pillar, Wuxing } from './baziTypes';
@@ -21,6 +8,9 @@ import {
   evaluateBaziMarriageDeep,
   type BaziMarriageDeepEvaluation,
 } from './compatibility-marriage';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS: Record<PillarKey, string> = {
@@ -272,7 +262,7 @@ function getElementRelation(source: Wuxing, target: Wuxing): ElementRelation {
 
 function collectStemRelations(left: Pillar, right: Pillar): BaziCrossPillarRelationDraft[] {
   const result: BaziCrossPillarRelationDraft[] = [];
-  if (TIAN_GAN_HE[left.gan]?.partner === right.gan) {
+  if (GANZHI_RELATION_TABLES.TIAN_GAN_HE[left.gan]?.partner === right.gan) {
     result.push({
       layer: '天干',
       type: '五合候选',
@@ -280,11 +270,11 @@ function collectStemRelations(left: Pillar, right: Pillar): BaziCrossPillarRelat
       person2Pillar: 'year',
       person1Value: left.gan,
       person2Value: right.gan,
-      transformWuxing: TIAN_GAN_HE[left.gan].wuxing,
+      transformWuxing: GANZHI_RELATION_TABLES.TIAN_GAN_HE[left.gan].wuxing,
       note: '只确认天干五合关系；是否合化需另看月令、透干、根气和制化条件。',
     });
   }
-  if (TIAN_GAN_CHONG[left.gan] === right.gan) {
+  if (GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[left.gan] === right.gan) {
     result.push({
       layer: '天干',
       type: '天干冲',
@@ -300,11 +290,11 @@ function collectStemRelations(left: Pillar, right: Pillar): BaziCrossPillarRelat
 function collectBranchRelations(left: Pillar, right: Pillar): BaziCrossPillarRelationDraft[] {
   const relations: BranchRelationType[] = [];
   if (left.zhi === right.zhi) relations.push('同支');
-  if (LIUHE_MAP[left.zhi] === right.zhi) relations.push('六合');
-  if (LIUCHONG_MAP[left.zhi] === right.zhi) relations.push('六冲');
+  if (GANZHI_RELATION_TABLES.LIUHE_MAP[left.zhi] === right.zhi) relations.push('六合');
+  if (GANZHI_RELATION_TABLES.LIUCHONG_MAP[left.zhi] === right.zhi) relations.push('六冲');
   if (isSanxing(left.zhi, right.zhi)) relations.push('三刑');
-  if (LIUHAI_MAP[left.zhi] === right.zhi) relations.push('六害');
-  if (LIUPO_MAP[left.zhi] === right.zhi) relations.push('六破');
+  if (GANZHI_RELATION_TABLES.LIUHAI_MAP[left.zhi] === right.zhi) relations.push('六害');
+  if (GANZHI_RELATION_TABLES.LIUPO_MAP[left.zhi] === right.zhi) relations.push('六破');
   return relations.map((type) => ({
     layer: '地支',
     type,
@@ -362,8 +352,8 @@ function calculateCombinations(chart1: BaziChartResult, chart2: BaziChartResult)
   }
   const combinations: BaziCrossBranchCombination[] = [];
   for (const [type, groups] of [
-    ['三合', SANHE_GROUPS],
-    ['三会', SANHUI_GROUPS],
+    ['三合', GANZHI_RELATION_TABLES.SANHE_GROUPS],
+    ['三会', GANZHI_RELATION_TABLES.SANHUI_GROUPS],
   ] as const) {
     for (const [name, branches] of Object.entries(groups)) {
       if (!branches.every((branch) => sources.has(branch))) continue;
@@ -486,7 +476,7 @@ function calculateUsefulGodCoverage(
         { pillar, layer, value: symbol },
       ]);
     }
-    for (const hiddenStem of BRANCH_HIDDEN_STEMS[value.zhi] ?? []) {
+    for (const hiddenStem of GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[value.zhi] ?? []) {
       const wuxing = asWuxing(hiddenStem);
       sourcesByWuxing.set(wuxing, [
         ...(sourcesByWuxing.get(wuxing) ?? []),

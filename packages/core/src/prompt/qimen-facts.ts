@@ -1,6 +1,9 @@
 import type { QimenData } from '../types/divination';
-import { isKe, isSheng, STEM_WUXING, TIAN_GAN_HE, TIAN_GAN_CHONG } from '../ganzhi';
+import { isKe, isSheng, STEM_WUXING } from '../ganzhi';
 import { getDunJiaStem, hasTianPanStem } from '../divination/algorithms/qimen/helpers/palace-utils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 type Palace = QimenData['jiuGongGe'][number];
 
@@ -77,8 +80,13 @@ export function formatQimenRelationFacts(
         earthElement,
       );
       const combine =
-        TIAN_GAN_HE[sky!]?.partner === earth ? `；天干五合：${sky}与${earth}相合` : '';
-      const clash = TIAN_GAN_CHONG[sky!] === earth ? `；天干相冲：${sky}与${earth}相冲` : '';
+        GANZHI_RELATION_TABLES.TIAN_GAN_HE[sky!]?.partner === earth
+          ? `；天干五合：${sky}与${earth}相合`
+          : '';
+      const clash =
+        GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[sky!] === earth
+          ? `；天干相冲：${sky}与${earth}相冲`
+          : '';
       lines.push(`${useful.name}天地盘干：${relation}${combine}${clash}`);
     }
   }

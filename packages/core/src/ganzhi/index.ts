@@ -71,6 +71,9 @@ import {
   assertWuxing,
   isValidGanZhi,
 } from './validation';
+import { getGanZhiRelationTables } from './relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export * from './data';
 export * from './validation';
@@ -406,7 +409,7 @@ export function getXunKongBranches(ganZhi: string): string[] {
 /** 天干基础属性与合冲关系。 */
 export function getStemRelations(stem: string): StemRelationProfile {
   const index = getStemIndex(stem);
-  const combine = TIAN_GAN_HE[stem];
+  const combine = GANZHI_RELATION_TABLES.TIAN_GAN_HE[stem];
   if (!combine) throw new Error(`天干五合数据缺失：${stem}`);
   return {
     name: stem,
@@ -415,31 +418,33 @@ export function getStemRelations(stem: string): StemRelationProfile {
     yinYang: getStemYinYang(stem),
     combine: combine.partner,
     combineWuxing: combine.wuxing,
-    clash: TIAN_GAN_CHONG[stem],
+    clash: GANZHI_RELATION_TABLES.TIAN_GAN_CHONG[stem],
   };
 }
 
 /** 地支基础属性、藏干与合冲刑害破关系。 */
 export function getBranchRelations(branch: string): BranchRelationProfile {
   const index = getBranchIndex(branch);
-  const sanhe = BRANCH_SANHE[branch];
+  const sanhe = GANZHI_RELATION_TABLES.BRANCH_SANHE[branch];
   if (!sanhe) throw new Error(`地支三合数据缺失：${branch}`);
-  const sanhui = Object.entries(SANHUI_GROUPS).find(([, members]) => members.includes(branch));
+  const sanhui = Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS).find(([, members]) =>
+    members.includes(branch),
+  );
   return {
     name: branch,
     index,
     zodiac: getZodiac(branch),
     wuxing: getBranchWuxing(branch),
     yinYang: getBranchYinYang(branch),
-    hiddenStems: [...(BRANCH_HIDDEN_STEMS[branch] ?? [])],
-    combine: LIUHE_MAP[branch],
-    combineWuxing: LIUHE_WUXING[branch],
-    clash: LIUCHONG_MAP[branch],
-    harm: LIUHAI_MAP[branch],
-    break: LIUPO_MAP[branch],
-    hiddenCombine: ANHE_MAP[branch],
-    punishment: SANXING_MAP[branch],
-    punishments: [...(BRANCH_SANXING[branch] ?? [])],
+    hiddenStems: [...(GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[branch] ?? [])],
+    combine: GANZHI_RELATION_TABLES.LIUHE_MAP[branch],
+    combineWuxing: GANZHI_RELATION_TABLES.LIUHE_WUXING[branch],
+    clash: GANZHI_RELATION_TABLES.LIUCHONG_MAP[branch],
+    harm: GANZHI_RELATION_TABLES.LIUHAI_MAP[branch],
+    break: GANZHI_RELATION_TABLES.LIUPO_MAP[branch],
+    hiddenCombine: GANZHI_RELATION_TABLES.ANHE_MAP[branch],
+    punishment: GANZHI_RELATION_TABLES.SANXING_MAP[branch],
+    punishments: [...(GANZHI_RELATION_TABLES.BRANCH_SANXING[branch] ?? [])],
     punishmentType: getSanxingType(branch) ?? undefined,
     sanhe: { group: sanhe.group, partners: [...sanhe.partners] },
     sanhui: sanhui ? { group: sanhui[0], members: [...sanhui[1]] } : undefined,
@@ -638,7 +643,7 @@ export function getBranchWuxing(branch: string): string {
   try {
     return EarthBranch.fromName(branch).getElement().getName();
   } catch {
-    const w = BRANCH_WUXING[branch];
+    const w = GANZHI_RELATION_TABLES.BRANCH_WUXING[branch];
     if (!w) throw new Error(`地支五行数据缺失：${branch}`);
     return w;
   }

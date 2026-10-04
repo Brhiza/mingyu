@@ -1,6 +1,9 @@
 import type { Pillars } from './baziTypes';
 import { getWuxing } from './baziUtils';
-import { HIDDEN_STEMS } from './baziDefinitions';
+
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface BaziClimateBalanceResult {
   /** 四柱水火分布的启发式方向，不代表完整命局或调候结论。 */
@@ -26,7 +29,7 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
     if (getWuxing(pillar.gan) === '火') fireCount += 1.5;
     if (getWuxing(pillar.gan) === '水') waterCount += 1.5;
 
-    const hidden = (HIDDEN_STEMS[pillar.zhi] || []) as string[];
+    const hidden = (BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || []) as string[];
     hidden.forEach((stem: string, idx: number) => {
       const stemWx = getWuxing(stem);
       const weight = idx === 0 ? 1.0 : 0.5;

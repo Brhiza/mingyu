@@ -1,6 +1,8 @@
-import { HIDDEN_STEMS } from '../baziMappingsData';
 import { getWuxing } from '../baziUtils';
 import type { Matcher } from './types';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 /** 月支所在季节的当令五行（寅卯辰木旺、巳午未火旺、申酉戌金旺、亥子丑水旺、四库土旺） */
 const MONTH_SEASON_WUXING: Record<string, string> = {
@@ -19,7 +21,7 @@ const MONTH_SEASON_WUXING: Record<string, string> = {
 };
 
 function branchPrincipalWuxing(branch: string): string {
-  const principal = (HIDDEN_STEMS[branch] ?? [])[0];
+  const principal = (BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[branch] ?? [])[0];
   return principal ? String(getWuxing(principal)) : '未知';
 }
 

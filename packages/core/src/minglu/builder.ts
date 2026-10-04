@@ -27,10 +27,11 @@ import {
 import { buildEnhancedZiweiSection } from './ziwei-enhancer';
 import { buildEnhancedAstrolabeSection } from './astrolabe-enhancer';
 import { getBaZhaiPalace, type BaZhaiLabel } from '../direction';
-import { MINGLU_GLOSSARY_DATABASE } from './glossary-data';
+import { getMingluGlossaryEntries } from './glossary-data';
 
 export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
   const { person, baziResult, ziweiRuntime, astrolabeData } = options;
+  const glossary = getMingluGlossaryEntries();
   const unknownTime = baziResult.isThreePillars === true;
   const unknownTimeNotice =
     baziResult.unknownTimeAnalysis?.summary ||
@@ -504,7 +505,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     title: '第十三章：命理全息术语百科词典',
     anchorId: 'glossary-encyclopedia',
     level: 1,
-    badge: `${MINGLU_GLOSSARY_DATABASE.length} 条目`,
+    badge: `${glossary.length} 条目`,
   });
 
   // 8. 交叉链接网络 (Cross Links)
@@ -563,7 +564,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     metadata,
     tableOfContents,
     beginnerGuide: buildBeginnerGuide(baziResult),
-    glossary: MINGLU_GLOSSARY_DATABASE,
+    glossary,
     crossLinks,
     pillarsSection,
     fiveElementsSection,
@@ -579,7 +580,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
     crossSynthesisSection,
     statistics: {
       totalSections: tableOfContents.length,
-      totalGlossaryEntries: MINGLU_GLOSSARY_DATABASE.length,
+      totalGlossaryEntries: glossary.length,
       totalShenShaCount: shenShaSection.length,
       totalInteractionsCount: interactionsSection.length,
       totalLuckYearsCount: luckChronicleSection.cycles.reduce(

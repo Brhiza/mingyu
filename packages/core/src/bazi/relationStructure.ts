@@ -1,15 +1,9 @@
 import type { RelationStructureItem, RelationStructureProfile } from '../types/analysis';
-import {
-  BRANCH_ORDER,
-  LIUHAI_MAP,
-  LIUHE_MAP,
-  LIUCHONG_MAP,
-  LIUPO_MAP,
-  SANHE_GROUPS,
-  SANHUI_GROUPS,
-  isSanxing,
-} from '../ganzhi/relations';
+import { BRANCH_ORDER, isSanxing } from '../ganzhi/relations';
 import { assertEarthlyBranch } from './baziUtils';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const PILLAR_NAMES = ['year', 'month', 'day', 'hour'] as const;
 
@@ -26,7 +20,7 @@ function assertRelationPillars(pillars: Array<{ zhi: string }>): void {
 function getTripleCombination(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
   if (s.size !== 3) return null;
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+  for (const [group, members] of Object.entries(GANZHI_RELATION_TABLES.SANHE_GROUPS)) {
     if (members.every((branch) => s.has(branch))) return group.replace('局', '');
   }
   return null;
@@ -34,7 +28,7 @@ function getTripleCombination(b1: string, b2: string, b3: string): string | null
 function getTripleGathering(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
   if (s.size !== 3) return null;
-  for (const [group, members] of Object.entries(SANHUI_GROUPS)) {
+  for (const [group, members] of Object.entries(GANZHI_RELATION_TABLES.SANHUI_GROUPS)) {
     if (members.every((branch) => s.has(branch))) return group.slice(-1);
   }
   return null;
@@ -110,7 +104,7 @@ export function analyzeRelationStructure(
 
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
-      if (LIUHE_MAP[branches[i]] === branches[j])
+      if (GANZHI_RELATION_TABLES.LIUHE_MAP[branches[i]] === branches[j])
         items.push({
           category: '合化候选',
           name: '六合',
@@ -118,7 +112,7 @@ export function analyzeRelationStructure(
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '六合',
         });
-      if (LIUCHONG_MAP[branches[i]] === branches[j])
+      if (GANZHI_RELATION_TABLES.LIUCHONG_MAP[branches[i]] === branches[j])
         items.push({
           category: '冲刑害破',
           name: '六冲',
@@ -126,7 +120,7 @@ export function analyzeRelationStructure(
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相冲',
         });
-      if (LIUHAI_MAP[branches[i]] === branches[j])
+      if (GANZHI_RELATION_TABLES.LIUHAI_MAP[branches[i]] === branches[j])
         items.push({
           category: '冲刑害破',
           name: '六害',
@@ -134,7 +128,7 @@ export function analyzeRelationStructure(
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相害',
         });
-      if (LIUPO_MAP[branches[i]] === branches[j])
+      if (GANZHI_RELATION_TABLES.LIUPO_MAP[branches[i]] === branches[j])
         items.push({
           category: '冲刑害破',
           name: '相破',

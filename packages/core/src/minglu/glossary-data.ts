@@ -5,7 +5,7 @@
 
 import type { MingluGlossaryEntry } from './types';
 
-export const MINGLU_GLOSSARY_DATABASE: MingluGlossaryEntry[] = [
+const MINGLU_GLOSSARY_ENTRIES: MingluGlossaryEntry[] = [
   // 一、天干地支
   {
     term: '甲木',
@@ -352,3 +352,12 @@ export const MINGLU_GLOSSARY_DATABASE: MingluGlossaryEntry[] = [
     relatedTerms: ['本命卦', '生气', '延年', '天医', '伏位'],
   },
 ];
+
+export function getMingluGlossaryEntries(): MingluGlossaryEntry[] {
+  return MINGLU_GLOSSARY_ENTRIES.map((entry) => ({
+    ...entry,
+    ...(entry.relatedTerms ? { relatedTerms: [...entry.relatedTerms] } : {}),
+  }));
+}
+
+export const MINGLU_GLOSSARY_DATABASE: MingluGlossaryEntry[] = getMingluGlossaryEntries();

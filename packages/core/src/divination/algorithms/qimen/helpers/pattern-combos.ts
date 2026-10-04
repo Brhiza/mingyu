@@ -21,8 +21,11 @@ import {
   starElements,
   supportiveGods,
 } from './_constants';
-import { getXunHead, isValidGanZhi, LIUCHONG_MAP } from '../../../../ganzhi';
+import { getXunHead, isValidGanZhi } from '../../../../ganzhi';
 import { getTianPanStars, getTianPanStems, hasTianPanStar, hasTianPanStem } from './palace-utils';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export interface QimenPatternCombo {
   key: string;
@@ -1691,7 +1694,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const youDuBranch = ctx.dayStem ? youDuBranchByDayStem[ctx.dayStem] : undefined;
-  const luDuBranch = youDuBranch ? LIUCHONG_MAP[youDuBranch] : undefined;
+  const luDuBranch = youDuBranch ? GANZHI_RELATION_TABLES.LIUCHONG_MAP[youDuBranch] : undefined;
   const youDuPalace = youDuBranch ? getPalaceByBranch(ctx.jiuGongGe, youDuBranch) : undefined;
   const luDuPalace = luDuBranch ? getPalaceByBranch(ctx.jiuGongGe, luDuBranch) : undefined;
 
@@ -2060,7 +2063,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const xiongBranch = ctx.monthBranch ? xiongBranchByMonthBranch[ctx.monthBranch] : undefined;
-  const ciBranch = xiongBranch ? LIUCHONG_MAP[xiongBranch] : undefined;
+  const ciBranch = xiongBranch ? GANZHI_RELATION_TABLES.LIUCHONG_MAP[xiongBranch] : undefined;
   const xiongPalace = xiongBranch ? getPalaceByBranch(ctx.jiuGongGe, xiongBranch) : undefined;
   const ciPalace = ciBranch ? getPalaceByBranch(ctx.jiuGongGe, ciBranch) : undefined;
 

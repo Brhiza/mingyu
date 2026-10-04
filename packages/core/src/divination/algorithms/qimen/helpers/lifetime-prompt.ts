@@ -9,6 +9,7 @@ import { TimeManager } from '../../../../calendar/timeManager';
 import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../../../prompt/qimen-interpretation';
 import { buildPromptTask } from '../../../../prompt/guidance';
 import {
+  formatQimenClassicPatternBasisForPrompt,
   formatQimenClassicPatternSummary,
   selectQimenClassicPatternsForPrompt,
 } from '../../../qimen-evidence';
@@ -219,6 +220,8 @@ export function buildLifetimePrompt(
   }
 
   const classicPatterns = data.baseChart.classicPatterns ?? [];
+  const classicFacts =
+    data.baseChart.evidenceAnalysis?.patternFacts.filter((fact) => fact.kind === '经典格局') ?? [];
   const visibleClassicPatterns = selectQimenClassicPatternsForPrompt(classicPatterns);
   if (visibleClassicPatterns.length > 0) {
     lines.push(`盘面吉凶格局：`);
@@ -236,18 +239,39 @@ export function buildLifetimePrompt(
             )
         : [];
       const summary = formatLifetimePatternSummary(cp.name, cp.summary);
+      const fact = classicFacts.find(
+        (item) =>
+          item.name === cp.name &&
+          item.originalText === cp.summary &&
+          item.palaces.length === cp.palaces.length &&
+          item.palaces.every((gong) => cp.palaces.includes(gong)),
+      );
+      const locationClause = summary.match(
+        /^(?:天盘[乙丙丁戊己庚辛壬癸]加地盘[乙丙丁戊己庚辛壬癸]于[^，；]+|值符.+与值使.+同落[^，；]+)[，；]/u,
+      )?.[0];
+      const locationAlreadyShown = Boolean(
+        fact &&
+        locationClause &&
+        formatQimenClassicPatternBasisForPrompt(fact, classicFacts, data.baseChart) === cp.name,
+      );
+      const palaceName = locationAlreadyShown
+        ? data.baseChart.jiuGongGe.find((palace) => palace.gong === cp.palaces[0])?.name
+        : '';
+      const remainingSummary = locationAlreadyShown
+        ? summary.slice(locationClause!.length)
+        : summary;
       const mergedSummary = [
         ...new Set([
           ...parentSummaries,
           parentSummaries.length
-            ? summary
+            ? remainingSummary
                 .replace(`${parentName}又临吉门`, '同宫临')
                 .replace(/，得门得使，双重吉利。?$/u, '')
-            : summary,
+            : remainingSummary,
         ]),
       ].join('；');
       lines.push(
-        `  ${cp.name}（${cp.type === 'good' ? '吉' : cp.type === 'bad' ? '凶' : '中性'}）：${mergedSummary}`,
+        `  ${cp.name}（${cp.type === 'good' ? '吉' : cp.type === 'bad' ? '凶' : '中性'}${palaceName ? `，${palaceName}` : ''}）${mergedSummary ? `：${mergedSummary}` : ''}`,
       );
     }
   }

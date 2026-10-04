@@ -2,8 +2,10 @@
  * 用神体系扩充：病药法与通关法规则。
  */
 
-import { BASIC_MAPPINGS } from '../baziDefinitions';
 import { WUXING, type PatternAnalysis, type Wuxing } from '../baziTypes';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 interface DiseaseMedicineRule {
   id: string;
@@ -219,7 +221,7 @@ export function getDrainWuxing(wuxing: string): string {
 
 function getSupportiveWuxing(wuxing: string): string {
   assertWuxing(wuxing, '生扶');
-  const sheng = BASIC_MAPPINGS.WUXING_SHENG;
+  const sheng = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG;
   const wuxingIndex = Object.values(sheng).indexOf(wuxing);
   if (wuxingIndex >= 0) {
     const keys = Object.keys(sheng);

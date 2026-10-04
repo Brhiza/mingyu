@@ -1,10 +1,12 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziDefinitions';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { assessStemHarmonyTransform } from './harmonyTransform';
 import { collectAdjudicatedRootFacts } from './baziRootAdjudication';
 import { getRootTraditionalKind, isStructuralRoot, type RootPillarPosition } from './baziRootFacts';
 import type { CongErPatternAdjudication, HiddenStems, Pillars, Wuxing } from './baziTypes';
 import { getSeasonStatus, getWuxing } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 
@@ -48,12 +50,15 @@ const PILLAR_LABELS: Record<RootPillarPosition, string> = {
 };
 
 function getGeneratedElement(element: Wuxing): Wuxing {
-  return BASIC_MAPPINGS.WUXING_SHENG[element] as Wuxing;
+  return BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[element] as Wuxing;
 }
 
 function buildHiddenStems(pillars: Pillars): HiddenStems {
   return Object.fromEntries(
-    POSITIONS.map((position) => [position, [...(HIDDEN_STEMS[pillars[position].zhi] || [])]]),
+    POSITIONS.map((position) => [
+      position,
+      [...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[position].zhi] || [])],
+    ]),
   ) as unknown as HiddenStems;
 }
 
@@ -171,7 +176,7 @@ export function assessCongErPattern(
     const representative = formation.wuxing;
     return (
       representative === dayMasterElement ||
-      BASIC_MAPPINGS.WUXING_SHENG[representative] === dayMasterElement
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[representative] === dayMasterElement
     );
   });
   const allPrincipalWealthSupportBlockers = unique([
@@ -274,11 +279,14 @@ export function assessCongErPattern(
       if (wealth.position !== resourcePosition && !areAdjacent(resourcePosition, wealth.position)) {
         continue;
       }
-      if (BASIC_MAPPINGS.WUXING_KE[wealthElement] !== getWuxing(resourceStem)) continue;
+      if (
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[wealthElement] !== getWuxing(resourceStem)
+      )
+        continue;
       // 支藏印星不是该柱明透天干，不能作为天干五合参与者。
       if (
         pillars[resourcePosition].gan !== resourceStem ||
-        BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[wealth.stem] !== resourceStem
       ) {
         return { wealth, harmonyNote: '' };
       }
@@ -372,7 +380,8 @@ export function assessCongErPattern(
     const clashTarget = principalOutputPositions.find(
       (targetPosition) =>
         targetPosition !== position &&
-        BASIC_MAPPINGS.DI_ZHI_CHONG[pillars[position].zhi] === pillars[targetPosition].zhi,
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[pillars[position].zhi] ===
+          pillars[targetPosition].zhi,
     );
     if (!clashTarget) return [];
     if (recordWealthRescue(position, principalStem, tenGod)) return [];
