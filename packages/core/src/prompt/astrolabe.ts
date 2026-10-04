@@ -165,6 +165,12 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     data.houseSystem
       ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : '普拉西德斯宫制（Placidus）'}`
       : '',
+    data.lunarNodeType === 'true' &&
+    data.planets.some((point) =>
+      ['North Node', 'South Node', 'True North Node', 'True South Node'].includes(point.name),
+    )
+      ? '交点口径：月球真交点'
+      : '',
     data.dayChart === undefined ? '' : `昼夜盘：${data.dayChart ? '昼盘' : '夜盘'}`,
     ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     data.birth.isTrueSolarTime && data.birth.trueSolarDateTime

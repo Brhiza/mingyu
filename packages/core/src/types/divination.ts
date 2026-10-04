@@ -1605,6 +1605,8 @@ export interface AstrolabeAspect {
 
 export interface AstrolabeData {
   houseSystem?: 'placidus' | 'whole_sign';
+  /** 本次排盘明确采用的月球交点模型；旧盘未记录时省略。 */
+  lunarNodeType?: 'true';
   /** 与福点、精神点计算使用同一太阳地平线上下判定。 */
   dayChart?: boolean;
   ephemerisWarnings?: string[];
