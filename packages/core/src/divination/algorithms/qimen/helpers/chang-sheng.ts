@@ -16,13 +16,14 @@
  */
 
 import { EarthBranch, HeavenStem } from 'tyme4ts';
-import { CHANGSHENG_ORDER, WUXING_CHANGSHENG_START } from '../../../../ganzhi/data';
+import { CHANGSHENG_ORDER } from '../../../../ganzhi/data';
+import { isEarthlyBranch, isHeavenlyStem, isWuxing } from '../../../../ganzhi/validation';
 import { getQimenConstants } from './_constants';
 
 import { getDunJiaStem, hasTianPanStar, hasTianPanStem } from './palace-utils';
 import type { QimenJiuGongGe } from '../../../../types/divination';
 
-const { stemElements, branchIndex, palaceStars } = getQimenConstants();
+const { branchIndex, palaceStars } = getQimenConstants();
 
 // ============================================================================
 // 1. 类型定义
@@ -138,7 +139,7 @@ function getScoreFactor(stage: string): number {
  *   "阳顺阴逆，各以五行论长生之位"
  *
  * 计算步骤：
- *   1. 五行各有长生起始地支（WUXING_CHANGSHENG_START）。
+ *   1. 按传入的长生起始地支定位。
  *   2. 阳干从该起始地支向前（顺时针）逐支推算 12 个阶段。
  *   3. 阴干从该起始地支向后（逆时针）逐支推算 12 个阶段。
  *
@@ -170,17 +171,12 @@ export function getChangSheng(
   targetBranch: string,
   isYang: boolean = true,
 ): ChangShengStage {
-  // 校验五行是否在已知范围内（借用 WUXING_CHANGSHENG_START 做允许列表）
-  if (!WUXING_CHANGSHENG_START[stemWuxing]) {
+  if (!isWuxing(stemWuxing) || !isEarthlyBranch(startBranch) || !isEarthlyBranch(targetBranch)) {
     return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
   }
 
   const startIdx = branchIndex[startBranch];
   const targetIdx = branchIndex[targetBranch];
-
-  if (startIdx === undefined || targetIdx === undefined) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
-  }
 
   // 阳干：从起始地支向前数（顺时针）到目标地支
   // 阴干：从起始地支向后数（逆时针）到目标地支
@@ -227,8 +223,7 @@ export function getChangSheng(
  * ```
  */
 export function evaluateChangSheng(stem: string, palaceGong: number): ChangShengStage {
-  const stemWuxing = stemElements[stem];
-  if (!stemWuxing) {
+  if (!isHeavenlyStem(stem)) {
     return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
   }
 
@@ -238,7 +233,7 @@ export function evaluateChangSheng(stem: string, palaceGong: number): ChangSheng
   }
 
   const targetBranch = PALACE_MAIN_BRANCH[palaceGong];
-  if (!targetBranch) {
+  if (!isEarthlyBranch(targetBranch)) {
     return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
   }
 

@@ -39,6 +39,8 @@ test('解读口径注册表只覆盖规划内适用术数且每种至少提供�
   const profile = profiles.huozhulin;
   const original = { ...profile };
   const guidance = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
+  assert.match(guidance, /断法：火珠林法/);
+  assert.doesNotMatch(guidance, /合参任务/);
   try {
     profile.label = '变造断法';
     profile.task = '变造任务';
@@ -67,9 +69,6 @@ test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
   assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin', 'bushizhengzong']), '多法合参');
   assert.equal(getPromptSchoolSectionTitle('bazi', ['ziping', 'mangpai']), '多派合参');
   assert.equal(getPromptSchoolSectionTitle('tarot', ['rws', 'yuansu']), '多口径合参');
-  const single = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
-  assert.match(single, /断法：火珠林法/);
-  assert.doesNotMatch(single, /合参任务/);
   assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin']), '解读断法');
   assert.throws(() => formatPromptSchoolGuidance('liuyao', ['unknown']), /不支持解读口径/);
 });

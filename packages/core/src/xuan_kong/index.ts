@@ -67,7 +67,7 @@ export const SUBSTITUTE_STAR_POEM =
   '子癸并甲申，贪狼一路行；壬卯乙未坤，五位为巨门；乾亥辰巽巳，连戌武曲名；酉辛丑艮丙，天星说破军；寅午庚丁上，右弼四星临。';
 
 /** 二十四山起星替卦对应表（替星数：1贪狼、2巨门、6武曲、7破军、9右弼）。 */
-export const TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> = {
+const CANONICAL_TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> = {
   子: 1,
   癸: 1,
   甲: 1,
@@ -92,6 +92,10 @@ export const TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> 
   午: 9,
   丁: 9,
   庚: 9,
+};
+
+export const TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> = {
+  ...CANONICAL_TWENTY_FOUR_MOUNTAIN_SUBSTITUTES,
 };
 
 export type XuanKongGuaType = '下卦' | '替卦';
@@ -602,7 +606,7 @@ function resolveReplacementLeg(
     throw new Error(`替卦无法按${originalCenterStar}星与${sourceMountain}山同元龙取本宫山。`);
   }
   const replacementStar =
-    originalCenterStar === 5 ? 5 : TWENTY_FOUR_MOUNTAIN_SUBSTITUTES[referenceMountain];
+    originalCenterStar === 5 ? 5 : CANONICAL_TWENTY_FOUR_MOUNTAIN_SUBSTITUTES[referenceMountain];
   const referenceMeta = MOUNTAIN_YUAN_AND_DIRECTION[referenceMountain];
   if (!replacementStar || !referenceMeta) {
     throw new Error(`替卦缺少${referenceMountain}山替星或阴阳资料。`);

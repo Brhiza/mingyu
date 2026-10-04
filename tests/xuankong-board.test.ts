@@ -204,12 +204,13 @@ test('玄空替星诀覆盖二十四山且补齐戌山武曲六白', () => {
 });
 
 test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证据', () => {
-  const result = generateXuanKong({
+  const input = {
     year: 2008,
     sitDegree: 339,
     facingDegree: 159,
-    guaType: '替卦',
-  });
+    guaType: '替卦' as const,
+  };
+  const result = generateXuanKong(input);
 
   assert.equal(result.sitMountain, '壬');
   assert.equal(result.facingMountain, '丙');
@@ -233,6 +234,18 @@ test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证�
   assert.match(result.prompt, /卦型：替卦/);
   assert.match(result.prompt, /辰山替为6逆飞/);
   assert.match(result.evidenceAnalysis.promptText, /同元|辰山替为6逆飞|甲山替为1顺飞/);
+
+  const substitutes = TWENTY_FOUR_MOUNTAIN_SUBSTITUTES as Record<string, number>;
+  const originalChen = substitutes.辰;
+  const originalJia = substitutes.甲;
+  try {
+    substitutes.辰 = 1;
+    substitutes.甲 = 9;
+    assert.deepEqual(generateXuanKong(input), result);
+  } finally {
+    substitutes.辰 = originalChen;
+    substitutes.甲 = originalJia;
+  }
 });
 
 test('《沈氏玄空学》六运壬山丙向替卦：山二不变、向一替二并顺飞到向六', () => {

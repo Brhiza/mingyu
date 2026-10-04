@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { HeavenStem } from 'tyme4ts';
 import * as core from '../packages/core/src/index.ts';
+import { WUXING_CHANGSHENG_START } from '../packages/core/src/ganzhi/data.ts';
 import { drawTarotSpread, getCardEvidence } from '../packages/core/src/divination/tarot.ts';
 import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
 import './divination-template-upgrade.cases.ts';
@@ -21,7 +23,7 @@ test('wuxing: 五行统计', () => {
   assert.equal(counts['火'], 3);
 });
 
-test('ganzhi: 十二长生（土长生在寅，与八字/奇门一致）', () => {
+test('ganzhi: 十二长生（土长生在寅，与八字/奇门一致）', (t) => {
   // 木长生在亥、火长生在寅、金长生在巳、水长生在申（不变）
   assert.equal(core.ganzhi.getChangShengState('木', '亥'), '长生');
   assert.equal(core.ganzhi.getChangShengState('火', '寅'), '长生');
@@ -31,6 +33,22 @@ test('ganzhi: 十二长生（土长生在寅，与八字/奇门一致）', () =>
   assert.equal(core.ganzhi.getChangShengState('土', '寅'), '长生');
   assert.equal(core.ganzhi.getChangShengState('土', '申'), '病'); // 寅派：土在申为病
   assert.equal(core.ganzhi.getWuxingChangSheng('土'), '寅');
+
+  const originalWoodStart = WUXING_CHANGSHENG_START.木;
+  const terrainMock = t.mock.method(HeavenStem.prototype, 'getTerrain', () => {
+    throw new Error('长生库异常');
+  });
+  try {
+    WUXING_CHANGSHENG_START.木 = '子';
+    assert.equal(WUXING_CHANGSHENG_START.木, '子');
+    assert.equal(core.ganzhi.getChangShengState('木', '亥'), '长生');
+    assert.equal(core.ganzhi.getChangShengState('土', '寅'), '长生');
+    assert.equal(core.ganzhi.getChangShengState('土', '申'), '病');
+  } finally {
+    terrainMock.mock.restore();
+    WUXING_CHANGSHENG_START.木 = originalWoodStart;
+  }
+  assert.equal(core.ganzhi.getChangShengState('木', '亥'), '长生');
 });
 
 test('direction: 八宅大游年', () => {

@@ -55,7 +55,6 @@ import {
   SIXTY_CYCLE,
   SIX_XUN_HEADS,
   CHANGSHENG_ORDER,
-  WUXING_CHANGSHENG_START,
   type HeavenlyStem,
   type EarthlyBranch,
   type ChangShengState,
@@ -616,7 +615,7 @@ export function getNayinWuxing(ganZhi: string): string {
  * 十二长生状态（统一「土长生在寅」流派，与八字/奇门所用 tyme4ts 一致）。
  * 实现：以该五行的阳性天干代算（木→甲、火→丙、土→戊、金→庚、水→壬），
  * 调 tyme4ts HeavenStem.getTerrain(branch) 取得权威长生状态。
- * 本地表（WUXING_CHANGSHENG_START，已同步为寅派）仅作 tyme4ts 异常时的回退。
+ * 固定五行长生规则仅作 tyme4ts 异常时的回退。
  */
 const YANG_STEM_OF_WUXING: Record<string, string> = {
   木: '甲',
@@ -634,8 +633,7 @@ export function getChangShengState(wuxing: string, branch: string): ChangShengSt
     const terrain = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
     return terrain as ChangShengState;
   } catch {
-    const start = WUXING_CHANGSHENG_START[wuxing];
-    if (!start) throw new Error(`五行长生起点缺失：${wuxing}`);
+    const start = getWuxingChangSheng(wuxing);
     const startIdx = EARTHLY_BRANCHES.indexOf(start as EarthlyBranch);
     const branchIdx = EARTHLY_BRANCHES.indexOf(branch as EarthlyBranch);
     if (branchIdx < 0) throw new Error(`地支无效：${branch}`);
