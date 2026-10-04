@@ -89,8 +89,9 @@ test('梅花盘面时柱与取数时支不一致时不输出旧取数算式', ()
 test('梅花最终提示词拒绝与时间戳冲突的结果时间和年日柱', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
   const makeChart = () => generateMeihua(date, { method: 'number', number: 42 });
+  const baseChart = makeChart();
 
-  const staleTimestamp = makeChart();
+  const staleTimestamp = structuredClone(baseChart);
   staleTimestamp.timestamp += 24 * 60 * 60 * 1000;
   assert.throws(
     () =>
@@ -99,7 +100,7 @@ test('梅花最终提示词拒绝与时间戳冲突的结果时间和年日柱',
   );
 
   for (const pillar of ['year', 'day'] as const) {
-    const inconsistent = makeChart();
+    const inconsistent = structuredClone(baseChart);
     inconsistent.ganzhi[pillar] = '甲子';
     assert.throws(
       () =>
@@ -116,7 +117,8 @@ test('梅花提示词重新核验逐爻、关系和卦爻辞，不采信旧证�
       method: 'number',
       number: 42,
     });
-  const stale = makeChart();
+  const baseChart = makeChart();
+  const stale = structuredClone(baseChart);
   stale.evidenceAnalysis!.stages[0].promptText = '伪造的体用阶段';
   assert.doesNotMatch(buildDivinationPrompt('meihua', '请做整体解读。', stale), /伪造的体用阶段/u);
 
@@ -138,7 +140,7 @@ test('梅花提示词重新核验逐爻、关系和卦爻辞，不采信旧证�
     },
   ];
   for (const mutate of mutations) {
-    const chart = makeChart();
+    const chart = structuredClone(baseChart);
     mutate(chart);
     assert.throws(
       () => buildDivinationPrompt('meihua', '请做整体解读。', chart),
@@ -146,7 +148,7 @@ test('梅花提示词重新核验逐爻、关系和卦爻辞，不采信旧证�
     );
   }
 
-  const legacy = makeChart();
+  const legacy = structuredClone(baseChart);
   delete legacy.calculation;
   assert.doesNotThrow(() => buildDivinationPrompt('meihua', '请做整体解读。', legacy));
   legacy.mainHexagram.description += '伪造卦辞';
