@@ -686,7 +686,11 @@ test('紫微单宫定位条件仅在宫位中已有同一星曜事实时省略',
     buildZiweiTaskBookSnapshot({ payload: branchPayload, reportContext: createReportContext() }),
   ]) {
     assert.match(text, /命宫[；｜][^\n]*宫干支：?甲寅/u);
-    assert.match(text, /格局：府相朝垣[\s\S]*?命中条件：天府、天相分别坐财帛宫与官禄宫/u);
+    const patternText = text.split('格局：府相朝垣\n')[1]?.split('\n\n')[0];
+    assert.ok(patternText);
+    assert.match(text, /财帛宫[；｜][^\n]*天府/u);
+    assert.match(text, /官禄宫[；｜][^\n]*天相/u);
+    assert.doesNotMatch(patternText, /命中条件：/u);
     assert.match(text, /古籍依据：《紫微斗数全书》卷三/u);
     assert.doesNotMatch(text, /命中条件：命宫在寅宫/u);
   }
@@ -695,6 +699,42 @@ test('紫微单宫定位条件仅在宫位中已有同一星曜事实时省略',
     /格局：府相朝垣[\s\S]*?命中条件：命宫在寅宫；天府、天相分别坐财帛宫与官禄宫/u,
   );
   assert.deepEqual(branchPayload, branchBefore);
+
+  const separatedPayload = structuredClone(branchPayload);
+  const separatedSoul = separatedPayload.palaces[0];
+  separatedSoul.major_stars = [{ name: '廉贞', kind: 'major' }];
+  separatedSoul.summary_tags = ['廉贞'];
+  const separatedBody = separatedPayload.palaces[10];
+  separatedBody.major_stars = [{ name: '武曲', kind: 'major' }];
+  separatedBody.summary_tags = ['武曲'];
+  separatedBody.is_body_palace = true;
+  separatedPayload.basic_info.body_palace_branch = separatedBody.earthly_branch;
+  separatedPayload.patterns = detectPatterns({ palaces: separatedPayload.palaces });
+  const separatedPattern = separatedPayload.patterns.find((item) => item.name === '财与囚仇');
+  assert.ok(separatedPattern);
+  assert.deepEqual(separatedPattern.matched_conditions, ['武曲、廉贞分守命宫与身宫']);
+  const separatedBefore = structuredClone(separatedPayload);
+  for (const text of [
+    formatZiweiPayloadForPrompt(separatedPayload),
+    buildZiweiTaskBookSnapshot({ payload: separatedPayload, reportContext: createReportContext() }),
+  ]) {
+    const patternText = text.split('格局：财与囚仇\n')[1]?.split('\n\n')[0];
+    assert.ok(patternText);
+    assert.match(text, /命宫[；｜][^\n]*廉贞/u);
+    assert.match(text, /福德宫(?:（身宫）)?[；｜][^\n]*武曲/u);
+    assert.match(text, /福德宫（身宫）|身宫：福德宫/u);
+    assert.ok(patternText.includes(separatedPattern.sources![0]));
+    assert.doesNotMatch(patternText, /命中条件：/u);
+  }
+  assert.match(
+    formatZiweiPayloadForPrompt(separatedPayload, { focusPalaceNames: ['命宫'] }),
+    /格局：财与囚仇[\s\S]*?命中条件：武曲、廉贞分守命宫与身宫/u,
+  );
+  const missingBodyStar = buildZiweiMatchedPatternSummary(separatedPayload, {
+    displayedPalaces: [separatedSoul, { ...separatedBody, major_stars: [] }],
+  }).find((item) => item.格局 === '财与囚仇');
+  assert.equal(missingBodyStar?.命中条件, '武曲、廉贞分守命宫与身宫');
+  assert.deepEqual(separatedPayload, separatedBefore);
 
   const brightPalace = createPalace(0, '命宫', ['贪狼']);
   brightPalace.major_stars[0].brightness = '庙';

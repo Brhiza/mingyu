@@ -150,7 +150,7 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
       patternName: '刑囚夹印',
       condition: '天刑、廉贞同临命宫',
       stars: ['天刑', '廉贞'],
-      retainedCondition: '天府、天相分别坐财帛宫与官禄宫',
+      retainedCondition: undefined,
     },
     {
       birthDate: '1992-06-15',
@@ -214,6 +214,25 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
       );
     }
 
+    const separatedPattern =
+      sample.patternName === '刑囚夹印'
+        ? payload.patterns?.find((item) => item.name === '府相朝垣')
+        : undefined;
+    if (sample.patternName === '刑囚夹印') {
+      assert.ok(separatedPattern);
+      assert.ok(separatedPattern.matched_conditions?.includes('天府、天相分别坐财帛宫与官禄宫'));
+      assert.ok(
+        payload.palaces
+          .find((palace) => palace.name === '官禄')
+          ?.major_stars.some((star) => star.name === '天府'),
+      );
+      assert.ok(
+        payload.palaces
+          .find((palace) => palace.name === '财帛')
+          ?.major_stars.some((star) => star.name === '天相'),
+      );
+    }
+
     const texts = [
       buildZiweiPrompt({ runtime, scope: 'full', currentTime, question }),
       buildPublicZiweiPromptForRuntime({ result: runtime, scope: 'full', question }),
@@ -243,6 +262,22 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
       );
       for (const name of sample.stars) assert.ok(text.includes(name), name);
       if (sample.retainedCondition) assert.ok(text.includes(sample.retainedCondition));
+      if (separatedPattern) {
+        const patternText = text.split('格局：府相朝垣\n')[1]?.split('\n\n')[0];
+        assert.ok(patternText);
+        assert.ok(patternText.includes(separatedPattern.sources![0]));
+        assert.doesNotMatch(patternText, /命中条件：/u);
+        const careerLine = text
+          .split('\n')
+          .find((line) => /^\s*官禄宫(?:（身宫）)?(?:（来因宫）)?；|^宫位：官禄宫｜/u.test(line));
+        const wealthLine = text
+          .split('\n')
+          .find((line) => /^\s*财帛宫(?:（身宫）)?(?:（来因宫）)?；|^宫位：财帛宫｜/u.test(line));
+        assert.ok(careerLine);
+        assert.ok(wealthLine);
+        assert.match(careerLine, /天府/u);
+        assert.match(wealthLine, /天相/u);
+      }
       if (sample.patternName === '权禄生逢') {
         const lifePalaceLine = text
           .split('\n')
@@ -271,6 +306,13 @@ test('紫微完整任务书省略已展示的同宫正事实，未展示与未�
         .split('\n')
         .some((line) => line.startsWith('命中条件：') && line.includes(sample.condition)),
     );
+
+    if (separatedPattern) {
+      assert.match(
+        focused,
+        /格局：府相朝垣[\s\S]*?命中条件：命宫在寅宫；天府、天相分别坐财帛宫与官禄宫/u,
+      );
+    }
 
     const assertRetained = (displayedPalaces: readonly PalaceFact[]) => {
       assert.equal(

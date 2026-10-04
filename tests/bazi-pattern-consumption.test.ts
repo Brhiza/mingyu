@@ -34,7 +34,14 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
       remedies: [],
       summary: '成败与格局名称分别记录',
       conditions: ['制化来源与作用对象保持有效'],
-      conditionFacts: [{ key: 'control', status: '不满足', detail: '制化来源缺少有效根气' }],
+      conditionFacts: [
+        { key: 'control', status: '不满足', detail: '制化来源缺少有效根气' },
+        {
+          key: 'pattern.breaker.unresolved',
+          status: '资料不足',
+          detail: '破格候选根气层次不足以直接视为稳定作用。',
+        },
+      ],
       pathEvaluations: [
         {
           key: '印护官',
@@ -55,6 +62,10 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
     const fact = evidence.analysisFacts.find((item) => item.type === '格局');
     assert.deepEqual(fact?.patternFulfillment, fulfillment);
     assert.ok(fact?.promptText.includes(fulfillment.contradiction));
+    assert.ok(fact?.promptText.includes('条件核验：不满足；制化来源缺少有效根气'));
+    assert.ok(
+      fact?.promptText.includes('条件核验：资料不足；破格候选根气层次不足以直接视为稳定作用。'),
+    );
     const decisive = `当前成败判定：${status}`;
     for (const text of [
       fact?.promptText ?? '',
@@ -142,6 +153,7 @@ test('本命格局提示证据省略已写入成败理由的重复条件并保�
     gender: 'male',
   });
   const pattern = result.analysis.mingGe;
+  const originalPattern = structuredClone(pattern);
   const fact = analyzeBaziNatalEvidence(result).analysisFacts.find((item) => item.type === '格局');
   const pathDetail = pattern.fulfillment?.pathEvaluations?.find(
     (item) => item.label === '印星制伤官护官',
@@ -153,6 +165,22 @@ test('本命格局提示证据省略已写入成败理由的重复条件并保�
   assert.equal(fact.promptText.split(pathDetail).length - 1, 1);
   assert.match(fact.promptText, /条件核验：满足；伤官见官可用项：时柱透干丁/);
   assert.doesNotMatch(fact.promptText, /格局条件：|候选取用：/);
+  assert.doesNotMatch(fact.promptText, /条件核验：满足；月令酉藏辛/);
+  assert.doesNotMatch(fact.promptText, /官杀混杂未透干/);
+  assert.match(fact.promptText, /年柱透干癸（正印）无同类藏根/);
+  assert.match(fact.promptText, /条件核验：满足；正官见月柱透干辛（正官）/);
+  assert.match(fact.promptText, /来源无稳定根或其他可用根/);
+  assert.match(fact.promptText, /印星制伤官护官要求双方有可用根气/);
+  assert.ok(
+    originalPattern.fulfillment?.conditionFacts?.some(
+      (item) => item.key === 'pattern.month-gate' && item.status === '满足',
+    ),
+  );
+  assert.ok(
+    originalPattern.fulfillment?.conditionFacts?.some((item) => item.detail === '官杀混杂未透干。'),
+  );
+  assert.deepEqual(fact.patternFulfillment, originalPattern.fulfillment);
+  assert.deepEqual(pattern, originalPattern);
 
   const evidenceDetail = result.evidenceAnalysis?.evidence.items.find(
     (item) => item.title === '格局事实',

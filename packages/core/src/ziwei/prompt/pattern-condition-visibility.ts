@@ -281,6 +281,40 @@ function isRepeatedPalaceBranchCondition(
   return palace?.earthly_branch === match[2];
 }
 
+function isRepeatedSeparatedStarsCondition(
+  pattern: Pick<PatternFact, 'palace_indexes' | 'palace_names' | 'star_names'>,
+  condition: string,
+  displayedPalaces: readonly PalaceFact[],
+) {
+  const members =
+    condition === '天府、天相分别坐财帛宫与官禄宫'
+      ? (['天府', '天相', '财帛', '官禄'] as const)
+      : condition === '武曲、廉贞分守命宫与身宫'
+        ? (['武曲', '廉贞', '命', '身'] as const)
+        : undefined;
+  if (!members || !members.slice(0, 2).every((name) => pattern.star_names.includes(name))) {
+    return false;
+  }
+  const firstPalace = getPatternPalace(pattern, members[2], displayedPalaces);
+  const secondPalace = getPatternPalace(pattern, members[3], displayedPalaces);
+  if (!firstPalace || !secondPalace || firstPalace.index === secondPalace.index) return false;
+
+  const firstStars = [
+    ...firstPalace.major_stars,
+    ...firstPalace.minor_stars,
+    ...firstPalace.other_stars,
+  ].map((star) => star.name);
+  const secondStars = [
+    ...secondPalace.major_stars,
+    ...secondPalace.minor_stars,
+    ...secondPalace.other_stars,
+  ].map((star) => star.name);
+  return (
+    (firstStars.includes(members[0]) && secondStars.includes(members[1])) ||
+    (firstStars.includes(members[1]) && secondStars.includes(members[0]))
+  );
+}
+
 /** 判断格局条件是否已由当前展示宫位中的星曜位置和明确属性完整表达。 */
 export function isZiweiConditionRestatedByPalaces(
   pattern: Pick<PatternFact, 'palace_indexes' | 'palace_names' | 'star_names'>,
@@ -289,6 +323,7 @@ export function isZiweiConditionRestatedByPalaces(
 ) {
   return (
     isRepeatedPalaceBranchCondition(pattern, condition, displayedPalaces) ||
+    isRepeatedSeparatedStarsCondition(pattern, condition, displayedPalaces) ||
     isRepeatedZiweiCoLocationCondition(pattern, condition, displayedPalaces) ||
     isRepeatedSinglePalacePositionCondition(pattern, condition, displayedPalaces) ||
     isRepeatedNamedStarBrightnessCondition(pattern, condition, displayedPalaces) ||

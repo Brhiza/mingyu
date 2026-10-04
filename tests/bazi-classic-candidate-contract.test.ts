@@ -71,6 +71,37 @@ test('旧经典格局入口仍返回目录顺序首项，全量入口保留并�
   const normalSection = generateEnhancedAnalysisSection(chart);
   assert.match(normalSection, /建禄格/);
   assert.match(normalSection, /井栏叉格/);
+  const layeredChart = structuredClone(chart);
+  layeredChart.analysis.mingGe.pattern = '建禄格';
+  layeredChart.analysis.mingGe.patternCandidates = [
+    {
+      pattern: '建禄格',
+      source: '月令本气',
+      basis: '月支申本气庚为比肩，按月令建禄取格',
+      selected: true,
+    },
+    {
+      pattern: '建禄格',
+      source: '月令藏干透干',
+      basis: '月令藏干庚透于月干',
+      selected: false,
+    },
+  ];
+  const samePattern = structuredClone(layeredChart.analysis.mingGe);
+  assert.doesNotMatch(generateEnhancedAnalysisSection(layeredChart), /【取格分层候选】/);
+  assert.deepEqual(layeredChart.analysis.mingGe, samePattern);
+  layeredChart.analysis.mingGe.patternCandidates.push({
+    pattern: '偏印格',
+    source: '月令藏干透干',
+    basis: '月令藏干戊为偏印，透于年干',
+    selected: false,
+  });
+  const distinctPattern = structuredClone(layeredChart.analysis.mingGe);
+  const layeredLine = generateEnhancedAnalysisSection(layeredChart)
+    .split('\n')
+    .find((line) => line.startsWith('【取格分层候选】'));
+  assert.equal(layeredLine, '【取格分层候选】偏印格（月令藏干透干；月令藏干戊为偏印，透于年干）');
+  assert.deepEqual(layeredChart.analysis.mingGe, distinctPattern);
   try {
     first!.name = '变造格局';
     first!.description = '变造经典依据';

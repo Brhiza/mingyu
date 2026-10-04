@@ -225,16 +225,14 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   );
 
   const transformation = chartResult.analysis?.mingGe?.transformation;
-  const patternCandidates = chartResult.analysis?.mingGe?.patternCandidates ?? [];
-  const layeredCandidateSection =
-    patternCandidates.length > 1
-      ? `【取格分层候选】${patternCandidates
-          .map(
-            (candidate) =>
-              `${candidate.pattern}（${candidate.source}${candidate.selected ? '；当前采用' : ''}；${candidate.basis}）`,
-          )
-          .join('；')}`
-      : '';
+  const patternCandidates = (chartResult.analysis?.mingGe?.patternCandidates ?? []).filter(
+    (candidate) => !candidate.selected && candidate.pattern !== currentPattern,
+  );
+  const layeredCandidateSection = patternCandidates.length
+    ? `【取格分层候选】${patternCandidates
+        .map((candidate) => `${candidate.pattern}（${candidate.source}；${candidate.basis}）`)
+        .join('；')}`
+    : '';
   const confirmedSection =
     transformation?.status === '成化'
       ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`

@@ -219,6 +219,14 @@ export function formatNatalPatternFacts(pattern: PatternAnalysis): string[] {
 
   for (const item of pattern.fulfillment?.conditionFacts ?? []) {
     if (item.key.startsWith('path.') || item.key === 'bazi.day-master-strength') continue;
+    if (item.key === 'pattern.month-gate' && item.status === '满足') continue;
+    if (
+      item.key.startsWith('pattern.breaker.') &&
+      item.status === '不满足' &&
+      item.detail.endsWith('未透干。')
+    ) {
+      continue;
+    }
     appendIfNew('条件核验', `${item.status}；${item.detail}`, item.detail);
   }
 
