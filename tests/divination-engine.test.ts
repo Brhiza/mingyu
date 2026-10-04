@@ -463,6 +463,21 @@ test('奇门应期空亡只应在应期基准宫位落空时延迟', () => {
       hitBranches.every((branch) => source.includes(branch)),
     ),
   );
+  assert.deepEqual(hitBranches, ['戌', '亥']);
+  const voidTiming = '空亡在戌（逢辰冲实）、亥（逢巳冲实），待填实/冲实之月日应';
+  assert.ok(voidHit.yingQi?.sources.includes(voidTiming));
+  assert.ok(voidHit.yingQi?.triggerConditions?.includes(voidTiming));
+  assert.ok(voidHit.yingQi?.sources.includes('空亡入局，需填实或冲实之月日方应，应期偏迟'));
+  assert.match(voidHit.yingQi?.description ?? '', /空亡填实\/冲实后方应/);
+  const prompt = buildDivinationPrompt({
+    method: 'qimen',
+    data: voidHit,
+    question: '请做整体解读。',
+    currentTime: new Date('2025-01-01T00:00:00Z'),
+  });
+  assert.ok(prompt.includes(voidTiming));
+  assert.match(prompt, /需填实或冲实之月日方应/);
+  assert.doesNotMatch(prompt, /冲辰填实|冲巳填实/);
 });
 
 test('奇门应期马星只应在命中值符或值使宫时加快', () => {

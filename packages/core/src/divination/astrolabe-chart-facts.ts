@@ -92,9 +92,9 @@ export function formatAstrolabeAspectSections(
 ) {
   if (aspects.length === 0) return [];
   const ranked = rankAstrolabeAspects(aspects);
-  const headlines = ranked.filter(isAstrolabeAspectHeadline);
+  const majorAspectCount = ranked.filter((aspect) => MAJOR_ASPECT_TYPES.has(aspect.type)).length;
   return [
-    `相位主线：共${ranked.length}项，主要相位${headlines.length}项；日月参与${ranked.filter((item) => involves(item, LUMINARY_LABELS)).length}项，四轴参与${ranked.filter((item) => involves(item, ANGLE_LABELS)).length}项，紧密${ranked.filter((item) => item.closeness === '紧密').length}项。`,
+    `相位主线：共${ranked.length}项，主要相位${majorAspectCount}项；日月参与${ranked.filter((item) => involves(item, LUMINARY_LABELS)).length}项，四轴参与${ranked.filter((item) => involves(item, ANGLE_LABELS)).length}项，紧密${ranked.filter((item) => item.closeness === '紧密').length}项。`,
     '相位明细：',
     ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item, points, false)}`),
   ];

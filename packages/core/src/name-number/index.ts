@@ -2140,13 +2140,26 @@ export function buildNumberEnergyPrompt(input: {
   const conversion = [
     ...new Set(analysis.letterConversions.map((item) => `${item.letter}=${item.value}`)),
   ].join('、');
+  const displayedMeanings = new Set<string>();
+  const displayedTrigramEvidence = new Set<string>();
   const pairs = analysis.energyPairs.length
     ? analysis.energyPairs
         .map((item, index) => {
           const modifier = item.modifiers.length
             ? `，中间含${item.modifiers.map((entry) => `${entry.digit}（${entry.effect}）`).join('、')}`
             : '';
-          return `${index + 1}. ${item.span} → ${item.pair}：${item.name}（${item.nature}）${modifier}；${item.keywords.join('、')}；${item.meaning}\n位置：能量序列第${item.start + 1}—${item.end + 1}位，对应数字字母第${item.sourceStart + 1}—${item.sourceEnd + 1}位「${item.sourceText}」\n卦变：${item.trigramEvidence.explanation}`;
+          const meaning = `${item.keywords.join('、')}；${item.meaning}`;
+          const showMeaning = !displayedMeanings.has(meaning);
+          const showTrigramEvidence = !displayedTrigramEvidence.has(
+            item.trigramEvidence.explanation,
+          );
+          displayedMeanings.add(meaning);
+          displayedTrigramEvidence.add(item.trigramEvidence.explanation);
+          return [
+            `${index + 1}. ${item.span} → ${item.pair}：${item.name}（${item.nature}）${modifier}${showMeaning ? `；${meaning}` : ''}`,
+            `位置：能量序列第${item.start + 1}—${item.end + 1}位，对应数字字母第${item.sourceStart + 1}—${item.sourceEnd + 1}位「${item.sourceText}」`,
+            ...(showTrigramEvidence ? [`卦变：${item.trigramEvidence.explanation}`] : []),
+          ].join('\n');
         })
         .join('\n')
     : '';

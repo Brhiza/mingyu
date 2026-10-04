@@ -173,11 +173,12 @@ test('奇门门星神关系：未知门星神应明确报错，不应当成比�
 });
 
 test('奇门门星神关系应返回逐项关系与计数，不展示综合评分', () => {
-  const result = analyzePalaceRelations({
+  const palace = {
     renPan: { door: '休门' },
     tianPan: { star: '天蓬', stem: '戊' },
     shenPan: { god: '值符' },
-  });
+  };
+  const result = analyzePalaceRelations(palace);
 
   assert.deepEqual(
     [result.doorStar.relation, result.doorGod.relation, result.starGod.relation],
@@ -187,6 +188,18 @@ test('奇门门星神关系应返回逐项关系与计数，不展示综合评�
   assert.equal(result.harmony, '有拉扯');
   assert.doesNotMatch(result.description, /综合评分|\d+\s*\/\s*3/);
   assert.match(result.description, /不能压缩成单一吉凶结论/);
+  assert.equal(result.doorGod.description, '值符（土）克 休门（水），有反制牵制。');
+  assert.equal(result.starGod.description, '值符（土）克 天蓬（水），有反制牵制。');
+
+  const supported = analyzePalaceRelations({ ...palace, renPan: { door: '开门' } });
+  assert.equal(supported.doorStar.description, '开门（金）生 天蓬（水），能量流动顺畅。');
+  assert.equal(supported.doorGod.description, '值符（土）生 开门（金），有幕后支撑。');
+  for (const relation of [result.doorGod, result.starGod, supported.doorStar, supported.doorGod]) {
+    assert.doesNotMatch(
+      relation.description,
+      /前者生助后者|后者生助前者|前者克制后者|后者克制前者/,
+    );
+  }
 });
 
 test('奇门九星与落宫五行关系独立于月令旺衰', () => {

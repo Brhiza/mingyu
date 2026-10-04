@@ -206,14 +206,14 @@ function buildPairDescription(
       return `${name1}（${elem1}）与 ${name2}（${elem2}）五行相同，比和相助，能量稳定。`;
     case '相生':
       if (isGenerating(elem1, elem2)) {
-        return `${name1}（${elem1}）生 ${name2}（${elem2}），前者生助后者，能量流动顺畅。`;
+        return `${name1}（${elem1}）生 ${name2}（${elem2}），能量流动顺畅。`;
       }
-      return `${name2}（${elem2}）生 ${name1}（${elem1}），后者生助前者，有幕后支撑。`;
+      return `${name2}（${elem2}）生 ${name1}（${elem1}），有幕后支撑。`;
     case '相克':
       if (isControlling(elem1, elem2)) {
-        return `${name1}（${elem1}）克 ${name2}（${elem2}），前者克制后者，存在压制关系。`;
+        return `${name1}（${elem1}）克 ${name2}（${elem2}），存在压制关系。`;
       }
-      return `${name2}（${elem2}）克 ${name1}（${elem1}），后者克制前者，有反制牵制。`;
+      return `${name2}（${elem2}）克 ${name1}（${elem1}），有反制牵制。`;
   }
 }
 

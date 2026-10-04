@@ -5,8 +5,11 @@ import {
   formatAstrolabeAspectLine,
   formatAstrolabeAspectSections,
 } from '../packages/core/src/divination/astrolabe-chart-facts';
-import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe';
-import { buildAstrolabeSynastryPrompt } from '../packages/core/src/prompt/astrolabe';
+import {
+  buildAstrolabePrompt,
+  buildAstrolabeSynastryPrompt,
+  formatAstrolabeForPrompt,
+} from '../packages/core/src/prompt/astrolabe';
 import { analyzeAstrolabeSynastry } from '../packages/core/src/divination/astrolabe-synastry';
 import { buildInstantAstrolabePrompt } from '../src/lib/instant-prompt';
 import { generateDivinationSession } from '../packages/core/src/divination/session';
@@ -72,7 +75,7 @@ test('倍五分相在普通、双盘与即时提示词中只呈现中文关系�
   );
 });
 
-test('真实星盘相位将跨星座合相的位置与角距偏差分别给出', () => {
+test('真实星盘分别列跨星座合相位置与角距，并按类型统计主要相位', () => {
   const chart = generateAstrolabe({
     name: '事件',
     gender: '女',
@@ -118,6 +121,14 @@ test('真实星盘相位将跨星座合相的位置与角距偏差分别给出',
   const prompts = [
     [natalPrompt, 1],
     [
+      buildAstrolabePrompt({
+        chart,
+        currentTime: new Date('2026-05-19T10:30:00+08:00'),
+        question: '核对本命相位',
+      }),
+      1,
+    ],
+    [
       buildAstrolabeSynastryPrompt({
         chart1: chart,
         chart2: chart,
@@ -130,8 +141,10 @@ test('真实星盘相位将跨星座合相的位置与角距偏差分别给出',
     const headlines = prompt.match(/^相位主线：.*$/gm) ?? [];
     assert.equal(headlines.length, natalChartCount);
     for (const headline of headlines) {
-      assert.match(headline, new RegExp(`共${chart.aspects.length}项，主要相位\\d+项`));
-      assert.match(headline, /日月参与\d+项，四轴参与\d+项，紧密\d+项/);
+      assert.equal(
+        headline,
+        '相位主线：共54项，主要相位44项；日月参与13项，四轴参与0项，紧密30项。',
+      );
       assert.doesNotMatch(headline, /太阳与水星：合相/);
     }
     assert.equal(prompt.split(compactLine).length - 1, natalChartCount);

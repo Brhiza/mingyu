@@ -413,6 +413,30 @@ test('号码解读关键词在每次结果与分组间独立保存', () => {
   const expected = [...result.energyPairs[0].keywords];
   const expectedTradition = { ...result.tradition };
   const expectedPrompt = buildNumberEnergyPrompt({ analysis: result });
+  assert.equal(
+    expectedPrompt.split(
+      '资源、成果、正向关系；重视资源积累、成果兑现与稳定关系，也需要把机会落实为长期安排。',
+    ).length - 1,
+    1,
+  );
+  assert.equal(
+    expectedPrompt.split('卦变：1为坎☵，3为震☳；下爻、中爻变化，大游年对应天医、巨门。').length -
+      1,
+    1,
+  );
+  assert.equal(
+    expectedPrompt.split('卦变：3为震☳，1为坎☵；下爻、中爻变化，大游年对应天医、巨门。').length -
+      1,
+    1,
+  );
+  assert.match(expectedPrompt, /^1\. 13 → 13：天医（助益）；资源、成果、正向关系；/mu);
+  assert.match(expectedPrompt, /^2\. 31 → 31：天医（助益）$/mu);
+  assert.match(expectedPrompt, /^3\. 13 → 13：天医（助益）$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第1—2位，对应数字字母第1—2位「13」$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第2—3位，对应数字字母第2—3位「31」$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第3—4位，对应数字字母第3—4位「13」$/mu);
+  assert.match(expectedPrompt, /^磁场分布：天医3组$/mu);
+  assert.match(expectedPrompt, /^天医（1313，3组，能量序列第1—4位）$/mu);
   for (const key of Object.keys(result.tradition)) {
     assert.equal(Reflect.set(result.tradition, key, `本次传统依据备注：${key}`), true);
   }

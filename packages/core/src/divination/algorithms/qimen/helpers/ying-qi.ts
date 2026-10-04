@@ -260,7 +260,7 @@ export function estimateYingQi(
       const voidDesc = options.voidBranches
         .map((vb) => {
           const chong = GANZHI_RELATION_TABLES.LIUCHONG_MAP[vb];
-          return chong ? `${vb}（冲${chong}填实）` : vb;
+          return chong ? `${vb}（逢${chong}冲实）` : vb;
         })
         .join('、');
       sources.push(`空亡在${voidDesc}，待填实/冲实之月日应`);
