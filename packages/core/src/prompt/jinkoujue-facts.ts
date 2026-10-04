@@ -44,10 +44,20 @@ export function formatJinkoujueRelations(data: JinkoujueData): string {
   return relations ? `四位关系：${relations}` : '';
 }
 
+export function formatJinkoujuePosition(position: JinkoujueFourPosition): string {
+  const stem = position.name === '地分' ? '' : position.stem || '';
+  const god = position.name === '贵神' ? `乘${position.god || ''}` : '';
+  return `${position.name}${stem}${position.branch}${god}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`;
+}
+
 /** 四位取用的起课依据、具体生扶与制约，供单时刻和时间区间共用。 */
 export function formatJinkoujueJudgmentFacts(
   data: JinkoujueData,
-  options: { compact?: boolean; displayedRelations?: readonly string[] } = {},
+  options: {
+    compact?: boolean;
+    displayedRelations?: readonly string[];
+    displayedPositionFacts?: readonly string[];
+  } = {},
 ): string[] {
   const evidence = analyzeJinkoujueEvidence(data);
   const compact = options.compact ?? false;
@@ -91,8 +101,29 @@ export function formatJinkoujueJudgmentFacts(
       );
     }
   }
-  const counters = evidence.counterEvidenceFacts.filter(
-    (item) =>
+  const weakPositions: string[] = [];
+  const counters = evidence.counterEvidenceFacts.filter((item) => {
+    const position = positions.find(
+      (candidate) => item.ownerKey === `jinkoujue:position:${candidate.name}`,
+    );
+    if (position && options.displayedPositionFacts?.includes(formatJinkoujuePosition(position))) {
+      if (
+        item.type === '旬空' &&
+        position.isVoid &&
+        item.detail === `${position.name}${position.branch}落日旬空` &&
+        item.promptText === item.detail
+      )
+        return false;
+      if (
+        item.type === '月令限制' &&
+        item.detail === `${position.name}月令${position.seasonState}` &&
+        item.promptText === `${position.name}处月令${position.seasonState}，力量条件偏弱`
+      ) {
+        weakPositions.push(position.name);
+        return false;
+      }
+    }
+    return (
       item.type !== '受克' ||
       !positions.some((source) =>
         positions.some(
@@ -103,10 +134,12 @@ export function formatJinkoujueJudgmentFacts(
               text.includes(`${source.name}${source.element}克${target.name}${target.element}`),
             ),
         ),
-      ),
-  );
+      )
+    );
+  });
   if (counters.length)
     lines.push(`四位反证：${counters.map((item) => item.promptText).join('；')}`);
+  if (weakPositions.length) lines.push(`月令受限：${weakPositions.join('、')}力量条件偏弱`);
   if (!compact)
     lines.push(
       '以阴阳次第定发用，四位的生克、旺衰、空亡与动变条件合看，结合所问事项判断主客和进退。',

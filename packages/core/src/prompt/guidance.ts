@@ -1,4 +1,4 @@
-export const PROMPT_GUIDANCE_TEXT = {
+const CANONICAL_PROMPT_GUIDANCE_TEXT = {
   'wuyun-liuqi': {
     tradition: '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
     sources: '参考《素问》运气七篇与吴谦《运气要诀》。',
@@ -133,6 +133,8 @@ export const PROMPT_GUIDANCE_TEXT = {
   },
 } as const;
 
+export const PROMPT_GUIDANCE_TEXT = structuredClone(CANONICAL_PROMPT_GUIDANCE_TEXT);
+
 export type PromptGuidanceId = keyof typeof PROMPT_GUIDANCE_TEXT;
 
 export type DivinationPromptGuidanceMethod =
@@ -157,7 +159,7 @@ export const PROMPT_ANSWER_FRAMEWORK =
   '围绕问题比较主证与反证，核对成立条件后给主判断；制约分别说明对结果、程度或时间的影响，未决处交代能区分结论的资料。';
 
 /** 各术数体系专属的传统推演骨架，针对不同底层象数理模型定制，保障沉浸与地道。 */
-export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
+const CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   // 1. 命理时序体系
   bazi: '以月令、根气、透藏和制化分别论旺衰、格局与调候；依据已列取格依据与格局成败，结合本盘制化关系定取用；岁运保留原局、运层与参与干支，交运前后分段说明条件变化。',
   'bazi-natal':
@@ -243,9 +245,13 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
     '先定位元会运世周期层级与值年统卦，再结合卦爻变易与先后天象意推演时势走向与转折关窍。',
 };
 
+export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
+  ...CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS,
+};
+
 export function getPromptAnswerFramework(method?: string): string {
-  if (method && method in PROMPT_METHOD_ANSWER_FRAMEWORKS) {
-    return PROMPT_METHOD_ANSWER_FRAMEWORKS[method];
+  if (method && Object.hasOwn(CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS, method)) {
+    return CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS[method];
   }
   return PROMPT_ANSWER_FRAMEWORK;
 }
@@ -258,7 +264,10 @@ export function buildPromptTask(task: string, method?: string) {
   if (normalizedTask.includes(framework)) return normalizedTask;
   // 切换术式时替换末尾已有的答题骨架，保留任务正文及正文中的引用。
   const allFrameworks = [
-    ...new Set([PROMPT_ANSWER_FRAMEWORK, ...Object.values(PROMPT_METHOD_ANSWER_FRAMEWORKS)]),
+    ...new Set([
+      PROMPT_ANSWER_FRAMEWORK,
+      ...Object.values(CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS),
+    ]),
   ].sort((a, b) => b.length - a.length);
   let trailing = allFrameworks.find((item) => normalizedTask.endsWith(item));
   while (trailing) {
@@ -279,7 +288,7 @@ export function buildPromptGuidanceSections(method: PromptGuidanceId | 'wuyun') 
   const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
   // 签谱提示词只允许携带本次签谱资料；签文、典故和解签由盘面资料本身提供。
   if (['ssgw', 'zhuge', 'kongming'].includes(guidanceMethod)) return '';
-  const guidance = PROMPT_GUIDANCE_TEXT[guidanceMethod];
+  const guidance = CANONICAL_PROMPT_GUIDANCE_TEXT[guidanceMethod];
   // 书目名称不参与本次判断，完整来源仍保留在结构化证据中。
   const blocks = 'tradition' in guidance ? guidance.tradition : '';
 
@@ -305,7 +314,7 @@ export function insertPromptSectionBeforeHeading(prompt: string, heading: string
 /** 生成核心提示词使用的传统依据段落。 */
 export function buildPromptGuidance(method: string) {
   const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
-  return guidanceMethod in PROMPT_GUIDANCE_TEXT
+  return Object.hasOwn(CANONICAL_PROMPT_GUIDANCE_TEXT, guidanceMethod)
     ? buildPromptGuidanceSections(guidanceMethod as PromptGuidanceId)
     : '';
 }

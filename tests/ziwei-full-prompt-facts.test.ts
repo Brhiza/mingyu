@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei';
 import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
-import { formatZiweiEvidenceText } from '../packages/core/src/prompt/public-api';
+import {
+  formatZiweiEvidenceText,
+  getZiweiPromptCalculationScopes as getPublicZiweiPromptCalculationScopes,
+} from '../packages/core/src/prompt/public-api';
+import {
+  buildZiweiPrompt,
+  getZiweiPromptCalculationScopes,
+} from '../packages/core/src/prompt/ziwei';
 
 test('紫微完整提示词仅列一次本命十二宫并保留长生博士与安星口径', async () => {
   const input = buildZiweiChartInput({
@@ -70,6 +77,49 @@ test('紫微合参完整范围不重复本命十二宫，年龄年分册仍保�
     (formatZiweiEvidenceText(runtime, 'monthly').match(/宫位关系：本宫/g) ?? []).length,
     12,
   );
+
+  const promptOptions = {
+    runtime,
+    scope: 'full' as const,
+    currentTime: new Date('2026-10-04T08:00:00+08:00'),
+    question: '请结合本命和流月资料解读。',
+  };
+  const normalPrompt = buildZiweiPrompt(promptOptions);
+  assert.match(normalPrompt, /本命：\n/);
+  assert.match(normalPrompt, /流月：\n/);
+  assert.equal((normalPrompt.match(/宫位关系：本宫/g) ?? []).length, 24);
+  assert.ok(normalPrompt.includes(promptOptions.question));
+  const scopes = getZiweiPromptCalculationScopes('full');
+  assert.deepEqual(scopes, ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age']);
+  const originalScopes = [...scopes];
+  try {
+    scopes.splice(1);
+    assert.deepEqual(scopes, ['origin']);
+    const freshScopes = getZiweiPromptCalculationScopes('full');
+    assert.notStrictEqual(freshScopes, scopes);
+    assert.deepEqual(freshScopes, [
+      'origin',
+      'decadal',
+      'yearly',
+      'monthly',
+      'daily',
+      'hourly',
+      'age',
+    ]);
+    assert.deepEqual(getZiweiPromptCalculationScopes('monthly'), ['monthly']);
+    assert.deepEqual(getPublicZiweiPromptCalculationScopes('full'), [
+      'origin',
+      'decadal',
+      'yearly',
+      'monthly',
+      'daily',
+      'hourly',
+    ]);
+    assert.equal(buildZiweiPrompt(promptOptions), normalPrompt);
+    assert.equal(formatZiweiEvidenceText(runtime, 'full'), fullText);
+  } finally {
+    scopes.splice(0, scopes.length, ...originalScopes);
+  }
 
   const fortuneBatch = await calculateZiweiChart(input, {
     scopes: [],

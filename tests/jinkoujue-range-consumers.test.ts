@@ -62,8 +62,10 @@ function assertJinkoujuePromptFacts(prompt: string, data: JinkoujueData) {
   }
   assert.match(prompt, new RegExp(`月将[：:]?${data.monthLeader}加占时${data.divinationBranch}`));
 
+  const positionFacts = new Map<string, string>();
   for (const position of Object.values(data.positions)) {
     const compactPosition = `${position.name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`;
+    positionFacts.set(position.name, compactPosition);
     assert.ok(prompt.includes(position.promptText) || prompt.includes(compactPosition));
     assert.ok(prompt.includes(position.role));
     assert.ok(prompt.includes(`按${position.elementBasis}`));
@@ -81,6 +83,15 @@ function assertJinkoujuePromptFacts(prompt: string, data: JinkoujueData) {
     .split('\n')
     .filter((line) => /^(?:四位关系|五动三动)：/u.test(line));
   const positions = Object.values(data.positions);
+  const displayedPositionLines = prompt.split('\n').filter((line) => line.startsWith('四位：'));
+  const displayedWeakPositions = prompt
+    .split('\n')
+    .flatMap(
+      (line) =>
+        /^月令受限：((?:地分|将神|贵神|人元)(?:、(?:地分|将神|贵神|人元))*)力量条件偏弱$/u
+          .exec(line)?.[1]
+          .split('、') ?? [],
+    );
   for (const fact of data.evidenceAnalysis?.counterEvidenceFacts ?? []) {
     const standardCounter = fact.type === '受克' && fact.promptText === fact.detail;
     const displayedSameDirection =
@@ -95,7 +106,30 @@ function assertJinkoujuePromptFacts(prompt: string, data: JinkoujueData) {
             ),
         ),
       );
-    assert.ok(prompt.includes(fact.promptText) || displayedSameDirection, fact.promptText);
+    const owner = positions.find(
+      (position) => fact.ownerKey === `jinkoujue:position:${position.name}`,
+    );
+    const displayedSamePosition =
+      owner && displayedPositionLines.some((line) => line.includes(positionFacts.get(owner.name)!));
+    const displayedSameVoid =
+      displayedSamePosition &&
+      owner.isVoid &&
+      fact.type === '旬空' &&
+      fact.detail === `${owner.name}${owner.branch}落日旬空` &&
+      fact.promptText === fact.detail;
+    const displayedSameSeason =
+      displayedSamePosition &&
+      fact.type === '月令限制' &&
+      fact.detail === `${owner.name}月令${owner.seasonState}` &&
+      fact.promptText === `${owner.name}处月令${owner.seasonState}，力量条件偏弱` &&
+      displayedWeakPositions.includes(owner.name);
+    assert.ok(
+      prompt.includes(fact.promptText) ||
+        displayedSameDirection ||
+        displayedSameVoid ||
+        displayedSameSeason,
+      fact.promptText,
+    );
   }
 }
 
@@ -243,6 +277,11 @@ test('金口诀普通网页与核心会话保留四位判断资料且核心提�
 
   const coreData = core.data as JinkoujueData;
   const structuredBefore = structuredClone(coreData);
+  assert.equal(core.formattedResult.split('月令受限：将神、贵神、人元力量条件偏弱').length - 1, 1);
+  assert.doesNotMatch(
+    core.formattedResult,
+    /(?:将神处月令休|人元处月令死|贵神处月令休)，力量条件偏弱/,
+  );
   for (const relation of ['人元土克将神水', '人元土克贵神水', '将神水克地分火', '贵神水克地分火']) {
     assert.equal(core.formattedResult.split(relation).length - 1, 1);
   }
@@ -275,6 +314,53 @@ test('金口诀普通网页与核心会话保留四位判断资料且核心提�
     core.formattedResult + '\n四位反证：' + counter.promptText,
     additionalCondition,
   );
+  const jiang = coreData.positions.jiangShen;
+  const jiangFact = `将神${jiang.stem}${jiang.branch}（${jiang.yinYang}${jiang.element}，月令${jiang.seasonState}${jiang.isVoid ? '，空' : ''}）`;
+  assert.ok(core.formattedResult.includes(jiangFact));
+  for (const replacement of [
+    '',
+    jiangFact.replace('将神', '贵神'),
+    jiangFact.replace(jiang.branch, '酉'),
+    jiangFact.replace(`月令${jiang.seasonState}`, '月令旺'),
+  ]) {
+    assert.throws(() =>
+      assertJinkoujuePromptFacts(core.formattedResult.replace(jiangFact, replacement), coreData),
+    );
+  }
+  assert.throws(() =>
+    assertJinkoujuePromptFacts(
+      core.formattedResult.replace('月令受限：将神、贵神、人元力量条件偏弱', ''),
+      coreData,
+    ),
+  );
+  assert.throws(() =>
+    assertJinkoujuePromptFacts(
+      core.formattedResult.replace(
+        '月令受限：将神、贵神、人元力量条件偏弱',
+        '月令受限：贵神、人元力量条件偏弱',
+      ),
+      coreData,
+    ),
+  );
+  for (const patch of [
+    { ownerKey: 'jinkoujue:position:其他' },
+    { detail: '将神月令旺' },
+    { promptText: '将神处月令休，力量条件偏弱；另有条件' },
+  ]) {
+    const changed = structuredClone(coreData);
+    const monthCounter = changed.evidenceAnalysis!.counterEvidenceFacts.find(
+      (fact) => fact.type === '月令限制' && fact.ownerKey === 'jinkoujue:position:将神',
+    );
+    assert.ok(monthCounter);
+    Object.assign(monthCounter, patch);
+    assert.throws(() => assertJinkoujuePromptFacts(core.formattedResult, changed));
+    if ('promptText' in patch) {
+      assertJinkoujuePromptFacts(
+        core.formattedResult + '\n四位反证：' + monthCounter.promptText,
+        changed,
+      );
+    }
+  }
   assert.deepEqual(coreData, structuredBefore);
 });
 

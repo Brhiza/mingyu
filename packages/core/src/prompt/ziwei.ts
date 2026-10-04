@@ -584,7 +584,7 @@ export function formatZiweiPayloadForPrompt(
 }
 
 export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeType[] {
-  return scope === 'full' ? SCOPE_ORDER : [scope];
+  return scope === 'full' ? [...SCOPE_ORDER] : [scope];
 }
 
 export function formatZiweiTopicFocus(topic?: ZiweiPromptTopic) {

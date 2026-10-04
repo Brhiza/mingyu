@@ -22,6 +22,9 @@ import {
   buildTimeInfoText,
   formatSupplementaryInfoSection,
   getDivinationSummaryBlocks,
+  buildPromptTask,
+  PROMPT_GUIDANCE_TEXT,
+  PROMPT_METHOD_ANSWER_FRAMEWORKS,
 } from 'mingyu-core/prompt';
 import { formatBaziSchoolFacts } from '../packages/core/src/prompt/bazi-school.ts';
 import './divination-micro-systems.cases.ts';
@@ -73,14 +76,19 @@ test('八字五行方向随日主转换十神参照并保留生克方向', () =>
 });
 
 test('npm 提示词入口应生成自包含的八字任务书', () => {
-  const prompt = buildBaziPrompt({
-    result: structuredClone(FEMALE_DAY_15_CHART),
-    topic: 'career',
-    school: 'traditional',
-    fortuneScope: 'full',
-    question: '今年是否适合换工作？',
-    currentTime: new Date('2026-08-06T12:30:00+08:00'),
-  });
+  const currentTime = new Date('2026-08-06T12:30:00+08:00');
+  const question = '今年是否适合换工作？';
+  const buildBaziTaskbook = (result: typeof FEMALE_DAY_15_CHART) =>
+    buildBaziPrompt({
+      result,
+      topic: 'career',
+      school: 'traditional',
+      fortuneScope: 'full',
+      question,
+      currentTime: new Date(currentTime.getTime()),
+    });
+  const baselineBaziChart = structuredClone(FEMALE_DAY_15_CHART);
+  const prompt = buildBaziTaskbook(structuredClone(FEMALE_DAY_15_CHART));
 
   assert.match(prompt, /【当前时间】/);
   assert.match(prompt, /【排盘信息】/);
@@ -89,6 +97,81 @@ test('npm 提示词入口应生成自包含的八字任务书', () => {
   assert.match(prompt, /今年是否适合换工作/);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
+
+  const liuyaoInput = {
+    timestamp: new Date('2025-06-18T10:30:00+08:00'),
+    yaos: [7, 8, 9, 6, 7, 8] as const,
+  };
+  const liuyaoQuestion = '这次工作变动如何取舍？';
+  const liuyaoCurrentTime = new Date('2025-06-18T02:30:00.000Z');
+  const baselineLiuyaoChart = generateLiuyao(liuyaoInput.timestamp, {
+    yaos: [...liuyaoInput.yaos],
+  });
+  const buildLiuyaoTaskbook = (data: typeof baselineLiuyaoChart) =>
+    buildDivinationPrompt({
+      method: 'liuyao',
+      data,
+      question: liuyaoQuestion,
+      currentTime: new Date(liuyaoCurrentTime.getTime()),
+    });
+  const baselineLiuyaoTaskbook = buildLiuyaoTaskbook(baselineLiuyaoChart);
+  const frameworkSwitchSource = '请依据当前资料回答【问题】。';
+  const baselineLiuyaoTask = buildPromptTask(frameworkSwitchSource, 'liuyao');
+  const baselineQimenTask = buildPromptTask(frameworkSwitchSource, 'qimen');
+  const baselineSwitchedTask = buildPromptTask(baselineLiuyaoTask, 'qimen');
+  assert.equal(baselineSwitchedTask, baselineQimenTask);
+  assert.notEqual(baselineSwitchedTask, baselineLiuyaoTask);
+  const originalBaziGuidance = structuredClone(PROMPT_GUIDANCE_TEXT.bazi);
+  const originalLiuyaoGuidance = structuredClone(PROMPT_GUIDANCE_TEXT.liuyao);
+  const originalBaziFramework = PROMPT_METHOD_ANSWER_FRAMEWORKS.bazi;
+  const originalLiuyaoFramework = PROMPT_METHOD_ANSWER_FRAMEWORKS.liuyao;
+
+  try {
+    assert.equal(
+      Reflect.set(PROMPT_GUIDANCE_TEXT.bazi, 'tradition', '外部变造的八字传统依据'),
+      true,
+    );
+    assert.equal(
+      Reflect.set(PROMPT_GUIDANCE_TEXT.liuyao, 'tradition', '外部变造的六爻传统依据'),
+      true,
+    );
+    assert.equal(
+      Reflect.set(PROMPT_METHOD_ANSWER_FRAMEWORKS, 'bazi', '外部变造的八字答题骨架'),
+      true,
+    );
+    assert.equal(
+      Reflect.set(PROMPT_METHOD_ANSWER_FRAMEWORKS, 'liuyao', '外部变造的六爻答题骨架'),
+      true,
+    );
+    assert.equal(PROMPT_GUIDANCE_TEXT.bazi.tradition, '外部变造的八字传统依据');
+    assert.equal(PROMPT_GUIDANCE_TEXT.liuyao.tradition, '外部变造的六爻传统依据');
+    assert.equal(PROMPT_METHOD_ANSWER_FRAMEWORKS.bazi, '外部变造的八字答题骨架');
+    assert.equal(PROMPT_METHOD_ANSWER_FRAMEWORKS.liuyao, '外部变造的六爻答题骨架');
+
+    const freshBaziChart = createChart('female', 15);
+    assert.deepEqual(freshBaziChart, baselineBaziChart);
+    assert.equal(buildBaziTaskbook(freshBaziChart), prompt);
+
+    const freshLiuyaoChart = generateLiuyao(new Date(liuyaoInput.timestamp.getTime()), {
+      yaos: [...liuyaoInput.yaos],
+    });
+    assert.deepEqual(freshLiuyaoChart, baselineLiuyaoChart);
+    assert.equal(buildLiuyaoTaskbook(freshLiuyaoChart), baselineLiuyaoTaskbook);
+    assert.equal(
+      buildPromptTask(buildPromptTask(frameworkSwitchSource, 'liuyao'), 'qimen'),
+      baselineSwitchedTask,
+    );
+  } finally {
+    Reflect.set(PROMPT_GUIDANCE_TEXT.bazi, 'tradition', originalBaziGuidance.tradition);
+    Reflect.set(PROMPT_GUIDANCE_TEXT.liuyao, 'tradition', originalLiuyaoGuidance.tradition);
+    Reflect.set(PROMPT_METHOD_ANSWER_FRAMEWORKS, 'bazi', originalBaziFramework);
+    Reflect.set(PROMPT_METHOD_ANSWER_FRAMEWORKS, 'liuyao', originalLiuyaoFramework);
+  }
+
+  assert.deepEqual(PROMPT_GUIDANCE_TEXT.bazi, originalBaziGuidance);
+  assert.deepEqual(PROMPT_GUIDANCE_TEXT.liuyao, originalLiuyaoGuidance);
+  assert.equal(PROMPT_METHOD_ANSWER_FRAMEWORKS.bazi, originalBaziFramework);
+  assert.equal(PROMPT_METHOD_ANSWER_FRAMEWORKS.liuyao, originalLiuyaoFramework);
 });
 
 test('npm 八字本命提示词入口应输出有差异的盲派与新派资料', () => {

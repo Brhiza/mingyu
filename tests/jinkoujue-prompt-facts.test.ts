@@ -134,13 +134,21 @@ test('金口诀提示资料只列实际动爻，不再重复展开未触发的�
     assert.equal(text.split('人元火克将神金').length - 1, 1);
     assert.equal(text.split('地分火克将神金').length - 1, 1);
     assert.doesNotMatch(text, /将神受人元克|将神受地分克/);
-    assert.match(text, /四位反证：将神处月令死，力量条件偏弱/);
+    assert.match(text, /^月令受限：将神力量条件偏弱$/m);
+    assert.equal(text.split('将神力量条件偏弱').length - 1, 1);
+    assert.doesNotMatch(text, /将神处月令死，力量条件偏弱/);
+    assert.ok(
+      text.includes(
+        `将神${data.positions.jiangShen.stem}${data.positions.jiangShen.branch}（${data.positions.jiangShen.yinYang}金，月令死）`,
+      ),
+    );
     assert.match(text, /发用位将神不空/);
     assert.match(text, /遁干五行：将神遁干辛属金；贵神遁干癸属水/);
   }
   for (const options of [{}, { compact: true }]) {
     const standalone = formatJinkoujueJudgmentFacts(data, options).join('\n');
     assert.match(standalone, /将神受人元克；将神受地分克/);
+    assert.match(standalone, /将神处月令死，力量条件偏弱/);
     const missingFocus = structuredClone(data);
     delete missingFocus.focusEvidence![1];
     const missingBefore = structuredClone(missingFocus);
@@ -150,6 +158,73 @@ test('金口诀提示资料只列实际动爻，不再重复展开未触发的�
     );
     assert.deepEqual(missingFocus, missingBefore);
   }
+  const positionFacts = Object.values(data.positions).map(
+    (position) =>
+      `${position.name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`,
+  );
+  const compact = formatJinkoujueJudgmentFacts(data, {
+    compact: true,
+    displayedPositionFacts: positionFacts,
+  }).join('\n');
+  assert.match(compact, /^月令受限：将神力量条件偏弱$/m);
+  assert.doesNotMatch(compact, /将神处月令死，力量条件偏弱/);
+  const jiangFact = positionFacts.find((line) => line.startsWith('将神'))!;
+  for (const shown of [
+    [],
+    positionFacts.filter((line) => line !== jiangFact),
+    positionFacts.map((line) => (line === jiangFact ? line.replace('将神', '贵神') : line)),
+    positionFacts.map((line) =>
+      line === jiangFact ? line.replace(data.positions.jiangShen.branch, '子') : line,
+    ),
+    positionFacts.map((line) => (line === jiangFact ? line.replace('月令死', '月令旺') : line)),
+    positionFacts.map((line) => (line === jiangFact ? line + '，另有条件' : line)),
+  ]) {
+    const retained = formatJinkoujueJudgmentFacts(data, {
+      compact: true,
+      displayedPositionFacts: shown,
+    }).join('\n');
+    assert.match(retained, /将神处月令死，力量条件偏弱/);
+    assert.doesNotMatch(retained, /^月令受限：将神力量条件偏弱$/m);
+  }
+  const voidData = generateJinkoujue({
+    method: 'number',
+    number: 12,
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+    timezoneOffsetMinutes: 480,
+  });
+  const voidBefore = structuredClone(voidData);
+  assert.equal(voidData.positions.diFen.branch, '亥');
+  assert.equal(voidData.positions.diFen.isVoid, true);
+  const voidPrompt = buildDivinationPrompt({
+    method: 'jinkoujue',
+    data: voidData,
+    question: '问合作进度',
+  });
+  assert.match(voidPrompt, /地分亥（阴水，月令旺，空）/);
+  assert.doesNotMatch(voidPrompt, /地分亥落日旬空/);
+  const voidFact = '地分亥（阴水，月令旺，空）';
+  for (const shown of [
+    [],
+    [voidFact.replace('亥', '子')],
+    [voidFact.replace('地分', '将神')],
+    [voidFact + '，另有条件'],
+  ]) {
+    assert.match(
+      formatJinkoujueJudgmentFacts(voidData, {
+        compact: true,
+        displayedPositionFacts: shown,
+      }).join('\n'),
+      /地分亥落日旬空/,
+    );
+  }
+  assert.doesNotMatch(
+    formatJinkoujueJudgmentFacts(voidData, {
+      compact: true,
+      displayedPositionFacts: [voidFact],
+    }).join('\n'),
+    /地分亥落日旬空/,
+  );
+  assert.deepEqual(voidData, voidBefore);
   assert.deepEqual(data, structuredBefore);
 });
 
@@ -188,10 +263,21 @@ test('金口诀古本算例关系沿用人元干与贵神本属并明确被生�
     assert.equal(text.split('将神水克人元火').length - 1, 1);
     assert.equal(text.split('人元火克地分金').length - 1, 1);
     assert.doesNotMatch(text, /人元受贵神克|人元受将神克|地分受人元克/);
-    assert.match(
-      text,
-      /四位反证：地分处月令囚，力量条件偏弱；将神处月令休，力量条件偏弱；贵神处月令休，力量条件偏弱/,
-    );
+    assert.match(text, /^月令受限：地分、将神、贵神力量条件偏弱$/m);
+    assert.equal(text.split('力量条件偏弱').length - 1, 1);
+    for (const [name, state] of [
+      ['地分', '囚'],
+      ['将神', '休'],
+      ['贵神', '休'],
+    ] as const) {
+      assert.doesNotMatch(text, new RegExp(`${name}处月令${state}，力量条件偏弱`));
+      const position = Object.values(data.positions).find((item) => item.name === name)!;
+      assert.ok(
+        text.includes(
+          `${name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${state}${position.isVoid ? '，空' : ''}）`,
+        ),
+      );
+    }
     assert.match(text, /发用位贵神不空/);
     assert.match(text, /贵神戊子乘玄武（阳水/);
     assert.match(text, /贵神按贵神本属/);
