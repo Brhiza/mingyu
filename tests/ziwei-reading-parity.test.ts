@@ -6,6 +6,7 @@ import {
 } from 'mingyu-core/ziwei';
 import {
   buildPublicZiweiPromptForRuntime,
+  getNextCombinedBatchCursor,
   getZiweiPromptCalculationScopes,
 } from 'mingyu-core/prompt/public-api';
 import { buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
@@ -101,6 +102,22 @@ for (const scope of ['origin', 'decadal'] as const) {
 }
 
 test('完整紫微运限逐年龄年拼接与未分页计算的全部事实和提示词一致', async () => {
+  const callerScopes = getZiweiPromptCalculationScopes('full');
+  assert.deepEqual(callerScopes, ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly']);
+  callerScopes.pop();
+  assert.deepEqual(callerScopes, ['origin', 'decadal', 'yearly', 'monthly', 'daily']);
+
+  const scopes = getZiweiPromptCalculationScopes('full');
+  assert.deepEqual(scopes, ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly']);
+  assert.deepEqual(
+    getNextCombinedBatchCursor({
+      section: 'ziwei-scope',
+      startIndex: scopes.length - 1,
+      ziweiScopeCount: scopes.length,
+    }),
+    { section: 'ziwei-fortune', startIndex: 0 },
+  );
+
   const chunks: ZiweiReadingChunk[] = [];
   const progress: Array<[number, number]> = [];
   let replacedCallbacks = 0;
@@ -116,11 +133,10 @@ test('完整紫微运限逐年龄年拼接与未分页计算的全部事实和�
   };
   const local = await calculateZiweiReading({ ...input, promptScope: 'full' }, options);
   const horoscopeContext = { dateStr: input.scopeDate, hourIndex: input.scopeHourIndex };
-  const runtime = await calculatePublicZiweiChartForScopes(
-    buildZiweiChartInput(input),
-    getZiweiPromptCalculationScopes('full'),
-    { horoscopeContext, fortuneRange: { scope: 'all', ...horoscopeContext } },
-  );
+  const runtime = await calculatePublicZiweiChartForScopes(buildZiweiChartInput(input), scopes, {
+    horoscopeContext,
+    fortuneRange: { scope: 'all', ...horoscopeContext },
+  });
   const { calculationIdentity, ...facts } = local.result;
   assert.equal(calculationIdentity.birth.birthSecond, input.birthSecond);
   assert.equal(replacedCallbacks, 0);

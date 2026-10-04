@@ -193,7 +193,9 @@ function generateAt(input: GenerateMeihuaRangeInput, timestamp: number, replayTr
     replayTrace && settings?.method === 'random'
       ? buildReplaySettings(settings, replayTrace)
       : settings;
-  const data = generateMeihua(new Date(timestamp), effectiveSettings);
+  const data = generateMeihua(new Date(timestamp), effectiveSettings, {
+    timezoneOffsetMinutes: CHINA_OFFSET_MINUTES,
+  });
   return restoreSharedRandomTrace(
     data,
     replayTrace ?? (settings?.method === 'random' ? data.meta?.random : undefined),

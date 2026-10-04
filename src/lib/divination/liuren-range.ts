@@ -149,7 +149,7 @@ function factsFingerprint(data: LiurenData) {
 }
 
 function generateAt(timestamp: number) {
-  return generateLiuren(new Date(timestamp));
+  return generateLiuren(new Date(timestamp), { timezoneOffsetMinutes: CHINA_OFFSET_MINUTES });
 }
 
 function hasSourcePillars(data: LiurenData, source: BaziReverseSource) {

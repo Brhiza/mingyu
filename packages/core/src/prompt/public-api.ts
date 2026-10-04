@@ -369,7 +369,7 @@ export function buildBaziPromptForResult(params: {
 export { buildSerializableZiweiResult };
 
 export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeType[] {
-  return scope === 'full' ? FULL_ZIWEI_SCOPE_ORDER : [scope as ScopeType];
+  return scope === 'full' ? [...FULL_ZIWEI_SCOPE_ORDER] : [scope as ScopeType];
 }
 
 function scopeLabel(scope: ZiweiPromptScope | ScopeType) {

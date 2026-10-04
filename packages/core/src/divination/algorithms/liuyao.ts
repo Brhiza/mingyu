@@ -682,6 +682,8 @@ export function getSpecialPattern(
 export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins' | 'yarrow';
 
 export interface LiuyaoGenerationOptions extends RandomOptions {
+  /** 本次起卦的当地时区偏移，单位分钟；省略时沿用统一时区设置。 */
+  timezoneOffsetMinutes?: number;
   /** 真太阳时模式下的实际占时，用于节气与月建。 */
   termReferenceDate?: Date;
   /** 起卦方式；默认有 yaos 时为 manual，否则为 time。 */
@@ -831,7 +833,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp, timezoneOffsetMinutes } = getDivinationTime(
     customDate,
-    undefined,
+    options?.timezoneOffsetMinutes,
     options?.termReferenceDate,
   );
   const resolvedGeneration = resolveRawYaos(timestamp, options);

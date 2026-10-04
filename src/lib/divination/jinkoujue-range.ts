@@ -203,6 +203,7 @@ function buildParams(
   const base = {
     method,
     customDate: new Date(timestamp),
+    timezoneOffsetMinutes: CHINA_OFFSET_MINUTES,
     ...(method === 'branch' && input.branch !== undefined ? { branch: input.branch } : {}),
     ...(method === 'number' && input.number !== undefined ? { number: input.number } : {}),
   };

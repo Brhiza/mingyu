@@ -62,6 +62,7 @@ import {
   resolveZhiShiLandingPalace,
 } from 'mingyu-core/divination/qimen';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import { TimeManager } from 'mingyu-core/calendar';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
@@ -4164,6 +4165,62 @@ test('按时间起局的占问应使用地点经度校正真太阳时并写入�
   assert.match(session.prompt, /时间口径：真太阳时/);
   assert.match(session.prompt, /起局地点：新疆维吾尔自治区 喀什地区 喀什市/);
   assert.match(session.prompt, /校正明细：经度修正/);
+
+  const cases = [
+    { method: 'taiyi', taiyiScope: 'hour', divinationTimeStandard: 'beijing' },
+    { method: 'taiyi', taiyiScope: 'hour', divinationTimeStandard: 'true-solar' },
+    { method: 'huangji', divinationTimeStandard: 'true-solar' },
+    { method: 'meihua', divinationTimeStandard: 'beijing' },
+  ] as const;
+  try {
+    for (const item of cases) {
+      const draft = buildDraft({
+        ...item,
+        divinationTimeMode: 'custom',
+        customDivinationDate: '2026-07-11',
+        customDivinationTime: '14:35:17',
+        birthPlace: '北京',
+        birthLongitude: '116.4074',
+      });
+      TimeManager.setTimezoneOffsetMinutesOverride(480);
+      const normal = await generateDivinationSession(draft);
+      TimeManager.setTimezoneOffsetMinutesOverride(0);
+      const configured = await generateDivinationSession(draft);
+      assert.deepEqual(configured.data, normal.data);
+      assert.deepEqual(configured.timeContext, normal.timeContext);
+      assert.equal(configured.timeContext?.clockDateTime, '2026-07-11T14:35:17');
+      assert.equal(
+        configured.timeContext?.effectiveDateTime,
+        item.divinationTimeStandard === 'true-solar'
+          ? '2026-07-11T14:15:24'
+          : '2026-07-11T14:35:17',
+      );
+      assert.ok(configured.timeContext?.promptText);
+      assert.ok(configured.prompt.includes(configured.timeContext.promptText));
+      if (item.method === 'taiyi') {
+        const data = configured.data as TaiyiResult;
+        assert.equal(
+          data.dateTime,
+          item.divinationTimeStandard === 'true-solar'
+            ? '2026-07-11 14:15:24'
+            : '2026-07-11 14:35:17',
+        );
+        if (item.divinationTimeStandard === 'true-solar') {
+          assert.equal(data.termReferenceDateTime, '2026-07-11 14:35:17');
+          assert.match(configured.prompt, /节气与年月干支参照实际占时：2026-07-11 14:35:17/);
+        }
+      } else if (item.method === 'huangji') {
+        const data = configured.data as HuangjiJingshiResult;
+        assert.equal(data.dateTimeForecast?.civilTime.dateTime, '2026-07-11 14:15:24');
+        assert.equal(data.dateTimeForecast?.civilTime.termReferenceDateTime, '2026-07-11 14:35:17');
+        assert.match(configured.prompt, /节气与皇极年参照实际占时：2026-07-11 14:35:17/);
+      } else {
+        assert.equal((configured.data as MeihuaData).ganzhi.hour, '乙未');
+      }
+    }
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
 });
 
 test('太乙真太阳时跨夏至仍按实际占时切换阴阳遁', async () => {
@@ -4455,17 +4512,46 @@ test('太乙神数年计自定时间应拒绝空年份和超出网页支持范�
 });
 
 test('太乙神数年计与其他计式应统一支持当前时间', async () => {
-  const session = await generateDivinationSession(
-    buildDraft({ method: 'taiyi', taiyiYear: '', divinationTimeMode: 'current' }),
-  );
-  const currentBeijingYear = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-  }).format(new Date());
-  const data = session.data as TaiyiResult;
+  const NativeDate = Date;
+  let now = '2026-12-31T15:59:59Z';
+  globalThis.Date = new Proxy(NativeDate, {
+    construct(target, args) {
+      return Reflect.construct(target, args.length ? args : [now]);
+    },
+  });
+  try {
+    const draft = buildDraft({ method: 'taiyi', taiyiYear: '', divinationTimeMode: 'current' });
+    const session = await generateDivinationSession(draft);
+    const currentBeijingYear = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).format(new Date());
+    const data = session.data as TaiyiResult;
 
-  assert.equal(data.scope, 'year');
-  assert.match(data.dateTime, new RegExp(`^${currentBeijingYear}-`));
+    assert.equal(data.scope, 'year');
+    assert.match(data.dateTime, new RegExp(`^${currentBeijingYear}-`));
+    assert.equal(currentBeijingYear, '2026');
+    assert.equal(session.timeContext?.clockDateTime, '2026-12-31T23:59:59');
+    assert.equal(data.dateTime, '2026-07-01 12:00:00');
+
+    const pending = generateDivinationSession(draft);
+    now = '2026-12-31T16:00:00Z';
+    const submitted = await pending;
+    assert.deepEqual(submitted.data, session.data);
+    assert.deepEqual(submitted.timeContext, session.timeContext);
+    assert.match(submitted.prompt, /采用时间：2026-12-31 23:59:59/);
+    assert.match(submitted.prompt, /起局时间：2026年；/);
+
+    const fresh = await generateDivinationSession(draft);
+    const freshData = fresh.data as TaiyiResult;
+    assert.equal(freshData.scope, 'year');
+    assert.equal(freshData.dateTime, '2027-07-01 12:00:00');
+    assert.equal(fresh.timeContext?.clockDateTime, '2027-01-01T00:00:00');
+    assert.match(fresh.prompt, /采用时间：2027-01-01 00:00\n/);
+    assert.match(fresh.prompt, /起局时间：2027年；/);
+  } finally {
+    globalThis.Date = NativeDate;
+  }
 });
 
 test('太乙神数占卜入口应支持月日时四计并使用起局时间', async () => {
@@ -4721,6 +4807,7 @@ test('前端占卜链路应支持手动塔罗与灵签', async () => {
       { id: 78, name: '钱币国王', reversed: false },
     ],
   );
+  assert.deepEqual(submitted.cards, tarot.cards);
   assert.deepEqual(callerCards, editedCards);
   const edited = (await generateDivinationSession(submittedDraft)).data as TarotData;
   assert.deepEqual(

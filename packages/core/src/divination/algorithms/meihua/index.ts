@@ -232,13 +232,13 @@ export function evaluateMeihuaTimelineTrend(params: {
 export function generateMeihua(
   customDate?: Date,
   settings?: MeihuaSettings,
-  options?: { termReferenceDate?: Date },
+  options?: { termReferenceDate?: Date; timezoneOffsetMinutes?: number },
 ): MeihuaData {
   assertOptionalRecord(settings, '梅花易数起卦设置');
   // 1. 获取占卜时间的农历及干支信息
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(
     customDate,
-    undefined,
+    options?.timezoneOffsetMinutes,
     options?.termReferenceDate,
   );
   const { lunar } = timeInfo;

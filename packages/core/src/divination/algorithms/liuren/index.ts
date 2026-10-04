@@ -48,12 +48,12 @@ import { getMonthLeaderByZhongqi } from './helpers/month-leader';
  */
 export function generateLiuren(
   customDate?: Date,
-  options?: { termReferenceDate?: Date },
+  options?: { termReferenceDate?: Date; timezoneOffsetMinutes?: number },
 ): LiurenData {
   // 真太阳时只校正日时坐标；节气、年/月柱和月将仍按实际占时交节。
   const { ganzhi, timeInfo, timestamp, timezoneOffsetMinutes } = getDivinationTime(
     customDate,
-    undefined,
+    options?.timezoneOffsetMinutes,
     options?.termReferenceDate,
   );
   const dayStem = ganzhi.day.charAt(0);

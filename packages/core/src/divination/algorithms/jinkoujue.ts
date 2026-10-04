@@ -314,6 +314,7 @@ export function generateJinkoujue(
     number?: number;
     customDate?: Date;
     termReferenceDate?: Date;
+    timezoneOffsetMinutes?: number;
   } & RandomOptions,
 ): JinkoujueData {
   assertOptionalRecord(params, '金口诀起课参数');
@@ -327,7 +328,7 @@ export function generateJinkoujue(
 
   const { ganzhi, timestamp, timezoneOffsetMinutes } = getDivinationTime(
     params?.customDate,
-    undefined,
+    params?.timezoneOffsetMinutes,
     params?.termReferenceDate,
   );
   const dayStem = ganzhi.day.charAt(0);

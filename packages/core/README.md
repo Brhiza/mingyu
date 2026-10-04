@@ -544,7 +544,7 @@ const result = baziCalculator.calculateBazi({
 // 六爻（默认当前时间起卦）
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 const liuyao = generateLiuyao();
-// 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
+// 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00+08:00'))
 const coinLiuyao = generateLiuyao(undefined, { method: 'coins', seed: '本次投掷' });
 console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜钱的完整轨迹
 
@@ -581,6 +581,8 @@ console.log(createQimenPriorityPalaces(qimen)); // 结构化重点宫位候选
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 const liuren = generateLiuren();
 ```
+
+六爻与大六壬的 `options`、梅花的第三个参数及金口诀的参数对象均支持 `timezoneOffsetMinutes`（分钟）。省略时沿用 `TimeManager` 的时区配置；显式 `0` 表示 UTC，`480` 表示 UTC+8。
 
 ### 公共地基与新增术数
 
@@ -787,12 +789,12 @@ console.log(reverse.candidates); // 北京时间候选区间，起点含、终�
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹                            |
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据                     |
-| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                            |
+| `generateMeihua(date?, settings?, options?)`                                   | 梅花易数起卦                                                            |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                         |
 | `generateQimen(date?, method?, scope?, juMethod?)`                   | 年、月、日、时家奇门排盘，并内置用神宫与宫间作用结构化证据              |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                        |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                    |
-| `generateLiuren(date?)`                                              | 大六壬排盘                                                              |
+| `generateLiuren(date?, options?)`                                              | 大六壬排盘                                                              |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                              |
 | `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                      |
 | `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                      |

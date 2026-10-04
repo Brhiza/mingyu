@@ -1154,7 +1154,7 @@ function formatCorrectionMinutes(value: number) {
 }
 
 function buildBeijingWallClockDateTime(date: Date) {
-  return formatSolarDateTimeParts(TimeManager.getWallClockParts(date));
+  return formatSolarDateTimeParts(TimeManager.getWallClockParts(date, 480));
 }
 
 function supportsTrueSolarTime(
@@ -1353,7 +1353,7 @@ function buildHuangjiSixDayDateInput(draft: DivinationDraft) {
   };
 }
 
-function resolveTaiyiYear(draft: DivinationDraft): number {
+function resolveTaiyiYear(draft: DivinationDraft, date: Date): number {
   if (draft.divinationTimeMode === 'custom') {
     return readIntegerText(draft.taiyiYear, '太乙年计年份');
   }
@@ -1362,7 +1362,7 @@ function resolveTaiyiYear(draft: DivinationDraft): number {
     new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Shanghai',
       year: 'numeric',
-    }).format(new Date()),
+    }).format(date),
   );
 }
 
@@ -1550,6 +1550,7 @@ export async function generateDivinationSession(
         liuyaoRange?.branches[0]?.data ??
         module.generateLiuyao(calculationDate, {
           method: liuyaoMethod,
+          timezoneOffsetMinutes: 480,
           ...(timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : {}),
           ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
           ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
@@ -1560,11 +1561,10 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/meihua');
       data =
         meihuaRange?.branches[0]?.data ??
-        module.generateMeihua(
-          calculationDate,
-          supplementaryInfo?.meihuaSettings,
-          timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : undefined,
-        );
+        module.generateMeihua(calculationDate, supplementaryInfo?.meihuaSettings, {
+          timezoneOffsetMinutes: 480,
+          ...(timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : {}),
+        });
       break;
     }
     case 'xiaoliuren': {
@@ -1586,6 +1586,7 @@ export async function generateDivinationSession(
         module.generateJinkoujue({
           method: draft.jinkoujueMethod,
           customDate: calculationDate,
+          timezoneOffsetMinutes: 480,
           ...(timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : {}),
           ...(draft.jinkoujueMethod === 'branch' ? { branch: draft.jinkoujueBranch } : {}),
           ...(draft.jinkoujueMethod === 'number' && draft.jinkoujueNumber.trim()
@@ -1603,7 +1604,7 @@ export async function generateDivinationSession(
           draft.qimenMethod ?? 'zhuanpan',
           draft.qimenScope ?? 'hour',
           draft.qimenJuMethod ?? 'chaibu',
-          undefined,
+          480,
           undefined,
           timing?.context.standard === 'true-solar' ? baseDate : undefined,
         );
@@ -1613,10 +1614,10 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/liuren');
       data =
         liurenRange?.branches[0]?.data ??
-        module.generateLiuren(
-          calculationDate,
-          timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : undefined,
-        );
+        module.generateLiuren(calculationDate, {
+          timezoneOffsetMinutes: 480,
+          ...(timing?.context.standard === 'true-solar' ? { termReferenceDate: baseDate } : {}),
+        });
       break;
     }
     case 'taiyi': {
@@ -1628,7 +1629,7 @@ export async function generateDivinationSession(
           scope === 'year'
             ? {
                 scope,
-                year: resolveTaiyiYear(draft),
+                year: resolveTaiyiYear(draft, baseDate),
               }
             : {
                 scope,

@@ -4,14 +4,14 @@ import {
   calculateQimenLifetime,
   buildLifetimePrompt,
   generateQimen,
-} from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
-import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
-import { buildDivinationPrompt as buildCorePrompt } from '../packages/core/src/prompt/divination.ts';
-import {
-  buildTimeInfoText,
-  buildSolarTimeInfoText,
-} from '../packages/core/src/prompt/formatters.ts';
+} from 'mingyu-core/divination/qimen';
+import { TimeManager } from 'mingyu-core/calendar';
+import { generateMeihua } from 'mingyu-core/divination/meihua';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
+import { buildDivinationPrompt as buildCorePrompt } from 'mingyu-core/prompt';
+import { buildTimeInfoText, buildSolarTimeInfoText } from 'mingyu-core/prompt/formatters';
 import { buildDivinationPrompt as buildAppPrompt } from '../src/lib/divination/engine/index.ts';
 
 test('奇门终身局当前时间与所标北京时间一致，不受全局占卜时区覆盖影响', () => {
@@ -36,7 +36,7 @@ test('奇门终身局当前时间与所标北京时间一致，不受全局占�
   }
 });
 
-test('奇门和梅花保存实际起课时区，重开提示词时钟表与四柱保持一致', () => {
+test('奇门与易占四法保留默认和显式起课时区，重开提示词时钟表与四柱保持一致', () => {
   const date = new Date('2025-06-18T02:30:00Z');
   const currentTime = new Date('2026-01-01T00:00:00Z');
   const cases = [
@@ -59,11 +59,35 @@ test('奇门和梅花保存实际起课时区，重开提示词时钟表与四�
   try {
     for (const expected of cases) {
       TimeManager.setTimezoneOffsetMinutesOverride(expected.offset);
-      for (const method of ['qimen', 'meihua'] as const) {
-        const data =
-          method === 'qimen'
-            ? generateQimen(date, 'zhuanpan', 'hour', 'chaibu')
-            : generateMeihua(date, { method: 'number', number: 123 });
+      for (const method of ['qimen', 'meihua', 'liuyao', 'liuren', 'jinkoujue'] as const) {
+        if (expected.offset === -720 && method !== 'qimen' && method !== 'meihua') continue;
+        const generate = (timezoneOffsetMinutes?: number) => {
+          switch (method) {
+            case 'qimen':
+              return generateQimen(date, 'zhuanpan', 'hour', 'chaibu', timezoneOffsetMinutes);
+            case 'meihua':
+              return generateMeihua(
+                date,
+                { method: 'number', number: 123 },
+                {
+                  timezoneOffsetMinutes,
+                },
+              );
+            case 'liuyao':
+              return generateLiuyao(date, { method: 'time', timezoneOffsetMinutes });
+            case 'liuren':
+              return generateLiuren(date, { timezoneOffsetMinutes });
+            case 'jinkoujue':
+              return generateJinkoujue({
+                method: 'branch',
+                branch: '酉',
+                customDate: date,
+                timezoneOffsetMinutes,
+              });
+          }
+        };
+        const data = generate();
+        assert.equal(data.timestamp, date.getTime());
         assert.deepEqual(data.ganzhi, {
           year: '乙巳',
           month: '壬午',
@@ -74,6 +98,10 @@ test('奇门和梅花保存实际起课时区，重开提示词时钟表与四�
           assert.equal(data.calculation?.timezoneOffsetMinutes, expected.offset);
         else assert.equal(data.timezoneOffsetMinutes, expected.offset);
         TimeManager.setTimezoneOffsetMinutesOverride(expected.offset === 480 ? 0 : 480);
+        if (method !== 'qimen' && expected.offset !== -720) {
+          const explicit = generate(expected.offset);
+          assert.deepEqual(explicit, data, `${method}显式${expected.offset}须覆盖全局时区`);
+        }
         assert.equal(buildSolarTimeInfoText(data), expected.solar);
         assert.ok(
           buildTimeInfoText(data).includes(
