@@ -137,6 +137,92 @@ test('即时八字与紫微不暴露性别专属字段且盘面不随技术性�
   ziwei.result.palaces.forEach((palace, index) =>
     compareFields(palace, femaleZiwei.palaces[index], `紫微第 ${index + 1} 宫`),
   );
+  assert.ok(
+    ziwei.result.palaces
+      .find((palace) => palace.name === '仆役')
+      ?.other_stars.some((star) => star.name === '天伤'),
+  );
+  assert.ok(
+    ziwei.result.palaces
+      .find((palace) => palace.name === '疾厄')
+      ?.other_stars.some((star) => star.name === '天使'),
+  );
+
+  const zhongzhouInput = {
+    name: '紫微即时盘',
+    dateType: 'solar' as const,
+    year: 1995,
+    month: 5,
+    day: 20,
+    timeIndex: 6,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: 12,
+    birthMinute: 30,
+    birthSecond: 0,
+    algorithm: 'zhongzhou' as const,
+  };
+  const maleZhongzhou = (
+    await calculateZiweiChartForScopes(
+      buildZiweiChartInput({ ...zhongzhouInput, gender: 'male' }),
+      ['origin'],
+    )
+  ).payloadByScope.origin;
+  const femaleZhongzhou = (
+    await calculateZiweiChartForScopes(
+      buildZiweiChartInput({ ...zhongzhouInput, gender: 'female' }),
+      ['origin'],
+    )
+  ).payloadByScope.origin;
+  assert.ok(
+    maleZhongzhou.palaces
+      .find((palace) => palace.name === '仆役')
+      ?.other_stars.some((star) => star.name === '天使'),
+  );
+  assert.ok(
+    maleZhongzhou.palaces
+      .find((palace) => palace.name === '疾厄')
+      ?.other_stars.some((star) => star.name === '天伤'),
+  );
+  assert.ok(
+    femaleZhongzhou.palaces
+      .find((palace) => palace.name === '仆役')
+      ?.other_stars.some((star) => star.name === '天伤'),
+  );
+  assert.ok(
+    femaleZhongzhou.palaces
+      .find((palace) => palace.name === '疾厄')
+      ?.other_stars.some((star) => star.name === '天使'),
+  );
+  const instantZhongzhou = await calculateInstantChart({
+    type: 'ziwei',
+    customDate: new Date('1995-05-20T12:30:00+08:00'),
+    ziweiAlgorithm: 'zhongzhou',
+  });
+  assert.equal(instantZhongzhou.result.palaces.length, 12);
+  assert.equal('gender' in instantZhongzhou.result.basicInfo, false);
+  assert.ok(
+    instantZhongzhou.result.palaces.every((palace) =>
+      palace.other_stars.every((star) => star.name !== '天伤' && star.name !== '天使'),
+    ),
+  );
+  for (const origin of [maleZhongzhou, femaleZhongzhou]) {
+    compareFields(instantZhongzhou.result.calculationConfig, origin.calculation_config, '中州配置');
+    compareFields(instantZhongzhou.result.basicInfo, origin.basic_info, '中州基础资料');
+    compareFields(instantZhongzhou.result.activeScope, origin.active_scope, '中州当前范围');
+    instantZhongzhou.result.palaces.forEach((palace, index) =>
+      compareFields(
+        palace,
+        {
+          ...origin.palaces[index],
+          other_stars: origin.palaces[index].other_stars.filter(
+            (star) => star.name !== '天伤' && star.name !== '天使',
+          ),
+        },
+        `中州第 ${index + 1} 宫`,
+      ),
+    );
+  }
 });
 
 test('真太阳时即时盘必须提供地点并返回校正结果', async () => {

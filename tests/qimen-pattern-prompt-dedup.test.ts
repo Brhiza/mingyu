@@ -14,26 +14,6 @@ import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divinati
 const fixedQimen = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
 const cloneFixedQimen = () => structuredClone(fixedQimen);
 
-test('奇门完整在线提示词只保留一处旬空与驿马位置映射', () => {
-  const data = cloneFixedQimen();
-  const prompt = formatEnhancedDivinationInfo('qimen', data);
-  const palaceTable = prompt.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
-
-  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/u);
-  assert.doesNotMatch(palaceTable, /逢空|马星/u);
-  assert.equal(palaceTable.trim().split('\n').length, 9);
-  assert.match(palaceTable, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
-  assert.match(palaceTable, /巽四宫[^\n]*星天冲，神值符[^\n]*地盘丁/u);
-  assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
-  assert.match(prompt, /^休诈（吉格，兑七宫）$/mu);
-  assert.match(prompt, /^相佐（吉格，巽四宫）$/mu);
-  assert.doesNotMatch(
-    prompt,
-    /生门、丙奇、地盘戊同宫|丙奇、生门、六合同宫|值符天冲加地盘丁于巽四宫/u,
-  );
-  assert.doesNotMatch(prompt, /同干定位：/u);
-});
-
 test('奇门证据提示词保留格局条件、三奇得、马星和击刑事实各一次', () => {
   const data = cloneFixedQimen();
   const analysis = analyzeQimenEvidence(data);

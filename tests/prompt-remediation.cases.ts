@@ -119,6 +119,8 @@ test('奇门常规提示词只列经典格局命中及各自落宫', () => {
   const patternBlock = text.split('盘面命中格局：\n')[1]?.split('\n值符宫应期参考：')[0] ?? '';
 
   const palaceTable = text.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
+  assert.match(text, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/u);
+  assert.doesNotMatch(palaceTable, /逢空|马星/u);
   assert.equal(palaceTable.trim().split('\n').length, 9);
   assert.match(
     palaceTable,
@@ -136,6 +138,7 @@ test('奇门常规提示词只列经典格局命中及各自落宫', () => {
   assert.match(patternBlock, /三奇游六仪（吉格）：甲寅癸值符加地盘丁奇于巽四宫/);
   assert.match(patternBlock, /门迫（凶格）：惊门（金）克巽四宫（木）/);
   assert.doesNotMatch(text, /复合格局：|兑七宫三吉聚气|巽四宫吉凶混杂/);
+  assert.doesNotMatch(text, /同干定位：/u);
 });
 
 test('三山国王签谱提示资料过滤串签典故与编辑性噪音', () => {

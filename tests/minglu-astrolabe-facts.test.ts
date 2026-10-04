@@ -25,6 +25,7 @@ test('命录占星保留轴点与衍生点的无宫位和无运动状态，不�
     timezone: '8',
     locationName: '北京',
   });
+  const originalSource = structuredClone(source);
   const section = buildEnhancedAstrolabeSection(source);
 
   assert.ok(source.angles.every((angle) => angle.house === 0));
@@ -56,6 +57,40 @@ test('命录占星保留轴点与衍生点的无宫位和无运动状态，不�
   assert.doesNotMatch(fortuneRow, /顺行|逆行/u);
   assert.doesNotMatch(html, /第\s*0\s*宫/u);
   assert.match(html, /星体、计算点与四轴落点/u);
+
+  assert.deepEqual(section.distributions.elements.土, {
+    count: 3,
+    percentage: 30,
+    points: ['太阳', '金星', '海王星'],
+  });
+  assert.deepEqual(section.distributions.elements.风, {
+    count: 3,
+    percentage: 30,
+    points: ['月亮', '水星', '天王星'],
+  });
+  const baziResult = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 5,
+    day: 20,
+    timeIndex: 6,
+    gender: 'female',
+    isLunar: false,
+    useTrueSolarTime: false,
+  });
+  const person = { name: source.birth.name, gender: 'female' as const };
+  const article = buildMingluArticle({ person, baziResult, astrolabeData: source });
+  assert.equal(article.metadata.astrolabeSummary?.dominantElement, '土、风');
+  assert.deepEqual(article.astrolabeSection, section);
+
+  const emptyElements = {
+    ...source,
+    summary: { ...source.summary, elements: { 火: [], 土: [], 风: [], 水: [] } },
+  };
+  const originalEmptyElements = structuredClone(emptyElements);
+  const emptyArticle = buildMingluArticle({ person, baziResult, astrolabeData: emptyElements });
+  assert.equal(emptyArticle.metadata.astrolabeSummary?.dominantElement, '—');
+  assert.deepEqual(emptyElements, originalEmptyElements);
+  assert.deepEqual(source, originalSource);
 });
 
 test('命录占星缺太阳高度时沿用已有昼夜盘资料，两者均缺则保留待定', () => {

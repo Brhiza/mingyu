@@ -60,6 +60,9 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
 
   // 3. 可选占星增强
   const astrolabeSection = astrolabeData ? buildEnhancedAstrolabeSection(astrolabeData) : undefined;
+  const dominantElementCount = astrolabeSection
+    ? Math.max(...Object.values(astrolabeSection.distributions.elements).map((item) => item.count))
+    : 0;
   const careerAstrolabeEvidence = astrolabeSection
     ? [
         ...astrolabeSection.angles
@@ -302,9 +305,10 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
           moonSign: astrolabeSection.points.find((p) => p.name === 'Moon')?.sign || '—',
           ascendantSign: astrolabeSection.angles.find((a) => a.name === 'Ascendant')?.sign || '—',
           dominantElement:
-            Object.entries(astrolabeSection.distributions.elements).sort(
-              (a, b) => b[1].count - a[1].count,
-            )[0]?.[0] || '—',
+            Object.entries(astrolabeSection.distributions.elements)
+              .filter(([, item]) => item.count > 0 && item.count === dominantElementCount)
+              .map(([element]) => element)
+              .join('、') || '—',
         }
       : undefined,
   };

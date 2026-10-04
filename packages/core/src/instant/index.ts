@@ -412,7 +412,10 @@ async function calculateZiwei(
       earthly_branch: palace.earthly_branch,
       major_stars: palace.major_stars,
       minor_stars: palace.minor_stars,
-      other_stars: palace.other_stars,
+      other_stars:
+        payload.calculation_config.algorithm === 'zhongzhou'
+          ? palace.other_stars.filter((star) => star.name !== '天伤' && star.name !== '天使')
+          : palace.other_stars,
       base_jiangqian12: palace.base_jiangqian12,
       base_suiqian12: palace.base_suiqian12,
       empty_state: palace.empty_state,

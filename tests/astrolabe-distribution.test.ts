@@ -107,6 +107,52 @@ test('占星元素与模式占比以十大星体计数，并在界面和提示�
   const sparsePrompt = formatAstrolabeForPrompt(sparse);
   assert.match(sparsePrompt, /^元素分布（十大星体）：火太阳$/mu);
   assert.match(sparsePrompt, /^模式分布（十大星体）：固定太阳$/mu);
+
+  const originalSparse = structuredClone(sparse);
+  const sparseElements = buildEnhancedAstrolabeSection({
+    ...sparse,
+    summary: { ...sparse.summary, modalities: chart.summary.modalities },
+  });
+  assert.deepEqual(sparseElements.distributions.elements.火, {
+    count: 1,
+    percentage: 100,
+    points: ['太阳'],
+  });
+  assert.deepEqual(
+    Object.entries(sparseElements.distributions.modalities).map(([mode, item]) => ({
+      mode,
+      count: item.count,
+      percentage: item.percentage,
+    })),
+    [
+      { mode: '开创', count: 1, percentage: 10 },
+      { mode: '固定', count: 6, percentage: 60 },
+      { mode: '变动', count: 3, percentage: 30 },
+    ],
+  );
+  const sparseModalities = buildEnhancedAstrolabeSection({
+    ...sparse,
+    summary: { ...sparse.summary, elements: chart.summary.elements },
+  });
+  assert.deepEqual(sparseModalities.distributions.modalities.固定, {
+    count: 1,
+    percentage: 100,
+    points: ['太阳'],
+  });
+  assert.deepEqual(sparseModalities.distributions.elements, originalDistributions.elements);
+  for (const distribution of [
+    sparseElements.distributions.elements,
+    sparseElements.distributions.modalities,
+    sparseModalities.distributions.elements,
+    sparseModalities.distributions.modalities,
+  ]) {
+    assert.equal(
+      Object.values(distribution).reduce((sum, item) => sum + item.percentage, 0),
+      100,
+    );
+  }
+  assert.deepEqual(sparse, originalSparse);
+  assert.deepEqual(chart, originalChart);
   sparse.summary.elements.火 = [];
   sparse.summary.modalities.固定 = [];
   assert.doesNotMatch(formatAstrolabeForPrompt(sparse), /元素与模式分布口径|元素分布|模式分布/u);
