@@ -38,6 +38,13 @@ import type {
 
 type FixtureMethod = 'liuyao' | 'meihua' | 'qimen' | 'liuren' | 'tarot' | 'ssgw';
 
+let qimenPromptSample: ReturnType<typeof generateQimen> | undefined;
+
+function createQimenPromptSample() {
+  qimenPromptSample ??= generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  return structuredClone(qimenPromptSample);
+}
+
 function createSupplementaryInfo(): SupplementaryInfo {
   return {
     gender: '男',
@@ -244,51 +251,7 @@ function createData(method: FixtureMethod): DivinationData {
         number: 123,
       });
     case 'qimen':
-      return {
-        jiuGongGe: [
-          {
-            gong: 1,
-            name: '坎一宫',
-            direction: '北',
-            element: '水',
-            tianPan: { star: '天蓬', stem: '壬' },
-            diPan: { stem: '癸' },
-            renPan: { door: '休门' },
-            shenPan: { god: '值符' },
-          },
-          {
-            gong: 9,
-            name: '离九宫',
-            direction: '南',
-            element: '火',
-            tianPan: { star: '天英', stem: '丙' },
-            diPan: { stem: '丁' },
-            renPan: { door: '景门' },
-            shenPan: { god: '九天' },
-          },
-        ],
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        isYangDun: true,
-        juShu: 3,
-        zhiFu: '天蓬',
-        zhiShi: '休门',
-        patternTags: ['门生宫', '星旺'],
-        patternDetails: [{ tag: '门生宫', summary: '休门得地，利于稳步推进' }],
-        palaceInsights: [{ gong: 1, name: '坎一宫', level: '有利', summary: '适合谋划与沟通' }],
-        voidBranches: ['子', '丑'],
-        voidPalaces: [
-          { branch: '子', palace: 1, name: '坎一宫' },
-          { branch: '丑', palace: 8, name: '艮八宫' },
-        ],
-        horseStar: {
-          sourceBranch: '卯',
-          branch: '巳',
-          palace: 4,
-          name: '巽四宫',
-        },
-        timeInfo: { solarTerm: '春分', epoch: '上元' },
-        timestamp: Date.now(),
-      };
+      return createQimenPromptSample();
     case 'liuren':
       return {
         ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
@@ -707,10 +670,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
 });
 
 test('占卜提示词的当前时间应来自起盘结果而不是运行环境当前时间', () => {
-  const data = {
-    ...createData('qimen'),
-    timestamp: Date.parse('2025-01-01T08:30:00+08:00'),
-  };
+  const data = generateQimen(new Date('2025-01-01T08:30:00+08:00'));
   const prompt = buildDivinationPrompt('qimen', '这件事接下来该怎么推进？', data);
 
   assert.match(prompt, /【当前时间】\n公历：2025年1月1日 8时30分/);
@@ -718,40 +678,20 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
 });
 
 test('奇门提示词会输出值符值使、旬空马星和格局资料', () => {
-  const qimenData = {
-    ...createData('qimen'),
-    classicPatterns: [
-      {
-        name: '太白入荧',
-        type: 'bad' as const,
-        score: -18,
-        summary: '庚加丙主阻力外显。',
-        palaces: [9],
-      },
-    ],
-    stemRelations: [
-      {
-        gong: 9,
-        heavenStem: '庚',
-        earthStem: '丙',
-        relation: '金火相战',
-        pattern: '太白入荧',
-      },
-    ],
-  };
+  const qimenData = createQimenPromptSample();
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', qimenData, {
     gender: '男',
     birthYear: 1995,
   });
 
-  assert.match(prompt, /核心结构：阳遁3局；[^\n]+/);
+  assert.match(prompt, /核心结构：阳遁7局；立夏 下元/);
   assert.match(prompt, /取用主线：/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁/);
-  assert.match(prompt, /离九宫（南，火）：[^\n]*天盘丙，地盘丁/);
+  assert.match(prompt, /值符值使与时干：值符天冲落巽四宫；值使伤门落乾六宫；时干丁/);
+  assert.match(prompt, /离九宫（正南，火）：[^\n]*天盘丁，地盘庚/);
   assert.doesNotMatch(prompt, /同干定位：/);
-  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
-  assert.match(prompt, /太白入荧/);
+  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/);
+  assert.match(prompt, /天遁（吉格，兑七宫）：生门、丙奇、地盘戊同宫/);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);
@@ -759,7 +699,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
 });
 
 test('奇门提示词保留节令关系并省略重复的四柱互动明细', () => {
-  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  const data = createQimenPromptSample();
   const prompt = buildDivinationPrompt('qimen', '整体解读', data);
 
   assert.match(prompt, /日干癸持平/);
@@ -799,32 +739,7 @@ test('奇门年命资料应处理六甲遁干，未填写出生年份时不输�
 });
 
 test('奇门提示词不再根据问题词表输出问事参考', () => {
-  const data = {
-    ...createData('qimen'),
-    jiuGongGe: [
-      ...createData('qimen').jiuGongGe,
-      {
-        gong: 6,
-        name: '乾六宫',
-        direction: '西北',
-        element: '金',
-        tianPan: { star: '天心', stem: '辛' },
-        diPan: { stem: '庚' },
-        renPan: { door: '开门' },
-        shenPan: { god: '六合' },
-      },
-      {
-        gong: 8,
-        name: '艮八宫',
-        direction: '东北',
-        element: '土',
-        tianPan: { star: '天任', stem: '戊' },
-        diPan: { stem: '己' },
-        renPan: { door: '生门' },
-        shenPan: { god: '九地' },
-      },
-    ],
-  } satisfies DivinationData;
+  const data = createQimenPromptSample();
 
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', data, {
     gender: '男',
@@ -833,7 +748,7 @@ test('奇门提示词不再根据问题词表输出问事参考', () => {
 
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫/);
+  assert.match(prompt, /值符值使与时干：值符天冲落巽四宫；值使伤门落乾六宫/);
 });
 
 test('六爻提示词不再按问题词表补充取用参考', () => {

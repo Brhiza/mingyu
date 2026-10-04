@@ -79,15 +79,19 @@ test('梅花与皇极任务模板按实际输入资料收窄', () => {
 test('奇门提示资料保留完整格局索引，空亡事实不重复列出', () => {
   const data = createQimenPromptSample();
   const anchor = data.jiuGongGe[0];
+  const patternNames = [
+    '日奇得使',
+    '三奇游六仪',
+    '相佐',
+    '门迫',
+    '宫生门',
+    '癸击刑',
+    '青龙逃走',
+    '刑狱之格',
+  ];
   const expanded = {
     ...data,
-    classicPatterns: Array.from({ length: 8 }, (_, index) => ({
-      name: `整改核验格${index + 1}`,
-      type: 'bad' as const,
-      summary: '测试用空亡格局',
-      palaces: [anchor.gong],
-    })),
-    voidPalaces: [{ branch: '子', palace: anchor.gong, name: anchor.name }],
+    classicPatterns: data.classicPatterns.filter((pattern) => patternNames.includes(pattern.name)),
   };
   expanded.evidenceAnalysis = analyzeQimenEvidence(expanded);
   const fulfillments = evaluateQimenPatternFulfillment(expanded);
@@ -95,7 +99,7 @@ test('奇门提示资料保留完整格局索引，空亡事实不重复列出',
 
   assert.equal(fulfillments.length, 8);
   const summary = formatQimenPatternConditionSummary(expanded);
-  assert.deepEqual(summary, [`${anchor.name}同宫见空亡`]);
+  assert.deepEqual(summary, ['坎一宫同宫见空亡', '巽四宫同宫见门迫', '艮八宫同宫见空亡']);
   assert.doesNotMatch(text, /格局条件：/);
   const palaceLine = text
     .split('\n')
