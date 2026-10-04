@@ -22,7 +22,7 @@ import {
   isSheng,
 } from '../ganzhi';
 import {
-  JINKOU_POSITION_ROLES,
+  getJinkouPositionRole,
   formatJinkoujuePositionPromptText,
   getJinkoujueElementRelation,
   getGuiShenOnDiFen,
@@ -245,7 +245,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     allPositions.some(
       (position, index) =>
         position.name !== expectedNames[index] ||
-        position.role !== JINKOU_POSITION_ROLES[expectedNames[index]],
+        position.role !== getJinkouPositionRole(expectedNames[index]),
     )
   ) {
     throw new Error('金口诀四位名称或所属与课位不一致，无法生成证据。');

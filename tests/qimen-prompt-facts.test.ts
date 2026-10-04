@@ -16,6 +16,10 @@ import {
 
 const fixedQimen = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
 const cloneFixedQimen = () => structuredClone(fixedQimen);
+const jiaZiMethodBoards = {
+  zhuanpan: generateQimen(new Date('2026-05-20T00:30:00+08:00'), 'zhuanpan'),
+  feipan: generateQimen(new Date('2026-05-20T00:30:00+08:00'), 'feipan'),
+};
 const fixedAppTaskPrompt = buildDivinationPrompt(
   'qimen',
   '请做整体解读。',
@@ -161,7 +165,7 @@ test('奇门无命中格局时省略格局标题，重复命中只列一次', ()
 
 test('奇门甲子时以旬首所遁戊分别定位天盘和地盘', () => {
   for (const method of ['zhuanpan', 'feipan'] as const) {
-    const data = generateQimen(new Date('2026-05-20T00:30:00+08:00'), method);
+    const data = structuredClone(jiaZiMethodBoards[method]);
     assert.equal(data.ganzhi.hour, '甲子');
     const prompt = buildDivinationPrompt('qimen', '请做整体解读。', data);
     assert.match(prompt, /时干甲（甲子遁于戊）/);
@@ -350,7 +354,7 @@ test('同干定位保留寄干、多落点和缺盘层，定位过程不改盘',
 
 test('转盘与飞盘的换象造象任务保留原盘、转换条件与现实反馈', () => {
   for (const method of ['zhuanpan', 'feipan'] as const) {
-    const data = generateQimen(new Date('2026-05-20T00:30:00+08:00'), method);
+    const data = structuredClone(jiaZiMethodBoards[method]);
     const before = structuredClone(data);
     const prompt = buildDivinationPrompt('qimen', '项目谈判怎样换象与造象？', data);
     assert.match(prompt, /九宫简表：[\s\S]*天盘[甲乙丙丁戊己庚辛壬癸]/);

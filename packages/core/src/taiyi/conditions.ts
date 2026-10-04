@@ -5,7 +5,7 @@
  * 不把条件命中数转换成分数、概率或现实成败。
  */
 
-export const TAIYI_GATE_ORDER = [
+const CANONICAL_TAIYI_GATE_ORDER = [
   '开门',
   '休门',
   '生门',
@@ -16,10 +16,16 @@ export const TAIYI_GATE_ORDER = [
   '惊门',
 ] as const;
 
+export const TAIYI_GATE_ORDER: typeof CANONICAL_TAIYI_GATE_ORDER = [...CANONICAL_TAIYI_GATE_ORDER];
+
 export type TaiyiGateName = (typeof TAIYI_GATE_ORDER)[number];
 
 /** 太乙八宫左行顺序：乾一、坎八、艮三、震四、巽九、离二、坤七、兑六。 */
-export const TAIYI_GATE_PALACE_ORDER = [1, 8, 3, 4, 9, 2, 7, 6] as const;
+const CANONICAL_TAIYI_GATE_PALACE_ORDER = [1, 8, 3, 4, 9, 2, 7, 6] as const;
+
+export const TAIYI_GATE_PALACE_ORDER: typeof CANONICAL_TAIYI_GATE_PALACE_ORDER = [
+  ...CANONICAL_TAIYI_GATE_PALACE_ORDER,
+];
 
 const TAIYI_THREE_AUSPICIOUS_GATES = new Set<TaiyiGateName>(['开门', '休门', '生门']);
 const TAIYI_TWO_GATE_INCOMPLETE = new Set<TaiyiGateName>(['开门', '生门']);
@@ -35,7 +41,7 @@ export type TaiyiPolarity = '阳' | '阴';
 export type TaiyiWuxing = '木' | '火' | '土' | '金' | '水';
 
 /** 十六神所在神名的五行，取《古今图书集成·太乙淘金歌·定胜负》所列二目五行。 */
-export const TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> = {
+const CANONICAL_TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> = {
   子: '水',
   丑: '土',
   艮: '土',
@@ -52,6 +58,10 @@ export const TAIYI_POINT_WUXING: Readonly<Partial<Record<string, TaiyiWuxing>>> 
   戌: '土',
   乾: '金',
   亥: '水',
+};
+
+export const TAIYI_POINT_WUXING: typeof CANONICAL_TAIYI_POINT_WUXING = {
+  ...CANONICAL_TAIYI_POINT_WUXING,
 };
 
 export type TaiyiHostGuestElementRelation =
@@ -172,15 +182,15 @@ function relationBetweenPalaces(
   // 中宫不参加八宫的前后邻宫、对宫关系，但两将同入中宫仍属于同宫相关。
   if (leftPalace === rightPalace) return '同宫';
   if (leftPalace === 5 || rightPalace === 5) return undefined;
-  const leftIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    leftPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const leftIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    leftPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
-  const rightIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    rightPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const rightIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    rightPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
   if (leftIndex < 0 || rightIndex < 0) return undefined;
   const distance = Math.abs(leftIndex - rightIndex);
-  const circularDistance = Math.min(distance, TAIYI_GATE_PALACE_ORDER.length - distance);
+  const circularDistance = Math.min(distance, CANONICAL_TAIYI_GATE_PALACE_ORDER.length - distance);
   if (circularDistance === 0) return '同宫';
   if (circularDistance === 1) return '迫';
   if (circularDistance === 4) return '格';
@@ -211,19 +221,23 @@ function buildGateCondition(data: TaiyiConditionInput): TaiyiThreeGateCondition 
   const directGateRemainder = positiveOneBased(data.accumulatedValue, 240);
   // 周内第 1 至 30 数为开门，第 31 数起换休门；第 240 数仍属惊门。
   const directGateIndex = Math.floor((directGateRemainder - 1) / 30);
-  const directGate = TAIYI_GATE_ORDER[directGateIndex]!;
+  const directGate = CANONICAL_TAIYI_GATE_ORDER[directGateIndex]!;
   const directGateNumber = directGateIndex + 1;
-  const anchorIndex = TAIYI_GATE_PALACE_ORDER.indexOf(
-    data.taiyiPalace as (typeof TAIYI_GATE_PALACE_ORDER)[number],
+  const anchorIndex = CANONICAL_TAIYI_GATE_PALACE_ORDER.indexOf(
+    data.taiyiPalace as (typeof CANONICAL_TAIYI_GATE_PALACE_ORDER)[number],
   );
   if (anchorIndex < 0) {
     throw new Error(`太乙直门无法加临中宫：第${data.taiyiPalace}宫`);
   }
 
   const gateByPalace: Record<number, TaiyiGateName> = {};
-  for (let offset = 0; offset < TAIYI_GATE_ORDER.length; offset += 1) {
-    const palace = TAIYI_GATE_PALACE_ORDER[(anchorIndex + offset) % TAIYI_GATE_PALACE_ORDER.length];
-    gateByPalace[palace] = TAIYI_GATE_ORDER[(directGateIndex + offset) % TAIYI_GATE_ORDER.length]!;
+  for (let offset = 0; offset < CANONICAL_TAIYI_GATE_ORDER.length; offset += 1) {
+    const palace =
+      CANONICAL_TAIYI_GATE_PALACE_ORDER[
+        (anchorIndex + offset) % CANONICAL_TAIYI_GATE_PALACE_ORDER.length
+      ];
+    gateByPalace[palace] =
+      CANONICAL_TAIYI_GATE_ORDER[(directGateIndex + offset) % CANONICAL_TAIYI_GATE_ORDER.length]!;
   }
 
   const roles: TaiyiGateRoleFact[] = [
@@ -280,8 +294,8 @@ function buildGateCondition(data: TaiyiConditionInput): TaiyiThreeGateCondition 
 }
 
 function buildHostGuestElementRelation(data: TaiyiConditionInput): TaiyiHostGuestElementFact {
-  const hostElement = TAIYI_POINT_WUXING[data.wenChangPosition];
-  const guestElement = TAIYI_POINT_WUXING[data.shiJiPosition];
+  const hostElement = CANONICAL_TAIYI_POINT_WUXING[data.wenChangPosition];
+  const guestElement = CANONICAL_TAIYI_POINT_WUXING[data.shiJiPosition];
   return {
     hostPosition: data.wenChangPosition,
     hostElement,

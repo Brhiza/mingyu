@@ -9,7 +9,10 @@ import {
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
 import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 import { formatJinkoujueJudgmentFacts } from '../packages/core/src/prompt/jinkoujue-facts.ts';
-import { formatJinkoujuePositionPromptText } from '../packages/core/src/divination/jinkoujue-utils.ts';
+import {
+  JINKOU_POSITION_ROLES,
+  formatJinkoujuePositionPromptText,
+} from '../packages/core/src/divination/jinkoujue-utils.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 const fixedShenChart = generateJinkoujue({
@@ -484,6 +487,25 @@ test('金口诀：时间起课应形成四位、阴阳发用与动爻', () => {
   assert.equal(data.calculation.yuanDunRule, '五子元遁分别求人元、神干与将干');
   assert.ok(data.evidenceAnalysis);
   assert.match(data.evidenceAnalysis?.promptText || '', /【金口诀阴阳发用结构化证据】/);
+
+  const currentTime = new Date('2026-10-04T12:00:00+08:00');
+  const promptOptions = { method: 'jinkoujue' as const, question: '核对本次四位', currentTime };
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data });
+  const role = '四象中的田宅、子孙、奴仆、鞍马与六畜位';
+  assert.equal(data.positions.diFen.role, role);
+  assert.ok(expectedPrompt.includes(`四位取象：地分${role}`));
+  assert.ok(expectedPrompt.includes('占法：金口诀'));
+  const originalRole = JINKOU_POSITION_ROLES.地分;
+  try {
+    JINKOU_POSITION_ROLES.地分 = '变造角色';
+    assert.equal(JINKOU_POSITION_ROLES.地分, '变造角色');
+    const fresh = generateJinkoujue({ method: 'time', customDate: SAMPLE_DATE });
+    assert.deepEqual(fresh, data);
+    assert.equal(fresh.positions.diFen.role, role);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  } finally {
+    JINKOU_POSITION_ROLES.地分 = originalRole;
+  }
 });
 
 test('金口诀：指定地分应直接采用所选地支并保留起课时间规则', () => {

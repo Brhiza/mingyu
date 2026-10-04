@@ -5,12 +5,20 @@ import type {
   JinkoujueYinYang,
 } from '../types/divination';
 
-export const JINKOU_POSITION_ROLES: Record<JinkoujuePositionName, string> = {
+const CANONICAL_JINKOU_POSITION_ROLES: Record<JinkoujuePositionName, string> = {
   地分: '四象中的田宅、子孙、奴仆、鞍马与六畜位',
   将神: '四象中的己身、妻财、亲戚与内位',
   贵神: '四象中的主、臣、父与官禄位',
   人元: '四象中的客、天、君、祖与外位',
 };
+
+export const JINKOU_POSITION_ROLES: Record<JinkoujuePositionName, string> = {
+  ...CANONICAL_JINKOU_POSITION_ROLES,
+};
+
+export function getJinkouPositionRole(name: JinkoujuePositionName): string {
+  return CANONICAL_JINKOU_POSITION_ROLES[name];
+}
 
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 

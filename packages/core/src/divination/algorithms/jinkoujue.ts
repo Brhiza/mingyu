@@ -42,7 +42,7 @@ import { attachResultMeta } from '../../shared/result';
 import { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
 import { getJinkoujueMonthLeader } from '../jinkoujue-month-leader';
 import {
-  JINKOU_POSITION_ROLES,
+  getJinkouPositionRole,
   formatJinkoujuePositionPromptText,
   getJinkoujueElementRelation,
   getGuiShenOnDiFen,
@@ -129,7 +129,7 @@ function buildPosition(params: {
   if (isVoid) constraints.push('落日旬空');
   return {
     name: params.name,
-    role: JINKOU_POSITION_ROLES[params.name],
+    role: getJinkouPositionRole(params.name),
     branch: params.branch,
     stem: params.stem,
     stemElement,

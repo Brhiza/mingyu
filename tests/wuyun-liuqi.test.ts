@@ -11,6 +11,12 @@ import {
   getWuyunLiuqiYearAt,
   getWuyunLiuqiYearGanZhi,
 } from '@core/wuyun-liuqi';
+import {
+  STEM_MOVEMENT,
+  QI_PROFILES,
+  BRANCH_SITIAN_ZAIQUAN,
+  SUIHUI_BRANCH_ELEMENT,
+} from '../packages/core/src/wuyun-liuqi/annual-data.ts';
 import { SIXTY_CYCLE } from '@core/ganzhi';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
@@ -338,6 +344,67 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assert.doesNotMatch(prompt, /参考《|《素问·天元纪大论》|《运气要诀》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
+
+  const catalogInput = { year: 2024, question: '本年主客运气如何分层理解？' };
+  const baseline = calculateWuyunLiuqi(catalogInput);
+  assert.equal(baseline.input.yearGanZhi, '甲辰');
+  assert.deepEqual(
+    [
+      baseline.annualMovement.element,
+      baseline.annualMovement.toneName,
+      baseline.annualMovement.strength,
+    ],
+    ['土', '太宫', '太过'],
+  );
+  assert.deepEqual([baseline.sitian.name, baseline.sitian.element], ['太阳寒水', '水']);
+  assert.deepEqual([baseline.zaiquan.name, baseline.zaiquan.element], ['太阴湿土', '土']);
+  assert.equal(baseline.annualConformities.suihui, true);
+  assert.equal(baseline.annualConformities.tongTianfu, true);
+  assert.deepEqual(
+    baseline.movementSteps.map((step) => step.hostMovement.element),
+    ['木', '火', '土', '金', '水'],
+  );
+  assert.equal(baseline.movementSteps[1].gregorianStart, '2024-04-02');
+  assert.deepEqual(baseline.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
+  assert.deepEqual(
+    baseline.qiSteps.map((step) => step.hostQi.name),
+    ['厥阴风木', '少阴君火', '少阳相火', '太阴湿土', '阳明燥金', '太阳寒水'],
+  );
+  assert.equal(baseline.qiSteps[2].guestQi.name, '太阳寒水');
+  assert.match(baseline.prompt, /【任务】/);
+  assert.match(baseline.prompt, /本年主客运气如何分层理解？/);
+  assert.match(baseline.prompt, /土运（太宫），太过/);
+  assert.match(baseline.prompt, /太阳寒水/);
+  assertPromptIsPortableTaskText(baseline.prompt);
+
+  // 各公开表按原对象写入并恢复，新年度盘和完整任务书不承接表的临时修改。
+  const catalogWrites = [
+    [STEM_MOVEMENT.甲, 'element', '木'],
+    [QI_PROFILES.太阳寒水, 'element', '火'],
+    [BRANCH_SITIAN_ZAIQUAN.辰, 0, '厥阴风木'],
+    [SUIHUI_BRANCH_ELEMENT, '辰', '火'],
+    [HOST_MOVEMENT_ORDER, 0, '水'],
+    [HOST_QI_ORDER, 0, '太阳寒水'],
+    [GUEST_QI_ORDER, 0, '太阳寒水'],
+    [MOVEMENT_STEP_BOUNDARIES[1], 'offsetDays', 14],
+    [QI_STEP_SOLAR_TERMS[0], 1, '清明'],
+  ] as const;
+  const originalValues = catalogWrites.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of catalogWrites) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    const freshCatalog = calculateWuyunLiuqi(catalogInput);
+    assert.deepEqual(freshCatalog, baseline);
+    assert.equal(freshCatalog.prompt, baseline.prompt);
+    assertPromptIsPortableTaskText(freshCatalog.prompt);
+  } finally {
+    catalogWrites.forEach(([target, key], index) => {
+      assert.equal(Reflect.set(target, key, originalValues[index]), true);
+      assert.equal(Reflect.get(target, key), originalValues[index]);
+    });
+  }
 });
 
 test('五运六气年度资料列出平气条件，不据年干支确认全年平气', () => {

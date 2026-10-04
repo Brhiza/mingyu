@@ -6,6 +6,10 @@ import {
   generateXiaoliuren,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
+import {
+  DUONENG_XIAOLIUREN_VERSES,
+  XIAOLIUREN_PALACE_NAMES,
+} from '../packages/core/src/divination/xiaoliuren-rules.ts';
 import { buildTimeInfoText } from '../packages/core/src/prompt/formatters.ts';
 import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination.ts';
@@ -202,6 +206,36 @@ test('小六壬：修改已返回宫位不会污染后续起课及同盘其他�
     assert.deepEqual(next.evidenceAnalysis, expected.evidenceAnalysis);
   } finally {
     palaces.forEach((palace, index) => Object.assign(palace, originals[index]));
+  }
+
+  const ancientParams = {
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+    rule: 'duoneng' as const,
+  };
+  const ancient = generateXiaoliuren(ancientParams);
+  const currentTime = new Date('2026-10-04T12:00:00+08:00');
+  const promptOptions = { method: 'xiaoliuren' as const, question: '核对本次起课', currentTime };
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: ancient });
+  const originalName = XIAOLIUREN_PALACE_NAMES[0];
+  const originalVerse = DUONENG_XIAOLIUREN_VERSES[5];
+  const verse = '空亡时勾陈主事，求财无利，行人有灾，失物难觅，百事无成。';
+  assert.equal(ancient.primary.name, '空亡');
+  assert.equal(ancient.primary.verse, verse);
+  assert.ok(expectedPrompt.includes(`歌诀原文：${verse}`));
+  assert.ok(expectedPrompt.includes('占得宫：空亡'));
+  try {
+    assert.equal(Reflect.set(XIAOLIUREN_PALACE_NAMES, 0, '变造宫名'), true);
+    assert.equal(Reflect.set(DUONENG_XIAOLIUREN_VERSES, 5, '变造歌诀'), true);
+    assert.equal(XIAOLIUREN_PALACE_NAMES[0], '变造宫名');
+    assert.equal(DUONENG_XIAOLIUREN_VERSES[5], '变造歌诀');
+    const fresh = generateXiaoliuren(ancientParams);
+    assert.deepEqual(fresh, ancient);
+    assert.equal(fresh.primary.name, '空亡');
+    assert.equal(fresh.primary.verse, verse);
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  } finally {
+    Reflect.set(XIAOLIUREN_PALACE_NAMES, 0, originalName);
+    Reflect.set(DUONENG_XIAOLIUREN_VERSES, 5, originalVerse);
   }
 });
 

@@ -62,7 +62,7 @@ export interface TaiyiPalaceProfile {
 }
 
 /** 太乙八宫编号不是洛书九宫编号：1乾、2午、3艮、4卯、6酉、7坤、8子、9巽。 */
-export const TAIYI_PALACES: Readonly<Record<number, Readonly<TaiyiPalaceProfile>>> = {
+const CANONICAL_TAIYI_PALACES: Readonly<Record<number, Readonly<TaiyiPalaceProfile>>> = {
   1: { gua: '乾', dir: '西北', wu: '金' },
   2: { gua: '离', dir: '南', wu: '火' },
   3: { gua: '艮', dir: '东北', wu: '土' },
@@ -72,6 +72,10 @@ export const TAIYI_PALACES: Readonly<Record<number, Readonly<TaiyiPalaceProfile>
   8: { gua: '坎', dir: '北', wu: '水' },
   9: { gua: '巽', dir: '东南', wu: '木' },
 };
+
+export const TAIYI_PALACES: typeof CANONICAL_TAIYI_PALACES = Object.fromEntries(
+  Object.entries(CANONICAL_TAIYI_PALACES).map(([key, profile]) => [key, { ...profile }]),
+);
 
 const POINT_TO_PALACE: Record<string, number> = {
   戌: 1,
@@ -288,7 +292,7 @@ const YIN_JISHEN_BY_BRANCH: Record<string, string> = {
 };
 
 /** 十六神固定宫位。 */
-export const TAIYI_16_GODS: { name: string; branch: string }[] = [
+const CANONICAL_TAIYI_16_GODS: { name: string; branch: string }[] = [
   { name: '地主', branch: '子' },
   { name: '阳德', branch: '丑' },
   { name: '和德', branch: '艮' },
@@ -306,6 +310,10 @@ export const TAIYI_16_GODS: { name: string; branch: string }[] = [
   { name: '阴德', branch: '乾' },
   { name: '大义', branch: '亥' },
 ];
+
+export const TAIYI_16_GODS: typeof CANONICAL_TAIYI_16_GODS = CANONICAL_TAIYI_16_GODS.map((god) => ({
+  ...god,
+}));
 
 export interface TaiyiInput {
   date?: Date;
@@ -411,7 +419,7 @@ function assistantPalaceFromGeneral(general: number): number {
 
 function formatGeneralPalace(value: number): string {
   if (value === 5) return '5中宫';
-  const profile = TAIYI_PALACES[value];
+  const profile = CANONICAL_TAIYI_PALACES[value];
   return profile ? `${value}宫（${profile.gua}卦、${profile.dir}）` : `${value}宫`;
 }
 
@@ -722,8 +730,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const conditionSummary = formatTaiyiConditionSummary(conditions);
   judgments.push(conditionSummary);
 
-  const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
-  const taiyiProfile = TAIYI_PALACES[taiyiPalace];
+  const sixteenGods = CANONICAL_TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
+  const taiyiProfile = CANONICAL_TAIYI_PALACES[taiyiPalace];
   const scopeInfo = SCOPE_LABELS[scope];
   const civil = readCivilParts(date);
   const dateTime = `${civil.year}-${String(civil.month).padStart(2, '0')}-${String(civil.day).padStart(2, '0')} ${String(civil.hour).padStart(2, '0')}:${String(civil.minute).padStart(2, '0')}:${String(civil.second).padStart(2, '0')}`;

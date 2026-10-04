@@ -17,9 +17,9 @@ import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
 import {
-  DUONENG_XIAOLIUREN_VERSES,
+  getDuonengXiaoliurenVerse,
+  getXiaoliurenPalaceName,
   resolveXiaoliurenRule,
-  XIAOLIUREN_PALACE_NAMES,
 } from '../xiaoliuren-rules';
 
 export { XIAOLIUREN_RULE_OPTIONS } from '../xiaoliuren-rules';
@@ -80,16 +80,16 @@ function palaceAt(index: number, rule: XiaoliurenRule): XiaoliurenPalaceDetail {
   }
   return {
     ...palace,
-    verse: rule === 'duoneng' ? DUONENG_XIAOLIUREN_VERSES[palace.index] : palace.verse,
+    verse: rule === 'duoneng' ? getDuonengXiaoliurenVerse(palace.index) : palace.verse,
   };
 }
 
 function assertReferenceData(): void {
-  const expected = XIAOLIUREN_PALACE_NAMES;
   if (
     XIAOLIUREN_PALACES.length !== 6 ||
     XIAOLIUREN_PALACES.some(
-      (palace, index) => palace.index !== index || palace.name !== expected[index] || !palace.verse,
+      (palace, index) =>
+        palace.index !== index || palace.name !== getXiaoliurenPalaceName(index) || !palace.verse,
     )
   ) {
     throw new Error('小六壬六宫顺序或歌诀资料不完整。');

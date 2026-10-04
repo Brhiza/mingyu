@@ -4,7 +4,14 @@ import {
   evaluateTaiyiConditions,
   evaluateTaiyiTacticGuidance,
   generateTaiyi,
+  TAIYI_16_GODS,
+  TAIYI_PALACES,
 } from '../packages/core/src/taiyi/index.ts';
+import {
+  TAIYI_GATE_ORDER,
+  TAIYI_GATE_PALACE_ORDER,
+  TAIYI_POINT_WUXING,
+} from '../packages/core/src/taiyi/conditions.ts';
 import { formatTaiyiInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 
@@ -117,6 +124,67 @@ test('太乙在线任务书合并实际条件，并按盘面重算而忽略旧�
   ]) {
     assert.match(prompt, new RegExp(`五将：${expectedLaunched ? '发' : '不发'}`));
     assert.doesNotMatch(prompt, /此占必胜/u);
+  }
+
+  const catalogInput = { year: 2025, scope: 'year' } as const;
+  const baseline = generateTaiyi(catalogInput);
+  const currentTime = new Date('2025-06-01T04:00:00.000Z');
+  const question = '本次太乙主客与三门条件如何？';
+  const baselineTaskbook = buildDivinationPrompt({
+    method: 'taiyi',
+    data: baseline,
+    question,
+    currentTime,
+  });
+  assert.equal(baseline.ganZhi, '乙巳');
+  assert.equal(baseline.taiyiPalace, 2);
+  assert.equal(baseline.taiyiDir, '南');
+  assert.deepEqual(baseline.sixteenGods[0], { branch: '子', god: '地主' });
+  assert.equal(baseline.conditions.threeGates.directGate, '伤门');
+  assert.equal(baseline.conditions.threeGates.status, '三门具');
+  assert.deepEqual(
+    [
+      baseline.conditions.fiveGenerals.hostGuestElementRelation.hostPosition,
+      baseline.conditions.fiveGenerals.hostGuestElementRelation.hostElement,
+      baseline.conditions.fiveGenerals.hostGuestElementRelation.guestPosition,
+      baseline.conditions.fiveGenerals.hostGuestElementRelation.guestElement,
+    ],
+    ['坤', '土', '子', '水'],
+  );
+  assert.equal(baseline.conditions.fiveGenerals.hostGuestElementRelation.complete, false);
+  assert.equal(baseline.conditions.fiveGenerals.hostGuestElementRelation.relation, '未判定');
+  assert.match(baselineTaskbook, /本次太乙主客与三门条件如何？/);
+  assert.match(baselineTaskbook, /三门：三门具；直使伤门/);
+  assert.match(baselineTaskbook, /子地主/);
+
+  // 公开资料仍可改写；新盘使用固定盘式，二目五行同时核结构资料。
+  const catalogWrites = [
+    [TAIYI_16_GODS[0], 'name', '本次神名'],
+    [TAIYI_PALACES[2], 'dir', '本次方位'],
+    [TAIYI_GATE_ORDER, 3, '杜门'],
+    [TAIYI_GATE_PALACE_ORDER, 0, 2],
+    [TAIYI_POINT_WUXING, '坤', '水'],
+  ] as const;
+  const originalValues = catalogWrites.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of catalogWrites) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    const freshCatalog = generateTaiyi(catalogInput);
+    assert.deepEqual(freshCatalog, baseline);
+    assert.equal(freshCatalog.prompt, baseline.prompt);
+    assert.equal(
+      buildDivinationPrompt({ method: 'taiyi', data: freshCatalog, question, currentTime }),
+      baselineTaskbook,
+    );
+    assert.equal(freshCatalog.conditions.fiveGenerals.hostGuestElementRelation.hostElement, '土');
+    assert.equal(freshCatalog.conditions.fiveGenerals.hostGuestElementRelation.guestElement, '水');
+  } finally {
+    catalogWrites.forEach(([target, key], index) => {
+      assert.equal(Reflect.set(target, key, originalValues[index]), true);
+      assert.equal(Reflect.get(target, key), originalValues[index]);
+    });
   }
 });
 

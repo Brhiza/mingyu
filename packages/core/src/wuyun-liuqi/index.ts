@@ -4,10 +4,10 @@
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
 import {
-  STEM_MOVEMENT,
-  QI_PROFILES,
-  BRANCH_SITIAN_ZAIQUAN,
-  SUIHUI_BRANCH_ELEMENT,
+  getStemMovement,
+  getQiProfile,
+  getBranchSitianZaiquan,
+  getSuihuiBranchElement,
 } from './annual-data';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
@@ -200,7 +200,11 @@ export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
   prompt: string;
 }
 
-export const HOST_MOVEMENT_ORDER: readonly WuyunElement[] = ['木', '火', '土', '金', '水'];
+const CANONICAL_HOST_MOVEMENT_ORDER: readonly WuyunElement[] = ['木', '火', '土', '金', '水'];
+
+export const HOST_MOVEMENT_ORDER: typeof CANONICAL_HOST_MOVEMENT_ORDER = [
+  ...CANONICAL_HOST_MOVEMENT_ORDER,
+];
 
 const MOVEMENT_TONE: Record<WuyunElement, WuyunTone> = {
   木: '角',
@@ -224,7 +228,7 @@ const MOVEMENT_STEP_LABELS: WuyunMovementStep['label'][] = ['初运', '二运', 
  * 《运气要诀》五运交司日期。offsetDays 表示原文“节气后第几日”的日期序号，
  * 不把它解释成自交节时刻起累计若干个 24 小时的现代精确时刻。
  */
-export const MOVEMENT_STEP_BOUNDARIES: readonly {
+const CANONICAL_MOVEMENT_STEP_BOUNDARIES: readonly {
   solarTerm: WuyunMovementStep['startBoundary']['solarTerm'];
   offsetDays: number;
   description: string;
@@ -262,8 +266,11 @@ export const MOVEMENT_STEP_BOUNDARIES: readonly {
   },
 ];
 
+export const MOVEMENT_STEP_BOUNDARIES: typeof CANONICAL_MOVEMENT_STEP_BOUNDARIES =
+  CANONICAL_MOVEMENT_STEP_BOUNDARIES.map((boundary) => ({ ...boundary }));
+
 /** 主气的少阳、太阴次序与客气轮转不同。 */
-export const HOST_QI_ORDER: readonly LiuqiName[] = [
+const CANONICAL_HOST_QI_ORDER: readonly LiuqiName[] = [
   '厥阴风木',
   '少阴君火',
   '少阳相火',
@@ -272,7 +279,9 @@ export const HOST_QI_ORDER: readonly LiuqiName[] = [
   '太阳寒水',
 ];
 
-export const GUEST_QI_ORDER: readonly LiuqiName[] = [
+export const HOST_QI_ORDER: typeof CANONICAL_HOST_QI_ORDER = [...CANONICAL_HOST_QI_ORDER];
+
+const CANONICAL_GUEST_QI_ORDER: readonly LiuqiName[] = [
   '厥阴风木',
   '少阴君火',
   '太阴湿土',
@@ -280,6 +289,8 @@ export const GUEST_QI_ORDER: readonly LiuqiName[] = [
   '阳明燥金',
   '太阳寒水',
 ];
+
+export const GUEST_QI_ORDER: typeof CANONICAL_GUEST_QI_ORDER = [...CANONICAL_GUEST_QI_ORDER];
 
 const QI_STEP_LABELS: LiuqiStep['label'][] = [
   '初之气',
@@ -366,7 +377,7 @@ function beijingCivilDateAt(timestamp: number) {
 }
 
 /** 一年二十四节气按六步分主，每步四个节气。 */
-export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
+const CANONICAL_QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
   ['大寒', '立春', '雨水', '惊蛰'],
   ['春分', '清明', '谷雨', '立夏'],
   ['小满', '芒种', '夏至', '小暑'],
@@ -374,6 +385,9 @@ export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, st
   ['秋分', '寒露', '霜降', '立冬'],
   ['小雪', '大雪', '冬至', '小寒'],
 ];
+
+export const QI_STEP_SOLAR_TERMS: typeof CANONICAL_QI_STEP_SOLAR_TERMS =
+  CANONICAL_QI_STEP_SOLAR_TERMS.map((terms) => [...terms] as [string, string, string, string]);
 
 /** 岁会只取本运临本支之位：木卯、火午、土四维、金酉、水子。 */
 
@@ -439,7 +453,7 @@ function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'
 }
 
 function profile(name: LiuqiName): LiuqiProfile {
-  return { ...QI_PROFILES[name] };
+  return getQiProfile(name);
 }
 
 function buildAnnualRelation(
@@ -557,20 +571,20 @@ function movementProfile(
  * 客运以中运为初运，按五行相生轮转，并沿五音太少相生次序逐步交替。
  */
 function buildMovementSteps(annualMovement: AnnualMovement, year?: number): WuyunMovementStep[] {
-  const annualIndex = HOST_MOVEMENT_ORDER.indexOf(annualMovement.element);
+  const annualIndex = CANONICAL_HOST_MOVEMENT_ORDER.indexOf(annualMovement.element);
   if (annualIndex < 0) throw new Error(`中运五行数据缺失：${annualMovement.element}`);
 
   const annualToneStrength = annualMovement.toneStrength;
   const oppositeToneStrength: WuyunToneStrength = annualToneStrength === '太' ? '少' : '太';
-  const hostMovements = HOST_MOVEMENT_ORDER.map((element, index) =>
+  const hostMovements = CANONICAL_HOST_MOVEMENT_ORDER.map((element, index) =>
     movementProfile(
       element,
       mod(index - annualIndex, 2) === 0 ? annualToneStrength : oppositeToneStrength,
     ),
   );
   const steps: WuyunMovementStep[] = MOVEMENT_STEP_LABELS.map((label, index) => {
-    const boundary = MOVEMENT_STEP_BOUNDARIES[index];
-    const guestElement = HOST_MOVEMENT_ORDER[mod(annualIndex + index, 5)];
+    const boundary = CANONICAL_MOVEMENT_STEP_BOUNDARIES[index];
+    const guestElement = CANONICAL_HOST_MOVEMENT_ORDER[mod(annualIndex + index, 5)];
     const hostMovement = hostMovements[index];
     if (!boundary || !hostMovement || !guestElement) {
       throw new Error(`五步主客运数据缺失：第${index + 1}步`);
@@ -630,7 +644,7 @@ function buildAnnualConformities(
   zaiquan: LiuqiProfile,
 ): AnnualConformities {
   const branch = yearGanZhi[1];
-  const suihuiBranchElement = SUIHUI_BRANCH_ELEMENT[branch];
+  const suihuiBranchElement = getSuihuiBranchElement(branch);
   const tianfu = movement.element === sitian.element;
   const suihui = suihuiBranchElement === movement.element;
   const taiyiTianfu = tianfu && suihui;
@@ -682,17 +696,17 @@ function buildAnnualConformities(
 }
 
 function buildQiSteps(sitianName: LiuqiName, year?: number): LiuqiStep[] {
-  const sitianIndex = GUEST_QI_ORDER.indexOf(sitianName);
+  const sitianIndex = CANONICAL_GUEST_QI_ORDER.indexOf(sitianName);
   if (sitianIndex < 0) throw new Error(`司天气序数据缺失：${sitianName}`);
 
   const steps: LiuqiStep[] = QI_STEP_LABELS.map((label, index) => {
-    const guestName = GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
-    const hostQi = profile(HOST_QI_ORDER[index]);
+    const guestName = CANONICAL_GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
+    const hostQi = profile(CANONICAL_HOST_QI_ORDER[index]);
     const guestQi = profile(guestName);
     return {
       order: index + 1,
       label,
-      solarTerms: [...QI_STEP_SOLAR_TERMS[index]],
+      solarTerms: [...CANONICAL_QI_STEP_SOLAR_TERMS[index]],
       hostQi,
       guestQi,
       hostGuestRelation: buildHostGuestRelation(hostQi, guestQi),
@@ -818,8 +832,8 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   const resolved = resolveYearInput(input);
   const stem = resolved.yearGanZhi[0];
   const branch = resolved.yearGanZhi[1];
-  const movement = STEM_MOVEMENT[stem];
-  const pair = BRANCH_SITIAN_ZAIQUAN[branch];
+  const movement = getStemMovement(stem);
+  const pair = getBranchSitianZaiquan(branch);
   if (!movement || !pair) throw new Error(`五运六气基础表缺失：${resolved.yearGanZhi}`);
 
   const annualMovement: AnnualMovement = {

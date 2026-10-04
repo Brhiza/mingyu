@@ -23,13 +23,14 @@ import {
 const outerPalaces = [1, 8, 3, 4, 9, 2, 7, 6];
 const rotatingStars = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心'];
 const doors = ['休门', '生门', '伤门', '杜门', '景门', '死门', '惊门', '开门'];
+const fixedSummerBoard = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
 
 function byGong<T extends { gong: number }>(items: T[]): Record<number, T> {
   return Object.fromEntries(items.map((item) => [item.gong, item]));
 }
 
 test('奇门转盘应完整复现芒种上元阳六局癸未时盘面', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = structuredClone(fixedSummerBoard);
   const palaces = byGong(result.jiuGongGe);
 
   assert.equal(result.ganzhi.day, '庚戌');
@@ -210,7 +211,7 @@ test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天�
 });
 
 test('奇门证据提示词应完整展示天芮天禽及各自所携天盘干', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = structuredClone(fixedSummerBoard);
   const companionFact = result.evidenceAnalysis?.palaceFacts.find(
     (fact) => fact.tianPan.companionStar === '天禽',
   );
