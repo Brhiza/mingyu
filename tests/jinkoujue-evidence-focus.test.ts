@@ -41,9 +41,26 @@ test('金口诀发用位旬空仍标主线受限，辅助位旬空只作为该�
   assert.equal(auxiliaryVoid.positions.jiangShen.isVoid, false);
   assert.equal(auxiliaryVoid.positions.guiShen.isVoid, true);
   assert.equal(auxiliaryVoid.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.deepEqual(
+    auxiliaryVoid.evidenceAnalysis?.counterEvidenceFacts
+      .filter((item) => item.type === '旬空' && item.ownerKey === 'jinkoujue:position:贵神')
+      .map(({ ownerKey, detail, promptText }) => ({ ownerKey, detail, promptText })),
+    [
+      {
+        ownerKey: 'jinkoujue:position:贵神',
+        detail: '贵神巳落日旬空',
+        promptText: '贵神巳落日旬空',
+      },
+    ],
+  );
+  const auxiliaryBefore = structuredClone(auxiliaryVoid);
   const prompt = formatEnhancedDivinationInfo('jinkoujue', auxiliaryVoid);
-  assert.match(prompt, /贵神巳落日旬空/);
+  const fourPositions = prompt.split('\n').find((line) => line.startsWith('四位：'));
+  assert.ok(fourPositions?.includes('贵神癸巳乘螣蛇（阴火，月令休，空）'));
+  assert.equal(prompt.split('贵神癸巳乘螣蛇（阴火，月令休，空）').length - 1, 1);
+  assert.doesNotMatch(prompt, /贵神巳落日旬空/);
   assert.doesNotMatch(prompt, /需待填实后再作主断|主证受限/);
+  assert.deepEqual(auxiliaryVoid, auxiliaryBefore);
 });
 
 test('金口诀发用位受克应列为盘内反证并标记主线受限', () => {
