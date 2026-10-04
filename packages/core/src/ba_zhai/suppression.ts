@@ -16,7 +16,7 @@ export interface BaZhaiGasRegulationResult {
   promptSummary: string;
 }
 
-export const NINE_STAR_WUXING: Record<
+const CANONICAL_NINE_STAR_WUXING: Record<
   string,
   { star: string; element: '木' | '火' | '土' | '金' | '水'; nature: '吉' | '凶' }
 > = {
@@ -29,6 +29,10 @@ export const NINE_STAR_WUXING: Record<
   六煞: { star: '文曲', element: '水', nature: '凶' },
   祸害: { star: '禄存', element: '土', nature: '凶' },
 };
+
+export const NINE_STAR_WUXING: typeof CANONICAL_NINE_STAR_WUXING = Object.fromEntries(
+  Object.entries(CANONICAL_NINE_STAR_WUXING).map(([key, profile]) => [key, { ...profile }]),
+);
 
 const PALACE_ELEMENTS: Record<string, '木' | '火' | '土' | '金' | '水'> = {
   坎: '水',
@@ -64,7 +68,7 @@ export function evaluateBaZhaiRegulation(params: {
   const base = houseGua ?? mingGua;
   const scope = houseGua === null ? '命卦' : '宅卦';
   const suppressionLaws = getBaZhaiPalace(base).map((palace): BaZhaiSuppressionFact => {
-    const star = NINE_STAR_WUXING[palace.label];
+    const star = CANONICAL_NINE_STAR_WUXING[palace.label];
     const palaceElement = PALACE_ELEMENTS[palace.gua];
     const suppressionRule = relation(star.element, palaceElement, '星', '宫');
     return {

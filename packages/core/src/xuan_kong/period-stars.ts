@@ -33,7 +33,7 @@ export function flyStars(centerStar: number, direction: FlyDirection): number[] 
   return stars;
 }
 
-export const FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | '火'> = {
+const CANONICAL_FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | '火'> = {
   1: '水',
   2: '土',
   3: '木',
@@ -44,6 +44,14 @@ export const FLYING_STAR_WUXING: Record<number, '水' | '土' | '木' | '金' | 
   8: '土',
   9: '火',
 };
+
+export const FLYING_STAR_WUXING: typeof CANONICAL_FLYING_STAR_WUXING = {
+  ...CANONICAL_FLYING_STAR_WUXING,
+};
+
+export function getFlyingStarElement(star: number) {
+  return CANONICAL_FLYING_STAR_WUXING[star];
+}
 
 export type FlyingStarYunState = '当运' | '生气' | '退气' | '死气' | '煞气';
 export type ShanXiangRelation = '生入' | '生出' | '克入' | '克出' | '比和';
@@ -250,8 +258,8 @@ export function resolveFlyingStarYunState(star: number, yun: number): FlyingStar
 export function resolveShanXiangRelation(shanStar: number, xiangStar: number): ShanXiangRelation {
   assertStar(shanStar);
   assertStar(xiangStar);
-  const mountain = FLYING_STAR_WUXING[shanStar];
-  const facing = FLYING_STAR_WUXING[xiangStar];
+  const mountain = CANONICAL_FLYING_STAR_WUXING[shanStar];
+  const facing = CANONICAL_FLYING_STAR_WUXING[xiangStar];
   if (mountain === facing) return '比和';
   if (isSheng(facing, mountain)) return '生入';
   if (isSheng(mountain, facing)) return '生出';

@@ -26,7 +26,7 @@ import {
 import { evaluateCastleGate, type CastleGateEvaluation } from './castle-gate';
 import {
   flyStars,
-  FLYING_STAR_WUXING,
+  getFlyingStarElement,
   resolveFlyingStarYunState,
   resolveShanXiangRelation,
   resolveMonthFlyingStar,
@@ -656,8 +656,8 @@ function buildPalaces(
 }
 
 function formatStarRelation(from: string, fromStar: number, to: string, toStar: number): string {
-  const source = `${from}${fromStar}${FLYING_STAR_WUXING[fromStar]}`;
-  const target = `${to}${toStar}${FLYING_STAR_WUXING[toStar]}`;
+  const source = `${from}${fromStar}${getFlyingStarElement(fromStar)}`;
+  const target = `${to}${toStar}${getFlyingStarElement(toStar)}`;
   switch (resolveShanXiangRelation(fromStar, toStar)) {
     case '生入':
       return `${target}生${source}`;
@@ -675,16 +675,16 @@ function formatStarRelation(from: string, fromStar: number, to: string, toStar: 
 function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>) {
   const yunBasis = `${result.period.boundaryStatus ? '暂按' : ''}${result.period.yun}运`;
   const natalStar = (label: string, star: number) =>
-    `${label}${star}（${FLYING_STAR_WUXING[star]}，${yunBasis}${resolveFlyingStarYunState(star, result.period.yun)}）`;
+    `${label}${star}（${getFlyingStarElement(star)}，${yunBasis}${resolveFlyingStarYunState(star, result.period.yun)}）`;
   const palaceLines = result.palaces
     .map((item) => {
       const yearText =
         item.yearStar !== undefined
-          ? ` 年${item.yearStar}（${FLYING_STAR_WUXING[item.yearStar]}）`
+          ? ` 年${item.yearStar}（${getFlyingStarElement(item.yearStar)}）`
           : '';
       const monthText =
         item.monthStar !== undefined
-          ? ` 月${item.monthStar}（${FLYING_STAR_WUXING[item.monthStar]}）`
+          ? ` 月${item.monthStar}（${getFlyingStarElement(item.monthStar)}）`
           : '';
       const relations = [
         `山向${item.shanXiangRelation}：${formatStarRelation('山星', item.shanStar, '向星', item.xiangStar)}`,

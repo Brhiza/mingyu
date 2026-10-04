@@ -16,7 +16,7 @@ export function getBaguaNames(): string[] {
 }
 
 /** 八卦方位（后天八卦） */
-export const BAGUA_DIRECTION: Record<string, string> = {
+const CANONICAL_BAGUA_DIRECTION: Record<string, string> = {
   坎: '北',
   艮: '东北',
   震: '东',
@@ -26,9 +26,10 @@ export const BAGUA_DIRECTION: Record<string, string> = {
   兑: '西',
   乾: '西北',
 };
+export const BAGUA_DIRECTION: Record<string, string> = { ...CANONICAL_BAGUA_DIRECTION };
 
 /** 八卦中心度数（罗盘，正北为 0°，顺时针） */
-export const BAGUA_DEGREE: Record<string, number> = {
+const CANONICAL_BAGUA_DEGREE: Record<string, number> = {
   坎: 0,
   艮: 45,
   震: 90,
@@ -38,6 +39,7 @@ export const BAGUA_DEGREE: Record<string, number> = {
   兑: 270,
   乾: 315,
 };
+export const BAGUA_DEGREE: Record<string, number> = { ...CANONICAL_BAGUA_DEGREE };
 
 /** 二十四山（罗盘顺序，自正北子山起顺时针） */
 const CANONICAL_TWENTY_FOUR_MOUNTAINS: string[] = [
@@ -459,7 +461,7 @@ export const NINE_STARS: NineStarProfile[] = Array.from({ length: 9 }, (_, index
 );
 
 /** 二十四山所属八卦 */
-export const MOUNTAIN_TO_BAGUA: Record<string, string> = {
+const CANONICAL_MOUNTAIN_TO_BAGUA: Record<string, string> = {
   子: '坎',
   癸: '坎',
   丑: '艮',
@@ -485,13 +487,14 @@ export const MOUNTAIN_TO_BAGUA: Record<string, string> = {
   亥: '乾',
   壬: '坎',
 };
+export const MOUNTAIN_TO_BAGUA: Record<string, string> = { ...CANONICAL_MOUNTAIN_TO_BAGUA };
 
 /** 由坐山（二十四山）取宅卦 */
 export function getHouseTrigram(mountain: string): string {
-  if (typeof mountain !== 'string' || !Object.hasOwn(MOUNTAIN_TO_BAGUA, mountain)) {
+  if (typeof mountain !== 'string' || !Object.hasOwn(CANONICAL_MOUNTAIN_TO_BAGUA, mountain)) {
     throw new Error(`坐山无效：${String(mountain)}`);
   }
-  const gua = MOUNTAIN_TO_BAGUA[mountain];
+  const gua = CANONICAL_MOUNTAIN_TO_BAGUA[mountain];
   if (!gua) throw new Error(`坐山无效：${mountain}`);
   return gua;
 }
@@ -555,8 +558,8 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
   if (!row) throw new Error(`基准卦无效（需为八卦之一）：${baseGua}`);
   return CANONICAL_BAGUA.map((gua, i) => ({
     gua,
-    direction: BAGUA_DIRECTION[gua],
-    degree: BAGUA_DEGREE[gua],
+    direction: CANONICAL_BAGUA_DIRECTION[gua],
+    degree: CANONICAL_BAGUA_DEGREE[gua],
     label: row[i],
     luck: isLucky(row[i]) ? '吉' : '凶',
   }));

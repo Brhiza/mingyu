@@ -8,9 +8,20 @@ import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
 import { auditPromptFacts } from '../scripts/prompt-audit/facts';
 
+const promptScopeCharts = {
+  common: generateXiaoliuren({
+    rule: 'common',
+    customDate: new Date('2026-05-19T10:30:00+08:00'),
+  }),
+  duoneng: generateXiaoliuren({
+    rule: 'duoneng',
+    customDate: new Date('2026-05-19T10:30:00+08:00'),
+  }),
+};
+
 test('小六壬双口径在原生提示词中绑定起点位置与时宫歌诀', () => {
   for (const rule of ['common', 'duoneng'] as const) {
-    const data = generateXiaoliuren({ rule, customDate: new Date('2026-05-19T10:30:00+08:00') });
+    const data = structuredClone(promptScopeCharts[rule]);
     const prompt = buildDivinationPrompt('xiaoliuren', '请做整体解读。', data);
     const sparseData = structuredClone(data);
     delete sparseData.palaceOrder[5];
@@ -113,7 +124,7 @@ test('小六壬初一起点随月宫与流派变化，空亡下一宫回到大�
 
 test('小六壬两种断法在网页与核心提示词中只按时宫歌诀判断', () => {
   for (const rule of ['common', 'duoneng'] as const) {
-    const data = generateXiaoliuren({ rule, customDate: new Date('2026-05-19T10:30:00+08:00') });
+    const data = structuredClone(promptScopeCharts[rule]);
     for (const prompt of [
       buildDivinationPrompt('xiaoliuren', '请分析进展。', data, undefined, {
         schools: ['shunshu', 'gongjue'],

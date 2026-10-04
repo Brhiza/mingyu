@@ -15,7 +15,7 @@ export interface MountainProfile {
   yinYang: '阳' | '阴';
 }
 
-export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
+const CANONICAL_MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
   // 坎一宫
   壬: { mountain: '壬', gong: 1, trigram: '坎', yuanLong: '地元龙', yinYang: '阳' },
   子: { mountain: '子', gong: 1, trigram: '坎', yuanLong: '天元龙', yinYang: '阴' },
@@ -49,6 +49,10 @@ export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = {
   乾: { mountain: '乾', gong: 6, trigram: '乾', yuanLong: '天元龙', yinYang: '阳' },
   亥: { mountain: '亥', gong: 6, trigram: '乾', yuanLong: '人元龙', yinYang: '阳' },
 };
+
+export const MOUNTAIN_PROFILES: Record<string, MountainProfile> = Object.fromEntries(
+  Object.entries(CANONICAL_MOUNTAIN_PROFILES).map(([key, profile]) => [key, { ...profile }]),
+);
 
 /** 八卦宫位按顺时针排列（用于取向首左右相邻两宫） */
 const CLOCKWISE_GONG_RING = [1, 8, 3, 4, 9, 2, 7, 6];
@@ -104,10 +108,13 @@ export function evaluateCastleGate(params: {
   ) {
     throw new Error('城门运盘须为当运入中顺飞的完整九宫盘。');
   }
-  if (typeof facingMountain !== 'string' || !Object.hasOwn(MOUNTAIN_PROFILES, facingMountain)) {
+  if (
+    typeof facingMountain !== 'string' ||
+    !Object.hasOwn(CANONICAL_MOUNTAIN_PROFILES, facingMountain)
+  ) {
     throw new Error('城门朝向须为有效的二十四山。');
   }
-  const facingProfile = MOUNTAIN_PROFILES[facingMountain];
+  const facingProfile = CANONICAL_MOUNTAIN_PROFILES[facingMountain];
   if (!facingProfile) {
     return {
       hasUsableGate: null,
@@ -137,13 +144,13 @@ export function evaluateCastleGate(params: {
   const candidates: CastleGateCandidate[] = [];
 
   for (const gong of adjacentGongs) {
-    const matchingMountain = Object.values(MOUNTAIN_PROFILES).find(
+    const matchingMountain = Object.values(CANONICAL_MOUNTAIN_PROFILES).find(
       (m) => m.gong === gong && m.yuanLong === targetYuanLong,
     );
     if (!matchingMountain) continue;
 
     const yunStar = yunPlate[gong - 1];
-    const baseMountain = Object.values(MOUNTAIN_PROFILES).find(
+    const baseMountain = Object.values(CANONICAL_MOUNTAIN_PROFILES).find(
       (m) => m.gong === (yunStar === 5 ? yun : yunStar) && m.yuanLong === targetYuanLong,
     );
     const flyDirection: FlyDirection =

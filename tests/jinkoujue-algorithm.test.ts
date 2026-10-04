@@ -24,6 +24,11 @@ const fixedNumberOneChart = generateJinkoujue({
   number: 1,
   customDate: SAMPLE_DATE,
 });
+const twoWaterShenChart = generateJinkoujue({
+  customDate: new Date('2025-03-28T12:00:00+08:00'),
+  method: 'branch',
+  branch: '申',
+});
 
 function createShenChart() {
   return structuredClone(fixedShenChart);
@@ -795,11 +800,7 @@ test('金口诀：六十日柱乘昼夜与十二地分的 1440 课应逐项符�
 });
 
 test('金口诀二水比合保留实际神将位次，不直接定为盗耗', () => {
-  const data = generateJinkoujue({
-    customDate: new Date('2025-03-28T12:00:00+08:00'),
-    method: 'branch',
-    branch: '申',
-  });
+  const data = structuredClone(twoWaterShenChart);
   assert.equal(data.positions.guiShen.god, '玄武');
   assert.equal(data.positions.guiShen.element, '水');
   assert.equal(data.positions.jiangShen.element, '水');
@@ -845,11 +846,7 @@ test('金口诀详情与增强提示词按实盘复算比合，保留生克条�
     await import('../packages/core/src/prompt/divination-detail');
   const { formatEnhancedDivinationInfo } =
     await import('../packages/core/src/prompt/divination-enhanced');
-  const data = generateJinkoujue({
-    customDate: new Date('2025-03-28T12:00:00+08:00'),
-    method: 'branch',
-    branch: '申',
-  });
+  const data = structuredClone(twoWaterShenChart);
   data.bihePoem = '二水为盗，多有暗耗漂流走失';
   for (const prompt of [
     formatDetailedDivinationInfo('jinkoujue', data),

@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { NINE_STAR_WUXING } from '../packages/core/src/ba_zhai/suppression.ts';
+import { MOUNTAIN_PROFILES } from '../packages/core/src/xuan_kong/castle-gate.ts';
+import { FLYING_STAR_WUXING } from '../packages/core/src/xuan_kong/period-stars.ts';
 import { analyzeBaZhaiByDoorDegree } from '../packages/core/src/ba_zhai/index.ts';
 import { PROMPT_GUIDANCE_TEXT } from '../packages/core/src/prompt/guidance.ts';
 import { buildMetaphysicsPrompt } from '../packages/core/src/prompt/metaphysics.ts';
@@ -363,6 +366,59 @@ test('住宅合参保留各方向完整盘面并只呈现一次', () => {
       for (const fact of facts) assert.ok(result.prompt.includes(fact));
     }
     assert.doesNotMatch(result.prompt, /方位合参：|^玄空：|^八宅：/m);
+  }
+
+  const input = {
+    year: 2008,
+    mingGua: '坎',
+    sitMountain: '子',
+    facingMountain: '午',
+    flowYear: 2025,
+    flowMonth: 6,
+    flowDay: 15,
+  };
+  const baseline = generateResidentialFengshui(input);
+  const promptOptions = {
+    method: 'residential' as const,
+    currentTime: new Date('2025-06-15T04:00:00Z'),
+  };
+  const question = '本宅星宫关系与城门如何解读？';
+  const baselineTaskbook = buildMetaphysicsPrompt(baseline.prompt, question, promptOptions);
+  assert.match(baseline.prompt, /东南巽宫木：生气贪狼木，星与宫比和。/u);
+  assert.match(baseline.prompt, /山向生入：向星6金生山星1水/u);
+  assert.match(baseline.prompt, /正城门巽方旺星到位/u);
+  assert.equal(
+    baseline.bazhai?.gasRegulation?.suppressionLaws.find((fact) => fact.star.startsWith('生气'))
+      ?.element,
+    '木',
+  );
+  assert.equal(
+    baseline.xuankong?.palaces.find((palace) => palace.gong === 2)?.shanXiangRelation,
+    '生入',
+  );
+  assertPromptIsPortableTaskText(baselineTaskbook);
+  assert.match(baselineTaskbook, /【盘面资料】[\s\S]*玄空完整盘面：[\s\S]*八宅完整盘面：/u);
+  assert.match(baselineTaskbook, /【传统依据】/u);
+  const original = {
+    lifeElement: NINE_STAR_WUXING.生气.element,
+    flyingElement: FLYING_STAR_WUXING[1],
+    facingGong: MOUNTAIN_PROFILES.午.gong,
+  };
+  try {
+    NINE_STAR_WUXING.生气.element = '水';
+    FLYING_STAR_WUXING[1] = '火';
+    MOUNTAIN_PROFILES.午.gong = 1;
+    assert.equal(NINE_STAR_WUXING.生气.element, '水');
+    assert.equal(FLYING_STAR_WUXING[1], '火');
+    assert.equal(MOUNTAIN_PROFILES.午.gong, 1);
+    const fresh = generateResidentialFengshui(input);
+    assert.deepEqual(fresh, baseline);
+    assert.equal(fresh.prompt, baseline.prompt);
+    assert.equal(buildMetaphysicsPrompt(fresh.prompt, question, promptOptions), baselineTaskbook);
+  } finally {
+    NINE_STAR_WUXING.生气.element = original.lifeElement;
+    FLYING_STAR_WUXING[1] = original.flyingElement;
+    MOUNTAIN_PROFILES.午.gong = original.facingGong;
   }
 });
 
