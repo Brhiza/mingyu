@@ -203,6 +203,16 @@ function summarizeHexagram(hexagram: HexagramData): HuangjiHexagramSummary {
   };
 }
 
+/** 核对卦号所对应的固定卦名、卦画与卦辞。 */
+export function assertHuangjiHexagramFacts(summary: HuangjiHexagramSummary, label: string): void {
+  const hexagram = hexagramsData.find((item) => item.id === summary?.id);
+  if (!hexagram) throw new Error(`${label}资料无效。`);
+  const expected = summarizeHexagram(hexagram);
+  for (const field of ['name', 'shortName', 'symbol', 'upper', 'lower', 'judgment'] as const) {
+    if (summary[field] !== expected[field]) throw new Error(`${label}与卦画、卦辞资料不一致。`);
+  }
+}
+
 function toBottomUpLines(binarySymbol: string): string[] {
   return [
     binarySymbol[3],

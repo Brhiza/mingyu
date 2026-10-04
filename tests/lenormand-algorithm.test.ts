@@ -88,6 +88,28 @@ test('恢复缺牌雷诺曼只保留能逐张绑定的旧组合及其实际关�
   assert.equal(fixed[0].status, '已映射');
   assert.doesNotMatch(evidence.promptText, /心\+戒指|感情的承诺或婚约/u);
 
+  const completeBefore = structuredClone(complete);
+  const restoredBefore = structuredClone(restored);
+  const evidenceBefore = structuredClone(evidence);
+  const renderNative = (data: LenormandData) =>
+    buildDivinationPrompt({
+      method: 'lenormand',
+      data,
+      question: '请解读本次牌面。',
+      currentTime: new Date(data.timestamp),
+    });
+  const completePrompt = renderNative(complete);
+  assert.match(completePrompt, /起因：骑士[\s\S]*现状：心[\s\S]*走向：戒指/u);
+  assert.equal(renderNative(JSON.parse(JSON.stringify(complete))), completePrompt);
+  assert.equal(Reflect.set(evidence.fixedCombinations[0], 'meaning', '改写的返回组合牌义'), true);
+  assert.equal(evidence.fixedCombinations[0].meaning, '改写的返回组合牌义');
+  assert.deepEqual(restored, restoredBefore);
+  assert.deepEqual(analyzeLenormandEvidence(restored), evidenceBefore);
+  const recovered = structuredClone(restored);
+  recovered.cards.push(structuredClone(complete.cards[2]!));
+  assert.deepEqual(recovered, completeBefore);
+  assert.equal(renderNative(recovered), completePrompt);
+
   const duplicateSlot = structuredClone(complete);
   duplicateSlot.cards[2].position = '起因';
   const duplicateSlotEvidence = analyzeLenormandEvidence(duplicateSlot);
@@ -120,6 +142,39 @@ test('恢复缺牌雷诺曼只保留能逐张绑定的旧组合及其实际关�
   }
 
   const missingMiddle = drawLenormandSpread('three', { manualCardIds: [1, 3, 24] });
+  const adjacentComplete = structuredClone(missingMiddle);
+  const adjacentPrompt = renderNative(adjacentComplete);
+  assert.match(adjacentPrompt, /起因：骑士[\s\S]*现状：船[\s\S]*走向：心/u);
+  const adjacentPartial = structuredClone(adjacentComplete);
+  adjacentPartial.cards.pop();
+  const adjacentBefore = structuredClone(adjacentPartial);
+  const adjacentEvidence = analyzeLenormandEvidence(adjacentPartial);
+  const adjacentEvidenceBefore = structuredClone(adjacentEvidence);
+  assert.deepEqual(adjacentEvidence.fixedCombinations, []);
+  assert.equal(adjacentEvidence.adjacentReadings.length, 1);
+  assert.deepEqual(
+    adjacentEvidence.adjacentReadings.map((item) => [
+      item.card1,
+      item.card2,
+      item.position1,
+      item.position2,
+      item.relation,
+    ]),
+    [['骑士', '船', '起因', '现状', '牌序相邻']],
+  );
+  assert.match(adjacentEvidence.adjacentReadings[0].meaning, /前后相接，先按[\s\S]*再看/u);
+  assert.equal(
+    Reflect.set(adjacentEvidence.adjacentReadings[0], 'meaning', '改写的返回相邻合读'),
+    true,
+  );
+  assert.equal(adjacentEvidence.adjacentReadings[0].meaning, '改写的返回相邻合读');
+  assert.deepEqual(adjacentPartial, adjacentBefore);
+  assert.deepEqual(analyzeLenormandEvidence(adjacentPartial), adjacentEvidenceBefore);
+  const adjacentRecovered = structuredClone(adjacentPartial);
+  adjacentRecovered.cards.push(structuredClone(adjacentComplete.cards[2]!));
+  assert.deepEqual(adjacentRecovered, adjacentComplete);
+  assert.equal(renderNative(adjacentRecovered), adjacentPrompt);
+
   missingMiddle.cards.splice(1, 1);
   missingMiddle.combinations = [
     {

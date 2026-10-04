@@ -1498,6 +1498,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         (actual.columnDistance === undefined || actual.columnDistance === calculated.columnDistance)
       );
     });
+    verifiedCombinations = verifiedCombinations.map((combination) => ({ ...combination }));
   }
   const fixedCombinations = verifiedCombinations.filter((item) => item.source === '固定组合');
   const adjacentReadings = verifiedCombinations.filter((item) => item.source !== '固定组合');

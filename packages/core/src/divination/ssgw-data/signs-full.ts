@@ -1,6 +1,6 @@
 import type { RawSsgwSign } from './types';
 
-export const SIGNS_FULL: RawSsgwSign[] = [
+const signsFull: RawSsgwSign[] = [
   {
     id: 1,
     title: '第一签 · 明月千山，太平丰年（大吉）',
@@ -1473,3 +1473,10 @@ export const SIGNS_FULL: RawSsgwSign[] = [
     },
   },
 ];
+
+/** 返回独立的三山国王签谱原文资料。 */
+export function getRawSsgwSigns(): RawSsgwSign[] {
+  return signsFull.map((sign) => ({ ...sign, details: { ...sign.details } }));
+}
+
+export const SIGNS_FULL: RawSsgwSign[] = getRawSsgwSigns();

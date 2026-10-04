@@ -62,7 +62,7 @@ import { resolveLiuyaoEvidence } from '../divination/liuyao-evidence';
 import type { LiuyaoLineFact } from '../divination/liuyao-evidence';
 import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
-import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { assertHuangjiJingshiFacts, type HuangjiJingshiResult } from '../huangji-jingshi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import { castKongmingHexagram } from '../name-number/oracles';
 import { ZHUGE_SIGNS } from '../name-number/zhuge-signs';
@@ -1748,6 +1748,7 @@ export function formatWuyunLiuqiInfo(data: WuyunLiuqiResult) {
 }
 
 export function formatHuangjiInfo(data: HuangjiJingshiResult) {
+  assertHuangjiJingshiFacts(data);
   const forecast = data.forecast;
   if (!forecast) {
     return [

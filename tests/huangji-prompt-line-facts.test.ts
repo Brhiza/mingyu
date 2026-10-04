@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateHuangjiJingshi } from '@core/huangji-jingshi';
+import { buildHuangjiJingshiPrompt, calculateHuangjiJingshi } from '@core/huangji-jingshi';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 
 test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻', () => {
   const annual = calculateHuangjiJingshi({ year: 2026 });
@@ -24,6 +29,52 @@ test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻',
     /值年卦爻象：火风鼎，上卦离、下卦巽；自下而上为初爻阴、二爻阳、三爻阳、四爻阳、五爻阴、上爻阳/,
   );
   assert.match(ding.prompt, /已过0年，顺行0位，取得火风鼎为本年静态值年卦/);
+
+  const capture = (data: typeof annual) => ({
+    native: buildHuangjiJingshiPrompt(data),
+    enhanced: formatEnhancedDivinationInfo('huangji', data),
+    fullTask: buildDivinationPrompt({
+      method: 'huangji',
+      data,
+      question: '本次占问',
+      currentTime: new Date('2026-01-01T00:00:00Z'),
+    }),
+    summary: getDivinationSummaryBlocks('huangji', data),
+  });
+  const baseline = capture(annual);
+  assert.equal(baseline.native, annual.prompt);
+  assert.deepEqual(capture(JSON.parse(JSON.stringify(annual))), baseline);
+  assert.deepEqual(
+    capture({
+      ...annual,
+      eraTrend: undefined,
+      dateTimeForecast: undefined,
+      sixDayCycle: undefined,
+    }),
+    baseline,
+  );
+  const annualJudgment = structuredClone(annual);
+  annualJudgment.forecast!.hexagrams.annual.judgment = '卦辞已被改写';
+  const governingName = structuredClone(annual);
+  governingName.forecast!.hexagrams.governing.hexagram.name = '乾为天';
+  const relatedName = structuredClone(annual);
+  relatedName.forecast!.relatedHexagrams.mutual.name = '乾为天';
+  for (const data of [annualJudgment, governingName, relatedName]) {
+    assert.throws(() => buildHuangjiJingshiPrompt(data), /与卦画、卦辞资料不一致/);
+    assert.throws(() => formatEnhancedDivinationInfo('huangji', data), /与卦画、卦辞资料不一致/);
+    assert.throws(
+      () =>
+        buildDivinationPrompt({
+          method: 'huangji',
+          data,
+          question: '本次占问',
+          currentTime: new Date('2026-01-01T00:00:00Z'),
+        }),
+      /与卦画、卦辞资料不一致/,
+    );
+    assert.throws(() => getDivinationSummaryBlocks('huangji', data), /与卦画、卦辞资料不一致/);
+  }
+  assert.deepEqual(capture(annual), baseline);
 });
 
 test('皇极值年偏移在六十年末年归59且下一统卦重置为0，跨公元元年少计不存在的零年', () => {

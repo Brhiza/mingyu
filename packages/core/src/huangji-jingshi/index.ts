@@ -5,6 +5,7 @@
  */
 
 import {
+  assertHuangjiHexagramFacts,
   calculateStandardHuangjiForecast,
   civilYearToSerial,
   formatHuangjiCivilYear,
@@ -274,6 +275,30 @@ function formatHuangjiLineFacts(label: string, id: number): string {
   return `${label}爻象：${hexagram.name}，上卦${hexagram.upper}、下卦${hexagram.lower}；自下而上为${[...lines].map((line, index) => `${positions[index]}${line === '1' ? '阳' : '阴'}`).join('、')}。`;
 }
 
+/** 核对各层盘面所引用的固定卦象资料。 */
+export function assertHuangjiJingshiFacts(result: HuangjiJingshiCalculation): void {
+  if (result.forecast) {
+    const { hexagrams, relatedHexagrams } = result.forecast;
+    for (const key of ['governing', 'yun', 'sixtyYear', 'decade'] as const) {
+      assertHuangjiHexagramFacts(hexagrams[key].hexagram, '皇极层级卦');
+    }
+    assertHuangjiHexagramFacts(hexagrams.annual, '值年卦');
+    for (const hexagram of Object.values(relatedHexagrams)) {
+      assertHuangjiHexagramFacts(hexagram, '皇极取象卦');
+    }
+  }
+  if (result.dateTimeForecast) {
+    for (const hexagram of Object.values(result.dateTimeForecast.hexagrams)) {
+      assertHuangjiHexagramFacts(hexagram, '皇极年月日时卦');
+    }
+  }
+  if (result.sixDayCycle) {
+    for (const hexagram of Object.values(result.sixDayCycle.hexagrams)) {
+      assertHuangjiHexagramFacts(hexagram, '皇极六日逐爻卦');
+    }
+  }
+}
+
 export function buildHuangjiJingshiPrompt(
   result: HuangjiJingshiCalculation,
   question?: string,
@@ -284,6 +309,7 @@ export function buildHuangjiJingshiPrompt(
     scope?: string;
   },
 ): string {
+  assertHuangjiJingshiFacts(result);
   const normalizedQuestion = normalizeQuestion(question);
   const { input, position } = result;
 

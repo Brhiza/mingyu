@@ -1,5 +1,5 @@
 import type { SsgwData } from '../../types/divination';
-import { SSGW_SIGNS } from '../../divination/ssgw-data';
+import { getSsgwSigns } from '../../divination/ssgw-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
 import { assertReplaySamplesConsumed, createRandomContext, randomInt } from '../../shared/random';
@@ -14,7 +14,7 @@ import { attachResultMeta } from '../../shared/result';
  *        本文件名沿用历史命名，功能定位为灵签/神签抽签系统。
  */
 
-const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = SSGW_SIGNS.map((sign) => ({
+const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = getSsgwSigns().map((sign) => ({
   number: sign.id,
   title: sign.title,
   poem: sign.qianwen,

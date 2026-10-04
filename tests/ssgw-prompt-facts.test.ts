@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   drawRandomSign,
   resolveSignByNumber,
 } from '../packages/core/src/divination/algorithms/ssgw.ts';
-import { resolveSsgwStoryContent } from '../packages/core/src/divination/ssgw-content.ts';
+import {
+  resolveSsgwSignFacts,
+  resolveSsgwStoryContent,
+} from '../packages/core/src/divination/ssgw-content.ts';
+import { getSsgwSigns, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data/index.ts';
+import {
+  getRawSsgwSigns,
+  SIGNS_FULL,
+} from '../packages/core/src/divination/ssgw-data/signs-full.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
 import {
   buildDivinationPrompt,
@@ -56,7 +65,117 @@ test('签号与签题、诗文、解签或抽取轨迹矛盾时，完整任务�
   const first = resolveSignByNumber(1, new Date('2025-01-01T00:00:00Z'));
   const second = resolveSignByNumber(2, new Date('2025-01-01T00:00:00Z'));
   const prompt = (data: typeof first) =>
-    buildDivinationPrompt({ method: 'ssgw', data, question: '本次占问' });
+    buildDivinationPrompt({
+      method: 'ssgw',
+      data,
+      question: '本次占问',
+      currentTime: new Date('2025-01-01T00:00:00Z'),
+    });
+  const capture = (data: typeof first) => ({
+    chart: data,
+    facts: resolveSsgwSignFacts(data),
+    enhanced: formatEnhancedDivinationInfo('ssgw', data),
+    native: prompt(data),
+    summary: getDivinationSummaryBlocks('ssgw', data),
+  });
+  const baseline = capture(first);
+  const jsonBaseline = JSON.parse(JSON.stringify(baseline));
+  assert.deepEqual(capture(JSON.parse(JSON.stringify(first))), jsonBaseline);
+  const publicSign = SSGW_SIGNS[0];
+  const rawSign = SIGNS_FULL[0];
+  const originalPublic = structuredClone(publicSign);
+  const originalRaw = structuredClone(rawSign);
+  const canonicalCopy = getSsgwSigns();
+  const rawCopy = getRawSsgwSigns();
+  try {
+    publicSign.title = '错签题';
+    publicSign.details['核心寓意'] = '本签已经改写';
+    rawSign.qianwen = '错诗文';
+    rawSign.details['吉凶'] = '错吉凶';
+    assert.equal(publicSign.title, '错签题');
+    assert.equal(publicSign.details['核心寓意'], '本签已经改写');
+    assert.equal(rawSign.qianwen, '错诗文');
+    assert.equal(rawSign.details['吉凶'], '错吉凶');
+    assert.deepEqual(getSsgwSigns(), canonicalCopy);
+    assert.deepEqual(getRawSsgwSigns(), rawCopy);
+    const fresh = resolveSignByNumber(1, new Date('2025-01-01T00:00:00Z'));
+    assert.deepEqual(capture(fresh), baseline);
+    const forged = {
+      ...first,
+      details: { ...first.details, 核心寓意: publicSign.details['核心寓意'] },
+    };
+    assert.throws(() => resolveSsgwSignFacts(forged), /签号、签谱内容或抽签记录不一致/);
+    assert.throws(
+      () => formatEnhancedDivinationInfo('ssgw', forged),
+      /签号、签谱内容或抽签记录不一致/,
+    );
+    assert.throws(() => prompt(forged), /签号、签谱内容或抽签记录不一致/);
+    assert.throws(
+      () => getDivinationSummaryBlocks('ssgw', forged),
+      /签号、签谱内容或抽签记录不一致/,
+    );
+
+    const changedCopy = getSsgwSigns();
+    const changedRawCopy = getRawSsgwSigns();
+    changedCopy[0].title = '资料副本签题';
+    changedCopy[0].details['核心寓意'] = '资料副本寓意';
+    changedCopy.pop();
+    changedRawCopy[0].details['吉凶'] = '原文副本吉凶';
+    changedRawCopy.pop();
+    fresh.title = '返回盘面签题';
+    fresh.details!['核心寓意'] = '返回盘面寓意';
+    assert.equal(changedCopy[0].title, '资料副本签题');
+    assert.equal(changedCopy[0].details['核心寓意'], '资料副本寓意');
+    assert.equal(changedRawCopy[0].details['吉凶'], '原文副本吉凶');
+    assert.equal(fresh.title, '返回盘面签题');
+    assert.equal(fresh.details!['核心寓意'], '返回盘面寓意');
+    assert.deepEqual(getSsgwSigns(), canonicalCopy);
+    assert.deepEqual(getRawSsgwSigns(), rawCopy);
+    assert.deepEqual(capture(resolveSignByNumber(1, new Date('2025-01-01T00:00:00Z'))), baseline);
+  } finally {
+    Object.assign(publicSign, originalPublic);
+    Object.assign(rawSign, originalRaw);
+  }
+  assert.deepEqual(publicSign, originalPublic);
+  assert.deepEqual(rawSign, originalRaw);
+
+  // 独立进程先改写公开原文，再首次载入算法与真实提示词消费者。
+  const initialized = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '-e',
+      `
+      import { SIGNS_FULL } from './packages/core/src/divination/ssgw-data/signs-full.ts';
+      const original = structuredClone(SIGNS_FULL[0]);
+      try {
+        SIGNS_FULL[0].title = '错签题';
+        SIGNS_FULL[0].qianwen = '错诗文';
+        SIGNS_FULL[0].details['吉凶'] = '错吉凶';
+        const { resolveSignByNumber } = await import('./packages/core/src/divination/algorithms/ssgw.ts');
+        const { resolveSsgwSignFacts } = await import('./packages/core/src/divination/ssgw-content.ts');
+        const { formatEnhancedDivinationInfo } = await import('./packages/core/src/prompt/divination-enhanced.ts');
+        const { buildDivinationPrompt, getDivinationSummaryBlocks } = await import('./packages/core/src/prompt/divination.ts');
+        const chart = resolveSignByNumber(1, new Date('2025-01-01T00:00:00Z'));
+        process.stdout.write(JSON.stringify({
+          chart,
+          facts: resolveSsgwSignFacts(chart),
+          enhanced: formatEnhancedDivinationInfo('ssgw', chart),
+          native: buildDivinationPrompt({ method: 'ssgw', data: chart, question: '本次占问', currentTime: new Date('2025-01-01T00:00:00Z') }),
+          summary: getDivinationSummaryBlocks('ssgw', chart),
+        }));
+      } finally {
+        Object.assign(SIGNS_FULL[0], original);
+      }
+    `,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8', timeout: 30_000 },
+  );
+  assert.equal(initialized.error, undefined);
+  assert.equal(initialized.status, 0, initialized.stderr);
+  assert.deepEqual(JSON.parse(initialized.stdout), jsonBaseline);
   const mismatches = [
     { ...first, title: second.title },
     { ...first, poem: second.poem },
@@ -96,6 +215,9 @@ test('签号与签题、诗文、解签或抽取轨迹矛盾时，完整任务�
   assert.doesNotMatch(rebuilt, /第二签|魁梅独占/);
   assert.match(formatDetailedDivinationInfo('ssgw', oldResult), /基础解签：/);
   assert.match(getDivinationSummaryBlocks('ssgw', oldResult).tags.join('；'), /第1签/);
+  assert.equal(rebuilt, baseline.native);
+  assert.equal(formatEnhancedDivinationInfo('ssgw', oldResult), baseline.enhanced);
+  assert.deepEqual(getDivinationSummaryBlocks('ssgw', oldResult), baseline.summary);
 });
 
 test('旧版随机签保留合法抽签与掷筊轨迹，仍拒绝错签记录', () => {

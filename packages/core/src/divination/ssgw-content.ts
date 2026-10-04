@@ -1,7 +1,9 @@
 import type { SsgwData } from '../types/divination';
-import { SSGW_SIGNS } from './ssgw-data';
+import { getSsgwSigns } from './ssgw-data';
 import { MingyuCoreError } from '../shared/result';
 import { assertReplaySamplesConsumed, createRandomContext, randomInt } from '../shared/random';
+
+const ssgwSigns = getSsgwSigns();
 
 function invalidSsgwIdentity(field: string): never {
   throw new MingyuCoreError({
@@ -27,7 +29,7 @@ function assertLegacySsgwReplay(
   if (!Array.isArray(ritual.throws)) invalidSsgwIdentity('ritual.throws');
   const replayOptions = { replay: samples };
   const replay = createRandomContext(replayOptions);
-  if (Math.floor(replay.random() * SSGW_SIGNS.length) !== selectedIndex) {
+  if (Math.floor(replay.random() * ssgwSigns.length) !== selectedIndex) {
     invalidSsgwIdentity('meta.random.samples');
   }
   const throws: LegacySsgwRitual['throws'] = [];
@@ -70,7 +72,7 @@ function assertLegacySsgwReplay(
 
 /** 将旧结果缺失的签谱字段补为本签资料，并拒绝与签号冲突的已有资料。 */
 export function resolveSsgwSignFacts(data: SsgwData): SsgwData {
-  const sign = SSGW_SIGNS.find((item) => item.id === data.number);
+  const sign = ssgwSigns.find((item) => item.id === data.number);
   if (!sign) invalidSsgwIdentity('number');
   if (data.title !== sign.title) invalidSsgwIdentity('title');
   if (data.poem !== sign.qianwen) invalidSsgwIdentity('poem');
@@ -85,7 +87,7 @@ export function resolveSsgwSignFacts(data: SsgwData): SsgwData {
     }
   }
 
-  const selectedIndex = SSGW_SIGNS.indexOf(sign);
+  const selectedIndex = ssgwSigns.indexOf(sign);
   if (data.draw) {
     if (
       data.draw.method !== undefined &&
@@ -94,7 +96,7 @@ export function resolveSsgwSignFacts(data: SsgwData): SsgwData {
     ) {
       invalidSsgwIdentity('draw.method');
     }
-    if (data.draw.poolSize !== SSGW_SIGNS.length) invalidSsgwIdentity('draw.poolSize');
+    if (data.draw.poolSize !== ssgwSigns.length) invalidSsgwIdentity('draw.poolSize');
     if (data.draw.selectedNumber !== sign.id) invalidSsgwIdentity('draw.selectedNumber');
     if (data.draw.method !== 'manual' && data.draw.selectedIndex !== selectedIndex) {
       invalidSsgwIdentity('draw.selectedIndex');
@@ -121,17 +123,17 @@ export function resolveSsgwSignFacts(data: SsgwData): SsgwData {
       assertLegacySsgwReplay(samples, selectedIndex, ritual);
     } else if (samples.length === 1) {
       createRandomContext({ replay: samples });
-      const legacyIndex = Math.floor(samples[0] * SSGW_SIGNS.length);
-      const bucketSize = Math.floor(0x1_0000_0000 / SSGW_SIGNS.length);
+      const legacyIndex = Math.floor(samples[0] * ssgwSigns.length);
+      const bucketSize = Math.floor(0x1_0000_0000 / ssgwSigns.length);
       const candidate = Math.floor(samples[0] * 0x1_0000_0000);
       const currentIndex =
-        candidate < bucketSize * SSGW_SIGNS.length ? Math.floor(candidate / bucketSize) : -1;
+        candidate < bucketSize * ssgwSigns.length ? Math.floor(candidate / bucketSize) : -1;
       if (legacyIndex !== selectedIndex && currentIndex !== selectedIndex) {
         invalidSsgwIdentity('meta.random.samples');
       }
     } else {
       const replay = createRandomContext({ replay: samples });
-      const replayedIndex = randomInt(SSGW_SIGNS.length, replay.random);
+      const replayedIndex = randomInt(ssgwSigns.length, replay.random);
       assertReplaySamplesConsumed({ replay: samples }, replay.getTrace());
       if (replayedIndex !== selectedIndex) invalidSsgwIdentity('meta.random.samples');
     }

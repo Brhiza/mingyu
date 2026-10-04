@@ -63,7 +63,7 @@ import {
   resolveDivinationTimezoneOffset,
 } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
-import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { assertHuangjiJingshiFacts, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 import { getDunJiaStem } from '../divination/algorithms/qimen/helpers/palace-utils';
 import {
@@ -631,6 +631,7 @@ export function getDivinationSummaryBlocks(
     }
     case 'huangji': {
       const item = data as HuangjiJingshiResult;
+      assertHuangjiJingshiFacts(item);
       const forecast = item.forecast;
       if (!forecast) {
         return {
