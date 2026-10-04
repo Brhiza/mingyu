@@ -300,7 +300,7 @@ export class AstrolabePeriodCalculationCache {
       }
       this.positions.set(key, value);
     }
-    return value;
+    return { ...value };
   }
 
   solar(start: number, end: number) {
@@ -310,7 +310,7 @@ export class AstrolabePeriodCalculationCache {
       value = findSolarEclipses(start, end);
       this.solarEclipses.set(key, value);
     }
-    return value;
+    return value.map((event) => ({ ...event }));
   }
 
   lunar(start: number, end: number) {
@@ -320,7 +320,7 @@ export class AstrolabePeriodCalculationCache {
       value = findLunarEclipses(start, end);
       this.lunarEclipses.set(key, value);
     }
-    return value;
+    return value.map((event) => ({ ...event }));
   }
 }
 

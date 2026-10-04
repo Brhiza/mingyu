@@ -12,10 +12,12 @@ import {
   type AstrolabeDynamicRangeRequest,
 } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import type { AstrolabeBirthInput } from 'mingyu-core/types';
+import { buildDivinationPrompt } from 'mingyu-core/prompt';
 import { julianDateToUnix } from '../packages/core/src/astrology/engine.ts';
 import {
   AstrolabePeriodCalculationCache,
   buildAstrolabePeriodEvents,
+  resolveAstrolabePeriodWindow,
 } from 'mingyu-core/divination/astrolabe-scope';
 
 const input: AstrolabeBirthInput = {
@@ -77,6 +79,81 @@ test('精确周期缓存跨本命、经纬度和目标范围复用时保留逐�
       );
     }
   }
+
+  const natal = structuredClone(independentNatalCharts[0]!);
+  const target = { year: 2024, month: 4, day: 9 };
+  const window = resolveAstrolabePeriodWindow(natal, 'daily', target);
+  const lunarWindow = resolveAstrolabePeriodWindow(natal, 'daily', {
+    year: 2024,
+    month: 3,
+    day: 25,
+  });
+  const normalScope = buildAstrolabeScopeContext(natal, 'daily', '2024-04-09', {
+    periodCalculationCache: calculationCache,
+  });
+  const promptOptions = {
+    method: 'astrolabe' as const,
+    question: '分析本次流日的实际天象',
+    data: natal,
+    currentTime: new Date('2024-04-09T04:00:00.000Z'),
+  };
+  const normalPrompt = buildDivinationPrompt({
+    ...promptOptions,
+    astrolabeScopeText: normalScope.promptText,
+  });
+  assert.ok(normalPrompt.includes(normalScope.promptText));
+  assert.match(normalPrompt, /【分析对象】/);
+  assert.ok(normalPrompt.includes(`出生信息：${natal.birth.name}；男；2024-03-20 11:00`));
+  assert.match(normalPrompt, /星体位置：/);
+  const position = calculationCache.position('Sun', window.startJd);
+  const solar = calculationCache.solar(window.startJd, window.endJd);
+  const lunar = calculationCache.lunar(lunarWindow.startJd, lunarWindow.endJd);
+  const original = structuredClone({ position, solar, lunar });
+  assert.equal(solar[0]?.type, 'total');
+  assert.equal(lunar[0]?.type, 'penumbral');
+  const eclipse = normalScope.periodEvents!.events.find(
+    (event) => event.kind === '交食' && event.eclipseName === '日全食',
+  );
+  assert.ok(eclipse);
+  assert.equal(eclipse.dateTime.slice(0, 10), '2024-04-09');
+  assert.equal(eclipse.julianDate, original.solar[0]!.julianDate);
+  assert.ok(Number.isFinite(eclipse.julianDate));
+  assert.ok(normalPrompt.includes(`${eclipse.dateTime} ${eclipse.promptText}`));
+  assert.match(normalPrompt, /日全食/);
+
+  const firstSolar = solar[0]!;
+  const firstLunar = lunar[0]!;
+  position.longitude = (position.longitude + 180) % 360;
+  position.speed = -position.speed;
+  firstSolar.type = 'partial';
+  firstSolar.julianDate += 0.5;
+  solar.push({ ...firstSolar });
+  firstLunar.type = 'total';
+  firstLunar.julianDate -= 0.5;
+  lunar.splice(0, 1);
+  const callerEdited = structuredClone({ position, solar, lunar });
+  const freshPosition = calculationCache.position('Sun', window.startJd);
+  const freshSolar = calculationCache.solar(window.startJd, window.endJd);
+  const freshLunar = calculationCache.lunar(lunarWindow.startJd, lunarWindow.endJd);
+  assert.deepEqual(freshPosition, original.position);
+  assert.deepEqual(freshSolar, original.solar);
+  assert.deepEqual(freshLunar, original.lunar);
+  assert.notStrictEqual(freshPosition, position);
+  assert.notStrictEqual(freshSolar, solar);
+  assert.notStrictEqual(freshSolar[0], firstSolar);
+  assert.notStrictEqual(freshLunar, lunar);
+  assert.notStrictEqual(freshLunar[0], firstLunar);
+
+  const freshScope = buildAstrolabeScopeContext(natal, 'daily', '2024-04-09', {
+    periodCalculationCache: calculationCache,
+  });
+  const freshPrompt = buildDivinationPrompt({
+    ...promptOptions,
+    astrolabeScopeText: freshScope.promptText,
+  });
+  assert.deepEqual(freshScope, normalScope);
+  assert.equal(freshPrompt, normalPrompt);
+  assert.deepEqual({ position, solar, lunar }, callerEdited);
 });
 
 test('流年、流月、流日和完整范围锁定输入与目标并逐出生秒等价', () => {

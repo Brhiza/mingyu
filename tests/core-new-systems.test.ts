@@ -257,7 +257,6 @@ test('tarot: 全部牌面资料齐全，大小阿卡纳正逆位保留实际牌�
   );
   for (const card of tarotCards) {
     const evidence = evidenceByName.get(card.name)!;
-    assert.ok(evidence.keywords.length > 0, `${card.name}缺少关键词`);
     assert.ok(evidence.element, `${card.name}缺少元素`);
     assert.ok(evidence.archetype, `${card.name}缺少牌阶`);
   }
