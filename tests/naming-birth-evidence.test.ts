@@ -68,25 +68,42 @@ test('起名出生依据逐柱保留藏干十神并复用八字月令旺衰与�
   }
 });
 
-test('起名与姓名解析只在摘要未包含格局依据时单列依据', () => {
+test('起名与姓名解析保留本盘成格理由，摘要回退也不重复通用格局依据', () => {
   const birth = { gender: 'male' as const, year: 2000, month: 1, day: 15, timeIndex: 6 };
   const analysis = analyzeChineseName({ fullName: '李清和', birth });
   const candidates = generateChineseNames({ surname: '李', birth, limit: 1 });
-  const contexts = [analysis.birthContext, candidates[0]?.analysis.birthContext];
-  for (const context of contexts) {
+  const decisionDetail = '格神已透干且有可用根气，当前未见有效明透破格项。';
+  const decisionLine = `当前成败判定：成格；判定理由：${decisionDetail}`;
+  for (const [context, buildPrompt] of [
+    [analysis.birthContext, () => buildChineseNameAnalysisPrompt({ analysis })],
+    [
+      candidates[0]?.analysis.birthContext,
+      () => buildChineseNamingPrompt({ surname: '李', candidates }),
+    ],
+  ] as const) {
     assert.ok(context?.pattern.fulfillment);
-    context.pattern.fulfillment.basis = '身杀两停，制化相济';
-    context.pattern.fulfillment.summary = `格局成立；${context.pattern.fulfillment.basis}`;
+    const fulfillment = context.pattern.fulfillment;
+    assert.deepEqual(context.pillars, ['己卯', '丁丑', '壬申', '丙午']);
+    assert.equal(fulfillment.status, '成格');
+    assert.equal(fulfillment.decisionDetail, decisionDetail);
+    assert.ok(fulfillment.basis);
+    const before = structuredClone(context);
+    const prompt = buildPrompt();
+    assert.equal(prompt.split(decisionLine).length - 1, 1);
+    assert.equal(prompt.includes(fulfillment.basis), false);
+    assert.doesNotMatch(prompt, /格局判定依据：/);
+    assert.ok(prompt.includes('月柱丁丑藏干：己（正官）、癸（劫财）、辛（正印）'));
+    assert.ok(prompt.includes('原局格神作用：己正官（年柱）已参与成格'));
+    assert.deepEqual(context, before);
+
+    fulfillment.decisionDetail = undefined;
+    fulfillment.summary = `${decisionDetail} ${fulfillment.basis}`;
+    const fallbackBefore = structuredClone(context);
+    const fallbackPrompt = buildPrompt();
+    assert.equal(fallbackPrompt.split(decisionLine).length - 1, 1);
+    assert.equal(fallbackPrompt.includes(fulfillment.basis), false);
+    assert.deepEqual(context, fallbackBefore);
   }
-  for (const prompt of [
-    buildChineseNameAnalysisPrompt({ analysis }),
-    buildChineseNamingPrompt({ surname: '李', candidates }),
-  ]) {
-    assert.equal(prompt.split('身杀两停，制化相济').length - 1, 1);
-    assert.doesNotMatch(prompt, /格局判定依据：身杀两停，制化相济/);
-  }
-  analysis.birthContext!.pattern.fulfillment!.summary = '格局成立';
-  assert.match(buildChineseNameAnalysisPrompt({ analysis }), /格局判定依据：身杀两停，制化相济/);
 });
 
 test('历史夏令时跨日出生的起名事实和提示词采用回拨后的北京时间', () => {
@@ -145,7 +162,7 @@ test('辈分字和号码类型在核心入口拒绝无效值', () => {
   assert.throws(() => analyzeNumber('1234', 'unknown' as never), /号码类型必须为/);
 });
 
-test('命名提示词只展开格局结论与关键反证，完整格局事实仍留在分析结果', () => {
+test('命名提示词保留七杀未透的本盘判定与藏干依据，完整格局事实仍留在分析结果', () => {
   const birth = {
     gender: 'male' as const,
     year: 2000,
@@ -179,8 +196,19 @@ test('命名提示词只展开格局结论与关键反证，完整格局事实�
     const prompt = buildPrompt();
     assert.ok(prompt.includes(`四柱：${context.pillars.join(' ')}`));
     assert.ok(prompt.includes(`旺衰：${context.strength.status}`));
-    assert.ok(prompt.includes(`格局成败：${fulfillment.status}；${fulfillment.summary}`));
-    assert.ok(prompt.includes(`格局反证：${fulfillment.contradiction}`));
+    assert.deepEqual(context.pillars, ['己卯', '丙子', '丁巳', '辛亥']);
+    assert.equal(fulfillment.status, '未判定');
+    assert.equal(
+      prompt.split(
+        '当前成败判定：未判定；判定理由：七杀仅见于月柱藏干癸（七杀），未透干，不能按明示格神直接定成败。',
+      ).length - 1,
+      1,
+    );
+    assert.ok(prompt.includes('月柱丙子藏干：癸（七杀）'));
+    assert.ok(prompt.includes('年柱己卯藏干：乙（偏印）'));
+    assert.ok(prompt.includes('时柱辛亥藏干：壬（正官）、甲（正印）'));
+    assert.equal(prompt.includes(fulfillment.contradiction), false);
+    assert.equal(prompt.includes(fulfillment.basis), false);
     assert.ok(prompt.includes(`增补喜用五行：${context.favorableElements.join('、')}`));
     assert.ok(prompt.includes(`取用依据：${context.usefulGodReason}`));
     assert.doesNotMatch(prompt, /^成立条件：|^格局条件（|^制化路径：/m);

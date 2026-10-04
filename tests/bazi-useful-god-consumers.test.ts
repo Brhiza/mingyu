@@ -321,7 +321,10 @@ test('起名消费者沿用完整喜用五行，条件火只保留为干级功�
 
   const prompt = buildChineseNameAnalysisPrompt({ analysis });
   assert.match(prompt, /格局：/);
-  assert.match(prompt, /格局成败：/);
+  assert.match(
+    prompt,
+    /当前成败判定：未判定；判定理由：七杀仅见于月柱藏干己（七杀）、日柱藏干己（七杀），未透干，不能按明示格神直接定成败。/,
+  );
   assert.match(prompt, /增补喜用五行：金、水/);
   assert.doesNotMatch(prompt, /^格局条件（/m);
   assert.match(prompt, new RegExp(CONDITIONAL_FUNCTION));

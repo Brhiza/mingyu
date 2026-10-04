@@ -151,6 +151,18 @@ test('奇门经典格局保留触发事实而非只列名称', () => {
   );
   assert.ok(facts.length);
   const text = formatDivinationInfo('qimen', data);
+  const palaceTable = text.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
+  assert.equal(palaceTable.trim().split('\n').length, 9);
+  assert.match(
+    palaceTable,
+    /兑七宫（正西，金）：门生门，星天芮、天禽，神六合，天盘壬、丙（丙为寄干），地盘戊/u,
+  );
+  assert.match(palaceTable, /巽四宫（东南，木）：门惊门，星天冲，神值符，天盘癸，地盘丁/u);
+  const palaceCoveredPatterns = new Map([
+    ['天遁', { line: '天遁（吉格，兑七宫）', basis: '生门、丙奇、地盘戊同宫', gong: 7 }],
+    ['休诈', { line: '休诈（吉格，兑七宫）', basis: '丙奇、生门、六合同宫于兑七宫', gong: 7 }],
+    ['相佐', { line: '相佐（吉格，巽四宫）', basis: '值符天冲加地盘丁于巽四宫', gong: 4 }],
+  ]);
   for (const fact of facts) {
     const coveredByStrongerPattern =
       /^[日月星]奇得使$/u.test(fact.name) &&
@@ -168,12 +180,19 @@ test('奇门经典格局保留触发事实而非只列名称', () => {
     }
     const lines = text.split('\n').filter((item) => item.startsWith(`${fact.name}（`));
     assert.ok(lines.length, fact.name);
-    if (
-      /^[日月星]奇得使临吉门$/u.test(fact.name) &&
-      lines.some((line) => line.includes('同宫临'))
-    ) {
+    const palaceCovered = palaceCoveredPatterns.get(fact.name);
+    if (palaceCovered) {
+      assert.equal(formatQimenPatternBasis(fact), palaceCovered.basis, fact.name);
+      assert.deepEqual(fact.palaces, [palaceCovered.gong], fact.name);
+      assert.deepEqual(lines, [palaceCovered.line], fact.name);
+      assert.doesNotMatch(lines[0]!, /：/u);
+    } else if (/^[日月星]奇得使临吉门$/u.test(fact.name)) {
       const door = fact.promptText.match(/[休生开]门/u)?.[0];
-      assert.ok(door && lines.some((line) => line.includes(`同宫临${door}`)), fact.name);
+      assert.equal(door, '生门');
+      assert.deepEqual(fact.palaces, [7]);
+      assert.equal(data.jiuGongGe.find((palace) => palace.gong === 7)?.renPan.door, door);
+      assert.deepEqual(lines, ['月奇得使临吉门（吉格）：丙奇加地盘戊（甲子/甲申所遁）于兑七宫']);
+      assert.doesNotMatch(lines[0]!, /同宫临生门/u);
     } else {
       const factualBasis = formatQimenPatternBasis(fact);
       const stemPair = factualBasis.match(

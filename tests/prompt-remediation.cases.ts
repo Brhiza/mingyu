@@ -118,7 +118,21 @@ test('奇门常规提示词只列经典格局命中及各自落宫', () => {
   const text = formatEnhancedDivinationInfo('qimen', data);
   const patternBlock = text.split('盘面命中格局：\n')[1]?.split('\n值符宫应期参考：')[0] ?? '';
 
-  assert.match(patternBlock, /天遁（吉格，兑七宫）：生门、丙奇、地盘戊同宫/);
+  const palaceTable = text.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
+  assert.equal(palaceTable.trim().split('\n').length, 9);
+  assert.match(
+    palaceTable,
+    /兑七宫（正西，金）：门生门，星天芮、天禽，神六合，天盘壬、丙（丙为寄干），地盘戊/u,
+  );
+  assert.match(palaceTable, /巽四宫（东南，木）：门惊门，星天冲，神值符，天盘癸，地盘丁/u);
+  assert.match(patternBlock, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(patternBlock, /^休诈（吉格，兑七宫）$/mu);
+  assert.match(patternBlock, /^相佐（吉格，巽四宫）$/mu);
+  assert.doesNotMatch(
+    patternBlock,
+    /生门、丙奇、地盘戊同宫|丙奇、生门、六合同宫|值符天冲加地盘丁于巽四宫/u,
+  );
+  assert.match(patternBlock, /^月奇得使临吉门（吉格）：丙奇加地盘戊（甲子\/甲申所遁）于兑七宫$/mu);
   assert.match(patternBlock, /三奇游六仪（吉格）：甲寅癸值符加地盘丁奇于巽四宫/);
   assert.match(patternBlock, /门迫（凶格）：惊门（金）克巽四宫（木）/);
   assert.doesNotMatch(text, /复合格局：|兑七宫三吉聚气|巽四宫吉凶混杂/);
