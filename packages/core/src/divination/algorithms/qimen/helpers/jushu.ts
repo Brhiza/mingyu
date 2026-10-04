@@ -30,7 +30,9 @@ import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
 import { DEFAULT_CHINA_TIMEZONE_HOURS, resolveCivilTime } from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { TimeManager } from '../../../../calendar/timeManager';
-import { sanQiLiuYi } from './_constants';
+import { getQimenConstants } from './_constants';
+
+const { sanQiLiuYi } = getQimenConstants();
 
 const qimen = getQimenData();
 

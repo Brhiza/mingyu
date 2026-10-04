@@ -423,3 +423,26 @@ export function getElementStrengthInSeason(
   if (isControlling(element, seasonElement)) return '囚';
   return '';
 }
+
+const CANONICAL_QIMEN_CONSTANTS = structuredClone({
+  STEM_TOMB_MAP,
+  auspiciousDoors,
+  branchElements,
+  branchIndex,
+  branches,
+  diPanPalaces,
+  difficultDoors,
+  difficultGods,
+  doorElements,
+  palaceStars,
+  sanQiLiuYi,
+  sanQiStems,
+  starElements,
+  stemElements,
+  supportiveGods,
+});
+
+/** 返回奇门基础固定资料的独立副本。 */
+export function getQimenConstants() {
+  return structuredClone(CANONICAL_QIMEN_CONSTANTS);
+}

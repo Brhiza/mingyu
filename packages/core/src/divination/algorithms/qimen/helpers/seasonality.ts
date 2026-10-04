@@ -27,10 +27,13 @@ import {
   type MoonPhaseEvidence,
 } from '../../../../calendar/moon-phase-evidence';
 import { TimeManager } from '../../../../calendar/timeManager';
-import { stemElements, isGenerating, isControlling } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
 import { getSanxingType, getTianGanHeWuxing, isSanxing, isTianGanHe } from '../../../../ganzhi';
 import type { BaseGanZhi } from '../../../../types/divination';
 import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const { stemElements } = getQimenConstants();
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 

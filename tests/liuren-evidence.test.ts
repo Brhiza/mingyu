@@ -10,9 +10,17 @@ import {
   TIANJIANG_ATTRIBUTES,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate';
 import { resolveLiurenClassicalRules } from '../packages/core/src/divination/algorithms/liuren/helpers/classical-rules';
+import {
+  buildLiurenTimingEvidence,
+  buildTransmissionDetail,
+  buildTransmissionNote,
+} from '../packages/core/src/divination/algorithms/liuren/helpers/transmission';
 import { TimeManager } from '../packages/core/src/calendar/timeManager';
 import { buildTimeInfoText, buildSolarTimeInfoText } from '../packages/core/src/prompt/formatters';
-import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedChart = generateLiuren(fixedDate);
@@ -359,6 +367,20 @@ test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来�
   assert.match(evidence.focusSummaryFact.promptText, /不得自行把日支、天将或神煞固定当作用神/);
   assert.match(evidence.promptText, /事项类神按所问事项核对/);
   assert.doesNotMatch(evidence.promptText, /由盘面补齐|原结果提供/);
+
+  data.threeTransmissions.forEach((item) => {
+    item.note = '';
+  });
+  assert.doesNotThrow(() => analyzeLiurenEvidence(data));
+  assert.doesNotThrow(() =>
+    buildDivinationPrompt({
+      method: 'liuren',
+      data,
+      question: '核对本次三传',
+      currentTime: new Date('2026-05-20T10:30:00+08:00'),
+    }),
+  );
+  assert.doesNotThrow(() => getDivinationSummaryBlocks('liuren', data));
 });
 
 test('大六壬旧盘篡改取传派生资料不得进入证据提示词', () => {
@@ -433,6 +455,73 @@ test('大六壬旧盘篡改取传派生资料不得进入证据提示词', () =>
     alter(data);
     assert.throws(() => analyzeLiurenEvidence(data), /不一致，无法生成证据/, field);
   }
+
+  const promptOptions = {
+    method: 'liuren' as const,
+    question: '核对本次三传',
+    currentTime: new Date('2026-05-20T10:30:00+08:00'),
+  };
+  const stages = ['初传', '中传', '末传'] as const;
+  for (const [index, stage] of stages.entries()) {
+    const data = makeFixedChart();
+    assert.equal(data.threeTransmissions[index].stage, stage);
+    data.threeTransmissions[index].stage = stages[(index + 1) % stages.length];
+    data.threeTransmissions[index].note = buildTransmissionNote(
+      data.threeTransmissions[index].stage,
+      data.threeTransmissions[index].relation,
+    );
+    data.transmissionDetail = buildTransmissionDetail(
+      data.transmissionRule!,
+      data.transmissionPattern,
+      data.threeTransmissions,
+      data.classicalRules,
+    );
+    data.timingEvidence = buildLiurenTimingEvidence({
+      transmissions: data.threeTransmissions,
+      dayBranch: data.ganzhi.day.charAt(1),
+      monthBranch: data.ganzhi.month.charAt(1),
+    });
+    assert.notEqual(data.threeTransmissions[index].stage, stage);
+    assert.throws(() => analyzeLiurenEvidence(data), /三传阶段与先后次序不一致/, stage);
+    assert.throws(
+      () => buildDivinationPrompt({ ...promptOptions, data }),
+      /三传阶段与先后次序不一致/,
+      stage,
+    );
+    assert.throws(
+      () => getDivinationSummaryBlocks('liuren', data),
+      /三传阶段与先后次序不一致/,
+      stage,
+    );
+  }
+  const wrongNote = makeFixedChart();
+  wrongNote.threeTransmissions[0].note = '初传与一课下位五行比和，已成必然成功之局。';
+  assert.equal(wrongNote.threeTransmissions[0].note, '初传与一课下位五行比和，已成必然成功之局。');
+  assert.throws(() => analyzeLiurenEvidence(wrongNote), /三传与天地盘不一致/);
+  assert.throws(
+    () => buildDivinationPrompt({ ...promptOptions, data: wrongNote }),
+    /三传与天地盘不一致/,
+  );
+  assert.throws(() => getDivinationSummaryBlocks('liuren', wrongNote), /三传与天地盘不一致/);
+
+  const writable = generateLiuren(fixedDate);
+  assert.deepEqual(writable, fixedChart);
+  const expectedEvidence = analyzeLiurenEvidence(writable);
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: writable });
+  const expectedSummary = getDivinationSummaryBlocks('liuren', writable);
+  writable.threeTransmissions[1].stage = '末传';
+  writable.timingEvidence = buildLiurenTimingEvidence({
+    transmissions: writable.threeTransmissions,
+    dayBranch: writable.ganzhi.day.charAt(1),
+    monthBranch: writable.ganzhi.month.charAt(1),
+  });
+  assert.equal(writable.threeTransmissions[1].stage, '末传');
+  assert.throws(() => analyzeLiurenEvidence(writable), /三传阶段与先后次序不一致/);
+  const fresh = generateLiuren(fixedDate);
+  assert.deepEqual(fresh, fixedChart);
+  assert.deepEqual(analyzeLiurenEvidence(fresh), expectedEvidence);
+  assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  assert.deepEqual(getDivinationSummaryBlocks('liuren', fresh), expectedSummary);
 });
 
 test('大六壬旧版应期文案与空数组可补齐为当前盘面条件', () => {
@@ -690,10 +779,15 @@ test('大六壬三传地支虽与天将关系自洽，仍须符合四课取传�
   middle.wuxing = undefined;
   middle.seasonState = undefined;
   middle.relation = describeRelation(middle.branch, data.threeTransmissions[0].branch);
+  middle.note = buildTransmissionNote(middle.stage, middle.relation);
   middle.dayRelation = describeRelation(middle.branch, data.ganzhi.day.charAt(1));
   data.threeTransmissions[2].relation = describeRelation(
     data.threeTransmissions[2].branch,
     middle.branch,
+  );
+  data.threeTransmissions[2].note = buildTransmissionNote(
+    data.threeTransmissions[2].stage,
+    data.threeTransmissions[2].relation,
   );
 
   assert.throws(() => analyzeLiurenEvidence(data), /取传规则或三传与四课、天地盘不一致/);

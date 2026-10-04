@@ -707,6 +707,12 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     ...data,
     jiuGongGe: data.jiuGongGe.filter((item) => item.gong !== 5),
     evidenceAnalysis: undefined,
+    patternTags: [],
+    patternDetails: [],
+    classicPatterns: [],
+    palaceInsights: [],
+    stemRelations: [],
+    patternCombos: [],
   });
   assert.equal(incomplete.palaceCoverageFact.status, '缺少宫位');
   assert.equal(incomplete.summaryFact.status, '部分资料缺失');

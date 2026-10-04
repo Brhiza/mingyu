@@ -17,9 +17,12 @@
 
 import { EarthBranch, HeavenStem } from 'tyme4ts';
 import { CHANGSHENG_ORDER, WUXING_CHANGSHENG_START } from '../../../../ganzhi/data';
-import { stemElements, branchIndex, palaceStars } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import { getDunJiaStem, hasTianPanStar, hasTianPanStem } from './palace-utils';
 import type { QimenJiuGongGe } from '../../../../types/divination';
+
+const { stemElements, branchIndex, palaceStars } = getQimenConstants();
 
 // ============================================================================
 // 1. 类型定义

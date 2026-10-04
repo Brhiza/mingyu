@@ -458,6 +458,7 @@ export function getDivinationSummaryBlocks(
     }
     case 'liuren': {
       const item = data as LiurenData;
+      analyzeLiurenEvidence(item);
       return {
         title: '大六壬起课结果',
         tags: [

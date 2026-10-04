@@ -20,7 +20,9 @@ import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-t
 import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
 import { TimeManager } from '../../../../calendar/timeManager';
 import { generateQimen } from '../index';
-import { diPanPalaces } from './_constants';
+import { getQimenConstants } from './_constants';
+
+const { diPanPalaces } = getQimenConstants();
 
 export interface QimenDynamicTimeContext {
   /** 固定 UTC 偏移；存在 IANA 时区时由 timeZoneId 优先。 */

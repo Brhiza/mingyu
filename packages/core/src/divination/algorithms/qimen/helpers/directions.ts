@@ -15,14 +15,10 @@
  *   - 避方只按明确不利事实生成，不再从全盘中机械选一个“最低分”。
  */
 
-import {
-  auspiciousDoors,
-  difficultDoors,
-  supportiveGods,
-  difficultGods,
-  sanQiStems,
-  diPanPalaces,
-} from './_constants';
+import { getQimenConstants } from './_constants';
+
+const { auspiciousDoors, difficultDoors, supportiveGods, difficultGods, sanQiStems, diPanPalaces } =
+  getQimenConstants();
 
 // ============================================================================
 // 类型定义

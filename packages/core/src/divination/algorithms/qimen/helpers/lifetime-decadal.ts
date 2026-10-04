@@ -18,8 +18,11 @@ import {
   getCivilDateTimeAtFixedOffset,
 } from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
-import { diPanPalaces } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import { getDunJiaStem } from './jushu';
+
+const { diPanPalaces } = getQimenConstants();
 
 /** 八字交节起运与十年干支时间轴，分别列出奇门本命盘各层定位。 */
 export function buildDecadalLifetimeStages(

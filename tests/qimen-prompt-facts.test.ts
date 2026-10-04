@@ -7,7 +7,10 @@ import {
   formatQimenRelationFacts,
   formatQimenStemLocations,
 } from '../packages/core/src/prompt/qimen-facts';
-import { getDivinationSummaryBlocks } from '../packages/core/src/prompt/divination';
+import {
+  buildDivinationPrompt as buildCoreDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
 import { getDunJiaStem } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils';
 import {
@@ -36,6 +39,118 @@ test('奇门提示词按当前盘面重算格局与宫位证据', () => {
   const prompt = formatEnhancedDivinationInfo('qimen', data);
   assert.doesNotMatch(prompt, /伪造的旧格局|伪造的旧宫位/u);
   assert.match(prompt, /盘面命中格局：/u);
+  const mutations: Array<{
+    field: string;
+    change: (chart: typeof fixedQimen) => void;
+    error: RegExp;
+  }> = [
+    {
+      field: 'stemRelations',
+      change: (chart) => {
+        chart.stemRelations![0].heavenStem = '甲';
+        chart.stemRelations![0].relation = '改写干关系';
+      },
+      error: /天地盘干关系与当前盘面条件不一致/u,
+    },
+    {
+      field: 'palaceInsights',
+      change: (chart) => {
+        chart.palaceInsights[0].summary = '改写洞察';
+        chart.palaceInsights[0].level = '有利';
+      },
+      error: /宫位洞察与当前盘面条件不一致/u,
+    },
+    {
+      field: 'classicPatterns',
+      change: (chart) => {
+        chart.classicPatterns![0].summary = '改写经典格局';
+      },
+      error: /经典格局条件与当前盘面条件不一致/u,
+    },
+    {
+      field: 'patternDetails',
+      change: (chart) => {
+        chart.patternDetails[0].summary = '改写基础格局';
+      },
+      error: /基础格局条件与当前盘面条件不一致/u,
+    },
+    {
+      field: 'patternTags',
+      change: (chart) => {
+        chart.patternTags.push('虚构星伏吟');
+      },
+      error: /基础格局标签与当前盘面条件不一致/u,
+    },
+    {
+      field: 'patternCombos',
+      change: (chart) => {
+        chart.patternCombos![0].summary = '改写复合格局';
+        chart.patternCombos![0].sources = ['虚构条件'];
+      },
+      error: /复合格局条件与当前盘面条件不一致/u,
+    },
+    {
+      field: 'juShu',
+      change: (chart) => {
+        chart.juShu = 0;
+      },
+      error: /局数必须为一至九的整数/u,
+    },
+    {
+      field: 'isYangDun',
+      change: (chart) => {
+        chart.isYangDun = !chart.isYangDun;
+      },
+      error: /定局与当前节气三元条件不一致/u,
+    },
+    {
+      field: 'zhiFu',
+      change: (chart) => {
+        chart.zhiFu = chart.zhiFu === '天心' ? '天蓬' : '天心';
+        chart.classicPatterns = [];
+        chart.patternTags = [];
+        chart.patternDetails = [];
+        chart.palaceInsights = [];
+        chart.patternCombos = [];
+      },
+      error: /值符值使与当前主动干支旬首条件不一致/u,
+    },
+  ];
+  for (const { field, change, error } of mutations) {
+    const invalid = cloneFixedQimen();
+    change(invalid);
+    const before = structuredClone(invalid);
+    assert.throws(() => analyzeQimenEvidence(invalid), error, field);
+    assert.throws(() => formatEnhancedDivinationInfo('qimen', invalid), error, field);
+    assert.throws(
+      () => buildCoreDivinationPrompt({ method: 'qimen', data: invalid }),
+      error,
+      field,
+    );
+    assert.throws(() => buildDivinationPrompt('qimen', '请做整体解读。', invalid), error, field);
+    assert.deepEqual(invalid, before, `${field} 拒绝不改盘`);
+  }
+  const restored = JSON.parse(JSON.stringify(fixedQimen)) as typeof fixedQimen;
+  assert.deepEqual(analyzeQimenEvidence(restored), analyzeQimenEvidence(fixedQimen));
+  assert.equal(formatEnhancedDivinationInfo('qimen', restored), prompt);
+  delete restored.scope;
+  delete restored.juMethod;
+  delete restored.timeInfo.juMethod;
+  delete restored.classicPatterns;
+  delete restored.patternCombos;
+  delete restored.stemRelations;
+  restored.patternTags = [];
+  restored.patternDetails = [];
+  restored.palaceInsights = [];
+  const optionalBefore = structuredClone(restored);
+  const optionalEvidence = analyzeQimenEvidence(restored);
+  assert.equal(optionalEvidence.palaceFacts.length, 9);
+  assert.equal(optionalEvidence.patternFacts.length, 0);
+  assert.match(optionalEvidence.promptText, /【九宫盘面】[\s\S]*天盘[\s\S]*地盘/u);
+  assert.doesNotMatch(optionalEvidence.promptText, /【传统格局】/u);
+  assert.match(buildCoreDivinationPrompt({ method: 'qimen', data: restored }), /九宫简表/u);
+  assert.match(buildDivinationPrompt('qimen', '请做整体解读。', restored), /九宫简表/u);
+  assert.deepEqual(restored, optionalBefore);
 });
 
 test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫干冲', () => {

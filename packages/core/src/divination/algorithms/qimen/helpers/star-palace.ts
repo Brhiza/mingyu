@@ -5,9 +5,12 @@
  * 九星旺相休囚废。主客含义由具体占题与盘面另行判断。
  */
 
-import { starElements, isGenerating, isControlling } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
 import { WUXING } from '../../../../wuxing';
 import { getTianPanStars, hasTianPanStar } from './palace-utils';
+
+const { starElements } = getQimenConstants();
 
 const WUXING_ELEMENTS = new Set<string>(WUXING);
 

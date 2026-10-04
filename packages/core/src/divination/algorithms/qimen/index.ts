@@ -28,7 +28,8 @@ import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime, TimeManager } from '../../../calendar/timeManager';
 import { getHistoricalTimezoneOffsetAt } from '../../../calendar/historical-timezone';
 import { getVoidBranches } from '../../../calendar/lunar';
-import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
+import { getQimenConstants } from './helpers/_constants';
+
 import {
   getQimenJuShu,
   getZhiFuZhiShi,
@@ -46,6 +47,8 @@ import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
 import { analyzeQimenEvidence } from '../../qimen-evidence';
 import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
+
+const { diPanPalaces, STEM_TOMB_MAP } = getQimenConstants();
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export { getDunJiaStem } from './helpers/jushu';

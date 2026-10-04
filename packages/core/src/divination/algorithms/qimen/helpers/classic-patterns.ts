@@ -13,15 +13,8 @@
  */
 
 import type { QimenJiuGongGe } from '../../../../types/divination';
-import {
-  stemElements,
-  doorElements,
-  auspiciousDoors,
-  sanQiStems,
-  STEM_TOMB_MAP,
-  isGenerating,
-  isControlling,
-} from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
 import { isKe, SIX_XUN_HEADS } from '../../../../ganzhi';
 import { getNamedStemPairPattern } from './stem-pair-patterns';
 import {
@@ -31,6 +24,9 @@ import {
   hasTianPanStar,
   hasTianPanStem,
 } from './palace-utils';
+
+const { stemElements, doorElements, auspiciousDoors, sanQiStems, STEM_TOMB_MAP } =
+  getQimenConstants();
 
 // ============================================================================
 // 类型定义

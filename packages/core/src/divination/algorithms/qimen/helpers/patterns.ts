@@ -24,7 +24,9 @@ import {
   hasTianPanStem,
   hasTianPanStar,
 } from './palace-utils';
-import { STEM_TOMB_MAP } from './_constants';
+import { getQimenConstants } from './_constants';
+
+const { STEM_TOMB_MAP } = getQimenConstants();
 
 const qimen = getQimenData();
 

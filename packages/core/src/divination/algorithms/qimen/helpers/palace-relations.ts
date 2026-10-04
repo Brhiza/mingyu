@@ -16,9 +16,12 @@
  *   - 相克（我克/克我）：有压制或反抗，有矛盾张力
  */
 
-import { doorElements, starElements, isGenerating, isControlling } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
 import type { QimenJiuGongGe } from '../../../../types/divination';
 import { WUXING } from '../../../../wuxing';
+
+const { doorElements, starElements } = getQimenConstants();
 
 // ============================================================================
 // 1. 八神五行映射

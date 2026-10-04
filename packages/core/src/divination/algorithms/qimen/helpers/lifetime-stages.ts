@@ -18,10 +18,13 @@ import {
 import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { toNativeDate, toSolarDateTimeInfo } from '../../../../bazi/luckTiming';
-import { diPanPalaces } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import { getDunJiaStem } from './jushu';
 import { hasTianPanStar } from './palace-utils';
 import { LunarYear, SolarTerm } from 'tyme4ts';
+
+const { diPanPalaces } = getQimenConstants();
 
 const CLOCKWISE_OUTER_PALACES = [1, 8, 3, 4, 9, 2, 7, 6];
 const COUNTER_CLOCKWISE_OUTER_PALACES = [1, 6, 7, 2, 9, 4, 3, 8];

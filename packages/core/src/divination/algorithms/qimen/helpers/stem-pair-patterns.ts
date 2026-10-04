@@ -23,7 +23,9 @@
  *      - 五行相同 → 比和（平，0）
  */
 
-import { stemElements, isGenerating, isControlling } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
+const { stemElements } = getQimenConstants();
 
 // ============================================================================
 // 1. 格局接口

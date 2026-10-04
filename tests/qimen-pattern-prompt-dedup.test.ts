@@ -122,6 +122,18 @@ test('奇门提示词合并相同宫位相同条件的命中记录，保留不�
   assert.equal(evidence.promptText.match(/^吉格：天遁（/gmu)?.length, 1);
   assert.equal(evidence.patternFacts.filter((item) => item.name === '天遁').length, 2);
   assert.equal(data.classicPatterns!.filter((item) => item.name === '天遁').length, 2);
+  data.patternTags.push(data.patternTags[0]);
+  data.patternDetails.push(structuredClone(data.patternDetails[0]));
+  data.palaceInsights.push(structuredClone(data.palaceInsights[0]));
+  data.stemRelations!.push(structuredClone(data.stemRelations![0]));
+  data.patternCombos!.push(structuredClone(data.patternCombos![0]));
+  const repeatedBefore = structuredClone(data);
+  assert.ok(analyzeQimenEvidence(data).patternFacts.length > evidence.patternFacts.length);
+  assert.equal(
+    formatEnhancedDivinationInfo('qimen', data).match(/^天遁（吉格，兑七宫）：/gmu)?.length,
+    1,
+  );
+  assert.deepEqual(data, repeatedBefore);
 });
 
 test('奇门详细在线资料复用命中条件，摘要不重复格局且不采样专项复合格局', () => {
@@ -155,12 +167,21 @@ test('奇门专项复合格局合并重复说明并省略空名称与空条件',
   const data = cloneFixedQimen();
   const bird = data.patternCombos!.find((item) => item.name === '飞鸟跌穴利客')!;
   assert.ok(bird);
-  data.patternCombos!.push(
-    structuredClone(bird),
-    { ...bird, name: '', summary: '空名称条件' },
-    { ...bird, name: '空摘要条件', summary: '' },
-  );
+  data.patternCombos!.push(structuredClone(bird));
   const prompt = formatEnhancedDivinationInfo('qimen', data, '军事战术如何行动');
   assert.equal(prompt.match(/飞鸟跌穴利客（兑七宫）：/gu)?.length, 1);
   assert.doesNotMatch(prompt, /空名称条件|空摘要条件/u);
+  for (const item of [
+    { ...bird, name: '', summary: '空名称条件' },
+    { ...bird, name: '空摘要条件', summary: '' },
+  ]) {
+    const invalid = structuredClone(data);
+    invalid.patternCombos!.push(item);
+    const before = structuredClone(invalid);
+    assert.throws(
+      () => formatEnhancedDivinationInfo('qimen', invalid, '军事战术如何行动'),
+      /复合格局条件与当前盘面条件不一致/u,
+    );
+    assert.deepEqual(invalid, before);
+  }
 });

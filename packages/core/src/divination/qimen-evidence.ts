@@ -1,6 +1,17 @@
 import type { QimenData, QimenJiuGongGe } from '../types/divination';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import { getNamedStemPairPattern } from './algorithms/qimen/helpers/stem-pair-patterns';
+import { getClassicPatterns, getStemRelations } from './algorithms/qimen/helpers/classic-patterns';
+import {
+  buildPalaceInsights,
+  buildPatternDetails,
+  getQimenPatternTags,
+} from './algorithms/qimen/helpers/patterns';
+import { detectQimenPatternCombos } from './algorithms/qimen/helpers/pattern-combos';
+import { getZhiFuZhiShiByGanZhi } from './algorithms/qimen/helpers/jushu';
+import { getMonthQimenJuShu, getYearQimenJuShu } from './algorithms/qimen/helpers/jushu-extended';
+import { getQimenData } from './divination-data';
+import { TimeManager } from '../calendar/timeManager';
 import {
   formatTianPanStars,
   formatTianPanStems,
@@ -8,6 +19,8 @@ import {
   hasTianPanStar,
   hasTianPanStem,
 } from './algorithms/qimen/helpers/palace-utils';
+
+const QIMEN_SETUP_RULES = getQimenData().jieQiJuShuMap;
 
 export function getQimenActiveSpecialConditionText(data: QimenData): string {
   const conditions = data.specialConditions;
@@ -1071,6 +1084,160 @@ function buildLimitationFacts(params: {
   }));
 }
 
+function assertQimenDerivedFacts(data: QimenData, scope: QimenEvidenceScope): void {
+  const { jiuGongGe, zhiFu, zhiShi, ganzhi } = data;
+  const activeGanZhi = getActiveGanZhi(data);
+  if (typeof data.isYangDun !== 'boolean') {
+    throw new Error('奇门阴阳遁必须为布尔值。');
+  }
+  if (!Number.isInteger(data.juShu) || data.juShu < 1 || data.juShu > 9) {
+    throw new Error('奇门局数必须为一至九的整数。');
+  }
+  if (scope === 'year' || scope === 'month') {
+    const setup =
+      scope === 'year'
+        ? getYearQimenJuShu(
+            ganzhi.year,
+            TimeManager.getWallClockParts(new Date(data.timestamp), data.timezoneOffsetMinutes)
+              .year,
+          )
+        : getMonthQimenJuShu(ganzhi.month, ganzhi.year);
+    if (
+      data.isYangDun !== setup.isYangDun ||
+      data.juShu !== setup.juShu ||
+      data.timeInfo.epoch !== setup.yuan
+    ) {
+      throw new Error('奇门定局与当前干支三元条件不一致。');
+    }
+  } else {
+    const juTerm = data.timeInfo.juTerm || data.timeInfo.solarTerm;
+    const rule = Object.hasOwn(QIMEN_SETUP_RULES, juTerm)
+      ? QIMEN_SETUP_RULES[juTerm as keyof typeof QIMEN_SETUP_RULES]
+      : undefined;
+    const yuanIndex = ['上元', '中元', '下元'].indexOf(data.timeInfo.epoch);
+    if (
+      !rule ||
+      yuanIndex < 0 ||
+      data.isYangDun !== (rule.dun === '阳') ||
+      data.juShu !== rule.ju[yuanIndex]
+    ) {
+      throw new Error('奇门定局与当前节气三元条件不一致。');
+    }
+  }
+  const leaders = getZhiFuZhiShiByGanZhi(activeGanZhi, {
+    isYangDun: data.isYangDun,
+    juShu: data.juShu,
+  });
+  if (zhiFu !== leaders.zhiFu || zhiShi !== leaders.zhiShi) {
+    throw new Error('奇门值符值使与当前主动干支旬首条件不一致。');
+  }
+  const zhiFuLandingPalace = jiuGongGe.find((item) => hasTianPanStar(item, zhiFu))?.gong;
+  const zhiShiLandingPalace = jiuGongGe.find((item) => item.renPan.door === zhiShi)?.gong;
+  const patternTags = getQimenPatternTags({
+    jiuGongGe,
+    zhiFu,
+    zhiShi,
+    zhiFuLandingPalace: zhiFuLandingPalace ?? 0,
+    zhiShiLandingPalace: zhiShiLandingPalace ?? 0,
+    activeGanForFind: getDunJiaStem(activeGanZhi),
+    activeGanLabel: { year: '年干', month: '月干', day: '日干', hour: '时干' }[scope],
+    horsePalace: data.horseStar?.palace,
+    horsePalaceName: data.horseStar?.name,
+  });
+  const patternDetails = buildPatternDetails(patternTags);
+  const classicPatterns = getClassicPatterns({
+    jiuGongGe,
+    zhiFu,
+    zhiShi,
+    yearGanZhi: ganzhi.year,
+    ...(scope !== 'year' ? { monthGanZhi: ganzhi.month } : {}),
+    ...(scope === 'day' || scope === 'hour'
+      ? { dayStem: ganzhi.day.charAt(0), dayGanZhi: ganzhi.day }
+      : {}),
+    ...(scope === 'hour' ? { hourGanZhi: ganzhi.hour } : {}),
+  });
+  const palaceInsights = buildPalaceInsights({ jiuGongGe, zhiFu, zhiShi, patternTags });
+  const stemRelations = getStemRelations(jiuGongGe);
+  const horseActivated =
+    data.horseStar && [zhiFuLandingPalace, zhiShiLandingPalace].includes(data.horseStar.palace);
+  const patternCombos = detectQimenPatternCombos({
+    classicPatterns,
+    patternTags,
+    voidPalaces: data.voidPalaces,
+    horseStar: horseActivated ? data.horseStar : undefined,
+    activeGanZhi,
+    zhiFu,
+    zhiShi,
+    yearBranch: ganzhi.year.charAt(1),
+    ...(scope === 'day' || scope === 'hour'
+      ? { dayGanZhi: ganzhi.day, dayStem: ganzhi.day.charAt(0), dayBranch: ganzhi.day.charAt(1) }
+      : {}),
+    ...(scope !== 'year' ? { monthBranch: ganzhi.month.charAt(1) } : {}),
+    solarTerm: data.timeInfo.juTerm || data.timeInfo.solarTerm,
+    actualSolarTerm: data.timeInfo.solarTerm,
+    epoch: data.timeInfo.epoch,
+    ...(scope === 'hour'
+      ? {
+          hourGanZhi: ganzhi.hour,
+          hourStem: ganzhi.hour.charAt(0),
+          hourBranch: ganzhi.hour.charAt(1),
+        }
+      : {}),
+    jiuGongGe,
+  });
+  const checkRecords = (label: string, actual: string[], expected: string[]) => {
+    if (actual.some((item) => !expected.includes(item))) {
+      throw new Error(`奇门${label}与当前盘面条件不一致。`);
+    }
+  };
+  checkRecords('基础格局标签', data.patternTags ?? [], patternTags);
+  checkRecords(
+    '基础格局条件',
+    (data.patternDetails ?? []).map((item) => JSON.stringify([item.tag, item.summary])),
+    patternDetails.map((item) => JSON.stringify([item.tag, item.summary])),
+  );
+  checkRecords(
+    '经典格局条件',
+    (data.classicPatterns ?? []).map((item) =>
+      JSON.stringify([item.name, item.type, item.summary, item.palaces]),
+    ),
+    classicPatterns.map((item) =>
+      JSON.stringify([item.name, item.tone, item.summary, item.palace ? [item.palace] : []]),
+    ),
+  );
+  checkRecords(
+    '宫位洞察',
+    (data.palaceInsights ?? []).map((item) =>
+      JSON.stringify([item.gong, item.name, item.level, item.summary]),
+    ),
+    palaceInsights.map((item) => JSON.stringify([item.gong, item.name, item.level, item.summary])),
+  );
+  if (
+    (data.stemRelations ?? []).some(
+      (item) =>
+        !stemRelations.some(
+          (expected) =>
+            item.gong === expected.palace &&
+            item.heavenStem === expected.heaven &&
+            item.earthStem === expected.earth &&
+            item.relation === expected.type &&
+            (item.pattern === undefined || item.pattern === expected.note),
+        ),
+    )
+  ) {
+    throw new Error('奇门天地盘干关系与当前盘面条件不一致。');
+  }
+  checkRecords(
+    '复合格局条件',
+    (data.patternCombos ?? []).map((item) =>
+      JSON.stringify([item.key, item.name, item.tone, item.summary, item.palace, item.sources]),
+    ),
+    patternCombos.map((item) =>
+      JSON.stringify([item.key, item.name, item.tone, item.summary, item.palace, item.sources]),
+    ),
+  );
+}
+
 export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const scope = data.scope === undefined ? 'hour' : data.scope;
   if (typeof scope !== 'string' || !Object.hasOwn(SCOPE_LABELS, scope)) {
@@ -1079,6 +1246,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   if (!data.jiuGongGe.length) {
     throw new Error('奇门证据分析至少需要一个宫位数据。');
   }
+  assertQimenDerivedFacts(data, scope);
   const sourceMap = collectCandidateSources(data);
   const patternFacts = buildPatternFacts(data);
   const classicFactsForPrompt = patternFacts.filter((item) => item.kind === '经典格局');
@@ -1708,7 +1876,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   ]
     .filter(Boolean)
     .join('\n');
-  return {
+  return structuredClone<QimenEvidenceAnalysis>({
     key: 'qimen:evidence',
     status: '已计算',
     calculationEvidenceFacts,
@@ -1744,5 +1912,5 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       '候选宫之间只陈述可复核的五行生克关系，不用数字分数代替判断。',
       '未按问题选定用神时明确保留候选性质，不输出吉凶总分、成功率或绝对日期。',
     ],
-  };
+  });
 }

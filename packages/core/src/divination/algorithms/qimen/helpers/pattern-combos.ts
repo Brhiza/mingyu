@@ -8,7 +8,13 @@
 
 import type { QimenBranchPalace, QimenJiuGongGe } from '../../../../types/divination';
 import type { ClassicPattern } from './classic-patterns';
-import {
+import { getQimenConstants, isControlling, isGenerating } from './_constants';
+
+import { getXunHead, isValidGanZhi } from '../../../../ganzhi';
+import { getTianPanStars, getTianPanStems, hasTianPanStar, hasTianPanStem } from './palace-utils';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+
+const {
   auspiciousDoors,
   branchElements,
   diPanPalaces,
@@ -16,14 +22,9 @@ import {
   difficultDoors,
   difficultGods,
   branches,
-  isControlling,
-  isGenerating,
   starElements,
   supportiveGods,
-} from './_constants';
-import { getXunHead, isValidGanZhi } from '../../../../ganzhi';
-import { getTianPanStars, getTianPanStems, hasTianPanStar, hasTianPanStem } from './palace-utils';
-import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+} = getQimenConstants();
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 

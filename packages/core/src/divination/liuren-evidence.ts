@@ -33,6 +33,7 @@ import {
   buildLiurenFocusEvidence,
   buildLiurenTimingEvidence,
   buildTransmissionDetail,
+  buildTransmissionNote,
   getLiurenGuaTiFacts,
   getPatternTag,
   getTransmissionPattern,
@@ -1436,7 +1437,11 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     throw new Error('大六壬旬空与日柱不一致，无法生成证据。');
   }
   const monthBranch = data.ganzhi.month.charAt(1);
-  const threeTransmissions = data.threeTransmissions.map((item) => {
+  const transmissionStages = ['初传', '中传', '末传'] as const;
+  const threeTransmissions = data.threeTransmissions.map((item, index) => {
+    if (item.stage !== transmissionStages[index]) {
+      throw new Error('大六壬三传阶段与先后次序不一致，无法生成证据。');
+    }
     const wuxing = getBranchWuxing(item.branch);
     const seasonState = getSeasonState(wuxing, monthBranch);
     if (
@@ -1521,10 +1526,13 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       data.threeTransmissions.some((transmission, index) => {
         const plateItem = getPlateItemByBranch(data.heavenlyPlate, transmission.branch);
         const previous = index === 0 ? dayStem : data.threeTransmissions[index - 1].branch;
+        const expectedRelation = describeRelation(transmission.branch, previous);
         return (
           transmission.god !== plateItem.god ||
-          transmission.relation !== describeRelation(transmission.branch, previous) ||
-          transmission.dayRelation !== describeRelation(transmission.branch, dayBranch)
+          transmission.relation !== expectedRelation ||
+          transmission.dayRelation !== describeRelation(transmission.branch, dayBranch) ||
+          (transmission.note &&
+            transmission.note !== buildTransmissionNote(transmission.stage, expectedRelation))
         );
       })
     ) {

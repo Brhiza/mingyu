@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { generateJinkoujue } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
+import {
+  analyzeJinkoujueEvidence,
+  generateJinkoujue,
+} from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 import {
   buildDivinationPrompt,
   formatDivinationInfo,
@@ -225,6 +228,28 @@ test('金口诀提示资料只列实际动爻，不再重复展开未触发的�
     /地分亥落日旬空/,
   );
   assert.deepEqual(voidData, voidBefore);
+  assert.deepEqual(data, structuredBefore);
+
+  const brother = data.movements.find((item) => item.name === '兄弟动');
+  assert.ok(brother);
+  assert.equal(brother.category, '三动');
+  assert.equal(brother.source, '《六壬神课金口诀古本》“三动”');
+  const wrongSource = structuredClone(data);
+  const wrongBrother = wrongSource.movements.find((item) => item.name === '兄弟动')!;
+  wrongBrother.source = '《六壬神课金口诀古本》“变造三动原文”';
+  assert.equal(wrongBrother.source, '《六壬神课金口诀古本》“变造三动原文”');
+  assert.throws(() => analyzeJinkoujueEvidence(wrongSource), /动爻与四位五行不一致/);
+  assert.throws(
+    () =>
+      buildDivinationPrompt({
+        method: 'jinkoujue',
+        data: wrongSource,
+        question: '核对本次四位',
+        currentTime: new Date('2026-05-20T10:30:00+08:00'),
+      }),
+    /动爻与四位五行不一致/,
+  );
+  assert.throws(() => getDivinationSummaryBlocks('jinkoujue', wrongSource), /动爻与四位五行不一致/);
   assert.deepEqual(data, structuredBefore);
 });
 

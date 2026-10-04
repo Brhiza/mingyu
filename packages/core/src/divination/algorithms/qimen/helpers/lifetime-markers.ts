@@ -11,9 +11,12 @@ import type {
   QimenTopic,
   QimenTopicCandidate,
 } from '../../../../types/divination';
-import { diPanPalaces } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import { getDunJiaStem } from './jushu';
 import { hasTianPanStar } from './palace-utils';
+
+const { diPanPalaces } = getQimenConstants();
 
 const STEM_WUXING: Record<string, '木' | '火' | '土' | '金' | '水'> = {
   甲: '木',

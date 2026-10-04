@@ -487,7 +487,9 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
         item.to !== expected.to.name ||
         item.relation !== expected.relation ||
         item.trigger !==
-          `${expected.from.name}${expected.from.element}${expected.relation}${expected.to.name}${expected.to.element}`
+          `${expected.from.name}${expected.from.element}${expected.relation}${expected.to.name}${expected.to.element}` ||
+        item.source !==
+          `《六壬神课金口诀古本》“${expected.category === '五动' ? '五动爻诵' : '三动'}”`
       );
     })
   ) {

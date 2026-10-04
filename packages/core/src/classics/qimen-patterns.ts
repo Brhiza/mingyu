@@ -688,9 +688,9 @@ export function getQimenStarClassic(star: string): QimenStarClassic | undefined 
   if (!star) return undefined;
   const clean = star.replace(/星$/, '');
   const key = [star, `${clean}星`, ...(star === '天芮' ? ['天任星_芮'] : [])].find((value) =>
-    Object.hasOwn(QIMEN_STAR_CLASSICS, value),
+    Object.hasOwn(CANONICAL_QIMEN_STAR_CLASSICS, value),
   );
-  return key === undefined ? undefined : structuredClone(QIMEN_STAR_CLASSICS[key]);
+  return key === undefined ? undefined : structuredClone(CANONICAL_QIMEN_STAR_CLASSICS[key]);
 }
 
 /**
@@ -699,8 +699,10 @@ export function getQimenStarClassic(star: string): QimenStarClassic | undefined 
 export function getQimenDoorClassic(door: string): QimenDoorClassic | undefined {
   if (!door) return undefined;
   const clean = door.replace(/门$/, '');
-  const key = [door, `${clean}门`].find((value) => Object.hasOwn(QIMEN_DOOR_CLASSICS, value));
-  return key === undefined ? undefined : structuredClone(QIMEN_DOOR_CLASSICS[key]);
+  const key = [door, `${clean}门`].find((value) =>
+    Object.hasOwn(CANONICAL_QIMEN_DOOR_CLASSICS, value),
+  );
+  return key === undefined ? undefined : structuredClone(CANONICAL_QIMEN_DOOR_CLASSICS[key]);
 }
 
 /**
@@ -708,8 +710,8 @@ export function getQimenDoorClassic(door: string): QimenDoorClassic | undefined 
  */
 export function getQimenDeityClassic(deity: string): QimenDeityClassic | undefined {
   if (!deity) return undefined;
-  return Object.hasOwn(QIMEN_DEITY_CLASSICS, deity)
-    ? structuredClone(QIMEN_DEITY_CLASSICS[deity])
+  return Object.hasOwn(CANONICAL_QIMEN_DEITY_CLASSICS, deity)
+    ? structuredClone(CANONICAL_QIMEN_DEITY_CLASSICS[deity])
     : undefined;
 }
 
@@ -746,12 +748,14 @@ export const QIMEN_YANBO_CLASSICS: Array<{
 export function getQimenYanboClassic(keyword: string) {
   if (!keyword) return undefined;
   return structuredClone(
-    QIMEN_YANBO_CLASSICS.find((y) => y.title.includes(keyword) || y.verse.includes(keyword)),
+    CANONICAL_QIMEN_YANBO_CLASSICS.find(
+      (y) => y.title.includes(keyword) || y.verse.includes(keyword),
+    ),
   );
 }
 
 export function getAllQimenYanboClassics() {
-  return structuredClone(QIMEN_YANBO_CLASSICS);
+  return structuredClone(CANONICAL_QIMEN_YANBO_CLASSICS);
 }
 
 export function getQimenStemPattern(
@@ -759,7 +763,13 @@ export function getQimenStemPattern(
   earthStem: string,
 ): QimenStemPattern | undefined {
   const key = `${heavenStem}+${earthStem}`;
-  return Object.hasOwn(QIMEN_STEM_PATTERNS, key)
-    ? structuredClone(QIMEN_STEM_PATTERNS[key])
+  return Object.hasOwn(CANONICAL_QIMEN_STEM_PATTERNS, key)
+    ? structuredClone(CANONICAL_QIMEN_STEM_PATTERNS[key])
     : undefined;
 }
+
+const CANONICAL_QIMEN_STEM_PATTERNS = structuredClone(QIMEN_STEM_PATTERNS);
+const CANONICAL_QIMEN_STAR_CLASSICS = structuredClone(QIMEN_STAR_CLASSICS);
+const CANONICAL_QIMEN_DOOR_CLASSICS = structuredClone(QIMEN_DOOR_CLASSICS);
+const CANONICAL_QIMEN_DEITY_CLASSICS = structuredClone(QIMEN_DEITY_CLASSICS);
+const CANONICAL_QIMEN_YANBO_CLASSICS = structuredClone(QIMEN_YANBO_CLASSICS);

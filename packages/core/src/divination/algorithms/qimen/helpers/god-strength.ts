@@ -10,7 +10,9 @@
  * - 空亡会使强降为中，中降为弱
  */
 
-import { isGenerating, isControlling, diPanPalaces } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
+const { diPanPalaces } = getQimenConstants();
 
 /** 八神五行 */
 export const GOD_WUXING: Record<string, string> = {

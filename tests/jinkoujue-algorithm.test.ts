@@ -7,7 +7,10 @@ import {
   generateJinkoujue,
 } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
-import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 import { formatJinkoujueJudgmentFacts } from '../packages/core/src/prompt/jinkoujue-facts.ts';
 import {
   JINKOU_POSITION_ROLES,
@@ -313,6 +316,42 @@ test('金口诀证据拒绝地分与人元、月将加时及五动条件错位',
     source: '《六壬神课金口诀古本》“五动爻诵”',
   });
   assert.throws(() => analyzeJinkoujueEvidence(wrongMovement), /动爻与四位五行不一致/);
+
+  const promptOptions = {
+    method: 'jinkoujue' as const,
+    question: '核对本次四位',
+    currentTime: new Date('2026-05-20T10:30:00+08:00'),
+  };
+  assert.ok(source.movements.length > 0);
+  for (const [index, movement] of source.movements.entries()) {
+    assert.equal(movement.category, '五动');
+    assert.equal(movement.source, '《六壬神课金口诀古本》“五动爻诵”');
+    const wrongSource = structuredClone(source);
+    wrongSource.movements[index].source = '《六壬神课金口诀古本》“变造必然成功原文”';
+    assert.equal(wrongSource.movements[index].source, '《六壬神课金口诀古本》“变造必然成功原文”');
+    assert.throws(() => analyzeJinkoujueEvidence(wrongSource), /动爻与四位五行不一致/);
+    assert.throws(
+      () => buildDivinationPrompt({ ...promptOptions, data: wrongSource }),
+      /动爻与四位五行不一致/,
+    );
+    assert.throws(
+      () => getDivinationSummaryBlocks('jinkoujue', wrongSource),
+      /动爻与四位五行不一致/,
+    );
+  }
+  const writable = generateJinkoujue({ method: 'branch', branch: '申', customDate: SAMPLE_DATE });
+  assert.deepEqual(writable, fixedShenChart);
+  const expectedEvidence = analyzeJinkoujueEvidence(writable);
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: writable });
+  const expectedSummary = getDivinationSummaryBlocks('jinkoujue', writable);
+  writable.movements[0].source = '变造动爻依据';
+  assert.equal(writable.movements[0].source, '变造动爻依据');
+  assert.throws(() => analyzeJinkoujueEvidence(writable), /动爻与四位五行不一致/);
+  const fresh = generateJinkoujue({ method: 'branch', branch: '申', customDate: SAMPLE_DATE });
+  assert.deepEqual(fresh, fixedShenChart);
+  assert.deepEqual(analyzeJinkoujueEvidence(fresh), expectedEvidence);
+  assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  assert.deepEqual(getDivinationSummaryBlocks('jinkoujue', fresh), expectedSummary);
 });
 
 test('金口诀证据拒绝旬空和月令旺衰与日月柱错位', () => {

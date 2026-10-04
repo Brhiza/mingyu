@@ -14,6 +14,19 @@ import {
   getDivinationSummaryBlocks,
 } from '../packages/core/src/prompt/divination';
 import { qimen } from '../packages/core/src/divination/divination-data';
+import * as qimenConstants from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
+import {
+  getAllQimenYanboClassics,
+  getQimenDeityClassic,
+  getQimenDoorClassic,
+  getQimenStarClassic,
+  getQimenStemPattern,
+  QIMEN_DEITY_CLASSICS,
+  QIMEN_DOOR_CLASSICS,
+  QIMEN_STAR_CLASSICS,
+  QIMEN_STEM_PATTERNS,
+  QIMEN_YANBO_CLASSICS,
+} from '../packages/core/src/classics/qimen-patterns';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -23,6 +36,24 @@ const promptBoard = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
 const clonePromptBoard = () => structuredClone(promptBoard);
 const lateSummerBoard = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
 const cloneLateSummerBoard = () => structuredClone(lateSummerBoard);
+
+function mutateQimenConstants(tables: ReturnType<typeof qimenConstants.getQimenConstants>) {
+  tables.STEM_TOMB_MAP.乙.palace = 9;
+  tables.auspiciousDoors[0] = '错误吉门';
+  tables.branchElements.子 = '火';
+  tables.branchIndex.子 = 11;
+  tables.branches[0] = '错误地支';
+  tables.diPanPalaces.寅 = 1;
+  tables.difficultDoors[0] = '错误凶门';
+  tables.difficultGods[0] = '错误凶神';
+  tables.doorElements.开门 = '水';
+  tables.palaceStars[0] = '错误九星';
+  tables.sanQiLiuYi.reverse();
+  tables.sanQiStems[0] = '错误三奇';
+  tables.starElements.天蓬 = '火';
+  tables.stemElements.乙 = '金';
+  tables.supportiveGods[0] = '错误吉神';
+}
 
 test('年家与月家奇门提示词使用对应的三元阴遁依据', () => {
   for (const scope of ['year', 'month'] as const) {
@@ -164,6 +195,73 @@ test('奇门排盘应内置用神宫与宫间作用结构化证据', () => {
   assert.equal(normal.evidenceAnalysis?.palaceFacts[0].element, '水');
   assert.equal(qimen.ninePositions[0].name, '坎一宫');
   assert.equal(qimen.ninePositions[0].element, '水');
+  const canonical = qimenConstants.getQimenConstants();
+  const fixedKeys = [
+    'STEM_TOMB_MAP',
+    'auspiciousDoors',
+    'branchElements',
+    'branchIndex',
+    'branches',
+    'diPanPalaces',
+    'difficultDoors',
+    'difficultGods',
+    'doorElements',
+    'palaceStars',
+    'sanQiLiuYi',
+    'sanQiStems',
+    'starElements',
+    'stemElements',
+    'supportiveGods',
+  ] as const;
+  assert.deepEqual(Object.keys(canonical).sort(), [...fixedKeys].sort());
+  const detached = qimenConstants.getQimenConstants();
+  mutateQimenConstants(detached);
+  for (const key of fixedKeys) {
+    assert.notDeepEqual(detached[key], canonical[key], `${key} 副本可写`);
+    assert.deepEqual(
+      qimenConstants.getQimenConstants()[key],
+      canonical[key],
+      `${key} 固定资料独立`,
+    );
+  }
+  const publicTables = Object.fromEntries(
+    fixedKeys.map((key) => [key, qimenConstants[key]]),
+  ) as typeof canonical;
+  const publicBefore = structuredClone(publicTables);
+  const inputBefore = structuredClone(normal);
+  const returned = normal.evidenceAnalysis!;
+  returned.candidates[0].palace.tianPan.stem = '错误返回干';
+  returned.palaceFacts[0].renPan.door = '错误返回门';
+  returned.patternFacts.find((item) => item.kind === '经典格局')!.palaces.push(99);
+  returned.patternFacts.find((item) => item.kind === '复合格局')!.sources.push('错误返回来源');
+  const chartBefore = structuredClone(inputBefore);
+  chartBefore.evidenceAnalysis = returned;
+  assert.deepEqual(normal, chartBefore);
+  assert.deepEqual(analyzeQimenEvidence(normal), inputBefore.evidenceAnalysis);
+  assert.equal(buildDivinationPrompt({ ...promptOptions, data: normal }), normalTask);
+
+  const originalClassicTables = structuredClone({
+    QIMEN_STEM_PATTERNS,
+    QIMEN_STAR_CLASSICS,
+    QIMEN_DOOR_CLASSICS,
+    QIMEN_DEITY_CLASSICS,
+    QIMEN_YANBO_CLASSICS,
+  });
+  const readClassics = () => ({
+    stem: getQimenStemPattern('戊', '乙')!,
+    star: getQimenStarClassic('天蓬')!,
+    door: getQimenDoorClassic('开门')!,
+    deity: getQimenDeityClassic('值符')!,
+    yanbo: getAllQimenYanboClassics(),
+  });
+  const classics = readClassics();
+  const returnedClassics = readClassics();
+  returnedClassics.stem.name = '错误克应';
+  returnedClassics.star.wuxing = '火';
+  returnedClassics.door.wuxing = '水';
+  returnedClassics.deity.wuxing = '水';
+  returnedClassics.yanbo[0].verse = '错误歌诀';
+  assert.deepEqual(readClassics(), classics);
   const element = qimen.ninePositions[0].element;
   const star = qimen.palaceStars[0];
   try {
@@ -171,13 +269,39 @@ test('奇门排盘应内置用神宫与宫间作用结构化证据', () => {
     assert.equal(qimen.ninePositions[0].element, '土');
     assert.equal(Reflect.set(qimen.palaceStars, 0, '天英'), true);
     assert.equal(qimen.palaceStars[0], '天英');
+    mutateQimenConstants(publicTables);
+    for (const key of fixedKeys) assert.notDeepEqual(publicTables[key], publicBefore[key]);
+    assert.deepEqual(qimenConstants.getQimenConstants(), canonical);
+    QIMEN_STEM_PATTERNS['戊+乙'].name = '错误克应';
+    QIMEN_STAR_CLASSICS.天蓬星.wuxing = '火';
+    QIMEN_DOOR_CLASSICS.开门.wuxing = '水';
+    QIMEN_DEITY_CLASSICS.值符.wuxing = '水';
+    QIMEN_YANBO_CLASSICS[0].verse = '错误歌诀';
+    assert.deepEqual(readClassics(), classics);
     const fresh = generateQimenFromSource(fixedDate);
-    assert.deepEqual(fresh, normal);
+    assert.deepEqual(fresh, inputBefore);
     assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), normalTask);
   } finally {
     qimen.ninePositions[0].element = element;
     qimen.palaceStars[0] = star;
+    for (const key of fixedKeys) {
+      const target = publicTables[key];
+      const previous = publicBefore[key];
+      if (Array.isArray(target)) target.splice(0, target.length, ...(previous as string[]));
+      else Object.assign(target, previous);
+    }
+    Object.assign(QIMEN_STEM_PATTERNS, originalClassicTables.QIMEN_STEM_PATTERNS);
+    Object.assign(QIMEN_STAR_CLASSICS, originalClassicTables.QIMEN_STAR_CLASSICS);
+    Object.assign(QIMEN_DOOR_CLASSICS, originalClassicTables.QIMEN_DOOR_CLASSICS);
+    Object.assign(QIMEN_DEITY_CLASSICS, originalClassicTables.QIMEN_DEITY_CLASSICS);
+    QIMEN_YANBO_CLASSICS.splice(
+      0,
+      QIMEN_YANBO_CLASSICS.length,
+      ...originalClassicTables.QIMEN_YANBO_CLASSICS,
+    );
   }
+  assert.deepEqual(publicTables, publicBefore);
+  assert.deepEqual(readClassics(), classics);
 });
 
 test('奇门在线提示词只输出任务、盘面与传统依据并去掉重复格局条件', () => {
@@ -234,9 +358,11 @@ test('奇门在线提示词只输出任务、盘面与传统依据并去掉重�
 
 test('奇门格局无可用事实依据时不输出空冒号并保留主客结构词', () => {
   const data = clonePromptBoard();
-  const palace = data.jiuGongGe.find((item) => item.gong === 4)!;
-  const tag = `主断格（${palace.name}）`;
-  data.patternDetails = [{ tag, summary: '主此事必成。' }];
+  const detail = data.patternDetails.find((item) => item.tag.startsWith('三奇得（'))!;
+  assert.ok(detail);
+  const tag = detail.tag;
+  const palace = data.jiuGongGe.find((item) => tag.includes(item.name))!;
+  data.patternDetails = [structuredClone(detail)];
 
   const evidence = analyzeQimenEvidence(data);
   const fact = evidence.patternFacts.find((item) => item.name === tag);
@@ -248,12 +374,12 @@ test('奇门格局无可用事实依据时不输出空冒号并保留主客结�
   assert.equal(fact.promptText, tag);
   assert.equal(formatQimenPatternBasis(fact), fact.promptText);
   assert.ok(candidate?.patterns.includes(tag));
-  assert.match(patternLine ?? '', new RegExp(`中性格局：${tag}$`));
+  assert.equal(patternLine, `吉格：${tag}`);
   assert.equal(
     candidate?.patterns.find((item) => item.startsWith(tag)),
     tag,
   );
-  assert.ok(patternItem?.detail.includes('传统分类：中性'));
+  assert.ok(patternItem?.detail.includes('传统分类：有利'));
   assert.doesNotMatch(patternItem?.detail ?? '', /^；/);
 });
 
@@ -317,6 +443,7 @@ test('奇门证据应保留空亡与宫间五行反证', () => {
     ...(data.voidPalaces ?? []),
     { branch: '子', palace: first.gong, name: first.name },
   ];
+  delete data.patternCombos;
 
   const evidence = analyzeQimenEvidence(data);
 
@@ -444,16 +571,21 @@ test('奇门同宫空迫按宫汇总，门迫格局不重复列为自身条件',
   assert.doesNotMatch(menPoFulfillment, /同宫见门迫/);
   data.classicPatterns = data.classicPatterns.filter((pattern) => pattern.name === '门迫');
   assert.deepEqual(formatQimenPatternConditionSummary(data), []);
-  assert.doesNotMatch(formatEnhancedDivinationInfo('qimen', data), /格局条件：/);
+  const actual = clonePromptBoard();
+  actual.classicPatterns = actual.classicPatterns?.filter((pattern) => pattern.name === '门迫');
+  assert.ok(actual.classicPatterns?.length);
+  assert.deepEqual(formatQimenPatternConditionSummary(actual), []);
+  assert.doesNotMatch(formatEnhancedDivinationInfo('qimen', actual), /格局条件：/);
 });
 
 test('奇门格局空亡事实由旬空位置映射承载，应期来源不重复触发条件', () => {
-  const data = cloneFixedBoard();
+  const data = clonePromptBoard();
   const palace = data.jiuGongGe[0];
-  data.classicPatterns = [
-    { name: '空亡核验', type: 'good', summary: '盘面事实', palaces: [palace.gong] },
-  ];
+  const actualPattern = data.classicPatterns!.find((item) => item.palaces.includes(palace.gong))!;
+  assert.ok(actualPattern);
+  data.classicPatterns = [structuredClone(actualPattern)];
   data.voidPalaces = [{ branch: '子', palace: palace.gong, name: palace.name }];
+  delete data.patternCombos;
   data.evidenceAnalysis = analyzeQimenEvidence(data);
   const trigger = '驿马发动，出现行动时触发进展';
   assert.ok(data.yingQi);
@@ -466,7 +598,14 @@ test('奇门格局空亡事实由旬空位置映射承载，应期来源不重�
     .split('\n')
     .find((line) => line.trimStart().startsWith(`${palace.name}（`));
   assert.doesNotMatch(palaceLine ?? '', /逢空/u);
-  assert.ok(prompt.includes(`空亡核验（吉格，${palace.name}）：盘面事实`));
+  assert.ok(prompt.includes(actualPattern.name));
+  assert.ok(prompt.includes(palace.name));
+  assert.match(
+    prompt,
+    new RegExp(
+      `${palace.name}（[^\n]*天盘[^\n]*${palace.tianPan.stem}[^\n]*地盘${palace.diPan.stem}`,
+    ),
+  );
   assert.doesNotMatch(prompt, /结合本次用神与宫门星神，分别核对结果、程度和落实迟速/);
   assert.equal(prompt.split(trigger).length - 1, 1);
   assert.equal(prompt.split('触发条件：').length - 1, 1);
