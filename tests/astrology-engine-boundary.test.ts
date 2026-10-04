@@ -413,12 +413,58 @@ test('同一组星体同宫同星座时在线任务书只列一条完整格局',
     latitude: '70',
     longitude: '0',
   });
-  const patternLine = formatAstrolabeForPrompt(chart)
-    .split('\n')
-    .find((line) => line.startsWith('十大星体格局：'));
-  assert.ok(patternLine);
+  const sameSignPattern = '同星座星群（火星、太阳、金星，摩羯座）';
+  const sameHousePattern = '同宫星群（火星、太阳、金星，第12宫）';
+  const members = ['火星', '太阳', '金星'].map((label) =>
+    chart.planets.find((planet) => planet.label === label),
+  );
+  assert.ok(chart.summary.patterns.includes(sameSignPattern));
+  assert.ok(chart.summary.patterns.includes(sameHousePattern));
+  assert.ok(members.every((planet) => planet?.sign === '摩羯座' && planet.house === 12));
+
+  const patternLineFor = (patterns: string[], planets = chart.planets) => {
+    const line = formatAstrolabeForPrompt({
+      ...chart,
+      planets,
+      summary: { ...chart.summary, patterns },
+    })
+      .split('\n')
+      .find((item) => item.startsWith('十大星体格局：'));
+    assert.ok(line);
+    return line;
+  };
+
+  assert.equal(patternLineFor([sameSignPattern]), '十大星体格局：同星座星群（火星、太阳、金星）');
+  assert.equal(patternLineFor([sameHousePattern]), '十大星体格局：同宫星群（火星、太阳、金星）');
+  const patternLine = patternLineFor([sameSignPattern, sameHousePattern]);
   assert.equal(patternLine.match(/火星、太阳、金星/g)?.length, 1);
-  assert.match(patternLine, /同宫同星座星群（火星、太阳、金星，摩羯座，第12宫）/);
+  assert.equal(patternLine, '十大星体格局：同宫同星座星群（火星、太阳、金星）');
+
+  const missingMember = '同宫星群（火星、太阳、缺席行星，第12宫）';
+  assert.equal(patternLineFor([missingMember]), `十大星体格局：${missingMember}`);
+
+  const duplicateLabelPlanets = structuredClone(chart.planets);
+  duplicateLabelPlanets.find((planet) => planet.label === '水星')!.label = '火星';
+  assert.equal(
+    patternLineFor([sameHousePattern], duplicateLabelPlanets),
+    `十大星体格局：${sameHousePattern}`,
+  );
+
+  const zeroHouse = '同宫星群（火星、太阳、金星，第0宫）';
+  assert.equal(patternLineFor([zeroHouse]), `十大星体格局：${zeroHouse}`);
+
+  const zeroHousePlanets = structuredClone(chart.planets);
+  zeroHousePlanets.find((planet) => planet.label === '金星')!.house = 0;
+  assert.equal(
+    patternLineFor([sameHousePattern], zeroHousePlanets),
+    `十大星体格局：${sameHousePattern}`,
+  );
+
+  const extraExplanation = '同宫星群（火星、太阳、金星，第12宫，另有独立说明）';
+  assert.equal(patternLineFor([extraExplanation]), `十大星体格局：${extraExplanation}`);
+
+  const mismatchedSign = '同星座星群（火星、太阳、金星，白羊座）';
+  assert.equal(patternLineFor([mismatchedSign]), `十大星体格局：${mismatchedSign}`);
 });
 
 test('小行星与凯龙星不将一两颗行星凑成星群，真实行星星群仍保留', () => {
@@ -749,6 +795,7 @@ test('风筝的对冲端不标为焦点，合相替代星体仍分别保留构�
   assert.ok(patternLine);
   assert.match(patternLine, /风筝（火星、水星、海王星、冥王星）/);
   assert.match(patternLine, /风筝（火星、水星、冥王星、天王星）/);
+  assert.match(patternLine, /T字刑（火星、海王星、太阳，焦点太阳）/);
   assert.doesNotMatch(patternLine, /风筝（[^）]*焦点/);
 });
 

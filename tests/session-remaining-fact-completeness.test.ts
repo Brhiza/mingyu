@@ -84,14 +84,22 @@ test('星盘简版任务书保留星体落宫、尊贵、昼夜和格局相位�
   });
   const data = session.data as AstrolabeData;
   const moon = data.planets.find((point) => point.name === 'Moon');
+  const clusterMembers = ['Moon', 'Neptune', 'Sun'].map((name) =>
+    data.planets.find((point) => point.name === name),
+  );
   assert.ok(moon);
   assert.equal(moon.house, 10);
   assert.equal(moon.dignityLabel, '落陷');
   assert.equal(data.dayChart, true);
+  assert.ok(clusterMembers.every((point) => point?.house === 10));
   assert.ok(data.summary.patterns.includes('同宫星群（月亮、海王星、太阳，第10宫）'));
   assert.match(session.aiPrompt, /昼夜盘：昼盘/);
   assert.ok(session.aiPrompt.includes(`月亮${moon.formatted}，第10宫，落陷`));
-  assert.match(session.aiPrompt, /同宫星群（月亮、海王星、太阳，第10宫）/);
+  for (const point of clusterMembers) {
+    assert.ok(point);
+    assert.ok(session.aiPrompt.includes(`  ${point.label}${point.formatted}，第10宫`));
+  }
+  assert.match(session.aiPrompt, /同宫星群（月亮、海王星、太阳）/);
   assert.match(session.aiPrompt, /太阳与月亮：合相[^\n]*出相[^\n]*同宫/);
   assert.equal((session.aiPrompt.match(/十大星体格局：/g) ?? []).length, 1);
   assert.doesNotMatch(session.aiPrompt, /evidenceAnalysis|sourceUrl|schemaVersion/);

@@ -622,6 +622,48 @@ test('紫微单宫定位条件仅在宫位中已有同一星曜事实时省略',
     false,
   );
 
+  assert.equal(isZiweiConditionRestatedByPalaces(pattern, '夫妻宫在亥宫', [palace]), true);
+  for (const displayed of [
+    [],
+    [{ ...palace, index: 3 }],
+    [{ ...palace, name: '官禄' }],
+    [{ ...palace, earthly_branch: '子' }],
+  ]) {
+    assert.equal(isZiweiConditionRestatedByPalaces(pattern, '夫妻宫在亥宫', displayed), false);
+  }
+  assert.equal(
+    isZiweiConditionRestatedByPalaces(pattern, '夫妻宫在亥宫，属于古籍附加条件', [palace]),
+    false,
+  );
+
+  const branchPayload = createPayload();
+  branchPayload.palaces[0] = createPalace(0, '命宫');
+  branchPayload.palaces[0].earthly_branch = '寅';
+  branchPayload.basic_info.soul_palace_branch = '寅';
+  branchPayload.palaces[4] = createPalace(4, '财帛', ['天府']);
+  branchPayload.palaces[8] = createPalace(8, '官禄', ['天相']);
+  branchPayload.patterns = detectPatterns({ palaces: branchPayload.palaces });
+  const branchBefore = structuredClone(branchPayload);
+  const branchPattern = branchPayload.patterns.find((item) => item.name === '府相朝垣');
+  assert.deepEqual(branchPattern?.matched_conditions, [
+    '命宫在寅宫',
+    '天府、天相分别坐财帛宫与官禄宫',
+  ]);
+  for (const text of [
+    formatZiweiPayloadForPrompt(branchPayload),
+    buildZiweiTaskBookSnapshot({ payload: branchPayload, reportContext: createReportContext() }),
+  ]) {
+    assert.match(text, /命宫[；｜][^\n]*宫干支：?甲寅/u);
+    assert.match(text, /格局：府相朝垣[\s\S]*?命中条件：天府、天相分别坐财帛宫与官禄宫/u);
+    assert.match(text, /古籍依据：《紫微斗数全书》卷三/u);
+    assert.doesNotMatch(text, /命中条件：命宫在寅宫/u);
+  }
+  assert.match(
+    formatZiweiPayloadForPrompt(branchPayload, { focusPalaceNames: ['财帛'] }),
+    /格局：府相朝垣[\s\S]*?命中条件：命宫在寅宫；天府、天相分别坐财帛宫与官禄宫/u,
+  );
+  assert.deepEqual(branchPayload, branchBefore);
+
   const brightPalace = createPalace(0, '命宫', ['贪狼']);
   brightPalace.major_stars[0].brightness = '庙';
   brightPalace.other_stars = [{ name: '火星', kind: 'other', brightness: '旺' }];

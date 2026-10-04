@@ -24,6 +24,9 @@ import {
   getDivinationSummaryBlocks,
 } from 'mingyu-core/prompt';
 import { formatBaziSchoolFacts } from '../packages/core/src/prompt/bazi-school.ts';
+import './divination-micro-systems.cases.ts';
+import './prompt-page-rules.cases.ts';
+import './prompt-remediation.cases.ts';
 
 function createChart(gender: 'male' | 'female', day: number) {
   return baziCalculator.calculateBazi({

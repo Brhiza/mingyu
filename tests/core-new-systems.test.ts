@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import * as core from '../packages/core/src/index.ts';
 import { drawTarotSpread, getCardEvidence } from '../packages/core/src/divination/tarot.ts';
 import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
+import './divination-template-upgrade.cases.ts';
 
 test('ganzhi: 六十甲子序号与循环差值', () => {
   assert.equal(core.ganzhi.getSixtyCycleIndex('甲子'), 0);

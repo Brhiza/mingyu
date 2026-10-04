@@ -88,14 +88,36 @@ function formatCoordinateAccuracy(accuracy: string | undefined) {
   }
 }
 
-function formatAstrolabePatterns(patterns: string[]) {
+function formatAstrolabePatterns(patterns: string[], planets: AstrolabeData['planets']) {
   const parsed = patterns.map((name) => {
     const match = /^([^（]+)（([^，）]+)(?:，([^）]+))?）$/.exec(name);
+    const kind = match?.[1];
+    const members = match?.[2].split('、') ?? [];
+    const detail = match?.[3];
+    const points = members.map((member) => {
+      const matching = planets.filter((point) => point.label === member);
+      return matching.length === 1 ? matching[0] : undefined;
+    });
+    const completeMembers =
+      members.length >= 3 &&
+      new Set(members).size === members.length &&
+      points.every((point) => point?.formatted);
+    const house = detail?.match(/^第([1-9]|1[0-2])宫$/u);
+    const detailDisplayed = Boolean(
+      completeMembers &&
+      detail &&
+      (kind === '同星座星群'
+        ? points.every((point) => point?.sign === detail && point.formatted.startsWith(detail))
+        : kind === '同宫星群' && house
+          ? points.every((point) => point?.house === Number(house[1]))
+          : false),
+    );
     return {
       name,
-      kind: match?.[1],
-      members: match?.[2].split('、') ?? [],
-      detail: match?.[3],
+      kind,
+      members,
+      detail,
+      detailDisplayed,
     };
   });
   const sameMembers = (first: string[], second: string[]) =>
@@ -110,11 +132,15 @@ function formatAstrolabePatterns(patterns: string[]) {
         ),
     )
     .map((item) => {
-      if (item.kind !== '同宫星群') return item.name;
+      const name = item.detailDisplayed ? `${item.kind}（${item.members.join('、')}）` : item.name;
+      if (item.kind !== '同宫星群') return name;
       const sign = signGroups.find((other) => sameMembers(item.members, other.members));
-      return sign?.detail && item.detail
-        ? `同宫同星座星群（${item.members.join('、')}，${sign.detail}，${item.detail}）`
-        : item.name;
+      if (!sign?.detail || !item.detail) return name;
+      const details = [
+        sign.detailDisplayed ? '' : sign.detail,
+        item.detailDisplayed ? '' : item.detail,
+      ].filter(Boolean);
+      return `同宫同星座星群（${item.members.join('、')}${details.length ? `，${details.join('，')}` : ''}）`;
     });
 }
 
@@ -150,7 +176,7 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     elements ? `元素分布（十大星体）：${elements}` : '',
     modalities ? `模式分布（十大星体）：${modalities}` : '',
     data.summary.patternBasis === 'ten-main-bodies-selected-aspects' && data.summary.patterns.length
-      ? `十大星体格局：${formatAstrolabePatterns(data.summary.patterns).join('、')}`
+      ? `十大星体格局：${formatAstrolabePatterns(data.summary.patterns, data.planets).join('、')}`
       : '',
     ...data.angles.map((point) => `${point.label}：${point.formatted}`),
     data.houses?.length

@@ -246,6 +246,17 @@ function isRepeatedNatalMutagenCoLocationCondition(
   });
 }
 
+function isRepeatedPalaceBranchCondition(
+  pattern: Pick<PatternFact, 'palace_indexes' | 'palace_names'>,
+  condition: string,
+  displayedPalaces: readonly PalaceFact[],
+) {
+  const match = new RegExp(`^(.+宫)在([${EARTHLY_BRANCHES}])宫$`, 'u').exec(condition);
+  if (!match) return false;
+  const palace = getPatternPalace(pattern, match[1], displayedPalaces);
+  return palace?.earthly_branch === match[2];
+}
+
 /** 判断格局条件是否已由当前展示宫位中的星曜位置和明确属性完整表达。 */
 export function isZiweiConditionRestatedByPalaces(
   pattern: Pick<PatternFact, 'palace_indexes' | 'palace_names' | 'star_names'>,
@@ -253,6 +264,7 @@ export function isZiweiConditionRestatedByPalaces(
   displayedPalaces: readonly PalaceFact[],
 ) {
   return (
+    isRepeatedPalaceBranchCondition(pattern, condition, displayedPalaces) ||
     isRepeatedZiweiCoLocationCondition(pattern, condition, displayedPalaces) ||
     isRepeatedSinglePalacePositionCondition(pattern, condition, displayedPalaces) ||
     isRepeatedNamedStarBrightnessCondition(pattern, condition, displayedPalaces) ||
