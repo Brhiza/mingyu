@@ -1538,7 +1538,7 @@ test('三命通会库头财与库头鬼应按年干或日干库位干支取用',
   }
 });
 
-test('天厨贵人对丙日应取巳，不应错判为子', () => {
+test('天厨贵人按丙日取巳、己日取酉并排除错误地支', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(
     [
@@ -1561,11 +1561,9 @@ test('天厨贵人对丙日应取巳，不应错判为子', () => {
 
   assert.ok(hitResult.hour.includes('天厨贵人'));
   assert.ok(!missResult.hour.includes('天厨贵人'));
-});
 
-test('天厨贵人对己日应取酉，不应错判为未', () => {
-  const calculator = new ShenShaCalculator();
-  const hitResult = calculator.calculateAllShenSha(
+  const jiCalculator = new ShenShaCalculator();
+  const jiHitResult = jiCalculator.calculateAllShenSha(
     [
       ['甲', '子'],
       ['丁', '酉'],
@@ -1574,7 +1572,7 @@ test('天厨贵人对己日应取酉，不应错判为未', () => {
     ],
     'male',
   );
-  const missResult = calculator.calculateAllShenSha(
+  const jiMissResult = jiCalculator.calculateAllShenSha(
     [
       ['甲', '子'],
       ['丁', '酉'],
@@ -1584,8 +1582,8 @@ test('天厨贵人对己日应取酉，不应错判为未', () => {
     'male',
   );
 
-  assert.ok(hitResult.hour.includes('天厨贵人'));
-  assert.ok(!missResult.hour.includes('天厨贵人'));
+  assert.ok(jiHitResult.hour.includes('天厨贵人'));
+  assert.ok(!jiMissResult.hour.includes('天厨贵人'));
 });
 
 test('福星贵人应按完整干支组合判断，不应只看地支', () => {

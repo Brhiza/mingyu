@@ -229,9 +229,12 @@ test('奇门经典格局保留各宫命中且省略重复条件与通用叠加',
     ['刑狱之格', '凶格', '艮八宫', '辛', '己'],
     ['织女寻牛', '凶格', '离九宫', '丁', '庚'],
   ];
-  const compactLines = compactStemPatterns.map(
-    ([name, tone, palace]) => `${name}（${tone}，${palace}）`,
-  );
+  const compactLines = [
+    ...compactStemPatterns.map(([name, tone, palace]) => `${name}（${tone}，${palace}）`),
+    '天遁（吉格，兑七宫）',
+    '休诈（吉格，兑七宫）',
+    '相佐（吉格，巽四宫）',
+  ];
   for (const [index, [, , palace, sky, earth]] of compactStemPatterns.entries()) {
     assert.ok(patternBlock.split('\n').includes(compactLines[index]));
     assert.match(prompt, new RegExp(`${palace}（[^\\n]*天盘[^\\n]*${sky}[^\\n]*地盘${earth}`));
@@ -265,13 +268,12 @@ test('奇门经典格局保留各宫命中且省略重复条件与通用叠加',
   assert.match(patternBlock, /日奇得使（吉格）：乙奇加地盘辛（甲戌\/甲午所遁）于坎一宫/);
   assert.match(patternBlock, /三奇游六仪（吉格）：[^\n]*星奇游于甲辰壬/);
   assert.match(patternBlock, /蛇化为龙（吉格）：[^\n]*排盘时以甲子戊代甲/);
-  assert.match(prompt, /天遁（吉格，兑七宫）：生门、丙奇、地盘戊同宫/);
+  assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(prompt, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
+  assert.doesNotMatch(prompt, /生门、丙奇、地盘戊同宫|同宫临生门/u);
   assert.doesNotMatch(prompt, /乃天遁之格/);
   assert.doesNotMatch(prompt, /^月奇得使（吉格/mu);
-  assert.match(
-    prompt,
-    /月奇得使临吉门（吉格）：丙奇加地盘戊（甲子\/甲申所遁）于兑七宫；同宫临生门/,
-  );
+  assert.match(prompt, /^月奇得使临吉门（吉格）：丙奇加地盘戊（甲子\/甲申所遁）于兑七宫$/mu);
   assert.doesNotMatch(prompt, /月奇得使临吉门（吉格，兑七宫）：月奇得使又临吉门/);
   assert.doesNotMatch(prompt, /聚集7个吉格|同时见吉格与凶格|主能量收敛、事情停滞/);
   assert.doesNotMatch(prompt, /复合格局：/);
@@ -284,7 +286,7 @@ test('奇门无命中格局时省略格局标题，重复命中只列一次', ()
   data.classicPatterns?.push({ ...duplicate });
   data.evidenceAnalysis = undefined;
   const duplicatedPrompt = formatEnhancedDivinationInfo('qimen', data);
-  assert.equal(duplicatedPrompt.match(/^天遁（吉格，兑七宫）：/gmu)?.length, 1);
+  assert.equal(duplicatedPrompt.match(/^天遁（吉格，兑七宫）$/gmu)?.length, 1);
 
   data.classicPatterns = [];
   data.patternTags = [];

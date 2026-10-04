@@ -56,6 +56,11 @@ test('姓名任务书保留冬癸实际取用的部分判定、条件作用及�
     assert.match(prompt, /增补喜用五行：金、水（部分判定）/);
     assert.match(prompt, /条件取用：丙火用于解冻（作用对象：癸）/);
     assert.match(prompt, /干级所忌：丁/);
+    assert.match(
+      prompt,
+      /当前成败判定：未判定；判定理由：七杀仅见于月柱藏干己（七杀）、日柱藏干己（七杀），未透干/,
+    );
+    assert.doesNotMatch(prompt, /格局成败：|格局判定依据：|格局反证：|化气条件：/);
   }
   const decided = analyzeChineseName({
     fullName: '李清和',
@@ -63,8 +68,18 @@ test('姓名任务书保留冬癸实际取用的部分判定、条件作用及�
   });
   assert.deepEqual(decided.birthContext?.pillars, ['庚辰', '甲申', '己酉', '甲子']);
   assert.equal(decided.birthContext?.incrementStatus, '已判定');
-  assert.doesNotMatch(buildChineseNameAnalysisPrompt({ analysis: decided }), /（部分判定）/);
-  assert.match(buildChineseNameAnalysisPrompt({ analysis: decided }), /格局成败：破格/);
+  const decidedPrompt = buildChineseNameAnalysisPrompt({ analysis: decided });
+  assert.doesNotMatch(
+    decidedPrompt,
+    /（部分判定）|格局成败：|格局判定依据：|格局反证：|化气条件：/,
+  );
+  assert.match(
+    decidedPrompt,
+    /当前成败判定：破格；判定理由：原局见伤官见官；印星配伤官制伤缺少来源/,
+  );
+  assert.match(decidedPrompt, /化气判定：存在反证；化神土/);
+  assert.match(decidedPrompt, /化气证据：明干或地支本气见木克制化神土/);
+  assert.match(decidedPrompt, /化气证据：配合不专：另有天干争合、配合天干重复/);
 });
 
 test('稳定冬癸出生区间的共同喜用及各时段都保留部分判定', () => {

@@ -166,7 +166,9 @@ export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[
 }
 
 /** 提示词只保留本盘判定理由，通用成败规则留在结构化分析中。 */
-export function formatPatternDecisionForPrompt(pattern: PatternAnalysis): string {
+export function formatPatternDecisionForPrompt(
+  pattern: Pick<PatternAnalysis, 'fulfillment'>,
+): string {
   const fulfillment = pattern.fulfillment;
   if (!fulfillment) return '';
   const decisionDetail = fulfillment.decisionDetail || fulfillment.summary;

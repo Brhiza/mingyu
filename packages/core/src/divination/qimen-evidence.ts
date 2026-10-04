@@ -496,6 +496,28 @@ export function formatQimenClassicPatternBasisForPrompt(
   data?: QimenData,
 ): string {
   const basis = formatQimenPatternBasis(item).replaceAll(`；乃${item.name}之格`, '');
+  const palaceDisplayed =
+    item.palaces.length === 1 && data?.jiuGongGe.some((palace) => palace.gong === item.palaces[0]);
+  if (
+    palaceDisplayed &&
+    [
+      '天遁',
+      '地遁',
+      '人遁',
+      '神遁',
+      '鬼遁',
+      '龙遁',
+      '虎遁',
+      '风遁',
+      '云遁',
+      '真诈',
+      '重诈',
+      '休诈',
+      '相佐',
+    ].includes(item.name)
+  ) {
+    return item.name;
+  }
   const stemPair = basis.match(/^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于(.+)$/u);
   if (data && item.palaces.length === 1 && stemPair) {
     const palaces = data.jiuGongGe.filter((palace) => palace.gong === item.palaces[0]);
@@ -537,6 +559,7 @@ export function formatQimenClassicPatternBasisForPrompt(
     .map((fact) => formatQimenPatternBasis(fact))
     .filter((parentBasis) => parentBasis !== parentName);
   if (!parentBases.length) return basis;
+  if (palaceDisplayed) return unique(parentBases).join('；');
   return unique([...parentBases, basis.replace(`${parentName}又临吉门`, '同宫临')]).join('；');
 }
 

@@ -13,7 +13,10 @@ import {
   type BaziChartInputDraft,
 } from '../bazi/input';
 import { baziCalculator } from '../bazi/baziCalculator';
-import { formatUsefulGodFunctions } from '../bazi/baziAnalysisFormatter';
+import {
+  formatPatternDecisionForPrompt,
+  formatUsefulGodFunctions,
+} from '../bazi/baziAnalysisFormatter';
 import {
   formatFixedTimezoneOffset,
   getCivilDateTimeAtFixedOffset,
@@ -1567,7 +1570,6 @@ function formatBirthContext(
       ? [
           `化气判定：${context.pattern.transformation.status}；化神${context.pattern.transformation.element}；${context.pattern.transformation.basis}`,
           ...context.pattern.transformation.evidence.map((item) => `化气证据：${item}`),
-          ...context.pattern.transformation.conditions.map((item) => `化气条件：${item}`),
           ...(context.pattern.transformation.status === '成化'
             ? [
                 `化神取用主体：化神${context.pattern.transformation.element}；原日主${context.dayMaster}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
@@ -1575,15 +1577,7 @@ function formatBirthContext(
             : []),
         ]
       : []),
-    ...(fulfillment
-      ? [
-          `格局成败：${fulfillment.status}；${fulfillment.summary}`,
-          fulfillment.basis && !fulfillment.summary.includes(fulfillment.basis)
-            ? `格局判定依据：${fulfillment.basis}`
-            : '',
-          fulfillment.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
-        ].filter(Boolean)
-      : []),
+    ...(fulfillment ? [formatPatternDecisionForPrompt({ fulfillment })] : []),
     ...(unknownTime
       ? unknownTimeLines
       : [

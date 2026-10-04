@@ -691,7 +691,9 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   assert.match(prompt, /离九宫（正南，火）：[^\n]*天盘丁，地盘庚/);
   assert.doesNotMatch(prompt, /同干定位：/);
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/);
-  assert.match(prompt, /天遁（吉格，兑七宫）：生门、丙奇、地盘戊同宫/);
+  assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(prompt, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
+  assert.doesNotMatch(prompt, /生门、丙奇、地盘戊同宫/u);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);

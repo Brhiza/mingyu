@@ -21,7 +21,16 @@ test('奇门完整在线提示词只保留一处旬空与驿马位置映射', ()
 
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/u);
   assert.doesNotMatch(palaceTable, /逢空|马星/u);
-  assert.match(palaceTable, /兑七宫[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
+  assert.equal(palaceTable.trim().split('\n').length, 9);
+  assert.match(palaceTable, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
+  assert.match(palaceTable, /巽四宫[^\n]*星天冲，神值符[^\n]*地盘丁/u);
+  assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(prompt, /^休诈（吉格，兑七宫）$/mu);
+  assert.match(prompt, /^相佐（吉格，巽四宫）$/mu);
+  assert.doesNotMatch(
+    prompt,
+    /生门、丙奇、地盘戊同宫|丙奇、生门、六合同宫|值符天冲加地盘丁于巽四宫/u,
+  );
   assert.doesNotMatch(prompt, /同干定位：/u);
 });
 
@@ -31,13 +40,19 @@ test('奇门证据提示词保留格局条件、三奇得、马星和击刑事�
   const prompt = analysis.promptText;
   const patterns = prompt.split('【传统格局】\n')[1]?.split('【应期资料】')[0] ?? '';
 
-  assert.match(patterns, /吉格：天遁（兑七宫）；生门、丙奇、地盘戊同宫/);
+  assert.match(patterns, /^吉格：天遁（兑七宫）$/mu);
+  assert.match(patterns, /^吉格：休诈（兑七宫）$/mu);
+  assert.match(patterns, /^吉格：相佐（巽四宫）$/mu);
+  assert.doesNotMatch(
+    patterns,
+    /生门、丙奇、地盘戊同宫|丙奇、生门、六合同宫|值符天冲加地盘丁于巽四宫/u,
+  );
   assert.doesNotMatch(patterns, /乃天遁之格/);
   assert.doesNotMatch(patterns, /^吉格：月奇得使（/mu);
-  assert.match(
-    patterns,
-    /吉格：月奇得使临吉门；丙奇加地盘戊（甲子\/甲申所遁）于兑七宫；同宫临生门/,
-  );
+  assert.match(patterns, /^吉格：月奇得使临吉门；丙奇加地盘戊（甲子\/甲申所遁）于兑七宫$/mu);
+  assert.doesNotMatch(patterns, /同宫临生门/u);
+  assert.match(patterns, /吉格：三奇游六仪；甲寅癸值符加地盘丁奇于巽四宫；星奇游于甲辰壬/u);
+  assert.match(patterns, /凶格：庚入墓；庚在坤二宫入墓（墓在未）/u);
   assert.doesNotMatch(patterns, /月奇得使又临吉门生门/);
   assert.match(patterns, /凶格：门迫；惊门（金）克巽四宫（木）/);
   assert.match(patterns, /吉格：三奇得（丙奇（月奇）合生门于兑七宫）\n/u);
@@ -130,7 +145,7 @@ test('奇门提示词合并相同宫位相同条件的命中记录，保留不�
   const repeatedBefore = structuredClone(data);
   assert.ok(analyzeQimenEvidence(data).patternFacts.length > evidence.patternFacts.length);
   assert.equal(
-    formatEnhancedDivinationInfo('qimen', data).match(/^天遁（吉格，兑七宫）：/gmu)?.length,
+    formatEnhancedDivinationInfo('qimen', data).match(/^天遁（吉格，兑七宫）$/gmu)?.length,
     1,
   );
   assert.deepEqual(data, repeatedBefore);
@@ -139,7 +154,8 @@ test('奇门提示词合并相同宫位相同条件的命中记录，保留不�
 test('奇门详细在线资料复用命中条件，摘要不重复格局且不采样专项复合格局', () => {
   const data = cloneFixedQimen();
   const prompt = formatDetailedDivinationInfo('qimen', data);
-  assert.equal(prompt.match(/生门、丙奇、地盘戊同宫/gu)?.length, 1);
+  assert.equal(prompt.match(/^吉格：天遁（兑七宫）$/gmu)?.length, 1);
+  assert.doesNotMatch(prompt, /生门、丙奇、地盘戊同宫/u);
   assert.match(prompt, /凶格：门迫；惊门（金）克巽四宫（木）/u);
   assert.doesNotMatch(prompt, /^格局：|盘面命中格局：|乃天遁之格|主此宫事务受阻/gmu);
   assert.match(prompt, /值符宫应期参考：/u);
@@ -148,7 +164,8 @@ test('奇门详细在线资料复用命中条件，摘要不重复格局且不�
 
   delete data.yingQi;
   const withoutTiming = formatDetailedDivinationInfo('qimen', data);
-  assert.equal(withoutTiming.match(/生门、丙奇、地盘戊同宫/gu)?.length, 1);
+  assert.equal(withoutTiming.match(/^吉格：天遁（兑七宫）$/gmu)?.length, 1);
+  assert.doesNotMatch(withoutTiming, /生门、丙奇、地盘戊同宫/u);
   assert.match(withoutTiming, /凶格：门迫；惊门（金）克巽四宫（木）/u);
   assert.doesNotMatch(withoutTiming, /盘面命中格局：/u);
 });
