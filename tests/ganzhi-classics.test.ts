@@ -2,6 +2,8 @@ import * as relationTables from '../packages/core/src/ganzhi/relations.ts';
 import { describeGanZhi } from '../packages/core/src/ganzhi/index.ts';
 import { getNayin, getNayinWuxing } from '../packages/core/src/ganzhi/index.ts';
 import { NAYIN_MAP } from '../packages/core/src/ganzhi/data.ts';
+import { TIME_MAP } from '../packages/core/src/bazi/baziDisplayData.ts';
+import { SEASON_STATUS } from '../packages/core/src/bazi/baziElementData.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getStemWuxing, getBranchWuxing, isLiuhe } from '../packages/core/src/ganzhi/index.ts';
@@ -112,6 +114,38 @@ test('十二支藏干集合与选择天镜支神藏干表一致，主气单独�
 });
 
 test('干支五行与六合逐项对应《渊海子平》基础表', () => {
+  assert.deepEqual(
+    TIME_MAP.map(({ index, name, range, hour, minute }) => [index, name, range, hour, minute]),
+    [
+      [0, '早子时', '00:00-01:00', 0, 30],
+      [1, '丑时', '01:00-03:00', 2, 0],
+      [2, '寅时', '03:00-05:00', 4, 0],
+      [3, '卯时', '05:00-07:00', 6, 0],
+      [4, '辰时', '07:00-09:00', 8, 0],
+      [5, '巳时', '09:00-11:00', 10, 0],
+      [6, '午时', '11:00-13:00', 12, 0],
+      [7, '未时', '13:00-15:00', 14, 0],
+      [8, '申时', '15:00-17:00', 16, 0],
+      [9, '酉时', '17:00-19:00', 18, 0],
+      [10, '戌时', '19:00-21:00', 20, 0],
+      [11, '亥时', '21:00-23:00', 22, 0],
+      [12, '晚子时', '23:00-24:00', 23, 30],
+    ],
+  );
+  assert.deepEqual(SEASON_STATUS, {
+    寅: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
+    卯: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
+    辰: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    巳: { 火: '旺', 土: '相', 金: '死', 水: '囚', 木: '休' },
+    午: { 火: '旺', 土: '相', 金: '死', 水: '囚', 木: '休' },
+    未: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    申: { 金: '旺', 水: '相', 木: '死', 火: '囚', 土: '休' },
+    酉: { 金: '旺', 水: '相', 木: '死', 火: '囚', 土: '休' },
+    戌: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    亥: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
+    子: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
+    丑: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+  });
   const groups = {
     木: '甲乙寅卯',
     火: '丙丁巳午',

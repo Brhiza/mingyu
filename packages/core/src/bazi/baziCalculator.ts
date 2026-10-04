@@ -1,5 +1,5 @@
 import { SolarTime, SixtyCycleYear, Gender, LunarHour, EightChar } from 'tyme4ts';
-import { TIME_MAP } from './baziDefinitions';
+
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange, resolveChinaStandardBirthTime } from '../calendar/china-dst';
 import {
@@ -68,6 +68,7 @@ import {
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
+import { getBaziTimePeriods } from './baziDisplayData';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -112,7 +113,7 @@ function resolveMingGuaYear(solarTime: SolarTimeInstance, baziYearPillarName: st
  * 整合了所有计算逻辑
  */
 export class BaziCalculator {
-  private timeMap: TimeInfo[] = TIME_MAP;
+  private timeMap: TimeInfo[] = getBaziTimePeriods();
   private shenShaCalculator: ShenShaCalculator;
   private analyzer: BaziAnalyzer;
   private luckCalculator: LuckCalculator;

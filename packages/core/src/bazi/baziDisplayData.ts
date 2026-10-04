@@ -8,10 +8,17 @@
 import { SHICHEN_PERIODS } from '../calendar/dateUtils';
 
 // 兼容八字旧名，实际由公共日历时辰目录派生。
-export const TIME_MAP = SHICHEN_PERIODS.map(({ index, name, range, hour, minute }) => ({
+const CANONICAL_TIME_MAP = SHICHEN_PERIODS.map(({ index, name, range, hour, minute }) => ({
   index,
   name,
   range,
   hour,
   minute,
 }));
+
+export const TIME_MAP = CANONICAL_TIME_MAP.map((period) => ({ ...period }));
+
+/** 返回固定时辰目录的独立副本。 */
+export function getBaziTimePeriods() {
+  return CANONICAL_TIME_MAP.map((period) => ({ ...period }));
+}

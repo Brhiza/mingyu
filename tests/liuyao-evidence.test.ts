@@ -20,6 +20,51 @@ const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
 const fixedManualChart = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
 const cloneFixedManualChart = () => structuredClone(fixedManualChart);
 
+let fixedHiddenSpiritChart: ReturnType<typeof generateLiuyao> | undefined;
+const cloneFixedHiddenSpiritChart = () =>
+  structuredClone(
+    (fixedHiddenSpiritChart ??= generateLiuyao(fixedDate, {
+      method: 'manual',
+      yaos: [7, 8, 8, 8, 7, 8],
+    })),
+  );
+
+let fixedChangedVoidChart: ReturnType<typeof generateLiuyao> | undefined;
+const cloneFixedChangedVoidChart = () =>
+  structuredClone(
+    (fixedChangedVoidChart ??= generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+      method: 'manual',
+      yaos: [6, 6, 6, 6, 6, 6],
+    })),
+  );
+
+let fixedFanyinChart: ReturnType<typeof generateLiuyao> | undefined;
+const cloneFixedFanyinChart = () =>
+  structuredClone(
+    (fixedFanyinChart ??= generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+      method: 'manual',
+      yaos: [9, 7, 7, 9, 7, 7],
+    })),
+  );
+
+let fixedStaticQianChart: ReturnType<typeof generateLiuyao> | undefined;
+const cloneFixedStaticQianChart = () =>
+  structuredClone(
+    (fixedStaticQianChart ??= generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+      method: 'manual',
+      yaos: [7, 7, 7, 7, 7, 7],
+    })),
+  );
+
+let fixedSanheChart: ReturnType<typeof generateLiuyao> | undefined;
+const cloneFixedSanheChart = () =>
+  structuredClone(
+    (fixedSanheChart ??= generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+      method: 'manual',
+      yaos: [7, 6, 7, 7, 7, 6],
+    })),
+  );
+
 test('六爻证据与提示词拒绝和结果元数据不一致的起卦时间戳', () => {
   const source = cloneFixedManualChart();
   assert.equal(Date.parse(source.meta!.calculatedAt), source.timestamp);
@@ -132,10 +177,7 @@ test('六爻证据拒绝被改写的本爻六亲、动变关系和进退神', ()
 });
 
 test('六爻旧盘伏神须与本宫首卦纳甲、六亲差集、旬空及飞伏作用一致', () => {
-  const source = generateLiuyao(fixedDate, {
-    method: 'manual',
-    yaos: [7, 8, 8, 8, 7, 8],
-  });
+  const source = cloneFixedHiddenSpiritChart();
   assert.equal(source.hiddenSpirits?.length, 1);
   const oldResult = structuredClone(source);
   delete oldResult.hiddenSpirits![0].interactionEffect;
@@ -484,10 +526,7 @@ test('六爻通用排盘保留取用候选，不将世爻自动选为用神', ()
 });
 
 test('六爻证据应同时保留基础动变关系与化空条件', () => {
-  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
-    method: 'manual',
-    yaos: [6, 6, 6, 6, 6, 6],
-  });
+  const data = cloneFixedChangedVoidChart();
   const changedLine = data.yaosDetail[5];
   const changedFact = data.evidenceAnalysis?.lineFacts[5];
 
@@ -521,10 +560,7 @@ test('六爻无空爻时仅列旬空背景，不生成出空应期', () => {
 });
 
 test('六爻变爻落空时应期事实归属到对应动爻', () => {
-  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
-    method: 'manual',
-    yaos: [6, 6, 6, 6, 6, 6],
-  });
+  const data = cloneFixedChangedVoidChart();
   const voidFact = data.evidenceAnalysis?.timingFacts.find((item) => item.type === '空亡填实');
   assert.ok(voidFact);
   assert.match(voidFact.promptText, /第6爻变爻/);
@@ -568,19 +604,9 @@ test('感情和怪异主题只列盘面线索，明确指定六亲时才可取�
 });
 
 test('六爻整卦关系、反吟伏吟与三合应形成独立结构事实', () => {
-  const date = new Date('2025-01-01T00:00:00+08:00');
-  const sanhe = generateLiuyao(date, {
-    method: 'manual',
-    yaos: [7, 6, 7, 7, 7, 6],
-  });
-  const fanyin = generateLiuyao(date, {
-    method: 'manual',
-    yaos: [9, 7, 7, 9, 7, 7],
-  });
-  const staticChart = generateLiuyao(date, {
-    method: 'manual',
-    yaos: [7, 7, 7, 7, 7, 7],
-  });
+  const sanhe = cloneFixedSanheChart();
+  const fanyin = cloneFixedFanyinChart();
+  const staticChart = cloneFixedStaticQianChart();
   assert.equal(sanhe.sanheWithDay?.group, '火局');
   assert.equal(fanyin.fanfuRelations?.labels[0], '内外反吟');
   assert.equal(staticChart.specialPattern, '静卦');
@@ -706,9 +732,8 @@ test('六爻证据拒绝被改写的三刑合害和生旺墓绝字段', () => {
 });
 
 test('六爻整卦、反伏与特殊卦式须复算后才进入摘要和详细任务书', () => {
-  const date = new Date('2025-01-01T00:00:00+08:00');
-  const fanyin = generateLiuyao(date, { method: 'manual', yaos: [9, 7, 7, 9, 7, 7] });
-  const staticChart = generateLiuyao(date, { method: 'manual', yaos: [7, 7, 7, 7, 7, 7] });
+  const fanyin = cloneFixedFanyinChart();
+  const staticChart = cloneFixedStaticQianChart();
   assert.match(formatDetailedDivinationInfo('liuyao', fanyin), /内外反吟/u);
   assert.match(formatDetailedDivinationInfo('liuyao', staticChart), /静卦/u);
   const mutations: Array<{
@@ -794,10 +819,7 @@ test('六爻整卦、反伏与特殊卦式须复算后才进入摘要和详细�
 });
 
 test('六爻三合结构须由动变爻和月日支复算，旧结果缺少该字段仍可分析', () => {
-  const source = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
-    method: 'manual',
-    yaos: [7, 6, 7, 7, 7, 6],
-  });
+  const source = cloneFixedSanheChart();
   assert.equal(source.sanheWithDay?.group, '火局');
   const sourceEvidence = analyzeLiuyaoEvidence(source);
   assert.ok(sourceEvidence.structureFacts.some((fact) => fact.kind === '日辰三合'));
@@ -919,10 +941,7 @@ test('六爻三合结构须由动变爻和月日支复算，旧结果缺少该�
 });
 
 test('六爻三刑须由本卦纳甲支复算后才进入提示词', () => {
-  const source = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
-    method: 'manual',
-    yaos: [7, 6, 7, 7, 7, 6],
-  });
+  const source = cloneFixedSanheChart();
   assert.deepEqual(source.sanxingInYaos?.[0], {
     branches: ['丑', '未'],
     type: '恃势之刑',
@@ -969,7 +988,7 @@ test('鬼神怪异主题必须保留现实解释限制', () => {
 
 test('六爻伏神应推导飞伏生克实效断诀', () => {
   // 水雷屯（坎宫二世卦），六亲缺妻财
-  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: [7, 8, 8, 8, 7, 8] });
+  const data = cloneFixedHiddenSpiritChart();
   assert.ok(data.hiddenSpirits && data.hiddenSpirits.length > 0);
   for (const spirit of data.hiddenSpirits) {
     assert.ok(spirit.sixRelative);

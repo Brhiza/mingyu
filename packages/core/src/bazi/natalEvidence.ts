@@ -5,11 +5,14 @@ import {
   formatPatternDecisionForPrompt,
   formatUsefulGodFunctions,
 } from './baziAnalysisFormatter';
-import { HEAVENLY_STEMS, NAYIN_MAP, SIXTY_CYCLE, TWELVE_STAGES_MAP } from './baziMappingsData';
+import { HEAVENLY_STEMS, SIXTY_CYCLE, TWELVE_STAGES_MAP } from './baziMappingsData';
 import { getGanYinYang, getTenGod, getWuxing } from './baziUtils';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { calculateKongWangBranches } from './kongWang';
 import { getBaziRelationMappings } from './baziMappingsData';
+import { getNayinTable } from '../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

@@ -21,6 +21,6 @@ export {
   SAN_HUI_MAP,
   SI_KU,
 } from './baziMappingsData';
-export * from './baziElementData';
+export { TEN_GODS_DEFINITIONS, SEASON_STATUS } from './baziElementData';
 export { shenShaTypes, getShenShaCategory } from './baziShenShaData';
-export * from './baziDisplayData';
+export { TIME_MAP } from './baziDisplayData';

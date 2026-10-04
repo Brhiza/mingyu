@@ -58,7 +58,7 @@ export const TEN_GODS_DEFINITIONS: Record<
   },
 };
 
-export const SEASON_STATUS: Record<string, Record<string, string>> = {
+const CANONICAL_SEASON_STATUS: Record<string, Record<string, string>> = {
   寅: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
   卯: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
   辰: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
@@ -72,3 +72,14 @@ export const SEASON_STATUS: Record<string, Record<string, string>> = {
   子: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
   丑: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
 };
+
+export const SEASON_STATUS: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(CANONICAL_SEASON_STATUS).map(([branch, states]) => [branch, { ...states }]),
+);
+
+/** 返回固定月令状态资料的独立副本。 */
+export function getBaziSeasonStatuses(): Record<string, Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(CANONICAL_SEASON_STATUS).map(([branch, states]) => [branch, { ...states }]),
+  );
+}

@@ -1,9 +1,12 @@
 import type { BaziChartResult } from '../bazi/index.js';
-import { NAYIN_MAP, STEM_WUXING } from '../ganzhi/data.js';
+import { STEM_WUXING } from '../ganzhi/data.js';
 
 import { isGanZhiPair } from '../ganzhi/validation.js';
 import type { TermContextData } from './types.js';
 import { getGanZhiRelationTables } from '../ganzhi/relations.js';
+import { getNayinTable } from '../ganzhi/data.js';
+
+const NAYIN_MAP = getNayinTable();
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 

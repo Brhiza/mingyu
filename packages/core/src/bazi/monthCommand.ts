@@ -1,8 +1,10 @@
-import { SEASON_STATUS } from './baziDefinitions';
 import { WUXING, type Wuxing } from './baziTypes';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 import type { MonthQiElementItem, MonthQiProfile } from '../types/analysis';
 import { getBaziRelationMappings } from './baziMappingsData';
+import { getBaziSeasonStatuses } from './baziElementData';
+
+const SEASON_STATUS = getBaziSeasonStatuses();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

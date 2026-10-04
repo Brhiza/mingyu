@@ -13,9 +13,12 @@ import {
   getHistoricalTimezoneOffsetAt,
   resolveHistoricalTimezone,
 } from '../calendar/historical-timezone';
-import { MONTH_COMMANDER, TIME_MAP } from './baziDefinitions';
+import { MONTH_COMMANDER } from './baziDefinitions';
 import { resolveShenShaVariantConfig } from './baziShenSha';
 import { SolarTerm } from 'tyme4ts';
+import { getBaziTimePeriods } from './baziDisplayData';
+
+const TIME_MAP = getBaziTimePeriods();
 
 const SECOND = 1_000;
 const HOUR = 60 * 60 * SECOND;

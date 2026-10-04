@@ -57,7 +57,6 @@ import {
   STEM_WUXING,
   STEM_YINYANG,
   BRANCH_YINYANG,
-  NAYIN_MAP,
   CHANGSHENG_ORDER,
   WUXING_CHANGSHENG_START,
   type HeavenlyStem,
@@ -72,10 +71,27 @@ import {
   isValidGanZhi,
 } from './validation';
 import { getGanZhiRelationTables } from './relations';
+import { getNayinTable } from './data';
+
+const NAYIN_MAP = getNayinTable();
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
-export * from './data';
+export {
+  HEAVENLY_STEMS,
+  EARTHLY_BRANCHES,
+  ZODIACS,
+  SIXTY_CYCLE,
+  SIX_XUN_HEADS,
+  STEM_WUXING,
+  STEM_YINYANG,
+  BRANCH_YINYANG,
+  NAYIN_MAP,
+  NAYIN_WUXING,
+  CHANGSHENG_ORDER,
+  WUXING_CHANGSHENG_START,
+} from './data';
+export type { HeavenlyStem, EarthlyBranch, ChangShengState } from './data';
 export * from './validation';
 
 export {

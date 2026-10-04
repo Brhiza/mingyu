@@ -18,7 +18,7 @@ import {
   getBaziQiongtongAdvice,
   getBaziZipingPatternAdvice,
 } from '../classics';
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS, NAYIN_MAP } from '../bazi/baziMappingsData';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../bazi/baziMappingsData';
 import { getLifeStage } from '../bazi/baziValues';
 import { calculateKongWangBranches } from '../bazi/kongWang';
 import {
@@ -53,6 +53,9 @@ import type {
   MingluTenGodsSectionData,
 } from './types';
 import { getBaziRelationMappings } from '../bazi/baziMappingsData';
+import { getNayinTable } from '../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

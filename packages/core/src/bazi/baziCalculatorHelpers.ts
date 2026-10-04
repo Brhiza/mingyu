@@ -1,8 +1,11 @@
-import { NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
+import { TWELVE_STAGES_MAP } from './baziDefinitions';
 export { calculateKongWang } from './kongWang';
 import { assertHeavenlyStem, assertPillars, getTenGod } from './baziUtils';
 import type { HiddenStems, Nayin, PillarLifeStages, Pillars, ZiZuoResult } from './baziTypes';
 import { getBaziRelationMappings } from './baziMappingsData';
+import { getNayinTable } from '../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

@@ -3,10 +3,13 @@
  * @传统依据 《渊海子平》《三命通会》《星平会海》：年命纳音生克比和、夫妻宫天地德合与天克地冲、双向喜用神五行互补。
  */
 import type { BaziChartResult, Wuxing } from './baziTypes';
-import { NAYIN_MAP } from './baziMappingsData';
+
 import { isSanxing, isSheng, isKe } from '../ganzhi/relations';
 import { assertPillars, getWuxing } from './baziUtils';
 import { getGanZhiRelationTables } from '../ganzhi/relations';
+import { getNayinTable } from '../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 

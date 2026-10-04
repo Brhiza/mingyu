@@ -8,12 +8,15 @@ import type {
   HarmonyTransformProfile,
 } from '../types/analysis';
 import { WUXING, type Wuxing } from './baziTypes';
-import { SEASON_STATUS } from './baziElementData';
+
 import { TWELVE_STAGES_MAP } from './baziMappingsData';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 
 import { getGanZhiRelationTables } from '../ganzhi/relations';
 import { getBaziRelationMappings } from './baziMappingsData';
+import { getBaziSeasonStatuses } from './baziElementData';
+
+const SEASON_STATUS = getBaziSeasonStatuses();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

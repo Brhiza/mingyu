@@ -1,6 +1,8 @@
-import { NAYIN_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 import { getBaziRelationMappings } from '../../baziMappingsData';
+import { getNayinTable } from '../../../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

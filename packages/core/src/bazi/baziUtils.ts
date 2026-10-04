@@ -3,7 +3,7 @@
  * @description Contains stateless utility functions for Bazi calculations.
  */
 
-import { SEASON_STATUS, shenShaTypes } from './baziDefinitions';
+import { shenShaTypes } from './baziDefinitions';
 import type { HiddenStems, Pillars, Wuxing } from './baziTypes';
 export {
   assertEarthlyBranch,
@@ -15,6 +15,9 @@ export {
 } from '../ganzhi/validation';
 import { assertGanZhiPair, assertHeavenlyStem } from '../ganzhi/validation';
 import { getBaziRelationMappings } from './baziMappingsData';
+import { getBaziSeasonStatuses } from './baziElementData';
+
+const SEASON_STATUS = getBaziSeasonStatuses();
 
 const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 

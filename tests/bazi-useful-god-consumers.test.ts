@@ -6,6 +6,9 @@ import {
   SAN_HUI_MAP,
 } from '../packages/core/src/bazi/baziMappingsData.ts';
 import { buildBaziPrompt } from '../packages/core/src/prompt/bazi.ts';
+import { TIME_MAP } from '../packages/core/src/bazi/baziDisplayData.ts';
+import { SEASON_STATUS } from '../packages/core/src/bazi/baziElementData.ts';
+import { NAYIN_MAP } from '../packages/core/src/ganzhi/data.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -244,6 +247,59 @@ test('实际冬盘的丙条件喜与丁条件忌贯穿本命和合盘消费者',
   }
   assert.deepEqual(normalChart, baselineChart);
   assert.equal(fullTaskbook(normalChart), baselineTaskbook);
+
+  const catalogInput = {
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 7,
+    gender: 'male' as const,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  };
+  const catalogChart = baziCalculator.calculateBazi(catalogInput);
+  const catalogBaseline = structuredClone(catalogChart);
+  const catalogTaskbook = fullTaskbook(catalogChart);
+  assert.deepEqual(catalogChart.timeInfo, {
+    index: 7,
+    name: '未时',
+    range: '13:00-15:00',
+    hour: 14,
+    minute: 0,
+  });
+  assert.equal(catalogChart.pillars.year.ganZhi, '庚午');
+  assert.equal(catalogChart.pillars.month.zhi, '巳');
+  assert.equal(catalogChart.nayin.year, '路旁土');
+  assert.deepEqual(catalogChart.wuxingSeasonStatus, {
+    火: '旺',
+    土: '相',
+    金: '死',
+    水: '囚',
+    木: '休',
+  });
+  assert.match(catalogTaskbook, /【命盘】/);
+  assert.match(catalogTaskbook, /^年柱: 庚午 /m);
+  const publicCatalogs = structuredClone({ TIME_MAP, SEASON_STATUS, NAYIN_MAP });
+  const catalogEdits = [
+    [TIME_MAP[7], 'hour', 0],
+    [SEASON_STATUS.巳, '火', '死'],
+    [NAYIN_MAP, '庚午', '海中金'],
+  ] as const;
+  const catalogSaved = catalogEdits.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of catalogEdits) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    const fresh = baziCalculator.calculateBazi(catalogInput);
+    assert.deepEqual(fresh, catalogBaseline);
+    assert.equal(fullTaskbook(fresh), catalogTaskbook);
+  } finally {
+    catalogEdits.forEach(([target, key], index) => Reflect.set(target, key, catalogSaved[index]));
+  }
+  assert.deepEqual({ TIME_MAP, SEASON_STATUS, NAYIN_MAP }, publicCatalogs);
+  assert.deepEqual(catalogChart, catalogBaseline);
 });
 
 test('起名消费者沿用完整喜用五行，条件火只保留为干级功能资料', () => {

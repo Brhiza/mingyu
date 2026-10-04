@@ -114,7 +114,7 @@ export const BRANCH_YINYANG: Record<string, '阳' | '阴'> = {
  * 纳音五行表（六十甲子纳音）
  * 古籍依据：《三命通会》《类经图翼》
  */
-export const NAYIN_MAP: Record<string, string> = {
+const CANONICAL_NAYIN_MAP: Record<string, string> = {
   甲子: '海中金',
   乙丑: '海中金',
   丙寅: '炉中火',
@@ -176,6 +176,13 @@ export const NAYIN_MAP: Record<string, string> = {
   壬戌: '大海水',
   癸亥: '大海水',
 };
+
+export const NAYIN_MAP: Record<string, string> = { ...CANONICAL_NAYIN_MAP };
+
+/** 返回固定纳音资料的独立副本。 */
+export function getNayinTable(): Record<string, string> {
+  return { ...CANONICAL_NAYIN_MAP };
+}
 
 /** 纳音五行 → 五行属性（取纳音名首字对应的五行） */
 export const NAYIN_WUXING: Record<string, string> = {
