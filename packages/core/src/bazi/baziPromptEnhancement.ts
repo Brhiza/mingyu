@@ -278,12 +278,16 @@ function generatePeachBlossomDetailSection(chartResult: BaziChartResult): string
     ? globalTaohua.join('、')
     : taohuaPillars.map((pillar) => PILLAR_LABELS[pillar]).join('、');
   const lines = [`【桃花详解】命盘见桃花：${overview}`];
+  const describedTypes = new Set<string>();
 
   for (const pillar of PILLAR_KEYS) {
     const pillarTaohua = chartResult.shensha?.[pillar]?.find((s) => s.includes('桃花'));
     if (pillarTaohua) {
       const d = getPeachBlossomDetail(pillar);
-      lines.push(`${PILLAR_LABELS[pillar]}:${d.type} | ${d.description}`);
+      lines.push(
+        `${PILLAR_LABELS[pillar]}:${d.type}${describedTypes.has(d.type) ? '' : ` | ${d.description}`}`,
+      );
+      describedTypes.add(d.type);
     }
   }
 

@@ -15,23 +15,22 @@ interface PeachBlossomDetail {
 const PEACH_BLOSSOM_DETAILS: Record<string, PeachBlossomDetail> = {
   墙内桃花: {
     type: '墙内桃花',
-    position: '日支（夫妻宫）、年柱',
-    description:
-      '墙内桃花指在日支（夫妻宫）或年柱的桃花，传统用于亲密关系表达、婚恋吸引或早年异性缘的取象。',
+    position: '年柱、月柱',
+    description: '年、月支桃花取园中之花之象。',
     favorable: '可参考为关系表达较顺、情感存在感较强',
     unfavorable: '再逢刑冲合害或桃花叠见时，传统取象涉及异性干扰或情绪牵扯',
   },
   墙外桃花: {
     type: '墙外桃花',
-    position: '时柱、月柱',
-    description: '墙外桃花指在时柱或月柱的桃花，传统用于社交场域、事业曝光或晚运情感波动的取象。',
+    position: '时柱',
+    description: '时支桃花取墙外之花之象。',
     favorable: '可参考为社交魅力、公众吸引力或外缘较活跃',
     unfavorable: '再遇冲合失衡、桃花混杂或岁运引动时，传统取象涉及口舌是非与关系反复',
   },
   普通桃花: {
     type: '普通桃花',
-    position: '其他位置',
-    description: '普通桃花指神煞桃花落在一般位置，传统用于感情与社交观察的辅助取象。',
+    position: '日支（夫妻宫）',
+    description: '日支桃花位于夫妻宫。',
     favorable: '可参考为存在一定的人缘或审美表达',
     unfavorable: '传统取象仍需由全盘主线和岁运共同确认',
   },
@@ -40,9 +39,9 @@ const PEACH_BLOSSOM_DETAILS: Record<string, PeachBlossomDetail> = {
 export function getPeachBlossomDetail(
   pillarPosition: 'year' | 'month' | 'day' | 'hour',
 ): PeachBlossomDetail {
-  if (pillarPosition === 'day' || pillarPosition === 'year') {
+  if (pillarPosition === 'year' || pillarPosition === 'month') {
     return { ...PEACH_BLOSSOM_DETAILS['墙内桃花'] };
-  } else if (pillarPosition === 'month' || pillarPosition === 'hour') {
+  } else if (pillarPosition === 'hour') {
     return { ...PEACH_BLOSSOM_DETAILS['墙外桃花'] };
   }
   return { ...PEACH_BLOSSOM_DETAILS['普通桃花'] };

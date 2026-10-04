@@ -509,7 +509,7 @@ export function formatZiweiPayloadForPrompt(
   options: {
     focusPalaceNames?: readonly string[];
     maxEvidence?: number;
-    /** 完整运限中首段已给出主体资料，后续层只保留动态事实。 */
+    /** 完整运限中首段已给出主体资料和宫位关系，后续层保留运限盘面。 */
     includeBasicInfo?: boolean;
   } = {},
 ) {
@@ -571,7 +571,7 @@ export function formatZiweiPayloadForPrompt(
     '十二宫资料：',
     ...selectedPalaces.map(
       (palace) =>
-        `  ${formatPalace(palace, isOriginScope, getSelectedScopeHits(payload, palace))}\n  宫位关系：${formatPalaceRelations(payload, palace)}`,
+        `  ${formatPalace(palace, isOriginScope, getSelectedScopeHits(payload, palace))}${includeBasicInfo ? `\n  宫位关系：${formatPalaceRelations(payload, palace)}` : ''}`,
     ),
     matchedPatterns ? `命盘格局：\n${matchedPatterns}` : '',
     evidencePrimary.length ? '证据资料：' : '',

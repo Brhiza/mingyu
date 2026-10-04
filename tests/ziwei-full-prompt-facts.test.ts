@@ -70,13 +70,11 @@ test('紫微合参完整范围不重复本命十二宫，年龄年分册仍保�
   });
 
   const fullText = formatZiweiEvidenceText(runtime, 'full');
-  assert.equal((fullText.match(/宫位关系：本宫/g) ?? []).length, 24);
+  assert.equal((fullText.match(/宫位关系：本宫/g) ?? []).length, 12);
   assert.match(fullText, /本命：分析对象：本命/);
   assert.match(fullText, /流月：分析对象：/);
-  assert.equal(
-    (formatZiweiEvidenceText(runtime, 'origin').match(/宫位关系：本宫/g) ?? []).length,
-    12,
-  );
+  const originText = formatZiweiEvidenceText(runtime, 'origin');
+  assert.equal((originText.match(/宫位关系：本宫/g) ?? []).length, 12);
   assert.equal(
     (formatZiweiEvidenceText(runtime, 'monthly').match(/宫位关系：本宫/g) ?? []).length,
     12,
@@ -91,8 +89,41 @@ test('紫微合参完整范围不重复本命十二宫，年龄年分册仍保�
   const normalPrompt = buildZiweiPrompt(promptOptions);
   assert.match(normalPrompt, /本命：\n/);
   assert.match(normalPrompt, /流月：\n/);
-  assert.equal((normalPrompt.match(/宫位关系：本宫/g) ?? []).length, 24);
+  assert.equal((normalPrompt.match(/宫位关系：本宫/g) ?? []).length, 12);
   assert.ok(normalPrompt.includes(promptOptions.question));
+  const publicPrompt = buildPublicZiweiPromptForRuntime({ result: runtime, scope: 'full' });
+  assert.equal((publicPrompt.match(/宫位关系：本宫/g) ?? []).length, 12);
+  const relations = originText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('宫位关系：本宫'));
+  assert.equal(relations.length, 12);
+  const monthly = runtime.payloadByScope.monthly;
+  assert.equal(monthly.active_scope.mutagen_map.length, 4);
+  for (const text of [fullText, normalPrompt, publicPrompt]) {
+    for (const relation of relations) assert.equal(text.split(relation).length - 1, 1, relation);
+    const monthlyText = text.slice(text.indexOf('流月：'));
+    assert.equal((monthlyText.match(/运限命中：流月落宫/g) ?? []).length, 1);
+    for (const palace of monthly.palaces) {
+      const palaceName = `${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}`;
+      const line = monthlyText
+        .split('\n')
+        .find((value) => value.trimStart().startsWith(palaceName));
+      assert.ok(line, palaceName);
+      assert.ok(line.includes(`动态宫名：${palace.dynamic_scope_name}`), palaceName);
+      if (palace.scope_hits.includes('流月落宫')) {
+        assert.ok(line.includes('运限命中：流月落宫'), palaceName);
+      }
+      for (const star of [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars]) {
+        if (star.active_scope_mutagen) {
+          assert.match(
+            line,
+            new RegExp(`${star.name}[^；、]*当前化${star.active_scope_mutagen}`, 'u'),
+          );
+        }
+      }
+    }
+  }
   const scopes = getZiweiPromptCalculationScopes('full');
   assert.deepEqual(scopes, ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age']);
   const originalScopes = [...scopes];

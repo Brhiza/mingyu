@@ -1800,10 +1800,15 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
   assert.doesNotMatch(healthSection, /【寿元分析】/);
   assert.doesNotMatch(careerSection, /【限运分析】/);
 
-  const expectedDescription =
-    '墙外桃花指在时柱或月柱的桃花，传统用于社交场域、事业曝光或晚运情感波动的取象。';
+  const expectedDetails = {
+    year: ['墙内桃花', '年柱、月柱', '年、月支桃花取园中之花之象。'],
+    month: ['墙内桃花', '年柱、月柱', '年、月支桃花取园中之花之象。'],
+    day: ['普通桃花', '日支（夫妻宫）', '日支桃花位于夫妻宫。'],
+    hour: ['墙外桃花', '时柱', '时支桃花取墙外之花之象。'],
+  } as const;
   for (const pillar of ['year', 'month', 'day', 'hour'] as const) {
     const detail = getPeachBlossomDetail(pillar);
+    assert.deepEqual([detail.type, detail.position, detail.description], expectedDetails[pillar]);
     const original = { ...detail };
     try {
       detail.type = '普通桃花';
@@ -1817,9 +1822,31 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
       Object.assign(detail, original);
     }
   }
-  assert.match(generalSection, /月柱:墙外桃花/);
-  assert.match(generalSection, /时柱:墙外桃花/);
-  assert.ok(generalSection.includes(expectedDescription));
+  assert.ok(generalSection.includes('月柱:墙内桃花 | 年、月支桃花取园中之花之象。'));
+  assert.ok(generalSection.includes('时柱:墙外桃花 | 时支桃花取墙外之花之象。'));
+
+  const allPillarPeach = {
+    ...result,
+    shensha: {
+      ...structuredClone(result.shensha),
+      year: ['桃花'],
+      month: ['桃花'],
+      day: ['桃花'],
+      hour: ['桃花'],
+    },
+  };
+  const allPillarSection = generateEnhancedAnalysisSection(allPillarPeach, 'general');
+  assert.equal(
+    allPillarSection.split('\n\n').find((section) => section.startsWith('【桃花详解】')),
+    [
+      '【桃花详解】命盘见桃花：年柱、月柱、日柱、时柱',
+      '年柱:墙内桃花 | 年、月支桃花取园中之花之象。',
+      '月柱:墙内桃花',
+      '日柱:普通桃花 | 日支桃花位于夫妻宫。',
+      '时柱:墙外桃花 | 时支桃花取墙外之花之象。',
+    ].join('\n'),
+  );
+  assert.equal(generateEnhancedAnalysisSection(result, 'general'), generalSection);
 
   assert.equal(result.pillars.month.ganZhi, '壬子');
   assert.equal(result.pillars.hour.ganZhi, '丙子');
