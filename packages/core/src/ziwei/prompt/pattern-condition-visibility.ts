@@ -6,7 +6,7 @@ export function isRepeatedZiweiCoLocationCondition(
   condition: string,
   displayedPalaces: readonly PalaceFact[],
 ) {
-  const match = /^(.+?)(?:同守|同坐|同宫)(.+宫)?$/u.exec(condition);
+  const match = /^(.+?)(?:同守|同坐|同宫|同临)(.+宫)?$/u.exec(condition);
   if (!match) return false;
 
   const starText = match[1];
@@ -154,6 +154,29 @@ function isRepeatedNamedStarBrightnessCondition(
   condition: string,
   displayedPalaces: readonly PalaceFact[],
 ) {
+  if (condition === '两颗化曜亮度均为庙或旺') {
+    const mutagenStars = pattern.star_names.map((name) => /^(.+?)化([权禄])$/u.exec(name));
+    if (
+      mutagenStars.length !== 2 ||
+      mutagenStars.some((star) => !star) ||
+      new Set(mutagenStars.map((star) => star?.[2])).size !== 2
+    ) {
+      return false;
+    }
+    return mutagenStars.every((member) => {
+      if (!member) return false;
+      return pattern.palace_names.some((name) => {
+        const palace = getPatternPalace(pattern, name, displayedPalaces);
+        if (!palace) return false;
+        return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars].some(
+          (star) =>
+            star.name === member[1] &&
+            star.birth_mutagen === member[2] &&
+            (star.brightness === '庙' || star.brightness === '旺'),
+        );
+      });
+    });
+  }
   const match = /^(.+?)亮度均为庙或旺$/u.exec(condition);
   if (!match) return false;
   const conditionStars = getConditionStars(match[1], pattern.star_names);
@@ -211,7 +234,7 @@ function isRepeatedPalaceStarPresenceCondition(
   condition: string,
   displayedPalaces: readonly PalaceFact[],
 ) {
-  const match = /^(.+宫)见(.+)$/u.exec(condition);
+  const match = /^(.+宫)(?:同)?见(.+)$/u.exec(condition);
   if (!match) return false;
   const conditionStars = getConditionStars(match[2], pattern.star_names);
   const palace = getPatternPalace(pattern, match[1], displayedPalaces);
@@ -220,27 +243,28 @@ function isRepeatedPalaceStarPresenceCondition(
   return conditionStars.every((name) => stars.some((star) => star.name === name));
 }
 
-function isRepeatedNatalMutagenCoLocationCondition(
+function isRepeatedNatalMutagenPositionCondition(
   pattern: Pick<PatternFact, 'palace_indexes' | 'palace_names' | 'star_names'>,
   condition: string,
   displayedPalaces: readonly PalaceFact[],
 ) {
-  const match = /^(.+?)(?:同守|同坐)(.+宫)$/u.exec(condition);
+  const match = /^(.+?)(?:同守|同坐|坐)(.+宫)$/u.exec(condition);
   if (!match) return false;
   const members = match[1].split(/[、，,与和及\s]+/u);
-  if (members.length < 2 || !members.some((member) => /^生年化[禄权科忌]$/u.test(member))) {
+  if (!members.some((member) => /^(?:.+)?生年化[禄权科忌]$/u.test(member))) {
     return false;
   }
   const palace = getPatternPalace(pattern, match[2], displayedPalaces);
   if (!palace) return false;
   const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
   return members.every((member) => {
-    const natalMutagen = /^生年化([禄权科忌])$/u.exec(member)?.[1];
+    const natalMutagen = /^(.*?)生年化([禄权科忌])$/u.exec(member);
     return natalMutagen
       ? stars.some(
           (star) =>
-            star.birth_mutagen === natalMutagen &&
-            pattern.star_names.includes(`${star.name}化${natalMutagen}`),
+            (!natalMutagen[1] || star.name === natalMutagen[1]) &&
+            star.birth_mutagen === natalMutagen[2] &&
+            pattern.star_names.includes(`${star.name}化${natalMutagen[2]}`),
         )
       : pattern.star_names.includes(member) && stars.some((star) => star.name === member);
   });
@@ -271,6 +295,6 @@ export function isZiweiConditionRestatedByPalaces(
     isRepeatedSingleMajorStarCondition(pattern, condition, displayedPalaces) ||
     isRepeatedSamePalacePresenceCondition(pattern, condition, displayedPalaces) ||
     isRepeatedPalaceStarPresenceCondition(pattern, condition, displayedPalaces) ||
-    isRepeatedNatalMutagenCoLocationCondition(pattern, condition, displayedPalaces)
+    isRepeatedNatalMutagenPositionCondition(pattern, condition, displayedPalaces)
   );
 }

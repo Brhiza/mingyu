@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt, formatPatternBasisForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import {
+  formatPatternBasisForPrompt as formatEnhancedPatternBasis,
+  generateEnhancedAnalysisSection,
+} from '@core/bazi/baziPromptEnhancement';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
 test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位证据', () => {
@@ -54,6 +58,26 @@ test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位�
   assert.match(text, /旬空: 申、酉/);
   assert.doesNotMatch(text, /特殊宫位:|日主十二运:/);
   assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
+
+  assert.equal(formatPatternBasisForPrompt, formatEnhancedPatternBasis);
+  const curve = baziCalculator.calculateBazi({
+    year: 2023,
+    month: 12,
+    day: 3,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+    useTrueSolarTime: false,
+  });
+  assert.equal(curve.analysis.mingGe.specialAdjudication?.status, '成立');
+  const enhanced = generateEnhancedAnalysisSection(curve);
+  assert.match(
+    enhanced,
+    /【经典格局】曲直格；《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论/,
+  );
+  assert.doesNotMatch(enhanced, /木局成员藏干如实保留：|无半分庚辛之气|按张楠按语核局外支/);
+  assert.match(enhanced, /地支成亥卯未三合（已成势）/);
+  assert.match(enhanced, /日柱未与时柱午（地支只论相合）：合而不化/);
 });
 
 test('神煞互参文案应改为传统辅助提示，避免直接断语', () => {

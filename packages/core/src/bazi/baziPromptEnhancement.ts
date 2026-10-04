@@ -23,6 +23,20 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
   hour: '时柱',
 };
 
+/** 保留本盘成立依据，省略已列藏干与内部核验长段。 */
+export function formatPatternBasisForPrompt(basis: string): string {
+  if (basis.startsWith('《三命通会》卷六亥卯未曲直法条件成立')) {
+    return '《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  if (basis.startsWith('《渊海子平·神趣八法·类象》春生寅卯辰法条件成立')) {
+    return '《渊海子平·神趣八法·类象》春生寅卯辰法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  const selectedBasis = basis.split(/；(?:曲直|从儿)结构未立：/u, 1)[0];
+  return selectedBasis
+    .replace(/；分日司权[^；]*仅作当日月气事实/gu, '')
+    .replace(/^(《滴天髓阐微·顺局》从儿法成立：)月建食伤当权；(?=月支[^；]*食伤在月建当权)/u, '$1');
+}
+
 function buildEvidenceDrivenHintSection(title: string, evidence: string): string {
   return `【${title}】${evidence}。`;
 }
@@ -225,7 +239,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
     transformation?.status === '成化'
       ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`
       : currentPattern === '曲直格'
-        ? `【经典格局】曲直格；${chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用'}`
+        ? `【经典格局】曲直格；${formatPatternBasisForPrompt(chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用')}`
         : '';
   if (!classicPatterns.length) {
     return [confirmedSection, layeredCandidateSection].filter(Boolean).join('\n');
@@ -330,7 +344,9 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
     .map((profile) => {
       const relation =
         profile.type === '天干五合'
-          ? `${profile.participants.join('与')}化${profile.transformElement}`
+          ? profile.level === '成化'
+            ? `${profile.participants.join('与')}化${profile.transformElement}`
+            : `${profile.participants.join('与')}（化神${profile.transformElement}）`
           : `${profile.participants.join('与')}（地支只论相合）`;
       return `${profile.type}${relation}：${profile.level}，作用${profile.direction}（${profile.evidence.join('、')}）`;
     })

@@ -1,6 +1,8 @@
 import type { BaziChartResult, PatternAnalysis, UsefulGodAnalysis } from './baziTypes';
 import { WUXING, isSheng, isKe } from '../wuxing';
-import { analyzePillarRelations } from './baziPromptEnhancement';
+import { analyzePillarRelations, formatPatternBasisForPrompt } from './baziPromptEnhancement';
+
+export { formatPatternBasisForPrompt } from './baziPromptEnhancement';
 
 interface FormatBaziOptions {
   includeRules?: boolean;
@@ -97,20 +99,6 @@ export function formatUsefulGodFunctions(
       : '',
     ...observedFunctions,
   ].filter(Boolean);
-}
-
-/** 格局名称与成败条件分开呈现，所有解读入口复用同一份已计算结论。 */
-export function formatPatternBasisForPrompt(basis: string): string {
-  if (basis.startsWith('《三命通会》卷六亥卯未曲直法条件成立')) {
-    return '《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
-  }
-  if (basis.startsWith('《渊海子平·神趣八法·类象》春生寅卯辰法条件成立')) {
-    return '《渊海子平·神趣八法·类象》春生寅卯辰法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
-  }
-  const selectedBasis = basis.split(/；(?:曲直|从儿)结构未立：/u, 1)[0];
-  return selectedBasis
-    .replace(/；分日司权[^；]*仅作当日月气事实/gu, '')
-    .replace(/^(《滴天髓阐微·顺局》从儿法成立：)月建食伤当权；(?=月支[^；]*食伤在月建当权)/u, '$1');
 }
 
 export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
