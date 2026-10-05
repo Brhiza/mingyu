@@ -23,6 +23,9 @@ test('孔明恢复签谱按本卦重取解释并核对卦象所指的签谱', ()
     assert.equal(prompt, format(first));
     assert.match(prompt, /签题：星震卦/u);
     assert.match(prompt, /彩凤呈祥瑞，麒麟降帝都，祸除迎福到，喜气自然生/u);
+    assert.equal(prompt.split('彩凤呈祥瑞').length - 1, 1);
+    assert.match(prompt, /基础解签：彩凤、麒麟皆取祥瑞之象/u);
+    assert.match(prompt, /补充解释：看原有阻碍是否真正解除、支持是否落实/u);
     assert.doesNotMatch(prompt, /金曰从革|龙门鱼跃过/u);
     const legacy = { ...first };
     Reflect.deleteProperty(legacy, 'interpretation');

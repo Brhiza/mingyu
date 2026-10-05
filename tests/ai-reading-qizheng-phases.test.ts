@@ -39,15 +39,17 @@ function timestamp(text: string) {
   return Date.parse(`${text.replace(' ', 'T')}+08:00`);
 }
 
-function makeRange(seconds: number): QizhengBirthRange {
+let baseRange: QizhengBirthRange | undefined;
+function makeBaseRange(): QizhengBirthRange {
   const startTimestamp = timestamp('2024-02-19 11:24:48');
-  return generateQizhengBirthRange(input, {
+  baseRange ??= generateQizhengBirthRange(input, {
     startTimestamp,
-    endTimestamp: startTimestamp + seconds * 1_000,
+    endTimestamp: startTimestamp + 2_000,
     endExclusive: true,
     timezone: 'Asia/Shanghai',
     offsetHours: 8,
   });
+  return structuredClone(baseRange);
 }
 
 const phaseFlowBirthInput: QizhengInput = {
@@ -116,7 +118,7 @@ function makeWrappedResource(
 }
 
 function makeSingleLongRange(): QizhengBirthRange {
-  const base = makeRange(2);
+  const base = makeBaseRange();
   const branch = base.branches[0]!;
   const continuous = branch.continuous[0]!;
   return {
@@ -181,7 +183,7 @@ function makeStream(harness: ReturnType<typeof makeHarness>) {
 }
 
 test('七政四余小区间容量足够时沿用单次最终解读', async () => {
-  const resource = makeResource(makeRange(2), 'qizheng-small', '七政四余小区间');
+  const resource = makeResource(makeBaseRange(), 'qizheng-small', '七政四余小区间');
   const h = makeHarness([resource]);
   const stream = makeStream(h);
 

@@ -90,7 +90,13 @@ function formatZhugeInfo(data: ZhugeNumberResult) {
   }
   const interpretation = getZhugeInterpretation(data.number);
   const basicInterpretation = interpretation
-    ? [interpretation.quote, interpretation.imageMeaning, interpretation.interpretation].join('；')
+    ? [
+        sign.poem.includes(interpretation.quote) ? '' : interpretation.quote,
+        interpretation.imageMeaning,
+        interpretation.interpretation,
+      ]
+        .filter(Boolean)
+        .join('；')
     : sign.summary;
   return [
     `签号：第${data.number}签`,
@@ -118,6 +124,13 @@ function formatKongmingInfo(data: KongmingHexagramResult) {
   }
   const interpretation = resolved.interpretation;
   const classicalImage = interpretation.classicalImage;
+  const basicInterpretation = [
+    resolved.poem.includes(interpretation.quote) ? '' : interpretation.quote,
+    interpretation.imageMeaning,
+    interpretation.interpretation,
+  ]
+    .filter(Boolean)
+    .join('；');
   return [
     `签号：第${data.number}签`,
     `签题：${data.name}`,
@@ -126,7 +139,7 @@ function formatKongmingInfo(data: KongmingHexagramResult) {
     classicalImage
       ? `典故：${classicalImage.title}“${classicalImage.quote}”；${classicalImage.meaning}`
       : '',
-    `基础解签：${interpretation.quote}；${interpretation.imageMeaning}；${interpretation.interpretation}`,
+    `基础解签：${basicInterpretation}`,
     `补充解释：${interpretation.condition}`,
   ]
     .filter(Boolean)

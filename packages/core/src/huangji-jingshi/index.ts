@@ -438,7 +438,7 @@ export function buildHuangjiJingshiPrompt(
         '【取象资料】',
         `互卦：${forecast.relatedHexagrams.mutual.name}；卦辞：${forecast.relatedHexagrams.mutual.judgment}`,
         `错卦：${forecast.relatedHexagrams.opposite.name}；卦辞：${forecast.relatedHexagrams.opposite.judgment}`,
-        `综卦：${forecast.relatedHexagrams.reversed.name}；卦辞：${forecast.relatedHexagrams.reversed.judgment}`,
+        `综卦：${forecast.relatedHexagrams.reversed.name}${forecast.relatedHexagrams.reversed.id === annual.id && forecast.relatedHexagrams.reversed.judgment === annual.judgment ? '' : `；卦辞：${forecast.relatedHexagrams.reversed.judgment}`}`,
       ].join('\n'),
       `【任务】\n${buildPromptTask(
         sixDayCycle

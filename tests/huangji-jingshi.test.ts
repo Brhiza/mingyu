@@ -299,7 +299,21 @@ test('值年卦六十卦序应完整唯一并复现1984至2043通行表', () => 
         : year === 2026
           ? year2026Result
           : calculateHuangjiJingshi({ year });
-    return result.forecast?.hexagrams.annual.shortName;
+    const annual = result.forecast!.hexagrams.annual;
+    if (year === 2043) {
+      assert.equal(annual.name, '泽风大过');
+      assert.equal(result.forecast!.relatedHexagrams.reversed.id, annual.id);
+      assert.ok(result.prompt.includes('值年卦辞：栋桡，利有攸往'));
+      assert.equal(
+        result.prompt.split('\n').find((line) => line.startsWith('综卦：')),
+        '综卦：泽风大过',
+      );
+      const originalForecast = structuredClone(result.forecast);
+      assert.equal(buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(result))), result.prompt);
+      assert.deepEqual(result.forecast, originalForecast);
+      assertPromptIsPortableTaskText(result.prompt);
+    }
+    return annual.shortName;
   });
   assert.deepEqual(actual, expected);
 });
@@ -325,7 +339,7 @@ test('皇极经世普通提示词应包含完整占断资料且保持精简自�
   assert.match(prompt, /值年卦：天火同人/);
   assert.match(prompt, /互卦：天风姤/);
   assert.match(prompt, /错卦：地水师/);
-  assert.match(prompt, /综卦：火天大有/);
+  assert.match(prompt, /^综卦：火天大有；卦辞：元亨$/m);
   assert.match(prompt, /这一年的事业环境有什么主要变化/);
   assert.doesNotMatch(prompt, /计算链|证据链|MCP|API|mingyu|仓库/i);
   assertPromptIsPortableTaskText(prompt);

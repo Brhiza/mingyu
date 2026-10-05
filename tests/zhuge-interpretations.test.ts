@@ -22,6 +22,9 @@ test('诸葛恢复签谱按本签重取解释并拒绝矛盾的签号和签诗',
     const prompt = format(stale);
     assert.equal(prompt, format(first));
     assert.match(prompt, /天门一挂榜，预定夺标人，马嘶芳草地，秋高听鹿鸣/u);
+    assert.equal(prompt.split('秋高听鹿鸣').length - 1, 1);
+    assert.match(prompt, /基础解签：挂榜、夺标与鹿鸣相连/u);
+    assert.match(prompt, /补充解释：转机在于把已有积累交到合适的评判场合/u);
     assert.match(prompt, /《诗经·小雅·鹿鸣》/u);
     assert.doesNotMatch(prompt, /兴邦辅国，尊主庇民|神灵庇护/u);
     const legacy = { ...first };
