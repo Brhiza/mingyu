@@ -1100,9 +1100,14 @@ test('奇门终身局同盘保留基础格局条件并避免阶段重复解释',
   assert.doesNotMatch(taskSection, /按事项定用神与主客，以用神宫门星神干核对格局和空迫墓的作用/);
   const patterns = prompt.split('盘面吉凶格局：')[1]?.split('【个人标记与主题宫】')[0] ?? '';
 
-  assert.match(patterns, /虎遁（吉）：生门、乙奇落艮八宫，主威严稳固、资源回归/u);
-  assert.match(patterns, /休诈（吉）：丁奇、开门、六合同宫于乾六宫，主和合调停、协作成事/u);
-  assert.doesNotMatch(patterns, /乃(?:虎遁|休诈)之格|三奇、吉门、六合同宫/u);
+  assert.match(patterns, /虎遁（吉，艮八宫）：主威严稳固、资源回归/u);
+  assert.match(patterns, /休诈（吉，乾六宫）：主和合调停、协作成事/u);
+  assert.match(baseSection, /艮八宫（土）：天盘\[天冲，干乙\]，人盘\[生门\]/u);
+  assert.match(baseSection, /乾六宫（金）：天盘\[天蓬，干丁\]，人盘\[开门\]，神盘\[六合\]/u);
+  assert.doesNotMatch(
+    patterns,
+    /生门、乙奇落艮八宫|丁奇、开门、六合同宫于乾六宫|乃(?:虎遁|休诈)之格|三奇、吉门、六合同宫/u,
+  );
   assert.match(patterns, /丙奇升殿（吉）：月奇·光明显达入离九宫，得本气之地/u);
   assert.doesNotMatch(patterns, /升殿得位/u);
   assert.match(patterns, /戊击刑（凶）：戊在震三宫击刑，主规则、口舌、文书/u);
@@ -1114,13 +1119,29 @@ test('奇门终身局同盘保留基础格局条件并避免阶段重复解释',
   assert.match(patterns, /罗网青龙（中性）：[^\n]*癸加地盘甲为罗网青龙；排盘时以甲子戊代甲/u);
   assert.doesNotMatch(patterns, /故癸加地盘戊按此格论/u);
   assert.ok(data.baseChart.classicPatterns?.some((item) => item.summary.includes('乃虎遁之格')));
+  const extraPalaceConditionData = structuredClone(data);
+  const extraTiger = extraPalaceConditionData.baseChart.classicPatterns!.find(
+    (item) => item.name === '虎遁',
+  )!;
+  extraTiger.summary += '；另须核本次甲旬条件';
+  const extraTigerFact = extraPalaceConditionData.baseChart.evidenceAnalysis!.patternFacts.find(
+    (item) => item.kind === '经典格局' && item.name === '虎遁',
+  )!;
+  extraTigerFact.originalText = extraTiger.summary;
+  extraTigerFact.promptText = extraTiger.summary;
+  const extraPalaceConditionBefore = structuredClone(extraPalaceConditionData);
+  assert.match(
+    buildLifetimePrompt(extraPalaceConditionData, undefined, { includeCurrentTime: false }),
+    /虎遁（吉，艮八宫）：主威严稳固、资源回归；另须核本次甲旬条件/u,
+  );
+  assert.deepEqual(extraPalaceConditionData, extraPalaceConditionBefore);
   const duplicate = data.baseChart.classicPatterns!.find((item) => item.name === '虎遁')!;
   data.baseChart.classicPatterns!.push(structuredClone(duplicate));
   data.stages[0].supportFacts = [`成吉格「虎遁」：${duplicate.summary}`];
   const duplicatePrompt = buildLifetimePrompt(data, undefined, { includeCurrentTime: false });
   const duplicatePatterns =
     duplicatePrompt.split('盘面吉凶格局：')[1]?.split('【个人标记与主题宫】')[0] ?? '';
-  assert.equal(duplicatePatterns.match(/^  虎遁（吉）：/gmu)?.length, 1);
+  assert.equal(duplicatePatterns.match(/^  虎遁（吉，艮八宫）：/gmu)?.length, 1);
   assert.equal(data.baseChart.classicPatterns!.filter((item) => item.name === '虎遁').length, 2);
   assert.match(duplicatePrompt.split('阶段1：')[1].split('阶段2：')[0], /成吉格「虎遁」/u);
 
@@ -1131,7 +1152,7 @@ test('奇门终身局同盘保留基础格局条件并避免阶段重复解释',
   });
   const before = structuredClone(trueZhaData);
   const trueZhaPrompt = buildLifetimePrompt(trueZhaData, undefined, { includeCurrentTime: false });
-  assert.match(trueZhaPrompt, /真诈（吉）：丁奇、开门、太阴同宫于兑七宫，主隐蔽得助、柔性成事/u);
+  assert.match(trueZhaPrompt, /真诈（吉，兑七宫）：主隐蔽得助、柔性成事/u);
   assert.doesNotMatch(trueZhaPrompt, /三奇、吉门、太阴同宫/u);
   assert.equal(
     trueZhaData.baseChart.classicPatterns!.find((item) => item.name === '真诈')!.summary,
@@ -1221,6 +1242,10 @@ test('奇门终身局同盘保留基础格局条件并避免阶段重复解释',
   });
   assert.ok(missingEvidencePrompt.split('\n').includes(sunPatternLine));
   assert.ok(missingEvidencePrompt.split('\n').includes(fuShiPatternLine));
+  assert.match(
+    missingEvidencePrompt,
+    /真诈（吉）：丁奇、开门、太阴同宫于兑七宫，主隐蔽得助、柔性成事/u,
+  );
   assert.deepEqual(missingEvidenceData, missingEvidenceBefore);
 });
 

@@ -246,9 +246,27 @@ export function buildLifetimePrompt(
           item.palaces.length === cp.palaces.length &&
           item.palaces.every((gong) => cp.palaces.includes(gong)),
       );
-      const locationClause = summary.match(
-        /^(?:天盘[乙丙丁戊己庚辛壬癸]加地盘[乙丙丁戊己庚辛壬癸]于[^，；]+|值符.+与值使.+同落[^，；]+)[，；]/u,
-      )?.[0];
+      const locationClause =
+        summary.match(
+          /^(?:天盘[乙丙丁戊己庚辛壬癸]加地盘[乙丙丁戊己庚辛壬癸]于[^，；]+|值符.+与值使.+同落[^，；]+)[，；]/u,
+        )?.[0] ??
+        ([
+          '天遁',
+          '地遁',
+          '人遁',
+          '神遁',
+          '鬼遁',
+          '龙遁',
+          '虎遁',
+          '风遁',
+          '云遁',
+          '真诈',
+          '重诈',
+          '休诈',
+          '相佐',
+        ].includes(cp.name)
+          ? summary.match(/^[^，]+，/u)?.[0]
+          : undefined);
       const locationAlreadyShown = Boolean(
         fact &&
         locationClause &&
