@@ -4994,7 +4994,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.match(liurenPrompt, /乘神生克：初传.+乘天盘.+与日干/);
     assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
     assert.match(liurenPrompt, /【问题范围】\n事业工作/);
-    assert.match(liurenPrompt, /初传取法：/);
+    assert.equal([...liurenPrompt.matchAll(/初传取法：/gu)].length, 1);
     assert.doesNotMatch(liurenPrompt, /directKe|remoteKe|suppressedByPrior|deferredToSpecial/);
     assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
     assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
@@ -6222,7 +6222,7 @@ test('MCP 提供焦氏易林固定索引并返回双底本来源状态', async (
   });
 });
 
-test('MCP 紫微、大六壬与星盘提示词入口只输出一次完整重点资料', async () => {
+test('MCP 紫微与星盘提示词入口只输出一次完整重点资料', async () => {
   await withMcpClient(async (client) => {
     const ziweiResponse = await client.callTool({
       name: 'ziwei_prompt',
@@ -6254,18 +6254,6 @@ test('MCP 紫微、大六壬与星盘提示词入口只输出一次完整重点�
     assert.equal(focusLines.length, 7);
     assert.equal(remainingLines.length, 5);
     assert.equal(new Set([...focusLines, ...remainingLines]).size, 12);
-
-    const liurenResponse = await client.callTool({
-      name: 'liuren_prompt',
-      arguments: {
-        customDate: '2025-01-01T08:00:00+08:00',
-        question: '我现在要不要换工作？',
-        liurenTemplate: 'shiye',
-      },
-    });
-    assert.equal(liurenResponse.isError, undefined);
-    const liurenPrompt = (liurenResponse.structuredContent as { prompt: string }).prompt;
-    assert.equal([...liurenPrompt.matchAll(/初传取法：/gu)].length, 1);
 
     const astrolabeResponse = await client.callTool({
       name: 'astrolabe_prompt',

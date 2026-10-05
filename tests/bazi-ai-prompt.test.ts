@@ -87,6 +87,19 @@ function get2013SeptemberBaziResult() {
   );
 }
 
+let cached2023DecemberBaziResult: BaziResult | undefined;
+
+function get2023DecemberBaziResult() {
+  return structuredClone(
+    (cached2023DecemberBaziResult ??= createBaziResult({
+      year: 2023,
+      month: 12,
+      day: 3,
+      timeIndex: 6,
+    })),
+  );
+}
+
 let cached1980MayBaziResult: BaziResult | undefined;
 
 function get1980MayBaziResult() {
@@ -347,8 +360,7 @@ test('普通格任务书保留成败与一次取格依据，命限仅在所选�
     assert.doesNotMatch(text, /候选格局(?:逐核|分别核对)/);
   }
 
-  const basis = formatPatternBasisForPrompt(result.analysis.mingGe.basis ?? '');
-  assert.ok(basis);
+  const basis = '月支申本气为庚（正印）；分日司权同为庚，且已透于年干，按该司令十神取正印格';
 
   for (const options of [
     { school: 'ziping' as const },
@@ -379,11 +391,7 @@ test('普通格任务书保留成败与一次取格依据，命限仅在所选�
 });
 
 test('新派流派任务引用格局成败，不预设额外格局条件段', () => {
-  for (const input of [
-    { year: 1990, month: 9, day: 5, timeIndex: 6 },
-    { year: 2023, month: 12, day: 3, timeIndex: 6 },
-  ]) {
-    const result = createBaziResult(input);
+  for (const result of [getOrdinaryZhengyinResult(), get2023DecemberBaziResult()]) {
     for (const prompt of [
       formatBaziSchoolPrompt(result, 'xinpai'),
       buildBaziPrompt({ result, school: 'xinpai' }),
@@ -780,7 +788,7 @@ test('普通格提示词只保留所取格局依据，不展开从儿或曲直�
 });
 
 test('曲直格提示词保留成立依据，省略本盘重复藏干与内部核验长规则', () => {
-  const result = createBaziResult({ year: 2023, month: 12, day: 3, timeIndex: 6 });
+  const result = get2023DecemberBaziResult();
   assert.equal(result.analysis.mingGe.specialAdjudication?.status, '成立');
   assert.match(result.analysis.mingGe.basis ?? '', /无半分庚辛之气/);
   for (const prompt of [
