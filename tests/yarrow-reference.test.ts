@@ -92,7 +92,7 @@ test('蓍草六爻排盘保留来源并核验过程与随机样本', () => {
         (step) => Object.fromEntries(Object.entries(step).reverse()) as typeof step,
       ),
     }));
-    assert.deepEqual(analyzeLiuyaoEvidence(reordered), analyzeLiuyaoEvidence(source));
+    assert.deepEqual(analyzeLiuyaoEvidence(reordered), source.evidenceAnalysis);
     for (const field of Object.keys(record.lines[0].changes[0])) {
       const tampered = structuredClone(reordered);
       const step = tampered.generation!.yarrow!.lines[0].changes[0];
@@ -100,9 +100,6 @@ test('蓍草六爻排盘保留来源并核验过程与随机样本', () => {
       assert.throws(() => analyzeLiuyaoEvidence(tampered), /不一致/);
     }
   }
-  const changed = structuredClone(result);
-  changed.generation!.yarrow!.lines[0].changes[0].remaining++;
-  assert.throws(() => analyzeLiuyaoEvidence(changed), /不一致/);
   const changedTrace = structuredClone(result);
   changedTrace.meta!.random!.samples[0] = (changedTrace.meta!.random!.samples[0] + 0.5) % 1;
   assert.throws(() => analyzeLiuyaoEvidence(changedTrace), /不一致/);

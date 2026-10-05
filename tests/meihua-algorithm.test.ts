@@ -152,6 +152,9 @@ test('梅花随机轨迹重放应识别缺失、多余、篡改及拒绝采样',
 test('梅花：主互变卦与六爻体用应按传统爻位计算', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
 
+  assert.equal(data.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.deepEqual(data.evidenceAnalysis?.randomFacts, []);
+  assert.ok(!data.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')));
   assert.equal(data.originalName, '火风鼎');
   assert.equal(data.movingYao.position, 2);
   assert.equal(data.changedName, '火山旅');
@@ -493,7 +496,6 @@ test('梅花各起卦方式应拒绝与本次取数无关的输入', () => {
 
 test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
   const randomData = generateMeihua(SAMPLE_DATE, { method: 'random', seed: '梅花证据样例' });
-  const numberData = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
   const randomItem = randomData.evidenceAnalysis?.evidence.items.find(
     (item) => item.title === '随机起卦重放记录',
   );
@@ -522,11 +524,6 @@ test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
       ['下卦', '随机整数1-8'],
       ['动爻', '随机整数1-6'],
     ],
-  );
-  assert.equal(numberData.evidenceAnalysis?.randomFact.status, '不适用');
-  assert.deepEqual(numberData.evidenceAnalysis?.randomFacts, []);
-  assert.ok(
-    !numberData.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')),
   );
 });
 

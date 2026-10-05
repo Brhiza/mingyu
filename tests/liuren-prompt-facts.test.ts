@@ -23,7 +23,6 @@ import {
 import { formatLiurenJudgmentFacts } from '../packages/core/src/prompt/liuren-judgment';
 import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
 import { auditPromptFacts } from '../scripts/prompt-audit/facts';
-import { resolveLiurenClassicalRules } from '../packages/core/src/divination/algorithms/liuren/helpers/classical-rules';
 
 const fixedDate = '2026-05-19T10:30:00+08:00';
 const fixedChart = generateLiuren(new Date(fixedDate));
@@ -137,37 +136,6 @@ test('大六壬遥克提示词应说明直接克未命中且不得夹带贼克�
       assert.match(text, /课传反证：[^\n]*中传未与日支关系土克水/);
     }
   }
-  assert.deepEqual(data, structuredBefore);
-});
-
-test('大六壬复合取传规则只列当前有克或无克条件，重复课对按不同上神计数', () => {
-  const fuyinNoKe = resolveLiurenClassicalRules('伏吟法');
-  const fuyinKe = resolveLiurenClassicalRules('伏吟重审法');
-  const fanyinNoKe = resolveLiurenClassicalRules('返吟法');
-  const fanyinKe = resolveLiurenClassicalRules('返吟元首法');
-  assert.match(fuyinNoKe[0].summary, /四课无克/);
-  assert.doesNotMatch(fuyinNoKe[0].summary, /四课有克/);
-  assert.match(fuyinKe[0].summary, /四课有克/);
-  assert.doesNotMatch(fuyinKe[0].summary, /四课无克/);
-  assert.match(fanyinNoKe[0].summary, /四课无克/);
-  assert.doesNotMatch(fanyinNoKe[0].summary, /四课有克/);
-  assert.match(fanyinKe[0].summary, /四课有克/);
-  assert.doesNotMatch(fanyinKe[0].summary, /四课无克/);
-
-  const data = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
-  assert.equal(data.transmissionRule, '返吟重审法');
-  assert.equal(data.ordinaryTransmissionAdjudication?.status, 'deferredToSpecial');
-  assert.deepEqual(
-    data.fourLessons.map((item) => item.upper),
-    ['申', '寅', '申', '寅'],
-  );
-  const structuredBefore = structuredClone(data);
-  const prompt = buildDivinationPrompt({ method: 'liuren', data, question: '问合作进度' });
-  assert.match(prompt, /取传条件：返吟课兼四课下贼上：天盘与地盘相冲；四课见下贼上/);
-  assert.match(prompt, /四课下贼上候选只有一个不同上神/);
-  assert.doesNotMatch(prompt, /四课只有一处下贼上|无克另按井栏射取传/);
-  assert.match(prompt, /初传取法：按返吟重审法取寅发用/);
-  assert.doesNotMatch(prompt, /初传取法：；|常用取传规则未定|候选取舍：/);
   assert.deepEqual(data, structuredBefore);
 });
 

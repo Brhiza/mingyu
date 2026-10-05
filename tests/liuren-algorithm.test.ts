@@ -61,7 +61,7 @@ const FUYIN_PLATE = DIZHI.map((under) => ({
 const liuren20260410At0826 = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 const liuren20260101At1200 = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
 
-test('大六壬应输出分层取用与应期证据', () => {
+test('大六壬真实课盘应输出分层取用、应期与复合取传提示词证据', () => {
   const result = liuren20260410At0826;
 
   assert.deepEqual(
@@ -118,6 +118,34 @@ test('大六壬应输出分层取用与应期证据', () => {
     assert.ok(transmission.seasonState);
     assert.equal(typeof transmission.isVoid, 'boolean');
   }
+
+  const fuyinNoKe = resolveLiurenClassicalRules('伏吟法');
+  const fuyinKe = resolveLiurenClassicalRules('伏吟重审法');
+  const fanyinNoKe = resolveLiurenClassicalRules('返吟法');
+  const fanyinKe = resolveLiurenClassicalRules('返吟元首法');
+  assert.match(fuyinNoKe[0].summary, /四课无克/);
+  assert.doesNotMatch(fuyinNoKe[0].summary, /四课有克/);
+  assert.match(fuyinKe[0].summary, /四课有克/);
+  assert.doesNotMatch(fuyinKe[0].summary, /四课无克/);
+  assert.match(fanyinNoKe[0].summary, /四课无克/);
+  assert.doesNotMatch(fanyinNoKe[0].summary, /四课有克/);
+  assert.match(fanyinKe[0].summary, /四课有克/);
+  assert.doesNotMatch(fanyinKe[0].summary, /四课无克/);
+
+  assert.equal(result.transmissionRule, '返吟重审法');
+  assert.equal(result.ordinaryTransmissionAdjudication?.status, 'deferredToSpecial');
+  assert.deepEqual(
+    result.fourLessons.map((item) => item.upper),
+    ['申', '寅', '申', '寅'],
+  );
+  const beforePrompt = structuredClone(result);
+  const prompt = buildDivinationPrompt({ method: 'liuren', data: result, question: '问合作进度' });
+  assert.match(prompt, /取传条件：返吟课兼四课下贼上：天盘与地盘相冲；四课见下贼上/);
+  assert.match(prompt, /四课下贼上候选只有一个不同上神/);
+  assert.doesNotMatch(prompt, /四课只有一处下贼上|无克另按井栏射取传/);
+  assert.match(prompt, /初传取法：按返吟重审法取寅发用/);
+  assert.doesNotMatch(prompt, /初传取法：；|常用取传规则未定|候选取舍：/);
+  assert.deepEqual(result, beforePrompt);
 });
 
 test('不同全局时区下月将均在雨水交节整秒切换', () => {
