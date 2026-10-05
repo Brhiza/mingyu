@@ -11,7 +11,7 @@ import {
   findSolarTermEvidence,
 } from 'mingyu-core/calendar';
 
-test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {
+test('节气证据保留历表边界、结构化链路与各自UTC瞬时的独立残差', () => {
   const evidence = calculateSolarTermEvidence(2024, 3);
 
   assert.equal(evidence.name, '立春');
@@ -70,6 +70,58 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
+  // 独立数学定值：NOAA官方main.js的太阳视黄经公式按50位精度重算。
+  // https://gml.noaa.gov/grad/solcalc/main.js
+  // 固定UTC只定位数学核验输入，不作为外部交节时刻或观测精度金标。
+  // 现模型附加的极小平近点角三次项与NOAA式在这些输入相差小于3e-10°。
+  const cases = [
+    {
+      index: 3,
+      adoptedUtc: '2024-02-04T08:27:07.000Z',
+      modelUtc: '2024-02-04T08:21:25.000Z',
+      adoptedResidual: 0.004005702071726603,
+      modelResidual: 0.000009208280540663296,
+    },
+    {
+      index: 6,
+      adoptedUtc: '2024-03-20T03:06:25.000Z',
+      modelUtc: '2024-03-20T03:04:17.000Z',
+      adoptedResidual: 0.0014759315585743938,
+      modelResidual: 0.000003813763612657926,
+    },
+    {
+      index: 12,
+      adoptedUtc: '2024-06-20T20:51:00.000Z',
+      modelUtc: '2024-06-20T20:49:29.000Z',
+      adoptedResidual: 0.001011429545935472,
+      modelResidual: 0.000006338199408903046,
+    },
+    {
+      index: 18,
+      adoptedUtc: '2024-09-22T12:43:42.000Z',
+      modelUtc: '2024-09-22T12:37:16.000Z',
+      adoptedResidual: 0.004374823784849924,
+      modelResidual: 0.000003404874123517093,
+    },
+  ];
+  for (const row of cases) {
+    const current = row.index === 3 ? evidence : calculateSolarTermEvidence(2024, row.index);
+    const adopted = current.calculationSteps[1].result;
+    const root = current.calculationSteps[2].result;
+    assert.equal(current.utcDateTime, row.adoptedUtc);
+    assert.equal(adopted.utcDateTime, row.adoptedUtc);
+    assert.equal(adopted.utcTimestamp, current.utcTimestamp);
+    assert.equal(adopted.solarLongitudeDegrees, current.solarLongitudeDegrees);
+    assert.equal(adopted.residualDegrees, current.residualDegrees);
+    assert.ok(Math.abs(current.residualDegrees - row.adoptedResidual) < 1e-8, current.name);
+    assert.equal(root.modelRootUtcDateTime, row.modelUtc);
+    assert.equal(root.modelRootUtcDateTime, current.modelRootUtcDateTime);
+    assert.ok(
+      Math.abs(Number(root.residualDegrees) - row.modelResidual) < 1e-8,
+      `${current.name}模型根残差`,
+    );
+    assert.notEqual(root.residualDegrees, adopted.residualDegrees);
+  }
 });
 
 test('多历元节气日期基准与全年二十四节气次序应通过核验', () => {
@@ -118,61 +170,6 @@ test('多历元节气日期基准与全年二十四节气次序应通过核验',
       assert.ok(term, `${year} 年应包含${name}`);
       assert.equal(hongKongDate(term.utcDateTime), `${year}-${monthDay}`, `${year} 年${name}`);
     }
-  }
-});
-
-test('节气历表残差与独立模型根残差应分别绑定各自UTC瞬时', () => {
-  // 独立数学定值：NOAA官方main.js的太阳视黄经公式按50位精度重算。
-  // https://gml.noaa.gov/grad/solcalc/main.js
-  // 固定UTC只定位数学核验输入，不作为外部交节时刻或观测精度金标。
-  // 现模型附加的极小平近点角三次项与NOAA式在这些输入相差小于3e-10°。
-  const cases = [
-    {
-      index: 3,
-      adoptedUtc: '2024-02-04T08:27:07.000Z',
-      modelUtc: '2024-02-04T08:21:25.000Z',
-      adoptedResidual: 0.004005702071726603,
-      modelResidual: 0.000009208280540663296,
-    },
-    {
-      index: 6,
-      adoptedUtc: '2024-03-20T03:06:25.000Z',
-      modelUtc: '2024-03-20T03:04:17.000Z',
-      adoptedResidual: 0.0014759315585743938,
-      modelResidual: 0.000003813763612657926,
-    },
-    {
-      index: 12,
-      adoptedUtc: '2024-06-20T20:51:00.000Z',
-      modelUtc: '2024-06-20T20:49:29.000Z',
-      adoptedResidual: 0.001011429545935472,
-      modelResidual: 0.000006338199408903046,
-    },
-    {
-      index: 18,
-      adoptedUtc: '2024-09-22T12:43:42.000Z',
-      modelUtc: '2024-09-22T12:37:16.000Z',
-      adoptedResidual: 0.004374823784849924,
-      modelResidual: 0.000003404874123517093,
-    },
-  ];
-  for (const row of cases) {
-    const evidence = calculateSolarTermEvidence(2024, row.index);
-    const adopted = evidence.calculationSteps[1].result;
-    const root = evidence.calculationSteps[2].result;
-    assert.equal(evidence.utcDateTime, row.adoptedUtc);
-    assert.equal(adopted.utcDateTime, row.adoptedUtc);
-    assert.equal(adopted.utcTimestamp, evidence.utcTimestamp);
-    assert.equal(adopted.solarLongitudeDegrees, evidence.solarLongitudeDegrees);
-    assert.equal(adopted.residualDegrees, evidence.residualDegrees);
-    assert.ok(Math.abs(evidence.residualDegrees - row.adoptedResidual) < 1e-8, evidence.name);
-    assert.equal(root.modelRootUtcDateTime, row.modelUtc);
-    assert.equal(root.modelRootUtcDateTime, evidence.modelRootUtcDateTime);
-    assert.ok(
-      Math.abs(Number(root.residualDegrees) - row.modelResidual) < 1e-8,
-      `${evidence.name}模型根残差`,
-    );
-    assert.notEqual(root.residualDegrees, adopted.residualDegrees);
   }
 });
 

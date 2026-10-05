@@ -25,7 +25,7 @@ const getCachedWuyunLiuqi = (yearGanZhi: string) => {
 // https://www.hko.gov.hk/tc/gts/time/calendar/pdf/files/2026.pdf
 // https://www.hko.gov.hk/en/gts/astron2026/files/2026cal03.pdf （春分 3 月 20 日 22:46）
 // https://www.hko.gov.hk/tc/gts/astron2027/files/2027SolarTerms24.pdf
-test('五运六气2026年公历边界与独立年历的节气日期一致', () => {
+test('五运六气2026年公历边界符合独立年历，六步时界保留现代节气交节口径', () => {
   const result = calculateWuyunLiuqi({ year: 2026 });
   assert.deepEqual(
     result.movementSteps.map((step) => [step.gregorianStart, step.gregorianEnd]),
@@ -106,10 +106,6 @@ test('五运六气2026年公历边界与独立年历的节气日期一致', () =
   } finally {
     TimeManager.setTimezoneOffsetMinutesOverride(480);
   }
-});
-
-test('六步保留现代节气交节参考，提示词不把它写成传统交司时刻', () => {
-  const result = calculateWuyunLiuqi({ year: 2026 });
   const first = result.qiSteps[0].boundaryTime;
   const second = result.qiSteps[1].boundaryTime;
   assert.ok(first && second);

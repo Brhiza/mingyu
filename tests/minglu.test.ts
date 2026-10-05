@@ -33,7 +33,7 @@ function getSharedMingluBaziResult() {
   return structuredClone(sharedMingluBaziResult);
 }
 
-test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
+test('命录柱间会合依实盘条件展示结构、合绊、争合与成化', () => {
   const samples = [
     {
       date: [1990, 1, 7, 5],
@@ -70,6 +70,7 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
     },
     {
       date: [1994, 3, 17, 4],
+      pillars: ['甲戌', '丁卯', '壬寅', '甲辰'],
       relations: [
         {
           category: '天干五合',
@@ -83,10 +84,17 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
           status: '逢冲破合',
           transformElement: undefined,
         },
+        {
+          category: '地支三会',
+          name: '寅卯辰三会东方木',
+          status: '结构齐全',
+          transformElement: '木',
+        },
       ],
     },
   ] as const;
-  for (const { date, relations } of samples) {
+  for (const sample of samples) {
+    const { date, relations } = sample;
     const [year, month, day, timeIndex] = date;
     const chart = baziCalculator.calculateBazi({
       year,
@@ -96,6 +104,12 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
       gender: 'male',
       useTrueSolarTime: false,
     });
+    if ('pillars' in sample) {
+      assert.deepEqual(
+        (['year', 'month', 'day', 'hour'] as const).map((key) => chart.pillars[key].ganZhi),
+        sample.pillars,
+      );
+    }
     const items = buildEnhancedInteractions(chart);
     for (const sample of relations) {
       const item = items.find(
@@ -109,7 +123,12 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
       assert.equal(item.transformElement, sample.transformElement);
       assert.equal(item.nature, '中性');
       assert.doesNotMatch(item.name, /合化|六合化/u);
-      assert.doesNotMatch(item.description, /厚德重信|安定稳固|晚景光明/u);
+      assert.doesNotMatch(item.description, /厚德重信|安定稳固|晚景光明|全盘木气鼎盛/u);
+      if (sample.category === '地支三会') {
+        assert.match(item.description, /传统取象/u);
+        assert.match(item.description, /东方春木之象/u);
+        assert.match(item.influence, /成势.*未同时满足/u);
+      }
       if (sample.status !== '成化') {
         assert.doesNotMatch(item.conditionEvidence?.join('；') ?? '', /合化[木火土金水]/u);
         if (sample.category === '天干五合') {
@@ -121,7 +140,8 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
       );
       assert.match(html, new RegExp(sample.name, 'u'));
       assert.match(html, new RegExp(sample.status, 'u'));
-      assert.equal(html.includes('对应五行：'), sample.status === '成化');
+      assert.equal(html.includes('对应五行：'), sample.transformElement !== undefined);
+      assert.doesNotMatch(html, /全盘木气鼎盛/u);
     }
   }
 });
@@ -566,7 +586,7 @@ test('命录未知时辰按各柱稳定状态展示事实，不把未见五行�
   assert.doesNotMatch(stableDayArticle.tenGodsSection.godsList[0].psychology, /日主未定/);
 });
 
-test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
+test('命录岁运并临与命卦方位沿用同一完整报告，冲合判定须两字不同', () => {
   const baziResult = getSharedMingluBaziResult();
   const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
 
@@ -592,6 +612,25 @@ test('命录岁运并临不应同时误判天地合或天克地冲，冲合判�
     }
   }
   assert.ok(sawBinglin, '十二年大运流年表中应至少出现一次岁运并临');
+
+  const gua = baziResult.mingGua!.gua;
+  const palaceTable = getBaZhaiPalace(gua);
+  const directionOf = (label: string) => palaceTable.find((p) => p.label === label)!.direction;
+
+  const pillarsDirections = article.pillarsSection.mingGuaInfo!.directions;
+  assert.equal(pillarsDirections.find((d) => d.name === '生气方')!.direction, directionOf('生气'));
+  assert.equal(pillarsDirections.find((d) => d.name === '延年方')!.direction, directionOf('延年'));
+  assert.equal(pillarsDirections.find((d) => d.name === '绝命方')!.direction, directionOf('绝命'));
+
+  const fengshui = article.fengshuiSection!.mingGua;
+  assert.equal(
+    fengshui.beneficialDirections.find((d) => d.name === '天医方')!.direction,
+    directionOf('天医'),
+  );
+  assert.equal(
+    fengshui.unfavorableDirections.find((d) => d.name === '五鬼方')!.direction,
+    directionOf('五鬼'),
+  );
 });
 
 test('岁运天克地冲包含戊壬己癸的土水相克，关系标签保留条件', () => {
@@ -635,29 +674,6 @@ test('岁运天克地冲包含戊壬己癸的土水相克，关系标签保留�
     }
   }
   assert.ok(checked > 0, '真实岁运样本须覆盖土水相克且地支相冲');
-});
-
-test('命录命卦方位应与公共八宅大游年表逐卦一致', () => {
-  const baziResult = getSharedMingluBaziResult();
-  const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
-  const gua = baziResult.mingGua!.gua;
-  const palaceTable = getBaZhaiPalace(gua);
-  const directionOf = (label: string) => palaceTable.find((p) => p.label === label)!.direction;
-
-  const pillarsDirections = article.pillarsSection.mingGuaInfo!.directions;
-  assert.equal(pillarsDirections.find((d) => d.name === '生气方')!.direction, directionOf('生气'));
-  assert.equal(pillarsDirections.find((d) => d.name === '延年方')!.direction, directionOf('延年'));
-  assert.equal(pillarsDirections.find((d) => d.name === '绝命方')!.direction, directionOf('绝命'));
-
-  const fengshui = article.fengshuiSection!.mingGua;
-  assert.equal(
-    fengshui.beneficialDirections.find((d) => d.name === '天医方')!.direction,
-    directionOf('天医'),
-  );
-  assert.equal(
-    fengshui.unfavorableDirections.find((d) => d.name === '五鬼方')!.direction,
-    directionOf('五鬼'),
-  );
 });
 
 test('岁运合冲判定穷举：十干100组、地支144组正反向与同字', () => {
@@ -819,6 +835,12 @@ test('命录保留中和待判与实际原局作用，印星及透干比劫分�
         expected.some((item) => item.name === name),
         name,
       );
+    }
+    for (const item of expected) {
+      if (['地支三会', '地支三合', '地支半合'].includes(item.category)) {
+        assert.match(item.description, /传统(?:半合)?取象/u);
+        assert.doesNotMatch(item.description, /全盘[木火金水]气/u);
+      }
     }
     const returned = buildEnhancedInteractions(projected);
     for (const item of returned) item.involvedStemsBranches[0] = '临时地支';

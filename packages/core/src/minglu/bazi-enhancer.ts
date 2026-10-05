@@ -129,25 +129,25 @@ const BRANCH_SANHUI = [
     branches: ['寅', '卯', '辰'],
     name: '寅卯辰三会东方木',
     wuxing: '木',
-    desc: '东方春令，全盘木气鼎盛，仁义生发，条达昂扬。',
+    desc: '东方春木之象：仁义生发，条达昂扬。',
   },
   {
     branches: ['巳', '午', '未'],
     name: '巳午未三会南方火',
     wuxing: '火',
-    desc: '南方夏令，全盘火气炽烈，礼仪通明，热情果敢。',
+    desc: '南方夏火之象：礼仪通明，热情果敢。',
   },
   {
     branches: ['申', '酉', '戌'],
     name: '申酉戌三会西方金',
     wuxing: '金',
-    desc: '西方秋令，全盘金气刚肃，义气威严，肃杀决断。',
+    desc: '西方秋金之象：义气威严，肃杀决断。',
   },
   {
     branches: ['亥', '子', '丑'],
     name: '亥子丑三会北方水',
     wuxing: '水',
-    desc: '北方冬令，全盘水气浩荡，智谋潜沉，汪洋通达。',
+    desc: '北方冬水之象：智谋潜沉，汪洋通达。',
   },
 ];
 
@@ -1230,6 +1230,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
       return {
         ...item,
         nature: '中性' as const,
+        description: `传统取象：${item.description}`,
         conditionStatus: established ? '成势' : '结构齐全',
         conditionEvidence: [
           `${formation.branches.join('')}三支齐全`,
@@ -1243,6 +1244,8 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
     return {
       ...item,
       nature: '中性' as const,
+      description:
+        item.category === '地支半合' ? `传统半合取象：${item.description}` : item.description,
       conditionStatus: '关系成立',
       influence: `${item.involvedPillars.join('、')}所见${item.involvedStemsBranches.join('、')}构成${item.category}，结合所涉十神及本局喜忌判断作用。`,
     };

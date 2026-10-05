@@ -104,16 +104,17 @@ test('公共天文事实应正确换算时区、月相与逆行状态', () => {
   assert.equal(facts.bodies.find((body) => body.name === 'Saturn')?.isRetrograde, true);
 });
 
-test('朔时月面照明保留月球黄纬，并在日期线两侧对应同一 UTC 瞬时', () => {
+test('朔时月面照明、AU距离与月相证据一致，并在日期线两侧对应同一 UTC 瞬时', () => {
   // JPL Horizons 地心样例：2024-06-06 12:38 UTC，月面照明约 0.15470%。
-  const utc = queryAstronomicalFacts({
+  const input = {
     year: 2024,
     month: 6,
     day: 6,
     hour: 12,
     minute: 38,
     timezone: 0,
-  });
+  };
+  const utc = queryAstronomicalFacts(input);
   const newYork = queryAstronomicalFacts({
     year: 2024,
     month: 6,
@@ -140,11 +141,7 @@ test('朔时月面照明保留月球黄纬，并在日期线两侧对应同一 U
     assert.equal(sameInstant.moonPhase.illuminationFraction, utc.moonPhase.illuminationFraction);
     assert.equal(sameInstant.moonPhase.elongationDegrees, utc.moonPhase.elongationDegrees);
   }
-});
-
-test('日月地心距离同为 AU，天文事实与月相证据在同一瞬时一致且不随地点改变', () => {
-  const input = { year: 2024, month: 6, day: 6, hour: 12, minute: 38, timezone: 0 };
-  const facts = queryAstronomicalFacts(input);
+  const facts = utc;
   const otherLocation = queryAstronomicalFacts({ ...input, latitude: -33.9, longitude: 151.2 });
   const evidence = calculateMoonPhaseEvidence(Date.parse(facts.utcDateTime));
   const sun = facts.bodies.find((body) => body.name === 'Sun')!;
