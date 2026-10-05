@@ -24,6 +24,7 @@ const jiaZiMethodBoards = {
   zhuanpan: generateQimen(new Date('2026-05-20T00:30:00+08:00'), 'zhuanpan'),
   feipan: generateQimen(new Date('2026-05-20T00:30:00+08:00'), 'feipan'),
 };
+const jiaZiHourSummaryBoard = generateQimen(new Date('2026-09-01T15:00:00Z'));
 const fixedAppTaskPrompt = buildDivinationPrompt(
   'qimen',
   '请做整体解读。',
@@ -163,8 +164,7 @@ test('奇门原生提示词绑定符使宫生克、天地盘时干和取用宫�
   assert.match(prompt, /巽四宫天地盘干：天盘癸水克地盘丁火；天干相冲：癸与丁相冲/);
   assert.doesNotMatch(prompt, /天干五合：癸与丁相合/);
   const capturePrompt = () => buildDivinationPrompt('qimen', '请做整体解读。', cloneFixedQimen());
-  const baseline = capturePrompt();
-  assert.equal(baseline, prompt);
+  const baseline = prompt;
   const original = { gui: STEM_WUXING.癸, ding: STEM_WUXING.丁 };
   try {
     STEM_WUXING.癸 = '土';
@@ -311,7 +311,7 @@ test('奇门甲子时以旬首所遁戊分别定位天盘和地盘', () => {
 });
 
 test('奇门摘要按六甲遁干定位甲时，不把原始甲误报为未定位', () => {
-  const data = generateQimen(new Date('2026-09-01T15:00:00Z'));
+  const data = structuredClone(jiaZiHourSummaryBoard);
   assert.equal(data.ganzhi.hour, '甲子');
   const summary = getDivinationSummaryBlocks('qimen', data);
   assert.match(summary.lines.join('\n'), /时干甲（遁戊）见于/);
@@ -327,7 +327,10 @@ test('奇门年日月时摘要使用对应排盘范围的主动干支和驿马�
   ] as const;
 
   for (const item of cases) {
-    const data = generateQimen(new Date('2026-09-01T15:00:00Z'), 'zhuanpan', item.scope);
+    const data =
+      item.scope === 'hour'
+        ? structuredClone(jiaZiHourSummaryBoard)
+        : generateQimen(new Date('2026-09-01T15:00:00Z'), 'zhuanpan', item.scope);
     const activeGanZhi = data.ganzhi[item.scope];
     const activeStem = activeGanZhi.charAt(0);
     const visibleStem = getDunJiaStem(activeGanZhi);

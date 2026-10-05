@@ -57,7 +57,7 @@ interface AlmanacGodSource {
 }
 import { analyzeAlmanacEvidence, classifyAlmanacCandidate } from '../almanac-evidence';
 
-export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
+const CANONICAL_ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
   marriage: '订婚结婚',
   opening: '开业启动',
@@ -68,6 +68,10 @@ export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   burial: '安葬修坟',
   renovation: '修造动土',
   custom: '自定义事项',
+};
+
+export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
+  ...CANONICAL_ALMANAC_TOPIC_LABELS,
 };
 
 const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
@@ -98,9 +102,14 @@ function getGeneralRestriction(
 }
 
 function assertAlmanacTopic(topic: AlmanacTopic): void {
-  if (!Object.prototype.hasOwnProperty.call(ALMANAC_TOPIC_LABELS, topic)) {
+  if (!Object.prototype.hasOwnProperty.call(CANONICAL_ALMANAC_TOPIC_LABELS, topic)) {
     throw new Error(`未知的黄历择日事项类型: ${String(topic)}`);
   }
+}
+
+export function getAlmanacTopicLabel(topic: AlmanacTopic): string {
+  assertAlmanacTopic(topic);
+  return CANONICAL_ALMANAC_TOPIC_LABELS[topic];
 }
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -211,7 +220,7 @@ function buildTopicMatchFact(params: {
 }): AlmanacTopicMatchFact {
   return {
     ...params,
-    topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
+    topicLabel: CANONICAL_ALMANAC_TOPIC_LABELS[params.topic],
     limitation: TOPIC_MATCH_LIMITATION,
   };
 }
@@ -1254,8 +1263,8 @@ function buildDayFacts(params: {
       keywords: [...recommendKeywords],
       matchedItems: recommendMatches,
       promptText: recommendMatches.length
-        ? `原始宜项命中${ALMANAC_TOPIC_LABELS[params.topic]}：${recommendMatches.join('、')}`
-        : `原始宜项未命中${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
+        ? `原始宜项命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}：${recommendMatches.join('、')}`
+        : `原始宜项未命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
       sources: ['tyme4ts 当日宜项', '当前事项宜用关键词表'],
     }),
     buildTopicMatchFact({
@@ -1268,23 +1277,23 @@ function buildDayFacts(params: {
       keywords: [...avoidKeywords],
       matchedItems: avoidMatches,
       promptText: avoidMatches.length
-        ? `原始忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}：${avoidMatches.join('、')}`
-        : `原始忌项未触及${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
+        ? `原始忌项触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}：${avoidMatches.join('、')}`
+        : `原始忌项未触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
       sources: ['tyme4ts 当日忌项', '当前事项避忌关键词表'],
     }),
   );
 
   if (recommendMatches.length) {
-    highlights.push(`黄历宜项命中${ALMANAC_TOPIC_LABELS[params.topic]}`);
+    highlights.push(`黄历宜项命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}`);
   }
   if (avoidMatches.length) {
-    cautions.push(`黄历忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}`);
+    cautions.push(`黄历忌项触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}`);
   }
 
   // 《钦定协纪辨方书》卷十「上朔四离四绝晦日」：四离只不忌祭祀、解除等列项，余事皆忌；与德合并仍忌。
   // 原始宜忌保留历法库原值，明确事项裁决另列事实，不把所有凶神一律用于分组。
   if (params.topic !== 'custom' && params.gods.some((god) => god.getName() === '四离')) {
-    const text = `四离日：${ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    const text = `四离日：${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
     cautions.push(text);
     topicMatchFacts.push(
       buildTopicMatchFact({
@@ -1294,7 +1303,7 @@ function buildDayFacts(params: {
         sourceType: '值日神煞事项规则',
         status: '限制',
         inputItems: ['四离'],
-        keywords: [ALMANAC_TOPIC_LABELS[params.topic]],
+        keywords: [CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]],
         matchedItems: ['四离'],
         promptText: text,
         sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
@@ -1305,7 +1314,7 @@ function buildDayFacts(params: {
   // 四绝与四离同载于《钦定协纪辨方书》卷十。祭祀、解除及除旧等列项例外，
   // 当前预设事项均不能仅凭事项大类等同于这些具体例外；自定义事项留给逐项核对。
   if (params.topic !== 'custom' && params.fourTerminationTerm) {
-    const text = `四绝日（${params.fourTerminationTerm}前一日）：${ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    const text = `四绝日（${params.fourTerminationTerm}前一日）：${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
     cautions.push(text);
     topicMatchFacts.push(
       buildTopicMatchFact({
@@ -1315,7 +1324,7 @@ function buildDayFacts(params: {
         sourceType: '值日神煞事项规则',
         status: '限制',
         inputItems: [`${params.fourTerminationTerm}前一日`, '四绝'],
-        keywords: [ALMANAC_TOPIC_LABELS[params.topic]],
+        keywords: [CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]],
         matchedItems: ['四绝'],
         promptText: text,
         sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
@@ -1422,7 +1431,7 @@ function buildHourCandidates(
         kind === 'recommends' ? TOPIC_RECOMMEND_KEYWORDS[topic] : TOPIC_AVOID_KEYWORDS[topic];
       const matchedItems = findKeywordMatches(inputItems, keywords);
       const status = matchedItems.length ? (kind === 'recommends' ? '支持' : '限制') : '中性';
-      const promptText = `${hourName}原始${kind === 'recommends' ? '宜' : '忌'}项${matchedItems.length ? `命中${ALMANAC_TOPIC_LABELS[topic]}：${matchedItems.join('、')}` : `未命中${ALMANAC_TOPIC_LABELS[topic]}`}`;
+      const promptText = `${hourName}原始${kind === 'recommends' ? '宜' : '忌'}项${matchedItems.length ? `命中${CANONICAL_ALMANAC_TOPIC_LABELS[topic]}：${matchedItems.join('、')}` : `未命中${CANONICAL_ALMANAC_TOPIC_LABELS[topic]}`}`;
       if (status === '支持') highlights.push(promptText);
       if (status === '限制') cautions.push(promptText);
       return buildTopicMatchFact({
@@ -1737,7 +1746,7 @@ export function generateAlmanacSelection(params: {
 
   const result: AlmanacData = {
     topic,
-    topicLabel: ALMANAC_TOPIC_LABELS[topic],
+    topicLabel: CANONICAL_ALMANAC_TOPIC_LABELS[topic],
     startDate,
     endDate,
     weekendPreference,

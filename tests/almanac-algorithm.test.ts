@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ALMANAC_TOPIC_LABELS, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 
 import {
-  generateAlmanacSelection,
   getAlmanacAnnualDirectionGods,
   getAlmanacNineStarDetail,
   getAlmanacPengZuDetails,
@@ -578,13 +578,17 @@ test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放
 });
 
 test('黄历择日：每个候选日应给出完整时辰，不生成首选时辰', () => {
-  const result = generateAlmanacSelection({
+  const params = {
     topic: 'contract',
     startDate: '2026-06-01',
     endDate: '2026-06-03',
-  });
+  } as const;
+  const result = generateAlmanacSelection(params);
+  assert.equal(result.topicLabel, '签约合作');
 
   for (const day of result.days) {
+    assert.ok(day.topicMatchFacts?.length);
+    assert.ok(day.topicMatchFacts.every((fact) => fact.topicLabel === '签约合作'));
     assert.equal(day.hours?.length, 13, `${day.date} 应包含早晚子时在内的 13 个时段`);
     assert.deepEqual(
       day.hours?.map((hour) => [hour.name, hour.branch, hour.range]),
@@ -608,9 +612,46 @@ test('黄历择日：每个候选日应给出完整时辰，不生成首选时�
     assert.ok(!('bestHours' in day), `${day.date} 不应生成首选时辰`);
     for (const hour of day.hours ?? []) {
       assert.ok(Array.isArray(hour.recommends) && Array.isArray(hour.avoids));
+      assert.ok(hour.topicMatchFacts?.length);
       for (const fact of hour.topicMatchFacts ?? []) {
+        assert.equal(fact.topicLabel, '签约合作');
         assert.ok(fact.matchedItems.every((item) => fact.inputItems.includes(item)));
       }
+    }
+  }
+
+  const promptOptions = {
+    method: 'almanac',
+    question: '哪天适合签约？',
+    currentTime: new Date('2026-06-01T10:00:00+08:00'),
+  } as const;
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: result });
+  const originalLabel = ALMANAC_TOPIC_LABELS.contract;
+  const invalidTopicDescriptor = Object.getOwnPropertyDescriptor(
+    ALMANAC_TOPIC_LABELS,
+    'invalid-topic',
+  );
+  try {
+    ALMANAC_TOPIC_LABELS.contract = '临时事项标签';
+    assert.equal(ALMANAC_TOPIC_LABELS.contract, '临时事项标签');
+    assert.equal(Reflect.set(ALMANAC_TOPIC_LABELS, 'invalid-topic', '临时新增事项'), true);
+    assert.throws(
+      () =>
+        generateAlmanacSelection({
+          ...params,
+          topic: 'invalid-topic' as Parameters<typeof generateAlmanacSelection>[0]['topic'],
+        }),
+      /未知的黄历择日事项类型/,
+    );
+    const fresh = generateAlmanacSelection(params);
+    assert.deepEqual({ ...fresh, timestamp: undefined }, { ...result, timestamp: undefined });
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  } finally {
+    ALMANAC_TOPIC_LABELS.contract = originalLabel;
+    if (invalidTopicDescriptor) {
+      Object.defineProperty(ALMANAC_TOPIC_LABELS, 'invalid-topic', invalidTopicDescriptor);
+    } else {
+      Reflect.deleteProperty(ALMANAC_TOPIC_LABELS, 'invalid-topic');
     }
   }
 });

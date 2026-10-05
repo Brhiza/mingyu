@@ -17,9 +17,9 @@ import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { SHICHEN_PERIODS } from '../calendar/dateUtils';
 import { getHuangliSolarDayGods } from '../shensha';
 import {
-  ALMANAC_TOPIC_LABELS,
   getAlmanacAnnualDirectionGods,
   getAlmanacPengZuDetails,
+  getAlmanacTopicLabel,
   recalculateAlmanacDayForVerification,
 } from './algorithms/almanac';
 
@@ -1654,7 +1654,7 @@ function verifyAlmanacDerivedFacts(data: AlmanacData, day: AlmanacDayCandidate):
 }
 
 function verifyAlmanacCalendarFacts(data: AlmanacData): void {
-  if (data.topicLabel !== ALMANAC_TOPIC_LABELS[data.topic]) {
+  if (data.topicLabel !== getAlmanacTopicLabel(data.topic)) {
     throw new Error('黄历事项名称与排盘口径不一致，请重新排盘。');
   }
   const start = parseVerifiedDate(data.startDate, '开始日期');
