@@ -552,7 +552,7 @@ function expectedMovements(elements: {
 }
 
 test('金口诀：时间起课应形成四位、阴阳发用与动爻', () => {
-  const data = generateJinkoujue({ method: 'time', customDate: SAMPLE_DATE });
+  const data = structuredClone(fixedDefaultChart);
 
   assert.equal(data.method, 'time');
   assert.equal(data.diFenBranch, data.positions.diFen.branch);

@@ -536,12 +536,15 @@ function formatLiuyaoInfo(
       : '';
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data, evidenceAnalysis.lineFacts);
+  const dayBranch = getGanzhiBranch(data.ganzhi.day);
+  const monthBranch = getGanzhiBranch(data.ganzhi.month);
+  const sharedSanhe = data.sanheWithDay && data.sanheWithMonth && dayBranch === monthBranch;
   const sanheParts = [
     data.sanheWithDay
-      ? `日辰${getGanzhiBranch(data.ganzhi.day)}与动变爻同见${data.sanheWithDay.group}三支（${data.sanheWithDay.members.join('、')}）`
+      ? `${sharedSanhe ? '月建、日辰' : '日辰'}${dayBranch}与动变爻同见${data.sanheWithDay.group}三支（${data.sanheWithDay.members.join('、')}）`
       : '',
-    data.sanheWithMonth
-      ? `月建${getGanzhiBranch(data.ganzhi.month)}与动变爻同见${data.sanheWithMonth.group}三支（${data.sanheWithMonth.members.join('、')}）`
+    data.sanheWithMonth && !sharedSanhe
+      ? `月建${monthBranch}与动变爻同见${data.sanheWithMonth.group}三支（${data.sanheWithMonth.members.join('、')}）`
       : '',
   ].filter(Boolean);
   const sanheDetail = sanheParts.length ? `三合三支：${sanheParts.join('；')}` : null;

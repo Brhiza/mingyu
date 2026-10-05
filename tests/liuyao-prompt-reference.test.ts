@@ -210,7 +210,7 @@ test('六爻静卦按实际世应和空爻给出月日生克及冲空对象', ()
   }
 });
 
-test('六爻逐爻表同时呈现化空、回头关系与进神', () => {
+test('六爻逐爻表保留化空、回头关系与进神，三合只合并同支同组三支', () => {
   const date = new Date('2025-01-01T08:00:00+08:00');
   const voidData = generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] });
   const voidText = formatSourceLiuyaoPrompt('liuyao', voidData);
@@ -221,6 +221,12 @@ test('六爻逐爻表同时呈现化空、回头关系与进神', () => {
   assert.match(voidText, /第4爻兄弟丑土[^\n]*合月建子，害日辰午/u);
   assert.match(voidText, /月日五行：[^\n]*第1爻兄弟未土克月建子水[^\n]*日辰午火生第1爻兄弟未土/u);
   assert.doesNotMatch(voidText, /月建、日辰|月日触发：/u);
+  assert.equal(voidData.sanheWithDay?.group, '火局');
+  assert.equal(voidData.sanheWithMonth?.group, '水局');
+  assert.match(
+    voidText,
+    /^三合三支：日辰午与动变爻同见火局三支（寅、午、戌）；月建子与动变爻同见水局三支（申、子、辰）$/mu,
+  );
   const legacyVoidData = structuredClone(voidData);
   delete legacyVoidData.yaosDetail[5].changeRelations;
   const legacyVoidLine = formatSourceLiuyaoPrompt('liuyao', legacyVoidData)
@@ -233,6 +239,60 @@ test('六爻逐爻表同时呈现化空、回头关系与进神', () => {
   const advanceLine = advanceText.split('\n').find((line) => line.startsWith('  第2爻'));
   assert.equal(advanceData.yaosDetail[1].changeDirection, '化进神');
   assert.match(advanceLine ?? '', /化官鬼卯木（比和、化进神）/);
+
+  const currentTime = new Date('2026-05-19T10:30:00+08:00');
+  const sameTriggerData = generateLiuyao(currentTime, {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const snapshot = structuredClone(sameTriggerData);
+  assert.deepEqual(sameTriggerData.sanheWithDay, {
+    group: '金局',
+    members: ['巳', '酉', '丑'],
+    description: '日辰巳与动变爻同见三合金局三支',
+  });
+  assert.deepEqual(sameTriggerData.sanheWithMonth, {
+    group: '金局',
+    members: ['巳', '酉', '丑'],
+    description: '月建巳与动变爻同见三合金局三支',
+  });
+  for (const data of [sameTriggerData, JSON.parse(JSON.stringify(sameTriggerData))]) {
+    const inputSnapshot = structuredClone(data);
+    for (const text of [
+      formatSourceLiuyaoPrompt('liuyao', data),
+      buildSourceDivinationPrompt({
+        method: 'liuyao',
+        data,
+        question: '请分析本卦。',
+        currentTime,
+      }),
+    ]) {
+      assert.match(text, /^三合三支：月建、日辰巳与动变爻同见金局三支（巳、酉、丑）$/mu);
+      assert.equal(text.split('金局三支（巳、酉、丑）').length - 1, 1);
+    }
+    assert.deepEqual(data, inputSnapshot);
+  }
+  assert.deepEqual(sameTriggerData, snapshot);
+  const wrongGroup = structuredClone(sameTriggerData);
+  wrongGroup.sanheWithMonth!.group = '水局';
+  const wrongMembers = structuredClone(sameTriggerData);
+  wrongMembers.sanheWithMonth!.members[0] = '申';
+  for (const data of [wrongGroup, wrongMembers]) {
+    assert.throws(
+      () => formatSourceLiuyaoPrompt('liuyao', data),
+      /三合与原始爻值、纳甲及月日支不一致/u,
+    );
+    assert.throws(
+      () =>
+        buildSourceDivinationPrompt({
+          method: 'liuyao',
+          data,
+          question: '请分析本卦。',
+          currentTime,
+        }),
+      /三合与原始爻值、纳甲及月日支不一致/u,
+    );
+  }
 });
 
 test('六爻用神只列实际支持与限制，保留伏藏和飞神资料', () => {

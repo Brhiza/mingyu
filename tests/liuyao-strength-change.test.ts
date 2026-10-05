@@ -99,10 +99,27 @@ test('六爻：月建为墓库支时不得直接判作入月墓', () => {
   assert.doesNotMatch(data.evidenceAnalysis?.promptText ?? '', /入月墓/);
 });
 
-test('六爻：生旺墓绝应分别核验日辰、明动爻与自身变爻', () => {
+test('六爻：日辰、明动与变爻分别核验生旺墓绝，并可补成完整三合三支', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
     yaos: [7, 6, 7, 7, 7, 6],
   });
+
+  assert.equal(data.ganzhi.day.slice(1), '午');
+  assert.equal(data.originalName, '泽火革');
+  assert.equal(data.changedName, '乾为天');
+  assert.deepEqual(
+    data.yaosDetail
+      .filter((yao) => yao.isChanging)
+      .map((yao) => [yao.najiaDizhi, yao.changedYao?.dizhi]),
+    [
+      ['丑', '寅'],
+      ['未', '戌'],
+    ],
+  );
+  assert.equal(data.sanheWithDay?.group, '火局');
+  assert.deepEqual(data.sanheWithDay?.members, ['寅', '午', '戌']);
+  assert.match(data.sanheWithDay?.description || '', /日辰午与动变爻同见三合火局三支/);
+  assert.equal(data.sanheWithMonth, null);
 
   const woodYao = data.yaosDetail.find((yao) => yao.wuxing === '木');
   assert.ok(woodYao, '样本卦应包含木爻');
@@ -605,20 +622,6 @@ test('六爻：反吟伏吟应按卦变和纳甲地支判断', () => {
   assert.deepEqual(staticHexagram.labels, []);
 });
 
-test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
-  assert.equal(getLiuyaoPalaceStage('乾为天'), '首卦');
-  assert.equal(getLiuyaoPalaceStage('天风姤'), '一世');
-  assert.equal(getLiuyaoPalaceStage('山地剥'), '五世');
-  assert.equal(getLiuyaoPalaceStage('火地晋'), '游魂');
-  assert.equal(getLiuyaoPalaceStage('火天大有'), '归魂');
-
-  const data = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
-    yaos: FENG_SHUI_HUAN_YAOS,
-  });
-  assert.equal(data.originalName, '风水涣');
-  assert.equal(data.palaceStage, '五世');
-});
-
 test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
     yaos: KAN_WEI_SHUI_YAOS,
@@ -633,34 +636,18 @@ test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
   assert.equal(data.sanheWithMonth, null);
 });
 
-test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
-  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
-    yaos: [7, 6, 7, 7, 7, 6],
-  });
+test('六爻：八宫卦位与月卦身分别按卦序及阳世起子、阴世起午确定', () => {
+  assert.equal(getLiuyaoPalaceStage('乾为天'), '首卦');
+  assert.equal(getLiuyaoPalaceStage('天风姤'), '一世');
+  assert.equal(getLiuyaoPalaceStage('山地剥'), '五世');
+  assert.equal(getLiuyaoPalaceStage('火地晋'), '游魂');
+  assert.equal(getLiuyaoPalaceStage('火天大有'), '归魂');
 
-  assert.equal(data.ganzhi.day.slice(1), '午');
-  assert.equal(data.originalName, '泽火革');
-  assert.equal(data.changedName, '乾为天');
-  assert.deepEqual(
-    data.yaosDetail
-      .filter((yao) => yao.isChanging)
-      .map((yao) => [yao.najiaDizhi, yao.changedYao?.dizhi]),
-    [
-      ['丑', '寅'],
-      ['未', '戌'],
-    ],
-  );
-  assert.equal(data.sanheWithDay?.group, '火局');
-  assert.deepEqual(data.sanheWithDay?.members, ['寅', '午', '戌']);
-  assert.match(data.sanheWithDay?.description || '', /日辰午与动变爻同见三合火局三支/);
-  assert.equal(data.sanheWithMonth, null);
-});
-
-test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   const yangShi = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
     yaos: FENG_SHUI_HUAN_YAOS,
   });
   assert.equal(yangShi.originalName, '风水涣');
+  assert.equal(yangShi.palaceStage, '五世');
   assert.equal(yangShi.worldAndResponse.indexOf('世') + 1, 5);
   assert.equal(yangShi.yaosDetail[4].yaoType, '阳');
   assert.equal(yangShi.guaShen?.branch, '辰');
