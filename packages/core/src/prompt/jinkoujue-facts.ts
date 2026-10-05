@@ -32,7 +32,13 @@ export function formatJinkoujueRelations(data: JinkoujueData): string {
     ),
   );
   const relations = pairs
-    .filter(([from, to, relation]) => !movementPairs.has(`${from.name}|${to.name}|${relation}`))
+    .filter(([from, to, relation]) => {
+      const pair =
+        relation === '被生' || relation === '被克'
+          ? `${to.name}|${from.name}|${relation.slice(1)}`
+          : `${from.name}|${to.name}|${relation}`;
+      return !movementPairs.has(pair);
+    })
     .map(([from, to, relation]) => {
       if (relation === '被生') return `${label(to)}生${label(from)}`;
       if (relation === '被克') return `${label(to)}克${label(from)}`;

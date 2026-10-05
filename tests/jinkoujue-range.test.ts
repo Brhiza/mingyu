@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculateSolarTermsForYear, getDivinationTime, TimeManager } from 'mingyu-core/calendar';
-import { formatJinkoujueJudgmentFacts } from 'mingyu-core/prompt';
+import {
+  buildDivinationPrompt,
+  formatEnhancedDivinationInfo,
+  formatJinkoujueJudgmentFacts,
+} from 'mingyu-core/prompt';
 import type { JinkoujueDivinationMethod } from 'mingyu-core/types';
 import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
 import {
@@ -92,6 +96,20 @@ test('金口诀雨水前后按月将切成两段并保留独立手算四位预�
     );
     assert.equal(data.ganzhi.day, RAIN_WATER_SOURCE.pillars.day);
     assert.equal(data.ganzhi.hour, RAIN_WATER_SOURCE.pillars.hour);
+    const before = structuredClone(data);
+    for (const prompt of [
+      formatEnhancedDivinationInfo('jinkoujue', data),
+      buildDivinationPrompt({
+        method: 'jinkoujue',
+        data,
+        question: '问合作进度',
+        currentTime: new Date(RAIN_WATER_SOURCE.startTimestamp),
+      }),
+    ]) {
+      assert.equal(prompt.split('地分火生人元土').length - 1, 1);
+      assert.match(prompt, /人元土克将神水/u);
+    }
+    assert.deepEqual(data, before);
   }
 
   const facts = formatJinkoujueRangeFacts(range);

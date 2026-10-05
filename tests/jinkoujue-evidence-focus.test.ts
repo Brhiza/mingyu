@@ -4,6 +4,11 @@ import { strict as assert } from 'node:assert';
 import { generateJinkoujue } from '../packages/core/src/divination/algorithms/jinkoujue';
 import { analyzeJinkoujueEvidence } from '../packages/core/src/divination/jinkoujue-evidence';
 import { generateDivinationSession } from '../packages/core/src/divination/session';
+import {
+  buildDivinationPrompt,
+  formatDivinationInfo,
+} from '../packages/core/src/prompt/divination';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
 
 const date = new Date('2025-01-01T08:00:00+08:00');
@@ -31,6 +36,31 @@ test('金口诀发用位旬空仍标主线受限，辅助位旬空只作为该�
     ).length,
     1,
   );
+
+  const mainBefore = structuredClone(mainVoid);
+  assert.deepEqual(
+    mainVoid.movements.map(({ name, trigger }) => ({ name, trigger })),
+    [
+      { name: '财动', trigger: '将神水克贵神火' },
+      { name: '鬼动', trigger: '地分木克人元土' },
+    ],
+  );
+  for (const prompt of [
+    formatDivinationInfo('jinkoujue', mainVoid),
+    formatDetailedDivinationInfo('jinkoujue', mainVoid),
+    formatEnhancedDivinationInfo('jinkoujue', mainVoid),
+    buildDivinationPrompt({
+      method: 'jinkoujue',
+      data: mainVoid,
+      question: '问合作进度',
+      currentTime: date,
+    }),
+  ]) {
+    assert.equal(prompt.split('将神水克贵神火').length - 1, 1);
+    assert.equal(prompt.split('地分木克人元土').length - 1, 1);
+    assert.match(prompt, /贵神火生人元土；人元土克将神水；将神水生地分木；地分木生贵神火/u);
+  }
+  assert.deepEqual(mainVoid, mainBefore);
 
   const auxiliaryVoid = generateJinkoujue({
     method: 'branch',

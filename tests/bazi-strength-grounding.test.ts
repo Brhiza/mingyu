@@ -6,7 +6,7 @@ import {
   analyzeConstraint,
   analyzeDayMasterStrength,
 } from '../packages/core/src/bazi/baziStrengthAnalyzer';
-import { getSeasonStatus, getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
+import { getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
 import { analyzeExposedStemProfile } from '../packages/core/src/bazi/stemRootAnalysis';
 import type { HiddenStems, Wuxing } from '../packages/core/src/bazi/baziTypes';
 
@@ -59,8 +59,25 @@ test('浮干异党保留事实，不能因未计入得势便直接晋级极强',
   assert.equal(result.details.hasConstraint, true);
 });
 
-test('十干十二月的透干画像与核心月令事实一致，说明使用中文柱位', () => {
-  for (const stem of '甲乙丙丁戊己庚辛壬癸') {
+test('十干十二月的透干画像符合独立旺相休囚死金标，说明使用中文柱位', () => {
+  // 《五行精纪·五行旺相囚休死例》的五行主令规则；四墓月采用土主令。
+  // https://zh.wikisource.org/wiki/五行精紀
+  // 子丑寅卯辰巳午未申酉戌亥各行按木火土金水排列，甲乙至壬癸依次对应五行。
+  const monthlyStatus = [
+    '相死囚休旺',
+    '囚休旺相死',
+    '旺相死囚休',
+    '旺相死囚休',
+    '囚休旺相死',
+    '休旺相死囚',
+    '休旺相死囚',
+    '囚休旺相死',
+    '死囚休旺相',
+    '死囚休旺相',
+    '囚休旺相死',
+    '相死囚休旺',
+  ];
+  for (const [stemIndex, stem] of [...'甲乙丙丁戊己庚辛壬癸'].entries()) {
     for (const [index, branch] of [...'子丑寅卯辰巳午未申酉戌亥'].entries()) {
       const pillars = [
         { gan: '甲', zhi: '子' },
@@ -69,7 +86,7 @@ test('十干十二月的透干画像与核心月令事实一致，说明使用�
         { gan: '壬', zhi: '子' },
       ];
       const profile = analyzeExposedStemProfile(pillars, stem, getWuxing, getTenGod);
-      const expected = getSeasonStatus(branch)[getWuxing(stem)];
+      const expected = monthlyStatus[index][Math.floor(stemIndex / 2)];
       assert.equal(profile.items[2].seasonStatus, expected, `${stem}/${branch}`);
       assert.ok(profile.items[2].summary.includes(`${stem}透于日柱`));
       assert.doesNotMatch(

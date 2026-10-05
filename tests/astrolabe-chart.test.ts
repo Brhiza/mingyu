@@ -176,19 +176,8 @@ test('星盘图应显示福点标记与星座宫位摘要', () => {
 });
 
 test('缺少福点的历史数据仍应正常显示星盘图', () => {
-  const data = generateAstrolabe({
-    name: '历史星盘样本',
-    gender: '女',
-    year: '1990',
-    month: '5',
-    day: '20',
-    hour: '12',
-    minute: '30',
-    latitude: '31.2304',
-    longitude: '121.4737',
-    timezone: '8',
-    locationName: '上海',
-  });
+  const data = structuredClone(shanghaiAstrolabeFixture);
+  data.birth.name = '历史星盘样本';
   const dataWithoutFortune = {
     ...data,
     planets: data.planets.filter((planet) => planet.name !== 'Part of Fortune'),
