@@ -2351,10 +2351,16 @@ test('奇门天地盘干命名格局应进入实际排盘输出', () => {
     originalText: `${fact.originalText}甲子旬另有寄干条件。`,
     promptText: `${fact.promptText}；甲子旬另有寄干条件`,
   };
+  const extraBefore = structuredClone(extra);
   assert.equal(
     formatQimenClassicPatternBasisForPrompt(extra, [extra], baiHu.data),
+    '甲子旬另有寄干条件',
+  );
+  assert.equal(
+    formatQimenClassicPatternBasisForPrompt(extra, [extra]),
     `${basis}；甲子旬另有寄干条件`,
   );
+  assert.deepEqual(extra, extraBefore);
 });
 
 test('奇门乙加乙应识别为日奇伏刑，不应退化为比和', () => {

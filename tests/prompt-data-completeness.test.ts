@@ -196,7 +196,7 @@ test('奇门经典格局保留触发事实而非只列名称', () => {
     } else {
       const factualBasis = formatQimenPatternBasis(fact);
       const stemPair = factualBasis.match(
-        /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([坎坤震巽中乾兑艮离][一二三四五六七八九]宫)$/u,
+        /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([坎坤震巽中乾兑艮离][一二三四五六七八九]宫)(?:；(.+))?$/u,
       );
       const tone =
         fact.traditionalTone === '有利'
@@ -204,7 +204,9 @@ test('奇门经典格局保留触发事实而非只列名称', () => {
           : fact.traditionalTone === '风险'
             ? '凶格'
             : '中性格局';
-      const compactLine = stemPair ? `${fact.name}（${tone}，${stemPair[3]}）` : undefined;
+      const compactLine = stemPair
+        ? `${fact.name}（${tone}，${stemPair[3]}）${stemPair[4] ? `：${stemPair[4]}` : ''}`
+        : undefined;
       if (stemPair && compactLine && lines.includes(compactLine)) {
         const palaces = data.jiuGongGe.filter((palace) => palace.name === stemPair[3]);
         assert.equal(palaces.length, 1, fact.name);

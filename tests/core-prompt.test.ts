@@ -189,7 +189,10 @@ test('npm 八字本命提示词入口应输出有差异的盲派与新派资料'
 
   assert.match(mangpai, /四柱宫位参照/);
   assert.match(mangpai, /主宾定位/);
-  assert.match(mangpai, /四柱组合与做功线索/);
+  assert.match(mangpai, /做功取象/);
+  assert.match(mangpai, /【原局干支关系】\n[^\n]+/);
+  assert.doesNotMatch(mangpai, /四柱组合与做功线索/);
+  assert.doesNotMatch(xinpai, /^原局作用：/mu);
   assert.match(mangpai, /透干通根/);
   assert.match(mangpai, /墓库与空亡/);
   assert.match(xinpai, /旺衰判定/);

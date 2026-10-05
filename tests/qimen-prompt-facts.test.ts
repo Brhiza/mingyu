@@ -267,7 +267,8 @@ test('奇门经典格局保留各宫命中且省略重复条件与通用叠加',
   assert.match(patternBlock, /门生宫（吉格）：景门（火）生艮八宫（土）/);
   assert.match(patternBlock, /日奇得使（吉格）：乙奇加地盘辛（甲戌\/甲午所遁）于坎一宫/);
   assert.match(patternBlock, /三奇游六仪（吉格）：[^\n]*星奇游于甲辰壬/);
-  assert.match(patternBlock, /蛇化为龙（吉格）：[^\n]*排盘时以甲子戊代甲/);
+  assert.match(patternBlock, /蛇化为龙（吉格，兑七宫）：壬加地盘甲为蛇化为龙；排盘时以甲子戊代甲/);
+  assert.doesNotMatch(patternBlock, /天盘壬加地盘戊于兑七宫/u);
   assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
   assert.match(prompt, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
   assert.doesNotMatch(prompt, /生门、丙奇、地盘戊同宫|同宫临生门/u);
