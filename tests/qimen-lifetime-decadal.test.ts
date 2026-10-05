@@ -13,9 +13,10 @@ const input: QimenLifetimeInput = {
   gender: 'male',
   stagePolicy: { model: 'decadalGanzhi' },
 };
+const maleSeed = calculateQimenLifetime(input);
 
 test('十年干支大运按年干阴阳与性别顺逆排月柱干支，童限独立且十二步连续', () => {
-  const male = calculateQimenLifetime(input);
+  const male = structuredClone(maleSeed);
   const female = calculateQimenLifetime({ ...input, gender: 'female' });
   assert.equal(male.basis.decadalLuck?.direction, 'forward');
   assert.equal(female.basis.decadalLuck?.direction, 'backward');
@@ -50,7 +51,7 @@ test('十年干支大运按年干阴阳与性别顺逆排月柱干支，童限�
 });
 
 test('同一出生瞬间在不同时区、真太阳时下保持交节起运与大运干支一致', () => {
-  const china = calculateQimenLifetime(input);
+  const china = structuredClone(maleSeed);
   const london = calculateQimenLifetime({
     ...input,
     birthDateTime: '1990-05-15T07:30:00+01:00',
@@ -74,7 +75,7 @@ test('同一出生瞬间在不同时区、真太阳时下保持交节起运与�
 });
 
 test('十年运的交运年和交运日同时保留前后两运，提示词提供精确区间与定位口径', () => {
-  const initial = calculateQimenLifetime(input);
+  const initial = structuredClone(maleSeed);
   const boundary = initial.stages[2].startDateTime!.slice(0, 10);
   const year = boundary.slice(0, 4);
   const { data, prompt } = generateQimenLifetimePrompt({
@@ -94,6 +95,9 @@ test('十年运的交运年和交运日同时保留前后两运，提示词提�
   assert.match(prompt, /精确区间/);
   assert.match(prompt, /甲遁庚/);
   assert.match(prompt, /涉及阶段2、3/);
+  assert.equal(data.stages[2].startDateTime, '2007-08-05T23:06:00+08:00');
+  assert.ok(prompt.split('\n').includes('2007年本命空亡填实（涉及阶段2） 共36个日辰（节奏：中）'));
+  assert.ok(prompt.split('\n').includes('2007年本命空亡填实（涉及阶段3） 共26个日辰（节奏：中）'));
   assertPromptIsPortableTaskText(prompt);
   assert.ok(data.stages[1].eventClusterKeys?.includes(annual!.key));
   assert.ok(data.stages[2].eventClusterKeys?.includes(annual!.key));

@@ -34,6 +34,12 @@ const DEFAULT_CHART_INPUT = {
   dayDivide: 'forward' as const,
 };
 
+let defaultAstrolabePromise: ReturnType<typeof buildAstrolabeFromInput> | undefined;
+
+function getDefaultAstrolabe() {
+  return (defaultAstrolabePromise ??= buildAstrolabeFromInput(DEFAULT_CHART_INPUT));
+}
+
 test('紫微运行期应兼容 Node、Vite 与 Webpack 的 CommonJS 导出包装', () => {
   const internalEntry = { withOptions() {}, config() {} };
   assert.equal(resolveIztroAstro({ astro: internalEntry } as never), internalEntry);
@@ -444,7 +450,7 @@ test('紫微农历闰月排盘封装应符合内部固定盘面', async () => {
 });
 
 test('紫微基础资料应直接读取 iztro 身宫与来因宫原生定位', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
   const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
   const payload = buildAnalysisPayloadV1({
     astrolabe,
@@ -617,7 +623,7 @@ test('紫微正月初一分年与立春分年应在两条边界之间产生可�
 });
 
 test('紫微行运封装应拒绝 iztro 会宽松接受的非法日期和时辰', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
 
   assert.equal(buildHoroscope(astrolabe, '2101-01-18', 6).solarDate, '2101-1-18');
   assert.throws(
@@ -632,7 +638,7 @@ test('紫微行运封装应拒绝 iztro 会宽松接受的非法日期和时辰'
 });
 
 test('紫微分析载荷应拒绝非法分析范围和不完整宫位', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
   const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);
 
   assert.throws(
@@ -662,7 +668,7 @@ test('紫微分析载荷应拒绝非法分析范围和不完整宫位', async ()
 });
 
 test('紫微分析载荷应评估已登记格局并明确轻量模式未生成状态', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
   const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);
   const payload = buildAnalysisPayloadV1({
     astrolabe,
@@ -788,7 +794,7 @@ test('罕见紫微格局应有真实 iztro 排盘回归样本', async () => {
 });
 
 test('紫微分析载荷应直接采用 iztro 原生宫位、运限与飞化能力', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
   const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
   const originPayload = buildAnalysisPayloadV1({
     astrolabe,
@@ -886,7 +892,7 @@ test('紫微大限时间轴应按农历年位移，春节前出生者不落入�
 });
 
 test('紫微童限与大限时间轴应逐项服从 iztro 运限结果', async () => {
-  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const astrolabe = await getDefaultAstrolabe();
   const options = await buildVerifiedDecadalTimelineOptions(astrolabe, DEFAULT_CHART_INPUT);
   const firstRegularAge = Math.min(...astrolabe.palaces.map((palace) => palace.decadal.range[0]));
   const childhoodOptions = options.filter((option) => option.kind === 'childhood');

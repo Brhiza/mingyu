@@ -18,6 +18,16 @@ const fixedDateNumber42Chart = generateMeihua(new Date('2026-05-19T10:30:00+08:0
   method: 'number',
   number: 42,
 });
+const fixedDateNumber1Chart = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
+  method: 'number',
+  number: 1,
+});
+const fixedDateCharacter44Chart = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
+  method: 'character',
+  characterText: '明',
+  characterLeftStrokes: 4,
+  characterRightStrokes: 4,
+});
 
 test('梅花兼容起卦入口的在线提示只显示实际年月日时取数法', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
@@ -154,10 +164,7 @@ test('梅花提示词重新核验逐爻、关系和卦爻辞，不采信旧证�
 });
 
 test('梅花旧盘派生月令和走势文字不直接进入两种提示词', () => {
-  const source = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
-    method: 'number',
-    number: 1,
-  });
+  const source = structuredClone(fixedDateNumber1Chart);
   const data = structuredClone(source);
   delete data.calculation;
   const verifiedSeasonEvaluation = data.analysis.tiYongSeasonEvaluation;
@@ -372,10 +379,7 @@ test('梅花在线提示词对缺少卦象结构的阶段使用中性事实', ()
 });
 
 test('梅花逐爻体用只补充归属与动爻，不重复主卦阴阳爻象', () => {
-  const data = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
-    method: 'number',
-    number: 1,
-  });
+  const data = structuredClone(fixedDateNumber1Chart);
   const prompt = buildDivinationPrompt('meihua', '工作进展如何？', data);
   assert.match(prompt, /主卦爻象：[^\n]*第1爻阴/);
   assert.match(prompt, /逐爻体用：第1爻属用（动爻）、第2爻属用/);
@@ -468,10 +472,7 @@ test('梅花用克体保留体旺用衰与用旺体衰的局部强弱差异', ()
 });
 
 test('梅花旧盘缺少互变与应期时不输出空内容行', () => {
-  const complete = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
-    method: 'number',
-    number: 1,
-  });
+  const complete = structuredClone(fixedDateNumber1Chart);
   const data = {
     ...complete,
     interName: '',
@@ -509,10 +510,7 @@ test('梅花旧盘缺少互变与应期时不输出空内容行', () => {
 });
 
 test('梅花旧盘应期为空数组时拒绝把缺失记录当作完整盘面', () => {
-  const data = generateMeihua(new Date('2025-06-18T10:30:00+08:00'), {
-    method: 'number',
-    number: 1,
-  });
+  const data = structuredClone(fixedDateNumber1Chart);
   data.analysis.yingQi = [];
   assert.throws(
     () =>
@@ -595,17 +593,11 @@ test('梅花旧盘缺少卦象详情时仍核对互卦与变卦别名', () => {
 });
 
 test('梅花旧盘缺少取数输入时不把卦象反填为起卦输入', () => {
-  const date = new Date('2026-05-19T10:30:00+08:00');
   const number = structuredClone(fixedDateNumber42Chart);
   delete number.calculation!.timeZhi;
   assert.doesNotMatch(formatMeihuaFacts(number).join('\n'), /起卦取数：|undefined/u);
 
-  const character = generateMeihua(date, {
-    method: 'character',
-    characterText: '明',
-    characterLeftStrokes: 4,
-    characterRightStrokes: 4,
-  });
+  const character = structuredClone(fixedDateCharacter44Chart);
   delete character.calculation!.characterRightStrokes;
   assert.doesNotMatch(formatMeihuaFacts(character).join('\n'), /起卦取数：|undefined/u);
 });
@@ -640,12 +632,7 @@ test('梅花旧盘缺少动爻取数结果时不输出不完整算式', () => {
     generateMeihua(date, { method: 'time' }),
     structuredClone(fixedDateNumber42Chart),
     generateMeihua(date, { method: 'sound', soundCount: 4 }),
-    generateMeihua(date, {
-      method: 'character',
-      characterText: '明',
-      characterLeftStrokes: 4,
-      characterRightStrokes: 4,
-    }),
+    structuredClone(fixedDateCharacter44Chart),
     generateMeihua(date, { method: 'direction', direction: 'north', objectType: 'earth' }),
   ];
   for (const data of cases) {

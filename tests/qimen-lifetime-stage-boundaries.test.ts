@@ -7,6 +7,17 @@ import {
   type QimenLifetimeStageTimeContext,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/lifetime-stages';
 
+const stageChartSeeds = new Map<string, ReturnType<typeof generateQimen>>();
+
+function buildStageChart(birthDateTime: string) {
+  let chart = stageChartSeeds.get(birthDateTime);
+  if (!chart) {
+    chart = generateQimen(new Date(birthDateTime), 'zhuanpan', 'hour', 'chaibu', 480);
+    stageChartSeeds.set(birthDateTime, chart);
+  }
+  return structuredClone(chart);
+}
+
 function buildStages(
   birthDateTime: string,
   policy: Parameters<typeof buildLifetimeStages>[3],
@@ -15,7 +26,7 @@ function buildStages(
   timeContext?: QimenLifetimeStageTimeContext,
 ) {
   const birthDate = new Date(birthDateTime);
-  const chart = generateQimen(birthDate, 'zhuanpan', 'hour', 'chaibu', 480);
+  const chart = buildStageChart(birthDateTime);
   return buildLifetimeStages(chart, [], [], policy, birthDate, gender, birthCivilDate, timeContext);
 }
 
@@ -169,7 +180,7 @@ test('立春锚点按实际瞬时点转换当地日期，支持中国与美国�
 
 test('四柱分限的天盘干定位包含天禽携带的伴随干', () => {
   const birthDate = new Date('2024-06-15T14:30:00+08:00');
-  const chart = generateQimen(birthDate, 'zhuanpan', 'hour', 'chaibu', 480);
+  const chart = buildStageChart('2024-06-15T14:30:00+08:00');
   const target = chart.jiuGongGe.find((palace) => palace.gong === 9);
   assert.ok(target);
 
@@ -201,7 +212,7 @@ test('四柱分限的天盘干定位包含天禽携带的伴随干', () => {
 
 test('直接调用旧阶段构建器不得伪算十年干支大运', () => {
   const birthDate = new Date('2024-06-15T14:30:00+08:00');
-  const chart = generateQimen(birthDate, 'zhuanpan', 'hour', 'chaibu', 480);
+  const chart = buildStageChart('2024-06-15T14:30:00+08:00');
 
   assert.throws(
     () =>

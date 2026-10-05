@@ -23,6 +23,7 @@ const CLASSIC_INPUT = {
   gender: 'male' as const,
   isLunar: false,
 };
+const CLASSIC_CHART = baziCalculator.calculateBazi(CLASSIC_INPUT);
 
 function makePillars(values: [string, string, string, string]): Pillars {
   values.forEach((ganZhi) => assert.ok(SIXTY_CYCLE.includes(ganZhi), `${ganZhi}须为六十甲子`));
@@ -34,8 +35,8 @@ function makePillars(values: [string, string, string, string]): Pillars {
   ) as Pillars;
 }
 
-test('经典丁卯壬寅癸卯丙辰由完整历法链裁为从儿，不受身弱标签与辰藏官误阻', () => {
-  const chart = baziCalculator.calculateBazi(CLASSIC_INPUT);
+test('经典丁卯壬寅癸卯丙辰由完整历法链裁为从儿，独立于旺衰枚举并保留辰藏官事实', () => {
+  const chart = structuredClone(CLASSIC_CHART);
   const special = chart.analysis.mingGe.specialAdjudication;
 
   assert.deepEqual(
@@ -68,10 +69,6 @@ test('经典丁卯壬寅癸卯丙辰由完整历法链裁为从儿，不受身�
     useful.unfavorable.some((item) => ['比肩', '劫财'].includes(item)),
     false,
   );
-});
-
-test('从儿裁决不读取人工旺衰枚举作为入口或否决条件', () => {
-  const chart = baziCalculator.calculateBazi(CLASSIC_INPUT);
   for (const strength of ['极强', '身强', '偏强', '中和', '偏弱', '身弱', '极弱']) {
     const pattern = determinePattern(chart.pillars, strength, getTenGod, chart.monthCommander);
     assert.equal(pattern.pattern, '从儿格', `${strength}不应改变已证食伤顺局`);
@@ -530,7 +527,7 @@ test('月建食伤路径仍受异柱明透有根印星制约，不把普通食�
 });
 
 test('格式化、提示词与命录消费同一从儿终局和取用，不泄露内部字段名', () => {
-  const chart = baziCalculator.calculateBazi(CLASSIC_INPUT);
+  const chart = structuredClone(CLASSIC_CHART);
   const chartText = formatBaziForPrompt(chart);
   const prompt = buildBaziPromptForResult({ result: chart, question: '请分析本命格局与取用。' });
   const minglu = buildEnhancedPatternUsefulGodSection(chart);

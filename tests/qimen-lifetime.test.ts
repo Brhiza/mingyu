@@ -21,6 +21,12 @@ const qimenCurrentYearInput: Parameters<typeof calculateQimenLifetime>[0] = {
 };
 const qimenCurrentYearQuestion = '未来一年的事业如何？';
 const qimenCurrentYearSeed = calculateQimenLifetime(qimenCurrentYearInput);
+const qimenBaseSeed = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+const qimenFuShiSeed = calculateQimenLifetime({
+  birthDateTime: '2026-01-01T08:00:00',
+  gender: 'male',
+  stagePolicy: { model: 'fuShiHexagramOrbit' },
+});
 
 function buildQimenCurrentYearFixture() {
   const data = structuredClone(qimenCurrentYearSeed);
@@ -38,11 +44,7 @@ function verifiedChartSolar(chart: ReturnType<typeof generateQimen>, offset: num
 import { diPanPalaces } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 
 test('天禽为值符时终身局个人标记与符使阶段均采用实际寄宫', () => {
-  const lifetime = calculateQimenLifetime({
-    birthDateTime: '2026-01-01T08:00:00',
-    gender: 'male',
-    stagePolicy: { model: 'fuShiHexagramOrbit' },
-  });
+  const lifetime = structuredClone(qimenFuShiSeed);
   const chart = lifetime.baseChart;
   assert.equal(chart.zhiFu, '天禽');
   const companionPalace = chart.jiuGongGe.find((palace) => palace.tianPan.companionStar === '天禽');
@@ -463,7 +465,7 @@ test('奇门终身局阶段门神空马取象进入提示词时保留盘面与�
 });
 
 test('奇门终身局动态扫描不得将阶段范围外日期归入首阶段', () => {
-  const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  const lifetime = structuredClone(qimenBaseSeed);
   const clusters = scanLifetimeDynamicEvents(
     lifetime.baseChart,
     lifetime.stages,
@@ -539,7 +541,7 @@ test('奇门终身局 P3：动态周期扫描与事件聚类（含年月日关�
 });
 
 test('奇门日级事件跨阶段时应逐日归属并保留全部日期', () => {
-  const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  const lifetime = structuredClone(qimenBaseSeed);
   const stages = [
     {
       ...lifetime.stages[0],
@@ -588,6 +590,11 @@ test('奇门日级事件跨阶段时应逐日归属并保留全部日期', () =>
       .map((fact) => `${fact.date}:${fact.relation}`)
       .sort();
   assert.deepEqual(dates(clusters), dates(original));
+  const prompt = buildLifetimePrompt({ ...lifetime, stages, eventClusters: clusters }, undefined, {
+    includeCurrentTime: false,
+  });
+  assert.match(prompt, /2026年本命空亡填实（涉及阶段1） 共\d+个日辰/u);
+  assert.match(prompt, /2026年本命空亡填实（涉及阶段2） 共\d+个日辰/u);
 });
 
 test('奇门终身局一月窗口应回看上一干支年丑月交节', () => {
@@ -773,7 +780,7 @@ test('奇门终身局动态年盘应采用固定 UTC 偏移而非默认东八区
 });
 
 test('终身局流年景门六合与空马事实在在线提示词中保持条件取象', () => {
-  const birth = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  const birth = structuredClone(qimenBaseSeed);
   const year = 2026;
   const range = { startDate: '2026-06-15', endDate: '2026-06-15' };
   const annualChart = generateQimen(new Date(Date.UTC(year, 5, 15, 12)), 'zhuanpan', 'year');
@@ -1250,11 +1257,7 @@ test('奇门终身局同盘保留基础格局条件并避免阶段重复解释',
 });
 
 test('奇门终身局同宫得使合并基础条件，保留不同宫位的独立事实', () => {
-  const data = calculateQimenLifetime({
-    birthDateTime: '2026-01-01T08:00:00',
-    gender: 'male',
-    stagePolicy: { model: 'fuShiHexagramOrbit' },
-  });
+  const data = structuredClone(qimenFuShiSeed);
   const prompt = buildLifetimePrompt(data, undefined, { includeCurrentTime: false });
   const baseSection = prompt.split('【终身局基础盘】')[1].split('【个人标记与主题宫】')[0];
   const stageSection = prompt.split('【人生阶段资料】')[1].split('【任务】')[0];

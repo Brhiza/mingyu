@@ -378,12 +378,11 @@ export function buildLifetimePrompt(
       const triggerDates = ec.triggerDates ?? [];
       const isDailyRelation = ec.key.includes(':day:') && triggerDates.length > 0;
       const isDailyVoidFill = isDailyRelation && ec.key.includes(':day:void-fill:');
-      const stageLabel =
-        ec.stageIndices?.length && (ec.stageIndices.length > 1 || ec.stageIndex === undefined)
-          ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）`
-          : ec.stageIndex === undefined
-            ? '（阶段表范围外）'
-            : '';
+      const stageLabel = ec.stageIndices?.length
+        ? `（涉及阶段${ec.stageIndices.map((index) => index + 1).join('、')}）`
+        : ec.stageIndex === undefined
+          ? '（阶段表范围外）'
+          : `（涉及阶段${ec.stageIndex + 1}）`;
       if (ec.key.includes(':month-clash:')) {
         lines.push(`${ec.triggerFact}${stageLabel}（节奏：${ec.rhythm}）`);
         continue;
