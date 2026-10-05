@@ -566,6 +566,7 @@ test('真实同名格局的破格与未判定分别传入合参，不以格名�
     assert.equal(bazi.analysis.mingGe.pattern, example.pattern);
     assert.equal(bazi.analysis.mingGe.fulfillment?.status, example.status);
     const originalPattern = structuredClone(bazi.analysis.mingGe);
+    const originalStrengthBasis = [...bazi.analysis.dayMasterStrength.details.ruleBasis];
     const runtime = await calculateZiweiChart(
       {
         name: '格局核验',
@@ -598,8 +599,26 @@ test('真实同名格局的破格与未判定分别传入合参，不以格名�
       assert.match(prompt, /格局破格所忌：甲正官（时柱）；伤官见官的救应明确不成立/);
       assert.match(prompt, /条件核验：资料不足；伤官见官可用项：时柱透干甲（正官）/);
       assert.doesNotMatch(prompt, /格局破格所忌：甲正官（月柱）/);
+    } else if (example.year === 2013) {
+      assert.match(
+        prompt,
+        /旺衰结构：身弱；月令削弱；司令克身；成局中性；有根；未见强根；有帮扶；有克泄耗/,
+      );
+      assert.match(
+        prompt,
+        /月令与司令合看为制身；通根条件为相持；成局、明根明透及中余气合看为制身（明干本气优先，藏气次级）/,
+      );
+      assert.match(
+        prompt,
+        /判定理由：原局见伤官见官；印星制伤官护官要求双方有可用根气；来源无稳定根或其他可用根。年柱透干癸（正印）无同类藏根/,
+      );
+      assert.match(prompt, /正官见月柱透干辛（正官）、月柱藏干辛（正官），有可用根气/);
+      assert.match(prompt, /伤官见官可用项：时柱透干丁（伤官），有稳定根气且未见合绊/);
+      assert.equal(prompt.split('月支酉本气为辛（正官）').length - 1, 1);
+      assert.doesNotMatch(prompt, /先看得令，再看地支明根|不把旺相休囚死|不据此晋为极强/);
     }
     assert.deepEqual(bazi.analysis.mingGe, originalPattern);
+    assert.deepEqual(bazi.analysis.dayMasterStrength.details.ruleBasis, originalStrengthBasis);
   }
 });
 

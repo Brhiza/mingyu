@@ -284,7 +284,9 @@ function createBaziFacts(
       return fact?.promptText ?? chart.pillars[key].ganZhi;
     })
     .join('；');
-  const usefulFact = buildBaziNatalAnalysisFacts(chart).find((item) => item.type === '用神取忌')!;
+  const natalAnalysisFacts = buildBaziNatalAnalysisFacts(chart);
+  const strengthFact = natalAnalysisFacts.find((item) => item.type === '日主旺衰')!;
+  const usefulFact = natalAnalysisFacts.find((item) => item.type === '用神取忌')!;
   const cycleAtStart = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.start);
   const cycleAtEnd = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.endInclusive);
   const luckAmbiguous = cycleAtStart !== cycleAtEnd;
@@ -348,7 +350,7 @@ function createBaziFacts(
         system: 'bazi',
         scope: 'natal',
         title: '旺衰结构',
-        detail: `${chart.analysis.dayMasterStrength.status}；${chart.analysis.dayMasterStrength.details.ruleBasis.join('；')}`,
+        detail: `${strengthFact.result}；${strengthFact.basis.join('；')}`,
         sourceKeys: [analysisKey('日主旺衰')],
       },
     ],

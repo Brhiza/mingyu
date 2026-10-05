@@ -68,6 +68,26 @@ test('八字本命证据应保留四柱事实及可追溯关联', () => {
     ),
   );
   assert.ok(analysis.pillarFacts.every((item) => item.promptText.includes(item.ganZhi)));
+  const strengthFact = analysis.analysisFacts.find((item) => item.type === '日主旺衰');
+  assert.ok(strengthFact);
+  assert.ok(
+    strengthFact.promptText.includes(result.analysis.dayMasterStrength.details.ruleBasis[0]!),
+  );
+  assert.ok(analysis.primaryFacts.includes(strengthFact.promptText));
+  assert.doesNotMatch(
+    analysis.primaryFacts.join('\n'),
+    /先看得令，再看地支明根|不把旺相休囚死|不据此晋为极强/,
+  );
+  assert.ok(
+    result.analysis.dayMasterStrength.details.ruleBasis.includes(
+      '先看得令，再看地支明根，随后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分',
+    ),
+  );
+  assert.ok(
+    result.analysis.dayMasterStrength.details.ruleBasis.includes(
+      '生扶与克泄耗的透干均核对同类根气；浮干保留可见事实，得势另看有根作用，透干异党尚在时不据此晋为极强。',
+    ),
+  );
   assert.doesNotMatch(
     analysis.promptText,
     /命语|本项目|当前项目|项目统一|工程|接口|API|MCP|内部权重|bazi:natal:/,
@@ -85,6 +105,16 @@ test('八字本命证据应保留四柱事实及可追溯关联', () => {
   assert.deepEqual(result.kongWang, inputBefore.kongWang);
   assert.equal(formatBaziForPrompt(result), promptBefore);
   assert.deepEqual(analyzeBaziNatalEvidence(result), inputBefore.evidenceAnalysis);
+
+  const unknownDetailChart = structuredClone(inputBefore);
+  unknownDetailChart.analysis.dayMasterStrength.details.ruleBasis.push('局部细节未知');
+  const unknownDetailBefore = structuredClone(unknownDetailChart);
+  const unknownDetailEvidence = analyzeBaziNatalEvidence(unknownDetailChart);
+  assert.match(
+    unknownDetailEvidence.analysisFacts.find((item) => item.type === '日主旺衰')!.promptText,
+    /局部细节未知/,
+  );
+  assert.deepEqual(unknownDetailChart, unknownDetailBefore);
 });
 
 test('节气边界资料不完整时本命证据不能标为完整', () => {

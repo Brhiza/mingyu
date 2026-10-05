@@ -436,7 +436,15 @@ export function buildBaziNatalAnalysisFacts(data: BaziChartResult): BaziNatalAna
     strengthDetails.hasStrongRoot ? '有强根' : '未见强根',
     strengthDetails.hasSupport ? '有帮扶' : '帮扶不明显',
     strengthDetails.hasConstraint ? '有克泄耗' : '克泄耗不明显',
-    ...strengthDetails.ruleBasis.map(conditionPortableBasis),
+    ...strengthDetails.ruleBasis
+      .filter(
+        (basis) =>
+          basis !==
+            '先看得令，再看地支明根，随后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分' &&
+          basis !==
+            '生扶与克泄耗的透干均核对同类根气；浮干保留可见事实，得势另看有根作用，透干异党尚在时不据此晋为极强。',
+      )
+      .map(conditionPortableBasis),
   ];
   const pattern = data.analysis.mingGe;
   const patternFacts = formatNatalPatternFacts(pattern);
