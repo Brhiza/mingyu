@@ -363,11 +363,19 @@ export function createQizhengPeriodEventScanner(
                 ? currentUtc
                 : refineCrossing(previousUtc, currentUtc, (value) => {
                     const sample = sampleAt(value, [name]).get(name);
-                    if (sample === undefined) throw new Error(`换宫求根缺少${name}的黄经采样。`);
+                    if (sample === undefined || !Number.isFinite(sample))
+                      throw new Error(`换宫求根缺少${name}的黄经采样。`);
                     return signIndexOf(sample) === beforeSign ? -1 : 1;
                   });
             const palace = palaceBySign.get(afterSign);
-            if (isWithinHalfOpenWindow(crossing, params.startUtcMs, params.endUtcMs)) {
+            const touchesAtStation = [...stationEvents.values()].some(
+              (event) => event.movingStar === name && event.utcMs === crossing,
+            );
+            // 宫界处停逆折返只触及边界，并未换入另一宫。
+            if (
+              !touchesAtStation &&
+              isWithinHalfOpenWindow(crossing, params.startUtcMs, params.endUtcMs)
+            ) {
               events.push({
                 key: `ingress:${name}:${afterSign}:${Math.round(crossing)}`,
                 kind: '换宫',
@@ -406,7 +414,7 @@ export function createQizhengPeriodEventScanner(
                   ? currentUtc
                   : refineCrossing(previousUtc, currentUtc, (value) => {
                       const sample = sampleAt(value, [name]).get(name);
-                      if (sample === undefined)
+                      if (sample === undefined || !Number.isFinite(sample))
                         throw new Error(`精确吊照求根缺少${name}的黄经采样。`);
                       return wrap180(wrap180(sample - natal.longitude) - target);
                     });

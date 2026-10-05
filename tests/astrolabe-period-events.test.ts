@@ -117,11 +117,43 @@ test('星盘内部精确采样点保留真实交点时刻并只记录一次', ()
   }
 });
 
-test('星盘连续静止于精确角与宫座边界时保持持续状态', () => {
+test('星盘在精确角与宫座边界区分持续静止、相切折返与零速穿越', () => {
   assert.deepEqual(
     scanAnalyticMercury(() => ({ longitude: 30, speed: 0 })),
     [],
   );
+
+  for (const direction of [1, -1]) {
+    const events = scanAnalyticMercury((jd) => ({
+      longitude: 30 + direction * (jd - analyticStartJd - 0.5) ** 2,
+      speed: 2 * direction * (jd - analyticStartJd - 0.5),
+    }));
+    assert.equal(
+      events.filter((event) => event.kind === '换宫' || event.kind === '换座').length,
+      0,
+    );
+    const station = events.filter((event) => event.kind === '停逆');
+    assert.equal(station.length, 1);
+    assert.equal(station[0].julianDate, analyticStartJd + 0.5);
+    assert.equal(station[0].stationDirection, direction > 0 ? '顺行' : '逆行');
+    const touches = events.filter(
+      (event) => event.kind === '行运相位' && event.targetPoint === '本命太阳',
+    );
+    assert.equal(touches.length, 1);
+    assert.equal(touches[0].aspectName, '合相');
+    assert.equal(touches[0].julianDate, analyticStartJd + 0.5);
+  }
+
+  const zeroSpeedCrossing = scanAnalyticMercury((jd) => ({
+    longitude: 30 + (jd - analyticStartJd - 0.5) ** 3,
+    speed: 3 * (jd - analyticStartJd - 0.5) ** 2,
+  }));
+  assert.equal(zeroSpeedCrossing.filter((event) => event.kind === '停逆').length, 0);
+  for (const kind of ['换宫', '换座', '行运相位'] as const) {
+    const matches = zeroSpeedCrossing.filter((event) => event.kind === kind);
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].julianDate, analyticStartJd + 0.5);
+  }
 });
 function getJune2028Monthly() {
   return (june2028Monthly ??= buildAstrolabePeriodEvents(astrolabeData, 'monthly', {

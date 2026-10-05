@@ -21,14 +21,15 @@ const JPL_HORIZONS_DE441_2000_01_01_1200_UTC = {
 } as const;
 
 test('公共天文事实应与 JPL Horizons DE441 固定样本一致', () => {
-  const facts = queryAstronomicalFacts({
+  const input = {
     year: 2000,
     month: 1,
     day: 1,
     hour: 12,
     minute: 0,
     timezone: 0,
-  });
+  };
+  const facts = queryAstronomicalFacts(input);
 
   assert.equal(facts.utcDateTime, '2000-01-01T12:00:00.000Z');
   assert.equal(facts.julianDateUtc, 2451545);
@@ -61,20 +62,23 @@ test('公共天文事实应与 JPL Horizons DE441 固定样本一致', () => {
     assert.equal(ASTRONOMY_FACT_MODEL.validation.ephemeris, 'DE441');
     assert.equal(ASTRONOMY_FACT_MODEL.validation.longitudeToleranceDegrees, 0.02);
     assert.equal(ASTRONOMY_FACT_MODEL.coordinate, '地心回归黄道日期坐标');
-    const fresh = queryAstronomicalFacts({
-      year: 2000,
-      month: 1,
-      day: 1,
-      hour: 12,
-      minute: 0,
-      timezone: 0,
-    });
+    const fresh = queryAstronomicalFacts(input);
     assert.deepEqual(fresh, original);
     assert.notEqual(fresh.model, facts.model);
     assert.notEqual(fresh.model.validation, facts.model.validation);
     assert.notEqual(fresh.model.recommendedYearRange, facts.model.recommendedYearRange);
+
+    Reflect.set(ASTRONOMY_FACT_MODEL.recommendedYearRange, '0', 1700);
+    Reflect.set(ASTRONOMY_FACT_MODEL.recommendedYearRange, '1', 1999);
+    Reflect.set(ASTRONOMY_FACT_MODEL.validation, 'ephemeris', '调用方改写的星历');
+    Reflect.set(ASTRONOMY_FACT_MODEL.validation, 'longitudeToleranceDegrees', 999);
+    Reflect.set(ASTRONOMY_FACT_MODEL, 'coordinate', '调用方改写的坐标');
+
+    assert.deepEqual(queryAstronomicalFacts(input), original);
+    assert.throws(() => queryAstronomicalFacts({ ...input, year: 1700 }), /1800-2200/u);
   } finally {
     Reflect.set(ASTRONOMY_FACT_MODEL.recommendedYearRange, '0', 1800);
+    Reflect.set(ASTRONOMY_FACT_MODEL.recommendedYearRange, '1', 2200);
     Reflect.set(ASTRONOMY_FACT_MODEL, 'coordinate', '地心回归黄道日期坐标');
     Object.assign(ASTRONOMY_FACT_MODEL.validation, original.model.validation);
   }

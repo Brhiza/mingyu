@@ -130,6 +130,28 @@ test('七政周期求根缺少中间黄经样本时直接报错', () => {
       }),
     /精确吊照求根缺少太阳的黄经采样/u,
   );
+  for (const [from, natalStars, reason] of [
+    [29, [], /换宫求根缺少太阳的黄经采样/u],
+    [4, base.natalStars, /精确吊照求根缺少太阳的黄经采样/u],
+  ] as const) {
+    assert.throws(
+      () =>
+        scanQizhengPeriodEvents({
+          ...base,
+          natalStars: [...natalStars],
+          sampleLongitudes: (utcMs) => [
+            {
+              name: '太阳',
+              longitude:
+                utcMs === boundaryStart + boundaryHour / 2
+                  ? NaN
+                  : from + (2 * (utcMs - boundaryStart)) / boundaryHour,
+            },
+          ],
+        }),
+      reason,
+    );
+  }
 });
 
 test('七政周期把零度角关系写为合相且逐事件事实只列一次', () => {
@@ -392,6 +414,33 @@ test('流曜在同一采样段停逆并两次越过宫界时记录进宫与退�
   );
   assert.ok(ingresses[0]!.utcMs < boundaryStart + 6 * boundaryHour);
   assert.ok(ingresses[1]!.utcMs > boundaryStart + 6 * boundaryHour);
+
+  for (const direction of [1, -1]) {
+    const tangent = scanQizhengPeriodEvents({
+      natalStars: [{ name: '本命星', longitude: 30 }],
+      twelvePalaces: boundaryPalaces,
+      startUtcMs: boundaryStart,
+      endUtcMs: boundaryStart + 2 * boundaryHour,
+      timezone: 0,
+      mode: 'daily',
+      sampleLongitudes: (utcMs) => [
+        {
+          name: '辰星(水)',
+          longitude: 30 + direction * ((utcMs - boundaryStart) / boundaryHour - 1) ** 2,
+        },
+      ],
+    });
+    assert.equal(tangent.events.filter((event) => event.kind === '换宫').length, 0);
+    const station = tangent.events.filter((event) => event.kind === '停逆');
+    assert.equal(station.length, 1);
+    assert.equal(station[0].utcMs, boundaryStart + boundaryHour);
+    assert.equal(station[0].stationDirection, direction > 0 ? '顺行' : '逆行');
+    const touches = tangent.events.filter(
+      (event) => event.kind === '精确吊照' && event.aspectType === '同宫',
+    );
+    assert.equal(touches.length, 1);
+    assert.equal(touches[0].utcMs, boundaryStart + boundaryHour);
+  }
 });
 
 test('周期主轴筛出重点事件后仍按实际发生时序列示', () => {

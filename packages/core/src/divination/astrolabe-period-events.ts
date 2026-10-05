@@ -1168,6 +1168,11 @@ function buildAstrolabePeriodEventsInternal(
       bodySamples,
       (sample) => sample.speed,
       (jd) => cachedPositionOf(body, jd).speed,
+    ).filter(
+      (jd) =>
+        cachedPositionOf(body, jd - MINUTE_IN_DAYS).speed *
+          cachedPositionOf(body, jd + MINUTE_IN_DAYS).speed <
+        0,
     );
     stationTimes.set(body, turns);
     // 停逆前后可能在同一原采样段内两次越过本命点、星座或宫头。
@@ -1246,6 +1251,8 @@ function buildAstrolabePeriodEventsInternal(
       const residualAt = (sample: Sample) => wrap180(sample.longitude - targetLongitude);
       const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - targetLongitude);
       for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
+        // 停逆时恰好触及座界的折返不是换座；精确触角仍作为相位保留。
+        if (stationTimes.get(body)?.includes(jd)) continue;
         const speed = cachedPositionOf(body, jd).speed;
         const entered = SIGN_LABELS[speed < 0 ? (sign + 11) % 12 : sign];
         const verb = speed < 0 ? '退入' : '进入';
@@ -1266,6 +1273,7 @@ function buildAstrolabePeriodEventsInternal(
         const residualAt = (sample: Sample) => wrap180(sample.longitude - cusp);
         const exactAt = (jd: number) => wrap180(cachedLongitudeOf(body, jd) - cusp);
         for (const jd of crossingsFromSamples(bodySamples, residualAt, exactAt)) {
+          if (stationTimes.get(body)?.includes(jd)) continue;
           const speed = cachedPositionOf(body, jd).speed;
           const arrivedHouse = speed < 0 ? ((house + 10) % 12) + 1 : house;
           const verb = speed < 0 ? '退入' : '进入';
