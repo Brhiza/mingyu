@@ -20,6 +20,14 @@ const sharedFemaleResult = baziCalculator.calculateBazi({
   gender: 'female',
 });
 
+const sharedFortuneResult = baziCalculator.calculateBazi({
+  year: 1992,
+  month: 7,
+  day: 15,
+  timeIndex: 3,
+  gender: 'female',
+});
+
 test('八字结果盘应展示排盘预警和稳定基础参考', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
@@ -243,13 +251,7 @@ test('八字盘神煞显示保留常用项、过滤扩展项并规范合并简�
 });
 
 test('八字岁运区应提供流时并把回到今天放在顶部', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1992,
-    month: 7,
-    day: 15,
-    timeIndex: 3,
-    gender: 'female',
-  });
+  const result = structuredClone(sharedFortuneResult);
 
   const html = renderToStaticMarkup(createElement(BaziFortuneSelector, { result }));
 
@@ -261,13 +263,7 @@ test('八字岁运区应提供流时并把回到今天放在顶部', () => {
 
 test('八字岁运选择器在立春前默认定位上一节气年和末月', (context) => {
   context.mock.timers.enable({ apis: ['Date'], now: new Date('2008-01-15T04:00:00Z') });
-  const result = baziCalculator.calculateBazi({
-    year: 1992,
-    month: 7,
-    day: 15,
-    timeIndex: 3,
-    gender: 'female',
-  });
+  const result = structuredClone(sharedFortuneResult);
   const html = renderToStaticMarkup(createElement(BaziFortuneSelector, { result }));
   const yearRow = html
     .split('class="row-title">流年</div>')[1]
@@ -286,13 +282,7 @@ test('八字岁运选择器换命盘后定位新盘当前岁运且同盘重渲�
   const now = new Date('2026-09-27T04:00:00.000Z');
   context.mock.timers.enable({ apis: ['Date'], now });
 
-  const firstResult = baziCalculator.calculateBazi({
-    year: 1992,
-    month: 7,
-    day: 15,
-    timeIndex: 3,
-    gender: 'female',
-  });
+  const firstResult = structuredClone(sharedFortuneResult);
   const nextResult = baziCalculator.calculateBazi({
     year: 1988,
     month: 11,

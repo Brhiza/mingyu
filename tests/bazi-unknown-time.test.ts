@@ -15,6 +15,20 @@ import { buildBaziPrompt } from '../packages/core/src/prompt/bazi';
 import { formatBaziSchoolPrompt } from '../packages/core/src/prompt/bazi-school';
 import { MingluPatternUsefulGodSection } from '../src/pages/ResultPage/components/MingluWiki/MingluPatternUsefulGodSection';
 
+const EXPLICIT_CHOU_CHART = baziCalculator.calculateBazi({
+  year: 2000,
+  month: 1,
+  day: 7,
+  timeIndex: 1,
+  gender: 'male',
+});
+const UNKNOWN_LICHUN_CHART = baziCalculator.calculateBazi({
+  year: 2024,
+  month: 2,
+  day: 4,
+  gender: 'female',
+});
+
 test('缺时辰不把午时当成出生事实，完整判断只出现在候选中', () => {
   const result = baziCalculator.calculateBazi({ year: 2000, month: 1, day: 7, gender: 'male' });
   assert.equal(result.isThreePillars, true);
@@ -31,13 +45,7 @@ test('缺时辰不把午时当成出生事实，完整判断只出现在候选�
   assert.deepEqual(result.unknownTimeAnalysis?.uncertainCalendarDates, []);
   const chou = result.unknownTimeAnalysis?.scenarios.find((scenario) => scenario.timeIndex === 1);
   assert.equal(chou?.pillars.hour.ganZhi, '乙丑');
-  const explicit = baziCalculator.calculateBazi({
-    year: 2000,
-    month: 1,
-    day: 7,
-    timeIndex: 1,
-    gender: 'male',
-  });
+  const explicit = structuredClone(EXPLICIT_CHOU_CHART);
   assert.equal(chou?.strength, explicit.analysis.dayMasterStrength.status);
   assert.deepEqual(chou?.favorableWuxing, explicit.analysis.usefulGod.favorableWuxing);
   assert.equal(result.evidenceAnalysis?.status, '存在资料缺口');
@@ -84,7 +92,7 @@ test('未知时辰基础盘和候选只构造本命起运资料，不生成未�
 });
 
 test('未知时辰的晚子日柱与立春交界柱保留为待定', () => {
-  const result = baziCalculator.calculateBazi({ year: 2024, month: 2, day: 4, gender: 'female' });
+  const result = structuredClone(UNKNOWN_LICHUN_CHART);
   assert.deepEqual(result.unknownTimeAnalysis?.uncertainPillars, ['year', 'month', 'day']);
   assert.deepEqual(
     Object.values(result.pillars).map((pillar) => pillar.ganZhi),
@@ -288,13 +296,7 @@ test('夏令时日初跨标准日期时农历历日随候选保留，不把午�
 });
 
 test('明确丑时仍返回唯一完整命盘，不产生缺时辰候选', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 2000,
-    month: 1,
-    day: 7,
-    timeIndex: 1,
-    gender: 'male',
-  });
+  const result = structuredClone(EXPLICIT_CHOU_CHART);
   assert.equal(result.isThreePillars, false);
   assert.equal(result.unknownTimeAnalysis, undefined);
   assert.equal(result.pillars.hour.ganZhi, '乙丑');
@@ -311,12 +313,7 @@ test('日初交立春不能因早子代表在00:30就误认全年柱已确定', 
 });
 
 test('申时内部交立春保留临界前后两个具体时刻而不以申时代表点代替', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 2024,
-    month: 2,
-    day: 4,
-    gender: 'female',
-  });
+  const result = structuredClone(UNKNOWN_LICHUN_CHART);
   const scenarios = result.unknownTimeAnalysis?.scenarios ?? [];
   const before = scenarios.find(
     (scenario) => scenario.boundary?.name === '立春' && scenario.boundary.side === 'before',
@@ -533,12 +530,7 @@ test('回拨日固定偏移仅覆盖交节前时段时不把正午占位月柱�
 });
 
 test('农历未知时辰先沿用实际历法换算再检查同一公历日的交节边界', () => {
-  const solar = baziCalculator.calculateBazi({
-    year: 2024,
-    month: 2,
-    day: 4,
-    gender: 'female',
-  });
+  const solar = structuredClone(UNKNOWN_LICHUN_CHART);
   const lunar = baziCalculator.calculateBazi({
     year: 2023,
     month: 12,

@@ -27,15 +27,17 @@ function createChart(): BaziChartResult {
   return structuredClone(CHART_TEMPLATE);
 }
 
+const NEUTRAL_CHART_TEMPLATE = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 9,
+  day: 5,
+  timeIndex: 6,
+  gender: 'male',
+  isLunar: false,
+});
+
 test('中和增补待判的合盘保留原局格神，不把空喜忌判为未命中', () => {
-  const neutral = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 9,
-    day: 5,
-    timeIndex: 6,
-    gender: 'male',
-    isLunar: false,
-  });
+  const neutral = structuredClone(NEUTRAL_CHART_TEMPLATE);
   const other = createChart();
   const coverage = analyzeBaziCompatibility(neutral, other).usefulGodCoverage[0];
   const marriage = evaluateUsefulGodComplementarity(neutral, other);
@@ -53,14 +55,7 @@ test('中和增补待判的合盘保留原局格神，不把空喜忌判为未�
 });
 
 test('完整喜忌覆盖保留低层功能事实并提供盘面内提示词简写', () => {
-  const first = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 9,
-    day: 5,
-    timeIndex: 6,
-    gender: 'male',
-    isLunar: false,
-  });
+  const first = structuredClone(NEUTRAL_CHART_TEMPLATE);
   const second = baziCalculator.calculateBazi({
     year: 2013,
     month: 9,

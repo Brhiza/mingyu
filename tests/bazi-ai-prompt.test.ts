@@ -56,6 +56,20 @@ function createBaziResult(overrides: Partial<BaziInput> = {}) {
 
 type BaziResult = ReturnType<typeof baziCalculator.calculateBazi>;
 
+let cached1995MayMaleBaziResult: BaziResult | undefined;
+
+function get1995MayMaleBaziResult() {
+  return structuredClone(
+    (cached1995MayMaleBaziResult ??= createBaziResult({
+      year: 1995,
+      month: 5,
+      day: 20,
+      timeIndex: 5,
+      gender: 'male',
+    })),
+  );
+}
+
 let cachedDefaultBaziResult: BaziResult | undefined;
 
 function getDefaultBaziResult() {
@@ -1390,16 +1404,7 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
 });
 
 test('八字提示词不应由五行百分比阈值自动生成病药结论', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1995,
-    month: 5,
-    day: 20,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  const result = get1995MayMaleBaziResult();
 
   const prompt = buildPromptFromConfig(
     '请分析我的事业发展方向和风险。',
@@ -1738,16 +1743,7 @@ test('八字提示词只在柱位标记空亡，不另起详解段', () => {
   assert.match(withPrompt.user, /时柱:[^\n]*\(空亡\)/);
   assert.doesNotMatch(withPrompt.user, /【空亡详解】/);
 
-  const withoutKongWang = baziCalculator.calculateBazi({
-    year: 1995,
-    month: 5,
-    day: 20,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  const withoutKongWang = get1995MayMaleBaziResult();
 
   const withoutPrompt = buildPromptFromConfig(
     '请分析我的婚恋。',

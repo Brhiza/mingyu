@@ -10,7 +10,7 @@ const pillars = [
   { gan: '壬', zhi: '申', hiddenStems: ['庚', '壬', '戊'] },
 ];
 
-test('十神十二长生保留非日柱比肩并追溯去重分值来源', () => {
+test('十神十二长生保留非日柱比肩来源且同干复现不重复叠加四支分值', () => {
   const profile = analyzeTenGodLifeStageProfile(pillars, '甲', getTenGod);
   const biJian = profile.items.find((item) => item.tenGod === '比肩');
 
@@ -31,12 +31,6 @@ test('十神十二长生保留非日柱比肩并追溯去重分值来源', () =>
       ],
     },
   ]);
-});
-
-test('同一天干再次出现只增加来源次数，不重复叠加四支长生分值', () => {
-  const withHiddenBiJian = analyzeTenGodLifeStageProfile(pillars, '甲', getTenGod).items.find(
-    (item) => item.tenGod === '比肩',
-  );
   const withoutHiddenBiJian = analyzeTenGodLifeStageProfile(
     pillars.map((pillar, index) =>
       index === 1 ? { ...pillar, hiddenStems: ['丙', '戊'] } : pillar,
@@ -45,11 +39,10 @@ test('同一天干再次出现只增加来源次数，不重复叠加四支长�
     getTenGod,
   ).items.find((item) => item.tenGod === '比肩');
 
-  assert.ok(withHiddenBiJian);
   assert.ok(withoutHiddenBiJian);
-  assert.equal(withHiddenBiJian.strongCount, withoutHiddenBiJian.strongCount);
-  assert.equal(withHiddenBiJian.lowCount, withoutHiddenBiJian.lowCount);
-  assert.equal(withHiddenBiJian.evidence[0].occurrences, 2);
+  assert.equal(biJian.strongCount, withoutHiddenBiJian.strongCount);
+  assert.equal(biJian.lowCount, withoutHiddenBiJian.lowCount);
+  assert.equal(biJian.evidence[0].occurrences, 2);
   assert.equal(withoutHiddenBiJian.evidence[0].occurrences, 1);
 });
 

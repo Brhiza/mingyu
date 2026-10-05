@@ -13,15 +13,17 @@ import {
   formatUsefulGodPrioritySummary,
 } from '../src/pages/ResultPage/ResultPage.helpers';
 
+const NEUTRAL_CHART_TEMPLATE = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 9,
+  day: 5,
+  timeIndex: 6,
+  gender: 'male',
+  isLunar: false,
+});
+
 test('中和正印成格记录原局庚印作用，参考调候不补造整五行喜忌', () => {
-  const chart = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 9,
-    day: 5,
-    timeIndex: 6,
-    gender: 'male',
-    isLunar: false,
-  });
+  const chart = structuredClone(NEUTRAL_CHART_TEMPLATE);
   const { mingGe, dayMasterStrength, usefulGod } = chart.analysis;
 
   assert.deepEqual(
@@ -99,14 +101,7 @@ test('破格与未判定普通格不记录已成立的原局格神或制化路�
 });
 
 test('部分判定仅有单侧增补结论时另一侧明确待判', () => {
-  const chart = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 9,
-    day: 5,
-    timeIndex: 6,
-    gender: 'male',
-    isLunar: false,
-  });
+  const chart = structuredClone(NEUTRAL_CHART_TEMPLATE);
   const useful = chart.analysis.usefulGod;
   useful.incrementStatus = '部分判定';
   useful.favorableWuxing = ['木'];

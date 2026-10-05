@@ -102,15 +102,23 @@ function createSyntheticChartWithLuck(): BaziChartResult {
   } as unknown as BaziChartResult;
 }
 
+let cached1980January3MaleChart: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+
+function get1980January3MaleChart() {
+  return structuredClone(
+    (cached1980January3MaleChart ??= baziCalculator.calculateBazi({
+      year: 1980,
+      month: 1,
+      day: 3,
+      timeIndex: 6,
+      gender: 'male',
+    })),
+  );
+}
+
 test('岁运作用只引用已采纳的调候候选，不把未满足规则当作制化来源', () => {
   const layer = { id: '2026', type: 'year' as const, label: '流年', ganZhi: '丙午' };
-  const rejected = baziCalculator.calculateBazi({
-    year: 1980,
-    month: 1,
-    day: 3,
-    timeIndex: 6,
-    gender: 'male',
-  });
+  const rejected = get1980January3MaleChart();
   const rejectedEvidence = rejected.analysis.usefulGod.decisionEvidence;
   assert.ok(rejectedEvidence);
   assert.ok(
@@ -149,13 +157,7 @@ test('岁运作用只引用已采纳的调候候选，不把未满足规则当�
 });
 
 test('岁运作用只引用已闭合的格局制化路径', () => {
-  const uncertain = baziCalculator.calculateBazi({
-    year: 1980,
-    month: 1,
-    day: 3,
-    timeIndex: 6,
-    gender: 'male',
-  });
+  const uncertain = get1980January3MaleChart();
   assert.ok(
     uncertain.analysis.usefulGod.decisionEvidence?.controlFunctions?.some(
       (item) => item.status === '资料不足' && item.sourceStems.includes('乙'),

@@ -8,6 +8,28 @@ import { buildLuckDirectionProfile } from '@core/bazi/luckDetails';
 import { CHILD_LIMIT_METHOD } from '@core/bazi/childLimit';
 import { getGanZhiFromDate } from '@core/ganzhi';
 
+const sharedMaleResult = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 1,
+  day: 1,
+  timeIndex: 12,
+  gender: 'male',
+  isLunar: false,
+  isLeapMonth: false,
+  useTrueSolarTime: false,
+});
+
+const sharedFemaleResult = baziCalculator.calculateBazi({
+  year: 2012,
+  month: 12,
+  day: 21,
+  timeIndex: 3,
+  gender: 'female',
+  isLunar: false,
+  isLeapMonth: false,
+  useTrueSolarTime: false,
+});
+
 function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateBazi>) {
   const ageMap = new Map<number, string>();
 
@@ -75,18 +97,7 @@ test('支持出生范围及后续十二步大运的流年干支应与原年中�
 });
 
 test('男命小运序列应符合仓库固定真值', () => {
-  const input = {
-    year: 1990,
-    month: 1,
-    day: 1,
-    timeIndex: 12,
-    gender: 'male' as const,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  };
-
-  const result = baziCalculator.calculateBazi(input);
+  const result = structuredClone(sharedMaleResult);
   const actual = collectXiaoyunByAge(result);
   const expected = new Map([
     [1, '己亥'],
@@ -104,18 +115,7 @@ test('男命小运序列应符合仓库固定真值', () => {
 });
 
 test('女命小运序列应符合仓库固定真值', () => {
-  const input = {
-    year: 2012,
-    month: 12,
-    day: 21,
-    timeIndex: 3,
-    gender: 'female' as const,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  };
-
-  const result = baziCalculator.calculateBazi(input);
+  const result = structuredClone(sharedFemaleResult);
   const actual = collectXiaoyunByAge(result);
   const expected = new Map([
     [1, '庚寅'],
@@ -133,18 +133,7 @@ test('女命小运序列应符合仓库固定真值', () => {
 });
 
 test('男命大运序列和交运时间应符合仓库固定真值', () => {
-  const input = {
-    year: 1990,
-    month: 1,
-    day: 1,
-    timeIndex: 12,
-    gender: 'male' as const,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  };
-
-  const result = baziCalculator.calculateBazi(input);
+  const result = structuredClone(sharedMaleResult);
   const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun).slice(0, 4);
 
   assert.deepEqual(
@@ -196,18 +185,7 @@ test('精确出生秒数应在交运时间说明与首运边界保持一致', ()
 });
 
 test('女命大运逆行序列应符合仓库固定真值', () => {
-  const input = {
-    year: 2012,
-    month: 12,
-    day: 21,
-    timeIndex: 3,
-    gender: 'female' as const,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  };
-
-  const result = baziCalculator.calculateBazi(input);
+  const result = structuredClone(sharedFemaleResult);
   const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun).slice(0, 4);
 
   assert.deepEqual(
@@ -224,13 +202,13 @@ test('女命大运逆行序列应符合仓库固定真值', () => {
 test('三日一岁起运法应符合内部固定样本', () => {
   const cases = [
     {
-      input: { year: 1990, month: 1, day: 1, timeIndex: 12, gender: 'male' as const },
+      result: structuredClone(sharedMaleResult),
       handover: { year: 1998, month: 7, day: 2, hour: 17, minute: 36, second: 0 },
       firstAge: 9,
       firstDayun: '乙亥',
     },
     {
-      input: { year: 2012, month: 12, day: 21, timeIndex: 3, gender: 'female' as const },
+      result: structuredClone(sharedFemaleResult),
       handover: { year: 2017, month: 9, day: 13, hour: 16, minute: 8, second: 0 },
       firstAge: 6,
       firstDayun: '辛亥',
@@ -238,12 +216,7 @@ test('三日一岁起运法应符合内部固定样本', () => {
   ];
 
   for (const item of cases) {
-    const result = baziCalculator.calculateBazi({
-      ...item.input,
-      isLunar: false,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    });
+    const result = item.result;
     const firstDayun = result.luckInfo.cycles.find((cycle) => !cycle.isXiaoyun);
     assert.deepEqual(firstDayun?.startSolarTime, item.handover);
     assert.equal(firstDayun?.age, item.firstAge);
@@ -253,16 +226,7 @@ test('三日一岁起运法应符合内部固定样本', () => {
 });
 
 test('扁平流年数组中的交运年份应去重，并默认以后一步大运为准', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 1,
-    day: 1,
-    timeIndex: 12,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  const result = structuredClone(sharedMaleResult);
 
   const liunian1998 = result.liunian?.filter((item) => item.year === 1998) ?? [];
   const nextCycle1998 = result.luckInfo.cycles[1]?.years.find((item) => item.year === 1998);
@@ -272,16 +236,7 @@ test('扁平流年数组中的交运年份应去重，并默认以后一步大�
 });
 
 test('周期展示年份与分析年份应分离，交运年只保留在后一步 resolvedYears 中', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 1,
-    day: 1,
-    timeIndex: 12,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  const result = structuredClone(sharedMaleResult);
 
   const childCycle = result.luckInfo.cycles[0];
   const firstDayun = result.luckInfo.cycles[1];
@@ -305,16 +260,7 @@ test('周期展示年份与分析年份应分离，交运年只保留在后一�
 });
 
 test('年中交运按立春年裁剪且交运年只归后一步大运', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1990,
-    month: 1,
-    day: 1,
-    timeIndex: 12,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  const result = structuredClone(sharedMaleResult);
   const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun);
   const firstDayun = dayunCycles[0];
   const secondDayun = dayunCycles[1];
