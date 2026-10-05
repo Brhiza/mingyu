@@ -23,20 +23,6 @@ function pillars(values: [string, string, string, string]): Pillars {
   ) as unknown as Pillars;
 }
 
-// 两个只读消费者使用相同四柱和取格参数，共享一次评估结果。
-let exposedSealFulfillment: ReturnType<typeof evaluatePatternFulfillment> | undefined;
-function getExposedSealFulfillment() {
-  if (!exposedSealFulfillment) {
-    exposedSealFulfillment = evaluatePatternFulfillment(
-      pillars(['壬申', '癸丑', '甲午', '癸酉']),
-      '甲',
-      '正印格',
-      getTenGod,
-    );
-  }
-  return exposedSealFulfillment;
-}
-
 test('月干正官若非月支所藏，不能仅凭其透干认作正官月令', () => {
   const result = evaluatePatternFulfillment(
     pillars(['戊申', '辛亥', '甲子', '乙亥']),
@@ -51,27 +37,30 @@ test('月干正官若非月支所藏，不能仅凭其透干认作正官月令',
   assert.equal(result.status, '平常');
 });
 
-test('同一印星两透时，月干受财本气克不抹去时干已闭合的格神', () => {
-  const result = getExposedSealFulfillment();
+test('同一印星两透时，受克月干不抹去时干已闭合的格神且仅时干参与成格', () => {
+  const fulfillment = evaluatePatternFulfillment(
+    pillars(['壬申', '癸丑', '甲午', '癸酉']),
+    '甲',
+    '正印格',
+    getTenGod,
+  );
 
   assert.equal(
-    result.conditionFacts?.find((item) => item.key === 'pattern.month-gate')?.status,
+    fulfillment.conditionFacts?.find((item) => item.key === 'pattern.month-gate')?.status,
     '满足',
   );
   assert.equal(
-    result.conditionFacts?.find((item) => item.key === 'pattern.target')?.status,
+    fulfillment.conditionFacts?.find((item) => item.key === 'pattern.target')?.status,
     '满足',
   );
   assert.equal(
-    result.conditionFacts?.find((item) => item.key === 'pattern.month-principal-control')?.status,
+    fulfillment.conditionFacts?.find((item) => item.key === 'pattern.month-principal-control')
+      ?.status,
     '资料不足',
   );
-  assert.equal(result.status, '成格');
-  assert.match(result.decisionDetail ?? '', /格神已透干且有可用根气/);
-});
+  assert.equal(fulfillment.status, '成格');
+  assert.match(fulfillment.decisionDetail ?? '', /格神已透干且有可用根气/);
 
-test('同一印星两透时，仅将实际可作用的时干列为已参与成格', () => {
-  const fulfillment = getExposedSealFulfillment();
   const monthSeal = fulfillment.rootEvidence?.find(
     (item) => item.pillar === 'month' && item.placement === '透干',
   );
@@ -79,7 +68,6 @@ test('同一印星两透时，仅将实际可作用的时干列为已参与成�
     (item) => item.pillar === 'hour' && item.placement === '透干',
   );
 
-  assert.equal(fulfillment.status, '成格');
   assert.equal(monthSeal?.rooted, true);
   assert.equal(monthSeal?.effective, false);
   assert.equal(hourSeal?.effective, true);

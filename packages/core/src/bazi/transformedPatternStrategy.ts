@@ -183,7 +183,7 @@ function createEvidence(
 
   return {
     pattern: rule.pattern,
-    pair: rule.pair,
+    pair: [...rule.pair],
     element: rule.element,
     status,
     basis,
