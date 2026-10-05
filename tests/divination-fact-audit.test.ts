@@ -47,6 +47,104 @@ test('奇门终身局精简后仍核对完整干支日期分组与关系归属',
   const facts = extractDivinationPromptFacts('qimen-lifetime', data);
   assert.deepEqual(auditPromptFacts(prompt, facts).missing, []);
 
+  for (const [name, gong, stem, door, interpretation] of [
+    ['虎遁', 8, '乙', '生门', '主威严稳固、资源回归'],
+    ['休诈', 6, '丁', '开门', '主和合调停、协作成事'],
+  ] as const) {
+    const index = data.baseChart.classicPatterns!.findIndex((item) => item.name === name);
+    assert.ok(index >= 0);
+    const pattern = data.baseChart.classicPatterns![index];
+    assert.deepEqual(pattern.palaces, [gong]);
+    const palace = data.baseChart.jiuGongGe.find((item) => item.gong === gong)!;
+    assert.equal(palace.tianPan.stem, stem);
+    assert.equal(palace.renPan.door, door);
+    if (name === '休诈') assert.equal(palace.shenPan.god, '六合');
+    const id = `qimen-lifetime.base-pattern.${index}`;
+    const expected = facts.find((item) => item.id === id)!;
+    const patternLine = `  ${name}（吉，${palace.name}）：${interpretation}`;
+    assert.equal(expected.unit, 'block');
+    assert.equal(expected.owner, patternLine.trim());
+    assert.ok(prompt.split('\n').includes(patternLine));
+    const palaceLine = prompt.split('\n').find((line) => line.startsWith(`  ${palace.name}（`))!;
+    assert.ok(palaceLine.includes(expected.values[0]));
+    const starText = palace.tianPan.companionStar
+      ? `${palace.tianPan.star}（携${palace.tianPan.companionStar}）`
+      : palace.tianPan.star;
+    const stemText = palace.tianPan.companionStem
+      ? `${palace.tianPan.stem}（携${palace.tianPan.companionStem}）`
+      : palace.tianPan.stem;
+    for (const trigger of [
+      palace.name,
+      `天盘[${starText}`,
+      `干${stemText}`,
+      `人盘[${palace.renPan.door}]`,
+      `神盘[${palace.shenPan.god}]`,
+      `地盘干[${palace.diPan.stem}]`,
+    ]) {
+      const changedLine = palaceLine.replace(trigger, '');
+      assert.notEqual(changedLine, palaceLine);
+      assert.ok(
+        auditPromptFacts(prompt.replace(palaceLine, changedLine), facts).missing.includes(id),
+        `${name}删去同宫${trigger}后应缺失`,
+      );
+    }
+    for (const changedLine of [
+      patternLine.replace(name, '未名格'),
+      patternLine.replace(palace.name, '另一宫'),
+      patternLine.replace(interpretation, ''),
+    ]) {
+      assert.ok(
+        auditPromptFacts(prompt.replace(patternLine, changedLine), facts).missing.includes(id),
+      );
+    }
+
+    const extra = structuredClone(data);
+    const extraPattern = extra.baseChart.classicPatterns![index];
+    extraPattern.summary += '；另须核本次甲旬条件';
+    const extraEvidence = extra.baseChart.evidenceAnalysis!.patternFacts.find(
+      (item) => item.kind === '经典格局' && item.name === name,
+    )!;
+    extraEvidence.originalText = extraPattern.summary;
+    extraEvidence.promptText = extraPattern.summary;
+    const extraPrompt = buildLifetimePrompt(extra, undefined, { includeCurrentTime: false });
+    const extraFacts = extractDivinationPromptFacts('qimen-lifetime', extra);
+    assert.ok(extraPrompt.includes(`${patternLine}；另须核本次甲旬条件`));
+    assert.deepEqual(auditPromptFacts(extraPrompt, extraFacts).missing, []);
+    assert.ok(
+      auditPromptFacts(
+        extraPrompt.replace('；另须核本次甲旬条件', ''),
+        extraFacts,
+      ).missing.includes(id),
+    );
+  }
+
+  const compactPatternIds = ['虎遁', '休诈'].map(
+    (name) =>
+      `qimen-lifetime.base-pattern.${data.baseChart.classicPatterns!.findIndex((item) => item.name === name)}`,
+  );
+  const palaceRows = [8, 6].map((gong) => {
+    const palace = data.baseChart.jiuGongGe.find((item) => item.gong === gong)!;
+    return prompt.split('\n').findIndex((line) => line.startsWith(`  ${palace.name}（`));
+  });
+  for (const field of [
+    /人盘\[[^\]]+\]/u,
+    /干[乙丙丁戊己庚辛壬癸](?:（携[乙丙丁戊己庚辛壬癸]）)?/u,
+    /神盘\[[^\]]+\]/u,
+  ]) {
+    const changed = swapRowValues(prompt, palaceRows, field);
+    const missing = auditPromptFacts(changed, facts).missing;
+    assert.ok(compactPatternIds.every((id) => missing.includes(id)));
+  }
+  const patternRows = ['虎遁', '休诈'].map((name) =>
+    prompt.split('\n').findIndex((line) => line.startsWith(`  ${name}（吉，`)),
+  );
+  const swappedPatternPalaces = swapRowValues(prompt, patternRows, /，[^）]+宫/u);
+  assert.ok(
+    compactPatternIds.every((id) =>
+      auditPromptFacts(swappedPatternPalaces, facts).missing.includes(id),
+    ),
+  );
+
   for (const index of [10, 11]) {
     const retainedPattern = data.baseChart.classicPatterns![index];
     assert.ok(/甲|旬|遁|星奇游/u.test(retainedPattern.summary));
@@ -290,6 +388,24 @@ test('奇门终身局精简后仍核对完整干支日期分组与关系归属',
       ),
   );
   assert.deepEqual(auditPromptFacts(missingEvidencePrompt, missingEvidenceFacts).missing, []);
+  for (const [name, location] of [
+    ['虎遁', '生门、乙奇落艮八宫，'],
+    ['休诈', '丁奇、开门、六合同宫于乾六宫，'],
+  ]) {
+    const index = data.baseChart.classicPatterns!.findIndex((item) => item.name === name);
+    const id = `qimen-lifetime.base-pattern.${index}`;
+    const fullLine = missingEvidencePrompt
+      .split('\n')
+      .find((line) => line.startsWith(`  ${name}（吉）：`))!;
+    assert.ok(fullLine.includes(location));
+    assert.equal(missingEvidenceFacts.find((item) => item.id === id)!.unit, 'line');
+    assert.ok(
+      auditPromptFacts(
+        missingEvidencePrompt.replace(fullLine, fullLine.replace(location, '')),
+        missingEvidenceFacts,
+      ).missing.includes(id),
+    );
+  }
   assert.equal(facts.length, extraFacts.length);
   assert.equal(facts.length, companionFacts.length);
   assert.equal(facts.length, missingEvidenceFacts.length);

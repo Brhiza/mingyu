@@ -43,16 +43,18 @@ test('农历工具应拒绝越界年月参数', () => {
 test('农历工具干支应符合交节与晚子时固定真值', () => {
   GANZHI_FIXTURES.forEach(([year, month, day, hour, minute, expected]) => {
     const date = chinaDate(year, month, day, hour, minute);
+    const timeInfo = LunarUtil.getTimeInfo(date);
+    const lunar = LunarUtil.getLunar(date);
 
     assert.deepEqual(LunarUtil.getGanZhi(date), expected);
-    assert.deepEqual(LunarUtil.getTimeInfo(date).ganzhi, expected);
-    assert.deepEqual(LunarUtil.getTimeInfo(date).eightChar, expected);
+    assert.deepEqual(timeInfo.ganzhi, expected);
+    assert.deepEqual(timeInfo.eightChar, expected);
     assert.deepEqual(
       {
-        year: LunarUtil.getLunar(date).year,
-        month: LunarUtil.getLunar(date).month,
-        day: LunarUtil.getLunar(date).day,
-        hour: LunarUtil.getLunar(date).hour,
+        year: lunar.year,
+        month: lunar.month,
+        day: lunar.day,
+        hour: lunar.hour,
       },
       expected,
     );

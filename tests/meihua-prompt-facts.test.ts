@@ -14,6 +14,11 @@ import { ZHOUYI_HEXAGRAMS_TEXT } from '@core/classics/zhouyi';
 import { extractDivinationPromptFacts } from '../scripts/prompt-audit/divination-facts';
 import { auditPromptFacts } from '../scripts/prompt-audit/facts';
 
+const fixedDateNumber42Chart = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
+  method: 'number',
+  number: 42,
+});
+
 test('梅花兼容起卦入口的在线提示只显示实际年月日时取数法', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
   const data = generateMeihua(date, { method: 'timeTrigram' });
@@ -38,7 +43,7 @@ test('梅花兼容起卦入口的在线提示只显示实际年月日时取数�
 
 test('梅花旧盘取数与卦数不一致时不输出错误算式', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
-  const numberChart = generateMeihua(date, { method: 'number', number: 42 });
+  const numberChart = structuredClone(fixedDateNumber42Chart);
   const cases = [
     {
       data: generateMeihua(date, { method: 'time' }),
@@ -77,19 +82,14 @@ test('梅花旧盘取数与卦数不一致时不输出错误算式', () => {
 });
 
 test('梅花盘面时柱与取数时支不一致时不输出旧取数算式', () => {
-  const data = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-    method: 'number',
-    number: 42,
-  });
+  const data = structuredClone(fixedDateNumber42Chart);
   assert.match(formatMeihuaFacts(data).join('\n'), /起卦取数：/u);
   data.ganzhi.hour = '甲子';
   assert.doesNotMatch(formatMeihuaFacts(data).join('\n'), /起卦取数：/u);
 });
 
 test('梅花最终提示词拒绝与时间戳冲突的结果时间和年日柱', () => {
-  const date = new Date('2026-05-19T10:30:00+08:00');
-  const makeChart = () => generateMeihua(date, { method: 'number', number: 42 });
-  const baseChart = makeChart();
+  const baseChart = structuredClone(fixedDateNumber42Chart);
 
   const staleTimestamp = structuredClone(baseChart);
   staleTimestamp.timestamp += 24 * 60 * 60 * 1000;
@@ -112,30 +112,25 @@ test('梅花最终提示词拒绝与时间戳冲突的结果时间和年日柱',
 });
 
 test('梅花提示词重新核验逐爻、关系和卦爻辞，不采信旧证据缓存', () => {
-  const makeChart = () =>
-    generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-      method: 'number',
-      number: 42,
-    });
-  const baseChart = makeChart();
+  const baseChart = structuredClone(fixedDateNumber42Chart);
   const stale = structuredClone(baseChart);
   stale.evidenceAnalysis!.stages[0].promptText = '伪造的体用阶段';
   assert.doesNotMatch(buildDivinationPrompt('meihua', '请做整体解读。', stale), /伪造的体用阶段/u);
 
   const mutations = [
-    (chart: ReturnType<typeof makeChart>) => {
+    (chart: typeof fixedDateNumber42Chart) => {
       chart.yaosDetail[0].yaoType = chart.yaosDetail[0].yaoType === '阳' ? '阴' : '阳';
     },
-    (chart: ReturnType<typeof makeChart>) => {
+    (chart: typeof fixedDateNumber42Chart) => {
       chart.yaosDetail.push({ ...chart.yaosDetail[0] });
     },
-    (chart: ReturnType<typeof makeChart>) => {
+    (chart: typeof fixedDateNumber42Chart) => {
       chart.analysis.tiYongRelation = '虚构关系';
     },
-    (chart: ReturnType<typeof makeChart>) => {
+    (chart: typeof fixedDateNumber42Chart) => {
       chart.mainHexagram.description += '伪造卦辞';
     },
-    (chart: ReturnType<typeof makeChart>) => {
+    (chart: typeof fixedDateNumber42Chart) => {
       chart.mainHexagram.movingYaoCi = '伪造爻辞';
     },
   ];
@@ -285,10 +280,13 @@ test('梅花在线提示词合并同经卦月令角色，保留不同经卦与�
       ],
     },
   ]) {
-    const data = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-      method: 'number',
-      number: fixture.number,
-    });
+    const data =
+      fixture.number === 42
+        ? structuredClone(fixedDateNumber42Chart)
+        : generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
+            method: 'number',
+            number: fixture.number,
+          });
     const structuredBefore = structuredClone(data);
     const prompt = buildCoreDivinationPrompt({
       method: 'meihua',
@@ -352,12 +350,7 @@ test('梅花在线提示词合并同经卦月令角色，保留不同经卦与�
 });
 
 test('梅花在线提示词对缺少卦象结构的阶段使用中性事实', () => {
-  const data = structuredClone(
-    generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-      method: 'number',
-      number: 42,
-    }),
-  );
+  const data = structuredClone(fixedDateNumber42Chart);
   delete data.changedHexagram;
   delete data.evidenceAnalysis;
 
@@ -568,10 +561,7 @@ test('纯乾纯坤互卦取爻事实与变卦来源及阴阳一致', () => {
 });
 
 test('梅花提示词保留三卦卦辞与本次动爻，不送入未发动爻辞', () => {
-  const data = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-    method: 'number',
-    number: 42,
-  });
+  const data = structuredClone(fixedDateNumber42Chart);
   const prompt = buildDivinationPrompt('meihua', '请做整体解读。', data);
   assert.equal((prompt.match(/动爻爻辞：/gu) ?? []).length, 1);
   assert.doesNotMatch(prompt, /其他爻辞：|特殊用辞：/u);
@@ -589,10 +579,7 @@ test('梅花提示词保留三卦卦辞与本次动爻，不送入未发动爻�
 });
 
 test('梅花旧盘缺少卦象详情时仍核对互卦与变卦别名', () => {
-  const source = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-    method: 'number',
-    number: 42,
-  });
+  const source = structuredClone(fixedDateNumber42Chart);
   for (const [detailField, aliasField] of [
     ['interHexagram', 'interName'],
     ['changedHexagram', 'changedName'],
@@ -609,7 +596,7 @@ test('梅花旧盘缺少卦象详情时仍核对互卦与变卦别名', () => {
 
 test('梅花旧盘缺少取数输入时不把卦象反填为起卦输入', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
-  const number = generateMeihua(date, { method: 'number', number: 42 });
+  const number = structuredClone(fixedDateNumber42Chart);
   delete number.calculation!.timeZhi;
   assert.doesNotMatch(formatMeihuaFacts(number).join('\n'), /起卦取数：|undefined/u);
 
@@ -651,7 +638,7 @@ test('梅花旧盘缺少动爻取数结果时不输出不完整算式', () => {
   const date = new Date('2026-05-19T10:30:00+08:00');
   const cases = [
     generateMeihua(date, { method: 'time' }),
-    generateMeihua(date, { method: 'number', number: 42 }),
+    structuredClone(fixedDateNumber42Chart),
     generateMeihua(date, { method: 'sound', soundCount: 4 }),
     generateMeihua(date, {
       method: 'character',
@@ -723,10 +710,7 @@ test('梅花午时数字卦保留变后月令关系、上卦动与余零结果',
   const prompt = formatMeihuaFacts(noon).join('\n');
   assert.match(prompt, /变后用卦离火与巳月令火同类，变后用卦为旺/);
   assert.match(prompt, /主卦第1爻阴变阳；动爻位于下卦/);
-  const morning = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
-    method: 'number',
-    number: 42,
-  });
+  const morning = structuredClone(fixedDateNumber42Chart);
   assert.match(formatMeihuaFacts(morning).join('\n'), /主卦第6爻阴变阳；动爻位于上卦/);
   const zero = generateMeihua(new Date('2026-05-19T10:30:00+08:00'), {
     method: 'number',

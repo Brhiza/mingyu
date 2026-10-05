@@ -655,7 +655,24 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             ren?.door === zhiShi &&
             summary === `${fuShiLocation}乃符使同宫之格，事情有极强的集中力量。`,
           );
-          if (palaceName && (stemPairShown || fuShiShown)) {
+          const classicLocation = [
+            '天遁',
+            '地遁',
+            '人遁',
+            '神遁',
+            '鬼遁',
+            '龙遁',
+            '虎遁',
+            '风遁',
+            '云遁',
+            '真诈',
+            '重诈',
+            '休诈',
+            '相佐',
+          ].includes(name)
+            ? formatLifetimePatternSummary(name, summary).match(/^[^，]+，/u)?.[0]
+            : undefined;
+          if (palaceName && (stemPairShown || fuShiShown || classicLocation)) {
             const star = text(tian?.star) ?? '';
             const stem = text(tian?.stem) ?? '';
             const starText = tian?.companionStar
@@ -665,7 +682,11 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
               ? `${stem}（携${text(tian.companionStem)}）`
               : stem;
             const palaceLine = `${palaceName}（${text(palace.element)}）：天盘[${starText}，干${stemText}]，人盘[${text(ren?.door) ?? ''}]，神盘[${text(shen?.god) ?? ''}]，地盘干[${text(di?.stem) ?? ''}]`;
-            const location = stemPairShown ? stemPair![0] : fuShiLocation;
+            const location = stemPairShown
+              ? stemPair![0]
+              : fuShiShown
+                ? fuShiLocation
+                : classicLocation!;
             const interpretation = formatLifetimePatternSummary(name, summary).slice(
               location.length,
             );
@@ -673,7 +694,10 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
             return fact(
               `qimen-lifetime.base-pattern.${index}`,
               patternLine,
-              [palaceLine, ...(fuShiShown ? [`值符星：${zhiFu} | 值使门：${zhiShi}`] : [])],
+              [
+                palaceLine,
+                ...(fuShiShown || name === '相佐' ? [`值符星：${zhiFu} | 值使门：${zhiShi}`] : []),
+              ],
               { scope: baseScope, unit: 'block' },
             );
           }
