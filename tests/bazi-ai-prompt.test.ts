@@ -470,6 +470,23 @@ test('同名取格路径不作为其他格局重复列示', () => {
   assert.doesNotMatch(buildBaziPrompt({ result }), /其他取格候选：/);
 });
 
+test('司令透干取格与月令本气候选不重复复述本气十神', () => {
+  const result = createBaziResult();
+  const prompt = buildBaziPrompt({ result, fortuneScope: 'natal' });
+
+  assert.match(
+    prompt,
+    /格局: 比肩格（已提供分日司权为庚（比肩）且透于年干，本次按司令透干取比肩格）/,
+  );
+  assert.equal(prompt.match(/月支巳本气为丙（七杀）/g)?.length, 1);
+  assert.equal(
+    prompt.match(/其他取格候选：七杀格（月令本气；月支巳本气为丙（七杀），按月令本气取七杀格）/g)
+      ?.length,
+    1,
+  );
+  assert.doesNotMatch(prompt, /本气取格口径为/);
+});
+
 test('独立流派资料中的选中取格依据和其他候选各出现一次', () => {
   const result = get1993AprilSingaporeBaziResult();
   const basis = result.analysis.mingGe.basis;

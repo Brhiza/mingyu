@@ -31,10 +31,14 @@ test('实际奇门九宫的天地盘归属互换后，同样的奇仪仍在也�
   const prompt = buildDivinationPrompt('qimen', '请分析合作。', data);
   const facts = extractDivinationPromptFacts('qimen', data);
   assert.deepEqual(auditPromptFacts(prompt, facts).missing, []);
-  const rows = prompt
-    .split('\n')
-    .flatMap((line, index) => (line.includes('）：门') ? [index] : []));
+  const palaceRow = /^ {2}(?:坎一|坤二|震三|巽四|中五|乾六|兑七|艮八|离九)宫（/u;
+  const lines = prompt.split('\n');
+  const rows = lines.flatMap((line, index) => (palaceRow.test(line) ? [index] : []));
   assert.equal(rows.length, 9);
+  const centerStem = data.jiuGongGe.find((palace) => palace.gong === 5)!.diPan.stem;
+  assert.ok(centerStem);
+  assert.equal(lines[rows[4]], `  中五宫（中央，土）：地盘${centerStem}`);
+  assert.doesNotMatch(prompt, /门无|星无|神无|天盘无/u);
   const changed = swapRowValues(prompt, rows, /天盘[^，]+/u);
   assert.ok(auditPromptFacts(changed, facts).missing.some((id) => id.startsWith('qimen.palace.')));
 });

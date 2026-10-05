@@ -33,6 +33,12 @@ export function formatPatternBasisForPrompt(basis: string): string {
   }
   const selectedBasis = basis.split(/；(?:曲直|从儿)结构未立：/u, 1)[0];
   return selectedBasis
+    .replace(
+      /^月支[^；（]*本气为[^；（]*（[^；）]*），本气取格口径为([^；]+)；(已提供分日司权[^；]*本次按司令透干取([^；]+))$/u,
+      // 本气取格口径不同于所取格局时已在“其他取格候选”列示，选中依据只保留司令透干部分。
+      (match, principalPattern: string, commanderBasis: string, selectedPattern: string) =>
+        principalPattern === selectedPattern ? match : commanderBasis,
+    )
     .replace(/；分日司权[^；]*仅作当日月气事实/gu, '')
     .replace(/^(《滴天髓阐微·顺局》从儿法成立：)月建食伤当权；(?=月支[^；]*食伤在月建当权)/u, '$1');
 }

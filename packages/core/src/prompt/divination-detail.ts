@@ -153,17 +153,9 @@ function formatQimenDetail(data: QimenData) {
     analyzeQimenEvidence(data).patternFacts,
   );
   return [
-    `九宫：${data.jiuGongGe
-      .slice()
-      .sort((a, b) => a.gong - b.gong)
-      .map(
-        (item) =>
-          `${item.gong}宫${item.name}${item.direction}：天盘${item.tianPan.stem}${item.tianPan.star}；地盘${item.diPan.stem}；${item.renPan.door}；${item.shenPan.god}`,
-      )
-      .join('\n')}`,
     patternLines.length ? `格局明细：\n${patternLines.join('\n')}` : '',
     data.directions
-      ? `方位：宜${data.directions.goodDirections.map((item) => `${item.direction}（${item.use}）`).join('、') || '未列'}；慎${data.directions.avoidDirections.map((item) => `${item.direction}（${item.use}）`).join('、') || '未列'}`
+      ? `方位：宜${data.directions.goodDirections.map((item) => `${item.direction}（${item.use}）`).join('、') || '未列'}；慎${data.directions.avoidDirections.map((item) => (item.use === '宜避之方' ? item.direction : `${item.direction}（${item.use}）`)).join('、') || '未列'}`
       : '',
   ];
 }

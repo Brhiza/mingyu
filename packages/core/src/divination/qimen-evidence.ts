@@ -1877,7 +1877,16 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     .map((palace) => {
       const isVoid = data.voidPalaces?.some((item) => item.palace === palace.gong);
       const hasHorse = data.horseStar?.palace === palace.gong;
-      return `  ${palace.name}（${palace.direction}，${palace.element}）：门${palace.renPan.door || '无'}，星${formatTianPanStars(palace) || '无'}，神${palace.shenPan.god || '无'}，天盘${formatTianPanStems(palace) || '无'}，地盘${palace.diPan.stem || '无'}${isVoid ? '，逢空' : ''}${hasHorse ? '，马星' : ''}`;
+      const layers = [
+        palace.renPan.door ? `门${palace.renPan.door}` : '',
+        formatTianPanStars(palace) ? `星${formatTianPanStars(palace)}` : '',
+        palace.shenPan.god ? `神${palace.shenPan.god}` : '',
+        formatTianPanStems(palace) ? `天盘${formatTianPanStems(palace)}` : '',
+        palace.diPan.stem ? `地盘${palace.diPan.stem}` : '',
+        isVoid ? '逢空' : '',
+        hasHorse ? '马星' : '',
+      ].filter(Boolean);
+      return `  ${palace.name}（${palace.direction}，${palace.element}）：${layers.join('，')}`;
     });
   const specialCondition = getQimenActiveSpecialConditionText(data);
   const timingText = [

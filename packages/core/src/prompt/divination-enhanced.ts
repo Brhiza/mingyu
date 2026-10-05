@@ -1068,7 +1068,17 @@ function formatQimenInfo(data: QimenData, question = '', supplementaryInfo?: Sup
     ),
   ];
   const palaceLines = data.jiuGongGe.map((palace) => {
-    return `  ${palace.name}（${palace.direction}，${palace.element}）：门${palace.renPan.door || '无'}，星${formatTianPanStars(palace) || '无'}，神${palace.shenPan.god || '无'}，天盘${formatTianPanStems(palace) || '无'}${palace.tianPan.companionStem ? `（${palace.tianPan.companionStem}为寄干）` : ''}，地盘${palace.diPan.stem || '无'}`;
+    const stems = formatTianPanStems(palace);
+    const layers = [
+      palace.renPan.door ? `门${palace.renPan.door}` : '',
+      formatTianPanStars(palace) ? `星${formatTianPanStars(palace)}` : '',
+      palace.shenPan.god ? `神${palace.shenPan.god}` : '',
+      stems
+        ? `天盘${stems}${palace.tianPan.companionStem ? `（${palace.tianPan.companionStem}为寄干）` : ''}`
+        : '',
+      palace.diPan.stem ? `地盘${palace.diPan.stem}` : '',
+    ].filter(Boolean);
+    return `  ${palace.name}（${palace.direction}，${palace.element}）：${layers.join('，')}`;
   });
   const isYearOrMonth = scopePresentation.scope === 'year' || scopePresentation.scope === 'month';
   const seasonalitySummary =

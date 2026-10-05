@@ -214,8 +214,14 @@ export function buildLifetimePrompt(
     const flags: string[] = [];
     if (isVoid) flags.push('旬空');
     if (hasHorse) flags.push('临马');
+    const layers = [
+      p.tianPan.star || p.tianPan.stem ? `天盘[${starText}，干${stemText}]` : '',
+      p.renPan.door ? `人盘[${p.renPan.door}]` : '',
+      p.shenPan.god ? `神盘[${p.shenPan.god}]` : '',
+      p.diPan.stem ? `地盘干[${p.diPan.stem}]` : '',
+    ].filter(Boolean);
     lines.push(
-      `  ${p.name}（${p.element}）：天盘[${starText}，干${stemText}]，人盘[${p.renPan.door}]，神盘[${p.shenPan.god}]，地盘干[${p.diPan.stem}]${flags.length > 0 ? `【${flags.join('，')}】` : ''}`,
+      `  ${p.name}（${p.element}）：${layers.join('，')}${flags.length > 0 ? `【${flags.join('，')}】` : ''}`,
     );
   }
 

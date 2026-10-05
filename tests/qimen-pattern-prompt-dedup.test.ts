@@ -155,6 +155,20 @@ test('奇门详细在线资料复用命中条件，摘要不重复格局且不�
   assert.doesNotMatch(prompt, /^格局：|盘面命中格局：|乃天遁之格|主此宫事务受阻/gmu);
   assert.match(prompt, /值符宫应期参考：/u);
   assert.doesNotMatch(getDivinationSummaryBlocks('qimen', data).lines.join('\n'), /复合格局：/u);
+  assert.equal(prompt.match(/^九宫简表：$/gmu)?.length, 1);
+  assert.doesNotMatch(prompt, /^九宫：|门无|星无|神无|天盘无/mu);
+  const lines = prompt.split('\n');
+  const palaceRows = lines.filter((line) =>
+    /^ {2}(?:坎一|坤二|震三|巽四|中五|乾六|兑七|艮八|离九)宫（/u.test(line),
+  );
+  assert.equal(palaceRows.length, 9);
+  assert.ok(
+    palaceRows.includes(
+      `  中五宫（中央，土）：地盘${data.jiuGongGe.find((palace) => palace.gong === 5)!.diPan.stem}`,
+    ),
+  );
+  assert.ok(palaceRows.some((row) => row.includes('天盘壬、丙（丙为寄干）')));
+  assert.doesNotMatch(prompt, /（宜避之方）/u);
   assert.ok(data.patternCombos!.length > 0);
 
   delete data.yingQi;
