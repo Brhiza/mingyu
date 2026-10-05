@@ -85,20 +85,6 @@ test('奇门遁甲九星、八门、八神经典赋文查询正确', () => {
 });
 
 test('八字《滴天髓》十干体象摘录与静态释义正确', () => {
-  const jiaMu = getBaziDitiansuiAdvice('甲');
-  assert.ok(jiaMu);
-  assert.equal(jiaMu.wuxing, '木');
-  assert.ok(jiaMu.verse.includes('甲木参天，脱胎要火'));
-
-  const bingHuo = getBaziDitiansuiAdvice('丙');
-  assert.ok(bingHuo);
-  assert.equal(bingHuo.wuxing, '火');
-  assert.equal(bingHuo.verse, '丙火猛烈，欺霜侮雪。');
-
-  const guiShui = getBaziDitiansuiAdvice('癸');
-  assert.ok(guiShui);
-  assert.ok(guiShui.verse.includes('癸水至弱，达于天津'));
-
   const checkedVerses = {
     甲: '甲木参天，脱胎要火。',
     乙: '乙木虽柔，刲羊解牛。',
@@ -114,6 +100,8 @@ test('八字《滴天髓》十干体象摘录与静态释义正确', () => {
   for (const [stem, verse] of Object.entries(checkedVerses)) {
     const entry = getBaziDitiansuiAdvice(stem);
     assert.equal(entry?.verse, verse);
+    if (stem === '甲') assert.equal(entry?.wuxing, '木');
+    if (stem === '丙') assert.equal(entry?.wuxing, '火');
     assert.doesNotMatch(`${entry?.nature}${entry?.modernAdvice}`, /性情|职业|适合|必然/);
   }
 });
@@ -131,7 +119,7 @@ test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
   assert.ok(qisha.verse?.includes('煞重身轻，用食则身不能当，不若转而就印'));
 });
 
-test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
+test('八字《穷通宝鉴》调候喜忌与条目按日干月支精确查询', () => {
   const jiaYin = getBaziQiongtongAdvice('甲', '寅');
   assert.ok(jiaYin);
   assert.deepEqual(jiaYin.primaryGods, ['丙', '癸']);
@@ -141,14 +129,12 @@ test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
   assert.ok(gengShen);
   assert.deepEqual(gengShen.primaryGods, ['丁', '甲']);
   assert.ok(gengShen.classicVerse.includes('七月庚金'));
+  assert.equal(gengShen.monthBranch, '申');
 
   const renWu = getBaziQiongtongAdvice('壬', '午');
   assert.ok(renWu);
   assert.deepEqual(renWu.primaryGods, ['癸', '庚']);
   assert.ok(renWu.classicVerse.includes('五月壬水'));
-});
-
-test('调候典籍只返回日干与月支直接对应的条目', () => {
   const yiChen = getBaziQiongtongAdvice('乙', '辰');
   assert.equal(yiChen?.monthBranch, '辰');
   assert.match(yiChen?.classicVerse ?? '', /^三月乙木，阳气愈炽，先癸后丙/u);
@@ -156,7 +142,6 @@ test('调候典籍只返回日干与月支直接对应的条目', () => {
   assert.equal(gengYou?.monthBranch, '酉');
   assert.match(gengYou?.classicVerse ?? '', /^八月庚金，刚锐未退，用丁用甲/u);
   assert.equal(getBaziQiongtongAdvice('乙', '寅')?.monthBranch, '寅');
-  assert.equal(getBaziQiongtongAdvice('庚', '申')?.monthBranch, '申');
 });
 
 test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {

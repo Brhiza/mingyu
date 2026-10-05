@@ -60,14 +60,13 @@ test('丙火其余六个月各引本月原文，分清主用、替用和随局�
     assert.ok(entry);
     assert.deepEqual(entry.primaryGods, gods);
     assert.match(entry.classicVerse, verse);
+    if (branch === '巳') assert.match(entry.modernExplanation, /无壬时.*癸水姑用/u);
+    if (branch === '未') assert.match(entry.modernExplanation, /无庚有壬、不见戊出/u);
+    if (branch === '酉') assert.match(entry.modernExplanation, /无壬时癸水.*替用/u);
+    if (branch === '戌') assert.match(entry.modernExplanation, /无壬且癸透干时.*替用/u);
+    if (branch === '亥') assert.match(entry.classicVerse, /木旺宜庚，水旺宜戊，火旺用壬/u);
+    if (branch === '丑') assert.match(entry.modernExplanation, /土多时才需甲木/u);
   }
-
-  assert.match(getBaziQiongtongAdvice('丙', '巳')!.modernExplanation, /无壬时.*癸水姑用/u);
-  assert.match(getBaziQiongtongAdvice('丙', '未')!.modernExplanation, /无庚有壬、不见戊出/u);
-  assert.match(getBaziQiongtongAdvice('丙', '酉')!.modernExplanation, /无壬时癸水.*替用/u);
-  assert.match(getBaziQiongtongAdvice('丙', '戌')!.modernExplanation, /无壬且癸透干时.*替用/u);
-  assert.match(getBaziQiongtongAdvice('丙', '亥')!.classicVerse, /木旺宜庚，水旺宜戊，火旺用壬/u);
-  assert.match(getBaziQiongtongAdvice('丙', '丑')!.modernExplanation, /土多时才需甲木/u);
 });
 
 test('丁火缺月按本月条文或三冬总论归属，并保留条件取用', () => {
@@ -87,13 +86,11 @@ test('丁火缺月按本月条文或三冬总论归属，并保留条件取用',
     assert.ok(entry);
     assert.deepEqual(entry.primaryGods, gods);
     assert.match(entry.classicVerse, verse);
+    if (branch === '辰') assert.match(entry.modernExplanation, /支成木局.*庚为先/u);
+    if (branch === '巳') assert.match(entry.modernExplanation, /无甲而庚、戊透时.*取戊/u);
+    if (branch === '申') assert.match(entry.modernExplanation, /丙火.*可借/u);
+    if (branch === '亥' || branch === '丑') assert.match(entry.modernExplanation, /三冬总论/u);
   }
-
-  assert.match(getBaziQiongtongAdvice('丁', '辰')!.modernExplanation, /支成木局.*庚为先/u);
-  assert.match(getBaziQiongtongAdvice('丁', '巳')!.modernExplanation, /无甲而庚、戊透时.*取戊/u);
-  assert.match(getBaziQiongtongAdvice('丁', '申')!.modernExplanation, /丙火.*可借/u);
-  assert.match(getBaziQiongtongAdvice('丁', '亥')!.modernExplanation, /三冬总论/u);
-  assert.match(getBaziQiongtongAdvice('丁', '丑')!.modernExplanation, /三冬总论/u);
 });
 
 test('戊土缺月按明确单月或合写月份原文取用', () => {
@@ -108,23 +105,21 @@ test('戊土缺月按明确单月或合写月份原文取用', () => {
     { branch: '亥', gods: ['甲', '丙'], verse: /^十月戊土/u },
   ] as const;
 
+  let yinVerse: string | undefined;
+  let chouVerse: string | undefined;
   for (const { branch, gods, verse } of cases) {
     const entry = getBaziQiongtongAdvice('戊', branch);
     assert.ok(entry);
     assert.deepEqual(entry.primaryGods, gods);
     assert.match(entry.classicVerse, verse);
+    if (branch === '寅') yinVerse = entry.classicVerse;
+    if (branch === '卯') assert.equal(yinVerse, entry.classicVerse);
+    if (branch === '丑') chouVerse = entry.classicVerse;
+    if (branch === '申') assert.match(entry.modernExplanation, /支成水局时.*甲泄水/u);
+    if (branch === '酉') assert.match(entry.classicVerse, /不必木疏/u);
   }
 
-  assert.equal(
-    getBaziQiongtongAdvice('戊', '寅')?.classicVerse,
-    getBaziQiongtongAdvice('戊', '卯')?.classicVerse,
-  );
-  assert.equal(
-    getBaziQiongtongAdvice('戊', '子')?.classicVerse,
-    getBaziQiongtongAdvice('戊', '丑')?.classicVerse,
-  );
-  assert.match(getBaziQiongtongAdvice('戊', '申')!.modernExplanation, /支成水局时.*甲泄水/u);
-  assert.match(getBaziQiongtongAdvice('戊', '酉')!.classicVerse, /不必木疏/u);
+  assert.equal(getBaziQiongtongAdvice('戊', '子')?.classicVerse, chouVerse);
 });
 
 test('十干十二月调候资料均能由实盘查询并进入释义', () => {
