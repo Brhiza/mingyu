@@ -16,6 +16,7 @@ const cloneFixedQimen = () => structuredClone(fixedQimen);
 
 test('奇门证据提示词保留格局条件、三奇得、马星和击刑事实各一次', () => {
   const data = cloneFixedQimen();
+  const before = structuredClone(data);
   const analysis = analyzeQimenEvidence(data);
   const prompt = analysis.promptText;
   const patterns = prompt.split('【传统格局】\n')[1]?.split('【应期资料】')[0] ?? '';
@@ -42,8 +43,22 @@ test('奇门证据提示词保留格局条件、三奇得、马星和击刑事�
   assert.match(prompt, /驿马发动，出现行动、迁移、消息流转时更容易触发进展/u);
   assert.match(patterns, /凶格：癸击刑；癸在巽四宫击刑\n/u);
   assert.doesNotMatch(patterns, /在此宫落于相刑之位/u);
+  assert.match(patterns, /青龙入云（乾六宫）；六甲加乙为青龙入云/u);
+  assert.match(patterns, /蛇化为龙（兑七宫）；壬加地盘甲为蛇化为龙；排盘时以甲子戊代甲/u);
+  assert.doesNotMatch(patterns, /天盘戊加地盘乙于|天盘壬加地盘戊于/u);
+  assert.match(
+    analysis.patternFacts.find((item) => item.kind === '经典格局' && item.name === '青龙入云')!
+      .originalText,
+    /天盘戊加地盘乙于/u,
+  );
+  assert.match(
+    analysis.patternFacts.find((item) => item.kind === '经典格局' && item.name === '蛇化为龙')!
+      .originalText,
+    /天盘壬加地盘戊于/u,
+  );
   assert.ok(analysis.patternFacts.some((item) => item.name.startsWith('马星（')));
   assert.ok(analysis.patternFacts.some((item) => item.originalText.includes('在此宫落于相刑之位')));
+  assert.deepEqual(data, before);
 });
 
 test('三奇入墓在固定盘与证据提示词中只保留三奇专名', () => {

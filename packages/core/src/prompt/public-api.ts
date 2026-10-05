@@ -361,8 +361,8 @@ export function buildBaziPromptForResult(params: {
     section('问题', question),
   ]);
   const schoolSection = params.schools?.length
-    ? buildBaziSchoolsPromptSection(params.result, params.schools, true)
-    : buildBaziSchoolPromptSection(params.result, params.school, true);
+    ? buildBaziSchoolsPromptSection(params.result, params.schools, true, true)
+    : buildBaziSchoolPromptSection(params.result, params.school, true, true);
   return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
 }
 

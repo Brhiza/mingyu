@@ -451,7 +451,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n';
   const alternativePatterns = formatAlternativePatternCandidates(analysis.mingGe);
   result += `格局: ${analysis.mingGe.pattern}`;
-  if ((includeRules || alternativePatterns) && analysis.mingGe.basis) {
+  if (analysis.mingGe.basis) {
     result += `（${formatPatternBasisForPrompt(analysis.mingGe.basis)}）`;
   }
   if (analysis.mingGe.transformation?.status === '成化') {

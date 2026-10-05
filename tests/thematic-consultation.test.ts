@@ -346,12 +346,16 @@ test('主题及双盘流派提示词只呈现一次八字格局判定与破格�
     timeIndex: 3,
   });
   const ziweiResult = await getSampleZiweiResult();
+  const currentTime = new Date('2025-01-01T00:00:00Z');
+  const patternBefore = structuredClone(baziResult.analysis.mingGe);
+  const basis = formatPatternBasisForPrompt(patternBefore.basis!);
   const prompts = [
     buildThematicConsultationPrompt({
       baziResult,
       system: 'bazi',
       topic: 'career',
       baziSchool: 'ziping',
+      currentTime,
     }).prompt,
     buildBaziZiweiPromptForResults({
       baziResult,
@@ -359,13 +363,30 @@ test('主题及双盘流派提示词只呈现一次八字格局判定与破格�
       question: '事业如何安排？',
       baziSchool: 'ziping',
     }),
+    buildThematicConsultationPrompt({
+      baziResult,
+      system: 'bazi',
+      topic: 'career',
+      baziSchools: ['ziping'],
+      currentTime,
+    }).prompt,
+    buildBaziZiweiPromptForResults({
+      baziResult,
+      ziweiResult,
+      question: '事业如何安排？',
+      baziSchools: ['ziping'],
+    }),
   ];
   for (const prompt of prompts) {
     assert.doesNotMatch(prompt, /所取格局：/);
     assert.equal(prompt.match(/格局破格所忌：/g)?.length, 1);
     assert.doesNotMatch(prompt, /【八字格局条件】/);
     assert.match(prompt, /透干通根：/);
+    assert.equal(prompt.split(basis).length - 1, 1);
+    assert.match(prompt, /来源无稳定根或其他可用根/);
+    assert.match(prompt, /伤官见官的救应明确不成立/);
   }
+  assert.deepEqual(baziResult.analysis.mingGe, patternBefore);
 });
 
 test('八字紫微合参流派资料不重复通用八字盘面已列出的格局条件', async () => {
@@ -379,11 +400,14 @@ test('八字紫微合参流派资料不重复通用八字盘面已列出的格�
   assert.equal(baziResult.analysis.mingGe.specialAdjudication?.kind, '从儿格');
   const basis = baziResult.analysis.mingGe.basis!;
   const satisfied = baziResult.analysis.mingGe.specialAdjudication!.satisfied;
+  const patternBefore = structuredClone(baziResult.analysis.mingGe);
+  const currentTime = new Date('2025-01-01T00:00:00Z');
   const baziOnlyPrompt = buildThematicConsultationPrompt({
     baziResult,
     system: 'bazi',
     topic: 'career',
     baziSchools: ['ziping', 'mangpai'],
+    currentTime,
   }).prompt;
   assert.equal(baziOnlyPrompt.split(formatPatternBasisForPrompt(basis)).length - 1, 1);
   assert.doesNotMatch(baziOnlyPrompt, /特殊格条件：|特殊格裁决：从儿格成立/);
@@ -405,6 +429,28 @@ test('八字紫微合参流派资料不重复通用八字盘面已列出的格�
   for (const condition of satisfied) {
     assert.equal(prompt.split(formatPatternBasisForPrompt(condition)).length - 1, 1);
   }
+  for (const singlePrompt of [
+    buildThematicConsultationPrompt({
+      baziResult,
+      system: 'bazi',
+      topic: 'career',
+      baziSchools: ['ziping'],
+      currentTime,
+    }).prompt,
+    buildBaziZiweiPromptForResults({
+      baziResult,
+      ziweiResult,
+      question: '请分析事业方向。',
+      baziSchools: ['ziping'],
+    }),
+  ]) {
+    assert.equal(singlePrompt.split(formatPatternBasisForPrompt(basis)).length - 1, 1);
+    assert.doesNotMatch(singlePrompt, /特殊格条件：|特殊格裁决：从儿格成立/);
+    for (const condition of satisfied) {
+      assert.equal(singlePrompt.split(formatPatternBasisForPrompt(condition)).length - 1, 1);
+    }
+  }
+  assert.deepEqual(baziResult.analysis.mingGe, patternBefore);
 });
 
 test('三柱缺时辰降级时八字主题提示词仍可稳定生成', () => {

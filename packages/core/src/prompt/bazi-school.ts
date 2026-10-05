@@ -165,9 +165,21 @@ function formatUsefulGod(result: BaziChartResult, embedded = false) {
   ]);
 }
 
-function formatTransformationFacts(result: BaziChartResult, embedded = false) {
+function formatTransformationFacts(
+  result: BaziChartResult,
+  embedded = false,
+  chartShowsPatternBasis = false,
+) {
   const transformation = result.analysis.mingGe.transformation;
   if (!transformation || (transformation.status !== '成化' && result.analysis.mingGe.fulfillment)) {
+    return [];
+  }
+  if (
+    embedded &&
+    chartShowsPatternBasis &&
+    transformation.status === '成化' &&
+    result.analysis.mingGe.basis?.includes(transformation.basis)
+  ) {
     return [];
   }
   const detail = `化神${transformation.element}；${transformation.basis}`;
@@ -195,7 +207,6 @@ function formatSchoolPatternFacts(
     special?.status === '成立' &&
     pattern.pattern === special.kind &&
     basis.includes('成立') &&
-    Boolean(special.route && basis.includes(special.route)) &&
     Boolean(special.method && basis.includes(special.method));
   const curveFactsInChart = special?.kind === '曲直格';
   const conciseCurveBasis =
@@ -227,7 +238,11 @@ function formatSchoolPatternFacts(
     )
     .flatMap((item) => {
       if (item.startsWith('特殊格裁决：')) {
-        if (specialDecisionIsVisible || conciseCurveBasis) return [];
+        if (specialDecisionIsVisible || conciseCurveBasis) {
+          return !special?.route || basis.includes(special.route)
+            ? []
+            : [`特殊格路径：${special.route}`];
+        }
         if (
           special?.kind === '从儿格' &&
           special.satisfied.some((condition) => condition.includes('食伤在月建当权'))
@@ -381,7 +396,7 @@ function formatZipingFacts(
           chartShowsPatternBasis || (!embedded && Boolean(result.analysis.mingGe.basis)),
         )
       : []),
-    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded, chartShowsPatternBasis) : []),
     embedded
       ? result.analysis.usefulGod.primaryReason
         ? `取用主线: ${result.analysis.usefulGod.primaryReason}`
@@ -416,8 +431,10 @@ function formatMangpaiFacts(
     `透干通根：${formatRoots(result)}`,
     embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded, chartShowsPatternBasis) : []),
-    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
-    `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
+    ...(patternEvidence ? formatTransformationFacts(result, embedded, chartShowsPatternBasis) : []),
+    embedded
+      ? '做功取象：从主宾之间的制、化、合、冲关系观察十神作用与组合取象。'
+      : `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
     `柱位阶段取象：年柱早年、月柱青年、日柱中年、时柱晚年${embedded ? '' : `；${formatFortune(result)}`}`,
@@ -447,10 +464,10 @@ function formatXinpaiFacts(
     `十神结构：${formatTenGodStructure(result)}`,
     embedded ? '' : `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
     ...(patternEvidence ? formatSchoolPatternFacts(result, embedded, chartShowsPatternBasis) : []),
-    ...(patternEvidence ? formatTransformationFacts(result, embedded) : []),
+    ...(patternEvidence ? formatTransformationFacts(result, embedded, chartShowsPatternBasis) : []),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
-    `原局作用：${formatRelations(result)}`,
+    embedded ? '' : `原局作用：${formatRelations(result)}`,
     embedded ? '' : `动态岁运：${formatFortune(result)}`,
   ]
     .filter(Boolean)
@@ -571,13 +588,19 @@ export function formatBaziSchoolsPrompt(
           embedded,
           chartShowsPatternBasis || Boolean(sharedPatternBasis),
         ),
-        ...formatTransformationFacts(result, embedded),
+        ...formatTransformationFacts(result, embedded, chartShowsPatternBasis),
       ].filter(Boolean)
     : [];
   const blocks = selected.map((school, index) => {
     const profile = SCHOOL_PROFILES[school];
     const priorSchools = selected.slice(0, index);
-    const facts = formatBaziSchoolFacts(result, school, embedded, selected.length === 1)
+    const facts = formatBaziSchoolFacts(
+      result,
+      school,
+      embedded,
+      selected.length === 1,
+      chartShowsPatternBasis,
+    )
       .split('\n')
       .filter((line) => !(sharesPatternFacts && line.startsWith('透干通根：')))
       .flatMap((line) => {

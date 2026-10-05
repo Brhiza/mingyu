@@ -518,8 +518,11 @@ export function formatQimenClassicPatternBasisForPrompt(
   ) {
     return item.name;
   }
-  const stemPair = basis.match(/^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于(.+)$/u);
+  const stemPair = basis.match(
+    /^天盘([乙丙丁戊己庚辛壬癸])加地盘([乙丙丁戊己庚辛壬癸])于([^；]+)(?:；|$)/u,
+  );
   if (data && item.palaces.length === 1 && stemPair) {
+    const stemPairClause = `天盘${stemPair[1]}加地盘${stemPair[2]}于${stemPair[3]}`;
     const palaces = data.jiuGongGe.filter((palace) => palace.gong === item.palaces[0]);
     const palace = palaces[0];
     const registered = getNamedStemPairPattern(stemPair[1], stemPair[2]);
@@ -529,9 +532,12 @@ export function formatQimenClassicPatternBasisForPrompt(
       hasTianPanStem(palace, stemPair[1]) &&
       palace.diPan.stem === stemPair[2] &&
       registered?.name === item.name &&
-      item.originalText === `${basis}，${registered.summary}`
+      item.originalText.startsWith(`${stemPairClause}，${registered.summary}`)
     ) {
-      return item.name;
+      const additionalBasis = basis.startsWith(`${stemPairClause}；`)
+        ? basis.slice(`${stemPairClause}；`.length)
+        : '';
+      return additionalBasis || item.name;
     }
   }
   if (item.name === '符使同宫' && data?.zhiFu && data.zhiShi && item.palaces.length === 1) {

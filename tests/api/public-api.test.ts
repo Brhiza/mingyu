@@ -11,6 +11,7 @@ import {
   type BaziPromptTopic,
 } from '../../src/lib/public-api/prompt-builders';
 import { baziCalculator } from 'mingyu-core/bazi';
+import { formatPatternBasisForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { selectBaziFortuneForZiweiScope } from '../../src/lib/public-api/fortune-selection';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
@@ -2414,7 +2415,9 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   assert.match(mangpai, /八字流派：盲派/);
   assert.match(mangpai, /四柱宫位参照：/);
   assert.match(mangpai, /【四柱】/);
-  assert.match(mangpai, /四柱组合与做功线索：/);
+  assert.match(mangpai, /做功取象：从主宾之间的制、化、合、冲关系/);
+  assert.match(mangpai, /【原局干支关系】\n[^\n]+/);
+  assert.doesNotMatch(mangpai, /四柱组合与做功线索：/);
   assert.match(mangpai, /主宾定位：/);
   assert.match(mangpai, /主位为日柱.+与时柱/);
   assert.match(mangpai, /十神显隐：/);
@@ -2442,6 +2445,13 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   assert.doesNotMatch(xinpai, /不把旺相休囚死|限制事实|工程上下文/);
   assert.notEqual(mangpai, xinpai);
   assert.doesNotMatch(`${mangpai}\n${xinpai}`, /undefined|\[object Object\]/);
+  const basis = formatPatternBasisForPrompt(result.analysis.mingGe.basis ?? '');
+  assert.ok(basis);
+  for (const prompt of [ziping, mangpai, xinpai]) {
+    assert.equal(prompt.split(basis).length - 1, 1);
+    assert.equal(prompt.match(/【原局干支关系】/gu)?.length, 1);
+    assert.doesNotMatch(prompt, /^取格依据：|^原局作用：/mu);
+  }
 
   const legacy = buildBaziPromptForResult({
     result,

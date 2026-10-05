@@ -2,6 +2,7 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 import type { BaziChartResult, PatternAnalysis } from './baziTypes';
 import {
   formatAlternativePatternCandidates,
+  formatPatternBasisForPrompt,
   formatPatternDecisionForPrompt,
   formatUsefulGodFunctions,
 } from './baziAnalysisFormatter';
@@ -207,8 +208,19 @@ export function formatNatalPatternFacts(pattern: PatternAnalysis): string[] {
 
   const special = pattern.specialAdjudication;
   if (pattern.isSpecial && special) {
-    appendIfNew('特殊格裁决', `${special.kind}${special.status}；路径：${special.route}`);
-    for (const item of special.satisfied) appendIfNew('特殊格条件', item);
+    const decisionInBasis =
+      special.status === '成立' &&
+      pattern.pattern === special.kind &&
+      Boolean(special.method && pattern.basis?.includes(special.method)) &&
+      Boolean(pattern.basis?.includes('成立'));
+    if (!decisionInBasis) {
+      appendIfNew('特殊格裁决', `${special.kind}${special.status}；路径：${special.route}`);
+    } else {
+      appendIfNew('特殊格路径', special.route);
+    }
+    if (special.kind !== '曲直格' || !decisionInBasis) {
+      for (const item of special.satisfied) appendIfNew('特殊格条件', item);
+    }
     for (const item of special.blockers) appendIfNew('特殊格反证', item);
   }
 
@@ -429,6 +441,7 @@ export function buildBaziNatalAnalysisFacts(data: BaziChartResult): BaziNatalAna
   const pattern = data.analysis.mingGe;
   const patternFacts = formatNatalPatternFacts(pattern);
   const patternBasis = conditionPortableBasis(pattern.basis ?? '');
+  const promptPatternBasis = formatPatternBasisForPrompt(patternBasis);
   const patternBasisAlreadyShown = Boolean(
     patternBasis && patternFacts.some((fact) => fact.includes(patternBasis)),
   );
@@ -499,7 +512,7 @@ export function buildBaziNatalAnalysisFacts(data: BaziChartResult): BaziNatalAna
         pattern.isSpecial ? '当前规则标记为特殊格局' : '当前规则未标记为特殊格局',
       ].filter(hasText),
       calculationStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `格局：${pattern.pattern || '未记录'}${patternBasis && !patternBasisAlreadyShown ? `；依据：${patternBasis}` : ''}；特殊格局标记：${pattern.isSpecial ? '是' : '否'}${patternFacts.length ? `\n${patternFacts.join('\n')}` : ''}`,
+      promptText: `格局：${pattern.pattern || '未记录'}${promptPatternBasis && !patternBasisAlreadyShown ? `；依据：${promptPatternBasis}` : ''}${patternFacts.length ? `\n${patternFacts.join('\n')}` : ''}`,
       sources: ['月令司权、透干、根气、成局与格局规则条件'],
       limitation: ANALYSIS_FACT_LIMITATION,
     },

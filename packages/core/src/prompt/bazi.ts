@@ -361,10 +361,13 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     selectedSchools.length
       ? buildPromptSection(
           selectedSchools.length > 1 ? '多派合参' : '解读流派',
-          formatBaziSchoolsPrompt(options.result, selectedSchools, true),
+          formatBaziSchoolsPrompt(options.result, selectedSchools, true, true),
         )
       : options.school
-        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school, true))
+        ? buildPromptSection(
+            '流派',
+            formatBaziSchoolPrompt(options.result, options.school, true, true),
+          )
         : '',
     buildPromptSection('分析对象', scopeText),
     fortuneFocus ? buildPromptSection('岁运重点', fortuneFocus) : '',

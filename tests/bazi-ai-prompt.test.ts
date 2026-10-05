@@ -11,6 +11,7 @@ import { formatBaziForPrompt, formatPatternBasisForPrompt } from '@core/bazi/baz
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { generateAnalysisDimensionHints, getPeachBlossomDetail } from '@core/bazi/baziEnhancement';
 import { identifyClassicPattern } from '@core/bazi/baziEnhancement/classicPatterns';
+import { analyzeBaziNatalEvidence } from '@core/bazi/natalEvidence';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasAnswerFramework, assertPromptHasSingleRole } from './prompt-assertions';
@@ -345,11 +346,19 @@ test('普通格流派提示词只列一次取格依据', () => {
     { school: 'ziping' as const },
     { school: 'mangpai' as const },
     { school: 'xinpai' as const },
+    { schools: ['ziping'] as const },
     { schools: ['ziping', 'mangpai'] as const },
+    { schools: ['ziping', 'mangpai', 'xinpai'] as const },
   ]) {
     const prompt = buildBaziPrompt({ result, fortuneScope: 'natal', ...options });
     assert.equal(prompt.split(basis).length - 1, 1);
-    assert.match(prompt, /取格依据：/);
+    assert.ok(
+      prompt
+        .split('\n')
+        .find((line) => line.startsWith('格局: '))
+        ?.includes(basis),
+    );
+    assert.doesNotMatch(prompt, /^取格依据：/m);
     assert.doesNotMatch(prompt, /【格局条件】|所取格局：|格局条件：/);
   }
 });
@@ -491,6 +500,7 @@ test('独立流派资料中的选中取格依据和其他候选各出现一次',
 
 test('已成化格保留结论与取用，省略重复的逐项核验', () => {
   const result = get1994MarchBaziResult();
+  const patternBefore = structuredClone(result.analysis.mingGe);
   assert.equal(result.analysis.mingGe.transformation?.status, '成化');
 
   for (const school of [undefined, 'ziping' as const]) {
@@ -499,6 +509,12 @@ test('已成化格保留结论与取用，省略重复的逐项核验', () => {
     assert.match(prompt, /化神取用：[^\n]*化神木/);
     assert.doesNotMatch(prompt, /【格局条件】|取用条件：|化气证据：/);
   }
+  const fact = analyzeBaziNatalEvidence(result).analysisFacts.find((item) => item.type === '格局');
+  assert.ok(fact);
+  assert.ok(fact.basis.includes(patternBefore.basis!));
+  assert.deepEqual(fact.transformation, patternBefore.transformation);
+  assert.deepEqual(fact.patternFulfillment, patternBefore.fulfillment);
+  assert.deepEqual(result.analysis.mingGe, patternBefore);
 });
 
 test('成化状态在合盘与多派提示词只呈现一次', () => {
@@ -522,7 +538,12 @@ test('成化状态在合盘与多派提示词只呈现一次', () => {
   for (const build of [buildBaziPrompt, buildBaziPromptForResult]) {
     const prompt = build({ result: formed, schools: ['ziping', 'mangpai'] });
     assert.equal(prompt.match(/化气判定：成化/g)?.length, 1);
-    assert.match(prompt, /共同格局事实：\n透干通根：[^\n]+\n化神木；依据《子平真诠/);
+    assert.match(prompt, /共同格局事实：\n透干通根：[^\n]+/);
+    assert.equal(
+      prompt.split(formatPatternBasisForPrompt(formed.analysis.mingGe.basis!)).length - 1,
+      1,
+    );
+    assert.doesNotMatch(prompt, /^化神木；依据《子平真诠/m);
   }
 });
 
@@ -654,7 +675,9 @@ test('从儿格流派资料不重复五行流向与已列的财星明透条件',
     assert.equal(prompt.match(/食伤土生财星金/g)?.length, 1);
     assert.doesNotMatch(prompt, /从儿五行流向：|^财星明透：/m);
     assert.match(prompt, /庚财星明透，承接食伤所生/);
-    assert.match(prompt, /特殊格裁决：从儿格成立/);
+    assert.match(prompt, /格局: 从儿格（《滴天髓阐微·顺局》从儿法成立：/);
+    assert.equal(prompt.split(formatPatternBasisForPrompt(basis)).length - 1, 1);
+    assert.doesNotMatch(prompt, /特殊格裁决：从儿格成立/);
     assert.doesNotMatch(prompt, /从儿法成立：月建食伤当权；月支|路径：月建食伤当权/);
     assertNoEngineeringPromptText(prompt);
   }
@@ -817,7 +840,11 @@ test('曲直格依据已包含亥卯未木局与成立事实时不再另列格�
       buildBaziPrompt({ result, school: 'ziping' }),
       buildBaziPrompt({ result, schools: ['ziping', 'mangpai'] }),
     ]) {
-      assert.match(prompt, /成格依据：《三命通会》卷六亥卯未曲直法条件成立/);
+      assert.match(prompt, /格局: 曲直格（《三命通会》卷六亥卯未曲直法条件成立/);
+      assert.equal(
+        prompt.split(formatPatternBasisForPrompt(result.analysis.mingGe.basis!)).length - 1,
+        1,
+      );
       assert.doesNotMatch(prompt, /特殊格裁决：曲直格成立/);
       assert.doesNotMatch(prompt, /【格局条件】|取用依据:/);
     }
@@ -880,7 +907,11 @@ test('流派提示词不重复曲直格依据中的成立条件、透干和成�
     buildBaziPromptForResult({ result, schools: ['ziping', 'mangpai'] }),
   ]) {
     assert.match(prompt, /格局: 曲直格/);
-    assert.match(prompt, /成格依据：《三命通会》卷六亥卯未曲直法条件成立/);
+    assert.match(prompt, /格局: 曲直格（《三命通会》卷六亥卯未曲直法条件成立/);
+    assert.equal(
+      prompt.split(formatPatternBasisForPrompt(result.analysis.mingGe.basis!)).length - 1,
+      1,
+    );
     assert.doesNotMatch(prompt, /特殊格裁决：曲直格成立/);
     assert.match(prompt, /年柱: [^\n]+[\s\S]*藏干: [^\n]+/);
     assert.doesNotMatch(prompt, /特殊格条件：|^食伤明透：|^财星明透：|^成员支藏干保留：/m);

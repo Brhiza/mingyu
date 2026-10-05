@@ -8,6 +8,7 @@ import {
   generateEnhancedAnalysisSection,
 } from '@core/bazi/baziPromptEnhancement';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
+import { analyzeBaziNatalEvidence, formatNatalPatternFacts } from '@core/bazi/natalEvidence';
 
 test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位证据', () => {
   const result = baziCalculator.calculateBazi({
@@ -22,6 +23,8 @@ test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位�
   });
 
   const text = formatBaziForPrompt(result);
+  const originalPattern = structuredClone(result.analysis.mingGe);
+  const patternBasis = formatPatternBasisForPrompt(originalPattern.basis!);
 
   assert.match(text, /【核心判断】/);
   assert.match(text, /取用: 主用/);
@@ -58,6 +61,15 @@ test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位�
   assert.match(text, /旬空: 申、酉/);
   assert.doesNotMatch(text, /特殊宫位:|日主十二运:/);
   assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
+  const schoolChart = formatBaziForPrompt(result, null, 'school');
+  assert.equal(schoolChart.split(patternBasis).length - 1, 1);
+  assert.ok(
+    schoolChart
+      .split('\n')
+      .find((line) => line.startsWith('格局: '))
+      ?.includes(patternBasis),
+  );
+  assert.deepEqual(result.analysis.mingGe, originalPattern);
 
   assert.equal(formatPatternBasisForPrompt, formatEnhancedPatternBasis);
   const curve = baziCalculator.calculateBazi({
@@ -70,6 +82,7 @@ test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位�
     useTrueSolarTime: false,
   });
   assert.equal(curve.analysis.mingGe.specialAdjudication?.status, '成立');
+  const originalCurvePattern = structuredClone(curve.analysis.mingGe);
   const enhanced = generateEnhancedAnalysisSection(curve);
   assert.match(
     enhanced,
@@ -78,6 +91,30 @@ test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位�
   assert.doesNotMatch(enhanced, /木局成员藏干如实保留：|无半分庚辛之气|按张楠按语核局外支/);
   assert.match(enhanced, /地支成亥卯未三合（已成势）/);
   assert.match(enhanced, /日柱未与时柱午（地支只论相合）：合而不化/);
+  const curveFact = analyzeBaziNatalEvidence(curve).analysisFacts.find(
+    (fact) => fact.type === '格局',
+  );
+  assert.ok(curveFact);
+  const curveBasis = formatPatternBasisForPrompt(originalCurvePattern.basis!);
+  assert.equal(curveFact.promptText.split(curveBasis).length - 1, 1);
+  assert.match(curveFact.promptText, /特殊格路径：亥卯未木局/);
+  assert.doesNotMatch(curveFact.promptText, /特殊格条件：|特殊格裁决：|特殊格局标记：/);
+  assert.ok(curveFact.basis.includes(originalCurvePattern.basis!));
+  assert.deepEqual(curveFact.patternFulfillment, originalCurvePattern.fulfillment);
+  assert.deepEqual(curveFact.transformation, originalCurvePattern.transformation);
+  assert.deepEqual(curve.analysis.mingGe, originalCurvePattern);
+
+  const pendingCurve = structuredClone(originalCurvePattern);
+  pendingCurve.specialAdjudication!.status = '不成立';
+  pendingCurve.specialAdjudication!.blockers = ['独有曲直前提尚未核定'];
+  const pendingBefore = structuredClone(pendingCurve);
+  const pendingFacts = formatNatalPatternFacts(pendingCurve).join('\n');
+  assert.match(pendingFacts, /特殊格裁决：曲直格不成立/);
+  for (const condition of pendingCurve.specialAdjudication!.satisfied) {
+    if (!pendingCurve.basis?.includes(condition)) assert.ok(pendingFacts.includes(condition));
+  }
+  assert.match(pendingFacts, /特殊格反证：独有曲直前提尚未核定/);
+  assert.deepEqual(pendingCurve, pendingBefore);
 });
 
 test('神煞互参文案应改为传统辅助提示，避免直接断语', () => {
