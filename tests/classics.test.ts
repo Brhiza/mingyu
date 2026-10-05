@@ -404,7 +404,7 @@ test('皇极周期典籍按索隐原文查询并隔离结果', () => {
   assert.ok(shi);
   assert.ok(shi.verse.includes('三十年为一世'));
   for (const cycle of ['元', '会', '运', '世', '年']) {
-    const item = getHuangjiCycleClassic(cycle)!;
+    const item = cycle === '年' ? nian : cycle === '世' ? shi : getHuangjiCycleClassic(cycle)!;
     assert.equal(item.sourceBook, '《皇极经世索隐·经世观物总要》');
     const original = item.verse;
     item.verse = '被修改';

@@ -221,14 +221,14 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
       prompt: buildDivinationPrompt('zhuge', question, zhuge),
       facts: [
         { id: '诸葛.签号', owner: '签号：', values: [`第${zhuge.number}签`] },
-        { id: '诸葛.签诗', owner: '签诗：', values: [zhuge.sign.poem] },
+        { id: '诸葛.签诗', owner: '签诗：', values: [zhuge.sign.poem, zhugeReading.quote] },
         ...(zhugeReading.classicalImage
           ? [{ id: '诸葛.典故', owner: '典故：', values: [zhugeReading.classicalImage] }]
           : []),
         {
           id: '诸葛.基础解签',
           owner: '基础解签：',
-          values: [zhugeReading.quote, zhugeReading.imageMeaning, zhugeReading.interpretation],
+          values: [zhugeReading.imageMeaning, zhugeReading.interpretation],
         },
         { id: '诸葛.条件', owner: '补充解释：', values: [zhugeReading.condition] },
       ],
@@ -248,7 +248,7 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
       facts: [
         { id: '孔明.签号', owner: '签号：', values: [`第${kongming.number}签`] },
         { id: '孔明.签题', owner: '签题：', values: [kongming.name] },
-        { id: '孔明.签诗', owner: '签诗：', values: [kongming.poem] },
+        { id: '孔明.签诗', owner: '签诗：', values: [kongming.poem, kongmingReading.quote] },
         { id: '孔明.吉凶', owner: '吉凶级别：', values: [kongming.grade] },
         ...(kongmingReading.classicalImage
           ? [
@@ -266,11 +266,7 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
         {
           id: '孔明.基础解签',
           owner: '基础解签：',
-          values: [
-            kongmingReading.quote,
-            kongmingReading.imageMeaning,
-            kongmingReading.interpretation,
-          ],
+          values: [kongmingReading.imageMeaning, kongmingReading.interpretation],
         },
         { id: '孔明.条件', owner: '补充解释：', values: [kongmingReading.condition] },
       ],

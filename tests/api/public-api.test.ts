@@ -7835,7 +7835,15 @@ test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', 
     body: JSON.stringify({ pattern: '10000', question: '这次转变如何准备？' }),
   });
   assert.equal(kongmingPrompt.response.status, 200);
-  assert.match(kongmingPrompt.body.data.prompt, /基础解签：龙门鱼跃过/);
+  assert.equal(kongmingPrompt.body.data.prompt.split('龙门鱼跃过').length - 1, 1);
+  assert.match(
+    kongmingPrompt.body.data.prompt,
+    /签诗：从革宜变更，时来合运迁，龙门鱼跃过，凡骨作神仙。/u,
+  );
+  assert.match(
+    kongmingPrompt.body.data.prompt,
+    /基础解签：鱼跃龙门是跨越门槛、改变处境的比喻，与从革的变更之意相应。；原有方式可能限制发展，转向新方法、角色或环境会打开机会。改变应围绕明确的目标，而不是只求离开现状。/u,
+  );
   assert.doesNotMatch(kongmingPrompt.body.data.prompt, /五枚硬币|卦序：|【当前时间】/);
   assert.match(kongmingPrompt.body.data.prompt, /《尚书·洪范》“金曰从革”/);
   assert.match(kongmingPrompt.body.data.prompt, /这次转变如何准备/);

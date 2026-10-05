@@ -4870,7 +4870,12 @@ test('诸葛神数与孔明神卦进入统一占问会话并生成完整提示�
   assert.equal(kongming.method, 'kongming');
   assert.match(kongming.prompt, /签号：第\d+签/);
   assert.match(kongming.prompt, /签题：/);
-  assert.match(kongming.prompt, /基础解签：目下如冬树/);
+  assert.equal(kongming.prompt.split('目下如冬树').length - 1, 1);
+  assert.match(kongming.prompt, /签诗：目下如冬树，只待春色到，看看喜色动，渐渐发萌芽。/u);
+  assert.match(
+    kongming.prompt,
+    /基础解签：冬树、春色与萌芽构成由静待到恢复生长的过程。；眼下未见显著进展，并不等于事情失去生机。此卦侧重保全基础、等待条件回暖，随后再逐步启动。/u,
+  );
   assert.doesNotMatch(kongming.prompt, /五枚硬币|●为正面|【当前时间】/);
   assert.match(kongming.prompt, /补充解释：/);
 
