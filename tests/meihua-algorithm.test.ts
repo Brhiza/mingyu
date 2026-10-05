@@ -70,11 +70,19 @@ test('梅花随机轨迹重放应识别缺失、多余、篡改及拒绝采样',
 
   const corrected = new Date('2024-05-05T07:30:00+08:00');
   const actual = new Date('2024-05-05T08:40:00+08:00');
+  let baselineRandomCalls = 0;
   const baseline = generateMeihua(
     corrected,
-    { method: 'random', random: () => 0.5 },
+    {
+      method: 'random',
+      random: () => {
+        baselineRandomCalls += 1;
+        return 0.5;
+      },
+    },
     { termReferenceDate: actual },
   );
+  assert.equal(baselineRandomCalls, 3);
   const capture = (chart: typeof baseline) => ({
     native: formatEnhancedDivinationInfo('meihua', chart),
     fullTask: buildDivinationPrompt({
@@ -89,19 +97,48 @@ test('梅花随机轨迹重放应识别缺失、多余、篡改及拒绝采样',
   assert.equal(baseline.analysis.monthBranch, '巳');
   for (const replaceDate of [false, true]) {
     const options = { termReferenceDate: new Date(actual.getTime()) };
-    const changed = generateMeihua(
-      corrected,
-      {
-        method: 'random',
-        random: () => {
-          if (replaceDate) options.termReferenceDate = new Date(corrected.getTime());
-          else options.termReferenceDate.setTime(corrected.getTime());
-          return 0.5;
-        },
+    let randomCalls = 0;
+    const changedValues = {
+      number: 123,
+      soundCount: 4,
+      characterText: '改写参数',
+      characterCount: 4,
+      characterTones: [1, 2, 3, 4],
+      characterStrokeCounts: [7, 8],
+      characterLeftStrokes: 5,
+      characterRightStrokes: 6,
+      direction: 'north' as const,
+      objectType: 'earth' as const,
+    };
+    let changedSettings: NonNullable<Parameters<typeof generateMeihua>[1]>;
+    changedSettings = {
+      method: 'random',
+      random: () => {
+        randomCalls += 1;
+        if (replaceDate) options.termReferenceDate = new Date(corrected.getTime());
+        else options.termReferenceDate.setTime(corrected.getTime());
+        Object.assign(changedSettings, changedValues);
+        return 0.5;
       },
-      options,
-    );
+    };
+    const changed = generateMeihua(corrected, changedSettings, options);
     assert.equal(options.termReferenceDate.getTime(), corrected.getTime());
+    assert.deepEqual(
+      {
+        number: changedSettings.number,
+        soundCount: changedSettings.soundCount,
+        characterText: changedSettings.characterText,
+        characterCount: changedSettings.characterCount,
+        characterTones: changedSettings.characterTones,
+        characterStrokeCounts: changedSettings.characterStrokeCounts,
+        characterLeftStrokes: changedSettings.characterLeftStrokes,
+        characterRightStrokes: changedSettings.characterRightStrokes,
+        direction: changedSettings.direction,
+        objectType: changedSettings.objectType,
+      },
+      changedValues,
+    );
+    assert.equal(randomCalls, baselineRandomCalls);
     assert.equal(changed.termReferenceTimestamp, actual.getTime());
     assert.equal(changed.meta!.inputHash, baseline.meta!.inputHash);
     assert.equal(changed.meta!.resultId, baseline.meta!.resultId);

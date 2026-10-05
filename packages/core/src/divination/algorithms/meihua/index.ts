@@ -259,6 +259,21 @@ export function generateMeihua(
   if (method !== 'random' && hasRandomOptions(settings)) {
     throw new Error('梅花易数仅随机起卦接受 seed、replay 或自定义随机源。');
   }
+  const input = {
+    method,
+    number: settings?.number,
+    soundCount: settings?.soundCount,
+    characterText: settings?.characterText,
+    characterCount: settings?.characterCount,
+    characterTones: settings?.characterTones,
+    characterStrokeCounts: settings?.characterStrokeCounts,
+    characterLeftStrokes: settings?.characterLeftStrokes,
+    characterRightStrokes: settings?.characterRightStrokes,
+    direction: settings?.direction,
+    objectType: settings?.objectType,
+    timestamp,
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
+  };
 
   const methodResult: MeihuaMethodResult = (() => {
     switch (method) {
@@ -521,21 +536,7 @@ export function generateMeihua(
   };
   const resultWithMeta = attachResultMeta(result, {
     algorithm: 'meihua',
-    input: {
-      method,
-      number: settings?.number,
-      soundCount: settings?.soundCount,
-      characterText: settings?.characterText,
-      characterCount: settings?.characterCount,
-      characterTones: settings?.characterTones,
-      characterStrokeCounts: settings?.characterStrokeCounts,
-      characterLeftStrokes: settings?.characterLeftStrokes,
-      characterRightStrokes: settings?.characterRightStrokes,
-      direction: settings?.direction,
-      objectType: settings?.objectType,
-      timestamp,
-      ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
-    },
+    input,
     calculatedAt: timestamp,
     random: randomTrace,
   });
