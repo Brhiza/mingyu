@@ -208,6 +208,15 @@ function formatSchoolPatternFacts(
     pattern.pattern === special.kind &&
     basis.includes('成立') &&
     Boolean(special.method && basis.includes(special.method));
+  const specialRouteIsVisible =
+    Boolean(special?.route && basis.includes(special.route)) ||
+    (special?.kind === '曲直格' &&
+      special.route === '亥卯未木局' &&
+      basis.includes('亥卯未曲直法') &&
+      basis.includes('木局')) ||
+    (special?.kind === '曲直格' &&
+      special.route === '寅卯辰东方' &&
+      basis.includes('春生寅卯辰法条件成立'));
   const curveFactsInChart = special?.kind === '曲直格';
   const conciseCurveBasis =
     special?.status === '成立' && special.kind === '曲直格' && basis && !patternBasisIsVisible
@@ -239,9 +248,7 @@ function formatSchoolPatternFacts(
     .flatMap((item) => {
       if (item.startsWith('特殊格裁决：')) {
         if (specialDecisionIsVisible || conciseCurveBasis) {
-          return !special?.route || basis.includes(special.route)
-            ? []
-            : [`特殊格路径：${special.route}`];
+          return !special?.route || specialRouteIsVisible ? [] : [`特殊格路径：${special.route}`];
         }
         if (
           special?.kind === '从儿格' &&

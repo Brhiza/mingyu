@@ -830,6 +830,7 @@ test('曲直格依据已包含亥卯未木局与成立事实时不再另列格�
         1,
       );
       assert.doesNotMatch(prompt, /特殊格裁决：曲直格成立/);
+      assert.doesNotMatch(prompt, /特殊格路径：亥卯未木局/);
       assert.doesNotMatch(prompt, /【格局条件】|取用依据:/);
     }
   }
@@ -858,8 +859,16 @@ test('寅卯辰曲直格只保留成格依据，不重复列路线裁决和藏�
     assert.match(prompt, /未见庚辛金及局外支冲破/);
     assert.match(prompt, /火土分别按泄秀与财星论/);
     assert.doesNotMatch(prompt, /【(?:第一人)?格局条件】|特殊格裁决：曲直格成立/);
+    assert.doesNotMatch(prompt, /特殊格路径：寅卯辰东方/);
     assert.doesNotMatch(prompt, /木局成员藏干如实保留：|无半分庚辛之气|按张楠按语核局外支/);
   }
+  const independent = formatBaziSchoolPrompt(result, 'ziping');
+  assert.match(independent, /《渊海子平·神趣八法·类象》春生寅卯辰法条件成立/);
+  assert.equal(
+    independent.split(formatPatternBasisForPrompt(result.analysis.mingGe.basis!)).length - 1,
+    1,
+  );
+  assert.doesNotMatch(independent, /特殊格路径：寅卯辰东方/);
 });
 
 test('从儿格在线流派资料只补充成格关系，不复述四柱中的透干与藏根', () => {
@@ -881,7 +890,14 @@ test('从儿格在线流派资料只补充成格关系，不复述四柱中的�
 
 test('流派提示词不重复曲直格依据中的成立条件、透干和成员藏干', () => {
   const result = createBaziResult({ year: 1980, month: 1, day: 3, timeIndex: 3 });
+  const patternBefore = structuredClone(result.analysis.mingGe);
   const independent = formatBaziSchoolPrompt(result, 'ziping');
+  assert.match(independent, /《三命通会》卷六亥卯未曲直法条件成立/);
+  assert.equal(
+    independent.split(formatPatternBasisForPrompt(result.analysis.mingGe.basis!)).length - 1,
+    1,
+  );
+  assert.doesNotMatch(independent, /特殊格路径：亥卯未木局/);
   assert.doesNotMatch(independent, /亥藏壬、甲；卯藏乙；未藏己、丁、乙/);
   assert.doesNotMatch(independent, /^成员支藏干保留：/m);
   assert.doesNotMatch(independent, /^特殊格条件：/m);
@@ -897,9 +913,20 @@ test('流派提示词不重复曲直格依据中的成立条件、透干和成�
       1,
     );
     assert.doesNotMatch(prompt, /特殊格裁决：曲直格成立/);
+    assert.doesNotMatch(prompt, /特殊格路径：亥卯未木局/);
     assert.match(prompt, /年柱: [^\n]+[\s\S]*藏干: [^\n]+/);
     assert.doesNotMatch(prompt, /特殊格条件：|^食伤明透：|^财星明透：|^成员支藏干保留：/m);
   }
+  const routeNotShown = structuredClone(result);
+  routeNotShown.analysis.mingGe.basis = routeNotShown.analysis.mingGe.basis!.replace(
+    '亥卯未曲直法',
+    '曲直法',
+  );
+  assert.match(
+    formatBaziSchoolPrompt(routeNotShown, 'ziping'),
+    /^特殊格裁决：曲直格成立；路径：亥卯未木局；方法：/m,
+  );
+  assert.deepEqual(result.analysis.mingGe, patternBefore);
 });
 
 test('格神未成立的真实命盘不把破格候选和救应路径当作提示词结论', () => {

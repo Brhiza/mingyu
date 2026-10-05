@@ -85,7 +85,7 @@ test('六十四卦名称、上下卦、卦画和二进制编码应符合固定�
   }
 });
 
-test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变卦', () => {
+test('梅花与六爻的 64 卦乘 6 动爻分别符合独立主互变真值', () => {
   for (let upperIndex = 1; upperIndex <= 8; upperIndex += 1) {
     for (let lowerIndex = 1; lowerIndex <= 8; lowerIndex += 1) {
       const mainLines = [
@@ -111,24 +111,18 @@ test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变�
         const label = `${expectedMain}第${movingYaoIndex}爻`;
         const meihuaInterLowerIndex = trigramIndexByLines.get(
           meihuaInterLines.slice(0, 3).join(''),
-        );
+        )!;
         const meihuaInterUpperIndex = trigramIndexByLines.get(
           meihuaInterLines.slice(3, 6).join(''),
-        );
+        )!;
         const liuyaoInterLowerIndex = trigramIndexByLines.get(
           liuyaoInterLines.slice(0, 3).join(''),
-        );
+        )!;
         const liuyaoInterUpperIndex = trigramIndexByLines.get(
           liuyaoInterLines.slice(3, 6).join(''),
-        );
-        const changedLowerIndex = trigramIndexByLines.get(changedLines.slice(0, 3).join(''));
-        const changedUpperIndex = trigramIndexByLines.get(changedLines.slice(3, 6).join(''));
-        assert.notEqual(meihuaInterLowerIndex, undefined, `${label}梅花互卦下卦真值缺失`);
-        assert.notEqual(meihuaInterUpperIndex, undefined, `${label}梅花互卦上卦真值缺失`);
-        assert.notEqual(liuyaoInterLowerIndex, undefined, `${label}六爻互卦下卦真值缺失`);
-        assert.notEqual(liuyaoInterUpperIndex, undefined, `${label}六爻互卦上卦真值缺失`);
-        assert.notEqual(changedLowerIndex, undefined, `${label}变卦下卦真值缺失`);
-        assert.notEqual(changedUpperIndex, undefined, `${label}变卦上卦真值缺失`);
+        )!;
+        const changedLowerIndex = trigramIndexByLines.get(changedLines.slice(0, 3).join(''))!;
+        const changedUpperIndex = trigramIndexByLines.get(changedLines.slice(3, 6).join(''))!;
 
         const meihua = generateMeihua(SAMPLE_DATE, {
           method: 'random',
@@ -197,14 +191,6 @@ test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变�
           [expectedMain, expectedLiuyaoInter, expectedChanged],
           `${label}六爻主互变`,
         );
-        assert.deepEqual(
-          [meihua.originalName, meihua.changedName],
-          [liuyao.originalName, liuyao.changedName],
-          `${label}梅花与六爻主变卦`,
-        );
-        if (!isPureQianOrKun) {
-          assert.equal(meihua.interName, liuyao.interName, `${label}梅花与六爻互卦`);
-        }
         const liuyaoInterHexagram = hexagramsData.find(
           (hexagram) => hexagram.name === liuyao.interName,
         );

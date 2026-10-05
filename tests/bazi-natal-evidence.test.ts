@@ -235,14 +235,15 @@ test('八字本命证据应标出缺失或错位的派生资料，且不把可�
 });
 
 test('固定四柱的日主五行或阴阳与日干不一致时不写为已计算事实', () => {
+  const baselineChart = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+  });
   for (const staleField of ['element', 'yinYang'] as const) {
-    const chart = baziCalculator.calculateBazi({
-      year: 1990,
-      month: 9,
-      day: 5,
-      timeIndex: 6,
-      gender: 'male',
-    });
+    const chart = structuredClone(baselineChart);
     assert.deepEqual(
       Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
       ['庚午', '甲申', '癸酉', '戊午'],
