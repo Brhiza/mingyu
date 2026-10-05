@@ -14,16 +14,21 @@
  */
 
 import type { QimenJiuGongGe } from '../../../../types/divination';
-import { qimen } from '../../../../divination/divination-data';
+import { getQimenData } from '../../../../divination/divination-data';
 import { isKe } from '../../../../ganzhi';
 import {
   getDoorElement,
   getOppositePalace,
   getTianPanStemForStar,
   getTianPanStems,
+  hasTianPanStem,
   hasTianPanStar,
 } from './palace-utils';
-import { STEM_TOMB_MAP } from './_constants';
+import { getQimenConstants } from './_constants';
+
+const { STEM_TOMB_MAP } = getQimenConstants();
+
+const qimen = getQimenData();
 
 const { palaceStars, doorPalaceMap } = qimen;
 
@@ -99,7 +104,7 @@ const RISK_GODS = new Set(['白虎', '玄武', '螣蛇']);
  * 遍历所有宫位，识别门克宫（门迫）的标签
  *
  * 《烟波钓叟歌》：「门迫宫兮事难行」
- * 门克宫为门迫，如 惊门（金）克离九宫（火）、开门（金）克离九宫（火）。
+ * 门克宫为门迫，如惊门（金）克巽四宫（木）、开门（金）克震三宫（木）。
  */
 function getMenPoTags(jiuGongGe: QimenJiuGongGe[]): string[] {
   return jiuGongGe
@@ -181,7 +186,7 @@ export interface QimenPatternTagParams {
   zhiFu: string;
   /** 值使门名称（如 休门、生门） */
   zhiShi: string;
-  /** 值符星落宫编号（1-9） */
+  /** 值符星落宫编号（1-9）；刑墓另按主动干的实际天盘落宫核定。 */
   zhiFuLandingPalace: number;
   /** 值使门落宫编号（1-9） */
   zhiShiLandingPalace: number;
@@ -212,8 +217,8 @@ export interface QimenPatternTagParams {
  * 依次检测以下标签（每类标签可能输出0到多条）：
  *
  * **伏吟 / 反吟（全局层面）**
- *   - 星伏吟：值符星落回原宫（九星原位），主事缓盘桓
- *   - 星反吟：值符星落原宫对冲宫，主波动反复
+ *   - 星伏吟：九星各归本位，转盘天禽随天芮寄坤，主事缓盘桓
+ *   - 星反吟：外宫九星各临对宫，飞盘中宫天禽仍居中，主波动反复
  *   - 门伏吟：值使门落回原宫（八门本位），主事迟待机
  *   - 门反吟：值使门落原宫对冲宫，主突变调整
  *
@@ -250,7 +255,6 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   const {
     zhiFu,
     zhiShi,
-    zhiFuLandingPalace,
     zhiShiLandingPalace,
     jiuGongGe,
     activeGanForFind,
@@ -268,16 +272,24 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   const tags: string[] = [];
 
   // ── 1. 星伏吟 / 星反吟 ──
-  // 《烟波钓叟歌》：「星反吟兮门反吟」
-  // 星伏吟：值符落回原宫（palaceStars 索引+1）
-  // 星反吟：值符落原宫的对冲宫
-  const zhiFuOriginalPalace = palaceStars.indexOf(zhiFu) + 1;
-  if (zhiFu && zhiFuOriginalPalace === 0) {
+  // 《遁甲演义》伏吟格以九星仍在本宫为据，反吟格以星临对宫为据。
+  // 按完整星盘核对，天禽随天芮时以坤二为寄宫；独居中五时保留中宫本位。
+  if (zhiFu && !palaceStars.includes(zhiFu)) {
     throw new Error(`值符星 "${zhiFu}" 无法识别。`);
   }
-  if (zhiFu && zhiFuLandingPalace === zhiFuOriginalPalace) {
+  const starPlacements = palaceStars.map((star, index) => {
+    const palace = jiuGongGe.find((item) => hasTianPanStar(item, star));
+    const homePalace = star === '天禽' && palace?.tianPan.companionStar === star ? 2 : index + 1;
+    return { homePalace, landingPalace: palace?.gong };
+  });
+  if (zhiFu && starPlacements.every((star) => star.landingPalace === star.homePalace)) {
     tags.push('星伏吟');
-  } else if (zhiFu && getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
+  } else if (
+    zhiFu &&
+    starPlacements.every(
+      (star) => star.landingPalace === (getOppositePalace(star.homePalace) ?? star.homePalace),
+    )
+  ) {
     tags.push('星反吟');
   }
 
@@ -298,21 +310,12 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // 遍历所有宫位检查门克宫
   tags.push(...getMenPoTags(jiuGongGe));
 
-  // ── 4. 击刑（主动干落值符宫） ──
-  const zhiFuLandingGong = jiuGongGe.find((gong) => gong.gong === zhiFuLandingPalace);
-  const jiXingTag = zhiFuLandingGong
-    ? getJiXingTag(ganForFind, ganLabel, zhiFuLandingPalace, zhiFuLandingGong.name)
-    : null;
-  if (jiXingTag) {
-    tags.push(jiXingTag);
-  }
-
-  // ── 5. 入墓（主动干落值符宫） ──
-  const ruMuTag = zhiFuLandingGong
-    ? getRuMuTag(ganForFind, ganLabel, zhiFuLandingPalace, zhiFuLandingGong.name)
-    : null;
-  if (ruMuTag) {
-    tags.push(ruMuTag);
+  // ── 4-5. 击刑与入墓按主动干实际天盘落宫判断 ──
+  for (const gong of jiuGongGe.filter((item) => hasTianPanStem(item, ganForFind))) {
+    const jiXingTag = getJiXingTag(ganForFind, ganLabel, gong.gong, gong.name);
+    if (jiXingTag) tags.push(jiXingTag);
+    const ruMuTag = getRuMuTag(ganForFind, ganLabel, gong.gong, gong.name);
+    if (ruMuTag) tags.push(ruMuTag);
   }
 
   // ── 6. 三奇得 ──
@@ -330,13 +333,12 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // 《奇门宝鉴御定》：「三奇得使者，谓得三吉门、直使加奇也」
   if (GOOD_DOORS.has(zhiShi)) {
     const zhiShiSanQiPalace = jiuGongGe.find(
-      (gong) =>
-        gong.renPan.door === zhiShi && getTianPanStems(gong).some((stem) => SAN_QI.includes(stem)),
+      (gong) => gong.renPan.door === zhiShi && SAN_QI.includes(gong.diPan.stem),
     );
     if (zhiShiSanQiPalace) {
-      const qiStem = getTianPanStems(zhiShiSanQiPalace).find((stem) => SAN_QI.includes(stem)) || '';
+      const qiStem = zhiShiSanQiPalace.diPan.stem;
       const qiName = SAN_QI_NAME[qiStem] || qiStem;
-      tags.push(`宝鉴三奇得使（值使${zhiShi}加${qiName}于${zhiShiSanQiPalace.name}）`);
+      tags.push(`宝鉴三奇得使（值使${zhiShi}加地盘${qiName}于${zhiShiSanQiPalace.name}）`);
     }
   }
 
@@ -528,8 +530,8 @@ export interface PalaceInsight {
   name: string;
   /**
    * 洞察等级：
-   *   - 有利：该宫有吉门、吉神或值使，适合行动
-   *   - 关注：该宫有值符，是全局核心观察位
+   *   - 有利：该宫有吉门或吉神，可作为有利条件
+   *   - 关注：该宫有值符星或值使门，是全局重点观察位
    *   - 风险：该宫有凶门、凶神或携带风险类标签
    */
   level: '有利' | '风险' | '关注';
@@ -543,12 +545,12 @@ export interface PalaceInsight {
  * 对每个宫位，综合门、神、星和现有模式标签，给出以下三类判断：
  *
  * **有利（绿色）**
- *   该宫携带值使门、吉门（开/休/生）或吉神（值符/六合/九天/太阴）。
+ *   该宫携带吉门（开/休/生）或吉神（值符/六合/九天/太阴）。
  *   可作为推进、求助或争取资源的优先方位。
  *
  * **关注（黄色）**
- *   该宫有值符星（大值符），是局核心观察位。
- *   代表当前事体的统领方，需重点关注此宫动静。
+ *   该宫有值符星（大值符）或值使门，是局核心观察位。
+ *   代表当前事体的统领方或主事门，需重点关注此宫动静。
  *
  * **风险（红色）**
  *   该宫带有门迫/击刑/入墓等风险标签，或携凶门（伤/死/惊）/凶神（白虎/玄武/螣蛇）。
@@ -630,14 +632,14 @@ export function buildPalaceInsights(args: PalaceInsightParams): PalaceInsight[] 
       });
     }
 
-    // ── 4. 有利 ← 值使 ──
-    // 值使门所在宫，门气正旺，是行动重点方位
+    // ── 4. 关注 ← 值使 ──
+    // 值使标识本局主事门，吉凶仍按该门及同宫条件分别判断。
     if (gong.renPan.door === zhiShi) {
       insights.push({
         gong: gong.gong,
         name: gong.name,
-        level: '有利',
-        summary: `值使（${zhiShi}）在${gong.name}，门气正旺，是行动重点方位。`,
+        level: '关注',
+        summary: `值使（${zhiShi}）在${gong.name}，是本局主事门，需结合宫内条件判断。`,
       });
     }
 

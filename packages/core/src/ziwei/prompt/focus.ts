@@ -13,17 +13,26 @@ import { formatPalaceName } from './labels';
 import type { ZiweiFocusTaskBundle, ZiweiPromptContext } from './types';
 
 function buildMutagenFocusPalaces(payload: AnalysisPayloadV1): PalaceFact[] {
-  const palaces = payload.palaces.filter((palace) => {
+  const mappedPalaces = (payload.active_scope.mutagen_map ?? []).map((item) =>
+    item.palace_index !== undefined
+      ? getPalaceByIndex(payload, item.palace_index)
+      : item.palace_name
+        ? getPalaceByName(payload, item.palace_name)
+        : null,
+  );
+  const markedPalaces = payload.palaces.filter((palace) => {
     const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
-    return stars.some(
-      (star) =>
-        Boolean(star.birth_mutagen) ||
-        Boolean(star.horoscope_mutagen) ||
-        Boolean(star.active_scope_mutagen) ||
-        Boolean(palace.self_mutagens?.length),
+    return (
+      Boolean(palace.self_mutagens?.length) ||
+      stars.some(
+        (star) =>
+          Boolean(star.birth_mutagen) ||
+          Boolean(star.horoscope_mutagen) ||
+          Boolean(star.active_scope_mutagen),
+      )
     );
   });
-  return dedupePalaces(palaces);
+  return dedupePalaces([...mappedPalaces, ...markedPalaces]);
 }
 
 function isFeixingOrSihuaTopic(context: ZiweiPromptContext) {
@@ -43,11 +52,9 @@ export function buildFocusTaskBundle(
 
   if (reportContext.reportType === 'palace') {
     const selectedPalace = reportContext.palaceName
-      ? getPalaceByName(payload, reportContext.palaceName)
-      : activePalace;
-    const palaceName = formatPalaceName(
-      selectedPalace?.name ?? reportContext.palaceName ?? '当前宫位',
-    );
+      ? (getPalaceByName(payload, reportContext.palaceName) ?? activePalace ?? lifePalace)
+      : (activePalace ?? lifePalace);
+    const palaceName = selectedPalace ? formatPalaceName(selectedPalace.name) : '当前宫位';
 
     return {
       focusSummary: `围绕${palaceName}及其对宫、三方四正组织证据。`,

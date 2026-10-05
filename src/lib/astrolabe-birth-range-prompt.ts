@@ -153,10 +153,7 @@ export function formatAstrolabeRangeContinuousFact(
       ? formatContinuousValue(fact.min, fact.unit)
       : `${formatContinuousValue(fact.min, fact.unit)} 至 ${formatContinuousValue(fact.max, fact.unit)}`;
   const circular = fact.circular
-    ? `；${fact.circular.note
-        .replace('first/last', '首值与末值')
-        .replace('min/max', '最小值与最大值')
-        .replace(/。$/u, '')}`
+    ? `；以${formatContinuousValue(fact.circular.period, fact.unit)}为周期，范围相对首值按最短弧展开，首末值保留原值`
     : '';
   return `${localizeAstrolabeChartText(localizeContinuousLabel(fact, data), data)}：首值${formatContinuousValue(fact.first, fact.unit)}；末值${formatContinuousValue(fact.last, fact.unit)}；范围${range}；共${fact.sampleCount}个整秒样本${circular}。`;
 }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  drawSingleCard,
   drawSpreadCards,
   drawTarotSpread,
   resolveInteractiveTarotCards,
@@ -19,6 +20,7 @@ import {
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
+import { generateJinkoujue } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
 import {
   createRandomContext,
@@ -37,9 +39,9 @@ test('修改本次签文或牌面不污染后续相同输入的解读资料', ()
   const sign = drawRandomSign(DATE, { seed: '资料隔离' });
   const originalDetails = { ...sign.details };
   sign.details['核心寓意'] = '本次临时备注';
-  assert.deepEqual(resolveSignByNumber(sign.number, DATE).details, originalDetails);
-  assert.deepEqual(drawRandomSign(DATE, { seed: '资料隔离' }).details, originalDetails);
   const manual = resolveSignByNumber(sign.number, DATE);
+  assert.deepEqual(manual.details, originalDetails);
+  assert.deepEqual(drawRandomSign(DATE, { seed: '资料隔离' }).details, originalDetails);
   manual.details['核心寓意'] = '手工备注';
   assert.deepEqual(resolveSignByNumber(sign.number, DATE).details, originalDetails);
 
@@ -103,6 +105,54 @@ test('随机占法支持种子复现抽取结果', () => {
   assert.deepEqual(tarot(SEED), tarot(SEED));
   assert.equal(ssgw(SEED), ssgw(SEED));
   assert.deepEqual(meihua(SEED), meihua(SEED));
+});
+
+test('随机重放必须恰好消费全部样本，不能静默忽略多余记录', () => {
+  const signSamples = drawRandomSign(DATE, { seed: SEED }).meta!.random!.samples;
+  assert.equal(
+    drawRandomSign(DATE, { replay: signSamples }).meta?.random?.samples.length,
+    signSamples.length,
+  );
+  assert.throws(() => drawRandomSign(DATE, { replay: [...signSamples, 0] }), /重放样本有剩余/);
+
+  const jinkouSamples = generateJinkoujue({
+    method: 'random',
+    customDate: DATE,
+    seed: SEED,
+  }).randomTrace!.samples;
+  assert.equal(
+    generateJinkoujue({ method: 'random', customDate: DATE, replay: jinkouSamples }).randomTrace
+      ?.samples.length,
+    jinkouSamples.length,
+  );
+  assert.throws(
+    () => generateJinkoujue({ method: 'random', customDate: DATE, replay: [...jinkouSamples, 0] }),
+    /重放样本有剩余/,
+  );
+
+  const singleSamples = drawSingleCard({ seed: SEED }).meta!.random!.samples;
+  assert.equal(
+    drawSingleCard({ replay: singleSamples }).meta?.random?.samples.length,
+    singleSamples.length,
+  );
+  assert.throws(() => drawSingleCard({ replay: [...singleSamples, 0] }), /重放样本有剩余/);
+
+  const tarotSamples = drawSpreadCards('three', { seed: SEED }).meta!.random!.samples;
+  assert.equal(
+    drawSpreadCards('three', { replay: tarotSamples }).meta?.random?.samples.length,
+    tarotSamples.length,
+  );
+  assert.throws(() => drawSpreadCards('three', { replay: [...tarotSamples, 0] }), /重放样本有剩余/);
+
+  const lenormandSamples = drawLenormandSpread('three', { seed: SEED }).meta!.random!.samples;
+  assert.equal(
+    drawLenormandSpread('three', { replay: lenormandSamples }).meta?.random?.samples.length,
+    lenormandSamples.length,
+  );
+  assert.throws(
+    () => drawLenormandSpread('three', { replay: [...lenormandSamples, 0] }),
+    /重放样本有剩余/,
+  );
 });
 
 test('塔罗抽牌应拒绝未知牌阵和未知牌名，不应用泛化关键词掩盖错误', () => {

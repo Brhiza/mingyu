@@ -6,7 +6,7 @@ import { formatPromptCurrentTime } from '../packages/core/src/prompt/current-tim
 
 test('生肖同盘在不同提问时点保留相同参与资料，同支只算一种成员', () => {
   const base = getZodiacYearFortune('午', '丙午').prompt;
-  assert.match(base, /本次地支组合为午，共1种不同地支/);
+  assert.match(base, /出生年支与流年年支同为午，计一种地支/);
   const prompts = ['2026-05-19T10:30:00+08:00', '2026-12-19T20:30:00+08:00'].map((time) => {
     const currentTime = new Date(time);
     const prompt = buildMetaphysicsPrompt(base, '请解读2026年的生肖关系。', {
@@ -23,7 +23,10 @@ test('生肖同盘在不同提问时点保留相同参与资料，同支只算�
     prompts[0].replace(/【当前时间】[\s\S]*?(?=【任务】)/, ''),
     prompts[1].replace(/【当前时间】[\s\S]*?(?=【任务】)/, ''),
   );
-  assert.match(getZodiacYearFortune('寅', '丙午').prompt, /本次地支组合为寅、午，共2种不同地支/);
+  assert.match(
+    getZodiacYearFortune('寅', '丙午').prompt,
+    /三合组成员：生肖年支寅与流年年支午同属火局/,
+  );
 });
 
 test('生肖时间身份说明按方法生效，其他元学入口保留既有当前时间正文', () => {

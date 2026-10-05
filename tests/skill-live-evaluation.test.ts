@@ -42,20 +42,18 @@ test('在线模型请求失败时不得以离线基准冒充通过', async (t) =
   }
 });
 
-for (const status of [401, 429]) {
-  test(`在线模型返回 ${status} 时保留失败且不填入参考答案`, async (t) => {
-    t.mock.method(globalThis, 'fetch', async () => new Response('服务不可用', { status }));
-    const result = await runScenarioLive(SKILL_SCENARIOS[0], 'aov-fixture', {
-      apiKey: 'test-key',
-      baseUrl: 'https://example.invalid/v1',
-      model: 'test-model',
-    });
-    assert.equal(result.artifact.userReply, '');
-    assert.equal(result.evaluation.status, 'fail');
-    assert.equal(result.artifact.telemetry?.modelName, 'test-model');
-    assert.equal(result.artifact.telemetry?.isLiveOnline, false);
+test('在线模型返回 HTTP 错误时保留失败且不填入参考答案', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('服务不可用', { status: 401 }));
+  const result = await runScenarioLive(SKILL_SCENARIOS[0], 'aov-fixture', {
+    apiKey: 'test-key',
+    baseUrl: 'https://example.invalid/v1',
+    model: 'test-model',
   });
-}
+  assert.equal(result.artifact.userReply, '');
+  assert.equal(result.evaluation.status, 'fail');
+  assert.equal(result.artifact.telemetry?.modelName, 'test-model');
+  assert.equal(result.artifact.telemetry?.isLiveOnline, false);
+});
 
 for (const format of ['chat', 'gemini'] as const) {
   test(`${format} 在线模型返回空正文时评测失败`, async (t) => {

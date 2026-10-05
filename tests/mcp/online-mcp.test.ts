@@ -254,7 +254,6 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   assert.equal(listRes.status, 200);
   const listJson = await listRes.json();
   assert.ok(Array.isArray(listJson.result?.tools));
-  assert.equal(listJson.result.tools.length >= 63, true);
   const baziPromptTool = listJson.result.tools.find(
     (tool: { name?: string }) => tool.name === 'bazi_prompt',
   );

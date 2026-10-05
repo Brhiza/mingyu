@@ -1,5 +1,8 @@
 import type { UsefulGodPlacementItem, UsefulGodPlacementProfile } from '../types/analysis';
-import { HIDDEN_STEMS } from './baziMappingsData';
+
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export function analyzeUsefulGodPlacement(
   pillars: Array<{ gan: string; zhi: string }>,
@@ -59,7 +62,7 @@ export function analyzeUsefulGodPlacement(
       status: classify(fw, '透出'),
       evidence: p.gan + '透于' + pn,
     });
-    const stems = HIDDEN_STEMS[p.zhi] || [];
+    const stems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[p.zhi] || [];
     stems.forEach((s) => {
       const sw = getWuxing(s);
       items.push({

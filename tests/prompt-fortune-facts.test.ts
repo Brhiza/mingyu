@@ -39,11 +39,15 @@ test('八字指定流年任务书保留已计算的十神与触发事实且各�
     fortuneSelectionContext: context,
   });
 
-  const expectedFacts = context.promptPayload.summaryLines.filter(
-    (line) => line.startsWith('流年十神：') || line.startsWith('流年触发：'),
+  const expectedFacts = context.promptPayload.summaryLines.filter((line) =>
+    line.startsWith('流年十神：'),
   );
   const selectedFacts = context.promptPayload.selectedFacts ?? [];
-  assert.equal(expectedFacts.length, 2);
+  const selectedDayun = context.promptPayload.summaryLines
+    .find((line) => line.startsWith('所属大运：'))
+    ?.replace('所属大运：', '');
+  assert.ok(selectedDayun);
+  assert.equal(expectedFacts.length, 1);
   assert.ok(expectedFacts.every((fact) => selectedFacts.includes(fact)));
   assert.ok(selectedFacts.length >= expectedFacts.length);
   for (const fact of expectedFacts) {
@@ -52,9 +56,39 @@ test('八字指定流年任务书保留已计算的十神与触发事实且各�
   }
   assert.match(prompt, /选择日期：2026年/);
   assert.match(prompt, /上层岁运：/);
+  assert.match(focus, /上层岁运：.+；年度判断必须承接该十年阶段。/);
+  assert.equal(focus.match(/^上层岁运：/gm)?.length, 1);
+  assert.equal(focus.match(/年度判断必须承接该十年阶段/g)?.length, 1);
+  assert.doesNotMatch(focus, /所选岁运背景：|指定年限运限|上层岁运背景/);
   assert.match(prompt, /所选干支：丙午/);
+  assert.match(focus, /岁运干支关系：/);
+  assert.doesNotMatch(focus, /流年触发：|所属大运包含的流年|该流年包含的流月/);
   assert.doesNotMatch(focus, /结构化证据|计算链|计算链概览|关系汇总：|反证核验：|解释限制：/);
   assert.doesNotMatch(focus, /来源：|标签：|sourceLayerKey|已计算|不得/);
+});
+
+test('所选流年只列当前层、上层大运与实际干支关系', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'female',
+    year: 1951,
+    month: 11,
+    day: 14,
+    timeIndex: 5,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const context = buildFortuneSelectionContext(result, { scope: 'year', year: 1993 });
+  assert.ok(context);
+  const focus = formatBaziFortuneSelection(context)!.focus;
+
+  assert.match(focus, /上层岁运：癸卯运/);
+  assert.match(focus, /选择日期：1993年/);
+  assert.match(focus, /流年十神：天干癸为正财，地支酉主气为伤官/);
+  assert.match(focus, /1993年流年癸酉↔癸卯运：干同、六冲/);
+  assert.doesNotMatch(focus, /所属大运包含的流年|该流年包含的流月|1988年\(|1994年\(|寅月 甲寅/);
+  assert.doesNotMatch(focus, /来源：|标签：|流月列表只作月份窗口参考/);
+  assert.equal(focus.match(/天干癸为正财，地支酉主气为伤官/g)?.length, 1);
 });
 
 test('八字完整任务书保留完整大运流年和逐年岁运关系', () => {
@@ -115,20 +149,26 @@ test('紫微完整任务书只保留一份静态出生资料并覆盖各运限�
   assert.ok(prompt.includes(representativePalace.name));
   assert.ok(prompt.includes(representativeStar.name));
 
-  const mutagenPayload = Object.values(runtime.payloadByScope).find(
-    (item) => item && item.active_scope.scope !== 'origin' && item.active_scope.mutagen_map.length,
+  const decadalMutagen = runtime.payloadByScope.decadal.active_scope.mutagen_map.find(
+    (item) =>
+      item.star === '天梁' &&
+      item.mutagen === '禄' &&
+      item.palace_name === '父母' &&
+      item.dynamic_palace_name === '田宅',
   );
-  assert.ok(mutagenPayload);
-  const representativeMutagen = mutagenPayload.active_scope.mutagen_map[0];
-  assert.ok(representativeMutagen);
-  assert.ok(prompt.includes(`${representativeMutagen.star}化${representativeMutagen.mutagen}`));
+  assert.ok(decadalMutagen);
 
-  const evidencePayload = Object.values(runtime.payloadByScope).find(
-    (item) => item && item.active_scope.scope !== 'origin' && item.evidence_pool.length,
-  );
-  assert.ok(evidencePayload);
-  const representativeEvidence = evidencePayload.evidence_pool[0];
-  const evidenceText = representativeEvidence.promptText || representativeEvidence.description;
-  assert.ok(evidenceText);
-  assert.ok(prompt.includes(evidenceText));
+  const decadalStart = prompt.indexOf('大限：分析对象：大限。');
+  const yearlyStart = prompt.indexOf('流年：分析对象：流年。', decadalStart + 1);
+  assert.ok(decadalStart >= 0);
+  assert.ok(yearlyStart > decadalStart);
+  const decadalPrompt = prompt.slice(decadalStart, yearlyStart);
+  const decadalFatherPalace = decadalPrompt
+    .split('\n')
+    .find((line) => line.startsWith('  父母宫；'));
+  assert.ok(decadalFatherPalace);
+  const decadalPrimaryStars = /主星：([^；\n]*)/u.exec(decadalFatherPalace)?.[1];
+  assert.ok(decadalPrimaryStars);
+  assert.match(decadalPrimaryStars, /(?:^|、)天梁，[^、；\n]*当前化禄(?:$|、)/u);
+  assert.match(decadalFatherPalace, /动态宫名：田宅/u);
 });

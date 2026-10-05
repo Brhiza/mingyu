@@ -113,10 +113,11 @@ test('HTTP 未知时辰候选把非法、越界和跨出生上下文游标映射
 });
 
 test('HTTP 未知时辰提示词三种响应模式与纯八字专题共用单候选续读', async () => {
+  const input = { ...unknownInput, gender: 'male', year: 1904, month: 1, day: 20 };
   let contextKey: string | undefined;
   for (const responseMode of ['prompt-only', 'summary', 'full'] as const) {
     const call = await callApi('bazi/prompt', {
-      ...unknownInput,
+      ...input,
       question: '比较当前未知时辰候选。',
       baziFortuneScope: 'natal',
       responseMode,
@@ -132,6 +133,10 @@ test('HTTP 未知时辰提示词三种响应模式与纯八字专题共用单候
     contextKey ??= batch.contextKey;
     assert.equal(batch.contextKey, contextKey);
     assert.match(data.prompt, /当前时辰候选：第1\//);
+    assert.match(
+      data.prompt,
+      /^日初00:00:00候选：癸卯 乙丑 癸丑 壬子；.*候选喜用金、水，候选所忌木、土；增补取用部分判定$/mu,
+    );
     if (responseMode === 'prompt-only') {
       assert.equal(data.result, undefined);
       assert.equal(data.resultSummary, undefined);
@@ -139,11 +144,12 @@ test('HTTP 未知时辰提示词三种响应模式与纯八字专题共用单候
       const result = responseMode === 'full' ? data.result : data.resultSummary;
       assert.ok(result);
       assertSingleCandidatePage(result, batch);
+      assert.equal(result.unknownTimeAnalysis?.scenarios[0]?.incrementStatus, '部分判定');
     }
   }
 
   const thematicCall = await callApi('consultation/thematic/prompt', {
-    ...unknownInput,
+    ...input,
     methodId: 'bazi',
     topicId: 'career',
     scope: 'natal',
@@ -158,6 +164,14 @@ test('HTTP 未知时辰提示词三种响应模式与纯八字专题共用单候
   };
   assertSingleCandidatePage(thematic.resultSummary.bazi, thematic.batch.unknownTimeBatch);
   assert.match(thematic.prompt, /当前时辰候选：第1\//);
+  assert.match(
+    thematic.prompt,
+    /^日初00:00:00候选：癸卯 乙丑 癸丑 壬子；.*候选喜用金、水，候选所忌木、土；增补取用部分判定$/mu,
+  );
+  assert.equal(
+    thematic.resultSummary.bazi.unknownTimeAnalysis?.scenarios[0]?.incrementStatus,
+    '部分判定',
+  );
 });
 
 test('unknownTimeBatch 与明确时辰、范围、岁运、合盘及跨体系入口在计算前互斥', async (t) => {

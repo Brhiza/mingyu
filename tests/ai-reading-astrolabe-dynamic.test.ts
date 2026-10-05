@@ -112,17 +112,17 @@ test('阶段归纳失败不推进页位置，重试仍读取同一页', async ()
 
 test('停止和超容量归纳不会产生可提交的下一页进度', async () => {
   const controller = new AbortController();
+  const cancelOptions = { ...roundOptions, signal: controller.signal as AbortSignal | undefined };
   let calls = 0;
   await assert.rejects(
-    runAstrolabeDynamicReadingRound(
-      source,
-      undefined,
-      { ...roundOptions, signal: controller.signal },
-      async (messages, options) => {
-        if (++calls === 2) controller.abort();
-        else await successfulStream(messages, options);
-      },
-    ),
+    runAstrolabeDynamicReadingRound(source, undefined, cancelOptions, async (messages, options) => {
+      if (++calls === 2) {
+        options.onChunk('收到部分归纳');
+        cancelOptions.signal = undefined;
+        controller.abort();
+        options.onDone();
+      } else await successfulStream(messages, options);
+    }),
     { name: 'AbortError' },
   );
   calls = 0;
@@ -135,6 +135,80 @@ test('停止和超容量归纳不会产生可提交的下一页进度', async ()
     }),
     /超过容量/u,
   );
+});
+
+test('分轮等待后仍使用本轮问题、主体、续读进度和回调', async () => {
+  const mutableSource = {
+    ...source,
+    summary: structuredClone(summary),
+    promptOptions: { ...source.promptOptions },
+  };
+  const previous: AstrolabeDynamicReadingCheckpoint = {
+    version: 1,
+    identity: JSON.stringify([
+      mutableSource.key,
+      mutableSource.subjectId,
+      mutableSource.summary,
+      mutableSource.promptOptions,
+    ]),
+    stage: 'pages',
+    cursor: { branchIndex: 0, pageIndex: 0, branchStartTimestamp: start },
+    completedPages: 0,
+    completedBranches: 0,
+    synopsis: '',
+    question: '原问题：学习安排',
+  };
+  let originalChunks = 0;
+  let replacedChunks = 0;
+  const originalProgress: string[] = [];
+  let replacedProgress = 0;
+  const mutableOptions = {
+    question: '本轮问题：继续分析',
+    onChunk() {
+      originalChunks += 1;
+    },
+    onProgress(text: string) {
+      originalProgress.push(text);
+    },
+  };
+  mutableSource.readBranch = async (index) => {
+    previous.question = '变造原问题';
+    previous.synopsis = '变造归纳';
+    previous.completedPages = 777;
+    previous.cursor!.branchIndex = 77;
+    mutableSource.summary.branchCount = 999;
+    mutableOptions.question = '变造本轮问题';
+    mutableOptions.onChunk = () => {
+      replacedChunks += 1;
+    };
+    mutableOptions.onProgress = () => {
+      replacedProgress += 1;
+    };
+    return branches[index];
+  };
+  const prompts: string[] = [];
+  const next = await runAstrolabeDynamicReadingRound(
+    mutableSource,
+    previous,
+    mutableOptions,
+    async (messages, options) => {
+      prompts.push(messages[0].content);
+      await successfulStream(messages, options);
+    },
+  );
+  assert.equal(next.completedPages, 1);
+  assert.equal(next.question, '原问题：学习安排');
+  assert.equal(originalChunks, 1);
+  assert.equal(replacedChunks, 0);
+  assert.equal(originalProgress.length, 2);
+  assert.equal(replacedProgress, 0);
+  assert.match(originalProgress[0], new RegExp(`第1/${summary.branchCount}段`, 'u'));
+  assert.match(prompts[0], /原问题：学习安排/u);
+  assert.match(prompts[0], /本轮问题：继续分析/u);
+  assert.doesNotMatch(prompts.join('\n'), /变造/u);
+  assert.equal(previous.completedPages, 777);
+  assert.equal(previous.cursor!.branchIndex, 77);
+  assert.equal(mutableSource.summary.branchCount, 999);
 });
 
 test('恢复进度要求同一主体及范围，错误资料不发起模型请求', async () => {

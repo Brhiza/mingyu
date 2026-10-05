@@ -1,5 +1,6 @@
 import { calculateBaziChartFromInput, type BaziChartResult } from '../bazi/index';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
+import { getHistoricalTimezoneOffsetAt } from '../calendar/historical-timezone';
 import {
   convertTrueSolarTime,
   type TrueSolarTimeConversionResult,
@@ -102,7 +103,17 @@ export const INSTANT_CHART_DEFINITIONS: readonly InstantChartDefinition[] = [
 ] as const;
 
 type BaziPersonalField =
-  'gender' | 'age' | 'mingGua' | 'luckInfo' | 'liunian' | 'shensha' | 'shenShaAnalysis';
+  | 'gender'
+  | 'age'
+  | 'mingGua'
+  | 'luckInfo'
+  | 'liunian'
+  | 'shensha'
+  | 'shenShaAnalysis'
+  | 'mingGong'
+  | 'shenGong'
+  | 'taiYuan'
+  | 'taiXi';
 
 export type InstantBaziChartResult = Omit<BaziChartResult, BaziPersonalField>;
 
@@ -165,7 +176,8 @@ function assertValidDate(value: Date): Date {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
     throw new Error('即时排盘时间不是有效日期。');
   }
-  return value;
+  // 输入 Date 可被调用方修改；固定同一瞬时供盘面和 generatedAt 共用。
+  return new Date(value.getTime());
 }
 
 function assertObserver(
@@ -179,7 +191,7 @@ function assertObserver(
     throw new Error('观测地点经度需在 -180 到 180 之间。');
   }
   if (
-    options.requireLatitude &&
+    (options.requireLatitude || value.latitude !== undefined) &&
     (!Number.isFinite(value.latitude) || value.latitude! < -90 || value.latitude! > 90)
   ) {
     throw new Error('该即时盘需要提供 -90 到 90 之间的观测地点纬度。');
@@ -215,24 +227,6 @@ function getWallClockPartsInOffset(date: Date, timezone: number): InstantWallClo
   };
 }
 
-/** 读取指定时刻在目标 IANA 时区的实际偏移（小时，含夏令时）。 */
-function getTimeZoneOffsetHours(date: Date, timeZoneId: string): number | undefined {
-  try {
-    const name = new Intl.DateTimeFormat('en-US', {
-      timeZone: timeZoneId,
-      timeZoneName: 'longOffset',
-    })
-      .formatToParts(date)
-      .find((part) => part.type === 'timeZoneName')?.value;
-    const match = /GMT([+-])(\d{1,2}):(\d{2})/.exec(name ?? '');
-    if (!match) return 0; // GMT/UTC 时区返回无符号 "GMT"
-    const sign = match[1] === '+' ? 1 : -1;
-    return sign * (Number(match[2]) + Number(match[3]) / 60);
-  } catch {
-    return undefined;
-  }
-}
-
 function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWallClockParts {
   let formatter: Intl.DateTimeFormat;
   try {
@@ -263,7 +257,7 @@ function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWal
     minute: parts.minute,
     second: parts.second,
     // 记录原时刻的实际偏移，回拨重复区间由此区分，不得在后续换算中默选
-    offsetHours: getTimeZoneOffsetHours(date, timeZoneId),
+    offsetHours: getHistoricalTimezoneOffsetAt(date, timeZoneId),
   };
 }
 
@@ -276,6 +270,12 @@ function getObserverWallClockParts(date: Date, observer: InstantObserver) {
 
 function formatLocalDateTime(parts: InstantWallClockParts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}:${String(parts.second).padStart(2, '0')}`;
+}
+
+function getObserverTimezone(
+  context: ReturnType<typeof buildInstantChartContext>,
+): number | undefined {
+  return context.wallClock.offsetHours ?? context.observer?.timezone;
 }
 
 export function buildInstantChartContext(
@@ -305,6 +305,15 @@ export function buildInstantChartContext(
     definition.requiresObserver === 'always' || timeStandard === 'true-solar'
       ? getObserverWallClockParts(customDate, observer!)
       : getWallClockPartsInOffset(customDate, BEIJING_TIMEZONE);
+  if (
+    observer?.timeZoneId &&
+    (definition.requiresObserver === 'always' || timeStandard === 'true-solar') &&
+    observer.timezone !== undefined &&
+    wallClock.offsetHours !== undefined &&
+    Math.abs(observer.timezone - wallClock.offsetHours) > 1e-6
+  ) {
+    throw new Error('观测地点固定偏移与排盘时刻的 IANA 实际偏移不一致。');
+  }
   const trueSolarTime =
     timeStandard === 'true-solar'
       ? convertTrueSolarTime({
@@ -337,7 +346,7 @@ function buildBaziInput(
   const useTrueSolarTime = context.timeStandard === 'true-solar';
   return {
     // 即时盘不是个人命盘。底层完整八字计算仍需技术性性别参数，返回前会剔除
-    // 大运、命卦等全部个人性别相关字段，只保留当前四柱的共通盘面。
+    // 大运、命卦及胎元、胎息等个人命理字段，只保留当前四柱的共通盘面。
     gender: 'male' as const,
     year: parts.year,
     month: parts.month,
@@ -353,7 +362,7 @@ function buildBaziInput(
       ? {
           birthPlace: context.observer?.locationName,
           birthLongitude: context.observer!.longitude,
-          timezone: context.observer?.timezone,
+          timezone: getObserverTimezone(context),
           timeZoneId: context.observer?.timeZoneId,
         }
       : {}),
@@ -385,7 +394,7 @@ async function calculateZiwei(
     ...(useTrueSolarTime
       ? {
           birthLongitude: context.observer!.longitude,
-          timezone: context.observer?.timezone,
+          timezone: getObserverTimezone(context),
           timeZoneId: context.observer?.timeZoneId,
         }
       : {}),
@@ -413,7 +422,10 @@ async function calculateZiwei(
       earthly_branch: palace.earthly_branch,
       major_stars: palace.major_stars,
       minor_stars: palace.minor_stars,
-      other_stars: palace.other_stars,
+      other_stars:
+        payload.calculation_config.algorithm === 'zhongzhou'
+          ? palace.other_stars.filter((star) => star.name !== '天伤' && star.name !== '天使')
+          : palace.other_stars,
       base_jiangqian12: palace.base_jiangqian12,
       base_suiqian12: palace.base_suiqian12,
       empty_state: palace.empty_state,
@@ -439,6 +451,10 @@ function calculateNeutralBazi(
   delete result.liunian;
   delete result.shensha;
   delete result.shenShaAnalysis;
+  delete result.mingGong;
+  delete result.shenGong;
+  delete result.taiYuan;
+  delete result.taiXi;
   return result as InstantBaziChartResult;
 }
 
@@ -454,11 +470,22 @@ function calculateNeutralAstrolabe(
   };
 }
 
-function formatInstantQizhengPrompt(result: QizhengResult) {
+export function formatInstantQizhengPrompt(result: QizhengResult): string {
   return result.prompt
     .replace('【七政四余 · 果老星宗】', '【七政四余即时盘 · 果老星宗】')
     .replace('出生时间：', '起盘时间：')
-    .replace(/命主/g, '命宫主星');
+    .replace('出生地点：', '起盘地点：')
+    .replace('按出生时刻与当地太阳高度阈值划分昼夜', '按起盘时刻与当地太阳高度阈值划分昼夜')
+    .replace(
+      '本命盘以出生时点的星曜位置、落宿、落宫和吊照分析先天结构。',
+      '本盘记录起盘时刻的星曜位置、落宿、落宫和吊照。',
+    )
+    .replace(/昼生/g, '昼盘')
+    .replace(/夜生/g, '夜盘')
+    .replace(/命主恩星：/g, '恩星：')
+    .replace(/命主难星：/g, '难星：')
+    .replace(/命主：/g, '命宫主宰星：')
+    .replace(/命主/g, '命宫主宰星');
 }
 
 export async function calculateInstantChart<T extends InstantChartType>(
@@ -489,10 +516,11 @@ export async function calculateInstantChart<T extends InstantChartType>(
         day: String(context.wallClock.day),
         hour: String(context.wallClock.hour),
         minute: String(context.wallClock.minute),
+        second: String(context.wallClock.second),
         latitude: String(context.observer!.latitude),
         longitude: String(context.observer!.longitude),
-        ...(context.observer!.timezone !== undefined
-          ? { timezone: String(context.observer!.timezone) }
+        ...(getObserverTimezone(context) !== undefined
+          ? { timezone: String(getObserverTimezone(context)) }
           : {}),
         ...(context.observer!.timeZoneId ? { timeZoneId: context.observer!.timeZoneId } : {}),
         ...(context.observer!.locationName ? { locationName: context.observer!.locationName } : {}),
@@ -506,10 +534,11 @@ export async function calculateInstantChart<T extends InstantChartType>(
         day: context.wallClock.day,
         hour: context.wallClock.hour,
         minute: context.wallClock.minute,
+        second: context.wallClock.second,
         latitude: context.observer!.latitude,
         longitude: context.observer!.longitude,
-        ...(context.observer!.timezone !== undefined
-          ? { timezone: context.observer!.timezone }
+        ...(getObserverTimezone(context) !== undefined
+          ? { timezone: getObserverTimezone(context) }
           : {}),
         ...(context.observer!.timeZoneId ? { timeZoneId: context.observer!.timeZoneId } : {}),
         useTrueSolarTime: context.timeStandard === 'true-solar',

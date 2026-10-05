@@ -17,24 +17,45 @@ export function calculateBazhaiBaseChart(birthData: {
   year: number;
   month: number;
   day: number;
+  hour?: number;
+  minute?: number;
+  timezone?: number;
+  timeZoneId?: string;
   gender: 'male' | 'female';
 }): BaZhaiResult {
   return analyzeBaZhai({
     birthYear: birthData.year,
     birthMonth: birthData.month,
     birthDay: birthData.day,
+    birthHour: birthData.hour,
+    birthMinute: birthData.minute,
+    birthTimezone: birthData.timezone,
+    birthTimeZoneId: birthData.timeZoneId,
     gender: birthData.gender,
   });
 }
 
 export function calculateBazhaiChart(
-  birthData: { year: number; month: number; day: number; gender: 'male' | 'female' },
+  birthData: {
+    year: number;
+    month: number;
+    day: number;
+    hour?: number;
+    minute?: number;
+    timezone?: number;
+    timeZoneId?: string;
+    gender: 'male' | 'female';
+  },
   measuredDegree: number,
 ): { result: BaZhaiResult; measurement: BazhaiMeasurement } {
   const completeResult = analyzeBaZhaiByDoorDegree({
     birthYear: birthData.year,
     birthMonth: birthData.month,
     birthDay: birthData.day,
+    birthHour: birthData.hour,
+    birthMinute: birthData.minute,
+    birthTimezone: birthData.timezone,
+    birthTimeZoneId: birthData.timeZoneId,
     gender: birthData.gender,
     doorToInteriorDegree: measuredDegree,
   });

@@ -48,14 +48,16 @@ test('星盘周期提示词压缩保留真实 fixture 的全量事件且摘要�
     collection.promptText.length < 3324,
     `周期提示词应短于压缩前同一 fixture 的 3324 字符，实际为 ${collection.promptText.length}`,
   );
-  assert.match(collection.promptText, /周期主轴：/);
+  assert.ok(collection.axis.length > 0);
+  assert.doesNotMatch(collection.promptText, /周期主轴：|具体时刻见|具体星象见|重复过境主线见/);
   assert.match(collection.promptText, /关键窗口：/);
   assert.match(collection.promptText, /过境归组：/);
   assert.match(collection.promptText, /完整明细：/);
 
   for (const event of collection.events) {
-    assert.ok(
-      collection.promptText.includes(`${event.dateTime} ${event.promptText}`),
+    assert.equal(
+      countOccurrences(collection.promptText, `${event.dateTime} ${event.promptText}`),
+      1,
       `完整明细缺少事件：${event.dateTime} ${event.promptText}`,
     );
     assert.equal(
@@ -89,12 +91,14 @@ test('星盘流年提示词应列出高级时限的全部已筛选相位事实',
     assert.ok(item);
     const line = lines.find((value) => value.startsWith(label));
     assert.ok(line, `缺少高级时限提示词行：${label}`);
+    const detail = 'returnChart' in item && item.returnChart ? item.returnChart.promptText : line;
     for (const fact of item.aspectFacts) {
       assert.ok(
-        line!.includes(compactAdvancedAspect(fact)),
+        detail.includes(compactAdvancedAspect(fact)),
         `${label}缺少相位事实：${compactAdvancedAspect(fact)}`,
       );
-      assert.equal(line!.includes(fact.key), false, `${label}不应暴露事实内部键：${fact.key}`);
+      assert.equal(detail.includes(fact.key), false, `${label}不应暴露事实内部键：${fact.key}`);
+      if (detail !== line) assert.ok(!line.includes(compactAdvancedAspect(fact)));
     }
   }
 

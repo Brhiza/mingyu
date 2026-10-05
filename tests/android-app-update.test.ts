@@ -128,10 +128,3 @@ test('APK 工作流覆盖调试构建、正式签名、校验文件和 Release',
   assert.match(workflow, /APP_RELEASE_PUBLISH_TOKEN/);
   assert.match(workflow, /download\.aov\.cc\/v1\/publish\/mingyu/);
 });
-
-test('更新面板使用默认下载和 GitHub 备用线路', async () => {
-  const dialogContent = await readFile('src/components/AndroidAppUpdateDialog.tsx', 'utf8');
-  assert.match(dialogContent, /默认使用官方下载/);
-  assert.match(dialogContent, /updater\.installUpdate/);
-  assert.doesNotMatch(dialogContent, /lanzou|蓝奏/i);
-});

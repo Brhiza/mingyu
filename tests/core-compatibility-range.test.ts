@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   calculateCompatibilityBundle,
+  type CompatibilityBundleOptions,
   type CompatibilityRangeBundle,
 } from '../packages/core/src/compatibility';
 import type { BirthProfile } from '../packages/core/src/profile';
@@ -51,7 +52,7 @@ const primary = profileAtTimestamp('范围主方', 'male', beijingTimestamp('202
 const partner = profileAtTimestamp(
   '范围对方',
   'female',
-  beijingTimestamp('1992-03-04 08:20:00'),
+  beijingTimestamp('1992-03-04 08:59:59'),
   3,
 );
 const fixedPartner: BirthProfile = {
@@ -71,6 +72,13 @@ function asRangeBundle(
 ): CompatibilityRangeBundle {
   if (!('range' in value)) throw new Error('测试需要范围合盘结果。');
   return value;
+}
+
+function withoutCalculationTimestamp<T extends { timestamp: number }>(
+  value: T,
+): Omit<T, 'timestamp'> {
+  const { timestamp: _timestamp, ...calculation } = value;
+  return calculation;
 }
 
 test('一侧范围与一侧固定盘生成有界笛卡尔积并缓存固定盘', async () => {
@@ -117,7 +125,7 @@ test('一侧范围与一侧固定盘生成有界笛卡尔积并缓存固定盘',
   assert.equal('partner' in result, false);
 });
 
-test('双方范围按 primary-major 的真实 2x3 笛卡尔积遍历', async () => {
+test('双方范围按 primary-major 遍历 2x3 笛卡尔积并保持单点关系方向', async () => {
   const result = asRangeBundle(
     await calculateCompatibilityBundle(primary, partner, {
       systems: ['bazi'],
@@ -149,6 +157,10 @@ test('双方范围按 primary-major 的真实 2x3 笛卡尔积遍历', async () 
     result.partnerSamples.map((sample) => sample.index),
     [0, 1, 2],
   );
+  assert.deepEqual(
+    result.partnerSamples.map((sample) => sample.bundle.bazi?.pillars.hour.ganZhi),
+    ['戊辰', '己巳', '己巳'],
+  );
   assert.equal(
     result.primarySamples.every((sample) => !('birthTimeRange' in sample.profile)),
     true,
@@ -156,6 +168,79 @@ test('双方范围按 primary-major 的真实 2x3 笛卡尔积遍历', async () 
   assert.equal(
     result.partnerSamples.every((sample) => !('birthTimeRange' in sample.profile)),
     true,
+  );
+
+  for (const pair of result.pairs) {
+    const primarySample = result.primarySamples.find(
+      (sample) => sample.index === pair.primaryIndex,
+    );
+    const partnerSample = result.partnerSamples.find(
+      (sample) => sample.index === pair.partnerIndex,
+    );
+    assert.ok(primarySample);
+    assert.ok(partnerSample);
+
+    const direct = await calculateCompatibilityBundle(
+      primarySample.profile,
+      partnerSample.profile,
+      {
+        systems: ['bazi'],
+      },
+    );
+    assert.ok(!('range' in direct));
+    assert.deepEqual(pair.bazi, direct.bazi);
+    assert.equal(pair.bazi?.people.person1, '范围主方');
+    assert.equal(pair.bazi?.people.person2, '范围对方');
+    assert.equal(pair.bazi?.dayMasterRelation.person1Gan, primarySample.bundle.bazi?.dayMaster.gan);
+    assert.equal(pair.bazi?.dayMasterRelation.person2Gan, partnerSample.bundle.bazi?.dayMaster.gan);
+    assert.ok(pair.bazi?.crossPillarRelations.length);
+  }
+
+  const beforeHourBoundary = result.pairs[0]?.bazi?.crossPillarRelations ?? [];
+  const afterHourBoundary = result.pairs[1]?.bazi?.crossPillarRelations ?? [];
+  assert.ok(
+    beforeHourBoundary.some(
+      (relation) =>
+        relation.person1Pillar === 'year' &&
+        relation.person2Pillar === 'hour' &&
+        relation.layer === '天干' &&
+        relation.type === '五合候选' &&
+        relation.person1Value === '癸' &&
+        relation.person2Value === '戊',
+    ),
+  );
+  assert.ok(
+    beforeHourBoundary.some(
+      (relation) =>
+        relation.person1Pillar === 'year' &&
+        relation.person2Pillar === 'hour' &&
+        relation.layer === '地支' &&
+        relation.type === '六害' &&
+        relation.person1Value === '卯' &&
+        relation.person2Value === '辰',
+    ),
+  );
+  assert.ok(
+    afterHourBoundary.some(
+      (relation) =>
+        relation.person1Pillar === 'month' &&
+        relation.person2Pillar === 'hour' &&
+        relation.layer === '天干' &&
+        relation.type === '五合候选' &&
+        relation.person1Value === '甲' &&
+        relation.person2Value === '己',
+    ),
+  );
+  assert.ok(
+    afterHourBoundary.some(
+      (relation) =>
+        relation.person1Pillar === 'hour' &&
+        relation.person2Pillar === 'hour' &&
+        relation.layer === '地支' &&
+        relation.type === '同支' &&
+        relation.person1Value === '巳' &&
+        relation.person2Value === '巳',
+    ),
   );
 });
 
@@ -193,39 +278,6 @@ test('续读尾页只返回末尾 pair 并排除 totalPairs 边界', async () =>
   );
 });
 
-test('每个 pair 保持主方到对方的方向并等同于实际单点合盘算法', async () => {
-  const result = asRangeBundle(
-    await calculateCompatibilityBundle(primary, partner, {
-      systems: ['bazi'],
-      rangeBatch: { limit: 60 },
-    }),
-  );
-  for (const pair of result.pairs) {
-    const primarySample = result.primarySamples.find(
-      (sample) => sample.index === pair.primaryIndex,
-    );
-    const partnerSample = result.partnerSamples.find(
-      (sample) => sample.index === pair.partnerIndex,
-    );
-    assert.ok(primarySample);
-    assert.ok(partnerSample);
-
-    const direct = await calculateCompatibilityBundle(
-      primarySample.profile,
-      partnerSample.profile,
-      {
-        systems: ['bazi'],
-      },
-    );
-    assert.ok(!('range' in direct));
-    assert.deepEqual(pair.bazi, direct.bazi);
-    assert.equal(pair.bazi?.people.person1, '范围主方');
-    assert.equal(pair.bazi?.people.person2, '范围对方');
-    assert.equal(pair.bazi?.dayMasterRelation.person1Gan, primarySample.bundle.bazi?.dayMaster.gan);
-    assert.equal(pair.bazi?.dayMasterRelation.person2Gan, partnerSample.bundle.bazi?.dayMaster.gan);
-  }
-});
-
 test('范围紫微合盘拒绝隐式当前时刻并固定 horoscopeContext', async () => {
   await assert.rejects(
     () =>
@@ -252,6 +304,105 @@ test('范围紫微合盘拒绝隐式当前时刻并固定 horoscopeContext', asy
   });
   assert.deepEqual(result.primarySamples[0]?.bundle.ziwei?.horoscopeContext, fixedContext);
   assert.deepEqual(result.partnerSamples[0]?.bundle.ziwei?.horoscopeContext, fixedContext);
+});
+
+test('紫微与西占分页逐 pair 等于固定时刻及坐标的直接单点合盘', async () => {
+  const primaryWithLocation: BirthProfile = {
+    ...primary,
+    location: { longitude: 116.4074, latitude: 39.9042, timezone: 8 },
+  };
+  const partnerWithLocation: BirthProfile = {
+    ...partner,
+    location: { longitude: 121.4737, latitude: 31.2304, timezone: 8 },
+  };
+  const options: CompatibilityBundleOptions = {
+    systems: ['ziwei', 'astrolabe'],
+    chart: {
+      ziweiRules: {
+        algorithm: 'zhongzhou',
+        fixLeap: false,
+        yearDivide: 'exact',
+        horoscopeDivide: 'exact',
+        ageDivide: 'birthday',
+        dayDivide: 'current',
+      },
+      ziwei: {
+        scopes: ['yearly'],
+        skipAnalysis: true,
+        now: new Date('2025-01-01T04:00:00.000Z'),
+      },
+    },
+    ziwei: { person1Name: '旧对方', person2Name: '旧主方' },
+    astrolabe: { pointNames: ['Sun', 'Moon', 'Venus'], includeHouseOverlays: true, maxAspects: 8 },
+  };
+  const seenPairs: number[] = [];
+  const seenCoordinates: Array<[number, number]> = [];
+  let startIndex = 2;
+  for (let pageIndex = 0; pageIndex < 2; pageIndex += 1) {
+    const page = asRangeBundle(
+      await calculateCompatibilityBundle(primaryWithLocation, partnerWithLocation, {
+        ...options,
+        rangeBatch: { startIndex, limit: 1 },
+      }),
+    );
+    assert.equal(page.range.totalPairs, 6);
+    assert.equal(page.primarySamples.length, 1);
+    assert.equal(page.partnerSamples.length, 1);
+    for (const pair of page.pairs) {
+      seenPairs.push(pair.pairIndex);
+      seenCoordinates.push([pair.primaryIndex, pair.partnerIndex]);
+      const first = page.primarySamples.find((sample) => sample.index === pair.primaryIndex);
+      const second = page.partnerSamples.find((sample) => sample.index === pair.partnerIndex);
+      assert.ok(first);
+      assert.ok(second);
+      const direct = await calculateCompatibilityBundle(first.profile, second.profile, options);
+      assert.ok(!('range' in direct));
+      assert.deepEqual(first.bundle.inputs, direct.primary.inputs);
+      assert.deepEqual(second.bundle.inputs, direct.partner.inputs);
+      assert.deepEqual(
+        first.bundle.ziwei?.horoscopeContext,
+        direct.primary.ziwei?.horoscopeContext,
+      );
+      assert.deepEqual(
+        second.bundle.ziwei?.horoscopeContext,
+        direct.partner.ziwei?.horoscopeContext,
+      );
+      assert.deepEqual(first.bundle.ziwei?.payloadByScope, direct.primary.ziwei?.payloadByScope);
+      assert.deepEqual(second.bundle.ziwei?.payloadByScope, direct.partner.ziwei?.payloadByScope);
+      assert.ok(first.bundle.ziwei?.payloadByScope.origin);
+      assert.ok(first.bundle.ziwei?.payloadByScope.yearly);
+      assert.ok(second.bundle.ziwei?.payloadByScope.origin);
+      assert.ok(second.bundle.ziwei?.payloadByScope.yearly);
+      assert.ok(first.bundle.astrolabe);
+      assert.ok(second.bundle.astrolabe);
+      assert.ok(direct.primary.astrolabe);
+      assert.ok(direct.partner.astrolabe);
+      assert.deepEqual(
+        withoutCalculationTimestamp(first.bundle.astrolabe),
+        withoutCalculationTimestamp(direct.primary.astrolabe),
+      );
+      assert.deepEqual(
+        withoutCalculationTimestamp(second.bundle.astrolabe),
+        withoutCalculationTimestamp(direct.partner.astrolabe),
+      );
+      assert.deepEqual(pair.ziwei, direct.ziwei);
+      assert.ok(pair.astrolabe);
+      assert.ok(direct.astrolabe);
+      assert.deepEqual(
+        withoutCalculationTimestamp(pair.astrolabe),
+        withoutCalculationTimestamp(direct.astrolabe),
+      );
+      assert.deepEqual(pair.ziwei?.people, { person1: '范围主方', person2: '范围对方' });
+    }
+    assert.equal(page.range.nextIndex, startIndex + 1);
+    if (page.range.nextIndex === null) throw new Error('测试分页需要下一页游标。');
+    startIndex = page.range.nextIndex;
+  }
+  assert.deepEqual(seenPairs, [2, 3]);
+  assert.deepEqual(seenCoordinates, [
+    [0, 2],
+    [1, 0],
+  ]);
 });
 
 test('已取消的范围批次在首个实际样本前停止', async () => {

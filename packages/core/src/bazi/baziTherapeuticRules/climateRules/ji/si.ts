@@ -25,7 +25,7 @@ export const JI_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-ji-bing-gui-first',
-    label: '己日巳月先丙后癸规则',
+    label: '己日巳月先癸后丙规则',
     description: '己土生巳月，夏燥土焦，传统多以癸水润燥、丙火暖局，先后有序。',
     priority: 120,
     months: ['巳'],
@@ -34,19 +34,5 @@ export const JI_SI_CLIMATE_RULES: ClimateRule[] = [
     usefulWuxing: '水',
     favorableOrder: ['水', '火'],
     hint: '己土巳月，先癸后丙',
-  },
-  {
-    id: 'si-month-ji-gui-bing-xin-all',
-    label: '己日巳月癸丙辛全透极品规则',
-    description: '己土生巳月，癸丙辛三者全透，较合原文"己土生巳月，三者全透，鼎甲可期"。',
-    priority: 126,
-    months: ['巳'],
-    dayMasters: ['土'],
-    dayStems: ['己'],
-    requiredVisibleStems: ['癸', '丙', '辛'],
-    usefulWuxing: '水',
-    favorableOrder: ['水', '火', '金'],
-    traceHints: ['取用层次:癸丙辛三者全透', '成格层次:鼎甲可期'],
-    hint: '己土巳月癸丙辛三者全透，鼎甲可期',
   },
 ];

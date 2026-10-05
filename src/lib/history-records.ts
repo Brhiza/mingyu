@@ -1,5 +1,6 @@
 import { defaultInputState, type PromptSourceKey, type QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
+import { rebuildSavedDivinationSession } from '@/lib/divination/engine';
 import type { AlmanacData } from '@/types/divination';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
 import {
@@ -766,7 +767,17 @@ export function addInstantHistory(options: {
 
 export function getDivinationHistoryById(id: string) {
   const record = loadDivinationHistory().find((item) => item.id === id);
-  return record?.type === 'divination' ? record : null;
+  if (record?.type !== 'divination') return null;
+  if (
+    record.method !== record.session.method ||
+    record.requestedMethod !== record.session.requestedMethod
+  ) {
+    throw new Error('历史占问的占法身份不一致。');
+  }
+  return {
+    ...record,
+    session: rebuildSavedDivinationSession(record.session, record.draft, record.question),
+  };
 }
 
 export function getConsultationHistoryById(id: string) {

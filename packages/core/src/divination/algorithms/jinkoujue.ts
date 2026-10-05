@@ -18,7 +18,7 @@ import type {
   JinkoujuePositionName,
   JinkoujueYinYang,
 } from '../../types/divination';
-import { getDivinationTime, TimeManager } from '../../calendar/timeManager';
+import { getDivinationTime } from '../../calendar/timeManager';
 import { getVoidBranches } from '../../calendar/lunar';
 import {
   EARTHLY_BRANCHES,
@@ -30,12 +30,25 @@ import {
   isKe,
   isSheng,
 } from '../../ganzhi';
-import { SolarTerm, SolarTime } from 'tyme4ts';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
-import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
+import {
+  assertReplaySamplesConsumed,
+  createRandomContext,
+  hasRandomOptions,
+  randomInt,
+} from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
+import { getJinkoujueMonthLeader } from '../jinkoujue-month-leader';
+import {
+  getJinkouPositionRole,
+  formatJinkoujuePositionPromptText,
+  getJinkoujueElementRelation,
+  getGuiShenOnDiFen,
+  getJinkouNoblemanBranch,
+  getYuanStemOnBranch,
+} from '../jinkoujue-utils';
 
 const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   time: '时间起课',
@@ -44,160 +57,13 @@ const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   random: '随机起课',
 };
 
-const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
-  雨水: '亥',
-  春分: '戌',
-  谷雨: '酉',
-  小满: '申',
-  夏至: '未',
-  大暑: '午',
-  处暑: '巳',
-  秋分: '辰',
-  霜降: '卯',
-  小雪: '寅',
-  冬至: '丑',
-  大寒: '子',
-};
-
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
-const FORWARD_NOBLEMAN_BRANCHES = new Set(['亥', '子', '丑', '寅', '卯', '辰']);
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
-
-/** 《六壬神课金口诀古本》“贵神起例”，不借用大六壬模块的贵人表。 */
-const JINKOU_NOBLEMAN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
-  甲: { day: '丑', night: '未' },
-  戊: { day: '丑', night: '未' },
-  庚: { day: '丑', night: '未' },
-  乙: { day: '子', night: '申' },
-  己: { day: '子', night: '申' },
-  丙: { day: '亥', night: '酉' },
-  丁: { day: '亥', night: '酉' },
-  壬: { day: '巳', night: '卯' },
-  癸: { day: '巳', night: '卯' },
-  辛: { day: '午', night: '寅' },
-};
-
-const JINKOU_GUI_SHEN_SEQUENCE = [
-  '贵人',
-  '螣蛇',
-  '朱雀',
-  '六合',
-  '勾陈',
-  '青龙',
-  '天空',
-  '白虎',
-  '太常',
-  '玄武',
-  '太阴',
-  '天后',
-] as const;
-type JinkouGuiShenName = (typeof JINKOU_GUI_SHEN_SEQUENCE)[number];
-
-/** 《六壬神课金口诀古本》“十二贵神所属”所列本属，不用月将支替代贵神支。 */
-const JINKOU_GUI_SHEN_ATTRIBUTES: Record<
-  JinkouGuiShenName,
-  {
-    stem: string;
-    branch: string;
-    element: string;
-    yinYang: JinkoujueYinYang;
-  }
-> = {
-  贵人: { stem: '己', branch: '丑', element: '土', yinYang: '阴' },
-  螣蛇: { stem: '丁', branch: '巳', element: '火', yinYang: '阴' },
-  朱雀: { stem: '丙', branch: '午', element: '火', yinYang: '阳' },
-  六合: { stem: '乙', branch: '卯', element: '木', yinYang: '阴' },
-  勾陈: { stem: '戊', branch: '辰', element: '土', yinYang: '阳' },
-  青龙: { stem: '甲', branch: '寅', element: '木', yinYang: '阳' },
-  天空: { stem: '戊', branch: '戌', element: '土', yinYang: '阳' },
-  白虎: { stem: '庚', branch: '申', element: '金', yinYang: '阳' },
-  太常: { stem: '己', branch: '未', element: '土', yinYang: '阴' },
-  玄武: { stem: '壬', branch: '子', element: '水', yinYang: '阳' },
-  太阴: { stem: '辛', branch: '酉', element: '金', yinYang: '阴' },
-  天后: { stem: '癸', branch: '亥', element: '水', yinYang: '阴' },
-};
-
-/** 五子元遁：甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方发，壬子是真途 */
-const WUZI_YUAN_STEM: Record<string, string> = {
-  甲: '甲',
-  己: '甲',
-  乙: '丙',
-  庚: '丙',
-  丙: '戊',
-  辛: '戊',
-  丁: '庚',
-  壬: '庚',
-  戊: '壬',
-  癸: '壬',
-};
-
-const POSITION_ROLES: Record<JinkoujuePositionName, string> = {
-  地分: '四象中的田宅、子孙、奴仆、鞍马与六畜位',
-  将神: '四象中的己身、妻财、亲戚与内位',
-  贵神: '四象中的主、臣、父与官禄位',
-  人元: '四象中的客、天、君、祖与外位',
-};
 
 function assertMethod(method: JinkoujueDivinationMethod): void {
   if (!Object.prototype.hasOwnProperty.call(METHOD_LABELS, method)) {
     throw new Error(`未知的金口诀起课方式: ${method}`);
   }
-}
-
-function getMonthLeaderByZhongqi(timestamp: number) {
-  const currentParts = TimeManager.getWallClockParts(new Date(timestamp));
-  const currentTime = SolarTime.fromYmdHms(
-    currentParts.year,
-    currentParts.month,
-    currentParts.day,
-    currentParts.hour,
-    currentParts.minute,
-    currentParts.second,
-  );
-  const currentJulianDay = currentTime.getJulianDay().getDay();
-  const year = currentParts.year;
-  let activeZhongqi = '冬至';
-  let activeJulianDay = Number.NEGATIVE_INFINITY;
-
-  for (const scanYear of [year - 1, year, year + 1]) {
-    for (let termIndex = 0; termIndex < 24; termIndex += 2) {
-      const term = SolarTerm.fromIndex(scanYear, termIndex);
-      // 与 tyme4ts 的 SolarTime#getTerm 保持同一整秒边界口径，避免把
-      // 节气原始小数 JD 与用户输入的整秒时刻直接比较而错后一秒。
-      const termJulianDay = term.getJulianDay().getSolarTime().getJulianDay().getDay();
-      if (termJulianDay <= currentJulianDay && termJulianDay > activeJulianDay) {
-        activeJulianDay = termJulianDay;
-        activeZhongqi = term.getName();
-      }
-    }
-  }
-
-  const monthLeader = MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
-  if (!monthLeader) {
-    throw new Error(`找不到中气 "${activeZhongqi}" 对应的金口诀月将。`);
-  }
-  return monthLeader;
-}
-
-function getYuanStemOnBranch(dayStem: string, branch: string) {
-  const startStem = WUZI_YUAN_STEM[dayStem];
-  if (!startStem) {
-    throw new Error(`无法识别日干 "${dayStem}" 的五子元遁起干。`);
-  }
-  const startStemIndex = HEAVENLY_STEMS.indexOf(startStem as (typeof HEAVENLY_STEMS)[number]);
-  const branchIndex = getBranchIndex(branch);
-  if (startStemIndex < 0 || branchIndex < 0) {
-    throw new Error(`五子元遁计算失败：日干 ${dayStem}，地支 ${branch}`);
-  }
-  return HEAVENLY_STEMS[(startStemIndex + branchIndex) % HEAVENLY_STEMS.length];
-}
-
-function getJinkouNoblemanBranch(dayStem: string, dayNight: '昼占' | '夜占') {
-  const pair = JINKOU_NOBLEMAN_BRANCH_BY_STEM[dayStem];
-  if (!pair) {
-    throw new Error(`无法识别日干“${dayStem}”的金口诀贵人起例。`);
-  }
-  return dayNight === '昼占' ? pair.day : pair.night;
 }
 
 function getStemYinYang(stem: string): JinkoujueYinYang {
@@ -229,38 +95,8 @@ function getJiangOnDiFen(monthLeader: string, hourBranch: string, diFenBranch: s
   ];
 }
 
-function getGuiShenOnDiFen(noblemanBranch: string, diFenBranch: string) {
-  const noblemanIndex = getBranchIndex(noblemanBranch);
-  const diFenIndex = getBranchIndex(diFenBranch);
-  if (noblemanIndex < 0 || diFenIndex < 0) {
-    throw new Error('金口诀贵神起例参数包含无效地支。');
-  }
-  const isForward = FORWARD_NOBLEMAN_BRANCHES.has(noblemanBranch);
-  const step = isForward
-    ? (diFenIndex - noblemanIndex + EARTHLY_BRANCHES.length) % EARTHLY_BRANCHES.length
-    : (noblemanIndex - diFenIndex + EARTHLY_BRANCHES.length) % EARTHLY_BRANCHES.length;
-  const god = JINKOU_GUI_SHEN_SEQUENCE[step];
-  const attributes = JINKOU_GUI_SHEN_ATTRIBUTES[god];
-  if (!attributes) {
-    throw new Error(`金口诀贵神“${god || '空'}”缺少本属数据。`);
-  }
-  return {
-    god,
-    direction: isForward ? ('顺布' as const) : ('逆布' as const),
-    ...attributes,
-  };
-}
-
 function describeElementRelation(sourceElement: string, targetElement: string) {
-  if (!VALID_WUXING.has(sourceElement) || !VALID_WUXING.has(targetElement)) {
-    throw new Error(`金口诀四位五行无效：${sourceElement || '空'} -> ${targetElement || '空'}。`);
-  }
-  if (sourceElement === targetElement) return '比和';
-  if (isSheng(sourceElement, targetElement)) return '生';
-  if (isSheng(targetElement, sourceElement)) return '被生';
-  if (isKe(sourceElement, targetElement)) return '克';
-  if (isKe(targetElement, sourceElement)) return '被克';
-  return '无直接生克';
+  return getJinkoujueElementRelation(sourceElement, targetElement);
 }
 
 function buildPosition(params: {
@@ -281,7 +117,8 @@ function buildPosition(params: {
   }
   const stemElement = params.stem ? getStemWuxing(params.stem) : undefined;
   const seasonState = getSeasonState(params.element, params.monthBranch);
-  const isVoid = params.xunKong.includes(params.branch);
+  // 人元是地分上遁得的天干；地分旬空不等于人元干也落旬空。
+  const isVoid = params.elementBasis !== '人元干' && params.xunKong.includes(params.branch);
   const support: string[] = [];
   const constraints: string[] = [];
 
@@ -292,7 +129,7 @@ function buildPosition(params: {
   if (isVoid) constraints.push('落日旬空');
   return {
     name: params.name,
-    role: POSITION_ROLES[params.name],
+    role: getJinkouPositionRole(params.name),
     branch: params.branch,
     stem: params.stem,
     stemElement,
@@ -304,16 +141,12 @@ function buildPosition(params: {
     isVoid,
     support,
     constraints,
-    promptText: [
-      `${params.name}${params.stem || ''}${params.branch}`,
-      params.god ? `乘${params.god}` : '',
-      `${params.yinYang}${params.element}（按${params.elementBasis}）`,
-      stemElement && params.elementBasis !== '人元干' ? `遁干${params.stem}属${stemElement}` : '',
-      `月令${seasonState}`,
-      isVoid ? '旬空' : '不空',
-    ]
-      .filter(Boolean)
-      .join('；'),
+    promptText: formatJinkoujuePositionPromptText({
+      ...params,
+      stemElement,
+      seasonState,
+      isVoid,
+    }),
   };
 }
 
@@ -389,8 +222,9 @@ function buildMovements(positions: Record<string, JinkoujueFourPosition>) {
 }
 
 /**
- * 依据《六壬神课金口诀古本》卷二“四位比合歌”推导四位五行比合定性：
- * 二木为爻（事多牵连）、二火为灾（防口舌焦躁）、二土为滞（迟疑不通）、二金为刑（刑伤折损）、二水为盗（暗耗漂流）。
+ * 按四位实盘列出同五行的数量与位置。
+ * 《六壬神课金口诀古本》卷上“入式歌解”对二木、二土、二金、二火、二水
+ * 均结合神将、位次及生克举例，数量只作为比合条件。
  */
 export function evaluateJinkoujueBihePoems(positions: {
   renYuan: JinkoujueFourPosition;
@@ -398,43 +232,18 @@ export function evaluateJinkoujueBihePoems(positions: {
   jiangShen: JinkoujueFourPosition;
   diFen: JinkoujueFourPosition;
 }): string {
-  const elements = [
-    positions.renYuan.element,
-    positions.guiShen.element,
-    positions.jiangShen.element,
-    positions.diFen.element,
-  ];
-  const counts: Record<string, number> = {};
-  for (const el of elements) {
-    counts[el] = (counts[el] || 0) + 1;
-  }
-
-  const poems: string[] = [];
-  if ((counts['木'] ?? 0) >= 2) {
-    const c = counts['木'];
-    poems.push(c >= 3 ? '三木为爻，同气分争牵连尤甚' : '二木为爻，事多牵连分争');
-  }
-  if ((counts['火'] ?? 0) >= 2) {
-    const c = counts['火'];
-    poems.push(c >= 3 ? '三火为灾，口舌官非焦躁极重' : '二火为灾，多生口舌焦躁是非');
-  }
-  if ((counts['土'] ?? 0) >= 2) {
-    const c = counts['土'];
-    poems.push(c >= 3 ? '三土为滞，重滞凝塞迟疑难通' : '二土为滞，事多迟疑阻滞不通');
-  }
-  if ((counts['金'] ?? 0) >= 2) {
-    const c = counts['金'];
-    poems.push(c >= 3 ? '三金为刑，争斗刑伤折损极烈' : '二金为刑，互见争斗刑伤折损');
-  }
-  if ((counts['水'] ?? 0) >= 2) {
-    const c = counts['水'];
-    poems.push(c >= 3 ? '三水为盗，暗流损耗漂流难聚' : '二水为盗，多有暗耗漂流走失');
-  }
-
-  if (poems.length === 0) {
-    return '四位五行周流，无极偏比合之患';
-  }
-  return poems.join('；');
+  const all = [positions.renYuan, positions.guiShen, positions.jiangShen, positions.diFen];
+  const numerals = ['', '一', '二', '三', '四'];
+  return ['木', '火', '土', '金', '水']
+    .flatMap((element) => {
+      const members = all.filter((position) => position.element === element);
+      return members.length >= 2
+        ? [
+            `${element}见${numerals[members.length]}位（${members.map((position) => position.name).join('、')}）`,
+          ]
+        : [];
+    })
+    .join('；');
 }
 
 function resolveDiFenBranch(params: {
@@ -504,6 +313,8 @@ export function generateJinkoujue(
     branch?: string;
     number?: number;
     customDate?: Date;
+    termReferenceDate?: Date;
+    timezoneOffsetMinutes?: number;
   } & RandomOptions,
 ): JinkoujueData {
   assertOptionalRecord(params, '金口诀起课参数');
@@ -515,12 +326,17 @@ export function generateJinkoujue(
 
   let randomTrace: RandomTrace | undefined;
 
-  const { ganzhi, timestamp } = getDivinationTime(params?.customDate);
+  const { ganzhi, timestamp, timezoneOffsetMinutes } = getDivinationTime(
+    params?.customDate,
+    params?.timezoneOffsetMinutes,
+    params?.termReferenceDate,
+  );
+  const termReferenceTimestamp = params?.termReferenceDate?.getTime();
   const dayStem = ganzhi.day.charAt(0);
   const monthBranch = ganzhi.month.charAt(1);
   const hourBranch = ganzhi.hour.charAt(1);
   const dayNight: '昼占' | '夜占' = DAYTIME_BRANCHES.has(hourBranch) ? '昼占' : '夜占';
-  const monthLeader = getMonthLeaderByZhongqi(timestamp);
+  const monthLeader = getJinkoujueMonthLeader(termReferenceTimestamp ?? timestamp);
   const noblemanBranch = getJinkouNoblemanBranch(dayStem, dayNight);
   const xunKong = getVoidBranches(ganzhi.day);
 
@@ -540,6 +356,7 @@ export function generateJinkoujue(
       random: context.random,
     });
     randomTrace = context.getTrace();
+    assertReplaySamplesConsumed(params, randomTrace);
   } else {
     diFenResolved = resolveDiFenBranch({
       method,
@@ -601,6 +418,7 @@ export function generateJinkoujue(
   const relations = {
     guiToJiang: describeElementRelation(guiShen.element, jiangShen.element),
     guiToRen: describeElementRelation(guiShen.element, renYuan.element),
+    renToJiang: describeElementRelation(renYuan.element, jiangShen.element),
     jiangToDi: describeElementRelation(jiangShen.element, diFen.element),
     renToDi: describeElementRelation(renYuan.element, diFen.element),
     guiToDi: describeElementRelation(guiShen.element, diFen.element),
@@ -621,10 +439,12 @@ export function generateJinkoujue(
   ].join('；');
 
   const result: JinkoujueData = {
+    ...(termReferenceTimestamp === undefined ? {} : { termReferenceTimestamp }),
     method,
     methodLabel: METHOD_LABELS[method],
     ganzhi,
     timestamp,
+    timezoneOffsetMinutes,
     dayNight,
     monthLeader,
     divinationBranch: hourBranch,
@@ -645,7 +465,8 @@ export function generateJinkoujue(
       diFenNote: diFenResolved.note,
       monthLeaderRule: '按已交中气定月将',
       yuanDunRule: '五子元遁分别求人元、神干与将干',
-      dayNightRule: '卯至申按昼占、酉至寅按夜占（未提供地点时采用固定时支口径）',
+      dayNightRule:
+        '本次按卯至申昼占、酉至寅夜占的固定时支约定起贵人；《六壬神课金口诀·贵神治旦暮》以星没为旦、星出为暮。',
       noblemanRule: `${dayNight}贵人起${noblemanBranch}，从贵人起十二贵神排至地分${diFen.branch}`,
       noblemanDirection: guiShenResolved.direction,
       guiShenRule: `${guiShenResolved.direction}至地分得${guiShen.god}，贵神本属${guiShenResolved.stem}${guiShenResolved.branch}${guiShenResolved.element}`,
@@ -683,9 +504,10 @@ export function generateJinkoujue(
     algorithm: 'jinkoujue',
     input: {
       method,
-      branch: params?.branch ?? null,
-      number: params?.number ?? null,
+      ...(method === 'branch' ? { branch: params?.branch ?? null } : {}),
+      ...(method === 'number' ? { number: params?.number ?? null } : {}),
       timestamp,
+      ...(termReferenceTimestamp === undefined ? {} : { termReferenceTimestamp }),
       diFenBranch: diFen.branch,
     },
     calculatedAt: timestamp,
@@ -698,6 +520,7 @@ export function generateJinkoujue(
 }
 
 export { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
+export { getJinkoujueElementRelation } from '../jinkoujue-utils';
 export type {
   JinkoujueEvidenceAnalysis,
   JinkoujuePositionFact,

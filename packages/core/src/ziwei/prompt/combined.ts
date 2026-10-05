@@ -4,6 +4,7 @@ import {
   buildPromptTask,
 } from '../../prompt/guidance';
 import { formatPromptCurrentTime } from '../../prompt/current-time';
+import { formatFixedTimezoneOffset } from '../../calendar/civil-time';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../../prompt/schools';
 import type { AnalysisPayloadV1 } from '../../types/analysis';
 import {
@@ -197,18 +198,34 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
     .join('\n');
 }
 
-/** 提取紫微真太阳时证据中适合提示词展示的校正时刻与时辰。 */
+/** 从紫微真太阳时计算步骤提取钟表时刻、时区、经度和排盘时辰。 */
 export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence): string {
   if (!evidence) return '';
-  const corrected = evidence.correctionFacts
-    .find((fact) => fact.type === '总校正')
-    ?.promptText.match(/真太阳时为(.+)$/)?.[1];
-  const shichen = evidence.correctionFacts
-    .find((fact) => fact.type === '时辰结果')
-    ?.promptText.match(/唯一时辰为(.+?)（/)?.[1];
-  return [corrected ? `真太阳时：${corrected}` : '', shichen ? `时辰：${shichen}` : '']
+  const input = evidence.calculationSteps.find((step) => step.stage === '输入口径核验');
+  const correction = evidence.calculationSteps.find((step) => step.stage === '总校正与跨日');
+  const hour = evidence.calculationSteps.find((step) => step.stage === '时辰映射');
+  const daylightSaving = evidence.calculationSteps.find((step) => step.stage === '历史夏令时还原');
+  const clockDateTime = input?.inputs.clockDateTime;
+  const timezone = input?.inputs.timezone;
+  const timeZoneId = input?.inputs.timeZoneId;
+  const longitude = input?.inputs.longitude;
+  const correctedDateTime = correction?.result.correctedDateTime;
+  const shichen = hour?.result.shichen;
+  return [
+    typeof clockDateTime === 'string' ? `当地钟表时间：${clockDateTime}` : '',
+    typeof timezone === 'number'
+      ? `法定时区：${typeof timeZoneId === 'string' ? `${timeZoneId}，` : ''}UTC${formatFixedTimezoneOffset(timezone)}`
+      : '',
+    daylightSaving?.result.applied === true &&
+    typeof daylightSaving.result.offsetMinutes === 'number'
+      ? `夏令时还原：${daylightSaving.result.offsetMinutes < 0 ? '回拨' : '前推'}${Math.abs(daylightSaving.result.offsetMinutes)}分钟`
+      : '',
+    typeof longitude === 'number' ? `出生经度：${longitude}°` : '',
+    typeof correctedDateTime === 'string' ? `真太阳时：${correctedDateTime}` : '',
+    typeof shichen === 'string' ? `时辰：${shichen}` : '',
+  ]
     .filter(Boolean)
-    .join('，');
+    .join('；');
 }
 
 export interface CombinedZiweiPromptOptions {

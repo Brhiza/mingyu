@@ -5,7 +5,7 @@ import type {
   LiurenLesson,
   LiurenTransmission,
 } from '../../../../types/divination';
-import { isBranchKe } from './plate';
+import { describeRelation, isBranchKe } from './plate';
 import { getXunHead } from '../../../../ganzhi';
 
 export function buildTransmissionNote(stage: LiurenTransmission['stage'], relation: string) {
@@ -58,6 +58,7 @@ const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
   initialGroundBranch?: string;
+  initialGod?: string;
   yearBranch?: string;
   monthBranch?: string;
   monthLeader?: string;
@@ -261,102 +262,12 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         : null,
   },
   {
-    id: 'chu-mo-xiang-chong',
-    name: '初末相冲课',
-    category: '三传冲合',
-    sourceTitle: '《六壬大全》卷七·毕法赋',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
-    sourceQuote: '初末相冲多反覆。',
-    detect(context) {
-      const chu = context.transmissionBranches[0];
-      const mo = context.transmissionBranches[context.transmissionBranches.length - 1];
-      if (!chu || !mo) return null;
-      const chongMap: Record<string, string> = {
-        子: '午',
-        午: '子',
-        丑: '未',
-        未: '丑',
-        寅: '申',
-        申: '寅',
-        卯: '酉',
-        酉: '卯',
-        辰: '戌',
-        戌: '辰',
-        巳: '亥',
-        亥: '巳',
-      };
-      return chongMap[chu] === mo
-        ? {
-            branches: [chu, mo],
-            matchedConditions: [`初传${chu}与末传${mo}相冲，谋事始末多反覆`],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'chuan-gui-sheng-chu',
-    name: '传归生处课',
-    category: '传干生克',
-    sourceTitle: '《六壬大全》卷七·毕法赋',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
-    sourceQuote: '传归生处真生旺。',
-    detect(context) {
-      if (!context.dayStem) return null;
-      const mo = context.transmissionBranches[context.transmissionBranches.length - 1];
-      if (!mo) return null;
-      const stemWuxing: Record<string, string> = {
-        甲: '木',
-        乙: '木',
-        丙: '火',
-        丁: '火',
-        戊: '土',
-        己: '土',
-        庚: '金',
-        辛: '金',
-        壬: '水',
-        癸: '水',
-      };
-      const branchWuxing: Record<string, string> = {
-        寅: '木',
-        卯: '木',
-        巳: '火',
-        午: '火',
-        辰: '土',
-        戌: '土',
-        丑: '土',
-        未: '土',
-        申: '金',
-        酉: '金',
-        亥: '水',
-        子: '水',
-      };
-      const shengRelation: Record<string, string> = {
-        木: '水',
-        火: '木',
-        土: '火',
-        金: '土',
-        水: '金',
-      };
-      const stemElement = stemWuxing[context.dayStem];
-      const branchElement = branchWuxing[mo];
-      if (stemElement && branchElement && shengRelation[stemElement] === branchElement) {
-        return {
-          branches: [mo],
-          matchedConditions: [
-            `末传${mo}（${branchElement}）生日干${context.dayStem}（${stemElement}），终得生扶归宿`,
-          ],
-        };
-      }
-      return null;
-    },
-  },
-  {
     id: 'bi-kou',
     name: '闭口课',
-    category: '旬尾发用',
-    sourceTitle: '《六壬大全》卷七·毕法赋',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
-    sourceQuote: '旬尾加寅为闭口，发用事关隐密或难启齿。',
+    category: '闭口发用',
+    sourceTitle: '《六壬大全》·闭口课',
+    sourceUrl: 'https://www.shidianguji.com/book/SK1599/chapter/1k1lqkvtq89hm',
+    sourceQuote: '凡旬尾加旬首，或旬首乘玄武，或旬首位上神乘玄武，发用者，为闭口课。',
     detect(context) {
       if (!context.dayStem || !context.dayBranch) return null;
       const chu = context.transmissionBranches[0];
@@ -377,23 +288,33 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         甲寅: '亥',
       };
       const xunTailBranch = xunTailMap[xunHead];
-      return chu === xunTailBranch
-        ? {
-            branches: [chu],
-            matchedConditions: [`初传${chu}为${xunHead}旬尾（六癸之位）发用，事关隐密或难言伏匿`],
-          }
-        : null;
+      const xunHeadBranch = xunHead.charAt(1);
+      if (chu === xunTailBranch && context.initialGroundBranch === xunHeadBranch) {
+        return {
+          branches: [chu, xunHeadBranch],
+          matchedConditions: [`初传${chu}为${xunHead}旬尾，临地盘旬首${xunHeadBranch}发用`],
+        };
+      }
+      if (context.initialGod === '玄武' && chu === xunHeadBranch) {
+        return {
+          branches: [chu],
+          matchedConditions: [`初传${chu}为${xunHead}旬首，乘玄武发用`],
+        };
+      }
+      if (context.initialGod === '玄武' && context.initialGroundBranch === xunHeadBranch) {
+        return {
+          branches: [chu, xunHeadBranch],
+          matchedConditions: [`初传${chu}为地盘旬首${xunHeadBranch}上神，乘玄武发用`],
+        };
+      }
+      return null;
     },
   },
 ];
 
 export const REGISTERED_LIUREN_GUA_TI_COUNT = REGISTERED_GUA_TI_RULES.length;
 
-/**
- * 识别三传成局课体。
- * 《六壬指南》列三交、玄胎、稼穑及曲直、从革、炎上、润下等三传课体；
- * 这里仅按三传地支结构打标签，吉凶仍交由后续断课结合用神、天将与旺衰判断。
- */
+/** 根据三传、四课及天将临地等可核对的条件标记课体。 */
 export function getLiurenGuaTiFacts(context: LiurenGuaTiContext): LiurenGuaTiFact[] {
   return REGISTERED_GUA_TI_RULES.flatMap((rule) => {
     const match = rule.detect(context);
@@ -435,4 +356,63 @@ export function buildTransmissionDetail(
         .join('；')}`
     : '';
   return `取传采用${rule}，以${initialTransmission.stage}${initialTransmission.branch}为初传发用${sourceText}。`;
+}
+
+/** 按已确定的课传生成焦点与应期资料，供排盘和旧盘核验共用。 */
+export function buildLiurenFocusEvidence(input: {
+  rule: string;
+  transmissions: LiurenTransmission[];
+  dayStem: string;
+  dayStemResidence: string;
+  dayBranch: string;
+  fourLessons: LiurenLesson[];
+}): NonNullable<LiurenData['focusEvidence']> {
+  const first = input.transmissions[0];
+  return [
+    {
+      target: `初传${first.branch}乘${first.god}`,
+      role: '发用主轴',
+      level: '主证',
+      evidence: [
+        `${input.rule}取为初传`,
+        `月令${first.seasonState}`,
+        first.dayRelation ?? describeRelation(first.branch, input.dayBranch),
+      ],
+      limitations: first.isVoid ? ['初传空亡，主证需待填实'] : [],
+    },
+    {
+      target: `日干${input.dayStem}寄${input.dayStemResidence}`,
+      role: '我方与求测者',
+      level: '辅证',
+      evidence: [
+        '日干寄宫为我方定位',
+        `一课${input.fourLessons[0].upper}临${input.fourLessons[0].lower}`,
+      ],
+      limitations: [],
+    },
+    {
+      target: `日支${input.dayBranch}`,
+      role: '所占之事与对方环境',
+      level: '辅证',
+      evidence: [
+        `三课${input.fourLessons[2].upper}临${input.fourLessons[2].lower}`,
+        '需与发用和三传同看',
+      ],
+      limitations: ['具体类神仍须按问题主题从明列盘面中选取'],
+    },
+  ];
+}
+
+export function buildLiurenTimingEvidence(input: {
+  transmissions: LiurenTransmission[];
+  dayBranch: string;
+  monthBranch: string;
+}): NonNullable<LiurenData['timingEvidence']> {
+  const first = input.transmissions[0];
+  return [
+    `一级发用：先看初传${first.branch}${first.isVoid ? '空亡，待出空或冲实' : '不空，按月令旺衰、日支关系和事项类神核对发端条件'}`,
+    `二级三传：${input.transmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
+    `三级日月：以日支${input.dayBranch}、月支${input.monthBranch}对初传和类神的同支、冲合与旺衰作为触发条件`,
+    '以问题期限、三传先后和现实触发条件核对应期',
+  ];
 }

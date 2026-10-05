@@ -14,13 +14,14 @@ import { generateDivinationSession, type DivinationDraft } from '../src/lib/divi
 import { getDivinationSessionSummary } from '../src/lib/divination/summary';
 import { addDivinationHistory, getDivinationHistoryById } from '../src/lib/history-records';
 
+const candidate = reverseBaziDates({
+  pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+  startYear: 2024,
+  endYear: 2024,
+}).candidates.find((item) => item.start.text === '2024-02-04 23:00:00');
+assert.ok(candidate);
+
 function createDraft(): DivinationDraft {
-  const candidate = reverseBaziDates({
-    pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
-    startYear: 2024,
-    endYear: 2024,
-  }).candidates.find((item) => item.start.text === '2024-02-04 23:00:00');
-  assert.ok(candidate);
   const selection = resolveBaziReverseCandidate(candidate);
   assert.ok(selection);
   return {
@@ -36,8 +37,9 @@ function createDraft(): DivinationDraft {
   };
 }
 
-test('梅花从真实四柱候选进入分段盘面、摘要、分享和完整体用提示词', async () => {
-  const session = await generateDivinationSession(createDraft());
+test('梅花真实四柱候选的分段事实经显示、分享与历史恢复保持一致', async () => {
+  const draft = createDraft();
+  const session = await generateDivinationSession(draft);
   assert.equal(session.meihuaRange?.status, 'conditional');
   assert.deepEqual(
     session.meihuaRange.branches.map(({ data }) => [
@@ -74,33 +76,7 @@ test('梅花从真实四柱候选进入分段盘面、摘要、分享和完整�
     for (const fact of formatMeihuaFacts(data)) assert.ok(text.includes(fact), fact);
   }
   assert.doesNotMatch(session.prompt, /【当前时间】|当前盘面采用区间起点/);
-});
 
-test('梅花固定数字与随机起卦跨零点不重复起卦，稳定区间保留日期范围', async () => {
-  for (const options of [
-    { meihuaMethod: 'number' as const, meihuaNumber: '7' },
-    { meihuaMethod: 'random' as const },
-  ]) {
-    const session = await generateDivinationSession({ ...createDraft(), ...options });
-    assert.equal(session.meihuaRange?.status, 'stable');
-    assert.equal(session.meihuaRange.branches.length, 1);
-    const data = session.meihuaRange.branches[0]!.data;
-    assert.equal(data.calculation?.methodKey, options.meihuaMethod);
-    const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
-    assert.equal(
-      (html.match(/class="traditional-board traditional-meihua-board"/g) ?? []).length,
-      1,
-    );
-    assert.doesNotMatch(html, /所选时间范围内卦象有变化/);
-    assert.doesNotMatch(session.prompt, /【当前时间】/);
-    assert.ok(session.prompt.includes('23:00:00') && session.prompt.includes('01:00:00'));
-  }
-});
-
-test('梅花分段结果经历史存储恢复后提示词和分享保持一致', async () => {
-  const draft = createDraft();
-  const session = await generateDivinationSession(draft);
-  assert.equal(session.meihuaRange?.branches.length, 2);
   const values = new Map<string, string>();
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
   Object.defineProperty(globalThis, 'window', {
@@ -128,6 +104,27 @@ test('梅花分段结果经历史存储恢复后提示词和分享保持一致',
   } finally {
     if (original) Object.defineProperty(globalThis, 'window', original);
     else Reflect.deleteProperty(globalThis, 'window');
+  }
+});
+
+test('梅花固定数字与随机起卦跨零点不重复起卦，稳定区间保留日期范围', async () => {
+  for (const options of [
+    { meihuaMethod: 'number' as const, meihuaNumber: '7' },
+    { meihuaMethod: 'random' as const },
+  ]) {
+    const session = await generateDivinationSession({ ...createDraft(), ...options });
+    assert.equal(session.meihuaRange?.status, 'stable');
+    assert.equal(session.meihuaRange.branches.length, 1);
+    const data = session.meihuaRange.branches[0]!.data;
+    assert.equal(data.calculation?.methodKey, options.meihuaMethod);
+    const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+    assert.equal(
+      (html.match(/class="traditional-board traditional-meihua-board"/g) ?? []).length,
+      1,
+    );
+    assert.doesNotMatch(html, /所选时间范围内卦象有变化/);
+    assert.doesNotMatch(session.prompt, /【当前时间】/);
+    assert.ok(session.prompt.includes('23:00:00') && session.prompt.includes('01:00:00'));
   }
 });
 

@@ -8,8 +8,8 @@
 import {
   Engine,
   detectPatternsIn,
+  PATTERN_ORBS,
   isDayChart,
-  julianDay,
   lotFortune,
   lotSpirit,
   lunarEclipses,
@@ -269,6 +269,7 @@ export interface Transit {
   isOutOfSign: boolean;
   deviation: number;
   strength: number;
+  /** exact 表示偏差按 0.01° 展示为 0.00°；其余按当前位置速度判定入相或出相。 */
   phase: 'applying' | 'exact' | 'separating' | 'unknown';
   isRetrograde: boolean;
 }
@@ -292,9 +293,11 @@ function isApplyingAspect(first: AspectBody, second: AspectBody, angle: number):
   if (first.longitudeSpeed === undefined || second.longitudeSpeed === undefined) return null;
   const relativeSpeed = second.longitudeSpeed - first.longitudeSpeed;
   if (relativeSpeed === 0) return null;
+  const currentSeparation = separation(first.longitude, second.longitude);
+  if (currentSeparation === angle) return null;
   const directedSeparation = normalize(second.longitude - first.longitude);
   const separationSpeed = (directedSeparation > 180 ? -1 : 1) * relativeSpeed;
-  return (separation(first.longitude, second.longitude) - angle) * separationSpeed < 0;
+  return (currentSeparation - angle) * separationSpeed < 0;
 }
 
 function toUtc(input: BirthData): Date {
@@ -342,14 +345,35 @@ function requireChartCoordinates(input: BirthData): { latitude: number; longitud
   if (input.latitude === undefined || input.longitude === undefined) {
     throw new Error('完整星盘计算必须同时提供出生地纬度和经度。');
   }
+  if (Math.abs(input.latitude) === 90) {
+    throw new RangeError('地理极点无法确定上升点与宫位，完整星盘纬度必须小于90度。');
+  }
   return { latitude: input.latitude, longitude: input.longitude };
 }
 
 export function toJulianDate(input: BirthData): number {
-  return toUtc(input).getTime() / 86_400_000 + 2_440_587.5;
+  return julianDateOfUtc(toUtc(input));
 }
 
 export const time = { toJulianDate } as const;
+
+function julianDateOfUtc(utc: Date): number {
+  return utc.getTime() / 86_400_000 + 2_440_587.5;
+}
+
+function positionAt(bodyId: string, jd: number): CaelusPosition {
+  if (!Number.isFinite(jd)) throw new Error('星历儒略日必须是有限数值。');
+  const position = astrologyEngine.position(bodyId, jd);
+  if (
+    !Number.isFinite(position.lon) ||
+    !Number.isFinite(position.lat) ||
+    !Number.isFinite(position.speed) ||
+    (position.dist != null && !Number.isFinite(position.dist))
+  ) {
+    throw new RangeError('当前儒略日无法计算有效星历位置。');
+  }
+  return position;
+}
 
 function houseForLongitude(cusps: readonly number[], longitude: number): number {
   for (let index = 0; index < cusps.length; index += 1) {
@@ -421,6 +445,8 @@ function createPoint(
 }
 
 function isOutOfSign(first: number, second: number, angle: number): boolean {
+  // 只有整星座跨度的相位才有确定的星座关系；谐波相位不能四舍五入成相邻宫数。
+  if (angle % 30 !== 0) return false;
   const signDistance = Math.abs(
     Math.floor(normalize(first) / 30) - Math.floor(normalize(second) / 30),
   );
@@ -522,15 +548,77 @@ const BODY_LABELS: Record<string, string> = {
   Pluto: '冥王星',
 };
 
-function findPatternsFromBodies(bodies: AspectBody[]): AspectPattern[] {
-  const detected = detectPatternsIn(
-    Object.fromEntries(bodies.map((body) => [body.name, { lon: body.longitude }])),
-    { bodies: bodies.map((body) => body.name) },
+function findPatternsFromBodies(
+  bodies: Array<AspectBody & { house: number }>,
+  selectedAspects: Aspect[],
+  selectedTypes: AspectType[],
+  minimumStrength: number,
+): AspectPattern[] {
+  // 格局只使用十大星体；计算点与小行星仍保留在位置和相位明细中。
+  const mainNames = new Set(getMainBodyNames({}));
+  const patternBodies = bodies.filter((body) => mainNames.has(body.name));
+  const patternOrbs = Object.fromEntries(
+    Object.entries(PATTERN_ORBS).map(([type, orb]) => [
+      type,
+      selectedTypes.includes(type as AspectType)
+        ? Math.min(orb, DEFAULT_ORBS[type as AspectType] * (1 - minimumStrength / 100))
+        : -1,
+    ]),
   );
-  return detected.map((pattern) => {
+  const detected = detectPatternsIn(
+    Object.fromEntries(
+      patternBodies.map((body) => [body.name, { lon: body.longitude, house: body.house }]),
+    ),
+    { bodies: patternBodies.map((body) => body.name), orbs: patternOrbs },
+  );
+  const requiredAspects: Record<string, AspectType[]> = {
+    t_square: [AspectType.Opposition, AspectType.Square, AspectType.Square],
+    grand_trine: [AspectType.Trine, AspectType.Trine, AspectType.Trine],
+    grand_cross: [
+      AspectType.Opposition,
+      AspectType.Opposition,
+      ...Array(4).fill(AspectType.Square),
+    ],
+    yod: [AspectType.Sextile, AspectType.Quincunx, AspectType.Quincunx],
+    kite: [
+      AspectType.Opposition,
+      AspectType.Sextile,
+      AspectType.Sextile,
+      ...Array(3).fill(AspectType.Trine),
+    ],
+    mystic_rectangle: [
+      AspectType.Opposition,
+      AspectType.Opposition,
+      AspectType.Sextile,
+      AspectType.Sextile,
+      AspectType.Trine,
+      AspectType.Trine,
+    ],
+  };
+  const patterns = detected.filter((pattern) => {
+    const expected = requiredAspects[pattern.kind];
+    if (!expected) return true;
+    const actual: AspectType[] = [];
+    for (let first = 0; first < pattern.bodies.length; first += 1) {
+      for (let second = first + 1; second < pattern.bodies.length; second += 1) {
+        const aspect = selectedAspects.find(
+          (item) =>
+            (item.body1 === pattern.bodies[first] && item.body2 === pattern.bodies[second]) ||
+            (item.body2 === pattern.bodies[first] && item.body1 === pattern.bodies[second]),
+        );
+        if (!aspect || !expected.includes(aspect.type)) return false;
+        actual.push(aspect.type);
+      }
+    }
+    return actual.sort().join(',') === [...expected].sort().join(',');
+  });
+  return patterns.map((pattern) => {
     const kind = PATTERN_KIND_LABELS[pattern.kind] ?? pattern.kind;
     const members = pattern.bodies.map((item) => BODY_LABELS[item] ?? item).join('、');
-    const apex = pattern.apex ? (BODY_LABELS[pattern.apex] ?? pattern.apex) : '';
+    const apex =
+      pattern.apex && (pattern.kind === 't_square' || pattern.kind === 'yod')
+        ? (BODY_LABELS[pattern.apex] ?? pattern.apex)
+        : '';
     const signIndex = SIGN_NAMES.indexOf(pattern.sign as (typeof SIGN_NAMES)[number]);
     const extra = pattern.sign
       ? `，${signIndex >= 0 ? SIGN_LABELS[signIndex] : pattern.sign}`
@@ -584,7 +672,7 @@ function calculatePositionOnlyBodies(jd: number, names: string[]): ChartPlanet[]
   const missingNames: string[] = [];
   for (const name of names) {
     try {
-      const position = mapPosition(name, astrologyEngine.position(BODY_IDS[name], jd));
+      const position = mapPosition(name, positionAt(BODY_IDS[name], jd));
       positions.push(position);
       if (name === 'North Node') {
         positions.push({
@@ -646,16 +734,16 @@ export function calculateChart(
     minimumAspectStrength?: number;
   } = {},
 ) {
+  if (options.houseSystem !== undefined && options.houseSystem !== 'placidus') {
+    throw new Error('本命宫位制不受支持。');
+  }
   const utc = toUtc(input);
   const { latitude, longitude } = requireChartCoordinates(input);
-  const jd = julianDay(
-    utc.getUTCFullYear(),
-    utc.getUTCMonth() + 1,
-    utc.getUTCDate(),
-    utc.getUTCHours(),
-    utc.getUTCMinutes(),
-    utc.getUTCSeconds(),
-  );
+  const aspectTypes = options.aspectTypes ?? Object.values(AspectType);
+  if (aspectTypes.some((type) => !Object.values(AspectType).includes(type))) {
+    throw new Error('本命相位类型不受支持。');
+  }
+  const jd = julianDateOfUtc(utc);
   const extraBodies: BodyId[] = [];
   if (options.includeAsteroids) extraBodies.push('ceres', 'pallas', 'juno', 'vesta');
   if (options.includeLilith) extraBodies.push('true_lilith');
@@ -700,28 +788,32 @@ export function calculateChart(
     : [];
   const lilith = options.includeLilith
     ? [
-        createPoint(
-          'True Lilith',
-          chart.bodies.true_lilith!.lon,
-          chart.cusps,
-          chart.bodies.true_lilith!.speed,
-        ),
+        {
+          ...createPoint(
+            'True Lilith',
+            chart.bodies.true_lilith!.lon,
+            chart.cusps,
+            chart.bodies.true_lilith!.speed,
+          ),
+          latitude: chart.bodies.true_lilith!.lat,
+          distance: chart.bodies.true_lilith!.dist ?? 0,
+        },
       ]
     : [];
+  const dayChart = isDayChart(astrologyEngine, jd, latitude, longitude);
   const chartLots = options.includeLots
     ? (() => {
-        const day = isDayChart(astrologyEngine, jd, latitude, longitude);
         const fortune = lotFortune(
           chart.angles.asc,
           chart.bodies.sun.lon,
           chart.bodies.moon.lon,
-          day,
+          dayChart,
         );
         const spirit = lotSpirit(
           chart.angles.asc,
           chart.bodies.sun.lon,
           chart.bodies.moon.lon,
-          day,
+          dayChart,
         );
         return [
           createPoint('Part of Fortune', fortune, chart.cusps),
@@ -737,13 +829,18 @@ export function calculateChart(
     name: body.name === 'North Node' ? 'True North Node' : body.name,
     longitude: body.longitude,
     longitudeSpeed: body.longitudeSpeed,
+    house: body.house,
   }));
-  const aspectTypes = options.aspectTypes ?? Object.values(AspectType);
   const allAspects = calculateAspects(aspectBodies, {
     minimumStrength: options.minimumAspectStrength,
   }).aspects.filter((aspect) => aspectTypes.includes(aspect.type));
   const distributions = calculateDistributions(planets);
-  const patterns = findPatternsFromBodies(aspectBodies);
+  const patterns = findPatternsFromBodies(
+    aspectBodies,
+    allAspects,
+    aspectTypes,
+    options.minimumAspectStrength ?? 0,
+  );
   const angle = (name: string, longitude: number) => ({ name, ...positionFields(longitude) });
   return {
     planets,
@@ -764,6 +861,7 @@ export function calculateChart(
         ...positionFields(longitude),
       })),
     },
+    dayChart,
     aspects: { all: allAspects },
     summary: {
       ...distributions,
@@ -771,8 +869,8 @@ export function calculateChart(
       patterns: patterns.map((pattern) => pattern.name),
     },
     options: {
-      aspectTypes,
-      aspectOrbs: DEFAULT_ORBS,
+      aspectTypes: [...aspectTypes],
+      aspectOrbs: { ...DEFAULT_ORBS },
       minimumAspectStrength: options.minimumAspectStrength ?? 0,
       includePatterns: true,
     },
@@ -785,6 +883,7 @@ export function calculateChart(
         hour: utc.getUTCHours(),
         minute: utc.getUTCMinutes(),
         second: utc.getUTCSeconds(),
+        ...(utc.getUTCMilliseconds() ? { millisecond: utc.getUTCMilliseconds() } : {}),
       },
     },
   };
@@ -805,26 +904,22 @@ export function calculatePlanets(
     includeNodes?: boolean;
   } = {},
 ): ChartPlanet[] {
+  if (options.includeLots) {
+    throw new Error('福点与精神点需要完整星盘的四轴和宫位，请调用 calculateChart。');
+  }
   const utc = toUtc(input);
   validateOptionalCoordinates(input);
-  const jd = julianDay(
-    utc.getUTCFullYear(),
-    utc.getUTCMonth() + 1,
-    utc.getUTCDate(),
-    utc.getUTCHours(),
-    utc.getUTCMinutes(),
-    utc.getUTCSeconds(),
-  );
+  const jd = julianDateOfUtc(utc);
   return calculatePositionOnlyBodies(jd, getRequestedBodyNames(options));
 }
 
 export function getSunPosition(jd: number) {
-  const position = astrologyEngine.position('sun', jd);
+  const position = positionAt('sun', jd);
   return { longitude: position.lon, latitude: position.lat, distance: position.dist ?? 0 };
 }
 
 export function getMoonPosition(jd: number) {
-  const position = astrologyEngine.position('moon', jd);
+  const position = positionAt('moon', jd);
   return { longitude: position.lon, latitude: position.lat, distance: position.dist ?? 0 };
 }
 
@@ -855,7 +950,7 @@ export function calculateTransits(
   const transits: Transit[] = [];
   for (const bodyName of options.transitingBodies) {
     const bodyId = BODY_IDS[bodyName];
-    const position = astrologyEngine.position(bodyId, jd);
+    const position = positionAt(bodyId, jd);
     const transitingPosition: TransitPosition = {
       ...positionFields(position.lon),
       ...(position.lat !== undefined ? { latitude: position.lat } : {}),
@@ -895,7 +990,7 @@ export function calculateTransits(
           deviation,
           strength,
           phase:
-            deviation <= 0.1
+            deviation < 0.005
               ? 'exact'
               : applying === null
                 ? 'unknown'
@@ -917,15 +1012,19 @@ export function bodyName(body: BodyId): string {
 export const JULIAN_DATE_UNIX_EPOCH = 2_440_587.5;
 
 export function julianDateToUnix(jd: number) {
-  return (jd - JULIAN_DATE_UNIX_EPOCH) * 86_400_000;
+  if (!Number.isFinite(jd)) throw new Error('儒略日必须是有限数值。');
+  const timestamp = (jd - JULIAN_DATE_UNIX_EPOCH) * 86_400_000;
+  if (!Number.isFinite(timestamp)) throw new RangeError('儒略日转换超出时间戳数值范围。');
+  return timestamp;
 }
 
 export function unixToJulianDate(timestamp: number) {
+  if (!Number.isFinite(timestamp)) throw new Error('时间戳必须是有限数值。');
   return timestamp / 86_400_000 + JULIAN_DATE_UNIX_EPOCH;
 }
 
 export function getApparentPosition(bodyId: string, jd: number) {
-  const position = astrologyEngine.position(bodyId, jd);
+  const position = positionAt(bodyId, jd);
   return {
     longitude: position.lon,
     latitude: position.lat,
@@ -945,6 +1044,9 @@ export type LunarEclipseEvent = {
 };
 
 export function findSolarEclipses(jdStart: number, jdEnd: number): SolarEclipseEvent[] {
+  if (!Number.isFinite(jdStart) || !Number.isFinite(jdEnd)) {
+    throw new Error('日食区间儒略日必须是有限数值。');
+  }
   return solarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
     julianDate: item.tMax,
     type: item.type,
@@ -952,6 +1054,9 @@ export function findSolarEclipses(jdStart: number, jdEnd: number): SolarEclipseE
 }
 
 export function findLunarEclipses(jdStart: number, jdEnd: number): LunarEclipseEvent[] {
+  if (!Number.isFinite(jdStart) || !Number.isFinite(jdEnd)) {
+    throw new Error('月食区间儒略日必须是有限数值。');
+  }
   return lunarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
     julianDate: item.tMax,
     type: item.type,

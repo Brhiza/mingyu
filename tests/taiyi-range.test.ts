@@ -144,11 +144,27 @@ test('范围事实格式化使用完整分支区间作为起局时间', () => {
     range.branches[1]!.endTimestamp,
   );
   assert.match(facts, /太乙神数时计候选时间范围内的分段盘面/u);
-  assert.ok(facts.includes(`分支1：${firstInterval}`));
-  assert.ok(facts.includes(`分支2：${secondInterval}`));
+  assert.ok(facts.includes('分支1：\n'));
+  assert.ok(facts.includes('分支2：\n'));
   assert.ok(facts.includes(`起局时间：${firstInterval}`));
   assert.ok(facts.includes(`起局时间：${secondInterval}`));
+  assert.equal(facts.split(firstInterval).length - 1, 1);
+  assert.equal(facts.split(secondInterval).length - 1, 1);
   assert.match(formatTaiyiRangeContext(range), /二十四节气交接、民用零点和时辰边界/u);
+});
+
+test('月计与日计范围事实保留完整时间区间及本计干支', () => {
+  for (const scope of ['month', 'day'] as const) {
+    const range = rangeFor(STABLE_SOURCE, scope);
+    const facts = formatTaiyiRangeFacts(range);
+    const interval = formatTaiyiRangeInterval(
+      range.branches[0]!.startTimestamp,
+      range.branches[0]!.endTimestamp,
+    );
+    assert.ok(facts.includes(`起局时间：${interval}；本计干支：${range.branches[0]!.data.ganZhi}`));
+    assert.equal(facts.split(interval).length - 1, 1);
+    assert.doesNotMatch(facts, /北京时间-undefined月|起局时间：北京时间；/u);
+  }
 });
 
 test('范围来源坚持完整机器边界、文本一致、代表起点和月日时范围', () => {

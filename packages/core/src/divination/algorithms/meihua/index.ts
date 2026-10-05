@@ -15,12 +15,13 @@
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
-import { trigramsByIndex } from '../../../divination/hexagram-data';
+import { getTrigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
+import { estimateYingQi } from './helpers/timing';
 import {
   resolveTimeTrigramMethod,
   resolveNumberMethod,
@@ -35,9 +36,32 @@ import { attachResultMeta } from '../../../shared/result';
 import { hasRandomOptions } from '../../../shared/random';
 import { analyzeMeihuaEvidence } from '../../meihua-evidence';
 
+const trigramsByIndex = getTrigramsByIndex();
+
 const trigrams = trigramsByIndex;
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 const MOVING_YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'] as const;
+const MEIHUA_INPUT_FIELDS = [
+  'number',
+  'soundCount',
+  'characterText',
+  'characterCount',
+  'characterTones',
+  'characterStrokeCounts',
+  'characterLeftStrokes',
+  'characterRightStrokes',
+  'direction',
+  'objectType',
+] as const;
+const MEIHUA_METHOD_INPUTS: Record<NonNullable<MeihuaSettings['method']>, readonly string[]> = {
+  time: [],
+  timeTrigram: [],
+  number: ['number'],
+  sound: ['soundCount'],
+  character: MEIHUA_INPUT_FIELDS.filter((field) => field.startsWith('character')),
+  direction: ['direction', 'objectType'],
+  random: [],
+};
 
 /**
  * 体用生克关系判定字串
@@ -74,39 +98,34 @@ function getInterRelationToOriginalTi(
   );
 }
 
-function getMeihuaTiYongSeasonEvaluation(
+export function getMeihuaTiYongSeasonEvaluation(
   relation: string,
   tiSeason: string,
   yongSeason: string,
 ): string {
   const isTiStrong = tiSeason === '旺' || tiSeason === '相';
   const isYongStrong = yongSeason === '旺' || yongSeason === '相';
+  const seasonContext = `体卦月令${tiSeason}、用卦月令${yongSeason}`;
 
   switch (relation) {
     case '用克体':
       if (isTiStrong && !isYongStrong) {
-        return '体旺用衰，受克有惊无险，难伤大体';
+        return `主卦用克体，${seasonContext}；体旺用衰，克体条件较轻`;
       }
       if (!isTiStrong && isYongStrong) {
-        return '用旺体衰，克势严峻，事多受制受损，大宜慎重';
+        return `主卦用克体，${seasonContext}；用旺体衰，克体条件较重`;
       }
-      return '用卦克体，诸事受阻阻隔，防外力施压';
+      return `主卦用克体，${seasonContext}`;
     case '体克用':
-      if (isTiStrong) {
-        return '体旺克用，胜任其事，主导局势，操之在我';
-      }
-      return '体虽克用但自身气衰，勉力支撑，防劳而少功';
+      return `主卦体克用，${seasonContext}；体卦${isTiStrong ? '旺相，制用条件较强' : '休囚死，制用条件较弱'}`;
     case '用生体':
-      if (isYongStrong) {
-        return '用旺生体，外力生扶充沛，贵人相助，大吉之象';
-      }
-      return '用生体，略得外力照拂，助力虽浅亦可受益';
+      return `主卦用生体，${seasonContext}；用卦${isYongStrong ? '旺相，生体条件较强' : '休囚死，生体条件较弱'}`;
     case '体生用':
-      return '体生于用，泄我元气，防过度付出或破耗消耗';
+      return `主卦体生用，${seasonContext}；体卦向用卦泄气`;
     case '比和':
-      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}，实际助力结合月令、互变与动爻判断`;
+      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}`;
     default:
-      return '体用各安其位，顺时而动';
+      return `主卦体用关系未定，${seasonContext}`;
   }
 }
 
@@ -121,7 +140,7 @@ export function evaluateMeihuaTimelineTrend(params: {
   changedYongElement: string;
   changedTiElement?: string;
 }): {
-  trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
+  trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '未形成单向走势';
   summary: string;
 } {
   const {
@@ -188,67 +207,9 @@ export function evaluateMeihuaTimelineTrend(params: {
   }
 
   return {
-    trend: '平稳演进',
+    trend: '未形成单向走势',
     summary,
   };
-}
-
-/**
- * 应期判断（按《梅花易数》动静应期法）：
- * 根据动爻数、卦数、体用旺衰综合判断应期范围
- */
-function estimateYingQi(params: {
-  movingYaoIndex: number;
-  upperTrigramIndex: number;
-  lowerTrigramIndex: number;
-  tiElement: string;
-  yongElement: string;
-  seasonState: '旺' | '相' | '休' | '囚' | '死' | '平';
-}): string[] {
-  const periods: string[] = [];
-  const {
-    movingYaoIndex,
-    upperTrigramIndex,
-    lowerTrigramIndex,
-    tiElement,
-    yongElement,
-    seasonState,
-  } = params;
-
-  // 1. 动爻只定阶段和层位，不机械换算具体日、周、月、年。
-  const yaoPeriodMap: Record<number, string> = {
-    1: '初爻动，先观察事情刚开始或基层条件的变化',
-    2: '二爻动，先观察内部配合与近端条件的变化',
-    3: '三爻动，先观察由内向外过渡时的变化',
-    4: '四爻动，先观察外部环境开始介入时的变化',
-    5: '五爻动，先观察核心决策与主导条件的变化',
-    6: '上爻动，先观察事情末端、退出或重新定局的变化',
-  };
-  periods.push(yaoPeriodMap[movingYaoIndex] || '触发层位须结合实际事件再验');
-
-  // 2. 卦数只保留为起卦结构旁证，不直接映射时间单位。
-  const guaSum = upperTrigramIndex + lowerTrigramIndex;
-  periods.push(`上下卦数和为${guaSum}，只作取数来源旁证，不换算绝对日期`);
-
-  // 3. 体用生克只作快慢与阻力条件，不直接等于事件成败。
-  if (yongElement === tiElement) {
-    periods.push('体用比和，关系同气，可优先观察条件同步时的进展');
-  } else if (isSheng(yongElement, tiElement)) {
-    periods.push('用生体，外部条件对体卦有生扶，可观察助力实际出现时的进展');
-  } else if (isKe(yongElement, tiElement)) {
-    periods.push('用克体，外部事项对体卦形成压力，须先观察阻力是否缓解');
-  } else if (isKe(tiElement, yongElement)) {
-    periods.push('体克用，体卦能够制约事项，但须核验投入和消耗是否可承受');
-  }
-
-  // 4. 旺衰定迟速
-  if (seasonState === '旺' || seasonState === '相') {
-    periods.push('体卦旺相，应期快于常规');
-  } else if (seasonState === '休' || seasonState === '囚' || seasonState === '死') {
-    periods.push('体卦休囚，应期迟缓');
-  }
-
-  return periods;
 }
 
 /**
@@ -270,15 +231,49 @@ function estimateYingQi(params: {
  * const result = generateMeihua(undefined, { method: 'number', number: 123 });
  * ```
  */
-export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
+export function generateMeihua(
+  customDate?: Date,
+  settings?: MeihuaSettings,
+  options?: { termReferenceDate?: Date; timezoneOffsetMinutes?: number },
+): MeihuaData {
   assertOptionalRecord(settings, '梅花易数起卦设置');
   // 1. 获取占卜时间的农历及干支信息
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timeInfo, timestamp } = getDivinationTime(
+    customDate,
+    options?.timezoneOffsetMinutes,
+    options?.termReferenceDate,
+  );
+  const termReferenceTimestamp = options?.termReferenceDate?.getTime();
   const { lunar } = timeInfo;
   const method = settings?.method ?? 'time';
+  const acceptedInputs = Object.prototype.hasOwnProperty.call(MEIHUA_METHOD_INPUTS, method)
+    ? MEIHUA_METHOD_INPUTS[method]
+    : undefined;
+  if (acceptedInputs) {
+    for (const field of MEIHUA_INPUT_FIELDS) {
+      if (settings?.[field] !== undefined && !acceptedInputs.includes(field)) {
+        throw new Error(`梅花易数${method}起卦不接受 ${field}。`);
+      }
+    }
+  }
   if (method !== 'random' && hasRandomOptions(settings)) {
     throw new Error('梅花易数仅随机起卦接受 seed、replay 或自定义随机源。');
   }
+  const input = {
+    method,
+    number: settings?.number,
+    soundCount: settings?.soundCount,
+    characterText: settings?.characterText,
+    characterCount: settings?.characterCount,
+    characterTones: settings?.characterTones,
+    characterStrokeCounts: settings?.characterStrokeCounts,
+    characterLeftStrokes: settings?.characterLeftStrokes,
+    characterRightStrokes: settings?.characterRightStrokes,
+    direction: settings?.direction,
+    objectType: settings?.objectType,
+    timestamp,
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
+  };
 
   const methodResult: MeihuaMethodResult = (() => {
     switch (method) {
@@ -311,6 +306,13 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
 
   const { upperTrigramIndex, lowerTrigramIndex, movingYaoIndex, calculation, randomTrace } =
     methodResult;
+  const { solar } = timeInfo;
+  const localClock = new Date(0);
+  localClock.setUTCFullYear(solar.year, solar.month - 1, solar.day);
+  localClock.setUTCHours(solar.hour, solar.minute, 0, 0);
+  const localMinute = localClock.getTime();
+  const utcMinute = Math.floor(timestamp / 60_000) * 60_000;
+  calculation.timezoneOffsetMinutes = (localMinute - utcMinute) / 60_000;
 
   // 3. 确定主卦、互卦、变卦
   const upperTrigram = trigrams[upperTrigramIndex];
@@ -321,9 +323,16 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   const mainHexagram = findHexagramByTrigrams(upperTrigramIndex, lowerTrigramIndex);
 
   const mainLines = [...lowerTrigram.lines, ...upperTrigram.lines];
+  const changedLines = [...mainLines];
+  changedLines[movingYaoIndex - 1] = 1 - changedLines[movingYaoIndex - 1];
 
-  const interLowerLines = mainLines.slice(1, 4);
-  const interUpperLines = mainLines.slice(2, 5);
+  // 《梅花易数》卷一《互卦起例》载“乾坤无互，互其变卦”：主卦为纯乾或纯坤时，改取变卦中间四爻。
+  const mutualSourceLines =
+    upperTrigramIndex === lowerTrigramIndex && (upperTrigramIndex === 1 || upperTrigramIndex === 8)
+      ? changedLines
+      : mainLines;
+  const interLowerLines = mutualSourceLines.slice(1, 4);
+  const interUpperLines = mutualSourceLines.slice(2, 5);
 
   const findTrigramByBottomUpLines = (lines: number[]) => {
     for (let i = 1; i <= 8; i++) {
@@ -350,9 +359,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     );
   }
   const interHexagram = findHexagramByTrigrams(interUpperResult.index, interLowerResult.index);
-
-  const changedLines = [...mainLines];
-  changedLines[movingYaoIndex - 1] = 1 - changedLines[movingYaoIndex - 1];
 
   const changedLowerLines = changedLines.slice(0, 3);
   const changedUpperLines = changedLines.slice(3, 6);
@@ -394,13 +400,15 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     throw new Error(`梅花易数${mainHexagram.name}缺少第${movingYaoIndex}爻爻辞。`);
   }
 
-  const yaosDetail = mainLines.map((line, index) => ({
-    position: index + 1,
-    yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
-    isChanging: index === movingYaoIndex - 1,
-    tiYong: ((index < 3 ? lowerTrigram.name : upperTrigram.name) === tiGua.name ? '体' : '用') as
-      '体' | '用',
-  }));
+  const yaosDetail = mainLines.map((line, index) => {
+    const isYong = index < 3 ? movingInLower : !movingInLower;
+    return {
+      position: index + 1,
+      yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
+      isChanging: index === movingYaoIndex - 1,
+      tiYong: (isYong ? '用' : '体') as '用' | '体',
+    };
+  });
 
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
   // 复用六爻的 getSeasonState（同令→旺，令生我→相，我生令→休，我克令→囚，令克我→死）。
@@ -415,6 +423,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       : MeihuaHelpers.getSeasonByMonth(lunar.monthNumber);
 
   const result: MeihuaData = {
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
     originalName: mainHexagram.name,
     changedName: changingHexagram.name,
     interName: interHexagram.name,
@@ -514,8 +523,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       }),
       yingQi: estimateYingQi({
         movingYaoIndex,
-        upperTrigramIndex,
-        lowerTrigramIndex,
         tiElement: tiGua.element,
         yongElement: yongGua.element,
         seasonState: tiSeasonState,
@@ -529,20 +536,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   };
   const resultWithMeta = attachResultMeta(result, {
     algorithm: 'meihua',
-    input: {
-      method,
-      number: settings?.number,
-      soundCount: settings?.soundCount,
-      characterText: settings?.characterText,
-      characterCount: settings?.characterCount,
-      characterTones: settings?.characterTones,
-      characterStrokeCounts: settings?.characterStrokeCounts,
-      characterLeftStrokes: settings?.characterLeftStrokes,
-      characterRightStrokes: settings?.characterRightStrokes,
-      direction: settings?.direction,
-      objectType: settings?.objectType,
-      timestamp,
-    },
+    input,
     calculatedAt: timestamp,
     random: randomTrace,
   });

@@ -113,6 +113,30 @@ function assertProfileMatchesStart(profile: BirthProfile, startTimestamp: number
   }
 }
 
+function buildRangePointProfile(profile: BirthProfile, timestamp: number): BirthProfile {
+  const local = getCivilDateTimeAtFixedOffset(new Date(timestamp), CHINA_OFFSET_HOURS);
+  const {
+    birthTimeRange: _birthTimeRange,
+    timeIndex: _timeIndex,
+    year: _year,
+    month: _month,
+    day: _day,
+    hour: _hour,
+    minute: _minute,
+    second: _second,
+    ...lockedProfile
+  } = profile;
+  return {
+    ...lockedProfile,
+    year: local.year,
+    month: local.month,
+    day: local.day,
+    hour: local.hour,
+    minute: local.minute,
+    second: local.second,
+  };
+}
+
 /**
  * 校验出生档案与逐秒出生区间，并返回可安全传递给下游的固定政策 source。
  *
@@ -125,11 +149,29 @@ export function validateBirthProfileTimeRange(
 ): BirthProfileTimeRange {
   assertStandardBirthProfile(profile);
   const totalSamples = assertRangePolicy(range);
+  if (
+    profile.birthTimeRange !== undefined &&
+    (profile.birthTimeRange.startTimestamp !== range.startTimestamp ||
+      profile.birthTimeRange.endTimestamp !== range.endTimestamp ||
+      profile.birthTimeRange.endExclusive !== range.endExclusive ||
+      profile.birthTimeRange.timezone !== range.timezone ||
+      profile.birthTimeRange.offsetHours !== range.offsetHours)
+  ) {
+    throw new RangeError('出生档案记录的时间范围与实际取样范围不一致。');
+  }
 
   // normalizeBirthProfile 只接受不带范围元数据的单点档案，避免新字段形成
   // 递归校验；范围本身仍由本函数按固定政策完整核对。
   const { birthTimeRange: _birthTimeRange, ...pointProfile } = profile;
   assertProfileMatchesStart(pointProfile, range.startTimestamp);
+  const lastProfile = buildRangePointProfile(
+    pointProfile,
+    range.endTimestamp - MILLISECONDS_PER_SECOND,
+  );
+  if (lastProfile.year !== pointProfile.year) {
+    // 半开区间只校验最后实际取样秒，年份范围沿用单点档案的统一契约。
+    normalizeBirthProfile(lastProfile);
+  }
 
   if (!Number.isSafeInteger(totalSamples) || totalSamples < 1) {
     throw new RangeError('出生时间范围必须至少包含一个整秒样本。');
@@ -160,29 +202,9 @@ export function birthProfileAtRangeTimestamp(
   range: BirthProfileTimeRange,
   timestamp: number,
 ): BirthProfile {
-  assertStandardBirthProfile(profile);
+  validateBirthProfileTimeRange(profile, range);
   assertSampleTimestamp(range, timestamp);
-  const local = getCivilDateTimeAtFixedOffset(new Date(timestamp), CHINA_OFFSET_HOURS);
-  const {
-    birthTimeRange: _birthTimeRange,
-    timeIndex: _timeIndex,
-    year: _year,
-    month: _month,
-    day: _day,
-    hour: _hour,
-    minute: _minute,
-    second: _second,
-    ...lockedProfile
-  } = profile;
-  return {
-    ...lockedProfile,
-    year: local.year,
-    month: local.month,
-    day: local.day,
-    hour: local.hour,
-    minute: local.minute,
-    second: local.second,
-  };
+  return buildRangePointProfile(profile, timestamp);
 }
 
 /**

@@ -16,7 +16,7 @@ export interface BaZhaiGasRegulationResult {
   promptSummary: string;
 }
 
-export const NINE_STAR_WUXING: Record<
+const CANONICAL_NINE_STAR_WUXING: Record<
   string,
   { star: string; element: '木' | '火' | '土' | '金' | '水'; nature: '吉' | '凶' }
 > = {
@@ -29,6 +29,10 @@ export const NINE_STAR_WUXING: Record<
   六煞: { star: '文曲', element: '水', nature: '凶' },
   祸害: { star: '禄存', element: '土', nature: '凶' },
 };
+
+export const NINE_STAR_WUXING: typeof CANONICAL_NINE_STAR_WUXING = Object.fromEntries(
+  Object.entries(CANONICAL_NINE_STAR_WUXING).map(([key, profile]) => [key, { ...profile }]),
+);
 
 const PALACE_ELEMENTS: Record<string, '木' | '火' | '土' | '金' | '水'> = {
   坎: '水',
@@ -53,19 +57,18 @@ export function evaluateBaZhaiRegulation(params: {
   mingGua: string;
   houseGua: string | null;
   mingGroup: '东四命' | '西四命';
-  houseGroup: '东四命' | '西四命' | null;
+  houseGroup: '东四宅' | '西四宅' | null;
 }): BaZhaiGasRegulationResult {
   const { mingGua, houseGua, mingGroup, houseGroup } = params;
-  if (
-    getEastWestGroup(mingGua) !== mingGroup ||
-    (houseGua === null ? houseGroup !== null : getEastWestGroup(houseGua) !== houseGroup)
-  ) {
+  const expectedHouseGroup =
+    houseGua === null ? null : getEastWestGroup(houseGua) === '东四命' ? '东四宅' : '西四宅';
+  if (getEastWestGroup(mingGua) !== mingGroup || expectedHouseGroup !== houseGroup) {
     throw new Error('命宅分组与卦象不一致。');
   }
   const base = houseGua ?? mingGua;
   const scope = houseGua === null ? '命卦' : '宅卦';
   const suppressionLaws = getBaZhaiPalace(base).map((palace): BaZhaiSuppressionFact => {
-    const star = NINE_STAR_WUXING[palace.label];
+    const star = CANONICAL_NINE_STAR_WUXING[palace.label];
     const palaceElement = PALACE_ELEMENTS[palace.gua];
     const suppressionRule = relation(star.element, palaceElement, '星', '宫');
     return {
@@ -79,13 +82,17 @@ export function evaluateBaZhaiRegulation(params: {
   const doorMasterSummary =
     houseGua === null
       ? `${mingGua}命属${mingGroup}，按命卦列八方星宫关系。`
-      : `${mingGua}命属${mingGroup}，${houseGua}宅属${houseGroup}；命宅${mingGroup === houseGroup ? '同组' : '异组'}，五行关系为${relation(PALACE_ELEMENTS[mingGua], PALACE_ELEMENTS[houseGua], '命卦', '宅卦')}。`;
+      : `${mingGua}命属${mingGroup}，${houseGua}宅属${houseGroup}；命宅${getEastWestGroup(mingGua) === getEastWestGroup(houseGua) ? '同组' : '异组'}，五行关系为${relation(PALACE_ELEMENTS[mingGua], PALACE_ELEMENTS[houseGua], '命卦', '宅卦')}。`;
   const promptSummary = [
-    `命宅关系：${doorMasterSummary}`,
+    houseGua === null
+      ? ''
+      : `命宅五行：${relation(PALACE_ELEMENTS[mingGua], PALACE_ELEMENTS[houseGua], '命卦', '宅卦')}。`,
     `${scope}星宫生克（伏位取左辅木）：`,
     ...suppressionLaws.map(
       (fact) => `${fact.counterpart}：${fact.star}，${fact.suppressionRule}。`,
     ),
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
   return { suppressionLaws, doorMasterSummary, promptSummary };
 }

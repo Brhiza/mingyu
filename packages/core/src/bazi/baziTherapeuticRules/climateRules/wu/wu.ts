@@ -15,9 +15,9 @@ export const WU_WU_CLIMATE_RULES: ClimateRule[] = [
     hint: '戊土午月，先壬后甲',
   },
   {
-    id: 'wu-month-wu-gui-bing-xin-all',
-    label: '戊日午月壬甲齐透鼎甲可期规则',
-    description: '戊土生午月，壬水润燥与甲木疏土齐透，壬甲相辅成格，主鼎甲可期。',
+    id: 'wu-month-wu-ren-jia-both-visible',
+    label: '戊日午月壬甲齐透取用规则',
+    description: '戊土生午月，壬水润燥与甲木疏土齐透，原文先壬后甲，明列壬甲两透。',
     priority: 126,
     months: ['午'],
     dayMasters: ['土'],
@@ -25,7 +25,7 @@ export const WU_WU_CLIMATE_RULES: ClimateRule[] = [
     requiredVisibleStems: ['壬', '甲'],
     usefulWuxing: '水',
     favorableOrder: ['水', '木'],
-    traceHints: ['取用层次:壬甲齐透', '成格层次:鼎甲可期'],
-    hint: '戊土午月壬甲齐透，鼎甲可期',
+    traceHints: ['取用条件:壬甲齐透'],
+    hint: '戊土午月壬甲两透，先壬后甲',
   },
 ];

@@ -40,10 +40,12 @@ test('四柱选择项按五虎遁和五鼠遁生成合法六十甲子', () => {
   ]);
 
   for (const pillar of getSixtyCycle()) {
-    assert.equal(getBaziMonthPillarOptions(pillar).length, 12);
-    assert.equal(getBaziHourPillarOptions(pillar).length, 12);
-    assert.ok(getBaziMonthPillarOptions(pillar).every(isValidGanZhi));
-    assert.ok(getBaziHourPillarOptions(pillar).every(isValidGanZhi));
+    const monthOptions = getBaziMonthPillarOptions(pillar);
+    const hourOptions = getBaziHourPillarOptions(pillar);
+    assert.equal(monthOptions.length, 12);
+    assert.equal(hourOptions.length, 12);
+    assert.ok(monthOptions.every(isValidGanZhi));
+    assert.ok(hourOptions.every(isValidGanZhi));
   }
 });
 

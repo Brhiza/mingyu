@@ -1,4 +1,3 @@
-import { BASIC_MAPPINGS } from './baziDefinitions';
 import {
   WUXING,
   type HiddenStems,
@@ -31,6 +30,9 @@ import {
   STRENGTH_HINT_RULES,
   THERAPEUTIC_PRIORITY_RULES,
 } from './baziTherapeuticRules';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 interface RuleMetadata {
   id: string;
@@ -67,7 +69,8 @@ function resolveRuleMetadata(ruleId: string): RuleMetadata | null {
 function resolveRuleMetadataList(ruleIds: string[]): RuleMetadata[] {
   return ruleIds
     .map((ruleId) => resolveRuleMetadata(ruleId))
-    .filter((rule): rule is RuleMetadata => Boolean(rule));
+    .filter((rule): rule is RuleMetadata => Boolean(rule))
+    .map((rule) => ({ ...rule }));
 }
 
 interface UsefulGodDecisionState {
@@ -122,11 +125,13 @@ function applyResourceProtection(
   )
     return state;
   const element = (stem: string) =>
-    BASIC_MAPPINGS.STEM_WUXING[BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never)];
-  const resource = Object.keys(BASIC_MAPPINGS.WUXING_SHENG).find(
-    (wuxing) => BASIC_MAPPINGS.WUXING_SHENG[wuxing] === dmWuxing,
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[
+      BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never)
+    ];
+  const resource = Object.keys(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG).find(
+    (wuxing) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[wuxing] === dmWuxing,
   );
-  const wealth = BASIC_MAPPINGS.WUXING_KE[dmWuxing];
+  const wealth = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[dmWuxing];
   if (
     !resource ||
     !state.favorableWuxing.includes(resource) ||
@@ -254,11 +259,93 @@ function buildDecisionEvidence(
     base: { favorable: [...favorable], unfavorable: [...unfavorable], ruleId },
     climateCandidates: [],
     controlFunctions,
+    natalFunctions: collectNatalPatternFunctions(pattern),
     controlPaths: pattern.fulfillment?.pathEvaluations,
     controlRemedies: pattern.fulfillment?.remedies,
     appliedLayers: [],
     conflicts: [],
   };
+}
+
+function collectNatalPatternFunctions(
+  pattern: PatternAnalysis,
+): NonNullable<UsefulGodDecisionEvidence['natalFunctions']> {
+  const fulfillment = pattern.fulfillment;
+  if (pattern.isSpecial || !fulfillment || !['成格', '破而复成'].includes(fulfillment.status)) {
+    return [];
+  }
+
+  const functions: NonNullable<UsefulGodDecisionEvidence['natalFunctions']> = [];
+  const rootEvidence = fulfillment.rootEvidence ?? [];
+  const monthGate = fulfillment.conditionFacts?.find((fact) => fact.key === 'pattern.month-gate');
+  const target = fulfillment.conditionFacts?.find((fact) => fact.key === 'pattern.target');
+  const targetGod = ['正官', '七杀', '正财', '偏财', '正印', '偏印', '食神', '伤官'].find((god) =>
+    pattern.pattern.includes(god),
+  );
+
+  if (monthGate?.status === '满足' && target?.status === '满足' && targetGod) {
+    for (const evidence of rootEvidence) {
+      if (evidence.tenGod !== targetGod || evidence.placement !== '透干' || !evidence.effective) {
+        continue;
+      }
+      functions.push({
+        stem: evidence.stem,
+        tenGod: evidence.tenGod,
+        pillar: evidence.pillar,
+        placement: evidence.placement,
+        role: '格神',
+        detail: target.detail,
+      });
+    }
+  }
+
+  for (const path of fulfillment.pathEvaluations ?? []) {
+    if (path.status !== '满足') continue;
+    const endpoints = path.effectivePairs?.length
+      ? path.effectivePairs.flatMap((pair) => [
+          { stem: pair.sourceStem, pillar: pair.sourcePillar, role: '制化来源' as const },
+          { stem: pair.targetStem, pillar: pair.targetPillar, role: '制化对象' as const },
+        ])
+      : [
+          ...path.sourceStems.map((stem) => ({ stem, role: '制化来源' as const })),
+          ...path.targetStems.map((stem) => ({ stem, role: '制化对象' as const })),
+        ];
+    for (const endpoint of endpoints) {
+      const evidence =
+        'pillar' in endpoint
+          ? rootEvidence.find(
+              (item) =>
+                item.stem === endpoint.stem &&
+                item.pillar === endpoint.pillar &&
+                item.placement === '透干',
+            )
+          : (rootEvidence.find(
+              (item) => item.stem === endpoint.stem && item.placement === '透干',
+            ) ?? rootEvidence.find((item) => item.stem === endpoint.stem));
+      if (!evidence) continue;
+      functions.push({
+        stem: endpoint.stem,
+        tenGod: evidence.tenGod,
+        pillar: evidence.pillar,
+        placement: evidence.placement,
+        role: endpoint.role,
+        pathKey: path.key,
+        detail: path.detail,
+      });
+    }
+  }
+
+  return functions.filter(
+    (item, index) =>
+      functions.findIndex(
+        (candidate) =>
+          candidate.stem === item.stem &&
+          candidate.pillar === item.pillar &&
+          candidate.placement === item.placement &&
+          candidate.role === item.role &&
+          candidate.pathKey === item.pathKey,
+      ) === index,
+  );
 }
 
 function buildControlFunctionEvidence(
@@ -273,8 +360,8 @@ function buildControlFunctionEvidence(
   const remedies = fulfillment.remedies || [];
   const interactions = fulfillment.interactionEvidence || [];
   const stemWuxing = (stem: string): string => {
-    const index = BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
-    return index >= 0 ? BASIC_MAPPINGS.STEM_WUXING[index] : '';
+    const index = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
+    return index >= 0 ? BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[index] : '';
   };
 
   return fulfillment.pathEvaluations.map((path) => {
@@ -285,10 +372,18 @@ function buildControlFunctionEvidence(
       (interaction) => interaction.relation === path.key,
     );
     const sourceRootEvidence = rootEvidence.filter((evidence) =>
-      sourceStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) => pair.sourceStem === evidence.stem && pair.sourcePillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : sourceStems.includes(evidence.stem),
     );
     const targetRootEvidence = rootEvidence.filter((evidence) =>
-      targetStems.includes(evidence.stem),
+      path.status === '满足' && path.effectivePairs?.length
+        ? path.effectivePairs.some(
+            (pair) => pair.targetStem === evidence.stem && pair.targetPillar === evidence.pillar,
+          ) && evidence.placement === '透干'
+        : targetStems.includes(evidence.stem),
     );
     const evidenceGaps = [
       ...(path.status === '满足' ? [] : [`路径:${path.status}`]),
@@ -337,7 +432,7 @@ function applySpecialStrongOutputConditions(
 ): UsefulGodDecisionState {
   if (!pattern.isSpecial || pattern.pattern !== '专旺格') return state;
 
-  const outputWuxing = BASIC_MAPPINGS.WUXING_SHENG[dmWuxing];
+  const outputWuxing = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[dmWuxing];
   const isProvenResourceOutputPath = (path: UsefulGodControlFunctionEvidence) => {
     if (path.status !== '满足' || !path.sourceStems.length || !path.targetStems.length) {
       return false;
@@ -411,8 +506,8 @@ function buildBaseDecisionState(
   pattern: PatternAnalysis,
   dmWuxing: string,
 ): UsefulGodDecisionState {
-  const sheng = BASIC_MAPPINGS.WUXING_SHENG;
-  const ke = BASIC_MAPPINGS.WUXING_KE;
+  const sheng = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG;
+  const ke = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE;
   const getKeMe = (me: string) => Object.keys(ke).find((key) => ke[key] === me) || '';
   const getShengMe = (me: string) => Object.keys(sheng).find((key) => sheng[key] === me) || '';
 
@@ -422,9 +517,12 @@ function buildBaseDecisionState(
   const officer = getKeMe(dmWuxing);
   const resource = getShengMe(dmWuxing);
   const bundles: Record<UsefulGodWuxingBundle, string[]> = {
+    none: [],
     resource_companion_output: [resource, companion, output].filter(Boolean),
     wealth_officer: [wealth, officer].filter(Boolean),
+    officer_wealth: [officer, wealth].filter(Boolean),
     output_wealth_officer: [output, wealth, officer].filter(Boolean),
+    output_resource_companion: [output, resource, companion].filter(Boolean),
     resource_companion: [resource, companion].filter(Boolean),
     wealth_output: [wealth, output].filter(Boolean),
     resource_officer: [resource, officer].filter(Boolean),
@@ -489,8 +587,10 @@ function buildBaseDecisionState(
 
 function resolveCommanderWuxing(monthCommander?: string, isPatternSpecial?: boolean): string {
   if (!monthCommander || isPatternSpecial) return '';
-  const stemIndex = BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(monthCommander as never);
-  return stemIndex === -1 ? '' : BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+  const stemIndex = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(
+    monthCommander as never,
+  );
+  return stemIndex === -1 ? '' : BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex];
 }
 
 function applyCommanderAdjustment(
@@ -524,8 +624,8 @@ function applyCommanderAdjustment(
 }
 
 function buildWuxingToTenGodMap(dmWuxing: string): Record<string, string[]> {
-  const sheng = BASIC_MAPPINGS.WUXING_SHENG;
-  const ke = BASIC_MAPPINGS.WUXING_KE;
+  const sheng = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG;
+  const ke = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE;
   const getKeMe = (me: string) => Object.keys(ke).find((key) => ke[key] === me) || '';
   const getShengMe = (me: string) => Object.keys(sheng).find((key) => sheng[key] === me) || '';
   const output = sheng[dmWuxing];
@@ -543,8 +643,8 @@ function buildWuxingToTenGodMap(dmWuxing: string): Record<string, string[]> {
 }
 
 function resolveTenGodCategoryLabel(dmWuxing: string, targetWuxing: string): string {
-  const sheng = BASIC_MAPPINGS.WUXING_SHENG;
-  const ke = BASIC_MAPPINGS.WUXING_KE;
+  const sheng = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG;
+  const ke = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE;
   const generated = sheng[dmWuxing];
   const wealth = ke[dmWuxing];
   const officer = Object.keys(ke).find((key) => ke[key] === dmWuxing) || '';
@@ -679,6 +779,16 @@ function finalizeUsefulGodAnalysis(
   const secondaryFavorableWuxing = state.favorableWuxing.slice(1);
   const primaryUnfavorableWuxing = state.unfavorableWuxing[0] || '';
   const secondaryUnfavorableWuxing = state.unfavorableWuxing.slice(1);
+  const decidedWuxing = new Set([...state.favorableWuxing, ...state.unfavorableWuxing]);
+  const hasSpecificDecision = Boolean(
+    state.conditionalFavorableStems?.length || state.conditionalUnfavorableStems?.length,
+  );
+  const incrementStatus =
+    decidedWuxing.size === WUXING.length
+      ? '已判定'
+      : decidedWuxing.size || hasSpecificDecision
+        ? '部分判定'
+        : '待判';
   const favorableGods = excludeRestrictedGods(
     state.favorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []),
   );
@@ -708,11 +818,11 @@ function finalizeUsefulGodAnalysis(
       ? primaryFavorableGods[0]
       : primaryFavorableGods.length > 1
         ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
-        : '暂无'
-    : '暂无';
+        : '待判'
+    : '待判';
   const avoidGod = primaryUnfavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryUnfavorableWuxing)
-    : '暂无';
+    : '待判';
 
   return {
     favorable: favorableGods,
@@ -731,6 +841,7 @@ function finalizeUsefulGodAnalysis(
     secondaryUnfavorableWuxing,
     primaryUseful: usefulGod,
     primaryAvoid: avoidGod,
+    incrementStatus,
     conditionalFavorableStems: state.conditionalFavorableStems,
     conditionalUnfavorableStems: state.conditionalUnfavorableStems,
     conditionalFavorableWuxing: state.conditionalFavorableWuxing,
@@ -749,13 +860,13 @@ function buildTransformedDecisionState(
   const transformation = pattern.transformation!;
   const element = transformation.element;
   assertWuxing(element, '化神');
-  const resource = Object.keys(BASIC_MAPPINGS.WUXING_SHENG).find(
-    (candidate) => BASIC_MAPPINGS.WUXING_SHENG[candidate] === element,
+  const resource = Object.keys(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG).find(
+    (candidate) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[candidate] === element,
   )!;
-  const output = BASIC_MAPPINGS.WUXING_SHENG[element];
-  const wealth = BASIC_MAPPINGS.WUXING_KE[element];
-  const controller = Object.keys(BASIC_MAPPINGS.WUXING_KE).find(
-    (candidate) => BASIC_MAPPINGS.WUXING_KE[candidate] === element,
+  const output = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG[element];
+  const wealth = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[element];
+  const controller = Object.keys(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE).find(
+    (candidate) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[candidate] === element,
   )!;
   const coldEarth = element === '土' && ['亥', '子', '丑'].includes(monthBranch ?? '');
   const favorable = coldEarth ? [resource, element] : [element, resource];
@@ -878,7 +989,7 @@ export function determineUsefulGod(
     dayMasterStem,
     monthBranch,
     isPatternSpecial,
-    BASIC_MAPPINGS.WUXING_SHENG,
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_SHENG,
   );
   const therapeuticDecision = applyTherapeuticPriority(state, therapeuticPriorityWuxing);
   state = therapeuticDecision.state;

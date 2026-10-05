@@ -3,12 +3,25 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeCompassDirection,
+  BAGUA,
+  BAGUA_DIRECTION,
+  BAGUA_DEGREE,
+  MOUNTAIN_TO_BAGUA,
+  TWENTY_FOUR_MOUNTAINS,
+  direction,
+  getBaguaNames,
+  getTwentyFourMountainNames,
   getHouseTrigram,
   getHouseTrigramFromSitFacing,
   getBaZhaiPalace,
   getMountainFromDegree,
   getSitFacingFromFacingDegree,
 } from '../packages/core/src/direction/index.ts';
+import { analyzeBaZhai } from '../packages/core/src/ba_zhai/index.ts';
+import { getFoundationCapabilities } from '../packages/core/src/foundation/index.ts';
+import { generateXuanKong } from '../packages/core/src/xuan_kong/index.ts';
+import { generateResidentialFengshui } from '../packages/core/src/residential_fengshui/index.ts';
+import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt.ts';
 
 test('罗盘朝向度数应自动换算二十四山坐向', () => {
   assert.equal(getMountainFromDegree(0).mountain, '子');
@@ -26,17 +39,20 @@ test('罗盘朝向度数应自动换算二十四山坐向', () => {
   assert.equal(evidence.status, '已换算');
   assert.equal(evidence.facingBagua, '离');
   assert.equal(evidence.sitBagua, '坎');
-  assert.equal(evidence.calculationSteps.length, 4);
-  assert.deepEqual(
-    evidence.calculationChain,
-    evidence.calculationSteps.map((item) => item.promptText),
-  );
-  assert.equal(evidence.directionFacts.length, 4);
   assert.equal(evidence.summaryFact.status, '映射稳定');
-  assert.equal(evidence.summaryFact.directionFactCount, evidence.directionFacts.length);
-  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.match(
+    evidence.promptText,
+    /【任务】[\s\S]*【罗盘资料】[\s\S]*【传统依据】[\s\S]*【输出要求】/,
+  );
+  assert.match(evidence.promptText, /朝向度数：180°\n向山：午，属离卦\n坐山：0°；子，属坎卦/);
   assert.match(evidence.promptText, /正北0°顺时针/);
-  assert.doesNotMatch(evidence.promptText, /风水吉凶已确定|成功率[：=]?\d|本项目|API|MCP/);
+  assert.match(evidence.promptText, /实际北向基准（真北或磁北）、磁偏角与仪器误差待核定/);
+  assert.doesNotMatch(
+    evidence.promptText,
+    /计算步骤|方位事实|证据汇总|来源：|限制：|不应|不得|不自动|本项目|API|MCP/,
+  );
+  assert.equal(evidence.promptText.split('子，属坎卦').length - 1, 1);
+  assert.match(analyzeCompassDirection(360).promptText, /朝向度数：360°（归一化为0°）/);
 });
 
 test('罗盘二十四山分界线应明确标记，不得静默当成普通度数', () => {
@@ -50,7 +66,27 @@ test('罗盘二十四山分界线应明确标记，不得静默当成普通度�
   assert.equal(evidence.summaryFact.status, '坐向均位于分界线');
   assert.equal(evidence.facing.isBoundary, true);
   assert.equal(evidence.sit.isBoundary, true);
-  assert.match(evidence.promptText, /不应静默采用单一山位/);
+  assert.match(evidence.promptText, /向山：子、癸分界；均属坎卦；山位待复测核定/);
+  assert.match(evidence.promptText, /坐山：187.5°；午、丁分界；均属离卦；山位待复测核定/);
+});
+
+test('跨卦分界线应保留两侧八卦候选，同卦分界线仍可确定八卦', () => {
+  const crossBagua = analyzeCompassDirection(67.5);
+  const crossFact = crossBagua.directionFacts.find((fact) => fact.type === '八卦归属');
+  assert.equal(crossBagua.facing.mountain, '甲');
+  assert.deepEqual(crossBagua.facing.boundaryMountains, ['寅', '甲']);
+  assert.equal(crossFact?.status, '位于分界线');
+  assert.match(crossFact?.promptText ?? '', /向卦候选为艮、震/);
+  assert.match(crossFact?.promptText ?? '', /坐卦候选为坤、兑/);
+  assert.match(crossBagua.promptText, /向山：寅、甲分界；寅属艮卦、甲属震卦/);
+  assert.match(crossBagua.promptText, /坐山：247.5°；申、庚分界；申属坤卦、庚属兑卦/);
+  assert.doesNotMatch(crossBagua.promptText, /当前按庚山甲向归位/);
+
+  const sameBagua = analyzeCompassDirection(7.5);
+  const sameFact = sameBagua.directionFacts.find((fact) => fact.type === '八卦归属');
+  assert.deepEqual(sameBagua.facing.boundaryMountains, ['子', '癸']);
+  assert.equal(sameFact?.status, '已确定');
+  assert.match(sameFact?.promptText ?? '', /癸向属坎卦/);
 });
 
 test('罗盘度数应拒绝越界和非有限数字', () => {
@@ -108,5 +144,97 @@ test('八宅六十四宫符合《阳宅真诀》大游年歌', () => {
       const index = (sequence.indexOf(base) + offset) % 8;
       assert.equal(palace[index].label, names[song[offset]], `${base}宅${sequence[index]}宫`);
     }
+  }
+});
+
+test('公开方位资料修改不改变独立排盘和完整任务书', () => {
+  const expectedBagua = [...'坎艮震巽离坤兑乾'];
+  const expectedMountains = [...'子癸丑艮寅甲卯乙辰巽巳丙午丁未坤申庚酉辛戌乾亥壬'];
+  const originalBagua = [...BAGUA];
+  const originalMountains = [...TWENTY_FOUR_MOUNTAINS];
+  const originalDirection = BAGUA_DIRECTION.坎;
+  const originalDegree = BAGUA_DEGREE.坎;
+  const originalMountainBagua = MOUNTAIN_TO_BAGUA.子;
+  const bazhai = analyzeBaZhai({ mingGua: '坎', sitMountain: '子' });
+  const xuankong = generateXuanKong({ year: 2024, sitMountain: '子' });
+  const residential = generateResidentialFengshui({ mingGua: '坎', year: 2024, sitMountain: '子' });
+  const currentTime = new Date('2026-10-04T00:00:00Z');
+  const bazhaiOptions = { method: 'bazhai' as const, currentTime };
+  const xuankongOptions = { method: 'xuankong' as const, currentTime };
+  const residentialOptions = { method: 'residential' as const, currentTime };
+  const bazhaiTask = buildMetaphysicsPrompt(bazhai.prompt, '核对命宅与八方', bazhaiOptions);
+  const xuankongTask = buildMetaphysicsPrompt(xuankong.prompt, '核对山向飞星', xuankongOptions);
+  const residentialTask = buildMetaphysicsPrompt(
+    residential.prompt,
+    '核对住宅方位',
+    residentialOptions,
+  );
+
+  try {
+    assert.equal(BAGUA.sort(), BAGUA);
+    assert.equal(TWENTY_FOUR_MOUNTAINS.sort(), TWENTY_FOUR_MOUNTAINS);
+    assert.notDeepEqual(BAGUA, expectedBagua);
+    assert.notDeepEqual(TWENTY_FOUR_MOUNTAINS, expectedMountains);
+    assert.equal(direction.BAGUA, BAGUA);
+    assert.equal(direction.TWENTY_FOUR_MOUNTAINS, TWENTY_FOUR_MOUNTAINS);
+    BAGUA_DIRECTION.坎 = '南';
+    BAGUA_DEGREE.坎 = 180;
+    MOUNTAIN_TO_BAGUA.子 = '离';
+    assert.equal(BAGUA_DIRECTION.坎, '南');
+    assert.equal(BAGUA_DEGREE.坎, 180);
+    assert.equal(MOUNTAIN_TO_BAGUA.子, '离');
+
+    getBaguaNames().sort();
+    getTwentyFourMountainNames().sort();
+    const baguaCopy = direction.getBaguaNames();
+    const mountainCopy = direction.getTwentyFourMountainNames();
+    baguaCopy[0] = '变造';
+    mountainCopy[0] = '变造';
+    assert.deepEqual(getBaguaNames(), expectedBagua);
+    assert.deepEqual(getTwentyFourMountainNames(), expectedMountains);
+    const capabilities = getFoundationCapabilities();
+    assert.deepEqual(capabilities.constants.bagua, expectedBagua);
+    assert.deepEqual(capabilities.constants.twentyFourMountains, expectedMountains);
+    assert.equal(getMountainFromDegree(0).mountain, '子');
+    assert.equal(getMountainFromDegree(360).mountain, '子');
+    assert.equal(getHouseTrigramFromSitFacing('子山午向'), '坎');
+    assert.equal(getHouseTrigram('子'), '坎');
+    const kanPalace = getBaZhaiPalace('坎').find((palace) => palace.gua === '坎');
+    assert.equal(kanPalace?.direction, '北');
+    assert.equal(kanPalace?.degree, 0);
+    assert.deepEqual(
+      getBaZhaiPalace('坎').map((palace) => `${palace.gua}:${palace.label}`),
+      ['坎:伏位', '艮:五鬼', '震:天医', '巽:生气', '离:延年', '坤:绝命', '兑:祸害', '乾:六煞'],
+    );
+
+    const freshBazhai = analyzeBaZhai({ mingGua: '坎', sitMountain: '子' });
+    const freshXuankong = generateXuanKong({ year: 2024, sitMountain: '子' });
+    const freshResidential = generateResidentialFengshui({
+      mingGua: '坎',
+      year: 2024,
+      sitMountain: '子',
+    });
+    assert.equal(freshBazhai.houseGua, '坎');
+    assert.deepEqual(freshBazhai, bazhai);
+    assert.deepEqual(freshXuankong, xuankong);
+    assert.deepEqual(freshResidential, residential);
+    assert.equal(
+      buildMetaphysicsPrompt(freshBazhai.prompt, '核对命宅与八方', bazhaiOptions),
+      bazhaiTask,
+    );
+    assert.equal(
+      buildMetaphysicsPrompt(freshXuankong.prompt, '核对山向飞星', xuankongOptions),
+      xuankongTask,
+    );
+    assert.equal(
+      buildMetaphysicsPrompt(freshResidential.prompt, '核对住宅方位', residentialOptions),
+      residentialTask,
+    );
+  } finally {
+    BAGUA.splice(0, BAGUA.length, ...originalBagua);
+    TWENTY_FOUR_MOUNTAINS.splice(0, TWENTY_FOUR_MOUNTAINS.length, ...originalMountains);
+    BAGUA_DIRECTION.坎 = originalDirection;
+    BAGUA_DEGREE.坎 = originalDegree;
+    MOUNTAIN_TO_BAGUA.子 = originalMountainBagua;
   }
 });

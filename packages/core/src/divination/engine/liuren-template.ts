@@ -74,7 +74,7 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
     caifu:
       '候选角色核对：先按问题确认收益、财源或交易对象，再逐项核对青龙、太常、天空在天地盘、四课、三传中的实际位置及乘支旺衰、空亡',
   };
-  const safeTemplate = templateLabelMap[template] ? template : 'general';
+  const safeTemplate = Object.hasOwn(templateLabelMap, template) ? template : 'general';
 
   if (safeTemplate === 'general') {
     return `${templateLabelMap[safeTemplate]}；${mainLineMap[safeTemplate]}`;

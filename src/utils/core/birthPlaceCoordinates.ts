@@ -1,5 +1,11 @@
-import { resolveBirthPlaceApproximateLatitude } from 'mingyu-core/location';
+import { resolveBirthPlace } from 'mingyu-core/location';
 
-export function resolveBirthPlaceLatitude(placeId: string): number {
-  return resolveBirthPlaceApproximateLatitude(placeId);
+export function resolveBirthPlaceCoordinates(placeId: string) {
+  const place = resolveBirthPlace(placeId);
+  if (!place) return null;
+  return {
+    longitude: place.longitude,
+    latitude: place.latitude,
+    coordinateAccuracy: place.coordinateAccuracy,
+  };
 }

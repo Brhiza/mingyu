@@ -15,10 +15,9 @@ export const BING_ZI_CLIMATE_RULES: ClimateRule[] = [
     hint: '丙火子月，壬水为尊，戊土为佐',
   },
   {
-    id: 'zi-month-bing-wu-xin-geng-all',
-    label: '丙日子月壬戊齐透鼎甲可期规则',
-    description:
-      '丙火生子月，壬水与戊土齐透，壬戊相制成格，较合原文"丙火生子月，壬戊齐透，鼎甲可期"。',
+    id: 'zi-month-bing-ren-wu-both-visible',
+    label: '丙日子月壬戊齐透取用规则',
+    description: '丙火生子月，壬水与戊土齐透，原文以壬水为最、戊土为佐，并明列壬戊两透。',
     priority: 126,
     months: ['子'],
     dayMasters: ['火'],
@@ -26,7 +25,7 @@ export const BING_ZI_CLIMATE_RULES: ClimateRule[] = [
     requiredVisibleStems: ['壬', '戊'],
     usefulWuxing: '水',
     favorableOrder: ['水', '土'],
-    traceHints: ['取用层次:壬戊齐透', '成格层次:鼎甲可期'],
-    hint: '丙火子月壬戊齐透，鼎甲可期',
+    traceHints: ['取用条件:壬戊齐透'],
+    hint: '丙火子月壬戊两透，壬为最、戊为佐',
   },
 ];

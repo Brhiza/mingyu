@@ -1,4 +1,4 @@
-export const PROMPT_GUIDANCE_TEXT = {
+const CANONICAL_PROMPT_GUIDANCE_TEXT = {
   'wuyun-liuqi': {
     tradition: '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
     sources: '参考《素问》运气七篇与吴谦《运气要诀》。',
@@ -52,7 +52,7 @@ export const PROMPT_GUIDANCE_TEXT = {
   qimen: {
     tradition:
       '奇门先定事项用神，再看值符值使与用神落宫，结合门、星、神、天地盘干、生克、空亡、入墓、击刑、门迫与格局判断。',
-    sources: '参考时家奇门九宫、三奇六仪、九星八门八神及《烟波钓叟歌》《御定奇门宝鉴》等资料。',
+    sources: '参考《奇门遁甲统宗》年、月起例及奇门九宫、三奇六仪、九星八门八神等资料。',
   },
   liuren: {
     tradition:
@@ -61,8 +61,9 @@ export const PROMPT_GUIDANCE_TEXT = {
   },
   taiyi: {
     tradition:
-      '积年与本计阴阳遁、七十二局构成盘面基础；太乙、文昌、始击、计神落宫及主客定算构成主线，十六神为辅助定位。年、月、日、时四计各自成局，阴遁时计只用时计阴遁口径。',
-    sources: '参考《太乙金镜式经》积年、阴阳遁七十二局及相关主客定算立成。',
+      '积年与本计阴阳遁、七十二局构成盘面基础；太乙、文昌、始击、计神落宫及主客定算构成主线，十六神为辅助定位。门具依据太乙与文昌（主目）是否临开、休、生门判定，并结合各自所临八门。年、月、日、时四计各自成局，阴遁时计只用时计阴遁口径。',
+    sources:
+      '参考《太乙金镜式经》积年、阴阳遁七十二局及相关主客定算立成；门具参《太乙统宗宝鉴》卷五。',
   },
   huangji: {
     tradition:
@@ -76,7 +77,7 @@ export const PROMPT_GUIDANCE_TEXT = {
   },
   lenormand: {
     tradition:
-      '雷诺曼以牌序、邻牌组合、固定组合和牌阵布局为主要资料；牌位顺序与相邻关系优先于单牌辞义，主题牌统领整局。',
+      '雷诺曼以牌序、邻牌组合、固定组合和牌阵布局为主要资料；牌位顺序与相邻关系优先于单牌辞义。',
     sources: '参考 Petit Lenormand 传统牌义及《Das Spiel der Hoffnung》历史牌组资料。',
   },
   ssgw: {
@@ -102,7 +103,7 @@ export const PROMPT_GUIDANCE_TEXT = {
   },
   'astrolabe-synastry': {
     tradition:
-      '双方太阳、月亮、上升和关系需求构成各自本命资料；跨盘相位、落宫与容许度构成合盘资料。双方本命结构与单一跨盘相位并列；紧密相位说明互动强度线索，长期结构承接构成关系资料。',
+      '双方太阳、月亮、上升及其他本命结构提供各自盘面背景；跨盘相位、落宫与容许度提供互动几何资料；紧密相位提供互动强度线索。',
     sources: '参考现代西方占星合盘通行读法与天文星历位置资料，以双方本命结构和跨盘相位资料为准。',
   },
   bazhai: {
@@ -110,7 +111,8 @@ export const PROMPT_GUIDANCE_TEXT = {
     sources: '参考《八宅明镜》《阳宅十书》命卦、宅卦与大游年八宫口径。',
   },
   zodiac: {
-    tradition: '以生肖地支与流年干支的值、冲、刑、害、破、六合、三合、三会及年干五行关系判断。',
+    tradition:
+      '以生肖地支与流年干支的值、冲、刑、害、破、六合、三合、三会及年干五行关系作为传统关系类别。',
     sources: '参考《三命通会》等传统干支关系资料。',
   },
   qizheng: {
@@ -130,6 +132,8 @@ export const PROMPT_GUIDANCE_TEXT = {
     sources: '参考玄空飞星通行的三元九运、元龙阴阳顺逆、下卦与兼向替星口径及三元紫白流年流月飞布。',
   },
 } as const;
+
+export const PROMPT_GUIDANCE_TEXT = structuredClone(CANONICAL_PROMPT_GUIDANCE_TEXT);
 
 export type PromptGuidanceId = keyof typeof PROMPT_GUIDANCE_TEXT;
 
@@ -155,11 +159,11 @@ export const PROMPT_ANSWER_FRAMEWORK =
   '围绕问题比较主证与反证，核对成立条件后给主判断；制约分别说明对结果、程度或时间的影响，未决处交代能区分结论的资料。';
 
 /** 各术数体系专属的传统推演骨架，针对不同底层象数理模型定制，保障沉浸与地道。 */
-export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
+const CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   // 1. 命理时序体系
-  bazi: '以月令、根气、透藏和制化分别论旺衰、格局与调候；候选格局逐核成败及救应条件，比较相互牵制后定取用；岁运保留原局、运层与参与干支，交运前后分段说明条件变化。',
+  bazi: '以月令、根气、透藏和制化分别论旺衰、格局与调候；依据已列取格依据与格局成败，结合本盘制化关系定取用；岁运保留原局、运层与参与干支，交运前后分段说明条件变化。',
   'bazi-natal':
-    '依据月令、根气、透藏与制化说明四柱原局；候选格局分别核对成立、受损与救应条件，旺衰、格局、调候各明取用；相互牵制时说明主次与尚待核实的条件。',
+    '依据月令、根气、透藏与制化说明四柱原局；核对已列取格依据与格局成败，结合本盘出现的制化关系判断取用；旺衰、格局、调候各明依据。',
   'bazi-compatibility':
     '分别确立双方原局与取用，再按双方各自日主解释十神和跨盘合冲刑害；同名干支保留所属人及柱位，关系强度结合双方承接条件判断。共同时间资料按同一日期范围合参。',
   ziwei:
@@ -170,16 +174,18 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
     '分别确立双方命身与关系宫位，再按实际地支对应比较跨盘星曜与四化；每条飞化保留发出方、发出宫、化星和接收方落宫，结合各自本命承接条件解释互动。',
   'bazi-ziwei':
     '八字按原局与取用、紫微按命身与主题宫分别成论；合参对齐同一人、问题和时段，区分共同支持、互补资料与实质分歧，并说明分歧成立的条件。',
+  'bazi-ziwei-natal':
+    '八字依据四柱原局、月令与取用成论，紫微依据本命命身与主题宫成论；交叉核对共同支持、互补资料与实质分歧，说明各自成立的条件。',
   'bazi-ziwei-aligned': '八字按所列岁运、紫微按所列运限各自成论，再交叉印证同一时间范围。',
   'bazi-ziwei-mismatch': '八字与紫微按各自已列资料成论后交叉印证，时间层未对齐时分开陈述。',
   astrolabe:
-    '从主题宫、宫主星与本命状态取用，格局核对成员、相位两端及容许度，重复关系归并；支持与张力各明条件，行运、返照、次限、太阳弧分层保留时间窗口及入相出相。',
+    '从主题宫、宫主星与本命状态取用，格局核对成员、相位两端及容许度，重复关系归并；支持与张力各明条件，本次已列时限资料按盘层保留时间窗口及入相出相。',
   'astrolabe-natal':
     '围绕主题宫、宫主星及日月上升判断本命结构；格局逐项核对成员、相位两端与容许度，重复相位归同一关系；综合尊贵、落宫与逆行状态说明支持、张力及取舍。',
   'astrolabe-synastry':
-    '分别说明双方本命与关系主题，跨盘相位标明双方天体身份、容许度和实际落宫；互动强度结合各自本命承接及现实关系解释，区分吸引、摩擦与长期相处条件。',
+    '分别说明双方本命与关系主题；跨盘相位标明双方天体、容许度和落宫；结合各自本命承接，有现实资料时结合问题所述情况，分析吸引、摩擦及长期相处条件。',
   qizheng:
-    '从命身宫度、主题宫主和十一曜落宿建立本命依据，宫位与宿度分别取义；行限与流曜各用所列日期、躔度及吊照，说明本命承接、阶段引动和成立条件。',
+    '从命身宫度、主题宫主和十一曜落宿建立本命依据，宫位与宿度分别取义；结合本次吊照说明主题承接和成立条件。',
 
   // 2. 卦象筮法与三式体系
   liuyao:
@@ -192,14 +198,13 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
     '先依据随机所得本卦、互卦、变卦、动爻与体用旺衰判断当前趋势，再结合盘面结构说明进展。',
   'meihua-time':
     '先依据本次起卦的本卦、互卦、变卦、动爻与体用旺衰判断当前趋势，再结合盘面已有的时间线索说明进展。',
-  qimen:
-    '按事项定用神与主客，以用神宫门星神干核对格局和空迫墓的作用，区分结果、程度与迟速；换象保留原宫与转换依据，造象列现实条件和反馈，按主证与制约形成判断。',
+  qimen: '先综述全盘态势，再围绕所问事项整理主判断及可观察的应期线索。',
   liuren:
     '按事项选类神并定位日干日支、四课三传；课体、天将与乘支核对成立条件，入课入传明确主次；初中末传结合旺衰空破判断变化，说明制约影响结果还是迟速。',
   jinkoujue:
     '按所列口径确定用爻，分别定位人元、贵神、将神和地分；逐项说明四位生克、月令旺衰、空亡与实际命中的五动三动，主判断连接事项角色和成立条件，节奏采用课内已有线索。',
   taiyi:
-    '核对年、月、日或时计及目标时点，再以太乙、文昌、始击、主客算和将位建立主客关系；盘式格局与所问对象相互对应，分别说明支持、制约及当前计式能支撑的时间范围。',
+    '核对本次计式及目标时点，再以太乙、文昌、始击、主客算和将位建立主客关系；盘式格局与所问对象相互对应，分别说明支持、制约及当前计式能支撑的时间范围。',
   huangji:
     '先定位元会运世周期层级与会内统卦，再按运卦、六十年统卦、十年卦和值年卦逐层收束目标年份的时势主线。',
   'huangji-cycle': '先定位元会运世周期层级与目标年进度，再说明周期边界和层级关系。',
@@ -208,18 +213,17 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   bazhai:
     '分清命卦与宅卦，按实际坐向和所问空间逐宫解释大游年关系；传统方位属性与已知房屋用途、门窗通道及居住条件分别取证，形成有适用前提的人宅判断。',
   xuankong:
-    '先核对起运年、坐向度数及下卦或替卦口径，逐宫区分运星、山星、向星；旺衰依所属运期，山向作用联系已知形峦与空间功能，流年流月星另列时段及引动条件。',
+    '先核对起运年、坐向与已列卦型，逐宫区分运星、山星、向星；旺衰依所属运期，山向作用联系已知形峦与空间功能，按已列盘面分层说明作用条件。',
   residential:
     '八宅按命宅关系、玄空按运期山向分别推导，同一方位先对齐测量依据和实际用途，再说明两套判法的共同支持与分歧条件；流盘变化和长期宅盘结构分别表述。',
 
   // 4. 择日体系
   almanac:
-    '对齐事项、候选范围及参与人，按直接宜忌和冲犯，结合建除、宿曜给出首选、备选与慎用日期；候选受制时说明取舍，日层结论与已计算的时辰条件分别列明。',
+    '对齐事项、候选范围及参与人，按直接宜忌和冲犯，结合建除、宿曜核对每个候选日；有多个候选时说明首选与备选，受制的候选说明慎用原因与对应盘面依据。',
 
   // 5. 灵签与直断体系
   ssgw: '围绕所问事项解释本签诗句、吉凶级别与典故，将基础解签和补充解释连成一致的寓意；结合诗中转折与条件说明当前处境及进退取义。',
-  zhuge:
-    '依据本签签号、签题、签诗与基础解意解释所问事项，逐句联系关键意象和诗中条件，结合本次典故与补充解释说明事态取义。',
+  zhuge: '依据本签签号、签诗、基础解签和补充解释回应问题，逐句联系诗中意象与条件，说明事态取义。',
   kongming: '依据本次签题、卦诗与等第解释所问事项，结合诗中意象、转折和条件说明处境及进退取义。',
   xiaoliuren:
     '先复核农历月日与时辰顺数，区分定位宫与时宫主证。各项判断依据时宫歌诀句义，总体判断、分项解释与总结保持同一取证范围。',
@@ -228,22 +232,26 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   'tarot-single':
     '围绕唯一牌位、牌名和正逆位解释当前主题，联系牌面象征与问题情境；多种牌义按现实条件比较取舍，时间含义采用本次牌位已给定的范围。',
   lenormand:
-    '按实际牌序、主题牌及布局语法解释邻牌和已成立的组合；固定组合与一般联读分别取义，以整阵的支持与制约回应同一问题，时间与人物角色保持各牌位身份。',
+    '按实际牌序、布局语法、邻牌关系及已成立的组合解读；固定组合与一般联读分别取义，以整阵的支持与制约回应同一问题，时间与人物角色依据各牌位资料解释。',
   'lenormand-single':
     '以唯一牌位和基础牌义回应问题，将象意联系已知情境，说明能支持的主题与需要现实条件区分的含义。',
 
   // 6. 年运与周期体系
   zodiac:
-    '逐项说明生肖年支与流年干支实际命中的值、冲、刑、害、破、六合、三合、三会及五行关系，再在生肖与流年关系的范围内概括需要关注的主题。',
+    '列明生肖与流年实际命中的值、冲、刑、害、破、六合、三合、三会及五行关系和参与条件；结合问题与已提供资料核对适用条件，资料不足则说明待核对项。',
   'wuyun-liuqi':
     '先依年干支判定岁运太过不及与司天在泉，再结合五步主客运与六步主客气详述四时气候节律与变化节点。',
   'huangji-jingshi':
     '先定位元会运世周期层级与值年统卦，再结合卦爻变易与先后天象意推演时势走向与转折关窍。',
 };
 
+export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
+  ...CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS,
+};
+
 export function getPromptAnswerFramework(method?: string): string {
-  if (method && method in PROMPT_METHOD_ANSWER_FRAMEWORKS) {
-    return PROMPT_METHOD_ANSWER_FRAMEWORKS[method];
+  if (method && Object.hasOwn(CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS, method)) {
+    return CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS[method];
   }
   return PROMPT_ANSWER_FRAMEWORK;
 }
@@ -256,7 +264,10 @@ export function buildPromptTask(task: string, method?: string) {
   if (normalizedTask.includes(framework)) return normalizedTask;
   // 切换术式时替换末尾已有的答题骨架，保留任务正文及正文中的引用。
   const allFrameworks = [
-    ...new Set([PROMPT_ANSWER_FRAMEWORK, ...Object.values(PROMPT_METHOD_ANSWER_FRAMEWORKS)]),
+    ...new Set([
+      PROMPT_ANSWER_FRAMEWORK,
+      ...Object.values(CANONICAL_PROMPT_METHOD_ANSWER_FRAMEWORKS),
+    ]),
   ].sort((a, b) => b.length - a.length);
   let trailing = allFrameworks.find((item) => normalizedTask.endsWith(item));
   while (trailing) {
@@ -277,7 +288,7 @@ export function buildPromptGuidanceSections(method: PromptGuidanceId | 'wuyun') 
   const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
   // 签谱提示词只允许携带本次签谱资料；签文、典故和解签由盘面资料本身提供。
   if (['ssgw', 'zhuge', 'kongming'].includes(guidanceMethod)) return '';
-  const guidance = PROMPT_GUIDANCE_TEXT[guidanceMethod];
+  const guidance = CANONICAL_PROMPT_GUIDANCE_TEXT[guidanceMethod];
   // 书目名称不参与本次判断，完整来源仍保留在结构化证据中。
   const blocks = 'tradition' in guidance ? guidance.tradition : '';
 
@@ -303,7 +314,7 @@ export function insertPromptSectionBeforeHeading(prompt: string, heading: string
 /** 生成核心提示词使用的传统依据段落。 */
 export function buildPromptGuidance(method: string) {
   const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
-  return guidanceMethod in PROMPT_GUIDANCE_TEXT
+  return Object.hasOwn(CANONICAL_PROMPT_GUIDANCE_TEXT, guidanceMethod)
     ? buildPromptGuidanceSections(guidanceMethod as PromptGuidanceId)
     : '';
 }

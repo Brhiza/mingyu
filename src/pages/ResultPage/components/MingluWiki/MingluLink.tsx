@@ -6,6 +6,47 @@ interface MingluLinkProps {
   title?: string;
   category?: string;
   className?: string;
+  onNavigate?: (anchorId: string) => void;
+}
+
+export function scrollToMingluAnchor(anchorId: string): boolean {
+  const elem = document.getElementById(anchorId);
+  if (!elem) return false;
+  const toolbar = elem
+    .closest('.minglu-wiki-wrapper')
+    ?.querySelector<HTMLElement>('.minglu-wiki-toolbar');
+  if (toolbar) {
+    let scrollportTop = 0;
+    for (let parent = elem.parentElement; parent; parent = parent.parentElement) {
+      const overflowY = window.getComputedStyle(parent).overflowY;
+      if (
+        (overflowY === 'auto' || overflowY === 'scroll') &&
+        parent.scrollHeight > parent.clientHeight
+      ) {
+        scrollportTop = parent.getBoundingClientRect().top;
+        break;
+      }
+    }
+    const workspace = elem.closest('.workspace-shell');
+    const occludingBottom = [
+      toolbar,
+      workspace?.querySelector<HTMLElement>('.workspace-mobile-header'),
+      workspace?.querySelector<HTMLElement>('.workspace-case-tabbar'),
+    ].reduce((bottom, candidate) => {
+      if (!candidate || window.getComputedStyle(candidate).display === 'none') return bottom;
+      const rect = candidate.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0
+        ? Math.max(bottom, rect.bottom)
+        : bottom;
+    }, scrollportTop);
+    elem.style.scrollMarginTop = `${Math.max(0, occludingBottom - scrollportTop) + 16}px`;
+  }
+  elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  elem.classList.remove('minglu-anchor-flash');
+  void elem.offsetWidth;
+  elem.classList.add('minglu-anchor-flash');
+  window.history.replaceState(null, '', `#${anchorId}`);
+  return true;
 }
 
 export const MingluLink: React.FC<MingluLinkProps> = ({
@@ -14,17 +55,12 @@ export const MingluLink: React.FC<MingluLinkProps> = ({
   title,
   category,
   className = '',
+  onNavigate,
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const elem = document.getElementById(targetAnchorId);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      elem.classList.remove('minglu-anchor-flash');
-      void elem.offsetWidth; // trigger reflow
-      elem.classList.add('minglu-anchor-flash');
-      window.history.replaceState(null, '', `#${targetAnchorId}`);
-    }
+    if (onNavigate) onNavigate(targetAnchorId);
+    else scrollToMingluAnchor(targetAnchorId);
   };
 
   return (

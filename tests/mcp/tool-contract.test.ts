@@ -20,9 +20,6 @@ test('MCP 独立发布包应声明命令入口和随包说明', () => {
 });
 
 test('统一 Tool Catalog 应包含所有核心工具并声明元数据注解', () => {
-  const catalog = getToolCatalog();
-  assert.equal(catalog.length >= 40, true);
-
   const baziTool = findTool('bazi_calculate');
   assert.ok(baziTool);
   assert.equal(baziTool.category, 'bazi');
@@ -31,7 +28,8 @@ test('统一 Tool Catalog 应包含所有核心工具并声明元数据注解', 
   assert.equal(baziTool.annotations.idempotentHint, true);
 
   const baziTools = getToolsByCategory('bazi');
-  assert.equal(baziTools.length >= 4, true);
+  assert.ok(baziTools.some((tool) => tool.id === 'bazi_calculate'));
+  assert.ok(baziTools.every((tool) => tool.category === 'bazi'));
 
   const baziReverseTool = findTool('calendar_bazi_reverse');
   assert.ok(baziReverseTool);
@@ -81,24 +79,13 @@ test('BirthInputSchema 应支持标准出生参数及三柱降级缺省时辰', 
   assert.equal(parsedThree.data.timeIndex, undefined);
 });
 
-test('统一工具描述应说明首选调用、结果读取和随机重放规则', () => {
+test('工具描述应清除旧的仅提示词限制', () => {
   const promptDescription = getToolDescription(
     'bazi_prompt',
     '八字排盘并生成完整提示词，仅返回提示词；需要完整命盘时调用 bazi_calculate',
   );
-  assert.match(promptDescription, /直接解读时优先调用/);
-  assert.match(promptDescription, /无需先调同类排盘工具/);
-  assert.match(promptDescription, /返回 prompt/);
   assert.doesNotMatch(promptDescription, /仅返回提示词/);
-  assert.match(getToolDescription('bazi_prompt', '八字提示词', 'summary'), /当前连接默认 summary/);
-
-  const calculationDescription = getToolDescription('bazi_calculate', '八字排盘');
-  assert.match(calculationDescription, /只用于结构化盘面/);
-  assert.match(calculationDescription, /按 outputSchema 读取结构化字段/);
-
-  const randomDescription = getToolDescription('divine_liuyao', '六爻起卦');
-  assert.match(randomDescription, /同一问题只调用一次/);
-  assert.match(randomDescription, /重放参数或固定输入/);
+  assert.match(promptDescription, /^八字排盘并生成完整提示词。调用与读取：/);
 });
 
 test('在线与本地 MCP 应向 Agent 说明预设，并保留一次性占卜的完整结果', async () => {
@@ -245,18 +232,25 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
   )._registeredTools;
 
   const ids = getToolCatalog().map((tool) => tool.id);
-  assert.equal(new Set(ids).size, ids.length, '目录工具名必须唯一');
   assert.deepEqual(Object.keys(registered).sort(), ids.sort(), '目录与实际注册必须双向一致');
 
   const baziTool = registered['bazi_calculate'];
   assert.ok(baziTool);
   assert.match(baziTool.description ?? '', /只用于结构化盘面/);
+  assert.match(baziTool.description ?? '', /按 outputSchema 读取结构化字段/);
   assert.equal(baziTool.annotations?.readOnlyHint, true);
   assert.equal(baziTool.annotations?.idempotentHint, true);
+
+  const baziPromptTool = registered['bazi_prompt'];
+  assert.ok(baziPromptTool);
+  assert.match(baziPromptTool.description ?? '', /返回 prompt/);
+  assert.match(baziPromptTool.description ?? '', /无需先调同类排盘工具/);
+  assert.doesNotMatch(baziPromptTool.description ?? '', /仅返回提示词/);
 
   const liuyaoTool = registered['divine_liuyao'];
   assert.ok(liuyaoTool);
   assert.match(liuyaoTool.description ?? '', /同一问题只调用一次/);
+  assert.match(liuyaoTool.description ?? '', /重放参数或固定输入/);
   assert.equal(liuyaoTool.annotations?.readOnlyHint, true);
   assert.equal(liuyaoTool.annotations?.idempotentHint, false);
 

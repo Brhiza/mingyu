@@ -137,6 +137,69 @@ test('终身奇门主体快照锁定出生口径且只允许目标区间补算',
     gender: 'male',
     location: { longitude: 116.4, latitude: 39.9, locationName: '北京' },
   });
+
+  const preciseClock = {
+    ...input,
+    year: '2024',
+    month: '6',
+    day: '1',
+    timeIndex: 6,
+    birthHour: '0',
+    birthMinute: '5',
+    birthSecond: '',
+    useTrueSolarTime: false,
+  };
+  const preciseLifetime = buildQimenLifetimeInputs(preciseClock);
+  assert.equal(preciseLifetime.birthDateTime, '2024-06-01T00:05:00');
+  assert.equal(preciseLifetime.timeStandard, 'civil');
+  assert.equal(preciseLifetime.timeZoneId, 'Asia/Shanghai');
+  assert.equal(preciseLifetime.gender, 'male');
+  assert.deepEqual(
+    buildReadingSubject(preciseClock, prompt).lockedInputs['qimen-lifetime'],
+    preciseLifetime,
+  );
+  for (const birthSecond of [' \t', '0']) {
+    assert.deepEqual(buildQimenLifetimeInputs({ ...preciseClock, birthSecond }), preciseLifetime);
+  }
+  assert.equal(
+    buildQimenLifetimeInputs({ ...preciseClock, birthMinute: '0' }).birthDateTime,
+    '2024-06-01T00:00:00',
+  );
+  const omittedClock = { ...preciseClock, birthHour: '', birthMinute: '', birthSecond: '' };
+  const omittedLifetime = buildQimenLifetimeInputs(omittedClock);
+  assert.equal(omittedLifetime.birthDateTime, '2024-06-01T12:00:00');
+  assert.deepEqual(
+    buildQimenLifetimeInputs({
+      ...omittedClock,
+      birthHour: ' ',
+      birthMinute: '\t',
+      birthSecond: '\n',
+    }),
+    omittedLifetime,
+  );
+  assert.deepEqual(buildQimenLifetimeInputs({ ...omittedClock, timeIndex: -1 }), omittedLifetime);
+  const lunarLifetime = buildQimenLifetimeInputs({
+    ...preciseClock,
+    dateType: 'lunar',
+    isLeapMonth: true,
+    useTrueSolarTime: true,
+  });
+  assert.equal(lunarLifetime.calendarType, 'lunar');
+  assert.equal(lunarLifetime.isLeapMonth, true);
+  assert.equal(lunarLifetime.timeStandard, 'trueSolar');
+  assert.equal(lunarLifetime.birthDateTime, '2024-06-01T00:05:00');
+  assert.deepEqual(lunarLifetime.location, {
+    longitude: 116.4,
+    latitude: 39.9,
+    locationName: '北京',
+  });
+
+  const preciseResult = calculateQimenLifetime({ ...preciseLifetime, periodRange });
+  assert.equal(preciseResult.input.birthDateTime, '2024-06-01T00:05:00');
+  assert.match(
+    buildLifetimePrompt(preciseResult, '解读事业阶段。'),
+    /出生时刻：2024-06-01T00:05:00/u,
+  );
 });
 
 test('终身奇门初始盘与 AI 补算共享历史时区和阶段口径', async () => {
@@ -161,7 +224,7 @@ test('终身奇门初始盘与 AI 补算共享历史时区和阶段口径', asyn
     yearsPerStage: 15,
   });
   assert.equal(decadalInput.stagePolicy?.model, 'decadalGanzhi');
-  assert.match(initial.basis.timeZoneUsed, /Asia\/Shanghai \(UTC\+9\)/u);
+  assert.match(initial.basis.timeZoneUsed, /Asia\/Shanghai \(UTC\+09:00\)/u);
 
   await withRealApi(async () => {
     const resource = await executeReadingAction(action, undefined, historicalSubject);
@@ -251,6 +314,14 @@ test('终身奇门公共接口拒绝无效或超过31年的目标区间', async 
     assert.equal(invalidDate.response.status, 400, path);
     const invalidDateError = invalidDate.body.error as Record<string, unknown> | undefined;
     assert.match(String(invalidDateError?.message), /startDate.*有效日期/u);
+
+    const unsupportedYear = await callLifetimeApi(path, {
+      ...baseRequest,
+      periodRange: { startDate: '0001-01-15', endDate: '0001-01-15' },
+    });
+    assert.equal(unsupportedYear.response.status, 400, path);
+    const unsupportedYearError = unsupportedYear.body.error as Record<string, unknown> | undefined;
+    assert.match(String(unsupportedYearError?.message), /上一干支年超出公历年份支持范围/u);
   }
 });
 
@@ -447,6 +518,29 @@ test('终身局补算拒绝公共 API 返回的错误目标区间', async () => 
     },
     { periodRange: { startDate: '2030-01-01', endDate: '2031-12-31' } },
   );
+});
+
+test('终身局补算不能用日级事件冒充年度片段', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (inputValue, init) => {
+    const request = new Request(new URL(String(inputValue), 'https://aov.cc'), init);
+    const response = await handlePublicApiRequest(request);
+    const body = (await response.json()) as Record<string, unknown>;
+    const payload = body.data as Record<string, unknown>;
+    const result = payload.result as Record<string, unknown>;
+    const clusters = result.eventClusters as Array<Record<string, unknown>>;
+    result.eventClusters = clusters.filter((cluster) => !String(cluster.key).includes('-lichun:'));
+    assert.ok((result.eventClusters as unknown[]).length > 0);
+    return Response.json(body, { status: response.status });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(
+      executeReadingAction(action, undefined, subject),
+      /缺少奇门终身局2026年动态资料/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('终身奇门补算 schema 只暴露目标时段字段', async () => {

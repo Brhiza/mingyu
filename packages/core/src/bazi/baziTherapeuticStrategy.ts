@@ -1,4 +1,3 @@
-import { BASIC_MAPPINGS } from './baziDefinitions';
 import {
   type ClimateRule,
   type ClimateRuleEffect,
@@ -15,6 +14,9 @@ import {
   type RuleMatchContext,
   type VisibleStemSource,
 } from './baziRuleMatcher';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export type ClimateRuleMatchStatus = '满足' | '不满足' | '资料不足';
 
@@ -70,15 +72,20 @@ function isPolicySourceComplete(rule: ClimateRule): boolean {
 }
 
 function isEffectComplete(effect: ClimateRuleEffect): boolean {
-  const stemIndex = BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(effect.stem as never);
-  const expectedWuxing = stemIndex >= 0 ? BASIC_MAPPINGS.STEM_WUXING[stemIndex] : undefined;
+  const stemIndex = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(
+    effect.stem as never,
+  );
+  const expectedWuxing =
+    stemIndex >= 0 ? BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex] : undefined;
   return (
     hasText(effect.stem) &&
     hasText(effect.wuxing) &&
     expectedWuxing === effect.wuxing &&
     hasText(effect.role) &&
     (effect.targetStems || []).every(
-      (stem) => hasText(stem) && BASIC_MAPPINGS.HEAVENLY_STEMS.includes(stem as never),
+      (stem) =>
+        hasText(stem) &&
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.includes(stem as never),
     )
   );
 }
@@ -216,8 +223,8 @@ function pickClimateCandidate(candidates: ClimateRuleCandidate[]): {
 }
 
 function isWholeWuxingCovered(wuxing: string, stems: string[]): boolean {
-  const requiredStems = BASIC_MAPPINGS.HEAVENLY_STEMS.filter(
-    (_, index) => BASIC_MAPPINGS.STEM_WUXING[index] === wuxing,
+  const requiredStems = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.filter(
+    (_, index) => BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[index] === wuxing,
   );
   return requiredStems.length > 0 && requiredStems.every((stem) => stems.includes(stem));
 }
@@ -321,10 +328,10 @@ export function applyClimateCandidates<T extends UsefulGodDecisionStateLike>(
       ...(state.conditionalUnfavorableStems || []),
       ...scopedWuxings.flatMap((wuxing) =>
         state.unfavorableWuxing.includes(wuxing)
-          ? BASIC_MAPPINGS.HEAVENLY_STEMS.filter(
+          ? BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.filter(
               (_, index) =>
-                BASIC_MAPPINGS.STEM_WUXING[index] === wuxing &&
-                !stems.includes(BASIC_MAPPINGS.HEAVENLY_STEMS[index]),
+                BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[index] === wuxing &&
+                !stems.includes(BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS[index]),
             )
           : [],
       ),

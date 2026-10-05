@@ -14,7 +14,7 @@ import type {
   ExposedStemItem,
   ExposedStemProfile,
 } from '../types/analysis';
-import { HIDDEN_STEMS } from './baziMappingsData';
+
 import { WUXING, type Wuxing } from './baziTypes';
 import {
   collectSameElementRootFacts,
@@ -22,6 +22,9 @@ import {
   type RootPillarPosition,
 } from './baziRootFacts';
 import { assertEarthlyBranch, assertHeavenlyStem, getSeasonStatus } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'];
 const ROOT_POSITION_INDEX: Record<RootPillarPosition, number> = {
@@ -114,10 +117,10 @@ export function analyzeStemRootProfile(
     hour: pillars[3],
   };
   const hiddenStems = {
-    year: HIDDEN_STEMS[pillars[0].zhi],
-    month: HIDDEN_STEMS[pillars[1].zhi],
-    day: HIDDEN_STEMS[pillars[2].zhi],
-    hour: HIDDEN_STEMS[pillars[3].zhi],
+    year: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[0].zhi],
+    month: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[1].zhi],
+    day: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[2].zhi],
+    hour: BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[3].zhi],
   };
   const resolveStemElement = (value: string): Wuxing =>
     STEM_ELEMENT[value] ?? resolveWuxing(getWuxing, value, '藏干');
@@ -199,7 +202,9 @@ export function analyzeExposedStemProfile(
   const effectiveMonthBranch = monthBranch ?? pillars[1]?.zhi;
   if (effectiveMonthBranch) assertEarthlyBranch(effectiveMonthBranch, '月支');
   const pillarNames = ['year', 'month', 'day', 'hour'];
-  const monthStems = effectiveMonthBranch ? HIDDEN_STEMS[effectiveMonthBranch] || [] : [];
+  const monthStems = effectiveMonthBranch
+    ? BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[effectiveMonthBranch] || []
+    : [];
 
   // 根气复用同文件的根气分析结果，不再返回恒定“待定”
   const rootProfile = analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod);

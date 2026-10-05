@@ -12,11 +12,17 @@
 
 import type { BaziChartResult, Wuxing } from '../baziTypes';
 import { checkCondition } from '../baziConditionMatchers';
-import { collectEstablishedBranchFormations } from '../baziFormationUtils';
-import { HIDDEN_STEMS } from '../baziMappingsData';
+import {
+  collectCompleteBranchFormations,
+  collectEstablishedBranchFormations,
+} from '../baziFormationUtils';
+
 import { assessStemHarmonyTransform } from '../harmonyTransform';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
 import { assessQuzhiPattern } from '../baziQuzhiStrategy';
+import { getBaziRelationMappings } from '../baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 export interface ClassicPattern {
   id: string;
@@ -68,7 +74,6 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       dayStems: ['甲', '丙', '戊', '庚', '壬'],
       monthBranch: ['卯', '午', '酉', '子'],
       exactMonthBranchMap: { 甲: '卯', 丙: '午', 戊: '午', 庚: '酉', 壬: '子' },
-      otherConditions: ['羊刃透出', '羊刃当令'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
     favorableWuxing: ['官', '杀'],
@@ -78,7 +83,8 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'lu-ren-lu',
     name: '建禄格',
-    description: '日干与月支同气，如甲木生寅月。建禄自旺，不祖则兄，主辛苦创业。',
+    description:
+      '月支为日干禄位，如甲日寅月、戊日巳月、己日午月。成败仍须结合财官食伤及全局制化核对。',
     conditions: {
       dayStems: [...HEAVENLY_STEMS],
       monthBranch: ['寅', '卯', '巳', '午', '申', '酉', '亥', '子'],
@@ -94,7 +100,6 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
         壬: '亥',
         癸: '子',
       },
-      otherConditions: ['日干与月支同气', '月令司权'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
     favorableWuxing: ['财', '官', '食'],
@@ -529,7 +534,9 @@ function resolveHiddenStems(
   key: ClassicPillarKey,
 ): string[] {
   const supplied = hiddenStems?.[key];
-  return supplied?.length ? [...supplied] : [...(HIDDEN_STEMS[pillars[key].zhi] ?? [])];
+  return supplied?.length
+    ? [...supplied]
+    : [...(BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars[key].zhi] ?? [])];
 }
 
 function getHarmonyPillars(
@@ -545,6 +552,9 @@ function getHarmonyPillars(
 }
 
 function formatMatchedCondition(condition: string): string {
+  if (/^[亥子丑寅卯辰巳午未申酉戌]{3}三[合会][木火土金水]局$/u.test(condition)) {
+    return `地支${condition.slice(0, 3)}齐全，具备${condition.slice(3)}结构`;
+  }
   if (/势旺盛|当令|月令司权/.test(condition)) {
     return `结构出现条件“${condition}”（旺衰仍需结合整盘核对）`;
   }
@@ -660,6 +670,40 @@ function evaluateClassicPatternCandidate(
   const pendingConditions: string[] = [];
   const counterEvidence: string[] = [];
   const visibleStems = getVisibleStems(pillars);
+
+  const formationConditions = [
+    ...(pattern.conditions.otherConditions ?? []),
+    ...(pattern.conditions.anyConditions ?? []),
+  ].filter(
+    (condition) =>
+      /^[亥子丑寅卯辰巳午未申酉戌]{3}三[合会][木火土金水]局$/u.test(condition) &&
+      checkCondition(condition, pillars.day.gan, pillars, hiddenStems),
+  );
+  const completeFormations = collectCompleteBranchFormations(pillars);
+  const establishedFormations = collectEstablishedBranchFormations(pillars);
+  for (const condition of formationConditions) {
+    const branches = [...condition.slice(0, 3)];
+    const type = condition[4] === '合' ? '三合' : '三会';
+    const wuxing = condition[5];
+    const sameFormation = (formation: { type: string; branches: string[]; wuxing: string }) =>
+      formation.type === type &&
+      formation.wuxing === wuxing &&
+      branches.every((branch) => formation.branches.includes(branch));
+    if (!completeFormations.some(sameFormation)) continue;
+    const established = establishedFormations.find(sameFormation);
+    if (established) {
+      verificationFacts.push(
+        `${condition}已成势，月令${pillars.month.zhi}${wuxing}${established.monthStatus}，未见局外支冲破`,
+      );
+    } else {
+      pendingConditions.push(`${condition}仅三支齐全，未形成得令且无局外冲破的成势条件`);
+    }
+  }
+  for (const condition of pattern.conditions.otherConditions ?? []) {
+    if (/势旺盛/u.test(condition)) {
+      pendingConditions.push(`${condition}需结合本盘旺衰核验`);
+    }
+  }
 
   const huaQiPartner = getHuaQiPartner(pattern, pillars);
   if (huaQiPartner) {
@@ -780,7 +824,7 @@ export function identifyClassicPatternCandidates(
       : evaluation.pendingConditions.length
         ? '待核验'
         : '结构命中';
-    return [{ pattern, matchedConditions, status, ...evaluation }];
+    return [{ pattern: structuredClone(pattern), matchedConditions, status, ...evaluation }];
   });
 }
 

@@ -6,7 +6,9 @@
  * 阶段二（8力量 至 14节制）：内在心理冲突与潜意识整合；
  * 阶段三（15恶魔 至 21世界）：超个人解构与精神完整。
  */
-import { tarotCards } from './tarot-data';
+import { getTarotReferenceData } from './tarot-data';
+
+const { tarotCards } = getTarotReferenceData();
 
 export interface TarotArchetypeStage {
   stageNumber: 1 | 2 | 3;

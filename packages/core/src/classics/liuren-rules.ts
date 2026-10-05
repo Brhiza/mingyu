@@ -1,23 +1,24 @@
 import type { LiurenLessonPatternClassic, LiurenTransmissionClassic } from './types';
 
 /**
- * 《大六壬大全》《六壬指南》《毕法赋》九宗门取传与经典课体释义全录
+ * 《大六壬大全》《六壬指南》《毕法赋》九宗门取传与经典课体释义。
+ * 九宗门歌诀节录自《六壬大全》卷一“起例”。
  */
-export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> = {
+const CANONICAL_LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> = {
   重审: {
     rule: '重审',
     category: '贼克法（下贼上）',
     sourceBook: '大六壬大全·九宗门',
     summary: '四课只有一处下贼上，以下贼上之上神为初传发用。',
-    verse: '取课先从下贼呼，若无下贼上克图；下克名重审，顺理自然敷。',
+    verse: '取课先从下贼呼，如无下贼上克初。初传之上名中次，中上加临是末居。',
     modernAdvice: '下克上为顺理成章、由内而外的革新与爆发。自身动机纯正，虽有震荡终能顺遂。',
   },
   元首: {
     rule: '元首',
     category: '贼克法（上克下）',
     sourceBook: '大六壬大全·九宗门',
-    summary: '四课只有一处上克下，以上克下之上神为初传发用。',
-    verse: '上克下兮名元首，尊长统领万民昌；发用端正无私曲，谋为顺畅出朝堂。',
+    summary: '四课无下贼上，只有一处上克下，以上克下之上神为初传发用。',
+    verse: '取课先从下贼呼，如无下贼上克初。初传之上名中次，中上加临是末居。',
     modernAdvice: '上级、制度或主管力量发号施令，利于管理、晋升、正道求谋，宜尊崇规则。',
   },
   '知一/比用': {
@@ -25,15 +26,15 @@ export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClas
     category: '知一法（比用）',
     sourceBook: '大六壬大全·九宗门',
     summary: '四课见多处相克，取与日干阴阳同类的上神发用。',
-    verse: '克贼俱多比日干，同阳同阴仔细观；若能知一分明晓，发用如神定吉安。',
+    verse: '常将天日比神用，阳日用阳阴用阴。若或俱比俱不比，立法别有涉害陈。',
     modernAdvice: '多项选择或竞争中，选择与自身性格、定位最契合的路径，志同道合者助益最大。',
   },
   涉害: {
     rule: '涉害',
     category: '涉害法',
-    sourceBook: '六壬指南·涉害门',
+    sourceBook: '大六壬大全·九宗门',
     summary: '多处贼克且比用仍多，比较上神归本家途中涉克深浅取发用。',
-    verse: '涉害深浅历万难，孟仲季位仔细攀；历尽艰险成大器，风雨过后见青天。',
+    verse: '涉害行来本家止，路逢多克为用取。孟深仲浅季当休，复等柔辰刚日宜。',
     modernAdvice: '事态复杂，需经历多重考验与磨砺。唯有坚持不懈、踏实攻坚，方能最终破局。',
   },
   遥克: {
@@ -41,31 +42,34 @@ export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClas
     category: '遥克法（蒿矢/弹射）',
     sourceBook: '大六壬大全·九宗门',
     summary: '四课无上下克，取上神与日干遥克者发用；神克干为蒿矢，干克神为弹射。',
-    verse: '四课无克遥相指，蒿矢弹射两分明；神克干来防外侮，干克神去得财成。',
+    verse: '先取神遥克其日，如无方取日来遥。择与日干比者用，阳日用阳阴用阴。',
     modernAdvice: '外部远距离因素影响大局，应提高警惕，注意防范外部突发信息或远程收益。',
   },
   昴星: {
     rule: '昴星',
     category: '昴星法（虎视/掩目）',
     sourceBook: '大六壬大全·九宗门',
-    summary: '四课无克亦无遥克，阳日取酉上神（虎视），阴日取干上神（掩目）。',
-    verse: '无克无遥看昴星，刚日酉位虎视横；柔日干上掩目静，守株待兔莫轻行。',
+    summary:
+      '四课全备且无上下克、无遥克；阳日初传取地盘酉上神，中传支上、末传干上；阴日初传取天盘酉下神，中传干上、末传支上。',
+    verse: '无遥无克昴星穷，阳仰阴俯酉位中。刚日先辰而后日，柔日先日而后辰。',
     modernAdvice: '局势混沌不明，切忌轻举妄动。宜暗中观察蓄力，待机而动。',
   },
   别责: {
     rule: '别责',
     category: '别责法',
     sourceBook: '大六壬大全·九宗门',
-    summary: '课象不全又无克，阳日取干合之上神，阴日取支前三合发用。',
-    verse: '四课不全借外求，别责借力解千愁；阳干合上阴支合，另辟蹊径展鸿猷。',
+    summary:
+      '四课不全而三课备，无上下克、无遥克；阳日取合干寄宫上神，阴日取日支前三合支本身为初传，中末均取干上神。',
+    verse: '四课不全三课备，无遥无克别责例。刚日干合上头神，柔日支前三合取。',
     modernAdvice: '常规手段难以破局，宜另辟蹊径，借助外部跨界资源或贵人借力化解。',
   },
   八专: {
     rule: '八专',
     category: '八专法',
     sourceBook: '大六壬大全·九宗门',
-    summary: '干支同位、四课只有两课，阳日顺数三位、阴日逆数三位发用。',
-    verse: '八专同位事多迟，阳顺阴逆数三期；进退维谷宜自守，独断专行惹是非。',
+    summary:
+      '甲寅、庚申、丁未、己未、癸丑日干支同位；有上下克先取克，无克按八专取传：阳日从干上神顺数三位，阴日从第四课上神逆数三位，连本位数，中末均取干上神。',
+    verse: '两课无克号八专，阳日日阳顺行三。阴日辰阴逆三位，中末总向日上眠。',
     modernAdvice: '环境狭窄或资源集中，容易因个人独断而产生盲点，宜博采众长、谨慎决策。',
   },
   伏吟: {
@@ -73,7 +77,7 @@ export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClas
     category: '伏吟法',
     sourceBook: '大六壬大全·九宗门',
     summary: '天地盘逐位重合不移，不动之象；有克取克，无克刚日取干上、柔日取支上。',
-    verse: '伏吟不动守门庭，忧患伏藏喜事停；闭户修身养心性，妄动必遭百事惊。',
+    verse: '伏吟有克还为用，无克刚干柔取辰。若也自刑为发用，次传颠倒日辰并。',
     modernAdvice: '大局停滞固化，不宜主动开拓。宜整理内务、修养身心、巩固现有盘子。',
   },
   返吟: {
@@ -81,12 +85,15 @@ export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClas
     category: '返吟法',
     sourceBook: '大六壬大全·九宗门',
     summary: '天盘十二位与地盘逐位相冲，极动之象；有克取克，无克按井栏射起传。',
-    verse: '返吟对冲事翻腾，往来不定变如云；反复无常休怪叹，动中取胜利远程。',
+    verse: '返吟有克亦为用，无克别有井栏名。若知六日该无克，丑未同干丁己辛。',
     modernAdvice: '变动剧烈、反复无常，计划常需快速调整。宜顺应变化、灵活机动、防范突发反复。',
   },
 };
 
-export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> = {
+export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> =
+  structuredClone(CANONICAL_LIUREN_TRANSMISSION_CLASSICS);
+
+const CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> = {
   斩关: {
     pattern: '斩关课',
     sourceBook: '六壬指南·课体心印',
@@ -119,12 +126,15 @@ export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternC
   },
 };
 
+export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> =
+  structuredClone(CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS);
+
 import type { LiurenGeneralClassic } from './types';
 
 /**
  * 大六壬十二天将《大六壬大全》《六壬指南》精解
  */
-export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
+const CANONICAL_LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
   贵人: {
     general: '贵人',
     wuxing: '土',
@@ -235,26 +245,41 @@ export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
   },
 };
 
+export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = structuredClone(
+  CANONICAL_LIUREN_GENERAL_CLASSICS,
+);
+
 export function getLiurenGeneralClassic(general: string): LiurenGeneralClassic | undefined {
   if (!general) return undefined;
-  for (const [key, val] of Object.entries(LIUREN_GENERAL_CLASSICS)) {
-    if (general.includes(key)) return val;
+  for (const [key, val] of Object.entries(CANONICAL_LIUREN_GENERAL_CLASSICS)) {
+    if (general.includes(key)) return structuredClone(val);
   }
   return undefined;
 }
 
 export function getLiurenTransmissionClassic(rule: string): LiurenTransmissionClassic | undefined {
-  for (const [key, value] of Object.entries(LIUREN_TRANSMISSION_CLASSICS)) {
-    if (rule.includes(key)) return value;
-  }
-  return undefined;
+  // 特殊课兼用贼克、比用或涉害时，仍以特殊课为主课资料。
+  const patterns: Array<[RegExp, string]> = [
+    [/伏吟/, '伏吟'],
+    [/返吟|反吟/, '返吟'],
+    [/遥克/, '遥克'],
+    [/八专/, '八专'],
+    [/别责/, '别责'],
+    [/昴星/, '昴星'],
+    [/涉害/, '涉害'],
+    [/知一|比用/, '知一/比用'],
+    [/重审/, '重审'],
+    [/元首/, '元首'],
+  ];
+  const key = patterns.find(([pattern]) => pattern.test(rule))?.[1];
+  return key ? structuredClone(CANONICAL_LIUREN_TRANSMISSION_CLASSICS[key]) : undefined;
 }
 
 export function getLiurenLessonPatternClassic(
   pattern: string,
 ): LiurenLessonPatternClassic | undefined {
-  for (const [key, value] of Object.entries(LIUREN_LESSON_PATTERN_CLASSICS)) {
-    if (pattern.includes(key)) return value;
+  for (const [key, value] of Object.entries(CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS)) {
+    if (pattern.includes(key)) return structuredClone(value);
   }
   return undefined;
 }
@@ -262,7 +287,7 @@ export function getLiurenLessonPatternClassic(
 /**
  * 宋代凌福之《大六壬毕法赋》百法精义节选
  */
-export const LIUREN_BIFA_CLASSICS: Array<{
+const CANONICAL_LIUREN_BIFA_CLASSICS: Array<{
   title: string;
   sourceBook: string;
   verse: string;
@@ -300,11 +325,22 @@ export const LIUREN_BIFA_CLASSICS: Array<{
   },
 ];
 
+export const LIUREN_BIFA_CLASSICS: Array<{
+  title: string;
+  sourceBook: string;
+  verse: string;
+  explanation: string;
+}> = structuredClone(CANONICAL_LIUREN_BIFA_CLASSICS);
+
 export function getLiurenBifaClassic(keyword: string) {
   if (!keyword) return undefined;
-  return LIUREN_BIFA_CLASSICS.find((b) => b.title.includes(keyword) || b.verse.includes(keyword));
+  return structuredClone(
+    CANONICAL_LIUREN_BIFA_CLASSICS.find(
+      (b) => b.title.includes(keyword) || b.verse.includes(keyword),
+    ),
+  );
 }
 
 export function getAllLiurenBifaClassics() {
-  return LIUREN_BIFA_CLASSICS;
+  return structuredClone(CANONICAL_LIUREN_BIFA_CLASSICS);
 }

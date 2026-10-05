@@ -19,6 +19,9 @@ function assertContract(result, bundler) {
     `${bundler} 紫微行运结果无效`,
   );
   assert.equal(result.birthdayAge, 2, `${bundler} 紫微生日当天换岁结果无效`);
+  assert.equal(result.birthdayDirectAge, 2, `${bundler} 紫微星盘方法生日当天换岁结果无效`);
+  assert.equal(result.birthdaySyncAge, 2, `${bundler} 紫微同步运限生日当天换岁结果无效`);
+  assert.equal(result.explicitEarlyZi, '子', `${bundler} 紫微显式早子时结果无效`);
 }
 
 async function runViteContract() {

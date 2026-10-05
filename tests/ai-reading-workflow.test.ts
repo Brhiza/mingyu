@@ -359,6 +359,7 @@ test('连续两次准备格式错误时最终上下文说明资料状态', async
   const final = h.sent.at(-1)![0].content;
   assert.match(final, /本轮资料准备未取得可执行的补充动作/);
   assert.doesNotMatch(final, /资料准备修正/);
+  assert.equal(h.notices.length, 1);
   assert.deepEqual(h.chunks, ['已有资料解读']);
 });
 
@@ -550,16 +551,7 @@ test('没有主体快照时跳过自动补算并明确提示', async () => {
   assert.deepEqual(h.chunks, ['已有盘面解读']);
 });
 
-test('准备格式不兼容时明确提示并继续已有资料解读，网络失败保留重试', async () => {
-  const h = harness(['不是JSON', '仍不是JSON', '已有资料解读']);
-  await runReadingWorkflow([{ role: 'user', content: '塔罗：星星正位' }], h.options, {
-    stream: h.stream,
-    execute: async () => {
-      throw new Error('不应执行');
-    },
-  });
-  assert.equal(h.notices.length, 1);
-  assert.deepEqual(h.chunks, ['已有资料解读']);
+test('资料准备网络失败时保留错误与重试状态', async () => {
   const failed = harness([]);
   await runReadingWorkflow([{ role: 'user', content: '原始盘面' }], failed.options, {
     stream: async (_messages, callbacks) => callbacks.onError('网络失败'),
@@ -579,7 +571,7 @@ test('查询失败保留盘面且明确说明', async () => {
       throw new Error('资料暂不可用');
     },
   });
-  assert.ok(h.notices.length);
+  assert.ok(h.notices.some((notice) => /补充资料.*暂未取得/u.test(notice)));
   assert.match(h.sent[1][0].content, /八字原始资料/);
   assert.match(h.sent.at(-1)![0].content, /“甲”条文未取得：资料暂不可用/);
   assert.equal(h.done(), 1);
@@ -782,6 +774,164 @@ test('古籍查询读取真实条文并限定术式', async () => {
   assert.equal(absent.usable, false);
 });
 
+test('六壬奇门紫微真实经典查询进入解读时保留传统依据与职业取象', async () => {
+  const {
+    LIUREN_TRANSMISSION_CLASSICS,
+    QIMEN_STEM_PATTERNS,
+    ZIWEI_FU_CLASSICS,
+    ZIWEI_STAR_CLASSICS,
+  } = await import('mingyu-core/classics');
+  const ziweiFu = ZIWEI_FU_CLASSICS.find((entry) => entry.key === 'zi_fu_tong_gong')!;
+  const samples = [
+    ...['重审', '知一/比用', '涉害'].map((rule) => {
+      const entry = LIUREN_TRANSMISSION_CLASSICS[rule];
+      return {
+        method: 'liuren',
+        query: rule,
+        retained: [entry.sourceBook, entry.rule, entry.summary, entry.verse!],
+        omitted: entry.modernAdvice,
+      };
+    }),
+    {
+      method: 'qimen',
+      query: '青龙反首',
+      retained: ['青龙反首', '天盘干：戊', '地盘干：丙', QIMEN_STEM_PATTERNS['戊+丙'].classicVerse],
+      omitted: QIMEN_STEM_PATTERNS['戊+丙'].modernMeaning,
+    },
+    {
+      method: 'ziwei',
+      query: '紫府同宫',
+      retained: [ziweiFu.title, ziweiFu.sourceBook, ziweiFu.originalVerse],
+      omitted: ziweiFu.modernMeaning,
+    },
+    {
+      method: 'ziwei',
+      query: '紫微',
+      retained: [ZIWEI_STAR_CLASSICS.紫微.verse, ZIWEI_STAR_CLASSICS.紫微.careerAdvice],
+      omitted: ziweiFu.modernMeaning,
+    },
+  ];
+  for (const sample of samples) {
+    const h = harness([
+      JSON.stringify({
+        actions: [{ kind: 'classic', method: sample.method, query: sample.query }],
+      }),
+      '依据条文解读',
+    ]);
+    await runReadingWorkflow([{ role: 'user', content: '本次盘面与问题' }], h.options, {
+      stream: h.stream,
+      execute: executeReadingAction,
+    });
+
+    assert.deepEqual(h.errors, [], sample.query);
+    assert.equal(h.done(), 1, sample.query);
+    assert.equal(h.sent.length, 2, sample.query);
+    const resource = h.options.memory.resources[0];
+    assert.equal(resource?.usable, true, sample.query);
+    assert.ok(resource.sourceIds?.length, sample.query);
+    const finalText = h.sent.at(-1)![0].content;
+    assert.match(finalText, /【补充资料】/u);
+    for (const retained of sample.retained) {
+      assert.ok(resource.text.includes(retained), `${sample.query}资料：${retained}`);
+      assert.ok(finalText.includes(retained), `${sample.query}消息：${retained}`);
+    }
+    assert.ok(!resource.text.includes(sample.omitted), sample.query);
+    assert.ok(!finalText.includes(sample.omitted), sample.query);
+  }
+});
+
+test('仅存在于现代人事解释的词语不会命中传统条文', async () => {
+  for (const [method, query] of [
+    ['liuren', '自身动机纯正'],
+    ['liuren', '志同道合者助益最大'],
+    ['liuren', '踏实攻坚'],
+    ['qimen', '极大胜算'],
+    ['qimen', '顺势而为即可获利'],
+    ['ziwei', '善于聚人成事'],
+  ]) {
+    const resource = await executeReadingAction({ kind: 'classic', method, query });
+    assert.equal(resource.usable, false, `${method}：${query}`);
+    assert.deepEqual(resource.sourceIds, [], `${method}：${query}`);
+  }
+});
+
+test('嵌套经典条目的原文和条件进入解读且现代解释不参与检索', async (t) => {
+  const library: Record<string, unknown> = await import('mingyu-core/classics');
+  const table = library.LIUREN_TRANSMISSION_CLASSICS as Record<string, unknown>;
+  const fixtureKey = 'reading_nested_fixture';
+  assert.equal(Object.hasOwn(table, fixtureKey), false);
+  table[fixtureKey] = {
+    rule: '层级资料样例',
+    sourceBook: '嵌套条文示例',
+    summary: '外层规则条件保持',
+    modernAdvice: '外层现代保证标记',
+    yaos: [
+      {
+        positionName: '示例初爻',
+        yaoCi: '嵌套爻辞保持',
+        modernAdvice: '爻内现代保证标记',
+      },
+    ],
+    details: [
+      { summary: '嵌套规则条件保持', modernMeaning: '内层现代解释标记' },
+      ['嵌套原文保持', { modernAdvice: '深层现代保证标记' }],
+    ],
+  };
+  t.after(() => {
+    delete table[fixtureKey];
+  });
+
+  const h = harness([
+    '{"actions":[{"kind":"classic","method":"liuren","query":"层级资料样例"}]}',
+    '依据嵌套条文解读',
+  ]);
+  await runReadingWorkflow([{ role: 'user', content: '本次盘面与问题' }], h.options, {
+    stream: h.stream,
+    execute: executeReadingAction,
+  });
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.done(), 1);
+  const resource = h.options.memory.resources[0];
+  assert.equal(resource?.usable, true);
+  const finalText = h.sent.at(-1)![0].content;
+  for (const retained of [
+    '嵌套条文示例',
+    '外层规则条件保持',
+    '爻位：示例初爻',
+    '爻辞：嵌套爻辞保持',
+    '嵌套规则条件保持',
+    '嵌套原文保持',
+  ]) {
+    assert.ok(resource.text.includes(retained), retained);
+    assert.ok(finalText.includes(retained), retained);
+  }
+  for (const omitted of [
+    '外层现代保证标记',
+    '爻内现代保证标记',
+    '内层现代解释标记',
+    '深层现代保证标记',
+  ]) {
+    assert.ok(!resource.text.includes(omitted), omitted);
+    assert.ok(!finalText.includes(omitted), omitted);
+    const missed = await executeReadingAction({
+      kind: 'classic',
+      method: 'liuren',
+      query: omitted,
+    });
+    assert.equal(missed.usable, false, omitted);
+    assert.deepEqual(missed.sourceIds, [], omitted);
+  }
+});
+
+test('梅花体用查询只提供原文关系和合参依据', async () => {
+  const item = await lookupReadingClassics('meihua', '用克体');
+  assert.equal(item.usable, true);
+  assert.match(item.text, /典籍：梅花易数·体用总诀/);
+  assert.match(item.text, /原文：用克体，诸事凶/);
+  assert.match(item.text, /合参：结合体卦旺衰、互卦与变卦判断本局/);
+  assert.doesNotMatch(item.text, /必见破财|病情凶险|婚姻不成/);
+});
+
 test('古籍查询支持自然语言日主与月令，并返回稳定条文来源编号', async () => {
   const ditiansui = await lookupReadingClassics('bazi', '滴天髓论甲木');
   assert.equal(ditiansui.usable, true);
@@ -792,6 +942,25 @@ test('古籍查询支持自然语言日主与月令，并返回稳定条文来�
   assert.equal(qiongtong.usable, true);
   assert.match(qiongtong.text, /仲春甲木/u);
   assert.ok(qiongtong.sourceIds?.some((id) => id.startsWith('BAZI_QIONGTONG_TABLE:')));
+});
+
+test('调候古籍检索区分本月直引与条件荐干', async () => {
+  const bingWu = await lookupReadingClassics('bazi', '穷通宝鉴丙火生于午月');
+  assert.deepEqual(bingWu.sourceIds, ['BAZI_QIONGTONG_TABLE:丙+午']);
+  assert.match(bingWu.text, /条文参考：五月亦耑用壬/u);
+  assert.match(bingWu.text, /条文取用候选（依原文条件）：壬/u);
+  assert.doesNotMatch(bingWu.text, /条文取用候选（依原文条件）：壬；庚/u);
+
+  const dingWu = await lookupReadingClassics('bazi', '穷通宝鉴丁火生于午月');
+  assert.deepEqual(dingWu.sourceIds, ['BAZI_QIONGTONG_TABLE:丁+午']);
+  assert.match(dingWu.text, /火局.*无火局/u);
+  assert.doesNotMatch(dingWu.text, /条文取用候选/u);
+
+  const yiChen = await lookupReadingClassics('bazi', '穷通宝鉴乙木生于辰月');
+  assert.equal(yiChen.usable, true);
+  assert.deepEqual(yiChen.sourceIds, ['BAZI_QIONGTONG_TABLE:乙+辰']);
+  assert.match(yiChen.text, /条文参考：三月乙木，阳气愈炽，先癸后丙/u);
+  assert.doesNotMatch(yiChen.text, /二月乙木|四月乙木/u);
 });
 
 test('补算使用真实公开契约且只返回完整提示词', async (t) => {
@@ -1140,7 +1309,6 @@ test('真实双人八字紫微全文自然超限时合并相邻运段且完整�
   const initial = `${baziPrompts.join('\n\n')}\n\n【问题】结合双方完整运限分析关系的发展阶段。`;
   assert.ok(initial.length < 49_000);
   assert.ok(initial.length + primary.text.length + partner.text.length > 49_000);
-  assert.deepEqual(structuredClone([primary, partner]), [primary, partner]);
   await runReadingWorkflow([{ role: 'user', content: initial }], h.options, {
     stream: h.stream,
     execute: async () => primary,

@@ -4,10 +4,7 @@
  * 以及节气局数表、洛书轨迹等排盘所需常量，供各 helper 模块统一引用。
  *
  * 古籍依据：
- *   - 《烟波钓叟歌》：「阴阳五行分旺相，八卦甲子论神明」
- *   - 《遁甲演义》卷一：「五行相生相克，万物之纲纪也」
- *   - 《奇门遁甲秘籍大全》：「八门九星八神各有本气，五行判吉凶」
- *   - 《太白阴经》：「九天九地，太阴六合，螣蛇白虎，玄武勾陈」
+ *   - 《烟波钓叟歌》：「要识九星配五行，须求八卦考羲经」
  *   - 《易纬·乾凿度》太一九宫之说
  *
  * 五行生克为奇门所有判读的基础：
@@ -55,7 +52,7 @@ export const elementControls: Record<string, string> = {
 
 /**
  * 天干五行属性
- * 《遁甲演义》：「甲乙木、丙丁火、戊己土、庚辛金、壬癸水」
+ * 甲乙木、丙丁火、戊己土、庚辛金、壬癸水。
  */
 export const stemElements: Record<string, string> = {
   甲: '木',
@@ -92,8 +89,8 @@ export const branchElements: Record<string, string> = {
 
 /**
  * 八门五行属性
- * 《奇门遁甲秘籍大全》：「休属水、生属土、伤属木、杜属木、
- * 景属火、死属土、惊属金、开属金」
+ * 休属水、生属土、伤属木、杜属木、
+ * 景属火、死属土、惊属金、开属金
  */
 export const doorElements: Record<string, string> = {
   休门: '水',
@@ -155,7 +152,7 @@ export const liuYiStems = ['戊', '己', '庚', '辛', '壬', '癸'];
  * 三奇六仪固定顺序（排地盘所用）
  * 阳顺阴逆，从局数宫位开始依次布列九宫：
  *   戊 → 己 → 庚 → 辛 → 壬 → 癸 → 丁 → 丙 → 乙
- * 《奇门遁甲秘籍大全》：「阳遁顺布六仪，逆布三奇；阴遁逆布六仪，顺布三奇」
+ * 《烟波钓叟歌》：「阳遁顺仪奇逆布，阴遁逆仪奇顺行」
  */
 export const sanQiLiuYi = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'];
 
@@ -218,8 +215,8 @@ export const diPanPalaces: Record<string, number> = {
 
 /**
  * 天干入墓表：天干 → 墓支 → 墓宫
- * 《烟波钓叟歌》：「十干入墓主事迟」
- * 奇门中天干入墓的统一判定依据（《奇门遁甲秘籍大全》）：
+ * 入墓休囚概论：《烟波钓叟歌》：「十干加符若加错，入墓休囚吉事危」。此句未列各干墓支、墓宫。
+ * 天盘、地盘与日干落宫查询使用的天干墓支、墓宫配置：
  *   乙入未(坤2)、丙入戌(乾6)、丁入丑(艮8)
  *   戊入戌(乾6/中5寄乾6)、己入辰(巽4/中5寄巽4)
  *   庚入未(坤2)、辛入丑(艮8)
@@ -328,7 +325,7 @@ export const yinGods = ['值符', '九天', '九地', '玄武', '白虎', '六�
 /**
  * 洛书轨迹（飞宫路径）
  * 用于八门、九星飞布时的落宫顺序（跳过中五宫）。
- * 《洛书九宫数》：「戴九履一，左三右七，二四为肩，六八为足」
+ * 《数术记遗》：「九宫者即二四为肩，六八为足，左三右七，戴九履一，五居中央」
  * 飞宫路径：1 → 8 → 3 → 4 → 9 → 2 → 7 → 6
  */
 export const luoShuPath = [1, 8, 3, 4, 9, 2, 7, 6];
@@ -343,8 +340,8 @@ export const luoShuPath = [1, 8, 3, 4, 9, 2, 7, 6];
  * 奇门定局之枢纽。每个节气统管三元（上元、中元、下元），
  * 每元五日，各对应一个局数。
  *
- * 《烟波钓叟歌》：「先须掌上排九宫，纵横十五在其中。
- *  次将八卦论八节，一气统三为正宗。」
+ * 《烟波钓叟歌》：「先须掌上排九宫，纵横十五图其中。
+ *  次将八卦分八节，一气统三为正宗。」
  *
  * 阳遁：冬至 → 芒种（共十二节气）
  * 阴遁：夏至 → 大雪（共十二节气）
@@ -425,4 +422,27 @@ export function getElementStrengthInSeason(
   if (isControlling(seasonElement, element)) return '死';
   if (isControlling(element, seasonElement)) return '囚';
   return '';
+}
+
+const CANONICAL_QIMEN_CONSTANTS = structuredClone({
+  STEM_TOMB_MAP,
+  auspiciousDoors,
+  branchElements,
+  branchIndex,
+  branches,
+  diPanPalaces,
+  difficultDoors,
+  difficultGods,
+  doorElements,
+  palaceStars,
+  sanQiLiuYi,
+  sanQiStems,
+  starElements,
+  stemElements,
+  supportiveGods,
+});
+
+/** 返回奇门基础固定资料的独立副本。 */
+export function getQimenConstants() {
+  return structuredClone(CANONICAL_QIMEN_CONSTANTS);
 }

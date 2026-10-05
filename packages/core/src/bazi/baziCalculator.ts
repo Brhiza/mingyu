@@ -1,7 +1,7 @@
 import { SolarTime, SixtyCycleYear, Gender, LunarHour, EightChar } from 'tyme4ts';
-import { TIME_MAP } from './baziDefinitions';
+
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
-import { isDateInChinaDstRange } from '../calendar/china-dst';
+import { isDateInChinaDstRange, resolveChinaStandardBirthTime } from '../calendar/china-dst';
 import {
   buildBaziWarningEvidence,
   checkJieqiBoundary,
@@ -68,6 +68,7 @@ import {
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
+import { getBaziTimePeriods } from './baziDisplayData';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -94,6 +95,7 @@ type CoreBaziCalculationMode = 'complete' | 'pillars';
 
 interface CoreBaziCalculationResult {
   result: InternalBaziChartResult;
+  termSolarTime: SolarTimeInstance;
   batch?: BaziFortuneBatchMetadata;
 }
 
@@ -111,7 +113,7 @@ function resolveMingGuaYear(solarTime: SolarTimeInstance, baziYearPillarName: st
  * 整合了所有计算逻辑
  */
 export class BaziCalculator {
-  private timeMap: TimeInfo[] = TIME_MAP;
+  private timeMap: TimeInfo[] = getBaziTimePeriods();
   private shenShaCalculator: ShenShaCalculator;
   private analyzer: BaziAnalyzer;
   private luckCalculator: LuckCalculator;
@@ -207,7 +209,15 @@ export class BaziCalculator {
     assertBaziGender(gender);
 
     const useTrueSolarTimeEnabled = useTrueSolarTime === true;
-    const hasPreciseStandardTime = !useTrueSolarTimeEnabled && birthSecond !== undefined;
+    const hasPreciseStandardTime =
+      !useTrueSolarTimeEnabled && birthHour !== undefined && birthMinute !== undefined;
+    if (
+      !useTrueSolarTimeEnabled &&
+      (birthHour !== undefined || birthMinute !== undefined || birthSecond !== undefined) &&
+      !hasPreciseStandardTime
+    ) {
+      throw new Error('标准北京时间缺少精准小时或分钟');
+    }
     const preciseStandardTimeIndex =
       hasPreciseStandardTime && Number.isInteger(birthHour) && Number.isInteger(birthMinute)
         ? getTimeIndexFromClock(birthHour!, birthMinute!)
@@ -315,16 +325,39 @@ export class BaziCalculator {
       throw new Error(validationMessage);
     }
 
+    // 未知时辰的午时只用于构造基础资料；重复或跳时的民用日可能没有唯一的正午。
+    // 改用该日首个有效候选作占位，年、月、日柱仍由全部候选比较后决定是否保留。
+    const unknownIanaAnchor =
+      isThreePillars && !useTrueSolarTimeEnabled && !hasPreciseStandardTime && person.timeZoneId
+        ? discoverUnknownTimeCandidates(person)[0]
+        : undefined;
+    if (
+      isThreePillars &&
+      !useTrueSolarTimeEnabled &&
+      !hasPreciseStandardTime &&
+      person.timeZoneId &&
+      !unknownIanaAnchor
+    ) {
+      throw new Error('该日期在指定 IANA 时区下没有有效的出生钟表时刻。');
+    }
+
     // 根据用户选择的日历类型创建时间对象
     let solarTime: SolarTimeInstance;
     let termSolarTime: SolarTimeInstance;
     let lunarHour: LunarHourInstance;
     let timing: TimingInfo | undefined;
     const baseHour =
-      useTrueSolarTimeEnabled || hasPreciseStandardTime ? birthHour! : selectedTimeInfo!.hour;
+      useTrueSolarTimeEnabled || hasPreciseStandardTime
+        ? birthHour!
+        : (unknownIanaAnchor?.person.birthHour ?? selectedTimeInfo!.hour);
     const baseMinute =
-      useTrueSolarTimeEnabled || hasPreciseStandardTime ? birthMinute! : selectedTimeInfo!.minute;
-    const baseSecond = useTrueSolarTimeEnabled || hasPreciseStandardTime ? (birthSecond ?? 0) : 0;
+      useTrueSolarTimeEnabled || hasPreciseStandardTime
+        ? birthMinute!
+        : (unknownIanaAnchor?.person.birthMinute ?? selectedTimeInfo!.minute);
+    const baseSecond =
+      useTrueSolarTimeEnabled || hasPreciseStandardTime
+        ? (birthSecond ?? 0)
+        : (unknownIanaAnchor?.person.birthSecond ?? 0);
 
     if (isLunarEnabled) {
       // 如果选择农历，使用 LunarHour.fromYmdHms() 创建，然后转换为 SolarTime
@@ -339,18 +372,24 @@ export class BaziCalculator {
       termSolarTime = solarTime;
     }
 
+    const originalClockTime = {
+      year: solarTime.getYear(),
+      month: solarTime.getMonth(),
+      day: solarTime.getDay(),
+      hour: solarTime.getHour(),
+      minute: solarTime.getMinute(),
+      second: solarTime.getSecond(),
+    };
+    const birthClockTime =
+      !isThreePillars && (useTrueSolarTimeEnabled || hasPreciseStandardTime)
+        ? originalClockTime
+        : undefined;
     const applyChinaDst = person.applyChinaDst === true;
     const warnings: string[] = [];
+    let ianaTermSolarTime: SolarTimeInstance | undefined;
 
     if (useTrueSolarTimeEnabled) {
-      const standardTime = {
-        year: solarTime.getYear(),
-        month: solarTime.getMonth(),
-        day: solarTime.getDay(),
-        hour: solarTime.getHour(),
-        minute: solarTime.getMinute(),
-        second: solarTime.getSecond(),
-      };
+      const standardTime = originalClockTime;
 
       const trueSolarResult = resolveTrueSolarBirthTime({
         dateType: isLunarEnabled ? 'lunar' : 'solar',
@@ -444,6 +483,28 @@ export class BaziCalculator {
           second: solarTime.getSecond(),
         }),
       );
+    } else if (hasPreciseStandardTime && (person.timeZoneId || applyChinaDst)) {
+      const standardBirthTime = resolveChinaStandardBirthTime({
+        year: solarTime.getYear(),
+        month: solarTime.getMonth(),
+        day: solarTime.getDay(),
+        hour: solarTime.getHour(),
+        minute: solarTime.getMinute(),
+        second: solarTime.getSecond(),
+        timezone: person.timezone,
+        timeZoneId: person.timeZoneId,
+        applyChinaDst,
+      });
+      if (person.timeZoneId) {
+        ianaTermSolarTime = getTermSolarTime(solarTime, undefined, person);
+      }
+      if (standardBirthTime.usedChinaDstCorrection) {
+        const { year, month, day, hour, minute, second } = standardBirthTime.effectiveTime;
+        solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, second);
+        lunarHour = solarTime.getLunarHour();
+        if (!person.timeZoneId) termSolarTime = solarTime;
+        warnings.push('出生钟表时间处于中国历史夏令时期间，已回拨 60 分钟为北京时间后排盘。');
+      }
     } else if (
       applyChinaDst &&
       isDateInChinaDstRange(solarTime.getYear(), solarTime.getMonth(), solarTime.getDay())
@@ -452,6 +513,21 @@ export class BaziCalculator {
       warnings.push(
         '出生日期位于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，时辰可能需前移。建议改用真太阳时模式并提供精确出生时间。',
       );
+    }
+
+    if (!useTrueSolarTimeEnabled) {
+      // 日时保留当地钟表口径；年月节令沿真实瞬时投影到东八区历表。
+      // 未知时辰的基础取时只是占位；跳时日给定的固定偏移可能只适用于当天部分时刻。
+      // 具体候选仍由出生钟表时刻逐一核验固定偏移。
+      const termPerson = unknownIanaAnchor
+        ? { ...person, timezone: unknownIanaAnchor.person.timezone }
+        : isThreePillars &&
+            !hasPreciseStandardTime &&
+            person.timeZoneId &&
+            person.timezone !== undefined
+          ? { ...person, timezone: undefined }
+          : person;
+      termSolarTime = ianaTermSolarTime ?? getTermSolarTime(solarTime, undefined, termPerson);
     }
 
     const pillarEightChar = lunarHour.getEightChar();
@@ -495,7 +571,9 @@ export class BaziCalculator {
     const mingGuaYear = resolveMingGuaYear(termSolarTime, pillars.year.ganZhi);
     const finalTimeInfo = timing
       ? this.getTimeInfoFromClock(timing.correctedTime.hour, timing.correctedTime.minute)
-      : selectedTimeInfo!;
+      : hasPreciseStandardTime
+        ? this.getTimeInfoFromClock(solarTime.getHour(), solarTime.getMinute())
+        : selectedTimeInfo!;
 
     const dayMasterGan = pillars.day.gan;
     const genderEnum = gender === 'male' ? Gender.MAN : Gender.WOMAN;
@@ -541,6 +619,7 @@ export class BaziCalculator {
         month: solarTime.getSolarDay().getMonth(),
         day: solarTime.getSolarDay().getDay(),
       },
+      birthClockTime,
       lunarDate: {
         year: lunarHour.getLunarDay().getLunarMonth().getLunarYear().getYear(),
         month: lunarHour.getLunarDay().getLunarMonth().getMonth(),
@@ -548,7 +627,7 @@ export class BaziCalculator {
         monthName: lunarHour.getLunarDay().getLunarMonth().getName(),
         dayName: lunarHour.getLunarDay().getName(),
       },
-      timeInfo: finalTimeInfo,
+      timeInfo: { ...finalTimeInfo },
       pillars,
       isThreePillars,
       pillarRelations: { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] },
@@ -628,7 +707,7 @@ export class BaziCalculator {
       },
       shenShaAnalysis: { year: [], month: [], day: [], hour: [], global: [] },
     };
-    return { result, ...(batch ? { batch } : {}) };
+    return { result, termSolarTime, ...(batch ? { batch } : {}) };
   }
 
   /**
@@ -655,7 +734,12 @@ export class BaziCalculator {
     if (request.contextKey !== undefined && typeof request.contextKey !== 'string') {
       throw new RangeError('未知时辰候选 contextKey 必须是字符串。');
     }
-    if (person.useTrueSolarTime === true || person.birthSecond !== undefined) {
+    if (
+      person.useTrueSolarTime === true ||
+      person.birthHour !== undefined ||
+      person.birthMinute !== undefined ||
+      person.birthSecond !== undefined
+    ) {
       throw new RangeError('已提供精确出生时刻，不能按未知时辰候选续取。');
     }
 
@@ -678,25 +762,33 @@ export class BaziCalculator {
     const candidateResult = this.calculateBaziInternal(candidate.person, {
       section: 'natal',
     }).result;
-    const pillarCache = new Map<string, Pillars>();
+    const coreCache = new Map<
+      string,
+      Pick<BaziChartResult, 'pillars' | 'solarDate' | 'lunarDate'>
+    >();
     const toClockKey = (item: (typeof candidates)[number]) => {
-      const { hour, minute, second } = item.point;
-      return `${hour}:${minute}:${second}`;
+      const { year, month, day, birthHour, birthMinute, birthSecond, timezone } = item.person;
+      return `${year}:${month}:${day}:${birthHour}:${birthMinute}:${birthSecond}:${timezone ?? ''}`;
     };
-    pillarCache.set(toClockKey(candidate), candidateResult.pillars);
-    const candidatePillars = [
-      baseResult.pillars,
+    coreCache.set(toClockKey(candidate), candidateResult);
+    const candidateCores = [
+      candidateResult,
       ...selectUnknownTimePillarCheckCandidates(candidates).map((pillarCandidate) => {
         const clockKey = toClockKey(pillarCandidate);
-        const cached = pillarCache.get(clockKey);
+        const cached = coreCache.get(clockKey);
         if (cached) return cached;
-        const pillars = this.calculateCoreBaziInternal(pillarCandidate.person, undefined, 'pillars')
-          .result.pillars;
-        pillarCache.set(clockKey, pillars);
-        return pillars;
+        const core = this.calculateCoreBaziInternal(
+          pillarCandidate.person,
+          undefined,
+          'pillars',
+        ).result;
+        coreCache.set(clockKey, core);
+        return core;
       }),
     ];
-    const uncertainPillars = getUnknownTimeUncertainPillars(candidatePillars);
+    const uncertainPillars = getUnknownTimeUncertainPillars(
+      candidateCores.map(({ pillars }) => pillars),
+    );
     const batch: BaziUnknownTimeBatchMetadata = {
       unit: 'candidate',
       startIndex: request.startIndex,
@@ -712,7 +804,11 @@ export class BaziCalculator {
     const scenario = buildUnknownTimeScenario(candidateResult, candidate);
     const result = finalizeUnknownBirthTime(candidateResult, [scenario], uncertainPillars, {
       batch,
-      baseResult,
+      inputResult: baseResult,
+      candidateCalendarDates: candidateCores.map(({ solarDate, lunarDate }) => ({
+        solarDate,
+        lunarDate,
+      })),
     });
     return { result, batch };
   }
@@ -723,7 +819,11 @@ export class BaziCalculator {
   ): BaziBatchCalculationResult {
     const coreCalculation = this.calculateCoreBaziInternal(person, batchRequest);
     const coreResult = coreCalculation.result;
-    const extendedResult = this.calculateExtendedBazi(person, coreResult);
+    const extendedResult = this.calculateExtendedBazi(
+      person,
+      coreResult,
+      coreCalculation.termSolarTime,
+    );
 
     const finalResult: InternalBaziChartResult = {
       ...coreResult,
@@ -770,6 +870,7 @@ export class BaziCalculator {
   private calculateExtendedBazi(
     person: Person,
     coreResult: InternalBaziChartResult,
+    termSolarTime: SolarTimeInstance,
   ): Pick<
     BaziChartResult,
     | 'analysis'
@@ -794,7 +895,7 @@ export class BaziCalculator {
     | 'climate'
   > {
     const { gender } = person;
-    const { pillars, dayMaster, solarTime, timing, eightChar } = coreResult;
+    const { pillars, dayMaster, solarTime, eightChar } = coreResult;
 
     if (!solarTime || !eightChar) {
       throw new Error(
@@ -803,8 +904,6 @@ export class BaziCalculator {
     }
 
     const dayMasterGan = dayMaster.gan;
-    const termSolarTime = getTermSolarTime(solarTime, timing);
-
     const baziArray: [string, string][] = [
       [pillars.year.gan, pillars.year.zhi],
       [pillars.month.gan, pillars.month.zhi],

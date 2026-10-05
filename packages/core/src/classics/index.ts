@@ -24,7 +24,7 @@ export * from './almanac-classics';
 export * from './yilin';
 
 import {
-  QIMEN_STEM_PATTERNS,
+  getQimenStemPattern as queryQimenStemPattern,
   getQimenDeityClassic as queryQimenDeityClassic,
   getQimenDoorClassic as queryQimenDoorClassic,
   getQimenStarClassic as queryQimenStarClassic,
@@ -35,14 +35,14 @@ import { getBaziQiongtongAdvice as queryBaziQiongtongAdvice } from './bazi-qiong
 import { getBaziDitiansuiAdvice as queryBaziDitiansuiAdvice } from './bazi-ditiansui';
 import { getBaziZipingPatternAdvice as queryBaziZipingPatternAdvice } from './bazi-ziping';
 import {
-  LIUYAO_MOVEMENT_RULES,
+  getLiuyaoMovementRule as queryLiuyaoMovementRule,
   getLiuyaoChishiClassic as queryLiuyaoChishiClassic,
 } from './liuyao-rules';
 import {
-  MEIHUA_RELATION_JUDGEMENTS,
+  getMeihuaBodyUseJudgement as queryMeihuaBodyUseJudgement,
   getMeihuaTrigramClassic as queryMeihuaTrigramClassic,
 } from './meihua-rules';
-import { ZHOUYI_HEXAGRAMS_TEXT } from './zhouyi';
+import { getZhouyiHexagramClassic as queryZhouyiHexagramClassic } from './zhouyi';
 import { getXiaoliurenClassic as queryXiaoliurenClassic } from './xiaoliuren-classics';
 import { getJinkoujueMovementClassic as queryJinkoujueMovementClassic } from './jinkoujue-rules';
 import {
@@ -102,7 +102,7 @@ export function getQimenStemPattern(
   heavenStem: string,
   earthStem: string,
 ): QimenStemPattern | undefined {
-  return QIMEN_STEM_PATTERNS[`${heavenStem}+${earthStem}`];
+  return queryQimenStemPattern(heavenStem, earthStem);
 }
 
 /**
@@ -148,7 +148,7 @@ export function getBaziQiongtongAdvice(
 }
 
 /**
- * 查询八字《滴天髓》日主十干体象与性情
+ * 查询八字《滴天髓》日干静态体象资料
  */
 export function getBaziDitiansuiAdvice(dayMaster: string): BaziDitiansuiEntry | undefined {
   return queryBaziDitiansuiAdvice(dayMaster);
@@ -165,7 +165,7 @@ export function getBaziZipingPatternAdvice(pattern: string): BaziZipingPatternEn
  * 查询六爻动变规则与《黄金策》《增删卜易》断语
  */
 export function getLiuyaoMovementRule(key: string): LiuyaoMovementRule | undefined {
-  return LIUYAO_MOVEMENT_RULES[key];
+  return queryLiuyaoMovementRule(key);
 }
 
 /**
@@ -176,12 +176,12 @@ export function getLiuyaoChishiClassic(sixRelation: string): LiuyaoChishiClassic
 }
 
 /**
- * 查询梅花易数体用生克决断
+ * 查询《梅花易数·体用总诀》中的体用关系原句
  */
 export function getMeihuaBodyUseJudgement(
   relationType: string,
 ): MeihuaBodyUseJudgement | undefined {
-  return MEIHUA_RELATION_JUDGEMENTS[relationType];
+  return queryMeihuaBodyUseJudgement(relationType);
 }
 
 /**
@@ -195,7 +195,7 @@ export function getMeihuaTrigramClassic(trigram: string): MeihuaTrigramClassic |
  * 查询周易卦爻辞全本经文
  */
 export function getZhouyiHexagramClassic(hexagramId: number): ZhouyiHexagramText | undefined {
-  return ZHOUYI_HEXAGRAMS_TEXT[hexagramId];
+  return queryZhouyiHexagramClassic(hexagramId);
 }
 
 /**

@@ -6,10 +6,16 @@ import {
   HUANGJI_CYCLE_YEARS,
   HUANGJI_CIRCLE_HEXAGRAMS,
   HUANGJI_STANDARD_EPOCH,
+  buildHuangjiJingshiPrompt,
   calculateHuangjiJingshi,
 } from '@core/huangji-jingshi';
 import { calculateHuangjiDateTimeForecast } from '../packages/core/src/huangji-jingshi/datetime.ts';
+import { formatHuangjiInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
+
+const year2026Result = calculateHuangjiJingshi({ year: 2026 });
+const year1984Result = calculateHuangjiJingshi({ year: 1984 });
 
 test('皇极经世换算常量应满足元会运世层级恒等式', () => {
   assert.equal(HUANGJI_CYCLE_YEARS.shi, 30);
@@ -22,6 +28,7 @@ test('皇极经世换算常量应满足元会运世层级恒等式', () => {
 test('纪元第一年应位于第一元第一会第一运第一世第一年', () => {
   const result = calculateHuangjiJingshi({ epochYear: 1000, year: 1000 });
   assert.equal(result.position.yuan.indexFromEpoch, 1);
+  assert.match(formatHuangjiInfo(result), /元会运世：第1元，第1会，第1运，第1世/);
   assert.equal(result.position.hui.indexInYuan, 1);
   assert.equal(result.position.yun.indexInYuan, 1);
   assert.equal(result.position.yun.indexInHui, 1);
@@ -77,7 +84,7 @@ test('绝对年坐标与已过年数入口应得到同一位置', () => {
 });
 
 test('皇极经世应支持普通公元年，并严格区分通行排法与自定义纪元', () => {
-  const standard = calculateHuangjiJingshi({ year: 2026 });
+  const standard = year2026Result;
   assert.equal(standard.input.mode, '通行公元年');
   assert.equal(standard.input.epochYear, HUANGJI_STANDARD_EPOCH.yuanStartYear);
   assert.equal(standard.input.elapsedYears, 69042);
@@ -103,7 +110,7 @@ test('皇极经世应支持普通公元年，并严格区分通行排法与自�
 });
 
 test('通行值年卦应完整返回会、统卦、运卦、六十年卦、十年卦和值年卦', () => {
-  const result = calculateHuangjiJingshi({ year: 2026 });
+  const result = year2026Result;
   const forecast = result.forecast;
   assert.ok(forecast);
   assert.equal(forecast.hui.indexInYuan, 7);
@@ -147,9 +154,32 @@ test('皇极经世年月日时盘应由值年卦继续推至月经、旬纬、�
   const dateTime = result.dateTimeForecast;
   assert.ok(dateTime);
   assert.equal(dateTime.model, '经纬卦年月日时推衍');
+  const formatted = formatHuangjiInfo(result);
+  assert.ok(
+    formatted.includes(
+      `当前时点以时经卦${dateTime.hexagrams.hourJing.name}与日卦${dateTime.hexagrams.daily.name}为主要取象`,
+    ),
+  );
+  assert.ok(formatted.includes(`旬纬卦辞：${dateTime.hexagrams.xunWei.judgment}`));
   assert.match(dateTime.sources[0].title, /皇极经世书绪言.*卷三/);
   assert.match(result.prompt, /每个节气按十五个皇极日定位/);
   assert.match(result.prompt, /每六十日变一爻得月经卦/);
+  const traditionalBasis = result.prompt.split('【传统依据】\n')[1]?.split('\n\n【排盘资料】')[0];
+  assert.ok(traditionalBasis);
+  assert.doesNotMatch(
+    traditionalBasis,
+    /公元纪年换算坐标|公元前67017年|1984年鼎卦|每个节气按十五|月经卦每十日|日卦从月经卦/u,
+  );
+  assert.match(
+    result.prompt,
+    /【排盘资料】\n本次年月日时映射口径：[\s\S]*公元纪年换算坐标：以公元前67017年为本元起点/u,
+  );
+  assert.match(result.prompt, /【排盘资料】\n本次年月日时映射口径：/u);
+  assert.match(formatted, /年月日时映射：每节气按十五日定位/u);
+  assert.match(
+    formatDetailedDivinationInfo('huangji', result),
+    /年月日时映射：每节气按十五日定位/u,
+  );
   assert.doesNotMatch(result.prompt, /黄畿.*分形同构规则/);
   assert.equal(result.input.mode, '年月日时');
   assert.equal(result.input.year, 2026);
@@ -261,11 +291,30 @@ test('值年卦六十卦序应完整唯一并复现1984至2043通行表', () => 
     '姤',
     '大过',
   ];
-  const actual = Array.from(
-    { length: 60 },
-    (_, index) =>
-      calculateHuangjiJingshi({ year: 1984 + index }).forecast?.hexagrams.annual.shortName,
-  );
+  const actual = Array.from({ length: 60 }, (_, index) => {
+    const year = 1984 + index;
+    const result =
+      year === 1984
+        ? year1984Result
+        : year === 2026
+          ? year2026Result
+          : calculateHuangjiJingshi({ year });
+    const annual = result.forecast!.hexagrams.annual;
+    if (year === 2043) {
+      assert.equal(annual.name, '泽风大过');
+      assert.equal(result.forecast!.relatedHexagrams.reversed.id, annual.id);
+      assert.ok(result.prompt.includes('值年卦辞：栋桡，利有攸往'));
+      assert.equal(
+        result.prompt.split('\n').find((line) => line.startsWith('综卦：')),
+        '综卦：泽风大过',
+      );
+      const originalForecast = structuredClone(result.forecast);
+      assert.equal(buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(result))), result.prompt);
+      assert.deepEqual(result.forecast, originalForecast);
+      assertPromptIsPortableTaskText(result.prompt);
+    }
+    return annual.shortName;
+  });
   assert.deepEqual(actual, expected);
 });
 
@@ -290,18 +339,28 @@ test('皇极经世普通提示词应包含完整占断资料且保持精简自�
   assert.match(prompt, /值年卦：天火同人/);
   assert.match(prompt, /互卦：天风姤/);
   assert.match(prompt, /错卦：地水师/);
-  assert.match(prompt, /综卦：火天大有/);
+  assert.match(prompt, /^综卦：火天大有；卦辞：元亨$/m);
   assert.match(prompt, /这一年的事业环境有什么主要变化/);
   assert.doesNotMatch(prompt, /计算链|证据链|MCP|API|mingyu|仓库/i);
   assertPromptIsPortableTaskText(prompt);
 });
 
 test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
-  const prompt = calculateHuangjiJingshi({
+  const result = calculateHuangjiJingshi({
     epochYear: 1000,
     year: 2026,
     question: '请解释当前周期位置。',
-  }).prompt;
+  });
+  const prompt = result.prompt;
+  const originalResult = structuredClone(result);
+  assert.equal(result.input.calendar, '整数坐标');
+  assert.equal(result.forecast, undefined);
+  assert.equal(buildHuangjiJingshiPrompt(result, '请解释当前周期位置。'), prompt);
+  assert.equal(
+    buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(result)), '请解释当前周期位置。'),
+    prompt,
+  );
+  assert.deepEqual(result, originalResult);
   assert.match(prompt, /【任务】/);
   assert.match(prompt, /【周期资料】/);
   assert.match(prompt, /纪元年坐标：1000/);
@@ -317,13 +376,13 @@ test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
 });
 
 test('皇极经世世运消息与阳息阴消算法应准确判定圆图阶段与世运断诀', () => {
-  const result2026 = calculateHuangjiJingshi({ year: 2026 });
+  const result2026 = year2026Result;
   assert.ok(result2026.eraTrend);
   assert.equal(result2026.eraTrend.phase, '阳息进取');
   assert.match(result2026.eraTrend.trendNature, /复至乾的阳半周/);
   assert.match(result2026.prompt, /圆图消息：值年同人卦为5阳1阴/);
 
-  const epochTest = calculateHuangjiJingshi({ year: 1984 });
+  const epochTest = year1984Result;
   assert.ok(epochTest.eraTrend);
   assert.equal(typeof epochTest.eraTrend.summary, 'string');
 });

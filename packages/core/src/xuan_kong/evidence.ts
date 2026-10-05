@@ -1,8 +1,6 @@
 /**
  * 玄空飞星证据层
  */
-import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
-import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
 export interface XuanKongEvidenceSourceResult {
   period: {
@@ -11,6 +9,8 @@ export interface XuanKongEvidenceSourceResult {
     yun: number;
     yunStar: number;
     label: string;
+    boundaryStatus?: '待核定';
+    boundaryNote?: string;
   };
   sitMountain: string;
   facingMountain: string;
@@ -132,19 +132,22 @@ export function formatReplacementLeg(
 
 export function analyzeXuanKongEvidence(
   result: XuanKongEvidenceSourceResult,
+  promptText: string,
 ): XuanKongEvidenceAnalysis {
   const calculationSteps = [
     {
       key: 'xuankong:calculation:yun',
       stage: '定运',
-      promptText: `建造或起运年 ${result.period.year} 落入${result.period.yuan}${result.period.yun}运，当运星${result.period.yunStar}`,
+      promptText: result.period.boundaryStatus
+        ? `建造或起运年 ${result.period.year} 按立春后暂列${result.period.yuan}${result.period.yun}运，当运星${result.period.yunStar}；实际运期按建造或起运日期核定`
+        : `建造或起运年 ${result.period.year} 落入${result.period.yuan}${result.period.yun}运，当运星${result.period.yunStar}`,
       sources: ['三元九运公开运表', '玄空飞星通行定运口径'],
       limitation: STEP_LIMIT,
     },
     {
       key: 'xuankong:calculation:mountain',
       stage: '定山向',
-      promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用${result.guaType}；${result.replacementReason}`,
+      promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用${result.guaType}`,
       sources: ['二十四山罗盘换算', '下卦中央九度与兼向替卦边界规则'],
       limitation: STEP_LIMIT,
     },
@@ -176,7 +179,7 @@ export function analyzeXuanKongEvidence(
     {
       key: 'xuankong:fact:gua-type',
       type: '起法',
-      promptText: `${result.guaType}；${result.replacementReason}`,
+      promptText: result.guaType,
       sources: ['玄空下卦与兼向替卦起法规则'],
       limitation: FACT_LIMIT,
     },
@@ -199,7 +202,7 @@ export function analyzeXuanKongEvidence(
       type: '宫位组合',
       promptText: `${palace.name}运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${
         palace.yearStar !== undefined ? `年${palace.yearStar}` : ''
-      }${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}，山向${palace.shanXiangRelation}，运星${palace.yunStarState}`,
+      }${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}，山向${palace.shanXiangRelation}，运星按${result.period.boundaryStatus ? '暂列的' : ''}${result.period.yun}运宅盘为${palace.yunStarState}`,
       sources: ['三盘飞星与九星五行生克'],
       limitation: FACT_LIMIT,
     })),
@@ -217,7 +220,7 @@ export function analyzeXuanKongEvidence(
         key: 'xuankong:fact:month-star',
         type: '流月飞星',
         promptText: `${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`,
-        sources: ['节气月紫白', 'tyme4ts 节气月九星'],
+        sources: ['tyme4ts 节气月九星与节令时刻', '《钦定协纪辨方书》三元月九星入中宫'],
         limitation: FACT_LIMIT,
       });
     }
@@ -242,6 +245,15 @@ export function analyzeXuanKongEvidence(
   }
 
   const counterFacts = [];
+  if (result.period.boundaryNote) {
+    counterFacts.push({
+      key: 'xuankong:counter:period-boundary',
+      type: '立春交运边界',
+      promptText: result.period.boundaryNote,
+      sources: ['《风水宅典实用建筑风水》三元九运立春交运说明'],
+      limitation: COUNTER_LIMIT,
+    });
+  }
   if (
     result.measurement?.stability &&
     (result.measurement.stability !== '稳定' || result.measurement.warnings?.length)
@@ -250,10 +262,15 @@ export function analyzeXuanKongEvidence(
     const candidates = measurement.candidateMountains ?? [];
     const measurementDetails = [
       `山向测量稳定性为${measurement.stability}`,
+      measurement.stability === '山向边界敏感'
+        ? '当前局型、城门与三盘九宫按中心读数暂列，复测后核定适用盘面'
+        : '',
       measurement.sitDegree !== undefined && measurement.facingDegree !== undefined
         ? `坐山${measurement.sitDegree}°、朝向${measurement.facingDegree}°、误差±${measurement.uncertaintyDegrees ?? '未知'}°`
         : '',
-      `边界原因：${measurement.boundaryReasons?.join('、') || '具体边界原因未提供'}`,
+      measurement.boundaryReasons?.length
+        ? `边界原因：${measurement.boundaryReasons.join('、')}`
+        : '',
       measurement.nearestBoundaryDistanceDegrees !== undefined
         ? `距二十四山分界${measurement.nearestBoundaryDistanceDegrees}°`
         : '',
@@ -282,9 +299,9 @@ export function analyzeXuanKongEvidence(
       type: '体系边界',
       promptText:
         result.formation === '替卦未成四正局'
-          ? '当前替卦未形成四类正局，按实际三盘保留三般卦、合十、反伏吟与入囚组合'
+          ? `当前替卦未形成四类正局，按实际三盘${result.flowStars ? `、${result.flowStars.monthPlate ? '流年流月' : '流年'}飞星` : ''}与已登记组合解读`
           : result.flowStars
-            ? `当前输出${result.guaType}运盘、山盘、向盘、流年流月飞星、局型与已登记组合`
+            ? `当前输出${result.guaType}运盘、山盘、向盘、${result.flowStars.monthPlate ? '流年流月' : '流年'}飞星、局型与已登记组合`
             : `当前输出${result.guaType}运盘、山盘、向盘、局型与已登记组合`,
       sources: ['项目玄空飞星范围声明'],
       limitation: LIMIT_LIMIT,
@@ -300,14 +317,18 @@ export function analyzeXuanKongEvidence(
 
   const summaryFact = {
     key: 'xuankong:summary',
-    status: counterFacts.length ? '含边界提示' : '结构完整',
-    promptText: `${result.period.yuan}${result.period.yun}运，坐${result.sitMountain}向${result.facingMountain}，${result.guaType}，${result.formation}；${result.daoShanXiang.summary}`,
+    status: result.period.boundaryStatus
+      ? '运期待核定'
+      : counterFacts.length
+        ? '含边界提示'
+        : '结构完整',
+    promptText: `${result.period.yuan}${result.period.yun}运，坐${result.sitMountain}向${result.facingMountain}，${result.guaType}，${result.formation}；${result.daoShanXiang.summary}${result.period.boundaryStatus ? '（运期待核定）' : ''}${result.measurement?.stability === '山向边界敏感' ? '（中心读数盘，待复测核定）' : ''}`,
     sources: ['定运、山向、三盘飞布与到山到向汇总'],
     limitation: FACT_LIMIT,
   };
 
   const sources = [
-    ...(result.replacementApplied
+    ...(result.guaType === '替卦'
       ? [
           {
             title: '《沈氏玄空学》上卷替卦章',
@@ -340,38 +361,6 @@ export function analyzeXuanKongEvidence(
     },
   ];
 
-  const evidenceItems: PromptEvidenceItem[] = [
-    ...calculationSteps.map((item) => ({
-      level: '主证' as const,
-      title: item.stage,
-      detail: item.promptText,
-      source: item.sources.join('、'),
-    })),
-    ...facts.map((item) => ({
-      level: '主证' as const,
-      title: item.type,
-      detail: item.promptText,
-      source: item.sources.join('、'),
-    })),
-    ...counterFacts.map((item) => ({
-      level: '反证' as const,
-      title: item.type,
-      detail: item.promptText,
-      source: item.sources.join('、'),
-    })),
-    ...limitationFacts.map((item) => ({
-      level: '限制' as const,
-      title: item.type,
-      detail: item.promptText,
-      source: item.sources.join('、'),
-    })),
-  ];
-
-  const bundle: PromptEvidenceBundle = {
-    title: '玄空飞星证据',
-    items: evidenceItems,
-  };
-
   return {
     key: 'xuankong:evidence',
     calculationSteps,
@@ -380,6 +369,6 @@ export function analyzeXuanKongEvidence(
     limitationFacts,
     summaryFact,
     sources,
-    promptText: formatPromptEvidenceBundle(bundle).join('\n'),
+    promptText,
   };
 }

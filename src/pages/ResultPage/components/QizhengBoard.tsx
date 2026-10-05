@@ -1,6 +1,8 @@
-import { memo, useState } from 'react';
+import * as React from 'react';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
+
+const { memo, useState } = React;
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [
@@ -169,11 +171,6 @@ export const QizhengBoard = memo(function QizhengBoard({
           ) : null}
           <span className="result-chip">七政四余 {data.stars.length} 星</span>
           <span className="result-chip">吊照 {data.aspects.length} 组</span>
-          {data.timeLords?.currentMajorLimit ? (
-            <span className="result-chip result-chip-highlight">
-              大限 {data.timeLords.currentMajorLimit.palace}
-            </span>
-          ) : null}
           {data.flowingStars ? (
             <span className="result-chip">流曜 {data.flowingStars.year}年</span>
           ) : null}
@@ -239,8 +236,8 @@ export const QizhengBoard = memo(function QizhengBoard({
                   </strong>
                   <small>
                     {star.kind}
-                    {star.dignity ? ` · ${star.dignity}` : ''}
-                    {star.retrograde ? ' · 逆行' : ' · 顺行'}
+                    {star.dignity && star.dignity !== '—' ? ` · ${star.dignity}` : ''}
+                    {star.retrograde === undefined ? '' : star.retrograde ? ' · 逆行' : ' · 顺行'}
                   </small>
                 </div>
               ))}
@@ -280,18 +277,7 @@ export const QizhengBoard = memo(function QizhengBoard({
               <div className="result-meta-lines">
                 <div>
                   <span>大限</span>
-                  <strong>
-                    {data.timeLords.currentMajorLimit ? (
-                      <>
-                        虚岁{data.timeLords.currentMajorLimit.startNominalAge}至未满
-                        {data.timeLords.currentMajorLimit.endNominalAge} ·{' '}
-                        {data.timeLords.currentMajorLimit.signBranch}宫
-                        {data.timeLords.currentMajorLimit.palace}
-                      </>
-                    ) : (
-                      '超出单周行限范围'
-                    )}
-                  </strong>
+                  <strong>当前大限宫位未定</strong>
                 </div>
                 <div>
                   <span>小限</span>
@@ -350,10 +336,6 @@ export const QizhengBoard = memo(function QizhengBoard({
             <h3>紫炁位置</h3>
           </div>
           <div className="result-meta-lines">
-            <div>
-              <span>恒星黄经</span>
-              <strong>{data.ziqi.siderealLongitude.toFixed(4)}°</strong>
-            </div>
             <div>
               <span>回归黄经</span>
               <strong>{data.ziqi.tropicalLongitude.toFixed(4)}°</strong>

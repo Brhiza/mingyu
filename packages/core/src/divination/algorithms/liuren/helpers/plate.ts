@@ -1,13 +1,16 @@
 import type { LiurenPlateItem } from '../../../../types/divination';
-import {
-  BASIC_MAPPINGS,
-  EARTHLY_BRANCHES,
-  HEAVENLY_STEMS,
-} from '../../../../bazi/baziMappingsData';
-import { BRANCH_WUXING, getBranchIndex, isKe, isSheng } from '../../../../ganzhi';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../../../bazi/baziMappingsData';
+import { getBranchIndex, isKe, isSheng } from '../../../../ganzhi';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+import { getBaziRelationMappings } from '../../../../bazi/baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 export const DIZHI = EARTHLY_BRANCHES;
 export const TIANGAN = HEAVENLY_STEMS;
+export const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 
 /**
@@ -204,13 +207,13 @@ export function describeRelation(sourceBranch: string, targetBranch: string) {
 export function getGanZhiWuxing(value: string) {
   const stemIndex = TIANGAN.indexOf(value as (typeof TIANGAN)[number]);
   if (stemIndex >= 0) {
-    const element = BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+    const element = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex];
     if (!VALID_WUXING.has(element)) {
       throw new Error(`天干 ${value} 的五行数据缺失。`);
     }
     return element;
   }
-  const element = BRANCH_WUXING[value];
+  const element = GANZHI_RELATION_TABLES.BRANCH_WUXING[value];
   if (!VALID_WUXING.has(element)) {
     throw new Error(`无法识别干支 "${value}" 的五行属性。`);
   }

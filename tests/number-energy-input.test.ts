@@ -9,6 +9,31 @@ test('全角数字字母与半角输入产生相同磁场', () => {
   assert.equal(fullWidth.energySequence, halfWidth.energySequence);
   assert.deepEqual(fullWidth.energyPairs, halfWidth.energyPairs);
   assert.equal(analyzeNumber('ａｚ').energySequence, '126');
+
+  const repeated = analyzeNumber('A1A3A');
+  assert.equal(repeated.letterCount, 3);
+  assert.equal(repeated.energySequence, '11131');
+  assert.equal(repeated.letterConversions.length, 3);
+  assert.match(buildNumberEnergyPrompt({ analysis: repeated }), /字母换算：A=1\n/u);
+});
+
+test('单次出现的磁场不标作高频，重复出现时才列高频磁场', () => {
+  const single = analyzeNumber('13');
+  assert.deepEqual(single.dominantFields, []);
+  assert.doesNotMatch(buildNumberEnergyPrompt({ analysis: single }), /高频磁场|先概括高频磁场/);
+
+  const unique = analyzeNumber('139');
+  assert.deepEqual(unique.dominantFields, []);
+  assert.doesNotMatch(buildNumberEnergyPrompt({ analysis: unique }), /高频磁场/);
+
+  const repeated = analyzeNumber('131');
+  assert.deepEqual(repeated.dominantFields, ['天医']);
+  assert.match(buildNumberEnergyPrompt({ analysis: repeated }), /高频磁场：天医/);
+});
+
+test('原始号码不能靠大量分隔符绕过64位输入上限', () => {
+  assert.throws(() => analyzeNumber(`${'-'.repeat(64)}13`), /1 至 64 位号码/);
+  assert.equal(analyzeNumber(`${'-'.repeat(62)}13`).alphanumeric, '13');
 });
 
 test('提示词完整保留首尾及仅含0和5的序列位置', () => {
@@ -18,12 +43,21 @@ test('提示词完整保留首尾及仅含0和5的序列位置', () => {
   assert.match(prompt, /第1位：0；头部/);
   assert.match(prompt, /第4位：5；尾部/);
   assert.doesNotMatch(prompt, /0（隐藏）|5（增强）/);
-  const modifiersOnly = buildNumberEnergyPrompt({ analysis: analyzeNumber('０５０') });
+  const modifiersOnlyAnalysis = analyzeNumber('０５０');
+  assert.equal(modifiersOnlyAnalysis.energyPairs.length, 0);
+  assert.deepEqual(modifiersOnlyAnalysis.dominantFields, []);
+  assert.equal(modifiersOnlyAnalysis.modifiers.length, 3);
+  const modifiersOnly = buildNumberEnergyPrompt({ analysis: modifiersOnlyAnalysis });
   assert.match(modifiersOnly, /第2位：5；独立/);
   assert.doesNotMatch(modifiersOnly, /0（隐藏）|5（增强）/);
   assert.match(modifiersOnly, /不足以形成八星磁场组合/);
   assert.match(modifiersOnly, /依据原始数字字母序列/);
   assert.doesNotMatch(modifiersOnly, /依据实际形成的八星数字能量相邻组合/);
+  assert.doesNotMatch(modifiersOnly, /【磁场组合】|磁场分布：|高频磁场：|先概括高频磁场/);
+
+  const single = buildNumberEnergyPrompt({ analysis: analyzeNumber('1') });
+  assert.doesNotMatch(single, /【磁场组合】|【0与5的位置】|字母换算：|先概括高频磁场/);
+  assert.match(single, /结合号码类型与能量序列，说明实际使用时可观察的侧重点/);
 });
 
 test('字母内部与跨字符磁场均能追溯展开位置', () => {
@@ -132,6 +166,20 @@ test('非英文字母不会经大写转换悄悄变成有效号码', () => {
   assert.equal(result.alphanumeric, 'A13');
   assert.deepEqual(result.excludedCharacters, ['ß']);
   assert.match(analyzeNumber('AZ').formula, /字母序号相加/);
+});
+
+test('号码含全零数字时仍按数字取主数，不因字母改用求和口径', () => {
+  for (const purpose of ['phone', 'general'] as const) {
+    const analysis = analyzeNumber('000A', purpose);
+    assert.equal(analysis.primaryIndex, 80);
+    assert.equal(analysis.digitCount, 3);
+    assert.equal(analysis.letterCount, 1);
+    assert.match(analysis.formula, /提取全部数字组成整数/);
+    assert.equal(analysis.energySequence, '0001');
+  }
+  const plate = analyzeNumber('000A', 'plate');
+  assert.equal(plate.primaryIndex, 1);
+  assert.match(plate.formula, /字母按 A=1 至 Z=26 相加/);
 });
 
 test('磁场顺序仅合并连续同类组合并保留跨度', () => {

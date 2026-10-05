@@ -45,25 +45,30 @@ export function analyzeNameSancai(input: { tian: number; ren: number; di: number
 export const NAMING_TRADITION = {
   title: '《左传·桓公六年》命名五法',
   referenceUrl: 'https://ctext.org/text.pl?if=gb&node=17216&remap=gb&show=parallel',
+  sourceExcerpt:
+    '名有五：有信，有义，有象，有假，有类。以名生为信，以德名为义，以类命为象，取于物为假，取于父为类。',
   methods: [
-    { name: '信', meaning: '联系真实的出生情境或纪念事实，使名字有所记。' },
-    { name: '义', meaning: '以品德和志向寄托期许，使名字有所守。' },
-    { name: '象', meaning: '借相似的形象表达联想，使名字有所象。' },
-    { name: '假', meaning: '借取事物之名寄托意义，使名字有所托。' },
-    { name: '类', meaning: '联系与父辈相类的事实，理解家族纪念的命名方式。' },
+    { name: '信', meaning: '依据出生时的事实命名。' },
+    { name: '义', meaning: '依据品德命名。' },
+    { name: '象', meaning: '依据相类的形象或特征命名。' },
+    { name: '假', meaning: '借用事物之名。' },
+    { name: '类', meaning: '取与父亲相关的命名依据。' },
   ],
   application:
-    '起名时可分别考虑纪念事实、品德志向与事物意象，再核对组合后的语义和日常称呼。家族纪念与辈分字位置依照明确的家庭用字要求处理。',
+    '现代取名可将出生纪念、品德寄托、意象与事物联想作为构思角度，再核对组合后的语义和日常称呼。辈分字位置依照明确的家庭用字要求处理。',
   context:
-    '《礼记·曲礼上》的名讳规范处于古代礼制语境；现代选字结合家庭习惯与实际称呼判断。字义、读音、字形、出生取用和三才五格分别提供不同角度的参考。',
+    '《礼记·曲礼上》记载古代为子取名的避忌，属于古代礼制语境；现代选字结合家庭习惯与实际称呼判断。',
+  lijiSourceExcerpt: '名子者不以国，不以日月，不以隐疾，不以山川。',
+  scope:
+    '《左传》的命名五法与《礼记》的古代礼文提供历史和命名语境；五格、三才按姓名学数理取象列作参考。字义、读音、字形、出生取用和姓名学数理提供不同角度的参考。',
 } as const;
 
 export function formatNamingTradition() {
   return [
     NAMING_TRADITION.title,
-    ...NAMING_TRADITION.methods.map((method) => `${method.name}：${method.meaning}`),
+    `原文：${NAMING_TRADITION.sourceExcerpt}`,
     NAMING_TRADITION.application,
-    NAMING_TRADITION.context,
-    '康熙笔画用于五格的字形计数；三才按天格、人格、地格的尾数五行组成；出生四柱用于讨论命局取用；逐字释义与全名语境用于核对实际含义。',
+    `《礼记·曲礼上》原文：${NAMING_TRADITION.lijiSourceExcerpt}`,
+    NAMING_TRADITION.scope,
   ].join('\n');
 }

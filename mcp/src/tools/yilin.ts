@@ -22,7 +22,7 @@ const yilinQuerySchema = z.object({
   source: z
     .enum(['wikisource', 'kanripo', 'both'])
     .optional()
-    .describe('text 字段的主底本；默认 both，同时返回两个固定底本和来源状态'),
+    .describe('text 字段的主底本；默认 both，优先使用无缺字标记的正文，并返回两个底本及独立校注'),
 });
 
 export function registerYilinTool(server: McpServer) {

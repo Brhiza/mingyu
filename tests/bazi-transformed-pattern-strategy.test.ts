@@ -81,6 +81,17 @@ test('子平真诠丁壬化木原例不被辰中癸水正库轻根一票否决',
   assert.match(result.transformation?.evidence.join('；') ?? '', /月令卯本气乙属木/);
   assert.match(result.transformation?.evidence.join('；') ?? '', /辰藏癸.*正库轻根/);
   assert.doesNotMatch(result.transformation?.conditions.join('；') ?? '', /辰藏癸.*不满足/);
+
+  const publicEvidence = evaluateTransformedPattern(chart);
+  assert.ok(publicEvidence);
+  assert.deepEqual(publicEvidence.pair, ['丁', '壬']);
+  try {
+    publicEvidence.pair.splice(0, 2, '甲', '己');
+    assert.deepEqual(publicEvidence.pair, ['甲', '己']);
+    assert.deepEqual(determinePattern(chart, '偏弱', getTenGod, '乙'), result);
+  } finally {
+    publicEvidence.pair.splice(0, publicEvidence.pair.length, '丁', '壬');
+  }
 });
 
 test('化神正库轻根可满足独立根门槛，妒合仍单独阻化', () => {

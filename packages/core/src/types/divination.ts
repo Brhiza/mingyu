@@ -9,6 +9,7 @@ import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { BirthProfileTimeRange } from '../profile/time-range';
+import type { BirthProfile } from '../profile';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -82,6 +83,8 @@ export interface XiaoliurenData {
   method: XiaoliurenDivinationMethod;
   methodLabel: string;
   timestamp: number;
+  /** 真太阳时模式下用于节气与东八区民用农历日的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   lunarMonth: number;
   lunarDay: number;
   isLeapMonth: boolean;
@@ -149,6 +152,10 @@ export interface JinkoujueData {
   method: JinkoujueDivinationMethod;
   methodLabel: string;
   timestamp: number;
+  /** 新盘记录四柱计算的当地时区偏移；旧盘可能没有此字段。 */
+  timezoneOffsetMinutes?: number;
+  /** 真太阳时模式下用于节气、月建与月将的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   ganzhi: BaseGanZhi;
   dayNight: '昼占' | '夜占';
   monthLeader: string;
@@ -165,6 +172,8 @@ export interface JinkoujueData {
   relations: {
     guiToJiang: string;
     guiToRen: string;
+    /** 新版生成时总会记录；旧版历史结果可按四位五行关系复算。 */
+    renToJiang?: string;
     jiangToDi: string;
     renToDi: string;
     guiToDi: string;
@@ -179,7 +188,7 @@ export interface JinkoujueData {
   };
   movements: JinkoujueMovement[];
   mainLine: string;
-  /** 四位比合歌诀定性（二木为爻、二火为灾、二土为滞、二金为刑、二水为盗） */
+  /** 四位比合条件：同五行的实际数量与位次；无同五行组合时为空字符串。 */
   bihePoem?: string;
   calculation: {
     method: JinkoujueDivinationMethod;
@@ -232,11 +241,12 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isWorld: boolean;
   isResponse: boolean;
   isVoid: boolean;
-  /** 是否与日辰相冲；须结合动静和月令旺衰区分暗动、日破或动爻受冲。 */
+  /** 是否与日辰相冲；结合动静、月破、月令旺相和旬空冲起区分暗动、日破或动爻受冲。 */
   isDayClash?: boolean;
-  /** 静爻休囚而受日冲；旺相静爻应读取 isHiddenMove，动爻受冲应读取 isDayClash。 */
+  /** 静爻受日冲而未具暗动资格；暗动另核月破、月令旺相或旬空冲起，动爻受冲读取 isDayClash。 */
   isDayBreak?: boolean;
   isMonthBreak?: boolean;
+  /** 非月破静爻受日冲，且月令旺相或旬空冲起；旬空身份仍保留。 */
   isHiddenMove?: boolean;
   seasonState?: '旺' | '相' | '休' | '囚' | '死' | '平';
   changeDirection?: '化进神' | '化退神' | null;
@@ -343,6 +353,10 @@ export interface BaseHexagramData {
 }
 
 export interface LiuyaoData extends BaseHexagramData {
+  /** 起卦时实际采用的民用时区偏移；旧盘未记录时保持原有结构核验。 */
+  timezoneOffsetMinutes?: number;
+  /** 真太阳时模式下用于节气与月建的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   /** 用神候选、原神忌神仇神与逐爻支持/反证结构。 */
   evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
@@ -445,6 +459,8 @@ export interface MeihuaCalculation {
   yearZhiIndex?: number;
   timeZhi?: string;
   timeZhiIndex?: number;
+  /** 起卦时采用的民用时区偏移，用于从时间戳复核取数。 */
+  timezoneOffsetMinutes?: number;
   upperTrigramIndex?: number;
   lowerTrigramIndex?: number;
   movingYaoIndex?: number;
@@ -453,6 +469,8 @@ export interface MeihuaCalculation {
 }
 
 export interface MeihuaData extends BaseHexagramData {
+  /** 真太阳时模式下用于节气与月建的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   /** 主卦、互卦、变卦逐阶段体用关系与支持/限制证据。 */
   evidenceAnalysis?: import('../divination/meihua-evidence').MeihuaEvidenceAnalysis;
   /** 体卦（代表问卦者） */
@@ -518,7 +536,7 @@ export interface MeihuaData extends BaseHexagramData {
     tiYongSeasonEvaluation?: string;
     /** 事态初中终三阶段推进演化趋势（依据《梅花易数·观梅数诀》） */
     timelineTrend?: {
-      trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
+      trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '未形成单向走势';
       summary: string;
     };
     yingQi?: string[];
@@ -588,6 +606,7 @@ export interface QimenSpecialConditions {
   isLiuJiaHour: boolean;
   isLiuGuiHour: boolean;
   isShiGanRuMu: boolean;
+  isRiGanRuMu?: boolean;
   isWuBuYuShi: boolean;
   description: string;
 }
@@ -595,10 +614,10 @@ export interface QimenSpecialConditions {
 export interface QimenTimeInfo {
   /** 排盘时刻实际所处的天文节气。 */
   solarTerm: string;
-  /** 拆补/置闰法实际采用的定局节气；置闰法下可能与 solarTerm 不同。 */
-  juTerm: string;
+  /** 时家/日家拆补或置闰法采用的定局节气；置闰法下可能与 solarTerm 不同。 */
+  juTerm?: string;
   epoch: string;
-  [key: string]: string;
+  [key: string]: string | undefined;
 }
 
 export interface QimenBranchPalace {
@@ -657,6 +676,10 @@ export interface QimenPatternCombo {
 export type QimenScope = 'hour' | 'day' | 'month' | 'year';
 
 export interface QimenData {
+  /** 本次排盘实际采用的民用钟表时区偏移（分钟）；旧记录可缺省。 */
+  timezoneOffsetMinutes?: number;
+  /** 真太阳时模式下用于节气、定局与月建的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   /** 用神宫候选、宫内组合、宫间作用、反证与触发条件。 */
   evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
   /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
@@ -807,7 +830,7 @@ export interface QimenLifetimeInput {
   applyChinaDst?: boolean;
   /** 排盘方法：zhuanpan(转盘法，默认) | feipan(飞盘法) */
   method?: 'zhuanpan' | 'feipan';
-  /** 定局方法：chaibu(拆补法，默认) | zhirun(置闰法) */
+  /** 时家/日家定局方法：chaibu(拆补法，默认) | zhirun(置闰法) */
   juMethod?: 'chaibu' | 'zhirun';
   /** 阶段划分引擎配置 */
   stagePolicy?: QimenStagePolicy;
@@ -1094,7 +1117,7 @@ export interface LiurenGuaTiFact {
     | '贵人临地'
     | '三传冲合'
     | '传干生克'
-    | '旬尾发用';
+    | '闭口发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
@@ -1121,6 +1144,10 @@ export interface LiurenData {
   ganzhi: BaseGanZhi;
   /** Unix 时间戳（毫秒） */
   timestamp: number;
+  /** 本次起课实际采用的钟表时区偏移（分钟）；旧记录可缺省。 */
+  timezoneOffsetMinutes?: number;
+  /** 真太阳时模式下用于节气、年/月柱与月将的实际占时戳（毫秒）。 */
+  termReferenceTimestamp?: number;
   /** 昼夜占：昼占或夜占 */
   dayNight?: '昼占' | '夜占';
   /** 月将（所用太阳过宫） */
@@ -1276,7 +1303,13 @@ export interface AlmanacParticipantInput {
   birthSecond?: string;
   birthPlace?: string;
   birthLongitude?: string;
+  /** 原始当地钟表时间对应的固定 UTC 偏移。 */
+  timezone?: number;
+  /** 原始当地钟表时间对应的 IANA 历史时区。 */
+  timeZoneId?: string;
   useTrueSolarTime?: boolean;
+  /** 已校正展示字段对应的原始出生记录，供择日按真实瞬时计算节令。 */
+  originalTrueSolarProfile?: BirthProfile;
   /** 四柱反推得到的完整北京时间区间；必须与上面的区间起点标量字段一致。 */
   birthTimeRange?: BirthProfileTimeRange & {
     pillars: BaseGanZhi;
@@ -1296,8 +1329,12 @@ export interface AlmanacParticipantProfileSnapshot {
   dayMaster: string;
   dayMasterElement: string;
   pillars: BaseGanZhi;
+  /** 区间内司令变化保留为不同画像，即使增补喜忌同为待判。 */
+  monthCommander?: string;
   usefulGods: string[];
   avoidGods: string[];
+  /** 增补喜忌可为空且待判；与原局格神功能分层。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
 }
 
 export interface AlmanacParticipantProfileRangeBranch {
@@ -1328,7 +1365,7 @@ export interface AlmanacTopicMatchFact {
   scope: '候选日' | '时辰';
   topic: AlmanacTopic;
   topicLabel: string;
-  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神';
+  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神' | '值日神煞事项规则';
   status: AlmanacRuleFactStatus;
   inputItems: string[];
   keywords: string[];
@@ -1568,6 +1605,10 @@ export interface AstrolabeAspect {
 
 export interface AstrolabeData {
   houseSystem?: 'placidus' | 'whole_sign';
+  /** 本次排盘明确采用的月球交点模型；旧盘未记录时省略。 */
+  lunarNodeType?: 'true';
+  /** 与福点、精神点计算使用同一太阳地平线上下判定。 */
+  dayChart?: boolean;
   ephemerisWarnings?: string[];
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
@@ -1602,6 +1643,8 @@ export interface AstrolabeData {
     modalities: Record<string, string[]>;
     retrograde: string[];
     patterns: string[];
+    /** 旧盘未记录格局是否经过当前相位清单核验。 */
+    patternBasis?: 'ten-main-bodies-selected-aspects';
   };
   timestamp: number;
 }
@@ -1778,6 +1821,8 @@ export interface TaiyiResult {
   scope: TaiyiScope;
   ganZhi: string;
   dateTime: string;
+  /** 真太阳时起局时，用于节气与年月干支的实际占时。 */
+  termReferenceDateTime?: string;
   accumulatedValue: number;
   accumulatedLabel: '积年' | '积月' | '积日' | '积时';
   /** @deprecated 年家兼容字段；其他计式与 accumulatedValue 相同。 */

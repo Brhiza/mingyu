@@ -16,8 +16,10 @@ import { generateDivinationSession, type DivinationDraft } from '../src/lib/divi
 import { getDivinationSessionSummary } from '../src/lib/divination/summary';
 import { addDivinationHistory, getDivinationHistoryById } from '../src/lib/history-records';
 
-async function createRangeSession(day = 19) {
-  const pillars = getGanZhiFromDate(new Date(2024, 1, day, 12));
+function createRangeFacts(day: number) {
+  const pillars = getGanZhiFromDate(
+    new Date(`2024-02-${String(day).padStart(2, '0')}T12:00:00+08:00`),
+  );
   const dateText = `2024-02-${day}`;
   const candidate = reverseBaziDates({ pillars, startYear: 2024, endYear: 2024 }).candidates.find(
     (item) => item.start.text.startsWith(dateText),
@@ -25,6 +27,20 @@ async function createRangeSession(day = 19) {
   assert.ok(candidate);
   const selection = resolveBaziReverseCandidate(candidate);
   assert.ok(selection);
+  return { candidate, source: selection.source };
+}
+
+const rangeFactsByDay = new Map<number, ReturnType<typeof createRangeFacts>>();
+
+function createRangeFixture(day = 19) {
+  let fixedFacts = rangeFactsByDay.get(day);
+  if (!fixedFacts) {
+    fixedFacts = createRangeFacts(day);
+    rangeFactsByDay.set(day, fixedFacts);
+  }
+
+  const candidate = structuredClone(fixedFacts.candidate);
+  const source = structuredClone(fixedFacts.source);
   const draft: DivinationDraft = {
     ...defaultDraft,
     method: 'liuren',
@@ -32,9 +48,14 @@ async function createRangeSession(day = 19) {
     divinationTimeMode: 'pillars',
     customDivinationDate: candidate.start.text.slice(0, 10),
     customDivinationTime: candidate.start.text.slice(11),
-    divinationReverseSource: selection.source,
+    divinationReverseSource: structuredClone(source),
     divinationTimeStandard: 'beijing',
   };
+  return { candidate, source, draft };
+}
+
+async function createRangeSession(day = 19) {
+  const { draft } = createRangeFixture(day);
   return { draft, session: await generateDivinationSession(draft) };
 }
 
@@ -63,7 +84,7 @@ test('跨中气的大六壬页面、摘要与分享保留两套月将四课三�
       .split(`分支${index + 1}：`)[1]
       ?.split(`分支${index + 2}：`)[0];
     assert.ok(branchPrompt);
-    for (const fact of formatLiurenJudgmentFacts(data)) {
+    for (const fact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true })) {
       assert.ok(branchPrompt.includes(fact), '每段提示词都应保留自己的判断条件与反证');
     }
     for (const lesson of data.fourLessons) {
@@ -130,14 +151,16 @@ test('稳定区间与普通单时刻大六壬提示词保留取传条件与反�
     divinationReverseSource: undefined,
   });
   for (const item of [session, ordinary]) {
-    const facts = formatLiurenJudgmentFacts(item.data as import('mingyu-core/types').LiurenData);
+    const facts = formatLiurenJudgmentFacts(item.data as import('mingyu-core/types').LiurenData, {
+      chartFactsIncluded: true,
+    });
     assert.ok(facts.some((fact) => fact.startsWith('课传反证：')));
     for (const fact of facts) assert.ok(item.prompt.includes(fact));
   }
 });
 
 test('大六壬感情事业财运主题按各时间分支定位类神', async () => {
-  const { draft } = await createRangeSession();
+  const { draft } = createRangeFixture();
   for (const liurenTemplate of ['ganqing', 'shiye', 'caifu'] as const) {
     const session = await generateDivinationSession({ ...draft, liurenTemplate });
     const section = session.prompt.split('【问题范围】')[1]?.split('【任务】')[0];

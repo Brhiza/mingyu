@@ -71,6 +71,22 @@ test('范围命录应以当前秒八字事实补齐同页星盘并保留秒级�
   assert.equal(article.metadata.birthSecond, 42);
   assert.ok(article.astrolabeSection);
   assert.ok(article.tableOfContents.some((item) => item.id === 'section-astrolabe'));
+  const careerEvidence = article.crossSynthesisSection?.find(
+    (theme) => theme.themeId === 'career-wealth',
+  );
+  const midheaven = article.astrolabeSection.angles.find((angle) => angle.name === 'Midheaven');
+  assert.ok(midheaven);
+  assert.ok(careerEvidence?.astrolabeEvidence?.includes(`天顶位于${midheaven.sign}`));
+  for (const houseNumber of [2, 10]) {
+    const house = article.astrolabeSection.houses.find((item) => item.house === houseNumber);
+    assert.ok(house);
+    assert.ok(
+      careerEvidence?.astrolabeEvidence?.includes(`第${houseNumber}宫宫头位于${house.sign}`),
+    );
+  }
+  const timing = article.crossSynthesisSection?.find((theme) => theme.themeId === 'timing-cycles');
+  assert.deepEqual(timing?.ziweiEvidence, []);
+  assert.equal(timing?.astrolabeEvidence, undefined);
 });
 
 test('范围命录应优先复用同页已有星盘，不计算七政或改写已有事实', async () => {
@@ -127,4 +143,70 @@ test('未传出生秒时命录仍保持旧的时分格式', async () => {
 
   assert.equal(article.metadata.exactBirthTime, '10:30');
   assert.equal(article.metadata.birthSecond, undefined);
+});
+
+test('当前页命录的生辰保留原始钟表日，校正跨日与农历输入使用同一档案', async () => {
+  const examples: Array<{
+    profile: BirthProfile;
+    original: [number, number, number];
+    calculated: { year: number; month: number; day: number };
+    dateText: string;
+  }> = [
+    {
+      profile: {
+        ...PROFILE,
+        year: 1988,
+        month: 6,
+        day: 1,
+        hour: 0,
+        minute: 30,
+        applyChinaDst: true,
+      },
+      original: [1988, 6, 1],
+      calculated: { year: 1988, month: 5, day: 31 },
+      dateText: '1988年6月1日',
+    },
+    {
+      profile: {
+        ...PROFILE,
+        calendarType: 'lunar',
+        year: 2024,
+        month: 4,
+        day: 12,
+        hour: 0,
+        minute: 30,
+        location: { longitude: 75, timezone: 8 },
+        useTrueSolarTime: true,
+      },
+      original: [2024, 5, 19],
+      calculated: { year: 2024, month: 5, day: 18 },
+      dateText: '2024年5月19日',
+    },
+  ];
+
+  for (const example of examples) {
+    const bundle = await calculateBirthChartBundle(example.profile, { systems: ['bazi'] });
+    if (bundle.range || !bundle.bazi) throw new Error('测试预期得到单点八字 Bundle。');
+    assert.deepEqual(bundle.bazi.solarDate, example.calculated);
+    const person = buildMingluPersonFromBirthProfile(bundle.profile, bundle.bazi);
+    assert.deepEqual([person.birthYear, person.birthMonth, person.birthDay], example.original);
+    assert.equal(person.birthHour, 0);
+    assert.equal(person.birthMinute, 30);
+    const metadata = buildMingluArticle({ person, baziResult: bundle.bazi }).metadata;
+    assert.equal(metadata.solarDateStr, example.dateText);
+    assert.equal(metadata.exactBirthTime, '00:30:42');
+  }
+
+  const shichen = await calculateBirthChartBundle(
+    { ...PROFILE, hour: undefined, minute: undefined, second: undefined, timeIndex: 1 },
+    { systems: ['bazi'] },
+  );
+  if (shichen.range || !shichen.bazi) throw new Error('测试预期得到单点八字 Bundle。');
+  const person = buildMingluPersonFromBirthProfile(shichen.profile, shichen.bazi);
+  assert.equal(person.birthHour, undefined);
+  assert.equal(person.birthMinute, undefined);
+  assert.equal(
+    buildMingluArticle({ person, baziResult: shichen.bazi }).metadata.exactBirthTime,
+    undefined,
+  );
 });

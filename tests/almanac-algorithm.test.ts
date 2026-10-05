@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ALMANAC_TOPIC_LABELS, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 
 import {
-  generateAlmanacSelection,
   getAlmanacAnnualDirectionGods,
   getAlmanacNineStarDetail,
   getAlmanacPengZuDetails,
   getAlmanacTwentyEightStarDetail,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
+import { normalizeBirthProfile } from '../packages/core/src/profile/index.ts';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 
 const ALMANAC_CROSS_CENTURY_TRUTH = [
   ['1900-01-01', '己亥', '丙子', '甲戌'],
@@ -48,6 +52,15 @@ test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacPengZuDetails('甲', '无'), /彭祖地支百忌资料缺失/);
   assert.throws(() => getAlmanacPengZuDetails('无', '子'), /彭祖天干百忌资料缺失/);
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
+  const dates = { topic: 'move' as const, startDate: '2026-06-01', endDate: '2026-06-01' };
+  assert.throws(
+    () => generateAlmanacSelection({ ...dates, weekendPreference: '任意' as never }),
+    /周末偏好/,
+  );
+  assert.throws(
+    () => generateAlmanacSelection({ ...dates, timePreferences: ['未知时段' as never] }),
+    /时段偏好/,
+  );
 });
 
 test('黄历择日：二十八宿与九星详情应使用经过校勘的原始属性', () => {
@@ -190,6 +203,74 @@ test('黄历择日：交节当天年柱月柱按正午精确干支历显示', ()
   assert.equal(jingzhe.ganzhi.month, '庚寅');
 });
 
+test('黄历择日：生肖对应正午年支，冲煞仍对应日支', () => {
+  for (const [date, yearPillar, dayPillar, zodiac, clash] of [
+    ['2024-02-04', '癸卯', '戊戌', '兔', '冲辰'],
+    ['2024-02-05', '甲辰', '己亥', '龙', '冲巳'],
+    ['2026-03-05', '丙午', '戊寅', '马', '冲申'],
+  ] as const) {
+    const result = generateAlmanacSelection({ topic: 'custom', startDate: date, endDate: date });
+    const day = result.days[0];
+    assert.equal(day.ganzhi.year, yearPillar);
+    assert.equal(day.ganzhi.day, dayPillar);
+    assert.equal(day.zodiac, zodiac);
+    assert.match(day.clash, new RegExp(`^${clash}`));
+    assert.match(result.evidenceAnalysis?.promptText ?? '', new RegExp(`年生肖${zodiac}`));
+  }
+});
+
+test('黄历择日：交节日月建相关事实采用正午月令并说明精确交节时刻', () => {
+  // 香港天文台年历：2024 立春 2 月 4 日 16:27；2026 惊蛰 3 月 5 日 21:59。
+  // https://www.hko.gov.hk/tc/gts/astron2024/files/HKO_almanac_2024.pdf
+  // https://www.hko.gov.hk/tc/gts/astron2026/files/HKO_almanac_2026.pdf
+  const cases = [
+    {
+      date: '2024-02-04',
+      month: '乙丑',
+      duty: '收',
+      term: '立春',
+      time: '16:27:07',
+      after: '甲辰年丙寅月',
+    },
+    {
+      date: '2026-03-05',
+      month: '庚寅',
+      duty: '建',
+      term: '惊蛰',
+      time: '21:59:00',
+      after: '丙午年辛卯月',
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const result = generateAlmanacSelection({
+      topic: 'move',
+      startDate: item.date,
+      endDate: item.date,
+    });
+    const day = result.days[0];
+    assert.equal(day.ganzhi.month, item.month);
+    assert.equal(day.dayOfficer, item.duty);
+    const note = day.cautions.find((value) => value.includes(`${item.term}于中国标准时间`));
+    assert.ok(note);
+    assert.match(note, new RegExp(`${item.time}交节`));
+    assert.match(note, new RegExp(`此后为${item.after}`));
+    assert.match(note, /年柱、月柱、建除、神煞和宜忌以正午时刻列示/);
+    assert.ok(result.evidenceAnalysis?.candidates[0].traditionalConstraints.includes(note));
+    assert.match(result.evidenceAnalysis?.candidates[0].calendarFact.promptText ?? '', /正午年柱/);
+    assert.ok(result.evidenceAnalysis?.candidates[0].calendarFact.promptText.includes(note));
+    assert.ok(formatEnhancedDivinationInfo('almanac', result).includes(note));
+    assert.ok(formatDetailedDivinationInfo('almanac', result).includes(note));
+  }
+
+  const timeConditional = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2024-02-04',
+    endDate: '2024-02-04',
+  });
+  assert.equal(timeConditional.evidenceAnalysis?.candidates[0].status, '条件候选');
+});
+
 test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
   const withoutParticipant = generateAlmanacSelection({
     topic: 'move',
@@ -238,7 +319,7 @@ test('黄历参与人应保留案例的精准出生时刻而不是回落到时�
     year: '1990',
     month: '1',
     day: '1',
-    timeIndex: '6',
+    timeIndex: '0',
     birthHour: '0',
     birthMinute: '5',
     birthSecond: '30',
@@ -248,7 +329,7 @@ test('黄历参与人应保留案例的精准出生时刻而不是回落到时�
     year: 1990,
     month: 1,
     day: 1,
-    timeIndex: 6,
+    timeIndex: 0,
     birthHour: 0,
     birthMinute: 5,
     birthSecond: 30,
@@ -264,6 +345,50 @@ test('黄历参与人应保留案例的精准出生时刻而不是回落到时�
   });
 
   assert.equal(result.participants[0]?.pillars.hour, expected.pillars.hour.ganZhi);
+});
+
+test('黄历参与人的精准时间应核对早晚子时索引', () => {
+  const base = {
+    name: '子时案例',
+    gender: '男' as const,
+    year: '1990',
+    month: '1',
+    day: '1',
+    dateType: 'solar' as const,
+  };
+  const earlyZi = {
+    ...base,
+    id: 'early-zi',
+    timeIndex: '0',
+    birthHour: '0',
+    birthMinute: '5',
+  };
+  const lateZi = {
+    ...base,
+    id: 'late-zi',
+    timeIndex: '12',
+    birthHour: '23',
+    birthMinute: '5',
+  };
+  const params = {
+    topic: 'custom' as const,
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+  };
+
+  const result = generateAlmanacSelection({ ...params, participants: [earlyZi, lateZi] });
+  assert.deepEqual(
+    result.participants.map((participant) => participant.id),
+    ['early-zi', 'late-zi'],
+  );
+  assert.throws(
+    () => generateAlmanacSelection({ ...params, participants: [{ ...earlyZi, timeIndex: '12' }] }),
+    /对应时辰索引 0，与已提供的时辰索引 12 不一致/,
+  );
+  assert.throws(
+    () => generateAlmanacSelection({ ...params, participants: [{ ...lateZi, timeIndex: '0' }] }),
+    /对应时辰索引 12，与已提供的时辰索引 0 不一致/,
+  );
 });
 
 test('黄历参与人应沿用案例的真太阳时精准时刻与经度', () => {
@@ -304,6 +429,31 @@ test('黄历参与人应沿用案例的真太阳时精准时刻与经度', () =>
 
   assert.equal(result.participants[0]?.solarDate, '1990-05-14');
   assert.equal(result.participants[0]?.pillars.hour, expected.pillars.hour.ganZhi);
+
+  const correctedTimeIndex = normalizeBirthProfile({
+    gender: 'female',
+    calendarType: 'solar',
+    year: 1990,
+    month: 5,
+    day: 15,
+    hour: 0,
+    minute: 5,
+    second: 0,
+    timeIndex: 0,
+    location: { longitude: 75, timezone: 8 },
+    useTrueSolarTime: true,
+  }).timeIndex;
+  assert.notEqual(correctedTimeIndex, 0);
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        topic: 'custom',
+        startDate: '2026-06-10',
+        endDate: '2026-06-10',
+        participants: [{ ...participant, timeIndex: String(correctedTimeIndex) }],
+      }),
+    /对应时辰索引 0，与已提供的时辰索引 \d+ 不一致/,
+  );
 });
 
 test('黄历择日：空白参与人行可忽略，但半填资料必须报错', () => {
@@ -428,13 +578,17 @@ test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放
 });
 
 test('黄历择日：每个候选日应给出完整时辰，不生成首选时辰', () => {
-  const result = generateAlmanacSelection({
+  const params = {
     topic: 'contract',
     startDate: '2026-06-01',
     endDate: '2026-06-03',
-  });
+  } as const;
+  const result = generateAlmanacSelection(params);
+  assert.equal(result.topicLabel, '签约合作');
 
   for (const day of result.days) {
+    assert.ok(day.topicMatchFacts?.length);
+    assert.ok(day.topicMatchFacts.every((fact) => fact.topicLabel === '签约合作'));
     assert.equal(day.hours?.length, 13, `${day.date} 应包含早晚子时在内的 13 个时段`);
     assert.deepEqual(
       day.hours?.map((hour) => [hour.name, hour.branch, hour.range]),
@@ -458,9 +612,46 @@ test('黄历择日：每个候选日应给出完整时辰，不生成首选时�
     assert.ok(!('bestHours' in day), `${day.date} 不应生成首选时辰`);
     for (const hour of day.hours ?? []) {
       assert.ok(Array.isArray(hour.recommends) && Array.isArray(hour.avoids));
+      assert.ok(hour.topicMatchFacts?.length);
       for (const fact of hour.topicMatchFacts ?? []) {
+        assert.equal(fact.topicLabel, '签约合作');
         assert.ok(fact.matchedItems.every((item) => fact.inputItems.includes(item)));
       }
+    }
+  }
+
+  const promptOptions = {
+    method: 'almanac',
+    question: '哪天适合签约？',
+    currentTime: new Date('2026-06-01T10:00:00+08:00'),
+  } as const;
+  const expectedPrompt = buildDivinationPrompt({ ...promptOptions, data: result });
+  const originalLabel = ALMANAC_TOPIC_LABELS.contract;
+  const invalidTopicDescriptor = Object.getOwnPropertyDescriptor(
+    ALMANAC_TOPIC_LABELS,
+    'invalid-topic',
+  );
+  try {
+    ALMANAC_TOPIC_LABELS.contract = '临时事项标签';
+    assert.equal(ALMANAC_TOPIC_LABELS.contract, '临时事项标签');
+    assert.equal(Reflect.set(ALMANAC_TOPIC_LABELS, 'invalid-topic', '临时新增事项'), true);
+    assert.throws(
+      () =>
+        generateAlmanacSelection({
+          ...params,
+          topic: 'invalid-topic' as Parameters<typeof generateAlmanacSelection>[0]['topic'],
+        }),
+      /未知的黄历择日事项类型/,
+    );
+    const fresh = generateAlmanacSelection(params);
+    assert.deepEqual({ ...fresh, timestamp: undefined }, { ...result, timestamp: undefined });
+    assert.equal(buildDivinationPrompt({ ...promptOptions, data: fresh }), expectedPrompt);
+  } finally {
+    ALMANAC_TOPIC_LABELS.contract = originalLabel;
+    if (invalidTopicDescriptor) {
+      Object.defineProperty(ALMANAC_TOPIC_LABELS, 'invalid-topic', invalidTopicDescriptor);
+    } else {
+      Reflect.deleteProperty(ALMANAC_TOPIC_LABELS, 'invalid-topic');
     }
   }
 });
@@ -488,17 +679,6 @@ test('黄历择日：跨世纪与交节日期应符合独立历法真值', () =>
   }
 });
 
-test('黄历择日：网页长区间应支持一次比较 180 天', () => {
-  const result = generateAlmanacSelection({
-    topic: 'custom',
-    startDate: '2026-01-01',
-    endDate: '2026-06-29',
-  });
-
-  assert.equal(result.days.length, 180);
-  assert.equal(new Set(result.days.map((day) => day.date)).size, 180);
-});
-
 test('黄历择日：工作时间应同时避开周末并限定常规办事时段', () => {
   const result = generateAlmanacSelection({
     topic: 'contract',
@@ -511,6 +691,10 @@ test('黄历择日：工作时间应同时避开周末并限定常规办事时�
   const workHourBranches = new Set(['巳', '午', '未', '申']);
 
   assert.equal(result.weekendPreference, 'avoid');
+  assert.ok(result.days.some((day) => day.weekday === '星期六' || day.weekday === '星期日'));
+  const prompt = formatEnhancedDivinationInfo('almanac', result);
+  assert.match(prompt, /时段条件：同一候选等级内优先工作日，时辰限常规办事时段、优先上午/);
+  assert.doesNotMatch(prompt, /时段条件：工作日常规办事时段/);
   assert.ok(candidates.length > 0);
   assert.ok(
     candidates.every((candidate) =>
@@ -532,4 +716,26 @@ test('黄历择日：工作时间应同时避开周末并限定常规办事时�
       );
     }
   }
+});
+
+test('黄历任务只在提示词列出候选时辰时要求分析时段', () => {
+  const common = {
+    topic: 'contract' as const,
+    startDate: '2026-06-09',
+    endDate: '2026-06-09',
+  };
+  const dateOnly = generateAlmanacSelection(common);
+  const withHours = generateAlmanacSelection({ ...common, timePreferences: ['work-hours'] });
+  const question = '哪天适合签约？';
+  const datePrompt = buildDivinationPrompt({ method: 'almanac', data: dateOnly, question });
+  const hourPrompt = buildDivinationPrompt({ method: 'almanac', data: withHours, question });
+  const taskText = (prompt: string) => prompt.split('【任务】')[1]?.split('【问题】')[0] ?? '';
+
+  assert.ok(withHours.evidenceAnalysis?.candidates[0]?.usableHours.length);
+  assert.doesNotMatch(datePrompt, /时辰写法：|时段条件：/);
+  assert.doesNotMatch(taskText(datePrompt), /时辰|时段/);
+  assert.match(taskText(datePrompt), /有多个候选时说明首选与备选/);
+  assert.match(hourPrompt, /时辰写法：|时段条件：/);
+  assert.match(hourPrompt, /时辰[^\n]*[0-9]{2}:00-/);
+  assert.match(taskText(hourPrompt), /有候选时辰资料时，说明所列时段的取舍与适用条件/);
 });

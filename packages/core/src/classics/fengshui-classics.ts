@@ -3,7 +3,7 @@ import type { BazhaiStarClassic } from './types';
 /**
  * 《八宅明镜》《紫白诀》《飞星赋》八宅与玄空风水经典释义
  */
-export const BAZHAI_STAR_CLASSICS: Record<string, BazhaiStarClassic> = {
+const CANONICAL_BAZHAI_STAR_CLASSICS: Record<string, BazhaiStarClassic> = {
   生气: {
     star: '生气',
     auspice: '大吉',
@@ -79,10 +79,14 @@ export const BAZHAI_STAR_CLASSICS: Record<string, BazhaiStarClassic> = {
   },
 };
 
+export const BAZHAI_STAR_CLASSICS: Record<string, BazhaiStarClassic> = structuredClone(
+  CANONICAL_BAZHAI_STAR_CLASSICS,
+);
+
 export function getBazhaiStarClassic(star: string): BazhaiStarClassic | undefined {
   if (!star) return undefined;
-  for (const [key, val] of Object.entries(BAZHAI_STAR_CLASSICS)) {
-    if (star.includes(key)) return val;
+  for (const [key, val] of Object.entries(CANONICAL_BAZHAI_STAR_CLASSICS)) {
+    if (star.includes(key)) return structuredClone(val);
   }
   return undefined;
 }
@@ -92,7 +96,7 @@ import type { XuankongStarClassic } from './types';
 /**
  * 《紫白诀》《玄空秘旨》《飞星赋》玄空九星全解
  */
-export const XUANKONG_STAR_CLASSICS: Record<number, XuankongStarClassic> = {
+const CANONICAL_XUANKONG_STAR_CLASSICS: Record<number, XuankongStarClassic> = {
   1: {
     starNumber: 1,
     starName: '一白贪狼水星',
@@ -186,10 +190,14 @@ export const XUANKONG_STAR_CLASSICS: Record<number, XuankongStarClassic> = {
   },
 };
 
+export const XUANKONG_STAR_CLASSICS: Record<number, XuankongStarClassic> = structuredClone(
+  CANONICAL_XUANKONG_STAR_CLASSICS,
+);
+
 export function getXuankongStarClassic(
   starNumber: number | string,
 ): XuankongStarClassic | undefined {
-  const num = typeof starNumber === 'number' ? starNumber : parseInt(starNumber, 10);
-  if (isNaN(num)) return undefined;
-  return XUANKONG_STAR_CLASSICS[num];
+  const num = typeof starNumber === 'number' ? starNumber : Number(starNumber);
+  if (!Number.isInteger(num) || num < 1 || num > 9) return undefined;
+  return structuredClone(CANONICAL_XUANKONG_STAR_CLASSICS[num]);
 }

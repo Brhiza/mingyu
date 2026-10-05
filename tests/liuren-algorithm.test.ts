@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
-import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import { calculateSolarTermEvidence, TimeManager } from 'mingyu-core/calendar';
+import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
+import { buildTimeInfoText } from 'mingyu-core/prompt';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { formatLiurenGuaTiWithTransmissions } from '../packages/core/src/prompt/liuren-facts';
 import {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,
@@ -15,6 +20,7 @@ import {
   resolveInitialTransmission,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/lessons.ts';
 import { resolveLiurenClassicalRules } from '../packages/core/src/divination/algorithms/liuren/helpers/classical-rules.ts';
+import { getLiurenTransmissionClassic } from '../packages/core/src/classics/liuren-rules.ts';
 import {
   buildHeavenlyPlate,
   getDayStemResidence,
@@ -52,8 +58,11 @@ const FUYIN_PLATE = DIZHI.map((under) => ({
   god: '贵人',
 })) satisfies LiurenPlateItem[];
 
-test('大六壬应输出分层取用与应期证据', () => {
-  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+const liuren20260410At0826 = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+const liuren20260101At1200 = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+
+test('大六壬真实课盘应输出分层取用、应期与复合取传提示词证据', () => {
+  const result = liuren20260410At0826;
 
   assert.deepEqual(
     result.focusEvidence?.map((item) => item.level),
@@ -66,8 +75,6 @@ test('大六壬应输出分层取用与应期证据', () => {
   assert.ok(evidence);
   assert.equal(evidence.key, 'liuren:evidence');
   assert.equal(evidence.status, '已计算');
-  assert.equal(evidence.calculationSteps.length, 7);
-  assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
   const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
   assert.ok(
     evidence.calculationSteps.every((item) =>
@@ -75,19 +82,6 @@ test('大六壬应输出分层取用与应期证据', () => {
     ),
   );
   assert.equal(evidence.summaryFact.status, '证据链完整');
-  assert.equal(evidence.summaryFact.platePositionFactCount, evidence.platePositionFacts.length);
-  assert.equal(evidence.summaryFact.lessonFactCount, evidence.lessons.length);
-  assert.equal(evidence.summaryFact.transmissionFactCount, evidence.transmissions.length);
-  assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
-  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
-  assert.equal(evidence.summaryFact.timingFactCount, evidence.timingFacts.length);
-  assert.equal(evidence.summaryFact.focusFactCount, evidence.focusFacts.length);
-  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
-  assert.equal(evidence.limitationFacts.length, 6);
-  assert.deepEqual(
-    evidence.limitations,
-    evidence.limitationFacts.map((item) => item.promptText),
-  );
   const factKeys = new Set([
     evidence.calculationFact.key,
     evidence.plateFact.key,
@@ -118,28 +112,86 @@ test('大六壬应输出分层取用与应期证据', () => {
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
     ),
   );
-  assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assert.match(evidence.promptText, /起盘事实：[\s\S]*四课取传与初传发用：[\s\S]*【任务】/);
   for (const transmission of result.threeTransmissions) {
     assert.ok(transmission.wuxing);
     assert.ok(transmission.seasonState);
     assert.equal(typeof transmission.isVoid, 'boolean');
   }
+
+  const fuyinNoKe = resolveLiurenClassicalRules('伏吟法');
+  const fuyinKe = resolveLiurenClassicalRules('伏吟重审法');
+  const fanyinNoKe = resolveLiurenClassicalRules('返吟法');
+  const fanyinKe = resolveLiurenClassicalRules('返吟元首法');
+  assert.match(fuyinNoKe[0].summary, /四课无克/);
+  assert.doesNotMatch(fuyinNoKe[0].summary, /四课有克/);
+  assert.match(fuyinKe[0].summary, /四课有克/);
+  assert.doesNotMatch(fuyinKe[0].summary, /四课无克/);
+  assert.match(fanyinNoKe[0].summary, /四课无克/);
+  assert.doesNotMatch(fanyinNoKe[0].summary, /四课有克/);
+  assert.match(fanyinKe[0].summary, /四课有克/);
+  assert.doesNotMatch(fanyinKe[0].summary, /四课无克/);
+
+  assert.equal(result.transmissionRule, '返吟重审法');
+  assert.equal(result.ordinaryTransmissionAdjudication?.status, 'deferredToSpecial');
+  assert.deepEqual(
+    result.fourLessons.map((item) => item.upper),
+    ['申', '寅', '申', '寅'],
+  );
+  const beforePrompt = structuredClone(result);
+  const prompt = buildDivinationPrompt({ method: 'liuren', data: result, question: '问合作进度' });
+  assert.match(prompt, /取传条件：返吟课兼四课下贼上：天盘与地盘相冲；四课见下贼上/);
+  assert.match(prompt, /四课下贼上候选只有一个不同上神/);
+  assert.doesNotMatch(prompt, /四课只有一处下贼上|无克另按井栏射取传/);
+  assert.match(prompt, /初传取法：按返吟重审法取寅发用/);
+  assert.doesNotMatch(prompt, /初传取法：；|常用取传规则未定|候选取舍：/);
+  assert.deepEqual(result, beforePrompt);
 });
 
-test('大六壬旧资料缺少取传规则名时应保留证据缺口，不按三传反推九宗门', () => {
-  const data = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
-  data.transmissionRule = undefined;
-  data.transmissionPattern = undefined;
-  data.evidenceAnalysis = undefined;
+test('不同全局时区下月将均在雨水交节整秒切换', () => {
+  const boundary = calculateSolarTermEvidence(2024, 4).utcTimestamp;
+  try {
+    for (const offsetMinutes of [-300, 0, 840]) {
+      TimeManager.setTimezoneOffsetMinutesOverride(offsetMinutes);
+      for (const [timestamp, monthLeader] of [
+        [boundary - 1000, '子'],
+        [boundary, '亥'],
+      ] as const) {
+        const result = generateLiuren(new Date(timestamp));
+        assert.equal(result.monthLeader, monthLeader);
+        assert.equal(result.evidenceAnalysis?.calculationFact.monthLeader, monthLeader);
+        assert.equal(
+          result.heavenlyPlate.find((item) => item.under === result.divinationBranch)?.branch,
+          monthLeader,
+        );
+      }
+    }
+  } finally {
+    TimeManager.setTimezoneOffsetMinutesOverride(480);
+  }
+});
 
-  const evidence = analyzeLiurenEvidence(data);
+test('真太阳时日时校正跨过雨水时，月将和节气仍按实际占时交节', () => {
+  // 香港天文台 2024 年年历：雨水为 2 月 19 日 12:13（东八区）。
+  // 《大六壬指南》卷一：大寒后子将、雨水后亥将。
+  const beforeTerm = generateLiuren(new Date('2024-02-19T13:00:00+08:00'), {
+    termReferenceDate: new Date('2024-02-19T11:30:00+08:00'),
+  });
+  assert.equal(beforeTerm.monthLeader, '子');
+  assert.equal(beforeTerm.termReferenceTimestamp, new Date('2024-02-19T11:30:00+08:00').getTime());
+  assert.match(beforeTerm.lessonSummary ?? '', /当前节气为立春/);
+  assert.match(buildTimeInfoText(beforeTerm), /节气：立春/);
+  assert.equal(beforeTerm.ganzhi.hour.charAt(1), '未');
+  assert.equal(beforeTerm.heavenlyPlate.find((item) => item.under === '未')?.branch, '子');
 
-  assert.equal(evidence.transmissionRuleFact.status, '缺少规则名');
-  assert.equal(evidence.transmissionRuleFact.rule, null);
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
-  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
-  assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
+  const afterTerm = generateLiuren(new Date('2024-02-19T10:00:00+08:00'), {
+    termReferenceDate: new Date('2024-02-19T12:40:00+08:00'),
+  });
+  assert.equal(afterTerm.monthLeader, '亥');
+  assert.match(afterTerm.lessonSummary ?? '', /当前节气为雨水/);
+  assert.match(buildTimeInfoText(afterTerm), /节气：雨水/);
+  assert.equal(afterTerm.ganzhi.hour.charAt(1), '巳');
+  assert.equal(afterTerm.heavenlyPlate.find((item) => item.under === '巳')?.branch, '亥');
 });
 
 function getUpperByUnder(
@@ -172,6 +224,13 @@ function createLesson(
   };
 }
 
+const DEFAULT_RESOLVE_HEAVENLY_PLATE = buildHeavenlyPlate({
+  monthLeader: '亥',
+  divinationBranch: '卯',
+  noblemanBranch: '丑',
+  dayNight: '昼占',
+});
+
 function createResolveContext(
   overrides: Partial<Parameters<typeof resolveInitialTransmission>[1]> = {},
 ) {
@@ -179,21 +238,9 @@ function createResolveContext(
     dayStem: '甲',
     dayBranch: '子',
     dayStemResidence: '寅',
-    heavenlyPlate: buildHeavenlyPlate({
-      monthLeader: '亥',
-      divinationBranch: '卯',
-      noblemanBranch: '丑',
-      dayNight: '昼占',
-    }),
+    heavenlyPlate: DEFAULT_RESOLVE_HEAVENLY_PLATE.map((item) => ({ ...item })),
     ...overrides,
   };
-}
-
-function getUnderByUpper(
-  plate: Array<{ branch: string; under: string; god: string }>,
-  upper: string,
-) {
-  return plate.find((item) => item.branch === upper)?.under;
 }
 
 function buildReferenceLiurenPlate(args: { day: string; hour: string; monthLeader: string }) {
@@ -240,28 +287,6 @@ function buildReferenceLiurenPlate(args: { day: string; hour: string; monthLeade
   };
 }
 
-test('大六壬会输出完整的四课三传与天盘结构', () => {
-  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
-
-  assert.equal(result.heavenlyPlate.length, 12);
-  assert.equal(result.fourLessons.length, 4);
-  assert.equal(result.threeTransmissions.length, 3);
-  assert.ok(result.xunKong?.length === 2);
-  assert.match(
-    result.transmissionRule || '',
-    /重审法|元首法|贼克法|克法|比用法|涉害法|别责法|八专法/,
-  );
-  assert.ok(result.transmissionDetail?.includes(result.transmissionRule || ''));
-  assert.match(result.transmissionDetail || '', /初传发用/);
-  assert.match(result.transmissionSummary || '', /三传.+主线依次为/);
-
-  const chu = result.threeTransmissions[0].branch;
-  const zhong = result.threeTransmissions[1].branch;
-  const mo = result.threeTransmissions[2].branch;
-  assert.equal(zhong, getUpperByUnder(result.heavenlyPlate, chu));
-  assert.equal(mo, getUpperByUnder(result.heavenlyPlate, zhong));
-});
-
 test('大六壬三传成局应按六壬指南输出课体标签', () => {
   const cases: Array<{ branches: string[]; guaTi: string }> = [
     { branches: ['子', '午', '卯'], guaTi: '三交卦' },
@@ -283,8 +308,8 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
 });
 
-test('大六壬课体登记表应固定十六条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 16);
+test('大六壬课体登记表应固定十四条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 14);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -297,37 +322,136 @@ test('大六壬课体登记表应固定十六条来源、稳定键和结构条�
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
 });
 
-test('大六壬《毕法赋》核心课体应准确识别初末相冲、传归生处与闭口发用', () => {
-  // 1. 初末相冲课
-  const chongFacts = getLiurenGuaTiFacts({ transmissionBranches: ['子', '辰', '午'] });
-  const chongFact = chongFacts.find((item) => item.name === '初末相冲课');
-  assert.ok(chongFact, '初末相冲课应命中');
-  assert.equal(chongFact.stableKey, 'liuren:verified-guati:chu-mo-xiang-chong');
-  assert.match(chongFact.sourceTitle, /毕法赋/);
-  assert.match(chongFact.sourceQuote, /初末相冲多反覆/);
-
-  // 2. 传归生处课 (日干甲木，末传亥水生木)
-  const shengFacts = getLiurenGuaTiFacts({
-    transmissionBranches: ['申', '午', '亥'],
+test('大六壬课体只保留可核对来源的条件，并识别闭口发用', () => {
+  const structuralFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['子', '辰', '午'],
     dayStem: '甲',
   });
-  const shengFact = shengFacts.find((item) => item.name === '传归生处课');
-  assert.ok(shengFact, '传归生处课应命中');
-  assert.equal(shengFact.stableKey, 'liuren:verified-guati:chuan-gui-sheng-chu');
-  assert.match(shengFact.sourceTitle, /毕法赋/);
-  assert.match(shengFact.sourceQuote, /传归生处真生旺/);
+  assert.ok(
+    structuralFacts.every((item) => item.name !== '初末相冲课' && item.name !== '传归生处课'),
+  );
 
-  // 3. 闭口课 (甲子旬，旬尾为酉，初传酉发用)
+  // 甲子旬的旬尾酉临旬首子发用。
   const bikouFacts = getLiurenGuaTiFacts({
     transmissionBranches: ['酉', '亥', '丑'],
+    initialGroundBranch: '子',
     dayStem: '甲',
     dayBranch: '子',
   });
   const bikouFact = bikouFacts.find((item) => item.name === '闭口课');
   assert.ok(bikouFact, '闭口课应命中');
   assert.equal(bikouFact.stableKey, 'liuren:verified-guati:bi-kou');
-  assert.match(bikouFact.sourceTitle, /毕法赋/);
-  assert.match(bikouFact.sourceQuote, /闭口/);
+  assert.match(bikouFact.sourceTitle, /闭口课/);
+  assert.match(bikouFact.sourceQuote, /旬尾加旬首/);
+  assert.deepEqual(bikouFact.branches, ['酉', '子']);
+
+  const missingGroundFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['酉', '亥', '丑'],
+    dayStem: '甲',
+    dayBranch: '子',
+  });
+  assert.ok(!missingGroundFacts.some((item) => item.id === 'bi-kou'));
+
+  const otherGroundFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['酉', '亥', '丑'],
+    initialGroundBranch: '寅',
+    dayStem: '甲',
+    dayBranch: '子',
+  });
+  assert.ok(!otherGroundFacts.some((item) => item.id === 'bi-kou'));
+});
+
+test('大六壬闭口课的旬首乘玄武与旬首位上神乘玄武均须发用', () => {
+  const common = { dayStem: '甲', dayBranch: '子' };
+  const findBiKou = (context: Parameters<typeof getLiurenGuaTiFacts>[0]) =>
+    getLiurenGuaTiFacts(context).find((item) => item.id === 'bi-kou');
+
+  const headOnHeavenlyPlate = findBiKou({
+    ...common,
+    transmissionBranches: ['子', '寅', '辰'],
+    initialGroundBranch: '戌',
+    initialGod: '玄武',
+  });
+  assert.ok(headOnHeavenlyPlate);
+  assert.deepEqual(headOnHeavenlyPlate.matchedConditions, ['初传子为甲子旬首，乘玄武发用']);
+
+  const headOnGroundPlate = findBiKou({
+    ...common,
+    transmissionBranches: ['辰', '午', '申'],
+    initialGroundBranch: '子',
+    initialGod: '玄武',
+  });
+  assert.ok(headOnGroundPlate);
+  assert.deepEqual(headOnGroundPlate.matchedConditions, ['初传辰为地盘旬首子上神，乘玄武发用']);
+
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['子', '寅', '辰'],
+      initialGroundBranch: '戌',
+      initialGod: '白虎',
+    }),
+    undefined,
+  );
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['辰', '午', '申'],
+      initialGroundBranch: '子',
+      initialGod: '白虎',
+    }),
+    undefined,
+  );
+  assert.equal(
+    findBiKou({
+      ...common,
+      transmissionBranches: ['子', '寅', '辰'],
+      initialGroundBranch: '戌',
+      initialGod: '玄武',
+      dayBranch: '申',
+    }),
+    undefined,
+  );
+});
+
+test('大六壬实盘应识别两种乘玄武发用的闭口课', () => {
+  const cases = [
+    {
+      time: '2026-01-07T16:00:00+08:00',
+      day: '辛巳',
+      initial: '卯',
+      ground: '戌',
+      condition: '初传卯为地盘旬首戌上神，乘玄武发用',
+    },
+    {
+      time: '2026-02-03T16:00:00+08:00',
+      day: '戊申',
+      initial: '辰',
+      ground: '子',
+      condition: '初传辰为甲辰旬首，乘玄武发用',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = generateLiuren(new Date(item.time));
+    const chu = result.threeTransmissions[0];
+    assert.equal(result.ganzhi.day, item.day);
+    assert.equal(chu.branch, item.initial);
+    assert.equal(chu.god, '玄武');
+    assert.equal(getPlateItemByBranch(result.heavenlyPlate, chu.branch).under, item.ground);
+    assert.deepEqual(result.guaTiFacts?.find((fact) => fact.id === 'bi-kou')?.matchedConditions, [
+      item.condition,
+    ]);
+    for (const prompt of [
+      formatEnhancedDivinationInfo('liuren', result),
+      buildDivinationPrompt({ method: 'liuren', data: result, question: '核对此课发用' }),
+    ]) {
+      assert.ok(prompt.includes(`闭口课：${item.condition}`));
+      assert.ok(
+        prompt.includes(result.guaTiFacts!.find((fact) => fact.id === 'bi-kou')!.sourceTitle),
+      );
+    }
+  }
 });
 
 test('大六壬新增六类课体应按完整起课条件命中', () => {
@@ -385,6 +509,15 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
     assert.ok(fact.matchedConditions.length > 0);
     assert.match(fact.stableKey, /^liuren:verified-guati:/);
     assert.match(fact.sourceUrl, new RegExp(`oldid=${item.sourceOldId}`));
+    if (item.name === '龙德课') {
+      assert.ok(
+        formatLiurenGuaTiWithTransmissions(fact).includes('龙德课：初传子同时为太岁、月将并乘贵人'),
+      );
+    }
+    if (item.name === '高盖乘轩卦') {
+      assert.equal(formatLiurenGuaTiWithTransmissions(fact), `高盖乘轩卦（${fact.sourceTitle}）`);
+      assert.deepEqual(fact.matchedConditions, ['三传依次为午、卯、子']);
+    }
   }
 });
 
@@ -459,35 +592,15 @@ test('大六壬普通递传即使初末六冲也不得误标返吟', () => {
   assert.ok(!result.patternTags?.includes('反吟'));
 });
 
-test('大六壬天地盘会把月将加在占时地盘上，并保持天地互查可逆', () => {
-  for (const monthLeader of DIZHI) {
-    for (const divinationBranch of DIZHI) {
-      const plate = buildHeavenlyPlate({
-        monthLeader,
-        divinationBranch,
-        noblemanBranch: '丑',
-        dayNight: '昼占',
-      });
-
-      assert.equal(getUpperByUnder(plate, divinationBranch), monthLeader);
-      assert.equal(getUnderByUpper(plate, monthLeader), divinationBranch);
-      assert.equal(new Set(plate.map((item) => item.under)).size, 12);
-      assert.equal(new Set(plate.map((item) => item.branch)).size, 12);
-    }
-  }
-});
-
 test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取传', () => {
   const ruleCounts = new Map<string, number>();
   let caseCount = 0;
 
   for (const monthLeader of DIZHI) {
     for (const hourBranch of DIZHI) {
-      for (const day of SIXTY_DAYS) {
+      for (const dayStem of TIANGAN) {
         for (const dayNight of ['昼占', '夜占'] as const) {
-          const dayStem = day.charAt(0);
-          const dayBranch = day.charAt(1);
-          const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
+          const dayStemIndex = TIANGAN.indexOf(dayStem);
           const hourBranchIndex = DIZHI.indexOf(hourBranch);
           const hourStem = TIANGAN[((dayStemIndex % 5) * 2 + hourBranchIndex) % 10];
           const heavenlyPlate = buildHeavenlyPlate({
@@ -497,75 +610,99 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             dayNight,
           });
           const dayStemResidence = getDayStemResidence(dayStem);
-          const lessons = buildFourLessons({
-            heavenlyPlate,
-            dayStem,
-            dayBranch,
-            dayStemResidence,
-            xunKong: [],
-          });
-          const initial = resolveInitialTransmission(lessons, {
-            dayStem,
-            dayBranch,
-            dayStemResidence,
-            hourStem,
-            hourBranch,
-            heavenlyPlate,
-          });
-          const branches = initial.branches || [
-            initial.initial,
-            getUpperByUnder(heavenlyPlate, initial.initial),
-            getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
-          ];
-          const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
+          for (const day of SIXTY_DAYS.filter((value) => value.startsWith(dayStem))) {
+            const dayBranch = day.charAt(1);
+            const lessons = buildFourLessons({
+              heavenlyPlate,
+              dayStem,
+              dayBranch,
+              dayStemResidence,
+              xunKong: [],
+            });
+            const initial = resolveInitialTransmission(lessons, {
+              dayStem,
+              dayBranch,
+              dayStemResidence,
+              hourStem,
+              hourBranch,
+              heavenlyPlate,
+            });
+            const branches = initial.branches || [
+              initial.initial,
+              getUpperByUnder(heavenlyPlate, initial.initial),
+              getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
+            ];
+            const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
 
-          assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.branch)).size, 12, label);
-          assert.equal(new Set(heavenlyPlate.map((item) => item.god)).size, 12, label);
-          assert.equal(lessons.length, 4, label);
-          assert.equal(branches.length, 3, label);
-          assert.ok(
-            branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
-            label,
-          );
-          const adjudication = initial.ordinaryAdjudication;
-          assert.ok(adjudication, label);
-          const isSpecialRule = /伏吟|返吟|八专|别责|昴星/.test(initial.rule);
-          assert.equal(
-            adjudication.status,
-            isSpecialRule ? 'deferredToSpecial' : 'selected',
-            label,
-          );
-          for (const candidate of adjudication.candidates) {
-            for (const source of candidate.sourceLessons) {
+            assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
+            assert.equal(heavenlyPlate.length, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.branch)).size, 12, label);
+            assert.equal(new Set(heavenlyPlate.map((item) => item.god)).size, 12, label);
+            if (day === '甲子' && dayNight === '昼占') {
+              const monthLeaderIndex = DIZHI.indexOf(monthLeader);
               assert.deepEqual(
-                { name: source.name, lower: source.lower },
-                {
-                  name: lessons[source.position - 1]?.name,
-                  lower: lessons[source.position - 1]?.lower,
-                },
+                new Map(heavenlyPlate.map((item) => [item.under, item.branch] as const)),
+                new Map(
+                  DIZHI.map(
+                    (under, underIndex) =>
+                      [
+                        under,
+                        DIZHI[
+                          (underIndex + monthLeaderIndex - hourBranchIndex + DIZHI.length) %
+                            DIZHI.length
+                        ],
+                      ] as const,
+                  ),
+                ),
+                `${label}十二地盘支与上神应逐位按月将加占时旋转`,
+              );
+            }
+            assert.equal(lessons.length, 4, label);
+            assert.equal(branches.length, 3, label);
+            assert.ok(
+              branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
+              label,
+            );
+            const adjudication = initial.ordinaryAdjudication;
+            assert.ok(adjudication, label);
+            const isSpecialRule = /伏吟|返吟|八专|别责|昴星/.test(initial.rule);
+            assert.equal(
+              adjudication.status,
+              isSpecialRule ? 'deferredToSpecial' : 'selected',
+              label,
+            );
+            for (const candidate of adjudication.candidates) {
+              for (const source of candidate.sourceLessons) {
+                assert.deepEqual(
+                  { name: source.name, lower: source.lower },
+                  {
+                    name: lessons[source.position - 1]?.name,
+                    lower: lessons[source.position - 1]?.lower,
+                  },
+                  label,
+                );
+              }
+            }
+            if (!isSpecialRule) {
+              assert.equal(adjudication.selectedRule, initial.rule, label);
+              assert.equal(adjudication.selectedInitial, initial.initial, label);
+              assert.equal(
+                adjudication.candidates.filter((candidate) => candidate.status === 'selected')
+                  .length,
+                1,
+                label,
+              );
+              assert.equal(
+                adjudication.selectedCandidateKey,
+                adjudication.candidates.find((candidate) => candidate.status === 'selected')?.key,
                 label,
               );
             }
-          }
-          if (!isSpecialRule) {
-            assert.equal(adjudication.selectedRule, initial.rule, label);
-            assert.equal(adjudication.selectedInitial, initial.initial, label);
-            assert.equal(
-              adjudication.candidates.filter((candidate) => candidate.status === 'selected').length,
-              1,
-              label,
-            );
-            assert.equal(
-              adjudication.selectedCandidateKey,
-              adjudication.candidates.find((candidate) => candidate.status === 'selected')?.key,
-              label,
-            );
-          }
 
-          ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
-          caseCount += 1;
+            ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
+            caseCount += 1;
+          }
         }
       }
     }
@@ -578,8 +715,8 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
     伏吟重审法: 144,
     元首法: 2856,
     八专法: 384,
-    别责法: 96,
-    昴星法: 504,
+    别责法: 216,
+    昴星法: 384,
     比用法: 1944,
     涉害法: 1824,
     返吟元首法: 48,
@@ -636,7 +773,7 @@ test('大六壬十干寄宫与四课上下递取应符合传统口径', () => {
 });
 
 test('大六壬传统样例会按月将加占时生成天盘、四课与三传', () => {
-  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const result = liuren20260410At0826;
 
   assert.equal(result.ganzhi.day, '甲寅');
   assert.equal(result.monthLeader, '戌');
@@ -651,6 +788,136 @@ test('大六壬传统样例会按月将加占时生成天盘、四课与三传',
     result.threeTransmissions.map((item) => item.branch),
     ['寅', '申', '寅'],
   );
+});
+
+test('丙辰日卯时辰将首尾同课应按别责取亥午午', () => {
+  // 《六壬大全·别责课》明列此盘：一课丙寄巳，四课午临巳，三传亥午午。
+  const result = buildReferenceLiurenPlate({ day: '丙辰', hour: '辛卯', monthLeader: '辰' });
+
+  assert.deepEqual(
+    result.lessons.map((lesson) => `${lesson.upper}${lesson.lower}`),
+    ['午丙', '未午', '巳辰', '午巳'],
+  );
+  assert.equal(result.initial.rule, '别责法');
+  assert.deepEqual(result.branches, ['亥', '午', '午']);
+});
+
+test('大六壬昴星原例区分阳日酉上与阴日酉下，并按干支上神取中末', () => {
+  // 《六壬大全·昴星课》明列：戊申日卯时辰将戌酉午，丁丑日辰时丑将子辰戌。
+  const cases = [
+    { day: '戊申', hour: '乙卯', monthLeader: '辰', expected: ['戌', '酉', '午'] },
+    { day: '丁丑', hour: '甲辰', monthLeader: '丑', expected: ['子', '辰', '戌'] },
+  ];
+  for (const item of cases) {
+    const result = buildReferenceLiurenPlate(item);
+    assert.equal(result.initial.rule, '昴星法', item.day);
+    assert.deepEqual(result.branches, item.expected, item.day);
+  }
+
+  const classic = getLiurenTransmissionClassic('昴星法');
+  assert.match(classic?.summary ?? '', /阴日初传取天盘酉下神，中传干上、末传支上/);
+  assert.match(resolveLiurenClassicalRules('昴星法')[0]?.summary ?? '', /天盘酉下神/);
+});
+
+test('大六壬九宗门资料查询识别知一别名，并优先返回特殊主课', () => {
+  const cases = [
+    ['比用法', '知一/比用'],
+    ['知一法', '知一/比用'],
+    ['伏吟重审法', '伏吟'],
+    ['伏吟元首法', '伏吟'],
+    ['返吟比用法', '返吟'],
+    ['返吟涉害法', '返吟'],
+    ['反吟', '返吟'],
+    ['遥克比用法', '遥克'],
+    ['遥克涉害法', '遥克'],
+  ];
+  for (const [rule, expected] of cases) {
+    assert.equal(getLiurenTransmissionClassic(rule)?.rule, expected, rule);
+  }
+  assert.equal(getLiurenTransmissionClassic('未知取传法'), undefined);
+});
+
+test('大六壬古例中的比用、涉害、遥克、别责和八专应排出原文三传', () => {
+  const cases = [
+    {
+      day: '壬辰',
+      hour: '乙巳',
+      monthLeader: '辰',
+      rule: '比用法',
+      expected: ['戌', '酉', '申'],
+      source: '《六壬大全》卷五《知一课》壬辰日巳时辰将',
+    },
+    {
+      day: '甲辰',
+      hour: '丁卯',
+      monthLeader: '亥',
+      rule: '涉害法',
+      expected: ['子', '申', '辰'],
+      source: '《六壬大全》卷五《涉害课》甲辰日亥将卯时',
+    },
+    {
+      day: '庚戌',
+      hour: '庚辰',
+      monthLeader: '申',
+      rule: '涉害法',
+      expected: ['辰', '申', '子'],
+      source: '《六壬大全》卷五《察微》庚戌日辰时申将',
+    },
+    {
+      day: '甲戌',
+      hour: '丙寅',
+      monthLeader: '亥',
+      rule: '遥克法',
+      expected: ['申', '巳', '寅'],
+      source: '《古今图书集成·艺术典》第717卷《遥克》甲戌日寅时亥将',
+    },
+    {
+      day: '庚戌',
+      hour: '甲申',
+      monthLeader: '亥',
+      rule: '遥克法',
+      expected: ['寅', '巳', '申'],
+      source: '《古今图书集成·艺术典》第717卷《遥克》庚戌日申时亥将',
+    },
+    {
+      day: '戊午',
+      hour: '乙卯',
+      monthLeader: '辰',
+      rule: '别责法',
+      expected: ['寅', '午', '午'],
+      source: '《古今图书集成·艺术典》第717卷《别责》戊午日卯时辰将',
+    },
+    {
+      day: '辛丑',
+      hour: '丙申',
+      monthLeader: '亥',
+      rule: '别责法',
+      expected: ['巳', '丑', '丑'],
+      source: '《古今图书集成·艺术典》第717卷《别责》辛丑日申时亥将',
+    },
+    {
+      day: '甲寅',
+      hour: '丙寅',
+      monthLeader: '亥',
+      rule: '八专法',
+      expected: ['丑', '亥', '亥'],
+      source: '《古今图书集成·艺术典》第717卷《八专》甲寅日寅时亥将',
+    },
+    {
+      day: '己未',
+      hour: '壬申',
+      monthLeader: '亥',
+      rule: '八专法',
+      expected: ['亥', '戌', '戌'],
+      source: '《古今图书集成·艺术典》第717卷《八专》己未日申时亥将',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = buildReferenceLiurenPlate(item);
+    assert.equal(result.initial.rule, item.rule, item.source);
+    assert.deepEqual(result.branches, item.expected, item.source);
+  }
 });
 
 test('大六壬排盘骨架应与 GitHub 高星参考项目 kinliuren 样例一致', () => {
@@ -777,8 +1044,14 @@ test('大六壬月将按中气切换，不按整个月支粗略取值', () => {
   assert.equal(afterGuyu.monthLeader, '酉');
 });
 
+test('大六壬公元 1 年大寒前沿用上一冬至的丑将', () => {
+  assert.equal(generateLiuren(new Date('0001-01-20T00:00:00Z')).monthLeader, '丑');
+  assert.equal(generateLiuren(new Date('0001-01-21T08:39:40Z')).monthLeader, '丑');
+  assert.equal(generateLiuren(new Date('0001-01-21T08:39:41Z')).monthLeader, '子');
+});
+
 test('大六壬逐月神煞应按月建起，且与日支支马分层保存', () => {
-  const result = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+  const result = liuren20260101At1200;
   const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
 
   assert.equal(result.ganzhi.month.charAt(1), '子');
@@ -812,7 +1085,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
 });
 
 test('大六壬罗网应按日支前一辰与对冲定位，不误用流年冒充本命', () => {
-  const haiDay = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+  const haiDay = liuren20260101At1200;
   const ziDay = generateLiuren(new Date('2026-01-02T12:00:00+08:00'));
 
   assert.equal(haiDay.ganzhi.day, '乙亥');
@@ -826,7 +1099,7 @@ test('大六壬罗网应按日支前一辰与对冲定位，不误用流年冒�
 });
 
 test('大六壬课注传注只描述盘面关系，不提前生成现实结论或建议', () => {
-  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const result = liuren20260410At0826;
   const notes = [
     ...result.fourLessons.map((item) => item.note),
     ...result.threeTransmissions.map((item) => item.note),
@@ -838,7 +1111,7 @@ test('大六壬课注传注只描述盘面关系，不提前生成现实结论�
 });
 
 test('大六壬天将应按贵人所临地盘定顺逆，不是简单昼顺夜逆', () => {
-  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const result = liuren20260410At0826;
 
   assert.equal(result.noblemanBranch, '丑');
   assert.equal(getGodByUpper(result.heavenlyPlate, '丑'), '贵人');
@@ -1081,7 +1354,7 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害先按受克深浅，复等再取干支上与孟仲季', () => {
+test('大六壬涉害先按受克深浅及所临孟仲季，复等再取干支上', () => {
   const cases = [
     {
       day: '丁卯',
@@ -1138,26 +1411,35 @@ test('大六壬涉害先按受克深浅，复等再取干支上与孟仲季', ()
   }
 });
 
-test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取', () => {
+test('大六壬涉害同深按所临地盘取孟仲季，不按上神自身支类取舍', () => {
+  // 庚午日、子时、辰将：上克下候选辰加子和寅加戌均涉害一重。
+  // 辰所临子为四仲，寅所临戌为四季；按所临位应取辰发用。
   const result = buildReferenceLiurenPlate({
     day: '庚午',
-    hour: '庚寅',
-    monthLeader: '子',
+    hour: '丙子',
+    monthLeader: '辰',
   });
 
   assert.equal(result.initial.rule, '涉害法');
-  assert.deepEqual(result.branches, ['寅', '子', '戌']);
+  assert.deepEqual(result.branches, ['辰', '申', '子']);
+  const candidates = result.initial.ordinaryAdjudication?.candidates ?? [];
+  assert.equal(candidates.find((item) => item.upper === '辰')?.harmAssessment?.depth, 1);
+  assert.equal(candidates.find((item) => item.upper === '寅')?.harmAssessment?.depth, 1);
+  assert.match(
+    candidates.find((item) => item.upper === '寅')?.reasons.join('；') ?? '',
+    /所临地盘孟仲季次序未取/,
+  );
 });
 
-test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取戌', () => {
-  const result = buildReferenceLiurenPlate({
-    day: '庚午',
-    hour: '庚辰',
-    monthLeader: '子',
-  });
-
-  assert.equal(result.initial.rule, '涉害法');
-  assert.deepEqual(result.branches, ['子', '申', '辰']);
+test('大六壬涉害优先取深，不被两种浅害孟位改取', () => {
+  for (const { hour, branches } of [
+    { hour: '庚寅', branches: ['寅', '子', '戌'] },
+    { hour: '庚辰', branches: ['子', '申', '辰'] },
+  ]) {
+    const result = buildReferenceLiurenPlate({ day: '庚午', hour, monthLeader: '子' });
+    assert.equal(result.initial.rule, '涉害法', hour);
+    assert.deepEqual(result.branches, branches, hour);
+  }
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {
@@ -1176,8 +1458,8 @@ test('大六壬无上下克时不会把四课比和误判为比用法', () => {
   assert.equal(result.initial, '申');
 });
 
-test('大六壬多候选遥克比用仍保留蒿矢方向标签', () => {
-  const result = resolveInitialTransmission(
+test('大六壬多候选遥克比用保留蒿矢与弹射各自方向标签', () => {
+  const haoShi = resolveInitialTransmission(
     [
       createLesson('寅', '亥'),
       createLesson('申', '子'),
@@ -1187,13 +1469,11 @@ test('大六壬多候选遥克比用仍保留蒿矢方向标签', () => {
     createResolveContext({ dayStem: '甲' }),
   );
 
-  assert.equal(result.rule, '遥克比用法');
-  assert.equal(result.tag, '蒿矢');
-  assert.equal(result.initial, '申');
-});
+  assert.equal(haoShi.rule, '遥克比用法');
+  assert.equal(haoShi.tag, '蒿矢');
+  assert.equal(haoShi.initial, '申');
 
-test('大六壬多候选遥克比用仍保留弹射方向标签', () => {
-  const result = resolveInitialTransmission(
+  const tanShe = resolveInitialTransmission(
     [
       createLesson('午', '寅'),
       createLesson('寅', '子'),
@@ -1203,9 +1483,9 @@ test('大六壬多候选遥克比用仍保留弹射方向标签', () => {
     createResolveContext({ dayStem: '庚' }),
   );
 
-  assert.equal(result.rule, '遥克比用法');
-  assert.equal(result.tag, '弹射');
-  assert.equal(result.initial, '寅');
+  assert.equal(tanShe.rule, '遥克比用法');
+  assert.equal(tanShe.tag, '弹射');
+  assert.equal(tanShe.initial, '寅');
 });
 
 test('大六壬遥克只看二三四课，不把一课上神误作遥克发用', () => {

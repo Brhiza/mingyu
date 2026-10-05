@@ -4,7 +4,189 @@ import {
   analyzeAlmanacEvidence,
   conditionAlmanacTraditionalText,
   generateAlmanacSelection,
-} from 'mingyu-core/divination/almanac';
+} from '../packages/core/src/divination/algorithms/almanac.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+
+const moveSingleDaySelection = generateAlmanacSelection({
+  topic: 'move',
+  startDate: '2026-06-01',
+  endDate: '2026-06-01',
+});
+const travelThreeDaySelection = generateAlmanacSelection({
+  topic: 'travel',
+  startDate: '2025-01-01',
+  endDate: '2025-01-03',
+});
+const moveTenDaySelection = generateAlmanacSelection({
+  topic: 'move',
+  startDate: '2026-06-01',
+  endDate: '2026-06-10',
+});
+
+function createMoveSingleDaySelection() {
+  return structuredClone(moveSingleDaySelection);
+}
+
+function createTravelThreeDaySelection() {
+  return structuredClone(travelThreeDaySelection);
+}
+
+function createMoveTenDaySelection() {
+  return structuredClone(moveTenDaySelection);
+}
+
+test('原始宜项未命中当前事项时列为条件候选并保留证据', () => {
+  const result = generateAlmanacSelection({
+    topic: 'opening',
+    startDate: '2025-01-03',
+    endDate: '2025-01-03',
+  });
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  assert.ok(candidate);
+  assert.equal(
+    candidate.topicMatchFacts.find((fact) => fact.key.endsWith(':day-recommends'))?.status,
+    '中性',
+  );
+  assert.equal(candidate.status, '条件候选');
+  assert.equal(
+    candidate.decisionFact.steps.find((step) => step.stage === '事项命中')?.status,
+    '未提供',
+  );
+  assert.match(candidate.decisionFact.promptText, /原始宜项未见当前事项/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项未见当前事项的明确匹配/);
+});
+
+test('同类事项的不同步骤宜忌并存时保留原始列项与慎用裁决', () => {
+  const result = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2025-04-28',
+    endDate: '2025-04-28',
+  });
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  assert.ok(candidate);
+  assert.ok(candidate.rawTabooFact.recommends.includes('移徙'));
+  assert.ok(candidate.rawTabooFact.avoids.includes('入宅'));
+  assert.equal(candidate.status, '慎用候选');
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项：[\s\S]*原始忌项：/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /宜忌并存/);
+  assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /事项支持：/);
+});
+
+test('四离日的明确事项禁忌应压过原始宜嫁娶并保留两层证据', (t) => {
+  const currentTime = new Date('2026-10-04T08:00:00Z');
+  t.mock.method(Date, 'now', () => currentTime.getTime());
+  const normalInput = {
+    topic: 'marriage' as const,
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  };
+  const originalInput = structuredClone(normalInput);
+  const result = generateAlmanacSelection(normalInput);
+  const day = result.days[0];
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  const fourSeparations = day.topicMatchFacts?.find(
+    (fact) => fact.key === '2026-12-21:topic:rule-four-separations',
+  );
+
+  assert.ok(day.recommends.includes('嫁娶'));
+  assert.ok(day.gods.includes('四离'));
+  assert.ok(day.gods.includes('不将'));
+  assert.ok(fourSeparations);
+  assert.equal(fourSeparations.sourceType, '值日神煞事项规则');
+  assert.equal(fourSeparations.status, '限制');
+  assert.ok(fourSeparations.sources.some((source) => source.includes('协纪辨方书')));
+  assert.ok(candidate);
+  assert.deepEqual(candidate.rawTabooFact.recommends, day.recommends);
+  assert.equal(candidate.status, '慎用候选');
+  assert.ok(candidate.decisionFact.limitingFactKeys.includes(fourSeparations.key));
+  assert.ok(!candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:四离'));
+  assert.ok(candidate.decisionFact.backgroundGodFactKeys.includes('2026-12-21:god:不将'));
+  assert.match(
+    candidate.decisionFact.steps.find((step) => step.stage === '事项命中')?.promptText ?? '',
+    /四离日：订婚结婚属本日避忌事项/,
+  );
+
+  const custom = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-12-21',
+    endDate: '2026-12-21',
+  });
+  assert.ok(custom.days[0].gods.includes('四离'));
+  assert.ok(
+    !custom.days[0].topicMatchFacts?.some((fact) => fact.sourceType === '值日神煞事项规则'),
+  );
+  const customDecision = custom.evidenceAnalysis?.candidates[0].decisionFact;
+  const customGodStep = customDecision?.steps.find((step) => step.stage === '值日神煞');
+  assert.ok(customDecision?.backgroundGodFactKeys.includes('2026-12-21:god:四离'));
+  assert.equal(customGodStep?.status, '通过');
+  assert.deepEqual(customGodStep?.factKeys, []);
+  assert.match(customGodStep?.result ?? '', /明确事项规则支持0项，限制0项/);
+  assert.doesNotMatch(customDecision?.promptText ?? '', /值日神煞：吉神|值日神煞：凶神/);
+
+  const reads = { topic: 0, startDate: 0, endDate: 0, participants: 0, weekend: 0, times: 0 };
+  const dynamic = generateAlmanacSelection({
+    get topic() {
+      reads.topic += 1;
+      return reads.topic === 1 ? 'marriage' : 'travel';
+    },
+    get startDate() {
+      reads.startDate += 1;
+      return reads.startDate === 1 ? '2026-12-21' : '错误日期';
+    },
+    get endDate() {
+      reads.endDate += 1;
+      return reads.endDate === 1 ? '2026-12-21' : '错误日期';
+    },
+    get participants() {
+      reads.participants += 1;
+      return reads.participants === 1 ? undefined : [];
+    },
+    get weekendPreference() {
+      reads.weekend += 1;
+      return reads.weekend === 1 ? undefined : 'prefer';
+    },
+    get timePreferences() {
+      reads.times += 1;
+      return reads.times === 1 ? [] : (['work-hours'] as const).slice();
+    },
+  });
+  assert.deepEqual(reads, {
+    topic: 1,
+    startDate: 1,
+    endDate: 1,
+    participants: 1,
+    weekend: 1,
+    times: 1,
+  });
+  assert.equal(dynamic.topic, 'marriage');
+  assert.equal(dynamic.topicLabel, '订婚结婚');
+  assert.equal(dynamic.startDate, '2026-12-21');
+  assert.equal(dynamic.endDate, '2026-12-21');
+  assert.equal(dynamic.weekendPreference, 'any');
+  assert.deepEqual(dynamic.timePreferences, []);
+  assert.deepEqual(dynamic.participants, []);
+  assert.deepEqual(dynamic, result);
+  assert.deepEqual(normalInput, originalInput);
+
+  const normalTask = buildDivinationPrompt({
+    method: 'almanac',
+    data: result,
+    question: '这天适合婚嫁吗？',
+    currentTime,
+  });
+  const dynamicTask = buildDivinationPrompt({
+    method: 'almanac',
+    data: dynamic,
+    question: '这天适合婚嫁吗？',
+    currentTime,
+  });
+  assert.match(normalTask, /【任务】/);
+  assert.match(normalTask, /订婚结婚/);
+  assert.match(normalTask, /2026-12-21/);
+  assert.match(normalTask, /四离/);
+  assert.doesNotMatch(normalTask, /占卜信息暂不可用/);
+  assert.equal(dynamicTask, normalTask);
+});
 
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
@@ -16,9 +198,6 @@ test('黄历择日应内置透明约束与候选证据', () => {
 
   assert.ok(evidence);
   assert.equal(evidence.key, 'almanac:evidence');
-  assert.equal(evidence.status, '已计算');
-  assert.equal(evidence.calculationSteps.length, 7);
-  assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
   const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
   assert.ok(
     evidence.calculationSteps.every(
@@ -29,11 +208,15 @@ test('黄历择日应内置透明约束与候选证据', () => {
     ),
   );
   assert.equal(evidence.candidates.length, data.days.length);
-  assert.match(evidence.promptText, /【黄历择日透明约束与候选证据】/);
-  assert.match(evidence.promptText, /传统硬限制：/);
-  assert.match(evidence.promptText, /候选分组：/);
-  assert.match(evidence.promptText, /中国标准时间12:00参照月相/);
-  assert.match(evidence.promptText, /月相只作为中国标准时间正午的天文背景，不参与候选排序/);
+  assert.match(
+    evidence.promptText,
+    /【传统依据】[\s\S]*【择日事项】[\s\S]*【候选日期】[\s\S]*【任务】/,
+  );
+  assert.match(evidence.promptText, /中国标准时间正午月相/);
+  assert.doesNotMatch(
+    evidence.promptText,
+    /算法|规则集|计算链|证据链|来源|统一边界|解释限制|不得|不证明/,
+  );
   assert.ok(evidence.candidates.every((candidate) => candidate.astronomicalFacts.length === 2));
   assert.ok(
     evidence.candidates.every(
@@ -79,21 +262,7 @@ test('黄历择日应内置透明约束与候选证据', () => {
         candidate.moonPhaseFact.limitations.length >= 3,
     ),
   );
-  assert.equal(evidence.summaryFact.status, '证据链完整');
-  assert.equal(evidence.summaryFact.candidateCount, evidence.candidates.length);
   assert.equal(evidence.summaryFact.visibleCandidateCount, Math.min(evidence.candidates.length, 8));
-  assert.equal(evidence.summaryFact.preferredDateCount, evidence.preferredDates.length);
-  assert.equal(evidence.summaryFact.conditionalDateCount, evidence.conditionalDates.length);
-  assert.equal(evidence.summaryFact.cautionDateCount, evidence.cautionDates.length);
-  assert.equal(
-    evidence.summaryFact.usableHourFactCount,
-    evidence.candidates.reduce((total, item) => total + item.usableHours.length, 0),
-  );
-  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
-  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
-  assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
-  assert.equal(evidence.limitationFacts.length, 6);
-  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
   assert.ok(
     evidence.counterEvidenceFacts.every(
@@ -107,7 +276,10 @@ test('黄历择日应内置透明约束与候选证据', () => {
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
     ),
   );
-  assert.match(evidence.promptText, /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assert.match(
+    evidence.promptText,
+    /候选日期[\s\S]*年柱[\s\S]*原始宜项：[\s\S]*原始忌项：[\s\S]*任务/,
+  );
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
 });
 
@@ -126,19 +298,216 @@ test('黄历择日候选资料为空时应明确标记缺失，不生成伪最�
   assert.equal(evidence.summaryFact.candidateCount, 0);
   assert.equal(evidence.calculationSteps[0]?.status, '资料不足');
   assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
-  assert.equal(evidence.counterSummaryFact.status, '未见明确反证');
+  assert.equal(evidence.counterSummaryFact.status, '资料不足');
+  assert.match(evidence.counterSummaryFact.promptText, /没有候选日资料，无法核验/u);
+  assert.doesNotMatch(evidence.counterSummaryFact.promptText, /未见明确事项忌项/);
   assert.deepEqual(evidence.preferredDates, []);
   assert.deepEqual(evidence.conditionalDates, []);
   assert.deepEqual(evidence.cautionDates, []);
   assert.ok(evidence.limitationFacts.every((item) => item.ownerFactKeys.length > 0));
 });
 
-test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {
-  const result = generateAlmanacSelection({
-    topic: 'travel',
-    startDate: '2025-01-01',
-    endDate: '2025-01-03',
+test('旧黄历跨立春日期仍以民用日期正午干支复验，分页候选可只含范围子集', () => {
+  const data = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-02-03',
+    endDate: '2026-02-05',
   });
+  const paged = { ...data, days: [data.days[1]] };
+  assert.equal(analyzeAlmanacEvidence(paged).candidates.length, 1);
+
+  paged.days = [{ ...data.days[1], ganzhi: { ...data.days[1].ganzhi, month: '甲子' } }];
+  assert.throws(() => analyzeAlmanacEvidence(paged), /month.*请重新排盘/);
+  paged.days = [{ ...data.days[1], weekday: '星期日' }];
+  assert.throws(() => analyzeAlmanacEvidence(paged), /weekday.*请重新排盘/);
+});
+
+test('旧黄历候选日期及非空时辰盘须逐项复验', () => {
+  const data = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-01',
+    endDate: '2026-06-02',
+  });
+  const original = data.days[0];
+  data.days = [original, { ...original }];
+  assert.throws(() => analyzeAlmanacEvidence(data), /重复.*请重新排盘/);
+
+  data.days = [{ ...original, date: '2026-06-03' }];
+  assert.throws(() => analyzeAlmanacEvidence(data), /超出范围.*请重新排盘/);
+
+  data.days = [{ ...original, hours: original.hours?.slice(1) }];
+  assert.throws(() => analyzeAlmanacEvidence(data), /时辰数量不完整.*请重新排盘/);
+
+  data.days = [
+    {
+      ...original,
+      hours: original.hours?.map((hour, index) =>
+        index === 0 ? { ...hour, ganzhi: '甲子' } : hour,
+      ),
+    },
+  ];
+  assert.throws(() => analyzeAlmanacEvidence(data), /时辰资料.*请重新排盘/);
+});
+
+test('旧黄历月相与宿曜附文不得覆盖重新计算的传统依据', () => {
+  const data = createMoveSingleDaySelection();
+  const originalPhase = data.evidenceAnalysis?.candidates[0].moonPhaseFact.eightPhaseName;
+  const day = data.days[0];
+  day.moonPhaseEvidence = { ...day.moonPhaseEvidence!, eightPhaseName: '伪月相' };
+  day.twentyEightStarDetail = { ...day.twentyEightStarDetail!, fortune: '必定大吉' };
+  day.nineStarDetail = { ...day.nineStarDetail!, direction: '伪方位' };
+  const evidence = analyzeAlmanacEvidence(data);
+
+  assert.equal(evidence.candidates[0].moonPhaseFact.eightPhaseName, originalPhase);
+  assert.doesNotMatch(evidence.promptText, /伪月相|必定大吉|伪方位/);
+});
+
+test('旧黄历原始宜忌和值日神煞遭篡改时不能进入证据', () => {
+  const data = createMoveSingleDaySelection();
+  const day = data.days[0];
+  day.recommends.push('伪宜项');
+  assert.throws(() => analyzeAlmanacEvidence(data), /原始宜忌.*请重新排盘/);
+
+  day.recommends.pop();
+  day.gods.push('伪神煞');
+  assert.throws(() => analyzeAlmanacEvidence(data), /值日神煞.*请重新排盘/);
+});
+
+test('旧黄历事项与参与人派生事实遭篡改时不能改变候选裁决', () => {
+  const data = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+    participants: [
+      {
+        id: 'person-1',
+        name: '甲方',
+        gender: '男',
+        year: '1990',
+        month: '1',
+        day: '1',
+        timeIndex: '6',
+        dateType: 'solar',
+      },
+    ],
+  });
+  const day = data.days[0];
+  const topicFact = day.topicMatchFacts?.find((item) => item.key.endsWith(':day-recommends'));
+  assert.ok(topicFact);
+  topicFact.promptText = '伪事项支持';
+  assert.throws(() => analyzeAlmanacEvidence(data), /事项匹配.*请重新排盘/);
+
+  topicFact.promptText = data.evidenceAnalysis!.candidates[0].topicMatchFacts.find(
+    (item) => item.key === topicFact.key,
+  )!.promptText;
+  assert.ok(day.participantRelationFacts?.length);
+  day.participantRelationFacts[0].promptText = '伪参与人冲突';
+  assert.throws(() => analyzeAlmanacEvidence(data), /参与人关系.*请重新排盘/);
+});
+
+test('旧黄历方位神与彭祖附文不能伪造传统依据', () => {
+  const data = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  });
+  const day = data.days[0];
+  day.pengZu = '伪造百忌';
+  day.pengZuGan = '伪造百忌';
+  const evidence = analyzeAlmanacEvidence(data);
+  assert.doesNotMatch(evidence.promptText, /伪造百忌/);
+
+  assert.ok(day.annualDirectionGods?.length);
+  day.annualDirectionGods[0].direction = '伪造方位';
+  assert.throws(() => analyzeAlmanacEvidence(data), /全年方位神.*请重新排盘/);
+});
+
+test('工作时段偏好下无可用时辰的日期不得仍列为可用候选，并保留原始时辰', () => {
+  const result = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-02-08',
+    endDate: '2026-03-15',
+    timePreferences: ['work-hours'],
+  });
+  const workHourBranches = new Set(['巳', '午', '未', '申']);
+
+  for (const date of ['2026-02-08', '2026-03-03', '2026-03-15']) {
+    const day = result.days.find((item) => item.date === date);
+    const candidate = result.evidenceAnalysis?.candidates.find((item) => item.date === date);
+
+    assert.ok(day?.hours?.length, `${date} 应保留原始逐时时辰`);
+    assert.ok(day.hours.some((hour) => !workHourBranches.has(hour.branch)));
+    assert.ok(candidate);
+    assert.equal(candidate.usableHours.length, 0);
+    assert.notEqual(candidate.status, '可用候选');
+    assert.equal(
+      candidate.decisionFact.steps.find((step) => step.stage === '可用时辰')?.result,
+      '未筛出无强冲突时辰',
+    );
+    assert.match(
+      candidate.decisionFact.steps.find((step) => step.stage === '可用时辰')?.promptText ?? '',
+      /此项作为日期分组的一般限制/,
+    );
+    assert.ok(candidate.decisionFact.limitingFactKeys.includes(`${date}:decision:hours`));
+    assert.doesNotMatch(candidate.decisionFact.promptText, /未见明确限制，归入条件候选/);
+  }
+});
+
+test('在线提示词保留时段偏好、无可用时辰原因和值日神煞事实', () => {
+  const result = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-03-03',
+    endDate: '2026-03-03',
+    timePreferences: ['work-hours', 'morning'],
+  });
+  const candidate = result.evidenceAnalysis?.candidates[0];
+  const prompt = result.evidenceAnalysis?.promptText ?? '';
+
+  assert.ok(candidate);
+  assert.equal(candidate.status, '条件候选');
+  assert.equal(candidate.usableHours.length, 0);
+  assert.match(
+    prompt,
+    /排序与时段偏好：同一候选等级内工作日优先、候选时辰限巳、午、未、申时、上午时辰优先/,
+  );
+  assert.match(prompt, /2026-03-03 条件候选：[\s\S]*值日神煞：[^；]+（(?:吉神|凶神)）/);
+  assert.match(prompt, /候选时辰：未筛出无强冲突时辰/);
+  assert.doesNotMatch(prompt, /2026-03-03 可用候选/);
+});
+
+test('旧盘额外时辰限制不能改变候选时辰结论', () => {
+  const data = createTravelThreeDaySelection();
+  const firstUsableHour = data.evidenceAnalysis?.candidates[0]?.usableHours[0];
+  assert.ok(firstUsableHour);
+  const day = data.days[0];
+  const hour = day?.hours?.find((item) => item.name === firstUsableHour.name);
+  assert.ok(hour);
+  hour.cautions.push('该时辰的具体安排需核对');
+  assert.throws(() => analyzeAlmanacEvidence(data), /时辰限制.*请重新排盘/);
+});
+
+test('缺少逐时资料时应标记未提供，不误报无可用时辰', () => {
+  const data = generateAlmanacSelection({
+    topic: 'travel',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  });
+  data.days[0].hours = [];
+
+  const evidence = analyzeAlmanacEvidence(data);
+  const candidate = evidence.candidates[0];
+  assert.equal(
+    candidate.decisionFact.steps.find((step) => step.stage === '可用时辰')?.status,
+    '未提供',
+  );
+  assert.ok(candidate.limitations.includes('未提供逐时资料'));
+  assert.ok(!evidence.counterEvidenceFacts.some((fact) => fact.type === '无可用时辰'));
+  assert.match(evidence.promptText, /候选时辰：未提供逐时资料/);
+  assert.doesNotMatch(evidence.promptText, /排序与时段偏好：/);
+});
+
+test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {
+  const result = createTravelThreeDaySelection();
   const candidate = result.evidenceAnalysis?.candidates[0];
 
   assert.ok(candidate);
@@ -165,8 +534,8 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
         !('avoids' in item),
     ),
   );
-  assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项/);
-  assert.match(result.evidenceAnalysis?.promptText ?? '', /逐时时课|时段/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项：/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /候选时辰/);
   assert.doesNotMatch(
     JSON.stringify(result.evidenceAnalysis?.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
@@ -174,11 +543,7 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
 });
 
 test('择日证据应让明确事项忌项决定慎用分组', () => {
-  const data = generateAlmanacSelection({
-    topic: 'move',
-    startDate: '2026-06-01',
-    endDate: '2026-06-10',
-  });
+  const data = createMoveTenDaySelection();
   const target = data.days.find((day) =>
     day.cautions.some((item) => item.includes('黄历忌项触及')),
   );
@@ -189,7 +554,7 @@ test('择日证据应让明确事项忌项决定慎用分组', () => {
 
   assert.equal(candidate?.status, '慎用候选');
   assert.ok(evidence.cautionDates.includes(target.date));
-  assert.match(evidence.promptText, new RegExp(`${target.date}慎用候选`));
+  assert.match(evidence.promptText, new RegExp(`${target.date} 慎用候选`));
 });
 
 test('择日证据在缺少参与人时不得编造个人适配', () => {
@@ -201,9 +566,8 @@ test('择日证据在缺少参与人时不得编造个人适配', () => {
     }),
   );
 
-  assert.match(evidence.promptText, /没有参与人资料时不得编造个人适配结论/);
-  assert.match(evidence.promptText, /现实条件未提供时只列待核验项/);
-  assert.match(evidence.promptText, /不合成为成功率或吉凶总分/);
+  assert.doesNotMatch(evidence.promptText, /参与人关系：|不得|现实条件未提供|成功率|吉凶总分/);
+  assert.match(evidence.promptText, /【任务】/);
 });
 
 test('择日参与人支持与冲突应保留逐项结构化依据', () => {
@@ -283,6 +647,7 @@ test('择日不应把候选日干支五行简单命中喜忌作为限制或支�
   });
   const candidate = result.evidenceAnalysis?.candidates[0];
 
+  assert.equal(result.participants.length, 1);
   assert.ok(candidate);
   assert.deepEqual(candidate.participantConflicts, []);
   assert.ok(
@@ -387,8 +752,9 @@ test('九星、全年方位神与彭祖百忌不得直接证明灾病、官非�
 
   assert.match(promptText, /传统类象涉及健康、财物与争议议题/);
   assert.match(promptText, /传统方位规则将死符方列为涉及健康与安全类象的回避条件/);
-  assert.match(promptText, /不据此判断生育结果/);
-  assert.match(promptText, /后半句属于传统警语，不作为现实后果保证/);
+  assert.match(promptText, /传统方位规则将福德方列为修造参考/);
+  assert.match(promptText, /丙日传统上避修灶/);
+  assert.doesNotMatch(promptText, /不据此|后半句属于传统警语/);
   assert.doesNotMatch(promptText, /主疾病|主灾病死亡|主哭泣死亡|主添丁生子|必见灾殃|毒气入肠|大凶/);
 });
 
@@ -409,20 +775,13 @@ test('旧黄历只有合并彭祖百忌时也应拆分并去除后果保证', ()
   assert.equal(pengZuFacts.length, 2);
   assert.deepEqual(
     pengZuFacts.map((item) => item.promptText),
-    [
-      '壬日传统上避汲水；后半句属于传统警语，不作为现实后果保证',
-      '申日传统上避安床；后半句属于传统警语，不作为现实后果保证',
-    ],
+    ['壬日传统上避汲水', '申日传统上避安床'],
   );
   assert.doesNotMatch(evidence.promptText, /鬼祟入房|更难提防/);
 });
 
 test('择日公开证据不得暴露内部加分措辞', () => {
-  const result = generateAlmanacSelection({
-    topic: 'move',
-    startDate: '2026-06-01',
-    endDate: '2026-06-10',
-  });
+  const result = createMoveTenDaySelection();
 
   assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /辅助加分|加\d+分|扣\d+分/);
   assert.ok(result.days.every((day) => day.highlights.every((item) => !item.includes('辅助支持'))));

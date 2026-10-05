@@ -14,7 +14,7 @@ import type { ZiweiRuntimeFacts } from '../ziwei/runtime';
 import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
-import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
+import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSection, joinPromptSections } from './sections';
 import {
   buildBaziSchoolPromptSection,
@@ -61,19 +61,19 @@ export interface ThematicTopicConfig {
   subtopics?: ReadonlyArray<{ id: string; label: string }>;
 }
 
-export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> = {
+const TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> = {
   general: {
     topic: 'general',
     name: '通用',
     title: '综合大局与命身全景',
-    scopeDescription: '原局根基、格局高低、五行喜忌配合、命身主轴与人生核心运程',
+    scopeDescription: '原局结构、格局与取用依据、命身宫位及所选资料范围',
     defaultQuestion: '请结合命理资料完成全面深入的整体解读。',
     baziTask:
-      '请依据八字排盘资料完成全局综合解读：一辨原局日主旺衰强弱与十神格局高低，二察寒暖燥湿与调候通关喜忌用神，三审四柱根气通达与干支生克流通，四推演当前及未来大运流年对原局气象的吉凶帮扶与制化，给出全面客观测断。',
+      '请依据已列八字资料综合分析日主旺衰、月令、格局、调候与取用，说明四柱根气和干支作用；结合所列岁运，比较原局结构在对应时间层级的变化。',
     ziweiTask:
-      '请依据紫微盘面资料完成全局综合解读：以命宫、身宫为核心主轴，审视十四主星庙旺吉凶与命主身主气象，合看三方四正（官禄、财帛、迁移）吉凶会照与辅煞杂曜夹拱，结合生年四化与当前运限引动，全面系统解析本命格局与人生走势。',
+      '请依据已列紫微盘面分析命宫、身宫、三方四正的星曜状态与四化作用；结合所列运限，说明本命结构在对应时间层级的变化。',
     combinedTask:
-      '请将八字与紫微斗数进行双向交叉合参：先以八字子平格局立原局五行主轴、旺衰用神与富贵贫贱层次，再以紫微命身十二宫、三方四正星曜组合与四化飞伏校验具体宫位人事与细节象意。双方印证同一人生大局，并在时辰与限运层面相互核验。',
+      '请分别梳理八字的月令、格局、旺衰与取用，以及紫微命身宫、三方四正与四化事实；按已列时间层级比较两套盘面的共同主题和分歧，并回答咨询问题。',
     ziweiFocusPalaces: ['命宫', '身宫', '官禄', '财帛', '迁移', '福德'],
     baziFocusElements: ['日主旺衰', '格局用神', '调候喜忌', '四柱藏干', '大运流年'],
   },
@@ -81,14 +81,14 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'relationship',
     name: '感情',
     title: '婚恋情感与配偶桃花',
-    scopeDescription: '配偶相貌性格、夫妻感情深浅、正缘桃花契机、感情波动节点与合婚维系',
+    scopeDescription: '日支与夫妻宫、配偶星及相关星曜的传统取象与关系互动',
     defaultQuestion: '请重点分析婚恋感情与配偶缘分。',
     baziTask:
-      '请依据八字排盘资料重点分析婚恋感情：一辨配偶星（男看正偏财、女看正偏官）得令得气与纯杂清浊，二察日支夫妻宫之坐支喜忌及与邻支是否存在刑冲破害或暗合争妒，三推断原局神煞（如红鸾、天喜、桃花、孤鸾、阴差阳错等）之感情心性影响，四审大运流年引动夫妻宫或配偶星逢合逢冲之婚恋转折与应期节律，给出有理有据的相处趋避建议。',
+      '请依据已列八字资料核对日支夫妻宫、配偶星及实际命中的合冲刑害，结合所列岁运说明关系取象的变化条件，并与咨询问题中的相处事实对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析婚恋感情：必须完整列出并深入解析夫妻宫的主星庙旺、辅曜杂曜、宫干四化与宫内自化；合看夫妻对宫（官禄宫）与三方会照（福德宫、迁移宫），重点审视福德宫之精神享受与夫妻宫之气数因果；追踪生年四化、运限四化及各宫飞化入夫妻宫之吉凶牵引，结合命身主轴推断正缘特征、婚恋相处与波动应期。',
+      '请依据已列紫微盘面核对夫妻宫、对宫及三方宫位的星曜和四化作用，结合所列运限说明传统关系取象，并与咨询问题中的互动事实对应。',
     combinedTask:
-      '请以八字与紫微双盘合参重点分析婚恋情感：八字侧深究配偶星状态与日支夫妻宫刑冲合害，紫微侧详审夫妻宫主星辅曜、四化落宫与福德宫气数；双方交叉印证配偶心性外貌特征、情感互动模式、关键婚恋转折流年，并结合双方命理线索指出情感磨合与趋避之道。',
+      '请分别核对八字的日支、配偶星与合冲关系，以及紫微夫妻宫、相关宫位与四化作用；比较两套盘面的共同关系主题、分歧和所列时间层级，并与咨询问题中的现实互动对应。',
     ziweiFocusPalaces: ['夫妻', '命宫', '官禄', '福德', '迁移', '身宫'],
     baziFocusElements: ['配偶星', '夫妻宫日支', '比劫争合', '刑冲破害', '桃花红鸾'],
   },
@@ -96,14 +96,14 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'career',
     name: '事业',
     title: '事业职场与发展变动',
-    scopeDescription: '职场定位、职位升迁、跳槽转行时机、创业合伙与适宜行业方向',
+    scopeDescription: '官印食伤与官禄宫取象，以及实际职业选择',
     defaultQuestion: '请重点分析事业发展与职场前程。',
     baziTask:
-      '请依据八字排盘资料重点分析事业前程：一辨原局官杀印星格局之清纯清透与制化得力程度，审视是宜走体制平台、企业管理还是专业技能，二察食伤吐秀生财之才华展露与变动倾向，三审岁运提纲冲合、驿马引动与官印逢冲之职场升迁或变动转折时机，四结合五行喜忌明确契合之行业领域与发展方位，定宜守宜动之决策时序。',
+      '请依据已列八字资料核对格局、官印食伤与取用，结合所列岁运说明职业相关结构在当前时间窗口的变化，并与咨询问题中的职业选项和现实条件对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析事业职场：以官禄宫（事业宫）为主轴，详审官禄宫主星星系庙旺与辅煞化吉情况；合看命宫之志向魄力、财帛宫之收益配合与迁移宫之外界际遇；兼看父母宫（职场上司、印信资质）与兄弟宫（同僚竞争与团队合作）；结合生年四化、大限流年化禄化权化忌引动，推演职位变动、升迁契机与适宜发展路径。',
+      '请依据已列紫微盘面核对官禄宫、命宫、财帛宫与迁移宫的星曜和四化作用，结合所列运限说明事业取象的变化，并与咨询问题中的职业选项对应。',
     combinedTask:
-      '请八字紫微双盘合参重点分析事业职场：八字定原局格局层次（官印、伤官生财、杀印相生）与岁运大盘气机助力，紫微定官禄宫星系配合、职场人事际遇与具体行运落点；双方交叉印证升迁、跳槽、创业之吉凶利弊与最佳决断窗口期。',
+      '请分别核对八字格局、官印食伤与岁运作用，以及紫微官禄宫星系与四化运限；比较共同主题和分歧，结合咨询问题中的职业选择说明可核对的条件。',
     ziweiFocusPalaces: ['官禄', '命宫', '身宫', '财帛', '迁移', '父母', '兄弟'],
     baziFocusElements: ['正偏官杀', '正偏印星', '食伤生财', '提纲驿马', '格局喜忌'],
   },
@@ -111,14 +111,14 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'wealth',
     name: '财运',
     title: '求财路径与财富运势',
-    scopeDescription: '正财偏财来源、身强身弱任财能力、财库聚散、投资合伙利弊与防破耗节点',
+    scopeDescription: '财星与财帛宫取象、结构性制约和现实收支条件',
     defaultQuestion: '请重点分析财运走势与求财路径。',
     baziTask:
-      '请依据八字排盘资料重点分析财富运势：一辨日主身强身弱能否担财（身旺任财还是身弱财多反被财累），二察正财偏财之透干藏支、真伪纯杂与食伤财源之生化流通，三审原局四库（辰戌丑未）开闭与比劫争财之病药，四推演岁运大运流年引动财星或冲开财库之丰盈年份，指出谨防破耗借贷风险之关键节点与求财投资趋避策略。',
+      '请依据已列八字资料核对日主旺衰、财星、食伤与比劫的实际作用，结合所列岁运说明对应时间窗口的条件变化，并与咨询问题中的收入、负债或合作事实对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析财运走势：以财帛宫为主轴，详审主星庙旺与禄存、天马、化禄、化忌之汇聚状态；合看田宅宫（不动产库藏与终极守财能力）、福德宫（财源之根基造化与精神消费观）与官禄宫之收益转化；排查地劫、地空、羊陀火铃等煞星对财路之冲破，结合运限四化分析进财机遇与漏财破耗风险。',
+      '请依据已列紫微盘面核对财帛宫、田宅宫、福德宫及官禄宫的星曜与四化作用，结合所列运限说明财富主题的传统取象，并与咨询问题中的实际收支对应。',
     combinedTask:
-      '请八字紫微双盘合参重点分析求财与财富：八字侧推演日主担财格局、财库逢冲开闭与大运财气走势，紫微侧精细分析财帛宫与田宅宫之进财形态、聚财实力与煞星损耗；双方合参厘清正职求财还是副业投资更契合，并给出稳健财富累积的节奏指引。',
+      '请分别核对八字财星、日主旺衰与所列岁运，以及紫微财帛宫、田宅宫与四化运限；比较共同主题和分歧，并结合咨询问题中的现实收支与风险承受条件。',
     ziweiFocusPalaces: ['财帛', '田宅', '福德', '官禄', '命宫', '兄弟'],
     baziFocusElements: ['正偏财星', '日主旺衰', '食神伤官', '财库冲合', '比劫争夺'],
   },
@@ -126,7 +126,7 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'health',
     name: '健康',
     title: '身体健康与气机调护',
-    scopeDescription: '原局五行寒暖燥湿、疾厄宫系与运限取象，结合实际身心状态核验',
+    scopeDescription: '原局五行寒暖燥湿、疾厄宫系与实际身心状态',
     defaultQuestion: '请重点分析身体健康与五行气机调护。',
     baziTask:
       '请依据八字盘面分析健康主题的传统取象：先核对月令、根气、生克制化与寒暖燥湿，再说明藏象对应的象征含义；刑冲破害与岁运引动逐项交代作用对象、成立条件和时间层级。将盘象推断与已知症状、检查结果、作息及压力分别列明，以实际健康资料核验相关性，身体疾病的判断依据医学检查与专业评估。围绕已知生活状态提出可观察、可复盘的起居关注点。',
@@ -141,14 +141,14 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'family',
     name: '家庭',
     title: '家庭六亲与房宅田宅',
-    scopeDescription: '父母亲缘、子女成长亲情、兄弟同胞相处、家庭房产置业与家宅安宁',
+    scopeDescription: '六亲宫位与十神取象、田宅宫位和家庭互动',
     defaultQuestion: '请重点分析家庭关系、六亲缘分与家宅田宅运势。',
     baziTask:
-      '请依据八字排盘资料重点分析家庭六亲：一审四柱宫位分布（年柱父母长辈、月柱兄弟同胞、日支配偶内室、时柱子女归宿），二辨六亲十神（印星为母、偏财为父、比劫为同胞、食伤/官杀为子女）得力与缘分深浅，三察原局宫位生克合冲与田宅安宁情况，四推演岁运引动六亲宫位之吉凶变化，提供家庭相处与置业搬迁之考量依据。',
+      '请依据已列八字资料核对四柱宫位、相关十神及实际命中的合冲关系，结合所列岁运说明家庭主题的传统取象，并与咨询问题中的家庭成员和居住事实对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析家庭田宅：以田宅宫（不动产、家宅气运）、父母宫、子女宫、兄弟宫为核心，详审各宫主星吉凶配置与辅煞相会；结合命宫与福德宫之家族福荫，追踪生年四化与运限四化对田宅宫与六亲宫之飞化牵动，解析家业传承、房产置业与六亲关系之和谐互动。',
+      '请依据已列紫微盘面核对田宅宫、父母宫、子女宫与兄弟宫的星曜和四化作用，结合所列运限说明家庭主题的传统取象，并与咨询问题中的实际家庭关系对应。',
     combinedTask:
-      '请八字紫微双盘合参重点分析家庭与六亲：八字推演四柱六亲宫位与十神亲缘亲疏，紫微深究田宅宫、父母宫、子女宫之具体星情吉凶与家运走势；双方合参指引房产置业契机与家庭关系的良性维系。',
+      '请分别核对八字六亲宫位、十神与干支关系，以及紫微田宅宫、父母宫和子女宫的星曜与四化；比较共同主题和分歧，并与咨询问题中的家庭事实对应。',
     ziweiFocusPalaces: ['田宅', '父母', '子女', '兄弟', '命宫', '夫妻'],
     baziFocusElements: ['年柱月柱时柱', '六亲十神', '刑冲克害', '田宅地支', '喜用落位'],
   },
@@ -156,14 +156,14 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'academic',
     name: '学业',
     title: '学业功名与考试进修',
-    scopeDescription: '学业天赋、考试应考状态、考公考研上岸运、文书进修与功名资质',
+    scopeDescription: '印星食伤与相关宫位的传统取象、实际备考条件',
     defaultQuestion: '请重点分析学业前程、考试功名与进修运势。',
     baziTask:
-      '请依据八字排盘资料重点分析学业功名：一辨印星（正印偏印）之生身得令得气与学术钻研能力，二察食伤之秀气发露、聪明智慧与临场应变发挥，三审原局是否存在官印相生、伤官配印等贵格文星气象，四推演岁运引动文昌、天乙贵人与岁运逢财坏印之考试年份利弊，指明发挥最佳之考运时段与备考调控关键。',
+      '请依据已列八字资料核对印星、食伤及实际成立的官印或伤官配印结构，结合所列岁运说明学业主题的传统取象，并与咨询问题中的备考安排和客观成绩对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析学业考运：以官禄宫（学业事业）、父母宫（考官印鉴文凭）、命宫（智慧领悟力）为主轴，详审文昌、文曲、天魁、天钺、化科等文秀吉星之落宫与会照；合看福德宫之专注定力与迁移宫之外界环境；排查化忌与煞星之分心干扰，推演重要考试与进修升学之应考气机。',
+      '请依据已列紫微盘面核对官禄宫、父母宫、命宫及实际出现的文曜和四化作用，结合所列运限说明学业主题的传统取象，并与咨询问题中的备考安排对应。',
     combinedTask:
-      '请八字紫微双盘合参重点分析学业与考运：八字审视印星食伤格局与岁运文星引动，紫微详辨官禄父母宫与昌曲魁钺化科之会合力量；双方相互校验考运顺逆时段，明确最佳备考状态与考试发挥策略。',
+      '请分别核对八字印星、食伤与所列岁运，以及紫微官禄宫、父母宫、文曜与四化运限；比较共同主题和分歧，结合咨询问题中的实际备考条件。',
     ziweiFocusPalaces: ['官禄', '父母', '命宫', '福德', '迁移'],
     baziFocusElements: ['正印偏印', '食神伤官', '文昌贵人', '官印相生', '财星破印'],
   },
@@ -171,37 +171,59 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
     topic: 'timing',
     name: '时机',
     title: '岁运流年与动静时机',
-    scopeDescription: '当前大限大运走势、流年流月节律、关键转折契机与动静进退抉择',
+    scopeDescription: '所选大运或运限、流年流月的实际作用和现实决策条件',
     defaultQuestion: '请重点分析当前岁运走势与近期关键动静时机。',
     baziTask:
-      '请依据八字排盘资料重点分析岁运时机：一审当前大运十年之干支五行气机是助身抑或克身，定位人生大周期阶段属性，二察流年太岁天干地支与原局及大运之天克地冲、天合地合或冲起提纲禄马，三权衡当务之急宜主动进攻拓展、宜稳健防守积蓄、抑或宜静观其变，四明确未来关键吉凶转折流年节点与应对策略。',
+      '请依据已列八字岁运资料核对所选大运、流年或流月与原局的实际干支作用，按对应时间层级说明成立条件和变化，并与咨询问题中的现实决策条件对应。',
     ziweiTask:
-      '请依据紫微盘面资料重点分析运限时机：以当前大限命宫及其三方四正为主轴，合看流年命宫落点与太岁干支四化引动；追踪大限四化与流年四化对本命核心宫位之叠并激荡（特别是化忌引动与禄权交驰）；解析当前运势起伏节律，指出何时当进、何时宜退、何时转折之时间节点。',
+      '请依据已列紫微运限资料核对所选大限或流年宫位、星曜与四化作用，按对应时间层级说明成立条件和变化，并与咨询问题中的现实决策条件对应。',
     combinedTask:
-      '请八字紫微双盘合参重点分析岁运时机：八字定大运大势与流年岁君生克吉凶，紫微定运限具体落宫、四化引动人事与细节吉凶象意；双向推演统一时间轴上的转折契机，给出明确客观的进退决策与行动时机依据。',
+      '请分别核对八字所选岁运的干支作用，以及紫微所选运限的宫位与四化变化；在相同时间层级比较共同主题和分歧，结合咨询问题中的现实条件说明决策依据。',
     ziweiFocusPalaces: ['命宫', '迁移', '官禄', '财帛', '身宫', '福德'],
     baziFocusElements: ['大运干支', '流年太岁', '冲合提纲', '天克地冲', '天合地合'],
   },
 };
 
-function buildNatalSafeTask(task: string, selection: PromptSelection) {
-  if (selection.scope !== 'natal') return task;
-  const clauses = task
-    .split(/(?<=[，；。])/u)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => !/(大运|流年|岁运|运限|应期|年份|时间节点)/u.test(item));
-  const normalized = clauses
-    .join('，')
-    .replace(/，+/gu, '，')
-    .replace(/^，|，$/gu, '');
-  return [normalized, '本次仅依据已提供的本命资料，不推演未列出的岁运或运限。']
-    .filter(Boolean)
-    .join('。');
+export const THEMATIC_TOPIC_CONFIGS = structuredClone(TOPIC_CONFIGS);
+
+function buildThematicTask(
+  config: ThematicTopicConfig,
+  selection: PromptSelection,
+  system: 'bazi' | 'ziwei' | 'bazi_ziwei',
+) {
+  if (selection.scope !== 'natal') {
+    return system === 'bazi'
+      ? config.baziTask
+      : system === 'ziwei'
+        ? config.ziweiTask
+        : config.combinedTask;
+  }
+  if (config.topic === 'health') {
+    if (system === 'bazi') {
+      return '请依据已列四柱、月令、寒暖燥湿与实际形成的干支作用说明传统健康取象，结合咨询问题中的症状、检查结果与作息资料核对，身体状态依据医学资料评估。';
+    }
+    if (system === 'ziwei') {
+      return '请依据已列疾厄宫、命身宫、相关星曜与生年四化说明传统健康取象，结合咨询问题中的症状、检查结果与作息资料核对，身体状态依据医学资料评估。';
+    }
+    return '请分别依据已列八字四柱与紫微本命宫位资料说明传统健康取象，交叉核对共同依据与分歧，结合咨询问题中的症状和检查结果核对，身体状态依据医学资料评估。';
+  }
+  if (system === 'bazi') {
+    return `请依据已列四柱、月令、格局、取用与实际命中的干支关系分析${config.name}，说明盘面依据和传统取义，结合咨询问题列出需要现实核对的条件。`;
+  }
+  if (system === 'ziwei') {
+    return `请依据已列命身宫、相关宫位、星曜与四化事实分析${config.name}，说明盘面依据和传统取义，结合咨询问题列出需要现实核对的条件。`;
+  }
+  return `请分别依据已列八字四柱与紫微本命宫位资料分析${config.name}，交叉核对共同依据与分歧，结合咨询问题列出需要现实核对的条件。`;
 }
 
 function getFocusElements(elements: string[], selection: PromptSelection) {
-  return selection.subtopicLabel ? [...elements, `主题细项：${selection.subtopicLabel}`] : elements;
+  const applicableElements =
+    selection.scope === 'natal'
+      ? elements.filter((item) => !/(大运|流年|岁运|运限)/u.test(item))
+      : elements;
+  return selection.subtopicLabel
+    ? [...applicableElements, `主题细项：${selection.subtopicLabel}`]
+    : applicableElements;
 }
 
 /**
@@ -212,7 +234,7 @@ export function normalizeThematicTopic(topic?: string | null): ThematicTopic {
   const clean = topic.trim().toLowerCase();
 
   // 1. 直接精确匹配
-  if ((THEMATIC_TOPICS as readonly string[]).includes(clean)) {
+  if (Object.hasOwn(TOPIC_CONFIGS, clean)) {
     return clean as ThematicTopic;
   }
 
@@ -249,7 +271,7 @@ export function normalizeThematicTopic(topic?: string | null): ThematicTopic {
 export function getThematicTopicConfig(topic?: string | null): ThematicTopicConfig {
   const normalized = normalizeThematicTopic(topic);
   return {
-    ...THEMATIC_TOPIC_CONFIGS[normalized],
+    ...structuredClone(TOPIC_CONFIGS[normalized]),
     subtopics: getPromptSubtopicOptions(normalized),
   };
 }
@@ -361,7 +383,11 @@ export function buildThematicConsultationPrompt(
   });
   const config = getThematicTopicConfig(selection.topicId);
 
-  const question = options.question?.trim() || config.defaultQuestion;
+  const question =
+    options.question?.trim() ||
+    (selection.scope === 'natal' && config.topic === 'timing'
+      ? '请说明本命结构中与时机取义相关的条件。'
+      : config.defaultQuestion);
   const isCustomMode = options.mode === 'custom';
   const ziweiScope =
     options.ziweiScope ?? ZIWEI_SCOPE_BY_PROMPT_SCOPE[selection.scope] ?? 'decadal';
@@ -386,17 +412,26 @@ export function buildThematicConsultationPrompt(
       null,
       fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
     );
-    const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
-    const taskText = buildPromptSelectionTask(
-      isCustomMode
-        ? buildCustomQuestionTask('八字排盘资料', 'bazi')
-        : buildPromptTask(buildNatalSafeTask(config.baziTask, selection), 'bazi'),
-      selection,
-    );
+    const baziPatternConditions =
+      options.baziSchool || options.baziSchools?.length
+        ? ''
+        : formatBaziPatternConditions(options.baziResult);
+    const taskText = isCustomMode
+      ? buildPromptSelectionTask(
+          buildPromptTask(
+            '请依据八字排盘资料回答咨询问题。',
+            selection.scope === 'natal' ? 'bazi-natal' : 'bazi',
+          ),
+          selection,
+        )
+      : buildPromptTask(
+          buildThematicTask(config, selection, 'bazi'),
+          selection.scope === 'natal' ? 'bazi-natal' : 'bazi',
+        );
 
     const schoolSection = options.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools)
-      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool);
+      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools, true, true)
+      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool, true, true);
 
     const promptText = joinPromptSections([
       buildPromptGuidance('bazi'),
@@ -423,7 +458,7 @@ export function buildThematicConsultationPrompt(
           ? fortuneSelection.analysisObject
           : hasFullBaziFortune
             ? '八字：本命盘与完整大运流年资料。'
-            : '八字：本命原局；未提供具体岁运资料。',
+            : '八字：本命原局。',
       ),
       buildPromptSection('任务', taskText),
       buildPromptSection('问题', question),
@@ -467,12 +502,18 @@ export function buildThematicConsultationPrompt(
             })
           : formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
-    const taskText = buildPromptSelectionTask(
-      isCustomMode
-        ? buildCustomQuestionTask('紫微盘面资料', ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei')
-        : buildPromptTask(config.ziweiTask, ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei'),
-      promptSelection,
-    );
+    const taskText = isCustomMode
+      ? buildPromptSelectionTask(
+          buildPromptTask(
+            '请依据紫微盘面资料回答咨询问题。',
+            ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei',
+          ),
+          promptSelection,
+        )
+      : buildPromptTask(
+          buildThematicTask(config, promptSelection, 'ziwei'),
+          ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei',
+        );
 
     const selectedSchools = options.ziweiSchools?.length ? options.ziweiSchools : [];
     const schoolText = selectedSchools.length
@@ -495,7 +536,7 @@ export function buildThematicConsultationPrompt(
       buildPromptSection(
         '资料范围',
         ziweiScope === 'origin'
-          ? '紫微：本命盘；未提供具体运限资料。'
+          ? '紫微：本命盘。'
           : batchedFullZiweiScope
             ? '紫微：本命与本次所列运限。'
             : `紫微：${selection.scopeLabel}。`,
@@ -532,13 +573,16 @@ export function buildThematicConsultationPrompt(
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
-  const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
+  const baziPatternConditions =
+    options.baziSchool || options.baziSchools?.length
+      ? ''
+      : formatBaziPatternConditions(options.baziResult);
   const ziweiText = formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
   const schoolSections = [
     options.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools)
-      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool),
+      ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools, true, true)
+      : buildBaziSchoolPromptSection(options.baziResult, options.baziSchool, true, true),
     options.ziweiSchools?.length
       ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', options.ziweiSchools)}`
       : options.ziweiSchool
@@ -548,12 +592,18 @@ export function buildThematicConsultationPrompt(
     .filter(Boolean)
     .join('\n\n');
 
-  const taskText = buildPromptSelectionTask(
-    isCustomMode
-      ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
-      : buildPromptTask(buildNatalSafeTask(config.combinedTask, selection), 'bazi-ziwei'),
-    promptSelection,
-  );
+  const taskText = isCustomMode
+    ? buildPromptSelectionTask(
+        buildPromptTask(
+          '请依据八字和紫微盘面资料回答咨询问题。',
+          selection.scope === 'natal' ? 'bazi-ziwei-natal' : 'bazi-ziwei',
+        ),
+        promptSelection,
+      )
+    : buildPromptTask(
+        buildThematicTask(config, selection, 'bazi_ziwei'),
+        selection.scope === 'natal' ? 'bazi-ziwei-natal' : 'bazi-ziwei',
+      );
 
   const promptText = joinPromptSections([
     buildPromptGuidance('bazi-ziwei'),
@@ -581,9 +631,9 @@ export function buildThematicConsultationPrompt(
           ? `八字：${fortuneSelection.analysisObject}`
           : hasFullBaziFortune
             ? '八字：本命盘与完整大运流年资料。'
-            : '八字：本命原局；未提供具体岁运资料。',
+            : '八字：本命原局。',
         ziweiScope === 'origin'
-          ? '紫微：本命盘；未提供具体运限资料。'
+          ? '紫微：本命盘。'
           : batchedFullZiweiScope
             ? '紫微：本命与本次所列运限。'
             : `紫微：${selection.scopeLabel}。`,

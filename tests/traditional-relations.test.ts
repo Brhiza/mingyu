@@ -35,9 +35,12 @@ import { analyzeRelationStructure } from '../packages/core/src/bazi/relationStru
 import { analyzeStemRootProfile } from '../packages/core/src/bazi/stemRootAnalysis';
 import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
 import { getTenGod, getTenGodForBranch, getWuxing } from '../packages/core/src/bazi/baziUtils';
-import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
-import { analyzeGanzhiInteractions as analyzeCoreQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
-import { evaluateChangSheng } from '../packages/core/src/divination/algorithms/qimen/helpers/chang-sheng';
+import { analyzeGanzhiInteractions } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
+import {
+  evaluateChangSheng,
+  getChangSheng,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/chang-sheng';
+import { WUXING_CHANGSHENG_START } from '../packages/core/src/ganzhi/data';
 import { LIU_HE_BRANCH as ziweiLiuHeBranch } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/palace-lookup';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
@@ -204,11 +207,9 @@ test('奇门干支互动不应把戊己识别为天干相冲', () => {
     hour: '庚申',
   };
 
-  for (const analyze of [analyzeAppQimenGanzhi, analyzeCoreQimenGanzhi]) {
-    const stemChong = analyze(ganzhi).filter((item) => item.type === '天干相冲');
-    assert.ok(stemChong.some((item) => item.values.join('') === '甲庚'));
-    assert.ok(!stemChong.some((item) => item.values.join('') === '戊己'));
-  }
+  const stemChong = analyzeGanzhiInteractions(ganzhi).filter((item) => item.type === '天干相冲');
+  assert.ok(stemChong.some((item) => item.values.join('') === '甲庚'));
+  assert.ok(!stemChong.some((item) => item.values.join('') === '戊己'));
 });
 
 test('奇门干支互动中的三刑不应因柱位顺序不同而漏判', () => {
@@ -219,19 +220,17 @@ test('奇门干支互动中的三刑不应因柱位顺序不同而漏判', () =>
     hour: '戊戌',
   };
 
-  for (const analyze of [analyzeAppQimenGanzhi, analyzeCoreQimenGanzhi]) {
-    const punishments = analyze(ganzhi).filter((item) => item.type === '相刑');
-    assert.ok(
-      punishments.some(
-        (item) => item.values.join('') === '巳寅' && item.description.includes('无恩之刑'),
-      ),
-    );
-    assert.ok(
-      punishments.some(
-        (item) => item.values.join('') === '未戌' && item.description.includes('恃势之刑'),
-      ),
-    );
-  }
+  const punishments = analyzeGanzhiInteractions(ganzhi).filter((item) => item.type === '相刑');
+  assert.ok(
+    punishments.some(
+      (item) => item.values.join('') === '巳寅' && item.description.includes('无恩之刑'),
+    ),
+  );
+  assert.ok(
+    punishments.some(
+      (item) => item.values.join('') === '未戌' && item.description.includes('恃势之刑'),
+    ),
+  );
 });
 
 test('八字关系结构中的三刑应复用共享口径', () => {
@@ -500,7 +499,6 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
 
   assert.equal(yearStem?.stem, '甲');
   assert.equal(yearStem?.status, '有本根');
-  assert.equal(yearStem?.status, '有本根');
   assert.ok(profile.items.every((item) => !('rootScore' in item)));
 
   assert.throws(
@@ -639,6 +637,34 @@ test('奇门十二长生应符合阴阳顺逆独立公式', () => {
 
       assert.equal(evaluateChangSheng(stem, Number(palace)).stage, expected);
     }
+  }
+
+  const yangWood = { stage: '临官', index: 3, scoreFactor: 1.2 };
+  const yinWood = { stage: '帝旺', index: 4, scoreFactor: 1.2 };
+  assert.deepEqual(getChangSheng('木', '亥', '寅'), yangWood);
+  assert.deepEqual(getChangSheng('木', '午', '寅', false), yinWood);
+
+  const emptyStage = { stage: '', index: -1, scoreFactor: 1 };
+  assert.deepEqual(getChangSheng('toString', '亥', '寅'), emptyStage);
+  assert.deepEqual(getChangSheng('constructor', '亥', '寅'), emptyStage);
+  assert.deepEqual(getChangSheng('木', 'constructor', '寅'), emptyStage);
+  assert.deepEqual(getChangSheng('木', '亥', 'toString'), emptyStage);
+  assert.deepEqual(evaluateChangSheng('constructor', 3), emptyStage);
+  assert.deepEqual(getChangSheng('风', '亥', '寅'), emptyStage);
+  assert.deepEqual(evaluateChangSheng('不存在', 3), emptyStage);
+  assert.deepEqual(evaluateChangSheng('甲', 5), emptyStage);
+  assert.deepEqual(evaluateChangSheng('甲', 'constructor' as never), emptyStage);
+
+  const originalWoodStart = WUXING_CHANGSHENG_START.木;
+  try {
+    delete WUXING_CHANGSHENG_START.木;
+    assert.deepEqual(getChangSheng('木', '亥', '寅'), yangWood);
+    WUXING_CHANGSHENG_START.木 = '子';
+    assert.equal(WUXING_CHANGSHENG_START.木, '子');
+    assert.deepEqual(getChangSheng('木', '亥', '寅'), yangWood);
+    assert.deepEqual(getChangSheng('木', '午', '寅', false), yinWood);
+  } finally {
+    WUXING_CHANGSHENG_START.木 = originalWoodStart;
   }
 });
 

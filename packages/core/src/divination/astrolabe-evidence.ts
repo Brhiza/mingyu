@@ -1,8 +1,10 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
+import { formatFixedTimezoneOffset } from '../calendar/civil-time';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { AstrolabeData } from '../types/divination';
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
+import { classifyAspectClosenessByRatio } from './astrolabe-aspect-evidence';
 
 export interface AstrolabePositionFact {
   key: string;
@@ -117,7 +119,7 @@ export interface AstrolabeDistributionFact {
   status: '有成员' | '无成员';
   promptText: string;
   sources: string[];
-  limitation: '分布字段只统计当前盘面的元素、模式、逆行与依赖库格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果';
+  limitation: '分布字段只统计当前盘面的元素、模式、逆行与十大星体格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果';
 }
 
 export interface AstrolabeIlluminationFact {
@@ -148,7 +150,7 @@ export interface AstrolabeCounterEvidenceFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录筛选范围内是否有主要相位、逆行点或依赖库盘面格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果';
+  limitation: '反证事实只记录筛选范围内是否有主要相位、逆行点或十大星体格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果';
 }
 
 export interface AstrolabeCounterSummaryFact {
@@ -157,7 +159,7 @@ export interface AstrolabeCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只说明当前筛选范围和依赖库输出的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分';
+  limitation: '反证汇总只说明当前筛选范围的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分';
 }
 
 export interface AstrolabeLimitationFact {
@@ -233,7 +235,7 @@ const ASPECT_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '计算链只证明出生输入、时间处理、天文位置、宫位与相位筛选如何形成当前盘面，不证明占星解释有效性、人格诊断、现实事件或命运结果' as const;
 const DISTRIBUTION_FACT_LIMITATION =
-  '分布字段只统计当前盘面的元素、模式、逆行与依赖库格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果' as const;
+  '分布字段只统计当前盘面的元素、模式、逆行与十大星体格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果' as const;
 const STEP_FACT_LIMITATION =
   '单个计算步骤只记录该阶段已知输入、输出和依赖关系；步骤完整不证明底层天文模型无误，也不证明占星解释、人格诊断或现实结果' as const;
 const PRIMARY_FACT_LIMITATION =
@@ -243,9 +245,9 @@ const PRIMARY_COVERAGE_LIMITATION =
 const ILLUMINATION_FACT_LIMITATION =
   '太阳高度、方位、赤纬、均时差与曙暮光只作为出生地点和时刻的天文背景；不直接证明人格、心理状态、现实事件、健康或吉凶结果' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录筛选范围内是否有主要相位、逆行点或依赖库盘面格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果' as const;
+  '反证事实只记录筛选范围内是否有主要相位、逆行点或十大星体格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只说明当前筛选范围和依赖库输出的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分' as const;
+  '反证汇总只说明当前筛选范围的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束星盘位置、相位、分布、输入和光照资料可以支持的解释范围，不得被反向当作人格、事件或命运证据' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -256,12 +258,6 @@ const ASPECT_BODY_ALIASES: Record<string, string> = {
   'True South Node': '南交点',
   'Mean South Node': '南交点',
 };
-
-function classifyCloseness(ratio: number): AstrolabeAspectFact['closeness'] {
-  if (ratio <= 1 / 3) return '紧密';
-  if (ratio <= 2 / 3) return '中等';
-  return '宽松';
-}
 
 function buildPositionFact(
   item: AstrolabeData['planets'][number],
@@ -295,11 +291,17 @@ function buildAspectFact(
   item: AstrolabeData['aspects'][number],
   positionFacts: AstrolabePositionFact[],
 ): AstrolabeAspectFact {
-  const normalizedOrbRatio =
-    item.normalizedOrbRatio ??
-    (item.allowedOrb && item.allowedOrb > 0 ? Number((item.orb / item.allowedOrb).toFixed(4)) : 1);
-  const closeness = item.closeness ?? classifyCloseness(normalizedOrbRatio);
-  const phase = item.applying === null ? '未判定' : item.applying ? '入相' : '出相';
+  const rawOrbRatio =
+    item.actualAngle !== undefined &&
+    item.exactAngle !== undefined &&
+    item.allowedOrb !== undefined &&
+    item.allowedOrb > 0
+      ? Math.abs(item.actualAngle - item.exactAngle) / item.allowedOrb
+      : (item.normalizedOrbRatio ??
+        (item.allowedOrb && item.allowedOrb > 0 ? item.orb / item.allowedOrb : 1));
+  const normalizedOrbRatio = item.normalizedOrbRatio ?? Number(rawOrbRatio.toFixed(4));
+  const closeness = item.closeness ?? classifyAspectClosenessByRatio(rawOrbRatio);
+  const phase = item.applying === true ? '入相' : item.applying === false ? '出相' : '未判定';
   const body1Lookup = ASPECT_BODY_ALIASES[item.body1] ?? item.body1;
   const body2Lookup = ASPECT_BODY_ALIASES[item.body2] ?? item.body2;
   const body1PositionFacts = positionFacts.filter(
@@ -389,7 +391,7 @@ function buildCalculationFact(
         standardDateTime: data.birth.standardDateTime ?? data.birth.dateTime,
       },
       dependsOnStepKeys: [],
-      promptText: `固定出生民用时间${data.birth.standardDateTime ?? data.birth.dateTime}、地点${data.birth.location}与UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
+      promptText: `固定出生民用时间${data.birth.standardDateTime ?? data.birth.dateTime}、地点${data.birth.location}与UTC${formatFixedTimezoneOffset(data.birth.timezone)}`,
       sources: ['出生时间与地点输入', '历史时区或固定 UTC 偏移解析'],
       limitation: STEP_FACT_LIMITATION,
     },
@@ -465,10 +467,13 @@ function buildCalculationFact(
         elementCategoryCount: Object.keys(data.summary.elements).length,
         modalityCategoryCount: Object.keys(data.summary.modalities).length,
         retrogradeCount: data.summary.retrograde.length,
-        patternCount: data.summary.patterns.length,
+        patternCount:
+          data.summary.patternBasis === 'ten-main-bodies-selected-aspects'
+            ? data.summary.patterns.length
+            : 0,
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
-      promptText: '汇总元素、模式、逆行与依赖库盘面格局，作为盘面构成辅证',
+      promptText: '汇总元素、模式、逆行与十大星体格局，作为盘面构成辅证',
       sources: ['Caelus 星体位置与明御盘面元素、模式、逆行及格局汇总'],
       limitation: STEP_FACT_LIMITATION,
     },
@@ -564,8 +569,8 @@ function buildDistributionFacts(
     build(
       'distribution:patterns',
       '盘面格局',
-      '依赖库盘面格局',
-      data.summary.patterns,
+      '十大星体格局',
+      data.summary.patternBasis === 'ten-main-bodies-selected-aspects' ? data.summary.patterns : [],
       'Caelus 星体位置与明御盘面格局汇总',
     ),
   ];
@@ -661,7 +666,6 @@ function buildIlluminationFact(
     promptText: [
       `出生时刻太阳高度${illumination.solarAltitudeDegrees.toFixed(3)}°、方位角${illumination.solarAzimuthDegrees.toFixed(3)}°、赤纬${illumination.solarDeclinationDegrees.toFixed(3)}°`,
       `均时差${illumination.equationOfTimeMinutes.toFixed(3)}分钟，视太阳正午${illumination.apparentSolarNoonLocalDateTime}`,
-      `光照计算方法：${illumination.method}；来源：${illumination.source}`,
     ].join('；'),
     sources: [illumination.source, '出生地点与时刻太阳光照计算资料'],
     limitation: ILLUMINATION_FACT_LIMITATION,
@@ -707,9 +711,9 @@ function buildCounterEvidenceFacts(
       status: patternFact?.count ? '有可用证据' : '未见',
       ownerFactKeys: patternFact ? [patternFact.key] : ['distribution:patterns'],
       promptText: patternFact?.count
-        ? `依赖库列出${patternFact.count}项盘面格局`
-        : '未见依赖库标记的主要盘面格局',
-      sources: ['依赖库盘面格局汇总'],
+        ? `列出${patternFact.count}项十大星体格局`
+        : '未列十大星体格局',
+      sources: ['十大星体位置及已列相位核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
   ];
@@ -797,7 +801,7 @@ function buildLimitationFacts(
   push(
     'astrolabe:limitation:aspect-selection',
     '相位筛选边界',
-    '结果只保留筛选后排序靠前的十二组相位；未列出不等于两点之间不存在其他角度关系',
+    '结果列出通过相位角、容许度与强度筛选的全部相位；未列出不等于两点之间不存在其他角度关系',
     ['astrolabe:calculation:aspects', ...aspectFacts.map((fact) => fact.key)],
     ['主要相位筛选范围与排序记录'],
   );
@@ -950,7 +954,6 @@ export function analyzeAstrolabeEvidence(
       ? [
           `出生时刻太阳高度${illuminationFact.solarAltitudeDegrees!.toFixed(3)}°、方位角${illuminationFact.solarAzimuthDegrees!.toFixed(3)}°、赤纬${illuminationFact.solarDeclinationDegrees!.toFixed(3)}°`,
           `均时差${illuminationFact.equationOfTimeMinutes!.toFixed(3)}分钟，视太阳正午${illuminationFact.apparentSolarNoonLocalDateTime}`,
-          `光照算法：${illuminationFact.method}；来源：${illuminationFact.source}`,
         ]
       : [];
   const supportingFacts = aspectFacts.map((item) => item.promptText);
@@ -1001,7 +1004,7 @@ export function analyzeAstrolabeEvidence(
                 ? ('反证' as const)
                 : ('辅证' as const),
             title: '历史时区映射与诊断',
-            detail: `${timezoneFact.promptText}；诊断边界：${timezoneFact.diagnosticSummaryFact.limitation}`,
+            detail: `${timezoneFact.timeZoneId} 的当地钟表时间对应 UTC ${timezoneFact.selectedUtcDateTime}，历史偏移 UTC${formatFixedTimezoneOffset(timezoneFact.resolvedOffsetHours)}；${timezoneFact.diagnosticSummaryFact.promptText}；诊断边界：${timezoneFact.diagnosticSummaryFact.limitation}`,
             source: timezoneFact.source,
             tags: ['历史时区', timezoneFact.status, timezoneFact.diagnosticSummaryFact.status],
           },
@@ -1012,7 +1015,7 @@ export function analyzeAstrolabeEvidence(
           {
             level: trueSolarTimeFact.status === '已计算' ? ('辅证' as const) : ('反证' as const),
             title: '真太阳时校正证据',
-            detail: `${trueSolarTimeFact.promptText}；边界：${trueSolarTimeFact.summaryFact.limitation}`,
+            detail: `当地钟表时间${data.birth.standardDateTime ?? data.birth.dateTime}，真太阳时${data.birth.trueSolarDateTime ?? '未记录'}；${trueSolarTimeFact.correctionFacts.map((fact) => fact.promptText).join('；')}；边界：${trueSolarTimeFact.summaryFact.limitation}`,
             source: trueSolarTimeFact.source,
             tags: ['真太阳时', trueSolarTimeFact.status, trueSolarTimeFact.summaryFact.status],
           },
@@ -1110,7 +1113,10 @@ export function analyzeAstrolabeEvidence(
   const evidence: PromptEvidenceBundle = { title: '西方星盘位置与相位结构化证据', items };
   const promptText = [
     '【西方星盘位置与相位结构化证据】',
-    ...formatPromptEvidenceBundle(evidence),
+    ...formatPromptEvidenceBundle({
+      ...evidence,
+      items: evidence.items.map((item) => ({ ...item, source: undefined })),
+    }),
     `计算链：${calculationChain.join(' → ')}。`,
     `反证核验：${counterSummaryFact.promptText}。`,
     `证据汇总：${summaryFact.promptText}。`,

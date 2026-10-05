@@ -158,6 +158,9 @@ function resolveAstrolabePromptScopeArgs(
   args: z.infer<typeof astrolabePromptSchema>,
   defaultScope: 'natal' | 'yearly' = 'yearly',
 ): z.infer<typeof astrolabePromptSchema> {
+  if (args.astrolabeScopeDate !== undefined && !args.astrolabeScopeDate.trim()) {
+    throw new Error('astrolabeScopeDate 不能为空。');
+  }
   if (args.astrolabeScope !== undefined) {
     return args;
   }
@@ -168,13 +171,21 @@ function resolveAstrolabePromptScopeArgs(
     astrolabeScopeDate:
       defaultScope === 'natal'
         ? undefined
-        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(defaultScope),
+        : args.astrolabeScopeDate === undefined
+          ? getDefaultAstrolabeScopeDate(defaultScope)
+          : args.astrolabeScopeDate.trim(),
   };
 }
 
 function buildAstrolabeSynastryResult(args: z.infer<typeof astrolabeSynastrySchema>) {
-  const chart1 = buildAstrolabeResult(args.person1);
-  const chart2 = buildAstrolabeResult(args.person2);
+  const chart1 = buildAstrolabeResult({
+    ...args.person1,
+    name: args.person1.name?.trim() || '第一人',
+  });
+  const chart2 = buildAstrolabeResult({
+    ...args.person2,
+    name: args.person2.name?.trim() || '第二人',
+  });
   return {
     charts: { person1: chart1, person2: chart2 },
     synastry: analyzeAstrolabeSynastry(chart1, chart2),

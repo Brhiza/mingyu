@@ -4,7 +4,7 @@ import type { XiaoliurenPalaceClassic } from './types';
  * 《大杂字万事不求人》民国三十五年本，扫描第21—22页六宫歌诀。
  * 现代解释按歌诀主题整理。
  */
-export const XIAOLIUREN_CLASSICS: Record<string, XiaoliurenPalaceClassic> = {
+const CANONICAL_XIAOLIUREN_CLASSICS: Record<string, XiaoliurenPalaceClassic> = {
   大安: {
     name: '大安',
     wuxing: '木',
@@ -55,8 +55,10 @@ export const XIAOLIUREN_CLASSICS: Record<string, XiaoliurenPalaceClassic> = {
   },
 };
 
+export const XIAOLIUREN_CLASSICS = structuredClone(CANONICAL_XIAOLIUREN_CLASSICS);
+
 export function getXiaoliurenClassic(palaceName: string): XiaoliurenPalaceClassic | undefined {
-  if (typeof palaceName !== 'string' || !Object.hasOwn(XIAOLIUREN_CLASSICS, palaceName))
+  if (typeof palaceName !== 'string' || !Object.hasOwn(CANONICAL_XIAOLIUREN_CLASSICS, palaceName))
     return undefined;
-  return { ...XIAOLIUREN_CLASSICS[palaceName] };
+  return { ...CANONICAL_XIAOLIUREN_CLASSICS[palaceName] };
 }

@@ -16,6 +16,7 @@ import {
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
 } from 'mingyu-core/bazi';
+import { selectBaziFortuneForZiweiScope } from './fortune-selection';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -451,6 +452,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
     maxItems: MAX_ALMANAC_PARTICIPANTS,
     items: {
       type: 'object',
+      required: ['year', 'month', 'day', 'dateType'],
+      anyOf: [{ required: ['timeIndex'] }, { required: ['birthHour', 'birthMinute'] }],
       properties: {
         id: { type: 'string' },
         name: { type: 'string' },
@@ -458,10 +461,39 @@ const DIVINATION_REQUEST_PROPERTIES = {
         year: { type: 'integer', minimum: 1900, maximum: 2100 },
         month: { type: 'integer', minimum: 1, maximum: 12 },
         day: { type: 'integer', minimum: 1, maximum: 31 },
-        timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
-        birthHour: { type: 'integer', minimum: 0, maximum: 23 },
-        birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
-        birthSecond: { type: 'integer', minimum: 0, maximum: 59 },
+        timeIndex: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 12,
+          description: '出生时辰索引；完整出生钟表时分可省略，并存时需对应同一时辰。',
+        },
+        birthHour: { type: 'integer', minimum: 0, maximum: 23, description: '原始出生钟表小时。' },
+        birthMinute: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 59,
+          description: '原始出生钟表分钟。',
+        },
+        birthSecond: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 59,
+          default: 0,
+          description: '原始出生钟表秒数；出生区间需明确提供起点秒数。',
+        },
+        birthPlace: { type: 'string', description: '原始出生地点。' },
+        birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
+        timezone: {
+          type: 'number',
+          minimum: -12,
+          maximum: 14,
+          description: '原始当地钟表时间的固定 UTC 偏移。',
+        },
+        timeZoneId: { type: 'string', description: '原始当地钟表时间的 IANA 历史时区。' },
+        useTrueSolarTime: {
+          type: 'boolean',
+          description: '启用真太阳时需提供原始出生钟表时分和出生经度。',
+        },
         dateType: { enum: ['solar', 'lunar'] },
         isLeapMonth: { type: 'boolean' },
         birthTimeRange: {
@@ -600,6 +632,47 @@ const DIVINATION_REQUEST_PROPERTIES = {
     description: '黄历择日分页每页数量，最多 31 天。',
   },
 };
+
+const ZIWEI_BIRTH_REQUEST_PROPERTIES = {
+  name: { type: 'string' },
+  gender: { enum: ['male', 'female'] },
+  dateType: { enum: ['solar', 'lunar'] },
+  year: { type: 'string' },
+  month: { type: 'string' },
+  day: { type: 'string' },
+  timeIndex: {
+    type: 'integer',
+    minimum: 0,
+    maximum: 12,
+    description: '传统时辰索引；提供完整出生小时和分钟后从钟表时间推导，可省略本字段。',
+  },
+  isLeapMonth: { type: 'boolean' },
+  useTrueSolarTime: { type: 'boolean' },
+  birthHour: {
+    type: ['integer', 'string'],
+    description: '出生小时，整数或数字字符串；与 birthMinute 成对提供。',
+  },
+  birthMinute: {
+    type: ['integer', 'string'],
+    description: '出生分钟，整数或数字字符串；与 birthHour 成对提供。',
+  },
+  birthSecond: {
+    type: ['integer', 'string'],
+    minimum: 0,
+    maximum: 59,
+    description: '出生秒数；提供时分后可省略，省略按 00 秒计算。',
+  },
+  birthPlace: { type: 'string' },
+  birthLongitude: { type: 'string' },
+  timezone: { type: 'number', minimum: -12, maximum: 14 },
+  timeZoneId: { type: 'string', example: 'America/New_York' },
+  applyChinaDst: { type: 'boolean' },
+  algorithm: {
+    enum: ['default', 'zhongzhou'],
+    description:
+      '紫微安星口径：default 为传统通行安星法，zhongzhou 为中州派安星法；它改变底层排盘，不等同于提示词解读流派。',
+  },
+} as const;
 
 export function getPublicApiOpenApiDocument(
   runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME,
@@ -1211,7 +1284,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '焦氏易林固定4096条索引查询',
           description:
-            '按固定卦序查询焦氏易林卦对原文；同时返回 Wikisource 四库全书本与 Kanripo KR3g0029 WYG 对读资料、来源定位和未决字形/校勘状态，不承担起卦或随机取卦。',
+            '按固定卦序查询焦氏易林卦对正文；同时返回 Wikisource 四库全书本与 Kanripo KR3g0029 WYG 对读资料、独立校注、来源定位和未决字形/校勘状态，不承担起卦或随机取卦。',
           requestBody: openApiJsonRequestBody('#/components/schemas/YilinQueryRequest'),
           responses: { '200': { description: '焦氏易林原文、双底本对读和来源状态' } },
         },
@@ -1400,7 +1473,7 @@ export function getPublicApiOpenApiDocument(
               minimum: 0,
               maximum: 12,
               description:
-                '时辰索引（0-12）；普通时辰模式必填，精确标准北京时间或真太阳时可改传 birthHour/birthMinute/birthSecond',
+                '时辰索引（0-12）；普通时辰模式必填，提供 birthHour/birthMinute 时按钟表时间推导时辰，可省略本字段；标准北京时间秒数省略时按 00 秒',
             },
             dateType: { enum: ['solar', 'lunar'], default: 'solar' },
             isLeapMonth: { type: 'boolean', default: false },
@@ -1415,7 +1488,8 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 0,
               maximum: 59,
-              description: '出生秒数；与 birthHour/birthMinute 一起表示精确标准北京时间',
+              description:
+                '出生秒数；与 birthHour/birthMinute 一起表示标准北京时间，省略时按 00 秒',
             },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
@@ -1879,7 +1953,7 @@ export function getPublicApiOpenApiDocument(
               minimum: -1,
               maximum: 12,
               description:
-                '时辰索引（0-12）；八字单盘传 -1 表示时辰未知，每次计算并返回一个候选，默认第一个。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
+                '时辰索引（0-12）；八字单盘传 -1 表示时辰未知，每次计算并返回一个候选，默认第一个。提供 birthHour/birthMinute 后从钟表时间推导时辰，可省略本字段；出生秒数省略时按 00 秒。',
             },
             unknownTimeBatch: {
               type: 'object',
@@ -1894,13 +1968,23 @@ export function getPublicApiOpenApiDocument(
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
-            birthHour: { type: 'integer', minimum: 0, maximum: 23 },
-            birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
-            birthSecond: {
-              type: 'integer',
+            birthHour: {
+              type: ['integer', 'string'],
+              minimum: 0,
+              maximum: 23,
+              description: '出生小时，整数或数字字符串；与 birthMinute 成对提供。',
+            },
+            birthMinute: {
+              type: ['integer', 'string'],
               minimum: 0,
               maximum: 59,
-              description: '出生秒数；与 birthHour/birthMinute 一起表示精确标准北京时间',
+              description: '出生分钟，整数或数字字符串；与 birthHour 成对提供。',
+            },
+            birthSecond: {
+              type: ['integer', 'string'],
+              minimum: 0,
+              maximum: 59,
+              description: '出生秒数；提供时分后可省略，省略按 00 秒计算。',
             },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
@@ -1948,10 +2032,43 @@ export function getPublicApiOpenApiDocument(
               maximum: 31,
               description: '出生公历日期（八宅立春换年）',
             },
+            birthHour: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 23,
+              description: '出生地民用小时（八宅立春换年）',
+            },
+            birthMinute: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '出生地民用分钟；省略时立春年界按整个小时核对（八宅）',
+            },
+            birthSecond: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '出生地民用秒数；省略时立春年界按整个分钟核对（八宅）',
+            },
+            birthTimezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '出生地固定 UTC 小时偏移；省略按北京时间（八宅）',
+            },
+            birthTimeZoneId: {
+              type: 'string',
+              minLength: 1,
+              description: '出生地 IANA 历史时区，如 Asia/Shanghai（八宅）',
+            },
             gender: { enum: ['male', 'female'], description: '性别（八宅）' },
-            mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
-            sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
-            facingMountain: { type: 'string', description: '朝向，如「午」（玄空、八宅）' },
+            mingGua: { type: 'string', minLength: 1, description: '直接给定命卦（八宅）' },
+            sitMountain: { type: 'string', minLength: 1, description: '坐山，如「子」（八宅）' },
+            facingMountain: {
+              type: 'string',
+              minLength: 1,
+              description: '朝向，如「午」（玄空、八宅）',
+            },
             facingDegree: {
               type: 'number',
               minimum: 0,
@@ -1998,7 +2115,12 @@ export function getPublicApiOpenApiDocument(
               maximum: 2200,
               description: '公元年；生肖运程与 yearGanZhi 至少提供一项',
             },
-            yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
+            yearGanZhi: {
+              type: 'string',
+              minLength: 2,
+              maxLength: 2,
+              description: '直接给定流年干支，如「甲辰」（生肖运程）',
+            },
             scope: {
               enum: ['year', 'month', 'day', 'hour'],
               description: '太乙计式：年计、月计、日计或时计',
@@ -2019,13 +2141,13 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -90,
               maximum: 90,
-              description: '纬度（七政四余）',
+              description: '纬度（七政四余；省略时采用北京参考坐标）',
             },
             longitude: {
               type: 'number',
               minimum: -180,
               maximum: 180,
-              description: '经度（七政四余）',
+              description: '经度（七政四余；省略时采用北京参考坐标）',
             },
             timezone: {
               type: 'number',
@@ -2074,13 +2196,43 @@ export function getPublicApiOpenApiDocument(
               maximum: 31,
               description: '居住人出生公历日期。',
             },
+            birthHour: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 23,
+              description: '居住人出生地民用小时；用于八宅立春换年。',
+            },
+            birthMinute: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '居住人出生地民用分钟；省略时立春年界按整个小时核对。',
+            },
+            birthSecond: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '居住人出生地民用秒数；省略时立春年界按整个分钟核对。',
+            },
+            birthTimezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '居住人出生地固定 UTC 小时偏移；省略按北京时间。',
+            },
+            birthTimeZoneId: {
+              type: 'string',
+              minLength: 1,
+              description: '居住人出生地 IANA 历史时区，如 Asia/Shanghai。',
+            },
             gender: { enum: ['male', 'female'], description: '居住人性别。' },
             mingGua: {
               type: 'string',
+              minLength: 1,
               description: '直接给定命卦：坎、坤、震、巽、乾、兑、艮或离。',
             },
-            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
-            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            sitMountain: { type: 'string', minLength: 1, description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', minLength: 1, description: '朝向，二十四山之一。' },
             facingDegree: {
               type: 'number',
               minimum: 0,
@@ -2178,10 +2330,10 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 1,
               maximum: 9999,
-              description: '住宅建造年或起运年。',
+              description: '住宅建造年或起运年；交运首年只有年份时，运期待按立春前后核定。',
             },
-            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
-            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            sitMountain: { type: 'string', minLength: 1, description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', minLength: 1, description: '朝向，二十四山之一。' },
             facingDegree: {
               type: 'number',
               minimum: 0,
@@ -2265,6 +2417,10 @@ export function getPublicApiOpenApiDocument(
             gender: { enum: ['male', 'female'] },
             latitude: { type: 'number', minimum: -90, maximum: 90 },
             longitude: { type: 'number', minimum: -180, maximum: 180 },
+            coordinateAccuracy: {
+              enum: ['user-provided', 'administrative-center', 'province-approximation', 'mixed'],
+              description: '坐标精度来源：用户坐标、行政中心、省级近似或混合坐标。',
+            },
             timezone: { type: 'number', minimum: -12, maximum: 14 },
             timeZoneId: { type: 'string', description: '出生地 IANA 时区。' },
             useTrueSolarTime: { type: 'boolean', default: false },
@@ -2303,8 +2459,7 @@ export function getPublicApiOpenApiDocument(
             yearGanZhi: {
               type: 'string',
               minLength: 2,
-              maxLength: 2,
-              description: '明确年干支，如「丙午」。',
+              description: '明确年干支，如「丙午」；首尾空白会修剪，修剪后必须是有效六十甲子。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             topicId: { type: 'string', description: '统一解读主题 ID。' },
@@ -2445,7 +2600,7 @@ export function getPublicApiOpenApiDocument(
           required: ['baseHexagram', 'targetHexagram'],
           additionalProperties: false,
           description:
-            '固定 W20.03 版本的焦氏易林 64×64 索引查询。支持固定卦名及已登记的繁简/异体输入；source 默认 both，同时返回两个固定底本的原文和来源状态。',
+            '固定 W20.03 版本的焦氏易林 64×64 索引查询。支持固定卦名及已登记的繁简/异体输入；source 默认 both，优先选无缺字标记的正文，同时返回两个底本的正文、独立校注和来源状态。',
           properties: {
             baseHexagram: {
               type: 'string',
@@ -2463,7 +2618,8 @@ export function getPublicApiOpenApiDocument(
               type: 'string',
               enum: ['wikisource', 'kanripo', 'both'],
               default: 'both',
-              description: '选择 text 字段的主底本；both 仍以 Wikisource 为主并同时返回两份资料。',
+              description:
+                '选择 text 字段的主底本；both 优先使用无缺字标记的正文，并同时返回两份资料。',
             },
           },
         },
@@ -2616,13 +2772,13 @@ export function getPublicApiOpenApiDocument(
           type: 'object',
           required: ['gender', 'dateType', 'year', 'month', 'day'],
           properties: {
-            name: { type: 'string' },
-            gender: { enum: ['male', 'female'] },
-            dateType: { enum: ['solar', 'lunar'] },
-            year: { type: 'string' },
-            month: { type: 'string' },
-            day: { type: 'string' },
-            timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+            ...ZIWEI_BIRTH_REQUEST_PROPERTIES,
+            birthSecond: {
+              ...ZIWEI_BIRTH_REQUEST_PROPERTIES.birthSecond,
+              description:
+                '出生秒数；普通排盘提供时分后可省略，省略按 00 秒计算；出生区间模式需与起点时间一致。',
+            },
+            birthLatitude: { type: 'number', minimum: -90, maximum: 90 },
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
@@ -2638,27 +2794,6 @@ export function getPublicApiOpenApiDocument(
               minimum: 0,
               maximum: 12,
               description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
-            },
-            isLeapMonth: { type: 'boolean' },
-            useTrueSolarTime: { type: 'boolean' },
-            birthHour: { type: 'string' },
-            birthMinute: { type: 'string' },
-            birthSecond: {
-              type: 'integer',
-              minimum: 0,
-              maximum: 59,
-              description: '范围模式的出生秒数；省略时按 00 秒校验起点。',
-            },
-            birthPlace: { type: 'string' },
-            birthLongitude: { type: 'string' },
-            birthLatitude: { type: 'number', minimum: -90, maximum: 90 },
-            timezone: { type: 'number', minimum: -12, maximum: 14 },
-            timeZoneId: { type: 'string', example: 'America/New_York' },
-            applyChinaDst: { type: 'boolean' },
-            algorithm: {
-              enum: ['default', 'zhongzhou'],
-              description:
-                '紫微安星口径：default 为传统通行安星法，zhongzhou 为中州派安星法；它改变底层排盘，不等同于提示词解读流派。',
             },
             birthTimeRange: {
               $ref: '#/components/schemas/BirthTimeRange',
@@ -2731,12 +2866,19 @@ export function getPublicApiOpenApiDocument(
             },
           ],
         },
+        ZiweiCompatibilityPerson: {
+          type: 'object',
+          description: '紫微双盘的一方出生资料；双方均按本命盘计算关系。',
+          required: ['gender', 'dateType', 'year', 'month', 'day'],
+          properties: ZIWEI_BIRTH_REQUEST_PROPERTIES,
+        },
         ZiweiCompatibilityRequest: {
           type: 'object',
+          description: '由双方出生资料计算本命盘关系；scope 仅指定解读任务范围。',
           required: ['person1', 'person2'],
           properties: {
-            person1: { $ref: '#/components/schemas/ZiweiRequest' },
-            person2: { $ref: '#/components/schemas/ZiweiRequest' },
+            person1: { $ref: '#/components/schemas/ZiweiCompatibilityPerson' },
+            person2: { $ref: '#/components/schemas/ZiweiCompatibilityPerson' },
             person1Name: {
               type: 'string',
               description: '第一人称呼；未传时优先使用 person1.name。',
@@ -2748,7 +2890,10 @@ export function getPublicApiOpenApiDocument(
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             topicId: { type: 'string', description: '统一解读主题 ID。' },
             subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
-            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
+            scope: {
+              enum: [...PROMPT_SCOPE_IDS],
+              description: '双盘提示词的解读任务范围；双方盘面固定为本命盘。',
+            },
             promptTopic: {
               enum: [...ZIWEI_PROMPT_TOPICS],
               description: '关系分析主题；只影响提示词任务范围。',
@@ -3587,6 +3732,12 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
   }
   const birth = value as JsonRecord;
   const useTrueSolarTime = readBoolean(birth, 'useTrueSolarTime', false);
+  const hasBirthHour = birth.birthHour !== undefined;
+  const hasBirthMinute = birth.birthMinute !== undefined;
+  if (hasBirthHour !== hasBirthMinute) {
+    throw new ApiError(400, 'BAD_REQUEST', 'birthHour 和 birthMinute 必须同时提供。');
+  }
+  const hasStandardClock = !useTrueSolarTime && hasBirthHour && hasBirthMinute;
   const hasPreciseStandardTime = !useTrueSolarTime && birth.birthSecond !== undefined;
   const birthTimeRange = readNamingBirthTimeRange(birth);
   return {
@@ -3594,9 +3745,10 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
     year: readInteger(birth, 'year', 1900, 2100),
     month: readInteger(birth, 'month', 1, 12),
     day: readInteger(birth, 'day', 1, 31),
-    // 启用真太阳时或精确标准北京时间时允许以钟表时间替代时辰索引。
+    // 启用真太阳时或提供标准钟表时间时允许以钟表时间替代时辰索引。
     timeIndex:
-      (useTrueSolarTime || hasPreciseStandardTime) && birth.timeIndex === undefined
+      (useTrueSolarTime || hasStandardClock || hasPreciseStandardTime) &&
+      birth.timeIndex === undefined
         ? ''
         : readInteger(birth, 'timeIndex', 0, 12),
     dateType: readEnum(birth, 'dateType', ['solar', 'lunar'] as const, 'solar'),
@@ -3616,9 +3768,9 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
       ? { birthLongitude: optNumber(birth, 'birthLongitude', -180, 180) }
       : {}),
     ...(birth.timezone !== undefined ? { timezone: optNumber(birth, 'timezone', -12, 14) } : {}),
-    ...(birth.timeZoneId !== undefined && typeof birth.timeZoneId === 'string'
-      ? { timeZoneId: birth.timeZoneId }
-      : {}),
+    ...(birth.timeZoneId === undefined
+      ? {}
+      : { timeZoneId: readRequiredString(birth, 'timeZoneId') }),
     ...(birth.applyChinaDst !== undefined
       ? { applyChinaDst: readBoolean(birth, 'applyChinaDst', false) }
       : {}),
@@ -3681,9 +3833,12 @@ function buildNumberEnergyPromptApi(input: JsonRecord) {
 }
 
 function calculateKongmingApi(input: JsonRecord) {
-  const pattern = readString(input, 'pattern', '').trim() || undefined;
-  if (pattern) assertNoRandomOptions(input, '指定卦象时不接受 seed 或 replay。');
-  return castKongmingHexagram(pattern, pattern ? undefined : readRandomOptions(input));
+  const pattern = input.pattern === undefined ? undefined : readString(input, 'pattern', '').trim();
+  if (pattern !== undefined) assertNoRandomOptions(input, '指定卦象时不接受 seed 或 replay。');
+  return castKongmingHexagram(
+    pattern,
+    pattern === undefined ? readRandomOptions(input) : undefined,
+  );
 }
 
 function checkOnlineResourceLimit(context: RouteContext, path: string, input: JsonRecord) {
@@ -3793,7 +3948,8 @@ async function calculateInstantChartApi(input: JsonRecord) {
     const value = input.observer;
     const latitude = optNumber(value, 'latitude', -90, 90);
     const timezone = optNumber(value, 'timezone', -12, 14);
-    const timeZoneId = readString(value, 'timeZoneId', '').trim();
+    const timeZoneId =
+      value.timeZoneId === undefined ? undefined : readRequiredString(value, 'timeZoneId').trim();
     const locationName = readString(value, 'locationName', '').trim();
     observer = {
       longitude: readNumberLike(value, 'longitude', -180, 180),
@@ -4159,6 +4315,7 @@ function buildMetaphysicsPrompt(
   basePrompt: string,
   input: JsonRecord,
   method: 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
+  measurement?: string,
 ): string {
   const question =
     readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
@@ -4171,6 +4328,7 @@ function buildMetaphysicsPrompt(
     input.promptScope === undefined ? undefined : readString(input, 'promptScope', '').trim();
   return buildSharedMetaphysicsPrompt(basePrompt, question, {
     method,
+    measurement,
     schools,
     topicId,
     subtopicId,
@@ -4235,54 +4393,89 @@ function toBaziFortuneScope(scope: string | undefined) {
 }
 
 function calculateBaZhaiApi(input: JsonRecord) {
-  const gender =
-    input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
+  const gender = readOptionalEnum(input, 'gender', ['male', 'female'] as const);
   const birthYear = optInt(input, 'birthYear', 1900, 2100);
   const birthMonth = optInt(input, 'birthMonth', 1, 12);
   const birthDay = optInt(input, 'birthDay', 1, 31);
-  const mingGua = readString(input, 'mingGua', '');
-  const sitMountain = readString(input, 'sitMountain', '');
+  const birthHour = optInt(input, 'birthHour', 0, 23);
+  const birthMinute = optInt(input, 'birthMinute', 0, 59);
+  const birthSecond = optInt(input, 'birthSecond', 0, 59);
+  const birthTimezone = optNumber(input, 'birthTimezone', -12, 14);
+  const birthTimeZoneId =
+    input.birthTimeZoneId === undefined ? undefined : readRequiredString(input, 'birthTimeZoneId');
+  const mingGua = input.mingGua === undefined ? undefined : readString(input, 'mingGua', '');
+  const sitMountain =
+    input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
   const doorToInteriorDegree = optNumber(input, 'doorToInteriorDegree', 0, 360);
-  const northReference = readString(input, 'northReference', '') || undefined;
+  const northReference =
+    input.northReference === undefined ? undefined : readString(input, 'northReference', '');
   const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
   const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
   if (birthYear !== undefined && !gender) {
     throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
   }
-  if (birthYear === undefined && !mingGua) {
+  if (birthYear === undefined && mingGua === undefined) {
     throw new ApiError(400, 'BAD_REQUEST', '需提供 birthYear+gender 或直接给定 mingGua。');
   }
-  if (mingGua && !BAGUA.includes(mingGua)) {
+  if (mingGua !== undefined && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
   }
-  if (sitMountain && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
+  if (sitMountain !== undefined && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
   }
-  if (sitMountain && doorToInteriorDegree !== undefined) {
+  if (sitMountain !== undefined && doorToInteriorDegree !== undefined) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 与 doorToInteriorDegree 只能提供一个。');
   }
-  if (northReference && !['unspecified', 'magnetic', 'true'].includes(northReference)) {
+  if (
+    northReference !== undefined &&
+    !['unspecified', 'magnetic', 'true'].includes(northReference)
+  ) {
     throw new ApiError(400, 'BAD_REQUEST', 'northReference 只能是 unspecified、magnetic 或 true。');
   }
   const baseInput: {
     birthYear?: number;
     birthMonth?: number;
     birthDay?: number;
+    birthHour?: number;
+    birthMinute?: number;
+    birthSecond?: number;
+    birthTimezone?: number;
+    birthTimeZoneId?: string;
     gender?: 'male' | 'female';
     mingGua?: string;
   } = {
-    ...(birthYear !== undefined ? { birthYear, gender, birthMonth, birthDay } : {}),
-    mingGua: mingGua || undefined,
+    ...(birthYear !== undefined
+      ? {
+          birthYear,
+          gender,
+          birthMonth,
+          birthDay,
+          birthHour,
+          birthMinute,
+          birthSecond,
+          birthTimezone,
+          birthTimeZoneId,
+        }
+      : {}),
+    ...(mingGua !== undefined ? { mingGua } : {}),
   };
-  return doorToInteriorDegree !== undefined
-    ? bazhai.analyzeBaZhaiByDoorDegree({
-        ...baseInput,
-        doorToInteriorDegree,
-        northReference: northReference as 'unspecified' | 'magnetic' | 'true' | undefined,
-        magneticDeclinationDegrees,
-        measurementUncertaintyDegrees,
-      })
-    : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: sitMountain || undefined });
+  try {
+    return doorToInteriorDegree !== undefined
+      ? bazhai.analyzeBaZhaiByDoorDegree({
+          ...baseInput,
+          doorToInteriorDegree,
+          northReference: northReference as 'unspecified' | 'magnetic' | 'true' | undefined,
+          magneticDeclinationDegrees,
+          measurementUncertaintyDegrees,
+        })
+      : bazhai.analyzeBaZhai({ ...baseInput, sitMountain });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '八宅参数无效。',
+    );
+  }
 }
 
 function buildBaZhaiPrompt(input: JsonRecord) {
@@ -4315,19 +4508,20 @@ function buildBaZhaiPrompt(input: JsonRecord) {
 function calculateZodiacApi(input: JsonRecord) {
   const zodiacName = readString(input, 'zodiac', '');
   if (!zodiacName) throw new ApiError(400, 'BAD_REQUEST', 'zodiac 必须是生肖或地支。');
-  const yearGanZhi = readString(input, 'yearGanZhi', '');
-  if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
+  const yearGanZhi =
+    input.yearGanZhi === undefined ? undefined : readString(input, 'yearGanZhi', '');
+  if (yearGanZhi !== undefined && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
   const year = optInt(input, 'year', 1900, 2200);
-  if (year === undefined && !yearGanZhi) {
+  if (year === undefined && yearGanZhi === undefined) {
     throw new ApiError(400, 'BAD_REQUEST', 'year 与 yearGanZhi 至少提供一个。');
   }
   try {
     return zodiac.calculateZodiacYearFortune({
       zodiac: zodiacName,
       ...(year !== undefined ? { year } : {}),
-      ...(yearGanZhi ? { yearGanZhi } : {}),
+      ...(yearGanZhi !== undefined ? { yearGanZhi } : {}),
     });
   } catch (error) {
     throw new ApiError(
@@ -4352,8 +4546,18 @@ function buildZodiacPrompt(input: JsonRecord) {
 function calculateTaiyiApi(input: JsonRecord) {
   const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour'], 'year');
   const year = readInteger(input, 'year', 1900, 2200);
-  const ganZhi = readString(input, 'ganZhi', '');
-  if (ganZhi && !isValidGanZhi(ganZhi)) {
+  if (
+    scope === 'year' &&
+    ['month', 'day', 'hour', 'minute', 'second'].some((field) => Object.hasOwn(input, field))
+  ) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '太乙年计只接受 year；月、日、时字段仅用于月计、日计和时计。',
+    );
+  }
+  const ganZhi = Object.hasOwn(input, 'ganZhi') ? readString(input, 'ganZhi', '') : undefined;
+  if (ganZhi !== undefined && !isValidGanZhi(ganZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
   }
   try {
@@ -4373,7 +4577,7 @@ function calculateTaiyiApi(input: JsonRecord) {
       scope,
       year,
       ...(date ? { date } : {}),
-      ...(ganZhi ? { ganZhi } : {}),
+      ...(ganZhi !== undefined ? { ganZhi } : {}),
     });
   } catch (error) {
     throw new ApiError(
@@ -4397,18 +4601,19 @@ function buildTaiyiPrompt(input: JsonRecord) {
 
 function calculateWuyunLiuqiApi(input: JsonRecord) {
   const year = optInt(input, 'year', 1, 9999);
-  const yearGanZhi = readString(input, 'yearGanZhi', '').trim();
+  const yearGanZhi =
+    input.yearGanZhi === undefined ? undefined : readString(input, 'yearGanZhi', '').trim();
   const question = readString(input, 'question', '').trim();
-  if (year === undefined && !yearGanZhi) {
+  if (year === undefined && yearGanZhi === undefined) {
     throw new ApiError(400, 'BAD_REQUEST', 'year 与 yearGanZhi 至少提供一个。');
   }
-  if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
+  if (yearGanZhi !== undefined && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
   try {
     return wuyunLiuqi.calculateWuyunLiuqi({
       ...(year !== undefined ? { year } : {}),
-      ...(yearGanZhi ? { yearGanZhi } : {}),
+      ...(yearGanZhi !== undefined ? { yearGanZhi } : {}),
       ...(question ? { question } : {}),
     });
   } catch (error) {
@@ -4475,7 +4680,7 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   const sixDayTimeZoneId =
     sixDayDateTime === undefined || input.timeZoneId === undefined
       ? undefined
-      : readString(input, 'timeZoneId', '').trim();
+      : readRequiredString(input, 'timeZoneId').trim();
   const question = readString(input, 'question', '').trim();
   let sixDayDate: ReturnType<typeof huangjiJingshi.parseHuangjiSixDayDateTime> | undefined;
   if (sixDayDateTime !== undefined) {
@@ -4657,9 +4862,15 @@ function calculateQizhengApi(input: JsonRecord) {
   buildSolarDate(year, month, day, hour, minute);
   const latitude = optNumber(input, 'latitude', -90, 90);
   const longitude = optNumber(input, 'longitude', -180, 180);
+  const coordinateAccuracy = readOptionalEnum(input, 'coordinateAccuracy', [
+    'user-provided',
+    'administrative-center',
+    'province-approximation',
+    'mixed',
+  ] as const);
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
-    input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+    input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
   const gender =
     input.gender === undefined ? undefined : readEnum(input, 'gender', ['male', 'female'] as const);
@@ -4681,6 +4892,7 @@ function calculateQizhengApi(input: JsonRecord) {
       second: optInt(input, 'second', 0, 59) ?? 0,
       ...(latitude !== undefined ? { latitude } : {}),
       ...(longitude !== undefined ? { longitude } : {}),
+      ...(coordinateAccuracy ? { coordinateAccuracy } : {}),
       ...(timezone !== undefined ? { timezone } : {}),
       ...(timeZoneId ? { timeZoneId } : {}),
       ...(useTrueSolarTime ? { useTrueSolarTime: true } : {}),
@@ -4724,8 +4936,8 @@ function calculateXuanKongApi(input: JsonRecord) {
   try {
     return xuankong.generateXuanKong({
       year,
-      ...(sitMountain ? { sitMountain } : {}),
-      ...(facingMountain ? { facingMountain } : {}),
+      ...(sitMountain !== undefined ? { sitMountain } : {}),
+      ...(facingMountain !== undefined ? { facingMountain } : {}),
       ...(facingDegree !== undefined ? { facingDegree } : {}),
       ...(sitDegree !== undefined ? { sitDegree } : {}),
       ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
@@ -4748,8 +4960,13 @@ function calculateResidentialApi(input: JsonRecord) {
   const birthYear = optInt(input, 'birthYear', 1900, 2100);
   const birthMonth = optInt(input, 'birthMonth', 1, 12);
   const birthDay = optInt(input, 'birthDay', 1, 31);
-  const gender =
-    input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
+  const birthHour = optInt(input, 'birthHour', 0, 23);
+  const birthMinute = optInt(input, 'birthMinute', 0, 59);
+  const birthSecond = optInt(input, 'birthSecond', 0, 59);
+  const birthTimezone = optNumber(input, 'birthTimezone', -12, 14);
+  const birthTimeZoneId =
+    input.birthTimeZoneId === undefined ? undefined : readRequiredString(input, 'birthTimeZoneId');
+  const gender = readOptionalEnum(input, 'gender', ['male', 'female'] as const);
   const mingGua = input.mingGua === undefined ? undefined : readString(input, 'mingGua', '');
   const sitMountain =
     input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
@@ -4772,16 +4989,19 @@ function calculateResidentialApi(input: JsonRecord) {
   const guaType =
     input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
 
-  if (mingGua && !BAGUA.includes(mingGua)) {
+  if (mingGua !== undefined && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
   }
-  if (sitMountain && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
+  if (sitMountain !== undefined && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
   }
-  if (facingMountain && !TWENTY_FOUR_MOUNTAINS.includes(facingMountain)) {
+  if (facingMountain !== undefined && !TWENTY_FOUR_MOUNTAINS.includes(facingMountain)) {
     throw new ApiError(400, 'BAD_REQUEST', 'facingMountain 必须是有效的二十四山。');
   }
-  if (northReference && !['unspecified', 'magnetic', 'true'].includes(northReference)) {
+  if (
+    northReference !== undefined &&
+    !['unspecified', 'magnetic', 'true'].includes(northReference)
+  ) {
     throw new ApiError(400, 'BAD_REQUEST', 'northReference 只能是 unspecified、magnetic 或 true。');
   }
   if (birthYear !== undefined && !gender && !mingGua) {
@@ -4798,14 +5018,19 @@ function calculateResidentialApi(input: JsonRecord) {
       ...(birthYear !== undefined ? { birthYear } : {}),
       ...(birthMonth !== undefined ? { birthMonth } : {}),
       ...(birthDay !== undefined ? { birthDay } : {}),
+      ...(birthHour !== undefined ? { birthHour } : {}),
+      ...(birthMinute !== undefined ? { birthMinute } : {}),
+      ...(birthSecond !== undefined ? { birthSecond } : {}),
+      ...(birthTimezone !== undefined ? { birthTimezone } : {}),
+      ...(birthTimeZoneId !== undefined ? { birthTimeZoneId } : {}),
       ...(gender ? { gender } : {}),
-      ...(mingGua ? { mingGua } : {}),
-      ...(sitMountain ? { sitMountain } : {}),
-      ...(facingMountain ? { facingMountain } : {}),
+      ...(mingGua !== undefined ? { mingGua } : {}),
+      ...(sitMountain !== undefined ? { sitMountain } : {}),
+      ...(facingMountain !== undefined ? { facingMountain } : {}),
       ...(facingDegree !== undefined ? { facingDegree } : {}),
       ...(sitDegree !== undefined ? { sitDegree } : {}),
       ...(doorToInteriorDegree !== undefined ? { doorToInteriorDegree } : {}),
-      ...(northReference
+      ...(northReference !== undefined
         ? { northReference: northReference as 'unspecified' | 'magnetic' | 'true' }
         : {}),
       ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
@@ -4827,9 +5052,13 @@ function calculateResidentialApi(input: JsonRecord) {
 function buildResidentialPrompt(input: JsonRecord) {
   const result = calculateResidentialApi(input);
   const selection = readSharedPromptSelection(input, 'residential', 'promptScope');
+  const measurement =
+    result.bazhai && 'directionMeasurement' in result.bazhai
+      ? result.bazhai.directionMeasurement.promptText
+      : undefined;
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input, 'residential'),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'residential', measurement),
     fullResult: result,
     resultSummary: selection ? { selection } : undefined,
   });
@@ -5373,17 +5602,27 @@ function calculateUnknownTimeBaziBatch(
   }
 }
 
+function hasBirthClockValue(value: unknown): boolean {
+  return value !== undefined && (typeof value !== 'string' || value.trim().length > 0);
+}
+
+function hasBirthClockInput(input: JsonRecord): boolean {
+  return ['birthHour', 'birthMinute', 'birthSecond'].some((key) => hasBirthClockValue(input[key]));
+}
+
+function readBirthClockSecond(input: JsonRecord): number {
+  return hasBirthClockValue(input.birthSecond) ? readIntegerLike(input, 'birthSecond', 0, 59) : 0;
+}
+
 function readBaziPerson(input: JsonRecord): Person {
   const gender = readEnum(input, 'gender', ['male', 'female']);
   const birthDate = readBirthDate(input);
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
-  const hasPreciseStandardTime = !useTrueSolarTime && input.birthSecond !== undefined;
-  const hasPreciseClock = useTrueSolarTime || hasPreciseStandardTime;
-  const birthHour = hasPreciseClock ? readInteger(input, 'birthHour', 0, 23) : undefined;
-  const birthMinute = hasPreciseClock ? readInteger(input, 'birthMinute', 0, 59) : undefined;
-  const birthSecond =
-    input.birthSecond === undefined ? undefined : readInteger(input, 'birthSecond', 0, 59);
+  const hasPreciseClock = useTrueSolarTime || hasBirthClockInput(input);
+  const birthHour = hasPreciseClock ? readIntegerLike(input, 'birthHour', 0, 23) : undefined;
+  const birthMinute = hasPreciseClock ? readIntegerLike(input, 'birthMinute', 0, 59) : undefined;
+  const birthSecond = hasPreciseClock ? readBirthClockSecond(input) : undefined;
   const birthLongitude = useTrueSolarTime
     ? readNumber(input, 'birthLongitude', -180, 180)
     : undefined;
@@ -5392,20 +5631,11 @@ function readBaziPerson(input: JsonRecord): Person {
       ? getTimeIndexFromClock(birthHour, birthMinute)
       : -1;
 
-  // 精确标准北京时间和真太阳时都从时分推导时辰；普通时辰模式要求 timeIndex。
+  // 精确钟表时间和真太阳时都从时分推导时辰；普通时辰模式要求 timeIndex。
   let finalTimeIndex: number;
-  if (useTrueSolarTime) {
+  if (hasPreciseClock) {
     if (derivedTimeIndex < 0) {
       throw new ApiError(400, 'BAD_REQUEST', 'birthHour 和 birthMinute 无法换算为有效时辰。');
-    }
-    finalTimeIndex = derivedTimeIndex;
-  } else if (hasPreciseStandardTime) {
-    if (derivedTimeIndex < 0) {
-      throw new ApiError(
-        400,
-        'BAD_REQUEST',
-        '精确标准北京时间需要同时提供有效的 birthHour 和 birthMinute。',
-      );
     }
     finalTimeIndex = derivedTimeIndex;
   } else {
@@ -5413,7 +5643,7 @@ function readBaziPerson(input: JsonRecord): Person {
       throw new ApiError(
         400,
         'BAD_REQUEST',
-        '未启用真太阳时时 timeIndex 为必填项，或启用 useTrueSolarTime 并提供 birthHour/birthMinute。',
+        '请提供 timeIndex，或同时提供 birthHour 和 birthMinute。',
       );
     }
     finalTimeIndex = readInteger(input, 'timeIndex', -1, 12);
@@ -5579,7 +5809,7 @@ function buildBaziCalculationIdentity(
     birth.birthMinute = person.birthMinute;
     birth.birthLongitude = person.birthLongitude;
     if (person.birthSecond !== undefined) birth.birthSecond = person.birthSecond;
-  } else if (person.birthSecond !== undefined) {
+  } else if (person.birthHour !== undefined) {
     birth.birthHour = person.birthHour;
     birth.birthMinute = person.birthMinute;
     birth.birthSecond = person.birthSecond;
@@ -5772,6 +6002,7 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
       person1Name: readString(input, 'person1Name', ''),
       person2Name: readString(input, 'person2Name', ''),
+      compatibility: result.compatibility,
     },
   );
   const rawPrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
@@ -5835,27 +6066,22 @@ async function calculateZiweiRuntime(
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
-  const hasPreciseStandardTime = !useTrueSolarTime && input.birthSecond !== undefined;
+  const hasPreciseClock = useTrueSolarTime || hasBirthClockInput(input);
+  const birthHour = hasPreciseClock ? readIntegerLike(input, 'birthHour', 0, 23) : undefined;
+  const birthMinute = hasPreciseClock ? readIntegerLike(input, 'birthMinute', 0, 59) : undefined;
   const timeInput = useTrueSolarTime
     ? {
         timeIndex: '' as const,
-        birthHour: String(readIntegerLike(input, 'birthHour', 0, 23)),
-        birthMinute: String(readIntegerLike(input, 'birthMinute', 0, 59)),
+        birthHour: String(birthHour),
+        birthMinute: String(birthMinute),
         birthLongitude: String(readNumberLike(input, 'birthLongitude', -180, 180)),
       }
     : {
-        timeIndex: hasPreciseStandardTime
-          ? getTimeIndexFromClock(
-              readIntegerLike(input, 'birthHour', 0, 23),
-              readIntegerLike(input, 'birthMinute', 0, 59),
-            )
+        timeIndex: hasPreciseClock
+          ? getTimeIndexFromClock(birthHour!, birthMinute!)
           : readInteger(input, 'timeIndex', 0, 12),
-        birthHour: hasPreciseStandardTime
-          ? String(readIntegerLike(input, 'birthHour', 0, 23))
-          : readString(input, 'birthHour', ''),
-        birthMinute: hasPreciseStandardTime
-          ? String(readIntegerLike(input, 'birthMinute', 0, 59))
-          : readString(input, 'birthMinute', ''),
+        birthHour: hasPreciseClock ? String(birthHour) : '',
+        birthMinute: hasPreciseClock ? String(birthMinute) : '',
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
   const chartInput = buildZiweiChartInput({
@@ -5870,10 +6096,7 @@ async function calculateZiweiRuntime(
     useTrueSolarTime,
     birthHour: timeInput.birthHour,
     birthMinute: timeInput.birthMinute,
-    birthSecond:
-      input.birthSecond === undefined
-        ? undefined
-        : String(readIntegerLike(input, 'birthSecond', 0, 59)),
+    birthSecond: hasPreciseClock ? String(readBirthClockSecond(input)) : undefined,
     birthLongitude: timeInput.birthLongitude,
     timezone: input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
     timeZoneId:
@@ -6027,11 +6250,10 @@ function buildZiweiCalculationIdentity(
     useTrueSolarTime,
     birthPlace: readString(input, 'birthPlace', ''),
   };
-  if (useTrueSolarTime || input.birthSecond !== undefined) {
+  if (useTrueSolarTime || hasBirthClockInput(input)) {
     birth.birthHour = readIntegerLike(input, 'birthHour', 0, 23);
     birth.birthMinute = readIntegerLike(input, 'birthMinute', 0, 59);
-    if (input.birthSecond !== undefined)
-      birth.birthSecond = readIntegerLike(input, 'birthSecond', 0, 59);
+    birth.birthSecond = readBirthClockSecond(input);
     if (useTrueSolarTime) birth.birthLongitude = readNumberLike(input, 'birthLongitude', -180, 180);
   } else {
     birth.timeIndex = readInteger(input, 'timeIndex', 0, 12);
@@ -6442,7 +6664,11 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
                 : undefined;
   const currentBaziSelection =
     baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
-      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      ? selectBaziFortuneForZiweiScope(
+          baziResult,
+          baziFortuneScope,
+          readOptionalZiweiScopeDate(input),
+        )
       : null;
   const baziFortuneSelectionContext = currentBaziSelection
     ? buildFortuneSelectionContext(baziResult, currentBaziSelection)
@@ -6668,7 +6894,11 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
                 : undefined;
   const currentBaziSelection =
     baziResult && baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
-      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      ? selectBaziFortuneForZiweiScope(
+          baziResult,
+          baziFortuneScope,
+          readOptionalZiweiScopeDate(input),
+        )
       : null;
   const baziFortuneSelectionContext =
     baziResult && currentBaziSelection
@@ -6818,6 +7048,23 @@ function readQimenLifetimeStagePolicy(input: JsonRecord): QimenLifetimeInput['st
   return { ...input.stagePolicy, model } as QimenLifetimeInput['stagePolicy'];
 }
 
+function readQimenLifetimeLocation(input: JsonRecord): QimenLifetimeInput['location'] {
+  if (input.location === undefined) return undefined;
+  if (!isRecord(input.location)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'location 必须是包含经度的地点对象。');
+  }
+  const location = input.location;
+  return {
+    longitude: readNumber(location, 'longitude', -180, 180),
+    ...(location.latitude === undefined
+      ? {}
+      : { latitude: readNumber(location, 'latitude', -90, 90) }),
+    ...(location.locationName === undefined
+      ? {}
+      : { locationName: readString(location, 'locationName', '') }),
+  };
+}
+
 function calculateQimenLifetimeApi(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const birthDateTime = readString(input, 'birthDateTime', '');
@@ -6830,16 +7077,15 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     ...(input.birthRangeIndex === undefined
       ? {}
       : { birthRangeIndex: readInteger(input, 'birthRangeIndex', 0) }),
-    timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
-    timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
-    location: isRecord(input.location)
-      ? (input.location as QimenLifetimeInput['location'])
-      : undefined,
+    timeZoneId:
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+    timezone: input.timezone === undefined ? undefined : readNumber(input, 'timezone', -12, 14),
+    location: readQimenLifetimeLocation(input),
     calendarType: readEnum(input, 'calendarType', ['solar', 'lunar'], 'solar') as 'solar' | 'lunar',
-    isLeapMonth: Boolean(input.isLeapMonth),
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
     timeStandard: readEnum(input, 'timeStandard', ['civil', 'trueSolar'], 'civil') as
       'civil' | 'trueSolar',
-    applyChinaDst: Boolean(input.applyChinaDst),
+    applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     method: readEnum(input, 'method', ['zhuanpan', 'feipan'], 'zhuanpan') as 'zhuanpan' | 'feipan',
     juMethod: readEnum(input, 'juMethod', ['chaibu', 'zhirun'], 'chaibu') as 'chaibu' | 'zhirun',
     stagePolicy: readQimenLifetimeStagePolicy(input),
@@ -6930,16 +7176,15 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
     ...(input.birthRangeIndex === undefined
       ? {}
       : { birthRangeIndex: readInteger(input, 'birthRangeIndex', 0) }),
-    timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
-    timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
-    location: isRecord(input.location)
-      ? (input.location as QimenLifetimeInput['location'])
-      : undefined,
+    timeZoneId:
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+    timezone: input.timezone === undefined ? undefined : readNumber(input, 'timezone', -12, 14),
+    location: readQimenLifetimeLocation(input),
     calendarType: readEnum(input, 'calendarType', ['solar', 'lunar'], 'solar') as 'solar' | 'lunar',
-    isLeapMonth: Boolean(input.isLeapMonth),
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
     timeStandard: readEnum(input, 'timeStandard', ['civil', 'trueSolar'], 'civil') as
       'civil' | 'trueSolar',
-    applyChinaDst: Boolean(input.applyChinaDst),
+    applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     method: readEnum(input, 'method', ['zhuanpan', 'feipan'], 'zhuanpan') as 'zhuanpan' | 'feipan',
     juMethod: readEnum(input, 'juMethod', ['chaibu', 'zhirun'], 'chaibu') as 'chaibu' | 'zhirun',
     stagePolicy: readQimenLifetimeStagePolicy(input),
@@ -7165,7 +7410,7 @@ function calculateSsgw(input: JsonRecord) {
 function calculateAlmanac(input: JsonRecord) {
   assertNoRandomOptions(input, '黄历择日是确定性计算，不接受 seed 或 replay。');
   const { startDate, endDate } = readAlmanacDateRange(input);
-  return generateAlmanacSelection({
+  const params = {
     topic: readEnum(
       input,
       'topic',
@@ -7186,7 +7431,15 @@ function calculateAlmanac(input: JsonRecord) {
     startDate,
     endDate,
     participants: readAlmanacParticipants(input),
-  });
+  };
+  try {
+    return generateAlmanacSelection(params);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new ApiError(400, 'BAD_REQUEST', error.message);
+    }
+    throw error;
+  }
 }
 
 function calculateAlmanacApi(input: JsonRecord) {
@@ -7195,15 +7448,22 @@ function calculateAlmanacApi(input: JsonRecord) {
 }
 
 function calculateLenormand(input: JsonRecord) {
-  return drawLenormandSpread(
-    readEnum(
-      input,
-      'spreadType',
-      ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
-      'single',
-    ) as LenormandSpreadType,
-    readRandomOptions(input),
-  );
+  try {
+    return drawLenormandSpread(
+      readEnum(
+        input,
+        'spreadType',
+        ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
+        'single',
+      ) as LenormandSpreadType,
+      readRandomOptions(input),
+    );
+  } catch (error) {
+    if (error instanceof MingyuCoreError && error.category === 'validation') {
+      throw new ApiError(400, 'BAD_REQUEST', error.message);
+    }
+    throw error;
+  }
 }
 
 function calculateAstrolabe(input: JsonRecord) {
@@ -7211,7 +7471,7 @@ function calculateAstrolabe(input: JsonRecord) {
   const birthDate = readBirthDate(input, { dateType: 'solar' });
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
-    input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+    input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
   if (timezone === undefined && !timeZoneId) {
     throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
   }
@@ -7238,8 +7498,14 @@ function readAstrolabeSynastryCharts(input: JsonRecord) {
   if (!isRecord(input.person1) || !isRecord(input.person2)) {
     throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的星盘出生资料。');
   }
-  const chart1 = calculateAstrolabe(input.person1);
-  const chart2 = calculateAstrolabe(input.person2);
+  const chart1 = calculateAstrolabe({
+    ...input.person1,
+    name: readString(input.person1, 'name', '').trim() || '第一人',
+  });
+  const chart2 = calculateAstrolabe({
+    ...input.person2,
+    name: readString(input.person2, 'name', '').trim() || '第二人',
+  });
   return { chart1, chart2 };
 }
 
@@ -7839,6 +8105,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
                 baseUnfavorableStems: path.baseUnfavorableStems,
                 evidenceGaps: path.evidenceGaps,
               })),
+              natalFunctions: decision.natalFunctions,
               patternBreakerRestrictions: decision.patternBreakerRestrictions,
               transformation: decision.transformation,
             }
@@ -8573,7 +8840,7 @@ function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
       year: String(birthDate.year),
       month: String(birthDate.month),
       day: String(birthDate.day),
-      timeIndex: String(readInteger(item, 'timeIndex', 0, 12)),
+      timeIndex: item.timeIndex === undefined ? '' : String(readInteger(item, 'timeIndex', 0, 12)),
       ...(item.birthHour === undefined
         ? {}
         : { birthHour: String(readInteger(item, 'birthHour', 0, 23)) }),
@@ -8583,6 +8850,19 @@ function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
       ...(item.birthSecond === undefined
         ? {}
         : { birthSecond: String(readInteger(item, 'birthSecond', 0, 59)) }),
+      ...(item.birthPlace === undefined ? {} : { birthPlace: readString(item, 'birthPlace', '') }),
+      ...(item.birthLongitude === undefined
+        ? {}
+        : { birthLongitude: String(readNumberLike(item, 'birthLongitude', -180, 180)) }),
+      ...(item.timezone === undefined
+        ? {}
+        : { timezone: readNumberLike(item, 'timezone', -12, 14) }),
+      ...(item.timeZoneId === undefined
+        ? {}
+        : { timeZoneId: readRequiredString(item, 'timeZoneId') }),
+      ...(item.useTrueSolarTime === undefined
+        ? {}
+        : { useTrueSolarTime: readBoolean(item, 'useTrueSolarTime', false) }),
       dateType,
       isLeapMonth: readBoolean(item, 'isLeapMonth', false),
       ...(birthTimeRange ? { birthTimeRange } : {}),
@@ -8658,6 +8938,9 @@ function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
 function handleError(error: unknown, runtime: PublicApiRuntime) {
   if (error instanceof ApiError) {
     return json(failure(error.code, error.message, runtime), error.status);
+  }
+  if (error instanceof MingyuCoreError && error.category === 'validation') {
+    return json(failure('BAD_REQUEST', error.message, runtime), 400);
   }
 
   console.error('公开 API 未处理异常', error);

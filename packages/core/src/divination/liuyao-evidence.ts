@@ -4,10 +4,39 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoYaoDetail,
 } from '../types/divination';
-import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
+import {
+  getBranchWuxing,
+  getSeasonState,
+  getSanxingType,
+  isKe,
+  isLiuchong,
+  isLiuhai,
+  isLiuhe,
+  isSanxing,
+  isSheng,
+} from '../ganzhi';
+import { getSixAnimals, getVoidBranches } from '../calendar/lunar';
+import { getDivinationTime } from '../calendar/timeManager';
+import { getLiuyaoData } from './divination-data';
+import { getHexagramsData } from './hexagram-data';
+import {
+  getLiuyaoChangeDirection,
+  getLiuyaoChangeRelation,
+  getLiuyaoChangeRelations,
+} from './liuyao-change';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
-import { MingyuCoreError } from '../shared/result';
+import { MingyuCoreError, stableStringify } from '../shared/result';
 import { generateYarrow } from './algorithms/yarrow';
+import {
+  collectSanxingInBranches,
+  evaluateLiuyaoHiddenSpiritInteraction,
+  getLiuyaoFanFuRelations,
+  getLiuyaoHexagramRelations,
+  getSpecialPattern,
+  isLiuyaoHiddenMove,
+} from './algorithms/liuyao';
+import { getLiuyaoSanheWithTrigger } from './liuyao-sanhe';
+import { getShiErGong } from './liuyao-life-stage';
 import type { YarrowResult, YarrowLine } from './algorithms/yarrow';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -15,6 +44,10 @@ import {
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
+
+const { hexagramNaJia, hexagramPalaceMap, liuqinRelations, palaceHexagrams, palaces } =
+  getLiuyaoData();
+const hexagramsData = getHexagramsData();
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 
@@ -247,7 +280,7 @@ export interface LiuyaoHiddenSpiritCoverageFact {
 
 export interface LiuyaoUsefulGodSelectionFact {
   key: 'liuyao:useful-god-selection';
-  status: '已选定候选' | '缺少可用候选';
+  status: '已选定候选' | '待按问题取用' | '缺少可用候选';
   topic: LiuyaoEvidenceTopic;
   requestedRelative: string | null;
   selectedCandidateKey: string | null;
@@ -328,7 +361,7 @@ export interface LiuyaoCalculationStep {
 
 export interface LiuyaoSummaryFact {
   key: 'liuyao:evidence-summary';
-  status: '证据链完整' | '部分资料缺失' | '缺少可用候选';
+  status: '证据链完整' | '部分资料缺失' | '待按问题取用' | '缺少可用候选';
   factKeys: string[];
   lineFactCount: number;
   hiddenSpiritFactCount: number;
@@ -452,6 +485,431 @@ function branchOf(ganzhi: string) {
   return ganzhi.slice(1, 2);
 }
 
+function getExpectedChangeFacts(
+  originalBranch: string,
+  changedBranch: string,
+  changedIsVoid: boolean,
+) {
+  const originalWuxing = getBranchWuxing(originalBranch);
+  const changedWuxing = getBranchWuxing(changedBranch);
+  return {
+    legacyRelation: getLiuyaoChangeRelation(
+      originalWuxing,
+      changedWuxing,
+      originalBranch,
+      changedBranch,
+      changedIsVoid,
+    ),
+    relations: getLiuyaoChangeRelations(
+      originalWuxing,
+      changedWuxing,
+      originalBranch,
+      changedBranch,
+      changedIsVoid,
+    ),
+    direction: getLiuyaoChangeDirection(originalBranch, changedBranch),
+  };
+}
+
+function validateLiuyaoChartFacts(
+  data: LiuyaoData,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoData {
+  if (
+    !Array.isArray(data.yaoArray) ||
+    data.yaoArray.length !== 6 ||
+    !data.yaoArray.every((value) => value === 6 || value === 7 || value === 8 || value === 9)
+  ) {
+    throw new Error('六爻原始爻值必须为初爻至上爻的六个有效爻值。');
+  }
+  const mainLines = data.yaoArray.map((value) => (value === 7 || value === 9 ? '1' : '0'));
+  const changedLines = data.yaoArray.map((value, index) =>
+    value === 6 || value === 9 ? (mainLines[index] === '1' ? '0' : '1') : mainLines[index],
+  );
+  const toBinary = (lines: string[]) => [...lines.slice(3), ...lines.slice(0, 3)].join('');
+  const expectedMain = hexagramsData.find((item) => item.binarySymbol === toBinary(mainLines));
+  const expectedChanged = hexagramsData.find(
+    (item) => item.binarySymbol === toBinary(changedLines),
+  );
+  const interLines = [...mainLines.slice(1, 4), ...mainLines.slice(2, 5)];
+  const expectedInter = hexagramsData.find((item) => item.binarySymbol === toBinary(interLines));
+  if (
+    !expectedMain ||
+    !expectedChanged ||
+    !expectedInter ||
+    data.originalName !== expectedMain.name ||
+    (data.changedName !== undefined && data.changedName !== expectedChanged.name) ||
+    (data.interName !== undefined && data.interName !== expectedInter.name)
+  ) {
+    throw new Error('六爻主卦、互卦或变卦与原始爻值不一致，无法生成证据。');
+  }
+  const expectedVoids = getVoidBranches(data.ganzhi.day);
+  const expectedSixGods = getSixAnimals(data.ganzhi.day.charAt(0));
+  if (
+    data.voidBranches.length !== expectedVoids.length ||
+    expectedVoids.some((branch) => !data.voidBranches.includes(branch))
+  ) {
+    throw new Error('六爻日柱旬空与盘面不一致，无法生成证据。');
+  }
+  if (
+    data.sixGods !== undefined &&
+    (!Array.isArray(data.sixGods) ||
+      data.sixGods.length !== expectedSixGods.length ||
+      expectedSixGods.some((god, index) => data.sixGods[index] !== god))
+  ) {
+    throw new Error('六爻六神顺序与日干不一致，无法生成证据。');
+  }
+
+  const mainNaJia = hexagramNaJia[data.originalName];
+  const changedNaJia = expectedChanged ? hexagramNaJia[expectedChanged.name] : undefined;
+  const palaceName = hexagramPalaceMap[data.originalName as keyof typeof hexagramPalaceMap];
+  const palace = palaces[palaceName as keyof typeof palaces];
+  const palaceIndex = palaceHexagrams[palaceName as keyof typeof palaceHexagrams]?.indexOf(
+    data.originalName,
+  );
+  const expectedPalaceStage = (
+    ['首卦', '一世', '二世', '三世', '四世', '五世', '游魂', '归魂'] as const
+  )[palaceIndex ?? -1];
+  const worldPosition = [6, 1, 2, 3, 4, 5, 4, 3][palaceIndex ?? -1];
+  const responsePosition = worldPosition ? ((worldPosition + 2) % 6) + 1 : undefined;
+  if (
+    !mainNaJia ||
+    !worldPosition ||
+    data.palace?.name !== palaceName ||
+    (data.palaceStage !== undefined && data.palaceStage !== expectedPalaceStage) ||
+    (data.worldAndResponse?.length === 6 &&
+      data.worldAndResponse.some(
+        (role, index) =>
+          role !==
+          (index + 1 === worldPosition ? '世' : index + 1 === responsePosition ? '应' : ''),
+      ))
+  ) {
+    throw new Error('六爻纳甲与八宫资料不一致，无法生成证据。');
+  }
+  if (data.hiddenSpirits !== undefined) {
+    const homeName = palaceHexagrams[palaceName as keyof typeof palaceHexagrams]?.[0];
+    const homeNaJia = homeName ? hexagramNaJia[homeName] : undefined;
+    if (!homeNaJia || !Array.isArray(data.hiddenSpirits)) {
+      throw new Error('六爻伏神与本宫首卦纳甲不一致，无法生成证据。');
+    }
+    const relativeFor = (branch: string) =>
+      liuqinRelations[palace.wuxing as keyof typeof liuqinRelations][
+        getBranchWuxing(branch) as keyof (typeof liuqinRelations)[keyof typeof liuqinRelations]
+      ];
+    const appearedRelatives = new Set(mainNaJia.map(relativeFor));
+    const expectedHidden = homeNaJia.flatMap((branch, index) =>
+      appearedRelatives.has(relativeFor(branch))
+        ? []
+        : [
+            {
+              position: index + 1,
+              sixRelative: relativeFor(branch),
+              najiaDizhi: branch,
+              wuxing: getBranchWuxing(branch),
+              isVoid: expectedVoids.includes(branch),
+              underYao: {
+                position: index + 1,
+                sixRelative: relativeFor(mainNaJia[index]),
+                najiaDizhi: mainNaJia[index],
+                wuxing: getBranchWuxing(mainNaJia[index]),
+              },
+            },
+          ],
+    );
+    if (
+      data.hiddenSpirits.length !== expectedHidden.length ||
+      expectedHidden.some(
+        (expected) =>
+          !data.hiddenSpirits?.some(
+            (actual) =>
+              actual.position === expected.position &&
+              actual.sixRelative === expected.sixRelative &&
+              actual.najiaDizhi === expected.najiaDizhi &&
+              actual.wuxing === expected.wuxing &&
+              actual.isVoid === expected.isVoid &&
+              actual.underYao?.position === expected.underYao.position &&
+              actual.underYao.sixRelative === expected.underYao.sixRelative &&
+              actual.underYao.najiaDizhi === expected.underYao.najiaDizhi &&
+              actual.underYao.wuxing === expected.underYao.wuxing &&
+              (actual.interactionEffect === undefined ||
+                actual.interactionEffect ===
+                  evaluateLiuyaoHiddenSpiritInteraction({
+                    hiddenWuxing: expected.wuxing,
+                    hiddenVoid: expected.isVoid,
+                    flyingWuxing: expected.underYao.wuxing,
+                    flyingDizhi: expected.underYao.najiaDizhi,
+                    flyingVoid: expectedVoids.includes(expected.underYao.najiaDizhi),
+                    monthBranch,
+                  })),
+          ),
+      )
+    ) {
+      throw new Error('六爻伏神与本宫首卦纳甲不一致，无法生成证据。');
+    }
+  }
+  const movingPositions = data.yaoArray.flatMap((value, index) =>
+    value === 6 || value === 9 ? [index + 1] : [],
+  );
+  if (
+    movingPositions.length !== data.changingYaos.length ||
+    movingPositions.some(
+      (position) =>
+        !data.changingYaos.some(
+          (item) =>
+            item.position === position &&
+            item.isChanging === true &&
+            item.type === (data.yaoArray[position - 1] === 6 ? '老阴' : '老阳'),
+        ),
+    )
+  ) {
+    throw new Error('六爻原始爻值与动爻位置、阴阳或动静记录不一致，无法生成证据。');
+  }
+
+  const yaosDetail = data.yaosDetail.map((yao) => {
+    const index = yao.position - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= 6) return yao;
+    const raw = data.yaoArray[index];
+    const changing = raw === 6 || raw === 9;
+    const expectedLiuqin =
+      liuqinRelations[palace.wuxing as keyof typeof liuqinRelations][
+        getBranchWuxing(
+          mainNaJia[index],
+        ) as keyof (typeof liuqinRelations)[keyof typeof liuqinRelations]
+      ];
+    const expectedChangedBranch = changing ? changedNaJia?.[index] : undefined;
+    const expectedChangeFacts = expectedChangedBranch
+      ? getExpectedChangeFacts(
+          mainNaJia[index],
+          expectedChangedBranch,
+          expectedVoids.includes(expectedChangedBranch),
+        )
+      : null;
+    const changeFactsMatch = expectedChangeFacts
+      ? (yao.changeRelation === undefined ||
+          yao.changeRelation === expectedChangeFacts.legacyRelation) &&
+        (yao.changeRelations === undefined ||
+          (yao.changeRelations.length === expectedChangeFacts.relations.length &&
+            expectedChangeFacts.relations.every(
+              (relation, relationIndex) => yao.changeRelations?.[relationIndex] === relation,
+            ))) &&
+        (yao.changeDirection === undefined || yao.changeDirection === expectedChangeFacts.direction)
+      : (yao.changeRelation === undefined || yao.changeRelation === null) &&
+        (yao.changeRelations === undefined || yao.changeRelations.length === 0) &&
+        (yao.changeDirection === undefined || yao.changeDirection === null);
+    const expectedSeason = getSeasonState(getBranchWuxing(yao.najiaDizhi), monthBranch);
+    const dayClash = isLiuchong(yao.najiaDizhi, dayBranch);
+    const hiddenMove = isLiuyaoHiddenMove(
+      yao.najiaDizhi,
+      monthBranch,
+      dayBranch,
+      changing,
+      expectedVoids.includes(yao.najiaDizhi),
+    );
+    const expectedMovingLifeStages = movingPositions
+      .filter((position) => position !== yao.position)
+      .map((position) => ({
+        position,
+        branch: mainNaJia[position - 1],
+        stage: getShiErGong(getBranchWuxing(mainNaJia[index]), mainNaJia[position - 1]),
+      }));
+    const expectedDayLifeStage = getShiErGong(getBranchWuxing(mainNaJia[index]), dayBranch);
+    const expectedChangedLifeStage = expectedChangedBranch
+      ? getShiErGong(getBranchWuxing(mainNaJia[index]), expectedChangedBranch)
+      : undefined;
+    const expectedDongMu = expectedMovingLifeStages.some((item) => item.stage === '墓');
+    const expectedHuaMu = expectedChangedLifeStage === '墓';
+    const expectedRiMu = expectedDayLifeStage === '墓';
+    const expectedSanxing =
+      isSanxing(mainNaJia[index], dayBranch) || isSanxing(mainNaJia[index], monthBranch);
+    const expectedLiuhe =
+      isLiuhe(mainNaJia[index], dayBranch) || isLiuhe(mainNaJia[index], monthBranch);
+    const expectedLiuhePartner = isLiuhe(mainNaJia[index], dayBranch)
+      ? dayBranch
+      : isLiuhe(mainNaJia[index], monthBranch)
+        ? monthBranch
+        : undefined;
+    if (
+      yao.rawValue !== raw ||
+      yao.sixGod !== expectedSixGods[index] ||
+      yao.yaoType !== (raw === 7 || raw === 9 ? '阳' : '阴') ||
+      yao.isChanging !== changing ||
+      (!changing && yao.changedYao != null) ||
+      yao.najiaDizhi !== mainNaJia[index] ||
+      yao.wuxing !== getBranchWuxing(yao.najiaDizhi) ||
+      yao.sixRelative !== expectedLiuqin ||
+      !changeFactsMatch ||
+      yao.isWorld !== (yao.position === worldPosition) ||
+      yao.isResponse !== (yao.position === responsePosition) ||
+      yao.isVoid !== expectedVoids.includes(yao.najiaDizhi) ||
+      (yao.seasonState !== undefined && yao.seasonState !== expectedSeason) ||
+      (yao.isMonthBreak !== undefined &&
+        yao.isMonthBreak !== isLiuchong(yao.najiaDizhi, monthBranch)) ||
+      (yao.isDayClash !== undefined && yao.isDayClash !== dayClash) ||
+      (yao.isHiddenMove !== undefined && yao.isHiddenMove !== hiddenMove) ||
+      (yao.isDayBreak !== undefined && yao.isDayBreak !== (!changing && dayClash && !hiddenMove)) ||
+      (yao.isSanxing !== undefined && yao.isSanxing !== expectedSanxing) ||
+      (yao.sanxingType !== undefined && yao.sanxingType !== getSanxingType(mainNaJia[index])) ||
+      (yao.isLiuhe !== undefined && yao.isLiuhe !== expectedLiuhe) ||
+      (yao.liuhePartner !== undefined && yao.liuhePartner !== expectedLiuhePartner) ||
+      (yao.isLiuhai !== undefined &&
+        yao.isLiuhai !==
+          (isLiuhai(mainNaJia[index], dayBranch) || isLiuhai(mainNaJia[index], monthBranch))) ||
+      (yao.shiErGong !== undefined &&
+        yao.shiErGong !== getShiErGong(getBranchWuxing(mainNaJia[index]), mainNaJia[index])) ||
+      (yao.dayLifeStage !== undefined && yao.dayLifeStage !== expectedDayLifeStage) ||
+      (yao.movingLifeStages !== undefined &&
+        stableStringify(yao.movingLifeStages) !== stableStringify(expectedMovingLifeStages)) ||
+      (yao.changedLifeStage !== undefined && yao.changedLifeStage !== expectedChangedLifeStage) ||
+      (yao.isDongMu !== undefined && yao.isDongMu !== expectedDongMu) ||
+      (yao.isHuaMu !== undefined && yao.isHuaMu !== expectedHuaMu) ||
+      (yao.isRiMu !== undefined && yao.isRiMu !== expectedRiMu) ||
+      (yao.isYueMu !== undefined && yao.isYueMu !== false) ||
+      (yao.isRuMu !== undefined &&
+        yao.isRuMu !== (expectedRiMu || expectedDongMu || expectedHuaMu)) ||
+      (changing &&
+        changedNaJia &&
+        (yao.changedYao?.dizhi !== changedNaJia[index] ||
+          yao.changedYao.wuxing !== getBranchWuxing(changedNaJia[index]) ||
+          yao.changedYao.liuqin !==
+            liuqinRelations[palace.wuxing as keyof typeof liuqinRelations][
+              getBranchWuxing(
+                changedNaJia[index],
+              ) as keyof (typeof liuqinRelations)[keyof typeof liuqinRelations]
+            ] ||
+          yao.changedYao.isVoid !== expectedVoids.includes(changedNaJia[index])))
+    ) {
+      throw new Error(`六爻第${yao.position}爻纳甲、世应、动变或月日空破与盘面不一致。`);
+    }
+    return {
+      ...yao,
+      seasonState: expectedSeason,
+      isMonthBreak: isLiuchong(yao.najiaDizhi, monthBranch),
+      isDayClash: dayClash,
+      isHiddenMove: hiddenMove,
+      isDayBreak: !changing && dayClash && !hiddenMove,
+      changeRelation: expectedChangeFacts?.legacyRelation ?? null,
+      changeRelations: expectedChangeFacts?.relations ?? [],
+      changeDirection: expectedChangeFacts?.direction ?? null,
+      isSanxing: expectedSanxing,
+      sanxingType: getSanxingType(mainNaJia[index]) || undefined,
+      isLiuhe: expectedLiuhe,
+      liuhePartner: expectedLiuhePartner,
+      isLiuhai: isLiuhai(mainNaJia[index], dayBranch) || isLiuhai(mainNaJia[index], monthBranch),
+      shiErGong: getShiErGong(getBranchWuxing(mainNaJia[index]), mainNaJia[index]),
+      dayLifeStage: expectedDayLifeStage,
+      movingLifeStages: expectedMovingLifeStages,
+      changedLifeStage: expectedChangedLifeStage,
+      isDongMu: expectedDongMu,
+      isHuaMu: expectedHuaMu,
+      isRiMu: expectedRiMu,
+      isYueMu: false,
+      isRuMu: expectedRiMu || expectedDongMu || expectedHuaMu,
+    };
+  });
+
+  const activeBranches = data.yaoArray.flatMap((raw, index) => {
+    const branch = mainNaJia[index];
+    const changing = raw === 6 || raw === 9;
+    const hiddenMove = isLiuyaoHiddenMove(
+      branch,
+      monthBranch,
+      dayBranch,
+      changing,
+      expectedVoids.includes(branch),
+    );
+    if (!changing && !hiddenMove) return [];
+    return changing ? [branch, changedNaJia![index]] : [branch];
+  });
+  const expectedDaySanhe = getLiuyaoSanheWithTrigger(activeBranches, dayBranch, '日辰');
+  const expectedMonthSanhe = getLiuyaoSanheWithTrigger(activeBranches, monthBranch, '月建');
+  const matchesSanhe = (
+    actual: LiuyaoData['sanheWithDay'],
+    expected: NonNullable<LiuyaoData['sanheWithDay']> | null,
+  ) =>
+    actual == null
+      ? expected === null
+      : expected !== null &&
+        actual.group === expected.group &&
+        actual.description === expected.description &&
+        Array.isArray(actual.members) &&
+        actual.members.length === expected.members.length &&
+        expected.members.every((branch, index) => actual.members[index] === branch);
+  if (
+    (data.sanheWithDay !== undefined && !matchesSanhe(data.sanheWithDay, expectedDaySanhe)) ||
+    (data.sanheWithMonth !== undefined && !matchesSanhe(data.sanheWithMonth, expectedMonthSanhe))
+  ) {
+    throw new Error('六爻日辰或月建三合与原始爻值、纳甲及月日支不一致。');
+  }
+  if (
+    data.sanxingInYaos !== undefined &&
+    stableStringify(data.sanxingInYaos) !== stableStringify(collectSanxingInBranches(mainNaJia))
+  ) {
+    throw new Error('六爻三刑关系与原始爻值、纳甲不一致。');
+  }
+
+  const hasChangingYaos = movingPositions.length > 0;
+  const expectedHexagramRelations = getLiuyaoHexagramRelations(
+    expectedMain.name,
+    expectedChanged.name,
+    hasChangingYaos,
+  );
+  if (
+    data.hexagramRelations !== undefined &&
+    stableStringify(data.hexagramRelations) !== stableStringify(expectedHexagramRelations)
+  ) {
+    throw new Error('六爻整卦六合六冲关系与原始爻值、纳甲不一致。');
+  }
+  const expectedFanFuRelations = getLiuyaoFanFuRelations(
+    expectedMain.name,
+    expectedChanged.name,
+    hasChangingYaos,
+  );
+  if (
+    data.fanfuRelations !== undefined &&
+    stableStringify(data.fanfuRelations) !== stableStringify(expectedFanFuRelations)
+  ) {
+    throw new Error('六爻反吟伏吟关系与原始爻值、纳甲不一致。');
+  }
+  const expectedSpecialPattern = getSpecialPattern(movingPositions.length, expectedMain.name);
+  if (
+    (data.specialPattern !== undefined &&
+      data.specialPattern !== expectedSpecialPattern.specialPattern) ||
+    (data.specialAdvice !== undefined &&
+      data.specialAdvice !== expectedSpecialPattern.specialAdvice) ||
+    (data.isChaotic !== undefined && data.isChaotic !== expectedSpecialPattern.isChaotic) ||
+    (data.chaoticReason !== undefined &&
+      data.chaoticReason !== expectedSpecialPattern.chaoticReason)
+  ) {
+    throw new Error('六爻特殊卦式与原始爻值、动爻数量不一致。');
+  }
+  return {
+    ...data,
+    changedName: expectedChanged.name,
+    interName: expectedInter.name,
+    sixGods: expectedSixGods,
+    palaceStage: expectedPalaceStage,
+    hexagramRelations: expectedHexagramRelations,
+    fanfuRelations: expectedFanFuRelations,
+    ...expectedSpecialPattern,
+    sanheWithDay: expectedDaySanhe,
+    sanheWithMonth: expectedMonthSanhe,
+    sanxingInYaos: collectSanxingInBranches(mainNaJia),
+    yaosDetail,
+    hiddenSpirits: data.hiddenSpirits?.map((spirit) => ({
+      ...spirit,
+      interactionEffect: evaluateLiuyaoHiddenSpiritInteraction({
+        hiddenWuxing: spirit.wuxing,
+        hiddenVoid: spirit.isVoid,
+        flyingWuxing: spirit.underYao.wuxing,
+        flyingDizhi: spirit.underYao.najiaDizhi,
+        flyingVoid: expectedVoids.includes(spirit.underYao.najiaDizhi),
+        monthBranch,
+      }),
+    })),
+  };
+}
+
 function getChangeRelations(yao: LiuyaoYaoDetail): LiuyaoChangeRelation[] {
   const relations = yao.changeRelations?.length
     ? yao.changeRelations
@@ -470,20 +928,44 @@ function formatYao(reference: LiuyaoYaoReference) {
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
   const method = data.generation?.method ?? '未记录';
+  const simulatedCoins = method === 'coins' && Boolean(data.meta?.random);
   const methodLabel =
     method === 'yarrow'
       ? '蓍草起卦'
       : method === 'coins'
-        ? '模拟三钱起卦'
+        ? simulatedCoins
+          ? '模拟三钱起卦'
+          : '三钱记录起卦'
         : method === 'manual'
           ? '手工录入六爻值'
           : method === 'time'
             ? '时间起卦'
             : '旧结果未记录起卦方式';
-  const coinThrows = (data.generation?.coinThrows ?? []).map((item) => ({
-    coins: [...item.coins] as [2 | 3, 2 | 3, 2 | 3],
-    total: item.total,
-  }));
+  const recordedCoinThrows = data.generation?.coinThrows ?? [];
+  if (!Array.isArray(recordedCoinThrows)) {
+    throw new Error('六爻三钱记录必须是逐爻数组。');
+  }
+  const coinThrows = Array.from(recordedCoinThrows, (item, index) => {
+    if (!item || !Array.isArray(item.coins)) {
+      throw new Error(`第${index + 1}爻三钱记录必须包含三枚有效铜钱。`);
+    }
+    return {
+      coins: [...item.coins] as [2 | 3, 2 | 3, 2 | 3],
+      total: item.total,
+    };
+  });
+  if (method === 'time' || method === 'coins') {
+    coinThrows.forEach((item, index) => {
+      if (
+        item.coins.length !== 3 ||
+        !item.coins.every((coin) => coin === 2 || coin === 3) ||
+        item.coins.reduce<number>((sum, coin) => sum + coin, 0) !== item.total ||
+        item.total !== data.yaoArray[index]
+      ) {
+        throw new Error(`第${index + 1}爻三钱记录与原始爻值不一致。`);
+      }
+    });
+  }
   const yarrow = data.generation?.yarrow;
   if (method === 'yarrow') {
     if (
@@ -523,7 +1005,7 @@ function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
           ? coinThrows
               .map(
                 (item, index) =>
-                  `第${index + 1}爻计算样本${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
+                  `第${index + 1}爻${method === 'coins' && !simulatedCoins ? '投掷记录' : '计算样本'}${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
               )
               .join('；')
           : '未附逐爻生成记录';
@@ -543,7 +1025,7 @@ function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
         ? '《周易衍义》揲蓍十八变与分堆记录'
         : method === 'manual'
           ? '调用方手工录入的六个爻值'
-          : '六爻逐爻三钱生成记录',
+          : '六爻逐爻三钱记录',
       '六爻起卦方式与原始爻值结果',
     ],
     limitation: GENERATION_FACT_LIMITATION,
@@ -687,11 +1169,12 @@ function buildLineFacts(
             ? '日辰冲动'
             : '',
       yao.isRiMu ? '入日墓' : '',
-      yao.isDongMu ? '入动墓' : '',
-      yao.isHuaMu ? '动而化墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
+    const movingRelations = [yao.isDongMu ? '入动墓' : '', yao.isHuaMu ? '动而化墓' : ''].filter(
+      Boolean,
+    );
     const activity: LiuyaoLineFact['activity'] = yao.isChanging
       ? '明动'
       : yao.isHiddenMove
@@ -720,6 +1203,7 @@ function buildLineFacts(
       yao.seasonState ? `月令${yao.seasonState}` : '',
       monthRelations.join('、'),
       dayRelations.join('、'),
+      movingRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
       yao.dayLifeStage && ['长生', '帝旺', '墓', '绝'].includes(yao.dayLifeStage)
         ? `日辰生旺墓绝${yao.dayLifeStage}`
@@ -909,7 +1393,7 @@ function buildHexagramStructureFacts(data: LiuyaoData): LiuyaoHexagramStructureF
       ['六爻动静数量、乾坤用爻与特殊卦象核验'],
     );
   }
-  if (data.isChaotic || data.chaoticReason) {
+  if (!data.specialPattern && (data.isChaotic || data.chaoticReason)) {
     add('liuyao:structure:chaotic', '特殊卦象', data.chaoticReason || '当前卦象标记为乱动结构', [
       '动爻数量与乱动条件核验',
     ]);
@@ -1067,7 +1551,9 @@ function buildSummaryFact(params: {
       ? '部分资料缺失'
       : params.selectionFact.status === '缺少可用候选'
         ? '缺少可用候选'
-        : '证据链完整';
+        : params.selectionFact.status === '待按问题取用'
+          ? '待按问题取用'
+          : '证据链完整';
   const matchedCandidateCount = params.candidates.filter((item) => item.status === '已匹配').length;
   return {
     key: 'liuyao:evidence-summary',
@@ -1335,10 +1821,45 @@ export function analyzeLiuyaoEvidence(
   data: LiuyaoData,
   options: LiuyaoEvidenceOptions = {},
 ): LiuyaoEvidenceAnalysis {
+  return resolveLiuyaoEvidence(data, options).analysis;
+}
+
+/** 正文与摘要取得同一已核验盘面视图和证据；原结果保持原样。 */
+export function resolveLiuyaoEvidence(
+  data: LiuyaoData,
+  options: LiuyaoEvidenceOptions = {},
+): { data: LiuyaoData; analysis: LiuyaoEvidenceAnalysis } {
   if (!data?.yaosDetail?.length) throw new Error('六爻证据分析缺少完整爻位资料。');
+  if (data.meta && Date.parse(data.meta.calculatedAt) !== data.timestamp) {
+    throw new Error('六爻起卦时间戳与结果元数据不一致，无法生成证据。');
+  }
+  if (data.timezoneOffsetMinutes !== undefined) {
+    const offset = data.timezoneOffsetMinutes;
+    if (
+      !Number.isInteger(offset) ||
+      offset < -720 ||
+      offset > 840 ||
+      !Number.isSafeInteger(data.timestamp) ||
+      (data.termReferenceTimestamp !== undefined &&
+        !Number.isSafeInteger(data.termReferenceTimestamp))
+    ) {
+      throw new Error('六爻起卦时刻、时区或节气参考资料无效，无法生成证据。');
+    }
+    const sourceTime = getDivinationTime(
+      new Date(data.timestamp),
+      offset,
+      data.termReferenceTimestamp === undefined ? undefined : new Date(data.termReferenceTimestamp),
+    );
+    for (const pillar of ['year', 'month', 'day', 'hour'] as const) {
+      if (data.ganzhi[pillar] !== sourceTime.ganzhi[pillar]) {
+        throw new Error('六爻盘面四柱与起卦时刻、时区及节气参考不一致，无法生成证据。');
+      }
+    }
+  }
   const topic = options.topic ?? 'general';
   const monthBranch = branchOf(data.ganzhi.month);
   const dayBranch = branchOf(data.ganzhi.day);
+  data = validateLiuyaoChartFacts(data, monthBranch, dayBranch);
   const references = allReferences(data, monthBranch, dayBranch);
   const lineFacts = buildLineFacts(data, monthBranch, dayBranch);
   const hiddenSpiritFacts = buildHiddenSpiritFacts(data);
@@ -1369,34 +1890,52 @@ export function analyzeLiuyaoEvidence(
       support,
       constraints,
       promptText: matched.length
-        ? `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；匹配${matched.map(formatYao).join('、')}；支持${support.join('、') || '未见额外增强'}；限制${constraints.join('、') || '未见明显空破墓退'}`
+        ? [
+            `${spec.label}由${candidateSourceStatus}提出：${spec.reason}`,
+            `匹配${matched.map(formatYao).join('、')}`,
+            support.length ? `支持${support.join('、')}` : '',
+            constraints.length ? `限制${constraints.join('、')}` : '',
+          ]
+            .filter(Boolean)
+            .join('；')
         : `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；${constraints.join('、')}`,
       sources: ['当前问题取用范围', '本卦与伏神六亲、爻位及五行逐项匹配'],
       limitation: CANDIDATE_FACT_LIMITATION,
     };
   });
-  const selectedCandidate = candidates[0]?.references.length ? candidates[0] : null;
+  // 世应只是人物与外部条件的爻位；怪异题的官鬼也只是类象候选。
+  // 只有明确指定六亲，或事项主题已给出可取的六亲时，才建立用神五行链。
+  const hasUsefulGodBasis =
+    Boolean(options.usefulGodRelative) || topic === 'shiye' || topic === 'caifu';
+  const selectedCandidate =
+    hasUsefulGodBasis && candidates[0]?.references.length ? candidates[0] : null;
+  const chartClues = candidates
+    .filter((candidate) => candidate.references.length)
+    .map((candidate) => `${candidate.label}见${candidate.references.map(formatYao).join('、')}`)
+    .join('；');
   const selectionFact: LiuyaoUsefulGodSelectionFact = {
     key: 'liuyao:useful-god-selection',
-    status: selectedCandidate ? '已选定候选' : '缺少可用候选',
+    status: selectedCandidate ? '已选定候选' : hasUsefulGodBasis ? '缺少可用候选' : '待按问题取用',
     topic,
     requestedRelative: options.usefulGodRelative ?? null,
     selectedCandidateKey: selectedCandidate?.key ?? null,
     candidateKeys: candidates.map((item) => item.key),
     promptText: selectedCandidate
       ? `本次用神取${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
-      : `本次${candidates[0]?.label ?? '主用神'}未匹配；${
-          candidates.slice(1).some((candidate) => candidate.references.length)
-            ? `已有辅证：${candidates
-                .slice(1)
-                .filter((candidate) => candidate.references.length)
-                .map(
-                  (candidate) =>
-                    `${candidate.label}见${candidate.references.map(formatYao).join('、')}`,
-                )
-                .join('；')}；主用神取用仍待核实`
-            : '本卦与伏神未见本次候选对应爻；主用神取用待核实'
-        }；世应与动变作为现有盘面线索保留`,
+      : !hasUsefulGodBasis
+        ? `事项用神待按具体问题取用；${chartClues ? `盘面线索：${chartClues}` : '世应与动变资料待核'}`
+        : `本次${candidates[0]?.label ?? '主用神'}未匹配；${
+            candidates.slice(1).some((candidate) => candidate.references.length)
+              ? `已有辅证：${candidates
+                  .slice(1)
+                  .filter((candidate) => candidate.references.length)
+                  .map(
+                    (candidate) =>
+                      `${candidate.label}见${candidate.references.map(formatYao).join('、')}`,
+                  )
+                  .join('；')}；主用神取用仍待核实`
+              : '本卦与伏神未见本次候选对应爻；主用神取用待核实'
+          }；世应与动变作为现有盘面线索保留`,
     sources: ['候选顺序、匹配状态与逐爻引用核验'],
     limitation: SELECTION_FACT_LIMITATION,
   };
@@ -1449,18 +1988,19 @@ export function analyzeLiuyaoEvidence(
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
   const methodLabel = generationFact.methodLabel;
+  const recordedCoins = generationMethod === 'coins' && !data.meta?.random;
   const generationFacts = [
     `起卦方式：${methodLabel}`,
     generationFact.yarrow ? formatYarrowProcess(generationFact.yarrow) : '',
     ...generationFact.coinThrows.map(
       (item, index) =>
-        `第${index + 1}爻计算样本：${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
+        `第${index + 1}爻${recordedCoins ? '投掷记录' : '计算样本'}：${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
     ),
     generationMethod === 'manual' ? `手工爻值：${data.yaoArray.join('、')}` : '',
   ].filter(Boolean);
   const trace = data.meta?.random;
   const expectsRandomTrace =
-    generationMethod === 'coins' ||
+    (generationMethod === 'coins' && !recordedCoins) ||
     generationMethod === 'time' ||
     (generationMethod === 'yarrow' && generationFact.yarrow?.samplingModel !== '手工分堆');
   const randomFact = buildRandomTraceFact({
@@ -1479,7 +2019,7 @@ export function analyzeLiuyaoEvidence(
   if (generationMethod === 'yarrow' && randomFact.status === '可重放') {
     const replayed = generateYarrow({ replay: randomFact.samples });
     if (
-      randomFact.samples.length !== 36 ||
+      replayed.randomTrace?.samples.length !== randomFact.samples.length ||
       !equalYarrowLines(replayed.lines, generationFact.yarrow?.lines)
     ) {
       throw new Error('蓍草随机轨迹与分堆记录不一致。');
@@ -1526,17 +2066,23 @@ export function analyzeLiuyaoEvidence(
         limitation: TIMING_FACT_LIMITATION,
       }),
     );
-  if (data.voidBranches?.length) {
+  const voidLineFacts = lineFacts.filter((item) => item.isVoid || item.changedYao?.isVoid);
+  const voidHiddenFacts = hiddenSpiritFacts.filter((item) => item.isVoid);
+  if (voidLineFacts.length || voidHiddenFacts.length) {
+    const voidLocations = [
+      ...voidLineFacts.flatMap((item) => [
+        ...(item.isVoid ? [`第${item.position}爻${item.najia.branch}`] : []),
+        ...(item.changedYao?.isVoid ? [`第${item.position}爻变爻${item.changedYao.branch}`] : []),
+      ]),
+      ...voidHiddenFacts.map((item) => `第${item.position}爻伏神${item.najia.branch}`),
+    ];
     timingFacts.push({
       key: 'liuyao:timing:void',
       type: '空亡填实',
       sourceStatus: '由盘面生成',
-      ownerFactKeys: [
-        ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
-        ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
-      ],
-      promptText: `空亡${data.voidBranches.join('、')}，传统以出空、冲实或透出为应期触发`,
-      sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
+      ownerFactKeys: [...voidLineFacts, ...voidHiddenFacts].map((item) => item.key),
+      promptText: `旬空${data.voidBranches.join('、')}命中${voidLocations.join('、')}；对应爻的出空、冲实可作为应期核对条件`,
+      sources: ['日柱旬空地支', '本卦、变爻与伏神空亡标记'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }
@@ -1816,11 +2362,13 @@ export function analyzeLiuyaoEvidence(
     `证据汇总：${summaryFact.promptText}。`,
     godChain.length
       ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
-      : '作用链：本次未见可匹配用神爻，按世应与动变主线裁定。',
+      : selectionFact.status === '待按问题取用'
+        ? '作用链：事项用神待按具体问题取用，现列世应与动变线索。'
+        : '作用链：本次未见可匹配用神爻，按世应与动变主线裁定。',
     `触发条件：${timingConditions.join('；')}`,
     `解释限制：${limitations.join('；')}。`,
   ].join('\n');
-  return {
+  const analysis: LiuyaoEvidenceAnalysis = {
     key: 'liuyao:evidence',
     status: '已计算',
     topic,
@@ -1861,4 +2409,5 @@ export function analyzeLiuyaoEvidence(
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
     ],
   };
+  return { data, analysis };
 }

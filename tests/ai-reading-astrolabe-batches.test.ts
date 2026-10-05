@@ -11,9 +11,74 @@ import {
 } from '../src/lib/ai/astrolabe-batch-resources';
 import { generateAstrolabeReadingLocally } from '../src/lib/ai/astrolabe-reading-calculation';
 import { executeReadingAction } from '../src/lib/ai/reading-resources';
+import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 
-test('完整星盘分批补算经真实接口保持三个范围事件及完整提示资料', async (context) => {
+test('自定义星盘范围补算核对结构化范围与完整提示词', async () => {
+  const customText = '分析合成样本的指定阶段';
+  const locked = {
+    name: '合成样本',
+    gender: 'female',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    useTrueSolarTime: false,
+  };
+  const input = {
+    astrolabeScope: 'natal',
+    astrolabeScopeText: customText,
+    question: '请分析此阶段。',
+  };
+  const baseline = await handlePublicApiRequest(
+    new Request('https://aov.cc/api/v1/divination/astrolabe/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...locked, ...input, gender: '女', responseMode: 'full' }),
+    }),
+  );
+  const body = (await baseline.json()) as { ok: boolean; data: Record<string, unknown> };
+  assert.equal(body.ok, true, JSON.stringify(body));
+  const subject: ReadingSubjectSnapshot = {
+    id: 'synthetic-custom-astrolabe',
+    source: 'astrolabe',
+    allowedMethods: ['astrolabe'],
+    lockedInputs: { astrolabe: locked },
+    range: {},
+  };
+  const action = { kind: 'calculate' as const, method: 'astrolabe', input };
+  const originalFetch = globalThis.fetch;
+  let responseData = structuredClone(body.data);
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ success: true, data: responseData }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as typeof fetch;
+  try {
+    const valid = await executeReadingAction(action, undefined, subject);
+    assert.ok(valid.text.includes(customText));
+
+    responseData = structuredClone(body.data);
+    const alteredResult = responseData.result as Record<string, unknown>;
+    (alteredResult.scopeEvidence as Record<string, unknown>).promptText = '另一分析范围';
+    await assert.rejects(
+      executeReadingAction(action, undefined, subject),
+      /astrolabe\.scopeEvidence\.promptText/u,
+    );
+
+    responseData = structuredClone(body.data);
+    responseData.prompt = String(responseData.prompt).replaceAll(customText, '另一分析范围');
+    await assert.rejects(executeReadingAction(action, undefined, subject), /astrolabe\.prompt/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('完整星盘补算复用一次接口批次并保持本地及三段事件一致', async (context) => {
   context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-16T04:00:00Z') });
   const input = {
     name: '合成验证',
@@ -30,17 +95,46 @@ test('完整星盘分批补算经真实接口保持三个范围事件及完整�
     astrolabeScope: 'full',
     astrolabeScopeDate: '2028-06-12',
     question: '请分析各阶段变化。',
+    supplementaryInfo: { knownFacts: '本次既定事实' },
   };
   const previousFetch = globalThis.fetch;
+  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  Reflect.deleteProperty(globalThis, 'Worker');
   let baseCount = 0;
-  const scopes = new Set<string>();
+  const periodRequests = new Map<string, Array<{ startDate: string; endDate: string }>>();
   globalThis.fetch = (async (url, init) => {
     const request = new Request(new URL(String(url), 'https://aov.cc'), init);
-    const payload = JSON.parse(String(init?.body));
-    if (request.url.endsWith('/period-events')) scopes.add(payload.astrolabeScope);
-    else {
+    const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    if (request.url.endsWith('/period-events')) {
+      const scope = String(payload.astrolabeScope);
+      const range = payload.astrolabePeriodRange as { startDate: string; endDate: string };
+      const requests = periodRequests.get(scope) ?? [];
+      requests.push({ startDate: range.startDate, endDate: range.endDate });
+      periodRequests.set(scope, requests);
+      const expectedDateByScope: Record<string, string> = {
+        yearly: '2028',
+        monthly: '2028-06',
+        daily: '2028-06-12',
+      };
+      assert.equal(payload.astrolabeScopeDate, expectedDateByScope[scope]);
+    } else {
       baseCount += 1;
+      assert.ok(request.url.endsWith('/astrolabe/prompt'));
+      assert.equal(payload.gender, '女');
       assert.equal(payload.astrolabeIncludePeriodEvents, false);
+      assert.equal(payload.responseMode, 'full');
+      assert.equal(payload.year, input.year);
+      assert.equal(payload.month, input.month);
+      assert.equal(payload.day, input.day);
+      assert.equal(payload.hour, input.hour);
+      assert.equal(payload.minute, input.minute);
+      assert.equal(payload.second, input.second);
+      assert.equal(payload.latitude, input.latitude);
+      assert.equal(payload.longitude, input.longitude);
+      assert.equal(payload.timezone, input.timezone);
+      assert.equal(payload.astrolabeScope, 'full');
+      assert.equal(payload.astrolabeScopeDate, input.astrolabeScopeDate);
+      assert.equal(payload.question, input.question);
     }
     return handlePublicApiRequest(request);
   }) as typeof fetch;
@@ -61,72 +155,120 @@ test('完整星盘分批补算经真实接口保持三个范围事件及完整�
     const body = await original.json();
     assert.equal(body.ok, true);
     assert.equal(resource.text, body.data.prompt);
-    assert.equal(baseCount, 1);
-    assert.deepEqual([...scopes], ['yearly', 'monthly', 'daily']);
-    const actual = resource.structured?.scopeEvidence as {
+    const expectedScopes = ['yearly', 'monthly', 'daily'];
+    const resourceStructured = resource.structured;
+    assert.ok(resourceStructured);
+    const remoteEvidence = resourceStructured.scopeEvidence as {
       contexts: Record<
         string,
-        { periodEvents: { events: AstrolabePeriodEvent[] }; promptText: string }
+        { periodEvents?: { events: AstrolabePeriodEvent[] }; promptText: string }
       >;
     };
-    for (const scope of scopes) {
+    for (const scope of expectedScopes) {
       const expected = body.data.result.scopeEvidence.contexts[scope];
-      assert.deepEqual(actual.contexts[scope].periodEvents.events, expected.periodEvents.events);
-      assert.equal(actual.contexts[scope].promptText, expected.promptText);
+      assert.deepEqual(
+        remoteEvidence.contexts[scope].periodEvents?.events,
+        expected.periodEvents.events,
+      );
+      assert.equal(remoteEvidence.contexts[scope].promptText, expected.promptText);
       assert.ok(resource.text.includes(expected.promptText));
     }
-  } finally {
-    globalThis.fetch = previousFetch;
-  }
-});
 
-test('本地七日 Worker 计算与公共接口完整星盘 prompt 及三段事件逐项一致', async (context) => {
-  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-16T04:00:00Z') });
-  const input = {
-    name: '合成本地验证',
-    gender: '女',
-    year: 1995,
-    month: 5,
-    day: 20,
-    hour: 12,
-    minute: 30,
-    second: 37,
-    latitude: 39.9042,
-    longitude: 116.4074,
-    timezone: 8,
-    astrolabeScope: 'full',
-    astrolabeScopeDate: '2028-06-12',
-    question: '请分析各阶段变化。',
-  };
-  const originalFetch = globalThis.fetch;
-  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
-  Reflect.deleteProperty(globalThis, 'Worker');
-  globalThis.fetch = (async (url, init) =>
-    handlePublicApiRequest(
-      new Request(new URL(String(url), 'https://aov.cc'), init),
-    )) as typeof fetch;
-  try {
-    const remote = await executeReadingAction({ kind: 'calculate', method: 'astrolabe', input });
-    const local = await generateAstrolabeReadingLocally({
+    const requestsBeforeLocal = {
+      baseCount,
+      periodRequests: Object.fromEntries(
+        [...periodRequests].map(([scope, requests]) => [scope, structuredClone(requests)]),
+      ),
+    };
+    const localInput = {
       ...input,
+      supplementaryInfo: { ...input.supplementaryInfo },
+      gender: '女',
       responseMode: 'full',
       astrolabeIncludePeriodEvents: false,
-    });
-    assert.equal(local.prompt, remote.text);
-    const remoteEvidence = (remote.structured as Record<string, unknown>).scopeEvidence as Record<
-      string,
-      unknown
-    >;
+    };
+    const localOptions = {
+      onProgress() {
+        localInput.question = '后来问题';
+        localInput.supplementaryInfo.knownFacts = '后来事实';
+        localOptions.onProgress = () => {
+          throw new Error('不应改用后来的进度回调');
+        };
+      },
+    };
+    const local = await generateAstrolabeReadingLocally(localInput, localOptions);
+    assert.equal(localInput.question, '后来问题');
+    assert.equal(localInput.supplementaryInfo.knownFacts, '后来事实');
+    assert.ok(local.prompt.includes('本次既定事实'));
+    assert.ok(!local.prompt.includes('后来问题'));
+    assert.ok(!local.prompt.includes('后来事实'));
+    assert.equal(local.prompt, resource.text);
     assert.deepEqual(JSON.parse(JSON.stringify(local.result.scopeEvidence)), remoteEvidence);
     if (local.result.scopeEvidence.scope !== 'full') {
       throw new Error('本地完整星盘结果缺少 full 范围身份。');
     }
-    const contexts = local.result.scopeEvidence.contexts;
-    assert.ok(contexts.yearly.periodEvents?.events.length);
-    assert.ok(contexts.monthly.periodEvents?.events.length);
-    assert.ok(contexts.daily.periodEvents?.events.length);
+    const localContexts = local.result.scopeEvidence.contexts;
+    assert.ok(localContexts.yearly.periodEvents?.events.length);
+    assert.ok(localContexts.monthly.periodEvents?.events.length);
+    assert.ok(localContexts.daily.periodEvents?.events.length);
+
+    assert.equal(DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS, 7);
+    const expectedRanges = {
+      yearly: {
+        dateStr: '2028',
+        startDate: '2028-01-01',
+        endDate: '2029-01-01',
+        days: 366,
+        requests: 53,
+      },
+      monthly: {
+        dateStr: '2028-06',
+        startDate: '2028-06-01',
+        endDate: '2028-07-01',
+        days: 30,
+        requests: 5,
+      },
+      daily: {
+        dateStr: '2028-06-12',
+        startDate: '2028-06-12',
+        endDate: '2028-06-13',
+        days: 1,
+        requests: 1,
+      },
+    } as const;
+    assert.deepEqual([...periodRequests.keys()], expectedScopes);
+    for (const scope of expectedScopes) {
+      const expected = expectedRanges[scope as keyof typeof expectedRanges];
+      const requests = periodRequests.get(scope) ?? [];
+      assert.equal(requests.length, expected.requests);
+      assert.equal(requests[0]?.startDate, expected.startDate);
+      let nextStart = expected.startDate;
+      for (const [index, range] of requests.entries()) {
+        assert.equal(range.startDate, nextStart);
+        const elapsedDays = index * DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS;
+        const expectedBatchDays = Math.min(
+          DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS,
+          expected.days - elapsedDays,
+        );
+        const actualBatchDays =
+          (Date.parse(`${range.endDate}T00:00:00Z`) - Date.parse(`${range.startDate}T00:00:00Z`)) /
+          86_400_000;
+        assert.equal(actualBatchDays, expectedBatchDays);
+        nextStart = range.endDate;
+      }
+      assert.equal(nextStart, expected.endDate);
+    }
+    assert.equal(baseCount, requestsBeforeLocal.baseCount);
+    assert.deepEqual(Object.fromEntries(periodRequests), requestsBeforeLocal.periodRequests);
+    assert.equal(baseCount, 1);
+    const periodRequestCount = [...periodRequests.values()].reduce(
+      (total, requests) => total + requests.length,
+      0,
+    );
+    assert.equal(periodRequestCount, 59);
+    assert.equal(baseCount + periodRequestCount, 60);
   } finally {
-    globalThis.fetch = originalFetch;
+    globalThis.fetch = previousFetch;
     if (originalWorker) Object.defineProperty(globalThis, 'Worker', originalWorker);
   }
 });
@@ -244,14 +386,26 @@ function makeBatchResponse(
 
 test('星盘周期客户端按七个民用日顺序取齐并跨批重建完整层级', async () => {
   const requests: string[] = [];
-  const collection = await fetchAstrolabePeriodCollection({
-    scope: 'monthly',
+  const lockedContext = structuredClone(periodContext);
+  const controller = new AbortController();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const args = {
+    scope: 'monthly' as const,
     dateStr: '2028-06',
-    periodContext,
+    periodContext: lockedContext,
+    signal: controller.signal,
     batchDays: DEFAULT_ASTROLABE_PERIOD_BATCH_DAYS,
-    fetchBatch: async (input) => {
+    fetchBatch: async (input: Record<string, unknown>, signal?: AbortSignal) => {
       const range = input.astrolabePeriodRange as { startDate: string; endDate: string };
       requests.push(`${range.startDate}/${range.endDate}`);
+      assert.equal(signal, controller.signal);
+      assert.equal(input.astrolabeScope, 'monthly');
+      assert.equal(input.astrolabeScopeDate, '2028-06');
+      assert.deepEqual(input.astrolabePeriodContext, periodContext);
+      if (requests.length === 1) await gate;
       const parentRange = { startDate: '2028-06-01', endDate: '2028-07-01' };
       const nextRange =
         range.endDate === parentRange.endDate
@@ -272,7 +426,20 @@ test('星盘周期客户端按七个民用日顺序取齐并跨批重建完整�
         nextRange,
       );
     },
-  });
+  };
+  const pending = fetchAstrolabePeriodCollection(args);
+  args.dateStr = '2029-06';
+  lockedContext.timezone = 0;
+  lockedContext.points[0].longitude = 99;
+  lockedContext.houseCusps[0] = 123;
+  args.fetchBatch = async () => {
+    throw new Error('不应改用后来的批次读取器');
+  };
+  release();
+  const collection = await pending;
+  assert.equal(args.dateStr, '2029-06');
+  assert.equal(lockedContext.points[0].longitude, 99);
+  assert.equal(lockedContext.houseCusps[0], 123);
 
   assert.deepEqual(requests, [
     '2028-06-01/2028-06-08',
@@ -340,6 +507,41 @@ test('星盘周期分批遵从同一 AbortSignal，取消时不返回部分集�
     }),
     (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
   );
+
+  const finalController = new AbortController();
+  let finalBatchCalls = 0;
+  const progress: Array<[number, number]> = [];
+  const finalArgs = {
+    scope: 'daily' as const,
+    dateStr: '2028-06-12',
+    periodContext,
+    signal: finalController.signal,
+    onProgress(completed: number, total: number) {
+      progress.push([completed, total]);
+      finalArgs.signal = new AbortController().signal;
+      finalController.abort();
+    },
+    fetchBatch: async (_input: Record<string, unknown>, signal?: AbortSignal) => {
+      finalBatchCalls += 1;
+      assert.equal(signal, finalController.signal);
+      return makeBatchResponse(
+        'daily',
+        '2028-06-12',
+        '2028-06-12',
+        '2028-06-13',
+        { startDate: '2028-06-12', endDate: '2028-06-13' },
+        null,
+      );
+    },
+  };
+  await assert.rejects(fetchAstrolabePeriodCollection(finalArgs), {
+    name: 'AbortError',
+    message: '已停止解读',
+  });
+  assert.equal(finalBatchCalls, 1);
+  assert.deepEqual(progress, [[1, 1]]);
+  assert.equal(finalController.signal.aborted, true);
+  assert.equal(finalArgs.signal.aborted, false);
 });
 
 function createAstrolabeResult() {
@@ -391,7 +593,10 @@ function createAstrolabeResult() {
     },
     planets: points,
     angles: [makePoint('Ascendant', 120), makePoint('Midheaven', 210)],
-    houses: Array.from({ length: 12 }, (_, index) => makePoint(`House ${index + 1}`, index * 30)),
+    houses: Array.from({ length: 12 }, (_, index) => ({
+      ...makePoint(`House ${index + 1}`, index * 30),
+      house: index + 1,
+    })),
     aspects: [],
     summary: { elements: {}, modalities: {}, retrograde: [], patterns: [] },
     timestamp: 0,

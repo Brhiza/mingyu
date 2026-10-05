@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateSeasonInfoFromDate } from '@core/bazi/baziCalculatorTime';
-import { calculateSolarTermEvidence } from '@core/calendar/solar-term-evidence';
+import {
+  calculateSolarTermEvidence,
+  calculateSolarTermsForYear,
+} from '@core/calendar/solar-term-evidence';
 
 function chartAt(timestamp: number) {
   const civil = new Date(timestamp + 8 * 3600000);
@@ -38,8 +41,7 @@ test('完整排盘的共用节气事实保留交接前后一秒、冬至跨年�
         const civilYear = new Date(instant + 8 * 3600000).getUTCFullYear();
         assert.deepEqual(
           seasonInfo.jieqiList,
-          Array.from({ length: 24 }, (_, i) => {
-            const expected = termAt(civilYear, i);
+          calculateSolarTermsForYear(civilYear).map((expected) => {
             const date = new Date(expected.utcTimestamp + 8 * 3600000).toISOString().slice(0, 10);
             return { name: expected.name, date };
           }),

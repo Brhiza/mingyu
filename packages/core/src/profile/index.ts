@@ -12,6 +12,7 @@ import {
   type TrueSolarTimeEvidenceFields,
 } from '../calendar/true-solar-time';
 import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils';
+import { resolveChinaStandardBirthTime } from '../calendar/china-dst';
 import { baziCalculator } from '../bazi/baziCalculator';
 import type { BaziChartResult, Person } from '../bazi/baziTypes';
 import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divination';
@@ -87,6 +88,7 @@ export interface BirthProfile {
   minute?: number;
   /** 明确传统时辰索引，范围 0-12；未启用真太阳时时可替代精准时分。 */
   timeIndex?: number;
+  /** 出生秒数；需与完整的 hour、minute 同时提供。 */
   second?: number;
   isLeapMonth?: boolean;
   location?: BirthProfileLocation;
@@ -100,6 +102,7 @@ export type BirthProfileDiagnosticCode =
   | 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME'
   | 'LOCATION_NOT_FOUND'
   | 'LOCATION_COORDINATES_REQUIRED'
+  | 'TIMEZONE_REQUIRED'
   | 'LATITUDE_REQUIRED'
   | 'GENDER_REQUIRED'
   | 'TIME_REQUIRED'
@@ -119,6 +122,7 @@ export interface NormalizedBirthProfile {
   timeInputMode: BirthTimeInputMode;
   timePrecision: BirthTimePrecision;
   usedTrueSolarTime: boolean;
+  usedChinaDstCorrection: boolean;
   trueSolarEvidence?: TrueSolarTimeEvidenceFields;
   timeEvidence: BirthTimeEvidence;
   diagnostics: BirthProfileDiagnostic[];
@@ -150,6 +154,27 @@ function assertFiniteInRange(value: number, label: string, min: number, max: num
   }
 }
 
+function assertBirthProfileLocationShape(location: BirthProfileLocation): void {
+  if (!location || typeof location !== 'object' || Array.isArray(location)) {
+    throw new TypeError('出生地点必须是地点资料对象。');
+  }
+  if (location.longitude !== undefined) {
+    assertFiniteInRange(location.longitude, '出生地经度', -180, 180);
+  }
+  if (location.latitude !== undefined) {
+    assertFiniteInRange(location.latitude, '出生地纬度', -90, 90);
+  }
+  if (location.timezone !== undefined) {
+    assertFiniteInRange(location.timezone, '时区', -12, 14);
+  }
+  if (
+    location.timeZoneId !== undefined &&
+    (typeof location.timeZoneId !== 'string' || !location.timeZoneId.trim())
+  ) {
+    throw new TypeError('IANA 时区名不能为空。');
+  }
+}
+
 function assertProfileShape(profile: BirthProfile): void {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new TypeError('出生档案必须是对象。');
@@ -163,22 +188,14 @@ function assertProfileShape(profile: BirthProfile): void {
   assertIntegerInRange(profile.year, '出生年份', 1900, 2100);
   assertIntegerInRange(profile.month, '出生月份', 1, 12);
   assertIntegerInRange(profile.day, '出生日期', 1, 31);
-  if (profile.location) {
-    if (profile.location.longitude !== undefined) {
-      assertFiniteInRange(profile.location.longitude, '出生地经度', -180, 180);
-    }
-    if (profile.location.latitude !== undefined) {
-      assertFiniteInRange(profile.location.latitude, '出生地纬度', -90, 90);
-    }
-    if (profile.location.timezone !== undefined) {
-      assertFiniteInRange(profile.location.timezone, '时区', -12, 14);
-    }
-    if (
-      profile.location.timeZoneId !== undefined &&
-      (typeof profile.location.timeZoneId !== 'string' || !profile.location.timeZoneId.trim())
-    ) {
-      throw new TypeError('IANA 时区名不能为空。');
-    }
+  if (profile.location !== undefined) {
+    assertBirthProfileLocationShape(profile.location);
+  }
+  if (profile.useTrueSolarTime !== undefined && typeof profile.useTrueSolarTime !== 'boolean') {
+    throw new TypeError('useTrueSolarTime 必须是布尔值。');
+  }
+  if (profile.applyChinaDst !== undefined && typeof profile.applyChinaDst !== 'boolean') {
+    throw new TypeError('applyChinaDst 必须是布尔值。');
   }
 }
 
@@ -186,10 +203,11 @@ function assertProfileShape(profile: BirthProfile): void {
 export function resolveBirthProfileLocation(
   location?: BirthProfileLocation,
 ): ResolvedBirthProfileLocation | undefined {
-  if (!location) return undefined;
+  if (location === undefined) return undefined;
+  assertBirthProfileLocationShape(location);
   const region = location.regionId ? resolveBirthPlace(location.regionId) : null;
 
-  if (location.regionId && !region && location.longitude === undefined) {
+  if (location.regionId && !region) {
     throw new BirthProfileError({
       code: 'LOCATION_NOT_FOUND',
       level: 'error',
@@ -203,6 +221,14 @@ export function resolveBirthProfileLocation(
       level: 'error',
       field: 'location.longitude',
       message: '出生地点需要提供有效行政区代码或经度。',
+    });
+  }
+  if (location.timezone === undefined && !location.timeZoneId && !region) {
+    throw new BirthProfileError({
+      code: 'TIMEZONE_REQUIRED',
+      level: 'error',
+      field: 'location.timezone',
+      message: '自定义出生地点需要提供 timezone 或 timeZoneId。',
     });
   }
 
@@ -220,7 +246,7 @@ export function resolveBirthProfileLocation(
     name: location.name ?? region?.displayName,
     longitude: location.longitude ?? region!.longitude,
     latitude,
-    timezone: location.timezone ?? (location.timeZoneId ? undefined : (region?.timezone ?? 8)),
+    timezone: location.timezone ?? (location.timeZoneId ? undefined : region?.timezone),
     ...(location.timeZoneId ? { timeZoneId: location.timeZoneId.trim() } : {}),
     coordinateAccuracy,
   };
@@ -260,6 +286,13 @@ function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
       'TIME_REQUIRED',
       '出生小时和分钟必须同时提供；也可以改为只提供明确的传统时辰。',
       hasHour ? 'minute' : 'hour',
+    );
+  }
+  if (profile.second !== undefined && !hasPreciseTime) {
+    throwBirthTimeError(
+      'PRECISE_TIME_REQUIRED',
+      '出生秒数必须与完整的出生小时和分钟同时提供。',
+      'second',
     );
   }
   if (!hasPreciseTime && !hasTimeIndex) {
@@ -408,6 +441,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       timeInputMode: timeInput.inputMode,
       timePrecision: timeEvidence.precision,
       usedTrueSolarTime: true,
+      usedChinaDstCorrection: resolved.chinaDst.applied,
       trueSolarEvidence,
       timeEvidence,
       diagnostics,
@@ -424,7 +458,23 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     second,
     isLeapMonth: profile.isLeapMonth,
   });
-  const selectedShichen = getShichenByIndex(timeInput.timeIndex);
+  // 仅精准钟表时间可还原历史夏令时的唯一瞬时；传统时辰没有可校正的分钟。
+  const standardBirthTime =
+    timeInput.inputMode === 'precise-clock-time'
+      ? resolveChinaStandardBirthTime({
+          ...solarClockTime,
+          timezone: resolvedLocation?.timezone,
+          timeZoneId: resolvedLocation?.timeZoneId,
+          applyChinaDst: profile.applyChinaDst,
+        })
+      : undefined;
+  const usedChinaDstCorrection = standardBirthTime?.usedChinaDstCorrection === true;
+  const effectiveTime = standardBirthTime?.effectiveTime ?? solarClockTime;
+  const selectedShichen = getShichenByIndex(
+    usedChinaDstCorrection
+      ? getTimeIndexFromClock(effectiveTime.hour, effectiveTime.minute)
+      : timeInput.timeIndex,
+  );
   if (!selectedShichen) throw new Error('出生时辰状态异常。');
   const timeEvidence = buildBirthTimeEvidence({
     inputMode: timeInput.inputMode,
@@ -440,7 +490,16 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     inputSecond: profile.second,
     selectedShichen,
     solarClockTime,
-    effectiveTime: solarClockTime,
+    effectiveTime,
+    ...(usedChinaDstCorrection
+      ? {
+          chinaDstEvidence: {
+            offsetMinutes: -60,
+            standardTimezone: 8,
+            utcDateTime: standardBirthTime!.utcDateTime,
+          },
+        }
+      : {}),
     usedTrueSolarTime: false,
     requestedTrueSolarTime: profile.useTrueSolarTime ?? false,
     diagnostics,
@@ -449,11 +508,12 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     profile,
     resolvedLocation,
     solarClockTime,
-    effectiveTime: solarClockTime,
-    timeIndex: timeInput.timeIndex,
+    effectiveTime,
+    timeIndex: selectedShichen.index,
     timeInputMode: timeInput.inputMode,
     timePrecision: timeEvidence.precision,
     usedTrueSolarTime: false,
+    usedChinaDstCorrection,
     timeEvidence,
     diagnostics,
   };
@@ -524,13 +584,14 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
   requireReady(normalized, genderDiagnostic);
 
   const useTrueSolarTime = profile.useTrueSolarTime === true;
-  const date = useTrueSolarTime ? normalized.effectiveTime : undefined;
+  const date =
+    useTrueSolarTime || normalized.usedChinaDstCorrection ? normalized.effectiveTime : undefined;
   const preciseBirthTime =
     normalized.timeInputMode === 'precise-clock-time' ? normalized.effectiveTime : undefined;
   return {
     name: profile.name ?? '',
     gender: profile.gender === 'male' ? '男' : '女',
-    dateType: useTrueSolarTime ? 'solar' : profile.calendarType,
+    dateType: date ? 'solar' : profile.calendarType,
     birthDate: date
       ? formatBirthDate(date.year, date.month, date.day)
       : formatBirthDate(profile.year, profile.month, profile.day),
@@ -545,7 +606,7 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
         }
       : {}),
     trueSolarEvidence: normalized.trueSolarEvidence,
-    isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
+    isLeapMonth: date ? false : profile.isLeapMonth,
     fixLeap: true,
     algorithm: 'default',
     yearDivide: 'normal',
@@ -587,7 +648,10 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
         }
       : undefined;
   requireReady(normalized, preciseTimeDiagnostic ?? locationDiagnostic ?? genderDiagnostic);
-  const clock = normalized.solarClockTime;
+  const clock =
+    profile.useTrueSolarTime || location?.timeZoneId
+      ? normalized.solarClockTime
+      : normalized.effectiveTime;
   if (!location || location.latitude === undefined) throw new Error('出生地状态异常。');
   return {
     name: profile.name ?? '',
@@ -612,15 +676,34 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
 /**
  * 将统一出生档案转换为七政四余输入。
  *
- * 七政四余只接受公历时刻，因此农历档案先沿用统一档案的公历钟表时间。
- * 启用真太阳时后，把原始民用时间交给七政四余自身校正，避免重复校正；
- * 这与八字、紫微适配器的输出口径不同，调用方不应混用已校正时间。
+ * 七政四余只接受公历时刻。IANA 时区模式传原始民用钟表时间，由引擎解析
+ * 历史法定偏移；固定偏移模式先还原中国历史夏令时的标准时间。
  */
 export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput {
   const normalized = normalizeBirthProfile(profile);
-  requireReady(normalized);
-  const clock = normalized.solarClockTime;
+  const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
+    normalized.timeInputMode !== 'precise-clock-time'
+      ? {
+          code: 'PRECISE_TIME_REQUIRED',
+          level: 'error',
+          field: 'hour',
+          message: '七政四余必须提供精确到分钟的出生时间，不能使用传统时辰代表值。',
+        }
+      : undefined;
+  requireReady(normalized, preciseTimeDiagnostic);
   const location = normalized.resolvedLocation;
+  const clock =
+    profile.useTrueSolarTime || location?.timeZoneId
+      ? normalized.solarClockTime
+      : normalized.effectiveTime;
+  if (!location || location.latitude === undefined) {
+    throw new BirthProfileError({
+      code: 'LATITUDE_REQUIRED',
+      level: 'error',
+      field: 'location.latitude',
+      message: '七政四余必须提供出生地经纬度或可解析的行政区代码。',
+    });
+  }
   return {
     year: clock.year,
     month: clock.month,
@@ -628,10 +711,11 @@ export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput 
     hour: clock.hour,
     minute: clock.minute,
     second: clock.second,
-    ...(location?.latitude !== undefined ? { latitude: location.latitude } : {}),
-    ...(location?.longitude !== undefined ? { longitude: location.longitude } : {}),
-    ...(location?.timezone !== undefined ? { timezone: location.timezone } : {}),
-    ...(location?.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
+    latitude: location.latitude,
+    longitude: location.longitude,
+    ...(location.coordinateAccuracy ? { coordinateAccuracy: location.coordinateAccuracy } : {}),
+    ...(location.timezone !== undefined ? { timezone: location.timezone } : {}),
+    ...(location.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
     useTrueSolarTime: profile.useTrueSolarTime === true,
     ...(profile.gender === 'male' || profile.gender === 'female' ? { gender: profile.gender } : {}),
   };
@@ -653,21 +737,21 @@ export function birthProfileToAlmanacParticipant(
         }
       : undefined;
   requireReady(normalized, genderDiagnostic);
-  const clock = normalized.solarClockTime;
   const effective = normalized.effectiveTime;
   const useTrueSolarTime = profile.useTrueSolarTime === true;
   const location = normalized.resolvedLocation;
-  // 择日算法接收的是参与人最终四柱；真太阳时已在统一档案中校正，输出校正后的精确公历时刻，避免重复校正。
-  const participantTime = useTrueSolarTime ? effective : clock;
+  // 展示字段使用校正时间；真太阳时原始钟表记录另用于按真实瞬时判定节令。
+  const participantTime = effective;
+  const useCorrectedDate = useTrueSolarTime || normalized.usedChinaDstCorrection;
   return {
     id,
     name: profile.name ?? '参与人',
     gender: profile.gender === 'male' ? '男' : '女',
-    year: String(useTrueSolarTime ? effective.year : profile.year),
-    month: String(useTrueSolarTime ? effective.month : profile.month),
-    day: String(useTrueSolarTime ? effective.day : profile.day),
+    year: String(useCorrectedDate ? effective.year : profile.year),
+    month: String(useCorrectedDate ? effective.month : profile.month),
+    day: String(useCorrectedDate ? effective.day : profile.day),
     timeIndex: String(normalized.timeIndex),
-    dateType: useTrueSolarTime ? 'solar' : profile.calendarType,
+    dateType: useCorrectedDate ? 'solar' : profile.calendarType,
     ...(normalized.timeInputMode === 'precise-clock-time'
       ? {
           birthHour: String(participantTime.hour),
@@ -677,5 +761,10 @@ export function birthProfileToAlmanacParticipant(
       : {}),
     ...(location?.name ? { birthPlace: location.name } : {}),
     ...(location?.longitude !== undefined ? { birthLongitude: String(location.longitude) } : {}),
+    ...(!useCorrectedDate && location?.timezone !== undefined
+      ? { timezone: location.timezone }
+      : {}),
+    ...(!useCorrectedDate && location?.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
+    ...(useTrueSolarTime ? { originalTrueSolarProfile: profile } : {}),
   };
 }

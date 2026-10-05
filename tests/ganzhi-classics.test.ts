@@ -1,5 +1,9 @@
+import * as relationTables from '../packages/core/src/ganzhi/relations.ts';
+import { describeGanZhi } from '../packages/core/src/ganzhi/index.ts';
 import { getNayin, getNayinWuxing } from '../packages/core/src/ganzhi/index.ts';
 import { NAYIN_MAP } from '../packages/core/src/ganzhi/data.ts';
+import { TIME_MAP } from '../packages/core/src/bazi/baziDisplayData.ts';
+import { SEASON_STATUS } from '../packages/core/src/bazi/baziElementData.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getStemWuxing, getBranchWuxing, isLiuhe } from '../packages/core/src/ganzhi/index.ts';
@@ -32,6 +36,60 @@ test('十二支递刑方向与星历考原一致，相刑关系与六冲六害�
       assert.equal(isLiuhai(a, b), harms.includes(a + b) || harms.includes(b + a), `${a}${b}害`);
     }
   }
+
+  const captureRelations = () => ({
+    profiles: [describeGanZhi('甲子'), describeGanZhi('甲寅')],
+    season: relationTables.getSeasonState('水', '子'),
+    sanhe: relationTables.isCompleteSanhe(['申', '子', '辰']),
+    halfSanhe: relationTables.isHalfSanhe(['申', '子']),
+    sanhui: relationTables.isCompleteSanhui(['亥', '子', '丑']),
+    sheng: relationTables.isSheng('水', '木'),
+    ke: relationTables.isKe('水', '火'),
+    liuhe: relationTables.isLiuhe('子', '丑'),
+    liuchong: relationTables.isLiuchong('子', '午'),
+    liuhai: relationTables.isLiuhai('子', '未'),
+    liupo: relationTables.isLiupo('子', '酉'),
+    tianganHe: relationTables.isTianGanHe('甲', '己'),
+  });
+  const baselineRelations = structuredClone(captureRelations());
+  assert.equal(baselineRelations.profiles[0].branch.wuxing, '水');
+  assert.deepEqual(baselineRelations.profiles[0].branch.hiddenStems, ['癸']);
+  assert.deepEqual(baselineRelations.profiles[0].branch.sanhe?.partners, ['申', '辰']);
+  assert.equal(baselineRelations.profiles[0].stem.combine, '己');
+  assert.equal(baselineRelations.season, '旺');
+  assert.equal(baselineRelations.sanhe, '水局');
+  assert.equal(baselineRelations.sanhui, '北方水');
+  const edits = [
+    [relationTables.BRANCH_WUXING, '子', '木'],
+    [relationTables.MONTH_LING_WUXING, '子', '木'],
+    [relationTables.LIUHE_MAP, '子', '未'],
+    [relationTables.LIUHE_WUXING, '子', '木'],
+    [relationTables.SANHE_GROUPS.水局, 0, '卯'],
+    [relationTables.BRANCH_SANHE.子.partners, 0, '卯'],
+    [relationTables.SANHUI_GROUPS.北方水, 0, '巳'],
+    [relationTables.LIUHAI_MAP, '子', '丑'],
+    [relationTables.LIUCHONG_MAP, '子', '丑'],
+    [relationTables.LIUPO_MAP, '子', '丑'],
+    [relationTables.ANHE_MAP, '寅', '辰'],
+    [relationTables.SANXING_MAP, '子', '辰'],
+    [relationTables.BRANCH_SANXING.子, 0, '辰'],
+    [relationTables.BRANCH_HIDDEN_STEMS.子, 0, '壬'],
+    [relationTables.TIAN_GAN_HE.甲, 'partner', '乙'],
+    [relationTables.TIAN_GAN_CHONG, '甲', '乙'],
+    [relationTables.SHENG_MAP, '水', '土'],
+    [relationTables.KE_MAP, '水', '木'],
+  ] as const;
+  const saved = edits.map(([target, key]) => Reflect.get(target, key));
+  try {
+    for (const [target, key, value] of edits) {
+      assert.equal(Reflect.set(target, key, value), true);
+      assert.equal(Reflect.get(target, key), value);
+    }
+    assert.deepEqual(captureRelations(), baselineRelations);
+  } finally {
+    edits.forEach(([target, key], index) => Reflect.set(target, key, saved[index]));
+  }
+  assert.deepEqual(captureRelations(), baselineRelations);
 });
 
 test('十二支藏干集合与选择天镜支神藏干表一致，主气单独核验', () => {
@@ -56,6 +114,38 @@ test('十二支藏干集合与选择天镜支神藏干表一致，主气单独�
 });
 
 test('干支五行与六合逐项对应《渊海子平》基础表', () => {
+  assert.deepEqual(
+    TIME_MAP.map(({ index, name, range, hour, minute }) => [index, name, range, hour, minute]),
+    [
+      [0, '早子时', '00:00-01:00', 0, 30],
+      [1, '丑时', '01:00-03:00', 2, 0],
+      [2, '寅时', '03:00-05:00', 4, 0],
+      [3, '卯时', '05:00-07:00', 6, 0],
+      [4, '辰时', '07:00-09:00', 8, 0],
+      [5, '巳时', '09:00-11:00', 10, 0],
+      [6, '午时', '11:00-13:00', 12, 0],
+      [7, '未时', '13:00-15:00', 14, 0],
+      [8, '申时', '15:00-17:00', 16, 0],
+      [9, '酉时', '17:00-19:00', 18, 0],
+      [10, '戌时', '19:00-21:00', 20, 0],
+      [11, '亥时', '21:00-23:00', 22, 0],
+      [12, '晚子时', '23:00-24:00', 23, 30],
+    ],
+  );
+  assert.deepEqual(SEASON_STATUS, {
+    寅: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
+    卯: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
+    辰: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    巳: { 火: '旺', 土: '相', 金: '死', 水: '囚', 木: '休' },
+    午: { 火: '旺', 土: '相', 金: '死', 水: '囚', 木: '休' },
+    未: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    申: { 金: '旺', 水: '相', 木: '死', 火: '囚', 土: '休' },
+    酉: { 金: '旺', 水: '相', 木: '死', 火: '囚', 土: '休' },
+    戌: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+    亥: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
+    子: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
+    丑: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
+  });
   const groups = {
     木: '甲乙寅卯',
     火: '丙丁巳午',
@@ -77,14 +167,11 @@ test('干支五行与六合逐项对应《渊海子平》基础表', () => {
     for (const b of branches) {
       assert.equal(isLiuhe(a, b), pairs.includes(a + b) || pairs.includes(b + a), a + b);
     }
-  let valid = 0;
   for (let i = 0; i < 10; i++)
     for (let j = 0; j < 12; j++) {
       const expected = i % 2 === j % 2;
       assert.equal(isValidGanZhi(stems[i] + branches[j]), expected);
-      if (expected) valid++;
     }
-  assert.equal(valid, 60);
 });
 
 test('六十甲子纳音五行逐对符合《碎金》乾象篇', () => {

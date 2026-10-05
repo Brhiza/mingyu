@@ -12,7 +12,7 @@ export interface LiuyaoCategoryChapter {
 /**
  * 六爻《黄金策》《增删卜易》《卜筮正宗》《断易天机》经典动爻与神煞断语全库
  */
-export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
+const CANONICAL_LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   // 六亲发动
   parent_active: {
     key: 'parent_active',
@@ -262,10 +262,12 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   },
 };
 
+export const LIUYAO_MOVEMENT_RULES = structuredClone(CANONICAL_LIUYAO_MOVEMENT_RULES);
+
 /**
  * 六爻分类占断《黄金策·分类篇》经典古训
  */
-export const LIUYAO_CATEGORY_CHAPTERS: LiuyaoCategoryChapter[] = [
+const CANONICAL_LIUYAO_CATEGORY_CHAPTERS: LiuyaoCategoryChapter[] = [
   {
     category: 'wealth',
     title: '黄金策 · 求财篇',
@@ -333,12 +335,14 @@ export const LIUYAO_CATEGORY_CHAPTERS: LiuyaoCategoryChapter[] = [
   },
 ];
 
+export const LIUYAO_CATEGORY_CHAPTERS = structuredClone(CANONICAL_LIUYAO_CATEGORY_CHAPTERS);
+
 import type { LiuyaoChishiClassic } from './types';
 
 /**
  * 《卜筮正宗》《增删卜易》六亲持世歌诀全解
  */
-export const LIUYAO_CHISHI_TABLE: Record<string, LiuyaoChishiClassic> = {
+const CANONICAL_LIUYAO_CHISHI_TABLE: Record<string, LiuyaoChishiClassic> = {
   父母: {
     relation: '父母',
     sourceBook: '卜筮正宗·持世篇',
@@ -376,24 +380,31 @@ export const LIUYAO_CHISHI_TABLE: Record<string, LiuyaoChishiClassic> = {
   },
 };
 
+export const LIUYAO_CHISHI_TABLE = structuredClone(CANONICAL_LIUYAO_CHISHI_TABLE);
+
 export function getLiuyaoChishiClassic(sixRelation: string): LiuyaoChishiClassic | undefined {
   if (!sixRelation) return undefined;
   const clean = sixRelation.replace(/爻$/, '').slice(0, 2);
-  return LIUYAO_CHISHI_TABLE[clean] || LIUYAO_CHISHI_TABLE[sixRelation];
+  const key = [clean, sixRelation].find((value) =>
+    Object.hasOwn(CANONICAL_LIUYAO_CHISHI_TABLE, value),
+  );
+  return key === undefined ? undefined : structuredClone(CANONICAL_LIUYAO_CHISHI_TABLE[key]);
 }
 
 export function getLiuyaoMovementRule(key: string): LiuyaoMovementRule | undefined {
-  return LIUYAO_MOVEMENT_RULES[key];
+  return Object.hasOwn(CANONICAL_LIUYAO_MOVEMENT_RULES, key)
+    ? structuredClone(CANONICAL_LIUYAO_MOVEMENT_RULES[key])
+    : undefined;
 }
 
 export function getAllLiuyaoMovementRules(): LiuyaoMovementRule[] {
-  return Object.values(LIUYAO_MOVEMENT_RULES);
+  return structuredClone(Object.values(CANONICAL_LIUYAO_MOVEMENT_RULES));
 }
 
 export function getLiuyaoCategoryChapter(category: string): LiuyaoCategoryChapter | undefined {
-  return LIUYAO_CATEGORY_CHAPTERS.find((c) => c.category === category);
+  return structuredClone(CANONICAL_LIUYAO_CATEGORY_CHAPTERS.find((c) => c.category === category));
 }
 
 export function getAllLiuyaoCategoryChapters(): LiuyaoCategoryChapter[] {
-  return LIUYAO_CATEGORY_CHAPTERS;
+  return structuredClone(CANONICAL_LIUYAO_CATEGORY_CHAPTERS);
 }

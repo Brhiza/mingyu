@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'shen-month-wu-bing-gui-jia-first',
+    label: '戊日申月先丙后癸甲木次之规则',
+    description: '七月戊土寒气渐出，原文先丙火、后癸水，甲木次之；三干透藏决定成格层次。',
+    priority: 115,
+    months: ['申'],
+    dayMasters: ['土'],
+    dayStems: ['戊'],
+    usefulWuxing: '火',
+    favorableOrder: ['火', '水', '木'],
+    hint: '戊土申月，先丙后癸，甲木次之',
+  },
+  {
     id: 'shen-month-wu-bing-gui-jia-all',
     label: '戊日申月丙癸甲全透极品规则',
     description: '戊土生申月，若丙癸甲齐透，传统多断富贵极品，不宜与单透或缺透同论。',
@@ -49,7 +61,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
       {
         stems: ['癸', '甲'],
         maxDistinctCount: 0,
-        scope: 'visible',
+        scope: 'total',
       },
     ],
     usefulWuxing: '火',
@@ -69,7 +81,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
       {
         stems: ['丙', '癸', '甲'],
         maxDistinctCount: 0,
-        scope: 'visible',
+        scope: 'total',
       },
     ],
     usefulWuxing: '火',

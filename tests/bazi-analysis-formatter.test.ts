@@ -2,27 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt, formatPatternBasisForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import {
+  formatPatternBasisForPrompt as formatEnhancedPatternBasis,
+  generateEnhancedAnalysisSection,
+} from '@core/bazi/baziPromptEnhancement';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
+import { analyzeBaziNatalEvidence, formatNatalPatternFacts } from '@core/bazi/natalEvidence';
 
-test('命盘基础提示词默认不展开完整大运流年', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1995,
-    month: 8,
-    day: 15,
-    timeIndex: 6,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
-  const text = formatBaziForPrompt(result);
-
-  assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
-});
-
-test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
+test('核心判断与提示词应保留本盘旺衰、格局、取用和柱位证据', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 8,
@@ -35,57 +23,30 @@ test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
   });
 
   const text = formatBaziForPrompt(result);
+  const originalPattern = structuredClone(result.analysis.mingGe);
+  const patternBasis = formatPatternBasisForPrompt(originalPattern.basis!);
 
   assert.match(text, /【核心判断】/);
-  assert.match(text, /旺衰: /);
-  assert.match(text, /格局: /);
   assert.match(text, /取用: 主用/);
   assert.match(text, /；忌/);
-  assert.match(text, /旺衰: [^\n]+（[^\n]+）/);
   assert.match(text, /格局: [^\n]+（[^\n]+）/);
-  assert.match(text, /取用依据:/);
+  assert.match(text, /取用主线:/);
+  assert.doesNotMatch(text, /取用依据:/);
   assert.match(text, /【五行】/);
   assert.doesNotMatch(text, /旺衰[^\n]*得分|旺衰拆分:[^\n]*[+-]?\d/);
   assert.doesNotMatch(text, /喜忌五行:|喜忌十神:|十神归类:|取用脉络:/);
-});
-
-test('核心判断应保留完整旺衰裁决并同时呈现特殊格与常规格局成败', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1995,
-    month: 8,
-    day: 15,
-    timeIndex: 8,
-    gender: 'female',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
   const ruleBasis = result.analysis.dayMasterStrength.details.ruleBasis;
   assert.ok(ruleBasis.length > 1);
-  const text = formatBaziForPrompt(result);
-
-  for (const fact of ruleBasis) {
-    assert.ok(text.includes(fact), `旺衰裁决依据未完整输出：${fact}`);
-  }
-  assert.match(text, /特殊格裁决：从儿格不成立/);
-  assert.match(text, /所取格局：食神格；当前成败判定：成格/);
-});
-
-test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1995,
-    month: 8,
-    day: 15,
-    timeIndex: 8,
-    gender: 'female',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
-  const text = formatBaziForPrompt(result);
-
+  const strength = result.analysis.dayMasterStrength.details;
+  assert.match(text, /旺衰: [^\n]+（月令[^\n]+；司令[^\n]+；(?:有根|无根)；成局[^\n]+）/);
+  assert.match(text, new RegExp(`月令${strength.seasonalEffect}`));
+  assert.match(text, new RegExp(`司令${strength.commanderEffect}`));
+  assert.match(text, new RegExp(`成局${strength.formationEffect}`));
+  assert.ok(ruleBasis.some((fact) => !text.includes(fact)));
+  assert.doesNotMatch(text, /特殊格裁决：从儿格不成立|特殊格反证：/);
+  assert.match(text, /格局: 食神格/);
+  assert.match(text, /^当前成败判定：成格/m);
+  assert.doesNotMatch(text, /所取格局：/);
   assert.match(text, /出生历法: 阳历1995年8月15日 \| 农历/);
   assert.doesNotMatch(text, /星座:/);
   assert.match(text, /节令: 秋令 \| 立秋后7天 \| 距处暑8天/);
@@ -99,6 +60,61 @@ test('八字提示词资料包应输出已计算出的传统节令与柱位证�
   assert.match(text, /自坐: 绝/);
   assert.match(text, /旬空: 申、酉/);
   assert.doesNotMatch(text, /特殊宫位:|日主十二运:/);
+  assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
+  const schoolChart = formatBaziForPrompt(result, null, 'school');
+  assert.equal(schoolChart.split(patternBasis).length - 1, 1);
+  assert.ok(
+    schoolChart
+      .split('\n')
+      .find((line) => line.startsWith('格局: '))
+      ?.includes(patternBasis),
+  );
+  assert.deepEqual(result.analysis.mingGe, originalPattern);
+
+  assert.equal(formatPatternBasisForPrompt, formatEnhancedPatternBasis);
+  const curve = baziCalculator.calculateBazi({
+    year: 2023,
+    month: 12,
+    day: 3,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+    useTrueSolarTime: false,
+  });
+  assert.equal(curve.analysis.mingGe.specialAdjudication?.status, '成立');
+  const originalCurvePattern = structuredClone(curve.analysis.mingGe);
+  const enhanced = generateEnhancedAnalysisSection(curve);
+  assert.match(
+    enhanced,
+    /【经典格局】曲直格；《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论/,
+  );
+  assert.doesNotMatch(enhanced, /木局成员藏干如实保留：|无半分庚辛之气|按张楠按语核局外支/);
+  assert.match(enhanced, /地支成亥卯未三合（已成势）/);
+  assert.match(enhanced, /日柱未与时柱午（地支只论相合）：合而不化/);
+  const curveFact = analyzeBaziNatalEvidence(curve).analysisFacts.find(
+    (fact) => fact.type === '格局',
+  );
+  assert.ok(curveFact);
+  const curveBasis = formatPatternBasisForPrompt(originalCurvePattern.basis!);
+  assert.equal(curveFact.promptText.split(curveBasis).length - 1, 1);
+  assert.match(curveFact.promptText, /特殊格路径：亥卯未木局/);
+  assert.doesNotMatch(curveFact.promptText, /特殊格条件：|特殊格裁决：|特殊格局标记：/);
+  assert.ok(curveFact.basis.includes(originalCurvePattern.basis!));
+  assert.deepEqual(curveFact.patternFulfillment, originalCurvePattern.fulfillment);
+  assert.deepEqual(curveFact.transformation, originalCurvePattern.transformation);
+  assert.deepEqual(curve.analysis.mingGe, originalCurvePattern);
+
+  const pendingCurve = structuredClone(originalCurvePattern);
+  pendingCurve.specialAdjudication!.status = '不成立';
+  pendingCurve.specialAdjudication!.blockers = ['独有曲直前提尚未核定'];
+  const pendingBefore = structuredClone(pendingCurve);
+  const pendingFacts = formatNatalPatternFacts(pendingCurve).join('\n');
+  assert.match(pendingFacts, /特殊格裁决：曲直格不成立/);
+  for (const condition of pendingCurve.specialAdjudication!.satisfied) {
+    if (!pendingCurve.basis?.includes(condition)) assert.ok(pendingFacts.includes(condition));
+  }
+  assert.match(pendingFacts, /特殊格反证：独有曲直前提尚未核定/);
+  assert.deepEqual(pendingCurve, pendingBefore);
 });
 
 test('神煞互参文案应改为传统辅助提示，避免直接断语', () => {
@@ -115,22 +131,4 @@ test('神煞互参文案应改为传统辅助提示，避免直接断语', () =>
   assert.doesNotMatch(peachKill, /因色生灾/);
   assert.doesNotMatch(peachOfficer, /因妻致富/);
   assert.doesNotMatch(peachCompanion, /因色破财/);
-});
-
-test('八字提示词不默认展开神煞旁证', () => {
-  const result = baziCalculator.calculateBazi({
-    year: 1988,
-    month: 1,
-    day: 8,
-    timeIndex: 0,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
-  const text = formatBaziForPrompt(result);
-
-  assert.doesNotMatch(text, /传统旁证:|传统互参:/);
-  assert.doesNotMatch(text, /因色生灾|因妻致富|因色破财/);
 });

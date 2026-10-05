@@ -1,4 +1,12 @@
-import { createContext, useContext, useCallback, useMemo, useState, type ReactNode } from 'react';
+/** @jsxRuntime classic */
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import { lookupMetaphysicsTerm } from '@/lib/metaphysics-terms';
 import {
@@ -17,6 +25,7 @@ import { formatJinkoujueRangeInterval } from '@/lib/divination/jinkoujue-range';
 import { formatMeihuaRangeInterval } from '@/lib/divination/meihua-range';
 import { formatTaiyiRangeInterval } from '@/lib/divination/taiyi-range';
 import { formatHuangjiRangeInterval } from '@/lib/divination/huangji-range';
+import { formatFixedTimezoneOffset } from 'mingyu-core/calendar';
 import {
   formatLiuyaoRangeInterval,
   formatLiuyaoRangeBackground,
@@ -31,6 +40,9 @@ import {
 } from 'mingyu-core/huangji-jingshi';
 import { HuangjiReferenceTable } from './HuangjiReferenceTable';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import { getDunJiaStem } from 'mingyu-core/divination/qimen';
+import { getJinkoujueElementRelation } from 'mingyu-core/divination/jinkoujue';
+import { isSheng } from 'mingyu-core/wuxing';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
@@ -844,8 +856,11 @@ function LiuyaoTraditionalBoard({
       <TraditionalFacts
         items={[
           ['本卦定局', data.hexagramRelations?.original || '本卦'],
-          ['变卦定局', data.changedName ? data.hexagramRelations?.changed || '之卦' : '静卦无变'],
-          ['卦式特征', data.specialPattern || (data.changedName ? '动变卦' : '六爻静卦')],
+          [
+            '变卦定局',
+            data.changingYaos.length ? data.hexagramRelations?.changed || '之卦' : '静卦无变',
+          ],
+          ['卦式特征', data.specialPattern || (data.changingYaos.length ? '动变卦' : '六爻静卦')],
         ]}
       />
 
@@ -1053,6 +1068,17 @@ function MeihuaTraditionalBoard({
   const tiTrigramClassic = useMemo(() => {
     return data.tiGua?.name ? getMeihuaTrigramClassic(data.tiGua.name) : undefined;
   }, [data.tiGua]);
+  const relationReferenceContext = [
+    `本次主卦${data.mainHexagram.name}：${data.analysis.tiYongSeasonEvaluation || `体卦月令${data.analysis.tiSeasonState}、用卦月令${data.analysis.yongSeasonState}`}`,
+    data.interHexagram
+      ? `互卦${data.interHexagram.name}：${data.analysis.inter1Relation}、${data.analysis.inter2Relation}`
+      : '',
+    data.changedHexagram
+      ? `变卦${data.changedHexagram.name}：${data.analysis.changedTiYongRelation}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('；');
 
   return (
     <TraditionalBoardShell
@@ -1074,14 +1100,6 @@ function MeihuaTraditionalBoard({
           ['动爻', `第${data.movingYao.position}爻（${data.movingYao.yaoName}）`],
         ]}
       />
-      <TraditionalFacts
-        items={[
-          ['体用生克', `${data.analysis.tiYongRelation} · ${data.analysis.tiSeasonState}`],
-          ['变后格局', data.analysis.changedTiYongRelation],
-          ['互卦体用', `${data.analysis.inter1Relation} · ${data.analysis.inter2Relation}`],
-        ]}
-      />
-
       <div className="traditional-hexagram-triad">
         <MiniHexagram
           label="主卦·本"
@@ -1099,18 +1117,21 @@ function MeihuaTraditionalBoard({
 
       <div className="traditional-meihua-detail">
         <div className="traditional-meihua-relation">
-          <span>体用关系</span>
+          <span>主卦体用</span>
           <strong>{data.analysis.tiYongRelation}</strong>
           <small>
-            {data.analysis.tiSeasonState} · {data.analysis.yongSeasonState}
+            体{data.analysis.tiSeasonState} · 用{data.analysis.yongSeasonState}
           </small>
         </div>
         <div className="traditional-meihua-relation">
-          <span>互卦关系</span>
+          <span>互卦体用</span>
           <strong>
             {data.analysis.inter1Relation} · {data.analysis.inter2Relation}
           </strong>
-          <small>{data.analysis.changedRelation}</small>
+        </div>
+        <div className="traditional-meihua-relation">
+          <span>变卦体用</span>
+          <strong>{data.analysis.changedTiYongRelation}</strong>
         </div>
       </div>
 
@@ -1134,11 +1155,10 @@ function MeihuaTraditionalBoard({
       </div>
       {meihuaJudgement ? (
         <ClassicalAnnotationCard
-          title={`${meihuaJudgement.relationType} · 基础释义（未计季节旺衰与互变卦）`}
-          source="梅花易数·体用总断"
+          title={`${meihuaJudgement.relationType} · 体用总诀参考`}
+          source={meihuaJudgement.sourceBook}
           verse={meihuaJudgement.classicSummary}
-          modernAdvice={`【条目固定取象，未结合本盘季节旺衰、互卦与变卦，不能视为本局定断】
-【决策要领】${meihuaJudgement.actionAdvice}\n【求财】${meihuaJudgement.matterCategories.seekingWealth} | 【求事】${meihuaJudgement.matterCategories.wishing} | 【婚姻】${meihuaJudgement.matterCategories.marriage}`}
+          modernAdvice={`${relationReferenceContext}。原文为主卦体用关系的传统参考，具体取义合参主互变与所问事项。`}
         />
       ) : null}
       {tiTrigramClassic ? (
@@ -1279,8 +1299,10 @@ function JinkoujueTraditionalBoard({
   const positionRelations = [
     `贵→将 ${data.relations.guiToJiang}`,
     `贵→人 ${data.relations.guiToRen}`,
+    `人→将 ${data.relations.renToJiang ?? getJinkoujueElementRelation(data.positions.renYuan.element, data.positions.jiangShen.element)}`,
     `将→地 ${data.relations.jiangToDi}`,
     `人→地 ${data.relations.renToDi}`,
+    `贵→地 ${data.relations.guiToDi}`,
   ].join('；');
   const movementText = data.movements
     .map((item) => `${item.category}·${item.name}（${item.from}${item.relation}${item.to}）`)
@@ -1683,14 +1705,32 @@ function gongName(gong: number) {
   return QIMEN_PALACE_META[gong]?.name || `${gong}宫`;
 }
 
+function describeQimenPalaceRelation(
+  firstName: string,
+  firstElement: string,
+  secondName: string,
+  secondElement: string,
+): string {
+  if (!firstElement || !secondElement) return '落宫五行资料不足';
+  if (firstElement === secondElement)
+    return `${firstName}与${secondName}落宫五行比和（${firstElement}）`;
+  if (isSheng(firstElement, secondElement))
+    return `${firstName}落宫（${firstElement}）生${secondName}落宫（${secondElement}）`;
+  if (isSheng(secondElement, firstElement))
+    return `${secondName}落宫（${secondElement}）生${firstName}落宫（${firstElement}）`;
+  if (checkQimenKe(firstElement, secondElement))
+    return `${firstName}落宫（${firstElement}）克${secondName}落宫（${secondElement}）`;
+  return `${secondName}落宫（${secondElement}）克${firstName}落宫（${firstElement}）`;
+}
+
 function getQimenYongShenSummary(
   yongShenId: QimenYongShenId,
   data: QimenData,
   _palaceMap: Map<number, QimenJiuGongGe>,
 ) {
-  const dayStem = data.ganzhi?.day?.slice(0, 1) || '戊';
+  const dayStem = data.ganzhi?.day ? getDunJiaStem(data.ganzhi.day) : undefined;
   const dayPalace = data.jiuGongGe.find(
-    (p) => p.tianPan.stem === dayStem || p.tianPan.companionStem === dayStem,
+    (p) => dayStem && (p.tianPan.stem === dayStem || p.tianPan.companionStem === dayStem),
   );
 
   if (yongShenId === 'wealth') {
@@ -1698,21 +1738,14 @@ function getQimenYongShenSummary(
     const wuPalace = data.jiuGongGe.find(
       (p) => p.tianPan.stem === '戊' || p.tianPan.companionStem === '戊',
     );
-    const shengGong = shengDoorPalace ? shengDoorPalace.gong : 8;
-    const wuGong = wuPalace ? wuPalace.gong : 6;
-
-    const shengEl = QIMEN_PALACE_ELEMENTS[shengGong] || '';
+    const shengEl = shengDoorPalace ? QIMEN_PALACE_ELEMENTS[shengDoorPalace.gong] || '' : '';
     const dayEl = dayPalace ? QIMEN_PALACE_ELEMENTS[dayPalace.gong] || '' : '';
-    const isWuJiXing = wuGong === 3;
-    const isWuRuMu = wuGong === 6;
-
-    let relationText = '生门与日干落宫相生相比，谋财顺畅。';
-    if (shengEl && dayEl) {
-      if (checkQimenKe(shengEl, dayEl)) relationText = '生门落宫克日干落宫，求财阻力大，谨防破耗。';
-      else if (checkQimenKe(dayEl, shengEl))
-        relationText = '日干落宫克生门落宫，求财虽得但劳心费力。';
-      else relationText = '生门生助或比和日干落宫，财星有气，进财有源。';
-    }
+    const isWuJiXing = wuPalace?.gong === 3;
+    const isWuRuMu = wuPalace?.gong === 6;
+    const relationText =
+      shengDoorPalace && dayPalace
+        ? `${describeQimenPalaceRelation('生门', shengEl, '日干', dayEl)}。`
+        : '生门或日干落宫资料不足，暂无法核对两宫关系。';
 
     return {
       title: '求财专项合参',
@@ -1720,25 +1753,23 @@ function getQimenYongShenSummary(
       points: [
         {
           name: '生门（利润/利息）',
-          gong: shengDoorPalace ? `${shengDoorPalace.name}（${shengDoorPalace.gong}宫）` : '中宫',
+          gong: shengDoorPalace ? `${shengDoorPalace.name}（${shengDoorPalace.gong}宫）` : '未记录',
           status: shengDoorPalace
             ? `${shengDoorPalace.tianPan.stem}+${shengDoorPalace.diPan.stem} · 乘${shengDoorPalace.shenPan.god}`
             : '—',
-          advice: '生门临吉星吉神主商贾兴隆；逢凶星凶格宜守旧防套。',
+          advice: '结合生门同宫星神与格局查看其状态。',
         },
         {
           name: '戊（资本/本金）',
-          gong: wuPalace ? `${wuPalace.name}（${wuPalace.gong}宫）` : '中宫',
-          status: isWuJiXing
-            ? '六仪击刑（震3宫）'
-            : isWuRuMu
-              ? '三奇六仪入墓（乾6宫）'
-              : '资本稳固',
-          advice: isWuJiXing
-            ? '天盘戊击刑，防资本亏折损耗、受合伙人拖累。'
-            : isWuRuMu
-              ? '天盘戊入墓，资金流动性受阻，不宜重仓押注。'
-              : '资本运行平稳，适宜按计划运作。',
+          gong: wuPalace ? `${wuPalace.name}（${wuPalace.gong}宫）` : '未记录',
+          status: !wuPalace
+            ? '未记录'
+            : isWuJiXing
+              ? '六仪击刑（震3宫）'
+              : isWuRuMu
+                ? '六仪入墓（乾6宫）'
+                : '未见戊击刑或入墓',
+          advice: '结合戊落宫与同宫格局查看资本象。',
         },
       ],
     };
@@ -1755,41 +1786,37 @@ function getQimenYongShenSummary(
 
     const yiEl = yiPalace ? QIMEN_PALACE_ELEMENTS[yiPalace.gong] || '' : '';
     const gengEl = gengPalace ? QIMEN_PALACE_ELEMENTS[gengPalace.gong] || '' : '';
-    const isLiuHeVoid = liuHePalace
-      ? data.voidPalaces?.some((v) => v.palace === liuHePalace.gong)
-      : false;
+    const isLiuHeVoid =
+      liuHePalace && data.voidPalaces
+        ? data.voidPalaces.some((v) => v.palace === liuHePalace.gong)
+        : undefined;
 
-    let matchText = '乙（女）与庚（男）落宫相生相比，感情和谐。';
-    if (yiEl && gengEl) {
-      if (checkQimenKe(yiEl, gengEl)) matchText = '女方落宫克男方落宫，女方占主动或偶有言语压制。';
-      else if (checkQimenKe(gengEl, yiEl))
-        matchText = '男方落宫克女方落宫，男方性情强势，宜多沟通包容。';
-      else matchText = '双方落宫五行相生，情投意合，琴瑟和鸣。';
-    }
+    const matchText =
+      yiPalace && gengPalace
+        ? `${describeQimenPalaceRelation('乙奇', yiEl, '庚仪', gengEl)}。`
+        : '乙奇或庚仪落宫资料不足，暂无法核对两宫关系。';
 
     return {
       title: '婚恋情感合参',
-      lead: `${matchText}${isLiuHeVoid ? '（注：六合落空亡，主有虚妄、拖延或异地阻隔之象）' : ''}`,
+      lead: `${matchText}${isLiuHeVoid ? '六合落空亡。' : ''}`,
       points: [
         {
           name: '乙奇（女方/妻子）',
-          gong: yiPalace ? `${yiPalace.name}（${yiPalace.gong}宫）` : '中宫',
+          gong: yiPalace ? `${yiPalace.name}（${yiPalace.gong}宫）` : '未记录',
           status: yiPalace ? `${yiPalace.renPan.door} · 乘${yiPalace.shenPan.god}` : '—',
-          advice: '看女方落宫星门状态，临吉门吉神温婉持重，临凶门防情绪波动。',
+          advice: '结合乙奇同宫星门神查看其状态。',
         },
         {
           name: '庚仪（男方/丈夫）',
-          gong: gengPalace ? `${gongName(gengPalace.gong)}（${gengPalace.gong}宫）` : '中宫',
+          gong: gengPalace ? `${gongName(gengPalace.gong)}（${gengPalace.gong}宫）` : '未记录',
           status: gengPalace ? `${gengPalace.renPan.door} · 乘${gengPalace.shenPan.god}` : '—',
-          advice: '男方落宫刚健，临值符/开门主有担当；逢击刑需防脾气急躁。',
+          advice: '结合庚仪同宫星门神查看其状态。',
         },
         {
           name: '六合（婚姻媒妁/结合）',
-          gong: liuHePalace ? `${liuHePalace.name}（${liuHePalace.gong}宫）` : '中宫',
-          status: isLiuHeVoid ? '落入旬空' : '吉相平稳',
-          advice: isLiuHeVoid
-            ? '六合逢空，情感沟通宜开诚布公，勿生猜忌。'
-            : '六合稳健，利于缔结良缘或感情升温。',
+          gong: liuHePalace ? `${liuHePalace.name}（${liuHePalace.gong}宫）` : '未记录',
+          status: isLiuHeVoid === undefined ? '未记录' : isLiuHeVoid ? '落入旬空' : '未落旬空',
+          advice: '结合六合落宫与同宫星门查看婚恋相关盘面。',
         },
       ],
     };
@@ -1799,18 +1826,15 @@ function getQimenYongShenSummary(
     const kaiPalace = data.jiuGongGe.find((p) => p.renPan.door === '开门');
     const zhiFuPalace = data.jiuGongGe.find((p) => p.shenPan.god === '值符');
 
-    const kaiGong = kaiPalace ? kaiPalace.gong : 6;
-    const kaiEl = QIMEN_PALACE_ELEMENTS[kaiGong] || '';
+    const kaiEl = kaiPalace ? QIMEN_PALACE_ELEMENTS[kaiPalace.gong] || '' : '';
     const dayEl = dayPalace ? QIMEN_PALACE_ELEMENTS[dayPalace.gong] || '' : '';
     const isKaiMenPo = kaiPalace
       ? Boolean(checkQimenKe(QIMEN_DOOR_ELEMENTS['开门'] || '', kaiEl))
       : false;
 
-    let leadText = '开门职守得地，得值符大局护持，利于建功立业。';
-    if (isKaiMenPo)
-      leadText = '开门落宫门迫（落震三/巽四宫），事业环境或职位面临摩擦调整，宜稳扎稳打。';
-    else if (kaiEl && dayEl && checkQimenKe(kaiEl, dayEl))
-      leadText = '开门落宫克日干落宫，工作压力较大或要求严苛，宜以柔克刚。';
+    const leadText = kaiPalace
+      ? `开门落${kaiPalace.name}（${kaiPalace.gong}宫）${isKaiMenPo ? '，门迫' : ''}。${dayPalace ? `${describeQimenPalaceRelation('开门', kaiEl, '日干', dayEl)}。` : ''}`
+      : '开门落宫资料未记录。';
 
     return {
       title: '事业官运合参',
@@ -1818,17 +1842,17 @@ function getQimenYongShenSummary(
       points: [
         {
           name: '开门（工作/官位/单位）',
-          gong: kaiPalace ? `${kaiPalace.name}（${kaiPalace.gong}宫）` : '乾6宫',
+          gong: kaiPalace ? `${kaiPalace.name}（${kaiPalace.gong}宫）` : '未记录',
           status: kaiPalace
-            ? `${kaiPalace.tianPan.stem}+${kaiPalace.diPan.stem} · ${isKaiMenPo ? '门迫' : '得位'}`
-            : '—',
-          advice: '开门逢吉格利晋升拓展；逢凶格门迫宜稳守本职，防言多必失。',
+            ? `${kaiPalace.tianPan.stem}+${kaiPalace.diPan.stem} · ${isKaiMenPo ? '门迫' : '未见门迫'}`
+            : '未记录',
+          advice: '结合开门同宫星神与格局查看事业相关盘面。',
         },
         {
           name: '值符（领导/贵人/核心）',
           gong: zhiFuPalace ? `${zhiFuPalace.name}（${zhiFuPalace.gong}宫）` : '—',
           status: zhiFuPalace ? `${zhiFuPalace.tianPan.star} · ${zhiFuPalace.renPan.door}` : '—',
-          advice: '值符加临之方为贵人方，求见领导或争取支持宜往此方。',
+          advice: '结合值符落宫查看其同宫星门。',
         },
       ],
     };
@@ -1845,18 +1869,15 @@ function getQimenYongShenSummary(
       (p) => p.tianPan.star === '天心' || p.tianPan.companionStar === '天心',
     );
 
-    const ruiGong = ruiPalace ? ruiPalace.gong : 2;
-    const ruiEl = QIMEN_PALACE_ELEMENTS[ruiGong] || '';
+    const ruiEl = ruiPalace ? QIMEN_PALACE_ELEMENTS[ruiPalace.gong] || '' : '';
     const yiEl = yiPalace ? QIMEN_PALACE_ELEMENTS[yiPalace.gong] || '' : '';
     const xinEl = xinPalace ? QIMEN_PALACE_ELEMENTS[xinPalace.gong] || '' : '';
 
-    const isYiKeRui = yiEl && ruiEl && checkQimenKe(yiEl, ruiEl);
-    const isXinKeRui = xinEl && ruiEl && checkQimenKe(xinEl, ruiEl);
-
-    let leadText: string;
-    if (isYiKeRui || isXinKeRui)
-      leadText = '医药（乙奇/天心）落宫克制病星天芮落宫，药到病除，遵医嘱调养大吉。';
-    else leadText = '病星天芮旺相，需重视身心调理，及早就医检查，防病灶反复。';
+    const isYiKeRui = Boolean(yiEl && ruiEl && checkQimenKe(yiEl, ruiEl));
+    const isXinKeRui = Boolean(xinEl && ruiEl && checkQimenKe(xinEl, ruiEl));
+    const leadText = ruiPalace
+      ? `天芮落${ruiPalace.name}（${ruiPalace.gong}宫）。${[yiPalace ? `${describeQimenPalaceRelation('乙奇', yiEl, '天芮', ruiEl)}。` : '', xinPalace ? `${describeQimenPalaceRelation('天心', xinEl, '天芮', ruiEl)}。` : ''].join('')}`
+      : '天芮落宫资料未记录。';
 
     return {
       title: '疾病健康合参',
@@ -1864,15 +1885,23 @@ function getQimenYongShenSummary(
       points: [
         {
           name: '天芮星（病灶/病情）',
-          gong: ruiPalace ? `${ruiPalace.name}（${ruiPalace.gong}宫）` : '坤2宫',
+          gong: ruiPalace ? `${ruiPalace.name}（${ruiPalace.gong}宫）` : '未记录',
           status: ruiPalace ? `乘${ruiPalace.shenPan.god} · ${ruiPalace.renPan.door}` : '—',
-          advice: '芮星落宫对应身体脏腑部位（离心脑、坎泌尿、震巽肝胆、乾兑肺骨、艮坤脾胃）。',
+          advice: '结合天芮同宫门神查看盘面。',
         },
         {
           name: '乙奇与天心（中医/名医）',
-          gong: yiPalace ? `乙在${yiPalace.name}，心在${xinPalace ? xinPalace.name : '—'}` : '—',
-          status: isYiKeRui || isXinKeRui ? '克制病星（药效显著）' : '常态调和',
-          advice: '往医药吉方寻名医求方，积极调养身心。',
+          gong:
+            [yiPalace ? `乙在${yiPalace.name}` : '', xinPalace ? `心在${xinPalace.name}` : '']
+              .filter(Boolean)
+              .join('，') || '未记录',
+          status:
+            !ruiPalace || (!yiPalace && !xinPalace)
+              ? '未记录'
+              : isYiKeRui || isXinKeRui
+                ? '医药象落宫克天芮落宫'
+                : '未见医药象落宫克天芮落宫',
+          advice: '乙奇与天心的落宫关系仅供查看盘面。',
         },
       ],
     };
@@ -1890,15 +1919,15 @@ function getQimenYongShenSummary(
         name: '驿马（动身/交通工具）',
         gong: horseGong
           ? `落${horseGong}宫（${QIMEN_PALACE_META[horseGong]?.name || ''}）`
-          : '无马星',
-        status: data.horseStar ? `${data.horseStar.branch}·${data.horseStar.name}` : '平稳',
-        advice: '马星所临主动身迅速，利于启程出差或迁徙。',
+          : '未记录',
+        status: data.horseStar ? `${data.horseStar.branch}·${data.horseStar.name}` : '未记录',
+        advice: '查看驿马所临宫位及同宫星门。',
       },
       {
         name: '九天（高远/通达）',
         gong: jiuTianPalace ? `${jiuTianPalace.name}（${jiuTianPalace.gong}宫）` : '—',
         status: jiuTianPalace ? `${jiuTianPalace.renPan.door}` : '—',
-        advice: '《奇门秘笈》：九天之上好扬兵。九天之方利于远行腾达、空中交通。',
+        advice: '结合九天所临宫位及同宫星门查看出行相关盘面。',
       },
     ],
   };
@@ -1925,10 +1954,14 @@ function QimenTraditionalBoard({
     [data.jiuGongGe],
   );
 
+  const isHourScope = !data.scope || data.scope === 'hour';
   const hourStem = data.ganzhi?.hour?.slice(0, 1) || '戊';
   const anGanMap = useMemo(
-    () => calculateQimenAnGanMap(data.jiuGongGe, data.zhiShi, hourStem, data.isYangDun),
-    [data.jiuGongGe, data.zhiShi, hourStem, data.isYangDun],
+    () =>
+      isHourScope
+        ? calculateQimenAnGanMap(data.jiuGongGe, data.zhiShi, hourStem, data.isYangDun)
+        : new Map<number, string>(),
+    [data.jiuGongGe, data.zhiShi, hourStem, data.isYangDun, isHourScope],
   );
 
   const stemRelationMap = new Map<number, string[]>();
@@ -1939,10 +1972,22 @@ function QimenTraditionalBoard({
   const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[
     data.scope ?? 'hour'
   ];
+  const juMethodLabel =
+    data.scope === 'month' || data.scope === 'year'
+      ? '三元'
+      : data.juMethod === 'zhirun'
+        ? '置闰'
+        : '拆补';
   const specialConditions = [
     data.specialConditions?.isLiuJiaHour ? '六甲时' : '',
     data.specialConditions?.isLiuGuiHour ? '六癸时' : '',
-    data.specialConditions?.isShiGanRuMu ? '时干入墓' : '',
+    data.scope === 'day'
+      ? data.specialConditions?.isRiGanRuMu
+        ? '日干入墓'
+        : ''
+      : data.specialConditions?.isShiGanRuMu
+        ? '时干入墓'
+        : '',
     data.specialConditions?.isWuBuYuShi ? '五不遇时' : '',
   ]
     .filter(Boolean)
@@ -1955,6 +2000,10 @@ function QimenTraditionalBoard({
   const patternNames = Array.from(patternCounts.entries())
     .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
     .join(' · ');
+  const juBasis =
+    data.scope === 'month' || data.scope === 'year'
+      ? `干支年${data.ganzhi.year}${data.timeInfo.epoch}`
+      : `${data.timeInfo.juTerm ?? data.timeInfo.solarTerm}${data.timeInfo.epoch}`;
 
   const zhiFuStarClassic = useMemo(() => {
     return data.zhiFu ? getQimenStarClassic(data.zhiFu) : undefined;
@@ -2024,7 +2073,7 @@ function QimenTraditionalBoard({
   return (
     <TraditionalBoardShell
       title={`${scopeLabel}奇门九宫盘`}
-      subtitle={`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局 · ${data.method === 'feipan' ? '飞盘' : '转盘'}${data.juMethod === 'zhirun' ? ' · 置闰' : ' · 拆补'}`}
+      subtitle={`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局 · ${data.method === 'feipan' ? '飞盘' : '转盘'} · ${juMethodLabel}`}
       className="traditional-qimen-board"
     >
       <TraditionalMeta items={[['日期', dateLabel ?? getSessionDisplayDate(session)]]} />
@@ -2038,22 +2087,24 @@ function QimenTraditionalBoard({
           ['旬空', data.voidBranches?.join('、') || '无'],
           ['值符', data.zhiFu],
           ['值使', data.zhiShi],
-          ['节气', `${data.timeInfo.solarTerm} · ${data.timeInfo.epoch}`],
+          ['节气', data.timeInfo.solarTerm],
           ['马星', data.horseStar ? `${data.horseStar.branch}·${data.horseStar.name}` : undefined],
         ]}
       />
-      {moonPhaseLabel ? <p className="traditional-note-row">{moonPhaseLabel}</p> : null}
+      {data.scope !== 'year' && data.scope !== 'month' && moonPhaseLabel ? (
+        <p className="traditional-note-row">{moonPhaseLabel}</p>
+      ) : null}
       <TraditionalFacts
         items={[
           [
             '定局',
-            `${scopeLabel} · ${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局（${data.method === 'feipan' ? '飞盘' : '转盘'}·${data.juMethod === 'zhirun' ? '置闰' : '拆补'}）`,
+            `${scopeLabel} · ${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局（${data.method === 'feipan' ? '飞盘' : '转盘'}·${juMethodLabel}）· ${juBasis}`,
           ],
-          ['特殊时格', specialConditions || '常局'],
-          ['盘局特征', patternNames || '平局'],
+          [data.scope === 'day' ? '特殊日格' : '特殊时格', specialConditions || undefined],
+          ['盘局特征', patternNames || undefined],
           [
             '节令背景',
-            data.seasonality
+            (data.scope === 'hour' || data.scope === 'day' || !data.scope) && data.seasonality
               ? `${data.seasonality.currentJieQi}，交节后${data.seasonality.jieQiPhase.phase}阶段；${data.seasonality.dayStem}${data.seasonality.seasonRelation}；月相${data.seasonality.lunarPhaseDetail}；建除${data.seasonality.dayOfficer}`
               : undefined,
           ],
@@ -2089,13 +2140,15 @@ function QimenTraditionalBoard({
           >
             长生状态
           </button>
-          <button
-            type="button"
-            className={`traditional-qimen-btn ${showAnGan ? 'is-active' : ''}`}
-            onClick={() => setShowAnGan((prev) => !prev)}
-          >
-            暗干排布
-          </button>
+          {isHourScope ? (
+            <button
+              type="button"
+              className={`traditional-qimen-btn ${showAnGan ? 'is-active' : ''}`}
+              onClick={() => setShowAnGan((prev) => !prev)}
+            >
+              暗干排布
+            </button>
+          ) : null}
         </div>
         <span className="traditional-qimen-tip">
           {selectedGong
@@ -2701,7 +2754,7 @@ function formatAlmanacParticipantSummary(item: AlmanacData['participants'][numbe
   const conditions = range.branches
     .map(
       (branch) =>
-        `${formatAlmanacParticipantRangeTimestamp(branch.startTimestamp)}至${formatAlmanacParticipantRangeTimestamp(branch.endTimestamp)}（终点不含）喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`,
+        `${formatAlmanacParticipantRangeTimestamp(branch.startTimestamp)}至${formatAlmanacParticipantRangeTimestamp(branch.endTimestamp)}（终点不含）司令${branch.profile.monthCommander || '待核'}，${branch.profile.incrementStatus === '待判' ? '增补五行喜忌待判' : `喜用${branch.profile.usefulGods.join('、') || '未列'}、忌${branch.profile.avoidGods.join('、') || '未列'}`}`,
     )
     .join('；');
   return `${item.name}：${source}；${conditions}`;
@@ -3142,19 +3195,19 @@ function TaiyiTraditionalBoard({
 
       {wenChangClassic ? (
         <ClassicalAnnotationCard
-          title={`文昌（主算先锋）· ${wenChangClassic.role}`}
+          title={`文昌（主目）· ${wenChangClassic.role}`}
           source={wenChangClassic.sourceBook}
           verse={wenChangClassic.verse}
-          modernAdvice={`【性情】${wenChangClassic.nature}\n【决策指引】${wenChangClassic.actionAdvice}`}
+          modernAdvice={`【典籍取象】${wenChangClassic.nature}\n【盘面参照】${wenChangClassic.actionAdvice}`}
         />
       ) : null}
 
       {shiJiClassic ? (
         <ClassicalAnnotationCard
-          title={`始击（客算突击）· ${shiJiClassic.role}`}
+          title={`始击（客目）· ${shiJiClassic.role}`}
           source={shiJiClassic.sourceBook}
           verse={shiJiClassic.verse}
-          modernAdvice={`【性情】${shiJiClassic.nature}\n【决策指引】${shiJiClassic.actionAdvice}`}
+          modernAdvice={`【典籍取象】${shiJiClassic.nature}\n【盘面参照】${shiJiClassic.actionAdvice}`}
         />
       ) : null}
     </TraditionalBoardShell>
@@ -3278,7 +3331,7 @@ function HuangjiTraditionalBoard({
           ],
           [
             '元会运世',
-            `第${data.position.yuan.indexFromEpoch + 1}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
+            `第${data.position.yuan.indexFromEpoch}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
           ],
         ]}
       />
@@ -3350,10 +3403,7 @@ function HuangjiTraditionalBoard({
               ['六日目标时间', sixDayCycle.civilTime.dateTime],
               [sixDayUsesExplicitEpoch ? '校定历元' : '现代冬至定位', sixDayCycle.anchor.dateTime],
               ['换算模型', sixDayModelLabel],
-              [
-                '时区',
-                `UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}`,
-              ],
+              ['时区', `UTC${formatFixedTimezoneOffset(sixDayCycle.civilTime.timezone)}`],
             ]}
           />
           <TraditionalFacts
@@ -3458,6 +3508,10 @@ function WuyunTraditionalBoard({
   const target = `${targetYear}${data.input.yearGanZhi}`;
   const formatRange = (start?: string, end?: string) =>
     start && end ? `公历${start}至${end}` : '按传统节气序日';
+  const formatQiBoundary = (step: WuyunLiuqiResult['qiSteps'][number]) =>
+    step.boundaryTime
+      ? `现代节气交节参考（北京时间）：${step.boundaryTime.startBeijing}起，至${step.boundaryTime.endBeijingExclusive}前`
+      : '按传统节气分步';
 
   return (
     <TraditionalBoardShell
@@ -3517,7 +3571,7 @@ function WuyunTraditionalBoard({
           {data.qiSteps.map((step) => (
             <div key={step.label}>
               <span>
-                {step.label} · {formatRange(step.gregorianStart, step.gregorianEnd)}
+                {step.label} · {formatQiBoundary(step)}
               </span>
               <strong>
                 主气{step.hostQi.name}；客气{step.guestQi.name}
@@ -3891,7 +3945,7 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
       }
       const d = branch.data;
       lines.push(`本卦：${d.originalName}`);
-      if (d.changedName) lines.push(`变卦：${d.changedName}`);
+      if (d.changingYaos.length && d.changedName) lines.push(`变卦：${d.changedName}`);
       const worldYao = d.yaosDetail.find((item) => item.isWorld);
       if (worldYao) lines.push(`世爻：第${worldYao.position}爻 ${worldYao.sixRelative}`);
       lines.push(`四柱：${d.ganzhi.year} ${d.ganzhi.month} ${d.ganzhi.day} ${d.ganzhi.hour}`);
@@ -3910,16 +3964,17 @@ export function formatDivinationSessionShareText(session: DivinationSession): st
     }
   } else if (session.method === 'qimen') {
     for (const branch of session.qimenRange?.branches ?? [{ data: session.data as QimenData }]) {
+      const d = branch.data;
+      const isLongScope = d.scope === 'year' || d.scope === 'month';
       if ('startTimestamp' in branch) {
         lines.push(formatQimenRangeInterval(branch.startTimestamp, branch.endTimestamp));
-        lines.push(formatQimenRangeMoonPhase(branch));
+        if (!isLongScope) lines.push(formatQimenRangeMoonPhase(branch));
       }
-      const d = branch.data;
       lines.push(
-        `局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局；节气${d.timeInfo.solarTerm}；定局${d.timeInfo.juTerm ?? d.timeInfo.solarTerm}${d.timeInfo.epoch}`,
+        `局数：${d.isYangDun ? '阳遁' : '阴遁'}${d.juShu}局；节气${d.timeInfo.solarTerm}；定局${isLongScope ? `干支年${d.ganzhi.year}` : (d.timeInfo.juTerm ?? d.timeInfo.solarTerm)}${d.timeInfo.epoch}`,
       );
       lines.push(`值符：${d.zhiFu}  值使：${d.zhiShi}`);
-      if (d.seasonality)
+      if (!isLongScope && d.seasonality)
         lines.push(
           `节令阶段：${d.seasonality.jieQiPhase.phase}；月相${d.seasonality.lunarPhaseDetail}；建除${d.seasonality.dayOfficer}`,
         );

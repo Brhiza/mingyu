@@ -89,6 +89,10 @@ test('小六壬通用规则在子时换日处分成两课', () => {
     formatXiaoliurenRangeFacts(range),
     /北京时间 2024-02-04 23:00:00 至 2024-02-05 00:00:00（起点含、终点不含）[\s\S]*北京时间 2024-02-05 00:00:00 至 2024-02-05 01:00:00（起点含、终点不含）/u,
   );
+  const facts = formatXiaoliurenRangeFacts(range);
+  assert.match(facts, /顺数起点：月宫.+；日宫.+/);
+  assert.doesNotMatch(facts, /顺数起点：.*时宫/);
+  assert.match(facts, /占得宫：.+；时宫歌诀：/);
 });
 
 test('小六壬多能规则沿用同一实际边界并传播各分支事实', () => {

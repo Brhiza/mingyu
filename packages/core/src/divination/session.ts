@@ -1,9 +1,6 @@
-import { formatJinkoujueJudgmentFacts } from '../prompt/jinkoujue-facts';
 import { formatLiurenJudgmentFacts } from '../prompt/liuren-judgment';
-import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { DivinationMethodId } from './config';
 import { generateAlmanacSelection } from './algorithms/almanac';
-import { analyzeAlmanacEvidence } from './almanac-evidence';
 import { generateAstrolabe } from './algorithms/astrolabe';
 import { generateJinkoujue } from './algorithms/jinkoujue';
 import { generateLiuyao, type LiuyaoGenerationOptions } from './algorithms/liuyao';
@@ -13,18 +10,21 @@ import { generateMeihua } from './algorithms/meihua/index';
 import { generateQimen, type QimenMethod, type QimenScope } from './algorithms/qimen/index';
 import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
-import { generateTaiyi } from '../taiyi/index';
+import { formatTaiyiConditionSummary, formatTaiyiTacticBasis, generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
-import { calculateWuyunLiuqi } from '../wuyun-liuqi';
+import { calculateWuyunLiuqi, getWuyunLiuqiYearAt } from '../wuyun-liuqi';
 import { calculateZhugeNumber, castKongmingHexagram } from '../name-number/oracles';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
 import { isEarthlyBranch } from '../ganzhi';
 import type { RandomOptions } from '../shared/random';
-import { createRandomContext, randomInt } from '../shared/random';
+import { assertReplaySamplesConsumed, createRandomContext, randomInt } from '../shared/random';
+import { getCivilDateTimeAtFixedOffset } from '../calendar/civil-time';
+import { isValidIsoDateTime } from '../calendar/date-validation';
 import { serializeCoreResult } from '../shared/result';
 import {
   buildDivinationPromptDocument,
   formatDivinationInfo,
+  formatDivinationOriginTime,
   formatSupplementaryInfo,
   getDivinationSummaryBlocks,
   type DivinationPromptOptions,
@@ -42,27 +42,23 @@ import {
   type UnifiedResultView,
 } from '../consumption/index';
 import type {
-  AlmanacData,
   AlmanacParticipantInput,
   AlmanacTimePreference,
   AlmanacTopic,
   AlmanacWeekendPreference,
   AstrolabeBirthInput,
-  AstrolabeData,
   DivinationData,
   JinkoujueDivinationMethod,
-  JinkoujueData,
   LenormandData,
   LenormandSpreadType,
   LiurenData,
-  LiuyaoData,
   MeihuaSettings,
-  QimenData,
   SupplementaryInfo,
   TarotData,
   TarotSpreadType,
   TaiyiResult,
   TaiyiScope,
+  XiaoliurenData,
   XiaoliurenDivinationMethod,
 } from '../types/divination';
 
@@ -75,9 +71,9 @@ export interface DivinationRequest {
   method: DivinationMethodId;
   question?: string;
   questionSource?: 'custom' | 'inspiration';
-  /** 起课时间；未提供时由各算法使用当前时间。 */
+  /** 起课时间；字符串使用带 Z 或明确偏移的 ISO 日期时间，数字为毫秒时间戳；未提供时使用当前时间。 */
   divinationTime?: Date | string | number;
-  /** 提示词中的当前时间；未提供时使用运行环境当前时间。 */
+  /** 提示词中的当前时间；字符串使用带 Z 或明确偏移的 ISO 日期时间；未提供时使用运行环境当前时间。 */
   currentTime?: Date | string | number;
   /** 随机占法的统一随机设置，支持 seed、replay 和自定义随机源。 */
   random?: RandomOptions;
@@ -120,7 +116,7 @@ export interface DivinationRequest {
   taiyi?: { year?: number; scope?: TaiyiScope };
   /** 皇极经世兼容值年输入；省略 year 时按 divinationTime（未填则当前时间）排年月日时卦。 */
   huangji?: { year?: number };
-  /** 五运六气年度输入；省略时按当前北京时间所在公历年计算。 */
+  /** 五运六气年度输入；省略时按起课时间所在的大寒运气年度计算。 */
   wuyun?: { year?: number; yearGanZhi?: string };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
@@ -168,12 +164,12 @@ export function serializeDivinationResult(data: DivinationData) {
 function buildDivinationAiPrompt(options: {
   method: DivinationSessionMethod;
   question: string;
-  currentTime?: Date;
+  currentTime: Date;
   supplementaryInfo?: SupplementaryInfo;
   chartText: string;
   data: DivinationData;
 }) {
-  if (options.method === 'ssgw') {
+  if (options.method === 'ssgw' || options.method === 'zhuge' || options.method === 'kongming') {
     return buildDivinationPromptDocument({
       method: options.method,
       data: options.data,
@@ -182,9 +178,11 @@ function buildDivinationAiPrompt(options: {
     });
   }
   const supplementary = formatSupplementaryInfo(options.supplementaryInfo, options.method);
+  const originTime = formatDivinationOriginTime(options.method, options.data, options.currentTime);
   return buildPromptDocument(
     joinPromptSections([
       buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
+      originTime ? buildPromptSection('起课时间', originTime) : '',
       supplementary ? buildPromptSection('补充信息', supplementary) : '',
       buildPromptSection('占卜资料', options.chartText),
       buildPromptSection(
@@ -202,8 +200,34 @@ function buildDivinationAiPrompt(options: {
 
 function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
   const conditions = data.conditions;
+  const conditionSummary = conditions ? formatTaiyiConditionSummary(conditions) : '';
+  const repeatedCountJudgments = new Set(
+    [
+      data.countNatures?.lord ? `主算 ${data.lordCount} 为${data.countNatures.lord}。` : '',
+      data.countNatures?.guest ? `客算 ${data.guestCount} 为${data.countNatures.guest}。` : '',
+      data.countNatures?.set ? `定算 ${data.setCount} 为${data.countNatures.set}。` : '',
+    ].filter(Boolean),
+  );
+  const specialJudgments = data.judgments.filter(
+    (item) => item !== conditionSummary && !repeatedCountJudgments.has(item),
+  );
+  const civilDate = data.dateTime.split(' ')[0];
+  const [civilYear, civilMonth] = civilDate.split('-');
+  const scopeTime =
+    data.scope === 'year'
+      ? `${civilYear}年`
+      : data.scope === 'month'
+        ? `${civilYear}-${civilMonth}月`
+        : data.scope === 'day'
+          ? civilDate
+          : data.dateTime;
   const lines = [
-    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
+    `起局时间：${scopeTime}`,
+    ...(data.termReferenceDateTime
+      ? [`节气与年月干支参照实际占时：${data.termReferenceDateTime}（东八区）`]
+      : []),
+    `主客定算：主算${data.lordCount}${data.countNatures?.lord ? `（${data.countNatures.lord}）` : ''}；客算${data.guestCount}${data.countNatures?.guest ? `（${data.countNatures.guest}）` : ''}；定算${data.setCount}${data.countNatures?.set ? `（${data.countNatures.set}）` : ''}`,
+    `文昌${data.wenChangPosition}；始击${data.shiJiPosition}；计神${data.jiShenPosition}`,
     `将参：主大将${data.lordGeneral}宫、主参将${data.lordAssistant}宫；客大将${data.guestGeneral}宫、客参将${data.guestAssistant}宫；定大将${data.setGeneral}宫、定参将${data.setAssistant}宫`,
   ];
 
@@ -223,13 +247,12 @@ function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
     lines.push(
       `阴阳和：${conditions.yinYangHarmony.matched ? '和' : '不和'}${conditions.yinYangHarmony.pairFacts.length ? `；${conditions.yinYangHarmony.pairFacts.map((item) => `${item.role}${item.polarity}${item.count}${item.countPolarity}${item.matched ? '和' : '不和'}`).join('、')}` : ''}`,
     );
-    const relation = fiveGenerals.hostGuestElementRelation;
-    lines.push(
-      `二目五行（位置关系）：文昌${relation.hostPosition}属${relation.hostElement ?? '未列'}，始击${relation.guestPosition}属${relation.guestElement ?? '未列'}；${relation.relation}；主客相关的日计纳音另论，五将发不发依同宫关等条件另判。`,
-    );
   }
 
-  if (data.tacticGuidance) lines.push(`攻守参考：${data.tacticGuidance}`);
+  if (specialJudgments.length) lines.push(`判断：${specialJudgments.join('；')}`);
+  lines.push(
+    `攻守参考：${formatTaiyiTacticBasis({ lordCount: data.lordCount, guestCount: data.guestCount })}`,
+  );
   return lines;
 }
 
@@ -237,75 +260,53 @@ function formatAiChart(
   method: DivinationSessionMethod,
   data: DivinationData,
   summary: ReturnType<typeof getDivinationSummaryBlocks>,
+  currentTime: Date,
+  question: string,
+  liuyaoTemplate?: DivinationPromptOptions['liuyaoTemplate'],
 ) {
-  const base = [summary.title, summary.tags.filter(Boolean).join('；'), ...summary.lines].filter(
-    Boolean,
-  );
-  if (method === 'xiaoliuren') return formatDivinationInfo(method, data);
-  if (method === 'liuyao') {
-    const item = data as LiuyaoData;
-    base.push(
-      '六爻明细：',
-      ...item.yaosDetail.map(
-        (yao) =>
-          `第${yao.position}爻：${yao.yaoType}爻，${yao.sixGod}${yao.sixRelative}${yao.najiaDizhi}${yao.wuxing}${yao.isWorld ? '，世爻' : ''}${yao.isResponse ? '，应爻' : ''}${yao.isChanging ? `，动爻${yao.changedYao ? `化${yao.changedYao.liuqin}${yao.changedYao.dizhi}${yao.changedYao.wuxing}` : ''}` : ''}${yao.isVoid ? '，空亡' : ''}`,
-      ),
-    );
-  } else if (method === 'qimen') {
-    const item = data as QimenData;
-    base.push(
-      '九宫明细：',
-      ...item.jiuGongGe.map(
-        (palace) =>
-          `${palace.name}（${palace.direction}、${palace.element}）：天盘${palace.tianPan.stem}${palace.tianPan.star}${palace.tianPan.companionStem ? `，随${palace.tianPan.companionStem}${palace.tianPan.companionStar || ''}` : ''}；地盘${palace.diPan.stem}；门${palace.renPan.door}；神${palace.shenPan.god}`,
-      ),
-    );
-  } else if (method === 'astrolabe') {
-    const item = data as AstrolabeData;
-    base.push(
-      `出生资料：${item.birth.dateTime}，${item.birth.location}`,
-      `星体：${item.planets.map((point) => `${point.label}${point.formatted}`).join('；')}`,
-      `四轴：${item.angles.map((point) => `${point.label}${point.formatted}`).join('；')}`,
-      `宫位：${item.houses.map((point) => `第${point.house}宫宫头${point.formatted}`).join('；')}`,
-      `相位：${item.aspects.map((aspect) => `${aspect.body1}与${aspect.body2}：${aspect.type}，偏差${aspect.orb.toFixed(2)}°`).join('；') || '无'}`,
-    );
-  } else if (method === 'wuyun') {
-    const item = data as WuyunLiuqiResult;
-    base.push(
-      `年度资料：${item.input.year === undefined ? '' : `${item.input.year}年`}${item.input.yearGanZhi}；岁运${item.annualMovement.name}${item.annualMovement.toneName}${item.annualMovement.strength}；司天${item.sitian.name}；在泉${item.zaiquan.name}`,
-      `五步主客运：${item.movementSteps.map((step) => `${step.label}${step.hostMovement.element}/${step.guestMovement.element}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
-      item.pathomechanism?.summary ?? '',
-    );
-  } else if (method === 'jinkoujue') {
-    base.push('金口诀判断依据：', ...formatJinkoujueJudgmentFacts(data as JinkoujueData));
-  } else if (method === 'liuren') {
-    base.push('六壬判断依据：', ...formatLiurenJudgmentFacts(data as LiurenData));
-  } else if (method === 'taiyi') {
-    base.push('太乙判断依据：', ...formatTaiyiJudgmentFacts(data as TaiyiResult));
-  } else if (method === 'almanac') {
-    const item = data as AlmanacData;
-    const evidence = item.evidenceAnalysis ?? analyzeAlmanacEvidence(item);
-    const preferences = [
-      item.weekendPreference === 'prefer' ? '优先周末' : '',
-      item.weekendPreference === 'avoid' ? '避开周末' : '',
-      item.timePreferences?.includes('work-hours') ? '工作日常规办事时段' : '',
-      item.timePreferences?.includes('morning') ? '优先上午' : '',
-      item.timePreferences?.includes('afternoon') ? '优先下午' : '',
-    ].filter(Boolean);
-    base.push(
-      `黄历选择条件：事项${item.topicLabel}；候选日期${item.startDate}至${item.endDate}；${preferences.length ? `已选${preferences.join('、')}` : '未指定额外日期或时段偏好'}`,
-      `已计算候选日与可用时辰（候选日最多展示前${Math.min(item.days.length, 8)}日；每个已展示候选日完整列出可用时辰）：`,
-      ...item.days.slice(0, 8).map((day) => {
-        const candidate = evidence.candidates.find((entry) => entry.date === day.date);
-        const hours = candidate?.usableHours
-          .map((hour) => `${hour.name}${hour.range ? `（${hour.range}）` : ''}`)
-          .join('、');
-        return `${day.date}：${candidate?.status ?? '待核验候选'}；${hours ? `可用时辰${hours}` : '当前资料未列可用时辰'}`;
-      }),
-    );
+  if (method === 'xiaoliuren') {
+    const item = data as XiaoliurenData;
+    return formatDivinationInfo(method, data, '', undefined, {
+      omitRepeatedXiaoliurenCivilTime:
+        item.termReferenceTimestamp === undefined &&
+        Math.floor(item.timestamp / 60_000) === Math.floor(currentTime.getTime() / 60_000),
+    });
   }
-  return base.join('\n');
+  if (
+    method === 'jinkoujue' ||
+    method === 'qimen' ||
+    method === 'almanac' ||
+    method === 'meihua' ||
+    method === 'wuyun' ||
+    method === 'tarot' ||
+    method === 'lenormand' ||
+    method === 'liuyao' ||
+    method === 'astrolabe'
+  ) {
+    return formatDivinationInfo(method, data, question, undefined, { liuyaoTemplate });
+  }
+  if (method === 'liuren') {
+    return [
+      formatDivinationInfo(method, data, question),
+      '六壬判断依据：',
+      ...formatLiurenJudgmentFacts(data as LiurenData, {
+        includeOrdinaryAdjudication: false,
+        chartFactsIncluded: true,
+      }),
+    ].join('\n');
+  }
+  if (method === 'taiyi') {
+    const item = data as TaiyiResult;
+    return [
+      summary.title,
+      `${item.ganZhi}；${item.yinYang}${item.bureau}局；太乙在${item.taiyiPosition}（第${item.taiyiPalace}宫）`,
+      '太乙判断依据：',
+      ...formatTaiyiJudgmentFacts(item),
+    ].join('\n');
+  }
+  return [summary.title, summary.tags.filter(Boolean).join('；'), ...summary.lines]
+    .filter(Boolean)
+    .join('\n');
 }
 
 const RANDOM_METHODS: DivinationSessionMethod[] = [
@@ -330,6 +331,7 @@ function assertRequestRecord(request: DivinationRequest): void {
     request.method !== 'astrolabe' &&
     request.method !== 'almanac' &&
     request.method !== 'huangji' &&
+    request.method !== 'wuyun' &&
     request.method !== 'zhuge' &&
     request.method !== 'kongming'
   ) {
@@ -339,8 +341,14 @@ function assertRequestRecord(request: DivinationRequest): void {
 
 function normalizeDate(value: Date | string | number | undefined, field: string): Date | undefined {
   if (value === undefined) return undefined;
+  if (!(value instanceof Date) && typeof value !== 'string' && typeof value !== 'number') {
+    throw new TypeError(`${field}必须是有效日期、毫秒时间戳或带时区的 ISO 日期时间。`);
+  }
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
   if (Number.isNaN(date.getTime())) throw new Error(`${field}必须是有效日期。`);
+  if (typeof value === 'string' && !isValidIsoDateTime(value, date)) {
+    throw new TypeError(`${field}文本必须是带 Z 或明确偏移的有效 ISO 日期时间。`);
+  }
   return date;
 }
 
@@ -462,27 +470,20 @@ export function validateDivinationRequest(request: DivinationRequest): void {
   }
 }
 
-function resolveCurrentCivilYear() {
-  return Number(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-    }).format(new Date()),
-  );
-}
-
 function generateData(
   request: DivinationRequest,
   method: DivinationSessionMethod,
   customDate: Date | undefined,
   selectionRandom: ReturnType<typeof createRandomContext> | undefined,
+  currentTime: Date,
 ): DivinationData {
   const randomOptions = withSessionRandom(request.random, selectionRandom);
   switch (method) {
     case 'liuyao':
       return generateLiuyao(customDate, {
         ...(request.liuyao ?? {}),
-        ...((request.liuyao?.method ?? (request.liuyao?.yaos ? 'manual' : 'time')) === 'coins' &&
+        ...(((request.liuyao?.method === 'coins' && !request.liuyao.coinThrows) ||
+          (request.liuyao?.method === 'yarrow' && !request.liuyao.yarrowSplits)) &&
         randomOptions
           ? randomOptions
           : {}),
@@ -547,15 +548,22 @@ function generateData(
     case 'astrolabe':
       if (!request.astrolabe) throw new Error('星盘需要提供 astrolabe 出生资料。');
       return generateAstrolabe(request.astrolabe);
-    case 'taiyi':
-      if (!request.taiyi) throw new Error('太乙需要提供 taiyi 参数。');
-      if ((request.taiyi.scope ?? 'year') === 'year') {
-        return generateTaiyi({ year: request.taiyi.year, scope: 'year' }) as TaiyiResult;
+    case 'taiyi': {
+      const taiyi: DivinationRequest['taiyi'] =
+        request.taiyi ??
+        (request.method === 'random'
+          ? { year: getCivilDateTimeAtFixedOffset(customDate ?? new Date()).year, scope: 'year' }
+          : undefined);
+      if (!taiyi) throw new Error('太乙需要提供 taiyi 参数。');
+      if ((taiyi.scope ?? 'year') === 'year') {
+        return generateTaiyi({ year: taiyi.year, scope: 'year' }) as TaiyiResult;
       }
       return generateTaiyi({
         date: customDate ?? new Date(),
-        scope: request.taiyi.scope,
+        scope: taiyi.scope,
+        ...(taiyi.year !== undefined ? { year: taiyi.year } : {}),
       }) as TaiyiResult;
+    }
     case 'huangji':
       return calculateHuangjiJingshi(
         request.huangji?.year !== undefined
@@ -573,7 +581,7 @@ function generateData(
         request.wuyun &&
           (request.wuyun.year !== undefined || request.wuyun.yearGanZhi !== undefined)
           ? request.wuyun
-          : { year: resolveCurrentCivilYear() },
+          : { year: getWuyunLiuqiYearAt(customDate ?? currentTime) },
       );
   }
 }
@@ -583,9 +591,18 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
   validateDivinationRequest(request);
   const { method, random: selectionRandom } = resolveMethod(request);
   const customDate = normalizeDate(request.divinationTime, '起课时间');
-  const data = generateData(request, method, customDate, selectionRandom);
+  const currentTime = normalizeCurrentTime(request.currentTime) ?? new Date();
+  const data = generateData(request, method, customDate, selectionRandom, currentTime);
+  if (selectionRandom) {
+    assertReplaySamplesConsumed(request.random, selectionRandom.getTrace());
+  } else if (request.random?.replay !== undefined) {
+    const trace = 'meta' in data ? data.meta?.random : 'random' in data ? data.random : undefined;
+    assertReplaySamplesConsumed(
+      request.random,
+      trace?.mode === 'replay' ? trace : createRandomContext(request.random).getTrace(),
+    );
+  }
   const question = buildQuestion(method, request.question, data);
-  const currentTime = normalizeCurrentTime(request.currentTime);
   const promptOptions: DivinationPromptOptions = {
     method,
     data,
@@ -609,7 +626,14 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
           question,
           currentTime,
           supplementaryInfo: request.supplementaryInfo,
-          chartText: formatAiChart(method, data, summary),
+          chartText: formatAiChart(
+            method,
+            data,
+            summary,
+            currentTime,
+            question,
+            promptOptions.liuyaoTemplate,
+          ),
           data,
         });
   const aiPrompt = aiPromptDocument.text;

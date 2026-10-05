@@ -22,6 +22,23 @@ for (const [controller, controlled, bridge] of [
       );
       assert.equal(result.need, true);
       assert.equal(result.tongguan, bridge);
+      const originalRule = structuredClone(result.rule!);
+      try {
+        result.rule!.description = '变造通关依据';
+        result.rule!.conflictWuxings.splice(0);
+        result.conflict!.splice(0);
+        const fresh = detectTongguanNeed(
+          { [controller]: 30, [controlled]: 30 },
+          [favorable],
+          [unfavorable],
+        );
+        assert.equal(fresh.need, true);
+        assert.equal(fresh.tongguan, bridge);
+        assert.deepEqual(fresh.rule, originalRule);
+        assert.deepEqual(fresh.conflict, originalRule.conflictWuxings);
+      } finally {
+        Object.assign(result.rule!, originalRule);
+      }
     }
   });
 }
@@ -53,6 +70,23 @@ test('过旺规则选择泄化五行时沿相生方向取泄神', () => {
       element,
     );
     assert.equal(result.medicine, drain);
+    const originalRule = structuredClone(result.rule!);
+    try {
+      result.rule!.diseasePatterns.splice(0);
+      result.rule!.medicinePatterns[0] = '变造药神';
+      result.rule!.description = '变造病药依据';
+      const fresh = detectDiseaseMedicine(
+        { [element]: 40 },
+        { pattern: '普通格局', isSpecial: false },
+        '身强',
+        element,
+      );
+      assert.equal(fresh.hasDisease, true);
+      assert.equal(fresh.medicine, drain);
+      assert.deepEqual(fresh.rule, originalRule);
+    } finally {
+      Object.assign(result.rule!, originalRule);
+    }
   }
 });
 
@@ -82,6 +116,18 @@ test('病药对应已判旺衰的日主，不把木少或缺木当成补木依�
     assert.equal(result.medicine, '金');
     assert.equal(result.status, '候选');
     assert.match(result.conditions, /受财克制/);
+    const originalRule = structuredClone(result.rule!);
+    try {
+      result.rule!.diseasePatterns.splice(0);
+      result.rule!.medicinePatterns[0] = '变造药神';
+      const fresh = detectDiseaseMedicine(values, pattern, '身弱', '水');
+      assert.equal(fresh.disease, '水日主身弱');
+      assert.equal(fresh.medicine, '金');
+      assert.equal(fresh.status, '候选');
+      assert.deepEqual(fresh.rule, originalRule);
+    } finally {
+      Object.assign(result.rule!, originalRule);
+    }
   }
 });
 

@@ -47,9 +47,19 @@ export function buildFrontendInstantObserver(input: {
   birthLongitude: string;
   birthLatitude: string;
 }): InstantObserver | undefined {
+  if (!input.birthPlace.trim() || !input.birthLongitude.trim() || !input.birthLatitude.trim()) {
+    return undefined;
+  }
   const longitude = Number(input.birthLongitude);
   const latitude = Number(input.birthLatitude);
-  if (!input.birthPlace.trim() || !Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+  if (
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180 ||
+    !Number.isFinite(latitude) ||
+    latitude < -90 ||
+    latitude > 90
+  ) {
     return undefined;
   }
   return {
@@ -86,7 +96,7 @@ export function buildInstantQueryInput(options: {
     timeStandard: options.timeStandard,
     observer: options.observer,
   });
-  const preciseTimeRequired =
+  const locationRequired =
     options.timeStandard === 'true-solar' ||
     options.type === 'astrolabe' ||
     options.type === 'qizheng';
@@ -101,10 +111,11 @@ export function buildInstantQueryInput(options: {
     day: String(context.wallClock.day),
     timeIndex: getTimeIndexFromClock(context.wallClock.hour, context.wallClock.minute),
     useTrueSolarTime: options.timeStandard === 'true-solar',
-    ...(preciseTimeRequired
+    birthHour: String(context.wallClock.hour),
+    birthMinute: String(context.wallClock.minute),
+    birthSecond: String(context.wallClock.second),
+    ...(locationRequired
       ? {
-          birthHour: String(context.wallClock.hour),
-          birthMinute: String(context.wallClock.minute),
           birthPlace: context.observer?.locationName ?? '',
           birthLongitude:
             context.observer?.longitude === undefined ? '' : String(context.observer.longitude),
@@ -122,9 +133,10 @@ export function buildInstantResultPath(options: {
   observer?: InstantObserver;
 }) {
   const config = INSTANT_RESULT_CONFIG[options.type];
-  const input = buildInstantQueryInput(options);
+  const now = options.now ?? new Date();
+  const input = buildInstantQueryInput({ ...options, now });
   const path = buildChartRecordPath(input, {
-    ...createDefaultPromptState(options.now),
+    ...createDefaultPromptState(now),
     tab: config.tab,
     promptSource: config.promptSource,
     ziweiScope: 'origin',

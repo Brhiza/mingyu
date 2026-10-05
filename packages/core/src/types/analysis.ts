@@ -299,6 +299,8 @@ export type PatternFact = {
   matched_conditions?: string[];
   traditional_interpretation?: string;
   source?: string;
+  source_title?: string;
+  source_quote?: string;
   sources?: string[];
   calculation?: string;
   calculationStepKey?: string;
@@ -453,10 +455,25 @@ export interface UsefulGodPlacementProfile {
   summary: string;
 }
 export interface TenGodLifeStageItem {
+  /** 此十神对应的天干；自定义十神函数将多个天干并为一类时用顿号连接。 */
   stem: string;
   tenGod: string;
+  /** 各不同天干四支评分的合计，长生/冠带与病/墓各按 0.5 计。 */
   strongCount: number;
   lowCount: number;
+  /** 按天干拆分的出现位置与四柱地支长生证据；出现次数不重复乘入分值。 */
+  evidence: Array<{
+    stem: string;
+    occurrences: number;
+    positions: string[];
+    branchStages: Array<{
+      pillar: string;
+      branch: string;
+      stage: string;
+      strongScore: number;
+      lowScore: number;
+    }>;
+  }>;
   summary: string;
 }
 export interface TenGodLifeStageProfile {

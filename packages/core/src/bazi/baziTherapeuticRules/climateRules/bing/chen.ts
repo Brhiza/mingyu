@@ -2,6 +2,17 @@ import type { ClimateRule } from '../../types';
 
 export const BING_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'chen-month-bing-ren-first',
+    label: '丙日辰月壬水为主规则',
+    description: '三月丙火气渐炎升，原文以壬水为主；支成土局时才另取甲木为辅。',
+    priority: 115,
+    months: ['辰'],
+    dayMasters: ['火'],
+    dayStems: ['丙'],
+    usefulWuxing: '水',
+    hint: '丙火辰月，以壬水为主；成土局再参甲木',
+  },
+  {
     id: 'chen-month-bing-jia-no-ren',
     label: '丙日辰月有甲无壬浊富规则',
     description:
@@ -19,9 +30,9 @@ export const BING_CHEN_CLIMATE_RULES: ClimateRule[] = [
         scope: 'visible',
       },
     ],
-    usefulWuxing: '木',
-    favorableOrder: ['木', '水'],
-    traceHints: ['取用层次:甲木独辅', '成格层次:劳碌浊富'],
+    usefulWuxing: '水',
+    favorableOrder: ['水', '木'],
+    traceHints: ['条件事实:甲透而壬未透', '成格层次:劳碌浊富'],
     hint: '丙火辰月有甲无壬，多主劳碌浊富',
   },
 ];

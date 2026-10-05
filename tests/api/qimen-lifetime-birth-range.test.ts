@@ -66,6 +66,49 @@ test('奇门终身局HTTP在历法计算前拒绝出生范围的非固定时制'
   }
 });
 
+test('奇门终身局HTTP计算与提示词入口拒绝非布尔闰月和夏令时标志', async () => {
+  for (const path of ['', '/prompt']) {
+    for (const field of ['isLeapMonth', 'applyChinaDst']) {
+      const { status, body } = await call(path, {
+        ...(path ? { question: '解读本册资料' } : {}),
+        [field]: 'false',
+      });
+      assert.equal(status, 400, `${path || '计算接口'} ${field}`);
+      assert.match(String(body.error?.message), new RegExp(`${field} 必须是布尔值`));
+    }
+  }
+});
+
+test('奇门终身局HTTP计算与提示词入口拒绝错误时区类型和越界偏移', async () => {
+  for (const path of ['', '/prompt']) {
+    for (const extra of [{ timezone: '9' }, { timezone: 15 }, { timeZoneId: 9 }]) {
+      const { status, body } = await call(path, {
+        ...(path ? { question: '解读本册资料' } : {}),
+        ...extra,
+      });
+      assert.equal(status, 400, `${path || '计算接口'} ${JSON.stringify(extra)}`);
+      assert.match(String(body.error?.message), /timezone|timeZoneId/u);
+    }
+  }
+});
+
+test('奇门终身局HTTP计算与提示词入口拒绝错误地点坐标', async () => {
+  for (const path of ['', '/prompt']) {
+    for (const extra of [
+      { location: '北京' },
+      { location: { longitude: '116.4' } },
+      { location: { longitude: 116.4, latitude: 91 } },
+    ]) {
+      const { status, body } = await call(path, {
+        ...(path ? { question: '解读本册资料' } : {}),
+        ...extra,
+      });
+      assert.equal(status, 400, `${path || '计算接口'} ${JSON.stringify(extra)}`);
+      assert.match(String(body.error?.message), /location|longitude|latitude/u);
+    }
+  }
+});
+
 test('奇门终身局MCP不丢弃区间字段且与HTTP当前候选一致', async () => {
   const server = createMingyuMcpServer();
   const client = new Client({ name: 'qimen-range-test', version: '1.0.0' });

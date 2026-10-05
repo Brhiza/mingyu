@@ -11,12 +11,15 @@ import {
   getBranchWuxing,
   STEM_ORDER,
   BRANCH_ORDER,
-  BRANCH_HIDDEN_STEMS,
   WUXING,
   isSheng,
   isKe,
 } from '../ganzhi/relations';
-import { STEM_WUXING } from '../ganzhi/data';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 export { WUXING } from '../ganzhi/relations';
 export type { Wuxing } from '../ganzhi/relations';
@@ -33,24 +36,26 @@ export function tallyWuxing(
   items: readonly string[],
   options: { weightHidden?: boolean } = {},
 ): Record<string, number> {
+  // 固定权重以十分之一为单位累加，保留精确计数与并列关系。
   const result: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
   for (const item of items) {
     if (STEM_ORDER.includes(item as (typeof STEM_ORDER)[number])) {
       const w = STEM_WUXING[item];
-      if (w) result[w] += 1;
+      if (w) result[w] += 10;
     } else if (BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number])) {
-      const main = BRANCH_WUXING[item];
-      if (main) result[main] += 1;
+      const main = GANZHI_RELATION_TABLES.BRANCH_WUXING[item];
+      if (main) result[main] += 10;
       if (options.weightHidden) {
-        const hidden = BRANCH_HIDDEN_STEMS[item] || [];
-        const weights = [1, 0.5, 0.3];
+        const hidden = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[item] || [];
+        const weights = [10, 5, 3];
         hidden.forEach((stem, i) => {
           const w = STEM_WUXING[stem];
-          if (w) result[w] += weights[i] ?? 0.3;
+          if (w) result[w] += weights[i] ?? 3;
         });
       }
     }
   }
+  for (const w of WUXING) result[w] /= 10;
   return result;
 }
 
@@ -191,11 +196,11 @@ function buildWuxingEvidence(params: {
   const hiddenRanks = ['本气', '中气', '余气'] as const;
   const itemFacts: WuxingItemFact[] = params.items.map((item, itemIndex) => {
     const isStem = STEM_ORDER.includes(item as (typeof STEM_ORDER)[number]);
-    const primaryWuxing = isStem ? STEM_WUXING[item] : BRANCH_WUXING[item];
+    const primaryWuxing = isStem ? STEM_WUXING[item] : GANZHI_RELATION_TABLES.BRANCH_WUXING[item];
     if (!primaryWuxing) throw new Error(`五行映射数据缺失：${item}`);
     const hiddenContributions =
       !isStem && params.weightHidden
-        ? (BRANCH_HIDDEN_STEMS[item] ?? []).map((stem, index) => {
+        ? (GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[item] ?? []).map((stem, index) => {
             const wuxing = STEM_WUXING[stem];
             if (!wuxing) throw new Error(`藏干五行数据缺失：${stem}`);
             return {

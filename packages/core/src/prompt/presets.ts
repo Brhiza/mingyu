@@ -104,13 +104,16 @@ export const ASTROLABE_PROMPT_SHORTCUTS: readonly AstrolabePromptShortcut[] = [
 ];
 
 export function getBaziPromptPreset(id: string) {
-  return BAZI_PROMPT_PRESETS.find((item) => item.id === id);
+  const preset = BAZI_PROMPT_PRESETS.find((item) => item.id === id);
+  return preset ? { ...preset } : undefined;
 }
 
 export function getBaziCompatibilityPromptPreset(id: string) {
-  return BAZI_COMPATIBILITY_PROMPT_PRESETS.find((item) => item.id === id);
+  const preset = BAZI_COMPATIBILITY_PROMPT_PRESETS.find((item) => item.id === id);
+  return preset ? { ...preset } : undefined;
 }
 
 export function getAstrolabePromptShortcut(label: string) {
-  return ASTROLABE_PROMPT_SHORTCUTS.find((item) => item.label === label);
+  const shortcut = ASTROLABE_PROMPT_SHORTCUTS.find((item) => item.label === label);
+  return shortcut ? { ...shortcut } : undefined;
 }

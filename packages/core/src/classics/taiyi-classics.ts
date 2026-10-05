@@ -3,7 +3,7 @@ import type { TaiyiGeneralClassic } from './types';
 /**
  * 《太乙金镜式经》《太乙统宗宝鉴》太乙神数诸神与八将精解
  */
-export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
+const CANONICAL_TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   太乙: {
     general: '太乙',
     role: '监将 · 统领式局',
@@ -16,43 +16,43 @@ export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   },
   文昌: {
     general: '文昌',
-    role: '主将之佐 · 文德之府',
+    role: '下目 · 属主',
     wuxing: '土',
     sourceBook: '太乙金镜式经·卷二·推五将所主法',
     verse: '下目者，中宫镇星之精，受土德之正气，在地为阴，号文昌将，属主，王在四季。',
-    nature: '主方核心谋士，司文书政令、战略决策与智慧运筹。',
-    actionAdvice: '文昌得位利于战略规划、文书制定、谈判公关与智力输出。',
+    nature: '下目属主，取中宫土德、四季旺相之象。',
+    actionAdvice: '核对文昌所临位置与主算、主将，再结合岁时旺相取义。',
   },
   始击: {
     general: '始击',
-    role: '客将之佐 · 行动先锋',
+    role: '上目 · 属客',
     wuxing: '火',
     sourceBook: '太乙金镜式经·卷二·推五将所主法',
     verse: '上目者，南方荧惑之精，受火德之正气，在天为阳，号始击将，属客，王在夏三月。',
-    nature: '客方突击力量，司快速出击、外部变局、突发事件与主动变革。',
-    actionAdvice: '始击旺相宜主动出击、破局立新；若受制宜防突发危机与意外冲击。',
+    nature: '上目属客，取南方火德、夏季旺相之象。',
+    actionAdvice: '核对始击所临位置与客算、客将，再结合岁时旺相取义。',
   },
   主将: {
     general: '主将',
-    role: '主方元帅 · 防守中枢',
+    role: '主方大将',
     wuxing: '金',
     sourceBook: '太乙金镜式经·卷二·推五将所主法',
     verse: '主大将者，西方太白之精，受金德之正气，主战斗，王在秋三月。',
-    nature: '代表内部、我方、守方与阵地核心。主沉稳、防御、内功与根基。',
-    actionAdvice: '主将得算宜守正不阿、深挖护城河、稳扎稳打，以静制动。',
+    nature: '主方大将，取西方金德、秋季旺相之象。',
+    actionAdvice: '结合主算、主大将落宫与主参将位置核对盘面关系。',
   },
   客将: {
     general: '客将',
-    role: '客方先驱 · 进攻锋芒',
+    role: '客方大将',
     wuxing: '水',
     sourceBook: '太乙金镜式经·卷二·推五将所主法',
     verse: '客大将者，北方辰星之精，受水德之正气，主兵革，王在冬三月。',
-    nature: '代表外部、彼方、攻方、开拓者与新势力。主进取、远征、冲击与扩张。',
-    actionAdvice: '客将得算利于开拓新市场、远行出征、破旧立新、主动争取。',
+    nature: '客方大将，取北方水德、冬季旺相之象。',
+    actionAdvice: '结合客算、客大将落宫与客参将位置核对盘面关系。',
   },
   主参: {
     general: '主参',
-    role: '主将副手 · 补位护卫',
+    role: '主方参将',
     sourceBook: '古今图书集成·艺术典第六百八十七卷·太乙淘金歌·求参将宫',
     verse:
       '由天地二目所数，主客二大将，三因，乃为主客二参将。如大将在三宫而三因之，则参将在九宫也。',
@@ -61,7 +61,7 @@ export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   },
   客参: {
     general: '客参',
-    role: '客将副手 · 奇兵策应',
+    role: '客方参将',
     sourceBook: '古今图书集成·艺术典第六百八十七卷·太乙淘金歌·求参将宫',
     verse:
       '由天地二目所数，主客二大将，三因，乃为主客二参将。如大将在三宫而三因之，则参将在九宫也。',
@@ -79,10 +79,14 @@ export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   },
 };
 
+export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = structuredClone(
+  CANONICAL_TAIYI_GENERAL_CLASSICS,
+);
+
 export function getTaiyiGeneralClassic(general: string): TaiyiGeneralClassic | undefined {
   if (!general) return undefined;
-  for (const [key, val] of Object.entries(TAIYI_GENERAL_CLASSICS)) {
-    if (general.includes(key)) return val;
+  for (const [key, val] of Object.entries(CANONICAL_TAIYI_GENERAL_CLASSICS)) {
+    if (general.includes(key)) return structuredClone(val);
   }
   return undefined;
 }

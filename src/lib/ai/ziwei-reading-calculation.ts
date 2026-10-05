@@ -284,11 +284,11 @@ function buildChartInput(input: JsonRecord) {
       isLeapMonth: booleanValue(input, 'isLeapMonth', false),
       useTrueSolarTime,
       birthPlace: textValue(input, 'birthPlace'),
-      ...(useTrueSolarTime || birthSecond !== undefined
+      ...(chartInput.birthTime !== undefined
         ? {
             birthHour: integerValue(input, 'birthHour', 0, 23),
             birthMinute: integerValue(input, 'birthMinute', 0, 59),
-            ...(birthSecond === undefined ? {} : { birthSecond }),
+            birthSecond: birthSecond ?? 0,
           }
         : { timeIndex: integerValue(input, 'timeIndex', 0, 12) }),
       ...(useTrueSolarTime
@@ -498,6 +498,8 @@ export async function generateZiweiReadingLocally(
   calculationRequest: JsonRecord,
   options: ZiweiReadingCalculationOptions = {},
 ): Promise<ZiweiReadingCalculationResult> {
+  calculationRequest = { ...calculationRequest };
+  options = { ...options };
   checkAborted(options.signal);
   const { chartInput, identity } = buildChartInput(calculationRequest);
   const selection = readSelection(calculationRequest);

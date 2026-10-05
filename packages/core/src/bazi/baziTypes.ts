@@ -58,10 +58,10 @@ export interface Person {
   isLeapMonth?: boolean;
   useTrueSolarTime?: boolean;
   isThreePillars?: boolean;
+  /** 钟表小时与分钟同时提供时优先于 timeIndex，未提供秒数按零秒计算。 */
   birthHour?: number;
-
   birthMinute?: number;
-  /** 标准北京时间的秒数；提供时表示 birthHour/birthMinute 为精确标准时刻。 */
+  /** 钟表秒数；需同时提供 birthHour 与 birthMinute。 */
   birthSecond?: number;
   birthPlace?: string;
   birthLongitude?: number;
@@ -126,11 +126,14 @@ export interface WuxingStrengthDetails {
 export interface BaziWarningFact {
   key: string;
   type: '节气交接边界' | '时辰边界' | '换日流派边界' | '历史夏令时边界' | '输入时间边界';
-  status: '已确定当前口径' | '已校正' | '需核验原始记录';
+  status: '已确定当前口径' | '已校正' | '需核验原始记录' | '资料不完整';
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱';
+  limitation:
+    | '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱'
+    | '节气资料不完整只表示边界检查覆盖不足，交节距离仍待核验'
+    | '出生钟表时刻仍待核验，当前时柱仅对应本次输入口径';
 }
 
 export interface BaziWarningSummaryFact {
@@ -141,6 +144,8 @@ export interface BaziWarningSummaryFact {
   sources: string[];
   limitation:
     | '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱'
+    | '节气资料不完整时交节距离待核验，时柱仍按当前输入确定'
+    | '出生时间原始记录待核验，当前时柱仅对应本次输入口径'
     | '缺时辰说明用于标注待补资料，候选场景分别记录，完整命盘尚未确定';
 }
 
@@ -437,6 +442,8 @@ export interface UsefulGodAnalysis {
   secondaryUnfavorableWuxing?: string[];
   primaryUseful?: string;
   primaryAvoid?: string;
+  /** 可增补五行与具体天干的裁决程度；原局格神功能不自动转为增补喜忌。 */
+  incrementStatus?: '已判定' | '部分判定' | '待判';
   /** 只适用于明确 policy.effects 的干级候选，不代表同五行全部可用。 */
   conditionalFavorableStems?: string[];
   /** 具体天干因调候条件或普通格局破格事实列忌，不把限制扩大到整个五行。 */
@@ -500,6 +507,16 @@ export interface UsefulGodDecisionEvidence {
   climateAppliedRuleId?: string;
   climateAppliedRuleIds?: string[];
   controlFunctions?: UsefulGodControlFunctionEvidence[];
+  /** 已证原局格神与制化作用；只说明本命结构，不判新来同干或整五行为喜。 */
+  natalFunctions?: Array<{
+    stem: string;
+    tenGod: string;
+    pillar: string;
+    placement: '透干' | '藏干';
+    role: '格神' | '制化来源' | '制化对象';
+    pathKey?: string;
+    detail: string;
+  }>;
   conditionalFavorableStems?: string[];
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
@@ -554,9 +571,11 @@ export interface InternalBaziChartResult extends BaziChartResult {
 export interface BaziChartResult {
   /** 性别：male / female */
   gender: string;
-  /** 公历出生日期 */
+  /** 排盘采用的公历日期；未知时辰时保留录入日期对应的公历日，候选实际历日见 unknownTimeAnalysis。 */
   solarDate: { year: number; month: number; day: number };
-  /** 农历出生日期（含月名和日名） */
+  /** 精确出生输入对应的原始公历钟表时刻，保留真太阳时或夏令时校正前的日期与时间。 */
+  birthClockTime?: SolarDateTimeInfo;
+  /** 排盘采用的农历日期（含月名和日名）；未知时辰如历日待定，此处为录入日期的参考值。 */
   lunarDate: { year: number; month: number; day: number; monthName: string; dayName: string };
   /** 出生时间完整信息（干支、节气、生肖等） */
   timeInfo: TimeInfo;
@@ -569,6 +588,8 @@ export interface BaziChartResult {
     status: '待补时';
     summary: string;
     uncertainPillars: Array<'year' | 'month' | 'day'>;
+    /** 候选实际排盘历日不一致；输入日期仍由顶层 solarDate 保留。 */
+    uncertainCalendarDates?: Array<'solar' | 'lunar'>;
     /** 远程按候选续取时标识当前页；完整本地计算不带此字段。 */
     batch?: BaziUnknownTimeBatchMetadata;
     scenarios: Array<{
@@ -581,16 +602,24 @@ export interface BaziChartResult {
         | 'shichen-representative'
         | 'day-end'
         | 'solar-term-boundary'
-        | 'month-commander-boundary';
+        | 'month-commander-boundary'
+        | 'dst-boundary';
       boundary?: {
         name: string;
         side: 'before' | 'at';
       };
       timeIndex: number;
       timeName: string;
+      /** 本候选按实际出生时刻换算的公历日期。 */
+      solarDate?: BaziChartResult['solarDate'];
+      /** 本候选按实际出生时刻换算的农历日期。 */
+      lunarDate?: BaziChartResult['lunarDate'];
       pillars: Pillars;
       strength: DayMasterStrengthStatus;
       pattern: string;
+      /** 本候选真实四柱的格局成败；取格名称相同也可能有不同成败。 */
+      patternStatus?: PatternFulfillmentResult['status'];
+      incrementStatus?: UsefulGodAnalysis['incrementStatus'];
       favorableWuxing: string[];
       unfavorableWuxing: string[];
     }>;
@@ -636,9 +665,9 @@ export interface BaziChartResult {
   shenShaAnalysis: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
-  /** 调候寒暖燥湿定性（依据《穷通宝鉴》《滴天髓》） */
+  /** 四柱水火分布的启发式辅助指标；不代表完整调候裁决。 */
   climate?: {
-    nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+    nature: '偏寒' | '偏燥' | '未见明显偏向' | '微偏寒' | '微偏燥';
     medicine: string;
     summary: string;
   };

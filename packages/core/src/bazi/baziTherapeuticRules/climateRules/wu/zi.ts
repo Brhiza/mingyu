@@ -13,18 +13,4 @@ export const WU_ZI_CLIMATE_RULES: ClimateRule[] = [
     favorableOrder: ['火', '木'],
     hint: '戊土子月，先丙后甲',
   },
-  {
-    id: 'zi-month-wu-bing-jia-geng-all',
-    label: '戊日子月丙甲庚全透极品规则',
-    description: '戊土生子月，丙甲庚三者全透，较合原文"戊土生子月，三者全透，鼎甲可期"。',
-    priority: 126,
-    months: ['子'],
-    dayMasters: ['土'],
-    dayStems: ['戊'],
-    requiredVisibleStems: ['丙', '甲', '庚'],
-    usefulWuxing: '火',
-    favorableOrder: ['火', '木', '金'],
-    traceHints: ['取用层次:丙甲庚三者全透', '成格层次:鼎甲可期'],
-    hint: '戊土子月丙甲庚三者全透，鼎甲可期',
-  },
 ];

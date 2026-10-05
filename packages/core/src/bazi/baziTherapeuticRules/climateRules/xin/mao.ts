@@ -2,6 +2,17 @@ import type { ClimateRule } from '../../types';
 
 export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'mao-month-xin-ren-first',
+    label: '辛日卯月壬水为尊规则',
+    description: '二月辛金原文以壬水为尊；见戊己土为病时才以甲木制土。',
+    priority: 115,
+    months: ['卯'],
+    dayMasters: ['金'],
+    dayStems: ['辛'],
+    usefulWuxing: '水',
+    hint: '辛金卯月，以壬水为尊；见土病再参甲木',
+  },
+  {
     id: 'mao-month-xin-ren-jia-all-noble',
     label: '辛日卯月壬甲两透贵显规则',
     description:

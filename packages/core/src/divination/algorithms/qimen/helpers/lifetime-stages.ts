@@ -18,9 +18,13 @@ import {
 import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { toNativeDate, toSolarDateTimeInfo } from '../../../../bazi/luckTiming';
-import { diPanPalaces } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import { getDunJiaStem } from './jushu';
+import { hasTianPanStar } from './palace-utils';
 import { LunarYear, SolarTerm } from 'tyme4ts';
+
+const { diPanPalaces } = getQimenConstants();
 
 const CLOCKWISE_OUTER_PALACES = [1, 8, 3, 4, 9, 2, 7, 6];
 const COUNTER_CLOCKWISE_OUTER_PALACES = [1, 6, 7, 2, 9, 4, 3, 8];
@@ -78,34 +82,44 @@ function evaluatePalaceSupportAndConstraints(
   const palace = baseChart.jiuGongGe.find((p) => p.gong === palaceNum);
   if (!palace) return { support, constraints };
 
-  // 八门吉凶
+  // 八门取象
   const door = palace.renPan.door;
   if (['开门', '休门', '生门'].includes(door)) {
-    support.push(`临三大吉门之${door}，人事实质通达顺畅`);
+    const doorImage: Record<string, string> = {
+      开门: '对外事务与开通',
+      休门: '休养与交流',
+      生门: '生发与经营',
+    };
+    support.push(`临${door}，传统门象对应${doorImage[door]}`);
   } else if (['死门', '伤门', '惊门'].includes(door)) {
-    constraints.push(`临凶门${door}，需防滞塞阻力、言语是非或折伤耗散`);
+    const doorImage: Record<string, string> = {
+      死门: '收束与停滞',
+      伤门: '冲突与损耗',
+      惊门: '突发变化与言语争议',
+    };
+    constraints.push(`临${door}，传统门象涉及${doorImage[door]}`);
   } else if (door === '杜门') {
-    constraints.push('临杜门，主隐秘闭塞，宜潜心深耕而不利高调激进');
+    constraints.push('临杜门，传统门象涉及闭藏与专注');
   } else if (door === '景门') {
-    support.push('临景门，主文书声誉、名气外显与合同机遇');
+    support.push('临景门，传统门象涉及文书、呈现与声誉议题');
   }
 
-  // 八神吉凶
+  // 八神取象
   const god = palace.shenPan.god;
   if (['值符', '太阴', '六合', '九天', '九地'].includes(god)) {
-    support.push(`得吉神${god}护持，贵人引路、协同有方`);
+    support.push(`临${god}，传统神象对应助力与协同线索`);
   } else if (['白虎', '螣蛇', '玄武'].includes(god)) {
-    constraints.push(`值${god}乘临，警惕暗耗、口舌争执或意外波动`);
+    constraints.push(`临${god}，传统神象涉及阻力或变动议题`);
   }
 
   // 空亡与马星
   const isVoid = baseChart.voidPalaces?.some((vp) => vp.palace === palaceNum);
   const hasHorse = baseChart.horseStar?.palace === palaceNum;
   if (isVoid) {
-    constraints.push('宫逢旬空，吉凶能量暂未落地，多有虚耗等待与变动');
+    constraints.push('宫逢旬空，该宫议题有待核对的兑现条件与时间');
   }
   if (hasHorse) {
-    support.push('临驿马星，主走动频繁、迁移外出或生活节奏加速');
+    support.push('临驿马星，传统取象涉及移动与变化');
   }
 
   // 经典格局
@@ -259,46 +273,46 @@ export function buildLifetimeStages(
     const stageDefs = [
       {
         index: 0,
-        title: '初限·早年根基',
+        title: '初限·早年阶段',
         ageStart: 0 + ageOffset,
         ageEnd: 16 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 0),
         calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 17)),
         gongs: yearPalaces,
-        theme: '年柱主限：主家庭原生教养、长辈福荫护持、学识基础与先天命质形成。',
+        theme: '年柱主限：以年干、年支落宫观察早年家庭与学习议题。',
         markers: [`年干${yearStem}`, `年支${yearBranch}`],
       },
       {
         index: 1,
-        title: '中前限·青年立业',
+        title: '中前限·青年阶段',
         ageStart: 17 + ageOffset,
         ageEnd: 32 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 17),
         calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 33)),
         gongs: monthPalaces,
-        theme: '月柱主限：走出家庭踏入社会、人际圈层开拓、事业基石奠定与青年自我认知。',
+        theme: '月柱主限：以月干、月支落宫观察青年阶段的交往与事务发展。',
         markers: [`月干${monthStem}`, `月支${monthBranch}`],
       },
       {
         index: 2,
-        title: '中后限·中年鼎盛',
+        title: '中后限·中年阶段',
         ageStart: 33 + ageOffset,
         ageEnd: 48 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 33),
         calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 49)),
         gongs: dayPalaces,
-        theme: '日柱主限：人生核心建树期，自身心力智慧完全展现，家庭与社会中流砥柱。',
+        theme: '日柱主限：以日干落宫观察中年阶段的个人事务。',
         markers: [`日干${dayStem}`],
       },
       {
         index: 3,
-        title: '末限·晚景安泰',
+        title: '末限·晚年阶段',
         ageStart: 49 + ageOffset,
         ageEnd: 80 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 49),
         calEnd: addYearsToCivilDate(anchorBaseDate, 80),
         gongs: hourPalaces,
-        theme: '时柱主限：事业收获定型、后辈晚生接班、生活闲适自洽与精神安泰归宿。',
+        theme: '时柱主限：以时干及值使门落宫观察晚年阶段议题。',
         markers: [`时干${hourStem}`, `值使${baseChart.zhiShi}`],
       },
     ];
@@ -376,7 +390,7 @@ export function buildLifetimeStages(
     // 模型三：符使交替十年分段（保留 fuShiHexagramOrbit 枚举兼容）
     // -------------------------------------------------------------
     const zhiFuPalace =
-      baseChart.jiuGongGe.find((p) => p.tianPan.star === baseChart.zhiFu)?.gong || 1;
+      baseChart.jiuGongGe.find((p) => hasTianPanStar(p, baseChart.zhiFu))?.gong || 1;
     const zhiShiPalace =
       baseChart.jiuGongGe.find((p) => p.renPan.door === baseChart.zhiShi)?.gong || 6;
 

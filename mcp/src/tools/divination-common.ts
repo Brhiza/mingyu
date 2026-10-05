@@ -19,6 +19,8 @@ export function extendPromptSchema<T extends z.ZodRawShape>(
     ...createPromptSchoolsShape(method),
     question: z
       .string()
+      .trim()
+      .min(1, 'question 不能为空。')
       .describe(`${questionDescription}；按用户原意传入具体问题，不自行补写事实或结果`),
     promptMode: z
       .enum(PROMPT_MODES)

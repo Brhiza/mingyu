@@ -15,7 +15,9 @@ import { getDivinationSessionSummary } from '../src/lib/divination/summary';
 import { addDivinationHistory, getDivinationHistoryById } from '../src/lib/history-records';
 
 async function createRangeSession(hour = 23) {
-  const pillars = getGanZhiFromDate(new Date(2024, 1, 4, hour));
+  const pillars = getGanZhiFromDate(
+    new Date(`2024-02-04T${String(hour).padStart(2, '0')}:00:00+08:00`),
+  );
   const candidate = reverseBaziDates({ pillars, startYear: 2024, endYear: 2024 }).candidates.find(
     (item) => item.start.text.startsWith('2024-02-04'),
   );

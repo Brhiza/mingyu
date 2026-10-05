@@ -17,19 +17,20 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
 import {
   evaluateStarPalaces,
-  getZhiFuStarJudgement,
+  getZhiFuStarPalaceFact,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace';
 
 const outerPalaces = [1, 8, 3, 4, 9, 2, 7, 6];
 const rotatingStars = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心'];
 const doors = ['休门', '生门', '伤门', '杜门', '景门', '死门', '惊门', '开门'];
+const fixedSummerBoard = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
 
 function byGong<T extends { gong: number }>(items: T[]): Record<number, T> {
   return Object.fromEntries(items.map((item) => [item.gong, item]));
 }
 
 test('奇门转盘应完整复现芒种上元阳六局癸未时盘面', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = structuredClone(fixedSummerBoard);
   const palaces = byGong(result.jiuGongGe);
 
   assert.equal(result.ganzhi.day, '庚戌');
@@ -144,7 +145,7 @@ test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干',
   assert.equal(new Set(starStates.map((item) => item.star)).size, 9);
   assert.equal(starStates.find((item) => item.star === '天禽')?.gong, zhiFuPalace?.gong);
   assert.equal(
-    getZhiFuStarJudgement({ jiuGongGe: palaces, zhiFu: '天禽' })?.gong,
+    getZhiFuStarPalaceFact({ jiuGongGe: palaces, zhiFu: '天禽' }).gong,
     zhiFuPalace?.gong,
   );
 });
@@ -177,7 +178,12 @@ test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天�
   const yiRelations = getStemRelations(yiRuMu.palaces);
   assert.equal(yiRuMu.palaces[1].tianPan.companionStem, '乙');
   assert.ok(yiPatterns.some((pattern) => pattern.name === '日奇入墓' && pattern.palace === 2));
-  assert.ok(yiPatterns.some((pattern) => pattern.name === '乙入墓' && pattern.palace === 2));
+  assert.equal(
+    yiPatterns.filter(
+      (pattern) => pattern.palace === 2 && ['日奇入墓', '乙入墓'].includes(pattern.name),
+    ).length,
+    1,
+  );
   assert.ok(
     yiRelations.some(
       (relation) => relation.heaven === '乙' && relation.earth === '癸' && relation.palace === 2,
@@ -205,7 +211,7 @@ test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天�
 });
 
 test('奇门证据提示词应完整展示天芮天禽及各自所携天盘干', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = structuredClone(fixedSummerBoard);
   const companionFact = result.evidenceAnalysis?.palaceFacts.find(
     (fact) => fact.tianPan.companionStar === '天禽',
   );

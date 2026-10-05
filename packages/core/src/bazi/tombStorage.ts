@@ -1,7 +1,10 @@
 import type { TombStorageItem, TombStorageProfile } from '../types/analysis';
-import { HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziMappingsData';
+import { TWELVE_STAGES_MAP } from './baziMappingsData';
 import { WUXING } from './baziTypes';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 function getDayMasterTombBranch(dayMaster: string): string {
   assertHeavenlyStem(dayMaster, '日主');
@@ -62,7 +65,7 @@ export function analyzeTombStorage(
 
   pillars.forEach((p) => {
     if (!fourTombs.includes(p.zhi)) return;
-    const stems = HIDDEN_STEMS[p.zhi];
+    const stems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[p.zhi];
     if (!stems) {
       throw new Error(`藏干数据缺失：${p.zhi}`);
     }

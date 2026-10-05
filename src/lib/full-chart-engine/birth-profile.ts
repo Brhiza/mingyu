@@ -11,6 +11,7 @@ import type {
   BirthProfileLocation,
   BirthProfileTimeRange,
 } from 'mingyu-core/profile';
+import { resolveBirthPlace } from 'mingyu-core/location';
 
 export type FrontendBirthSubject = 'primary' | 'partner';
 
@@ -102,6 +103,20 @@ function buildLocation(
   if (longitude === undefined && latitude === undefined) return undefined;
   if (longitude === undefined) throw new RangeError('出生地点提供纬度时必须同时提供经度。');
 
+  const selectedPlace = name ? resolveBirthPlace(name) : null;
+  if (
+    selectedPlace &&
+    selectedPlace.longitude === longitude &&
+    selectedPlace.latitude === latitude
+  ) {
+    return {
+      regionId: selectedPlace.regionId,
+      ...(fixedBeijing
+        ? { timezone: RANGE_OFFSET_HOURS }
+        : { timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID }),
+    };
+  }
+
   return {
     ...(name ? { name } : {}),
     longitude,
@@ -160,7 +175,7 @@ function buildProfileFromPerson(
   person: ReturnType<typeof buildPersonFromInput>,
   fixedBeijing: boolean,
 ): BirthProfile {
-  // buildPersonFromInput 为“时分无秒”的标准时间计算补了零秒，供核心计算使用；
+  // 共享八字输入适配器为“时分无秒”的标准时间计算补零秒；
   // 这里仍须依据网页原始输入保留分钟精度，不能把补入的 0 当成用户明确提供的秒。
   const hasExplicitSecond = fixedBeijing || fields.birthSecond.trim() !== '';
   const preciseTime =

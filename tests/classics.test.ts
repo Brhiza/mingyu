@@ -1,5 +1,24 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import type { JinkoujueMovement } from 'mingyu-core/types';
+import * as classics from '../packages/core/src/classics/index';
+import * as qimen from '../packages/core/src/classics/qimen-patterns';
+import * as qiongtong from '../packages/core/src/classics/bazi-qiongtong';
+import * as ditiansui from '../packages/core/src/classics/bazi-ditiansui';
+import * as ziping from '../packages/core/src/classics/bazi-ziping';
+import * as liuyao from '../packages/core/src/classics/liuyao-rules';
+import * as meihua from '../packages/core/src/classics/meihua-rules';
+import * as zhouyi from '../packages/core/src/classics/zhouyi';
+import * as jinkou from '../packages/core/src/classics/jinkoujue-rules';
+import * as liuren from '../packages/core/src/classics/liuren-rules';
+import * as ziwei from '../packages/core/src/classics/ziwei-classics';
+import * as fengshui from '../packages/core/src/classics/fengshui-classics';
+import * as taiyi from '../packages/core/src/classics/taiyi-classics';
+import * as qizheng from '../packages/core/src/classics/qizheng-classics';
+import * as almanac from '../packages/core/src/classics/almanac-classics';
+import * as huangji from '../packages/core/src/classics/huangji-classics';
+import * as wuyun from '../packages/core/src/classics/wuyun-liuqi-classics';
+import * as xiaoliuren from '../packages/core/src/classics/xiaoliuren-classics';
 
 import {
   getAlmanacOfficerClassic,
@@ -68,20 +87,26 @@ test('奇门遁甲九星、八门、八神经典赋文查询正确', () => {
   assert.ok(zhiFu.verse.includes('值符九星之领袖'));
 });
 
-test('八字《滴天髓》十干体象与性情查询正确', () => {
-  const jiaMu = getBaziDitiansuiAdvice('甲');
-  assert.ok(jiaMu);
-  assert.equal(jiaMu.wuxing, '木');
-  assert.ok(jiaMu.verse.includes('甲木参天，脱胎要火'));
-
-  const bingHuo = getBaziDitiansuiAdvice('丙');
-  assert.ok(bingHuo);
-  assert.equal(bingHuo.wuxing, '火');
-  assert.ok(bingHuo.verse.includes('丙火猛烈，欺霜傲雪'));
-
-  const guiShui = getBaziDitiansuiAdvice('癸');
-  assert.ok(guiShui);
-  assert.ok(guiShui.verse.includes('癸水至弱，达于天津'));
+test('八字《滴天髓》十干体象摘录与静态释义正确', () => {
+  const checkedVerses = {
+    甲: '甲木参天，脱胎要火。',
+    乙: '乙木虽柔，刲羊解牛。',
+    丙: '丙火猛烈，欺霜侮雪。',
+    丁: '丁火柔中，内性昭融。',
+    戊: '戊土固重，既中且正。',
+    己: '己土卑湿，中正蓄藏。',
+    庚: '庚金带煞，刚强为最。',
+    辛: '辛金软弱，温润而清。',
+    壬: '壬水汪洋，能泄金气。',
+    癸: '癸水至弱，达于天津。',
+  };
+  for (const [stem, verse] of Object.entries(checkedVerses)) {
+    const entry = getBaziDitiansuiAdvice(stem);
+    assert.equal(entry?.verse, verse);
+    if (stem === '甲') assert.equal(entry?.wuxing, '木');
+    if (stem === '丙') assert.equal(entry?.wuxing, '火');
+    assert.doesNotMatch(`${entry?.nature}${entry?.modernAdvice}`, /性情|职业|适合|必然/);
+  }
 });
 
 test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
@@ -89,29 +114,37 @@ test('八字《子平真诠》八格取用与纯杂判定查询正确', () => {
   assert.ok(zhengguan);
   assert.equal(zhengguan.category, '正格');
   assert.ok(zhengguan.rule.includes('月令正官'));
-  assert.ok(zhengguan.taboos.includes('伤官见官'));
+  assert.ok(zhengguan.taboos.includes('官逢伤而无救应'));
 
   const qisha = getBaziZipingPatternAdvice('七杀格（身杀两停）');
   assert.ok(qisha);
   assert.equal(qisha.pattern, '七杀格');
-  assert.ok(qisha.verse?.includes('七杀有制化为权'));
+  assert.ok(qisha.verse?.includes('煞重身轻，用食则身不能当，不若转而就印'));
 });
 
-test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
+test('八字《穷通宝鉴》调候喜忌与条目按日干月支精确查询', () => {
   const jiaYin = getBaziQiongtongAdvice('甲', '寅');
   assert.ok(jiaYin);
   assert.deepEqual(jiaYin.primaryGods, ['丙', '癸']);
-  assert.ok(jiaYin.classicVerse.includes('初春甲木'));
+  assert.ok(jiaYin.classicVerse.includes('正月甲木'));
 
   const gengShen = getBaziQiongtongAdvice('庚', '申');
   assert.ok(gengShen);
   assert.deepEqual(gengShen.primaryGods, ['丁', '甲']);
   assert.ok(gengShen.classicVerse.includes('七月庚金'));
+  assert.equal(gengShen.monthBranch, '申');
 
   const renWu = getBaziQiongtongAdvice('壬', '午');
   assert.ok(renWu);
-  assert.deepEqual(renWu.primaryGods, ['庚', '辛', '癸']);
+  assert.deepEqual(renWu.primaryGods, ['癸', '庚']);
   assert.ok(renWu.classicVerse.includes('五月壬水'));
+  const yiChen = getBaziQiongtongAdvice('乙', '辰');
+  assert.equal(yiChen?.monthBranch, '辰');
+  assert.match(yiChen?.classicVerse ?? '', /^三月乙木，阳气愈炽，先癸后丙/u);
+  const gengYou = getBaziQiongtongAdvice('庚', '酉');
+  assert.equal(gengYou?.monthBranch, '酉');
+  assert.match(gengYou?.classicVerse ?? '', /^八月庚金，刚锐未退，用丁用甲/u);
+  assert.equal(getBaziQiongtongAdvice('乙', '寅')?.monthBranch, '寅');
 });
 
 test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {
@@ -140,12 +173,14 @@ test('六爻《卜筮正宗》与《增删卜易》动变生克断语查询正�
 test('梅花易数体用生克与八卦类象查询正确', () => {
   const bihe = getMeihuaBodyUseJudgement('体用比和');
   assert.ok(bihe);
-  assert.equal(bihe.auspice, '大吉');
-  assert.ok(bihe.matterCategories.seekingWealth.includes('利于合伙经商'));
+  assert.equal(bihe.sourceBook, '梅花易数·体用总诀');
+  assert.equal(bihe.classicSummary, '体用比和，则百事顺遂。');
+  assert.match(bihe.context, /旺衰、互卦与变卦/);
 
   const yongKeTi = getMeihuaBodyUseJudgement('用克体');
   assert.ok(yongKeTi);
-  assert.equal(yongKeTi.auspice, '大凶');
+  assert.equal(yongKeTi.classicSummary, '用克体，诸事凶。');
+  assert.equal('matterCategories' in yongKeTi, false);
 
   const qianTrigram = getMeihuaTrigramClassic('乾');
   assert.ok(qianTrigram);
@@ -245,15 +280,81 @@ test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () =>
   }
 });
 
-test('金口诀《金口诀大全》五动三动歌诀查询正确', () => {
-  const qiDong = getJinkoujueMovementClassic('妻动');
-  assert.ok(qiDong);
-  assert.equal(qiDong.category, '五动');
-  assert.ok(qiDong.verse.includes('妻动妻愁夫不宁'));
+test('金口诀五动三动资料与算法名称、方位和卷上原文一致', () => {
+  const expectedMovements: Array<{
+    key: JinkoujueMovement['name'];
+    category: JinkoujueMovement['category'];
+    name: string;
+    verse: string;
+  }> = [
+    {
+      key: '妻动',
+      category: '五动',
+      name: '妻动（上克下）',
+      verse:
+        '妻动于妻妾；官财防损折；占人人在家；访人人不悦；外边来索取；卑下有口舌；论物多翻正；下旁或有缺。',
+    },
+    {
+      key: '官动',
+      category: '五动',
+      name: '官动（下克上）',
+      verse:
+        '官动利求官；相逢禄位迁；常人公府事；有官望财难；合得官中物；休从外处干；得财防暗损；问病在喉咽。',
+    },
+    {
+      key: '贼动',
+      category: '五动',
+      name: '贼动（上克下）',
+      verse:
+        '贼动内贼生；勾连诈不明；损财卑幼病；谋望必无成；架媾奸私意；偷攘宛转名；卦爻终暗昧；病恐亦非轻。',
+    },
+    {
+      key: '财动',
+      category: '五动',
+      name: '财动（下克上）',
+      verse:
+        '财动利求财；占官定不谐；家中人出外；妻妾并身灾；疾病忧难瘥；营求喜自来；财物终有损；职位恐多乖。',
+    },
+    {
+      key: '鬼动',
+      category: '五动',
+      name: '鬼动（下克上）',
+      verse:
+        '鬼动忧灾怪；官亨人出外；争讼带他人；乖戾因间外；口舌共喧争；冤仇皆损害；痊病物仰合；家宅未安泰。',
+    },
+    {
+      key: '父母动',
+      category: '三动',
+      name: '父母动（下生上）',
+      verse: '方生干为父母动：为印绶，凡占，小干尊，大吉。',
+    },
+    {
+      key: '子孙动',
+      category: '三动',
+      name: '子孙动（上生下）',
+      verse: '干生方为子孙动：凡占，主干子孙之事，小吉。',
+    },
+    {
+      key: '兄弟动',
+      category: '三动',
+      name: '兄弟动（比和）',
+      verse: '干方同为兄弟动：凡占，事在比肩朋友，小凶。',
+    },
+  ];
 
-  const ziSunDong = getJinkoujueMovementClassic('子孙动');
-  assert.ok(ziSunDong);
-  assert.ok(ziSunDong.verse.includes('子孙动入喜事连'));
+  for (const expected of expectedMovements) {
+    const classic = getJinkoujueMovementClassic(expected.key);
+    assert.ok(classic, `${expected.key} 应有与算法名称相同的典籍资料键`);
+    assert.equal(classic.key, expected.key);
+    assert.equal(classic.category, expected.category);
+    assert.equal(classic.name, expected.name);
+    assert.equal(classic.sourceBook, '《六壬神课金口诀》卷之上');
+    assert.equal(classic.verse, expected.verse);
+  }
+
+  for (const fakeMovement of ['方主移动', '神主移动', '将主移动']) {
+    assert.equal(getJinkoujueMovementClassic(fakeMovement), undefined);
+  }
 });
 
 test('大六壬《大六壬大全》《六壬指南》九宗门与十二天将查询正确', () => {
@@ -265,7 +366,8 @@ test('大六壬《大六壬大全》《六壬指南》九宗门与十二天将�
   const sheHai = getLiurenTransmissionClassic('涉害法');
   assert.ok(sheHai);
   assert.equal(sheHai.rule, '涉害');
-  assert.ok(sheHai.verse?.includes('涉害深浅历万难'));
+  assert.equal(sheHai.sourceBook, '大六壬大全·九宗门');
+  assert.equal(sheHai.verse, '涉害行来本家止，路逢多克为用取。孟深仲浅季当休，复等柔辰刚日宜。');
 
   const zhanGuan = getLiurenLessonPatternClassic('斩关');
   assert.ok(zhanGuan);
@@ -302,7 +404,7 @@ test('皇极周期典籍按索隐原文查询并隔离结果', () => {
   assert.ok(shi);
   assert.ok(shi.verse.includes('三十年为一世'));
   for (const cycle of ['元', '会', '运', '世', '年']) {
-    const item = getHuangjiCycleClassic(cycle)!;
+    const item = cycle === '年' ? nian : cycle === '世' ? shi : getHuangjiCycleClassic(cycle)!;
     assert.equal(item.sourceBook, '《皇极经世索隐·经世观物总要》');
     const original = item.verse;
     item.verse = '被修改';
@@ -431,4 +533,196 @@ test('奇门遁甲《烟波钓叟歌》精义查询正确', () => {
   const yanbo = getQimenYanboClassic('阴阳顺逆');
   assert.ok(yanbo);
   assert.ok(yanbo.verse.includes('阴阳顺逆妙难穷'));
+});
+
+test('典籍查询只认可登记键，直接模块与聚合入口保留合法别名', () => {
+  const queries = [
+    [ditiansui.getBaziDitiansuiAdvice, getBaziDitiansuiAdvice],
+    [ziping.getBaziZipingPatternAdvice, getBaziZipingPatternAdvice],
+    [qimen.getQimenStarClassic, getQimenStarClassic],
+    [qimen.getQimenDoorClassic, getQimenDoorClassic],
+    [qimen.getQimenDeityClassic, getQimenDeityClassic],
+    [liuyao.getLiuyaoMovementRule, getLiuyaoMovementRule],
+    [liuyao.getLiuyaoChishiClassic, getLiuyaoChishiClassic],
+    [meihua.getMeihuaTrigramClassic, getMeihuaTrigramClassic],
+    [meihua.getMeihuaBodyUseJudgement, getMeihuaBodyUseJudgement],
+    [almanac.getAlmanacOfficerClassic, getAlmanacOfficerClassic],
+  ];
+  for (const pair of queries) {
+    for (const query of pair) {
+      for (const key of ['toString', 'constructor', '__proto__']) {
+        assert.equal(query(key), undefined, query.name + '：' + key);
+      }
+    }
+  }
+  for (const query of [fengshui.getXuankongStarClassic, getXuankongStarClassic]) {
+    for (const value of ['9e1', '9.5', '9abc', '', ' ', 0, 10, 9.5, NaN, Infinity]) {
+      assert.equal(query(value), undefined, String(value));
+    }
+    for (const value of [9, '9', ' 9 ', '9.0']) {
+      assert.equal(query(value)?.starNumber, 9);
+    }
+  }
+  for (const module of [qimen, classics]) {
+    assert.deepEqual(module.getQimenStarClassic('天芮'), module.getQimenStarClassic('天任星_芮'));
+    assert.equal(module.getQimenDoorClassic('开')?.door, '开门');
+  }
+  for (const module of [ziping, classics]) {
+    assert.equal(module.getBaziZipingPatternAdvice('建禄格')?.pattern, '建禄月劫格');
+    assert.equal(module.getBaziZipingPatternAdvice('月刃格')?.pattern, '阳刃格');
+  }
+  assert.equal(meihua.getMeihuaTrigramClassic('乾卦')?.trigram, '乾');
+  assert.equal(liuyao.getLiuyaoChishiClassic('父母爻')?.relation, '父母');
+  assert.equal(almanac.getAlmanacOfficerClassic('建日')?.officer, '建日');
+});
+
+test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
+  const movementRuleKey = Object.keys(liuyao.LIUYAO_MOVEMENT_RULES)[0];
+  const categoryKey = liuyao.LIUYAO_CATEGORY_CHAPTERS[0].category;
+  const lessonPatternKey = Object.keys(liuren.LIUREN_LESSON_PATTERN_CLASSICS)[0];
+  const bifaTitle = liuren.LIUREN_BIFA_CLASSICS[0].title;
+  const queries: Array<[string, () => unknown]> = [];
+  for (const module of [ditiansui, classics])
+    queries.push(['滴天髓', () => module.getBaziDitiansuiAdvice('甲')]);
+  for (const module of [ziping, classics])
+    queries.push(
+      ['子平', () => module.getBaziZipingPatternAdvice('正官格')],
+      ['子平建禄别名', () => module.getBaziZipingPatternAdvice('建禄格')],
+      ['子平月劫别名', () => module.getBaziZipingPatternAdvice('劫财格')],
+      ['子平月刃别名', () => module.getBaziZipingPatternAdvice('月刃格')],
+    );
+  for (const module of [qiongtong, classics])
+    queries.push(['穷通', () => module.getBaziQiongtongAdvice('甲', '寅')]);
+  for (const module of [qimen, classics])
+    queries.push(
+      ['奇门干', () => module.getQimenStemPattern('乙', '戊')],
+      ['奇门星', () => module.getQimenStarClassic('天蓬')],
+      ['奇门门', () => module.getQimenDoorClassic('开')],
+      ['奇门神', () => module.getQimenDeityClassic('值符')],
+      ['烟波find', () => module.getQimenYanboClassic('阴阳')],
+      ['烟波all', () => module.getAllQimenYanboClassics()],
+    );
+  for (const module of [liuyao, classics])
+    queries.push(
+      ['六爻动变', () => module.getLiuyaoMovementRule(movementRuleKey)],
+      ['六爻持世', () => module.getLiuyaoChishiClassic('父母爻')],
+      ['六爻all', () => module.getAllLiuyaoMovementRules()],
+      ['六爻分类', () => module.getLiuyaoCategoryChapter(categoryKey)],
+      ['六爻分类all', () => module.getAllLiuyaoCategoryChapters()],
+    );
+  for (const module of [meihua, classics])
+    queries.push(
+      ['梅花卦', () => module.getMeihuaTrigramClassic('乾卦')],
+      ['梅花体用', () => module.getMeihuaBodyUseJudgement('体用比和')],
+    );
+  for (const module of [zhouyi, classics])
+    queries.push(['周易六爻', () => module.getZhouyiHexagramClassic(1)]);
+  for (const module of [jinkou, classics])
+    queries.push(['金口诀', () => module.getJinkoujueMovementClassic('妻动')]);
+  for (const module of [liuren, classics])
+    queries.push(
+      ['六壬将', () => module.getLiurenGeneralClassic('贵人')],
+      ['六壬取传', () => module.getLiurenTransmissionClassic('伏吟兼贼克')],
+      ['六壬课体', () => module.getLiurenLessonPatternClassic(lessonPatternKey)],
+      ['毕法find', () => module.getLiurenBifaClassic(bifaTitle)],
+      ['毕法all', () => module.getAllLiurenBifaClassics()],
+    );
+  for (const module of [ziwei, classics])
+    queries.push(
+      ['紫微星', () => module.getZiweiStarClassic('紫微')],
+      ['紫微赋find', () => module.getZiweiFuClassic('zi_fu_tong_gong')],
+      ['紫微赋all', () => module.getAllZiweiFuClassics()],
+    );
+  for (const module of [fengshui, classics])
+    queries.push(
+      ['八宅', () => module.getBazhaiStarClassic('生气')],
+      ['玄空', () => module.getXuankongStarClassic(9)],
+    );
+  for (const module of [taiyi, classics])
+    queries.push(['太乙', () => module.getTaiyiGeneralClassic('文昌')]);
+  for (const module of [qizheng, classics])
+    queries.push(['七政', () => module.getQizhengStarClassic('太阳')]);
+  for (const module of [almanac, classics])
+    queries.push(['建除', () => module.getAlmanacOfficerClassic('建日')]);
+  for (const module of [huangji, classics])
+    queries.push(['皇极', () => module.getHuangjiCycleClassic('年')]);
+  for (const module of [wuyun, classics])
+    queries.push(
+      ['五运完整名称', () => module.getWuyunLiuqiClassic('子午少阴君火司天')],
+      ['五运气名别名', () => module.getWuyunLiuqiClassic('少阴君火司天')],
+    );
+  for (const module of [xiaoliuren, classics])
+    queries.push(['小六壬', () => module.getXiaoliurenClassic('大安')]);
+  const mutate = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(mutate);
+      value.push('返回值隔离控制');
+    } else if (value && typeof value === 'object') {
+      for (const [key, item] of Object.entries(value)) {
+        if (typeof item === 'string') (value as Record<string, unknown>)[key] = '返回值隔离控制';
+        else mutate(item);
+      }
+    }
+  };
+  for (const [label, query] of queries) {
+    const returned = query();
+    assert.ok(returned, label);
+    const expected = structuredClone(returned);
+    mutate(returned);
+    assert.notDeepEqual(returned, expected, label + '应确实修改返回资料');
+    assert.deepEqual(query(), expected, label + '后续查询应保留原文与嵌套资料');
+  }
+
+  const catalogs: Array<[string, Record<string, unknown> | unknown[]]> = [
+    ['穷通', qiongtong.BAZI_QIONGTONG_TABLE],
+    ['滴天髓', ditiansui.BAZI_DITIANSUI_TABLE],
+    ['子平', ziping.BAZI_ZIPING_PATTERNS],
+    ['六爻动变', liuyao.LIUYAO_MOVEMENT_RULES],
+    ['六爻持世', liuyao.LIUYAO_CHISHI_TABLE],
+    ['六爻分类', liuyao.LIUYAO_CATEGORY_CHAPTERS],
+    ['梅花体用', meihua.MEIHUA_RELATION_JUDGEMENTS],
+    ['梅花类象', meihua.MEIHUA_TRIGRAM_CLASSICS],
+    ['周易', zhouyi.ZHOUYI_HEXAGRAMS_TEXT],
+    ['金口诀', jinkou.JINKOUJUE_MOVEMENT_CLASSICS],
+    ['六壬取传', liuren.LIUREN_TRANSMISSION_CLASSICS],
+    ['六壬课体', liuren.LIUREN_LESSON_PATTERN_CLASSICS],
+    ['六壬贵神', liuren.LIUREN_GENERAL_CLASSICS],
+    ['毕法', liuren.LIUREN_BIFA_CLASSICS],
+    ['紫微星', ziwei.ZIWEI_STAR_CLASSICS],
+    ['紫微赋', ziwei.ZIWEI_FU_CLASSICS],
+    ['八宅', fengshui.BAZHAI_STAR_CLASSICS],
+    ['玄空', fengshui.XUANKONG_STAR_CLASSICS],
+    ['太乙', taiyi.TAIYI_GENERAL_CLASSICS],
+    ['七政', qizheng.QIZHENG_STAR_CLASSICS],
+    ['皇极', huangji.HUANGJI_CYCLE_CLASSICS],
+    ['五运六气', wuyun.WUYUN_LIUQI_CLASSICS],
+    ['小六壬', xiaoliuren.XIAOLIUREN_CLASSICS],
+    ['黄历', almanac.ALMANAC_OFFICER_CLASSICS],
+  ];
+  const snapshots = catalogs.map(
+    ([label, catalog]) => [label, catalog, structuredClone(catalog)] as const,
+  );
+  const expectedQueries = queries.map(([label, query]) => {
+    const expected = query();
+    assert.ok(expected, label);
+    return [label, query, structuredClone(expected)] as const;
+  });
+  try {
+    for (const [label, catalog, snapshot] of snapshots) {
+      mutate(catalog);
+      assert.notDeepEqual(catalog, snapshot, label + '公开目录应保持可写');
+    }
+    for (const [label, query, expected] of expectedQueries) {
+      assert.deepEqual(query(), expected, label + '公开目录变造后仍应读取原资料');
+    }
+  } finally {
+    for (const [, catalog, snapshot] of snapshots) {
+      if (Array.isArray(catalog)) {
+        catalog.splice(0, catalog.length, ...(snapshot as unknown[]));
+      } else {
+        for (const key of Object.keys(catalog)) delete catalog[key];
+        Object.assign(catalog, snapshot);
+      }
+    }
+  }
 });

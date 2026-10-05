@@ -99,14 +99,14 @@ export const PROMPT_SCHOOL_PROFILES = {
     shunshu: {
       label: '六宫顺数法',
       category: '断法',
-      task: '依据农历月、日、时逐步顺数所得时宫，结合月宫、日宫到时宫的递进关系判断过程。',
-      basis: '通行俗传小六壬六宫顺数掌诀。',
+      task: '按本次起课口径复核农历月、日、时的逐宫顺数，以所得时宫回答问题。',
+      basis: '本次起课所列的六宫顺数规则。',
     },
     gongjue: {
       label: '六宫歌诀法',
       category: '断法',
-      task: '以最终落宫歌诀为核心，结合月、日、时三宫的吉凶层次和语义形成判断。',
-      basis: '通行俗传小六壬六宫歌诀。',
+      task: '按所问事项选取占得时宫歌诀的对应句义，形成判断。',
+      basis: '本次起课所列的时宫歌诀。',
     },
   },
   jinkoujue: {
@@ -145,8 +145,8 @@ export const PROMPT_SCHOOL_PROFILES = {
     zhuke: {
       label: '主客方略法',
       category: '断法',
-      task: '结合日干、时干、值符值使和事项用神区分主客、动静、先后与方位时机，形成策略判断。',
-      basis: '时家奇门主客、动静、方位与时机的通行资料。',
+      task: '结合本次主动干、值符值使和事项用神区分主客、动静、先后与方位时机，形成策略判断。',
+      basis: '奇门主客、动静、方位与时机的通行资料。',
     },
   },
   liuren: {
@@ -323,13 +323,13 @@ export const PROMPT_SCHOOL_PROFILES = {
     ganzhi: {
       label: '干支关系法',
       category: '断法',
-      task: '以生肖地支与流年干支的值、冲、刑、害、破、六合关系形成年度判断。',
+      task: '列明生肖地支与流年干支实际命中的值、冲、刑、害、破、六合关系及参与地支，并结合问题与已提供的资料核对条件。',
       basis: '《三命通会》等传统干支关系资料。',
     },
     sanhe: {
       label: '三合五行法',
       category: '断法',
-      task: '结合生肖所属三合三会、流年五行和年干生克，观察助力、牵制与环境变化。',
+      task: '列明生肖所属三合三会、流年五行与年干生克的关系及参与条件，并结合问题与已提供的资料核对适用条件。',
       basis: '传统地支三合三会与干支五行生克资料。',
     },
   },
@@ -374,7 +374,7 @@ export type PromptSchoolId<Method extends PromptSchoolMethod> =
   keyof (typeof PROMPT_SCHOOL_PROFILES)[Method] & string;
 
 export function getPromptSchoolProfiles(method: PromptSchoolMethod) {
-  return PROMPT_SCHOOL_PROFILES[method] as Record<string, PromptSchoolProfile>;
+  return structuredClone(PROMPT_SCHOOL_PROFILES[method]) as Record<string, PromptSchoolProfile>;
 }
 
 export function getPromptSchoolIds(method: PromptSchoolMethod) {

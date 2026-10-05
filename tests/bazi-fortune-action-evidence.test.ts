@@ -1,13 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { STEM_WUXING } from '@core/ganzhi/data';
 import type { BaziChartResult, Pillars } from '@core/bazi/baziTypes';
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import { normalizeFortuneSelection } from '@core/bazi/fortuneSelection';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
+  analyzeFortuneActionEvidence,
   formatFortuneActionEvidenceForPrompt,
   formatFortuneActionFactLine,
 } from '@core/bazi/fortuneActionEvidence';
 import { formatBaziFortuneSelection } from '@core/prompt/bazi-fortune';
+import { buildBaziPrompt } from '@core/prompt/bazi';
 
 import { evaluatePatternFulfillment } from '@core/bazi/baziPatternFulfillment';
 import { HIDDEN_STEMS } from '@core/bazi/baziDefinitions';
@@ -30,7 +35,7 @@ function asSpecialPattern(pillars: Pillars) {
  * 甲木生未月，干透丁火（月干）、戊土（时干）、癸水（年干），
  * 经 UsefulGodStrategy 裁决：
  * - conditionalUnfavorableStems: ['丁']（具体天干丁火因印食制化列忌）
- * - conditionalFavorableWuxing: ['火'] / favorableWuxing 含火（基础五行火为喜用）
+ * - conditionalFavorableWuxing: ['火']，但 favorableWuxing 不含火（食伤仍有前提）
  * - 丙火不在 conditionalUnfavorableStems 中（具体干不扩大为同五行）
  */
 function createSyntheticChartWithLuck(): BaziChartResult {
@@ -97,6 +102,274 @@ function createSyntheticChartWithLuck(): BaziChartResult {
   } as unknown as BaziChartResult;
 }
 
+let cached1980January3MaleChart: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+
+function get1980January3MaleChart() {
+  return structuredClone(
+    (cached1980January3MaleChart ??= baziCalculator.calculateBazi({
+      year: 1980,
+      month: 1,
+      day: 3,
+      timeIndex: 6,
+      gender: 'male',
+    })),
+  );
+}
+
+test('岁运作用只引用已采纳的调候候选，不把未满足规则当作制化来源', () => {
+  const layer = { id: '2026', type: 'year' as const, label: '流年', ganZhi: '丙午' };
+  const rejected = get1980January3MaleChart();
+  const rejectedEvidence = rejected.analysis.usefulGod.decisionEvidence;
+  assert.ok(rejectedEvidence);
+  assert.ok(
+    rejectedEvidence.climateCandidates.some(
+      (item) => !item.adopted && item.effects?.some((effect) => effect.stem === '丙'),
+    ),
+  );
+  assert.ok(
+    !rejectedEvidence.climateCandidates.some(
+      (item) => item.adopted && item.effects?.some((effect) => effect.stem === '丙'),
+    ),
+  );
+  const rejectedFact = analyzeFortuneActionEvidence({
+    result: rejected,
+    layers: [layer],
+  }).facts.find(
+    (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === '丙',
+  );
+  assert.ok(rejectedFact);
+  assert.ok(!rejectedFact.hitSources.includes('制化来源'));
+  assert.deepEqual(rejectedFact.targetObjects, []);
+
+  const adopted = baziCalculator.calculateBazi({
+    year: 1985,
+    month: 2,
+    day: 3,
+    timeIndex: 6,
+    gender: 'male',
+  });
+  const adoptedFact = analyzeFortuneActionEvidence({ result: adopted, layers: [layer] }).facts.find(
+    (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === '丙',
+  );
+  assert.ok(adoptedFact);
+  assert.ok(adoptedFact.hitSources.includes('制化来源'));
+  assert.ok(adoptedFact.targetObjects.includes('癸'));
+});
+
+test('岁运作用只引用已闭合的格局制化路径', () => {
+  const uncertain = get1980January3MaleChart();
+  assert.ok(
+    uncertain.analysis.usefulGod.decisionEvidence?.controlFunctions?.some(
+      (item) => item.status === '资料不足' && item.sourceStems.includes('乙'),
+    ),
+  );
+  const uncertainFact = analyzeFortuneActionEvidence({
+    result: uncertain,
+    layers: [{ id: '2025', type: 'year', label: '流年', ganZhi: '乙巳' }],
+  }).facts.find(
+    (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === '乙',
+  );
+  assert.ok(uncertainFact);
+  assert.ok(!uncertainFact.hitSources.includes('制化来源'));
+  assert.deepEqual(uncertainFact.targetObjects, []);
+
+  const confirmed = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 5,
+    day: 15,
+    timeIndex: 6,
+    gender: 'male',
+  });
+  const confirmedFact = analyzeFortuneActionEvidence({
+    result: confirmed,
+    layers: [{ id: '2018', type: 'year', label: '流年', ganZhi: '戊戌' }],
+  }).facts.find(
+    (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === '戊',
+  );
+  assert.ok(confirmedFact);
+  assert.ok(confirmedFact.hitSources.includes('制化来源'));
+  assert.ok(confirmedFact.targetObjects.includes('辛'));
+});
+
+test('真实岁运只引用本命已采纳主作用，次作用及五行排序保持参照', () => {
+  const chart = baziCalculator.calculateBazi({
+    year: 1971,
+    month: 11,
+    day: 11,
+    timeIndex: 4,
+    gender: 'male',
+    useTrueSolarTime: false,
+  });
+  assert.deepEqual(
+    Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    ['辛亥', '己亥', '庚子', '庚辰'],
+  );
+  assert.deepEqual(chart.analysis.usefulGod.conditionalFavorableStems, ['丙']);
+  assert.deepEqual(chart.analysis.usefulGod.conditionalUnfavorableStems, ['丁']);
+  const climate = chart.analysis.usefulGod.decisionEvidence.climateCandidates.find(
+    (candidate) => candidate.ruleId === 'geng-winter-no-fire-warm',
+  );
+  assert.ok(climate);
+  assert.equal(climate.adopted, true);
+  assert.deepEqual(climate.effects, [
+    { stem: '丙', wuxing: '火', role: '照暖', targetStems: ['庚'], rank: 'primary' },
+    { stem: '丁', wuxing: '火', role: '锻炼', targetStems: ['庚'], rank: 'secondary' },
+  ]);
+  const analysisBefore = structuredClone(chart.analysis);
+  const promptCurrentTime = new Date('2026-05-19T10:30:00+08:00');
+
+  for (const [year, ganZhi, stem, hasAction] of [
+    [2026, '丙午', '丙', true],
+    [2027, '丁未', '丁', false],
+  ] as const) {
+    const cycleIndex = chart.luckInfo.cycles.findIndex((cycle) =>
+      cycle.years.some((item) => item.year === year),
+    );
+    const context = buildFortuneSelectionContext(chart, { scope: 'year', cycleIndex, year });
+    assert.ok(context?.actionEvidence);
+    assert.ok(context.promptPayload.summaryLines.includes(`流年干支：${ganZhi}`));
+    const fact = context.actionEvidence.facts.find(
+      (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === stem,
+    );
+    assert.ok(fact);
+    assert.equal(fact.hitSources.includes('制化来源'), hasAction);
+    assert.deepEqual(fact.targetObjects, hasAction ? ['庚'] : []);
+    assert.equal(fact.currentActionStatus, '资料不足');
+    if (!hasAction) assert.ok(fact.hitSources.includes('conditionalUnfavorableStems'));
+    const prompt = buildBaziPrompt({
+      result: chart,
+      fortuneSelectionContext: context,
+      currentTime: promptCurrentTime,
+    });
+    assert.match(prompt, /条件取用：丙火用于照暖（作用对象：庚）/u);
+    assert.match(prompt, /干级所忌：丁/u);
+    const actionLine = prompt.split('\n').find((line) => line.includes(`流年${stem}（火，`));
+    assert.ok(actionLine);
+    assert.equal(actionLine.includes('本命制化作用'), hasAction);
+    assert.equal(actionLine.includes('作用对象：庚'), hasAction);
+    assert.match(actionLine, hasAction ? /依据：本命干级喜用/u : /依据：本命干级所忌/u);
+    assert.doesNotMatch(
+      prompt,
+      /conditionalFavorableStems|conditionalUnfavorableStems|patternBreakerRestrictions/u,
+    );
+    assert.match(prompt, /【任务】/u);
+    assert.match(prompt, /【问题】/u);
+    const baselineContext = structuredClone(context);
+    const original = STEM_WUXING[stem];
+    try {
+      STEM_WUXING[stem] = '水';
+      assert.equal(STEM_WUXING[stem], '水');
+      const changedContext = buildFortuneSelectionContext(chart, {
+        scope: 'year',
+        cycleIndex,
+        year,
+      });
+      assert.deepEqual(changedContext, baselineContext);
+      assert.equal(
+        buildBaziPrompt({
+          result: chart,
+          fortuneSelectionContext: changedContext,
+          currentTime: promptCurrentTime,
+        }),
+        prompt,
+      );
+    } finally {
+      STEM_WUXING[stem] = original;
+    }
+    assert.equal(STEM_WUXING[stem], original);
+    assert.deepEqual(
+      buildFortuneSelectionContext(chart, { scope: 'year', cycleIndex, year }),
+      baselineContext,
+    );
+  }
+  assert.deepEqual(chart.analysis, analysisBefore);
+
+  const referenceChart = baziCalculator.calculateBazi({
+    year: 2024,
+    month: 5,
+    day: 29,
+    timeIndex: 6,
+    gender: 'male',
+    useTrueSolarTime: false,
+  });
+  assert.deepEqual(
+    Object.values(referenceChart.pillars).map((pillar) => pillar.ganZhi),
+    ['甲辰', '己巳', '癸巳', '戊午'],
+  );
+  const reference = referenceChart.analysis.usefulGod.decisionEvidence.climateCandidates.find(
+    (candidate) => candidate.ruleId === 'si-month-gui-xin-source',
+  );
+  assert.ok(reference);
+  assert.equal(reference.adopted, true);
+  assert.equal(reference.mode, 'within-balance');
+  assert.deepEqual(referenceChart.analysis.usefulGod.conditionalFavorableStems ?? [], []);
+  for (const [year, stem] of [
+    [2031, '辛'],
+    [2040, '庚'],
+  ] as const) {
+    const cycleIndex = referenceChart.luckInfo.cycles.findIndex((cycle) =>
+      cycle.years.some((item) => item.year === year),
+    );
+    const context = buildFortuneSelectionContext(referenceChart, {
+      scope: 'year',
+      cycleIndex,
+      year,
+    });
+    assert.ok(context?.actionEvidence);
+    const fact = context.actionEvidence.facts.find(
+      (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === stem,
+    );
+    assert.ok(fact);
+    assert.ok(fact.hitSources.includes('基础五行喜忌'));
+    assert.ok(!fact.hitSources.includes('制化来源'));
+    assert.deepEqual(fact.targetObjects, []);
+    const actionLine = buildBaziPrompt({ result: referenceChart, fortuneSelectionContext: context })
+      .split('\n')
+      .find((line) => line.includes(`流年${stem}（金，`));
+    assert.ok(actionLine);
+    assert.ok(!actionLine.includes('本命制化作用'));
+    assert.ok(!actionLine.includes('作用对象：癸'));
+  }
+
+  const brokenChart = baziCalculator.calculateBazi({
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+    gender: 'male',
+    useTrueSolarTime: false,
+  });
+  assert.equal(brokenChart.analysis.mingGe.fulfillment?.status, '破格');
+  const cycleIndex = brokenChart.luckInfo.cycles.findIndex((cycle) =>
+    cycle.years.some((item) => item.year === 2027),
+  );
+  const context = buildFortuneSelectionContext(brokenChart, {
+    scope: 'year',
+    cycleIndex,
+    year: 2027,
+  });
+  assert.ok(context?.actionEvidence);
+  const ding = context.actionEvidence.facts.find(
+    (item) => item.level === 'year' && item.placement === '岁运透干' && item.stem === '丁',
+  );
+  assert.ok(ding);
+  assert.deepEqual(ding.hitSources, [
+    'conditionalUnfavorableStems',
+    'patternBreakerRestrictions',
+    '基础五行喜忌',
+  ]);
+  const line = formatFortuneActionFactLine(ding);
+  assert.match(line, /依据：本命破格所忌、基础五行喜忌/u);
+  assert.doesNotMatch(line, /本命干级所忌|conditionalUnfavorableStems|patternBreakerRestrictions/u);
+  const prompt = buildBaziPrompt({ result: brokenChart, fortuneSelectionContext: context });
+  assert.match(prompt, /格局破格所忌：丁伤官（时柱）；伤官见官的救应明确不成立/u);
+  assert.match(prompt, /流年丁（火，伤官，岁运透干）：引用已裁决所忌条件/u);
+  assert.doesNotMatch(
+    prompt,
+    /conditionalFavorableStems|conditionalUnfavorableStems|patternBreakerRestrictions/u,
+  );
+});
+
 test('同盘 2027 丁命中 conditionalUnfavorableStems 丁，而 2026 丙不命中丁', () => {
   const chart = createSyntheticChartWithLuck();
 
@@ -142,12 +415,24 @@ test('同盘 2027 丁命中 conditionalUnfavorableStems 丁，而 2026 丙不命
   );
   assert.equal(
     factBing2026.conditionStatus,
-    '引用已裁决喜用条件',
-    '丙未命中具体所忌干，仅随基础五行火为喜用',
+    '引用有前提的喜用条件',
+    '丙未命中具体所忌干，火仍须满足食伤泄秀条件',
+  );
+  assert.ok(factBing2026.hitSources.includes('条件五行喜用'));
+  assert.equal(factBing2026.hitSources.includes('基础五行喜忌'), false);
+  assert.equal(factBing2026.currentActionStatus, '资料不足');
+  assert.ok(
+    ctx2026.promptPayload.evidenceLines?.some(
+      (line) =>
+        line.startsWith('【辅证】岁运作用事实') &&
+        line.includes('流年丙') &&
+        line.includes('条件五行喜用'),
+    ),
+    '带前提的食伤候选应在提示词证据中标为辅证',
   );
 });
 
-test('2027 丁同时命中基础五行喜用与具体干所忌，裁定为双向条件引用', () => {
+test('2027 丁同时命中有前提的五行喜用与具体干所忌，裁定为双向条件引用', () => {
   const chart = createSyntheticChartWithLuck();
   const ctx2027 = buildFortuneSelectionContext(chart, {
     scope: 'year',
@@ -162,10 +447,11 @@ test('2027 丁同时命中基础五行喜用与具体干所忌，裁定为双向
   assert.ok(factDing);
   assert.equal(factDing.conditionStatus, '双向条件引用');
   assert.ok(factDing.hitSources.includes('conditionalUnfavorableStems'));
-  assert.ok(factDing.hitSources.includes('基础五行喜忌'));
+  assert.ok(factDing.hitSources.includes('条件五行喜用'));
+  assert.equal(factDing.hitSources.includes('基础五行喜忌'), false);
   assert.ok(
-    factDing.supportingFactKeys.some((k) => k.includes('favorable')),
-    '应有基础喜用支持事实 key',
+    factDing.supportingFactKeys.includes('bazi:useful-god:conditional-favorable-wuxing:火'),
+    '应指向有前提的食伤五行条件',
   );
   assert.ok(
     factDing.opposingFactKeys.includes('bazi:useful-god:conditional-unfavorable:丁'),
@@ -332,6 +618,77 @@ test('岁运事实提示词只输出可读事实，内部证据键仍留在结�
     '同一岁运作用事实在最终提示词中只应输出一次',
   );
   assert.match(sections.focus, /岁运作用事实/);
+});
+
+test('真实流年与流月保留根气归属、跨层事实及不同作用对象', () => {
+  const chart = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1991,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  let yearContext: ReturnType<typeof buildFortuneSelectionContext> | undefined;
+  for (const selection of [
+    { scope: 'year' as const, year: 2026 },
+    { scope: 'month' as const, year: 2026, month: 5 },
+  ]) {
+    const context = buildFortuneSelectionContext(
+      chart,
+      normalizeFortuneSelection(chart, selection),
+    );
+    assert.ok(context);
+    if (selection.scope === 'year') yearContext = context;
+    const rawDayunJi = context.actionEvidence?.facts.filter(
+      (fact) => fact.level === 'dayun' && fact.stem === '己',
+    );
+    assert.deepEqual(
+      rawDayunJi?.map((fact) => [fact.placement, fact.hiddenCategory]),
+      [
+        ['岁运透干', undefined],
+        ['岁运藏干', '本气'],
+      ],
+    );
+
+    const focus = formatBaziFortuneSelection(context)!.focus;
+    const dayunJiLines = focus.split('\n').filter((line) => line.includes('大运己（土'));
+    assert.equal(dayunJiLines.length, 1);
+    assert.match(
+      dayunJiLines[0],
+      /岁运透干、岁运藏干·本气.*引用已裁决所忌条件；状态：资料不足；依据：基础五行喜忌；透干根气：原局及岁运均见同干根气；适用范围：2024年起，约34岁交运/,
+    );
+    assert.match(focus, /流年己（土，偏财，岁运藏干·中气）.*适用范围：2026年/);
+    if (selection.scope === 'month') {
+      assert.match(focus, /流月己（土，偏财，岁运藏干·中气）.*适用范围：2026-06-05至2026-07-07/);
+    }
+    assert.doesNotMatch(focus, /^岁运作用事实：/m);
+  }
+
+  const yearContextForMutation = yearContext;
+  assert.ok(yearContextForMutation?.actionEvidence);
+  const hidden = yearContextForMutation.actionEvidence.facts.find(
+    (fact) => fact.level === 'dayun' && fact.stem === '己' && fact.placement === '岁运藏干',
+  );
+  assert.ok(hidden);
+  const original = formatFortuneActionFactLine(hidden);
+  hidden.targetObjects = ['甲'];
+  const updated = formatFortuneActionFactLine(hidden);
+  yearContextForMutation.promptPayload.evidenceLines =
+    yearContextForMutation.promptPayload.evidenceLines.map((line) =>
+      line.replace(original, updated),
+    );
+
+  const dayunJiLines = formatBaziFortuneSelection(yearContextForMutation)!
+    .focus.split('\n')
+    .filter((line) => line.includes('大运己（土'));
+  assert.equal(dayunJiLines.length, 2);
+  assert.ok(dayunJiLines.some((line) => line.includes('岁运透干')));
+  assert.ok(
+    dayunJiLines.some((line) => line.includes('岁运藏干·本气') && line.includes('作用对象：甲')),
+  );
 });
 
 test('关系事实只有合冲时，currentActionStatus 不得升级为满足或不满足', () => {

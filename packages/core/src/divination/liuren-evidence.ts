@@ -1,13 +1,43 @@
 import type {
   LiurenData,
+  LiurenGuaTiFact,
   LiurenLesson,
   LiurenOrdinaryTransmissionCandidate,
   LiurenOrdinaryTransmissionStage,
   LiurenTransmission,
 } from '../types/divination';
-import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import { getBranchWuxing, getStemWuxing, isKe, isSheng } from '../ganzhi';
+import { stableStringify } from '../shared/result';
+import { getBranchWuxing, getSeasonState, getStemWuxing, isKe, isSheng } from '../ganzhi';
+import { getVoidBranches } from '../calendar/lunar';
+import { getDivinationTime } from '../calendar/timeManager';
+import {
+  buildHeavenlyPlate,
+  DAYTIME_BRANCHES,
+  DIZHI,
+  describeRelation,
+  getDayStemResidence,
+  getGanZhiWuxing,
+  getNoblemanBranch,
+  getPlateItemByBranch,
+  getUpperByUnder,
+  TIANJIANG,
+  TIANJIANG_ATTRIBUTES,
+  TIANGAN,
+} from './algorithms/liuren/helpers/plate';
+import { buildFourLessons, resolveInitialTransmission } from './algorithms/liuren/helpers/lessons';
+import { buildShenShaFacts } from './algorithms/liuren/helpers/shensha';
+import { getMonthLeaderByZhongqi } from './algorithms/liuren/helpers/month-leader';
+import { resolveLiurenClassicalRules } from './algorithms/liuren/helpers/classical-rules';
+import {
+  buildLiurenFocusEvidence,
+  buildLiurenTimingEvidence,
+  buildTransmissionDetail,
+  buildTransmissionNote,
+  getLiurenGuaTiFacts,
+  getPatternTag,
+  getTransmissionPattern,
+} from './algorithms/liuren/helpers/transmission';
 import {
   formatLiurenOrdinaryStage,
   getLiurenOrdinaryCandidateStatusLabel,
@@ -339,6 +369,22 @@ const SUMMARY_FACT_LIMITATION =
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据' as const;
 
+export function getLiurenRidingRelation(dayStem: string, branch: string) {
+  const dayElement = getStemWuxing(dayStem);
+  const element = getBranchWuxing(branch);
+  const relation: NonNullable<LiurenTraditionalFact['riding']>['relation'] =
+    element === dayElement
+      ? '乘神日干比和'
+      : isSheng(element, dayElement)
+        ? '乘神生日'
+        : isKe(element, dayElement)
+          ? '乘神克日'
+          : isSheng(dayElement, element)
+            ? '日生乘神'
+            : '日克乘神';
+  return { branch, element, dayStem, dayElement, relation };
+}
+
 function buildTraditionalFacts(
   data: LiurenData,
   patternEvidence: string[],
@@ -397,32 +443,22 @@ function buildTraditionalFacts(
       .values(),
   );
   const dayStem = data.ganzhi.day.charAt(0);
-  const dayElement = getStemWuxing(dayStem);
   const ridingFacts = data.threeTransmissions.map((transmission): LiurenTraditionalFact => {
-    const element = getBranchWuxing(transmission.branch);
-    const relation =
-      element === dayElement
-        ? '乘神日干比和'
-        : isSheng(element, dayElement)
-          ? '乘神生日'
-          : isKe(element, dayElement)
-            ? '乘神克日'
-            : isSheng(dayElement, element)
-              ? '日生乘神'
-              : '日克乘神';
+    const isVoid = data.xunKong?.includes(transmission.branch);
+    const riding = getLiurenRidingRelation(dayStem, transmission.branch);
     return {
       key: `riding:${transmission.stage}:${transmission.god}:${transmission.branch}`,
       kind: '天将乘神',
       name: `${transmission.god}乘${transmission.branch}`,
       originalText: '而用者专取天盘乘神决之',
-      promptText: `${transmission.stage}${transmission.god}乘天盘${transmission.branch}${element}，与日干${dayStem}${dayElement}为${relation}${transmission.seasonState ? `，月令${transmission.seasonState}` : ''}${typeof transmission.isVoid === 'boolean' ? `，${transmission.isVoid ? '旬空' : '不逢旬空'}` : ''}`,
+      promptText: `${transmission.stage}${transmission.god}乘天盘${transmission.branch}${riding.element}，与日干${dayStem}${riding.dayElement}为${riding.relation}${transmission.seasonState ? `，月令${transmission.seasonState}` : ''}${typeof isVoid === 'boolean' ? `，${isVoid ? '旬空' : '不逢旬空'}` : ''}`,
       sources: [
         '《六壬大全》卷二·天将总论',
         'https://www.shidianguji.com/zh/book/SK1599/chapter/1k1lqkhebd2cy',
       ],
       stages: [transmission.stage],
       branches: [transmission.branch],
-      riding: { branch: transmission.branch, element, dayStem, dayElement, relation },
+      riding,
       limitation: TRADITIONAL_FACT_LIMITATION,
     };
   });
@@ -456,18 +492,7 @@ function buildTraditionalFacts(
             limitation: TRADITIONAL_FACT_LIMITATION,
           };
         })
-      : [
-          {
-            key: 'shensha:legacy:unavailable',
-            kind: '神煞',
-            name: '传统神煞',
-            originalText: '传统神煞在盘面',
-            promptText: '传统神煞在盘面；未保存起法输入，不能据此复算',
-            sources: ['旧结果未保存逐项起法与来源'],
-            branches: undefined,
-            limitation: TRADITIONAL_FACT_LIMITATION,
-          },
-        ];
+      : [];
 
   return [
     ...classicalFacts,
@@ -477,6 +502,30 @@ function buildTraditionalFacts(
     ...ridingFacts,
     ...shenShaFacts,
   ];
+}
+
+function getGuaTiFactSignatures(facts: LiurenGuaTiFact[]) {
+  return facts
+    .map((fact) =>
+      JSON.stringify({
+        id: fact.id,
+        stableKey: fact.stableKey,
+        name: fact.name,
+        category: fact.category,
+        branches: fact.branches,
+        matchedConditions: fact.matchedConditions,
+        sourceTitle: fact.sourceTitle,
+        sourceUrl: fact.sourceUrl,
+        sourceQuote: fact.sourceQuote,
+      }),
+    )
+    .sort();
+}
+
+function hasSameStrings(actual: string[], expected: string[]) {
+  return (
+    actual.length === expected.length && actual.every((item, index) => item === expected[index])
+  );
 }
 
 function lessonConstraints(lesson: LiurenLesson, xunKong: string[]) {
@@ -519,7 +568,7 @@ function classifyRelationStatus(value: string): LiurenRelationEvidenceFact['stat
 function buildLessonEvidence(
   lesson: LiurenLesson,
   index: number,
-  initialBranch: string,
+  isInitialSource: boolean,
   xunKong: string[],
 ): LiurenLessonEvidence {
   const key = `liuren:lesson:${index + 1}:${lesson.name}`;
@@ -571,13 +620,43 @@ function buildLessonEvidence(
     ...lesson,
     key,
     index: index + 1,
-    isInitialSource: lesson.upper === initialBranch,
+    isInitialSource,
     constraints,
     relationFacts,
     promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，关系${lesson.relation}；${lesson.note || '课注未列'}`,
     sources: ['日干寄宫、日支与天地盘逐课推导', '日柱旬空与上下神关系核验'],
     limitation: LESSON_FACT_LIMITATION,
   };
+}
+
+function getInitialSourceLessonPositions(data: LiurenData): Set<number> {
+  const adjudication = data.ordinaryTransmissionAdjudication;
+  if (adjudication?.status === 'selected' && adjudication.selectedCandidateKey) {
+    const selected = adjudication.candidates.find(
+      (candidate) => candidate.key === adjudication.selectedCandidateKey,
+    );
+    return new Set(selected?.sourceLessons.map((lesson) => lesson.position) ?? []);
+  }
+
+  const rule = data.transmissionRule ?? '';
+  if (rule === '伏吟法') {
+    return new Set([['甲', '丙', '戊', '庚', '壬'].includes(data.ganzhi.day.charAt(0)) ? 1 : 3]);
+  }
+  if (rule.startsWith('伏吟') || rule.startsWith('返吟')) {
+    const isLowerKeUpper = rule.includes('重审');
+    const isUpperKeLower = rule.includes('元首');
+    if (isLowerKeUpper || isUpperKeLower) {
+      return new Set(
+        data.fourLessons.flatMap((lesson, index) => {
+          const matches = isLowerKeUpper
+            ? isKe(getGanZhiWuxing(lesson.lower), getGanZhiWuxing(lesson.upper))
+            : isKe(getGanZhiWuxing(lesson.upper), getGanZhiWuxing(lesson.lower));
+          return lesson.upper === data.threeTransmissions[0].branch && matches ? [index + 1] : [];
+        }),
+      );
+    }
+  }
+  return new Set();
 }
 
 function buildTransmissionEvidence(
@@ -674,7 +753,19 @@ function buildTimingFacts(
   transmissions: LiurenTransmissionEvidence[],
 ): { timingFacts: LiurenTimingFact[]; normalizedInput: string[] } {
   const initial = transmissions[0];
+  const transmissionSequence = transmissions
+    .map(
+      (item) =>
+        `${item.stage}${item.branch}（月令${item.seasonState ?? '未定'}${item.isVoid ? '、空' : ''}）`,
+    )
+    .join('→');
   const normalizedInput = Array.from(new Set(data.timingEvidence ?? [])).filter((item) => {
+    if (item.startsWith('一级发用：')) {
+      return item.includes(`初传${initial.branch}${initial.isVoid ? '空亡' : '不空'}`);
+    }
+    if (item.startsWith('二级三传：')) {
+      return item === `二级三传：${transmissionSequence}`;
+    }
     if (!item.includes(`初传${initial.branch}`)) return true;
     return initial.isVoid ? !item.includes('不空') : !item.includes('空亡');
   });
@@ -689,13 +780,13 @@ function buildTimingFacts(
       matcher: (text) => text.startsWith('一级发用：'),
       computed: initial.isVoid
         ? `一级发用：初传${initial.branch}空亡，以出空、填实、冲实或条件落实为应期触发`
-        : `一级发用：初传${initial.branch}不空，为当前起始信号`,
+        : `一级发用：先看初传${initial.branch}不空，按月令旺衰、日支关系和事项类神核对发端条件`,
       sources: ['初传地支与日柱旬空核验'],
     },
     {
       type: '三传顺序',
       matcher: (text) => text.startsWith('二级三传：'),
-      computed: `二级三传：${transmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState ?? '未定'}${item.isVoid ? '、空' : ''}）`).join('→')}`,
+      computed: `二级三传：${transmissionSequence}`,
       sources: ['初中末传顺序、月令旺衰与旬空状态'],
     },
     {
@@ -706,8 +797,10 @@ function buildTimingFacts(
     },
     {
       type: '期限边界',
-      matcher: (text) => /未给出目标期限|未给期限/.test(text),
-      computed: '未给出目标期限时，以盘面先后、快慢与触发条件为应期资料',
+      matcher: (text) =>
+        text.startsWith('以问题期限、三传先后和现实触发条件核对应期') ||
+        /未给出目标期限|未给期限/.test(text),
+      computed: '以问题期限、三传先后和现实触发条件核对应期',
       sources: ['当前问题是否给出目标期限、盘面先后快慢与触发条件'],
     },
   ];
@@ -721,7 +814,10 @@ function buildTimingFacts(
       type: definition.type,
       sourceStatus: rawText ? '原结果提供' : '由盘面补齐',
       ...(rawText ? { rawText } : {}),
-      promptText: rawText ?? definition.computed,
+      promptText:
+        definition.type === '期限边界' || (definition.type === '初传状态' && !initial.isVoid)
+          ? definition.computed
+          : (rawText ?? definition.computed),
       sources: rawText
         ? ['当前大六壬结果已保存的应期条件', ...definition.sources]
         : definition.sources,
@@ -760,20 +856,43 @@ function buildFocusFacts(data: LiurenData): LiurenFocusFact[] {
   }));
 }
 
-function buildCalculationFact(data: LiurenData, xunKong: string[]): LiurenCalculationFact {
+function buildCalculationFact(
+  data: LiurenData,
+  xunKong: string[],
+  plateVerified: boolean,
+): LiurenCalculationFact {
   const dayStem = data.ganzhi.day.charAt(0);
+  const hourBranch = data.ganzhi.hour.charAt(1);
+  const expectedDayNight =
+    hourBranch === data.divinationBranch
+      ? DAYTIME_BRANCHES.has(data.divinationBranch)
+        ? '昼占'
+        : '夜占'
+      : undefined;
+  const dayNight =
+    expectedDayNight && data.dayNight === expectedDayNight ? expectedDayNight : '未列';
+  const expectedNoblemanBranch =
+    dayNight !== '未列' ? getNoblemanBranch(dayStem, dayNight) : undefined;
+  const noblemanBranch =
+    expectedNoblemanBranch && data.noblemanBranch === expectedNoblemanBranch
+      ? expectedNoblemanBranch
+      : undefined;
+  const expectedDayStemResidence = getDayStemResidence(dayStem);
+  const dayStemResidence =
+    data.dayStemResidence === expectedDayStemResidence ? expectedDayStemResidence : undefined;
+  const noblemanGroundBranch = plateVerified ? data.noblemanGroundBranch : undefined;
   return {
     key: `liuren:calculation:${data.timestamp}`,
     ganzhi: { ...data.ganzhi },
     monthLeader: data.monthLeader,
     divinationBranch: data.divinationBranch,
-    dayNight: data.dayNight ?? '未列',
-    noblemanBranch: data.noblemanBranch,
-    noblemanGroundBranch: data.noblemanGroundBranch,
+    dayNight,
+    noblemanBranch,
+    noblemanGroundBranch,
     dayStem,
-    dayStemResidence: data.dayStemResidence,
+    dayStemResidence,
     xunKong: [...xunKong],
-    promptText: `四柱干支为年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}；月将${data.monthLeader}加占时${data.divinationBranch}；${data.dayNight ?? '昼夜未列'}，日干贵人${data.noblemanBranch ?? '未列'}${data.noblemanGroundBranch ? `临地盘${data.noblemanGroundBranch}` : ''}；日干${dayStem}寄${data.dayStemResidence ?? '未列'}；日柱旬空${xunKong.join('、') || '未列'}`,
+    promptText: `四柱干支为年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}；月将${data.monthLeader}加占时${data.divinationBranch}；${dayNight}，日干贵人${noblemanBranch ?? '未列'}${noblemanGroundBranch ? `临地盘${noblemanGroundBranch}` : ''}；日干${dayStem}寄${dayStemResidence ?? '未列'}；日柱旬空${xunKong.join('、') || '未列'}`,
     sources: [
       '占时四柱与月将中气切换计算',
       '月将加时天地盘规则',
@@ -798,8 +917,69 @@ function buildPlatePositionFacts(data: LiurenData): LiurenPlateFact[] {
   }));
 }
 
-function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCoverageFact {
-  const status = positions.length === 12 ? '完整' : '缺少';
+function buildPlateCoverageFact(
+  data: LiurenData,
+  positions: LiurenPlateFact[],
+): LiurenPlateCoverageFact {
+  const earthBranches = new Set(positions.map((item) => item.earthBranch));
+  const heavenBranches = new Set(positions.map((item) => item.heavenBranch));
+  const gods = new Set(positions.map((item) => item.god));
+  const completeBranches =
+    positions.length === 12 &&
+    DIZHI.every((branch) => earthBranches.has(branch) && heavenBranches.has(branch)) &&
+    TIANJIANG.every((god) => gods.has(god));
+  const noblemanBranch = data.noblemanBranch;
+  const dayStem = data.ganzhi.day.charAt(0);
+  const dayNightFromHour = DAYTIME_BRANCHES.has(data.divinationBranch) ? '昼占' : '夜占';
+  const timeAligned =
+    data.ganzhi.hour.charAt(1) === data.divinationBranch && data.dayNight === dayNightFromHour;
+  const expectedGanzhi =
+    data.timezoneOffsetMinutes === undefined
+      ? undefined
+      : getDivinationTime(
+          new Date(data.timestamp),
+          data.timezoneOffsetMinutes,
+          data.termReferenceTimestamp === undefined
+            ? undefined
+            : new Date(data.termReferenceTimestamp),
+        ).ganzhi;
+  const pillarsAligned =
+    expectedGanzhi === undefined ||
+    (data.ganzhi.year === expectedGanzhi.year &&
+      data.ganzhi.month === expectedGanzhi.month &&
+      data.ganzhi.day === expectedGanzhi.day &&
+      data.ganzhi.hour === expectedGanzhi.hour);
+  const noblemanMatchesDayStem =
+    TIANGAN.includes(dayStem as (typeof TIANGAN)[number]) &&
+    (data.dayNight === '昼占' || data.dayNight === '夜占') &&
+    noblemanBranch === getNoblemanBranch(dayStem, data.dayNight);
+  const expectedPlate =
+    completeBranches &&
+    DIZHI.includes(data.monthLeader as (typeof DIZHI)[number]) &&
+    DIZHI.includes(data.divinationBranch as (typeof DIZHI)[number]) &&
+    noblemanBranch &&
+    DIZHI.includes(noblemanBranch as (typeof DIZHI)[number]) &&
+    noblemanMatchesDayStem &&
+    (data.dayNight === '昼占' || data.dayNight === '夜占')
+      ? buildHeavenlyPlate({
+          monthLeader: data.monthLeader,
+          divinationBranch: data.divinationBranch,
+          noblemanBranch,
+          dayNight: data.dayNight,
+        })
+      : [];
+  const byEarthBranch = new Map(positions.map((item) => [item.earthBranch, item]));
+  const positionsAligned =
+    timeAligned &&
+    pillarsAligned &&
+    expectedPlate.length === 12 &&
+    expectedPlate.find((item) => item.branch === noblemanBranch)?.under ===
+      data.noblemanGroundBranch &&
+    expectedPlate.every((item) => {
+      const actual = byEarthBranch.get(item.under);
+      return actual?.heavenBranch === item.branch && actual.god === item.god;
+    });
+  const status = completeBranches && positionsAligned ? '完整' : '缺少';
   return {
     key: 'liuren:plate:coverage',
     status,
@@ -809,7 +989,7 @@ function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCovera
     promptText:
       status === '完整'
         ? '天地盘十二位与十二天将资料完整，可逐位核验月将加时和贵人顺逆排布。'
-        : `当前结果仅保留${positions.length}/12位天地盘资料，无法完整核验月将加时和十二天将排布；不得反推或补造缺失位置。`,
+        : `${positions.length < 12 ? `当前结果仅保留${positions.length}/12位天地盘资料` : !completeBranches ? `当前结果保留${positions.length}/12位天地盘资料，地盘、天盘或天将有缺漏或重复` : !timeAligned ? '占时支、时柱或昼夜占记录不一致' : !pillarsAligned ? '占时四柱与保存的起课时刻不一致' : '当前结果的月将加时或贵人布将与逐位记录不一致'}；月将加时和十二天将排布待复核。`,
     sources: ['当前大六壬结果的天地盘逐位记录', '十二地支与十二天将完整性检查'],
     limitation: PLATE_COVERAGE_LIMITATION,
   };
@@ -1235,12 +1415,65 @@ function buildOrdinaryTransmissionAdjudicationFact(
 }
 
 export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis {
+  if (
+    data.timezoneOffsetMinutes !== undefined &&
+    (!Number.isInteger(data.timezoneOffsetMinutes) ||
+      data.timezoneOffsetMinutes < -720 ||
+      data.timezoneOffsetMinutes > 840)
+  ) {
+    throw new Error('大六壬四柱时区偏移无效，无法生成证据。');
+  }
   if (data.fourLessons.length !== 4 || data.threeTransmissions.length !== 3) {
     throw new Error('大六壬证据分析需要完整四课与三传。');
   }
+  const expectedMonthLeader = getMonthLeaderByZhongqi(
+    data.termReferenceTimestamp ?? data.timestamp,
+  );
+  if (data.monthLeader !== expectedMonthLeader) {
+    throw new Error('大六壬月将与实际占时中气不一致，无法生成证据。');
+  }
+  const expectedXunKong = getVoidBranches(data.ganzhi.day);
+  if (data.xunKong !== undefined && !hasSameStrings(data.xunKong, expectedXunKong)) {
+    throw new Error('大六壬旬空与日柱不一致，无法生成证据。');
+  }
+  const monthBranch = data.ganzhi.month.charAt(1);
+  const transmissionStages = ['初传', '中传', '末传'] as const;
+  const threeTransmissions = data.threeTransmissions.map((item, index) => {
+    if (item.stage !== transmissionStages[index]) {
+      throw new Error('大六壬三传阶段与先后次序不一致，无法生成证据。');
+    }
+    const wuxing = getBranchWuxing(item.branch);
+    const seasonState = getSeasonState(wuxing, monthBranch);
+    if (
+      (item.wuxing !== undefined && item.wuxing !== wuxing) ||
+      (item.seasonState !== undefined && item.seasonState !== seasonState)
+    ) {
+      throw new Error('大六壬三传五行或月令旺衰与地支、月建不一致，无法生成证据。');
+    }
+    return { ...item, wuxing, seasonState, isVoid: expectedXunKong.includes(item.branch) };
+  });
+  data = { ...data, xunKong: expectedXunKong, threeTransmissions };
+  const expectedShenShaFacts = buildShenShaFacts(
+    data.ganzhi.month.charAt(1),
+    data.ganzhi.day.charAt(1),
+    data.ganzhi.day.charAt(0),
+  );
+  if (
+    (data.shenShaFacts !== undefined &&
+      stableStringify(data.shenShaFacts) !== stableStringify(expectedShenShaFacts)) ||
+    (data.shenShaSummary !== undefined &&
+      !hasSameStrings(
+        data.shenShaSummary,
+        expectedShenShaFacts.map((fact) => `${fact.name}在${fact.target}`),
+      ))
+  ) {
+    throw new Error('大六壬神煞与日月干支不一致，无法生成证据。');
+  }
   const initial = data.threeTransmissions[0];
-  const xunKong = data.xunKong ?? [];
-  const calculationFact = buildCalculationFact(data, xunKong);
+  const xunKong = expectedXunKong;
+  const platePositionFacts = buildPlatePositionFacts(data);
+  const plateFact = buildPlateCoverageFact(data, platePositionFacts);
+  const calculationFact = buildCalculationFact(data, xunKong, plateFact.status === '完整');
   const calculationFacts = [
     `四柱干支：年${calculationFact.ganzhi.year}、月${calculationFact.ganzhi.month}、日${calculationFact.ganzhi.day}、时${calculationFact.ganzhi.hour}`,
     `月将加时：月将${calculationFact.monthLeader}加占时${calculationFact.divinationBranch}`,
@@ -1248,8 +1481,213 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     `日干寄宫：${calculationFact.dayStem}寄${calculationFact.dayStemResidence ?? '未列'}`,
     `日柱旬空：${calculationFact.xunKong.join('、') || '未列'}`,
   ];
-  const platePositionFacts = buildPlatePositionFacts(data);
-  const plateFact = buildPlateCoverageFact(platePositionFacts);
+  if (plateFact.status !== '完整') {
+    data = {
+      ...data,
+      transmissionRule: undefined,
+      ordinaryTransmissionAdjudication: undefined,
+      transmissionPattern: undefined,
+      transmissionDetail: undefined,
+      classicalRules: undefined,
+      patternTags: undefined,
+      guaTi: undefined,
+      guaTiFacts: undefined,
+      focusEvidence: undefined,
+      timingEvidence: undefined,
+    };
+  }
+  if (plateFact.status === '完整') {
+    const dayStem = data.ganzhi.day.charAt(0);
+    const dayBranch = data.ganzhi.day.charAt(1);
+    const dayStemResidence = getDayStemResidence(dayStem);
+    const expectedLessons = buildFourLessons({
+      heavenlyPlate: data.heavenlyPlate,
+      dayStem,
+      dayBranch,
+      dayStemResidence,
+      xunKong,
+    });
+    if (
+      data.dayStemResidence !== dayStemResidence ||
+      data.fourLessons.some((lesson, index) => {
+        const expected = expectedLessons[index];
+        return (
+          lesson.name !== expected.name ||
+          lesson.upper !== expected.upper ||
+          lesson.lower !== expected.lower ||
+          lesson.god !== expected.god ||
+          lesson.relation !== expected.relation
+        );
+      })
+    ) {
+      throw new Error('大六壬四课与天地盘不一致，无法生成证据。');
+    }
+    if (
+      data.threeTransmissions.some((transmission, index) => {
+        const plateItem = getPlateItemByBranch(data.heavenlyPlate, transmission.branch);
+        const previous = index === 0 ? dayStem : data.threeTransmissions[index - 1].branch;
+        const expectedRelation = describeRelation(transmission.branch, previous);
+        return (
+          transmission.god !== plateItem.god ||
+          transmission.relation !== expectedRelation ||
+          transmission.dayRelation !== describeRelation(transmission.branch, dayBranch) ||
+          (transmission.note &&
+            transmission.note !== buildTransmissionNote(transmission.stage, expectedRelation))
+        );
+      })
+    ) {
+      throw new Error('大六壬三传与天地盘不一致，无法生成证据。');
+    }
+    const expected = resolveInitialTransmission(data.fourLessons, {
+      dayStem,
+      dayBranch,
+      dayStemResidence,
+      hourStem: data.ganzhi.hour.charAt(0),
+      hourBranch: data.divinationBranch,
+      heavenlyPlate: data.heavenlyPlate,
+    });
+    const middle = expected.branches?.[1] ?? getUpperByUnder(data.heavenlyPlate, expected.initial);
+    const expectedBranches = expected.branches ?? [
+      expected.initial,
+      middle,
+      getUpperByUnder(data.heavenlyPlate, middle),
+    ];
+    if (
+      (data.transmissionRule && data.transmissionRule !== expected.rule) ||
+      data.threeTransmissions.some((item, index) => item.branch !== expectedBranches[index])
+    ) {
+      throw new Error('大六壬取传规则或三传与四课、天地盘不一致，无法生成证据。');
+    }
+    if (
+      data.ordinaryTransmissionAdjudication &&
+      stableStringify(data.ordinaryTransmissionAdjudication) !==
+        stableStringify(expected.ordinaryAdjudication)
+    ) {
+      throw new Error('大六壬普通宗门裁决与四课、三传、天地盘不一致，无法生成证据。');
+    }
+    const expectedPattern = getTransmissionPattern(
+      expectedBranches[0],
+      expectedBranches[1],
+      expectedBranches[2],
+      expected.rule,
+    );
+    const expectedClassicalRules = resolveLiurenClassicalRules(expected.rule);
+    if (
+      (data.transmissionPattern !== undefined && data.transmissionPattern !== expectedPattern) ||
+      (data.transmissionDetail !== undefined &&
+        data.transmissionDetail !==
+          buildTransmissionDetail(
+            expected.rule,
+            expectedPattern,
+            data.threeTransmissions,
+            expectedClassicalRules,
+          )) ||
+      (data.classicalRules !== undefined &&
+        stableStringify(data.classicalRules) !== stableStringify(expectedClassicalRules)) ||
+      (data.focusEvidence !== undefined &&
+        stableStringify(data.focusEvidence) !==
+          stableStringify(
+            buildLiurenFocusEvidence({
+              rule: expected.rule,
+              transmissions: data.threeTransmissions,
+              dayStem,
+              dayStemResidence,
+              dayBranch,
+              fourLessons: data.fourLessons,
+            }),
+          )) ||
+      (data.timingEvidence !== undefined &&
+        data.timingEvidence.length > 0 &&
+        !hasSameStrings(
+          data.timingEvidence.map((text, index) => {
+            if (
+              index === 0 &&
+              text ===
+                `一级发用：先看初传${data.threeTransmissions[0].branch}不空，可直接作为起始信号`
+            ) {
+              return `一级发用：先看初传${data.threeTransmissions[0].branch}不空，按月令旺衰、日支关系和事项类神核对发端条件`;
+            }
+            if (
+              index === 3 &&
+              text === '未给出目标期限时，只判断先后、快慢和触发条件，不硬换成唯一日期'
+            ) {
+              return '以问题期限、三传先后和现实触发条件核对应期';
+            }
+            return text;
+          }),
+          buildLiurenTimingEvidence({
+            transmissions: data.threeTransmissions,
+            dayBranch,
+            monthBranch: data.ganzhi.month.charAt(1),
+          }),
+        ))
+    ) {
+      throw new Error('大六壬取传派生资料与四课、三传不一致，无法生成证据。');
+    }
+    if (
+      data.guaTiFacts !== undefined ||
+      data.guaTi !== undefined ||
+      data.patternTags !== undefined
+    ) {
+      const initialGroundBranch = getPlateItemByBranch(
+        data.heavenlyPlate,
+        data.threeTransmissions[0].branch,
+      ).under;
+      const noblemanGroundBranch = data.noblemanBranch
+        ? getPlateItemByBranch(data.heavenlyPlate, data.noblemanBranch).under
+        : undefined;
+      const expectedGuaTiFacts = getLiurenGuaTiFacts({
+        transmissionBranches: data.threeTransmissions.map((item) => item.branch),
+        initialGroundBranch,
+        initialGod: data.threeTransmissions[0].god,
+        yearBranch: data.ganzhi.year.charAt(1),
+        monthBranch: data.ganzhi.month.charAt(1),
+        monthLeader: data.monthLeader,
+        noblemanBranch: data.noblemanBranch,
+        noblemanGroundBranch,
+        fourLessons: data.fourLessons,
+        dayStem,
+        dayBranch,
+      });
+      if (
+        (data.guaTiFacts !== undefined &&
+          JSON.stringify(getGuaTiFactSignatures(data.guaTiFacts)) !==
+            JSON.stringify(getGuaTiFactSignatures(expectedGuaTiFacts))) ||
+        (data.guaTi !== undefined &&
+          !hasSameStrings(
+            data.guaTi,
+            expectedGuaTiFacts.map((fact) => fact.name),
+          ))
+      ) {
+        throw new Error('大六壬课体与四课、三传、天地盘不一致，无法生成证据。');
+      }
+      if (
+        data.patternTags !== undefined &&
+        !hasSameStrings(data.patternTags, [
+          `${data.threeTransmissions[0].god}发用`,
+          expected.tag,
+          data.threeTransmissions.some((item) => xunKong.includes(item.branch))
+            ? '空亡入传'
+            : '传不逢空',
+          getPatternTag(expectedPattern),
+          ...expectedGuaTiFacts.map((fact) => fact.name),
+        ])
+      ) {
+        throw new Error('大六壬取传标签与四课、三传、天地盘不一致，无法生成证据。');
+      }
+    }
+  }
+  if (data.tianJiangProps !== undefined) {
+    const expectedProps = Object.fromEntries(
+      [...new Set(data.threeTransmissions.map((item) => item.god))].flatMap((god) => {
+        const attributes = TIANJIANG_ATTRIBUTES[god as keyof typeof TIANJIANG_ATTRIBUTES];
+        return attributes ? [[god, { ...attributes }]] : [];
+      }),
+    );
+    if (stableStringify(data.tianJiangProps) !== stableStringify(expectedProps)) {
+      throw new Error('大六壬天将属性与三传不一致，无法生成证据。');
+    }
+  }
   const plateFacts = platePositionFacts.map(
     (item) => `地盘${item.earthBranch}上见天盘${item.heavenBranch}乘${item.god}`,
   );
@@ -1265,8 +1703,9 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     ),
   );
   const traditionalFacts = buildTraditionalFacts(data, patternEvidence);
+  const initialSourceLessonPositions = getInitialSourceLessonPositions(data);
   const lessons = data.fourLessons.map((lesson, index) =>
-    buildLessonEvidence(lesson, index, initial.branch, xunKong),
+    buildLessonEvidence(lesson, index, initialSourceLessonPositions.has(index + 1), xunKong),
   );
   const initialSourceLessons = lessons
     .filter((item) => item.isInitialSource)
@@ -1341,15 +1780,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     limitation: FOCUS_SUMMARY_LIMITATION,
   };
   const { timingFacts, normalizedInput: timingEvidence } = buildTimingFacts(data, transmissions);
-  const timingConditions = [
-    transmissions[0].isVoid
-      ? `初传${initial.branch}空亡，先等待填实、冲实或现实条件落实再验`
-      : `初传${initial.branch}不空，可作为当前起始信号，但仍须现实事件验证`,
-    `三传顺序${transmissions.map((item) => `${item.stage}${item.branch}`).join(' → ')}只表示阶段推进`,
-    `月支${data.ganzhi.month.slice(-1)}与日支${data.ganzhi.day.slice(-1)}用于核验旺衰、同支、冲合及空亡触发`,
-    '未给期限时不换算唯一日期，不以神煞或课体单项指定应期',
-    ...timingEvidence,
-  ];
+  const timingConditions = timingFacts.map((item) => item.promptText);
   const classicalRuleKeys = traditionalFacts
     .filter((item) => item.kind === '经典取传规则')
     .map((item) => item.key);
@@ -1453,7 +1884,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     },
     {
       level: plateFact.status === '完整' ? '辅证' : '反证',
-      title: plateFact.status === '完整' ? '天地盘十二支与天将定位' : '天地盘定位资料缺失',
+      title: plateFact.status === '完整' ? '天地盘十二支与天将定位' : '天地盘定位待复核',
       detail: `${plateFact.promptText}${platePositionFacts.length ? `；已保存位置：${platePositionFacts.map((item) => item.promptText).join('；')}` : ''}；逐位边界：${PLATE_FACT_LIMITATION}；覆盖边界：${plateFact.limitation}`,
       source: Array.from(
         new Set([...plateFact.sources, ...platePositionFacts.flatMap((item) => item.sources)]),
@@ -1572,9 +2003,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
           {
             level: '应期' as const,
             title: '应期触发证据',
-            detail: timingFacts
-              .map((fact) => `${fact.promptText}（${fact.sourceStatus}；边界：${fact.limitation}）`)
-              .join('；'),
+            detail: timingFacts.map((fact) => fact.promptText).join('；'),
             source: Array.from(new Set(timingFacts.flatMap((fact) => fact.sources))).join('、'),
             tags: ['应期', '触发条件'],
           },
@@ -1604,17 +2033,19 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const evidence: PromptEvidenceBundle = { title: '大六壬四课取传与三传推进结构化证据', items };
   const promptText = [
     '【大六壬四课取传与三传推进结构化证据】',
-    ...formatPromptEvidenceBundle(evidence),
-    `取传规则事实：${transmissionRuleFact.promptText}；边界：${transmissionRuleFact.limitation}`,
-    `普通宗门裁决：${ordinaryTransmissionAdjudicationFact.promptText}；候选${ordinaryTransmissionAdjudicationFact.candidateFacts.map((item) => item.promptText).join('；') || '无'}；边界：${ordinaryTransmissionAdjudicationFact.limitation}`,
+    `起盘事实：${calculationFacts.join('；')}`,
+    `天地盘：${plateFact.status === '完整' ? plateFacts.join('；') : '逐位资料待核'}`,
+    `四课取传与初传发用：${lessons.map((item) => item.promptText).join('；')}`,
+    `取传规则事实：${transmissionRuleFact.rule ? transmissionRuleFact.promptText : `初传${initial.branch}乘${initial.god}，取传规则名待核`}`,
+    `普通宗门裁决：${ordinaryTransmissionAdjudicationFact.status === '缺少轨迹' ? '普通宗门候选与裁决轨迹待核' : ordinaryTransmissionAdjudicationFact.promptText}`,
+    `三传：${transmissions.map((item) => item.promptText).join('；')}`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；')}`,
-    `反证限制：${counterSummaryFact.promptText}${counterEvidenceFacts.length ? `；明细${counterEvidenceFacts.map((item) => item.promptText).join('；')}` : ''}；边界：${counterSummaryFact.limitation}`,
-    `触发条件：${timingFacts.map((item) => `${item.promptText}（${item.sourceStatus}）`).join('；')}`,
-    `类神焦点状态：${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
-    '应期边界：未给期限时不换算唯一日期，不以神煞、课体或单项关系指定应期。',
-    `计算链：${calculationChain.join(' → ')}`,
-    `证据汇总：${summaryFact.promptText}。`,
-    `解释限制：${limitations.join('；')}。`,
+    ...(counterEvidenceFacts.length
+      ? [`盘内限制：${counterEvidenceFacts.map((item) => item.promptText).join('；')}`]
+      : []),
+    `应期触发证据：${timingConditions.join('；')}`,
+    `类神焦点状态：${focusFacts.length ? focusFacts.map((item) => `${item.target}${item.role}：${item.evidence.join('、')}`).join('；') : '事项类神按所问事项核对'}`,
+    '【任务】结合所问事项核对四课取传、三传推进、类神位置与应期触发条件，给出有盘面依据的条件化判断。',
   ].join('\n');
   return {
     key: 'liuren:evidence',

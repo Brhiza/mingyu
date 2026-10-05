@@ -2,6 +2,18 @@ import type { ClimateRule } from '../../types';
 
 export const WU_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'you-month-wu-bing-gui-first',
+    label: '戊日酉月先丙后癸规则',
+    description: '八月戊土金泄身寒，原文先以丙火照暖，再取癸水滋润；本月不必另用木疏土。',
+    priority: 115,
+    months: ['酉'],
+    dayMasters: ['土'],
+    dayStems: ['戊'],
+    usefulWuxing: '火',
+    favorableOrder: ['火', '水'],
+    hint: '戊土酉月，丙火先照暖、癸水次滋润',
+  },
+  {
     id: 'you-month-wu-bing-gui-all',
     label: '戊日酉月丙癸两透科甲规则',
     description: '戊土生酉月，丙癸两透时传统多断科甲，不宜与单透或全无同论。',
@@ -34,7 +46,7 @@ export const WU_YOU_CLIMATE_RULES: ClimateRule[] = [
       {
         stems: ['丙', '癸'],
         maxDistinctCount: 0,
-        scope: 'visible',
+        scope: 'total',
       },
     ],
     usefulWuxing: '火',

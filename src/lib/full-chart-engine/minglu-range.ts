@@ -49,8 +49,8 @@ function assertRequest(request: MingluRangeCalculationRequest): void {
 /**
  * 把范围页的单点档案转换为命录元数据输入。
  *
- * 日期继续以当前页八字结果的太阳日期为准；时间、地点和真太阳时开关
- * 来自同一秒的 BirthProfile，避免回退到页面初始输入。
+ * 生辰日期与钟表时间来自当前页同一秒的 BirthProfile；
+ * 地点和真太阳时开关使用同一份出生档案。
  */
 export function buildMingluPersonFromBirthProfile(
   profile: BirthProfile,
@@ -64,9 +64,9 @@ export function buildMingluPersonFromBirthProfile(
   return {
     name: profile.name,
     gender: profile.gender === 'unspecified' ? '' : profile.gender,
-    birthYear: baziResult.solarDate.year,
-    birthMonth: baziResult.solarDate.month,
-    birthDay: baziResult.solarDate.day,
+    birthYear: precise ? clock.year : baziResult.solarDate.year,
+    birthMonth: precise ? clock.month : baziResult.solarDate.month,
+    birthDay: precise ? clock.day : baziResult.solarDate.day,
     ...(precise
       ? {
           birthHour: clock.hour,

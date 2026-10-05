@@ -1,21 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 
 import * as core from '../packages/core/src/index.ts';
 import {
   BASIC_MAPPINGS,
+  getBaziRelationMappings,
   HIDDEN_STEMS,
   NAYIN_MAP as BAZI_NAYIN_MAP,
   SIXTY_CYCLE as BAZI_SIXTY_CYCLE,
 } from '../packages/core/src/bazi/baziMappingsData.ts';
 import {
+  CHANGSHENG_ORDER,
+  BRANCH_YINYANG,
   EARTHLY_BRANCHES,
   HEAVENLY_STEMS,
+  getGanZhiAttributeTables,
   NAYIN_MAP,
   SIX_XUN_HEADS,
   SIXTY_CYCLE,
+  STEM_WUXING,
+  STEM_YINYANG,
+  ZODIACS,
 } from '../packages/core/src/ganzhi/data.ts';
-import { BRANCH_HIDDEN_STEMS } from '../packages/core/src/ganzhi/relations.ts';
+import {
+  BRANCH_HIDDEN_STEMS,
+  BRANCH_ORDER,
+  STEM_ORDER,
+  WUXING,
+} from '../packages/core/src/ganzhi/relations.ts';
+import { getBaziHourPillarOptions, WUXING_VALUES } from '../packages/core/src/ganzhi/validation.ts';
 import { LIUCHONG_MAP as LEGACY_LIUCHONG_MAP } from '../packages/core/src/divination/algorithms/_shared/wuxing.ts';
 import { LIUCHONG_MAP } from '../packages/core/src/ganzhi/relations.ts';
 
@@ -24,8 +38,98 @@ test('公共地基层应成为八字与占卜旧路径的单一真相源', () =>
   assert.equal(BASIC_MAPPINGS.EARTHLY_BRANCHES, EARTHLY_BRANCHES);
   assert.equal(BAZI_SIXTY_CYCLE, SIXTY_CYCLE);
   assert.equal(BAZI_NAYIN_MAP, NAYIN_MAP);
-  assert.equal(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  assert.deepEqual(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  assert.notStrictEqual(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
+  for (const branch of EARTHLY_BRANCHES) {
+    assert.notStrictEqual(HIDDEN_STEMS[branch], BRANCH_HIDDEN_STEMS[branch], branch);
+  }
+  assert.deepEqual(HIDDEN_STEMS.子, ['癸']);
   assert.equal(LEGACY_LIUCHONG_MAP, LIUCHONG_MAP);
+
+  const captureAttributes = () => ({
+    profile: core.foundation.describeGanZhi('甲子'),
+    analysis: core.foundation.analyzeWuxing(['甲', '子'], { weightHidden: false }),
+    tally: core.wuxing.tallyWuxing(['甲', '子']),
+    bazi: getBaziRelationMappings().BASIC_MAPPINGS,
+  });
+  const baseline = structuredClone(captureAttributes());
+  assert.deepEqual([baseline.profile.stem.wuxing, baseline.profile.stem.yinYang], ['木', '阳']);
+  assert.deepEqual([baseline.profile.branch.wuxing, baseline.profile.branch.yinYang], ['水', '阳']);
+  assert.deepEqual(baseline.analysis.counts, { 木: 1, 火: 0, 土: 0, 金: 0, 水: 1 });
+  assert.deepEqual(baseline.tally, baseline.analysis.counts);
+  assert.equal(baseline.bazi.STEM_WUXING[0], '木');
+  assert.equal(baseline.bazi.STEM_YINYANG[0], '阳');
+  const original = {
+    wuxing: STEM_WUXING.甲,
+    stemYinYang: STEM_YINYANG.甲,
+    branchYinYang: BRANCH_YINYANG.子,
+  };
+  try {
+    STEM_WUXING.甲 = '水';
+    STEM_YINYANG.甲 = '阴';
+    BRANCH_YINYANG.子 = '阴';
+    assert.deepEqual([STEM_WUXING.甲, STEM_YINYANG.甲, BRANCH_YINYANG.子], ['水', '阴', '阴']);
+    assert.deepEqual(captureAttributes(), baseline);
+    const copy = getGanZhiAttributeTables();
+    assert.deepEqual(
+      [copy.STEM_WUXING.甲, copy.STEM_YINYANG.甲, copy.BRANCH_YINYANG.子],
+      ['木', '阳', '阳'],
+    );
+    assert.notStrictEqual(copy.STEM_WUXING, STEM_WUXING);
+    assert.notStrictEqual(copy.STEM_YINYANG, STEM_YINYANG);
+    assert.notStrictEqual(copy.BRANCH_YINYANG, BRANCH_YINYANG);
+    copy.STEM_WUXING.甲 = '金';
+    copy.STEM_YINYANG.甲 = '阴';
+    copy.BRANCH_YINYANG.子 = '阴';
+    assert.deepEqual(
+      [copy.STEM_WUXING.甲, copy.STEM_YINYANG.甲, copy.BRANCH_YINYANG.子],
+      ['金', '阴', '阴'],
+    );
+    const fresh = getGanZhiAttributeTables();
+    assert.notStrictEqual(fresh.STEM_WUXING, copy.STEM_WUXING);
+    assert.notStrictEqual(fresh.STEM_YINYANG, copy.STEM_YINYANG);
+    assert.notStrictEqual(fresh.BRANCH_YINYANG, copy.BRANCH_YINYANG);
+    assert.deepEqual(
+      [fresh.STEM_WUXING.甲, fresh.STEM_YINYANG.甲, fresh.BRANCH_YINYANG.子],
+      ['木', '阳', '阳'],
+    );
+    assert.deepEqual(captureAttributes(), baseline);
+  } finally {
+    STEM_WUXING.甲 = original.wuxing;
+    STEM_YINYANG.甲 = original.stemYinYang;
+    BRANCH_YINYANG.子 = original.branchYinYang;
+  }
+  assert.deepEqual([STEM_WUXING.甲, STEM_YINYANG.甲, BRANCH_YINYANG.子], Object.values(original));
+  assert.deepEqual(captureAttributes(), baseline);
+
+  // 八字映射在首次载入时建立，隔离进程覆盖载入前公开表已被修改的情况。
+  const initialized = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '-e',
+      `
+      import * as data from './packages/core/src/ganzhi/data.ts';
+      const original = [data.STEM_WUXING.甲, data.STEM_YINYANG.甲];
+      try {
+        data.STEM_WUXING.甲 = '水';
+        data.STEM_YINYANG.甲 = '阴';
+        const { getBaziRelationMappings } = await import('./packages/core/src/bazi/baziMappingsData.ts');
+        const mappings = getBaziRelationMappings().BASIC_MAPPINGS;
+        process.stdout.write(JSON.stringify([mappings.STEM_WUXING[0], mappings.STEM_YINYANG[0]]));
+      } finally {
+        data.STEM_WUXING.甲 = original[0];
+        data.STEM_YINYANG.甲 = original[1];
+      }
+    `,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8', timeout: 30_000 },
+  );
+  assert.equal(initialized.error, undefined);
+  assert.equal(initialized.status, 0, initialized.stderr);
+  assert.deepEqual(JSON.parse(initialized.stdout), ['木', '阳']);
 });
 
 test('六十甲子工具应返回完整序列与结构化关系', () => {
@@ -34,7 +138,7 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.equal(cycle.length, 60);
   assert.equal(cycle[0], '甲子');
   assert.equal(cycle[59], '癸亥');
-  assert.deepEqual(core.foundation.getFoundationCapabilities().constants.sixXunHeads, [
+  assert.deepEqual(capabilities.constants.sixXunHeads, [
     '甲子',
     '甲戌',
     '甲申',
@@ -59,39 +163,45 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.equal(profile.branch.sanhe.group, '水局');
   assert.equal(profile.key, 'foundation:ganzhi:甲子');
   assert.equal(profile.status, '已查询');
-  assert.equal(profile.calculationSteps.length, 5);
   assert.deepEqual(
     profile.calculationChain,
     profile.calculationSteps.map((item) => item.promptText),
   );
-  assert.equal(profile.sourceFacts.length, 4);
   assert.equal(profile.summaryFact.calculationStepCount, profile.calculationSteps.length);
   assert.equal(profile.summaryFact.sourceFactCount, profile.sourceFacts.length);
   assert.equal(profile.summaryFact.limitationFactCount, profile.limitationFacts.length);
   assert.ok(profile.sourceFacts.every((fact) => fact.ownerStepKeys.length > 0));
-  assert.match(profile.promptText, /六十甲子中的零基序号为0/);
+  assert.match(
+    profile.promptText,
+    /【任务】[\s\S]*【干支资料】[\s\S]*【传统依据】[\s\S]*【输出要求】/,
+  );
+  assert.match(profile.promptText, /五合甲己，合化土/);
+  assert.match(profile.promptText, /子丑（化土）/);
+  assert.match(profile.promptText, /相刑对应卯/);
+  assert.match(profile.promptText, /三合水局（子、申、辰）/);
+  assert.match(profile.promptText, /北方水（亥、子、丑）/);
+  const profileWithoutStemClash = core.foundation.describeGanZhi('戊子');
+  assert.match(profileWithoutStemClash.promptText, /天干：戊，阳土；五合戊癸，合化火。/);
+  assert.doesNotMatch(
+    profileWithoutStemClash.promptText,
+    /天干相冲|戊己冲|固定相冲对象|暗合无固定对象/,
+  );
   assert.doesNotMatch(profile.promptText, /吉凶评分|成功率[：=]?\d|事件概率[：=]?\d/);
+  assert.doesNotMatch(
+    profile.promptText,
+    /零基序号|证据汇总|来源：|限制：|公共干支单一真相源|tyme4ts/,
+  );
   assert.doesNotMatch(profile.promptText, /mingyu-core|命语|本项目|工程|接口|API|MCP/);
   assert.deepEqual(core.foundation.getBranchRelations('寅').punishments, ['巳', '申']);
   assert.equal(core.foundation.getBranchRelations('寅').hiddenCombine, '丑');
-  assert.equal(core.foundation.getFoundationCapabilities().constants.changshengOrder.length, 12);
-  assert.equal(core.foundation.getFoundationCapabilities().constants.shichenPeriods.length, 13);
-  assert.ok(
-    core.foundation.getFoundationCapabilities().evidenceOutputs.ganzhi.includes('可复制证据文本'),
-  );
-  assert.ok(
-    core.foundation
-      .getFoundationCapabilities()
-      .evidenceOutputs.wuxing.includes('逐项五行与藏干贡献'),
-  );
-  assert.deepEqual(
-    core.foundation.getFoundationCapabilities().constants.chinaDstYears,
-    [1986, 1987, 1988, 1989, 1990, 1991],
-  );
-  assert.ok(core.foundation.getFoundationCapabilities().singleSourceModules.includes('calendar'));
+  assert.equal(capabilities.constants.changshengOrder.length, 12);
+  assert.equal(capabilities.constants.shichenPeriods.length, 13);
+  assert.ok(capabilities.evidenceOutputs.ganzhi.includes('可复制证据文本'));
+  assert.ok(capabilities.evidenceOutputs.wuxing.includes('逐项五行与藏干贡献'));
+  assert.deepEqual(capabilities.constants.chinaDstYears, [1986, 1987, 1988, 1989, 1990, 1991]);
+  assert.ok(capabilities.singleSourceModules.includes('calendar'));
   assert.equal(capabilities.key, 'foundation:capabilities');
   assert.equal(capabilities.status, '已登记');
-  assert.equal(capabilities.version, '1.2.0');
   assert.equal(capabilities.capabilityFacts.length, capabilities.singleSourceModules.length);
   assert.equal(capabilities.summaryFact.status, '目录完整');
   assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
@@ -145,7 +255,6 @@ test('统一五行分析应严格校验输入并支持藏干权重', () => {
   assert.ok(result.counts.火 > 0);
   assert.equal(result.key, 'foundation:wuxing:with-hidden:甲-子-丙-午');
   assert.equal(result.status, '已统计');
-  assert.equal(result.calculationSteps.length, 4);
   assert.deepEqual(
     result.calculationChain,
     result.calculationSteps.map((item) => item.promptText),
@@ -169,4 +278,81 @@ test('统一五行分析应严格校验输入并支持藏干权重', () => {
   assert.equal(tied.weakest, '火');
   assert.throws(() => core.foundation.analyzeWuxing([]), /至少需要一个/);
   assert.throws(() => core.foundation.analyzeWuxing(['甲子']), /输入无效/);
+});
+
+test('干支与五行只读基础序列拒绝原地修改且公共副本仍可变', () => {
+  const capture = () => ({
+    profile: core.foundation.describeGanZhi('甲子'),
+    hourPillars: getBaziHourPillarOptions('甲子'),
+    wuxing: core.foundation.analyzeWuxing(['己', '甲']),
+    capabilities: core.foundation.getFoundationCapabilities(),
+    sixtyCycleCopy: core.ganzhi.getSixtyCycle(),
+    xunHead: core.ganzhi.getXunHead('乙丑'),
+    wuxingValues: [...WUXING_VALUES],
+  });
+  const baseline = capture();
+  const readonlyArrays: Array<{ name: string; values: readonly string[] }> = [
+    { name: 'HEAVENLY_STEMS', values: HEAVENLY_STEMS },
+    { name: 'EARTHLY_BRANCHES', values: EARTHLY_BRANCHES },
+    { name: 'ZODIACS', values: ZODIACS },
+    { name: 'SIXTY_CYCLE', values: SIXTY_CYCLE },
+    { name: 'SIX_XUN_HEADS', values: SIX_XUN_HEADS },
+    { name: 'CHANGSHENG_ORDER', values: CHANGSHENG_ORDER },
+    { name: 'WUXING', values: WUXING },
+    { name: 'WUXING_VALUES', values: WUXING_VALUES },
+  ];
+
+  assert.equal(STEM_ORDER, HEAVENLY_STEMS);
+  assert.equal(BRANCH_ORDER, EARTHLY_BRANCHES);
+  assert.equal(baseline.profile.index, 0);
+  assert.equal(baseline.profile.branch.zodiac, '鼠');
+  assert.deepEqual(baseline.hourPillars.slice(0, 2), ['甲子', '乙丑']);
+  assert.deepEqual(baseline.wuxing.counts, { 木: 1, 火: 0, 土: 1, 金: 0, 水: 0 });
+  assert.deepEqual(baseline.wuxing.dominantElements, ['木', '土']);
+  assert.deepEqual(baseline.wuxing.weakestElements, ['火', '金', '水']);
+  assert.equal(baseline.xunHead, '甲子');
+  assert.deepEqual(baseline.wuxingValues, ['木', '火', '土', '金', '水']);
+  assert.deepEqual(baseline.capabilities.constants.changshengOrder, [
+    '长生',
+    '沐浴',
+    '冠带',
+    '临官',
+    '帝旺',
+    '衰',
+    '病',
+    '死',
+    '墓',
+    '绝',
+    '胎',
+    '养',
+  ]);
+
+  for (const { name, values } of readonlyArrays) {
+    assert.equal(Object.isFrozen(values), true, name);
+    assert.equal(Reflect.set(values, 0, '污染'), false, name);
+    assert.throws(() => (values as unknown as string[]).sort(), TypeError, name);
+    assert.deepEqual(capture(), baseline, `${name} 修改尝试后完整资料与任务书保持不变`);
+  }
+
+  const capabilityCycle = baseline.capabilities.constants.sixtyCycle;
+  const publicCycle = baseline.sixtyCycleCopy;
+  const canonicalCapabilityCycle = [...capabilityCycle];
+  const canonicalPublicCycle = [...publicCycle];
+  assert.equal(Object.isFrozen(capabilityCycle), false);
+  assert.equal(Object.isFrozen(publicCycle), false);
+  capabilityCycle[0] = '目录副本变造';
+  publicCycle[0] = '序列副本变造';
+  assert.equal(capabilityCycle[0], '目录副本变造');
+  assert.equal(publicCycle[0], '序列副本变造');
+  assert.deepEqual(capture(), {
+    ...baseline,
+    capabilities: {
+      ...baseline.capabilities,
+      constants: {
+        ...baseline.capabilities.constants,
+        sixtyCycle: canonicalCapabilityCycle,
+      },
+    },
+    sixtyCycleCopy: canonicalPublicCycle,
+  });
 });

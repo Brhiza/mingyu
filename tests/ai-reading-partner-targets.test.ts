@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { executeReadingAction } from '../src/lib/ai/reading-resources';
 import { parseReadingPlan, type ReadingSubjectSnapshot } from '../src/lib/ai/reading-workflow';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock, LunarUtil } from 'mingyu-core/calendar';
 
 const baziCompatibilitySubject: ReadingSubjectSnapshot = {
   id: 'partner-target-bazi',
@@ -71,10 +71,17 @@ const ziweiCompatibilitySubject: ReadingSubjectSnapshot = {
 function baziResult(request: Record<string, unknown>, year = request.year) {
   const correctedHour = Number(request.birthHour ?? 0);
   const correctedMinute = Number(request.birthMinute ?? 0);
+  const lunarDay = LunarUtil.getLunar(
+    new Date(Date.UTC(Number(request.year), Number(request.month) - 1, Number(request.day), 4)),
+  );
   return {
     gender: request.gender,
     solarDate: { year: request.year, month: request.month, day: request.day },
-    lunarDate: { year: request.year, month: request.month, day: request.day },
+    lunarDate: {
+      year: lunarDay.yearNumber,
+      month: lunarDay.isLeapMonth ? -lunarDay.monthNumber : lunarDay.monthNumber,
+      day: lunarDay.dayNumber,
+    },
     timeInfo: {
       index:
         request.useTrueSolarTime === true

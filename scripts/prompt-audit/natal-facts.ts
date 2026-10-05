@@ -6,13 +6,21 @@
  */
 import type { BaziChartResult } from '../../packages/core/src/bazi/baziTypes';
 import type { FortuneSelectionContext } from '../../packages/core/src/bazi/fortuneSelection';
-import type { BaziCompatibilityEvidenceResult } from '../../packages/core/src/bazi';
+import {
+  formatBaziUsefulGodCoverageForPrompt,
+  type BaziCompatibilityEvidenceResult,
+} from '../../packages/core/src/bazi/compatibilityEvidence';
 import type {
   AstrolabeData,
   AstrolabeSynastryData,
 } from '../../packages/core/src/types/divination';
-import type { AnalysisPayloadV1 } from '../../packages/core/src/types/analysis';
+import type {
+  AnalysisPayloadV1,
+  PalaceFact,
+  StarFact,
+} from '../../packages/core/src/types/analysis';
 import type { ZiweiRuntime } from '../../packages/core/src/ziwei/runtime';
+import { mapZiweiScopeLabel } from '../../packages/core/src/ziwei/prompt/labels';
 import type { AstrolabeScopeContext } from '../../packages/core/src/divination/astrolabe-scope';
 import type { QizhengFlowingStarsResult, QizhengResult } from '../../packages/core/src/qi_zheng';
 import type { PromptFactExpectation } from './facts';
@@ -320,6 +328,23 @@ export function extractBaziCompatibilityFacts(
       idPrefix: 'bazi.compatibility.person2',
     }),
   ];
+  for (const [index, coverage] of relation.usefulGodCoverage.entries()) {
+    const beneficiaryScope =
+      coverage.beneficiary === 'person1'
+        ? (options.person1Scope ?? { start: '【第一人排盘信息】', end: '【第二人排盘信息】' })
+        : (options.person2Scope ?? { start: '【第二人排盘信息】', end: '【双盘关系资料】' });
+    for (const [descriptionIndex, description] of (
+      coverage.functionalEvidence?.descriptions ?? []
+    ).entries()) {
+      const item = fact(
+        `bazi.compatibility.${coverage.beneficiary}.functional.${index}.${descriptionIndex}`,
+        description.split('：')[0],
+        [description],
+        { scope: beneficiaryScope },
+      );
+      if (item) facts.push(item);
+    }
+  }
   const scope = options.relationScope ?? { start: '【双盘关系资料】', end: '【任务】' };
   const add = (id: string, owner: string, value: string | undefined) => {
     const item = fact(id, owner, [value], { scope });
@@ -351,7 +376,7 @@ export function extractBaziCompatibilityFacts(
     'bazi.compatibility.useful-god',
     '喜忌覆盖',
     relation.usefulGodCoverage.length
-      ? relation.usefulGodCoverage.map((item) => item.promptText).join('；')
+      ? relation.usefulGodCoverage.map(formatBaziUsefulGodCoverageForPrompt).join('；')
       : '资料不足',
   );
   add('bazi.compatibility.summary', '已记录跨柱关系', relation.summaryFact.promptText);
@@ -370,6 +395,27 @@ function getZiweiPayloads(input: AnalysisPayloadV1 | ZiweiRuntime, scopes?: read
     .filter((payload): payload is AnalysisPayloadV1 => Boolean(payload));
 }
 
+function ziweiPalaceOwner(palace: PalaceFact, publicStyle: boolean) {
+  return publicStyle
+    ? `${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：`
+    : `${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（来因宫）' : ''}；宫干支${palace.heavenly_stem}${palace.earthly_branch}`;
+}
+
+/** 用完整星曜注记把四化绑定到化星；同一宫其他星曜上的注记不能补足此项。 */
+function ziweiMutagenStarValue(star: StarFact, origin: boolean, publicStyle: boolean) {
+  const tags = cleanValues([
+    star.brightness ? `${publicStyle ? '' : '亮度：'}${star.brightness}` : '',
+    star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
+    !origin && star.horoscope_mutagen
+      ? `${publicStyle ? '流耀' : '运限'}化${star.horoscope_mutagen}`
+      : '',
+    !origin && star.active_scope_mutagen ? `当前化${star.active_scope_mutagen}` : '',
+  ]);
+  return publicStyle
+    ? `${star.name}${tags.length ? `(${tags.join('，')})` : ''}`
+    : [star.name, ...tags].join('，');
+}
+
 /** 从紫微单盘运行结果提取本命宫星、运限层和四化归属。 */
 export function extractZiweiFacts(
   input: AnalysisPayloadV1 | ZiweiRuntime,
@@ -382,6 +428,10 @@ export function extractZiweiFacts(
     const scope = options.scope ?? rangeScope(`分析范围：${ziweiScopeLabel(payload)}`);
     const scopeId = active.scope;
     const publicStyle = options.palaceValueStyle === 'public';
+    const selectedScopeHit =
+      active.scope === 'origin'
+        ? ''
+        : `${active.scope === 'decadal' ? active.label || '大限' : mapZiweiScopeLabel(active.scope)}落宫`;
     const starValue = (prefix: string, name: string) =>
       options.starValuePrefix === false || publicStyle ? name : `${prefix}${name}`;
     for (const palace of payload.palaces) {
@@ -412,7 +462,9 @@ export function extractZiweiFacts(
             owner,
             active.scope === 'origin'
               ? []
-              : palace.scope_hits.map((hit) => hit.replace(/^运限命中：/u, '')),
+              : palace.scope_hits
+                  .filter((hit) => !publicStyle || hit === selectedScopeHit)
+                  .map((hit) => hit.replace(/^运限命中：/u, '')),
             {
               scope,
               unit: 'line',
@@ -445,25 +497,78 @@ export function extractZiweiFacts(
       if (activeFact) facts.push(activeFact);
     }
     if (options.includeMutagenFacts !== false) {
-      const mutagenValues = active.mutagen_map.map((item) => {
-        const palace = item.palace_name
+      const publicMutagenStyle = options.mutagenValueStyle === 'public';
+      const origin = active.scope === 'origin';
+      const mutagenOwner = options.mutagenOwner ?? (origin ? '生年四化' : '当前四化');
+      // 每个实际映射项都有独立期望，按结构化落宫与星曜注记确定其完整表达。
+      // 摘要路径保留额外落点信息；宫内路径同时核对所在行和完整星曜注记。
+      for (const [index, item] of active.mutagen_map.entries()) {
+        const mappedPalace = payload.palaces.find(
+          (palace) =>
+            (item.palace_index !== undefined || Boolean(item.palace_name)) &&
+            (item.palace_index === undefined || palace.index === item.palace_index) &&
+            (!item.palace_name ||
+              palace.name.replace(/宫$/u, '') === item.palace_name.replace(/宫$/u, '')),
+        );
+        const mappedStar =
+          mappedPalace &&
+          [
+            ...mappedPalace.major_stars,
+            ...mappedPalace.minor_stars,
+            ...mappedPalace.other_stars,
+            ...(!origin ? mappedPalace.scope_stars : []),
+          ].find(
+            (star) =>
+              star.name === item.star &&
+              (origin ? star.birth_mutagen : star.active_scope_mutagen) === item.mutagen,
+          );
+        const annotation =
+          mappedPalace &&
+          mappedStar &&
+          (!item.dynamic_palace_name ||
+            (!origin && item.dynamic_palace_name === mappedPalace.dynamic_scope_name))
+            ? {
+                owner: ziweiPalaceOwner(mappedPalace, publicMutagenStyle),
+                values: [
+                  ziweiMutagenStarValue(mappedStar, origin, publicMutagenStyle),
+                  !origin && item.dynamic_palace_name
+                    ? `动态宫名：${item.dynamic_palace_name}`
+                    : '',
+                ],
+              }
+            : undefined;
+        const palaceText = item.palace_name
           ? options.mutagenValueStyle === 'public'
             ? `入本命${item.palace_name}`
             : `入${item.palace_name}${item.palace_name.endsWith('宫') ? '' : '宫'}`
           : '';
         const dynamic =
-          active.scope !== 'origin' && item.dynamic_palace_name
-            ? `（动态${item.dynamic_palace_name}）`
-            : '';
-        return `${item.star}化${item.mutagen}${palace}${dynamic}`;
-      });
-      const mutagenOwner =
-        options.mutagenOwner ?? (active.scope === 'origin' ? '生年四化' : '当前四化');
-      const mutagenFact = fact(`${idPrefix}.${scopeId}.mutagens`, mutagenOwner, mutagenValues, {
-        scope,
-        unit: 'line',
-      });
-      if (mutagenFact) facts.push(mutagenFact);
+          !origin && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
+        const mutagenFact = fact(
+          `${idPrefix}.${scopeId}.mutagens${index === 0 ? '' : `.${index}`}`,
+          annotation?.owner ?? mutagenOwner,
+          annotation?.values ?? [`${item.star}化${item.mutagen}${palaceText}${dynamic}`],
+          { scope, unit: 'line' },
+        );
+        if (mutagenFact) facts.push(mutagenFact);
+      }
+      // 生年四化仍是独立层级，运限映射不能替代本命星曜上的生年事实。
+      for (const palace of payload.palaces) {
+        for (const [index, star] of [
+          ...palace.major_stars,
+          ...palace.minor_stars,
+          ...palace.other_stars,
+        ].entries()) {
+          if (!star.birth_mutagen) continue;
+          facts.push({
+            id: `${idPrefix}.${scopeId}.${palace.index}.birth-mutagen.${index}`,
+            owner: ziweiPalaceOwner(palace, publicMutagenStyle),
+            values: [ziweiMutagenStarValue(star, origin, publicMutagenStyle)],
+            ...(scope ? { scope } : {}),
+            unit: 'line',
+          });
+        }
+      }
     }
   }
   return facts;
@@ -529,16 +634,6 @@ export function extractZiweiCompatibilityFacts(
           [`${item.star}生年化${item.mutagen}`, item.sourcePalace, item.targetPalace],
           { scope: relationScope, unit: 'block' },
         ),
-      ]),
-    );
-  }
-  if (relation?.summaryFact?.promptText) {
-    facts.push(
-      ...collect([
-        fact('ziwei.compatibility.summary', '双盘关系资料', [relation.summaryFact.promptText], {
-          scope: relationScope,
-          unit: 'block',
-        }),
       ]),
     );
   }
@@ -650,28 +745,67 @@ export function extractAstrolabeFacts(
       );
     }
   }
+  const solarReturn = context.solarReturnEvidence;
+  const solarReturnPrefix = `astrolabe.${context.scope}.太阳返照`;
+  const solarReturns = context.solarReturnPeriods?.length
+    ? context.solarReturnPeriods.map((period, index) => ({
+        evidence: period.evidence,
+        idPrefix:
+          period.evidence.dateTime === solarReturn?.dateTime
+            ? solarReturnPrefix
+            : `${solarReturnPrefix}.period.${index}`,
+        owner: `太阳返照有效期${period.startsAt}至${period.endsAt}（结束时刻不含）${period.isReferencePeriod ? '，覆盖本次参考日期' : ''}：返照时刻${period.evidence.dateTime}`,
+      }))
+    : solarReturn
+      ? [
+          {
+            evidence: solarReturn,
+            idPrefix: solarReturnPrefix,
+            owner: `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}`,
+          },
+        ]
+      : [];
+  for (const { evidence, idPrefix, owner } of solarReturns) {
+    const timeFact = evidence.dateTime
+      ? fact(`${idPrefix}.time`, owner, [owner, ...(evidence.returnChart ? ['太阳返照盘'] : [])], {
+          scope: periodScope,
+          unit: 'line',
+        })
+      : null;
+    const aspects = evidence.aspectFacts.map((item, index) =>
+      fact(
+        `${idPrefix}.${index}`,
+        owner,
+        [
+          `${item.movingPoint}${item.aspectName}${item.natalPoint}（偏差${item.deviation.toFixed(2)}°，${item.closeness}）`,
+        ],
+        { scope: periodScope, unit: 'line' },
+      ),
+    );
+    for (const expectation of collect([timeFact, ...aspects])) {
+      // 各返照盘行紧随本期标题，其他窗口不能补足时间归属或相位。
+      if (evidence.returnChart) expectation.includeNextLine = true;
+      facts.push(expectation);
+    }
+  }
   const advanced = [
-    ['太阳返照', context.solarReturnEvidence],
     ['次限相位', context.secondaryProgressionEvidence],
     ['太阳弧相位', context.solarArcEvidence],
   ] as const;
   for (const [label, evidence] of advanced) {
     if (!evidence) continue;
     for (const [index, item] of evidence.aspectFacts.entries()) {
-      facts.push(
-        ...collect([
-          fact(
-            `astrolabe.${context.scope}.${label}.${index}`,
-            label,
-            [
-              `${item.movingPoint}${item.aspectName}${item.natalPoint}`,
-              `偏差${item.deviation.toFixed(2)}°`,
-              item.closeness,
-            ],
-            { scope: periodScope, unit: 'line' },
-          ),
-        ]),
+      const expectation = fact(
+        `astrolabe.${context.scope}.${label}.${index}`,
+        label,
+        [
+          `${item.movingPoint}${item.aspectName}${item.natalPoint}`,
+          `偏差${item.deviation.toFixed(2)}°`,
+          item.closeness,
+        ],
+        { scope: periodScope, unit: 'line' },
       );
+      if (expectation) facts.push(expectation);
     }
   }
   return facts;
@@ -723,14 +857,18 @@ export function extractAstrolabeSynastryFacts(
       ]),
     );
   }
+  const personLabel = (person: 'person1' | 'person2', name: string) => {
+    const role = person === 'person1' ? '第一人' : '第二人';
+    return name && name !== role ? `${role}${name}` : role;
+  };
   for (const [index, item] of relation.houseOverlays.entries()) {
     facts.push(
       ...collect([
         fact(
           `astrolabe.synastry.overlay.${index}`,
-          item.point,
-          [item.visitor, `第${item.house}宫`, item.owner],
-          { scope: relationScope, unit: 'line' },
+          `${personLabel(item.visitorPerson, item.visitor)}的${item.point}`,
+          [`落入${personLabel(item.ownerPerson, item.owner)}的本命盘第${item.house}宫`],
+          { scope: { start: '【跨盘落宫】', end: '【任务】' }, unit: 'line' },
         ),
       ]),
     );
@@ -764,14 +902,29 @@ function extractQizhengFlowFacts(
   flowing: QizhengFlowingStarsResult,
   options: { idPrefix: string; flowScope: FactScope; periodScope: FactScope },
 ) {
+  const scanDate = `流曜周期按${flowing.year}年${flowing.month}月${flowing.day}日扫描`;
+  const clockTime = `${String(flowing.hour).padStart(2, '0')}:${String(flowing.minute).padStart(2, '0')}`;
+  const scanDateShown =
+    flowing.localDateTime.split('T')[1]?.slice(0, 5) === clockTime &&
+    (flowing.timestampNote === `${scanDate}；落宫取 ${clockTime}` ||
+      (flowing.hour === 12 &&
+        flowing.minute === 0 &&
+        flowing.timestampNote === `${scanDate}；落宫取当日 12:00`));
+  const monthScan = `流曜周期按${flowing.year}年${flowing.month}月整月扫描；落宫取月中 15日 12:00`;
+  const yearScan = '流曜周期自立春扫描至次年立春；落宫取立春交节';
+  const scanNote = scanDateShown
+    ? scanDate
+    : flowing.timestampNote === `未指定流日时，${monthScan}，不代替整月`
+      ? monthScan
+      : flowing.timestampNote === `未指定流月时，${yearScan}，不代替全年`
+        ? yearScan
+        : flowing.timestampNote;
   facts.push(
     ...collect([
-      fact(
-        `${options.idPrefix}.flow.timestamp`,
-        '落宫时刻',
-        [flowing.localDateTime, flowing.timestampNote],
-        { scope: options.flowScope, unit: 'line' },
-      ),
+      fact(`${options.idPrefix}.flow.timestamp`, '落宫时刻', [flowing.localDateTime, scanNote], {
+        scope: options.flowScope,
+        unit: 'line',
+      }),
     ]),
   );
   for (const [index, star] of flowing.stars.entries()) {
@@ -790,18 +943,14 @@ function extractQizhengFlowFacts(
     );
   }
   for (const [index, aspect] of flowing.transits.entries()) {
+    const owner = `${aspect.star1}与${aspect.star2}：${aspect.type === '同宫' ? '合相' : aspect.type}`;
     facts.push(
       ...collect([
         fact(
           `${options.idPrefix}.flow.transit.${index}`,
-          aspect.star1,
+          owner,
           [
-            aspect.star2,
-            `目标角${aspect.exactAngle}°`,
-            `实际角距${aspect.actualAngle.toFixed(2)}°`,
-            `偏差${aspect.orb.toFixed(2)}°`,
-            `容许偏差上限${aspect.allowedOrb}°`,
-            aspect.closeness,
+            `${owner}；目标角${aspect.exactAngle}°，实际角距${aspect.actualAngle.toFixed(2)}°，偏差${aspect.orb.toFixed(2)}°，容许偏差上限${aspect.allowedOrb}°，${aspect.closeness}`,
           ],
           { scope: options.flowScope, unit: 'line' },
         ),
@@ -849,12 +998,21 @@ export function extractQizhengFacts(
     );
   }
   for (const [index, aspect] of result.aspects.entries()) {
+    if (
+      (aspect.star1 === '罗睺(火余)' && aspect.star2 === '计都(土余)') ||
+      (aspect.star1 === '计都(土余)' && aspect.star2 === '罗睺(火余)')
+    ) {
+      continue;
+    }
+    const owner = `${aspect.star1}与${aspect.star2}：${aspect.type === '同宫' ? '合相' : aspect.type}`;
     facts.push(
       ...collect([
         fact(
           `${idPrefix}.natal.aspect.${index}`,
-          aspect.star1,
-          [aspect.star2, `目标角${aspect.exactAngle}°`, `偏差${aspect.orb.toFixed(2)}°`],
+          owner,
+          [
+            `${owner}；目标角${aspect.exactAngle}°，实际角距${aspect.actualAngle.toFixed(2)}°，偏差${aspect.orb.toFixed(2)}°，容许偏差上限${aspect.allowedOrb}°`,
+          ],
           { scope: natalScope, unit: 'line' },
         ),
       ]),
@@ -865,24 +1023,11 @@ export function extractQizhengFacts(
     const scope = { start: '【行限】' };
     facts.push(
       ...collect([
-        limits.currentMajorLimit
-          ? fact(
-              `${idPrefix}.limits.major-current`,
-              '当前大限',
-              [
-                `虚岁${limits.currentMajorLimit.startNominalAge}至未满${limits.currentMajorLimit.endNominalAge}`,
-                `${limits.currentMajorLimit.signBranch}宫${limits.currentMajorLimit.palace}`,
-              ],
-              { scope },
-            )
-          : fact(`${idPrefix}.limits.major-current`, '当前虚岁', ['超出所列单周行限'], { scope }),
+        fact(`${idPrefix}.limits.major-current`, '大限', ['当前大限宫位未定'], { scope }),
         fact(
           `${idPrefix}.limits.minor-current`,
           '当前小限',
-          [
-            `虚岁${limits.currentMinorLimit.nominalAge}`,
-            `${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`,
-          ],
+          [`${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}`],
           { scope },
         ),
         fact(
@@ -893,15 +1038,15 @@ export function extractQizhengFacts(
         ),
       ]),
     );
-    for (const [index, item] of limits.majorLimits.entries()) {
+    for (const [index, item] of limits.majorPalaceYears.entries()) {
       facts.push(
         ...collect([
           fact(
-            `${idPrefix}.limits.major.${index}`,
-            '大限十二步',
+            `${idPrefix}.limits.palace-years.${index}`,
+            '洞微宫序与各宫年数',
             [
-              `虚岁${item.startNominalAge}至未满${item.endNominalAge}`,
               `${item.signBranch}宫${item.palace}`,
+              item.years === null ? '依命度定年数' : `${item.years}年`,
             ],
             { scope },
           ),

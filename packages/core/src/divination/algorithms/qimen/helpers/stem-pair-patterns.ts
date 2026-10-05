@@ -23,7 +23,9 @@
  *      - 五行相同 → 比和（平，0）
  */
 
-import { stemElements, isGenerating, isControlling } from './_constants';
+import { getQimenConstants, isGenerating, isControlling } from './_constants';
+
+const { stemElements } = getQimenConstants();
 
 // ============================================================================
 // 1. 格局接口
@@ -1374,7 +1376,7 @@ export function getNamedStemPairPattern(
 }
 
 function assertValidStem(stem: string, label: string): void {
-  if (!stemElements[stem]) {
+  if (!Object.hasOwn(stemElements, stem)) {
     throw new Error(`${label}必须是合法十天干（甲乙丙丁戊己庚辛壬癸）。`);
   }
 }

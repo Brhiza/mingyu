@@ -88,6 +88,76 @@ test('逐秒样本保留跨日字段并清除范围与陈旧时辰索引', () =>
   );
 });
 
+test('出生区间完整遵守北京时间年份范围，终点不含次年零点', () => {
+  for (const [start, end, lastYear] of [
+    ['1900-01-01 00:00:00', '1900-01-01 00:00:01', 1900],
+    ['2099-12-31 23:59:59', '2100-01-01 00:00:01', 2100],
+    ['2100-12-31 23:59:59', '2101-01-01 00:00:00', 2100],
+  ] as const) {
+    const range = rangeFor(start, end);
+    const [date, time] = start.split(' ');
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute, second] = time.split(':').map(Number);
+    const profile: BirthProfile = {
+      gender: 'female',
+      calendarType: 'solar',
+      year,
+      month,
+      day,
+      hour,
+      minute,
+      second,
+      birthTimeRange: range,
+    };
+    const source = validateBirthProfileTimeRange(profile, range);
+    assert.equal(
+      birthProfileAtRangeTimestamp(profile, source, range.endTimestamp - SECOND).year,
+      lastYear,
+    );
+  }
+
+  const invalidRange = rangeFor('2100-12-31 23:59:59', '2101-01-01 00:00:01');
+  const profile: BirthProfile = {
+    gender: 'female',
+    calendarType: 'solar',
+    year: 2100,
+    month: 12,
+    day: 31,
+    hour: 23,
+    minute: 59,
+    second: 59,
+    birthTimeRange: invalidRange,
+  };
+  assert.throws(
+    () => validateBirthProfileTimeRange(profile, invalidRange),
+    /出生年份需在 1900-2100/u,
+  );
+  assert.throws(
+    () => birthProfileAtRangeTimestamp(profile, invalidRange, invalidRange.startTimestamp),
+    /出生年份需在 1900-2100/u,
+  );
+});
+
+test('逐秒取样拒绝与区间起点不符的档案，避免生成伪造的出生证据', () => {
+  assert.throws(
+    () => birthProfileAtRangeTimestamp({ ...PROFILE, minute: 58 }, RANGE, START + SECOND),
+    /起点北京时间墙钟字段/u,
+  );
+  assert.throws(
+    () => birthProfileAtRangeTimestamp({ ...PROFILE, calendarType: 'lunar' }, RANGE, START),
+    /公历输入/u,
+  );
+  assert.throws(
+    () =>
+      birthProfileAtRangeTimestamp(
+        PROFILE,
+        { ...RANGE, endTimestamp: RANGE.endTimestamp + SECOND },
+        RANGE.endTimestamp,
+      ),
+    /记录的时间范围与实际取样范围不一致/u,
+  );
+});
+
 test('范围校验拒绝起点冲突、真太阳时、夏令时和非半开政策', () => {
   assert.throws(
     () => validateBirthProfileTimeRange({ ...PROFILE, minute: 58 }, RANGE),

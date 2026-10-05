@@ -3,7 +3,7 @@
  * @description Contains stateless utility functions for Bazi calculations.
  */
 
-import { BASIC_MAPPINGS, HIDDEN_STEMS, SEASON_STATUS, shenShaTypes } from './baziDefinitions';
+import { shenShaTypes } from './baziDefinitions';
 import type { HiddenStems, Pillars, Wuxing } from './baziTypes';
 export {
   assertEarthlyBranch,
@@ -14,11 +14,17 @@ export {
   isHeavenlyStem,
 } from '../ganzhi/validation';
 import { assertGanZhiPair, assertHeavenlyStem } from '../ganzhi/validation';
+import { getBaziRelationMappings } from './baziMappingsData';
+import { getBaziSeasonStatuses } from './baziElementData';
 
-const ctg = BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
-const cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES as readonly string[];
-const wxtg = BASIC_MAPPINGS.STEM_WUXING as Wuxing[];
-const wxdz = BASIC_MAPPINGS.BRANCH_WUXING as Wuxing[];
+const SEASON_STATUS = getBaziSeasonStatuses();
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const ctg = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
+const cdz = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.EARTHLY_BRANCHES as readonly string[];
+const wxtg = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING as Wuxing[];
+const wxdz = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.BRANCH_WUXING as Wuxing[];
 const PILLAR_LABELS = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' } as const;
 
 export function assertGanZhiName(ganZhi: string, label = '干支'): void {
@@ -69,7 +75,7 @@ export function assertHiddenStemsMatchPillars(pillars: Pillars, hiddenStems: Hid
     actual.forEach((stem) => assertHeavenlyStem(stem, `${label}藏干`));
 
     const branch = pillars[key].zhi;
-    const expected = HIDDEN_STEMS[branch];
+    const expected = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[branch];
     if (!expected) {
       throw new Error(`${label}藏干数据缺失：${branch}`);
     }
@@ -95,13 +101,25 @@ export function getWuxing(ganOrZhi: string): Wuxing | '未知' {
   return '未知';
 }
 
+/** 两天干的五行存在任一方向的相克关系。 */
+export function areHeavenlyStemsOvercoming(left: string, right: string): boolean {
+  assertHeavenlyStem(left, '左天干');
+  assertHeavenlyStem(right, '右天干');
+  const leftElement = getWuxing(left);
+  const rightElement = getWuxing(right);
+  return (
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[leftElement] === rightElement ||
+    BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.WUXING_KE[rightElement] === leftElement
+  );
+}
+
 /**
  * 获取天干阴阳
  */
 export function getGanYinYang(gan: string): string {
   const stemIndex = ctg.indexOf(gan);
   if (stemIndex === -1) return '未知';
-  return BASIC_MAPPINGS.STEM_YINYANG[stemIndex];
+  return BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_YINYANG[stemIndex];
 }
 
 /**
@@ -130,7 +148,7 @@ export function getTenGod(gan: string, dayMaster: string): string {
  * 获取地支对应的十神（取藏干主气）
  */
 export function getTenGodForBranch(zhi: string, dayMaster: string): string {
-  const mainHiddenStem = HIDDEN_STEMS[zhi]?.[0];
+  const mainHiddenStem = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[zhi]?.[0];
   if (mainHiddenStem) {
     return getTenGod(mainHiddenStem, dayMaster);
   }
@@ -143,7 +161,7 @@ export function getTenGodForBranch(zhi: string, dayMaster: string): string {
  * @returns 一个包含各五行状态的对象
  */
 export function getSeasonStatus(monthBranch: string): Record<string, string> {
-  return SEASON_STATUS[monthBranch] || {};
+  return { ...(SEASON_STATUS[monthBranch] || {}) };
 }
 /**
  * 获取神煞属性 (吉/凶/中性)

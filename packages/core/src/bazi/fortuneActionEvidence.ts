@@ -15,21 +15,26 @@
 import type { BaziChartResult } from './baziTypes';
 import { getTenGod } from './baziUtils';
 import { getRootTraditionalKind, type RootTraditionalKind } from './baziRootFacts';
-import { BRANCH_HIDDEN_STEMS } from '../ganzhi/relations';
-import { STEM_WUXING } from '../ganzhi/data';
+
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import type { FortuneTriggerEvidenceResult } from './fortuneTriggerEvidence';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
 
 export type FortuneActionLevel = 'dayun' | 'year' | 'month' | 'day';
 export type FortuneActionLevelChinese = '大运' | '流年' | '流月' | '流日';
 export type FortuneActionPlacement = '岁运透干' | '岁运藏干';
 export type FortuneActionHiddenCategory = '本气' | '中气' | '余气';
 export type FortuneActionConditionStatus =
-  '引用已裁决喜用条件' | '引用已裁决所忌条件' | '双向条件引用' | '未引用';
+  '引用已裁决喜用条件' | '引用有前提的喜用条件' | '引用已裁决所忌条件' | '双向条件引用' | '未引用';
 export type FortuneActionCurrentStatus = '满足' | '不满足' | '资料不足';
 export type FortuneActionHitSourceType =
   | 'conditionalFavorableStems'
   | 'conditionalUnfavorableStems'
   | '基础五行喜忌'
+  | '条件五行喜用'
   | 'patternBreakerRestrictions'
   | '制化来源';
 
@@ -147,7 +152,26 @@ export function formatFortuneActionFactLine(fact: FortuneActionFact): string {
     ? `｜作用对象：${fact.targetObjects.join('、')}`
     : '';
   const timeRangeText = fact.applicableTimeRange ? `｜适用范围：${fact.applicableTimeRange}` : '';
-  const sourcesText = fact.hitSources.length ? `｜命中：${fact.hitSources.join('、')}` : '';
+  const sourceLabels: Record<FortuneActionHitSourceType, string> = {
+    conditionalFavorableStems: '本命干级喜用',
+    conditionalUnfavorableStems: '本命干级所忌',
+    patternBreakerRestrictions: '本命破格所忌',
+    基础五行喜忌: '基础五行喜忌',
+    条件五行喜用: '条件五行喜用',
+    制化来源: '本命制化作用',
+  };
+  const sources = [
+    ...new Set(
+      fact.hitSources
+        .filter(
+          (source) =>
+            source !== 'conditionalUnfavorableStems' ||
+            !fact.hitSources.includes('patternBreakerRestrictions'),
+        )
+        .map((source) => sourceLabels[source]),
+    ),
+  ];
+  const sourcesText = sources.length ? `｜依据：${sources.join('、')}` : '';
   let rootText = '';
   if (fact.rootEvidence) {
     if (fact.rootEvidence.hasClearRoot) {
@@ -213,7 +237,10 @@ export function analyzeFortuneActionEvidence(params: {
   const baseFavWuxing = new Set<string>([
     ...(usefulGod.favorableWuxing ?? []),
     ...(usefulGod.decisionEvidence?.base?.favorable ?? []),
+  ]);
+  const conditionalFavWuxing = new Set<string>([
     ...(usefulGod.conditionalFavorableWuxing ?? []),
+    ...(usefulGod.decisionEvidence?.conditionalFavorableWuxing ?? []),
   ]);
   const baseUnfavWuxing = new Set<string>([
     ...(usefulGod.unfavorableWuxing ?? []),
@@ -230,7 +257,7 @@ export function analyzeFortuneActionEvidence(params: {
     const levelLabel = LEVEL_LABELS[level] ?? '大运';
     const gan = layer.ganZhi[0];
     const zhi = layer.ganZhi[1];
-    const hiddenStems = BRANCH_HIDDEN_STEMS[zhi] ?? [];
+    const hiddenStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[zhi] ?? [];
 
     const layerItems: Array<{
       stem: string;
@@ -264,11 +291,18 @@ export function analyzeFortuneActionEvidence(params: {
         hitSources.push('patternBreakerRestrictions');
       }
 
-      const matchingControls = controlFunctions.filter(
+      const relatedControls = controlFunctions.filter(
         (c) => c.sourceStems.includes(stem) || c.targetStems.includes(stem),
       );
+      const matchingControls = relatedControls.filter((c) => c.status === '满足');
+      const hasUnresolvedControl = relatedControls.some(
+        (c) => c.status !== '满足' && c.status !== '不满足',
+      );
       const matchingClimateEffects = climateCandidates
+        .filter((candidate) => candidate.adopted && candidate.mode === 'conditional')
         .flatMap((c) => c.effects ?? [])
+        // 五行内排序与次作用仍是参照；动作只引用本命已裁决的主作用干。
+        .filter((effect) => effect.rank === 'primary' && condFavStems.has(effect.stem))
         .filter((e) => e.stem === stem || e.targetStems?.includes(stem));
       if (matchingControls.length > 0 || matchingClimateEffects.length > 0) {
         hitSources.push('制化来源');
@@ -276,8 +310,12 @@ export function analyzeFortuneActionEvidence(params: {
 
       const isBaseFav = baseFavWuxing.has(element);
       const isBaseUnfav = baseUnfavWuxing.has(element);
+      const isConditionalFav = conditionalFavWuxing.has(element);
       if (isBaseFav || isBaseUnfav) {
         hitSources.push('基础五行喜忌');
+      }
+      if (isConditionalFav) {
+        hitSources.push('条件五行喜用');
       }
 
       // 2. 作用对象收集（仅从结构化制化/调候字段取）
@@ -296,19 +334,18 @@ export function analyzeFortuneActionEvidence(params: {
 
       // 3. 喜忌条件引用状态判定
       // 优先保留具体干级条件；同五行基础喜忌仅做独立基线
-      const isSpecificFav =
-        condFavStems.has(stem) ||
-        matchingControls.some((c) => c.sourceStems.includes(stem) && c.status === '满足');
+      const isSpecificFav = condFavStems.has(stem);
       const isSpecificUnfav = condUnfavStems.has(stem) || matchingBreakers.length > 0;
 
-      const favorableHit = isSpecificFav || isBaseFav;
+      const favorableHit = isSpecificFav || isBaseFav || isConditionalFav;
       const unfavorableHit = isSpecificUnfav || isBaseUnfav;
 
       let conditionStatus: FortuneActionConditionStatus = '未引用';
       if (favorableHit && unfavorableHit) {
         conditionStatus = '双向条件引用';
       } else if (favorableHit) {
-        conditionStatus = '引用已裁决喜用条件';
+        conditionStatus =
+          isSpecificFav || isBaseFav ? '引用已裁决喜用条件' : '引用有前提的喜用条件';
       } else if (unfavorableHit) {
         conditionStatus = '引用已裁决所忌条件';
       } else {
@@ -329,6 +366,9 @@ export function analyzeFortuneActionEvidence(params: {
       }
       if (isBaseFav) {
         supportingFactKeys.push(`bazi:useful-god:base:favorable:${element}`);
+      }
+      if (isConditionalFav) {
+        supportingFactKeys.push(`bazi:useful-god:conditional-favorable-wuxing:${element}`);
       }
 
       if (condUnfavStems.has(stem)) {
@@ -379,6 +419,7 @@ export function analyzeFortuneActionEvidence(params: {
           if (placement === '岁运透干') {
             return (
               r.stemRelation === 'clash' ||
+              r.stemRelation === 'overcome' ||
               r.stemRelation === 'combine' ||
               r.stemRelation === 'same'
             );
@@ -420,7 +461,7 @@ export function analyzeFortuneActionEvidence(params: {
           positions.forEach((pos) => {
             const pillarZhi = result.pillars![pos]?.zhi;
             if (!pillarZhi) return;
-            const hStems = BRANCH_HIDDEN_STEMS[pillarZhi] || [];
+            const hStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[pillarZhi] || [];
             hStems.forEach((hs, idx) => {
               if (STEM_WUXING[hs] === element) {
                 natalRoots.push({
@@ -439,7 +480,7 @@ export function analyzeFortuneActionEvidence(params: {
         // 只纳入当前层及其父层，避免子层根气反向改变父层事实。
         layers.slice(0, layerIndex + 1).forEach((lyr) => {
           const lyrZhi = lyr.ganZhi[1];
-          const hStems = BRANCH_HIDDEN_STEMS[lyrZhi] || [];
+          const hStems = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[lyrZhi] || [];
           hStems.forEach((hs, idx) => {
             if (STEM_WUXING[hs] === element) {
               const isSameStem = hs === stem;
@@ -472,7 +513,9 @@ export function analyzeFortuneActionEvidence(params: {
         };
 
         const hasUnimplementedRestrictions =
-          hitSources.includes('制化来源') || hitSources.includes('patternBreakerRestrictions');
+          hasUnresolvedControl ||
+          hitSources.includes('制化来源') ||
+          hitSources.includes('patternBreakerRestrictions');
 
         if (hasDirectStemCondition) {
           if (hasClearRoot && !hasUnimplementedRestrictions && !hasRelationFact) {

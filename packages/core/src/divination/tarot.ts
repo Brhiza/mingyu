@@ -2,9 +2,10 @@
  * @file 塔罗牌算法
  * @传统依据 Rider-Waite-Smith 体系及 A. E. Waite《The Pictorial Key to the Tarot》通行牌义。
  */
-import { tarotCards, tarotSpreads } from './tarot-data';
+import { getTarotReferenceData } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
 import {
+  assertReplaySamplesConsumed,
   createRandomContext,
   hasRandomOptions,
   randomFloat,
@@ -14,6 +15,8 @@ import {
 import { attachResultMeta } from '../shared/result';
 import type { TarotData, TarotSpreadType } from '../types/divination';
 import { analyzeTarotEvidence } from './tarot-evidence';
+
+const { tarotCards, tarotSpreads } = getTarotReferenceData();
 
 export { tarotCards, tarotSpreads } from './tarot-data';
 export { analyzeTarotEvidence } from './tarot-evidence';
@@ -130,6 +133,8 @@ export function drawSingleCard(options?: RandomOptions) {
   const shuffled = shuffleCards(rng);
   const card = shuffled[0];
   const isReversed = randomFloat(rng) < 0.5;
+  const randomTrace = context.getTrace();
+  assertReplaySamplesConsumed(options, randomTrace);
   const timestamp = Date.now();
 
   return attachResultMeta(
@@ -143,7 +148,7 @@ export function drawSingleCard(options?: RandomOptions) {
       algorithm: 'tarot.single',
       input: { spreadType: 'single' },
       calculatedAt: timestamp,
-      random: context.getTrace(),
+      random: randomTrace,
     },
   );
 }
@@ -173,6 +178,9 @@ export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?:
     });
   }
 
+  const randomTrace = context.getTrace();
+  assertReplaySamplesConsumed(options, randomTrace);
+
   const timestamp = Date.now();
   return attachResultMeta(
     {
@@ -185,7 +193,7 @@ export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?:
       algorithm: 'tarot.spread',
       input: { spreadType },
       calculatedAt: timestamp,
-      random: context.getTrace(),
+      random: randomTrace,
     },
   );
 }

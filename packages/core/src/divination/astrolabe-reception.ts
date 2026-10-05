@@ -100,7 +100,8 @@ export function evaluateAstrolabeSynastryReceptions(
       const pairKey = `${p1.name}:${p2.name}`;
       if (processedPairs.has(pairKey)) continue;
 
-      if (p2.name === rulerOfSign1 && p1.name === rulerOfSign2) {
+      // 同名行星各自落在守护星座，不构成两颗不同行星交换守护星座。
+      if (p1.name !== p2.name && p2.name === rulerOfSign1 && p1.name === rulerOfSign2) {
         processedPairs.add(pairKey);
         const l1 = PLANET_LABELS[p1.name] ?? p1.name;
         const l2 = PLANET_LABELS[p2.name] ?? p2.name;
@@ -128,7 +129,7 @@ export function evaluateAstrolabeSynastryReceptions(
     const p2 = p2Planets.find((p) => p.name === aspect.point2Name);
     if (!p1 || !p2) continue;
 
-    const pairKey = `reception:${p1.name}:${p2.name}`;
+    const pairKey = `${p1.name}:${p2.name}`;
     if (processedPairs.has(pairKey)) continue;
 
     const sign1Index = Math.floor((((p1.longitude % 360) + 360) % 360) / 30);
@@ -143,10 +144,12 @@ export function evaluateAstrolabeSynastryReceptions(
     const l2 = PLANET_LABELS[p2.name] ?? p2.name;
 
     // 双向分别判定并分别记录，两方向同时成立时不只保留第一个方向
-    const p2ReceivesP1 =
-      p2.name === ruler1 ? ('入庙' as const) : p2.name === exalt1 ? ('曜升' as const) : undefined;
-    const p1ReceivesP2 =
-      p1.name === ruler2 ? ('入庙' as const) : p1.name === exalt2 ? ('曜升' as const) : undefined;
+    const p2ReceivesP1 = [p2.name === ruler1 ? '入庙' : '', p2.name === exalt1 ? '曜升' : '']
+      .filter(Boolean)
+      .join('、');
+    const p1ReceivesP2 = [p1.name === ruler2 ? '入庙' : '', p1.name === exalt2 ? '曜升' : '']
+      .filter(Boolean)
+      .join('、');
 
     if (p2ReceivesP1) {
       processedPairs.add(pairKey);
@@ -178,7 +181,7 @@ export function evaluateAstrolabeSynastryReceptions(
 
   const summary = receptions.length
     ? `【古典接纳互溶】${receptions.map((r) => r.summary).join('；')}`
-    : '【古典接纳互溶】双方主要行星未见守护互溶或伴随相位的接纳结构，以常规几何相位交感为主';
+    : '【古典接纳互溶】所选计算点未见守护互溶或伴随相位的接纳结构；跨盘相位与落宫以已列事实为准';
 
   return {
     receptions,

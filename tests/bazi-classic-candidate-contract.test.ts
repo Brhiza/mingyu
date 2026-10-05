@@ -60,6 +60,79 @@ test('旧经典格局入口仍返回目录顺序首项，全量入口保留并�
     ['lu-ren-lu', 'jing-lan-cha'],
   );
   assert.ok(all.every((candidate) => candidate.matchedConditions.length > 0));
+
+  const originalFirst = structuredClone(first!);
+  const originalAll = structuredClone(all);
+  const chart = {
+    pillars,
+    hiddenStems: hidden,
+    analysis: { mingGe: { pattern: '普通格局', isSpecial: false } },
+  } as any;
+  const normalSection = generateEnhancedAnalysisSection(chart);
+  assert.match(normalSection, /建禄格/);
+  assert.match(normalSection, /井栏叉格/);
+  const layeredChart = structuredClone(chart);
+  layeredChart.analysis.mingGe.pattern = '建禄格';
+  layeredChart.analysis.mingGe.patternCandidates = [
+    {
+      pattern: '建禄格',
+      source: '月令本气',
+      basis: '月支申本气庚为比肩，按月令建禄取格',
+      selected: true,
+    },
+    {
+      pattern: '建禄格',
+      source: '月令藏干透干',
+      basis: '月令藏干庚透于月干',
+      selected: false,
+    },
+  ];
+  const samePattern = structuredClone(layeredChart.analysis.mingGe);
+  assert.doesNotMatch(generateEnhancedAnalysisSection(layeredChart), /【取格分层候选】/);
+  assert.deepEqual(layeredChart.analysis.mingGe, samePattern);
+  layeredChart.analysis.mingGe.patternCandidates.push({
+    pattern: '偏印格',
+    source: '月令藏干透干',
+    basis: '月令藏干戊为偏印，透于年干',
+    selected: false,
+  });
+  const distinctPattern = structuredClone(layeredChart.analysis.mingGe);
+  const layeredLine = generateEnhancedAnalysisSection(layeredChart)
+    .split('\n')
+    .find((line) => line.startsWith('【取格分层候选】'));
+  assert.equal(layeredLine, '【取格分层候选】偏印格（月令藏干透干；月令藏干戊为偏印，透于年干）');
+  assert.deepEqual(layeredChart.analysis.mingGe, distinctPattern);
+  try {
+    first!.name = '变造格局';
+    first!.description = '变造经典依据';
+    first!.conditions.dayStems!.splice(0);
+    first!.conditions.exactMonthBranchMap!.庚 = '寅';
+    first!.favorableWuxing[0] = '变造喜用';
+    first!.unfavorableWuxing[0] = '变造所忌';
+    assert.deepEqual(
+      identifyClassicPattern('庚', '申', pillars, hidden, '普通格局'),
+      originalFirst,
+    );
+    assert.deepEqual(
+      identifyClassicPatternCandidates('庚', '申', pillars, hidden, '普通格局'),
+      originalAll,
+    );
+    assert.equal(generateEnhancedAnalysisSection(chart), normalSection);
+  } finally {
+    Object.assign(first!, originalFirst);
+  }
+  try {
+    all[0].pattern.conditions.monthBranch!.splice(0);
+    all[1].pattern.description = '变造井栏依据';
+    all[1].pattern.conditions.otherConditions!.splice(0);
+    assert.deepEqual(
+      identifyClassicPatternCandidates('庚', '申', pillars, hidden, '普通格局'),
+      originalAll,
+    );
+    assert.equal(generateEnhancedAnalysisSection(chart), normalSection);
+  } finally {
+    all.forEach((candidate, index) => Object.assign(candidate.pattern, originalAll[index].pattern));
+  }
 });
 
 test('化气候选记录根气、冲破与甲己见乙妒合反证', () => {
@@ -113,6 +186,29 @@ test('专旺候选把势旺盛保留为结构条件，不冒充主链旺衰结�
 
   assert.match(matched, /结构出现条件“水势旺盛”\（旺衰仍需结合整盘核对\）/);
   assert.doesNotMatch(matched, /结构命中：水势旺盛/);
+  assert.equal(runXia?.status, '待核验');
+});
+
+test('巳酉丑三支齐全但失令或受冲时不把福德秀气候选写成金局已成立', () => {
+  const candidate = getCandidates(['乙巳', '丁亥', '己酉', '辛丑']).find(
+    (item) => item.pattern.id === 'fu-de',
+  );
+
+  assert.ok(candidate);
+  assert.equal(candidate.status, '待核验');
+  assert.match(candidate.matchedConditions.join('；'), /地支巳酉丑齐全，具备三合金局结构/);
+  assert.match(
+    candidate.pendingConditions.join('；'),
+    /巳酉丑三合金局仅三支齐全，未形成.*成势条件/,
+  );
+  assert.doesNotMatch(candidate.verificationFacts.join('；'), /金局已成势/);
+
+  const formed = getCandidates(['乙巳', '己酉', '己丑', '丙寅']).find(
+    (item) => item.pattern.id === 'fu-de',
+  );
+  assert.ok(formed);
+  assert.equal(formed.status, '结构命中');
+  assert.match(formed.verificationFacts.join('；'), /巳酉丑三合金局已成势/);
 });
 
 test('增强提示词显示结构候选与反证，不把静态等级当本盘等级', () => {

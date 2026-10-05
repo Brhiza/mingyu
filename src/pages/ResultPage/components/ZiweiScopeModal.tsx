@@ -12,12 +12,10 @@ import { ziweiScopeLabelMap } from '../ResultPage.constants';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
 import { useZiweiFortuneOptionsWorker } from '../hooks/useZiweiFortuneOptionsWorker';
 import {
-  buildZiweiMonthAnchorDate,
   findZiweiDayOptionDate,
   findZiweiDecadalIndexByDate,
   findZiweiMonthOptionDate,
   findZiweiYearOptionDate,
-  formatMonthDayLabel,
   formatZiweiPromptScopeSummary,
 } from '../ResultPage.helpers';
 import { BaziFortuneLoadingCard } from './skeletons';
@@ -68,15 +66,13 @@ export function ZiweiScopeModal(props: {
     useState<Exclude<ZiweiScopeMode, 'hourly'>>(normalizedSelectedScope);
   const [draftDecadalIndex, setDraftDecadalIndex] = useState(initialDecadalIndex);
   const [draftYearDateStr, setDraftYearDateStr] = useState(fallbackScopeDateStr);
-  const [draftMonthDateStr, setDraftMonthDateStr] = useState(
-    buildZiweiMonthAnchorDate(fallbackScopeDateStr),
-  );
+  const [draftMonthDateStr, setDraftMonthDateStr] = useState(fallbackScopeDateStr);
   const [draftDayDateStr, setDraftDayDateStr] = useState(fallbackScopeDateStr);
   useEffect(() => {
     setDraftScope(normalizedSelectedScope);
     setDraftDecadalIndex(initialDecadalIndex);
     setDraftYearDateStr(fallbackScopeDateStr);
-    setDraftMonthDateStr(buildZiweiMonthAnchorDate(fallbackScopeDateStr));
+    setDraftMonthDateStr(fallbackScopeDateStr);
     setDraftDayDateStr(fallbackScopeDateStr);
   }, [fallbackScopeDateStr, initialDecadalIndex, normalizedSelectedScope]);
 
@@ -105,37 +101,6 @@ export function ZiweiScopeModal(props: {
   );
 
   useEffect(() => {
-    if (!yearOptions.length) {
-      return;
-    }
-    if (yearOptions.some((item) => item.dateStr === draftYearDateStr)) {
-      return;
-    }
-
-    const matchedDateStr = findZiweiYearOptionDate(yearOptions, draftYearDateStr);
-    if (matchedDateStr && matchedDateStr !== draftYearDateStr) {
-      setDraftYearDateStr(matchedDateStr);
-    }
-  }, [draftYearDateStr, yearOptions]);
-
-  useEffect(() => {
-    if (!monthOptions.length) {
-      return;
-    }
-    if (monthOptions.some((item) => item.dateStr === draftMonthDateStr)) {
-      return;
-    }
-
-    const matchedDateStr = findZiweiMonthOptionDate(
-      monthOptions,
-      draftMonthDateStr || draftYearDateStr,
-    );
-    if (matchedDateStr && matchedDateStr !== draftMonthDateStr) {
-      setDraftMonthDateStr(matchedDateStr);
-    }
-  }, [draftMonthDateStr, draftYearDateStr, monthOptions]);
-
-  useEffect(() => {
     if (!dayOptions.length) {
       return;
     }
@@ -150,9 +115,15 @@ export function ZiweiScopeModal(props: {
   }, [dayOptions, draftDayDateStr, draftMonthDateStr]);
 
   const selectedYearItem =
-    yearOptions.find((item) => item.dateStr === draftYearDateStr) ?? yearOptions[0];
+    yearOptions.find(
+      (item) => item.dateStr === findZiweiYearOptionDate(yearOptions, draftYearDateStr),
+    ) ?? yearOptions[0];
   const selectedMonthItem =
-    monthOptions.find((item) => item.dateStr === draftMonthDateStr) ?? monthOptions[0];
+    monthOptions.find(
+      (item) =>
+        item.dateStr ===
+        findZiweiMonthOptionDate(monthOptions, draftMonthDateStr || draftYearDateStr),
+    ) ?? monthOptions[0];
   const selectedDayItem =
     dayOptions.find((item) => item.dateStr === draftDayDateStr) ?? dayOptions[0];
   const quickActions: Array<{
@@ -197,9 +168,13 @@ export function ZiweiScopeModal(props: {
           ? `${selectedDecadal.label} ${formatDecadalAgeRange(selectedDecadal)}岁`
           : '';
       case 'yearly':
-        return selectedYearItem ? `${selectedYearItem.year}年 ${selectedYearItem.ganZhi}` : '';
+        return selectedYearItem
+          ? `${selectedYearItem.ganZhi}年，虚岁${selectedYearItem.age}，${selectedYearItem.dateStr} 至 ${selectedYearItem.endDateStr}`
+          : '';
       case 'monthly':
-        return selectedMonthItem ? `${selectedMonthItem.label} ${selectedMonthItem.ganZhi}` : '';
+        return selectedMonthItem
+          ? `${selectedMonthItem.label} ${selectedMonthItem.ganZhi}，${selectedMonthItem.dateStr} 至 ${selectedMonthItem.endDateStr}`
+          : '';
       case 'daily':
         return selectedDayItem ? `${selectedDayItem.label} ${selectedDayItem.ganZhi}` : '';
       default:
@@ -230,7 +205,7 @@ export function ZiweiScopeModal(props: {
       findZiweiDecadalIndexByDate(decadalOptions, nextDateStr, currentDecadalIndex),
     );
     setDraftYearDateStr(nextDateStr);
-    setDraftMonthDateStr(buildZiweiMonthAnchorDate(nextDateStr));
+    setDraftMonthDateStr(nextDateStr);
     setDraftDayDateStr(nextDateStr);
   }
 
@@ -327,20 +302,22 @@ export function ZiweiScopeModal(props: {
                     type="button"
                     key={item.dateStr}
                     className={`fortune-modal-item ${
-                      isYearDetailActive && draftYearDateStr === item.dateStr
+                      isYearDetailActive && selectedYearItem?.dateStr === item.dateStr
                         ? 'is-active is-selected'
                         : ''
                     }`}
                     onClick={() => {
                       setDraftYearDateStr(item.dateStr);
-                      setDraftMonthDateStr(buildZiweiMonthAnchorDate(item.dateStr));
+                      setDraftMonthDateStr(item.dateStr);
                       setDraftDayDateStr(item.dateStr);
                       setDraftScope('yearly');
                     }}
                   >
-                    <strong>{item.year}年</strong>
-                    <span>{item.ganZhi}</span>
+                    <strong>{item.ganZhi}年</strong>
                     <span>{item.age} 岁</span>
+                    <span>
+                      {item.dateStr} 至 {item.endDateStr}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -362,14 +339,18 @@ export function ZiweiScopeModal(props: {
                   onClick={() => setDraftScope('yearly')}
                 >
                   <strong>流年</strong>
-                  <span>{selectedYearItem ? `${selectedYearItem.year}年` : ''}</span>
+                  <span>
+                    {selectedYearItem
+                      ? `${selectedYearItem.ganZhi}年，虚岁${selectedYearItem.age}`
+                      : ''}
+                  </span>
                 </button>
                 {monthOptions.map((item) => (
                   <button
                     type="button"
                     key={item.dateStr}
                     className={`fortune-modal-item ${
-                      isMonthDetailActive && draftMonthDateStr === item.dateStr
+                      isMonthDetailActive && selectedMonthItem?.dateStr === item.dateStr
                         ? 'is-active is-selected'
                         : ''
                     }`}
@@ -381,7 +362,9 @@ export function ZiweiScopeModal(props: {
                   >
                     <strong>{item.label}</strong>
                     <span>{item.ganZhi}</span>
-                    <span>{formatMonthDayLabel(item.dateStr)}</span>
+                    <span>
+                      {item.dateStr} 至 {item.endDateStr}
+                    </span>
                   </button>
                 ))}
               </div>

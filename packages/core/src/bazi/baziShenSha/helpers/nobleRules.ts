@@ -1,5 +1,8 @@
-import { NAYIN_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
+import { TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
+import { getNayinTable } from '../../../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 function getStageBranch(stem: string, stageName: string) {
   const stages = TWELVE_STAGES_MAP[stem];

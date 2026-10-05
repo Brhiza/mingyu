@@ -4,7 +4,7 @@
  */
 
 import { daysInGregorianMonth } from './date-validation';
-import { resolveCivilTime } from './civil-time';
+import { formatFixedTimezoneOffset, resolveCivilTime } from './civil-time';
 import type { HistoricalTimezoneEvidence } from './historical-timezone';
 
 export interface AstronomicalTimeInput {
@@ -155,15 +155,24 @@ function decimalYearFromUtc(date: Date) {
 }
 
 /**
- * NASA/Espenak-Meeus 公布的分段多项式，限定项目当前支持的 1900-2200 年。
+ * NASA/Espenak-Meeus 公布的分段多项式；当地 1900-2200 年的 UTC 时刻可跨至 1899 或 2201 年。
  * 返回 TT-UT1 的估计秒数，不应解释为观测 DUT1。
  */
 export function estimateDeltaTSeconds(decimalYear: number) {
-  if (!Number.isFinite(decimalYear) || decimalYear < 1900 || decimalYear >= 2201) {
-    throw new Error('ΔT 估算年份需在 1900-2200 之间。');
+  if (!Number.isFinite(decimalYear) || decimalYear < 1899 || decimalYear >= 2202) {
+    throw new Error('ΔT 估算的 UTC 年份需在 1899-2201 之间。');
   }
   let value: number;
-  if (decimalYear < 1920) {
+  if (decimalYear < 1900) {
+    const t = decimalYear - 1860;
+    value =
+      7.62 +
+      0.5737 * t -
+      0.251754 * t ** 2 +
+      0.01680668 * t ** 3 -
+      0.0004473624 * t ** 4 +
+      t ** 5 / 233174;
+  } else if (decimalYear < 1920) {
     const t = decimalYear - 1900;
     value = -2.79 + 1.494119 * t - 0.0598939 * t ** 2 + 0.0061966 * t ** 3 - 0.000197 * t ** 4;
   } else if (decimalYear < 1941) {
@@ -245,7 +254,7 @@ export function buildAstronomicalTimeEvidence(
   const utcDateTime = `${formatDateTime(utcParts)}Z`;
   const assumptions = [
     timezoneEvidence
-      ? `IANA 时区 ${timezoneEvidence.timeZoneId} 解析出历史偏移 UTC${timezone >= 0 ? '+' : ''}${timezone}。`
+      ? `IANA 时区 ${timezoneEvidence.timeZoneId} 解析出历史偏移 UTC${formatFixedTimezoneOffset(timezone)}。`
       : '输入 timezone 视为该时刻已经确认的法定 UTC 偏移，不自动推断地点历史时区。',
     '缺少实时 DUT1 数据时使用 UT1≈UTC，误差上限通常小于 0.9 秒。',
   ];
@@ -253,7 +262,7 @@ export function buildAstronomicalTimeEvidence(
     'ΔT 是分段多项式估计值，不是逐日观测值；未来年份的不确定性会逐渐增大。',
     'TT 儒略日用于说明天文计算时间尺度，不代表底层依赖库一定采用同一星历或同一时间模型。',
   ];
-  const source = 'UTC 儒略日采用 Unix 纪元换算；ΔT 采用 NASA/Espenak-Meeus 1900-2200 分段多项式';
+  const source = 'UTC 儒略日采用 Unix 纪元换算；ΔT 采用 NASA/Espenak-Meeus 分段多项式';
   const calculationSteps: AstronomicalTimeCalculationStep[] = [
     {
       key: 'astronomical-time:calculation:timezone',
@@ -266,8 +275,8 @@ export function buildAstronomicalTimeEvidence(
       },
       result: { timezone },
       promptText: timezoneEvidence
-        ? `按 IANA 时区 ${timezoneEvidence.timeZoneId} 解析该时刻历史偏移 UTC${timezone >= 0 ? '+' : ''}${timezone}`
-        : `采用明确给定的法定偏移 UTC${timezone >= 0 ? '+' : ''}${timezone}`,
+        ? `按 IANA 时区 ${timezoneEvidence.timeZoneId} 解析该时刻历史偏移 UTC${formatFixedTimezoneOffset(timezone)}`
+        : `采用明确给定的法定偏移 UTC${formatFixedTimezoneOffset(timezone)}`,
       sources: timezoneEvidence
         ? ['IANA 时区历史规则', '历史偏移解析结果']
         : ['明确给定的法定 UTC 偏移'],
@@ -280,7 +289,7 @@ export function buildAstronomicalTimeEvidence(
       dependsOnStepKeys: ['astronomical-time:calculation:timezone'],
       inputs: { localDateTime, timezone },
       result: { utcDateTime, unixMilliseconds: utcTimestamp },
-      promptText: `当地钟表时间${localDateTime}按 UTC${timezone >= 0 ? '+' : ''}${timezone}换算为${utcDateTime}`,
+      promptText: `当地钟表时间${localDateTime}按 UTC${formatFixedTimezoneOffset(timezone)}换算为${utcDateTime}`,
       sources: ['民用时间与 UTC 偏移换算'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -318,7 +327,7 @@ export function buildAstronomicalTimeEvidence(
         precisionLevel,
       },
       promptText: `按 Espenak-Meeus 分段模型估算 ΔT≈${deltaTSeconds.toFixed(3)}秒，得 JD(TT)≈${julianDayTtApprox.toFixed(9)}，模型等级${precisionLevel}`,
-      sources: ['NASA/Espenak-Meeus 1900-2200 分段多项式'],
+      sources: ['NASA/Espenak-Meeus 分段多项式'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
   ];
@@ -438,7 +447,7 @@ export function buildAstronomicalTimeEvidence(
     deltaTSeconds,
     julianDayTtApprox: Number(julianDayTtApprox.toFixed(9)),
     decimalYear: Number(decimalYear.toFixed(6)),
-    deltaTModel: 'Espenak-Meeus 分段多项式（1900-2200）',
+    deltaTModel: 'Espenak-Meeus 分段多项式（UTC 1899-2201）',
     precisionLevel,
     assumptions,
     assumptionFacts,
@@ -451,6 +460,6 @@ export function buildAstronomicalTimeEvidence(
     limitationFacts,
     summaryFact,
     source,
-    promptText: `天文时间尺度：当地钟表时间${localDateTime}（${timeZoneId ? `${timeZoneId}，` : ''}UTC${timezone >= 0 ? '+' : ''}${timezone}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。反证汇总：${counterSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。${timezoneEvidence ? `历史时区诊断：${timezoneEvidence.diagnostics.join('；')}。` : ''}来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
+    promptText: `天文时间尺度：当地钟表时间${localDateTime}（${timeZoneId ? `${timeZoneId}，` : ''}UTC${formatFixedTimezoneOffset(timezone)}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。反证汇总：${counterSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。${timezoneEvidence ? `历史时区诊断：${timezoneEvidence.diagnostics.join('；')}。` : ''}来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
   };
 }

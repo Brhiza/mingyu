@@ -1,4 +1,5 @@
 import {
+  captureAstrolabeDynamicReadingSource,
   collectAstrolabeDynamicReadingText,
   type AstrolabeDynamicReadingRoundOptions,
   type AstrolabeDynamicReadingSource,
@@ -468,6 +469,8 @@ export async function runAstrolabeDynamicCollectionRound(
   options: AstrolabeDynamicReadingRoundOptions,
   stream: AstrolabeDynamicReadingStream,
 ): Promise<AstrolabeDynamicCollectionCheckpoint> {
+  sources = sources.map(captureAstrolabeDynamicReadingSource);
+  options = { ...options, aiConfig: options.aiConfig ? { ...options.aiConfig } : undefined };
   const supplementalPages = splitSupplemental(supplemental);
   validateInputs(sources, supplemental, options.question);
   const identity = collectionIdentity(sources, supplemental);

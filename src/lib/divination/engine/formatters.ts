@@ -32,7 +32,10 @@ export function formatDivinationInfo(
   data: DivinationData,
   question = '',
   supplementaryInfo?: SupplementaryInfo,
-  options?: { liuyaoTemplate?: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' },
+  options?: {
+    liuyaoTemplate?: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
+    omitRepeatedXiaoliurenCivilTime?: boolean;
+  },
 ) {
   return formatEnhancedDivinationInfo(method, data, question, supplementaryInfo, options);
 }

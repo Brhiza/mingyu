@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { calculateSolarTermEvidence } from 'mingyu-core/calendar';
+import { formatQizhengBirthRangePrompt } from '../src/lib/qizheng-birth-range-prompt';
 import {
   createQizhengFlowRangeCalculator,
   generateQizheng,
   generateQizhengFlowBirthRange,
+  type QizhengBirthRange,
   type QizhengFlowBirthRangeSource,
   type QizhengInput,
-} from 'mingyu-core/qizheng';
+} from '../packages/core/src/qi_zheng/index.ts';
 
 const OFFSET_HOURS = 8;
 const SECOND = 1_000;
@@ -310,6 +312,20 @@ test('七政流曜出生区间支持日、月、年三种既有目标模式', ()
     assert.equal(range.target.mode, mode);
     assert.equal(range.sampleCount, 2);
     assert.ok(range.branches[0]!.representative.flowingStars);
+    for (const branch of range.branches) {
+      const first = generateQizheng(inputAt(branch.startTimestamp, input));
+      const last = generateQizheng(inputAt(branch.endTimestamp - SECOND, input));
+      assert.deepEqual(
+        branch.representative.flowingStars?.periodEvents,
+        first.flowingStars?.periodEvents,
+        `${mode} 首秒的换宫、停逆及精确吊照须与单点实盘一致`,
+      );
+      assert.deepEqual(
+        branch.last.flowingStars?.periodEvents,
+        last.flowingStars?.periodEvents,
+        `${mode} 末秒的事件时间与本命归属须与单点实盘一致`,
+      );
+    }
     if (mode === 'yearly') {
       const lichun = calculateSolarTermEvidence(2024, 3);
       assert.equal(range.target.startUtcTimestamp, lichun.utcTimestamp);
@@ -333,6 +349,157 @@ test('七政流曜范围计算器锁定流曜目标上下文', () => {
   );
 });
 
+test('七政坐标来源区分省略、明确提供与显式空值', () => {
+  const omitted: QizhengInput = {
+    ...DAILY_INPUT,
+    latitude: undefined,
+    longitude: undefined,
+  };
+  assert.equal(generateQizheng(omitted).calculationContext.locationSource, '默认北京坐标');
+  assert.equal(generateQizheng(DAILY_INPUT).calculationContext.locationSource, '用户提供');
+  assert.throws(
+    () => generateQizheng({ ...omitted, latitude: null } as unknown as QizhengInput),
+    /纬度需在/u,
+  );
+  assert.throws(
+    () => generateQizheng({ ...omitted, longitude: null } as unknown as QizhengInput),
+    /经度需在/u,
+  );
+
+  const calculator = createQizhengFlowRangeCalculator(omitted);
+  assert.throws(
+    () => calculator.generate({ ...omitted, latitude: 39.9, longitude: 116.4 }),
+    /只允许改变出生年月日时分秒/u,
+  );
+});
+
+test('七政本命与流曜保留用户、行政中心、省级近似和混合坐标来源', () => {
+  const natalInput: QizhengInput = {
+    ...DAILY_INPUT,
+    flowYear: undefined,
+    flowMonth: undefined,
+    flowDay: undefined,
+    flowHour: undefined,
+    flowMinute: undefined,
+  };
+  const userChart = generateQizheng(natalInput);
+  assert.equal(userChart.calculationContext.coordinateAccuracy, 'user-provided');
+  assert.equal(userChart.calculationContext.locationSource, '用户提供');
+  assert.ok(userChart.prompt.includes('出生地点：纬度39.9°，经度116.4°；'));
+  const chartRangePrompt = (chart: typeof userChart) => {
+    const startTimestamp = beijingTimestamp('2024-02-19 11:24:48');
+    const range: QizhengBirthRange = {
+      coverage: 'natal',
+      status: 'stable',
+      source: source('2024-02-19 11:24:48', '2024-02-19 11:24:49'),
+      resolutionSeconds: 1,
+      sampleCount: 1,
+      branches: [
+        {
+          startTimestamp,
+          endTimestamp: startTimestamp + SECOND,
+          endExclusive: true,
+          sampleCount: 1,
+          representative: chart,
+          last: chart,
+          continuous: [],
+        },
+      ],
+    };
+    return formatQizhengBirthRangePrompt(range);
+  };
+  for (const [coordinateAccuracy, locationSource] of [
+    ['administrative-center', '行政中心坐标'],
+    ['province-approximation', '省级近似坐标'],
+    ['mixed', '混合坐标'],
+  ] as const) {
+    const chart = generateQizheng({ ...natalInput, coordinateAccuracy });
+    assert.equal(chart.calculationContext.coordinateAccuracy, coordinateAccuracy);
+    assert.equal(chart.calculationContext.locationSource, locationSource);
+    assert.equal(
+      chart.evidenceAnalysis.calculationFact.context.coordinateAccuracy,
+      coordinateAccuracy,
+    );
+    assert.equal(chart.evidenceAnalysis.calculationFact.context.locationSource, locationSource);
+    assert.ok(chart.prompt.includes(`计算参考地点：纬度39.9°，经度116.4°（${locationSource}）`));
+    const displayAccuracy = {
+      'administrative-center': '行政中心位置',
+      'province-approximation': '省级近似位置',
+      mixed: '部分坐标采用地点近似值',
+    }[coordinateAccuracy];
+    assert.ok(
+      chartRangePrompt(chart).includes(
+        `东八区；计算参考地点：纬度39.9、经度116.4（${displayAccuracy}）；`,
+      ),
+    );
+    assert.deepEqual(chart.stars, userChart.stars);
+    assert.deepEqual(
+      chart.calculationContext.solarIllumination,
+      userChart.calculationContext.solarIllumination,
+    );
+    assert.equal(chart.evidenceAnalysis.calculationFact.status, '输入明确');
+  }
+  const explicitRangePrompt = chartRangePrompt(userChart);
+  assert.ok(explicitRangePrompt.includes('东八区；出生地点：纬度39.9、经度116.4；'));
+  assert.doesNotMatch(explicitRangePrompt, /省级近似位置|部分坐标采用地点近似值|行政中心位置/u);
+
+  const approximateInput: QizhengInput = {
+    ...DAILY_INPUT,
+    coordinateAccuracy: 'province-approximation',
+  };
+  const calculator = createQizhengFlowRangeCalculator(approximateInput);
+  assert.equal(calculator.flow.flowInput.coordinateAccuracy, 'province-approximation');
+  const flowChart = calculator.generate(approximateInput);
+  assert.equal(flowChart.flowingStars?.coordinateAccuracy, 'province-approximation');
+  assert.equal(flowChart.flowingStars?.locationSource, '省级近似坐标');
+  assert.ok(flowChart.prompt.includes('省级近似坐标'));
+  assert.throws(
+    () => calculator.generate({ ...approximateInput, coordinateAccuracy: 'user-provided' }),
+    /只允许改变出生年月日时分秒/u,
+  );
+
+  const range = generateQizhengFlowBirthRange(
+    approximateInput,
+    source('2024-02-19 11:24:48', '2024-02-19 11:24:49'),
+  );
+  assert.equal(range.branches[0]?.representative.flowingStars?.locationSource, '省级近似坐标');
+  assert.ok(
+    formatQizhengBirthRangePrompt(range).includes(
+      '东八区；计算参考地点：纬度39.9、经度116.4（省级近似位置）；',
+    ),
+  );
+  assert.equal(
+    range.branches[0]?.representative.calculationContext.coordinateAccuracy,
+    'province-approximation',
+  );
+  assert.throws(
+    () =>
+      generateQizheng({
+        ...natalInput,
+        coordinateAccuracy: 'province-approximation',
+        latitude: undefined,
+      }),
+    /坐标来源精度需要完整经纬度/u,
+  );
+});
+
+test('七政流曜范围计算器区分 IANA 时区下未提供与明确提供的固定偏移', () => {
+  const input: QizhengInput = {
+    ...DAILY_INPUT,
+    year: 2024,
+    month: 1,
+    day: 15,
+    hour: 12,
+    timezone: undefined,
+    timeZoneId: 'America/New_York',
+  };
+  const calculator = createQizhengFlowRangeCalculator(input);
+  assert.throws(
+    () => calculator.generate({ ...input, timezone: 8 }),
+    /只允许改变出生年月日时分秒/u,
+  );
+});
+
 test('七政流曜出生区间报告进度并拒绝越界、非北京时间及缺少流年', () => {
   const progress: Array<[number, number]> = [];
   generateQizhengFlowBirthRange(
@@ -341,6 +508,22 @@ test('七政流曜出生区间报告进度并拒绝越界、非北京时间及�
     { onProgress: (completed, total) => progress.push([completed, total]) },
   );
   assert.deepEqual(progress, [[1, 1]]);
+
+  const mutableInput = { ...DAILY_INPUT };
+  const mutableSource = { ...DAILY_SOURCE };
+  const lockedRange = generateQizhengFlowBirthRange(mutableInput, mutableSource, {
+    onProgress: (completed) => {
+      if (completed === 1) {
+        mutableInput.longitude = 0;
+        mutableSource.startTimestamp += SECOND;
+        mutableSource.endTimestamp += SECOND;
+      }
+    },
+  });
+  assert.equal(lockedRange.source.startTimestamp, DAILY_SOURCE.startTimestamp);
+  assert.equal(lockedRange.source.endTimestamp, DAILY_SOURCE.endTimestamp);
+  assert.equal(lockedRange.branches.at(-1)?.endTimestamp, DAILY_SOURCE.endTimestamp);
+  assert.equal(lockedRange.branches.at(-1)?.representative.calculationContext.longitude, 116.4);
   assert.throws(
     () =>
       generateQizhengFlowBirthRange(DAILY_INPUT, {
@@ -377,6 +560,23 @@ test('七政流曜出生区间支持取消并停止继续采样', () => {
         },
         signal: controller.signal,
       }),
+    /计算已取消/u,
+  );
+
+  const lastSampleController = new AbortController();
+  assert.throws(
+    () =>
+      generateQizhengFlowBirthRange(
+        DAILY_INPUT,
+        { ...DAILY_SOURCE, endTimestamp: DAILY_SOURCE.startTimestamp + SECOND },
+        {
+          onProgress: (completed, total) => {
+            assert.deepEqual([completed, total], [1, 1]);
+            lastSampleController.abort();
+          },
+          signal: lastSampleController.signal,
+        },
+      ),
     /计算已取消/u,
   );
 });

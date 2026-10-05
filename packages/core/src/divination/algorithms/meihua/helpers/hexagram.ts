@@ -1,4 +1,7 @@
-import { hexagramsData, trigramsByIndex } from '../../../../divination/hexagram-data';
+import { getHexagramsData, getTrigramsByIndex } from '../../../../divination/hexagram-data';
+
+const hexagramsData = getHexagramsData();
+const trigramsByIndex = getTrigramsByIndex();
 
 const hexagrams = hexagramsData.map((hex) => ({
   number: hex.id,
@@ -58,5 +61,8 @@ export function findHexagramByTrigrams(upper: number, lower: number) {
     throw new Error(`未能匹配到符号为 "${upperTrigram.symbol}${lowerTrigram.symbol}" 的六十四卦。`);
   }
 
-  return hexagram;
+  return {
+    ...hexagram,
+    yaoCi: hexagram.yaoCi ? [...hexagram.yaoCi] : undefined,
+  };
 }

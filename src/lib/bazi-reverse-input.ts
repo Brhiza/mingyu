@@ -35,6 +35,11 @@ export type BaziReverseResolvedInput = {
   source: BaziReverseSource;
 };
 
+export function getBaziReverseSearchEndYear(source: BaziReverseSource): number {
+  // 最后一个支持年份的半开终点可以落在下一年的零点。
+  return Math.min(Number(source.intervalEnd.slice(0, 4)), 2100);
+}
+
 function fromBeijingTimestamp(timestamp: number) {
   const date = new Date(timestamp + BAZI_REVERSE_OFFSET_HOURS * 60 * 60 * 1000);
   return {

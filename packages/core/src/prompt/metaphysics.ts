@@ -48,28 +48,73 @@ export function buildMetaphysicsPromptDocument(
           scope: options.scope,
         })
       : undefined;
-  const baseSection = normalizedBase.startsWith('【')
+  const hasCompleteXuanKongBase =
+    options.method === 'xuankong' &&
+    /^【任务】$/m.test(normalizedBase) &&
+    /^【传统依据】$/m.test(normalizedBase);
+  const fengshuiTask = /^【任务】\n([\s\S]*?)\n【盘面资料】\n/.exec(normalizedBase)?.[1];
+  const fengshuiTradition = /\n【传统依据】\n([\s\S]*)$/.exec(normalizedBase)?.[1];
+  const hasCompleteFengshuiBase =
+    (options.method === 'bazhai' || options.method === 'residential') &&
+    fengshuiTask !== undefined &&
+    fengshuiTradition !== undefined;
+  const hasCompleteBase = hasCompleteXuanKongBase || hasCompleteFengshuiBase;
+  const taskAddition = [
+    selection ? '请围绕【解读选择】所列主题和范围解释本次盘面。' : '',
+    question?.trim() ? '请直接回答【问题】。' : '',
+  ]
+    .filter(Boolean)
+    .join('');
+  const baseSection = hasCompleteFengshuiBase
     ? normalizedBase
-    : buildPromptSection('排盘资料', normalizedBase);
+        .replace(
+          /^【任务】\n[\s\S]*?\n【盘面资料】\n/,
+          `【任务】\n${buildPromptTask([fengshuiTask, taskAddition].filter(Boolean).join('\n'), options.method)}\n【盘面资料】\n`,
+        )
+        .replace(/\n【传统依据】\n[\s\S]*$/, '')
+    : normalizedBase.startsWith('【')
+      ? normalizedBase
+      : buildPromptSection('排盘资料', normalizedBase);
+  const traditionSection = hasCompleteFengshuiBase
+    ? buildPromptSection(
+        '传统依据',
+        [buildPromptGuidance(options.method).replace(/^【传统依据】\n/, ''), fengshuiTradition]
+          .filter((item, index, items) => item && items.indexOf(item) === index)
+          .join('\n'),
+      )
+    : hasCompleteXuanKongBase
+      ? ''
+      : buildPromptGuidance(options.method);
+  const currentTimeSection = buildPromptSection(
+    '当前时间',
+    [
+      options.method === 'zodiac'
+        ? '时间身份：本节为提问时点的历法背景；生肖流年关系的参与资料为下列出生年支与目标流年干支。'
+        : '',
+      formatPromptCurrentTime(options.currentTime),
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
 
   const sections = [
-    buildPromptGuidance(options.method),
-    buildPromptSection(
-      '当前时间',
-      [
-        options.method === 'zodiac'
-          ? '时间身份：本节为提问时点的历法背景；生肖流年关系的参与资料为下列出生年支与目标流年干支。'
-          : '',
-        formatPromptCurrentTime(options.currentTime),
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    ),
-    baseSection,
+    traditionSection,
+    hasCompleteXuanKongBase ? baseSection : currentTimeSection,
+    hasCompleteXuanKongBase ? currentTimeSection : baseSection,
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     buildPromptSchoolSection(options.method, options.schools),
-    selection ? buildPromptSection('解读选择', getPromptSelectionSection(selection)) : '',
-    options.method === 'zodiac' && /^【任务】$/m.test(normalizedBase)
+    selection
+      ? buildPromptSection(
+          '解读选择',
+          [
+            getPromptSelectionSection(selection),
+            hasCompleteXuanKongBase ? buildPromptSelectionTask('', selection) : '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        )
+      : '',
+    hasCompleteBase || (options.method === 'zodiac' && /^【任务】$/m.test(normalizedBase))
       ? ''
       : buildPromptSection(
           '任务',

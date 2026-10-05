@@ -5,7 +5,7 @@
  * 进一步收窄任务。这里仅登记可用能力与任务组织规则，不替代任何排盘算法。
  */
 
-export const PROMPT_TOPIC_IDS = [
+const TOPIC_IDS = [
   'general',
   'relationship',
   'career',
@@ -16,10 +16,12 @@ export const PROMPT_TOPIC_IDS = [
   'timing',
 ] as const;
 
+export const PROMPT_TOPIC_IDS = [...TOPIC_IDS] as const;
+
 export type PromptTopicId = (typeof PROMPT_TOPIC_IDS)[number];
 export type PromptSubtopicId = string;
 
-export const PROMPT_SCOPE_IDS = [
+const SCOPE_IDS = [
   'natal',
   'full',
   'decadal',
@@ -33,12 +35,14 @@ export const PROMPT_SCOPE_IDS = [
   'custom',
 ] as const;
 
+export const PROMPT_SCOPE_IDS = [...SCOPE_IDS] as const;
+
 export type PromptScopeId = (typeof PROMPT_SCOPE_IDS)[number];
 
 export type PromptMethodCategoryId =
   'chart' | 'divination' | 'cards-signs' | 'timing-calendar' | 'fengshui' | 'name-number';
 
-export const PROMPT_METHOD_IDS = [
+const METHOD_IDS = [
   'calendar.trueSolarBirth',
   'calendar.astronomicalTime',
   'calendar.moonPhase',
@@ -77,6 +81,8 @@ export const PROMPT_METHOD_IDS = [
   'name.zhugeDivination',
   'name.kongmingDivination',
 ] as const;
+
+export const PROMPT_METHOD_IDS = [...METHOD_IDS] as const;
 
 export type PromptMethodId = (typeof PROMPT_METHOD_IDS)[number];
 
@@ -220,7 +226,7 @@ const METHOD_LABELS: Record<PromptMethodId, string> = {
   meihua: '梅花易数',
   xiaoliuren: '小六壬',
   jinkoujue: '金口诀',
-  qimen: '时家奇门',
+  qimen: '奇门遁甲',
   liuren: '大六壬',
   tarot: '塔罗',
   lenormand: '雷诺曼',
@@ -297,7 +303,7 @@ const NAME_NUMBER_METHODS = new Set<PromptMethodId>([
   'name.kongmingDivination',
 ]);
 
-const FULL_TOPIC_IDS = PROMPT_TOPIC_IDS;
+const FULL_TOPIC_IDS = TOPIC_IDS;
 const CHART_TOPIC_IDS: readonly PromptTopicId[] = FULL_TOPIC_IDS;
 const DIVINATION_TOPIC_IDS: readonly PromptTopicId[] = [
   'general',
@@ -531,9 +537,11 @@ function buildMethodCapability(methodId: PromptMethodId): PromptMethodCapability
   };
 }
 
-export const PROMPT_METHOD_CAPABILITIES = Object.fromEntries(
-  PROMPT_METHOD_IDS.map((methodId) => [methodId, buildMethodCapability(methodId)]),
+const METHOD_CAPABILITIES = Object.fromEntries(
+  METHOD_IDS.map((methodId) => [methodId, buildMethodCapability(methodId)]),
 ) as Record<PromptMethodId, PromptMethodCapability>;
+
+export const PROMPT_METHOD_CAPABILITIES = structuredClone(METHOD_CAPABILITIES);
 
 const LEGACY_METHOD_ID_MAP: Record<string, PromptMethodId> = {
   bazi_ziwei: 'bazi-ziwei',
@@ -599,7 +607,7 @@ const LEGACY_SCOPE_ID_MAP: Record<string, PromptScopeId> = {
 function normalizeMethodId(raw: string | null | undefined): PromptMethodId | undefined {
   if (!raw) return undefined;
   const clean = raw.trim();
-  if ((PROMPT_METHOD_IDS as readonly string[]).includes(clean)) return clean as PromptMethodId;
+  if ((METHOD_IDS as readonly string[]).includes(clean)) return clean as PromptMethodId;
   return LEGACY_METHOD_ID_MAP[clean];
 }
 
@@ -609,7 +617,7 @@ function resolveTopicId(raw: string | null | undefined) {
   }
   if (!raw.trim()) return { topicId: undefined, source: 'user' as const };
   const clean = raw.trim().toLowerCase();
-  if ((PROMPT_TOPIC_IDS as readonly string[]).includes(clean)) {
+  if ((TOPIC_IDS as readonly string[]).includes(clean)) {
     return { topicId: clean as PromptTopicId, source: 'user' as const };
   }
   const legacy = LEGACY_TOPIC_ID_MAP[clean];
@@ -621,33 +629,35 @@ function resolveTopicId(raw: string | null | undefined) {
 function normalizeScopeId(raw: string | null | undefined) {
   if (!raw || !raw.trim()) return undefined;
   const clean = raw.trim().toLowerCase();
-  if ((PROMPT_SCOPE_IDS as readonly string[]).includes(clean)) return clean as PromptScopeId;
+  if ((SCOPE_IDS as readonly string[]).includes(clean)) return clean as PromptScopeId;
   return LEGACY_SCOPE_ID_MAP[clean];
 }
 
 export function getPromptMethodCapability(methodId: string): PromptMethodCapability | undefined {
   const normalized = normalizeMethodId(methodId);
-  return normalized ? PROMPT_METHOD_CAPABILITIES[normalized] : undefined;
+  return normalized ? structuredClone(METHOD_CAPABILITIES[normalized]) : undefined;
 }
 
 export function getPromptMethodCapabilities() {
-  return PROMPT_METHOD_IDS.map((methodId) => structuredClone(PROMPT_METHOD_CAPABILITIES[methodId]));
+  return METHOD_IDS.map((methodId) => structuredClone(METHOD_CAPABILITIES[methodId]));
 }
 
 export function getPromptTopicOptions(methodId?: string): PromptOption[] {
   const capability = methodId ? getPromptMethodCapability(methodId) : undefined;
-  const topicIds = capability?.topicIds ?? PROMPT_TOPIC_IDS;
+  const topicIds = capability?.topicIds ?? TOPIC_IDS;
   return topicIds.map((id) => ({ id, label: TOPIC_LABELS[id] }));
 }
 
 export function getPromptSubtopicOptions(topicId: string, methodId?: string): PromptOption[] {
-  const topic = (PROMPT_TOPIC_IDS as readonly string[]).includes(topicId)
+  const topic = (TOPIC_IDS as readonly string[]).includes(topicId)
     ? (topicId as PromptTopicId)
     : undefined;
   if (!topic) return [];
   const capability = methodId ? getPromptMethodCapability(methodId) : undefined;
   if (capability && !capability.topicIds.includes(topic)) return [];
-  return [...(capability?.subtopics[topic] ?? TOPIC_SUBTOPIC_OPTIONS[topic])];
+  return (capability?.subtopics[topic] ?? TOPIC_SUBTOPIC_OPTIONS[topic]).map((option) => ({
+    ...option,
+  }));
 }
 
 export function resolvePromptSelection(input: {
@@ -669,7 +679,7 @@ export function resolvePromptSelection(input: {
       message: `不存在解读方法 ${input.methodId || '（空）'}。`,
     };
   }
-  const capability = PROMPT_METHOD_CAPABILITIES[methodId];
+  const capability = METHOD_CAPABILITIES[methodId];
   if (!capability) {
     return {
       ok: false,
@@ -733,7 +743,7 @@ export function resolvePromptSelection(input: {
     input.scope === undefined || input.scope === null
       ? capability.defaultScope
       : normalizeScopeId(input.scope);
-  if (!scope || !(PROMPT_SCOPE_IDS as readonly string[]).includes(scope)) {
+  if (!scope || !(SCOPE_IDS as readonly string[]).includes(scope)) {
     return {
       ok: false,
       code: 'INVALID_SCOPE',
@@ -787,17 +797,20 @@ export function getPromptSelectionSection(selection: PromptSelection) {
 }
 
 export function buildPromptSelectionTask(task: string, selection: PromptSelection) {
+  const isNatal = selection.scope === 'natal';
   const focus =
     selection.topicId === 'general'
       ? '先组织全部已列资料，说明整体主线与相互制约。'
-      : `围绕${selection.topicLabel}${selection.subtopicLabel ? `（${selection.subtopicLabel}）` : ''}展开，综合相关宫位、干支关系与前后阶段，说明主线、成因和转折。`;
-  const scope = `以${selection.scopeLabel}为重点，结合所列本命与各层时间资料推演；区分盘面事实、传统取义和条件性判断。`;
+      : `围绕${selection.topicLabel}${selection.subtopicLabel ? `（${selection.subtopicLabel}）` : ''}展开，综合相关宫位与干支关系，说明主线和成立条件${isNatal ? '' : '，以及所列阶段的变化'}。`;
+  const scope = isNatal
+    ? '以已列本命资料为依据，区分盘面事实、传统取义和条件性判断。'
+    : `以${selection.scopeLabel}为重点，结合所列本命与时间资料推演；区分盘面事实、传统取义和条件性判断。`;
   const normalizedTask = task.trim();
   return [normalizedTask, focus, scope].filter(Boolean).join(' ');
 }
 
 export function getPromptTopicLabel(topicId: string) {
-  return (PROMPT_TOPIC_IDS as readonly string[]).includes(topicId)
+  return (TOPIC_IDS as readonly string[]).includes(topicId)
     ? TOPIC_LABELS[topicId as PromptTopicId]
     : topicId;
 }

@@ -4,10 +4,10 @@
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
 import {
-  STEM_MOVEMENT,
-  QI_PROFILES,
-  BRANCH_SITIAN_ZAIQUAN,
-  SUIHUI_BRANCH_ELEMENT,
+  getStemMovement,
+  getQiProfile,
+  getBranchSitianZaiquan,
+  getSuihuiBranchElement,
 } from './annual-data';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
@@ -27,7 +27,7 @@ import {
 export { evaluateWuyunLiuqiPathomechanism };
 export type { WuyunLiuqiPathomechanismResult };
 
-export const WUYUN_LIUQI_SOURCES = [
+const CANONICAL_WUYUN_LIUQI_SOURCES = [
   {
     title: '《素问·天元纪大论》',
     scope: '天干化五运、地支配司天以及运气年度纲领。',
@@ -51,6 +51,8 @@ export const WUYUN_LIUQI_SOURCES = [
   },
 ] as const;
 
+export const WUYUN_LIUQI_SOURCES = structuredClone(CANONICAL_WUYUN_LIUQI_SOURCES);
+
 export type WuyunElement = '木' | '火' | '土' | '金' | '水';
 export type WuyunStrength = '太过' | '不及';
 export type WuyunTone = '角' | '徵' | '宫' | '商' | '羽';
@@ -61,9 +63,9 @@ export type HostGuestRelationKind = '同气' | '客生主' | '主生客' | '客�
 export type AnnualConformityName = '天符' | '岁会' | '太乙天符' | '同天符' | '同岁会';
 
 export interface WuyunLiuqiInput {
-  /** 公历年；按该年年中所属年柱换算，避免元旦与立春边界混淆。 */
+  /** 公历年份标签；运气年度从该年大寒节令延续至次年大寒节令前。 */
   year?: number;
-  /** 明确指定年干支；提供后以此为准。 */
+  /** 明确指定年干支；首尾空白会修剪，提供后以此为准。 */
   yearGanZhi?: string;
   /** 可选问题，只用于生成完整提示词，不改变排盘。 */
   question?: string;
@@ -122,8 +124,16 @@ export interface LiuqiStep {
   order: number;
   label: '初之气' | '二之气' | '三之气' | '四之气' | '五之气' | '终之气';
   solarTerms: string[];
+  /** 本步所覆盖的首末北京时间日期；交节当日可同时出现在相邻两步，瞬时归属以 boundaryTime 为准。 */
   gregorianStart?: string;
   gregorianEnd?: string;
+  /** 现代节气历表的北京时间交节瞬时，仅用于节令分段，不等同传统六气交司时刻。 */
+  boundaryTime?: {
+    startTimestamp: number;
+    endTimestampExclusive: number;
+    startBeijing: string;
+    endBeijingExclusive: string;
+  };
   hostQi: LiuqiProfile;
   guestQi: LiuqiProfile;
   hostGuestRelation: {
@@ -192,7 +202,11 @@ export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
   prompt: string;
 }
 
-export const HOST_MOVEMENT_ORDER: readonly WuyunElement[] = ['木', '火', '土', '金', '水'];
+const CANONICAL_HOST_MOVEMENT_ORDER: readonly WuyunElement[] = ['木', '火', '土', '金', '水'];
+
+export const HOST_MOVEMENT_ORDER: typeof CANONICAL_HOST_MOVEMENT_ORDER = [
+  ...CANONICAL_HOST_MOVEMENT_ORDER,
+];
 
 const MOVEMENT_TONE: Record<WuyunElement, WuyunTone> = {
   木: '角',
@@ -216,7 +230,7 @@ const MOVEMENT_STEP_LABELS: WuyunMovementStep['label'][] = ['初运', '二运', 
  * 《运气要诀》五运交司日期。offsetDays 表示原文“节气后第几日”的日期序号，
  * 不把它解释成自交节时刻起累计若干个 24 小时的现代精确时刻。
  */
-export const MOVEMENT_STEP_BOUNDARIES: readonly {
+const CANONICAL_MOVEMENT_STEP_BOUNDARIES: readonly {
   solarTerm: WuyunMovementStep['startBoundary']['solarTerm'];
   offsetDays: number;
   description: string;
@@ -254,8 +268,11 @@ export const MOVEMENT_STEP_BOUNDARIES: readonly {
   },
 ];
 
+export const MOVEMENT_STEP_BOUNDARIES: typeof CANONICAL_MOVEMENT_STEP_BOUNDARIES =
+  CANONICAL_MOVEMENT_STEP_BOUNDARIES.map((boundary) => ({ ...boundary }));
+
 /** 主气的少阳、太阴次序与客气轮转不同。 */
-export const HOST_QI_ORDER: readonly LiuqiName[] = [
+const CANONICAL_HOST_QI_ORDER: readonly LiuqiName[] = [
   '厥阴风木',
   '少阴君火',
   '少阳相火',
@@ -264,7 +281,9 @@ export const HOST_QI_ORDER: readonly LiuqiName[] = [
   '太阳寒水',
 ];
 
-export const GUEST_QI_ORDER: readonly LiuqiName[] = [
+export const HOST_QI_ORDER: typeof CANONICAL_HOST_QI_ORDER = [...CANONICAL_HOST_QI_ORDER];
+
+const CANONICAL_GUEST_QI_ORDER: readonly LiuqiName[] = [
   '厥阴风木',
   '少阴君火',
   '太阴湿土',
@@ -272,6 +291,8 @@ export const GUEST_QI_ORDER: readonly LiuqiName[] = [
   '阳明燥金',
   '太阳寒水',
 ];
+
+export const GUEST_QI_ORDER: typeof CANONICAL_GUEST_QI_ORDER = [...CANONICAL_GUEST_QI_ORDER];
 
 const QI_STEP_LABELS: LiuqiStep['label'][] = [
   '初之气',
@@ -313,16 +334,25 @@ function padDatePart(value: number) {
   return String(value).padStart(2, '0');
 }
 
-function solarTermCivilDate(year: number, name: string) {
+function solarTermBoundary(year: number, name: string) {
   const index = SOLAR_TERM_INDEX[name];
   if (index === undefined) throw new Error(`五运六气缺少节气序号：${name}`);
   const evidence = calculateSolarTermEvidence(year, index);
   const shifted = new Date(evidence.utcTimestamp + 8 * 3_600_000);
-  return {
+  const date = {
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth() + 1,
     day: shifted.getUTCDate(),
   };
+  return {
+    date,
+    timestamp: evidence.utcTimestamp,
+    beijing: `${formatCivilDate(date)} ${padDatePart(shifted.getUTCHours())}:${padDatePart(shifted.getUTCMinutes())}:${padDatePart(shifted.getUTCSeconds())}`,
+  };
+}
+
+function solarTermCivilDate(year: number, name: string) {
+  return solarTermBoundary(year, name).date;
 }
 
 function addCivilDays(date: { year: number; month: number; day: number }, days: number) {
@@ -339,28 +369,17 @@ function formatCivilDate(date: { year: number; month: number; day: number }) {
   return `${date.year}-${padDatePart(date.month)}-${padDatePart(date.day)}`;
 }
 
-function parseCivilDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number);
-  return { year, month, day };
-}
-
-function compareCivilDate(
-  left: { year: number; month: number; day: number },
-  right: { year: number; month: number; day: number },
-) {
-  return left.year - right.year || left.month - right.month || left.day - right.day;
-}
-
-function isDateInRange(
-  date: { year: number; month: number; day: number },
-  start: { year: number; month: number; day: number },
-  end: { year: number; month: number; day: number },
-) {
-  return compareCivilDate(date, start) >= 0 && compareCivilDate(date, end) <= 0;
+function beijingCivilDateAt(timestamp: number) {
+  const shifted = new Date(timestamp + 8 * 3_600_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
 }
 
 /** 一年二十四节气按六步分主，每步四个节气。 */
-export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
+const CANONICAL_QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
   ['大寒', '立春', '雨水', '惊蛰'],
   ['春分', '清明', '谷雨', '立夏'],
   ['小满', '芒种', '夏至', '小暑'],
@@ -368,6 +387,9 @@ export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, st
   ['秋分', '寒露', '霜降', '立冬'],
   ['小雪', '大雪', '冬至', '小寒'],
 ];
+
+export const QI_STEP_SOLAR_TERMS: typeof CANONICAL_QI_STEP_SOLAR_TERMS =
+  CANONICAL_QI_STEP_SOLAR_TERMS.map((terms) => [...terms] as [string, string, string, string]);
 
 /** 岁会只取本运临本支之位：木卯、火午、土四维、金酉、水子。 */
 
@@ -397,23 +419,36 @@ export function getWuyunLiuqiYearGanZhi(year: number): string {
   return ganZhi;
 }
 
+/** 按北京时间大寒交节瞬时确定当前运气年度的公历年份标签。 */
+export function getWuyunLiuqiYearAt(date: Date): number {
+  const timestamp = date.getTime();
+  if (!Number.isFinite(timestamp)) throw new Error('运气年度时间必须是有效日期。');
+  const year = beijingCivilDateAt(timestamp).year;
+  if (year < 1900 || year > 2200) {
+    throw new Error('按大寒交节确定运气年度仅支持北京时间 1900-2200 年。');
+  }
+  return timestamp < solarTermBoundary(year, '大寒').timestamp ? year - 1 : year;
+}
+
 function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'] {
-  const hasYear = input.year !== undefined;
-  const hasGanZhi = input.yearGanZhi !== undefined;
+  const { year: inputYear, yearGanZhi: inputYearGanZhi } = input;
+  const hasYear = inputYear !== undefined;
+  const hasGanZhi = inputYearGanZhi !== undefined;
   if (!hasYear && !hasGanZhi) {
     throw new Error('必须提供 year 或 yearGanZhi。');
   }
 
-  const year = hasYear ? normalizeYear(input.year as number) : undefined;
-  if (hasGanZhi) {
-    assertValidGanZhi(input.yearGanZhi, '年干支');
+  const year = hasYear ? normalizeYear(inputYear as number) : undefined;
+  if (inputYearGanZhi !== undefined) {
+    const yearGanZhi = inputYearGanZhi.trim();
+    assertValidGanZhi(yearGanZhi, '年干支');
     if (year !== undefined) {
       const derived = getWuyunLiuqiYearGanZhi(year);
-      if (derived !== input.yearGanZhi) {
+      if (derived !== yearGanZhi) {
         throw new Error(`year 与 yearGanZhi 不一致：${year} 年年中为 ${derived}。`);
       }
     }
-    return { year, yearGanZhi: input.yearGanZhi, yearGanZhiSource: '明确年干支' };
+    return { year, yearGanZhi, yearGanZhiSource: '明确年干支' };
   }
 
   const yearGanZhi = getWuyunLiuqiYearGanZhi(year as number);
@@ -421,7 +456,7 @@ function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'
 }
 
 function profile(name: LiuqiName): LiuqiProfile {
-  return { ...QI_PROFILES[name] };
+  return getQiProfile(name);
 }
 
 function buildAnnualRelation(
@@ -539,20 +574,20 @@ function movementProfile(
  * 客运以中运为初运，按五行相生轮转，并沿五音太少相生次序逐步交替。
  */
 function buildMovementSteps(annualMovement: AnnualMovement, year?: number): WuyunMovementStep[] {
-  const annualIndex = HOST_MOVEMENT_ORDER.indexOf(annualMovement.element);
+  const annualIndex = CANONICAL_HOST_MOVEMENT_ORDER.indexOf(annualMovement.element);
   if (annualIndex < 0) throw new Error(`中运五行数据缺失：${annualMovement.element}`);
 
   const annualToneStrength = annualMovement.toneStrength;
   const oppositeToneStrength: WuyunToneStrength = annualToneStrength === '太' ? '少' : '太';
-  const hostMovements = HOST_MOVEMENT_ORDER.map((element, index) =>
+  const hostMovements = CANONICAL_HOST_MOVEMENT_ORDER.map((element, index) =>
     movementProfile(
       element,
       mod(index - annualIndex, 2) === 0 ? annualToneStrength : oppositeToneStrength,
     ),
   );
   const steps: WuyunMovementStep[] = MOVEMENT_STEP_LABELS.map((label, index) => {
-    const boundary = MOVEMENT_STEP_BOUNDARIES[index];
-    const guestElement = HOST_MOVEMENT_ORDER[mod(annualIndex + index, 5)];
+    const boundary = CANONICAL_MOVEMENT_STEP_BOUNDARIES[index];
+    const guestElement = CANONICAL_HOST_MOVEMENT_ORDER[mod(annualIndex + index, 5)];
     const hostMovement = hostMovements[index];
     if (!boundary || !hostMovement || !guestElement) {
       throw new Error(`五步主客运数据缺失：第${index + 1}步`);
@@ -612,7 +647,7 @@ function buildAnnualConformities(
   zaiquan: LiuqiProfile,
 ): AnnualConformities {
   const branch = yearGanZhi[1];
-  const suihuiBranchElement = SUIHUI_BRANCH_ELEMENT[branch];
+  const suihuiBranchElement = getSuihuiBranchElement(branch);
   const tianfu = movement.element === sitian.element;
   const suihui = suihuiBranchElement === movement.element;
   const taiyiTianfu = tianfu && suihui;
@@ -664,17 +699,17 @@ function buildAnnualConformities(
 }
 
 function buildQiSteps(sitianName: LiuqiName, year?: number): LiuqiStep[] {
-  const sitianIndex = GUEST_QI_ORDER.indexOf(sitianName);
+  const sitianIndex = CANONICAL_GUEST_QI_ORDER.indexOf(sitianName);
   if (sitianIndex < 0) throw new Error(`司天气序数据缺失：${sitianName}`);
 
   const steps: LiuqiStep[] = QI_STEP_LABELS.map((label, index) => {
-    const guestName = GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
-    const hostQi = profile(HOST_QI_ORDER[index]);
+    const guestName = CANONICAL_GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
+    const hostQi = profile(CANONICAL_HOST_QI_ORDER[index]);
     const guestQi = profile(guestName);
     return {
       order: index + 1,
       label,
-      solarTerms: [...QI_STEP_SOLAR_TERMS[index]],
+      solarTerms: [...CANONICAL_QI_STEP_SOLAR_TERMS[index]],
       hostQi,
       guestQi,
       hostGuestRelation: buildHostGuestRelation(hostQi, guestQi),
@@ -682,13 +717,19 @@ function buildQiSteps(sitianName: LiuqiName, year?: number): LiuqiStep[] {
     } satisfies LiuqiStep;
   });
   if (year !== undefined) {
-    const starts = steps.map((step) => solarTermCivilDate(year, step.solarTerms[0]));
-    const nextYearStart = solarTermCivilDate(year + 1, '大寒');
+    const starts = steps.map((step) => solarTermBoundary(year, step.solarTerms[0]));
+    const nextYearStart = solarTermBoundary(year + 1, '大寒');
     for (let index = 0; index < steps.length; index += 1) {
       const start = starts[index];
-      const end = addCivilDays(index + 1 < starts.length ? starts[index + 1] : nextYearStart, -1);
-      steps[index].gregorianStart = formatCivilDate(start);
-      steps[index].gregorianEnd = formatCivilDate(end);
+      const next = index + 1 < starts.length ? starts[index + 1] : nextYearStart;
+      steps[index].gregorianStart = formatCivilDate(start.date);
+      steps[index].gregorianEnd = formatCivilDate(beijingCivilDateAt(next.timestamp - 1));
+      steps[index].boundaryTime = {
+        startTimestamp: start.timestamp,
+        endTimestampExclusive: next.timestamp,
+        startBeijing: start.beijing,
+        endBeijingExclusive: next.beijing,
+      };
     }
   }
   return steps;
@@ -716,17 +757,189 @@ function formatElementDirection(
   return isKe(firstElement, secondElement) ? `${first}克${second}` : `${second}克${first}`;
 }
 
+function buildAnnualMovement(yearGanZhi: string): AnnualMovement {
+  const stem = yearGanZhi[0];
+  const movement = getStemMovement(stem);
+  return {
+    stem,
+    element: movement.element,
+    name: `${movement.element}运`,
+    tone: MOVEMENT_TONE[movement.element],
+    toneStrength: toToneStrength(movement.strength),
+    toneName: `${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}`,
+    yinYang: movement.yinYang,
+    strength: movement.strength,
+    basis: `${stem}干化${movement.element}运；${movement.yinYang}干为${movement.strength}，五音为${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}。`,
+  };
+}
+
+function buildAnnualClassification(
+  yearGanZhi: string,
+): WuyunLiuqiCalculation['annualClassification'] {
+  return {
+    sitianTransformation: '寅午未酉戌亥'.includes(yearGanZhi[1]) ? '正化' : '对化',
+    governance: yearGanZhi[0] === '甲' || yearGanZhi[0] === '己' ? '南政' : '北政',
+    basis: [
+      '司天正对化按年支区分：寅午未酉戌亥为正化，子丑卯辰巳申为对化。',
+      '南北政按年干所化中运区分：甲己土运为南政，其余四运为北政。',
+    ],
+  };
+}
+
+/** 按选定年干支核对年度及分步资料，不重排公历交节。 */
+export function assertWuyunLiuqiFacts(result: WuyunLiuqiCalculation): void {
+  const { yearGanZhi } = resolveYearInput(result.input);
+  const movement = buildAnnualMovement(yearGanZhi);
+  if (
+    (
+      [
+        'stem',
+        'element',
+        'name',
+        'tone',
+        'toneStrength',
+        'toneName',
+        'yinYang',
+        'strength',
+      ] as const
+    ).some((key) => result.annualMovement[key] !== movement[key])
+  )
+    throw new Error('岁运资料与年干支不一致。');
+  const pair = getBranchSitianZaiquan(yearGanZhi[1]);
+  const sitian = profile(pair[0]),
+    zaiquan = profile(pair[1]);
+  for (const [actual, expected] of [
+    [result.sitian, sitian],
+    [result.zaiquan, zaiquan],
+  ]) {
+    if (
+      (['name', 'phase', 'qi', 'element'] as const).some((key) => actual[key] !== expected[key])
+    ) {
+      throw new Error('司天在泉资料与年干支不一致。');
+    }
+  }
+  const annualRelation = buildAnnualRelation(movement.element, sitian.element);
+  if (
+    (['kind', 'movementElement', 'sitianElement'] as const).some(
+      (key) => result.annualRelation[key] !== annualRelation[key],
+    )
+  ) {
+    throw new Error('年度气运关系与岁运、司天不一致。');
+  }
+  const classification = buildAnnualClassification(yearGanZhi);
+  if (
+    result.annualClassification.sitianTransformation !== classification.sitianTransformation ||
+    result.annualClassification.governance !== classification.governance
+  ) {
+    throw new Error('司天化令与南北政资料不一致。');
+  }
+  const conformities = buildAnnualConformities(yearGanZhi, movement, sitian, zaiquan);
+  if (
+    (['tianfu', 'suihui', 'taiyiTianfu', 'tongTianfu', 'tongSuihui'] as const).some(
+      (key) => result.annualConformities[key] !== conformities[key],
+    ) ||
+    result.annualConformities.names.length !== conformities.names.length ||
+    conformities.names.some((name) => !result.annualConformities.names.includes(name))
+  )
+    throw new Error('年度符会资料与年干支不一致。');
+  const movements = buildMovementSteps(movement);
+  if (result.movementSteps.length !== movements.length) throw new Error('五步主客运资料不完整。');
+  for (const [index, expected] of movements.entries()) {
+    const actual = result.movementSteps[index];
+    if (
+      actual.order !== expected.order ||
+      actual.label !== expected.label ||
+      actual.periodRule !== expected.periodRule ||
+      actual.guestRole !== expected.guestRole ||
+      actual.hostGuestRelation.kind !== expected.hostGuestRelation.kind
+    ) {
+      throw new Error('五步主客运位置或关系与岁运不一致。');
+    }
+    for (const [actualProfile, expectedProfile] of [
+      [actual.hostMovement, expected.hostMovement],
+      [actual.guestMovement, expected.guestMovement],
+    ]) {
+      if (
+        (['element', 'tone', 'toneStrength', 'toneName', 'strength', 'climateQi'] as const).some(
+          (key) => actualProfile[key] !== expectedProfile[key],
+        )
+      ) {
+        throw new Error('五步主客运属性与岁运不一致。');
+      }
+    }
+  }
+  const qiSteps = buildQiSteps(sitian.name);
+  if (result.qiSteps.length !== qiSteps.length) throw new Error('六步主客气资料不完整。');
+  for (const [index, expected] of qiSteps.entries()) {
+    const actual = result.qiSteps[index];
+    if (
+      actual.order !== expected.order ||
+      actual.label !== expected.label ||
+      actual.guestRole !== expected.guestRole ||
+      actual.solarTerms.length !== expected.solarTerms.length ||
+      actual.solarTerms.some((term, at) => term !== expected.solarTerms[at]) ||
+      actual.hostGuestRelation.kind !== expected.hostGuestRelation.kind ||
+      actual.hostGuestRelation.fireOrder !== expected.hostGuestRelation.fireOrder
+    ) {
+      throw new Error('六步主客气位置或关系与司天在泉不一致。');
+    }
+    for (const [actualProfile, expectedProfile] of [
+      [actual.hostQi, expected.hostQi],
+      [actual.guestQi, expected.guestQi],
+    ]) {
+      if (
+        (['name', 'phase', 'qi', 'element'] as const).some(
+          (key) => actualProfile[key] !== expectedProfile[key],
+        )
+      ) {
+        throw new Error('六步主客气属性与司天在泉不一致。');
+      }
+    }
+  }
+  if (result.pathomechanism) {
+    const expected = evaluateWuyunLiuqiPathomechanism({
+      annualMovement: movement,
+      sitian,
+      yearGanZhi,
+      annualConformities: conformities,
+    });
+    if (
+      result.pathomechanism.summary !== expected.summary ||
+      result.pathomechanism.isPingQi !== null ||
+      result.pathomechanism.classicalReference.conditionEstablished !== null
+    ) {
+      throw new Error('平气及岁运纪资料与年度条件不一致。');
+    }
+  }
+}
+
 export function formatWuyunLiuqiFacts(result: WuyunLiuqiCalculation): string {
+  assertWuyunLiuqiFacts(result);
+  const year = result.input.year;
+  const calendarYear = year !== undefined && year >= 1900 && year <= 2199 ? year : undefined;
+  const movementDates =
+    calendarYear === undefined
+      ? undefined
+      : buildMovementSteps(result.annualMovement, calendarYear);
+  const qiDates =
+    calendarYear === undefined ? undefined : buildQiSteps(result.sitian.name, calendarYear);
+  const firstQiBoundary = result.qiSteps[0]?.boundaryTime && qiDates?.[0].boundaryTime;
+  const lastQiBoundary = result.qiSteps.at(-1)?.boundaryTime && qiDates?.at(-1)?.boundaryTime;
+  const annualPeriod =
+    firstQiBoundary && lastQiBoundary
+      ? `${firstQiBoundary.startBeijing}大寒节令起，至${lastQiBoundary.endBeijingExclusive}次年大寒节令前（北京时间，按现代节气交节时刻标示）`
+      : '大寒节令起，至次年大寒节令前';
   return [
-    `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年）`}`,
-    `日期口径：${result.calendarDateStatus === '公历日期已换算' ? '节令边界同时列出公历日期' : '按节气与传统序日表示各步边界'}`,
+    `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年对应的运气年度）`}`,
+    `运气年度：${annualPeriod}`,
     `岁运：${result.annualMovement.name}（${result.annualMovement.toneName}），${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
     `司天：${result.sitian.name}`,
     `在泉：${result.zaiquan.name}`,
     `司天化令：${result.annualClassification.sitianTransformation}；南北政：${result.annualClassification.governance}`,
-    `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
-    `年度五行作用：${formatElementDirection('中运', result.annualMovement.element, `司天${result.sitian.name}`, result.sitian.element)}；${formatElementDirection('中运', result.annualMovement.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}；${formatElementDirection(`司天${result.sitian.name}`, result.sitian.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}`,
-    `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
+    `年度五行作用：${formatElementDirection('中运', result.annualMovement.element, `司天${result.sitian.name}`, result.sitian.element)}${result.annualRelation.kind === '同气' ? '' : `（${result.annualRelation.kind}）`}；${formatElementDirection('中运', result.annualMovement.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}；${formatElementDirection(`司天${result.sitian.name}`, result.sitian.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}`,
+    ...(result.annualConformities.names.length
+      ? [`年度符会：${result.annualConformities.names.join('、')}`]
+      : []),
     result.pathomechanism
       ? result.pathomechanism.summary
       : evaluateWuyunLiuqiPathomechanism({
@@ -736,40 +949,21 @@ export function formatWuyunLiuqiFacts(result: WuyunLiuqiCalculation): string {
           annualConformities: result.annualConformities,
         }).summary,
     '五步主客运：',
-    ...result.movementSteps.map((step) => {
+    ...result.movementSteps.map((step, index) => {
+      const canonicalDates = movementDates?.[index];
       const dates =
-        step.gregorianStart && step.gregorianEnd
-          ? `；公历${step.gregorianStart}至${step.gregorianEnd}`
+        step.gregorianStart && step.gregorianEnd && canonicalDates
+          ? `；公历${canonicalDates.gregorianStart}至${canonicalDates.gregorianEnd}`
           : '';
-      const current =
-        result.input.year && step.gregorianStart && step.gregorianEnd
-          ? isDateInRange(
-              { year: result.input.year, month: 6, day: 30 },
-              parseCivilDate(step.gregorianStart),
-              parseCivilDate(step.gregorianEnd),
-            )
-            ? '；年中落在此步'
-            : ''
-          : '';
-      return `${step.order}. ${step.label}（${step.periodRule}${dates}${current}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}；${formatElementDirection(`主运${step.hostMovement.toneName}`, step.hostMovement.element, `客运${step.guestMovement.toneName}`, step.guestMovement.element)}`;
+      return `${step.order}. ${step.label}（${step.periodRule}${dates}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.kind === '同气' ? '' : `（${formatElementDirection(`主运${step.hostMovement.toneName}`, step.hostMovement.element, `客运${step.guestMovement.toneName}`, step.guestMovement.element)}）`}`;
     }),
     '六步主客气：',
-    ...result.qiSteps.map((step) => {
-      const dates =
-        step.gregorianStart && step.gregorianEnd
-          ? `；公历${step.gregorianStart}至${step.gregorianEnd}`
-          : '';
-      const current =
-        result.input.year && step.gregorianStart && step.gregorianEnd
-          ? isDateInRange(
-              { year: result.input.year, month: 6, day: 30 },
-              parseCivilDate(step.gregorianStart),
-              parseCivilDate(step.gregorianEnd),
-            )
-            ? '；年中落在此步'
-            : ''
-          : '';
-      return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}；${formatElementDirection(`主气${step.hostQi.name}`, step.hostQi.element, `客气${step.guestQi.name}`, step.guestQi.element)}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
+    ...result.qiSteps.map((step, index) => {
+      const boundary = step.boundaryTime && qiDates?.[index].boundaryTime;
+      const dates = boundary
+        ? `；现代节气交节参考（北京时间）${boundary.startBeijing}至${boundary.endBeijingExclusive}前`
+        : '';
+      return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.kind === '同气' ? '' : `（${formatElementDirection(`主气${step.hostQi.name}`, step.hostQi.element, `客气${step.guestQi.name}`, step.guestQi.element)}）`}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
     }),
   ].join('\n');
 }
@@ -808,21 +1002,8 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   const resolved = resolveYearInput(input);
   const stem = resolved.yearGanZhi[0];
   const branch = resolved.yearGanZhi[1];
-  const movement = STEM_MOVEMENT[stem];
-  const pair = BRANCH_SITIAN_ZAIQUAN[branch];
-  if (!movement || !pair) throw new Error(`五运六气基础表缺失：${resolved.yearGanZhi}`);
-
-  const annualMovement: AnnualMovement = {
-    stem,
-    element: movement.element,
-    name: `${movement.element}运`,
-    tone: MOVEMENT_TONE[movement.element],
-    toneStrength: toToneStrength(movement.strength),
-    toneName: `${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}`,
-    yinYang: movement.yinYang,
-    strength: movement.strength,
-    basis: `${stem}干化${movement.element}运；${movement.yinYang}干为${movement.strength}，五音为${toToneStrength(movement.strength)}${MOVEMENT_TONE[movement.element]}。`,
-  };
+  const pair = getBranchSitianZaiquan(branch);
+  const annualMovement = buildAnnualMovement(resolved.yearGanZhi);
   const sitian = profile(pair[0]);
   const zaiquan = profile(pair[1]);
   // 全年末步延续至下一年大寒，公历日期因此最多支持到 2199 年。
@@ -836,14 +1017,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }
   const annualRelation = buildAnnualRelation(annualMovement.element, sitian.element);
-  const annualClassification: WuyunLiuqiCalculation['annualClassification'] = {
-    sitianTransformation: '寅午未酉戌亥'.includes(branch) ? '正化' : '对化',
-    governance: stem === '甲' || stem === '己' ? '南政' : '北政',
-    basis: [
-      '司天正对化按年支区分：寅午未酉戌亥为正化，子丑卯辰巳申为对化。',
-      '南北政按年干所化中运区分：甲己土运为南政，其余四运为北政。',
-    ],
-  };
+  const annualClassification = buildAnnualClassification(resolved.yearGanZhi);
   const annualConformities = buildAnnualConformities(
     resolved.yearGanZhi,
     annualMovement,
@@ -882,10 +1056,11 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
       `客气以${sitian.name}落三之气，依客气次序前后轮转，${zaiquan.name}落终之气`,
       '二十四节气自大寒起按每四气一组分为六步，并逐步核验主客气五行关系',
     ],
-    sources: WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
+    sources: CANONICAL_WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
     limitations: [
       '公历交司日期支持1900—2199年；其他年份按节气和传统序日表达五步、六步边界。',
       '五步交司按《运气要诀》所列传统日期序号表达，不把“节气后第几日”换算成现代精确到时分秒的交运时刻。',
+      '六步主客气依《运气要诀》按节令分段；北京时间秒级数值为现代节气交节参考，并非传统六气交司时刻。',
       '结果为年度传统节律结构，不含逐日气候计算。',
       '传统运气模型不能替代地域气象资料、个人健康资料或医疗诊断。',
       '符会与气运关系按吴谦《运气要诀》通行口径核验，不延伸为疾病轻重或现实事件预测。',
@@ -905,6 +1080,7 @@ export const wuyunLiuqi = {
   ANNUAL_CONFORMITY_SOURCE_RECONCILIATION,
   WUYUN_LIUQI_SOURCES,
   getWuyunLiuqiYearGanZhi,
+  getWuyunLiuqiYearAt,
   calculateWuyunLiuqi,
   buildWuyunLiuqiPrompt,
 };

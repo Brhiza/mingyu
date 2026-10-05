@@ -1,6 +1,12 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import type { BaZhaiDoorMeasurement, BaZhaiMeasurementStability, BaZhaiResult } from './index';
+import { getBaZhaiPalace } from '../direction';
+import type {
+  BaZhaiDoorMeasurement,
+  BaZhaiHouseGroup,
+  BaZhaiMeasurementStability,
+  BaZhaiResult,
+} from './index';
 
 export interface BaZhaiDirectionComparison {
   direction: string;
@@ -55,13 +61,13 @@ export interface BaZhaiMeasurementCandidateFact {
   sitMountain: string;
   facingMountain: string;
   houseGua: string;
-  houseGroup: '东四命' | '西四命';
+  houseGroup: BaZhaiHouseGroup;
   match: '相合' | '相冲';
   measurementFactKey: 'measurement:bazhai:door';
   calculationStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、吉凶分或调整结论';
+  limitation: string;
 }
 
 export interface BaZhaiMeasurementFact {
@@ -177,7 +183,7 @@ export interface BaZhaiEvidenceAnalysis {
     sitMountain: string;
     facingMountain: string;
     houseGua: string;
-    houseGroup: '东四命' | '西四命';
+    houseGroup: BaZhaiHouseGroup;
     match: '相合' | '相冲';
   }>;
   counterEvidence: string[];
@@ -211,15 +217,21 @@ const LIMITATION_FACT_LIMITATION =
 const SUMMARY_FACT_LIMITATION =
   '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅吉凶总分、可信度、健康概率、财富增幅或调整效果保证' as const;
 
+function describeMeasurementBearing(measurement: BaZhaiDoorMeasurement) {
+  const direction = measurement.method === '站在大门处面向屋内测量' ? '入户' : '坐山';
+  if (measurement.northReference === 'unspecified') {
+    return `北向基准未声明；原始读数${measurement.measuredDegree}°，暂按${measurement.trueNorthDegree}°计算${direction}方位（非已确认真北）`;
+  }
+  return measurement.northReference === 'magnetic'
+    ? `磁北读数${measurement.measuredDegree}°按磁偏角折算真北${measurement.trueNorthDegree}°，计算${direction}方位`
+    : `真北读数${measurement.measuredDegree}°，计算${direction}方位`;
+}
+
 function buildCalculationFact(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
 ): BaZhaiCalculationFact {
   const yearBoundaryStatus: BaZhaiCalculationFact['yearBoundaryStatus'] =
-    data.effectiveBirthYear === null
-      ? '直接命卦'
-      : data.birthYearBoundaryNote.includes('未提供月日')
-        ? '待复核'
-        : '已核定';
+    data.birthYearBoundaryStatus;
   const steps: BaZhaiCalculationStep[] = [
     {
       key: 'bazhai:calculation:year-boundary',
@@ -236,6 +248,21 @@ function buildCalculationFact(
         ...(data.calculationInput.birthDay !== undefined
           ? { birthDay: data.calculationInput.birthDay }
           : {}),
+        ...(data.calculationInput.birthHour !== undefined
+          ? { birthHour: data.calculationInput.birthHour }
+          : {}),
+        ...(data.calculationInput.birthMinute !== undefined
+          ? { birthMinute: data.calculationInput.birthMinute }
+          : {}),
+        ...(data.calculationInput.birthSecond !== undefined
+          ? { birthSecond: data.calculationInput.birthSecond }
+          : {}),
+        ...(data.calculationInput.birthTimezone !== undefined
+          ? { birthTimezone: data.calculationInput.birthTimezone }
+          : {}),
+        ...(data.calculationInput.birthTimeZoneId !== undefined
+          ? { birthTimeZoneId: data.calculationInput.birthTimeZoneId }
+          : {}),
         ...(data.calculationInput.gender ? { gender: data.calculationInput.gender } : {}),
         boundaryNote: data.birthYearBoundaryNote,
         ...(data.effectiveBirthYear !== null
@@ -248,7 +275,7 @@ function buildCalculationFact(
         yearBoundaryStatus === '直接命卦'
           ? '直接采用明确给定的命卦'
           : yearBoundaryStatus === '待复核'
-            ? `出生年份暂按${data.effectiveBirthYear}计算，立春前出生仍需按上一年复核`
+            ? data.birthYearBoundaryNote
             : `出生日期按立春年界取有效年份${data.effectiveBirthYear}`,
       sources: ['立春年界与干支年换算规则', '输入出生日期或明确给定的命卦资料'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -256,7 +283,7 @@ function buildCalculationFact(
     {
       key: 'bazhai:calculation:ming-gua',
       stage: '命卦计算',
-      status: '完整',
+      status: yearBoundaryStatus === '待复核' ? '待复核' : '完整',
       inputs: {
         mingGuaSource: data.calculationInput.mingGuaSource,
         ...(data.calculationInput.gender ? { gender: data.calculationInput.gender } : {}),
@@ -266,7 +293,7 @@ function buildCalculationFact(
       },
       result: { mingGua: data.mingGua, mingGroup: data.mingGroup },
       dependsOnStepKeys: ['bazhai:calculation:year-boundary'],
-      promptText: `计算命卦${data.mingGua}与${data.mingGroup}`,
+      promptText: `${yearBoundaryStatus === '待复核' ? '暂按' : '计算'}命卦${data.mingGua}与${data.mingGroup}`,
       sources: ['命卦计算规则或明确给定的命卦', '东四命与西四命分组表'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -290,7 +317,7 @@ function buildCalculationFact(
     {
       key: 'bazhai:calculation:eight-directions',
       stage: '八宫排布',
-      status: '完整',
+      status: yearBoundaryStatus === '待复核' ? '待复核' : '完整',
       inputs: {
         mingGua: data.mingGua,
         ...(data.houseGua ? { houseGua: data.houseGua } : {}),
@@ -303,14 +330,14 @@ function buildCalculationFact(
         'bazhai:calculation:ming-gua',
         ...(data.houseGua ? ['bazhai:calculation:house-gua'] : []),
       ],
-      promptText: '按大游年表分别生成命卦八宫与可用的宅卦八宫',
+      promptText: `${yearBoundaryStatus === '待复核' ? '暂按当前命卦，' : ''}按大游年表分别生成命卦八宫与可用的宅卦八宫`,
       sources: ['《八宅明镜》《阳宅十书》大游年八宫表'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'bazhai:calculation:comparison',
       stage: '逐方比较',
-      status: data.houseGua ? '完整' : '未提供',
+      status: data.houseGua ? (yearBoundaryStatus === '待复核' ? '待复核' : '完整') : '未提供',
       inputs: {
         mingDirectionCount: data.mingPalace.length,
         houseDirectionCount: data.housePalace?.length ?? 0,
@@ -321,7 +348,7 @@ function buildCalculationFact(
       },
       dependsOnStepKeys: ['bazhai:calculation:eight-directions'],
       promptText: data.houseGua
-        ? '逐方比较命卦与宅卦的重合、同凶与异判关系'
+        ? `${yearBoundaryStatus === '待复核' ? '暂按命卦' : '逐方'}比较命卦与宅卦的重合、同凶与异判关系`
         : '未提供宅卦，不执行命宅逐方比较',
       sources: ['当前命卦八宫与宅卦八宫逐宫对照'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -370,9 +397,17 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
       match: item.match,
       measurementFactKey: 'measurement:bazhai:door',
       calculationStepKeys: ['bazhai:calculation:house-gua'],
-      promptText: `${item.label}：坐${item.sitMountain}山、向${item.facingMountain}向，归${item.houseGua}宅${item.houseGroup}，命宅${item.match}`,
-      sources: ['真北坐山角度、测量误差与二十四山覆盖范围', '坐山宅卦与命宅分组比较'],
-      limitation: MEASUREMENT_CANDIDATE_LIMITATION,
+      promptText: `${measurement.northReference === 'unspecified' ? '按原始读数暂算，' : ''}${item.label}：坐${item.sitMountain}山、向${item.facingMountain}向，归${item.houseGua}宅${item.houseGroup}，命宅${item.match}`,
+      sources: [
+        measurement.northReference === 'unspecified'
+          ? '原始读数暂算的坐山角度、测量误差与二十四山覆盖范围'
+          : '真北坐山角度、测量误差与二十四山覆盖范围',
+        '坐山宅卦与命宅分组比较',
+      ],
+      limitation:
+        measurement.northReference === 'unspecified'
+          ? `${MEASUREMENT_CANDIDATE_LIMITATION}；北向基准未声明，此候选仅按原始读数暂算，不代表真北坐向范围`
+          : MEASUREMENT_CANDIDATE_LIMITATION,
     }),
   );
   return {
@@ -399,7 +434,7 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
     candidateFactKeys: candidates.map((item) => item.key),
     calculationStepKeys: ['bazhai:calculation:house-gua'],
     warnings: measurement.warnings,
-    promptText: `${measurement.method}：输入${measurement.measuredDegree}°，真北口径${measurement.trueNorthDegree}°，误差±${measurement.measurementUncertaintyDegrees}°，中心结果${measurement.label}，稳定性${measurement.stability}，候选${candidates.map((item) => item.label).join('、') || '无'}`,
+    promptText: `${measurement.method}：${describeMeasurementBearing(measurement)}，误差±${measurement.measurementUncertaintyDegrees}°，中心结果${measurement.label}，稳定性${measurement.stability}，候选${candidates.map((item) => item.label).join('、') || '无'}`,
     sources: [
       measurement.method === '站在大门处面向屋内测量'
         ? '现场入户指南针读数与指定测量站位'
@@ -439,7 +474,9 @@ function buildCounterEvidenceFacts(
         calculationFact.yearBoundaryStatus === '直接命卦'
           ? '命卦已明确给定，不再反推出生年界'
           : calculationFact.yearBoundaryStatus === '待复核'
-            ? '只提供出生年份，立春前后的命卦年界仍需按完整出生日期复核'
+            ? data.calculationInput.birthMonth !== undefined
+              ? data.birthYearBoundaryNote
+              : '只提供出生年份，立春前后的命卦年界仍需按完整出生日期复核'
             : `出生日期已按立春年界核定，有效命卦年份为${data.effectiveBirthYear}`,
       sources: ['出生日期、立春年界与命卦有效年份核验'],
       limitation: COUNTER_FACT_LIMITATION,
@@ -553,7 +590,7 @@ function buildLimitationFacts(
       type: '传统模型边界',
       ownerFactKeys: [calculationFact.key, ...directionFactKeys],
       promptText:
-        '八宅大游年、东四命与西四命属于传统空间分类模型，不是现代建筑性能或健康效果的实证模型',
+        '八宅大游年及东四命、西四命与东四宅、西四宅属于传统空间分类模型，不是现代建筑性能或健康效果的实证模型',
       sources: ['传统方位分类与现代建筑实证范围对照'],
     },
     {
@@ -616,7 +653,8 @@ function buildSummaryFact(args: {
   const hasHouse = args.calculationFact.status === '命宅完整';
   const measurementComplete =
     args.measurementFact.status === '未提供' ||
-    (args.measurementFact.referenceStatus === '已声明' &&
+    (args.measurementFact.status !== '宅卦不稳定' &&
+      args.measurementFact.referenceStatus === '已声明' &&
       args.measurementCandidateFacts.length > 0);
   const structurallyComplete =
     args.calculationFact.yearBoundaryStatus !== '待复核' &&
@@ -656,6 +694,25 @@ export function analyzeBaZhaiEvidence(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   measurement?: BaZhaiDoorMeasurement,
 ): BaZhaiEvidenceAnalysis {
+  for (const [gua, palaces] of [
+    [data.mingGua, data.mingPalace],
+    [data.houseGua, data.housePalace],
+  ] as const) {
+    if (!gua || !palaces) continue;
+    const expected = getBaZhaiPalace(gua);
+    for (const palace of palaces) {
+      const canonical = expected.find((item) => item.gua === palace.gua);
+      if (
+        !canonical ||
+        palace.direction !== canonical.direction ||
+        palace.degree !== canonical.degree ||
+        palace.label !== canonical.label ||
+        palace.luck !== canonical.luck
+      ) {
+        throw new Error('八宅方位记录与命卦或宅卦大游年表不一致。');
+      }
+    }
+  }
   const calculationFact = buildCalculationFact(data);
   const directionFacts = data.mingPalace.map((mingPalace): BaZhaiDirectionFact => {
     const housePalace = data.housePalace?.find((item) => item.gua === mingPalace.gua) ?? null;
@@ -707,10 +764,10 @@ export function analyzeBaZhaiEvidence(
   const measurementFact = buildMeasurementFact(measurement);
   const measurementFacts = measurement
     ? [
-        `${measurement.method === '站在大门处面向屋内测量' ? '从大门面向屋内实测' : '住宅坐山输入'}${measurement.measuredDegree}°，换算真北口径为${measurement.trueNorthDegree}°`,
-        `传统坐向为${measurement.label}，坐${measurement.sitMountain}山、向${measurement.facingMountain}向`,
-        `测量误差±${measurement.measurementUncertaintyDegrees}°，距最近二十四山边界${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°`,
-        `稳定性为${measurement.stability}，候选坐向${measurement.candidateDirections.map((item) => item.label).join('、')}`,
+        describeMeasurementBearing(measurement),
+        `${measurement.northReference === 'unspecified' ? '按原始读数暂算的' : ''}传统坐向为${measurement.label}，坐${measurement.sitMountain}山、向${measurement.facingMountain}向`,
+        `${measurement.northReference === 'unspecified' ? '按原始读数暂算的' : ''}测量误差±${measurement.measurementUncertaintyDegrees}°，距最近二十四山边界${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°`,
+        `${measurement.northReference === 'unspecified' ? '按原始读数暂算的' : ''}稳定性为${measurement.stability}，候选坐向${measurement.candidateDirections.map((item) => item.label).join('、')}`,
       ]
     : [];
   const measurementCandidateFacts = measurementFact.candidates;

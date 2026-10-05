@@ -2,8 +2,9 @@ import { ASTROLOGY_ENGINE_MODEL, calculatePlanets } from '../astrology/engine';
 
 import { formatFixedTimezoneOffset, resolveCivilTime } from './civil-time';
 import type { HistoricalTimezoneEvidence } from './historical-timezone';
+import { calculateMoonGeometry } from './moon-geometry';
 
-export const ASTRONOMY_FACT_MODEL = {
+const astronomyFactModel = {
   provider: ASTROLOGY_ENGINE_MODEL.provider,
   version: ASTROLOGY_ENGINE_MODEL.version,
   coordinate: '地心回归黄道日期坐标',
@@ -19,6 +20,12 @@ export const ASTRONOMY_FACT_MODEL = {
   },
   limitation:
     '本结果是可复算的现代天文位置事实，不是观测站实测值，也不证明任何命理、占星、吉凶或现实事件。',
+} as const;
+
+export const ASTRONOMY_FACT_MODEL = {
+  ...astronomyFactModel,
+  recommendedYearRange: [...astronomyFactModel.recommendedYearRange],
+  validation: { ...astronomyFactModel.validation },
 } as const;
 
 export interface AstronomicalFactInput {
@@ -66,6 +73,7 @@ export interface AstronomicalFacts {
   coordinate: typeof ASTRONOMY_FACT_MODEL.coordinate;
   bodies: AstronomicalBodyFact[];
   moonPhase: {
+    phaseAngleDegrees: number;
     elongationDegrees: number;
     illuminationFraction: number;
     waxing: boolean;
@@ -94,7 +102,7 @@ function validateInput(input: AstronomicalFactInput) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('天文事实查询参数必须是对象。');
   }
-  const [minimumYear, maximumYear] = ASTRONOMY_FACT_MODEL.recommendedYearRange;
+  const [minimumYear, maximumYear] = astronomyFactModel.recommendedYearRange;
   if (!Number.isInteger(input.year) || input.year < minimumYear || input.year > maximumYear) {
     throw new Error(`天文事实查询年份需在 ${minimumYear}-${maximumYear} 之间。`);
   }
@@ -166,7 +174,15 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
   const sun = bodies.find((body) => body.name === 'Sun');
   const moon = bodies.find((body) => body.name === 'Moon');
   if (!sun || !moon) throw new Error('天文事实缺少太阳或月球位置。');
-  const elongationDegrees = normalizeDegrees(moon.longitudeDegrees - sun.longitudeDegrees);
+  const phaseAngleDegrees = normalizeDegrees(moon.longitudeDegrees - sun.longitudeDegrees);
+  const moonGeometry = calculateMoonGeometry({
+    sunLongitude: sun.longitudeDegrees,
+    sunLatitude: sun.latitudeDegrees,
+    sunDistance: sun.distance,
+    moonLongitude: moon.longitudeDegrees,
+    moonLatitude: moon.latitudeDegrees,
+    moonDistance: moon.distance,
+  });
 
   return {
     localDateTime: `${civilTime.localDateTime}${formatFixedTimezoneOffset(timezone)}`,
@@ -175,13 +191,18 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
     ...(timeZoneId ? { timeZoneId } : {}),
     ...(timezoneEvidence ? { timezoneEvidence } : {}),
     julianDateUtc: utcMilliseconds / 86_400_000 + 2_440_587.5,
-    coordinate: ASTRONOMY_FACT_MODEL.coordinate,
+    coordinate: astronomyFactModel.coordinate,
     bodies,
     moonPhase: {
-      elongationDegrees,
-      illuminationFraction: (1 - Math.cos((elongationDegrees * Math.PI) / 180)) / 2,
-      waxing: elongationDegrees < 180,
+      phaseAngleDegrees,
+      elongationDegrees: moonGeometry.elongationDegrees,
+      illuminationFraction: moonGeometry.illuminationFraction,
+      waxing: phaseAngleDegrees < 180,
     },
-    model: ASTRONOMY_FACT_MODEL,
+    model: {
+      ...astronomyFactModel,
+      recommendedYearRange: [...astronomyFactModel.recommendedYearRange],
+      validation: { ...astronomyFactModel.validation },
+    },
   };
 }

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { HIDDEN_STEMS } from '../packages/core/src/bazi/baziMappingsData';
 import { generateEnhancedAnalysisSection } from '../packages/core/src/bazi/baziPromptEnhancement';
 import {
   assessAllHarmonyTransforms,
@@ -29,6 +30,22 @@ function profileText(profiles: ReturnType<typeof assessAllHarmonyTransforms>): s
   return profiles
     .flatMap((profile) => [...profile.participants, ...profile.evidence, ...profile.consequences])
     .join('；');
+}
+
+function enhancedPillars(values: readonly [string, string, string, string]): string {
+  const keys = ['year', 'month', 'day', 'hour'] as const;
+  return generateEnhancedAnalysisSection({
+    pillars: Object.fromEntries(
+      keys.map((key, index) => [
+        key,
+        { gan: values[index][0], zhi: values[index][1], ganZhi: values[index] },
+      ]),
+    ),
+    hiddenStems: Object.fromEntries(
+      keys.map((key, index) => [key, HIDDEN_STEMS[values[index][1]]]),
+    ),
+    analysis: { mingGe: { pattern: '普通格局', isSpecial: false } },
+  } as any);
 }
 
 test('合化公开结果规范化缺省柱位并兼容英文参与定位', () => {
@@ -105,4 +122,21 @@ test('规范化柱位进入错误文本且增强提示词不暴露内部控制�
     section,
     /\b(year|month|day|hour)(?:干|支|[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥])/,
   );
+  assert.match(section, /天干五合月柱己与日柱甲（化神土）：逢冲破合/);
+  assert.doesNotMatch(section, /天干五合月柱己与日柱甲化土：/);
+
+  const untransformed = enhancedPillars(['庚午', '甲申', '癸酉', '戊午']);
+  assert.match(untransformed, /天干五合日柱癸与时柱戊（化神火）：合而不化/);
+  assert.doesNotMatch(untransformed, /天干五合日柱癸与时柱戊化火：/);
+
+  const transformed = enhancedPillars(['戊辰', '己未', '甲子', '癸酉']);
+  assert.match(transformed, /天干五合月柱己与日柱甲化土：成化，作用向化/);
+
+  const competing = enhancedPillars(['甲戌', '己亥', '甲子', '丁巳']);
+  assert.match(competing, /天干五合月柱己与日柱甲（化神土）：争合不专/);
+  assert.doesNotMatch(competing, /天干五合月柱己与日柱甲化土：/);
+
+  const separated = enhancedPillars(['甲子', '丙辰', '己丑', '庚申']);
+  assert.match(separated, /地支六合年柱子与日柱丑（地支只论相合）：隔位不合/);
+  assert.doesNotMatch(separated, /地支六合年柱子与日柱丑化土：/);
 });

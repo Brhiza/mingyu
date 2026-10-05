@@ -7,8 +7,10 @@ import {
   generateAstrolabeBirthRange,
   getAstrolabeBirthRangeDiscreteFingerprint,
   isAstrolabeBirthRangeSource,
+  type AstrolabeBirthRangeOptions,
 } from 'mingyu-core/divination/astrolabe-birth-range';
 import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
+import { formatAstrolabeBirthRangeFacts } from '../src/lib/astrolabe-birth-range-prompt';
 
 const OFFSET_HOURS = 8;
 const SECOND = 1_000;
@@ -46,9 +48,47 @@ function inputAt(timestamp: number, base: AstrolabeBirthInput = BASE_INPUT): Ast
   };
 }
 
+test('未知出生时刻跨日出时按真实昼夜盘分段', () => {
+  const chartAt = (timestamp: number) => generateAstrolabe(inputAt(timestamp));
+  let nightTimestamp = beijingTimestamp('1990-05-20 03:00:00');
+  let dayTimestamp = beijingTimestamp('1990-05-20 08:00:00');
+  assert.equal(chartAt(nightTimestamp).dayChart, false);
+  assert.equal(chartAt(dayTimestamp).dayChart, true);
+
+  while (dayTimestamp - nightTimestamp > SECOND) {
+    const midpoint =
+      nightTimestamp + Math.floor((dayTimestamp - nightTimestamp) / (2 * SECOND)) * SECOND;
+    if (chartAt(midpoint).dayChart) dayTimestamp = midpoint;
+    else nightTimestamp = midpoint;
+  }
+
+  const range = generateAstrolabeBirthRange(inputAt(nightTimestamp), {
+    startTimestamp: nightTimestamp,
+    endTimestamp: dayTimestamp + SECOND,
+  });
+  assert.equal(range.branches.length, 2);
+  assert.equal(range.branches[1]?.startTimestamp, dayTimestamp);
+  assert.deepEqual(
+    range.branches.map((branch) => branch.representative.dayChart),
+    [false, true],
+  );
+  const facts = formatAstrolabeBirthRangeFacts(range);
+  assert.match(facts, /昼夜盘：夜盘/);
+  assert.match(facts, /昼夜盘：昼盘/);
+});
+
 function withoutGenerationTimestamp(data: AstrolabeData) {
   return { ...data, timestamp: 0 };
 }
+
+test('出生区间离散指纹区分昼盘与夜盘', () => {
+  const chart = generateAstrolabe(BASE_INPUT);
+  assert.equal(chart.dayChart, true);
+  assert.notEqual(
+    getAstrolabeBirthRangeDiscreteFingerprint(chart),
+    getAstrolabeBirthRangeDiscreteFingerprint({ ...chart, dayChart: false }),
+  );
+});
 
 function sun(result: AstrolabeData) {
   return result.planets.find((point) => point.name === 'Sun');
@@ -176,25 +216,34 @@ function locateDisplayBoundary(): number | null {
   return null;
 }
 
-test('西占本命区间采用半开整秒边界并逐秒复现完整单点盘', () => {
+test('西占本命区间锁定输入与半开整秒边界并逐秒复现完整单点盘', () => {
   const start = beijingTimestamp('1990-05-20 12:30:00');
   const end = start + 3 * SECOND;
   const progress: Array<[number, number]> = [];
-  const range = generateAstrolabeBirthRange(
-    inputAt(start),
-    {
-      startTimestamp: start,
-      endTimestamp: end,
+  const mutableInput = inputAt(start);
+  const mutableSource = { startTimestamp: start, endTimestamp: end };
+  const replacementController = new AbortController();
+  replacementController.abort();
+  const mutableOptions: AstrolabeBirthRangeOptions = {
+    onProgress: (completed, total) => {
+      progress.push([completed, total]);
+      if (completed === 1) {
+        mutableInput.longitude = '-74.0060';
+        mutableSource.startTimestamp += 3_600_000;
+        mutableSource.endTimestamp += 3_600_000;
+        mutableOptions.signal = replacementController.signal;
+        mutableOptions.onProgress = () => assert.fail('进度回调应沿用本次调用开始时的选项');
+      }
     },
-    {
-      onProgress: (completed, total) => progress.push([completed, total]),
-    },
-  );
+  };
+  const range = generateAstrolabeBirthRange(mutableInput, mutableSource, mutableOptions);
 
   assert.equal(range.coverage, 'natal');
   assert.equal(range.status, 'stable');
   assert.equal(range.sampleCount, 3);
   assert.equal(range.source.endExclusive, true);
+  assert.equal(range.source.startTimestamp, start);
+  assert.equal(range.source.endTimestamp, end);
   assert.equal(isAstrolabeBirthRangeSource(range.source), true);
   assert.deepEqual(progress, [
     [1, 3],
@@ -252,6 +301,34 @@ test('西占本命区间在春分跨零度时按太阳离散星座切分并保�
       ),
     ),
   );
+});
+
+test('本命稳定分支按圆周统计跨分角秒', () => {
+  const start = beijingTimestamp('1990-05-20 12:30:03');
+  const base = { ...BASE_INPUT, latitude: '39.9042', longitude: '116.4074' };
+  const before = generateAstrolabe(inputAt(start, base));
+  const after = generateAstrolabe(inputAt(start + SECOND, base));
+  const beforeAscendant = before.angles.find((point) => point.name === 'Ascendant')!;
+  const afterAscendant = after.angles.find((point) => point.name === 'Ascendant')!;
+  assert.ok(beforeAscendant.second! > afterAscendant.second!);
+  assert.ok(beforeAscendant.longitude < afterAscendant.longitude);
+  assert.equal(
+    getAstrolabeBirthRangeDiscreteFingerprint(before),
+    getAstrolabeBirthRangeDiscreteFingerprint(after),
+  );
+
+  const range = generateAstrolabeBirthRange(inputAt(start, base), {
+    startTimestamp: start,
+    endTimestamp: start + 2 * SECOND,
+  });
+  assert.equal(range.status, 'stable');
+  const branch = range.branches[0]!;
+  const seconds = branch.continuous.find((fact) => fact.path === 'angles[Ascendant].second')!;
+  assert.equal(seconds.first, beforeAscendant.second);
+  assert.equal(seconds.last, afterAscendant.second);
+  assert.equal(seconds.circular?.period, 60);
+  assert.equal(seconds.min, beforeAscendant.second);
+  assert.equal(seconds.max, afterAscendant.second! + 60);
 });
 
 test('西占本命区间通过端点定位真实宫位与相位离散边界', () => {
@@ -335,6 +412,24 @@ test('西占本命区间支持取消并拒绝时区、错位、非整秒和超�
           },
           signal: controller.signal,
         },
+      ),
+    /已取消/u,
+  );
+
+  const lastSample = new AbortController();
+  const lastSampleOptions: AstrolabeBirthRangeOptions = {
+    signal: lastSample.signal,
+    onProgress: () => {
+      lastSampleOptions.signal = undefined;
+      lastSample.abort();
+    },
+  };
+  assert.throws(
+    () =>
+      generateAstrolabeBirthRange(
+        inputAt(start),
+        { startTimestamp: start, endTimestamp: start + SECOND },
+        lastSampleOptions,
       ),
     /已取消/u,
   );

@@ -3,7 +3,12 @@
  * @description 通过运行环境 Intl/IANA 数据库解析当地钟表时刻的历史 UTC 偏移，并识别 DST 歧义与缺失时刻。
  */
 
-import { createUtcTimestamp } from './date-validation';
+import {
+  createUtcTimestamp,
+  daysInGregorianMonth,
+  formatUtcOffsetHours,
+  isValidClockTime,
+} from './date-validation';
 
 export interface HistoricalTimezoneInput {
   year: number;
@@ -131,7 +136,7 @@ function getFormatter(timeZoneId: string) {
       second: '2-digit',
     });
   } catch {
-    throw new Error(`无法识别 IANA 时区 ${timeZoneId}。`);
+    throw new RangeError(`无法识别 IANA 时区 ${timeZoneId}。`);
   }
 }
 
@@ -173,7 +178,8 @@ function offsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number) {
     parts.minute,
     parts.second,
   );
-  return Number(((representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000).toFixed(6));
+  // 历史偏移可精确到秒；截成六位小时小数会在反解墙钟时丢失一秒。
+  return (representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000;
 }
 
 /** 读取指定真实瞬时点在 IANA 时区中的历史 UTC 偏移。 */
@@ -195,6 +201,16 @@ export function resolveHistoricalTimezone(
   input: HistoricalTimezoneInput,
 ): HistoricalTimezoneEvidence {
   if (!input.timeZoneId?.trim()) throw new Error('IANA 时区名不能为空。');
+  const maxDay = daysInGregorianMonth(input.year, input.month);
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > maxDay) {
+    throw new Error(`当地日期需在 1-${maxDay} 日之间。`);
+  }
+  if (!isValidClockTime(input.hour, input.minute, input.second)) {
+    throw new Error('当地时刻需要有效的 24 小时制时分秒。');
+  }
+  if (input.fixedOffsetHours !== undefined && !Number.isFinite(input.fixedOffsetHours)) {
+    throw new Error('固定 UTC 偏移需要有效数字。');
+  }
   const timeZoneId = input.timeZoneId.trim();
   const formatter = getFormatter(timeZoneId);
   const target: WallClockParts = {
@@ -242,13 +258,13 @@ export function resolveHistoricalTimezone(
   const diagnostics = [
     matches.length > 1
       ? ambiguityResolvedByFixedOffset
-        ? `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；已按固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours} 选择 ${toIso(selected.timestamp)}。`
+        ? `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；已按固定偏移 UTC${formatUtcOffsetHours(fixedOffsetHours!)} 选择 ${toIso(selected.timestamp)}。`
         : `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；未提供可用于消歧的固定偏移，默认选择较早的 ${toIso(selected.timestamp)}，调用方应结合出生记录确认。`
       : '该当地时刻在当前 IANA 时区数据库中只有一个 UTC 对应时刻。',
   ];
   if (offsetConflict) {
     diagnostics.push(
-      `输入固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours} 与 IANA 历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset} 不一致。`,
+      `输入固定偏移 UTC${formatUtcOffsetHours(fixedOffsetHours!)} 与 IANA 历史偏移 UTC${formatUtcOffsetHours(selected.offset)} 不一致。`,
     );
   }
   const source = 'IANA 时区规则由 Intl.DateTimeFormat 解析；不使用按当前时区反推历史的固定偏移假设';
@@ -295,7 +311,7 @@ export function resolveHistoricalTimezone(
       promptText:
         matches.length > 1
           ? ambiguityResolvedByFixedOffset
-            ? `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，按固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours}选择${toIso(selected.timestamp)}`
+            ? `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，按固定偏移 UTC${formatUtcOffsetHours(fixedOffsetHours!)}选择${toIso(selected.timestamp)}`
             : `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，未提供可用于消歧的固定偏移，暂取较早的${toIso(selected.timestamp)}`
           : `当地钟表时间${wallClockDateTime}唯一映射为 UTC ${toIso(selected.timestamp)}`,
       sources: ['IANA 当地钟表时间反向匹配'],
@@ -315,8 +331,8 @@ export function resolveHistoricalTimezone(
         fixedOffsetHours === undefined
           ? '未另给固定 UTC 偏移，仅保留 IANA 历史偏移结果'
           : offsetConflict
-            ? `固定偏移 UTC${fixedOffsetHours >= 0 ? '+' : ''}${fixedOffsetHours} 与 IANA 历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}不一致`
-            : `固定偏移与 IANA 历史偏移一致，均为 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}`,
+            ? `固定偏移 UTC${formatUtcOffsetHours(fixedOffsetHours)} 与 IANA 历史偏移 UTC${formatUtcOffsetHours(selected.offset)}不一致`
+            : `固定偏移与 IANA 历史偏移一致，均为 UTC${formatUtcOffsetHours(selected.offset)}`,
       sources: ['明确固定偏移与 IANA 历史偏移比较'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -343,7 +359,7 @@ export function resolveHistoricalTimezone(
           ? '没有另列固定 UTC 偏移，无法进行偏移一致性比较'
           : offsetConflict
             ? diagnostics[1]
-            : `固定偏移与 IANA 历史偏移一致，均为 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。`,
+            : `固定偏移与 IANA 历史偏移一致，均为 UTC${formatUtcOffsetHours(selected.offset)}。`,
       sources: ['明确固定偏移与 IANA 历史偏移比较'],
       limitation: DIAGNOSTIC_FACT_LIMITATION,
     },
@@ -364,7 +380,7 @@ export function resolveHistoricalTimezone(
     key: 'historical-timezone:diagnostic-summary',
     status: summaryStatus,
     factKeys: diagnosticFacts.map((item) => item.key),
-    promptText: `历史时区诊断为${summaryStatus}；采用 UTC ${toIso(selected.timestamp)}、偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}`,
+    promptText: `历史时区诊断为${summaryStatus}；采用 UTC ${toIso(selected.timestamp)}、偏移 UTC${formatUtcOffsetHours(selected.offset)}`,
     sources: ['当地时刻映射与固定偏移核验汇总'],
     limitation: DIAGNOSTIC_SUMMARY_LIMITATION,
   };
@@ -445,6 +461,6 @@ export function resolveHistoricalTimezone(
     limitations,
     limitationFacts,
     source,
-    promptText: `历史时区证据：${timeZoneId} 的当地钟表时间${wallClockDateTime}映射为 UTC ${toIso(selected.timestamp)}，历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。诊断汇总：${diagnosticSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+    promptText: `历史时区证据：${timeZoneId} 的当地钟表时间${wallClockDateTime}映射为 UTC ${toIso(selected.timestamp)}，历史偏移 UTC${formatUtcOffsetHours(selected.offset)}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。诊断汇总：${diagnosticSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

@@ -1,48 +1,140 @@
-import type { LiurenData, LiurenLesson } from '../types/divination';
-import { BRANCH_WUXING, STEM_WUXING, isSheng, isKe } from '../ganzhi';
+import type {
+  LiurenData,
+  LiurenGuaTiFact,
+  LiurenLesson,
+  LiurenTransmission,
+} from '../types/divination';
+import { isSheng, isKe } from '../ganzhi';
+import { getGanZhiAttributeTables } from '../ganzhi/data';
 import { getLiurenOrdinaryCandidateStatusLabel } from '../divination/liuren-ordinary-adjudication';
+import { getGanZhiRelationTables } from '../ganzhi/relations';
 
-function formatRelation(source: string, target: string, sourceName: string, targetName: string) {
-  const sourceElement = STEM_WUXING[source] || BRANCH_WUXING[source];
-  const targetElement = STEM_WUXING[target] || BRANCH_WUXING[target];
-  if (!sourceElement || !targetElement) return '';
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
+const { STEM_WUXING } = getGanZhiAttributeTables();
+
+const TRANSMISSION_MEMBER_CONDITIONS = new Set([
+  '三传各为子午卯酉四仲之一',
+  '三传各为寅申巳亥四孟之一',
+  '三传各为辰戌丑未四季之一',
+  '三传亥卯未全',
+  '三传巳酉丑全',
+  '三传寅午戌全',
+  '三传申子辰全',
+  '三传依次为午、卯、子',
+]);
+
+export function formatLiurenGuaTiWithTransmissions(fact: LiurenGuaTiFact): string {
+  const conditions = fact.matchedConditions.filter(
+    (condition) => !TRANSMISSION_MEMBER_CONDITIONS.has(condition),
+  );
+  return `${fact.name}${conditions.length ? `：${conditions.join('；')}` : ''}（${fact.sourceTitle}）`;
+}
+
+function isTransmissionMonthStateInTiming(
+  timingEvidence: readonly string[],
+  transmission: Pick<LiurenTransmission, 'stage' | 'branch' | 'seasonState'> | undefined,
+) {
+  if (!transmission?.seasonState) return false;
+  const marker = `${transmission.stage}${transmission.branch}（月令${transmission.seasonState}`;
+  return timingEvidence.some((fact) => fact.includes(marker));
+}
+
+export function omitRepeatedLiurenFocusMonthState(
+  evidence: readonly string[],
+  timingEvidence: readonly string[],
+  transmission: Pick<LiurenTransmission, 'stage' | 'branch' | 'seasonState'> | undefined,
+) {
+  if (
+    !transmission?.seasonState ||
+    !isTransmissionMonthStateInTiming(timingEvidence, transmission)
+  ) {
+    return [...evidence];
+  }
+  return evidence.filter((fact) => fact !== `月令${transmission.seasonState}`);
+}
+
+export function omitRepeatedLiurenRidingMonthState(
+  promptText: string,
+  timingEvidence: readonly string[],
+  transmission: Pick<LiurenTransmission, 'stage' | 'branch' | 'seasonState'> | undefined,
+) {
+  if (
+    !transmission?.seasonState ||
+    !isTransmissionMonthStateInTiming(timingEvidence, transmission)
+  ) {
+    return promptText;
+  }
+  return promptText.replace(`，月令${transmission.seasonState}`, '');
+}
+
+export function formatLiurenRoleRelation(
+  source: string,
+  target: string,
+  sourceName: string,
+  targetName: string,
+) {
+  const sourceElement = STEM_WUXING[source] || GANZHI_RELATION_TABLES.BRANCH_WUXING[source];
+  const targetElement = STEM_WUXING[target] || GANZHI_RELATION_TABLES.BRANCH_WUXING[target];
+  if (!sourceElement || !targetElement) return undefined;
   const from = `${sourceName}${source}${sourceElement}`;
   const to = `${targetName}${target}${targetElement}`;
-  if (sourceElement === targetElement) return `${from}与${to}比和`;
-  if (isSheng(sourceElement, targetElement)) return `${from}生${to}`;
-  if (isSheng(targetElement, sourceElement)) return `${to}生${from}`;
-  if (isKe(sourceElement, targetElement)) return `${from}克${to}`;
-  if (isKe(targetElement, sourceElement)) return `${to}克${from}`;
-  return '';
+  if (sourceElement === targetElement) return { summary: '比和', detail: `${from}与${to}比和` };
+  if (isSheng(sourceElement, targetElement))
+    return { summary: `${sourceElement}生${targetElement}`, detail: `${from}生${to}` };
+  if (isSheng(targetElement, sourceElement))
+    return { summary: `${targetElement}生${sourceElement}`, detail: `${to}生${from}` };
+  if (isKe(sourceElement, targetElement))
+    return { summary: `${sourceElement}克${targetElement}`, detail: `${from}克${to}` };
+  if (isKe(targetElement, sourceElement))
+    return { summary: `${targetElement}克${sourceElement}`, detail: `${to}克${from}` };
+  return undefined;
 }
 
 export function formatLiurenLesson(item: LiurenLesson): string {
-  const relation = formatRelation(item.upper, item.lower, '上神', '下位');
-  return `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}${relation ? `；${relation}` : ''}`;
+  const relation = formatLiurenRoleRelation(item.upper, item.lower, '上神', '下位');
+  const extraRelation = item.relation === relation?.summary ? '' : `，${item.relation}`;
+  return `${item.name}${item.upper}临${item.lower}乘${item.god}${extraRelation}${relation ? `；${relation.detail}` : ''}`;
 }
 
 export function formatLiurenTransmission(data: LiurenData, index: number): string {
   const item = data.threeTransmissions[index];
+  const isVoid = data.xunKong ? data.xunKong.includes(item.branch) : item.isVoid;
   const previous =
     index === 0 ? data.fourLessons[0]?.lower : data.threeTransmissions[index - 1]?.branch;
   const previousName = index === 0 ? '一课下位' : data.threeTransmissions[index - 1].stage;
-  const relation = previous ? formatRelation(item.branch, previous, item.stage, previousName) : '';
-  return `${item.stage}${item.branch}乘${item.god}，${item.relation}${item.isVoid ? '（空）' : ''}${relation ? `；${relation}` : ''}`;
+  const relation = previous
+    ? formatLiurenRoleRelation(item.branch, previous, item.stage, previousName)
+    : undefined;
+  const extraRelation = item.relation === relation?.summary ? '' : `，${item.relation}`;
+  return `${item.stage}${item.branch}乘${item.god}${extraRelation}${isVoid ? '（空）' : ''}${relation ? `；${relation.detail}` : ''}`;
 }
 
 export function formatLiurenOrdinaryTransmissionAdjudication(data: LiurenData): string {
   const adjudication = data.ordinaryTransmissionAdjudication;
   if (!adjudication) return '';
 
+  const priorityReasons = Array.from(
+    new Set(
+      adjudication.candidates
+        .filter((candidate) => candidate.status === 'suppressedByPrior')
+        .map((candidate) => candidate.reasons.at(-1))
+        .filter((reason): reason is string => Boolean(reason)),
+    ),
+  );
   const stageReasons = Array.from(
     new Set(
       adjudication.stages
-        .filter((stage) => stage.status !== 'notApplicable')
+        .filter(
+          (stage) =>
+            stage.status !== 'notApplicable' &&
+            (stage.status !== 'suppressedByPrior' || priorityReasons.length === 0),
+        )
         .map((stage) => stage.reason)
         .filter(Boolean),
     ),
   );
   const candidateText = adjudication.candidates
+    .filter((candidate) => candidate.status !== 'suppressedByPrior')
     .map(
       (candidate) =>
         `${candidate.kind}${candidate.upper}（${getLiurenOrdinaryCandidateStatusLabel(candidate)}：${candidate.reasons.at(-1) || '按普通宗门次序核验'}）`,
@@ -51,7 +143,15 @@ export function formatLiurenOrdinaryTransmissionAdjudication(data: LiurenData): 
   const selectionText =
     adjudication.status === 'selected'
       ? `最终按${adjudication.selectedRule}取${adjudication.selectedInitial}发用`
-      : `普通宗门未取定，转入${data.transmissionRule || '特殊课'}取传`;
+      : data.transmissionRule
+        ? `按${data.transmissionRule}${data.threeTransmissions[0]?.branch ? `取${data.threeTransmissions[0].branch}发用` : '取传'}`
+        : '常用取传规则待核';
 
-  return `普通宗门裁决：${stageReasons.join('；')}；${selectionText}${candidateText ? `；候选取舍：${candidateText}` : ''}`;
+  return `初传取法：${[
+    ...new Set([...stageReasons, ...priorityReasons]),
+    selectionText,
+    candidateText ? `候选取舍：${candidateText}` : '',
+  ]
+    .filter(Boolean)
+    .join('；')}`;
 }

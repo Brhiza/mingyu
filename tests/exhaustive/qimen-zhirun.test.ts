@@ -32,9 +32,17 @@ test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒
   ];
   const upperFuTou = new Set(['甲子', '己卯', '甲午', '己酉']);
   const zhirunTerms = new Set(['芒种', '大雪']);
+  const resultCache = new Map<
+    number,
+    { dayGanZhi: string; result: ReturnType<typeof getQimenJuShu> }
+  >();
   const getResult = (solarDay: Date) => {
+    const timestamp = solarDay.getTime();
+    const cached = resultCache.get(timestamp);
+    if (cached) return cached;
+
     const info = LunarUtil.getTimeInfo(solarDay);
-    return {
+    const value = {
       dayGanZhi: info.ganzhi.day,
       result: getQimenJuShu(
         {
@@ -45,6 +53,8 @@ test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒
         'zhirun',
       ),
     };
+    resultCache.set(timestamp, value);
+    return value;
   };
   const addDays = (date: Date, days: number) => {
     const result = new Date(date);

@@ -7,11 +7,21 @@ import type {
 } from './baziTypes';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
 import { resolveBirthCalendarClockTime } from '../calendar/true-solar-time';
-import { MONTH_COMMANDER, TIME_MAP } from './baziDefinitions';
+import { getTimeIndexFromClock } from '../calendar/dateUtils';
+import { checkChinaDst } from '../calendar/china-dst';
+import {
+  getHistoricalTimezoneOffsetAt,
+  resolveHistoricalTimezone,
+} from '../calendar/historical-timezone';
+import { MONTH_COMMANDER } from './baziDefinitions';
 import { resolveShenShaVariantConfig } from './baziShenSha';
 import { SolarTerm } from 'tyme4ts';
+import { getBaziTimePeriods } from './baziDisplayData';
+
+const TIME_MAP = getBaziTimePeriods();
 
 const SECOND = 1_000;
+const HOUR = 60 * 60 * SECOND;
 const DAY = 24 * 60 * 60 * SECOND;
 const BEIJING_OFFSET = 8 * 60 * 60 * SECOND;
 const JIE_MONTH_BRANCH: Readonly<Record<string, string>> = {
@@ -34,7 +44,8 @@ type UnknownTimeScenarioSource =
   | 'shichen-representative'
   | 'day-end'
   | 'solar-term-boundary'
-  | 'month-commander-boundary';
+  | 'month-commander-boundary'
+  | 'dst-boundary';
 
 export interface UnknownTimeCandidatePoint {
   hour: number;
@@ -44,6 +55,8 @@ export interface UnknownTimeCandidatePoint {
   timeName: string;
   boundaryName?: string;
   boundarySide?: 'before' | 'at';
+  dstInterpretation?: 'daylight' | 'standard';
+  timezone?: number;
 }
 
 function pad(value: number): string {
@@ -52,6 +65,20 @@ function pad(value: number): string {
 
 function formatClock(point: Pick<UnknownTimeCandidatePoint, 'hour' | 'minute' | 'second'>): string {
   return `${pad(point.hour)}:${pad(point.minute)}:${pad(point.second)}`;
+}
+
+function getIanaCandidateOffsets(
+  clock: { year: number; month: number; day: number; hour: number; minute: number; second: number },
+  timeZoneId: string,
+): number[] {
+  try {
+    return resolveHistoricalTimezone({ ...clock, timeZoneId }).possibleOffsetsHours;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('不存在，通常由夏令时跳时造成')) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 function toBeijingTimestamp(time: {
@@ -82,6 +109,50 @@ function getFirstEffectiveTimestamp(term: ReturnType<typeof SolarTerm.fromIndex>
     : roundedTimestamp;
 }
 
+function clockFromTimestamp(timestamp: number) {
+  const date = new Date(timestamp);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
+  };
+}
+
+function wallClockFromStandardTimestamp(timestamp: number, person: Person) {
+  if (person.timeZoneId) {
+    const offset = getHistoricalTimezoneOffsetAt(new Date(timestamp), person.timeZoneId);
+    return {
+      timestamp: timestamp + offset * HOUR,
+      dstInterpretation: 'standard' as const,
+      timezone: offset,
+    };
+  }
+  if (person.timezone !== undefined && !person.applyChinaDst) {
+    return {
+      timestamp: timestamp + person.timezone * HOUR,
+      dstInterpretation: 'standard' as const,
+    };
+  }
+  const beijingClockTimestamp = timestamp + BEIJING_OFFSET;
+  const daylightClock = clockFromTimestamp(beijingClockTimestamp + HOUR);
+  const daylight = person.applyChinaDst
+    ? checkChinaDst(
+        daylightClock.year,
+        daylightClock.month,
+        daylightClock.day,
+        daylightClock.hour,
+        daylightClock.minute,
+      )
+    : undefined;
+  if (daylight?.inDst && !daylight.nonexistent) {
+    return { timestamp: beijingClockTimestamp + HOUR, dstInterpretation: 'daylight' as const };
+  }
+  return { timestamp: beijingClockTimestamp, dstInterpretation: 'standard' as const };
+}
+
 function collectBoundaryCandidatePoints(person: Person): UnknownTimeCandidatePoint[] {
   const solarDate = resolveBirthCalendarClockTime({
     dateType: person.isLunar ? 'lunar' : 'solar',
@@ -105,7 +176,6 @@ function collectBoundaryCandidatePoints(person: Person): UnknownTimeCandidatePoi
     source: Extract<UnknownTimeScenarioSource, `${string}-boundary`>,
     name: string,
   ) => {
-    if (timestamp <= dayStart || timestamp >= dayEnd) return;
     const existing = boundaries.get(timestamp) ?? [];
     existing.push({ source, name });
     boundaries.set(timestamp, existing);
@@ -143,11 +213,14 @@ function collectBoundaryCandidatePoints(person: Person): UnknownTimeCandidatePoi
 
   const points: UnknownTimeCandidatePoint[] = [];
   for (const [timestamp, facts] of [...boundaries].sort((left, right) => left[0] - right[0])) {
-    for (const [side, pointTimestamp] of [
+    for (const [side, standardTimestamp] of [
       ['before', timestamp - SECOND],
       ['at', timestamp],
     ] as const) {
-      const local = new Date(pointTimestamp + BEIJING_OFFSET);
+      const wall = wallClockFromStandardTimestamp(standardTimestamp, person);
+      const pointTimestamp = wall.timestamp - BEIJING_OFFSET;
+      if (pointTimestamp < dayStart || pointTimestamp >= dayEnd) continue;
+      const local = new Date(wall.timestamp);
       const hour = local.getUTCHours();
       const minute = local.getUTCMinutes();
       const second = local.getUTCSeconds();
@@ -161,12 +234,45 @@ function collectBoundaryCandidatePoints(person: Person): UnknownTimeCandidatePoi
           source: fact.source,
           boundaryName: fact.name,
           boundarySide: side,
+          ...(person.applyChinaDst === true ? { dstInterpretation: wall.dstInterpretation } : {}),
+          ...('timezone' in wall ? { timezone: wall.timezone } : {}),
           timeName: `${fact.name}${sideLabel}${clock}候选`,
         });
       }
     }
   }
   return points;
+}
+
+function collectDstBoundaryCandidatePoints(
+  person: Person,
+  solarDate: { year: number; month: number; day: number },
+): UnknownTimeCandidatePoint[] {
+  if (person.applyChinaDst !== true) return [];
+  const gap = checkChinaDst(solarDate.year, solarDate.month, solarDate.day, 2);
+  const repeated = checkChinaDst(solarDate.year, solarDate.month, solarDate.day, 1);
+  const clocks = gap.nonexistent
+    ? ([
+        [1, 59, 59, '跳时前'],
+        [3, 0, 0, '跳时后'],
+      ] as const)
+    : repeated.ambiguous
+      ? ([
+          [0, 59, 59, '回拨前'],
+          [1, 0, 0, '重复时段起'],
+          [1, 59, 59, '重复时段末'],
+          [2, 0, 0, '回拨后'],
+        ] as const)
+      : [];
+  return clocks.map(([hour, minute, second, name]) => ({
+    hour,
+    minute,
+    second,
+    source: 'dst-boundary',
+    boundaryName: `中国历史夏令时${name}`,
+    boundarySide: name.endsWith('前') ? 'before' : 'at',
+    timeName: `中国历史夏令时${name}${formatClock({ hour, minute, second })}候选`,
+  }));
 }
 
 type UnknownTimeScenario = NonNullable<BaziChartResult['unknownTimeAnalysis']>['scenarios'][number];
@@ -195,6 +301,8 @@ function buildScenarioKey(point: UnknownTimeCandidatePoint): string {
     formatClock(point),
     point.boundaryName ?? 'point',
     point.boundarySide ?? 'point',
+    ...(point.dstInterpretation ? [point.dstInterpretation] : []),
+    ...(point.timezone !== undefined ? [point.timezone] : []),
   ].join(':');
 }
 
@@ -202,6 +310,19 @@ export function discoverUnknownTimeCandidates(person: Person): UnknownTimeCandid
   if (person.useTrueSolarTime) {
     throw new Error('出生时辰未知，补齐出生时分后才能校正真太阳时。');
   }
+  if (person.applyChinaDst && person.timeZoneId) {
+    throw new Error('timeZoneId 已包含历史夏令时规则，不能同时启用 applyChinaDst。');
+  }
+  const solarDate = resolveBirthCalendarClockTime({
+    dateType: person.isLunar ? 'lunar' : 'solar',
+    year: person.year,
+    month: person.month,
+    day: person.day,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    isLeapMonth: person.isLeapMonth,
+  });
   const candidateInput: Person = {
     ...person,
     isThreePillars: false,
@@ -218,13 +339,46 @@ export function discoverUnknownTimeCandidates(person: Person): UnknownTimeCandid
       source: 'day-start',
       timeName: '日初00:00:00候选',
     },
-    ...TIME_MAP.map((time) => ({
-      hour: time.hour,
-      minute: time.minute,
-      second: 0,
-      source: 'shichen-representative' as const,
-      timeName: `${time.name}候选`,
-    })),
+    ...TIME_MAP.flatMap((time) => {
+      const timeZoneId = person.timeZoneId;
+      const representative = { ...solarDate, hour: time.hour, minute: time.minute, second: 0 };
+      const hasAllowedOffset = (clock: Parameters<typeof getIanaCandidateOffsets>[0]) =>
+        getIanaCandidateOffsets(clock, timeZoneId!).some(
+          (offset) => person.timezone === undefined || Math.abs(offset - person.timezone) <= 1e-6,
+        );
+      let hour: number = time.hour;
+      let minute: number = time.minute;
+      if (timeZoneId && !hasAllowedOffset(representative)) {
+        // 中点处于跳时缺口或不符合给定偏移时，取同一时辰内有效的钟表时刻。
+        const fallback = [
+          { hour: time.hour - 1, minute: 30 },
+          { hour: time.hour, minute: 30 },
+          { hour: time.hour - 1, minute: 0 },
+          { hour: time.hour, minute: 0 },
+        ].find(
+          (candidate) =>
+            candidate.hour >= 0 &&
+            candidate.hour < 24 &&
+            getTimeIndexFromClock(candidate.hour, candidate.minute) === time.index &&
+            hasAllowedOffset({ ...solarDate, ...candidate, second: 0 }),
+        );
+        if (!fallback) return [];
+        hour = fallback.hour;
+        minute = fallback.minute;
+      }
+      return [
+        {
+          hour,
+          minute,
+          second: 0,
+          source: 'shichen-representative' as const,
+          timeName:
+            hour === time.hour && minute === time.minute
+              ? `${time.name}候选`
+              : `${time.name}${formatClock({ hour, minute, second: 0 })}候选`,
+        },
+      ];
+    }),
     {
       hour: 23,
       minute: 59,
@@ -233,37 +387,94 @@ export function discoverUnknownTimeCandidates(person: Person): UnknownTimeCandid
       timeName: '日末23:59:59候选',
     },
     ...collectBoundaryCandidatePoints(person),
+    ...collectDstBoundaryCandidatePoints(person, solarDate),
   ];
 
-  return points.map((point, index) => ({
-    point,
-    scenarioKey: buildScenarioKey(point),
-    person:
-      index === 0
-        ? {
-            ...candidateInput,
-            timeIndex: 0,
-            birthHour: 0,
-            birthMinute: 0,
-            birthSecond: 0,
-          }
-        : index <= TIME_MAP.length
-          ? { ...candidateInput, timeIndex: index - 1 }
-          : index === TIME_MAP.length + 1
+  const candidates = points.flatMap<UnknownTimeCandidate>((point) => {
+    const clock = { ...solarDate, hour: point.hour, minute: point.minute, second: point.second };
+    if (person.timeZoneId) {
+      const offsets = getIanaCandidateOffsets(clock, person.timeZoneId).filter(
+        (offset) =>
+          (point.timezone === undefined || Math.abs(offset - point.timezone) <= 1e-6) &&
+          (person.timezone === undefined || Math.abs(offset - person.timezone) <= 1e-6),
+      );
+      return offsets.map((timezone) => {
+        const disambiguatedPoint =
+          offsets.length > 1
             ? {
-                ...candidateInput,
-                timeIndex: 12,
-                birthHour: 23,
-                birthMinute: 59,
-                birthSecond: 59,
+                ...point,
+                timezone,
+                timeName: `${point.timeName}（UTC${timezone >= 0 ? '+' : ''}${timezone}）`,
               }
-            : {
-                ...candidateInput,
-                birthHour: point.hour,
-                birthMinute: point.minute,
-                birthSecond: point.second,
-              },
-  }));
+            : point;
+        return {
+          point: disambiguatedPoint,
+          scenarioKey: buildScenarioKey(disambiguatedPoint),
+          person: {
+            ...candidateInput,
+            isLunar: false,
+            isLeapMonth: false,
+            year: clock.year,
+            month: clock.month,
+            day: clock.day,
+            birthHour: clock.hour,
+            birthMinute: clock.minute,
+            birthSecond: clock.second,
+            timezone,
+          },
+        };
+      });
+    }
+    const dst = person.applyChinaDst
+      ? checkChinaDst(clock.year, clock.month, clock.day, clock.hour, clock.minute)
+      : undefined;
+    if (dst?.nonexistent) return [];
+    const interpretations = dst?.ambiguous
+      ? (['daylight', 'standard'] as const)
+      : ([dst?.inDst ? 'daylight' : 'standard'] as const);
+    return interpretations
+      .filter((interpretation) =>
+        point.dstInterpretation ? interpretation === point.dstInterpretation : true,
+      )
+      .map((interpretation) => {
+        const standard = clockFromTimestamp(
+          Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, clock.second) -
+            (interpretation === 'daylight' ? HOUR : 0),
+        );
+        const disambiguatedPoint = dst?.ambiguous
+          ? {
+              ...point,
+              dstInterpretation: interpretation,
+              timeName: `${point.timeName}${interpretation === 'daylight' ? '（回拨前）' : '（回拨后）'}`,
+            }
+          : point;
+        return {
+          point: disambiguatedPoint,
+          scenarioKey: buildScenarioKey(disambiguatedPoint),
+          person: {
+            ...candidateInput,
+            isLunar: false,
+            isLeapMonth: false,
+            year: standard.year,
+            month: standard.month,
+            day: standard.day,
+            birthHour: standard.hour,
+            birthMinute: standard.minute,
+            birthSecond: standard.second,
+            ...(point.timezone !== undefined && candidateInput.timezone === undefined
+              ? { timezone: point.timezone }
+              : {}),
+            applyChinaDst: false,
+          },
+        };
+      });
+  });
+  if (!candidates.length && person.timeZoneId && person.timezone !== undefined) {
+    throw new Error(
+      `timezone 固定偏移 UTC${person.timezone >= 0 ? '+' : ''}${person.timezone} 与 ${person.timeZoneId} 在该日期所有有效当地时刻的历史偏移不一致。`,
+    );
+  }
+  return candidates;
 }
 
 export function buildUnknownTimeScenario(
@@ -285,9 +496,15 @@ export function buildUnknownTimeScenario(
       : {}),
     timeIndex: chart.timeInfo.index,
     timeName: point.timeName,
+    solarDate: { ...chart.solarDate },
+    lunarDate: { ...chart.lunarDate },
     pillars: chart.pillars,
     strength: chart.analysis.dayMasterStrength.status,
     pattern: chart.analysis.mingGe.pattern,
+    ...(chart.analysis.mingGe.fulfillment?.status
+      ? { patternStatus: chart.analysis.mingGe.fulfillment.status }
+      : {}),
+    incrementStatus: chart.analysis.usefulGod.incrementStatus,
     favorableWuxing: chart.analysis.usefulGod.favorableWuxing ?? [],
     unfavorableWuxing: chart.analysis.usefulGod.unfavorableWuxing ?? [],
   };
@@ -299,6 +516,23 @@ export function getUnknownTimeUncertainPillars(
   if (!pillars.length) throw new Error('未知时辰候选目录为空。');
   return (['year', 'month', 'day'] as const).filter((key) =>
     pillars.some((item) => item[key].ganZhi !== pillars[0]![key].ganZhi),
+  );
+}
+
+export function getUnknownTimeUncertainCalendarDates(
+  dates: Array<Pick<BaziChartResult, 'solarDate' | 'lunarDate'>>,
+): Array<'solar' | 'lunar'> {
+  if (!dates.length) throw new Error('未知时辰候选目录为空。');
+  const solarDateKey = (date: BaziChartResult['solarDate']) =>
+    `${date.year}-${date.month}-${date.day}`;
+  const lunarDateKey = (date: BaziChartResult['lunarDate']) =>
+    `${date.year}-${date.month}-${date.day}-${date.monthName}-${date.dayName}`;
+  return (['solar', 'lunar'] as const).filter((calendar) =>
+    dates.some((item) =>
+      calendar === 'solar'
+        ? solarDateKey(item.solarDate) !== solarDateKey(dates[0]!.solarDate)
+        : lunarDateKey(item.lunarDate) !== lunarDateKey(dates[0]!.lunarDate),
+    ),
   );
 }
 
@@ -353,16 +587,13 @@ function copyPillars(pillars: Pillars): Pillars {
   };
 }
 
-function restoreUnknownBaseFacts(result: BaziChartResult, base: BaziChartResult): void {
+function restoreUnknownInputFacts(result: BaziChartResult, base: BaziChartResult): void {
   result.gender = base.gender;
   result.age = base.age;
   result.solarDate = { ...base.solarDate };
   result.lunarDate = { ...base.lunarDate };
-  result.pillars = copyPillars(base.pillars);
-  result.dayMaster = { ...base.dayMaster };
   result.zodiac = base.zodiac;
   result.constellation = base.constellation;
-  result.mingGua = base.mingGua;
   result.warnings = [...base.warnings];
   result.warningFacts = base.warningFacts.map((fact) => ({
     ...fact,
@@ -382,10 +613,18 @@ export function finalizeUnknownBirthTime(
   uncertainPillars: Array<'year' | 'month' | 'day'>,
   options: {
     batch?: BaziUnknownTimeBatchMetadata;
-    baseResult?: BaziChartResult;
+    inputResult?: BaziChartResult;
+    candidateCalendarDates?: Array<Pick<BaziChartResult, 'solarDate' | 'lunarDate'>>;
   } = {},
 ): BaziChartResult {
-  if (options.baseResult) restoreUnknownBaseFacts(result, options.baseResult);
+  if (!options.candidateCalendarDates?.length) {
+    throw new Error('未知时辰需要完整候选历日资料。');
+  }
+  const uncertainCalendarDates = getUnknownTimeUncertainCalendarDates(
+    options.candidateCalendarDates,
+  );
+  if (options.inputResult) restoreUnknownInputFacts(result, options.inputResult);
+  result.pillars = copyPillars(result.pillars);
   const retainedWarnings = result.warnings.filter(
     (warning) => warning !== '出生时辰待补充，完整判断与岁运待确定出生时分后再排。',
   );
@@ -398,6 +637,7 @@ export function finalizeUnknownBirthTime(
     status: '待补时',
     summary,
     uncertainPillars,
+    uncertainCalendarDates,
     scenarios,
     ...(options.batch ? { batch: options.batch } : {}),
   };
@@ -464,6 +704,7 @@ export function finalizeUnknownBirthTime(
   };
   result.timeInfo = { index: -1, name: '时辰未知', range: '待补时', hour: -1, minute: -1 };
   result.timing = undefined;
+  result.birthClockTime = undefined;
   result.warnings = [...retainedWarnings, summary];
   result.warningFacts = retainedWarningFacts;
   result.warningSummaryFact = {
@@ -492,9 +733,18 @@ export function applyUnknownBirthTime(
     candidate,
     chart: calculateCandidate(candidate.person),
   }));
+  const firstChart = calculated[0]?.chart;
+  if (!firstChart) throw new Error('未知时辰候选目录为空。');
   return finalizeUnknownBirthTime(
-    result,
+    firstChart,
     calculated.map(({ chart, candidate }) => buildUnknownTimeScenario(chart, candidate)),
     getUnknownTimeUncertainPillars(calculated.map(({ chart }) => chart.pillars)),
+    {
+      inputResult: result,
+      candidateCalendarDates: calculated.map(({ chart }) => ({
+        solarDate: chart.solarDate,
+        lunarDate: chart.lunarDate,
+      })),
+    },
   );
 }

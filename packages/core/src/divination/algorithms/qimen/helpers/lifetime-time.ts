@@ -8,6 +8,7 @@ import type { QimenLifetimeInput, QimenStagePolicy } from '../../../../types/div
 import {
   resolveCivilTime,
   DEFAULT_CHINA_TIMEZONE_HOURS,
+  formatFixedTimezoneOffset,
   getCivilDateTimeAtFixedOffset,
   type CivilDateTimeParts,
 } from '../../../../calendar/civil-time';
@@ -73,6 +74,7 @@ function parseDateTimeString(dateTimeStr: string): {
     const clean = raw.replace(/[+\-:]/g, '');
     const offH = parseInt(clean.slice(0, 2), 10);
     const offM = clean.length >= 4 ? parseInt(clean.slice(2, 4), 10) : 0;
+    if (offM > 59) throw new RangeError('出生时刻的 UTC 偏移分钟无效。');
     offsetHours = sign * (offH + offM / 60);
   } else if (match[0].endsWith('Z')) {
     offsetHours = 0;
@@ -95,6 +97,13 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
   const { parts: parsedParts, offsetHours: stringOffset } = parseDateTimeString(
     input.birthDateTime,
   );
+  if (
+    stringOffset !== undefined &&
+    input.timezone !== undefined &&
+    stringOffset !== input.timezone
+  ) {
+    throw new RangeError('出生时刻的 UTC 偏移与 timezone 不一致。');
+  }
 
   // 1. 处理历法类型（农历需先转换为公历）
   let solarParts: SolarDateTimeParts;
@@ -221,8 +230,8 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
     solarTerm: solarTermName,
     timeStandard: timeStandard === 'trueSolar' ? '真太阳时' : '法定民用时',
     timeZoneUsed: timeZoneId
-      ? `${timeZoneId} (UTC${effectiveTimezone >= 0 ? '+' : ''}${effectiveTimezone})`
-      : `UTC${effectiveTimezone >= 0 ? '+' : ''}${effectiveTimezone}`,
+      ? `${timeZoneId} (UTC${formatFixedTimezoneOffset(effectiveTimezone)})`
+      : `UTC${formatFixedTimezoneOffset(effectiveTimezone)}`,
     trueSolarOffsetSeconds,
     isDstApplied,
     crossesDate,

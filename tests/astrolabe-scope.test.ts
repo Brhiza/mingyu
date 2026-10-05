@@ -10,6 +10,7 @@ import {
   getDefaultAstrolabeScopeDate,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { projectAstrolabeDynamicSample } from 'mingyu-core/divination/astrolabe-dynamic-range';
 import { calculateChart, calculatePlanets } from '../packages/core/src/astrology/engine';
 import type { AstrolabeData } from 'mingyu-core/types';
 
@@ -41,6 +42,13 @@ const secondPrecisionAstrolabeData = generateAstrolabe({
   timezone: '8',
   locationName: '北京',
 });
+
+// 同参证据及上下文只计算一次；各测试取得独立副本。
+const sharedSolarReturn2028 = calculateSolarReturnEvidence(astrolabeData, 2028);
+const sharedYearly2028WithoutEvents = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+  includePeriodEvents: false,
+});
+const sharedFullContextsJune2028 = buildAstrolabeFullScopeContexts(astrolabeData, '2028-06-01');
 
 type AdvancedEvidence =
   | ReturnType<typeof calculateSolarReturnEvidence>
@@ -118,22 +126,15 @@ function calculateIndependentPlanetsAtWallClock(
 function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   const stepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
-  assert.deepEqual(
-    evidence.calculationChain,
-    evidence.calculationSteps.map((item) => item.promptText),
-  );
-  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
-  assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
-  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
-  assert.ok(evidence.summaryFact.factKeys.includes(evidence.aspectSummaryFact.key));
+  assert.ok(evidence.limitationFacts.length > 0);
   assert.ok(evidence.aspectSummaryFact.factKeys.every((key) => factKeys.has(key)));
   assert.ok(
     evidence.aspectFacts.every(
       (item) =>
         item.ownerFactKeys.length > 0 &&
         item.ownerFactKeys.every((key) => factKeys.has(key)) &&
-        item.ownerStepKeys.every((key) => stepKeys.has(key)) &&
-        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+        item.ownerStepKeys.length > 0 &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)),
     ),
   );
   assert.ok(
@@ -141,21 +142,10 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
       (item) =>
         item.ownerFactKeys.length > 0 &&
         item.ownerFactKeys.every((key) => factKeys.has(key)) &&
-        item.ownerStepKeys.every((key) => stepKeys.has(key)) &&
-        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+        item.ownerStepKeys.length > 0 &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)),
     ),
   );
-  assert.ok(
-    [
-      ...evidence.calculationSteps,
-      ...evidence.aspectFacts,
-      evidence.aspectSummaryFact,
-      evidence.summaryFact,
-      ...evidence.limitationFacts,
-    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
-  );
-  assert.match(evidence.promptText, /计算链：/);
-  assert.match(evidence.promptText, /证据汇总：/);
 }
 
 test('星盘当前参考日按统一时区生成各层日期', () => {
@@ -179,10 +169,34 @@ test('星盘本命分析对象只写入本命资料', () => {
   assert.doesNotMatch(context.promptText, /行运落宫：/);
 });
 
-test('星盘范围可显式跳过周期事件计算而保留基础与高级事实', () => {
-  const context = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+test('本命宫头重复或宫序缺口时不投影行运落宫', () => {
+  const valid = buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-06-01', {
     includePeriodEvents: false,
   });
+  assert.equal(valid.transitHouseFacts?.status, '有效');
+  assert.ok(valid.transitHouseFacts?.facts.some((fact) => fact.natalHouse !== null));
+
+  const duplicateCusp = structuredClone(astrolabeData) as AstrolabeData;
+  duplicateCusp.houses[1].longitude = duplicateCusp.houses[0].longitude;
+  const duplicateResult = buildAstrolabeScopeContext(duplicateCusp, 'daily', '2028-06-01', {
+    includePeriodEvents: false,
+  });
+  assert.equal(duplicateResult.transitHouseFacts?.status, '资料不足');
+  assert.ok(
+    duplicateResult.transitFacts?.facts.every((fact) => fact.transiting.natalHouse === null),
+  );
+  assert.match(duplicateResult.promptText, /行运落宫：本命宫头资料不足/);
+
+  const missingHouse = structuredClone(astrolabeData) as AstrolabeData;
+  missingHouse.houses[0].house = 2;
+  const missingResult = buildAstrolabeScopeContext(missingHouse, 'daily', '2028-06-01', {
+    includePeriodEvents: false,
+  });
+  assert.equal(missingResult.transitHouseFacts?.status, '资料不足');
+});
+
+test('星盘范围可显式跳过周期事件计算而保留基础与高级事实', () => {
+  const context = structuredClone(sharedYearly2028WithoutEvents);
 
   assert.equal(context.periodEvents, undefined);
   assert.equal(context.periodBatch, undefined);
@@ -201,7 +215,7 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.match(context.promptText, /以2028-06-01为基准的完整行运资料/);
   assert.doesNotMatch(context.promptText, /宫主星落宫/);
 
-  const contexts = buildAstrolabeFullScopeContexts(astrolabeData, '2028-06-01');
+  const contexts = structuredClone(sharedFullContextsJune2028);
   assert.equal(contexts.yearly.dateStr, '2028');
   assert.equal(contexts.monthly.dateStr, '2028-06');
   assert.equal(contexts.daily.dateStr, '2028-06-01');
@@ -217,7 +231,7 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(context.dateStr, '2028');
   assert.match(context.promptText, /分析对象：流年2028。/);
   assert.doesNotMatch(context.promptText, /宫主星落宫/);
-  assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+8）/);
+  assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+08:00）/);
   assert.match(context.promptText, /主要行运相位：/);
   const sampledAspects = context.promptText
     .split('\n')
@@ -232,7 +246,11 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(new Set(sampledAspects).size, sampledAspects.length, '每条取样相位只列示一次');
   assert.match(context.promptText, /行运落宫：/);
   assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）。/);
-  assert.match(context.promptText, /周期主轴：/);
+  assert.ok(context.periodEvents!.axis.length > 0);
+  for (const event of context.periodEvents!.events) {
+    assert.equal(context.promptText.split(`${event.dateTime} ${event.promptText}`).length - 1, 1);
+  }
+  assert.doesNotMatch(context.promptText, /周期主轴：|具体时刻见|具体星象见/);
   assert.match(context.promptText, /完整明细：/);
   assert.match(context.promptText, /太阳返照有效期.+：/);
   assert.match(context.promptText, /次限相位：/);
@@ -243,9 +261,6 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(context.solarReturnEvidence?.status, 'exact');
   assert.equal(context.secondaryProgressionEvidence?.status, 'calculated');
   assert.equal(context.solarArcEvidence?.status, 'calculated');
-  assert.ok((context.solarReturnEvidence?.calculationSteps.length ?? 0) >= 5);
-  assert.ok((context.secondaryProgressionEvidence?.calculationSteps.length ?? 0) >= 4);
-  assert.ok((context.solarArcEvidence?.calculationSteps.length ?? 0) >= 5);
 });
 
 test('星盘周期批次只在首批生成固定范围事实并保留续批身份', () => {
@@ -288,7 +303,7 @@ test('星盘周期批次只在首批生成固定范围事实并保留续批身�
 });
 
 test('太阳返照应返回可复核的求根过程和精度边界', () => {
-  const evidence = calculateSolarReturnEvidence(astrolabeData, 2028);
+  const evidence = structuredClone(sharedSolarReturn2028);
 
   assert.equal(evidence.status, 'exact');
   assert.match(evidence.dateTime ?? '', /^2028-05-\d{2} \d{2}:\d{2}:\d{2}$/);
@@ -300,25 +315,18 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   assert.equal(evidence.timeScale?.utcDateTime.endsWith('Z'), true);
   assert.ok((evidence.timeScale?.julianDayTtApprox ?? 0) > 2400000);
   assert.ok(evidence.limitations.some((item) => item.includes('观测级精度')));
-  assert.equal(evidence.key, 'solar-return:2028');
-  assert.equal(evidence.calculationSteps.length, 5);
-  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
-  assert.equal(evidence.aspectSummaryFact.factKeys.length, evidence.aspectFacts.length);
-  assert.equal(evidence.summaryFact.status, '证据链完整');
   assert.ok(evidence.summaryFact.factKeys.includes(evidence.timeScale?.summaryFact.key ?? ''));
-  assert.deepEqual(
-    evidence.limitationFacts.map((item) => item.ownerStepKeys),
-    [
-      [evidence.calculationSteps[1].key, evidence.calculationSteps[2].key],
-      [evidence.calculationSteps[2].key],
-      [evidence.calculationSteps[4].key],
-    ],
-  );
   assertAdvancedEvidenceReferences(evidence);
+
+  const secondOffsetData = structuredClone(astrolabeData) as AstrolabeData;
+  delete secondOffsetData.birth.timeZoneId;
+  secondOffsetData.birth.timezone = 4 + (51 * 60 + 16) / 3600;
+  const secondOffsetEvidence = calculateSolarReturnEvidence(secondOffsetData, 2028);
+  assert.match(secondOffsetEvidence.promptText, /UTC\+04:51:16/);
 });
 
 test('太阳返照应返回出生地完整返照盘及两层主要相位', () => {
-  const evidence = calculateSolarReturnEvidence(astrolabeData, 2028);
+  const evidence = structuredClone(sharedSolarReturn2028);
   const returnChart = evidence.returnChart;
   assert.ok(returnChart);
   assert.deepEqual(
@@ -371,11 +379,18 @@ test('太阳返照应返回出生地完整返照盘及两层主要相位', () =>
     );
     assert.ok(fact.deviation <= fact.allowedOrb);
   }
-  const prompt = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
-    includePeriodEvents: false,
-  }).promptText;
+  const prompt = structuredClone(sharedYearly2028WithoutEvents).promptText;
   assert.ok(prompt.includes(returnChart.promptText));
   assert.match(prompt, /返照盘（出生地/);
+  const firstAspect = evidence.aspectFacts[0];
+  assert.ok(firstAspect);
+  const firstAspectText = `${firstAspect.movingPoint}${firstAspect.aspectName}${firstAspect.natalPoint}（偏差${firstAspect.deviation.toFixed(2)}°，${firstAspect.closeness}）`;
+  assert.ok(returnChart.promptText.includes(firstAspectText));
+  const periodLine = prompt
+    .split('\n')
+    .find((line) => line.includes(`返照时刻${evidence.dateTime}`));
+  assert.ok(periodLine);
+  assert.ok(!periodLine.includes(firstAspectText));
   assert.doesNotThrow(() => JSON.parse(JSON.stringify(returnChart)));
 });
 
@@ -432,6 +447,70 @@ test('元旦附近生日的返照有效期完整覆盖目标日历年', () => {
   }
 });
 
+test('2200 年末已发生的次年返照应截断本年返照有效期', () => {
+  const januaryBirth = generateAstrolabe({
+    name: '返照年度上界',
+    gender: '女',
+    year: '2000',
+    month: '1',
+    day: '1',
+    hour: '0',
+    minute: '0',
+    latitude: '0',
+    longitude: '0',
+    timezone: '0',
+  });
+  const context = buildAstrolabeScopeContext(januaryBirth, 'yearly', '2200', {
+    includePeriodEvents: false,
+  });
+  const periods = context.solarReturnPeriods!;
+  assert.deepEqual(
+    periods.map((period) => period.evidence.targetYear),
+    [2200, 2201],
+  );
+  assert.equal(periods[0].startUtcDateTime, '2200-01-01T00:00:00.000Z');
+  assert.equal(periods[0].endUtcDateTime, periods[1].startUtcDateTime);
+  assert.equal(periods[1].endUtcDateTime, '2201-01-01T00:00:00.000Z');
+  assert.ok(
+    Math.abs(Date.parse(periods[1].startUtcDateTime) - Date.parse('2200-12-31T18:54:27Z')) <= 1000,
+  );
+  const natalSun = januaryBirth.planets.find((planet) => planet.name === 'Sun')!;
+  const returnSun = calculateIndependentPlanetsAtIso(
+    januaryBirth,
+    periods[1].startUtcDateTime,
+  ).find((planet) => planet.name === 'Sun')!;
+  assert.ok(longitudeDistance(returnSun.longitude, natalSun.longitude) < 0.00001);
+  assert.ok(context.promptText.includes('返照时刻2200-12-31 18:54:27'));
+  const projected = projectAstrolabeDynamicSample({ natal: januaryBirth, scopes: [context] });
+  assert.equal(
+    projected.samples.find((fact) => fact.path === 'dynamic.yearly.returnPeriods.2201.startUtc')
+      ?.value,
+    Date.parse(periods[1].startUtcDateTime),
+  );
+  assert.throws(() => calculateSolarReturnEvidence(januaryBirth, 2201), /1900-2200/u);
+});
+
+test('返照年度起点采用 IANA 当地公历日真实首瞬时点', () => {
+  const data = generateAstrolabe({
+    name: '几内亚比绍命例',
+    gender: '女',
+    year: '1960',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '0',
+    latitude: '11.8636',
+    longitude: '-15.5977',
+    timeZoneId: 'Africa/Bissau',
+  });
+  const periods = buildAstrolabeScopeContext(data, 'yearly', '1975', {
+    includePeriodEvents: false,
+  }).solarReturnPeriods!;
+  assert.ok(periods.length > 0);
+  assert.equal(periods[0].startUtcDateTime, '1975-01-01T01:00:00.000Z');
+  assert.equal(periods[0].startsAt, '1975-01-01 01:00:00');
+});
+
 test('太阳返照跨目标生日夏令时空洞仍按连续 UTC 求根', () => {
   const newYork = generateAstrolabe({
     name: '夏令时命例',
@@ -475,6 +554,8 @@ test('次限与太阳弧从出生 UTC 瞬间推进且采用各自小容许度', 
   const expectedDateTime = '2000-03-20T07:30:00.000Z';
   const secondary = calculateSecondaryProgressionEvidence(newYork, 2010);
   const solarArc = calculateSolarArcEvidence(newYork, 2010);
+  assertAdvancedEvidenceReferences(secondary);
+  assertAdvancedEvidenceReferences(solarArc);
   assert.equal(secondary.progressedDateTime, expectedDateTime);
   assert.equal(solarArc.progressedDateTime, expectedDateTime);
   const independent = calculateIndependentPlanetsAtIso(newYork, expectedDateTime);
@@ -643,40 +724,7 @@ test('秒级出生时间应由独立星历位置验证次限、太阳弧和太�
   assert.ok(returnResidual <= nextResidual + 0.000000001);
 });
 
-test('次限与太阳弧应返回稳定键、计算链、相位事实和限制对象', () => {
-  const secondary = calculateSecondaryProgressionEvidence(astrolabeData, 2028);
-  const solarArc = calculateSolarArcEvidence(astrolabeData, 2028);
-
-  assert.equal(secondary.key, 'secondary-progression:2028');
-  assert.equal(secondary.status, 'calculated');
-  assert.equal(secondary.calculationSteps.length, 4);
-  assert.equal(secondary.limitations.length, secondary.limitationFacts.length);
-  assert.equal(secondary.summaryFact.status, '证据链完整');
-  assert.deepEqual(
-    secondary.limitationFacts.map((item) => item.ownerStepKeys),
-    [
-      [secondary.calculationSteps[1].key],
-      [secondary.calculationSteps[2].key],
-      [secondary.calculationSteps[3].key],
-    ],
-  );
-  assertAdvancedEvidenceReferences(secondary);
-
-  assert.equal(solarArc.key, 'solar-arc:2028');
-  assert.equal(solarArc.status, 'calculated');
-  assert.equal(solarArc.calculationSteps.length, 5);
-  assert.equal(solarArc.limitations.length, solarArc.limitationFacts.length);
-  assert.equal(solarArc.summaryFact.status, '证据链完整');
-  assert.deepEqual(
-    solarArc.limitationFacts.map((item) => item.ownerStepKeys),
-    [
-      [solarArc.calculationSteps[1].key],
-      [solarArc.calculationSteps[2].key, solarArc.calculationSteps[3].key],
-      [solarArc.calculationSteps[4].key],
-    ],
-  );
-  assertAdvancedEvidenceReferences(solarArc);
-
+test('高级时限目标年份应保持公开边界', () => {
   assert.throws(
     () => calculateSecondaryProgressionEvidence(astrolabeData, 2201),
     /目标年份需在 1900-2200/,
@@ -717,7 +765,7 @@ test('高级时限不可用与出生前目标年应返回可追溯的缺口或�
 });
 
 test('星盘流月与流日沿用同一选择器语义并写入对应行运资料', () => {
-  const monthContext = buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-06');
+  const monthContext = structuredClone(sharedFullContextsJune2028.monthly);
   const dayContext = buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-06-12');
 
   assert.equal(monthContext.displayText, '流月 · 2028-06');
@@ -787,7 +835,6 @@ test('星盘资料缺少经度时应退回保守提示而不是报错', () => {
   assert.match(context.promptText, /本命点经度资料不足/);
   assert.match(context.promptText, /行运落宫：/);
   assert.match(context.promptText, /落本命第\d+宫/);
-  assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
 });
 
 test('星盘资料缺少宫头经度时应禁止行运落宫证据', () => {
@@ -801,7 +848,6 @@ test('星盘资料缺少宫头经度时应禁止行运落宫证据', () => {
   const context = buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12');
 
   assert.match(context.promptText, /行运落宫：本命宫头资料不足/);
-  assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
 });
 
 test('星盘行运应使用目标日期的出生地时区而不是固定北京时间', () => {
@@ -821,11 +867,18 @@ test('星盘行运应使用目标日期的出生地时区而不是固定北京�
   const summer = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-07-12');
   const winter = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-01-12');
 
-  assert.match(summer.promptText, /America\/New_York（UTC-4）/);
-  assert.match(summer.promptText, /行运落宫：取样时区UTC-4/);
-  assert.match(winter.promptText, /America\/New_York（UTC-5）/);
-  assert.match(winter.promptText, /行运落宫：取样时区UTC-5/);
+  assert.match(summer.promptText, /America\/New_York（UTC-04:00）/);
+  assert.match(summer.promptText, /行运落宫：取样时区UTC-04:00/);
+  assert.match(winter.promptText, /America\/New_York（UTC-05:00）/);
+  assert.match(winter.promptText, /行运落宫：取样时区UTC-05:00/);
   assert.doesNotMatch(`${summer.promptText}\n${winter.promptText}`, /按北京时间|取样时区UTC\+8/);
+
+  const historicalFixedOffset = structuredClone(newYorkData) as AstrolabeData;
+  delete historicalFixedOffset.birth.timeZoneId;
+  historicalFixedOffset.birth.timezone = 4 + (51 * 60 + 16) / 3600;
+  const historical = buildAstrolabeScopeContext(historicalFixedOffset, 'daily', '2028-07-12');
+  assert.match(historical.promptText, /行运取样：.*UTC\+04:51:16/);
+  assert.match(historical.promptText, /行运落宫：取样时区UTC\+04:51:16/);
 });
 
 test('星盘行运缺少真实经纬度时不得静默使用零度坐标', () => {

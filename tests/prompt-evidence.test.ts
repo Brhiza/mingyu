@@ -22,6 +22,49 @@ test('证据资料包会过滤空标题、去重并按证据等级输出', () =>
     '【辅证】流月触发｜短期推进',
     '【反证】未见明显刑冲｜标签：保守、合冲刑害',
   ]);
+
+  assert.deepEqual(
+    formatPromptEvidenceBundle({
+      items: [
+        { level: '主证', title: '条件|甲', detail: '乙', source: '丙' },
+        { level: '主证', title: '条件', detail: '甲|乙', source: '丙' },
+        { level: '主证', title: '条件', detail: '甲', source: '乙|丙' },
+      ],
+    }),
+    [
+      '【主证】条件|甲｜乙｜来源：丙',
+      '【主证】条件｜甲|乙｜来源：丙',
+      '【主证】条件｜甲｜来源：乙|丙',
+    ],
+  );
+  assert.deepEqual(
+    formatPromptEvidenceBundle({
+      items: [
+        { level: '辅证', title: '太阴落宫', detail: '已列星曜', tags: ['命宫'] },
+        { level: '辅证', title: '太阴落宫', detail: '已列星曜', tags: ['夫妻宫'] },
+        { level: '辅证', title: ' 太阴落宫 ', detail: ' 已列星曜 ', tags: [' 命宫 '] },
+      ],
+    }),
+    ['【辅证】太阴落宫｜已列星曜｜标签：命宫', '【辅证】太阴落宫｜已列星曜｜标签：夫妻宫'],
+  );
+  assert.deepEqual(
+    formatPromptEvidenceBundle({
+      items: [
+        { level: '主证', title: '同一事实' },
+        { level: '主证', title: ' 同一事实 ', detail: ' ', source: ' ', tags: [] },
+        { level: '主证', title: '同一事实', tags: ['  '] },
+      ],
+    }),
+    ['【主证】同一事实'],
+  );
+  assert.deepEqual(
+    normalizePromptEvidenceItems([
+      { level: '辅证', title: '位置关系', tags: ['命宫', '年限'] },
+      { level: '辅证', title: '位置关系', tags: ['年限', '命宫'] },
+      { level: '辅证', title: '位置关系', tags: ['命宫、年限'] },
+    ]).map((item) => item.tags),
+    [['命宫', '年限'], ['年限', '命宫'], ['命宫、年限']],
+  );
 });
 
 test('证据资料包按证据等级稳定排序', () => {

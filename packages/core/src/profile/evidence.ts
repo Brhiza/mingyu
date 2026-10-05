@@ -7,7 +7,7 @@ export type BirthTimePrecision = 'shichen' | 'minute' | 'second';
 
 export interface BirthTimeCalculationStep {
   key: string;
-  stage: '时间输入核验' | '历法日期换算' | '真太阳时校正' | '时辰确定';
+  stage: '时间输入核验' | '历法日期换算' | '夏令时校正' | '真太阳时校正' | '时辰确定';
   status: '已核验' | '已换算' | '已采用' | '未请求' | '存在阻断诊断';
   dependsOnStepKeys: string[];
   promptText: string;
@@ -85,6 +85,11 @@ export interface BirthTimeEvidenceInput {
   effectiveTime: SolarDateTimeParts;
   usedTrueSolarTime: boolean;
   requestedTrueSolarTime: boolean;
+  chinaDstEvidence?: {
+    offsetMinutes: number;
+    standardTimezone: number;
+    utcDateTime: string;
+  };
   trueSolarEvidence?: TrueSolarTimeEvidenceFields;
   diagnostics: BirthProfileDiagnostic[];
 }
@@ -113,6 +118,7 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
   const inputStepKey = 'birth-profile:time-calculation:input';
   const calendarStepKey = 'birth-profile:time-calculation:calendar';
   const trueSolarStepKey = 'birth-profile:time-calculation:true-solar-time';
+  const chinaDstStepKey = 'birth-profile:time-calculation:china-dst';
   const shichenStepKey = 'birth-profile:time-calculation:shichen';
   const hasBlockingDiagnostic = input.diagnostics.some((item) => item.level === 'error');
   const inputFact: BirthTimeInputFact = {
@@ -131,7 +137,9 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     promptText:
       input.inputMode === 'traditional-shichen'
         ? `出生时间明确选择${input.selectedShichen.name}（${input.selectedShichen.range}），按时辰级精度定盘`
-        : `出生钟表时间明确为${clockTime}，对应${input.selectedShichen.name}`,
+        : input.chinaDstEvidence
+          ? `出生钟表时间明确为${clockTime}，按夏令时回拨后对应${input.selectedShichen.name}`
+          : `出生钟表时间明确为${clockTime}，对应${input.selectedShichen.name}`,
     sources: ['明确出生时间输入', '早子时至晚子时统一时辰目录'],
     limitation: INPUT_FACT_LIMITATION,
   };
@@ -159,6 +167,18 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     },
   ];
 
+  if (input.chinaDstEvidence) {
+    calculationSteps.push({
+      key: chinaDstStepKey,
+      stage: '夏令时校正',
+      status: '已采用',
+      dependsOnStepKeys: [calendarStepKey],
+      promptText: `中国历史夏令时钟表时间${formatDateTime(input.solarClockTime)}回拨${-input.chinaDstEvidence.offsetMinutes}分钟，标准北京时间为${formatDateTime(input.effectiveTime)}（UTC+${input.chinaDstEvidence.standardTimezone}），对应UTC时刻${input.chinaDstEvidence.utcDateTime}`,
+      sources: ['中国1986—1991年历史夏令时钟表时间规则'],
+      limitation: STEP_LIMITATION,
+    });
+  }
+
   if (input.requestedTrueSolarTime) {
     calculationSteps.push({
       key: trueSolarStepKey,
@@ -183,7 +203,13 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     key: shichenStepKey,
     stage: '时辰确定',
     status: hasBlockingDiagnostic ? '存在阻断诊断' : '已采用',
-    dependsOnStepKeys: [input.requestedTrueSolarTime ? trueSolarStepKey : calendarStepKey],
+    dependsOnStepKeys: [
+      input.requestedTrueSolarTime
+        ? trueSolarStepKey
+        : input.chinaDstEvidence
+          ? chinaDstStepKey
+          : calendarStepKey,
+    ],
     promptText: hasBlockingDiagnostic
       ? `当前资料未满足所请求时间口径，不能进入排盘：${input.diagnostics.map((item) => item.message).join('；')}`
       : input.inputMode === 'traditional-shichen'

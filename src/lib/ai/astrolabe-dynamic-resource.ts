@@ -195,6 +195,7 @@ export async function prepareAstrolabeDynamicResource(
   options: AstrolabeDynamicResourceOptions = {},
   dependencies: AstrolabeDynamicResourceDependencies = {},
 ): Promise<PreparedAstrolabeDynamicResource> {
+  options = { ...options };
   const validSource = validateAstrolabeBirthRangeInput(input, source);
   assertRequest(request);
   throwIfAborted(options.signal);

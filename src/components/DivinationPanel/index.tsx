@@ -123,6 +123,7 @@ export function DivinationPanel({
     return activeCase ? applyPersonalCaseToDivinationDraft(initial, activeCase) : initial;
   });
   const [session, setSession] = useState<DivinationSession | null>(null);
+  const [restoredRecordId, setRestoredRecordId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuestionInspirationModalOpen, setIsQuestionInspirationModalOpen] = useState(false);
@@ -134,12 +135,15 @@ export function DivinationPanel({
   const autoSubmitStartedRef = useRef(false);
   const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
-  const { copyState, shareState, handleCopy } = usePromptCopyShare(session?.prompt ?? '');
+  const recordId = searchParams.get('record');
+  const visibleSession = displayMode === 'result' && recordId !== restoredRecordId ? null : session;
+  const { copyState, shareState, handleCopy } = usePromptCopyShare(visibleSession?.prompt ?? '');
 
   useEffect(() => {
     if (displayMode === 'result') return;
     setDraft((current) => applyPersonalCaseToDivinationDraft(current, activeCase));
     setSession(null);
+    setRestoredRecordId(null);
     setError('');
   }, [activeCase, displayMode]);
 
@@ -152,30 +156,48 @@ export function DivinationPanel({
   }, [activeInspirationTab, draft]);
 
   useEffect(() => {
-    const recordId = searchParams.get('record');
     if (!recordId) {
       if (displayMode === 'result') {
+        setSession(null);
+        setRestoredRecordId(null);
         setError('未指定要打开的占问记录');
+        setIsSubmitting(false);
       }
       return;
     }
 
-    const record = getDivinationHistoryById(recordId);
-    if (!record) {
-      setError('未找到对应的占问记录');
-      return;
+    try {
+      const record = getDivinationHistoryById(recordId);
+      if (!record) {
+        setSession(null);
+        setRestoredRecordId(null);
+        setError('未找到对应的占问记录');
+        setIsSubmitting(false);
+        return;
+      }
+
+      setDraft(record.draft);
+      if (record.session.method === 'liuyao' && !record.session.liuyaoRange) {
+        getDivinationSessionSummary(record.session);
+      }
+      setSession(record.session);
+      setRestoredRecordId(recordId);
+      setError('');
+    } catch (cause) {
+      setSession(null);
+      setRestoredRecordId(null);
+      setError(cause instanceof Error ? cause.message : '占问记录无法恢复');
     }
-
-    setDraft(record.draft);
-    setSession(record.session);
-    setError('');
     setIsSubmitting(false);
-  }, [displayMode, searchParams]);
+  }, [displayMode, recordId]);
 
-  const summary = useMemo(() => (session ? getDivinationSessionSummary(session) : null), [session]);
+  const summary = useMemo(
+    () => (visibleSession ? getDivinationSessionSummary(visibleSession) : null),
+    [visibleSession],
+  );
   const readingSubject = useMemo(
-    () => (session ? buildDivinationReadingSubject(draft, session) : undefined),
-    [draft, session],
+    () => (visibleSession ? buildDivinationReadingSubject(draft, visibleSession) : undefined),
+    [draft, visibleSession],
   );
   const specialInspiration = useMemo(() => getDivinationSpecialInspiration(draft), [draft]);
   const inspirationFilters = useMemo(
@@ -359,9 +381,9 @@ export function DivinationPanel({
         <>
           {error ? <p className="error-text workspace-divination-error">{error}</p> : null}
           <DivinationResult
-            key={searchParams.get('record') ?? session?.prompt ?? 'divination-result'}
+            key={recordId ?? visibleSession?.prompt ?? 'divination-result'}
             isSubmitting={isSubmitting}
-            session={session}
+            session={visibleSession}
             summary={summary}
             methodLabelMap={methodLabelMap}
             copyState={copyState}
@@ -378,33 +400,33 @@ export function DivinationPanel({
         </>
       ) : null}
 
-      {isShareModalOpen && session?.prompt ? (
+      {isShareModalOpen && visibleSession?.prompt ? (
         <PromptShareModal
-          promptText={session.prompt}
-          question={session.question || draft.question}
-          methodName={methodLabelMap[session.method] || methodLabelMap[draft.method]}
+          promptText={visibleSession.prompt}
+          question={visibleSession.question || draft.question}
+          methodName={methodLabelMap[visibleSession.method] || methodLabelMap[draft.method]}
           timeLabel={
-            session.huangjiRange
+            visibleSession.huangjiRange
               ? formatHuangjiRangeInterval(
-                  session.huangjiRange.source.startTimestamp,
-                  session.huangjiRange.source.endTimestamp,
+                  visibleSession.huangjiRange.source.startTimestamp,
+                  visibleSession.huangjiRange.source.endTimestamp,
                 )
-              : session.taiyiRange
+              : visibleSession.taiyiRange
                 ? formatTaiyiRangeInterval(
-                    session.taiyiRange.source.startTimestamp,
-                    session.taiyiRange.source.endTimestamp,
+                    visibleSession.taiyiRange.source.startTimestamp,
+                    visibleSession.taiyiRange.source.endTimestamp,
                   )
-                : session.liuyaoRange
+                : visibleSession.liuyaoRange
                   ? formatLiuyaoRangeInterval(
-                      session.liuyaoRange.source.startTimestamp,
-                      session.liuyaoRange.source.endTimestamp,
+                      visibleSession.liuyaoRange.source.startTimestamp,
+                      visibleSession.liuyaoRange.source.endTimestamp,
                     )
-                  : session.qimenRange
+                  : visibleSession.qimenRange
                     ? formatQimenRangeInterval(
-                        session.qimenRange.source.startTimestamp,
-                        session.qimenRange.source.endTimestamp,
+                        visibleSession.qimenRange.source.startTimestamp,
+                        visibleSession.qimenRange.source.endTimestamp,
                       )
-                    : session.timeContext?.clockDateTime
+                    : visibleSession.timeContext?.clockDateTime
           }
           onClose={() => setIsShareModalOpen(false)}
         />

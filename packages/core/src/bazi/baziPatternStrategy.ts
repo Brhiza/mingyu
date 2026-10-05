@@ -1,4 +1,4 @@
-import { HIDDEN_STEMS, LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
+import { LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
 import {
   collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
@@ -13,6 +13,9 @@ import {
   buildCongErPatternBasis,
   buildFollowWealthPriorityBasis,
 } from './baziCongErStrategy';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type PillarPosition = 'year' | 'month' | 'hour';
@@ -114,7 +117,7 @@ function buildOrdinaryPatternCandidates(params: {
     }
   }
 
-  const monthStems = HIDDEN_STEMS[monthBranch] || [];
+  const monthStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[monthBranch] || [];
   const prioritizedStem = resolveExposedStemPriority(monthStems, pillars, dayMaster, getTenGod);
   if (prioritizedStem) {
     const tenGod = getTenGod(prioritizedStem, dayMaster);
@@ -188,7 +191,7 @@ function collectSpecialPatternForce(
     ] as const
   ).forEach(([position, pillar]) => {
     addEvidence(pillar.gan);
-    const hiddenStems = HIDDEN_STEMS[pillar.zhi] || [];
+    const hiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [];
     hiddenStems.forEach((stem, index) => {
       if (index === 0) {
         addEvidence(stem);
@@ -199,7 +202,7 @@ function collectSpecialPatternForce(
     });
   });
 
-  const dayHiddenStems = HIDDEN_STEMS[pillars.day.zhi] || [];
+  const dayHiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.day.zhi] || [];
   dayHiddenStems.forEach((stem, index) => {
     if (index === 0) {
       addEvidence(stem);
@@ -334,11 +337,11 @@ function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTe
   (['year', 'month', 'hour'] as const).forEach((position) => {
     const pillar = pillars[position];
     addOppositeCategory(pillar.gan);
-    const hiddenStems = HIDDEN_STEMS[pillar.zhi] || [];
+    const hiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [];
     if (hiddenStems[0]) addOppositeCategory(hiddenStems[0]);
   });
 
-  const dayHiddenStems = HIDDEN_STEMS[pillars.day.zhi] || [];
+  const dayHiddenStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillars.day.zhi] || [];
   if (dayHiddenStems[0]) addOppositeCategory(dayHiddenStems[0]);
 
   collectEstablishedBranchFormations(pillars).forEach((formation) => {
@@ -367,7 +370,7 @@ export function determinePattern(
   }
   const monthBranch = pillars.month.zhi;
   const dayMaster = pillars.day.gan;
-  const monthStems = HIDDEN_STEMS[monthBranch] || [];
+  const monthStems = BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[monthBranch] || [];
   const exposedStems = [pillars.year.gan, pillars.month.gan, pillars.hour.gan];
   const transformation = evaluateTransformedPattern(pillars);
   const attachTransformation = (analysis: PatternAnalysis): PatternAnalysis =>
@@ -412,7 +415,9 @@ export function determinePattern(
   let patternName: string;
 
   const samePartyGods = new Set(['比肩', '劫财', '正印', '偏印']);
-  const allHiddenStems = Object.values(pillars).flatMap((pillar) => HIDDEN_STEMS[pillar.zhi] || []);
+  const allHiddenStems = Object.values(pillars).flatMap(
+    (pillar) => BAZI_RELATION_MAPPINGS.HIDDEN_STEMS[pillar.zhi] || [],
+  );
   const observedGods = [
     pillars.year.gan,
     pillars.month.gan,

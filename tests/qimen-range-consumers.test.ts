@@ -36,8 +36,9 @@ function createDraft(hour = '11'): DivinationDraft {
   };
 }
 
-test('奇门四柱候选在交中气处切盘，页面、摘要、分享和提示词保留各段', async () => {
-  const session = await generateDivinationSession(createDraft());
+test('奇门四柱候选在交中气处切盘并保留页面、摘要、分享、提示词与历史恢复', async () => {
+  const draft = createDraft();
+  const session = await generateDivinationSession(draft);
   assert.equal(session.qimenRange?.status, 'conditional');
   assert.deepEqual(
     session.qimenRange.branches.map(({ data }) => data.juShu),
@@ -59,32 +60,8 @@ test('奇门四柱候选在交中气处切盘，页面、摘要、分享和提�
     }
   }
   assert.doesNotMatch(session.prompt, /【当前时间】|当前盘面采用区间起点/);
-});
-
-test('奇门稳定时段仍保留完整范围与起止月相参照', async () => {
-  const session = await generateDivinationSession(createDraft('09'));
-  assert.equal(session.qimenRange?.status, 'stable');
-  assert.equal(session.qimenRange.branches.length, 1);
-  const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
-  for (const text of [html, session.prompt, formatDivinationSessionShareText(session)]) {
-    for (const value of ['09:00:00', '10:59:59', '11:00:00', '月相']) {
-      assert.ok(text.includes(value), `缺少${value}`);
-    }
-  }
-  assert.equal((html.match(/class="traditional-board traditional-qimen-board"/g) ?? []).length, 1);
-});
-
-test('奇门区间按各段九宫保留补充年命的落宫资料', async () => {
-  const session = await generateDivinationSession({ ...createDraft(), birthYear: '2000' });
   assert.equal(session.qimenRange?.branches.length, 2);
-  assert.equal((session.prompt.match(/年命资料：公历2000年/g) ?? []).length, 2);
-  assert.equal((session.prompt.match(/年命落宫（年中口径）/g) ?? []).length, 2);
-});
 
-test('奇门分段经历史恢复后保留所有盘面与月相采样', async () => {
-  const draft = createDraft();
-  const session = await generateDivinationSession(draft);
-  assert.equal(session.qimenRange?.branches.length, 2);
   const values = new Map<string, string>();
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
   Object.defineProperty(globalThis, 'window', {
@@ -113,6 +90,79 @@ test('奇门分段经历史恢复后保留所有盘面与月相采样', async ()
     if (original) Object.defineProperty(globalThis, 'window', original);
     else Reflect.deleteProperty(globalThis, 'window');
   }
+});
+
+test('奇门稳定时段仍保留完整范围与起止月相参照', async () => {
+  const session = await generateDivinationSession(createDraft('09'));
+  assert.equal(session.qimenRange?.status, 'stable');
+  assert.equal(session.qimenRange.branches.length, 1);
+  const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+  for (const text of [html, session.prompt, formatDivinationSessionShareText(session)]) {
+    for (const value of ['09:00:00', '10:59:59', '11:00:00', '月相']) {
+      assert.ok(text.includes(value), `缺少${value}`);
+    }
+  }
+  assert.equal((html.match(/class="traditional-board traditional-qimen-board"/g) ?? []).length, 1);
+});
+
+test('年家和月家奇门区间页面与分享按三元定局且不混入短周期资料', async () => {
+  for (const scope of ['year', 'month'] as const) {
+    const session = await generateDivinationSession({ ...createDraft(), qimenScope: scope });
+    assert.ok(session.qimenRange);
+    assert.ok(session.qimenRange.branches.length > 0);
+
+    const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+    const share = formatDivinationSessionShareText(session);
+    const summary = getDivinationSessionSummary(session);
+    const scopeLabel = scope === 'year' ? '年家' : '月家';
+
+    assert.equal(
+      (html.match(/class="traditional-board traditional-qimen-board"/g) ?? []).length,
+      session.qimenRange.branches.length,
+    );
+    assert.ok(html.includes(`${scopeLabel}奇门九宫盘`));
+    assert.ok(html.includes('三元'));
+    assert.match(session.prompt, /三元定局依据/u);
+    assert.doesNotMatch(session.prompt, /标明时刻的月相参照|交节后自然日阶段/u);
+    assert.doesNotMatch(summary.lines.join('\n'), /月相|建除|节令阶段/u);
+    assert.match(summary.lines.join('\n'), /干支年/u);
+
+    for (const { text, isShare } of [
+      { text: html, isShare: false },
+      { text: share, isShare: true },
+    ]) {
+      for (const { data } of session.qimenRange.branches) {
+        assert.ok(text.includes(data.timeInfo.solarTerm), `缺少实际节气${data.timeInfo.solarTerm}`);
+        const seasonality = data.seasonality;
+        const threeYuanBasis = `干支年${data.ganzhi.year}${data.timeInfo.epoch}`;
+        assert.ok(
+          text.includes(threeYuanBasis) && (!isShare || text.includes(`定局${threeYuanBasis}`)),
+          `缺少${scopeLabel}三元定局依据：${data.ganzhi.year}${data.timeInfo.epoch}`,
+        );
+        assert.ok(text.includes(`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`));
+        assert.ok(
+          isShare
+            ? text.includes(`值符：${data.zhiFu}`) && text.includes(`值使：${data.zhiShi}`)
+            : text.includes(data.zhiFu) && text.includes(data.zhiShi),
+        );
+        assert.ok(seasonality);
+        assert.ok(
+          !text.includes(
+            `${seasonality.currentJieQi}，交节后${seasonality.jieQiPhase.phase}阶段；${seasonality.dayStem}${seasonality.seasonRelation}；月相${seasonality.lunarPhaseDetail}；建除${seasonality.dayOfficer}`,
+          ),
+          '不应显示短周期节令与日干旺衰资料',
+        );
+      }
+      assert.doesNotMatch(text, /暗干|节令阶段|月相|建除/);
+    }
+  }
+});
+
+test('奇门区间按各段九宫保留补充年命的落宫资料', async () => {
+  const session = await generateDivinationSession({ ...createDraft(), birthYear: '2000' });
+  assert.equal(session.qimenRange?.branches.length, 2);
+  assert.equal((session.prompt.match(/年命资料：公历2000年/g) ?? []).length, 2);
+  assert.equal((session.prompt.match(/年命落宫（年中口径）/g) ?? []).length, 2);
 });
 
 test('奇门旧文本日期来源继续兼容单盘', async () => {

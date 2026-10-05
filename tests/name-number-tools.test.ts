@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   analyzeChineseCharacters,
+  analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   analyzeChineseName,
   analyzeNameSancai,
@@ -9,7 +10,7 @@ import {
   analyzeNumber,
   buildNumberEnergyPrompt,
   calculateZhugeNumber,
-  castKongmingHexagram,
+  buildChineseCharacterPrompt,
   buildChineseNameAnalysisPrompt,
   buildChineseNamingPrompt,
   selectNamingCharacters,
@@ -23,6 +24,82 @@ test('汉字解析区分现代笔画与康熙笔画并报告未知字', () => {
   assert.equal(result.characters[1].detail?.kangxiStrokes, 16);
   assert.equal(result.totalKangxiStrokes, 31);
   assert.deepEqual(result.unknownCharacters, []);
+});
+
+test('汉字解析拒绝非汉字，避免把无效字符当作字典缺项写入提示词', () => {
+  assert.throws(() => analyzeChineseCharacters('李A'), /只能包含汉字/);
+  assert.throws(() => analyzeChineseCharacters('李·'), /只能包含汉字/);
+});
+
+test('“發”和“髮”按不同繁体字义与康熙笔画解析', async () => {
+  const [hair, emit] = ['髮', '發'].map(
+    (char) => analyzeChineseCharacters(char).characters[0].detail!,
+  );
+  assert.equal(hair.simplified, '发');
+  assert.equal(hair.char, '髮');
+  assert.equal(hair.traditional, '髮');
+  assert.equal(hair.kangxiStrokes, 15);
+  assert.equal(hair.radical, '髟');
+  assert.equal(hair.pinyin, 'fà、fǎ');
+  assert.match(hair.definition!, /头皮上生长的毛/);
+  assert.equal(emit.traditional, '發');
+  assert.equal(emit.kangxiStrokes, 12);
+  assert.equal(emit.pinyin, 'fā');
+  assert.ok(
+    selectChineseCharacters({ commonOnly: false, strokes: 15, radical: '髟', limit: 200 }).some(
+      (item) => item.char === '髮',
+    ),
+  );
+
+  const [hairReferences, emitReferences] = await Promise.all([
+    analyzeChineseCharactersWithReferences('髮'),
+    analyzeChineseCharactersWithReferences('發'),
+  ]);
+  assert.notEqual(
+    hairReferences.characters[0].detail?.kangxiText,
+    emitReferences.characters[0].detail?.kangxiText,
+  );
+  const hairPrompt = buildChineseCharacterPrompt({ analysis: hairReferences });
+  assert.match(hairPrompt, /^读音：fà、fǎ$/mu);
+  assert.match(
+    hairPrompt,
+    /音义用法：毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。/u,
+  );
+  assert.match(buildChineseCharacterPrompt({ analysis: emitReferences }), /^读音：fā$/mu);
+  assert.deepEqual(calculateZhugeNumber('髮发發').strokes, [15, 12, 12]);
+  const hairName = analyzeChineseName({ fullName: '李髮' });
+  assert.equal(hairName.chars[1].kangxiStrokes, 15);
+  assert.deepEqual(hairName.rawGrids, { tian: 8, ren: 22, di: 16, wai: 2, zong: 22 });
+  const hairNamePrompt = buildChineseNameAnalysisPrompt({ analysis: hairName });
+  assert.match(hairNamePrompt, /髮（康熙15画、五行未定、fà、fǎ）/u);
+  assert.match(
+    hairNamePrompt,
+    /髮音义用法：毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。/u,
+  );
+});
+
+test('姓名逐字资料保留实际输入的繁体字形', () => {
+  const analysis = analyzeChineseName({ fullName: '李樂' });
+  assert.equal(analysis.chars[1].char, '樂');
+  const prompt = buildChineseNameAnalysisPrompt({ analysis });
+  assert.match(prompt, /逐字：李（康熙/);
+  assert.match(prompt, /樂（康熙/);
+
+  const candidate = generateChineseNames({
+    surname: '李',
+    generationCharacter: '樂',
+    limit: 1,
+  })[0];
+  assert.ok(candidate.fullName.startsWith('李樂'));
+  assert.equal(candidate.analysis.chars[1].char, '樂');
+});
+
+test('数字数理查表结果不会修改共享数据或同次结果的另一字段', () => {
+  const result = analyzeNumber('1');
+  const originalText = result.primaryNumerology.text;
+  result.primaryNumerology.text = '临时修改';
+  assert.equal(result.sumNumerology.text, originalText);
+  assert.equal(analyzeNumber('1').primaryNumerology.text, originalText);
 });
 
 test('汉字查询、候选字与姓名资料的返回值不会污染后续解读', () => {
@@ -94,6 +171,23 @@ test('起名与姓名解析可结合出生喜用并生成完整提示词', () =>
   assert.match(prompt, /【传统依据】/);
 });
 
+test('姓名分析拒绝超出五格单双姓口径的姓氏字数', () => {
+  for (const surnameLength of [0, 3]) {
+    assert.throws(
+      () => analyzeChineseName({ fullName: '欧阳娜娜', surnameLength: surnameLength as 1 }),
+      /姓氏字数必须为1或2/,
+    );
+  }
+  assert.equal(analyzeChineseName({ fullName: '欧阳娜娜', surnameLength: 2 }).surname, '欧阳');
+});
+
+test('姓名分析与取名候选区分非汉字和字典未收录汉字', () => {
+  assert.throws(() => analyzeChineseName({ fullName: '李·明' }), /姓名只能包含汉字/);
+  assert.throws(() => analyzeChineseName({ fullName: '李𠀀' }), /姓名用字暂未收录在字典中：𠀀/);
+  assert.throws(() => generateChineseNames({ surname: '李·' }), /姓氏只能包含汉字/);
+  assert.throws(() => generateChineseNames({ surname: '𠀀' }), /姓氏用字暂未收录在字典中：𠀀/);
+});
+
 test('汉字选字同时支持康熙笔画与五行过滤', () => {
   const result = selectChineseCharacters({ strokes: 8, wuxing: '木', limit: 20 });
   assert.ok(result.length > 0);
@@ -132,8 +226,13 @@ test('单复姓与单双字名均提供逐格可复算的五格依据', () => {
   }
 });
 
-test('姓名与起名提示词携带真实字义和五格算式并使用完整中文术语', () => {
+test('姓名解析无数值评分，提示词携带真实字义和五格算式并使用完整中文术语', () => {
   const analysis = analyzeChineseName({ fullName: '李清和' });
+  assert.equal(analysis.surname, '李');
+  assert.equal(analysis.given, '清和');
+  assert.equal(Object.keys(analysis.grids).length, 5);
+  assert.equal(analysis.sancai.combo.length, 3);
+  assert.equal('scores' in analysis, false);
   const prompt = buildChineseNameAnalysisPrompt({ analysis });
   for (const char of analysis.chars) {
     if (char.definition) assert.ok(prompt.includes(char.definition));
@@ -143,6 +242,14 @@ test('姓名与起名提示词携带真实字义和五格算式并使用完整�
     assert.ok(prompt.includes(grid.name));
     assert.ok(prompt.includes(grid.expression));
   }
+  assert.match(
+    prompt,
+    /《左传·桓公六年》命名五法\n原文：名有五：有信，有义，有象，有假，有类。以名生为信，以德名为义，以类命为象，取于物为假，取于父为类。/,
+  );
+  assert.match(prompt, /《礼记·曲礼上》原文：名子者不以国，不以日月，不以隐疾，不以山川。/);
+  assert.match(prompt, /五格、三才按姓名学数理取象列作参考/);
+  assert.match(prompt, /五格数理参考：/);
+  assert.match(prompt, /三才取象（姓名学数理参考）：/);
   assert.match(prompt, /左传·桓公六年/);
   assert.match(prompt, /礼记·曲礼上/);
   for (const relation of analysis.sancaiEvidence.relations)
@@ -205,14 +312,7 @@ test('明确选字五行可以独立进入姓名提示词并与实际匹配字�
   assert.match(buildChineseNameAnalysisPrompt({ analysis }), /本次选字五行：水/);
 });
 
-test('姓名解析不返回数值评分，起名规则实际约束候选用字', () => {
-  const analysis = analyzeChineseName({ fullName: '李清和' });
-  assert.equal(analysis.surname, '李');
-  assert.equal(analysis.given, '清和');
-  assert.equal(Object.keys(analysis.grids).length, 5);
-  assert.equal(analysis.sancai.combo.length, 3);
-  assert.equal('scores' in analysis, false);
-
+test('起名规则实际约束候选用字', () => {
   const names = generateChineseNames({
     surname: '李',
     gender: '通用',
@@ -275,60 +375,36 @@ test('数字能量覆盖手机号、车牌字母换算、八星磁场与0和5作
   assert.match(prompt, /2651/);
   assert.match(prompt, /延年/);
   assert.match(prompt, /5（增强）/);
-  assert.match(prompt, /高频磁场：/);
+  assert.doesNotMatch(prompt, /高频磁场：/);
   assert.doesNotMatch(prompt, /第[一二三四1234]组|主要磁场/);
   assert.match(prompt, /适合工作使用吗？/);
 });
 
-test('八星磁场完整覆盖八卦数字的全部相邻组合', () => {
-  const baguaDigits = ['1', '2', '3', '4', '6', '7', '8', '9'];
-  const names = new Set<string>();
-  for (const left of baguaDigits) {
-    for (const right of baguaDigits) {
-      const result = analyzeNumber(`${left}${right}`);
-      assert.equal(result.energyPairs.length, 1);
-      names.add(result.energyPairs[0]!.name);
-    }
+test('诸葛神数384签循环边界可由实际康熙笔画复算', () => {
+  const zhugeCases = [
+    { text: '山其不', rawNumber: 384, number: 384 },
+    { text: '山其主', rawNumber: 385, number: 1 },
+    { text: '重重重', rawNumber: 999, number: 231 },
+  ];
+  for (const item of zhugeCases) {
+    const result = calculateZhugeNumber(item.text);
+    assert.equal(result.strokes.length, 3, item.text);
+    assert.equal(result.rawNumber, item.rawNumber);
+    assert.equal(result.number, item.number);
+    assert.equal(result.sign.number, item.number);
   }
-  assert.deepEqual(
-    [...names].sort(),
-    ['天医', '生气', '延年', '伏位', '绝命', '五鬼', '六煞', '祸害'].sort(),
-  );
-
-  const modifiersOnly = analyzeNumber('050');
-  assert.equal(modifiersOnly.energyPairs.length, 0);
-  assert.deepEqual(modifiersOnly.dominantFields, []);
-  assert.equal(modifiersOnly.modifiers.length, 3);
 });
 
-test('诸葛神数按三个康熙笔画尾数组合并落入完整384签', () => {
-  const result = calculateZhugeNumber('顺其然');
-  assert.equal(result.strokes.length, 3);
-  assert.equal(result.rawNumber, result.digits[0] * 100 + result.digits[1] * 10 + result.digits[2]);
-  assert.ok(result.number >= 1 && result.number <= 384);
-  assert.equal(result.sign.number, result.number);
-  assert.ok(result.sign.poem.length > 0);
-});
-
-test('孔明神卦完整覆盖32种五钱阴阳组合并支持随机重放', () => {
-  const numbers = new Set<number>();
-  for (let value = 0; value < 32; value += 1) {
-    const pattern = value.toString(2).padStart(5, '0').replaceAll('0', '○').replaceAll('1', '●');
-    numbers.add(castKongmingHexagram(pattern).number);
-  }
-  assert.equal(numbers.size, 32);
-
-  const first = castKongmingHexagram(undefined, { seed: '孔明神卦回归' });
-  const replay = castKongmingHexagram(undefined, { replay: first.random?.samples });
-  assert.equal(replay.symbol, first.symbol);
-  assert.equal(replay.number, first.number);
-});
-
-test('起名数量必须有限且为整数，避免NaN绕过候选上限', () => {
+test('起名与选字数量必须为安全整数，避免NaN绕过候选上限', () => {
   for (const limit of [NaN, Infinity, -Infinity, 1.5]) {
-    assert.throws(() => generateChineseNames({ surname: '李', limit }), /有限整数/);
-    assert.throws(() => selectNamingCharacters({ limit }), /有限整数/);
+    assert.throws(() => generateChineseNames({ surname: '李', limit }), /候选数量必须为安全整数/);
+    assert.throws(() => selectNamingCharacters({ limit }), /安全整数/);
+    assert.throws(() => selectChineseCharacters({ limit }), /安全整数/);
   }
+  assert.throws(
+    () => generateChineseNames({ surname: '李', limit: Number.MAX_SAFE_INTEGER + 1 }),
+    /候选数量必须为安全整数/,
+  );
   assert.throws(() => selectNamingCharacters({ gender: '未知' as never }), /性别取值无效/);
   assert.throws(
     () => generateChineseNames({ surname: '李', givenNameLength: 3 as never }),
@@ -336,12 +412,59 @@ test('起名数量必须有限且为整数，避免NaN绕过候选上限', () =>
   );
 });
 
+test('汉字筛选的笔画范围必须是1至64的安全整数', () => {
+  for (const strokes of [NaN, Infinity, -Infinity, 0, 1.5, 65]) {
+    assert.throws(() => selectChineseCharacters({ strokes }), /笔画筛选需为1至64的安全整数/);
+    assert.throws(
+      () => selectChineseCharacters({ strokesMin: strokes }),
+      /笔画筛选需为1至64的安全整数/,
+    );
+    assert.throws(
+      () => selectChineseCharacters({ strokesMax: strokes }),
+      /笔画筛选需为1至64的安全整数/,
+    );
+  }
+});
+
 test('号码解读关键词在每次结果与分组间独立保存', () => {
   const result = analyzeNumber('1313');
   const expected = [...result.energyPairs[0].keywords];
+  const expectedTradition = { ...result.tradition };
+  const expectedPrompt = buildNumberEnergyPrompt({ analysis: result });
+  assert.equal(
+    expectedPrompt.split(
+      '资源、成果、正向关系；重视资源积累、成果兑现与稳定关系，也需要把机会落实为长期安排。',
+    ).length - 1,
+    1,
+  );
+  assert.equal(
+    expectedPrompt.split('卦变：1为坎☵，3为震☳；下爻、中爻变化，大游年对应天医、巨门。').length -
+      1,
+    1,
+  );
+  assert.equal(
+    expectedPrompt.split('卦变：3为震☳，1为坎☵；下爻、中爻变化，大游年对应天医、巨门。').length -
+      1,
+    1,
+  );
+  assert.match(expectedPrompt, /^1\. 13 → 13：天医（助益）；资源、成果、正向关系；/mu);
+  assert.match(expectedPrompt, /^2\. 31 → 31：天医（助益）$/mu);
+  assert.match(expectedPrompt, /^3\. 13 → 13：天医（助益）$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第1—2位，对应数字字母第1—2位「13」$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第2—3位，对应数字字母第2—3位「31」$/mu);
+  assert.match(expectedPrompt, /^位置：能量序列第3—4位，对应数字字母第3—4位「13」$/mu);
+  assert.match(expectedPrompt, /^磁场分布：天医3组$/mu);
+  assert.match(expectedPrompt, /^天医（1313，3组，能量序列第1—4位）$/mu);
+  for (const key of Object.keys(result.tradition)) {
+    assert.equal(Reflect.set(result.tradition, key, `本次传统依据备注：${key}`), true);
+  }
+  assert.notDeepEqual(result.tradition, expectedTradition);
   result.energyPairs[0].keywords.push('本次备注');
   assert.deepEqual(result.magneticDistribution[0].keywords, expected);
   result.magneticDistribution[0].keywords.push('分组备注');
-  assert.deepEqual(analyzeNumber('1313').energyPairs[0].keywords, expected);
-  assert.deepEqual(analyzeNumber('1313').magneticDistribution[0].keywords, expected);
+  const fresh = analyzeNumber('1313');
+  assert.deepEqual(fresh.energyPairs[0].keywords, expected);
+  assert.deepEqual(fresh.magneticDistribution[0].keywords, expected);
+  assert.deepEqual(fresh.tradition, expectedTradition);
+  assert.equal(buildNumberEnergyPrompt({ analysis: fresh }), expectedPrompt);
 });

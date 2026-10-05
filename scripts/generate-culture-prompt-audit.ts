@@ -132,12 +132,16 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
         })),
         ...name.gridDerivations.map((grid) => ({
           id: `姓名.${grid.key}`,
-          owner: '五格：',
+          owner: '五格数理参考：',
           values: [
             `${grid.name}${name.grids[grid.key].num}（${name.grids[grid.key].wuxing}、${name.grids[grid.key].keywords}）；${grid.rule}：${grid.expression}`,
           ],
         })),
-        { id: '姓名.三才', owner: '三才：', values: [name.sancai.combo, name.sancai.text] },
+        {
+          id: '姓名.三才',
+          owner: '三才取象（姓名学数理参考）：',
+          values: [name.sancai.combo, name.sancai.text],
+        },
       ],
       required: [
         '曾姓氏读音参考：zēng',
@@ -217,14 +221,14 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
       prompt: buildDivinationPrompt('zhuge', question, zhuge),
       facts: [
         { id: '诸葛.签号', owner: '签号：', values: [`第${zhuge.number}签`] },
-        { id: '诸葛.签诗', owner: '签诗：', values: [zhuge.sign.poem] },
+        { id: '诸葛.签诗', owner: '签诗：', values: [zhuge.sign.poem, zhugeReading.quote] },
         ...(zhugeReading.classicalImage
           ? [{ id: '诸葛.典故', owner: '典故：', values: [zhugeReading.classicalImage] }]
           : []),
         {
           id: '诸葛.基础解签',
           owner: '基础解签：',
-          values: [zhugeReading.quote, zhugeReading.imageMeaning, zhugeReading.interpretation],
+          values: [zhugeReading.imageMeaning, zhugeReading.interpretation],
         },
         { id: '诸葛.条件', owner: '补充解释：', values: [zhugeReading.condition] },
       ],
@@ -244,7 +248,7 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
       facts: [
         { id: '孔明.签号', owner: '签号：', values: [`第${kongming.number}签`] },
         { id: '孔明.签题', owner: '签题：', values: [kongming.name] },
-        { id: '孔明.签诗', owner: '签诗：', values: [kongming.poem] },
+        { id: '孔明.签诗', owner: '签诗：', values: [kongming.poem, kongmingReading.quote] },
         { id: '孔明.吉凶', owner: '吉凶级别：', values: [kongming.grade] },
         ...(kongmingReading.classicalImage
           ? [
@@ -262,11 +266,7 @@ export async function buildCulturePromptSamples(): Promise<CulturePromptSample[]
         {
           id: '孔明.基础解签',
           owner: '基础解签：',
-          values: [
-            kongmingReading.quote,
-            kongmingReading.imageMeaning,
-            kongmingReading.interpretation,
-          ],
+          values: [kongmingReading.imageMeaning, kongmingReading.interpretation],
         },
         { id: '孔明.条件', owner: '补充解释：', values: [kongmingReading.condition] },
       ],
@@ -306,7 +306,9 @@ function birthFacts(
       owner: '时间口径：',
       values: [
         context.timeBasis.mode,
-        ...(context.timeBasis.longitude === null ? [] : [`经度${context.timeBasis.longitude}°`]),
+        ...(context.timeBasis.longitude === null
+          ? []
+          : [`真太阳时校正经度：${context.timeBasis.longitude}°`]),
       ],
     },
     {

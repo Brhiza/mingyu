@@ -95,6 +95,28 @@ test('西占本命区间格式化保留分段边界文本', () => {
   assert.ok(RANGE.branches.length >= 1);
 });
 
+test('本命任务书说明跨分角秒和黄经的圆周周期与首末原值', () => {
+  const range = generateAstrolabeBirthRange(
+    {
+      ...INPUT,
+      year: '1990',
+      month: '5',
+      day: '20',
+      hour: '12',
+      minute: '30',
+      second: '3',
+    },
+    sourceFor('1990-05-20 12:30:03', '1990-05-20 12:30:05'),
+  );
+  const text = formatAstrolabeBirthRangePrompt(range);
+  assert.match(
+    text,
+    /上升位置角秒：首值58角秒；末值10角秒；范围58角秒 至 70角秒；共2个整秒样本；以60角秒为周期，范围相对首值按最短弧展开，首末值保留原值/u,
+  );
+  assert.match(text, /太阳黄经：.*以360度为周期，范围相对首值按最短弧展开/u);
+  assert.doesNotMatch(text, /circularPeriod|first\/last|min\/max/u);
+});
+
 test('西占本命区间任务书保留问题和解读选择且覆盖全部分段', () => {
   const text = formatAstrolabeBirthRangePrompt(RANGE, {
     question: '哪些事业判断在整个出生区间都成立？',

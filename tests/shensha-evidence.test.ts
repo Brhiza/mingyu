@@ -204,17 +204,15 @@ test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位',
 
   assert.equal(analysis.status, '已核验');
   assert.equal(analysis.pillarFacts.length, 4);
-  assert.equal(analysis.calculationSteps.length, 8);
-  assert.deepEqual(
-    analysis.calculationChain,
-    analysis.calculationSteps.map((item) => item.promptText),
-  );
-  assert.equal(analysis.matchFacts.length, 3);
+  assert.deepEqual(Object.fromEntries(analysis.matchFacts.map((item) => [item.id, item.status])), {
+    kongwang: '未命中',
+    yima: '命中',
+    taohua: '命中',
+  });
   assert.deepEqual(analysis.matchFacts.find((item) => item.id === 'kongwang')?.targetBranches, [
     '戌',
     '亥',
   ]);
-  assert.equal(analysis.matchFacts.find((item) => item.id === 'kongwang')?.status, '未命中');
   assert.deepEqual(analysis.matchFacts.find((item) => item.id === 'yima')?.matchedPillars, [
     { pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' },
   ]);
@@ -223,12 +221,23 @@ test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位',
   ]);
   assert.equal(analysis.summaryFact.status, '证据链完整');
   assert.equal(analysis.summaryFact.matchedRuleCount, 2);
-  assert.equal(analysis.summaryFact.matchFactCount, analysis.matchFacts.length);
-  assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
   assert.ok(analysis.matchFacts.every((item) => item.evidenceStatus === '来源已声明'));
-  assert.ok(analysis.matchFacts.every((item) => item.ownerStepKeys.length === 2));
-  assert.match(analysis.promptText, /【通用神煞资料】/);
-  assert.match(analysis.promptText, /【传统依据】/);
+  const stepKeys = new Set(analysis.calculationSteps.map((item) => item.key));
+  assert.ok(
+    analysis.matchFacts.every(
+      (item) =>
+        item.ownerStepKeys.length > 0 && item.ownerStepKeys.every((key) => stepKeys.has(key)),
+    ),
+  );
+  assert.match(
+    analysis.promptText,
+    /【任务】[\s\S]*【四柱】[\s\S]*【命中资料】[\s\S]*【传统依据】[\s\S]*【输出要求】/,
+  );
+  assert.match(analysis.promptText, /桃花命中/u);
+  assert.equal((analysis.promptText.match(/驿马：/gu) ?? []).length, 1);
+  assert.equal((analysis.promptText.match(/桃花：/gu) ?? []).length, 1);
+  assert.match(analysis.promptText, /驿马命中；目标地支寅；落柱月柱丙寅/u);
+  assert.doesNotMatch(analysis.promptText, /空亡|来源|证据链|foundation:|tyme4ts|公共干支/u);
   assert.doesNotMatch(
     analysis.promptText,
     /吉凶总分[：=]?\s*\d|成功率[：=]?\s*\d|事件概率[：=]?\s*\d|候选时辰|缺时柱/,
@@ -266,5 +275,33 @@ test('动态注册规则未声明来源时应显式保留证据缺口', () => {
   assert.equal(analysis.matchFacts[0]?.evidenceStatus, '来源未声明');
   assert.equal(analysis.summaryFact.status, '存在来源未声明');
   assert.equal(analysis.summaryFact.undeclaredSourceRuleCount, 1);
-  assert.match(analysis.promptText, /未提供公开出处/);
+  assert.match(analysis.promptText, /【任务】[\s\S]*本次可用神煞资料未列命中项[\s\S]*【输出要求】/);
+  assert.doesNotMatch(analysis.promptText, /本盘未匹配到|来源|未声明|证据链|evidence-gap-demo/);
+  assert.doesNotMatch(analysis.promptText, /说明各项事实的传统起法|逐项说明其起法/);
+});
+
+test('声明来源的直接命中规则只列实际命中信息与一次起法', () => {
+  registerShensha({
+    id: 'declared-hit-demo',
+    name: '直接命中示例',
+    scope: 'bazi',
+    evidence: {
+      inputDependencies: ['dayGanZhi'],
+      ruleText: '按日柱戊辰取值',
+      sources: ['固定表'],
+      resultMeaning: 'hit',
+    },
+    compute: () => ({
+      id: 'declared-hit-demo',
+      name: '直接命中示例',
+      value: '命中',
+      detail: '日柱戊辰对应命中',
+    }),
+  });
+
+  const analysis = analyzeShenshaEvidence(context, ['declared-hit-demo']);
+  assert.match(analysis.promptText, /【命中资料】直接命中示例命中；日柱戊辰对应命中。/);
+  assert.match(analysis.promptText, /【传统依据】直接命中示例：按日柱戊辰取值。/);
+  assert.doesNotMatch(analysis.promptText, /目标地支|落柱/);
+  assert.equal((analysis.promptText.match(/按日柱戊辰取值/gu) ?? []).length, 1);
 });

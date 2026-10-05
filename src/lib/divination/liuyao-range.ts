@@ -326,7 +326,10 @@ export function generateLiuyaoRange(input: GenerateLiuyaoRangeInput): LiuyaoRang
     throw new Error('六爻区间代表时间必须等于四柱候选区间起点。');
   }
 
-  const data = generateLiuyao(new Date(input.source.startTimestamp), input.options);
+  const data = generateLiuyao(new Date(input.source.startTimestamp), {
+    ...input.options,
+    timezoneOffsetMinutes: CHINA_OFFSET_MINUTES,
+  });
   if (data.timestamp !== input.source.startTimestamp) {
     throw new Error('六爻原始起卦时间与四柱候选区间起点不一致。');
   }

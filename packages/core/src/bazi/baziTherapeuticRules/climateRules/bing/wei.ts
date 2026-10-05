@@ -4,18 +4,18 @@ export const BING_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-bing-geng-ren-kejia',
     label: '丙日未月庚壬两透名宦规则',
-    description:
-      '丙火生未月，若庚壬两透而不见戊己混杂，传统多断贴身相生，可云科甲名宦，不宜与无庚单壬同论。',
+    description: '丙火生未月，庚壬两透且贴身相生，可云科甲名宦；戊己透出则会混杂或制壬。',
     priority: 123,
     months: ['未'],
     dayMasters: ['火'],
     dayStems: ['丙'],
     requiredVisibleStems: ['庚', '壬'],
+    requiredVisibleStemDistancePairs: [{ stems: ['庚', '壬'], maxDistance: 1 }],
     forbiddenVisibleStems: ['戊', '己'],
     usefulWuxing: '水',
     favorableOrder: ['水', '金'],
     traceHints: ['取用层次:壬水为用，庚金辅佐', '成格层次:庚壬两透，科甲名宦'],
-    hint: '丙火未月庚壬两透而不杂戊己，可至科甲名宦',
+    hint: '丙火未月庚壬贴身两透且不杂戊己，可云科甲名宦',
   },
   {
     id: 'wei-month-bing-ren-no-geng-no-wu',

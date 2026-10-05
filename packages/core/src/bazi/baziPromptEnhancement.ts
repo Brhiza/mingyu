@@ -4,10 +4,14 @@
  */
 
 import type { BaziChartResult } from './baziTypes';
-import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
+
 import { identifyClassicPatternCandidates, getPeachBlossomDetail } from './baziEnhancement';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
+import { areHeavenlyStemsOvercoming } from './baziUtils';
+import { getBaziRelationMappings } from './baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -18,6 +22,26 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
   day: '日柱',
   hour: '时柱',
 };
+
+/** 保留本盘成立依据，省略已列藏干与内部核验长段。 */
+export function formatPatternBasisForPrompt(basis: string): string {
+  if (basis.startsWith('《三命通会》卷六亥卯未曲直法条件成立')) {
+    return '《三命通会》卷六亥卯未曲直法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  if (basis.startsWith('《渊海子平·神趣八法·类象》春生寅卯辰法条件成立')) {
+    return '《渊海子平·神趣八法·类象》春生寅卯辰法条件成立；未见庚辛金及局外支冲破；火土分别按泄秀与财星论';
+  }
+  const selectedBasis = basis.split(/；(?:曲直|从儿)结构未立：/u, 1)[0];
+  return selectedBasis
+    .replace(
+      /^月支[^；（]*本气为[^；（]*（[^；）]*），本气取格口径为([^；]+)；(已提供分日司权[^；]*本次按司令透干取([^；]+))$/u,
+      // 本气取格口径不同于所取格局时已在“其他取格候选”列示，选中依据只保留司令透干部分。
+      (match, principalPattern: string, commanderBasis: string, selectedPattern: string) =>
+        principalPattern === selectedPattern ? match : commanderBasis,
+    )
+    .replace(/；分日司权[^；]*仅作当日月气事实/gu, '')
+    .replace(/^(《滴天髓阐微·顺局》从儿法成立：)月建食伤当权；(?=月支[^；]*食伤在月建当权)/u, '$1');
+}
 
 function buildEvidenceDrivenHintSection(title: string, evidence: string): string {
   return `【${title}】${evidence}。`;
@@ -114,32 +138,34 @@ export function analyzePillarRelations(
         }
       }
 
-      const stemChong = BASIC_MAPPINGS.TIAN_GAN_CHONG[left.gan] === right.gan;
-      const branchChong = BASIC_MAPPINGS.DI_ZHI_CHONG[left.zhi] === right.zhi;
+      const stemChong =
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_CHONG[left.gan] === right.gan;
+      const branchChong =
+        BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_CHONG[left.zhi] === right.zhi;
 
-      if (stemChong && branchChong) {
+      if (areHeavenlyStemsOvercoming(left.gan, right.gan) && branchChong) {
         fanyin.add(`${leftLabel}${left.ganZhi}与${rightLabel}${right.ganZhi}成天克地冲`);
       }
 
-      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.TIAN_GAN_WU_HE[left.gan] === right.gan) {
         xingChong.add(`${leftLabel}${left.gan}与${rightLabel}${right.gan}合`);
       }
       if (stemChong) {
         xingChong.add(`${leftLabel}${left.gan}与${rightLabel}${right.gan}冲`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_LIU_HE[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}六合`);
       }
       if (branchChong) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}冲`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_XING[left.zhi]?.includes(right.zhi)) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_XING[left.zhi]?.includes(right.zhi)) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}刑`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_HAI[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_HAI[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}害`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_PO[left.zhi] === right.zhi) {
+      if (BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.DI_ZHI_PO[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}破`);
       }
     }
@@ -151,7 +177,7 @@ export function analyzePillarRelations(
     ),
   );
   const allBranches = PILLAR_KEYS.map((pillar) => pillars[pillar].zhi);
-  for (const [name, branches] of Object.entries(SAN_HE_MAP)) {
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HE_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
       const status = establishedFormations.has(`三合:${name}`) ? '已成势' : '结构齐全，成势待核';
       xingChong.add(
@@ -161,7 +187,7 @@ export function analyzePillarRelations(
       );
     }
   }
-  for (const [name, branches] of Object.entries(SAN_HUI_MAP)) {
+  for (const [name, branches] of Object.entries(BAZI_RELATION_MAPPINGS.SAN_HUI_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
       const status = establishedFormations.has(`三会:${name}`) ? '已成势' : '结构齐全，成势待核';
       xingChong.add(
@@ -205,21 +231,19 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   );
 
   const transformation = chartResult.analysis?.mingGe?.transformation;
-  const patternCandidates = chartResult.analysis?.mingGe?.patternCandidates ?? [];
-  const layeredCandidateSection =
-    patternCandidates.length > 1
-      ? `【取格分层候选】${patternCandidates
-          .map(
-            (candidate) =>
-              `${candidate.pattern}（${candidate.source}${candidate.selected ? '；当前采用' : ''}；${candidate.basis}）`,
-          )
-          .join('；')}`
-      : '';
+  const patternCandidates = (chartResult.analysis?.mingGe?.patternCandidates ?? []).filter(
+    (candidate) => !candidate.selected && candidate.pattern !== currentPattern,
+  );
+  const layeredCandidateSection = patternCandidates.length
+    ? `【取格分层候选】${patternCandidates
+        .map((candidate) => `${candidate.pattern}（${candidate.source}；${candidate.basis}）`)
+        .join('；')}`
+    : '';
   const confirmedSection =
     transformation?.status === '成化'
       ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`
       : currentPattern === '曲直格'
-        ? `【经典格局】曲直格；${chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用'}`
+        ? `【经典格局】曲直格；${formatPatternBasisForPrompt(chartResult.analysis.mingGe.basis || '甲乙日木局条件成立，按曲直格取用')}`
         : '';
   if (!classicPatterns.length) {
     return [confirmedSection, layeredCandidateSection].filter(Boolean).join('\n');
@@ -260,12 +284,16 @@ function generatePeachBlossomDetailSection(chartResult: BaziChartResult): string
     ? globalTaohua.join('、')
     : taohuaPillars.map((pillar) => PILLAR_LABELS[pillar]).join('、');
   const lines = [`【桃花详解】命盘见桃花：${overview}`];
+  const describedTypes = new Set<string>();
 
   for (const pillar of PILLAR_KEYS) {
     const pillarTaohua = chartResult.shensha?.[pillar]?.find((s) => s.includes('桃花'));
     if (pillarTaohua) {
       const d = getPeachBlossomDetail(pillar);
-      lines.push(`${PILLAR_LABELS[pillar]}:${d.type} | ${d.description}`);
+      lines.push(
+        `${PILLAR_LABELS[pillar]}:${d.type}${describedTypes.has(d.type) ? '' : ` | ${d.description}`}`,
+      );
+      describedTypes.add(d.type);
     }
   }
 
@@ -324,7 +352,9 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
     .map((profile) => {
       const relation =
         profile.type === '天干五合'
-          ? `${profile.participants.join('与')}化${profile.transformElement}`
+          ? profile.level === '成化'
+            ? `${profile.participants.join('与')}化${profile.transformElement}`
+            : `${profile.participants.join('与')}（化神${profile.transformElement}）`
           : `${profile.participants.join('与')}（地支只论相合）`;
       return `${profile.type}${relation}：${profile.level}，作用${profile.direction}（${profile.evidence.join('、')}）`;
     })

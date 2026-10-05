@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   evaluateXiaoliurenFlow,
+  XIAOLIUREN_PALACE_ATTRIBUTES,
   analyzeLenormandNineGrid,
   analyzeTarotArchetypeJourney,
 } from 'mingyu-core/divination';
@@ -10,6 +11,7 @@ import { LENORMAND_CARDS } from 'mingyu-core/divination/lenormand';
 
 test('小六壬216组三宫五行关系方向一致并拒绝未知宫名', () => {
   const names = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'];
+  const elements = ['木', '水', '火', '金', '木', '土'];
   const generates = ['木火', '火土', '土金', '金水', '水木'];
   const controls = ['木土', '土水', '水火', '火金', '金木'];
   const relation = (a: string, b: string) =>
@@ -26,14 +28,17 @@ test('小六壬216组三宫五行关系方向一致并拒绝未知宫名', () =>
     for (const dayName of names)
       for (const hourName of names) {
         const result = evaluateXiaoliurenFlow({ monthName, dayName, hourName });
+        const [monthElement, dayElement, hourElement] = [monthName, dayName, hourName].map(
+          (name) => elements[names.indexOf(name)],
+        );
+        assert.deepEqual(
+          [result.month.wuxing, result.day.wuxing, result.hour.wuxing],
+          [monthElement, dayElement, hourElement],
+        );
         assert.equal(result.interpretationBasis, '现代组合分类');
         assert.doesNotMatch(result.summary, /所谋易成|先难后易|终见转机|官非|决疑准绳|断诀/);
-        assert.ok(
-          result.monthToDayRelation.endsWith(relation(result.month.wuxing, result.day.wuxing)),
-        );
-        assert.ok(
-          result.dayToHourRelation.endsWith(relation(result.day.wuxing, result.hour.wuxing)),
-        );
+        assert.ok(result.monthToDayRelation.endsWith(relation(monthElement, dayElement)));
+        assert.ok(result.dayToHourRelation.endsWith(relation(dayElement, hourElement)));
       }
   for (const name of ['未知', 'toString', '__proto__', ['大安'], null]) {
     for (const field of ['monthName', 'dayName', 'hourName']) {
@@ -123,6 +128,25 @@ test('小六壬三宫组合类别保留实际落宫条件', () => {
   });
   assert.equal(flow2.trajectoryType, '始吉终空');
   assert.match(flow2.classicalJudgment, /月宫大安，时宫空亡/);
+  assert.equal(flow2.month.wuxing, '木');
+  assert.equal(flow2.day.wuxing, '火');
+  assert.equal(flow2.monthToDayRelation, '初宫大安对二宫速喜：生出');
+  const normalFlow2 = structuredClone(flow2);
+  const originalDaAnElement = XIAOLIUREN_PALACE_ATTRIBUTES.大安.wuxing;
+  try {
+    XIAOLIUREN_PALACE_ATTRIBUTES.大安.wuxing = '金';
+    assert.equal(XIAOLIUREN_PALACE_ATTRIBUTES.大安.wuxing, '金');
+    flow2.month.wuxing = '金';
+    flow2.day.wuxing = '水';
+    const fresh = evaluateXiaoliurenFlow({
+      monthName: '大安',
+      dayName: '速喜',
+      hourName: '空亡',
+    });
+    assert.deepEqual(fresh, normalFlow2);
+  } finally {
+    XIAOLIUREN_PALACE_ATTRIBUTES.大安.wuxing = originalDaAnElement;
+  }
 
   // 转折相克：终局赤口（金）
   const flow3 = evaluateXiaoliurenFlow({

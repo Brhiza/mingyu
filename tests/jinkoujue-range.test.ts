@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculateSolarTermsForYear, getDivinationTime, TimeManager } from 'mingyu-core/calendar';
-import { formatJinkoujueJudgmentFacts } from 'mingyu-core/prompt';
+import {
+  buildDivinationPrompt,
+  formatEnhancedDivinationInfo,
+  formatJinkoujueJudgmentFacts,
+} from 'mingyu-core/prompt';
 import type { JinkoujueDivinationMethod } from 'mingyu-core/types';
 import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
 import {
@@ -92,16 +96,55 @@ test('金口诀雨水前后按月将切成两段并保留独立手算四位预�
     );
     assert.equal(data.ganzhi.day, RAIN_WATER_SOURCE.pillars.day);
     assert.equal(data.ganzhi.hour, RAIN_WATER_SOURCE.pillars.hour);
+    const before = structuredClone(data);
+    for (const prompt of [
+      formatEnhancedDivinationInfo('jinkoujue', data),
+      buildDivinationPrompt({
+        method: 'jinkoujue',
+        data,
+        question: '问合作进度',
+        currentTime: new Date(RAIN_WATER_SOURCE.startTimestamp),
+      }),
+    ]) {
+      assert.equal(prompt.split('地分火生人元土').length - 1, 1);
+      assert.match(prompt, /人元土克将神水/u);
+    }
+    assert.deepEqual(data, before);
   }
 
   const facts = formatJinkoujueRangeFacts(range);
   assert.match(facts, /分支1：/u);
   assert.match(facts, /分支2：/u);
-  for (const branch of range.branches) {
-    for (const fact of formatJinkoujueJudgmentFacts(branch.data)) {
-      assert.ok(facts.includes(fact));
+  for (const [index, branch] of range.branches.entries()) {
+    const branchFacts = facts.split(`分支${index + 1}：`)[1]?.split(`分支${index + 2}：`)[0];
+    assert.ok(branchFacts);
+    for (const fact of formatJinkoujueJudgmentFacts(branch.data, { compact: true })) {
+      if (!fact.startsWith('四位反证：')) assert.ok(facts.includes(fact));
     }
+    assert.ok(facts.includes(branch.data.yinYangUse.rule));
+    for (const position of Object.values(branch.data.positions)) {
+      assert.ok(facts.includes(`${position.name}${position.stem ?? ''}${position.branch}`));
+      assert.ok(
+        branchFacts.includes(
+          `${position.name}${position.stem ?? ''}${position.branch}${position.god ? `乘${position.god}` : ''}（${position.yinYang}${position.element}，月令${position.seasonState}${position.isVoid ? '，空' : ''}）`,
+        ),
+      );
+    }
+    assert.equal(branchFacts.split('月令受限：将神、贵神、人元力量条件偏弱').length - 1, 1);
+    assert.deepEqual(
+      branch.data.evidenceAnalysis?.counterEvidenceFacts
+        .filter((item) => item.type === '受克')
+        .map((item) => item.detail),
+      ['贵神受人元克', '将神受人元克', '地分受将神克', '地分受贵神克'],
+    );
   }
+  assert.equal(facts.split('人元土克将神水').length - 1, 2);
+  assert.equal(facts.split('人元土克贵神水').length - 1, 2);
+  assert.equal(facts.split('将神水克地分火').length - 1, 2);
+  assert.equal(facts.split('贵神水克地分火').length - 1, 2);
+  assert.equal(facts.split('月令受限：将神、贵神、人元力量条件偏弱').length - 1, 2);
+  assert.doesNotMatch(facts, /(?:将神处月令休|人元处月令死|贵神处月令休)，力量条件偏弱/);
+  assert.doesNotMatch(facts, /将神受人元克|贵神受人元克|地分受将神克|地分受贵神克/u);
 });
 
 test('金口诀半开边界和稳定窗口按完整来源校验', () => {

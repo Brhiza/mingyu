@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateQimenLifetimePrompt } from 'mingyu-core/divination/qimen';
+import { buildLifetimePrompt, calculateQimenLifetime } from 'mingyu-core/divination/qimen';
 import type { QimenLifetimeData } from 'mingyu-core/types';
 import {
   runReadingWorkflow,
@@ -12,30 +12,33 @@ import {
 import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
 import type { ChatMessage } from '../src/lib/ai/stream-client';
 
+const qimenLifetimeInput: Parameters<typeof calculateQimenLifetime>[0] = {
+  birthDateTime: '1990-05-15T10:30:00',
+  timeZoneId: 'Asia/Shanghai',
+  calendarType: 'solar',
+  isLeapMonth: false,
+  timeStandard: 'civil',
+  applyChinaDst: false,
+  method: 'zhuanpan',
+  juMethod: 'chaibu',
+  stagePolicy: {
+    model: 'pillarFourLimits',
+    anchorRule: 'birthInstant',
+    ageSystem: 'fullYears',
+    yearsPerStage: 15,
+  },
+  periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
+  topics: ['career', 'wealth'],
+  name: '甲',
+  gender: 'male',
+};
+const qimenLifetimeQuestion = '结合全部人生阶段与目标时间范围分析事业变化。';
+const qimenLifetimeSeed = calculateQimenLifetime(qimenLifetimeInput);
+
 function buildQimenResource() {
-  const { data, prompt } = generateQimenLifetimePrompt(
-    {
-      birthDateTime: '1990-05-15T10:30:00',
-      timeZoneId: 'Asia/Shanghai',
-      calendarType: 'solar',
-      isLeapMonth: false,
-      timeStandard: 'civil',
-      applyChinaDst: false,
-      method: 'zhuanpan',
-      juMethod: 'chaibu',
-      stagePolicy: {
-        model: 'pillarFourLimits',
-        anchorRule: 'birthInstant',
-        ageSystem: 'fullYears',
-        yearsPerStage: 15,
-      },
-      periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
-      topics: ['career', 'wealth'],
-      name: '甲',
-      gender: 'male',
-    },
-    '结合全部人生阶段与目标时间范围分析事业变化。',
-  );
+  const data = structuredClone(qimenLifetimeSeed);
+  const prompt = buildLifetimePrompt(data, qimenLifetimeQuestion);
+  data.prompt = prompt;
   return {
     key: 'qimen-lifetime-full-31-years',
     title: '甲奇门终身局完整资料',
@@ -43,6 +46,56 @@ function buildQimenResource() {
     usable: true,
     structured: data,
   } satisfies ReadingResource;
+}
+
+function buildDetailedQimenResource() {
+  const resource = buildQimenResource();
+  const data = resource.structured as unknown as QimenLifetimeData;
+  const dailyVoidFillDetails = (data.eventClusters ?? [])
+    .filter((cluster) => cluster.key.includes(':day:void-fill:'))
+    .map((cluster) => {
+      const datesByGanzhi = new Map<string, string[]>();
+      for (const fact of cluster.triggerDates ?? []) {
+        if (!fact.ganzhi) continue;
+        const dates = datesByGanzhi.get(fact.ganzhi) ?? [];
+        dates.push(fact.date);
+        datesByGanzhi.set(fact.ganzhi, dates);
+      }
+      const entries = [...datesByGanzhi].map(([ganzhi, dates]) => `${ganzhi}：${dates.join('、')}`);
+      const relation = cluster.triggerDates?.[0]?.relation ?? '本命空亡填实';
+      return `${cluster.timeSpan} 共${cluster.triggerDates?.length ?? 0}个日辰（节奏：${cluster.rhythm}）\n  可复核日期：${entries.join('；')}；日干支关系：${relation}`;
+    })
+    .join('\n');
+  return {
+    ...resource,
+    text: `${resource.text}\n\n【日级空亡填实日期明细】\n${dailyVoidFillDetails}`,
+  };
+}
+
+function buildMultiPhaseQimenResource() {
+  const resource = buildDetailedQimenResource();
+  const data = JSON.parse(JSON.stringify(resource.structured)) as QimenLifetimeData;
+  const clusters = data.eventClusters ?? [];
+  const clusterIndex = clusters.findIndex(
+    (cluster) =>
+      (cluster.triggerDates?.length ?? 0) > 0 &&
+      cluster.key.includes(':day:') &&
+      !cluster.key.includes(':day:void-fill:'),
+  );
+  assert.ok(clusterIndex >= 0);
+  const cluster = clusters[clusterIndex]!;
+  const sourceDates = cluster.triggerDates!;
+  clusters[clusterIndex] = {
+    ...cluster,
+    triggerDates: Array.from({ length: 4_000 }, (_, index) => ({
+      ...sourceDates[index % sourceDates.length]!,
+    })),
+  };
+  return {
+    ...resource,
+    key: 'qimen-lifetime-full-31-years-retry',
+    structured: data,
+  };
 }
 
 function buildSubject(data: QimenLifetimeData): ReadingSubjectSnapshot {
@@ -85,6 +138,7 @@ function hasTriggerDateInPrompt(
   item: { date: string; dateTime?: string; ganzhi?: string },
 ) {
   if (item.dateTime && text.includes(item.dateTime)) return true;
+  if (text.includes(item.date)) return true;
   const match = item.date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/u);
   if (!match) return text.includes(item.date);
   const monthLabel = `${match[1]}年${match[2].padStart(2, '0')}月`;
@@ -95,7 +149,7 @@ function hasTriggerDateInPrompt(
 }
 
 test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日期', async () => {
-  const resource = buildQimenResource();
+  const resource = buildDetailedQimenResource();
   const data = resource.structured as unknown as QimenLifetimeData;
   const subject = buildSubject(data);
   const h = makeHarness(resource, subject);
@@ -115,6 +169,14 @@ test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日
   };
   assert.match(resource.text, /【当前时间】/u);
   assert.ok(resource.text.length > 49_000);
+  const dailyVoidFillClusters = (data.eventClusters ?? []).filter((cluster) =>
+    cluster.key.includes(':day:void-fill:'),
+  );
+  for (const cluster of dailyVoidFillClusters) {
+    for (const date of cluster.triggerDates ?? []) {
+      assert.ok(hasTriggerDateInPrompt(resource.text, date), `详细资源缺少日期 ${date.date}`);
+    }
+  }
 
   await runReadingWorkflow(
     [{ role: 'user', content: '奇门终身局完整资料，问全部人生阶段事业变化。' }],
@@ -125,16 +187,34 @@ test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日
   assert.deepEqual(h.errors, []);
   assert.equal(h.done(), 1);
   const phaseMessages = h.sent.slice(0, -1);
-  assert.ok(phaseMessages.length > 1);
+  assert.ok(phaseMessages.length > 0);
   for (const messages of phaseMessages) {
     assert.ok(messages.reduce((sum, item) => sum + item.content.length, 0) <= 49_000);
+    assert.match(messages[0]!.content, /奇门终身局资料阶段/u);
     assert.match(messages[0]!.content, /终身局基础盘/u);
     assert.match(messages[0]!.content, /目标时间范围：2026-01-01至2056-12-31/u);
   }
 
   const phaseText = phaseMessages.map((messages) => messages[0]!.content).join('\n');
+  assert.match(
+    phaseText,
+    /日级空亡填实条件：日支逢本命旬空地支[^；]+；核验范围2026-01-01至2056-12-31/u,
+  );
   for (const cluster of data.eventClusters ?? []) {
     for (const date of cluster.triggerDates ?? []) {
+      if (cluster.key.includes(':day:void-fill:')) {
+        assert.ok(
+          phaseText
+            .split('\n')
+            .some(
+              (line) =>
+                line.startsWith(cluster.timeSpan) &&
+                line.includes(`共${cluster.triggerDates!.length}个日辰`),
+            ),
+          `阶段资料缺少空亡填实数量 ${cluster.timeSpan}`,
+        );
+        continue;
+      }
       assert.ok(
         hasTriggerDateInPrompt(phaseText, date),
         `阶段资料缺少日期 ${date.dateTime ?? date.date}`,
@@ -196,17 +276,50 @@ test('已有奇门完整资料遇到非简单追问仍进入目标时段资料�
   assert.match(planningCalls[0]!.at(-1)!.content, /当前任务：准备解读资料/u);
 });
 
+test('默认奇门终身局提示词折叠空亡逐日明细并保留触发条件与核验范围', () => {
+  const resource = buildQimenResource();
+  const data = resource.structured as unknown as QimenLifetimeData;
+
+  assert.ok(resource.text.length <= 49_000);
+  assert.match(
+    resource.text,
+    /日级空亡填实条件：日支逢本命旬空地支[^；]+；核验范围2026-01-01至2056-12-31/u,
+  );
+  assert.doesNotMatch(resource.text, /可复核日期：[^\n]*日干支关系：本命空亡填实/u);
+
+  const dailyVoidFillClusters = (data.eventClusters ?? []).filter((cluster) =>
+    cluster.key.includes(':day:void-fill:'),
+  );
+  assert.ok(dailyVoidFillClusters.length > 0);
+  for (const cluster of dailyVoidFillClusters) {
+    assert.ok(
+      resource.text
+        .split('\n')
+        .some(
+          (line) =>
+            line.startsWith(cluster.timeSpan) &&
+            line.includes(`共${cluster.triggerDates?.length ?? 0}个日辰`),
+        ),
+    );
+  }
+});
+
 test('同一事件簇拆分到多个阶段时仍完整保留事件日期', async () => {
-  const baseResource = buildQimenResource();
+  const baseResource = buildDetailedQimenResource();
   const data = JSON.parse(JSON.stringify(baseResource.structured)) as QimenLifetimeData;
   const clusters = data.eventClusters ?? [];
-  const clusterIndex = clusters.findIndex((cluster) => (cluster.triggerDates?.length ?? 0) > 0);
+  const clusterIndex = clusters.findIndex(
+    (cluster) =>
+      (cluster.triggerDates?.length ?? 0) > 0 &&
+      cluster.key.includes(':day:') &&
+      !cluster.key.includes(':day:void-fill:'),
+  );
   assert.ok(clusterIndex >= 0);
   const cluster = clusters[clusterIndex]!;
   const sourceDates = cluster.triggerDates!;
   clusters[clusterIndex] = {
     ...cluster,
-    triggerDates: Array.from({ length: 4_000 }, (_, index) => ({
+    triggerDates: Array.from({ length: 5_000 }, (_, index) => ({
       ...sourceDates[index % sourceDates.length]!,
     })),
   };
@@ -247,8 +360,9 @@ test('同一事件簇拆分到多个阶段时仍完整保留事件日期', async
 
 test('奇门阶段跨分钟失败后重试只补跑未完成阶段并完成汇总', async (context) => {
   context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-11T04:34:00Z') });
-  const resource = buildQimenResource();
+  const resource = buildMultiPhaseQimenResource();
   const data = resource.structured as unknown as QimenLifetimeData;
+  assert.ok(resource.text.length > 49_000);
   const subject = buildSubject(data);
   const h = makeHarness(resource, subject);
   const requestSizes: number[] = [];

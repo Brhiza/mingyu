@@ -13,26 +13,26 @@
  * 7. 变卦分析：分析动爻变化后的爻，形成“父化财”等判断依据。
  */
 
-import { hexagramsData } from '../../divination/hexagram-data';
+import { getHexagramsData } from '../../divination/hexagram-data';
 export { generateYarrow } from './yarrow';
 import { generateYarrow } from './yarrow';
 export type { YarrowChange, YarrowLine, YarrowOptions, YarrowResult } from './yarrow';
 import { getSixAnimals, getVoidBranches } from '../../calendar/lunar';
-import {
-  wuxing,
-  liuqinRelations,
-  hexagramNaJia, // 使用新的完整纳甲数据
-  palaces,
-  hexagramPalaceMap,
-  palaceHexagrams,
-} from '../../divination/divination-data';
+import { getLiuyaoData } from '../../divination/divination-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta, MingyuCoreError } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
-import type { LiuyaoChangeRelation, LiuyaoData } from '../../types/divination';
+import { getLiuyaoSanheWithTrigger } from '../liuyao-sanhe';
+import { getShiErGong } from '../liuyao-life-stage';
+import {
+  getLiuyaoChangeDirection,
+  getLiuyaoChangeRelation,
+  getLiuyaoChangeRelations,
+} from '../liuyao-change';
+import type { LiuyaoData } from '../../types/divination';
 import {
   isSheng,
   isKe,
@@ -41,161 +41,17 @@ import {
   isSanxing,
   getSanxingType,
   getSeasonState,
+  getBranchWuxing,
   isLiuchong,
-  BRANCH_ORDER,
-  CHANGSHENG_ORDER,
-  SANHE_GROUPS,
 } from '../../ganzhi';
 
-/**
- * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
- * 金墓在丑、木墓在未、火墓在戌、水土墓在辰。
- * 《增删卜易》所列三墓为入日墓、入动墓、动而化墓；月建仅用于旺衰，
- * 不因月支恰为某五行墓库就直接判为“入月墓”。
- */
-/**
- * 五行十二宫（《三命通会》卷三论五行旺相、《卜筮正宗》卷四十二宫）：
- * 长生（气之始）、沐浴（败地）、冠带（渐成）、临官（禄地）、帝旺（极盛）、
- * 衰（始衰）、病（渐损）、死（气尽）、墓（入墓）、绝（无气）、胎（结胎）、养（孕养）。
- *
- * 各局长生位：
- * - 金长生在巳（巳酉丑）
- * - 木长生在亥（亥卯未）
- * - 火长生在寅（寅午戌）
- * - 水长生在申（申子辰）
- * - 土长生在申（水土共长生，《三命通会》卷三）
- */
-function getShiErGong(wuxing: string, branch: string): string {
-  // 五行各局的长生位：
-  const ZHANG_SHENG_START: Record<string, string> = {
-    金: '巳', // 金长生在巳
-    木: '亥', // 木长生在亥
-    火: '寅', // 火长生在寅
-    水: '申', // 水长生在申
-    土: '申', // 土长生在申（与火不同，按《三命通会》水土共长生）
-  };
-  const startBranch = ZHANG_SHENG_START[wuxing];
-  if (!startBranch) {
-    throw new Error(`六爻十二长生无法识别五行 "${wuxing}"。`);
-  }
-  const startIndex = BRANCH_ORDER.indexOf(startBranch);
-  const branchIndex = BRANCH_ORDER.indexOf(branch);
-  if (startIndex === -1 || branchIndex === -1) {
-    throw new Error(`六爻十二长生无法识别地支 "${branch}"。`);
-  }
-  const offset = (((branchIndex - startIndex) % 12) + 12) % 12;
-  const stage = CHANGSHENG_ORDER[offset];
-  if (!stage) {
-    throw new Error(`六爻十二长生无法定位 ${wuxing} 在 ${branch} 支的状态。`);
-  }
-  return stage;
-}
+const hexagramsData = getHexagramsData();
+const { wuxing, liuqinRelations, hexagramNaJia, palaces, hexagramPalaceMap, palaceHexagrams } =
+  getLiuyaoData();
 
-/**
- * 检测月建/日辰对爻的三合局触发（《卜筮正宗》卷三《三合局章》）：
- * 若月建或日辰为三合局中一支，再有两爻相配，即为完整三合局。
- * "三合主久远、多人协力，事势增强，吉凶随局而定。"
- */
-function checkSanheWithTrigger(
-  activeBranches: string[],
-  triggerBranch: string,
-  triggerLabel: '日辰' | '月建',
-): { group: string; members: string[]; description: string } | null {
-  const activeBranchSet = new Set(activeBranches);
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    if (!members.includes(triggerBranch)) {
-      continue;
-    }
-    const requiredYaoBranches = members.filter((member) => member !== triggerBranch);
-    if (requiredYaoBranches.every((member) => activeBranchSet.has(member))) {
-      return {
-        group,
-        members,
-        description: `${triggerLabel}${triggerBranch}引动三合${group}，三合局成，事势增强`,
-      };
-    }
-  }
-  return null;
-}
+export { getLiuyaoChangeDirection, getLiuyaoChangeRelation, getLiuyaoChangeRelations };
 
 // 六合月日暗助检测（已在 yaosDetail 中通过月令旺衰、日冲与动静状态实现暗动判定）
-
-/**
- * 回头生克冲：动爻变出之爻对动爻本身的关系。
- * - 回头生：变爻生动爻，如木爻动化水爻
- * - 回头克：变爻克动爻，如木爻动化金爻
- * - 回头冲：变爻冲动爻（六冲）
- * - 化空：变爻落旬空
- * - 化进/化退：同五行递进退（由 getLiuyaoChangeDirection 判定）
- * - 比和：同五行同比和
- * - 化泄：动爻生变爻，本爻之气外泄
- * - 化耗：动爻克变爻，本爻用力而耗
- */
-const VALID_LIUYAO_WUXING = new Set(Object.keys(wuxing));
-
-export function getLiuyaoChangeRelation(
-  originalWuxing: string,
-  changedWuxing: string,
-  originalBranch: string,
-  changedBranch: string,
-  changedIsVoid: boolean,
-): LiuyaoChangeRelation {
-  const relations = getLiuyaoChangeRelations(
-    originalWuxing,
-    changedWuxing,
-    originalBranch,
-    changedBranch,
-    changedIsVoid,
-  );
-  if (changedIsVoid) return '化空';
-  const relation = relations[0];
-  if (!relation) {
-    throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
-  }
-  return relation;
-}
-
-/**
- * 返回动变条件的完整并见列表。
- * 《增删卜易》分别论回头生克冲、化空、进退等条件；化空描述变爻旬空，
- * 不会抹掉变爻对本爻原有的生、克、冲或比泄耗关系。卷二《六冲章》又以
- * “酉金化卯冲世而不克世”明确区分冲与克，故相冲和五行关系也分别保存。
- */
-export function getLiuyaoChangeRelations(
-  originalWuxing: string,
-  changedWuxing: string,
-  originalBranch: string,
-  changedBranch: string,
-  changedIsVoid: boolean,
-): LiuyaoChangeRelation[] {
-  if (!VALID_LIUYAO_WUXING.has(originalWuxing) || !VALID_LIUYAO_WUXING.has(changedWuxing)) {
-    throw new Error(`六爻动变五行无效：${originalWuxing || '空'}→${changedWuxing || '空'}`);
-  }
-  if (!BRANCH_ORDER.includes(originalBranch) || !BRANCH_ORDER.includes(changedBranch)) {
-    throw new Error(`六爻动变地支无效：${originalBranch || '空'}→${changedBranch || '空'}`);
-  }
-  if (typeof changedIsVoid !== 'boolean') {
-    throw new Error('六爻变爻旬空标记必须是布尔值');
-  }
-  const wuxingRelation: LiuyaoChangeRelation = isSheng(changedWuxing, originalWuxing)
-    ? '回头生'
-    : isKe(changedWuxing, originalWuxing)
-      ? '回头克'
-      : originalWuxing === changedWuxing
-        ? '比和'
-        : isSheng(originalWuxing, changedWuxing)
-          ? '化泄'
-          : isKe(originalWuxing, changedWuxing)
-            ? '化耗'
-            : (() => {
-                throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
-              })();
-  const relations: LiuyaoChangeRelation[] = isLiuchong(originalBranch, changedBranch)
-    ? ['回头冲', wuxingRelation]
-    : [wuxingRelation];
-  if (changedIsVoid) relations.push('化空');
-  return relations;
-}
 
 const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
   1: '子',
@@ -235,47 +91,30 @@ function isDayClash(branch: string, dayBranch: string): boolean {
 }
 
 /**
+ * 静爻日冲：月令旺相或旬空冲起可为暗动，静爻月破另存其破。
+ * 《增删卜易》暗动章、用神元神忌神仇神章的丑土、寅木例均为旬空日冲；
+ * 天时章蹇卦戌父例明确静爻月破不能仅因再逢日冲而起用。
+ * 这里只定参与资格，旬空、月破与月令旺衰仍各存原身份。
+ */
+export function isLiuyaoHiddenMove(
+  branch: string,
+  monthBranch: string,
+  dayBranch: string,
+  isChanging: boolean,
+  isVoid: boolean,
+): boolean {
+  if (isChanging || !isLiuchong(branch, dayBranch) || isLiuchong(branch, monthBranch)) {
+    return false;
+  }
+  const season = getSeasonState(getBranchWuxing(branch), monthBranch);
+  return isVoid || season === '旺' || season === '相';
+}
+
+/**
  * 判断是否为月破：爻的地支被月建地支冲克
  */
 function isMonthBreak(branch: string, monthBranch: string): boolean {
   return isLiuchong(branch, monthBranch);
-}
-
-const LIUYAO_ADVANCING_CHANGE: Record<string, string> = {
-  亥: '子',
-  寅: '卯',
-  巳: '午',
-  申: '酉',
-  丑: '辰',
-  辰: '未',
-  未: '戌',
-};
-
-const LIUYAO_RETREATING_CHANGE: Record<string, string> = {
-  子: '亥',
-  卯: '寅',
-  午: '巳',
-  酉: '申',
-  辰: '丑',
-  未: '辰',
-  戌: '未',
-};
-
-/**
- * 判断化进神/退神。
- * 按《增删卜易》进神退神章明表取用，不按十二地支循环外推。
- */
-export function getLiuyaoChangeDirection(
-  originalBranch: string,
-  changedBranch: string,
-): '化进神' | '化退神' | null {
-  if (LIUYAO_ADVANCING_CHANGE[originalBranch] === changedBranch) {
-    return '化进神';
-  }
-  if (LIUYAO_RETREATING_CHANGE[originalBranch] === changedBranch) {
-    return '化退神';
-  }
-  return null;
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
@@ -366,7 +205,9 @@ export function getLiuyaoHexagramRelations(
   };
 }
 
-function collectSanxingInBranches(branches: string[]): Array<{ branches: string[]; type: string }> {
+export function collectSanxingInBranches(
+  branches: string[],
+): Array<{ branches: string[]; type: string }> {
   const uniqueBranches = Array.from(new Set(branches));
   const result: Array<{ branches: string[]; type: string }> = [];
   const mutualGroups = [
@@ -570,7 +411,7 @@ function findPalace(hexagramName: string) {
   if (!palace) {
     throw new Error(`找不到卦象 "${hexagramName}" 的所属宫位。`);
   }
-  return palace;
+  return { ...palace };
 }
 
 /**
@@ -634,7 +475,7 @@ export function evaluateLiuyaoHiddenSpiritInteraction(params: {
   if (isSheng(flyingWuxing, hiddenWuxing)) {
     relation = '飞神生伏，存在飞神生扶条件';
   } else if (isKe(hiddenWuxing, flyingWuxing)) {
-    relation = '伏神克飞，存在伏神冲破覆盖条件';
+    relation = '伏神克飞，存在伏神克制飞神条件';
   } else if (isKe(flyingWuxing, hiddenWuxing)) {
     relation = '飞神克伏，存在飞神压制条件';
   } else if (isSheng(hiddenWuxing, flyingWuxing)) {
@@ -763,7 +604,7 @@ function getWorldAndResponseArray(shiYing: { shi: number; ying: number }): strin
   return result;
 }
 
-function getSpecialPattern(
+export function getSpecialPattern(
   changingCount: number,
   mainHexagramName: string,
 ): {
@@ -838,6 +679,10 @@ function getSpecialPattern(
 export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins' | 'yarrow';
 
 export interface LiuyaoGenerationOptions extends RandomOptions {
+  /** 本次起卦的当地时区偏移，单位分钟；省略时沿用统一时区设置。 */
+  timezoneOffsetMinutes?: number;
+  /** 真太阳时模式下的实际占时，用于节气与月建。 */
+  termReferenceDate?: Date;
   /** 起卦方式；默认有 yaos 时为 manual，否则为 time。 */
   method?: LiuyaoGenerationMethod;
   /** 蓍草十八变的手工左堆策数。 */
@@ -874,10 +719,14 @@ function generateCoinYaos(
     coinThrows.push({ coins, total });
     yaos.push(total);
   }
+  const randomTrace = context.getTrace();
+  if (options.replay && options.replay.length !== randomTrace.samples.length) {
+    throw new Error('六爻随机重放样本有剩余，记录与本次起卦过程不一致。');
+  }
   return {
     yaos,
     generation: { method, coinThrows },
-    randomTrace: context.getTrace(),
+    randomTrace,
   };
 }
 
@@ -925,11 +774,17 @@ function resolveRawYaos(
     if (options?.yaos !== undefined) throw new Error('六爻模拟投掷不能同时提供手工爻值。');
     if (options?.coinThrows !== undefined) {
       if (usesRandomOptions) throw new Error('六爻手摇记录不能同时提供随机选项。');
-      if (options.coinThrows.length !== 6) {
+      if (!Array.isArray(options.coinThrows) || options.coinThrows.length !== 6) {
         throw new Error('六爻手摇记录必须恰好包含 6 爻。');
       }
-      const coinThrows = options.coinThrows.map((item, index) => {
-        if (item.coins.length !== 3 || !item.coins.every((coin) => coin === 2 || coin === 3)) {
+      const coinThrows = Array.from(options.coinThrows, (item, index) => {
+        if (
+          !item ||
+          typeof item !== 'object' ||
+          !Array.isArray(item.coins) ||
+          item.coins.length !== 3 ||
+          !item.coins.every((coin: unknown) => coin === 2 || coin === 3)
+        ) {
           throw new Error(`第${index + 1}爻必须包含三枚有效铜钱。`);
         }
         const coins = [...item.coins] as [2 | 3, 2 | 3, 2 | 3];
@@ -949,7 +804,7 @@ function resolveRawYaos(
   if (options?.coinThrows !== undefined) throw new Error('六爻手工起卦不能同时提供手摇记录。');
   if (usesRandomOptions) throw new Error('六爻手工起卦不接受随机选项。');
   if (options?.yaos === undefined) throw new Error('六爻手工起卦必须提供六个爻值。');
-  if (options.yaos.length !== 6) {
+  if (!Array.isArray(options.yaos) || options.yaos.length !== 6) {
     throw new Error('六爻手工爻值必须恰好包含 6 爻。');
   }
   const yaos = [...options.yaos];
@@ -973,7 +828,12 @@ function toHexagramBinary(yaos: string[]): string {
 
 export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
   // 1. 获取占卜时间的干支信息
-  const { ganzhi, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timestamp, timezoneOffsetMinutes } = getDivinationTime(
+    customDate,
+    options?.timezoneOffsetMinutes,
+    options?.termReferenceDate,
+  );
+  const termReferenceTimestamp = options?.termReferenceDate?.getTime();
   const resolvedGeneration = resolveRawYaos(timestamp, options);
   const rawYaos = resolvedGeneration.yaos;
 
@@ -1058,12 +918,16 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       ? getLiuyaoChangeDirection(info.dizhi, changedInfo.dizhi)
       : null;
 
-    // 月令旺衰：按月建定爻之五行的旺相休囚死。旺相为有力，休囚死为无力。
+    // 月令旺衰只记录月建层，日冲旬空的作用另行判断。
     const seasonState = getSeasonState(info.wuxing, monthBranch);
-    // 《增删卜易·暗动章》：旺相静爻逢日冲为暗动，休囚静爻逢日冲为日破。
     // 动爻逢日冲另属“动散章”，原文强调不能见冲即断散，因此只记录日辰冲动事实。
-    const isHiddenMove =
-      !isChanging && isDayClashFlag && (seasonState === '旺' || seasonState === '相');
+    const isHiddenMove = isLiuyaoHiddenMove(
+      info.dizhi,
+      monthBranch,
+      dayBranch,
+      isChanging,
+      voids.includes(info.dizhi),
+    );
     const isDayBreakFlag = !isChanging && isDayClashFlag && !isHiddenMove;
     // 回头生克冲：动爻变出之爻对动爻本身的关系（仅动爻有变爻时计算）。
     const changeRelation = changedInfo
@@ -1085,11 +949,14 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
         )
       : [];
     const dayLifeStage = getShiErGong(info.wuxing, dayBranch);
-    const movingLifeStages = movingBranches.map(({ position, branch }) => ({
-      position,
-      branch,
-      stage: getShiErGong(info.wuxing, branch),
-    }));
+    // 动爻对本爻的生旺墓绝须来自另一爻；本爻自身的十二长生已由 shiErGong 单独记录。
+    const movingLifeStages = movingBranches
+      .filter(({ position }) => position !== index + 1)
+      .map(({ position, branch }) => ({
+        position,
+        branch,
+        stage: getShiErGong(info.wuxing, branch),
+      }));
     const changedLifeStage = changedInfo ? getShiErGong(info.wuxing, changedInfo.dizhi) : undefined;
     const isDongMu = movingLifeStages.some(({ stage }) => stage === '墓');
     const isHuaMu = changedLifeStage === '墓';
@@ -1162,8 +1029,8 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     }
     return yao.changedYao ? [yao.najiaDizhi, yao.changedYao.dizhi] : [yao.najiaDizhi];
   });
-  const sanheWithDay = checkSanheWithTrigger(activeBranches, dayBranch, '日辰');
-  const sanheWithMonth = checkSanheWithTrigger(activeBranches, monthBranch, '月建');
+  const sanheWithDay = getLiuyaoSanheWithTrigger(activeBranches, dayBranch, '日辰');
+  const sanheWithMonth = getLiuyaoSanheWithTrigger(activeBranches, monthBranch, '月建');
 
   const sanxingInYaos = collectSanxingInBranches(yaoBranches);
 
@@ -1186,6 +1053,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     : null;
 
   const result: LiuyaoData = {
+    ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
     originalName: mainHexagram.name,
     changedName: changedHexagram.name,
     interName: interHexagram.name,
@@ -1214,12 +1082,15 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     guaShen,
     generation: resolvedGeneration.generation,
     timestamp,
+    timezoneOffsetMinutes,
   };
   const resultWithMeta = attachResultMeta(result, {
     algorithm: 'liuyao',
     input: {
       method: resolvedGeneration.generation.method,
       timestamp,
+      timezoneOffsetMinutes,
+      ...(termReferenceTimestamp !== undefined ? { termReferenceTimestamp } : {}),
       yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
     },
     calculatedAt: timestamp,

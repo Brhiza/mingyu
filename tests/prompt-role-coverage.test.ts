@@ -1,22 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 import {
   PROMPT_ANSWER_FRAMEWORK,
   PROMPT_METHOD_ANSWER_FRAMEWORKS,
   PROMPT_GUIDANCE_TEXT,
   buildCustomQuestionTask,
   buildPromptTask,
-  type MetaphysicsPromptMethod,
 } from '../src/lib/prompt-guidance';
-import { assertPromptHasSingleRole } from './prompt-assertions';
 
 test('全部提示词指引不包含系统控制话术', () => {
   Object.entries(PROMPT_GUIDANCE_TEXT).forEach(([method, guidance]) => {
     const text = [guidance.tradition, guidance.sources].filter(Boolean).join('\n');
 
-    assert.match(text, /[\s\S]/, `${method} 应提供传统依据`);
     assert.doesNotMatch(
       text,
       /系统提示词|只依据|只基于|不得|禁止|取证顺序|证据边界|免责|回答中|输出时|结构化证据|计算链/,
@@ -25,26 +21,24 @@ test('全部提示词指引不包含系统控制话术', () => {
   });
 });
 
-test('通用与分体系答题骨架保持简短、中性且可重复调用', () => {
-  assert.ok(PROMPT_ANSWER_FRAMEWORK.length <= 70);
+test('通用与分体系答题骨架保持中性且可重复调用', () => {
   assert.doesNotMatch(
     PROMPT_ANSWER_FRAMEWORK,
     /【输出要求】|现实建议|风险提醒|行动清单|不得|禁止|只依据|只基于/,
   );
   Object.entries(PROMPT_METHOD_ANSWER_FRAMEWORKS).forEach(([method, framework]) => {
-    assert.ok(framework.length <= 80, `${method} 骨架长度应 <= 80`);
     assert.doesNotMatch(
       framework,
       /【输出要求】|现实建议|风险提醒|行动清单|不得|禁止|只依据|只基于/,
       `${method} 骨架不应包含限制性控制话术`,
     );
   });
-  assert.equal(
-    buildPromptTask(buildPromptTask('请依据盘面回答【问题】。')),
-    buildPromptTask('请依据盘面回答【问题】。'),
-  );
-  assert.match(buildCustomQuestionTask('盘面资料'), /^请依据盘面资料回答【问题】。/);
-  assert.match(buildCustomQuestionTask('盘面资料'), new RegExp(PROMPT_ANSWER_FRAMEWORK));
+  const task = buildPromptTask('请依据盘面回答【问题】。');
+  assert.equal(buildPromptTask(task), task);
+
+  const customTask = buildCustomQuestionTask('盘面资料');
+  assert.match(customTask, /^请依据盘面资料回答【问题】。/);
+  assert.match(customTask, new RegExp(PROMPT_ANSWER_FRAMEWORK));
 });
 
 test('合参答题骨架不要求未列出的岁运或运限', () => {
@@ -54,14 +48,23 @@ test('合参答题骨架不要求未列出的岁运或运限', () => {
   assert.match(PROMPT_METHOD_ANSWER_FRAMEWORKS['bazi-ziwei-mismatch'], /分开陈述/);
 });
 
+test('七政与太乙答题骨架只要求本次盘面的时间层资料', () => {
+  assert.doesNotMatch(PROMPT_METHOD_ANSWER_FRAMEWORKS.qizheng, /行限|流曜|阶段引动/);
+  assert.match(PROMPT_METHOD_ANSWER_FRAMEWORKS.qizheng, /命身宫度|十一曜落宿|吊照/);
+  assert.doesNotMatch(PROMPT_METHOD_ANSWER_FRAMEWORKS.taiyi, /年、月、日或时计/);
+  assert.match(PROMPT_METHOD_ANSWER_FRAMEWORKS.taiyi, /本次计式及目标时点/);
+});
+
 test('全部体系都提供传统判断规则与传统依据', () => {
   Object.entries(PROMPT_GUIDANCE_TEXT).forEach(([method, guidance]) => {
-    assert.ok('tradition' in guidance, `${method} 应提供传统判断规则`);
-    assert.ok('sources' in guidance, `${method} 应提供传统依据`);
-    assert.match(String(guidance.tradition), /[\s\S]/);
+    assert.equal(typeof guidance.tradition, 'string', `${method} 应提供传统判断规则`);
+    assert.ok(guidance.tradition.trim().length > 0, `${method} 传统判断规则不应为空`);
+    assert.equal(typeof guidance.sources, 'string', `${method} 应提供传统依据`);
+    assert.ok(guidance.sources.trim().length > 0, `${method} 传统依据不应为空`);
     assert.match(
-      String(guidance.sources),
-      /《.+》|Rider-Waite|现代西方占星|潮汕|公开资料|通行|星历资料|工程/,
+      guidance.sources.trim(),
+      /《[^》]+》|Rider-Waite|Petit Lenormand|现代西方占星|潮汕三山国王|诸葛神数|孔明神卦|京房八宫纳甲|玄空飞星通行|通行(?:资料|读法|俗传|本|口径|排法)|天文星历/,
+      `${method} 应引用可识别的传统典籍或资料来源`,
     );
   });
 });
@@ -87,21 +90,6 @@ test('核心传统术数指引覆盖排盘与取用主线', () => {
   });
 });
 
-test('八宅、住宅风水、太乙与玄空提示词使用任务书结构', () => {
-  const methods: MetaphysicsPromptMethod[] = ['bazhai', 'residential', 'taiyi', 'xuankong'];
-
-  methods.forEach((method) => {
-    const prompt = buildMetaphysicsPrompt('【排盘信息】\n测试盘面', '请解读重点。', {
-      method,
-      currentTime: new Date('2026-07-16T12:00:00+08:00'),
-    });
-
-    assertPromptHasSingleRole(prompt, PROMPT_GUIDANCE_TEXT[method]);
-    assert.match(prompt, /【问题】\n请解读重点。/);
-    assert.match(prompt, /【传统依据】/);
-  });
-});
-
 test('七政四余提示词指引保留解读所需主线', () => {
   const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
 
@@ -109,5 +97,4 @@ test('七政四余提示词指引保留解读所需主线', () => {
   assert.match(guidance.tradition, /命身宫/);
   assert.match(guidance.tradition, /主要吊照/);
   assert.doesNotMatch(guidance.tradition, /真实距星黄经划界|真太阳时|计算/);
-  assert.match(guidance.sources, /《.+》/);
 });

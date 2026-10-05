@@ -223,10 +223,11 @@ export function formatTaiyiRangeFacts(range: TaiyiRange) {
   const lines = [`太乙神数${scope ? scopeLabel(scope) : ''}候选时间范围内的分段盘面：`];
   range.branches.forEach((branch, index) => {
     const interval = formatTaiyiRangeInterval(branch.startTimestamp, branch.endTimestamp);
-    lines.push(
-      `分支${index + 1}：${interval}`,
-      formatTaiyiInfo({ ...branch.data, dateTime: interval }),
+    const facts = formatTaiyiInfo(branch.data).replace(
+      /^起局时间：[^；\n]+/mu,
+      `起局时间：${interval}`,
     );
+    lines.push(`分支${index + 1}：`, facts);
   });
   return lines.join('\n');
 }

@@ -218,5 +218,7 @@ test('遇到未实现的制化时继续保持资料不足', () => {
 
   assert.ok(fact);
   assert.strictEqual(fact!.rootEvidence?.hasClearRoot, true);
+  assert.ok(!fact!.hitSources.includes('制化来源'));
+  assert.deepEqual(fact!.targetObjects, []);
   assert.strictEqual(fact!.currentActionStatus, '资料不足');
 });

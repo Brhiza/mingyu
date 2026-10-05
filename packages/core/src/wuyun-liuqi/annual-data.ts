@@ -1,6 +1,6 @@
 import type { WuyunElement, WuyunStrength, LiuqiName, LiuqiProfile } from './index';
 
-export const STEM_MOVEMENT: Record<
+const CANONICAL_STEM_MOVEMENT: Record<
   string,
   { element: WuyunElement; yinYang: '阳' | '阴'; strength: WuyunStrength }
 > = {
@@ -16,7 +16,11 @@ export const STEM_MOVEMENT: Record<
   癸: { element: '火', yinYang: '阴', strength: '不及' },
 };
 
-export const QI_PROFILES: Record<LiuqiName, LiuqiProfile> = {
+export const STEM_MOVEMENT: typeof CANONICAL_STEM_MOVEMENT = Object.fromEntries(
+  Object.entries(CANONICAL_STEM_MOVEMENT).map(([key, movement]) => [key, { ...movement }]),
+);
+
+const CANONICAL_QI_PROFILES: Record<LiuqiName, LiuqiProfile> = {
   厥阴风木: { name: '厥阴风木', phase: '厥阴', qi: '风', element: '木' },
   少阴君火: { name: '少阴君火', phase: '少阴', qi: '君火', element: '火' },
   少阳相火: { name: '少阳相火', phase: '少阳', qi: '相火', element: '火' },
@@ -25,7 +29,11 @@ export const QI_PROFILES: Record<LiuqiName, LiuqiProfile> = {
   太阳寒水: { name: '太阳寒水', phase: '太阳', qi: '寒', element: '水' },
 };
 
-export const BRANCH_SITIAN_ZAIQUAN: Record<string, readonly [LiuqiName, LiuqiName]> = {
+export const QI_PROFILES: typeof CANONICAL_QI_PROFILES = Object.fromEntries(
+  Object.entries(CANONICAL_QI_PROFILES).map(([key, profile]) => [key, { ...profile }]),
+) as Record<LiuqiName, LiuqiProfile>;
+
+const CANONICAL_BRANCH_SITIAN_ZAIQUAN: Record<string, readonly [LiuqiName, LiuqiName]> = {
   子: ['少阴君火', '阳明燥金'],
   午: ['少阴君火', '阳明燥金'],
   丑: ['太阴湿土', '太阳寒水'],
@@ -40,7 +48,14 @@ export const BRANCH_SITIAN_ZAIQUAN: Record<string, readonly [LiuqiName, LiuqiNam
   亥: ['厥阴风木', '少阳相火'],
 };
 
-export const SUIHUI_BRANCH_ELEMENT: Partial<Record<string, WuyunElement>> = {
+export const BRANCH_SITIAN_ZAIQUAN: typeof CANONICAL_BRANCH_SITIAN_ZAIQUAN = Object.fromEntries(
+  Object.entries(CANONICAL_BRANCH_SITIAN_ZAIQUAN).map(([key, pair]) => [
+    key,
+    [...pair] as readonly [LiuqiName, LiuqiName],
+  ]),
+);
+
+const CANONICAL_SUIHUI_BRANCH_ELEMENT: Partial<Record<string, WuyunElement>> = {
   卯: '木',
   午: '火',
   辰: '土',
@@ -50,3 +65,25 @@ export const SUIHUI_BRANCH_ELEMENT: Partial<Record<string, WuyunElement>> = {
   酉: '金',
   子: '水',
 };
+
+export const SUIHUI_BRANCH_ELEMENT: typeof CANONICAL_SUIHUI_BRANCH_ELEMENT = {
+  ...CANONICAL_SUIHUI_BRANCH_ELEMENT,
+};
+
+export function getStemMovement(stem: string) {
+  const movement = CANONICAL_STEM_MOVEMENT[stem];
+  return movement && { ...movement };
+}
+
+export function getQiProfile(name: LiuqiName): LiuqiProfile {
+  return { ...CANONICAL_QI_PROFILES[name] };
+}
+
+export function getBranchSitianZaiquan(branch: string) {
+  const pair = CANONICAL_BRANCH_SITIAN_ZAIQUAN[branch];
+  return pair && ([...pair] as readonly [LiuqiName, LiuqiName]);
+}
+
+export function getSuihuiBranchElement(branch: string) {
+  return CANONICAL_SUIHUI_BRANCH_ELEMENT[branch];
+}

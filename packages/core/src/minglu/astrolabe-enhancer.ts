@@ -11,18 +11,18 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
     name: p.name,
     label: p.label,
     sign: p.sign,
-    house: p.house,
+    house: p.house > 0 ? p.house : undefined,
     degree: p.degree,
     minute: p.minute,
     formatted: p.formatted,
-    isRetrograde: p.retrograde,
+    // 衍生点没有黄经日运动时，不把来源层的默认 false 解释成顺行。
+    isRetrograde: p.longitudeSpeed === undefined ? undefined : p.retrograde,
   }));
 
   const angles = data.angles.map((a) => ({
     name: a.name,
     label: a.label,
     sign: a.sign,
-    house: a.house,
     degree: a.degree,
     minute: a.minute,
     formatted: a.formatted,
@@ -50,12 +50,11 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
     };
   });
 
-  // 元素/模式摘要只统计参与分布计算的星体集合，比例分母须与分子保持同一集合，
-  // 不能使用合并全部交点、莉莉丝与阿拉伯点后的 points.length
-  const totalPoints =
-    Object.values(data.summary.elements).reduce((sum, list) => sum + list.length, 0) ||
-    Object.values(data.summary.modalities).reduce((sum, list) => sum + list.length, 0) ||
-    1;
+  // 各分布的比例分别以该组实际统计的星体数为分母。
+  const elementPointCount =
+    Object.values(data.summary.elements).reduce((sum, list) => sum + list.length, 0) || 1;
+  const modalityPointCount =
+    Object.values(data.summary.modalities).reduce((sum, list) => sum + list.length, 0) || 1;
   const elementsRecord: Record<string, { count: number; percentage: number; points: string[] }> = {
     火: { count: 0, percentage: 0, points: [] },
     土: { count: 0, percentage: 0, points: [] },
@@ -66,8 +65,10 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
   Object.entries(data.summary.elements).forEach(([elem, list]) => {
     if (elementsRecord[elem]) {
       elementsRecord[elem].count = list.length;
-      elementsRecord[elem].percentage = Number(((list.length / totalPoints) * 100).toFixed(1));
-      elementsRecord[elem].points = list;
+      elementsRecord[elem].percentage = Number(
+        ((list.length / elementPointCount) * 100).toFixed(1),
+      );
+      elementsRecord[elem].points = [...list];
     }
   });
 
@@ -81,12 +82,16 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
   Object.entries(data.summary.modalities).forEach(([mod, list]) => {
     if (modalitiesRecord[mod]) {
       modalitiesRecord[mod].count = list.length;
-      modalitiesRecord[mod].percentage = Number(((list.length / totalPoints) * 100).toFixed(1));
-      modalitiesRecord[mod].points = list;
+      modalitiesRecord[mod].percentage = Number(
+        ((list.length / modalityPointCount) * 100).toFixed(1),
+      );
+      modalitiesRecord[mod].points = [...list];
     }
   });
 
-  const isDayTime = data.solarIllumination ? data.solarIllumination.solarAltitudeDegrees > 0 : true;
+  const isDayTime = data.solarIllumination
+    ? data.solarIllumination.solarAltitudeDegrees > 0
+    : data.dayChart;
 
   return {
     points,

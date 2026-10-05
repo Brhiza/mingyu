@@ -115,6 +115,137 @@ test('八字 MCP 未知时辰逐页穷尽候选并与完整本地结果逐项一
   assert.match(String(outOfRange.structuredContent?.error), /startIndex 超出资料范围/);
 });
 
+test('MCP 重复民用日逐页保留午时双偏移与对应 UTC 时刻', async () => {
+  const input = {
+    dateType: 'solar' as const,
+    year: 1969,
+    month: 9,
+    day: 30,
+    gender: 'female' as const,
+    timeZoneId: 'Pacific/Kwajalein',
+  };
+  const full = baziCalculator.calculateBazi(buildBaziPerson(input));
+  const noon = (full.unknownTimeAnalysis?.scenarios ?? []).flatMap((scenario, index) =>
+    scenario.source === 'shichen-representative' && scenario.inputClockTime === '12:00:00'
+      ? [{ scenario, index }]
+      : [],
+  );
+  assert.deepEqual(
+    noon.map(({ scenario }) => scenario.timeName),
+    ['午时候选（UTC+11）', '午时候选（UTC-12）'],
+  );
+  const tools = getRegisteredTools(registerBaziTool);
+  const calculate = tools.bazi_calculate!;
+  const prompt = tools.bazi_prompt!;
+  const first = await calculate.handler(parseToolInput(calculate, input));
+  assert.equal(first.isError, undefined);
+  const contextKey = first.structuredContent?.batch?.unknownTimeBatch.contextKey;
+  assert.ok(contextKey);
+
+  for (const { scenario, index } of noon) {
+    const timezone = scenario.timeName.includes('UTC+11') ? 11 : -12;
+    const cursor = { startIndex: index, contextKey };
+    const page = await calculate.handler(
+      parseToolInput(calculate, { ...input, detailMode: 'full', unknownTimeBatch: cursor }),
+    );
+    assert.equal(page.isError, undefined, JSON.stringify(page.structuredContent));
+    const batch = page.structuredContent?.batch?.unknownTimeBatch;
+    const returnedScenario = page.structuredContent?.result.unknownTimeAnalysis.scenarios[0];
+    assert.deepEqual(returnedScenario, scenario);
+    assert.equal(batch.candidateKey, scenario.scenarioKey);
+    assert.equal(batch.contextKey, contextKey);
+    const clock = /^(\d{2}):(\d{2}):(\d{2})$/.exec(returnedScenario.inputClockTime);
+    const offset = /UTC([+-]\d+)/.exec(returnedScenario.timeName);
+    assert.ok(clock);
+    assert.ok(offset);
+    assert.equal(
+      new Date(
+        Date.UTC(1969, 8, 30, Number(clock[1]), Number(clock[2]), Number(clock[3])) -
+          Number(offset[1]) * 3_600_000,
+      ).toISOString(),
+      timezone === 11 ? '1969-09-30T01:00:00.000Z' : '1969-10-01T00:00:00.000Z',
+    );
+
+    const prompted = await prompt.handler(
+      parseToolInput(prompt, {
+        ...input,
+        question: '比较两个正午候选。',
+        unknownTimeBatch: cursor,
+      }),
+    );
+    assert.equal(prompted.isError, undefined, JSON.stringify(prompted.structuredContent));
+    assert.equal(
+      prompted.structuredContent?.result.unknownTimeAnalysis.scenarios[0].scenarioKey,
+      scenario.scenarioKey,
+    );
+    assert.ok(String(prompted.structuredContent?.prompt).includes(scenario.timeName));
+  }
+});
+
+test('MCP 中国夏令时跨标准日期时逐页保留实际公农历并只展示跨日差异', async () => {
+  const input = {
+    dateType: 'solar' as const,
+    year: 1988,
+    month: 5,
+    day: 1,
+    gender: 'female' as const,
+    applyChinaDst: true,
+  };
+  const full = baziCalculator.calculateBazi(buildBaziPerson(input));
+  assert.deepEqual(full.unknownTimeAnalysis?.uncertainCalendarDates, ['solar', 'lunar']);
+  const scenarios = full.unknownTimeAnalysis!.scenarios;
+  const noonIndex = scenarios.findIndex(
+    (scenario) =>
+      scenario.source === 'shichen-representative' && scenario.inputClockTime === '12:00:00',
+  );
+  assert.ok(noonIndex > 0);
+  const tools = getRegisteredTools(registerBaziTool);
+  const calculate = tools.bazi_calculate!;
+  const prompt = tools.bazi_prompt!;
+  const first = await calculate.handler(parseToolInput(calculate, input));
+  assert.equal(first.isError, undefined, JSON.stringify(first.structuredContent));
+  const contextKey = first.structuredContent?.batch?.unknownTimeBatch.contextKey;
+  assert.ok(contextKey);
+
+  for (const [index, expectedSolar, expectedLunarDay] of [
+    [0, { year: 1988, month: 4, day: 30 }, '十五'],
+    [noonIndex, { year: 1988, month: 5, day: 1 }, '十六'],
+  ] as const) {
+    const cursor = { startIndex: index, contextKey };
+    const calculated = await calculate.handler(
+      parseToolInput(calculate, { ...input, unknownTimeBatch: cursor }),
+    );
+    assert.equal(calculated.isError, undefined, JSON.stringify(calculated.structuredContent));
+    const chart = calculated.structuredContent?.result;
+    const scenario = chart.unknownTimeAnalysis.scenarios[0];
+    assert.deepEqual(chart.unknownTimeAnalysis.uncertainCalendarDates, ['solar', 'lunar']);
+    assert.deepEqual(chart.solarDate, { year: 1988, month: 5, day: 1 });
+    assert.deepEqual(scenario, scenarios[index]);
+    assert.deepEqual(scenario.solarDate, expectedSolar);
+    assert.equal(scenario.lunarDate.monthName, '三月');
+    assert.equal(scenario.lunarDate.dayName, expectedLunarDay);
+
+    const prompted = await prompt.handler(
+      parseToolInput(prompt, {
+        ...input,
+        question: '核对候选出生日期。',
+        unknownTimeBatch: cursor,
+      }),
+    );
+    assert.equal(prompted.isError, undefined, JSON.stringify(prompted.structuredContent));
+    const text = String(prompted.structuredContent?.prompt);
+    assert.deepEqual(prompted.structuredContent?.result.unknownTimeAnalysis.scenarios[0], scenario);
+    assert.match(text, /输入日期对应公历1988年5月1日，参考农历1988年三月十六/);
+    if (index === 0) {
+      assert.match(text, /日初00:00:00候选：排盘历日公历1988年4月30日、农历1988年三月十五/);
+    } else {
+      assert.match(text, /午时候选：/);
+      assert.doesNotMatch(text, /午时候选：排盘历日/);
+      assert.equal(text.match(/农历1988年三月十六/g)?.length, 1);
+    }
+  }
+});
+
 test('MCP 标准时间入口保留地点时区与历史夏令时，候选身份和直接 Person 一致', async () => {
   const zonedPerson = buildBaziPerson({
     ...UNKNOWN_INPUT,

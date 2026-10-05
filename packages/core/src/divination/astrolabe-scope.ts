@@ -11,6 +11,8 @@ import {
   type TransitPosition,
   type Transit,
 } from '../astrology/engine';
+import { formatFixedTimezoneOffset } from '../calendar/civil-time';
+import { daysInGregorianMonth } from '../calendar/date-validation';
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 import {
@@ -63,6 +65,7 @@ import {
 } from '../calendar/astronomical-time';
 import {
   getCivilDateTimeAtFixedOffset,
+  resolveCivilDayStart,
   resolveCivilTime,
   type CivilTimeZoneInput,
 } from '../calendar/civil-time';
@@ -767,12 +770,21 @@ function formatTransitHouseFactLine(fact: AstrolabeTransitHouseFact) {
 }
 
 function getNatalHouseCusps(data: AstrolabeData) {
-  const cusps = data.houses
-    .slice()
-    .sort((first, second) => first.house - second.house)
-    .map((item) => item.longitude);
-
-  return cusps.length === 12 && cusps.every((item) => Number.isFinite(item)) ? cusps : null;
+  const houses = data.houses.slice().sort((first, second) => first.house - second.house);
+  if (
+    houses.length !== 12 ||
+    houses.some((house, index) => house.house !== index + 1 || !Number.isFinite(house.longitude))
+  ) {
+    return null;
+  }
+  const cusps = houses.map((house) => normalizeLongitude(house.longitude));
+  let totalArc = 0;
+  for (let index = 0; index < cusps.length; index += 1) {
+    const arc = normalizeLongitude(cusps[(index + 1) % 12] - cusps[index]);
+    if (arc === 0) return null;
+    totalArc += arc;
+  }
+  return Math.abs(totalArc - 360) < 0.000001 ? cusps : null;
 }
 
 function normalizeLongitude(longitude: number) {
@@ -1932,7 +1944,7 @@ function buildSolarReturnChartFact(
   );
   const formatPoint = (point: AstrolabeAdvancedMovingPointFact) =>
     `${point.label}${point.signLabel}${point.degree}°${String(point.minute).padStart(2, '0')}′${point.house ? `第${point.house}宫` : ''}`;
-  const promptText = `返照盘（出生地${data.birth.location}，纬度${coordinates.latitude}°、经度${coordinates.longitude}°）：行星${planets.map(formatPoint).join('、')}；四轴${angles.map(formatPoint).join('、')}；十二宫宫头${houses.map((house) => `第${house.house}宫${house.signLabel}${house.degree}°${String(house.minute).padStart(2, '0')}′`).join('、')}；盘内主要相位${internalAspectFacts.map((fact) => fact.promptText).join('、') || '未见'}；对本命主要相位${aspectFactSet.all.map((fact) => `${fact.movingPoint}${fact.aspectName}${fact.natalPoint}（偏差${fact.deviation.toFixed(2)}°）`).join('、') || '未见'}。`;
+  const promptText = `太阳返照盘（出生地${data.birth.location}，纬度${coordinates.latitude}°、经度${coordinates.longitude}°）：行星${planets.map(formatPoint).join('、')}；四轴${angles.map(formatPoint).join('、')}；十二宫宫头${houses.map((house) => `第${house.house}宫${house.signLabel}${house.degree}°${String(house.minute).padStart(2, '0')}′`).join('、')}；盘内主要相位${internalAspectFacts.map((fact) => fact.promptText).join('、') || '未见'}；对本命主要相位${aspectFactSet.all.map((fact) => `${fact.movingPoint}${fact.aspectName}${fact.natalPoint}（偏差${fact.deviation.toFixed(2)}°，${fact.closeness}）`).join('、') || '未见'}。`;
   return {
     aspectFactSet,
     returnChart: {
@@ -1958,6 +1970,14 @@ export function calculateSolarReturnEvidence(
   targetYear: number,
 ): SolarReturnEvidence {
   assertAdvancedTargetYear(targetYear);
+  return calculateSolarReturnEvidenceForPeriod(data, targetYear);
+}
+
+/** 年度有效期的右边界可由次年返照落在本年末形成。 */
+function calculateSolarReturnEvidenceForPeriod(
+  data: AstrolabeData,
+  targetYear: number,
+): SolarReturnEvidence {
   const technique: AstrolabeAdvancedTechnique = '太阳返照';
   const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
@@ -2045,7 +2065,7 @@ export function calculateSolarReturnEvidence(
       '时间映射边界',
     );
   }
-  const maxDay = daysInAstrolabeScopeMonth(targetYear, birth.month);
+  const maxDay = daysInGregorianMonth(targetYear, birth.month);
   const centerDay = Math.min(birth.day, maxDay);
   const centerTimestamp =
     Date.UTC(targetYear, birth.month - 1, centerDay, birth.hour, birth.minute, birth.second ?? 0) -
@@ -2262,7 +2282,7 @@ export function calculateSolarReturnEvidence(
       timeScale,
       limitations,
       limitationFacts,
-      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${localReturn.timezone >= 0 ? '+' : ''}${localReturn.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${returnChart.promptText}；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
+      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${formatFixedTimezoneOffset(localReturn.timezone)}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${returnChart.promptText}；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
     };
   } catch {
     return unavailableEvidence('太阳返照计算失败，不作为本次判断依据。', '位置计算', [
@@ -2279,13 +2299,10 @@ function buildSolarReturnPeriods(
 ): SolarReturnPeriod[] {
   const timeZone = getScopeTimeZoneInput(data);
   const localMidnightUtc = (year: number) =>
-    resolveCivilTime({
+    resolveCivilDayStart({
       year,
       month: 1,
       day: 1,
-      hour: 0,
-      minute: 0,
-      second: 0,
       ...timeZone,
     }).utcTimestamp;
   const yearStart = localMidnightUtc(targetYear);
@@ -2298,9 +2315,9 @@ function buildSolarReturnPeriods(
     ...timeZone,
   }).utcTimestamp;
   const returns = [targetYear - 1, targetYear, targetYear + 1]
-    .filter((year) => year >= 1900 && year <= 2200)
+    .filter((year) => year >= 1900 && year <= 2201)
     .map((year) =>
-      year === targetYear ? currentEvidence : calculateSolarReturnEvidence(data, year),
+      year === targetYear ? currentEvidence : calculateSolarReturnEvidenceForPeriod(data, year),
     )
     .filter(
       (evidence): evidence is SolarReturnEvidence & { timeScale: AstronomicalTimeEvidence } =>
@@ -2437,7 +2454,7 @@ function buildTransitHouseEvidence(
   return {
     status: '有效' as const,
     facts,
-    promptText: `行运落宫：取样时区UTC${timezone >= 0 ? '+' : ''}${timezone}；${facts
+    promptText: `行运落宫：取样时区UTC${formatFixedTimezoneOffset(timezone)}；${facts
       .map((fact) => fact.promptText)
       .join('；')}。`,
   } satisfies AstrolabeTransitHouseEvidence;
@@ -2568,13 +2585,13 @@ function formatAdvancedScopeFacts(params: {
     for (const period of returnPeriods) {
       const evidence = period.evidence;
       lines.push(
-        `太阳返照有效期${period.startsAt}至${period.endsAt}（结束时刻不含）${period.isReferencePeriod ? '，覆盖本次参考日期' : ''}：返照时刻${evidence.dateTime}；${formatAspectFacts(evidence.aspectFacts) || '未见主要对本命相位'}。`,
+        `太阳返照有效期${period.startsAt}至${period.endsAt}（结束时刻不含）${period.isReferencePeriod ? '，覆盖本次参考日期' : ''}：返照时刻${evidence.dateTime}${evidence.returnChart ? '' : `；${formatAspectFacts(evidence.aspectFacts) || '未见主要对本命相位'}`}。`,
       );
       if (evidence.returnChart) lines.push(evidence.returnChart.promptText);
     }
   } else if (solarReturn) {
     lines.push(
-      `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}：${formatAspectFacts(solarReturn.aspectFacts) || '暂无'}。`,
+      `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}${solarReturn.returnChart ? '。' : `：${formatAspectFacts(solarReturn.aspectFacts) || '暂无'}。`}`,
     );
     if (solarReturn.returnChart) lines.push(solarReturn.returnChart.promptText);
   }
@@ -2642,8 +2659,8 @@ export function buildAstrolabeScopeContext(
   const anchorDate = formatAnchorDate(target);
   const targetTimezone = resolveScopeTimezone(data, { ...target, hour: 12, minute: 0 });
   const timezoneLabel = data.birth.timeZoneId
-    ? `${data.birth.timeZoneId}（UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}）`
-    : `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
+    ? `${data.birth.timeZoneId}（UTC${formatFixedTimezoneOffset(targetTimezone)}）`
+    : `UTC${formatFixedTimezoneOffset(targetTimezone)}`;
   const includeScopeFacts = options.includeScopeFacts ?? true;
   const transitFacts = includeScopeFacts
     ? buildTransitEvidence(data, target, targetTimezone)

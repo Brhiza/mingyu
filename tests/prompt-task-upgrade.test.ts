@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildPromptTask,
+  buildPromptGuidance,
   getPromptAnswerFramework,
   PROMPT_ANSWER_FRAMEWORK,
   PROMPT_METHOD_ANSWER_FRAMEWORKS,
@@ -17,6 +18,11 @@ test('切换术式应替换末尾旧骨架，保留实际问题并只使用新�
   const qimen = buildPromptTask(liuyao, 'qimen');
   assert.ok(!qimen.includes(getPromptAnswerFramework('liuyao')));
   assert.equal(buildPromptTask(qimen, 'qimen'), qimen);
+  for (const method of ['constructor', '__proto__', 'toString']) {
+    assert.equal(getPromptAnswerFramework(method), PROMPT_ANSWER_FRAMEWORK);
+    assert.equal(buildPromptTask(original, method), generic);
+    assert.equal(buildPromptGuidance(method), '');
+  }
 });
 
 test('任务中的引用保持原文，末尾答题规则按当前方法确定', () => {
@@ -36,5 +42,5 @@ test('专业骨架保持紧凑，单盘、单牌、合参和时限任务保持�
   assert.match(getPromptAnswerFramework('ziwei-compatibility'), /发出方.*接收方/);
   assert.match(getPromptAnswerFramework('tarot-single'), /唯一牌位/);
   assert.doesNotMatch(getPromptAnswerFramework('tarot-single'), /邻牌|过去.*未来/);
-  assert.match(getPromptAnswerFramework('almanac'), /参与人.*冲犯.*日层.*时辰/);
+  assert.match(getPromptAnswerFramework('almanac'), /参与人.*冲犯.*每个候选日.*首选与备选/);
 });

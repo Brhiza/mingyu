@@ -1,4 +1,9 @@
-import { createRandomContext, randomInt, type RandomOptions } from '../shared/random';
+import {
+  assertReplaySamplesConsumed,
+  createRandomContext,
+  randomInt,
+  type RandomOptions,
+} from '../shared/random';
 import { CHARACTER_STROKE_TUPLES } from './generated-character-strokes';
 import { ZHUGE_SIGNS } from './zhuge-signs';
 import { getZhugeInterpretation } from './zhuge-interpretations';
@@ -9,6 +14,26 @@ for (const [simplified, traditional, count] of CHARACTER_STROKE_TUPLES) {
   characterStrokes.set(simplified, count);
   characterStrokes.set(traditional, count);
 }
+// 简体“复”“钟”已有十五、二十画取数；明确原字形分别为“複”“鐘”。
+characterStrokes.set('複', 15);
+characterStrokes.set('鐘', 20);
+characterStrokes.set('線', 15);
+characterStrokes.set('繡', 18);
+characterStrokes.set('饑', 21);
+// “髮”对应发的毛发义，康熙十五画；“發”仍按现有数据计十二画。
+characterStrokes.set('髮', 15);
+// “为/為”的康熙取数采用十二画。
+characterStrokes.set('为', 12);
+characterStrokes.set('為', 12);
+// 明确输入的原字形按各自《康熙字典》条目取数，不回退到简化对应字。
+characterStrokes.set('纔', 23);
+characterStrokes.set('隻', 10);
+characterStrokes.set('穀', 15);
+characterStrokes.set('佔', 7);
+characterStrokes.set('鬆', 18);
+characterStrokes.set('硃', 11);
+characterStrokes.set('製', 14);
+characterStrokes.set('遊', 16);
 
 const KONGMING_HEXAGRAMS = [
   ['●●●●●', '星震卦', '上上', '彩凤呈祥瑞，麒麟降帝都，祸除迎福到，喜气自然生。'],
@@ -70,14 +95,17 @@ export function calculateZhugeNumber(text: string) {
 }
 
 export function castKongmingHexagram(pattern?: string, options?: RandomOptions) {
-  let resolvedPattern = pattern?.trim();
+  let resolvedPattern: string;
   let randomTrace: ReturnType<ReturnType<typeof createRandomContext>['getTrace']> | undefined;
-  if (!resolvedPattern) {
+  if (pattern === undefined) {
     const context = createRandomContext(options);
     resolvedPattern = Array.from({ length: 5 }, () =>
       randomInt(2, context.random) === 1 ? '●' : '○',
     ).join('');
     randomTrace = context.getTrace();
+    assertReplaySamplesConsumed(options, randomTrace);
+  } else {
+    resolvedPattern = pattern.trim();
   }
   const normalized = resolvedPattern.replace(/[阳正公1]/g, '●').replace(/[阴反字0]/g, '○');
   if (!/^[●○]{5}$/.test(normalized)) throw new Error('卦象需由五个阴阳结果组成');

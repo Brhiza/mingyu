@@ -11,55 +11,6 @@ import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-test('玄空九运下卦符合沈氏玄空学四十八旺山旺向局原表', () => {
-  // 《沈氏玄空学》卷二“论四十八局”，按原文列坐山，朝向均为正对山。
-  // https://www.diancangwang.cn/xuanxuewushu/f6f37803664b/34f0e0aa12ff.html
-  const expected = [
-    '',
-    '乾巽巳亥丑未',
-    '辰戌卯酉乙辛',
-    '甲庚艮坤寅申',
-    '子午癸丁卯酉乙辛辰戌丑未',
-    '甲庚艮坤寅申',
-    '辰戌卯酉乙辛',
-    '乾巽巳亥丑未',
-    '',
-  ];
-  let count = 0;
-  for (let yun = 1; yun <= 9; yun++) {
-    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
-      const result = generateXuanKong({ year: 1864 + (yun - 1) * 20, sitMountain });
-      const isWang = result.formation === '旺山旺向';
-      assert.equal(isWang, expected[yun - 1].includes(sitMountain), `${yun}运${sitMountain}山`);
-      if (isWang) count++;
-    }
-  }
-  assert.equal(count, 48);
-});
-
-test('玄空九运二十四山提示词保留山向五黄的全部落宫', () => {
-  for (let yun = 1; yun <= 9; yun++) {
-    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
-      const result = generateXuanKong({ year: 1864 + (yun - 1) * 20, sitMountain });
-      const line = result.prompt.split('\n').find((item) => item.includes('五黄'));
-      assert.ok(line, `${yun}运${sitMountain}缺少五黄落宫`);
-      const expected = result.palaces.filter(
-        (palace) => palace.shanStar === 5 || palace.xiangStar === 5,
-      );
-      for (const palace of expected) {
-        assert.ok(line.includes(palace.name), `${yun}运${sitMountain}漏列${palace.name}：${line}`);
-      }
-      assert.equal(line.split('：')[1].split('；').length, expected.length);
-      for (const palace of expected) {
-        const layers = [palace.shanStar === 5 ? '山星' : '', palace.xiangStar === 5 ? '向星' : '']
-          .filter(Boolean)
-          .join('、');
-        assert.ok(line.includes(`${palace.name}（${palace.direction}，${layers}）`));
-      }
-    }
-  }
-});
-
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
   assert.deepEqual(period, {
@@ -70,10 +21,50 @@ test('三元九运：2024 应落入下元九运区间附近可复现运表', () 
     startYear: 2024,
     endYear: 2043,
     label: '下元9运（2024-2043）',
+    boundaryStatus: '待核定',
+    boundaryNote:
+      '2024年立春前建造或起运属8运，立春后属9运；本盘按9运列示，实际运期需依建造或起运日期核定',
   });
   assert.equal(period.yunStar, period.yun);
   assert.ok(period.startYear <= 2024 && period.endYear >= 2024);
   assert.match(period.label, /运/);
+});
+
+test('交运首年仅有年份时保留立春前后运期待核定状态', () => {
+  const transition = generateXuanKong({ year: 2004, sitMountain: '子' });
+  assert.equal(transition.period.yun, 8);
+  assert.equal(transition.period.boundaryStatus, '待核定');
+  assert.match(transition.period.boundaryNote ?? '', /2004年立春前.*7运.*立春后.*8运/);
+  assert.ok(transition.prompt.includes(transition.period.boundaryNote!));
+  assert.equal(transition.evidenceAnalysis.summaryFact.status, '运期待核定');
+  assert.ok(
+    transition.evidenceAnalysis.counterFacts.some(
+      (item) =>
+        item.key === 'xuankong:counter:period-boundary' &&
+        item.promptText === transition.period.boundaryNote,
+    ),
+  );
+
+  const settled = generateXuanKong({ year: 2005, sitMountain: '子' });
+  assert.equal(settled.period.boundaryStatus, undefined);
+  assert.equal(settled.period.boundaryNote, undefined);
+  assert.equal(settled.evidenceAnalysis.summaryFact.status, '结构完整');
+});
+
+test('九运周期跨公元元年时使用无公元0年的民用纪年', () => {
+  const period = resolveXuanKongPeriod(1);
+  assert.equal(period.startYear, -17);
+  assert.equal(period.endYear, 3);
+  assert.equal(period.label, '中元6运（公元前17年—公元3年）');
+  assert.equal(resolveXuanKongPeriod(3).label, period.label);
+  assert.deepEqual(
+    [
+      resolveXuanKongPeriod(4).startYear,
+      resolveXuanKongPeriod(4).endYear,
+      resolveXuanKongPeriod(4).yun,
+    ],
+    [4, 23, 7],
+  );
 });
 
 test('飞星入中：方向由调用方明确提供，不再按星数奇偶猜测', () => {
@@ -89,7 +80,7 @@ test('飞星入中：方向由调用方明确提供，不再按星数奇偶猜�
   assert.notDeepEqual(twoForward, twoReverse);
 });
 
-test('玄空飞星使用元龙阴阳下卦引擎生成金标盘、局型与组合', () => {
+test('玄空飞星金标盘、城门与流年流月叠盘保持完整事实', () => {
   const result = generateXuanKong({ year: 2008, sitMountain: '子' });
   assert.equal(result.sitMountain, '子');
   assert.equal(result.facingMountain, '午');
@@ -110,6 +101,42 @@ test('玄空飞星使用元龙阴阳下卦引擎生成金标盘、局型与组�
   assert.equal(result.guaType, '下卦');
   assert.equal(result.replacementApplied, false);
   assert.match(result.replacementReason, /下卦/);
+
+  assert.ok(result.castleGate);
+  assert.equal(result.castleGate.hasUsableGate, null);
+  assert.equal(result.castleGate.hasWangStarGate, true);
+  const xunGate = result.castleGate.candidates.find((candidate) => candidate.mountain === '巽');
+  assert.ok(xunGate);
+  assert.equal(xunGate.status, '旺星到位');
+  assert.equal(xunGate.arrivalStar, 8);
+  assert.match(result.castleGate.summary, /城门诀/);
+  assert.match(result.castleGate.summary, /实际水口、周围形势及生克判断/);
+  assert.ok(result.prompt.includes('城门诀：'));
+
+  assert.equal(result.flowStars, undefined);
+  assert.equal(result.palaces[0].yearStar, undefined);
+  assert.match(result.prompt, /三盘九宫/);
+  assert.doesNotMatch(result.prompt, /流年飞星/);
+
+  const withFlow = generateXuanKong({
+    year: 2008,
+    sitMountain: '子',
+    flowYear: 2024,
+    flowMonth: 3,
+  });
+  assert.ok(withFlow.flowStars);
+  assert.equal(withFlow.flowStars?.yearPlate.year, 2024);
+  assert.equal(withFlow.period.year, 2008);
+  assert.deepEqual(withFlow.plates.year, withFlow.flowStars?.yearPlate.plate);
+  assert.deepEqual(withFlow.plates.month, withFlow.flowStars?.monthPlate?.plate);
+  for (const palace of withFlow.palaces) {
+    assert.equal(palace.yearStar, withFlow.plates.year?.[palace.gong - 1]);
+    assert.equal(palace.monthStar, withFlow.plates.month?.[palace.gong - 1]);
+    assert.ok(palace.shanXiangRelation);
+    assert.ok(palace.yunStarState);
+  }
+  assert.match(withFlow.prompt, /流年飞星/);
+  assert.match(withFlow.prompt, /流月飞星/);
 });
 
 test('玄空飞星拒绝缺年和不相对坐向，替卦必须显式满足兼向条件', () => {
@@ -182,11 +209,26 @@ test('玄空正处4.5度中央九度分界时保留下卦并提示下卦/替卦�
   assert.equal(result.measurement?.candidateMountains, undefined);
   assert.equal(result.engine.mode, '下卦');
   assert.match(result.measurement?.warnings.join('') ?? '', /正处中央九度分界/);
+  assert.match(result.prompt, /边界原因：中央九度分界/);
   assert.match(result.prompt, /正处中央九度分界/);
   assert.match(result.prompt, /复测确认位于中央九度内时用下卦，核定兼向外侧三度时可选替卦/);
   assert.doesNotMatch(result.prompt, /候选山向/);
   assert.match(result.evidenceAnalysis.promptText, /中央九度分界/);
   assert.match(result.evidenceAnalysis.promptText, /下卦.*替卦/);
+});
+
+test('玄空兼向稳定区准确表述分界状态，细小非零距离不写成零', () => {
+  const jianXiang = generateXuanKong({ year: 2024, sitDegree: 6 });
+  assert.equal(jianXiang.measurement?.isJianXiang, true);
+  assert.equal(jianXiang.measurement?.stability, '稳定');
+  assert.doesNotMatch(jianXiang.prompt, /边界原因/);
+  assert.doesNotMatch(jianXiang.evidenceAnalysis.promptText, /边界原因/);
+  assert.doesNotMatch(jianXiang.prompt, /中央九度稳定区间/);
+
+  const nearBoundary = generateXuanKong({ year: 2024, sitDegree: 7.496 });
+  assert.equal(nearBoundary.measurement?.stability, '稳定');
+  assert.ok(nearBoundary.measurement!.nearestBoundaryDistanceDegrees! > 0);
+  assert.match(nearBoundary.prompt, /距二十四山分界0\.004°/);
 });
 
 test('玄空替星诀覆盖二十四山且补齐戌山武曲六白', () => {
@@ -198,12 +240,13 @@ test('玄空替星诀覆盖二十四山且补齐戌山武曲六白', () => {
 });
 
 test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证据', () => {
-  const result = generateXuanKong({
+  const input = {
     year: 2008,
     sitDegree: 339,
     facingDegree: 159,
-    guaType: '替卦',
-  });
+    guaType: '替卦' as const,
+  };
+  const result = generateXuanKong(input);
 
   assert.equal(result.sitMountain, '壬');
   assert.equal(result.facingMountain, '丙');
@@ -227,6 +270,80 @@ test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证�
   assert.match(result.prompt, /卦型：替卦/);
   assert.match(result.prompt, /辰山替为6逆飞/);
   assert.match(result.evidenceAnalysis.promptText, /同元|辰山替为6逆飞|甲山替为1顺飞/);
+
+  const substitutes = TWENTY_FOUR_MOUNTAIN_SUBSTITUTES as Record<string, number>;
+  const originalChen = substitutes.辰;
+  const originalJia = substitutes.甲;
+  try {
+    substitutes.辰 = 1;
+    substitutes.甲 = 9;
+    assert.deepEqual(generateXuanKong(input), result);
+  } finally {
+    substitutes.辰 = originalChen;
+    substitutes.甲 = originalJia;
+  }
+});
+
+test('《沈氏玄空学》六运壬山丙向替卦：山二不变、向一替二并顺飞到向六', () => {
+  const result = generateXuanKong({ year: 1974, sitMountain: '壬', guaType: '替卦' });
+  // 卷一内页108“六运壬山丙向兼亥巳或子午”图，按宫1至9手录三盘。
+  assert.deepEqual(result.plates, {
+    yun: [2, 3, 4, 5, 6, 7, 8, 9, 1],
+    shan: [6, 5, 4, 3, 2, 1, 9, 8, 7],
+    xiang: [7, 8, 9, 1, 2, 3, 4, 5, 6],
+  });
+  assert.deepEqual(result.replacement?.mountain, {
+    originalCenterStar: 2,
+    referenceMountain: '未',
+    replacementStar: 2,
+    direction: '逆飞',
+  });
+  assert.deepEqual(result.replacement?.facing, {
+    originalCenterStar: 1,
+    referenceMountain: '壬',
+    replacementStar: 2,
+    direction: '顺飞',
+  });
+  assert.equal(result.plates.xiang[9 - 1], 6);
+  assert.equal(result.formation, '旺山旺向');
+  assert.equal(result.daoShanXiang.shanToMountain, true);
+  assert.equal(result.daoShanXiang.xiangToFacing, true);
+  assert.match(result.prompt, /局型：旺山旺向/);
+  assert.doesNotMatch(result.prompt, /到山到向：本宅运星到山且到向/);
+  assert.equal(result.replacementApplied, true);
+});
+
+test('《沈氏玄空学》不可替兼向虽到山到向，不作旺山旺向局', () => {
+  // 卷一“论起星”明列四运甲庚、庚甲与八运丑未、未丑。
+  for (const [year, sitMountain] of [
+    [1930, '甲'],
+    [1930, '庚'],
+    [2010, '丑'],
+    [2010, '未'],
+  ] as const) {
+    const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
+    assert.equal(
+      result.replacement?.mountain.originalCenterStar,
+      result.replacement?.mountain.replacementStar,
+    );
+    assert.equal(
+      result.replacement?.facing.originalCenterStar,
+      result.replacement?.facing.replacementStar,
+    );
+    assert.equal(result.replacementApplied, false);
+    assert.equal(result.formation, '替卦到山到向未成旺局');
+    assert.equal(result.daoShanXiang.shanToMountain, true);
+    assert.equal(result.daoShanXiang.xiangToFacing, true);
+    assert.match(result.prompt, /未发生替星/);
+    assert.match(result.prompt, /局型：替卦到山到向未成旺局/);
+    if (year === 1930 && sitMountain === '甲') {
+      assert.match(result.prompt, /到山到向：本宅运星到山且到向/);
+    }
+    assert.ok(
+      result.evidenceAnalysis.sources.some((source) => source.title.includes('沈氏玄空学')),
+    );
+    assert.equal(generateXuanKong({ year, sitMountain }).formation, '旺山旺向');
+  }
 });
 
 test('玄空九运子山替卦应保持五黄入中并按同元参考山排向盘', () => {
@@ -280,6 +397,16 @@ test('玄空坐向度数及显式山名必须相互一致', () => {
   }
 });
 
+test('仅按山名排盘时也拒绝显式空坐山或空朝向', () => {
+  for (const input of [
+    { sitMountain: '', facingMountain: '午' },
+    { sitMountain: '子', facingMountain: '' },
+    { facingMountain: '' },
+  ]) {
+    assert.throws(() => generateXuanKong({ year: 2024, ...input }), /有效二十四山/);
+  }
+});
+
 test('测量误差跨边界时标记山向边界敏感，仍使用下卦', () => {
   const result = generateXuanKong({
     year: 2024,
@@ -304,7 +431,10 @@ test('玄空边界敏感时应输出候选山向', () => {
   assert.deepEqual(result.measurement?.boundaryReasons, ['二十四山分界']);
   assert.ok((result.measurement?.candidateMountains?.length ?? 0) >= 1);
   assert.match(result.prompt, /候选山向/);
+  assert.match(result.prompt, /局型、城门与三盘九宫按中心读数暂列/);
   assert.match(result.evidenceAnalysis.promptText, /二十四山分界/);
+  assert.match(result.evidenceAnalysis.promptText, /三盘九宫按中心读数暂列/);
+  assert.match(result.evidenceAnalysis.summaryFact.promptText, /中心读数盘，待复测核定/);
 });
 
 test('玄空测量误差范围应枚举全部覆盖山向，不得只取左中右三个采样点', () => {
@@ -327,7 +457,21 @@ test('玄空测量误差范围应枚举全部覆盖山向，不得只取左中�
   );
 });
 
-test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完整', () => {
+test('玄空下卦 216 盘对照原典旺山旺向局，并保持九宫与提示词事实完整', () => {
+  // 《沈氏玄空学》卷二“论四十八局”，按原文列坐山，朝向均为正对山。
+  // https://www.diancangwang.cn/xuanxuewushu/f6f37803664b/34f0e0aa12ff.html
+  const expectedWangMountains = [
+    '',
+    '乾巽巳亥丑未',
+    '辰戌卯酉乙辛',
+    '甲庚艮坤寅申',
+    '子午癸丁卯酉乙辛辰戌丑未',
+    '甲庚艮坤寅申',
+    '辰戌卯酉乙辛',
+    '乾巽巳亥丑未',
+    '',
+  ];
+  let wangCount = 0;
   for (let yun = 1; yun <= 9; yun += 1) {
     const year = 1864 + (yun - 1) * 20;
 
@@ -335,6 +479,14 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
       const sitMountain = TWENTY_FOUR_MOUNTAINS[mountainIndex];
       const expectedFacing = TWENTY_FOUR_MOUNTAINS[(mountainIndex + 12) % 24];
       const result = generateXuanKong({ year, sitMountain });
+
+      const isWang = result.formation === '旺山旺向';
+      assert.equal(
+        isWang,
+        expectedWangMountains[yun - 1].includes(sitMountain),
+        `${yun}运${sitMountain}山`,
+      );
+      if (isWang) wangCount += 1;
 
       assert.equal(result.period.yun, yun);
       assert.equal(result.sitMountain, sitMountain);
@@ -349,15 +501,24 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
         assert.equal(palace.yunStar, result.plates.yun[palace.gong - 1]);
         assert.equal(palace.shanStar, result.plates.shan[palace.gong - 1]);
         assert.equal(palace.xiangStar, result.plates.xiang[palace.gong - 1]);
+        if (palace.shanStar === 5 || palace.xiangStar === 5) {
+          const line = result.prompt
+            .split('\n')
+            .find((item) => item.startsWith(`${palace.name}（${palace.direction}）：`));
+          assert.ok(line, `${yun}运${sitMountain}漏列${palace.name}`);
+          if (palace.shanStar === 5) assert.match(line, /山5（/);
+          if (palace.xiangStar === 5) assert.match(line, /向5（/);
+        }
       }
+      assert.doesNotMatch(result.prompt, /五黄落宫：/);
       assert.ok(
         result.combinations.every((item) =>
           (item.palaces || []).every((gong) => NINE_STARS.includes(gong)),
         ),
       );
-      assert.equal(result.evidenceAnalysis.key, 'xuankong:evidence');
     }
   }
+  assert.equal(wangCount, 48);
 });
 
 test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留九宫', () => {
@@ -368,7 +529,13 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
       const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
 
       assert.equal(result.guaType, '替卦');
-      assert.equal(result.replacementApplied, true);
+      assert.equal(
+        result.replacementApplied,
+        result.replacement!.mountain.originalCenterStar !==
+          result.replacement!.mountain.replacementStar ||
+          result.replacement!.facing.originalCenterStar !==
+            result.replacement!.facing.replacementStar,
+      );
       assert.ok(result.replacement);
       assert.deepEqual(
         result.plates.shan,
@@ -391,19 +558,7 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
   }
 });
 
-test('玄空飞星城门诀：八运午向判定巽方城门得位与提示词输出', () => {
-  const result = generateXuanKong({ year: 2008, sitMountain: '子' }); // 子山午向，八运
-  assert.ok(result.castleGate);
-  assert.equal(result.castleGate.hasUsableGate, true);
-  const xunGate = result.castleGate.candidates.find((c) => c.mountain === '巽');
-  assert.ok(xunGate);
-  assert.equal(xunGate.status, '得旺可用');
-  assert.equal(xunGate.arrivalStar, 8);
-  assert.match(result.castleGate.summary, /城门诀/);
-  assert.ok(result.prompt.includes('城门诀：'));
-});
-
-test('城门计算校验当运九宫运盘与二十四山，星名保持紫白本色', () => {
+test('城门计算保留九宫与二十四山校验、紫白星名及同元龙正副城门金标', () => {
   const valid = { yun: 9, facingMountain: '午', yunPlate: flyStars(9, '顺飞') };
   for (const yun of [0, 10, NaN, 1.5]) assert.throws(() => evaluateCastleGate({ ...valid, yun }));
   for (const facingMountain of ['toString', '__proto__', '无', []]) {
@@ -416,36 +571,6 @@ test('城门计算校验当运九宫运盘与二十四山，星名保持紫白�
     assert.throws(() => evaluateCastleGate({ ...valid, yunPlate }), /完整九宫盘/);
   }
   const names = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
-  for (let yun = 1; yun <= 9; yun++)
-    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
-      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
-      assert.equal(result.candidates.length, 2);
-      for (const candidate of result.candidates.filter((item) => item.status !== '不得旺不可用')) {
-        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
-      }
-    }
-});
-
-test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
-  const expected = [false, true, false, true, true, false, true, false, true];
-  for (let yun = 1; yun <= 9; yun++) {
-    const result = evaluateCastleGate({
-      yun,
-      facingMountain: '乾',
-      yunPlate: flyStars(yun, '顺飞'),
-    });
-    const zi = result.candidates.find((item) => item.mountain === '子')!;
-    assert.equal(zi.status, expected[yun - 1] ? '得旺可用' : '不得旺不可用', `${yun}运子方`);
-    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
-    if (yun === 9) {
-      assert.equal(zi.yunStar, 5);
-      assert.equal(zi.flyDirection, '逆飞');
-      assert.equal(zi.arrivalStar, 9);
-    }
-  }
-});
-
-test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () => {
   const pairs = [
     ['壬', '戌'],
     ['子', '乾'],
@@ -473,17 +598,43 @@ test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () =>
     ['亥', '癸'],
   ];
   for (let yun = 1; yun <= 9; yun++) {
-    for (const [facingMountain, gateMountain] of pairs) {
+    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
+      const gateMountain = pairs.find(([mountain]) => mountain === facingMountain)?.[1];
+      assert.ok(gateMountain);
       const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.equal(result.candidates.length, 2);
+      for (const candidate of result.candidates.filter((item) => item.status === '旺星到位')) {
+        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
+      }
       assert.deepEqual(
         result.candidates.filter((c) => c.role === '正城门').map((c) => c.mountain),
         [gateMountain],
       );
       assert.equal(result.candidates.filter((c) => c.role === '副城门').length, 1);
       assert.equal(
-        result.hasUsableGate,
+        result.hasWangStarGate,
         result.candidates.some((c) => c.arrivalStar === yun),
       );
+      assert.equal(result.hasUsableGate, null);
+    }
+  }
+});
+
+test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
+  const expected = [false, true, false, true, true, false, true, false, true];
+  for (let yun = 1; yun <= 9; yun++) {
+    const result = evaluateCastleGate({
+      yun,
+      facingMountain: '乾',
+      yunPlate: flyStars(yun, '顺飞'),
+    });
+    const zi = result.candidates.find((item) => item.mountain === '子')!;
+    assert.equal(zi.status, expected[yun - 1] ? '旺星到位' : '旺星未到位', `${yun}运子方`);
+    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
+    if (yun === 9) {
+      assert.equal(zi.yunStar, 5);
+      assert.equal(zi.flyDirection, '逆飞');
+      assert.equal(zi.arrivalStar, 9);
     }
   }
 });
@@ -498,6 +649,25 @@ test('兼向测量误差跨中央九度边界时必须拒绝显式替卦', () =>
         guaType: '替卦',
       }),
     /边界敏感/,
+  );
+});
+
+test('玄空非零测量误差须附角度，不能只凭山名绕过替卦边界核验', () => {
+  for (const guaType of ['下卦', '替卦'] as const) {
+    assert.throws(
+      () =>
+        generateXuanKong({
+          year: 2024,
+          sitMountain: '子',
+          guaType,
+          measurementUncertaintyDegrees: 3,
+        }),
+      /非零测量误差时，必须同时提供坐山或朝向度数/,
+    );
+  }
+  assert.equal(
+    generateXuanKong({ year: 2024, sitMountain: '子', guaType: '替卦' }).guaType,
+    '替卦',
   );
 });
 
@@ -537,4 +707,28 @@ test('替卦未成四正局仍保留实际盘面的反伏吟组合', () => {
     }
   }
   assert.ok(checked > 0);
+});
+
+test('玄空组合只登记盘式，交运首年证据保持暂列口径', () => {
+  const settled = generateXuanKong({ year: 2008, sitMountain: '子', flowYear: 2026 });
+  assert.match(settled.prompt, /流年飞星：2026年/);
+  assert.match(settled.prompt, /，8运当运）/);
+  assert.match(settled.castleGate?.candidates[0].summary ?? '', /本宅8运/);
+  assert.ok(
+    settled.evidenceAnalysis.facts
+      .filter((item) => item.type === '宫位组合')
+      .every((item) => item.promptText.includes('按8运宅盘')),
+  );
+  const daJie = settled.combinations.find((item) => item.name === '七星真打劫');
+  assert.ok(daJie);
+  assert.deepEqual(daJie.palaces, [6, 3, 9]);
+  assert.match(daJie.note, /乾、震、离三宫向星成一四七、二五八或三六九组/);
+  assert.equal(daJie.note, '乾、震、离三宫向星成一四七、二五八或三六九组。');
+  assert.doesNotMatch(daJie.note, /主财富|力强|大吉|引动旺气/);
+  assert.match(
+    settled.evidenceAnalysis.facts.find(
+      (item) => item.key === 'xuankong:fact:combination:七星真打劫',
+    )?.promptText ?? '',
+    /乾、震、离三宫向星成一四七、二五八或三六九组/,
+  );
 });

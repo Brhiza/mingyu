@@ -17,8 +17,8 @@ function beijingTimestamp(value: string) {
 
 function createPublicSource(intervalStart: string, intervalEnd: string) {
   return {
-    // getGanZhiFromDate 读取 Date 的本地字段；用公共墙钟文本构造，避免 NAS UTC 将四柱整体前移。
-    pillars: getGanZhiFromDate(new Date(intervalStart.replace(' ', 'T'))),
+    // 候选区间为北京时间，按明确偏移构造同一个真实瞬时。
+    pillars: getGanZhiFromDate(new Date(`${intervalStart.replace(' ', 'T')}+08:00`)),
     intervalStart,
     intervalEnd,
     startTimestamp: beijingTimestamp(intervalStart),

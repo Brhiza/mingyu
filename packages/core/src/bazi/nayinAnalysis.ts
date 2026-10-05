@@ -1,6 +1,9 @@
 import type { NayinItem, NayinProfile } from '../types/analysis';
-import { NAYIN_MAP } from './baziMappingsData';
+
 import { assertGanZhiPair } from './baziUtils';
+import { getNayinTable } from '../ganzhi/data';
+
+const NAYIN_MAP = getNayinTable();
 
 export function analyzeNayinProfile(pillars: Array<{ gan: string; zhi: string }>): NayinProfile {
   const pillarNames = ['year', 'month', 'day', 'hour'];

@@ -29,10 +29,15 @@
  *   飞盘法（feipan）按洛书飞宫路径布九星，作为可选争议口径提供。
  */
 
-import { jiazi, qimen, tiangan } from '../../../../divination/divination-data';
+import { jiazi, tiangan, getQimenData } from '../../../../divination/divination-data';
 import { getDunJiaStem } from './palace-utils';
-import { sanQiLiuYi } from './_constants';
+import { getQimenConstants } from './_constants';
+
 import type { QimenJiuGongGe } from '../../../../types/divination';
+
+const { sanQiLiuYi } = getQimenConstants();
+
+const qimen = getQimenData();
 
 // ─── 数据源 ───
 

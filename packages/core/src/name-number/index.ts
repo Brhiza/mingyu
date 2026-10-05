@@ -13,10 +13,24 @@ import {
   type BaziChartInputDraft,
 } from '../bazi/input';
 import { baziCalculator } from '../bazi/baziCalculator';
-import { formatUsefulGodFunctions } from '../bazi/baziAnalysisFormatter';
-import { getCivilDateTimeAtFixedOffset } from '../calendar/civil-time';
+import {
+  formatPatternDecisionForPrompt,
+  formatUsefulGodFunctions,
+} from '../bazi/baziAnalysisFormatter';
+import {
+  formatFixedTimezoneOffset,
+  getCivilDateTimeAtFixedOffset,
+  resolveCivilTime,
+} from '../calendar/civil-time';
+import { resolveChinaStandardBirthTime } from '../calendar/china-dst';
+import { resolveBirthCalendarClockTime } from '../calendar/true-solar-time';
+import { resolveBirthPlace } from '../location';
 import type { BirthProfileTimeRange } from '../profile/time-range';
-import { CHARACTER_STROKE_NOTES, CHARACTER_READING_NOTES } from './character-annotations';
+import {
+  CHARACTER_STROKE_NOTES,
+  CHARACTER_READING_NOTES,
+  CHARACTER_VARIANT_KANGXI_TEXT,
+} from './character-annotations';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -65,14 +79,45 @@ export type NamingBirthInput = BaziChartInputDraft & {
   birthTimeRange?: NamingBirthRangeSource;
 };
 
+function hasNamingClockPart(
+  value: BaziChartInputDraft['birthHour'] | BaziChartInputDraft['birthMinute'],
+) {
+  return value !== undefined && String(value).trim() !== '';
+}
+
+function hasNamingClock(input: NamingBirthInput) {
+  return hasNamingClockPart(input.birthHour) && hasNamingClockPart(input.birthMinute);
+}
+
 function formatNamingClock(input: NamingBirthInput, includeSeconds: boolean) {
-  if (input.birthHour === undefined || input.birthMinute === undefined) return null;
+  if (!hasNamingClock(input)) return null;
   const hour = String(Number(input.birthHour)).padStart(2, '0');
   const minute = String(Number(input.birthMinute)).padStart(2, '0');
   if (!includeSeconds) return `${hour}:${minute}`;
-  const second =
-    input.birthSecond === undefined || input.birthSecond === '' ? 0 : Number(input.birthSecond);
+  const second = hasNamingClockPart(input.birthSecond) ? Number(input.birthSecond) : 0;
   return `${hour}:${minute}:${String(second).padStart(2, '0')}`;
+}
+
+function correctedChinaDstClock(
+  input: NamingBirthInput,
+  clock: ReturnType<typeof resolveBirthCalendarClockTime>,
+): string | null {
+  if (
+    input.useTrueSolarTime === true ||
+    !hasNamingClock(input) ||
+    (!input.timeZoneId && input.applyChinaDst !== true)
+  )
+    return null;
+  const resolved = resolveChinaStandardBirthTime({
+    ...clock,
+    timezone: input.timezone,
+    timeZoneId: input.timeZoneId || undefined,
+    applyChinaDst: input.applyChinaDst,
+  });
+  if (!resolved.usedChinaDstCorrection) return null;
+  const hasInputSecond = hasNamingClockPart(input.birthSecond);
+  const corrected = resolved.effectiveTime;
+  return `${String(corrected.hour).padStart(2, '0')}:${String(corrected.minute).padStart(2, '0')}${hasInputSecond ? `:${String(corrected.second).padStart(2, '0')}` : ''}`;
 }
 
 function calculateNamingBazi(input: NamingBirthInput) {
@@ -92,12 +137,50 @@ function calculateNamingBazi(input: NamingBirthInput) {
 
 function calculateNamingPointBirthContext(input: NamingBirthInput) {
   const chart = calculateNamingBazi(input);
-  const hasPreciseStandardTime =
-    input.useTrueSolarTime !== true && input.birthSecond !== undefined && input.birthSecond !== '';
-  const hasInputSecond = input.birthSecond !== undefined && input.birthSecond !== '';
+  const place = input.birthPlace?.trim() || '';
+  const longitude = input.useTrueSolarTime ? Number(input.birthLongitude) : null;
+  const resolvedPlace = place.length > 0 && longitude !== null ? resolveBirthPlace(place) : null;
+  const matchedResolvedPlace =
+    resolvedPlace && longitude !== null && Math.abs(resolvedPlace.longitude - longitude) <= 1e-8
+      ? resolvedPlace
+      : null;
+  const hasStandardClock = input.useTrueSolarTime !== true && hasNamingClock(input);
+  const hasInputSecond = hasNamingClockPart(input.birthSecond);
   const inputClock = formatNamingClock(input, hasInputSecond);
+  const standardCalendarClock = hasStandardClock
+    ? resolveBirthCalendarClockTime({
+        dateType: input.dateType === 'lunar' ? 'lunar' : 'solar',
+        year: Number(input.year),
+        month: Number(input.month),
+        day: Number(input.day),
+        hour: Number(input.birthHour),
+        minute: Number(input.birthMinute),
+        second: hasInputSecond ? Number(input.birthSecond) : 0,
+        isLeapMonth: input.isLeapMonth,
+      })
+    : null;
+  const standardCivilTime = standardCalendarClock
+    ? resolveCivilTime(
+        {
+          ...standardCalendarClock,
+          timezone: input.timezone,
+          timeZoneId: input.timeZoneId || undefined,
+        },
+        { defaultTimezone: 8 },
+      )
+    : null;
+  const chinaDstClock =
+    standardCalendarClock && standardCivilTime
+      ? correctedChinaDstClock(input, standardCalendarClock)
+      : null;
+  const standardClockIsBeijing = standardCivilTime?.timezone === 8 && !standardCivilTime.timeZoneId;
+  const standardClockMode = chinaDstClock
+    ? '中国历史夏令时钟表时间（已回拨为标准北京时间）'
+    : standardClockIsBeijing
+      ? `标准北京时间（精确到${hasInputSecond ? '秒' : '分'}）`
+      : `当地钟表时间（精确到${hasInputSecond ? '秒' : '分'}）`;
   const calculatedClock = chart.timing
-    ? `${String(chart.timing.correctedTime.hour).padStart(2, '0')}:${String(chart.timing.correctedTime.minute).padStart(2, '0')}${input.birthSecond !== undefined && input.birthSecond !== '' ? `:${String(chart.timing.correctedTime.second).padStart(2, '0')}` : ''}`
+    ? `${String(chart.timing.correctedTime.hour).padStart(2, '0')}:${String(chart.timing.correctedTime.minute).padStart(2, '0')}${hasInputSecond ? `:${String(chart.timing.correctedTime.second).padStart(2, '0')}` : ''}`
     : null;
   const strength = chart.analysis.dayMasterStrength;
   const favorableElements = (chart.analysis.usefulGod.favorableWuxing ?? []).filter(
@@ -123,22 +206,26 @@ function calculateNamingPointBirthContext(input: NamingBirthInput) {
       inputTime: input.useTrueSolarTime
         ? (inputClock ??
           `${String(Number(input.birthHour)).padStart(2, '0')}:${String(Number(input.birthMinute)).padStart(2, '0')}`)
-        : hasPreciseStandardTime && inputClock
+        : hasStandardClock && inputClock
           ? inputClock
           : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
       mode: input.isThreePillars
         ? '待补时'
         : input.useTrueSolarTime
           ? '真太阳时'
-          : hasPreciseStandardTime
-            ? '标准北京时间（精确到秒）'
+          : hasStandardClock
+            ? standardClockMode
             : '时辰',
-      place: input.birthPlace?.trim() || '',
-      longitude: input.useTrueSolarTime ? Number(input.birthLongitude) : null,
+      place,
+      longitude,
+      locationLevel: matchedResolvedPlace?.level ?? null,
+      coordinateAccuracy: matchedResolvedPlace?.coordinateAccuracy ?? null,
+      timezone: chart.timing?.timezone ?? standardCivilTime?.timezone ?? null,
+      timeZoneId: chart.timing?.timeZoneId ?? standardCivilTime?.timeZoneId ?? null,
       calculatedTime: chart.timing
         ? calculatedClock!
-        : hasPreciseStandardTime && inputClock
-          ? inputClock
+        : hasStandardClock && inputClock
+          ? (chinaDstClock ?? inputClock)
           : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
     },
     lunarDate: `${chart.lunarDate.year}年${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
@@ -154,8 +241,9 @@ function calculateNamingPointBirthContext(input: NamingBirthInput) {
     },
     favorableElements,
     unfavorableElements,
+    incrementStatus: chart.analysis.usefulGod.incrementStatus ?? '待判',
     usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
-    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod),
+    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod, false),
     monthContext: {
       branch: chart.pillars.month.zhi,
       commander: chart.monthCommander,
@@ -458,6 +546,11 @@ function calculateNamingRangeContext(input: NamingBirthInput): NamingBirthContex
     ),
     favorableElements: stableFavorableElements,
     unfavorableElements: stableUnfavorableElements,
+    incrementStatus: contexts.every((context) => context.incrementStatus === '已判定')
+      ? '已判定'
+      : contexts.some((context) => context.incrementStatus !== '待判')
+        ? '部分判定'
+        : '待判',
     usefulGodReason: commonValue(
       contexts.map((context) => context.usefulGodReason),
       '各出生时段的取用依据不同，按条件分支列示。',
@@ -504,15 +597,46 @@ function calculateNamingRangeContext(input: NamingBirthInput): NamingBirthContex
 }
 
 export function calculateNamingBirthContext(input: NamingBirthInput): NamingBirthContext {
-  if (input.birthTimeRange) return calculateNamingRangeContext(input);
+  if (input.birthTimeRange !== undefined) return calculateNamingRangeContext(input);
   return calculateNamingPointBirthContext(input);
 }
 
 const characterData: Record<string, CharacterDetail> = {};
+// 简体多义字的默认姓名取数对应明确原字形。
+const DEFAULT_KANGXI_GLYPHS: Readonly<Record<string, string>> = {
+  后: '后',
+  干: '干',
+  台: '台',
+  复: '複',
+  钟: '鐘',
+  线: '線',
+  绣: '繡',
+  饥: '饑',
+  吁: '吁',
+  采: '采',
+  征: '征',
+  栗: '栗',
+  于: '于',
+  准: '准',
+  斗: '斗',
+  余: '余',
+};
+const DEFAULT_TRADITIONAL_STROKES: Readonly<Record<string, number>> = {
+  复: 14,
+  绣: 19,
+  饥: 20,
+  采: 8,
+};
+const DEFAULT_KANGXI_REFERENCE_POSITIONS: Readonly<Record<string, readonly [string, string]>> = {
+  复: ['申集下', '衣字部'],
+  里: ['申集下', '衣字部'],
+  云: ['戌集中', '雨字部'],
+  叶: ['申集上', '艸字部'],
+};
 const allCharacters: CharacterDetail[] = CHARACTER_TUPLES.map(
   ([
     simplified,
-    traditional,
+    generatedTraditional,
     kangxiStrokes,
     radical,
     wuxing,
@@ -527,20 +651,22 @@ const allCharacters: CharacterDetail[] = CHARACTER_TUPLES.map(
   ]) => ({
     char: simplified,
     simplified,
-    traditional,
+    traditional: DEFAULT_KANGXI_GLYPHS[simplified] ?? generatedTraditional,
     kangxiStrokes,
     radical: radical ?? undefined,
     wuxing,
     pinyin: CHARACTER_READING_NOTES[simplified]?.readings.join('、') ?? pinyin ?? undefined,
-    ...(CHARACTER_READING_NOTES[simplified]
+    ...(CHARACTER_READING_NOTES[simplified]?.note
       ? { readingNote: CHARACTER_READING_NOTES[simplified].note }
       : {}),
     definition,
     simplifiedStrokes,
-    traditionalStrokes,
+    traditionalStrokes:
+      DEFAULT_TRADITIONAL_STROKES[simplified] ??
+      (DEFAULT_KANGXI_GLYPHS[simplified] ? kangxiStrokes : traditionalStrokes),
     structure,
-    kangxiVolume,
-    kangxiSection,
+    kangxiVolume: DEFAULT_KANGXI_REFERENCE_POSITIONS[simplified]?.[0] ?? kangxiVolume,
+    kangxiSection: DEFAULT_KANGXI_REFERENCE_POSITIONS[simplified]?.[1] ?? kangxiSection,
     ...(CHARACTER_STROKE_NOTES[simplified]
       ? { strokeNote: CHARACTER_STROKE_NOTES[simplified] }
       : {}),
@@ -551,6 +677,282 @@ for (const item of allCharacters) {
   characterData[item.simplified] = item;
   characterData[item.traditional] = item;
 }
+const manualCommonCharacters: CharacterDetail[] = [
+  {
+    char: '为',
+    simplified: '为',
+    traditional: '為',
+    kangxiStrokes: 12,
+    radical: '爪',
+    wuxing: null,
+    pinyin: CHARACTER_READING_NOTES['为'].readings.join('、'),
+    readingNote: CHARACTER_READING_NOTES['为'].note,
+    definition: '做、成为或当作；也可表示原因、对象或目的。',
+    simplifiedStrokes: 4,
+    traditionalStrokes: 9,
+    structure: null,
+    kangxiVolume: null,
+    kangxiSection: null,
+    common: true,
+  },
+];
+for (const item of manualCommonCharacters) {
+  characterData[item.simplified] = item;
+  characterData[item.traditional] = item;
+}
+const explicitTraditionalVariants: CharacterDetail[] = [
+  {
+    ...characterData['复'],
+    char: '複',
+    radical: '衤',
+    wuxing: null,
+    definition: '有夹里的衣服；有夹层、重叠，也用于重复、繁复等义。',
+    structure: '左右',
+    strokeNote: undefined,
+    common: false,
+  },
+  {
+    ...characterData['钟'],
+    char: '鐘',
+    radical: '金',
+    wuxing: null,
+    definition: '敲击发声的金属乐器；计时器，如时钟、闹钟。',
+    strokeNote: undefined,
+    common: false,
+  },
+  {
+    ...characterData['线'],
+    char: '線',
+    radical: '糸',
+    wuxing: null,
+    structure: '左右',
+    strokeNote: undefined,
+    kangxiVolume: '未集中',
+    kangxiSection: '糸字部',
+    common: false,
+  },
+  {
+    ...characterData['绣'],
+    char: '繡',
+    radical: '糸',
+    wuxing: null,
+    structure: '左右',
+    strokeNote: undefined,
+    kangxiVolume: '未集中',
+    kangxiSection: '糸字部',
+    common: false,
+  },
+  {
+    ...characterData['饥'],
+    char: '饑',
+    radical: '食',
+    wuxing: null,
+    definition: '谷物歉收、饥荒；古籍也与“飢”通用，表示饥饿。',
+    structure: '左右',
+    strokeNote: undefined,
+    kangxiVolume: '戌集下',
+    kangxiSection: '食字部',
+    common: false,
+  },
+  {
+    ...characterData['里'],
+    char: '裏',
+    radical: '衣',
+    wuxing: null,
+    definition: '衣服的内层；里面、内部，与外相对。',
+    structure: '上中下',
+    strokeNote: undefined,
+    kangxiVolume: '申集下',
+    kangxiSection: '衣字部',
+    common: false,
+  },
+  {
+    ...characterData['云'],
+    char: '雲',
+    radical: '雨',
+    wuxing: null,
+    definition: '空中由水汽凝结而成的云；也见云汉、云孙等传统用法。',
+    structure: '上下',
+    strokeNote: undefined,
+    kangxiVolume: '戌集中',
+    kangxiSection: '雨字部',
+    common: false,
+  },
+  {
+    ...characterData['叶'],
+    char: '葉',
+    radical: '艹',
+    wuxing: null,
+    definition: '草木的叶；也指书册页，并用作姓氏。',
+    structure: '上下',
+    strokeNote: undefined,
+    kangxiVolume: '申集上',
+    kangxiSection: '艸字部',
+    common: false,
+  },
+  {
+    ...characterData['才'],
+    char: '纔',
+    simplified: '才',
+    traditional: '纔',
+    kangxiStrokes: 23,
+    radical: '糸',
+    wuxing: null,
+    pinyin: 'cái、shān',
+    readingNote: 'cái用于刚刚、仅仅；shān用于帛雀头色，也指微黑如绀。',
+    definition: '方、始；刚刚；仅、只。另读shān，指帛雀头色，也指微黑如绀。',
+    simplifiedStrokes: 3,
+    traditionalStrokes: 23,
+    structure: null,
+    kangxiVolume: '未集中',
+    kangxiSection: '糸字部',
+    common: false,
+  },
+  {
+    ...characterData['只'],
+    char: '隻',
+    simplified: '只',
+    traditional: '隻',
+    kangxiStrokes: 10,
+    radical: '隹',
+    wuxing: null,
+    pinyin: 'zhī',
+    definition: '单独的；鸟一只，也作禽兽或物件的量词。',
+    simplifiedStrokes: 5,
+    traditionalStrokes: 10,
+    structure: null,
+    kangxiVolume: '戌集中',
+    kangxiSection: '隹字部',
+    common: false,
+  },
+  {
+    ...characterData['谷'],
+    char: '穀',
+    simplified: '谷',
+    traditional: '穀',
+    kangxiStrokes: 15,
+    radical: '禾',
+    wuxing: null,
+    pinyin: 'gǔ',
+    definition: '粮食作物的总称；也有俸禄、生养、生长等义。',
+    simplifiedStrokes: 7,
+    traditionalStrokes: 15,
+    structure: null,
+    kangxiVolume: '午集下',
+    kangxiSection: '禾字部',
+    common: false,
+  },
+  {
+    ...characterData['占'],
+    char: '佔',
+    simplified: '占',
+    traditional: '佔',
+    kangxiStrokes: 7,
+    radical: '人',
+    wuxing: null,
+    pinyin: 'zhàn、zhān',
+    readingNote: 'zhàn表示据有、占据；zhān表示窥视，也见于“佔毕”的书面用法。',
+    definition: '据有、占据；另读zhān时表示窥视，也见于“佔毕”。',
+    simplifiedStrokes: 5,
+    traditionalStrokes: 7,
+    structure: null,
+    kangxiVolume: '子集中',
+    kangxiSection: '人字部',
+    common: false,
+  },
+  {
+    ...characterData['松'],
+    char: '鬆',
+    simplified: '松',
+    traditional: '鬆',
+    kangxiStrokes: 18,
+    radical: '髟',
+    wuxing: null,
+    pinyin: 'sōng',
+    definition: '鬓发蓬乱；不紧、松弛；也指将瘦肉制成的松状食品。',
+    simplifiedStrokes: 8,
+    traditionalStrokes: 18,
+    structure: null,
+    kangxiVolume: '亥集上',
+    kangxiSection: '髟字部',
+    strokeNote: '《康熙字典》“鬆”条为髟部、部外8画、总18画；现代字形也按18画计。',
+    common: false,
+  },
+  {
+    ...characterData['朱'],
+    char: '硃',
+    simplified: '朱',
+    traditional: '硃',
+    kangxiStrokes: 11,
+    radical: '石',
+    wuxing: null,
+    pinyin: 'zhū',
+    definition: '丹砂；也用于朱墨、朱笔批点或红色。',
+    simplifiedStrokes: 6,
+    traditionalStrokes: 11,
+    structure: null,
+    kangxiVolume: '午集下',
+    kangxiSection: '石字部',
+    common: false,
+  },
+  {
+    ...characterData['制'],
+    char: '製',
+    simplified: '制',
+    traditional: '製',
+    kangxiStrokes: 14,
+    radical: '衣',
+    wuxing: null,
+    pinyin: 'zhì',
+    definition: '剪裁；造作、制作；也指诗文作品或法式、样式。',
+    simplifiedStrokes: 8,
+    traditionalStrokes: 14,
+    structure: null,
+    kangxiVolume: '申集下',
+    kangxiSection: '衣字部',
+    common: false,
+  },
+  {
+    ...characterData['游'],
+    char: '遊',
+    simplified: '游',
+    traditional: '遊',
+    kangxiStrokes: 16,
+    radical: '辵',
+    wuxing: null,
+    pinyin: 'yóu',
+    definition: '遨游、游览、旅行；也指交往、求学、行走等。',
+    simplifiedStrokes: 12,
+    traditionalStrokes: 12,
+    structure: null,
+    kangxiVolume: '酉集下',
+    kangxiSection: '辵字部',
+    strokeNote: '现代笔画按辶三画计12画；《康熙字典》辵部计16画。',
+    common: false,
+  },
+];
+for (const item of explicitTraditionalVariants) {
+  characterData[item.traditional] = item;
+}
+// “发”同时对应“發”和“髮”；毛发义须保留独立字形及康熙笔画。
+const HAIR_TRADITIONAL_VARIANT: CharacterDetail = {
+  char: '髮',
+  simplified: '发',
+  traditional: '髮',
+  kangxiStrokes: 15,
+  radical: '髟',
+  wuxing: null,
+  pinyin: 'fà、fǎ',
+  readingNote: '毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。',
+  definition: '人的头皮上生长的毛；形似头发的。',
+  simplifiedStrokes: 5,
+  traditionalStrokes: 15,
+  structure: null,
+  kangxiVolume: null,
+  kangxiSection: null,
+  common: false,
+};
+characterData[HAIR_TRADITIONAL_VARIANT.traditional] = HAIR_TRADITIONAL_VARIANT;
 const characterEntries = Object.entries(characterData);
 
 function charDetail(char: string): CharacterDetail | null {
@@ -569,6 +971,13 @@ function normalizePinyin(value: string) {
 }
 
 function searchChars(filter: CharacterSearchFilter = {}) {
+  for (const strokes of [filter.strokes, filter.strokesMin, filter.strokesMax]) {
+    if (strokes !== undefined && (!Number.isSafeInteger(strokes) || strokes < 1 || strokes > 64)) {
+      throw new Error('笔画筛选需为1至64的安全整数');
+    }
+  }
+  const limit = filter.limit ?? 50;
+  if (!Number.isSafeInteger(limit)) throw new Error('汉字筛选数量必须为安全整数');
   const pinyin = normalizePinyin(filter.pinyin ?? '');
   const unique = new Set<string>();
   const results = [];
@@ -590,14 +999,12 @@ function searchChars(filter: CharacterSearchFilter = {}) {
       continue;
     results.push(item);
   }
-  return results
-    .slice(0, Math.min(Math.max(filter.limit ?? 50, 0), 200))
-    .map((item) => ({ ...item }));
+  return results.slice(0, Math.min(Math.max(limit, 0), 200)).map((item) => ({ ...item }));
 }
 
 function shuliEntry(number: number) {
   const reduced = number > 81 ? ((number - 1) % 80) + 1 : number;
-  return SHULI_DATA[reduced - 1];
+  return { ...SHULI_DATA[reduced - 1] };
 }
 
 function shuliWuxing(number: number): Wuxing {
@@ -685,10 +1092,21 @@ function analyzeNameStructure(
     birthContext?: ReturnType<typeof calculateNamingBirthContext>;
   } = {},
 ) {
-  const surnameDetails = [...surname].map(charDetail);
-  const givenDetails = [...given].map(charDetail);
-  if ([...surnameDetails, ...givenDetails].some((item) => !item))
-    throw new Error('姓名中含字典未收录的汉字');
+  const nameCharacters = [...surname, ...given];
+  if (nameCharacters.some((char) => !/\p{Script=Han}/u.test(char))) {
+    throw new Error('姓名只能包含汉字');
+  }
+  const nameDetails = nameCharacters.map((char) => {
+    const detail = charDetail(char);
+    return detail ? { ...detail, char } : null;
+  });
+  const missingCharacters = nameCharacters.filter((_, index) => !nameDetails[index]);
+  if (missingCharacters.length) {
+    throw new Error(`姓名用字暂未收录在字典中：${[...new Set(missingCharacters)].join('、')}`);
+  }
+  const surnameLength = [...surname].length;
+  const surnameDetails = nameDetails.slice(0, surnameLength);
+  const givenDetails = nameDetails.slice(surnameLength);
   const canonicalSurname = surnameDetails.map((item) => item!.simplified).join('');
   const compoundReadings = COMPOUND_SURNAME_READINGS[canonicalSurname];
   const rawGrids = wuge(
@@ -776,6 +1194,9 @@ const NAMING_CHARACTERS: Record<NamingGender, string> = {
 export function analyzeChineseCharacters(text: string) {
   const normalized = text.trim();
   if (!normalized || [...normalized].length > 20) throw new Error('请输入 1 至 20 个汉字');
+  if ([...normalized].some((char) => !/\p{Script=Han}/u.test(char))) {
+    throw new Error('汉字解析只能包含汉字');
+  }
   const characters = [...normalized].map((char) => ({ char, detail: charDetail(char) }));
   return {
     text: normalized,
@@ -798,17 +1219,32 @@ export function selectChineseCharacters(filter: CharacterSearchFilter) {
 export async function analyzeChineseCharactersWithReferences(text: string) {
   const analysis = analyzeChineseCharacters(text);
   const characters = analysis.characters
-    .map((item) => item.detail?.simplified)
+    .map((item) =>
+      item.detail && !CHARACTER_VARIANT_KANGXI_TEXT[item.detail.traditional]
+        ? item.char === '髮'
+          ? item.char
+          : item.detail.simplified
+        : undefined,
+    )
     .filter((char): char is string => Boolean(char));
-  if (characters.length === 0) return analysis;
-  const references = await loadKangxiReferences(characters).catch((cause: unknown) => {
-    throw new Error('字典原文加载失败，请重试', { cause });
-  });
+  const references = characters.length
+    ? await loadKangxiReferences(characters).catch((cause: unknown) => {
+        throw new Error('字典原文加载失败，请重试', { cause });
+      })
+    : {};
   return {
     ...analysis,
     characters: analysis.characters.map(({ char, detail }) => ({
       char,
-      detail: detail ? { ...detail, kangxiText: references[detail.simplified] ?? null } : null,
+      detail: detail
+        ? {
+            ...detail,
+            kangxiText:
+              CHARACTER_VARIANT_KANGXI_TEXT[detail.traditional] ??
+              references[char === '髮' ? char : detail.simplified] ??
+              null,
+          }
+        : null,
     })),
   };
 }
@@ -821,11 +1257,15 @@ export function buildChineseCharacterPrompt(input: {
     if (!detail) return `【${char}】\n字典资料暂缺。`;
     return [
       `【${char}】`,
-      `简体：${detail.simplified}；繁体：${detail.traditional}`,
+      ...(detail.simplified !== detail.traditional
+        ? [
+            `简体：${detail.simplified}；繁体：${detail.traditional}`,
+            `简体笔画：${detail.simplifiedStrokes ?? '待考'}；繁体笔画：${detail.traditionalStrokes ?? '待考'}；姓名学康熙笔画：${detail.kangxiStrokes}`,
+          ]
+        : [`姓名学康熙笔画：${detail.kangxiStrokes}`]),
       `读音：${detail.pinyin || '待考'}`,
       ...(detail.readingNote ? [`音义用法：${detail.readingNote}`] : []),
       `用字范围：${detail.common ? 'GB2312一级字' : '补充用字'}`,
-      `简体笔画：${detail.simplifiedStrokes ?? '待考'}；繁体笔画：${detail.traditionalStrokes ?? '待考'}；姓名学康熙笔画：${detail.kangxiStrokes}`,
       ...(detail.strokeNote ? [`笔画用法：${detail.strokeNote}`] : []),
       `部首：${detail.radical || '待考'}；结构：${detail.structure || '待考'}；姓名学五行：${detail.wuxing || '待考'}`,
       `字义：${detail.definition || '待考'}`,
@@ -854,6 +1294,9 @@ export function analyzeChineseName(input: {
 }) {
   const chars = [...input.fullName.trim()];
   const surnameLength = input.surnameLength ?? 1;
+  if (surnameLength !== 1 && surnameLength !== 2) {
+    throw new Error('姓氏字数必须为1或2');
+  }
   if (chars.length <= surnameLength || chars.length > surnameLength + 2) {
     throw new Error('姓名需由 1 至 2 字姓氏和 1 至 2 字名字组成');
   }
@@ -882,7 +1325,7 @@ export type GenerationCharacterPosition = 'first' | 'second';
 
 function namingLimit(value: number | undefined, defaultValue: number, maximum: number): number {
   if (value !== undefined && !Number.isSafeInteger(value))
-    throw new Error('候选数量必须为有限整数');
+    throw new Error('候选数量必须为安全整数');
   return Math.min(Math.max(value ?? defaultValue, 1), maximum);
 }
 
@@ -905,6 +1348,7 @@ export function selectNamingCharacters(input: {
   const preferred = namingCharacters(input.preferredCharacters).filter(
     (char) => !forbidden.has(namingCharacterKey(char)),
   );
+  const preferredGlyphs = new Set(preferred);
   const common = [...new Set([...`${NAMING_CHARACTERS[gender]}${NAMING_CHARACTERS.通用}`])];
   const ordered = [
     ...preferred,
@@ -914,9 +1358,17 @@ export function selectNamingCharacters(input: {
     }),
     ...common,
   ];
-  return [...new Set(ordered.map(namingCharacterKey))]
+  const selectedGlyphs = [
+    ...new Set(
+      ordered.map((char) => (preferredGlyphs.has(char) ? char : namingCharacterKey(char))),
+    ),
+  ];
+  return selectedGlyphs
     .filter((char) => !forbidden.has(char))
-    .map((char) => charDetail(char))
+    .map((char) => {
+      const detail = charDetail(char);
+      return detail ? { ...detail, char } : null;
+    })
     .filter((item): item is CharacterDetail => item !== null)
     .slice(0, limit);
 }
@@ -935,6 +1387,9 @@ export function generateChineseNames(input: {
 }) {
   const surname = input.surname.trim();
   if (![1, 2].includes([...surname].length)) throw new Error('姓氏需为 1 至 2 个汉字');
+  if ([...surname].some((char) => !/\p{Script=Han}/u.test(char))) {
+    throw new Error('姓氏只能包含汉字');
+  }
   // 枚举前先核验姓氏用字，避免候选分析异常被吞掉后误报为“无可用名字”
   const missingSurnameChars = [...surname].filter((char) => !charDetail(char));
   if (missingSurnameChars.length) {
@@ -954,13 +1409,18 @@ export function generateChineseNames(input: {
   const preferredElements = [...preferences.stable, ...preferences.conditional];
   const forbidden = new Set(namingCharacters(input.forbiddenCharacters).map(namingCharacterKey));
   const preferred = new Set(
-    namingCharacters(input.preferredCharacters)
-      .map(namingCharacterKey)
-      .filter((char) => !forbidden.has(char)),
+    namingCharacters(input.preferredCharacters).filter(
+      (char) => !forbidden.has(namingCharacterKey(char)),
+    ),
   );
-  const generationCharacters = namingCharacters(input.generationCharacter);
-  if (generationCharacters.length > 1) throw new Error('辈分字只能填写一个汉字');
-  const generationCharacter = generationCharacters[0];
+  const generationText = input.generationCharacter?.trim() ?? '';
+  if (
+    generationText &&
+    ([...generationText].length !== 1 || !/\p{Script=Han}/u.test(generationText))
+  ) {
+    throw new Error('辈分字只能填写一个汉字');
+  }
+  const generationCharacter = generationText || undefined;
   if (generationCharacter && forbidden.has(namingCharacterKey(generationCharacter)))
     throw new Error('辈分字不能同时设为忌用字');
   if (generationCharacter && !charDetail(generationCharacter))
@@ -1018,9 +1478,7 @@ export function generateChineseNames(input: {
         givenName,
         analysis,
         selectionEvidence: {
-          preferredCharacters: [...givenName].filter((char) =>
-            preferred.has(namingCharacterKey(char)),
-          ),
+          preferredCharacters: [...givenName].filter((char) => preferred.has(char)),
           generationCharacter: generationCharacter ?? null,
           generationPosition: generationCharacter ? (input.generationPosition ?? 'first') : null,
           favorableElementCharacters: [...analysis.elementMatches],
@@ -1059,7 +1517,9 @@ function formatBirthContext(
     return [
       `出生范围：北京时间 ${formatBeijingRangeTime(range.source.startTimestamp)} 至 ${formatBeijingRangeTime(range.source.endTimestamp)}（起点含、终点不含），共${range.totalSamples}个整秒。`,
       `稳定四柱：${context.pillars.join(' ')}；日主${context.dayMaster}。`,
-      `全段共同喜用：${range.stableFavorableElements.join('、') || '无共同五行，按时段分别比较'}`,
+      context.incrementStatus === '待判'
+        ? '全段增补喜用：待判'
+        : `全段共同喜用：${range.stableFavorableElements.join('、') || '未见已判定的共同五行，按时段分别比较'}${context.incrementStatus === '部分判定' ? '（部分判定）' : ''}`,
       ...(conditional.length ? [`条件喜用：${conditional.join('、')}，只适用于对应时段。`] : []),
       ...range.branches.flatMap((branch, index) => [
         '',
@@ -1076,16 +1536,35 @@ function formatBirthContext(
         `待补时说明：${unknownTime.summary}`,
         ...unknownTime.scenarios.map(
           (scenario) =>
-            `候选${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}`,
+            `候选${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.patternStatus ? `（${scenario.patternStatus}）` : ''}${scenario.favorableWuxing.length ? `；增补喜用${scenario.favorableWuxing.join('、')}${scenario.incrementStatus === '部分判定' ? '（部分判定）' : ''}` : scenario.incrementStatus === '待判' ? '；增补喜用待判' : scenario.incrementStatus === '部分判定' ? '；增补取用部分判定' : ''}`,
         ),
       ]
     : [];
+  const knownPillars = context.pillarDetails.filter((pillar) => pillar.ganZhi);
+  const pendingPillars = context.pillarDetails.filter((pillar) => !pillar.ganZhi);
+  const pillarLines = unknownTime
+    ? [
+        knownPillars.length
+          ? `已确定柱：${knownPillars.map((pillar) => `${pillar.label}${pillar.ganZhi}`).join('、')}`
+          : '',
+        pendingPillars.length
+          ? `待补柱：${pendingPillars.map((pillar) => pillar.label).join('、')}`
+          : '',
+      ].filter(Boolean)
+    : [`四柱：${context.pillars.join(' ')}`];
+  const timeZoneText =
+    context.timeBasis.longitude !== null
+      ? `；${formatNamingLocationTimeBasis(context.timeBasis)}`
+      : context.timeBasis.timezone !== null &&
+          (context.timeBasis.timeZoneId !== null || context.timeBasis.timezone !== 8)
+        ? `；时区：${formatNamingTimeZone(context.timeBasis)}`
+        : '';
   return [
     `出生记录：${context.timeBasis.inputDate} ${context.timeBasis.inputTime}`,
-    `时间口径：${context.timeBasis.mode}${context.timeBasis.longitude !== null ? `；出生地${context.timeBasis.place || '按经度定位'}；经度${context.timeBasis.longitude}°` : ''}`,
+    `时间口径：${context.timeBasis.mode}${timeZoneText}`,
     `排盘公历：${context.solarDate} ${context.timeBasis.calculatedTime}`,
     `农历：${context.lunarDate}`,
-    `四柱${unknownTime ? '（已确定柱）' : ''}：${context.pillars.join(' ')}`,
+    ...pillarLines,
     `日主：${context.dayMaster || (unknownTime ? '待补时' : '')}`,
     `生肖：${context.zodiac}`,
     `格局：${context.pattern.name}${context.pattern.basis ? `；取格依据：${context.pattern.basis}` : ''}`,
@@ -1093,7 +1572,6 @@ function formatBirthContext(
       ? [
           `化气判定：${context.pattern.transformation.status}；化神${context.pattern.transformation.element}；${context.pattern.transformation.basis}`,
           ...context.pattern.transformation.evidence.map((item) => `化气证据：${item}`),
-          ...context.pattern.transformation.conditions.map((item) => `化气条件：${item}`),
           ...(context.pattern.transformation.status === '成化'
             ? [
                 `化神取用主体：化神${context.pattern.transformation.element}；原日主${context.dayMaster}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
@@ -1101,46 +1579,56 @@ function formatBirthContext(
             : []),
         ]
       : []),
-    ...(fulfillment
-      ? [
-          `格局成败：${fulfillment.status}；${fulfillment.summary}`,
-          fulfillment.basis ? `格局判定依据：${fulfillment.basis}` : '',
-          fulfillment.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
-          ...fulfillment.conditions.map((condition) => `成立条件：${condition}`),
-          ...fulfillment.conditionFacts
-            .filter((condition) => !condition.key.startsWith('path.'))
-            .map((condition) => `格局条件（${condition.status}）：${condition.detail}`),
-          ...fulfillment.pathEvaluations.map(
-            (path) => `制化路径：${path.label}（${path.position}）：${path.status}；${path.detail}`,
-          ),
-        ].filter(Boolean)
-      : []),
+    ...(fulfillment ? [formatPatternDecisionForPrompt({ fulfillment })] : []),
     ...(unknownTime
       ? unknownTimeLines
       : [
           `月令：${context.monthContext.branch}月；司令${context.monthContext.commander}；${context.monthContext.season}；节气${context.monthContext.term}`,
         ]),
-    ...context.pillarDetails.map(
-      (pillar) =>
-        `${pillar.label}${pillar.ganZhi}藏干：${pillar.hiddenStems.map((item) => `${item.stem}${item.tenGod ? `（${item.tenGod}）` : ''}`).join('、')}`,
-    ),
+    ...context.pillarDetails
+      .filter((pillar) => !unknownTime || pillar.ganZhi)
+      .map(
+        (pillar) =>
+          `${pillar.label}${pillar.ganZhi}藏干：${pillar.hiddenStems.map((item) => `${item.stem}${item.tenGod ? `（${item.tenGod}）` : ''}`).join('、')}`,
+      ),
     ...(unknownTime
       ? []
       : [`旺衰：${context.strength.status}；${context.strength.basis.join('；')}`]),
-    ...(context.climate
+    ...(context.climate && context.climate.nature !== '未见明显偏向'
       ? [
-          `寒暖分布：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
+          `水火分布参考：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
         ]
       : []),
     ...(unknownTime
       ? ['喜用五行：待补时；取用依据待出生时分确定后复核。']
       : [
-          `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
+          context.incrementStatus === '待判'
+            ? '增补喜用五行：待判'
+            : `增补喜用五行：${context.favorableElements.join('、') || '待判'}${context.incrementStatus === '部分判定' ? '（部分判定）' : ''}`,
           `取用依据：${context.usefulGodReason}`,
           ...context.functionalUse,
         ]),
     ...context.warnings.map((warning) => `出生时刻说明：${warning}`),
   ].join('\n');
+}
+
+function formatNamingLocationTimeBasis(timeBasis: NamingBirthPointContext['timeBasis']): string {
+  const representativePointLabel =
+    timeBasis.coordinateAccuracy === 'administrative-center'
+      ? timeBasis.locationLevel === 'district'
+        ? '（区县行政中心代表点）'
+        : timeBasis.locationLevel === 'city'
+          ? '（城市行政中心代表点）'
+          : '（省级行政中心代表点）'
+      : timeBasis.coordinateAccuracy === 'province-approximation'
+        ? '（省级近似坐标）'
+        : '';
+  return `地点记录：${timeBasis.place || '未提供'}；真太阳时校正经度：${timeBasis.longitude}°${representativePointLabel}；时区：${formatNamingTimeZone(timeBasis)}`;
+}
+
+function formatNamingTimeZone(timeBasis: NamingBirthPointContext['timeBasis']): string {
+  const offset = `UTC${formatFixedTimezoneOffset(timeBasis.timezone ?? 8)}`;
+  return timeBasis.timeZoneId ? `${timeBasis.timeZoneId}，${offset}` : offset;
 }
 
 function formatNameAnalysis(result: ReturnType<typeof analyzeChineseName>) {
@@ -1160,13 +1648,13 @@ function formatNameAnalysis(result: ReturnType<typeof analyzeChineseName>) {
     ...[...new Set(result.chars.map((item) => item.strokeNote).filter(Boolean))].map(
       (note) => `笔画用法：${note}`,
     ),
-    `五格：${result.gridDerivations
+    `五格数理参考：${result.gridDerivations
       .map((derivation) => {
         const item = result.grids[derivation.key];
         return `${derivation.name}${item.num}（${item.wuxing}、${item.keywords}）；${derivation.rule}：${derivation.expression}`;
       })
       .join('；')}`,
-    `三才：${result.sancai.combo}；${result.sancai.text}`,
+    `三才取象（姓名学数理参考）：${result.sancai.combo}；${result.sancai.text}`,
     `三才取数：${result.sancaiEvidence.positions.map((position) => position.explanation).join('；')}`,
     `三才生克：${result.sancaiEvidence.relations.map((relation) => relation.explanation).join('；')}`,
     result.preferredElements.length
@@ -1218,7 +1706,7 @@ function formatNamingCandidate(
       ? `辈分字${evidence.generationCharacter}位于${evidence.generationPosition === 'second' ? '名字末字' : '名字首字'}`
       : '',
     evidence.favorableElementCharacters.length
-      ? `出生取用相应字${evidence.favorableElementCharacters.join('、')}`
+      ? `选字五行相应字${evidence.favorableElementCharacters.join('、')}`
       : '',
     evidence.conditionalFavorableElementCharacters.length
       ? `条件取用相应字${evidence.conditionalFavorableElementCharacters.join('、')}，需按出生时段比较`
@@ -1227,7 +1715,6 @@ function formatNamingCandidate(
   return [
     `${index + 1}. ${candidate.fullName}`,
     `名字用字：${givenCharacters.map((item) => formatNamingCharacterBrief(item)).join('；')}`,
-    `五格取数：${result.gridDerivations.map((item) => `${item.name}${item.value}`).join('、')}`,
     `五格算式：${result.gridDerivations.map((item) => `${item.name}${item.expression}`).join('；')}`,
     `三才：${result.sancai.combo}；${result.sancaiEvidence.relations.map((item) => item.explanation).join('；')}`,
     ...(conditions.length ? [`用字条件：${conditions.join('；')}`] : []),
@@ -1239,16 +1726,16 @@ export function buildChineseNameAnalysisPrompt(input: {
   question?: string;
   selection?: PromptSelection;
 }) {
-  const task =
-    '综合出生取用、姓名字义、音律、书写辨识、谐音联想、三才五格与现代使用场景，评价这个姓名的整体适配度；说明各项依据之间如何互相支持或制约，并给出自然可用的优化方向。';
+  const hasBirthContext = Boolean(input.analysis.birthContext);
+  const task = `综合${hasBirthContext ? '出生取用、' : ''}姓名字义、音律、书写辨识、谐音联想、三才五格与现代使用场景，评价这个姓名的整体适配度；说明各项依据之间如何互相支持或制约，并给出自然可用的优化方向。`;
   return [
     '【任务】',
     input.selection ? buildPromptSelectionTask(task, input.selection) : task,
     ...(input.selection ? ['【解读选择】', getPromptSelectionSection(input.selection)] : []),
     '',
-    '【出生资料】',
-    formatBirthContext(input.analysis.birthContext),
-    '',
+    ...(hasBirthContext
+      ? ['【出生资料】', formatBirthContext(input.analysis.birthContext), '']
+      : []),
     '【姓名资料】',
     formatNameAnalysis(input.analysis),
     '',
@@ -1260,7 +1747,7 @@ export function buildChineseNameAnalysisPrompt(input: {
       `请完整解析“${input.analysis.surname}${input.analysis.given}”这个姓名。`,
     '',
     '【输出要求】',
-    '先给整体结论，再分别说明出生适配、字义组合、读音节奏、书写辨识、谐音与社会使用感受、三才五格，最后给出可直接比较的优点、留意点和优化建议。',
+    `先给整体结论，再分别说明${hasBirthContext ? '出生适配、' : ''}字义组合、读音节奏、书写辨识、谐音与社会使用感受、三才五格，最后给出可直接比较的优点、留意点和优化建议。`,
   ].join('\n');
 }
 
@@ -1276,6 +1763,7 @@ export function buildChineseNamingPrompt(input: {
   selection?: PromptSelection;
 }) {
   if (!input.candidates.length) throw new Error('请先生成姓名候选');
+  const birthContext = input.candidates[0]!.analysis.birthContext;
   const forbidden = new Set(namingCharacters(input.forbiddenCharacters).map(namingCharacterKey));
   const preferred = namingCharacters(input.preferredCharacters).filter(
     (char) => !forbidden.has(namingCharacterKey(char)),
@@ -1294,21 +1782,15 @@ export function buildChineseNamingPrompt(input: {
     ),
   ].filter((item, index, items) => {
     const key = namingCharacterKey(item.char);
-    return (
-      !forbidden.has(key) &&
-      items.findIndex((entry) => namingCharacterKey(entry.char) === key) === index
-    );
+    return !forbidden.has(key) && items.findIndex((entry) => entry.char === item.char) === index;
   });
-  const task =
-    '综合出生取用、用字条件、字义搭配、音律节奏、字形协调、谐音联想和现代社会使用场景设计姓名。候选姓名只是比较起点，可以重新组合适配字，也可以补充同类常用字并提出更合适的新名字。';
+  const task = `综合${birthContext ? '出生取用、' : ''}用字条件、字义搭配、音律节奏、字形协调、谐音联想和现代社会使用场景设计姓名。候选姓名只是比较起点，可以重新组合适配字，也可以补充同类常用字并提出更合适的新名字。`;
   return [
     '【任务】',
     input.selection ? buildPromptSelectionTask(task, input.selection) : task,
     ...(input.selection ? ['【解读选择】', getPromptSelectionSection(input.selection)] : []),
     '',
-    '【出生资料】',
-    formatBirthContext(input.candidates[0]!.analysis.birthContext),
-    '',
+    ...(birthContext ? ['【出生资料】', formatBirthContext(birthContext), ''] : []),
     '【起名资料】',
     [
       `姓氏：${input.surname}`,
@@ -1319,8 +1801,12 @@ export function buildChineseNamingPrompt(input: {
         : []),
       `取向：${input.gender ?? '通用'}`,
       `偏好字：${preferred.join('、') || '自然、易读、易写'}`,
-      `回避用字：${forbiddenVariants.join('、') || '无'}`,
-      `辈分字：${namingCharacters(input.generationCharacter).join('') || '无'}${input.generationCharacter ? `（${input.generationPosition === 'second' ? '名字末字' : '名字首字'}）` : ''}`,
+      ...(forbiddenVariants.length ? [`回避用字：${forbiddenVariants.join('、')}`] : []),
+      ...(input.generationCharacter?.trim()
+        ? [
+            `辈分字：${namingCharacters(input.generationCharacter).join('')}（${input.generationPosition === 'second' ? '名字末字' : '名字首字'}）`,
+          ]
+        : []),
       `适配字池：${namingCharacterDetails.map(formatNamingCharacter).join('；') || '结合出生资料与用字条件补充'}`,
       `候选姓名：\n${input.candidates.map(formatNamingCandidate).join('\n\n')}`,
     ].join('\n'),
@@ -1329,7 +1815,7 @@ export function buildChineseNamingPrompt(input: {
     formatNamingTradition(),
     '',
     '【输出要求】',
-    '先说明选字思路，再给出不少于八个姓名方案。每个方案说明出生适配、字义组合、读音节奏、字形、谐音联想、辨识度与三才五格，明确标注哪些来自候选样本、哪些是重新设计；最后给出首选名及两个备选名。',
+    `先说明选字思路，再比较本次候选姓名的${birthContext ? '出生适配、' : ''}字义组合、读音节奏、字形、谐音联想、辨识度与已列出的三才五格依据；如重新设计姓名，说明新组合的选字、读音和字形依据；最后给出首选名及至多两个备选名，标明候选姓名与新构思。`,
   ].join('\n');
 }
 
@@ -1570,9 +2056,10 @@ function analyzeNumberEnergySequence(alphanumeric: string) {
     }),
     magneticDistribution,
     magneticSegments,
-    dominantFields: magneticDistribution
-      .filter((item) => item.count === maxCount)
-      .map((item) => item.name),
+    dominantFields:
+      maxCount > 1
+        ? magneticDistribution.filter((item) => item.count === maxCount).map((item) => item.name)
+        : [],
     magneticSummary: {
       pairCount: energyPairs.length,
       supportiveCount: energyPairs.filter((item) => item.nature === '助益').length,
@@ -1583,6 +2070,10 @@ function analyzeNumberEnergySequence(alphanumeric: string) {
 }
 
 export function analyzeNumber(input: string, purpose: NumberPurpose = 'general') {
+  if (purpose !== 'phone' && purpose !== 'plate' && purpose !== 'general') {
+    throw new Error('号码类型必须为手机号、车牌号或一般编号');
+  }
+  if (input.length > 64) throw new Error('请输入 1 至 64 位号码');
   const normalized = input
     .replace(/[！-～]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
     .trim()
@@ -1603,7 +2094,7 @@ export function analyzeNumber(input: string, purpose: NumberPurpose = 'general')
   const primaryIndex =
     purpose === 'plate'
       ? reduceBy80(BigInt(alphanumericSum))
-      : reduceBy80(digitValue || BigInt(alphanumericSum));
+      : reduceBy80(digits.length ? digitValue : BigInt(alphanumericSum));
   const sumIndex = reduceBy80(BigInt(alphanumericSum));
   const energy = analyzeNumberEnergySequence(alphanumeric);
   return {
@@ -1626,12 +2117,12 @@ export function analyzeNumber(input: string, purpose: NumberPurpose = 'general')
     formula:
       purpose === 'plate'
         ? '数字按原值、字母按 A=1 至 Z=26 相加，再按 80 循环取数。'
-        : digitValue
+        : digits.length
           ? '提取全部数字组成整数，再按 80 循环取数；整除时取 80。'
           : '数字与字母序号相加，再按 80 循环取数；整除时取 80。',
     energyFormula:
       '数字按原值排列，字母按 A=1 至 Z=26 展开；相邻有效数字组成八星磁场。夹在两端有效数字之间的 0 取隐藏、5 取增强象意；头尾的 0、5 单独保留位置。',
-    tradition: NUMBER_ENERGY_TRADITION,
+    tradition: { ...NUMBER_ENERGY_TRADITION },
     ...energy,
   };
 }
@@ -1648,22 +2139,35 @@ export function buildNumberEnergyPrompt(input: {
       : analysis.purpose === 'plate'
         ? '车牌号'
         : '数字字母编号';
-  const conversion = analysis.letterConversions.length
-    ? analysis.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、')
-    : '没有字母换算';
+  const conversion = [
+    ...new Set(analysis.letterConversions.map((item) => `${item.letter}=${item.value}`)),
+  ].join('、');
+  const displayedMeanings = new Set<string>();
+  const displayedTrigramEvidence = new Set<string>();
   const pairs = analysis.energyPairs.length
     ? analysis.energyPairs
         .map((item, index) => {
           const modifier = item.modifiers.length
             ? `，中间含${item.modifiers.map((entry) => `${entry.digit}（${entry.effect}）`).join('、')}`
             : '';
-          return `${index + 1}. ${item.span} → ${item.pair}：${item.name}（${item.nature}）${modifier}；${item.keywords.join('、')}；${item.meaning}\n位置：能量序列第${item.start + 1}—${item.end + 1}位，对应数字字母第${item.sourceStart + 1}—${item.sourceEnd + 1}位「${item.sourceText}」\n卦变：${item.trigramEvidence.explanation}`;
+          const meaning = `${item.keywords.join('、')}；${item.meaning}`;
+          const showMeaning = !displayedMeanings.has(meaning);
+          const showTrigramEvidence = !displayedTrigramEvidence.has(
+            item.trigramEvidence.explanation,
+          );
+          displayedMeanings.add(meaning);
+          displayedTrigramEvidence.add(item.trigramEvidence.explanation);
+          return [
+            `${index + 1}. ${item.span} → ${item.pair}：${item.name}（${item.nature}）${modifier}${showMeaning ? `；${meaning}` : ''}`,
+            `位置：能量序列第${item.start + 1}—${item.end + 1}位，对应数字字母第${item.sourceStart + 1}—${item.sourceEnd + 1}位「${item.sourceText}」`,
+            ...(showTrigramEvidence ? [`卦变：${item.trigramEvidence.explanation}`] : []),
+          ].join('\n');
         })
         .join('\n')
-    : '当前序列不足以形成八星磁场组合。';
-  const distribution = analysis.magneticDistribution.length
-    ? analysis.magneticDistribution.map((item) => `${item.name}${item.count}组`).join('、')
-    : '暂无可归类组合';
+    : '';
+  const distribution = analysis.magneticDistribution
+    .map((item) => `${item.name}${item.count}组`)
+    .join('、');
   const usageFocus =
     analysis.purpose === 'phone'
       ? '手机号结合日常联络、工作沟通、关系维护与号码记忆辨识来解读；个人经历以本人提供的事实为准。'
@@ -1672,7 +2176,7 @@ export function buildNumberEnergyPrompt(input: {
         : '数字字母编号结合提问中说明的实际用途来解读；用途未明时先给通用象意，并列出需要补充的使用背景。';
   const task = analysis.energyPairs.length
     ? '依据实际形成的八星数字能量相邻组合、频次、连续段和前后作用，结合号码用途回答问题。'
-    : '依据原始数字字母序列、取数结果、0与5的位置和号码用途回答问题，并结合当前已列资料说明现实侧重点。';
+    : `依据原始数字字母序列${conversion ? '、字母换算' : ''}${analysis.modifiers.length ? '、0与5的位置' : ''}和号码用途回答问题，并结合当前已列资料说明现实侧重点。`;
   const selectedTask = input.selection ? buildPromptSelectionTask(task, input.selection) : task;
 
   return [
@@ -1687,13 +2191,19 @@ export function buildNumberEnergyPrompt(input: {
     ...(analysis.excludedCharacters.length
       ? [`号码标记：${analysis.excludedCharacters.join('、')}；磁场按上述数字字母序列计算。`]
       : []),
-    `字母换算：${conversion}`,
+    ...(conversion ? [`字母换算：${conversion}`] : []),
     `能量序列：${analysis.energySequence}`,
-    `磁场分布：${distribution}`,
-    `高频磁场：${analysis.dominantFields.join('、') || '暂无'}`,
-    '',
-    '【磁场组合】',
-    pairs,
+    ...(analysis.energyPairs.length
+      ? [
+          `磁场分布：${distribution}`,
+          ...(analysis.dominantFields.length
+            ? [`高频磁场：${analysis.dominantFields.join('、')}`]
+            : []),
+          '',
+          '【磁场组合】',
+          pairs,
+        ]
+      : ['磁场组合：当前序列不足以形成八星磁场组合。']),
     ...(analysis.magneticSegments.length
       ? [
           '',
@@ -1730,9 +2240,13 @@ export function buildNumberEnergyPrompt(input: {
     input.question?.trim() || `请完整解读这个${purposeLabel}的数字能量。`,
     '',
     '【输出要求】',
-    '将磁场作为民俗象意解释，并以实际使用体验和个人选择为现实判断依据。',
+    analysis.energyPairs.length
+      ? '将磁场作为民俗象意解释，并以实际使用体验和个人选择为现实判断依据。'
+      : '将号码序列作为民俗象意解释，并以实际使用体验和个人选择为现实判断依据。',
     usageFocus,
-    '先概括高频磁场，再按号码顺序解释每组磁场及其衔接，结合号码类型说明资源、行动、关系、表达与稳定性等现实倾向，最后给出平衡使用这些倾向的建议。',
+    analysis.energyPairs.length
+      ? `先概括磁场分布${analysis.dominantFields.length ? '及重复出现的磁场' : ''}，再按号码顺序解释每组磁场及其衔接，结合号码类型说明资源、行动、关系、表达与稳定性等现实倾向，最后给出平衡使用这些倾向的建议。`
+      : `结合号码类型与能量序列${analysis.modifiers.length ? '中0与5的位置' : ''}，说明实际使用时可观察的侧重点和个人选择。`,
   ].join('\n');
 }
 

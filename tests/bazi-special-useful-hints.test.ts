@@ -11,14 +11,14 @@ test('从财取用及解释遵循同一主线，不混入普通身弱的水木�
     undefined,
     '甲',
   );
-  assert.deepEqual(result.favorableWuxing, ['火', '土', '金']);
+  assert.deepEqual(result.favorableWuxing, ['土', '火']);
   assert.deepEqual(result.unfavorableWuxing, ['水', '木']);
   assert.deepEqual(result.decisionEvidence?.climateCandidates, []);
-  assert.ok(result.strategyTrace.includes('从格从势取用'));
+  assert.ok(result.strategyTrace.includes('从财格取财星顺势、食伤生财，忌印比扶身'));
   assert.doesNotMatch(result.strategyTrace.join('；'), /以水木扶助为基础|病药提示/);
   assert.deepEqual(
     result.matchedRules?.map((rule) => rule.id),
-    ['follow-special-weak'],
+    ['follow-wealth'],
   );
 });
 
@@ -46,6 +46,9 @@ test('未知旺衰或缺少规则的特殊格局不能静默生成泄耗克喜�
     /特殊格局缺少取用规则/,
   );
   const neutral = determineUsefulGod('中和', { pattern: '正财格', isSpecial: false }, '木');
-  assert.equal(neutral.primaryReason, '中和基线');
+  assert.equal(neutral.primaryReason, '中和待判');
+  assert.equal(neutral.incrementStatus, '待判');
+  assert.deepEqual(neutral.favorableWuxing, []);
+  assert.deepEqual(neutral.unfavorableWuxing, []);
   assert.ok(neutral.matchedRules?.some((rule) => rule.id === 'balance-neutral'));
 });

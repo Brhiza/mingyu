@@ -140,7 +140,7 @@ export function resolveNumberMethod(number: number, timeBranch: string): MeihuaM
   if (!Number.isSafeInteger(totalWithTime)) {
     throw new Error('数字与时辰序数之和必须在安全整数范围内');
   }
-  const lowerTrigramIndex = totalWithTime % 8 || 8;
+  const lowerTrigramIndex = timeZhiIndex % 8 || 8;
   const movingYaoIndex = totalWithTime % 6 || 6;
 
   return {
@@ -204,6 +204,87 @@ function sum(values: number[], label: string): number {
   }, 0);
 }
 
+/** 旧盘重建证据时，从原始分笔、逐字笔画或声类重算，避免把缓存卦数当成取数来源。 */
+export function hasCompleteCharacterCalculation(calculation: MeihuaCalculation): boolean {
+  const count = calculation.characterCount;
+  const upper = calculation.characterUpperNumber;
+  const lower = calculation.characterLowerNumber;
+  if (
+    calculation.methodKey !== 'character' ||
+    typeof count !== 'number' ||
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    count > 100 ||
+    typeof upper !== 'number' ||
+    !Number.isSafeInteger(upper) ||
+    upper <= 0 ||
+    typeof lower !== 'number' ||
+    !Number.isSafeInteger(lower) ||
+    lower <= 0 ||
+    (calculation.characterText !== undefined &&
+      Array.from(calculation.characterText).length !== count)
+  ) {
+    return false;
+  }
+
+  let expectedUpper: number;
+  let expectedLower: number;
+  if (count === 1) {
+    const left = calculation.characterLeftStrokes;
+    const right = calculation.characterRightStrokes;
+    if (
+      typeof left !== 'number' ||
+      !Number.isSafeInteger(left) ||
+      left <= 0 ||
+      typeof right !== 'number' ||
+      !Number.isSafeInteger(right) ||
+      right <= 0
+    ) {
+      return false;
+    }
+    expectedUpper = left;
+    expectedLower = right;
+  } else if (count <= 3) {
+    const strokes = calculation.characterStrokeCounts;
+    if (
+      !strokes ||
+      strokes.length !== count ||
+      !Array.from(strokes).every((value) => Number.isSafeInteger(value) && value > 0)
+    ) {
+      return false;
+    }
+    const split = Math.floor(count / 2);
+    expectedUpper = strokes.slice(0, split).reduce((total, value) => total + value, 0);
+    expectedLower = strokes.slice(split).reduce((total, value) => total + value, 0);
+  } else if (count <= 10) {
+    const tones = calculation.characterTones;
+    if (
+      !tones ||
+      tones.length !== count ||
+      !Array.from(tones).every((value) => Number.isInteger(value) && value >= 1 && value <= 4)
+    ) {
+      return false;
+    }
+    const split = Math.floor(count / 2);
+    expectedUpper = tones.slice(0, split).reduce((total, value) => total + value, 0);
+    expectedLower = tones.slice(split).reduce((total, value) => total + value, 0);
+  } else {
+    expectedUpper = Math.floor(count / 2);
+    expectedLower = count - expectedUpper;
+  }
+
+  return (
+    Number.isSafeInteger(expectedUpper) &&
+    Number.isSafeInteger(expectedLower) &&
+    Number.isSafeInteger(upper + lower) &&
+    upper === expectedUpper &&
+    lower === expectedLower &&
+    calculation.upperTrigramIndex === (upper % 8 || 8) &&
+    calculation.lowerTrigramIndex === (lower % 8 || 8) &&
+    calculation.movingYaoIndex === ((upper + lower) % 6 || 6)
+  );
+}
+
 export function resolveCharacterMethod(settings: MeihuaSettings): MeihuaMethodResult {
   const rawText = settings.characterText;
   const characterText = rawText === undefined ? undefined : rawText.trim();
@@ -222,6 +303,12 @@ export function resolveCharacterMethod(settings: MeihuaSettings): MeihuaMethodRe
   if (textCharacters && textCharacters.length !== characterCount) {
     throw new Error('字数起卦的 characterCount 必须与 characterText 的字符数一致');
   }
+  if (
+    characterCount !== 1 &&
+    (settings.characterLeftStrokes !== undefined || settings.characterRightStrokes !== undefined)
+  ) {
+    throw new Error('左右分笔数只适用于单字起卦');
+  }
 
   const tones = settings.characterTones;
   if (tones !== undefined) {
@@ -231,7 +318,7 @@ export function resolveCharacterMethod(settings: MeihuaSettings): MeihuaMethodRe
     if (characterCount < 4 || characterCount > 10) {
       throw new Error('字数起卦仅支持4-10字输入传统平上去入声数');
     }
-    tones.forEach((tone, index) =>
+    Array.from(tones).forEach((tone, index) =>
       assertIntegerRange(tone, `第${index + 1}字传统平上去入声数`, 1, 4),
     );
   }
@@ -244,7 +331,7 @@ export function resolveCharacterMethod(settings: MeihuaSettings): MeihuaMethodRe
     if (characterCount < 2 || characterCount > 3) {
       throw new Error('字数起卦仅支持2-3字输入逐字笔画数');
     }
-    strokeCounts.forEach((strokes, index) =>
+    Array.from(strokeCounts).forEach((strokes, index) =>
       positiveSafeInteger(strokes, `第${index + 1}字笔画数`),
     );
   }
@@ -372,12 +459,16 @@ export function resolveRandomMethod(options?: RandomOptions): MeihuaMethodResult
   const upperTrigramIndex = randomInt(8, rng) + 1;
   const lowerTrigramIndex = randomInt(8, rng) + 1;
   const movingYaoIndex = randomInt(6, rng) + 1;
+  const randomTrace = context.getTrace();
+  if (options?.replay && options.replay.length !== randomTrace.samples.length) {
+    throw new Error('梅花随机重放样本有剩余，记录与本次起卦过程不一致。');
+  }
 
   return {
     upperTrigramIndex,
     lowerTrigramIndex,
     movingYaoIndex,
-    randomTrace: context.getTrace(),
+    randomTrace,
     calculation: {
       method: '随机起卦法',
       methodKey: 'random',

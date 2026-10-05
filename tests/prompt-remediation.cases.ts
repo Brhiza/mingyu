@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import { baziCalculator } from '../packages/core/src/bazi/index.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { evaluateQimenPatternFulfillment } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
+import { analyzeQimenEvidence } from '../packages/core/src/divination/qimen-evidence.ts';
+import {
+  evaluateQimenPatternFulfillment,
+  formatQimenPatternConditionSummary,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/guidance.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { resolveSignByNumber } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { buildTaskText } from '../packages/core/src/divination/engine/method-text.ts';
@@ -16,9 +20,19 @@ import {
   formatZiweiEvidenceText,
 } from '../packages/core/src/prompt/public-api.ts';
 import { buildZiweiChartInput, calculateZiweiChart } from '../packages/core/src/ziwei/runtime.ts';
+import { extractZiweiFacts } from '../scripts/prompt-audit/natal-facts.ts';
+import { auditPromptFacts } from '../scripts/prompt-audit/facts.ts';
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const QIMEN_PROMPT_SAMPLE_TIME = '2026-05-19T10:30:00+08:00';
+let qimenPromptSample: ReturnType<typeof generateQimen> | undefined;
+
+function createQimenPromptSample() {
+  qimenPromptSample ??= generateQimen(new Date(QIMEN_PROMPT_SAMPLE_TIME));
+  return structuredClone(qimenPromptSample);
 }
 
 test('本命八字提示词的任务范围不越过已列岁运资料', () => {
@@ -62,27 +76,69 @@ test('梅花与皇极任务模板按实际输入资料收窄', () => {
   assert.doesNotMatch(cycleTask, /六十年统卦|时经卦/);
 });
 
-test('奇门提示资料完整保留超过三条格局实效', () => {
-  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+test('奇门提示资料保留完整格局索引，空亡事实不重复列出', () => {
+  const data = createQimenPromptSample();
   const anchor = data.jiuGongGe[0];
+  const patternNames = [
+    '日奇得使',
+    '三奇游六仪',
+    '相佐',
+    '门迫',
+    '宫生门',
+    '癸击刑',
+    '青龙逃走',
+    '刑狱之格',
+  ];
   const expanded = {
     ...data,
-    classicPatterns: Array.from({ length: 8 }, (_, index) => ({
-      name: `整改核验格${index + 1}`,
-      type: 'bad' as const,
-      summary: '测试用空亡格局',
-      palaces: [anchor.gong],
-    })),
-    voidPalaces: [{ branch: '子', palace: anchor.gong, name: anchor.name }],
+    classicPatterns: data.classicPatterns.filter((pattern) => patternNames.includes(pattern.name)),
   };
+  expanded.evidenceAnalysis = analyzeQimenEvidence(expanded);
   const fulfillments = evaluateQimenPatternFulfillment(expanded);
   const text = formatEnhancedDivinationInfo('qimen', expanded);
 
   assert.equal(fulfillments.length, 8);
-  for (const fulfillment of fulfillments) {
-    assert.match(text, new RegExp(escapeRegExp(fulfillment)));
+  const summary = formatQimenPatternConditionSummary(expanded);
+  assert.deepEqual(summary, ['坎一宫同宫见空亡', '巽四宫同宫见门迫', '艮八宫同宫见空亡']);
+  assert.doesNotMatch(text, /格局条件：/);
+  const palaceLine = text
+    .split('\n')
+    .find((line) => line.trimStart().startsWith(`${anchor.name}（`));
+  assert.match(text, new RegExp(`旬空子空落${escapeRegExp(anchor.name)}`));
+  assert.doesNotMatch(palaceLine ?? '', /逢空/);
+  for (const pattern of expanded.classicPatterns) {
+    assert.match(text, new RegExp(escapeRegExp(pattern.name)));
+    assert.equal(text.split(pattern.name).length - 1, 1);
   }
   assert.doesNotMatch(text, /灾咎减半/);
+});
+
+test('奇门常规提示词只列经典格局命中及各自落宫', () => {
+  const data = createQimenPromptSample();
+  const text = formatEnhancedDivinationInfo('qimen', data);
+  const patternBlock = text.split('盘面命中格局：\n')[1]?.split('\n值符宫应期参考：')[0] ?? '';
+
+  const palaceTable = text.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
+  assert.match(text, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/u);
+  assert.doesNotMatch(palaceTable, /逢空|马星/u);
+  assert.equal(palaceTable.trim().split('\n').length, 9);
+  assert.match(
+    palaceTable,
+    /兑七宫（正西，金）：门生门，星天芮、天禽，神六合，天盘壬、丙（丙为寄干），地盘戊/u,
+  );
+  assert.match(palaceTable, /巽四宫（东南，木）：门惊门，星天冲，神值符，天盘癸，地盘丁/u);
+  assert.match(patternBlock, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(patternBlock, /^休诈（吉格，兑七宫）$/mu);
+  assert.match(patternBlock, /^相佐（吉格，巽四宫）$/mu);
+  assert.doesNotMatch(
+    patternBlock,
+    /生门、丙奇、地盘戊同宫|丙奇、生门、六合同宫|值符天冲加地盘丁于巽四宫/u,
+  );
+  assert.match(patternBlock, /^月奇得使临吉门（吉格）：丙奇加地盘戊（甲子\/甲申所遁）于兑七宫$/mu);
+  assert.match(patternBlock, /三奇游六仪（吉格）：甲寅癸值符加地盘丁奇于巽四宫/);
+  assert.match(patternBlock, /门迫（凶格）：惊门（金）克巽四宫（木）/);
+  assert.doesNotMatch(text, /复合格局：|兑七宫三吉聚气|巽四宫吉凶混杂/);
+  assert.doesNotMatch(text, /同干定位：/u);
 });
 
 test('三山国王签谱提示资料过滤串签典故与编辑性噪音', () => {
@@ -143,18 +199,24 @@ test('紫微公开提示词从本命星曜事实回溯四化并过滤小限标�
     scope: 'origin',
     question: '本命四化如何落宫？',
   });
-  const mutagen = `${star.name}化${star.birth_mutagen}`;
-
-  assert.match(
-    publicPrompt,
-    new RegExp(
-      `${escapeRegExp('生年四化：')}[^\\n]*${escapeRegExp(`${mutagen}入本命${palace.name}`)}`,
-    ),
-  );
-  assert.match(
-    publicPrompt,
-    new RegExp(`${escapeRegExp(star.name)}[^\\n]*${escapeRegExp(`生年化${star.birth_mutagen}`)}`),
-  );
-  assert.match(formatZiweiEvidenceText(testRuntime, 'origin'), new RegExp(escapeRegExp(mutagen)));
+  const annotation = `${star.name}(${[star.brightness, `生年化${star.birth_mutagen}`].filter(Boolean).join('，')})`;
+  const owner = `${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：`;
+  const embeddedText = formatZiweiEvidenceText(testRuntime, 'origin');
+  for (const [text, scope] of [
+    [publicPrompt, { start: '【本命资料】', end: '【任务】' }],
+    [embeddedText, { start: '分析对象：' }],
+  ] as const) {
+    const facts = extractZiweiFacts(testPayload, {
+      scope,
+      palaceValueStyle: 'public',
+      mutagenValueStyle: 'public',
+    });
+    assert.equal(facts.filter((item) => item.id.includes('.birth-mutagen.')).length, 4);
+    assert.deepEqual(auditPromptFacts(text, facts).missing, []);
+    const palaceLine = text.split('\n').find((line) => line.trimStart().startsWith(owner));
+    assert.ok(palaceLine?.includes(annotation));
+    assert.equal(text.split(annotation).length - 1, 1);
+    assert.doesNotMatch(text, /^生年四化：/mu);
+  }
   assert.doesNotMatch(publicPrompt, /小限落宫/);
 });

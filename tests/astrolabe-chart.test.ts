@@ -12,6 +12,85 @@ import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe'
 import { formatAstrolabeInfo } from '../packages/core/src/prompt/divination-enhanced';
 import { buildInstantAstrolabePrompt } from '../src/lib/instant-prompt';
 
+const shanghaiAstrolabeFixture = generateAstrolabe({
+  name: '星盘样本',
+  gender: '女',
+  year: '1990',
+  month: '5',
+  day: '20',
+  hour: '12',
+  minute: '30',
+  latitude: '31.2304',
+  longitude: '121.4737',
+  timezone: '8',
+  locationName: '上海',
+});
+
+test('昼夜盘口径与福点计算同源，省级近似坐标如实进入提示词', () => {
+  const input = {
+    name: '坐标口径用例',
+    gender: '女' as const,
+    year: '1995',
+    month: '5',
+    day: '20',
+    minute: '30',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+    coordinateAccuracy: 'province-approximation',
+  };
+  const day = generateAstrolabe({ ...input, hour: '12' });
+  const night = generateAstrolabe({ ...input, hour: '0' });
+
+  assert.equal(day.dayChart, true);
+  assert.equal(night.dayChart, false);
+  assert.equal(day.birth.coordinateAccuracy, 'province-approximation');
+  assert.match(formatAstrolabeForPrompt(day), /昼夜盘：昼盘/);
+  assert.match(formatAstrolabeForPrompt(night), /昼夜盘：夜盘/);
+  assert.match(formatAstrolabeForPrompt(day), /出生坐标精度：省级近似位置/);
+  assert.match(formatAstrolabeForPrompt(day), /十大星体格局：/);
+  assert.match(buildInstantAstrolabePrompt(day, '当前情况如何', '当地钟表时间'), /十大星体格局：/);
+  const historicalOffset = {
+    ...day,
+    birth: { ...day.birth, timezone: 4 + (51 * 60 + 16) / 3600 },
+  };
+  assert.match(formatAstrolabeForPrompt(historicalOffset), /UTC\+04:51:16/);
+  assert.match(
+    buildInstantAstrolabePrompt(historicalOffset, '当前情况如何', '当地钟表时间'),
+    /UTC\+04:51:16/,
+  );
+  const legacy = structuredClone(day);
+  delete legacy.summary.patternBasis;
+  legacy.summary.patterns = ['未经当前相位清单核验的旧格局'];
+  assert.doesNotMatch(formatAstrolabeForPrompt(legacy), /十大星体格局：/);
+  assert.doesNotMatch(
+    buildInstantAstrolabePrompt(legacy, '当前情况如何', '当地钟表时间'),
+    /十大星体格局：/,
+  );
+  const withoutPattern = structuredClone(day);
+  withoutPattern.summary.patterns = [];
+  assert.doesNotMatch(formatAstrolabeForPrompt(withoutPattern), /十大星体格局：/);
+  assert.doesNotMatch(
+    buildInstantAstrolabePrompt(withoutPattern, '当前情况如何', '当地钟表时间'),
+    /十大星体格局：/,
+  );
+  assert.doesNotMatch(formatAstrolabeForPrompt(day), /province-approximation/);
+  assert.match(
+    formatAstrolabeForPrompt({
+      ...day,
+      birth: { ...day.birth, coordinateAccuracy: 'mixed' },
+    }),
+    /出生坐标精度：部分坐标采用地点近似值/,
+  );
+  assert.doesNotMatch(
+    formatAstrolabeForPrompt({
+      ...day,
+      birth: { ...day.birth, coordinateAccuracy: 'user-provided' },
+    }),
+    /出生坐标精度：/,
+  );
+});
+
 test('2100年星历精度说明贯通结果、证据、页面和三条提示词', () => {
   const data = generateAstrolabe({
     name: '精度用例',
@@ -81,19 +160,7 @@ test('高纬度实际整宫制贯通星盘、解读资料和页面标签', () =>
 });
 
 test('星盘图应显示福点标记与星座宫位摘要', () => {
-  const data = generateAstrolabe({
-    name: '星盘样本',
-    gender: '女',
-    year: '1990',
-    month: '5',
-    day: '20',
-    hour: '12',
-    minute: '30',
-    latitude: '31.2304',
-    longitude: '121.4737',
-    timezone: '8',
-    locationName: '上海',
-  });
+  const data = structuredClone(shanghaiAstrolabeFixture);
   const fortunePoint = data.planets.find((planet) => planet.name === 'Part of Fortune');
 
   assert.ok(fortunePoint);
@@ -109,19 +176,8 @@ test('星盘图应显示福点标记与星座宫位摘要', () => {
 });
 
 test('缺少福点的历史数据仍应正常显示星盘图', () => {
-  const data = generateAstrolabe({
-    name: '历史星盘样本',
-    gender: '女',
-    year: '1990',
-    month: '5',
-    day: '20',
-    hour: '12',
-    minute: '30',
-    latitude: '31.2304',
-    longitude: '121.4737',
-    timezone: '8',
-    locationName: '上海',
-  });
+  const data = structuredClone(shanghaiAstrolabeFixture);
+  data.birth.name = '历史星盘样本';
   const dataWithoutFortune = {
     ...data,
     planets: data.planets.filter((planet) => planet.name !== 'Part of Fortune'),
@@ -135,19 +191,7 @@ test('缺少福点的历史数据仍应正常显示星盘图', () => {
 });
 
 test('星盘总览应列出周期内动态点关键星象', () => {
-  const data = generateAstrolabe({
-    name: '星盘样本',
-    gender: '女',
-    year: '1990',
-    month: '5',
-    day: '20',
-    hour: '12',
-    minute: '30',
-    latitude: '31.2304',
-    longitude: '121.4737',
-    timezone: '8',
-    locationName: '上海',
-  });
+  const data = structuredClone(shanghaiAstrolabeFixture);
   const context = buildAstrolabeScopeContext(data, 'monthly', '2028-06');
   const events = context.periodEvents?.events ?? [];
   assert.ok(events.length > 0);

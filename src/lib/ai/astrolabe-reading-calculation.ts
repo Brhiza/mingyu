@@ -351,6 +351,16 @@ export async function generateAstrolabeReadingLocally(
   calculationRequest: JsonRecord,
   options: { signal?: AbortSignal; onProgress?: AstrolabeReadingProgress } = {},
 ): Promise<AstrolabeReadingCalculationResult> {
+  calculationRequest = {
+    ...calculationRequest,
+    ...(Array.isArray(calculationRequest.schools)
+      ? { schools: [...calculationRequest.schools] }
+      : {}),
+    ...(record(calculationRequest.supplementaryInfo)
+      ? { supplementaryInfo: { ...calculationRequest.supplementaryInfo } }
+      : {}),
+  };
+  options = { ...options };
   if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   const data = generateAstrolabe(toAstrolabeInput(calculationRequest));
   const artifacts = buildCoreScopeArtifacts(data, calculationRequest);

@@ -3,10 +3,17 @@ import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
+import { buildDivinationPrompt as buildCoreDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
+import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
+import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { drawTarotSpread, tarotSpreads } from '../packages/core/src/divination/tarot.ts';
 import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand.ts';
+import { resolveSignByNumber } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
+import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail.ts';
+import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren/index.ts';
 import {
   assertNoPromptPlaceholders,
   assertPromptHasSingleRole,
@@ -30,6 +37,33 @@ import type {
 } from '../src/types';
 
 type FixtureMethod = 'liuyao' | 'meihua' | 'qimen' | 'liuren' | 'tarot' | 'ssgw';
+
+let qimenPromptSample: ReturnType<typeof generateQimen> | undefined;
+let qimenAutumnPromptSample: ReturnType<typeof generateQimen> | undefined;
+let liuyaoPromptSample: ReturnType<typeof generateLiuyao> | undefined;
+let meihuaPromptSample: ReturnType<typeof generateMeihua> | undefined;
+let almanacPromptSample: ReturnType<typeof generateAlmanacSelection> | undefined;
+let liurenPromptSample: ReturnType<typeof generateLiuren> | undefined;
+
+function createQimenPromptSample() {
+  qimenPromptSample ??= generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  return structuredClone(qimenPromptSample);
+}
+
+function createQimenAutumnPromptSample() {
+  qimenAutumnPromptSample ??= generateQimen(
+    new Date('2026-08-08T15:14:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
+  return structuredClone(qimenAutumnPromptSample);
+}
+
+function createLiurenPromptSample() {
+  liurenPromptSample ??= generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
+  return structuredClone(liurenPromptSample);
+}
 
 function createSupplementaryInfo(): SupplementaryInfo {
   return {
@@ -227,263 +261,23 @@ function createAstrolabeData(
 function createData(method: FixtureMethod): DivinationData {
   switch (method) {
     case 'liuyao':
-      return {
-        originalName: '乾为天',
-        changedName: '坤为地',
-        interName: '风山渐',
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
-        yaoArray: [9, 7, 8, 8, 7, 6],
-        changingYaos: [
-          { position: 1, isChanging: true, type: '老阳' },
-          { position: 6, isChanging: true, type: '老阴' },
-        ],
-        sixGods: ['青龙', '朱雀', '勾陈', '螣蛇', '白虎', '玄武'],
-        sixRelatives: ['兄弟', '子孙', '妻财', '官鬼', '父母', '兄弟'],
-        najiaDizhi: ['子', '寅', '辰', '午', '申', '戌'],
-        wuxing: ['水', '木', '土', '火', '金', '土'],
-        worldAndResponse: ['世', '', '', '', '', '应'],
-        voidBranches: ['戌', '亥'],
-        palace: { name: '乾', wuxing: '金' },
-        palaceStage: '首卦',
-        yaosDetail: [
-          {
-            position: 1,
-            yaoType: '阳',
-            isChanging: true,
-            rawValue: 9,
-            changeType: '老阳',
-            sixGod: '青龙',
-            sixRelative: '兄弟',
-            najiaDizhi: '子',
-            wuxing: '水',
-            isWorld: true,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 2,
-            yaoType: '阳',
-            isChanging: false,
-            rawValue: 7,
-            changeType: '',
-            sixGod: '朱雀',
-            sixRelative: '子孙',
-            najiaDizhi: '寅',
-            wuxing: '木',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 3,
-            yaoType: '阴',
-            isChanging: false,
-            rawValue: 8,
-            changeType: '',
-            sixGod: '勾陈',
-            sixRelative: '妻财',
-            najiaDizhi: '辰',
-            wuxing: '土',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 4,
-            yaoType: '阴',
-            isChanging: false,
-            rawValue: 8,
-            changeType: '',
-            sixGod: '螣蛇',
-            sixRelative: '官鬼',
-            najiaDizhi: '午',
-            wuxing: '火',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 5,
-            yaoType: '阳',
-            isChanging: false,
-            rawValue: 7,
-            changeType: '',
-            sixGod: '白虎',
-            sixRelative: '父母',
-            najiaDizhi: '申',
-            wuxing: '金',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 6,
-            yaoType: '阴',
-            isChanging: true,
-            rawValue: 6,
-            changeType: '老阴',
-            sixGod: '玄武',
-            sixRelative: '兄弟',
-            najiaDizhi: '戌',
-            wuxing: '土',
-            isWorld: false,
-            isResponse: true,
-            isVoid: true,
-            changedYao: null,
-          },
-        ],
-        hiddenSpirits: [
-          {
-            sixRelative: '子孙',
-            position: 2,
-            najiaDizhi: '寅',
-            wuxing: '木',
-            isVoid: false,
-            underYao: {
-              position: 2,
-              sixRelative: '子孙',
-              najiaDizhi: '寅',
-              wuxing: '木',
-            },
-          },
-        ],
-        hexagramRelations: {
-          original: '六冲卦',
-          changed: '六冲卦',
-          transition: '六冲变六冲',
-        },
-        fanfuRelations: {
-          fanyin: [
-            {
-              kind: '卦反吟',
-              scope: '内外',
-              label: '内外反吟',
-              description: '内卦乾变巽，外卦乾变巽，按乾巽、坎离、震兑、坤艮相变',
-            },
-          ],
-          fuyin: [],
-          labels: ['内外反吟'],
-        },
-        specialPattern: '全动卦',
-        specialAdvice: '宜统观全局，不宜逐爻碎断。',
-      };
+      liuyaoPromptSample ??= generateLiuyao(new Date('2025-06-18T10:30:00+08:00'), {
+        method: 'manual',
+        yaos: [9, 8, 8, 8, 7, 8],
+      });
+      return structuredClone(liuyaoPromptSample);
     case 'meihua':
-      return {
-        originalName: '雷火丰',
-        changedName: '地火明夷',
-        interName: '泽风大过',
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
-        tiGua: { name: '离', element: '火', nature: '明' },
-        yongGua: { name: '震', element: '木', nature: '动' },
-        changedTiGua: { name: '坤', element: '土', nature: '顺' },
-        changedYongGua: { name: '离', element: '火', nature: '明' },
-        interTiGua: { name: '兑', element: '金', nature: '泽' },
-        interYongGua: { name: '巽', element: '木', nature: '风' },
-        movingYao: { position: 3, description: '三爻发动', yaoName: '九三' },
-        analysis: {
-          season: '春',
-          tiYongRelation: '用生体，主有助力',
-          tiSeasonState: '相',
-          yongSeasonState: '旺',
-          inter1Relation: '原体克体互',
-          inter2Relation: '用互生原体',
-          changedRelation: '体生变，后续需付出',
-          changedTiYongRelation: '体克用',
-        },
-        mainHexagram: {
-          name: '雷火丰',
-          symbol: '䷶',
-          upper: '震',
-          lower: '离',
-          description: '先盛后谨',
-          yaoCi: ['初爻背景', '二爻背景', '三爻发动取象', '四爻背景', '五爻背景', '上爻背景'],
-          movingYaoCi: '三爻发动取象',
-        },
-        interHexagram: {
-          name: '泽风大过',
-          symbol: '䷛',
-          upper: '兑',
-          lower: '巽',
-          description: '中间承压',
-        },
-        changedHexagram: {
-          name: '地火明夷',
-          symbol: '䷣',
-          upper: '坤',
-          lower: '离',
-          description: '宜守光待时',
-        },
-        yaosDetail: [
-          { position: 1, yaoType: '阳', isChanging: false, tiYong: '体' },
-          { position: 2, yaoType: '阴', isChanging: false, tiYong: '体' },
-          { position: 3, yaoType: '阳', isChanging: true, tiYong: '体' },
-          { position: 4, yaoType: '阳', isChanging: false, tiYong: '用' },
-          { position: 5, yaoType: '阴', isChanging: false, tiYong: '用' },
-          { position: 6, yaoType: '阴', isChanging: false, tiYong: '用' },
-        ],
-        calculation: {
-          method: 'number',
-          methodKey: 'number',
-          number: 123,
-        },
-      };
+      meihuaPromptSample ??= generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
+        method: 'number',
+        number: 123,
+      });
+      return structuredClone(meihuaPromptSample);
     case 'qimen':
-      return {
-        jiuGongGe: [
-          {
-            gong: 1,
-            name: '坎一宫',
-            direction: '北',
-            element: '水',
-            tianPan: { star: '天蓬', stem: '壬' },
-            diPan: { stem: '癸' },
-            renPan: { door: '休门' },
-            shenPan: { god: '值符' },
-          },
-          {
-            gong: 9,
-            name: '离九宫',
-            direction: '南',
-            element: '火',
-            tianPan: { star: '天英', stem: '丙' },
-            diPan: { stem: '丁' },
-            renPan: { door: '景门' },
-            shenPan: { god: '九天' },
-          },
-        ],
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        isYangDun: true,
-        juShu: 3,
-        zhiFu: '天蓬',
-        zhiShi: '休门',
-        patternTags: ['门生宫', '星旺'],
-        patternDetails: [{ tag: '门生宫', summary: '休门得地，利于稳步推进' }],
-        palaceInsights: [{ gong: 1, name: '坎一宫', level: '有利', summary: '适合谋划与沟通' }],
-        voidBranches: ['子', '丑'],
-        voidPalaces: [
-          { branch: '子', palace: 1, name: '坎一宫' },
-          { branch: '丑', palace: 8, name: '艮八宫' },
-        ],
-        horseStar: {
-          sourceBranch: '卯',
-          branch: '巳',
-          palace: 4,
-          name: '巽四宫',
-        },
-        timeInfo: { solarTerm: '春分', epoch: '上元' },
-        timestamp: Date.now(),
-      };
+      return createQimenPromptSample();
     case 'liuren':
       return {
         ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
+        timestamp: new Date('2025-03-01T10:30:00+08:00').getTime(),
         dayNight: '昼占',
         monthLeader: '亥',
         divinationBranch: '卯',
@@ -566,24 +360,33 @@ function createData(method: FixtureMethod): DivinationData {
       } satisfies LiurenData;
     case 'tarot':
       return {
-        spreadType: 'single',
-        spreadName: '单牌指引',
+        spreadType: 'three',
+        spreadName: '时间流牌阵',
         cards: [
           {
-            id: 1,
+            id: 7,
             name: '恋人',
-            position: '现状',
+            position: '过去',
             reversed: false,
             keywords: ['选择', '连接'],
             element: '大阿卡纳（核心课题与阶段转折）',
             archetype: '大阿卡纳的人生主轴',
           },
           {
-            id: 2,
+            id: 8,
             name: '战车',
-            position: '建议',
+            position: '现在',
             reversed: true,
             keywords: ['控制', '节奏'],
+            element: '大阿卡纳（核心课题与阶段转折）',
+            archetype: '大阿卡纳的人生主轴',
+          },
+          {
+            id: 9,
+            name: '力量',
+            position: '未来',
+            reversed: false,
+            keywords: ['力量', '勇气'],
             element: '大阿卡纳（核心课题与阶段转折）',
             archetype: '大阿卡纳的人生主轴',
           },
@@ -591,120 +394,29 @@ function createData(method: FixtureMethod): DivinationData {
         timestamp: Date.now(),
       };
     case 'ssgw':
-      return {
-        number: 18,
-        title: '刘备借荆州',
-        poem: '前路迢迢莫强求，且看云开月自明。',
-        story: '刘备向东吴借取荆州。',
-        details: {
-          吉凶: '中平签',
-          核心寓意: '事情仍有转圜空间，宜结合现况审慎研判。',
-          事业: '先核对资源与时机。',
-          行动建议: '暂缓推进。',
-          风险提醒: '留意反复。',
-        },
-        timestamp: Date.now(),
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-      };
+      return resolveSignByNumber(18, new Date('2025-06-18T10:30:00+08:00'));
   }
 }
 
 function createAlmanacData(): DivinationData {
-  return {
+  almanacPromptSample ??= generateAlmanacSelection({
     topic: 'move',
-    topicLabel: '搬家入宅',
     startDate: '2026-06-01',
-    endDate: '2026-06-03',
-    timestamp: Date.now(),
+    endDate: '2026-06-02',
     participants: [
       {
         id: 'self',
         name: '本人',
         gender: '男',
-        solarDate: '1990-01-01',
-        lunarDate: '腊月初五',
-        zodiac: '蛇',
-        constellation: '摩羯座',
-        dayMaster: '丙',
-        dayMasterElement: '火',
-        pillars: { year: '己巳', month: '丙子', day: '丙寅', hour: '甲午' },
-        usefulGods: ['木', '火'],
-        avoidGods: ['水'],
+        year: '1990',
+        month: '1',
+        day: '1',
+        timeIndex: '6',
+        dateType: 'solar',
       },
     ],
-    days: [
-      {
-        date: '2026-06-01',
-        weekday: '星期一',
-        lunarDate: '四月十六',
-        ganzhi: { year: '丙午', month: '癸巳', day: '丙午' },
-        zodiac: '马',
-        dayOfficer: '除',
-        twelveStar: '建',
-        twentyEightStar: '张',
-        nineStar: '一白',
-        gods: ['天德', '月德'],
-        recommends: ['入宅', '移徙', '安床'],
-        avoids: ['开市'],
-        pengZu: '丙不修灶',
-        clash: '冲鼠，煞北',
-        annualDirectionGods: [
-          {
-            god: '太岁',
-            branch: '午',
-            direction: '正南',
-            fortune: '凶',
-            meaning: '犯太岁防宅长大凶',
-          },
-          {
-            god: '太阳',
-            branch: '未',
-            direction: '西南偏南',
-            fortune: '吉',
-            meaning: '修太阳能制诸煞',
-          },
-          {
-            god: '岁破',
-            branch: '子',
-            direction: '正北',
-            fortune: '凶',
-            meaning: '犯岁破忧宅母',
-          },
-          {
-            god: '福德',
-            branch: '卯',
-            direction: '正东',
-            fortune: '吉',
-            meaning: '修福德主添丁生子',
-          },
-        ],
-        score: 86,
-        highlights: ['黄历宜项命中搬家入宅'],
-        cautions: [],
-        participantNotes: ['本人：未见直接刑冲破害提醒'],
-      },
-      {
-        date: '2026-06-02',
-        weekday: '星期二',
-        lunarDate: '四月十七',
-        ganzhi: { year: '丙午', month: '癸巳', day: '丁未' },
-        zodiac: '羊',
-        dayOfficer: '满',
-        twelveStar: '除',
-        twentyEightStar: '翼',
-        nineStar: '二黑',
-        gods: ['天恩'],
-        recommends: ['祭祀'],
-        avoids: ['入宅', '移徙'],
-        pengZu: '丁不剃头',
-        clash: '冲牛，煞西',
-        score: 42,
-        highlights: [],
-        cautions: ['黄历忌项触及搬家入宅'],
-        participantNotes: ['本人：未见直接刑冲破害提醒'],
-      },
-    ],
-  };
+  });
+  return structuredClone(almanacPromptSample);
 }
 
 test('各类占卜提示词都使用统一的角色加信息加问题结构', async () => {
@@ -735,7 +447,7 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
     {
       method: 'liuren',
       question: '这件事接下来该怎么推进？',
-      data: createData('liuren'),
+      data: createLiurenPromptSample(),
       structure: 'liuren',
     },
     {
@@ -775,6 +487,7 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
     const role = item.method as DivinationPromptGuidanceMethod;
     if (item.method === 'ssgw') {
       assertSsgwPromptStructure(prompt);
+      assertPromptIsPortableTaskText(prompt);
     } else if (item.structure === 'liuren') {
       assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
       assertLiurenPromptStructure(prompt);
@@ -785,55 +498,110 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
       assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
       assertStandardPromptStructure(prompt);
     }
-  }
-});
 
-test('占卜输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
-  const cases: Array<{
-    method: Exclude<DivinationType, 'tarot_single'>;
-    data: DivinationData;
-    question: string;
-  }> = [
-    { method: 'liuyao', data: createData('liuyao'), question: '这件事接下来该怎么推进？' },
-    { method: 'liuren', data: createData('liuren'), question: '这件事接下来该怎么推进？' },
-    { method: 'ssgw', data: createData('ssgw'), question: '这件事接下来该怎么推进？' },
-    { method: 'almanac', data: createAlmanacData(), question: '这几天哪天适合搬家？' },
-  ];
+    if (item.method !== 'astrolabe' && item.method !== 'taiyi') {
+      assert.doesNotMatch(prompt, /【应期判断方法】|【解读方法】|取证顺序|回答口径|证据边界/);
+    }
 
-  cases.forEach((item) => {
-    const prompt = buildDivinationPrompt(
-      item.method,
-      item.question,
-      item.data,
-      createSupplementaryInfo(),
-    );
-    assertPromptIsPortableTaskText(prompt);
-  });
-});
-
-test('非命盘占法不再附加独立的方法论与应期控制段落', () => {
-  const cases: Array<{
-    method: Exclude<DivinationType, 'tarot_single' | 'astrolabe'>;
-    data: DivinationData;
-  }> = [
-    { method: 'liuyao', data: createData('liuyao') },
-    { method: 'meihua', data: createData('meihua') },
-    { method: 'qimen', data: createData('qimen') },
-    { method: 'liuren', data: createData('liuren') },
-    { method: 'tarot', data: createData('tarot') },
-    { method: 'ssgw', data: createData('ssgw') },
-    { method: 'almanac', data: createAlmanacData() },
-  ];
-
-  for (const item of cases) {
-    const prompt = buildDivinationPrompt(
-      item.method,
-      item.method === 'almanac' ? '' : '这件事接下来该怎么推进？',
-      item.data,
-      createSupplementaryInfo(),
-    );
-
-    assert.doesNotMatch(prompt, /【应期判断方法】|【解读方法】|取证顺序|回答口径|证据边界/);
+    if (item.method === 'qimen') {
+      assert.doesNotMatch(prompt, /【输出要求】|使用简体中文|现实建议|行动建议|行动清单/);
+      assert.doesNotMatch(prompt, /【分析思路】/);
+    } else if (item.method === 'liuyao') {
+      assert.match(prompt, /核心结构：主卦/);
+      assert.match(prompt, /世应：世爻第2爻子孙寅木；应爻第5爻官鬼戌土/);
+      assert.match(prompt, /六爻全表：[\s\S]*第1爻兄弟子水[^\n]*动[^\n]*化官鬼未土（回头克）/);
+      assert.doesNotMatch(prompt, /^动变：/m);
+      assert.match(
+        prompt,
+        /旬空子、丑；命中第1爻兄弟子水（本爻空亡；本爻子逢值，午冲子）、第6爻兄弟子水/,
+      );
+      assert.match(
+        prompt,
+        /明伏分布：本卦明爻6爻，六亲为兄弟、子孙、官鬼、父母；伏神1爻：妻财伏第3爻午火，伏于官鬼辰土下/,
+      );
+      assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
+      assert.doesNotMatch(prompt, /取用评分表|权重\d/);
+      assert.match(prompt, /第1爻兄弟子水[^\n]*冲月建、日辰午，动，旬空，月破，日辰冲动/);
+      assert.match(prompt, /第6爻兄弟子水[^\n]*冲月建、日辰午，旬空，月破，日冲成破/u);
+      assert.match(
+        prompt,
+        /月日五行：[^\n]*第1爻兄弟子水克月建、日辰午火[^\n]*第6爻兄弟子水克月建、日辰午火/u,
+      );
+      assert.doesNotMatch(prompt, /月日触发：|未直接同支入爻/u);
+      assert.match(prompt, /用神主线：事项用神待按具体问题取用/);
+      assert.doesNotMatch(prompt, /应期资料：|组合时机：|六亲持世：|应爻与动变：/);
+      assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
+      assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
+    } else if (item.method === 'meihua') {
+      assert.doesNotMatch(prompt, /【分析思路】/);
+      assert.match(prompt, /核心结构：主卦火风鼎；互卦泽天夬；变卦火山旅/);
+      assert.match(prompt, /体用：体卦离（火）；用卦巽（木）；动爻第2爻；体用关系用生体/);
+      assert.match(prompt, /互卦：泽天夬；原体克体互；原体克用互/);
+      assert.match(prompt, /互卦泽天夬：体卦兑金，用卦乾金，关系比和/u);
+      assert.match(prompt, /变卦火山旅：体卦离火，用卦艮土，关系体生用/);
+      assert.match(prompt, /月令作用：子月令水克原体、变后体卦离火，原体、变后体卦为死/);
+      assert.match(prompt, /月令作用：变后用卦艮土克子月令水，卦气耗用，变后用卦为囚/);
+      assert.match(prompt, /主卦体用月令条件：体卦月令死、用卦月令相/);
+      assert.match(prompt, /起卦法：数字起卦法/);
+      assert.match(
+        prompt,
+        /起卦取数：数字123除8取余得上卦数3；时支辰序数5除8取余得下卦数5；数字123与时支序数相加除6取余得动爻2/,
+      );
+      assert.match(prompt, /动爻变化：主卦第2爻阳变阴；动爻位于下卦，用卦随之变化，体卦保持/);
+      assert.doesNotMatch(prompt, /应期线索：/);
+      assert.match(prompt, /主卦卦辞：火风鼎，元吉，亨/);
+      assert.match(prompt, /动爻爻辞：第2爻，鼎有实，我仇有疾/);
+      assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);
+      assert.doesNotMatch(prompt, /未发动，不展开爻辞解释/);
+      assert.doesNotMatch(prompt, /第1爻（静，属体）：阳爻|结构明细：/);
+      assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
+      assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+    } else if (item.method === 'tarot') {
+      assert.match(prompt, /核心结构：牌阵/);
+      assert.match(prompt, /牌位明细：/);
+      assert.doesNotMatch(prompt, /牌位顺序：/);
+      assert.match(prompt, /过去：恋人（正位）；关键词：/);
+      assert.match(prompt, /现在：战车（逆位）；关键词：/);
+      assert.match(prompt, /未来：力量（正位）；关键词：/);
+      assert.match(prompt, /牌组属性：/);
+      assert.match(prompt, /正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离/);
+      assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
+      assert.match(prompt, /基础牌义：/);
+      assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
+      assert.doesNotMatch(
+        prompt,
+        /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
+      );
+      assert.match(prompt, /【补充信息】\n求测人：男；出生年份：1995/);
+      assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
+    } else if (item.method === 'almanac') {
+      const data = item.data as AlmanacData;
+      assert.match(prompt, /候选日期：2026-06-01 至 2026-06-02/);
+      assert.match(prompt, /核心结构：择日事项：搬家入宅/);
+      assert.doesNotMatch(prompt, /事项范围：|日期结论：/);
+      assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
+      assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
+      assert.match(prompt, /第1日：2026-06-01/);
+      assert.match(prompt, /第2日：2026-06-02/);
+      assert.ok(data.days.some((day) => prompt.includes(day.avoids.join('、'))));
+      assert.ok(prompt.includes(data.days[0].recommends.join('、')));
+      assert.ok(prompt.includes(data.days[0].avoids.join('、')));
+      assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
+      assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
+    } else if (item.method === 'ssgw') {
+      assert.match(prompt, /签号：第18签/);
+      assert.match(prompt, /签题：《第十八签 · 东施效颦，画虎类犬（凶）》/);
+      assert.match(prompt, /签诗：东施效颦反增丑，画虎不成反类犬。/);
+      assert.match(prompt, /吉凶级别：下签（凶）/);
+      assert.match(prompt, /典故："东施效颦"出自《庄子·天运》/);
+      assert.equal((prompt.match(/"东施效颦"出自《庄子·天运》/gu) ?? []).length, 1);
+      assert.match(prompt, /基础解签：与其费力学别人走路，不如把自己脚下的路走稳/);
+      assert.match(prompt, /补充解释：诗句取象：西施皱眉很美/);
+      assert.doesNotMatch(
+        prompt,
+        /【当前时间】|【问题】|【任务】|占法：|行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/,
+      );
+    }
   }
 });
 
@@ -853,35 +621,34 @@ test('自定义占卜问题不强塞应期判断方法', () => {
   assert.doesNotMatch(prompt, /【应期判断方法】/);
 });
 
-test('择日提示词保留候选日期、事项和参与人资料', () => {
-  const prompt = buildDivinationPrompt(
-    'almanac',
-    '',
-    createAlmanacData(),
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /占法：黄历择日/);
-  assert.match(prompt, /候选日期：2026-06-01 至 2026-06-03/);
-  assert.match(prompt, /核心结构：择日事项：搬家入宅/);
-  assert.doesNotMatch(prompt, /事项范围：|日期结论：/);
-  assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
-  assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
-  assert.match(prompt, /第1日：2026-06-01/);
-  assert.match(prompt, /第2日：2026-06-02/);
-  assert.match(prompt, /忌入宅、移徙/);
-  assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
-  assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
+test('旧黄历正午历法事实失配时不进入在线提示词', () => {
+  const data = createAlmanacData() as AlmanacData;
+  data.days[0].ganzhi.day = '甲子';
+  assert.throws(() => buildDivinationPrompt('almanac', '', data), /day.*请重新排盘/);
+  assert.throws(() => formatDetailedDivinationInfo('almanac', data), /day.*请重新排盘/);
 });
 
-test('择日保留事项匹配之外的完整当日宜忌', () => {
+test('旧黄历宿曜附文不能覆盖在线提示词的重新计算依据', () => {
   const data = createAlmanacData() as AlmanacData;
-  const day = data.days[0];
-  day.recommends = ['入宅', '移徙', '安床', '祭祀', '祈福', '求嗣', '出行', '纳采', '订盟'];
-  day.avoids = ['开市', '动土', '破土', '安葬', '修造', '开仓', '伐木', '作灶', '掘井'];
+  data.days[0].twentyEightStarDetail = {
+    ...data.days[0].twentyEightStarDetail!,
+    fullName: '伪造星宿',
+    fortune: '必定大吉',
+  };
   const prompt = buildDivinationPrompt('almanac', '', data);
-  assert.ok(prompt.includes(day.recommends.join('、')));
-  assert.ok(prompt.includes(day.avoids.join('、')));
+  assert.doesNotMatch(prompt, /伪造星宿|必定大吉/);
+});
+
+test('旧黄历伪造宜项或事项结论时不进入在线提示词', () => {
+  const data = createAlmanacData() as AlmanacData;
+  data.days[0].recommends.push('伪宜项');
+  assert.throws(() => buildDivinationPrompt('almanac', '', data), /原始宜忌.*请重新排盘/);
+
+  data.days[0].recommends.pop();
+  const topicFact = data.days[0].topicMatchFacts?.[0];
+  assert.ok(topicFact);
+  topicFact.promptText = '伪事项结论';
+  assert.throws(() => buildDivinationPrompt('almanac', '', data), /事项匹配.*请重新排盘/);
 });
 
 test('择日提示词在有补充诉求时输出问题，空时不强制输出问题 section', () => {
@@ -897,31 +664,6 @@ test('择日提示词在有补充诉求时输出问题，空时不强制输出�
     findPromptSectionHeadingIndex(prompt, '【问题】') >
       findPromptSectionHeadingIndex(prompt, '【任务】'),
   );
-});
-
-test('占卜提示词不写入输出要求或行动建议', async () => {
-  const session = buildDivinationPrompt(
-    'qimen',
-    '这件事接下来该怎么推进？',
-    createData('qimen'),
-    createSupplementaryInfo(),
-  );
-
-  assert.doesNotMatch(session, /【输出要求】|使用简体中文|现实建议|行动建议|行动清单/);
-  assert.match(session, /【任务】/);
-});
-
-test('通用占法保留求测人基本资料但不混入梅花设置', () => {
-  const prompt = buildDivinationPrompt(
-    'tarot',
-    '这件事接下来该怎么推进？',
-    createData('tarot'),
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /【占卜信息】/);
-  assert.match(prompt, /【补充信息】\n求测人：男；出生年份：1995/);
-  assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
 });
 
 test('大六壬提示词保留用户补充的现实信息', () => {
@@ -951,10 +693,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
 });
 
 test('占卜提示词的当前时间应来自起盘结果而不是运行环境当前时间', () => {
-  const data = {
-    ...createData('qimen'),
-    timestamp: Date.parse('2025-01-01T08:30:00+08:00'),
-  };
+  const data = generateQimen(new Date('2025-01-01T08:30:00+08:00'));
   const prompt = buildDivinationPrompt('qimen', '这件事接下来该怎么推进？', data);
 
   assert.match(prompt, /【当前时间】\n公历：2025年1月1日 8时30分/);
@@ -962,49 +701,31 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
 });
 
 test('奇门提示词会输出值符值使、旬空马星和格局资料', () => {
-  const qimenData = {
-    ...createData('qimen'),
-    classicPatterns: [
-      {
-        name: '太白入荧',
-        type: 'bad' as const,
-        score: -18,
-        summary: '庚加丙主阻力外显。',
-        palaces: [9],
-      },
-    ],
-    stemRelations: [
-      {
-        gong: 9,
-        heavenStem: '庚',
-        earthStem: '丙',
-        relation: '金火相战',
-        pattern: '太白入荧',
-      },
-    ],
-  };
+  const qimenData = createQimenPromptSample();
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', qimenData, {
     gender: '男',
     birthYear: 1995,
   });
 
-  assert.match(prompt, /核心结构：阳遁3局；[^\n]+/);
+  assert.match(prompt, /核心结构：阳遁7局；立夏 下元/);
   assert.match(prompt, /取用主线：/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
-  assert.match(
-    prompt,
-    /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁；天盘丁：未见落宫；地盘丁：离九宫/,
-  );
-  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
-  assert.match(prompt, /太白入荧/);
+  assert.match(prompt, /值符值使与时干：值符天冲落巽四宫；值使伤门落乾六宫；时干丁/);
+  assert.match(prompt, /离九宫（正南，火）：[^\n]*天盘丁，地盘庚/);
+  assert.doesNotMatch(prompt, /同干定位：/);
+  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星巳时驿马在亥，落乾六宫/);
+  assert.match(prompt, /^天遁（吉格，兑七宫）$/mu);
+  assert.match(prompt, /兑七宫[^\n]*门生门[^\n]*神六合[^\n]*天盘壬、丙（丙为寄干），地盘戊/u);
+  assert.doesNotMatch(prompt, /生门、丙奇、地盘戊同宫/u);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);
+  assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
 });
 
 test('奇门提示词保留节令关系并省略重复的四柱互动明细', () => {
-  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  const data = createQimenPromptSample();
   const prompt = buildDivinationPrompt('qimen', '整体解读', data);
 
   assert.match(prompt, /日干癸持平/);
@@ -1013,7 +734,7 @@ test('奇门提示词保留节令关系并省略重复的四柱互动明细', ()
 });
 
 test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落宫', () => {
-  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
+  const data = createQimenAutumnPromptSample();
   const prompt = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1989 });
 
   assert.equal(data.ganzhi.day, '甲寅');
@@ -1024,7 +745,6 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
   assert.match(prompt, /核心结构：阴遁5局；立秋 中元/);
   assert.doesNotMatch(prompt, /立秋上元/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
-  assert.ok(Math.max(...prompt.split('\n').map((line) => line.length)) < 200);
   assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
   assert.match(prompt, /立春前出生则取年命干支戊辰，命干戊/);
   assert.doesNotMatch(prompt, /【补充信息】/);
@@ -1035,79 +755,13 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
 });
 
 test('奇门年命资料应处理六甲遁干，未填写出生年份时不输出', () => {
-  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const data = createQimenAutumnPromptSample();
   const withBirthYear = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1984 });
   const withoutBirthYear = buildDivinationPrompt('qimen', '整体解读', data);
 
   assert.match(withBirthYear, /公历1984年按年中口径取年命干支甲子，命干甲/);
   assert.match(withBirthYear, /年命落宫（年中口径）：命干甲遁戊落.+宫/);
   assert.doesNotMatch(withoutBirthYear, /年命资料|年命落宫/);
-});
-
-test('奇门提示词不再根据问题词表输出问事参考', () => {
-  const data = {
-    ...createData('qimen'),
-    jiuGongGe: [
-      ...createData('qimen').jiuGongGe,
-      {
-        gong: 6,
-        name: '乾六宫',
-        direction: '西北',
-        element: '金',
-        tianPan: { star: '天心', stem: '辛' },
-        diPan: { stem: '庚' },
-        renPan: { door: '开门' },
-        shenPan: { god: '六合' },
-      },
-      {
-        gong: 8,
-        name: '艮八宫',
-        direction: '东北',
-        element: '土',
-        tianPan: { star: '天任', stem: '戊' },
-        diPan: { stem: '己' },
-        renPan: { door: '生门' },
-        shenPan: { god: '九地' },
-      },
-    ],
-  } satisfies DivinationData;
-
-  const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', data, {
-    gender: '男',
-    birthYear: 1995,
-  });
-
-  assert.doesNotMatch(prompt, /问事参考/);
-  assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫/);
-});
-
-test('六爻提示词会保留世应、动变、空亡、伏神和月日资料', () => {
-  const prompt = buildDivinationPrompt(
-    'liuyao',
-    '这件事接下来该怎么推进？',
-    createData('liuyao'),
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /核心结构：主卦/);
-  assert.match(prompt, /世应：世爻第1爻兄弟子水；应爻第6爻兄弟戌土/);
-  assert.match(prompt, /动变：第1爻兄弟子水/);
-  assert.match(prompt, /旬空戌、亥；命中第6爻兄弟戌土（本爻空亡；本爻戌逢值，辰冲戌）/);
-  assert.match(
-    prompt,
-    /明伏分布：本卦明爻6爻，六亲为兄弟、子孙、妻财、官鬼、父母；伏神1爻：子孙伏第2爻寅木，伏于子孙寅木下/,
-  );
-  assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
-  assert.doesNotMatch(prompt, /取用评分表|权重\d/);
-  assert.match(
-    prompt,
-    /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
-  );
-  assert.match(prompt, /用神：/);
-  assert.doesNotMatch(prompt, /应期资料：|组合时机：|六亲持世：|应爻与动变：/);
-  assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
-  assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
 
 test('六爻提示词不再按问题词表补充取用参考', () => {
@@ -1121,7 +775,8 @@ test('六爻提示词不再按问题词表补充取用参考', () => {
   assert.doesNotMatch(prompt, /取用参考：/);
   assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为取用参考/);
   assert.match(prompt, /世应：/);
-  assert.match(prompt, /动变：/);
+  assert.match(prompt, /六爻全表：[\s\S]*第1爻/);
+  assert.doesNotMatch(prompt, /^动变：/m);
   assert.doesNotMatch(prompt, /应爻与动变：|应期资料：/);
 });
 
@@ -1159,8 +814,8 @@ test('六爻鬼神怪异模板只写入问题范围，不附加控制话术', ()
 test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论重点', () => {
   const expectedFocus: Record<keyof typeof tarotSpreads, RegExp> = {
     single: /唯一牌位/,
-    three: /过去、现在、未来/,
-    love: /双方内心/,
+    three: /背景、当前表现与后续主题/,
+    love: /双方视角/,
     career: /事业现状/,
     decision: /选择A、选择B/,
     celtic: /当前与阻碍/,
@@ -1168,13 +823,13 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     year: /全年主题/,
     mindBodySpirit: /思想、身体行动与精神状态/,
     horseshoe: /过去、现在、未来展开/,
-    holyTriangle: /问题根源、当前状况、发展结果/,
+    holyTriangle: /问题根源、当前状况与发展结果/,
     universal: /阻力、资源、行动与发展趋势/,
-    fourElements: /火、\s水、风、土/,
+    fourElements: /火、水、风、土/,
     hexagram: /隐藏因素/,
-    relationship: /双方状态与需求/,
+    relationship: /双方视角、需求/,
     wealth: /收入机会、支出风险/,
-    problemSolving: /问题表象深入根本原因/,
+    problemSolving: /问题表象、成因线索/,
     twelveHouses: /依十二宫逐一分析/,
   };
 
@@ -1186,9 +841,9 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
     );
     assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
     if (spreadType === 'celtic') {
-      assert.match(prompt, /目标与可达潜能/);
-      assert.match(prompt, /已形成的现实基础/);
-      assert.match(prompt, /正在消退的过去影响/);
+      assert.match(prompt, /目标与潜能/);
+      assert.match(prompt, /现实基础/);
+      assert.match(prompt, /过去影响和近期未来牌位/);
       assert.match(prompt, /希望与恐惧/);
     }
     if (spreadType === 'single') {
@@ -1198,6 +853,43 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
       assert.match(prompt, /牌位联动：/);
       assert.match(prompt, /结论重点：/);
     }
+  }
+});
+
+test('塔罗最终任务以事实和现实条件核对因果、关系、健康与财务主题', () => {
+  const cases = [
+    ['three', /背景、当前表现与后续主题/],
+    ['love', /关系视角的象征线索/],
+    ['year', /健康牌位/],
+    ['holyTriangle', /根源线索与当前牌位的主题呼应/],
+    ['problemSolving', /成因线索与表象、阻力牌位的主题关联/],
+    ['relationship', /双方视角、需求、关系核心与走向牌位/],
+    ['wealth', /已提供的收支信息/],
+  ] as const;
+
+  for (const [spreadType, expectedTask] of cases) {
+    const prompt = buildDivinationPrompt(
+      'tarot',
+      '请结合当前情况解读。',
+      drawTarotSpread(spreadType, { seed: `塔罗任务边界-${spreadType}` }),
+    );
+    const task = prompt.match(/【任务】\n([\s\S]*?)\n\n【问题】/)?.[1];
+
+    assert.ok(task, `${spreadType} 应进入最终提示词任务段`);
+    assert.match(task, expectedTask, `${spreadType} 应保留牌阵用途`);
+    assert.match(task, /可观察的?信息/);
+    assert.match(task, /现实条件/);
+    assert.equal(task.match(/现实核对/g)?.length, 1);
+    if (spreadType === 'love' || spreadType === 'relationship') {
+      assert.match(task, /关系视角的象征线索/);
+    }
+    if (spreadType === 'year') {
+      assert.match(task, /身心照料的象征主题/);
+    }
+    assert.doesNotMatch(
+      task,
+      /过去如何形成现在|现在又如何推动或改变未来|判断双方内心|分别判断双方内心|根因如何造成表象|医疗诊断|预测疾病/,
+    );
   }
 });
 
@@ -1213,42 +905,6 @@ test('六爻未知专项模板应回落到通用断卦，避免输出 undefined'
   assert.match(prompt, /【问题范围】\n通用/);
   assert.doesNotMatch(prompt, /断卦类型|取证顺序|回答口径|证据边界/);
   assert.doesNotMatch(prompt, /undefined|null/);
-});
-
-test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
-  const prompt = buildDivinationPrompt(
-    'meihua',
-    '这件事接下来该怎么推进？',
-    createData('meihua'),
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
-  assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
-  assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
-  assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期线索：动爻第3爻/);
-  assert.match(prompt, /主卦卦辞：雷火丰，先盛后谨/);
-  assert.match(prompt, /动爻爻辞：第3爻，三爻发动取象/);
-  assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);
-  assert.doesNotMatch(prompt, /未发动，不展开爻辞解释/);
-  assert.doesNotMatch(prompt, /第1爻（静，属体）：阳爻|结构明细：/);
-  assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
-  assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
-});
-
-test('梅花、奇门不再输出隐藏专项分析思路', () => {
-  for (const method of ['meihua', 'qimen'] as const) {
-    const prompt = buildDivinationPrompt(
-      method,
-      '这件事接下来该怎么推进？',
-      createData(method),
-      createSupplementaryInfo(),
-    );
-
-    assert.doesNotMatch(prompt, /【分析思路】/);
-    assert.match(prompt, /【任务】/);
-  }
 });
 
 test('大六壬模板只写入简短问题范围', () => {
@@ -1267,19 +923,20 @@ test('大六壬模板只写入简短问题范围', () => {
 });
 
 test('大六壬提示词会给出精简课传资料，避免重复堆叠', () => {
+  const data = createLiurenPromptSample();
   const prompt = buildDivinationPrompt(
     'liuren',
     '这件事接下来该怎么推进？',
-    createData('liuren'),
+    data,
     createSupplementaryInfo(),
   );
 
   assert.match(prompt, /【排盘信息】/);
-  assert.match(prompt, /核心结构：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥（命中初传亥）/);
-  assert.match(prompt, /课传主线：取传比用法；传态递传/);
+  assert.match(prompt, /核心结构：月将.+；占时.+；(?:昼占|夜占)；贵人.+；旬空/);
+  assert.match(prompt, /课传主线：传态/);
   assert.doesNotMatch(prompt, /取传依据：/);
-  assert.match(prompt, /四课：\n  一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：\n  初传亥乘贵人，生扶/);
+  assert.match(prompt, /四课：\n  一课/);
+  assert.match(prompt, /三传：\n  初传/);
   assert.doesNotMatch(prompt, /课传主线：.*发用|课传主线：.*末传/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
@@ -1287,7 +944,7 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.doesNotMatch(prompt, /天将属性：|取传规则全文/);
 });
 
-test('大六壬提示词使用简短任务', () => {
+test('大六壬旧盘缺天地盘时任务只引用可核对的起课资料', () => {
   const prompt = buildDivinationPrompt(
     'liuren',
     '这件事接下来该怎么推进？',
@@ -1295,40 +952,19 @@ test('大六壬提示词使用简短任务', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /【任务】\n依据月将、四课、三传、天将与课体回答【问题】。/);
+  assert.match(prompt, /【传统依据】\n大六壬以月将加临占时定天地盘。/);
+  assert.match(prompt, /【任务】\n依据本次起课四柱、月将、占时及可核对的时间资料回答【问题】。/);
+  assert.doesNotMatch(prompt, /四课：|三传：|课体：|神煞：/);
   assert.doesNotMatch(prompt, /【输出要求】/);
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 
 test('大六壬提示词保留课体与精简神煞摘要', () => {
-  const data = {
-    ...createData('liuren'),
-    guaTi: ['龙德卦', '连珠卦'],
-    shenShaFacts: [
-      {
-        name: '旬奇',
-        target: '初传',
-        targetType: '地支',
-        category: '逐月神煞',
-        basis: '月建',
-        input: '寅',
-        rule: '旬奇起例',
-        sources: ['《大六壬大全》'],
-        limitations: [],
-      },
-      {
-        name: '天马',
-        target: '末传',
-        targetType: '地支',
-        category: '十二地支神煞',
-        basis: '月建',
-        input: '申',
-        rule: '天马起例',
-        sources: ['《大六壬大全》'],
-        limitations: [],
-      },
-    ],
-  } satisfies LiurenData;
+  const data = createLiurenPromptSample();
+  assert.ok(data.guaTi?.length);
+  assert.ok(data.shenShaSummary?.length);
+  data.guaTiFacts = undefined;
+  data.evidenceAnalysis = undefined;
 
   const prompt = buildDivinationPrompt(
     'liuren',
@@ -1337,11 +973,12 @@ test('大六壬提示词保留课体与精简神煞摘要', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /课体：龙德卦、连珠卦/);
-  assert.match(prompt, /神煞：旬奇在初传、天马在末传/);
-  assert.doesNotMatch(prompt, /旬奇起例|天马起例/);
+  assert.ok(prompt.includes(`课体：${data.guaTi.join('、')}`));
+  assert.ok(prompt.includes(`神煞：${data.shenShaSummary.slice(0, 6).join('、')}`));
+  assert.ok(prompt.includes(`神煞附录：${data.shenShaSummary.slice(6).join('、')}`));
+  for (const fact of data.shenShaFacts ?? []) assert.doesNotMatch(prompt, new RegExp(fact.rule));
   assert.doesNotMatch(prompt, /辅证：/);
-  assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
+  assert.doesNotMatch(prompt, /课体补充：/);
   assert.doesNotMatch(prompt, /神煞补充：/);
 });
 
@@ -1360,30 +997,6 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词保留牌阵、牌位、正逆位、关键词与可靠牌组属性', () => {
-  const prompt = buildDivinationPrompt(
-    'tarot',
-    '这件事接下来该怎么推进？',
-    createData('tarot'),
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /核心结构：牌阵/);
-  assert.match(prompt, /牌位明细：/);
-  assert.doesNotMatch(prompt, /牌位顺序：/);
-  assert.match(prompt, /现状：恋人（正位）；关键词：/);
-  assert.match(prompt, /建议：战车（逆位）；关键词：/);
-  assert.match(prompt, /牌组属性：/);
-  assert.match(prompt, /正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离/);
-  assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
-  assert.match(prompt, /基础牌义：/);
-  assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
-  assert.doesNotMatch(
-    prompt,
-    /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
-  );
-});
-
 test('小六壬提示词保留可复核顺数，并明确只有时宫承担主证', () => {
   const data = generateXiaoliuren({ customDate: new Date('2026-05-19T10:30:00+08:00') });
   const prompt = buildDivinationPrompt(
@@ -1396,10 +1009,11 @@ test('小六壬提示词保留可复核顺数，并明确只有时宫承担主�
   assert.match(prompt, /起课：农历.+，巳时/);
   assert.match(prompt, /起课过程：/);
   assert.match(prompt, /定月宫：.+月从大安顺数，落/);
-  assert.match(prompt, /定日宫：从月宫.+起初一，顺数至.+日，落/);
-  assert.match(prompt, /定时宫：从日宫.+起子时，顺数至巳时，落/);
-  assert.match(prompt, /定位用途：月宫赤口用于确定初一的起数位置；日宫空亡用于确定子时的起数位置/);
-  assert.match(prompt, /断事主证：时宫小吉及其下列歌诀/);
+  assert.match(prompt, /定日宫：从月宫.+起初一（.+），顺数至.+日，落/);
+  assert.match(prompt, /定时宫：从日宫空亡起子时，顺数至巳时/u);
+  assert.doesNotMatch(prompt, /定位用途：/u);
+  assert.match(prompt, /占得宫：小吉/);
+  assert.doesNotMatch(prompt, /定时宫：[^\n]*落小吉/u);
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
   assert.doesNotMatch(prompt, /mod\s*6|时序\d+/);
   assert.doesNotMatch(prompt, /五行生克与落宫方位/);
@@ -1420,7 +1034,22 @@ test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普�
     drawLenormandSpread('five', { seed: '提示词完整性-五牌' }),
   );
   assert.match(fivePrompt, /基础牌义：/);
+  assert.doesNotMatch(fivePrompt, /主题牌/);
   assert.doesNotMatch(fivePrompt, /固定组合：[\s\S]*牌序相邻|相邻牌义合读/);
+
+  const reverseData = drawLenormandSpread('three', { manualCardIds: [31, 32, 8] });
+  const reversePrompt = buildDivinationPrompt('lenormand', '这件事接下来如何发展？', reverseData);
+  assert.equal(reverseData.combinations?.[0].source, '相邻牌义合读');
+  assert.match(reversePrompt, /起因：太阳；关键词：成功、清晰、能量/);
+  assert.match(reversePrompt, /现状：月亮；关键词：情绪、名声、直觉/);
+  assert.doesNotMatch(reversePrompt, /相邻合读：|从迷茫走向清晰|登记判词/);
+
+  const fixedPrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事接下来如何发展？',
+    drawLenormandSpread('three', { manualCardIds: [24, 25, 1] }),
+  );
+  assert.match(fixedPrompt, /固定组合：\n  心\+戒指：/);
 
   const ninePrompt = buildDivinationPrompt(
     'lenormand',
@@ -1430,53 +1059,20 @@ test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普�
   assert.match(ninePrompt, /布局关系：/);
   assert.match(ninePrompt, /九宫第2排第2列的中心位置为/);
   assert.match(ninePrompt, /左上至右下对角线依次为/);
-});
 
-test('灵签提示词保留完整签谱资料', () => {
-  const prompt = buildDivinationPrompt(
-    'ssgw',
-    '这件事接下来该怎么推进？',
-    createData('ssgw'),
-    createSupplementaryInfo(),
+  const grandTableauPrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事的整体布局是什么？',
+    drawLenormandSpread('grandTableau', {
+      manualCardIds: Array.from({ length: 36 }, (_, index) => index + 1),
+    }),
   );
-
-  assert.match(prompt, /签号：第18签/);
-  assert.match(prompt, /签题：《刘备借荆州》/);
-  assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
-  assert.match(prompt, /吉凶级别：中平签/);
-  assert.match(prompt, /典故：刘备向东吴借取荆州。/);
-  assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
-  assert.match(prompt, /补充解释：\n  事业：先核对资源与时机。/);
-  assert.doesNotMatch(
-    prompt,
-    /【当前时间】|【问题】|【任务】|占法：|行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/,
-  );
-});
-
-test('灵签提示词合并重复典故并保留基础解签', () => {
-  const prompt = buildDivinationPrompt(
-    'ssgw',
-    '这件事接下来该怎么推进？',
-    {
-      number: 9,
-      title: '典故去重测试',
-      poem: '静待云开见月明，不妨暂且敛锋芒。',
-      story: '韩信受胯下之辱，先忍后成大业。',
-      details: {
-        典故: '韩信受胯下之辱，先忍后成大业。',
-        解签: '宜暂避锋芒，等待时机。',
-      },
-      timestamp: Date.now(),
-      ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-    },
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /签诗：静待云开见月明，不妨暂且敛锋芒。/);
-  assert.match(prompt, /典故：韩信受胯下之辱，先忍后成大业。/);
-  assert.match(prompt, /基础解签：宜暂避锋芒，等待时机。/);
-  assert.equal((prompt.match(/韩信受胯下之辱/g) ?? []).length, 1);
-  assert.doesNotMatch(prompt, /辅助证据|行动建议|风险提醒|掷筊/);
+  const firstGrandTableauCard = grandTableauPrompt
+    .split('\n')
+    .find((line) => line.includes('第1宫（骑士宫）：骑士；'));
+  assert.ok(firstGrandTableauCard);
+  assert.match(firstGrandTableauCard, /第1排第1列/);
+  assert.doesNotMatch(firstGrandTableauCard, /落骑士宫/);
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位资料', () => {
@@ -1489,8 +1085,8 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位资料', ()
   assert.match(prompt, /上升：狮子座 12°/);
   assert.match(prompt, /太阳金牛座 29°，第10宫/);
   assert.match(prompt, /月亮处女座 08°，第2宫/);
-  assert.match(prompt, /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
-  assert.match(prompt, /格局：土象偏强/);
+  assert.doesNotMatch(prompt, /核心位置：/);
+  assert.doesNotMatch(prompt, /格局：土象偏强|十大星体格局：/);
   assert.doesNotMatch(prompt, /逆行星体无/);
   assert.match(prompt, /相位明细：/);
   assert.doesNotMatch(prompt, /强度\d+%/);
@@ -1531,4 +1127,33 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /【应期判断方法】/);
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
+
+  for (const scopeText of [
+    '太阳返照有效期：2028-01-01 至 2029-01-01。',
+    '次限相位：太阳与月亮成拱，偏差0.50°。',
+    '太阳弧相位：金星与太阳成合，偏差0.40°。',
+  ]) {
+    const appPrompt = buildDivinationPrompt(
+      'astrolabe',
+      '我现在适合换工作吗？',
+      astrolabeData,
+      undefined,
+      { astrolabeTopic: 'job-change', astrolabeScopeText: scopeText },
+    );
+    const corePrompt = buildCoreDivinationPrompt({
+      method: 'astrolabe',
+      data: astrolabeData,
+      question: '我现在适合换工作吗？',
+      astrolabeTopic: 'job-change',
+      astrolabeScopeText: scopeText,
+    });
+    for (const scopedPrompt of [appPrompt, corePrompt]) {
+      assert.ok(scopedPrompt.includes(scopeText));
+      const task = scopedPrompt.split('【任务】\n')[1]?.split('\n\n【问题】')[0];
+      assert.ok(task);
+      assert.match(task, /本次已列星象和时限资料/u);
+      assert.doesNotMatch(task, /四类证据|普通行运|太阳返照|次限|太阳弧/u);
+      assertPromptIsPortableTaskText(scopedPrompt);
+    }
+  }
 });

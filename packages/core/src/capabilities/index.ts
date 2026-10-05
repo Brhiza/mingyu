@@ -14,7 +14,7 @@ import { getPromptMethodCapability, type PromptMethodCapability } from '../promp
 
 export { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
-export const SYSTEM_CAPABILITY_IDS = [
+export const SYSTEM_CAPABILITY_IDS = Object.freeze([
   'calendar.trueSolarBirth',
   'calendar.astronomicalTime',
   'calendar.moonPhase',
@@ -48,7 +48,7 @@ export const SYSTEM_CAPABILITY_IDS = [
   'name.numberEnergy',
   'name.zhugeDivination',
   'name.kongmingDivination',
-] as const;
+] as const);
 
 export type SystemCapabilityId = (typeof SYSTEM_CAPABILITY_IDS)[number];
 
@@ -484,7 +484,7 @@ const systems: SystemCapability[] = [
           { value: 'chaibu', label: '拆补法' },
           { value: 'zhirun', label: '置闰法' },
         ]),
-        description: '默认拆补法；置闰法仅对时家与日家生效。',
+        description: '时家、日家默认拆补法，可选置闰法；年家、月家按三元阴遁定局。',
       },
       { id: 'date', label: '起局时间', type: 'datetime', required: false },
       questionInput,
@@ -492,8 +492,8 @@ const systems: SystemCapability[] = [
     outputs: [
       '九宫',
       '值符值使',
-      '定局方法',
-      '符头与超神接气',
+      '定局方法（时家、日家）',
+      '符头与超神接气（时家、日家）',
       '用神宫候选',
       '门星神干证据',
       '空亡与格局反证',

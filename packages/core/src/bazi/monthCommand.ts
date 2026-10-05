@@ -1,12 +1,17 @@
-import { BASIC_MAPPINGS, SEASON_STATUS } from './baziDefinitions';
 import { WUXING, type Wuxing } from './baziTypes';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 import type { MonthQiElementItem, MonthQiProfile } from '../types/analysis';
+import { getBaziRelationMappings } from './baziMappingsData';
+import { getBaziSeasonStatuses } from './baziElementData';
+
+const SEASON_STATUS = getBaziSeasonStatuses();
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
 
 function getStemWuxing(stem: string): Wuxing {
   assertHeavenlyStem(stem, '司令天干');
-  const index = BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
-  const wuxing = BASIC_MAPPINGS.STEM_WUXING[index] as Wuxing | undefined;
+  const index = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never);
+  const wuxing = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[index] as Wuxing | undefined;
   if (!wuxing) {
     throw new Error(`司令天干五行数据缺失：${stem}`);
   }
@@ -15,8 +20,8 @@ function getStemWuxing(stem: string): Wuxing {
 
 function getBranchWuxing(branch: string): Wuxing {
   assertEarthlyBranch(branch, '月支');
-  const index = BASIC_MAPPINGS.EARTHLY_BRANCHES.indexOf(branch as never);
-  const wuxing = BASIC_MAPPINGS.BRANCH_WUXING[index] as Wuxing | undefined;
+  const index = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.EARTHLY_BRANCHES.indexOf(branch as never);
+  const wuxing = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.BRANCH_WUXING[index] as Wuxing | undefined;
   if (!wuxing) {
     throw new Error(`月支五行数据缺失：${branch}`);
   }

@@ -21,6 +21,15 @@ test('八宅统一按从大门面向屋内的读数换算传统坐向', () => {
   assert.match(measurement.promptText, /站在大门处面向屋内/);
 });
 
+test('八宅页面桥接保留立春当天已知出生时分', () => {
+  const { result } = calculateBazhaiChart(
+    { year: 2024, month: 2, day: 4, hour: 16, minute: 30, gender: 'male' },
+    0,
+  );
+  assert.equal(result.mingGua, '震');
+  assert.doesNotMatch(result.prompt, /未提供出生时刻/);
+});
+
 test('八宅页面无需开始排盘即可显示个人盘并在盘面说明下补充角度', () => {
   const html = renderToStaticMarkup(
     createElement(MetaphysicsPanel, {

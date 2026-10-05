@@ -1,5 +1,7 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
+import { resolveBirthCalendarClockTime } from '../calendar/true-solar-time';
+import { resolveChinaStandardBirthTime } from '../calendar/china-dst';
 import { resolveZiweiTrueSolarBirth } from './true-solar-input';
 import type {
   AnalysisPayloadV1,
@@ -116,6 +118,33 @@ function resolveHoroscopeContext(options: ZiweiRuntimeOptions): ZiweiHoroscopeCo
   return getDefaultHoroscopeContext(options.now);
 }
 
+/** 异步计算期间固定本次范围与时点，避免调用方后续编辑切换盘面身份。 */
+function copyRuntimeInput(input: ChartInput): ChartInput {
+  return {
+    ...normalizeChartInput(input),
+    ...(input.trueSolarEvidence
+      ? { trueSolarEvidence: structuredClone(input.trueSolarEvidence) }
+      : {}),
+  };
+}
+
+function copyRuntimeOptions(options: ZiweiRuntimeOptions): ZiweiRuntimeOptions {
+  return {
+    ...options,
+    ...(options.scopes ? { scopes: [...options.scopes] } : {}),
+    ...(options.horoscopeContext ? { horoscopeContext: { ...options.horoscopeContext } } : {}),
+    ...(options.now ? { now: new Date(options.now.getTime()) } : {}),
+    ...(options.fortuneRange
+      ? {
+          fortuneRange: {
+            ...options.fortuneRange,
+            ...(options.fortuneRange.batch ? { batch: { ...options.fortuneRange.batch } } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 /** 将一个星盘和运限对象转换为指定范围的结构化资料。 */
 export function buildZiweiPayloadByScope(params: {
   astrolabe: IztroAstrolabe;
@@ -167,6 +196,9 @@ export async function calculateZiweiChart(
   input: ChartInput,
   options: ZiweiRuntimeOptions = {},
 ): Promise<ZiweiRuntime> {
+  input = copyRuntimeInput(input);
+  options = copyRuntimeOptions(options);
+  const horoscopeContext = resolveHoroscopeContext(options);
   if (options.independentBatch === 'scope') {
     if (options.fortuneRange) {
       throw new RangeError('紫微 scope 独立批次不能同时计算年龄年运限。');
@@ -191,7 +223,6 @@ export async function calculateZiweiChart(
   }
   const astrolabe = await buildAstrolabeFromInput(input);
   const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
-  const horoscopeContext = resolveHoroscopeContext(options);
   const horoscope = await resolveHoroscope(horoscopeContext.dateStr, horoscopeContext.hourIndex);
   const fortuneContext = options.fortuneRange
     ? {
@@ -305,6 +336,9 @@ export async function calculateZiweiFactsForScopes(
   skipAnalysis?: boolean,
   options: Omit<ZiweiRuntimeOptions, 'scopes' | 'skipAnalysis'> = {},
 ): Promise<ZiweiRuntimeFacts> {
+  input = copyRuntimeInput(input);
+  options = copyRuntimeOptions(options);
+  const horoscopeContext = resolveHoroscopeContext(options);
   const fortuneRange = options.fortuneRange;
   if (
     options.independentBatch !== 'fortune' ||
@@ -325,7 +359,6 @@ export async function calculateZiweiFactsForScopes(
 
   const astrolabe = await buildAstrolabeFromInput(input);
   const resolveHoroscope = createZiweiHoroscopeResolver(astrolabe, input);
-  const horoscopeContext = resolveHoroscopeContext(options);
   assertValidHoroscopeInput(horoscopeContext.dateStr, horoscopeContext.hourIndex);
   const fortuneContext = {
     dateStr: fortuneRange.dateStr ?? horoscopeContext.dateStr,
@@ -429,6 +462,7 @@ export async function calculateZiweiDisplayPayload(params: {
   hourIndex: number;
   scope: ScopeType;
 }): Promise<AnalysisPayloadV1> {
+  params = { ...params, input: normalizeChartInput(params.input) };
   const astrolabe = await buildAstrolabeFromInput(params.input);
   const horoscope = await buildHoroscopeFromInput(
     astrolabe,
@@ -506,23 +540,24 @@ function formatBirthDate(year: number, month: number, day: number): string {
 function readPreciseStandardBirthTime(
   input: ZiweiChartInputDraft,
 ): ChartInput['birthTime'] | undefined {
+  const birthHour = input.birthHour === undefined ? '' : String(input.birthHour).trim();
+  const birthMinute = input.birthMinute === undefined ? '' : String(input.birthMinute).trim();
   const birthSecond = input.birthSecond === undefined ? '' : String(input.birthSecond).trim();
-  if (!birthSecond) return undefined;
-  if (input.birthHour === undefined || input.birthMinute === undefined) {
+  if (!birthHour && !birthMinute && !birthSecond) return undefined;
+  if (!birthHour || !birthMinute) {
     throw new Error('精准标准北京时间需要同时提供出生小时和分钟。');
   }
   const time = {
-    hour: readInteger(input.birthHour, '出生小时'),
-    minute: readInteger(input.birthMinute, '出生分钟'),
-    second: readInteger(birthSecond, '出生秒数'),
+    hour: readInteger(birthHour, '出生小时'),
+    minute: readInteger(birthMinute, '出生分钟'),
+    ...(birthSecond ? { second: readInteger(birthSecond, '出生秒数') } : {}),
   };
   if (
     time.hour < 0 ||
     time.hour > 23 ||
     time.minute < 0 ||
     time.minute > 59 ||
-    time.second < 0 ||
-    time.second > 59
+    (time.second !== undefined && (time.second < 0 || time.second > 59))
   ) {
     throw new Error('精准出生时间需使用 0-23 时、0-59 分和 0-59 秒。');
   }
@@ -531,6 +566,9 @@ function readPreciseStandardBirthTime(
 
 /** 将网页表单或普通 JSON 输入转换为严格的紫微 ChartInput。 */
 export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
+  if (input.gender !== 'male' && input.gender !== 'female') {
+    throw new Error('性别必须是 male 或 female。');
+  }
   const birthDateParts = readBirthDate(input);
   const preciseStandardBirthTime = input.useTrueSolarTime
     ? undefined
@@ -557,21 +595,57 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
         applyChinaDst: input.applyChinaDst,
       })
     : null;
+  const standardBirthTime = preciseStandardBirthTime
+    ? resolveChinaStandardBirthTime({
+        ...resolveBirthCalendarClockTime({
+          dateType: input.dateType,
+          ...birthDateParts,
+          ...preciseStandardBirthTime,
+          second: preciseStandardBirthTime.second ?? 0,
+          isLeapMonth: input.isLeapMonth,
+        }),
+        timezone: input.timezone,
+        timeZoneId: input.timeZoneId,
+        applyChinaDst: input.applyChinaDst,
+      })
+    : undefined;
+  const correctedStandardTime = standardBirthTime?.usedChinaDstCorrection
+    ? standardBirthTime.effectiveTime
+    : undefined;
+  const usesCorrectedDate = input.useTrueSolarTime || correctedStandardTime !== undefined;
 
   return normalizeChartInput({
     name: input.name,
     gender,
-    dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
+    dateType: usesCorrectedDate ? 'solar' : input.dateType,
     birthDate:
       trueSolarBirth?.birthDate ??
-      formatBirthDate(birthDateParts.year, birthDateParts.month, birthDateParts.day),
-    birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
+      (correctedStandardTime
+        ? formatBirthDate(
+            correctedStandardTime.year,
+            correctedStandardTime.month,
+            correctedStandardTime.day,
+          )
+        : formatBirthDate(birthDateParts.year, birthDateParts.month, birthDateParts.day)),
+    birthTimeIndex:
+      trueSolarBirth?.birthTimeIndex ??
+      (correctedStandardTime
+        ? getTimeIndexFromClock(correctedStandardTime.hour, correctedStandardTime.minute)
+        : birthTimeIndex),
     ...(trueSolarBirth
       ? { birthTime: trueSolarBirth.birthTime, trueSolarEvidence: trueSolarBirth.trueSolarEvidence }
       : preciseStandardBirthTime
-        ? { birthTime: preciseStandardBirthTime }
+        ? {
+            birthTime: {
+              hour: standardBirthTime!.effectiveTime.hour,
+              minute: standardBirthTime!.effectiveTime.minute,
+              ...(preciseStandardBirthTime.second === undefined
+                ? {}
+                : { second: standardBirthTime!.effectiveTime.second }),
+            },
+          }
         : {}),
-    isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
+    isLeapMonth: usesCorrectedDate ? false : input.isLeapMonth,
     algorithm: input.algorithm ?? 'default',
   });
 }

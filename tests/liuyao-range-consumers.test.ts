@@ -36,6 +36,23 @@ function createDraft(startText = '2024-02-19 11:00:00'): DivinationDraft {
   };
 }
 
+test('六爻静卦在时段摘要、盘面与分享中不生成变卦事实', async () => {
+  const session = await generateDivinationSession({
+    ...createDraft(),
+    liuyaoYaos: [7, 7, 7, 7, 7, 7],
+  });
+  assert.equal(session.liuyaoRange?.branches[0]?.data.originalName, '乾为天');
+  assert.equal(session.liuyaoRange?.branches[0]?.data.changedName, '乾为天');
+  const summary = getDivinationSessionSummary(session).lines.join('\n');
+  const board = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+  const share = formatDivinationSessionShareText(session);
+  assert.match(summary, /本卦乾为天，变卦无/);
+  assert.match(board, /静卦无变/);
+  assert.doesNotMatch(board, /变卦定局.*之卦/);
+  assert.doesNotMatch(share, /变卦：乾为天/);
+  assert.match(session.prompt, /变卦无/);
+});
+
 test('六爻四柱日期模式在交中气处展示各段背景并保持一次卦象', async () => {
   const session = await generateDivinationSession(createDraft());
   assert.equal(session.liuyaoRange?.status, 'conditional');

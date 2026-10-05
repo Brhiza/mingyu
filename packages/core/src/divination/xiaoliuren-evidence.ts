@@ -1,7 +1,14 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../calendar/civil-time';
+import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils';
+import { getDivinationTime } from '../calendar/timeManager';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination';
 
-import { resolveXiaoliurenRule } from './xiaoliuren-rules';
+import {
+  resolveXiaoliurenRule,
+  getXiaoliurenPalaceName,
+  getXiaoliurenVerse,
+} from './xiaoliuren-rules';
 const SOURCE_LIMITATION =
   '《多能鄙事》卷八“小六壬课时”以正月初一留连起子时，与通行掌诀正月初一大安起子时的起日口径不同；“李淳风六壬时课”等署名不作为已证实的古籍归属';
 const EDITION_REFERENCE =
@@ -162,9 +169,122 @@ function buildPalaceFacts(data: XiaoliurenData): XiaoliurenPalaceFact[] {
   ];
 }
 
+function matchesSourceTimeAndCalendar(data: XiaoliurenData): boolean {
+  if (
+    !Number.isSafeInteger(data.timestamp) ||
+    (data.termReferenceTimestamp !== undefined &&
+      !Number.isSafeInteger(data.termReferenceTimestamp))
+  ) {
+    return false;
+  }
+
+  try {
+    const termReferenceDate =
+      data.termReferenceTimestamp === undefined ? undefined : new Date(data.termReferenceTimestamp);
+    const sourceTime = getDivinationTime(
+      new Date(data.timestamp),
+      DEFAULT_CHINA_TIMEZONE_HOURS * 60,
+      termReferenceDate,
+    );
+    const civilTime = termReferenceDate
+      ? getDivinationTime(termReferenceDate, DEFAULT_CHINA_TIMEZONE_HOURS * 60)
+      : sourceTime;
+    const sourceHourIndex = getTimeIndexFromClock(
+      sourceTime.timeInfo.solar.hour,
+      sourceTime.timeInfo.solar.minute,
+    );
+    const sourceShichen = getShichenByIndex(sourceHourIndex);
+    const civilLunar = civilTime.timeInfo.lunar;
+
+    return (
+      sourceShichen !== null &&
+      data.hourIndex === sourceHourIndex &&
+      data.hourLabel === sourceShichen.name &&
+      data.lunarMonth === civilLunar.monthNumber &&
+      data.lunarDay === civilLunar.dayNumber &&
+      data.isLeapMonth === civilLunar.isLeapMonth &&
+      data.ganzhi.year === sourceTime.ganzhi.year &&
+      data.ganzhi.month === sourceTime.ganzhi.month &&
+      data.ganzhi.day === sourceTime.ganzhi.day &&
+      data.ganzhi.hour === sourceTime.ganzhi.hour
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function formatXiaoliurenCalendarBoundary(data: XiaoliurenData): string {
+  return [
+    data.hourIndex === 12 ? '晚子时四柱日干支按子初换日，起课农历日到东八区零点才换日' : '',
+    data.termReferenceTimestamp !== undefined
+      ? '起课农历月日、节气与年月柱参照实际占时，时辰与日时柱取校正钟表时刻'
+      : '',
+  ]
+    .filter(Boolean)
+    .join('；');
+}
+
 export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
+  const rule = resolveXiaoliurenRule(data.rule);
+  const calculation = data.calculation;
+  const monthIndex = (data.lunarMonth - 1) % 6;
+  const dayIndex = (data.lunarMonth + data.lunarDay - 2 + rule.dayStartOffset) % 6;
+  const hourIndex = (dayIndex + (data.hourIndex % 12)) % 6;
+  if (
+    !matchesSourceTimeAndCalendar(data) ||
+    data.method !== 'time' ||
+    data.methodLabel !== '时间起课' ||
+    (data.ruleLabel !== undefined && data.ruleLabel !== rule.label) ||
+    !Number.isInteger(data.lunarMonth) ||
+    data.lunarMonth < 1 ||
+    data.lunarMonth > 12 ||
+    !Number.isInteger(data.lunarDay) ||
+    data.lunarDay < 1 ||
+    data.lunarDay > 30 ||
+    !Number.isInteger(data.hourIndex) ||
+    data.hourIndex < 0 ||
+    data.hourIndex > 12 ||
+    data.hourLabel !== getShichenByIndex(data.hourIndex)?.name ||
+    (calculation !== undefined &&
+      (calculation.lunarMonth !== data.lunarMonth ||
+        calculation.lunarDay !== data.lunarDay ||
+        calculation.dayBoundary !== '东八区民用日零点换日' ||
+        calculation.leapMonthRule !== '闰月沿用同名月序' ||
+        calculation.hourNumber !== (data.hourIndex % 12) + 1 ||
+        calculation.monthSeed !== data.lunarMonth ||
+        calculation.daySeed !== data.lunarMonth + data.lunarDay - 1 + rule.dayStartOffset ||
+        calculation.hourSeed !==
+          data.lunarMonth + data.lunarDay + (data.hourIndex % 12) - 1 + rule.dayStartOffset ||
+        calculation.monthPalaceIndex !== monthIndex ||
+        calculation.dayPalaceIndex !== dayIndex ||
+        calculation.hourPalaceIndex !== hourIndex)) ||
+    !Array.isArray(data.palaceOrder) ||
+    data.palaceOrder.length !== 6 ||
+    Array.from({ length: 6 }, (_, index) => data.palaceOrder[index]).some(
+      (palace, index) =>
+        !Object.hasOwn(data.palaceOrder, index) ||
+        palace === undefined ||
+        palace.index !== index ||
+        palace.name !== getXiaoliurenPalaceName(index) ||
+        palace.verse !== getXiaoliurenVerse(index, rule.id),
+    ) ||
+    data.sequence.month.index !== monthIndex ||
+    data.sequence.day.index !== dayIndex ||
+    data.sequence.hour.index !== hourIndex ||
+    [data.sequence.month, data.sequence.day, data.sequence.hour].some(
+      (palace) =>
+        palace.name !== data.palaceOrder[palace.index]?.name ||
+        palace.verse !== data.palaceOrder[palace.index]?.verse,
+    ) ||
+    data.primary.index !== hourIndex ||
+    data.primary.name !== data.sequence.hour.name ||
+    data.primary.verse !== data.sequence.hour.verse
+  ) {
+    throw new Error('小六壬月日时顺数或占得宫与盘面不一致，无法生成证据。');
+  }
   const calculationSteps = buildCalculationSteps(data);
   const complete = calculationSteps.length === 3;
+  const calendarBoundary = formatXiaoliurenCalendarBoundary(data);
   const palaceFacts = buildPalaceFacts(data);
   const primaryFact = palaceFacts[2];
   if (!primaryFact) {
@@ -186,7 +306,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       ? calculationSteps.map((step) => step.formula).join('；')
       : '结果未附完整的月、日、时逐宫顺数参数，不能复核落宫。',
     sources: [resolveXiaoliurenRule(data.rule).source, '农历与时辰由统一历法模块换算'],
-    limitation: `${INTERPRETATION_LIMITATION}；${CALENDAR_LIMITATION}`,
+    limitation: `${INTERPRETATION_LIMITATION}；${CALENDAR_LIMITATION}${calendarBoundary ? `；${calendarBoundary}` : ''}`,
   };
 
   const limitationFacts: XiaoliurenLimitationFact[] = [
@@ -215,7 +335,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       key: 'xiaoliuren:limitation:calendar',
       type: '历法边界',
       ownerFactKeys: [calculationFact.key],
-      promptText: CALENDAR_LIMITATION,
+      promptText: `${CALENDAR_LIMITATION}${calendarBoundary ? `；${calendarBoundary}` : ''}`,
       sources: ['当前排盘口径'],
     },
     {
@@ -285,6 +405,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     '',
     '【排盘资料】',
     `农历：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
+    ...(calendarBoundary ? [`历法取时：${calendarBoundary}`] : []),
     `顺数轨迹：月宫${data.sequence.month.name}；日宫${data.sequence.day.name}；时宫${data.sequence.hour.name}`,
     `占得宫：${data.primary.name}`,
     `歌诀原文：${data.primary.verse}`,

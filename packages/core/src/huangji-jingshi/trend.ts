@@ -2,12 +2,14 @@
  * 先天圆图阴阳半周与值年卦爻数。
  * 《朱子语类》卷六十五：复至乾属阳，姤至坤属阴；内卦震离兑乾与巽坎艮坤分列两边。
  */
-import { hexagramsData } from '../divination/hexagram-data';
+import { getHexagramsData } from '../divination/hexagram-data';
 import type { HuangjiStandardForecast } from './standard';
+
+const hexagramsData = getHexagramsData();
 
 export interface HuangjiEraTrendResult {
   /** 圆图消息象意分类。 */
-  phase: '阳息进取' | '阴消蓄养' | '极盛防变' | '剥极将生';
+  phase: '阳息进取' | '阴长阳消' | '极盛防变' | '剥极将生';
   yangLineCount: number;
   yinLineCount: number;
   trendNature: string;
@@ -45,7 +47,7 @@ export function evaluateHuangjiEraTrend(forecast: HuangjiStandardForecast): Huan
         ? '六爻纯阴，处于圆图阴半周终点，取阴极阳生之象'
         : '五阴在下、一阳在上，处于圆图阴半周近末，取剥尽而复之象';
   } else {
-    phase = yangHalf ? '阳息进取' : '阴消蓄养';
+    phase = yangHalf ? '阳息进取' : '阴长阳消';
     trendNature = `初爻为${yangHalf ? '阳' : '阴'}，属于${half}，取${yangHalf ? '阳息' : '阳消阴长'}之象`;
   }
 

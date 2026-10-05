@@ -19,8 +19,9 @@ test('紫微 MCP 精准出生秒进入实际排盘输入且允许省略时辰索
   assert.deepEqual(input.birthTime, { hour: 8, minute: 23, second: 47 });
 });
 
-test('紫微 MCP 不用无效秒数或不完整钟表时间代替实际出生输入', () => {
+test('紫微 MCP 无秒时按 00 秒排盘，并拒绝无效秒数或不完整钟表时间', () => {
+  const withoutSecond = buildMcpZiweiChartInput({ ...birth, birthSecond: undefined });
+  assert.deepEqual(withoutSecond.birthTime, { hour: 8, minute: 23, second: 0 });
   assert.throws(() => buildMcpZiweiChartInput({ ...birth, birthSecond: '60' }));
   assert.throws(() => buildMcpZiweiChartInput({ ...birth, birthHour: undefined }));
-  assert.throws(() => buildMcpZiweiChartInput({ ...birth, birthSecond: undefined }));
 });

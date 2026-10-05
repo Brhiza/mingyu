@@ -153,6 +153,9 @@ test('七政完整出生区间补算走本地 Worker 并保留全部本命分支
       );
     }
     assert.match(resource.text, /【七政四余本命出生区间】/u);
+    assert.match(resource.text, /【全范围共同盘面】/u);
+    assert.equal((resource.text.match(/十二宫：/gu) ?? []).length, 1);
+    assert.equal((resource.text.match(/太阴：/gu) ?? []).length, 2);
     assert.match(resource.text, /【问题】/u);
     assert.match(resource.text, /本命出生区间的共同与分段事实/u);
     assert.equal(ReadingFakeWorker.instances.length, 1);
@@ -191,6 +194,8 @@ test('七政流日出生区间补算保留目标、分段行限及完整提示�
       assert.equal(branch.representative.timeLords.gender, 'male');
     }
     assert.match(resource.text, /流曜/);
+    assert.match(resource.text, /【全范围共同盘面】/u);
+    assert.equal((resource.text.match(/流曜太阳：/gu) ?? []).length, 1);
     assert.match(resource.text, /行限/);
     assert.match(resource.text, /【时段1】/);
     assert.match(resource.text, /【时段2】/);

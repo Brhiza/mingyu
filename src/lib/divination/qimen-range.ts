@@ -20,6 +20,10 @@ const MAX_RANGE_MILLISECONDS = 2 * HOUR_MILLISECONDS;
 type QimenMethod = 'zhuanpan' | 'feipan';
 type QimenJuMethod = 'chaibu' | 'zhirun';
 
+function isYearOrMonthScope(scope: QimenScope | undefined) {
+  return scope === 'year' || scope === 'month';
+}
+
 export type QimenRangeSource = {
   startTimestamp: number;
   endTimestamp: number;
@@ -191,13 +195,14 @@ function factsFingerprint(data: QimenData) {
     seasonality,
     ...facts
   } = data;
-  const discreteSeasonality = seasonality
-    ? (({
-        moonPhaseEvidence: _moonPhaseEvidence,
-        lunarPhaseConsistency: _lunarPhaseConsistency,
-        ...discreteFacts
-      }) => discreteFacts)(seasonality)
-    : undefined;
+  const discreteSeasonality =
+    seasonality && !isYearOrMonthScope(data.scope)
+      ? (({
+          moonPhaseEvidence: _moonPhaseEvidence,
+          lunarPhaseConsistency: _lunarPhaseConsistency,
+          ...discreteFacts
+        }) => discreteFacts)(seasonality)
+      : undefined;
   return JSON.stringify({
     ...facts,
     ...(discreteSeasonality ? { seasonality: discreteSeasonality } : {}),
@@ -247,6 +252,7 @@ function formatMoonPhaseSample(label: string, evidence: MoonPhaseEvidence) {
 
 /** 显示分支起点与终点前一秒的月相参照，不把连续月相当作整段定值。 */
 export function formatQimenRangeMoonPhase(branch: QimenRangeBranch) {
+  if (isYearOrMonthScope(branch.data.scope)) return '';
   return [
     `月相参照（起止采样）：${formatMoonPhaseSample('起点参照', branch.moonPhaseEvidence.start)}；${formatMoonPhaseSample('终点前一秒参照', branch.moonPhaseEvidence.end)}。`,
     '月相随时间连续变化，各值对应标注时刻。',
@@ -257,10 +263,13 @@ export function formatQimenRangeMoonPhase(branch: QimenRangeBranch) {
 export function formatQimenRangeFacts(range: QimenRange, supplementaryInfo?: SupplementaryInfo) {
   const lines = ['奇门遁甲候选时间范围内的分段盘面：'];
   range.branches.forEach((branch, index) => {
+    const isLongScope = isYearOrMonthScope(branch.data.scope);
     const phase = branch.data.seasonality?.jieQiPhase;
-    const phaseText = phase
-      ? `交节后自然日阶段：${phase.jieQi}${phase.phase}；正式定局三元：${branch.data.timeInfo.epoch}`
-      : '';
+    const phaseText = isLongScope
+      ? `实际节气：${branch.data.timeInfo.solarTerm}；正式定局依据：干支年${branch.data.ganzhi.year}${branch.data.timeInfo.epoch}`
+      : phase
+        ? `交节后自然日阶段：${phase.jieQi}${phase.phase}；正式定局三元：${branch.data.timeInfo.epoch}`
+        : '';
     lines.push(
       `分支${index + 1}：${formatQimenRangeInterval(branch.startTimestamp, branch.endTimestamp)}`,
       formatDivinationInfo('qimen', branch.data, '', supplementaryInfo),
@@ -273,10 +282,13 @@ export function formatQimenRangeFacts(range: QimenRange, supplementaryInfo?: Sup
 
 /** 用于网页提示词的范围口径说明，明确离散分段与连续月相参照。 */
 export function formatQimenRangeContext(range: QimenRange) {
+  const isLongScope = isYearOrMonthScope(range.branches[0]?.data.scope);
   return [
     '时间口径：北京时间',
     `四柱候选范围：${formatQimenRangeInterval(range.source.startTimestamp, range.source.endTimestamp)}`,
-    '时间事实：范围内按实际节气交接、节令阶段、民用零点、晚子时和时辰边界分别核对奇门盘面；月相列出各段起点与终点前一秒参照。',
+    isLongScope
+      ? '时间事实：范围内按实际节气交接分别核对奇门盘面，各分支列明实际节气与三元定局依据。'
+      : '时间事实：范围内按实际节气交接、节令阶段、民用零点、晚子时和时辰边界分别核对奇门盘面；月相列出各段起点与终点前一秒参照。',
   ].join('\n');
 }
 

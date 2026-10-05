@@ -1,12 +1,15 @@
 import type { BaziChartResult } from '../bazi/baziTypes';
-import { createCivilDate, getLuckCycleForCivilDate } from '../bazi/luckTiming';
+import { formatPatternBasisForPrompt } from '../bazi/baziAnalysisFormatter';
+import { buildBaziNatalAnalysisFacts, formatNatalPatternFacts } from '../bazi/natalEvidence';
+import { getBaziMonthIndexByCivilDate } from '../bazi/calendarTool';
+import { createCivilDate, getLuckCycleForCivilDate, toChinaCivilDate } from '../bazi/luckTiming';
 import {
   calculateBirthChartBundle,
   type BirthChartPointBundle,
   type BirthChartRangeBundle,
   type BirthChartBundleOptions,
 } from '../birth';
-import { getShichenByIndex } from '../calendar/dateUtils';
+import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils';
 import type { BirthProfile } from '../profile';
 import type { EvidenceFact, PalaceFact, ScopeType } from '../types/analysis';
 import type { ZiweiRuntime, ZiweiRuntimeOptions } from '../ziwei/runtime';
@@ -15,6 +18,7 @@ import {
   evaluateBaziZiweiCorroboration,
   evaluateShaYaoCorroboration,
   evaluateGuiRenCorroboration,
+  hasCompleteZiweiOrigin,
   type BaziZiweiCorroborationResult,
   type ShaYaoCorroborationResult,
   type GuiRenCorroborationResult,
@@ -80,6 +84,8 @@ export interface BaziZiweiSynthesis {
     ziwei: number;
   };
   timingReference: BaziZiweiTimingReference;
+  /** 仅有时辰精度且交节或交运落在该时辰内时，两端可复核的盘面事实。 */
+  timingBoundaryFacts: string[];
   corroboration?: BaziZiweiCorroborationResult;
   missingFacts: string[];
 
@@ -91,6 +97,8 @@ export interface BaziZiweiTimingReference {
   year: number;
   hourIndex: number;
   shichen: string;
+  /** 显式给出确定瞬时点时的北京时间。 */
+  beijingDateTime?: string;
 }
 
 interface ThemeDefinition {
@@ -182,9 +190,25 @@ function normalizePalaceName(value: string) {
   return value.trim().replace(/宫$/, '');
 }
 
-function resolveTimingReference(runtime: ZiweiRuntime): {
+function getBeijingHoroscopeContext(instant: Date) {
+  if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) {
+    throw new Error('精确运限时刻不是有效日期。');
+  }
+  const civil = toChinaCivilDate(instant);
+  return {
+    dateStr: civil.toISOString().slice(0, 10),
+    hourIndex: getTimeIndexFromClock(civil.getUTCHours(), civil.getUTCMinutes()),
+  };
+}
+
+function resolveTimingReference(
+  runtime: ZiweiRuntime,
+  referenceInstant?: Date,
+): {
   fact: BaziZiweiTimingReference;
-  date: Date;
+  start: Date;
+  endInclusive: Date;
+  range: string;
 } {
   const context = runtime.horoscopeContext;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(context.dateStr);
@@ -203,21 +227,41 @@ function resolveTimingReference(runtime: ZiweiRuntime): {
   ) {
     throw new Error('紫微运限上下文日期无效。');
   }
-  return {
-    fact: {
-      dateStr: context.dateStr,
-      year,
-      hourIndex: context.hourIndex,
-      shichen: shichen.name,
-    },
-    date,
+  const fact: BaziZiweiTimingReference = {
+    dateStr: context.dateStr,
+    year,
+    hourIndex: context.hourIndex,
+    shichen: shichen.name,
   };
+  if (referenceInstant !== undefined) {
+    const actualContext = getBeijingHoroscopeContext(referenceInstant);
+    if (
+      actualContext.dateStr !== context.dateStr ||
+      actualContext.hourIndex !== context.hourIndex
+    ) {
+      throw new Error('精确运限时刻与紫微运限上下文不一致。');
+    }
+    const exact = toChinaCivilDate(referenceInstant);
+    fact.beijingDateTime = `${exact.getUTCFullYear()}-${String(exact.getUTCMonth() + 1).padStart(2, '0')}-${String(exact.getUTCDate()).padStart(2, '0')} ${String(exact.getUTCHours()).padStart(2, '0')}:${String(exact.getUTCMinutes()).padStart(2, '0')}:${String(exact.getUTCSeconds()).padStart(2, '0')}`;
+    return { fact, start: exact, endInclusive: exact, range: shichen.range };
+  }
+  const startHour = Number(shichen.range.slice(0, 2));
+  const endHour = Number(shichen.range.slice(-5, -3));
+  const start = createCivilDate(year, month, day, startHour);
+  const endInclusive = new Date(start.getTime() + (endHour - startHour) * 3_600_000 - 1);
+  return { fact, start, endInclusive, range: shichen.range };
 }
 
 function createBaziFacts(
   chart: BaziChartResult,
   timingReference: ReturnType<typeof resolveTimingReference>,
-): Record<string, SynthesisEvidenceFact[]> {
+): {
+  facts: Record<string, SynthesisEvidenceFact[]>;
+  timingBoundaryFacts: string[];
+  luckAmbiguous: boolean;
+  annualAmbiguous: boolean;
+  termYearAmbiguous: boolean;
+} {
   const evidence = chart.evidenceAnalysis;
   const analysisKey = (type: string) =>
     evidence?.analysisFacts.find((item) => item.type === type)?.key ?? `bazi:${type}`;
@@ -240,15 +284,46 @@ function createBaziFacts(
       return fact?.promptText ?? chart.pillars[key].ganZhi;
     })
     .join('；');
-  const useful = chart.analysis.usefulGod;
-  const currentCycle = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.date);
-  const annual =
-    chart.liunian
-      ?.filter((item) => item.year === timingReference.fact.year)
+  const natalAnalysisFacts = buildBaziNatalAnalysisFacts(chart);
+  const strengthFact = natalAnalysisFacts.find((item) => item.type === '日主旺衰')!;
+  const usefulFact = natalAnalysisFacts.find((item) => item.type === '用神取忌')!;
+  const cycleAtStart = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.start);
+  const cycleAtEnd = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.endInclusive);
+  const luckAmbiguous = cycleAtStart !== cycleAtEnd;
+  const currentCycle = luckAmbiguous ? null : cycleAtStart;
+  const termYearAt = (date: Date) => {
+    const year = date.getUTCFullYear();
+    return getBaziMonthIndexByCivilDate(year, date) === undefined ? year - 1 : year;
+  };
+  const termYearAtStart = termYearAt(timingReference.start);
+  const termYearAtEnd = termYearAt(timingReference.endInclusive);
+  const termYearAmbiguous = termYearAtStart !== termYearAtEnd;
+  const annualAt = (cycle: typeof cycleAtStart, year: number) =>
+    cycle?.years
+      .filter((item) => item.year === year)
       .map((item) => `${item.year}年${item.ganZhi}，干支十神${item.tenGod}/${item.tenGodZhi}`) ??
     [];
+  const annualAtStart = annualAt(cycleAtStart, termYearAtStart);
+  const annualAtEnd = annualAt(cycleAtEnd, termYearAtEnd);
+  const annualAmbiguous =
+    termYearAmbiguous || JSON.stringify(annualAtStart) !== JSON.stringify(annualAtEnd);
+  const cycleLabel = (cycle: typeof cycleAtStart) =>
+    cycle ? (cycle.isXiaoyun ? `童限（${cycle.year}年起）` : `${cycle.ganZhi}大运`) : '未列运限';
+  const timingBoundaryFacts = [
+    ...(luckAmbiguous
+      ? [
+          `${timingReference.fact.dateStr}${timingReference.fact.shichen}（${timingReference.range}）两端对应的八字运限分别为${cycleLabel(cycleAtStart)}、${cycleLabel(cycleAtEnd)}。`,
+        ]
+      : []),
+    ...(termYearAmbiguous
+      ? [
+          `${timingReference.fact.dateStr}${timingReference.fact.shichen}（${timingReference.range}）两端分属${termYearAtStart}年、${termYearAtEnd}年八字节令年。`,
+        ]
+      : []),
+  ];
+  const annual = annualAmbiguous ? [] : annualAtStart;
 
-  return {
+  const facts: Record<string, SynthesisEvidenceFact[]> = {
     pillars: [
       {
         key: 'bazi:synthesis:pillars',
@@ -275,7 +350,7 @@ function createBaziFacts(
         system: 'bazi',
         scope: 'natal',
         title: '旺衰结构',
-        detail: `${chart.analysis.dayMasterStrength.status}；${chart.analysis.dayMasterStrength.details.ruleBasis.join('；')}`,
+        detail: `${strengthFact.result}；${strengthFact.basis.join('；')}`,
         sourceKeys: [analysisKey('日主旺衰')],
       },
     ],
@@ -285,7 +360,11 @@ function createBaziFacts(
         system: 'bazi',
         scope: 'natal',
         title: '格局',
-        detail: `${chart.analysis.mingGe.pattern || '未记录'}${chart.analysis.mingGe.basis ? `；${chart.analysis.mingGe.basis}` : ''}`,
+        detail: unique([
+          chart.analysis.mingGe.pattern || '未记录',
+          formatPatternBasisForPrompt(chart.analysis.mingGe.basis ?? ''),
+          ...formatNatalPatternFacts(chart.analysis.mingGe),
+        ]).join('；'),
         sourceKeys: [analysisKey('格局')],
       },
     ],
@@ -295,12 +374,7 @@ function createBaziFacts(
         system: 'bazi',
         scope: 'natal',
         title: '取用与喜忌',
-        detail: unique([
-          useful.primaryUseful ? `首取${useful.primaryUseful}` : useful.useful,
-          useful.primaryAvoid ? `首忌${useful.primaryAvoid}` : useful.avoid,
-          useful.primaryReason ?? '',
-          ...(useful.strategyTrace ?? []),
-        ]).join('；'),
+        detail: unique([usefulFact.result, ...usefulFact.basis]).join('；'),
         sourceKeys: [analysisKey('用神取忌')],
       },
     ],
@@ -323,7 +397,7 @@ function createBaziFacts(
             system: 'bazi',
             scope: 'decadal',
             title: currentCycle.isXiaoyun ? '运限基准所在童限' : '运限基准所在大运',
-            detail: `${timingReference.fact.dateStr}${timingReference.fact.shichen}${
+            detail: `${timingReference.fact.beijingDateTime ?? `${timingReference.fact.dateStr}${timingReference.fact.shichen}`}${
               currentCycle.isXiaoyun
                 ? `处于起运前童限（${currentCycle.year}年起）`
                 : `在${currentCycle.ganZhi}大运，约${currentCycle.age}岁起运（${currentCycle.year}年交运）`
@@ -345,6 +419,7 @@ function createBaziFacts(
         ]
       : [],
   };
+  return { facts, timingBoundaryFacts, luckAmbiguous, annualAmbiguous, termYearAmbiguous };
 }
 
 function palaceEvidenceKeys(payloadEvidence: EvidenceFact[], palace: PalaceFact) {
@@ -364,7 +439,7 @@ function formatStars(palace: PalaceFact) {
     const mutagens = unique([
       star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
       star.active_scope_mutagen ? `运限化${star.active_scope_mutagen}` : '',
-      star.horoscope_mutagen ? `流耀化${star.horoscope_mutagen}` : '',
+      star.horoscope_mutagen ? `流曜化${star.horoscope_mutagen}` : '',
     ]);
     return `${star.name}${star.brightness ? `(${star.brightness})` : ''}${mutagens.length ? `[${mutagens.join('/')}]` : ''}`;
   });
@@ -406,14 +481,57 @@ function createZiweiThemeFacts(
   const payloads = Object.values(runtime.payloadByScope).filter(Boolean);
   if (definition.id === 'timing') {
     return payloads
-      .filter((payload) => payload.active_scope.scope !== 'origin')
+      .filter(
+        (payload) =>
+          payload.active_scope.scope !== 'origin' && Boolean(payload.active_scope.solar_date),
+      )
       .flatMap((payload) => {
         const active = payload.active_scope;
-        const relevantEvidence = payload.evidence_pool.filter(
-          (item) => item.scope === active.scope && item.type !== 'natal_palace',
+        const landingPalace = runtime.payloadByScope.origin?.palaces.find(
+          (palace) => palace.index === active.palace_index,
         );
+        const relevantEvidence = landingPalace
+          ? payload.evidence_pool.filter(
+              (item) => item.scope === active.scope && item.type !== 'natal_palace',
+            )
+          : [];
         // 来源键与实际写入 detail 的证据保持同一范围，避免登记范围大于实际使用范围
         const usedEvidence = relevantEvidence.slice(0, 12);
+        const remainingMutagens = active.mutagen_map.filter((mapping) => {
+          const target = runtime.payloadByScope.origin?.palaces.find(
+            (palace) => palace.index === mapping.palace_index,
+          );
+          if (
+            !landingPalace ||
+            !target ||
+            !active.label ||
+            !mapping.palace_name ||
+            normalizePalaceName(mapping.palace_name) !== normalizePalaceName(target.name)
+          ) {
+            return true;
+          }
+          const targetName = `${normalizePalaceName(target.name)}宫`;
+          const landingName = `${normalizePalaceName(landingPalace.name)}宫`;
+          const dynamicName = mapping.dynamic_palace_name
+            ? `${normalizePalaceName(mapping.dynamic_palace_name)}宫`
+            : '';
+          const title = `${active.label}${mapping.star}化${mapping.mutagen}入本命${targetName}${dynamicName ? `（当前${active.label}${dynamicName}）` : ''}`;
+          const description = `${active.label}四化序列中的${mapping.star}对应化${mapping.mutagen}；该星的本命物理落宫为${targetName}${dynamicName ? `，当前对应${active.label}${dynamicName}` : ''}，运限命宫落于本命${landingName}。`;
+          return !usedEvidence.some(
+            (fact) =>
+              fact.type === 'scope_mutagen_destination' &&
+              fact.scope === active.scope &&
+              fact.status === '已记录' &&
+              fact.star_names.length === 1 &&
+              fact.star_names[0] === mapping.star &&
+              fact.mutagens.length === 1 &&
+              fact.mutagens[0] === mapping.mutagen &&
+              fact.palace_indexes.includes(target.index) &&
+              fact.title === title &&
+              fact.description === description &&
+              (fact.promptText ?? fact.description) === `${title}：${description}`,
+          );
+        });
         return [
           {
             key: `ziwei:synthesis:${active.scope}:active`,
@@ -422,8 +540,8 @@ function createZiweiThemeFacts(
             title: active.label || active.scope,
             detail: unique([
               `${active.solar_date}，虚岁${active.nominal_age}`,
-              active.palace_name ? `运限命宫落${active.palace_name}` : '',
-              ...active.mutagen_map.map(
+              landingPalace ? `运限命宫落${landingPalace.name}` : '',
+              ...remainingMutagens.map(
                 (item) =>
                   `${item.star}化${item.mutagen}${item.palace_name ? `入${item.palace_name}` : ''}`,
               ),
@@ -437,7 +555,7 @@ function createZiweiThemeFacts(
   }
 
   const origin = runtime.payloadByScope.origin;
-  if (!origin) return [];
+  if (!origin || !hasCompleteZiweiOrigin(runtime)) return [];
   const names = new Set(definition.palaceNames.map(normalizePalaceName));
   const selected = origin.palaces.filter(
     (palace) => names.has(normalizePalaceName(palace.name)) || palace.is_body_palace,
@@ -452,9 +570,17 @@ export function buildBaziZiweiSynthesis(params: {
   bazi: BaziChartResult;
   ziwei: ZiweiRuntime;
   subjectName?: string;
+  /** 已明确到秒的运限时刻；仅有 horoscopeContext 时按整个时辰核对。 */
+  referenceInstant?: Date;
 }): BaziZiweiSynthesis {
-  const timingReference = resolveTimingReference(params.ziwei);
-  const baziFacts = createBaziFacts(params.bazi, timingReference);
+  const timingReference = resolveTimingReference(params.ziwei, params.referenceInstant);
+  const {
+    facts: baziFacts,
+    timingBoundaryFacts,
+    luckAmbiguous,
+    annualAmbiguous,
+    termYearAmbiguous,
+  } = createBaziFacts(params.bazi, timingReference);
   const themes = THEMES.map((definition) => ({
     id: definition.id,
     label: definition.label,
@@ -472,18 +598,54 @@ export function buildBaziZiweiSynthesis(params: {
       const placeholderKeys = definition.baziFactKeys.filter((key) =>
         (baziFacts[key] ?? []).every(
           (fact) =>
-            !fact.detail || fact.detail.includes('未记录') || fact.detail.includes('未登记'),
+            !fact.detail ||
+            fact.detail === '未知' ||
+            fact.detail.startsWith('未知；') ||
+            fact.detail.includes('未记录') ||
+            fact.detail.includes('未登记'),
         ),
       );
       if (placeholderKeys.length) {
-        gaps.push(`${theme.label}八字资料仅有未记录占位：${placeholderKeys.join('、')}`);
+        gaps.push(`${theme.label}八字资料有待核验项：${placeholderKeys.join('、')}`);
       }
     }
-    if (!theme.ziweiEvidence.length) gaps.push(`${theme.label}缺少紫微资料`);
+    if (!theme.ziweiEvidence.length && theme.id !== 'timing')
+      gaps.push(`${theme.label}缺少紫微资料`);
     return gaps;
   });
-  if (!baziFacts.luck.length) missingFacts.push('运限基准日期缺少对应八字大运或童限');
-  if (!baziFacts.annual.length) missingFacts.push('运限基准年份缺少对应八字流年');
+  if (!hasCompleteZiweiOrigin(params.ziwei)) {
+    missingFacts.push('紫微本命十二宫资料缺失或不完整');
+  }
+  if (!baziFacts.luck.length)
+    missingFacts.push(
+      luckAmbiguous
+        ? '运限基准时辰跨八字交运，不能唯一定位大运或童限'
+        : '运限基准日期缺少对应八字大运或童限',
+    );
+  if (!baziFacts.annual.length)
+    missingFacts.push(
+      termYearAmbiguous
+        ? '运限基准时辰跨八字节令年，不能唯一定位流年'
+        : annualAmbiguous
+          ? '运限基准时辰跨八字交运，不能唯一定位对应流年'
+          : '运限基准年份缺少对应八字流年',
+    );
+  const ziweiTimingScopes = new Set(
+    themes.find((theme) => theme.id === 'timing')?.ziweiEvidence.map((fact) => fact.scope),
+  );
+  if (!ziweiTimingScopes.has('decadal')) missingFacts.push('运限基准日期缺少对应紫微大限');
+  if (!ziweiTimingScopes.has('yearly')) missingFacts.push('运限基准年份缺少对应紫微流年');
+  const originPalaceIndexes = new Set(
+    params.ziwei.payloadByScope.origin?.palaces.map((palace) => palace.index) ?? [],
+  );
+  for (const scope of ['decadal', 'yearly'] as const) {
+    if (
+      ziweiTimingScopes.has(scope) &&
+      !originPalaceIndexes.has(params.ziwei.payloadByScope[scope]?.active_scope.palace_index ?? -1)
+    ) {
+      missingFacts.push(scope === 'decadal' ? '紫微大限落宫未定位' : '紫微流年落宫未定位');
+    }
+  }
 
   const corroboration = evaluateBaziZiweiCorroboration(params.bazi, params.ziwei);
 
@@ -497,6 +659,7 @@ export function buildBaziZiweiSynthesis(params: {
       ziwei: new Set(themes.flatMap((theme) => theme.ziweiEvidence.map((item) => item.key))).size,
     },
     timingReference: timingReference.fact,
+    timingBoundaryFacts,
     corroboration,
     missingFacts,
     methodology: [
@@ -524,36 +687,112 @@ export function formatBaziZiweiSynthesisForPrompt(
       : options.detailLevel === 'professional'
         ? '使用专业术语完整展开取象、体用、宫位、四化与运限逻辑'
         : '兼顾传统术语与白话解释，完整交代判断依据';
+  const evidenceIdentity = (item: SynthesisEvidenceFact) =>
+    JSON.stringify([
+      item.system,
+      item.key,
+      item.detail,
+      item.sourceKeys,
+      item.truncatedEvidenceCount,
+    ]);
+  const evidenceCounts = new Map<string, number>();
+  const evidenceByIdentity = new Map<string, SynthesisEvidenceFact>();
+  for (const theme of synthesis.themes) {
+    for (const item of [...theme.baziEvidence, ...theme.ziweiEvidence]) {
+      const identity = evidenceIdentity(item);
+      evidenceCounts.set(identity, (evidenceCounts.get(identity) ?? 0) + 1);
+      evidenceByIdentity.set(identity, item);
+    }
+  }
+  const sharedEvidence = [...evidenceByIdentity.values()].filter(
+    (item) => (evidenceCounts.get(evidenceIdentity(item)) ?? 0) > 1,
+  );
+  const formatEvidence = (item: SynthesisEvidenceFact) =>
+    `  ${item.title}：${item.detail}${item.truncatedEvidenceCount ? `\n  同一运限另有${item.truncatedEvidenceCount}项资料未列。` : ''}`;
+  const formatThemeEvidence = (items: SynthesisEvidenceFact[]) =>
+    items.length
+      ? items
+          .filter((item) => (evidenceCounts.get(evidenceIdentity(item)) ?? 0) === 1)
+          .map(formatEvidence)
+          .join('\n')
+      : '  本主题资料未提供';
+  const sharedText = sharedEvidence.length
+    ? [
+        '【共同盘面资料】',
+        ...(sharedEvidence.some((item) => item.system === 'bazi')
+          ? [
+              '八字资料：',
+              ...sharedEvidence.filter((item) => item.system === 'bazi').map(formatEvidence),
+            ]
+          : []),
+        ...(sharedEvidence.some((item) => item.system === 'ziwei')
+          ? [
+              '紫微资料：',
+              ...sharedEvidence.filter((item) => item.system === 'ziwei').map(formatEvidence),
+            ]
+          : []),
+      ].join('\n')
+    : '';
   const themeText = synthesis.themes
     .map((theme) => {
-      const bazi = theme.baziEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
-      const ziwei = theme.ziweiEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
+      const baziEvidence = formatThemeEvidence(theme.baziEvidence);
+      const ziweiEvidence = formatThemeEvidence(theme.ziweiEvidence);
       return [
         `【${theme.label}】`,
         `分析主线：${theme.focus}`,
-        '八字资料：',
-        bazi || '  本主题资料未提供',
-        '紫微资料：',
-        ziwei || '  本主题资料未提供',
-      ].join('\n');
+        baziEvidence ? `八字资料：\n${baziEvidence}` : '',
+        ziweiEvidence ? `紫微资料：\n${ziweiEvidence}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
     })
     .join('\n\n');
+  const formatBaziPosition = (item: BaziBranchEvidence) => `${item.pillarName}${item.branch}`;
+  const formatZiweiPosition = (item: ZiweiStarEvidence) =>
+    `${item.name}在${item.palaceName}${item.state.brightness ? `（${item.state.brightness}）` : ''}`;
+  const corroboration = synthesis.corroboration;
+  const corroborationFacts = corroboration
+    ? [
+        corroboration.shaYao.ziweiCheckStatus === 'origin-missing' ||
+        corroboration.guiRen.ziweiCheckStatus === 'origin-missing'
+          ? '紫微本命十二宫资料缺失或不完整，关键宫煞曜与贵人星位置未核验'
+          : '',
+        corroboration.shaYao.baziYangRenPositions.length
+          ? `八字羊刃：${corroboration.shaYao.baziYangRenPositions.map(formatBaziPosition).join('、')}`
+          : '',
+        corroboration.shaYao.ziweiCheckStatus === 'checked' &&
+        corroboration.shaYao.ziweiShaEvidence.length
+          ? `紫微煞曜：${corroboration.shaYao.ziweiShaEvidence.map(formatZiweiPosition).join('、')}`
+          : '',
+        corroboration.guiRen.baziTianYiPositions.length
+          ? `八字天乙贵人：${corroboration.guiRen.baziTianYiPositions.map(formatBaziPosition).join('、')}`
+          : '',
+        corroboration.guiRen.ziweiCheckStatus === 'checked' &&
+        corroboration.guiRen.ziweiGuiEvidence.length
+          ? `紫微辅弼魁钺：${corroboration.guiRen.ziweiGuiEvidence.map(formatZiweiPosition).join('、')}`
+          : '',
+      ].filter(Boolean)
+    : [];
 
   return [
     '【任务】',
     buildPromptTask(
-      `请为${synthesis.subjectName || '命主'}完成八字与紫微斗数合参。逐主题先分别说明两套体系的判断依据，再归纳相互印证、彼此补充与口径差异，形成有条件、有层次的整体解读。${detailLabel}。解读覆盖命局总纲、性情与能力、事业、财帛、感情、家庭、身心、迁移、内在状态与岁运，最后归纳当前阶段最值得关注的三条主线。`,
+      `请为${synthesis.subjectName || '命主'}完成八字与紫微斗数合参。逐主题先分别说明两套体系的判断依据，再归纳相互印证、彼此补充与口径差异，形成有条件、有层次的整体解读。${detailLabel}。解读覆盖命局总纲、性情与能力、事业、财帛、感情、家庭、身心、迁移、内在状态与岁运${synthesis.timingBoundaryFacts.length ? '；对【时辰边界】列出的两端条件分别讨论' : ''}，最后归纳当前阶段最值得关注的三条主线。`,
     ),
     options.question ? `重点回应：${options.question}` : '',
     '',
     '【运限基准】',
-    `${synthesis.timingReference.dateStr} ${synthesis.timingReference.shichen}（时辰索引${synthesis.timingReference.hourIndex}）`,
+    synthesis.timingReference.beijingDateTime
+      ? `${synthesis.timingReference.beijingDateTime}（北京时间；紫微按${synthesis.timingReference.dateStr} ${synthesis.timingReference.shichen}排运限）`
+      : `${synthesis.timingReference.dateStr} ${synthesis.timingReference.shichen}`,
+    synthesis.timingBoundaryFacts.length ? '【时辰边界】' : '',
+    ...synthesis.timingBoundaryFacts,
     '',
-    '【合参导引】',
-    '两盘印证：八字重原局五行气数与岁运引动，紫微重星曜气象与四化落宫；同向结论为主干断点，口径差异为内外张力。',
-    synthesis.corroboration ? synthesis.corroboration.summary : '',
+    corroborationFacts.length ? '【双盘位置事实】' : '',
+    ...corroborationFacts,
     '',
     '【合参资料】',
+    sharedText,
     themeText,
   ]
     .filter((line) => line !== '')
@@ -598,6 +837,7 @@ function synthesizePoint(bundle: BirthChartPointBundle, options: BaziZiweiCombin
     bazi: bundle.bazi,
     ziwei: bundle.ziwei,
     subjectName: bundle.profile.name,
+    referenceInstant: options.ziwei?.horoscopeContext ? undefined : options.ziwei?.now,
   });
   return { synthesis, promptText: formatBaziZiweiSynthesisForPrompt(synthesis, options.prompt) };
 }
@@ -616,24 +856,48 @@ export async function calculateBaziZiweiCombinedReading(
   options: BaziZiweiCombinedReadingOptions = {},
 ): Promise<BaziZiweiCombinedReading> {
   assertExplicitZiweiTiming(options);
-  const promptOptions = { prompt: options.prompt ? { ...options.prompt } : undefined };
+  const ziwei = options.ziwei ? structuredClone(options.ziwei) : undefined;
+  const promptOptions = {
+    prompt: options.prompt ? { ...options.prompt } : undefined,
+    ziwei,
+  };
   const bundle = await calculateBirthChartBundle(profile, {
     systems: ['bazi', 'ziwei'],
     baziRules: options.baziRules,
     ziweiRules: options.ziweiRules,
-    ziwei: options.ziwei,
+    ziwei:
+      ziwei?.now && !ziwei.horoscopeContext
+        ? { ...ziwei, horoscopeContext: getBeijingHoroscopeContext(ziwei.now) }
+        : ziwei,
     rangeBatch: options.rangeBatch,
     signal: options.signal,
   });
   if (bundle.range) {
+    const formatBirthClock = (timestamp: number) =>
+      toChinaCivilDate(new Date(timestamp)).toISOString().slice(0, 19).replace('T', ' ');
+    const source = bundle.range.source;
+    const rangeIdentity = [
+      '【出生范围】',
+      `公历标准北京时间：[${formatBirthClock(source.startTimestamp)}, ${formatBirthClock(source.endTimestamp)})`,
+      `性别：${bundle.profile.gender === 'male' ? '男' : '女'}`,
+    ].join('\n');
     return {
       bundle,
       range: {
-        samples: bundle.range.samples.map(({ index, timestamp, bundle: point }) => ({
-          index,
-          timestamp,
-          ...synthesizePoint(point, promptOptions),
-        })),
+        samples: bundle.range.samples.map(({ index, timestamp, bundle: point }) => {
+          const reading = synthesizePoint(point, promptOptions);
+          return {
+            index,
+            timestamp,
+            synthesis: reading.synthesis,
+            promptText: [
+              rangeIdentity,
+              `本份盘面对应候选出生时刻：${formatBirthClock(timestamp)}`,
+              '',
+              reading.promptText,
+            ].join('\n'),
+          };
+        }),
       },
     };
   }

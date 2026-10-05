@@ -2,13 +2,13 @@
  * @file 黄历择日算法
  * @传统依据 《钦定协纪辨方书》《选择要略》等择日资料；日历属性由当前历法数据提供。
  */
-import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
+import { NineStar, SolarDay, SolarTerm, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { MONTH_COMMANDER } from '../../bazi/baziDefinitions';
 import { calculateSolarTermsForYear } from '../../calendar/solar-term-evidence';
 import { getCivilDateTimeAtFixedOffset } from '../../calendar/civil-time';
-import { getBirthDateValidationMessage } from '../../calendar/date-validation';
-import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
+import { createUtcTimestamp, getBirthDateValidationMessage } from '../../calendar/date-validation';
+import { getTimeIndexFromClock, SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
 import { getHuangliSolarDayGods } from '../../shensha';
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../ganzhi/data';
@@ -39,7 +39,7 @@ import {
   birthProfileAtRangeTimestamp,
   validateBirthProfileTimeRange,
 } from '../../profile/time-range';
-import { birthProfileToBaziPerson, type BirthProfile } from '../../profile';
+import { birthProfileToBaziPerson, normalizeBirthProfile, type BirthProfile } from '../../profile';
 
 interface AlmanacLunarHourSource {
   getSixtyCycle(): { getName(): string };
@@ -57,7 +57,7 @@ interface AlmanacGodSource {
 }
 import { analyzeAlmanacEvidence, classifyAlmanacCandidate } from '../almanac-evidence';
 
-export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
+const CANONICAL_ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
   marriage: '订婚结婚',
   opening: '开业启动',
@@ -68,6 +68,10 @@ export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   burial: '安葬修坟',
   renovation: '修造动土',
   custom: '自定义事项',
+};
+
+export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
+  ...CANONICAL_ALMANAC_TOPIC_LABELS,
 };
 
 const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
@@ -83,18 +87,7 @@ const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
   custom: [],
 };
 
-const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
-  move: ['入宅', '移徙'],
-  marriage: ['嫁娶', '纳采', '订盟'],
-  opening: ['开市'],
-  contract: ['交易', '立券'],
-  travel: ['出行', '赴任'],
-  medical: ['求医', '治病'],
-  study: ['入学'],
-  burial: ['安葬', '修坟', '启钻'],
-  renovation: ['修造', '动土', '竖柱', '上梁'],
-  custom: [],
-};
+const TOPIC_AVOID_KEYWORDS = TOPIC_RECOMMEND_KEYWORDS;
 
 function getGeneralRestriction(
   recommends: string[],
@@ -109,9 +102,14 @@ function getGeneralRestriction(
 }
 
 function assertAlmanacTopic(topic: AlmanacTopic): void {
-  if (!Object.prototype.hasOwnProperty.call(ALMANAC_TOPIC_LABELS, topic)) {
+  if (!Object.prototype.hasOwnProperty.call(CANONICAL_ALMANAC_TOPIC_LABELS, topic)) {
     throw new Error(`未知的黄历择日事项类型: ${String(topic)}`);
   }
+}
+
+export function getAlmanacTopicLabel(topic: AlmanacTopic): string {
+  assertAlmanacTopic(topic);
+  return CANONICAL_ALMANAC_TOPIC_LABELS[topic];
 }
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -162,8 +160,12 @@ function parseDateText(value: string, fieldName: string) {
   if (year < 1900 || year > 2100) {
     throw new Error(`${fieldName}年份需在 1900-2100 之间`);
   }
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+  const date = new Date(createUtcTimestamp(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     throw new Error(`${fieldName}不是有效日期`);
   }
 
@@ -171,10 +173,25 @@ function parseDateText(value: string, fieldName: string) {
 }
 
 function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/** 四绝取四立节气在中国标准时间的公历日期前一日。 */
+function getFourTerminationTerm(date: Date): string | undefined {
+  const dateKey = formatDate(date);
+  const year = date.getUTCFullYear();
+  for (const index of [3, 9, 15, 21]) {
+    const term = SolarTerm.fromIndex(year, index);
+    const termTime = term.getJulianDay().getSolarTime();
+    const previousDay = new Date(
+      createUtcTimestamp(termTime.getYear(), termTime.getMonth() - 1, termTime.getDay() - 1),
+    );
+    if (formatDate(previousDay) === dateKey) return term.getName();
+  }
+  return undefined;
 }
 
 function findKeywordMatches(values: string[], keywords: string[]) {
@@ -183,7 +200,7 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只说明当前事项关键词是否出现在原始宜忌、建除值日或十二神规则中，不证明事项必然成功，也不得替代现实条件核验';
+  '事项命中事实只说明原始宜忌或已核对的传统事项规则是否触及当前事项，不证明事项必然成功，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
   '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
@@ -203,7 +220,7 @@ function buildTopicMatchFact(params: {
 }): AlmanacTopicMatchFact {
   return {
     ...params,
-    topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
+    topicLabel: CANONICAL_ALMANAC_TOPIC_LABELS[params.topic],
     limitation: TOPIC_MATCH_LIMITATION,
   };
 }
@@ -302,10 +319,41 @@ function normalizeTaboos(items: Array<{ getName(): string }>) {
   return items.map((item) => item.getName()).filter(Boolean);
 }
 
-function getNoonEightChar(date: Date) {
-  return SolarTime.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), 12, 0, 0)
-    .getLunarHour()
-    .getEightChar();
+function getNoonSolarTime(date: Date) {
+  return SolarTime.fromYmdHms(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    12,
+    0,
+    0,
+  );
+}
+
+function getJieBoundaryNote(solarDay: SolarDay): string | undefined {
+  const term = solarDay.getTerm();
+  if (!JIE_MONTH_BRANCH[term.getName()]) return undefined;
+  const termTime = term.getJulianDay().getSolarTime();
+  if (termTime.getSolarDay().toString() !== solarDay.toString()) return undefined;
+
+  const cycleAt = (hour: number, minute: number, second: number) =>
+    SolarTime.fromYmdHms(
+      solarDay.getYear(),
+      solarDay.getMonth(),
+      solarDay.getDay(),
+      hour,
+      minute,
+      second,
+    )
+      .getSixtyCycleHour()
+      .getSixtyCycleDay();
+  const before = cycleAt(0, 0, 0);
+  const after = cycleAt(23, 59, 59);
+  if (before.getMonth().getName() === after.getMonth().getName()) return undefined;
+  const time = [termTime.getHour(), termTime.getMinute(), termTime.getSecond()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
+  return `${term.getName()}于中国标准时间${time}交节；此前为${before.getYear().getName()}年${before.getMonth().getName()}月，此后为${after.getYear().getName()}年${after.getMonth().getName()}月；本日年柱、月柱、建除、神煞和宜忌以正午时刻列示，具体时刻按交节前后核对`;
 }
 
 function shouldBuildParticipantProfile(item: AlmanacParticipantInput) {
@@ -322,16 +370,16 @@ function shouldBuildParticipantProfile(item: AlmanacParticipantInput) {
 
 function readParticipantInteger(value: string, label: string, min: number, max: number) {
   if (typeof value !== 'string') {
-    throw new Error(`参与人${label}必须是 ${min}-${max} 的整数`);
+    throw new TypeError(`参与人${label}必须是 ${min}-${max} 的整数`);
   }
   const text = value.trim();
   if (!/^\d+$/.test(text)) {
-    throw new Error(`参与人${label}必须是 ${min}-${max} 的整数`);
+    throw new RangeError(`参与人${label}必须是 ${min}-${max} 的整数`);
   }
 
   const number = Number(text);
   if (!Number.isInteger(number) || number < min || number > max) {
-    throw new Error(`参与人${label}必须是 ${min}-${max} 的整数`);
+    throw new RangeError(`参与人${label}必须是 ${min}-${max} 的整数`);
   }
   return number;
 }
@@ -350,27 +398,27 @@ function readOptionalParticipantNumber(value: string | undefined, label: string)
   if (value === undefined || value.trim() === '') return undefined;
   const number = Number(value.trim());
   if (!Number.isFinite(number) || number < -180 || number > 180) {
-    throw new Error(`参与人${label}必须是 -180 到 180 之间的数字`);
+    throw new RangeError(`参与人${label}必须是 -180 到 180 之间的数字`);
   }
   return number;
 }
 
 function readParticipantBirthInput(item: AlmanacParticipantInput) {
   if (item.gender !== '男' && item.gender !== '女' && item.gender !== '') {
-    throw new Error('参与人性别必须是 男、女 或留空。');
+    throw new RangeError('参与人性别必须是 男、女 或留空。');
   }
   if (item.dateType !== 'solar' && item.dateType !== 'lunar') {
-    throw new Error('参与人日历类型必须是 solar 或 lunar。');
+    throw new RangeError('参与人日历类型必须是 solar 或 lunar。');
   }
   if (item.isLeapMonth !== undefined && typeof item.isLeapMonth !== 'boolean') {
-    throw new Error('参与人isLeapMonth必须是布尔值。');
+    throw new TypeError('参与人isLeapMonth必须是布尔值。');
   }
 
   const year = readParticipantInteger(item.year, '出生年份', 1900, 2100);
   const month = readParticipantInteger(item.month, '出生月份', 1, 12);
   const day = readParticipantInteger(item.day, '出生日期', 1, item.dateType === 'lunar' ? 30 : 31);
   if (item.useTrueSolarTime !== undefined && typeof item.useTrueSolarTime !== 'boolean') {
-    throw new Error('参与人useTrueSolarTime必须是布尔值。');
+    throw new TypeError('参与人useTrueSolarTime必须是布尔值。');
   }
   const birthHour = readOptionalParticipantInteger(item.birthHour, '出生小时', 0, 23);
   const birthMinute = readOptionalParticipantInteger(item.birthMinute, '出生分钟', 0, 59);
@@ -378,25 +426,35 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
   const hasPreciseClock =
     birthHour !== undefined || birthMinute !== undefined || birthSecond !== undefined;
   if (hasPreciseClock && (birthHour === undefined || birthMinute === undefined)) {
-    throw new Error('参与人精准出生时间需要同时提供小时和分钟。');
+    throw new RangeError('参与人精准出生时间需要同时提供小时和分钟。');
   }
   const hasBlankTimeIndex = typeof item.timeIndex === 'string' && item.timeIndex.trim() === '';
   const timeIndex =
     typeof item.timeIndex !== 'string' || hasBlankTimeIndex
       ? undefined
       : readParticipantInteger(item.timeIndex, '出生时辰', 0, 12);
+  if (birthHour !== undefined && birthMinute !== undefined && timeIndex !== undefined) {
+    const preciseTimeIndex = getTimeIndexFromClock(birthHour, birthMinute);
+    if (timeIndex !== preciseTimeIndex) {
+      throw new RangeError(
+        `参与人精准出生时间对应时辰索引 ${preciseTimeIndex}，与已提供的时辰索引 ${timeIndex} 不一致。`,
+      );
+    }
+  }
   if (timeIndex === undefined && !hasPreciseClock) {
     if (hasBlankTimeIndex) {
       readParticipantInteger(item.timeIndex, '出生时辰', 0, 12);
     }
-    throw new Error('参与人需要提供出生时辰或精准出生时间。');
+    throw new RangeError('参与人需要提供出生时辰或精准出生时间。');
   }
   const birthLongitude = readOptionalParticipantNumber(item.birthLongitude, '出生经度');
+  const timezone = item.timezone;
+  const timeZoneId = item.timeZoneId;
   if (item.useTrueSolarTime === true && (birthHour === undefined || birthMinute === undefined)) {
-    throw new Error('参与人真太阳时需要精准出生小时和分钟。');
+    throw new RangeError('参与人真太阳时需要精准出生小时和分钟。');
   }
   if (item.useTrueSolarTime === true && birthLongitude === undefined) {
-    throw new Error('参与人真太阳时需要出生经度。');
+    throw new RangeError('参与人真太阳时需要出生经度。');
   }
   const validationMessage = getBirthDateValidationMessage({
     year,
@@ -407,7 +465,7 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
   });
 
   if (validationMessage) {
-    throw new Error(`参与人出生${validationMessage}`);
+    throw new RangeError(`参与人出生${validationMessage}`);
   }
 
   return {
@@ -420,6 +478,8 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
     birthSecond,
     birthPlace: item.birthPlace?.trim() || undefined,
     birthLongitude,
+    timezone,
+    timeZoneId,
     useTrueSolarTime: item.useTrueSolarTime === true,
   };
 }
@@ -429,7 +489,7 @@ function readParticipantText(value: unknown, label: string, fallback: string) {
     return fallback;
   }
   if (typeof value !== 'string') {
-    throw new Error(`参与人${label}必须是文本。`);
+    throw new TypeError(`参与人${label}必须是文本。`);
   }
   return value.trim() || fallback;
 }
@@ -456,7 +516,7 @@ function buildParticipantBirthProfile(
   birthInput: ReturnType<typeof readParticipantBirthInput>,
 ): BirthProfile {
   if (birthInput.birthHour === undefined || birthInput.birthMinute === undefined) {
-    throw new Error('四柱反推参与人必须提供区间起点的精准出生时间。');
+    throw new RangeError('四柱反推参与人必须提供区间起点的精准出生时间。');
   }
   return {
     id: item.id,
@@ -497,8 +557,10 @@ function buildParticipantProfileSnapshot(
       day: chart.pillars.day.ganZhi,
       hour: chart.pillars.hour.ganZhi,
     },
+    monthCommander: chart.monthCommander,
     usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
     avoidGods: chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+    incrementStatus: chart.analysis.usefulGod.incrementStatus,
   };
 }
 
@@ -509,7 +571,7 @@ function assertParticipantRangePillars(
   const labels = { year: '年', month: '月', day: '日', hour: '时' } as const;
   for (const key of ['year', 'month', 'day', 'hour'] as const) {
     if (profile.pillars[key] !== expected[key]) {
-      throw new Error(`参与人出生区间${labels[key]}柱与四柱反推来源不一致。`);
+      throw new RangeError(`参与人出生区间${labels[key]}柱与四柱反推来源不一致。`);
     }
   }
 }
@@ -588,7 +650,7 @@ function createRangeParticipantProfile(
       (key) => typeof rawSource.pillars[key] !== 'string' || !rawSource.pillars[key].trim(),
     )
   ) {
-    throw new Error('四柱反推参与人必须提供完整来源四柱。');
+    throw new RangeError('四柱反推参与人必须提供完整来源四柱。');
   }
   const profile = buildParticipantBirthProfile(item, birthInput);
   const source = validateBirthProfileTimeRange(profile, rawSource);
@@ -646,26 +708,38 @@ function createParticipantProfiles(
   participants: AlmanacParticipantInput[],
 ): AlmanacParticipantProfile[] {
   if (!Array.isArray(participants)) {
-    throw new Error('参与人信息必须是数组。');
+    throw new TypeError('参与人信息必须是数组。');
   }
   if (participants.length > MAX_ALMANAC_PARTICIPANTS) {
-    throw new Error(`黄历择日一次最多分析 ${MAX_ALMANAC_PARTICIPANTS} 位参与人，请拆分请求。`);
+    throw new RangeError(`黄历择日一次最多分析 ${MAX_ALMANAC_PARTICIPANTS} 位参与人，请拆分请求。`);
   }
 
+  const participantIds = new Set<string>();
   return participants
     .filter((item, index) => {
       if (!item || typeof item !== 'object') {
-        throw new Error(`参与人${index + 1}信息必须是对象。`);
+        throw new TypeError(`参与人${index + 1}信息必须是对象。`);
       }
       return shouldBuildParticipantProfile(item);
     })
     .map((item, index) => {
       const birthInput = readParticipantBirthInput(item);
       const id = readParticipantText(item.id, 'id', `participant-${index + 1}`);
+      if (participantIds.has(id)) {
+        throw new RangeError('参与人id必须唯一。');
+      }
+      participantIds.add(id);
       const name = readParticipantText(item.name, '姓名', '未命名参与人');
       if (item.birthTimeRange) {
-        if (item.dateType !== 'solar' || item.isLeapMonth || item.useTrueSolarTime) {
-          throw new Error('四柱反推参与人必须使用公历、非闰月和标准北京时间。');
+        if (
+          item.dateType !== 'solar' ||
+          item.isLeapMonth ||
+          item.useTrueSolarTime ||
+          (item.timezone !== undefined && item.timezone !== BEIJING_OFFSET_HOURS) ||
+          item.timeZoneId !== undefined ||
+          item.originalTrueSolarProfile !== undefined
+        ) {
+          throw new RangeError('四柱反推参与人必须使用公历、非闰月和标准北京时间。');
         }
         return createRangeParticipantProfile(item, birthInput, id, name);
       }
@@ -682,16 +756,46 @@ function createParticipantProfiles(
           : {
               birthHour: birthInput.birthHour,
               birthMinute: birthInput.birthMinute,
-              ...(birthInput.birthSecond === undefined
-                ? {}
-                : { birthSecond: birthInput.birthSecond }),
+              birthSecond: birthInput.birthSecond ?? 0,
             }),
         ...(birthInput.birthPlace === undefined ? {} : { birthPlace: birthInput.birthPlace }),
         ...(birthInput.birthLongitude === undefined
           ? {}
           : { birthLongitude: birthInput.birthLongitude }),
+        ...(birthInput.timezone === undefined ? {} : { timezone: birthInput.timezone }),
+        ...(birthInput.timeZoneId === undefined ? {} : { timeZoneId: birthInput.timeZoneId }),
         useTrueSolarTime: birthInput.useTrueSolarTime,
       };
+
+      if (item.originalTrueSolarProfile) {
+        const source = item.originalTrueSolarProfile;
+        if (source.useTrueSolarTime !== true) {
+          throw new RangeError('择日真太阳时原始出生记录必须启用真太阳时。');
+        }
+        const normalized = normalizeBirthProfile(source);
+        const corrected = normalized.effectiveTime;
+        if (
+          item.dateType !== 'solar' ||
+          Number(item.year) !== corrected.year ||
+          Number(item.month) !== corrected.month ||
+          Number(item.day) !== corrected.day ||
+          birthInput.birthHour !== corrected.hour ||
+          birthInput.birthMinute !== corrected.minute ||
+          (birthInput.birthSecond ?? 0) !== corrected.second ||
+          birthInput.timeIndex !== normalized.timeIndex ||
+          item.gender !==
+            (source.gender === 'male' ? '男' : source.gender === 'female' ? '女' : '') ||
+          birthInput.birthLongitude !== normalized.resolvedLocation?.longitude
+        ) {
+          throw new RangeError('择日参与人校正时间与真太阳时原始出生记录不一致。');
+        }
+        return calculateParticipantProfileSnapshot(
+          item,
+          id,
+          name,
+          birthProfileToBaziPerson(source),
+        );
+      }
 
       return calculateParticipantProfileSnapshot(item, id, name, person);
     });
@@ -899,30 +1003,31 @@ export function getAlmanacPengZuDetails(dayStem: string, dayBranch: string) {
 
 validateAlmanacReferenceData();
 
-function getParticipantBranchConflict(
+function getParticipantBranchConflicts(
   candidateBranch: string,
   targetBranch: string,
-): { type: ParticipantBranchConflictType; detail?: string } | null {
-  if (!candidateBranch || !targetBranch) return null;
+): Array<{ type: ParticipantBranchConflictType; detail?: string }> {
+  if (!candidateBranch || !targetBranch) return [];
 
+  const conflicts: Array<{ type: ParticipantBranchConflictType; detail?: string }> = [];
   if (candidateBranch === getOppositeBranch(targetBranch)) {
-    return { type: '冲' };
+    conflicts.push({ type: '冲' });
   }
 
   if (isSanxing(candidateBranch, targetBranch)) {
     const sanxingType = getSanxingType(candidateBranch) || getSanxingType(targetBranch);
-    return { type: '刑', detail: sanxingType || undefined };
+    conflicts.push({ type: '刑', detail: sanxingType || undefined });
   }
 
   if (isLiuhai(candidateBranch, targetBranch)) {
-    return { type: '害' };
+    conflicts.push({ type: '害' });
   }
 
   if (isLiupo(candidateBranch, targetBranch)) {
-    return { type: '破' };
+    conflicts.push({ type: '破' });
   }
 
-  return null;
+  return conflicts;
 }
 
 function getParticipantBranchConflictSummary(
@@ -946,16 +1051,15 @@ function getParticipantBranchConflictSummary(
     detail?: string;
   }> = [];
   targets.forEach((target) => {
-    const conflict = getParticipantBranchConflict(candidateBranch, target.branch);
-    if (!conflict) return;
-
-    const detail = conflict.detail ? `（${conflict.detail}）` : '';
-    texts.push(`${conflict.type}${target.label}${target.branch}${detail}`);
-    relations.push({
-      scope: target.scope,
-      targetBranch: target.branch,
-      type: conflict.type,
-      detail: conflict.detail,
+    getParticipantBranchConflicts(candidateBranch, target.branch).forEach((conflict) => {
+      const detail = conflict.detail ? `（${conflict.detail}）` : '';
+      texts.push(`${conflict.type}${target.label}${target.branch}${detail}`);
+      relations.push({
+        scope: target.scope,
+        targetBranch: target.branch,
+        type: conflict.type,
+        detail: conflict.detail,
+      });
     });
   });
 
@@ -1109,6 +1213,7 @@ function buildDayFacts(params: {
   recommends: string[];
   avoids: string[];
   gods: AlmanacGodSource[];
+  fourTerminationTerm?: string;
   participants: AlmanacParticipantProfile[];
 }) {
   const highlights: string[] = [];
@@ -1158,8 +1263,8 @@ function buildDayFacts(params: {
       keywords: [...recommendKeywords],
       matchedItems: recommendMatches,
       promptText: recommendMatches.length
-        ? `原始宜项命中${ALMANAC_TOPIC_LABELS[params.topic]}：${recommendMatches.join('、')}`
-        : `原始宜项未命中${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
+        ? `原始宜项命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}：${recommendMatches.join('、')}`
+        : `原始宜项未命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
       sources: ['tyme4ts 当日宜项', '当前事项宜用关键词表'],
     }),
     buildTopicMatchFact({
@@ -1172,17 +1277,59 @@ function buildDayFacts(params: {
       keywords: [...avoidKeywords],
       matchedItems: avoidMatches,
       promptText: avoidMatches.length
-        ? `原始忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}：${avoidMatches.join('、')}`
-        : `原始忌项未触及${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
+        ? `原始忌项触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}：${avoidMatches.join('、')}`
+        : `原始忌项未触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
       sources: ['tyme4ts 当日忌项', '当前事项避忌关键词表'],
     }),
   );
 
   if (recommendMatches.length) {
-    highlights.push(`黄历宜项命中${ALMANAC_TOPIC_LABELS[params.topic]}`);
+    highlights.push(`黄历宜项命中${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}`);
   }
   if (avoidMatches.length) {
-    cautions.push(`黄历忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}`);
+    cautions.push(`黄历忌项触及${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}`);
+  }
+
+  // 《钦定协纪辨方书》卷十「上朔四离四绝晦日」：四离只不忌祭祀、解除等列项，余事皆忌；与德合并仍忌。
+  // 原始宜忌保留历法库原值，明确事项裁决另列事实，不把所有凶神一律用于分组。
+  if (params.topic !== 'custom' && params.gods.some((god) => god.getName() === '四离')) {
+    const text = `四离日：${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    cautions.push(text);
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-four-separations`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '值日神煞事项规则',
+        status: '限制',
+        inputItems: ['四离'],
+        keywords: [CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]],
+        matchedItems: ['四离'],
+        promptText: text,
+        sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
+      }),
+    );
+  }
+
+  // 四绝与四离同载于《钦定协纪辨方书》卷十。祭祀、解除及除旧等列项例外，
+  // 当前预设事项均不能仅凭事项大类等同于这些具体例外；自定义事项留给逐项核对。
+  if (params.topic !== 'custom' && params.fourTerminationTerm) {
+    const text = `四绝日（${params.fourTerminationTerm}前一日）：${CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]}属本日避忌事项`;
+    cautions.push(text);
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-four-terminations`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '值日神煞事项规则',
+        status: '限制',
+        inputItems: [`${params.fourTerminationTerm}前一日`, '四绝'],
+        keywords: [CANONICAL_ALMANAC_TOPIC_LABELS[params.topic]],
+        matchedItems: ['四绝'],
+        promptText: text,
+        sources: ['《钦定协纪辨方书》卷十「上朔四离四绝晦日」'],
+      }),
+    );
   }
 
   const godFacts = buildGodFacts(params.dateKey, params.gods);
@@ -1284,7 +1431,7 @@ function buildHourCandidates(
         kind === 'recommends' ? TOPIC_RECOMMEND_KEYWORDS[topic] : TOPIC_AVOID_KEYWORDS[topic];
       const matchedItems = findKeywordMatches(inputItems, keywords);
       const status = matchedItems.length ? (kind === 'recommends' ? '支持' : '限制') : '中性';
-      const promptText = `${hourName}原始${kind === 'recommends' ? '宜' : '忌'}项${matchedItems.length ? `命中${ALMANAC_TOPIC_LABELS[topic]}：${matchedItems.join('、')}` : `未命中${ALMANAC_TOPIC_LABELS[topic]}`}`;
+      const promptText = `${hourName}原始${kind === 'recommends' ? '宜' : '忌'}项${matchedItems.length ? `命中${CANONICAL_ALMANAC_TOPIC_LABELS[topic]}：${matchedItems.join('、')}` : `未命中${CANONICAL_ALMANAC_TOPIC_LABELS[topic]}`}`;
       if (status === '支持') highlights.push(promptText);
       if (status === '限制') cautions.push(promptText);
       return buildTopicMatchFact({
@@ -1376,16 +1523,22 @@ function buildDayCandidate(
   // 黄历当前没有地点和时区入参，因此用中国标准时间正午作为整日月相的统一参照点。
   // 这项天文事实不参与传统宜忌评分，避免时区假设被包装成择日结论。
   const moonPhaseEvidence = calculateMoonPhaseEvidence(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 4),
+    createUtcTimestamp(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 4),
   );
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const solarDay = SolarDay.fromYmd(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+  );
   const lunarDay = solarDay.getLunarDay();
-  const noonEightChar = getNoonEightChar(date);
-  const dayCycle = lunarDay.getSixtyCycle();
+  const noonTime = getNoonSolarTime(date);
+  const noonEightChar = noonTime.getLunarHour().getEightChar();
+  const noonCycleDay = noonTime.getSixtyCycleHour().getSixtyCycleDay();
+  const dayCycle = noonCycleDay.getSixtyCycle();
   const dayBranch = dayCycle.getEarthBranch();
-  const recommends = normalizeTaboos(lunarDay.getRecommends());
-  const avoids = normalizeTaboos(lunarDay.getAvoids());
-  const godSources = getHuangliSolarDayGods(solarDay);
+  const recommends = normalizeTaboos(noonCycleDay.getRecommends());
+  const avoids = normalizeTaboos(noonCycleDay.getAvoids());
+  const godSources = getHuangliSolarDayGods(solarDay, noonTime);
   const gods = godSources.map((item) => item.getName());
   const scoring = buildDayFacts({
     dateKey,
@@ -1395,8 +1548,11 @@ function buildDayCandidate(
     recommends,
     avoids,
     gods: godSources,
+    fourTerminationTerm: getFourTerminationTerm(date),
     participants,
   });
+  const jieBoundaryNote = getJieBoundaryNote(solarDay);
+  if (jieBoundaryNote) scoring.cautions.push(jieBoundaryNote);
 
   // 彭祖百忌完整：天干+地支
   const dayStemName = dayCycle.getHeavenStem().getName();
@@ -1409,16 +1565,16 @@ function buildDayCandidate(
   return {
     date: dateKey,
     moonPhaseEvidence,
-    weekday: WEEKDAYS[date.getDay()],
+    weekday: WEEKDAYS[date.getUTCDay()],
     lunarDate: lunarDay.toString(),
     ganzhi: {
       year: noonEightChar.getYear().getName(),
       month: noonEightChar.getMonth().getName(),
       day: noonEightChar.getDay().getName(),
     },
-    zodiac: dayBranch.getZodiac().getName(),
-    dayOfficer: lunarDay.getDuty().getName(),
-    twelveStar: lunarDay.getTwelveStar().getName(),
+    zodiac: noonEightChar.getYear().getEarthBranch().getZodiac().getName(),
+    dayOfficer: noonCycleDay.getDuty().getName(),
+    twelveStar: noonCycleDay.getTwelveStar().getName(),
     twentyEightStar,
     twentyEightStarDetail: getAlmanacTwentyEightStarDetail(twentyEightStar),
     nineStar,
@@ -1441,6 +1597,54 @@ function buildDayCandidate(
     godFacts: scoring.godFacts,
     participantRelationFacts: scoring.participantRelationFacts,
     hours,
+  };
+}
+
+export function recalculateAlmanacDayForVerification(
+  dateKey: string,
+  topic: AlmanacTopic,
+  participants: AlmanacParticipantProfile[],
+): Pick<
+  AlmanacDayCandidate,
+  | 'highlights'
+  | 'cautions'
+  | 'participantNotes'
+  | 'topicMatchFacts'
+  | 'godFacts'
+  | 'participantRelationFacts'
+  | 'annualDirectionGods'
+  | 'hours'
+> {
+  const date = parseDateText(dateKey, '候选日期').date;
+  const solarDay = SolarDay.fromYmd(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+  );
+  const lunarDay = solarDay.getLunarDay();
+  const noonTime = getNoonSolarTime(date);
+  const noonEightChar = noonTime.getLunarHour().getEightChar();
+  const noonCycleDay = noonTime.getSixtyCycleHour().getSixtyCycleDay();
+  const cycleDay = noonCycleDay.getSixtyCycle();
+  const facts = buildDayFacts({
+    dateKey,
+    topic,
+    dayStem: cycleDay.getHeavenStem().getName(),
+    dayBranch: cycleDay.getEarthBranch().getName(),
+    recommends: normalizeTaboos(noonCycleDay.getRecommends()),
+    avoids: normalizeTaboos(noonCycleDay.getAvoids()),
+    gods: getHuangliSolarDayGods(solarDay, noonTime),
+    fourTerminationTerm: getFourTerminationTerm(date),
+    participants,
+  });
+  const jieBoundaryNote = getJieBoundaryNote(solarDay);
+  if (jieBoundaryNote) facts.cautions.push(jieBoundaryNote);
+  return {
+    ...facts,
+    annualDirectionGods: getAlmanacAnnualDirectionGods(
+      noonEightChar.getYear().getEarthBranch().getName(),
+    ),
+    hours: buildHourCandidates(dateKey, lunarDay, participants, topic),
   };
 }
 
@@ -1475,9 +1679,33 @@ export function generateAlmanacSelection(params: {
   weekendPreference?: 'any' | 'prefer' | 'avoid';
   timePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
 }): AlmanacData {
-  assertAlmanacTopic(params.topic);
-  const start = parseDateText(params.startDate, '开始日期');
-  const end = parseDateText(params.endDate, '结束日期');
+  const {
+    topic,
+    startDate,
+    endDate,
+    participants: participantInputs,
+    weekendPreference: requestedWeekendPreference,
+    timePreferences: requestedTimePreferences,
+  } = params;
+  const timePreferences = Array.isArray(requestedTimePreferences)
+    ? [...requestedTimePreferences]
+    : requestedTimePreferences;
+  assertAlmanacTopic(topic);
+  if (
+    requestedWeekendPreference !== undefined &&
+    !['any', 'prefer', 'avoid'].includes(requestedWeekendPreference)
+  ) {
+    throw new Error('周末偏好必须为不限、优先周末或避开周末');
+  }
+  if (
+    timePreferences !== undefined &&
+    (!Array.isArray(timePreferences) ||
+      timePreferences.some((item) => !['work-hours', 'morning', 'afternoon'].includes(item)))
+  ) {
+    throw new Error('时段偏好只能为工作时间、上午或下午');
+  }
+  const start = parseDateText(startDate, '开始日期');
+  const end = parseDateText(endDate, '结束日期');
   const diffDays = Math.round((end.date.getTime() - start.date.getTime()) / 86400000);
 
   if (diffDays < 0) {
@@ -1487,19 +1715,19 @@ export function generateAlmanacSelection(params: {
     throw new Error('黄历择日一次最多比较 180 天，请缩小日期范围');
   }
 
-  const participants = createParticipantProfiles(params.participants ?? []);
-  const weekendPreference = params.timePreferences?.includes('work-hours')
+  const participants = createParticipantProfiles(participantInputs ?? []);
+  const weekendPreference = timePreferences?.includes('work-hours')
     ? 'avoid'
-    : (params.weekendPreference ?? 'any');
+    : (requestedWeekendPreference ?? 'any');
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
-    current.setDate(start.date.getDate() + index);
-    return buildDayCandidate(current, params.topic, participants);
+    current.setUTCDate(start.date.getUTCDate() + index);
+    return buildDayCandidate(current, topic, participants);
   }).sort((a, b) => {
     const statusDifference =
-      statusPriority[classifyAlmanacCandidate(a).status] -
-      statusPriority[classifyAlmanacCandidate(b).status];
+      statusPriority[classifyAlmanacCandidate(a, timePreferences).status] -
+      statusPriority[classifyAlmanacCandidate(b, timePreferences).status];
     const aWeekend = a.weekday === '星期六' || a.weekday === '星期日' ? 1 : 0;
     const bWeekend = b.weekday === '星期六' || b.weekday === '星期日' ? 1 : 0;
     const weekendDifference =
@@ -1517,12 +1745,12 @@ export function generateAlmanacSelection(params: {
   });
 
   const result: AlmanacData = {
-    topic: params.topic,
-    topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
-    startDate: params.startDate,
-    endDate: params.endDate,
+    topic,
+    topicLabel: CANONICAL_ALMANAC_TOPIC_LABELS[topic],
+    startDate,
+    endDate,
     weekendPreference,
-    timePreferences: [...(params.timePreferences ?? [])],
+    timePreferences: [...(timePreferences ?? [])],
     days,
     participants,
     timestamp: Date.now(),

@@ -4,6 +4,41 @@ import { calculateZhugeNumber, getZhugeInterpretation } from 'mingyu-core/name-n
 import { ZHUGE_SIGNS } from '../packages/core/src/name-number/zhuge-signs.ts';
 import { CHARACTER_TUPLES } from '../packages/core/src/name-number/generated-data.ts';
 import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination.ts';
+
+test('诸葛恢复签谱按本签重取解释并拒绝矛盾的签号和签诗', () => {
+  const first = calculateZhugeNumber('隻隻一');
+  const second = calculateZhugeNumber('隻隻二');
+  assert.deepEqual(first.strokes, [10, 10, 1]);
+  assert.equal(first.number, 1);
+  assert.equal(second.number, 2);
+  const formatters = [
+    (data: typeof first) => formatEnhancedDivinationInfo('zhuge', data),
+    (data: typeof first) =>
+      buildDivinationPrompt({ method: 'zhuge', data, question: '这件事如何推进？' }),
+  ];
+  for (const format of formatters) {
+    const stale = { ...first, interpretation: second.interpretation };
+    const prompt = format(stale);
+    assert.equal(prompt, format(first));
+    assert.match(prompt, /天门一挂榜，预定夺标人，马嘶芳草地，秋高听鹿鸣/u);
+    assert.equal(prompt.split('秋高听鹿鸣').length - 1, 1);
+    assert.match(prompt, /基础解签：挂榜、夺标与鹿鸣相连/u);
+    assert.match(prompt, /补充解释：转机在于把已有积累交到合适的评判场合/u);
+    assert.match(prompt, /《诗经·小雅·鹿鸣》/u);
+    assert.doesNotMatch(prompt, /兴邦辅国，尊主庇民|神灵庇护/u);
+    const legacy = { ...first };
+    Reflect.deleteProperty(legacy, 'interpretation');
+    assert.equal(format(legacy), prompt);
+    for (const conflicting of [
+      { ...first, number: 2 },
+      { ...first, sign: { ...first.sign, number: 2 } },
+      { ...first, sign: { ...first.sign, poem: second.sign.poem } },
+    ]) {
+      assert.throws(() => format(conflicting), /诸葛签号与签诗资料不一致/u);
+    }
+  }
+});
 
 test('诸葛签诗勉力、舒妍与培养的字词在结果和提示词中一致', () => {
   // 《秘本諸葛神數》电子文本第35、41、102签；仅据此核对这三处读法。

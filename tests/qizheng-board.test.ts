@@ -10,40 +10,88 @@ import {
   getQizhengMingZhu,
   getQizhengSignBranch,
   longitudeToQizhengMansion,
+  QIZHENG_MANSION_MODEL,
+  QIZHENG_MANSION_STARS,
+  QIZHENG_POSITION_SOURCES,
   QIZHENG_SIGN_BRANCHES,
+  ZIQI_MODEL_INFO,
 } from '@core/qi_zheng';
 import { QizhengBoard } from '../src/pages/ResultPage/components/QizhengBoard';
 
+let beijingDefaultChart: ReturnType<typeof generateQizheng> | undefined;
+function getBeijingDefaultChart() {
+  if (!beijingDefaultChart) {
+    beijingDefaultChart = generateQizheng({
+      year: 1990,
+      month: 6,
+      day: 15,
+      hour: 10,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    });
+  }
+  return beijingDefaultChart;
+}
+
 test('七政四余页面应能直接渲染并显示典籍折叠区', () => {
-  const data = generateQizheng({
-    year: 1990,
-    month: 6,
-    day: 15,
-    hour: 10,
-    minute: 30,
-    latitude: 39.9042,
-    longitude: 116.4074,
-    timezone: 8,
-  });
+  const data = getBeijingDefaultChart();
 
   const html = renderToStaticMarkup(
     createElement(QizhengBoard, { title: '七政四余', name: '测试命盘', data }),
   );
   assert.match(html, /七政四余十一曜/);
   assert.match(html, /果老星宗/);
+  assert.match(html, /回归黄经/);
+  assert.doesNotMatch(html, /恒星黄经/);
+});
+
+test('七政四余未定义恒星黄道零点时只输出目标日期黄经', () => {
+  const result = generateQizheng({
+    year: 2024,
+    month: 3,
+    day: 20,
+    hour: 3,
+    minute: 6,
+    latitude: 0,
+    longitude: 0,
+    timezone: 0,
+  });
+
+  const sun = result.stars.find((star) => star.name === '太阳');
+  assert.ok(sun);
+  // JPL Horizons 地心 TT 2024-03-20T03:07:14 给出太阳黄经 359.9997646°。
+  assert.ok(Math.abs(sun.longitude - 359.9997646) < 0.001);
+  assert.equal(sun.signIndex, 11);
+  const afterZero = generateQizheng({
+    year: 2024,
+    month: 3,
+    day: 20,
+    hour: 3,
+    minute: 7,
+    latitude: 0,
+    longitude: 0,
+    timezone: 0,
+  }).stars.find((star) => star.name === '太阳');
+  assert.ok(afterZero);
+  assert.ok(afterZero.longitude < 0.001);
+  assert.equal(afterZero.signIndex, 0);
+
+  assert.equal(
+    result.ziqi.tropicalLongitude,
+    result.stars.find((star) => star.name.startsWith('紫炁'))?.longitude,
+  );
+  assert.equal('siderealLongitude' in result.ziqi, false);
+  for (const fact of result.evidenceAnalysis.starFacts) {
+    assert.equal(fact.longitude, result.stars.find((star) => star.name === fact.name)?.longitude);
+    assert.equal('siderealLongitude' in fact, false);
+  }
+  assert.doesNotMatch(result.prompt, /恒星黄经/);
 });
 
 test('七政四余可选秒数应贯穿天文时间、光照证据与出生提示，省略时保持默认结果', () => {
-  const withoutSecond = generateQizheng({
-    year: 1990,
-    month: 6,
-    day: 15,
-    hour: 10,
-    minute: 30,
-    latitude: 39.9042,
-    longitude: 116.4074,
-    timezone: 8,
-  });
+  const withoutSecond = getBeijingDefaultChart();
   const withSecond = generateQizheng({
     year: 1990,
     month: 6,
@@ -138,16 +186,7 @@ test('七政庙旺喜乐应与星学大成第三章一致并保留重叠状态',
 });
 
 test('七政四余完整盘采用二十八宿真实距星边界并保持位置来源分层', () => {
-  const result = generateQizheng({
-    year: 1990,
-    month: 6,
-    day: 15,
-    hour: 10,
-    minute: 30,
-    latitude: 39.9042,
-    longitude: 116.4074,
-    timezone: 8,
-  });
+  const result = getBeijingDefaultChart();
 
   assert.equal(result.stars.length, 11);
   assert.equal(result.stars.filter((star) => star.kind === '七政').length, 7);
@@ -184,6 +223,74 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
   );
   assert.doesNotMatch(result.prompt, /宿界模型/);
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
+
+  const original = structuredClone(result);
+  const originalSignBranches = [...QIZHENG_SIGN_BRANCHES];
+  const originalMansionStars = [...QIZHENG_MANSION_STARS];
+  const originalMansionStarValues = originalMansionStars.map((star) => ({ ...star }));
+  try {
+    Reflect.set(result.mansionModel, 'id', '变造模型身份');
+    Reflect.set(result.mansionModel, 'mappingSource', '变造星宿对应资料');
+    Reflect.set(result.mansionModel, 'transformSource', '变造坐标变换资料');
+    result.ziqiModel.name = '变造紫炁模型';
+    result.ziqiModel.sources[0].title = '变造紫炁原文';
+    result.positionSources[0].objects[0] = '变造星曜';
+    result.positionSources[0].calculation = '变造位置计算';
+    result.positionSources[0].limitations[0] = '变造模型限制';
+    result.evidenceAnalysis.positionSourceFacts[0].promptLimitations[1] = '变造证据限制';
+
+    assert.equal(QIZHENG_MANSION_MODEL.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
+    assert.equal(ZIQI_MODEL_INFO.name, '《七政算内篇》紫炁古法均速');
+    assert.equal(ZIQI_MODEL_INFO.sources[0].title, '《七政算内篇》四余星第七·紫气');
+    assert.equal(QIZHENG_POSITION_SOURCES[0].objects[0], '太阳');
+    assert.deepEqual(QIZHENG_MANSION_MODEL, original.mansionModel);
+    assert.deepEqual(ZIQI_MODEL_INFO, original.ziqiModel);
+    assert.deepEqual(QIZHENG_POSITION_SOURCES, original.positionSources);
+
+    Reflect.set(QIZHENG_SIGN_BRANCHES, 2, '子');
+    const ziMansionStar = QIZHENG_MANSION_STARS.find((star) => star.mansion === '觜');
+    assert.ok(ziMansionStar);
+    const originalZiRa = ziMansionStar.raJ2000Degrees;
+    ziMansionStar.raJ2000Degrees += 0.1;
+    Reflect.set(QIZHENG_MANSION_STARS, 'length', 27);
+    Reflect.set(QIZHENG_MANSION_MODEL, 'id', '变造公开模型身份');
+    Reflect.set(QIZHENG_MANSION_MODEL, 'astrometrySource', '变造公开距星坐标依据');
+    assert.equal(QIZHENG_SIGN_BRANCHES[2], '子');
+    assert.equal(ziMansionStar.raJ2000Degrees, originalZiRa + 0.1);
+    assert.equal(QIZHENG_MANSION_STARS.length, 27);
+    assert.equal(QIZHENG_MANSION_MODEL.id, '变造公开模型身份');
+    assert.equal(QIZHENG_MANSION_MODEL.astrometrySource, '变造公开距星坐标依据');
+    assert.equal(getQizhengSignBranch(2), '申');
+    assert.equal(getQizhengMingZhu(2), '水');
+    const fresh = generateQizheng({
+      year: 1990,
+      month: 6,
+      day: 15,
+      hour: 10,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    });
+    assert.deepEqual(fresh, original);
+  } finally {
+    originalSignBranches.forEach((branch, index) => {
+      Reflect.set(QIZHENG_SIGN_BRANCHES, index, branch);
+    });
+    originalMansionStars.forEach((star, index) => {
+      Object.assign(star, originalMansionStarValues[index]);
+      Reflect.set(QIZHENG_MANSION_STARS, index, star);
+    });
+    Reflect.set(QIZHENG_MANSION_STARS, 'length', originalMansionStars.length);
+    Object.assign(QIZHENG_MANSION_MODEL, original.mansionModel);
+    Object.assign(ZIQI_MODEL_INFO, structuredClone(original.ziqiModel));
+    QIZHENG_POSITION_SOURCES.splice(
+      0,
+      QIZHENG_POSITION_SOURCES.length,
+      ...structuredClone(original.positionSources),
+    );
+    Object.assign(result, original);
+  }
 });
 
 test('罗计真交点与月孛平均远地点与 Swiss Moshier 独立金标一致', () => {
@@ -263,9 +370,11 @@ test('宿界前后必须落入相邻两宿，边界本身归入新宿', () => {
   const angle = boundaries.find((item) => item.mansion === '角');
   assert.ok(angle);
   assert.equal(longitudeToQizhengMansion(angle.longitude - 1e-6, boundaries).xiu, '轸');
+  assert.equal(longitudeToQizhengMansion(angle.longitude - 5e-8, boundaries).xiu, '轸');
+  assert.equal(longitudeToQizhengMansion(angle.longitude + 5e-8, boundaries).xiu, '角');
 });
 
-test('二十八宿边界应覆盖公开年份上限 2200 年', () => {
+test('2200 年临界太阴宿宫与月相共用同一黄经和四正求根星历', () => {
   const boundaries = calculateQizhengMansionBoundaries(new Date('2200-06-15T12:00:00Z'));
   assert.equal(boundaries.length, 28);
   assert.ok(
@@ -274,6 +383,114 @@ test('二十八宿边界应覆盖公开年份上限 2200 年', () => {
         longitudeToQizhengMansion(boundary.longitude, boundaries).xiu === boundary.mansion,
     ),
   );
+
+  const result = generateQizheng({
+    year: 2200,
+    month: 6,
+    day: 15,
+    hour: 18,
+    minute: 27,
+    timezone: 0,
+    latitude: 0,
+    longitude: 0,
+  });
+  const moon = result.stars.find((star) => star.name === '太阴');
+  const sun = result.stars.find((star) => star.name === '太阳');
+  assert.ok(moon && sun);
+  // JPL Horizons 地心观测表在同一 TT 18:34:23 的太阴黄经为 120.0173364°。
+  assert.ok(Math.abs(moon.longitude - 120.0173364) < 0.002);
+  assert.equal(moon.xiu, '井');
+  assert.equal(moon.signBranch, '午');
+  assert.ok(
+    Math.abs(result.calculationContext.moonPhase.moonLongitudeDegrees - moon.longitude) < 1e-7,
+  );
+  assert.ok(
+    Math.abs(result.calculationContext.moonPhase.sunLongitudeDegrees - sun.longitude) < 1e-7,
+  );
+  assert.match(result.calculationContext.moonPhase.source, /Astronomy Engine/);
+  // Swiss Moshier 同 TT 的朔时约为 2200-06-12T15:28:46Z。
+  assert.ok(
+    Math.abs(
+      result.calculationContext.moonPhase.previousPrincipalPhase.utcTimestamp -
+        Date.parse('2200-06-12T15:28:46Z'),
+    ) <
+      2 * 60_000,
+  );
+  assert.ok(result.calculationContext.moonPhase.previousPrincipalPhase.residualDegrees < 0.001);
+  assert.ok(result.calculationContext.moonPhase.nextPrincipalPhase.residualDegrees < 0.001);
+
+  const mansionSamples = [
+    { minute: 13, swissLongitude: 98.09896055, xiu: '参' },
+    { minute: 15, swissLongitude: 98.11607115, xiu: '井' },
+  ];
+  for (const sample of mansionSamples) {
+    const chart = generateQizheng({
+      year: 2200,
+      month: 6,
+      day: 13,
+      hour: 23,
+      minute: sample.minute,
+      timezone: 0,
+      latitude: 0,
+      longitude: 0,
+    });
+    const sampleMoon = chart.stars.find((star) => star.name === '太阴');
+    assert.ok(sampleMoon);
+    // Swiss Moshier 在两处 Astronomy Engine TT 的太阴黄经均位于井宿真实距星界两侧。
+    assert.ok(Math.abs(sampleMoon.longitude - sample.swissLongitude) < 0.002);
+    assert.equal(sampleMoon.xiu, sample.xiu);
+  }
+});
+
+test('当地支持年两端的七政星位、月相和光照保留相同实际UTC瞬时', () => {
+  for (const input of [
+    {
+      year: 1900,
+      month: 1,
+      day: 1,
+      hour: 0,
+      minute: 0,
+      second: 0,
+      timezone: 14,
+      utc: '1899-12-31T10:00:00.000Z',
+      moonSwiss: 264.11900251,
+      sunSwiss: 279.55844607,
+    },
+    {
+      year: 2200,
+      month: 12,
+      day: 31,
+      hour: 23,
+      minute: 59,
+      second: 59,
+      timezone: -12,
+      utc: '2201-01-01T11:59:59.000Z',
+      moonSwiss: 224.21323371,
+      sunSwiss: 280.58814828,
+    },
+  ]) {
+    const { utc, moonSwiss, sunSwiss, ...clock } = input;
+    const result = generateQizheng({ ...clock, latitude: 0, longitude: 180 });
+    const context = result.calculationContext;
+    assert.equal(context.utcDateTime, utc);
+    assert.equal(context.moonPhase.utcDateTime, utc);
+    assert.equal(context.solarIllumination.astronomicalTime.unixMilliseconds, Date.parse(utc));
+    assert.equal(result.stars.length, 11);
+    // Swiss Moshier 在 Astronomy Engine 相同 TT 的地心当日视黄经固定点。
+    assert.ok(Math.abs(context.moonPhase.moonLongitudeDegrees - moonSwiss) < 0.002);
+    assert.ok(Math.abs(context.moonPhase.sunLongitudeDegrees - sunSwiss) < 0.002);
+    for (const [name, longitude] of [
+      ['太阳', context.moonPhase.sunLongitudeDegrees],
+      ['太阴', context.moonPhase.moonLongitudeDegrees],
+    ] as const) {
+      assert.ok(
+        Math.abs(result.stars.find((star) => star.name === name)!.longitude - longitude) < 1e-7,
+      );
+    }
+    assert.ok(context.moonPhase.previousPrincipalPhase.utcTimestamp < Date.parse(utc));
+    assert.ok(context.moonPhase.nextPrincipalPhase.utcTimestamp > Date.parse(utc));
+    assert.match(context.moonPhase.source, /Astronomy Engine/);
+  }
 });
 
 test('宿界查询应接受乱序资料，并拒绝重复宿名、无效宿宽与不连续边界', () => {

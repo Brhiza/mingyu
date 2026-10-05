@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateHuangjiJingshi } from '@core/huangji-jingshi';
+import { buildHuangjiJingshiPrompt, calculateHuangjiJingshi } from '@core/huangji-jingshi';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced.ts';
+import {
+  buildDivinationPrompt,
+  getDivinationSummaryBlocks,
+} from '../packages/core/src/prompt/divination.ts';
 
 test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻', () => {
   const annual = calculateHuangjiJingshi({ year: 2026 });
@@ -14,16 +19,77 @@ test('皇极值年同人与鼎卦按上下卦展开六爻且保留层级变爻',
     annual.prompt,
     /值年取序：以公元1984年的六十年统卦火风鼎为起点.*已过42年，顺行42位，取得天火同人为本年静态值年卦/,
   );
-  assert.match(
-    annual.prompt,
-    /十年取卦：以六十年统卦火风鼎第5爻变化，得到天风姤，统摄公元2024年至公元2033年/,
-  );
+  assert.match(annual.prompt, /十年卦：天风姤，公元2024年至公元2033年；由鼎卦第5爻变得/);
+  assert.equal(annual.prompt.split('\n').filter((line) => line.startsWith('十年卦：')).length, 1);
+  assert.match(annual.prompt, /层级取序：值年取序与十年取卦分别以六十年统卦火风鼎为起点。/);
+  assert.doesNotMatch(annual.prompt, /十年取卦：.*第5爻变化.*统摄公元2024/);
   const ding = calculateHuangjiJingshi({ year: 1984 });
   assert.match(
     ding.prompt,
     /值年卦爻象：火风鼎，上卦离、下卦巽；自下而上为初爻阴、二爻阳、三爻阳、四爻阳、五爻阴、上爻阳/,
   );
   assert.match(ding.prompt, /已过0年，顺行0位，取得火风鼎为本年静态值年卦/);
+
+  const capture = (data: typeof annual) => ({
+    native: buildHuangjiJingshiPrompt(data),
+    enhanced: formatEnhancedDivinationInfo('huangji', data),
+    fullTask: buildDivinationPrompt({
+      method: 'huangji',
+      data,
+      question: '本次占问',
+      currentTime: new Date('2026-01-01T00:00:00Z'),
+    }),
+    summary: getDivinationSummaryBlocks('huangji', data),
+  });
+  const baseline = capture(annual);
+  const originalAnnual = structuredClone(annual);
+  assert.equal(baseline.native, annual.prompt);
+  assert.deepEqual(capture(JSON.parse(JSON.stringify(annual))), baseline);
+  assert.deepEqual(
+    capture({
+      ...annual,
+      eraTrend: undefined,
+      dateTimeForecast: undefined,
+      sixDayCycle: undefined,
+    }),
+    baseline,
+  );
+  const changedLine = structuredClone(annual);
+  changedLine.forecast!.hexagrams.decade.changedLine = 1;
+  const changedSource = structuredClone(annual);
+  changedSource.forecast!.hexagrams.decade.derivedFrom = '乾';
+  const changedPeriod = structuredClone(annual);
+  changedPeriod.forecast!.hexagrams.decade.startYear = 2099;
+  changedPeriod.forecast!.hexagrams.decade.endYear = 2108;
+  for (const data of [changedLine, changedSource, changedPeriod]) {
+    const suppliedData = structuredClone(data);
+    assert.equal(buildHuangjiJingshiPrompt(data), baseline.native);
+    assert.equal(buildHuangjiJingshiPrompt(JSON.parse(JSON.stringify(data))), baseline.native);
+    assert.deepEqual(data, suppliedData);
+  }
+  assert.deepEqual(annual, originalAnnual);
+  const annualJudgment = structuredClone(annual);
+  annualJudgment.forecast!.hexagrams.annual.judgment = '卦辞已被改写';
+  const governingName = structuredClone(annual);
+  governingName.forecast!.hexagrams.governing.hexagram.name = '乾为天';
+  const relatedName = structuredClone(annual);
+  relatedName.forecast!.relatedHexagrams.mutual.name = '乾为天';
+  for (const data of [annualJudgment, governingName, relatedName]) {
+    assert.throws(() => buildHuangjiJingshiPrompt(data), /与卦画、卦辞资料不一致/);
+    assert.throws(() => formatEnhancedDivinationInfo('huangji', data), /与卦画、卦辞资料不一致/);
+    assert.throws(
+      () =>
+        buildDivinationPrompt({
+          method: 'huangji',
+          data,
+          question: '本次占问',
+          currentTime: new Date('2026-01-01T00:00:00Z'),
+        }),
+      /与卦画、卦辞资料不一致/,
+    );
+    assert.throws(() => getDivinationSummaryBlocks('huangji', data), /与卦画、卦辞资料不一致/);
+  }
+  assert.deepEqual(capture(annual), baseline);
 });
 
 test('皇极值年偏移在六十年末年归59且下一统卦重置为0，跨公元元年少计不存在的零年', () => {
@@ -36,6 +102,14 @@ test('皇极值年偏移在六十年末年归59且下一统卦重置为0，跨�
   assert.ok(start < 0);
   assert.ok(before.prompt.includes(`已过${-1 - start}年，顺行${-1 - start}位`));
   assert.ok(after.prompt.includes(`已过${-start}年，顺行${-start}位`));
+});
+
+test('六十年统卦遇四正卦时保留变爻原卦与圆图顺取两步', () => {
+  const result = calculateHuangjiJingshi({ year: 2164 });
+  assert.equal(result.forecast?.hexagrams.sixtyYear.normalizedFrom, '离');
+  assert.equal(result.forecast?.hexagrams.sixtyYear.hexagram.shortName, '革');
+  assert.match(result.calculationChain[2], /大有运卦第2爻变为离卦，再依六十卦圆图顺取革六十年统卦/);
+  assert.match(result.prompt, /由大有卦第2爻变得离卦，再依去四正卦的六十卦圆图顺取革卦/);
 });
 
 test('皇极时点盘的四个近层各自保留卦体及实际推演爻位', () => {

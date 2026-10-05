@@ -28,6 +28,7 @@ import {
 import {
   buildAstrolabeSynastryPrompt,
   buildBaziCompatibilityPrompt,
+  buildThematicConsultationPrompt,
   buildZiweiCompatibilityPrompt,
 } from 'mingyu-core/prompt';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
@@ -140,7 +141,8 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【任务】',
       '【传统依据】',
       '【排盘信息】',
-      '该流年包含的流月',
+      '上层岁运：',
+      '岁运干支关系：',
     ],
   },
   {
@@ -181,7 +183,8 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【行限】',
       '【流曜】',
       '【流曜周期】',
-      '周期主轴',
+      '周期事件参考',
+      '完整明细',
     ],
   },
   {
@@ -232,7 +235,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '三山国王灵签',
     // 签谱提示词按签谱最高约束只保留本次签号、签题、签诗和解签资料。
-    requiredFields: ['签号', '签题', '签诗', '吉凶级别', '典故', '基础解签'],
+    requiredFields: ['签号', '签题', '签诗', '吉凶级别', '典故', '基础解签', '补充解释'],
   },
   {
     sampleName: '择日',
@@ -244,10 +247,10 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【当前时间】',
       '【问题】',
       '【任务】',
+      '【盘面资料】',
       '【传统依据】',
-      '四吉方',
-      '四凶方',
       '命卦八方',
+      '宅卦八方',
     ],
   },
   {
@@ -256,15 +259,17 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【当前时间】',
       '【问题】',
       '【任务】',
+      '【盘面资料】',
       '【传统依据】',
-      '住宅风水排盘',
       '玄空',
       '八宅',
       '玄空完整盘面',
       '三盘九宫',
       '八宅完整盘面',
-      '四吉方',
-      '四凶方',
+      '命卦八方',
+      '宅卦八方',
+      '候选山向',
+      '候选震宅八方',
     ],
   },
   {
@@ -302,12 +307,17 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【传统依据】',
       '起课',
       '起课过程',
-      '定位用途',
-      '断事主证',
+      '定日宫',
+      '定时宫',
+      '占得宫',
       '历法口径',
       '时点范围',
       '歌诀原文',
     ],
+  },
+  {
+    sampleName: '小六壬《多能鄙事》',
+    requiredFields: ['【传统依据】', '起课过程', '定日宫', '占得宫', '歌诀原文', '《多能鄙事》'],
   },
   {
     sampleName: '金口诀',
@@ -348,7 +358,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【任务】',
       '【传统依据】',
       '生肖与流年关系',
-      '信息范围',
+      '地支成员',
     ],
   },
   {
@@ -374,6 +384,18 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '紫微流年',
     requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '流年'],
+  },
+  {
+    sampleName: '主题咨询合参',
+    requiredFields: [
+      '【分析主题】',
+      '咨询主题：事业',
+      '【八字排盘信息】',
+      '【紫微盘面信息】',
+      '【资料范围】',
+      '【任务】',
+      '【问题】',
+    ],
   },
   {
     sampleName: '八字即时盘',
@@ -537,6 +559,13 @@ function assertRequiredSampleFields(
         missingMessages.push(`${sampleName} 缺少字段：${field}`);
       }
     });
+    if (sampleName === '八宅风水' || sampleName === '住宅风水') {
+      for (const heading of ['任务', '盘面资料', '传统依据']) {
+        if (sample.prompt.match(new RegExp(`^【${heading}】$`, 'gm'))?.length !== 1) {
+          missingMessages.push(`${sampleName} 的【${heading}】应且只应出现一次`);
+        }
+      }
+    }
   });
 
   if (missingMessages.length > 0) {
@@ -555,6 +584,16 @@ function assertSamplePromptScopesAreSupported(samples: PromptSample[]) {
         { label: '未提供的五行生克', pattern: /五行生克与落宫方位/ },
         { label: '把月日宫扩写为三段现实过程', pattern: /起因、过程、结果/ },
         { label: '内部取模公式', pattern: /mod\s*6|\([^\n]+\)\s*mod/u },
+        { label: '通行掌诀样本混入多能鄙事口径', pattern: /《多能鄙事》/ },
+      ],
+    },
+    {
+      sampleName: '小六壬《多能鄙事》',
+      patterns: [
+        { label: '未提供的五行生克', pattern: /五行生克与落宫方位/ },
+        { label: '把月日宫扩写为三段现实过程', pattern: /起因、过程、结果/ },
+        { label: '内部取模公式', pattern: /mod\s*6|\([^\n]+\)\s*mod/u },
+        { label: '多能鄙事样本混入通行掌诀口径', pattern: /通行俗传/ },
       ],
     },
     {
@@ -699,6 +738,33 @@ function assertAuditInputConsistency(samples: PromptSample[]) {
 
 function assertSamplePromptsAreClean(samples: PromptSample[]) {
   const leakedMessages: string[] = [];
+  const qimenSample = samples.find((sample) => sample.name === '奇门遁甲');
+  if (!qimenSample) {
+    leakedMessages.push('缺少奇门遁甲提示词样本');
+  } else {
+    const palaceText =
+      qimenSample.prompt.match(/九宫简表：\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/u)?.[1] ?? '';
+    const patternText = qimenSample.prompt.split('盘面命中格局：')[1]?.split('复合格局：')[0] ?? '';
+    if (!/旬空与马星：旬空[^\n]*空落[^\n]*；马星/u.test(qimenSample.prompt)) {
+      leakedMessages.push('奇门遁甲样本缺少旬空与宫位映射事实');
+    }
+    if (/逢空|马星/u.test(palaceText)) {
+      leakedMessages.push('奇门遁甲样本在九宫简表重复列出旬空或马星');
+    }
+    if (!patternText.includes('门迫（凶格）')) {
+      leakedMessages.push('奇门遁甲样本缺少门迫格局事实');
+    }
+    if (qimenSample.prompt.includes('格局条件：')) {
+      leakedMessages.push('奇门遁甲样本重复列出格局条件段');
+    }
+    const timingReferenceCount = qimenSample.prompt.match(/^值符宫应期参考：/gmu)?.length ?? 0;
+    const triggerSectionCount = qimenSample.prompt.match(/^触发条件：/gmu)?.length ?? 0;
+    if (timingReferenceCount !== 1 || triggerSectionCount !== 1) {
+      leakedMessages.push(
+        `奇门遁甲应期依据或触发条件段落数量异常：应期=${timingReferenceCount}，触发=${triggerSectionCount}`,
+      );
+    }
+  }
   const forbiddenPatterns = [
     { label: 'undefined', pattern: /\bundefined\b/i },
     { label: 'null', pattern: /\bnull\b/i },
@@ -886,6 +952,18 @@ export async function buildSamples(): Promise<PromptSample[]> {
       mode: 'framework',
       question: '请结合流年盘面分析当前事业与财务主题的阶段变化。',
     });
+    const thematicPrompt = buildThematicConsultationPrompt({
+      system: 'bazi_ziwei',
+      methodId: 'bazi-ziwei',
+      topic: 'career',
+      scope: 'natal',
+      mode: 'framework',
+      currentTime: fixedNow,
+      baziResult: samePersonBazi,
+      ziweiResult: ziweiRuntime,
+      ziweiScope: 'origin',
+      question: '请结合八字与紫微本命资料分析事业方向及可核对的阶段依据。',
+    });
 
     const contestAstrolabe = generateAstrolabe({
       name: '命例四',
@@ -1027,6 +1105,13 @@ export async function buildSamples(): Promise<PromptSample[]> {
       'xiaoliuren',
       commonQuestion,
       xiaoliurenData,
+      commonInfo,
+    );
+    const xiaoliurenDuonengData = generateXiaoliuren({ rule: 'duoneng', customDate: auditDate });
+    const xiaoliurenDuonengPrompt = buildDivinationPrompt(
+      'xiaoliuren',
+      commonQuestion,
+      xiaoliurenDuonengData,
       commonInfo,
     );
 
@@ -1236,6 +1321,7 @@ export async function buildSamples(): Promise<PromptSample[]> {
         question: '请交叉印证命局主线。',
         ziweiScope: 'origin',
       }),
+      thematicConsultation: thematicPrompt,
       instantBazi: buildInstantBaziPrompt(
         instantBaziResult,
         COMMON_PROJECT_QUESTION,
@@ -1270,7 +1356,10 @@ export async function buildSamples(): Promise<PromptSample[]> {
       birthDay: 15,
       gender: 'male',
       year: 2024,
-      doorToInteriorDegree: 0,
+      doorToInteriorDegree: 64,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 1,
+      measurementUncertaintyDegrees: 3,
     });
     const residentialPrompt = buildMetaphysicsPrompt(
       residentialData.prompt,
@@ -1407,6 +1496,14 @@ export async function buildSamples(): Promise<PromptSample[]> {
         notes: [],
       },
       {
+        name: '小六壬《多能鄙事》',
+        source: '《多能鄙事》口径小六壬时间课真实生成；固定时间 2026-05-19T10:30:00+08:00。',
+        inputSummary: buildCommonProjectInputSummary('时间起课；《多能鄙事》起日口径'),
+        prompt: xiaoliurenDuonengPrompt,
+        facts: extractDivinationPromptFacts('xiaoliuren', xiaoliurenDuonengData),
+        notes: [],
+      },
+      {
         name: '金口诀',
         source: '项目金口诀时间课真实生成；固定时间 2026-05-19T10:30:00+08:00。',
         inputSummary: buildCommonProjectInputSummary('时间起课'),
@@ -1457,7 +1554,8 @@ export async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '住宅风水',
         source: '项目住宅风水统一入口真实生成；八宅与玄空分层并列，不合成总分。',
-        inputSummary: '男，1990年6月15日生；建造/起运年 2024；门向 0°；问题为宅运与人宅关系。',
+        inputSummary:
+          '男，1990年6月15日生；建造/起运年 2024；入户读数 64°，磁偏角东偏 1°、误差±3°；问题为宅运与人宅关系。',
         prompt: residentialPrompt,
         facts: extractDivinationPromptFacts('residential', residentialData),
         notes: ['统一入口样本展示八宅与玄空分层合参，不代表装修吉凶保证。'],
@@ -1591,6 +1689,26 @@ export async function buildSamples(): Promise<PromptSample[]> {
           mutagenValueStyle: 'public',
         }),
         notes: ['验证流年范围不是本命资料的误标，并保留所选运限事实。'],
+      },
+      {
+        name: '主题咨询合参',
+        source: '主题咨询 builder 使用真实八字排盘与紫微本命盘生成。',
+        inputSummary: '同一命例：公历 1993年4月8日；事业主题；八字与紫微本命合参。',
+        prompt: extraSamples.thematicConsultation.prompt,
+        facts: [
+          ...extractBaziFacts(samePersonBazi, null, {
+            scope: { start: '【八字排盘信息】', end: '【紫微盘面信息】' },
+            idPrefix: 'thematic.bazi',
+          }),
+          ...extractZiweiFacts(ziweiRuntime, {
+            scope: { start: '【紫微盘面信息】', end: '【任务】' },
+            payloadScopes: ['origin'],
+            palaceValueStyle: 'public',
+            mutagenValueStyle: 'public',
+            idPrefix: 'thematic.ziwei',
+          }),
+        ],
+        notes: ['覆盖主题咨询的真实双盘任务书、盘面事实和内部字段/噪音检查。'],
       },
       {
         name: '八字即时盘',

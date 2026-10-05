@@ -7,10 +7,16 @@
 import { NineStar, Zone } from 'tyme4ts';
 
 /** 八卦（后天方位） */
-export const BAGUA: string[] = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
+const CANONICAL_BAGUA: string[] = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
+export const BAGUA: string[] = [...CANONICAL_BAGUA];
+
+/** 后天方位顺序的八卦名称；每次返回独立数组。 */
+export function getBaguaNames(): string[] {
+  return [...CANONICAL_BAGUA];
+}
 
 /** 八卦方位（后天八卦） */
-export const BAGUA_DIRECTION: Record<string, string> = {
+const CANONICAL_BAGUA_DIRECTION: Record<string, string> = {
   坎: '北',
   艮: '东北',
   震: '东',
@@ -20,9 +26,10 @@ export const BAGUA_DIRECTION: Record<string, string> = {
   兑: '西',
   乾: '西北',
 };
+export const BAGUA_DIRECTION: Record<string, string> = { ...CANONICAL_BAGUA_DIRECTION };
 
 /** 八卦中心度数（罗盘，正北为 0°，顺时针） */
-export const BAGUA_DEGREE: Record<string, number> = {
+const CANONICAL_BAGUA_DEGREE: Record<string, number> = {
   坎: 0,
   艮: 45,
   震: 90,
@@ -32,9 +39,10 @@ export const BAGUA_DEGREE: Record<string, number> = {
   兑: 270,
   乾: 315,
 };
+export const BAGUA_DEGREE: Record<string, number> = { ...CANONICAL_BAGUA_DEGREE };
 
 /** 二十四山（罗盘顺序，自正北子山起顺时针） */
-export const TWENTY_FOUR_MOUNTAINS: string[] = [
+const CANONICAL_TWENTY_FOUR_MOUNTAINS: string[] = [
   '子',
   '癸',
   '丑',
@@ -60,6 +68,12 @@ export const TWENTY_FOUR_MOUNTAINS: string[] = [
   '亥',
   '壬',
 ];
+export const TWENTY_FOUR_MOUNTAINS: string[] = [...CANONICAL_TWENTY_FOUR_MOUNTAINS];
+
+/** 自正北子山起顺时针的二十四山名称；每次返回独立数组。 */
+export function getTwentyFourMountainNames(): string[] {
+  return [...CANONICAL_TWENTY_FOUR_MOUNTAINS];
+}
 
 export interface CompassMountainPosition {
   /** 归一化后的罗盘度数；360° 归入 0°。 */
@@ -165,13 +179,14 @@ function normalizeCompassDegree(degree: number): number {
 export function getMountainFromDegree(degree: number): CompassMountainPosition {
   const normalized = normalizeCompassDegree(degree);
   const index = Math.floor(((normalized + 7.5) % 360) / 15);
-  const mountain = TWENTY_FOUR_MOUNTAINS[index];
+  const mountain = CANONICAL_TWENTY_FOUR_MOUNTAINS[index];
   const centerDegree = index * 15;
   const boundaryRemainder = (((normalized - 7.5) % 15) + 15) % 15;
   const isBoundary =
     boundaryRemainder < Number.EPSILON * 16 ||
     Math.abs(boundaryRemainder - 15) < Number.EPSILON * 16;
-  const previousIndex = (index + TWENTY_FOUR_MOUNTAINS.length - 1) % TWENTY_FOUR_MOUNTAINS.length;
+  const previousIndex =
+    (index + CANONICAL_TWENTY_FOUR_MOUNTAINS.length - 1) % CANONICAL_TWENTY_FOUR_MOUNTAINS.length;
 
   return {
     degree: normalized,
@@ -182,7 +197,12 @@ export function getMountainFromDegree(degree: number): CompassMountainPosition {
     endDegree: (centerDegree + 7.5) % 360,
     isBoundary,
     ...(isBoundary
-      ? { boundaryMountains: [TWENTY_FOUR_MOUNTAINS[previousIndex], mountain] as [string, string] }
+      ? {
+          boundaryMountains: [CANONICAL_TWENTY_FOUR_MOUNTAINS[previousIndex], mountain] as [
+            string,
+            string,
+          ],
+        }
       : {}),
   };
 }
@@ -205,6 +225,18 @@ export function analyzeCompassDirection(facingDegree: number): CompassDirectionA
   const position = getSitFacingFromFacingDegree(facingDegree);
   const facingBagua = getHouseTrigram(position.facing.mountain);
   const sitBagua = getHouseTrigram(position.sit.mountain);
+  const facingBaguaCandidates = [
+    ...new Set(
+      (position.facing.boundaryMountains ?? [position.facing.mountain]).map(getHouseTrigram),
+    ),
+  ];
+  const sitBaguaCandidates = [
+    ...new Set((position.sit.boundaryMountains ?? [position.sit.mountain]).map(getHouseTrigram)),
+  ];
+  const baguaOnBoundary = facingBaguaCandidates.length > 1 || sitBaguaCandidates.length > 1;
+  const baguaPromptText = baguaOnBoundary
+    ? `当前按${position.label}归位为${facingBagua}向、${sitBagua}山；分界线两侧向卦候选为${facingBaguaCandidates.join('、')}，坐卦候选为${sitBaguaCandidates.join('、')}`
+    : `${position.facing.mountain}向属${facingBagua}卦，${position.sit.mountain}山属${sitBagua}卦，形成${position.label}`;
   const normalizeStepKey = 'foundation:direction:calculation:normalize';
   const facingStepKey = 'foundation:direction:calculation:facing';
   const sitStepKey = 'foundation:direction:calculation:sit';
@@ -242,7 +274,7 @@ export function analyzeCompassDirection(facingDegree: number): CompassDirectionA
       stage: '八卦归属',
       status: '已映射',
       dependsOnStepKeys: [facingStepKey, sitStepKey],
-      promptText: `${position.facing.mountain}向属${facingBagua}卦，${position.sit.mountain}山属${sitBagua}卦，形成${position.label}`,
+      promptText: baguaPromptText,
       sources: ['公共二十四山所属后天八卦表'],
       limitation: COMPASS_STEP_LIMITATION,
     },
@@ -281,9 +313,9 @@ export function analyzeCompassDirection(facingDegree: number): CompassDirectionA
     {
       key: 'foundation:direction:fact:bagua',
       type: '八卦归属',
-      status: '已确定',
+      status: baguaOnBoundary ? '位于分界线' : '已确定',
       ownerStepKeys: [baguaStepKey],
-      promptText: `${position.facing.mountain}向属${facingBagua}卦，${position.sit.mountain}山属${sitBagua}卦`,
+      promptText: baguaPromptText,
       sources: ['二十四山所属后天八卦表'],
       limitation: COMPASS_FACT_LIMITATION,
     },
@@ -349,6 +381,16 @@ export function analyzeCompassDirection(facingDegree: number): CompassDirectionA
   };
   const source =
     '采用正北0°顺时针、子山中心0°、二十四山每山15°、坐向相差180°及公共二十四山所属后天八卦表';
+  const mountainText = (position: CompassMountainPosition, bagua: string, candidates: string[]) =>
+    position.isBoundary
+      ? `${position.boundaryMountains!.join('、')}分界；${
+          candidates.length === 1
+            ? `均属${bagua}卦`
+            : position
+                .boundaryMountains!.map((mountain) => `${mountain}属${getHouseTrigram(mountain)}卦`)
+                .join('、')
+        }；山位待复测核定`
+      : `${position.mountain}，属${bagua}卦`;
 
   return {
     key: `foundation:direction:${position.facing.degree}`,
@@ -367,7 +409,19 @@ export function analyzeCompassDirection(facingDegree: number): CompassDirectionA
     limitations,
     limitationFacts,
     source,
-    promptText: `罗盘换算：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.map((item) => item.replace(/[。；]+$/, '')).join('；')}。`,
+    promptText: [
+      '【任务】',
+      '请依据以下罗盘资料，解释坐向、二十四山与后天八卦的对应关系。',
+      '【罗盘资料】',
+      `朝向度数：${facingDegree}°${facingDegree !== position.facing.degree ? `（归一化为${position.facing.degree}°）` : ''}`,
+      `向山：${mountainText(position.facing, facingBagua, facingBaguaCandidates)}`,
+      `坐山：${position.sit.degree}°；${mountainText(position.sit, sitBagua, sitBaguaCandidates)}`,
+      '测量资料：实际北向基准（真北或磁北）、磁偏角与仪器误差待核定。',
+      '【传统依据】',
+      '采用正北0°顺时针、子山中心0°、二十四山每山15°及坐向相差180°的罗盘口径。',
+      '【输出要求】',
+      '说明上述坐向与八卦归属；存在分界时分别保留两侧候选，并说明复测所需资料。',
+    ].join('\n'),
   };
 }
 
@@ -407,7 +461,7 @@ export const NINE_STARS: NineStarProfile[] = Array.from({ length: 9 }, (_, index
 );
 
 /** 二十四山所属八卦 */
-export const MOUNTAIN_TO_BAGUA: Record<string, string> = {
+const CANONICAL_MOUNTAIN_TO_BAGUA: Record<string, string> = {
   子: '坎',
   癸: '坎',
   丑: '艮',
@@ -433,13 +487,14 @@ export const MOUNTAIN_TO_BAGUA: Record<string, string> = {
   亥: '乾',
   壬: '坎',
 };
+export const MOUNTAIN_TO_BAGUA: Record<string, string> = { ...CANONICAL_MOUNTAIN_TO_BAGUA };
 
 /** 由坐山（二十四山）取宅卦 */
 export function getHouseTrigram(mountain: string): string {
-  if (typeof mountain !== 'string' || !Object.hasOwn(MOUNTAIN_TO_BAGUA, mountain)) {
+  if (typeof mountain !== 'string' || !Object.hasOwn(CANONICAL_MOUNTAIN_TO_BAGUA, mountain)) {
     throw new Error(`坐山无效：${String(mountain)}`);
   }
-  const gua = MOUNTAIN_TO_BAGUA[mountain];
+  const gua = CANONICAL_MOUNTAIN_TO_BAGUA[mountain];
   if (!gua) throw new Error(`坐山无效：${mountain}`);
   return gua;
 }
@@ -451,8 +506,8 @@ export function getHouseTrigramFromSitFacing(sitMountain: string): string {
     if (match) {
       const sit = sitMountain[0];
       const facing = sitMountain[2];
-      const index = TWENTY_FOUR_MOUNTAINS.indexOf(sit);
-      if (index < 0 || TWENTY_FOUR_MOUNTAINS[(index + 12) % 24] !== facing) {
+      const index = CANONICAL_TWENTY_FOUR_MOUNTAINS.indexOf(sit);
+      if (index < 0 || CANONICAL_TWENTY_FOUR_MOUNTAINS[(index + 12) % 24] !== facing) {
         throw new Error(`坐向须为相对的二十四山：${sitMountain}`);
       }
       return getHouseTrigram(sit);
@@ -501,10 +556,10 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
   }
   const row = BA_ZHAI_TABLE[baseGua];
   if (!row) throw new Error(`基准卦无效（需为八卦之一）：${baseGua}`);
-  return BAGUA.map((gua, i) => ({
+  return CANONICAL_BAGUA.map((gua, i) => ({
     gua,
-    direction: BAGUA_DIRECTION[gua],
-    degree: BAGUA_DEGREE[gua],
+    direction: CANONICAL_BAGUA_DIRECTION[gua],
+    degree: CANONICAL_BAGUA_DEGREE[gua],
     label: row[i],
     luck: isLucky(row[i]) ? '吉' : '凶',
   }));
@@ -512,7 +567,7 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
 
 /** 命卦所属东四/西四 */
 export function getEastWestGroup(gua: string): '东四命' | '西四命' {
-  if (!BAGUA.includes(gua)) {
+  if (!CANONICAL_BAGUA.includes(gua)) {
     throw new Error(`八卦无效：${gua}`);
   }
   return ['坎', '离', '震', '巽'].includes(gua) ? '东四命' : '西四命';
@@ -551,6 +606,8 @@ export const direction = {
   FOUR_ZONES,
   NINE_STARS,
   MOUNTAIN_TO_BAGUA,
+  getBaguaNames,
+  getTwentyFourMountainNames,
   getNineStarProfile,
   getMountainFromDegree,
   getSitFacingFromFacingDegree,

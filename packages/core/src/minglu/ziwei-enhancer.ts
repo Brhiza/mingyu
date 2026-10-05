@@ -4,8 +4,11 @@
  */
 
 import type { ZiweiRuntime } from '../ziwei/runtime';
+import { selectVerifiedZiweiPatterns } from '../ziwei/iztro/pattern-detection';
 import type { MingluZiweiPalaceData, MingluZiweiSectionData, MingluZiweiStarFact } from './types';
 import type { StarFact } from '../types/analysis';
+
+const MALEFIC_STAR_NAMES = new Set(['擎羊', '陀罗', '火星', '铃星', '地空', '地劫']);
 
 function mapStar(star: StarFact, type: MingluZiweiStarFact['type']): MingluZiweiStarFact {
   return {
@@ -42,14 +45,16 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
       isBodyPalace: Boolean(p.is_body_palace),
       isOriginSoulPalace: p.name === '命宫',
       isLaiYinPalace: Boolean(p.is_original_palace),
-      decadalRange: p.decadal_range,
+      decadalRange: [...p.decadal_range],
       majorStars: p.major_stars.map((s) => mapStar(s, 'major')),
-      minorStars: p.minor_stars.map((s) => mapStar(s, 'minor')),
-      maleficStars: p.other_stars
-        .filter((s) => ['擎羊', '陀罗', '火星', '铃星', '地空', '地劫'].includes(s.name))
+      minorStars: p.minor_stars
+        .filter((s) => !MALEFIC_STAR_NAMES.has(s.name))
+        .map((s) => mapStar(s, 'minor')),
+      maleficStars: [...p.minor_stars, ...p.other_stars]
+        .filter((s) => MALEFIC_STAR_NAMES.has(s.name))
         .map((s) => mapStar(s, 'malefic')),
       otherStars: p.other_stars
-        .filter((s) => !['擎羊', '陀罗', '火星', '铃星', '地空', '地劫'].includes(s.name))
+        .filter((s) => !MALEFIC_STAR_NAMES.has(s.name))
         .map((s) => mapStar(s, 'other')),
       changsheng12: p.changsheng12 || '—',
       boshi12: p.boshi12 || '—',
@@ -57,21 +62,28 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
       jiangqian12: p.base_jiangqian12 || '—',
       oppositePalaceName: opposite?.name || '—',
       surroundedPalaceNames: surrounded,
-      selfMutagens: p.self_mutagens || [],
+      selfMutagens: [...(p.self_mutagens || [])],
       anchorId: `ziwei-palace-${p.index}`,
     };
   });
 
-  const patterns = (origin.patterns || []).map((pat) => ({
+  const birthYearHeavenlyStem = /^[甲乙丙丁戊己庚辛壬癸]/u.exec(
+    origin.basic_info.chinese_date ?? '',
+  )?.[0];
+  const patterns = selectVerifiedZiweiPatterns({
+    patterns: origin.patterns || [],
+    palaces: origin.palaces,
+    birthYearHeavenlyStem,
+  }).map((pat) => ({
     name: pat.name,
     type: (pat.kind === 'auspicious' ? '吉格' : pat.kind === 'inauspicious' ? '凶格' : '中性格') as
       '吉格' | '凶格' | '中性格',
     matched: true,
     conditions: pat.matched_conditions || [],
     traditionalInterpretation: pat.traditional_interpretation || pat.description,
-    // 出处仅在资料确实提供时呈现，不得以默认书名填补；引文身份同样以来源存在为前提
-    sourceTitle: pat.source,
-    sourceQuote: pat.source ? pat.description : undefined,
+    sourceTitle: pat.source_title,
+    sourceUrl: pat.source,
+    sourceQuote: pat.source_quote,
   }));
 
   const mutagens: MingluZiweiSectionData['mutagens'] = [];

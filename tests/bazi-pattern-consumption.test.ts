@@ -5,16 +5,22 @@ import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisForma
 import { analyzeBaziNatalEvidence } from '../packages/core/src/bazi/natalEvidence';
 import { buildBaziPrompt, formatBaziPatternConditions } from '../packages/core/src/prompt/bazi';
 import { formatBaziSchoolPrompt } from '../packages/core/src/prompt/bazi-school';
+import { analyzePillarRelations } from '../packages/core/src/bazi/baziPromptEnhancement';
 import type { PatternFulfillmentResult } from '../packages/core/src/bazi/baziPatternFulfillment';
 
-const seed = () =>
-  baziCalculator.calculateBazi({
-    year: 2000,
-    month: 1,
-    day: 7,
-    timeIndex: 5,
-    gender: 'male',
-  });
+let repeatedSeed: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
+
+function seed() {
+  return structuredClone(
+    (repeatedSeed ??= baziCalculator.calculateBazi({
+      year: 2000,
+      month: 1,
+      day: 7,
+      timeIndex: 5,
+      gender: 'male',
+    })),
+  );
+}
 
 for (const status of ['成格', '破格', '破而复成', '平常', '未判定'] as const) {
   test(`格局${status}经本命证据和各解读入口保留原始裁决`, () => {
@@ -28,7 +34,14 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
       remedies: [],
       summary: '成败与格局名称分别记录',
       conditions: ['制化来源与作用对象保持有效'],
-      conditionFacts: [{ key: 'control', status: '不满足', detail: '制化来源缺少有效根气' }],
+      conditionFacts: [
+        { key: 'control', status: '不满足', detail: '制化来源缺少有效根气' },
+        {
+          key: 'pattern.breaker.unresolved',
+          status: '资料不足',
+          detail: '破格候选根气层次不足以直接视为稳定作用。',
+        },
+      ],
       pathEvaluations: [
         {
           key: '印护官',
@@ -48,24 +61,28 @@ for (const status of ['成格', '破格', '破而复成', '平常', '未判定']
     const evidence = analyzeBaziNatalEvidence(result);
     const fact = evidence.analysisFacts.find((item) => item.type === '格局');
     assert.deepEqual(fact?.patternFulfillment, fulfillment);
+    assert.ok(fact?.promptText.includes(fulfillment.contradiction));
+    assert.ok(fact?.promptText.includes('条件核验：不满足；制化来源缺少有效根气'));
+    assert.ok(
+      fact?.promptText.includes('条件核验：资料不足；破格候选根气层次不足以直接视为稳定作用。'),
+    );
     const decisive = `当前成败判定：${status}`;
     for (const text of [
       fact?.promptText ?? '',
       formatBaziForPrompt(result),
-      formatBaziPatternConditions(result),
       buildBaziPrompt({ result }),
       ...(['ziping', 'mangpai', 'xinpai'] as const).map((school) =>
         formatBaziSchoolPrompt(result, school),
       ),
     ]) {
       assert.ok(text.includes(decisive), '格局名称不能替代成败判定');
-      assert.ok(text.includes('官伤并见，须区分有效制化'), '限制条件不能在摘要中丢失');
       assert.ok(text.includes(fulfillment.decisionDetail!), '通用规则不能替代本次裁决理由');
     }
+    const supplemental = formatBaziPatternConditions(result);
+    assert.equal(supplemental, '', '格神前提未成立时不展开模拟的未满足条件');
     for (const school of ['ziping', 'mangpai', 'xinpai'] as const) {
       const text = formatBaziSchoolPrompt(result, school);
-      assert.ok(text.includes('条件核验：不满足；制化来源缺少有效根气'));
-      assert.ok(text.includes('制化路径：印护官（未判定）：不满足'));
+      assert.doesNotMatch(text, /条件核验：|制化路径：|格局条件：|候选取用：/);
     }
     assert.deepEqual(
       result.analysis.mingGe.fulfillment,
@@ -97,4 +114,76 @@ test('制化条件变化后所有消费者反映新状态而不是沿用成格�
   assert.match(text, /当前成败判定：破格/);
   assert.doesNotMatch(text, /当前成败判定：成格/);
   assert.match(formatBaziForPrompt(result), /当前成败判定：破格/);
+});
+
+test('在线提示词与本命证据从四柱重算关系，不沿用旧排盘的重复或错误关系', () => {
+  const result = seed();
+  const expected = analyzePillarRelations(result);
+  const relation = Object.values(expected).flat()[0];
+  assert.ok(relation);
+  result.pillarRelations = {
+    fuxin: ['伪造的原局关系', '伪造的原局关系'],
+    fanyin: [],
+    sameStem: [],
+    sameBranch: [],
+    xingChong: [],
+  };
+
+  const prompt = formatBaziForPrompt(result);
+  const schoolPrompt = formatBaziSchoolPrompt(result, 'mangpai');
+  const evidence = analyzeBaziNatalEvidence(result);
+  for (const text of [
+    prompt,
+    schoolPrompt,
+    ...evidence.relationFacts.map((fact) => fact.promptText),
+  ]) {
+    assert.doesNotMatch(text, /伪造的原局关系/);
+  }
+  assert.ok(prompt.includes(relation));
+  assert.ok(schoolPrompt.includes(relation));
+  assert.ok(evidence.relationFacts.some((fact) => fact.relation === relation));
+});
+
+test('本命格局提示证据省略已写入成败理由的重复条件并保留独立盘面依据', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2013,
+    month: 9,
+    day: 25,
+    timeIndex: 3,
+    gender: 'male',
+  });
+  const pattern = result.analysis.mingGe;
+  const originalPattern = structuredClone(pattern);
+  const fact = analyzeBaziNatalEvidence(result).analysisFacts.find((item) => item.type === '格局');
+  const pathDetail = pattern.fulfillment?.pathEvaluations?.find(
+    (item) => item.label === '印星制伤官护官',
+  )?.detail;
+
+  assert.ok(fact);
+  assert.ok(pathDetail);
+  assert.match(fact.promptText, /当前成败判定：破格；判定理由：/);
+  assert.equal(fact.promptText.split(pathDetail).length - 1, 1);
+  assert.match(fact.promptText, /条件核验：满足；伤官见官可用项：时柱透干丁/);
+  assert.doesNotMatch(fact.promptText, /格局条件：|候选取用：/);
+  assert.doesNotMatch(fact.promptText, /条件核验：满足；月令酉藏辛/);
+  assert.doesNotMatch(fact.promptText, /官杀混杂未透干/);
+  assert.match(fact.promptText, /年柱透干癸（正印）无同类藏根/);
+  assert.match(fact.promptText, /条件核验：满足；正官见月柱透干辛（正官）/);
+  assert.match(fact.promptText, /来源无稳定根或其他可用根/);
+  assert.match(fact.promptText, /印星制伤官护官要求双方有可用根气/);
+  assert.ok(
+    originalPattern.fulfillment?.conditionFacts?.some(
+      (item) => item.key === 'pattern.month-gate' && item.status === '满足',
+    ),
+  );
+  assert.ok(
+    originalPattern.fulfillment?.conditionFacts?.some((item) => item.detail === '官杀混杂未透干。'),
+  );
+  assert.deepEqual(fact.patternFulfillment, originalPattern.fulfillment);
+  assert.deepEqual(pattern, originalPattern);
+
+  const evidenceDetail = result.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '格局事实',
+  )?.detail;
+  assert.equal(evidenceDetail?.split(pathDetail).length - 1, 1);
 });

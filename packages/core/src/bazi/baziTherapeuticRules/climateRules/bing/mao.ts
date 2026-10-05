@@ -2,6 +2,17 @@ import type { ClimateRule } from '../../types';
 
 export const BING_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
+    id: 'mao-month-bing-ren-first',
+    label: '丙日卯月专用壬水规则',
+    description: '二月丙火阳气舒升，原文专用壬水；无壬而己透的姑用分支另论。',
+    priority: 115,
+    months: ['卯'],
+    dayMasters: ['火'],
+    dayStems: ['丙'],
+    usefulWuxing: '水',
+    hint: '丙火卯月，专用壬水',
+  },
+  {
     id: 'mao-month-bing-no-ren-ji-temporary',
     label: '丙日卯月无壬己土姑用规则',
     description:

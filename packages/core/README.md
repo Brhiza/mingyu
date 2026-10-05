@@ -206,6 +206,8 @@ console.log(compatibility.ziwei);
 console.log(compatibility.astrolabe);
 ```
 
+紫微合盘以双方本命盘计算关系。`chart.ziwei.scopes` 可同时请求运限资料，合盘入口会补齐 `origin`；独立本命批次使用 `independentBatch: 'scope'` 和 `scopes: ['origin']`，仅运限的 `independentBatch: 'fortune'` 不适用于合盘。出生范围合盘需固定 `chart.ziwei.horoscopeContext` 或 `now`，保证各批次使用同一运限时刻。
+
 ```ts
 import { birthProfileToZiweiChartInput, calculateBaziFromBirthProfile } from 'mingyu-core/profile';
 import { buildAstrolabeFromInput } from 'mingyu-core/ziwei';
@@ -314,7 +316,13 @@ console.log(session.view); // kind/input/chart/timing/summary/evidence/warnings/
 console.log(session.serializedResult); // 稳定 JSON，可用于缓存或历史记录
 ```
 
+`divinationTime` 与 `currentTime` 接受 `Date`、毫秒时间戳或带 `Z`／明确时区偏移的 ISO 日期时间字符串；无时区文本与不存在的日期会在排盘前报错。随机选择太乙且未提供 `taiyi` 参数时，按起课时刻的北京时间年份生成年计盘。
+
+`request.random` 可统一传入 `seed` 或 `replay`，六爻三钱与蓍草起卦均使用这项设置。重放样本须覆盖本次实际随机抽取并恰好用尽；样本不足、额外样本或未被消费的样本会报错。手工爻值、三钱记录和蓍草分堆记录按实际输入排卦。
+
 `generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。金口诀可传 `jinkoujue: { method: 'branch', branch: '申' }` 直接指定地分，也支持时间、数字和随机取地分；雷诺曼 `spread` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
+
+黄历择日参与人的出生时间可提供精确小时和分钟并省略 `timeIndex`；若同时提供，两者须对应同一时辰。
 
 如果需要一次得到本命盘、运限盘、结构化分析资料和大限时间线，可以直接使用紫微运行时入口。它支持数字或文本表单输入；服务端、缓存和测试建议显式传入 `horoscopeContext`，让同一出生盘在不同运行时保持相同快照：
 
@@ -399,14 +407,14 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **紫微斗数 Ziwei**       | `mingyu-core/ziwei`（兼容 `mingyu-core/ziwei/iztro`）、`mingyu-core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
 | **即时排盘 Instant**     | `mingyu-core/instant`                                                                                                                         | 当前时刻八字、紫微、八字紫微、星盘与七政四余，区分北京时间与真太阳时且不需要性别                     |
 | **六爻 Liuyao**          | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
-| **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/声音/字数/方位/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                   |
+| **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/声音/字数/方位/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                    |
 | **奇门遁甲 Qimen**       | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
 | **大六壬 Liuren**        | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                     |
 | **择日 Almanac**         | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                     |
 | **灵签 SSGW**            | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签，返回签号、签题与签诗原文，支持 `seed` 和 `replay`                                    |
 | **西洋占星 Astrolabe**   | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                    |
 | **西占双盘 Synastry**    | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                     |
-| **历法 Calendar**        | `mingyu-core/calendar`、`mingyu-core/calendar/true-solar-time`、`mingyu-core/calendar/bazi-reverse`                                          | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时、UTC/UT/TT 时间尺度及四柱反推日期      |
+| **历法 Calendar**        | `mingyu-core/calendar`、`mingyu-core/calendar/true-solar-time`、`mingyu-core/calendar/bazi-reverse`                                           | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时、UTC/UT/TT 时间尺度及四柱反推日期   |
 | **出生档案 Profile**     | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，直接生成八字传统盘并提供紫微、星盘、择日适配器           |
 | **出生盘 Bundle**        | `mingyu-core/birth`                                                                                                                           | 从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果                                         |
 | **双人合盘 Bundle**      | `mingyu-core/compatibility`                                                                                                                   | 从两份 `BirthProfile` 生成八字合盘、紫微双盘证据和西占双盘相位                                       |
@@ -484,6 +492,8 @@ const result = baziCalculator.calculateBazi({
 
 ### 农历输入与真太阳时
 
+直接调用 `baziCalculator.calculateBazi(person)` 时，同时提供 `birthHour` 和 `birthMinute` 即按钟表时间计算，未提供 `birthSecond` 时采用零秒；完整钟表时间优先于 `timeIndex`。只有时辰资料时使用 `timeIndex`，只提供部分钟表字段会返回输入错误。
+
 ```typescript
 const result = baziCalculator.calculateBazi({
   year: 1990,
@@ -534,7 +544,7 @@ const result = baziCalculator.calculateBazi({
 // 六爻（默认当前时间起卦）
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 const liuyao = generateLiuyao();
-// 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
+// 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00+08:00'))
 const coinLiuyao = generateLiuyao(undefined, { method: 'coins', seed: '本次投掷' });
 console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜钱的完整轨迹
 
@@ -571,6 +581,8 @@ console.log(createQimenPriorityPalaces(qimen)); // 结构化重点宫位候选
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 const liuren = generateLiuren();
 ```
+
+六爻与大六壬的 `options`、梅花的第三个参数及金口诀的参数对象均支持 `timezoneOffsetMinutes`（分钟）。省略时沿用 `TimeManager` 的时区配置；显式 `0` 表示 UTC，`480` 表示 UTC+8。
 
 ### 公共地基与新增术数
 
@@ -683,6 +695,26 @@ console.log(qizhengChart.stars.length, qizhengChart.mansionBoundaries.length); /
 console.log(qizhengChart.positionSources); // 现代天文与传统均速来源分层
 ```
 
+`qizhengChart.calculationContext.solarIllumination.sunriseSunset` 保存所在民用日的实际起止 UTC 时刻（`dayStartUtcDateTime`、`dayEndUtcDateTimeExclusive`，终点不含）及按时间排序的全部 `crossings`。每个交点包含上行或下行方向、UTC 时间戳与文本、当地时间和当时的 UTC 偏移；夏令时及日期线变更造成的短日、长日均按实际时段列出交点。原有 `morning*`、`evening*` 字段仍是各方向的首个交点；跳过的民用日没有可计算的结果，会报错。
+
+`solarIllumination.apparentSolarNoonEvents` 按 UTC 顺序列出该民用日的全部视太阳正午，每项包含 UTC 时间戳、UTC 文本、当地时间和事件发生时的偏移。日期线回拨形成的重历日可能有两次正午。原有 `apparentSolarNoonUtcDateTime`、`apparentSolarNoonLocalDateTime` 选择与参考瞬时最近的当日正午；没有当日事件时仍返回参考估计。需要完整事件列表的调用方应读取新数组。
+
+单独调用 `qizheng.evaluateQizhengEnNan` 时，可直接复用同一七政盘的日光照资料和本命星曜：
+
+```typescript
+const sunriseSunset = qizhengChart.calculationContext.solarIllumination.sunriseSunset;
+const enNan = qizheng.evaluateQizhengEnNan({
+  birthUtcTimestamp: qizhengChart.calculationContext.astronomicalTime.unixMilliseconds,
+  sunriseSunset,
+  mingZhu: qizhengChart.mingZhu,
+  stars: qizhengChart.stars,
+  aspects: qizhengChart.aspects,
+});
+console.log(sunriseSunset.crossings, enNan.sect);
+```
+
+`stars` 每项需有星曜 `name` 与黄经度数 `longitude`；恩难交会按这些黄经及对应容许度复核 `aspects`，星曜位置资料未齐时只保留已核验的交会。
+
 ### 八字增强分析（从 vibebazi 整合）
 
 ```typescript
@@ -704,6 +736,8 @@ const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行
 
 `analyzeTenGodStructure` 分别返回透干、藏支和合计次数；状态只标记“缺位、仅藏、透出、透藏并见”，不再用隐藏权重推断“有力”或“偏重”。
 
+调候月令基础规则及荐干顺序按《穷通宝鉴》对应月令校核，条件取用仍由条件分支表达。`analysis.usefulGod.decisionEvidence.climateCandidates` 中的基础规则继续以 `reference` 模式返回，作为调候参考，不自动替代扶抑决策。读取规则标识的调用方需注意：丙亥无条件规则 `hai-month-bing-wu-xin-first` 已删除；庚戌统一使用 `xu-month-geng-jia-ren`，原重复规则 `xu-month-geng-ding-jia-first` 已删除。
+
 ### 历法工具
 
 ```typescript
@@ -718,6 +752,8 @@ const reverse = reverseBaziDates({
 });
 console.log(reverse.candidates); // 北京时间候选区间，起点含、终点不含
 ```
+
+`mingyu-core/ganzhi` 的 `getGanZhiFromDate(date)` 与 `getLunarHourFromDate(date)` 将 `Date` 视为真实瞬时，按 `TimeManager` 的统一时区读取民用年月日时分秒（默认 UTC+8）。完整四柱请用 `getGanZhiFromDate`：节气年、月以同一瞬时的节气参考计算，已配置其他时区时日、时柱使用该时区的钟表。`getLunarHourFromDate` 返回按当地民用钟表生成的 tyme4ts 时辰对象。构造北京时间样本时请使用带偏移的日期，例如 `new Date('2024-02-04T16:30:00+08:00')`；`new Date(2024, 1, 4, 16, 30)` 表示宿主本地钟表时间，其真实瞬时会随运行环境时区改变。
 
 ---
 
@@ -753,12 +789,12 @@ console.log(reverse.candidates); // 北京时间候选区间，起点含、终�
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹                            |
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据                     |
-| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                            |
+| `generateMeihua(date?, settings?, options?)`                                   | 梅花易数起卦                                                            |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                         |
 | `generateQimen(date?, method?, scope?, juMethod?)`                   | 年、月、日、时家奇门排盘，并内置用神宫与宫间作用结构化证据              |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                        |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                    |
-| `generateLiuren(date?)`                                              | 大六壬排盘                                                              |
+| `generateLiuren(date?, options?)`                                              | 大六壬排盘                                                              |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                              |
 | `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                      |
 | `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                      |
@@ -773,8 +809,8 @@ console.log(reverse.candidates); // 北京时间候选区间，起点含、终�
 | ------------------------------------------------- | ---------------------------------------------------------------- |
 | `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、历史时区、夏令时、跨日和时辰索引统一换算  |
 | `calendar.convertTrueSolarTime(input)`            | 当地钟表时间按固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
-| `calendar.reverseBaziDates(input)`                 | 根据完整四柱反推公历北京时间候选区间（节气月、23:00 子时换日） |
-| `calendar/bazi-reverse` 独立子路径                  | 仅导出 `reverseBaziDates` 及其请求、结果类型，适合按需加载       |
+| `calendar.reverseBaziDates(input)`                | 根据完整四柱反推公历北京时间候选区间（节气月、23:00 子时换日）   |
+| `calendar/bazi-reverse` 独立子路径                | 仅导出 `reverseBaziDates` 及其请求、结果类型，适合按需加载       |
 | `profile.calculateBaziFromBirthProfile(profile)`  | 从统一出生档案直接生成八字传统盘结果                             |
 | `profile.birthProfileToZiweiChartInput(profile)`  | 将统一出生档案转换为紫微传统盘输入                               |
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宅结果与候选坐向 |

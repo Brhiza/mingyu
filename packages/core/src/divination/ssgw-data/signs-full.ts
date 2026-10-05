@@ -1,6 +1,6 @@
 import type { RawSsgwSign } from './types';
 
-export const SIGNS_FULL: RawSsgwSign[] = [
+const signsFull: RawSsgwSign[] = [
   {
     id: 1,
     title: '第一签 · 明月千山，太平丰年（大吉）',
@@ -1421,7 +1421,7 @@ export const SIGNS_FULL: RawSsgwSign[] = [
     title: '第八十九签 · 福星高照，禄马交驰（大吉）',
     qianwen: '福星高照运亨通，禄马交驰事业隆。\n吉人自有天来助，德配天地福无穷。',
     story:
-      '"福星高照"是中国民间最常用的祝福语。"禄马"来自命理学——禄是官运，马是财运兼奔波之运，禄马交驰意味着官运与财运同时兴旺。 "吉人自有天相"出自《周易》——"积善之家，必有余庆。"好人自有天助。',
+      '"福星高照"是民间祝福语，"禄马交驰"以禄马并见写机缘与奔走。《周易·坤·文言》有“积善之家，必有余庆”，可借作重视德行与长期积累的典故。',
     details: {
       吉凶: '上签（大吉）',
       解签总论:
@@ -1473,3 +1473,10 @@ export const SIGNS_FULL: RawSsgwSign[] = [
     },
   },
 ];
+
+/** 返回独立的三山国王签谱原文资料。 */
+export function getRawSsgwSigns(): RawSsgwSign[] {
+  return signsFull.map((sign) => ({ ...sign, details: { ...sign.details } }));
+}
+
+export const SIGNS_FULL: RawSsgwSign[] = getRawSsgwSigns();

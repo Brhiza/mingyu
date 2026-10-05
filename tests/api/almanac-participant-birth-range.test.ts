@@ -70,12 +70,18 @@ test('公开 API 黄历参与人透传完整出生区间、来源四柱和条件
       (branch: {
         startTimestamp: number;
         endTimestamp: number;
-        profile: { usefulGods: string[] };
-      }) => [branch.startTimestamp, branch.endTimestamp, branch.profile.usefulGods],
+        profile: { monthCommander: string; incrementStatus: string; usefulGods: string[] };
+      }) => [
+        branch.startTimestamp,
+        branch.endTimestamp,
+        branch.profile.monthCommander,
+        branch.profile.incrementStatus,
+        branch.profile.usefulGods,
+      ],
     ),
     [
-      [rangeParticipant.birthTimeRange.startTimestamp, 1707640027000, ['土', '火', '金']],
-      [1707640027000, rangeParticipant.birthTimeRange.endTimestamp, ['火', '土', '金']],
+      [rangeParticipant.birthTimeRange.startTimestamp, 1707640027000, '戊', '待判', []],
+      [1707640027000, rangeParticipant.birthTimeRange.endTimestamp, '丙', '待判', []],
     ],
   );
   assert.equal(body.data.participants[1].birthTimeRange, undefined);

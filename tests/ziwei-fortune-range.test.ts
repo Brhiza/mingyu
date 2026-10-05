@@ -165,8 +165,16 @@ test('紫微指定年资料保留父级大限、真实流月边界和目标日�
   assert.match(text, /指定流月：\d+月 2026-08-06/);
 });
 
-test('紫微全部资料覆盖已验证的童限和大限流年，并可从编号表逐年还原事实', async () => {
-  const runtime = await calculateRange('all');
+test('紫微完整运限资料可逐年还原并保留阶段边界及目标下层事实', async () => {
+  const runtime = await calculatePublicZiweiChartForScopes(
+    input,
+    ['decadal', 'yearly', 'monthly', 'daily', 'hourly'],
+    {
+      skipAnalysis: true,
+      horoscopeContext: fixedContext,
+      fortuneRange: { scope: 'all', ...fixedContext },
+    },
+  );
   const timeline = runtime.fortuneTimeline;
   assert.ok(timeline);
   assert.equal(timeline.periods.length, 17);
@@ -242,20 +250,6 @@ test('紫微全部资料覆盖已验证的童限和大限流年，并可从编�
       source.layer.yearlyDecStars,
     );
   }
-});
-
-test('紫微阶段格式化覆盖真实完整时间线边界、交界流月和目标下层事实', async () => {
-  const runtime = await calculatePublicZiweiChartForScopes(
-    input,
-    ['decadal', 'yearly', 'monthly', 'daily', 'hourly'],
-    {
-      skipAnalysis: true,
-      horoscopeContext: fixedContext,
-      fortuneRange: { scope: 'all', ...fixedContext },
-    },
-  );
-  const timeline = runtime.fortuneTimeline;
-  assert.ok(timeline);
   assert.ok(timeline.periods.length > 1);
   const phaseTexts = timeline.periods.map((period, periodIndex) =>
     formatZiweiFortuneTimelinePhase(
@@ -273,6 +267,18 @@ test('紫微阶段格式化覆盖真实完整时间线边界、交界流月和�
   );
   for (const [periodIndex, period] of timeline.periods.entries()) {
     const text = phaseTexts[periodIndex]!;
+    const firstYear = period.years[0]!;
+    const lastYear = period.years.at(-1)!;
+    assert.ok(
+      text.includes(`实际覆盖：${firstYear.dateStr} 至 ${lastYear.endDateStr ?? lastYear.dateStr}`),
+      `${period.label} 的实际覆盖日期应只描述本阶段资料`,
+    );
+    assert.ok(!text.includes('本阶段事实日期：'));
+    assert.ok(
+      text.includes(
+        `完整资料全局覆盖：${timeline.actualStartDateStr} 至 ${timeline.actualEndDateStr}`,
+      ),
+    );
     assert.match(text, new RegExp(`${period.label}.*${period.dateStr}至${period.endDateStr}`));
     for (const year of period.years) {
       assert.ok(
@@ -313,16 +319,12 @@ test('紫微阶段格式化覆盖真实完整时间线边界、交界流月和�
     1,
   );
   assert.match(boundaryText, /上一流年12月交界段 2027-02-04/);
-});
-
-test('紫微完整任务书压缩后保留目标流月、流日和流时资料', async () => {
-  const runtime = await calculateCachedZiweiChart(input, {
-    scopes: ['origin', 'yearly', 'monthly', 'daily', 'hourly'],
-    skipAnalysis: true,
-    horoscopeContext: fixedContext,
-    fortuneRange: { scope: 'all', ...fixedContext },
+  const promptPayloads = { ...runtime.payloadByScope };
+  delete (promptPayloads as Partial<typeof promptPayloads>).decadal;
+  const prompt = buildPublicZiweiPromptForRuntime({
+    result: { ...runtime, payloadByScope: promptPayloads },
+    scope: 'full',
   });
-  const prompt = buildPublicZiweiPromptForRuntime({ result: runtime, scope: 'full' });
   assert.ok(prompt.length < 18_000, `完整任务书超过补充资料阈值：${prompt.length}`);
   assert.match(prompt, /本命盘、童限与大限流年；目标日期下附流月、流日与流时/);
   assert.match(prompt, /目标日期下层资料：/);
@@ -462,6 +464,7 @@ test('紫微闰月目标日沿用引擎流月归属且不压缩十二个常规�
   assert.equal(new Set(year.months?.map((month) => month.dateStr)).size, 12);
   assert.equal(year.targetMonth?.dateStr, '2025-08-20');
   assert.equal(year.targetMonth?.month, 7);
+  assert.equal(year.months?.find((month) => month.month === 7)?.dateStr, '2025-08-09');
 });
 
 test('紫微立春后农历年前目标日按实际流年分段且不混入虚岁起点干支', async () => {

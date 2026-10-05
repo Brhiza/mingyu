@@ -110,6 +110,24 @@ function pathDisplayName(path: BirthPlaceCascadePath): string {
     : path.province.label;
 }
 
+function copyBirthPlaceCity(city: BirthPlaceCityOption): BirthPlaceCityOption {
+  return { ...city, districts: city.districts.map((district) => ({ ...district })) };
+}
+
+function copyBirthPlaceProvince(province: BirthPlaceProvinceOption): BirthPlaceProvinceOption {
+  return { ...province, cities: province.cities.map(copyBirthPlaceCity) };
+}
+
+function copyBirthPlacePath(path: BirthPlaceCascadePath): BirthPlaceCascadePath {
+  const province = copyBirthPlaceProvince(path.province);
+  const city = path.city ? province.cities[path.province.cities.indexOf(path.city)] : undefined;
+  const district =
+    path.district && path.city && city
+      ? city.districts[path.city.districts.indexOf(path.district)]
+      : undefined;
+  return { province, ...(city ? { city } : {}), ...(district ? { district } : {}) };
+}
+
 const PROVINCE_APPROXIMATE_LATITUDE_BY_ID_PREFIX: Readonly<Record<string, number>> = {
   '11': 39.9042,
   '12': 39.3434,
@@ -159,12 +177,17 @@ function findBirthPlaceApproximateLatitude(regionId: string): number | undefined
   return PROVINCE_APPROXIMATE_LATITUDE_BY_ID_PREFIX[regionId.slice(0, 2)];
 }
 
-function resolvePath(path: BirthPlaceCascadePath): ResolvedBirthPlace {
+function resolvePath(
+  path: BirthPlaceCascadePath,
+  useProvinceApproximation: boolean,
+): ResolvedBirthPlace {
   const node = pathNode(path);
   const hasAdministrativeLatitude = node.latitude !== undefined;
   const approximateLatitude = hasAdministrativeLatitude
     ? undefined
-    : findBirthPlaceApproximateLatitude(node.id);
+    : useProvinceApproximation
+      ? findBirthPlaceApproximateLatitude(node.id)
+      : undefined;
   const latitude = node.latitude ?? approximateLatitude;
   return {
     regionId: node.id,
@@ -182,7 +205,7 @@ function resolvePath(path: BirthPlaceCascadePath): ResolvedBirthPlace {
             : ('province-approximation' as const),
         }
       : {}),
-    path,
+    path: copyBirthPlacePath(path),
   };
 }
 
@@ -202,8 +225,10 @@ function searchScore(entry: SearchEntry, query: string): number | null {
   return null;
 }
 
-/** 从任意省市区树创建地点索引。 */
+/** 从任意省市区树创建地点索引，创建时保存节点快照，查询返回独立节点副本。 */
 export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[]): BirthPlaceIndex {
+  const useProvinceApproximation = tree === CHINA_BIRTH_PLACE_TREE_DATA;
+  const indexedTree = tree.map(copyBirthPlaceProvince);
   const regionPathById = new Map<string, BirthPlaceCascadePath>();
   const pathByDisplayName = new Map<string, BirthPlaceCascadePath | null>();
   const searchEntries: SearchEntry[] = [];
@@ -221,6 +246,15 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
 
   const register = (path: BirthPlaceCascadePath) => {
     const node = pathNode(path);
+    if (!Number.isFinite(node.longitude) || Math.abs(node.longitude) > 180) {
+      throw new RangeError(`出生地点“${node.id}”的经度必须是-180至180度之间的有限数值。`);
+    }
+    if (
+      node.latitude !== undefined &&
+      (!Number.isFinite(node.latitude) || Math.abs(node.latitude) > 90)
+    ) {
+      throw new RangeError(`出生地点“${node.id}”的纬度必须是-90至90度之间的有限数值。`);
+    }
     const displayName = pathDisplayName(path);
     const idKey = normalizeKey(node.id);
     regionPathById.set(idKey, path);
@@ -237,7 +271,7 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
     });
   };
 
-  for (const province of tree) {
+  for (const province of indexedTree) {
     register({ province });
     for (const city of province.cities) {
       register({ province, city });
@@ -249,18 +283,26 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
     regionPathById.get(normalizeKey(value)) ?? pathByDisplayName.get(normalizeKey(value)) ?? null;
 
   return {
-    getProvinceOptions: () => tree,
+    getProvinceOptions: () => indexedTree.map(copyBirthPlaceProvince),
     getCityOptions: (provinceId) =>
-      tree.find((province) => normalizeKey(province.id) === normalizeKey(provinceId))?.cities ?? [],
+      indexedTree
+        .find((province) => normalizeKey(province.id) === normalizeKey(provinceId))
+        ?.cities.map(copyBirthPlaceCity) ?? [],
     getDistrictOptions: (cityId) => {
-      for (const province of tree) {
+      for (const province of indexedTree) {
         const city = province.cities.find((item) => normalizeKey(item.id) === normalizeKey(cityId));
-        if (city) return city.districts;
+        if (city) return city.districts.map((district) => ({ ...district }));
       }
       return [];
     },
-    findByRegionId: (regionId) => regionPathById.get(normalizeKey(regionId)) ?? null,
-    findByDisplayName: (displayName) => pathByDisplayName.get(normalizeKey(displayName)) ?? null,
+    findByRegionId: (regionId) => {
+      const path = regionPathById.get(normalizeKey(regionId));
+      return path ? copyBirthPlacePath(path) : null;
+    },
+    findByDisplayName: (displayName) => {
+      const path = pathByDisplayName.get(normalizeKey(displayName));
+      return path ? copyBirthPlacePath(path) : null;
+    },
     search: (query, options = {}) => {
       const normalizedQuery = normalizeSearchKey(query);
       if (!normalizedQuery) return [];
@@ -279,11 +321,11 @@ export function createBirthPlaceIndex(tree: readonly BirthPlaceProvinceOption[])
             left.entry.displayName.localeCompare(right.entry.displayName, 'zh-CN'),
         )
         .slice(0, limit)
-        .map(({ entry }) => resolvePath(entry.path));
+        .map(({ entry }) => resolvePath(entry.path, useProvinceApproximation));
     },
     resolve: (regionIdOrDisplayName) => {
       const path = findPath(regionIdOrDisplayName);
-      return path ? resolvePath(path) : null;
+      return path ? resolvePath(path, useProvinceApproximation) : null;
     },
     resolveLongitude: (regionIdOrDisplayName) => {
       const path = findPath(regionIdOrDisplayName);

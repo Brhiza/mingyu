@@ -1,5 +1,14 @@
 import type { BaziChartResult } from '../bazi/index.js';
+
+import { isGanZhiPair } from '../ganzhi/validation.js';
 import type { TermContextData } from './types.js';
+import { getGanZhiRelationTables } from '../ganzhi/relations.js';
+import { getGanZhiAttributeTables, getNayinTable } from '../ganzhi/data.js';
+
+const NAYIN_MAP = getNayinTable();
+const { STEM_WUXING } = getGanZhiAttributeTables();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 const BRANCHES = new Set(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']);
@@ -30,9 +39,9 @@ export function getBaziTermContext(
   if (!term || !result) return undefined;
   const clean = term.replace(/[[\]【】()（）:：\s]/g, '').trim();
   const dayMaster = result.dayMaster?.gan || result.pillars?.day?.gan || '';
-  const useful =
-    result.analysis?.usefulGod?.primaryUseful || result.analysis?.usefulGod?.useful || '';
-  const avoid = result.analysis?.usefulGod?.primaryAvoid || result.analysis?.usefulGod?.avoid || '';
+  const usefulGod = result.analysis?.usefulGod;
+  const useful = usefulGod?.primaryUseful || usefulGod?.useful || '';
+  const avoid = usefulGod?.primaryAvoid || usefulGod?.avoid || '';
   const dmStrength = result.analysis?.dayMasterStrength?.status || '';
   const pattern = result.analysis?.mingGe?.pattern || '';
   const stageDesc = options?.pillarLabel ? PILLAR_STAGE_NAMES[options.pillarLabel] : undefined;
@@ -41,7 +50,7 @@ export function getBaziTermContext(
   if (['日元', '元男', '元女', '日主', '日干'].includes(clean)) {
     return {
       chartTitle: `日主自身（${dayMaster} · ${dmStrength}）`,
-      roleInChart: `日干${dayMaster}代表命主自身，全局气数为【${dmStrength}】。论命以日主为核心，结合月令司权与四柱生克推求平衡。`,
+      roleInChart: `日干${dayMaster || '待定'}代表命主自身，全局气数为【${dmStrength || '待判'}】。论命以日主为核心，结合本盘格局、月令与取用依据解释四柱作用。`,
       dynamicTone: 'neutral',
       pillarOrPalace: '日主太极点',
       relationshipSummary: `月令：${result.monthCommander || '当令'} · 格局：${pattern || '命格'}`,
@@ -65,26 +74,35 @@ export function getBaziTermContext(
       '劫财',
     ].includes(clean)
   ) {
-    const isUseful =
-      useful.includes(clean) ||
-      (clean === '正印' && dmStrength.includes('弱')) ||
-      (clean === '七杀' && dmStrength.includes('旺'));
-    const isAvoid =
-      avoid.includes(clean) ||
-      (clean === '七杀' && dmStrength.includes('弱')) ||
-      (clean === '正官' && dmStrength.includes('弱'));
+    const canonicalName = (name: string) =>
+      name === '偏官' ? '七杀' : name === '枭神' ? '偏印' : name;
+    const tenGod = canonicalName(clean);
+    const isUseful = usefulGod?.favorable?.some((name) => canonicalName(name) === tenGod);
+    const isAvoid = usefulGod?.unfavorable?.some((name) => canonicalName(name) === tenGod);
 
     let roleInChart: string;
     let dynamicTone: 'lucky' | 'unlucky' | 'neutral' = 'neutral';
 
-    if (isUseful) {
+    if (isUseful && !isAvoid) {
       dynamicTone = 'lucky';
-      roleInChart = `此盘【${clean}】为喜用神。日主${dmStrength}，得${clean}生助调和，主才华施展与机遇开拓之关键着力点。`;
-    } else if (isAvoid) {
+      const rank = usefulGod?.primaryFavorable?.some((name) => canonicalName(name) === tenGod)
+        ? '主用'
+        : usefulGod?.secondaryFavorable?.some((name) => canonicalName(name) === tenGod)
+          ? '辅喜'
+          : '喜用';
+      roleInChart = `此盘【${clean}】在取用中列为${rank}，具体作用结合本盘格局与取用依据。`;
+    } else if (isAvoid && !isUseful) {
       dynamicTone = 'unlucky';
-      roleInChart = `此盘【${clean}】气盛为忌。日主${dmStrength}，逢${clean}易增添克耗压力，行事需防是非波折，宜以印化或食制。`;
+      const rank = usefulGod?.primaryUnfavorable?.some((name) => canonicalName(name) === tenGod)
+        ? '主忌'
+        : usefulGod?.secondaryUnfavorable?.some((name) => canonicalName(name) === tenGod)
+          ? '次忌'
+          : '所忌';
+      roleInChart = `此盘【${clean}】在取用中列为${rank}，具体作用结合本盘格局与取用依据。`;
+    } else if (isUseful && isAvoid) {
+      roleInChart = `此盘【${clean}】同时列于喜用与所忌，具体作用结合本盘取用依据分别判断。`;
     } else {
-      roleInChart = `在${options?.pillarLabel || '四柱'}中临${clean}，主导${stageDesc || '对应宫位'}之人伦机能与心性表达。`;
+      roleInChart = `【${clean}】的作用需结合${options?.pillarLabel || '四柱'}的实际配置、${stageDesc || '对应宫位'}及本盘取用依据。`;
     }
 
     return {
@@ -92,7 +110,7 @@ export function getBaziTermContext(
       roleInChart,
       dynamicTone,
       pillarOrPalace: options?.pillarLabel ? `${options.pillarLabel} · ${clean}` : clean,
-      relationshipSummary: `日主${dmStrength} · 喜用：${useful || '顺应'} · 忌神：${avoid || '中和'}`,
+      relationshipSummary: `日主${dmStrength || '待判'} · 主用：${useful || '待判'} · 主忌：${avoid || '待判'}`,
     };
   }
 
@@ -105,23 +123,15 @@ export function getBaziTermContext(
   ) {
     return {
       chartTitle: `日主旺衰格局`,
-      roleInChart: `日干${dayMaster}经月令考量与通根比照判定为【${dmStrength}】，确立“${dmStrength.includes('旺') ? '身强任财官、喜泄克耗' : '身弱喜印比扶身生助'}”的取用原则。`,
-      dynamicTone: dmStrength.includes('旺') ? 'lucky' : 'neutral',
+      roleInChart: `日干${dayMaster || '待定'}，本盘旺衰为【${dmStrength || '待判'}】，格局为【${pattern || '待判'}】；主用：${useful || '待判'}；主忌：${avoid || '待判'}。`,
+      dynamicTone: 'neutral',
       pillarOrPalace: '旺衰权衡',
-      relationshipSummary: `月令司权：${result.monthCommander || '当令'} · 格局：${pattern}`,
+      relationshipSummary: `月令司权：${result.monthCommander || '未列'} · 格局：${pattern || '待判'}`,
     };
   }
 
   // 4. 纳音五行（海中金、炉中火等）
-  if (
-    options?.pillarLabel &&
-    clean.length === 3 &&
-    (clean.endsWith('金') ||
-      clean.endsWith('木') ||
-      clean.endsWith('水') ||
-      clean.endsWith('火') ||
-      clean.endsWith('土'))
-  ) {
+  if (options?.pillarLabel && options.ganZhi && NAYIN_MAP[options.ganZhi] === clean) {
     return {
       chartTitle: `柱位纳音气象`,
       roleInChart: `${options.pillarLabel}（${options.ganZhi || ''}）纳音为【${clean}】，主导${stageDesc || '该阶段'}之气象品格与环境基调。`,
@@ -233,7 +243,7 @@ export function getBaziTermContext(
   }
 
   // 6. 干支组合与单天干地支（精确区分）
-  const isGanzhiPair = clean.length === 2 && STEMS.has(clean[0]) && BRANCHES.has(clean[1]);
+  const isGanzhiPair = clean.length === 2 && isGanZhiPair(clean[0], clean[1]);
   if (isGanzhiPair) {
     return {
       chartTitle: `四柱干支气数`,
@@ -245,20 +255,13 @@ export function getBaziTermContext(
   }
 
   const isSingleStem =
-    STEMS.has(clean) ||
-    (clean.length === 2 && clean.endsWith('木')) ||
-    clean.endsWith('火') ||
-    clean.endsWith('土') ||
-    clean.endsWith('金') ||
-    (clean.endsWith('水') && STEMS.has(clean[0]));
+    STEMS.has(clean) || (clean.length === 2 && STEM_WUXING[clean[0]!] === clean[1]);
   if (isSingleStem) {
     const stemChar = clean[0];
-    const isUseful = useful.includes(stemChar);
-    const isAvoid = avoid.includes(stemChar);
     return {
       chartTitle: `天干实盘作用`,
-      roleInChart: `天干${clean}居于${options?.pillarLabel || '柱位'}。主导外显才能与天时动向。${isUseful ? '为此盘喜用五行，主生扶赋能。' : isAvoid ? '气势偏盛克耗日主，需察干支制化。' : '参与全盘天干生克化合。'}`,
-      dynamicTone: isUseful ? 'lucky' : isAvoid ? 'unlucky' : 'neutral',
+      roleInChart: `天干${clean}居于${options?.pillarLabel || '柱位'}，本五行属${STEM_WUXING[stemChar]}，参与全盘天干生克化合。`,
+      dynamicTone: 'neutral',
       pillarOrPalace: options?.pillarLabel ? `${options.pillarLabel}天干` : clean,
       relationshipSummary: `天干：${stemChar} · 日主：${dayMaster}`,
     };
@@ -266,21 +269,13 @@ export function getBaziTermContext(
 
   const isSingleBranch =
     BRANCHES.has(clean) ||
-    (clean.length === 2 &&
-      (clean.endsWith('水') ||
-        clean.endsWith('土') ||
-        clean.endsWith('木') ||
-        clean.endsWith('火') ||
-        clean.endsWith('金')) &&
-      BRANCHES.has(clean[0]));
+    (clean.length === 2 && GANZHI_RELATION_TABLES.BRANCH_WUXING[clean[0]!] === clean[1]);
   if (isSingleBranch) {
     const branchChar = clean[0];
-    const isUseful = useful.includes(branchChar);
-    const isAvoid = avoid.includes(branchChar);
     return {
       chartTitle: `地支实盘作用`,
-      roleInChart: `地支${clean}居于${options?.pillarLabel || '柱位'}。承载地气根基与支藏十神。${isUseful ? '地支生旺得地，为命局有力支柱。' : isAvoid ? '地支见克耗刑冲，需防暗生波折。' : '参与全盘地支刑冲合会。'}`,
-      dynamicTone: isUseful ? 'lucky' : isAvoid ? 'unlucky' : 'neutral',
+      roleInChart: `地支${clean}居于${options?.pillarLabel || '柱位'}，本五行属${GANZHI_RELATION_TABLES.BRANCH_WUXING[branchChar]}，承载地气根基与支藏十神，参与全盘地支刑冲合会。`,
+      dynamicTone: 'neutral',
       pillarOrPalace: options?.pillarLabel ? `${options.pillarLabel}地支` : clean,
       relationshipSummary: `地支：${branchChar} · 日主：${dayMaster}`,
     };
@@ -320,8 +315,8 @@ export function getLiuyaoTermContext(
   if (clean === '世爻' || (yaoInfo?.isWorld && clean === yaoInfo.sixRelative)) {
     return {
       chartTitle: hexTitle,
-      roleInChart: `世爻居第${yaoInfo?.position || '世'}爻（${yaoInfo?.sixRelative || '六亲'} · ${yaoInfo?.sixGod || '六神'}），为自身立足点与主事基石。${yaoInfo?.isChanging ? '动而化变，主事态正在生变，行事需关注变卦走向。' : '临静爻，根基稳重。'}`,
-      dynamicTone: 'lucky',
+      roleInChart: `世爻居第${yaoInfo?.position || '世'}爻（${yaoInfo?.sixRelative || '六亲'} · ${yaoInfo?.sixGod || '六神'}），为自身立足点与主事基石。${yaoInfo?.isChanging ? '动而化变，主事态正在生变，行事需关注变卦走向。' : '临静爻，具体作用结合日月旺衰与生克关系。'}`,
+      dynamicTone: 'neutral',
       pillarOrPalace: `世爻（第${yaoInfo?.position || ''}爻）`,
       relationshipSummary: `宫属：${data.palace?.name || '本'}宫 · 状态：${yaoInfo?.isChanging ? '动爻' : '静爻'}`,
     };
@@ -353,7 +348,7 @@ export function getLiuyaoTermContext(
     return {
       chartTitle: hexTitle,
       roleInChart: `第${yaoInfo?.position || ''}爻临${clean}（${yaoInfo?.najia || ''} · ${yaoInfo?.sixGod || ''}）${isWorld ? '持世，主导当前主事心态' : ''}${isChanging ? '发动，主事态生变之引线' : ''}。`,
-      dynamicTone: isWorld ? 'lucky' : 'neutral',
+      dynamicTone: 'neutral',
       pillarOrPalace: yaoInfo?.position ? `第${yaoInfo.position}爻` : undefined,
       relationshipSummary: `六神：${yaoInfo?.sixGod || '六神'} · 纳甲：${yaoInfo?.najia || ''}`,
     };
@@ -410,21 +405,22 @@ export function getZiweiTermContext(
   if (!term) return undefined;
 
   if (options?.palaceName && options?.starName) {
-    const mutagenText = options.mutagen ? `化${options.mutagen.replace('化', '')}` : '';
+    const mutagen = options.mutagen?.replace(/^化/, '') || '';
+    const mutagenText = mutagen ? `化${mutagen}` : '';
     const brightnessText = options.brightness ? `${options.brightness}地` : '';
     const isLucky =
-      options.mutagen === '化禄' ||
-      options.mutagen === '化权' ||
-      options.mutagen === '化科' ||
+      mutagen === '禄' ||
+      mutagen === '权' ||
+      mutagen === '科' ||
       options.brightness === '庙' ||
       options.brightness === '旺';
 
     return {
       chartTitle: `紫微命盘星曜配置`,
       roleInChart: `${options.starName}坐落${options.palaceName}${brightnessText ? `（${brightnessText}）` : ''}${mutagenText ? `，逢${mutagenText}` : ''}。主导${options.palaceName}之运势吉凶与心性模式。`,
-      dynamicTone: isLucky ? 'lucky' : options.mutagen === '化忌' ? 'unlucky' : 'neutral',
+      dynamicTone: mutagen === '忌' ? 'unlucky' : isLucky ? 'lucky' : 'neutral',
       pillarOrPalace: `${options.palaceName} · ${options.starName}`,
-      relationshipSummary: `宫位：${options.palaceName} · 四化：${options.mutagen || '无'} · 庙陷：${options.brightness || '平'}`,
+      relationshipSummary: `宫位：${options.palaceName} · 四化：${mutagenText || '无'} · 庙陷：${options.brightness || '未列'}`,
     };
   }
 

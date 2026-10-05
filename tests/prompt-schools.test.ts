@@ -6,12 +6,15 @@ import { generateQimen } from 'mingyu-core/divination/qimen';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { huangjiJingshi, wuyunLiuqi } from 'mingyu-core';
 import {
+  BAZI_SCHOOL_PROFILES,
   PROMPT_SCHOOL_PROFILES,
   buildBaziCompatibilityPrompt,
   buildBaziPrompt,
   buildDivinationPrompt,
   formatPromptSchoolGuidance,
+  getBaziSchoolGuidance,
   getPromptSchoolIds,
+  getPromptSchoolProfiles,
   getPromptSchoolSectionTitle,
 } from 'mingyu-core/prompt';
 
@@ -33,6 +36,22 @@ test('解读口径注册表只覆盖规划内适用术数且每种至少提供�
     );
   }
   assert.equal('ssgw' in PROMPT_SCHOOL_PROFILES, false);
+
+  const profiles = getPromptSchoolProfiles('liuyao');
+  const profile = profiles.huozhulin;
+  const original = { ...profile };
+  const guidance = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
+  assert.match(guidance, /断法：火珠林法/);
+  assert.doesNotMatch(guidance, /合参任务/);
+  try {
+    profile.label = '变造断法';
+    profile.task = '变造任务';
+    profile.basis = '变造依据';
+    assert.deepEqual(getPromptSchoolProfiles('liuyao').huozhulin, original);
+    assert.equal(formatPromptSchoolGuidance('liuyao', ['huozhulin']), guidance);
+  } finally {
+    Object.assign(profile, original);
+  }
 });
 
 test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
@@ -52,9 +71,6 @@ test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
   assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin', 'bushizhengzong']), '多法合参');
   assert.equal(getPromptSchoolSectionTitle('bazi', ['ziping', 'mangpai']), '多派合参');
   assert.equal(getPromptSchoolSectionTitle('tarot', ['rws', 'yuansu']), '多口径合参');
-  const single = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
-  assert.match(single, /断法：火珠林法/);
-  assert.doesNotMatch(single, /合参任务/);
   assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin']), '解读断法');
   assert.throws(() => formatPromptSchoolGuidance('liuyao', ['unknown']), /不支持解读口径/);
 });
@@ -62,17 +78,27 @@ test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
 test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
   const result1 = createChart('female', 15);
   const result2 = createChart('male', 20);
-  const singlePrompt = buildBaziPrompt({
+  const currentTime = new Date('2026-10-05T12:00:00+08:00');
+  const singleOptions = {
     result: result1,
-    schools: ['ziping', 'mangpai', 'xinpai'],
+    schools: ['ziping', 'mangpai', 'xinpai'] as const,
     question: '事业主线如何？',
-  });
-  const compatibilityPrompt = buildBaziCompatibilityPrompt({
+    currentTime,
+  };
+  const compatibilityOptions = {
     result1,
     result2,
-    schools: ['ziping', 'mangpai', 'xinpai'],
+    schools: ['ziping', 'mangpai', 'xinpai'] as const,
     question: '双方适合长期合作吗？',
-  });
+    currentTime,
+  };
+  const singleSchoolOptions = { ...singleOptions, schools: ['ziping'] as const };
+  const singlePrompt = buildBaziPrompt(singleOptions);
+  const compatibilityPrompt = buildBaziCompatibilityPrompt(compatibilityOptions);
+  const singleSchoolPrompt = buildBaziPrompt(singleSchoolOptions);
+  const guidance = getBaziSchoolGuidance('ziping');
+  assert.match(singleSchoolPrompt, /子平派（传统）/);
+  assert.match(guidance, /《子平真诠》/);
 
   for (const prompt of [singlePrompt, compatibilityPrompt]) {
     assert.match(prompt, /【多派合参】/);
@@ -81,9 +107,38 @@ test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
     assert.match(prompt, /新派/);
     assert.match(prompt, /共同结论、分歧/);
   }
+
+  const profile = BAZI_SCHOOL_PROFILES.ziping;
+  const originalProfile = { ...profile };
+  try {
+    profile.label = '变造公开流派';
+    profile.task = '变造公开任务';
+    profile.basis = '变造公开依据';
+    assert.deepEqual(profile, {
+      label: '变造公开流派',
+      task: '变造公开任务',
+      basis: '变造公开依据',
+    });
+    assert.deepEqual(
+      {
+        guidance: getBaziSchoolGuidance('ziping'),
+        single: buildBaziPrompt(singleSchoolOptions),
+        multiple: buildBaziPrompt(singleOptions),
+        compatibility: buildBaziCompatibilityPrompt(compatibilityOptions),
+      },
+      {
+        guidance,
+        single: singleSchoolPrompt,
+        multiple: singlePrompt,
+        compatibility: compatibilityPrompt,
+      },
+    );
+  } finally {
+    Object.assign(profile, originalProfile);
+  }
 });
 
-test('缺时辰流派资料只列待补时场景，合盘入口明确要求补时', () => {
+test('缺时辰流派资料复用排盘候选，合盘入口明确要求补时', () => {
   const result = baziCalculator.calculateBazi({
     year: 2000,
     month: 1,
@@ -96,9 +151,11 @@ test('缺时辰流派资料只列待补时场景，合盘入口明确要求补�
     question: '请说明目前可核的资料。',
   });
 
-  assert.match(singlePrompt, /出生时辰资料：/);
+  assert.match(singlePrompt, /出生时辰未知/);
+  assert.match(singlePrompt, /【时辰候选比较】/);
   assert.match(singlePrompt, /丑时候选/);
-  assert.match(singlePrompt, /已确定的柱作为基础资料/);
+  assert.match(singlePrompt, /【已确定的柱】/);
+  assert.doesNotMatch(singlePrompt, /出生时辰资料：|已确定的柱作为基础资料/);
   assert.throws(
     () =>
       buildBaziCompatibilityPrompt({

@@ -39,7 +39,7 @@ const trigramsByBinary: Record<string, TrigramData> = {
 };
 
 // 八卦数据（数字键格式，用于索引查找）
-export const trigramsByIndex: Record<number, TrigramData> = {
+const canonicalTrigramsByIndex: Record<number, TrigramData> = {
   1: trigramsByBinary['111'], // 乾
   2: trigramsByBinary['110'], // 兑
   3: trigramsByBinary['101'], // 离
@@ -1203,4 +1203,24 @@ const rawHexagramsData = [
 ];
 
 // 导出卦象数据
-export const hexagramsData: HexagramData[] = rawHexagramsData;
+/** 返回八卦资料及爻线的独立副本。 */
+export function getTrigramsByIndex(): Record<number, TrigramData> {
+  return Object.fromEntries(
+    Object.entries(canonicalTrigramsByIndex).map(([index, trigram]) => [
+      index,
+      { ...trigram, lines: [...trigram.lines] },
+    ]),
+  );
+}
+
+export const trigramsByIndex: Record<number, TrigramData> = getTrigramsByIndex();
+
+/** 返回六十四卦资料及爻辞的独立副本。 */
+export function getHexagramsData(): HexagramData[] {
+  return rawHexagramsData.map((hexagram) => ({
+    ...hexagram,
+    yaoCi: hexagram.yaoCi ? [...hexagram.yaoCi] : undefined,
+  }));
+}
+
+export const hexagramsData: HexagramData[] = getHexagramsData();

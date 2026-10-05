@@ -20,6 +20,7 @@ interface MetaphysicsPanelProps {
     day: number;
     hour?: number;
     minute?: number;
+    second?: number;
     gender: 'male' | 'female';
     latitude?: number;
     longitude?: number;
@@ -125,7 +126,9 @@ function BaZhaiCompass({
           : result.mingGroup}
       </text>
       <text x="200" y="224" className="bazhai-core-subtitle">
-        {measurement ? `命卦 ${result.mingGua}` : '个人八方盘'}
+        {measurement
+          ? `命卦 ${result.mingGua}${result.birthYearBoundaryStatus === '待复核' ? '（暂按）' : ''}`
+          : `个人八方盘${result.birthYearBoundaryStatus === '待复核' ? '（暂按）' : ''}`}
       </text>
     </svg>
   );
@@ -144,9 +147,11 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
       <div className="result-side-head">
         <h3>玄空九宫盘</h3>
         <p>
+          {xuankong.period.boundaryStatus ? '暂按' : ''}
           {xuankong.period.label} · 坐{xuankong.sitMountain}向{xuankong.facingMountain}
           {targetDateLabel ? ` · 目标${targetDateLabel}` : ''}
         </p>
+        {xuankong.period.boundaryNote ? <p>{xuankong.period.boundaryNote}</p> : null}
       </div>
       <div className="xuankong-grid" role="img" aria-label="玄空飞星九宫盘">
         {LO_SHU_ORDER.map((gong) => {
@@ -186,7 +191,9 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
               </div>
               <div className="xuankong-cell-caption">
                 {palace.yearStar !== undefined || palace.monthStar !== undefined
-                  ? '运·山·向·年·月'
+                  ? palace.monthStar !== undefined
+                    ? '运·山·向·年·月'
+                    : '运·山·向·年'
                   : '运·山·向'}
               </div>
             </div>
@@ -373,6 +380,17 @@ export function MetaphysicsPanel({
 
   const bazhai = result?.bazhai ?? null;
   const xuankong = result?.xuankong ?? null;
+  const mingGuaTentative = bazhai?.birthYearBoundaryStatus === '待复核';
+  const northReferenceUnspecified = result?.inputSummary.northReferenceUnspecified === true;
+  const birthBoundaryHint = !bazhai?.calculationInput.birthMonth
+    ? '待核对出生日期。'
+    : bazhai.calculationInput.birthHour === undefined
+      ? '待核对出生时刻。'
+      : bazhai.calculationInput.birthMinute === undefined
+        ? '待核对出生分钟。'
+        : '待核对出生秒数。';
+  const matchVariesWithOrientation =
+    measurement && new Set(measurement.candidateDirections.map((item) => item.match)).size > 1;
 
   return (
     <div className="metaphysics-panel-shell">
@@ -390,11 +408,25 @@ export function MetaphysicsPanel({
                     : '个人八宅方位'
                   : '人宅与宅运分层排盘'}
             </h2>
+            {northReferenceUnspecified ? (
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                坐向按原始读数暂列，待核定北向基准。
+              </p>
+            ) : null}
           </div>
           <div className="result-chip-row">
-            {bazhai ? <span className="result-chip">命卦 {bazhai.mingGua}</span> : null}
+            {bazhai ? (
+              <span className="result-chip">
+                {mingGuaTentative ? '暂按' : ''}命卦 {bazhai.mingGua}
+              </span>
+            ) : null}
             {bazhai?.houseGua ? <span className="result-chip">宅卦 {bazhai.houseGua}</span> : null}
-            {xuankong ? <span className="result-chip">{xuankong.period.label}</span> : null}
+            {xuankong ? (
+              <span className="result-chip">
+                {xuankong.period.boundaryStatus ? '暂按' : ''}
+                {xuankong.period.label}
+              </span>
+            ) : null}
             {xuankong ? <span className="result-chip">{xuankong.guaType}</span> : null}
             {!bazhai && !xuankong ? <span className="result-chip">待补充资料</span> : null}
           </div>
@@ -403,19 +435,31 @@ export function MetaphysicsPanel({
         <div className="result-summary-grid">
           <div className="result-stat-card result-stat-card-accent">
             <span>人宅层</span>
-            <strong>{bazhai ? bazhai.mingGua : '待补出生'}</strong>
+            <strong>
+              {bazhai ? `${bazhai.mingGua}${mingGuaTentative ? '（暂按）' : ''}` : '待补出生'}
+            </strong>
             <small>{bazhai ? bazhai.mingGroup : '年月日+性别即可'}</small>
           </div>
           <div className="result-stat-card">
             <span>宅卦</span>
             <strong>{bazhai?.houseGua ?? (xuankong ? '可由山向回填' : '待补充')}</strong>
-            <small>{bazhai?.houseGroup ?? '填写角度后自动生成'}</small>
+            <small>
+              {measurement?.stability === '宅卦不稳定'
+                ? bazhai?.houseGroup
+                  ? `${bazhai.houseGroup}，中心读数；候选宅卦见下方`
+                  : '测量范围跨宅卦；候选宅卦见下方'
+                : (bazhai?.houseGroup ?? '填写角度后自动生成')}
+            </small>
           </div>
           <div className="result-stat-card">
             <span>命宅关系</span>
             <strong>
               {bazhai && measurement
-                ? bazhai.match
+                ? matchVariesWithOrientation
+                  ? '待复测'
+                  : mingGuaTentative || northReferenceUnspecified
+                    ? `${bazhai.match}（暂按）`
+                    : bazhai.match
                 : bazhai
                   ? '待合参'
                   : xuankong
@@ -480,6 +524,7 @@ export function MetaphysicsPanel({
                     <span>命卦分组</span>
                     <strong>
                       {bazhai.mingGua}命 · {bazhai.mingGroup}
+                      {mingGuaTentative ? '（暂按）' : ''}
                     </strong>
                   </div>
                 ) : null}
@@ -638,7 +683,11 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四吉方</h3>
-                <p>{measurement ? '当前宅卦可优先利用的方向。' : '个人命卦可优先利用的方向。'}</p>
+                <p>
+                  {mingGuaTentative
+                    ? `按当前命卦暂列，${birthBoundaryHint}`
+                    : '个人命卦可优先利用的方向。'}
+                </p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.luckyDirections.map((item) => (
@@ -654,7 +703,11 @@ export function MetaphysicsPanel({
             <div className="result-side-card">
               <div className="result-side-head">
                 <h3>四凶方</h3>
-                <p>布置时需要谨慎权衡的方向。</p>
+                <p>
+                  {mingGuaTentative
+                    ? `按当前命卦暂列，${birthBoundaryHint}`
+                    : '个人命卦中布置时需要谨慎权衡的方向。'}
+                </p>
               </div>
               <div className="result-tag-cloud">
                 {bazhai.unluckyDirections.map((item) => (
@@ -684,17 +737,16 @@ export function MetaphysicsPanel({
         <div className="traditional-classic-card fengshui-classic-card">
           <div className="traditional-classic-head">
             <div>
-              <span className="traditional-classic-badge">八宅明镜 · 紫白诀</span>
-              <strong>堪舆风水 · 先贤经典要诀</strong>
+              <span className="traditional-classic-badge">八宅 · 玄空</span>
+              <strong>传统关系概要</strong>
             </div>
           </div>
           <div className="traditional-classic-body">
             <p className="traditional-classic-verse">
-              生气贪狼木第一，延年武曲次相宜。天医巨门消除病，伏位辅弼保安宁。
-              一白二黑三碧巡，四绿五黄六白明。七赤八白九紫位，当令生旺百事成。
+              生气配贪狼，延年配武曲；天医配巨门，伏位配辅弼。九星依洛书飞布，旺衰随运而论。
             </p>
             <p className="traditional-classic-advice">
-              【八宅与玄空要义】八宅定八方吉凶之本底，玄空论三元九运之飞星气运。吉方逢当运生旺之星（如九运九紫、一白、八白）为大发之象；凶方宜静不宜动，施以五行生克调和。
+              【八宅与玄空要义】八宅分别列出命卦与宅卦的八方关系，玄空按所属运期判断飞星状态；结合各宫星气、生克与实际山水形势解读。
             </p>
           </div>
         </div>

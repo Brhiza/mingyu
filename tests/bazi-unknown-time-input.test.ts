@@ -99,6 +99,20 @@ test('精确标准时间与真太阳时继续优先于未知时辰标记', () =>
   assert.equal(precise.timeIndex, 5);
   assert.equal(precise.isThreePillars, undefined);
 
+  const minuteClock = buildPersonFromInput({
+    ...unknownTimeInput,
+    birthHour: '0',
+    birthMinute: '5',
+  });
+  assert.equal(minuteClock.timeIndex, 0);
+  assert.equal(minuteClock.birthSecond, 0);
+  assert.equal(minuteClock.isThreePillars, undefined);
+
+  assert.throws(
+    () => buildPersonFromInput({ ...unknownTimeInput, birthHour: '0' }),
+    /同时提供出生小时和分钟/u,
+  );
+
   const trueSolar = buildPersonFromInput({
     ...unknownTimeInput,
     useTrueSolarTime: true,

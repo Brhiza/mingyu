@@ -57,6 +57,9 @@ export function analyzeTenGodStructure(
   dayMaster: string,
   getTenGod: (g: string, d: string) => string,
 ): TenGodStructureProfile {
+  if (pillars.length !== 4) {
+    throw new Error(`四柱数量无效：${pillars.length}`);
+  }
   const distributionMap = new Map<string, TenGodDistributionItem>();
 
   const ensure = (tenGod: string): TenGodDistributionItem => {
@@ -76,9 +79,10 @@ export function analyzeTenGodStructure(
 
   TEN_GODS.forEach((t) => ensure(t));
 
-  pillars.forEach((p) => {
+  pillars.forEach((p, index) => {
     const tg = getTenGod(p.gan, dayMaster);
-    if (tg && tg !== '未知' && tg !== '日主') {
+    // 日干是十神的参照点，不能再计作一处透出的比肩；日支藏干仍照常统计。
+    if (index !== 2 && tg && tg !== '未知' && tg !== '日主') {
       const item = ensure(tg);
       item.visibleCount += 1;
       item.totalCount += 1;
@@ -154,29 +158,29 @@ export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlow
   if (has('比劫') && has('食伤')) {
     flows.push({
       name: '比劫泄秀',
-      description: '比劫同党与食伤承接，可能靠技能、表达输出',
-      caution: '食伤为用则吉，食伤为忌则泄身太过',
+      description: '比劫与食伤同见，具备比劫生食伤的结构线索',
+      caution: '须核对透藏、根气、位置及印星制食伤，才能判断是否形成有效作用',
     });
   }
   if (has('食伤') && has('财才')) {
     flows.push({
       name: '食伤生财',
-      description: '才华、技能可转化为财富',
-      caution: '需日主能担财',
+      description: '食伤与财星同见，具备食伤生财的结构线索',
+      caution: '须核对透藏、根气、位置及印星制食伤，并辨日主能否担财',
     });
   }
   if (has('财才') && has('官杀')) {
     flows.push({
       name: '财生官杀',
-      description: '财富可带来地位、权力',
-      caution: '官杀为用则贵，官杀为忌则压力',
+      description: '财星与官杀同见，具备财生官杀的结构线索',
+      caution: '须核对透藏、根气、位置及官杀是否有效承接',
     });
   }
   if (has('印绶') && has('比劫')) {
     flows.push({
       name: '印比相生',
-      description: '人脉、资源相互支撑',
-      caution: '印重则依赖性强',
+      description: '印星与比劫同见，具备印生比劫的结构线索',
+      caution: '须核对透藏、根气、位置及财星克印，才能判断是否形成有效作用',
     });
   }
   if (has('官杀') && has('印绶')) {
@@ -189,6 +193,6 @@ export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlow
 
   return {
     items: flows,
-    summary: flows.length ? '十神流动关系分析' : '十神流动特征不明显',
+    summary: flows.length ? '十神家族同见的相生候选' : '未见十神家族同见的相生候选',
   };
 }

@@ -96,9 +96,12 @@ test('司令变化保留每段取用顺序，稳定区间不虚增分支', () =>
       branch.context.favorableElements,
     ]),
     [
-      ['戊', ['土', '火', '金']],
-      ['丙', ['火', '土', '金']],
+      ['戊', []],
+      ['丙', []],
     ],
+  );
+  assert.ok(
+    commander.birthRange?.branches.every((branch) => branch.context.incrementStatus === '待判'),
   );
 
   const stable = calculateNamingBirthContext({
@@ -138,13 +141,7 @@ test('各段喜用集合不同时只登记条件取用，姓名匹配不冒充�
   };
   const context = calculateNamingBirthContext(input);
   assert.deepEqual(context.birthRange?.stableFavorableElements, []);
-  assert.deepEqual(context.birthRange?.conditionalFavorableElements, [
-    '金',
-    '水',
-    '木',
-    '火',
-    '土',
-  ]);
+  assert.deepEqual(context.birthRange?.conditionalFavorableElements, ['金', '水']);
   assert.deepEqual(
     context.birthRange?.branches.map((branch) => [
       branch.context.monthContext.commander,
@@ -152,13 +149,13 @@ test('各段喜用集合不同时只登记条件取用，姓名匹配不冒充�
     ]),
     [
       ['戊', ['金', '水']],
-      ['庚', ['木', '火', '土']],
+      ['庚', []],
     ],
   );
 
   const analysis = analyzeChineseName({ fullName: '李清和', birth: input });
   assert.deepEqual(analysis.preferredElements, []);
-  assert.deepEqual(analysis.conditionalPreferredElements, ['金', '水', '木', '火', '土']);
+  assert.deepEqual(analysis.conditionalPreferredElements, ['金', '水']);
   assert.deepEqual(analysis.elementMatches, []);
   assert.ok(analysis.conditionalElementMatches.length > 0);
 });
@@ -205,6 +202,10 @@ test('案例切换保留各自来源，手改普通日期后命名输入不再�
 
 test('起名出生区间拒绝伪造四柱与非半开边界', () => {
   const input = createNamingBirthInput(draftFromSource());
+  assert.throws(
+    () => calculateNamingBirthContext({ ...input, birthTimeRange: null as never }),
+    /起名出生区间必须提供完整的四柱与北京时间边界/,
+  );
   assert.throws(
     () =>
       calculateNamingBirthContext({

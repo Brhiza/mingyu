@@ -1,5 +1,7 @@
-import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
+import { type HexagramData, getHexagramsData } from '../divination/hexagram-data';
 import { EARTHLY_BRANCHES, SIXTY_CYCLE } from '../ganzhi/data';
+
+const hexagramsData = getHexagramsData();
 
 export const HUANGJI_STANDARD_EPOCH = Object.freeze({
   model: '先天圆图值年卦通行排法',
@@ -115,6 +117,8 @@ export interface HuangjiPeriodHexagram {
   derivedFrom?: string;
   changedLine?: number;
   changedLineText?: string;
+  /** 变爻先得到的四正卦；统卦再从六十卦圆图顺取。 */
+  normalizedFrom?: string;
 }
 
 export interface HuangjiStandardForecast {
@@ -197,6 +201,16 @@ function summarizeHexagram(hexagram: HexagramData): HuangjiHexagramSummary {
     lower: hexagram.lower,
     judgment: hexagram.description,
   };
+}
+
+/** 核对卦号所对应的固定卦名、卦画与卦辞。 */
+export function assertHuangjiHexagramFacts(summary: HuangjiHexagramSummary, label: string): void {
+  const hexagram = hexagramsData.find((item) => item.id === summary?.id);
+  if (!hexagram) throw new Error(`${label}资料无效。`);
+  const expected = summarizeHexagram(hexagram);
+  for (const field of ['name', 'shortName', 'symbol', 'upper', 'lower', 'judgment'] as const) {
+    if (summary[field] !== expected[field]) throw new Error(`${label}与卦画、卦辞资料不一致。`);
+  }
 }
 
 function toBottomUpLines(binarySymbol: string): string[] {
@@ -324,13 +338,18 @@ export function calculateStandardHuangjiForecast(year: number): HuangjiStandardF
     governingHexagram,
     yunLine,
   );
-  const sixtyYear = buildPeriod(
-    sixtyYearHexagram,
-    sixtyYearStartSerial,
-    YEARS_PER_SIXTY_YEAR_HEXAGRAM,
-    yunHexagram,
-    sixtyYearLine,
-  );
+  const sixtyYear = {
+    ...buildPeriod(
+      sixtyYearHexagram,
+      sixtyYearStartSerial,
+      YEARS_PER_SIXTY_YEAR_HEXAGRAM,
+      yunHexagram,
+      sixtyYearLine,
+    ),
+    ...(rawSixtyYearHexagram.id !== sixtyYearHexagram.id
+      ? { normalizedFrom: shortHexagramName(rawSixtyYearHexagram) }
+      : {}),
+  };
   const decade = buildPeriod(
     decadeHexagram,
     decadeStartSerial,

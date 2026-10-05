@@ -17,7 +17,7 @@ export const WU_CHEN_CLIMATE_RULES: ClimateRule[] = [
       {
         stems: ['甲', '乙'],
         minDistinctCount: 2,
-        scope: 'total',
+        scope: 'visible',
       },
     ],
     usefulWuxing: '金',
@@ -41,7 +41,7 @@ export const WU_CHEN_CLIMATE_RULES: ClimateRule[] = [
       {
         stems: ['甲', '乙'],
         minDistinctCount: 2,
-        scope: 'total',
+        scope: 'visible',
       },
     ],
     usefulWuxing: '火',

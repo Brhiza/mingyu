@@ -1,8 +1,6 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import {
-  getBaziDayIndexByDate,
-  getBaziMonthIndexByDate,
   getMonthDaysInfo,
   getDayHourBreakdown,
   getTenGod,
@@ -12,9 +10,9 @@ import {
   toChinaCivilDate,
 } from 'mingyu-core/bazi';
 import {
+  buildCurrentBaziFortuneSelection,
   formatBaziTenGodAbbreviation,
   formatBaziMonthStart,
-  getCurrentLuckCycle,
   getWuxingClass,
   splitGanZhi,
 } from './helpers';
@@ -59,28 +57,73 @@ function formatHourClockRange(index: number) {
   return `${start}–${end}`;
 }
 
+type FortuneSelectorState = {
+  result: BaziChartResult;
+  cycleIndex: number;
+  year: number;
+  month: number;
+  day: number;
+  hourIndex: number;
+};
+
+// eslint-disable-next-line react-refresh/only-export-components -- 测试需直接验证命盘切换时的状态解析。
+export function resolveFortuneSelectorState(
+  previous: FortuneSelectorState | null | undefined,
+  result: BaziChartResult,
+  now = new Date(),
+): FortuneSelectorState {
+  if (previous?.result === result) return previous;
+
+  const currentSelection = buildCurrentBaziFortuneSelection(result, now);
+  const civilNow = toChinaCivilDate(now);
+  const cycleIndex = currentSelection?.cycleIndex ?? 0;
+
+  return {
+    result,
+    cycleIndex,
+    year:
+      currentSelection?.year ??
+      result.luckInfo.cycles[cycleIndex]?.years[0]?.year ??
+      civilNow.getUTCFullYear(),
+    month: currentSelection?.month ?? 1,
+    day: currentSelection?.day ?? 1,
+    hourIndex: currentSelection ? Math.floor(((civilNow.getUTCHours() + 1) % 24) / 2) : 0,
+  };
+}
+
 export function BaziFortuneSelector(props: {
   result: BaziChartResult;
   onSelectionChange?: (columns: BaziFortuneDisplayColumn[]) => void;
 }) {
   const { result, onSelectionChange } = props;
-  const currentCycle = getCurrentLuckCycle(result);
-  const currentCycleIndex = Math.max(
-    0,
-    result.luckInfo.cycles.findIndex((item) => item === currentCycle),
-  );
   const now = new Date();
-  const civilNow = toChinaCivilDate(now);
-  const currentYear = civilNow.getUTCFullYear();
-  const initialMonth = getBaziMonthIndexByDate(currentYear, now) ?? 1;
-  const initialDay = getBaziDayIndexByDate(currentYear, initialMonth, now) ?? 1;
-  const [selectedCycleIndex, setSelectedCycleIndex] = useState(currentCycleIndex);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
-  const [selectedDay, setSelectedDay] = useState(initialDay);
-  const [selectedHourIndex, setSelectedHourIndex] = useState(
-    Math.floor(((civilNow.getUTCHours() + 1) % 24) / 2),
+  const currentSelection = buildCurrentBaziFortuneSelection(result, now);
+  const currentCycleIndex = currentSelection?.cycleIndex ?? 0;
+  const [storedSelection, setStoredSelection] = useState(() =>
+    resolveFortuneSelectorState(null, result, now),
   );
+  const selection =
+    storedSelection.result === result
+      ? storedSelection
+      : resolveFortuneSelectorState(null, result, now);
+  if (storedSelection.result !== result) {
+    setStoredSelection(selection);
+  }
+  const {
+    cycleIndex: selectedCycleIndex,
+    year: selectedYear,
+    month: selectedMonth,
+    day: selectedDay,
+    hourIndex: selectedHourIndex,
+  } = selection;
+
+  function updateSelection(updates: Partial<Omit<FortuneSelectorState, 'result'>>) {
+    setStoredSelection((previous) => ({
+      ...resolveFortuneSelectorState(previous, result),
+      ...updates,
+      result,
+    }));
+  }
 
   const resolvedCycleIndex = result.luckInfo.cycles[selectedCycleIndex]
     ? selectedCycleIndex
@@ -170,15 +213,17 @@ export function BaziFortuneSelector(props: {
 
   function selectToday() {
     const today = new Date();
+    const selection = buildCurrentBaziFortuneSelection(result, today);
+    if (!selection) return;
     const civilToday = toChinaCivilDate(today);
-    const year = civilToday.getUTCFullYear();
-    const month = getBaziMonthIndexByDate(year, today) ?? 1;
-    const day = getBaziDayIndexByDate(year, month, today) ?? 1;
-    setSelectedCycleIndex(currentCycleIndex);
-    setSelectedYear(year);
-    setSelectedMonth(month);
-    setSelectedDay(day);
-    setSelectedHourIndex(Math.floor(((civilToday.getUTCHours() + 1) % 24) / 2));
+    setStoredSelection({
+      result,
+      cycleIndex: selection.cycleIndex,
+      year: selection.year,
+      month: selection.month,
+      day: selection.day,
+      hourIndex: Math.floor(((civilToday.getUTCHours() + 1) % 24) / 2),
+    });
   }
 
   return (
@@ -190,6 +235,7 @@ export function BaziFortuneSelector(props: {
           className="fortune-today-button"
           aria-label="回到今天"
           title="回到今天"
+          disabled={!currentSelection}
           onClick={selectToday}
         >
           今
@@ -205,7 +251,7 @@ export function BaziFortuneSelector(props: {
                   type="button"
                   key={`${cycle.age}-${cycle.ganZhi}`}
                   className={`fortune-item ${index === resolvedCycleIndex ? 'active' : ''}`}
-                  onClick={() => setSelectedCycleIndex(index)}
+                  onClick={() => updateSelection({ cycleIndex: index })}
                 >
                   <div className="fortune-year">{cycle.year}</div>
                   <div className="fortune-age">{cycle.age}岁</div>
@@ -225,7 +271,7 @@ export function BaziFortuneSelector(props: {
                   type="button"
                   key={item.year}
                   className={`fortune-item ${item.year === resolvedYear ? 'active' : ''}`}
-                  onClick={() => setSelectedYear(item.year)}
+                  onClick={() => updateSelection({ year: item.year })}
                 >
                   <div className="fortune-year">{item.year}</div>
                   <div className="fortune-age">{item.age}岁</div>
@@ -246,7 +292,7 @@ export function BaziFortuneSelector(props: {
                   type="button"
                   key={`${resolvedYear}-${item.month}-${item.ganZhi}`}
                   className={`fortune-item ${monthNumber === resolvedMonth ? 'active' : ''}`}
-                  onClick={() => setSelectedMonth(monthNumber)}
+                  onClick={() => updateSelection({ month: monthNumber })}
                 >
                   <div className="fortune-year">{item.month}</div>
                   <div
@@ -271,7 +317,7 @@ export function BaziFortuneSelector(props: {
                   type="button"
                   key={item.solarDate}
                   className={`fortune-item ${item.day === resolvedDay ? 'active' : ''}`}
-                  onClick={() => setSelectedDay(item.day)}
+                  onClick={() => updateSelection({ day: item.day })}
                 >
                   <div className="fortune-year">{item.solarLabel}</div>
                   <div className="fortune-age">{item.lunar}</div>
@@ -290,7 +336,7 @@ export function BaziFortuneSelector(props: {
                 type="button"
                 key={`${selectedDayOption?.solarDate}-${item.label}`}
                 className={`fortune-item ${index === resolvedHourIndex ? 'active' : ''}`}
-                onClick={() => setSelectedHourIndex(index)}
+                onClick={() => updateSelection({ hourIndex: index })}
                 title={item.timeRange}
               >
                 <div className="fortune-year">{item.label}</div>

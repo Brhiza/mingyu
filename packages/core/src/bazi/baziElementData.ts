@@ -2,27 +2,75 @@
  * 五行与十神基础参考数据
  */
 
-export const TEN_GODS_DEFINITIONS: Record<
+const CANONICAL_TEN_GODS_DEFINITIONS: Record<
   string,
   { wuxing: string; yinyang: string; description: string }
 > = {
-  比肩: { wuxing: '同我', yinyang: '同性', description: '代表兄弟、朋友、同事，主自尊、独立。' },
-  劫财: { wuxing: '同我', yinyang: '异性', description: '代表姐妹、异性朋友，主竞争、合作。' },
-  食神: { wuxing: '我生', yinyang: '同性', description: '代表福气、才华、口福，主温和、享受。' },
-  伤官: { wuxing: '我生', yinyang: '异性', description: '代表智慧、技艺、叛逆，主聪明、傲气。' },
+  比肩: {
+    wuxing: '同我',
+    yinyang: '同性',
+    description: '与日主同五行、同阴阳，传统取象涉及同辈、自主与相助。',
+  },
+  劫财: {
+    wuxing: '同我',
+    yinyang: '异性',
+    description: '与日主同五行、异阴阳，传统取象涉及同辈、协作与竞争。',
+  },
+  食神: {
+    wuxing: '我生',
+    yinyang: '同性',
+    description: '日主所生、同阴阳，传统取象涉及表达、技艺与口福。',
+  },
+  伤官: {
+    wuxing: '我生',
+    yinyang: '异性',
+    description: '日主所生、异阴阳，传统取象涉及表达、技艺与创作。',
+  },
   偏财: {
     wuxing: '我克',
     yinyang: '同性',
-    description: '代表父亲、情人、意外之财，主大方、投机。',
+    description: '日主所克、同阴阳，属财星，传统取象涉及财物与经营。',
   },
-  正财: { wuxing: '我克', yinyang: '异性', description: '代表妻子、稳定收入，主勤劳、踏实。' },
-  七杀: { wuxing: '克我', yinyang: '同性', description: '代表小人、压力、权威，主刚强、果断。' },
-  正官: { wuxing: '克我', yinyang: '异性', description: '代表上司、事业、名誉，主正直、自律。' },
-  偏印: { wuxing: '生我', yinyang: '同性', description: '代表继母、偏门学问，主孤独、敏感。' },
-  正印: { wuxing: '生我', yinyang: '异性', description: '代表母亲、正统学问，主仁慈、善良。' },
+  正财: {
+    wuxing: '我克',
+    yinyang: '异性',
+    description: '日主所克、异阴阳，属财星，传统取象涉及财物与生计。',
+  },
+  七杀: {
+    wuxing: '克我',
+    yinyang: '同性',
+    description: '克制日主、同阴阳，传统取象涉及约束、压力与权柄。',
+  },
+  正官: {
+    wuxing: '克我',
+    yinyang: '异性',
+    description: '克制日主、异阴阳，传统取象涉及规制、名位与责任。',
+  },
+  偏印: {
+    wuxing: '生我',
+    yinyang: '同性',
+    description: '生助日主、同阴阳，属印星，传统取象涉及学识与庇护。',
+  },
+  正印: {
+    wuxing: '生我',
+    yinyang: '异性',
+    description: '生助日主、异阴阳，属印星，传统取象涉及学识、养育与庇护。',
+  },
 };
 
-export const SEASON_STATUS: Record<string, Record<string, string>> = {
+export const TEN_GODS_DEFINITIONS = getBaziTenGodDefinitions();
+
+/** 返回固定十神取象资料的独立副本。 */
+export function getBaziTenGodDefinitions(): typeof CANONICAL_TEN_GODS_DEFINITIONS {
+  return Object.fromEntries(
+    Object.entries(CANONICAL_TEN_GODS_DEFINITIONS).map(([god, definition]) => [
+      god,
+      { ...definition },
+    ]),
+  );
+}
+
+const CANONICAL_SEASON_STATUS: Record<string, Record<string, string>> = {
   寅: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
   卯: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
   辰: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
@@ -36,3 +84,14 @@ export const SEASON_STATUS: Record<string, Record<string, string>> = {
   子: { 水: '旺', 木: '相', 火: '死', 土: '囚', 金: '休' },
   丑: { 土: '旺', 金: '相', 水: '死', 木: '囚', 火: '休' },
 };
+
+export const SEASON_STATUS: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(CANONICAL_SEASON_STATUS).map(([branch, states]) => [branch, { ...states }]),
+);
+
+/** 返回固定月令状态资料的独立副本。 */
+export function getBaziSeasonStatuses(): Record<string, Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(CANONICAL_SEASON_STATUS).map(([branch, states]) => [branch, { ...states }]),
+  );
+}

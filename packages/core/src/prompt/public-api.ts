@@ -13,7 +13,11 @@ import {
   formatBaziFullFortune,
   type BaziFortuneTextBatch,
 } from './bazi-fortune';
-import { formatBaziTopicFocus, formatBaziPatternConditions } from './bazi';
+import {
+  buildBaziUnknownTimeTask,
+  formatBaziTopicFocus,
+  formatBaziPatternConditions,
+} from './bazi';
 import {
   buildSerializableZiweiResult,
   formatZiweiNatalSnapshotForPrompt,
@@ -21,10 +25,11 @@ import {
   formatZiweiTargetLowerScopeFacts,
   formatZiweiTopicFocus,
   formatZiweiSelectedTimeline,
+  getUnshownZiweiMutagenItems,
 } from './ziwei';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
-import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
+import { formatZiweiTrueSolarEvidence } from '../ziwei/prompt/combined';
 import { formatPalaceRelations } from '../ziwei/prompt/builders';
 import {
   buildPromptSelectionTask,
@@ -302,23 +307,35 @@ export function buildBaziPromptForResult(params: {
     params.fortuneTextBatch && params.selection
       ? { ...params.selection, scopeLabel: '本次所列大运流年' }
       : params.selection;
+  const hasKnownPillars = (['year', 'month', 'day'] as const).some((key) =>
+    Boolean(params.result.pillars[key].ganZhi),
+  );
   const scopeText = params.fortuneTextBatch
     ? '分析对象：本命盘与本次所列大运流年'
     : fortuneSelection
       ? fortuneSelection.analysisObject
       : effectiveFortuneScope === 'full'
         ? '分析对象：本命盘与完整大运流年'
-        : '分析对象：本命盘';
+        : params.result.isThreePillars
+          ? `分析对象：${params.result.unknownTimeAnalysis?.batch ? '本页' : '已列'}出生时辰候选${hasKnownPillars ? '与已确定的柱' : ''}`
+          : '分析对象：本命盘';
   const label = BAZI_TOPIC_LABELS[topic];
   const taskMethod = hasFortuneData ? 'bazi' : 'bazi-natal';
-  const task =
-    params.mode === 'custom'
+  const task = params.result.isThreePillars
+    ? buildBaziUnknownTimeTask(
+        label,
+        Boolean(params.result.unknownTimeAnalysis?.batch),
+        params.mode === 'custom',
+      )
+    : params.mode === 'custom'
       ? buildCustomQuestionTask('八字排盘资料', taskMethod)
       : label === '通用'
         ? buildPromptTask('请依据八字排盘资料完成解读。', taskMethod)
         : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, taskMethod);
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
   const schoolScene = params.school || params.schools?.length;
+  const patternConditions = schoolScene ? '' : formatBaziPatternConditions(params.result);
+  const topicFocus = formatBaziTopicFocus(topic, params.result.isThreePillars);
   const chart = [
     formatBaziForPrompt(
       params.result,
@@ -332,10 +349,8 @@ export function buildBaziPromptForResult(params: {
     buildPromptGuidance('bazi'),
     section('当前时间', formatPromptCurrentTime()),
     section('排盘信息', chart),
-    formatBaziTopicFocus(topic) ? section('主题取用', formatBaziTopicFocus(topic)) : '',
-    formatBaziPatternConditions(params.result)
-      ? section('格局条件', formatBaziPatternConditions(params.result))
-      : '',
+    topicFocus ? section('主题取用', topicFocus) : '',
+    patternConditions ? section('格局条件', patternConditions) : '',
     section('分析对象', scopeText),
     effectiveFortuneScope === 'full'
       ? section('命限资料', params.fortuneTextBatch?.text ?? formatBaziFullFortune(params.result))
@@ -346,15 +361,15 @@ export function buildBaziPromptForResult(params: {
     section('问题', question),
   ]);
   const schoolSection = params.schools?.length
-    ? buildBaziSchoolsPromptSection(params.result, params.schools)
-    : buildBaziSchoolPromptSection(params.result, params.school);
+    ? buildBaziSchoolsPromptSection(params.result, params.schools, true, true)
+    : buildBaziSchoolPromptSection(params.result, params.school, true, true);
   return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
 }
 
 export { buildSerializableZiweiResult };
 
 export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeType[] {
-  return scope === 'full' ? FULL_ZIWEI_SCOPE_ORDER : [scope as ScopeType];
+  return scope === 'full' ? [...FULL_ZIWEI_SCOPE_ORDER] : [scope as ScopeType];
 }
 
 function scopeLabel(scope: ZiweiPromptScope | ScopeType) {
@@ -368,14 +383,18 @@ function isBatchedFullScope(
   return scope === 'full' && Boolean(result.calculationBatch || result.fortuneTimeline?.batch);
 }
 
-function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
-  const items = getPromptMutagenItems(payload, isOriginScope)
+function formatMutagenMap(
+  payload: AnalysisPayloadV1,
+  isOriginScope = false,
+  displayedPalaces: readonly PalaceFact[] = [],
+) {
+  const items = getUnshownZiweiMutagenItems(payload, isOriginScope, displayedPalaces)
     .map(
       (item) =>
         `${item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`}${item.palace_name ? `入本命${item.palace_name}` : ''}${!isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : ''}`,
     )
     .filter(Boolean);
-  return items.length ? items.join('；') : isOriginScope ? '未标出生年四化' : '未标出当前四化';
+  return items.join('；');
 }
 
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntimeFacts) {
@@ -499,7 +518,7 @@ function buildKeyPalaces(payload: AnalysisPayloadV1, isOriginScope: boolean) {
     `${formatPalaceBrief(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`;
   const lines = [`${title}\n${lead.map(format).join('\n')}`];
   if (!isOriginScope && ordered.length > lead.length) {
-    lines.push(`十二宫明细：\n${ordered.map(format).join('\n')}`);
+    lines.push(`十二宫明细：\n${ordered.slice(lead.length).map(format).join('\n')}`);
   }
   return lines.join('\n');
 }
@@ -508,7 +527,6 @@ export function formatZiweiEvidenceText(
   result: ZiweiRuntimeFacts,
   scope: ZiweiPromptScope = 'origin',
 ) {
-  const batchedFullScope = isBatchedFullScope(result, scope);
   const payload =
     scope === 'full'
       ? (result.payloadByScope.origin ?? Object.values(result.payloadByScope)[0])
@@ -524,6 +542,7 @@ export function formatZiweiEvidenceText(
       .filter(Boolean)
       .join('\n\n');
   }
+  if (scope === 'full') return formatPublicZiweiFullScopeText(result);
   const activePalace = payload.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -534,8 +553,13 @@ export function formatZiweiEvidenceText(
       .map((item) => item.name)
       .filter(Boolean)
       .join('、');
+  const mutagens = formatMutagenMap(
+    payload,
+    payload.active_scope.scope === 'origin',
+    payload.palaces,
+  );
   const baseText = [
-    `分析对象：${scope === 'full' ? (batchedFullScope ? '本次所列紫微资料' : '本命盘、童限与大限流年；目标日期下附流月、流日与流时') : payload.active_scope.label || scopeLabel(scope)}`,
+    `分析对象：${payload.active_scope.label || scopeLabel(scope)}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     payload.calculation_config.algorithm === 'zhongzhou'
       ? '安星口径：中州派安星法'
@@ -549,8 +573,8 @@ export function formatZiweiEvidenceText(
     payload.active_scope.scope === 'origin' || !activePalace
       ? ''
       : `当前落宫：${activePalace.name}`,
-    getPromptMutagenItems(payload, payload.active_scope.scope === 'origin').length
-      ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, payload.active_scope.scope === 'origin')}`
+    mutagens
+      ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${mutagens}`
       : '',
     buildKeyPalaces(payload, payload.active_scope.scope === 'origin'),
   ]
@@ -558,27 +582,12 @@ export function formatZiweiEvidenceText(
     .join('\n');
   return [
     baseText,
-    scope === 'full'
-      ? formatPublicZiweiFullScopeText(result)
-      : result.fortuneTimeline && scope !== 'origin'
-        ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
-        : '',
+    result.fortuneTimeline && scope !== 'origin'
+      ? `运限范围资料：\n${formatZiweiFortuneTimeline(result.fortuneTimeline)}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n\n');
-}
-
-function formatPublicTrueSolarEvidence(evidence?: ZiweiRuntimeFacts['trueSolarEvidence']) {
-  if (!evidence) return '';
-  const corrected = evidence.correctionFacts
-    .find((fact) => fact.type === '总校正')
-    ?.promptText.match(/真太阳时为(.+)$/)?.[1];
-  const shichen = evidence.correctionFacts
-    .find((fact) => fact.type === '时辰结果')
-    ?.promptText.match(/唯一时辰为(.+?)（/)?.[1];
-  return [corrected ? `真太阳时：${corrected}` : '', shichen ? `时辰：${shichen}` : '']
-    .filter(Boolean)
-    .join('，');
 }
 
 export function buildPublicZiweiPromptForRuntime(params: {
@@ -604,6 +613,9 @@ export function buildPublicZiweiPromptForRuntime(params: {
       ? (params.result.payloadByScope.origin ?? Object.values(params.result.payloadByScope)[0])
       : (params.result.payloadByScope[scope as ScopeType] ?? params.result.payloadByScope.origin);
   const natalSnapshot = params.result.natalSnapshot;
+  const mutagens = payload
+    ? formatMutagenMap(payload, payload.active_scope.scope === 'origin', payload.palaces)
+    : '';
   const activePalace = payload?.palaces.find(
     (palace) => palace.index === payload.active_scope.palace_index,
   );
@@ -632,8 +644,8 @@ export function buildPublicZiweiPromptForRuntime(params: {
     !payload || payload.active_scope.scope === 'origin' || !activePalace
       ? ''
       : `当前落宫：${activePalace.name}`,
-    payload && getPromptMutagenItems(payload, payload.active_scope.scope === 'origin').length
-      ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, payload.active_scope.scope === 'origin')}`
+    payload && mutagens
+      ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${mutagens}`
       : '',
   ]
     .filter(Boolean)
@@ -644,12 +656,11 @@ export function buildPublicZiweiPromptForRuntime(params: {
       ? buildCustomQuestionTask('紫微盘面资料', scope === 'origin' ? 'ziwei-natal' : 'ziwei')
       : buildPromptTask('请依据紫微盘面完成解读。', scope === 'origin' ? 'ziwei-natal' : 'ziwei');
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
+  const trueSolarText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
   const prompt = joinSections([
     buildPromptGuidance('ziwei'),
     section('当前时间', formatPromptCurrentTime()),
-    formatPublicTrueSolarEvidence(params.result.trueSolarEvidence)
-      ? section('出生时间校正', formatPublicTrueSolarEvidence(params.result.trueSolarEvidence))
-      : '',
+    trueSolarText ? section('出生时间校正', trueSolarText) : '',
     section(
       '分析背景',
       `分析主题：${ZIWEI_TOPIC_LABELS[topic]}\n分析范围：${batchedFullScope ? '本次所列资料' : scopeLabel(scope)}`,
@@ -861,12 +872,15 @@ export function buildBaziZiweiPromptForResults(params: {
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
-  const patternConditions = formatBaziPatternConditions(params.baziResult);
+  const patternConditions =
+    params.baziSchool || params.baziSchools?.length
+      ? ''
+      : formatBaziPatternConditions(params.baziResult);
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, ziweiScope);
   const guidance = [
     params.baziSchools?.length
-      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools)
-      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
+      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools, true, true)
+      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool, true, true),
     params.ziweiSchools?.length
       ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', params.ziweiSchools)}`
       : params.ziweiSchool
@@ -893,7 +907,7 @@ export function buildBaziZiweiPromptForResults(params: {
               '八字按本命结构、紫微按所列运限分别成论后交叉印证，时间层未对齐时分开陈述。',
               'bazi-ziwei-mismatch',
             )
-          : buildPromptTask('请依据双方本命结构交叉印证后回答问题。', 'bazi-ziwei');
+          : buildPromptTask('请依据同一命主的八字与紫微本命结构交叉印证后回答问题。', 'bazi-ziwei');
   const selectedTask = promptSelection ? buildPromptSelectionTask(task, promptSelection) : task;
   return joinSections([
     buildPromptGuidance('bazi-ziwei'),

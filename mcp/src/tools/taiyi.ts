@@ -17,7 +17,7 @@ const taiyiSchema = z.object({
     .enum(['year', 'month', 'day', 'hour'])
     .optional()
     .describe('太乙计式：year 年计（默认）、month 月计、day 日计、hour 时计'),
-  year: z.number().int().min(1900).max(2200).optional().describe('公元年；年计必填'),
+  year: z.number().int().min(1900).max(2200).optional().describe('公元年；仅年计使用且必填'),
   customDate: z
     .string()
     .optional()
@@ -35,6 +35,9 @@ const taiyiSchema = z.object({
 function calculateTaiyi(args: z.infer<typeof taiyiSchema>) {
   const scope = args.scope ?? 'year';
   if (scope === 'year') {
+    if (args.customDate !== undefined) {
+      throw new Error('太乙年计只接受 year；customDate 仅用于月计、日计和时计。');
+    }
     if (args.year === undefined) {
       throw new Error('太乙年计必须提供公历年份。');
     }
@@ -43,6 +46,10 @@ function calculateTaiyi(args: z.infer<typeof taiyiSchema>) {
       year: args.year,
       ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
     });
+  }
+
+  if (args.year !== undefined) {
+    throw new Error('太乙月计、日计和时计不得提供 year；请使用 customDate 或默认当前时间。');
   }
 
   return taiyi.generateTaiyi({

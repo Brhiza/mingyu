@@ -5,16 +5,8 @@ import type {
   LiurenOrdinaryTransmissionStage,
   LiurenPlateItem,
 } from '../../../../types/divination';
-import { BASIC_MAPPINGS, HEAVENLY_STEMS } from '../../../../bazi/baziMappingsData';
-import {
-  BRANCH_WUXING,
-  getBranchIndex,
-  isKe,
-  LIUCHONG_MAP,
-  SANXING_MAP,
-  getYiMa,
-  TIAN_GAN_HE,
-} from '../../../../ganzhi';
+import { HEAVENLY_STEMS } from '../../../../bazi/baziMappingsData';
+import { getBranchIndex, isKe, getYiMa } from '../../../../ganzhi';
 import {
   describeRelation,
   getGanZhiWuxing,
@@ -29,6 +21,12 @@ import {
   TIANJIANG,
 } from './plate';
 import { formatLiurenOrdinaryStage } from '../../../liuren-ordinary-adjudication';
+import { getGanZhiRelationTables } from '../../../../ganzhi/relations';
+import { getBaziRelationMappings } from '../../../../bazi/baziMappingsData';
+
+const BAZI_RELATION_MAPPINGS = getBaziRelationMappings();
+
+const GANZHI_RELATION_TABLES = getGanZhiRelationTables();
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
@@ -209,7 +207,7 @@ function getStemWuxing(stem: string) {
   if (stemIndex < 0) {
     throw new Error(`无法识别天干 "${stem}" 的五行属性。`);
   }
-  const element = BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+  const element = BAZI_RELATION_MAPPINGS.BASIC_MAPPINGS.STEM_WUXING[stemIndex];
   if (!VALID_WUXING.has(element)) {
     throw new Error(`天干 ${stem} 的五行数据缺失。`);
   }
@@ -228,7 +226,7 @@ function uniqueCandidatesByUpper(candidates: KeCandidate[]) {
 }
 
 function getBranchAt(rawIndex: number) {
-  const branches = Object.keys(BRANCH_WUXING);
+  const branches = Object.keys(GANZHI_RELATION_TABLES.BRANCH_WUXING);
   return branches[((rawIndex % branches.length) + branches.length) % branches.length];
 }
 
@@ -266,7 +264,7 @@ function getHarmAssessment(candidate: KeCandidate, context: ResolveTransmissionC
   const walkedBranches = walkBranches(startUnder, candidate.lesson.upper);
 
   const depth = walkedBranches.reduce((count, branch) => {
-    const branchElement = BRANCH_WUXING[branch];
+    const branchElement = GANZHI_RELATION_TABLES.BRANCH_WUXING[branch];
     if (!VALID_WUXING.has(branchElement)) {
       throw new Error(`地支 ${branch} 的五行数据缺失。`);
     }
@@ -294,10 +292,6 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
     index,
     depth: getHarmAssessment(candidate, context).depth,
   }));
-  const preferredUpper = YANG_STEMS.has(context.dayStem)
-    ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
-    : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
-
   if (ranked.length === 0) {
     throw new Error('涉害法没有可供比较的候选课。');
   }
@@ -307,21 +301,25 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
   const maxDepth = Math.max(...ranked.map((item) => item.depth));
   let tied = ranked.filter((item) => item.depth === maxDepth);
 
-  // 涉害复等（《六壬大全》“缀瑕”）：阳日先见干上神，阴日先见支上神。
-  // 这是深浅完全相等时的先见取法，应先于孟仲季的次级区分。
-  const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
-  if (preferred) {
-    return preferred.candidate;
-  }
-
-  // 深浅相同且无干支上神时，再看发用上神所居四孟、四仲、四季（见机、察微）。
-  // 这里比较的是上神本身，而非它所临的地盘；“亥加丑”仍属四孟上神。
+  // 深浅相同时，先比较候选上神所临地盘的四孟、四仲、四季。
+  // 《六壬大全》以“午加庚四孟位”为例，午为上神，庚寄申为孟位。
   for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
-    const sameClass = tied.filter((item) => branchGroup.has(item.candidate.lesson.upper));
+    const sameClass = tied.filter((item) =>
+      branchGroup.has(getUnderByUpper(context.heavenlyPlate, item.candidate.lesson.upper)),
+    );
     if (sameClass.length > 0) {
       tied = sameClass;
       break;
     }
+  }
+
+  // 涉害与所临孟仲季均复等时，阳日先见干上神，阴日先见支上神。
+  const preferredUpper = YANG_STEMS.has(context.dayStem)
+    ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
+    : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
+  const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
+  if (preferred) {
+    return preferred.candidate;
   }
 
   const picked = tied.sort((left, right) => left.index - right.index)[0];
@@ -671,20 +669,24 @@ function buildOrdinaryTransmissionAdjudication(args: {
     }));
     const maxDepth = Math.max(...ranked.map((item) => item.assessment.depth));
     const tied = ranked.filter((item) => item.assessment.depth === maxDepth);
+    const selectedClass =
+      [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES].find((branchGroup) =>
+        tied.some((item) =>
+          branchGroup.has(getUnderByUpper(args.context.heavenlyPlate, item.candidate.lesson.upper)),
+        ),
+      ) ?? null;
+    const classTied = selectedClass
+      ? tied.filter((item) =>
+          selectedClass.has(
+            getUnderByUpper(args.context.heavenlyPlate, item.candidate.lesson.upper),
+          ),
+        )
+      : tied;
     const preferredUpper = YANG_STEMS.has(args.context.dayStem)
       ? getUpperByUnder(args.context.heavenlyPlate, args.context.dayStemResidence)
       : getUpperByUnder(args.context.heavenlyPlate, args.context.dayBranch);
-    const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
-    let selectedClass: Set<string> | null = null;
-    if (!preferred) {
-      selectedClass =
-        [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES].find((branchGroup) =>
-          tied.some((item) => branchGroup.has(item.candidate.lesson.upper)),
-        ) ?? null;
-    }
-    const selectedClassCount = selectedClass
-      ? tied.filter((item) => selectedClass.has(item.candidate.lesson.upper)).length
-      : 0;
+    const preferred = classTied.find((item) => item.candidate.lesson.upper === preferredUpper);
+    const selectedClassCount = selectedClass ? classTied.length : 0;
 
     for (const item of ranked) {
       const output = values.find((candidate) => candidate.upper === item.candidate.lesson.upper);
@@ -692,22 +694,29 @@ function buildOrdinaryTransmissionAdjudication(args: {
       const depth = item.assessment.depth;
       if (depth < maxDepth) {
         output.reasons.push(`涉害深度${depth}低于最大深度${maxDepth}`);
+      } else if (tied.length === 1) {
+        output.reasons.push(`涉害深度${depth}为唯一最大值，取为初传`);
+      } else if (
+        selectedClass &&
+        !selectedClass.has(getUnderByUpper(args.context.heavenlyPlate, output.upper))
+      ) {
+        output.reasons.push(`涉害深度同为${maxDepth}，所临地盘孟仲季次序未取`);
+      } else if (classTied.length === 1) {
+        output.reasons.push(`涉害深度同为${maxDepth}，按所临地盘孟仲季次序取定`);
       } else if (preferred) {
         output.reasons.push(
           output.upper === preferredUpper
-            ? `涉害深度同为${maxDepth}，复等先取${YANG_STEMS.has(args.context.dayStem) ? '干上神' : '支上神'}`
-            : `涉害深度同为${maxDepth}，复等未先见${YANG_STEMS.has(args.context.dayStem) ? '干上神' : '支上神'}`,
+            ? `涉害深度及所临孟仲季复等，先取${YANG_STEMS.has(args.context.dayStem) ? '干上神' : '支上神'}`
+            : `涉害深度及所临孟仲季复等，未先见${YANG_STEMS.has(args.context.dayStem) ? '干上神' : '支上神'}`,
         );
-      } else if (selectedClass && !selectedClass.has(output.upper)) {
-        output.reasons.push(`涉害深度同为${maxDepth}，按孟仲季次序未取`);
       } else if (output.upper === args.result.initial) {
         output.reasons.push(
           selectedClassCount > 1
-            ? `涉害深度同为${maxDepth}，按孟仲季后再依原课序取定`
-            : `涉害深度同为${maxDepth}，按孟仲季次序取定`,
+            ? `涉害深度同为${maxDepth}，按所临地盘孟仲季后再依原课序取定`
+            : `涉害深度同为${maxDepth}，按所临地盘孟仲季次序取定`,
         );
       } else {
-        output.reasons.push(`涉害深度与孟仲季类别相同，按原课序未取`);
+        output.reasons.push(`涉害深度与所临地盘孟仲季类别相同，按原课序未取`);
       }
     }
   };
@@ -749,7 +758,7 @@ function buildOrdinaryTransmissionAdjudication(args: {
     if (inactiveOutput.length) {
       setSuppressed(inactiveOutput, '下贼上候选前置成立，上克下候选不再参与取舍');
     }
-    setSuppressed([...remoteUpper, ...remoteLower], '四课直接上下克前置成立，遥克不得抢占');
+    setSuppressed([...remoteUpper, ...remoteLower], '四课直接上下克前置成立，取传采用直接克候选');
 
     stages.push(
       createOrdinaryStage(
@@ -1066,7 +1075,10 @@ function isFuyinPlate(plate: LiurenPlateItem[]) {
 }
 
 function isFanyinPlate(plate: LiurenPlateItem[]) {
-  return plate.length === 12 && plate.every((item) => LIUCHONG_MAP[item.under] === item.branch);
+  return (
+    plate.length === 12 &&
+    plate.every((item) => GANZHI_RELATION_TABLES.LIUCHONG_MAP[item.under] === item.branch)
+  );
 }
 
 function getLessonPairKey(lesson: LiurenLesson) {
@@ -1077,8 +1089,9 @@ function getLessonPairKey(lesson: LiurenLesson) {
  * 《六壬指南》把“不备”限定为四课首尾相同，或二、三课相同。
  * 只比较上神会把不同的课对误合并，进而把昴星误判为别责。
  */
-function isThreeLessonPattern(lessons: LiurenLesson[]) {
-  const first = getLessonPairKey(lessons[0]);
+function isThreeLessonPattern(lessons: LiurenLesson[], dayStemResidence: string) {
+  // 一课下位写日干，比较重复课时须还原为日干寄宫。
+  const first = `${lessons[0].upper}/${dayStemResidence}`;
   const second = getLessonPairKey(lessons[1]);
   const third = getLessonPairKey(lessons[2]);
   const fourth = getLessonPairKey(lessons[3]);
@@ -1086,7 +1099,7 @@ function isThreeLessonPattern(lessons: LiurenLesson[]) {
 }
 
 function getPunishment(branch: string) {
-  const punishment = SANXING_MAP[branch];
+  const punishment = GANZHI_RELATION_TABLES.SANXING_MAP[branch];
   if (!punishment) {
     throw new Error(`地支 ${branch} 的三刑映射缺失。`);
   }
@@ -1104,7 +1117,7 @@ function buildFuyinBranches(initial: string, yiKeUpper: string, sanKeUpper: stri
   let final = getPunishment(middle);
   // 中传再次自刑，末传取冲神；否则按三刑推进。
   if (final === middle) {
-    const opposite = LIUCHONG_MAP[middle];
+    const opposite = GANZHI_RELATION_TABLES.LIUCHONG_MAP[middle];
     if (!opposite) {
       throw new Error(`地支 ${middle} 的六冲映射缺失。`);
     }
@@ -1210,7 +1223,8 @@ function resolveSpecialTransmission(
     };
   }
 
-  if (!isThreeLessonPattern(lessons)) {
+  const hasThreeLessons = isThreeLessonPattern(lessons, context.dayStemResidence);
+  if (!hasThreeLessons) {
     const initial = isYangDay
       ? getUpperByUnder(context.heavenlyPlate, '酉')
       : getUnderByUpper(context.heavenlyPlate, '酉');
@@ -1222,9 +1236,9 @@ function resolveSpecialTransmission(
     };
   }
 
-  if (isThreeLessonPattern(lessons)) {
+  if (hasThreeLessons) {
     if (isYangDay) {
-      const heStem = TIAN_GAN_HE[context.dayStem]?.partner;
+      const heStem = GANZHI_RELATION_TABLES.TIAN_GAN_HE[context.dayStem]?.partner;
       if (!heStem) {
         throw new Error(`日干 ${context.dayStem} 的天干五合映射缺失。`);
       }
