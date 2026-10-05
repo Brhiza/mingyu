@@ -265,40 +265,7 @@ test('太乙在线任务书合并实际条件，并按盘面重算而忽略旧�
   }
 });
 
-test('太乙巽位十六神名称传入盘面证据与任务书', () => {
-  const result = generateTaiyi({ year: 2026, scope: 'year' });
-  assert.deepEqual(
-    result.sixteenGods.find((item) => item.branch === '巽'),
-    {
-      branch: '巽',
-      god: '大炅',
-    },
-  );
-  assert.match(result.prompt, /巽大炅/);
-  assert.match(result.evidenceAnalysis.promptText, /巽大炅/);
-  assert.match(formatTaiyiInfo(result), /巽大炅/);
-});
-
-test('太乙二目五行关系未完成日计纳音复算时不进入在线任务书', () => {
-  const result = generateTaiyi({ year: 1974, scope: 'year' });
-  const relation = result.conditions.fiveGenerals.hostGuestElementRelation;
-  assert.equal(relation.relation, '未判定');
-  assert.equal(relation.complete, false);
-  assert.match(relation.basis, /未接入独立日计纳音判层/);
-  assert.equal(relation.hostElement, '土');
-  assert.equal(relation.guestElement, '水');
-  assert.match(
-    result.evidenceAnalysis.conditionFacts.find((fact) => fact.kind === '五将')?.calculationText ??
-      '',
-    /日计纳音判层未复算/,
-  );
-  for (const text of [formatTaiyiInfo(result), result.prompt, result.evidenceAnalysis.promptText]) {
-    assert.doesNotMatch(text, /二目五行：|主关客|客关主|未复算|纳音判层/);
-  }
-  assert.doesNotMatch(JSON.stringify(result), /主关客|客关主/);
-});
-
-test('太乙阳遁二三局按十六神原位区分掩击与囚迫', () => {
+test('太乙阳遁二三局区分掩击囚迫，并保留二目纳音待判', () => {
   // 《太乙秘书》阳遁第二局：太乙一宫，始击阴主（戌）击；
   // 第三局：太乙一宫，天目阴主（戌）辰迫。
   const second = generateTaiyi({ year: 1973, scope: 'year' });
@@ -322,6 +289,22 @@ test('太乙阳遁二三局按十六神原位区分掩击与囚迫', () => {
   assert.equal(third.conditions.fiveGenerals.wenChangNoImprisonOrPressure, false);
   assert.ok(!third.judgments.some((item) => item.includes('文昌与太乙同宫')));
   assert.ok(!third.evidenceAnalysis.primaryFacts.some((item) => /囚成立：文昌/u.test(item)));
+
+  const relation = third.conditions.fiveGenerals.hostGuestElementRelation;
+  assert.equal(relation.relation, '未判定');
+  assert.equal(relation.complete, false);
+  assert.match(relation.basis, /未接入独立日计纳音判层/);
+  assert.equal(relation.hostElement, '土');
+  assert.equal(relation.guestElement, '水');
+  assert.match(
+    third.evidenceAnalysis.conditionFacts.find((fact) => fact.kind === '五将')?.calculationText ??
+      '',
+    /日计纳音判层未复算/,
+  );
+  for (const text of [formatTaiyiInfo(third), third.prompt, third.evidenceAnalysis.promptText]) {
+    assert.doesNotMatch(text, /二目五行：|主关客|客关主|未复算|纳音判层/);
+  }
+  assert.doesNotMatch(JSON.stringify(third), /主关客|客关主/);
 
   const twentyFifth = generateTaiyi({ year: 1996, scope: 'year' });
   assert.equal(twentyFifth.bureau, 25);
@@ -365,9 +348,59 @@ test('太乙十六位环首尾相接且三位外不计击', () => {
   assert.equal(distant.fiveGenerals.shiJiNoCoverOrHit, true);
 });
 
-test('太乙年计在线任务书保留成立条件并将门将摘要只呈现一次', () => {
+test('太乙年计保留十六神、长短算与成立条件，门将摘要只呈现一次', () => {
   const withCover = generateTaiyi({ year: 2004, scope: 'year' });
   const twentyTwentySix = generateTaiyi({ year: 2026, scope: 'year' });
+  assert.deepEqual(
+    twentyTwentySix.sixteenGods.find((item) => item.branch === '巽'),
+    {
+      branch: '巽',
+      god: '大炅',
+    },
+  );
+  assert.match(twentyTwentySix.prompt, /巽大炅/);
+  assert.match(twentyTwentySix.evidenceAnalysis.promptText, /巽大炅/);
+  assert.match(formatTaiyiInfo(twentyTwentySix), /巽大炅/);
+  const guidance = evaluateTaiyiTacticGuidance({
+    lordCount: 10,
+    guestCount: 11,
+    guestNature: '阴中重阳',
+  });
+  assert.match(guidance, /主算10，为短算，传统取急而浅为/);
+  assert.match(guidance, /客算11（阴中重阳），为长算，传统取缓而深入/);
+  assert.match(guidance, /三门具否、五将发否、阴阳和否/);
+  assert.match(guidance, /当前未传入三门、五将、阴阳和盘面事实，不能据长短单独断胜负/);
+  assert.match(guidance, /吉凶条件相等时/);
+  const harmony = evaluateTaiyiTacticGuidance({
+    lordCount: 12,
+    guestCount: 16,
+    lordNature: '下和',
+    guestNature: '下和',
+  });
+  assert.match(harmony, /主算12（下和）/);
+  assert.match(harmony, /客算16（下和）/);
+  assert.doesNotMatch(harmony, /调停|和解|不战屈人/);
+  assert.ok(twentyTwentySix.prompt.includes(`大局攻守：主算${twentyTwentySix.lordCount}`));
+  assert.match(twentyTwentySix.tacticGuidance, /盘面条件：(?:三门具|两门不具|三门不具)/);
+  assert.match(twentyTwentySix.prompt, /门将阴阳和：(?:三门具|两门不具|三门不具)/);
+  assert.doesNotMatch(twentyTwentySix.evidenceAnalysis.promptText, /taiyi:calculation:/);
+  assert.equal(
+    twentyTwentySix.evidenceAnalysis.calculationSteps[4]?.result,
+    twentyTwentySix.conditions.threeGates.status,
+  );
+  assert.equal(
+    twentyTwentySix.evidenceAnalysis.calculationSteps[5]?.result,
+    twentyTwentySix.conditions.fiveGenerals.launched ? '发' : '不发',
+  );
+  assert.equal(
+    twentyTwentySix.evidenceAnalysis.calculationSteps[6]?.result,
+    twentyTwentySix.conditions.yinYangHarmony.matched ? '和' : '不和',
+  );
+  assert.equal(
+    twentyTwentySix.conditions.threeGates.gateByPalace[twentyTwentySix.taiyiPalace],
+    twentyTwentySix.conditions.threeGates.directGate,
+  );
+  assert.equal(typeof twentyTwentySix.conditions.fiveGenerals.launched, 'boolean');
   assert.match(withCover.evidenceAnalysis.promptText, /掩成立：始击与太乙同宫/);
   assert.doesNotMatch(
     withCover.evidenceAnalysis.promptText,
@@ -777,50 +810,6 @@ test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或�
     'https://www.shidianguji.com/book/SK1615/chapter/1l9lir71oidda',
   );
   assert.match(afterLichun.evidenceAnalysis.promptText, /月计按逐月节气换局/);
-});
-
-test('太乙长短算按十一分界，和算结合门将审断', () => {
-  const guidance = evaluateTaiyiTacticGuidance({
-    lordCount: 10,
-    guestCount: 11,
-    guestNature: '阴中重阳',
-  });
-  assert.match(guidance, /主算10，为短算，传统取急而浅为/);
-  assert.match(guidance, /客算11（阴中重阳），为长算，传统取缓而深入/);
-  assert.match(guidance, /三门具否、五将发否、阴阳和否/);
-  assert.match(guidance, /当前未传入三门、五将、阴阳和盘面事实，不能据长短单独断胜负/);
-  assert.match(guidance, /吉凶条件相等时/);
-  const harmony = evaluateTaiyiTacticGuidance({
-    lordCount: 12,
-    guestCount: 16,
-    lordNature: '下和',
-    guestNature: '下和',
-  });
-  assert.match(harmony, /主算12（下和）/);
-  assert.match(harmony, /客算16（下和）/);
-  assert.doesNotMatch(harmony, /调停|和解|不战屈人/);
-  const result = generateTaiyi({ year: 2026 });
-  assert.ok(result.prompt.includes(`大局攻守：主算${result.lordCount}`));
-  assert.match(result.tacticGuidance, /盘面条件：(?:三门具|两门不具|三门不具)/);
-  assert.match(result.prompt, /门将阴阳和：(?:三门具|两门不具|三门不具)/);
-  assert.doesNotMatch(result.evidenceAnalysis.promptText, /taiyi:calculation:/);
-  assert.equal(
-    result.evidenceAnalysis.calculationSteps[4]?.result,
-    result.conditions.threeGates.status,
-  );
-  assert.equal(
-    result.evidenceAnalysis.calculationSteps[5]?.result,
-    result.conditions.fiveGenerals.launched ? '发' : '不发',
-  );
-  assert.equal(
-    result.evidenceAnalysis.calculationSteps[6]?.result,
-    result.conditions.yinYangHarmony.matched ? '和' : '不和',
-  );
-  assert.equal(
-    result.conditions.threeGates.gateByPalace[result.taiyiPalace],
-    result.conditions.threeGates.directGate,
-  );
-  assert.equal(typeof result.conditions.fiveGenerals.launched, 'boolean');
 });
 
 test('太乙三门直使按二百四十周期每三十换门，并保留可复算条件', () => {

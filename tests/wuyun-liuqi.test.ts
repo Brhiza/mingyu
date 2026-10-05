@@ -298,7 +298,7 @@ test('六步节令和主客气关系应完整覆盖二十四节气', () => {
   });
 });
 
-test('公历年换算应采用稳定年中口径，并校验显式干支一致性', () => {
+test('公历年换算采用年中口径，运气年度按大寒切换并核验显式干支', () => {
   assert.equal(getWuyunLiuqiYearGanZhi(1984), '甲子');
   assert.equal(getWuyunLiuqiYearGanZhi(2024), '甲辰');
   const normalInput = { year: 2026 };
@@ -306,6 +306,12 @@ test('公历年换算应采用稳定年中口径，并校验显式干支一致�
   const normalResult = calculateWuyunLiuqi(normalInput);
   assert.equal(normalResult.input.yearGanZhi, '丙午');
   assert.deepEqual(normalInput, originalInput);
+  const boundary = normalResult.qiSteps[0].boundaryTime?.startTimestamp;
+  assert.ok(boundary);
+  assert.equal(getWuyunLiuqiYearAt(new Date(boundary - 1)), 2025);
+  assert.equal(getWuyunLiuqiYearAt(new Date(boundary)), 2026);
+  assert.equal(getWuyunLiuqiYearAt(new Date('2026-01-01T12:00:00+08:00')), 2025);
+  assert.equal(getWuyunLiuqiYearAt(new Date('2026-07-01T12:00:00+08:00')), 2026);
   assert.throws(
     () => calculateWuyunLiuqi({ year: 2026, yearGanZhi: '乙巳' }),
     /year 与 yearGanZhi 不一致/,
@@ -368,15 +374,6 @@ test('公历年换算应采用稳定年中口径，并校验显式干支一致�
     /年干支组合无效/,
   );
   assert.equal(invalidGanZhiReads, 1);
-});
-
-test('运气年度在北京时间大寒交节瞬时切换', () => {
-  const boundary = calculateWuyunLiuqi({ year: 2026 }).qiSteps[0].boundaryTime?.startTimestamp;
-  assert.ok(boundary);
-  assert.equal(getWuyunLiuqiYearAt(new Date(boundary - 1)), 2025);
-  assert.equal(getWuyunLiuqiYearAt(new Date(boundary)), 2026);
-  assert.equal(getWuyunLiuqiYearAt(new Date('2026-01-01T12:00:00+08:00')), 2025);
-  assert.equal(getWuyunLiuqiYearAt(new Date('2026-07-01T12:00:00+08:00')), 2026);
 });
 
 test('五运六气应修剪显式年干支首尾空白后再校验和计算', () => {
@@ -522,7 +519,7 @@ test('具平气条件的年度提示词不把年干太过所对应之纪写成�
 test('五运六气跨节气精度范围保留完整年度结构并省略计算状态', () => {
   for (const year of [1, 99, 1899, 2200, 9999]) {
     const result = calculateWuyunLiuqi({ year });
-    const reference = calculateWuyunLiuqi({ yearGanZhi: getWuyunLiuqiYearGanZhi(year) });
+    const reference = getCycleResult(getWuyunLiuqiYearGanZhi(year));
     assert.equal(result.calendarDateStatus, '节令边界');
     assert.deepEqual(result.annualMovement, reference.annualMovement);
     assert.deepEqual(result.movementSteps, reference.movementSteps);

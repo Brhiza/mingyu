@@ -39,10 +39,30 @@ import type {
 type FixtureMethod = 'liuyao' | 'meihua' | 'qimen' | 'liuren' | 'tarot' | 'ssgw';
 
 let qimenPromptSample: ReturnType<typeof generateQimen> | undefined;
+let qimenAutumnPromptSample: ReturnType<typeof generateQimen> | undefined;
+let liuyaoPromptSample: ReturnType<typeof generateLiuyao> | undefined;
+let meihuaPromptSample: ReturnType<typeof generateMeihua> | undefined;
+let almanacPromptSample: ReturnType<typeof generateAlmanacSelection> | undefined;
+let liurenPromptSample: ReturnType<typeof generateLiuren> | undefined;
 
 function createQimenPromptSample() {
   qimenPromptSample ??= generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   return structuredClone(qimenPromptSample);
+}
+
+function createQimenAutumnPromptSample() {
+  qimenAutumnPromptSample ??= generateQimen(
+    new Date('2026-08-08T15:14:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
+  return structuredClone(qimenAutumnPromptSample);
+}
+
+function createLiurenPromptSample() {
+  liurenPromptSample ??= generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
+  return structuredClone(liurenPromptSample);
 }
 
 function createSupplementaryInfo(): SupplementaryInfo {
@@ -241,15 +261,17 @@ function createAstrolabeData(
 function createData(method: FixtureMethod): DivinationData {
   switch (method) {
     case 'liuyao':
-      return generateLiuyao(new Date('2025-06-18T10:30:00+08:00'), {
+      liuyaoPromptSample ??= generateLiuyao(new Date('2025-06-18T10:30:00+08:00'), {
         method: 'manual',
         yaos: [9, 8, 8, 8, 7, 8],
       });
+      return structuredClone(liuyaoPromptSample);
     case 'meihua':
-      return generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
+      meihuaPromptSample ??= generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
         method: 'number',
         number: 123,
       });
+      return structuredClone(meihuaPromptSample);
     case 'qimen':
       return createQimenPromptSample();
     case 'liuren':
@@ -377,7 +399,7 @@ function createData(method: FixtureMethod): DivinationData {
 }
 
 function createAlmanacData(): DivinationData {
-  return generateAlmanacSelection({
+  almanacPromptSample ??= generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
     endDate: '2026-06-02',
@@ -394,6 +416,7 @@ function createAlmanacData(): DivinationData {
       },
     ],
   });
+  return structuredClone(almanacPromptSample);
 }
 
 test('各类占卜提示词都使用统一的角色加信息加问题结构', async () => {
@@ -424,7 +447,7 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
     {
       method: 'liuren',
       question: '这件事接下来该怎么推进？',
-      data: generateLiuren(new Date('2025-06-18T10:30:00+08:00')),
+      data: createLiurenPromptSample(),
       structure: 'liuren',
     },
     {
@@ -697,6 +720,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);
+  assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
 });
 
@@ -710,7 +734,7 @@ test('奇门提示词保留节令关系并省略重复的四柱互动明细', ()
 });
 
 test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落宫', () => {
-  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
+  const data = createQimenAutumnPromptSample();
   const prompt = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1989 });
 
   assert.equal(data.ganzhi.day, '甲寅');
@@ -731,26 +755,13 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
 });
 
 test('奇门年命资料应处理六甲遁干，未填写出生年份时不输出', () => {
-  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const data = createQimenAutumnPromptSample();
   const withBirthYear = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1984 });
   const withoutBirthYear = buildDivinationPrompt('qimen', '整体解读', data);
 
   assert.match(withBirthYear, /公历1984年按年中口径取年命干支甲子，命干甲/);
   assert.match(withBirthYear, /年命落宫（年中口径）：命干甲遁戊落.+宫/);
   assert.doesNotMatch(withoutBirthYear, /年命资料|年命落宫/);
-});
-
-test('奇门提示词不再根据问题词表输出问事参考', () => {
-  const data = createQimenPromptSample();
-
-  const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', data, {
-    gender: '男',
-    birthYear: 1995,
-  });
-
-  assert.doesNotMatch(prompt, /问事参考/);
-  assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
-  assert.match(prompt, /值符值使与时干：值符天冲落巽四宫；值使伤门落乾六宫/);
 });
 
 test('六爻提示词不再按问题词表补充取用参考', () => {
@@ -912,7 +923,7 @@ test('大六壬模板只写入简短问题范围', () => {
 });
 
 test('大六壬提示词会给出精简课传资料，避免重复堆叠', () => {
-  const data = generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
+  const data = createLiurenPromptSample();
   const prompt = buildDivinationPrompt(
     'liuren',
     '这件事接下来该怎么推进？',
@@ -949,7 +960,7 @@ test('大六壬旧盘缺天地盘时任务只引用可核对的起课资料', ()
 });
 
 test('大六壬提示词保留课体与精简神煞摘要', () => {
-  const data = generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
+  const data = createLiurenPromptSample();
   assert.ok(data.guaTi?.length);
   assert.ok(data.shenShaSummary?.length);
   data.guaTiFacts = undefined;

@@ -41,34 +41,6 @@ test('皇极动植物数表保留可复算数目与校勘边界', () => {
   assert.match(result.limitations.join('\n'), /一百二十二/);
 });
 
-test('皇极历史纪年原表按经辰区块返回三十个甲子并保留原文支字', () => {
-  const first = getHuangjiHistoricalEraBlock(2156);
-  assert.equal(first.source.revision, '789511');
-  assert.equal(first.branch, '未');
-  assert.equal(first.sourceBranch, '未');
-  assert.equal(first.rows.length, 30);
-  assert.equal(first.rows[0]?.ganzhi, '甲午');
-  assert.equal(
-    first.rows.every((row) => typeof row.sourceText === 'string'),
-    true,
-  );
-  assert.deepEqual(first.namedEntries, [
-    { rowIndex: 11, ganzhi: '甲辰', label: '唐堯', sourceText: '唐堯' },
-  ]);
-
-  const corrected = getHuangjiHistoricalEraBlock(2190);
-  assert.equal(corrected.source.revision, '789512');
-  assert.equal(corrected.sourceBranch, '己');
-  assert.equal(corrected.branch, '巳');
-  assert.equal(corrected.sourceBranchNote !== undefined, true);
-  assert.equal(corrected.rows[22]?.sourceText, '二十八');
-  assert.equal(corrected.rows[23]?.sourceText, '商武丁');
-  assert.deepEqual(corrected.namedEntries, [
-    { rowIndex: 24, ganzhi: '丁巳', label: '商武丁', sourceText: '商武丁' },
-  ]);
-  assert.throws(() => getHuangjiHistoricalEraBlock(2148), /2149至2208/);
-});
-
 test('皇极历史纪年原表逐区块保留三十行原文标记和固定卷页版本', () => {
   // 《皇极经世书》卷三上固定修订789511：经辰2149、2150各明列三十行。
   // https://zh.wikisource.org/w/index.php?oldid=789511
@@ -151,6 +123,26 @@ test('皇极历史纪年原表逐区块保留三十行原文标记和固定卷�
       reference.rows.every((row) => typeof row.sourceText === 'string'),
       true,
     );
+    if (shiIndex === 2156) {
+      assert.equal(reference.source.revision, '789511');
+      assert.equal(reference.branch, '未');
+      assert.equal(reference.sourceBranch, '未');
+      assert.equal(reference.rows[0]?.ganzhi, '甲午');
+      assert.deepEqual(reference.namedEntries, [
+        { rowIndex: 11, ganzhi: '甲辰', label: '唐堯', sourceText: '唐堯' },
+      ]);
+    }
+    if (shiIndex === 2190) {
+      assert.equal(reference.source.revision, '789512');
+      assert.equal(reference.sourceBranch, '己');
+      assert.equal(reference.branch, '巳');
+      assert.equal(reference.sourceBranchNote !== undefined, true);
+      assert.equal(reference.rows[22]?.sourceText, '二十八');
+      assert.equal(reference.rows[23]?.sourceText, '商武丁');
+      assert.deepEqual(reference.namedEntries, [
+        { rowIndex: 24, ganzhi: '丁巳', label: '商武丁', sourceText: '商武丁' },
+      ]);
+    }
     for (const entry of reference.namedEntries) {
       namedEntryCount += 1;
       assert.equal(reference.rows[entry.rowIndex - 1]?.sourceText, entry.sourceText);
@@ -158,4 +150,5 @@ test('皇极历史纪年原表逐区块保留三十行原文标记和固定卷�
   }
 
   assert.equal(namedEntryCount, 60);
+  assert.throws(() => getHuangjiHistoricalEraBlock(2148), /2149至2208/);
 });
