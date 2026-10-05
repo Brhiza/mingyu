@@ -380,12 +380,11 @@ function lifetimeEventHeader(cluster: AnyRecord): string | undefined {
     ? cluster.stageIndices.map(text).filter((item): item is string => Boolean(item))
     : [];
   const stageIndex = text(cluster.stageIndex);
-  const scopeText =
-    stageIndices.length && (stageIndices.length > 1 || stageIndex === undefined)
-      ? `（涉及阶段${stageIndices.map((item) => String(Number(item) + 1)).join('、')}）`
-      : stageIndex === undefined
-        ? '（阶段表范围外）'
-        : '';
+  const scopeText = stageIndices.length
+    ? `（涉及阶段${stageIndices.map((item) => String(Number(item) + 1)).join('、')}）`
+    : stageIndex === undefined
+      ? '（阶段表范围外）'
+      : `（涉及阶段${Number(stageIndex) + 1}）`;
   if (text(cluster.key)?.includes(':month-clash:')) return `${triggerFact}${scopeText}`;
   const annualLabel = /^(\d{4}年（[^）]+)）/u.exec(timeSpan)?.[1];
   const annualPrefix = annualLabel ? `${annualLabel}太岁）` : undefined;
@@ -879,9 +878,10 @@ function extractQimenLifetimeFacts(data: unknown): DivinationPromptFact[] {
               .filter(Number.isFinite)
               .join('、')
           : '';
-        const stageFact =
-          stageIndices && (stageIndices.includes('、') || event.stageIndex === undefined)
-            ? `涉及阶段${stageIndices}`
+        const stageFact = stageIndices
+          ? `涉及阶段${stageIndices}`
+          : event.stageIndex !== undefined
+            ? `涉及阶段${Number(event.stageIndex) + 1}`
             : undefined;
         const triggerDates = records(event.triggerDates);
         const triggerDateLines =
