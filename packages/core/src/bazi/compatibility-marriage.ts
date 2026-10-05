@@ -277,8 +277,8 @@ export function evaluateUsefulGodComplementarity(
   }
 
   return {
-    person1Useful: p1Useful,
-    person2Useful: p2Useful,
+    person1Useful: [...p1Useful],
+    person2Useful: [...p2Useful],
     person1CoveredByPerson2Count: c1,
     person2CoveredByPerson1Count: c2,
     person1AvoidCountInPerson2: avoid1,

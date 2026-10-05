@@ -460,7 +460,10 @@ test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天�
 
 test('八字合盘深层喜用与夫妻宫只输出盘面覆盖事实', () => {
   const chart = createChart();
-  const result = analyzeBaziCompatibility(chart, structuredClone(chart));
+  const partner = structuredClone(chart);
+  const inputBefore = structuredClone([chart, partner]);
+  const result = analyzeBaziCompatibility(chart, partner);
+  const resultBefore = structuredClone(result);
   const deep = result.marriageDeep;
 
   assert.ok(deep);
@@ -473,6 +476,21 @@ test('八字合盘深层喜用与夫妻宫只输出盘面覆盖事实', () => {
   assert.doesNotMatch(deep.spousePalace.judgment, /平稳相守|性情相投|精神契合度高/);
   assert.match(deep.summary, /喜用覆盖为/);
   assert.doesNotMatch(deep.summary, /喜用互补呈|平稳相守/);
+
+  deep.usefulGodComplementarity.person1Useful.push('火');
+  assert.deepEqual(
+    deep.usefulGodComplementarity.person2Useful,
+    resultBefore.marriageDeep!.usefulGodComplementarity.person2Useful,
+  );
+  deep.usefulGodComplementarity.person2Useful.length = 0;
+  assert.deepEqual([chart, partner], inputBefore);
+  assert.deepEqual(analyzeBaziCompatibility(chart, partner), resultBefore);
+
+  const sameChart = evaluateUsefulGodComplementarity(chart, chart);
+  const secondUsefulBefore = [...sameChart.person2Useful];
+  sameChart.person1Useful.length = 0;
+  assert.deepEqual(sameChart.person2Useful, secondUsefulBefore);
+  assert.deepEqual(chart, inputBefore[0]);
 });
 
 test('八字合婚纳音深层函数拒绝未知年柱资料', () => {
