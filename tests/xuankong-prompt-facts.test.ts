@@ -115,19 +115,3 @@ test('玄空命中组合集中列出实际宫位', () => {
   }
   assert.doesNotMatch(result.prompt, /；组合|组合：未检出/);
 });
-
-test('旺山旺向只列一次成立条件，替卦到山到向例外仍明确显示', () => {
-  const wang = generateXuanKong({ year: 1974, sitMountain: '壬', guaType: '替卦' });
-  assert.equal(wang.formation, '旺山旺向');
-  assert.equal(wang.daoShanXiang.shanToMountain, true);
-  assert.equal(wang.daoShanXiang.xiangToFacing, true);
-  assert.match(wang.prompt, /局型：旺山旺向/);
-  assert.doesNotMatch(wang.prompt, /到山到向：本宅运星到山且到向/);
-
-  const exception = generateXuanKong({ year: 1930, sitMountain: '甲', guaType: '替卦' });
-  assert.equal(exception.formation, '替卦到山到向未成旺局');
-  assert.equal(exception.daoShanXiang.shanToMountain, true);
-  assert.equal(exception.daoShanXiang.xiangToFacing, true);
-  assert.match(exception.prompt, /局型：替卦到山到向未成旺局/);
-  assert.match(exception.prompt, /到山到向：本宅运星到山且到向/);
-});

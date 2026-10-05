@@ -37,6 +37,20 @@ const start = Date.parse('2024-03-20T11:00:00+08:00');
 const independentNatalCharts = [0, 1, 2].map((second) =>
   generateAstrolabe({ ...input, second: String(second) }),
 );
+const independentNewYorkNatalChart = generateAstrolabe({
+  name: '纽约返照动态区间验证',
+  gender: '女',
+  year: '2000',
+  month: '3',
+  day: '10',
+  hour: '2',
+  minute: '30',
+  second: '0',
+  latitude: '40.7128',
+  longitude: '-74.0060',
+  timeZoneId: 'America/New_York',
+  locationName: '纽约',
+});
 const sharedFullContextsMarch2028: Array<
   ReturnType<typeof buildAstrolabeFullScopeContexts> | undefined
 > = [];
@@ -385,19 +399,7 @@ test('返照盘宫头和盘内相位完整进入动态区间投影', () => {
 });
 
 test('非东八区返照时刻与同一证据的 UTC 时间一致', () => {
-  const natal = generateAstrolabe({
-    name: '纽约返照动态区间验证',
-    gender: '女',
-    year: '2000',
-    month: '3',
-    day: '10',
-    hour: '2',
-    minute: '30',
-    latitude: '40.7128',
-    longitude: '-74.0060',
-    timeZoneId: 'America/New_York',
-    locationName: '纽约',
-  });
+  const natal = structuredClone(independentNewYorkNatalChart);
   const scope = buildAstrolabeScopeContext(natal, 'yearly', '2024', {
     includePeriodEvents: false,
   });
@@ -413,18 +415,7 @@ test('非东八区返照时刻与同一证据的 UTC 时间一致', () => {
 });
 
 test('非东八区关键窗口投影沿用事件真实时刻而非东八区墙钟', () => {
-  const natal = generateAstrolabe({
-    ...input,
-    year: '2000',
-    month: '3',
-    day: '10',
-    hour: '2',
-    minute: '30',
-    latitude: '40.7128',
-    longitude: '-74.0060',
-    timezone: undefined,
-    timeZoneId: 'America/New_York',
-  });
+  const natal = structuredClone(independentNewYorkNatalChart);
   const scope = buildAstrolabeScopeContext(natal, 'monthly', '2024-07');
   const period = scope.periodEvents!;
   assert.ok(period.windows.length > 0);

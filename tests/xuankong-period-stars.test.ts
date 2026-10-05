@@ -28,34 +28,6 @@ test('流月紫白按节气月入中后顺飞，十五日口径可复现', () =>
   assert.doesNotMatch(monthStar.calendarNote, /未指定日期|未提供具体时刻/);
 });
 
-test('宅盘可叠加流年流月飞星，且不把建造年当成流年', () => {
-  const natalOnly = generateXuanKong({ year: 2008, sitMountain: '子' });
-  assert.equal(natalOnly.flowStars, undefined);
-  assert.equal(natalOnly.palaces[0].yearStar, undefined);
-  assert.match(natalOnly.prompt, /三盘九宫/);
-  assert.doesNotMatch(natalOnly.prompt, /流年飞星/);
-
-  const withFlow = generateXuanKong({
-    year: 2008,
-    sitMountain: '子',
-    flowYear: 2024,
-    flowMonth: 3,
-  });
-  assert.ok(withFlow.flowStars);
-  assert.equal(withFlow.flowStars?.yearPlate.year, 2024);
-  assert.equal(withFlow.period.year, 2008);
-  assert.deepEqual(withFlow.plates.year, withFlow.flowStars?.yearPlate.plate);
-  assert.deepEqual(withFlow.plates.month, withFlow.flowStars?.monthPlate?.plate);
-  for (const palace of withFlow.palaces) {
-    assert.equal(palace.yearStar, withFlow.plates.year?.[palace.gong - 1]);
-    assert.equal(palace.monthStar, withFlow.plates.month?.[palace.gong - 1]);
-    assert.ok(palace.shanXiangRelation);
-    assert.ok(palace.yunStarState);
-  }
-  assert.match(withFlow.prompt, /流年飞星/);
-  assert.match(withFlow.prompt, /流月飞星/);
-});
-
 test('九星当运与山向生克只记录结构，不打吉凶分', () => {
   assert.equal(resolveFlyingStarYunState(9, 9), '当运');
   assert.equal(resolveFlyingStarYunState(1, 9), '生气');
