@@ -12,17 +12,19 @@ import {
 } from '../packages/core/src/bazi/compatibility-marriage';
 import type { BaziChartResult, Pillars } from '../packages/core/src/bazi/baziTypes';
 
+const CHART_TEMPLATE: BaziChartResult = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 5,
+  day: 15,
+  timeIndex: 1,
+  gender: 'male',
+  isLunar: false,
+  isLeapMonth: false,
+  useTrueSolarTime: false,
+});
+
 function createChart(): BaziChartResult {
-  return baziCalculator.calculateBazi({
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 1,
-    gender: 'male',
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  return structuredClone(CHART_TEMPLATE);
 }
 
 test('中和增补待判的合盘保留原局格神，不把空喜忌判为未命中', () => {
@@ -129,7 +131,7 @@ function withPillars(
   useful: { favorableWuxing: string[]; unfavorableWuxing: string[] },
   composition: Record<string, number>,
 ) {
-  const chart = structuredClone(createChart());
+  const chart = createChart();
   chart.pillars = pillars;
   chart.dayMaster = dayMaster;
   chart.analysis.usefulGod.favorableWuxing = useful.favorableWuxing;
@@ -230,7 +232,7 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
   assertEvidenceReferences(result);
 });
 
-test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
+test('八字双盘同一四柱样本应保留关系、十神、喜忌、提示与合婚金标', () => {
   const { chart1, chart2 } = createPair();
   const result = analyzeBaziCompatibility(chart1, chart2);
   const combination = result.crossBranchCombinations.find((item) => item.name === '东方木');
@@ -244,34 +246,6 @@ test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
   assert.equal(combination.status, '组合齐备');
   assert.ok(combination.key.startsWith('bazi:compatibility:branch-combination:'));
   assert.ok(combination.sourceLayerKeys.length >= 3);
-});
-
-test('日干五合不计入双方日支夫妻宫关系', () => {
-  const { chart1, chart2 } = createPair();
-  chart2.pillars.day = { gan: '辛', zhi: '酉', ganZhi: '辛酉' };
-
-  const result = analyzeBaziCompatibility(chart1, chart2);
-
-  assert.ok(
-    result.crossPillarRelations.some(
-      (item) =>
-        item.layer === '天干' &&
-        item.type === '五合候选' &&
-        item.person1Pillar === 'day' &&
-        item.person2Pillar === 'day',
-    ),
-  );
-  assert.equal(result.spousePalaceRelations.length, 0);
-  assert.equal(result.summaryFact.spousePalaceRelationCount, 0);
-  assert.match(
-    result.counterEvidenceFacts.find((item) => item.type === '夫妻宫关系覆盖')?.promptText ?? '',
-    /双方日支未命中/,
-  );
-});
-
-test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
-  const { chart1, chart2 } = createPair();
-  const result = analyzeBaziCompatibility(chart1, chart2);
 
   assert.equal(result.tenGodMappings.length, 8);
   assert.ok(
@@ -304,6 +278,58 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
     ),
   );
   assert.match(result.promptText, /喜用五行.*木（.*柱(?:天干|地支|藏干).*）/s);
+
+  assert.match(result.promptText, /【八字双盘结构化证据】/);
+  assert.match(result.promptText, /【主证】/);
+  assert.match(result.promptText, /【反证】/);
+  assert.match(result.promptText, /【限制】/);
+  assert.match(result.promptText, /不输出匹配总分/);
+  assert.match(result.promptText, /计算链概览/);
+  assert.match(result.promptText, /证据汇总/);
+  assert.ok(result.counterEvidenceFacts.length >= 4);
+  assert.ok(result.limitationFacts.some((item) => item.type === '合化边界'));
+  assert.ok(result.promptText.length < 10000);
+  assert.doesNotMatch(result.promptText, /bazi:compatibility:|本模块|本引擎|内部配置/);
+  assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)|合化成功/);
+
+  // chart1：年柱甲子纳音海中金；chart2：年柱己丑纳音霹雳火。
+  assert.ok(result.marriageDeep);
+  assert.equal(result.marriageDeep.nayin.person1Nayin, '海中金');
+  assert.equal(result.marriageDeep.nayin.person2Nayin, '霹雳火');
+  assert.equal(result.marriageDeep.nayin.relation, '受对方克');
+  assert.match(result.marriageDeep.nayin.judgment, /火克金/);
+  assert.doesNotMatch(result.marriageDeep.nayin.judgment, /情意绵长|照拂滋养|调适理解/);
+  // 日柱丙辛五合且寅亥六合，保留天地德合真值。
+  assert.equal(result.marriageDeep.spousePalace.isTianDeHe, true);
+  assert.equal(result.marriageDeep.spousePalace.isTianKeDiChong, false);
+  assert.match(result.marriageDeep.spousePalace.judgment, /天地德合/);
+  // 合婚结论继续由双方结构化喜用覆盖产出。
+  assert.ok(result.marriageDeep.usefulGodComplementarity);
+  assert.match(result.marriageDeep.summary, /八字合婚理法：/);
+  assert.match(result.promptText, /八字合婚理法：/);
+});
+
+test('日干五合不计入双方日支夫妻宫关系', () => {
+  const { chart1, chart2 } = createPair();
+  chart2.pillars.day = { gan: '辛', zhi: '酉', ganZhi: '辛酉' };
+
+  const result = analyzeBaziCompatibility(chart1, chart2);
+
+  assert.ok(
+    result.crossPillarRelations.some(
+      (item) =>
+        item.layer === '天干' &&
+        item.type === '五合候选' &&
+        item.person1Pillar === 'day' &&
+        item.person2Pillar === 'day',
+    ),
+  );
+  assert.equal(result.spousePalaceRelations.length, 0);
+  assert.equal(result.summaryFact.spousePalaceRelationCount, 0);
+  assert.match(
+    result.counterEvidenceFacts.find((item) => item.type === '夫妻宫关系覆盖')?.promptText ?? '',
+    /双方日支未命中/,
+  );
 });
 
 test('交换双方后跨盘关系、十神与喜忌覆盖保持双向对应', () => {
@@ -336,24 +362,6 @@ test('交换双方后跨盘关系、十神与喜忌覆盖保持双向对应', ()
     forward.usefulGodCoverage[0].favorable.map((item) => item.wuxing),
     reverse.usefulGodCoverage[1].favorable.map((item) => item.wuxing),
   );
-});
-
-test('八字双盘提示词应区分事实和限制且不输出匹配总分', () => {
-  const { chart1, chart2 } = createPair();
-  const result = analyzeBaziCompatibility(chart1, chart2);
-
-  assert.match(result.promptText, /【八字双盘结构化证据】/);
-  assert.match(result.promptText, /【主证】/);
-  assert.match(result.promptText, /【反证】/);
-  assert.match(result.promptText, /【限制】/);
-  assert.match(result.promptText, /不输出匹配总分/);
-  assert.match(result.promptText, /计算链概览/);
-  assert.match(result.promptText, /证据汇总/);
-  assert.ok(result.counterEvidenceFacts.length >= 4);
-  assert.ok(result.limitationFacts.some((item) => item.type === '合化边界'));
-  assert.ok(result.promptText.length < 10000);
-  assert.doesNotMatch(result.promptText, /bazi:compatibility:|本模块|本引擎|内部配置/);
-  assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)|合化成功/);
 });
 
 test('八字双盘喜忌资料缺失时应保留缺口而不生成互补结论', () => {
@@ -432,30 +440,6 @@ test('夫妻宫独立计算以日柱天干五行为准', () => {
   const result = evaluateSpousePalaceDeepRelation(chart1, chart2);
   assert.equal(result.stemRelation, '相克');
   assert.equal(result.isTianDeHe, false);
-});
-
-test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天地德合与喜用互补', () => {
-  const { chart1, chart2 } = createPair();
-  // chart1: year 甲子 (海中金), day 丙寅 (火/木)
-  // chart2: year 己丑 (霹雳火), day 辛亥 (金/水)
-  const result = analyzeBaziCompatibility(chart1, chart2);
-
-  assert.ok(result.marriageDeep);
-  assert.equal(result.marriageDeep.nayin.person1Nayin, '海中金');
-  assert.equal(result.marriageDeep.nayin.person2Nayin, '霹雳火');
-  assert.equal(result.marriageDeep.nayin.relation, '受对方克');
-  assert.match(result.marriageDeep.nayin.judgment, /火克金/);
-  assert.doesNotMatch(result.marriageDeep.nayin.judgment, /情意绵长|照拂滋养|调适理解/);
-
-  // 日柱天干丙辛五合，地支寅亥六合 -> 天地德合！
-  assert.equal(result.marriageDeep.spousePalace.isTianDeHe, true);
-  assert.equal(result.marriageDeep.spousePalace.isTianKeDiChong, false);
-  assert.match(result.marriageDeep.spousePalace.judgment, /天地德合/);
-
-  // 喜用互补检验
-  assert.ok(result.marriageDeep.usefulGodComplementarity);
-  assert.match(result.marriageDeep.summary, /八字合婚理法：/);
-  assert.match(result.promptText, /八字合婚理法：/);
 });
 
 test('八字合盘深层喜用与夫妻宫只输出盘面覆盖事实', () => {

@@ -127,14 +127,7 @@ test('命录紫微按实际星曜分类保留十二宫全部星曜及辅星生�
   };
   const emptyArticle = buildMingluArticle({
     person: { name: '星曜核验', gender: 'male' },
-    baziResult: baziCalculator.calculateBazi({
-      year: 1991,
-      month: 5,
-      day: 15,
-      timeIndex: 1,
-      gender: 'male',
-      isLunar: false,
-    }),
+    baziResult: structuredClone(baziResult),
     ziweiRuntime: emptyRuntime,
   });
   assert.deepEqual(

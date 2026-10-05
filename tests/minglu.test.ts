@@ -37,42 +37,57 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
   const samples = [
     {
       date: [1990, 1, 7, 5],
-      category: '地支六合',
-      name: '巳申六合',
-      status: '合而不化',
-      transformElement: undefined,
+      relations: [
+        {
+          category: '地支六合',
+          name: '巳申六合',
+          status: '合而不化',
+          transformElement: undefined,
+        },
+      ],
     },
     {
       date: [1990, 9, 5, 6],
-      category: '天干五合',
-      name: '戊癸相合',
-      status: '合而不化',
-      transformElement: undefined,
+      relations: [
+        {
+          category: '天干五合',
+          name: '戊癸相合',
+          status: '合而不化',
+          transformElement: undefined,
+        },
+      ],
     },
     {
       date: [1994, 1, 3, 0],
-      category: '天干五合',
-      name: '甲己相合',
-      status: '争合不专',
-      transformElement: undefined,
+      relations: [
+        {
+          category: '天干五合',
+          name: '甲己相合',
+          status: '争合不专',
+          transformElement: undefined,
+        },
+      ],
     },
     {
       date: [1994, 3, 17, 4],
-      category: '天干五合',
-      name: '丁壬相合',
-      status: '成化',
-      transformElement: '木',
-    },
-    {
-      date: [1994, 3, 17, 4],
-      category: '地支六合',
-      name: '卯戌六合',
-      status: '逢冲破合',
-      transformElement: undefined,
+      relations: [
+        {
+          category: '天干五合',
+          name: '丁壬相合',
+          status: '成化',
+          transformElement: '木',
+        },
+        {
+          category: '地支六合',
+          name: '卯戌六合',
+          status: '逢冲破合',
+          transformElement: undefined,
+        },
+      ],
     },
   ] as const;
-  for (const sample of samples) {
-    const [year, month, day, timeIndex] = sample.date;
+  for (const { date, relations } of samples) {
+    const [year, month, day, timeIndex] = date;
     const chart = baziCalculator.calculateBazi({
       year,
       month,
@@ -82,28 +97,32 @@ test('命录五合六合依实盘条件展示合绊、争合与成化', () => {
       useTrueSolarTime: false,
     });
     const items = buildEnhancedInteractions(chart);
-    const item = items.find(
-      (entry) =>
-        entry.category === sample.category &&
-        entry.name === sample.name &&
-        (sample.name !== '巳申六合' || entry.involvedPillars.join('、') === '日柱、时柱'),
-    );
-    assert.ok(item, `${sample.date.join('-')} ${sample.name}`);
-    assert.equal(item.conditionStatus, sample.status);
-    assert.equal(item.transformElement, sample.transformElement);
-    assert.equal(item.nature, '中性');
-    assert.doesNotMatch(item.name, /合化|六合化/u);
-    assert.doesNotMatch(item.description, /厚德重信|安定稳固|晚景光明/u);
-    if (sample.status !== '成化') {
-      assert.doesNotMatch(item.conditionEvidence?.join('；') ?? '', /合化[木火土金水]/u);
-      if (sample.category === '天干五合') {
-        assert.ok(item.conditionEvidence?.some((evidence) => evidence.startsWith('月令')));
+    for (const sample of relations) {
+      const item = items.find(
+        (entry) =>
+          entry.category === sample.category &&
+          entry.name === sample.name &&
+          (sample.name !== '巳申六合' || entry.involvedPillars.join('、') === '日柱、时柱'),
+      );
+      assert.ok(item, `${date.join('-')} ${sample.name}`);
+      assert.equal(item.conditionStatus, sample.status);
+      assert.equal(item.transformElement, sample.transformElement);
+      assert.equal(item.nature, '中性');
+      assert.doesNotMatch(item.name, /合化|六合化/u);
+      assert.doesNotMatch(item.description, /厚德重信|安定稳固|晚景光明/u);
+      if (sample.status !== '成化') {
+        assert.doesNotMatch(item.conditionEvidence?.join('；') ?? '', /合化[木火土金水]/u);
+        if (sample.category === '天干五合') {
+          assert.ok(item.conditionEvidence?.some((evidence) => evidence.startsWith('月令')));
+        }
       }
+      const html = renderToStaticMarkup(
+        createElement(MingluInteractionsSection, { items: [item] }),
+      );
+      assert.match(html, new RegExp(sample.name, 'u'));
+      assert.match(html, new RegExp(sample.status, 'u'));
+      assert.equal(html.includes('对应五行：'), sample.status === '成化');
     }
-    const html = renderToStaticMarkup(createElement(MingluInteractionsSection, { items: [item] }));
-    assert.match(html, new RegExp(sample.name, 'u'));
-    assert.match(html, new RegExp(sample.status, 'u'));
-    assert.equal(html.includes('对应五行：'), sample.status === '成化');
   }
 });
 
