@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeWuxing, isSheng, isKe, getSeasonState } from '../packages/core/src/wuxing/index.ts';
+import {
+  analyzeWuxing,
+  getWuxingStrengthProfile,
+  isSheng,
+  isKe,
+  getSeasonState,
+} from '../packages/core/src/wuxing/index.ts';
 
 test('五行生克二十五组合与传统相生相克次序一致', () => {
   const sheng = ['木火', '火土', '土金', '金水', '水木'];
@@ -51,4 +57,40 @@ test('五行统计拒绝缺项和非法权重选项，提示词只保留任务�
   const surface = analyzeWuxing(['甲', '子'], { weightHidden: false });
   assert.deepEqual(surface.counts, { 木: 1, 火: 0, 土: 0, 金: 0, 水: 1 });
   assert.deepEqual(surface.dominantElements, ['木', '水']);
+});
+
+test('藏干加权计数保留数学并列且与输入顺序无关', () => {
+  const repeated = analyzeWuxing(['寅', '寅', '寅']);
+  assert.deepEqual(repeated.counts, { 木: 6, 火: 1.5, 土: 0.9, 金: 0, 水: 0 });
+  assert.match(repeated.promptText, /土0\.9、金0/);
+
+  const items = [
+    '丁',
+    '己',
+    '丁',
+    '寅',
+    '申',
+    '未',
+    '巳',
+    '己',
+    '未',
+    '己',
+    '巳',
+    '丁',
+    '巳',
+    '丑',
+  ];
+  const counts = { 木: 2.6, 火: 10.5, 土: 10.5, 金: 3.8, 水: 1 };
+  const result = analyzeWuxing(items);
+  assert.deepEqual(result.counts, counts);
+  assert.deepEqual(result.dominantElements, ['火', '土']);
+  assert.equal(result.dominant, '火');
+  assert.deepEqual(result.weakestElements, ['水']);
+  assert.match(result.promptText, /最高计数：火、土/);
+  assert.match(result.promptText, /火10\.5、土10\.5/);
+
+  const reversed = getWuxingStrengthProfile([...items].reverse());
+  assert.deepEqual(reversed.counts, counts);
+  assert.deepEqual(reversed.dominantElements, ['火', '土']);
+  assert.deepEqual(reversed.weakestElements, ['水']);
 });

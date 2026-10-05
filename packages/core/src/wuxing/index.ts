@@ -36,24 +36,26 @@ export function tallyWuxing(
   items: readonly string[],
   options: { weightHidden?: boolean } = {},
 ): Record<string, number> {
+  // 固定权重以十分之一为单位累加，保留精确计数与并列关系。
   const result: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
   for (const item of items) {
     if (STEM_ORDER.includes(item as (typeof STEM_ORDER)[number])) {
       const w = STEM_WUXING[item];
-      if (w) result[w] += 1;
+      if (w) result[w] += 10;
     } else if (BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number])) {
       const main = GANZHI_RELATION_TABLES.BRANCH_WUXING[item];
-      if (main) result[main] += 1;
+      if (main) result[main] += 10;
       if (options.weightHidden) {
         const hidden = GANZHI_RELATION_TABLES.BRANCH_HIDDEN_STEMS[item] || [];
-        const weights = [1, 0.5, 0.3];
+        const weights = [10, 5, 3];
         hidden.forEach((stem, i) => {
           const w = STEM_WUXING[stem];
-          if (w) result[w] += weights[i] ?? 0.3;
+          if (w) result[w] += weights[i] ?? 3;
         });
       }
     }
   }
+  for (const w of WUXING) result[w] /= 10;
   return result;
 }
 

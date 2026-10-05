@@ -1472,6 +1472,20 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.match(wuxing.body.data.promptText, /本气1、中气0.5、余气0.3/);
   assert.doesNotMatch(wuxing.body.data.promptText, /证据汇总|证据链完整|单一真相源|来源：|限制：/);
 
+  const tiedWuxing = await callApi('foundation/wuxing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items: ['丁', '己', '丁', '寅', '申', '未', '巳', '己', '未', '己', '巳', '丁', '巳', '丑'],
+      weightHidden: true,
+    }),
+  });
+  assert.equal(tiedWuxing.response.status, 200);
+  assert.deepEqual(tiedWuxing.body.data.counts, { 木: 2.6, 火: 10.5, 土: 10.5, 金: 3.8, 水: 1 });
+  assert.deepEqual(tiedWuxing.body.data.dominantElements, ['火', '土']);
+  assert.equal(tiedWuxing.body.data.dominant, '火');
+  assert.match(tiedWuxing.body.data.promptText, /最高计数：火、土/);
+
   const direction = await callApi('foundation/direction', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2297,7 +2311,7 @@ test('公开 API 八字空问题应返回 400，保持 question 必填契约', a
   assert.match(body.error.message, /question 不能为空/);
 });
 
-test('八字公开 API prompt builder 空问题走通用问题，不复用本地固定任务', () => {
+test('八字公开 API 提示词按问题、主题、命限范围与流派输出对应任务', () => {
   const result = baziCalculator.calculateBazi({
     gender: 'male',
     year: 1990,
@@ -2320,19 +2334,6 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
-});
-
-test('八字公开 API 不同主题只切换范围，空问题仍使用通用任务', () => {
-  const result = baziCalculator.calculateBazi({
-    gender: 'male',
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 1,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
 
   const cases: BaziPromptTopic[] = [
     'recent',
@@ -2357,44 +2358,18 @@ test('八字公开 API 不同主题只切换范围，空问题仍使用通用任
     );
     assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   }
-});
 
-test('八字公开 API 提示词支持完整输出版命限范围', () => {
-  const result = baziCalculator.calculateBazi({
-    gender: 'male',
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 1,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
-  const prompt = buildBaziPromptForResult({
+  const fullPrompt = buildBaziPromptForResult({
     result,
     question: '整体事业阶段怎么判断？',
     topic: 'career',
     fortuneScope: 'full',
   });
 
-  assert.match(prompt, /【分析对象】\n分析对象：本命盘与完整大运流年/);
-  assert.match(prompt, /【命限资料】/);
-  assert.match(prompt, /完整大运流年：/);
-  assert.doesNotMatch(prompt, /详细命限资料|资料量|聚焦当前分析对象/);
-});
-
-test('八字提示词按流派输出不同任务、依据与盘面证据', () => {
-  const result = baziCalculator.calculateBazi({
-    gender: 'male',
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 1,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
+  assert.match(fullPrompt, /【分析对象】\n分析对象：本命盘与完整大运流年/);
+  assert.match(fullPrompt, /【命限资料】/);
+  assert.match(fullPrompt, /完整大运流年：/);
+  assert.doesNotMatch(fullPrompt, /详细命限资料|资料量|聚焦当前分析对象/);
 
   const ziping = buildBaziPromptForResult({
     result,
