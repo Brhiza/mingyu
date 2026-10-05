@@ -63,7 +63,7 @@ test('六爻静卦不把未变化的本卦写成变卦', () => {
   );
 });
 
-test('六爻事业用神与世爻不同五行时保留原忌仇神的作用对象', () => {
+test('六爻同盘保留事业用神关系并保持通用与感情模板中性', () => {
   const data = generateLiuyao(new Date('2026-05-19T10:30:00+08:00'), {
     method: 'manual',
     yaos: [6, 8, 8, 8, 8, 6],
@@ -109,13 +109,7 @@ test('六爻事业用神与世爻不同五行时保留原忌仇神的作用对�
     assert.doesNotMatch(content, /月日触发：|值月建巳，值日辰巳|冲月建巳，冲日辰巳/u);
     assert.match(content, /月日五行：[^\n]*月建、日辰巳火与第2爻父母巳火同五行/u);
   }
-});
-
-test('六爻通用与感情提示词不把世爻写成事项用神', () => {
-  const data = generateLiuyao(new Date('2026-05-19T10:30:00+08:00'), {
-    method: 'manual',
-    yaos: [6, 8, 8, 8, 8, 6],
-  });
+  // 同一盘面在通用、感情及怪异模板下仍不得把世爻提升为事项用神。
   for (const liuyaoTemplate of ['general', 'ganqing', 'guaishen'] as const) {
     const text = formatEnhancedDivinationInfo('liuyao', data, '', undefined, {
       liuyaoTemplate,
@@ -128,35 +122,33 @@ test('六爻通用与感情提示词不把世爻写成事项用神', () => {
   }
 });
 
-test('六爻有实际伏神时保留伏藏位置和飞神资料', () => {
-  const data = generateLiuyao(new Date('2025-06-18T10:30:00+08:00'), {
-    method: 'manual',
-    yaos: [7, 8, 8, 8, 7, 8],
-  });
-  const text = formatEnhancedDivinationInfo('liuyao', data);
-  assert.equal(data.hiddenSpirits?.length, 1);
-  assert.match(text, /伏神1爻：妻财伏第3爻午火/);
-  assert.match(text, /伏于官鬼辰土下/);
-});
-
-test('六爻旧结果缺爻位或伏神字段时提示资料覆盖状态', () => {
+test('六爻同盘保留完整伏神资料并标明旧盘资料覆盖缺口', () => {
   const completeData = generateLiuyao(new Date('2025-06-18T10:30:00+08:00'), {
     method: 'manual',
     yaos: [7, 8, 8, 8, 7, 8],
   });
   const incompleteData = structuredClone(completeData);
+  const text = formatEnhancedDivinationInfo('liuyao', completeData);
+
+  assert.equal(completeData.hiddenSpirits?.length, 1);
+  assert.match(text, /伏神1爻：妻财伏第3爻午火/);
+  assert.match(text, /伏于官鬼辰土下/);
+
   incompleteData.yaosDetail = incompleteData.yaosDetail.slice(0, 5);
   delete incompleteData.hiddenSpirits;
 
-  const text = formatSourceLiuyaoPrompt('liuyao', incompleteData);
+  const incompleteText = formatSourceLiuyaoPrompt('liuyao', incompleteData);
 
-  assert.match(text, /六爻逐爻资料（覆盖不完整）/);
-  assert.match(text, /资料覆盖：逐爻资料已列第1、2、3、4、5爻；缺少第6爻；伏神记录未提供/);
-  assert.doesNotMatch(text, /六爻全表：/);
-  assert.doesNotMatch(text, /伏神0爻/);
-  assert.match(text, /^月日触发：月建、日辰午：冲第1爻兄弟子水$/mu);
-  assert.doesNotMatch(text, /未直接同支入爻|冲第6爻/u);
-  assert.match(text, /第1爻兄弟子水[^\n]*冲月建、日辰午[^\n]*月破，日冲成破/u);
+  assert.match(incompleteText, /六爻逐爻资料（覆盖不完整）/);
+  assert.match(
+    incompleteText,
+    /资料覆盖：逐爻资料已列第1、2、3、4、5爻；缺少第6爻；伏神记录未提供/,
+  );
+  assert.doesNotMatch(incompleteText, /六爻全表：/);
+  assert.doesNotMatch(incompleteText, /伏神0爻/);
+  assert.match(incompleteText, /^月日触发：月建、日辰午：冲第1爻兄弟子水$/mu);
+  assert.doesNotMatch(incompleteText, /未直接同支入爻|冲第6爻/u);
+  assert.match(incompleteText, /第1爻兄弟子水[^\n]*冲月建、日辰午[^\n]*月破，日冲成破/u);
 });
 
 test('六爻静卦按实际世应和空爻给出月日生克及冲空对象', () => {

@@ -268,6 +268,13 @@ test('张果星宗小限盘例：甲子生、壬辰太岁、寅宫坐命，小�
 });
 
 test('恩难相位中的四余加括注不改变星曜身份', () => {
+  const daylight = {
+    birthUtcTimestamp: Date.parse('2024-06-21T12:00:00Z'),
+    sunriseSunset: {
+      status: '全天高于阈值' as const,
+      crossings: [],
+    },
+  };
   for (const [mingZhu, star] of [
     ['火', '月孛'],
     ['金', '罗睺'],
@@ -275,11 +282,7 @@ test('恩难相位中的四余加括注不改变星曜身份', () => {
     ['水', '计都'],
   ] as const) {
     const base = {
-      birthUtcTimestamp: Date.parse('2024-06-21T12:00:00Z'),
-      sunriseSunset: {
-        status: '全天高于阈值' as const,
-        crossings: [],
-      },
+      ...daylight,
       mingZhu,
       stars: [
         { name: mingZhu, longitude: 0 },
@@ -308,6 +311,12 @@ test('恩难相位中的四余加括注不改变星曜身份', () => {
     assert.deepEqual(
       annotated.aspectInteraction.map((x) => x.replace('(余)', '')),
       plain.aspectInteraction,
+    );
+  }
+  for (const mingZhu of ['未知星', 'constructor', 'toString', '__proto__', 'constructor(木)']) {
+    assert.throws(
+      () => evaluateQizhengEnNan({ ...daylight, mingZhu, stars: [], aspects: [] }),
+      /命主名称无法识别/,
     );
   }
 });

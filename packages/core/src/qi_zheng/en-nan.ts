@@ -60,12 +60,12 @@ const STAR_ALIAS_TO_CANONICAL: Record<string, string> = {
 
 /** 将命主或相位星曜名称归一到 STAR_WUXING 的标准名；无法识别时返回 undefined */
 function resolveCanonicalStar(name: string): string | undefined {
-  if (starWuxing[name]) return name;
-  if (STAR_ALIAS_TO_CANONICAL[name]) return STAR_ALIAS_TO_CANONICAL[name];
+  if (Object.hasOwn(starWuxing, name)) return name;
+  if (Object.hasOwn(STAR_ALIAS_TO_CANONICAL, name)) return STAR_ALIAS_TO_CANONICAL[name];
   // 兼容“辰星(水)”“罗睺(火余)”等带括注的展示名
   const base = name.replace(/[（(].*$/, '').trim();
-  if (starWuxing[base]) return base;
-  if (STAR_ALIAS_TO_CANONICAL[base]) return STAR_ALIAS_TO_CANONICAL[base];
+  if (Object.hasOwn(starWuxing, base)) return base;
+  if (Object.hasOwn(STAR_ALIAS_TO_CANONICAL, base)) return STAR_ALIAS_TO_CANONICAL[base];
   return undefined;
 }
 
