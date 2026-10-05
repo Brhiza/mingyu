@@ -4,7 +4,7 @@ import type { ZhouyiHexagramText } from './types';
  * 周易六十四卦全本经文核心字典（卦辞、彖辞、大象、六爻逐爻爻辞，64 卦全量收录）
  * 原典依据：维基文库《周易》逐卦页面（见 docs/周易经文来源.md）
  */
-export const ZHOUYI_HEXAGRAMS_TEXT: Record<number, ZhouyiHexagramText> = {
+const CANONICAL_ZHOUYI_HEXAGRAMS_TEXT: Record<number, ZhouyiHexagramText> = {
   '1': {
     id: 1,
     name: '乾为天',
@@ -3137,8 +3137,10 @@ export const ZHOUYI_HEXAGRAMS_TEXT: Record<number, ZhouyiHexagramText> = {
   },
 };
 
+export const ZHOUYI_HEXAGRAMS_TEXT = structuredClone(CANONICAL_ZHOUYI_HEXAGRAMS_TEXT);
+
 export function getZhouyiHexagramClassic(hexagramId: number): ZhouyiHexagramText | undefined {
-  return Object.hasOwn(ZHOUYI_HEXAGRAMS_TEXT, hexagramId)
-    ? structuredClone(ZHOUYI_HEXAGRAMS_TEXT[hexagramId])
+  return Object.hasOwn(CANONICAL_ZHOUYI_HEXAGRAMS_TEXT, hexagramId)
+    ? structuredClone(CANONICAL_ZHOUYI_HEXAGRAMS_TEXT[hexagramId])
     : undefined;
 }

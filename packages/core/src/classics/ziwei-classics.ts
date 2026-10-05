@@ -3,7 +3,7 @@ import type { ZiweiStarClassic } from './types';
 /**
  * 《紫微斗数全书》《太微赋》《骨髓赋》十四正曜诸星问答论全篇
  */
-export const ZIWEI_STAR_CLASSICS: Record<string, ZiweiStarClassic> = {
+const CANONICAL_ZIWEI_STAR_CLASSICS: Record<string, ZiweiStarClassic> = {
   紫微: {
     star: '紫微',
     type: '北斗',
@@ -281,12 +281,16 @@ export const ZIWEI_STAR_CLASSICS: Record<string, ZiweiStarClassic> = {
   },
 };
 
+export const ZIWEI_STAR_CLASSICS: Record<string, ZiweiStarClassic> = structuredClone(
+  CANONICAL_ZIWEI_STAR_CLASSICS,
+);
+
 import type { ZiweiFuClassic } from './types';
 
 /**
  * 《太微赋》《骨髓赋》核心赋文全篇精粹
  */
-export const ZIWEI_FU_CLASSICS: ZiweiFuClassic[] = [
+const CANONICAL_ZIWEI_FU_CLASSICS: ZiweiFuClassic[] = [
   {
     key: 'zi_fu_tong_gong',
     title: '紫府同宫',
@@ -319,18 +323,20 @@ export const ZIWEI_FU_CLASSICS: ZiweiFuClassic[] = [
   },
 ];
 
+export const ZIWEI_FU_CLASSICS: ZiweiFuClassic[] = structuredClone(CANONICAL_ZIWEI_FU_CLASSICS);
+
 export function getZiweiStarClassic(star: string): ZiweiStarClassic | undefined {
   if (!star) return undefined;
-  for (const [key, val] of Object.entries(ZIWEI_STAR_CLASSICS)) {
+  for (const [key, val] of Object.entries(CANONICAL_ZIWEI_STAR_CLASSICS)) {
     if (star.includes(key)) return structuredClone(val);
   }
   return undefined;
 }
 
 export function getZiweiFuClassic(key: string): ZiweiFuClassic | undefined {
-  return structuredClone(ZIWEI_FU_CLASSICS.find((f) => f.key === key));
+  return structuredClone(CANONICAL_ZIWEI_FU_CLASSICS.find((f) => f.key === key));
 }
 
 export function getAllZiweiFuClassics(): ZiweiFuClassic[] {
-  return structuredClone(ZIWEI_FU_CLASSICS);
+  return structuredClone(CANONICAL_ZIWEI_FU_CLASSICS);
 }

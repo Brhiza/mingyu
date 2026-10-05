@@ -4,7 +4,7 @@ import type { LiurenLessonPatternClassic, LiurenTransmissionClassic } from './ty
  * 《大六壬大全》《六壬指南》《毕法赋》九宗门取传与经典课体释义。
  * 九宗门歌诀节录自《六壬大全》卷一“起例”。
  */
-export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> = {
+const CANONICAL_LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> = {
   重审: {
     rule: '重审',
     category: '贼克法（下贼上）',
@@ -90,7 +90,10 @@ export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClas
   },
 };
 
-export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> = {
+export const LIUREN_TRANSMISSION_CLASSICS: Record<string, LiurenTransmissionClassic> =
+  structuredClone(CANONICAL_LIUREN_TRANSMISSION_CLASSICS);
+
+const CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> = {
   斩关: {
     pattern: '斩关课',
     sourceBook: '六壬指南·课体心印',
@@ -123,12 +126,15 @@ export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternC
   },
 };
 
+export const LIUREN_LESSON_PATTERN_CLASSICS: Record<string, LiurenLessonPatternClassic> =
+  structuredClone(CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS);
+
 import type { LiurenGeneralClassic } from './types';
 
 /**
  * 大六壬十二天将《大六壬大全》《六壬指南》精解
  */
-export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
+const CANONICAL_LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
   贵人: {
     general: '贵人',
     wuxing: '土',
@@ -239,9 +245,13 @@ export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = {
   },
 };
 
+export const LIUREN_GENERAL_CLASSICS: Record<string, LiurenGeneralClassic> = structuredClone(
+  CANONICAL_LIUREN_GENERAL_CLASSICS,
+);
+
 export function getLiurenGeneralClassic(general: string): LiurenGeneralClassic | undefined {
   if (!general) return undefined;
-  for (const [key, val] of Object.entries(LIUREN_GENERAL_CLASSICS)) {
+  for (const [key, val] of Object.entries(CANONICAL_LIUREN_GENERAL_CLASSICS)) {
     if (general.includes(key)) return structuredClone(val);
   }
   return undefined;
@@ -262,13 +272,13 @@ export function getLiurenTransmissionClassic(rule: string): LiurenTransmissionCl
     [/元首/, '元首'],
   ];
   const key = patterns.find(([pattern]) => pattern.test(rule))?.[1];
-  return key ? structuredClone(LIUREN_TRANSMISSION_CLASSICS[key]) : undefined;
+  return key ? structuredClone(CANONICAL_LIUREN_TRANSMISSION_CLASSICS[key]) : undefined;
 }
 
 export function getLiurenLessonPatternClassic(
   pattern: string,
 ): LiurenLessonPatternClassic | undefined {
-  for (const [key, value] of Object.entries(LIUREN_LESSON_PATTERN_CLASSICS)) {
+  for (const [key, value] of Object.entries(CANONICAL_LIUREN_LESSON_PATTERN_CLASSICS)) {
     if (pattern.includes(key)) return structuredClone(value);
   }
   return undefined;
@@ -277,7 +287,7 @@ export function getLiurenLessonPatternClassic(
 /**
  * 宋代凌福之《大六壬毕法赋》百法精义节选
  */
-export const LIUREN_BIFA_CLASSICS: Array<{
+const CANONICAL_LIUREN_BIFA_CLASSICS: Array<{
   title: string;
   sourceBook: string;
   verse: string;
@@ -315,13 +325,22 @@ export const LIUREN_BIFA_CLASSICS: Array<{
   },
 ];
 
+export const LIUREN_BIFA_CLASSICS: Array<{
+  title: string;
+  sourceBook: string;
+  verse: string;
+  explanation: string;
+}> = structuredClone(CANONICAL_LIUREN_BIFA_CLASSICS);
+
 export function getLiurenBifaClassic(keyword: string) {
   if (!keyword) return undefined;
   return structuredClone(
-    LIUREN_BIFA_CLASSICS.find((b) => b.title.includes(keyword) || b.verse.includes(keyword)),
+    CANONICAL_LIUREN_BIFA_CLASSICS.find(
+      (b) => b.title.includes(keyword) || b.verse.includes(keyword),
+    ),
   );
 }
 
 export function getAllLiurenBifaClassics() {
-  return structuredClone(LIUREN_BIFA_CLASSICS);
+  return structuredClone(CANONICAL_LIUREN_BIFA_CLASSICS);
 }

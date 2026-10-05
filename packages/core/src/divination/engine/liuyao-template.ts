@@ -21,7 +21,7 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType) {
       '；主题取用：以世爻和问题中的现实主体为主轴，鬼神、冲犯及异常感受列为盘面候选；逐项核对对应爻位、动静、旺衰、空破，并把环境、身心与现实线索作为并行条件',
   };
 
-  const safeTemplate = templateLabelMap[template] ? template : 'general';
+  const safeTemplate = Object.hasOwn(templateLabelMap, template) ? template : 'general';
 
   return `${templateLabelMap[safeTemplate]}${templateGuidanceMap[safeTemplate]}`;
 }

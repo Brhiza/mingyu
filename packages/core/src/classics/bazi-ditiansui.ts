@@ -4,7 +4,7 @@ import type { BaziDitiansuiEntry } from './types';
  * 《滴天髓·天干论》十干体象原文短摘与释义。
  * 底本：https://zh.wikisource.org/w/index.php?title=滴天髓/02&oldid=3211656
  */
-export const BAZI_DITIANSUI_TABLE: Record<string, BaziDitiansuiEntry> = {
+const CANONICAL_BAZI_DITIANSUI_TABLE: Record<string, BaziDitiansuiEntry> = {
   甲: {
     stem: '甲',
     wuxing: '木',
@@ -90,8 +90,10 @@ export const BAZI_DITIANSUI_TABLE: Record<string, BaziDitiansuiEntry> = {
 /**
  * 查询八字日主《滴天髓》十干体象
  */
+export const BAZI_DITIANSUI_TABLE = structuredClone(CANONICAL_BAZI_DITIANSUI_TABLE);
+
 export function getBaziDitiansuiAdvice(dayMaster: string): BaziDitiansuiEntry | undefined {
-  return Object.hasOwn(BAZI_DITIANSUI_TABLE, dayMaster)
-    ? structuredClone(BAZI_DITIANSUI_TABLE[dayMaster])
+  return Object.hasOwn(CANONICAL_BAZI_DITIANSUI_TABLE, dayMaster)
+    ? structuredClone(CANONICAL_BAZI_DITIANSUI_TABLE[dayMaster])
     : undefined;
 }

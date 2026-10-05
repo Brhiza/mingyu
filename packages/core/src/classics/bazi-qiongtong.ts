@@ -3,7 +3,7 @@ import type { BaziQiongtongEntry } from './types';
 // 校勘底本：https://zh.wikisource.org/w/index.php?title=穷通宝鉴&oldid=2294674
 // classicVerse 为该修订版逐字摘录；primaryGods 只列条文取用候选，具体先后以原文条件为准。
 
-export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
+const CANONICAL_BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
   // 甲木
   // 出处：三春甲木·正月。
   '甲+寅': {
@@ -1266,12 +1266,14 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
   },
 };
 
+export const BAZI_QIONGTONG_TABLE = structuredClone(CANONICAL_BAZI_QIONGTONG_TABLE);
+
 export function getBaziQiongtongAdvice(
   dayMaster: string,
   monthBranch: string,
 ): BaziQiongtongEntry | undefined {
   const key = `${dayMaster}+${monthBranch}`;
-  return Object.hasOwn(BAZI_QIONGTONG_TABLE, key)
-    ? structuredClone(BAZI_QIONGTONG_TABLE[key])
+  return Object.hasOwn(CANONICAL_BAZI_QIONGTONG_TABLE, key)
+    ? structuredClone(CANONICAL_BAZI_QIONGTONG_TABLE[key])
     : undefined;
 }

@@ -182,7 +182,7 @@ const rawConfirmedMappings = confirmedMappings as unknown as {
 };
 
 /** 固定卦序；这里只用于索引和输入规范化，不承担起卦或随机取卦。 */
-export const YILIN_HEXAGRAM_ORDER = [
+const CANONICAL_YILIN_HEXAGRAM_ORDER = [
   '乾',
   '坤',
   '屯',
@@ -249,6 +249,8 @@ export const YILIN_HEXAGRAM_ORDER = [
   '未濟',
 ] as const satisfies readonly YilinHexagramName[];
 
+export const YILIN_HEXAGRAM_ORDER = structuredClone(CANONICAL_YILIN_HEXAGRAM_ORDER);
+
 const HEXAGRAM_ALIASES: Record<string, YilinHexagramName> = {
   㢲: '巽',
   兊: '兌',
@@ -303,7 +305,7 @@ if (
   throw new Error('焦氏易林固定索引数量异常，拒绝以不完整索引提供查询。');
 }
 
-export const YILIN_EDITION: YilinEditionMetadata = {
+const CANONICAL_YILIN_EDITION: YilinEditionMetadata = {
   task: 'W20.03',
   id: 'yilin-w20-03-fixed-4096',
   title: '焦氏易林',
@@ -319,11 +321,13 @@ export const YILIN_EDITION: YilinEditionMetadata = {
   },
 };
 
+export const YILIN_EDITION: YilinEditionMetadata = structuredClone(CANONICAL_YILIN_EDITION);
+
 export function normalizeYilinHexagramName(value: string): YilinHexagramName | undefined {
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim();
   if (!normalized) return undefined;
-  if ((YILIN_HEXAGRAM_ORDER as readonly string[]).includes(normalized)) {
+  if ((CANONICAL_YILIN_HEXAGRAM_ORDER as readonly string[]).includes(normalized)) {
     return normalized as YilinHexagramName;
   }
   return Object.hasOwn(HEXAGRAM_ALIASES, normalized) ? HEXAGRAM_ALIASES[normalized] : undefined;
@@ -419,7 +423,7 @@ function summarizeGap(gap: RawGap, key: string): YilinGapSummary {
 }
 
 export function getYilinEditionMetadata(): YilinEditionMetadata {
-  return structuredClone(YILIN_EDITION);
+  return structuredClone(CANONICAL_YILIN_EDITION);
 }
 
 export function getYilinEntry(
@@ -487,11 +491,11 @@ export function queryYilinEntry(
 
 export function getYilinIndexStats() {
   return {
-    expectedPairCount: YILIN_EDITION.expectedPairCount,
-    parsedPairCount: YILIN_EDITION.parsedPairCount,
-    hexagramCount: YILIN_HEXAGRAM_ORDER.length,
-    unresolvedGapCount: YILIN_EDITION.gapSummary.total,
-    confirmedMappings: YILIN_EDITION.gapSummary.confirmedMappings,
-    alignedMarkerPairs: YILIN_EDITION.gapSummary.markerCounts.alignedPairs,
+    expectedPairCount: CANONICAL_YILIN_EDITION.expectedPairCount,
+    parsedPairCount: CANONICAL_YILIN_EDITION.parsedPairCount,
+    hexagramCount: CANONICAL_YILIN_HEXAGRAM_ORDER.length,
+    unresolvedGapCount: CANONICAL_YILIN_EDITION.gapSummary.total,
+    confirmedMappings: CANONICAL_YILIN_EDITION.gapSummary.confirmedMappings,
+    alignedMarkerPairs: CANONICAL_YILIN_EDITION.gapSummary.markerCounts.alignedPairs,
   } as const;
 }

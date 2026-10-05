@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateLiuren } from '../packages/core/src/divination/algorithms/liuren';
 import { buildLiurenTemplateText } from '../packages/core/src/divination/engine/liuren-template';
+import { buildDivinationPrompt } from '../packages/core/src/prompt/divination';
 
 const fixtureDate = new Date('2026-05-19T10:30:00+08:00');
 const fixedLiurenChart = generateLiuren(fixtureDate);
@@ -103,4 +104,19 @@ test('大六壬通用模板保持原有类神语义', () => {
     buildLiurenTemplateText('general', data),
     '通用；类神：日干为我、日支为事；三传看发端、转折和归结',
   );
+
+  const promptOptions = {
+    method: 'liuren' as const,
+    data,
+    question: '请分析本课。',
+    currentTime: fixtureDate,
+  };
+  const generalPrompt = buildDivinationPrompt({ ...promptOptions, liurenTemplate: 'general' });
+  for (const liurenTemplate of ['constructor', 'toString', '__proto__', 'unknown']) {
+    assert.equal(
+      buildDivinationPrompt({ ...promptOptions, liurenTemplate: liurenTemplate as never }),
+      generalPrompt,
+      `${liurenTemplate} 应回退到通用完整任务书`,
+    );
+  }
 });

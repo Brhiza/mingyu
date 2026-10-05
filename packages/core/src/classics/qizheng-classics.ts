@@ -3,7 +3,7 @@ import type { QizhengStarClassic } from './types';
 /**
  * 《果老星宗》《通玄赋》《望斗赋》七政四余十一曜经解
  */
-export const QIZHENG_STAR_CLASSICS: Record<string, QizhengStarClassic> = {
+const CANONICAL_QIZHENG_STAR_CLASSICS: Record<string, QizhengStarClassic> = {
   太阳: {
     star: '太阳',
     category: '七政',
@@ -105,9 +105,13 @@ export const QIZHENG_STAR_CLASSICS: Record<string, QizhengStarClassic> = {
   },
 };
 
+export const QIZHENG_STAR_CLASSICS: Record<string, QizhengStarClassic> = structuredClone(
+  CANONICAL_QIZHENG_STAR_CLASSICS,
+);
+
 export function getQizhengStarClassic(star: string): QizhengStarClassic | undefined {
   if (!star) return undefined;
-  for (const [key, val] of Object.entries(QIZHENG_STAR_CLASSICS)) {
+  for (const [key, val] of Object.entries(CANONICAL_QIZHENG_STAR_CLASSICS)) {
     if (star.includes(key)) return structuredClone(val);
   }
   return undefined;

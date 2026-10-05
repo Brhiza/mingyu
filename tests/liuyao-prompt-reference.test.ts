@@ -64,7 +64,8 @@ test('六爻静卦不把未变化的本卦写成变卦', () => {
 });
 
 test('六爻同盘保留事业用神关系并保持通用与感情模板中性', () => {
-  const data = generateLiuyao(new Date('2026-05-19T10:30:00+08:00'), {
+  const currentTime = new Date('2026-05-19T10:30:00+08:00');
+  const data = generateLiuyao(currentTime, {
     method: 'manual',
     yaos: [6, 8, 8, 8, 8, 6],
   });
@@ -91,7 +92,7 @@ test('六爻同盘保留事业用神关系并保持通用与感情模板中性',
       method: 'liuyao',
       data,
       question: '请分析工作进展。',
-      currentTime: new Date('2026-05-19T10:30:00+08:00'),
+      currentTime,
       liuyaoTemplate: 'shiye',
     }),
   ]) {
@@ -118,6 +119,27 @@ test('六爻同盘保留事业用神关系并保持通用与感情模板中性',
     assert.doesNotMatch(
       text,
       /本次所选用神|以所选用神为对象|生克关系：原神|用神：通用主轴|用神：关系我方/,
+    );
+  }
+  const generalPrompt = buildSourceDivinationPrompt({
+    method: 'liuyao',
+    data,
+    question: '请分析工作进展。',
+    currentTime,
+    liuyaoTemplate: 'general',
+  });
+  for (const liuyaoTemplate of ['constructor', 'toString', '__proto__', 'unknown']) {
+    assert.equal(
+      buildSourceDivinationPrompt({
+        method: 'liuyao',
+        data,
+        question: '请分析工作进展。',
+        currentTime,
+        liuyaoTemplate: liuyaoTemplate as Parameters<
+          typeof buildSourceDivinationPrompt
+        >[0]['liuyaoTemplate'],
+      }),
+      generalPrompt,
     );
   }
 });

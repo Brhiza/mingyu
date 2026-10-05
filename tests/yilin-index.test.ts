@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  YILIN_EDITION,
   YILIN_HEXAGRAM_ORDER,
   normalizeYilinHexagramName,
   getYilinEntry,
@@ -11,7 +12,8 @@ import { getPublicApiOpenApiDocument, handlePublicApiRequest } from '../src/lib/
 import { DEFAULT_PUBLIC_API_RUNTIME } from '../src/lib/public-api/metadata';
 
 test('焦氏易林固定索引覆盖 64×64 卦对并保留版本缺口统计', () => {
-  assert.deepEqual(getYilinIndexStats(), {
+  const expectedStats = getYilinIndexStats();
+  assert.deepEqual(expectedStats, {
     expectedPairCount: 4096,
     parsedPairCount: 4096,
     hexagramCount: 64,
@@ -26,6 +28,34 @@ test('焦氏易林固定索引覆盖 64×64 卦对并保留版本缺口统计', 
   assert.ok(qian.text.length > 0);
   assert.equal(qian.gaps.length, 0);
   assert.equal(qian.edition.id, 'yilin-w20-03-fixed-4096');
+
+  const qianBefore = structuredClone(qian);
+  const qianKunBefore = queryYilinEntry('乾', '坤');
+  const originalPairCount = YILIN_EDITION.expectedPairCount;
+  const originalGapTotal = YILIN_EDITION.gapSummary.total;
+  const originalOrder = [...YILIN_HEXAGRAM_ORDER];
+  const mutableOrder = YILIN_HEXAGRAM_ORDER as unknown as string[];
+  try {
+    YILIN_EDITION.expectedPairCount = -1;
+    YILIN_EDITION.gapSummary.total = -1;
+    mutableOrder.splice(0, mutableOrder.length, '假卦');
+
+    assert.equal(YILIN_EDITION.expectedPairCount, -1);
+    assert.equal(YILIN_EDITION.gapSummary.total, -1);
+    assert.deepEqual(mutableOrder, ['假卦']);
+    assert.deepEqual(getYilinIndexStats(), expectedStats);
+    assert.deepEqual(qian, qianBefore);
+    assert.deepEqual(queryYilinEntry('乾', '乾'), qianBefore);
+    assert.deepEqual(queryYilinEntry('乾', '坤'), qianKunBefore);
+    assert.equal(normalizeYilinHexagramName('乾'), '乾');
+    assert.equal(normalizeYilinHexagramName('坤'), '坤');
+    assert.equal(normalizeYilinHexagramName('兑'), '兌');
+    assert.equal(normalizeYilinHexagramName('假卦'), undefined);
+  } finally {
+    YILIN_EDITION.expectedPairCount = originalPairCount;
+    YILIN_EDITION.gapSummary.total = originalGapTotal;
+    mutableOrder.splice(0, mutableOrder.length, ...originalOrder);
+  }
 });
 
 test('易林每个卦对均可查询，文字一致状态依据两份正文判断', () => {

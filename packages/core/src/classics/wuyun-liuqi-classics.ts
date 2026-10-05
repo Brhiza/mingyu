@@ -3,7 +3,7 @@ import type { WuyunLiuqiClassic } from './types';
 /**
  * 《素问·天元纪大论》《素问·至真要大论》五运与司天在泉气化资料
  */
-export const WUYUN_LIUQI_CLASSICS: Record<string, WuyunLiuqiClassic> = {
+const CANONICAL_WUYUN_LIUQI_CLASSICS: Record<string, WuyunLiuqiClassic> = {
   // 十干大运
   甲己化土: {
     factor: '甲己化土',
@@ -128,9 +128,11 @@ export const WUYUN_LIUQI_CLASSICS: Record<string, WuyunLiuqiClassic> = {
   },
 };
 
+export const WUYUN_LIUQI_CLASSICS = structuredClone(CANONICAL_WUYUN_LIUQI_CLASSICS);
+
 export function getWuyunLiuqiClassic(factor: string): WuyunLiuqiClassic | undefined {
   if (typeof factor !== 'string' || !factor) return undefined;
-  const entry = Object.entries(WUYUN_LIUQI_CLASSICS).find(
+  const entry = Object.entries(CANONICAL_WUYUN_LIUQI_CLASSICS).find(
     ([key, value]) => factor === key || factor === value.factor,
   );
   return entry ? { ...entry[1] } : undefined;

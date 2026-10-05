@@ -1055,7 +1055,7 @@ test('奇门终身局提示词将年支空亡填实保留为事实并折叠日�
   }
 });
 
-test('奇门终身局阶段只引用本命格局名称，完整条件保留在基础盘', () => {
+test('奇门终身局同盘保留基础格局条件并避免阶段重复解释', () => {
   const { data, prompt } = buildQimenCurrentYearFixture();
   const pattern = data.baseChart.classicPatterns?.find((item) =>
     data.stages.some((stage) =>
@@ -1098,10 +1098,6 @@ test('奇门终身局阶段只引用本命格局名称，完整条件保留在�
   assert.match(taskSection, /先综述全盘态势，再围绕所问事项整理主判断及可观察的应期线索/);
   assert.doesNotMatch(taskSection, /不视为原盘改动/);
   assert.doesNotMatch(taskSection, /按事项定用神与主客，以用神宫门星神干核对格局和空迫墓的作用/);
-});
-
-test('奇门终身局基础盘省略同格局复述并保留独有组合与遁干依据', () => {
-  const { data, prompt } = buildQimenCurrentYearFixture();
   const patterns = prompt.split('盘面吉凶格局：')[1]?.split('【个人标记与主题宫】')[0] ?? '';
 
   assert.match(patterns, /虎遁（吉）：生门、乙奇落艮八宫，主威严稳固、资源回归/u);

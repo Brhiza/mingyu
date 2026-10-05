@@ -816,6 +816,11 @@ test('太乙长短算按十一分界，和算结合门将审断', () => {
     result.evidenceAnalysis.calculationSteps[6]?.result,
     result.conditions.yinYangHarmony.matched ? '和' : '不和',
   );
+  assert.equal(
+    result.conditions.threeGates.gateByPalace[result.taiyiPalace],
+    result.conditions.threeGates.directGate,
+  );
+  assert.equal(typeof result.conditions.fiveGenerals.launched, 'boolean');
 });
 
 test('太乙三门直使按二百四十周期每三十换门，并保留可复算条件', () => {
@@ -833,13 +838,6 @@ test('太乙三门直使按二百四十周期每三十换门，并保留可复�
     guestGeneral: 3,
     guestAssistant: 9,
   } as const;
-  const first = generateTaiyi({ year: 2026 });
-  assert.equal(
-    first.conditions.threeGates.gateByPalace[first.taiyiPalace],
-    first.conditions.threeGates.directGate,
-  );
-  assert.equal(typeof first.conditions.fiveGenerals.launched, 'boolean');
-
   const directOpen = evaluateTaiyiConditions({
     ...base,
     accumulatedValue: 1,

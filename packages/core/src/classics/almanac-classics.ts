@@ -3,7 +3,7 @@ import type { AlmanacOfficerClassic } from './types';
 /**
  * 清代《协纪辨方书》《玉匣记》建除十二神歌诀与吉凶宜忌
  */
-export const ALMANAC_OFFICER_CLASSICS: Record<string, AlmanacOfficerClassic> = {
+const CANONICAL_ALMANAC_OFFICER_CLASSICS: Record<string, AlmanacOfficerClassic> = {
   建: {
     officer: '建日',
     order: 1,
@@ -114,9 +114,15 @@ export const ALMANAC_OFFICER_CLASSICS: Record<string, AlmanacOfficerClassic> = {
   },
 };
 
+export const ALMANAC_OFFICER_CLASSICS: Record<string, AlmanacOfficerClassic> = structuredClone(
+  CANONICAL_ALMANAC_OFFICER_CLASSICS,
+);
+
 export function getAlmanacOfficerClassic(officer: string): AlmanacOfficerClassic | undefined {
   if (!officer) return undefined;
   const clean = officer.replace(/[日值神]/gu, '').slice(0, 1);
-  const key = [clean, officer].find((value) => Object.hasOwn(ALMANAC_OFFICER_CLASSICS, value));
-  return key === undefined ? undefined : structuredClone(ALMANAC_OFFICER_CLASSICS[key]);
+  const key = [clean, officer].find((value) =>
+    Object.hasOwn(CANONICAL_ALMANAC_OFFICER_CLASSICS, value),
+  );
+  return key === undefined ? undefined : structuredClone(CANONICAL_ALMANAC_OFFICER_CLASSICS[key]);
 }

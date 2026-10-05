@@ -6,7 +6,7 @@ import type { BaziZipingPatternEntry } from './types';
  * https://www.ncc.com.tw/fate/paleo/bg/bg_034.htm
  * https://www.ncc.com.tw/fate/paleo/bg/bg_035.htm
  */
-export const BAZI_ZIPING_PATTERNS: Record<string, BaziZipingPatternEntry> = {
+const CANONICAL_BAZI_ZIPING_PATTERNS: Record<string, BaziZipingPatternEntry> = {
   正官格: {
     pattern: '正官格',
     category: '正格',
@@ -119,6 +119,8 @@ export const BAZI_ZIPING_PATTERNS: Record<string, BaziZipingPatternEntry> = {
   },
 };
 
+export const BAZI_ZIPING_PATTERNS = structuredClone(CANONICAL_BAZI_ZIPING_PATTERNS);
+
 /**
  * 查询八字子平格局经典释义
  */
@@ -126,8 +128,8 @@ export function getBaziZipingPatternAdvice(pattern: string): BaziZipingPatternEn
   if (!pattern) return undefined;
   // 括注只说明同一格局的具体条件；“杂气”等前缀代表另一取格口径。
   const patternName = pattern.trim().replace(/（[^（）]*）$/, '');
-  if (Object.hasOwn(BAZI_ZIPING_PATTERNS, patternName)) {
-    return structuredClone(BAZI_ZIPING_PATTERNS[patternName]);
+  if (Object.hasOwn(CANONICAL_BAZI_ZIPING_PATTERNS, patternName)) {
+    return structuredClone(CANONICAL_BAZI_ZIPING_PATTERNS[patternName]);
   }
   // 主格局名与典籍表键的显式映射：建禄格／劫财格同属“建禄月劫格”，月刃格对应“阳刃格”；
   // 建禄与月劫、阳刃之间的差异以条目原文为准，不做子串猜测
@@ -137,8 +139,8 @@ export function getBaziZipingPatternAdvice(pattern: string): BaziZipingPatternEn
     月刃格: '阳刃格',
   };
   const aliasKey = Object.hasOwn(aliasMap, patternName) ? aliasMap[patternName] : undefined;
-  if (aliasKey && Object.hasOwn(BAZI_ZIPING_PATTERNS, aliasKey)) {
-    return structuredClone(BAZI_ZIPING_PATTERNS[aliasKey]);
+  if (aliasKey && Object.hasOwn(CANONICAL_BAZI_ZIPING_PATTERNS, aliasKey)) {
+    return structuredClone(CANONICAL_BAZI_ZIPING_PATTERNS[aliasKey]);
   }
   return undefined;
 }

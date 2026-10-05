@@ -1376,7 +1376,7 @@ export function getNamedStemPairPattern(
 }
 
 function assertValidStem(stem: string, label: string): void {
-  if (!stemElements[stem]) {
+  if (!Object.hasOwn(stemElements, stem)) {
     throw new Error(`${label}必须是合法十天干（甲乙丙丁戊己庚辛壬癸）。`);
   }
 }

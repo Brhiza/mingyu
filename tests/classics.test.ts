@@ -16,6 +16,9 @@ import * as fengshui from '../packages/core/src/classics/fengshui-classics';
 import * as taiyi from '../packages/core/src/classics/taiyi-classics';
 import * as qizheng from '../packages/core/src/classics/qizheng-classics';
 import * as almanac from '../packages/core/src/classics/almanac-classics';
+import * as huangji from '../packages/core/src/classics/huangji-classics';
+import * as wuyun from '../packages/core/src/classics/wuyun-liuqi-classics';
+import * as xiaoliuren from '../packages/core/src/classics/xiaoliuren-classics';
 
 import {
   getAlmanacOfficerClassic,
@@ -574,11 +577,20 @@ test('典籍查询只认可登记键，直接模块与聚合入口保留合法�
 });
 
 test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
+  const movementRuleKey = Object.keys(liuyao.LIUYAO_MOVEMENT_RULES)[0];
+  const categoryKey = liuyao.LIUYAO_CATEGORY_CHAPTERS[0].category;
+  const lessonPatternKey = Object.keys(liuren.LIUREN_LESSON_PATTERN_CLASSICS)[0];
+  const bifaTitle = liuren.LIUREN_BIFA_CLASSICS[0].title;
   const queries: Array<[string, () => unknown]> = [];
   for (const module of [ditiansui, classics])
     queries.push(['滴天髓', () => module.getBaziDitiansuiAdvice('甲')]);
   for (const module of [ziping, classics])
-    queries.push(['子平', () => module.getBaziZipingPatternAdvice('正官格')]);
+    queries.push(
+      ['子平', () => module.getBaziZipingPatternAdvice('正官格')],
+      ['子平建禄别名', () => module.getBaziZipingPatternAdvice('建禄格')],
+      ['子平月劫别名', () => module.getBaziZipingPatternAdvice('劫财格')],
+      ['子平月刃别名', () => module.getBaziZipingPatternAdvice('月刃格')],
+    );
   for (const module of [qiongtong, classics])
     queries.push(['穷通', () => module.getBaziQiongtongAdvice('甲', '寅')]);
   for (const module of [qimen, classics])
@@ -592,16 +604,10 @@ test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
     );
   for (const module of [liuyao, classics])
     queries.push(
-      [
-        '六爻动变',
-        () => module.getLiuyaoMovementRule(Object.keys(liuyao.LIUYAO_MOVEMENT_RULES)[0]),
-      ],
+      ['六爻动变', () => module.getLiuyaoMovementRule(movementRuleKey)],
       ['六爻持世', () => module.getLiuyaoChishiClassic('父母爻')],
       ['六爻all', () => module.getAllLiuyaoMovementRules()],
-      [
-        '六爻分类',
-        () => module.getLiuyaoCategoryChapter(liuyao.LIUYAO_CATEGORY_CHAPTERS[0].category),
-      ],
+      ['六爻分类', () => module.getLiuyaoCategoryChapter(categoryKey)],
       ['六爻分类all', () => module.getAllLiuyaoCategoryChapters()],
     );
   for (const module of [meihua, classics])
@@ -617,14 +623,8 @@ test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
     queries.push(
       ['六壬将', () => module.getLiurenGeneralClassic('贵人')],
       ['六壬取传', () => module.getLiurenTransmissionClassic('伏吟兼贼克')],
-      [
-        '六壬课体',
-        () =>
-          module.getLiurenLessonPatternClassic(
-            Object.keys(liuren.LIUREN_LESSON_PATTERN_CLASSICS)[0],
-          ),
-      ],
-      ['毕法find', () => module.getLiurenBifaClassic(liuren.LIUREN_BIFA_CLASSICS[0].title)],
+      ['六壬课体', () => module.getLiurenLessonPatternClassic(lessonPatternKey)],
+      ['毕法find', () => module.getLiurenBifaClassic(bifaTitle)],
       ['毕法all', () => module.getAllLiurenBifaClassics()],
     );
   for (const module of [ziwei, classics])
@@ -644,6 +644,15 @@ test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
     queries.push(['七政', () => module.getQizhengStarClassic('太阳')]);
   for (const module of [almanac, classics])
     queries.push(['建除', () => module.getAlmanacOfficerClassic('建日')]);
+  for (const module of [huangji, classics])
+    queries.push(['皇极', () => module.getHuangjiCycleClassic('年')]);
+  for (const module of [wuyun, classics])
+    queries.push(
+      ['五运完整名称', () => module.getWuyunLiuqiClassic('子午少阴君火司天')],
+      ['五运气名别名', () => module.getWuyunLiuqiClassic('少阴君火司天')],
+    );
+  for (const module of [xiaoliuren, classics])
+    queries.push(['小六壬', () => module.getXiaoliurenClassic('大安')]);
   const mutate = (value: unknown): void => {
     if (Array.isArray(value)) {
       value.forEach(mutate);
@@ -662,5 +671,58 @@ test('典籍getter与find及全集返回值隔离原表和嵌套资料', () => {
     mutate(returned);
     assert.notDeepEqual(returned, expected, label + '应确实修改返回资料');
     assert.deepEqual(query(), expected, label + '后续查询应保留原文与嵌套资料');
+  }
+
+  const catalogs: Array<[string, Record<string, unknown> | unknown[]]> = [
+    ['穷通', qiongtong.BAZI_QIONGTONG_TABLE],
+    ['滴天髓', ditiansui.BAZI_DITIANSUI_TABLE],
+    ['子平', ziping.BAZI_ZIPING_PATTERNS],
+    ['六爻动变', liuyao.LIUYAO_MOVEMENT_RULES],
+    ['六爻持世', liuyao.LIUYAO_CHISHI_TABLE],
+    ['六爻分类', liuyao.LIUYAO_CATEGORY_CHAPTERS],
+    ['梅花体用', meihua.MEIHUA_RELATION_JUDGEMENTS],
+    ['梅花类象', meihua.MEIHUA_TRIGRAM_CLASSICS],
+    ['周易', zhouyi.ZHOUYI_HEXAGRAMS_TEXT],
+    ['金口诀', jinkou.JINKOUJUE_MOVEMENT_CLASSICS],
+    ['六壬取传', liuren.LIUREN_TRANSMISSION_CLASSICS],
+    ['六壬课体', liuren.LIUREN_LESSON_PATTERN_CLASSICS],
+    ['六壬贵神', liuren.LIUREN_GENERAL_CLASSICS],
+    ['毕法', liuren.LIUREN_BIFA_CLASSICS],
+    ['紫微星', ziwei.ZIWEI_STAR_CLASSICS],
+    ['紫微赋', ziwei.ZIWEI_FU_CLASSICS],
+    ['八宅', fengshui.BAZHAI_STAR_CLASSICS],
+    ['玄空', fengshui.XUANKONG_STAR_CLASSICS],
+    ['太乙', taiyi.TAIYI_GENERAL_CLASSICS],
+    ['七政', qizheng.QIZHENG_STAR_CLASSICS],
+    ['皇极', huangji.HUANGJI_CYCLE_CLASSICS],
+    ['五运六气', wuyun.WUYUN_LIUQI_CLASSICS],
+    ['小六壬', xiaoliuren.XIAOLIUREN_CLASSICS],
+    ['黄历', almanac.ALMANAC_OFFICER_CLASSICS],
+  ];
+  const snapshots = catalogs.map(
+    ([label, catalog]) => [label, catalog, structuredClone(catalog)] as const,
+  );
+  const expectedQueries = queries.map(([label, query]) => {
+    const expected = query();
+    assert.ok(expected, label);
+    return [label, query, structuredClone(expected)] as const;
+  });
+  try {
+    for (const [label, catalog, snapshot] of snapshots) {
+      mutate(catalog);
+      assert.notDeepEqual(catalog, snapshot, label + '公开目录应保持可写');
+    }
+    for (const [label, query, expected] of expectedQueries) {
+      assert.deepEqual(query(), expected, label + '公开目录变造后仍应读取原资料');
+    }
+  } finally {
+    for (const [, catalog, snapshot] of snapshots) {
+      if (Array.isArray(catalog)) {
+        catalog.splice(0, catalog.length, ...(snapshot as unknown[]));
+      } else {
+        for (const key of Object.keys(catalog)) delete catalog[key];
+        Object.assign(catalog, snapshot);
+      }
+    }
   }
 });

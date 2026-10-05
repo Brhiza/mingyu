@@ -3,7 +3,7 @@ import type { TaiyiGeneralClassic } from './types';
 /**
  * 《太乙金镜式经》《太乙统宗宝鉴》太乙神数诸神与八将精解
  */
-export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
+const CANONICAL_TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   太乙: {
     general: '太乙',
     role: '监将 · 统领式局',
@@ -79,9 +79,13 @@ export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = {
   },
 };
 
+export const TAIYI_GENERAL_CLASSICS: Record<string, TaiyiGeneralClassic> = structuredClone(
+  CANONICAL_TAIYI_GENERAL_CLASSICS,
+);
+
 export function getTaiyiGeneralClassic(general: string): TaiyiGeneralClassic | undefined {
   if (!general) return undefined;
-  for (const [key, val] of Object.entries(TAIYI_GENERAL_CLASSICS)) {
+  for (const [key, val] of Object.entries(CANONICAL_TAIYI_GENERAL_CLASSICS)) {
     if (general.includes(key)) return structuredClone(val);
   }
   return undefined;

@@ -4,7 +4,7 @@ import type { JinkoujueMovementClassic } from './types';
 /**
  * 《六壬神课金口诀》卷之上“阴阳次第五用”“五动爻诵”“三动”原文节录。
  */
-export const JINKOUJUE_MOVEMENT_CLASSICS: Record<
+const CANONICAL_JINKOUJUE_MOVEMENT_CLASSICS: Record<
   JinkoujueMovement['name'],
   JinkoujueMovementClassic
 > = {
@@ -79,7 +79,13 @@ export const JINKOUJUE_MOVEMENT_CLASSICS: Record<
   },
 };
 
+export const JINKOUJUE_MOVEMENT_CLASSICS: Record<
+  JinkoujueMovement['name'],
+  JinkoujueMovementClassic
+> = structuredClone(CANONICAL_JINKOUJUE_MOVEMENT_CLASSICS);
+
 export function getJinkoujueMovementClassic(key: string): JinkoujueMovementClassic | undefined {
-  if (!Object.prototype.hasOwnProperty.call(JINKOUJUE_MOVEMENT_CLASSICS, key)) return undefined;
-  return structuredClone(JINKOUJUE_MOVEMENT_CLASSICS[key as JinkoujueMovement['name']]);
+  if (!Object.prototype.hasOwnProperty.call(CANONICAL_JINKOUJUE_MOVEMENT_CLASSICS, key))
+    return undefined;
+  return structuredClone(CANONICAL_JINKOUJUE_MOVEMENT_CLASSICS[key as JinkoujueMovement['name']]);
 }

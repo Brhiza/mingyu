@@ -13,6 +13,7 @@ import {
 import {
   evaluateSingleStar,
   getZhiFuStarPalaceFact,
+  STAR_ORIGINAL_PALACES,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace.ts';
 import {
   getDayOfficerInfo,
@@ -221,14 +222,30 @@ test('奇门九星与落宫五行关系独立于月令旺衰', () => {
       ['宫克星', false],
     ],
   );
-  const value = getZhiFuStarPalaceFact({
+  const chart = {
     zhiFu: '天蓬',
     jiuGongGe: [{ gong: 1, element: '水', tianPan: { star: '天蓬' } }],
-  });
+  };
+  const value = getZhiFuStarPalaceFact(chart);
   assert.equal(value.detail, '天蓬落1宫，星宫比和，归本宫');
+  assert.equal(value.originalPalace, 1);
+  assert.equal(value.atOriginalPalace, true);
   assert.equal('state' in value, false);
   assert.equal('score' in value, false);
   assert.equal('specialJudgement' in value, false);
+
+  const originalPalace = STAR_ORIGINAL_PALACES.天蓬;
+  try {
+    STAR_ORIGINAL_PALACES.天蓬 = 2;
+    assert.equal(STAR_ORIGINAL_PALACES.天蓬, 2);
+    assert.deepEqual(evaluateSingleStar('天蓬', 1, '水'), value);
+    assert.deepEqual(getZhiFuStarPalaceFact(chart), value);
+    assert.deepEqual(getZhiFuStarPalaceFact(JSON.parse(JSON.stringify(chart))), value);
+    assert.deepEqual(getZhiFuStarPalaceFact(structuredClone(chart)), value);
+  } finally {
+    STAR_ORIGINAL_PALACES.天蓬 = originalPalace;
+  }
+  assert.deepEqual(getZhiFuStarPalaceFact(chart), value);
 });
 
 test('奇门九星关系：未知星或非法宫位应明确报错', () => {
@@ -383,9 +400,16 @@ test('奇门月相与建除映射缺失时应报错，不得默认新月或平',
 test('奇门十干格局应正常返回合法组合并拒绝非法输入', () => {
   assert.ok(getStemPairPattern('壬', '癸'));
   assert.equal(getStemPairPattern('甲', '癸').name, '生');
+  assert.equal(getNamedStemPairPattern('甲', '癸'), null);
   assert.equal(getNamedStemPairPattern('壬', '癸')?.name, '螣蛇飞空');
   assert.throws(() => getStemPairPattern('A', '癸'), /合法十天干/);
   assert.throws(() => getNamedStemPairPattern('A', '癸'), /合法十天干/);
+  for (const stem of ['constructor', 'toString', '__proto__']) {
+    assert.throws(() => getStemPairPattern(stem, '癸'), /天盘干必须是合法十天干/);
+    assert.throws(() => getStemPairPattern('乙', stem), /地盘干必须是合法十天干/);
+    assert.throws(() => getNamedStemPairPattern(stem, '癸'), /天盘干必须是合法十天干/);
+    assert.throws(() => getNamedStemPairPattern('乙', stem), /地盘干必须是合法十天干/);
+  }
 });
 
 test('奇门应期必须有明确基准宫并校验宫位', () => {

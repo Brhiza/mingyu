@@ -1,7 +1,7 @@
 import type { MeihuaBodyUseJudgement } from './types';
 
 /** 《梅花易数》卷二《体用总诀》的本卦体用关系原句。 */
-export const MEIHUA_RELATION_JUDGEMENTS: Record<string, MeihuaBodyUseJudgement> = {
+const CANONICAL_MEIHUA_RELATION_JUDGEMENTS: Record<string, MeihuaBodyUseJudgement> = {
   体用比和: {
     relationType: '体用比和',
     sourceBook: '梅花易数·体用总诀',
@@ -34,12 +34,14 @@ export const MEIHUA_RELATION_JUDGEMENTS: Record<string, MeihuaBodyUseJudgement> 
   },
 };
 
+export const MEIHUA_RELATION_JUDGEMENTS = structuredClone(CANONICAL_MEIHUA_RELATION_JUDGEMENTS);
+
 import type { MeihuaTrigramClassic } from './types';
 
 /**
  * 《梅花易数·八卦万物类象》象数全览
  */
-export const MEIHUA_TRIGRAM_CLASSICS: Record<string, MeihuaTrigramClassic> = {
+const CANONICAL_MEIHUA_TRIGRAM_CLASSICS: Record<string, MeihuaTrigramClassic> = {
   乾: {
     trigram: '乾',
     name: '乾为天',
@@ -135,17 +137,23 @@ export const MEIHUA_TRIGRAM_CLASSICS: Record<string, MeihuaTrigramClassic> = {
   },
 };
 
+export const MEIHUA_TRIGRAM_CLASSICS = structuredClone(CANONICAL_MEIHUA_TRIGRAM_CLASSICS);
+
 export function getMeihuaTrigramClassic(trigram: string): MeihuaTrigramClassic | undefined {
   if (!trigram) return undefined;
   const key = trigram.slice(0, 1);
-  const matched = [key, trigram].find((value) => Object.hasOwn(MEIHUA_TRIGRAM_CLASSICS, value));
-  return matched === undefined ? undefined : structuredClone(MEIHUA_TRIGRAM_CLASSICS[matched]);
+  const matched = [key, trigram].find((value) =>
+    Object.hasOwn(CANONICAL_MEIHUA_TRIGRAM_CLASSICS, value),
+  );
+  return matched === undefined
+    ? undefined
+    : structuredClone(CANONICAL_MEIHUA_TRIGRAM_CLASSICS[matched]);
 }
 
 export function getMeihuaBodyUseJudgement(
   relationType: string,
 ): MeihuaBodyUseJudgement | undefined {
-  return Object.hasOwn(MEIHUA_RELATION_JUDGEMENTS, relationType)
-    ? structuredClone(MEIHUA_RELATION_JUDGEMENTS[relationType])
+  return Object.hasOwn(CANONICAL_MEIHUA_RELATION_JUDGEMENTS, relationType)
+    ? structuredClone(CANONICAL_MEIHUA_RELATION_JUDGEMENTS[relationType])
     : undefined;
 }

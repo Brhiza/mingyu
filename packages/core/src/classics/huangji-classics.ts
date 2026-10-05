@@ -1,7 +1,7 @@
 import type { HuangjiCycleClassic } from './types';
 
 /** 张行成《皇极经世索隐·经世观物总要》的周期原文与释义。 */
-export const HUANGJI_CYCLE_CLASSICS: Record<string, HuangjiCycleClassic> = {
+const CANONICAL_HUANGJI_CYCLE_CLASSICS: Record<string, HuangjiCycleClassic> = {
   元: {
     cycleType: '元',
     name: '元 · 十二万九千六百年',
@@ -44,7 +44,10 @@ export const HUANGJI_CYCLE_CLASSICS: Record<string, HuangjiCycleClassic> = {
   },
 };
 
+export const HUANGJI_CYCLE_CLASSICS = structuredClone(CANONICAL_HUANGJI_CYCLE_CLASSICS);
+
 export function getHuangjiCycleClassic(cycle: string): HuangjiCycleClassic | undefined {
-  if (typeof cycle !== 'string' || !Object.hasOwn(HUANGJI_CYCLE_CLASSICS, cycle)) return undefined;
-  return { ...HUANGJI_CYCLE_CLASSICS[cycle] };
+  if (typeof cycle !== 'string' || !Object.hasOwn(CANONICAL_HUANGJI_CYCLE_CLASSICS, cycle))
+    return undefined;
+  return { ...CANONICAL_HUANGJI_CYCLE_CLASSICS[cycle] };
 }

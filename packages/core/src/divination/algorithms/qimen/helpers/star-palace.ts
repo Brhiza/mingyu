@@ -15,7 +15,7 @@ const { starElements } = getQimenConstants();
 const WUXING_ELEMENTS = new Set<string>(WUXING);
 
 /** 九星本宫映射。 */
-export const STAR_ORIGINAL_PALACES: Record<string, number> = {
+const CANONICAL_STAR_ORIGINAL_PALACES: Record<string, number> = {
   天蓬: 1,
   天芮: 2,
   天冲: 3,
@@ -25,6 +25,10 @@ export const STAR_ORIGINAL_PALACES: Record<string, number> = {
   天柱: 7,
   天任: 8,
   天英: 9,
+};
+
+export const STAR_ORIGINAL_PALACES: Record<string, number> = {
+  ...CANONICAL_STAR_ORIGINAL_PALACES,
 };
 
 export type StarPalaceRelation = '星宫比和' | '宫生星' | '星生宫' | '星克宫' | '宫克星';
@@ -57,7 +61,7 @@ export function evaluateSingleStar(
   palaceElement: string,
 ): StarPalaceResult {
   const starElement = starElements[star];
-  const originalPalace = STAR_ORIGINAL_PALACES[star];
+  const originalPalace = CANONICAL_STAR_ORIGINAL_PALACES[star];
 
   if (!starElement) {
     throw new Error(`九星 "${star}" 无法识别，不能评估星宫关系。`);
@@ -112,7 +116,7 @@ export function getZhiFuStarPalaceFact(result: ZhiFuPalaceInput): StarPalaceResu
   if (!zhiFu) {
     throw new Error('值符星不能为空。');
   }
-  if (!STAR_ORIGINAL_PALACES[zhiFu]) {
+  if (!CANONICAL_STAR_ORIGINAL_PALACES[zhiFu]) {
     throw new Error(`值符星 "${zhiFu}" 无法识别。`);
   }
   const palace = jiuGongGe.find((item) => hasTianPanStar(item, zhiFu));
