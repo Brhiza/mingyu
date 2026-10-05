@@ -618,7 +618,7 @@ test('岁运事实提示词只输出可读事实，内部证据键仍留在结�
   assert.match(sections.focus, /岁运作用事实/);
 });
 
-test('真实流年与流月把同层己土明透及本气合列，保留根气归属和跨层事实', () => {
+test('真实流年与流月保留根气归属、跨层事实及不同作用对象', () => {
   const chart = baziCalculator.calculateBazi({
     gender: 'male',
     year: 1991,
@@ -629,6 +629,7 @@ test('真实流年与流月把同层己土明透及本气合列，保留根气�
     isLeapMonth: false,
     useTrueSolarTime: false,
   });
+  let yearContext: ReturnType<typeof buildFortuneSelectionContext> | undefined;
   for (const selection of [
     { scope: 'year' as const, year: 2026 },
     { scope: 'month' as const, year: 2026, month: 5 },
@@ -638,6 +639,7 @@ test('真实流年与流月把同层己土明透及本气合列，保留根气�
       normalizeFortuneSelection(chart, selection),
     );
     assert.ok(context);
+    if (selection.scope === 'year') yearContext = context;
     const rawDayunJi = context.actionEvidence?.facts.filter(
       (fact) => fact.level === 'dayun' && fact.stem === '己',
     );
@@ -662,36 +664,22 @@ test('真实流年与流月把同层己土明透及本气合列，保留根气�
     }
     assert.doesNotMatch(focus, /^岁运作用事实：/m);
   }
-});
 
-test('同层同干的作用对象不同时保留两条独立取证', () => {
-  const chart = baziCalculator.calculateBazi({
-    gender: 'male',
-    year: 1991,
-    month: 5,
-    day: 15,
-    timeIndex: 5,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-  const context = buildFortuneSelectionContext(
-    chart,
-    normalizeFortuneSelection(chart, { scope: 'year', year: 2026 }),
-  );
-  assert.ok(context?.actionEvidence);
-  const hidden = context.actionEvidence.facts.find(
+  const yearContextForMutation = yearContext;
+  assert.ok(yearContextForMutation?.actionEvidence);
+  const hidden = yearContextForMutation.actionEvidence.facts.find(
     (fact) => fact.level === 'dayun' && fact.stem === '己' && fact.placement === '岁运藏干',
   );
   assert.ok(hidden);
   const original = formatFortuneActionFactLine(hidden);
   hidden.targetObjects = ['甲'];
   const updated = formatFortuneActionFactLine(hidden);
-  context.promptPayload.evidenceLines = context.promptPayload.evidenceLines.map((line) =>
-    line.replace(original, updated),
-  );
+  yearContextForMutation.promptPayload.evidenceLines =
+    yearContextForMutation.promptPayload.evidenceLines.map((line) =>
+      line.replace(original, updated),
+    );
 
-  const dayunJiLines = formatBaziFortuneSelection(context)!
+  const dayunJiLines = formatBaziFortuneSelection(yearContextForMutation)!
     .focus.split('\n')
     .filter((line) => line.includes('大运己（土'));
   assert.equal(dayunJiLines.length, 2);
