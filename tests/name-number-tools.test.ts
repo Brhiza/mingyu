@@ -10,6 +10,7 @@ import {
   analyzeNumber,
   buildNumberEnergyPrompt,
   calculateZhugeNumber,
+  buildChineseCharacterPrompt,
   buildChineseNameAnalysisPrompt,
   buildChineseNamingPrompt,
   selectNamingCharacters,
@@ -39,9 +40,11 @@ test('“發”和“髮”按不同繁体字义与康熙笔画解析', async ()
   assert.equal(hair.traditional, '髮');
   assert.equal(hair.kangxiStrokes, 15);
   assert.equal(hair.radical, '髟');
+  assert.equal(hair.pinyin, 'fà、fǎ');
   assert.match(hair.definition!, /头皮上生长的毛/);
   assert.equal(emit.traditional, '發');
   assert.equal(emit.kangxiStrokes, 12);
+  assert.equal(emit.pinyin, 'fā');
   assert.ok(
     selectChineseCharacters({ commonOnly: false, strokes: 15, radical: '髟', limit: 200 }).some(
       (item) => item.char === '髮',
@@ -56,8 +59,23 @@ test('“發”和“髮”按不同繁体字义与康熙笔画解析', async ()
     hairReferences.characters[0].detail?.kangxiText,
     emitReferences.characters[0].detail?.kangxiText,
   );
+  const hairPrompt = buildChineseCharacterPrompt({ analysis: hairReferences });
+  assert.match(hairPrompt, /^读音：fà、fǎ$/mu);
+  assert.match(
+    hairPrompt,
+    /音义用法：毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。/u,
+  );
+  assert.match(buildChineseCharacterPrompt({ analysis: emitReferences }), /^读音：fā$/mu);
   assert.deepEqual(calculateZhugeNumber('髮发發').strokes, [15, 12, 12]);
-  assert.equal(analyzeChineseName({ fullName: '李髮' }).chars[1].kangxiStrokes, 15);
+  const hairName = analyzeChineseName({ fullName: '李髮' });
+  assert.equal(hairName.chars[1].kangxiStrokes, 15);
+  assert.deepEqual(hairName.rawGrids, { tian: 8, ren: 22, di: 16, wai: 2, zong: 22 });
+  const hairNamePrompt = buildChineseNameAnalysisPrompt({ analysis: hairName });
+  assert.match(hairNamePrompt, /髮（康熙15画、五行未定、fà、fǎ）/u);
+  assert.match(
+    hairNamePrompt,
+    /髮音义用法：毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。/u,
+  );
 });
 
 test('姓名逐字资料保留实际输入的繁体字形', () => {

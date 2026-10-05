@@ -23,7 +23,8 @@ test('已核实的多音字按各读音参与筛选且繁简资料一致', () =>
     ['区', '區', ['qu', 'ou', 'gou']],
     ['翟', '翟', ['zhai', 'di']],
   ] as const) {
-    const detail = analyzeChineseCharacters(char).characters[0].detail!;
+    const analysis = analyzeChineseCharacters(char);
+    const detail = analysis.characters[0].detail!;
     assert.ok(detail.readingNote);
     assert.deepEqual(analyzeChineseCharacters(traditional).characters[0].detail, detail);
     for (const pinyin of readings) {
@@ -34,10 +35,7 @@ test('已核实的多音字按各读音参与筛选且繁简资料一致', () =>
         `${char}:${pinyin}`,
       );
     }
-    assert.match(
-      buildChineseCharacterPrompt({ analysis: analyzeChineseCharacters(char) }),
-      /音义用法/,
-    );
+    assert.match(buildChineseCharacterPrompt({ analysis }), /音义用法/);
   }
 });
 

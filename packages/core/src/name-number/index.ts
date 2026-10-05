@@ -942,6 +942,8 @@ const HAIR_TRADITIONAL_VARIANT: CharacterDetail = {
   kangxiStrokes: 15,
   radical: '髟',
   wuxing: null,
+  pinyin: 'fà、fǎ',
+  readingNote: '毛发义在普通话中读 fà，台湾国语中读 fǎ；与“發”的 fā 读音区分。',
   definition: '人的头皮上生长的毛；形似头发的。',
   simplifiedStrokes: 5,
   traditionalStrokes: 15,
