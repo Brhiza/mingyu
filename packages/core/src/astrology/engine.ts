@@ -361,6 +361,20 @@ function julianDateOfUtc(utc: Date): number {
   return utc.getTime() / 86_400_000 + 2_440_587.5;
 }
 
+function positionAt(bodyId: string, jd: number): CaelusPosition {
+  if (!Number.isFinite(jd)) throw new Error('星历儒略日必须是有限数值。');
+  const position = astrologyEngine.position(bodyId, jd);
+  if (
+    !Number.isFinite(position.lon) ||
+    !Number.isFinite(position.lat) ||
+    !Number.isFinite(position.speed) ||
+    (position.dist != null && !Number.isFinite(position.dist))
+  ) {
+    throw new RangeError('当前儒略日无法计算有效星历位置。');
+  }
+  return position;
+}
+
 function houseForLongitude(cusps: readonly number[], longitude: number): number {
   for (let index = 0; index < cusps.length; index += 1) {
     const current = cusps[index];
@@ -658,7 +672,7 @@ function calculatePositionOnlyBodies(jd: number, names: string[]): ChartPlanet[]
   const missingNames: string[] = [];
   for (const name of names) {
     try {
-      const position = mapPosition(name, astrologyEngine.position(BODY_IDS[name], jd));
+      const position = mapPosition(name, positionAt(BODY_IDS[name], jd));
       positions.push(position);
       if (name === 'North Node') {
         positions.push({
@@ -900,12 +914,12 @@ export function calculatePlanets(
 }
 
 export function getSunPosition(jd: number) {
-  const position = astrologyEngine.position('sun', jd);
+  const position = positionAt('sun', jd);
   return { longitude: position.lon, latitude: position.lat, distance: position.dist ?? 0 };
 }
 
 export function getMoonPosition(jd: number) {
-  const position = astrologyEngine.position('moon', jd);
+  const position = positionAt('moon', jd);
   return { longitude: position.lon, latitude: position.lat, distance: position.dist ?? 0 };
 }
 
@@ -936,7 +950,7 @@ export function calculateTransits(
   const transits: Transit[] = [];
   for (const bodyName of options.transitingBodies) {
     const bodyId = BODY_IDS[bodyName];
-    const position = astrologyEngine.position(bodyId, jd);
+    const position = positionAt(bodyId, jd);
     const transitingPosition: TransitPosition = {
       ...positionFields(position.lon),
       ...(position.lat !== undefined ? { latitude: position.lat } : {}),
@@ -998,15 +1012,19 @@ export function bodyName(body: BodyId): string {
 export const JULIAN_DATE_UNIX_EPOCH = 2_440_587.5;
 
 export function julianDateToUnix(jd: number) {
-  return (jd - JULIAN_DATE_UNIX_EPOCH) * 86_400_000;
+  if (!Number.isFinite(jd)) throw new Error('儒略日必须是有限数值。');
+  const timestamp = (jd - JULIAN_DATE_UNIX_EPOCH) * 86_400_000;
+  if (!Number.isFinite(timestamp)) throw new RangeError('儒略日转换超出时间戳数值范围。');
+  return timestamp;
 }
 
 export function unixToJulianDate(timestamp: number) {
+  if (!Number.isFinite(timestamp)) throw new Error('时间戳必须是有限数值。');
   return timestamp / 86_400_000 + JULIAN_DATE_UNIX_EPOCH;
 }
 
 export function getApparentPosition(bodyId: string, jd: number) {
-  const position = astrologyEngine.position(bodyId, jd);
+  const position = positionAt(bodyId, jd);
   return {
     longitude: position.lon,
     latitude: position.lat,
@@ -1026,6 +1044,9 @@ export type LunarEclipseEvent = {
 };
 
 export function findSolarEclipses(jdStart: number, jdEnd: number): SolarEclipseEvent[] {
+  if (!Number.isFinite(jdStart) || !Number.isFinite(jdEnd)) {
+    throw new Error('日食区间儒略日必须是有限数值。');
+  }
   return solarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
     julianDate: item.tMax,
     type: item.type,
@@ -1033,6 +1054,9 @@ export function findSolarEclipses(jdStart: number, jdEnd: number): SolarEclipseE
 }
 
 export function findLunarEclipses(jdStart: number, jdEnd: number): LunarEclipseEvent[] {
+  if (!Number.isFinite(jdStart) || !Number.isFinite(jdEnd)) {
+    throw new Error('月食区间儒略日必须是有限数值。');
+  }
   return lunarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
     julianDate: item.tMax,
     type: item.type,

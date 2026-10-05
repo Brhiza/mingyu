@@ -8,17 +8,39 @@ import {
   calculateChart,
   calculatePlanets,
   calculateTransits,
+  findLunarEclipses,
+  findSolarEclipses,
   getApparentPosition,
+  getMoonPosition,
+  getSunPosition,
+  julianDateToUnix,
   toJulianDate,
+  unixToJulianDate,
 } from '../packages/core/src/astrology/engine';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe';
 import { formatAstrolabeForPrompt } from '../packages/core/src/prompt/astrolabe';
 
-test('行运入口拒绝无效时间、黄经、强度及未知星体相位', () => {
+test('星历与行运入口拒绝无效时间、黄经、强度及未知星体相位', () => {
   const points = [{ name: '本命点', longitude: 0, type: 'planet' as const }];
   const options = { aspectTypes: [AspectType.Conjunction], transitingBodies: [CelestialBody.Moon] };
   for (const jd of [NaN, Infinity, -Infinity]) {
     assert.throws(() => calculateTransits(points, jd, options), /儒略日/);
+    assert.throws(() => getSunPosition(jd), /儒略日/);
+    assert.throws(() => getMoonPosition(jd), /儒略日/);
+    assert.throws(() => getApparentPosition('moon', jd), /儒略日/);
+    assert.throws(() => julianDateToUnix(jd), /儒略日/);
+    assert.throws(() => unixToJulianDate(jd), /时间戳/);
+    for (const findEclipses of [findSolarEclipses, findLunarEclipses]) {
+      assert.throws(() => findEclipses(jd, 2451545), /区间儒略日/);
+      assert.throws(() => findEclipses(2451545, jd), /区间儒略日/);
+    }
+  }
+  assert.throws(() => getSunPosition(Number.MAX_VALUE), /有效星历位置/);
+  assert.throws(() => getMoonPosition(Number.MAX_VALUE), /有效星历位置/);
+  assert.throws(() => getApparentPosition('moon', Number.MAX_VALUE), /有效星历位置/);
+  assert.throws(() => calculateTransits(points, Number.MAX_VALUE, options), /有效星历位置/);
+  for (const jd of [Number.MAX_VALUE, -Number.MAX_VALUE]) {
+    assert.throws(() => julianDateToUnix(jd), /超出时间戳数值范围/);
   }
   for (const longitude of [NaN, Infinity, -Infinity]) {
     assert.throws(() => calculateTransits([{ ...points[0], longitude }], 2451545, options), /黄经/);
@@ -46,7 +68,7 @@ test('行运入口拒绝无效时间、黄经、强度及未知星体相位', ()
 test('行运速度为零时非精确相位保持未判定', (context) => {
   const jd = 2451545;
   const moon = astrologyEngine.position('moon', jd);
-  context.mock.method(astrologyEngine, 'position', () => ({ ...moon, speed: 0 }));
+  context.mock.method(astrologyEngine, 'position', () => ({ ...moon, speed: 0, dist: null }));
   const result = calculateTransits(
     [{ name: '本命点', longitude: moon.lon + 60.5, type: 'planet' }],
     jd,
@@ -54,6 +76,7 @@ test('行运速度为零时非精确相位保持未判定', (context) => {
   );
   assert.equal(result.transits.length, 1);
   assert.equal(result.transits[0].phase, 'unknown');
+  assert.equal(result.transits[0].transitingPosition.distance, undefined);
 });
 
 test('星历保留验证年代与古代时标差精度说明，现代日期无多余说明', () => {
@@ -531,6 +554,9 @@ test('仅位置入口保留南北交点且与完整星盘的交点和莉莉丝�
 });
 
 test('星历日期转换保留公元1至99年且时区换算可以跨年', () => {
+  assert.equal(unixToJulianDate(0), 2440587.5);
+  assert.equal(julianDateToUnix(2440587.5), 0);
+  assert.equal(julianDateToUnix(2451545), 946728000000);
   for (const year of [1, 4, 99, 100, 2000]) {
     const expected =
       Date.parse(`${String(year).padStart(4, '0')}-01-01T00:00:00+08:00`) / 86_400_000 +

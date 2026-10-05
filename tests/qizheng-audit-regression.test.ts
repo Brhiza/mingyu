@@ -211,6 +211,19 @@ test('洞微年分只列原典各宫年数，不用回归宫度推定童限与�
     twelvePalaces,
   };
   const result = buildQizhengTimeLords(params);
+  for (const palaceName of ['constructor', 'toString', '__proto__', '错误']) {
+    assert.throws(
+      () =>
+        buildQizhengTimeLords({
+          ...params,
+          twelvePalaces: twelvePalaces.map((palace, index) =>
+            index === 1 ? { ...palace, palace: palaceName } : palace,
+          ),
+        }),
+      /行限宫名无效/,
+      palaceName,
+    );
+  }
   assert.equal(result.childLimitEndNominalAge, null);
   assert.equal(result.mingDegree, null);
   assert.equal(result.majorLimitStatus, '命度与交限待核定');

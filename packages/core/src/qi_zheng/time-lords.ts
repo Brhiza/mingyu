@@ -113,8 +113,10 @@ export function buildQizhengTimeLords(params: {
   const nominalAge = resolveQizhengNominalAge(params.birthYear, params.flowYear);
   const majorPalaceYears = Array.from({ length: 12 }, (_, step) => {
     const palace = params.twelvePalaces[palaceIndexByLimitStep(step, direction)];
+    if (step !== 0 && !Object.prototype.hasOwnProperty.call(PALACE_YEARS, palace.palace)) {
+      throw new Error(`行限宫名无效：${palace.palace}。`);
+    }
     const years = step === 0 ? null : PALACE_YEARS[palace.palace];
-    if (years === undefined) throw new Error(`行限宫名无效：${palace.palace}。`);
     return {
       palace: palace.palace,
       signIndex: palace.signIndex,
