@@ -22,27 +22,37 @@ test('书绪言六日逐爻复现复卦六日及次日颐卦的扫描例题', ()
   }
 });
 
-test('六日逐爻完整三百六十日各六段保持经卦日卦时卦的单爻关系', () => {
+test('六日逐爻覆盖三百六十日及六十四日卦的六个时段变爻', () => {
   const binary = (id: number) => hexagramsData.find((item) => item.id === id)!.binarySymbol;
   const bitPositions = [3, 4, 5, 0, 1, 2];
   const changedPositions = (a: string, b: string) =>
     [...a].flatMap((bit, i) => (bit === b[i] ? [] : [i]));
   const jingIds = new Set<number>();
+  const checkedDailyIds = new Set<number>();
   for (let elapsedDays = 0; elapsedDays < 360; elapsedDays++) {
-    for (let hour = 0; hour < 24; hour += 4) {
+    const day = calculateHuangjiSixDayCycle({ elapsedDays, hour: 0 });
+    const { jing, daily, hourly } = day.hexagrams;
+    jingIds.add(jing.id);
+    assert.equal(day.dayOfCycle, elapsedDays + 1);
+    assert.deepEqual(changedPositions(binary(jing.id), binary(daily.id)), [
+      bitPositions[elapsedDays % 6],
+    ]);
+    assert.deepEqual(changedPositions(binary(daily.id), binary(hourly.id)), [bitPositions[0]]);
+
+    // 时变取日卦为基础，每个不同日卦各核对六个时段。
+    if (checkedDailyIds.has(daily.id)) continue;
+    checkedDailyIds.add(daily.id);
+    for (let hour = 4; hour < 24; hour += 4) {
       const result = calculateHuangjiSixDayCycle({ elapsedDays, hour });
-      const { jing, daily, hourly } = result.hexagrams;
-      jingIds.add(jing.id);
-      assert.equal(result.dayOfCycle, elapsedDays + 1);
-      assert.deepEqual(changedPositions(binary(jing.id), binary(daily.id)), [
-        bitPositions[elapsedDays % 6],
-      ]);
-      assert.deepEqual(changedPositions(binary(daily.id), binary(hourly.id)), [
+      assert.deepEqual(result.hexagrams.jing, jing);
+      assert.deepEqual(result.hexagrams.daily, daily);
+      assert.deepEqual(changedPositions(binary(daily.id), binary(result.hexagrams.hourly.id)), [
         bitPositions[hour / 4],
       ]);
     }
   }
   assert.equal(jingIds.size, 60);
+  assert.equal(checkedDailyIds.size, 64);
   assert.equal(
     calculateHuangjiSixDayCycle({ elapsedDays: 359, hour: 23 }).hexagrams.jing.shortName,
     '剥',

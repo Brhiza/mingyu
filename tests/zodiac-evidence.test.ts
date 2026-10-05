@@ -71,10 +71,12 @@ test('生肖证据复验应独立校验犯太岁、说明、派生列表与生�
       {
         data: { ...structuredClone(complete), zodiac: '牛' },
         reason: /生肖名称与出生年支不一致/,
+        expectedElementRelation: '生肖地支本气克年干五行',
       },
       {
         data: { ...structuredClone(complete), yearGanZhi: '甲子' },
         reason: /流年干支与流年年支不一致/,
+        expectedElementRelation: '生肖地支本气生年干五行',
       },
       {
         data: {
@@ -88,15 +90,16 @@ test('生肖证据复验应独立校验犯太岁、说明、派生列表与生�
           },
         },
         reason: /年干与生肖五行关系重算结果与传入资料不一致/,
+        expectedElementRelation: '生肖地支本气克年干五行',
       },
     ];
-    for (const { data, reason } of cases) {
+    for (const { data, reason, expectedElementRelation } of cases) {
       const analysis = analyzeZodiacEvidence(data);
       assert.equal(analysis.summaryFact.status, '证据链有缺口');
       assert.match(analysis.summaryFact.promptText, reason);
       assert.equal(
         analysis.relations.find((relation) => relation.category === '年干五行')?.relation,
-        getZodiacYearFortune(data.zodiacBranch, data.yearGanZhi).elementRelation.label,
+        expectedElementRelation,
       );
       assert.doesNotMatch(analysis.promptText, /结构化类型为同类/);
     }

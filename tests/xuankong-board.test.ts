@@ -558,7 +558,7 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
   }
 });
 
-test('城门计算校验当运九宫运盘与二十四山，星名保持紫白本色', () => {
+test('城门计算保留九宫与二十四山校验、紫白星名及同元龙正副城门金标', () => {
   const valid = { yun: 9, facingMountain: '午', yunPlate: flyStars(9, '顺飞') };
   for (const yun of [0, 10, NaN, 1.5]) assert.throws(() => evaluateCastleGate({ ...valid, yun }));
   for (const facingMountain of ['toString', '__proto__', '无', []]) {
@@ -571,36 +571,6 @@ test('城门计算校验当运九宫运盘与二十四山，星名保持紫白�
     assert.throws(() => evaluateCastleGate({ ...valid, yunPlate }), /完整九宫盘/);
   }
   const names = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
-  for (let yun = 1; yun <= 9; yun++)
-    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
-      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
-      assert.equal(result.candidates.length, 2);
-      for (const candidate of result.candidates.filter((item) => item.status === '旺星到位')) {
-        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
-      }
-    }
-});
-
-test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
-  const expected = [false, true, false, true, true, false, true, false, true];
-  for (let yun = 1; yun <= 9; yun++) {
-    const result = evaluateCastleGate({
-      yun,
-      facingMountain: '乾',
-      yunPlate: flyStars(yun, '顺飞'),
-    });
-    const zi = result.candidates.find((item) => item.mountain === '子')!;
-    assert.equal(zi.status, expected[yun - 1] ? '旺星到位' : '旺星未到位', `${yun}运子方`);
-    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
-    if (yun === 9) {
-      assert.equal(zi.yunStar, 5);
-      assert.equal(zi.flyDirection, '逆飞');
-      assert.equal(zi.arrivalStar, 9);
-    }
-  }
-});
-
-test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () => {
   const pairs = [
     ['壬', '戌'],
     ['子', '乾'],
@@ -628,8 +598,14 @@ test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () =>
     ['亥', '癸'],
   ];
   for (let yun = 1; yun <= 9; yun++) {
-    for (const [facingMountain, gateMountain] of pairs) {
+    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
+      const gateMountain = pairs.find(([mountain]) => mountain === facingMountain)?.[1];
+      assert.ok(gateMountain);
       const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.equal(result.candidates.length, 2);
+      for (const candidate of result.candidates.filter((item) => item.status === '旺星到位')) {
+        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
+      }
       assert.deepEqual(
         result.candidates.filter((c) => c.role === '正城门').map((c) => c.mountain),
         [gateMountain],
@@ -640,6 +616,25 @@ test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () =>
         result.candidates.some((c) => c.arrivalStar === yun),
       );
       assert.equal(result.hasUsableGate, null);
+    }
+  }
+});
+
+test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
+  const expected = [false, true, false, true, true, false, true, false, true];
+  for (let yun = 1; yun <= 9; yun++) {
+    const result = evaluateCastleGate({
+      yun,
+      facingMountain: '乾',
+      yunPlate: flyStars(yun, '顺飞'),
+    });
+    const zi = result.candidates.find((item) => item.mountain === '子')!;
+    assert.equal(zi.status, expected[yun - 1] ? '旺星到位' : '旺星未到位', `${yun}运子方`);
+    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
+    if (yun === 9) {
+      assert.equal(zi.yunStar, 5);
+      assert.equal(zi.flyDirection, '逆飞');
+      assert.equal(zi.arrivalStar, 9);
     }
   }
 });
