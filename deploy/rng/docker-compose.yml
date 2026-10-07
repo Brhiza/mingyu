@@ -1,0 +1,34 @@
+services:
+  mingyu:
+    image: ${MINGYU_IMAGE:?请指定已验证的命语镜像}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:18090:3000'
+    environment:
+      MINGYU_API_PRESET: online
+      MINGYU_MCP_PRESET: online
+      MINGYU_PUBLIC_ORIGIN: https://aov.cc
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
+      AI_MODEL: ${AI_MODEL:-deepseek-chat}
+      AI_PROVIDER_NAME: ${AI_PROVIDER_NAME:-}
+      AI_BUILTIN_ENABLED: ${AI_BUILTIN_ENABLED:-false}
+      AI_DEFAULT_ENABLED: ${AI_DEFAULT_ENABLED:-false}
+      AI_TRUST_PROXY: 'true'
+    cpus: 2
+    mem_limit: 512m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

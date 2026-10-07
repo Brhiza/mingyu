@@ -63,7 +63,7 @@
 | `divine_almanac`               | 黄历择日排盘         | 建除十二神、丛辰神煞与多参与人四柱冲煞择吉                                                                                             |
 | `almanac_prompt`               | 黄历择日提示词       | 生成候选日期优选分析与自包含择日决策提示词；支持统一主题、主题细项和分析范围选择                                                       |
 | `divine_astrolabe`             | 西洋星盘排盘         | 本命星体黄道位置、宫位分界与相位交角                                                                                                   |
-| `astrolabe_prompt`             | 西洋星盘提示词       | 生成本命与行运过境解读自包含提示词；在线 Remote MCP 默认 `natal`，本地 `full` 默认当前年度 `yearly`（含太阳返照、次限推进和太阳弧） |
+| `astrolabe_prompt`             | 西洋星盘提示词       | 生成本命与行运过境解读自包含提示词；在线 Remote MCP 默认 `natal`，本地 `full` 默认当前年度 `yearly`（含太阳返照、次限推进和太阳弧）    |
 | `astrolabe_synastry`           | 西占双盘比较盘       | 计算双人星盘跨盘相位、角距、落宫与互溶接纳                                                                                             |
 | `astrolabe_synastry_prompt`    | 西占双盘提示词       | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择                                                               |
 | `metaphysics_bazhai`           | 八宅风水排盘         | 居者生年命卦、宅卦大游年与门主灶九星相配                                                                                               |
@@ -90,26 +90,29 @@
 
 ### 运行环境预设（Preset）与默认选项说明
 
-命语 MCP 根据运行方式使用两种预设。Cloudflare 的请求与 CPU 额度由平台单独计算；预设用于选择默认返回数据和排盘范围，不承诺特定 CPU 耗时：
+命语 MCP 根据运行方式使用两种预设。官方 `https://aov.cc/mcp` 由 RNG 上的 Docker/Node 服务运行；Cloudflare Pages 保留为可选自部署方式。预设用于选择默认返回数据和排盘范围：
 
-| 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明 |
-| :--- | :--- | :--- | :--- | :--- |
-| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | 通常 **`summary`**；非幂等的一次性起卦、抽牌、求签提示词为 **`full`** | **`natal`**（本命盘） | 显式 `responseMode` 优先；星盘默认只计算本命，在线资源范围保护与 Cloudflare 边缘限制仍然适用 |
-| **`full`（完整预设）** | 本地 CLI（`npx -y mingyu-mcp`、`pnpm mcp`）、本地 HTTP（`pnpm mcp --http`）及自部署 | **`full`** | **`yearly`**（流年） | 默认返回完整结构化结果，并按当前年度计算星盘流年范围；适合深度研究和二次计算 |
+| 环境 / 预设              | 适用场景                                                                            | `responseMode` 默认值                                                 | 星盘 `astrolabeScope` 默认值 | 说明                                                                         |
+| :----------------------- | :---------------------------------------------------------------------------------- | :-------------------------------------------------------------------- | :--------------------------- | :--------------------------------------------------------------------------- |
+| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与可选 Pages 自部署                      | 通常 **`summary`**；非幂等的一次性起卦、抽牌、求签提示词为 **`full`** | **`natal`**（本命盘）        | 显式 `responseMode` 优先；星盘默认只计算本命，在线资源范围保护仍然适用       |
+| **`full`（完整预设）**   | 本地 CLI（`npx -y mingyu-mcp`、`pnpm mcp`）、本地 HTTP（`pnpm mcp --http`）及自部署 | **`full`**                                                            | **`yearly`**（流年）         | 默认返回完整结构化结果，并按当前年度计算星盘流年范围；适合深度研究和二次计算 |
 
-Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置；每次请求 CPU 上限为 10ms。Pages 的 `/api/v1/health`、`/api/v1/manifest`、`/api/v1/openapi.json`、`/api/v1/foundation/capabilities` 和 `/.well-known/aov-mingyu-api.json` 是静态文件，不运行 Function；health 的 `timestampKind: "build"` 表示构建时间，Docker health 才是实时值。无需定时轮询健康地址或 `/mcp`。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。在线端点拒绝 JSON-RPC batch，每条消息须单独发送。通知收到 HTTP `202` 且无响应体是正常结果，不解析 JSON，也不重发。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。
+官方 online 端点拒绝 JSON-RPC batch，每条消息须单独发送。通知收到 HTTP `202` 且无响应体是正常结果，不解析 JSON，也不重发。旧路径 `/sse` 返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE。官方 Node/Docker 服务不受 Pages Function 的 CPU 配额约束。
 
-`_meta.durationMs` 是工具运行时计时值，并非 Cloudflare 的 CPU 用量；实际 CPU 开销以平台日志为准。
+可选 Cloudflare Pages 自部署使用 Workers Free 时，每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 共用额度，并在 UTC 午夜重置；每次请求 CPU 上限为 10ms，完整在线排盘不保证在 Free 配额内完成。Pages 的 `/api/v1/health`、`/api/v1/manifest`、`/api/v1/openapi.json`、`/api/v1/foundation/capabilities` 和 `/.well-known/aov-mingyu-api.json` 是静态文件，不运行 Function；health 的 `timestampKind: "build"` 表示构建时间，Docker health 是实时值。Pages `/mcp` 的初始化、工具列表与调用各运行一次 Function，旧 `/sse` 提示也会运行 Function。Pages 在线预设同样拒绝 batch。无需定时轮询健康地址或 `/mcp`；频繁或批量使用时可使用本地 stdio，避免占用 Pages Functions 请求额度。
 
-官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超出时返回 `HTTP 413`。限制在读取 JSON-RPC 消息时执行，适用于没有 `Content-Length` 的流式上传。本地 stdio 与使用 `full` 预设的 Docker MCP 不采用此限制；Docker 显式切换为 `online` 预设时也会应用。
+`_meta.durationMs` 是工具运行时计时值。可选 Pages 部署中，该字段并非 Cloudflare 的 CPU 用量；实际 CPU 开销以平台日志为准。
 
-MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或官方 Pages 预设。
+官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超出时返回 `HTTP 413`。限制在读取 JSON-RPC 消息时执行，适用于没有 `Content-Length` 的流式上传。Node HTTP 入口也限制为 512 KiB；本地 stdio 不采用此 HTTP 限制。
+
+MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认 `full`，不消耗 Cloudflare Pages Functions 请求额度）；只有本地进程不可用或需要远程免安装接入时，再使用官方在线 `/mcp`。安装 Agent Skill 不会自动注册 MCP 服务，两者需分别配置。官方 Node 服务设置 `MINGYU_MCP_PRESET=online`、`MINGYU_API_PRESET=online` 与 `MINGYU_PUBLIC_ORIGIN=https://aov.cc`，保持在线返回、REST 范围限制和公共 URL 一致。可选 Pages `/mcp` 固定使用 `online`；本地 CLI 和 stdio 默认使用 `full`。普通 Docker 自部署服务读取 `MINGYU_MCP_PRESET` 并默认使用 `full`；该变量不会改变本地 CLI stdio 或 Pages 预设。
 
 `full` 指返回数据与默认排盘范围，不表示 npm 包已包含当前源码的所有新工具。以实际 `tools/list` 为准；npm 包缺少所需工具时，可在当前仓库源码中运行 `pnpm mcp`，或在在线端点允许的范围内使用远程服务。
 
 #### 选项拆分与按需调用指引
 
-在在线边缘或轻量调用环境下，推荐遵循以下“拆分与分段”模式：
+在在线或轻量调用环境下，推荐遵循以下“拆分与分段”模式：
+
 1. **星盘分析拆分**：在线模式默认分析本命（`astrolabeScope: "natal"`）；需要年度行运与推进时，显式指定 `astrolabeScope: "yearly"`；流月指定 `monthly`，流日指定 `daily`，无需每次强求多层推进。
 2. **黄历长区间拆分**：在线 MCP 单次输入日期范围最多 7 天。更长范围须拆成不超过 7 天的多个日期段分别调用；`page` 与 `pageSize` 只分页合法日期段内的结果，不能绕过 7 天范围保护。
 3. **奇门终身局拆分**：在线单次终身局动态扫描最多 10 年；长远人生大运推荐分段查询。在线四柱反推必须明确提供 `startYear` 和 `endYear`，单次最多 10 年。
@@ -145,7 +148,7 @@ MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认
 | 用户问题类型                         | 首选工具                       | 推荐参数                                                                                                                                               |
 | ------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 现在起盘、即时盘、紫占               | `instant_chart`                | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                                                                                                |
-| 整体人生、长期事业、财运、婚恋       | `bazi_ziwei_prompt`            | `baziPromptTopic`、`ziweiPromptTopic`；在线先选 `promptScope: "origin"` 或具体年度，完整范围用本地/自部署 |
+| 整体人生、长期事业、财运、婚恋       | `bazi_ziwei_prompt`            | `baziPromptTopic`、`ziweiPromptTopic`；在线先选 `promptScope: "origin"` 或具体年度，完整范围用本地/自部署                                              |
 | 大类主题咨询（感情/事业/财运等）     | `thematic_consultation_prompt` | `topic`（默认 general）、`system`（默认 bazi_ziwei）、`question`                                                                                       |
 | 今年运势、当前阶段、某年趋势         | `bazi_ziwei_prompt`            | `promptScope: "yearly"`，主题按事业、财运、感情等选择                                                                                                  |
 | 换工作、创业、合伙、投资             | `bazi_ziwei_prompt`            | `job-change`、`startup-partnership`、`investment-partnership`                                                                                          |
@@ -199,7 +202,7 @@ npx -y mingyu-mcp
 
 ### 方式二：连接在线 Remote MCP（无法启动本地进程或需要远程免安装时）
 
-命语官方在 `aov.cc` 部署了全球 CDN 边缘加速的在线 MCP 服务，支持 **Streamable HTTP** 规范：
+命语官方在 RNG 上通过 Docker/Node 提供 `aov.cc` 在线 MCP 服务，支持 **Streamable HTTP** 规范：
 
 - **远程端点 URL**：`https://aov.cc/mcp`
 
@@ -308,16 +311,16 @@ pnpm mcp
 
 ### 黄历择日参数
 
-黄历择日工具需要提供 `startDate`、`endDate`。日期使用 `YYYY-MM-DD` 格式，本地 stdio/自部署服务一次最多比较 31 天；在线 Remote MCP 为保证边缘稳定，单次最多 7 天，超过时会返回 `RESOURCE_LIMIT`，请按日期段分次调用。`topic` 可选，支持 `marriage`（订婚结婚）、`move`（搬家入宅）、`opening`（开业启动）、`contract`（签约合作）、`travel`（出行赴任）、`medical`（就医手术）、`study`（考试学习）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义），不传时使用 `custom`。`participants` 可选，每个参与人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`。
+黄历择日工具需要提供 `startDate`、`endDate`。日期使用 `YYYY-MM-DD` 格式，本地 stdio/自部署服务一次最多比较 31 天；在线 Remote MCP 为控制单次请求范围，单次最多 7 天，超过时会返回 `RESOURCE_LIMIT`，请按日期段分次调用。`topic` 可选，支持 `marriage`（订婚结婚）、`move`（搬家入宅）、`opening`（开业启动）、`contract`（签约合作）、`travel`（出行赴任）、`medical`（就医手术）、`study`（考试学习）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义），不传时使用 `custom`。`participants` 可选，每个参与人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`。
 
 ### 奇门遁甲排盘方法
 
 奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）；`qimenScope` 可选 `hour`（时家，默认）、`day`、`month`、`year`。时家、日家的 `qimenJuMethod` 可选 `chaibu`（拆补，默认）或 `zhirun`（置闰）；年家、月家按《奇门遁甲统宗》三元阴遁定局。
 返回结果的 `timeInfo.solarTerm` 记录实际节气；时家、日家另有正式定局节气 `juTerm`，年家、月家以干支年和三元确定局数。`seasonality` 保留实际节气、节气五行、月相、建除十二神和四柱互动等时间事实；提示词按排盘级别选取相关资料。`patternCombos` 记录同宫格局、格局逢空等复合命中。
 
-奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，本地 stdio/自部署服务最多连续31个年份；在线 Remote MCP 为保证边缘稳定，单次最多10个年份，超过时会返回 `RESOURCE_LIMIT`，请按年份分段调用。`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
+奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，本地 stdio/自部署服务最多连续31个年份；在线 Remote MCP 为控制单次请求范围，单次最多10个年份，超过时会返回 `RESOURCE_LIMIT`，请按年份分段调用。`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 
-独立 MCP 的 stdio 工具在本机运行，奇门 31 年时限可返回完整 `result` 和 `prompt`。在线 Remote MCP 会在计算前对黄历和奇门终身局的大范围请求返回结构化 `RESOURCE_LIMIT`，避免客户端只看到 Cloudflare 1102；必须先按 `fallback` 修改范围或分段，再发新请求，不原样自动重试。仅需完整解读文本时，在线和本地都可使用 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
+独立 MCP 的 stdio 工具在本机运行，奇门 31 年时限可返回完整 `result` 和 `prompt`。在线 Remote MCP 会在计算前对黄历和奇门终身局的大范围请求返回结构化 `RESOURCE_LIMIT`，保持单次请求范围可控；必须先按 `fallback` 修改范围或分段，再发新请求，不原样自动重试。仅需完整解读文本时，在线和本地都可使用 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
 
 ### 解读口径与合参
 

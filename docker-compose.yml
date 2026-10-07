@@ -7,6 +7,9 @@ services:
     ports:
       - '3000:3000'
     environment:
+      MINGYU_API_PRESET: ${MINGYU_API_PRESET:-full}
+      MINGYU_MCP_PRESET: ${MINGYU_MCP_PRESET:-full}
+      MINGYU_PUBLIC_ORIGIN: ${MINGYU_PUBLIC_ORIGIN:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
       AI_MODEL: ${AI_MODEL:-deepseek-chat}

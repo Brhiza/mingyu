@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
 import { handleMcpRequest } from '../src/lib/mcp/handler';
+import { onRequest as handleLegacySseRequest } from '../functions/sse';
 import { getPublicApiManifestForRequest } from '../src/lib/public-api/metadata';
 import type { AiEnv } from '../src/lib/ai/proxy';
 import { AI_CLIENT_ADDRESS_HEADER } from '../src/lib/ai/rate-limit';
@@ -27,6 +28,39 @@ const RUNTIME_CONFIG_HEADERS = {
   'Cache-Control': 'no-store',
   Allow: 'GET,HEAD,OPTIONS',
 };
+const MCP_TOOL_CATALOG_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'public, max-age=300',
+  Allow: 'GET,HEAD,OPTIONS',
+};
+
+function getRequestUrl(request: IncomingMessage): URL {
+  const origin = process.env.MINGYU_PUBLIC_ORIGIN;
+  if (!origin) {
+    return new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+  }
+  const publicUrl = new URL(origin);
+  if (
+    !['https:', 'http:'].includes(publicUrl.protocol) ||
+    publicUrl.username ||
+    publicUrl.password ||
+    publicUrl.pathname !== '/' ||
+    publicUrl.search ||
+    publicUrl.hash
+  ) {
+    throw new Error('MINGYU_PUBLIC_ORIGIN 必须是不含凭据、路径、查询参数的 HTTP 或 HTTPS origin。');
+  }
+  const requestUrl = new URL(request.url || '/', 'http://localhost');
+  return new URL(`${requestUrl.pathname}${requestUrl.search}`, publicUrl.origin);
+}
+
+function readRuntimePreset(value: string | undefined): 'full' | 'online' {
+  if (value === undefined || value === '' || value === 'full') return 'full';
+  if (value === 'online') return 'online';
+  throw new Error('在线服务预设必须为 full 或 online。');
+}
 
 const mimeTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -36,6 +70,7 @@ const mimeTypes: Record<string, string> = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.txt': 'text/plain; charset=utf-8',
@@ -43,6 +78,7 @@ const mimeTypes: Record<string, string> = {
   '.webp': 'image/webp',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 function sendText(
@@ -51,13 +87,14 @@ function sendText(
   body: string,
   contentType = 'text/plain; charset=utf-8',
   extraHeaders: Record<string, string> = {},
+  headOnly = false,
 ) {
   response.writeHead(statusCode, {
     'Content-Type': contentType,
     'Content-Length': Buffer.byteLength(body),
     ...extraHeaders,
   });
-  response.end(body);
+  response.end(headOnly ? undefined : body);
 }
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
@@ -110,12 +147,14 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
 
   const apiResponse = await handlePublicApiRequest(
     new Request(url, {
-      method: request.method,
+      method: request.method === 'HEAD' ? 'GET' : request.method,
       headers,
       body,
     }),
     undefined,
     process.env as AiEnv,
+    undefined,
+    { preset: readRuntimePreset(process.env.MINGYU_API_PRESET) },
   );
 
   response.statusCode = apiResponse.status;
@@ -123,7 +162,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     response.setHeader(key, value);
   });
 
-  if (!apiResponse.body) {
+  if (request.method === 'HEAD' || !apiResponse.body) {
     response.end();
     return;
   }
@@ -170,7 +209,7 @@ async function handleMcpServerRequest(
       body,
     }),
     {
-      preset: (process.env.MINGYU_MCP_PRESET as 'full' | 'online') || 'full',
+      preset: readRuntimePreset(process.env.MINGYU_MCP_PRESET),
     },
   );
 
@@ -255,7 +294,12 @@ function shouldUseSpaFallback(pathname: string): boolean {
   return path.extname(pathname) === '';
 }
 
-async function handleStaticRequest(request: IncomingMessage, response: ServerResponse, url: URL) {
+async function handleStaticRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  staticRoot: string,
+) {
   if (url.pathname === '/.well-known/aov-mingyu-api.json') {
     if (request.method === 'OPTIONS') {
       sendText(response, 204, '', 'application/json; charset=utf-8', {
@@ -276,7 +320,7 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
     sendText(
       response,
       200,
-      request.method === 'HEAD' ? '' : JSON.stringify(manifest),
+      JSON.stringify(manifest),
       'application/json; charset=utf-8',
       {
         'Cache-Control': 'no-store',
@@ -284,6 +328,7 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
         'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
+      request.method === 'HEAD',
     );
     return;
   }
@@ -311,6 +356,10 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
   }
 
   const method = (request.method || 'GET').toUpperCase();
+  if (url.pathname === '/mcp-tools.json' && method === 'OPTIONS') {
+    sendText(response, 204, '', 'application/json; charset=utf-8', MCP_TOOL_CATALOG_HEADERS);
+    return;
+  }
   if (method !== 'GET' && method !== 'HEAD') {
     sendText(response, 405, '方法不支持。', 'text/plain; charset=utf-8', {
       Allow: 'GET,HEAD',
@@ -319,7 +368,7 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
     return;
   }
 
-  const resolved = await resolveStaticFile(url.pathname);
+  const resolved = await resolveStaticFile(url.pathname, staticRoot);
   if (!resolved) {
     sendText(response, 404, '资源不存在。', 'text/plain; charset=utf-8', {
       'Cache-Control': 'no-store',
@@ -332,6 +381,7 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
   const contentType = mimeTypes[ext] || 'application/octet-stream';
   const headers: Record<string, string> = {
     'Content-Type': contentType,
+    ...(url.pathname === '/mcp-tools.json' ? MCP_TOOL_CATALOG_HEADERS : {}),
   };
 
   if (url.pathname.startsWith('/assets/')) {
@@ -350,10 +400,19 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
   createReadStream(filePath).pipe(response);
 }
 
-export function createDockerServer() {
+export function createDockerServer(staticRoot = distDir) {
   return createServer((request, response) => {
     void (async () => {
-      const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+      const url = getRequestUrl(request);
+
+      if (url.pathname === '/sse') {
+        const legacyResponse = handleLegacySseRequest({
+          request: new Request(url, { method: request.method }),
+        });
+        response.writeHead(legacyResponse.status, Object.fromEntries(legacyResponse.headers));
+        response.end(await legacyResponse.text());
+        return;
+      }
 
       if (url.pathname === '/mcp') {
         await handleMcpServerRequest(request, response, url);
@@ -365,7 +424,7 @@ export function createDockerServer() {
         return;
       }
 
-      await handleStaticRequest(request, response, url);
+      await handleStaticRequest(request, response, url, staticRoot);
     })().catch((error) => {
       console.error('Docker 服务未处理异常', error);
       if (!response.headersSent) {
