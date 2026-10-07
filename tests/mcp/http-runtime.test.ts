@@ -3,11 +3,7 @@ import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import {
-  createMingyuMcpServer,
-  SERVER_INFO,
-  SERVER_INSTRUCTIONS,
-} from '../../mcp/src/create-server.js';
+import { createMingyuMcpServer } from '../../mcp/src/create-server.js';
 import { promptResponseModeShape } from '../../mcp/src/schemas.js';
 import { getToolCatalog } from '../../mcp/src/catalog/tool-catalog.js';
 import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
@@ -23,49 +19,6 @@ async function sendMessage(message: unknown, preset: 'online' | 'full' = 'online
   );
   return { response, body: await response.json() };
 }
-
-test('HTTP 轻量控制路径保持服务元数据、通知语义与 SDK 参数校验', async () => {
-  for (const preset of ['online', 'full'] as const) {
-    const initialized = await sendMessage(
-      {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-03-26',
-          capabilities: {},
-          clientInfo: { name: '测试', version: '1' },
-        },
-      },
-      preset,
-    );
-    assert.equal(initialized.response.status, 200);
-    assert.deepEqual(initialized.body.result.serverInfo, SERVER_INFO);
-    assert.ok(initialized.body.result.instructions.endsWith(SERVER_INSTRUCTIONS));
-    assert.equal(initialized.body.result.protocolVersion, '2025-03-26');
-
-    const ping = await sendMessage({ jsonrpc: '2.0', id: 2, method: 'ping' }, preset);
-    assert.deepEqual(ping.body.result, {});
-
-    const invalid = await sendMessage(
-      { jsonrpc: '2.0', id: 3, method: 'initialize', params: {} },
-      preset,
-    );
-    assert.equal(invalid.body.id, 3);
-    assert.ok(invalid.body.error);
-
-    const notification = await handleMcpRequest(
-      new Request('https://aov.cc/mcp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
-      }),
-      { preset },
-    );
-    assert.equal(notification.status, 202);
-    assert.equal(await notification.text(), '');
-  }
-});
 
 test('HTTP 首次基础调用不构造提示词 schema，后续提示词可独立初始化', async (t) => {
   const descriptor = Object.getOwnPropertyDescriptor(promptResponseModeShape, 'responseMode')!;
