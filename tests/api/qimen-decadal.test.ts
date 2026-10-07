@@ -45,3 +45,23 @@ test('奇门十年干支大运缺少性别时公开入口返回输入错误', as
   assert.equal(response.status, 400);
   assert.match(await response.text(), /性别/);
 });
+
+test('奇门九宫巡行公开计算与提示词入口拒绝非正整数跨度', async () => {
+  for (const suffix of ['', '/prompt']) {
+    for (const yearsPerStage of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const response = await handlePublicApiRequest(
+        new Request(`https://aov.cc/api/v1/divination/qimen/lifetime${suffix}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            birthDateTime: '2000-01-01T12:00:00+08:00',
+            stagePolicy: { model: 'palaceWalk', yearsPerStage },
+            question: '请解读九宫巡行阶段。',
+          }),
+        }),
+      );
+      assert.equal(response.status, 400);
+      assert.match(await response.text(), /yearsPerStage/);
+    }
+  }
+});

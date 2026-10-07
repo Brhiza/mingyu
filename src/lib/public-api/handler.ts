@@ -3158,7 +3158,7 @@ export function getPublicApiOpenApiDocument(
                 },
                 anchorRule: { enum: ['birthInstant', 'solarTermBoundary', 'lunarNewYear'] },
                 ageSystem: { enum: ['fullYears', 'nominalAge'] },
-                yearsPerStage: { type: 'number', minimum: 1 },
+                yearsPerStage: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
               },
             },
             periodRange: {
@@ -7045,7 +7045,15 @@ function readQimenLifetimeStagePolicy(input: JsonRecord): QimenLifetimeInput['st
   if (model === 'decadalGanzhi' && input.gender !== 'male' && input.gender !== 'female') {
     throw new ApiError(400, 'BAD_REQUEST', '十年干支大运需要提供性别，以确定顺逆行。');
   }
-  return { ...input.stagePolicy, model } as QimenLifetimeInput['stagePolicy'];
+  const yearsPerStage =
+    input.stagePolicy.yearsPerStage === undefined
+      ? undefined
+      : readInteger(input.stagePolicy, 'yearsPerStage', 1, Number.MAX_SAFE_INTEGER);
+  return {
+    ...input.stagePolicy,
+    model,
+    ...(yearsPerStage === undefined ? {} : { yearsPerStage }),
+  } as QimenLifetimeInput['stagePolicy'];
 }
 
 function readQimenLifetimeLocation(input: JsonRecord): QimenLifetimeInput['location'] {

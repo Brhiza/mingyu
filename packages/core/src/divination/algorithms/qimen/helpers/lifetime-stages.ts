@@ -358,7 +358,10 @@ export function buildLifetimeStages(
     let startIdx = ring.indexOf(startGong);
     if (startIdx < 0) startIdx = 0;
 
-    const yearsPerStage = policy.yearsPerStage || 10;
+    const yearsPerStage = policy.yearsPerStage ?? 10;
+    if (!Number.isSafeInteger(yearsPerStage) || yearsPerStage < 1) {
+      throw new RangeError('九宫巡行的每阶段跨度必须是安全范围内的正整数年。');
+    }
 
     for (let i = 0; i < 9; i++) {
       const gong = ring[(startIdx + i) % ring.length];

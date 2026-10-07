@@ -78,6 +78,33 @@ test('符使交替十年分段保留旧枚举但覆盖八个完整十年段', ()
   assert.doesNotMatch(stages[0].stageTheme, /真实卦爻推演/u);
 });
 
+test('九宫巡行拒绝非正整数跨度，避免生成反向或无效阶段', () => {
+  for (const yearsPerStage of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => buildStages('2000-01-01T12:00:00+08:00', { model: 'palaceWalk', yearsPerStage }),
+      /每阶段跨度必须是安全范围内的正整数年/u,
+    );
+  }
+  const stages = buildStages('2000-01-01T12:00:00+08:00', {
+    model: 'palaceWalk',
+    yearsPerStage: 1,
+  });
+  assert.deepEqual(
+    stages.slice(0, 2).map((stage) => [stage.ageStart, stage.ageEnd]),
+    [
+      [0, 0],
+      [1, 1],
+    ],
+  );
+  assert.deepEqual(
+    stages.slice(0, 2).map((stage) => [stage.calendarStart, stage.calendarEnd]),
+    [
+      ['2000-01-01', '2000-12-31'],
+      ['2001-01-01', '2001-12-31'],
+    ],
+  );
+});
+
 test('九宫巡行的每段结束为下一段起始日前一天，并将闰日周年夹到月底', () => {
   const birthCivilDate = {
     year: 2020,

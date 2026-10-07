@@ -95,7 +95,7 @@ const qimenLifetimeSchema = z.object({
         ),
       anchorRule: z.enum(['birthInstant', 'solarTermBoundary', 'lunarNewYear']).optional(),
       ageSystem: z.enum(['fullYears', 'nominalAge']).optional(),
-      yearsPerStage: z.number().optional(),
+      yearsPerStage: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
     })
     .optional()
     .describe('阶段引擎策略配置'),
