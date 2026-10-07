@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
 import { join, extname, dirname, resolve, relative } from 'path';
 import { fileURLToPath } from 'url';
+import { transformWithEsbuild } from 'vite';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const distDir = join(__dirname, '..', 'dist');
@@ -106,10 +107,21 @@ for (const filePath of files) {
     },
   );
 
-  if (modified) {
-    writeFileSync(filePath, newContent, 'utf-8');
-    fixedCount++;
+  // 仅压缩发布 JS 的空白，保留名称、语法、法律注释与完整声明文档。
+  const compactResult = await transformWithEsbuild(newContent, filePath, {
+    target: 'es2022',
+    minifyWhitespace: true,
+    minifySyntax: false,
+    minifyIdentifiers: false,
+    legalComments: 'inline',
+    charset: 'utf8',
+  });
+  if (compactResult.code !== content) {
+    writeFileSync(filePath, compactResult.code, 'utf-8');
   }
+  if (modified) fixedCount++;
 }
 
-console.log(`Fixed ${fixedCount} dist files (added missing ESM extensions)`);
+console.log(
+  `已补齐 ${fixedCount} 个核心包文件的 ESM 导入扩展名，并压缩 ${files.length} 个 JavaScript 文件。`,
+);

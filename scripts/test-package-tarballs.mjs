@@ -105,6 +105,12 @@ try {
       ['types', 'import'],
       `${subpath} 应优先声明 types 条件，再声明 import 条件`,
     );
+    for (const condition of ['types', 'import']) {
+      assert.ok(
+        existsSync(join(installedCoreDirectory, target[condition])),
+        `${subpath} 的 ${condition} 导出目标必须完整保留`,
+      );
+    }
   }
 
   const installedCoreFiles = listFiles(installedCoreDirectory);
