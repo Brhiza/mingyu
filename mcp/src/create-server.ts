@@ -33,10 +33,17 @@ import {
   getToolExample,
   getToolMetadata,
   getToolTitle,
+  type ToolCatalogItem,
 } from './catalog/tool-catalog.js';
 import { promptOutputSchema, promptResponseModeShape, type PromptResponseMode } from './schemas.js';
 import { applyPromptResponseMode, createErrorToolResult, getErrorMessage } from './tool-results.js';
-import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  type CallToolResult,
+  type ListToolsResult,
+  type ToolAnnotations,
+} from '@modelcontextprotocol/sdk/types.js';
 import packageJson from '../../package.json';
 
 export const SERVER_INFO = {
@@ -50,6 +57,11 @@ export interface MingyuMcpServerOptions {
   preset?: MingyuMcpPreset;
   defaultResponseMode?: PromptResponseMode;
   astrolabeDefaultScope?: 'natal' | 'yearly';
+  httpRequest?: {
+    method: string;
+    toolName?: string;
+    loadToolList?: () => Promise<ListToolsResult>;
+  };
 }
 
 export const SERVER_INSTRUCTIONS = [
@@ -79,6 +91,40 @@ type RegisterToolCallback = (
   args: Record<string, unknown>,
   extra: unknown,
 ) => CallToolResult | Promise<CallToolResult>;
+
+type ToolRegistration = {
+  name: string;
+  config: RegisterToolConfig;
+  callback: RegisterToolCallback;
+};
+
+// 只缓存稳定配置与工具目录，不缓存服务实例、连接、计算结果或随机结果。
+const httpEnrichedToolRegistrations = new Map<string, Map<string, ToolRegistration>>();
+const httpToolLists = new Map<string, unknown>();
+
+function normalizeValidationResult(result: CallToolResult, toolName: string): CallToolResult {
+  if (!result.isError || result.structuredContent) return result;
+  const rawText = result.content.find((item) => item.type === 'text')?.text;
+  if (typeof rawText !== 'string' || !/Input validation error/i.test(rawText)) return result;
+
+  const fields = new Set<string>();
+  for (const match of rawText.matchAll(/"path"\s*:\s*\[([^\]]*)\]/g)) {
+    for (const field of match[1].matchAll(/['"]([^'"]+)['"]/g)) fields.add(field[1]);
+  }
+  for (const match of rawText.matchAll(/path:\s*\[\s*['"]([^'"]+)['"]/g)) fields.add(match[1]);
+
+  const errorResult = createErrorToolResult(rawText.replace(/^MCP error -32602:\s*/i, ''), {
+    code: 'INVALID_ARGUMENTS',
+    missingFields: [...fields],
+    retryable: false,
+    fallback: '请根据 error 和 missingFields 修正输入参数后重试。',
+  });
+  return {
+    ...result,
+    ...errorResult,
+    _meta: { tool: toolName, version: SERVER_INFO.version, ...result._meta },
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -165,10 +211,54 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
 
   const server = new McpServer(SERVER_INFO, {
     capabilities: {
-      tools: {},
+      tools: { listChanged: true },
     },
     instructions: `${preset === 'online' ? ONLINE_INSTRUCTIONS : FULL_INSTRUCTIONS}\n${SERVER_INSTRUCTIONS}`,
   });
+
+  const httpRequest = options.httpRequest;
+  const cacheKey = `${preset}:${defaultResponseMode}:${astrolabeDefaultScope}:${options.defaultResponseMode === undefined}`;
+  if (preset === 'online' && httpRequest?.method === 'tools/list' && httpRequest.loadToolList) {
+    server.server.setRequestHandler(ListToolsRequestSchema, httpRequest.loadToolList);
+    return server;
+  }
+  if (httpRequest) {
+    const originalSetRequestHandler = server.server.setRequestHandler.bind(server.server);
+    server.server.setRequestHandler = (schema, handler) => {
+      if ((schema as unknown) === ListToolsRequestSchema) {
+        originalSetRequestHandler(schema, (request, extra) => {
+          if (httpToolLists.has(cacheKey)) {
+            return httpToolLists.get(cacheKey) as ReturnType<typeof handler>;
+          }
+          const result = handler(request, extra);
+          httpToolLists.set(cacheKey, result);
+          return result;
+        });
+      } else if ((schema as unknown) === CallToolRequestSchema) {
+        originalSetRequestHandler(schema, async (request, extra) => {
+          const result = await handler(request, extra);
+          const toolName = (request as { params: { name: string } }).params.name;
+          return normalizeValidationResult(result as CallToolResult, toolName);
+        });
+      } else {
+        originalSetRequestHandler(schema, handler);
+      }
+    };
+
+    if (httpRequest.method !== 'tools/list' && httpRequest.method !== 'tools/call') {
+      return server;
+    }
+    if (httpRequest.method === 'tools/list' && httpToolLists.has(cacheKey)) {
+      server.server.setRequestHandler(
+        ListToolsRequestSchema,
+        () =>
+          httpToolLists.get(cacheKey) as ReturnType<
+            Parameters<typeof server.server.setRequestHandler>[1]
+          >,
+      );
+      return server;
+    }
+  }
 
   // 自动从统一工具契约注入元数据注解 (readOnlyHint, idempotentHint)
   const originalRegisterTool = server.registerTool.bind(server) as unknown as (
@@ -176,7 +266,15 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
     config: RegisterToolConfig,
     cb: RegisterToolCallback,
   ) => unknown;
-  server.registerTool = ((name: string, config: RegisterToolConfig, cb: RegisterToolCallback) => {
+
+  const enrichedRegistrations =
+    httpEnrichedToolRegistrations.get(cacheKey) ?? new Map<string, ToolRegistration>();
+  if (httpRequest && !httpEnrichedToolRegistrations.has(cacheKey)) {
+    httpEnrichedToolRegistrations.set(cacheKey, enrichedRegistrations);
+  }
+
+  function enrichToolRegistration(tool: ToolRegistration): ToolRegistration {
+    const { name, config, callback: cb } = tool;
     const title = config.title ?? getToolTitle(name);
     const annotations = config.annotations ?? getToolAnnotations(name);
     const isPromptTool = config.outputSchema === promptOutputSchema;
@@ -229,41 +327,79 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
       return result;
     };
 
-    return originalRegisterTool(
-      name,
-      { ...config, title, inputSchema, annotations, description, _meta },
-      wrappedCallback,
-    );
+    const enrichedConfig = { ...config, title, inputSchema, annotations, description, _meta };
+    return { name, config: enrichedConfig, callback: wrappedCallback };
+  }
+
+  const cachedTool =
+    httpRequest?.method === 'tools/call'
+      ? enrichedRegistrations.get(httpRequest.toolName ?? '')
+      : undefined;
+  if (cachedTool) {
+    originalRegisterTool(cachedTool.name, cachedTool.config, cachedTool.callback);
+    return server;
+  }
+
+  const requestedCategory = getToolMetadata(httpRequest?.toolName ?? '')?.category;
+  const selectedCategory =
+    requestedCategory === 'character' || requestedCategory === 'number'
+      ? 'naming'
+      : (requestedCategory ?? 'foundation');
+  let selectedToolName = requestedCategory ? httpRequest?.toolName : 'foundation_capabilities';
+  let toolRegistered = false;
+  server.registerTool = ((name: string, config: RegisterToolConfig, cb: RegisterToolCallback) => {
+    if (httpRequest?.method === 'tools/call' && name !== selectedToolName) return;
+    const enriched = httpRequest
+      ? (enrichedRegistrations.get(name) ?? enrichToolRegistration({ name, config, callback: cb }))
+      : enrichToolRegistration({ name, config, callback: cb });
+    if (httpRequest) enrichedRegistrations.set(name, enriched);
+    toolRegistered = true;
+    return originalRegisterTool(enriched.name, enriched.config, enriched.callback);
   }) as unknown as typeof server.registerTool;
 
-  registerBaziTool(server);
-  registerZiweiTool(server);
-  registerBaziZiweiTool(server);
-  registerThematicTool(server);
-  registerLiuyaoTool(server);
-  registerMeihuaTool(server);
-  registerXiaoliurenTool(server);
-  registerJinkoujueTool(server);
-  registerQimenTool(server);
-  registerLiurenTool(server);
-  registerTarotTool(server);
-  registerSsgwTool(server);
-  registerAlmanacTool(server);
-  registerLenormandTool(server);
-  registerAstrolabeTool(server, { defaultPromptScope: astrolabeDefaultScope });
-  registerBaZhaiTool(server);
-  registerZodiacTool(server);
-  registerTaiyiTool(server);
-  registerWuyunLiuqiTool(server);
-  registerHuangjiJingshiTool(server);
-  registerQizhengTool(server);
-  registerXuanKongTool(server);
-  registerResidentialFengshuiTool(server);
-  registerFoundationTools(server);
-  registerCalendarTools(server);
-  registerInstantTool(server);
-  registerNameNumberTools(server);
-  registerYilinTool(server);
+  const registrars: ReadonlyArray<
+    readonly [ToolCatalogItem['category'], (server: McpServer) => void]
+  > = [
+    ['bazi', registerBaziTool],
+    ['ziwei', registerZiweiTool],
+    ['bazi', registerBaziZiweiTool],
+    ['consultation', registerThematicTool],
+    ['liuyao', registerLiuyaoTool],
+    ['meihua', registerMeihuaTool],
+    ['xiaoliuren', registerXiaoliurenTool],
+    ['jinkoujue', registerJinkoujueTool],
+    ['qimen', registerQimenTool],
+    ['liuren', registerLiurenTool],
+    ['tarot', registerTarotTool],
+    ['ssgw', registerSsgwTool],
+    ['almanac', registerAlmanacTool],
+    ['lenormand', registerLenormandTool],
+    [
+      'astrolabe',
+      (server) => registerAstrolabeTool(server, { defaultPromptScope: astrolabeDefaultScope }),
+    ],
+    ['fengshui', registerBaZhaiTool],
+    ['zodiac', registerZodiacTool],
+    ['taiyi', registerTaiyiTool],
+    ['wuyun-liuqi', registerWuyunLiuqiTool],
+    ['huangji-jingshi', registerHuangjiJingshiTool],
+    ['qizheng', registerQizhengTool],
+    ['fengshui', registerXuanKongTool],
+    ['fengshui', registerResidentialFengshuiTool],
+    ['foundation', registerFoundationTools],
+    ['calendar', registerCalendarTools],
+    ['instant', registerInstantTool],
+    ['naming', registerNameNumberTools],
+    ['classics', registerYilinTool],
+  ];
+  for (const [category, register] of registrars) {
+    if (httpRequest?.method !== 'tools/call' || category === selectedCategory) register(server);
+  }
+  // 固定已知工具只用于安装 SDK 处理器，未知请求仍由 SDK 返回未知工具错误。
+  if (httpRequest?.method === 'tools/call' && !toolRegistered) {
+    selectedToolName = 'foundation_capabilities';
+    registerFoundationTools(server);
+  }
 
   return server;
 }

@@ -15,9 +15,11 @@ import { buildFortuneSelectionContext as buildSourceFortuneSelectionContext } fr
 import {
   buildBaziFortuneSelectionForDate as buildSourceFortuneSelectionForDate,
   buildCurrentBaziFortuneSelection as buildSourceCurrentFortuneSelection,
+  buildCurrentBaziFortuneSelectionForScope as buildSourceCurrentFortuneSelectionForScope,
 } from '@core/bazi/fortuneSelection/current';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import { formatBaziFortuneSelection } from '@core/prompt/bazi-fortune';
+import { createLocalTimeRange } from '@core/bazi/luckTiming';
 
 function createMockResult(): BaziChartResult {
   return {
@@ -376,6 +378,69 @@ test('当前大运定位应服从交运时刻而不是只看交运年份', () =>
 
   assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T11:59:59+08:00')), null);
   assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T12:00:00+08:00')), cycle);
+});
+
+test('当前大运快捷选择在交运前后与原流日定位保持同一周期索引', () => {
+  const result = createHandoverResult(12);
+  for (const [date, cycleIndex] of [
+    ['2008-01-01T00:00:00+08:00', 0],
+    ['2008-02-08T11:59:59+08:00', 0],
+    ['2008-02-08T12:00:00+08:00', 1],
+    ['2008-02-08T12:00:01+08:00', 1],
+  ] as const) {
+    const now = new Date(date);
+    const selected = buildSourceCurrentFortuneSelectionForScope(result, 'dayun', now);
+    assert.deepEqual(selected, { scope: 'dayun', cycleIndex });
+    assert.equal(selected?.cycleIndex, buildSourceCurrentFortuneSelection(result, now)?.cycleIndex);
+  }
+  assert.equal(
+    buildSourceCurrentFortuneSelectionForScope(
+      result,
+      'dayun',
+      new Date('1990-01-01T00:00:00+08:00'),
+    ),
+    null,
+  );
+  assert.throws(
+    () => buildSourceCurrentFortuneSelectionForScope(result, 'dayun', new Date(Number.NaN)),
+    /当前运势定位需要有效日期/,
+  );
+});
+
+test('大运流年范围应与完整流月资料保持相同立春整秒边界并精确裁剪', () => {
+  for (const year of [1899, 1900, 1901, 2099, 2100, 2101, 2232]) {
+    const yearInfo = getYearInfo(year);
+    const first = yearInfo.months[0].timeRange;
+    const last = yearInfo.months.at(-1)!.timeRange;
+    const fullRange = {
+      start: first.start,
+      end: last.end,
+      startTimestamp: first.startTimestamp,
+      endTimestamp: last.endTimestamp,
+      endExclusive: true as const,
+    };
+    assert.equal(fullRange.start.year, year);
+    assert.equal(fullRange.end.year, year + 1);
+    for (const trimSeconds of [0, 1]) {
+      const expected = createLocalTimeRange(
+        new Date(fullRange.startTimestamp + trimSeconds * 1000),
+        new Date(fullRange.endTimestamp - trimSeconds * 1000),
+      );
+      const result = createMockResult();
+      const cycle = result.luckInfo.cycles[0];
+      cycle.year = year;
+      cycle.startSolarTime = expected.start;
+      cycle.endSolarTime = expected.end;
+      cycle.years = [{ year, age: 1, ganZhi: yearInfo.yearGanZhi, tenGod: '', tenGodZhi: '' }];
+      const context = buildSourceFortuneSelectionContext(result, { scope: 'dayun', cycleIndex: 0 });
+      assert.deepEqual(
+        context?.yearBreakdown?.[0].timeRange,
+        expected,
+        `${year}年裁剪${trimSeconds}秒`,
+      );
+      assert.equal(context?.yearBreakdown?.[0].clipped, trimSeconds > 0);
+    }
+  }
 });
 
 test('公历日期模式应以北京时间正午精确定位交运当天的大运', () => {

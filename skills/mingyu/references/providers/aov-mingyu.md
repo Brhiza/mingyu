@@ -9,12 +9,13 @@
 - **官方公开 API**：`https://aov.cc/api/v1`
 - **AOV REST 响应封装**：成功响应使用 `{ "ok": true, "data": {}, "meta": {} }`；接口结果在 `data` 中读取。
 - **OpenAPI 发现**：`GET /openapi.json` 返回的 JSON 也使用 `data` 包装层，端点正文位于 `spec["data"]["paths"]`；不要从顶层 `spec["paths"]` 读取。
+- **自动发现**：从所选站点 origin 读取 `/.well-known/aov-mingyu-api.json`，它直接返回 manifest，里面的 URL 按该 origin 解析；`/api/v1/manifest`、`/api/v1/openapi.json` 和 `/api/v1/foundation/capabilities` 则使用 `data` 包装层。Pages 上这些目录以及 `/api/v1/health` 是静态文件，不调用 Function；health 的 `timestampKind: "build"` 只表示构建时间，Docker health 才是实时值。不要定时轮询健康地址或 `/mcp`。
 - **实际出生接口**：八字排盘使用 `POST /bazi/calculate`，出生真太阳时换算使用 `POST /calendar/true-solar-birth`；`/calendar/true-solar-time` 仅用于一般当地钟表时间换算。
 - **MCP 入口选择顺序**：Agent 环境已配置或支持启动本地 STDIO 时，优先使用本地入口；只有本地进程不可用或任务明确要求远程时，才连接在线入口。
   - **本地 STDIO（优先）**：`npx -y mingyu-mcp`，默认使用 `full` 预设，计算在本地运行，不消耗 Cloudflare Pages Functions 请求额度。仓库源码开发可用 `pnpm mcp`。
   - **工具版本核对**：调用前通过 `tools/list` 确认所需工具。npm 已发布包可能落后于当前源码；若包内缺少所需工具且本地有仓库源码，使用 `pnpm mcp` 运行当前源码。没有源码环境时可使用在线入口，并遵守在线资源范围保护。
   - **本地或自部署 HTTP**：使用 `pnpm mcp --http` 启动时，可连接 `http://localhost:3000/mcp`；本地服务另提供 SSE 兼容端点 `http://localhost:3000/sse`（消息投递：`/message`）。
-  - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词一般默认 `summary`，一次性占卜提示词默认 `full`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
+  - **在线 Streamable HTTP（备用）**：`https://aov.cc/mcp` 使用 `online` 预设，消耗 Cloudflare Pages Functions 请求额度；提示词一般默认 `summary`，一次性占卜提示词默认 `full`，星盘默认 `natal`。MCP 客户端通过该 URL 管理连接并发送协议请求；服务端使用 POST 处理 MCP 消息，不提供 SSE GET 流。MCP 通知收到 HTTP `202` 且无响应体属正常结果，不解析 JSON 或重发。带 `Accept: text/event-stream` 的 GET 返回 405；浏览器直接 GET 只用于查看服务信息，不是 MCP 连接方式。线上 `/sse` 仅返回迁移说明，应连接 `/mcp`。
   - Docker 服务默认使用 `full`，可通过环境变量 `MINGYU_MCP_PRESET=online|full` 配置。CLI 的默认值由服务入口确定，不读取该环境变量。
 - **MCP `tools/call` 成功响应**：JSON-RPC 外层使用 `result`；工具业务字段从 `result.structuredContent` 读取，工具元数据从 `result._meta` 读取。以下为最小结构示意：
   ```json
@@ -30,6 +31,7 @@
     }
   }
   ```
+
 - 提示词工具的 `responseMode: "prompt-only"` 将完整任务书放在 `result.structuredContent.prompt`，并省略 `result` 与 `resultSummary`；`summary` 模式使用 `result.structuredContent.resultSummary`，`full` 模式使用 `result.structuredContent.result`。工具级元数据位于 `result._meta`；工具如返回 `meta` 或 `warnings`，则从 `result.structuredContent` 读取。
 - **MCP 结构化业务错误响应**：业务错误仍是 JSON-RPC 成功封套中的工具结果，通过 `result.isError` 标记；错误字段在 `result.structuredContent` 中读取。
   ```json
@@ -55,6 +57,8 @@
     }
   }
   ```
+
+  `retryable: true` 表示按 `fallback` 补齐资料或修正参数后可以再调用，不表示客户端应原样自动重发。对于 `RESOURCE_LIMIT`，必须缩小或拆分请求范围；重复相同请求不会消除限制。
 
 ---
 
@@ -185,8 +189,10 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi/calculate \
   -H "Content-Type: application/json" \
-  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","shenShaScope":"all","detailMode":"full"}'
+  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","detailMode":"compact"}'
 ```
+
+常规调用使用 `detailMode: "compact"`；只有需要审计完整依据时再传 `detailMode: "full"`，全量核验建议在本地或自部署环境完成。
 
 出生真太阳时换算示例：
 
@@ -260,7 +266,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 
 2. **响应模式 `responseMode`**：
    - `prompt-only`：仅返回可直接交给 AI 的自包含完整任务书；MCP 从 `result.structuredContent.prompt` 读取，REST API 从 `data.prompt` 读取；
-   - `summary`：在线多数提示词的默认值。返回提示词及核心盘面摘要，减少响应体积；工具仍先完成本次计算；
+      - `summary`：在线多数提示词的默认值。返回提示词及核心盘面摘要，不缩小算法计算范围；
    - `full`：本地/自部署预设默认。返回全量原始数据与完整语法树，适合深度二次计算或桌面软件对接。
 
 3. **任务拆分与按需调用最佳实践**：
@@ -278,9 +284,10 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
    - **复杂全量运算**：若需全生命周期（八字全部大运流年 + 紫微全部大限流月 + 奇门长周期推演）大批量离线运算或研究，使用本地 `npx mingyu-mcp` 或自部署服务。
 
 4. **服务异常与降级**：
+   - REST 参数错误通过 HTTP 状态及 `error.code`、`error.message` 返回，不含 MCP 的 `missingFields`。先按错误信息补齐或修正请求；收到 `RESOURCE_LIMIT` 时缩小/分段范围后再发新请求，不原样重试；
    - `/api/v1` REST 响应由应用限制为 1 MiB；超过时返回 `413 / RESPONSE_TOO_LARGE`。只需要解读任务书时可选择 `responseMode: "prompt-only"`，需要结构化数据时缩小范围或使用分页接口。该响应上限不适用于 Remote MCP；
    - 官方在线 `/mcp` 每条 `POST` 请求体最多 512 KiB，超过时返回 `HTTP 413`。缩小输入范围或改用本地 stdio；
-   - 在线 MCP 返回 Cloudflare 1102、`RESOURCE_LIMIT` 或额度错误时，不要重复发送相同远程请求；优先通过可用的本地 STDIO 入口以相同输入计算。若本地入口不可用，再依据 `fallback` 缩小范围或分段请求；随机起卦、抽牌和求签应沿用已取得的结果或固定回放参数，避免重新随机取样；
+   - Workers Free 每次请求 CPU 上限为 10ms，每日 100,000 次请求与同账户 Workers 共用。在线 MCP 返回 Cloudflare 1102、`RESOURCE_LIMIT` 或额度错误时，不要重复发送相同远程请求；优先通过本地 STDIO 入口计算。若本地入口不可用，再依据 `fallback` 缩小范围或分段请求；随机起卦、抽牌和求签应沿用已取得的结果或固定回放参数，避免重新随机取样；
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；
    - 将 HTTP 状态、超时和响应完整度记录为资料取得事实，与术数判断分层。
 

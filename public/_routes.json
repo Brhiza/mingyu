@@ -8,5 +8,11 @@
     "/sse",
     "/mingyu-runtime-config.js"
   ],
-  "exclude": []
+  "exclude": [
+    "/api/v1/health",
+    "/api/v1/manifest",
+    "/api/v1/openapi.json",
+    "/api/v1/foundation/capabilities",
+    "/.well-known/aov-mingyu-api.json"
+  ]
 }

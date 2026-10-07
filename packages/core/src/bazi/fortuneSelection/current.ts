@@ -83,12 +83,14 @@ export function buildCurrentBaziFortuneSelectionForScope(
   scope: Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
   now = new Date(),
 ): BaziFortuneSelectionValue | null {
+  if (scope === 'dayun') {
+    const currentCycle = getCurrentBaziLuckCycle(result, now);
+    return currentCycle
+      ? { scope, cycleIndex: result.luckInfo.cycles.indexOf(currentCycle) }
+      : null;
+  }
   const current = buildCurrentBaziFortuneSelection(result, now);
   if (!current) return null;
-
-  if (scope === 'dayun') {
-    return { scope, cycleIndex: current.cycleIndex };
-  }
   if (scope === 'year') {
     return {
       scope,

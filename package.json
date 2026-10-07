@@ -22,7 +22,8 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm skill:sync && pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs",
+    "build": "pnpm skill:sync && pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs && pnpm build:pages-discovery",
+    "build:pages-discovery": "tsx --tsconfig tsconfig.app.json scripts/generate-pages-discovery.ts",
     "build:mcp": "pnpm skill:sync && pnpm --filter mingyu-core build && vite build --config vite.mcp.config.ts",
     "build:server": "pnpm skill:sync && pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs --server",
     "build:pages-functions": "pnpm dlx wrangler@3.114.17 pages functions build functions --outdir .local/pages-functions-build && pnpm check:pages-functions-size",

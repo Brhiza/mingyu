@@ -92,7 +92,9 @@ test('在线预设限制长范围，本地 full 预设将同一请求交给工�
 
     const onlineResponse = await onRequest({ request: createRequest() });
     assert.equal(onlineResponse.status, 200);
-    assert.equal((await onlineResponse.json()).result?.structuredContent?.code, 'RESOURCE_LIMIT');
+    const onlineResult = (await onlineResponse.json()).result;
+    assert.equal(onlineResult?.structuredContent?.code, 'RESOURCE_LIMIT');
+    assert.equal(onlineResult?.structuredContent?.retryable, false);
 
     const fullResponse = await handleMcpRequest(createRequest(), { preset: 'full' });
     assert.equal(fullResponse.status, 200);
@@ -119,6 +121,7 @@ test('在线四柱反推要求明确年份且单次最多 10 年，本地 full �
   const missing = await onRequest({ request: createRequest(1, { pillars }) });
   const missingResult = (await missing.json()).result;
   assert.equal(missingResult?.structuredContent?.code, 'RESOURCE_LIMIT');
+  assert.equal(missingResult?.structuredContent?.retryable, false);
   assert.match(missingResult?.structuredContent?.fallback ?? '', /startYear.*endYear/);
 
   const tooWide = await onRequest({
@@ -126,6 +129,7 @@ test('在线四柱反推要求明确年份且单次最多 10 年，本地 full �
   });
   const tooWideResult = (await tooWide.json()).result;
   assert.equal(tooWideResult?.structuredContent?.code, 'RESOURCE_LIMIT');
+  assert.equal(tooWideResult?.structuredContent?.retryable, false);
   assert.equal(tooWideResult?.structuredContent?.requested, 11);
   assert.equal(tooWideResult?.structuredContent?.maxAllowed, 10);
   assert.match(tooWideResult?.structuredContent?.fallback ?? '', /2000 至 2009/);
@@ -401,7 +405,7 @@ test('在线 MCP 端点 (functions/mcp.ts) 应正确处理 OPTIONS、GET 健康�
   const rangeJson = await rangeRes.json();
   assert.equal(rangeJson.result?.isError, true);
   assert.equal(rangeJson.result?.structuredContent?.code, 'RESOURCE_LIMIT');
-  assert.equal(rangeJson.result?.structuredContent?.retryable, true);
+  assert.equal(rangeJson.result?.structuredContent?.retryable, false);
   assert.equal(rangeJson.result?.structuredContent?.maxAllowed, 7);
   assert.equal(rangeJson.result?._meta?.unit, 'days');
 

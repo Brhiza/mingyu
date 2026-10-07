@@ -1,4 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import type { ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   createMingyuMcpServer,
   SERVER_INFO,
@@ -15,6 +16,7 @@ export const MCP_CORS_HEADERS: Record<string, string> = {
 
 export interface HandleMcpRequestOptions {
   preset?: MingyuMcpPreset;
+  loadToolList?: () => Promise<ListToolsResult>;
 }
 
 const ONLINE_ALMANAC_MAX_DAYS = 7;
@@ -94,11 +96,13 @@ async function readBoundedOnlineMcpRequestBody(
     reader.releaseLock();
   }
 
-  const bodyBytes = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bodyBytes.set(chunk, offset);
-    offset += chunk.byteLength;
+  const bodyBytes = chunks.length === 1 ? chunks[0] : new Uint8Array(totalBytes);
+  if (chunks.length > 1) {
+    let offset = 0;
+    for (const chunk of chunks) {
+      bodyBytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
   }
 
   try {
@@ -121,57 +125,6 @@ function buildOnlineRequestBodyLimitResponse() {
     },
     413,
   );
-}
-
-function getValidationFieldNames(message: string) {
-  const fields = new Set<string>();
-  for (const match of message.matchAll(/"path"\s*:\s*\[([^\]]*)\]/g)) {
-    for (const field of match[1].matchAll(/['"]([^'"]+)['"]/g)) {
-      fields.add(field[1]);
-    }
-  }
-  for (const match of message.matchAll(/path:\s*\[\s*['"]([^'"]+)['"]/g)) {
-    fields.add(match[1]);
-  }
-  return [...fields];
-}
-
-function normalizeMcpValidationResponseBody(payload: unknown, toolName?: string) {
-  if (!payload || typeof payload !== 'object') return payload;
-  const record = payload as Record<string, unknown>;
-  const result = record.result;
-  if (!result || typeof result !== 'object') return payload;
-  const toolResult = result as Record<string, unknown>;
-  if (!toolResult.isError || toolResult.structuredContent) return payload;
-  const content = Array.isArray(toolResult.content) ? toolResult.content : [];
-  const rawText = content.find(
-    (item): item is { type: 'text'; text: string } =>
-      !!item && typeof item === 'object' && item.type === 'text' && typeof item.text === 'string',
-  )?.text;
-  if (!rawText || !/Input validation error/i.test(rawText)) return payload;
-
-  const error = rawText.replace(/^MCP error -32602:\s*/i, '');
-  const missingFields = getValidationFieldNames(rawText);
-  const structuredContent = {
-    error,
-    code: 'INVALID_ARGUMENTS',
-    ...(missingFields.length ? { missingFields } : {}),
-    retryable: false,
-    fallback: '请根据 error 和 missingFields 修正输入参数后重试。',
-  };
-  return {
-    ...record,
-    result: {
-      ...toolResult,
-      structuredContent,
-      content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
-      _meta: {
-        ...(toolName ? { tool: toolName } : {}),
-        version: SERVER_INFO.version,
-        ...(toolResult._meta && typeof toolResult._meta === 'object' ? toolResult._meta : {}),
-      },
-    },
-  };
 }
 
 function readDateRangeDays(startDate: unknown, endDate: unknown) {
@@ -209,7 +162,7 @@ function buildOnlineResourceLimitResponse(
   const structuredContent = {
     error: message,
     code: 'RESOURCE_LIMIT',
-    retryable: true,
+    retryable: false,
     fallback:
       extra?.recommendation || '请缩小范围后分段调用；需要完整大范围结果时使用本地或自部署 MCP。',
     ...(extra?.limit !== undefined ? { limit: extra.limit } : {}),
@@ -424,9 +377,11 @@ export async function handleMcpRequest(
     normalizedRequest = new Request(request, { headers: nextHeaders });
   }
 
+  let requestedMethod: string | undefined;
   let requestedToolName: string | undefined;
   if (parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
     const body = parsedBody as Record<string, unknown>;
+    requestedMethod = typeof body.method === 'string' ? body.method : undefined;
     if (body.method === 'tools/call' && body.params && typeof body.params === 'object') {
       const name = (body.params as Record<string, unknown>).name;
       requestedToolName = typeof name === 'string' ? name : undefined;
@@ -434,7 +389,20 @@ export async function handleMcpRequest(
   }
 
   // 4. 创建无状态 Transport 并执行请求
-  const server = createMingyuMcpServer({ preset });
+  const server = createMingyuMcpServer({
+    preset,
+    ...(!Array.isArray(parsedBody)
+      ? {
+          httpRequest: {
+            method: requestedMethod ?? '',
+            toolName: requestedToolName,
+            ...(requestedMethod === 'tools/list' && options?.loadToolList
+              ? { loadToolList: options.loadToolList }
+              : {}),
+          },
+        }
+      : {}),
+  });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -455,27 +423,6 @@ export async function handleMcpRequest(
   for (const [key, value] of Object.entries(MCP_CORS_HEADERS)) {
     if (!headers.has(key)) {
       headers.set(key, value);
-    }
-  }
-
-  if (requestedToolName && (headers.get('content-type') || '').includes('application/json')) {
-    const body = await response.text();
-    try {
-      const normalizedBody = normalizeMcpValidationResponseBody(
-        JSON.parse(body),
-        requestedToolName,
-      );
-      return new Response(JSON.stringify(normalizedBody), {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
-    } catch {
-      return new Response(body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
     }
   }
 

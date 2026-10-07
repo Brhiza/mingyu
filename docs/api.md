@@ -1,17 +1,33 @@
 # 命语公开 API
 
-命语官方公开 API 运行在 `https://aov.cc/api/v1`，适合开发者、AI 代理和自动化工作流处理算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日和一站式提示词任务。`aov.cc` 是官方实例域名；自部署或 fork 到自己的 Pages 域名后，接口元数据和 OpenAPI 地址会按实际访问域名生成。
+命语官方公开 API 运行在 `https://aov.cc/api/v1`，适合开发者、AI 代理和自动化工作流处理算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日和一站式提示词任务。`aov.cc` 是官方实例域名；manifest 与 OpenAPI 中的 URL 使用相对路径，客户端应按实际访问站点的 origin 解析。Docker 自部署仍按请求动态生成绝对 URL。
 
 ## 快速入口
 
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
-- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP，不要按旧版 SSE 类型配置；线上启用 `online` 预设（提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；星盘默认 `natal`）
+- 在线 Remote MCP：[https://aov.cc/mcp](https://aov.cc/mcp)，使用 Streamable HTTP
 - 本地 MCP CLI：`npx -y mingyu-mcp`，默认启用 `full` 完整预设，保留全量结构化数据与默认流年推运
 - Skill 文档：[https://aov.cc/skills/mingyu/SKILL.md](https://aov.cc/skills/mingyu/SKILL.md)
 
-`GET /openapi.json` 返回统一的 `{ "ok": true, "data": {}, "meta": {} }` 封装；读取完整 OpenAPI 定义时，端点正文位于 `spec["data"]["paths"]`。
+REST 自动发现可从所选站点的 `/.well-known/aov-mingyu-api.json` 开始；其中 URL 按站点 origin 解析。`/api/v1/manifest`、`/api/v1/openapi.json` 和 `/api/v1/foundation/capabilities` 使用 `{ "ok": true, "data": {}, "meta": {} }` 封装，OpenAPI 路径位于 `spec["data"]["paths"]`；`.well-known` 则直接返回 manifest。
+
+在 Cloudflare Pages 上，`/api/v1/health`、`/api/v1/manifest`、`/api/v1/openapi.json`、`/api/v1/foundation/capabilities` 和 `/.well-known/aov-mingyu-api.json` 是构建生成的静态文件，不触发 Pages Function。Pages health 的 `timestampKind` 为 `build`，时间戳表示构建时间，不代表实时计算探测；Docker health 仍为实时检查。无需定时轮询 `/mcp` 或健康地址。
+
+官方在线计算由 Pages Functions 处理；常规调用只选问题所需范围。
+
+## 快速调用
+
+需要 AI 解读时直接请求一个 `/prompt` 接口；不要先调用同类 `/calculate` 再调用 `/prompt`。例如，以下请求只返回可交给 AI 的任务书：
+
+```bash
+curl -sS -X POST https://aov.cc/api/v1/bazi/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"gender":"male","dateType":"solar","year":1990,"month":6,"day":15,"timeIndex":1,"timezone":8,"question":"我适合创业还是上班？","promptTopic":"career","responseMode":"prompt-only"}'
+```
+
+成功响应中的任务书位于 `data.prompt`。`timezone` 是固定 UTC 小时偏移；出生地在其他时区时改传相应 IANA `timeZoneId`，不要按提问语言推测出生时区。
 
 ## 返回格式
 
@@ -46,9 +62,11 @@
 }
 ```
 
+REST 参数错误使用 HTTP `400` 和 `error.code` / `error.message`；REST 不返回 MCP 专用的 `missingFields`。`BAD_REQUEST` 表示修正请求字段，`RESOURCE_LIMIT` 表示缩小或拆分计算范围后再发新请求，不能原样自动重试。`RESPONSE_TOO_LARGE` 表示减少返回细节或分页；Cloudflare 1102、额度或资源错误时不要重复相同在线请求，改用本地 stdio 或自部署服务。
+
 ## 官方在线请求范围
 
-`https://aov.cc/api/v1` 运行在 Cloudflare Pages。下列请求会在计算前检查范围；超出时返回 `HTTP 400` 和 `RESOURCE_LIMIT`，按错误提示拆分请求。Docker 自部署的公开 API 保留原有范围。
+`https://aov.cc/api/v1` 运行在 Cloudflare Pages。下列请求会在计算前检查范围；超出时返回 `HTTP 400` 和 `RESOURCE_LIMIT`，修改范围后再请求。Docker 自部署的公开 API 保留原有范围。
 
 | 请求 | 官方在线入口 | Docker 自部署 |
 | --- | --- | --- |
@@ -57,7 +75,7 @@
 | `POST /divination/qimen/lifetime` 及 `/prompt` | `periodRange` 动态资料单次最多 10 个年份 | 单次最多 31 个年份 |
 | `POST /ziwei/calculate` 及 `/prompt` | 单点输入选择 `full` 时，同时传 `scopeBatch` 或 `fortuneBatch` 分批续取；`/prompt` 的 `scope: "full"` 同样适用 | 保留原有完整请求方式 |
 
-紫微未指定 `promptScope` 或 `scope` 时仍返回当前大限。`scopeBatch` 和 `fortuneBatch` 互斥；续取时使用响应 `batch` 中的游标。`page`、`pageSize` 与 `responseMode` 只控制结果呈现，不能缩小计算范围。
+Pages Free 每次请求的 CPU 上限为 10ms；Workers Free 每日 100,000 次请求与同账户 Workers 共用。上表是应用保护范围，不代表请求一定能在平台 CPU 上限内完成。`page` 和 `pageSize` 不缩小计算日期范围；`summary` 不缩小算法计算范围，`prompt-only` 则省略未返回结构化字段的结果整形。紫微未指定 `promptScope` 或 `scope` 时仍返回当前大限；`scopeBatch` 和 `fortuneBatch` 互斥，续取时使用响应 `batch` 中的游标。完整运限和大范围推演建议使用本地 stdio 或自部署。
 
 ## 接口列表
 
@@ -129,8 +147,8 @@
 面向自动化代理与 MCP 客户端时：
 
 - **提示词优先**：优先使用 `/prompt` 一站式接口或 MCP `*_prompt` 工具，让服务端直接返回可交给 AI 解读的自包含 `prompt` 任务书，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`；
-- **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 提示词通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只减少返回体，不减少计算 CPU。星盘默认本命 `natal`；`full` 和其他范围仍受在线资源保护与 Cloudflare 边缘运行限制。
-- **在线 MCP 的连接与请求用量**：Streamable HTTP 中每条 JSON-RPC 消息单独用一次 `POST`，在线端点拒绝 JSON-RPC batch；初始化、工具列表和工具调用会形成多次 HTTP 请求。该端点不提供 SSE `GET` 流：普通浏览器 `GET` 返回端点元数据，带 `Accept: text/event-stream` 的 `GET` 返回 `405`；旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示，也不是 SSE 服务。命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量；避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求。
+- **MCP 入口选择**：Agent/Skill 客户端能够启动本地进程时，优先使用 `npx -y mingyu-mcp` stdio；它默认使用 `full`，不消耗 Cloudflare Pages Functions 请求额度。只有本地进程不可用或需要远程免安装接入时，再选择 `https://aov.cc/mcp`。在线 MCP 提示词通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。星盘默认本命 `natal`；范围限制见上表。
+- **在线 MCP 的连接与请求用量**：选择 Streamable HTTP/Remote MCP，由客户端完成初始化和 `tools/list`；不要用 `/mcp` 的 GET 或旧 `/sse` 路径探活。每条 JSON-RPC 消息单独用一次 `POST`，端点拒绝 JSON-RPC batch；初始化、工具列表和工具调用各自会产生请求。通知收到 HTTP `202` 且无响应体是正常结果，不解析 JSON，也不重发。在线端点不提供 SSE `GET` 流；命中 Pages Function 的请求（包括 `/sse`）会计入 Cloudflare Functions 用量，避免轮询和紧密重试。有推运需求时按需传入 `astrolabeScope: "yearly"`；奇门终身局传 `periodRange` 限制年份；黄历择日按段请求。
 
 官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超过时返回 `HTTP 413`；可缩小输入或使用本地 stdio。该限制与公开 REST API 的 512 KiB 请求体上限分别执行。
 
@@ -187,7 +205,7 @@
 
 - 生肖结果中的 `noble` 在两支同属三合组时返回“三合组成员关系（…）”，`meeting` 返回“三会组成员关系（…）”；`evidenceAnalysis.relations` 对这两种情况标记“两支同组”。两支关系不表示三支齐备或已经成局。
 - `responseMode` 默认为 `prompt-only`；需要提示词及轻量盘面摘要时用 `summary`；需要完整结构化排盘时用 `full`。
-- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，官方在线的单点紫微请求还需用 `scopeBatch` 或 `fortuneBatch` 分批续取；星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。
+- 明确需要完整长期资料时可选择完整范围：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，官方在线的单点紫微请求还需用 `scopeBatch` 或 `fortuneBatch` 分批续取；星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。在线先取所问年份或阶段；全量任务使用本地 stdio 或自部署。
 - 只问某一年、某月、某日时，优先选择对应范围，避免把短期问题做成泛泛终身解读。
 - `promptMode` 默认用 `framework`，这样返回的提示词结构更完整；只有用户明确要自由问答或自己已经写好完整问题时，才用 `custom`。
 - 出生时辰未知时，不要自行补时辰；八字只能保守使用已知信息，紫微和八字紫微合参应等用户补足时辰后再调用。
@@ -196,9 +214,9 @@
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
-MCP 的在线端点与本地 CLI 复用同一套计算能力；在线 Remote MCP 的提示词通常默认 `responseMode: "summary"`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；本地 `npx -y mingyu-mcp` 默认 `full`。`summary` 只精简返回体，不减少计算 CPU。在线 Remote MCP 的四柱反推必须提供 `startYear` 和 `endYear`，范围最多 10 年；黄历日期范围最多 7 天，奇门终身局动态范围最多 10 年，超限会在计算前返回 `RESOURCE_LIMIT`。此默认值不改变公开 HTTP `/prompt` API 的 `prompt-only` 默认值。
+MCP 在线端点与本地 CLI 复用同一套计算能力；在线提示词通常默认 `summary`，一次性起卦、抽牌和求签默认 `full`，显式 `responseMode` 优先；本地 `npx -y mingyu-mcp` 默认 `full`。在线范围限制见上表；公开 HTTP `/prompt` API 默认使用 `prompt-only`。
 
-为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
+`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时传 `summary`；确实需要同次响应带完整排盘时传 `full`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 
 公开 HTTP API 在应用层将成功响应限制为 1 MiB；超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。这是项目的 API 响应策略，不是 Cloudflare 对响应体大小的平台限制。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局在 Docker 自部署 API 中最多 31 年，官方在线 API 单次最多 10 年；实际 HTTP 返回还受响应大小和部署资源限制。分段获取资料时应保留原目标范围并核对覆盖。
 
@@ -239,7 +257,7 @@ curl -X POST https://aov.cc/api/v1/calendar/bazi-reverse \
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi/calculate \
   -H "Content-Type: application/json" \
-  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","shenShaScope":"all","detailMode":"full"}'
+  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","detailMode":"compact"}'
 ```
 
 启用 `useTrueSolarTime: true` 时，提供 `birthHour`、`birthMinute` 和 `birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。`timeZoneId` 推荐使用 IANA 时区；`timezone` 仅在使用固定 UTC 小时偏移或为夏令时回拨重复时刻消歧时传入。`detailMode: "compact"` 适合前端和常规调用，保留八字逐柱神煞命中；`detailMode: "full"` 返回神煞解释、完整证据链与计算过程，适合审计或研究。
@@ -292,7 +310,7 @@ curl -X POST https://aov.cc/api/v1/bazi/calculate \
   -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","shenShaScope":"all","shenShaVariants":{"referenceProfile":"classical","kongWangBasis":"day-and-year","yangRenMode":"include-yin-ren","tongZiScope":"all-pillars"}}'
 ```
 
-八字提示词可指定命限范围。未传 `baziFortuneScope` 时默认定位当前大运，并携带该大运的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。`baziFortuneScope` 支持 `natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。显式选择 `dayun` 时可传 `baziFortuneCycleIndex`，也可传 `baziFortuneDate: "YYYY-MM-DD"` 按日期精确定位；`year`、`month`、`day` 同样推荐使用日期直传。服务端统一以北京时间该日 `12:00:00` 为代表时刻，同时解析所在大运、节气年、节令月和流日序号；元旦至立春前归入上一节气年。`baziFortuneDate` 不得与 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay` 混用。
+八字提示词可指定命限范围。未传 `baziFortuneScope` 时默认定位当前大运，并携带该大运的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。`baziFortuneScope` 支持 `natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。显式选择 `dayun` 时可传 `baziFortuneCycleIndex`，也可传 `baziFortuneDate: "YYYY-MM-DD"` 按日期精确定位；`year`、`month`、`day` 同样推荐使用日期直传。服务端统一以北京时间该日 `12:00:00` 为代表时刻，同时解析所在大运、节气年、节令月和流日序号；元旦至立春前归入上一节气年。`baziFortuneDate` 不得与 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay` 混用。完整的全大运流年资料 CPU 开销较高，请使用本地 stdio 或自部署；官方在线请求建议限定到指定年份或阶段。
 
 兼容参数继续可用：`baziFortuneYear` 是以立春为起点的节气年；`baziFortuneMonth` 是寅月为 1、卯月为 2 的节令月序号，按实际交节时刻切换；`baziFortuneDay` 是该节令月内按子初 23:00 换日切片后的流日序号，范围为 1—33，节令月首尾日由实际交节时刻裁剪。交节日可能同时包含前月末段和新月首段；日期直传按北京时间正午所在的节令月与流日切片定位。日期直传从 1900 年立春起可用，1900 年立春前因上一节气年超出支持范围会返回参数错误。`full` 会写入完整大运与逐年流年，不需要再传具体年限参数。
 
@@ -307,7 +325,7 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi/prompt \
   -H "Content-Type: application/json" \
-  -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"整体事业阶段怎么判断？","promptTopic":"career","baziFortuneScope":"full"}'
+  -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"2026年的事业趋势如何？","promptTopic":"career","baziFortuneScope":"year","baziFortuneDate":"2026-09-22"}'
 ```
 
 紫微斗数排盘并生成提示词：
@@ -328,12 +346,12 @@ curl -X POST https://aov.cc/api/v1/ziwei/compatibility/prompt \
 
 该接口只使用双方本命盘，输出关键宫位地支叠盘和“来源方生年四化星曜 → 对方同名星曜落宫”的可复核链路；不生成匹配总分，也不把静态双盘写成具体年份应期。
 
-紫微 `promptScope` 可传 `full` 查询本命、已验证童限与大限及各阶段流年资料；`/prompt` 的 `scope: "full"` 效果相同。官方在线单点请求必须使用 `scopeBatch` 或 `fortuneBatch` 分批获取，以下示例先取一个资料范围。流月、流日和流时在 `yearly`、`monthly`、`daily`、`hourly` 范围按指定日期展开：
+紫微 `promptScope` 可传 `full` 查询本命、已验证童限与大限及各阶段流年资料；`/prompt` 的 `scope: "full"` 效果相同。官方在线单点请求必须使用 `scopeBatch` 或 `fortuneBatch` 分批获取；较重的全范围任务建议改用本地 stdio 或自部署。流月、流日和流时在 `yearly`、`monthly`、`daily`、`hourly` 范围按指定日期展开：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"整体人生和近期重点怎么看？","promptTopic":"life","promptScope":"full","scopeBatch":{"startIndex":0,"limit":1}}'
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"2026年的事业重点是什么？","promptTopic":"career","promptScope":"yearly","scopeDate":"2026-09-22"}'
 ```
 
 八字紫微合参提示词适合“八字定主线、紫微校验宫位和运限”的深度问题，`promptScope` 同样支持 `full`：
@@ -356,12 +374,12 @@ curl -X POST https://aov.cc/api/v1/consultation/thematic/prompt \
   -d '{"name":"测试","gender":"male","dateType":"solar","year":1990,"month":5,"day":15,"timeIndex":1,"system":"bazi_ziwei","topic":"career","question":"未来三年事业晋升与转型契机如何？"}'
 ```
 
-星盘提示词可用 `astrolabeScope` 指定范围。未指定范围时默认使用当前年度 `yearly` 行运；需要固定年份时传入 `astrolabeScope: "yearly"` 与 `astrolabeScopeDate: "YYYY"`。`yearly` 会同时计算太阳返照、次限推进和太阳弧；普通流年按该年 7 月 1 日取样次限与太阳弧，返照资料覆盖该日历年内前后有效的返照周期。`full` 会在流年层按所选具体日期取样次限与太阳弧。显式 `yearly`、`monthly`、`daily` 分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`；`full` 要求 `YYYY-MM-DD` 基准日，并写入同一基准下的本命、流年、流月和流日资料。`full` 是一个参考日的四层资料，不表示全生命周期：
+星盘提示词可用 `astrolabeScope` 指定范围。未指定范围时默认使用当前年度 `yearly` 行运；只看本命时显式传 `astrolabeScope: "natal"`，需要固定年份时传入 `astrolabeScope: "yearly"` 与 `astrolabeScopeDate: "YYYY"`。`yearly` 会同时计算太阳返照、次限推进和太阳弧；普通流年按该年 7 月 1 日取样次限与太阳弧，返照资料覆盖该日历年内前后有效的返照周期。`full` 会在流年层按所选具体日期取样次限与太阳弧。显式 `yearly`、`monthly`、`daily` 分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`；`full` 要求 `YYYY-MM-DD` 基准日，并写入同一基准下的本命、流年、流月和流日资料。`yearly`、`full` 及返照、次限和太阳弧可能超过官方 Free CPU 时间，较重任务建议本地运行或自部署：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/astrolabe/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京","question":"整体人生和近期重点怎么看？","astrolabeTopic":"life","astrolabeScope":"full","astrolabeScopeDate":"2028-06-12"}'
+  -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"timeZoneId":"Asia/Shanghai","locationName":"北京","question":"本命盘的事业特点是什么？","astrolabeTopic":"career","astrolabeScope":"natal"}'
 ```
 
 西占双盘接口要求 `person1`、`person2` 分别提供一份完整星盘出生资料，提示词会写入双方本命盘、跨盘相位的实际夹角与容许度、双方落宫和证据边界：
@@ -459,10 +477,10 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
 
 奇门排盘结果会包含 `seasonality` 和 `patternCombos`：前者给出节气三元、节气五行、历法八相、日月黄经月相证据、建除十二神和四柱干支互动，并保留历法八相与天文八分法是否一致；后者给出吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局。提示词接口会把这些字段写入证据区，方便 AI 解读时引用。直接排盘接口可传 `detailMode: "compact"` 获取轻量结构；轻量结构只保留核心盘面、方位和少量高权重组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
 
-需要完整排盘和提示词同时返回：
+完整排盘和提示词同时返回会增加结果处理开销；仅在自部署服务确实需要结构化盘面时使用：
 
 ```bash
-curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
+curl -X POST https://你的域名/api/v1/divination/qimen/prompt \
   -H "Content-Type: application/json" \
   -d '{"customDate":"2025-01-01T08:30:00+08:00","question":"这个项目现在适合推进吗？","responseMode":"full"}'
 ```
@@ -472,23 +490,17 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/almanac \
   -H "Content-Type: application/json" \
-  -d '{"topic":"burial","startDate":"2026-07-01","endDate":"2026-07-07"}'
+  -d '{"topic":"burial","startDate":"2026-07-01","endDate":"2026-07-03"}'
 ```
 
-黄历择日分页轻量返回：
+黄历提示词分页示例：
 
-```bash
-curl -X POST https://aov.cc/api/v1/divination/almanac \
-  -H "Content-Type: application/json" \
-  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-07","page":1,"pageSize":5,"detailMode":"compact"}'
-```
-
-黄历提示词也支持分页；大范围或多参与人时建议按页生成提示词，多次请求合并判断：
+以下计算窗口已缩为 3 天，`pageSize: 3` 一页覆盖全部日期，无需拆成多次调用。只有实际输出仍过大时才使用分页；分页只缩小单次响应，不缩小这 3 天的计算窗口。
 
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/almanac/prompt \
   -H "Content-Type: application/json" \
-  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-07","page":1,"pageSize":5}'
+  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-03","page":1,"pageSize":3}'
 ```
 
 AI 流式解读：

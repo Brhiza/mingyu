@@ -86,7 +86,7 @@
 
 七政四余的七政、罗睺、计都和月孛采用现代天文位置，二十八宿按 28 颗真实距星在目标日期的黄经划界；紫炁采用《七政算内篇》古法均速模型。结果逐星标明来源和精度层级，真太阳时只校正传统命身十二宫，不改变现代天体计算时刻。
 
-所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。在线模式通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 只精简返回体，不跳过计算或减少 CPU 使用。
+所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。在线模式通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 不缩小算法计算范围；`prompt-only` 会省略未返回结构化字段的结果整形。
 
 ### 运行环境预设（Preset）与默认选项说明
 
@@ -94,10 +94,10 @@
 
 | 环境 / 预设 | 适用场景 | `responseMode` 默认值 | 星盘 `astrolabeScope` 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | 通常 **`summary`**；非幂等的一次性起卦、抽牌、求签提示词为 **`full`** | **`natal`**（本命盘） | 显式 `responseMode` 优先；摘要只精简返回体，不减少计算 CPU。星盘默认只计算本命，在线资源范围保护与 Cloudflare 边缘限制仍然适用 |
+| **`online`（在线预设）** | 官方在线 Remote MCP（`https://aov.cc/mcp`）与 Cloudflare Pages 部署 | 通常 **`summary`**；非幂等的一次性起卦、抽牌、求签提示词为 **`full`** | **`natal`**（本命盘） | 显式 `responseMode` 优先；星盘默认只计算本命，在线资源范围保护与 Cloudflare 边缘限制仍然适用 |
 | **`full`（完整预设）** | 本地 CLI（`npx -y mingyu-mcp`、`pnpm mcp`）、本地 HTTP（`pnpm mcp --http`）及自部署 | **`full`** | **`yearly`**（流年） | 默认返回完整结构化结果，并按当前年度计算星盘流年范围；适合深度研究和二次计算 |
 
-Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。在线端点拒绝 JSON-RPC batch，每条消息须单独发送。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。静态页面与资源不命中 `_routes.json` 中的动态路由时不会调用 Function。
+Cloudflare Workers Free 每日限额为 100,000 次请求，Pages Functions 请求与同账户 Workers 请求共用该额度，并在 UTC 午夜重置；每次请求 CPU 上限为 10ms。Pages 的 `/api/v1/health`、`/api/v1/manifest`、`/api/v1/openapi.json`、`/api/v1/foundation/capabilities` 和 `/.well-known/aov-mingyu-api.json` 是静态文件，不运行 Function；health 的 `timestampKind: "build"` 表示构建时间，Docker health 才是实时值。无需定时轮询健康地址或 `/mcp`。`/mcp` 每收到一条 JSON-RPC 消息都会运行一次 Pages Function；Streamable HTTP 客户端的初始化、工具列表、工具调用是不同请求。在线端点拒绝 JSON-RPC batch，每条消息须单独发送。通知收到 HTTP `202` 且无响应体是正常结果，不解析 JSON，也不重发。线上旧路径 `/sse` 只返回 `USE_STREAMABLE_HTTP` 提示而不提供 SSE，访问它仍会运行 Function。不要用定时轮询或紧密重试维持端点；频繁或批量使用时改用本地 stdio，避免占用线上 Pages Functions 请求额度。
 
 官方在线 `/mcp` 单条 `POST` 请求体最多 512 KiB，超出时返回 `HTTP 413`。限制在读取 JSON-RPC 消息时执行，适用于没有 `Content-Length` 的流式上传。本地 stdio 与使用 `full` 预设的 Docker MCP 不采用此限制；Docker 显式切换为 `online` 预设时也会应用。
 
@@ -122,15 +122,15 @@ MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认
 1. 先确认用户要直接解读、原始盘面还是单项基础事实，并只选择一个首选工具。
 2. 只传用户已提供或 schema 明确支持默认的参数；不得猜测出生时辰、日期、地点、经纬度、时区或指定运限坐标。
 3. 成功后按 `outputSchema` 读取结构化字段、`prompt` 和 `warnings`；大多数工具使用 `result`，紫微等专用工具可能使用具名字段。需要解读时直接按 `prompt` 的任务书回答，并把预警和资料限制写入结论边界。
-4. 失败时读取 `error`、`missingFields`、`retryable` 和 `fallback`，仅补齐缺失资料后重试，不静默换算法或伪造参数。
+4. 失败时读取 `error`、`missingFields`、`retryable` 和 `fallback`；缺资料时先补问，收到 `RESOURCE_LIMIT` 时先修改范围。只有请求参数修正后才重新调用，不原样自动重试，也不静默换算法或伪造参数。
 5. 随机起卦、抽牌与求签同一问题只调用一次；复核或追问时复用返回的重放参数或固定盘面，避免重新抽取导致结果变化。
 
 默认优先级：
 
 1. 用户明确要“现在起盘”“即时盘”或“紫占”时，调用 `instant_chart`；即时盘不需要性别，也不混入占卜工具。未指定时间口径时用北京时间，明确要求真太阳时时必须提供观测地点。
 2. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
-3. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
-4. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
+3. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；在线先传用户询问的年份或阶段，需要全生命周期资料时改用本地 CLI 或自部署。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
+4. 用户明确只看紫微时，调用 `ziwei_prompt`；在线先按问题传 `promptScope: "yearly"`、`"decadal"` 等窄范围，需要全生命周期资料时改用本地 CLI 或自部署。
 5. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。用户提供出生时刻并询问人生阶段、终身格局或指定年份动态时，调用 `qimen_lifetime_prompt`，不要用普通时局工具代替。
 6. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
 7. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
@@ -143,7 +143,7 @@ MCP 客户端能够启动本地进程时，优先使用本地 CLI stdio（默认
 | 用户问题类型                         | 首选工具                       | 推荐参数                                                                                                                                               |
 | ------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 现在起盘、即时盘、紫占               | `instant_chart`                | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                                                                                                |
-| 整体人生、长期事业、财运、婚恋       | `bazi_ziwei_prompt`            | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin`                                                                               |
+| 整体人生、长期事业、财运、婚恋       | `bazi_ziwei_prompt`            | `baziPromptTopic`、`ziweiPromptTopic`；在线先选 `promptScope: "origin"` 或具体年度，完整范围用本地/自部署 |
 | 大类主题咨询（感情/事业/财运等）     | `thematic_consultation_prompt` | `topic`（默认 general）、`system`（默认 bazi_ziwei）、`question`                                                                                       |
 | 今年运势、当前阶段、某年趋势         | `bazi_ziwei_prompt`            | `promptScope: "yearly"`，主题按事业、财运、感情等选择                                                                                                  |
 | 换工作、创业、合伙、投资             | `bazi_ziwei_prompt`            | `job-change`、`startup-partnership`、`investment-partnership`                                                                                          |
@@ -201,7 +201,7 @@ npx -y mingyu-mcp
 
 - **远程端点 URL**：`https://aov.cc/mcp`
 
-在支持 Remote MCP 的客户端中直接配置（如 Cursor、Windsurf、Claude Desktop 等）：
+在支持 Remote MCP 的客户端中选择 **Streamable HTTP** transport 并添加此 URL（如 Cursor、Windsurf、Claude Desktop 等）。客户端会自行初始化并发现可用工具，无需手动探测 `/mcp`：
 
 ```json
 {
@@ -244,13 +244,13 @@ pnpm mcp
 
 ### 重启 Claude Desktop
 
-配置完成后重启客户端，在对话中即可看到命语提供的 70+ 个命理排盘、提示词与占卜工具。
+配置完成后重启客户端，实际可用工具以客户端获取的 `tools/list` 为准。
 
 ## 使用示例
 
 在 Claude Desktop 中直接说：
 
-- "帮我排一下 1990 年 5 月 15 日丑时出生的八字"
+- "按北京时间排一下 1990 年 5 月 15 日丑时出生的八字"
 - "用八字提示词工具，问我适合创业还是上班"
 - "用八字盲派流派解读 1990 年 5 月 15 日丑时八字的事业运"
 - "用紫微飞星派解读 1992 年 8 月 21 日辰时女性的 2025 年事业财运"
@@ -271,6 +271,8 @@ pnpm mcp
 ### 出生时间参数
 
 八字和紫微工具默认使用 `timeIndex` 表示出生时辰，范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
+
+出生地不在中国时，应提供实际出生地或时区；`timezone` 是小时单位的固定 UTC 偏移（如 `8`），`timeZoneId` 是 IANA 时区（如 `America/New_York`）。时区不明时先向用户确认，不按用户当前所在地推测。
 
 需要启用真太阳时校正时，传入 `useTrueSolarTime: true`，并提供 `birthHour`、`birthMinute`、`birthLongitude`；此时可以不传 `timeIndex`，工具会按校正后的真太阳时自动换算唯一时辰，并返回结构化计算步骤、校正事实、证据汇总和限制。关闭真太阳时时仍可直接传入明确的 `timeIndex`，按传统时辰生成完整时柱。八字工具的精准时间和经度使用数字，紫微工具与公开 API 保持一致，使用字符串。
 
@@ -313,7 +315,7 @@ pnpm mcp
 
 奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，本地 stdio/自部署服务最多连续31个年份；在线 Remote MCP 为保证边缘稳定，单次最多10个年份，超过时会返回 `RESOURCE_LIMIT`，请按年份分段调用。`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 
-独立 MCP 的 stdio 工具在本机运行，奇门31年时限可返回完整 `result` 和 `prompt`。在线 Remote MCP 会在计算前对黄历和奇门终身局的大范围请求返回结构化 `RESOURCE_LIMIT`，避免客户端只看到 Cloudflare 1102；请根据 `fallback` 分段调用，或改用本地/自部署 MCP。仅需完整解读文本时，在线和本地都可使用 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
+独立 MCP 的 stdio 工具在本机运行，奇门 31 年时限可返回完整 `result` 和 `prompt`。在线 Remote MCP 会在计算前对黄历和奇门终身局的大范围请求返回结构化 `RESOURCE_LIMIT`，避免客户端只看到 Cloudflare 1102；必须先按 `fallback` 修改范围或分段，再发新请求，不原样自动重试。仅需完整解读文本时，在线和本地都可使用 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
 
 ### 解读口径与合参
 

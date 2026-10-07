@@ -293,6 +293,36 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
 };
 
+type DiscoveryPath = 'manifest' | 'openapi.json' | 'foundation/capabilities';
+// 仅复用公开目录的序列化文本，限定为最近一个域名；计算结果不进入共享缓存。
+let discoveryCache:
+  { origin: string; service: string; bodies: Partial<Record<DiscoveryPath, string>> } | undefined;
+
+function getDiscoveryResponse(path: string, runtime: PublicApiRuntime): Response | undefined {
+  if (path !== 'manifest' && path !== 'openapi.json' && path !== 'foundation/capabilities') {
+    return undefined;
+  }
+  if (discoveryCache?.origin !== runtime.origin || discoveryCache.service !== runtime.service) {
+    discoveryCache = { ...runtime, bodies: {} };
+  }
+  let body = discoveryCache.bodies[path];
+  if (body === undefined) {
+    const data =
+      path === 'manifest'
+        ? getPublicApiManifest(runtime)
+        : path === 'openapi.json'
+          ? getPublicApiOpenApiDocument(runtime)
+          : getFoundationCapabilities();
+    const serialized = serializeResponseBody(success(data, runtime));
+    if (serialized.status !== 200) {
+      return new Response(serialized.text, { status: serialized.status, headers: JSON_HEADERS });
+    }
+    body = serialized.text;
+    discoveryCache.bodies[path] = body;
+  }
+  return new Response(body, { headers: JSON_HEADERS });
+}
+
 export const PUBLIC_API_BASE_PATH = `/api/${API_VERSION}`;
 
 export function isPublicApiRequestPath(pathname: string) {
@@ -3358,18 +3388,23 @@ export async function handlePublicApiRequest(
   }
 
   const routeSegments = segments ?? normalizeApiPath(new URL(request.url).pathname);
+  const path = routeSegments.join('/');
   const runtime = getPublicApiRuntime(request);
 
   // AI 解析走独立的 SSE 流式响应，不经过 JSON 包装
-  if (routeSegments.join('/') === 'ai/analyze' && request.method === 'POST') {
+  if (path === 'ai/analyze' && request.method === 'POST') {
     return handleAiAnalyze(request, env, aiRuntime);
   }
 
-  if (routeSegments.join('/') === 'ai/models' && request.method === 'POST') {
+  if (path === 'ai/models' && request.method === 'POST') {
     return handleAiModels(request, env, aiRuntime);
   }
 
   try {
+    if (request.method === 'GET') {
+      const discovery = getDiscoveryResponse(path, runtime);
+      if (discovery) return discovery;
+    }
     const data = await route({
       request,
       segments: routeSegments,
@@ -3394,15 +3429,6 @@ async function route(context: RouteContext) {
         version: API_VERSION,
         timestamp: new Date().toISOString(),
       };
-    }
-    if (path === 'manifest') {
-      return getPublicApiManifest(context.runtime);
-    }
-    if (path === 'openapi.json') {
-      return getPublicApiOpenApiDocument(context.runtime);
-    }
-    if (path === 'foundation/capabilities') {
-      return getFoundationCapabilities();
     }
   }
 
@@ -3921,11 +3947,12 @@ async function calculateApiResult(
   preserveBirthRangeFacts = false,
 ) {
   const input = await readJson(request, optionalBody);
+  const detailMode = readDetailMode(input);
   const result = await calculate(input);
   if (preserveBirthRangeFacts && isBirthChartRangeBundle(result)) {
     return result;
   }
-  return shapeCalculationResult(result, readDetailMode(input));
+  return shapeCalculationResult(result, detailMode);
 }
 
 async function calculateInstantChartApi(input: JsonRecord) {
@@ -7736,6 +7763,8 @@ function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
 ) {
+  const responseMode = readPromptResponseMode(input);
+  readDetailMode(input);
   if (method === 'ssgw' && input.schools !== undefined) {
     throw new ApiError(
       400,
@@ -7756,17 +7785,20 @@ function buildDivinationPromptResult(
       ? buildAstrolabeScopeArtifacts(promptInput, rawData as AstrolabeData)
       : undefined;
   const fullResult =
-    method === 'almanac'
-      ? shapeAlmanacResult(rawData as AlmanacData, input)
-      : method === 'ssgw'
-        ? rawData
-        : method === 'astrolabe'
-          ? {
-              ...(rawData as AstrolabeData),
-              scopeEvidence: astrolabeScopeArtifacts!.scopeEvidence,
-            }
-          : rawData;
-  const summary = getDivinationSummaryBlocks(method, promptData);
+    responseMode !== 'full'
+      ? undefined
+      : method === 'almanac'
+        ? shapeAlmanacResult(rawData as AlmanacData, input, promptData as AlmanacData)
+        : method === 'ssgw'
+          ? rawData
+          : method === 'astrolabe'
+            ? {
+                ...(rawData as AstrolabeData),
+                scopeEvidence: astrolabeScopeArtifacts!.scopeEvidence,
+              }
+            : rawData;
+  const summary =
+    responseMode === 'prompt-only' ? undefined : getDivinationSummaryBlocks(method, promptData);
   const promptSelection = readDivinationPromptSelection(method, promptInput);
   const prompt = buildDivinationPromptText(
     method,
@@ -7777,7 +7809,7 @@ function buildDivinationPromptResult(
   );
 
   return buildPromptApiResult({
-    responseMode: readPromptResponseMode(input),
+    responseMode,
     prompt,
     summary,
     fullResult,
@@ -8404,7 +8436,11 @@ function shapeAlmanacPromptData(result: AlmanacData, input: JsonRecord): Almanac
   return shaped;
 }
 
-function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiResult {
+function shapeAlmanacResult(
+  result: AlmanacData,
+  input: JsonRecord,
+  selectedResult?: AlmanacData,
+): AlmanacApiResult {
   const detailMode = readDetailMode(input);
   const { shouldPaginate, selectedDays, pagination } = readAlmanacPageSelection(result, input);
   const days = detailMode === 'compact' ? selectedDays.map(compactAlmanacDay) : selectedDays;
@@ -8412,7 +8448,11 @@ function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiR
   return {
     ...result,
     days,
-    evidenceAnalysis: analyzeAlmanacEvidence({ ...result, days: selectedDays }),
+    evidenceAnalysis:
+      selectedResult?.evidenceAnalysis ??
+      (shouldPaginate
+        ? analyzeAlmanacEvidence({ ...result, days: selectedDays })
+        : result.evidenceAnalysis),
     ...(shouldPaginate ? { pagination } : {}),
   };
 }
@@ -8914,7 +8954,7 @@ function failure(code: string, message: string, runtime: PublicApiRuntime): ApiF
   };
 }
 
-function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
+function serializeResponseBody(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
   let text = JSON.stringify(body);
   const bodyBytes = new TextEncoder().encode(text).byteLength;
   if (body.ok && bodyBytes > MAX_PUBLIC_API_RESPONSE_BYTES) {
@@ -8929,8 +8969,13 @@ function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
     status = 413;
   }
 
-  return new Response(text, {
-    status,
+  return { text, status };
+}
+
+function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
+  const serialized = serializeResponseBody(body, status);
+  return new Response(serialized.text, {
+    status: serialized.status,
     headers: JSON_HEADERS,
   });
 }

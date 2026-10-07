@@ -85,11 +85,11 @@ npx tsc --project mcp/tsconfig.json --noEmit
 
 ## Cloudflare Pages
 
-静态页面由 Pages 托管，公开 API、MCP 等动态路由由 Pages Functions 处理。仓库中的 `public/_routes.json` 会随 `pnpm build` 复制为 `dist/_routes.json`，将 Function 调用限制在列出的动态路由；部署包含此文件的构建后，其他静态页面和资源不会调用 Function。Cloudflare Pages 的路由规则见 [官方文档](https://developers.cloudflare.com/pages/functions/routing/)。
+Pages 构建会将静态页面以及 API 发现目录写入部署产物。`/api/v1/health`、`/api/v1/manifest`、`/api/v1/openapi.json`、`/api/v1/foundation/capabilities` 和 `/.well-known/aov-mingyu-api.json` 由 Pages 直接返回静态文件，不调用 Pages Function。manifest 中的 URL 按所选站点 origin 解析；`.well-known` 返回直接 manifest，API manifest 与 OpenAPI 使用 `{ok,data,meta}` 封装。`pnpm build` 还会通过 MCP SDK 生成 `dist/mcp-tools.json`；Pages `/mcp` 首次处理 `tools/list` 时直接读取该静态工具目录，减少冷启动时的 schema 转换。`tools/list` 请求仍经 Pages Function 并计入用量。`public/_routes.json` 限定需要 Function 的动态路径；静态页面和资源不计 Functions 请求。路由规则见 [Cloudflare 官方文档](https://developers.cloudflare.com/pages/functions/routing/)。
 
-Pages Functions 请求计入 Workers 计划用量。Workers Free 的每日请求限额为 100,000 次，与同账户 Workers 请求共享，并在 UTC 午夜重置；Pages Functions 每次请求计为一次 Workers 请求。因而，`/mcp` 上每条 JSON-RPC 消息对应一次独立 `POST` 和一次 Function 调用，初始化、工具列表、工具调用以及额外的元数据探测或预检请求都可能增加用量。避免客户端轮询和紧密重试；频繁或批量调用可使用本地 `npx -y mingyu-mcp` stdio，或本地运行 HTTP 服务（`pnpm mcp --http`）。静态资源请求不计 Functions 请求。
+Workers Free 的每日 100,000 次请求额度与同账户 Workers 共用，并在 UTC 午夜重置。每个实际执行的 Pages Function 请求计一次；因此在线 `/mcp` 的每条 JSON-RPC 消息各有一次 `POST`，初始化、工具列表和工具调用会分开计数。普通 REST 计算与旧 `/sse` 路由也会调用 Function。不要定时轮询 `/mcp` 或重复探活；频繁、批量或需要完整结构化结果时，用本地 `npx -y mingyu-mcp` stdio 或自部署服务。静态发现地址只需按需读取，在线 Pages health 的 `timestampKind` 为 `build`，时间戳是构建时间，不是实时计算探测；Docker health 仍实时。
 
-Workers Free 的 CPU 时间上限为每次请求 10 毫秒；较重的计算可能超过平台限制。在线 MCP 提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签提示词默认 `full`，显式 `responseMode` 优先；`summary` 只精简返回体，不减少计算 CPU。星盘默认使用 `natal`；显式要求 `full` 或较大范围也不保证每次调用低于 CPU 限制。在线四柱反推必须提供 `startYear`、`endYear` 且最多 10 年，黄历最多 7 天，奇门终身动态最多 10 年；在线 MCP 拒绝 JSON-RPC batch。需要频繁调用或完整结构化结果时优先使用本地 stdio CLI；它默认 `full` 且不占 Pages Functions 请求额度。官方 Pages `/mcp` 路由在 `functions/mcp.ts` 中固定使用 `online` 预设；`MINGYU_MCP_PRESET` 仅适用于 Docker 自部署 HTTP handler，不会切换官方 Pages 或本地 stdio CLI 的预设。Docker 服务默认 `full`。公开 API 成功响应 1 MiB 上限由应用自身执行，与 Cloudflare 平台响应体限制无关。平台额度与限制见 [Cloudflare Workers 官方文档](https://developers.cloudflare.com/workers/platform/limits/) 和 [Pages Functions 定价说明](https://developers.cloudflare.com/pages/functions/pricing/)。
+Workers Free 每次请求 CPU 上限为 10ms，较重计算可能超过平台限制。在线 MCP 提示词通常默认 `summary`，非幂等的一次性起卦、抽牌、求签默认 `full`，显式 `responseMode` 优先；`summary` 不缩小算法计算范围。星盘默认本命（`natal`）；显式 `yearly`、`full` 或较大范围也不保证低于 CPU 上限。在线请求返回 `RESOURCE_LIMIT` 时先修改范围或分段，不能原样自动重试。在线四柱反推最多 10 年，黄历最多 7 天，奇门终身动态最多 10 年；官方 MCP 拒绝 JSON-RPC batch。官方 `/mcp` 固定使用 `online` 预设；`MINGYU_MCP_PRESET` 只控制 Docker HTTP 服务，不影响本地 stdio 或官方 Pages。Docker 默认 `full`。公开 API 成功响应 1 MiB 上限由应用执行，与 Cloudflare 平台限制无关。平台额度与限制见 [Workers 官方文档](https://developers.cloudflare.com/workers/platform/limits/) 和 [Pages Functions 定价说明](https://developers.cloudflare.com/pages/functions/pricing/)。
 
 官方 Pages `/api/v1` 入口也在计算前限制高成本范围：四柱反推须显式指定不超过 10 年，黄历单次最多 7 天，奇门终身动态最多 10 年，单点紫微选择 `full` 时须提供 `scopeBatch` 或 `fortuneBatch`（`/prompt` 的 `scope: "full"` 同样适用）。超限返回 `HTTP 400 / RESOURCE_LIMIT`；默认紫微当前大限结果不变。共享公开 API handler 在 Docker 自部署时仍使用原有范围。在线 MCP 的 `POST` 请求体上限为 512 KiB，超过时在解析和创建工具服务前拒绝；本地 stdio 和使用 `full` 预设的 Docker MCP 不采用此限制。
 
@@ -106,11 +106,13 @@ Workers Free 的 CPU 时间上限为每次请求 10 毫秒；较重的计算可�
 PNPM_VERSION=11
 ```
 
-部署后检查以下地址，域名替换成自己的站点：
+部署后可各检查一次以下地址，域名替换成自己的站点；不要将它们配置为高频轮询：
 
 ```text
+https://你的域名/api/v1/health
 https://你的域名/api/v1/manifest
 https://你的域名/api/v1/openapi.json
+https://你的域名/api/v1/foundation/capabilities
 https://你的域名/.well-known/aov-mingyu-api.json
 https://你的域名/mingyu-runtime-config.js
 ```
@@ -192,7 +194,7 @@ AI_RATE_LIMIT_WINDOW_SECONDS=600
 
 只设置 `AI_API_KEY` 不会自动显示内置 AI，必须同时设置 `AI_BUILTIN_ENABLED=true`。如果想提供可选内置 AI，但仍让访客默认复制提示词，保持 `AI_DEFAULT_ENABLED=false`。
 
-服务端会按客户端地址限制内置 AI 调用频率，并对网络异常、408、429 和 5xx 临时错误自动重试 2 次；鉴权失败和模型名错误不会重试。Cloudflare Pages 会自动使用平台提供的客户端地址；Docker 直接暴露端口时使用连接地址，只有位于可信反向代理后才设置 `AI_TRUST_PROXY=true`。
+服务端会按客户端地址限制内置 AI 调用频率，并对内置 AI 上游的网络异常、408、429 和 5xx 临时错误自动重试 2 次；鉴权失败和模型名错误不会重试。这只适用于内置 AI 上游调用，不会重试 REST/MCP 排盘请求。Cloudflare Pages 会自动使用平台提供的客户端地址；Docker 直接暴露端口时使用连接地址，只有位于可信反向代理后才设置 `AI_TRUST_PROXY=true`。
 
 | 错误码                       | 含义                           |
 | ---------------------------- | ------------------------------ |

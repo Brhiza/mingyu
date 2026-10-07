@@ -1,8 +1,16 @@
 import { getMonthDaysInfo, getYearInfo } from '../calendarTool';
+import { SolarTerm } from 'tyme4ts';
 
 import type { BaziChartResult } from '../baziTypes';
 import type { LocalTimeRange } from '../baziTypes';
-import { createCivilDate, getLuckCycleTimeRange, intersectLocalTimeRanges } from '../luckTiming';
+import {
+  createCivilDate,
+  createLocalTimeRange,
+  getLuckCycleTimeRange,
+  intersectLocalTimeRanges,
+  toNativeDate,
+  toSolarDateTimeInfo,
+} from '../luckTiming';
 import {
   areHeavenlyStemsOvercoming,
   getTenGod,
@@ -380,17 +388,13 @@ function analyzeSelectionActions(
 }
 
 function getYearTimeRange(year: number): LocalTimeRange {
-  const months = getYearInfo(year).months;
-  const first = months[0]?.timeRange;
-  const last = months.at(-1)?.timeRange;
-  if (!first || !last) throw new Error(`${year}年缺少流月时间范围。`);
-  return {
-    start: first.start,
-    end: last.end,
-    startTimestamp: first.startTimestamp,
-    endTimestamp: last.endTimestamp,
-    endExclusive: true,
-  };
+  const lichun = SolarTerm.fromIndex(year, 3);
+  const start = lichun.getJulianDay().getSolarTime();
+  const end = lichun.next(24).getJulianDay().getSolarTime();
+  return createLocalTimeRange(
+    toNativeDate(toSolarDateTimeInfo(start)),
+    toNativeDate(toSolarDateTimeInfo(end)),
+  );
 }
 
 function clipToCycle(range: LocalTimeRange, cycleRange: LocalTimeRange) {
