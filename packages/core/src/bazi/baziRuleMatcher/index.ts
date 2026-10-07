@@ -65,6 +65,10 @@ export type {
 
 export function matchesRule<T extends MatchableRule>(rule: T, context: RuleMatchContext): boolean {
   if (getMissingRuleInputs(rule, context).length) return false;
+  return matchesKnownRule(rule, context);
+}
+
+function matchesKnownRule(rule: MatchableRule, context: RuleMatchContext): boolean {
   const formationTenGodCategories = buildFormationTenGodCategories(
     context.dayStem,
     context.formationWuxings,
@@ -230,7 +234,7 @@ export function assessRuleMatch(rule: MatchableRule, context: RuleMatchContext) 
   if (!missingInputs.length) {
     return {
       ruleId: rule.id,
-      status: matchesRule(rule, context) ? ('满足' as const) : ('不满足' as const),
+      status: matchesKnownRule(rule, context) ? ('满足' as const) : ('不满足' as const),
       missingInputs,
     };
   }

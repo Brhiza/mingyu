@@ -1,6 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assessRuleMatch, matchFirstRule } from '@core/bazi/baziRuleMatcher';
+import {
+  assessRuleMatch,
+  getMissingRuleInputs,
+  matchFirstRule,
+  matchesRule,
+  type MatchableRule,
+} from '@core/bazi/baziRuleMatcher';
+
+test('缺证据字段保持固定条件次序，与规则属性定义次序无关', () => {
+  const rule = {
+    id: 'ordered-evidence',
+    requiredFormationTenGodCategories: ['印星'],
+    requiredHiddenStems: ['癸'],
+    requiredVisibleStems: ['甲'],
+    dayStems: ['甲'],
+    months: ['子'],
+  };
+  assert.deepEqual(getMissingRuleInputs(rule, {}), [
+    'monthBranch',
+    'dayStem',
+    'visibleStems',
+    'hiddenStems',
+    'formationWuxings',
+  ]);
+});
+
+test('不可枚举自身条件同样要求证据并参与匹配', () => {
+  const rule: MatchableRule = { id: 'non-enumerable-condition' };
+  Object.defineProperty(rule, 'months', { value: ['子'], enumerable: false });
+  assert.deepEqual(getMissingRuleInputs(rule, {}), ['monthBranch']);
+  assert.equal(matchesRule(rule, {}), false);
+  assert.equal(assessRuleMatch(rule, { monthBranch: '子' }).status, '满足');
+  assert.equal(assessRuleMatch(rule, { monthBranch: '午' }).status, '不满足');
+});
+
+test('自定义原型的继承条件保留证据检查与匹配行为', () => {
+  const rule: MatchableRule = Object.assign(Object.create({ months: ['子'] }), {
+    id: 'inherited-condition',
+    requiredVisibleStems: ['甲'],
+  });
+  assert.deepEqual(getMissingRuleInputs(rule, {}), ['monthBranch', 'visibleStems']);
+  assert.equal(matchesRule(rule, { visibleStems: ['甲'] }), false);
+  assert.equal(assessRuleMatch(rule, { monthBranch: '子', visibleStems: ['甲'] }).status, '满足');
+  assert.equal(assessRuleMatch(rule, { monthBranch: '午', visibleStems: ['甲'] }).status, '不满足');
+});
+
+test('无原型规则与内置名称字段保持普通条件的核查结果', () => {
+  const rule: MatchableRule = Object.assign(Object.create(null), {
+    id: 'null-prototype-condition',
+    months: ['子'],
+    constructor: ['甲'],
+  });
+  assert.deepEqual(getMissingRuleInputs(rule, {}), ['monthBranch']);
+  assert.equal(assessRuleMatch(rule, { monthBranch: '子' }).status, '满足');
+});
 
 test('未提供透干资料不能推导为无癸，已核查空数组才满足无癸条件', () => {
   const rule = { id: 'no-gui', forbiddenVisibleStems: ['癸'] };

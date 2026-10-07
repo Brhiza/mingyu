@@ -1,4 +1,3 @@
-import { handlePublicApiRequest, normalizeApiPath } from '../../../src/lib/public-api/handler';
 import type { AiEnv } from '../../../src/lib/ai/proxy';
 import { AI_CLIENT_ADDRESS_HEADER } from '../../../src/lib/ai/rate-limit';
 
@@ -10,7 +9,9 @@ type PagesContext = {
   };
 };
 
-export function onRequest(context: PagesContext) {
+export async function onRequest(context: PagesContext) {
+  const { handlePublicApiRequest, normalizeApiPath } =
+    await import('../../../src/lib/public-api/handler');
   const paramPath = context.params?.path;
   const segments = Array.isArray(paramPath)
     ? paramPath

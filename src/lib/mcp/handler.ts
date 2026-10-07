@@ -1,10 +1,10 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import type { ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
+import { ListToolsRequestSchema, type ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import {
-  createMingyuMcpServer,
+  createMingyuMcpBaseServer,
   SERVER_INFO,
   type MingyuMcpPreset,
-} from '../../../mcp/src/create-server.js';
+} from '../../../mcp/src/server-base.js';
 
 export const MCP_CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -389,20 +389,22 @@ export async function handleMcpRequest(
   }
 
   // 4. 创建无状态 Transport 并执行请求
-  const server = createMingyuMcpServer({
-    preset,
-    ...(!Array.isArray(parsedBody)
-      ? {
-          httpRequest: {
-            method: requestedMethod ?? '',
-            toolName: requestedToolName,
-            ...(requestedMethod === 'tools/list' && options?.loadToolList
-              ? { loadToolList: options.loadToolList }
-              : {}),
-          },
-        }
-      : {}),
-  });
+  const hasStaticToolList = preset === 'online' && !!options?.loadToolList;
+  const needsToolRuntime =
+    requestedMethod === 'tools/call' ||
+    (requestedMethod === 'tools/list' && !hasStaticToolList) ||
+    Array.isArray(parsedBody);
+  const server = needsToolRuntime
+    ? (await import('../../../mcp/src/create-server.js')).createMingyuMcpServer({
+        preset,
+        ...(!Array.isArray(parsedBody)
+          ? { httpRequest: { method: requestedMethod ?? '', toolName: requestedToolName } }
+          : {}),
+      })
+    : createMingyuMcpBaseServer(preset);
+  if (!needsToolRuntime && requestedMethod === 'tools/list' && options?.loadToolList) {
+    server.server.setRequestHandler(ListToolsRequestSchema, options.loadToolList);
+  }
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
