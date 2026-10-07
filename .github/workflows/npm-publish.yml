@@ -20,6 +20,9 @@ jobs:
          startsWith(github.event.release.tag_name, 'mingyu-core-v') ||
          startsWith(github.event.release.tag_name, 'mingyu-mcp-v')))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
