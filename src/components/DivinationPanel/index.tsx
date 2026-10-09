@@ -36,6 +36,7 @@ import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
 import { BirthPlaceModal } from '@/pages/InputPage.BirthPlaceModal';
 import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
+import { appendClassicalReferences } from 'mingyu-core/prompt';
 
 type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
@@ -137,7 +138,18 @@ export function DivinationPanel({
 
   const recordId = searchParams.get('record');
   const visibleSession = displayMode === 'result' && recordId !== restoredRecordId ? null : session;
-  const { copyState, shareState, handleCopy } = usePromptCopyShare(visibleSession?.prompt ?? '');
+  const promptText = useMemo(
+    () =>
+      visibleSession
+        ? appendClassicalReferences(
+            visibleSession.prompt,
+            visibleSession.method,
+            Boolean(draft.includeClassics),
+          )
+        : '',
+    [draft.includeClassics, visibleSession],
+  );
+  const { copyState, shareState, handleCopy } = usePromptCopyShare(promptText);
 
   useEffect(() => {
     if (displayMode === 'result') return;
@@ -292,8 +304,10 @@ export function DivinationPanel({
       return;
     }
 
-    setSession(null);
-    setError('');
+    if (key !== 'includeClassics') {
+      setSession(null);
+      setError('');
+    }
     setDraft((current) => ({
       ...current,
       [key]: value,
@@ -384,10 +398,15 @@ export function DivinationPanel({
             key={recordId ?? visibleSession?.prompt ?? 'divination-result'}
             isSubmitting={isSubmitting}
             session={visibleSession}
+            promptText={promptText}
             summary={summary}
             methodLabelMap={methodLabelMap}
             copyState={copyState}
             shareState={shareState}
+            includeClassics={Boolean(draft.includeClassics)}
+            classicalMethod={visibleSession?.method ?? draft.method}
+            showClassicsOption={displayMode === 'result' || draft.method === 'random'}
+            onIncludeClassicsChange={(checked) => updateDraft('includeClassics', checked)}
             showHeading={displayMode === 'workspace'}
             assistantOnly={assistantOnly}
             onCopy={handleCopy}
@@ -402,7 +421,7 @@ export function DivinationPanel({
 
       {isShareModalOpen && visibleSession?.prompt ? (
         <PromptShareModal
-          promptText={visibleSession.prompt}
+          promptText={promptText}
           question={visibleSession.question || draft.question}
           methodName={methodLabelMap[visibleSession.method] || methodLabelMap[draft.method]}
           timeLabel={

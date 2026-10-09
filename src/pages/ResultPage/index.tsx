@@ -111,6 +111,8 @@ import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
 import { MingluWikiView } from './components/MingluWiki';
 import { buildMingluArticle } from 'mingyu-core/minglu';
 import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
+import { ClassicalReferencesToggle } from '@/components/ClassicalReferencesToggle';
+import { appendClassicalReferences } from 'mingyu-core/prompt';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useBaziRangeCalculations } from './hooks/useBaziRangeCalculations';
@@ -2675,10 +2677,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const birthTimeIntervalSection = birthTimeIntervals.length
     ? `【出生时间范围】\n${birthTimeIntervals.join('\n')}`
     : '';
-  const previewActivePromptText =
+  const previewActivePromptText = appendClassicalReferences(
     basePreviewActivePromptText && birthTimeIntervalSection
       ? `${basePreviewActivePromptText}\n\n${birthTimeIntervalSection}`
-      : basePreviewActivePromptText;
+      : basePreviewActivePromptText,
+    promptState.promptSource,
+    Boolean(promptState.includeClassics),
+  );
 
   const astrolabeDynamicResourceKey = astrolabeDynamicRangeMode
     ? `astrolabe-dynamic-range:${JSON.stringify([readingSubject.id, astrolabeDynamicRangeState.key, effectiveAstrolabeQuickQuestion, promptState.astrolabeTopicId, promptState.astrolabeSubtopicId])}`
@@ -2693,11 +2698,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
 
     if (isQizhengPromptSource && qizhengRangeMode) {
-      return '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。';
+      return appendClassicalReferences(
+        '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。',
+        'qizheng',
+        Boolean(promptState.includeClassics),
+      );
     }
 
     if (isQimenLifetimePromptSource) {
-      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+      return appendClassicalReferences(
+        '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。',
+        'qimen-lifetime',
+        Boolean(promptState.includeClassics),
+      );
     }
 
     return previewActivePromptText;
@@ -2708,6 +2721,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQimenLifetimePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
+    promptState.includeClassics,
     previewActivePromptText,
     showAssistantPane,
   ]);
@@ -2724,7 +2738,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     const range = qimenLifetimeCalculation.data.input.periodRange;
     const rangeKey = range ? `${range.startDate}-${range.endDate}` : 'current';
     return {
-      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}:birth-second:${qimenLifetimeCalculation.data.birthRange?.index ?? 'point'}`,
+      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}:birth-second:${qimenLifetimeCalculation.data.birthRange?.index ?? 'point'}:classics:${promptState.includeClassics ? 'on' : 'off'}`,
       title: '奇门终身局完整资料',
       text: qimenLifetimePromptText,
       usable: true,
@@ -2735,6 +2749,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQimenLifetimePromptSource,
     qimenLifetimeCalculation.data,
     qimenLifetimePromptText,
+    promptState.includeClassics,
     promptState.qimenLifetimeStageModel,
   ]);
 
@@ -2799,7 +2814,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
     if (isQizhengPromptSource && qizhengRangeMode) {
       if (!qizhengRangeState.range || !qizhengRangePrompt) return undefined;
-      const key = `qizheng-birth-range:${subject.id}`;
+      const key = `qizheng-birth-range:${subject.id}:classics:${promptState.includeClassics ? 'on' : 'off'}`;
       return {
         subjectId: subject.id,
         key,
@@ -2842,6 +2857,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     promptState.astrolabeSubtopicId,
     isAstrolabePromptSource,
     isQizhengPromptSource,
+    promptState.includeClassics,
     qizhengRangeMode,
     qizhengRangeState.range,
     qizhengRangePrompt,
@@ -2859,18 +2875,34 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : '依据随后提供的西洋占星本命出生时间区间资料，结合用户问题解读，先说明整个区间共同成立的判断，再区分各出生时段的差异。';
     }
     if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
-      return '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
+      return appendClassicalReferences(
+        '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。',
+        'qizheng',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (isInstantResult || (!isQimenLifetimePromptSource && promptState.ziweiScope !== 'full'))
       return '';
     if (isQimenLifetimePromptSource) {
-      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+      return appendClassicalReferences(
+        '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。',
+        'qimen-lifetime',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (promptState.promptSource === 'ziwei') {
-      return computeZiweiPromptText(effectiveZiweiQuickQuestion, false);
+      return appendClassicalReferences(
+        computeZiweiPromptText(effectiveZiweiQuickQuestion, false),
+        'ziwei',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (promptState.promptSource === 'bazi-ziwei') {
-      return computeEnhancedPromptText(effectiveBaziQuickQuestion, finalBaziQuestion, false);
+      return appendClassicalReferences(
+        computeEnhancedPromptText(effectiveBaziQuickQuestion, finalBaziQuestion, false),
+        'bazi-ziwei',
+        Boolean(promptState.includeClassics),
+      );
     }
     return '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2881,6 +2913,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQizhengPromptSource,
     qizhengRangeMode,
     promptState.promptSource,
+    promptState.includeClassics,
     isQimenLifetimePromptSource,
     effectiveZiweiQuickQuestion,
     effectiveBaziQuickQuestion,
@@ -2939,10 +2972,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               : promptState.promptSource === 'bazi'
                 ? latestBaziPromptText
                 : latestZiweiPromptText;
-  const latestActivePromptText =
+  const latestActivePromptText = appendClassicalReferences(
     baseLatestActivePromptText && birthTimeIntervalSection
       ? `${baseLatestActivePromptText}\n\n${birthTimeIntervalSection}`
-      : baseLatestActivePromptText;
+      : baseLatestActivePromptText,
+    promptState.promptSource,
+    Boolean(promptState.includeClassics),
+  );
   const baziPromptCacheIdentity = rangeBaziPromptRequested ? baziPromptSample.identity : '';
   const rangePromptCacheIdentity =
     rangeBaziPromptRequested || rangeZiweiRequested
@@ -3191,6 +3227,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           <span>问题灵感</span>
         </WorkspaceButton>
         {promptScopeField}
+        <ClassicalReferencesToggle
+          method={promptState.promptSource}
+          checked={Boolean(promptState.includeClassics)}
+          onChange={(checked) => updatePromptState({ includeClassics: checked })}
+        />
       </div>
 
       {(promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
@@ -3653,14 +3694,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     isAstrolabePromptSource && astrolabeBirthRangeMode
                       ? `${aiContextPrompt}\n${astrolabeDynamicRangeMode ? astrolabeDynamicResourceKey : (readingResourceSeed?.key ?? readingSubject.id)}`
                       : isQizhengPromptSource && qizhengRangeMode
-                        ? `${aiContextPrompt}\n${readingSubject.id}`
+                        ? `${aiContextPrompt}\n${promptState.includeClassics ? 'classics:on' : 'classics:off'}\n${readingSubject.id}`
                         : isQimenLifetimePromptSource
                           ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
                           : rangePromptCacheIdentity || baziPromptCacheIdentity
                             ? `${aiContextPrompt}\n${rangePromptCacheIdentity || baziPromptCacheIdentity}`
                             : aiContextPrompt,
                   )}
-                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}-${rangePromptCacheIdentity || baziPromptCacheIdentity}`}
+                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}-classics:${promptState.includeClassics ? 'on' : 'off'}-${rangePromptCacheIdentity || baziPromptCacheIdentity}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}
                   aiConfig={aiRequestConfig}
@@ -3742,6 +3783,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         onChange={updatePromptState}
                       />
                     ) : null}
+                    <ClassicalReferencesToggle
+                      method={promptState.promptSource}
+                      checked={Boolean(promptState.includeClassics)}
+                      onChange={(checked) => updatePromptState({ includeClassics: checked })}
+                    />
                     {promptScopeField}
                   </div>
 

@@ -14,6 +14,7 @@ import type { ZiweiRuntimeFacts } from '../ziwei/runtime';
 import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
+import { appendClassicalReferences } from './classical-references';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSection, joinPromptSections } from './sections';
 import {
@@ -277,6 +278,7 @@ export function getThematicTopicConfig(topic?: string | null): ThematicTopicConf
 }
 
 export interface ThematicConsultationOptions {
+  includeClassics?: boolean;
   system?: 'bazi_ziwei' | 'bazi' | 'ziwei';
   methodId?: PromptMethodId | string;
   topic?: ThematicTopic | string;
@@ -473,7 +475,7 @@ export function buildThematicConsultationPrompt(
       subtopicLabel: selection.subtopicLabel,
       selection,
       system: 'bazi',
-      prompt: promptText,
+      prompt: appendClassicalReferences(promptText, selection.methodId, options.includeClassics),
       focusPalaces: [],
       focusElements: getFocusElements(config.baziFocusElements, selection),
       scope: fortuneSelection
@@ -554,7 +556,7 @@ export function buildThematicConsultationPrompt(
       subtopicLabel: selection.subtopicLabel,
       selection,
       system: 'ziwei',
-      prompt: promptText,
+      prompt: appendClassicalReferences(promptText, selection.methodId, options.includeClassics),
       focusPalaces: config.ziweiFocusPalaces,
       focusElements: [],
       scope: ziweiScope === 'origin' ? '本命盘' : ziweiScope,
@@ -653,7 +655,7 @@ export function buildThematicConsultationPrompt(
     subtopicLabel: selection.subtopicLabel,
     selection,
     system: 'bazi_ziwei',
-    prompt: promptText,
+    prompt: appendClassicalReferences(promptText, selection.methodId, options.includeClassics),
     focusPalaces: config.ziweiFocusPalaces,
     focusElements: config.baziFocusElements,
     scope: fortuneSelection

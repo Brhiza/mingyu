@@ -22,6 +22,13 @@ export const promptResponseModeShape = {
     ),
 };
 
+export const includeClassicsShape = {
+  includeClassics: z
+    .boolean()
+    .optional()
+    .describe('是否附加当前体系的经典依据摘要，默认 false；合参分册仅附本册体系'),
+};
+
 /**
  * 统一出生参数输入契约 (BirthInputSchema)
  */
@@ -112,7 +119,7 @@ export const resultOutputSchema = withErrorOutputSchema({
   batch: z.unknown().optional().describe('显式分页时返回 unknownTimeBatch 等续取元数据'),
 });
 
-export const promptOutputSchema = withErrorOutputSchema({
+const promptOutputShape = {
   prompt: z
     .string()
     .describe('包含任务、盘面与传统依据的完整任务书；需要直接解读时按其内容回答，无需再次计算'),
@@ -125,6 +132,26 @@ export const promptOutputSchema = withErrorOutputSchema({
     .unknown()
     .optional()
     .describe('显式分页时返回 scopeBatch、fortuneBatch 或 combinedBatch 续取元数据'),
+};
+
+export const promptOutputSchema = withErrorOutputSchema(promptOutputShape);
+
+export const classicalPromptOutputSchema = withErrorOutputSchema({
+  ...promptOutputShape,
+  classicalReferences: z
+    .array(
+      z.strictObject({
+        id: z.string(),
+        book: z.string(),
+        chapter: z.string(),
+        summary: z.string(),
+        application: z.string(),
+        sourceUrl: z.string(),
+        textType: z.literal('summary'),
+      }),
+    )
+    .optional()
+    .describe('includeClassics=true 时返回本次提示词的经典依据摘要与可核验链接'),
 });
 
 export const ziweiOutputSchema = withErrorOutputSchema({

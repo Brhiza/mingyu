@@ -58,6 +58,7 @@ export type QueryInputState = {
 export type QueryPromptState = {
   tab: ResultTabKey;
   promptSource: PromptSourceKey;
+  includeClassics?: boolean;
   baziPresetId: string;
   baziTopicId: string;
   baziSubtopicId: string;
@@ -188,6 +189,7 @@ export function createDefaultPromptState(now: Date = new Date()): QueryPromptSta
   return {
     tab: 'prompt',
     promptSource: 'bazi',
+    includeClassics: false,
     baziPresetId: 'ai-mingge-zonglun',
     baziTopicId: '',
     baziSubtopicId: '',
@@ -286,6 +288,7 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
 const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   tab: 't',
   promptSource: 'ps',
+  includeClassics: 'ic',
   baziPresetId: 'bid',
   baziTopicId: 'btid',
   baziSubtopicId: 'bts',
@@ -449,6 +452,7 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
   const persistAstrolabeScope = prompt.promptSource === 'astrolabe' || prompt.tab === 'astrolabe';
   setCompactParam(params, 'tab', prompt.tab, defaultPromptState.tab);
   setCompactParam(params, 'promptSource', prompt.promptSource, defaultPromptState.promptSource);
+  setCompactParam(params, 'includeClassics', prompt.includeClassics ?? false, false);
   setCompactParam(params, 'baziPresetId', prompt.baziPresetId, defaultPromptState.baziPresetId);
   setCompactParam(params, 'baziTopicId', prompt.baziTopicId, defaultPromptState.baziTopicId);
   setCompactParam(
@@ -842,6 +846,7 @@ function normalizeResidentialFlowDate(yearText: string, monthText: string, dayTe
 function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
   const normalized: QueryPromptState = { ...prompt };
 
+  normalized.includeClassics = Boolean(normalized.includeClassics);
   normalized.qimenLifetimeStageModel = parseQimenLifetimeStageModel(
     normalized.qimenLifetimeStageModel,
   );
@@ -1057,6 +1062,9 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
   return normalizePromptState({
     tab,
     promptSource,
+    includeClassics: ['1', 'true'].includes(
+      getString(params, 'includeClassics', '0').toLowerCase(),
+    ),
     baziPresetId: getString(params, 'baziPresetId', defaultPromptState.baziPresetId),
     baziTopicId: getString(params, 'baziTopicId', defaultPromptState.baziTopicId),
     baziSubtopicId: getString(params, 'baziSubtopicId', defaultPromptState.baziSubtopicId),

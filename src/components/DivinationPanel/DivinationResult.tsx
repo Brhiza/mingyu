@@ -14,16 +14,22 @@ import {
 } from '@/components/workspace/WorkspaceUI';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
+import { ClassicalReferencesToggle } from '@/components/ClassicalReferencesToggle';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
   session: DivinationSession | null;
+  promptText: string;
   summary: DivinationSummaryBlocks | null;
   methodLabelMap: Record<DivinationDraft['method'], string>;
   copyState: string;
   shareState: string;
   showHeading?: boolean;
   assistantOnly?: boolean;
+  includeClassics: boolean;
+  classicalMethod: string;
+  showClassicsOption?: boolean;
+  onIncludeClassicsChange: (checked: boolean) => void;
   onCopy: () => void;
   onShare: () => void;
   onOpenAssistant?: () => void;
@@ -35,12 +41,17 @@ interface DivinationResultProps {
 export function DivinationResult({
   isSubmitting,
   session,
+  promptText,
   summary,
   methodLabelMap,
   copyState,
   shareState,
   showHeading = true,
   assistantOnly = false,
+  includeClassics,
+  classicalMethod,
+  showClassicsOption = false,
+  onIncludeClassicsChange,
   onCopy,
   onShare,
   onOpenAssistant,
@@ -133,9 +144,16 @@ export function DivinationResult({
 
   const resultBlock = (
     <section className="workspace-ui-surface is-plain divination-result-panel">
-      {showHeading ? (
+      {showHeading || showClassicsOption ? (
         <div className="workspace-ui-panel-head">
-          <h2>{summary.title}</h2>
+          {showHeading ? <h2>{summary.title}</h2> : null}
+          {showClassicsOption ? (
+            <ClassicalReferencesToggle
+              method={classicalMethod}
+              checked={includeClassics}
+              onChange={onIncludeClassicsChange}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -188,13 +206,20 @@ export function DivinationResult({
               isAiEnabled ? 'is-ai-mode' : 'is-prompt-mode'
             }`}
           >
+            {showClassicsOption && !showBoard ? (
+              <ClassicalReferencesToggle
+                method={classicalMethod}
+                checked={includeClassics}
+                onChange={onIncludeClassicsChange}
+              />
+            ) : null}
             {isAiEnabled ? (
               <div className="divination-ai-card">
                 <AiChatPanel
-                  contextPrompt={session.prompt}
-                  autoStart={session.prompt}
-                  autoStartKey={session.prompt}
-                  resetKey={session.prompt}
+                  contextPrompt={promptText}
+                  autoStart={promptText}
+                  autoStartKey={promptText}
+                  resetKey={promptText}
                   aiConfig={aiRequestConfig}
                   readingMethod={session.method}
                   readingSubject={readingSubject}
@@ -202,7 +227,7 @@ export function DivinationResult({
               </div>
             ) : (
               <PromptDeliveryPanel
-                promptText={session.prompt}
+                promptText={promptText}
                 copyState={copyState}
                 shareState={shareState}
                 onCopy={onCopy}
@@ -218,7 +243,7 @@ export function DivinationResult({
 
       {!assistantOnly && onOpenAssistant ? (
         <>
-          <ResultShareFab disabled={!session.prompt} onShare={onShare} />
+          <ResultShareFab disabled={!promptText} onShare={onShare} />
           <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={onOpenAssistant} />
         </>
       ) : null}

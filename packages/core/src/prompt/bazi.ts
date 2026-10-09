@@ -14,6 +14,7 @@ import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import { appendClassicalReferences } from './classical-references';
 import {
   formatBaziSchoolPrompt,
   formatBaziSchoolsPrompt,
@@ -381,7 +382,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     buildPromptSection('问题', question),
   ]);
 
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'bazi', options.includeClassics));
 }
 
 export function buildBaziPrompt(options: BaziPromptOptions) {
@@ -471,7 +472,7 @@ export function buildBaziCompatibilityPromptDocument(
     ),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'bazi', options.includeClassics));
 }
 
 export function buildBaziCompatibilityPrompt(options: BaziCompatibilityPromptOptions) {

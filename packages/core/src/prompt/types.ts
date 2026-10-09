@@ -12,4 +12,6 @@ export interface PromptBuildOptions {
   currentTime?: Date;
   /** 用户问题。 */
   question?: string;
+  /** 是否附入当前术数的少量经典依据，默认关闭。 */
+  includeClassics?: boolean;
 }

@@ -258,6 +258,8 @@ console.log(reading.promptText);
 
 `mingyu-core/prompt/public-api` 是公开 HTTP 接口与旧调用方使用的紧凑兼容层；新集成优先使用 `mingyu-core/prompt`。紫微结构化快照以及现有前端、公开接口和 MCP 共用的 `buildCombinedZiweiPrompt()`、`buildCombinedZiweiCompatibilityPrompt()` 也可从 `mingyu-core/ziwei/prompt` 直接导入。
 
+东方术数提示词可传 `includeClassics: true` 附入当前体系的少量经典规则转述，默认关闭；单体系一至两条，八字紫微合参至多三条。`getClassicalReferences(method)` 返回书名、篇章、适用条件与原典链接，`appendClassicalReferences(text, method, true)` 可为自行组织的任务书附入同一份依据。具体覆盖与使用方式见[经典依据选项](../../docs/经典依据选项.md)。
+
 ```ts
 import { baziCalculator } from 'mingyu-core/bazi';
 import { buildBaziPrompt, buildBaziCompatibilityPrompt } from 'mingyu-core/prompt';
