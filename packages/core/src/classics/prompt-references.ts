@@ -120,6 +120,16 @@ const qimenReferences = freezeReferences([
     sourceUrl: 'https://www.shidianguji.com/book/SK1616/chapter/1l9lop9pxu33o',
     textType: 'summary',
   },
+  {
+    id: 'qimen-door-palace-control',
+    book: '遁甲演义',
+    chapter: '卷二·门迫宫迫',
+    summary: '门克所临宫为门迫，宫克门另论；判断合看门的吉凶属性与门宫五行关系。',
+    application:
+      '适用于已给出八门落宫和门宫五行的奇门盘；围绕所问宫位核对门宫生克，并合看星、神与旺衰。',
+    sourceUrl: 'https://zh.wikisource.org/zh-hans/%E9%81%81%E7%94%B2%E6%BC%94%E7%BE%A9',
+    textType: 'summary',
+  },
 ]);
 
 const liurenReferences = freezeReferences([
@@ -132,6 +142,17 @@ const liurenReferences = freezeReferences([
     application:
       '适用于已给出天地盘、日辰、四课三传与天将的大六壬盘；围绕所问事项合看乘神与日干、所加地盘神的关系。',
     sourceUrl: 'https://www.shidianguji.com/book/SK1599/chapter/1k1lqkhebd2cy',
+    textType: 'summary',
+  },
+  {
+    id: 'liuren-nine-methods-transmissions',
+    book: '六壬大全',
+    chapter: '卷一·起例·九宗门取传法',
+    summary:
+      '四课有下贼上先取之，无下贼时取上克下；多处相克时依日干阴阳比用与涉害确定发用，其他课式依各法取传。',
+    application:
+      '适用于已定月将加时、天地盘与四课的壬课；依本次取传条件核对初、中、末传，再合参天将与日辰。',
+    sourceUrl: 'https://zh.wikisource.org/zh-hans/%E5%85%AD%E5%A3%AC%E5%A4%A7%E5%85%A8/1',
     textType: 'summary',
   },
 ]);
@@ -167,6 +188,18 @@ const almanacReferences = freezeReferences([
 ]);
 
 const taiyiReferences = freezeReferences([
+  {
+    id: 'taiyi-accumulation-and-periods',
+    book: '太乙金镜式经',
+    chapter: '卷一·推上元积年、推入六纪三元法、推太乙所在法',
+    summary:
+      '岁计以统一的上元积年起算，按年递增或递减，再依周纪、纪法和元法取余定位入纪与太乙行宫。',
+    application:
+      '适用于已给出年计纪元、积年和周期口径的太乙盘；采用本次盘面所定纪元，并按相应计法核对行宫。',
+    sourceUrl:
+      'https://zh.wikisource.org/zh-hans/%E5%A4%AA%E4%B9%99%E9%87%91%E9%8F%A1%E5%BC%8F%E7%B6%93_(%E5%9B%9B%E5%BA%AB%E5%85%A8%E6%9B%B8%E6%9C%AC)/%E5%85%A8%E8%A6%BD',
+    textType: 'summary',
+  },
   {
     id: 'taiyi-five-generals-host-guest',
     book: '太乙金镜式经',
@@ -216,6 +249,20 @@ const bazhaiReferences = freezeReferences([
   },
 ]);
 
+const xuankongReferences = freezeReferences([
+  {
+    id: 'xuankong-period-mountain-water-flight',
+    book: '沈氏玄空学',
+    chapter: '卷四·九宫挨星掌诀',
+    summary:
+      '先将所用元运入中顺布运星，再取坐山、向首所在宫的运星入中，依三元龙阴阳分别顺逆飞布山星与向星。',
+    application:
+      '适用于已有实际元运、二十四山坐向，并按下卦排出的运盘、山盘和向盘；依本次三盘与三元龙阴阳对应关系解读。',
+    sourceUrl: 'https://www.diancangwang.cn/xuanxuewushu/f6f37803664b/90b563d9cb41.html',
+    textType: 'summary',
+  },
+]);
+
 const residentialReferences = freezeReferences([
   {
     id: 'residential-door-master-stove',
@@ -227,6 +274,7 @@ const residentialReferences = freezeReferences([
     sourceUrl: 'https://fs.qqqs.org/fssj/308.html',
     textType: 'summary',
   },
+  xuankongReferences[0],
 ]);
 
 const qizhengReferences = freezeReferences([
@@ -270,6 +318,7 @@ const REFERENCES_BY_METHOD: Readonly<Record<string, readonly ClassicalReference[
     'wuyun-liuqi': wuyunLiuqiReferences,
     'huangji-jingshi': huangjiReferences,
     bazhai: bazhaiReferences,
+    xuankong: xuankongReferences,
     residential: residentialReferences,
     qizheng: qizhengReferences,
     xiaoliuren: xiaoliurenReferences,

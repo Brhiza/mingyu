@@ -27,6 +27,7 @@ const divination = {
   customDate: '2026-02-10T08:30:00+08:00',
   question: '请解读本次所列资料。',
 };
+const fengshui = { year: 2008, sitMountain: '子', question: '请解读本次所列资料。' };
 
 async function callApi(path: string, input: Record<string, unknown>) {
   const response = await handlePublicApiRequest(
@@ -55,6 +56,8 @@ test('公开提示词默认与显式关闭经典依据保持原输出，开启�
   for (const [path, method, input] of [
     ['bazi/prompt', 'bazi', { ...birth, baziFortuneScope: 'natal' }],
     ['divination/meihua/prompt', 'meihua', divination],
+    ['metaphysics/xuankong/prompt', 'xuankong', fengshui],
+    ['metaphysics/residential/prompt', 'residential', { ...fengshui, mingGua: '坎' }],
   ] as const) {
     for (const responseMode of ['prompt-only', 'summary', 'full']) {
       const args = { ...input, responseMode };
@@ -183,6 +186,8 @@ test('MCP 开启后文本与结构化提示词相同，三种返回模式均保�
   for (const [name, method, input] of [
     ['bazi_prompt', 'bazi', { ...birth, baziFortuneScope: 'natal' }],
     ['meihua_prompt', 'meihua', divination],
+    ['xuankong_prompt', 'xuankong', fengshui],
+    ['residential_prompt', 'residential', { ...fengshui, mingGua: '坎' }],
   ] as const) {
     for (const responseMode of ['prompt-only', 'summary', 'full']) {
       const args = { ...input, responseMode };

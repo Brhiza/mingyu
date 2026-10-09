@@ -2681,7 +2681,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     basePreviewActivePromptText && birthTimeIntervalSection
       ? `${basePreviewActivePromptText}\n\n${birthTimeIntervalSection}`
       : basePreviewActivePromptText,
-    promptState.promptSource,
+    promptState.promptSource === 'bazhai' && residentialResult
+      ? 'residential'
+      : promptState.promptSource,
     Boolean(promptState.includeClassics),
   );
 
@@ -2976,7 +2978,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     baseLatestActivePromptText && birthTimeIntervalSection
       ? `${baseLatestActivePromptText}\n\n${birthTimeIntervalSection}`
       : baseLatestActivePromptText,
-    promptState.promptSource,
+    promptState.promptSource === 'bazhai' && residentialResult
+      ? 'residential'
+      : promptState.promptSource,
     Boolean(promptState.includeClassics),
   );
   const baziPromptCacheIdentity = rangeBaziPromptRequested ? baziPromptSample.identity : '';

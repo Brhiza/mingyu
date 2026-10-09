@@ -74,12 +74,13 @@ test('经典规则转述附适用条件，出处元数据留在结构化资料',
     'wuyun-liuqi',
     'huangji-jingshi',
     'bazhai',
+    'xuankong',
     'residential',
     'qizheng',
   ]) {
     const references = getClassicalReferences(method);
     assert.ok(references.length > 0, `${method} 应有已核经典依据`);
-    assert.ok(references.length <= 3, `${method} 每次至多三条`);
+    assert.ok(references.length <= 2, `${method} 每次至多两条`);
     assert.equal(new Set(references.map((item) => item.id)).size, references.length);
     for (const reference of references) {
       assert.equal(reference.textType, 'summary');
@@ -130,7 +131,6 @@ test('签谱和西方体系保持原提示词，未知与原型名称不返回�
     'lenormand',
     'astrolabe',
     'zodiac',
-    'xuankong',
     '__proto__',
     'constructor',
     'unknown',
