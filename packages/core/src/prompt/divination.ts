@@ -52,6 +52,7 @@ import { buildPromptSchoolSection, type PromptSchoolMethod } from './schools';
 import type { AstrolabePromptTopic } from './astrolabe';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import { appendClassicalReferences } from './classical-references';
 import {
   formatEnhancedDivinationInfo,
   formatTaiyiTradition,
@@ -966,7 +967,9 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     buildPromptSection('任务', task),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(
+    appendClassicalReferences(user, promptMethodId, options.includeClassics),
+  );
 }
 
 export function buildDivinationPrompt(options: DivinationPromptOptions) {

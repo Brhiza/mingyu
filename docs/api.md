@@ -218,6 +218,10 @@ MCP 在线端点与本地 CLI 复用同一套计算能力；在线提示词通�
 
 `/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时传 `summary`；确实需要同次响应带完整排盘时传 `full`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 
+具有经典目录的东方术数 `/prompt` 接口支持 `includeClassics: true`，默认关闭。开启后在提示词中附加 `【经典依据】`，同时在三种 `responseMode` 的 `data.classicalReferences` 中返回对应条目：`id`、`book`、`chapter`、`summary`、`application`、`sourceUrl` 和 `textType: "summary"`。这些条目是规则摘要与适用条件；核验链接保留在结构化资料中。可用体系以 OpenAPI 各路径是否包含 `includeClassics` 为准。
+
+八字紫微合参和大类主题咨询同样支持该参数；单体系咨询只附选定体系的依据。使用 `combinedBatch` 分册续取时，八字本命与岁运分册只附八字依据，紫微盘面与运限分册只附紫微依据。未传或传 `false` 时保持原有返回内容。
+
 公开 HTTP API 在应用层将成功响应限制为 1 MiB；超过时返回 `HTTP 413` 与 `RESPONSE_TOO_LARGE`。这是项目的 API 响应策略，不是 Cloudflare 对响应体大小的平台限制。长时限查询只需交给 AI 解读时，可使用 `responseMode: "prompt-only"` 获取完整提示词；需要全部结构化时限资料时可使用独立 MCP 的对应工具。奇门终身局在 Docker 自部署 API 中最多 31 年，官方在线 API 单次最多 10 年；实际 HTTP 返回还受响应大小和部署资源限制。分段获取资料时应保留原目标范围并核对覆盖。
 
 奇门终身局可传 `stagePolicy: { "model": "decadalGanzhi" }` 选择十年干支大运，同时提供 `gender: "male"` 或 `"female"`。该模型采用八字交节起运合参奇门本命宫，默认模型仍为 `pillarFourLimits`。`basis.decadalLuck` 给出顺逆、起运年龄、时刻和定位口径；各运的 `ganzhi`、`startDateTime`、`endDateTimeExclusive` 和 `associatedMarkers` 在精简结果中也保留。精确交运区间含起点、不含终点，跨运事件通过 `stageIndices` 列出所涉及的全部阶段；已知具体时刻的交节事实另保留 Unix 毫秒 `timestamp`。`yearsPerStage` 用于九宫行限，十年干支大运固定每运十年。

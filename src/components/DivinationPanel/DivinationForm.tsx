@@ -33,6 +33,7 @@ import {
   isBaziReverseSource,
 } from '@/lib/divination/time-input';
 import { DropdownSelect } from '@/components/DropdownSelect';
+import { ClassicalReferencesToggle } from '@/components/ClassicalReferencesToggle';
 import {
   SupplementaryInfoModal,
   type SupplementaryInfoModalField,
@@ -308,6 +309,11 @@ function PromptSelectionFields({
             </div>
           </div>
         ) : null}
+        <ClassicalReferencesToggle
+          method={methodId}
+          checked={Boolean(draft.includeClassics)}
+          onChange={(checked) => updateDraft('includeClassics', checked)}
+        />
       </div>
     </div>
   );

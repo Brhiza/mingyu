@@ -15,6 +15,7 @@ import type { DivinationDraft } from '@/lib/divination/engine';
 export const defaultDraft: DivinationDraft = {
   method: 'liuyao',
   question: '',
+  includeClassics: false,
   questionSource: 'custom',
   currentSituation: '',
   currentState: '',

@@ -4,6 +4,7 @@ import {
   buildPromptTask,
 } from '../../prompt/guidance';
 import { formatPromptCurrentTime } from '../../prompt/current-time';
+import { formatClassicalReferences } from '../../prompt/classical-references';
 import { formatFixedTimezoneOffset } from '../../calendar/civil-time';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../../prompt/schools';
 import type { AnalysisPayloadV1 } from '../../types/analysis';
@@ -229,6 +230,7 @@ export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence):
 }
 
 export interface CombinedZiweiPromptOptions {
+  includeClassics?: boolean;
   isCustomQuestion?: boolean;
   trueSolarEvidence?: ZiweiTrueSolarEvidence;
   /** 固定提示词中的当前时间；省略时使用调用时刻。 */
@@ -255,6 +257,7 @@ export function buildCombinedZiweiPrompt(
     '',
     pack,
     '',
+    ...(options.includeClassics ? [formatClassicalReferences('ziwei')] : []),
     `【任务】\n${
       isCustomQuestion
         ? buildCustomQuestionTask('紫微盘面资料', 'ziwei')
@@ -266,6 +269,7 @@ export function buildCombinedZiweiPrompt(
 }
 
 export interface CombinedZiweiCompatibilityPromptOptions {
+  includeClassics?: boolean;
   primaryPayload: AnalysisPayloadV1;
   partnerPayload: AnalysisPayloadV1;
   /** 可选的原生 iztro 星盘对象；必须双方同时提供。 */
@@ -334,6 +338,7 @@ export function buildCombinedZiweiCompatibilityPrompt(
     ...(compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : []),
     buildPromptSchoolSection('ziwei', params.schools),
     '',
+    ...(params.includeClassics ? [formatClassicalReferences('ziwei')] : []),
     `【任务】\n${
       isCustomQuestion
         ? buildCustomQuestionTask('双方紫微盘面和跨盘关系资料', 'ziwei-compatibility')

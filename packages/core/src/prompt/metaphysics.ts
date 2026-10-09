@@ -3,6 +3,7 @@ import { buildPromptDocument, buildPromptSection, joinPromptSections } from './s
 import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSchoolSection } from './schools';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import { appendClassicalReferences } from './classical-references';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -134,7 +135,13 @@ export function buildMetaphysicsPromptDocument(
     question?.trim() ? buildPromptSection('问题', question) : '',
   ];
 
-  return buildPromptDocument(joinPromptSections(sections));
+  return buildPromptDocument(
+    appendClassicalReferences(
+      joinPromptSections(sections),
+      options.method,
+      options.includeClassics,
+    ),
+  );
 }
 
 export function buildMetaphysicsPrompt(

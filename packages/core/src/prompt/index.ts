@@ -29,6 +29,7 @@ export * from './sections';
 export * from './schools';
 export * from './tarot-spread';
 export * from './types';
+export * from './classical-references';
 export * from './ziwei';
 export * from './thematic';
 export {

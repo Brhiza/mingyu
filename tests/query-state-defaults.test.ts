@@ -34,6 +34,23 @@ test('精准排盘资料必须包含时分、地点和经纬度，并允许北�
   assert.equal(hasCompletePreciseBirthData({ ...complete, analysisMode: 'compatibility' }), false);
 });
 
+test('经典依据选项默认关闭并可通过提示词链接往返恢复', () => {
+  assert.equal(createDefaultPromptState().includeClassics, false);
+  const defaultSearch = new URLSearchParams(
+    buildResultSearch(defaultInputState, defaultPromptState),
+  );
+  assert.equal(defaultSearch.has('ic'), false);
+
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    includeClassics: true,
+  });
+  assert.equal(new URLSearchParams(search).get('ic'), '1');
+  assert.equal(parsePromptState(new URLSearchParams(search)).includeClassics, true);
+  assert.equal(parsePromptState(new URLSearchParams('includeClassics=true')).includeClassics, true);
+  assert.equal(parsePromptState(new URLSearchParams('ic=0')).includeClassics, false);
+});
+
 test('输入页默认状态不应预填生日与时辰', () => {
   assert.equal(defaultInputState.chartType, 'bazi');
   assert.equal(defaultInputState.year, '');

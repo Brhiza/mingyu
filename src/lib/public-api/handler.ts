@@ -8,7 +8,13 @@ import {
   type ShenShaScope,
   type ShenShaVariantConfig,
 } from 'mingyu-core/bazi';
-import { formatCalculatedBaziFortuneBatch, type BaziFortuneTextBatch } from 'mingyu-core/prompt';
+import {
+  appendClassicalReferences,
+  getClassicalReferences,
+  supportsClassicalReferences,
+  formatCalculatedBaziFortuneBatch,
+  type BaziFortuneTextBatch,
+} from 'mingyu-core/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
 import {
   buildBaziFortuneSelectionForDate,
@@ -707,7 +713,7 @@ const ZIWEI_BIRTH_REQUEST_PROPERTIES = {
 export function getPublicApiOpenApiDocument(
   runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME,
 ) {
-  return {
+  const document = {
     openapi: '3.1.0',
     info: {
       title: 'AOV 命理与占卜公开 API',
@@ -1449,6 +1455,19 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        ClassicalReference: {
+          type: 'object',
+          required: ['id', 'book', 'chapter', 'summary', 'application', 'sourceUrl', 'textType'],
+          properties: {
+            id: { type: 'string' },
+            book: { type: 'string' },
+            chapter: { type: 'string' },
+            summary: { type: 'string', description: '经典规则摘要。' },
+            application: { type: 'string', description: '本规则的适用条件。' },
+            sourceUrl: { type: 'string', format: 'uri', description: '可核验的原典链接。' },
+            textType: { const: 'summary', description: '条目为规则摘要。' },
+          },
+        },
         NameGenerateRequest: {
           type: 'object',
           required: ['surname'],
@@ -3364,6 +3383,56 @@ export function getPublicApiOpenApiDocument(
       },
     },
   };
+  const paths = document.paths as Record<
+    string,
+    { post?: { requestBody?: unknown; responses?: Record<string, Record<string, unknown>> } }
+  >;
+  for (const [path, operation] of Object.entries(paths)) {
+    const method = getClassicalPromptMethod(path);
+    if (!operation.post || !method || !supportsClassicalReferences(method)) continue;
+    const requestBody = operation.post.requestBody as {
+      content?: { 'application/json'?: { schema?: unknown } };
+    };
+    const jsonContent = requestBody?.content?.['application/json'];
+    if (!jsonContent?.schema) continue;
+    const schema = jsonContent.schema as Record<string, unknown>;
+    jsonContent.schema = {
+      ...schema,
+      type: 'object',
+      properties: {
+        ...(isRecord(schema.properties) ? schema.properties : {}),
+        includeClassics: {
+          type: 'boolean',
+          default: false,
+          description:
+            '附加当前体系的经典依据摘要，并在各 responseMode 的响应中返回 classicalReferences。合参分册仅附本册体系。',
+        },
+      },
+    };
+    const successResponse = operation.post.responses?.['200'];
+    if (successResponse) {
+      successResponse.content = {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              data: {
+                type: 'object',
+                properties: {
+                  classicalReferences: {
+                    type: 'array',
+                    items: { $ref: '#/components/schemas/ClassicalReference' },
+                    description: 'includeClassics=true 时返回当前提示词体系的经典规则摘要。',
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+    }
+  }
+  return document;
 }
 
 export function normalizeApiPath(pathname: string) {
@@ -3418,7 +3487,59 @@ export async function handlePublicApiRequest(
   }
 }
 
+function getClassicalPromptMethod(path: string) {
+  if (!path.endsWith('/prompt')) return undefined;
+  const method = path
+    .replace(/^\//, '')
+    .replace(/^(divination|metaphysics)\//, '')
+    .replace(/\/prompt$/, '')
+    .replace(/\/compatibility$/, '')
+    .replace('qimen/lifetime', 'qimen-lifetime');
+  return method === 'consultation/thematic' ? 'bazi-ziwei' : method;
+}
+
 async function route(context: RouteContext) {
+  const path = context.segments.join('/');
+  const method = getClassicalPromptMethod(path);
+  if (context.request.method !== 'POST' || !method || !supportsClassicalReferences(method)) {
+    return routeWithoutClassics(context);
+  }
+  const input = await readJson(context.request);
+  const includeClassics = readBoolean(input, 'includeClassics', false);
+  const result = await routeWithoutClassics(context, input);
+  if (!includeClassics || !isRecord(result) || typeof result.prompt !== 'string') return result;
+  const combinedBatch = isRecord(result.batch) ? result.batch.combinedBatch : undefined;
+  const section = isRecord(combinedBatch) ? combinedBatch.section : undefined;
+  const calculated = isRecord(result.result)
+    ? result.result
+    : isRecord(result.resultSummary)
+      ? result.resultSummary
+      : undefined;
+  const actualMethod =
+    typeof section === 'string'
+      ? section.startsWith('bazi-')
+        ? 'bazi'
+        : 'ziwei'
+      : path === 'consultation/thematic/prompt'
+        ? typeof calculated?.methodId === 'string'
+          ? calculated.methodId
+          : typeof input.methodId === 'string'
+            ? input.methodId
+            : input.system === 'bazi' || input.system === 'ziwei'
+              ? input.system
+              : 'bazi-ziwei'
+        : method;
+  if (!supportsClassicalReferences(actualMethod)) return result;
+  return {
+    ...result,
+    prompt: appendClassicalReferences(result.prompt, actualMethod, true),
+    classicalReferences: getClassicalReferences(actualMethod),
+  };
+}
+
+async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
+  const readInput = (optional = false) =>
+    input === undefined ? readJson(context.request, optional) : Promise.resolve(input);
   const path = context.segments.join('/');
 
   if (context.request.method === 'GET') {
@@ -3438,69 +3559,59 @@ async function route(context: RouteContext) {
 
   switch (path) {
     case 'calendar/true-solar-time':
-      return calculateTrueSolarTimeApi(await readJson(context.request));
+      return calculateTrueSolarTimeApi(await readInput());
     case 'calendar/true-solar-birth':
-      return calculateTrueSolarBirthApi(await readJson(context.request));
+      return calculateTrueSolarBirthApi(await readInput());
     case 'calendar/bazi-reverse':
       return calculateApiResult(context.request, (input) =>
         calculateBaziReverseApi(checkOnlineResourceLimit(context, path, input)),
       );
     case 'calendar/solar-illumination':
-      return calculateSolarIlluminationApi(await readJson(context.request));
+      return calculateSolarIlluminationApi(await readInput());
     case 'calendar/astronomical-time':
-      return calculateAstronomicalTimeApi(await readJson(context.request));
+      return calculateAstronomicalTimeApi(await readInput());
     case 'calendar/moon-phase':
-      return calculateMoonPhaseApi(await readJson(context.request));
+      return calculateMoonPhaseApi(await readInput());
     case 'calendar/solar-term':
-      return calculateSolarTermApi(await readJson(context.request));
+      return calculateSolarTermApi(await readInput());
     case 'foundation/ganzhi':
-      return calculateFoundationGanZhi(await readJson(context.request));
+      return calculateFoundationGanZhi(await readInput());
     case 'foundation/wuxing':
-      return calculateFoundationWuxing(await readJson(context.request));
+      return calculateFoundationWuxing(await readInput());
     case 'foundation/direction':
-      return calculateFoundationDirection(await readJson(context.request));
+      return calculateFoundationDirection(await readInput());
     case 'foundation/shensha':
-      return calculateFoundationShensha(await readJson(context.request));
+      return calculateFoundationShensha(await readInput());
     case 'instant/calculate':
       return calculateApiResult(context.request, calculateInstantChartApi);
     case 'name/generate':
-      return calculateCultureTool(async () => generateNameApi(await readJson(context.request)));
+      return calculateCultureTool(async () => generateNameApi(await readInput()));
     case 'name/analyze':
-      return calculateCultureTool(async () => analyzeNameApi(await readJson(context.request)));
+      return calculateCultureTool(async () => analyzeNameApi(await readInput()));
     case 'name/generate/prompt':
-      return calculateCultureTool(async () =>
-        buildNameGenerationPromptApi(await readJson(context.request)),
-      );
+      return calculateCultureTool(async () => buildNameGenerationPromptApi(await readInput()));
     case 'name/analyze/prompt':
-      return calculateCultureTool(async () =>
-        buildNameAnalysisPromptApi(await readJson(context.request)),
-      );
+      return calculateCultureTool(async () => buildNameAnalysisPromptApi(await readInput()));
     case 'character/analyze':
       return calculateCultureTool(async () =>
-        analyzeChineseCharactersWithReferences(
-          readString(await readJson(context.request), 'text', ''),
-        ),
+        analyzeChineseCharactersWithReferences(readString(await readInput(), 'text', '')),
       );
     case 'character/select':
-      return calculateCultureTool(async () => selectCharactersApi(await readJson(context.request)));
+      return calculateCultureTool(async () => selectCharactersApi(await readInput()));
     case 'number/analyze':
-      return calculateCultureTool(async () => analyzeNumberApi(await readJson(context.request)));
+      return calculateCultureTool(async () => analyzeNumberApi(await readInput()));
     case 'number/analyze/prompt':
-      return calculateCultureTool(async () =>
-        buildNumberEnergyPromptApi(await readJson(context.request)),
-      );
+      return calculateCultureTool(async () => buildNumberEnergyPromptApi(await readInput()));
     case 'divination/zhuge':
       return calculateCultureTool(async () =>
-        calculateZhugeNumber(readString(await readJson(context.request), 'text', '')),
+        calculateZhugeNumber(readString(await readInput(), 'text', '')),
       );
     case 'divination/kongming':
-      return calculateCultureTool(async () =>
-        calculateKongmingApi(await readJson(context.request, true)),
-      );
+      return calculateCultureTool(async () => calculateKongmingApi(await readInput(true)));
     case 'divination/zhuge/prompt':
-      return buildDivinationPromptResult('zhuge', await readJson(context.request));
+      return buildDivinationPromptResult('zhuge', await readInput());
     case 'divination/kongming/prompt':
-      return buildDivinationPromptResult('kongming', await readJson(context.request, true));
+      return buildDivinationPromptResult('kongming', await readInput(true));
     case 'bazi/calculate':
       return calculateApiResult(
         context.request,
@@ -3509,11 +3620,11 @@ async function route(context: RouteContext) {
         true,
       );
     case 'bazi/prompt':
-      return buildBaziPrompt(await readJson(context.request));
+      return buildBaziPrompt(await readInput());
     case 'bazi/compatibility':
       return calculateApiResult(context.request, calculateBaziCompatibilityApi);
     case 'bazi/compatibility/prompt':
-      return buildBaziCompatibilityPromptApi(await readJson(context.request));
+      return buildBaziCompatibilityPromptApi(await readInput());
     case 'ziwei/calculate':
       return calculateApiResult(
         context.request,
@@ -3523,37 +3634,35 @@ async function route(context: RouteContext) {
         true,
       );
     case 'ziwei/prompt':
-      return buildZiweiPrompt(
-        checkOnlineResourceLimit(context, path, await readJson(context.request)),
-      );
+      return buildZiweiPrompt(checkOnlineResourceLimit(context, path, await readInput()));
     case 'ziwei/compatibility':
       return calculateApiResult(context.request, calculateZiweiCompatibilityApi);
     case 'ziwei/compatibility/prompt':
-      return buildZiweiCompatibilityPromptApi(await readJson(context.request));
+      return buildZiweiCompatibilityPromptApi(await readInput());
     case 'bazi-ziwei/prompt':
-      return buildBaziZiweiPrompt(await readJson(context.request));
+      return buildBaziZiweiPrompt(await readInput());
     case 'consultation/thematic/prompt':
-      return buildThematicConsultationPromptApi(await readJson(context.request));
+      return buildThematicConsultationPromptApi(await readInput());
     case 'divination/liuyao':
       return calculateApiResult(context.request, calculateLiuyao, true);
     case 'divination/liuyao/prompt':
-      return buildDivinationPromptResult('liuyao', await readJson(context.request));
+      return buildDivinationPromptResult('liuyao', await readInput());
     case 'divination/meihua':
       return calculateApiResult(context.request, calculateMeihua, true);
     case 'divination/meihua/prompt':
-      return buildDivinationPromptResult('meihua', await readJson(context.request));
+      return buildDivinationPromptResult('meihua', await readInput());
     case 'divination/xiaoliuren':
       return calculateApiResult(context.request, calculateXiaoliuren, true);
     case 'divination/xiaoliuren/prompt':
-      return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
+      return buildDivinationPromptResult('xiaoliuren', await readInput());
     case 'divination/jinkoujue':
       return calculateApiResult(context.request, calculateJinkoujue, true);
     case 'divination/jinkoujue/prompt':
-      return buildDivinationPromptResult('jinkoujue', await readJson(context.request));
+      return buildDivinationPromptResult('jinkoujue', await readInput());
     case 'divination/qimen':
       return calculateApiResult(context.request, calculateQimenApi, true);
     case 'divination/qimen/prompt':
-      return buildDivinationPromptResult('qimen', await readJson(context.request));
+      return buildDivinationPromptResult('qimen', await readInput());
     case 'divination/qimen/lifetime':
       return calculateApiResult(
         context.request,
@@ -3562,20 +3671,20 @@ async function route(context: RouteContext) {
       );
     case 'divination/qimen/lifetime/prompt':
       return buildQimenLifetimePromptResult(
-        checkOnlineResourceLimit(context, path, await readJson(context.request)),
+        checkOnlineResourceLimit(context, path, await readInput()),
       );
     case 'divination/liuren':
       return calculateApiResult(context.request, calculateLiuren, true);
     case 'divination/liuren/prompt':
-      return buildDivinationPromptResult('liuren', await readJson(context.request));
+      return buildDivinationPromptResult('liuren', await readInput());
     case 'divination/tarot':
       return calculateApiResult(context.request, calculateTarot, true);
     case 'divination/tarot/prompt':
-      return buildDivinationPromptResult('tarot', await readJson(context.request));
+      return buildDivinationPromptResult('tarot', await readInput());
     case 'divination/ssgw':
       return calculateApiResult(context.request, calculateSsgw, true);
     case 'divination/ssgw/prompt':
-      return buildDivinationPromptResult('ssgw', await readJson(context.request));
+      return buildDivinationPromptResult('ssgw', await readInput());
     case 'divination/almanac':
       return calculateApiResult(context.request, (input) =>
         calculateAlmanacApi(checkOnlineResourceLimit(context, path, input)),
@@ -3583,59 +3692,59 @@ async function route(context: RouteContext) {
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult(
         'almanac',
-        checkOnlineResourceLimit(context, path, await readJson(context.request)),
+        checkOnlineResourceLimit(context, path, await readInput()),
       );
     case 'divination/lenormand':
       return calculateApiResult(context.request, calculateLenormand, true);
     case 'divination/lenormand/prompt':
-      return buildDivinationPromptResult('lenormand', await readJson(context.request));
+      return buildDivinationPromptResult('lenormand', await readInput());
     case 'divination/astrolabe':
       return calculateApiResult(context.request, calculateAstrolabe);
     case 'divination/astrolabe/period-events':
-      return buildAstrolabePeriodEventsApi(await readJson(context.request));
+      return buildAstrolabePeriodEventsApi(await readInput());
     case 'divination/astrolabe/prompt':
-      return buildDivinationPromptResult('astrolabe', await readJson(context.request));
+      return buildDivinationPromptResult('astrolabe', await readInput());
     case 'divination/astrolabe/synastry':
       return calculateApiResult(context.request, calculateAstrolabeSynastryApi);
     case 'divination/astrolabe/synastry/prompt':
-      return buildAstrolabeSynastryPromptApi(await readJson(context.request));
+      return buildAstrolabeSynastryPromptApi(await readInput());
     // 新增术数系统（地基层之上的新体系）
     case 'metaphysics/bazhai/calculate':
       return calculateApiResult(context.request, calculateBaZhaiApi);
     case 'metaphysics/bazhai/prompt':
-      return buildBaZhaiPrompt(await readJson(context.request));
+      return buildBaZhaiPrompt(await readInput());
     case 'metaphysics/zodiac/calculate':
       return calculateApiResult(context.request, calculateZodiacApi);
     case 'metaphysics/zodiac/prompt':
-      return buildZodiacPrompt(await readJson(context.request));
+      return buildZodiacPrompt(await readInput());
     case 'metaphysics/taiyi/calculate':
       return calculateApiResult(context.request, calculateTaiyiApi);
     case 'metaphysics/taiyi/prompt':
-      return buildTaiyiPrompt(await readJson(context.request));
+      return buildTaiyiPrompt(await readInput());
     case 'metaphysics/wuyun-liuqi/calculate':
       return calculateApiResult(context.request, calculateWuyunLiuqiApi);
     case 'metaphysics/wuyun-liuqi/prompt':
-      return buildWuyunLiuqiPromptApi(await readJson(context.request));
+      return buildWuyunLiuqiPromptApi(await readInput());
     case 'metaphysics/huangji-jingshi/calculate':
       return calculateApiResult(context.request, calculateHuangjiJingshiApi);
     case 'metaphysics/huangji-jingshi/prompt':
-      return buildHuangjiJingshiPromptApi(await readJson(context.request));
+      return buildHuangjiJingshiPromptApi(await readInput());
     case 'classics/yilin':
-      return calculateYilinApi(await readJson(context.request));
+      return calculateYilinApi(await readInput());
     case 'metaphysics/huangji-jingshi/references':
       return calculateApiResult(context.request, calculateHuangjiReferenceApi);
     case 'metaphysics/qizheng/calculate':
       return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
-      return buildQizhengPrompt(await readJson(context.request));
+      return buildQizhengPrompt(await readInput());
     case 'metaphysics/xuankong/calculate':
       return calculateApiResult(context.request, calculateXuanKongApi);
     case 'metaphysics/xuankong/prompt':
-      return buildXuanKongPrompt(await readJson(context.request));
+      return buildXuanKongPrompt(await readInput());
     case 'metaphysics/residential/calculate':
       return calculateApiResult(context.request, calculateResidentialApi);
     case 'metaphysics/residential/prompt':
-      return buildResidentialPrompt(await readJson(context.request));
+      return buildResidentialPrompt(await readInput());
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }

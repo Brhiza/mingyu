@@ -92,6 +92,7 @@ import {
   normalizePromptSchoolIds,
   buildTarotSpreadTask,
   requirePromptSelection,
+  appendClassicalReferences,
   type PromptSelection,
   type PromptSchoolMethod,
 } from 'mingyu-core/prompt';
@@ -162,6 +163,7 @@ function applyPromptSelectionToExistingPrompt(prompt: string, selection?: Prompt
 export type DivinationDraft = {
   method: DivinationMethodId;
   question: string;
+  includeClassics?: boolean;
   questionSource?: 'custom' | 'inspiration';
   currentSituation?: string;
   currentState?: string;
@@ -280,6 +282,7 @@ export type DivinationTimeContext = {
 };
 
 export type BuildDivinationPromptOptions = {
+  includeClassics?: boolean;
   isCustomQuestion?: boolean;
   liuyaoTemplate?: LiuyaoTemplateType;
   liurenTemplate?: LiurenTemplateType;
@@ -520,48 +523,56 @@ export function buildDivinationPrompt(
         : '';
 
   if (method === 'liuren') {
-    return [
-      liurenPlateComplete
-        ? buildPromptGuidanceSections(method)
-        : buildSection('【传统依据】', '大六壬以月将加临占时定天地盘。'),
-      currentTimeSection,
+    return appendClassicalReferences(
+      [
+        liurenPlateComplete
+          ? buildPromptGuidanceSections(method)
+          : buildSection('【传统依据】', '大六壬以月将加临占时定天地盘。'),
+        currentTimeSection,
+        options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
+        supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
+        almanacParticipantTimeSection,
+        buildSection('【排盘信息】', infoText),
+        buildSection(
+          '【分析对象】',
+          liurenRangeText
+            ? '候选时间范围内各分段的大六壬课盘，分别依据月将、四课、三传与时令判断事实分析。'
+            : buildLiurenAnalysisObjectText(data as LiurenData),
+        ),
+        schoolSection,
+        liurenTemplateSection,
+        selection ? buildSection('【解读选择】', getPromptSelectionSection(selection)) : '',
+        buildSection('【任务】', taskText),
+        buildSection('【问题】', normalizedQuestion),
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      promptMethodId,
+      options.includeClassics,
+    );
+  }
+
+  return appendClassicalReferences(
+    [
+      singleCardGuidance || buildPromptGuidanceSections(method),
+      isSignPrompt ? '' : currentTimeSection,
       options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
       supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
       almanacParticipantTimeSection,
-      buildSection('【排盘信息】', infoText),
-      buildSection(
-        '【分析对象】',
-        liurenRangeText
-          ? '候选时间范围内各分段的大六壬课盘，分别依据月将、四课、三传与时令判断事实分析。'
-          : buildLiurenAnalysisObjectText(data as LiurenData),
-      ),
+      astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
+      buildSection('【占卜信息】', infoText),
       schoolSection,
-      liurenTemplateSection,
       selection ? buildSection('【解读选择】', getPromptSelectionSection(selection)) : '',
+      isCustomQuestion ? '' : liuyaoTemplateSection,
+      isCustomQuestion ? '' : liurenTemplateSection,
       buildSection('【任务】', taskText),
       buildSection('【问题】', normalizedQuestion),
     ]
       .filter(Boolean)
-      .join('\n\n');
-  }
-
-  return [
-    singleCardGuidance || buildPromptGuidanceSections(method),
-    isSignPrompt ? '' : currentTimeSection,
-    options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
-    supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
-    almanacParticipantTimeSection,
-    astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
-    buildSection('【占卜信息】', infoText),
-    schoolSection,
-    selection ? buildSection('【解读选择】', getPromptSelectionSection(selection)) : '',
-    isCustomQuestion ? '' : liuyaoTemplateSection,
-    isCustomQuestion ? '' : liurenTemplateSection,
-    buildSection('【任务】', taskText),
-    buildSection('【问题】', normalizedQuestion),
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+      .join('\n\n'),
+    promptMethodId,
+    options.includeClassics,
+  );
 }
 
 /** 北京时间旧会话以保存盘面的实际占时恢复秒级时间事实。 */

@@ -27,6 +27,7 @@ import {
   joinPromptSections,
 } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import { appendClassicalReferences, formatClassicalReferences } from './classical-references';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -852,7 +853,7 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     buildPromptSection('任务', selectedTask),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'ziwei', options.includeClassics));
 }
 
 export function buildZiweiPrompt(options: ZiweiPromptOptions) {
@@ -927,7 +928,7 @@ export function buildZiweiCompatibilityPromptDocument(
     ),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'ziwei', options.includeClassics));
 }
 
 export function buildZiweiCompatibilityPrompt(options: ZiweiCompatibilityPromptOptions) {
@@ -1014,6 +1015,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       options.selection
         ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
         : '',
+      options.includeClassics ? formatClassicalReferences('bazi-ziwei') : '',
       buildPromptSection('任务', selectedTask),
       buildPromptSection('问题', question),
     ]),
