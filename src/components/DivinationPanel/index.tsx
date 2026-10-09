@@ -111,7 +111,7 @@ export function DivinationPanel({
   onRestart,
 }: DivinationPanelProps) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeCase, cases } = useActivePersonalCase();
   const [draft, setDraft] = useState<DivinationDraft>(() => {
     const initial = createDefaultDraft(
@@ -137,6 +137,7 @@ export function DivinationPanel({
   const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
   const recordId = searchParams.get('record');
+  const includeClassicsParam = searchParams.get('ic');
   const visibleSession = displayMode === 'result' && recordId !== restoredRecordId ? null : session;
   const promptText = useMemo(
     () =>
@@ -188,7 +189,14 @@ export function DivinationPanel({
         return;
       }
 
-      setDraft(record.draft);
+      setDraft(
+        includeClassicsParam === null
+          ? record.draft
+          : {
+              ...record.draft,
+              includeClassics: ['1', 'true'].includes(includeClassicsParam.toLowerCase()),
+            },
+      );
       if (record.session.method === 'liuyao' && !record.session.liuyaoRange) {
         getDivinationSessionSummary(record.session);
       }
@@ -201,7 +209,7 @@ export function DivinationPanel({
       setError(cause instanceof Error ? cause.message : '占问记录无法恢复');
     }
     setIsSubmitting(false);
-  }, [displayMode, recordId]);
+  }, [displayMode, includeClassicsParam, recordId]);
 
   const summary = useMemo(
     () => (visibleSession ? getDivinationSessionSummary(visibleSession) : null),
@@ -302,6 +310,12 @@ export function DivinationPanel({
   function updateDraft<K extends keyof DivinationDraft>(key: K, value: DivinationDraft[K]) {
     if (lockedMethod && key === 'method' && value !== lockedMethod) {
       return;
+    }
+
+    if (key === 'includeClassics' && displayMode === 'result') {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.set('ic', value ? '1' : '0');
+      setSearchParams(nextSearchParams, { replace: true });
     }
 
     if (key !== 'includeClassics') {
