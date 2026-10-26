@@ -4,6 +4,7 @@ export const WU_MAO_CLIMATE_RULES: ClimateRule[] = [
   // “无庚无比印难从杀”跨寅卯两月规则登记于 wu/yin.ts，此处不再重复登记
   {
     id: 'mao-month-wu-bing-jia-first',
+    recommendationStems: ['丙', '甲'],
     label: '戊日卯月先丙后甲规则',
     description: '戊土生卯月，春湿土润，传统多以丙火暖局、甲木疏土，先后有序。',
     priority: 119,

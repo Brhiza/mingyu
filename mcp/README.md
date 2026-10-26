@@ -88,6 +88,10 @@
 
 所有 `_prompt` 工具都支持 `responseMode`：`full` 返回完整结构化结果和提示词，`summary` 返回提示词及轻量 `resultSummary`，`prompt-only` 只返回提示词。在线模式通常默认 `summary`，但非幂等的一次性起卦、抽牌、求签提示词默认 `full`；显式 `responseMode` 优先。`summary` 不缩小算法计算范围；`prompt-only` 会省略未返回结构化字段的结果整形。
 
+具有经典目录的东方术数提示词工具支持布尔参数 `includeClassics`，默认关闭。传 `true` 后，文本和 `structuredContent.prompt` 同步附加 `【经典依据】`；三种返回模式均保留 `structuredContent.classicalReferences`，包含书名、篇章、规则摘要、适用条件与核验链接，`textType` 固定为 `summary`。可用工具以 `tools/list` 是否列出该参数为准。
+
+合参或大类主题咨询按本次实际体系附加依据；`combinedBatch` 的八字分册只附八字条目，紫微分册只附紫微条目。未传或传 `false` 时保持原输出。
+
 ### 运行环境预设（Preset）与默认选项说明
 
 命语 MCP 根据运行方式使用两种预设。官方 `https://aov.cc/mcp` 由 RNG 上的 Docker/Node 服务运行；Cloudflare Pages 保留为可选自部署方式。预设用于选择默认返回数据和排盘范围：

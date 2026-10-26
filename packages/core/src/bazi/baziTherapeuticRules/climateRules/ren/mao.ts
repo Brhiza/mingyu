@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'mao-month-ren-wu-xin-visible',
+    recommendationStems: [],
     label: '壬日卯月戊辛两透题名规则',
     description: '壬水生卯月，先取戊土，次取辛金；戊辛两透，雁塔题名。',
     priority: 123,
@@ -17,6 +18,7 @@ export const REN_MAO_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'mao-month-ren-wu-xin-first',
+    recommendationStems: ['戊', '辛', '庚'],
     label: '壬日卯月先戊后辛规则',
     description: '壬水生卯月，寒气初除，专取戊土辛金，先戊后辛，庚金次之。',
     priority: 118,

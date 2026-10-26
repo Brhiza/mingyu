@@ -45,6 +45,7 @@ import {
   type BaziPromptSchool,
 } from './bazi-school';
 import { formatPromptSchoolGuidance } from './schools';
+import { appendClassicalReferences, formatClassicalReferences } from './classical-references';
 
 export {
   PROMPT_METHOD_CAPABILITIES,
@@ -280,6 +281,7 @@ function baziDefaultQuestion() {
 }
 
 export function buildBaziPromptForResult(params: {
+  includeClassics?: boolean;
   result: BaziChartResult;
   question?: string;
   topic?: BaziPromptTopic;
@@ -363,7 +365,11 @@ export function buildBaziPromptForResult(params: {
   const schoolSection = params.schools?.length
     ? buildBaziSchoolsPromptSection(params.result, params.schools, true, true)
     : buildBaziSchoolPromptSection(params.result, params.school, true, true);
-  return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
+  return appendClassicalReferences(
+    schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt,
+    'bazi',
+    params.includeClassics,
+  );
 }
 
 export { buildSerializableZiweiResult };
@@ -591,6 +597,7 @@ export function formatZiweiEvidenceText(
 }
 
 export function buildPublicZiweiPromptForRuntime(params: {
+  includeClassics?: boolean;
   result: ZiweiRuntimeFacts;
   question?: string;
   topic?: ZiweiPromptTopic;
@@ -698,19 +705,20 @@ export function buildPublicZiweiPromptForRuntime(params: {
     section('任务', selectedTask),
     section('问题', question),
   ]);
+  const classicalPrompt = appendClassicalReferences(prompt, 'ziwei', params.includeClassics);
   const selectedSchools = params.schools?.length ? params.schools : [];
   const schoolsText = formatPromptSchoolGuidance('ziwei', selectedSchools);
   if (schoolsText) {
     return insertBeforeHeading(
-      prompt,
+      classicalPrompt,
       '【问题】',
       `【${selectedSchools.length > 1 ? '多派合参' : '解读流派'}】\n${schoolsText}`,
     );
   }
   const legacySchool = params.school ? getZiweiSchoolGuidance(params.school) : '';
   return legacySchool
-    ? insertBeforeHeading(prompt, '【问题】', `【流派】\n${legacySchool}`)
-    : prompt;
+    ? insertBeforeHeading(classicalPrompt, '【问题】', `【流派】\n${legacySchool}`)
+    : classicalPrompt;
 }
 
 export const buildZiweiPromptForRuntime = buildPublicZiweiPromptForRuntime;
@@ -768,6 +776,7 @@ export function getNextCombinedBatchCursor(params: {
  */
 export function buildBaziZiweiBatchPromptForResults(
   params: {
+    includeClassics?: boolean;
     question: string;
     baziTopic?: BaziPromptTopic;
     ziweiTopic?: ZiweiPromptTopic;
@@ -808,6 +817,7 @@ export function buildBaziZiweiBatchPromptForResults(
     : undefined;
   if (params.section === 'bazi-natal') {
     return buildBaziPromptForResult({
+      includeClassics: params.includeClassics,
       result: params.baziResult,
       question: params.question,
       topic: params.baziTopic,
@@ -820,6 +830,7 @@ export function buildBaziZiweiBatchPromptForResults(
   }
   if (params.section === 'bazi-fortune') {
     return buildBaziPromptForResult({
+      includeClassics: params.includeClassics,
       result: params.baziResult,
       question: params.question,
       topic: params.baziTopic,
@@ -832,6 +843,7 @@ export function buildBaziZiweiBatchPromptForResults(
     });
   }
   return buildPublicZiweiPromptForRuntime({
+    includeClassics: params.includeClassics,
     result: params.ziweiResult,
     scope: 'full',
     topic: params.ziweiTopic,
@@ -844,6 +856,7 @@ export function buildBaziZiweiBatchPromptForResults(
 }
 
 export function buildBaziZiweiPromptForResults(params: {
+  includeClassics?: boolean;
   baziResult: BaziChartResult;
   ziweiResult: ZiweiRuntimeFacts;
   question: string;
@@ -924,6 +937,7 @@ export function buildBaziZiweiPromptForResults(params: {
       ? section('时间层说明', '紫微已给出运限范围，八字仍为本命资料，二者尚未对齐到同一日期。')
       : '',
     promptSelection ? section('解读选择', getPromptSelectionSection(promptSelection)) : '',
+    params.includeClassics ? formatClassicalReferences('bazi-ziwei') : '',
     section('任务', selectedTask),
     params.question.trim() ? section('问题', params.question.trim()) : '',
   ]);

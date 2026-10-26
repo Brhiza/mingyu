@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-ren-xin-jia-gui',
+    recommendationStems: ['辛', '甲', '癸'],
     label: '壬日未月先辛后甲规则',
     description: '壬水生未月，己土当权，原文先取辛金发源，再取甲木劈土，癸水随局参用。',
     priority: 120,
@@ -15,6 +16,7 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-ren-xin-jia-visible',
+    recommendationStems: ['辛', '甲'],
     label: '壬日未月辛甲两透规则',
     description:
       '壬水生未月，辛甲两透时，原文作富贵清高的传统格局取象；取用仍以辛金为先、甲木随后。',
@@ -30,6 +32,7 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-ren-xin-hidden-jia-visible',
+    recommendationStems: ['甲'],
     label: '壬日未月辛藏甲透异途武职规则',
     description:
       '壬水生未月，原文以辛藏甲透为异途武职的传统取象；须有辛藏支，不能把全无辛金误列此象。',

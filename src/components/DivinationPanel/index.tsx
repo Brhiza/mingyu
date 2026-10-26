@@ -36,6 +36,7 @@ import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
 import { BirthPlaceModal } from '@/pages/InputPage.BirthPlaceModal';
 import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
+import { appendClassicalReferences } from 'mingyu-core/prompt';
 
 type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
@@ -110,7 +111,7 @@ export function DivinationPanel({
   onRestart,
 }: DivinationPanelProps) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeCase, cases } = useActivePersonalCase();
   const [draft, setDraft] = useState<DivinationDraft>(() => {
     const initial = createDefaultDraft(
@@ -136,8 +137,20 @@ export function DivinationPanel({
   const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
   const recordId = searchParams.get('record');
+  const includeClassicsParam = searchParams.get('ic');
   const visibleSession = displayMode === 'result' && recordId !== restoredRecordId ? null : session;
-  const { copyState, shareState, handleCopy } = usePromptCopyShare(visibleSession?.prompt ?? '');
+  const promptText = useMemo(
+    () =>
+      visibleSession
+        ? appendClassicalReferences(
+            visibleSession.prompt,
+            visibleSession.method,
+            Boolean(draft.includeClassics),
+          )
+        : '',
+    [draft.includeClassics, visibleSession],
+  );
+  const { copyState, shareState, handleCopy } = usePromptCopyShare(promptText);
 
   useEffect(() => {
     if (displayMode === 'result') return;
@@ -176,7 +189,14 @@ export function DivinationPanel({
         return;
       }
 
-      setDraft(record.draft);
+      setDraft(
+        includeClassicsParam === null
+          ? record.draft
+          : {
+              ...record.draft,
+              includeClassics: ['1', 'true'].includes(includeClassicsParam.toLowerCase()),
+            },
+      );
       if (record.session.method === 'liuyao' && !record.session.liuyaoRange) {
         getDivinationSessionSummary(record.session);
       }
@@ -189,7 +209,7 @@ export function DivinationPanel({
       setError(cause instanceof Error ? cause.message : '占问记录无法恢复');
     }
     setIsSubmitting(false);
-  }, [displayMode, recordId]);
+  }, [displayMode, includeClassicsParam, recordId]);
 
   const summary = useMemo(
     () => (visibleSession ? getDivinationSessionSummary(visibleSession) : null),
@@ -292,8 +312,16 @@ export function DivinationPanel({
       return;
     }
 
-    setSession(null);
-    setError('');
+    if (key === 'includeClassics' && displayMode === 'result') {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.set('ic', value ? '1' : '0');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+
+    if (key !== 'includeClassics') {
+      setSession(null);
+      setError('');
+    }
     setDraft((current) => ({
       ...current,
       [key]: value,
@@ -384,10 +412,15 @@ export function DivinationPanel({
             key={recordId ?? visibleSession?.prompt ?? 'divination-result'}
             isSubmitting={isSubmitting}
             session={visibleSession}
+            promptText={promptText}
             summary={summary}
             methodLabelMap={methodLabelMap}
             copyState={copyState}
             shareState={shareState}
+            includeClassics={Boolean(draft.includeClassics)}
+            classicalMethod={visibleSession?.method ?? draft.method}
+            showClassicsOption={displayMode === 'result' || draft.method === 'random'}
+            onIncludeClassicsChange={(checked) => updateDraft('includeClassics', checked)}
             showHeading={displayMode === 'workspace'}
             assistantOnly={assistantOnly}
             onCopy={handleCopy}
@@ -402,7 +435,7 @@ export function DivinationPanel({
 
       {isShareModalOpen && visibleSession?.prompt ? (
         <PromptShareModal
-          promptText={visibleSession.prompt}
+          promptText={promptText}
           question={visibleSession.question || draft.question}
           methodName={methodLabelMap[visibleSession.method] || methodLabelMap[draft.method]}
           timeLabel={

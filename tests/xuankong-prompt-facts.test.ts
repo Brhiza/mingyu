@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateXuanKong } from '../packages/core/src/xuan_kong/index.ts';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
+import { appendClassicalReferences, formatClassicalReferences } from 'mingyu-core/prompt';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
 const nineYunWuChart = generateXuanKong({ year: 2024, sitMountain: '午' });
@@ -100,6 +101,16 @@ test('玄空在线任务书沿用盘面任务与传统依据，不二次追加�
   }
   assert.match(prompt, /【问题】\n这套宅的飞星怎么看？$/);
   assert.doesNotMatch(prompt, /@soul-atelier|mingyu-core|tyme4ts|来源：/);
+  const enabled = buildMetaphysicsPrompt(result.prompt, '这套宅的飞星怎么看？', {
+    method: 'xuankong',
+    currentTime: new Date('2026-05-19T04:00:00Z'),
+    includeClassics: true,
+  });
+  assert.equal(enabled, appendClassicalReferences(prompt, 'xuankong', true).trim());
+  assert.ok(enabled.includes(formatClassicalReferences('xuankong')));
+  assert.equal(extractTraditionalBody(enabled), originalTradition);
+  assert.equal(enabled.split('【经典依据】').length - 1, 1);
+  assert.deepEqual(result, nineYunWuChart);
 });
 
 test('玄空命中组合集中列出实际宫位', () => {

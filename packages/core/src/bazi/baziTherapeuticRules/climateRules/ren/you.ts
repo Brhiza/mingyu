@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-ren-jia-drain-soil',
+    recommendationStems: ['甲', '庚'],
     label: '壬日酉月甲木为先规则',
     description:
       '壬水生酉月，原文专用甲木制戊土，庚金次之；庚金若破甲，甲木作用须另核。无甲时另用金发水源。',
@@ -16,6 +17,7 @@ export const REN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-ren-no-jia-gold-source',
+    recommendationStems: ['庚', '辛'],
     label: '壬日酉月无甲用金发源规则',
     description: '壬水生酉月，原文以甲木为专用；无甲时另以金发水源。',
     priority: 119,
@@ -29,6 +31,7 @@ export const REN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-ren-jia-wu',
+    recommendationStems: ['甲'],
     label: '壬日酉月戊病甲制规则',
     description: '壬水生酉月，戊土为病、甲木制戊；甲透且未受庚破时，原文另有清贵取象。',
     priority: 120,

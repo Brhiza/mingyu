@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-ren-jia-geng-first',
+    recommendationStems: ['甲', '庚'],
     label: '壬日辰月先甲后庚规则',
     description: '壬水生辰月，戊土司权，先用甲木疏土，次取庚金发源。',
     priority: 118,
@@ -15,6 +16,7 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-ren-jia-geng-visible',
+    recommendationStems: [],
     label: '壬日辰月甲庚俱透科甲规则',
     description: '壬水生辰月，甲庚俱透，科甲定然。',
     priority: 123,
@@ -29,6 +31,7 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-ren-jia-visible-geng-hidden',
+    recommendationStems: [],
     label: '壬日辰月甲透庚藏修齐规则',
     description: '壬水生辰月，甲透而庚藏，修齐品格。',
     priority: 122,

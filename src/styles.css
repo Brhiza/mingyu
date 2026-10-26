@@ -57,7 +57,16 @@
     radial-gradient(circle at top left, var(--accent-soft), transparent 34%),
     radial-gradient(circle at top right, var(--secondary-soft), transparent 32%),
     linear-gradient(180deg, var(--surface-page) 0%, var(--surface-page-end) 100%);
-  font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    sans-serif;
   line-height: 1.5;
   font-weight: 400;
 }

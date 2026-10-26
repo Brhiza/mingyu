@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-wu-bing-jia-first',
+    recommendationStems: ['丙', '甲'],
     label: '戊日丑月先丙后甲规则',
     description: '戊土生丑月，湿寒交加，传统多以丙火暖局、甲木疏土，先后有序。',
     priority: 121,

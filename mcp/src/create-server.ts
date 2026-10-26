@@ -35,7 +35,18 @@ import {
   getToolTitle,
   type ToolCatalogItem,
 } from './catalog/tool-catalog.js';
-import { promptOutputSchema, promptResponseModeShape, type PromptResponseMode } from './schemas.js';
+import {
+  classicalPromptOutputSchema,
+  includeClassicsShape,
+  promptOutputSchema,
+  promptResponseModeShape,
+  type PromptResponseMode,
+} from './schemas.js';
+import {
+  appendClassicalReferences,
+  getClassicalReferences,
+  supportsClassicalReferences,
+} from 'mingyu-core/prompt';
 import { applyPromptResponseMode, createErrorToolResult, getErrorMessage } from './tool-results.js';
 import {
   CallToolRequestSchema,
@@ -142,21 +153,76 @@ function hasSchemaMeta(value: unknown): value is {
   return isRecord(value) && typeof value.meta === 'function';
 }
 
-function addPromptResponseMode(inputSchema: unknown): unknown {
+function addPromptOptions(inputSchema: unknown, includeClassics: boolean): unknown {
+  const shape = {
+    ...promptResponseModeShape,
+    ...(includeClassics ? includeClassicsShape : {}),
+  };
   if (hasSchemaExtend(inputSchema)) {
-    const extendedSchema = inputSchema.extend(promptResponseModeShape);
+    const extendedSchema = inputSchema.extend(shape);
     const metadata = hasSchemaMeta(inputSchema) ? inputSchema.meta() : undefined;
     return metadata && hasSchemaMeta(extendedSchema)
       ? extendedSchema.meta(metadata)
       : extendedSchema;
   }
   if (isRecord(inputSchema) && isRecord(inputSchema.shape)) {
-    return { ...inputSchema.shape, ...promptResponseModeShape };
+    return { ...inputSchema.shape, ...shape };
   }
   if (isRecord(inputSchema)) {
-    return { ...inputSchema, ...promptResponseModeShape };
+    return { ...inputSchema, ...shape };
   }
-  return promptResponseModeShape;
+  return shape;
+}
+
+function getClassicalPromptMethod(endpoint?: string) {
+  if (!endpoint?.endsWith('/prompt')) return undefined;
+  const method = endpoint
+    .replace(/^\//, '')
+    .replace(/^(divination|metaphysics)\//, '')
+    .replace(/\/prompt$/, '')
+    .replace(/\/compatibility$/, '')
+    .replace('qimen/lifetime', 'qimen-lifetime');
+  return method === 'consultation/thematic' ? 'bazi-ziwei' : method;
+}
+
+function addClassicalReferences(
+  result: CallToolResult,
+  method: string,
+  args: Record<string, unknown>,
+  thematic: boolean,
+): CallToolResult {
+  const content = result.structuredContent;
+  if (result.isError || !isRecord(content) || typeof content.prompt !== 'string') return result;
+  const combinedBatch = isRecord(content.batch) ? content.batch.combinedBatch : undefined;
+  const section = isRecord(combinedBatch) ? combinedBatch.section : undefined;
+  const calculated = isRecord(content.result) ? content.result : undefined;
+  const actualMethod =
+    typeof section === 'string'
+      ? section.startsWith('bazi-')
+        ? 'bazi'
+        : 'ziwei'
+      : thematic
+        ? typeof calculated?.methodId === 'string'
+          ? calculated.methodId
+          : typeof args.methodId === 'string'
+            ? args.methodId
+            : args.system === 'bazi' || args.system === 'ziwei'
+              ? args.system
+              : 'bazi-ziwei'
+        : method;
+  if (!supportsClassicalReferences(actualMethod)) return result;
+  const prompt = appendClassicalReferences(content.prompt, actualMethod, true);
+  return {
+    ...result,
+    structuredContent: {
+      ...content,
+      prompt,
+      classicalReferences: getClassicalReferences(actualMethod),
+    },
+    content: result.content.map((item) =>
+      item.type === 'text' && item.text === content.prompt ? { ...item, text: prompt } : item,
+    ),
+  };
 }
 
 function extractPublicMetadata(
@@ -287,6 +353,9 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
         : defaultResponseMode;
     const description = getToolDescription(name, config.description, toolDefaultResponseMode);
     const toolMeta = getToolMetadata(name);
+    const classicalMethod = getClassicalPromptMethod(toolMeta?.endpoint);
+    const hasClassics =
+      isPromptTool && classicalMethod !== undefined && supportsClassicalReferences(classicalMethod);
     const example = getToolExample(name);
     const metaRecord = {
       ...(toolMeta ?? {}),
@@ -296,7 +365,7 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
     const _meta = Object.keys(metaRecord).length ? metaRecord : undefined;
 
     const inputSchema = isPromptTool
-      ? addPromptResponseMode(config.inputSchema)
+      ? addPromptOptions(config.inputSchema, hasClassics)
       : config.inputSchema;
 
     const wrappedCallback = async (args: Record<string, unknown>, extra: unknown) => {
@@ -310,6 +379,14 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
       const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
 
       if (isPromptTool) {
+        if (hasClassics && args.includeClassics === true) {
+          result = addClassicalReferences(
+            result,
+            classicalMethod!,
+            args,
+            toolMeta?.endpoint === '/consultation/thematic/prompt',
+          );
+        }
         const responseMode = (args as { responseMode?: PromptResponseMode }).responseMode;
         const effectiveResponseMode: PromptResponseMode =
           responseMode === 'prompt-only' || responseMode === 'summary' || responseMode === 'full'
@@ -327,7 +404,15 @@ export function createMingyuMcpServer(options: MingyuMcpServerOptions = {}): Mcp
       return result;
     };
 
-    const enrichedConfig = { ...config, title, inputSchema, annotations, description, _meta };
+    const enrichedConfig = {
+      ...config,
+      title,
+      inputSchema,
+      ...(hasClassics ? { outputSchema: classicalPromptOutputSchema } : {}),
+      annotations,
+      description,
+      _meta,
+    };
     return { name, config: enrichedConfig, callback: wrappedCallback };
   }
 

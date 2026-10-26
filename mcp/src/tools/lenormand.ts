@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import type { LenormandSpreadType } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
@@ -57,7 +53,7 @@ export function registerLenormandTool(server: McpServer) {
         const result = buildLenormandResult(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '雷诺曼抽牌失败'));
+        return createErrorToolResult(error, { message: '雷诺曼抽牌失败' });
       }
     },
   );
@@ -82,7 +78,7 @@ export function registerLenormandTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成雷诺曼提示词失败'));
+        return createErrorToolResult(error, { message: '生成雷诺曼提示词失败' });
       }
     },
   );

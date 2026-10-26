@@ -4,6 +4,7 @@ export const JI_WU_CLIMATE_RULES: ClimateRule[] = [
   // “己日夏月无癸有壬权代”跨巳午未三月规则登记于 ji/si.ts，此处不再重复登记
   {
     id: 'wu-month-ji-gui-bing-first',
+    recommendationStems: ['癸', '丙'],
     label: '己日午月先癸后丙规则',
     description: '己土生午月，夏燥正盛，传统多以癸水润燥为先、丙火暖局为佐。',
     priority: 120,

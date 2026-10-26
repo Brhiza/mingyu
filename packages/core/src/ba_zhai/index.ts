@@ -18,6 +18,17 @@ import {
   type SitFacingPosition,
 } from '../direction';
 import { analyzeBaZhaiEvidence } from './evidence';
+import { MingyuCoreError } from '../shared/result';
+
+function invalidBaZhaiInput(field: string, message: string): never {
+  throw new MingyuCoreError({
+    code: 'INPUT_VALIDATION_FAILED',
+    category: 'validation',
+    field,
+    message,
+    recoverable: true,
+  });
+}
 import { evaluateBaZhaiRegulation, type BaZhaiGasRegulationResult } from './suppression';
 
 export { analyzeBaZhaiEvidence } from './evidence';
@@ -160,7 +171,7 @@ export function getBaZhaiSitFacingFromDoorDegree(doorToInteriorDegree: number): 
     doorToInteriorDegree < 0 ||
     doorToInteriorDegree > 360
   ) {
-    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+    invalidBaZhaiInput('doorToInteriorDegree', '大门朝向屋内的度数必须是 0-360 之间的有限数字。');
   }
   return getSitFacingFromFacingDegree((doorToInteriorDegree + 180) % 360);
 }
@@ -189,28 +200,34 @@ function resolveDoorMeasurement(input: BaZhaiDoorDegreeInput) {
     input.doorToInteriorDegree < 0 ||
     input.doorToInteriorDegree > 360
   ) {
-    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+    invalidBaZhaiInput('doorToInteriorDegree', '大门朝向屋内的度数必须是 0-360 之间的有限数字。');
   }
   const reference = input.northReference ?? 'unspecified';
   const declination = input.magneticDeclinationDegrees;
   const uncertainty = input.measurementUncertaintyDegrees ?? 0;
   if (!['unspecified', 'magnetic', 'true'].includes(reference)) {
-    throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
+    invalidBaZhaiInput('northReference', 'northReference 只能是 unspecified、magnetic 或 true。');
   }
   if (!Number.isFinite(uncertainty) || uncertainty < 0 || uncertainty > 45) {
-    throw new Error('测量误差必须是 0-45 之间的有限数字。');
+    invalidBaZhaiInput('measurementUncertaintyDegrees', '测量误差必须是 0-45 之间的有限数字。');
   }
   if (
     declination !== undefined &&
     (!Number.isFinite(declination) || declination < -30 || declination > 30)
   ) {
-    throw new Error('磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。');
+    invalidBaZhaiInput(
+      'magneticDeclinationDegrees',
+      '磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。',
+    );
   }
   if (reference === 'magnetic' && declination === undefined) {
-    throw new Error('读数采用磁北时必须提供当地磁偏角。');
+    invalidBaZhaiInput('magneticDeclinationDegrees', '读数采用磁北时必须提供当地磁偏角。');
   }
   if (reference !== 'magnetic' && declination !== undefined) {
-    throw new Error('只有 northReference 为 magnetic 时才应提供磁偏角。');
+    invalidBaZhaiInput(
+      'magneticDeclinationDegrees',
+      '只有 northReference 为 magnetic 时才应提供磁偏角。',
+    );
   }
   const trueNorthDegree = normalizeDegree(
     input.doorToInteriorDegree + (reference === 'magnetic' ? declination! : 0),
@@ -263,50 +280,51 @@ function resolveEffectiveBirthYear(input: BaZhaiInput): {
   status: '已核定' | '待复核';
 } {
   if (!Number.isSafeInteger(input.birthYear) || input.birthYear! < 1 || input.birthYear! > 9999) {
-    throw new Error('出生年份必须是 1-9999 之间的整数。');
+    invalidBaZhaiInput('birthYear', '出生年份必须是 1-9999 之间的整数。');
   }
   const year = input.birthYear!;
   const hasMonth = input.birthMonth !== undefined;
   const hasDay = input.birthDay !== undefined;
-  if (hasMonth !== hasDay) throw new Error('八宅立春换年需同时提供出生月和出生日。');
+  if (hasMonth !== hasDay)
+    invalidBaZhaiInput('birthMonth', '八宅立春换年需同时提供出生月和出生日。');
   if (input.birthHour === undefined && input.birthMinute !== undefined) {
-    throw new Error('提供出生分钟时需同时提供出生小时。');
+    invalidBaZhaiInput('birthHour', '提供出生分钟时需同时提供出生小时。');
   }
   if (
     input.birthSecond !== undefined &&
     (input.birthHour === undefined || input.birthMinute === undefined)
   ) {
-    throw new Error('提供出生秒数时需同时提供出生小时和分钟。');
+    invalidBaZhaiInput('birthHour', '提供出生秒数时需同时提供出生小时和分钟。');
   }
   if (input.birthHour === undefined && input.birthTimezone !== undefined) {
-    throw new Error('提供出生时区时需同时提供出生小时。');
+    invalidBaZhaiInput('birthHour', '提供出生时区时需同时提供出生小时。');
   }
   if (input.birthHour === undefined && input.birthTimeZoneId !== undefined) {
-    throw new Error('提供出生历史时区时需同时提供出生小时。');
+    invalidBaZhaiInput('birthHour', '提供出生历史时区时需同时提供出生小时。');
   }
   if (
     input.birthHour !== undefined &&
     (!Number.isInteger(input.birthHour) || input.birthHour < 0 || input.birthHour > 23)
   ) {
-    throw new Error('出生小时需在 0-23 之间。');
+    invalidBaZhaiInput('birthHour', '出生小时需在 0-23 之间。');
   }
   if (
     input.birthMinute !== undefined &&
     (!Number.isInteger(input.birthMinute) || input.birthMinute < 0 || input.birthMinute > 59)
   ) {
-    throw new Error('出生分钟需在 0-59 之间。');
+    invalidBaZhaiInput('birthMinute', '出生分钟需在 0-59 之间。');
   }
   if (
     input.birthSecond !== undefined &&
     (!Number.isInteger(input.birthSecond) || input.birthSecond < 0 || input.birthSecond > 59)
   ) {
-    throw new Error('出生秒数需在 0-59 之间。');
+    invalidBaZhaiInput('birthSecond', '出生秒数需在 0-59 之间。');
   }
   if (
     input.birthTimezone !== undefined &&
     (!Number.isFinite(input.birthTimezone) || input.birthTimezone < -12 || input.birthTimezone > 14)
   ) {
-    throw new Error('出生时区需在 UTC-12 至 UTC+14 之间。');
+    invalidBaZhaiInput('birthTimezone', '出生时区需在 UTC-12 至 UTC+14 之间。');
   }
   if (
     !hasMonth &&
@@ -314,7 +332,7 @@ function resolveEffectiveBirthYear(input: BaZhaiInput): {
       input.birthTimezone !== undefined ||
       input.birthTimeZoneId !== undefined)
   ) {
-    throw new Error('提供出生时刻或时区时需同时提供出生月日。');
+    invalidBaZhaiInput('birthMonth', '提供出生时刻或时区时需同时提供出生月日。');
   }
   if (!hasMonth || !hasDay) {
     return {
@@ -326,11 +344,11 @@ function resolveEffectiveBirthYear(input: BaZhaiInput): {
   const month = input.birthMonth!;
   const day = input.birthDay!;
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error('出生月份需在 1-12 之间。');
+    invalidBaZhaiInput('birthMonth', '出生月份需在 1-12 之间。');
   }
   const maxDay = daysInGregorianMonth(year, month);
   if (!Number.isInteger(day) || day < 1 || day > maxDay) {
-    throw new Error(`出生日期需在 1-${maxDay} 之间。`);
+    invalidBaZhaiInput('birthDay', `出生日期需在 1-${maxDay} 之间。`);
   }
   // 完全缺少时刻时沿用北京时间正午口径；部分时刻按其可能区间核对立春。
   const lichun = SolarTerm.fromIndex(year, 3).getJulianDay().getSolarTime();
@@ -422,7 +440,7 @@ function resolveMingGua(input: BaZhaiInput): {
       note: `${resolved.note}${candidateNote}`,
     };
   }
-  throw new Error('需提供 birthYear+gender 或直接给定 mingGua。');
+  invalidBaZhaiInput('mingGua', '需提供 birthYear+gender 或直接给定 mingGua。');
 }
 
 function formatBirthYearBasis(input: BaZhaiResult['calculationInput']): string {
@@ -641,7 +659,13 @@ function analyzeBaZhaiByMeasurement(
   const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(measurement.trueNorthDegree);
   if (facing.isBoundary && measurement.uncertainty === 0) {
     const boundary = facing.boundaryMountains?.join('向与') ?? '两个二十四山';
-    throw new Error(`当前度数正好位于${boundary}向的分界线，请重新测量。`);
+    throw new MingyuCoreError({
+      code: 'INPUT_BOUNDARY_AMBIGUOUS',
+      category: 'boundary',
+      field: 'doorToInteriorDegree',
+      message: `当前度数正好位于${boundary}向的分界线，请重新测量。`,
+      recoverable: true,
+    });
   }
   const result = analyzeBaZhai({ ...birthInput, sitMountain: sit.mountain });
   const candidateDirections: BaZhaiDirectionCandidate[] = measurement.candidateDirections.map(

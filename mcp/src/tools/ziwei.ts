@@ -1,5 +1,10 @@
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
+import {
+  planZiweiRequest,
+  resolveZiweiScopeBatchPlan,
+  resolveZiweiBatchPlan,
+} from '../../../src/lib/public-api/natal-request-plan.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import {
@@ -19,7 +24,6 @@ import {
   ZIWEI_SCHOOLS,
   buildSerializableZiweiResult,
   buildZiweiPromptForRuntime,
-  getZiweiPromptCalculationScopes,
   type PromptMode,
   type ZiweiPromptScope,
   type ZiweiPromptTopic,
@@ -31,11 +35,7 @@ import {
   withErrorOutputSchema,
   ziweiOutputSchema,
 } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { applyMcpPromptSelection, readMcpPromptSelection } from './prompt-helpers.js';
 import {
   assertMcpBirthDate,
@@ -58,6 +58,7 @@ export const ziweiSchema = z.object({
     .max(12)
     .optional()
     .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；提供完整时分后从钟表推导，可省略本字段'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一资料范围，优先于旧版 promptScope'),
   promptScope: z
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
@@ -148,6 +149,7 @@ const ziweiPromptSchema = ziweiSchema.extend({
 });
 
 const ziweiCompatibilityBirthSchema = ziweiSchema.omit({
+  scope: true,
   promptScope: true,
   scopeDate: true,
   scopeHourIndex: true,
@@ -179,19 +181,6 @@ const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
 });
 
-function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope | undefined {
-  const mapped: Record<string, ZiweiPromptScope | undefined> = {
-    natal: 'origin',
-    full: 'full',
-    decadal: 'decadal',
-    yearly: 'yearly',
-    monthly: 'monthly',
-    daily: 'daily',
-    hourly: 'hourly',
-  };
-  return scope === undefined ? undefined : mapped[scope];
-}
-
 export type McpZiweiBatchCursor = {
   startIndex?: number;
   limit?: number;
@@ -216,33 +205,7 @@ export function resolveMcpZiweiScopeBatch(
   scope: ZiweiPromptScope,
   value?: McpZiweiBatchCursor,
 ): { scopes: ScopeType[]; metadata?: McpZiweiScopeBatchMetadata } {
-  const requestedScopes = getZiweiPromptCalculationScopes(scope);
-  if (value === undefined) return { scopes: requestedScopes };
-  if (scope !== 'full') {
-    throw new Error('scopeBatch 仅在紫微 promptScope=full 时生效。');
-  }
-  const availableScopes = requestedScopes;
-  const startIndex = value.startIndex ?? 0;
-  const limit = value.limit ?? 1;
-  if (startIndex >= availableScopes.length) {
-    throw new Error('scopeBatch.startIndex 已超出 full 紫微资料范围。');
-  }
-  if (limit !== 1) {
-    throw new Error('scopeBatch.limit 必须为 1。');
-  }
-  const endIndexExclusive = Math.min(startIndex + limit, availableScopes.length);
-  const scopes: ScopeType[] = availableScopes.slice(startIndex, endIndexExclusive);
-  return {
-    scopes,
-    metadata: {
-      requestedScope: 'full',
-      scopes,
-      startIndex,
-      endIndexExclusive,
-      totalScopes: availableScopes.length,
-      nextIndex: endIndexExclusive < availableScopes.length ? endIndexExclusive : null,
-    },
-  };
+  return resolveZiweiScopeBatchPlan(scope, value);
 }
 
 export function resolveMcpZiweiBatchOptions(
@@ -255,34 +218,7 @@ export function resolveMcpZiweiBatchOptions(
   fortuneBatch?: McpZiweiBatchCursor;
   independentBatch?: 'scope' | 'fortune';
 } {
-  if (scopeBatch !== undefined && fortuneBatch !== undefined) {
-    throw new Error('scopeBatch 与 fortuneBatch 不能同时传入。');
-  }
-  const scopeResolution = resolveMcpZiweiScopeBatch(scope, scopeBatch);
-  const supportsFortuneBatch = scope === 'full' || scope === 'decadal';
-  if (fortuneBatch !== undefined && !supportsFortuneBatch) {
-    throw new Error('fortuneBatch 仅在紫微 promptScope=full 或 decadal 时生效。');
-  }
-  if (scopeBatch !== undefined) {
-    return {
-      scopes: scopeResolution.scopes,
-      scopeBatch: scopeResolution.metadata,
-      independentBatch: 'scope',
-    };
-  }
-  if (fortuneBatch !== undefined) {
-    if (fortuneBatch.limit !== undefined && fortuneBatch.limit !== 1) {
-      throw new Error('fortuneBatch.limit 必须为 1。');
-    }
-    return {
-      scopes: [],
-      fortuneBatch: { ...fortuneBatch, limit: 1 },
-      independentBatch: 'fortune',
-    };
-  }
-  return {
-    scopes: Array.from(new Set(['origin' as ScopeType, ...scopeResolution.scopes])),
-  };
+  return resolveZiweiBatchPlan(scope, scopeBatch, fortuneBatch);
 }
 
 export function getMcpZiweiBatchMetadata(
@@ -409,22 +345,9 @@ export function registerZiweiTool(server: McpServer) {
     async (args) => {
       try {
         const input = buildMcpZiweiChartInput(args);
-        const scope = (args.promptScope ?? 'decadal') as ZiweiPromptScope;
-        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
-        const currentContext = getDefaultHoroscopeContext();
-        const horoscopeContext = {
-          dateStr: args.scopeDate ?? currentContext.dateStr,
-          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
-        };
-        const fortuneRange =
-          batchOptions.independentBatch === 'scope'
-            ? undefined
-            : buildMcpZiweiFortuneRangeOptions(
-                scope,
-                horoscopeContext.dateStr,
-                horoscopeContext.hourIndex,
-                batchOptions.fortuneBatch,
-              );
+        const plan = planZiweiRequest(args, getDefaultHoroscopeContext());
+        const { horoscopeContext, fortuneRange } = plan;
+        const batchOptions = plan;
         const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
@@ -439,9 +362,10 @@ export function registerZiweiTool(server: McpServer) {
             ...(batch ? { batch } : {}),
           },
           args.detailMode,
+          { calculationSystem: 'ziwei' },
         );
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '排盘失败'));
+        return createErrorToolResult(error, { message: '排盘失败' });
       }
     },
   );
@@ -457,32 +381,9 @@ export function registerZiweiTool(server: McpServer) {
     async (args) => {
       try {
         const input = buildMcpZiweiChartInput(args);
-        const selection = readMcpPromptSelection({
-          methodId: 'ziwei',
-          topicId: args.topicId,
-          subtopicId: args.subtopicId,
-          scope: args.scope,
-        });
-        const scope = (
-          args.scope !== undefined
-            ? mapPromptScopeToZiweiScope(selection?.scope)
-            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
-        ) as ZiweiPromptScope;
-        const batchOptions = resolveMcpZiweiBatchOptions(scope, args.scopeBatch, args.fortuneBatch);
-        const currentContext = getDefaultHoroscopeContext();
-        const horoscopeContext = {
-          dateStr: args.scopeDate ?? currentContext.dateStr,
-          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
-        };
-        const fortuneRange =
-          batchOptions.independentBatch === 'scope'
-            ? undefined
-            : buildMcpZiweiFortuneRangeOptions(
-                scope,
-                horoscopeContext.dateStr,
-                horoscopeContext.hourIndex,
-                batchOptions.fortuneBatch,
-              );
+        const plan = planZiweiRequest(args, getDefaultHoroscopeContext());
+        const { scope, selection, horoscopeContext, fortuneRange } = plan;
+        const batchOptions = plan;
         const result = await calculateZiweiFactsForScopes(input, batchOptions.scopes, undefined, {
           ...(fortuneRange ? { fortuneRange } : {}),
           horoscopeContext,
@@ -506,7 +407,7 @@ export function registerZiweiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成紫微提示词失败'));
+        return createErrorToolResult(error, { message: '生成紫微提示词失败' });
       }
     },
   );
@@ -549,7 +450,7 @@ export function registerZiweiTool(server: McpServer) {
           args.detailMode,
         );
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '紫微双盘计算失败'));
+        return createErrorToolResult(error, { message: '紫微双盘计算失败' });
       }
     },
   );
@@ -613,7 +514,7 @@ export function registerZiweiTool(server: McpServer) {
           ),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成紫微双盘提示词失败'));
+        return createErrorToolResult(error, { message: '生成紫微双盘提示词失败' });
       }
     },
   );

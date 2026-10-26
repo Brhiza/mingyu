@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
 import {
@@ -69,7 +65,7 @@ export function registerJinkoujueTool(server: McpServer) {
         const result = generateJinkoujue(buildJinkoujueInput(args));
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '金口诀起课失败'));
+        return createErrorToolResult(error, { message: '金口诀起课失败' });
       }
     },
   );
@@ -95,7 +91,7 @@ export function registerJinkoujueTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成金口诀提示词失败'));
+        return createErrorToolResult(error, { message: '生成金口诀提示词失败' });
       }
     },
   );

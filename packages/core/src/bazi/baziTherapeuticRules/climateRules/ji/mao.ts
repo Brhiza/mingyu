@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'mao-month-ji-follow-kill-no-resource',
+    recommendationStems: [],
     label: '己日卯月无比印从杀贵规则',
     description:
       '己土生卯月，木势偏盛而比劫印星明暗皆不见时，传统有"无比印，从杀者贵"之论，不宜仍按普通春土调候一概处理。',
@@ -20,6 +21,7 @@ export const JI_MAO_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'mao-month-ji-jia-gui-first',
+    recommendationStems: ['甲', '癸'],
     label: '己日卯月先甲后癸规则',
     description: '己土生卯月，原文先取甲木疏土、次取癸水润土；甲木被合时须另核其作用。',
     priority: 119,

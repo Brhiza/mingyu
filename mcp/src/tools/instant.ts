@@ -6,11 +6,7 @@ import {
   type InstantObserver,
 } from 'mingyu-core/instant';
 import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { readMcpCustomDate } from './input-helpers.js';
 
 const instantObserverSchema = z
@@ -74,7 +70,7 @@ export function registerInstantTool(server: McpServer) {
         });
         return createStructuredToolResult({ result }, parsed.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '即时排盘失败'));
+        return createErrorToolResult(error, { message: '即时排盘失败' });
       }
     },
   );

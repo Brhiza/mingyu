@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { baziCalculator, analyzeBaziCompatibility, type Person } from 'mingyu-core/bazi';
 import {
-  baziCalculator,
-  analyzeBaziCompatibility,
-  buildBaziFortuneSelectionForDate,
-  buildCurrentBaziFortuneSelectionForScope,
-  buildFortuneSelectionContext,
-  type BaziFortuneSelectionValue,
-  type Person,
-} from 'mingyu-core/bazi';
-import { formatCalculatedBaziFortuneBatch } from 'mingyu-core/prompt';
+  planBaziPromptRequest,
+  calculateBaziPromptPlan,
+} from '../../../src/lib/public-api/natal-request-plan.js';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
@@ -25,11 +20,7 @@ import {
   type PromptMode,
 } from '../../../src/lib/public-api/prompt-builders.js';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import {
   assertMcpBirthDate,
   readMcpIntegerLikeInRange,
@@ -224,38 +215,6 @@ const baziPromptSchema = baziSchema.extend({
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步可用的八字岁运层'),
 });
 
-function mapPromptScopeToBaziFortuneScope(scope: string | undefined) {
-  const mapped: Record<string, (typeof BAZI_FORTUNE_SCOPES)[number] | undefined> = {
-    natal: 'natal',
-    full: 'full',
-    decadal: 'dayun',
-    yearly: 'year',
-    monthly: 'month',
-    daily: 'day',
-  };
-  return scope === undefined ? undefined : mapped[scope];
-}
-
-function readMcpBaziFortuneDateValue(
-  args: z.infer<typeof baziPromptSchema>,
-  scope: (typeof BAZI_FORTUNE_SCOPES)[number],
-) {
-  if (args.baziFortuneDate === undefined) return undefined;
-  if (!['dayun', 'year', 'month', 'day'].includes(scope)) {
-    throw new Error('baziFortuneDate 仅适用于 dayun、year、month 或 day 八字命限范围。');
-  }
-  const conflictingField = [
-    ['baziFortuneCycleIndex', args.baziFortuneCycleIndex],
-    ['baziFortuneYear', args.baziFortuneYear],
-    ['baziFortuneMonth', args.baziFortuneMonth],
-    ['baziFortuneDay', args.baziFortuneDay],
-  ].find(([, value]) => value !== undefined)?.[0];
-  if (conflictingField) {
-    throw new Error(`baziFortuneDate 不能与 ${conflictingField} 同时使用。`);
-  }
-  return args.baziFortuneDate;
-}
-
 type BaziPersonInput = Omit<
   z.infer<typeof baziSchema>,
   'scopeBatch' | 'fortuneBatch' | 'combinedBatch' | 'rangeBatch' | 'birthTimeRange'
@@ -430,9 +389,10 @@ export function registerBaziTool(server: McpServer) {
               : {}),
           },
           args.detailMode,
+          { calculationSystem: 'bazi' },
         );
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '排盘失败'));
+        return createErrorToolResult(error, { message: '排盘失败' });
       }
     },
   );
@@ -448,132 +408,15 @@ export function registerBaziTool(server: McpServer) {
     async (args) => {
       try {
         const person = buildBaziPerson(args);
-        assertUnknownTimeBatchForSingleChart(person, args.unknownTimeBatch);
-        const selection = readMcpPromptSelection({
-          methodId: 'bazi',
-          topicId: args.topicId,
-          subtopicId: args.subtopicId,
-          scope: args.scope,
-        });
-        const explicitFortuneScope =
-          args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
-        if (person.isThreePillars && args.fortuneBatch) {
-          throw new Error('出生时辰未知时不能使用 fortuneBatch，请先逐页续取本命候选。');
-        }
-        if (
-          person.isThreePillars &&
-          ((explicitFortuneScope && explicitFortuneScope !== 'natal') || args.baziFortuneDate)
-        ) {
-          throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
-        }
-        const requestedFortuneScope = explicitFortuneScope ?? 'dayun';
-        if (args.fortuneBatch && requestedFortuneScope !== 'full') {
-          throw new Error('八字 fortuneBatch 仅支持完整命限。');
-        }
-        const unknownTimeCalculation = person.isThreePillars
-          ? calculateMcpBaziSingleChart(person, args.unknownTimeBatch)
-          : undefined;
-        const batchCalculation =
-          !person.isThreePillars && args.fortuneBatch
-            ? baziCalculator.calculateBaziBatch(person, {
-                section: 'fortune',
-                startIndex: args.fortuneBatch.startIndex ?? 0,
-              })
-            : undefined;
-        const result =
-          unknownTimeCalculation?.result ??
-          batchCalculation?.result ??
-          baziCalculator.calculateBazi(person);
-        const initialFortuneScope =
-          explicitFortuneScope ?? (result.isThreePillars ? 'natal' : 'dayun');
-        // 通用 scope 只指定层级（如 decadal），仍应自动定位当前阶段；只有
-        // baziFortuneScope 携带具体参数时才按显式选择严格校验。
-        const useCurrentDefaults =
-          args.baziFortuneScope === undefined && args.baziFortuneDate === undefined;
-        const currentSelection =
-          useCurrentDefaults && initialFortuneScope !== 'natal' && initialFortuneScope !== 'full'
-            ? buildCurrentBaziFortuneSelectionForScope(result, initialFortuneScope)
-            : null;
-        const fortuneScope =
-          useCurrentDefaults &&
-          initialFortuneScope !== 'natal' &&
-          initialFortuneScope !== 'full' &&
-          !currentSelection
-            ? 'natal'
-            : initialFortuneScope;
-        const fortuneTextBatch = args.fortuneBatch
-          ? formatCalculatedBaziFortuneBatch(result, batchCalculation!.batch!)
-          : undefined;
-        const returnedResult = result;
-        const requiresCycle = fortuneScope === 'dayun';
-        const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
-        const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
-        const requiresDay = fortuneScope === 'day';
-        const fortuneDate = readMcpBaziFortuneDateValue(args, fortuneScope);
-        const dateSelection = fortuneDate
-          ? buildBaziFortuneSelectionForDate(
-              result,
-              fortuneScope as Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
-              fortuneDate,
-            )
-          : undefined;
-        if (
-          requiresCycle &&
-          args.baziFortuneCycleIndex === undefined &&
-          dateSelection?.cycleIndex === undefined &&
-          currentSelection?.cycleIndex === undefined
-        ) {
-          throw new Error('选择大运时必须提供 baziFortuneCycleIndex。');
-        }
-        if (
-          requiresYear &&
-          args.baziFortuneYear === undefined &&
-          dateSelection === undefined &&
-          currentSelection?.year === undefined
-        ) {
-          throw new Error('选择流年、流月或流日时必须提供 baziFortuneYear。');
-        }
-        if (
-          requiresMonth &&
-          args.baziFortuneMonth === undefined &&
-          dateSelection === undefined &&
-          currentSelection?.month === undefined
-        ) {
-          throw new Error('选择流月或流日时必须提供 baziFortuneMonth。');
-        }
-        if (
-          requiresDay &&
-          args.baziFortuneDay === undefined &&
-          dateSelection === undefined &&
-          currentSelection?.day === undefined
-        ) {
-          throw new Error('选择流日时必须提供 baziFortuneDay。');
-        }
-        const selectionValue: BaziFortuneSelectionValue = dateSelection ?? {
-          scope: fortuneScope,
-          cycleIndex:
-            args.baziFortuneCycleIndex !== undefined
-              ? readMcpIntegerLikeInRange(
-                  args.baziFortuneCycleIndex,
-                  'baziFortuneCycleIndex',
-                  0,
-                  99,
-                )
-              : currentSelection?.cycleIndex,
-          year:
-            args.baziFortuneYear === undefined
-              ? currentSelection?.year
-              : readMcpIntegerLikeInRange(args.baziFortuneYear, 'baziFortuneYear', 1900, 2200),
-          month:
-            args.baziFortuneMonth === undefined
-              ? currentSelection?.month
-              : readMcpIntegerLikeInRange(args.baziFortuneMonth, 'baziFortuneMonth', 1, 12),
-          day:
-            args.baziFortuneDay === undefined
-              ? currentSelection?.day
-              : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 33),
-        };
-        const fortuneSelectionContext = buildFortuneSelectionContext(result, selectionValue);
+        const plan = planBaziPromptRequest(args, person, new Date());
+        const {
+          result,
+          fortuneScope,
+          fortuneSelectionContext,
+          fortuneTextBatch,
+          unknownTimeBatch,
+          selection,
+        } = calculateBaziPromptPlan(person, plan);
         const basePrompt = buildBaziPromptForResult({
           result,
           question: args.question,
@@ -588,17 +431,15 @@ export function registerBaziTool(server: McpServer) {
         });
         return createStructuredToolResult({
           result: {
-            ...returnedResult,
+            ...result,
             ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
           },
           prompt: basePrompt,
-          ...(unknownTimeCalculation
-            ? { batch: { unknownTimeBatch: unknownTimeCalculation.unknownTimeBatch } }
-            : {}),
+          ...(unknownTimeBatch ? { batch: { unknownTimeBatch } } : {}),
           ...(fortuneTextBatch ? { batch: { fortuneBatch: fortuneTextBatch.batch } } : {}),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成八字提示词失败'));
+        return createErrorToolResult(error, { message: '生成八字提示词失败' });
       }
     },
   );
@@ -630,7 +471,7 @@ export function registerBaziTool(server: McpServer) {
           args.detailMode,
         );
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '八字双盘计算失败'));
+        return createErrorToolResult(error, { message: '八字双盘计算失败' });
       }
     },
   );
@@ -685,7 +526,7 @@ export function registerBaziTool(server: McpServer) {
           prompt,
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成八字双盘提示词失败'));
+        return createErrorToolResult(error, { message: '生成八字双盘提示词失败' });
       }
     },
   );

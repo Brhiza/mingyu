@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { xuankong } from 'mingyu-core';
 import { TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
@@ -89,7 +85,7 @@ export function registerXuanKongTool(server: McpServer) {
         const result = calculateXuanKong(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '玄空飞星排盘失败'));
+        return createErrorToolResult(error, { message: '玄空飞星排盘失败' });
       }
     },
   );
@@ -115,7 +111,7 @@ export function registerXuanKongTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成玄空飞星提示词失败'));
+        return createErrorToolResult(error, { message: '生成玄空飞星提示词失败' });
       }
     },
   );

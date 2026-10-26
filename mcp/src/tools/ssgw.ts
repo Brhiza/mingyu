@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt } from './divination-common.js';
 import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
@@ -35,7 +31,7 @@ export function registerSsgwTool(server: McpServer) {
         const result = drawRandomSign(readMcpRandomOptions(args));
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '求签失败'));
+        return createErrorToolResult(error, { message: '求签失败' });
       }
     },
   );
@@ -56,7 +52,7 @@ export function registerSsgwTool(server: McpServer) {
           prompt: buildCommonDivinationPrompt('ssgw', args.question, result, args.promptMode),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成灵签提示词失败'));
+        return createErrorToolResult(error, { message: '生成灵签提示词失败' });
       }
     },
   );

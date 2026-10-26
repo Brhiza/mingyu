@@ -1,12 +1,40 @@
 import { performance } from 'node:perf_hooks';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import assert from 'node:assert/strict';
+import type { QimenLifetimeInput } from '../packages/core/src/types/divination.js';
 
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.js';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.js';
 import { calculateQimenLifetime } from '../packages/core/src/divination/algorithms/qimen/lifetime.js';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe.js';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.js';
+
+export const QIMEN_LIFETIME_BENCHMARK_INPUT: QimenLifetimeInput = {
+  birthDateTime: '1990-05-15T14:30:00',
+  calendarType: 'solar',
+  gender: 'male',
+  location: { longitude: 116.4 },
+  timeZoneId: 'Asia/Shanghai',
+  periodRange: { startDate: '2026-01-01', endDate: '2028-12-31' },
+};
+
+/** 在任何预热和计时前核验动态扫描确实进入事件与事实输出。 */
+export function validateCoreBenchmarkWorkload() {
+  const result = calculateQimenLifetime(QIMEN_LIFETIME_BENCHMARK_INPUT);
+  const clusters = result.eventClusters ?? [];
+  const dynamicFacts = result.evidenceAnalysis?.dynamicClusterFacts ?? [];
+  assert.ok(clusters.length > 0, '终身奇门基准没有产生动态事件簇。');
+  assert.ok(dynamicFacts.length > 0, '终身奇门基准没有产生动态事实。');
+  for (const year of [2026, 2027, 2028]) {
+    assert.ok(
+      clusters.some((cluster) => cluster.key.startsWith(`cluster:${year}:`)),
+      `终身奇门基准没有覆盖 ${year} 年扫描。`,
+    );
+  }
+  return { eventClusters: clusters.length, dynamicFacts: dynamicFacts.length };
+}
 
 interface BenchmarkResult {
   name: string;
@@ -66,6 +94,8 @@ function runBenchmark(
 export function runAllCoreBenchmarks(): BenchmarkResult[] {
   console.log('=== 命语核心算法性能基线与预算评测 ===\n');
 
+  const workload = validateCoreBenchmarkWorkload();
+  console.log(`扫描工作量已验证：${JSON.stringify(workload)}\n`);
   const results: BenchmarkResult[] = [];
 
   // 1a. 八字命盘（标准公历：四柱+十神+大运+神煞）
@@ -133,14 +163,7 @@ export function runAllCoreBenchmarks(): BenchmarkResult[] {
       '奇门终身局 (全流水线:标记+阶段+太岁扫描)',
       'qimen-lifetime',
       () => {
-        calculateQimenLifetime({
-          birthDateTime: '1990-05-15T14:30:00',
-          calendarType: 'solar',
-          gender: 'male',
-          longitude: 116.4,
-          timeZoneId: 'Asia/Shanghai',
-          dynamicRange: { startYear: 2026, endYear: 2028 },
-        });
+        calculateQimenLifetime(QIMEN_LIFETIME_BENCHMARK_INPUT);
       },
       30,
       30.0, // 真实基线预算 30ms
@@ -190,7 +213,9 @@ export function runAllCoreBenchmarks(): BenchmarkResult[] {
   );
 
   // 打印控制台表格
-  console.log('| 算法术式 | 样本次数 | 平均耗时 (ms) | P95 耗时 (ms) | 吞吐量 (ops/s) | 预算 (ms) | 状态 |');
+  console.log(
+    '| 算法术式 | 样本次数 | 平均耗时 (ms) | P95 耗时 (ms) | 吞吐量 (ops/s) | 预算 (ms) | 状态 |',
+  );
   console.log('| :--- | :--- | :--- | :--- | :--- | :--- | :--- |');
   for (const r of results) {
     const status = r.passed ? '✔ PASS' : '⚠ WARN';
@@ -239,6 +264,10 @@ export function runAllCoreBenchmarks(): BenchmarkResult[] {
   return results;
 }
 
-if (import.meta.url.endsWith(process.argv[1]) || process.argv[1]?.includes('benchmark-core')) {
-  runAllCoreBenchmarks();
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  if (process.argv.includes('--validate-only')) {
+    console.log(JSON.stringify(validateCoreBenchmarkWorkload()));
+  } else {
+    runAllCoreBenchmarks();
+  }
 }

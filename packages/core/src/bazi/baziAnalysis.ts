@@ -7,7 +7,7 @@ import {
   analyzeConstraint,
   analyzeSeasonalStatus,
   analyzeDayMasterStrength,
-} from './baziStrengthAnalyzer';
+} from './baziStrengthInternal';
 import { determinePattern } from './baziPatternStrategy';
 import { determineUsefulGod } from './baziUsefulGodStrategy';
 import { createBaziAnalysisPipeline } from './baziAnalysisPipeline';

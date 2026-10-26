@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_SHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'shen-month-ji-bing-jia-first',
+    recommendationStems: ['癸', '丙', '辛'],
     label: '己日申月先癸后丙规则',
     description: '己土生申月，依三秋总论先癸润土，后丙温土，辛金辅癸。',
     priority: 119,

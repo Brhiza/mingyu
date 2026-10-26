@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { runPnpm } from './run-pnpm.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,7 +10,6 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mcpDirectory = path.join(projectRoot, 'packages', 'mcp');
 const mcpEntry = path.join(mcpDirectory, 'dist', 'server.js');
-const pnpmEntry = process.env.npm_execpath;
 
 assert.ok(existsSync(mcpEntry), `未找到已构建的 MCP 入口：${mcpEntry}，请先完成 MCP 构建。`);
 
@@ -198,21 +197,6 @@ async function callTool(mcpClient, name, arguments_) {
   const result = structured.result;
   assert.ok(result && typeof result === 'object', `${name} 缺少 result。`);
   return result;
-}
-
-function runPnpm(args, cwd, extraEnv = {}) {
-  const command = pnpmEntry ? process.execPath : process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const commandArgs = pnpmEntry ? [pnpmEntry, ...args] : args;
-  const result = spawnSync(command, commandArgs, {
-    cwd,
-    env: { ...process.env, ...extraEnv },
-    encoding: 'utf8',
-    stdio: 'pipe',
-  });
-  if (result.status !== 0) {
-    const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
-    throw new Error(`${command} ${args.join(' ')} 执行失败。\n${output}`);
-  }
 }
 
 function removeOwnedTemporaryDirectory(directory) {

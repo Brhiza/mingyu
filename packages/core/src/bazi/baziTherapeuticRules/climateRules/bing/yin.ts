@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const BING_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-month-bing-ren-geng-first',
+    recommendationStems: ['壬', '庚'],
     label: '丙日寅月壬水为尊庚金为佐规则',
     description: '正月丙火渐炎，原文以壬水为尊、庚金佐壬；透藏与格局层次另依原局判断。',
     priority: 115,
@@ -15,6 +16,7 @@ export const BING_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-bing-no-ren-use-gui',
+    recommendationStems: ['癸'],
     label: '丙日寅月无壬用癸规则',
     description:
       '丙火生寅月，以壬水为尊；若壬水不透而癸透，亦可权代，但层次仅略富贵，不能与壬水同论。',
@@ -38,6 +40,7 @@ export const BING_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-bing-double-geng-no-xin',
+    recommendationStems: [],
     label: '丙日寅月双庚无辛清贵规则',
     description: '丙火生寅月，若庚金双透而不杂辛，传统多断清贵，不宜仍与庚辛混杂同论。',
     priority: 123,
@@ -61,6 +64,7 @@ export const BING_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-bing-geng-xin-mixed',
+    recommendationStems: [],
     label: '丙日寅月庚辛混杂常人规则',
     description: '丙火生寅月，若庚辛并透而相混，传统多断常人，不宜仍与双庚无辛之清贵格同论。',
     priority: 122,

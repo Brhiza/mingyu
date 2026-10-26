@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-bing-jia-ren-first',
+    recommendationStems: ['甲', '壬'],
     label: '丙日戌月先甲后壬规则',
     description: '九月丙火退气而忌土晦光，原文先甲木、次壬水；无壬癸透时另论替用。',
     priority: 115,
@@ -15,6 +16,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-hidden-ren-gui-page',
+    recommendationStems: [],
     label: '丙日戌月壬癸藏支页监规则',
     description:
       '丙火生戌月，若壬癸仅藏支而不透，传统多断页监而已，不宜误判为甲壬富贵或甲壬癸俱无下格。',
@@ -41,6 +43,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-geng-wu-trap-jia-ren',
+    recommendationStems: [],
     label: '丙日戌月庚戊困木水庸才规则',
     description:
       '丙火生戌月，若局中有甲木与壬癸水，又见庚戊同透困其水木，传统多断庸才，不宜仍按甲壬并透上格直断。',
@@ -64,6 +67,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-hidden-jia-ren-no-geng',
+    recommendationStems: [],
     label: '丙日戌月甲藏壬透秀才规则',
     description:
       '丙火生戌月，若甲木藏支、壬水透干，且不见庚金破甲，传统多许秀才，不宜与甲壬两透之富贵层次混同。',
@@ -89,6 +93,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-jia-ren-all',
+    recommendationStems: [],
     label: '丙日戌月甲壬两透富贵规则',
     description:
       '丙火生戌月，传统必须先用甲木，次取壬水；若甲壬两透，多断富贵非凡，不宜仍按普通衰火泛论。',
@@ -110,6 +115,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-jia-gui-no-ren',
+    recommendationStems: [],
     label: '丙日戌月有甲无壬得癸规则',
     description:
       '丙火生戌月，若甲木已透而壬水不见，得癸透干亦可权代，传统多断异路功名，不宜误提到甲壬两透之层次。',
@@ -133,6 +139,7 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-bing-no-jia-no-ren-no-gui',
+    recommendationStems: [],
     label: '丙日戌月无甲壬癸下格规则',
     description: '丙火生戌月，若甲壬癸俱无，传统直断下格，不应仍退回普通病药提示收束。',
     priority: 124,

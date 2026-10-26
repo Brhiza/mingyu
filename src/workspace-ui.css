@@ -1619,13 +1619,21 @@ label.workspace-ui-field > span:first-child {
 .workspace-prompt-layout.is-workbench {
   height: 100%;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.workspace-prompt-layout.is-workbench > * {
+  flex-shrink: 0;
 }
 
 .workspace-prompt-workbench {
-  height: 100%;
-  min-height: 0;
+  min-height: min-content;
+  flex: 1 0 0;
   display: grid;
-  grid-template-rows: minmax(0, 56fr) minmax(0, 44fr);
+  grid-template-rows: minmax(220px, 1fr) max-content;
   gap: 12px;
   overflow: hidden;
 }
@@ -1658,6 +1666,7 @@ label.workspace-ui-field > span:first-child {
 
 .workspace-prompt-workbench-body {
   min-height: 0;
+  contain: size;
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--border-soft);
@@ -1681,7 +1690,7 @@ label.workspace-ui-field > span:first-child {
 .workspace-prompt-workbench-composer {
   min-height: 0;
   display: grid;
-  align-content: end;
+  align-content: start;
   gap: 10px;
   padding-top: 12px;
   border-top: 1px solid var(--border-soft);
@@ -1980,6 +1989,10 @@ label.workspace-ui-field > span:first-child {
     height: 100%;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .workspace-main.is-result-assistant .workspace-prompt-layout.is-workbench {
+    overflow-y: auto;
   }
 }
 
@@ -2284,7 +2297,7 @@ label.workspace-ui-field > span:first-child {
   }
 
   .workspace-result-assistant-stage .workspace-prompt-layout.is-workbench {
-    display: block;
+    overflow-y: auto;
   }
 
   .workspace-result-assistant-stage .workspace-prompt-workbench {

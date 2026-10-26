@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-ren-jia-bing-first',
+    recommendationStems: ['甲', '丙'],
     label: '壬日戌月先甲后丙规则',
     description: '壬水生戌月，原文专用甲木制戌中戊土，丙火次之。',
     priority: 120,
@@ -15,6 +16,7 @@ export const REN_XU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'xu-month-ren-jia-bing',
+    recommendationStems: ['甲', '丙'],
     label: '壬日戌月甲丙并用规则',
     description:
       '壬水生戌月，甲木为先、丙火次之；原文的清贵格另须水势、戊土出干等条件，甲丙两透仅作取用资料。',

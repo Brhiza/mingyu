@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-geng-ding-jia-first',
+    recommendationStems: ['丁', '甲'],
     label: '庚日未月先丁后甲规则',
     description: '庚金生未月，三伏生寒，先用丁火，次取甲木；支会土局时才改为甲先丁后。',
     priority: 121,

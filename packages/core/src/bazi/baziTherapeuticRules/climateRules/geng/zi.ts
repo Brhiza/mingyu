@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_ZI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'zi-month-geng-ding-jia-visible-bing-hidden',
+    recommendationStems: [],
     label: '庚日子月丁甲透丙藏科甲规则',
     description: '庚金生子月，丁甲两透且丙火藏支，必主科甲。',
     priority: 126,
@@ -18,6 +19,7 @@ export const GENG_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-geng-ding-jia-first',
+    recommendationStems: ['丁', '甲', '丙'],
     label: '庚日子月丁甲为先丙佐规则',
     description: '庚金生子月，天气严寒，仍取丁甲，次取丙火照暖。',
     priority: 121,

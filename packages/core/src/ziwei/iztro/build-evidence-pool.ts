@@ -1,4 +1,5 @@
 import type { IFunctionalAstrolabe } from 'iztro/lib/astro/FunctionalAstrolabe';
+import { buildZiweiScopeMutagenFactText, ziweiStandardFactText } from '../standard-facts';
 import type { IFunctionalHoroscope } from 'iztro/lib/astro/FunctionalHoroscope';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
 import type {
@@ -236,17 +237,20 @@ function collectScopeStructureEvidence(params: {
       drafts.push({
         stable_key: buildStableKey(['scope-mutagen-destination', scope, starName, mutagen]),
         type: 'scope_mutagen_destination',
-        title: targetPalace
-          ? `${scopeLabel}${starName}化${mutagen}入本命${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `（当前${scopeLabel}${formatPalaceName(dynamicPalaceName)}）` : ''}`
-          : `${scopeLabel}${starName}化${mutagen}`,
+        ...buildZiweiScopeMutagenFactText({
+          scope,
+          scopeLabel,
+          star: starName,
+          mutagen,
+          landing: palace,
+          target: targetPalace,
+          dynamicPalaceName,
+        }),
         scope,
         palace_indexes: palaceIndexes,
         palace_names: palaceNames,
         star_names: [starName],
         mutagens: [mutagen],
-        description: targetPalace
-          ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星的本命物理落宫为${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `，当前对应${scopeLabel}${formatPalaceName(dynamicPalaceName)}` : ''}，运限命宫落于本命${formatPalaceName(palace.name)}。`
-          : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能通过本命星曜对象定位宫位。`,
         status: targetPalace ? '已记录' : '资料缺口',
         priority: mutagen === '忌' ? 96 : mutagen === '禄' ? 94 : 91,
       });
@@ -274,13 +278,12 @@ function collectPalaceEvidence(params: {
         palace.major_stars.map((s) => s.name).join('|'),
       ]),
       type: 'palace_major_stars',
-      title: `${palace.name}主星为${palace.major_stars.map((s) => s.name).join('、')}`,
+      ...ziweiStandardFactText.majorStars(palace),
       scope: 'origin',
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: palace.major_stars.map((s) => s.name),
       mutagens: [],
-      description: `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`,
       priority: palace.name === '命宫' ? 100 : 60,
     });
   }
@@ -289,13 +292,12 @@ function collectPalaceEvidence(params: {
     drafts.push({
       stable_key: buildStableKey(['empty', palace.index]),
       type: 'palace_empty',
-      title: `${palace.name}为空宫`,
+      ...ziweiStandardFactText.empty(palace),
       scope: 'origin',
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`,
       priority: 50,
     });
   }
@@ -310,13 +312,12 @@ function collectPalaceEvidence(params: {
     drafts.push({
       stable_key: buildStableKey(['birth-mutagen', palace.index, star.name, star.birth_mutagen]),
       type: 'palace_birth_mutagen',
-      title: `${palace.name}见生年化${star.birth_mutagen}`,
+      ...ziweiStandardFactText.birthMutagen(palace.name, star.name, star.birth_mutagen!),
       scope: 'origin',
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [star.name],
       mutagens: [star.birth_mutagen!],
-      description: `${star.name}在${palace.name}带有生年化${star.birth_mutagen}。`,
       priority: 80,
     });
   });
@@ -337,13 +338,17 @@ function collectPalaceEvidence(params: {
         star.active_scope_mutagen,
       ]),
       type: 'palace_scope_mutagen',
-      title: `${palace.name}见${currentScopeLabel}化${star.active_scope_mutagen}`,
+      ...ziweiStandardFactText.scopeMutagen(
+        palace.name,
+        star.name,
+        star.active_scope_mutagen!,
+        currentScopeLabel,
+      ),
       scope: currentScope,
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [star.name],
       mutagens: [star.active_scope_mutagen!],
-      description: `${star.name}在当前运限下带有化${star.active_scope_mutagen}。`,
       priority: 85,
     });
   });
@@ -356,13 +361,12 @@ function collectPalaceEvidence(params: {
     drafts.push({
       stable_key: buildStableKey(['scope-hit', currentScope, palace.index, selectedScopeHit]),
       type: 'palace_scope_hit',
-      title: `${selectedScopeHit}位于${palace.name}`,
+      ...ziweiStandardFactText.scopeHit(palace, selectedScopeHit),
       scope: currentScope,
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `本命${formatPalaceName(palace.name)}的宫干支为${palace.heavenly_stem}${palace.earthly_branch}。`,
       priority: 70,
     });
   }
@@ -372,13 +376,12 @@ function collectPalaceEvidence(params: {
     drafts.push({
       stable_key: buildStableKey(['surrounded-mutagen', mutagen, palace.index]),
       type: 'surrounded_mutagen',
-      title: `${palace.name}三方四正见化${mutagen}`,
+      ...ziweiStandardFactText.surroundedMutagen(palace.name, mutagen),
       scope: 'origin',
       palace_indexes: palace.surrounded_palace_indexes,
       palace_names: getPalaceNamesByIndexes(palaces, palace.surrounded_palace_indexes),
       star_names: [],
       mutagens: [mutagen],
-      description: `${palace.name}及其三方四正宫位中可见化${mutagen}信息。`,
       priority,
     });
   });
@@ -388,13 +391,12 @@ function collectPalaceEvidence(params: {
     drafts.push({
       stable_key: buildStableKey(['self-mutaged', palace.index, mutagen]),
       type: 'palace_self_mutaged',
-      title: `${palace.name}出现自化${mutagen}`,
+      ...ziweiStandardFactText.selfMutagen(palace.name, mutagen),
       scope: 'origin',
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [],
       mutagens: [mutagen],
-      description: `${palace.name}的自化列表包含化${mutagen}。`,
       priority: mutagen === '忌' ? 82 : 75,
     });
   });
@@ -402,7 +404,6 @@ function collectPalaceEvidence(params: {
   if (KEY_PALACE_NAMES.has(palace.name) && palace.mutaged_palaces) {
     palace.mutaged_palaces.forEach((target) => {
       if (target.palace_index === undefined || !target.palace_name) return;
-      const isToSelf = target.palace_index === palace.index;
       drafts.push({
         stable_key: buildStableKey([
           'mutaged-place',
@@ -411,15 +412,12 @@ function collectPalaceEvidence(params: {
           target.palace_index,
         ]),
         type: 'palace_mutaged_place',
-        title: `${palace.name}化${target.mutagen}入${target.palace_name}`,
+        ...ziweiStandardFactText.flyingMutagen(palace, target),
         scope: 'origin',
         palace_indexes: [palace.index, target.palace_index],
         palace_names: [palace.name, target.palace_name],
         star_names: [],
         mutagens: [target.mutagen],
-        description: isToSelf
-          ? `${palace.name}化${target.mutagen}回入本宫。`
-          : `${palace.name}化${target.mutagen}落${target.palace_name}宫。`,
         priority: target.mutagen === '忌' ? 86 : target.mutagen === '禄' ? 84 : 78,
       });
     });
@@ -434,13 +432,12 @@ function collectPalaceEvidence(params: {
         palace.dynamic_scope_name,
       ]),
       type: 'scope_dynamic_name',
-      title: `${currentScopeLabel}视角下${palace.name}转为${palace.dynamic_scope_name}`,
+      ...ziweiStandardFactText.dynamicName(palace, currentScopeLabel),
       scope: currentScope,
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `在${currentScopeLabel}视角下，${palace.name}对应的动态宫名为${palace.dynamic_scope_name}。`,
       priority: 45,
     });
   }

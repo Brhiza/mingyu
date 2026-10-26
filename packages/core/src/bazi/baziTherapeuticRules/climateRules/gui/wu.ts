@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wu-month-gui-geng-xin-ren-reference',
+    recommendationStems: ['庚', '辛', '壬'],
     label: '癸日午月庚辛壬参用规则',
     description: '五月癸水原文以庚辛金与壬水参酌并用，具体根气及火的制约仍按原局判断。',
     priority: 115,
@@ -14,6 +15,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-wei-month-gui-metal-water-summer-rich',
+    recommendationStems: [],
     label: '癸日午未月金水会夏天规则',
     description:
       '癸水生午未月，庚辛透干、壬癸相扶时，调候参考金水相济。庚辛能否生水，须结合根气、火的制约及比劫护印条件判断。',
@@ -29,6 +31,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-gui-metal-no-visible-water-single-water-rich',
+    recommendationStems: [],
     label: '癸日午月无水透而支只一水规则',
     description:
       '癸水生午月，若庚辛透干而天干不见壬癸，除日干癸水自身外，地支本气仅一见水（依《穷通宝鉴》五月癸水"庚辛透干，支只一水，定主富也"之正文口径），传统多断"一富之造"，富重贵轻，不应仍与金水会夏天的钟鼎名家同层并论。',
@@ -50,6 +53,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-gui-fire-formation-no-ren-monastic',
+    recommendationStems: [],
     label: '癸日午月炎局无壬僧道规则',
     description:
       '癸水生午月，若地支火局已成而天干不见壬水，传统多断僧道之流；此为炎局伤水之象，不应仍按普通夏水金水并用泛论。',
@@ -66,6 +70,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-gui-fire-formation-two-ren-one-geng',
+    recommendationStems: ['壬', '庚'],
     label: '癸日午月炎局二壬一庚规则',
     description:
       '癸水生午月，若地支火局已成，但天干二壬一庚同透，则金水足以反制炎势，传统多主衣锦腰金，不应仍按炎局无壬的僧道层次处理。',
@@ -82,6 +87,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-gui-ji-pure-follow-kill',
+    recommendationStems: [],
     label: '癸日午月一派己土从杀规则',
     description:
       '癸水生午月，若局中己土成势而不混戊土，又无印比扶身，亦无甲木出制，传统多作从杀而论，反主大贵。此类须纯而不杂，稍见破格之神，便不可仍按从杀高断。',
@@ -107,6 +113,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-gui-metal-stem-water-formation',
+    recommendationStems: [],
     label: '癸日午月金透水局挂名规则',
     description:
       '癸水生午月，若庚辛透而地支又成申子辰水局，传统多主金榜挂名；此类是印比得势，不应退回普通夏水扶抑。',

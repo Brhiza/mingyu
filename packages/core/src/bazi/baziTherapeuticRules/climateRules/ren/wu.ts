@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_WU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wu-month-ren-gui-geng',
+    recommendationStems: ['癸', '庚'],
     label: '壬日午月癸庚并用规则',
     description: '五月壬水，丁旺壬弱，取癸水为用、庚金为佐，辛金与癸水亦可参用。',
     priority: 118,

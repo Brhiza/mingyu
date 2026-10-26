@@ -414,7 +414,9 @@ function formatLifetimeTriggerLines(items: AnyRecord[], compactDaily = false): s
         /^\d{4}-\d{2}-\d{2}$/u.test(text(item.date) || ''),
     )
   ) {
-    const relations = unique(items.map((item) => text(item.relation)).filter(Boolean));
+    const relations = unique(
+      items.map((item) => text(item.relation)).filter((value): value is string => Boolean(value)),
+    );
     if (relations.length === 1) {
       const datesByGanzhi = new Map<string, string[]>();
       for (const item of items) {
@@ -1091,16 +1093,6 @@ function extractXiaoliurenFacts(data: unknown): DivinationPromptFact[] {
     fact('xiaoliuren.primary', '占得宫：', [primary?.name]),
     fact('xiaoliuren.verse', '歌诀原文：', [primary?.verse]),
   ]);
-}
-
-function positionText(item: AnyRecord, fallback: string): string | undefined {
-  const name = text(item.name) || fallback;
-  const stem = text(item.stem);
-  const branch = text(item.branch);
-  const god = text(item.god);
-  const element = text(item.element);
-  const season = text(item.seasonState);
-  return `${name}${stem || ''}${branch || ''}${god ? `乘${god}` : ''}${element ? `（${element}` : ''}${season ? `，月令${season}` : ''}${element || season ? '）' : ''}`;
 }
 
 function extractJinkoujueFacts(data: unknown): DivinationPromptFact[] {

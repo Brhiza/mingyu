@@ -1,18 +1,15 @@
 import { baziCalculator } from '../bazi/baziCalculator';
 import { generateAstrolabe } from '../divination/algorithms/astrolabe';
 import { generateQizheng, type QizhengInput, type QizhengResult } from '../qi_zheng';
+import { normalizeBirthProfile, type BirthProfile, type NormalizedBirthProfile } from '../profile';
 import {
-  birthProfileToAstrolabeInput,
-  birthProfileToBaziPerson,
-  birthProfileToQizhengInput,
-  birthProfileToZiweiChartInput,
-  normalizeBirthProfile,
-  type BirthProfile,
-  type NormalizedBirthProfile,
-} from '../profile';
+  normalizedBirthProfileToAstrolabeInput,
+  normalizedBirthProfileToBaziPerson,
+  normalizedBirthProfileToQizhengInput,
+  normalizedBirthProfileToZiweiChartInput,
+} from '../profile/adapters';
 import {
-  validateBirthProfileTimeRange,
-  birthProfileAtRangeTimestamp,
+  createBirthProfileRangeContext,
   resolveBirthRangeBatch,
   type BirthProfileTimeRange,
 } from '../profile/time-range';
@@ -123,7 +120,7 @@ async function calculatePointBundle(
     checkAborted(options.signal);
     switch (system) {
       case 'bazi': {
-        const input = birthProfileToBaziPerson(profile);
+        const input = normalizedBirthProfileToBaziPerson(bundle.normalized);
         if (options.baziRules?.shenShaScope !== undefined)
           input.shenShaScope = options.baziRules.shenShaScope;
         if (options.baziRules?.shenShaVariants !== undefined)
@@ -133,7 +130,7 @@ async function calculatePointBundle(
         break;
       }
       case 'ziwei': {
-        const input = birthProfileToZiweiChartInput(profile);
+        const input = normalizedBirthProfileToZiweiChartInput(bundle.normalized);
         const rules = options.ziweiRules;
         if (rules?.fixLeap !== undefined) input.fixLeap = rules.fixLeap;
         if (rules?.algorithm !== undefined) input.algorithm = rules.algorithm;
@@ -146,13 +143,13 @@ async function calculatePointBundle(
         break;
       }
       case 'astrolabe': {
-        const input = birthProfileToAstrolabeInput(profile);
+        const input = normalizedBirthProfileToAstrolabeInput(bundle.normalized);
         bundle.inputs.astrolabe = input;
         bundle.astrolabe = generateAstrolabe(input);
         break;
       }
       case 'qizheng': {
-        const input = birthProfileToQizhengInput(profile);
+        const input = normalizedBirthProfileToQizhengInput(bundle.normalized);
         bundle.inputs.qizheng = input;
         bundle.qizheng = generateQizheng(input);
         break;
@@ -181,7 +178,8 @@ export async function calculateBirthChartBundle(
   if (lockedProfile.birthTimeRange === undefined) {
     return calculatePointBundle(lockedProfile, systems, lockedOptions);
   }
-  const source = validateBirthProfileTimeRange(lockedProfile, lockedProfile.birthTimeRange);
+  const rangeContext = createBirthProfileRangeContext(lockedProfile, lockedProfile.birthTimeRange);
+  const { source } = rangeContext;
   if (
     systems.includes('ziwei') &&
     !lockedOptions.ziwei?.horoscopeContext &&
@@ -200,7 +198,7 @@ export async function calculateBirthChartBundle(
   for (let index = bounds.startIndex; index < bounds.endIndexExclusive; index += 1) {
     checkAborted(options.signal);
     const timestamp = source.startTimestamp + index * 1000;
-    const point = birthProfileAtRangeTimestamp(lockedProfile, source, timestamp);
+    const point = rangeContext.profileAt(timestamp);
     samples.push({
       index,
       timestamp,

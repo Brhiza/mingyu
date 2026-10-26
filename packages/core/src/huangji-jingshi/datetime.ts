@@ -8,16 +8,16 @@ import { SolarTerm, SolarTime } from 'tyme4ts';
 import { type HexagramData, getHexagramsData } from '../divination/hexagram-data';
 import {
   assertFixedTimezoneHours,
-  createUtcTimestamp,
   formatCivilDateTime,
   formatFixedTimezoneOffset,
   getCivilDateTimeAtFixedOffset,
-  getHistoricalTimezoneOffsetAt,
   resolveCivilDayStart,
   resolveCivilTime,
   type CivilDateTimeParts,
   type CivilTimeZoneInput,
-} from '../calendar';
+} from '../calendar/civil-time';
+import { createUtcTimestamp } from '../calendar/date-validation';
+import { getHistoricalTimezoneOffsetAt } from '../calendar/historical-timezone';
 import { getSixtyCycleIndex } from '../ganzhi';
 import {
   HUANGJI_CIRCLE_HEXAGRAMS,

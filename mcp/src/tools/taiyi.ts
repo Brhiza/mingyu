@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { taiyi } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 import { readMcpCustomDate } from './input-helpers.js';
@@ -72,7 +68,7 @@ export function registerTaiyiTool(server: McpServer) {
         const result = calculateTaiyi(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '太乙排盘失败'));
+        return createErrorToolResult(error, { message: '太乙排盘失败' });
       }
     },
   );
@@ -95,7 +91,7 @@ export function registerTaiyiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成太乙提示词失败'));
+        return createErrorToolResult(error, { message: '生成太乙提示词失败' });
       }
     },
   );

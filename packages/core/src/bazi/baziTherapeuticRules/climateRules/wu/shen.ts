@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'shen-month-wu-bing-gui-jia-first',
+    recommendationStems: ['丙', '癸', '甲'],
     label: '戊日申月先丙后癸甲木次之规则',
     description: '七月戊土寒气渐出，原文先丙火、后癸水，甲木次之；三干透藏决定成格层次。',
     priority: 115,
@@ -15,6 +16,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'shen-month-wu-bing-gui-jia-all',
+    recommendationStems: [],
     label: '戊日申月丙癸甲全透极品规则',
     description: '戊土生申月，若丙癸甲齐透，传统多断富贵极品，不宜与单透或缺透同论。',
     priority: 124,
@@ -29,6 +31,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'shen-month-wu-gui-jia-no-bing',
+    recommendationStems: ['癸', '甲'],
     label: '戊日申月无丙得癸甲规则',
     description: '戊土生申月，无丙而得癸甲并透，传统多断清雅家富，层次仍高于常人。',
     priority: 123,
@@ -51,6 +54,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'shen-month-wu-no-gui-no-jia',
+    recommendationStems: [],
     label: '戊日申月无癸无甲常人规则',
     description: '戊土生申月，若癸甲俱无，传统多断常人；丙甲癸三者俱无则更下。',
     priority: 121,
@@ -71,6 +75,7 @@ export const WU_SHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'shen-month-wu-no-bing-no-gui-no-jia',
+    recommendationStems: [],
     label: '戊日申月丙甲癸俱无下流规则',
     description: '戊土生申月，若丙甲癸三者俱无，传统直断下流之命，不应仍按常人格局收束。',
     priority: 125,

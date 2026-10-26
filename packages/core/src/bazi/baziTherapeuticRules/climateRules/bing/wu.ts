@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const BING_WU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wu-month-bing-no-ren-use-gui',
+    recommendationStems: ['癸'],
     label: '丙日午月无壬用癸规则',
     description: '丙火生午月，原法先壬；若壬水不透而癸水透，癸亦可用，但层次较低，不宜与壬水同论。',
     priority: 121,
@@ -25,6 +26,7 @@ export const BING_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-bing-ren-no-geng',
+    recommendationStems: [],
     label: '丙日午月独壬无庚页监规则',
     description: '丙火生午月，若仅壬透而无庚发源，传统多主衣衿页监，层次不及壬庚并透。',
     priority: 120,
@@ -49,6 +51,7 @@ export const BING_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-bing-ren-geng-tu-misc',
+    recommendationStems: [],
     label: '丙日午月壬庚见戊己杂乱规则',
     description:
       '丙火生午月，本以壬庚高透为上；若再见戊己出干杂乱，传统多降为异路功名，不宜仍按上命直断。',
@@ -71,6 +74,7 @@ export const BING_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-bing-ding-ren-he',
+    recommendationStems: [],
     label: '丙日午月丁壬紧贴相合待核规则',
     description: '丙火生午月，丁壬紧贴同透时须核对壬水是否受合绊，再判断壬水的实际作用。',
     priority: 124,

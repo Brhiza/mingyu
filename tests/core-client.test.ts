@@ -296,6 +296,30 @@ test('safe 同步方法应保持同步，并区分校验、不支持和边界错
     assert.equal(validation.error.recoverable, true);
   }
 
+  for (const [failure, field] of [
+    [
+      client.safe.bazhaiByDoorDegree({
+        mingGua: '坎',
+        doorToInteriorDegree: 180,
+        northReference: 'true',
+        magneticDeclinationDegrees: 5,
+      }),
+      'magneticDeclinationDegrees',
+    ],
+    [
+      client.safe.bazhai({ birthYear: 1992, gender: 'female', sitMountain: '子', birthMinute: 23 }),
+      'birthHour',
+    ],
+  ] as const) {
+    assert.equal(failure.ok, false);
+    if (!failure.ok) {
+      assert.equal(failure.error.code, 'INPUT_VALIDATION_FAILED');
+      assert.equal(failure.error.category, 'validation');
+      assert.equal(failure.error.field, field);
+      assert.equal(failure.error.recoverable, true);
+    }
+  }
+
   const unknownCapability = client.safe.capability('unknown' as never);
   assert.equal(unknownCapability.ok, false);
   if (!unknownCapability.ok) {

@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-mao-month-wu-no-geng-no-resource-follow-kill-fail',
+    recommendationStems: [],
     label: '戊日寅卯月无庚无比印难从杀规则',
     description:
       '戊土生寅卯月，木势偏盛时常以庚金为先；若木多而庚金不透，且天干又无比劫、印星扶身，传统多断难作从杀，主遭凶困顿，不宜仍按可从之局泛论。',
@@ -21,6 +22,7 @@ export const WU_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-wu-bing-jia-first',
+    recommendationStems: ['丙', '甲'],
     label: '戊日寅月先丙后甲规则',
     description: '戊土生寅月，春寒未尽，传统多以丙火暖局、甲木疏土，先后有序。',
     priority: 119,

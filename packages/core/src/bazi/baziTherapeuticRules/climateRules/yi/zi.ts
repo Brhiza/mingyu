@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_ZI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'zi-month-yi-bing-only',
+    recommendationStems: ['丙'],
     label: '乙日子月专用丙火解冻规则',
     description: '十一月乙木专用丙火解冻；癸水冻木，壬癸出干而有戊制须另核条件。',
     priority: 121,

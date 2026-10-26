@@ -3,6 +3,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 import { getDefaultAstrolabeScopeDate } from '@/lib/astrolabe-scope';
 import { daysInGregorianMonth } from 'mingyu-core/calendar';
+import { synchronizeCombinedPromptTheme } from './prompt-page-rules';
 
 export type ResultTabKey =
   'bazi' | 'ziwei' | 'qimen-lifetime' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
@@ -58,6 +59,7 @@ export type QueryInputState = {
 export type QueryPromptState = {
   tab: ResultTabKey;
   promptSource: PromptSourceKey;
+  includeClassics?: boolean;
   baziPresetId: string;
   baziTopicId: string;
   baziSubtopicId: string;
@@ -188,6 +190,7 @@ export function createDefaultPromptState(now: Date = new Date()): QueryPromptSta
   return {
     tab: 'prompt',
     promptSource: 'bazi',
+    includeClassics: false,
     baziPresetId: 'ai-mingge-zonglun',
     baziTopicId: '',
     baziSubtopicId: '',
@@ -286,6 +289,7 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
 const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   tab: 't',
   promptSource: 'ps',
+  includeClassics: 'ic',
   baziPresetId: 'bid',
   baziTopicId: 'btid',
   baziSubtopicId: 'bts',
@@ -449,6 +453,7 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
   const persistAstrolabeScope = prompt.promptSource === 'astrolabe' || prompt.tab === 'astrolabe';
   setCompactParam(params, 'tab', prompt.tab, defaultPromptState.tab);
   setCompactParam(params, 'promptSource', prompt.promptSource, defaultPromptState.promptSource);
+  setCompactParam(params, 'includeClassics', prompt.includeClassics ?? false, false);
   setCompactParam(params, 'baziPresetId', prompt.baziPresetId, defaultPromptState.baziPresetId);
   setCompactParam(params, 'baziTopicId', prompt.baziTopicId, defaultPromptState.baziTopicId);
   setCompactParam(
@@ -461,7 +466,9 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     params,
     'baziShortcutMode',
     prompt.baziShortcutMode,
-    defaultPromptState.baziShortcutMode,
+    prompt.baziPresetId !== defaultPromptState.baziPresetId
+      ? ''
+      : defaultPromptState.baziShortcutMode,
   );
   setCompactParam(
     params,
@@ -839,9 +846,13 @@ function normalizeResidentialFlowDate(yearText: string, monthText: string, dayTe
   return Number(day) <= maxDay ? { year, month, day } : { year, month, day: '' };
 }
 
-function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
-  const normalized: QueryPromptState = { ...prompt };
+function normalizePromptState(
+  prompt: QueryPromptState,
+  combinedThemeSource: 'bazi' | 'ziwei' = 'bazi',
+): QueryPromptState {
+  const normalized = { ...synchronizeCombinedPromptTheme(prompt, combinedThemeSource) };
 
+  normalized.includeClassics = Boolean(normalized.includeClassics);
   normalized.qimenLifetimeStageModel = parseQimenLifetimeStageModel(
     normalized.qimenLifetimeStageModel,
   );
@@ -1054,94 +1065,127 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
           : rawPromptSource
       : 'bazi';
 
-  return normalizePromptState({
-    tab,
-    promptSource,
-    baziPresetId: getString(params, 'baziPresetId', defaultPromptState.baziPresetId),
-    baziTopicId: getString(params, 'baziTopicId', defaultPromptState.baziTopicId),
-    baziSubtopicId: getString(params, 'baziSubtopicId', defaultPromptState.baziSubtopicId),
-    baziShortcutMode: getString(params, 'baziShortcutMode', defaultPromptState.baziShortcutMode),
-    baziQuickQuestion: getString(params, 'baziQuickQuestion', defaultPromptState.baziQuickQuestion),
-    baziFortuneScope: parseBaziFortuneScope(
-      getString(params, 'baziFortuneScope', defaultPromptState.baziFortuneScope),
-    ),
-    baziFortuneCycleIndex: getString(
-      params,
-      'baziFortuneCycleIndex',
-      defaultPromptState.baziFortuneCycleIndex,
-    ),
-    baziFortuneYear: getString(params, 'baziFortuneYear', defaultPromptState.baziFortuneYear),
-    baziFortuneMonth: getString(params, 'baziFortuneMonth', defaultPromptState.baziFortuneMonth),
-    baziFortuneDay: getString(params, 'baziFortuneDay', defaultPromptState.baziFortuneDay),
-    ziweiTopic: parseZiweiTopic(getString(params, 'ziweiTopic', defaultPromptState.ziweiTopic)),
-    ziweiTopicId: getString(params, 'ziweiTopicId', defaultPromptState.ziweiTopicId),
-    ziweiSubtopicId: getString(params, 'ziweiSubtopicId', defaultPromptState.ziweiSubtopicId),
-    ziweiShortcutMode: getString(params, 'ziweiShortcutMode', defaultPromptState.ziweiShortcutMode),
-    ziweiQuickQuestion: getString(
-      params,
-      'ziweiQuickQuestion',
-      defaultPromptState.ziweiQuickQuestion,
-    ),
-    ziweiScope: parseZiweiScope(getString(params, 'ziweiScope', defaultPromptState.ziweiScope)),
-    ziweiScopeDate: getString(params, 'ziweiScopeDate', defaultPromptState.ziweiScopeDate),
-    astrolabeTopic: parseAstrolabeTopic(
-      getString(params, 'astrolabeTopic', defaultPromptState.astrolabeTopic),
-    ),
-    astrolabeTopicId: getString(params, 'astrolabeTopicId', defaultPromptState.astrolabeTopicId),
-    astrolabeSubtopicId: getString(
-      params,
-      'astrolabeSubtopicId',
-      defaultPromptState.astrolabeSubtopicId,
-    ),
-    astrolabeShortcutMode: getString(
-      params,
-      'astrolabeShortcutMode',
-      defaultPromptState.astrolabeShortcutMode,
-    ),
-    astrolabeQuickQuestion: getString(
-      params,
-      'astrolabeQuickQuestion',
-      defaultPromptState.astrolabeQuickQuestion,
-    ),
-    astrolabeScope: parseAstrolabeScope(
-      getString(params, 'astrolabeScope', currentDefaultPromptState.astrolabeScope),
-    ),
-    astrolabeScopeDate: getString(
-      params,
-      'astrolabeScopeDate',
-      hasExplicitAstrolabeScope ? '' : currentDefaultPromptState.astrolabeScopeDate,
-    ),
-    bazhaiFacingDegree: getString(
-      params,
-      'bazhaiFacingDegree',
-      defaultPromptState.bazhaiFacingDegree,
-    ).trim(),
-    residentialHouseYear: getString(
-      params,
-      'residentialHouseYear',
-      defaultPromptState.residentialHouseYear,
-    ).trim(),
-    residentialGuaType:
-      getString(params, 'residentialGuaType', '下卦') === '替卦' ? '替卦' : '下卦',
-    residentialFlowYear: getString(
-      params,
-      'residentialFlowYear',
-      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowYear,
-    ),
-    residentialFlowMonth: getString(
-      params,
-      'residentialFlowMonth',
-      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowMonth,
-    ),
-    residentialFlowDay: getString(
-      params,
-      'residentialFlowDay',
-      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowDay,
-    ),
-    qimenLifetimeStageModel: parseQimenLifetimeStageModel(
-      getString(params, 'qimenLifetimeStageModel', defaultPromptState.qimenLifetimeStageModel),
-    ),
-  });
+  // 旧合参链接只在这里选择主题来源。显式八字主题（包括空值）优先，
+  // 其次为旧紫微主题；读取后两侧保持一致，生成端不再逐字段回退。
+  const hasParam = (key: string) => params.has(key) || params.has(PARAM_KEY_ALIASES[key]);
+  const combinedThemeSource = hasParam('baziTopicId')
+    ? 'bazi'
+    : hasParam('ziweiTopicId')
+      ? 'ziwei'
+      : !hasParam('baziPresetId') && !hasParam('baziShortcutMode') && hasParam('ziweiTopic')
+        ? 'ziwei'
+        : 'bazi';
+  const baziPresetId = getString(params, 'baziPresetId', defaultPromptState.baziPresetId);
+  const ziweiTopic = parseZiweiTopic(
+    getString(params, 'ziweiTopic', defaultPromptState.ziweiTopic),
+  );
+
+  return normalizePromptState(
+    {
+      tab,
+      promptSource,
+      includeClassics: ['1', 'true'].includes(
+        getString(params, 'includeClassics', '0').toLowerCase(),
+      ),
+      baziPresetId,
+      baziTopicId: getString(params, 'baziTopicId', defaultPromptState.baziTopicId),
+      baziSubtopicId: getString(params, 'baziSubtopicId', defaultPromptState.baziSubtopicId),
+      baziShortcutMode: getString(
+        params,
+        'baziShortcutMode',
+        baziPresetId !== defaultPromptState.baziPresetId ? '' : defaultPromptState.baziShortcutMode,
+      ),
+      baziQuickQuestion: getString(
+        params,
+        'baziQuickQuestion',
+        defaultPromptState.baziQuickQuestion,
+      ),
+      baziFortuneScope: parseBaziFortuneScope(
+        getString(params, 'baziFortuneScope', defaultPromptState.baziFortuneScope),
+      ),
+      baziFortuneCycleIndex: getString(
+        params,
+        'baziFortuneCycleIndex',
+        defaultPromptState.baziFortuneCycleIndex,
+      ),
+      baziFortuneYear: getString(params, 'baziFortuneYear', defaultPromptState.baziFortuneYear),
+      baziFortuneMonth: getString(params, 'baziFortuneMonth', defaultPromptState.baziFortuneMonth),
+      baziFortuneDay: getString(params, 'baziFortuneDay', defaultPromptState.baziFortuneDay),
+      ziweiTopic,
+      ziweiTopicId: getString(params, 'ziweiTopicId', defaultPromptState.ziweiTopicId),
+      ziweiSubtopicId: getString(params, 'ziweiSubtopicId', defaultPromptState.ziweiSubtopicId),
+      ziweiShortcutMode: getString(
+        params,
+        'ziweiShortcutMode',
+        ziweiTopic !== defaultPromptState.ziweiTopic ? '' : defaultPromptState.ziweiShortcutMode,
+      ),
+      ziweiQuickQuestion: getString(
+        params,
+        'ziweiQuickQuestion',
+        defaultPromptState.ziweiQuickQuestion,
+      ),
+      ziweiScope: parseZiweiScope(getString(params, 'ziweiScope', defaultPromptState.ziweiScope)),
+      ziweiScopeDate: getString(params, 'ziweiScopeDate', defaultPromptState.ziweiScopeDate),
+      astrolabeTopic: parseAstrolabeTopic(
+        getString(params, 'astrolabeTopic', defaultPromptState.astrolabeTopic),
+      ),
+      astrolabeTopicId: getString(params, 'astrolabeTopicId', defaultPromptState.astrolabeTopicId),
+      astrolabeSubtopicId: getString(
+        params,
+        'astrolabeSubtopicId',
+        defaultPromptState.astrolabeSubtopicId,
+      ),
+      astrolabeShortcutMode: getString(
+        params,
+        'astrolabeShortcutMode',
+        defaultPromptState.astrolabeShortcutMode,
+      ),
+      astrolabeQuickQuestion: getString(
+        params,
+        'astrolabeQuickQuestion',
+        defaultPromptState.astrolabeQuickQuestion,
+      ),
+      astrolabeScope: parseAstrolabeScope(
+        getString(params, 'astrolabeScope', currentDefaultPromptState.astrolabeScope),
+      ),
+      astrolabeScopeDate: getString(
+        params,
+        'astrolabeScopeDate',
+        hasExplicitAstrolabeScope ? '' : currentDefaultPromptState.astrolabeScopeDate,
+      ),
+      bazhaiFacingDegree: getString(
+        params,
+        'bazhaiFacingDegree',
+        defaultPromptState.bazhaiFacingDegree,
+      ).trim(),
+      residentialHouseYear: getString(
+        params,
+        'residentialHouseYear',
+        defaultPromptState.residentialHouseYear,
+      ).trim(),
+      residentialGuaType:
+        getString(params, 'residentialGuaType', '下卦') === '替卦' ? '替卦' : '下卦',
+      residentialFlowYear: getString(
+        params,
+        'residentialFlowYear',
+        hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowYear,
+      ),
+      residentialFlowMonth: getString(
+        params,
+        'residentialFlowMonth',
+        hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowMonth,
+      ),
+      residentialFlowDay: getString(
+        params,
+        'residentialFlowDay',
+        hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowDay,
+      ),
+      qimenLifetimeStageModel: parseQimenLifetimeStageModel(
+        getString(params, 'qimenLifetimeStageModel', defaultPromptState.qimenLifetimeStageModel),
+      ),
+    },
+    combinedThemeSource,
+  );
 }
 
 export function buildResultSearch(

@@ -22,6 +22,7 @@ export * from './qizheng-classics';
 export * from './wuyun-liuqi-classics';
 export * from './almanac-classics';
 export * from './yilin';
+export * from './prompt-references';
 
 import {
   getQimenStemPattern as queryQimenStemPattern,

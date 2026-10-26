@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const BING_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-month-bing-no-ren-use-gui',
+    recommendationStems: ['癸'],
     label: '丙日巳月无壬用癸规则',
     description: '丙火生巳月，原法专用壬水；若壬水不透而癸水透，亦可权代，但层次逊于壬水正用。',
     priority: 121,
@@ -25,6 +26,7 @@ export const BING_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-bing-no-ren-gui-geng',
+    recommendationStems: [],
     label: '丙日巳月无壬见庚透癸规则',
     description:
       '丙火生巳月，无壬而癸透已属权代；若再得庚金发源，传统多断不富必贵，层次高于单见癸水。',

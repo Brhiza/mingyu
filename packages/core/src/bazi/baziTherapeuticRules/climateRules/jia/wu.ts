@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JIA_WU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wu-month-jia-gui-ding-geng',
+    recommendationStems: ['癸', '丁', '庚'],
     label: '甲日午月先癸后丁规则',
     description:
       '甲木生午月，木性虚焦，传统多先取癸水，次取丁火，庚金再辅，较夏木一概润燥更符合原法先后。',
@@ -16,6 +17,7 @@ export const JIA_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-jia-no-gui-use-ding',
+    recommendationStems: ['丁', '庚'],
     label: '甲日午月无癸用丁规则',
     description: '甲木生午月，若原局不见癸水透干，传统许以丁火权代为先，不应仍机械固守先癸。',
     priority: 124,

@@ -18,6 +18,11 @@ import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
 import { formatPalaceRelations } from '../ziwei/prompt/builders';
 import { formatObjectList } from '../ziwei/prompt/formatters';
 import { getSelectedScopeHits } from '../ziwei/prompt/scope-selection';
+import {
+  isStandardZiweiFactText,
+  isStandardZiweiScopeMutagenFact,
+  ziweiStandardFactText,
+} from '../ziwei/standard-facts';
 import { buildZiweiMatchedPatternSummary } from '../ziwei/prompt/snapshot';
 import { formatZiweiTrueSolarEvidence } from '../ziwei/prompt/combined';
 import {
@@ -27,6 +32,7 @@ import {
   joinPromptSections,
 } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import { appendClassicalReferences, formatClassicalReferences } from './classical-references';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -383,7 +389,13 @@ function isShownInZiweiPalaces(
         (tag) =>
           tag.startsWith('三方四正见化') &&
           item.title === `${palace.name}${tag}` &&
-          item.description === `${palace.name}及其三方四正宫位中可见化${tag.slice(-1)}信息。`,
+          isStandardZiweiFactText(
+            item,
+            ziweiStandardFactText.surroundedMutagen(
+              palace.name,
+              tag.slice(-1) as '禄' | '权' | '科' | '忌',
+            ),
+          ),
       ),
     );
   }
@@ -392,7 +404,6 @@ function isShownInZiweiPalaces(
     const landing = palaces.find((palace) => palace.index === active.palace_index);
     if (!landing || landing.name !== active.palace_name) return false;
     const scopeLabel = active.label || SCOPE_LABELS[active.scope];
-    const landingName = landing.name.endsWith('宫') ? landing.name : `${landing.name}宫`;
     return active.mutagen_map.some((mapping) => {
       const target = palaces.find((palace) => palace.index === mapping.palace_index);
       if (
@@ -417,17 +428,16 @@ function isShownInZiweiPalaces(
       ) {
         return false;
       }
-      const targetName = target.name.endsWith('宫') ? target.name : `${target.name}宫`;
-      const dynamicName = mapping.dynamic_palace_name.endsWith('宫')
-        ? mapping.dynamic_palace_name
-        : `${mapping.dynamic_palace_name}宫`;
       // 只省略宫位已完整表达的标准映射，额外条件与说明继续展示。
-      return (
-        item.title ===
-          `${scopeLabel}${mapping.star}化${mapping.mutagen}入本命${targetName}（当前${scopeLabel}${dynamicName}）` &&
-        item.description ===
-          `${scopeLabel}四化序列中的${mapping.star}对应化${mapping.mutagen}；该星的本命物理落宫为${targetName}，当前对应${scopeLabel}${dynamicName}，运限命宫落于本命${landingName}。`
-      );
+      return isStandardZiweiScopeMutagenFact(item, {
+        scope: active.scope,
+        scopeLabel,
+        star: mapping.star,
+        mutagen: mapping.mutagen,
+        landing,
+        target,
+        dynamicPalaceName: mapping.dynamic_palace_name,
+      });
     });
   }
   const palace = palaces.find((value) => value.index === item.palace_indexes[0]);
@@ -435,69 +445,62 @@ function isShownInZiweiPalaces(
   const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
   switch (item.type) {
     case 'palace_major_stars':
-      return (
-        item.title ===
-          `${palace.name}主星为${palace.major_stars.map((star) => star.name).join('、')}` &&
-        item.description ===
-          `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`
-      );
+      return isStandardZiweiFactText(item, ziweiStandardFactText.majorStars(palace));
     case 'palace_empty':
       return (
-        palace.empty_state &&
-        item.title === `${palace.name}为空宫` &&
-        item.description ===
-          `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`
+        palace.empty_state && isStandardZiweiFactText(item, ziweiStandardFactText.empty(palace))
       );
     case 'palace_birth_mutagen':
       return stars.some(
         (star) =>
-          item.title === `${palace.name}见生年化${star.birth_mutagen}` &&
+          star.birth_mutagen &&
           item.star_names.includes(star.name) &&
-          item.description === `${star.name}在${palace.name}带有生年化${star.birth_mutagen}。`,
+          isStandardZiweiFactText(
+            item,
+            ziweiStandardFactText.birthMutagen(palace.name, star.name, star.birth_mutagen),
+          ),
       );
     case 'palace_scope_mutagen':
       return (
         !isOriginScope &&
         stars.some(
           (star) =>
-            item.title ===
-              `${palace.name}见${active.label || SCOPE_LABELS[active.scope]}化${star.active_scope_mutagen}` &&
+            star.active_scope_mutagen &&
             item.star_names.includes(star.name) &&
-            item.description === `${star.name}在当前运限下带有化${star.active_scope_mutagen}。`,
+            isStandardZiweiFactText(
+              item,
+              ziweiStandardFactText.scopeMutagen(
+                palace.name,
+                star.name,
+                star.active_scope_mutagen,
+                active.label || SCOPE_LABELS[active.scope],
+              ),
+            ),
         )
       );
     case 'palace_self_mutaged':
-      return (palace.self_mutagens ?? []).some(
-        (mutagen) =>
-          item.title === `${palace.name}出现自化${mutagen}` &&
-          item.description === `${palace.name}的自化列表包含化${mutagen}。`,
+      return (palace.self_mutagens ?? []).some((mutagen) =>
+        isStandardZiweiFactText(item, ziweiStandardFactText.selfMutagen(palace.name, mutagen)),
       );
     case 'palace_mutaged_place':
-      return (palace.mutaged_palaces ?? []).some(
-        (target) =>
-          item.title === `${palace.name}化${target.mutagen}入${target.palace_name}` &&
-          item.description ===
-            (target.palace_index === palace.index
-              ? `${palace.name}化${target.mutagen}回入本宫。`
-              : `${palace.name}化${target.mutagen}落${target.palace_name}宫。`),
+      return (palace.mutaged_palaces ?? []).some((target) =>
+        isStandardZiweiFactText(item, ziweiStandardFactText.flyingMutagen(palace, target)),
       );
     case 'palace_scope_hit':
       return (
         !isOriginScope &&
-        getSelectedScopeHits(payload, palace).some(
-          (hit) => item.title === `${hit}位于${palace.name}`,
-        ) &&
-        item.description ===
-          `本命${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}的宫干支为${palace.heavenly_stem}${palace.earthly_branch}。`
+        getSelectedScopeHits(payload, palace).some((hit) =>
+          isStandardZiweiFactText(item, ziweiStandardFactText.scopeHit(palace, hit)),
+        )
       );
     case 'scope_dynamic_name':
       return (
         !isOriginScope &&
         Boolean(palace.dynamic_scope_name) &&
-        item.title ===
-          `${active.label || SCOPE_LABELS[active.scope]}视角下${palace.name}转为${palace.dynamic_scope_name}` &&
-        item.description ===
-          `在${active.label || SCOPE_LABELS[active.scope]}视角下，${palace.name}对应的动态宫名为${palace.dynamic_scope_name}。`
+        isStandardZiweiFactText(
+          item,
+          ziweiStandardFactText.dynamicName(palace, active.label || SCOPE_LABELS[active.scope]),
+        )
       );
     default:
       return false;
@@ -852,7 +855,7 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     buildPromptSection('任务', selectedTask),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'ziwei', options.includeClassics));
 }
 
 export function buildZiweiPrompt(options: ZiweiPromptOptions) {
@@ -927,7 +930,7 @@ export function buildZiweiCompatibilityPromptDocument(
     ),
     buildPromptSection('问题', question),
   ]);
-  return buildPromptDocument(user);
+  return buildPromptDocument(appendClassicalReferences(user, 'ziwei', options.includeClassics));
 }
 
 export function buildZiweiCompatibilityPrompt(options: ZiweiCompatibilityPromptOptions) {
@@ -1014,6 +1017,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       options.selection
         ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
         : '',
+      options.includeClassics ? formatClassicalReferences('bazi-ziwei') : '',
       buildPromptSection('任务', selectedTask),
       buildPromptSection('问题', question),
     ]),

@@ -84,6 +84,8 @@ mingyu-mcp
 
 ---
 
+受控核心错误的结构化结果会附 `category`、`field`、`recoverable`。输入/边界错误使用 `INVALID_ARGUMENTS`，不支持的操作使用 `OPERATION_UNSUPPORTED`，依赖缺失使用 `DEPENDENCY_UNAVAILABLE`；随机错误保留 `RANDOM_*`，例如重放耗尽现在是 `RANDOM_REPLAY_EXHAUSTED`，不再泛化为 `MCP_TOOL_ERROR`。游标越界现在返回 `INVALID_ARGUMENTS` 和 `retryable: false`，按 `field` 与上一页游标修正请求，不再按 `RESOURCE_LIMIT` 重试。`recoverable` 表示可通过修正恢复，不能代替 `retryable`；`isError`、文本 content 与结构化消息保持。
+
 ## 支持的术数与工具
 
 - **命理体系**：八字排盘与合婚、紫微斗数、八字紫微合参、皇极经世、五运六气；

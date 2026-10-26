@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { bazhai } from 'mingyu-core';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
@@ -117,7 +113,7 @@ export function registerBaZhaiTool(server: McpServer) {
         const result = calculateBaZhai(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '八宅排盘失败'));
+        return createErrorToolResult(error, { message: '八宅排盘失败' });
       }
     },
   );
@@ -145,7 +141,7 @@ export function registerBaZhaiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成八宅提示词失败'));
+        return createErrorToolResult(error, { message: '生成八宅提示词失败' });
       }
     },
   );

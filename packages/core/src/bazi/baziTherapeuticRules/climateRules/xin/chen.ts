@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-xin-ren-jia-first',
+    recommendationStems: ['壬', '甲'],
     label: '辛日辰月先壬后甲规则',
     description: '三月辛金戊土司令，原文先壬水洗金、后甲木疏土；透藏不同另分层次。',
     priority: 115,
@@ -15,6 +16,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-ren-jia-all',
+    recommendationStems: [],
     label: '辛日辰月壬甲两透富贵规则',
     description:
       '辛金生辰月，土旺金相，传统先壬后甲；若壬甲两透，最合洗金疏土之法，多主富贵，不应仍按普通春金泛断。',
@@ -36,6 +38,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-ren-visible-jia-hidden',
+    recommendationStems: [],
     label: '辛日辰月壬透甲藏廪贡规则',
     description:
       '辛金生辰月，若壬水透干、甲木藏支，亦合先壬后甲之序，但层次低于壬甲并透，传统多主廪贡不失。',
@@ -60,6 +63,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-jia-visible-ren-hidden',
+    recommendationStems: [],
     label: '辛日辰月甲透壬藏富贵可云规则',
     description:
       '辛金生辰月，若甲木透干、壬水藏支，虽不及壬甲并透得力，传统仍许富贵可云，不宜误落到平常格。',
@@ -84,6 +88,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-no-ren-no-jia',
+    recommendationStems: [],
     label: '辛日辰月壬甲皆无平常规则',
     description:
       '辛金生辰月，若壬甲皆无，则洗金疏土之药两失，传统只作平常之格，不宜抬高到壬甲得用层次。',
@@ -110,6 +115,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-double-bing-with-gui-scholarly',
+    recommendationStems: ['癸'],
     label: '辛日辰月月时皆丙得癸制丙采芹规则',
     description:
       '辛金生辰月，若月时两透丙火，本属争合；但若癸水出干制丙，较合原文"若癸出干制丙，可许采芹"，层次高于单纯争合风流。',
@@ -135,6 +141,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-double-bing-argue-combine',
+    recommendationStems: [],
     label: '辛日辰月月时皆丙争合风流规则',
     description:
       '辛金生辰月，若月时皆透丙火，较合原文"如月时皆丙，名为争合，主慷慨风流，交四海"；此类不应误作壬甲得用之贵格。',
@@ -160,6 +167,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-hai-zi-land-with-shen-rank',
+    recommendationStems: [],
     label: '辛日辰月支坐亥子之乡又见申高禄规则',
     description:
       '辛金生辰月，若地支得亥子水乡，又见申金发源，较合原文"支坐亥子之乡，支又见申，即非玉堂，亦必高增禄位"；此类不应退回平常格。',
@@ -187,6 +195,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-wu-control-water-no-jia-yi-leisure',
+    recommendationStems: [],
     label: '辛日辰月戊出制水不见甲乙清闲规则',
     description:
       '辛金生辰月，若戊土出干制水，而甲乙不出疏土，较合原文"若戊出干制水，不见甲乙，清闲之人"；此类不应误抬到富贵层次。',
@@ -210,6 +219,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-four-storage-no-jia-dull',
+    recommendationStems: [],
     label: '辛日辰月支见四库无甲愚顽规则',
     description:
       '辛金生辰月，若四支皆见辰戌丑未四库，而甲木不出制土，较合原文"支见四库，名土厚埋金，不见甲制，愚顽之辈"；此类应高于普通辰月平常格。',
@@ -239,6 +249,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-fire-many-with-gui-relief',
+    recommendationStems: ['癸'],
     label: '辛日辰月火多得癸可解规则',
     description:
       '辛金生辰月，若四柱火多，本属火土杂乱；但若癸水出干，较合原文"见癸可解"，不应仍按缁衣之格直断。',
@@ -257,6 +268,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-fire-many-no-water-monastic',
+    recommendationStems: [],
     label: '辛日辰月火多无水缁衣规则',
     description:
       '辛金生辰月，若四柱火多而无壬癸透制，较合原文"火土杂乱，主作缁衣"；此类不应仍按一般春金取水收束。',
@@ -275,6 +287,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-companions-heavy-water-weak-jia-noble',
+    recommendationStems: ['甲'],
     label: '辛日辰月比劫重重甲出无庚贵规则',
     description:
       '辛金生辰月，若比劫重重、壬癸浅弱，本有夭折之忧；但甲木透干而不见庚制，较合原文"有甲出干，则贵，然无庚制方妙"，应高于主夭之断。',
@@ -295,6 +308,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-xin-companions-heavy-water-weak-early-loss',
+    recommendationStems: [],
     label: '辛日辰月比劫重重壬癸浅弱主夭规则',
     description:
       '辛金生辰月，若比劫重重而壬癸浅弱，较合原文"主夭"；此类应与一般辰月平常格分开，不可因日主有根而轻忽。',

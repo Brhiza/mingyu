@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-ji-gui-bing-jia',
+    recommendationStems: ['癸', '丙', '甲'],
     label: '己日戌月先癸后丙兼甲规则',
     description: '己土生戌月，三秋己土以癸润土为先、丙火温土为后；九月土盛，另需甲木疏土。',
     priority: 119,

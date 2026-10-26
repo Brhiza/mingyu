@@ -34,6 +34,11 @@ import {
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
+import {
+  applyPromptStatePatch,
+  getResultPromptSelection,
+  getCombinedResultPromptSelection,
+} from '@/lib/prompt-page-rules';
 import { formatBaziCompatibilityFacts } from '@/lib/bazi-compatibility-facts';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
@@ -68,6 +73,7 @@ import {
   buildEnhancedZiweiPromptPack,
   buildBaziFortuneSelectionValue,
   buildCombinedPromptText,
+  applyResultPromptSelection,
   formatZiweiPromptScopeSummary,
   formatBaziFullFortuneText,
   buildEnhancedBaziPromptPack,
@@ -111,6 +117,8 @@ import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
 import { MingluWikiView } from './components/MingluWiki';
 import { buildMingluArticle } from 'mingyu-core/minglu';
 import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
+import { ClassicalReferencesToggle } from '@/components/ClassicalReferencesToggle';
+import { appendClassicalReferences } from 'mingyu-core/prompt';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useBaziRangeCalculations } from './hooks/useBaziRangeCalculations';
@@ -160,11 +168,9 @@ import {
 import { buildWorkspaceLaunchQuestion, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { getConsultationHistoryById } from '@/lib/history-records';
 import {
-  buildPromptSelectionTask,
   getPromptMethodCapability,
   getPromptSubtopicOptions,
   getPromptTopicOptions,
-  getPromptSelectionSection,
   requirePromptSelection,
 } from 'mingyu-core/prompt';
 
@@ -234,18 +240,7 @@ function applyZiweiPromptSelection(
     subtopicId: subtopicId || undefined,
     scope: toPromptScope(scope),
   });
-  prompt = prompt.replace(
-    /^分析主题：.*$/mu,
-    `分析主题：${selection.topicLabel}${selection.subtopicLabel ? ` · ${selection.subtopicLabel}` : ''}`,
-  );
-  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
-  if (!taskMatch) {
-    return `${prompt}\n\n【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask('请依据已列紫微盘面资料回答【问题】。', selection)}`;
-  }
-  const taskText = taskMatch[1]?.trim() ?? '';
-  const selectionSection = `【解读选择】\n${getPromptSelectionSection(selection)}`;
-  const replacement = `${selectionSection}\n\n【任务】\n${buildPromptSelectionTask(taskText, selection)}`;
-  return prompt.replace(taskMatch[0], replacement);
+  return applyResultPromptSelection(prompt, selection);
 }
 
 function FortuneScopePresetSelect(props: {
@@ -306,7 +301,7 @@ function PromptThemeFields(props: {
         ? props.promptState.ziweiTopicId
         : props.source === 'astrolabe'
           ? props.promptState.astrolabeTopicId
-          : props.promptState.baziTopicId || props.promptState.ziweiTopicId;
+          : props.promptState.baziTopicId;
   const currentSubtopic =
     props.source === 'bazi'
       ? props.promptState.baziSubtopicId
@@ -314,7 +309,7 @@ function PromptThemeFields(props: {
         ? props.promptState.ziweiSubtopicId
         : props.source === 'astrolabe'
           ? props.promptState.astrolabeSubtopicId
-          : props.promptState.baziSubtopicId || props.promptState.ziweiSubtopicId;
+          : props.promptState.baziSubtopicId;
   const topicId = topicOptions.some((item) => item.id === currentTopic) ? currentTopic : '';
   const subtopicOptions = getPromptSubtopicOptions(topicId || 'general', props.source);
   const subtopicId = subtopicOptions.some((item) => item.id === currentSubtopic)
@@ -779,10 +774,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
   const updatePromptState = useCallback(
     (next: Partial<QueryPromptState>) => {
-      const merged = {
-        ...promptState,
-        ...next,
-      };
+      const merged = applyPromptStatePatch(promptState, next);
 
       setSearchParams(
         preserveResultContextParams(buildResultSearch(inputState, merged), searchParams),
@@ -1749,11 +1741,24 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
+    if (promptState.baziTopicId) {
+      return getResultPromptSelection(
+        promptState,
+        'bazi',
+        inputState.analysisMode === 'compatibility',
+      ).topicLabel;
+    }
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
       return '通用';
     }
     return activeBaziShortcutMode === '综合' ? '通用' : activeBaziShortcutMode;
-  }, [activeBaziShortcutMode]);
+  }, [activeBaziShortcutMode, promptState, inputState.analysisMode]);
+
+  const combinedPromptSelection = useMemo(
+    () =>
+      getCombinedResultPromptSelection(promptState, inputState.analysisMode === 'compatibility'),
+    [promptState, inputState.analysisMode],
+  );
 
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (!showAssistantPane) return '';
@@ -1775,7 +1780,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         resolveCompatType(promptState.baziPresetId),
         { isCustomQuestion: activeBaziShortcutMode === '自定义' },
       );
-      const prompt = buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
+      const basePrompt = buildCombinedPromptText(
+        compatibilityPrompt.system,
+        compatibilityPrompt.user,
+      );
+      const prompt =
+        promptState.baziTopicId || promptState.baziSubtopicId
+          ? applyResultPromptSelection(
+              basePrompt,
+              getResultPromptSelection(promptState, 'bazi', true),
+            )
+          : basePrompt;
       const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
       return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
     }
@@ -1928,14 +1943,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       isInstantResult ||
       !showAssistantPane ||
       promptState.promptSource !== 'bazi-ziwei' ||
+      !combinedPromptSelection ||
       !currentZiweiPayload
     ) {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-    );
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
     return [
       buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
       ziweiFortuneText,
@@ -1947,9 +1961,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .filter(Boolean)
       .join('\n\n');
   }, [
-    activeBaziShortcutMode,
-    promptState.baziTopicId,
-    promptState.ziweiTopicId,
+    combinedPromptSelection,
     currentZiweiPayload,
     promptZiweiScopePayloads,
     ziweiFortuneText,
@@ -1963,14 +1975,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       isInstantResult ||
       !showAssistantPane ||
       promptState.promptSource !== 'bazi-ziwei' ||
+      !combinedPromptSelection ||
       !currentZiweiPayload
     ) {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-    );
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
     return [
       buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
       formatZiweiSupportingScopeText(
@@ -1981,10 +1992,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .filter(Boolean)
       .join('\n\n');
   }, [
-    activeBaziShortcutMode,
-    promptState.baziTopicId,
+    combinedPromptSelection,
     promptState.promptSource,
-    promptState.ziweiTopicId,
     currentZiweiPayload,
     promptZiweiScopePayloads,
     isInstantResult,
@@ -2039,6 +2048,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : '';
     }
 
+    if (!combinedPromptSelection) return '';
+
     if (inputState.analysisMode === 'compatibility') {
       if (
         !baziPromptSample.primary ||
@@ -2062,15 +2073,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
       });
-      const ziweiCompatibilityText = applyZiweiPromptSelection(
+      const ziweiCompatibilityText = applyResultPromptSelection(
         ziweiCompatibilityPrompt,
-        promptState.ziweiTopicId,
-        promptState.ziweiSubtopicId,
-        toPromptScope(promptState.ziweiScope),
+        combinedPromptSelection,
       );
-      const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-        promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-      );
+      const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
       const primaryZiweiText = buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
       const partnerZiweiText = buildEnhancedZiweiPromptPack(partnerZiweiPayload, ziweiTopic);
       const baziCompatibilityText = formatBaziCompatibilityFacts(
@@ -2078,6 +2085,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         baziPromptSample.partner,
       );
       return buildBaziZiweiCompatibilityPrompt({
+        selection: combinedPromptSelection,
         primaryBaziText: buildEnhancedBaziPromptPack(
           baziPromptSample.primary,
           baziPromptFortuneContext,
@@ -2121,24 +2129,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ziweiScopeSummary:
         promptState.ziweiScope === 'origin' ? '' : `紫微分析范围：${ziweiScopeSummaryText}`,
       isCustomQuestion: activeBaziShortcutMode === '自定义',
-      ...(promptState.baziTopicId || promptState.ziweiTopicId
-        ? {
-            topicId: promptState.baziTopicId || promptState.ziweiTopicId,
-            subtopicId: promptState.baziSubtopicId || promptState.ziweiSubtopicId || undefined,
-            scope:
-              promptState.baziFortuneScope === 'dayun'
-                ? 'decadal'
-                : promptState.baziFortuneScope === 'year'
-                  ? 'yearly'
-                  : promptState.baziFortuneScope === 'month'
-                    ? 'monthly'
-                    : promptState.baziFortuneScope === 'day'
-                      ? 'daily'
-                      : promptState.baziFortuneScope === 'full'
-                        ? 'full'
-                        : toPromptScope(promptState.ziweiScope),
-          }
-        : {}),
+      selection: combinedPromptSelection,
     });
     const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
     return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
@@ -2493,6 +2484,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       enhancedBaziPromptPack,
       effectiveBaziQuickQuestion,
       enhancedZiweiPromptPack,
+      combinedPromptSelection,
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
@@ -2545,6 +2537,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       effectiveBaziQuickQuestion,
       enhancedBaziPromptPack,
       enhancedZiweiPromptPack,
+      combinedPromptSelection,
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
@@ -2675,10 +2668,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const birthTimeIntervalSection = birthTimeIntervals.length
     ? `【出生时间范围】\n${birthTimeIntervals.join('\n')}`
     : '';
-  const previewActivePromptText =
+  const previewActivePromptText = appendClassicalReferences(
     basePreviewActivePromptText && birthTimeIntervalSection
       ? `${basePreviewActivePromptText}\n\n${birthTimeIntervalSection}`
-      : basePreviewActivePromptText;
+      : basePreviewActivePromptText,
+    promptState.promptSource === 'bazhai' && residentialResult
+      ? 'residential'
+      : promptState.promptSource,
+    Boolean(promptState.includeClassics),
+  );
 
   const astrolabeDynamicResourceKey = astrolabeDynamicRangeMode
     ? `astrolabe-dynamic-range:${JSON.stringify([readingSubject.id, astrolabeDynamicRangeState.key, effectiveAstrolabeQuickQuestion, promptState.astrolabeTopicId, promptState.astrolabeSubtopicId])}`
@@ -2693,11 +2691,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
 
     if (isQizhengPromptSource && qizhengRangeMode) {
-      return '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。';
+      return appendClassicalReferences(
+        '请依据随后提供的七政四余出生区间资料，结合用户问题比较各时段与共同成立的判断。',
+        'qizheng',
+        Boolean(promptState.includeClassics),
+      );
     }
 
     if (isQimenLifetimePromptSource) {
-      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+      return appendClassicalReferences(
+        '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。',
+        'qimen-lifetime',
+        Boolean(promptState.includeClassics),
+      );
     }
 
     return previewActivePromptText;
@@ -2708,6 +2714,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQimenLifetimePromptSource,
     isQizhengPromptSource,
     qizhengRangeMode,
+    promptState.includeClassics,
     previewActivePromptText,
     showAssistantPane,
   ]);
@@ -2724,7 +2731,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     const range = qimenLifetimeCalculation.data.input.periodRange;
     const rangeKey = range ? `${range.startDate}-${range.endDate}` : 'current';
     return {
-      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}:birth-second:${qimenLifetimeCalculation.data.birthRange?.index ?? 'point'}`,
+      key: `qimen-lifetime:${inputSearch}:${promptState.qimenLifetimeStageModel}:${rangeKey}:birth-second:${qimenLifetimeCalculation.data.birthRange?.index ?? 'point'}:classics:${promptState.includeClassics ? 'on' : 'off'}`,
       title: '奇门终身局完整资料',
       text: qimenLifetimePromptText,
       usable: true,
@@ -2735,6 +2742,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQimenLifetimePromptSource,
     qimenLifetimeCalculation.data,
     qimenLifetimePromptText,
+    promptState.includeClassics,
     promptState.qimenLifetimeStageModel,
   ]);
 
@@ -2799,7 +2807,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
     if (isQizhengPromptSource && qizhengRangeMode) {
       if (!qizhengRangeState.range || !qizhengRangePrompt) return undefined;
-      const key = `qizheng-birth-range:${subject.id}`;
+      const key = `qizheng-birth-range:${subject.id}:classics:${promptState.includeClassics ? 'on' : 'off'}`;
       return {
         subjectId: subject.id,
         key,
@@ -2842,6 +2850,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     promptState.astrolabeSubtopicId,
     isAstrolabePromptSource,
     isQizhengPromptSource,
+    promptState.includeClassics,
     qizhengRangeMode,
     qizhengRangeState.range,
     qizhengRangePrompt,
@@ -2859,18 +2868,34 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : '依据随后提供的西洋占星本命出生时间区间资料，结合用户问题解读，先说明整个区间共同成立的判断，再区分各出生时段的差异。';
     }
     if (!isInstantResult && isQizhengPromptSource && qizhengRangeMode) {
-      return '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。';
+      return appendClassicalReferences(
+        '依据随后提供的七政四余出生区间资料，结合用户问题解读。分别说明整个区间共同成立的判断与各时段的差异，标明适用时间。',
+        'qizheng',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (isInstantResult || (!isQimenLifetimePromptSource && promptState.ziweiScope !== 'full'))
       return '';
     if (isQimenLifetimePromptSource) {
-      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+      return appendClassicalReferences(
+        '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。',
+        'qimen-lifetime',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (promptState.promptSource === 'ziwei') {
-      return computeZiweiPromptText(effectiveZiweiQuickQuestion, false);
+      return appendClassicalReferences(
+        computeZiweiPromptText(effectiveZiweiQuickQuestion, false),
+        'ziwei',
+        Boolean(promptState.includeClassics),
+      );
     }
     if (promptState.promptSource === 'bazi-ziwei') {
-      return computeEnhancedPromptText(effectiveBaziQuickQuestion, finalBaziQuestion, false);
+      return appendClassicalReferences(
+        computeEnhancedPromptText(effectiveBaziQuickQuestion, finalBaziQuestion, false),
+        'bazi-ziwei',
+        Boolean(promptState.includeClassics),
+      );
     }
     return '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2881,6 +2906,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     isQizhengPromptSource,
     qizhengRangeMode,
     promptState.promptSource,
+    promptState.includeClassics,
     isQimenLifetimePromptSource,
     effectiveZiweiQuickQuestion,
     effectiveBaziQuickQuestion,
@@ -2904,6 +2930,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     baziPromptFortuneContext,
     baziPromptSample,
     enhancedZiweiPromptPack,
+    combinedPromptSelection,
     phaseEnhancedZiweiPromptPack,
     enhancedBaziPromptPack,
     baziFortuneContext,
@@ -2939,10 +2966,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               : promptState.promptSource === 'bazi'
                 ? latestBaziPromptText
                 : latestZiweiPromptText;
-  const latestActivePromptText =
+  const latestActivePromptText = appendClassicalReferences(
     baseLatestActivePromptText && birthTimeIntervalSection
       ? `${baseLatestActivePromptText}\n\n${birthTimeIntervalSection}`
-      : baseLatestActivePromptText;
+      : baseLatestActivePromptText,
+    promptState.promptSource === 'bazhai' && residentialResult
+      ? 'residential'
+      : promptState.promptSource,
+    Boolean(promptState.includeClassics),
+  );
   const baziPromptCacheIdentity = rangeBaziPromptRequested ? baziPromptSample.identity : '';
   const rangePromptCacheIdentity =
     rangeBaziPromptRequested || rangeZiweiRequested
@@ -3191,6 +3223,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           <span>问题灵感</span>
         </WorkspaceButton>
         {promptScopeField}
+        <ClassicalReferencesToggle
+          method={promptState.promptSource}
+          checked={Boolean(promptState.includeClassics)}
+          onChange={(checked) => updatePromptState({ includeClassics: checked })}
+        />
       </div>
 
       {(promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
@@ -3653,14 +3690,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     isAstrolabePromptSource && astrolabeBirthRangeMode
                       ? `${aiContextPrompt}\n${astrolabeDynamicRangeMode ? astrolabeDynamicResourceKey : (readingResourceSeed?.key ?? readingSubject.id)}`
                       : isQizhengPromptSource && qizhengRangeMode
-                        ? `${aiContextPrompt}\n${readingSubject.id}`
+                        ? `${aiContextPrompt}\n${promptState.includeClassics ? 'classics:on' : 'classics:off'}\n${readingSubject.id}`
                         : isQimenLifetimePromptSource
                           ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
                           : rangePromptCacheIdentity || baziPromptCacheIdentity
                             ? `${aiContextPrompt}\n${rangePromptCacheIdentity || baziPromptCacheIdentity}`
                             : aiContextPrompt,
                   )}
-                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}-${rangePromptCacheIdentity || baziPromptCacheIdentity}`}
+                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}-${promptState.astrolabeScope}-${promptState.qimenLifetimeStageModel}-classics:${promptState.includeClassics ? 'on' : 'off'}-${rangePromptCacheIdentity || baziPromptCacheIdentity}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}
                   aiConfig={aiRequestConfig}
@@ -3742,6 +3779,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         onChange={updatePromptState}
                       />
                     ) : null}
+                    <ClassicalReferencesToggle
+                      method={promptState.promptSource}
+                      checked={Boolean(promptState.includeClassics)}
+                      onChange={(checked) => updatePromptState({ includeClassics: checked })}
+                    />
                     {promptScopeField}
                   </div>
 

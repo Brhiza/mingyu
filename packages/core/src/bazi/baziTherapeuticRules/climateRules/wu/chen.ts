@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-wu-officer-party-geng',
+    recommendationStems: ['庚'],
     label: '戊日辰月官杀会党得庚规则',
     description:
       '戊土生辰月，若地支木局已成，天干又甲乙并透，属于官杀会党；此时得庚金出干扫除官杀，传统多主富贵，不应仍按普通春土或从杀泛断。',
@@ -27,6 +28,7 @@ export const WU_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-wu-officer-party-no-geng',
+    recommendationStems: [],
     label: '戊日辰月官杀会党无庚浅薄规则',
     description:
       '戊土生辰月，若地支木局已成且甲乙并透，而庚金不出，则官杀会党无去留之义，传统多断浅薄之人，不宜仍按得庚扫杀之富贵格看待。',
@@ -51,6 +53,7 @@ export const WU_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-wu-follow-kill',
+    recommendationStems: [],
     label: '戊日辰月木多无比印从杀规则',
     description:
       '戊土生辰月，若官杀木气成势，天干又无比劫、印星透出牵制，传统多可按从杀论，层次反主富贵，不应仍拘于春土暖燥之常法。',

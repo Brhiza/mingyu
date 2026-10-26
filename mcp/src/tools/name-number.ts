@@ -16,11 +16,7 @@ import {
 } from 'mingyu-core/name-number';
 import { promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import { resolvePromptSelection } from 'mingyu-core/prompt';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const wuxing = z.enum(['金', '木', '水', '火', '土']);
@@ -143,7 +139,7 @@ export function registerNameNumberTools(server: McpServer) {
           result: generateChineseNames({ ...args, birth: toBaziBirthDraft(args.birth) }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '起名失败'));
+        return createErrorToolResult(error, { message: '起名失败' });
       }
     },
   );
@@ -174,7 +170,7 @@ export function registerNameNumberTools(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '姓名解析失败'));
+        return createErrorToolResult(error, { message: '姓名解析失败' });
       }
     },
   );
@@ -224,7 +220,7 @@ export function registerNameNumberTools(server: McpServer) {
         });
         return createStructuredToolResult({ result: { candidates, prompt }, prompt });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '起名提示词生成失败'));
+        return createErrorToolResult(error, { message: '起名提示词生成失败' });
       }
     },
   );
@@ -266,7 +262,7 @@ export function registerNameNumberTools(server: McpServer) {
         });
         return createStructuredToolResult({ result: { analysis, prompt }, prompt });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '姓名解析提示词生成失败'));
+        return createErrorToolResult(error, { message: '姓名解析提示词生成失败' });
       }
     },
   );
@@ -285,7 +281,7 @@ export function registerNameNumberTools(server: McpServer) {
           result: await analyzeChineseCharactersWithReferences(text),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '汉字解析失败'));
+        return createErrorToolResult(error, { message: '汉字解析失败' });
       }
     },
   );
@@ -309,7 +305,7 @@ export function registerNameNumberTools(server: McpServer) {
           result: selectChineseCharacters({ ...args, strokes: args.kangxiStrokes }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '汉字筛选失败'));
+        return createErrorToolResult(error, { message: '汉字筛选失败' });
       }
     },
   );
@@ -328,7 +324,7 @@ export function registerNameNumberTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: analyzeNumber(value, purpose) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '数字能量解析失败'));
+        return createErrorToolResult(error, { message: '数字能量解析失败' });
       }
     },
   );
@@ -359,7 +355,7 @@ export function registerNameNumberTools(server: McpServer) {
         const prompt = buildNumberEnergyPrompt({ analysis, question, selection });
         return createStructuredToolResult({ result: { analysis, prompt }, prompt });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '数字能量提示词生成失败'));
+        return createErrorToolResult(error, { message: '数字能量提示词生成失败' });
       }
     },
   );
@@ -375,7 +371,7 @@ export function registerNameNumberTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: calculateZhugeNumber(text) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '诸葛神数计算失败'));
+        return createErrorToolResult(error, { message: '诸葛神数计算失败' });
       }
     },
   );
@@ -399,7 +395,7 @@ export function registerNameNumberTools(server: McpServer) {
         const options = args.pattern ? undefined : readMcpRandomOptions(args);
         return createStructuredToolResult({ result: castKongmingHexagram(args.pattern, options) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '孔明神卦起卦失败'));
+        return createErrorToolResult(error, { message: '孔明神卦起卦失败' });
       }
     },
   );

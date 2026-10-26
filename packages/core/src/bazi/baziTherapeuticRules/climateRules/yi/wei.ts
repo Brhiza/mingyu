@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-yi-bing-gui-first',
+    recommendationStems: ['癸', '丙'],
     label: '乙日未月先癸后丙规则',
     description: '乙木生未月，燥土司令，传统多以癸水为先、丙火次之，先润后暖。',
     priority: 120,

@@ -8,11 +8,7 @@ import {
   getFoundationCapabilities,
 } from 'mingyu-core/foundation';
 import { resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 
 const ganZhiSchema = z.object({
   ganZhi: z.string().length(2).describe('六十甲子，如“甲子”“甲辰”'),
@@ -65,7 +61,7 @@ export function registerFoundationTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: describeGanZhi(args.ganZhi) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '干支查询失败'));
+        return createErrorToolResult(error, { message: '干支查询失败' });
       }
     },
   );
@@ -84,7 +80,7 @@ export function registerFoundationTools(server: McpServer) {
           result: analyzeWuxing(args.items, { weightHidden: args.weightHidden }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '五行分析失败'));
+        return createErrorToolResult(error, { message: '五行分析失败' });
       }
     },
   );
@@ -101,7 +97,7 @@ export function registerFoundationTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: analyzeCompassDirection(args.degree) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '罗盘方位换算失败'));
+        return createErrorToolResult(error, { message: '罗盘方位换算失败' });
       }
     },
   );
@@ -128,7 +124,7 @@ export function registerFoundationTools(server: McpServer) {
           ),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '通用神煞查询失败'));
+        return createErrorToolResult(error, { message: '通用神煞查询失败' });
       }
     },
   );

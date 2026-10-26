@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { queryYilinEntry } from 'mingyu-core/classics';
 import { resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 
 const yilinQuerySchema = z.object({
   baseHexagram: z
@@ -40,7 +36,7 @@ export function registerYilinTool(server: McpServer) {
           result: queryYilinEntry(args.baseHexagram, args.targetHexagram, args.source ?? 'both'),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '焦氏易林索引查询失败'));
+        return createErrorToolResult(error, { message: '焦氏易林索引查询失败' });
       }
     },
   );

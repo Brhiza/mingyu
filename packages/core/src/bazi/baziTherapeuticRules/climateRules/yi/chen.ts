@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-yi-gui-bing',
+    recommendationStems: ['癸', '丙'],
     label: '乙日辰月先癸后丙规则',
     description: '乙木生辰月，阳气渐炽，传统以癸水为先、丙火次之，先滋后发，不宜仍按春木一律先火。',
     priority: 118,

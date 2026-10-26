@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
-import { buildBaziCustomPromptPatch, buildZiweiCustomPromptPatch } from '@/lib/prompt-page-rules';
+import {
+  buildBaziCustomPromptPatch,
+  buildZiweiCustomPromptPatch,
+  resolveBaziSelection,
+  resolveZiweiSelection,
+} from '@/lib/prompt-page-rules';
 import {
   findBaziShortcutByMode,
   findZiweiShortcutByMode,
@@ -12,80 +17,6 @@ import {
   writePromptDraft,
 } from '../ResultPage.helpers';
 import type { PromptShortcutMode } from '../ResultPage.types';
-import { normalizeThematicTopic } from 'mingyu-core/prompt';
-
-function resolveBaziSelection(promptId: string, mode: string) {
-  const subtopicByPromptId: Record<string, string> = {
-    'ai-job-change': 'job-change',
-    'ai-startup-partnership': 'startup',
-    'ai-investment-partnership': 'investment',
-    'ai-relationship-push': 'partner',
-    'ai-relationship-decision': 'reconciliation',
-    'ai-reconciliation-decision': 'reconciliation',
-    'ai-study-advance': 'advanced-study',
-    'ai-exam-landing': 'exam',
-    'ai-home-move': 'home',
-    'ai-settle-relocate': 'home',
-  };
-  const compatibilityTopicByPromptId: Record<string, string> = {
-    'ai-compat-marriage': 'relationship',
-    'ai-compat-career': 'career',
-    'ai-compat-friendship': 'relationship',
-    'ai-compat-children': 'family',
-    'ai-compat-parents': 'family',
-    'ai-compat-siblings': 'family',
-  };
-  const topicId =
-    compatibilityTopicByPromptId[promptId] ??
-    (normalizeThematicTopic(mode) === 'general' && mode === '综合'
-      ? 'general'
-      : normalizeThematicTopic(mode));
-  return { topicId, subtopicId: subtopicByPromptId[promptId] ?? '' };
-}
-
-function resolveZiweiSelection(topic: string, mode: string) {
-  const topicByLegacyId: Record<string, string> = {
-    life: 'general',
-    destiny: 'general',
-    recent: 'timing',
-    relationship: 'relationship',
-    'relationship-push': 'relationship',
-    'relationship-decision': 'relationship',
-    'reconciliation-decision': 'relationship',
-    children: 'family',
-    family: 'family',
-    'career-wealth': 'career',
-    'job-change': 'career',
-    'startup-partnership': 'career',
-    'investment-partnership': 'wealth',
-    'home-move': 'family',
-    'settle-relocate': 'family',
-    social: 'relationship',
-    emotion: 'health',
-    health: 'health',
-    study: 'academic',
-    'study-advance': 'academic',
-    'exam-landing': 'academic',
-    growth: 'general',
-    talent: 'general',
-    chat: 'general',
-  };
-  const subtopicByLegacyId: Record<string, string> = {
-    'relationship-push': 'partner',
-    'relationship-decision': 'reconciliation',
-    'reconciliation-decision': 'reconciliation',
-    'job-change': 'job-change',
-    'startup-partnership': 'startup',
-    'investment-partnership': 'investment',
-    'home-move': 'home',
-    'settle-relocate': 'home',
-  };
-  return {
-    topicId: topicByLegacyId[topic] ?? normalizeThematicTopic(mode),
-    subtopicId: subtopicByLegacyId[topic] ?? '',
-  };
-}
-
 export interface PromptShortcuts {
   activeBaziShortcutMode: PromptShortcutMode;
   activeZiweiShortcutMode: PromptShortcutMode;
@@ -305,7 +236,7 @@ export function usePromptShortcuts(
     setActiveBaziShortcutMode(mode);
     if (mode === '自定义') {
       setBaziQuestionDraft(readPromptDraft(baziDraftStorageKey));
-      onUpdatePromptState(buildBaziCustomPromptPatch());
+      onUpdatePromptState(buildBaziCustomPromptPatch(promptSource));
       return;
     }
 

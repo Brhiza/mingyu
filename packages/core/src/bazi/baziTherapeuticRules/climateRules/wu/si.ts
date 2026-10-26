@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-month-wu-gui-bing-first',
+    recommendationStems: ['甲', '丙', '癸'],
     label: '戊日巳月甲先丙癸为佐规则',
     description: '戊土生巳月，外实内虚，原文先用甲木疏劈，次取丙火、癸水为佐。',
     priority: 120,

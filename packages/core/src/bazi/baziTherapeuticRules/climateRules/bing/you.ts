@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-bing-ren-first',
+    recommendationStems: ['壬'],
     label: '丙日酉月壬水辅映规则',
     description: '八月丙火日近黄昏，原文仍用壬水辅映；无壬用癸与成金局另依条件判断。',
     priority: 115,
@@ -14,6 +15,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-metal-formation-no-xin',
+    recommendationStems: [],
     label: '丙日酉月金局无辛饿莩规则',
     description: '丙火生酉月，若地支已成金局而辛金不透，传统多断朱门饿莩，不应误作从才富贵。',
     priority: 127,
@@ -37,6 +39,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-metal-formation-xin-follow-wealth',
+    recommendationStems: [],
     label: '丙日酉月金局辛透从才规则',
     description:
       '丙火生酉月，若地支成金局且辛金透干，天干又不见比劫助身，传统多按从才格看，反主富贵。',
@@ -61,6 +64,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-wu-heavy-false-scholar',
+    recommendationStems: [],
     label: '丙日酉月戊多困水假斯文规则',
     description:
       '丙火生酉月，若壬水已透而戊土偏多困水，传统多断假作斯文，不宜仍按一壬高透富贵上断。',
@@ -78,6 +82,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-one-ren-rich',
+    recommendationStems: [],
     label: '丙日酉月一壬高透富贵规则',
     description:
       '丙火生酉月，若局中多丙而一壬高透，传统多断登科及第、富贵双全，不应仍按普通秋火衰退收束。',
@@ -95,6 +100,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-hidden-ren-xiucai',
+    recommendationStems: [],
     label: '丙日酉月壬藏支秀才规则',
     description: '丙火生酉月，若壬水不透而仅藏支，传统多断秀才，不宜与一壬高透或癸水权代同论。',
     priority: 124,
@@ -118,6 +124,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-ding-xin-cunning',
+    recommendationStems: [],
     label: '丙日酉月丁制辛奸诈规则',
     description:
       '丙火生酉月，若辛透而再见一丁制辛，传统多断为人奸诈，不识高低，层次又低于单纯辛透贫困。',
@@ -141,6 +148,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-xin-poor',
+    recommendationStems: [],
     label: '丙日酉月辛透贫苦规则',
     description:
       '丙火生酉月，若辛金透干而不能从化，传统多断贫苦到老，不应仍退回普通扶抑或泛化秋火衰退。',
@@ -164,6 +172,7 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-bing-no-ren-use-gui',
+    recommendationStems: ['癸'],
     label: '丙日酉月无壬用癸规则',
     description:
       '丙火生酉月，仍以壬水辅映为先；若无壬而癸透，传统亦可权代，但多主功名不久，不宜与壬水正用同断。',

@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-wu-gui-bing-jia',
+    recommendationStems: ['癸', '丙', '甲'],
     label: '戊日未月先癸后丙甲规则',
     description: '戊土生未月，夏燥土厚，传统先看癸水，次用丙火、甲木，不宜仍只按土旺扶抑泛论。',
     priority: 119,
@@ -15,6 +16,7 @@ export const WU_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-wu-gui-jia-no-bing',
+    recommendationStems: [],
     label: '戊日未月有癸无丙见甲规则',
     description: '戊土生未月，有癸无丙时，若再见甲木，传统多断可许秀才，层次高于无甲者。',
     priority: 121,
@@ -37,6 +39,7 @@ export const WU_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-wu-gui-no-bing-no-jia',
+    recommendationStems: [],
     label: '戊日未月有癸无丙无甲规则',
     description: '戊土生未月，有癸无丙且不见甲木时，传统仅言略富，不应与见甲者同断。',
     priority: 120,

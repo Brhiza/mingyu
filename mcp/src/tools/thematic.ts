@@ -22,11 +22,7 @@ import {
   type ZiweiSchool,
 } from '../../../src/lib/public-api/prompt-builders.js';
 import { promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildBaziPerson, baziSchema, calculateMcpBaziSingleChart } from './bazi.js';
 import {
   buildMcpZiweiChartInput,
@@ -415,7 +411,7 @@ export function registerThematicTool(server: McpServer) {
           prompt: promptResult.prompt,
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成大类主题咨询提示词失败'));
+        return createErrorToolResult(error, { message: '生成大类主题咨询提示词失败' });
       }
     },
   );

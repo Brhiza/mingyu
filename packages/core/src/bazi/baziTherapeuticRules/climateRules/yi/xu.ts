@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-yi-gui-xin-first',
+    recommendationStems: ['癸', '辛'],
     label: '乙日戌月癸辛取用规则',
     description: '九月乙木根枯叶落，赖癸水滋养，辛金发癸水之源。',
     priority: 120,

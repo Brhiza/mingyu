@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { zodiac } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
@@ -42,7 +38,7 @@ export function registerZodiacTool(server: McpServer) {
         const result = zodiac.calculateZodiacYearFortune(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生肖运程推算失败'));
+        return createErrorToolResult(error, { message: '生肖运程推算失败' });
       }
     },
   );
@@ -65,7 +61,7 @@ export function registerZodiacTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成生肖运程提示词失败'));
+        return createErrorToolResult(error, { message: '生成生肖运程提示词失败' });
       }
     },
   );

@@ -37,6 +37,7 @@ import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
   requirePromptSelection,
+  type PromptSelection,
 } from 'mingyu-core/prompt';
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from './ResultPage.types';
 
@@ -226,6 +227,18 @@ export function buildCombinedPromptText(system: string, user: string) {
   return [system, user].filter(Boolean).join('\n\n');
 }
 
+/** 将页面已解析的选择用于最终任务书，合盘与单盘共用同一消费边界。 */
+export function applyResultPromptSelection(prompt: string, selection: PromptSelection) {
+  prompt = prompt.replace(
+    /^分析主题：.*$/mu,
+    `分析主题：${selection.topicLabel}${selection.subtopicLabel ? ` · ${selection.subtopicLabel}` : ''}`,
+  );
+  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
+  const task = taskMatch?.[1]?.trim() || '请依据已列盘面资料回答【问题】。';
+  const replacement = `【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask(task, selection)}`;
+  return taskMatch ? prompt.replace(taskMatch[0], replacement) : `${prompt}\n\n${replacement}`;
+}
+
 export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selectedTopic: string) {
   const reportContext: PromptContext = {
     report_key: `enhanced:${selectedTopic}:${payload.active_scope.scope}:${payload.active_scope.solar_date}`,
@@ -287,7 +300,7 @@ function resolveBaziZiweiTaskText(params: {
   subtopicId?: string;
   scope?: string;
 }) {
-  const topic = normalizeThematicTopic(params.questionScopeLabel);
+  const topic = normalizeThematicTopic(params.topicId || params.questionScopeLabel);
   const config = getThematicTopicConfig(topic);
   const method = resolveBaziZiweiTaskMethod(params);
   const baseTask = config.combinedTask;
@@ -313,6 +326,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
   isCustomQuestion?: boolean;
+  selection?: PromptSelection;
 }) {
   const isCustomQuestion = Boolean(params.isCustomQuestion);
   const normalizedQuestion =
@@ -326,17 +340,21 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     .filter(Boolean);
   const questionScopeLabel = params.questionScopeLabel?.trim();
   const selection =
-    params.topicId !== undefined || params.subtopicId !== undefined || params.scope !== undefined
+    params.selection ??
+    (params.topicId !== undefined || params.subtopicId !== undefined || params.scope !== undefined
       ? requirePromptSelection({
           methodId: 'bazi-ziwei',
           topicId: params.topicId,
           subtopicId: params.subtopicId,
           scope: params.scope,
         })
-      : undefined;
+      : undefined);
   const baseTaskText = isCustomQuestion
     ? buildCustomQuestionTask('八字和紫微盘面资料', resolveBaziZiweiTaskMethod(params))
-    : buildPromptTask(resolveBaziZiweiTaskText(params), resolveBaziZiweiTaskMethod(params));
+    : buildPromptTask(
+        resolveBaziZiweiTaskText({ ...params, topicId: selection?.topicId ?? params.topicId }),
+        resolveBaziZiweiTaskMethod(params),
+      );
 
   return [
     buildPromptGuidanceSections('bazi-ziwei'),
@@ -369,7 +387,10 @@ export function buildBaziZiweiCompatibilityPrompt(params: {
   ziweiCompatibilityText: string;
   question: string;
   currentSampleContext?: string;
+  selection?: PromptSelection;
 }) {
+  const task =
+    '请分别核对双方各自的八字与紫微本命事实，再分别说明八字关系依据与紫微关系依据，交叉印证双方在问题所涉主题上的互动模式、优势、冲突来源、适用边界与可执行建议；引用盘面中的具体依据，区分已经显示的事实与推断。';
   return [
     `【第一人八字资料】\n${params.primaryBaziText}`,
     `【第二人八字资料】\n${params.partnerBaziText}`,
@@ -377,7 +398,8 @@ export function buildBaziZiweiCompatibilityPrompt(params: {
     `【第二人紫微资料】\n${params.partnerZiweiText}`,
     `【八字关系依据】\n${params.baziCompatibilityText}`,
     `【紫微关系依据】\n${params.ziweiCompatibilityText}`,
-    '【任务】\n请分别核对双方各自的八字与紫微本命事实，再分别说明八字关系依据与紫微关系依据，交叉印证双方在问题所涉主题上的互动模式、优势、冲突来源、适用边界与可执行建议；引用盘面中的具体依据，区分已经显示的事实与推断。',
+    params.selection ? `【解读选择】\n${getPromptSelectionSection(params.selection)}` : '',
+    `【任务】\n${params.selection ? buildPromptSelectionTask(task, params.selection) : task}`,
     `【问题】\n${params.question.trim()}`,
     params.currentSampleContext,
   ]

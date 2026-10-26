@@ -3,6 +3,7 @@ import type { ClimateRule } from '../types';
 export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'spring-wood-fire-warm',
+    recommendationStems: [],
     label: '春木丙丁温扶规则',
     description: '寅卯辰月木旺而湿寒时，宜先取火温扶，使其发生条达。',
     priority: 101,
@@ -13,6 +14,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'spring-earth-fire-dry',
+    recommendationStems: [],
     label: '春土丙丁燥湿规则',
     description: '寅卯辰月土湿泥重时，宜先取火暖土燥湿以培基。',
     priority: 100,
@@ -23,6 +25,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'summer-wood-fire-cool',
+    recommendationStems: [],
     label: '夏月清润调候规则',
     description: '巳午未月木火偏燥时，先取水以润燥降温。',
     priority: 100,
@@ -33,6 +36,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'winter-water-wood-warm',
+    recommendationStems: [],
     label: '冬月温养调候规则',
     description: '亥子丑月水木偏寒时，先取火以温暖扶阳。',
     priority: 100,
@@ -43,6 +47,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'winter-fire-wood-rescue',
+    recommendationStems: [],
     label: '冬火扶木救应规则',
     description: '亥子丑月火体衰绝，宜先取木生扶以救应火源。',
     priority: 110,
@@ -53,6 +58,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'winter-metal-fire-temper',
+    recommendationStems: [],
     label: '冬金丙丁锻炼规则',
     description: '亥子丑月金寒水冷，宜先取火温养锻炼。',
     priority: 105,
@@ -63,6 +69,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'summer-metal-water-wash',
+    recommendationStems: [],
     label: '夏金壬癸洗淘规则',
     description: '巳午未月金逢火烈，宜先取水洗淘降温。',
     priority: 102,
@@ -73,6 +80,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'winter-earth-fire-thaw',
+    recommendationStems: [],
     label: '冬土丙丁暖局规则',
     description: '亥子丑月土寒湿冻，宜先取火暖土解冻。',
     priority: 101,
@@ -83,6 +91,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'autumn-wood-water-moisten',
+    recommendationStems: [],
     label: '秋木壬癸润燥规则',
     description: '申酉戌月木气枯燥时，宜先取水润木滋养。',
     priority: 103,
@@ -93,6 +102,7 @@ export const GENERAL_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'autumn-metal-water-polish',
+    recommendationStems: [],
     label: '秋金壬癸清润规则',
     description: '申酉戌月金气刚燥时，宜先取水清润洗炼。',
     priority: 102,

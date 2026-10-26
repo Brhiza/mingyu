@@ -72,13 +72,19 @@ jobs:
           echo "PUBLISH_CORE=$publish_core" >> "$GITHUB_ENV"
           echo "PUBLISH_MCP=$publish_mcp" >> "$GITHUB_ENV"
           echo "发行范围：core=$publish_core，mcp=$publish_mcp；core=$core_version，mcp=$mcp_version。"
+      - name: 准备同一源码快照的核心与公开资源
+        run: pnpm run build:prepare
       - name: 构建 MCP 发布包
         if: env.PUBLISH_MCP == 'true'
-        run: pnpm run build:mcp
+        run: pnpm run build:mcp:run
       - name: 生产构建
-        run: pnpm run build
-      - run: pnpm run package:check
-      - run: pnpm test:ci
+        run: pnpm run build:run
+      - run: pnpm run package:check:run
+      - name: MCP 发布包隔离消费契约
+        if: env.PUBLISH_MCP == 'true'
+        run: pnpm run package:check:mcp:run
+      - run: pnpm typecheck:run
+      - run: pnpm test:ci:run
       - name: 发布 mingyu-core 至 npm
         if: env.PUBLISH_CORE == 'true'
         shell: bash
@@ -88,7 +94,8 @@ jobs:
           if npm view "mingyu-core@${core_version}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
             echo "mingyu-core@${core_version} 已存在，跳过重复发布"
           else
-            pnpm --filter mingyu-core publish --no-git-checks --access public
+            # 此 job 已构建并验证该快照，跳过 prepublishOnly 的重复核心构建。
+            pnpm --filter mingyu-core publish --ignore-scripts --no-git-checks --access public
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -30,7 +30,7 @@ import {
 } from './datetime';
 import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
 import { getHexagramsData } from '../divination/hexagram-data';
-import { formatFixedTimezoneOffset } from '../calendar';
+import { formatFixedTimezoneOffset } from '../calendar/civil-time';
 
 export * from './standard';
 export * from './datetime';

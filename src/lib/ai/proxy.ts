@@ -237,6 +237,42 @@ export async function handleAiAnalyze(
     const streamTimeouts = getStreamTimeouts(runtime, env);
     const streamDeadline = Date.now() + streamTimeouts.totalTimeoutMs;
     let doneSent = false;
+    const forwardEvent = async (event: string) => {
+      const data = event
+        .split(/\r?\n/u)
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trim())
+        .join('\n')
+        .trim();
+      if (!data) return;
+      if (data === '[DONE]') {
+        await writer.write(encoder.encode('data: [DONE]\n\n'));
+        doneSent = true;
+        return;
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = parseJsonObject(data);
+      } catch {
+        throw new UpstreamStreamResponseError(
+          'AI 服务流数据无法解析，本次回答未完整生成，请重新生成。',
+          'AI_UPSTREAM_MALFORMED',
+        );
+      }
+      const upstreamStreamError = parseUpstreamStreamError(parsed);
+      if (upstreamStreamError) {
+        throw new UpstreamStreamResponseError(
+          upstreamStreamError.message,
+          upstreamStreamError.code,
+        );
+      }
+      const delta = (parsed as { choices?: Array<{ delta?: { content?: unknown } }> }).choices?.[0]
+        ?.delta?.content;
+      if (typeof delta === 'string' && delta) {
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ content: delta })}\n\n`));
+      }
+    };
 
     try {
       while (true) {
@@ -251,39 +287,12 @@ export async function handleAiAnalyze(
 
         buffer += decoder.decode(value, { stream: true });
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+        const events = buffer.split(/\r?\n\r?\n/u);
+        buffer = events.pop() ?? '';
 
-        for (const line of lines) {
+        for (const event of events) {
+          await forwardEvent(event);
           if (doneSent) break;
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data:')) continue;
-
-          const data = trimmed.slice(5).trim();
-          if (data === '[DONE]') {
-            await writer.write(encoder.encode('data: [DONE]\n\n'));
-            doneSent = true;
-            continue;
-          }
-
-          try {
-            const parsed = JSON.parse(data);
-            const upstreamStreamError = parseUpstreamStreamError(parsed);
-            if (upstreamStreamError) {
-              throw new UpstreamStreamResponseError(
-                upstreamStreamError.message,
-                upstreamStreamError.code,
-              );
-            }
-            const delta = parsed?.choices?.[0]?.delta?.content;
-            if (typeof delta === 'string' && delta) {
-              const payload = JSON.stringify({ content: delta });
-              await writer.write(encoder.encode(`data: ${payload}\n\n`));
-            }
-          } catch (error) {
-            if (error instanceof UpstreamStreamResponseError) throw error;
-            // 忽略无法解析的行
-          }
         }
         if (doneSent) break;
       }
@@ -291,33 +300,7 @@ export async function handleAiAnalyze(
       // 流结束，flush decoder 并处理残留 buffer
       buffer += decoder.decode();
       if (!doneSent && buffer.trim()) {
-        const trimmed = buffer.trim();
-        if (trimmed.startsWith('data:')) {
-          const data = trimmed.slice(5).trim();
-          if (data === '[DONE]') {
-            await writer.write(encoder.encode('data: [DONE]\n\n'));
-            doneSent = true;
-          } else if (data) {
-            try {
-              const parsed = JSON.parse(data);
-              const upstreamStreamError = parseUpstreamStreamError(parsed);
-              if (upstreamStreamError) {
-                throw new UpstreamStreamResponseError(
-                  upstreamStreamError.message,
-                  upstreamStreamError.code,
-                );
-              }
-              const delta = parsed?.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta) {
-                const payload = JSON.stringify({ content: delta });
-                await writer.write(encoder.encode(`data: ${payload}\n\n`));
-              }
-            } catch (error) {
-              if (error instanceof UpstreamStreamResponseError) throw error;
-              // 忽略
-            }
-          }
-        }
+        await forwardEvent(buffer);
       }
       if (!doneSent) {
         throw new UpstreamStreamResponseError(

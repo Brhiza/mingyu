@@ -17,7 +17,11 @@ import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import type { HiddenStemSource, VisibleStemSource } from './baziRuleMatcher';
 import { assertHeavenlyStem, assertHiddenStemsMatchPillars } from './baziUtils';
 
-export interface BaziAnalysisPipelineDeps {
+export interface BaziAnalysisPipelineDeps<
+  Root extends RootAnalysis = RootAnalysis,
+  Support extends SupportAnalysis = SupportAnalysis,
+  Constraint extends ConstraintAnalysis = ConstraintAnalysis,
+> {
   getWuxing: (ganOrZhi: string) => Wuxing;
   getTenGod: (gan: string, dayMaster: string) => string;
   getSeasonStatus: (zhi: string) => Record<string, string>;
@@ -26,7 +30,7 @@ export interface BaziAnalysisPipelineDeps {
     pillars: Pillars,
     hiddenStems: HiddenStems,
     getWuxing: (ganOrZhi: string) => Wuxing,
-  ) => RootAnalysis;
+  ) => Root;
   analyzeFormation: (
     dayMaster: string,
     pillars: Pillars,
@@ -37,13 +41,13 @@ export interface BaziAnalysisPipelineDeps {
     pillars: Pillars,
     hiddenStems: HiddenStems,
     getWuxing: (ganOrZhi: string) => Wuxing,
-  ) => SupportAnalysis;
+  ) => Support;
   analyzeConstraint: (
     dayMaster: string,
     pillars: Pillars,
     hiddenStems: HiddenStems,
     getWuxing: (ganOrZhi: string) => Wuxing,
-  ) => ConstraintAnalysis;
+  ) => Constraint;
   analyzeSeasonalStatus: (
     dayMaster: string,
     monthBranch: string,
@@ -54,9 +58,9 @@ export interface BaziAnalysisPipelineDeps {
   analyzeDayMasterStrength: (
     seasonalStatus: SeasonalStatusAnalysis,
     formationAnalysis: FormationAnalysis,
-    rootAnalysis: RootAnalysis,
-    supportAnalysis: SupportAnalysis,
-    constraintAnalysis: ConstraintAnalysis,
+    rootAnalysis: Root,
+    supportAnalysis: Support,
+    constraintAnalysis: Constraint,
   ) => DayMasterStrengthAnalysis;
   determinePattern: (
     pillars: Pillars,
@@ -177,9 +181,13 @@ function buildWuxingCounts(
   return counts;
 }
 
-function buildPipelineState(
+function buildPipelineState<
+  Root extends RootAnalysis,
+  Support extends SupportAnalysis,
+  Constraint extends ConstraintAnalysis,
+>(
   input: BaziAnalysisPipelineInput,
-  deps: BaziAnalysisPipelineDeps,
+  deps: BaziAnalysisPipelineDeps<Root, Support, Constraint>,
 ): BaziAnalysisPipelineState {
   assertAnalysisInput(input);
 
@@ -260,7 +268,11 @@ function buildAnalysisResult(state: BaziAnalysisPipelineState): BaziAnalysisResu
   };
 }
 
-export function createBaziAnalysisPipeline(deps: BaziAnalysisPipelineDeps) {
+export function createBaziAnalysisPipeline<
+  Root extends RootAnalysis,
+  Support extends SupportAnalysis,
+  Constraint extends ConstraintAnalysis,
+>(deps: BaziAnalysisPipelineDeps<Root, Support, Constraint>) {
   return {
     run(input: BaziAnalysisPipelineInput): BaziAnalysisResult {
       return buildAnalysisResult(buildPipelineState(input, deps));

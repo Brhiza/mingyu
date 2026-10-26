@@ -6,6 +6,7 @@ import {
 export type { MetaphysicsPromptMethod };
 
 export interface MetaphysicsPromptOptions {
+  includeClassics?: boolean;
   method: MetaphysicsPromptMethod;
   measurement?: string;
   schools?: readonly string[];

@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const DING_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-month-ding-geng-chop-jia',
+    recommendationStems: ['庚'],
     label: '丁日寅月庚劈甲引丁规则',
     description: '丁火生寅月，甲木当权，取庚金劈甲以引丁。',
     priority: 118,

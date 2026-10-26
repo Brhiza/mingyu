@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_HAI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'hai-month-ji-bing-jia-first',
+    recommendationStems: ['丙', '甲'],
     label: '己日亥月先丙后甲规则',
     description: '己土生亥月，水冷土寒，传统多以丙火暖局、甲木疏土，先后有序。',
     priority: 120,

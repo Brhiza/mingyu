@@ -1,4 +1,8 @@
-import { daysInSolarMonth, getBirthDateValidationMessage, isValidClockTime } from '../calendar';
+import {
+  daysInSolarMonth,
+  getBirthDateValidationMessage,
+  isValidClockTime,
+} from '../calendar/date-validation';
 
 export type BirthInputText = string | number | undefined;
 

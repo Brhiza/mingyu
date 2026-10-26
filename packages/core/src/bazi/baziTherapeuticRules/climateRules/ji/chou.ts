@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-ji-bing-jia-first',
+    recommendationStems: ['丙', '甲'],
     label: '己日丑月先丙后甲规则',
     description:
       '己土生丑月，寒湿土冻，传统多以丙火暖局、甲木疏土，先后有序，不宜只取冬土通用火候。',

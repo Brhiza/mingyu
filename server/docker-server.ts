@@ -149,7 +149,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     new Request(url, {
       method: request.method === 'HEAD' ? 'GET' : request.method,
       headers,
-      body,
+      body: body ? new Uint8Array(body) : undefined,
     }),
     undefined,
     process.env as AiEnv,
@@ -167,7 +167,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     return;
   }
 
-  Readable.fromWeb(apiResponse.body).pipe(response);
+  Readable.from(apiResponse.body, { objectMode: false }).pipe(response);
 }
 
 async function handleMcpServerRequest(
@@ -206,7 +206,7 @@ async function handleMcpServerRequest(
     new Request(url, {
       method: request.method,
       headers,
-      body,
+      body: body ? new Uint8Array(body) : undefined,
     }),
     {
       preset: readRuntimePreset(process.env.MINGYU_MCP_PRESET),
@@ -223,7 +223,7 @@ async function handleMcpServerRequest(
     return;
   }
 
-  Readable.fromWeb(mcpResponse.body).pipe(response);
+  Readable.from(mcpResponse.body, { objectMode: false }).pipe(response);
 }
 
 function getTrustedClientAddress(request: IncomingMessage): string {

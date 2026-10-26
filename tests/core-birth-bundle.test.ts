@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   calculateBirthChartBundle,
   type BirthChartBundleOptions,
   type BirthProfile,
-} from 'mingyu-core/birth';
+} from '../packages/core/src/birth';
 import {
   BirthProfileError,
   birthProfileToAstrolabeInput,
@@ -13,7 +15,7 @@ import {
   birthProfileToQizhengInput,
   birthProfileToZiweiChartInput,
   normalizeBirthProfile,
-} from 'mingyu-core/profile';
+} from '../packages/core/src/profile';
 
 const profile: BirthProfile = {
   name: '统一档案样例',
@@ -33,6 +35,62 @@ const profile: BirthProfile = {
   useTrueSolarTime: true,
 };
 
+test('Bundle 在新进程仅规范化一次每个单点，区间起点不按样本重复核验', () => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      '-e',
+      `
+      require('tsx/cjs');
+      const Module = require('node:module');
+      const compile = Module.prototype._compile;
+      const counts = { normalize: 0, range: 0 };
+      globalThis.__birthCounts = counts;
+      Module.prototype._compile = function (source, filename) {
+        const key = filename.endsWith('/profile/index.ts') ? 'normalize'
+          : filename.endsWith('/profile/time-range.ts') ? 'range' : null;
+        if (key) {
+          const name = key === 'normalize' ? 'normalizeBirthProfile' : 'validateBirthProfileTimeRange';
+          const start = source.indexOf('function ' + name + '(');
+          const brace = source.indexOf('{', start);
+          if (start < 0 || brace < 0) throw new Error('缺少源码计数位置：' + name);
+          source = source.slice(0, brace + 1) + 'globalThis.__birthCounts.' + key + '++;' + source.slice(brace + 1);
+        }
+        return compile.call(this, source, filename);
+      };
+      (async () => {
+        const { calculateBirthChartBundle } = require('./packages/core/src/birth');
+        const profile = ${JSON.stringify({ ...profile, second: 47 })};
+        const results = [];
+        for (const systems of [['bazi'], ['bazi', 'ziwei', 'astrolabe', 'qizheng']]) {
+          counts.normalize = 0; counts.range = 0;
+          await calculateBirthChartBundle(profile, {
+            systems,
+            ziwei: { scopes: ['origin'], skipAnalysis: true, horoscopeContext: { dateStr: '2026-10-26', hourIndex: 4 } },
+          });
+          results.push({ ...counts });
+        }
+        const startTimestamp = Date.parse('1990-05-15T10:30:47+08:00');
+        counts.normalize = 0; counts.range = 0;
+        await calculateBirthChartBundle({
+          ...profile,
+          useTrueSolarTime: false,
+          birthTimeRange: { startTimestamp, endTimestamp: startTimestamp + 3000, endExclusive: true, timezone: 'Asia/Shanghai', offsetHours: 8 },
+        }, { systems: ['bazi'], rangeBatch: { limit: 3 } });
+        results.push({ ...counts });
+        process.stdout.write(JSON.stringify(results));
+      })().catch(error => { console.error(error); process.exitCode = 1; });
+      `,
+    ],
+    { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' },
+  );
+  assert.deepEqual(JSON.parse(output), [
+    { normalize: 1, range: 0 },
+    { normalize: 1, range: 0 },
+    { normalize: 4, range: 1 },
+  ]);
+});
+
 test('统一出生档案 Bundle 应共享同一套真太阳时输入并生成多种盘面', async () => {
   const bundle = await calculateBirthChartBundle(profile, {
     systems: ['bazi', 'astrolabe', 'qizheng'],
@@ -49,6 +107,68 @@ test('统一出生档案 Bundle 应共享同一套真太阳时输入并生成多
   );
   assert.equal(bundle.qizheng?.calculationContext.localDateTime, '1990-05-15T10:30:00');
   assert.equal(bundle.qizheng?.calculationContext.utcDateTime, '1990-05-15T02:30:00.000Z');
+});
+
+test('四体系 Bundle 复用规范化后仍与公开适配器的历法、DST 与真太阳时输入一致', async () => {
+  const cases: BirthProfile[] = [
+    { ...profile, second: 59, useTrueSolarTime: false },
+    { ...profile, calendarType: 'lunar', second: 16, isLeapMonth: false },
+    {
+      ...profile,
+      year: 1988,
+      month: 7,
+      day: 1,
+      hour: 0,
+      minute: 30,
+      second: 1,
+      useTrueSolarTime: false,
+    },
+    {
+      ...profile,
+      year: 2024,
+      month: 11,
+      day: 3,
+      hour: 1,
+      minute: 30,
+      second: 47,
+      location: {
+        longitude: -74.006,
+        latitude: 40.7128,
+        timezone: -4,
+        timeZoneId: 'America/New_York',
+      },
+    },
+  ];
+  for (const input of cases) {
+    const bundle = await calculateBirthChartBundle(input, {
+      systems: ['bazi', 'ziwei', 'astrolabe', 'qizheng'],
+      ziwei: {
+        scopes: ['origin'],
+        skipAnalysis: true,
+        horoscopeContext: { dateStr: '2026-10-26', hourIndex: 4 },
+      },
+    });
+    if (bundle.range) assert.fail('应返回单点排盘');
+    assert.deepEqual(bundle.normalized, normalizeBirthProfile(input));
+    assert.deepEqual(bundle.inputs, {
+      bazi: birthProfileToBaziPerson(input),
+      ziwei: birthProfileToZiweiChartInput(input),
+      astrolabe: birthProfileToAstrolabeInput(input),
+      qizheng: birthProfileToQizhengInput(input),
+    });
+  }
+  const invalid = { ...profile, minute: undefined };
+  for (const adapter of [
+    birthProfileToBaziPerson,
+    birthProfileToZiweiChartInput,
+    birthProfileToAstrolabeInput,
+    birthProfileToQizhengInput,
+  ]) {
+    assert.throws(
+      () => adapter(invalid),
+      (error: unknown) => error instanceof BirthProfileError && error.code === 'TIME_REQUIRED',
+    );
+  }
 });
 
 test('出生档案真太阳时选项须为布尔值，标准时与校正时辰保持各自口径', async () => {

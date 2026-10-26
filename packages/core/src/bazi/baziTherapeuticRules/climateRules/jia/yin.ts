@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JIA_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-month-jia-bing-gui',
+    recommendationStems: ['丙', '癸'],
     label: '甲日寅月丙癸并用规则',
     description:
       '甲木生寅月，初春余寒未尽，传统多取丙火为先、癸水次之，先暖后润，较泛化春木先火更细。',

@@ -108,6 +108,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
     }
 
     let active = true;
+    const controller = new AbortController();
     setIsDisplayPayloadLoading(true);
     void loadZiweiDisplayPayload(
       chartInput,
@@ -115,6 +116,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
       selectedDateStr,
       selectedHourIndex,
       selectedScope,
+      controller.signal,
     )
       .then((nextPayload) => {
         if (!active) return;
@@ -128,6 +130,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [chartInput, chartInputKey, payload, selectedDateStr, selectedHourIndex, selectedScope]);
 

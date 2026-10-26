@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const WU_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-wu-jia-bing-gui',
+    recommendationStems: ['甲', '丙', '癸'],
     label: '戊日戌月先甲后丙癸规则',
     description:
       '戊土生戌月，燥土当令，传统先用甲木疏土，次取丙火暖照、癸水润燥，不宜退回普通扶抑泛论。',
