@@ -102,12 +102,24 @@ export interface BaziZiweiTimingReference {
   beijingDateTime?: string;
 }
 
+type BaziSynthesisFactKey =
+  | 'pillars'
+  | 'day-master'
+  | 'strength'
+  | 'pattern'
+  | 'useful-god'
+  | 'relations'
+  | 'luck'
+  | 'annual';
+
+type BaziFactAvailability = 'available' | 'checked-empty' | 'missing';
+
 interface ThemeDefinition {
   id: BaziZiweiSynthesisThemeId;
   label: string;
   focus: string;
   palaceNames: string[];
-  baziFactKeys: string[];
+  baziFactKeys: BaziSynthesisFactKey[];
 }
 
 const THEMES: ThemeDefinition[] = [
@@ -191,6 +203,10 @@ function normalizePalaceName(value: string) {
   return value.trim().replace(/宫$/, '');
 }
 
+function hasBaziValue(value: unknown): value is string {
+  return typeof value === 'string' && Boolean(value.trim()) && value !== '未知';
+}
+
 function getBeijingHoroscopeContext(instant: Date) {
   if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) {
     throw new Error('精确运限时刻不是有效日期。');
@@ -257,7 +273,8 @@ function createBaziFacts(
   chart: BaziChartResult,
   timingReference: ReturnType<typeof resolveTimingReference>,
 ): {
-  facts: Record<string, SynthesisEvidenceFact[]>;
+  facts: Record<BaziSynthesisFactKey, SynthesisEvidenceFact[]>;
+  availability: Record<BaziSynthesisFactKey, BaziFactAvailability>;
   timingBoundaryFacts: string[];
   luckAmbiguous: boolean;
   annualAmbiguous: boolean;
@@ -288,6 +305,48 @@ function createBaziFacts(
   const natalAnalysisFacts = buildBaziNatalAnalysisFacts(chart);
   const strengthFact = natalAnalysisFacts.find((item) => item.type === '日主旺衰')!;
   const usefulFact = natalAnalysisFacts.find((item) => item.type === '用神取忌')!;
+  const patternFact = natalAnalysisFacts.find((item) => item.type === '格局')!;
+  const hasCompletePillars =
+    !chart.isThreePillars &&
+    pillars.every((key) => {
+      const pillar = chart.pillars[key];
+      return (
+        hasBaziValue(pillar.gan) &&
+        hasBaziValue(pillar.zhi) &&
+        pillar.ganZhi === `${pillar.gan}${pillar.zhi}`
+      );
+    });
+  const relationCoverage = evidence?.counterEvidenceFacts.find(
+    (item) => item.type === '柱间关系覆盖',
+  );
+  // 本命 status 还受格式化说明影响；合参直接核对结果字段或正式裁决状态。
+  const usefulGod = chart.analysis.usefulGod;
+  const hasUsefulGod =
+    !chart.isThreePillars &&
+    (usefulGod.incrementStatus === '已判定' ||
+      usefulGod.incrementStatus === '部分判定' ||
+      usefulGod.incrementStatus === '待判' ||
+      [
+        usefulGod.useful,
+        usefulGod.avoid,
+        usefulGod.primaryUseful,
+        usefulGod.primaryAvoid,
+        usefulGod.primaryFavorableWuxing,
+        usefulGod.primaryUnfavorableWuxing,
+        ...(usefulGod.favorable ?? []),
+        ...(usefulGod.unfavorable ?? []),
+        ...(usefulGod.primaryFavorable ?? []),
+        ...(usefulGod.secondaryFavorable ?? []),
+        ...(usefulGod.primaryUnfavorable ?? []),
+        ...(usefulGod.secondaryUnfavorable ?? []),
+        ...(usefulGod.favorableWuxing ?? []),
+        ...(usefulGod.unfavorableWuxing ?? []),
+        ...(usefulGod.secondaryFavorableWuxing ?? []),
+        ...(usefulGod.secondaryUnfavorableWuxing ?? []),
+        ...(usefulGod.conditionalFavorableStems ?? []),
+        ...(usefulGod.conditionalUnfavorableStems ?? []),
+        ...(usefulGod.conditionalFavorableWuxing ?? []),
+      ].some(hasBaziValue));
   const cycleAtStart = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.start);
   const cycleAtEnd = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.endInclusive);
   const luckAmbiguous = cycleAtStart !== cycleAtEnd;
@@ -324,7 +383,29 @@ function createBaziFacts(
   ];
   const annual = annualAmbiguous ? [] : annualAtStart;
 
-  const facts: Record<string, SynthesisEvidenceFact[]> = {
+  // 各类资料的可用性来自原字段或核查状态，detail 仅用于展示。
+  const availability: Record<BaziSynthesisFactKey, BaziFactAvailability> = {
+    pillars: hasCompletePillars ? 'available' : 'missing',
+    'day-master':
+      [chart.dayMaster.gan, chart.dayMaster.element, chart.dayMaster.yinYang].every(hasBaziValue) &&
+      chart.dayMaster.gan === chart.pillars.day.gan &&
+      hasBaziValue(chart.monthCommander)
+        ? 'available'
+        : 'missing',
+    strength: strengthFact.status === '已记录' ? 'available' : 'missing',
+    pattern: patternFact.status === '已记录' ? 'available' : 'missing',
+    'useful-god': hasUsefulGod ? 'available' : 'missing',
+    relations: !hasCompletePillars
+      ? 'missing'
+      : relationFacts.length
+        ? 'available'
+        : relationCoverage?.status === '未命中主要关系'
+          ? 'checked-empty'
+          : 'missing',
+    luck: currentCycle ? 'available' : 'missing',
+    annual: annual.length ? 'available' : 'missing',
+  };
+  const facts: Record<BaziSynthesisFactKey, SynthesisEvidenceFact[]> = {
     pillars: [
       {
         key: 'bazi:synthesis:pillars',
@@ -420,7 +501,14 @@ function createBaziFacts(
         ]
       : [],
   };
-  return { facts, timingBoundaryFacts, luckAmbiguous, annualAmbiguous, termYearAmbiguous };
+  return {
+    facts,
+    availability,
+    timingBoundaryFacts,
+    luckAmbiguous,
+    annualAmbiguous,
+    termYearAmbiguous,
+  };
 }
 
 function palaceEvidenceKeys(payloadEvidence: EvidenceFact[], palace: PalaceFact) {
@@ -573,6 +661,7 @@ export function buildBaziZiweiSynthesis(params: {
   const timingReference = resolveTimingReference(params.ziwei, params.referenceInstant);
   const {
     facts: baziFacts,
+    availability: baziAvailability,
     timingBoundaryFacts,
     luckAmbiguous,
     annualAmbiguous,
@@ -582,28 +671,21 @@ export function buildBaziZiweiSynthesis(params: {
     id: definition.id,
     label: definition.label,
     focus: definition.focus,
-    baziEvidence: definition.baziFactKeys.flatMap((key) => baziFacts[key] ?? []),
+    baziEvidence: definition.baziFactKeys.flatMap((key) => baziFacts[key]),
     ziweiEvidence: createZiweiThemeFacts(params.ziwei, definition),
   }));
-  // 逐主题核对声明所需资料项：缺资料与“未记录”占位均计入缺口
+  // 逐主题核对结构化可用性；已核查为空的关系不计入缺口。
   const missingFacts = themes.flatMap((theme, index) => {
     const definition = THEMES[index]!;
     const gaps: string[] = [];
     if (!theme.baziEvidence.length) {
       gaps.push(`${theme.label}缺少八字资料`);
     } else {
-      const placeholderKeys = definition.baziFactKeys.filter((key) =>
-        (baziFacts[key] ?? []).every(
-          (fact) =>
-            !fact.detail ||
-            fact.detail === '未知' ||
-            fact.detail.startsWith('未知；') ||
-            fact.detail.includes('未记录') ||
-            fact.detail.includes('未登记'),
-        ),
+      const missingKeys = definition.baziFactKeys.filter(
+        (key) => baziAvailability[key] === 'missing',
       );
-      if (placeholderKeys.length) {
-        gaps.push(`${theme.label}八字资料有待核验项：${placeholderKeys.join('、')}`);
+      if (missingKeys.length) {
+        gaps.push(`${theme.label}八字资料有待核验项：${missingKeys.join('、')}`);
       }
     }
     if (!theme.ziweiEvidence.length && theme.id !== 'timing')
@@ -613,13 +695,13 @@ export function buildBaziZiweiSynthesis(params: {
   if (!hasCompleteZiweiOrigin(params.ziwei)) {
     missingFacts.push('紫微本命十二宫资料缺失或不完整');
   }
-  if (!baziFacts.luck.length)
+  if (baziAvailability.luck === 'missing')
     missingFacts.push(
       luckAmbiguous
         ? '运限基准时辰跨八字交运，不能唯一定位大运或童限'
         : '运限基准日期缺少对应八字大运或童限',
     );
-  if (!baziFacts.annual.length)
+  if (baziAvailability.annual === 'missing')
     missingFacts.push(
       termYearAmbiguous
         ? '运限基准时辰跨八字节令年，不能唯一定位流年'

@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1, PalaceFact } from '../../types/analysis';
-import { normalizeThematicTopic } from '../../prompt/thematic';
+import { normalizeThematicTopic } from '../../prompt/thematic-topics';
 import {
   buildScopeFocusPalaces,
   dedupePalaces,

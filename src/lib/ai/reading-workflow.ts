@@ -58,28 +58,27 @@ export type ReadingResource = {
   /** 仅补算过程拥有的临时资料提供此方法；页面借出的资料由页面回收。 */
   dispose?: () => Promise<void>;
 };
-type ZiweiPhaseStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled';
-type ZiweiPhaseMemory = {
+type ReadingPhaseStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled';
+type PhaseReadingIdentity = {
   resourceKey: string;
   resourceText: string;
   structuredText: string;
   subjectId: string;
   question: string;
+  guide: string;
+  currentTimeContext: string;
+};
+type ZiweiPhaseMemory = PhaseReadingIdentity & {
   phases: Array<{
     index: number;
     resourceKey: string;
     subjectTitle: string;
     facts: string;
-    status: ZiweiPhaseStatus;
+    status: ReadingPhaseStatus;
     answer?: string;
   }>;
 };
-type QimenPhaseMemory = {
-  resourceKey: string;
-  resourceText: string;
-  structuredText: string;
-  subjectId: string;
-  question: string;
+type QimenPhaseMemory = PhaseReadingIdentity & {
   phases: Array<{
     index: number;
     resourceKey: string;
@@ -87,7 +86,7 @@ type QimenPhaseMemory = {
     coverageLabel: string;
     dateKeys: string[];
     facts: string;
-    status: ZiweiPhaseStatus;
+    status: ReadingPhaseStatus;
     answer?: string;
   }>;
 };
@@ -99,32 +98,16 @@ type BirthRangePhaseRecord = {
   coverageKeys: string[];
   resourceContext: string;
   facts: string;
-  status: ZiweiPhaseStatus;
+  status: ReadingPhaseStatus;
   answer?: string;
 };
-type QizhengPhaseMemory = {
-  resourceKey: string;
-  resourceText: string;
-  structuredText: string;
-  subjectId: string;
-  question: string;
-  guide: string;
-  currentTimeContext: string;
-  phases: BirthRangePhaseRecord[];
-};
-type AstrolabePhaseMemory = {
-  resourceKey: string;
-  resourceText: string;
-  structuredText: string;
-  subjectId: string;
-  question: string;
-  guide: string;
-  currentTimeContext: string;
-  phases: BirthRangePhaseRecord[];
-};
+type QizhengPhaseMemory = PhaseReadingIdentity & { phases: BirthRangePhaseRecord[] };
+type AstrolabePhaseMemory = PhaseReadingIdentity & { phases: BirthRangePhaseRecord[] };
 export type ReadingMemory = {
   resources: ReadingResource[];
   initialPrompt?: string;
+  /** 直接调用工作流时，同一消息和主体沿用时间；hook 用 requestTime 区分新的同文追问。 */
+  requestTime?: { identity: string; timestamp: number };
   restoreActions?: ReadingResourceReplay[];
   schemas?: ReadingResource[];
   ziweiPhaseReading?: ZiweiPhaseMemory;
@@ -153,6 +136,8 @@ export interface ReadingDependencies {
 }
 export interface ReadingOptions extends StreamOptions {
   initialPrompt?: string;
+  /** 一个逻辑请求固定的时间戳；retry 复用，analyze/ask 重新创建。 */
+  requestTime?: number;
   memory: ReadingMemory;
   subject?: ReadingSubjectSnapshot;
   readingMethod?: string;
@@ -340,6 +325,20 @@ export function formatReadingCurrentTime(value = new Date()) {
   }).format(value);
 }
 
+function getReadingRequestTime(messages: ChatMessage[], options: ReadingOptions) {
+  const identity = JSON.stringify([
+    options.subject?.id ?? '',
+    options.readingMethod ?? '',
+    options.initialPrompt ?? '',
+    messages,
+  ]);
+  const previous = options.memory.requestTime;
+  const timestamp =
+    options.requestTime ?? (previous?.identity === identity ? previous.timestamp : Date.now());
+  options.memory.requestTime = { identity, timestamp };
+  return timestamp;
+}
+
 export function parseReadingPlan(text: string): ReadingAction[] {
   const clean = text
     .trim()
@@ -382,6 +381,57 @@ export function parseReadingPlan(text: string): ReadingAction[] {
     }
     throw new Error('资料准备包含暂不支持的操作。');
   });
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+    return Object.fromEntries(
+      Object.entries(item).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+    );
+  });
+}
+
+function readingActionKey(action: ReadingAction): string {
+  return action.kind === 'calculate'
+    ? stableStringify({ ...action, target: action.target ?? 'primary' })
+    : JSON.stringify(action);
+}
+
+function readingResourceKeys(resource: ReadingResource): string[] {
+  // 保留历史 key 供 checkpoint 使用，只为去重补上完整动作的稳定身份。
+  const keys = [resource.key];
+  const serializedActions = [
+    resource.key,
+    ...(resource.replay ? [JSON.stringify(resource.replay)] : []),
+  ];
+  for (const serialized of serializedActions) {
+    try {
+      const [action] = parseReadingPlan(JSON.stringify({ actions: [JSON.parse(serialized)] }));
+      keys.push(readingActionKey(action));
+    } catch {
+      // 页面资料和旧历史可以使用不含动作的 opaque key。
+    }
+  }
+  return keys;
+}
+
+function checkpointSupplementalKeys(checkpoint?: ReadingDynamicCheckpoint): Set<string> {
+  if (checkpoint?.version === 2) {
+    try {
+      const identity: unknown = JSON.parse(checkpoint.identity);
+      if (isRecord(identity) && Array.isArray(identity.supplemental)) {
+        return new Set(
+          identity.supplemental.flatMap((item: unknown) =>
+            Array.isArray(item) && typeof item[0] === 'string' ? [item[0]] : [],
+          ),
+        );
+      }
+    } catch {
+      // 损坏的 identity 仍交由原有 checkpoint 校验拒绝。
+    }
+  }
+  return new Set();
 }
 
 export function fitReadingMessages(messages: ChatMessage[], addition: string): ChatMessage[] {
@@ -465,6 +515,68 @@ function collectResponse(
       reject(error);
     });
   });
+}
+
+function buildPhaseReadingIdentity(
+  fullResources: readonly { resource: ReadingResource }[],
+  supplementalText: string,
+  options: ReadingOptions,
+  question: string,
+  guide: string,
+  currentTimeContext: string,
+): PhaseReadingIdentity {
+  return {
+    resourceKey: fullResources
+      .map(({ resource }) => `${resource.key}:${resource.title}`)
+      .join('\u0000'),
+    resourceText: [
+      ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+      supplementalText,
+    ].join('\u0000'),
+    structuredText: fullResources
+      .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
+      .join('\u0000'),
+    subjectId: options.subject?.id ?? '',
+    question,
+    guide,
+    // 只有相对时间问题才有上下文；固定时段不会随时钟逐分钟失效。
+    currentTimeContext,
+  };
+}
+
+function isSamePhaseReading(
+  previous: (PhaseReadingIdentity & { phases: unknown[] }) | undefined,
+  identity: PhaseReadingIdentity,
+  phaseCount: number,
+) {
+  return Boolean(
+    previous &&
+    previous.phases.length === phaseCount &&
+    (Object.keys(identity) as Array<keyof PhaseReadingIdentity>).every(
+      (key) => previous[key] === identity[key],
+    ),
+  );
+}
+
+async function collectPhaseAnswer(
+  record: { status: ReadingPhaseStatus; answer?: string },
+  messages: ChatMessage[],
+  options: ReadingOptions,
+  stream: ReadingDependencies['stream'],
+  label: string,
+) {
+  record.status = 'pending';
+  record.answer = undefined;
+  try {
+    const answer = requirePhaseAnswer(await collectResponse(messages, options, stream), label);
+    if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
+    record.status = 'succeeded';
+    record.answer = answer;
+    return answer;
+  } catch (error) {
+    record.status = options.signal?.aborted ? 'cancelled' : 'failed';
+    throw error;
+  }
 }
 
 type ZiweiPhaseDraft = {
@@ -786,36 +898,13 @@ async function collectBirthRangePhaseSummary(
       status: 'pending',
       resourceContext: phase.resourceContext,
     };
-    try {
-      const answer = requirePhaseAnswer(
-        await collectResponse(prepared, options, deps.stream),
-        `${dialect.emptyPhaseLabel}${index + 1}/${phases.length}`,
-      );
-      entries[index]!.answer = answer;
-      memory.phases[index] = {
-        index,
-        resourceKey: phase.resourceKey,
-        subjectTitle: phase.subjectTitle,
-        coverageLabel: phase.coverageLabel,
-        coverageKeys: phase.coverageKeys,
-        facts: phase.facts,
-        status: 'succeeded',
-        resourceContext: phase.resourceContext,
-        answer,
-      };
-    } catch (error) {
-      memory.phases[index] = {
-        index,
-        resourceKey: phase.resourceKey,
-        subjectTitle: phase.subjectTitle,
-        coverageLabel: phase.coverageLabel,
-        coverageKeys: phase.coverageKeys,
-        facts: phase.facts,
-        status: options.signal?.aborted ? 'cancelled' : 'failed',
-        resourceContext: phase.resourceContext,
-      };
-      throw error;
-    }
+    entries[index]!.answer = await collectPhaseAnswer(
+      memory.phases[index]!,
+      prepared,
+      options,
+      deps.stream,
+      `${dialect.emptyPhaseLabel}${index + 1}/${phases.length}`,
+    );
   }
   assertBirthRangePhaseAnswerCoverage(dialect, entries, phases.length);
 
@@ -1946,37 +2035,21 @@ async function collectQimenPhaseSummary(
         status: 'pending',
       };
     }
-    try {
-      const answer = requirePhaseAnswer(
-        await collectResponse(prepared, options, deps.stream),
-        `奇门终身局阶段${index + 1}/${phases.length}`,
-      );
-      entries[index]!.answer = answer;
-      if (cached)
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          coverageLabel: phase.coverageLabel,
-          dateKeys: phase.dateKeys,
-          facts: phase.facts,
-          status: 'succeeded',
-          answer,
-        };
-    } catch (error) {
-      if (cached) {
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          coverageLabel: phase.coverageLabel,
-          dateKeys: phase.dateKeys,
-          facts: phase.facts,
-          status: options.signal?.aborted ? 'cancelled' : 'failed',
-        };
-      }
-      throw error;
-    }
+    entries[index]!.answer = await collectPhaseAnswer(
+      cached?.phases[index] ?? {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        coverageLabel: phase.coverageLabel,
+        dateKeys: phase.dateKeys,
+        facts: phase.facts,
+        status: 'pending' as const,
+      },
+      prepared,
+      options,
+      deps.stream,
+      `奇门终身局阶段${index + 1}/${phases.length}`,
+    );
   }
   assertQimenPhaseAnswerCoverage(entries, phases.length);
 
@@ -2069,32 +2142,20 @@ async function runQimenPhasedReading(
       return range ? `${range.startDate}至${range.endDate}` : '终身阶段范围';
     })
     .join('；');
-  const resourceKey = fullResources
-    .map(({ resource }) => `${resource.key}:${resource.title}`)
-    .join('\u0000');
-  const resourceText = [
-    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+  const identity = buildPhaseReadingIdentity(
+    fullResources,
     supplementalText,
-  ].join('\u0000');
-  const structuredText = fullResources
-    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
-    .join('\u0000');
+    options,
+    question,
+    guide,
+    currentTimeContext,
+  );
   const previous = options.memory.qimenPhaseReading;
-  const reusable =
-    previous?.resourceKey === resourceKey &&
-    previous.resourceText === resourceText &&
-    previous.structuredText === structuredText &&
-    previous.subjectId === (options.subject?.id ?? '') &&
-    previous.question === question &&
-    previous.phases.length === phases.length;
+  const reusable = isSamePhaseReading(previous, identity, phases.length);
   const phaseMemory: QimenPhaseMemory = reusable
     ? previous!
     : {
-        resourceKey,
-        resourceText,
-        structuredText,
-        subjectId: options.subject?.id ?? '',
-        question,
+        ...identity,
         phases: phases.map((phase, index) => ({
           index,
           resourceKey: phase.resourceKey,
@@ -2212,36 +2273,20 @@ async function runQizhengPhasedReading(
       return `${start}至${end}`;
     })
     .join('；');
-  const resourceKey = fullResources
-    .map(({ resource }) => `${resource.key}:${resource.title}`)
-    .join('\u0000');
-  const resourceText = [
-    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+  const identity = buildPhaseReadingIdentity(
+    fullResources,
     supplementalText,
-  ].join('\u0000');
-  const structuredText = fullResources
-    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
-    .join('\u0000');
+    options,
+    question,
+    guide,
+    currentTimeContext,
+  );
   const previous = options.memory.qizhengPhaseReading;
-  const reusable =
-    previous?.resourceKey === resourceKey &&
-    previous.resourceText === resourceText &&
-    previous.structuredText === structuredText &&
-    previous.subjectId === (options.subject?.id ?? '') &&
-    previous.question === question &&
-    previous.guide === guide &&
-    previous.currentTimeContext === currentTimeContext &&
-    previous.phases.length === phases.length;
+  const reusable = isSamePhaseReading(previous, identity, phases.length);
   const phaseMemory: QizhengPhaseMemory = reusable
     ? previous!
     : {
-        resourceKey,
-        resourceText,
-        structuredText,
-        subjectId: options.subject?.id ?? '',
-        question,
-        guide,
-        currentTimeContext,
+        ...identity,
         phases: phases.map((phase, index) => ({
           index,
           resourceKey: phase.resourceKey,
@@ -2365,36 +2410,20 @@ async function runAstrolabePhasedReading(
       return `${start}至${end}`;
     })
     .join('；');
-  const resourceKey = fullResources
-    .map(({ resource }) => `${resource.key}:${resource.title}`)
-    .join('\u0000');
-  const resourceText = [
-    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+  const identity = buildPhaseReadingIdentity(
+    fullResources,
     supplementalText,
-  ].join('\u0000');
-  const structuredText = fullResources
-    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
-    .join('\u0000');
+    options,
+    question,
+    guide,
+    currentTimeContext,
+  );
   const previous = options.memory.astrolabePhaseReading;
-  const reusable =
-    previous?.resourceKey === resourceKey &&
-    previous.resourceText === resourceText &&
-    previous.structuredText === structuredText &&
-    previous.subjectId === (options.subject?.id ?? '') &&
-    previous.question === question &&
-    previous.guide === guide &&
-    previous.currentTimeContext === currentTimeContext &&
-    previous.phases.length === phases.length;
+  const reusable = isSamePhaseReading(previous, identity, phases.length);
   const phaseMemory: AstrolabePhaseMemory = reusable
     ? previous!
     : {
-        resourceKey,
-        resourceText,
-        structuredText,
-        subjectId: options.subject?.id ?? '',
-        question,
-        guide,
-        currentTimeContext,
+        ...identity,
         phases: phases.map((phase, index) => ({
           index,
           resourceKey: phase.resourceKey,
@@ -2765,33 +2794,19 @@ async function collectZiweiPhaseSummary(
         status: 'pending',
       };
     }
-    try {
-      const answer = requirePhaseAnswer(
-        await collectResponse(prepared, options, deps.stream),
-        `紫微阶段${index + 1}/${phases.length}`,
-      );
-      entries[index]!.answer = answer;
-      if (cached)
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          facts: phase.facts,
-          status: 'succeeded',
-          answer,
-        };
-    } catch (error) {
-      if (cached) {
-        cached.phases[index] = {
-          index,
-          resourceKey: phase.resourceKey,
-          subjectTitle: phase.subjectTitle,
-          facts: phase.facts,
-          status: options.signal?.aborted ? 'cancelled' : 'failed',
-        };
-      }
-      throw error;
-    }
+    entries[index]!.answer = await collectPhaseAnswer(
+      cached?.phases[index] ?? {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        facts: phase.facts,
+        status: 'pending' as const,
+      },
+      prepared,
+      options,
+      deps.stream,
+      `紫微阶段${index + 1}/${phases.length}`,
+    );
   }
   assertPhaseCoverage(entries, phases.length);
 
@@ -2867,32 +2882,20 @@ async function runZiweiPhasedReading(
       supplementalText,
     ),
   );
-  const resourceKey = fullResources
-    .map(({ resource }) => `${resource.key}:${resource.title}`)
-    .join('\u0000');
-  const resourceText = [
-    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+  const identity = buildPhaseReadingIdentity(
+    fullResources,
     supplementalText,
-  ].join('\u0000');
-  const structuredText = fullResources
-    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
-    .join('\u0000');
+    options,
+    question,
+    guide,
+    currentTimeContext,
+  );
   const previous = options.memory.ziweiPhaseReading;
-  const reusable =
-    previous?.resourceKey === resourceKey &&
-    previous.resourceText === resourceText &&
-    previous.structuredText === structuredText &&
-    previous.subjectId === (options.subject?.id ?? '') &&
-    previous.question === question &&
-    previous.phases.length === phases.length;
+  const reusable = isSamePhaseReading(previous, identity, phases.length);
   const phaseMemory: ZiweiPhaseMemory = reusable
     ? previous!
     : {
-        resourceKey,
-        resourceText,
-        structuredText,
-        subjectId: options.subject?.id ?? '',
-        question,
+        ...identity,
         phases: phases.map((phase, index) => ({
           index,
           resourceKey: phase.resourceKey,
@@ -2958,6 +2961,7 @@ export async function runReadingWorkflow(
   options: ReadingOptions,
   deps: ReadingDependencies,
 ) {
+  const requestTime = getReadingRequestTime(messages, options);
   const guard = () => {
     if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   };
@@ -2967,9 +2971,30 @@ export async function runReadingWorkflow(
       guard();
       if (!options.subject || !isReadingResourceReplays(options.memory.restoreActions))
         throw new Error('动态解读的主体或恢复记录不完整，请重新开始解读。');
+      const supplementalKeys = checkpointSupplementalKeys(options.memory.astrolabeDynamicReading);
       for (const replay of options.memory.restoreActions) {
-        if (options.memory.resources.some((resource) => resource.key === replay.key)) continue;
         const [action] = parseReadingPlan(JSON.stringify({ actions: [replay.action] }));
+        const key = readingActionKey(action);
+        if (
+          options.memory.resources.some(
+            (resource) => resource.usable && resource.key === replay.key,
+          )
+        )
+          continue;
+        const reusable = options.memory.resources.find(
+          (resource) =>
+            resource.usable &&
+            !resource.dynamicAstrolabe &&
+            readingResourceKeys(resource).includes(key),
+        );
+        if (reusable) {
+          if (supplementalKeys.has(replay.key)) {
+            // 旧 v2 identity 引用每个补充资料 key；复用内容，回收权只留给原资源。
+            const { dispose: _dispose, ...alias } = reusable;
+            options.memory.resources.push({ ...alias, key: replay.key, replay: replay.action });
+          }
+          continue;
+        }
         options.onProgress({ stage: 'calculating', text: '正在恢复已保存的解读资料' });
         const resource = await deps.execute(action, options.signal, options.subject);
         if (options.signal?.aborted) {
@@ -3008,11 +3033,15 @@ export async function runReadingWorkflow(
         )
       )
         throw new Error('动态区间解读资料与锁定主体不匹配。');
+      const question =
+        [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+      const originalQuestion = dynamicResources[0].dynamicAstrolabe!.promptOptions?.question;
       const roundOptions = {
         signal: options.signal,
         aiConfig: options.aiConfig,
         onChunk: options.onChunk,
-        question: [...messages].reverse().find((message) => message.role === 'user')?.content ?? '',
+        question,
+        originalQuestion,
         onProgress: (text: string) => options.onProgress({ stage: 'writing', text }),
       };
       const otherResources = options.memory.resources.filter(
@@ -3047,14 +3076,7 @@ export async function runReadingWorkflow(
                 ...otherResources.map(({ key, title, text }) => ({ key, title, text })),
               ],
               previous?.version === 2 ? previous : undefined,
-              {
-                ...roundOptions,
-                question:
-                  roundOptions.question === options.memory.initialPrompt
-                    ? (dynamicResources[0].dynamicAstrolabe!.promptOptions?.question ??
-                      '结合原始盘面中的问题完成解读。')
-                    : roundOptions.question,
-              },
+              roundOptions,
               deps.stream,
             );
       guard();
@@ -3105,7 +3127,7 @@ export async function runReadingWorkflow(
     hasPreviousAnswer && !isTimeFollowup && isSimpleReadingFollowup(latestUserQuestion);
   const currentTimeContext =
     isTimeFollowup && isRelativeTimeReadingFollowup(latestUserQuestion)
-      ? `\n\n【本轮当前时间】${formatReadingCurrentTime()}；相对日期以本轮当前时间换算，用户明确指定的年月日作为目标时段。`
+      ? `\n\n【本轮当前时间】${formatReadingCurrentTime(new Date(requestTime))}；相对日期以本轮当前时间换算，用户明确指定的年月日作为目标时段。`
       : '';
   const storedResources = [...options.memory.resources];
   const schemaResources = [
@@ -3133,7 +3155,7 @@ export async function runReadingWorkflow(
     options.memory.resources = [...resources];
     options.memory.schemas = [...schemaResources];
   };
-  const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
+  const seen = new Set([...resources, ...schemaResources].flatMap(readingResourceKeys));
   const notes: string[] = [];
   const retryFailures = new Map<string, string>();
   const failedCalculations = new Map<string, ReadingResourceReplay>();
@@ -3146,30 +3168,24 @@ export async function runReadingWorkflow(
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
   const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
   const getCalculationTargetInput = (action: Extract<ReadingAction, { kind: 'calculate' }>) => {
-    const sortedInput = () =>
-      Object.fromEntries(
-        Object.entries(action.input).sort(([left], [right]) => left.localeCompare(right)),
-      );
     const schema = schemaResources.find((item) => item.key === schemaKeyForMethod(action.method));
-    if (!schema) return sortedInput();
+    if (!schema) return action.input;
     try {
       const parsed: unknown = JSON.parse(schema.text);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return sortedInput();
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return action.input;
       const properties = (parsed as Record<string, unknown>).properties;
       if (!properties || typeof properties !== 'object' || Array.isArray(properties))
-        return sortedInput();
+        return action.input;
       return Object.fromEntries(
-        Object.entries(action.input)
-          .filter(([field]) => Object.hasOwn(properties, field))
-          .sort(([left], [right]) => left.localeCompare(right)),
+        Object.entries(action.input).filter(([field]) => Object.hasOwn(properties, field)),
       );
     } catch {
-      return sortedInput();
+      return action.input;
     }
   };
   const retryFailureKey = (key: string, action: ReadingAction) =>
     action.kind === 'calculate'
-      ? JSON.stringify({
+      ? stableStringify({
           kind: action.kind,
           method: action.method,
           target: action.target ?? 'primary',
@@ -3192,6 +3208,12 @@ export async function runReadingWorkflow(
       : '';
   const hasSchemaForMethod = (method: string) =>
     schemaResources.some((item) => item.key === schemaKeyForMethod(method));
+  const rejectCancelledResource = async (resource: ReadingResource): Promise<never> => {
+    await disposeReadingResources([resource], [...resources, ...schemaResources]).catch((error) =>
+      console.error('清除取消后返回的补算资料失败。', error),
+    );
+    throw new DOMException('已停止解读', 'AbortError');
+  };
   const loadSchema = async (method: string) => {
     if (hasSchemaForMethod(method)) return true;
     if (calls >= MAX_ACTIONS) return false;
@@ -3202,6 +3224,7 @@ export async function runReadingWorkflow(
     options.onProgress({ stage: 'consulting', text: '正在读取补算参数' });
     try {
       const resource = await deps.execute(schemaAction, options.signal, options.subject);
+      if (options.signal?.aborted) await rejectCancelledResource(resource);
       clearRetryFailure(key, schemaAction);
       schemaResources.push({ ...resource, key, kind: 'schema' });
       persistResources();
@@ -3281,10 +3304,7 @@ export async function runReadingWorkflow(
         guard();
         if (calls >= MAX_ACTIONS) break;
         if (action.kind === 'classic' && waitingForCalculationPlan) continue;
-        const key =
-          action.kind === 'calculate'
-            ? JSON.stringify({ ...action, target: action.target ?? 'primary' })
-            : JSON.stringify(action);
+        const key = readingActionKey(action);
         if (seen.has(key)) continue;
         if (subjectMethods && !subjectMethods.has(action.method)) {
           options.onNotice(mismatchedMethodNotice);
@@ -3319,12 +3339,7 @@ export async function runReadingWorkflow(
         });
         try {
           const resource = await deps.execute(action, options.signal, options.subject);
-          if (options.signal?.aborted && resource.dispose) {
-            await disposeReadingResources([resource]).catch((error) =>
-              console.error('清除取消后返回的补算资料失败。', error),
-            );
-            guard();
-          }
+          if (options.signal?.aborted) await rejectCancelledResource(resource);
           if (action.kind === 'schema') {
             clearRetryFailure(key, action);
             schemaResources.push({ ...resource, key, kind: 'schema' });

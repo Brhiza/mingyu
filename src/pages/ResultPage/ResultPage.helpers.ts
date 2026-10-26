@@ -257,44 +257,65 @@ export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selecte
   });
 }
 
-function hasBaziTimeLayer(text?: string) {
-  return /大运|流年|流月|流日|岁运/.test(text?.trim() || '');
-}
+type BaziZiweiPromptTiming = {
+  baziScope: BaziFortuneSelectionValue['scope'];
+  baziContext: FortuneSelectionContext | null;
+  ziweiScope: ZiweiScopeMode;
+  ziweiActiveScope: Pick<AnalysisPayloadV1['active_scope'], 'scope' | 'solar_date'> | null;
+  ziweiHourIndex: number;
+};
 
-function hasZiweiTimeLayer(text?: string) {
-  return /大限|流年|流月|流日|流时|运限/.test(text?.trim() || '');
-}
-
-function sameBaziZiweiTimeLayer(baziText?: string, ziweiText?: string) {
-  const bazi = baziText || '';
-  const ziwei = ziweiText || '';
-  if (/流年/.test(bazi) && /流年/.test(ziwei)) return true;
-  if (/流月/.test(bazi) && /流月/.test(ziwei)) return true;
-  if (/流日/.test(bazi) && /流日/.test(ziwei)) return true;
-  if (/大运/.test(bazi) && /大限/.test(ziwei)) return true;
+function hasSharedBaziZiweiReference(timing: BaziZiweiPromptTiming) {
+  const context = timing.baziContext;
+  const activeScope = timing.ziweiActiveScope;
+  if (!context || context.scope !== timing.baziScope || !activeScope) return false;
+  const expectedScope = {
+    dayun: 'decadal',
+    year: 'yearly',
+    month: 'monthly',
+    day: 'daily',
+  } as const;
+  if (
+    timing.ziweiScope !== expectedScope[context.scope] ||
+    activeScope.scope !== expectedScope[context.scope]
+  ) {
+    return false;
+  }
+  const date = parseZiweiDateParts(activeScope.solar_date);
+  const hourIndex = timing.ziweiHourIndex;
+  if (!date || !Number.isInteger(hourIndex) || hourIndex < 0 || hourIndex > 12) return false;
+  // 紫微参考时辰必须完整落入八字范围；早子、晚子分别只有一小时。
+  const midnight = Date.UTC(date.year, date.month - 1, date.day) - 8 * 3600000;
+  const start = midnight + Math.max(0, hourIndex * 2 - 1) * 3600000;
+  const end = midnight + Math.min(24, hourIndex * 2 + 1) * 3600000;
+  const ranges =
+    context.scope === 'dayun'
+      ? [context.cycleTimeRange]
+      : context.scope === 'day'
+        ? (context.dayBreakdown?.map((item) => item.timeRange) ?? [])
+        : (context.monthBreakdown?.map((item) => item.timeRange) ?? []);
+  let coveredUntil = start;
+  for (const range of [...ranges].sort(
+    (left, right) => left.startTimestamp - right.startTimestamp,
+  )) {
+    if (range.startTimestamp > coveredUntil) break;
+    coveredUntil = Math.max(coveredUntil, range.endTimestamp);
+    if (coveredUntil >= end) return true;
+  }
   return false;
 }
 
-function resolveBaziZiweiTaskMethod(params: {
-  baziFortuneSummary?: string;
-  ziweiScopeSummary?: string;
-}) {
-  const baziTime = hasBaziTimeLayer(params.baziFortuneSummary);
-  const ziweiTime = hasZiweiTimeLayer(params.ziweiScopeSummary);
-  if (
-    baziTime &&
-    ziweiTime &&
-    sameBaziZiweiTimeLayer(params.baziFortuneSummary, params.ziweiScopeSummary)
-  ) {
-    return 'bazi-ziwei-aligned';
+function resolveBaziZiweiTaskMethod(params: { timing?: BaziZiweiPromptTiming }) {
+  if (!params.timing) return 'bazi-ziwei';
+  if (hasSharedBaziZiweiReference(params.timing)) return 'bazi-ziwei-aligned';
+  if (params.timing.baziScope !== 'natal' || params.timing.ziweiScope !== 'origin') {
+    return 'bazi-ziwei-mismatch';
   }
-  if (baziTime || ziweiTime) return 'bazi-ziwei-mismatch';
   return 'bazi-ziwei';
 }
 
 function resolveBaziZiweiTaskText(params: {
-  baziFortuneSummary?: string;
-  ziweiScopeSummary?: string;
+  timing?: BaziZiweiPromptTiming;
   questionScopeLabel?: string;
   topicId?: string;
   subtopicId?: string;
@@ -306,7 +327,7 @@ function resolveBaziZiweiTaskText(params: {
   const baseTask = config.combinedTask;
 
   if (method === 'bazi-ziwei-aligned') {
-    return `${baseTask} 当前八字岁运与紫微运限已对齐至同一时间层，请先分别给出该时间窗口内的八字岁运生克与紫微流曜四化依据，深度交叉印证后回答问题。`;
+    return `${baseTask} 当前八字岁运与紫微运限使用共同参考日期；请保留各自起止边界，分别给出该日期对应的八字岁运生克与紫微流曜四化依据，只在重叠时段交叉印证后回答问题。`;
   }
   if (method === 'bazi-ziwei-mismatch') {
     return `${baseTask} 请先分别给出八字已列岁运依据和紫微已列运限依据，再交叉印证；时间层未对齐时分开陈述。`;
@@ -325,6 +346,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   scope?: string;
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
+  timing?: BaziZiweiPromptTiming;
   isCustomQuestion?: boolean;
   selection?: PromptSelection;
 }) {

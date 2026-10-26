@@ -1,6 +1,7 @@
 import {
   captureAstrolabeDynamicReadingSource,
   collectAstrolabeDynamicReadingText,
+  formatAstrolabeDynamicReadingQuestions,
   type AstrolabeDynamicReadingRoundOptions,
   type AstrolabeDynamicReadingSource,
   type AstrolabeDynamicReadingStream,
@@ -366,11 +367,11 @@ function assertCheckpoint(
   }
 }
 
-function formatSupplementalPage(page: SupplementalPage, question: string, synopsis: string) {
+function formatSupplementalPage(page: SupplementalPage, questions: string, synopsis: string) {
   return [
     '【西洋占星动态出生区间补充资料页】',
     `资料：${page.title}，第${page.pageIndex + 1}/${page.pageCount}页。`,
-    question ? `【原问题】\n${question}` : '',
+    questions,
     synopsis ? `【此前归纳】\n${synopsis}` : '',
     '【任务】\n先整理本页普通补充资料中会影响后续出生区间判断的事实、条件和时间范围，作为后续动态出生区间判断的事实基础。',
     '【本页资料】',
@@ -383,12 +384,12 @@ function formatSupplementalPage(page: SupplementalPage, question: string, synops
 function formatDynamicPage(
   source: AstrolabeDynamicCollectionSource,
   pageText: string,
-  question: string,
+  questions: string,
   synopsis: string,
 ) {
   return [
     `【主体】${targetLabel(source.target)}`,
-    question ? `【原问题】\n${question}` : '',
+    questions,
     synopsis ? `【已处理资料归纳】\n${synopsis}` : '',
     pageText,
     '【任务】\n逐页解读当前主体的当前出生时段，保留本页盘面依据、适用时段、成立条件和仍需结合其余主体资料核对的内容。',
@@ -402,14 +403,14 @@ function formatSynopsisPrompt(
   pageLabel: string,
   pageText: string,
   answer: string,
-  question: string,
+  questions: string,
   synopsis: string,
 ) {
   return [
     '【动态区间资料归纳】',
     `【本轮资料】${pageLabel}\n${pageText}`,
     `【本轮解读】\n${answer}`,
-    question ? `【原问题】\n${question}` : '',
+    questions,
     `【已有归纳】\n${synopsis || '尚无此前归纳。'}`,
     '【任务】\n把本轮资料与解读合并为可继续使用的中文归纳。保留主体、出生时段、盘面依据、推运日期、成立条件和待核对内容；分别标明主体与出生时段，共同判断注明覆盖范围，普通补充资料中的关键事实也要保留。',
     `【输出要求】\n只输出归纳正文，合并重复描述，控制在${SYNOPSIS_CHARACTERS}字以内。`,
@@ -437,8 +438,7 @@ function formatFinalPrompt(
   return [
     '【西洋占星动态出生区间最终归纳】',
     `已完成${checkpoint.completedPages}页资料、${checkpoint.completedBranches}个出生分段，覆盖${sources.length}个主体资料源：${sources.map(sourceSummaryLabel).join('；')}。`,
-    question ? `【原问题】\n${checkpoint.question}` : '',
-    question ? `【本轮问题】\n${question}` : '',
+    formatAstrolabeDynamicReadingQuestions(checkpoint.question, question),
     `【全部资料归纳】\n${checkpoint.synopsis}`,
     '【任务】\n结合已完成的全部主体和普通补充资料归纳共同成立的判断、主体差异、出生时段差异、推运日期、盘面依据和成立条件。每项结论标明适用主体与时段；资料尚不足的地方明确指出。',
     '【输出要求】\n使用中文，先给主要判断，再列关键依据和适用边界，控制在1200字以内。',
@@ -473,19 +473,27 @@ export async function runAstrolabeDynamicCollectionRound(
   options = { ...options, aiConfig: options.aiConfig ? { ...options.aiConfig } : undefined };
   const supplementalPages = splitSupplemental(supplemental);
   validateInputs(sources, supplemental, options.question);
+  if (options.originalQuestion !== undefined)
+    validateInputs(sources, supplemental, options.originalQuestion);
   const identity = collectionIdentity(sources, supplemental);
   const checkpoint = previous
     ? cloneCheckpoint(previous)
-    : makeInitialCheckpoint(sources, supplementalPages, options.question, identity);
+    : makeInitialCheckpoint(
+        sources,
+        supplementalPages,
+        options.originalQuestion ?? options.question,
+        identity,
+      );
   assertCheckpoint(checkpoint, sources, supplementalPages, identity);
   options.signal?.throwIfAborted();
+  const questions = formatAstrolabeDynamicReadingQuestions(checkpoint.question, options.question);
 
   if (checkpoint.stage === 'supplemental') {
     const page = supplementalPages[checkpoint.supplementalPageIndex]!;
     options.onProgress(
       `正在整理普通补充资料第${page.pageIndex + 1}/${page.pageCount}页：${page.title}`,
     );
-    const pageText = formatSupplementalPage(page, checkpoint.question, checkpoint.synopsis);
+    const pageText = formatSupplementalPage(page, questions, checkpoint.synopsis);
     const answer = await collectAstrolabeDynamicReadingText(
       pageText,
       ANSWER_CHARACTERS,
@@ -498,7 +506,7 @@ export async function runAstrolabeDynamicCollectionRound(
         `普通补充资料「${page.title}」第${page.pageIndex + 1}/${page.pageCount}页`,
         page.text,
         answer,
-        checkpoint.question,
+        questions,
         checkpoint.synopsis,
       ),
       SYNOPSIS_CHARACTERS,
@@ -554,7 +562,7 @@ export async function runAstrolabeDynamicCollectionRound(
   const pageLabel = `${targetLabel(source.target)}主体${sourceIndex + 1}/${sources.length}，出生分段${page.branchIndex + 1}/${source.summary.branchCount}，资料第${page.pageIndex + 1}页`;
   options.onProgress(`正在解读${pageLabel}`);
   const answer = await collectAstrolabeDynamicReadingText(
-    formatDynamicPage(source, page.text, checkpoint.question, checkpoint.synopsis),
+    formatDynamicPage(source, page.text, questions, checkpoint.synopsis),
     ANSWER_CHARACTERS,
     true,
     options,
@@ -562,7 +570,7 @@ export async function runAstrolabeDynamicCollectionRound(
   );
   options.onProgress(`正在保存${pageLabel}的解读要点`);
   const synopsis = await collectAstrolabeDynamicReadingText(
-    formatSynopsisPrompt(pageLabel, page.text, answer, checkpoint.question, checkpoint.synopsis),
+    formatSynopsisPrompt(pageLabel, page.text, answer, questions, checkpoint.synopsis),
     SYNOPSIS_CHARACTERS,
     false,
     options,

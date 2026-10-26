@@ -5,6 +5,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { baziCalculator } from 'mingyu-core/bazi';
 import { calculatePublicZiweiFactsForScopes, buildZiweiChartInput } from 'mingyu-core/ziwei';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { analyzeChineseName, analyzeNumber, generateChineseNames } from 'mingyu-core/name-number';
 import { buildSerializableZiweiResult } from '../../src/lib/public-api/prompt-builders';
 import { createMingyuMcpServer } from '../../mcp/src/create-server';
 import { handlePublicApiRequest } from '../../src/lib/public-api/handler';
@@ -89,6 +90,164 @@ function ziweiFacts(result: any) {
     ),
   };
 }
+
+const culturePromptCases = [
+  {
+    endpoint: 'name/generate/prompt',
+    tool: 'name_generate_prompt',
+    factField: 'candidates',
+    input: {
+      surname: '李',
+      gender: '通用',
+      givenNameLength: 1,
+      generationCharacter: '和',
+      generationPosition: 'first',
+      limit: 1,
+      birth,
+      topicId: 'general',
+      subtopicId: 'naming',
+      scope: 'natal',
+    },
+    expected: () =>
+      generateChineseNames({
+        surname: '李',
+        gender: '通用',
+        givenNameLength: 1,
+        generationCharacter: '和',
+        generationPosition: 'first',
+        limit: 1,
+        birth: { ...birth, gender: 'female', dateType: 'solar' },
+      }),
+  },
+  {
+    endpoint: 'name/analyze/prompt',
+    tool: 'name_analyze_prompt',
+    factField: 'analysis',
+    input: {
+      fullName: '李清和',
+      birth,
+      question: '适合长期使用吗？',
+      topicId: 'general',
+      subtopicId: 'name-analysis',
+      scope: 'natal',
+    },
+    expected: () =>
+      analyzeChineseName({
+        fullName: '李清和',
+        birth: { ...birth, gender: 'female', dateType: 'solar' },
+      }),
+  },
+  {
+    endpoint: 'number/analyze/prompt',
+    tool: 'number_energy_prompt',
+    factField: 'analysis',
+    input: {
+      value: '粤B12345',
+      purpose: 'plate',
+      question: '适合长期使用吗？',
+      topicId: 'general',
+      subtopicId: 'number-energy',
+      scope: 'custom',
+    },
+    expected: () => analyzeNumber('粤B12345', 'plate'),
+  },
+];
+
+test('R09 三个文化提示词入口按显式模式切换且省略及 full 保留真实旧事实', async (t) => {
+  for (const item of culturePromptCases) {
+    await t.test(item.endpoint, async () => {
+      const legacy = await rest(item.endpoint, item.input);
+      assert.deepEqual(Object.keys(legacy).sort(), [item.factField, 'prompt', 'selection'].sort());
+      assert.deepEqual(legacy[item.factField], clean(item.expected()));
+      assert.match(legacy.prompt, /【任务】/);
+      const defaultTool = await mcp(item.tool, item.input);
+      assert.deepEqual(defaultTool.result[item.factField], legacy[item.factField]);
+      assert.equal(defaultTool.result.prompt, legacy.prompt);
+      for (const responseMode of ['prompt-only', 'summary', 'full']) {
+        const input = { ...item.input, responseMode };
+        const http = await rest(item.endpoint, input);
+        const response = await client.callTool({ name: item.tool, arguments: input });
+        assert.equal(response.isError, undefined, JSON.stringify(response));
+        const tool = clean(response.structuredContent);
+        assert.equal(http.prompt, legacy.prompt, `${item.endpoint}: ${responseMode}`);
+        assert.equal(tool.prompt, http.prompt);
+        assert.equal(
+          response.content.find((content) => content.type === 'text')?.text,
+          tool.prompt,
+        );
+        if (responseMode === 'prompt-only') {
+          assert.deepEqual(http, { prompt: legacy.prompt });
+          assert.deepEqual(tool, { prompt: legacy.prompt });
+        } else if (responseMode === 'summary') {
+          assert.deepEqual(Object.keys(http).sort(), ['prompt', 'resultSummary']);
+          assert.deepEqual(
+            Object.keys(http.resultSummary).sort(),
+            [item.factField, 'selection'].sort(),
+          );
+          assert.equal(http.resultSummary.selection.subtopicId, item.input.subtopicId);
+          assert.deepEqual(http.resultSummary[item.factField], legacy[item.factField]);
+          assert.deepEqual(tool.resultSummary[item.factField], http.resultSummary[item.factField]);
+          assert.equal(tool.resultSummary.prompt, undefined);
+          assert.equal(http.result, undefined);
+        } else {
+          assert.deepEqual(http.result, legacy);
+          assert.deepEqual(http[item.factField], legacy[item.factField]);
+          assert.deepEqual(http.selection, legacy.selection);
+          assert.deepEqual(
+            Object.keys(http).sort(),
+            [item.factField, 'prompt', 'result', 'selection'].sort(),
+          );
+          assert.deepEqual(tool.result[item.factField], http.result[item.factField]);
+          assert.equal(tool.result.prompt, http.prompt);
+          assert.equal(tool[item.factField], undefined);
+          assert.equal(http.resultSummary, undefined);
+        }
+      }
+    });
+  }
+});
+
+test('R09 文化提示词省略模式在未选主题时仍只返回具名事实与任务书', async () => {
+  for (const item of culturePromptCases) {
+    const { topicId, subtopicId, scope, ...input } = item.input;
+    const legacy = await rest(item.endpoint, input);
+    assert.deepEqual(Object.keys(legacy).sort(), [item.factField, 'prompt'].sort());
+    assert.deepEqual(legacy[item.factField], clean(item.expected()));
+    const full = await rest(item.endpoint, { ...input, responseMode: 'full' });
+    assert.deepEqual(full.result, legacy);
+    assert.equal(full.selection, undefined);
+    const summary = await rest(item.endpoint, { ...input, responseMode: 'summary' });
+    assert.equal(summary.resultSummary.selection, undefined);
+  }
+});
+
+test('R09 三个文化提示词入口一致拒绝非法模式且保留 REST 和 MCP 错误封装', async () => {
+  for (const item of culturePromptCases) {
+    for (const responseMode of ['invalid', '', null, 1, false, {}, []]) {
+      const input = { ...item.input, responseMode };
+      const response = await handlePublicApiRequest(
+        new Request(`https://example.test/api/v1/${item.endpoint}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(input),
+        }),
+      );
+      const body = await response.json();
+      assert.equal(response.status, 400, item.endpoint);
+      assert.equal(body.ok, false);
+      assert.equal(body.error.code, 'BAD_REQUEST');
+      assert.equal(
+        body.error.message,
+        'responseMode 必须是以下值之一：summary、full、prompt-only。',
+      );
+      assert.deepEqual(body.meta, { service: 'example.test', version: 'v1' });
+      assert.equal(body.data, undefined);
+      const tool = await client.callTool({ name: item.tool, arguments: input });
+      assert.equal(tool.isError, true);
+      assert.match(JSON.stringify(tool.content), /responseMode/);
+    }
+  }
+});
 
 test('F01 紫微规范 scope 优先，旧字段单独使用与任务书保持一致', async () => {
   for (const [fields, expected] of [

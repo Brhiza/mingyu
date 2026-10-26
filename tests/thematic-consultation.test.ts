@@ -13,6 +13,9 @@ import {
   getThematicTopicConfig,
   buildThematicConsultationPrompt,
 } from '../packages/core/src/prompt/thematic';
+import * as thematicTopics from '../packages/core/src/prompt/thematic-topics';
+import * as publicPrompts from '../packages/core/src/prompt';
+import * as publicApiPrompts from '../packages/core/src/prompt/public-api';
 import { buildBaziZiweiPromptForResults } from '../packages/core/src/prompt/public-api';
 import type { ScopeType } from '../src/types/analysis';
 
@@ -47,6 +50,22 @@ function getSampleZiweiResult() {
   sampleZiweiResult = calculateZiweiChartForScopes(chartInput, ['origin' as ScopeType]);
   return sampleZiweiResult;
 }
+
+test('主题叶配置经旧 thematic 与公开提示词入口保持相同导出身份', () => {
+  const expected = {
+    THEMATIC_TOPICS,
+    THEMATIC_TOPIC_CONFIGS,
+    normalizeThematicTopic,
+    getThematicTopicConfig,
+  };
+  for (const entry of [thematicTopics, publicPrompts, publicApiPrompts]) {
+    for (const [name, value] of Object.entries(expected)) {
+      assert.equal(entry[name as keyof typeof expected], value, name);
+    }
+  }
+  assert.equal(publicPrompts.buildThematicConsultationPrompt, buildThematicConsultationPrompt);
+  assert.equal(publicApiPrompts.buildThematicConsultationPrompt, buildThematicConsultationPrompt);
+});
 
 test('大类主题枚举完整性与别名/旧子主题平滑归一化', () => {
   assert.equal(THEMATIC_TOPICS.length, 8);

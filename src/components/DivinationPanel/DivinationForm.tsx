@@ -6,9 +6,6 @@ import {
   LENORMAND_SPREAD_OPTIONS,
   LIUYAO_TEMPLATE_OPTIONS,
   LIUREN_TEMPLATE_OPTIONS,
-  MEIHUA_METHOD_OPTIONS,
-  MEIHUA_DIRECTION_OPTIONS,
-  MEIHUA_OBJECT_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from 'mingyu-core/divination/config';
@@ -40,6 +37,7 @@ import {
 } from '@/components/SupplementaryInfoModal';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import { AlmanacForm } from './AlmanacForm';
+import { MeihuaFields, MeihuaMethodField } from './MeihuaFields';
 
 const { tarotCards, tarotSpreads } = getTarotReferenceData();
 const { LENORMAND_CARDS, LENORMAND_SPREADS } = getLenormandReferenceData();
@@ -397,7 +395,6 @@ export function DivinationForm({
   const isBaziReverseSelectionIncomplete =
     isTimeBasedDivination && isBaziReverseTime && !divinationReverseSource;
   const divinationTimeStandard = draft.divinationTimeStandard ?? 'beijing';
-  const meihuaCharacterCount = Array.from(draft.meihuaCharacterText.trim()).length;
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
   const liuyaoYaos = draft.liuyaoYaos ?? [];
   const liuyaoCoinThrows = draft.liuyaoCoinThrows ?? [];
@@ -521,18 +518,6 @@ export function DivinationForm({
 
   function resetLenormandCards() {
     updateDraft('lenormandInteractiveSamples', []);
-  }
-
-  function updateMeihuaCharacterText(value: string) {
-    const nextCharacterCount = Array.from(value.trim()).length;
-    const currentCharacterCount = Array.from(draft.meihuaCharacterText.trim()).length;
-    updateDraft('meihuaCharacterText', value);
-    if (nextCharacterCount !== currentCharacterCount) {
-      updateDraft('meihuaCharacterTones', '');
-      updateDraft('meihuaCharacterStrokeCounts', '');
-      updateDraft('meihuaCharacterLeftStrokes', '');
-      updateDraft('meihuaCharacterRightStrokes', '');
-    }
   }
 
   function updateMethod(value: DivinationDraft['method']) {
@@ -676,19 +661,7 @@ export function DivinationForm({
                 <div className="divination-desktop-question-footer">
                   <div className="divination-desktop-question-controls">
                     {draft.method === 'meihua' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="meihua-method-select">起卦方式</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="meihua-method-select"
-                            value={draft.meihuaMethod}
-                            options={MEIHUA_METHOD_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft('meihuaMethod', value as DivinationDraft['meihuaMethod'])
-                            }
-                          />
-                        </div>
-                      </div>
+                      <MeihuaMethodField draft={draft} updateDraft={updateDraft} layout="desktop" />
                     ) : null}
 
                     {draft.method === 'xiaoliuren' ? (
@@ -765,168 +738,8 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
-                    {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
-                      <div className="form-item divination-inline-field divination-inline-number-field">
-                        <label htmlFor="meihua-number-input">起卦数字</label>
-                        <input
-                          id="meihua-number-input"
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input"
-                          placeholder="例如 123"
-                          value={draft.meihuaNumber}
-                          onChange={(event) =>
-                            updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
-                          }
-                        />
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'meihua' && draft.meihuaMethod === 'sound' ? (
-                      <div className="form-item divination-inline-field divination-inline-number-field">
-                        <label htmlFor="meihua-sound-count-input">声音数</label>
-                        <input
-                          id="meihua-sound-count-input"
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input"
-                          placeholder="例如 3"
-                          value={draft.meihuaSoundCount}
-                          onChange={(event) =>
-                            updateDraft(
-                              'meihuaSoundCount',
-                              event.target.value.replace(/[^\d]/g, ''),
-                            )
-                          }
-                        />
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'meihua' && draft.meihuaMethod === 'character' ? (
-                      <>
-                        <div className="form-item divination-inline-field">
-                          <label htmlFor="meihua-character-text-input">起卦文字</label>
-                          <input
-                            id="meihua-character-text-input"
-                            type="text"
-                            className="form-input"
-                            placeholder="例如 今日动静如何"
-                            value={draft.meihuaCharacterText}
-                            onChange={(event) => updateMeihuaCharacterText(event.target.value)}
-                          />
-                        </div>
-                        {meihuaCharacterCount >= 4 && meihuaCharacterCount <= 10 ? (
-                          <div className="form-item divination-inline-field">
-                            <label htmlFor="meihua-character-tones-input">
-                              传统平上去入声数（非普通话声调）
-                            </label>
-                            <input
-                              id="meihua-character-tones-input"
-                              type="text"
-                              className="form-input"
-                              placeholder="4-10字填写，如 1,4,3,3"
-                              value={draft.meihuaCharacterTones}
-                              onChange={(event) =>
-                                updateDraft('meihuaCharacterTones', event.target.value)
-                              }
-                            />
-                          </div>
-                        ) : null}
-                        {[2, 3].includes(meihuaCharacterCount) ? (
-                          <div className="form-item divination-inline-field">
-                            <label htmlFor="meihua-character-strokes-input">各字笔画数</label>
-                            <input
-                              id="meihua-character-strokes-input"
-                              type="text"
-                              inputMode="numeric"
-                              className="form-input"
-                              placeholder="2-3字填写，如 7,8"
-                              value={draft.meihuaCharacterStrokeCounts}
-                              onChange={(event) =>
-                                updateDraft(
-                                  'meihuaCharacterStrokeCounts',
-                                  event.target.value.replace(/[^\d,，、\s]/g, ''),
-                                )
-                              }
-                            />
-                          </div>
-                        ) : null}
-                        {meihuaCharacterCount === 1 ? (
-                          <>
-                            <div className="form-item divination-inline-field">
-                              <label htmlFor="meihua-character-left-strokes-input">左侧笔画</label>
-                              <input
-                                id="meihua-character-left-strokes-input"
-                                type="text"
-                                inputMode="numeric"
-                                className="form-input"
-                                placeholder="单字分笔"
-                                value={draft.meihuaCharacterLeftStrokes}
-                                onChange={(event) =>
-                                  updateDraft(
-                                    'meihuaCharacterLeftStrokes',
-                                    event.target.value.replace(/[^\d]/g, ''),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="form-item divination-inline-field">
-                              <label htmlFor="meihua-character-right-strokes-input">右侧笔画</label>
-                              <input
-                                id="meihua-character-right-strokes-input"
-                                type="text"
-                                inputMode="numeric"
-                                className="form-input"
-                                placeholder="单字分笔"
-                                value={draft.meihuaCharacterRightStrokes}
-                                onChange={(event) =>
-                                  updateDraft(
-                                    'meihuaCharacterRightStrokes',
-                                    event.target.value.replace(/[^\d]/g, ''),
-                                  )
-                                }
-                              />
-                            </div>
-                          </>
-                        ) : null}
-                      </>
-                    ) : null}
-
-                    {draft.method === 'meihua' && draft.meihuaMethod === 'direction' ? (
-                      <>
-                        <div className="form-item divination-inline-field">
-                          <label htmlFor="meihua-direction-select">方位</label>
-                          <div className="divination-select-shell divination-desktop-select-shell">
-                            <DropdownSelect
-                              id="meihua-direction-select"
-                              value={draft.meihuaDirection}
-                              options={MEIHUA_DIRECTION_OPTIONS}
-                              onChange={(value) =>
-                                updateDraft(
-                                  'meihuaDirection',
-                                  value as DivinationDraft['meihuaDirection'],
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="form-item divination-inline-field">
-                          <label htmlFor="meihua-object-type-select">所见物类</label>
-                          <div className="divination-select-shell divination-desktop-select-shell">
-                            <DropdownSelect
-                              id="meihua-object-type-select"
-                              value={draft.meihuaObjectType}
-                              options={MEIHUA_OBJECT_OPTIONS}
-                              onChange={(value) =>
-                                updateDraft(
-                                  'meihuaObjectType',
-                                  value as DivinationDraft['meihuaObjectType'],
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </>
+                    {draft.method === 'meihua' ? (
+                      <MeihuaFields draft={draft} updateDraft={updateDraft} layout="desktop" />
                     ) : null}
 
                     {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
@@ -1136,16 +949,7 @@ export function DivinationForm({
                 ) : null}
 
                 {draft.method === 'meihua' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.meihuaMethod}
-                      options={MEIHUA_METHOD_OPTIONS}
-                      ariaLabel="起卦方式"
-                      onChange={(value) =>
-                        updateDraft('meihuaMethod', value as DivinationDraft['meihuaMethod'])
-                      }
-                    />
-                  </div>
+                  <MeihuaMethodField draft={draft} updateDraft={updateDraft} layout="mobile" />
                 ) : null}
 
                 {draft.method === 'xiaoliuren' ? (
@@ -1319,155 +1123,8 @@ export function DivinationForm({
             </div>
           </div>
 
-          {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
-            <div className="form-row divination-mobile-only">
-              <div className="form-item">
-                <label htmlFor="meihua-number-input-mobile">起卦数字</label>
-                <input
-                  id="meihua-number-input-mobile"
-                  type="text"
-                  inputMode="numeric"
-                  className="form-input"
-                  placeholder="例如 123"
-                  value={draft.meihuaNumber}
-                  onChange={(event) =>
-                    updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'meihua' && draft.meihuaMethod === 'sound' ? (
-            <div className="form-row divination-mobile-only">
-              <div className="form-item">
-                <label htmlFor="meihua-sound-count-input-mobile">声音数</label>
-                <input
-                  id="meihua-sound-count-input-mobile"
-                  type="text"
-                  inputMode="numeric"
-                  className="form-input"
-                  placeholder="例如 3"
-                  value={draft.meihuaSoundCount}
-                  onChange={(event) =>
-                    updateDraft('meihuaSoundCount', event.target.value.replace(/[^\d]/g, ''))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'meihua' && draft.meihuaMethod === 'character' ? (
-            <div className="form-row divination-mobile-only">
-              <div className="form-item">
-                <label htmlFor="meihua-character-text-input-mobile">起卦文字</label>
-                <input
-                  id="meihua-character-text-input-mobile"
-                  type="text"
-                  className="form-input"
-                  placeholder="例如 今日动静如何"
-                  value={draft.meihuaCharacterText}
-                  onChange={(event) => updateMeihuaCharacterText(event.target.value)}
-                />
-              </div>
-              {meihuaCharacterCount >= 4 && meihuaCharacterCount <= 10 ? (
-                <div className="form-item">
-                  <label htmlFor="meihua-character-tones-input-mobile">
-                    传统平上去入声数（非普通话声调）
-                  </label>
-                  <input
-                    id="meihua-character-tones-input-mobile"
-                    type="text"
-                    className="form-input"
-                    placeholder="4-10字填写，如 1,4,3,3"
-                    value={draft.meihuaCharacterTones}
-                    onChange={(event) => updateDraft('meihuaCharacterTones', event.target.value)}
-                  />
-                </div>
-              ) : null}
-              {[2, 3].includes(meihuaCharacterCount) ? (
-                <div className="form-item">
-                  <label htmlFor="meihua-character-strokes-input-mobile">各字笔画数</label>
-                  <input
-                    id="meihua-character-strokes-input-mobile"
-                    type="text"
-                    inputMode="numeric"
-                    className="form-input"
-                    placeholder="2-3字填写，如 7,8"
-                    value={draft.meihuaCharacterStrokeCounts}
-                    onChange={(event) =>
-                      updateDraft(
-                        'meihuaCharacterStrokeCounts',
-                        event.target.value.replace(/[^\d,，、\s]/g, ''),
-                      )
-                    }
-                  />
-                </div>
-              ) : null}
-              {meihuaCharacterCount === 1 ? (
-                <div className="form-row-flex">
-                  <div className="form-item">
-                    <label htmlFor="meihua-character-left-strokes-input-mobile">左侧笔画</label>
-                    <input
-                      id="meihua-character-left-strokes-input-mobile"
-                      type="text"
-                      inputMode="numeric"
-                      className="form-input"
-                      value={draft.meihuaCharacterLeftStrokes}
-                      onChange={(event) =>
-                        updateDraft(
-                          'meihuaCharacterLeftStrokes',
-                          event.target.value.replace(/[^\d]/g, ''),
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="form-item">
-                    <label htmlFor="meihua-character-right-strokes-input-mobile">右侧笔画</label>
-                    <input
-                      id="meihua-character-right-strokes-input-mobile"
-                      type="text"
-                      inputMode="numeric"
-                      className="form-input"
-                      value={draft.meihuaCharacterRightStrokes}
-                      onChange={(event) =>
-                        updateDraft(
-                          'meihuaCharacterRightStrokes',
-                          event.target.value.replace(/[^\d]/g, ''),
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {draft.method === 'meihua' && draft.meihuaMethod === 'direction' ? (
-            <div className="form-row-flex divination-mobile-only">
-              <div className="form-item">
-                <label htmlFor="meihua-direction-select-mobile">方位</label>
-                <DropdownSelect
-                  id="meihua-direction-select-mobile"
-                  value={draft.meihuaDirection}
-                  options={MEIHUA_DIRECTION_OPTIONS}
-                  onChange={(value) =>
-                    updateDraft('meihuaDirection', value as DivinationDraft['meihuaDirection'])
-                  }
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="meihua-object-type-select-mobile">所见物类</label>
-                <DropdownSelect
-                  id="meihua-object-type-select-mobile"
-                  value={draft.meihuaObjectType}
-                  options={MEIHUA_OBJECT_OPTIONS}
-                  onChange={(value) =>
-                    updateDraft('meihuaObjectType', value as DivinationDraft['meihuaObjectType'])
-                  }
-                />
-              </div>
-            </div>
+          {draft.method === 'meihua' ? (
+            <MeihuaFields draft={draft} updateDraft={updateDraft} layout="mobile" />
           ) : null}
 
           {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (

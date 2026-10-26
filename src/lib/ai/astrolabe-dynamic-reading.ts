@@ -35,6 +35,8 @@ export type AstrolabeDynamicReadingRoundOptions = Pick<
   'signal' | 'aiConfig' | 'onChunk'
 > & {
   question: string;
+  /** 只用于建立计划；后续轮次以 checkpoint.question 为准。 */
+  originalQuestion?: string;
   onProgress: (text: string) => void;
 };
 export type AstrolabeDynamicReadingStream = (
@@ -46,6 +48,14 @@ type Stream = AstrolabeDynamicReadingStream;
 const PAGE_CHARACTERS = 6000;
 const SUMMARY_CHARACTERS = 8000;
 const ANSWER_CHARACTERS = 12000;
+
+export function formatAstrolabeDynamicReadingQuestions(original: string, current: string) {
+  return [
+    `【原问题】\n${original || '综合解读'}`,
+    `【本轮问题】\n${current}`,
+    '【问题约定】\n保留原问题与已完成归纳，在当前覆盖范围内回应本轮关注；继续解读沿用原计划和续读位置。归纳保留原问题及各轮已形成的判断、依据和适用条件。',
+  ].join('\n\n');
+}
 
 export function captureAstrolabeDynamicReadingSource<T extends AstrolabeDynamicReadingSource>(
   source: T,
@@ -174,7 +184,7 @@ export async function runAstrolabeDynamicReadingRound(
         completedPages: 0,
         completedBranches: 0,
         synopsis: '',
-        question: options.question,
+        question: options.originalQuestion ?? options.question,
       };
   if (
     !isAstrolabeDynamicReadingCheckpoint(checkpoint) ||
@@ -208,8 +218,7 @@ export async function runAstrolabeDynamicReadingRound(
       [
         '【西洋占星出生区间解读】',
         `出生范围：${interval}。已逐页解读${checkpoint.completedPages}页、${checkpoint.completedBranches}个出生时段。`,
-        `【原问题】\n${checkpoint.question || source.promptOptions?.question || '综合解读'}`,
-        `【本轮问题】\n${options.question}`,
+        formatAstrolabeDynamicReadingQuestions(checkpoint.question, options.question),
         `【分段解读归纳】\n${checkpoint.synopsis}`,
         '【任务】\n结合各时段判断归纳共同点和差异，逐项保留适用时段、盘面依据与条件。以已有归纳能支持的范围回答本轮问题，具体说明仍需核对的原始资料。',
         '【输出要求】\n使用中文，先给主要判断，再列关键依据与适用条件，控制在1200字以内。',
@@ -236,9 +245,8 @@ export async function runAstrolabeDynamicReadingRound(
   const answer = await collectAstrolabeDynamicReadingText(
     [
       page.text,
-      `【原问题】\n${checkpoint.question}`,
+      formatAstrolabeDynamicReadingQuestions(checkpoint.question, options.question),
       checkpoint.synopsis ? `【此前分段归纳】\n${checkpoint.synopsis}` : '',
-      `【本轮问题】\n${options.question}`,
       '【本轮回答范围】\n本轮完成当前页资料的解读；每项判断注明本轮出生时段和依据，需结合后续资料的判断说明成立条件。控制在1200字以内。',
     ]
       .filter(Boolean)
@@ -256,7 +264,7 @@ export async function runAstrolabeDynamicReadingRound(
       `【本轮资料】\n${page.text}`,
       `【已有归纳】\n${checkpoint.synopsis || '尚无此前归纳。'}`,
       `【本页解读】\n${answer}`,
-      `【原问题】\n${checkpoint.question}`,
+      formatAstrolabeDynamicReadingQuestions(checkpoint.question, options.question),
       '【输出要求】\n直接输出归纳正文，合并重复描述，保留不同出生时段的分歧和适用条件，控制在6000字以内。',
     ].join('\n\n'),
     SUMMARY_CHARACTERS,

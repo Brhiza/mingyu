@@ -10,6 +10,7 @@ import { createMingyuClient } from 'mingyu-core/client';
 import { configure } from 'mingyu-core/calendar';
 import type { BirthProfile } from 'mingyu-core/profile';
 import { baziCalculator } from '../../packages/core/src/bazi/baziCalculator';
+import { buildBaziNatalAnalysisFacts } from '../../packages/core/src/bazi/natalEvidence';
 import { calculateZiweiChart } from '../../packages/core/src/ziwei/runtime';
 
 const profile: BirthProfile = {
@@ -499,32 +500,209 @@ test('八字旺衰或格局未知时合参应登记资料缺口', async () => {
   );
 });
 
-test('局部细节未知不应把已知的旺衰结构整体标为缺口', async () => {
+test('旺衰附注的未知、未记录、未登记措辞只改变正文，不改变已知事实的可用性', async () => {
   const reading = await getCombinedReading();
-  assert.ok(reading.bundle.bazi);
-  assert.ok(reading.bundle.ziwei);
+  const { bazi, ziwei: runtime } = reading.bundle;
+  assert.ok(bazi);
+  assert.ok(runtime);
+  const before = structuredClone(bazi);
+  const baseline = buildBaziZiweiSynthesis({ bazi, ziwei: runtime });
+  assert.equal(baseline.status, '资料完整');
+  assert.deepEqual(baseline.missingFacts, []);
 
-  const synthesis = buildBaziZiweiSynthesis({
-    bazi: {
-      ...reading.bundle.bazi,
-      analysis: {
-        ...reading.bundle.bazi.analysis,
-        dayMasterStrength: {
-          ...reading.bundle.bazi.analysis.dayMasterStrength,
-          details: {
-            ...reading.bundle.bazi.analysis.dayMasterStrength.details,
-            ruleBasis: [
-              ...reading.bundle.bazi.analysis.dayMasterStrength.details.ruleBasis,
-              '局部细节未知',
-            ],
-          },
-        },
+  for (const wording of ['未知', '未记录', '未登记']) {
+    const note = `局部细节${wording}`;
+    const changed = structuredClone(bazi);
+    changed.analysis.dayMasterStrength.details.ruleBasis.push(note);
+    const strength = buildBaziNatalAnalysisFacts(changed).find((fact) => fact.type === '日主旺衰');
+    assert.equal(strength?.status, '已记录', note);
+    assert.equal(strength?.result, bazi.analysis.dayMasterStrength.status, note);
+    assert.ok(strength?.basis.includes(note), note);
+
+    const synthesis = buildBaziZiweiSynthesis({ bazi: changed, ziwei: runtime });
+    assert.equal(synthesis.status, baseline.status, note);
+    assert.deepEqual(synthesis.missingFacts, baseline.missingFacts, note);
+    assert.deepEqual(
+      synthesis,
+      {
+        ...baseline,
+        themes: baseline.themes.map((theme) => ({
+          ...theme,
+          baziEvidence: theme.baziEvidence.map((fact) =>
+            fact.key === 'bazi:synthesis:strength'
+              ? { ...fact, detail: `${fact.detail}；${note}` }
+              : fact,
+          ),
+        })),
+      },
+      note,
+    );
+    assert.ok(formatBaziZiweiSynthesisForPrompt(synthesis).includes(note), note);
+  }
+  assert.deepEqual(bazi, before);
+});
+
+test('已核查为空的柱间关系仍为可用资料，缺少核查记录时保留缺口', async () => {
+  const reading = await getCombinedReading();
+  const { bazi, ziwei: runtime } = reading.bundle;
+  assert.ok(bazi?.evidenceAnalysis);
+  assert.ok(runtime);
+  const checked = structuredClone(bazi);
+  checked.evidenceAnalysis!.relationFacts = [];
+  const coverage = checked.evidenceAnalysis!.counterEvidenceFacts.find(
+    (fact) => fact.type === '柱间关系覆盖',
+  );
+  assert.ok(coverage);
+  coverage.status = '未命中主要关系';
+  const synthesis = buildBaziZiweiSynthesis({ bazi: checked, ziwei: runtime });
+  assert.equal(synthesis.status, '资料完整');
+  assert.deepEqual(synthesis.missingFacts, []);
+  assert.ok(
+    synthesis.themes.some((theme) =>
+      theme.baziEvidence.some(
+        (fact) => fact.key === 'bazi:synthesis:relations-empty' && fact.detail.includes('未登记'),
+      ),
+    ),
+  );
+
+  for (const unverified of [
+    { ...checked, evidenceAnalysis: undefined },
+    { ...checked, isThreePillars: true },
+    {
+      ...checked,
+      evidenceAnalysis: {
+        ...checked.evidenceAnalysis!,
+        counterEvidenceFacts: checked.evidenceAnalysis!.counterEvidenceFacts.filter(
+          (fact) => fact.type !== '柱间关系覆盖',
+        ),
       },
     },
-    ziwei: reading.bundle.ziwei,
-  });
+  ]) {
+    const incomplete = buildBaziZiweiSynthesis({ bazi: unverified, ziwei: runtime });
+    assert.equal(incomplete.status, '资料有缺口');
+    assert.ok(
+      incomplete.missingFacts.some(
+        (fact) => fact.includes('待核验项：') && fact.includes('relations'),
+      ),
+    );
+  }
+});
 
+test('八字基础字段或取用结果缺失时不以现存说明文字代替资料', async () => {
+  const reading = await getCombinedReading();
+  const { bazi, ziwei: runtime } = reading.bundle;
+  assert.ok(bazi);
+  assert.ok(runtime);
+  for (const key of ['pillars', 'day-master', 'useful-god'] as const) {
+    const changed = structuredClone(bazi);
+    if (key === 'pillars') changed.pillars.hour = { gan: '', zhi: '', ganZhi: '' };
+    if (key === 'day-master') changed.monthCommander = '';
+    if (key === 'useful-god') {
+      changed.analysis.usefulGod = {
+        favorable: [],
+        unfavorable: [],
+        useful: '',
+        avoid: '',
+        primaryReason: '已保留规则说明，具体取用结果仍待补充',
+      };
+    }
+    const synthesis = buildBaziZiweiSynthesis({ bazi: changed, ziwei: runtime });
+    assert.equal(synthesis.status, '资料有缺口', key);
+    assert.ok(
+      synthesis.missingFacts.some((fact) => fact.includes('待核验项：') && fact.includes(key)),
+      key,
+    );
+  }
+});
+
+test('用神只有决策说明而无结构化结果时，增删说明不改变资料缺口', async () => {
+  const reading = await getCombinedReading();
+  const { bazi, ziwei: runtime } = reading.bundle;
+  assert.ok(bazi);
+  assert.ok(runtime);
+  const noResult = structuredClone(bazi);
+  noResult.analysis.usefulGod = {
+    favorable: [],
+    unfavorable: [],
+    useful: '',
+    avoid: '',
+    decisionEvidence: {
+      base: { favorable: [], unfavorable: [] },
+      climateCandidates: [],
+      appliedLayers: [],
+      conflicts: [],
+    },
+  };
+  const withoutExplanation = buildBaziZiweiSynthesis({ bazi: noResult, ziwei: runtime });
+  const explained = structuredClone(noResult);
+  const reason = '仅保留取用配合说明，具体结果仍待补充';
+  explained.analysis.usefulGod.decisionEvidence!.balanceAdjustment = {
+    reason,
+    favorableOrder: [],
+  };
+  // 本命格式化仍将说明纳入 result；合参可用性不能再依赖该 status。
+  const natalFact = buildBaziNatalAnalysisFacts(explained).find((fact) => fact.type === '用神取忌');
+  assert.equal(natalFact?.status, '已记录');
+  assert.equal(natalFact?.result, `取用配合：${reason}`);
+  const withExplanation = buildBaziZiweiSynthesis({ bazi: explained, ziwei: runtime });
+  for (const synthesis of [withoutExplanation, withExplanation]) {
+    assert.equal(synthesis.status, '资料有缺口');
+    assert.ok(
+      synthesis.missingFacts.some(
+        (fact) => fact.includes('待核验项：') && fact.includes('useful-god'),
+      ),
+    );
+  }
+  assert.deepEqual(withExplanation.missingFacts, withoutExplanation.missingFacts);
+  assert.ok(formatBaziZiweiSynthesisForPrompt(withExplanation).includes(reason));
+
+  // 结果字段或明确的待判状态均可提供资料；说明文字本身不能。
+  for (const result of [
+    { useful: '正印' },
+    { favorableWuxing: ['金'] },
+    { incrementStatus: '部分判定' as const },
+    { incrementStatus: '待判' as const },
+  ]) {
+    const known = structuredClone(explained);
+    Object.assign(known.analysis.usefulGod, result);
+    const synthesis = buildBaziZiweiSynthesis({ bazi: known, ziwei: runtime });
+    assert.equal(synthesis.status, '资料完整');
+    assert.deepEqual(synthesis.missingFacts, []);
+  }
+});
+
+test('真实用神待判已提供裁决状态时，合参资料仍完整', async () => {
+  const bazi = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 9,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+  });
+  assert.equal(bazi.analysis.usefulGod.incrementStatus, '待判');
+  assert.equal(
+    buildBaziNatalAnalysisFacts(bazi).find((fact) => fact.type === '用神取忌')?.status,
+    '资料缺口',
+  );
+  const before = structuredClone(bazi.analysis.usefulGod);
+  const runtime = await calculateZiweiChart(
+    {
+      name: '待判核验',
+      gender: '男',
+      dateType: 'solar',
+      birthDate: '1990-09-05',
+      birthTimeIndex: 6,
+    },
+    {
+      horoscopeContext: { dateStr: '2026-08-07', hourIndex: 8 },
+      scopes: ['origin', 'decadal', 'yearly'],
+    },
+  );
+  const synthesis = buildBaziZiweiSynthesis({ bazi, ziwei: runtime });
   assert.equal(synthesis.status, '资料完整');
+  assert.deepEqual(synthesis.missingFacts, []);
+  assert.match(formatBaziZiweiSynthesisForPrompt(synthesis), /增补五行喜忌待判/);
+  assert.deepEqual(bazi.analysis.usefulGod, before);
 });
 
 test('真实同名格局的破格与未判定分别传入合参，不以格名替代裁决', async () => {
@@ -635,6 +813,10 @@ test('真实冬月条件取用保留部分判定、作用对象与干级所忌�
     ['癸卯', '乙丑', '癸丑', '壬子'],
   );
   assert.equal(bazi.analysis.usefulGod.incrementStatus, '部分判定');
+  assert.equal(
+    buildBaziNatalAnalysisFacts(bazi).find((fact) => fact.type === '用神取忌')?.status,
+    '资料缺口',
+  );
   assert.deepEqual(bazi.analysis.usefulGod.favorableWuxing, ['金', '水']);
   assert.deepEqual(bazi.analysis.usefulGod.conditionalFavorableStems, ['丙']);
   assert.deepEqual(bazi.analysis.usefulGod.conditionalUnfavorableStems, ['丁']);

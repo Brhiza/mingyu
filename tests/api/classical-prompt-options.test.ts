@@ -52,10 +52,23 @@ function assertClassics(content: Record<string, unknown>, method: string) {
   }
 }
 
-test('公开提示词默认与显式关闭经典依据保持原输出，开启覆盖三种返回模式', async () => {
+test('公开提示词默认与显式关闭经典依据保持原输出，开启覆盖三种返回模式', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-02-10T08:30:00+08:00') });
   for (const [path, method, input] of [
     ['bazi/prompt', 'bazi', { ...birth, baziFortuneScope: 'natal' }],
+    ['divination/liuyao/prompt', 'liuyao', divination],
     ['divination/meihua/prompt', 'meihua', divination],
+    ['divination/xiaoliuren/prompt', 'xiaoliuren', divination],
+    ['divination/qimen/prompt', 'qimen', divination],
+    ['divination/liuren/prompt', 'liuren', divination],
+    [
+      'divination/almanac/prompt',
+      'almanac',
+      {
+        startDate: '2026-02-10',
+        endDate: '2026-02-10',
+      },
+    ],
     ['metaphysics/xuankong/prompt', 'xuankong', fengshui],
     ['metaphysics/residential/prompt', 'residential', { ...fengshui, mingGua: '坎' }],
   ] as const) {
@@ -111,15 +124,35 @@ const promptMethods: Record<string, string> = {
   'metaphysics/qizheng/prompt': 'qizheng',
 };
 
-test('OpenAPI 只在具有经典目录的提示词路径暴露布尔开关', () => {
+test('OpenAPI 只在具有经典目录的具体提示词路径暴露布尔开关', () => {
   const document = getPublicApiOpenApiDocument();
-  for (const [path, operation] of Object.entries(document.paths)) {
-    if (!('post' in operation)) continue;
-    const expected = supportsClassicalReferences(promptMethods[path.slice(1)] ?? '');
-    assert.equal(JSON.stringify(operation.post).includes('includeClassics'), expected, path);
-    if (expected)
-      assert.match(JSON.stringify(operation.post), /"includeClassics":\{"type":"boolean"/);
+  const paths = document.paths as Record<string, { post?: any }>;
+  // 从独立能力清单反向核对，防止路径和开关同时漏报。
+  for (const path of Object.keys(promptMethods)) {
+    const post = paths[`/${path}`]?.post;
+    assert.ok(post, `缺少具体提示词路径：${path}`);
+    assert.equal(
+      post.requestBody.content['application/json'].schema.properties.includeClassics.type,
+      'boolean',
+      path,
+    );
+    assert.equal(
+      post.responses['200'].content['application/json'].schema.properties.data.properties
+        .classicalReferences.type,
+      'array',
+      path,
+    );
   }
+  for (const [path, operation] of Object.entries(paths)) {
+    if (!operation.post) continue;
+    const expected = Object.hasOwn(promptMethods, path.slice(1));
+    assert.equal(JSON.stringify(operation.post).includes('includeClassics'), expected, path);
+  }
+  assert.equal(
+    JSON.stringify(document.paths['/divination/{method}/prompt'].post).includes('includeClassics'),
+    false,
+    '模板还覆盖塔罗、雷诺曼和星盘，不能把经典开关声明为所有方法共有',
+  );
 });
 
 test('公开合参分册经典依据只覆盖当前计算的体系，主题咨询跟随选定方法', async () => {

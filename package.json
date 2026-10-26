@@ -38,6 +38,7 @@
     "test:unit:run": "tsx --tsconfig tsconfig.app.json --test --test-concurrency=2 \"tests/*.test.ts\" \"tests/*.test.tsx\"",
     "test:core": "pnpm --filter mingyu-core test",
     "test:core:run": "node packages/core/scripts/run-core-tests.mjs --prepared",
+    "test:app:run": "node scripts/run-ci-tests.mjs --application",
     "test:integration": "pnpm --filter mingyu-core build && pnpm test:integration:run",
     "test:integration:run": "tsx --tsconfig tsconfig.app.json --test \"tests/integration/*.test.ts\"",
     "test:api": "pnpm --filter mingyu-core build && pnpm test:api:run",

@@ -449,7 +449,15 @@ test('七政四余阶段缓存身份包含引导与当前时间上下文', async
   const afterTimeContextCalls = h.sent.filter((items) =>
     items[0]?.content.includes('七政四余出生区间阶段资料'),
   ).length;
-  assert.ok(afterTimeContextCalls > afterGuideCalls);
+  assert.equal(afterTimeContextCalls, afterGuideCalls);
+  assert.equal(h.memory.qizhengPhaseReading?.currentTimeContext, firstTimeContext);
+
+  h.options.requestTime = Date.now();
+  await runReadingWorkflow(messages, h.options, { stream, execute: async () => resource });
+  const afterNewRequestCalls = h.sent.filter((items) =>
+    items[0]?.content.includes('七政四余出生区间阶段资料'),
+  ).length;
+  assert.ok(afterNewRequestCalls > afterTimeContextCalls);
   assert.notEqual(h.memory.qizhengPhaseReading?.currentTimeContext, firstTimeContext);
 });
 

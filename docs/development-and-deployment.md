@@ -86,7 +86,7 @@ pnpm typecheck:node
 
 `typecheck` 先构建核心，再检查应用、MCP 与工程代码。`typecheck:node` 严格覆盖 `server/**/*.ts`、`scripts/**/*.ts`、`build/**/*.ts`、全部 `vite*.config.ts` 和 Capacitor 配置；只检查类型，不生成产物。
 
-`pnpm test:core` 直接检查显式登记的核心源码领域测试，无需新鲜 `dist`；应用/跨入口测试仍由 `pnpm test`、`pnpm test:ci` 执行。`pnpm prompt:audit` 的事实提取和提示词生成统一使用核心源码。这两个独立入口先生成地点、星历等必需源码数据；`pnpm core:data:prepare` 也可单独准备，仅读写源码数据而不修改 `dist`。`test:core:run`、`prompt:audit:run` 要求先完成该准备或 `build:prepare`。真实发布包消费分别由 `pnpm package:check` 与 `pnpm package:check:mcp` 隔离安装 tarball 验证，测试职责见 [测试分层](../tests/README.md)。
+`pnpm test:core` 直接检查显式登记的核心源码领域测试，无需新鲜 `dist`；应用/跨入口测试仍由 `pnpm test`、`pnpm test:ci` 执行。`pnpm prompt:audit` 的事实提取和提示词生成统一使用核心源码。这两个独立入口先生成地点、星历等必需源码数据；`pnpm core:data:prepare` 也可单独准备，仅读写源码数据而不修改 `dist`。`test:core:run`、`prompt:audit:run` 要求先完成该准备或 `build:prepare`。CI 在核心源码阶段后使用 `test:app:run` 执行应用、跨层和保守保留的编译后核心契约，避免重复调度同源码领域文件；`test:ci:run` 继续保留原完整回归入口。真实发布包消费分别由 `pnpm package:check` 与 `pnpm package:check:mcp` 隔离安装 tarball 验证，测试职责见 [测试分层](../tests/README.md)。
 
 单独的 `build`、`build:server`、`build:mcp` 和包检查命令会准备自身依赖。在同一源码快照下组合构建时，先运行一次 `pnpm build:prepare`（同步公开资源并构建核心），再运行 `build:run`、`build:server:run`、`build:mcp:run`、`typecheck:run` 或 `package:check:run`；MCP 包检查的 `package:check:mcp:run` 还要求 MCP 已构建。源码变化后需重新准备。`pnpm build:docker` 已按此顺序完成网页和 Node 构建，Dockerfile 与同 job 双包发布均只强制构建核心一次。
 

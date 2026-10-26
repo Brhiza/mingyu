@@ -5,6 +5,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { generateResidentialFengshui } from '../packages/core/src/residential_fengshui/index.ts';
 import { MetaphysicsPanel } from '../src/components/MetaphysicsPanel';
+import { useResidentialChart } from '../src/pages/ResultPage/hooks/useResidentialChart';
+import { parsePromptState } from '../src/lib/query-state';
+import type { ResidentialBirthData } from '../src/lib/residential-fengshui-chart';
+
+function PageOwner({ birthData }: { birthData?: ResidentialBirthData }) {
+  const residential = useResidentialChart(
+    birthData ?? null,
+    parsePromptState(new URLSearchParams('ps=bazhai&rhy=2008&bhd=70&rfy=')),
+    () => {},
+    'initial-url',
+  );
+  return createElement(MetaphysicsPanel, { birthData, ...residential });
+}
 
 test('候选宅卦改变命宅关系时建议复测坐向而非补充已提供资料', () => {
   const result = generateResidentialFengshui({
@@ -83,23 +96,14 @@ test('北向基准未声明时命宅与宅运只按原始读数暂列，已校�
   assert.match(unspecified.evidencePromptText, /暂按命宅关系相合/);
 
   const html = renderToStaticMarkup(
-    createElement(MetaphysicsPanel, {
-      method: 'residential',
+    createElement(PageOwner, {
       birthData: { year: 2000, month: 6, day: 1, gender: 'male' },
-      initialHouseYear: '2008',
-      initialFacingDegree: '70',
     }),
   );
   assert.match(html, /坐向按原始读数暂列，待核定北向基准。/);
   assert.match(html, /<span>命宅关系<\/span><strong>相合（暂按）<\/strong>/);
 
-  const houseOnlyHtml = renderToStaticMarkup(
-    createElement(MetaphysicsPanel, {
-      method: 'residential',
-      initialHouseYear: '2008',
-      initialFacingDegree: '70',
-    }),
-  );
+  const houseOnlyHtml = renderToStaticMarkup(createElement(PageOwner));
   assert.match(houseOnlyHtml, /坐向按原始读数暂列，待核定北向基准。/);
   assert.match(houseOnlyHtml, /<span>命宅关系<\/span><strong>仅宅运<\/strong>/);
 

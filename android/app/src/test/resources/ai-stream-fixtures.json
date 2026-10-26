@@ -1,0 +1,42 @@
+[
+  {
+    "name": "malformed_then_done",
+    "body": "data: {\"choices\":[{\"delta\":{\"content\":\"半段正文\"}}]}\n\ndata: {\"choices\":\n\ndata: [DONE]\n\n",
+    "content": "半段正文",
+    "done": 0,
+    "errorCode": "AI_UPSTREAM_MALFORMED",
+    "errorMessage": "AI 服务流数据无法解析，本次回答未完整生成，请重新生成。"
+  },
+  {
+    "name": "eof_after_content",
+    "body": "data: {\"choices\":[{\"delta\":{\"content\":\"半段正文\"}}]}\n\n",
+    "content": "半段正文",
+    "done": 0,
+    "errorCode": "AI_UPSTREAM_INCOMPLETE",
+    "errorMessage": "AI 服务在发送完成标记前中断，请稍后重试。"
+  },
+  {
+    "name": "content_and_length",
+    "body": "data: {\"choices\":[{\"delta\":{\"content\":\"半段正文\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n",
+    "content": "",
+    "done": 0,
+    "errorCode": "AI_OUTPUT_LIMIT",
+    "errorMessage": "本次回复达到模型输出上限，已生成内容保留，可缩小问题范围后继续。"
+  },
+  {
+    "name": "multiline_data",
+    "body": "data: {\"choices\":\ndata: [{\"delta\":{\"content\":\"完整回答\"}}]}\n\ndata: [DONE]\n\n",
+    "content": "完整回答",
+    "done": 1,
+    "errorCode": "",
+    "errorMessage": ""
+  },
+  {
+    "name": "normal_done",
+    "body": "data: {\"choices\":[{\"delta\":{\"content\":\"半段正文\"}}]}\n\ndata: [DONE]\n\n",
+    "content": "半段正文",
+    "done": 1,
+    "errorCode": "",
+    "errorMessage": ""
+  }
+]

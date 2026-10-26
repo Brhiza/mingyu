@@ -7,6 +7,7 @@ import {
   formatZiweiSupportingScopeText,
 } from '../../src/pages/ResultPage/ResultPage.helpers';
 import { buildPersonFromInput, calculateFullBaziChart } from '../../src/lib/full-chart-engine/bazi';
+import { buildFortuneSelectionContext } from 'mingyu-core/bazi';
 import {
   buildZiweiChartInput,
   calculateFullZiweiChart,
@@ -58,6 +59,13 @@ test('单人增强提示词会保留完整任务结构并交叉校验两套盘�
     questionScopeLabel: '事业',
     baziFortuneSummary: '八字分析对象：当前大运',
     ziweiScopeSummary: '紫微分析范围：流年 · 2028-01-01',
+    timing: {
+      baziScope: 'dayun',
+      baziContext: buildFortuneSelectionContext(baziResult, { scope: 'dayun', cycleIndex: 3 }),
+      ziweiScope: 'yearly',
+      ziweiActiveScope: { scope: 'yearly', solar_date: '2028-01-01' },
+      ziweiHourIndex: 8,
+    },
   });
 
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT['bazi-ziwei']);

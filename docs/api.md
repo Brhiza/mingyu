@@ -204,7 +204,7 @@ Pages Free 每次请求的 CPU 上限为 10ms；Workers Free 每日 100,000 次�
 参数选择建议：
 
 - 生肖结果中的 `noble` 在两支同属三合组时返回“三合组成员关系（…）”，`meeting` 返回“三会组成员关系（…）”；`evidenceAnalysis.relations` 对这两种情况标记“两支同组”。两支关系不表示三支齐备或已经成局。
-- `responseMode` 默认为 `prompt-only`；需要提示词及轻量盘面摘要时用 `summary`；需要完整结构化排盘时用 `full`。
+- REST `/prompt` 的 `responseMode` 通常默认为 `prompt-only`；需要提示词及轻量盘面摘要时用 `summary`；需要完整结构化排盘时用 `full`。起名、姓名解析和数字能量三个文化提示词入口在省略此字段时保留旧的具名结果，具体兼容字段见下文。
 - 明确需要完整长期资料时可选择完整范围：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，官方在线的单点紫微请求还需用 `scopeBatch` 或 `fortuneBatch` 分批续取；星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。在线先取所问年份或阶段；全量任务使用本地 stdio 或自部署。
 - 只问某一年、某月、某日时，优先选择对应范围，避免把短期问题做成泛泛终身解读。
 - `promptMode` 默认用 `framework`，这样返回的提示词结构更完整；只有用户明确要自由问答或自己已经写好完整问题时，才用 `custom`。
@@ -214,9 +214,22 @@ Pages Free 每次请求的 CPU 上限为 10ms；Workers Free 每日 100,000 次�
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
-MCP 在线端点与本地 CLI 复用同一套计算能力；在线提示词通常默认 `summary`，一次性起卦、抽牌和求签默认 `full`，显式 `responseMode` 优先；本地 `npx -y mingyu-mcp` 默认 `full`。在线范围限制见上表；公开 HTTP `/prompt` API 默认使用 `prompt-only`。
+MCP 在线端点与本地 CLI 复用同一套计算能力；在线提示词通常默认 `summary`，一次性起卦、抽牌和求签默认 `full`，显式 `responseMode` 优先；本地 `npx -y mingyu-mcp` 默认 `full`。在线范围限制见上表；公开 HTTP `/prompt` API 通常默认使用 `prompt-only`，下列三个文化提示词入口保留省略模式的兼容行为。
 
-`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时传 `summary`；确实需要同次响应带完整排盘时传 `full`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
+REST `/prompt` 通常默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时传 `summary`；确实需要同次响应带完整排盘时传 `full`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
+
+文化提示词模式与迁移：`POST /name/generate/prompt`、`POST /name/analyze/prompt` 和 `POST /number/analyze/prompt` 支持以下返回方式，成功响应仍使用 `{ ok, data, meta }` 封套。
+
+| `responseMode` | 起名 `data` | 姓名解析、数字能量 `data` |
+| --- | --- | --- |
+| 省略 | `candidates`、`prompt`，有统一解读选择时附 `selection` | `analysis`、`prompt`，有统一解读选择时附 `selection` |
+| `prompt-only` | 仅 `prompt` | 仅 `prompt` |
+| `summary` | `prompt`、`resultSummary: { candidates, selection? }` | `prompt`、`resultSummary: { analysis, selection? }` |
+| `full` | `result`、`prompt`，兼容顶层 `candidates` 和可选 `selection` | `result`、`prompt`，兼容顶层 `analysis` 和可选 `selection` |
+
+三个入口省略模式时完整保留旧字段；显式 `full` 的 `result` 与省略模式的整个 `data` 相等，包含完整候选或分析事实、`prompt` 和可选 `selection`。顶层具名兼容字段与 `result` 中对应字段相等。`summary` 使用现有 `compact` 投影，移除嵌套提示词、计算证据和重复过程；它保留候选或分析资料，不减少计算范围，也不截断候选数量。各模式的顶层 `prompt` 完全相同，非法模式（包括 `null`、空串、非字符串）返回 HTTP `400`、`BAD_REQUEST`。
+
+旧客户端继续省略模式即可；新客户端只需要任务书时显式传 `prompt-only`，需要结构化结果时按 `resultSummary` 或 `result` 读取。MCP 保持既有默认值、`structuredContent`、文本 `content` 和错误包装；这三个工具在 `full` 下继续支持旧读取路径 `structuredContent.result.prompt`，不增加 REST 的顶层具名别名。
 
 兼容说明：八字、紫微与奇门计算在 REST/MCP 中省略 `detailMode` 与显式 `compact` 现在返回同一领域轻量投影。依赖八字逐年明细、紫微 `payloadByScope` 或奇门完整格局依据的调用方应显式传 `detailMode: "full"`；随机重放轨迹与分页游标继续保留，出生区间仍按原有完整分页契约返回。提示词的 `responseMode` 与计算细节模式相互独立。八字/紫微单盘同时传新旧范围字段时，统一 `scope` 优先于 `baziFortuneScope` / `promptScope`，盘面、目标日期及任务书使用同一有效范围；只传旧字段继续兼容。
 
@@ -540,8 +553,8 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `gender` 使用 `male` 或 `female`。
 - `dateType` 使用 `solar` 或 `lunar`。
 - `timeIndex` 范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
-- `question` 是所有 `/prompt` 接口的必填字段，黄历择日 `/prompt` 可不填；`question` 和 `astrolabeScopeText` 最多 5000 个字符。
-- `/prompt` 支持 `responseMode`：`prompt-only` 为默认值，只返回提示词；`summary` 返回提示词和轻量摘要；`full` 返回完整排盘和提示词。
+- 常规 `/prompt` 接口要求 `question`，黄历择日可不填。文化入口中，姓名解析和数字能量的 `question` 可选，起名根据用字条件生成任务书。`question` 和 `astrolabeScopeText` 通常最多 5000 个字符；文化入口的可选问题字段以各自 OpenAPI 声明为准。
+- `/prompt` 支持 `responseMode`：通常默认 `prompt-only`，只返回提示词；`summary` 返回提示词和轻量摘要；`full` 返回完整排盘和提示词。`/name/generate/prompt`、`/name/analyze/prompt`、`/number/analyze/prompt` 省略模式时保留旧具名字段；显式模式及 `full` 兼容别名见“文化提示词模式与迁移”。
 - 所有命理、占卜和风水排盘接口支持 `detailMode`：默认 `compact`，保留核心盘面并省略证据链、提示词与重复计算过程；八字轻量结果仍包含逐柱神煞命中。显式传 `full` 才返回完整结构。基础历法、天文和五行等公共地基接口不受此参数影响。
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 八字 `/bazi/prompt` 未指定范围时默认使用当前大运；也可传 `baziFortuneScope` 指定 `natal`、`full`、`dayun`、`year`、`month`、`day`。`dayun`、`year`、`month`、`day` 推荐配合 `baziFortuneDate` 直传公历日期，并按北京时间正午定位；兼容序号中流月按寅月=1 的节令月、流日按子初换日且由交节时刻裁剪。日期参数与大运序号及其他兼容序号不得混用，工具不会静默套用第一项。

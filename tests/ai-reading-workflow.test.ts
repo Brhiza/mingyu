@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fitReadingMessages,
+  formatReadingCurrentTime,
   parseReadingPlan,
   runReadingWorkflow,
+  type ReadingAction,
   type ReadingMemory,
   type ReadingOptions,
   type ReadingDependencies,
@@ -22,6 +24,10 @@ import {
   calculatePublicZiweiChartForScopes,
 } from 'mingyu-core/ziwei';
 import { formatPublicZiweiFullScopeText } from 'mingyu-core/prompt/public-api';
+import { generateAstrolabeDynamicRange } from 'mingyu-core/divination/astrolabe-dynamic-range';
+import { normalizeAiChatHistory } from '../src/lib/ai/chat-history';
+import type { ReadingResourceReplay } from '../src/lib/ai/reading-resource-replay';
+import { disposeReadingResources } from '../src/lib/ai/reading-resource-lifecycle';
 
 function harness(responses: string[]) {
   const sent: Parameters<ReadingDependencies['stream']>[0][] = [];
@@ -67,6 +73,16 @@ const baziSubject: ReadingSubjectSnapshot = {
   allowedMethods: ['bazi'],
   range: { baziFortuneScope: 'year' },
 };
+
+function calculationSchema(method: string, fields: string[]): ReadingResource {
+  return {
+    key: JSON.stringify({ kind: 'schema', method }),
+    title: `${method}补算参数`,
+    text: JSON.stringify({ properties: Object.fromEntries(fields.map((field) => [field, {}])) }),
+    usable: false,
+    kind: 'schema',
+  };
+}
 
 function makeZiweiLayer(seed: string, starCount = 1) {
   return {
@@ -263,6 +279,494 @@ test('补查条文进入解读并复用于追问，准备结果与参数格式�
   );
   assert.equal(calls, 1);
   assert.deepEqual(h.errors, []);
+});
+
+test('成功补算的输入字段重排在同轮及追问中只执行并保存一次', async () => {
+  const first: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneScope: 'year', baziFortuneYear: 2028 },
+  };
+  const reordered: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    target: 'primary',
+    input: { baziFortuneYear: 2028, baziFortuneScope: 'year' },
+  };
+  const h = harness([
+    JSON.stringify({ actions: [first, reordered] }),
+    '首次解读',
+    JSON.stringify({ actions: [reordered] }),
+    '追问解读',
+  ]);
+  h.options.subject = baziSubject;
+  h.options.memory.schemas = [calculationSchema('bazi', ['baziFortuneScope', 'baziFortuneYear'])];
+  let executions = 0;
+  const deps: ReadingDependencies = {
+    stream: h.stream,
+    execute: async () => {
+      executions += 1;
+      return { key: '', title: '2028年资料', text: 'REORDERED_SUCCESS_FACT', usable: true };
+    },
+  };
+  const initial: ChatMessage = { role: 'user', content: '八字原始盘面，分析2028年事业' };
+  await runReadingWorkflow([initial], h.options, deps);
+  await runReadingWorkflow(
+    [
+      initial,
+      { role: 'assistant', content: '首次解读' },
+      { role: 'user', content: '再看事业条件' },
+    ],
+    h.options,
+    deps,
+  );
+
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.done(), 2);
+  assert.equal(executions, 1);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.deepEqual(JSON.parse(h.options.memory.resources[0]!.key), {
+    ...first,
+    target: 'primary',
+  });
+  for (const index of [1, 3]) {
+    assert.equal(h.sent[index]![0]!.content.split('REORDERED_SUCCESS_FACT').length - 1, 1);
+  }
+});
+
+test('成功补算递归忽略对象字段顺序但保留数组顺序与目标日期', async () => {
+  const input = {
+    periodRange: { startDate: '2028-01-01', endDate: '2028-12-31' },
+    topics: ['career', 'wealth'],
+    question: '分析事业与财运',
+  };
+  const inputs = [
+    input,
+    {
+      question: input.question,
+      topics: [...input.topics],
+      periodRange: { endDate: '2028-12-31', startDate: '2028-01-01' },
+    },
+    { ...input, topics: [...input.topics].reverse() },
+    { ...input, periodRange: { startDate: '2029-01-01', endDate: '2029-12-31' } },
+  ];
+  const h = harness([
+    JSON.stringify({
+      actions: inputs.map((input) => ({ kind: 'calculate', method: 'qimen-lifetime', input })),
+    }),
+    '区分顺序与日期的解读',
+  ]);
+  h.options.subject = {
+    id: 'qimen-identity-test',
+    source: 'qimen-lifetime',
+    lockedInputs: { 'qimen-lifetime': { birthDateTime: '1990-05-15T16:00:00' } },
+    allowedMethods: ['qimen-lifetime'],
+    range: {},
+  };
+  h.options.memory.schemas = [calculationSchema('qimen-lifetime', Object.keys(input))];
+  const executed: ReadingAction[] = [];
+  await runReadingWorkflow([{ role: 'user', content: '奇门原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      executed.push(action);
+      return {
+        key: '',
+        title: '目标区间',
+        text: `DISTINCT_INPUT_${executed.length}`,
+        usable: true,
+      };
+    },
+  });
+
+  assert.deepEqual(h.errors, []);
+  assert.deepEqual(
+    executed.map((action) => action.kind === 'calculate' && action.input),
+    [inputs[0], inputs[2], inputs[3]],
+  );
+  assert.equal(h.options.memory.resources.length, 3);
+  assert.equal(new Set(h.options.memory.resources.map((resource) => resource.key)).size, 3);
+  assert.equal(h.sent.at(-1)![0]!.content.split('DISTINCT_INPUT_1').length - 1, 1);
+});
+
+test('成功补算按完整输入和目标主体隔离，不使用失败关联的 schema 投影', async () => {
+  const inputs = [
+    { baziFortuneScope: 'year', baziFortuneYear: 2028, question: '分析事业' },
+    { baziFortuneScope: 'year', baziFortuneYear: 2029, question: '分析事业' },
+    { baziFortuneScope: 'year', baziFortuneYear: 2028, question: '分析财运' },
+  ];
+  const actions: ReadingAction[] = [
+    ...inputs.map((input) => ({ kind: 'calculate' as const, method: 'bazi', input })),
+    { kind: 'calculate', method: 'bazi', target: 'partner', input: inputs[0]! },
+  ];
+  const h = harness([JSON.stringify({ actions }), '分别解读']);
+  h.options.subject = {
+    ...baziSubject,
+    lockedInputs: {
+      ...baziSubject.lockedInputs,
+      baziPartner: { ...baziSubject.lockedInputs.bazi, year: 1992, gender: 'female' },
+    },
+  };
+  // 失败关联有意只投影 schema 字段；成功资料仍需区分完整输入中的 question。
+  h.options.memory.schemas = [calculationSchema('bazi', ['baziFortuneScope', 'baziFortuneYear'])];
+  const executed: ReadingAction[] = [];
+  await runReadingWorkflow([{ role: 'user', content: '双方八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      executed.push(action);
+      return { key: '', title: '独立目标', text: `ISOLATED_FACT_${executed.length}`, usable: true };
+    },
+  });
+
+  assert.deepEqual(h.errors, []);
+  assert.deepEqual(
+    executed,
+    actions.map((action) => ({ target: 'primary', ...action })),
+  );
+  assert.equal(new Set(h.options.memory.resources.map((resource) => resource.key)).size, 4);
+  for (let index = 1; index <= 4; index += 1) {
+    assert.equal(h.sent.at(-1)![0]!.content.split(`ISOLATED_FACT_${index}`).length - 1, 1);
+  }
+});
+
+test('成功资料不会让更换锁定主体或未声明参数跳过执行校验', async (t) => {
+  const input = { baziFortuneScope: 'year', baziFortuneYear: 2028, question: '分析2028年事业' };
+  const h = harness([
+    JSON.stringify({ actions: [{ kind: 'calculate', method: 'bazi', input }] }),
+    '首次解读',
+    JSON.stringify({
+      actions: [
+        { kind: 'calculate', method: 'bazi', input: { ...input, year: 1991 } },
+        { kind: 'calculate', method: 'bazi', input: { ...input, invented: true } },
+      ],
+    }),
+    '{"actions":[]}',
+    '保留原盘解读',
+  ]);
+  h.options.subject = baziSubject;
+  h.options.memory.schemas = [calculationSchema('bazi', Object.keys(input))];
+  const executed: ReadingAction[] = [];
+  const rejected: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) =>
+    handlePublicApiRequest(
+      new Request(new URL(String(input), 'https://aov.cc'), init),
+    )) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  const deps: ReadingDependencies = {
+    stream: h.stream,
+    execute: async (action, signal, subject) => {
+      executed.push(action);
+      try {
+        return await executeReadingAction(action, signal, subject);
+      } catch (error) {
+        rejected.push(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+    },
+  };
+  const initial: ChatMessage = { role: 'user', content: '八字原始盘面' };
+  await runReadingWorkflow([initial], h.options, deps);
+  await runReadingWorkflow(
+    [
+      initial,
+      { role: 'assistant', content: '首次解读' },
+      { role: 'user', content: '再看事业条件' },
+    ],
+    h.options,
+    deps,
+  );
+
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.done(), 2);
+  assert.equal(executed.length, 3);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.equal(rejected.length, 2);
+  assert.match(rejected[0]!, /补算主体与当前命盘不一致：year/u);
+  assert.match(rejected[1]!, /补算参数未声明或不可修改：invented/u);
+  assert.match(h.sent[3]!.at(-1)!.content, /补算参数未声明或不可修改：invented/u);
+});
+
+test('旧成功资源从重放动作或 JSON key 恢复稳定的已见身份并保留原 key', async () => {
+  const action: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneYear: 2028, baziFortuneScope: 'year' },
+  };
+  const reordered: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneScope: 'year', baziFortuneYear: 2028 },
+  };
+  for (const saved of [
+    { key: JSON.stringify(action) },
+    { key: JSON.stringify({ ...action, target: 'primary' }) },
+    { key: 'legacy-opaque-key', replay: action },
+  ]) {
+    const h = harness([JSON.stringify({ actions: [reordered] }), '复用历史资料']);
+    h.options.subject = baziSubject;
+    h.options.memory.schemas = [calculationSchema('bazi', Object.keys(action.input))];
+    h.options.memory.resources = [
+      { ...saved, title: '旧目标资料', text: 'LEGACY_SUCCESS_FACT', usable: true },
+    ];
+    let executions = 0;
+    await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+      stream: h.stream,
+      execute: async () => {
+        executions += 1;
+        return { key: '', title: '重复资料', text: 'LEGACY_SUCCESS_FACT', usable: true };
+      },
+    });
+
+    assert.deepEqual(h.errors, [], saved.key);
+    assert.equal(executions, 0, saved.key);
+    assert.equal(h.options.memory.resources.length, 1, saved.key);
+    assert.equal(h.options.memory.resources[0]!.key, saved.key);
+    assert.equal(h.sent.at(-1)![0]!.content.split('LEGACY_SUCCESS_FACT').length - 1, 1);
+  }
+});
+
+test('旧重放 key 恢复完成后字段重排的规划不会再次补算', async () => {
+  const action: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneYear: 2028, baziFortuneScope: 'year' },
+  };
+  const reordered: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneScope: 'year', baziFortuneYear: 2028 },
+  };
+  for (const hasResource of [false, true]) {
+    const h = harness([JSON.stringify({ actions: [reordered] }), '恢复后的解读']);
+    const oldKey = JSON.stringify(action);
+    h.options.subject = baziSubject;
+    h.options.memory.schemas = [calculationSchema('bazi', Object.keys(action.input))];
+    h.options.memory.restoreActions = [{ key: oldKey, action }];
+    if (hasResource) {
+      h.options.memory.resources = [
+        {
+          key: 'already-restored-key',
+          replay: reordered,
+          title: '已恢复资料',
+          text: 'RESTORED_SUCCESS_FACT',
+          usable: true,
+        },
+      ];
+    }
+    let executions = 0;
+    await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+      stream: h.stream,
+      execute: async () => {
+        executions += 1;
+        return { key: '', title: '恢复资料', text: 'RESTORED_SUCCESS_FACT', usable: true };
+      },
+    });
+
+    assert.deepEqual(h.errors, []);
+    assert.equal(executions, hasResource ? 0 : 1);
+    assert.equal(h.options.memory.restoreActions, undefined);
+    assert.equal(h.options.memory.resources.length, 1);
+    assert.equal(h.options.memory.resources[0]!.key, hasResource ? 'already-restored-key' : oldKey);
+    assert.equal(h.sent.at(-1)![0]!.content.split('RESTORED_SUCCESS_FACT').length - 1, 1);
+  }
+});
+
+test('旧 v2 进度恢复保留重复补算的全部 key，复用执行并从未读页继续', async () => {
+  const start = Date.parse('2024-03-20T11:00:00+08:00');
+  const { branches, ...summary } = generateAstrolabeDynamicRange(
+    {
+      name: '旧进度恢复',
+      gender: '男',
+      year: '2024',
+      month: '3',
+      day: '20',
+      hour: '11',
+      minute: '0',
+      second: '0',
+      longitude: '116.416334',
+      latitude: '39.9042',
+      timezone: '8',
+    },
+    { startTimestamp: start, endTimestamp: start + 1000 },
+    { scope: 'daily', referenceDate: '2028-03-20' },
+  );
+  const subject: ReadingSubjectSnapshot = {
+    id: 'legacy-checkpoint-test',
+    source: 'astrolabe',
+    allowedMethods: ['astrolabe'],
+    lockedInputs: { astrolabe: {} },
+    range: {},
+  };
+  const actions: ReadingResourceReplay['action'][] = [
+    {
+      kind: 'calculate',
+      method: 'astrolabe',
+      target: 'primary',
+      input: { astrolabeScope: 'natal', question: 'career' },
+    },
+    {
+      kind: 'calculate',
+      method: 'astrolabe',
+      target: 'primary',
+      input: { question: 'career', astrolabeScope: 'natal' },
+    },
+    {
+      kind: 'calculate',
+      method: 'astrolabe',
+      target: 'primary',
+      input: { astrolabeScope: 'daily', astrolabeScopeDate: '2028-03-20' },
+    },
+  ];
+  const keys = actions.map((action) => JSON.stringify(action));
+  assert.notEqual(keys[0], keys[1]);
+  const readBranches: number[] = [];
+  const resourceFor = (action: ReadingResourceReplay['action']): ReadingResource => {
+    const key = JSON.stringify(action);
+    return {
+      key,
+      title:
+        action.kind === 'calculate' && action.input.astrolabeScope === 'daily'
+          ? '动态资料'
+          : '旧本命补充资料',
+      text:
+        action.kind === 'calculate' && action.input.astrolabeScope === 'daily'
+          ? ''
+          : 'LEGACY_DUPLICATE_SUPPLEMENTAL_FACT',
+      usable: true,
+      replay: action,
+      ...(action.kind === 'calculate' && action.input.astrolabeScope === 'daily'
+        ? {
+            dynamicTarget: 'primary' as const,
+            dynamicAstrolabe: {
+              key,
+              subjectId: subject.id,
+              summary,
+              promptOptions: { question: 'career' },
+              readBranch: async (index: number) => {
+                readBranches.push(index);
+                return branches[index]!;
+              },
+            },
+          }
+        : {}),
+    };
+  };
+  const initialPrompt = 'LEGACY_INITIAL_CHART';
+  const first = harness(['已读原始资料', '已保存原始资料摘要']);
+  first.options.subject = subject;
+  first.options.initialPrompt = initialPrompt;
+  first.options.memory.resources = actions.map(resourceFor);
+  let saved: Pick<ReadingMemory, 'astrolabeDynamicReading' | 'restoreActions'> | undefined;
+  first.options.onAstrolabeDynamicCheckpoint = (checkpoint, replays) => {
+    saved = { astrolabeDynamicReading: checkpoint, restoreActions: replays };
+  };
+  await runReadingWorkflow([{ role: 'user', content: '继续' }], first.options, {
+    stream: first.stream,
+    execute: async () => {
+      throw new Error('已有资料不应重新补算');
+    },
+  });
+  assert.deepEqual(first.errors, []);
+  assert.equal(first.sent.length, 2);
+  assert.equal(first.options.memory.resources.length, 3);
+  assert.equal(saved?.astrolabeDynamicReading?.version, 2);
+  assert.ok(saved?.astrolabeDynamicReading?.version === 2);
+  assert.equal(saved.astrolabeDynamicReading.completedPages, 1);
+  assert.equal(saved.astrolabeDynamicReading.supplementalPageIndex, 1);
+
+  const history = normalizeAiChatHistory(
+    JSON.parse(
+      JSON.stringify({
+        version: 2,
+        activeSessionId: 'legacy-checkpoint',
+        sessions: [
+          {
+            id: 'legacy-checkpoint',
+            initialPrompt,
+            readingSubject: subject,
+            turns: [
+              {
+                role: 'assistant',
+                content: '已完成原始资料页',
+                dynamicReading: saved.astrolabeDynamicReading,
+                dynamicReplays: saved.restoreActions,
+              },
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+  const turn = history.sessions[0]!.turns[0]!;
+  assert.deepEqual(
+    turn.dynamicReplays?.map((replay) => replay.key),
+    keys,
+  );
+  assert.equal(turn.dynamicReading?.version, 2);
+  const restored = harness([]);
+  restored.options.subject = subject;
+  restored.options.initialPrompt = initialPrompt;
+  restored.options.memory = {
+    resources: [],
+    restoreActions: turn.dynamicReplays,
+    astrolabeDynamicReading: turn.dynamicReading,
+  };
+  const executions: ReadingAction[] = [];
+  let disposals = 0;
+  const dispose = async () => {
+    disposals += 1;
+  };
+  const deps: ReadingDependencies = {
+    stream: restored.stream,
+    execute: async (action) => {
+      assert.notEqual(action.kind, 'schema');
+      if (action.kind === 'schema') throw new Error('不应读取 schema');
+      executions.push(action);
+      const resource = resourceFor(action);
+      return resource.dynamicAstrolabe ? resource : { ...resource, dispose };
+    },
+  };
+  await runReadingWorkflow([{ role: 'user', content: '继续' }], restored.options, deps);
+
+  assert.deepEqual(restored.errors, []);
+  assert.equal(restored.sent.length, 2);
+  assert.equal(restored.done(), 1);
+  assert.deepEqual(executions, [actions[0], actions[2]]);
+  assert.deepEqual(
+    restored.options.memory.resources.map((resource) => resource.key),
+    keys,
+  );
+  assert.equal(restored.options.memory.restoreActions, undefined);
+  let checkpoint = restored.options.memory.astrolabeDynamicReading;
+  assert.ok(checkpoint?.version === 2);
+  assert.equal(checkpoint.identity, turn.dynamicReading!.identity);
+  assert.equal(checkpoint.completedPages, 2);
+  assert.equal(checkpoint.supplementalPageIndex, 2);
+  assert.match(restored.sent[0]![0]!.content, /LEGACY_DUPLICATE_SUPPLEMENTAL_FACT/u);
+  assert.doesNotMatch(restored.sent[0]![0]!.content, /LEGACY_INITIAL_CHART/u);
+  assert.deepEqual(readBranches, []);
+  assert.equal(turn.dynamicReading?.completedPages, 1);
+
+  // 继续消费另一旧 key 的未读补充页，再进入真实动态页；底层补算不重复执行。
+  for (let expectedPages = 3; expectedPages <= 4; expectedPages += 1) {
+    await runReadingWorkflow([{ role: 'user', content: '继续' }], restored.options, deps);
+    assert.deepEqual(restored.errors, []);
+    checkpoint = restored.options.memory.astrolabeDynamicReading;
+    assert.ok(checkpoint?.version === 2);
+    assert.equal(checkpoint.completedPages, expectedPages);
+  }
+  assert.equal(restored.sent.length, 6);
+  assert.equal(restored.done(), 3);
+  assert.equal(executions.length, 2);
+  assert.equal(checkpoint.supplementalPageIndex, 3);
+  assert.equal(checkpoint.sources[0]!.completedPages, 1);
+  assert.deepEqual(readBranches, [0]);
+  assert.equal(restored.options.memory.resources[0]!.dispose, dispose);
+  assert.equal(restored.options.memory.resources[1]!.dispose, undefined);
+  await disposeReadingResources(restored.options.memory.resources);
+  assert.equal(disposals, 1);
 });
 
 test('读取参数后补算，原始盘面与补充盘面同时保留', async () => {
@@ -623,45 +1127,139 @@ test('补算成功后后续资料准备失败仍保留已取得资料', async ()
   assert.deepEqual(errors, ['后续准备失败']);
 });
 
-test('补算返回后立即取消仍保留成功资料', async () => {
+test('取消后晚到的schema与证据不得提交，保留缓存并仅回收一次晚到自有资源', async (context) => {
+  const calculation: ReadingAction = {
+    kind: 'calculate',
+    method: 'bazi',
+    input: { baziFortuneYear: 2028 },
+  };
+  for (const path of ['自动schema', '显式schema', 'calculate', 'classic'] as const) {
+    for (const owned of [false, true]) {
+      await context.test(`${path}，${owned ? '带dispose' : '无dispose'}`, async () => {
+        const controller = new AbortController();
+        const action: ReadingAction =
+          path === '显式schema'
+            ? { kind: 'schema', method: 'bazi' }
+            : path === 'classic'
+              ? { kind: 'classic', method: 'bazi', query: '甲木' }
+              : calculation;
+        const h = harness([JSON.stringify({ actions: [action] })]);
+        h.options.subject = baziSubject;
+        h.options.signal = controller.signal;
+        let cachedDisposals = 0;
+        const cached: ReadingResource = {
+          key: 'cached-success',
+          title: '此前成功资料',
+          text: 'CACHED_SUCCESS',
+          usable: true,
+          dispose: async () => {
+            cachedDisposals += 1;
+          },
+        };
+        h.options.memory.resources = [cached];
+        const schemas = [calculationSchema('ziwei', [])];
+        if (path === 'calculate') schemas.push(calculationSchema('bazi', ['baziFortuneYear']));
+        h.options.memory.schemas = [...schemas];
+        let entered!: () => void;
+        const executing = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        let resolveResource!: (resource: ReadingResource) => void;
+        const pending = new Promise<ReadingResource>((resolve) => {
+          resolveResource = resolve;
+        });
+        let lateDisposals = 0;
+        const running = runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+          stream: h.stream,
+          execute: async (executed) => {
+            assert.equal(executed.kind, path.includes('schema') ? 'schema' : path);
+            entered();
+            return pending;
+          },
+        });
+        await executing;
+        controller.abort();
+        resolveResource({
+          key: '',
+          title: '晚到资源',
+          text: 'LATE_RESULT',
+          usable: true,
+          ...(owned
+            ? {
+                dispose: async () => {
+                  lateDisposals += 1;
+                },
+              }
+            : {}),
+        });
+        await running;
+        assert.deepEqual(h.options.memory.resources, [cached]);
+        assert.deepEqual(h.options.memory.schemas, schemas);
+        assert.equal(lateDisposals, owned ? 1 : 0);
+        assert.equal(cachedDisposals, 0);
+        assert.equal(h.sent.length, 1);
+        assert.equal(h.done(), 0);
+        assert.deepEqual(h.errors, []);
+        await disposeReadingResources(h.options.memory.resources);
+        assert.equal(cachedDisposals, 1);
+        assert.equal(lateDisposals, owned ? 1 : 0);
+      });
+    }
+  }
+});
+
+test('取消后续补算保留本轮已经提交的成功资料', async () => {
+  const h = harness([
+    JSON.stringify({
+      actions: [
+        { kind: 'calculate', method: 'bazi', input: { baziFortuneYear: 2028 } },
+        { kind: 'calculate', method: 'bazi', input: { baziFortuneYear: 2029 } },
+      ],
+    }),
+  ]);
   const controller = new AbortController();
-  const schema: ReadingResource = {
-    key: JSON.stringify({ kind: 'schema', method: 'bazi' }),
-    title: '八字参数',
-    text: '参数格式',
-    usable: false,
-    kind: 'schema',
-  };
-  const memory: ReadingMemory = { resources: [], schemas: [schema] };
-  const errors: string[] = [];
-  const options: ReadingOptions = {
-    memory,
-    subject: baziSubject,
-    signal: controller.signal,
-    onProgress: () => {},
-    onNotice: () => {},
-    onError: (message) => errors.push(message),
-    onChunk: () => {},
-    onDone: () => {},
-  };
-  const stream: ReadingDependencies['stream'] = async (_messages, callbacks) => {
-    callbacks.onChunk(
-      JSON.stringify({
-        actions: [{ kind: 'calculate', method: 'bazi', input: { year: 1990 } }],
-      }),
-    );
-    callbacks.onDone();
-  };
-  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], options, {
-    stream,
+  h.options.subject = baziSubject;
+  h.options.signal = controller.signal;
+  h.options.memory.schemas = [calculationSchema('bazi', ['baziFortuneYear'])];
+  let entered!: () => void;
+  const executing = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let resolveResource!: (resource: ReadingResource) => void;
+  const pending = new Promise<ReadingResource>((resolve) => {
+    resolveResource = resolve;
+  });
+  let calls = 0;
+  let disposals = 0;
+  const running = runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
     execute: async () => {
-      controller.abort();
-      return { key: '', title: '目标流年', text: '取消前已取得', usable: true };
+      calls += 1;
+      if (calls === 1)
+        return {
+          key: '',
+          title: '已成功资料',
+          text: 'SUCCESS_BEFORE_CANCEL',
+          usable: true,
+          dispose: async () => {
+            disposals += 1;
+          },
+        };
+      entered();
+      return pending;
     },
   });
-
-  assert.equal(memory.resources[0]?.text, '取消前已取得');
-  assert.deepEqual(errors, []);
+  await executing;
+  assert.equal(h.options.memory.resources[0]?.text, 'SUCCESS_BEFORE_CANCEL');
+  controller.abort();
+  resolveResource({ key: '', title: '晚到资料', text: 'LATE_RESULT', usable: true });
+  await running;
+  assert.equal(calls, 2);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.equal(h.options.memory.resources[0]?.text, 'SUCCESS_BEFORE_CANCEL');
+  assert.equal(disposals, 0);
+  assert.equal(h.done(), 0);
+  assert.deepEqual(h.errors, []);
 });
 
 test('未命中的古籍查询不会占用已见键并可在下一轮重试', async () => {
@@ -1431,6 +2029,71 @@ test('紫微阶段失败后同问题重试只补失败阶段并保留成功阶�
     h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
     ['succeeded', 'succeeded'],
   );
+});
+
+test('跨年相对时间阶段重试沿用请求时间，新追问同文也取得新时间', async (context) => {
+  const beforeYear = Date.parse('2026-12-31T15:59:00Z');
+  const afterYear = Date.parse('2026-12-31T16:01:00Z');
+  context.mock.timers.enable({ apis: ['Date'], now: beforeYear });
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
+  const h = harness([]);
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  const input: ChatMessage[] = [
+    { role: 'user', content: '紫微完整原盘，问事业' },
+    { role: 'assistant', content: '已完成本命判断' },
+    { role: 'user', content: '今年事业如何？' },
+  ];
+  let phaseCalls = 0;
+  let failSecondPhase = true;
+  const stream: ReadingDependencies['stream'] = async (messages, callbacks) => {
+    h.sent.push(messages);
+    const content = messages[0]!.content;
+    if (content.includes('【紫微完整资料阶段】')) {
+      phaseCalls += 1;
+      if (failSecondPhase && phaseCalls === 2) {
+        callbacks.onError('跨年第二阶段失败');
+        return;
+      }
+      callbacks.onChunk(`PHASE_${phaseCalls}_${phaseCalls === 1 ? '2026' : 'ANSWER'}`);
+    } else callbacks.onChunk('最终汇总');
+    callbacks.onDone();
+  };
+  const deps = { stream, execute: async () => resource };
+  await runReadingWorkflow(input, h.options, deps);
+  assert.deepEqual(h.errors, ['跨年第二阶段失败']);
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((phase) => phase.status),
+    ['succeeded', 'failed'],
+  );
+  const oldTime = formatReadingCurrentTime(new Date(beforeYear));
+  const newTime = formatReadingCurrentTime(new Date(afterYear));
+  assert.notEqual(oldTime, newTime);
+
+  context.mock.timers.setTime(afterYear);
+  failSecondPhase = false;
+  await runReadingWorkflow(input, h.options, deps);
+  assert.equal(h.done(), 1);
+  assert.equal(phaseCalls, 3);
+  assert.equal(h.sent.length, 4);
+  assert.match(h.sent.at(-1)![0]!.content, /PHASE_1_2026/u);
+  for (const messages of h.sent) {
+    assert.ok(messages[0]!.content.includes(`【本轮当前时间】${oldTime}`));
+    assert.ok(!messages[0]!.content.includes(`【本轮当前时间】${newTime}`));
+  }
+
+  // hook 的新 ask 即便同文也传新 anchor；retry 继续传旧 anchor。
+  h.options.requestTime = afterYear;
+  const nextStart = h.sent.length;
+  await runReadingWorkflow(input, h.options, deps);
+  assert.equal(h.done(), 2);
+  assert.equal(phaseCalls, 5);
+  assert.equal(h.sent.length - nextStart, 3);
+  for (const messages of h.sent.slice(nextStart)) {
+    assert.ok(messages[0]!.content.includes(`【本轮当前时间】${newTime}`));
+    assert.doesNotMatch(messages[0]!.content, /PHASE_1_2026/u);
+  }
+  assert.equal(h.options.memory.requestTime?.timestamp, afterYear);
 });
 
 test('紫微阶段取消后换问题不会复用旧摘要', async () => {

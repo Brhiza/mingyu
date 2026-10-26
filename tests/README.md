@@ -12,9 +12,11 @@
 - `pnpm test:ci`：构建核心包并检查类型，然后统一执行日常、集成、API 和 MCP 测试；各文件保持进程隔离，最多同时执行两个文件。
 - `pnpm test:all`：在 `test:ci` 基础上追加全部穷举测试。
 
-CI 的 `type-check` 任务单独检查应用、MCP 和工程 TypeScript（服务端、全部 TS 脚本与 Vite 配置）；`test` 任务通过 `pnpm build:prepare` 构建一次核心包并准备源码数据，再运行 `pnpm test:core:run`、`pnpm test:ci:run` 与 `pnpm prompt:audit:run`。应用、HTTP/MCP、AI、布局与工程契约继续在根目录日常/全量命令中执行；`prompt-application-contract.test.ts` 承接原有应用 cases，`qimen-lifetime-consumers.test.ts` 承接原有 REST/MCP/导航契约，断言保持不变。
+CI 的 `type-check` 任务单独检查应用、MCP 和工程 TypeScript（服务端、全部 TS 脚本与 Vite 配置）；`test` 任务通过 `pnpm build:prepare` 构建一次核心包并准备源码数据，再运行 `pnpm test:core:run`、`pnpm test:app:run` 与 `pnpm prompt:audit:run`。应用阶段仅排除显式清单中已核对同源码表示的 176 个领域文件；当前保留 55 个含包名导入的领域文件，继续核对源码与编译后表示。新登记领域文件默认保留编译后验证，只有完成等价核对才加入省略清单。`node scripts/run-ci-tests.mjs --application --list` 可查看实际范围，分区并集和保留项由工程回归核对。原 `pnpm test:ci` / `test:ci:run` 仍保留完整回归行为。
 
-`test:unit:run`、`test:ci:run`、`package:check:run` 等产物消费命令要求核心包已与源码同步。`test:core` 与 `prompt:audit` 会先生成源码依赖的地点和星历数据，仅写源码数据，不清理或写入 `dist`；`test:core:run` 和 `prompt:audit:run` 要求先执行 `core:data:prepare` 或 `build:prepare`。两者共用源码解析启动器，每次创建独立临时配置并清理；一次事实审计使用同一核心源码表示，保留固定字面真值和变异负例。提示词事实审计仍在每次 CI 执行。
+应用、HTTP/MCP、AI、布局与工程契约继续在应用阶段和根目录日常/全量命令中执行；`prompt-application-contract.test.ts` 承接原有应用 cases，`qimen-lifetime-consumers.test.ts` 承接原有 REST/MCP/导航契约，断言保持不变。
+
+`test:unit:run`、`test:ci:run`、`test:app:run`、`package:check:run` 等产物消费命令要求核心包已与源码同步。`test:core` 与 `prompt:audit` 会先生成源码依赖的地点和星历数据，仅写源码数据，不清理或写入 `dist`；`test:core:run` 和 `prompt:audit:run` 要求先执行 `core:data:prepare` 或 `build:prepare`。两者共用源码解析启动器，每次创建独立临时配置并清理；一次事实审计使用同一核心源码表示，保留固定字面真值和变异负例。提示词事实审计仍在每次 CI 执行。
 
 ## 保留标准
 
