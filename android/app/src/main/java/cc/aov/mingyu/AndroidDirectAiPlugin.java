@@ -1,5 +1,8 @@
 package cc.aov.mingyu;
 
+import android.util.JsonReader;
+import android.util.JsonToken;
+
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -12,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -36,6 +41,7 @@ public class AndroidDirectAiPlugin extends Plugin {
     private static final int MAX_MESSAGES = 30;
     private static final int MAX_PROMPT_LENGTH = 50_000;
     private static final int MAX_ERROR_BODY_LENGTH = 128_000;
+    private static final Pattern JSON_NUMBER = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?");
     private static final String SYSTEM_PROMPT_SINGLE = "请完成用户当前指定的资料准备或解读任务。解读结合已有盘面、所附方法与传统资料，具体回应问题。";
     private static final String SYSTEM_PROMPT_CHAT = "第一条消息保留本次盘面资料。请结合所附方法、补充资料和对话完成用户当前指定的任务，沿用主体与时间范围。";
 
@@ -209,67 +215,131 @@ public class AndroidDirectAiPlugin extends Plugin {
 
     private void readChatResponse(String requestId, HttpsURLConnection connection) throws IOException {
         long deadline = System.currentTimeMillis() + TOTAL_TIMEOUT_MS;
-        boolean receivedContent = false;
-        StringBuilder nonStreamBody = new StringBuilder();
-
         try (
             BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)
             )
         ) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (cancelledRequests.contains(requestId)) return;
-                if (System.currentTimeMillis() > deadline) {
-                    emitError(requestId, "自定义 AI 响应时间过长，请稍后重试。");
-                    return;
-                }
-
-                String trimmed = line.trim();
-                if (!trimmed.startsWith("data:")) {
-                    if (!trimmed.isEmpty() && nonStreamBody.length() < MAX_ERROR_BODY_LENGTH) {
-                        nonStreamBody.append(trimmed);
+            // Only an explicitly JSON response may complete without an SSE [DONE] marker.
+            if (isJsonResponse(connection.getContentType())) {
+                StringBuilder body = new StringBuilder();
+                char[] buffer = new char[4096];
+                int read;
+                while ((read = reader.read(buffer)) != -1) {
+                    if (!canReadResponse(requestId, deadline)) return;
+                    if (body.length() + read > MAX_ERROR_BODY_LENGTH) {
+                        emitError(requestId, "自定义 AI 返回的非流式响应过大，请缩小问题范围后重试。");
+                        return;
                     }
-                    continue;
+                    body.append(buffer, 0, read);
                 }
-
-                String data = trimmed.substring(5).trim();
-                if ("[DONE]".equals(data)) {
-                    break;
-                }
-                String content = extractContent(data);
-                if (!content.isEmpty()) {
-                    receivedContent = true;
-                    emitChunk(requestId, content);
-                } else {
-                    String upstreamError = extractErrorMessage(data);
+                if (!canReadResponse(requestId, deadline)) return;
+                try {
+                    JSONObject payload = parseChatPayload(body.toString());
+                    String upstreamError = extractErrorMessage(payload);
                     if (!upstreamError.isEmpty()) {
                         emitError(requestId, upstreamError);
                         return;
                     }
+                    String content = extractContent(payload);
+                    if (content.isEmpty()) {
+                        emitError(requestId, "AI 未返回任何内容，请重新生成。");
+                        return;
+                    }
+                    emitChunk(requestId, content);
+                    emitDone(requestId);
+                } catch (JSONException error) {
+                    emitError(requestId, "AI 服务流数据无法解析，本次回答未完整生成，请重新生成。");
                 }
+                return;
+            }
+
+            ChatStreamParser parser = new ChatStreamParser(requestId);
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!canReadResponse(requestId, deadline)) return;
+                if (!parser.acceptLine(line)) return;
+            }
+            if (canReadResponse(requestId, deadline)) parser.finish();
+        }
+    }
+
+    private boolean canReadResponse(String requestId, long deadline) {
+        if (cancelledRequests.contains(requestId)) return false;
+        if (System.currentTimeMillis() > deadline) {
+            emitError(requestId, "自定义 AI 响应时间过长，请稍后重试。");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isJsonResponse(String contentType) {
+        if (contentType == null) return false;
+        String mediaType = contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        return "application/json".equals(mediaType) ||
+            (mediaType.startsWith("application/") && mediaType.endsWith("+json"));
+    }
+
+    private final class ChatStreamParser {
+        private final String requestId;
+        private final StringBuilder eventData = new StringBuilder();
+        private boolean receivedContent;
+        private boolean settled;
+
+        ChatStreamParser(String requestId) {
+            this.requestId = requestId;
+        }
+
+        boolean acceptLine(String line) {
+            if (line.isEmpty()) return dispatchEvent();
+            if (line.startsWith("data:")) {
+                eventData.append(line.substring(5).trim()).append('\n');
+            }
+            return true;
+        }
+
+        void finish() {
+            // Match the Web proxy's EOF flush, including a final [DONE] without a blank line.
+            if (dispatchEvent()) fail("AI 服务在发送完成标记前中断，请稍后重试。");
+        }
+
+        private boolean dispatchEvent() {
+            if (settled) return false;
+            String data = eventData.toString().trim();
+            eventData.setLength(0);
+            if (data.isEmpty()) return true;
+            if ("[DONE]".equals(data)) {
+                settled = true;
+                if (receivedContent) {
+                    emitDone(requestId);
+                } else {
+                    emitError(requestId, "AI 未返回任何内容，请重新生成。");
+                }
+                return false;
+            }
+            try {
+                JSONObject payload = parseChatPayload(data);
+                String upstreamError = extractErrorMessage(payload);
+                if (!upstreamError.isEmpty()) return fail(upstreamError);
+                Object rawChoices = payload.opt("choices");
+                JSONArray choices = rawChoices instanceof JSONArray ? (JSONArray) rawChoices : null;
+                JSONObject choice = choices == null ? null : choices.optJSONObject(0);
+                JSONObject delta = choice == null ? null : choice.optJSONObject("delta");
+                String content = stringValue(delta, "content");
+                if (!content.isEmpty()) {
+                    receivedContent = true;
+                    emitChunk(requestId, content);
+                }
+                return true;
+            } catch (JSONException error) {
+                return fail("AI 服务流数据无法解析，本次回答未完整生成，请重新生成。");
             }
         }
 
-        if (cancelledRequests.contains(requestId)) return;
-        if (!receivedContent && nonStreamBody.length() > 0) {
-            String content = extractContent(nonStreamBody.toString());
-            if (!content.isEmpty()) {
-                receivedContent = true;
-                emitChunk(requestId, content);
-            } else {
-                String upstreamError = extractErrorMessage(nonStreamBody.toString());
-                if (!upstreamError.isEmpty()) {
-                    emitError(requestId, upstreamError);
-                    return;
-                }
-            }
-        }
-
-        if (!receivedContent) {
-            emitError(requestId, "AI 未返回任何内容，请重新生成。");
-        } else {
-            emitDone(requestId);
+        private boolean fail(String message) {
+            settled = true;
+            emitError(requestId, message);
+            return false;
         }
     }
 
@@ -384,37 +454,96 @@ public class AndroidDirectAiPlugin extends Plugin {
         );
     }
 
-    private String extractContent(String rawJson) {
-        try {
-            JSONObject payload = new JSONObject(rawJson);
-            JSONArray choices = payload.optJSONArray("choices");
-            JSONObject choice = choices == null ? null : choices.optJSONObject(0);
-            JSONObject delta = choice == null ? null : choice.optJSONObject("delta");
-            String content = delta == null ? "" : delta.optString("content", "");
-            if (!content.isEmpty()) return content;
-            JSONObject message = choice == null ? null : choice.optJSONObject("message");
-            content = message == null ? "" : message.optString("content", "");
-            if (!content.isEmpty()) return content;
-            return payload.optString("content", "");
-        } catch (JSONException error) {
-            return "";
+    private JSONObject parseChatPayload(String rawJson) throws JSONException {
+        // JSONObject/JSONTokener accept JavaScript extensions and trailing garbage on Android.
+        // Validate the complete JSON document before using its familiar field accessors.
+        validateJsonTokens(rawJson);
+        try (JsonReader reader = new JsonReader(new StringReader(rawJson))) {
+            reader.setLenient(false);
+            if (reader.peek() != JsonToken.BEGIN_OBJECT) throw new JSONException("Expected JSON object");
+            reader.skipValue();
+            if (reader.peek() != JsonToken.END_DOCUMENT) throw new JSONException("Trailing JSON data");
+        } catch (IOException error) {
+            throw new JSONException("Invalid JSON response");
         }
+        return new JSONObject(rawJson);
+    }
+
+    private void validateJsonTokens(String text) throws JSONException {
+        // Even non-lenient Android JsonReader accepts uppercase literals, 1., and loose strings.
+        // Check lexical tokens here; JsonReader remains responsible for the document structure.
+        boolean inString = false;
+        for (int index = 0; index < text.length(); index++) {
+            char value = text.charAt(index);
+            if (value == '"') {
+                inString = !inString;
+            } else if (inString && value < 0x20) {
+                throw new JSONException("Unescaped JSON control character");
+            } else if (inString && value == '\\') {
+                if (++index >= text.length()) throw new JSONException("Incomplete JSON escape");
+                char escaped = text.charAt(index);
+                if (escaped == 'u') {
+                    for (int digit = 0; digit < 4; digit++) {
+                        if (++index >= text.length() ||
+                            "0123456789abcdefABCDEF".indexOf(text.charAt(index)) < 0) {
+                            throw new JSONException("Invalid JSON unicode escape");
+                        }
+                    }
+                } else if ("\"\\/bfnrt".indexOf(escaped) < 0) {
+                    throw new JSONException("Invalid JSON escape");
+                }
+            } else if (!inString && !isJsonDelimiter(value)) {
+                int start = index;
+                while (index < text.length() && !isJsonDelimiter(text.charAt(index))) index++;
+                String token = text.substring(start, index--);
+                if (!"true".equals(token) && !"false".equals(token) && !"null".equals(token) &&
+                    !JSON_NUMBER.matcher(token).matches()) {
+                    throw new JSONException("Invalid JSON token");
+                }
+            }
+        }
+        if (inString) throw new JSONException("Unterminated JSON string");
+    }
+
+    private boolean isJsonDelimiter(char value) {
+        return value == ' ' || value == '\t' || value == '\r' || value == '\n' ||
+            value == '{' || value == '}' || value == '[' || value == ']' || value == ':' || value == ',';
+    }
+
+    private String stringValue(JSONObject object, String key) {
+        Object value = object == null ? null : object.opt(key);
+        return value instanceof String ? (String) value : "";
+    }
+
+    private String extractContent(JSONObject payload) {
+        JSONArray choices = payload.optJSONArray("choices");
+        JSONObject choice = choices == null ? null : choices.optJSONObject(0);
+        JSONObject delta = choice == null ? null : choice.optJSONObject("delta");
+        String content = stringValue(delta, "content");
+        if (!content.isEmpty()) return content;
+        JSONObject message = choice == null ? null : choice.optJSONObject("message");
+        content = stringValue(message, "content");
+        return content.isEmpty() ? stringValue(payload, "content") : content;
+    }
+
+    private String extractErrorMessage(JSONObject payload) {
+        JSONArray choices = payload.optJSONArray("choices");
+        JSONObject choice = choices == null ? null : choices.optJSONObject(0);
+        if ("length".equals(stringValue(choice, "finish_reason"))) {
+            return "本次回复达到模型输出上限，已生成内容保留，可缩小问题范围后继续。";
+        }
+        if (!payload.has("error")) return "";
+        Object error = payload.opt("error");
+        String message = error instanceof JSONObject
+            ? stringValue((JSONObject) error, "message")
+            : error instanceof String ? (String) error : stringValue(payload, "message");
+        message = truncate(message);
+        return message.isEmpty() ? "AI 服务返回了流式错误。" : message;
     }
 
     private String extractErrorMessage(String rawJson) {
         try {
-            JSONObject payload = new JSONObject(rawJson);
-            JSONArray choices = payload.optJSONArray("choices");
-            JSONObject choice = choices == null ? null : choices.optJSONObject(0);
-            if (choice != null && "length".equals(choice.optString("finish_reason"))) {
-                return "本次回复达到模型输出上限，已生成内容保留，可缩小问题范围后继续。";
-            }
-            Object error = payload.opt("error");
-            if (error instanceof JSONObject) {
-                return truncate(((JSONObject) error).optString("message", ""));
-            }
-            if (error instanceof String) return truncate((String) error);
-            return "";
+            return extractErrorMessage(new JSONObject(rawJson));
         } catch (JSONException error) {
             return "";
         }

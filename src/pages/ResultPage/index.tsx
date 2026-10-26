@@ -62,7 +62,6 @@ import {
 } from '@/lib/qizheng-birth-range-prompt';
 import { useQizhengBirthRange } from '@/hooks/useQizhengBirthRange';
 import { QizhengBirthRangePanel } from './components/QizhengBirthRangePanel';
-import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { AstrolabeData } from '@/types/divination';
 import type { BaziFortuneSelectionModule, PromptEngineModule } from './ResultPage.types';
 import { PROMPT_DRAFT_STORAGE_PREFIX } from './ResultPage.constants';
@@ -139,11 +138,8 @@ import {
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
-import {
-  buildResidentialChartInput,
-  resolveResidentialBirthDate,
-  calculateResidentialChart,
-} from '@/lib/residential-fengshui-chart';
+import { resolveResidentialBirthDate } from '@/lib/residential-fengshui-chart';
+import { buildResidentialReadingResource, useResidentialChart } from './hooks/useResidentialChart';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 import { buildCurrentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
@@ -429,9 +425,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const appliedLaunchQuestionRef = useRef('');
   const isAssistantPage = assistantOnly || location.pathname === '/result/assistant';
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
-  const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
-    null,
-  );
   const [qimenLifetimeCalculationRevision, setQimenLifetimeCalculationRevision] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const instantChartType = searchParams.get('instant');
@@ -751,6 +744,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     promptZiweiScopePayloads,
     ziweiFortuneText,
     currentZiweiPayload,
+    ziweiPromptHourIndex,
     partnerZiweiPayload,
     ziweiReadingResources,
     ziweiReadingResourcesReady,
@@ -909,94 +903,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     updatePromptState,
   ]);
 
-  useEffect(() => {
-    if (!canUseResidentialFengshui) {
-      setResidentialResult(null);
-      return;
-    }
-    try {
-      const houseYear = promptState.residentialHouseYear
-        ? Number(promptState.residentialHouseYear)
-        : undefined;
-      const flowYear = promptState.residentialFlowYear
-        ? Number(promptState.residentialFlowYear)
-        : undefined;
-      const flowMonth = promptState.residentialFlowMonth
-        ? Number(promptState.residentialFlowMonth)
-        : undefined;
-      const flowDay = promptState.residentialFlowDay
-        ? Number(promptState.residentialFlowDay)
-        : undefined;
-      const next = calculateResidentialChart(
-        buildResidentialChartInput({
-          birthData: residentialBirthData,
-          guaType: promptState.residentialGuaType,
-          ...(houseYear != null ? { houseYear } : {}),
-          ...(promptState.bazhaiFacingDegree
-            ? { doorToInteriorDegree: Number(promptState.bazhaiFacingDegree) }
-            : {}),
-          ...(flowYear != null && Number.isFinite(flowYear) ? { flowYear } : {}),
-          ...(flowMonth != null && Number.isFinite(flowMonth) ? { flowMonth } : {}),
-          ...(flowDay != null && Number.isFinite(flowDay) ? { flowDay } : {}),
-        }),
-      );
-      setResidentialResult(next.result);
-    } catch {
-      setResidentialResult(null);
-      // URL 中的旧值或人工修改值无法生成时，住宅风水页仍允许用户重新测量。
-    }
-  }, [
-    canUseResidentialFengshui,
-    promptState.bazhaiFacingDegree,
-    promptState.residentialFlowDay,
-    promptState.residentialFlowMonth,
-    promptState.residentialFlowYear,
-    promptState.residentialHouseYear,
-    promptState.residentialGuaType,
+  const residential = useResidentialChart(
     residentialBirthData,
-  ]);
-
-  const handleBazhaiResultChange = useCallback((nextResult: ResidentialFengshuiResult | null) => {
-    setResidentialResult(nextResult);
-  }, []);
-  const handleBazhaiDirectionDegreeChange = useCallback(
-    (value: string) => {
-      if (value !== promptState.bazhaiFacingDegree) {
-        updatePromptState({ bazhaiFacingDegree: value });
-      }
-    },
-    [promptState.bazhaiFacingDegree, updatePromptState],
+    promptState,
+    updatePromptState,
+    `${location.key}:${location.search}`,
   );
-  const handleResidentialHouseYearChange = useCallback(
-    (value: string) => {
-      if (value !== promptState.residentialHouseYear) {
-        updatePromptState({ residentialHouseYear: value });
-      }
-    },
-    [promptState.residentialHouseYear, updatePromptState],
-  );
-  const residentialFlowDate = useMemo(() => {
-    const year = promptState.residentialFlowYear;
-    const month = promptState.residentialFlowMonth;
-    const day = promptState.residentialFlowDay;
-    if (!year || !month || !day) return '';
-    return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  }, [
-    promptState.residentialFlowDay,
-    promptState.residentialFlowMonth,
-    promptState.residentialFlowYear,
-  ]);
-  const handleResidentialFlowDateChange = useCallback(
-    (value: string) => {
-      const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-      updatePromptState({
-        residentialFlowYear: match?.[1] ?? '',
-        residentialFlowMonth: match?.[2] ?? '',
-        residentialFlowDay: match?.[3] ?? '',
-      });
-    },
-    [updatePromptState],
-  );
+  const residentialResult = residential.chart.result;
 
   useEffect(() => {
     if (
@@ -2128,6 +2041,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             : '',
       ziweiScopeSummary:
         promptState.ziweiScope === 'origin' ? '' : `紫微分析范围：${ziweiScopeSummaryText}`,
+      timing: {
+        baziScope: promptState.baziFortuneScope,
+        baziContext: baziPromptFortuneContext,
+        ziweiScope: promptState.ziweiScope,
+        ziweiActiveScope: currentZiweiPayload?.active_scope ?? null,
+        ziweiHourIndex: ziweiPromptHourIndex,
+      },
       isCustomQuestion: activeBaziShortcutMode === '自定义',
       selection: combinedPromptSelection,
     });
@@ -2429,25 +2349,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     qizhengRangeMode,
     qizhengRangePrompt,
   ]);
-  const bazhaiPromptText = useMemo(() => {
-    if (
-      !canUseResidentialFengshui ||
-      !showAssistantPane ||
-      promptState.promptSource !== 'bazhai' ||
-      !residentialResult
-    ) {
-      return '';
-    }
-    return buildMetaphysicsPrompt(residentialResult.prompt, metaphysicsQuestionDraft, {
-      method: 'residential',
-    });
-  }, [
-    canUseResidentialFengshui,
-    metaphysicsQuestionDraft,
-    promptState.promptSource,
-    showAssistantPane,
-    residentialResult,
-  ]);
+  const residentialReadingResource = useMemo(
+    () =>
+      showAssistantPane && promptState.promptSource === 'bazhai'
+        ? buildResidentialReadingResource(residential.chart, metaphysicsQuestionDraft)
+        : undefined,
+    [metaphysicsQuestionDraft, promptState.promptSource, residential.chart, showAssistantPane],
+  );
+  const bazhaiPromptText = residentialReadingResource?.text ?? '';
   const qimenLifetimePromptText = useMemo(() => {
     if (
       !showAssistantPane ||
@@ -2488,6 +2397,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
+      ziweiPromptHourIndex,
       partnerZiweiPayload,
       ziweiRuntime,
       partnerZiweiRuntime,
@@ -2541,6 +2451,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
+      ziweiPromptHourIndex,
       partnerZiweiPayload,
       ziweiRuntime,
       partnerZiweiRuntime,
@@ -2749,6 +2660,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
     const subject = rangePromptReadingSubject;
     if (!subject?.id) return undefined;
+    if (isBazhaiPromptSource) {
+      if (!residentialReadingResource) return undefined;
+      return {
+        subjectId: subject.id,
+        key: residentialReadingResource.key,
+        resources: [residentialReadingResource],
+      };
+    }
     if (isAstrolabePromptSource && astrolabeBirthRangeMode) {
       if (astrolabeDynamicRangeMode) {
         if (!astrolabeDynamicRangeState.summary) return undefined;
@@ -2856,12 +2775,23 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     qizhengRangePrompt,
     isQimenLifetimePromptSource,
     qimenReadingResource,
+    isBazhaiPromptSource,
+    residentialReadingResource,
     rangePromptReadingSubject,
     ziweiReadingResources,
     ziweiReadingResourcesReady,
   ]);
 
   const workflowPrompt = useMemo(() => {
+    if (isBazhaiPromptSource) {
+      return residentialReadingResource
+        ? appendClassicalReferences(
+            '请依据随后提供的住宅风水完整资料解读，分别说明八宅人宅关系与玄空宅运，保留测量、出生年界与目标日期的复核提示。',
+            'residential',
+            Boolean(promptState.includeClassics),
+          )
+        : '';
+    }
     if (!isInstantResult && isAstrolabePromptSource && astrolabeBirthRangeMode) {
       return astrolabeDynamicRangeMode
         ? '请依据随后提供的西洋占星出生时间区间与推运资料逐页解读，每轮注明适用出生时段；全部页完成后再归纳整个区间的共同判断与差异。'
@@ -2900,6 +2830,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    isBazhaiPromptSource,
+    residentialReadingResource,
     astrolabeBirthRangeMode,
     astrolabeDynamicRangeMode,
     isAstrolabePromptSource,
@@ -2922,6 +2854,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     activeBaziShortcutMode,
     promptZiweiScopePayloads,
     currentZiweiPayload,
+    ziweiPromptHourIndex,
     partnerZiweiPayload,
     ziweiRuntime,
     partnerZiweiRuntime,
@@ -2943,12 +2876,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     showAssistantPane,
   ]);
   const readingResourceRequired =
-    !isInstantResult &&
-    ((isAstrolabePromptSource && astrolabeBirthRangeMode) ||
-      (isQizhengPromptSource && qizhengRangeMode) ||
-      isQimenLifetimePromptSource ||
-      (promptState.ziweiScope === 'full' &&
-        (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei')));
+    isBazhaiPromptSource ||
+    (!isInstantResult &&
+      ((isAstrolabePromptSource && astrolabeBirthRangeMode) ||
+        (isQizhengPromptSource && qizhengRangeMode) ||
+        isQimenLifetimePromptSource ||
+        (promptState.ziweiScope === 'full' &&
+          (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei'))));
 
   const [inspirationText, setInspirationText] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -3569,20 +3503,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         >
           {inputState.analysisMode === 'single' && mountedTabs.bazhai ? (
             <Suspense fallback={<InlineSkeleton />}>
-              <LazyMetaphysicsPanel
-                method="residential"
-                birthData={residentialBirthData}
-                embedded
-                initialFacingDegree={promptState.bazhaiFacingDegree}
-                initialHouseYear={promptState.residentialHouseYear}
-                initialFlowDate={residentialFlowDate}
-                initialGuaType={promptState.residentialGuaType}
-                onGuaTypeChange={(value) => updatePromptState({ residentialGuaType: value })}
-                onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
-                onHouseYearChange={handleResidentialHouseYearChange}
-                onFlowDateChange={handleResidentialFlowDateChange}
-                onResultChange={handleBazhaiResultChange}
-              />
+              <LazyMetaphysicsPanel birthData={residentialBirthData} {...residential} />
             </Suspense>
           ) : null}
         </div>

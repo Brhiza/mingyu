@@ -1,70 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
 import type { BaZhaiResult } from 'mingyu-core/bazhai';
-import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { XuanKongGuaType, XuanKongResult } from 'mingyu-core/xuankong';
-import { daysInGregorianMonth } from 'mingyu-core/calendar';
-import {
-  buildResidentialChartInput,
-  calculateResidentialChart,
-  resolveResidentialDoorDirection,
-  type ResidentialMeasurement,
+import type {
+  ResidentialBirthData,
+  ResidentialChartDraft,
+  ResidentialChartState,
+  ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
 
-export type { ResidentialMeasurement as BazhaiMeasurement } from '@/lib/residential-fengshui-chart';
-
 interface MetaphysicsPanelProps {
-  method: 'bazhai' | 'residential';
-  birthData?: {
-    year: number;
-    month: number;
-    day: number;
-    hour?: number;
-    minute?: number;
-    second?: number;
-    gender: 'male' | 'female';
-    latitude?: number;
-    longitude?: number;
-    timezone?: number;
-  } | null;
-  embedded?: boolean;
-  initialFacingDegree?: string;
-  initialHouseYear?: string;
-  initialFlowDate?: string;
-  initialGuaType?: XuanKongGuaType;
-  onGuaTypeChange?: (value: XuanKongGuaType) => void;
-  onDirectionDegreeChange?: (value: string) => void;
-  onHouseYearChange?: (value: string) => void;
-  onFlowDateChange?: (value: string) => void;
-  onResultChange?: (
-    result: ResidentialFengshuiResult | null,
-    measurement: ResidentialMeasurement | null,
-  ) => void;
+  birthData?: ResidentialBirthData | null;
+  draft: ResidentialChartDraft;
+  chart: ResidentialChartState;
+  onDraftChange: (patch: Partial<ResidentialChartDraft>) => void;
 }
 
 const DIRECTIONS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
 const LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
-
-function parseResidentialFlowDate(value: string) {
-  if (!value) return {};
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-  if (!match) throw new Error('请选择完整的目标日期。');
-  const flowYear = Number(match[1]);
-  const flowMonth = Number(match[2]);
-  const flowDay = Number(match[3]);
-  const maxDay = daysInGregorianMonth(flowYear, flowMonth);
-  if (
-    !Number.isInteger(flowYear) ||
-    flowYear < 1 ||
-    flowMonth < 1 ||
-    flowMonth > 12 ||
-    !Number.isInteger(flowDay) ||
-    flowDay < 1 ||
-    flowDay > maxDay
-  ) {
-    throw new Error('目标日期无效，请检查年月日。');
-  }
-  return { flowYear, flowMonth, flowDay };
-}
 
 function BaZhaiCompass({
   result,
@@ -134,12 +85,17 @@ function BaZhaiCompass({
   );
 }
 
-function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
+function XuanKongBoard({
+  xuankong,
+  input,
+}: {
+  xuankong: XuanKongResult;
+  input: ResidentialChartState['input'];
+}) {
   const byGong = new Map(xuankong.palaces.map((item) => [item.gong, item]));
-  const targetPlate = xuankong.flowStars?.monthPlate ?? xuankong.flowStars?.yearPlate;
-  const targetDateLabel = targetPlate
-    ? `${targetPlate.year}年${targetPlate.month ? `${targetPlate.month}月` : ''}${
-        targetPlate.day ? `${targetPlate.day}日` : ''
+  const targetDateLabel = input?.flowYear
+    ? `${input.flowYear}年${input.flowMonth ? `${input.flowMonth}月` : ''}${
+        input.flowDay ? `${input.flowDay}日` : ''
       }`
     : '';
   return (
@@ -235,148 +191,12 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
 
 export function MetaphysicsPanel({
   birthData,
-  initialFacingDegree = '',
-  initialHouseYear = '',
-  initialFlowDate = '',
-  initialGuaType = '下卦',
-  onGuaTypeChange,
-  onDirectionDegreeChange,
-  onHouseYearChange,
-  onFlowDateChange,
-  onResultChange,
+  draft,
+  chart,
+  onDraftChange,
 }: MetaphysicsPanelProps) {
-  const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
-  const [houseYear, setHouseYear] = useState(initialHouseYear);
-  const [guaType, setGuaType] = useState<XuanKongGuaType>(initialGuaType);
-  const [flowDate, setFlowDate] = useState(initialFlowDate);
-
-  useEffect(() => {
-    setFacingDegree(initialFacingDegree);
-  }, [initialFacingDegree]);
-
-  useEffect(() => {
-    setHouseYear(initialHouseYear);
-  }, [initialHouseYear]);
-
-  useEffect(() => {
-    setFlowDate(initialFlowDate);
-  }, [initialFlowDate]);
-
-  useEffect(() => {
-    setGuaType(initialGuaType);
-  }, [initialGuaType]);
-
-  const initialChart = useMemo(() => {
-    try {
-      if (!birthData && !initialFacingDegree.trim()) {
-        return {
-          result: null as ResidentialFengshuiResult | null,
-          measurement: null as ResidentialMeasurement | null,
-          error: '',
-        };
-      }
-      const next = calculateResidentialChart(
-        buildResidentialChartInput({
-          birthData,
-          guaType,
-          ...(initialHouseYear.trim() ? { houseYear: Number(initialHouseYear) } : {}),
-          ...(initialFacingDegree.trim()
-            ? { doorToInteriorDegree: Number(initialFacingDegree) }
-            : {}),
-          ...parseResidentialFlowDate(initialFlowDate),
-        }),
-      );
-      return { result: next.result, measurement: next.measurement, error: '' };
-    } catch (currentError) {
-      return {
-        result: null as ResidentialFengshuiResult | null,
-        measurement: null as ResidentialMeasurement | null,
-        error: currentError instanceof Error ? currentError.message : '住宅风水排盘失败。',
-      };
-    }
-  }, [birthData, initialFacingDegree, initialFlowDate, initialHouseYear, guaType]);
-  const [result, setResult] = useState<ResidentialFengshuiResult | null>(initialChart.result);
-  const [measurement, setMeasurement] = useState<ResidentialMeasurement | null>(
-    initialChart.measurement,
-  );
-  const [error, setError] = useState(initialChart.error);
-
-  const parsedHouseYear = useMemo(() => {
-    if (!houseYear.trim()) return undefined;
-    return Number(houseYear);
-  }, [houseYear]);
-
-  const directionPreview = useMemo(() => {
-    if (!facingDegree.trim()) return { position: null, error: '' };
-    const degree = Number(facingDegree);
-    try {
-      return { position: resolveResidentialDoorDirection(degree), error: '' };
-    } catch (currentError) {
-      return {
-        position: null,
-        error: currentError instanceof Error ? currentError.message : '角度无效。',
-      };
-    }
-  }, [facingDegree]);
-
-  const boundaryMessage = useMemo(() => {
-    const facing = directionPreview.position?.facing;
-    if (!facing?.isBoundary || !facing.boundaryMountains) return '';
-    return `当前度数位于${facing.boundaryMountains[0]}向与${facing.boundaryMountains[1]}向的分界线，请重新测量并填写稍偏离分界线的度数。`;
-  }, [directionPreview]);
-
-  useEffect(() => {
-    if (directionPreview.error || boundaryMessage) {
-      setResult(null);
-      setMeasurement(null);
-      onResultChange?.(null, null);
-      setError(directionPreview.error || boundaryMessage);
-      return;
-    }
-
-    const hasPerson = Boolean(birthData);
-    const hasOrientation = Boolean(facingDegree.trim());
-    if (!hasPerson && !hasOrientation) {
-      setResult(null);
-      setMeasurement(null);
-      onResultChange?.(null, null);
-      setError('请补充出生年月日与性别，或填写大门向屋内度数，至少一项。');
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      try {
-        const next = calculateResidentialChart(
-          buildResidentialChartInput({
-            birthData,
-            guaType,
-            ...(parsedHouseYear != null ? { houseYear: parsedHouseYear } : {}),
-            ...(facingDegree.trim() ? { doorToInteriorDegree: Number(facingDegree) } : {}),
-            ...parseResidentialFlowDate(flowDate),
-          }),
-        );
-        setResult(next.result);
-        setMeasurement(next.measurement);
-        setError('');
-        onResultChange?.(next.result, next.measurement);
-      } catch (currentError) {
-        setResult(null);
-        setMeasurement(null);
-        onResultChange?.(null, null);
-        setError(currentError instanceof Error ? currentError.message : '住宅风水排盘失败。');
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [
-    birthData,
-    boundaryMessage,
-    directionPreview.error,
-    facingDegree,
-    flowDate,
-    guaType,
-    onResultChange,
-    parsedHouseYear,
-  ]);
+  const { facingDegree, houseYear, guaType, flowYear, flowMonth, flowDay } = draft;
+  const { result, measurement, error, direction } = chart;
 
   const bazhai = result?.bazhai ?? null;
   const xuankong = result?.xuankong ?? null;
@@ -562,11 +382,7 @@ export function MetaphysicsPanel({
                   step="1"
                   value={houseYear}
                   placeholder={`默认 ${new Date().getFullYear()}`}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setHouseYear(value);
-                    onHouseYearChange?.(value);
-                  }}
+                  onChange={(event) => onDraftChange({ houseYear: event.target.value })}
                 />
                 <small className="birth-time-hint">填写后计算住宅所属元运。</small>
               </label>
@@ -582,11 +398,7 @@ export function MetaphysicsPanel({
                   step="0.1"
                   value={facingDegree}
                   placeholder="例如：0"
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setFacingDegree(value);
-                    onDirectionDegreeChange?.(value);
-                  }}
+                  onChange={(event) => onDraftChange({ facingDegree: event.target.value })}
                 />
                 <small className="birth-time-hint">
                   站在大门处面向屋内，用手机指南针连续测三次，填写接近的平均度数。
@@ -598,11 +410,9 @@ export function MetaphysicsPanel({
                   id="metaphysics-gua-type"
                   className="form-input"
                   value={guaType}
-                  onChange={(event) => {
-                    const value = event.target.value as XuanKongGuaType;
-                    setGuaType(value);
-                    onGuaTypeChange?.(value);
-                  }}
+                  onChange={(event) =>
+                    onDraftChange({ guaType: event.target.value as XuanKongGuaType })
+                  }
                 >
                   <option value="下卦">下卦（默认）</option>
                   <option value="替卦">替卦（兼向）</option>
@@ -612,15 +422,15 @@ export function MetaphysicsPanel({
                 </small>
               </label>
               {error ? (
-                <div className="form-error-text">{error}</div>
-              ) : directionPreview.position ? (
+                <div className="form-error-text" role="alert">
+                  {error}
+                </div>
+              ) : direction ? (
                 <div className="metaphysics-direction-preview">
-                  <strong>{directionPreview.position.label}</strong>
+                  <strong>{direction.label}</strong>
                   <span>
-                    坐山 {directionPreview.position.sit.degree}°{' '}
-                    {directionPreview.position.sit.mountain}山；传统朝向{' '}
-                    {directionPreview.position.facing.degree}°{' '}
-                    {directionPreview.position.facing.mountain}向。
+                    坐山 {direction.sit.degree}° {direction.sit.mountain}山；传统朝向{' '}
+                    {direction.facing.degree}° {direction.facing.mountain}向。
                   </span>
                 </div>
               ) : (
@@ -636,28 +446,73 @@ export function MetaphysicsPanel({
             <div className="result-side-card bazhai-direction-card">
               <div className="result-side-head">
                 <h3>住宅目标流运</h3>
-                <p>选择目标日期后，玄空盘会叠加对应流年与节气流月飞星。</p>
+                <p>填写年份叠加流年飞星，补充月份或完整日期后叠加节气流月飞星。</p>
               </div>
-              <label className="form-item" htmlFor="metaphysics-flow-date">
-                <span>目标流运日期</span>
+              <label className="form-item" htmlFor="metaphysics-flow-year">
+                <span>目标流运年份</span>
                 <input
-                  id="metaphysics-flow-date"
+                  id="metaphysics-flow-year"
                   className="form-input"
-                  type="date"
-                  value={flowDate}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setFlowDate(value);
-                    onFlowDateChange?.(value);
-                  }}
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="9999"
+                  step="1"
+                  value={flowYear}
+                  placeholder="留空仅看静态盘"
+                  onChange={(event) =>
+                    onDraftChange({
+                      flowYear: event.target.value,
+                      ...(event.target.value ? {} : { flowMonth: '', flowDay: '' }),
+                    })
+                  }
                 />
-                <small className="birth-time-hint">默认按当前日期，可切换到历史或未来日期。</small>
+              </label>
+              <label className="form-item" htmlFor="metaphysics-flow-month">
+                <span>目标流运月份（可选）</span>
+                <input
+                  id="metaphysics-flow-month"
+                  className="form-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="12"
+                  step="1"
+                  value={flowMonth}
+                  disabled={!flowYear}
+                  placeholder="留空仅看流年"
+                  onChange={(event) =>
+                    onDraftChange({
+                      flowMonth: event.target.value,
+                      ...(event.target.value ? {} : { flowDay: '' }),
+                    })
+                  }
+                />
+              </label>
+              <label className="form-item" htmlFor="metaphysics-flow-day">
+                <span>目标流运日（可选）</span>
+                <input
+                  id="metaphysics-flow-day"
+                  className="form-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="31"
+                  step="1"
+                  value={flowDay}
+                  disabled={!flowYear || !flowMonth}
+                  placeholder="留空按目标月份"
+                  onChange={(event) => onDraftChange({ flowDay: event.target.value })}
+                />
+                <small className="birth-time-hint">
+                  默认按当前日期，可切换到历史或未来；清空年份显示静态盘。仅填年月时以当月15日所属节气月为参照。
+                </small>
               </label>
             </div>
           </div>
         </div>
 
-        {xuankong ? <XuanKongBoard xuankong={xuankong} /> : null}
+        {xuankong ? <XuanKongBoard xuankong={xuankong} input={chart.input} /> : null}
 
         {result?.agreements?.length ? (
           <div className="result-side-card">

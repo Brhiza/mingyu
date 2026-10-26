@@ -6,14 +6,15 @@ import {
   type ZiweiFortuneTimeline,
   type ZiweiFortuneTimelinePhaseSelection,
 } from '../ziwei/fortune-timeline';
-import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
-import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
+import { analyzeZiweiCompatibility } from '../ziwei/iztro/compatibility-evidence';
+import { formatBaziForPrompt } from '../bazi/baziAnalysisFormatter';
+import type { BaziChartResult } from '../bazi/baziTypes';
 import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { formatPromptSchoolGuidance } from './schools';
 import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
-import { getThematicTopicConfig } from './thematic';
+import { getThematicTopicConfig } from './thematic-topics';
 import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
 import { formatPalaceRelations } from '../ziwei/prompt/builders';
 import { formatObjectList } from '../ziwei/prompt/formatters';

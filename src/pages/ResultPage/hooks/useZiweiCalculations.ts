@@ -40,6 +40,7 @@ export interface ZiweiCalculations {
   activeZiweiPayloadByScope: ZiweiPayloadByScopeState;
   activePartnerZiweiPayloadByScope: ZiweiPayloadByScopeState;
   currentZiweiPayload: AnalysisPayloadV1 | null;
+  ziweiPromptHourIndex: number;
   promptZiweiScopePayloads: Partial<Record<ScopeType, AnalysisPayloadV1>> | null;
   partnerZiweiPayload: AnalysisPayloadV1 | null;
   ziweiReadingResources: ReadingResource[];
@@ -1013,6 +1014,7 @@ export function useZiweiCalculations(
     activeZiweiPayloadByScope,
     activePartnerZiweiPayloadByScope,
     currentZiweiPayload: fortuneReady ? currentZiweiPayload : null,
+    ziweiPromptHourIndex: promptHourIndex,
     promptZiweiScopePayloads: shouldUseCustomZiweiPromptPayload
       ? promptZiweiPayloadKey === primaryPromptDisplayKey
         ? promptScopePayloads

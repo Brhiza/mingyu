@@ -204,7 +204,7 @@ import {
   getPublicApiRuntime,
   type PublicApiRuntime,
 } from './metadata';
-import { RESULT_DETAIL_MODES } from '../result-detail';
+import { compactCalculationResult, RESULT_DETAIL_MODES } from '../result-detail';
 import {
   buildCompactBaziResult,
   buildCompactBaziBatchResult,
@@ -361,6 +361,31 @@ const DIVINATION_METHODS = [
 
 const DIVINATION_PROMPT_METHODS = DIVINATION_METHODS.filter((method) => method !== 'ssgw');
 
+// Explicit capabilities shared by discovery and request handling, including legacy aliases.
+const CLASSICAL_PROMPT_METHODS: Readonly<Partial<Record<string, string>>> = {
+  '/bazi/prompt': 'bazi',
+  '/bazi/compatibility/prompt': 'bazi',
+  '/ziwei/prompt': 'ziwei',
+  '/ziwei/compatibility/prompt': 'ziwei',
+  '/bazi-ziwei/prompt': 'bazi-ziwei',
+  '/consultation/thematic/prompt': 'bazi-ziwei',
+  '/divination/liuyao/prompt': 'liuyao',
+  '/divination/meihua/prompt': 'meihua',
+  '/divination/xiaoliuren/prompt': 'xiaoliuren',
+  '/divination/jinkoujue/prompt': 'jinkoujue',
+  '/divination/qimen/prompt': 'qimen',
+  '/divination/qimen/lifetime/prompt': 'qimen-lifetime',
+  '/divination/liuren/prompt': 'liuren',
+  '/divination/almanac/prompt': 'almanac',
+  '/metaphysics/bazhai/prompt': 'bazhai',
+  '/metaphysics/residential/prompt': 'residential',
+  '/metaphysics/xuankong/prompt': 'xuankong',
+  '/metaphysics/taiyi/prompt': 'taiyi',
+  '/metaphysics/wuyun-liuqi/prompt': 'wuyun-liuqi',
+  '/metaphysics/huangji-jingshi/prompt': 'huangji-jingshi',
+  '/metaphysics/qizheng/prompt': 'qizheng',
+};
+
 function openApiJsonRequestBody(schemaRef: string, required = true) {
   return {
     required,
@@ -369,6 +394,100 @@ function openApiJsonRequestBody(schemaRef: string, required = true) {
     },
   };
 }
+
+function openApiCulturePromptResponse(field: 'candidates' | 'analysis') {
+  const factSchema =
+    field === 'candidates' ? { type: 'array', items: { type: 'object' } } : { type: 'object' };
+  return {
+    '200': {
+      description: `省略 responseMode 时保留 ${field}、prompt 和可选 selection；显式 prompt-only 只返回 prompt，summary 返回 prompt 与 resultSummary，full 返回 result、prompt 及顶层 ${field}/selection 兼容别名。result 保留完整旧结果，含 prompt。`,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['ok', 'data', 'meta'],
+            properties: {
+              ok: { const: true },
+              meta: { type: 'object' },
+              data: {
+                type: 'object',
+                required: ['prompt'],
+                properties: {
+                  prompt: { type: 'string' },
+                  [field]: {
+                    ...factSchema,
+                    description: '省略 responseMode 或显式 full 时返回的完整事实兼容字段。',
+                  },
+                  selection: {
+                    type: 'object',
+                    description: '传入统一解读选择且省略 responseMode 或显式 full 时返回。',
+                  },
+                  result: {
+                    type: 'object',
+                    required: [field, 'prompt'],
+                    description: '仅显式 full 返回；完整旧结果及其 prompt，可含 selection。',
+                    properties: {
+                      [field]: factSchema,
+                      prompt: { type: 'string' },
+                      selection: { type: 'object' },
+                    },
+                  },
+                  resultSummary: {
+                    type: 'object',
+                    required: [field],
+                    description:
+                      '仅显式 summary 返回；现有 compact 投影，省略嵌套提示词与计算证据。',
+                    properties: { [field]: factSchema, selection: { type: 'object' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '400': { description: '参数错误；非法 responseMode 返回 BAD_REQUEST。' },
+  };
+}
+
+const MEIHUA_INPUT_PROPERTIES = {
+  method: {
+    enum: ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
+    default: 'time',
+    description: '梅花起卦方式；timeTrigram 兼容旧参数并按时间起卦。',
+  },
+  number: { type: 'integer', minimum: 1 },
+  soundCount: { type: 'integer', minimum: 1, description: '声音起卦时所闻声音数。' },
+  characterText: {
+    type: 'string',
+    minLength: 1,
+    maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+    description: '字数起卦的原始文字；按 Unicode 字符计数。',
+  },
+  characterCount: { type: 'integer', minimum: 1, maximum: 100 },
+  characterTones: {
+    type: 'array',
+    minItems: 4,
+    maxItems: 10,
+    items: { type: 'integer', minimum: 1, maximum: 4 },
+    description: '4—10 字按顺序提供传统平、上、去、入声类的 1—4 数，不等同于普通话一至四声。',
+  },
+  characterStrokeCounts: {
+    type: 'array',
+    minItems: 2,
+    maxItems: 3,
+    items: { type: 'integer', minimum: 1 },
+    description: '2—3 字按顺序提供各字人工笔画数，以避免字体差异。',
+  },
+  characterLeftStrokes: { type: 'integer', minimum: 1, description: '单字左侧分笔数。' },
+  characterRightStrokes: { type: 'integer', minimum: 1, description: '单字右侧分笔数。' },
+  direction: {
+    enum: ['northwest', 'west', 'south', 'east', 'southeast', 'north', 'northeast', 'southwest'],
+  },
+  objectType: {
+    enum: ['heaven', 'lake', 'fire', 'thunder', 'wind', 'water', 'mountain', 'earth'],
+  },
+};
 
 const DIVINATION_REQUEST_PROPERTIES = {
   question: {
@@ -422,8 +541,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['chaibu', 'zhirun'],
     description: '奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效。',
   },
-  method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
-  number: { type: 'integer', minimum: 1 },
+  method: MEIHUA_INPUT_PROPERTIES.method,
+  number: MEIHUA_INPUT_PROPERTIES.number,
   xiaoliurenRule: { enum: ['common', 'duoneng'], description: '起课口径：通行掌诀或多能鄙事。' },
   xiaoliurenMethod: {
     enum: ['time'],
@@ -603,45 +722,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
       meihuaSettings: {
         type: 'object',
         properties: {
-          method: {
-            enum: ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
-          },
-          number: { type: 'integer', minimum: 1 },
-          soundCount: { type: 'integer', minimum: 1 },
+          ...MEIHUA_INPUT_PROPERTIES,
           characterText: { type: 'string', minLength: 1, maxLength: 256 },
-          characterCount: { type: 'integer', minimum: 1, maximum: 100 },
-          characterTones: {
-            type: 'array',
-            minItems: 4,
-            maxItems: 10,
-            items: { type: 'integer', minimum: 1, maximum: 4 },
-            description:
-              '4—10 字按顺序提供传统平、上、去、入声类的 1—4 数，不等同于普通话一至四声。',
-          },
-          characterStrokeCounts: {
-            type: 'array',
-            minItems: 2,
-            maxItems: 3,
-            items: { type: 'integer', minimum: 1 },
-            description: '2—3 字按顺序提供各字人工笔画数，以避免字体差异。',
-          },
-          characterLeftStrokes: { type: 'integer', minimum: 1, description: '单字左侧分笔数。' },
-          characterRightStrokes: { type: 'integer', minimum: 1, description: '单字右侧分笔数。' },
-          direction: {
-            enum: [
-              'northwest',
-              'west',
-              'south',
-              'east',
-              'southeast',
-              'north',
-              'northeast',
-              'southwest',
-            ],
-          },
-          objectType: {
-            enum: ['heaven', 'lake', 'fire', 'thunder', 'wind', 'water', 'mountain', 'earth'],
-          },
         },
       },
     },
@@ -677,6 +759,21 @@ const DIVINATION_REQUEST_PROPERTIES = {
     maximum: MAX_ALMANAC_PAGE_SIZE,
     description: '黄历择日分页每页数量，最多 31 天。',
   },
+};
+
+const CULTURE_PROMPT_RESPONSE_MODE = {
+  type: 'string',
+  enum: [...PROMPT_RESPONSE_MODES],
+  description:
+    '显式 prompt-only 只返回 prompt；summary 返回 prompt 与 resultSummary；full 返回 result、prompt 及顶层 candidates/analysis、selection 兼容别名。省略时保持旧的 candidates/analysis、prompt 和可选 selection，不默认切换为 prompt-only。',
+};
+
+const MEIHUA_REQUEST_PROPERTIES = {
+  ...MEIHUA_INPUT_PROPERTIES,
+  customDate: DIVINATION_REQUEST_PROPERTIES.customDate,
+  seed: DIVINATION_REQUEST_PROPERTIES.seed,
+  replay: DIVINATION_REQUEST_PROPERTIES.replay,
+  detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
 };
 
 const ZIWEI_BIRTH_REQUEST_PROPERTIES = {
@@ -923,15 +1020,15 @@ export function getPublicApiOpenApiDocument(
       '/name/generate/prompt': {
         post: {
           summary: '结合出生资料与姓名候选生成完整起名提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/NameGenerateRequest'),
-          responses: { '200': { description: '姓名候选与可直接交给 AI 的完整提示词' } },
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameGeneratePromptRequest'),
+          responses: openApiCulturePromptResponse('candidates'),
         },
       },
       '/name/analyze/prompt': {
         post: {
           summary: '结合出生资料生成完整姓名解析提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/NameAnalyzeRequest'),
-          responses: { '200': { description: '姓名分析底稿与可直接交给 AI 的完整提示词' } },
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameAnalyzePromptRequest'),
+          responses: openApiCulturePromptResponse('analysis'),
         },
       },
       '/character/analyze': {
@@ -970,8 +1067,8 @@ export function getPublicApiOpenApiDocument(
       '/number/analyze/prompt': {
         post: {
           summary: '解析数字能量并生成完整解读提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
-          responses: { '200': { description: '数字能量结果与可直接交给 AI 的完整提示词' } },
+          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzePromptRequest'),
+          responses: openApiCulturePromptResponse('analysis'),
         },
       },
       '/divination/zhuge': {
@@ -1092,11 +1189,25 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '六爻卦盘' } },
         },
       },
+      '/divination/liuyao/prompt': {
+        post: {
+          summary: '六爻起卦并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '六爻卦盘、统一摘要和结构化提示词' } },
+        },
+      },
       '/divination/meihua': {
         post: {
           summary: '梅花易数起卦',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          requestBody: openApiJsonRequestBody('#/components/schemas/MeihuaRequest', false),
           responses: { '200': { description: '梅花易数卦盘' } },
+        },
+      },
+      '/divination/meihua/prompt': {
+        post: {
+          summary: '梅花易数起卦并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MeihuaPromptRequest'),
+          responses: { '200': { description: '梅花易数卦盘、统一摘要和结构化提示词' } },
         },
       },
       '/divination/jinkoujue': {
@@ -1122,11 +1233,25 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '小六壬课盘' } },
         },
       },
+      '/divination/xiaoliuren/prompt': {
+        post: {
+          summary: '小六壬起课并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '小六壬课盘、统一摘要和结构化提示词' } },
+        },
+      },
       '/divination/qimen': {
         post: {
           summary: '奇门遁甲排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
           responses: { '200': { description: '奇门盘，含节令背景与复合格局' } },
+        },
+      },
+      '/divination/qimen/prompt': {
+        post: {
+          summary: '奇门遁甲排盘并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '奇门盘、统一摘要和结构化提示词' } },
         },
       },
       '/divination/qimen/lifetime': {
@@ -1152,6 +1277,13 @@ export function getPublicApiOpenApiDocument(
           summary: '大六壬排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
           responses: { '200': { description: '大六壬课盘' } },
+        },
+      },
+      '/divination/liuren/prompt': {
+        post: {
+          summary: '大六壬排盘并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '大六壬课盘、统一摘要和结构化提示词' } },
         },
       },
       '/divination/tarot': {
@@ -1183,6 +1315,14 @@ export function getPublicApiOpenApiDocument(
           description: '官方 Pages 在线入口单次最多 7 天；Docker 自部署单次最多 31 天。',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
           responses: { '200': { description: '择日结果' } },
+        },
+      },
+      '/divination/almanac/prompt': {
+        post: {
+          summary: '黄历择日并生成 AI 解读提示词',
+          description: '官方 Pages 在线入口单次最多 7 天；Docker 自部署单次最多 31 天。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '择日结果、统一摘要和结构化提示词' } },
         },
       },
       '/divination/lenormand': {
@@ -1519,6 +1659,18 @@ export function getPublicApiOpenApiDocument(
             scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
           },
         },
+        NameGeneratePromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/NameGenerateRequest' },
+            { type: 'object', properties: { responseMode: CULTURE_PROMPT_RESPONSE_MODE } },
+          ],
+        },
+        NameAnalyzePromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/NameAnalyzeRequest' },
+            { type: 'object', properties: { responseMode: CULTURE_PROMPT_RESPONSE_MODE } },
+          ],
+        },
         NamingBirthInput: {
           type: 'object',
           required: ['gender', 'year', 'month', 'day'],
@@ -1614,6 +1766,12 @@ export function getPublicApiOpenApiDocument(
             subtopicId: { type: 'string', description: '统一解读主题细项 ID，如 number-energy。' },
             scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
           },
+        },
+        NumberAnalyzePromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/NumberAnalyzeRequest' },
+            { type: 'object', properties: { responseMode: CULTURE_PROMPT_RESPONSE_MODE } },
+          ],
         },
         ZhugeRequest: {
           type: 'object',
@@ -3168,6 +3326,28 @@ export function getPublicApiOpenApiDocument(
           type: 'object',
           properties: DIVINATION_REQUEST_PROPERTIES,
         },
+        MeihuaRequest: {
+          type: 'object',
+          properties: MEIHUA_REQUEST_PROPERTIES,
+        },
+        MeihuaPromptRequest: {
+          type: 'object',
+          required: ['question'],
+          properties: {
+            ...MEIHUA_REQUEST_PROPERTIES,
+            question: DIVINATION_REQUEST_PROPERTIES.question,
+            topicId: DIVINATION_REQUEST_PROPERTIES.topicId,
+            subtopicId: DIVINATION_REQUEST_PROPERTIES.subtopicId,
+            scope: DIVINATION_REQUEST_PROPERTIES.scope,
+            promptMode: DIVINATION_REQUEST_PROPERTIES.promptMode,
+            schools: {
+              ...DIVINATION_REQUEST_PROPERTIES.schools,
+              items: { enum: [...getPromptSchoolIds('meihua')] },
+            },
+            supplementaryInfo: DIVINATION_REQUEST_PROPERTIES.supplementaryInfo,
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         QimenLifetimeRequest: {
           type: 'object',
           required: ['birthDateTime'],
@@ -3502,14 +3682,7 @@ export async function handlePublicApiRequest(
 }
 
 function getClassicalPromptMethod(path: string) {
-  if (!path.endsWith('/prompt')) return undefined;
-  const method = path
-    .replace(/^\//, '')
-    .replace(/^(divination|metaphysics)\//, '')
-    .replace(/\/prompt$/, '')
-    .replace(/\/compatibility$/, '')
-    .replace('qimen/lifetime', 'qimen-lifetime');
-  return method === 'consultation/thematic' ? 'bazi-ziwei' : method;
+  return CLASSICAL_PROMPT_METHODS[path.startsWith('/') ? path : `/${path}`];
 }
 
 async function route(context: RouteContext) {
@@ -3603,9 +3776,13 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
     case 'name/analyze':
       return calculateCultureTool(async () => analyzeNameApi(await readInput()));
     case 'name/generate/prompt':
-      return calculateCultureTool(async () => buildNameGenerationPromptApi(await readInput()));
+      return calculateCultureTool(async () =>
+        buildCulturePromptApiResult(await readInput(), buildNameGenerationPromptApi),
+      );
     case 'name/analyze/prompt':
-      return calculateCultureTool(async () => buildNameAnalysisPromptApi(await readInput()));
+      return calculateCultureTool(async () =>
+        buildCulturePromptApiResult(await readInput(), buildNameAnalysisPromptApi),
+      );
     case 'character/analyze':
       return calculateCultureTool(async () =>
         analyzeChineseCharactersWithReferences(readString(await readInput(), 'text', '')),
@@ -3615,7 +3792,9 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
     case 'number/analyze':
       return calculateCultureTool(async () => analyzeNumberApi(await readInput()));
     case 'number/analyze/prompt':
-      return calculateCultureTool(async () => buildNumberEnergyPromptApi(await readInput()));
+      return calculateCultureTool(async () =>
+        buildCulturePromptApiResult(await readInput(), buildNumberEnergyPromptApi),
+      );
     case 'divination/zhuge':
       return calculateCultureTool(async () =>
         calculateZhugeNumber(readString(await readInput(), 'text', '')),
@@ -3786,6 +3965,24 @@ async function calculateCultureTool<T>(calculate: () => T | Promise<T>): Promise
       error instanceof Error ? error.message : '输入参数无法完成计算。',
     );
   }
+}
+
+function buildCulturePromptApiResult(
+  input: JsonRecord,
+  build: (input: JsonRecord) => { prompt: string; selection?: unknown } & JsonRecord,
+) {
+  const responseMode = readPromptResponseMode(input);
+  const result = build(input);
+  // These three legacy endpoints returned named facts before responseMode was supported.
+  if (input.responseMode === undefined) return result;
+  const { prompt, ...facts } = result;
+  const response = buildPromptApiResult({
+    responseMode,
+    prompt,
+    fullResult: result,
+    resultSummary: responseMode === 'summary' ? compactCalculationResult(facts) : undefined,
+  });
+  return responseMode === 'full' ? { ...response, ...facts } : response;
 }
 
 function readWuxingList(input: JsonRecord, key: string): Wuxing[] | undefined {

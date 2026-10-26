@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { calculateBirthChartBundle } from 'mingyu-core/birth';
 import { calculateCompatibilityBundle } from 'mingyu-core/compatibility';
@@ -23,6 +25,56 @@ const partner = {
   day: 20,
   timeIndex: 7,
 };
+
+test('八字合盘在新进程从出生入口只增载关系实现，不增载无关占法和任务书', () => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      '-e',
+      `
+      require('tsx/cjs');
+      const path = require('node:path');
+      const coreRoot = path.resolve('packages/core/src') + path.sep;
+      require(coreRoot + 'birth/index.ts');
+      const before = new Set(Object.keys(require.cache));
+      const { calculateCompatibilityBundle } = require(coreRoot + 'compatibility/index.ts');
+      calculateCompatibilityBundle(
+        { gender: 'male', calendarType: 'solar', year: 1990, month: 5, day: 15, timeIndex: 5 },
+        { gender: 'female', calendarType: 'solar', year: 1992, month: 8, day: 20, timeIndex: 7 },
+        { systems: ['bazi'] },
+      ).then(result => process.stdout.write(JSON.stringify({
+        systems: result.systems, hasBazi: Boolean(result.bazi),
+        hasZiwei: Boolean(result.ziwei), hasAstrolabe: Boolean(result.astrolabe),
+        extra: Object.keys(require.cache)
+          .filter(name => name.startsWith(coreRoot) && !before.has(name))
+          .map(name => name.slice(coreRoot.length).split(path.sep).join('/')),
+      }))).catch(error => { console.error(error); process.exitCode = 1; });
+      `,
+    ],
+    { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', timeout: 30_000 },
+  );
+  const result = JSON.parse(output) as {
+    systems: string[];
+    hasBazi: boolean;
+    hasZiwei: boolean;
+    hasAstrolabe: boolean;
+    extra: string[];
+  };
+  assert.deepEqual(result.systems, ['bazi']);
+  assert.equal(result.hasBazi, true);
+  assert.equal(result.hasZiwei, false);
+  assert.equal(result.hasAstrolabe, false);
+  for (const name of result.extra) {
+    assert.doesNotMatch(name, /^(?:prompt|name-number|taiyi|huangji-jingshi)\//u);
+    assert.doesNotMatch(name, /^(?:bazi|divination|ziwei\/iztro)\/index\.ts$/u);
+    if (name.startsWith('divination/')) {
+      assert.match(name, /^divination\/astrolabe-(?:synastry|reception)\.ts$/u);
+    }
+  }
+  assert.ok(result.extra.includes('bazi/compatibilityEvidence.ts'));
+  assert.ok(result.extra.includes('divination/astrolabe-synastry.ts'));
+  assert.ok(result.extra.includes('ziwei/iztro/compatibility-evidence.ts'));
+});
 
 test('双人 BirthProfile 生成八字合盘证据并保留给定姓名', async () => {
   const namedPrimary = { ...primary, name: '未命名' };

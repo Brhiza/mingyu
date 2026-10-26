@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { calculateBazhaiChart } from '../src/lib/bazhai-chart';
 import { MetaphysicsPanel } from '../src/components/MetaphysicsPanel';
+import { useResidentialChart } from '../src/pages/ResultPage/hooks/useResidentialChart';
+import { parsePromptState } from '../src/lib/query-state';
 
 test('八宅统一按从大门面向屋内的读数换算传统坐向', () => {
   const { result, measurement } = calculateBazhaiChart(
@@ -31,19 +33,24 @@ test('八宅页面桥接保留立春当天已知出生时分', () => {
 });
 
 test('八宅页面无需开始排盘即可显示个人盘并在盘面说明下补充角度', () => {
-  const html = renderToStaticMarkup(
-    createElement(MetaphysicsPanel, {
-      method: 'bazhai',
-      birthData: {
-        year: 1990,
-        month: 6,
-        day: 15,
-        hour: 10,
-        minute: 30,
-        gender: 'male',
-      },
-    }),
-  );
+  function PageOwner() {
+    const birthData = {
+      year: 1990,
+      month: 6,
+      day: 15,
+      hour: 10,
+      minute: 30,
+      gender: 'male' as const,
+    };
+    const residential = useResidentialChart(
+      birthData,
+      parsePromptState(new URLSearchParams('ps=bazhai&rfy=')),
+      () => {},
+      'initial-url',
+    );
+    return createElement(MetaphysicsPanel, { birthData, ...residential });
+  }
+  const html = renderToStaticMarkup(createElement(PageOwner));
 
   assert.match(html, /个人八宅方位/);
   assert.match(html, /盘面说明/);

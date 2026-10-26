@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { baziCalculator } from 'mingyu-core/bazi';
 import {
@@ -9,6 +11,51 @@ import {
 } from 'mingyu-core/prompt';
 import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei/runtime';
 import { buildZiweiTaskBookSnapshot } from 'mingyu-core/ziwei/prompt';
+
+test('紫微焦点在新进程只加载主题配置与宫位叶模块', () => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      '-e',
+      `
+      require('tsx/cjs');
+      const path = require('node:path');
+      const coreRoot = path.resolve('packages/core/src') + path.sep;
+      const { buildFocusTaskBundle } = require(coreRoot + 'ziwei/prompt/focus.ts');
+      const names = ['命宫', '兄弟', '夫妻', '子女', '财帛', '疾厄', '迁移', '交友', '官禄', '田宅', '福德', '父母'];
+      const payload = {
+        active_scope: { scope: 'origin', palace_index: 0, mutagen_map: [] },
+        palaces: names.map((name, index) => ({
+          index, name, is_body_palace: index === 10,
+          major_stars: [], minor_stars: [], other_stars: [], scope_hits: [],
+          opposite_palace_index: (index + 6) % 12,
+          surrounded_palace_indexes: [index, (index + 6) % 12, (index + 4) % 12, (index + 8) % 12],
+        })),
+      };
+      const result = buildFocusTaskBundle(payload, { scope: 'origin', selectedTopic: ' MARRIAGE ' });
+      process.stdout.write(JSON.stringify({
+        palaces: result.focusPalaces.map(palace => palace.name),
+        modules: Object.keys(require.cache).filter(name => name.startsWith(coreRoot)).map(name => name.slice(coreRoot.length).split(path.sep).join('/')),
+      }));
+      `,
+    ],
+    { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', timeout: 30_000 },
+  );
+  const result = JSON.parse(output) as { palaces: string[]; modules: string[] };
+  assert.deepEqual(result.palaces.slice(0, 4), ['夫妻', '官禄', '福德', '迁移']);
+  assert.ok(result.modules.some((name) => name.startsWith('prompt/')));
+  assert.deepEqual(
+    result.modules.filter(
+      (name) => !/^prompt\//u.test(name) && !/^ziwei\/(?:prompt|iztro)\//u.test(name),
+    ),
+    [],
+  );
+  assert.deepEqual(
+    result.modules.filter((name) => /^prompt\//u.test(name)).sort(),
+    ['prompt/framework.ts', 'prompt/thematic-topics.ts'],
+    '主题规范化不应回到任务书组装、公开聚合或八字规则',
+  );
+});
 
 test('紫微斗数在婚恋与感情主题下必须完整输出夫妻宫及三方四正对宫细节', async () => {
   const draft = {

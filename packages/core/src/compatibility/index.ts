@@ -2,18 +2,18 @@ import {
   analyzeBaziCompatibility,
   type BaziCompatibilityEvidenceResult,
   type BaziCompatibilityOptions,
-} from '../bazi';
+} from '../bazi/compatibilityEvidence';
 import {
   analyzeAstrolabeSynastry,
-  type AstrolabeSynastryData,
   type AstrolabeSynastryOptions,
-} from '../divination';
+} from '../divination/astrolabe-synastry';
+import type { AstrolabeSynastryData } from '../types/divination';
 import {
   analyzeZiweiCompatibility,
-  getDefaultHoroscopeContext,
   type ZiweiCompatibilityEvidenceResult,
   type ZiweiCompatibilityOptions,
-} from '../ziwei/iztro';
+} from '../ziwei/iztro/compatibility-evidence';
+import { getDefaultHoroscopeContext } from '../ziwei/iztro/runtime-helpers';
 import {
   calculateBirthChartBundle,
   type BirthChartBundle,

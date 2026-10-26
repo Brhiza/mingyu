@@ -742,8 +742,10 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     assert.ok(body.data.paths[path].post.requestBody, `${path} 应声明请求体`);
     assert.equal(
       body.data.paths[path].post.requestBody.content['application/json'].schema.$ref,
-      '#/components/schemas/DivinationRequest',
-      `${path} 应复用占卜请求 schema`,
+      path === '/divination/meihua'
+        ? '#/components/schemas/MeihuaRequest'
+        : '#/components/schemas/DivinationRequest',
+      `${path} 应声明对应的占卜请求 schema`,
     );
   }
   assert.equal(

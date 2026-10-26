@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,39 +92,49 @@ const domainTests = {
   `,
 };
 
-const files = Object.values(domainTests)
-  .flatMap((names) =>
-    names
-      .trim()
-      .split(/\s+/)
-      .map((name) => `tests/${name}.test.ts`),
-  )
-  .sort();
-for (const file of files) {
-  if (!existsSync(join(repositoryRoot, file))) {
-    throw new Error(`核心领域测试不存在，请更新职责清单：${file}`);
-  }
-}
-
-if (process.argv.includes('--list')) {
-  console.log(files.join('\n'));
-} else {
-  if (!process.argv.includes('--prepared')) {
-    for (const script of [
-      'generate-china-location-data.mjs',
-      'generate-astrology-vendor-data.mjs',
-    ]) {
-      execFileSync(
-        process.execPath,
-        [join(repositoryRoot, 'packages/core/scripts', script), '--source-only'],
-        {
-          cwd: repositoryRoot,
-          stdio: 'inherit',
-        },
-      );
+export function getCoreTestFiles() {
+  const files = Object.values(domainTests)
+    .flatMap((names) =>
+      names
+        .trim()
+        .split(/\s+/)
+        .map((name) => `tests/${name}.test.ts`),
+    )
+    .sort();
+  for (const file of files) {
+    if (!existsSync(join(repositoryRoot, file))) {
+      throw new Error(`核心领域测试不存在，请更新职责清单：${file}`);
     }
   }
-  console.log(`运行 ${files.length} 个核心源码领域测试文件，无需构建 dist。`);
-  console.log('应用与跨层契约：pnpm test；隔离发布包契约：pnpm package:check。');
-  process.exitCode = runCoreSource(['--test', '--test-concurrency=2', ...files]);
+  return files;
+}
+
+if (
+  process.argv[1] &&
+  existsSync(process.argv[1]) &&
+  realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  const files = getCoreTestFiles();
+  if (process.argv.includes('--list')) {
+    console.log(files.join('\n'));
+  } else {
+    if (!process.argv.includes('--prepared')) {
+      for (const script of [
+        'generate-china-location-data.mjs',
+        'generate-astrology-vendor-data.mjs',
+      ]) {
+        execFileSync(
+          process.execPath,
+          [join(repositoryRoot, 'packages/core/scripts', script), '--source-only'],
+          {
+            cwd: repositoryRoot,
+            stdio: 'inherit',
+          },
+        );
+      }
+    }
+    console.log(`运行 ${files.length} 个核心源码领域测试文件，无需构建 dist。`);
+    console.log('应用与跨层契约：pnpm test；隔离发布包契约：pnpm package:check。');
+    process.exitCode = runCoreSource(['--test', '--test-concurrency=2', ...files]);
+  }
 }

@@ -396,3 +396,197 @@ test('合参月份与流日按节气月真实日期映射，跨年丑月落在�
   const day = mapBaziFortuneToZiweiScope({ scope: 'day', year: 2026, month: 12, day: 9 });
   assert.deepEqual(day, { scope: 'daily', dateStr: '2027-01-13' });
 });
+
+const timingChart = calculateFullBaziChart(
+  buildPersonFromInput({
+    gender: 'male',
+    dateType: 'solar',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 1,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: '',
+    birthMinute: '',
+    birthPlace: '',
+    birthLongitude: '',
+  }),
+);
+const timingSelection = buildCurrentBaziFortuneSelection(
+  timingChart,
+  new Date('2028-06-15T12:00:00+08:00'),
+);
+assert.ok(timingSelection);
+
+function buildTimingPrompt(
+  timing: NonNullable<Parameters<typeof buildBaziZiweiEnhancedPrompt>[0]['timing']>,
+  baziFortuneSummary = '',
+  ziweiScopeSummary = '',
+  isCustomQuestion = false,
+) {
+  return buildBaziZiweiEnhancedPrompt({
+    baziResult: timingChart,
+    baziText: '八字事实',
+    ziweiText: '紫微事实',
+    question: '事业条件如何？',
+    baziFortuneSummary,
+    ziweiScopeSummary,
+    timing,
+    isCustomQuestion,
+  });
+}
+
+function promptTask(prompt: string) {
+  const match = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
+  assert.ok(match);
+  return match[1];
+}
+
+test('合参时间任务消费真实结构化流年，修改展示措辞不改变任务', () => {
+  const context = buildFortuneSelectionContext(timingChart, { ...timingSelection, scope: 'year' });
+  assert.ok(context);
+  const timing = {
+    baziScope: 'year' as const,
+    baziContext: context,
+    ziweiScope: 'yearly' as const,
+    ziweiActiveScope: { scope: 'yearly' as const, solar_date: '2028-07-01' },
+    ziweiHourIndex: 8,
+  };
+  const original = buildTimingPrompt(timing, context.displayText, '流年 · 2028-07-01');
+  const reworded = buildTimingPrompt(timing, `流年 · ${context.displayText}`, '年度资料');
+  assert.equal(promptTask(original), promptTask(reworded));
+  assert.match(promptTask(original), /共同参考日期/);
+  assert.match(promptTask(original), /各自起止边界|各自的起止边界/);
+  assert.doesNotMatch(promptTask(original), /已对齐至同一时间层/);
+  assert.match(promptTask(buildTimingPrompt(timing, '', '', true)), /共同参考时段/);
+  assert.match(
+    promptTask(buildTimingPrompt({ ...timing, baziContext: null }, '', '', true)),
+    /时间层未对齐时分开陈述/,
+  );
+});
+
+test('合参同级范围仍核对真实日期，节气月中点映射可合参但不合并月界', () => {
+  const context = buildFortuneSelectionContext(timingChart, { ...timingSelection, scope: 'month' });
+  assert.ok(context);
+  const mapped = mapBaziFortuneToZiweiScope({ ...timingSelection, scope: 'month' }, context);
+  assert.equal(mapped.scope, 'monthly');
+  const timing = {
+    baziScope: 'month' as const,
+    baziContext: context,
+    ziweiScope: 'monthly' as const,
+    ziweiActiveScope: { scope: 'monthly' as const, solar_date: mapped.dateStr },
+    ziweiHourIndex: 8,
+  };
+  const aligned = promptTask(buildTimingPrompt(timing));
+  assert.match(aligned, /共同参考日期/);
+  assert.match(aligned, /只在重叠时段/);
+  assert.match(
+    promptTask(
+      buildTimingPrompt({
+        ...timing,
+        ziweiActiveScope: { scope: 'monthly', solar_date: '2028-07-15' },
+      }),
+    ),
+    /时间层未对齐时分开陈述/,
+  );
+  assert.match(
+    promptTask(buildTimingPrompt({ ...timing, baziContext: null })),
+    /时间层未对齐时分开陈述/,
+  );
+  assert.match(
+    promptTask(
+      buildTimingPrompt({ ...timing, baziScope: 'full', baziContext: null, ziweiScope: 'full' }),
+    ),
+    /时间层未对齐时分开陈述/,
+  );
+  assert.doesNotMatch(
+    promptTask(
+      buildTimingPrompt({ ...timing, baziScope: 'natal', baziContext: null, ziweiScope: 'origin' }),
+    ),
+    /共同参考日期|时间层未对齐时分开陈述/,
+  );
+});
+
+test('合参交运裁剪保留真实边界，参考时辰终点等于半开终点时可共同参考', () => {
+  const cycle = timingChart.luckInfo.cycles[1];
+  const context = buildFortuneSelectionContext(timingChart, {
+    scope: 'year',
+    cycleIndex: 1,
+    year: cycle.year,
+  });
+  assert.ok(context?.monthBreakdown?.[0]);
+  const firstRange = context.monthBreakdown[0].timeRange;
+  assert.equal(firstRange.startTimestamp, context.cycleTimeRange.startTimestamp);
+  const start = firstRange.start;
+  const date = `${start.year}-${String(start.month).padStart(2, '0')}-${String(start.day).padStart(2, '0')}`;
+  const timing = {
+    baziScope: 'year' as const,
+    baziContext: context,
+    ziweiScope: 'yearly' as const,
+    ziweiActiveScope: { scope: 'yearly' as const, solar_date: date },
+    ziweiHourIndex: 11,
+  };
+  assert.match(promptTask(buildTimingPrompt(timing)), /时间层未对齐时分开陈述/);
+  assert.match(promptTask(buildTimingPrompt({ ...timing, ziweiHourIndex: 12 })), /共同参考日期/);
+
+  const day = buildFortuneSelectionContext(timingChart, { ...timingSelection, scope: 'day' });
+  assert.ok(day?.dayBreakdown?.[0]);
+  const last = day.dayBreakdown[0].timeRange.end;
+  assert.deepEqual([last.hour, last.minute, last.second], [23, 0, 0]);
+  assert.match(
+    promptTask(
+      buildTimingPrompt({
+        baziScope: 'day',
+        baziContext: day,
+        ziweiScope: 'daily',
+        ziweiActiveScope: { scope: 'daily', solar_date: day.dayBreakdown[0].date },
+        ziweiHourIndex: 11,
+      }),
+    ),
+    /共同参考日期/,
+  );
+});
+
+test('合参参考时辰跨交节时保守分述，日界保留早子与晚子差异', () => {
+  const year = buildFortuneSelectionContext(timingChart, { scope: 'year', year: 2024 });
+  assert.ok(year);
+  assert.match(
+    promptTask(
+      buildTimingPrompt({
+        baziScope: 'year',
+        baziContext: year,
+        ziweiScope: 'yearly',
+        ziweiActiveScope: { scope: 'yearly', solar_date: '2024-02-04' },
+        ziweiHourIndex: 8,
+      }),
+    ),
+    /时间层未对齐时分开陈述/,
+  );
+  assert.match(
+    promptTask(
+      buildTimingPrompt({
+        baziScope: 'year',
+        baziContext: year,
+        ziweiScope: 'yearly',
+        ziweiActiveScope: { scope: 'yearly', solar_date: '2024-02-04' },
+        ziweiHourIndex: 9,
+      }),
+    ),
+    /共同参考日期/,
+  );
+  const day = buildFortuneSelectionContext(timingChart, { ...timingSelection, scope: 'day' });
+  assert.ok(day?.dayBreakdown?.[0]);
+  const timing = {
+    baziScope: 'day' as const,
+    baziContext: day,
+    ziweiScope: 'daily' as const,
+    ziweiActiveScope: { scope: 'daily' as const, solar_date: day.dayBreakdown[0].date },
+    ziweiHourIndex: 0,
+  };
+  assert.match(promptTask(buildTimingPrompt(timing)), /共同参考日期/);
+  assert.match(
+    promptTask(buildTimingPrompt({ ...timing, ziweiHourIndex: 12 })),
+    /时间层未对齐时分开陈述/,
+  );
+});

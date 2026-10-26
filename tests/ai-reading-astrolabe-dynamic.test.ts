@@ -211,6 +211,76 @@ test('分轮等待后仍使用本轮问题、主体、续读进度和回调', as
   assert.equal(mutableSource.summary.branchCount, 999);
 });
 
+test('旧v1页解读、归纳与完成后追问均保留原计划并消费本轮问题', async () => {
+  const original = 'ORIGINAL_PLAN_学习安排';
+  let checkpoint = await runAstrolabeDynamicReadingRound(
+    source,
+    undefined,
+    { ...roundOptions, question: original },
+    successfulStream,
+  );
+  assert.equal(checkpoint.stage, 'pages');
+  checkpoint = JSON.parse(JSON.stringify(checkpoint));
+  const before = structuredClone(checkpoint);
+  const prompts: string[] = [];
+  const stream = async (messages: ChatMessage[], callbacks: StreamOptions) => {
+    prompts.push(messages[0]!.content);
+    await successfulStream(messages, callbacks);
+  };
+  checkpoint = await runAstrolabeDynamicReadingRound(
+    source,
+    checkpoint,
+    { ...roundOptions, question: 'FOLLOWUP_本页事业条件' },
+    stream,
+  );
+  assert.equal(prompts.length, 2);
+  for (const prompt of prompts) {
+    assert.ok(prompt.includes(`【原问题】\n${original}`));
+    assert.ok(prompt.includes('【本轮问题】\nFOLLOWUP_本页事业条件'));
+    assert.ok(prompt.includes(before.synopsis));
+  }
+  assert.equal(checkpoint.question, original);
+  assert.equal(checkpoint.identity, before.identity);
+  assert.equal(checkpoint.completedPages, before.completedPages + 1);
+  const continuedPrompts: string[] = [];
+  checkpoint = await runAstrolabeDynamicReadingRound(
+    source,
+    checkpoint,
+    roundOptions,
+    async (messages, callbacks) => {
+      continuedPrompts.push(messages[0]!.content);
+      await successfulStream(messages, callbacks);
+    },
+  );
+  assert.ok(continuedPrompts.every((prompt) => prompt.includes(original)));
+  assert.equal(checkpoint.question, original);
+  while (checkpoint.stage === 'pages') {
+    checkpoint = await runAstrolabeDynamicReadingRound(
+      source,
+      checkpoint,
+      roundOptions,
+      successfulStream,
+    );
+  }
+  for (const question of ['SUMMARY_FOLLOWUP_事业判断', 'COMPLETE_FOLLOWUP_财运判断']) {
+    const state = structuredClone(checkpoint);
+    prompts.length = 0;
+    checkpoint = await runAstrolabeDynamicReadingRound(
+      source,
+      checkpoint,
+      { ...roundOptions, question },
+      stream,
+    );
+    assert.equal(prompts.length, 1);
+    assert.ok(prompts[0]!.includes(`【原问题】\n${original}`));
+    assert.ok(prompts[0]!.includes(`【本轮问题】\n${question}`));
+    assert.equal(checkpoint.completedPages, state.completedPages);
+    assert.equal(checkpoint.synopsis, state.synopsis);
+    assert.equal(checkpoint.question, original);
+    assert.equal(checkpoint.stage, 'complete');
+  }
+});
+
 test('恢复进度要求同一主体及范围，错误资料不发起模型请求', async () => {
   const checkpoint = await runAstrolabeDynamicReadingRound(
     source,
@@ -283,6 +353,74 @@ test('主解读流程走分轮资料入口，成功后通知当前覆盖而非�
   assert.equal(done, true);
   assert.equal(memory.astrolabeDynamicReading?.completedPages, 1);
   assert.match(notices.join('\n'), /整个区间尚未解读完成/u);
+});
+
+test('首轮动态解读保留聊天输入问题，v1/v2均不以seed原计划替换本轮问题', async () => {
+  const originalQuestion = source.promptOptions!.question!;
+  const initialPrompt = '【原始盘面】西占出生区间资料\n\nCHAT_CAREER_请分析事业发展条件。';
+  for (const version of [1, 2] as const) {
+    const memory: ReadingMemory = {
+      resources: [
+        {
+          key: source.key,
+          title: '西占动态出生区间',
+          text: '',
+          usable: true,
+          dynamicAstrolabe: source,
+        },
+        ...(version === 2
+          ? [{ key: 'notes', title: '补充事实', text: 'SUPPLEMENTAL_FACT', usable: true }]
+          : []),
+      ],
+    };
+    const prompts: string[] = [];
+    let done = 0;
+    await runReadingWorkflow(
+      [{ role: 'user', content: initialPrompt }],
+      {
+        memory,
+        initialPrompt,
+        subject: {
+          id: source.subjectId,
+          source: 'astrolabe',
+          allowedMethods: ['astrolabe'],
+          lockedInputs: {},
+        },
+        readingMethod: 'astrolabe',
+        onChunk() {},
+        onProgress() {},
+        onNotice() {},
+        onDone() {
+          done += 1;
+        },
+        onError(error) {
+          assert.fail(error);
+        },
+      },
+      {
+        async stream(messages, options) {
+          prompts.push(messages[0]!.content);
+          await successfulStream(messages, options);
+        },
+        async execute() {
+          throw new Error('已有动态资料时不应补算');
+        },
+      },
+    );
+    assert.equal(done, 1);
+    assert.equal(memory.astrolabeDynamicReading?.version, version);
+    assert.equal(memory.astrolabeDynamicReading?.question, originalQuestion);
+    assert.equal(memory.astrolabeDynamicReading?.completedPages, 1);
+    assert.equal(prompts.length, 2);
+    for (const prompt of prompts) {
+      assert.ok(prompt.includes(`【原问题】\n${originalQuestion}`));
+      assert.ok(prompt.includes(`【本轮问题】\n${initialPrompt}`));
+    }
+    assert.match(
+      prompts[0]!,
+      version === 1 ? /西洋占星出生时间区间解读/u : /动态出生区间补充资料页/u,
+    );
+  }
 });
 
 test('分轮会话保存续读状态，已完成本页保留在对话中而非当作中断丢弃', async () => {

@@ -41,7 +41,8 @@ test('计算与占卜提示词应在排盘前拒绝无效响应模式', async ()
   }
 });
 
-test('黄历复用证据后整段与分页提示词的日期事实应与原算法一致', async () => {
+test('黄历复用证据后整段与分页提示词的日期事实应与原算法一致', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-06-01T04:00:00Z') });
   const input = { topic: 'contract' as const, startDate: '2026-06-01', endDate: '2026-06-03' };
   const result = generateAlmanacSelection({ ...input, participants: [] });
   const full = await call('divination/almanac', { ...input, detailMode: 'full' });

@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runPnpm } from '../scripts/run-pnpm.mjs';
+import { getCoreTestFiles } from '../packages/core/scripts/run-core-tests.mjs';
+import { getCiTestFiles } from '../scripts/run-ci-tests.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -60,6 +70,90 @@ test('包管理器 JS 入口无需 shebang 或执行位，且使用当前 Node',
           [process.execPath, '--version', '含空格的参数'],
         );
       });
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('CI 分轨保持原完整集合，仅省略同源码领域文件的第二次调度', () => {
+  const manifest = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'));
+  assert.deepEqual(
+    [...manifest.scripts['test:ci:run'].matchAll(/"([^"]+)"/gu)].map((match) => match[1]),
+    [
+      'tests/*.test.ts',
+      'tests/*.test.tsx',
+      'tests/integration/*.test.ts',
+      'tests/api/*.test.ts',
+      'tests/mcp/*.test.ts',
+    ],
+  );
+  const expectedFiles = ['', 'integration', 'api', 'mcp']
+    .flatMap((directory) =>
+      readdirSync(join(repositoryRoot, 'tests', directory), { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            (directory ? entry.name.endsWith('.test.ts') : /\.test\.tsx?$/u.test(entry.name)),
+        )
+        .map((entry) => ['tests', directory, entry.name].filter(Boolean).join('/')),
+    )
+    .sort();
+  const all = getCiTestFiles();
+  const core = getCoreTestFiles();
+  const application = getCiTestFiles({ applicationOnly: true });
+  assert.deepEqual(all, expectedFiles);
+  assert.equal(new Set(core).size, core.length);
+  assert.equal(new Set(application).size, application.length);
+  assert.deepEqual([...new Set([...core, ...application])].sort(), all);
+  const coreSet = new Set(core);
+  const overlap = application.filter((file: string) => coreSet.has(file));
+  assert.equal(overlap.length, 55);
+  assert.ok(overlap.includes('tests/fortune-selection.test.ts'));
+  assert.ok(overlap.includes('tests/core-compatibility-bundle.test.ts'));
+  assert.equal(application.includes('tests/core-birth-bundle.test.ts'), false);
+  assert.equal(application.includes('tests/qimen-lifetime-timezone.test.ts'), false);
+  assert.ok(application.includes('tests/prompt-application-contract.test.ts'));
+  const workflow = readFileSync(join(repositoryRoot, '.github/workflows/ci.yml'), 'utf8');
+  assert.match(workflow, /pnpm test:core:run\s+- run: pnpm test:app:run/u);
+  const listed = spawnSync(
+    process.execPath,
+    [join(repositoryRoot, 'scripts/run-ci-tests.mjs'), '--application', '--list'],
+    { cwd: tmpdir(), encoding: 'utf8' },
+  );
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(listed.stdout.trim().split(/\r?\n/u), application);
+});
+
+test('CI 入口经符号链接仍可列出测试，导入模块不会执行测试或准备数据', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'mingyu-runner-link-'));
+  try {
+    for (const [entry, expected] of [
+      ['scripts/run-ci-tests.mjs', getCiTestFiles()],
+      ['packages/core/scripts/run-core-tests.mjs', getCoreTestFiles()],
+    ] as const) {
+      const target = join(repositoryRoot, entry);
+      const alias = join(directory, entry.startsWith('scripts/') ? 'app.mjs' : 'core.mjs');
+      symlinkSync(target, alias);
+      const listed = spawnSync(process.execPath, [alias, '--list'], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      assert.equal(listed.status, 0, listed.stderr);
+      assert.deepEqual(listed.stdout.trim().split(/\r?\n/u), expected);
+      const imported = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `await import(${JSON.stringify(pathToFileURL(target).href)})`,
+          'non-path-argument',
+        ],
+        { cwd: directory, encoding: 'utf8' },
+      );
+      assert.equal(imported.status, 0, imported.stderr);
+      assert.equal(imported.stdout, '');
+      assert.equal(imported.stderr, '');
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });

@@ -1251,7 +1251,8 @@
   .workspace-result-chart-pane .result-dual-layout,
   .workspace-result-chart-pane .bazi-core-layout,
   .workspace-result-chart-pane .ziwei-layout,
-  .workspace-result-chart-pane .astrolabe-board-layout {
+  .workspace-result-chart-pane .astrolabe-board-layout,
+  .workspace-result-chart-pane .bazhai-board-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }

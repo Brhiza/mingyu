@@ -244,6 +244,138 @@ test('v2模型失败或取消时保留原检查点，重试仍从同一游标开
   );
 });
 
+test('旧v2补充页与动态页追问进入解读和归纳，continue及最终追问保留原计划', async () => {
+  const supplemental = [{ key: 'notes', title: '补充资料', text: 'SAVED_NOTES_'.repeat(900) }];
+  const original = 'ORIGINAL_V2_PLAN_学习安排';
+  let checkpoint = await runAstrolabeDynamicCollectionRound(
+    [sources[0]!],
+    supplemental,
+    undefined,
+    { ...options, question: original },
+    successfulStream,
+  );
+  assert.equal(checkpoint.stage, 'supplemental');
+  checkpoint = JSON.parse(JSON.stringify(checkpoint));
+  const prompts: string[] = [];
+  const stream: AstrolabeDynamicReadingStream = async (messages, callbacks) => {
+    prompts.push(messages[0]!.content);
+    await successfulStream(messages, callbacks);
+  };
+  for (const question of [
+    'SUPPLEMENTAL_FOLLOWUP_事业条件',
+    'PAGE_FOLLOWUP_事业依据',
+    '继续下一批',
+  ]) {
+    const before = structuredClone(checkpoint);
+    prompts.length = 0;
+    checkpoint = await runAstrolabeDynamicCollectionRound(
+      [sources[0]!],
+      supplemental,
+      checkpoint,
+      { ...options, question },
+      stream,
+    );
+    assert.equal(prompts.length, 2);
+    for (const prompt of prompts) {
+      assert.ok(prompt.includes(`【原问题】\n${original}`));
+      assert.ok(prompt.includes(`【本轮问题】\n${question}`));
+      assert.ok(prompt.includes(before.synopsis));
+    }
+    assert.equal(checkpoint.identity, before.identity);
+    assert.equal(checkpoint.question, original);
+    assert.equal(checkpoint.completedPages, before.completedPages + 1);
+    if (before.stage === 'supplemental') {
+      assert.match(prompts[0]!, /动态出生区间补充资料页/u);
+      assert.equal(checkpoint.stage, 'pages');
+    } else {
+      assert.equal(before.stage, 'pages');
+      assert.match(prompts[0]!, /【主体】本人/u);
+      assert.notDeepEqual(checkpoint.cursor, before.cursor);
+    }
+  }
+  while (checkpoint.stage === 'pages') {
+    checkpoint = await runAstrolabeDynamicCollectionRound(
+      [sources[0]!],
+      supplemental,
+      checkpoint,
+      options,
+      successfulStream,
+    );
+  }
+  for (const question of ['SUMMARY_FOLLOWUP_关系条件', 'COMPLETE_FOLLOWUP_财运条件']) {
+    const before = structuredClone(checkpoint);
+    prompts.length = 0;
+    checkpoint = await runAstrolabeDynamicCollectionRound(
+      [sources[0]!],
+      supplemental,
+      checkpoint,
+      { ...options, question },
+      stream,
+    );
+    assert.equal(prompts.length, 1);
+    assert.ok(prompts[0]!.includes(`【原问题】\n${original}`));
+    assert.ok(prompts[0]!.includes(`【本轮问题】\n${question}`));
+    assert.equal(checkpoint.synopsis, before.synopsis);
+    assert.equal(checkpoint.completedPages, before.completedPages);
+    assert.equal(checkpoint.question, original);
+    assert.equal(checkpoint.stage, 'complete');
+  }
+});
+
+test('v2补充页或动态页归纳失败与取消都不推进checkpoint', async () => {
+  const supplemental = [{ key: 'notes', title: '补充资料', text: 'NOTES_'.repeat(1600) }];
+  let checkpoint = await runAstrolabeDynamicCollectionRound(
+    [sources[0]!],
+    supplemental,
+    undefined,
+    options,
+    successfulStream,
+  );
+  for (const stage of ['supplemental', 'pages'] as const) {
+    assert.equal(checkpoint.stage, stage);
+    const before = structuredClone(checkpoint);
+    let failedPage = '';
+    for (const cancel of [false, true]) {
+      let calls = 0;
+      const controller = new AbortController();
+      await assert.rejects(
+        runAstrolabeDynamicCollectionRound(
+          [sources[0]!],
+          supplemental,
+          checkpoint,
+          { ...options, question: 'FOLLOWUP_FAILURE_关注本页', signal: controller.signal },
+          async (messages, callbacks) => {
+            calls += 1;
+            if (calls === 1) {
+              failedPage = messages[0]!.content;
+              await successfulStream(messages, callbacks);
+            } else if (cancel) {
+              controller.abort();
+              callbacks.onDone();
+            } else callbacks.onError('归纳失败');
+          },
+        ),
+        cancel ? { name: 'AbortError' } : /归纳失败/u,
+      );
+      assert.deepEqual(checkpoint, before);
+    }
+    const retryPrompts: string[] = [];
+    checkpoint = await runAstrolabeDynamicCollectionRound(
+      [sources[0]!],
+      supplemental,
+      checkpoint,
+      { ...options, question: 'FOLLOWUP_FAILURE_关注本页' },
+      async (messages, callbacks) => {
+        retryPrompts.push(messages[0]!.content);
+        await successfulStream(messages, callbacks);
+      },
+    );
+    assert.equal(retryPrompts[0], failedPage);
+    assert.equal(checkpoint.completedPages, before.completedPages + 1);
+    assert.equal(checkpoint.question, before.question);
+  }
+});
+
 test('v2恢复时绑定主体身份、summary和promptOptions，跨主体可复用相同来源 key', async () => {
   const checkpoint = await runAstrolabeDynamicCollectionRound(
     sources,

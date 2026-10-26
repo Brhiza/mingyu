@@ -11,6 +11,7 @@ import {
 import type { SitFacingPosition } from 'mingyu-core/direction';
 import type { XuanKongGuaType, XuanKongResult } from 'mingyu-core/xuankong';
 import { LunarDay } from 'tyme4ts';
+import { daysInGregorianMonth } from 'mingyu-core/calendar';
 
 export type ResidentialMeasurement = BaZhaiDoorMeasurement;
 export type ResidentialChartResult = ResidentialFengshuiResult;
@@ -45,6 +46,91 @@ export type ResidentialBirthData = Pick<
   ResidentialChartInput,
   'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' | 'timezone' | 'timeZoneId' | 'gender'
 >;
+
+export type ResidentialChartDraft = {
+  facingDegree: string;
+  houseYear: string;
+  guaType: XuanKongGuaType;
+  flowYear: string;
+  flowMonth: string;
+  flowDay: string;
+};
+
+export type ResidentialChartState = {
+  input: ResidentialChartInput | null;
+  result: ResidentialChartResult | null;
+  measurement: ResidentialMeasurement | null;
+  direction: SitFacingPosition | null;
+  error: string;
+};
+
+/** 编辑草稿保留静态、年、年月和完整日期；无效草稿不降级为另一种时间范围。 */
+export function resolveResidentialChartDraft(
+  draft: ResidentialChartDraft,
+  birthData?: ResidentialBirthData | null,
+): Pick<ResidentialChartState, 'input' | 'direction' | 'error'> {
+  let direction: SitFacingPosition | null = null;
+  try {
+    if (draft.facingDegree.trim()) {
+      direction = resolveResidentialDoorDirection(Number(draft.facingDegree));
+      const facing = direction.facing;
+      if (facing.isBoundary && facing.boundaryMountains) {
+        throw new Error(
+          `当前度数位于${facing.boundaryMountains[0]}向与${facing.boundaryMountains[1]}向的分界线，请重新测量并填写稍偏离分界线的度数。`,
+        );
+      }
+    }
+    if (!birthData && !direction) {
+      throw new Error('请补充出生年月日与性别，或填写大门向屋内度数，至少一项。');
+    }
+    const houseYear = draft.houseYear.trim() ? Number(draft.houseYear) : undefined;
+    if (
+      houseYear !== undefined &&
+      (!Number.isInteger(houseYear) || houseYear < 1 || houseYear > 9999)
+    ) {
+      throw new Error('建造或起运年需为 1-9999 之间的整数。');
+    }
+    const flowYear = draft.flowYear.trim() ? Number(draft.flowYear) : undefined;
+    const flowMonth = draft.flowMonth.trim() ? Number(draft.flowMonth) : undefined;
+    const flowDay = draft.flowDay.trim() ? Number(draft.flowDay) : undefined;
+    if (
+      (flowYear !== undefined &&
+        (!Number.isInteger(flowYear) || flowYear < 1 || flowYear > 9999)) ||
+      (flowMonth !== undefined &&
+        (flowYear === undefined ||
+          !Number.isInteger(flowMonth) ||
+          flowMonth < 1 ||
+          flowMonth > 12)) ||
+      (flowDay !== undefined &&
+        (flowYear === undefined ||
+          flowMonth === undefined ||
+          !Number.isInteger(flowDay) ||
+          flowDay < 1 ||
+          flowDay > daysInGregorianMonth(flowYear, flowMonth)))
+    ) {
+      throw new Error('目标日期无效，请按年份、月份、日期的顺序填写并检查年月日。');
+    }
+    return {
+      input: buildResidentialChartInput({
+        birthData,
+        houseYear,
+        guaType: draft.guaType,
+        ...(direction ? { doorToInteriorDegree: Number(draft.facingDegree) } : {}),
+        flowYear,
+        flowMonth,
+        flowDay,
+      }),
+      direction,
+      error: '',
+    };
+  } catch (error) {
+    return {
+      input: null,
+      direction,
+      error: error instanceof Error ? error.message : '住宅风水资料无效。',
+    };
+  }
+}
 
 type CompleteResidentialBirthDate = Required<
   Pick<ResidentialBirthData, 'year' | 'month' | 'day' | 'gender'>

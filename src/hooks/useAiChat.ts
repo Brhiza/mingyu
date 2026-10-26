@@ -151,6 +151,7 @@ export function useAiChat(
   const turnsRef = useRef<ChatTurn[]>([]);
   const initialPromptRef = useRef('');
   const lastRequestRef = useRef<ChatMessage[]>([]);
+  const lastRequestTimeRef = useRef<number | undefined>(undefined);
   const readingSubjectRef = useRef<ReadingSubjectSnapshot | undefined>(readingSubject);
   const readingSubjectLockedRef = useRef(false);
   const readingMethodRef = useRef<string | undefined>(readingMethod);
@@ -221,6 +222,7 @@ export function useAiChat(
     setProgress('');
     setNotices([]);
     lastRequestRef.current = [];
+    lastRequestTimeRef.current = undefined;
     setTurns([]);
     setStreamingContent('');
     setStatus('idle');
@@ -273,6 +275,7 @@ export function useAiChat(
         nextTurns,
         Boolean(getLatestDynamicReadingCheckpoint(nextTurns)),
       );
+      lastRequestTimeRef.current = undefined;
       setTurns(nextTurns);
       setStreamingContent('');
       const restoredState = resolveRestoredAiChatState(nextTurns, initialPrompt, completionStatus);
@@ -328,11 +331,12 @@ export function useAiChat(
   }, [appendIncompleteTurn]);
 
   const startStream = useCallback(
-    (messages: ChatMessage[]) => {
+    (messages: ChatMessage[], requestTime = Date.now()) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       lastRequestRef.current = [...messages];
+      lastRequestTimeRef.current = requestTime;
 
       setStatus('loading');
       streamingRef.current = '';
@@ -352,6 +356,7 @@ export function useAiChat(
           aiConfig,
           memory: readingMemoryRef.current,
           initialPrompt: initialPromptRef.current,
+          requestTime,
           subject: readingSubjectRef.current,
           readingMethod: readingMethodRef.current,
           onProgress: (value) => {
@@ -492,7 +497,7 @@ export function useAiChat(
       turnsRef.current = nextTurns;
       setTurns(nextTurns);
     }
-    startStream([...lastRequestRef.current]);
+    startStream([...lastRequestRef.current], lastRequestTimeRef.current);
   }, [startStream]);
 
   return {
