@@ -16,12 +16,7 @@ import {
   type BaziFortuneTextBatch,
 } from 'mingyu-core/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
-import {
-  buildBaziFortuneSelectionForDate,
-  buildCurrentBaziFortuneSelectionForScope,
-  buildFortuneSelectionContext,
-  type BaziFortuneSelectionValue,
-} from 'mingyu-core/bazi';
+import { buildFortuneSelectionContext } from 'mingyu-core/bazi';
 import { selectBaziFortuneForZiweiScope } from './fortune-selection';
 import {
   buildAstronomicalTimeEvidence,
@@ -209,7 +204,25 @@ import {
   getPublicApiRuntime,
   type PublicApiRuntime,
 } from './metadata';
-import { RESULT_DETAIL_MODES, shapeCalculationResult } from '../result-detail';
+import { RESULT_DETAIL_MODES } from '../result-detail';
+import {
+  buildCompactBaziResult,
+  buildCompactBaziBatchResult,
+  buildCompactZiweiResult,
+  buildCompactQimenResult,
+  projectCalculationResult,
+  type CalculationSystem,
+} from './result-projection';
+import {
+  planBaziPromptRequest,
+  calculateBaziPromptPlan,
+  planZiweiRequest,
+  resolveZiweiRequestScope,
+  resolveZiweiBatchPlan,
+  resolveZiweiScopeBatchPlan,
+  readNatalBatchCursor,
+  type BaziPromptRequestPlan,
+} from './natal-request-plan';
 import {
   isBirthChartRangeBundle,
   serializeBirthChartRangeBundle,
@@ -259,9 +272,6 @@ const MAX_PUBLIC_API_TEXT_FIELD_LENGTH = 5000;
 const MAX_PUBLIC_API_RESPONSE_BYTES = 1024 * 1024;
 const MAX_ALMANAC_PARTICIPANTS = 30;
 const MAX_ALMANAC_PAGE_SIZE = 31;
-const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
-const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
-const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
 const ONLINE_BAZI_REVERSE_MAX_YEARS = 10;
 const ONLINE_ALMANAC_MAX_DAYS = 7;
 const ONLINE_QIMEN_LIFETIME_MAX_YEARS = 10;
@@ -2828,6 +2838,10 @@ export function getPublicApiOpenApiDocument(
                 '出生秒数；普通排盘提供时分后可省略，省略按 00 秒计算；出生区间模式需与起点时间一致。',
             },
             birthLatitude: { type: 'number', minimum: -90, maximum: 90 },
+            scope: {
+              enum: [...PROMPT_SCOPE_IDS],
+              description: '统一资料范围，优先于旧版 promptScope。',
+            },
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
@@ -3618,6 +3632,7 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
         (input) => calculateBaziApi(input, context.request.signal),
         false,
         true,
+        'bazi',
       );
     case 'bazi/prompt':
       return buildBaziPrompt(await readInput());
@@ -3632,6 +3647,7 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
           calculateZiwei(checkOnlineResourceLimit(context, path, input), context.request.signal),
         false,
         true,
+        'ziwei',
       );
     case 'ziwei/prompt':
       return buildZiweiPrompt(checkOnlineResourceLimit(context, path, await readInput()));
@@ -3660,13 +3676,17 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
     case 'divination/jinkoujue/prompt':
       return buildDivinationPromptResult('jinkoujue', await readInput());
     case 'divination/qimen':
-      return calculateApiResult(context.request, calculateQimenApi, true);
+      return calculateApiResult(context.request, calculateQimenApi, true, false, 'qimen');
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readInput());
     case 'divination/qimen/lifetime':
       return calculateApiResult(
         context.request,
-        (input) => calculateQimenLifetimeApi(checkOnlineResourceLimit(context, path, input)),
+        (input) =>
+          calculateQimenLifetimeApi({
+            ...checkOnlineResourceLimit(context, path, input),
+            detailMode: input.detailMode as (typeof DETAIL_MODES)[number],
+          }),
         true,
       );
     case 'divination/qimen/lifetime/prompt':
@@ -3687,7 +3707,10 @@ async function routeWithoutClassics(context: RouteContext, input?: JsonRecord) {
       return buildDivinationPromptResult('ssgw', await readInput());
     case 'divination/almanac':
       return calculateApiResult(context.request, (input) =>
-        calculateAlmanacApi(checkOnlineResourceLimit(context, path, input)),
+        calculateAlmanacApi({
+          ...checkOnlineResourceLimit(context, path, input),
+          detailMode: input.detailMode as (typeof DETAIL_MODES)[number],
+        }),
       );
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult(
@@ -4027,11 +4050,7 @@ function checkOnlineResourceLimit(context: RouteContext, path: string, input: Js
   }
 
   if (path === 'ziwei/calculate' || path === 'ziwei/prompt') {
-    const selectedScope =
-      path === 'ziwei/prompt'
-        ? toZiweiPromptScope(readSharedPromptSelection(input, 'ziwei')?.scope)
-        : undefined;
-    const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, selectedScope ?? 'decadal');
+    const { scope } = resolveZiweiRequestScope(input);
     if (
       scope === 'full' &&
       (path !== 'ziwei/calculate' || input.birthTimeRange === undefined) &&
@@ -4054,14 +4073,15 @@ async function calculateApiResult(
   calculate: (input: JsonRecord) => unknown | Promise<unknown>,
   optionalBody = false,
   preserveBirthRangeFacts = false,
+  system?: CalculationSystem,
 ) {
   const input = await readJson(request, optionalBody);
   const detailMode = readDetailMode(input);
-  const result = await calculate(input);
+  const result = await calculate({ ...input, detailMode });
   if (preserveBirthRangeFacts && isBirthChartRangeBundle(result)) {
     return result;
   }
-  return shapeCalculationResult(result, detailMode);
+  return projectCalculationResult(result, detailMode, system);
 }
 
 async function calculateInstantChartApi(input: JsonRecord) {
@@ -4514,18 +4534,6 @@ function toZiweiPromptScope(scope: string | undefined): ZiweiPromptScope | undef
     return undefined;
   }
   return scope as ZiweiPromptScope;
-}
-
-function toBaziFortuneScope(scope: string | undefined) {
-  const mapped = {
-    natal: 'natal',
-    full: 'full',
-    decadal: 'dayun',
-    yearly: 'year',
-    monthly: 'month',
-    daily: 'day',
-  } as const;
-  return scope ? mapped[scope as keyof typeof mapped] : undefined;
 }
 
 function calculateBaZhaiApi(input: JsonRecord) {
@@ -5354,37 +5362,10 @@ function resolveZiweiScopeBatch(
   input: JsonRecord,
   scope: ZiweiPromptScope,
 ): { scopes: ScopeType[]; metadata?: BirthRangeScopeBatch } {
-  const requestedScopes = getZiweiPromptCalculationScopes(scope);
-  const value = input.scopeBatch;
-  if (scope !== 'full') {
-    if (value !== undefined) {
-      throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 仅在紫微范围 promptScope=full 时生效。');
-    }
-    return { scopes: requestedScopes };
-  }
-  if (value !== undefined && !isRecord(value)) {
-    throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 必须是对象。');
-  }
-  const availableScopes = requestedScopes;
-  const startIndex = value?.startIndex === undefined ? 0 : readInteger(value, 'startIndex', 0);
-  const limit = value?.limit === undefined ? 1 : readInteger(value, 'limit', 1, 1);
-  if (startIndex >= availableScopes.length) {
-    throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch.startIndex 已超出 full 紫微资料范围。');
-  }
-  const endIndexExclusive = Math.min(startIndex + limit, availableScopes.length);
-  const pageScopes = availableScopes.slice(startIndex, endIndexExclusive);
-  const scopes: ScopeType[] = pageScopes;
-  return {
-    scopes,
-    metadata: {
-      requestedScope: 'full',
-      scopes,
-      startIndex,
-      endIndexExclusive,
-      totalScopes: availableScopes.length,
-      nextIndex: endIndexExclusive < availableScopes.length ? endIndexExclusive : null,
-    },
-  };
+  return resolveZiweiScopeBatchPlan(
+    scope,
+    readNatalBatchCursor(input.scopeBatch, 'scopeBatch') ?? (scope === 'full' ? {} : undefined),
+  );
 }
 
 type ZiweiBatchMetadata = {
@@ -5409,35 +5390,16 @@ function resolvePointZiweiBatchOptions(
   input: JsonRecord,
   scope: ZiweiPromptScope,
 ): ResolvedZiweiBatchOptions {
-  const requestedScopes = getZiweiPromptCalculationScopes(scope);
-  const fortuneBatchInput = readFortuneBatch(input);
-  const hasScopeBatch = input.scopeBatch !== undefined;
-  if (hasScopeBatch && fortuneBatchInput !== undefined) {
-    throw new ApiError(400, 'BAD_REQUEST', 'scopeBatch 与 fortuneBatch 不能同时传入。');
-  }
-  const fortuneScope = toZiweiFortuneRangeScope(scope);
-  if (fortuneBatchInput !== undefined && fortuneScope !== 'all' && fortuneScope !== 'current') {
-    throw new ApiError(400, 'BAD_REQUEST', 'fortuneBatch 仅在紫微运限范围 all 或 current 时生效。');
-  }
-  if (hasScopeBatch) {
-    const scopeResolution = resolveZiweiScopeBatch(input, scope);
-    return {
-      scopes: scopeResolution.scopes,
-      scopeBatch: scopeResolution.metadata,
-      independentBatch: 'scope',
-    };
-  }
-  if (fortuneBatchInput !== undefined) {
-    return {
-      scopes: [],
-      fortuneScope,
-      fortuneBatch: { ...fortuneBatchInput, limit: 1 },
-      independentBatch: 'fortune',
-    };
-  }
+  const batch = resolveZiweiBatchPlan(
+    scope,
+    readNatalBatchCursor(input.scopeBatch, 'scopeBatch'),
+    readNatalBatchCursor(input.fortuneBatch, 'fortuneBatch'),
+  );
   return {
-    scopes: requestedScopes,
-    fortuneScope,
+    ...batch,
+    ...(batch.independentBatch === 'scope'
+      ? {}
+      : { fortuneScope: toZiweiFortuneRangeScope(scope) }),
   };
 }
 
@@ -5665,10 +5627,8 @@ async function calculateBaziApi(input: JsonRecord, signal?: AbortSignal) {
     ? calculateUnknownTimeBaziBatch(person, unknownTimeBatch)
     : undefined;
   const result = calculation?.result ?? baziCalculator.calculateBazi(person);
-  const compact =
-    input.detailMode === 'compact' || (calculation !== undefined && input.detailMode === undefined);
   return {
-    ...(compact ? buildCompactBaziResult(result) : result),
+    ...result,
     ...(calculation ? { batch: { unknownTimeBatch: calculation.batch } } : {}),
   };
 }
@@ -5839,81 +5799,6 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   return variants;
 }
 
-function buildBaziFortuneContextFromInput(
-  result: BaziChartResult,
-  input: JsonRecord,
-  scopeOverride?: (typeof BAZI_FORTUNE_SCOPES)[number],
-) {
-  const scope = scopeOverride ?? readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
-  const fortuneDate = readBaziFortuneDateValue(input, scope);
-  let selection: BaziFortuneSelectionValue;
-  if (fortuneDate) {
-    try {
-      selection = buildBaziFortuneSelectionForDate(
-        result,
-        scope as Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
-        fortuneDate,
-      );
-    } catch (error) {
-      throw new ApiError(
-        400,
-        'BAD_REQUEST',
-        error instanceof Error ? error.message : 'baziFortuneDate 无法解析为八字岁运日期。',
-      );
-    }
-  } else {
-    selection = {
-      scope,
-      cycleIndex:
-        scope === 'natal' || scope === 'full'
-          ? undefined
-          : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
-            ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
-            : undefined,
-      year:
-        scope === 'year' || scope === 'month' || scope === 'day'
-          ? readInteger(input, 'baziFortuneYear', 1900, 2200)
-          : undefined,
-      month:
-        scope === 'month' || scope === 'day'
-          ? readInteger(input, 'baziFortuneMonth', 1, 12)
-          : undefined,
-      day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 33) : undefined,
-    };
-  }
-
-  try {
-    return buildFortuneSelectionContext(result, selection);
-  } catch (error) {
-    throw new ApiError(
-      400,
-      'BAD_REQUEST',
-      error instanceof Error ? error.message : '八字年限参数无效。',
-    );
-  }
-}
-
-function readBaziFortuneDateValue(input: JsonRecord, scope: (typeof BAZI_FORTUNE_SCOPES)[number]) {
-  if (input.baziFortuneDate === undefined) return undefined;
-  if (!['dayun', 'year', 'month', 'day'].includes(scope)) {
-    throw new ApiError(
-      400,
-      'BAD_REQUEST',
-      'baziFortuneDate 仅适用于 dayun、year、month 或 day 八字命限范围。',
-    );
-  }
-  const conflictingField = [
-    'baziFortuneCycleIndex',
-    'baziFortuneYear',
-    'baziFortuneMonth',
-    'baziFortuneDay',
-  ].find((key) => input[key] !== undefined);
-  if (conflictingField) {
-    throw new ApiError(400, 'BAD_REQUEST', `baziFortuneDate 不能与 ${conflictingField} 同时使用。`);
-  }
-  return readDateOnly(input, 'baziFortuneDate').value;
-}
-
 function readOptionalIdentityNumber(input: JsonRecord, key: string) {
   const value = input[key];
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
@@ -5926,10 +5811,11 @@ function readOptionalIdentityNumber(input: JsonRecord, key: string) {
 
 function buildBaziCalculationIdentity(
   input: JsonRecord,
+  person: Person,
+  plan: BaziPromptRequestPlan,
   fortuneScope: (typeof BAZI_FORTUNE_SCOPES)[number],
   fortuneSelectionContext: ReturnType<typeof buildFortuneSelectionContext>,
 ) {
-  const person = readBaziPerson(input);
   const birth: JsonRecord = {
     gender: person.gender,
     year: person.year,
@@ -5959,10 +5845,10 @@ function buildBaziCalculationIdentity(
   if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
 
   const target: JsonRecord = { baziFortuneScope: fortuneScope };
-  if (person.timeIndex === -1) {
-    target.unknownTimeBatch = { startIndex: readBaziUnknownTimeBatch(input, person)!.startIndex };
+  if (plan.unknownTimeBatch) {
+    target.unknownTimeBatch = { startIndex: plan.unknownTimeBatch.startIndex };
   }
-  const fortuneBatch = readFortuneBatch(input);
+  const fortuneBatch = plan.fortuneBatch;
   if (fortuneBatch) target.fortuneBatch = { startIndex: fortuneBatch.startIndex ?? 0, limit: 1 };
   if (fortuneSelectionContext) {
     const targetFields: Record<string, unknown> = {
@@ -5975,8 +5861,8 @@ function buildBaziCalculationIdentity(
       if (value !== undefined) target[key] = value;
     }
   }
-  if (input.baziFortuneDate !== undefined) {
-    target.baziFortuneDate = readDateOnly(input, 'baziFortuneDate').value;
+  if (plan.fortuneDate !== undefined) {
+    target.baziFortuneDate = plan.fortuneDate;
   }
   return { method: 'bazi', birth, target };
 }
@@ -5984,62 +5870,16 @@ function buildBaziCalculationIdentity(
 function buildBaziPrompt(input: JsonRecord) {
   const question = readRequiredString(input, 'question');
   const person = readBaziPerson(input);
-  const unknownTimeBatch = readBaziUnknownTimeBatch(input, person);
-  const selection = readSharedPromptSelection(input, 'bazi');
-  const selectedFortuneScope =
-    input.baziFortuneScope === undefined && !unknownTimeBatch
-      ? toBaziFortuneScope(selection?.scope)
-      : undefined;
-  const requestedFortuneScope = readEnum(
-    input,
-    'baziFortuneScope',
-    BAZI_FORTUNE_SCOPES,
-    selectedFortuneScope ?? (unknownTimeBatch ? 'natal' : 'dayun'),
-  );
-  const useCurrentFortuneDefaults =
-    input.baziFortuneScope === undefined &&
-    input.baziFortuneDate === undefined &&
-    requestedFortuneScope !== 'natal' &&
-    requestedFortuneScope !== 'full';
-  const fortuneBatch = readFortuneBatch(input);
-  if (fortuneBatch && (requestedFortuneScope !== 'full' || input.scopeBatch !== undefined)) {
-    throw new ApiError(
-      400,
-      'BAD_REQUEST',
-      '八字 fortuneBatch 仅支持完整命限，且不能与 scopeBatch 同传。',
-    );
-  }
-  let fortuneTextBatch: BaziFortuneTextBatch | undefined;
-  const unknownCalculation = unknownTimeBatch
-    ? calculateUnknownTimeBaziBatch(person, unknownTimeBatch)
-    : undefined;
-  let result: BaziChartResult;
-  if (unknownCalculation) {
-    result = unknownCalculation.result;
-  } else if (fortuneBatch) {
-    try {
-      const calculation = calculateBaziBatch(input, {
-        section: 'fortune',
-        startIndex: fortuneBatch.startIndex ?? 0,
-      });
-      result = calculation.result;
-      fortuneTextBatch = formatCalculatedBaziFortuneBatch(result, calculation.batch!);
-    } catch (error) {
-      if (error instanceof RangeError) throw new ApiError(400, 'BAD_REQUEST', error.message);
-      throw error;
-    }
-  } else {
-    result = baziCalculator.calculateBazi(person);
-  }
-  const currentSelection = useCurrentFortuneDefaults
-    ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
-    : null;
-  const fortuneScope =
-    useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
+  const plan = planBaziPromptRequest(input, person, new Date());
+  const {
+    result,
+    fortuneScope,
+    fortuneSelectionContext,
+    fortuneTextBatch,
+    unknownTimeBatch,
+    selection,
+  } = calculateBaziPromptPlan(person, plan);
   const returnedResult = result;
-  const fortuneSelectionContext = currentSelection
-    ? buildFortuneSelectionContext(result, currentSelection)
-    : buildBaziFortuneContextFromInput(result, input, fortuneScope);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -6067,6 +5907,8 @@ function buildBaziPrompt(input: JsonRecord) {
       ...returnedResult,
       calculationIdentity: buildBaziCalculationIdentity(
         input,
+        person,
+        plan,
         fortuneScope,
         fortuneSelectionContext,
       ),
@@ -6078,8 +5920,8 @@ function buildBaziPrompt(input: JsonRecord) {
         : buildCompactBaziResult(returnedResult)),
       ...(selection ? { selection } : {}),
     },
-    ...(unknownCalculation
-      ? { batch: { unknownTimeBatch: unknownCalculation.batch } }
+    ...(unknownTimeBatch
+      ? { batch: { unknownTimeBatch } }
       : fortuneTextBatch
         ? { batch: { fortuneBatch: fortuneTextBatch.batch } }
         : {}),
@@ -6196,6 +6038,7 @@ async function calculateZiweiRuntime(
     fortuneScope?: ZiweiFortuneRangeScope;
     fortuneBatch?: ZiweiFortuneBatchInput;
     scopeDate?: string;
+    horoscopeContext?: { dateStr: string; hourIndex: number };
     independentBatch?: 'scope' | 'fortune';
   } = {},
 ) {
@@ -6242,8 +6085,8 @@ async function calculateZiweiRuntime(
     algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
       'default' | 'zhongzhou',
   });
-  const currentContext = getDefaultHoroscopeContext();
-  const horoscopeContext = {
+  const currentContext = options.horoscopeContext ?? getDefaultHoroscopeContext();
+  const horoscopeContext = options.horoscopeContext ?? {
     dateStr: options.scopeDate ?? currentContext.dateStr,
     hourIndex: optInt(input, 'scopeHourIndex', 0, 12) ?? currentContext.hourIndex,
   };
@@ -6345,14 +6188,14 @@ async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
       return throwBirthRangeApiError(error, '紫微出生时间范围参数无效。');
     }
   }
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'decadal') as ZiweiPromptScope;
-  const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+  const plan = planZiweiRequest(input, getDefaultHoroscopeContext());
+  const batchOptions = { ...plan, fortuneScope: plan.fortuneRange?.scope };
   let runtime: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
   try {
     runtime = await calculateZiweiRuntime(input, batchOptions.scopes, {
       fortuneScope: batchOptions.fortuneScope,
       fortuneBatch: batchOptions.fortuneBatch,
-      scopeDate: readOptionalZiweiScopeDate(input),
+      horoscopeContext: batchOptions.horoscopeContext,
       independentBatch: batchOptions.independentBatch,
     });
   } catch (error) {
@@ -6362,9 +6205,8 @@ async function calculateZiwei(input: JsonRecord, signal?: AbortSignal) {
     throw error;
   }
   const result = buildSerializableZiweiResult(runtime);
-  const shaped = input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
   const batch = getZiweiBatchMetadata(runtime, batchOptions.scopeBatch);
-  return batch ? { ...shaped, batch } : shaped;
+  return batch ? { ...result, batch } : result;
 }
 
 function buildZiweiCalculationIdentity(
@@ -6423,21 +6265,15 @@ function buildZiweiCalculationIdentity(
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
-  const selection = readSharedPromptSelection(input, 'ziwei');
-  const selectedScope = toZiweiPromptScope(selection?.scope);
-  const scope = readEnum(
-    input,
-    'promptScope',
-    ZIWEI_PROMPT_SCOPES,
-    selectedScope ?? 'decadal',
-  ) as ZiweiPromptScope;
-  const batchOptions = resolvePointZiweiBatchOptions(input, scope);
+  const plan = planZiweiRequest(input, getDefaultHoroscopeContext());
+  const { scope, selection } = plan;
+  const batchOptions = { ...plan, fortuneScope: plan.fortuneRange?.scope };
   let result: Awaited<ReturnType<typeof calculateZiweiRuntime>>;
   try {
     result = await calculateZiweiRuntime(input, batchOptions.scopes, {
       fortuneScope: batchOptions.fortuneScope,
       fortuneBatch: batchOptions.fortuneBatch,
-      scopeDate: readOptionalZiweiScopeDate(input),
+      horoscopeContext: batchOptions.horoscopeContext,
       independentBatch: batchOptions.independentBatch,
     });
   } catch (error) {
@@ -7150,8 +6986,7 @@ function calculateQimen(input: JsonRecord) {
 }
 
 function calculateQimenApi(input: JsonRecord) {
-  const result = calculateQimen(input);
-  return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
+  return calculateQimen(input);
 }
 
 function readQimenLifetimeTopics(input: JsonRecord): QimenLifetimeInput['topics'] {
@@ -7209,7 +7044,9 @@ function readQimenLifetimeLocation(input: JsonRecord): QimenLifetimeInput['locat
   };
 }
 
-function calculateQimenLifetimeApi(input: JsonRecord) {
+function calculateQimenLifetimeApi(
+  input: JsonRecord & { detailMode: (typeof DETAIL_MODES)[number] },
+) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const birthDateTime = readString(input, 'birthDateTime', '');
   if (!birthDateTime) {
@@ -7238,7 +7075,7 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     name: typeof input.name === 'string' ? input.name : undefined,
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
-    detailMode: readDetailMode(input),
+    detailMode: input.detailMode,
   };
   let result: QimenLifetimeData;
   try {
@@ -7586,9 +7423,9 @@ function calculateAlmanac(input: JsonRecord) {
   }
 }
 
-function calculateAlmanacApi(input: JsonRecord) {
+function calculateAlmanacApi(input: JsonRecord & { detailMode: (typeof DETAIL_MODES)[number] }) {
   const result = calculateAlmanac(input);
-  return shapeAlmanacResult(result, input);
+  return shapeAlmanacResult(result, input, undefined, input.detailMode);
 }
 
 function calculateLenormand(input: JsonRecord) {
@@ -8212,199 +8049,6 @@ function buildPromptApiResult(params: {
   };
 }
 
-function buildCompactBaziResult(result: BaziChartResult) {
-  const decision = result.analysis.usefulGod.decisionEvidence;
-  return {
-    ...(result.unknownTimeAnalysis
-      ? {
-          isThreePillars: true,
-          unknownTimeAnalysis: result.unknownTimeAnalysis,
-          warningFacts: result.warningFacts,
-          warningSummaryFact: result.warningSummaryFact,
-        }
-      : {}),
-    gender: result.gender,
-    solarDate: result.solarDate,
-    lunarDate: result.lunarDate,
-    timeInfo: result.timeInfo,
-    pillars: result.pillars,
-    dayMaster: result.dayMaster,
-    zodiac: result.zodiac,
-    constellation: result.constellation,
-    mingGua: result.mingGua,
-    wuxingStrength: result.wuxingStrength,
-    analysis: {
-      ...result.analysis,
-      usefulGod: {
-        ...result.analysis.usefulGod,
-        decisionEvidence: decision
-          ? {
-              base: decision.base,
-              appliedLayers: decision.appliedLayers,
-              conflicts: decision.conflicts,
-              climateCandidates: decision.climateCandidates.filter(
-                (candidate) => candidate.adopted || candidate.status === '冲突',
-              ),
-              controlFunctions: decision.controlFunctions?.map((path) => ({
-                label: path.label,
-                status: path.status,
-                sourceStems: path.sourceStems,
-                targetStems: path.targetStems,
-                baseFavorableStems: path.baseFavorableStems,
-                baseUnfavorableStems: path.baseUnfavorableStems,
-                evidenceGaps: path.evidenceGaps,
-              })),
-              natalFunctions: decision.natalFunctions,
-              patternBreakerRestrictions: decision.patternBreakerRestrictions,
-              transformation: decision.transformation,
-            }
-          : undefined,
-      },
-    },
-    mingGong: result.mingGong,
-    shenGong: result.shenGong,
-    taiYuan: result.taiYuan,
-    taiXi: result.taiXi,
-    kongWang: result.kongWang,
-    shensha: result.shensha,
-    monthCommander: result.monthCommander,
-    luckInfo: {
-      startInfo: result.luckInfo.startInfo,
-      cycles: result.luckInfo.cycles.map((cycle) => ({
-        age: cycle.age,
-        year: cycle.year,
-        ganZhi: cycle.ganZhi,
-      })),
-    },
-    warnings: result.warnings,
-  };
-}
-
-/** 显式八字分批摘要保留本页唯一运段与流年；普通摘要继续沿用既有紧凑结构。 */
-function buildCompactBaziBatchResult(result: BaziChartResult) {
-  const compact = buildCompactBaziResult(result);
-  return {
-    ...compact,
-    liunian: result.liunian ?? [],
-    luckInfo: {
-      ...compact.luckInfo,
-      cycles: result.luckInfo.cycles.map((cycle) => ({
-        age: cycle.age,
-        year: cycle.year,
-        ganZhi: cycle.ganZhi,
-        isXiaoyun: cycle.isXiaoyun,
-        type: cycle.type,
-        startSolarTime: cycle.startSolarTime,
-        endSolarTime: cycle.endSolarTime,
-        years: cycle.years,
-        resolvedYears: cycle.resolvedYears ?? cycle.years,
-      })),
-    },
-  };
-}
-
-function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiweiResult>) {
-  return {
-    basicInfo: result.basicInfo,
-    calculationConfig: result.calculationConfig,
-    scopeNames: result.scopeNames,
-    evidenceSummaryByScope: Object.fromEntries(
-      Object.entries(result.payloadByScope).map(([scope, payload]) => [
-        scope,
-        payload.evidence_analysis
-          ? {
-              status: payload.evidence_analysis.status,
-              summaryFact: buildCompactZiweiEvidenceSummaryFact(
-                payload.evidence_analysis.summaryFact,
-              ),
-            }
-          : undefined,
-      ]),
-    ),
-    patternSummaryByScope: Object.fromEntries(
-      Object.entries(result.payloadByScope).map(([scope, payload]) => [
-        scope,
-        payload.pattern_analysis
-          ? {
-              status: payload.pattern_analysis.status,
-              summaryFact: buildCompactZiweiPatternSummaryFact(
-                payload.pattern_analysis.summaryFact,
-              ),
-            }
-          : undefined,
-      ]),
-    ),
-    activeScopes: Object.fromEntries(
-      Object.entries(result.payloadByScope).map(([scope, payload]) => [
-        scope,
-        {
-          active_scope: payload.active_scope,
-          palaces: payload.palaces.map((palace) => ({
-            index: palace.index,
-            name: palace.name,
-            is_body_palace: palace.is_body_palace,
-            major_stars: palace.major_stars.map((star) => ({
-              name: star.name,
-              brightness: star.brightness,
-              birth_mutagen: star.birth_mutagen,
-            })),
-          })),
-        },
-      ]),
-    ),
-    birthMutagens: result.birthMutagens,
-    fourMutagens: result.fourMutagens,
-    命宫: result.命宫,
-    身宫: result.身宫,
-    五行局: result.五行局,
-    四化: result.四化,
-    ...(result.natalFacts ? { natalFacts: result.natalFacts } : {}),
-    ...(result.fortuneTimeline?.batch ? { fortuneTimeline: result.fortuneTimeline } : {}),
-  };
-}
-
-function buildCompactZiweiEvidenceSummaryFact(
-  summaryFact: NonNullable<
-    ReturnType<
-      typeof buildSerializableZiweiResult
-    >['payloadByScope'][ScopeType]['evidence_analysis']
-  >['summaryFact'],
-) {
-  return {
-    key: summaryFact.key,
-    status: summaryFact.status,
-    evidenceFactCount: summaryFact.evidenceFactCount,
-    natalFactCount: summaryFact.natalFactCount,
-    scopeFactCount: summaryFact.scopeFactCount,
-    primaryFactCount: summaryFact.primaryFactCount,
-    supportingFactCount: summaryFact.supportingFactCount,
-    missingFactCount: summaryFact.missingFactCount,
-    counterEvidenceCount: summaryFact.counterEvidenceCount,
-    limitationFactCount: summaryFact.limitationFactCount,
-  };
-}
-
-function buildCompactZiweiPatternSummaryFact(
-  summaryFact: NonNullable<
-    ReturnType<typeof buildSerializableZiweiResult>['payloadByScope'][ScopeType]['pattern_analysis']
-  >['summaryFact'],
-) {
-  return {
-    key: summaryFact.key,
-    status: summaryFact.status,
-    registeredRuleCount: summaryFact.registeredRuleCount,
-    evaluatedRuleCount: summaryFact.evaluatedRuleCount,
-    unevaluatedRuleCount: summaryFact.unevaluatedRuleCount,
-    matchedPatternCount: summaryFact.matchedPatternCount,
-    unmatchedRuleCount: summaryFact.unmatchedRuleCount,
-    auspiciousPatternCount: summaryFact.auspiciousPatternCount,
-    inauspiciousPatternCount: summaryFact.inauspiciousPatternCount,
-    neutralPatternCount: summaryFact.neutralPatternCount,
-    counterEvidenceCount: summaryFact.counterEvidenceCount,
-    limitationFactCount: summaryFact.limitationFactCount,
-  };
-}
-
 function buildCompactAstrolabeSynastrySummaryFact(
   summaryFact: ReturnType<typeof analyzeAstrolabeSynastry>['summaryFact'],
 ) {
@@ -8421,79 +8065,6 @@ function buildCompactAstrolabeSynastrySummaryFact(
     coreHouseOverlayCount: summaryFact.coreHouseOverlayCount,
     aspectTypeCounts: summaryFact.aspectTypeCounts,
     tendencyCounts: summaryFact.tendencyCounts,
-  };
-}
-
-function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
-  const classicPatterns = (result.classicPatterns ?? []).slice(
-    0,
-    MAX_COMPACT_QIMEN_CLASSIC_PATTERNS,
-  );
-  const patternCombos = (result.patternCombos ?? []).slice(0, MAX_COMPACT_QIMEN_PATTERN_COMBOS);
-
-  return {
-    scope: result.scope,
-    timeInfo: result.timeInfo,
-    ganzhi: result.ganzhi,
-    isYangDun: result.isYangDun,
-    juShu: result.juShu,
-    zhiFu: result.zhiFu,
-    zhiShi: result.zhiShi,
-    patternTags: result.patternTags,
-    patternDetails: result.patternDetails,
-    palaceInsights: (result.palaceInsights ?? []).slice(0, MAX_COMPACT_QIMEN_PALACE_INSIGHTS),
-    palaceInsightTotal: result.palaceInsights?.length ?? 0,
-    voidBranches: result.voidBranches,
-    voidPalaces: result.voidPalaces,
-    horseStar: result.horseStar,
-    specialConditions: result.specialConditions,
-    seasonality: result.seasonality,
-    jiuGongGe: result.jiuGongGe.map((palace) => ({
-      gong: palace.gong,
-      name: palace.name,
-      direction: palace.direction,
-      element: palace.element,
-      tianPan: palace.tianPan,
-      diPan: palace.diPan,
-      renPan: palace.renPan,
-      shenPan: palace.shenPan,
-    })),
-    classicPatternTotal: result.classicPatterns?.length ?? 0,
-    classicPatterns: classicPatterns.map((pattern) => ({
-      name: pattern.name,
-      type: pattern.type,
-      summary: pattern.summary,
-      palaces: pattern.palaces,
-    })),
-    stemRelations: result.stemRelations,
-    patternComboTotal: result.patternCombos?.length ?? 0,
-    patternCombos: patternCombos.map((combo) => ({
-      key: combo.key,
-      name: combo.name,
-      tone: combo.tone,
-      summary: combo.summary,
-      palace: combo.palace,
-    })),
-    directions: result.directions
-      ? {
-          goodDirections: result.directions.goodDirections.map((item) => ({
-            gong: item.gong,
-            name: item.name,
-            direction: item.direction,
-            use: item.use,
-            reasons: item.reasons,
-          })),
-          avoidDirections: result.directions.avoidDirections.map((item) => ({
-            gong: item.gong,
-            name: item.name,
-            direction: item.direction,
-            use: item.use,
-            reasons: item.reasons,
-          })),
-        }
-      : undefined,
-    yingQi: result.yingQi,
-    timestamp: result.timestamp,
   };
 }
 
@@ -8557,8 +8128,8 @@ function shapeAlmanacResult(
   result: AlmanacData,
   input: JsonRecord,
   selectedResult?: AlmanacData,
+  detailMode = readDetailMode(input),
 ): AlmanacApiResult {
-  const detailMode = readDetailMode(input);
   const { shouldPaginate, selectedDays, pagination } = readAlmanacPageSelection(result, input);
   const days = detailMode === 'compact' ? selectedDays.map(compactAlmanacDay) : selectedDays;
 
@@ -9101,7 +8672,10 @@ function handleError(error: unknown, runtime: PublicApiRuntime) {
   if (error instanceof ApiError) {
     return json(failure(error.code, error.message, runtime), error.status);
   }
-  if (error instanceof MingyuCoreError && error.category === 'validation') {
+  if (
+    (error instanceof MingyuCoreError && error.category === 'validation') ||
+    (error instanceof RangeError && error.name === 'MingyuCoreRangeError')
+  ) {
     return json(failure('BAD_REQUEST', error.message, runtime), 400);
   }
 

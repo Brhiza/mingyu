@@ -24,11 +24,7 @@ import {
   type ZiweiSchool,
 } from '../../../src/lib/public-api/prompt-builders.js';
 import { promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { readMcpPromptSelection } from './prompt-helpers.js';
 import { buildBaziPerson, unknownTimeBatchSchema } from './bazi.js';
 import {
@@ -376,7 +372,7 @@ export function registerBaziZiweiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成八字紫微合参提示词失败'));
+        return createErrorToolResult(error, { message: '生成八字紫微合参提示词失败' });
       }
     },
   );

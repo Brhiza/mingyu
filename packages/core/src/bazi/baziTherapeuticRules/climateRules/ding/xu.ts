@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const DING_XU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'xu-month-ding-geng-jia-first',
+    recommendationStems: ['甲', '庚'],
     label: '丁日戌月甲庚并用规则',
     description: '丁火生戌月，九月专用甲庚，甲木引丁而庚金劈甲。',
     priority: 119,

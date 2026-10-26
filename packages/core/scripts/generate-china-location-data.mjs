@@ -4,9 +4,12 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const sourcePath = fileURLToPath(new URL('../data/chinaBirthPlaceTree.json', import.meta.url));
+const sourceOnly = process.argv.includes('--source-only');
 const targetPaths = [
   fileURLToPath(new URL('../src/location/china-data.js', import.meta.url)),
-  fileURLToPath(new URL('../dist/location/china-data.js', import.meta.url)),
+  ...(sourceOnly
+    ? []
+    : [fileURLToPath(new URL('../dist/location/china-data.js', import.meta.url))]),
 ];
 const tree = JSON.parse(readFileSync(sourcePath, 'utf8'));
 

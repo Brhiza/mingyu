@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { huangjiJingshi } from 'mingyu-core';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { createPromptSchoolsShape } from './school-options.js';
 import { readMcpCustomDate } from './input-helpers.js';
 
@@ -293,7 +289,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
         const result = calculateHuangjiJingshi(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '皇极经世周期换算失败'));
+        return createErrorToolResult(error, { message: '皇极经世周期换算失败' });
       }
     },
   );
@@ -317,7 +313,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成皇极经世提示词失败'));
+        return createErrorToolResult(error, { message: '生成皇极经世提示词失败' });
       }
     },
   );
@@ -335,7 +331,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
         const result = calculateHuangjiReference(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '皇极经世扩展资料查询失败'));
+        return createErrorToolResult(error, { message: '皇极经世扩展资料查询失败' });
       }
     },
   );

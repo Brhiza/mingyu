@@ -12,11 +12,7 @@ import {
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import {
   buildCommonDivinationPrompt,
   extendOptionalQuestionPromptSchema,
@@ -284,7 +280,7 @@ export function registerAstrolabeTool(server: McpServer, options?: RegisterAstro
         const result = buildAstrolabeResult(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '星盘生成失败'));
+        return createErrorToolResult(error, { message: '星盘生成失败' });
       }
     },
   );
@@ -326,7 +322,7 @@ export function registerAstrolabeTool(server: McpServer, options?: RegisterAstro
           ),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成星盘提示词失败'));
+        return createErrorToolResult(error, { message: '生成星盘提示词失败' });
       }
     },
   );
@@ -346,7 +342,7 @@ export function registerAstrolabeTool(server: McpServer, options?: RegisterAstro
           args.detailMode,
         );
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '西占双盘计算失败'));
+        return createErrorToolResult(error, { message: '西占双盘计算失败' });
       }
     },
   );
@@ -380,7 +376,7 @@ export function registerAstrolabeTool(server: McpServer, options?: RegisterAstro
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成西占双盘提示词失败'));
+        return createErrorToolResult(error, { message: '生成西占双盘提示词失败' });
       }
     },
   );

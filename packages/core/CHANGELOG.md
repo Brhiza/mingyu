@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- REST/MCP 八字、紫微与奇门计算统一省略模式与显式 `detailMode: "compact"` 的领域投影。依赖完整岁运、紫微 `payloadByScope` 或完整证据的消费者需显式传 `full`；随机重放与分页元数据保留。
+- 八字/紫微单盘统一范围优先级：`scope` 优先于旧 `baziFortuneScope` / `promptScope`，仅传旧字段继续兼容。修复八宅输入错误分类及 MCP 随机重放、分页游标错误的结构丢失。
+- MCP 受控核心错误保留 `category/field/recoverable`；重放耗尽现在返回 `RANDOM_REPLAY_EXHAUSTED`，游标越界返回 `INVALID_ARGUMENTS` 且 `retryable: false`，调用方应按字段与续取建议修正。输入/边界、不支持和依赖错误分别映射 `INVALID_ARGUMENTS`、`OPERATION_UNSUPPORTED`、`DEPENDENCY_UNAVAILABLE`；原生 `RangeError` 的 instanceof 契约保留。
+
 ## 0.4.2 (2026-10-08)
 
 - 精简发布包 JavaScript 空白，保留类型文档、模块入口与完整算法资料。

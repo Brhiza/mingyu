@@ -13,12 +13,130 @@ import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
 import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
 import { HIDDEN_STEMS, SEASON_STATUS } from '@core/bazi/baziDefinitions';
-import type { Wuxing } from '@core/bazi/baziTypes';
+import type { HiddenStems, Pillars, Wuxing } from '@core/bazi/baziTypes';
+import * as internalStrength from '@core/bazi/baziStrengthInternal';
+import { BaziAnalyzer } from '@core/bazi/baziAnalysis';
+import { createBaziAnalysisPipeline } from '@core/bazi/baziAnalysisPipeline';
+import { determinePattern } from '@core/bazi/baziPatternStrategy';
+import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
+import { getTenGod } from '@core/bazi/baziUtils';
 import {
   collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
 } from '@core/bazi/baziFormationUtils';
 import { WuxingCalculator } from '@core/bazi/WuxingCalculator';
+
+test('正式旺衰、格局和取用按结构来源判断，改显示括号不改变算法或泄漏私有字段', () => {
+  const wuxing = getWuxing as (value: string) => Wuxing;
+  const analyzer = new BaziAnalyzer(wuxing, getTenGod, getSeasonStatus);
+  const sourceKinds = new Set<string>();
+  for (const [values, commander] of [
+    [['丙申', '己巳', '甲子', '壬申'], '丙'],
+    [['乙丑', '辛卯', '戊辰', '戊辰'], '乙'],
+    [['甲寅', '丙寅', '甲寅', '甲子'], '甲'],
+    [['癸亥', '癸亥', '丙申', '壬辰'], '壬'],
+    [['乙亥', '己亥', '癸亥', '丁亥'], '甲'],
+    [['癸卯', '乙未', '丁亥', '己卯'], '己'],
+  ] as const) {
+    const keys = ['year', 'month', 'day', 'hour'] as const;
+    const pillars = Object.fromEntries(
+      values.map((value, i) => [keys[i], { gan: value[0], zhi: value[1], ganZhi: value }]),
+    ) as Pillars;
+    const hidden = Object.fromEntries(
+      keys.map((key) => [key, HIDDEN_STEMS[pillars[key].zhi]]),
+    ) as HiddenStems;
+    const dm = pillars.day.gan;
+    const root = internalStrength.analyzeRoot(dm, pillars, hidden, wuxing);
+    const support = internalStrength.analyzeSupport(dm, pillars, hidden, wuxing);
+    const constraint = internalStrength.analyzeConstraint(dm, pillars, hidden, wuxing);
+    const formation = analyzeFormation(dm, pillars, wuxing);
+    const season = analyzeSeasonalStatus(dm, pillars.month.zhi, getSeasonStatus, wuxing, commander);
+    for (const item of [...root.roots, ...support.supporters, ...constraint.constraints])
+      sourceKinds.add(item.source);
+    assert.ok(
+      root.roots.every((item) => item.hiddenIndex !== undefined && item.hiddenRole !== undefined),
+    );
+    const legacyRoot = analyzeRoot(dm, pillars, hidden, wuxing);
+    const legacySupport = analyzeSupport(dm, pillars, hidden, wuxing);
+    const legacyConstraint = analyzeConstraint(dm, pillars, hidden, wuxing);
+    assert.deepEqual(legacyRoot, {
+      ...root,
+      roots: root.roots.map(
+        ({ source: _source, hiddenIndex: _index, hiddenRole: _role, ...item }) => item,
+      ),
+    });
+    assert.deepEqual(legacySupport, {
+      ...support,
+      supporters: support.supporters.map(({ source: _source, ...item }) => item),
+    });
+    assert.deepEqual(legacyConstraint, {
+      ...constraint,
+      constraints: constraint.constraints.map(({ source: _source, ...item }) => item),
+    });
+    const internal = internalStrength.analyzeDayMasterStrength(
+      season,
+      formation,
+      root,
+      support,
+      constraint,
+    );
+    assert.deepEqual(
+      analyzeDayMasterStrength(season, formation, legacyRoot, legacySupport, legacyConstraint),
+      internal,
+    );
+    assert.deepEqual(
+      analyzeDayMasterStrength(
+        season,
+        formation,
+        JSON.parse(JSON.stringify(legacyRoot)),
+        JSON.parse(JSON.stringify(legacySupport)),
+        JSON.parse(JSON.stringify(legacyConstraint)),
+      ),
+      internal,
+    );
+    const baseline = analyzer.analyzeBaziChart(pillars, hidden, commander);
+    for (const mode of ['全角括号', '所有标签含ASCII括号'] as const) {
+      const label = (value: string) =>
+        mode === '全角括号' ? value.replaceAll('(', '（').replaceAll(')', '）') : `显示(${value})`;
+      const pipeline = createBaziAnalysisPipeline({
+        getWuxing: wuxing,
+        getTenGod,
+        getSeasonStatus,
+        analyzeFormation,
+        analyzeSeasonalStatus,
+        analyzeRoot: () => ({
+          ...root,
+          roots: root.roots.map((item) => ({ ...item, branch: label(item.branch) })),
+        }),
+        analyzeSupport: () => ({
+          ...support,
+          supporters: support.supporters.map((item) => ({ ...item, stem: label(item.stem) })),
+        }),
+        analyzeConstraint: () => ({
+          ...constraint,
+          constraints: constraint.constraints.map((item) => ({ ...item, stem: label(item.stem) })),
+        }),
+        analyzeDayMasterStrength: internalStrength.analyzeDayMasterStrength,
+        determinePattern,
+        determineUsefulGod,
+      });
+      assert.deepEqual(
+        pipeline.run({ pillars, hiddenStems: hidden, monthCommander: commander }),
+        baseline,
+        `${values.join('/')} ${mode}`,
+      );
+    }
+    assert.doesNotMatch(
+      JSON.stringify([legacyRoot, legacySupport, legacyConstraint, baseline.dayMasterStrength]),
+      /"source"|"hiddenIndex"|"hiddenRole"/u,
+    );
+    assert.doesNotMatch(
+      JSON.stringify(baseline),
+      /"source":"(?:visible-stem|branch-main-qi|hidden-qi)"/u,
+    );
+  }
+  assert.deepEqual([...sourceKinds].sort(), ['branch-main-qi', 'hidden-qi', 'visible-stem']);
+});
 
 test('月令司令天干应进入日主旺衰条件判断，避免辰戌丑未只按月支本气粗断', () => {
   const seasonalStatus = analyzeSeasonalStatus(

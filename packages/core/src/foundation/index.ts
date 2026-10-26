@@ -15,7 +15,8 @@ import { describeGanZhi, getBranchRelations, getStemRelations } from '../ganzhi'
 import { WUXING, analyzeWuxing } from '../wuxing';
 import { getBaguaNames, getTwentyFourMountainNames, analyzeCompassDirection } from '../direction';
 import { analyzeShenshaEvidence, listShenshaCatalog } from '../shensha';
-import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
+import { CHINA_DST_YEARS } from '../calendar/china-dst';
+import { SHICHEN_PERIODS } from '../calendar/dateUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 

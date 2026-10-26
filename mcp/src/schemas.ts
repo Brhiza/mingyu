@@ -91,6 +91,19 @@ export function withErrorOutputSchema<T extends z.ZodRawShape>(successShape: T) 
       ...optionalSuccessShape,
       error: z.string().optional().describe('业务错误信息'),
       code: z.string().optional().describe('结构化业务错误码'),
+      category: z
+        .enum([
+          'validation',
+          'boundary',
+          'unsupported',
+          'dependency',
+          'calculation',
+          'serialization',
+        ])
+        .optional()
+        .describe('核心错误类别'),
+      field: z.string().optional().describe('需修正的输入字段'),
+      recoverable: z.boolean().optional().describe('核心错误是否可由修正输入或环境恢复'),
       missingFields: z.array(z.string()).optional().describe('缺失的必填字段列表'),
       retryable: z.boolean().optional().describe('是否支持带参重试'),
       fallback: z.string().optional().describe('业务降级建议或后备策略说明'),
@@ -158,7 +171,22 @@ export const ziweiOutputSchema = withErrorOutputSchema({
   basicInfo: z.record(z.string(), z.unknown()).describe('紫微命盘基础信息'),
   calculationConfig: z.record(z.string(), z.unknown()).describe('本次实际采用的紫微排盘口径'),
   scopeNames: z.array(z.string()).describe('本次返回包含的运限范围'),
-  payloadByScope: z.record(z.string(), z.unknown()).describe('按运限范围组织的紫微分析载荷'),
+  payloadByScope: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe('full 模式按运限范围组织的紫微分析载荷'),
+  activeScopes: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe('compact 模式的运限十二宫与主星事实'),
+  evidenceSummaryByScope: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe('compact 模式证据摘要'),
+  patternSummaryByScope: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe('compact 模式格局摘要'),
   natalFacts: z
     .unknown()
     .optional()

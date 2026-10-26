@@ -1,4 +1,5 @@
 import { SolarTime, SolarTerm, ChildLimit, SixtyCycleYear } from 'tyme4ts';
+import { MingyuCoreRangeError } from '../shared/result';
 import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
 import type {
   BaziFortuneBatchMetadata,
@@ -127,7 +128,10 @@ export class LuckCalculator {
       startIndex < 0 ||
       startIndex >= Math.max(totalEntries, 1)
     ) {
-      throw new RangeError('八字命限续取位置超出资料范围。');
+      throw new MingyuCoreRangeError({
+        field: 'fortuneBatch.startIndex',
+        message: '八字命限续取位置超出资料范围。',
+      });
     }
 
     const batch: BaziFortuneBatchMetadata = {

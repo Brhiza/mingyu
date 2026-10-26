@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate } from './input-helpers.js';
 
@@ -42,7 +38,7 @@ export function registerLiurenTool(server: McpServer) {
         };
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '排盘失败'));
+        return createErrorToolResult(error, { message: '排盘失败' });
       }
     },
   );
@@ -70,7 +66,7 @@ export function registerLiurenTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成大六壬提示词失败'));
+        return createErrorToolResult(error, { message: '生成大六壬提示词失败' });
       }
     },
   );

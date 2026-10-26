@@ -1,5 +1,5 @@
 import { calculateZiweiChart } from '@/lib/full-chart-engine/ziwei';
-import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
+import { createBoundedMemoryCache, type BoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { createSecureId } from '@/lib/secure-id';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
@@ -23,11 +23,125 @@ const displayPayloadCache = createBoundedMemoryCache<AnalysisPayloadV1>(24);
 type ZiweiReadingResourceContent = Omit<ReadingResource, 'key' | 'title'>;
 const readingContentCache = createBoundedMemoryCache<ZiweiReadingResourceContent>(8);
 const readingResourceCache = createBoundedMemoryCache<ZiweiReadingResourceContent>(16);
-const pendingRuntime = new Map<string, Promise<ZiweiRuntime>>();
-const pendingPayload = new Map<string, Promise<ZiweiPayloadByScope>>();
-const pendingDisplayPayload = new Map<string, Promise<AnalysisPayloadV1>>();
-const pendingReadingContent = new Map<string, Promise<ZiweiReadingResourceContent>>();
-const pendingReadingResource = new Map<string, Promise<ZiweiReadingResourceContent>>();
+const pendingRuntime = new Map<string, SharedRequest<ZiweiRuntime>>();
+const pendingPayload = new Map<string, SharedRequest<ZiweiPayloadByScope>>();
+const pendingDisplayPayload = new Map<string, SharedRequest<AnalysisPayloadV1>>();
+const pendingReadingContent = new Map<string, SharedRequest<ZiweiReadingResourceContent>>();
+const pendingReadingResource = new Map<string, SharedRequest<ZiweiReadingResourceContent>>();
+
+interface SharedRequest<T> {
+  promise: Promise<T>;
+  consumers: number;
+  settled: boolean;
+  cancel: () => void;
+}
+
+function abortError() {
+  return new DOMException('已停止紫微计算。', 'AbortError');
+}
+
+/**
+ * signal 仅撤销本次调用；最后一个消费者离开才取消底层任务。
+ * 不带 signal 的调用持有任务直到结算，保留共享 Promise 身份用于预热复用。
+ * 取消同步移除自己的 pending；延迟响应不得写缓存或删除同 key 的新任务。
+ */
+function loadShared<T>(
+  cache: BoundedMemoryCache<T>,
+  pending: Map<string, SharedRequest<T>>,
+  key: string,
+  start: (
+    resolve: (value: T) => void,
+    reject: (error: unknown) => void,
+    signal: AbortSignal,
+  ) => () => void,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (signal?.aborted) return Promise.reject(abortError());
+  const cached = cache.get(key);
+  if (cached) return Promise.resolve(cached);
+  let request = pending.get(key);
+  let launch: (() => void) | undefined;
+  if (!request) {
+    const controller = new AbortController();
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    let cancel = () => {};
+    const entry: SharedRequest<T> = {
+      promise: new Promise<T>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      }),
+      consumers: 0,
+      settled: false,
+      cancel() {
+        if (entry.settled) return;
+        entry.settled = true;
+        if (pending.get(key) === entry) pending.delete(key);
+        controller.abort();
+        cancel();
+        reject(abortError());
+      },
+    };
+    const finish = (error: unknown, value?: T) => {
+      if (entry.settled) return;
+      entry.settled = true;
+      if (pending.get(key) === entry) pending.delete(key);
+      if (error !== null) reject(error);
+      else {
+        cache.set(key, value!);
+        resolve(value!);
+      }
+    };
+    pending.set(key, entry);
+    request = entry;
+    launch = () => {
+      if (entry.settled) return;
+      try {
+        cancel = start(
+          (value) => finish(null, value),
+          (error) => finish(error),
+          controller.signal,
+        );
+        if (controller.signal.aborted) cancel();
+      } catch (error) {
+        finish(error);
+      }
+    };
+  }
+  const entry = request;
+  entry.consumers += 1;
+  const result = signal
+    ? new Promise<T>((resolve, reject) => {
+        let finished = false;
+        const release = () => {
+          finished = true;
+          signal.removeEventListener('abort', onAbort);
+          entry.consumers -= 1;
+          if (!entry.consumers) entry.cancel();
+        };
+        const onAbort = () => {
+          if (finished) return;
+          release();
+          reject(abortError());
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        entry.promise.then(
+          (value) => {
+            if (finished) return;
+            release();
+            resolve(value);
+          },
+          (error) => {
+            if (finished) return;
+            release();
+            reject(error);
+          },
+        );
+      })
+    : entry.promise;
+  launch?.();
+  return result;
+}
 
 export function getZiweiInputKey(input: ChartInput): string {
   return JSON.stringify(input);
@@ -64,22 +178,20 @@ export function loadZiweiRuntime(
   input: ChartInput,
   inputKey: string,
   options: ZiweiRuntimeOptions = {},
+  signal?: AbortSignal,
 ): Promise<ZiweiRuntime> {
   const runtimeKey = getZiweiRuntimeKey(inputKey, options);
-  const cached = runtimeCache.get(runtimeKey);
-  if (cached) return Promise.resolve(cached);
-
-  const pending = pendingRuntime.get(runtimeKey);
-  if (pending) return pending;
-
-  const request = calculateZiweiChart(input, { ...options, skipAnalysis: true })
-    .then((runtime) => {
-      runtimeCache.set(runtimeKey, runtime);
-      return runtime;
-    })
-    .finally(() => pendingRuntime.delete(runtimeKey));
-  pendingRuntime.set(runtimeKey, request);
-  return request;
+  return loadShared(
+    runtimeCache,
+    pendingRuntime,
+    runtimeKey,
+    (resolve, reject) => {
+      void calculateZiweiChart(input, { ...options, skipAnalysis: true }).then(resolve, reject);
+      // 轻量运行时含 astrolabe 方法，保留主线程路径；取消后不缓存也不再预热完整资料。
+      return () => {};
+    },
+    signal,
+  );
 }
 
 function getZiweiReadingRuntimeKey(inputKey: string, dateStr: string, hourIndex: number) {
@@ -100,31 +212,24 @@ function loadZiweiReadingContent(
   inputKey: string,
   dateStr: string,
   hourIndex: number,
+  signal?: AbortSignal,
 ): Promise<ZiweiReadingResourceContent> {
   const runtimeKey = getZiweiReadingRuntimeKey(inputKey, dateStr, hourIndex);
-  const cached = readingContentCache.get(runtimeKey);
-  if (cached) return Promise.resolve(cached);
-
-  const pending = pendingReadingContent.get(runtimeKey);
-  if (pending) return pending;
-
-  const request = new Promise<ZiweiReadingResourceContent>((resolve, reject) => {
-    createReadingResourceWorker(
-      input,
-      dateStr,
-      hourIndex,
-      `${createSecureId()}-reading-resource`,
-      resolve,
-      (message) => reject(new Error(message)),
-    );
-  })
-    .then((content) => {
-      readingContentCache.set(runtimeKey, content);
-      return content;
-    })
-    .finally(() => pendingReadingContent.delete(runtimeKey));
-  pendingReadingContent.set(runtimeKey, request);
-  return request;
+  return loadShared(
+    readingContentCache,
+    pendingReadingContent,
+    runtimeKey,
+    (resolve, reject) =>
+      createReadingResourceWorker(
+        input,
+        dateStr,
+        hourIndex,
+        `${createSecureId()}-reading-resource`,
+        resolve,
+        (message) => reject(new Error(message)),
+      ),
+    signal,
+  );
 }
 
 export function loadZiweiReadingResource(
@@ -134,32 +239,22 @@ export function loadZiweiReadingResource(
   hourIndex: number,
   role: 'primary' | 'partner',
   subjectTitle: string,
+  signal?: AbortSignal,
 ): Promise<ReadingResource> {
   const resourceKey = getZiweiReadingResourceKey(inputKey, dateStr, hourIndex, role);
-  const cached = readingResourceCache.get(resourceKey);
-  if (cached)
-    return Promise.resolve({
-      key: resourceKey,
-      title: `${subjectTitle}紫微完整运限资料`,
-      ...cached,
-    });
-
-  const pending = pendingReadingResource.get(resourceKey);
-  if (pending)
-    return pending.then((content) => ({
-      key: resourceKey,
-      title: `${subjectTitle}紫微完整运限资料`,
-      ...content,
-    }));
-
-  const request = loadZiweiReadingContent(input, inputKey, dateStr, hourIndex)
-    .then((content) => {
-      readingResourceCache.set(resourceKey, content);
-      return content;
-    })
-    .finally(() => pendingReadingResource.delete(resourceKey));
-  pendingReadingResource.set(resourceKey, request);
-  return request.then((content) => ({
+  return loadShared(
+    readingResourceCache,
+    pendingReadingResource,
+    resourceKey,
+    (resolve, reject, taskSignal) => {
+      void loadZiweiReadingContent(input, inputKey, dateStr, hourIndex, taskSignal).then(
+        resolve,
+        reject,
+      );
+      return () => {};
+    },
+    signal,
+  ).then((content) => ({
     key: resourceKey,
     title: `${subjectTitle}紫微完整运限资料`,
     ...content,
@@ -174,71 +269,21 @@ export function loadZiweiPayload(
   signal?: AbortSignal,
 ): Promise<ZiweiPayloadByScope> {
   const payloadKey = getZiweiPayloadKey(inputKey, options);
-  const cached = payloadCache.get(payloadKey);
-  if (cached) return Promise.resolve(cached);
-
-  const pending = pendingPayload.get(payloadKey);
-  if (pending) return pending;
-
-  let requestRef: Promise<ZiweiPayloadByScope> | null = null;
-  let settled = false;
-  const rawRequest = new Promise<ZiweiPayloadByScope>((resolve, reject) => {
-    let cancel = () => {};
-    const abortError = () => {
-      const error = new Error('已停止紫微排盘。');
-      error.name = 'AbortError';
-      return error;
-    };
-    const cleanup = () => {
-      signal?.removeEventListener('abort', handleAbort);
-    };
-    const handleAbort = () => {
-      if (settled) return;
-      settled = true;
-      cancel();
-      if (requestRef && pendingPayload.get(payloadKey) === requestRef) {
-        pendingPayload.delete(payloadKey);
-      }
-      cleanup();
-      reject(abortError());
-    };
-    cancel = createPayloadWorker(
-      input,
-      options,
-      `${createSecureId()}-cached-payload`,
-      (payloadByScope) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve(payloadByScope);
-      },
-      (message) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(new Error(message));
-      },
-      fallbackError,
-    );
-    if (signal) {
-      if (signal.aborted) {
-        handleAbort();
-      } else {
-        signal.addEventListener('abort', handleAbort, { once: true });
-      }
-    }
-  });
-  const trackedRequest = rawRequest
-    .then((payloadByScope) => {
-      payloadCache.set(payloadKey, payloadByScope);
-      return payloadByScope;
-    })
-    .finally(() => {
-      if (pendingPayload.get(payloadKey) === trackedRequest) pendingPayload.delete(payloadKey);
-    });
-  requestRef = trackedRequest;
-  if (!settled) pendingPayload.set(payloadKey, trackedRequest);
-  return trackedRequest;
+  return loadShared(
+    payloadCache,
+    pendingPayload,
+    payloadKey,
+    (resolve, reject) =>
+      createPayloadWorker(
+        input,
+        options,
+        `${createSecureId()}-cached-payload`,
+        resolve,
+        (message) => reject(new Error(message)),
+        fallbackError,
+      ),
+    signal,
+  );
 }
 
 export function getZiweiDisplayKey(
@@ -260,34 +305,21 @@ export function loadZiweiDisplayPayload(
   dateStr: string,
   hourIndex: number,
   scope: ScopeType,
+  signal?: AbortSignal,
 ): Promise<AnalysisPayloadV1> {
   const displayKey = getZiweiDisplayKey(inputKey, dateStr, hourIndex, scope);
-  const cached = displayPayloadCache.get(displayKey);
-  if (cached) return Promise.resolve(cached);
-
-  const pending = pendingDisplayPayload.get(displayKey);
-  if (pending) return pending;
-
-  const request = new Promise<AnalysisPayloadV1>((resolve, reject) => {
-    createDisplayWorker(
-      {
-        id: `${createSecureId()}-cached-display`,
-        input,
-        dateStr,
-        hourIndex,
-        scope,
-      },
-      resolve,
-      () => reject(new Error('紫微运限盘生成失败。')),
-    );
-  })
-    .then((payload) => {
-      displayPayloadCache.set(displayKey, payload);
-      return payload;
-    })
-    .finally(() => pendingDisplayPayload.delete(displayKey));
-  pendingDisplayPayload.set(displayKey, request);
-  return request;
+  return loadShared(
+    displayPayloadCache,
+    pendingDisplayPayload,
+    displayKey,
+    (resolve, reject) =>
+      createDisplayWorker(
+        { id: `${createSecureId()}-cached-display`, input, dateStr, hourIndex, scope },
+        resolve,
+        () => reject(new Error('紫微运限盘生成失败。')),
+      ),
+    signal,
+  );
 }
 
 export async function loadZiweiPromptScopePayloads(
@@ -296,13 +328,23 @@ export async function loadZiweiPromptScopePayloads(
   dateStr: string,
   hourIndex: number,
   scope: ScopeType,
+  signal?: AbortSignal,
 ): Promise<Partial<Record<ScopeType, AnalysisPayloadV1>>> {
   const order: ScopeType[] = ['decadal', 'yearly', 'monthly', 'daily', 'hourly'];
   const index = order.indexOf(scope);
   const scopes = index < 0 ? [scope] : order.slice(0, index + 1);
   const payloads: Partial<Record<ScopeType, AnalysisPayloadV1>> = {};
   for (const layer of scopes) {
-    payloads[layer] = await loadZiweiDisplayPayload(input, inputKey, dateStr, hourIndex, layer);
+    if (signal?.aborted) throw abortError();
+    payloads[layer] = await loadZiweiDisplayPayload(
+      input,
+      inputKey,
+      dateStr,
+      hourIndex,
+      layer,
+      signal,
+    );
   }
+  if (signal?.aborted) throw abortError();
   return payloads;
 }

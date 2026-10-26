@@ -110,6 +110,31 @@ export class MingyuCoreError<TCode extends string = string> extends Error {
   }
 }
 
+/** 分页的历史 API 抛 RangeError；附上核心错误信息并保留 instanceof 兼容。 */
+export class MingyuCoreRangeError extends RangeError {
+  readonly code: string;
+  readonly category = 'validation' as const;
+  readonly field: string;
+  readonly recoverable = true;
+
+  constructor(options: { code?: string; field: string; message: string }) {
+    super(options.message);
+    this.name = 'MingyuCoreRangeError';
+    this.code = options.code ?? 'INPUT_CURSOR_INVALID';
+    this.field = options.field;
+  }
+
+  toJSON(): MingyuCoreErrorJSON {
+    return new MingyuCoreError({
+      code: this.code,
+      category: this.category,
+      field: this.field,
+      message: this.message,
+      recoverable: this.recoverable,
+    }).toJSON();
+  }
+}
+
 function inferErrorCategory(error: unknown): CoreErrorCategory {
   if (error instanceof TypeError || error instanceof RangeError) return 'validation';
   if (
@@ -147,6 +172,16 @@ export function normalizeCoreError(
   options: NormalizeCoreErrorOptions = {},
 ): MingyuCoreError {
   if (error instanceof MingyuCoreError) return error;
+  if (error instanceof MingyuCoreRangeError) {
+    return new MingyuCoreError({
+      code: error.code,
+      category: error.category,
+      field: error.field,
+      message: error.message,
+      recoverable: error.recoverable,
+      cause: error,
+    });
+  }
 
   const originalMessage = error instanceof Error ? error.message.trim() : '';
   const category = options.category ?? inferErrorCategory(error);

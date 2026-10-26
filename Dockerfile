@@ -15,7 +15,7 @@ ARG VITE_ENABLE_DONATION_BOX=false
 ENV VITE_ENABLE_DONATION_BOX=$VITE_ENABLE_DONATION_BOX
 
 COPY . .
-RUN pnpm build && pnpm build:server
+RUN pnpm build:docker
 
 FROM node:22-alpine AS runtime
 

@@ -3138,7 +3138,7 @@ test('公开 API 紫微排盘应提供 agent 易解析的四化和宫位列表',
   const { response, body } = await callApi('ziwei/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(ziweiInput),
+    body: JSON.stringify({ ...ziweiInput, detailMode: 'full' }),
   });
 
   assert.equal(response.status, 200);
@@ -4045,7 +4045,7 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
   const fullResult = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate }),
+    body: JSON.stringify({ customDate, detailMode: 'full' }),
   });
   const compactResult = await callApi('divination/qimen', {
     method: 'POST',

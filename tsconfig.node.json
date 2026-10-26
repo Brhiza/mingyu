@@ -1,15 +1,15 @@
 {
+  "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-    "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": false,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "types": ["node"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
+    "types": ["node", "vite/client"]
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite*.config.ts",
+    "capacitor.config.ts",
+    "build/**/*.ts",
+    "server/**/*.ts",
+    "scripts/**/*.ts"
+  ]
 }

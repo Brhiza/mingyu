@@ -1156,6 +1156,10 @@ test('真实紫微盘将已列在宫位资料中的证据去重并忠实标注�
       '资料缺口',
       '额外说明',
       '额外正文',
+      '错星',
+      '错宫',
+      '重复星曜',
+      '错四化',
     ] as const;
     for (const condition of preservedCases) {
       const changed = structuredClone(yearlyPayload);
@@ -1174,8 +1178,16 @@ test('真实紫微盘将已列在宫位资料中的证据去重并忠实标注�
       } else if (condition === '额外说明') {
         evidence.description += '该宫另见独立条件。';
         evidence.promptText = `${evidence.title}：${evidence.description}`;
-      } else {
+      } else if (condition === '额外正文') {
         evidence.promptText = `${evidence.title}：另见独立条件。`;
+      } else if (condition === '错星') {
+        evidence.star_names = ['其他星曜'];
+      } else if (condition === '错宫') {
+        evidence.palace_indexes = [-1];
+      } else if (condition === '重复星曜') {
+        evidence.star_names.push(evidence.star_names[0]);
+      } else if (condition === '错四化') {
+        evidence.mutagens = ['禄'];
       }
       const changedPrompt = formatZiweiPayloadForPrompt(changed);
       assert.ok(changedPrompt.includes(title), `${condition}须保留证据`);

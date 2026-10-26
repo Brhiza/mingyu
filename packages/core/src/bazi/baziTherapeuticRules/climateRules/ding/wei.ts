@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const DING_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-ding-geng-jia-first',
+    recommendationStems: ['甲', '壬'],
     label: '丁日未月甲主壬次规则',
     description: '丁火生未月，阴柔退气，专取甲木，壬水次之；原文另述无庚不妙。',
     priority: 119,

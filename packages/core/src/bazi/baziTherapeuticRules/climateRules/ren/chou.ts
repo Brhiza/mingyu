@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-ren-xiaohan-bing-only',
+    recommendationStems: ['丙'],
     label: '壬日丑月小寒后专丙规则',
     description: '壬水生丑月，上半月癸辛主事，传统多专用丙火解寒扶阳，不宜提前并提甲木。',
     priority: 122,
@@ -16,6 +17,7 @@ export const REN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-ren-dahan-bing-jia',
+    recommendationStems: ['丙', '甲'],
     label: '壬日丑月大寒后丙甲并用规则',
     description: '壬水生丑月，下半月己土主事，传统仍以丙火为主，并取甲木佐助，不宜仍与上半月同断。',
     priority: 123,

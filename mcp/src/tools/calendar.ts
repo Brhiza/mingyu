@@ -12,11 +12,7 @@ import {
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
 import { resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 
 const trueSolarTimeSchema = z.object({
   localDateTime: z
@@ -151,7 +147,7 @@ export function registerCalendarTools(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '八字反推失败'));
+        return createErrorToolResult(error, { message: '八字反推失败' });
       }
     },
   );
@@ -168,7 +164,7 @@ export function registerCalendarTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: convertTrueSolarTime(args) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '真太阳时换算失败'));
+        return createErrorToolResult(error, { message: '真太阳时换算失败' });
       }
     },
   );
@@ -185,7 +181,7 @@ export function registerCalendarTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: resolveTrueSolarBirthTime(args) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '出生真太阳时换算失败'));
+        return createErrorToolResult(error, { message: '出生真太阳时换算失败' });
       }
     },
   );
@@ -210,7 +206,7 @@ export function registerCalendarTools(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '太阳光照证据计算失败'));
+        return createErrorToolResult(error, { message: '太阳光照证据计算失败' });
       }
     },
   );
@@ -235,7 +231,7 @@ export function registerCalendarTools(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '天文时间尺度证据计算失败'));
+        return createErrorToolResult(error, { message: '天文时间尺度证据计算失败' });
       }
     },
   );
@@ -255,7 +251,7 @@ export function registerCalendarTools(server: McpServer) {
           result: calculateMoonPhaseEvidence(Date.parse(parsed.utcDateTime)),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '月相证据计算失败'));
+        return createErrorToolResult(error, { message: '月相证据计算失败' });
       }
     },
   );
@@ -274,7 +270,7 @@ export function registerCalendarTools(server: McpServer) {
           result: calculateSolarTermEvidence(args.year, args.index),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '节气交接证据计算失败'));
+        return createErrorToolResult(error, { message: '节气交接证据计算失败' });
       }
     },
   );

@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { qizheng } from 'mingyu-core';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
@@ -79,7 +75,7 @@ export function registerQizhengTool(server: McpServer) {
         });
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '七政四余排盘失败'));
+        return createErrorToolResult(error, { message: '七政四余排盘失败' });
       }
     },
   );
@@ -123,7 +119,7 @@ export function registerQizhengTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成七政四余提示词失败'));
+        return createErrorToolResult(error, { message: '生成七政四余提示词失败' });
       }
     },
   );

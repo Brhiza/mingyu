@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GUI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-gui-gui-ji-party-night-ding',
+    recommendationStems: ['丁'],
     label: '癸日丑月癸己会党夜丁规则',
     description:
       '癸水生丑月，若癸己成党而年干透丁，且夜生得雪后灯光之象，传统多主贵显，不应仍按普通冬水调候一概论之。',
@@ -20,6 +21,7 @@ export const GUI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-gui-gui-ji-party-no-ding',
+    recommendationStems: [],
     label: '癸日丑月癸己会党无丁孤贫规则',
     description: '癸水生丑月，若癸己成党而局中不见丁火，传统多断孤贫，不宜仍按雪后灯光格抬高层次。',
     priority: 127,
@@ -36,6 +38,7 @@ export const GUI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-gui-water-formation-no-bing',
+    recommendationStems: [],
     label: '癸日丑月支成水局无丙漂泊规则',
     description:
       '癸水生丑月，若地支会成水局而局中又无丙火解冻，传统多断四海为家、一生劳苦，不宜仍按普通冬水得火即吉概论。',
@@ -53,6 +56,7 @@ export const GUI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-gui-fire-formation-metal-support',
+    recommendationStems: [],
     label: '癸日丑月支成火局见金规则',
     description:
       '癸水生丑月，若地支会成火局，火旺耗水；此时庚辛金透，方能生扶癸水，传统多主衣食充足，不应仍按单纯冬水喜火论。',
@@ -69,6 +73,7 @@ export const GUI_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-gui-fire-formation-no-metal',
+    recommendationStems: [],
     label: '癸日丑月支成火局无金孤苦规则',
     description:
       '癸水生丑月，若地支会成火局而庚辛不透，则火旺水竭，传统多断孤苦零丁，不宜误提到见金可救的层次。',

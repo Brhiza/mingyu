@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const DING_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-ding-jia-geng-bing',
+    recommendationStems: ['甲', '庚', '丙'],
     label: '丁日酉月甲庚丙参用规则',
     description: '八月丁火以甲木引丁、庚金劈甲，丙火可暖金晒木；各干的实际作用依原局判断。',
     priority: 115,
@@ -15,6 +16,7 @@ export const DING_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-ding-xin-follow-wealth',
+    recommendationStems: [],
     label: '丁日酉月辛金从才规则',
     description:
       '丁火生酉月，若金气成势而辛金透出，不见庚金，又无比劫透干，传统多按弃命从才论，富而且贵，虽不科甲亦有异途。',

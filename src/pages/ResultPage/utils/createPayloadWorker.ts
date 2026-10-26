@@ -18,7 +18,20 @@ export function createPayloadWorker(
   const worker = new Worker(new URL('../../../workers/ziwei-payload.worker.ts', import.meta.url), {
     type: 'module',
   });
-  const disarm = attachWorkerSafety(worker, { onError });
+  let settled = false;
+  const finish = () => {
+    settled = true;
+    disarm();
+    worker.onmessage = null;
+    worker.terminate();
+  };
+  const disarm = attachWorkerSafety(worker, {
+    onError: (message) => {
+      if (settled) return;
+      finish();
+      onError(message);
+    },
+  });
   worker.onmessage = (
     event: MessageEvent<{
       id: string;
@@ -27,26 +40,21 @@ export function createPayloadWorker(
       error?: string;
     }>,
   ) => {
-    if (event.data.id !== requestId) {
+    if (settled || event.data.id !== requestId) {
       return;
     }
-    disarm();
+    finish();
 
     if (event.data.ok && event.data.payloadByScope) {
       onSuccess(event.data.payloadByScope);
     } else {
       onError(event.data.error || fallbackError);
     }
-
-    worker.terminate();
   };
 
   worker.postMessage({ id: requestId, input, options });
 
-  return () => {
-    disarm();
-    worker.terminate();
-  };
+  return finish;
 }
 
 export function createReadingResourceWorker(
@@ -60,7 +68,20 @@ export function createReadingResourceWorker(
   const worker = new Worker(new URL('../../../workers/ziwei-payload.worker.ts', import.meta.url), {
     type: 'module',
   });
-  const disarm = attachWorkerSafety(worker, { onError });
+  let settled = false;
+  const finish = () => {
+    settled = true;
+    disarm();
+    worker.onmessage = null;
+    worker.terminate();
+  };
+  const disarm = attachWorkerSafety(worker, {
+    onError: (message) => {
+      if (settled) return;
+      finish();
+      onError(message);
+    },
+  });
   worker.onmessage = (
     event: MessageEvent<{
       id: string;
@@ -70,16 +91,14 @@ export function createReadingResourceWorker(
       error?: string;
     }>,
   ) => {
-    if (event.data.id !== requestId) return;
-    disarm();
+    if (settled || event.data.id !== requestId) return;
+    finish();
 
     if (event.data.kind === 'reading-resource' && event.data.ok && event.data.resource) {
       onSuccess(event.data.resource);
     } else {
       onError(event.data.error || '紫微完整运限资料生成失败。');
     }
-
-    worker.terminate();
   };
 
   worker.postMessage({
@@ -90,8 +109,5 @@ export function createReadingResourceWorker(
     hourIndex,
   });
 
-  return () => {
-    disarm();
-    worker.terminate();
-  };
+  return finish;
 }

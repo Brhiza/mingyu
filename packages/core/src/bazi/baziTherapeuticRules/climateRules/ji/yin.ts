@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-month-ji-bing-jia-first',
+    recommendationStems: ['丙'],
     label: '己日寅月丙火为尊规则',
     description: '己土生寅月，田园犹冻，原文以丙火照暖为尊；壬水偏多时另以戊土为堤。',
     priority: 119,

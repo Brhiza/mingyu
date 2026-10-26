@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import type { MeihuaSettings } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
 import {
@@ -124,7 +120,7 @@ export function registerMeihuaTool(server: McpServer) {
         const result = generateMeihua(readMcpCustomDate(args.customDate), settings);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '起卦失败'));
+        return createErrorToolResult(error, { message: '起卦失败' });
       }
     },
   );
@@ -151,7 +147,7 @@ export function registerMeihuaTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成梅花提示词失败'));
+        return createErrorToolResult(error, { message: '生成梅花提示词失败' });
       }
     },
   );

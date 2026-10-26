@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_HAI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'hai-month-yi-bing-gui-first',
+    recommendationStems: ['丙', '戊'],
     label: '乙日亥月丙用戊次规则',
     description: '乙木生亥月，壬水司令，取丙火为用、戊土次之。',
     priority: 121,

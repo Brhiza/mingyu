@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import {
@@ -19,6 +21,36 @@ import {
   getSystemCapability,
   requireSystemCapability,
 } from '../packages/core/src/capabilities/index';
+
+test('出生输入校验与基础消费者在新进程不加载星盘引擎和星历', () => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      '-e',
+      `
+      require('tsx/cjs');
+      const { registerHooks } = require('node:module');
+      const loaded = new Set();
+      registerHooks({ load(url, context, next) { loaded.add(url); return next(url, context); } });
+      const { validateBirthInput } = require('./packages/core/src/profile/input');
+      const result = validateBirthInput({ year: 1990, month: 5, day: 15 });
+      const inputModules = loaded.size;
+      require('./packages/core/src/foundation');
+      require('./packages/core/src/huangji-jingshi');
+      process.stdout.write(JSON.stringify({
+        result,
+        inputModules,
+        astronomy: [...loaded].filter(url => /astrology|caelus/.test(url)),
+      }));
+      `,
+    ],
+    { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' },
+  );
+  const result = JSON.parse(output);
+  assert.deepEqual(result.result, { ok: true });
+  assert.deepEqual(result.astronomy, []);
+  assert.ok(result.inputModules < 10, '基础输入叶模块不应牵入聚合依赖');
+});
 
 test('秒级出生精度应保留到各排盘适配器', () => {
   const profile = {

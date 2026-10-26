@@ -34,6 +34,11 @@ import {
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
+import {
+  applyPromptStatePatch,
+  getResultPromptSelection,
+  getCombinedResultPromptSelection,
+} from '@/lib/prompt-page-rules';
 import { formatBaziCompatibilityFacts } from '@/lib/bazi-compatibility-facts';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
@@ -68,6 +73,7 @@ import {
   buildEnhancedZiweiPromptPack,
   buildBaziFortuneSelectionValue,
   buildCombinedPromptText,
+  applyResultPromptSelection,
   formatZiweiPromptScopeSummary,
   formatBaziFullFortuneText,
   buildEnhancedBaziPromptPack,
@@ -162,11 +168,9 @@ import {
 import { buildWorkspaceLaunchQuestion, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { getConsultationHistoryById } from '@/lib/history-records';
 import {
-  buildPromptSelectionTask,
   getPromptMethodCapability,
   getPromptSubtopicOptions,
   getPromptTopicOptions,
-  getPromptSelectionSection,
   requirePromptSelection,
 } from 'mingyu-core/prompt';
 
@@ -236,18 +240,7 @@ function applyZiweiPromptSelection(
     subtopicId: subtopicId || undefined,
     scope: toPromptScope(scope),
   });
-  prompt = prompt.replace(
-    /^分析主题：.*$/mu,
-    `分析主题：${selection.topicLabel}${selection.subtopicLabel ? ` · ${selection.subtopicLabel}` : ''}`,
-  );
-  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
-  if (!taskMatch) {
-    return `${prompt}\n\n【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask('请依据已列紫微盘面资料回答【问题】。', selection)}`;
-  }
-  const taskText = taskMatch[1]?.trim() ?? '';
-  const selectionSection = `【解读选择】\n${getPromptSelectionSection(selection)}`;
-  const replacement = `${selectionSection}\n\n【任务】\n${buildPromptSelectionTask(taskText, selection)}`;
-  return prompt.replace(taskMatch[0], replacement);
+  return applyResultPromptSelection(prompt, selection);
 }
 
 function FortuneScopePresetSelect(props: {
@@ -308,7 +301,7 @@ function PromptThemeFields(props: {
         ? props.promptState.ziweiTopicId
         : props.source === 'astrolabe'
           ? props.promptState.astrolabeTopicId
-          : props.promptState.baziTopicId || props.promptState.ziweiTopicId;
+          : props.promptState.baziTopicId;
   const currentSubtopic =
     props.source === 'bazi'
       ? props.promptState.baziSubtopicId
@@ -316,7 +309,7 @@ function PromptThemeFields(props: {
         ? props.promptState.ziweiSubtopicId
         : props.source === 'astrolabe'
           ? props.promptState.astrolabeSubtopicId
-          : props.promptState.baziSubtopicId || props.promptState.ziweiSubtopicId;
+          : props.promptState.baziSubtopicId;
   const topicId = topicOptions.some((item) => item.id === currentTopic) ? currentTopic : '';
   const subtopicOptions = getPromptSubtopicOptions(topicId || 'general', props.source);
   const subtopicId = subtopicOptions.some((item) => item.id === currentSubtopic)
@@ -781,10 +774,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
   const updatePromptState = useCallback(
     (next: Partial<QueryPromptState>) => {
-      const merged = {
-        ...promptState,
-        ...next,
-      };
+      const merged = applyPromptStatePatch(promptState, next);
 
       setSearchParams(
         preserveResultContextParams(buildResultSearch(inputState, merged), searchParams),
@@ -1751,11 +1741,24 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
+    if (promptState.baziTopicId) {
+      return getResultPromptSelection(
+        promptState,
+        'bazi',
+        inputState.analysisMode === 'compatibility',
+      ).topicLabel;
+    }
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
       return '通用';
     }
     return activeBaziShortcutMode === '综合' ? '通用' : activeBaziShortcutMode;
-  }, [activeBaziShortcutMode]);
+  }, [activeBaziShortcutMode, promptState, inputState.analysisMode]);
+
+  const combinedPromptSelection = useMemo(
+    () =>
+      getCombinedResultPromptSelection(promptState, inputState.analysisMode === 'compatibility'),
+    [promptState, inputState.analysisMode],
+  );
 
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (!showAssistantPane) return '';
@@ -1777,7 +1780,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         resolveCompatType(promptState.baziPresetId),
         { isCustomQuestion: activeBaziShortcutMode === '自定义' },
       );
-      const prompt = buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
+      const basePrompt = buildCombinedPromptText(
+        compatibilityPrompt.system,
+        compatibilityPrompt.user,
+      );
+      const prompt =
+        promptState.baziTopicId || promptState.baziSubtopicId
+          ? applyResultPromptSelection(
+              basePrompt,
+              getResultPromptSelection(promptState, 'bazi', true),
+            )
+          : basePrompt;
       const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
       return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
     }
@@ -1930,14 +1943,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       isInstantResult ||
       !showAssistantPane ||
       promptState.promptSource !== 'bazi-ziwei' ||
+      !combinedPromptSelection ||
       !currentZiweiPayload
     ) {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-    );
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
     return [
       buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
       ziweiFortuneText,
@@ -1949,9 +1961,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .filter(Boolean)
       .join('\n\n');
   }, [
-    activeBaziShortcutMode,
-    promptState.baziTopicId,
-    promptState.ziweiTopicId,
+    combinedPromptSelection,
     currentZiweiPayload,
     promptZiweiScopePayloads,
     ziweiFortuneText,
@@ -1965,14 +1975,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       isInstantResult ||
       !showAssistantPane ||
       promptState.promptSource !== 'bazi-ziwei' ||
+      !combinedPromptSelection ||
       !currentZiweiPayload
     ) {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-    );
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
     return [
       buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
       formatZiweiSupportingScopeText(
@@ -1983,10 +1992,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .filter(Boolean)
       .join('\n\n');
   }, [
-    activeBaziShortcutMode,
-    promptState.baziTopicId,
+    combinedPromptSelection,
     promptState.promptSource,
-    promptState.ziweiTopicId,
     currentZiweiPayload,
     promptZiweiScopePayloads,
     isInstantResult,
@@ -2041,6 +2048,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : '';
     }
 
+    if (!combinedPromptSelection) return '';
+
     if (inputState.analysisMode === 'compatibility') {
       if (
         !baziPromptSample.primary ||
@@ -2064,15 +2073,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
       });
-      const ziweiCompatibilityText = applyZiweiPromptSelection(
+      const ziweiCompatibilityText = applyResultPromptSelection(
         ziweiCompatibilityPrompt,
-        promptState.ziweiTopicId,
-        promptState.ziweiSubtopicId,
-        toPromptScope(promptState.ziweiScope),
+        combinedPromptSelection,
       );
-      const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
-        promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
-      );
+      const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(combinedPromptSelection.topicId);
       const primaryZiweiText = buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
       const partnerZiweiText = buildEnhancedZiweiPromptPack(partnerZiweiPayload, ziweiTopic);
       const baziCompatibilityText = formatBaziCompatibilityFacts(
@@ -2080,6 +2085,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         baziPromptSample.partner,
       );
       return buildBaziZiweiCompatibilityPrompt({
+        selection: combinedPromptSelection,
         primaryBaziText: buildEnhancedBaziPromptPack(
           baziPromptSample.primary,
           baziPromptFortuneContext,
@@ -2123,24 +2129,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ziweiScopeSummary:
         promptState.ziweiScope === 'origin' ? '' : `紫微分析范围：${ziweiScopeSummaryText}`,
       isCustomQuestion: activeBaziShortcutMode === '自定义',
-      ...(promptState.baziTopicId || promptState.ziweiTopicId
-        ? {
-            topicId: promptState.baziTopicId || promptState.ziweiTopicId,
-            subtopicId: promptState.baziSubtopicId || promptState.ziweiSubtopicId || undefined,
-            scope:
-              promptState.baziFortuneScope === 'dayun'
-                ? 'decadal'
-                : promptState.baziFortuneScope === 'year'
-                  ? 'yearly'
-                  : promptState.baziFortuneScope === 'month'
-                    ? 'monthly'
-                    : promptState.baziFortuneScope === 'day'
-                      ? 'daily'
-                      : promptState.baziFortuneScope === 'full'
-                        ? 'full'
-                        : toPromptScope(promptState.ziweiScope),
-          }
-        : {}),
+      selection: combinedPromptSelection,
     });
     const sampleContext = formatBaziCurrentSampleContext(baziPromptSample.page);
     return sampleContext ? `${prompt}\n\n${sampleContext}` : prompt;
@@ -2495,6 +2484,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       enhancedBaziPromptPack,
       effectiveBaziQuickQuestion,
       enhancedZiweiPromptPack,
+      combinedPromptSelection,
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
@@ -2547,6 +2537,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       effectiveBaziQuickQuestion,
       enhancedBaziPromptPack,
       enhancedZiweiPromptPack,
+      combinedPromptSelection,
       finalBaziQuestion,
       inputState.analysisMode,
       currentZiweiPayload,
@@ -2939,6 +2930,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     baziPromptFortuneContext,
     baziPromptSample,
     enhancedZiweiPromptPack,
+    combinedPromptSelection,
     phaseEnhancedZiweiPromptPack,
     enhancedBaziPromptPack,
     baziFortuneContext,

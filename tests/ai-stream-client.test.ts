@@ -176,3 +176,43 @@ test('AI 流被 AbortSignal 取消时不得调用完成或错误回调', async (
   assert.equal(done, false);
   assert.equal(error, '');
 });
+
+test('AI 流读到正文后取消应关闭读取，且不能把缓存中的 DONE 视为完成', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const controller = new AbortController();
+  let cancelled = false;
+  let done = 0;
+  const errors: string[] = [];
+  let content = '';
+  globalThis.fetch = async () =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(
+            new TextEncoder().encode('data: {"content":"部分回答"}\n\ndata: [DONE]\n\n'),
+          );
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+    );
+  await streamAiChat([{ role: 'user', content: '测试问题' }], {
+    signal: controller.signal,
+    onChunk: (chunk) => {
+      content += chunk;
+      controller.abort();
+    },
+    onDone: () => {
+      done += 1;
+    },
+    onError: (message) => errors.push(message),
+  });
+  assert.equal(content, '部分回答');
+  assert.equal(cancelled, true);
+  assert.equal(done, 0);
+  assert.deepEqual(errors, []);
+});

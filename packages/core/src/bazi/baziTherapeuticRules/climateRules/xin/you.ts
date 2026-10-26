@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-xin-pure-xin-single-ren',
+    recommendationStems: ['壬'],
     label: '辛日酉月一派辛金一壬无庚富贵规则',
     description:
       '辛金生酉月，若天干纯见辛金而只得一位壬水，且不杂庚与他神，最合淘洗群金之法，传统多主富中取贵。',
@@ -43,6 +44,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-ren-jia-single-no-geng',
+    recommendationStems: [],
     label: '辛日酉月壬甲各一无庚恩荣规则',
     description:
       '辛金生酉月，若比肩一二、壬甲各一而庚不出干，传统亦许恩荣；此类重在壬甲适度而不杂庚，不应误作土厚埋金或壬水无力之格。',
@@ -68,6 +70,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-ren-many-jia-no-geng',
+    recommendationStems: [],
     label: '辛日酉月一壬甲多无庚奸诈规则',
     description:
       '辛金生酉月，若只一壬透而甲木偏多，水被群甲泄去，用神无力；又不见庚金制甲，传统多断奸诈之徒，不应仍按壬甲适度的恩荣层次看待。',
@@ -100,6 +103,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-ren-many-jia-with-geng',
+    recommendationStems: ['庚'],
     label: '辛日酉月一壬甲多得庚仁义规则',
     description:
       '辛金生酉月，若一壬透而甲木偏多，本有泄水之患；但再得庚金制甲，则可挽回用神无力之弊，传统多主仁义，不应仍按奸诈之徒下断。',
@@ -130,6 +134,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-three-xin-single-ren-many-jia-geng-rich',
+    recommendationStems: ['庚'],
     label: '辛日酉月三辛一壬甲多庚透大富贵规则',
     description:
       '辛金生酉月，若辛金总见三重以上、一壬明透、甲木偏多而再得庚金透出制甲，较"得庚制甲反主仁义"更进一步，对应原文"三点辛金，一重壬水，多见甲木，有庚透者，主大富贵"；这里将"三点辛金"落为辛金总量三重以上，以免与"庚透"在四柱明干上发生结构冲突。',
@@ -163,6 +168,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-three-xin-single-ren-many-jia-geng-ding-refined',
+    recommendationStems: ['丁'],
     label: '辛日酉月三辛一壬甲多庚透见丁降格规则',
     description:
       '辛金生酉月，若已成三辛一壬、甲多得庚之局，但再见一丁，则不复按"大富贵"取象，应依原文降为"风雅清高，衣食饶裕而已"；这里将"见丁"按总见丁火处理，不限于明透，以贴近传统"见"字口径。',
@@ -198,6 +204,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-soil-bury-metal-no-jia',
+    recommendationStems: [],
     label: '辛日酉月土厚埋金愚懦规则',
     description:
       '辛金生酉月，若辛金根气已成、总见二重以上而只一壬水，复见戊土偏多，则成土厚埋金之象；若又不见甲木疏土，传统多主愚懦，不应仍按壬甲恩荣或富中取贵论。',
@@ -221,6 +228,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-soil-bury-metal-with-jia',
+    recommendationStems: ['甲'],
     label: '辛日酉月土厚埋金见甲创立规则',
     description:
       '辛金生酉月，若辛金根气已成、总见二重以上，一壬而戊土多见，本为土厚埋金；但若甲木透出疏土，则格局转活，传统多主创立有为，不应仍按愚懦层次处理。',
@@ -243,6 +251,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-metal-formation-no-ren-with-ding',
+    recommendationStems: ['丁'],
     label: '辛日酉月金局无壬见丁锻炼规则',
     description:
       '辛金生酉月，若支成金局而无壬淘洗，传统总纲先改以丁火为先；若柱中又已见丁火锻炼，则局不至落入凶顽无赖，此时重在得丁为药，不应再与无丁同断。',
@@ -276,6 +285,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-metal-formation-no-ren-no-ding',
+    recommendationStems: [],
     label: '辛日酉月金局无壬无丁凶顽规则',
     description:
       '辛金生酉月，若支成金局、干见比肩而壬水不透不藏，传统总纲先改以丁火为先；若又无丁火锻炼，则直断凶顽无赖，不应只停留在抽象宜丁层面。',
@@ -313,6 +323,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-metal-formation-ren-high',
+    recommendationStems: [],
     label: '辛日酉月金局壬高透一清到底规则',
     description:
       '辛金生酉月，若地支成金局而壬水高透，可泄群金成一清到底之象，传统多主清贵，不应仍按无壬金局用丁论。',
@@ -344,6 +355,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-white-tiger',
+    recommendationStems: [],
     label: '辛日酉月金局土透壬透无火白虎规则',
     description:
       '辛金生酉月，若地支成金局，戊己透干而壬亦透、又无丙丁火破局，传统称白虎格，多主西北发显，不应与平常土重同断。',
@@ -374,6 +386,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-white-tiger-with-fire-ordinary',
+    recommendationStems: [],
     label: '辛日酉月白虎格见丙火平庸规则',
     description:
       '辛金生酉月，白虎格最忌丙火破局；若金局土透而壬透，又见丙火，传统即降为平庸，不应仍按白虎格高断。',
@@ -403,6 +416,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-pure-ji-monastic',
+    recommendationStems: [],
     label: '辛日酉月一派己土僧道规则',
     description:
       '辛金生酉月，若天干只见一二辛金而余皆己土，不杂庚戊与木火水神，正合原文"一二辛金，一派己土"，传统多断僧道，不应仍退回秋金泛取壬水。',
@@ -453,6 +467,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-ji-with-geng-jia-hidden-leisure',
+    recommendationStems: [],
     label: '辛日酉月己透支见庚甲安闲规则',
     description:
       '辛金生酉月，若己土透干而地支又见庚甲，较前式纯土壅金之局稍有转机，传统多主一生安闲，不应仍按僧道或普通秋金泛论。',
@@ -477,6 +492,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-water-flood-no-wu',
+    recommendationStems: [],
     label: '辛日酉月壬水成派无戊奔波规则',
     description:
       '辛金生酉月，若天干一派壬水泄金而无戊土出制或藏支止流，正合原文"沙水同流"之象，传统多主奔波贫苦，不应仍按秋金泛取水上断。',
@@ -520,6 +536,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-water-flood-hidden-wu-artistry',
+    recommendationStems: ['戊'],
     label: '辛日酉月壬水成派支见一戊才略规则',
     description:
       '辛金生酉月，若天干壬水成派泄金，本有沙水同流之患；但若地支独见一戊止流，则较合原文"支见一戊止流"，传统多主才略与艺术，不应仍按奔波贫苦处理。',
@@ -565,6 +582,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-yi-wood-no-geng-ren',
+    recommendationStems: [],
     label: '辛日酉月一派乙木无庚壬才多身弱规则',
     description:
       '辛金生酉月，若天干乙木成派而不见庚壬，正合原文"一派乙木，不见庚壬"，传统多断才多身弱，不应仍按秋金泛取壬水或误提到富贵层次。',
@@ -610,6 +628,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-yi-wood-with-geng',
+    recommendationStems: ['庚'],
     label: '辛日酉月一派乙木见庚富贵规则',
     description:
       '辛金生酉月，若乙木成派，本有财多身弱之患；但一见庚金制乙，则较合原文"一见庚制，富贵可期"，不应仍按才多身弱处理。',
@@ -650,6 +669,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-wuzi-chaoyang-authority',
+    recommendationStems: [],
     label: '辛日酉月戊子时巳酉丑全位重权高规则',
     description:
       '辛金生酉月，若辛日而时上戊子成六阴朝阳，又见巳酉丑金局全、庚辛并见，则较单纯朝阳更进一层，对应原文"庚辛局全巳酉丑，位重权高"；这里将"局全"落为支见巳酉丑全备，并保留庚辛同见作为成局标志。',
@@ -687,6 +707,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-wuzi-chaoyang',
+    recommendationStems: [],
     label: '辛日酉月戊子时六阴朝阳规则',
     description:
       '辛金生酉月，若辛日时上戊子而不见丙丁离位，合乎原文"六辛日透戊子时，运喜西方，阴若朝阳"；该条属于更窄的时柱格象，应高于一般酉月辛金常规格局。',

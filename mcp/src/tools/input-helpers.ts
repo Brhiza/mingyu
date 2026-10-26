@@ -4,7 +4,19 @@ import {
   isValidIsoDateTime,
 } from '../../../src/lib/date-validation.js';
 
+import { MingyuCoreError } from 'mingyu-core/result';
+
 type JsonRecord = Record<string, unknown>;
+
+function invalidInput(field: string, message: string): never {
+  throw new MingyuCoreError({
+    code: 'INPUT_VALIDATION_FAILED',
+    category: 'validation',
+    field,
+    message,
+    recoverable: true,
+  });
+}
 
 export function readMcpCustomDate(value?: string) {
   if (value === undefined) {
@@ -13,21 +25,21 @@ export function readMcpCustomDate(value?: string) {
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime()) || !isValidIsoDateTime(value, date)) {
-    throw new Error('customDate 不是有效时间。');
+    invalidInput('customDate', 'customDate 不是有效时间。');
   }
   return date;
 }
 
 export function readMcpPositiveInteger(value: number | undefined, key: string) {
   if (!Number.isSafeInteger(value) || (value ?? 0) <= 0) {
-    throw new Error(`${key} 必须是正整数。`);
+    invalidInput(key, `${key} 必须是正整数。`);
   }
   return value;
 }
 
 export function assertMcpRecord(value: unknown, key: string): asserts value is JsonRecord {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`${key} 必须是对象。`);
+    invalidInput(key, `${key} 必须是对象。`);
   }
 }
 
@@ -42,22 +54,22 @@ export function readMcpOptionalEnum<const T extends readonly string[]>(
   if (typeof value === 'string' && values.includes(value)) {
     return value;
   }
-  throw new Error(`${key} 必须是以下值之一：${values.join('、')}。`);
+  invalidInput(key, `${key} 必须是以下值之一：${values.join('、')}。`);
 }
 
 export function readMcpIntegerLike(value: string | number | undefined, key: string) {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value)) {
-      throw new Error(`${key} 必须是整数。`);
+      invalidInput(key, `${key} 必须是整数。`);
     }
     return value;
   }
   if (typeof value !== 'string' || !value.trim() || !/^\d+$/.test(value.trim())) {
-    throw new Error(`${key} 必须是整数。`);
+    invalidInput(key, `${key} 必须是整数。`);
   }
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`${key} 必须是整数。`);
+    invalidInput(key, `${key} 必须是整数。`);
   }
   return parsed;
 }
@@ -70,10 +82,10 @@ export function readMcpIntegerLikeInRange(
 ) {
   const parsed = readMcpIntegerLike(value, key);
   if (parsed < min) {
-    throw new Error(`${key} 不能小于 ${min}。`);
+    invalidInput(key, `${key} 不能小于 ${min}。`);
   }
   if (parsed > max) {
-    throw new Error(`${key} 不能大于 ${max}。`);
+    invalidInput(key, `${key} 不能大于 ${max}。`);
   }
   return parsed;
 }
@@ -92,13 +104,13 @@ export function readMcpNumberLikeInRange(
         : Number.NaN;
 
   if (!Number.isFinite(parsed)) {
-    throw new Error(`${key} 必须是数字。`);
+    invalidInput(key, `${key} 必须是数字。`);
   }
   if (parsed < min) {
-    throw new Error(`${key} 不能小于 ${min}。`);
+    invalidInput(key, `${key} 不能小于 ${min}。`);
   }
   if (parsed > max) {
-    throw new Error(`${key} 不能大于 ${max}。`);
+    invalidInput(key, `${key} 不能大于 ${max}。`);
   }
   return parsed;
 }
@@ -115,13 +127,13 @@ export function assertMcpBirthDate(params: {
   const day = readMcpIntegerLike(params.day, 'day');
 
   if (year < 1900 || year > 2100) {
-    throw new Error('year 不能小于 1900 或大于 2100。');
+    invalidInput('year', 'year 不能小于 1900 或大于 2100。');
   }
   if (month < 1 || month > 12) {
-    throw new Error('month 不能小于 1 或大于 12。');
+    invalidInput('month', 'month 不能小于 1 或大于 12。');
   }
   if (day < 1) {
-    throw new Error('day 不能小于 1。');
+    invalidInput('day', 'day 不能小于 1。');
   }
 
   const validationMessage = getBirthDateValidationMessage({
@@ -132,7 +144,7 @@ export function assertMcpBirthDate(params: {
     isLeapMonth: params.isLeapMonth,
   });
   if (validationMessage) {
-    throw new Error(validationMessage);
+    invalidInput('day', validationMessage);
   }
 }
 
@@ -146,36 +158,36 @@ export function assertMcpSolarBirthDate(params: {
   const day = readMcpIntegerLike(params.day, 'day');
 
   if (year < 1900 || year > 2100) {
-    throw new Error('year 不能小于 1900 或大于 2100。');
+    invalidInput('year', 'year 不能小于 1900 或大于 2100。');
   }
   if (month < 1 || month > 12) {
-    throw new Error('month 不能小于 1 或大于 12。');
+    invalidInput('month', 'month 不能小于 1 或大于 12。');
   }
   const maxDay = daysInSolarMonth(year, month);
   if (day < 1 || day > maxDay) {
-    throw new Error(`日期需在 1-${maxDay} 之间。`);
+    invalidInput('day', `日期需在 1-${maxDay} 之间。`);
   }
 }
 
 export function readMcpDateOnly(value: string, key: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
-    throw new Error(`${key} 需要使用 YYYY-MM-DD 格式。`);
+    invalidInput(key, `${key} 需要使用 YYYY-MM-DD 格式。`);
   }
 
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
   if (year < 1900 || year > 2100) {
-    throw new Error(`${key} 年份需在 1900-2100 之间。`);
+    invalidInput(key, `${key} 年份需在 1900-2100 之间。`);
   }
   if (month < 1 || month > 12) {
-    throw new Error(`${key} 不是有效日期。`);
+    invalidInput(key, `${key} 不是有效日期。`);
   }
 
   const maxDay = daysInSolarMonth(year, month);
   if (day < 1 || day > maxDay) {
-    throw new Error(`${key} 不是有效日期。`);
+    invalidInput(key, `${key} 不是有效日期。`);
   }
 
   return {
@@ -190,7 +202,7 @@ export function readMcpDateRange(startDate: string, endDate: string) {
   const diffDays = Math.round((end.date.getTime() - start.date.getTime()) / 86400000);
 
   if (diffDays < 0) {
-    throw new Error('endDate 不能早于 startDate。');
+    invalidInput('endDate', 'endDate 不能早于 startDate。');
   }
   if (diffDays > 30) {
     throw new Error('黄历择日一次最多比较 31 天，请缩小日期范围。');

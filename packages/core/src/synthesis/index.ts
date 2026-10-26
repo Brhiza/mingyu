@@ -1,3 +1,4 @@
+import { isStandardZiweiScopeMutagenFact } from '../ziwei/standard-facts';
 import type { BaziChartResult } from '../bazi/baziTypes';
 import { formatPatternBasisForPrompt } from '../bazi/baziAnalysisFormatter';
 import { buildBaziNatalAnalysisFacts, formatNatalPatternFacts } from '../bazi/natalEvidence';
@@ -510,26 +511,22 @@ function createZiweiThemeFacts(
           ) {
             return true;
           }
-          const targetName = `${normalizePalaceName(target.name)}宫`;
-          const landingName = `${normalizePalaceName(landingPalace.name)}宫`;
-          const dynamicName = mapping.dynamic_palace_name
-            ? `${normalizePalaceName(mapping.dynamic_palace_name)}宫`
-            : '';
-          const title = `${active.label}${mapping.star}化${mapping.mutagen}入本命${targetName}${dynamicName ? `（当前${active.label}${dynamicName}）` : ''}`;
-          const description = `${active.label}四化序列中的${mapping.star}对应化${mapping.mutagen}；该星的本命物理落宫为${targetName}${dynamicName ? `，当前对应${active.label}${dynamicName}` : ''}，运限命宫落于本命${landingName}。`;
           return !usedEvidence.some(
             (fact) =>
-              fact.type === 'scope_mutagen_destination' &&
-              fact.scope === active.scope &&
               fact.status === '已记录' &&
-              fact.star_names.length === 1 &&
-              fact.star_names[0] === mapping.star &&
-              fact.mutagens.length === 1 &&
-              fact.mutagens[0] === mapping.mutagen &&
-              fact.palace_indexes.includes(target.index) &&
-              fact.title === title &&
-              fact.description === description &&
-              (fact.promptText ?? fact.description) === `${title}：${description}`,
+              isStandardZiweiScopeMutagenFact(
+                fact,
+                {
+                  scope: active.scope,
+                  scopeLabel: active.label!,
+                  star: mapping.star,
+                  mutagen: mapping.mutagen,
+                  landing: landingPalace,
+                  target,
+                  dynamicPalaceName: mapping.dynamic_palace_name,
+                },
+                { requirePromptText: true },
+              ),
           );
         });
         return [

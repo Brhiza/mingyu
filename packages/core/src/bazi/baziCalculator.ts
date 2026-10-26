@@ -1,3 +1,4 @@
+import { MingyuCoreRangeError } from '../shared/result';
 import { SolarTime, SixtyCycleYear, Gender, LunarHour, EightChar } from 'tyme4ts';
 
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
@@ -729,10 +730,18 @@ export class BaziCalculator {
     request: BaziUnknownTimeBatchRequest,
   ): BaziUnknownTimeBatchResult {
     if (!Number.isSafeInteger(request.startIndex) || request.startIndex < 0) {
-      throw new RangeError('未知时辰候选 startIndex 必须是非负安全整数。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_CURSOR_INVALID',
+        field: 'unknownTimeBatch.startIndex',
+        message: '未知时辰候选 startIndex 必须是非负安全整数。',
+      });
     }
     if (request.contextKey !== undefined && typeof request.contextKey !== 'string') {
-      throw new RangeError('未知时辰候选 contextKey 必须是字符串。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_CURSOR_CONTEXT_INVALID',
+        field: 'unknownTimeBatch.contextKey',
+        message: '未知时辰候选 contextKey 必须是字符串。',
+      });
     }
     if (
       person.useTrueSolarTime === true ||
@@ -740,22 +749,38 @@ export class BaziCalculator {
       person.birthMinute !== undefined ||
       person.birthSecond !== undefined
     ) {
-      throw new RangeError('已提供精确出生时刻，不能按未知时辰候选续取。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_VALIDATION_FAILED',
+        field: 'unknownTimeBatch',
+        message: '已提供精确出生时刻，不能按未知时辰候选续取。',
+      });
     }
 
     const baseResult = this.calculateCoreBaziInternal(person, undefined, 'pillars').result;
     if (!baseResult.isThreePillars) {
-      throw new RangeError('未知时辰候选批次仅支持未确定出生时辰的资料。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_VALIDATION_FAILED',
+        field: 'unknownTimeBatch',
+        message: '未知时辰候选批次仅支持未确定出生时辰的资料。',
+      });
     }
 
     const contextKey = buildUnknownTimeContextKey(person);
     if (request.contextKey !== undefined && request.contextKey !== contextKey) {
-      throw new RangeError('未知时辰候选 contextKey 与当前出生资料不一致。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_CURSOR_CONTEXT_INVALID',
+        field: 'unknownTimeBatch.contextKey',
+        message: '未知时辰候选 contextKey 与当前出生资料不一致。',
+      });
     }
 
     const candidates = discoverUnknownTimeCandidates(person);
     if (request.startIndex >= candidates.length) {
-      throw new RangeError('未知时辰候选 startIndex 超出资料范围。');
+      throw new MingyuCoreRangeError({
+        code: 'INPUT_CURSOR_INVALID',
+        field: 'unknownTimeBatch.startIndex',
+        message: '未知时辰候选 startIndex 超出资料范围。',
+      });
     }
 
     const candidate = candidates[request.startIndex]!;
@@ -838,7 +863,11 @@ export class BaziCalculator {
       );
       if (batchRequest?.section !== 'fortune') return { result };
       if (!Number.isSafeInteger(batchRequest.startIndex) || batchRequest.startIndex !== 0) {
-        throw new RangeError('八字命限续取位置超出资料范围。');
+        throw new MingyuCoreRangeError({
+          code: 'INPUT_CURSOR_INVALID',
+          field: 'fortuneBatch.startIndex',
+          message: '八字命限续取位置超出资料范围。',
+        });
       }
       return {
         result,

@@ -5,7 +5,6 @@ import { formatUsefulGodFunctions } from '../packages/core/src/bazi/baziAnalysis
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import { HIDDEN_STEMS } from '../packages/core/src/bazi/baziDefinitions';
 import { CLIMATE_RULES } from '../packages/core/src/bazi/baziTherapeuticRules';
-import { CLIMATE_RULE_RECOMMENDATION_STEMS } from '../packages/core/src/bazi/baziTherapeuticRules/climateRules/recommendationStems';
 import type { HiddenStems, PatternAnalysis, Pillars } from '../packages/core/src/bazi/baziTypes';
 import { determineUsefulGod } from '../packages/core/src/bazi/baziUsefulGodStrategy';
 import { getSeasonStatus, getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
@@ -261,30 +260,31 @@ test('具体荐干目录覆盖不同日主规则并锁定全量分类', () => {
   assert.doesNotMatch(renHai.strategyTrace?.join('；') ?? '', /戊土为堤/);
 
   const rulesWithoutPolicy = CLIMATE_RULES.filter((rule) => !rule.policy);
-  const rulesById = new Map(CLIMATE_RULES.map((rule) => [rule.id, rule]));
+  assert.equal(new Set(CLIMATE_RULES.map((rule) => rule.id)).size, CLIMATE_RULES.length);
   assert.deepEqual(
     rulesWithoutPolicy
-      .filter((rule) => !Object.hasOwn(CLIMATE_RULE_RECOMMENDATION_STEMS, rule.id))
+      .filter((rule) => !Array.isArray(rule.recommendationStems))
       .map((rule) => rule.id),
     [],
-    '无 policy 的调候规则必须逐条登记具体荐干或显式空数组',
+    '无 policy 的调候规则必须在原对象登记具体荐干或显式空数组',
   );
   assert.deepEqual(
-    Object.keys(CLIMATE_RULE_RECOMMENDATION_STEMS).filter((ruleId) => {
-      const rule = rulesById.get(ruleId);
-      return !rule || Boolean(rule.policy);
-    }),
-    [],
-    '具体荐干分类不得包含未知规则或已有 policy 的规则',
-  );
-  assert.deepEqual(
-    Object.entries(CLIMATE_RULE_RECOMMENDATION_STEMS).flatMap(([ruleId, stems]) =>
-      stems
-        .filter((stem) => !'甲乙丙丁戊己庚辛壬癸'.includes(stem))
-        .map((stem) => `${ruleId}:${stem}`),
+    CLIMATE_RULES.flatMap((rule) =>
+      (rule.recommendationStems ?? [])
+        .filter((stem) => !/^[甲乙丙丁戊己庚辛壬癸]$/u.test(stem))
+        .map((stem) => `${rule.id}:${stem}`),
     ),
     [],
-    '具体荐干分类只允许十天干',
+    '具体荐干只允许单个十天干',
+  );
+  assert.deepEqual(
+    CLIMATE_RULES.find((rule) => rule.id === 'mao-month-geng-ding-first')?.recommendationStems,
+    ['丁', '甲', '庚'],
+  );
+  assert.deepEqual(
+    CLIMATE_RULES.find((rule) => rule.id === 'you-month-yi-qiufen-gui-no-bing')
+      ?.recommendationStems,
+    [],
   );
 });
 

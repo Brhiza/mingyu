@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate } from './input-helpers.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
@@ -66,7 +62,7 @@ export function registerLiuyaoTool(server: McpServer) {
         const result = buildLiuyaoResult(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '起卦失败'));
+        return createErrorToolResult(error, { message: '起卦失败' });
       }
     },
   );
@@ -92,7 +88,7 @@ export function registerLiuyaoTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成六爻提示词失败'));
+        return createErrorToolResult(error, { message: '生成六爻提示词失败' });
       }
     },
   );

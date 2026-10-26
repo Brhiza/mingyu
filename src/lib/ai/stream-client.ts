@@ -70,9 +70,13 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
       signal,
     });
 
-    await consumeSseStream(response, { onChunk, onDone, onError });
+    if (signal?.aborted) {
+      void response.body?.cancel().catch(() => undefined);
+      return;
+    }
+    await consumeSseStream(response, { onChunk, onDone, onError }, signal);
   } catch (err) {
-    if (isAbortError(err)) return;
+    if (isAbortError(err) || signal?.aborted) return;
     const message = err instanceof Error ? err.message : '';
     onError(
       err instanceof TypeError || /failed to fetch|network error/i.test(message)
@@ -114,7 +118,11 @@ export async function fetchAiModels(aiConfig: AiRequestConfig): Promise<string[]
 /**
  * 消费 SSE 流式响应，逐 chunk 回调。
  */
-async function consumeSseStream(response: Response, { onChunk, onDone, onError }: StreamCallbacks) {
+async function consumeSseStream(
+  response: Response,
+  { onChunk, onDone, onError }: StreamCallbacks,
+  signal?: AbortSignal,
+) {
   if (!response.ok) {
     let message = `请求失败（${response.status}）`;
     try {
@@ -148,15 +156,22 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
     }
   };
 
+  const cancelFromCaller = () => {
+    failed = true;
+    closeReader();
+  };
+  signal?.addEventListener('abort', cancelFromCaller, { once: true });
+  if (signal?.aborted) cancelFromCaller();
+
   const fail = (message: string) => {
-    if (completed || failed) return;
+    if (completed || failed || signal?.aborted) return;
     failed = true;
     closeReader();
     onError(message);
   };
 
   const finish = () => {
-    if (completed || failed) return;
+    if (completed || failed || signal?.aborted) return;
     if (!receivedContent) {
       fail('AI 未返回任何内容，请重新生成。');
       return;
@@ -167,7 +182,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
   };
 
   const processEvent = (event: string) => {
-    if (completed || failed) return;
+    if (completed || failed || signal?.aborted) return;
     const data = event
       .split(/\r?\n/u)
       .filter((line) => line.startsWith('data:'))
@@ -203,6 +218,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
   };
 
   try {
+    if (failed) return;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -231,6 +247,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
         : 'AI 流在完成前中断，未返回任何内容，请重新生成。',
     );
   } finally {
+    signal?.removeEventListener('abort', cancelFromCaller);
     if (!completed && !failed) {
       try {
         reader.releaseLock();

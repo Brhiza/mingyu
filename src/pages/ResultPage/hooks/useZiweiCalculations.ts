@@ -1,4 +1,4 @@
-import { useWorkerRequest } from '@/hooks/useWorkerRequest';
+import { attachWorkerSafety } from '@/hooks/useWorkerRequest';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildZiweiChartInput } from '@/lib/full-chart-engine/ziwei';
 import { birthProfileToZiweiChartInput } from 'mingyu-core/profile';
@@ -182,18 +182,19 @@ export function useZiweiCalculations(
   > | null>(null);
   const [promptZiweiPayloadKey, setPromptZiweiPayloadKey] = useState('');
   const [promptPartnerZiweiPayloadKey, setPromptPartnerZiweiPayloadKey] = useState('');
+  const [partnerPromptError, setPartnerPromptError] = useState({ key: '', message: '' });
   const [ziweiError, setZiweiError] = useState('');
   const [ziweiPaused, setZiweiPaused] = useState(false);
   const [ziweiRetryRevision, setZiweiRetryRevision] = useState(0);
-  const ziweiPayloadControllersRef = useRef<Set<AbortController>>(new Set());
+  const ziweiRequestControllersRef = useRef<Set<AbortController>>(new Set());
   const ziweiRequestGenerationRef = useRef(0);
   const cancelZiwei = useCallback(() => {
     ziweiRequestGenerationRef.current += 1;
     if (rangeRequested) setZiweiPaused(true);
-    for (const controller of ziweiPayloadControllersRef.current) {
+    for (const controller of ziweiRequestControllersRef.current) {
       controller.abort();
     }
-    ziweiPayloadControllersRef.current.clear();
+    ziweiRequestControllersRef.current.clear();
   }, [rangeRequested]);
   const retryZiwei = useCallback(() => {
     ziweiRequestGenerationRef.current += 1;
@@ -207,11 +208,12 @@ export function useZiweiCalculations(
     setPartnerRuntimeInputKey('');
     setPrimaryPayloadInputKey('');
     setPartnerPayloadInputKey('');
+    setPartnerPromptError({ key: '', message: '' });
     setZiweiError('');
-    for (const controller of ziweiPayloadControllersRef.current) {
+    for (const controller of ziweiRequestControllersRef.current) {
       controller.abort();
     }
-    ziweiPayloadControllersRef.current.clear();
+    ziweiRequestControllersRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -254,9 +256,10 @@ export function useZiweiCalculations(
 
     let active = true;
     const controller = new AbortController();
-    ziweiPayloadControllersRef.current.add(controller);
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
     const releaseController = () => {
-      ziweiPayloadControllersRef.current.delete(controller);
+      controllers.delete(controller);
     };
     void loadZiweiPayload(
       primaryZiweiInput,
@@ -267,14 +270,14 @@ export function useZiweiCalculations(
     )
       .then((payloadByScope) => {
         releaseController();
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         setZiweiPayloadByScope(payloadByScope);
         setPrimaryPayloadInputKey(primaryPayloadKey);
         setZiweiError('');
       })
       .catch((error: unknown) => {
         releaseController();
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setZiweiError(error instanceof Error ? error.message : '紫微排盘失败。');
         }
       });
@@ -311,9 +314,10 @@ export function useZiweiCalculations(
 
     let active = true;
     const controller = new AbortController();
-    ziweiPayloadControllersRef.current.add(controller);
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
     const releaseController = () => {
-      ziweiPayloadControllersRef.current.delete(controller);
+      controllers.delete(controller);
     };
     void loadZiweiPayload(
       partnerZiweiInput,
@@ -324,14 +328,14 @@ export function useZiweiCalculations(
     )
       .then((payloadByScope) => {
         releaseController();
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         setPartnerZiweiPayloadByScope(payloadByScope);
         setPartnerPayloadInputKey(partnerPayloadKey);
         setZiweiError('');
       })
       .catch((error: unknown) => {
         releaseController();
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setZiweiError(error instanceof Error ? error.message : '第二人紫微排盘失败。');
         }
       });
@@ -365,13 +369,23 @@ export function useZiweiCalculations(
       let active = true;
       const generation = ziweiRequestGenerationRef.current;
       const payloadController = new AbortController();
-      ziweiPayloadControllersRef.current.add(payloadController);
+      ziweiRequestControllersRef.current.add(payloadController);
       const releasePayloadController = () => {
-        ziweiPayloadControllersRef.current.delete(payloadController);
+        ziweiRequestControllersRef.current.delete(payloadController);
       };
-      void loadZiweiRuntime(primaryZiweiInput, primaryZiweiInputKey, ziweiRuntimeOptions)
+      void loadZiweiRuntime(
+        primaryZiweiInput,
+        primaryZiweiInputKey,
+        ziweiRuntimeOptions,
+        payloadController.signal,
+      )
         .then((runtime) => {
-          if (!active || generation !== ziweiRequestGenerationRef.current) return;
+          if (
+            !active ||
+            payloadController.signal.aborted ||
+            generation !== ziweiRequestGenerationRef.current
+          )
+            return;
           setZiweiRuntime(runtime);
           setPrimaryRuntimeInputKey(primaryRuntimeKey);
           setZiweiError('');
@@ -395,7 +409,11 @@ export function useZiweiCalculations(
         })
         .catch((error: unknown) => {
           releasePayloadController();
-          if (active && generation === ziweiRequestGenerationRef.current) {
+          if (
+            active &&
+            !payloadController.signal.aborted &&
+            generation === ziweiRequestGenerationRef.current
+          ) {
             setZiweiError(error instanceof Error ? error.message : '紫微排盘失败。');
           }
         });
@@ -412,9 +430,9 @@ export function useZiweiCalculations(
       !getCachedZiweiPayload(primaryPayloadKey)
     ) {
       const payloadController = new AbortController();
-      ziweiPayloadControllersRef.current.add(payloadController);
+      ziweiRequestControllersRef.current.add(payloadController);
       const releasePayloadController = () => {
-        ziweiPayloadControllersRef.current.delete(payloadController);
+        ziweiRequestControllersRef.current.delete(payloadController);
       };
       void loadZiweiPayload(
         primaryZiweiInput,
@@ -460,13 +478,23 @@ export function useZiweiCalculations(
       let active = true;
       const generation = ziweiRequestGenerationRef.current;
       const payloadController = new AbortController();
-      ziweiPayloadControllersRef.current.add(payloadController);
+      ziweiRequestControllersRef.current.add(payloadController);
       const releasePayloadController = () => {
-        ziweiPayloadControllersRef.current.delete(payloadController);
+        ziweiRequestControllersRef.current.delete(payloadController);
       };
-      void loadZiweiRuntime(partnerZiweiInput, partnerZiweiInputKey, ziweiRuntimeOptions)
+      void loadZiweiRuntime(
+        partnerZiweiInput,
+        partnerZiweiInputKey,
+        ziweiRuntimeOptions,
+        payloadController.signal,
+      )
         .then((runtime) => {
-          if (!active || generation !== ziweiRequestGenerationRef.current) return;
+          if (
+            !active ||
+            payloadController.signal.aborted ||
+            generation !== ziweiRequestGenerationRef.current
+          )
+            return;
           setPartnerZiweiRuntime(runtime);
           setPartnerRuntimeInputKey(partnerRuntimeKey);
           setZiweiError('');
@@ -490,7 +518,11 @@ export function useZiweiCalculations(
         })
         .catch((error: unknown) => {
           releasePayloadController();
-          if (active && generation === ziweiRequestGenerationRef.current) {
+          if (
+            active &&
+            !payloadController.signal.aborted &&
+            generation === ziweiRequestGenerationRef.current
+          ) {
             setZiweiError(error instanceof Error ? error.message : '第二人紫微排盘失败。');
           }
         });
@@ -507,9 +539,9 @@ export function useZiweiCalculations(
       !getCachedZiweiPayload(partnerPayloadKey)
     ) {
       const payloadController = new AbortController();
-      ziweiPayloadControllersRef.current.add(payloadController);
+      ziweiRequestControllersRef.current.add(payloadController);
       const releasePayloadController = () => {
-        ziweiPayloadControllersRef.current.delete(payloadController);
+        ziweiRequestControllersRef.current.delete(payloadController);
       };
       void loadZiweiPayload(
         partnerZiweiInput,
@@ -542,6 +574,7 @@ export function useZiweiCalculations(
   const ziweiPromptScopeType =
     promptState.ziweiScope === 'full' ? 'origin' : (promptState.ziweiScope as ScopeType);
   const shouldUseCustomZiweiPromptPayload =
+    shouldLoadZiweiPromptPayload &&
     promptState.tab === 'prompt' &&
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
     promptState.ziweiScope !== 'full' &&
@@ -550,7 +583,7 @@ export function useZiweiCalculations(
   const readingResourceRequest = useMemo(() => {
     if (
       isInstantResult ||
-      !isPromptTabMounted ||
+      !shouldLoadZiweiPromptPayload ||
       promptState.ziweiScope !== 'full' ||
       (promptState.promptSource !== 'ziwei' && promptState.promptSource !== 'bazi-ziwei') ||
       !primaryZiweiInput ||
@@ -595,7 +628,7 @@ export function useZiweiCalculations(
   }, [
     inputState.analysisMode,
     isInstantResult,
-    isPromptTabMounted,
+    shouldLoadZiweiPromptPayload,
     partnerZiweiInput,
     partnerZiweiInputKey,
     primaryZiweiInput,
@@ -625,6 +658,9 @@ export function useZiweiCalculations(
     }
 
     let active = true;
+    const controller = new AbortController();
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
     const isSameRequest = readingResourceRequestKeyRef.current === readingResourceRequest.key;
     readingResourceRequestKeyRef.current = readingResourceRequest.key;
     if (!isSameRequest) {
@@ -643,6 +679,7 @@ export function useZiweiCalculations(
               readingResourceRequest.hourIndex,
               item.role,
               item.subjectTitle,
+              controller.signal,
             ),
           };
         } catch {
@@ -650,7 +687,8 @@ export function useZiweiCalculations(
         }
       }),
     ).then((results) => {
-      if (!active) return;
+      controllers.delete(controller);
+      if (!active || controller.signal.aborted) return;
       const resources = results
         .map(({ resource }) => resource)
         .filter((resource): resource is ReadingResource => Boolean(resource));
@@ -662,8 +700,10 @@ export function useZiweiCalculations(
 
     return () => {
       active = false;
+      controllers.delete(controller);
+      controller.abort();
     };
-  }, [readingResourceRequest, ziweiReadingResourceRetry]);
+  }, [readingResourceRequest, ziweiReadingResourceRetry, ziweiRetryRevision]);
 
   const currentZiweiReadingResources =
     readingResourceRequest?.key === ziweiReadingResourceKey ? ziweiReadingResources : [];
@@ -714,17 +754,53 @@ export function useZiweiCalculations(
     promptState.ziweiScopeDate,
     promptHourIndex,
   ]);
-  const fortuneResult = useWorkerRequest<
-    NonNullable<typeof fortuneRequest>,
-    { key: string; text: string }
-  >({
-    factory: () =>
-      new Worker(new URL('../../../workers/ziwei-fortune-prompt.worker.ts', import.meta.url), {
+  const [fortuneResult, setFortuneResult] = useState<{
+    data: { key: string; text: string } | null;
+    error: string;
+  }>({ data: null, error: '' });
+  useEffect(() => {
+    if (!fortuneRequest) return;
+    setFortuneResult({ data: null, error: '' });
+    const controller = new AbortController();
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
+    const worker = new Worker(
+      new URL('../../../workers/ziwei-fortune-prompt.worker.ts', import.meta.url),
+      {
         type: 'module',
-      }),
-    request: fortuneRequest,
-    timeoutMs: 120000,
-  });
+      },
+    );
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      controller.signal.removeEventListener('abort', cleanup);
+      controllers.delete(controller);
+      disarm();
+      worker.onmessage = null;
+      worker.terminate();
+    };
+    const disarm = attachWorkerSafety(worker, {
+      timeoutMs: 120000,
+      onError: (error) => {
+        if (settled) return;
+        cleanup();
+        setFortuneResult({ data: null, error });
+      },
+    });
+    controller.signal.addEventListener('abort', cleanup, { once: true });
+    worker.onmessage = (
+      event: MessageEvent<{ id: string; ok: boolean; key: string; text: string; error?: string }>,
+    ) => {
+      if (settled || event.data.id !== fortuneRequest.key) return;
+      cleanup();
+      setFortuneResult({
+        data: event.data.ok ? event.data : null,
+        error: event.data.ok ? '' : event.data.error || '紫微运限资料生成失败。',
+      });
+    };
+    worker.postMessage({ id: fortuneRequest.key, ...fortuneRequest });
+    return () => controller.abort();
+  }, [fortuneRequest, ziweiRetryRevision]);
   const fortuneReady = !fortuneRequest || fortuneResult.data?.key === fortuneRequest.key;
   const ziweiFortuneText = fortuneRequest && fortuneReady ? fortuneResult.data?.text || '' : '';
   const primaryPromptDisplayKey =
@@ -761,29 +837,36 @@ export function useZiweiCalculations(
     }
 
     let active = true;
+    const controller = new AbortController();
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
     void loadZiweiPromptScopePayloads(
       primaryZiweiInput,
       primaryZiweiInputKey,
       promptState.ziweiScopeDate,
       promptHourIndex,
       ziweiPromptScopeType,
+      controller.signal,
     )
       .then((payloads) => {
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         setPromptScopePayloads(payloads);
         setPromptZiweiPayload(payloads[ziweiPromptScopeType] ?? null);
         setZiweiError('');
         setPromptZiweiPayloadKey(primaryPromptDisplayKey);
       })
       .catch((error: unknown) => {
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setZiweiError(error instanceof Error ? error.message : '紫微运限盘生成失败。');
           setPromptZiweiPayload(null);
           setPromptZiweiPayloadKey('');
         }
-      });
+      })
+      .finally(() => controllers.delete(controller));
     return () => {
       active = false;
+      controllers.delete(controller);
+      controller.abort();
     };
   }, [
     primaryPromptDisplayKey,
@@ -792,6 +875,7 @@ export function useZiweiCalculations(
     promptHourIndex,
     promptState.ziweiScopeDate,
     ziweiPromptScopeType,
+    ziweiRetryRevision,
   ]);
 
   useEffect(() => {
@@ -806,6 +890,7 @@ export function useZiweiCalculations(
       return;
     }
 
+    setPartnerPromptError({ key: '', message: '' });
     const cached = getCachedZiweiDisplayPayload(partnerPromptDisplayKey);
     if (cached) {
       setPromptPartnerZiweiPayload(cached);
@@ -814,26 +899,37 @@ export function useZiweiCalculations(
     }
 
     let active = true;
+    const controller = new AbortController();
+    const controllers = ziweiRequestControllersRef.current;
+    controllers.add(controller);
     void loadZiweiDisplayPayload(
       partnerZiweiInput,
       partnerZiweiInputKey,
       promptState.ziweiScopeDate,
       promptHourIndex,
       ziweiPromptScopeType,
+      controller.signal,
     )
       .then((payload) => {
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         setPromptPartnerZiweiPayload(payload);
         setPromptPartnerZiweiPayloadKey(partnerPromptDisplayKey);
       })
-      .catch(() => {
-        if (active) {
+      .catch((error: unknown) => {
+        if (active && !controller.signal.aborted) {
+          setPartnerPromptError({
+            key: partnerPromptDisplayKey,
+            message: error instanceof Error ? error.message : '第二人紫微运限盘生成失败。',
+          });
           setPromptPartnerZiweiPayload(null);
           setPromptPartnerZiweiPayloadKey('');
         }
-      });
+      })
+      .finally(() => controllers.delete(controller));
     return () => {
       active = false;
+      controllers.delete(controller);
+      controller.abort();
     };
   }, [
     partnerPromptDisplayKey,
@@ -842,6 +938,7 @@ export function useZiweiCalculations(
     promptHourIndex,
     promptState.ziweiScopeDate,
     ziweiPromptScopeType,
+    ziweiRetryRevision,
   ]);
 
   const currentZiweiRuntime =
@@ -882,7 +979,15 @@ export function useZiweiCalculations(
   const partnerZiweiPayload = shouldUseCustomZiweiPromptPayload
     ? activePromptPartnerZiweiPayload
     : defaultPartnerZiweiPayload;
+  const currentPartnerPromptError =
+    partnerPromptDisplayKey === partnerPromptError.key ? partnerPromptError.message : '';
   const ziweiLoading = Boolean(
+    (readingResourceRequest && !ziweiReadingResourcesReady && !ziweiReadingResourceError) ||
+    (primaryPromptDisplayKey && promptZiweiPayloadKey !== primaryPromptDisplayKey && !ziweiError) ||
+    (partnerPromptDisplayKey &&
+      promptPartnerZiweiPayloadKey !== partnerPromptDisplayKey &&
+      !currentPartnerPromptError) ||
+    (fortuneRequest && !fortuneReady && !fortuneResult.error) ||
     (primaryZiweiInput &&
       shouldWarmZiweiRuntime &&
       (primaryRuntimeInputKey !== primaryRuntimeKey ||
@@ -900,7 +1005,8 @@ export function useZiweiCalculations(
     partnerZiweiPayloadByScope: currentPartnerZiweiPayloadByScope,
     promptZiweiPayload: activePromptZiweiPayload,
     promptPartnerZiweiPayload: activePromptPartnerZiweiPayload,
-    ziweiError: fortuneResult.error || ziweiError,
+    ziweiError:
+      (fortuneRequest ? fortuneResult.error : '') || currentPartnerPromptError || ziweiError,
     ziweiFortuneText,
     primaryZiweiInput,
     partnerZiweiInput,

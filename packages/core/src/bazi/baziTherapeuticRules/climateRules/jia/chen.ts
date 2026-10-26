@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JIA_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-jia-geng-first',
+    recommendationStems: ['庚'],
     label: '甲日辰月先庚后壬规则',
     description:
       '甲木生辰月，木气渐竭，传统多先取庚金裁木成器，次取壬水滋养，不宜仍按春木一概先火。',

@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-month-xin-metal-formation-water-wood-clarity',
+    recommendationStems: [],
     label: '辛日巳月金局水透木制戊科甲规则',
     description:
       '辛金生巳月，若地支成金局，水气透干洗淘，又得木来制戊，较合原文"支成金局，水透出干，有木制戊，名一清澈底，科甲功名"；此类应高于一般夏辛喜水的泛化总纲。',
@@ -33,6 +34,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-ren-hai-hidden-no-wu',
+    recommendationStems: [],
     label: '辛日巳月壬藏亥中无戊上达规则',
     description:
       '辛金生巳月，若壬水只藏亥支而不透，且戊土不出天干，仍得暗中淘洗之机，传统多许上达，不应混入壬癸全无之局。',
@@ -72,6 +74,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-gui-visible-ren-hidden',
+    recommendationStems: [],
     label: '辛日巳月癸透壬藏富真贵假规则',
     description:
       '辛金生巳月，畏火喜水；若癸水透干、壬水藏支，既得洗淘又未成澄澈，传统多断富真贵假，不应与壬水高透科甲同论。',
@@ -96,6 +99,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-ren-hai-hidden-with-wu',
+    recommendationStems: [],
     label: '辛日巳月壬藏亥中见戊常人规则',
     description:
       '辛金生巳月，若壬水虽藏亥支而戊土透干，则暗水受遏，传统只作常人格局，不宜仍许上达。',
@@ -131,6 +135,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-ren-hai-jia-visible',
+    recommendationStems: [],
     label: '辛日巳月壬藏亥中甲透衣禄规则',
     description:
       '辛金生巳月，若壬水藏亥而再得一甲透，能疏土护水，传统多许衣禄可求；此时不论戊是否透出，都不应仍混入上达或常人的宽泛写法。',
@@ -165,6 +170,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-ren-gui-hidden-wu-ji-hidden',
+    recommendationStems: [],
     label: '辛日巳月壬癸戊己皆藏略富规则',
     description:
       '辛金生巳月，若壬癸皆藏而不透，戊己亦俱藏不出，既有暗水洗淘，又未遭燥土显遏，传统多许略富，不应混入壬癸全无或火透鳏独之局。',
@@ -202,6 +208,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-fire-formation-water-control',
+    recommendationStems: [],
     label: '辛日巳月火局得水制吉规则',
     description:
       '辛金生巳月，若地支成火局而复得水制，火势虽炽而尚可节，传统谓有制者吉，不应仍混作纯火无制之凶局。',
@@ -224,6 +231,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-fire-formation-no-water-earth',
+    recommendationStems: [],
     label: '辛日巳月火局无水取土规则',
     description:
       '辛金生巳月，若地支成火局而全无壬癸，火势无制，传统即谓凶；病药上则退而取土泄火，不应仍只按一般见火处理。',
@@ -251,6 +259,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-no-ren-gui-fire-lonely',
+    recommendationStems: [],
     label: '辛日巳月壬癸俱无见火鳏独规则',
     description:
       '辛金生巳月，若壬癸俱无而反见火透，洗淘既失又遭火烈，传统多断鳏独，不宜仍按普通夏金扶抑轻轻带过。',
@@ -282,6 +291,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-jia-no-ren-gui',
+    recommendationStems: [],
     label: '辛日巳月有甲无壬癸虚浮规则',
     description:
       '辛金生巳月，若甲木透干而壬癸全无，虽似有药，实则无水洗金，传统多断富贵虚浮，不应误提到真贵层次。',
@@ -309,6 +319,7 @@ export const XIN_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-xin-no-ren-gui-jia',
+    recommendationStems: [],
     label: '辛日巳月壬癸甲全无下品规则',
     description:
       '辛金生巳月，壬癸甲三者全无，则淘洗、润泽、疏通之药俱失；传统于普通格中多断下品，不应再抬到衣禄或富贵层次。',

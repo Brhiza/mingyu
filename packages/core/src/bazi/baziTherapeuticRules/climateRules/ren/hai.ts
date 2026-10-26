@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'hai-month-ren-wu-bing',
+    recommendationStems: ['戊', '丙'],
     label: '壬日亥月戊丙并用规则',
     description: '壬水生亥月，水旺先取戊土，丙火佐之；原文另以行火土运为丙戊两透论名利的条件。',
     priority: 118,
@@ -15,6 +16,7 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'hai-month-ren-wu-no-bing',
+    recommendationStems: [],
     label: '壬日亥月有戊无丙异路规则',
     description:
       '壬水生亥月，若戊透而丙不出，虽能止流却不能暖局，较合原文"有戊无丙，异路功名"；不应仍按戊丙两透富贵上断。',
@@ -31,6 +33,7 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'hai-month-ren-no-wu-bing',
+    recommendationStems: [],
     label: '壬日亥月戊丙俱无奔流规则',
     description:
       '壬水生亥月，水旺无堤无暖，泛滥奔流，较合原文"戊丙俱无，奔流下贱"；不应仍按冬水泛取火概之。',
@@ -46,6 +49,7 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'hai-month-ren-wood-formation-wu',
+    recommendationStems: [],
     label: '壬日亥月木局戊透衣禄规则',
     description:
       '壬水生亥月，若地支成木局，泄水太过；得戊土出干止流，较合原文"支成木局，有戊制之，衣禄可求"。',

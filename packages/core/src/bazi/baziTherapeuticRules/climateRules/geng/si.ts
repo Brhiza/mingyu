@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-month-geng-ren-wu-bing-first',
+    recommendationStems: ['壬', '戊', '丙'],
     label: '庚日巳月先壬次戊丙佐规则',
     description: '庚金生巳月，先取壬水中和，次取戊土，丙火佐之。',
     priority: 122,
@@ -15,6 +16,7 @@ export const GENG_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-geng-ren-wu-bing-visible',
+    recommendationStems: [],
     label: '庚日巳月壬戊丙俱全登科规则',
     description: '庚金生巳月，壬戊丙三者俱透，登科及第。',
     priority: 123,

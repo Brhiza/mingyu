@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-geng-jia-ding-first',
+    recommendationStems: ['丁', '甲'],
     label: '庚日酉月先丁次甲规则',
     description: '庚金生酉月，金旺极而刚，需丁火锻炼、甲木裁抑，方能成器。',
     priority: 120,
@@ -15,6 +16,7 @@ export const GENG_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-geng-ding-jia',
+    recommendationStems: [],
     label: '庚日酉月丁甲丙同见规则',
     description: '庚金生酉月，丁甲透而又见丙火，原文论功名显赫。',
     priority: 123,

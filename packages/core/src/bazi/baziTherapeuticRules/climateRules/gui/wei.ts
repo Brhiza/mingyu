@@ -4,6 +4,7 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   // “金水会夏天”跨午未两月规则登记于 gui/wu.ts，此处不再重复登记
   {
     id: 'wei-month-gui-geng-xin-first',
+    recommendationStems: ['庚', '辛'],
     label: '癸日未月专用庚辛规则',
     description: '六月癸水原文专用庚辛，庚辛在小暑后休囚、大暑后有气；成格条件另依节令及原局判断。',
     priority: 115,
@@ -15,6 +16,7 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-gui-xiaoshu-metal-water-rich',
+    recommendationStems: [],
     label: '癸日未月小暑后庚辛比劫同扶规则',
     description:
       '癸水生未月上半月，小暑后庚辛休囚，传统谓必须庚辛透干，又得比劫扶身，方可言富贵；不应仍与下半月庚辛有气同断。',
@@ -33,6 +35,7 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-gui-dashu-metal-rich',
+    recommendationStems: [],
     label: '癸日未月大暑后庚辛有气规则',
     description:
       '癸水生未月下半月，大暑后庚辛有气，传统谓即无比劫亦可；只要庚辛得用而无丁火破局，便不应仍拘于上半月必须比劫同扶的条件。',
@@ -50,6 +53,7 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wei-month-gui-ding-break-metal',
+    recommendationStems: ['庚', '辛'],
     label: '癸日未月丁火破金不吉规则',
     description:
       '癸水生未月，无论上半月或下半月，传统都忌丁火透出；即便丁火藏支亦不吉。若庚辛本可为用而又见丁，则不应仍按金水会夏天或庚辛有气上断。',

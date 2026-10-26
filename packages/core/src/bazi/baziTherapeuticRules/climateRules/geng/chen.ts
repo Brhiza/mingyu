@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chen-month-geng-jia-ding-first',
+    recommendationStems: ['甲', '丁'],
     label: '庚日辰月先甲后丁规则',
     description: '庚金生辰月，戊土司令，先用甲疏土，后用丁炼金。',
     priority: 119,
@@ -15,6 +16,7 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-geng-jia-ding-visible-no-peer',
+    recommendationStems: [],
     label: '庚日辰月丁甲两透无比肩科甲规则',
     description: '庚金生辰月，丁甲两透而不见比肩，科甲之命。',
     priority: 123,
@@ -30,6 +32,7 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chen-month-geng-jia-hidden-ding-visible',
+    recommendationStems: [],
     label: '庚日辰月甲藏丁透异路规则',
     description: '庚金生辰月，甲木藏支、丁火透干，异路功名。',
     priority: 122,

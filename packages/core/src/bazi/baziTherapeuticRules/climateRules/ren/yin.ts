@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_YIN_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'yin-month-ren-geng-bing-wu',
+    recommendationStems: ['庚', '丙', '戊'],
     label: '壬日寅月庚丙戊次第规则',
     description:
       '壬水生寅月，失令而寒，传统多先取庚金发源，次取丙火除寒，再取戊土止流，较单用金水更完整。',
@@ -16,6 +17,7 @@ export const REN_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-ren-geng-bing-first',
+    recommendationStems: ['庚', '丙'],
     label: '壬日寅月先庚次丙规则',
     description: '壬水生寅月，失令而寒，传统多先取庚金发源，次取丙火除寒，较单用金水更完整。',
     priority: 120,
@@ -28,6 +30,7 @@ export const REN_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-ren-geng-bing-wu-visible',
+    recommendationStems: [],
     label: '壬日寅月庚丙戊齐透科甲规则',
     description: '壬水生寅月，庚金发源、丙火佐助、戊土止流；庚丙戊齐透，科甲功名。',
     priority: 124,
@@ -42,6 +45,7 @@ export const REN_YIN_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'yin-month-ren-geng-first-bing-assist',
+    recommendationStems: ['庚', '丙'],
     label: '壬日寅月庚金为先丙火为佐规则',
     description: '壬水生寅月，庚金发源为主，丙火除寒为佐，较简单金水扶抑更贴合原法。',
     priority: 120,

@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const YI_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-yi-qiufen-bing-no-gui',
+    recommendationStems: ['丙', '癸'],
     label: '乙日酉月秋分后有丙无癸规则',
     description: '乙木生酉月秋分后，若丙透而癸不透，传统亦可取丙火向阳，不应仍拘泥于秋木必先取水。',
     priority: 122,
@@ -26,6 +27,7 @@ export const YI_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-yi-qiufen-gui-no-bing',
+    recommendationStems: [],
     label: '乙日酉月秋分后有癸无丙规则',
     description: '乙木生酉月秋分后，若癸透而丙不透，传统谓名利虚花，不应与丙癸并透或有丙无癸同论。',
     priority: 121,
@@ -49,6 +51,7 @@ export const YI_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-yi-bailu-ren-temporary',
+    recommendationStems: ['壬'],
     label: '乙日酉月白露后无癸姑用壬规则',
     description: '乙木生酉月上半月，若癸水不透，则传统多姑用壬水润木，属权代之法，不及癸水正用。',
     priority: 120,

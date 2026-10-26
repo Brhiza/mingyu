@@ -186,7 +186,6 @@ export function validateBirthProfileTimeRange(
 }
 
 function assertSampleTimestamp(range: BirthProfileTimeRange, timestamp: number): void {
-  assertRangePolicy(range);
   assertTimestamp(timestamp, '样本');
   if (timestamp < range.startTimestamp || timestamp >= range.endTimestamp) {
     throw new RangeError('出生时间范围样本必须位于起点含、终点不含的区间内。');
@@ -196,15 +195,28 @@ function assertSampleTimestamp(range: BirthProfileTimeRange, timestamp: number):
   }
 }
 
-/** 从已校验的出生区间取一个完整的标准北京时间 BirthProfile。 */
+// 包内逐秒计算在同一次请求里复用已核验的起点与政策，不向公开 profile 入口重导出。
+export function createBirthProfileRangeContext(
+  profile: BirthProfile,
+  range: BirthProfileTimeRange,
+) {
+  const source = validateBirthProfileTimeRange(profile, range);
+  return {
+    source,
+    profileAt(timestamp: number): BirthProfile {
+      assertSampleTimestamp(source, timestamp);
+      return buildRangePointProfile(profile, timestamp);
+    },
+  };
+}
+
+/** 从出生区间取一个完整的标准北京时间 BirthProfile；每次独立核验公开输入。 */
 export function birthProfileAtRangeTimestamp(
   profile: BirthProfile,
   range: BirthProfileTimeRange,
   timestamp: number,
 ): BirthProfile {
-  validateBirthProfileTimeRange(profile, range);
-  assertSampleTimestamp(range, timestamp);
-  return buildRangePointProfile(profile, timestamp);
+  return createBirthProfileRangeContext(profile, range).profileAt(timestamp);
 }
 
 /**

@@ -4,11 +4,7 @@ import { wuyunLiuqi } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { resolvePromptSelection } from 'mingyu-core/prompt';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
 const wuyunLiuqiSchema = z.object({
@@ -65,7 +61,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
         const result = calculateWuyunLiuqi(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '五运六气计算失败'));
+        return createErrorToolResult(error, { message: '五运六气计算失败' });
       }
     },
   );
@@ -102,7 +98,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
           ),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成五运六气提示词失败'));
+        return createErrorToolResult(error, { message: '生成五运六气提示词失败' });
       }
     },
   );

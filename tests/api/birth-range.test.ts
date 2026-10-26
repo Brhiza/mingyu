@@ -267,6 +267,7 @@ test('公开紫微接口范围模式按 scope 与运限游标分页并保留完�
     callApi('ziwei/calculate', {
       ...pointInput,
       fortuneBatch: { startIndex: 81 },
+      detailMode: 'full',
     }),
   ]);
   assert.equal(rangeFortune.response.status, 200, JSON.stringify(rangeFortune.body));

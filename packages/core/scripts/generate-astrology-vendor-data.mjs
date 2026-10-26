@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+const sourceOnly = process.argv.includes('--source-only');
 const asteroidNames = ['ceres', 'juno', 'pallas', 'vesta'];
 const require = createRequire(import.meta.url);
 const caelusRoot = dirname(require.resolve('caelus/package.json'));
@@ -51,7 +52,11 @@ assert.ok(Object.keys(embeddedData.vsop).length === 8, 'Caelus 基础行星数�
 const embeddedSource = `// 由固定版本的 caelus 数据生成，请勿直接编辑。\nexport const embeddedData = ${JSON.stringify(embeddedData)};\n`;
 for (const targetPath of [
   fileURLToPath(new URL('../src/astrology/vendor/caelus/embedded-data.js', import.meta.url)),
-  fileURLToPath(new URL('../dist/astrology/vendor/caelus/embedded-data.js', import.meta.url)),
+  ...(sourceOnly
+    ? []
+    : [
+        fileURLToPath(new URL('../dist/astrology/vendor/caelus/embedded-data.js', import.meta.url)),
+      ]),
 ]) {
   mkdirSync(dirname(targetPath), { recursive: true });
   writeFileSync(targetPath, embeddedSource, 'utf8');
@@ -65,9 +70,13 @@ for (const asteroidName of asteroidNames) {
     fileURLToPath(
       new URL(`../src/astrology/vendor/caelus/${asteroidName}_cheb.js`, import.meta.url),
     ),
-    fileURLToPath(
-      new URL(`../dist/astrology/vendor/caelus/${asteroidName}_cheb.js`, import.meta.url),
-    ),
+    ...(sourceOnly
+      ? []
+      : [
+          fileURLToPath(
+            new URL(`../dist/astrology/vendor/caelus/${asteroidName}_cheb.js`, import.meta.url),
+          ),
+        ]),
   ];
   const pack = JSON.parse(readFileSync(sourcePath, 'utf8'));
 

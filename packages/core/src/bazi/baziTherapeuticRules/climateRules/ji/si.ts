@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JI_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-wu-wei-month-ji-no-gui-ren-allowed',
+    recommendationStems: ['壬'],
     label: '己日夏月无癸有壬权代规则',
     description: '己土生夏月，最喜癸润；若无癸而壬透，传统亦可暂取壬水权代，不应退回普通扶抑。',
     priority: 121,
@@ -25,6 +26,7 @@ export const JI_SI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'si-month-ji-bing-gui-first',
+    recommendationStems: ['癸', '丙'],
     label: '己日巳月先癸后丙规则',
     description: '己土生巳月，夏燥土焦，传统多以癸水润燥、丙火暖局，先后有序。',
     priority: 120,

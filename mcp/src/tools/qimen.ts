@@ -7,11 +7,7 @@ import {
 } from 'mingyu-core/divination/qimen';
 import { QIMEN_LIFETIME_TOPICS, type QimenLifetimeInput } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate } from './input-helpers.js';
 
@@ -141,9 +137,11 @@ export function registerQimenTool(server: McpServer) {
           scope,
           juMethod as 'chaibu' | 'zhirun',
         );
-        return createStructuredToolResult({ result }, args.detailMode);
+        return createStructuredToolResult({ result }, args.detailMode, {
+          calculationSystem: 'qimen',
+        });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '排盘失败'));
+        return createErrorToolResult(error, { message: '排盘失败' });
       }
     },
   );
@@ -177,7 +175,7 @@ export function registerQimenTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成奇门提示词失败'));
+        return createErrorToolResult(error, { message: '生成奇门提示词失败' });
       }
     },
   );
@@ -195,7 +193,7 @@ export function registerQimenTool(server: McpServer) {
         const result = calculateQimenLifetime(args as unknown as QimenLifetimeInput);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '终身局排盘失败'));
+        return createErrorToolResult(error, { message: '终身局排盘失败' });
       }
     },
   );
@@ -216,7 +214,7 @@ export function registerQimenTool(server: McpServer) {
         );
         return createStructuredToolResult({ result: data, prompt });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成终身局提示词失败'));
+        return createErrorToolResult(error, { message: '生成终身局提示词失败' });
       }
     },
   );

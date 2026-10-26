@@ -8,7 +8,8 @@ import {
   getToolAnnotations,
   getToolDescription,
 } from '../../mcp/src/catalog/tool-catalog.js';
-import { birthInputSchema } from '../../mcp/src/schemas.js';
+import { birthInputSchema, resultOutputSchema } from '../../mcp/src/schemas.js';
+import { MingyuCoreError } from 'mingyu-core/result';
 import { createErrorToolResult, createStructuredToolResult } from '../../mcp/src/tool-results.js';
 import { handleMcpRequest } from '../../src/lib/mcp/handler.js';
 
@@ -161,6 +162,59 @@ test('结构化错误应返回扩展错误字段 (code, missingFields, retryable
   assert.equal(errorResult.content[0].type, 'text');
   const parsedContent = JSON.parse(errorResult.content[0].text);
   assert.equal(parsedContent.code, 'MISSING_BIRTH_TIME');
+});
+
+test('错误映射优先稳定类型而非消息，拒绝泄漏第三方错误属性', () => {
+  for (const message of ['随机重放样本已用尽。', '资源限制已超出，但这是输入错误。']) {
+    const error = new MingyuCoreError({
+      code: 'RANDOM_REPLAY_EXHAUSTED',
+      category: 'validation',
+      field: 'replay',
+      message,
+    });
+    for (const source of [error, error.toJSON()]) {
+      const value = createErrorToolResult(source);
+      const data = value.structuredContent as Record<string, unknown>;
+      assert.equal(value.isError, true);
+      assert.equal(data.code, 'RANDOM_REPLAY_EXHAUSTED');
+      assert.equal(data.category, 'validation');
+      assert.equal(data.field, 'replay');
+      assert.equal(data.retryable, false);
+      assert.ok(resultOutputSchema.safeParse(data).success);
+      assert.deepEqual(JSON.parse((value.content[0] as { text: string }).text), data);
+    }
+  }
+  const dependency = createErrorToolResult(
+    new MingyuCoreError({
+      code: 'DEPENDENCY_UNAVAILABLE',
+      category: 'dependency',
+      message: '缺少所需依赖。',
+    }),
+  ).structuredContent;
+  assert.equal(dependency?.code, 'DEPENDENCY_UNAVAILABLE');
+  assert.equal(dependency?.retryable, true);
+  const legacyCursor = createErrorToolResult(
+    new RangeError('未知时辰候选 startIndex 超出资料范围。'),
+  ).structuredContent;
+  assert.equal(legacyCursor?.code, 'INVALID_ARGUMENTS');
+  assert.equal(legacyCursor?.retryable, false);
+  assert.match(String(legacyCursor?.fallback), /游标/);
+  const limit = createErrorToolResult(
+    '黄历择日一次最多比较 31 天，请缩小日期范围。',
+  ).structuredContent;
+  assert.equal(limit?.code, 'RESOURCE_LIMIT');
+  const external = createErrorToolResult(
+    Object.assign(new Error('vendor failed'), {
+      code: 'SECRET_VENDOR_CODE',
+      category: 'validation',
+      field: 'secret',
+      context: { token: 'private' },
+    }),
+  ).structuredContent;
+  assert.equal(external?.code, 'MCP_TOOL_ERROR');
+  assert.equal(external?.category, undefined);
+  assert.equal(external?.field, undefined);
+  assert.equal(external?.context, undefined);
 });
 
 test('结构化结果 Envelope 应支持元数据与预警信息 (data, meta, warnings)', () => {

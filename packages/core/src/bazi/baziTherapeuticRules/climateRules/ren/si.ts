@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_SI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'si-month-ren-water-self-support',
+    recommendationStems: ['壬'],
     label: '壬日巳月比肩为先规则',
     description:
       '壬水生巳月，火旺水弱，传统常先取壬水比肩扶助，再取辛庚发源，不宜直接泛化为金印为先。',

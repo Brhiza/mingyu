@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const DING_WU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wu-month-ding-gui-unique-kill',
+    recommendationStems: [],
     label: '丁日午月癸透独杀当权规则',
     description: '丁火生午月，得一癸透，传统谓独杀当权，可至出人头地；若壬癸并透，则不属独杀一路。',
     priority: 121,
@@ -26,6 +27,7 @@ export const DING_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-ding-geng-ren-tu-ordinary',
+    recommendationStems: [],
     label: '丁日午月庚壬两透见土常人规则',
     description: '丁火生午月，支成火局，庚壬两透而土透制壬，原文断为常人。',
     priority: 123,
@@ -48,6 +50,7 @@ export const DING_WU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'wu-month-ding-geng-ren-kejia',
+    recommendationStems: [],
     label: '丁日午月庚壬两透科甲规则',
     description: '丁火生午月，支成火局、干见火出，庚壬两透而无土制壬，科甲定然。',
     priority: 122,

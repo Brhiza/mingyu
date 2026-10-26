@@ -10,10 +10,9 @@ import { GENG_CLIMATE_RULES } from './geng';
 import { XIN_CLIMATE_RULES } from './xin';
 import { REN_CLIMATE_RULES } from './ren';
 import { GUI_CLIMATE_RULES } from './gui';
-import { CLIMATE_RULE_RECOMMENDATION_STEMS } from './recommendationStems';
 import { VERIFIED_CLIMATE_RULES } from './verified';
 
-const CLIMATE_RULES_WITHOUT_RECOMMENDATION_STEMS: ClimateRule[] = [
+export const CLIMATE_RULES: ClimateRule[] = [
   ...VERIFIED_CLIMATE_RULES,
   ...GENERAL_CLIMATE_RULES,
   ...JIA_CLIMATE_RULES,
@@ -27,12 +26,3 @@ const CLIMATE_RULES_WITHOUT_RECOMMENDATION_STEMS: ClimateRule[] = [
   ...REN_CLIMATE_RULES,
   ...GUI_CLIMATE_RULES,
 ];
-
-export const CLIMATE_RULES: ClimateRule[] = CLIMATE_RULES_WITHOUT_RECOMMENDATION_STEMS.map(
-  (rule) => {
-    const recommendationStems = CLIMATE_RULE_RECOMMENDATION_STEMS[rule.id];
-    return recommendationStems === undefined
-      ? rule
-      : { ...rule, recommendationStems: [...recommendationStems] };
-  },
-);

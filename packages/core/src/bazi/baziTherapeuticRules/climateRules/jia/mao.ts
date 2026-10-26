@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const JIA_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'mao-month-jia-geng-wu-first',
+    recommendationStems: ['庚', '戊'],
     label: '甲日卯月庚金财资规则',
     description: '二月甲木以庚金驾阳刃，须戊土财星资庚；丁火透出另按原文条件论。',
     priority: 120,

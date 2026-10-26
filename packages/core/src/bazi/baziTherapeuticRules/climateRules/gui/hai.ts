@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GUI_HAI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'hai-month-gui-geng-xin',
+    recommendationStems: ['庚', '辛'],
     label: '癸日亥月庚辛发源规则',
     description: '癸水生亥月，原文谓亥中甲木泄散元神，宜庚辛金发源；丁火伤金时须另核。',
     priority: 121,

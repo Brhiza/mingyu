@@ -218,6 +218,10 @@ MCP 在线端点与本地 CLI 复用同一套计算能力；在线提示词通�
 
 `/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时传 `summary`；确实需要同次响应带完整排盘时传 `full`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；其中八字仍保留逐柱神煞命中。审计或研究场景可显式传 `detailMode: "full"`。
 
+兼容说明：八字、紫微与奇门计算在 REST/MCP 中省略 `detailMode` 与显式 `compact` 现在返回同一领域轻量投影。依赖八字逐年明细、紫微 `payloadByScope` 或奇门完整格局依据的调用方应显式传 `detailMode: "full"`；随机重放轨迹与分页游标继续保留，出生区间仍按原有完整分页契约返回。提示词的 `responseMode` 与计算细节模式相互独立。八字/紫微单盘同时传新旧范围字段时，统一 `scope` 优先于 `baziFortuneScope` / `promptScope`，盘面、目标日期及任务书使用同一有效范围；只传旧字段继续兼容。
+
+MCP 错误兼容说明：受控核心错误现在保留 `category`、`field` 和 `recoverable`。输入/边界错误映射为 `INVALID_ARGUMENTS`，不支持的操作为 `OPERATION_UNSUPPORTED`，依赖缺失为 `DEPENDENCY_UNAVAILABLE`；随机错误保留原有 `RANDOM_*` 代码，例如重放耗尽由旧 `MCP_TOOL_ERROR` 改为 `RANDOM_REPLAY_EXHAUSTED`。分页游标越界由旧 `RESOURCE_LIMIT` 改为 `INVALID_ARGUMENTS`、`retryable: false`，应按 `field` 和续取建议修正游标；`recoverable` 表示可修正，不表示可以原样重试。`isError`、文本 content 与结构化错误消息继续保留。
+
 具有经典目录的东方术数 `/prompt` 接口支持 `includeClassics: true`，默认关闭。开启后在提示词中附加 `【经典依据】`，同时在三种 `responseMode` 的 `data.classicalReferences` 中返回对应条目：`id`、`book`、`chapter`、`summary`、`application`、`sourceUrl` 和 `textType: "summary"`。这些条目是规则摘要与适用条件；核验链接保留在结构化资料中。可用体系以 OpenAPI 各路径是否包含 `includeClassics` 为准。
 
 八字紫微合参和大类主题咨询同样支持该参数；单体系咨询只附选定体系的依据。使用 `combinedBatch` 分册续取时，八字本命与岁运分册只附八字依据，紫微盘面与运限分册只附紫微依据。未传或传 `false` 时保持原有返回内容。

@@ -1,3 +1,4 @@
+import { MingyuCoreRangeError } from '../shared/result';
 import type { ChartInput } from '../types/chart';
 import type { IztroAstrolabe, IztroHoroscope } from '../types/iztro';
 import { LunarDay, SolarDay } from 'tyme4ts';
@@ -608,7 +609,10 @@ async function buildTimelineFromAstrolabe(
       throw new RangeError('紫微年龄年分页仅用于当前阶段或全部运限。');
     }
     if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= ageYears.length) {
-      throw new RangeError('紫微运限分页起点超出可用年份范围。');
+      throw new MingyuCoreRangeError({
+        field: 'fortuneBatch.startIndex',
+        message: '紫微运限分页起点超出可用年份范围。',
+      });
     }
     if (!Number.isInteger(limit) || limit < 1 || limit > 10) {
       throw new RangeError('紫微运限每批需为 1 至 10 个年龄年。');

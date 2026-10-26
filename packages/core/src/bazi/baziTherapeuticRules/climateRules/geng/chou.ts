@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-geng-bing-first',
+    recommendationStems: ['丙', '丁', '甲'],
     label: '庚日丑月先丙次丁规则',
     description: '庚金生丑月，先取丙火解冻，次取丁火炼金，甲木亦不可少。',
     priority: 121,

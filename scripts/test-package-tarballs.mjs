@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
+import { runPnpm } from './run-pnpm.mjs';
 import {
   assertCorePackageSize,
   assertSizeBudget,
@@ -23,12 +24,6 @@ import {
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
-const pnpmEntry = process.env.npm_execpath;
-
-if (!pnpmEntry) {
-  throw new Error('请通过 pnpm package:check 运行 npm 包契约检查。');
-}
-
 function run(command, args, cwd, env = {}) {
   const result = spawnSync(command, args, {
     cwd,
@@ -41,10 +36,6 @@ function run(command, args, cwd, env = {}) {
     throw new Error(`${command} ${args.join(' ')} 执行失败。\n${output}`);
   }
   return result.stdout.trim();
-}
-
-function runPnpm(args, cwd, env) {
-  return run(process.execPath, [pnpmEntry, ...args], cwd, env);
 }
 
 function readJson(path) {

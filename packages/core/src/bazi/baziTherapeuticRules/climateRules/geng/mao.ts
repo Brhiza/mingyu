@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'mao-month-geng-ding-first',
+    recommendationStems: ['丁', '甲', '庚'],
     label: '庚日卯月专用丁火规则',
     description: '庚金生卯月，专用丁火，借甲引丁，借庚劈甲。',
     priority: 118,
@@ -15,6 +16,7 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'mao-month-geng-ding-jia-visible-geng-hidden',
+    recommendationStems: [],
     label: '庚日卯月丁甲透支见庚规则',
     description: '庚金生卯月，丁甲两透，支下再见庚金制甲；配得中和，方论大贵。',
     priority: 123,
@@ -30,6 +32,7 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'mao-month-geng-bing-without-ding',
+    recommendationStems: [],
     label: '庚日卯月无丁有丙异路规则',
     description: '庚金生卯月，无丁而有丙，异路功名。',
     priority: 122,

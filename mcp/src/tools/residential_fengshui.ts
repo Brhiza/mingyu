@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { residentialFengshui } from 'mingyu-core';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
 
@@ -159,7 +155,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
         const result = calculateResidential(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '住宅风水排盘失败'));
+        return createErrorToolResult(error, { message: '住宅风水排盘失败' });
       }
     },
   );
@@ -186,7 +182,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成住宅风水提示词失败'));
+        return createErrorToolResult(error, { message: '生成住宅风水提示词失败' });
       }
     },
   );

@@ -4,6 +4,7 @@ import type { ClimateRule } from '../../types';
 export const JI_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'wei-month-ji-gui-bing-first',
+    recommendationStems: ['癸', '丙'],
     label: '己日未月先癸后丙规则',
     description: '三夏己土禾稼在田，原文以癸水甘沛为要、丙火照暖次之；无癸有壬另论。',
     priority: 115,

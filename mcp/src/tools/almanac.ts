@@ -3,11 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import type { AlmanacData, AlmanacParticipantInput, AlmanacTopic } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
-import {
-  createErrorToolResult,
-  createStructuredToolResult,
-  getErrorMessage,
-} from '../tool-results.js';
+import { createErrorToolResult, createStructuredToolResult } from '../tool-results.js';
 import {
   buildCommonDivinationPrompt,
   extendOptionalQuestionPromptSchema,
@@ -229,7 +225,7 @@ export function registerAlmanacTool(server: McpServer) {
         const result = buildAlmanacResult(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '黄历择日失败'));
+        return createErrorToolResult(error, { message: '黄历择日失败' });
       }
     },
   );
@@ -255,7 +251,7 @@ export function registerAlmanacTool(server: McpServer) {
           }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成黄历择日提示词失败'));
+        return createErrorToolResult(error, { message: '生成黄历择日提示词失败' });
       }
     },
   );

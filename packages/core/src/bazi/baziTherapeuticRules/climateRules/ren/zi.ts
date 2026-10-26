@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'zi-month-ren-wu-bing',
+    recommendationStems: ['戊', '丙'],
     label: '壬日子月戊丙并用规则',
     description: '壬水生子月，阳刃帮身，先取戊土，次用丙火。',
     priority: 118,
@@ -15,6 +16,7 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-wu-bing-visible',
+    recommendationStems: [],
     label: '壬日子月戊丙两透富贵规则',
     description: '壬水生子月，戊丙两透，富贵荣华。',
     priority: 124,
@@ -29,6 +31,7 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-wu-no-bing',
+    recommendationStems: [],
     label: '壬日子月有戊无丙略富规则',
     description: '壬水生子月，有戊无丙，略可言富。',
     priority: 122,
@@ -44,6 +47,7 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-bing-no-wu',
+    recommendationStems: [],
     label: '壬日子月有丙无戊好谋无成规则',
     description: '壬水生子月，有丙无戊，好谋无成。',
     priority: 122,
@@ -59,6 +63,7 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-water-formation-no-fire',
+    recommendationStems: [],
     label: '壬日子月水局丙不透庸人规则',
     description: '壬水生子月，支成水局而丙不出干，即有戊土，亦是庸人。',
     priority: 123,
@@ -74,6 +79,7 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-fire-formation-wealth',
+    recommendationStems: [],
     label: '壬日子月支成火局富裕规则',
     description: '壬水生子月，支成火局，一富而已。',
     priority: 121,

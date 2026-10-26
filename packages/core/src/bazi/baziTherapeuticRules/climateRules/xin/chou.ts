@@ -3,6 +3,7 @@ import type { ClimateRule } from '../../types';
 export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'chou-month-xin-bing-ren-all',
+    recommendationStems: [],
     label: '辛日丑月丙壬两透金马玉堂规则',
     description:
       '辛金生丑月，寒冻之极，传统明言先丙后壬；若丙壬两透，既能解冻又能洗淘，最合"金马玉堂之客"层次，不应仍按普通冬辛扶抑粗断。',
@@ -18,6 +19,7 @@ export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-xin-bing-ren-hidden',
+    recommendationStems: [],
     label: '辛日丑月壬丙俱藏游庠规则',
     description:
       '辛金生丑月，若丙壬皆不透而俱藏支内，虽不及两透显发，仍较合原文"壬丙俱藏，游庠食廪之人"；此类不应误作纯寒无药之局。',
@@ -45,6 +47,7 @@ export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-xin-bing-only-no-ren',
+    recommendationStems: [],
     label: '辛日丑月有丙无壬富真贵假规则',
     description:
       '辛金生丑月，若丙火透干而壬水全无，虽能解冻却不能洗淘，较合原文"有丙无壬，富真贵假"；此类只可许富，不应误提到金马玉堂。',
@@ -63,6 +66,7 @@ export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-xin-ren-only-no-bing',
+    recommendationStems: [],
     label: '辛日丑月有壬乏丙贫贱规则',
     description:
       '辛金生丑月，若壬水透出而丙火全无，寒金愈洗愈冷，较合原文"有壬乏丙，贱而且贫"；此时不能仍把见壬当作得用。',
@@ -81,6 +85,7 @@ export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-xin-many-bing-no-ren-gui-trade',
+    recommendationStems: [],
     label: '辛日丑月丙多无壬有癸贸易规则',
     description:
       '辛金生丑月，若丙火偏多而壬水不见，另有癸水点缀，较合原文"丙多，无壬，有癸，市中贸易之流"；此类多主商贸营生，不应误抬到富真贵假或金马玉堂层次。',
@@ -102,6 +107,7 @@ export const XIN_CHOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'chou-month-xin-water-many-earth-fire-peace',
+    recommendationStems: [],
     label: '辛日丑月水多见戊己丙丁安乐规则',
     description:
       '辛金生丑月，若水势偏多，而戊己出干、丙丁亦见，既能制水培金，又能温暖解冻，较合原文"水多，有戊己出干，又有丙丁，必主衣食充盈，一生安乐"；不应仍按寒湿偏枯下断。',
