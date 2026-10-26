@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.4.3 (2026-10-27)
 
 - REST/MCP 八字、紫微与奇门计算统一省略模式与显式 `detailMode: "compact"` 的领域投影。依赖完整岁运、紫微 `payloadByScope` 或完整证据的消费者需显式传 `full`；随机重放与分页元数据保留。
 - 八字/紫微单盘统一范围优先级：`scope` 优先于旧 `baziFortuneScope` / `promptScope`，仅传旧字段继续兼容。修复八宅输入错误分类及 MCP 随机重放、分页游标错误的结构丢失。
 - MCP 受控核心错误保留 `category/field/recoverable`；重放耗尽现在返回 `RANDOM_REPLAY_EXHAUSTED`，游标越界返回 `INVALID_ARGUMENTS` 且 `retryable: false`，调用方应按字段与续取建议修正。输入/边界、不支持和依赖错误分别映射 `INVALID_ARGUMENTS`、`OPERATION_UNSUPPORTED`、`DEPENDENCY_UNAVAILABLE`；原生 `RangeError` 的 instanceof 契约保留。
+- 增加默认关闭的经典依据选项，覆盖页面与 REST/MCP 提示词入口。
+- 统一业务请求计划、结果投影与受控错误，修复流式响应、取消和重试边界。
+- 合参改用结构化资料可用性和实际时间范围，保留交运与交节边界。
+- 减少核心窄入口的模块加载，保留全部 75 个公开 exports。
+- 修复住宅日期粒度、AI 资料交接及文化提示词 responseMode，补全 OpenAPI 发现。
 
 ## 0.4.2 (2026-10-08)
 
