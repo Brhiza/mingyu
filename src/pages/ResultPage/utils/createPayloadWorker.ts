@@ -26,6 +26,7 @@ export function createPayloadWorker(
     worker.terminate();
   };
   const disarm = attachWorkerSafety(worker, {
+    timeoutMs: 120000,
     onError: (message) => {
       if (settled) return;
       finish();
@@ -76,6 +77,7 @@ export function createReadingResourceWorker(
     worker.terminate();
   };
   const disarm = attachWorkerSafety(worker, {
+    timeoutMs: 120000,
     onError: (message) => {
       if (settled) return;
       finish();

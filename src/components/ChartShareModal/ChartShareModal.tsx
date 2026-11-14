@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
+import { copyTextToClipboard } from '@/utils/copy-text';
 import { shareText } from '@/utils/share-text';
 import { readPreferredAndroidAiApp } from '@/lib/android-ai-app';
 
@@ -30,18 +31,7 @@ export function ChartShareModal({
   async function handleCopy() {
     if (!chartText) return;
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(chartText);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = chartText;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
+      await copyTextToClipboard(chartText);
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2500);
     } catch {
@@ -59,7 +49,7 @@ export function ChartShareModal({
       } else if (result.type === 'system') {
         setShareMsg('已调起系统分享');
       } else {
-        await navigator.clipboard.writeText(chartText);
+        await copyTextToClipboard(chartText);
         setCopyState('copied');
         setShareMsg('已复制排盘信息，可直接粘贴分享');
       }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { copyTextToClipboard } from '@/utils/copy-text';
 import { shareText } from '@/utils/share-text';
 import { ANDROID_AI_APP_EVENT, readPreferredAndroidAiApp } from '@/lib/android-ai-app';
 
@@ -59,7 +60,7 @@ export function usePromptCopyShare(promptText: string): PromptCopyShare {
     }
 
     try {
-      await navigator.clipboard.writeText(promptText);
+      await copyTextToClipboard(promptText);
       setCopyResult('copied');
     } catch {
       setCopyResult('failed');
@@ -79,7 +80,7 @@ export function usePromptCopyShare(promptText: string): PromptCopyShare {
         return;
       }
 
-      await navigator.clipboard.writeText(promptText);
+      await copyTextToClipboard(promptText);
       setShareResult({ type: 'copied' });
     } catch (error) {
       setShareResult({

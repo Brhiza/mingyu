@@ -16,6 +16,7 @@ import { MingluCrossSynthesisSection } from './MingluCrossSynthesisSection';
 import { MingluGlossarySection } from './MingluGlossarySection';
 import { scrollToMingluAnchor } from './MingluLink';
 import { formatMingluPatternCopy } from './minglu-copy';
+import { copyTextToClipboard } from '@/utils/copy-text';
 import './minglu.css';
 
 interface MingluWikiViewProps {
@@ -104,7 +105,7 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
     });
 
     try {
-      await navigator.clipboard.writeText(md);
+      await copyTextToClipboard(md);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch {

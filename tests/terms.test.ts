@@ -165,3 +165,28 @@ test('六爻术语盘面情境推断：应准确识别世爻、应爻与动变�
   assert.match(termCtx.relationshipSummary!, worldYao.isChanging ? /动爻/ : /静爻/);
   assert.deepEqual(getLiuyaoTermContext(worldYao.sixRelative, liuyao, yaoInfo), termCtx);
 });
+
+test('紫微术语盘面情境推断：应支持星曜落宫与宫位三方四正本盘解析', () => {
+  const starCtx = getZiweiTermContext('紫微', {
+    palaceName: '命宫',
+    starName: '紫微',
+    mutagen: '权',
+    brightness: '庙',
+  });
+  assert.ok(starCtx);
+  assert.equal(starCtx.dynamicTone, 'lucky');
+  assert.equal(starCtx.pillarOrPalace, '命宫 · 紫微');
+  assert.match(starCtx.roleInChart, /紫微坐落命宫（庙地），逢化权/);
+
+  const palaceCtx = getZiweiTermContext('命宫', {
+    palaceName: '命宫',
+    branch: '甲子',
+    majorStars: '紫微、天府',
+    oppositePalace: '迁移宫',
+    surroundedPalaces: '财帛宫、官禄宫、迁移宫',
+  });
+  assert.ok(palaceCtx);
+  assert.equal(palaceCtx.pillarOrPalace, '命宫（甲子）');
+  assert.match(palaceCtx.roleInChart, /主星【紫微、天府】/);
+  assert.match(palaceCtx.roleInChart, /对宫【迁移宫】/);
+});

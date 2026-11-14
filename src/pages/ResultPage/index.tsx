@@ -1722,7 +1722,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     ) {
       return '';
     }
-    if (promptState.baziFortuneScope !== 'natal' && !baziQuestionFortuneContext) {
+    if (
+      promptState.baziFortuneScope !== 'natal' &&
+      promptState.baziFortuneScope !== 'full' &&
+      !baziQuestionFortuneContext
+    ) {
       return '';
     }
     const { system, user } = promptEngine.buildPromptFromConfig(
@@ -2917,6 +2921,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const { copyState, shareState, handleCopy } = usePromptCopyShare(latestActivePromptText);
 
   function switchTab(tab: ResultTabKey) {
+    if (
+      inputState.analysisMode === 'compatibility' &&
+      (tab === 'bazi' || tab === 'ziwei') &&
+      promptState.promptSource !== 'bazi-ziwei'
+    ) {
+      updatePromptState({ tab, promptSource: tab });
+      return;
+    }
     updatePromptState({ tab });
   }
 
@@ -3392,22 +3404,26 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 {ziweiError ? <p className="error-text">{ziweiError}</p> : null}
                 {inputState.analysisMode === 'compatibility' && !ziweiError ? (
                   <div className="result-dual-layout">
-                    {ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
+                    {ziweiRuntime &&
+                    primaryZiweiInput &&
+                    (currentZiweiPayload ?? ziweiRuntime.payloadByScope.origin) ? (
                       <ZiweiBoard
                         title="第一人紫微"
                         name={inputState.name || '第一人'}
-                        payload={currentZiweiPayload}
+                        payload={currentZiweiPayload ?? ziweiRuntime.payloadByScope.origin}
                         chartInput={primaryZiweiInput}
                         runtime={ziweiRuntime}
                       />
                     ) : (
                       <ZiweiBoardSkeleton title="第一人紫微" name={inputState.name || '第一人'} />
                     )}
-                    {partnerZiweiRuntime && partnerZiweiInput && partnerZiweiPayload ? (
+                    {partnerZiweiRuntime &&
+                    partnerZiweiInput &&
+                    (partnerZiweiPayload ?? partnerZiweiRuntime.payloadByScope.origin) ? (
                       <ZiweiBoard
                         title="第二人紫微"
                         name={inputState.partnerName || '第二人'}
-                        payload={partnerZiweiPayload}
+                        payload={partnerZiweiPayload ?? partnerZiweiRuntime.payloadByScope.origin}
                         chartInput={partnerZiweiInput}
                         runtime={partnerZiweiRuntime}
                       />
@@ -3420,11 +3436,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   </div>
                 ) : null}
                 {inputState.analysisMode !== 'compatibility' && !ziweiError ? (
-                  ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
+                  ziweiRuntime &&
+                  primaryZiweiInput &&
+                  (currentZiweiPayload ?? ziweiRuntime.payloadByScope.origin) ? (
                     <ZiweiBoard
                       title={isInstantResult ? '紫微即时盘' : '紫微总览'}
                       name={isInstantResult ? '当前时刻' : inputState.name || '当前命盘'}
-                      payload={currentZiweiPayload}
+                      payload={currentZiweiPayload ?? ziweiRuntime.payloadByScope.origin}
                       chartInput={primaryZiweiInput}
                       runtime={ziweiRuntime}
                       isInstant={isInstantResult}

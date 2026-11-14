@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
+import { copyTextToClipboard } from '@/utils/copy-text';
 import { shareText } from '@/utils/share-text';
 import { readPreferredAndroidAiApp } from '@/lib/android-ai-app';
 
@@ -38,21 +39,7 @@ export function PromptShareModal({
   async function handleCopy() {
     if (!promptText) return;
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(promptText);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = promptText;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        try {
-          textarea.select();
-          if (!document.execCommand('copy')) throw new Error('复制失败');
-        } finally {
-          textarea.remove();
-        }
-      }
+      await copyTextToClipboard(promptText);
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2500);
     } catch {
@@ -70,7 +57,7 @@ export function PromptShareModal({
       } else if (result.type === 'system') {
         setShareMsg('已调起系统分享');
       } else {
-        await navigator.clipboard.writeText(promptText);
+        await copyTextToClipboard(promptText);
         setCopyState('copied');
         setShareMsg('已复制提示词，可直接粘贴分享');
       }

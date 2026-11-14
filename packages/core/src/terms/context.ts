@@ -400,6 +400,10 @@ export function getZiweiTermContext(
     starName?: string;
     mutagen?: string;
     brightness?: string;
+    majorStars?: string;
+    oppositePalace?: string;
+    surroundedPalaces?: string;
+    branch?: string;
   },
 ): TermContextData | undefined {
   if (!term) return undefined;
@@ -421,6 +425,19 @@ export function getZiweiTermContext(
       dynamicTone: mutagen === '忌' ? 'unlucky' : isLucky ? 'lucky' : 'neutral',
       pillarOrPalace: `${options.palaceName} · ${options.starName}`,
       relationshipSummary: `宫位：${options.palaceName} · 四化：${mutagenText || '无'} · 庙陷：${options.brightness || '未列'}`,
+    };
+  }
+
+  if (options?.palaceName) {
+    const starsText = options.majorStars ? `主星【${options.majorStars}】` : '宫位结构';
+    return {
+      chartTitle: `紫微命盘宫位配置`,
+      roleInChart: `当前焦点为【${options.palaceName}】${options.branch ? `（${options.branch}宫）` : ''}，坐守${starsText}。${options.oppositePalace ? `与对宫【${options.oppositePalace}】遥相呼应，` : ''}${options.surroundedPalaces ? `会合三方【${options.surroundedPalaces}】共同决定该宫位吉凶气数。` : '结合三方四正星曜与四化交会综合论断。'}`,
+      dynamicTone: 'neutral',
+      pillarOrPalace: options.branch
+        ? `${options.palaceName}（${options.branch}）`
+        : options.palaceName,
+      relationshipSummary: `主星：${options.majorStars || '待查'} · 对宫：${options.oppositePalace || '待查'}`,
     };
   }
 

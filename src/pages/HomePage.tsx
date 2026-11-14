@@ -25,6 +25,10 @@ import {
   instantChartNeedsObserver,
   isInstantChartType,
 } from '@/lib/instant-chart';
+import {
+  readDivinationObserverPreference,
+  saveDivinationObserverPreference,
+} from '@/lib/divination/observer-preference';
 import { buildWorkspaceLaunchState } from '@/lib/workspace-launch';
 import {
   commonQuestionInspirations,
@@ -94,8 +98,23 @@ export function HomePage() {
   const [selectedInstantType, setSelectedInstantType] = useState<InstantChartType>(
     preferences.defaultInstantType,
   );
-  const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
-  const [instantPlaceForm, setInstantPlaceForm] = useState<QueryInputState>(defaultInputState);
+  const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>(() => {
+    const saved = readDivinationObserverPreference();
+    return saved.birthPlace && saved.birthLongitude ? saved.divinationTimeStandard : 'beijing';
+  });
+  const [instantPlaceForm, setInstantPlaceForm] = useState<QueryInputState>(() => {
+    const saved = readDivinationObserverPreference();
+    return {
+      ...defaultInputState,
+      ...(saved.birthPlace && saved.birthLongitude
+        ? {
+            birthPlace: saved.birthPlace,
+            birthLongitude: saved.birthLongitude,
+            birthLatitude: saved.birthLatitude,
+          }
+        : {}),
+    };
+  });
   const [pendingInstantLaunch, setPendingInstantLaunch] = useState<{
     type: InstantChartType;
     question: string;
@@ -248,6 +267,42 @@ export function HomePage() {
       window.removeEventListener(WORKSPACE_PREFERENCES_EVENT, syncPreferences);
     };
   }, []);
+
+  useEffect(() => {
+    if (instantPlaceForm.birthPlace.trim() && instantPlaceForm.birthLongitude.trim()) {
+      saveDivinationObserverPreference({
+        birthPlace: instantPlaceForm.birthPlace,
+        birthLongitude: instantPlaceForm.birthLongitude,
+        birthLatitude: instantPlaceForm.birthLatitude,
+        divinationTimeStandard: instantTimeStandard,
+      });
+    } else if (instantTimeStandard === 'beijing') {
+      saveDivinationObserverPreference({
+        divinationTimeStandard: 'beijing',
+      });
+    }
+  }, [
+    instantPlaceForm.birthLatitude,
+    instantPlaceForm.birthLongitude,
+    instantPlaceForm.birthPlace,
+    instantTimeStandard,
+  ]);
+
+  useEffect(() => {
+    if (
+      activeCase &&
+      !instantPlaceForm.birthPlace.trim() &&
+      activeCase.input.birthPlace.trim() &&
+      activeCase.input.birthLongitude.trim()
+    ) {
+      setInstantPlaceForm((current) => ({
+        ...current,
+        birthPlace: activeCase.input.birthPlace,
+        birthLongitude: activeCase.input.birthLongitude,
+        birthLatitude: activeCase.input.birthLatitude,
+      }));
+    }
+  }, [activeCase, instantPlaceForm.birthPlace]);
 
   useEffect(() => {
     if (activeMode !== 'instant') return undefined;

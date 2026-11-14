@@ -576,7 +576,6 @@ export function useZiweiCalculations(
     promptState.ziweiScope === 'full' ? 'origin' : (promptState.ziweiScope as ScopeType);
   const shouldUseCustomZiweiPromptPayload =
     shouldLoadZiweiPromptPayload &&
-    promptState.tab === 'prompt' &&
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
     promptState.ziweiScope !== 'full' &&
     Boolean(promptState.ziweiScopeDate);
