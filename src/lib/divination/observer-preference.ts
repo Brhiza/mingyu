@@ -47,8 +47,7 @@ export function saveDivinationObserverPreference(
 ): DivinationObserverPreference {
   const current = readDivinationObserverPreference();
   const next: DivinationObserverPreference = {
-    birthPlace:
-      patch.birthPlace !== undefined ? patch.birthPlace.trim() : current.birthPlace,
+    birthPlace: patch.birthPlace !== undefined ? patch.birthPlace.trim() : current.birthPlace,
     birthLongitude:
       patch.birthLongitude !== undefined ? patch.birthLongitude.trim() : current.birthLongitude,
     birthLatitude:

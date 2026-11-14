@@ -103,11 +103,9 @@ export function ZiweiTraditionalBoard(props: {
       : (oppositePalaceObj?.major_stars ?? []);
   const isBorrowedFromOpposite =
     selectedPalace.major_stars.length === 0 && effectiveMajorStars.length > 0;
-  const majorStarClassics = useMemo(() => {
-    return effectiveMajorStars
-      .map((star) => getZiweiStarClassic(star.name))
-      .filter((item): item is NonNullable<ReturnType<typeof getZiweiStarClassic>> => Boolean(item));
-  }, [effectiveMajorStars]);
+  const majorStarClassics = effectiveMajorStars
+    .map((star) => getZiweiStarClassic(star.name))
+    .filter((item): item is NonNullable<ReturnType<typeof getZiweiStarClassic>> => Boolean(item));
 
   const matchedPatterns = useMemo(() => {
     if (payload.patterns && payload.patterns.length > 0) {
@@ -128,20 +126,16 @@ export function ZiweiTraditionalBoard(props: {
     }
   }, [payload]);
 
-  const selectedPalaceContext = useMemo(
-    () =>
-      getZiweiTermContext(selectedPalace.name, {
-        palaceName: selectedPalace.name,
-        branch: `${selectedPalace.heavenly_stem}${selectedPalace.earthly_branch}`,
-        majorStars: joinStarNames(
-          effectiveMajorStars,
-          isBorrowedFromOpposite ? '借对宫星曜' : '无主星',
-        ),
-        oppositePalace,
-        surroundedPalaces: surrounded,
-      }),
-    [effectiveMajorStars, isBorrowedFromOpposite, oppositePalace, selectedPalace, surrounded],
-  );
+  const selectedPalaceContext = getZiweiTermContext(selectedPalace.name, {
+    palaceName: selectedPalace.name,
+    branch: `${selectedPalace.heavenly_stem}${selectedPalace.earthly_branch}`,
+    majorStars: joinStarNames(
+      effectiveMajorStars,
+      isBorrowedFromOpposite ? '借对宫星曜' : '无主星',
+    ),
+    oppositePalace,
+    surroundedPalaces: surrounded,
+  });
 
   return (
     <section className="ziwei-traditional-shell">
