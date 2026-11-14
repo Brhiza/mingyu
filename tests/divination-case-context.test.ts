@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { defaultDraft } from '../src/components/DivinationPanel/constants';
 import { applyPersonalCaseToDivinationDraft } from '../src/lib/divination/case-context';
+import {
+  readDivinationObserverPreference,
+  saveDivinationObserverPreference,
+} from '../src/lib/divination/observer-preference';
 import type { PersonalHistoryRecord } from '../src/lib/history-records';
 import { defaultInputState } from '../src/lib/query-state';
 
@@ -94,4 +98,30 @@ test('八字未知时辰案例不会把负数时辰带入其他术数参与人',
     input: { ...personalCase.input, timeIndex: -1 },
   });
   assert.equal(draft.almanacParticipants[0]?.timeIndex, '');
+});
+
+test('起卦真太阳时地区支持持久化并可从当前案例补齐默认经纬度', () => {
+  const caseWithPlace: PersonalHistoryRecord = {
+    ...personalCase,
+    input: {
+      ...personalCase.input,
+      birthPlace: '北京市 东城区',
+      birthLongitude: '116.416',
+      birthLatitude: '39.928',
+    },
+  };
+  const hydrated = applyPersonalCaseToDivinationDraft(defaultDraft, caseWithPlace);
+  assert.equal(hydrated.birthPlace, '北京市 东城区');
+  assert.equal(hydrated.birthLongitude, '116.416');
+  assert.equal(hydrated.birthLatitude, '39.928');
+
+  const saved = saveDivinationObserverPreference({
+    birthPlace: '上海市 黄浦区',
+    birthLongitude: '121.490',
+    birthLatitude: '31.222',
+    divinationTimeStandard: 'true-solar',
+  });
+  assert.equal(saved.birthPlace, '上海市 黄浦区');
+  assert.equal(saved.divinationTimeStandard, 'true-solar');
+  assert.deepEqual(readDivinationObserverPreference(), saved);
 });

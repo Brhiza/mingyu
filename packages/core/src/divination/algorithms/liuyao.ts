@@ -32,7 +32,7 @@ import {
   getLiuyaoChangeRelation,
   getLiuyaoChangeRelations,
 } from '../liuyao-change';
-import type { LiuyaoData } from '../../types/divination';
+import type { LiuyaoData, LiuyaoShenShaItem } from '../../types/divination';
 import {
   isSheng,
   isKe,
@@ -70,6 +70,284 @@ const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
   5: '戌',
   6: '亥',
 };
+
+const LIUYAO_TIANYI_BY_STEM: Record<string, readonly string[]> = {
+  甲: ['丑', '未'],
+  戊: ['丑', '未'],
+  庚: ['丑', '未'],
+  乙: ['子', '申'],
+  己: ['子', '申'],
+  丙: ['亥', '酉'],
+  丁: ['亥', '酉'],
+  壬: ['卯', '巳'],
+  癸: ['卯', '巳'],
+  辛: ['午', '寅'],
+};
+
+const LIUYAO_LU_BY_STEM: Record<string, string> = {
+  甲: '寅',
+  乙: '卯',
+  丙: '巳',
+  丁: '午',
+  戊: '巳',
+  己: '午',
+  庚: '申',
+  辛: '酉',
+  壬: '亥',
+  癸: '子',
+};
+
+const LIUYAO_YANGREN_BY_STEM: Record<string, string> = {
+  甲: '卯',
+  乙: '寅',
+  丙: '午',
+  丁: '巳',
+  戊: '午',
+  己: '巳',
+  庚: '酉',
+  辛: '申',
+  壬: '子',
+  癸: '亥',
+};
+
+const LIUYAO_WENCHANG_BY_STEM: Record<string, string> = {
+  甲: '巳',
+  乙: '午',
+  丙: '申',
+  丁: '酉',
+  戊: '申',
+  己: '酉',
+  庚: '亥',
+  辛: '子',
+  壬: '寅',
+  癸: '卯',
+};
+
+const LIUYAO_YIMA_BY_BRANCH: Record<string, string> = {
+  申: '寅',
+  子: '寅',
+  辰: '寅',
+  寅: '申',
+  午: '申',
+  戌: '申',
+  巳: '亥',
+  酉: '亥',
+  丑: '亥',
+  亥: '巳',
+  卯: '巳',
+  未: '巳',
+};
+
+const LIUYAO_TAOHUA_BY_BRANCH: Record<string, string> = {
+  申: '酉',
+  子: '酉',
+  辰: '酉',
+  寅: '卯',
+  午: '卯',
+  戌: '卯',
+  巳: '午',
+  酉: '午',
+  丑: '午',
+  亥: '子',
+  卯: '子',
+  未: '子',
+};
+
+const LIUYAO_JIANGXING_BY_BRANCH: Record<string, string> = {
+  申: '子',
+  子: '子',
+  辰: '子',
+  寅: '午',
+  午: '午',
+  戌: '午',
+  巳: '酉',
+  酉: '酉',
+  丑: '酉',
+  亥: '卯',
+  卯: '卯',
+  未: '卯',
+};
+
+const LIUYAO_HUAGAI_BY_BRANCH: Record<string, string> = {
+  申: '辰',
+  子: '辰',
+  辰: '辰',
+  寅: '戌',
+  午: '戌',
+  戌: '戌',
+  巳: '丑',
+  酉: '丑',
+  丑: '丑',
+  亥: '未',
+  卯: '未',
+  未: '未',
+};
+
+const LIUYAO_JIESHA_BY_BRANCH: Record<string, string> = {
+  申: '巳',
+  子: '巳',
+  辰: '巳',
+  寅: '亥',
+  午: '亥',
+  戌: '亥',
+  巳: '寅',
+  酉: '寅',
+  丑: '寅',
+  亥: '申',
+  卯: '申',
+  未: '申',
+};
+
+const LIUYAO_ZAISHA_BY_BRANCH: Record<string, string> = {
+  申: '午',
+  子: '午',
+  辰: '午',
+  寅: '子',
+  午: '子',
+  戌: '子',
+  巳: '卯',
+  酉: '卯',
+  丑: '卯',
+  亥: '酉',
+  卯: '酉',
+  未: '酉',
+};
+
+const LIUYAO_MOUXING_BY_BRANCH: Record<string, string> = {
+  申: '戌',
+  子: '戌',
+  辰: '戌',
+  寅: '辰',
+  午: '辰',
+  戌: '辰',
+  巳: '未',
+  酉: '未',
+  丑: '未',
+  亥: '丑',
+  卯: '丑',
+  未: '丑',
+};
+
+const LIUYAO_TIANYI_DOCTOR_BY_MONTH: Record<string, string> = {
+  寅: '丑',
+  卯: '寅',
+  辰: '卯',
+  巳: '辰',
+  午: '巳',
+  未: '午',
+  申: '未',
+  酉: '申',
+  戌: '酉',
+  亥: '戌',
+  子: '亥',
+  丑: '子',
+};
+
+const LIUYAO_TIANXI_BY_MONTH: Record<string, string> = {
+  寅: '戌',
+  卯: '戌',
+  辰: '戌',
+  巳: '丑',
+  午: '丑',
+  未: '丑',
+  申: '辰',
+  酉: '辰',
+  戌: '辰',
+  亥: '未',
+  子: '未',
+  丑: '未',
+};
+
+export function buildLiuyaoShenSha(params: {
+  dayGan: string;
+  dayBranch: string;
+  monthBranch: string;
+  yaoBranches: readonly string[];
+}): LiuyaoShenShaItem[] {
+  const { dayGan, dayBranch, monthBranch, yaoBranches } = params;
+  const rawItems: Array<{
+    name: string;
+    branches: readonly string[];
+    basis: '日干' | '日支' | '月支';
+  }> = [
+    { name: '天乙贵人', branches: LIUYAO_TIANYI_BY_STEM[dayGan] ?? [], basis: '日干' },
+    {
+      name: '驿马',
+      branches: LIUYAO_YIMA_BY_BRANCH[dayBranch] ? [LIUYAO_YIMA_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+    {
+      name: '桃花',
+      branches: LIUYAO_TAOHUA_BY_BRANCH[dayBranch] ? [LIUYAO_TAOHUA_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+    {
+      name: '禄神',
+      branches: LIUYAO_LU_BY_STEM[dayGan] ? [LIUYAO_LU_BY_STEM[dayGan]] : [],
+      basis: '日干',
+    },
+    {
+      name: '羊刃',
+      branches: LIUYAO_YANGREN_BY_STEM[dayGan] ? [LIUYAO_YANGREN_BY_STEM[dayGan]] : [],
+      basis: '日干',
+    },
+    {
+      name: '文昌',
+      branches: LIUYAO_WENCHANG_BY_STEM[dayGan] ? [LIUYAO_WENCHANG_BY_STEM[dayGan]] : [],
+      basis: '日干',
+    },
+    {
+      name: '将星',
+      branches: LIUYAO_JIANGXING_BY_BRANCH[dayBranch]
+        ? [LIUYAO_JIANGXING_BY_BRANCH[dayBranch]]
+        : [],
+      basis: '日支',
+    },
+    {
+      name: '华盖',
+      branches: LIUYAO_HUAGAI_BY_BRANCH[dayBranch] ? [LIUYAO_HUAGAI_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+    {
+      name: '谋星',
+      branches: LIUYAO_MOUXING_BY_BRANCH[dayBranch] ? [LIUYAO_MOUXING_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+    {
+      name: '天医',
+      branches: LIUYAO_TIANYI_DOCTOR_BY_MONTH[monthBranch]
+        ? [LIUYAO_TIANYI_DOCTOR_BY_MONTH[monthBranch]]
+        : [],
+      basis: '月支',
+    },
+    {
+      name: '天喜',
+      branches: LIUYAO_TIANXI_BY_MONTH[monthBranch] ? [LIUYAO_TIANXI_BY_MONTH[monthBranch]] : [],
+      basis: '月支',
+    },
+    {
+      name: '劫煞',
+      branches: LIUYAO_JIESHA_BY_BRANCH[dayBranch] ? [LIUYAO_JIESHA_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+    {
+      name: '灾煞',
+      branches: LIUYAO_ZAISHA_BY_BRANCH[dayBranch] ? [LIUYAO_ZAISHA_BY_BRANCH[dayBranch]] : [],
+      basis: '日支',
+    },
+  ];
+
+  return rawItems
+    .filter((item) => item.branches.length > 0)
+    .map((item) => ({
+      name: item.name,
+      branches: [...item.branches],
+      basis: item.basis,
+      hitPositions: yaoBranches.flatMap((branch, index) =>
+        item.branches.includes(branch) ? [index + 1] : [],
+      ),
+    }));
+}
 
 export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolean): string {
   if (!Number.isInteger(shiPosition) || shiPosition < 1 || shiPosition > 6) {
@@ -909,6 +1187,12 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       ? [{ position: index + 1, branch: info.dizhi }]
       : [],
   );
+  const shenSha = buildLiuyaoShenSha({
+    dayGan,
+    dayBranch,
+    monthBranch,
+    yaoBranches: yaosInfo.map((item) => item.dizhi),
+  });
   const yaosDetail = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
@@ -975,6 +1259,9 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       isWorld: shiYing.shi === index + 1,
       isResponse: shiYing.ying === index + 1,
       isVoid: voids.includes(info.dizhi),
+      shenSha: shenSha
+        .filter((item) => item.branches.includes(info.dizhi))
+        .map((item) => item.name),
       isDayClash: isDayClashFlag,
       isDayBreak: isDayBreakFlag,
       isMonthBreak: isMonthBreakFlag,
@@ -1080,6 +1367,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     sanheWithMonth,
     sanxingInYaos,
     guaShen,
+    shenSha,
     generation: resolvedGeneration.generation,
     timestamp,
     timezoneOffsetMinutes,

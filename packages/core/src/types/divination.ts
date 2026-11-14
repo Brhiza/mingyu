@@ -231,6 +231,13 @@ export interface BaseYaoDetail {
 export type LiuyaoChangeRelation =
   '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗';
 
+export interface LiuyaoShenShaItem {
+  name: string;
+  branches: string[];
+  basis: '日干' | '日支' | '月支';
+  hitPositions: number[];
+}
+
 export interface LiuyaoYaoDetail extends BaseYaoDetail {
   rawValue: number;
   changeType: string;
@@ -241,6 +248,8 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isWorld: boolean;
   isResponse: boolean;
   isVoid: boolean;
+  /** 本爻纳甲地支命中的六爻神煞名称列表。 */
+  shenSha?: string[];
   /** 是否与日辰相冲；结合动静、月破、月令旺相和旬空冲起区分暗动、日破或动爻受冲。 */
   isDayClash?: boolean;
   /** 静爻受日冲而未具暗动资格；暗动另核月破、月令旺相或旬空冲起，动爻受冲读取 isDayClash。 */
@@ -431,6 +440,8 @@ export interface LiuyaoData extends BaseHexagramData {
     sixRelative: string;
     position: number;
   } | null;
+  /** 六爻常用神煞（天乙贵人、驿马、桃花、禄神、羊刃、文昌、将星、华盖、天医、天喜、谋星、劫煞、灾煞） */
+  shenSha?: LiuyaoShenShaItem[];
 }
 
 export interface MeihuaCalculation {

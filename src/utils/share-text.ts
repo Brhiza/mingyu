@@ -9,9 +9,16 @@ export async function shareText(text: string): Promise<ShareTextResult> {
     return { type: 'app', label: target.label };
   }
 
-  if (navigator.share) {
-    await navigator.share({ text });
-    return { type: 'system' };
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text });
+      return { type: 'system' };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { type: 'system' };
+      }
+      return { type: 'unavailable' };
+    }
   }
 
   return { type: 'unavailable' };

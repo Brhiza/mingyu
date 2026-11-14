@@ -682,3 +682,21 @@ test('六爻：手工三钱法爻值应严格校验长度与取值', () => {
     /只能是 6、7、8、9/,
   );
 });
+
+test('六爻：应按日干、日支与月支排定常用神煞并标注落爻', () => {
+  const data = generateLiuyao(SAMPLE_DATE, { yaos: [7, 7, 7, 7, 7, 7] });
+  assert.ok(Array.isArray(data.shenSha) && data.shenSha.length >= 10);
+  const tianyi = data.shenSha.find((item) => item.name === '天乙贵人');
+  const yima = data.shenSha.find((item) => item.name === '驿马');
+  const taohua = data.shenSha.find((item) => item.name === '桃花');
+  assert.ok(tianyi && tianyi.branches.length > 0);
+  assert.ok(yima && yima.branches.length === 1);
+  assert.ok(taohua && taohua.branches.length === 1);
+  for (const yao of data.yaosDetail) {
+    assert.ok(Array.isArray(yao.shenSha));
+    for (const name of yao.shenSha) {
+      const matched = data.shenSha.find((item) => item.name === name);
+      assert.ok(matched?.branches.includes(yao.najiaDizhi));
+    }
+  }
+});

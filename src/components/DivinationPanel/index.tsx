@@ -20,6 +20,10 @@ import {
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
 import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-context';
+import {
+  readDivinationObserverPreference,
+  saveDivinationObserverPreference,
+} from '@/lib/divination/observer-preference';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
@@ -80,8 +84,17 @@ function createDefaultDraft(
   initialGender?: '男' | '女' | '',
   initialBirthYear?: string,
 ): DivinationDraft {
+  const savedObserver = readDivinationObserverPreference();
   return {
     ...defaultDraft,
+    ...(savedObserver.birthPlace && savedObserver.birthLongitude
+      ? {
+          birthPlace: savedObserver.birthPlace,
+          birthLongitude: savedObserver.birthLongitude,
+          birthLatitude: savedObserver.birthLatitude,
+          divinationTimeStandard: savedObserver.divinationTimeStandard,
+        }
+      : {}),
     ...(method ? { method } : {}),
     ...(method === 'almanac' ? getDefaultAlmanacDateRange() : {}),
     ...(initialQuestion?.trim()
@@ -159,6 +172,28 @@ export function DivinationPanel({
     setRestoredRecordId(null);
     setError('');
   }, [activeCase, displayMode]);
+
+  useEffect(() => {
+    if (displayMode === 'result') return;
+    if (draft.birthPlace?.trim() && draft.birthLongitude?.trim()) {
+      saveDivinationObserverPreference({
+        birthPlace: draft.birthPlace,
+        birthLongitude: draft.birthLongitude,
+        birthLatitude: draft.birthLatitude ?? '',
+        divinationTimeStandard: draft.divinationTimeStandard,
+      });
+    } else if (draft.divinationTimeStandard === 'beijing') {
+      saveDivinationObserverPreference({
+        divinationTimeStandard: 'beijing',
+      });
+    }
+  }, [
+    displayMode,
+    draft.birthLatitude,
+    draft.birthLongitude,
+    draft.birthPlace,
+    draft.divinationTimeStandard,
+  ]);
 
   useEffect(() => {
     if (isDivinationInspirationTabVisible(activeInspirationTab, draft)) {

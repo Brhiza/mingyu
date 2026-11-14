@@ -547,8 +547,8 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                 </div>
               </div>
 
-              {/* 3. 附注子行（伏神 / 卦身） */}
-              {hidden || isGuaShen || graveNotes.length ? (
+              {/* 3. 附注子行（伏神 / 卦身 / 神煞） */}
+              {hidden || isGuaShen || graveNotes.length || yao.shenSha?.length ? (
                 <div className="liuyao-subrow-notes">
                   {hidden ? (
                     <span
@@ -572,6 +572,16 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                   {graveNotes.length ? (
                     <span className="liuyao-guashen-note">{graveNotes.join(' · ')}</span>
                   ) : null}
+                  {yao.shenSha?.map((shenShaName) => (
+                    <span
+                      key={`${yao.position}-shensha-${shenShaName}`}
+                      className="liuyao-guashen-note is-clickable-term"
+                      onClick={() => handleYaoTerm(shenShaName)}
+                      title={`点击查看【${shenShaName}】释义`}
+                    >
+                      {shenShaName}
+                    </span>
+                  ))}
                 </div>
               ) : null}
             </div>
@@ -863,6 +873,13 @@ function LiuyaoTraditionalBoard({
           ['卦式特征', data.specialPattern || (data.changingYaos.length ? '动变卦' : '六爻静卦')],
         ]}
       />
+      {data.shenSha?.length ? (
+        <TraditionalMeta
+          items={data.shenSha.map(
+            (item) => [item.name, item.branches.join('、')] as [string, string],
+          )}
+        />
+      ) : null}
 
       {/* 2. 双卦并列对齐爻卦区 */}
       <LiuyaoDualHexagramView data={data} />

@@ -1,4 +1,5 @@
 import type { PalaceFact } from '@/types/analysis';
+import { getZiweiTermContext } from 'mingyu-core/terms';
 import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
 
 type ChartStarTone = 'major' | 'minor' | 'other' | 'scope';
@@ -10,9 +11,15 @@ function getMutagenToneClass(mutagen: string): string {
   return 'is-ji';
 }
 
-export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone: ChartStarTone }) {
-  const { star, tone } = props;
+export function ChartStar(props: {
+  star: PalaceFact['major_stars'][number];
+  tone: ChartStarTone;
+  palaceName?: string;
+}) {
+  const { star, tone, palaceName } = props;
   const { openTerm } = useMetaphysicsTermModal();
+  const activeMutagen =
+    star.active_scope_mutagen || star.horoscope_mutagen || star.birth_mutagen || undefined;
 
   return (
     <span
@@ -21,7 +28,15 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
       } ${star.active_scope_mutagen ? 'has-active-mutagen' : ''} is-clickable-term`}
       onClick={(e) => {
         e.stopPropagation();
-        openTerm(star.name);
+        openTerm(
+          star.name,
+          getZiweiTermContext(star.name, {
+            palaceName,
+            starName: star.name,
+            mutagen: activeMutagen,
+            brightness: star.brightness,
+          }),
+        );
       }}
       title={`点击查看【${star.name}】释义`}
     >
@@ -37,7 +52,15 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
           aria-label={`生年四化${star.birth_mutagen}`}
           onClick={(e) => {
             e.stopPropagation();
-            openTerm(`化${star.birth_mutagen}`);
+            openTerm(
+              `化${star.birth_mutagen}`,
+              getZiweiTermContext(`化${star.birth_mutagen}`, {
+                palaceName,
+                starName: star.name,
+                mutagen: star.birth_mutagen,
+                brightness: star.brightness,
+              }),
+            );
           }}
         >
           {star.birth_mutagen}
@@ -49,7 +72,15 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
           aria-label={`运限星曜四化${star.horoscope_mutagen}`}
           onClick={(e) => {
             e.stopPropagation();
-            openTerm(`化${star.horoscope_mutagen}`);
+            openTerm(
+              `化${star.horoscope_mutagen}`,
+              getZiweiTermContext(`化${star.horoscope_mutagen}`, {
+                palaceName,
+                starName: star.name,
+                mutagen: star.horoscope_mutagen,
+                brightness: star.brightness,
+              }),
+            );
           }}
         >
           {star.horoscope_mutagen}
@@ -61,7 +92,15 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
           aria-label={`当前时限四化${star.active_scope_mutagen}`}
           onClick={(e) => {
             e.stopPropagation();
-            openTerm(`化${star.active_scope_mutagen}`);
+            openTerm(
+              `化${star.active_scope_mutagen}`,
+              getZiweiTermContext(`化${star.active_scope_mutagen}`, {
+                palaceName,
+                starName: star.name,
+                mutagen: star.active_scope_mutagen,
+                brightness: star.brightness,
+              }),
+            );
           }}
         >
           {star.active_scope_mutagen}
@@ -74,6 +113,7 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
 export function ChartStarLine(props: {
   stars: PalaceFact['major_stars'];
   tone: ChartStarTone;
+  palaceName?: string;
   fallback?: string;
   limit?: number;
   layout?: 'wrap' | 'column';
@@ -96,6 +136,7 @@ export function ChartStarLine(props: {
           key={`${props.tone}-${star.name}-${star.birth_mutagen ?? 'n'}-${star.horoscope_mutagen ?? 'n'}-${star.active_scope_mutagen ?? 'n'}-${index}`}
           star={star}
           tone={props.tone}
+          palaceName={props.palaceName}
         />
       ))}
     </div>

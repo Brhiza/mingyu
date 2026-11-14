@@ -23,10 +23,20 @@ export function applyPersonalCaseToDivinationDraft(
 
   const input = activeCase.input;
   const reverseSource = parseBaziReverseSource(input.birthReverseSource);
+  const shouldHydrateObserver =
+    (!draft.birthPlace?.trim() || !draft.birthLongitude?.trim()) &&
+    Boolean(input.birthPlace.trim() && input.birthLongitude.trim());
   return {
     ...draft,
     gender: input.gender === 'male' ? '男' : '女',
     birthYear: input.year,
+    ...(shouldHydrateObserver
+      ? {
+          birthPlace: input.birthPlace,
+          birthLongitude: input.birthLongitude,
+          birthLatitude: input.birthLatitude,
+        }
+      : {}),
     almanacParticipants: [
       {
         id: `${ACTIVE_CASE_PARTICIPANT_PREFIX}${activeCase.id}`,

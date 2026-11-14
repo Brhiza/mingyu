@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { AnalysisPayloadV1 } from '@/types/analysis';
 import { getZiweiStarClassic } from 'mingyu-core/classics';
+import { getZiweiTermContext } from 'mingyu-core/terms';
+import { detectPatterns } from 'mingyu-core/ziwei/iztro';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
 import { ChartShareModal } from '@/components/ChartShareModal';
@@ -93,10 +95,53 @@ export function ZiweiTraditionalBoard(props: {
   );
 
   const [classicExpanded, setClassicExpanded] = useState(true);
-  const majorStarClassic = useMemo(() => {
-    const star = selectedPalace.major_stars[0]?.name;
-    return star ? getZiweiStarClassic(star) : undefined;
-  }, [selectedPalace.major_stars]);
+  const [patternExpanded, setPatternExpanded] = useState(true);
+  const oppositePalaceObj = palaceMap.get(selectedPalace.opposite_palace_index);
+  const effectiveMajorStars =
+    selectedPalace.major_stars.length > 0
+      ? selectedPalace.major_stars
+      : (oppositePalaceObj?.major_stars ?? []);
+  const isBorrowedFromOpposite =
+    selectedPalace.major_stars.length === 0 && effectiveMajorStars.length > 0;
+  const majorStarClassics = useMemo(() => {
+    return effectiveMajorStars
+      .map((star) => getZiweiStarClassic(star.name))
+      .filter((item): item is NonNullable<ReturnType<typeof getZiweiStarClassic>> => Boolean(item));
+  }, [effectiveMajorStars]);
+
+  const matchedPatterns = useMemo(() => {
+    if (payload.patterns && payload.patterns.length > 0) {
+      return payload.patterns;
+    }
+    try {
+      const birthYearHeavenlyStem = /^[甲乙丙丁戊己庚辛壬癸]/u.exec(
+        payload.basic_info.chinese_date ?? '',
+      )?.[0];
+      return detectPatterns({
+        palaces: payload.palaces,
+        birthTimeLabel: payload.basic_info.birth_time_label,
+        birthTimeRange: payload.basic_info.birth_time_range,
+        birthYearHeavenlyStem,
+      });
+    } catch {
+      return [];
+    }
+  }, [payload]);
+
+  const selectedPalaceContext = useMemo(
+    () =>
+      getZiweiTermContext(selectedPalace.name, {
+        palaceName: selectedPalace.name,
+        branch: `${selectedPalace.heavenly_stem}${selectedPalace.earthly_branch}`,
+        majorStars: joinStarNames(
+          effectiveMajorStars,
+          isBorrowedFromOpposite ? '借对宫星曜' : '无主星',
+        ),
+        oppositePalace,
+        surroundedPalaces: surrounded,
+      }),
+    [effectiveMajorStars, isBorrowedFromOpposite, oppositePalace, selectedPalace, surrounded],
+  );
 
   return (
     <section className="ziwei-traditional-shell">
@@ -225,13 +270,13 @@ export function ZiweiTraditionalBoard(props: {
                   <div className="chart-center-meta chart-center-grid">
                     <div
                       className="chart-center-chip is-clickable-term"
-                      onClick={() => openTerm('命宫')}
+                      onClick={() => openTerm('命宫', selectedPalaceContext)}
                     >
                       命主 {payload.basic_info.soul}
                     </div>
                     <div
                       className="chart-center-chip is-clickable-term"
-                      onClick={() => openTerm('身宫')}
+                      onClick={() => openTerm('身宫', selectedPalaceContext)}
                     >
                       身主 {payload.basic_info.body}
                     </div>
@@ -240,13 +285,13 @@ export function ZiweiTraditionalBoard(props: {
                     </div>
                     <div
                       className="chart-center-chip is-clickable-term"
-                      onClick={() => openTerm('命宫')}
+                      onClick={() => openTerm('命宫', selectedPalaceContext)}
                     >
                       命宫 {payload.basic_info.soul_palace_branch}
                     </div>
                     <div
                       className="chart-center-chip is-clickable-term"
-                      onClick={() => openTerm('身宫')}
+                      onClick={() => openTerm('身宫', selectedPalaceContext)}
                     >
                       身宫 {payload.basic_info.body_palace_branch}
                     </div>
@@ -257,7 +302,7 @@ export function ZiweiTraditionalBoard(props: {
                         <span
                           key={item}
                           className="is-clickable-term"
-                          onClick={() => openTerm('四化')}
+                          onClick={() => openTerm('四化', selectedPalaceContext)}
                         >
                           {item}
                         </span>
@@ -266,7 +311,10 @@ export function ZiweiTraditionalBoard(props: {
                   ) : null}
                   <div className="ziwei-board-center-relation chart-center-focus">
                     <div className="chart-center-focus-label">当前宫位</div>
-                    <div className="ziwei-board-center-name chart-center-focus-name">
+                    <div
+                      className="ziwei-board-center-name chart-center-focus-name is-clickable-term"
+                      onClick={() => openTerm(selectedPalace.name, selectedPalaceContext)}
+                    >
                       {selectedPalace.name}
                     </div>
                     <div className="ziwei-board-center-stars chart-center-focus-stars">
@@ -275,14 +323,14 @@ export function ZiweiTraditionalBoard(props: {
                     <div className="chart-center-relations">
                       <div
                         className="chart-center-relation-row is-clickable-term"
-                        onClick={() => openTerm('对宫')}
+                        onClick={() => openTerm('对宫', selectedPalaceContext)}
                       >
                         <span className="chart-center-relation-label">对宫</span>
                         <span className="chart-center-relation-value">{oppositePalace}</span>
                       </div>
                       <div
                         className="chart-center-relation-row is-clickable-term"
-                        onClick={() => openTerm('三方四正')}
+                        onClick={() => openTerm('三方四正', selectedPalaceContext)}
                       >
                         <span className="chart-center-relation-label">三方四正</span>
                         <span className="chart-center-relation-value">{surrounded}</span>
@@ -372,12 +420,28 @@ export function ZiweiTraditionalBoard(props: {
                     <ChartStarLine
                       fallback="无主星"
                       layout="wrap"
+                      palaceName={palace.name}
                       stars={palace.major_stars}
                       tone="major"
                     />
-                    <ChartStarLine layout="wrap" stars={palace.minor_stars} tone="minor" />
-                    <ChartStarLine layout="wrap" stars={palace.other_stars} tone="other" />
-                    <ChartStarLine layout="wrap" stars={palace.scope_stars} tone="scope" />
+                    <ChartStarLine
+                      layout="wrap"
+                      palaceName={palace.name}
+                      stars={palace.minor_stars}
+                      tone="minor"
+                    />
+                    <ChartStarLine
+                      layout="wrap"
+                      palaceName={palace.name}
+                      stars={palace.other_stars}
+                      tone="other"
+                    />
+                    <ChartStarLine
+                      layout="wrap"
+                      palaceName={palace.name}
+                      stars={palace.scope_stars}
+                      tone="scope"
+                    />
                   </div>
                 </div>
                 {palace.ages.length > 0 ? (
@@ -398,7 +462,7 @@ export function ZiweiTraditionalBoard(props: {
         </div>
       </div>
 
-      {majorStarClassic ? (
+      {majorStarClassics.length > 0 ? (
         <div className="traditional-classic-card ziwei-classic-card">
           <div
             className="traditional-classic-head"
@@ -412,7 +476,9 @@ export function ZiweiTraditionalBoard(props: {
             <div>
               <span className="traditional-classic-badge">诸星问答论</span>
               <strong>
-                {selectedPalace.name} · {majorStarClassic.star}星精解
+                {selectedPalace.name} ·{' '}
+                {isBorrowedFromOpposite ? `空宫借对宫（${oppositePalace}）· ` : ''}
+                {majorStarClassics.map((item) => item.star).join('、')}星精解
               </strong>
             </div>
             <span className="traditional-classic-toggle">
@@ -421,14 +487,70 @@ export function ZiweiTraditionalBoard(props: {
           </div>
           {classicExpanded ? (
             <div className="traditional-classic-body">
-              <p className="traditional-classic-verse">{majorStarClassic.verse}</p>
-              <p className="traditional-classic-advice">
-                {`【星性象意】${majorStarClassic.nature}\n【行事运途】${majorStarClassic.careerAdvice}`}
-              </p>
+              {majorStarClassics.map((classicItem) => (
+                <div key={classicItem.star}>
+                  <p className="traditional-classic-verse">{classicItem.verse}</p>
+                  <p className="traditional-classic-advice">
+                    {`【${classicItem.star} · 星性象意】${classicItem.nature}\n【行事运途】${classicItem.careerAdvice}`}
+                  </p>
+                </div>
+              ))}
             </div>
           ) : null}
         </div>
       ) : null}
+
+      <div className="traditional-classic-card ziwei-pattern-card">
+        <div
+          className="traditional-classic-head"
+          onClick={() => setPatternExpanded(!patternExpanded)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setPatternExpanded(!patternExpanded);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div>
+            <span className="traditional-classic-badge">紫微斗数全书</span>
+            <strong>
+              {matchedPatterns.length > 0
+                ? `本盘经典格局精解（命中 ${matchedPatterns.length} 格）`
+                : `${selectedPalace.name} · 三方四正与四化结构解析`}
+            </strong>
+          </div>
+          <span className="traditional-classic-toggle">
+            {patternExpanded ? '收起解析 ▴' : '展开解析 ▾'}
+          </span>
+        </div>
+        {patternExpanded ? (
+          <div className="traditional-classic-body">
+            {matchedPatterns.length > 0 ? (
+              matchedPatterns.map((pattern) => (
+                <div key={pattern.stable_key ?? pattern.key ?? pattern.name}>
+                  <p className="traditional-classic-verse">
+                    {`【${pattern.name} · ${pattern.kind === 'auspicious' ? '吉格' : pattern.kind === 'inauspicious' ? '凶格' : '中性格'}】${pattern.source_quote ? `“${pattern.source_quote}”` : pattern.description}`}
+                    {pattern.source ? (
+                      <>
+                        {' '}
+                        <a href={pattern.source} target="_blank" rel="noopener noreferrer">
+                          {pattern.source_title || '查看原文'}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                  <p className="traditional-classic-advice">
+                    {`【成格条件】${(pattern.matched_conditions ?? []).join('；') || pattern.description}\n【格局释义】${pattern.traditional_interpretation || pattern.description}`}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="traditional-classic-advice">
+                {`【本宫定位】${selectedPalace.name}居${selectedPalace.heavenly_stem}${selectedPalace.earthly_branch}宫，主星配置为「${joinStarNames(selectedPalace.major_stars, isBorrowedFromOpposite ? `空宫借对宫${oppositePalace}（${joinStarNames(effectiveMajorStars, '无主星')}）` : '无主星')}」。\n【三方四正】对宫为「${oppositePalace}」，三方会合「${surrounded}」${activeScopeMutagens.length ? `；当前四化飞伏：${activeScopeMutagens.join('、')}` : ''}。`}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
 
       {isShareModalOpen ? (
         <ChartShareModal
