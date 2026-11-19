@@ -1,0 +1,42 @@
+{
+  "schools": {
+    "keti": {
+      "label": "课体法",
+      "category": "断法",
+      "task": "以四课、发用、取传规则、三传结构和课体为主线，说明事情的发端、转折与归结。",
+      "basis": "《大六壬大全》《御定六壬直指》的四课三传与课体资料。"
+    },
+    "bifafu": {
+      "label": "《毕法赋》法",
+      "category": "断法",
+      "task": "依据盘面实际成立的课传关系，对照《毕法赋》法则提炼主要矛盾、助力和阻力。",
+      "basis": "《毕法赋》及《六壬指南》的课传判断资料。"
+    },
+    "leishen": {
+      "label": "类神神将法",
+      "category": "断法",
+      "task": "围绕问题选取类神，结合类神在四课三传中的旺衰、空亡、天将和前后传递形成判断。",
+      "basis": "《大六壬大全》《六壬指南》的类神、天将与旺衰资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "liuren-generals-and-relations",
+      "book": "六壬大全",
+      "chapter": "天将总论",
+      "summary": "篇中说明壬课以天地盘布贵神，天将随盘运转；断吉凶须合看天盘乘神与日干、所加地盘神之间的生克旺衰。",
+      "application": "适用于已给出天地盘、日辰、四课三传与天将的大六壬盘；围绕所问事项合看乘神与日干、所加地盘神的关系。",
+      "sourceUrl": "https://www.shidianguji.com/book/SK1599/chapter/1k1lqkhebd2cy",
+      "textType": "summary"
+    },
+    {
+      "id": "liuren-nine-methods-transmissions",
+      "book": "六壬大全",
+      "chapter": "卷一·起例·九宗门取传法",
+      "summary": "四课有下贼上先取之，无下贼时取上克下；多处相克时依日干阴阳比用与涉害确定发用，其他课式依各法取传。",
+      "application": "适用于已定月将加时、天地盘与四课的壬课；依本次取传条件核对初、中、末传，再合参天将与日辰。",
+      "sourceUrl": "https://zh.wikisource.org/zh-hans/%E5%85%AD%E5%A3%AC%E5%A4%A7%E5%85%A8/1",
+      "textType": "summary"
+    }
+  ]
+}

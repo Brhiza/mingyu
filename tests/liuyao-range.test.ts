@@ -1,222 +1,112 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getDivinationTime } from 'mingyu-core/calendar';
-import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
-import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
-import {
-  formatLiuyaoRangeBackground,
-  formatLiuyaoRangeContext,
-  formatLiuyaoRangeFacts,
-  formatLiuyaoRangeInterval,
-  formatLiuyaoRangeOrigin,
-  generateLiuyaoRange,
-  isLiuyaoRangeSource,
-} from '../src/lib/divination/liuyao-range';
+import { SolarTime } from 'tyme4ts';
+import { calculate, reprompt } from '../src/core';
+import { getDivinationTime, getSolarTermName } from '../src/systems/calendar';
+import { castLiuyao, castYarrow } from '../src/systems/liuyao/cast';
+import reference from '../src/systems/liuyao-reference.json';
+import worker from '../src/worker';
 
-function beijingTimestamp(text: string) {
-  return Date.parse(`${text.replace(' ', 'T')}+08:00`);
-}
+const currentTime = '2025-01-01T00:00:00Z';
+const range = { start: '2024-02-04T07:00:00Z', end: '2024-02-04T09:00:00Z' };
+const request = (liuyao: Record<string, unknown>, interval = range) => ({ question: '所问之事', currentTime, range: interval, liuyao });
 
-function sourceFor(startText: string, endText: string): BaziReverseSource {
-  const startTimestamp = beijingTimestamp(startText);
-  const endTimestamp = beijingTimestamp(endText);
-  return {
-    pillars: getDivinationTime(new Date(startTimestamp), 480).ganzhi,
-    intervalStart: startText,
-    intervalEnd: endText,
-    startTimestamp,
-    endTimestamp,
-    endExclusive: true,
-    timezone: 'Asia/Shanghai',
-    offsetHours: 8,
-  };
-}
-
-const RAIN_WATER_SOURCE = sourceFor('2024-02-19 11:00:00', '2024-02-19 13:00:00');
-const CROSS_MIDNIGHT_SOURCE = sourceFor('2024-02-04 23:00:00', '2024-02-05 01:00:00');
-const STABLE_SOURCE = sourceFor('2024-02-19 09:00:00', '2024-02-19 11:00:00');
-
-const FIXED_COIN_THROWS = [
-  { coins: [2, 2, 3], total: 7 },
-  { coins: [2, 3, 3], total: 8 },
-  { coins: [3, 3, 3], total: 9 },
-  { coins: [2, 2, 2], total: 6 },
-  { coins: [2, 2, 3], total: 7 },
-  { coins: [2, 3, 3], total: 8 },
-] as const;
-
-const MANUAL_OPTIONS = {
-  method: 'manual',
-  yaos: [7, 8, 9, 6, 7, 8],
-} as const satisfies LiuyaoGenerationOptions;
-
-function rangeFor(source: BaziReverseSource, options?: LiuyaoGenerationOptions) {
-  const startTimestamp = source.startTimestamp;
-  if (typeof startTimestamp !== 'number') throw new Error('合成来源缺少起点时间戳。');
-  return generateLiuyaoRange({
-    source,
-    representativeDate: new Date(startTimestamp),
-    options,
-  });
-}
-
-test('雨水交节切分历法背景并复用同一六爻原始盘面', () => {
-  const range = rangeFor(RAIN_WATER_SOURCE, MANUAL_OPTIONS);
-  assert.equal(range.status, 'conditional');
-  assert.equal(range.branches.length, 2);
-  assert.deepEqual(
-    range.branches.map(({ background }) => background.solarTerm),
-    ['立春', '雨水'],
-  );
-  assert.deepEqual(
-    [range.branches[0]?.endTimestamp, range.branches[1]?.startTimestamp],
-    [beijingTimestamp('2024-02-19 12:13:12'), beijingTimestamp('2024-02-19 12:13:12')],
-  );
-  assert.equal(range.branches[0]?.data, range.branches[1]?.data);
-  assert.deepEqual(range.branches[0]?.data.yaoArray, MANUAL_OPTIONS.yaos);
-  assert.equal(range.branches[0]?.data.timestamp, RAIN_WATER_SOURCE.startTimestamp);
-  assert.match(formatLiuyaoRangeBackground(range.branches[1]!), /公历2024-02-19/u);
-  assert.match(formatLiuyaoRangeBackground(range.branches[1]!), /农历/u);
-  assert.match(formatLiuyaoRangeBackground(range.branches[1]!), /节气雨水/u);
-});
-
-test('民用零点边界切分日期和农历背景而不重复起卦', () => {
-  const range = rangeFor(CROSS_MIDNIGHT_SOURCE, MANUAL_OPTIONS);
-  assert.equal(range.status, 'conditional');
-  assert.equal(range.branches.length, 2);
-  assert.deepEqual(
-    [range.branches[0]?.startTimestamp, ...range.branches.map((branch) => branch.endTimestamp)],
-    [
-      CROSS_MIDNIGHT_SOURCE.startTimestamp,
-      beijingTimestamp('2024-02-05 00:00:00'),
-      CROSS_MIDNIGHT_SOURCE.endTimestamp,
-    ],
-  );
-  assert.deepEqual(
-    range.branches.map(({ background }) => background.solar.day),
-    [4, 5],
-  );
-  assert.deepEqual(
-    range.branches.map(({ background }) => background.lunar.dayNumber),
-    [25, 26],
-  );
-  assert.equal(range.branches[0]?.data, range.branches[1]?.data);
-});
-
-test('四种起法均只生成一次原始卦盘并保持来源方法及记录', () => {
-  const cases: Array<{
-    method: LiuyaoGenerationOptions['method'];
-    options: LiuyaoGenerationOptions;
-  }> = [
-    { method: 'time', options: { method: 'time' } },
-    { method: 'manual', options: MANUAL_OPTIONS },
-    {
-      method: 'coins',
-      options: { method: 'coins', coinThrows: FIXED_COIN_THROWS },
-    },
-    { method: 'yarrow', options: { method: 'yarrow', seed: 'synthetic-liuyao-range' } },
-  ];
-
-  for (const { method, options } of cases) {
-    const range = rangeFor(STABLE_SOURCE, options);
-    assert.equal(range.status, 'stable');
-    assert.equal(range.branches.length, 1);
-    const branch = range.branches[0];
-    assert.ok(branch);
-    assert.equal(branch.data.generation?.method, method);
-    assert.equal(branch.data.timestamp, STABLE_SOURCE.startTimestamp);
-    if (method === 'coins') assert.deepEqual(branch.data.generation?.coinThrows, FIXED_COIN_THROWS);
-    if (method === 'manual') assert.deepEqual(branch.data.yaoArray, MANUAL_OPTIONS.yaos);
+test('四种起卦方式跨节气时间范围共享一次卦象，保存后可追问', async () => {
+  const splits = castYarrow().lines.flatMap((line) => line.changes.map((change) => change.left));
+  const methods = [{ method: 'time' }, { method: 'manual', yaos: [6, 7, 8, 9, 7, 8] }, { method: 'coins' },
+    { method: 'coins', coinThrows: Array.from({ length: 6 }, () => ({ coins: [2, 2, 3], total: 7 })) },
+    { method: 'yarrow' }, { method: 'yarrow', yarrowSplits: splits }];
+  for (const liuyao of methods) {
+    const saved = JSON.parse(JSON.stringify(await calculate('liuyao', request(liuyao))));
+    assert.equal(saved.data.kind, 'range');
+    assert.ok(saved.data.branches.length > 1);
+    const original = saved.data.branches[0].data;
+    for (const branch of saved.data.branches) {
+      assert.deepEqual(branch.data.yaoArray, original.yaoArray);
+      assert.deepEqual(branch.data.generation, original.generation);
+    }
+    if (liuyao.method === 'time') {
+      assert.deepEqual(original.yaoArray, castLiuyao(Date.parse(range.start), { method: 'time' }).yaos);
+      assert.equal(original.generation.coinThrows, undefined);
+      assert.match(saved.prompt.text, /未实摇铜钱/);
+      assert.match(saved.prompt.text, /起点只是取数代表/);
+    }
+    if (liuyao.method === 'coins') assert.equal(original.generation.coinSource, 'coinThrows' in liuyao ? 'user-record' : 'simulated');
+    assert.match(saved.prompt.text, /分支代表时刻：/);
+    assert.doesNotMatch(saved.prompt.text, /【时间】\n起卦：/);
+    const follow = await reprompt({ method: 'liuyao', result: saved, question: '继续追问', prompt: { liuyaoTemplate: 'shiye' } });
+    assert.match(follow.prompt.text, /继续追问/);
+    assert.ok(follow.prompt.text.includes(reference.templates.shiye));
+    assert.ok(saved.data.branches.every((branch: any) => branch.data.evidenceAnalysis.topic === 'general'));
+    assert.ok(follow.prompt.text.includes(original.originalName));
+    assert.doesNotMatch(JSON.stringify(saved), /"(?:seed|samples|randomTrace)"|随机轨迹|随机种子|\breplay\b/i);
   }
 });
 
-test('随机三钱在范围模式只调用一次并保留完整随机轨迹', () => {
-  let randomCalls = 0;
-  const range = rangeFor(RAIN_WATER_SOURCE, {
-    method: 'coins',
-    random: () => {
-      randomCalls += 1;
-      return 0.25;
-    },
-  });
-  assert.equal(randomCalls, 18);
-  assert.equal(range.branches.length, 2);
-  const first = range.branches[0]?.data;
-  assert.ok(first);
-  assert.equal(first.meta?.random?.samples.length, 18);
-  assert.equal(range.branches[0]?.data, range.branches[1]?.data);
+test('范围分支覆盖节气、子时和不同固定时区的全部秒数', async () => {
+  const cases = [
+    { range, offset: 480 },
+    { range: { start: '2024-02-09T14:30:00Z', end: '2024-02-09T16:30:00Z' }, offset: 480 },
+    { range: { start: '2024-06-10T16:00:00Z', end: '2024-06-10T18:00:00Z' }, offset: 345 },
+  ];
+  for (const item of cases) {
+    const saved = await calculate('liuyao', request({ method: 'manual', yaos: [6, 7, 8, 9, 7, 8], timezoneOffsetMinutes: item.offset }, item.range));
+    const branches = saved.data.branches;
+    assert.equal(branches[0].startTimestamp, Date.parse(item.range.start));
+    assert.equal(branches.at(-1).endTimestamp, Date.parse(item.range.end));
+    for (let timestamp = Date.parse(item.range.start); timestamp < Date.parse(item.range.end); timestamp += 1000) {
+      const matching = branches.filter((branch: any) => branch.startTimestamp <= timestamp && timestamp < branch.endTimestamp);
+      assert.equal(matching.length, 1);
+      const branch = matching[0], wall = new Date(timestamp + item.offset * 60_000);
+      const lunar = SolarTime.fromYmdHms(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), wall.getUTCHours(), wall.getUTCMinutes(), wall.getUTCSeconds()).getLunarHour().getLunarDay();
+      assert.deepEqual(branch.data.ganzhi, getDivinationTime(new Date(timestamp), item.offset).ganzhi);
+      assert.deepEqual(branch.background.solar, { year: wall.getUTCFullYear(), month: wall.getUTCMonth() + 1, day: wall.getUTCDate() });
+      assert.equal(branch.background.lunar.day, lunar.getDay());
+      assert.equal(branch.background.lunar.month, Math.abs(lunar.getLunarMonth().getMonth()));
+      assert.equal(branch.background.solarTerm, getSolarTermName(timestamp));
+    }
+  }
 });
 
-test('时间起卦严格复用候选起点结果并公开一次起卦来源', () => {
-  const startTimestamp = STABLE_SOURCE.startTimestamp;
-  assert.ok(typeof startTimestamp === 'number');
-  const expected = generateLiuyao(new Date(startTimestamp), { method: 'time' });
-  const range = rangeFor(STABLE_SOURCE, { method: 'time' });
-  assert.deepEqual(range.branches[0]?.data, expected);
-  assert.match(formatLiuyaoRangeOrigin(range), /本次时间起卦采用候选起点/u);
-  assert.match(formatLiuyaoRangeOrigin(range), /各段沿用本次卦象/u);
+test('随机起卦只抽一次，追问不再调用随机源且拒绝被篡改的分支', async () => {
+  const originalCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  let calls = 0;
+  try {
+    Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { getRandomValues(values: Uint32Array) { calls++; values.fill(0); return values; } } });
+    const saved = JSON.parse(JSON.stringify(await calculate('liuyao', request({ method: 'coins' }))));
+    assert.equal(calls, 18);
+    await reprompt({ method: 'liuyao', result: saved, question: '追问一' });
+    await reprompt({ method: 'liuyao', result: saved, question: '追问二' });
+    assert.equal(calls, 18);
+    for (const mutate of [
+      (data: any) => { data.branches[0].endTimestamp += 1000; },
+      (data: any) => { data.branches[0].data.generation.coinThrows[0].total = 9; },
+      (data: any) => { data.branches.at(-1).data.ganzhi.day = '甲子'; },
+      (data: any) => { data.branches[0].background.solarTerm = '伪造'; },
+      (data: any) => { data.source.endExclusive = false; },
+      (data: any) => { data.input.liuyao.method = 'manual'; },
+      (data: any) => { data.branches[0].data.generation.coinSource = 'user-record'; },
+    ]) {
+      const bad = structuredClone(saved); mutate(bad.data);
+      await assert.rejects(() => reprompt({ method: 'liuyao', result: bad, question: '追问' }));
+    }
+    saved.data.branches[0].data.evidenceAnalysis = { fake: '伪造证据' };
+    assert.doesNotMatch((await reprompt({ method: 'liuyao', result: saved, question: '追问' })).prompt.text, /伪造证据/);
+  } finally {
+    if (originalCrypto) Object.defineProperty(globalThis, 'crypto', originalCrypto); else Reflect.deleteProperty(globalThis, 'crypto');
+  }
+  await assert.rejects(() => calculate('liuyao', { ...request({ method: 'time' }), divinationTime: range.start }));
+  await assert.rejects(() => calculate('liuyao', request({ method: 'time' }, { ...range, end: '2024-02-04T09:00:01Z' })));
+  await assert.rejects(() => calculate('liuyao', request({ method: 'time' }, { ...range, pillars: { year: '甲子', month: '甲子', day: '甲子', hour: '甲子' } } as typeof range)));
 });
 
-test('范围格式化保留起卦来源、独立背景和解读模板', () => {
-  const range = rangeFor(RAIN_WATER_SOURCE, MANUAL_OPTIONS);
-  const facts = formatLiuyaoRangeFacts(range, undefined, { liuyaoTemplate: 'caifu' });
-  assert.match(
-    formatLiuyaoRangeInterval(RAIN_WATER_SOURCE.startTimestamp!, RAIN_WATER_SOURCE.endTimestamp!),
-    /北京时间 2024-02-19 11:00:00 至 2024-02-19 13:00:00（起点含、终点不含）/u,
-  );
-  assert.match(facts, /本次采用原始手工爻值记录/u);
-  assert.match(facts, /分支1：北京时间 2024-02-19 11:00:00 至 2024-02-19 12:13:12/u);
-  assert.match(facts, /历法背景：公历2024-02-19/u);
-  assert.match(facts, /节气雨水/u);
-  assert.ok(facts.includes(range.branches[0]!.data.originalName));
-  assert.match(formatLiuyaoRangeContext(range), /各段复用本次原始卦盘，并分别使用该段历法背景/u);
-});
-
-test('范围来源坚持完整机器边界、文本一致和两小时上限', () => {
-  assert.equal(isLiuyaoRangeSource(RAIN_WATER_SOURCE), true);
-  const oldSource: BaziReverseSource = {
-    pillars: RAIN_WATER_SOURCE.pillars,
-    intervalStart: RAIN_WATER_SOURCE.intervalStart,
-    intervalEnd: RAIN_WATER_SOURCE.intervalEnd,
-  };
-  assert.equal(isLiuyaoRangeSource(oldSource), false);
-  assert.throws(
-    () =>
-      generateLiuyaoRange({
-        source: oldSource,
-        representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp!),
-      }),
-    /完整的北京时间半开机器区间/u,
-  );
-  assert.throws(
-    () => rangeFor({ ...RAIN_WATER_SOURCE, intervalEnd: '2024-02-19 13:00:01' }),
-    /文本边界与时间戳不一致/u,
-  );
-  assert.throws(
-    () =>
-      rangeFor({
-        ...RAIN_WATER_SOURCE,
-        intervalEnd: '2024-02-19 13:01:00',
-        endTimestamp: beijingTimestamp('2024-02-19 13:01:00'),
-      }),
-    /两小时上限/u,
-  );
-  assert.throws(
-    () =>
-      generateLiuyaoRange({
-        source: RAIN_WATER_SOURCE,
-        representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp! + 1_000),
-      }),
-    /代表时间必须等于四柱候选区间起点/u,
-  );
-});
-
-test('起点和每段终点前一秒的四柱必须保持来源一致', () => {
-  const crossingHourSource = sourceFor('2024-02-19 10:00:00', '2024-02-19 12:00:00');
-  assert.throws(() => rangeFor(crossingHourSource), /起点的干支与四柱候选来源不一致/u);
-  assert.throws(
-    () =>
-      rangeFor({ ...RAIN_WATER_SOURCE, pillars: { ...RAIN_WATER_SOURCE.pillars, hour: '甲子' } }),
-    /原始卦盘的干支与四柱候选来源不一致/u,
-  );
+test('Worker HTTP 与 MCP 均可计算和追问六爻范围', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'liuyao' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(body) }), env);
+  const input = request({ method: 'coins' });
+  const response = await send('/api/calculate', { method: 'liuyao', input });
+  assert.equal(response.status, 200); const saved = await response.json();
+  assert.equal((await send('/api/prompt', { method: 'liuyao', result: saved, question: '追问' })).status, 200);
+  const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'liuyao', arguments: input } });
+  assert.equal((await mcp.json()).result.structuredContent.data.kind, 'range');
 });

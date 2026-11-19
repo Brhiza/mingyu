@@ -1,0 +1,112 @@
+{
+  "topicIds": [
+    "general",
+    "relationship",
+    "career",
+    "wealth",
+    "health",
+    "family",
+    "academic",
+    "timing"
+  ],
+  "subtopics": {
+    "relationship": [
+      {
+        "id": "partner",
+        "label": "对象与匹配"
+      },
+      {
+        "id": "reconciliation",
+        "label": "复合与修复"
+      },
+      {
+        "id": "marriage",
+        "label": "长期关系"
+      }
+    ],
+    "career": [
+      {
+        "id": "job-change",
+        "label": "工作变动"
+      },
+      {
+        "id": "startup",
+        "label": "创业与合作"
+      },
+      {
+        "id": "workplace",
+        "label": "职场发展"
+      }
+    ],
+    "wealth": [
+      {
+        "id": "income",
+        "label": "收入与积累"
+      },
+      {
+        "id": "investment",
+        "label": "投资与风险"
+      },
+      {
+        "id": "partnership",
+        "label": "合伙求财"
+      }
+    ],
+    "health": [
+      {
+        "id": "body",
+        "label": "身体状态"
+      },
+      {
+        "id": "emotion",
+        "label": "情绪与压力"
+      },
+      {
+        "id": "routine",
+        "label": "作息调护"
+      }
+    ],
+    "family": [
+      {
+        "id": "parents",
+        "label": "父母长辈"
+      },
+      {
+        "id": "children",
+        "label": "子女亲缘"
+      },
+      {
+        "id": "home",
+        "label": "家宅与居住"
+      }
+    ],
+    "academic": [
+      {
+        "id": "exam",
+        "label": "考试与申请"
+      },
+      {
+        "id": "advanced-study",
+        "label": "进修与考证"
+      },
+      {
+        "id": "talent",
+        "label": "学习优势"
+      }
+    ],
+    "timing": [
+      {
+        "id": "recent",
+        "label": "近期节奏"
+      },
+      {
+        "id": "yearly",
+        "label": "年度节点"
+      },
+      {
+        "id": "decision",
+        "label": "决策时机"
+      }
+    ]
+  }
+}

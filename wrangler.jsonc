@@ -1,0 +1,14 @@
+{
+  "name": "mingyu",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "minify": true,
+  "define": { "__MINGYU_WORKER_ASSETS__": "true", "__MINGYU_BROWSER_ASSETS__": "false" },
+  "assets": {
+    "directory": "./dist-independent",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api", "/api/*", "/mcp", "/mcp/*", "/sse"],
+    "not_found_handling": "single-page-application"
+  }
+}

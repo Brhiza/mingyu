@@ -1,0 +1,33 @@
+{
+  "schools": {
+    "siwei": {
+      "label": "四位生克法",
+      "category": "断法",
+      "task": "以地分、将神、贵神、人元四位及其五行生克、阴阳和月令旺衰形成判断。",
+      "basis": "《六壬神课金口诀古本》的四位、阴阳次第与五用资料。"
+    },
+    "fayong": {
+      "label": "阴阳发用法",
+      "category": "断法",
+      "task": "先依阴阳次第确定发用位置，再结合发用旺衰、空亡及其与其余三位的作用形成判断。",
+      "basis": "《六壬神课金口诀古本》的阴阳发用资料。"
+    },
+    "wudong": {
+      "label": "五动三动法",
+      "category": "断法",
+      "task": "以盘面实际成立的五动、三动为事件主线，结合四位关系说明人物、过程与结果。",
+      "basis": "《六壬神课金口诀古本》的五动三动资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "jinkoujue-four-positions-and-five-movements",
+      "book": "六壬神课金口诀古本",
+      "chapter": "卷之上·消息妙论、入式歌解",
+      "summary": "课式由地分、月将、贵神、人元四位组成；入式歌取大象，五动察大意，再按格局、神煞、空亡月破与四位生克考察事体。",
+      "application": "适用于按该书四位法排出的金口诀课；以四位及本次所问事项为依据，配合课式中的五动和生克关系。",
+      "sourceUrl": "https://simplelits.com/books/classical/classical-08347-%E5%85%AD%E5%A3%AC%E7%A5%9E%E8%AF%BE%E9%87%91%E5%8F%A3%E8%AF%80/3",
+      "textType": "summary"
+    }
+  ]
+}

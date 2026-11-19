@@ -1,12 +1,12 @@
 {
-  "name": "命语",
+  "name": "命语 · 东方数术排盘工作台",
   "short_name": "命语",
-  "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具。",
+  "description": "免费开源的在线算命、占卜排盘与 AI 解读提示词工具。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fffdfd",
-  "theme_color": "#fbf0f7",
+  "background_color": "#f6f3ec",
+  "theme_color": "#f6f3ec",
   "lang": "zh-CN",
   "icons": [
     {

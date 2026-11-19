@@ -1,0 +1,42 @@
+{
+  "schools": {
+    "tiyong": {
+      "label": "体用生克法",
+      "category": "断法",
+      "task": "以体卦为主体、用卦为事项，结合主互变三层体用生克和四时旺衰形成判断。",
+      "basis": "通行本《梅花易数》的体用、互变与四时旺衰资料。"
+    },
+    "xiangshu": {
+      "label": "象数取象法",
+      "category": "断法",
+      "task": "结合卦象、五行、方位、时序和动爻位置提取事项的形态、人物与过程线索。",
+      "basis": "《周易》八卦象类与通行本《梅花易数》的象数资料。"
+    },
+    "yaoci": {
+      "label": "卦爻辞参断法",
+      "category": "断法",
+      "task": "以本卦、动爻和变卦对应的卦爻辞为义理主线，结合体用和盘面事实回答问题。",
+      "basis": "《周易》卦辞、爻辞及传统易象资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "meihua-trigger-and-numbering",
+      "book": "梅花易数",
+      "chapter": "卷一·为人占、自己占、物卦起例",
+      "summary": "起卦可取言语、人物、身物、服色、外物、年月日时或书写；后天物卦以物为上卦、方位为下卦，并加时取动爻。",
+      "application": "适用于能够明确本次触机资料和起卦取数法的梅花卦；按该资料对应的章法立卦。",
+      "sourceUrl": "https://zh.wikisource.org/zh-hans/%E6%A2%85%E8%8A%B1%E6%98%93%E6%95%B8/%E5%8D%B7%E4%B8%80",
+      "textType": "summary"
+    },
+    {
+      "id": "meihua-body-use",
+      "book": "梅花易数",
+      "chapter": "卷二·体用总诀",
+      "summary": "体卦为主、用卦为事，结合互卦、变卦及卦气生克察事势。",
+      "application": "适用于已定体用、互变关系的梅花卦；围绕所问之事考察体用旺衰和卦间生克。",
+      "sourceUrl": "https://zh.wikisource.org/wiki/%E6%A2%85%E8%8A%B1%E6%98%93%E6%95%B8/%E5%8D%B7%E4%BA%8C",
+      "textType": "summary"
+    }
+  ]
+}

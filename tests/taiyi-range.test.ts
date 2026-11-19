@@ -1,226 +1,103 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  calculateSolarTermEvidence,
-  getDivinationTime,
-  reverseBaziDates,
-} from 'mingyu-core/calendar';
-import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
-import {
-  formatTaiyiRangeContext,
-  formatTaiyiRangeFacts,
-  formatTaiyiRangeInterval,
-  generateTaiyiRange,
-  isTaiyiRangeSource,
-  type TaiyiRangeScope,
-} from '../src/lib/divination/taiyi-range';
+import { SolarTerm } from 'tyme4ts';
+import { calculate, reprompt } from '../src/core';
+import { getDivinationTime } from '../src/systems/calendar';
+import { trueSolarTime } from '../src/systems/astronomy/true-solar';
+import { generateTaiyi } from '../src/systems/taiyi/chart';
+import worker from '../src/worker';
 
-function beijingTimestamp(text: string) {
-  return Date.parse(`${text.replace(' ', 'T')}+08:00`);
-}
+const currentTime = '2025-01-01T00:00:00Z';
+const range = { start: '2024-06-20T18:00:00Z', end: '2024-06-20T20:00:00Z' };
+const fingerprint = (result: ReturnType<typeof generateTaiyi>) => {
+  const { dateTime: _date, termReferenceDateTime: _actual, prompt: _prompt, evidenceAnalysis: _evidence, ...facts } = result;
+  return facts;
+};
 
-function sourceFor(startText: string, endText: string): BaziReverseSource {
-  const startTimestamp = beijingTimestamp(startText);
-  const endTimestamp = beijingTimestamp(endText);
-  return {
-    pillars: getDivinationTime(new Date(startTimestamp), 480).ganzhi,
-    intervalStart: startText,
-    intervalEnd: endText,
-    startTimestamp,
-    endTimestamp,
-    endExclusive: true,
-    timezone: 'Asia/Shanghai',
-    offsetHours: 8,
-  };
-}
-
-function sourceAcrossSolarTerm(year: number, termIndex: number) {
-  const boundary = calculateSolarTermEvidence(year, termIndex).utcTimestamp;
-  const pillars = getDivinationTime(new Date(boundary - 1_000), 480).ganzhi;
-  const civilYear = new Date(boundary + 8 * 3_600_000).getUTCFullYear();
-  const reverse = reverseBaziDates({ pillars, startYear: civilYear, endYear: civilYear });
-  const candidate = reverse.candidates.find(
-    (item) => item.startTimestamp < boundary && item.endTimestamp > boundary,
-  );
-  assert.ok(candidate, `缺少${year}年第${termIndex}项节气交接的合成四柱候选`);
-  return {
-    boundary,
-    source: {
-      pillars: candidate.pillars,
-      intervalStart: candidate.start.text,
-      intervalEnd: candidate.end.text,
-      startTimestamp: candidate.startTimestamp,
-      endTimestamp: candidate.endTimestamp,
-      endExclusive: true,
-      timezone: 'Asia/Shanghai' as const,
-      offsetHours: 8 as const,
-    } satisfies BaziReverseSource,
-  };
-}
-
-const SUMMER_TERM_SOURCE = sourceAcrossSolarTerm(2026, 12);
-const WINTER_TERM_SOURCE = sourceAcrossSolarTerm(2026, 0);
-const STABLE_SOURCE = sourceFor('2024-02-19 09:00:00', '2024-02-19 11:00:00');
-const CROSS_MIDNIGHT_SOURCE = sourceFor('2024-02-04 23:00:00', '2024-02-05 01:00:00');
-
-function rangeFor(source: BaziReverseSource, scope: TaiyiRangeScope) {
-  const startTimestamp = source.startTimestamp;
-  if (typeof startTimestamp !== 'number') throw new Error('合成来源缺少起点时间戳。');
-  return generateTaiyiRange({
-    source,
-    representativeDate: new Date(startTimestamp),
-    scope,
-  });
-}
-
-test('夏至真实交接秒切分时计并保留前后完整太乙盘', () => {
-  const range = rangeFor(SUMMER_TERM_SOURCE.source, 'hour');
-  assert.equal(range.status, 'conditional');
-  assert.equal(range.branches.length, 2);
-  assert.deepEqual(
-    [range.branches[0]?.endTimestamp, range.branches[1]?.startTimestamp],
-    [SUMMER_TERM_SOURCE.boundary, SUMMER_TERM_SOURCE.boundary],
-  );
-  assert.equal(range.branches[0]?.data.yinYang, '阳遁');
-  assert.equal(range.branches[1]?.data.yinYang, '阴遁');
-  assert.notEqual(range.branches[0]?.data.taiyiPosition, range.branches[1]?.data.taiyiPosition);
-  assert.equal(range.branches[0]?.data.scope, 'hour');
-  assert.equal(range.branches[1]?.data.scope, 'hour');
-});
-
-test('冬至真实交接秒切分时计并由阴遁转为阳遁', () => {
-  const range = rangeFor(WINTER_TERM_SOURCE.source, 'hour');
-  assert.equal(range.status, 'conditional');
-  assert.equal(range.branches.length, 2);
-  assert.deepEqual(
-    [
-      range.branches[0]?.startTimestamp,
-      range.branches[0]?.endTimestamp,
-      range.branches[1]?.endTimestamp,
-    ],
-    [
-      WINTER_TERM_SOURCE.source.startTimestamp,
-      WINTER_TERM_SOURCE.boundary,
-      WINTER_TERM_SOURCE.source.endTimestamp,
-    ],
-  );
-  assert.equal(range.branches[0]?.data.yinYang, '阴遁');
-  assert.equal(range.branches[1]?.data.yinYang, '阳遁');
-});
-
-test('月计、日计和无节气稳定时计按语义事实合并而忽略展示瞬时分', () => {
-  for (const scope of ['month', 'day', 'hour'] as const) {
-    const range = rangeFor(STABLE_SOURCE, scope);
-    assert.equal(range.status, 'stable');
-    assert.equal(range.branches.length, 1);
-    assert.deepEqual(
-      [range.branches[0]?.startTimestamp, range.branches[0]?.endTimestamp],
-      [STABLE_SOURCE.startTimestamp, STABLE_SOURCE.endTimestamp],
-    );
-    assert.equal(range.branches[0]?.data.scope, scope);
+test('范围保留月、日、时计稳定分支，代表盘与单盘一致', async () => {
+  for (const scope of ['month', 'day', 'hour'] as const) for (const solar of [false, true]) {
+    const settings = { scope, ...(solar ? { timeStandard: 'true-solar' as const, longitude: 116.4 } : {}) };
+    const result = await calculate('taiyi', { question: '问题', currentTime, range, taiyi: settings });
+    const data = result.data as any;
+    assert.equal(data.kind, 'range');
+    assert.equal(data.branches[0].startTimestamp, Date.parse(range.start));
+    assert.equal(data.branches.at(-1).endTimestamp, Date.parse(range.end));
+    assert.match(result.prompt.text, /该分支起点的代表时刻/);
+    for (const branch of data.branches) {
+      const single = await calculate('taiyi', { question: '问题', currentTime, taiyi: { ...settings, date: new Date(branch.startTimestamp).toISOString() } });
+      assert.deepEqual(branch.chart, single.data.chart);
+    }
   }
 });
 
-test('跨民用零点的时计积数连续并合并为稳定分支', () => {
-  const range = rangeFor(CROSS_MIDNIGHT_SOURCE, 'hour');
-  assert.equal(range.status, 'stable');
-  assert.equal(range.branches.length, 1);
-  assert.deepEqual(
-    [range.branches[0]?.startTimestamp, range.branches[0]?.endTimestamp],
-    [CROSS_MIDNIGHT_SOURCE.startTimestamp, CROSS_MIDNIGHT_SOURCE.endTimestamp],
-  );
-  assert.ok((range.branches[0]?.data.accumulatedValue ?? 0) > 0);
-});
-
-test('范围事实格式化使用完整分支区间作为起局时间', () => {
-  const range = rangeFor(SUMMER_TERM_SOURCE.source, 'hour');
-  const facts = formatTaiyiRangeFacts(range);
-  const firstInterval = formatTaiyiRangeInterval(
-    range.branches[0]!.startTimestamp,
-    range.branches[0]!.endTimestamp,
-  );
-  const secondInterval = formatTaiyiRangeInterval(
-    range.branches[1]!.startTimestamp,
-    range.branches[1]!.endTimestamp,
-  );
-  assert.match(facts, /太乙神数时计候选时间范围内的分段盘面/u);
-  assert.ok(facts.includes('分支1：\n'));
-  assert.ok(facts.includes('分支2：\n'));
-  assert.ok(facts.includes(`起局时间：${firstInterval}`));
-  assert.ok(facts.includes(`起局时间：${secondInterval}`));
-  assert.equal(facts.split(firstInterval).length - 1, 1);
-  assert.equal(facts.split(secondInterval).length - 1, 1);
-  assert.match(formatTaiyiRangeContext(range), /二十四节气交接、民用零点和时辰边界/u);
-});
-
-test('月计与日计范围事实保留完整时间区间及本计干支', () => {
-  for (const scope of ['month', 'day'] as const) {
-    const range = rangeFor(STABLE_SOURCE, scope);
-    const facts = formatTaiyiRangeFacts(range);
-    const interval = formatTaiyiRangeInterval(
-      range.branches[0]!.startTimestamp,
-      range.branches[0]!.endTimestamp,
-    );
-    assert.ok(facts.includes(`起局时间：${interval}；本计干支：${range.branches[0]!.data.ganZhi}`));
-    assert.equal(facts.split(interval).length - 1, 1);
-    assert.doesNotMatch(facts, /北京时间-undefined月|起局时间：北京时间；/u);
+test('时计阴阳遁在冬至与夏至实际交节秒切换', async () => {
+  for (const [index, before, after] of [[0, '阴遁', '阳遁'], [12, '阳遁', '阴遁']] as const) {
+    const t = SolarTerm.fromIndex(2024, index).getJulianDay().getSolarTime();
+    const instant = Date.UTC(t.getYear(), t.getMonth() - 1, t.getDay(), t.getHour() - 8, t.getMinute(), t.getSecond());
+    const result = await calculate('taiyi', { question: '问题', currentTime,
+      range: { start: new Date(instant - 1000).toISOString(), end: new Date(instant + 1000).toISOString() },
+      taiyi: { scope: 'hour', timeStandard: 'true-solar', longitude: 75 } });
+    const branches = (result.data as any).branches;
+    assert.equal(branches.length, 2);
+    assert.equal(branches[0].endTimestamp, instant);
+    assert.deepEqual(branches.map((branch: any) => branch.chart.yinYang), [before, after]);
   }
 });
 
-test('范围来源坚持完整机器边界、文本一致、代表起点和月日时范围', () => {
-  assert.equal(isTaiyiRangeSource(STABLE_SOURCE), true);
-  const oldSource: BaziReverseSource = {
-    pillars: STABLE_SOURCE.pillars,
-    intervalStart: STABLE_SOURCE.intervalStart,
-    intervalEnd: STABLE_SOURCE.intervalEnd,
-  };
-  assert.equal(isTaiyiRangeSource(oldSource), false);
-  assert.throws(
-    () =>
-      generateTaiyiRange({
-        source: oldSource,
-        representativeDate: new Date(STABLE_SOURCE.startTimestamp!),
-        scope: 'day',
-      }),
-    /完整的北京时间半开机器区间/u,
-  );
-  assert.throws(
-    () => rangeFor({ ...STABLE_SOURCE, intervalEnd: '2024-02-19 11:00:01' }, 'day'),
-    /文本边界与时间戳不一致/u,
-  );
-  assert.throws(
-    () =>
-      rangeFor(
-        {
-          ...STABLE_SOURCE,
-          intervalEnd: '2024-02-19 11:01:00',
-          endTimestamp: beijingTimestamp('2024-02-19 11:01:00'),
-        },
-        'day',
-      ),
-    /两小时上限/u,
-  );
-  assert.throws(
-    () =>
-      generateTaiyiRange({
-        source: STABLE_SOURCE,
-        representativeDate: new Date(STABLE_SOURCE.startTimestamp! + 1_000),
-        scope: 'day',
-      }),
-    /代表时间必须等于四柱候选区间起点/u,
-  );
-  assert.throws(
-    () =>
-      generateTaiyiRange({
-        source: STABLE_SOURCE,
-        representativeDate: new Date(STABLE_SOURCE.startTimestamp!),
-        scope: 'year' as never,
-      }),
-    /只支持月计、日计和时计/u,
-  );
+test('真太阳时范围逐秒验证本计干支并抽查完整盘面', async () => {
+  const cases = [
+    { start: '2024-06-20T18:00:00Z', longitude: 116.4 },
+    { start: '2024-12-21T09:00:00Z', longitude: 180 },
+    { start: '2024-12-31T15:00:00Z', longitude: 75 },
+  ];
+  for (const { start, longitude } of cases) for (const scope of ['month', 'day', 'hour'] as const) {
+    const from = Date.parse(start), end = from + 7_200_000, endText = new Date(end).toISOString();
+    const result = await calculate('taiyi', { question: '问题', currentTime, range: { start, end: endText }, taiyi: { scope, timeStandard: 'true-solar', longitude } });
+    const branches = (result.data as any).branches;
+    for (let timestamp = from; timestamp < end; timestamp += 1000) {
+      const branch = branches.find((item: any) => item.startTimestamp <= timestamp && timestamp < item.endTimestamp);
+      assert.ok(branch, `${scope}/${start}/${timestamp}`);
+      const date = new Date(timestamp), corrected = new Date(trueSolarTime(date, longitude).effectiveTimestamp);
+      const actual = getDivinationTime(date).ganzhi, clock = getDivinationTime(corrected).ganzhi;
+      assert.equal(branch.chart.ganZhi, (scope === 'month' ? actual : clock)[scope], `${scope}/${timestamp}`);
+      if ((timestamp - from) % 60_000 === 0) assert.deepEqual(fingerprint(branch.chart), fingerprint(generateTaiyi({ scope, date: corrected, termReferenceDate: date })), `${scope}/${timestamp}`);
+    }
+  }
 });
 
-test('范围不得跨越未保持四柱的时辰边界', () => {
-  const crossingHourSource = sourceFor('2024-02-19 10:00:00', '2024-02-19 12:00:00');
-  assert.throws(() => rangeFor(crossingHourSource, 'hour'), /起点的干支与四柱候选来源不一致/u);
+test('范围与单盘追问校验输入、盘面和时间口径', async () => {
+  const settings = { scope: 'hour', timeStandard: 'true-solar', longitude: 116.4 };
+  const saved = JSON.parse(JSON.stringify(await calculate('taiyi', { question: '问题', currentTime, range, taiyi: settings })));
+  saved.data.branches[0].chart.evidenceAnalysis = { fake: '伪造' };
+  const next = await reprompt({ method: 'taiyi', result: saved, question: '继续问' });
+  assert.match(next.prompt.text, /继续问/); assert.doesNotMatch(next.prompt.text, /伪造/);
+  for (const mutate of [
+    (data: any) => { data.branches[0].endTimestamp += 1000; },
+    (data: any) => { data.branches[0].chart.bureau = 999; },
+    (data: any) => { data.branches[0].chart.dateTime = '伪造'; },
+    (data: any) => { data.source.endExclusive = false; },
+  ]) {
+    const bad = structuredClone(saved); mutate(bad.data);
+    await assert.rejects(() => reprompt({ method: 'taiyi', result: bad, question: '追问' }));
+  }
+  const single = JSON.parse(JSON.stringify(await calculate('taiyi', { question: '问题', currentTime, taiyi: { ...settings, date: range.start } })));
+  assert.match((await reprompt({ method: 'taiyi', result: single, question: '继续问' })).prompt.text, /经度 116.4°/);
+  single.data.input.longitude = 0;
+  await assert.rejects(() => reprompt({ method: 'taiyi', result: single, question: '追问' }));
+  await assert.rejects(() => calculate('taiyi', { question: '问题', range, taiyi: { scope: 'year', year: 2024 } }));
+  await assert.rejects(() => calculate('taiyi', { question: '问题', range, taiyi: { scope: 'hour', date: range.start } }));
+  await assert.rejects(() => calculate('taiyi', { question: '问题', taiyi: { scope: 'year', year: 2024, timeStandard: 'true-solar', longitude: 116.4 } }));
+  await assert.rejects(() => calculate('taiyi', { question: '问题', range, taiyi: { scope: 'hour', timeStandard: 'true-solar' } }));
+  await assert.rejects(() => calculate('taiyi', { question: '问题', range: { ...range, pillars: { ...getDivinationTime(new Date(range.start)).ganzhi, hour: '甲子' } }, taiyi: { scope: 'hour' } }));
+});
+
+test('Worker HTTP 和 MCP 计算太乙范围并复用原区间', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'taiyi' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(body) }), env);
+  const input = { question: '问题', currentTime, range, taiyi: { scope: 'hour', timeStandard: 'true-solar', longitude: 116.4 } };
+  const response = await send('/api/calculate', { method: 'taiyi', input });
+  assert.equal(response.status, 200); const saved = await response.json();
+  const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'taiyi', arguments: input } });
+  assert.deepEqual((await mcp.json()).result.structuredContent.data, saved.data);
+  assert.equal((await send('/api/prompt', { method: 'taiyi', result: saved, question: '追问' })).status, 200);
 });

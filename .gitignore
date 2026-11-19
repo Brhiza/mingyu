@@ -1,46 +1,23 @@
-# 依赖目录
+# 依赖与缓存
 node_modules/
-
-# npm lockfile（本项目改用 pnpm，npm lockfile 不再维护）
-package-lock.json
+*.tsbuildinfo
 
 # 构建产物
 dist/
-server-dist/
-packages/core/src/location/china-data.js
-packages/core/src/astrology/vendor/caelus/*_cheb.js
-packages/core/src/astrology/vendor/caelus/embedded-data.js
+dist-independent/
+dist-mcp/
+dist-cli/
 
-# TypeScript 增量编译缓存
-*.tsbuildinfo
-
-# 本地调试与截图输出
+# 本地调试与环境配置
+.wrangler/
+.dev.vars*
 output/
-.playwright-cli/
-
-# 本地审查、阶段记录和 AI 协作资料（不进入 GitHub）
-.local/
-.workbuddy/
-docs/prompt-audit/
-benchmarks/fortune-contest/results/
-
-# 日志文件
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# AI 协作说明文件
-agent.md
-AGENTS.md
-
-# 系统与编辑器杂项
+# 本地代理与编辑器杂项
+.local/
+.claude/
 .DS_Store
 Thumbs.db
-
-# Claude Code 本地数据
-.claude/
-
-# Cloudflare Pages 本地环境变量（含 API 密钥）
-.dev.vars
+agent.md
+AGENTS.md

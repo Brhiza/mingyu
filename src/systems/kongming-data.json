@@ -1,0 +1,475 @@
+[
+  {
+    "number": 1,
+    "symbol": "●●●●●",
+    "name": "星震卦",
+    "grade": "上上",
+    "poem": "彩凤呈祥瑞，麒麟降帝都，祸除迎福到，喜气自然生。",
+    "interpretation": {
+      "quote": "彩凤呈祥瑞",
+      "imageMeaning": "彩凤、麒麟皆取祥瑞之象，重心是困扰消退与好消息到来。",
+      "interpretation": "局面由消耗转向恢复，适合接住已有的支持、回应和成果。顺遂之意侧重条件改善，而非一切愿望同时实现。",
+      "condition": "看原有阻碍是否真正解除、支持是否落实，再决定推进的规模。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 2,
+    "symbol": "●○○○○",
+    "name": "从革卦",
+    "grade": "上平",
+    "poem": "从革宜变更，时来合运迁，龙门鱼跃过，凡骨作神仙。",
+    "interpretation": {
+      "quote": "龙门鱼跃过",
+      "imageMeaning": "鱼跃龙门是跨越门槛、改变处境的比喻，与从革的变更之意相应。",
+      "interpretation": "原有方式可能限制发展，转向新方法、角色或环境会打开机会。改变应围绕明确的目标，而不是只求离开现状。",
+      "condition": "转机在于能力、资格或准备足以跨过新门槛，并有清楚的转换路径。",
+      "classicalImage": {
+        "title": "《尚书·洪范》",
+        "element": "金",
+        "quote": "金曰从革",
+        "meaning": "从革取金属可经冶铸而改变形态之义，用于理解变更、重新成形的取象。"
+      }
+    }
+  },
+  {
+    "number": 3,
+    "symbol": "○●○○○",
+    "name": "曲直卦",
+    "grade": "中平",
+    "poem": "动作因风便，求谋可托人，若逢戊己土，事事得遂心。",
+    "interpretation": {
+      "quote": "求谋可托人",
+      "imageMeaning": "借风行事、托人求谋，强调借助环境与可靠协作；戊己土是诗中的传统时机取象。",
+      "interpretation": "此事宜顺着已有条件寻找支点，通过引荐、沟通或分工推进，比孤身强行突破更合诗意。",
+      "condition": "先确认可托之人是否有实际能力与明确回应；具体日期仍需结合问题情境另作判断。",
+      "classicalImage": {
+        "title": "《尚书·洪范》",
+        "element": "木",
+        "quote": "木曰曲直",
+        "meaning": "曲直取木的生长、屈伸之义，用于理解顺势伸展与灵活调整的取象。"
+      }
+    }
+  },
+  {
+    "number": 4,
+    "symbol": "○○●○○",
+    "name": "润下卦",
+    "grade": "小平",
+    "poem": "船放江湖内，滩边获宝多，更宜将大用，灾散福来居。",
+    "interpretation": {
+      "quote": "船放江湖内",
+      "imageMeaning": "行船由岸边进入江湖，取资源流动、在行动中有所发现之象。",
+      "interpretation": "适合从小范围尝试中识别可用资源，再逐步扩大用途。诗中的获宝，着重于发现价值和善用所得。",
+      "condition": "先看试行是否带来可验证的收获，以及能力和条件是否足以承接更大用途。",
+      "classicalImage": {
+        "title": "《尚书·洪范》",
+        "element": "水",
+        "quote": "水曰润下",
+        "meaning": "润下取水滋润并向下流动之义，用于理解流通、顺势与润养的取象。"
+      }
+    }
+  },
+  {
+    "number": 5,
+    "symbol": "○○○●○",
+    "name": "炎上卦",
+    "grade": "下下",
+    "poem": "此卦按南方，灾难不可当，官司多不利，目下有灾殃。",
+    "interpretation": {
+      "quote": "官司多不利",
+      "imageMeaning": "炎上取火势上升之象，诗句集中描写眼前的冲突与压力。",
+      "interpretation": "当前宜先处理已经显露的争议和薄弱环节，降低局势继续激化的可能。诗中南方属于传统方位取象。",
+      "condition": "转机在于事实厘清、责任明确和冲突降温；方位字样需放回所问之事理解。",
+      "classicalImage": {
+        "title": "《尚书·洪范》",
+        "element": "火",
+        "quote": "火曰炎上",
+        "meaning": "炎上取火热向上之义，用于理解热势上扬、事态容易激化的取象。"
+      }
+    }
+  },
+  {
+    "number": 6,
+    "symbol": "○○○○●",
+    "name": "稼穑卦",
+    "grade": "中平",
+    "poem": "且安君子分，勿用小人言，凡事皆当谨，作福保安然。",
+    "interpretation": {
+      "quote": "且安君子分",
+      "imageMeaning": "安分与谨慎相连，重心是守住职责、判断与处事原则。",
+      "interpretation": "适合稳步完成本分工作，谨慎辨别传言和诱惑。此卦强调稳固日常积累，而非急于取得超出准备的成果。",
+      "condition": "以能够核实的信息和兑现的承诺为依据，待基础稳定后再扩展。",
+      "classicalImage": {
+        "title": "《尚书·洪范》",
+        "element": "土",
+        "quote": "土爰稼穑",
+        "meaning": "稼穑指播种和收获，联系土地承载、生养与长期耕作的取象。"
+      }
+    }
+  },
+  {
+    "number": 7,
+    "symbol": "●●○○○",
+    "name": "进求卦",
+    "grade": "上上",
+    "poem": "国治人安泰，家财见崭兴，进财求旺吉，有福亦平安。",
+    "interpretation": {
+      "quote": "国治人安泰",
+      "imageMeaning": "整体安定与家业渐兴相接，表示推进需要一个有秩序的基础。",
+      "interpretation": "已有条件较为协调，适合把计划转为行动，积累可持续的成果。进求之意是有基础地争取，不是无限加码。",
+      "condition": "检查资源、协作和执行安排是否同步到位，顺势推进并维护已有秩序。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 8,
+    "symbol": "●○○○●",
+    "name": "进宝卦",
+    "grade": "上吉",
+    "poem": "好事承天佑，门楣喜气新，有人相助力，获福尽欢欣。",
+    "interpretation": {
+      "quote": "有人相助力",
+      "imageMeaning": "门楣更新与他人相助相连，喜事通过具体的人和关系进入生活。",
+      "interpretation": "机会偏重于引荐、合作或支持的落实。适合主动回应善意，并把模糊的帮助转为双方清楚的安排。",
+      "condition": "助力是否可靠、各方付出与所得是否清楚，是好消息能否形成成果的关键。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 9,
+    "symbol": "●○●○●",
+    "name": "获安卦",
+    "grade": "中吉",
+    "poem": "目下如冬树，只待春色到，看看喜色动，渐渐发萌芽。",
+    "interpretation": {
+      "quote": "目下如冬树",
+      "imageMeaning": "冬树、春色与萌芽构成由静待到恢复生长的过程。",
+      "interpretation": "眼下未见显著进展，并不等于事情失去生机。此卦侧重保全基础、等待条件回暖，随后再逐步启动。",
+      "condition": "以实际回应、资源恢复或条件成熟作为启动信号，春色先按转暖之象理解。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 10,
+    "symbol": "●○○●○",
+    "name": "遂心卦",
+    "grade": "中平",
+    "poem": "时融逢和气，衰残物再兴，更逢微雨细，喜色又还生。",
+    "interpretation": {
+      "quote": "衰残物再兴",
+      "imageMeaning": "和气、微雨使衰弱之物复苏，取缓慢滋养而重新兴起之象。",
+      "interpretation": "事情的改善更依赖持续的小修复，而非一次强力推动。适合缓和关系、补足缺项，让原有基础重新发挥作用。",
+      "condition": "观察改善能否连续出现；微小支持能否持续，往往比一次热烈表态更重要。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 11,
+    "symbol": "○●●○●",
+    "name": "灾散卦",
+    "grade": "大吉",
+    "poem": "灾散福门开，无边喜气来，目下相逢处，须当得横财。",
+    "interpretation": {
+      "quote": "灾散福门开",
+      "imageMeaning": "先有灾散，后有门开，表示旧的阻碍减轻后才出现新空间。",
+      "interpretation": "重点是从困扰中抽身，重新识别机会。横财是诗中的意外所得之象，可联系未预期的帮助或资源。",
+      "condition": "先核实困扰是否解除、机会是否真实，以实际来源与条件判断所得。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 12,
+    "symbol": "○●○●○",
+    "name": "上进卦",
+    "grade": "上平",
+    "poem": "进取逢通达，寒儒衣锦回，何人占此卦，凡事任施为。",
+    "interpretation": {
+      "quote": "寒儒衣锦回",
+      "imageMeaning": "长期用功之人获得承认，取积累转为进展和名声之象。",
+      "interpretation": "适合展示准备、提交成果或争取更进一步的位置。此卦的进取建立在已有积累上，强调把能力带到需要它的场合。",
+      "condition": "找准评判标准与展示机会，确认准备已经足以支持所争取的目标。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 13,
+    "symbol": "○●○○●",
+    "name": "暗昧卦",
+    "grade": "下凶",
+    "poem": "井底观明月，见形却无影，钱财多散失，谨守得安宁。",
+    "interpretation": {
+      "quote": "井底观明月",
+      "imageMeaning": "水中所见似乎可得，实际只是映照，取表象与实物之间的距离。",
+      "interpretation": "容易被好看的承诺或不完整信息牵动。宜先核实实际条件、可支配资源和对方真实意图，再作投入。",
+      "condition": "能否看到可验证的事实，而非只见漂亮表述，是走出暗昧的关键。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 14,
+    "symbol": "○○●●○",
+    "name": "安静卦",
+    "grade": "下中",
+    "poem": "心思多不定，求谋未得成，忍耐方为福，守分免灾星。",
+    "interpretation": {
+      "quote": "心思多不定",
+      "imageMeaning": "内心摇摆与谋事未成相连，安静取暂停扰动、重新集中之意。",
+      "interpretation": "当前的困难可能包含目标不清、决定反复或行动分散。适合先稳定节奏，把要解决的核心问题缩小并理顺。",
+      "condition": "待目标、优先顺序和可执行步骤明确后，再观察是否具备重新推进的条件。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 15,
+    "symbol": "○○●○●",
+    "name": "阻隔卦",
+    "grade": "下凶",
+    "poem": "枯木逢霜雪，扁舟遇大风，心事无可托，百事不遂通。",
+    "interpretation": {
+      "quote": "扁舟遇大风",
+      "imageMeaning": "小舟对上大风，与枯木逢霜雪相照，表现自身承载不足和外部环境不利。",
+      "interpretation": "此时强推容易放大消耗。宜先辨认阻隔来自资源不足、外部限制还是缺少支持，再分别处理。",
+      "condition": "承载能力增加或外部条件缓和，才构成实质转机；单靠意愿难以改变处境。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 16,
+    "symbol": "○○○●●",
+    "name": "保安卦",
+    "grade": "平吉",
+    "poem": "日出临东海，光辉天下明，动用和合吉，百事自然成。",
+    "interpretation": {
+      "quote": "日出临东海",
+      "imageMeaning": "日出使事物清楚显现，和合使行动具备协调的基础。",
+      "interpretation": "适合把事情摊开沟通，建立共同认识后行动。保安之意在于清楚、公开与协调，并非只求静止不动。",
+      "condition": "以信息透明和各方配合为推进条件，尤其确认彼此理解的目标一致。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 17,
+    "symbol": "●●●○○",
+    "name": "喜至卦",
+    "grade": "中吉",
+    "poem": "众恶皆消无，端然福气生，如人行暗夜，今已得天明。",
+    "interpretation": {
+      "quote": "今已得天明",
+      "imageMeaning": "暗夜转为天明，表示困扰减轻、方向逐渐看清。",
+      "interpretation": "关注已经出现的积极变化，适合从等待转入恢复性的行动。先处理明确可做的部分，让好转成为稳定进展。",
+      "condition": "区分真实改善与一时宽慰，待关键障碍松动后再增加投入。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 18,
+    "symbol": "●●○●○",
+    "name": "保命卦",
+    "grade": "中平",
+    "poem": "服药将自保，缠绵词讼连，百凡宜守旧，作福自然安。",
+    "interpretation": {
+      "quote": "百凡宜守旧",
+      "imageMeaning": "服药、自保与守旧共同指向照料、修复和降低额外消耗。",
+      "interpretation": "当前宜优先维持基本秩序，处理拖延已久的困扰。涉及健康或纠纷时，应以实际情况和相应专业意见处理。",
+      "condition": "待身心余力、日常安排或争议处理出现稳定改善，再考虑开展新事。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 19,
+    "symbol": "●●○○●",
+    "name": "犹豫卦",
+    "grade": "下下",
+    "poem": "卦中多恍惚，钱财暗里磨，恩爱反成怨，人情难相和。",
+    "interpretation": {
+      "quote": "恩爱反成怨",
+      "imageMeaning": "原本亲近转为怨怼，与暗中消耗相连，取误解积累、关系失衡之象。",
+      "interpretation": "表面的犹豫可能来自需求未说明、边界模糊或信任受损。宜把分歧具体化，辨认反复拉扯究竟消耗了什么。",
+      "condition": "转机在于坦诚回应、明确责任和停止无效消耗，而非急于得到一句保证。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 20,
+    "symbol": "●○●●○",
+    "name": "丰稔卦",
+    "grade": "上吉",
+    "poem": "根实枝叶茂，林多格式高，经营多得利，兰蕙似蓬蒿。",
+    "interpretation": {
+      "quote": "根实枝叶茂",
+      "imageMeaning": "根基充实才有枝叶繁茂，丰稔着重于积累后的生长与收获。",
+      "interpretation": "适合依靠成熟能力、稳定资源和长期经营扩大成果。先维护根本，再发展外在规模，较能保持持续性。",
+      "condition": "核实供给、质量和团队能否支撑扩展，避免规模增长快于基础承载。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 21,
+    "symbol": "●○○●●",
+    "name": "得禄卦",
+    "grade": "吉",
+    "poem": "高名居禄位，笼鸟得逃生，出入多财宝，更宜远方行。",
+    "interpretation": {
+      "quote": "笼鸟得逃生",
+      "imageMeaning": "笼鸟脱离束缚，与得禄、远行相接，取空间扩大和机会转换之象。",
+      "interpretation": "有利于寻找能发挥能力的新位置，也可能是原有约束松动。重点是从受限走向能自主发挥，而非只追逐头衔。",
+      "condition": "新环境是否带来真实权限、资源和发展空间，比形式上的变化更值得观察。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 22,
+    "symbol": "●○●○○",
+    "name": "明显卦",
+    "grade": "吉",
+    "poem": "明月青天上，今宵照绮筵，家家沾往泽，万里净云烟。",
+    "interpretation": {
+      "quote": "明月青天上",
+      "imageMeaning": "明月与净云烟突出清晰、可见与共同受益。",
+      "interpretation": "适合公开成果、说明事实、消除误会，让价值被看见。事情的进展偏向清楚呈现后的认可和协调。",
+      "condition": "以准确表达和充分证据增加可见度，确认他人真正理解所展示的内容。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 23,
+    "symbol": "○●●●○",
+    "name": "祐福卦",
+    "grade": "吉",
+    "poem": "福禄得安康，荣华保吉昌，所得皆遂意，千里共兰香。",
+    "interpretation": {
+      "quote": "千里共兰香",
+      "imageMeaning": "兰香远播取美好影响的延续与传播，与安康、吉昌相承。",
+      "interpretation": "适合维护已经建立的信任，让良好的合作和做法持续产生作用。此卦重在稳固可共享的成果。",
+      "condition": "关注好名声背后的实际品质能否持续，以及受益各方是否保持良好联系。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 24,
+    "symbol": "○●●○○",
+    "name": "凝滞卦",
+    "grade": "下下",
+    "poem": "羸马登程去，饥人走远途，前程多阻隔，后福方无忧。",
+    "interpretation": {
+      "quote": "羸马登程去",
+      "imageMeaning": "瘦弱的马、饥饿的行人远行，表现出目标在前而补给和体力不足。",
+      "interpretation": "迟滞的关键可能不在方向，而在准备与承载。先补足资源、减轻负担，再安排阶段性的前进更贴合诗意。",
+      "condition": "以补给恢复、能力充足和可持续节奏作为转机，后福着重于调整之后。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 25,
+    "symbol": "○●○●●",
+    "name": "显达卦",
+    "grade": "吉",
+    "poem": "三姓俱相伴，祥光得共生，更宜分造化，百福自然增。",
+    "interpretation": {
+      "quote": "三姓俱相伴",
+      "imageMeaning": "不同姓氏相伴而共享祥光，取多方协力、各有所长之象。",
+      "interpretation": "适合通过合作扩大能力边界，把不同人的资源与职责合理组合。显达来自相互成就，而不只是个人独进。",
+      "condition": "各方目标、分工和利益安排清楚，才有形成合力的基础。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 26,
+    "symbol": "○○●●●",
+    "name": "福源卦",
+    "grade": "吉",
+    "poem": "此卦占太和，求谋喜事多，远人归故里，身乐得欢歌。",
+    "interpretation": {
+      "quote": "远人归故里",
+      "imageMeaning": "远人归来、身乐欢歌，取重聚、联络恢复和归属感回升之象。",
+      "interpretation": "关注关系中的重连与共同愿望的落实。适合联络旧友、修复疏离，或让分散的资源重新聚到一起。",
+      "condition": "观察联系能否形成具体见面、回应或合作安排，以行动确认相聚之意。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 27,
+    "symbol": "○●●●●",
+    "name": "太平卦",
+    "grade": "吉",
+    "poem": "春雨滋苗稼，何愁不广收，自然心得乐，安然总无忧。",
+    "interpretation": {
+      "quote": "春雨滋苗稼",
+      "imageMeaning": "春雨按时滋养作物，收成源于条件合宜与持续照料。",
+      "interpretation": "适合遵循现有节奏，把该做的日常工作做好。太平之意在于基本条件协调，稳步培养比频繁改动更合适。",
+      "condition": "确认滋养所需的资源能够持续，及时处理小问题以维持良好状态。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 28,
+    "symbol": "●●●○●",
+    "name": "颠险卦",
+    "grade": "不吉",
+    "poem": "迢迢途中旋，云横日坠山，心事无可托，前后总皆难。",
+    "interpretation": {
+      "quote": "云横日坠山",
+      "imageMeaning": "行程迢迢而天色转暗，方向与支持同时变得不清楚。",
+      "interpretation": "此时宜先确认所在位置和可依靠的条件，再决定继续、暂停或调整路线。反复冒进容易增加不确定与消耗。",
+      "condition": "取得可靠信息、找到可求助的人或明确的下一站，才有继续行动的支点。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 29,
+    "symbol": "●●○●●",
+    "name": "开发卦",
+    "grade": "平",
+    "poem": "蚌中珠自见，石内玉增光，进财求旺吉，有祸不成殃。",
+    "interpretation": {
+      "quote": "蚌中珠自见",
+      "imageMeaning": "蚌珠显露、石玉增光，取潜在价值逐步呈现之象。",
+      "interpretation": "适合整理已有成果、打磨能力并找到恰当展示方式。开发是让内在价值变得可用、可见，而非凭空求得外物。",
+      "condition": "价值能否经过检验、是否找到合适用途，是从显露走向认可的关键。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 30,
+    "symbol": "●●●●○",
+    "name": "鹰扬卦",
+    "grade": "吉",
+    "poem": "天兵诛贼寇，旌旗得胜归，功成班将帅，门第有光辉。",
+    "interpretation": {
+      "quote": "功成班将帅",
+      "imageMeaning": "得胜之后论功安排，突出团队成事、成果确认与责任分配。",
+      "interpretation": "适合集中力量完成关键任务，并在完成后妥善总结、交接和分配成果。鹰扬之意兼有行动力与秩序。",
+      "condition": "看共同目标是否完成、贡献和后续职责是否清楚，避免收尾失序。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 31,
+    "symbol": "●○●●●",
+    "name": "后吉卦",
+    "grade": "平",
+    "poem": "履薄登冰地，危桥得渡时，重重忧险过，喜色自芳菲。",
+    "interpretation": {
+      "quote": "危桥得渡时",
+      "imageMeaning": "薄冰、危桥先写艰难，渡过之后才见喜色，强调过程先紧后松。",
+      "interpretation": "眼前仍需谨慎跨过具体难关，后吉建立在逐关处理上。宜把大问题分成可完成的小步骤，保留调整余地。",
+      "condition": "以关键难点逐一解决作为好转标志，先确认能够稳妥渡过眼前一段。",
+      "classicalImage": null
+    }
+  },
+  {
+    "number": 32,
+    "symbol": "○○○○○",
+    "name": "无数卦",
+    "grade": "凶",
+    "poem": "尘埋青铜镜，美玉陷淤泥，何时重出世，再得显光辉。",
+    "interpretation": {
+      "quote": "美玉陷淤泥",
+      "imageMeaning": "镜蒙尘、玉陷泥，价值仍在，却受到遮蔽而难以发挥。",
+      "interpretation": "当前更适合整顿环境、恢复状态和重新梳理自身长处。无数在此是卦名，其诗意着重于蒙蔽与等待重新显现。",
+      "condition": "辨认遮蔽价值的具体原因，逐步清理后再寻找合适的展示和使用机会。",
+      "classicalImage": null
+    }
+  }
+]

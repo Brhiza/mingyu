@@ -1,0 +1,33 @@
+{
+  "schools": {
+    "yunqi": {
+      "label": "五运六气法",
+      "category": "断法",
+      "task": "以岁运、司天、在泉、主气和客气为骨架，说明全年气候与阶段气化主线。",
+      "basis": "《黄帝内经·素问》七篇大论的五运六气资料。"
+    },
+    "sitian": {
+      "label": "司天在泉法",
+      "category": "断法",
+      "task": "以司天主上半年、在泉主下半年的气化关系为主线，结合间气与时段变化形成判断。",
+      "basis": "《素问·天元纪大论》《素问·六微旨大论》等司天在泉资料。"
+    },
+    "kezhu": {
+      "label": "客主加临法",
+      "category": "断法",
+      "task": "逐步比较主运客运、主气客气的加临、生克与顺逆，观察各阶段偏盛偏衰。",
+      "basis": "《素问》运气七篇的主客运气与加临资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "wuyun-year-stem-and-six-qi",
+      "book": "黄帝内经素问",
+      "chapter": "天元纪大论",
+      "summary": "篇中以岁干配五运，并以司天、在泉及左右间气构成年度气化框架。",
+      "application": "适用于明确岁干、岁支及所用运气历法的年度运气盘；依当年五运六气配置讨论时令气化。",
+      "sourceUrl": "https://www.shidianguji.com/book/DZ1018/chapter/1k85j5ct44fmu",
+      "textType": "summary"
+    }
+  ]
+}

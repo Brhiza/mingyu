@@ -1,0 +1,42 @@
+import rules from './climate-rules.json';
+import { assessClimateRule, type ClimateContext, type ClimateRule } from './climate-match';
+import type { BaziPillar, PillarName } from './pillars';
+import type { buildDayMasterStrength } from './strength';
+import type { summarizePattern } from './pattern';
+
+type Pillars = Record<PillarName, BaziPillar>;
+const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
+const climateRules = rules as ClimateRule[];
+// 启动时检查全部规则的条件名，避免预筛选让不受支持的条件被静默跳过。
+for (const rule of climateRules) assessClimateRule(rule, {});
+
+function matchesKnown(values: string[] | undefined, value: string | undefined) {
+  return !values?.length || value === undefined || values.includes(value);
+}
+/** 条件候选与参考用途分开记录，协调结果另见调候条件层。 */
+export function buildClimateCandidates(pillars: Pillars, strength: ReturnType<typeof buildDayMasterStrength>, pattern: ReturnType<typeof summarizePattern>, currentJieqi?: string) {
+  if (pattern.source !== '普通月令取格候选') return { applicability: '特殊格暂不套用普通调候' as const, currentJieqi: currentJieqi ?? null, candidates: [], limitation: '特殊格按当前口径不套用普通调候规则；化神顺势及其他调候需另核。' };
+  const visibleStemSources = positions.map((pillar) => ({ pillar, stem: pillars[pillar].gan }));
+  const hiddenStemSources = positions.map((pillar) => ({ pillar, branch: pillars[pillar].zhi, stems: pillars[pillar].hiddenStems.map((item) => item.stem) }));
+  const wuxingCounts: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
+  for (const position of positions) { wuxingCounts[pillars[position].stemElement]++; wuxingCounts[pillars[position].branchElement]++; }
+  const context: ClimateContext = { strengthStatus: strength.status, yearStem: pillars.year.gan, monthBranch: pillars.month.zhi, hourBranch: pillars.hour.zhi, dayMaster: pillars.day.stemElement, dayStem: pillars.day.gan,
+    ...(currentJieqi ? { currentJieqi } : {}), visibleStems: visibleStemSources.map((item) => item.stem), visibleStemSources,
+    hiddenStems: hiddenStemSources.flatMap((item) => item.stems), hiddenStemSources,
+    formationWuxings: [...new Set(strength.formations.filter((item) => item.established).map((item) => item.element))], wuxingCounts };
+  const candidates = climateRules.filter((rule) => matchesKnown(rule.months, context.monthBranch)
+    && matchesKnown(rule.dayStems, context.dayStem) && matchesKnown(rule.dayMasters, context.dayMaster))
+    .map((rule) => ({ rule, assessment: assessClimateRule(rule, context) }))
+    .filter(({ assessment }) => assessment.status !== '不满足')
+    .sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))
+    .map(({ rule, assessment }) => ({ id: rule.id, label: rule.label as string, priority: (rule.priority ?? 0) as number, status: assessment.status, missingInputs: assessment.missingInputs,
+      mode: (rule.policy?.mode ?? 'reference') as string, usefulElement: rule.usefulWuxing as string, favorableOrder: (rule.favorableOrder ?? []) as string[],
+      recommendationStems: (rule.recommendationStems ?? []) as string[], hint: rule.hint as string,
+      ...(rule.policy ? { source: structuredClone(rule.policy.source), effects: structuredClone(rule.policy.effects) } : {}) }));
+  return { applicability: '普通格调候候选' as const, currentJieqi: currentJieqi ?? null, candidates,
+    limitation: '候选仅记录规则条件与资料缺口；优先级与冲突另见调候条件层，格局作用、病药及岁运尚未综合，不可直接作为最终用神。' };
+}
+
+export function summarizeClimate(value: ReturnType<typeof buildClimateCandidates>) {
+  return `${value.applicability}；节气${value.currentJieqi ?? '待核'}；${value.candidates.map((item) => `${item.label}（${item.status}）`).join('、') || '未列候选'}；最终用神仍待综合`;
+}

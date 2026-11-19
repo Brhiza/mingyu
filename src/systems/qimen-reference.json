@@ -1,0 +1,42 @@
+{
+  "schools": {
+    "gongwei": {
+      "label": "宫位用神法",
+      "category": "断法",
+      "task": "先确定事项用神及其落宫，结合宫内门、星、神、天地盘干和宫位生克形成判断。",
+      "basis": "《烟波钓叟歌》《御定奇门宝鉴》的九宫、三奇六仪、九星八门八神资料。"
+    },
+    "geju": {
+      "label": "格局取象法",
+      "category": "断法",
+      "task": "以值符值使、三奇格局、九遁、伏吟反吟、门迫击刑、入墓空亡等实际命中格局形成判断。",
+      "basis": "《烟波钓叟歌》《御定奇门宝鉴》《奇门遁甲秘籍大全》的格局资料。"
+    },
+    "zhuke": {
+      "label": "主客方略法",
+      "category": "断法",
+      "task": "结合本次主动干、值符值使和事项用神区分主客、动静、先后与方位时机，形成策略判断。",
+      "basis": "奇门主客、动静、方位与时机的通行资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "qimen-yin-yang-dun-and-palaces",
+      "book": "遁甲演义",
+      "chapter": "卷一·烟波钓叟赋",
+      "summary": "依节气与阴阳遁定局，在九宫布列三奇六仪，并结合九星、八门等盘层取象。",
+      "application": "适用于起局时间、阴阳遁与九宫盘层已明确的奇门盘；按该盘式的星、门、神、仪关系解读。",
+      "sourceUrl": "https://www.shidianguji.com/book/SK1616/chapter/1l9lop9pxu33o",
+      "textType": "summary"
+    },
+    {
+      "id": "qimen-door-palace-control",
+      "book": "遁甲演义",
+      "chapter": "卷二·门迫宫迫",
+      "summary": "门克所临宫为门迫，宫克门另论；判断合看门的吉凶属性与门宫五行关系。",
+      "application": "适用于已给出八门落宫和门宫五行的奇门盘；围绕所问宫位核对门宫生克，并合看星、神与旺衰。",
+      "sourceUrl": "https://zh.wikisource.org/zh-hans/%E9%81%81%E7%94%B2%E6%BC%94%E7%BE%A9",
+      "textType": "summary"
+    }
+  ]
+}

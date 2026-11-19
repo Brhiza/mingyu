@@ -1,0 +1,292 @@
+/* ============================================================================
+ * 全站唯一权威布局、对齐与字体系统规范 (Workspace Unified Architecture Layer)
+ * 单一网格基准：顶栏、页头、子选项条、内容卡片与结果页全站共线对齐，零局部覆盖补丁。
+ * ============================================================================ */
+
+:root {
+  --ws-canvas: 1120px;
+}
+
+/* 1. 统一外框宽度：顶栏 + 二级宿主页 + 全部工作台页面 + 百科/AI连接 + 结果页完全对齐在同一左/右基准线 */
+#v2-workspace-root .workspace-topbar-inner,
+#v2-workspace-root .workspace-domain-subnav-host,
+#v2-workspace-root .workspace-focused-page,
+#v2-workspace-root .workspace-input-page,
+#v2-workspace-root .workspace-divination-page,
+#v2-workspace-root .workspace-result-navigation,
+#v2-workspace-root .workspace-result-page-shell,
+#v2-workspace-root .workspace-divination-result-page {
+  width: min(var(--ws-canvas), 100%) !important;
+  max-width: min(var(--ws-canvas), 100%) !important;
+  margin-inline: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* 2. 页面内部壳层与卡片强制撑满父级基准容器，彻底杜绝「标题宽、下面卡片缩进去一截」的错位 */
+#v2-workspace-root .workspace-focused-page > .workspace-ui-page,
+#v2-workspace-root .workspace-input-page .workspace-ui-page,
+#v2-workspace-root .workspace-divination-page .divination-flow-workbench,
+#v2-workspace-root .workspace-divination-page .divination-form-card,
+#v2-workspace-root .workspace-culture-page > .culture-tools-page {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-inline: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 首页与全站保持同一 1120px 栅格左/右对齐 */
+#v2-workspace-root .workspace-home-page,
+#v2-workspace-root .workspace-home-stage {
+  width: min(var(--ws-canvas), 100%) !important;
+  max-width: min(var(--ws-canvas), 100%) !important;
+  margin-inline: auto !important;
+}
+
+/* 3. 页头宿主节点对齐（避免字理典籍页头与下方卡片间距不一致） */
+#v2-workspace-root .workspace-domain-subnav-host {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+#v2-workspace-root .workspace-domain-subnav-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 680px) {
+  #v2-workspace-root .workspace-domain-subnav-host.is-mobile-only-subnav {
+    display: none !important;
+  }
+}
+
+/* 4. 统一「左标题 · 右选项」页头组件 (.ws-page-header) */
+#v2-workspace-root .ws-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0 0 14px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#v2-workspace-root .ws-page-header-left {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#v2-workspace-root .ws-page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#v2-workspace-root .ws-page-title,
+#v2-workspace-root .workspace-ui-page-header h1 {
+  margin: 0 !important;
+  font-family: var(--font-sans) !important;
+  font-size: clamp(21px, 2vw, 25px) !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--text-strong) !important;
+}
+
+#v2-workspace-root .ws-page-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#v2-workspace-root .ws-page-subtitle {
+  margin: 0;
+  font-family: var(--font-sans) !important;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+#v2-workspace-root .ws-page-tabs {
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+
+#v2-workspace-root .ws-page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+#v2-workspace-root .ws-page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+/* 占卜二级具体术数药丸切换条（紧贴页头下方、左对齐） */
+#v2-workspace-root .ws-sub-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: -4px 0 14px !important;
+  padding: 0;
+}
+
+/* 5. 全站 UI 标题字体绝对统一为无衬线现代界面字体 (--font-sans) */
+#v2-workspace-root .connect-card-title,
+#v2-workspace-root .connect-subpane-title,
+#v2-workspace-root .connect-protocol-card h3,
+#v2-workspace-root .ency-detail-title,
+#v2-workspace-root .ency-section-heading,
+#v2-workspace-root .ency-term-card-title,
+#v2-workspace-root .ency-wing-title,
+#v2-workspace-root .culture-tools-section-heading h2 {
+  font-family: var(--font-sans) !important;
+}
+
+/* AI 连接区页头包裹盒保持透明无框 */
+#v2-workspace-root .connect-hero-header-wrap {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#v2-workspace-root .connect-probe-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+/* 去除所有输入页内部重复或冗余页头 */
+#v2-workspace-root .workspace-divination-page {
+  display: block !important;
+}
+
+#v2-workspace-root .workspace-divination-page > .ws-page-header + .divination-form-card,
+#v2-workspace-root .workspace-divination-page > .ws-sub-pills + .divination-form-card {
+  margin-top: 0;
+}
+
+/* 6. 移动端与折叠屏竖屏 (≤ 679px 手机 / ≤ 979px 页头精简) 去除重复标题与多余留白 */
+@media (max-width: 979px) {
+  #v2-workspace-root .ws-desktop-only-action {
+    display: none !important;
+  }
+
+  #v2-workspace-root .ws-page-header {
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px 10px;
+    min-height: 0 !important;
+    margin-bottom: 8px !important;
+  }
+
+  #v2-workspace-root .ws-page-header-title-block {
+    display: none !important;
+  }
+
+  #v2-workspace-root .ws-page-header-tabs-wrap {
+    flex: 1 1 100%;
+  }
+
+  #v2-workspace-root .ws-page-header:not(:has(.ws-page-header-tabs-wrap)):not(:has(.ws-page-header-actions > :not(.ws-desktop-only-action))) {
+    display: none !important;
+  }
+
+  #v2-workspace-root .ws-page-title,
+  #v2-workspace-root .workspace-ui-page-header h1 {
+    font-size: 19px !important;
+    white-space: nowrap !important;
+  }
+
+  #v2-workspace-root .ws-page-tabs {
+    width: 100%;
+  }
+
+  #v2-workspace-root .workspace-culture-unified-header .ws-page-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+
+  #v2-workspace-root .workspace-culture-unified-header .workspace-ui-tab {
+    justify-content: center;
+    text-align: center;
+    padding-inline: 4px;
+    font-size: 12px;
+  }
+
+  #v2-workspace-root .ws-sub-pills {
+    margin: -2px 0 8px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  #v2-workspace-root .ws-sub-pills::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 679px) {
+  #v2-workspace-root .workspace-home-page > div > .ws-page-header {
+    margin-bottom: 0 !important;
+  }
+
+  #v2-workspace-root .workspace-ui-tabs {
+    padding: 3px;
+    border-radius: 10px;
+  }
+
+  #v2-workspace-root .workspace-ui-tab {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+}
+
+/* 7. 桌面端首页与占卜页右侧固定历史卡片停靠区预留（大屏 ≥ 1760px 留白已足够，保持 1120px 中区绝对居中） */
+@media (min-width: 1280px) and (max-width: 1439px) {
+  #v2-workspace-root .workspace-main.has-side-history > .workspace-page {
+    padding-left: 16px !important;
+    padding-right: 268px !important;
+  }
+}
+
+@media (min-width: 1440px) and (max-width: 1759px) {
+  #v2-workspace-root .workspace-main.has-side-history > .workspace-page {
+    padding-left: 16px !important;
+    padding-right: 280px !important;
+  }
+}

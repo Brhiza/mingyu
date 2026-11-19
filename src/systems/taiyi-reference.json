@@ -1,0 +1,42 @@
+{
+  "schools": {
+    "zhuke": {
+      "label": "主客定算法",
+      "category": "断法",
+      "task": "以主算、客算、定算及主客将参为核心，比较主客强弱、动静与攻守条件。",
+      "basis": "《太乙金镜式经》的主客定算与将参资料。"
+    },
+    "gongwei": {
+      "label": "宫位神将法",
+      "category": "断法",
+      "task": "结合太乙、文昌、始击、计神的落宫、阴阳遁和局数形成阶段局势判断。",
+      "basis": "《太乙金镜式经》的七十二局与神将落宫资料。"
+    },
+    "jisuan": {
+      "label": "积算十六神法",
+      "category": "断法",
+      "task": "以积年积数推步、十六神落宫及掩迫囚击等反证核验为主线。",
+      "basis": "《太乙金镜式经》积算推步与十六神临宫资料。"
+    }
+  },
+  "classics": [
+    {
+      "id": "taiyi-accumulation-and-periods",
+      "book": "太乙金镜式经",
+      "chapter": "卷一·推上元积年、推入六纪三元法、推太乙所在法",
+      "summary": "岁计以统一的上元积年起算，按年递增或递减，再依周纪、纪法和元法取余定位入纪与太乙行宫。",
+      "application": "适用于已给出年计纪元、积年和周期口径的太乙盘；采用本次盘面所定纪元，并按相应计法核对行宫。",
+      "sourceUrl": "https://zh.wikisource.org/zh-hans/%E5%A4%AA%E4%B9%99%E9%87%91%E9%8F%A1%E5%BC%8F%E7%B6%93_(%E5%9B%9B%E5%BA%AB%E5%85%A8%E6%9B%B8%E6%9C%AC)/%E5%85%A8%E8%A6%BD",
+      "textType": "summary"
+    },
+    {
+      "id": "taiyi-five-generals-host-guest",
+      "book": "太乙金镜式经",
+      "chapter": "推五将所主法",
+      "summary": "以五将及主客关系组织太乙式中的观察框架；该法原篇以军旅胜负为主要占例。",
+      "application": "适用于已给出太乙局式、五将与主客位置的占盘；按该盘配置和原篇所论占事范围取象。",
+      "sourceUrl": "https://www.shidianguji.com/zh/book/SK1615/chapter/1l9lir7w2l5ay",
+      "textType": "summary"
+    }
+  ]
+}

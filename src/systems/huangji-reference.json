@@ -1,0 +1,13 @@
+{
+  "classics": [
+    {
+      "id": "huangji-yuanhui-coordinate",
+      "book": "皇极经世书（四库全书本）",
+      "chapter": "卷一上·观物篇一·以元经会一",
+      "summary": "本篇以元、会、运、世及年月日时层级记数，展示由大周期逐层推至细部的时间坐标。",
+      "application": "适用于已按本书纪数法给出的元会运世与年月日时盘面；先确定所用起算纪元，再据盘中坐标释读。",
+      "sourceUrl": "https://zh.wikisource.org/zh-hans/%E7%9A%87%E6%A5%B5%E7%B6%93%E4%B8%96%E6%9B%B8_%28%E5%9B%9B%E5%BA%AB%E5%85%A8%E6%9B%B8%E6%9C%AC%29/%E5%8D%B701%E4%B8%8A",
+      "textType": "summary"
+    }
+  ]
+}

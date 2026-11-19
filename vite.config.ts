@@ -1,260 +1,182 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
-import { lookup } from 'node:dns/promises';
-import { request as httpsRequest } from 'node:https';
-import path from 'node:path';
-import fs from 'node:fs';
-import { getManualChunk } from './build/chunking';
-import { AI_CLIENT_ADDRESS_HEADER } from './src/lib/ai/rate-limit';
+import tailwindcss from '@tailwindcss/vite';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { characterVersion } from './scripts/character-version.mjs';
+import { asteroidAssets } from './scripts/asteroid-version.mjs';
+import { generateApiDocsHtml, generateApiDocsMarkdown } from './scripts/generate-api-docs';
+import { generateOpenApiDocument } from './scripts/generate-openapi';
+import { buildSkillZipBuffer } from './scripts/build-skill-package.mjs';
 
-/**
- * 解析 .dev.vars 文件为 key-value 对象
- */
-function parseDevVars(filePath: string): Record<string, string> {
-  if (!fs.existsSync(filePath)) return {};
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const result: Record<string, string> = {};
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    const value = trimmed.slice(eqIndex + 1).trim();
-    if (key) result[key] = value;
-  }
-  return result;
+interface VersionedAssetSpec {
+  name: string;
+  urlPrefix: string;
+  outputPrefix: string;
+  directory: string;
+  mismatchMessage: string;
+  filePattern: RegExp;
+  loadAssets: (directory: string) => { version: string; files: Record<string, string | Buffer> };
 }
 
-function createPinnedAiFetch() {
-  return async function fetchPinnedAi(
-    input: string | URL | Request,
-    init?: RequestInit,
-    resolvedAddresses?: readonly string[],
-  ): Promise<Response> {
-    if (!resolvedAddresses?.length) {
-      return fetch(input, init);
+function versionedJsonAssetsPlugin(spec: VersionedAssetSpec): Plugin {
+  const verify = () => {
+    const { version } = JSON.parse(readFileSync(join(spec.directory, 'version.json'), 'utf8')) as { version: string };
+    const loaded = spec.loadAssets(spec.directory);
+    if (!/^[a-f0-9]{64}$/.test(version) || loaded.version !== version) {
+      throw new Error(spec.mismatchMessage);
     }
-
-    const url = new URL(
-      typeof input === 'string' ? input : input instanceof URL ? input : input.url,
-    );
-    if (url.protocol !== 'https:') {
-      return fetch(input, init);
-    }
-
-    const body = init?.body;
-    if (
-      body !== undefined &&
-      body !== null &&
-      typeof body !== 'string' &&
-      !(body instanceof Uint8Array)
-    ) {
-      throw new TypeError('AI 请求体类型不受当前 Node 绑定请求器支持。');
-    }
-
-    const requestHeaders = new Headers(init?.headers);
-    requestHeaders.set('host', url.host);
-    const headers = Object.fromEntries(requestHeaders.entries());
-    const address = resolvedAddresses[0];
-
-    return new Promise<Response>((resolve, reject) => {
-      let incoming: import('node:http').IncomingMessage | undefined;
-      let settled = false;
-      const request = httpsRequest(
-        {
-          hostname: address,
-          port: url.port || 443,
-          path: `${url.pathname}${url.search}`,
-          method: init?.method || 'GET',
-          headers,
-          servername: url.hostname,
-        },
-        (response) => {
-          incoming = response;
-          const responseHeaders = new Headers();
-          for (const [name, value] of Object.entries(response.headers)) {
-            if (value !== undefined) {
-              responseHeaders.set(name, Array.isArray(value) ? value.join(', ') : value);
-            }
-          }
-
-          const responseBody = new ReadableStream<Uint8Array>({
-            start(controller) {
-              response.on('data', (chunk: Buffer | string) => {
-                controller.enqueue(
-                  typeof chunk === 'string'
-                    ? new TextEncoder().encode(chunk)
-                    : new Uint8Array(chunk),
-                );
-              });
-              response.on('end', () => {
-                init?.signal?.removeEventListener('abort', abortRequest);
-                controller.close();
-              });
-              response.on('error', (error) => {
-                init?.signal?.removeEventListener('abort', abortRequest);
-                controller.error(error);
-              });
-            },
-            cancel() {
-              response.destroy();
-            },
-          });
-
-          settled = true;
-          resolve(
-            new Response(responseBody, {
-              status: response.statusCode || 502,
-              headers: responseHeaders,
-            }),
-          );
-        },
-      );
-
-      const abortRequest = () => {
-        request.destroy();
-        incoming?.destroy();
-        if (!settled) {
-          const error = new Error('请求已取消。');
-          error.name = 'AbortError';
-          reject(error);
-        }
-      };
-      if (init?.signal?.aborted) {
-        abortRequest();
-        return;
-      }
-      init?.signal?.addEventListener('abort', abortRequest, { once: true });
-      request.once('error', (error) => {
-        init?.signal?.removeEventListener('abort', abortRequest);
-        if (!settled) reject(error);
-      });
-
-      if (body !== undefined && body !== null) request.write(body);
-      request.end();
-    });
+    return loaded;
   };
-}
-
-/**
- * Vite 开发服务器中间件：在本地开发时处理 /api/v1/ai/* 请求。
- * 生产环境由 Cloudflare Pages Functions 处理，此插件不生效。
- */
-function aiProxyDevPlugin(): Plugin {
   return {
-    name: 'ai-proxy-dev',
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/v1/ai/')) return next();
-        if (req.method === 'OPTIONS') {
-          res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST,OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          });
-          res.end();
+    name: spec.name,
+    configureServer(server: ViteDevServer) {
+      const { version, files } = verify();
+      server.middlewares.use(spec.urlPrefix, (request, response) => {
+        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+        const match = new RegExp(`^/([a-f0-9]{64})/(${spec.filePattern.source})$`).exec(pathname);
+        if (!['GET', 'HEAD'].includes(request.method ?? '') || !match || match[1] !== version || !Object.hasOwn(files, match[2])) {
+          response.statusCode = 404;
+          response.end('Not found');
           return;
         }
-        if (req.method !== 'POST') return next();
-
-        // 动态导入共享代理逻辑
-        const { handleAiAnalyze, handleAiModels } = await import('./src/lib/ai/proxy');
-
-        // 读取 .dev.vars 环境变量
-        const devVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
-
-        // 将 Node.js IncomingMessage 转换为 Web Request
-        const chunks: Buffer[] = [];
-        for await (const chunk of req) {
-          chunks.push(chunk as Buffer);
-        }
-        const body = Buffer.concat(chunks).toString('utf-8');
-        const headers = new Headers({ 'Content-Type': 'application/json' });
-        const clientAddress = req.socket.remoteAddress?.trim();
-        if (clientAddress) headers.set(AI_CLIENT_ADDRESS_HEADER, clientAddress);
-        const request = new Request(`http://localhost${req.url}`, {
-          method: 'POST',
-          headers,
-          body,
-        });
-
-        const aiRuntime = {
-          resolveHostname: async (hostname: string) =>
-            (await lookup(hostname, { all: true, verbatim: true })).map((item) => item.address),
-          fetch: createPinnedAiFetch(),
-        };
-
-        const response = req.url.startsWith('/api/v1/ai/models')
-          ? await handleAiModels(request, devVars, aiRuntime)
-          : await handleAiAnalyze(request, devVars, aiRuntime);
-
-        // 将 Web Response 写回 Node.js ServerResponse
-        res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
-        if (response.body) {
-          const reader = response.body.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(value);
-            }
-          } catch {
-            // 流中断
-          }
-        }
-        res.end();
+        response.setHeader('content-type', 'application/json; charset=utf-8');
+        response.setHeader('cache-control', 'no-store');
+        response.end(request.method === 'HEAD' ? undefined : files[match[2]]);
       });
+    },
+    generateBundle() {
+      const { version, files } = verify();
+      for (const [name, source] of Object.entries(files)) {
+        this.emitFile({ type: 'asset', fileName: `${spec.outputPrefix}/${version}/${name}`, source });
+      }
     },
   };
 }
 
-// ── AI 功能开关 ──────────────────────────────────────
-// AI_BUILTIN_ENABLED=true 且配置了 AI_API_KEY 时，页面显示内置 AI 选项。
-// AI_DEFAULT_ENABLED=true 只表示默认打开 AI 解读；默认关闭时仍保留提示词模式。
-const devVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
-function readBuildEnv(name: string) {
-  return process.env[name] ?? devVars[name];
+// Worker 与独立网页共用静态字库和小行星星历；本地 MCP 按需加载本地模块。
+const characterAssets = versionedJsonAssetsPlugin({
+  name: 'character-dictionary-assets',
+  urlPrefix: '/character-data/',
+  outputPrefix: 'character-data',
+  directory: fileURLToPath(new URL('./src/data/characters/', import.meta.url)),
+  mismatchMessage: '字库版本与内容不一致；运行 pnpm data:character-version 更新。',
+  filePattern: /(?:definitions|references)-(?:0\d|[12]\d|3[01])\.json/,
+  loadAssets: (directory) => ({
+    version: characterVersion(directory),
+    files: Object.fromEntries(
+      readdirSync(directory)
+        .filter((file) => /^(definitions|references)-\d\d\.json$/.test(file))
+        .map((file) => [file, readFileSync(join(directory, file))]),
+    ),
+  }),
+});
+
+const asteroidData = versionedJsonAssetsPlugin({
+  name: 'asteroid-data-assets',
+  urlPrefix: '/asteroid-data/',
+  outputPrefix: 'asteroid-data',
+  directory: fileURLToPath(new URL('./src/systems/astrology/data/', import.meta.url)),
+  mismatchMessage: '小行星星历版本与内容不一致；运行 node scripts/asteroid-version.mjs --write。',
+  filePattern: /(?:ceres|pallas|juno|vesta)\.json/,
+  loadAssets: (directory) => {
+    const { version, assets } = asteroidAssets(directory);
+    return { version, files: assets as Record<string, string> };
+  },
+});
+
+function aiConnectArtifactsPlugin(): Plugin {
+  const rootDir = dirname(fileURLToPath(import.meta.url));
+  let cachedZip: Buffer | undefined;
+
+  return {
+    name: 'mingyu-ai-connect-artifacts',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((request, response, next) => {
+        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+        const method = request.method ?? 'GET';
+        if (!['GET', 'HEAD'].includes(method)) {
+          next();
+          return;
+        }
+        if (pathname === '/api-docs' || pathname === '/api-docs/' || pathname === '/api-docs/index.html') {
+          const html = generateApiDocsHtml();
+          response.setHeader('content-type', 'text/html; charset=utf-8');
+          response.setHeader('cache-control', 'no-store');
+          response.end(method === 'HEAD' ? undefined : html);
+          return;
+        }
+        if (pathname === '/api-docs.md') {
+          const host = request.headers.host;
+          const base = host ? `http://${host}` : 'https://your-mingyu-domain.example';
+          const md = generateApiDocsMarkdown(base);
+          response.setHeader('content-type', 'text/markdown; charset=utf-8');
+          response.setHeader('cache-control', 'no-store');
+          response.end(method === 'HEAD' ? undefined : md);
+          return;
+        }
+        if (pathname === '/openapi.json') {
+          const host = request.headers.host;
+          const base = host ? `http://${host}` : 'https://your-mingyu-domain.example';
+          const spec = JSON.stringify(generateOpenApiDocument(base), null, 2);
+          response.setHeader('content-type', 'application/json; charset=utf-8');
+          response.setHeader('access-control-allow-origin', '*');
+          response.setHeader('cache-control', 'no-store');
+          response.end(method === 'HEAD' ? undefined : spec);
+          return;
+        }
+        if (pathname === '/downloads/mingyu-skill.zip') {
+          if (!cachedZip) {
+            cachedZip = buildSkillZipBuffer(rootDir, { rebuildCli: true });
+          }
+          response.setHeader('content-type', 'application/zip');
+          response.setHeader('content-disposition', 'attachment; filename="mingyu-skill.zip"');
+          response.setHeader('content-length', String(cachedZip.length));
+          response.setHeader('cache-control', 'no-store');
+          response.end(method === 'HEAD' ? undefined : cachedZip);
+          return;
+        }
+        next();
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'api-docs/index.html', source: generateApiDocsHtml() });
+      this.emitFile({ type: 'asset', fileName: 'api-docs.md', source: generateApiDocsMarkdown() });
+      this.emitFile({ type: 'asset', fileName: 'openapi.json', source: JSON.stringify(generateOpenApiDocument(), null, 2) });
+      const zipBuffer = buildSkillZipBuffer(rootDir, { rebuildCli: true });
+      this.emitFile({ type: 'asset', fileName: 'downloads/mingyu-skill.zip', source: zipBuffer });
+    },
+  };
 }
 
-const hasAiApiKey = Boolean(readBuildEnv('AI_API_KEY'));
-const aiBuiltinFlag = readBuildEnv('AI_BUILTIN_ENABLED') ?? readBuildEnv('AI_DEFAULT_ENABLED');
-const isAiBuiltinEnabled = aiBuiltinFlag === 'true' && hasAiApiKey;
-const isAiDefaultEnabled = isAiBuiltinEnabled && readBuildEnv('AI_DEFAULT_ENABLED') === 'true';
-const aiProviderName = readBuildEnv('AI_PROVIDER_NAME') ?? '';
-const isDonationBoxEnabled = readBuildEnv('VITE_ENABLE_DONATION_BOX') === 'true';
-
 export default defineConfig({
-  define: {
-    'import.meta.env.VITE_AI_ENABLED': JSON.stringify(isAiDefaultEnabled ? 'true' : 'false'),
-    'import.meta.env.VITE_AI_BUILTIN_ENABLED': JSON.stringify(
-      isAiBuiltinEnabled ? 'true' : 'false',
-    ),
-    'import.meta.env.VITE_AI_DEFAULT_ENABLED': JSON.stringify(
-      isAiDefaultEnabled ? 'true' : 'false',
-    ),
-    'import.meta.env.VITE_AI_PROVIDER_NAME': JSON.stringify(aiProviderName),
-    'import.meta.env.VITE_ENABLE_DONATION_BOX': JSON.stringify(
-      isDonationBoxEnabled ? 'true' : 'false',
-    ),
-  },
-  plugins: [react(), aiProxyDevPlugin()],
-  worker: {
-    format: 'es',
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@core': path.resolve(__dirname, 'packages/core/src'),
-    },
-  },
+  plugins: [react(), tailwindcss(), characterAssets, asteroidData, aiConnectArtifactsPlugin()],
+  define: { __MINGYU_BROWSER_ASSETS__: 'true', __MINGYU_WORKER_ASSETS__: 'false' },
+  worker: { format: 'es' },
   build: {
-    target: 'es2020',
-    chunkSizeWarningLimit: 1000,
+    outDir: 'dist-independent',
+    manifest: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          return getManualChunk(id);
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('/@radix-ui/') || id.includes('/lucide-react/')) {
+            return 'vendor-ui';
+          }
+          if (id.includes('/astronomy-engine/') || id.includes('/caelus/')) {
+            return 'vendor-astronomy';
+          }
+          if (id.includes('/tyme4ts/')) {
+            return 'vendor-tyme';
+          }
+          if (id.includes('/zod/')) {
+            return 'vendor-zod';
+          }
+          return 'vendor-misc';
         },
       },
     },

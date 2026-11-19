@@ -1,554 +1,112 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCivilTime } from '../packages/core/src/calendar/civil-time.ts';
-import { calculateSolarTermEvidence } from '../packages/core/src/calendar/solar-term-evidence.ts';
-import {
-  generateQizheng,
-  palaceIndexByLimitStep,
-  resolveQizhengLimitDirection,
-  resolveQizhengNominalAge,
-  TWELVE_PALACES,
-} from '../packages/core/src/qi_zheng/index.ts';
-import { scanQizhengPeriodEvents } from '../packages/core/src/qi_zheng/period-events.ts';
+import test from 'node:test';
+import { calculate, reprompt } from '../src/core';
+import { sampleLongitudes, positionsAt } from '../src/systems/qizheng/positions';
+import { scanPeriodEvents } from '../src/systems/qizheng/period-events';
+import * as AstronomyEngine from 'astronomy-engine';
 
-const NATAL = {
-  year: 1990,
-  month: 6,
-  day: 15,
-  hour: 10,
-  minute: 30,
-  latitude: 39.9042,
-  longitude: 116.4074,
-  timezone: 8,
-} as const;
+const birth = { year: 1990, month: 5, day: 15, hour: 14, minute: 30, latitude: 39.9, longitude: 116.4, timezone: 8 };
+const start = Date.UTC(2030, 0, 1), hour = 3_600_000;
+const palaces = [...'戌酉申未午巳辰卯寅丑子亥'].map((signBranch, signIndex) => ({ palace: `宫${signIndex}`, signIndex, signBranch }));
+const track = (f: (hours: number) => number) => (timestamp: number, names: readonly string[]) => names.map((name) => ({ name, longitude: name === '太阳' ? f((timestamp - start) / hour) : 200 }));
+const scan = (duration: number, f: (hours: number) => number, natalStars: Array<{ name: string; longitude: number }> = [], mode: 'yearly' | 'monthly' | 'daily' = 'daily') => scanPeriodEvents({ startUtcMs: start, endUtcMs: start + duration * hour, timezone: 0, mode, natalStars, palaces, sample: track(f) });
 
-const NEW_YORK_SUMMER_BIRTH = {
-  year: 1990,
-  month: 6,
-  day: 15,
-  hour: 10,
-  minute: 30,
-  latitude: 40.7128,
-  longitude: -74.006,
-  timezone: -4,
-  timeZoneId: 'America/New_York',
-} as const;
-
-test('洞微大限按地支顺行，经相貌入福德，虚岁按流年减出生年加一', () => {
-  assert.equal(resolveQizhengLimitDirection('male', '阳'), '顺行');
-  assert.equal(resolveQizhengLimitDirection('female', '阴'), '顺行');
-  assert.equal(resolveQizhengLimitDirection('male', '阴'), '顺行');
-  assert.equal(resolveQizhengLimitDirection('female', '阳'), '顺行');
-  assert.equal(resolveQizhengNominalAge(1990, 2024), 35);
-  assert.equal(palaceIndexByLimitStep(0, '顺行'), 0);
-  assert.equal(palaceIndexByLimitStep(1, '顺行'), 11);
-  assert.equal(palaceIndexByLimitStep(1, '逆行'), 1);
-  assert.equal(TWELVE_PALACES[palaceIndexByLimitStep(1, '顺行')], '相貌');
-});
-
-test('未给流年时七政只排本命静态盘，不冒充阶段资料', () => {
-  const natal = generateQizheng(NATAL);
-  assert.equal(natal.timeLords, undefined);
-  assert.equal(natal.flowingStars, undefined);
-  assert.match(natal.prompt, /本命盘以出生时点的星曜位置、落宿、落宫和吊照分析先天结构/);
-  assert.doesNotMatch(natal.prompt, /【行限】/);
-  assert.doesNotMatch(natal.prompt, /【流曜】/);
-});
-
-test('给出性别与流年后应同时生成行限和流曜，并叠到本命十二宫', () => {
-  const result = generateQizheng({
-    ...NATAL,
-    gender: 'male',
-    flowYear: 2024,
-    flowMonth: 3,
-    flowDay: 15,
-    flowHour: 12,
-  });
-  assert.ok(result.timeLords);
-  assert.equal(result.timeLords?.nominalAge, 35);
-  assert.equal(result.timeLords?.majorLimitStatus, '命度与交限待核定');
-  assert.equal(result.timeLords?.currentMajorLimit, null);
-  assert.deepEqual(result.timeLords?.majorLimits, []);
-  assert.equal(
-    result.timeLords?.majorPalaceYears.find((item) => item.palace === '福德')?.years,
-    11,
-  );
-  assert.ok(result.flowingStars);
-  assert.equal(result.flowingStars?.stars.length, 11);
-  for (const star of result.flowingStars?.stars ?? []) {
-    const natalPalace = result.twelvePalaces.find((item) => item.signIndex === star.signIndex);
-    assert.equal(star.palace, natalPalace?.palace);
+test('按需采样与完整星位的黄经一致，未知星曜报错', () => {
+  for (const year of [1900, 1950, 2024, 2100, 2200]) {
+    const timestamp = Date.UTC(year, 5, 15, 12), positions = positionsAt(timestamp), names = positions.map((star) => star.name);
+    const samples = sampleLongitudes(timestamp, names);
+    assert.equal(samples.length, 11);
+    for (const star of positions) assert.ok(Math.abs(star.longitude - samples.find((sample) => sample.name === star.name)!.longitude) < 1e-9, `${year}/${star.name}`);
   }
-  assert.match(result.prompt, /【行限】/);
-  assert.match(result.prompt, /大限：命宫宿度、出童限岁数和当前大限宫位未定/);
-  assert.match(result.prompt, /【流曜】/);
-  assert.match(result.prompt, /【流曜周期】/);
-  assert.match(result.prompt, /流曜太阳：在[^\n]*入本命/u);
-  assert.match(result.prompt, /流曜太阳与本命/u);
-  assert.doesNotMatch(result.prompt, /流曜太阳（入本命[^）]+）与本命/u);
-  assert.equal(result.flowingStars?.periodEvents?.mode, 'daily');
-  assert.equal(result.prompt.match(/当前大限宫位未定/g)?.length, 1);
-  assert.doesNotMatch(result.prompt, /只解读根基、落宿、落宫和吊照/);
-  for (const event of result.flowingStars!.periodEvents!.events) {
-    assert.equal(result.prompt.split(event.promptText).length - 1, 1);
+  assert.throws(() => sampleLongitudes(start, ['不存在']), /未知星曜/);
+});
+
+test('半开端点、内部采样点和不足一毫秒的周期末事件', () => {
+  const natal = [{ name: '本命星', longitude: 330 }];
+  for (const direction of [1, -1]) {
+    assert.equal(scan(1, (t) => 30 + direction * (t - 1), natal).events.filter((event) => event.movingStar === '太阳').length, 0);
+    const middle = scan(2, (t) => 30 + direction * (t - 1), natal).events.filter((event) => event.movingStar === '太阳');
+    assert.equal(middle.filter((event) => event.kind === '换宫').length, 1);
+    assert.equal(middle.filter((event) => event.kind === '精确吊照').length, 1);
+    assert.ok(middle.every((event) => event.utcTimestamp === start + hour));
+    const first = scan(1, (t) => 30 + direction * t, natal).events.filter((event) => event.movingStar === '太阳');
+    assert.ok(first.some((event) => event.kind === '换宫' && event.utcTimestamp === start));
+    assert.ok(first.some((event) => event.kind === '精确吊照' && event.utcTimestamp === start));
   }
-  assert.doesNotMatch(result.prompt, /周期主轴：|主轴列/);
+  const almostEnd = scan(1, (t) => 29 + (t * hour) / (hour - 0.4));
+  const ingress = almostEnd.events.find((event) => event.kind === '换宫' && event.movingStar === '太阳');
+  assert.ok(ingress); assert.equal(ingress.utcTimestamp, start + hour - 1000);
 });
 
-test('七政默认东八区生成行限时与流曜共用同一时间解析口径', () => {
-  const withDefault = generateQizheng({
-    year: 2000,
-    month: 6,
-    day: 15,
-    hour: 12,
-    gender: 'male',
-    flowYear: 2024,
-  });
-  const withExplicit = generateQizheng({
-    year: 2000,
-    month: 6,
-    day: 15,
-    hour: 12,
-    timezone: 8,
-    gender: 'male',
-    flowYear: 2024,
-  });
-
-  assert.equal(withDefault.calculationContext.timezoneSource, '默认东八区');
-  assert.equal(withDefault.timeLords?.annualBranch, withExplicit.timeLords?.annualBranch);
-  assert.equal(withDefault.flowingStars?.localDateTime, withExplicit.flowingStars?.localDateTime);
-  assert.deepEqual(withDefault.timeLords, withExplicit.timeLords);
+test('停逆附近同段内两次吊照和两次换宫均保留', () => {
+  const crossing = scan(12, (t) => 30.1 - 0.01 * (t - 6) ** 2, [{ name: '本命星', longitude: 29.9 }], 'monthly');
+  const own = crossing.events.filter((event) => event.movingStar === '太阳');
+  assert.equal(own.filter((event) => event.kind === '停逆').length, 1);
+  assert.deepEqual(own.filter((event) => event.kind === '换宫').map((event) => event.signBranch), ['酉', '戌']);
+  assert.equal(own.filter((event) => event.kind === '精确吊照' && event.aspectType === '同宫').length, 2);
+  assert.ok(own.find((event) => event.kind === '停逆')!.utcTimestamp === start + 6 * hour);
 });
 
-test('只有流年没有性别时只排流曜，不编造行限', () => {
-  const result = generateQizheng({
-    ...NATAL,
-    flowYear: 2024,
-  });
-  assert.equal(result.timeLords, undefined);
-  assert.ok(result.flowingStars);
-  assert.match(result.flowingStars?.timestampNote ?? '', /立春/);
-  assert.equal(
-    result.flowingStars?.timestampNote,
-    '未指定流月时，流曜周期自立春扫描至次年立春；落宫取立春交节，不代替全年',
-  );
-  assert.ok(
-    result.prompt.includes(
-      '流曜周期自立春扫描至次年立春；落宫取立春交节；落宫时刻 2024-02-04T16:27:07。',
-    ),
-  );
-  assert.doesNotMatch(result.prompt, /未指定流月时|不代替全年/u);
-  assert.match(result.prompt, /【流曜】/);
-  assert.match(result.prompt, /【流曜周期】/);
-  assert.equal(result.flowingStars?.periodEvents?.mode, 'yearly');
-  assert.ok((result.flowingStars?.periodEvents?.events.length ?? 0) > 0);
-  const period = result.flowingStars!.periodEvents!;
-  assert.ok(period.axis.length > 0);
-  assert.ok(period.windows.length > 0);
-  assert.ok(period.windows.every((window) => result.prompt.includes(window)));
-  for (const event of period.events) {
-    assert.equal(result.prompt.split(event.promptText).length - 1, 1);
-  }
-  assert.doesNotMatch(result.prompt, /周期主轴：|主轴列/);
-  assert.doesNotMatch(result.prompt, /【行限】/);
-});
-
-test('流年落宫取立春交节秒数时，行限太岁也应进入新年', () => {
-  const result = generateQizheng({
-    ...NATAL,
-    gender: 'male',
-    flowYear: 2024,
-  });
-
-  assert.equal(result.flowingStars?.localDateTime, '2024-02-04T16:27:07');
-  assert.equal(result.timeLords?.annualBranch, '辰');
-  assert.equal(result.timeLords?.annualPalace.signBranch, '辰');
-  assert.match(result.prompt, /落宫时刻 2024-02-04T16:27:07/);
-  assert.match(result.prompt, /流年太岁辰入辰宫/);
-
-  const termUtc = calculateSolarTermEvidence(2024, 3).utcTimestamp;
-  const termChart = generateQizheng({
-    year: 2024,
-    month: 2,
-    day: 4,
-    hour: 16,
-    minute: 27,
-    second: 7,
-    timezone: 8,
-  });
-  assert.equal(
-    result.flowingStars?.periodEvents?.events.every((item) => item.utcMs >= termUtc),
-    true,
-  );
-  assert.equal(
-    result.flowingStars?.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
-    termChart.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
-  );
-
-  const newYork = generateQizheng({
-    ...NEW_YORK_SUMMER_BIRTH,
-    gender: 'male',
-    flowYear: 2024,
-  });
-  assert.equal(newYork.flowingStars?.localDateTime, '2024-02-04T03:27:07');
-  assert.equal(newYork.timeLords?.annualBranch, '辰');
-});
-
-test('流年上限 2200 的年度周期应闭合到次年立春', () => {
-  const result = generateQizheng({
-    ...NATAL,
-    flowYear: 2200,
-  });
-  const flow = result.flowingStars;
-  const period = flow?.periodEvents;
-  assert.ok(flow);
-  assert.ok(period);
-  assert.equal(flow.year, 2200);
-  assert.equal(period.mode, 'yearly');
-  assert.match(period.startDateTime, /^2200-02-04 /);
-  assert.match(period.endDateTime, /^2201-02-04 /);
-  assert.equal(flow.stars.length, 11);
-});
-
-test('流年立春按目标 IANA 时区反解且不沿用出生时刻偏移', () => {
-  const result = generateQizheng({
-    ...NEW_YORK_SUMMER_BIRTH,
-    flowYear: 2024,
-  });
-  const flow = result.flowingStars;
-  assert.ok(flow);
-  const lichunUtc = calculateSolarTermEvidence(2024, 3).utcTimestamp;
-  const [localDate, localTime] = flow.localDateTime.split('T');
-  const [localYear, localMonth, localDay] = localDate!.split('-').map(Number);
-  const [localHour, localMinute, localSecond] = localTime!.split(':').map(Number);
-  const flowUtc = resolveCivilTime({
-    year: localYear!,
-    month: localMonth!,
-    day: localDay!,
-    hour: localHour!,
-    minute: localMinute!,
-    second: localSecond!,
-    timeZoneId: NEW_YORK_SUMMER_BIRTH.timeZoneId,
-  }).utcTimestamp;
-  assert.equal(flowUtc, lichunUtc);
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: NEW_YORK_SUMMER_BIRTH.timeZoneId,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(lichunUtc));
-  const part = (type: string) => parts.find((item) => item.type === type)?.value;
-  assert.equal(
-    flow.localDateTime,
-    `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`,
-  );
-});
-
-test('巴黎 1900 年流年立春按秒级历史偏移保持同一 UTC 瞬时', () => {
-  const result = generateQizheng({
-    year: 1900,
-    month: 1,
-    day: 20,
-    hour: 12,
-    minute: 0,
-    latitude: 48.8566,
-    longitude: 2.3522,
-    timeZoneId: 'Europe/Paris',
-    flowYear: 1900,
-  });
-  const flow = result.flowingStars;
-  assert.ok(flow);
-  const lichunUtc = calculateSolarTermEvidence(1900, 3).utcTimestamp;
-  const expectedParts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Paris',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(lichunUtc));
-  const part = (type: string) => expectedParts.find((item) => item.type === type)?.value;
-  assert.equal(
-    flow.localDateTime,
-    `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`,
-  );
-  const flowUtc = resolveCivilTime({
-    year: flow.year,
-    month: flow.month,
-    day: flow.day,
-    hour: flow.hour,
-    minute: flow.minute,
-    second: Number(part('second')),
-    timeZoneId: 'Europe/Paris',
-  }).utcTimestamp;
-  assert.equal(flowUtc, lichunUtc);
-  assert.match(result.prompt, /落宫时刻 1900-02-04T06:00:52/);
-});
-
-test('出生时刻的 IANA 与固定偏移冲突仍然拒绝排盘', () => {
-  assert.throws(
-    () =>
-      generateQizheng({
-        ...NEW_YORK_SUMMER_BIRTH,
-        timezone: -5,
-      }),
-    /历史偏移不一致/,
-  );
-});
-
-test('显式流日按纽约目标日期的冬夏偏移解析', () => {
-  for (const target of [
-    { month: 1, day: 15, expectedUtcOffset: -5 },
-    { month: 7, day: 15, expectedUtcOffset: -4 },
-  ]) {
-    const input = {
-      ...NEW_YORK_SUMMER_BIRTH,
-      flowYear: 2024,
-      flowMonth: target.month,
-      flowDay: target.day,
-      flowHour: 12,
-    } as const;
-    const result = generateQizheng(input);
-    // 独立固定偏移盘只用于核验目标 UTC 瞬时，避免测试只比较同一份 wall time 标签。
-    const fixedOffsetResult = generateQizheng({
-      ...input,
-      timezone: target.expectedUtcOffset,
-      timeZoneId: undefined,
-    });
-    const flow = result.flowingStars;
-    const fixedFlow = fixedOffsetResult.flowingStars;
-    assert.ok(flow);
-    assert.ok(fixedFlow);
-    const expectedUtc =
-      Date.UTC(2024, target.month - 1, target.day, 12) - target.expectedUtcOffset * 3_600_000;
-    const flowUtc = resolveCivilTime({
-      year: flow.year,
-      month: flow.month,
-      day: flow.day,
-      hour: flow.hour,
-      minute: flow.minute,
-      second: 0,
-      timeZoneId: NEW_YORK_SUMMER_BIRTH.timeZoneId,
-    }).utcTimestamp;
-    assert.equal(flowUtc, expectedUtc);
-    assert.equal(
-      flow.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
-      fixedFlow.stars.find((star) => star.name === '太阳')?.tropicalLongitude,
-    );
-    assert.equal(
-      flow.localDateTime,
-      `2024-${String(target.month).padStart(2, '0')}-${String(target.day).padStart(2, '0')}T12:00:00`,
-    );
+test('停逆落在窗口或采样端点时仅记录一次，周期终点除外', () => {
+  for (const mode of ['yearly', 'monthly', 'daily'] as const) for (const direction of [1, -1]) for (const position of [0, 0.5, 8, 12, 24, 48, 72, 96]) {
+    const result = scan(96, (t) => (360 + direction * 0.001 * (t - position) ** 2) % 360, [], mode);
+    const events = result.events.filter((event) => event.movingStar === '太阳' && event.kind === '停逆');
+    assert.equal(events.length, position === 96 ? 0 : 1, `${mode}/${direction}/${position}`);
+    if (position !== 96) {
+      assert.ok(Math.abs(events[0].utcTimestamp - (start + position * hour)) < 2000);
+      assert.equal(events[0].stationDirection, direction === 1 ? '顺行' : '逆行');
+    }
   }
 });
 
-test('纽约夏令时跳时日的周期事件按每个 UTC 瞬时实际偏移格式化', () => {
-  const hour = 3_600_000;
-  // 2024-03-10 06:00Z 是纽约 01:00 EST，07:00Z 已跳到 03:00 EDT。
-  const startUtcMs = Date.UTC(2024, 2, 10, 6);
-  const result = scanQizhengPeriodEvents({
-    natalStars: [],
-    twelvePalaces: [],
-    startUtcMs,
-    endUtcMs: startUtcMs + 2 * hour,
-    // 故意保留出生夏季偏移；IANA 格式化必须在每个事件时刻读取实际偏移。
-    timezone: -4,
-    timeZoneId: 'America/New_York',
-    mode: 'daily',
-    sampleLongitudes: (utcMs) => [{ name: '太阳', longitude: 28.5 + (utcMs - startUtcMs) / hour }],
-  });
-  assert.equal(result.startDateTime, '2024-03-10 01:00 UTC-05:00');
-  assert.equal(result.endDateTime, '2024-03-10 04:00 UTC-04:00');
-  const ingress = result.events.find((event) => event.kind === '换宫');
-  assert.ok(ingress);
-  assert.ok(Math.abs(ingress.utcMs - Date.UTC(2024, 2, 10, 7, 30)) < 1000);
-  const localParts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(Math.round(ingress.utcMs / 1000) * 1000));
-  const part = (type: string) => localParts.find((item) => item.type === type)?.value;
-  assert.equal(
-    ingress.dateTime,
-    `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')} UTC-04:00`,
-  );
-  assert.match(ingress.promptText, /^2024-03-10 03:/);
-});
-
-test('纽约夏令时回拨的两个 01:30 换宫事件在提示词中保留各自 UTC 偏移', () => {
-  const hour = 3_600_000;
-  const startUtcMs = Date.UTC(2024, 10, 3, 5);
-  const result = scanQizhengPeriodEvents({
-    natalStars: [],
-    twelvePalaces: [],
-    startUtcMs,
-    endUtcMs: startUtcMs + 2 * hour,
-    timezone: -4,
-    timeZoneId: 'America/New_York',
-    mode: 'daily',
-    sampleLongitudes: (utcMs) => {
-      const hours = (utcMs - startUtcMs) / hour;
-      return [{ name: '太阳', longitude: hours <= 1 ? 29 + 2 * hours : 33 - 2 * hours }];
-    },
-  });
-  const ingresses = result.events.filter((event) => event.kind === '换宫');
-  assert.equal(ingresses.length, 2);
-  assert.deepEqual(
-    ingresses.map((event) => event.dateTime),
-    ['2024-11-03 01:30 UTC-04:00', '2024-11-03 01:30 UTC-05:00'],
-  );
-  assert.ok(ingresses.every((event) => result.promptText.includes(event.dateTime)));
-});
-
-test('纽约三月流月周期按两个 IANA 午夜解析并跨越夏令时少一小时', () => {
-  const result = generateQizheng({
-    ...NEW_YORK_SUMMER_BIRTH,
-    flowYear: 2024,
-    flowMonth: 3,
-  });
-  const period = result.flowingStars?.periodEvents;
-  assert.ok(period);
-  assert.equal(
-    result.flowingStars?.timestampNote,
-    '未指定流日时，流曜周期按2024年3月整月扫描；落宫取月中 15日 12:00，不代替整月',
-  );
-  assert.ok(
-    result.prompt.includes(
-      '流曜周期按2024年3月整月扫描；落宫取月中 15日 12:00；落宫时刻 2024-03-15T12:00:00。',
-    ),
-  );
-  assert.doesNotMatch(result.prompt, /未指定流日时|不代替整月/u);
-  const expectedStartUtc = resolveCivilTime({
-    year: 2024,
-    month: 3,
-    day: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    timeZoneId: NEW_YORK_SUMMER_BIRTH.timeZoneId,
-  }).utcTimestamp;
-  const expectedEndUtc = resolveCivilTime({
-    year: 2024,
-    month: 4,
-    day: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    timeZoneId: NEW_YORK_SUMMER_BIRTH.timeZoneId,
-  }).utcTimestamp;
-  assert.equal(expectedEndUtc - expectedStartUtc, 31 * 86_400_000 - 3_600_000);
-  assert.ok(period.events.length > 0);
-  assert.ok(
-    period.events.every(
-      (event) => event.utcMs >= expectedStartUtc && event.utcMs <= expectedEndUtc,
-    ),
-  );
-  assert.equal(period.startDateTime, '2024-03-01 00:00 UTC-05:00');
-  assert.equal(period.endDateTime, '2024-04-01 00:00 UTC-04:00');
-});
-
-test('纽约跳时和回拨日的扫描周期均止于次日当地午夜', () => {
-  for (const target of [
-    {
-      month: 3,
-      day: 10,
-      hours: 23,
-      startUtc: Date.UTC(2024, 2, 10, 5),
-      startOffset: '-05:00',
-      endOffset: '-04:00',
-    },
-    {
-      month: 11,
-      day: 3,
-      hours: 25,
-      startUtc: Date.UTC(2024, 10, 3, 4),
-      startOffset: '-04:00',
-      endOffset: '-05:00',
-    },
-  ]) {
-    const period = generateQizheng({
-      ...NEW_YORK_SUMMER_BIRTH,
-      flowYear: 2024,
-      flowMonth: target.month,
-      flowDay: target.day,
-    }).flowingStars?.periodEvents;
-    assert.ok(period);
-    const month = String(target.month).padStart(2, '0');
-    assert.equal(
-      period.startDateTime,
-      `2024-${month}-${String(target.day).padStart(2, '0')} 00:00 UTC${target.startOffset}`,
-    );
-    assert.equal(
-      period.endDateTime,
-      `2024-${month}-${String(target.day + 1).padStart(2, '0')} 00:00 UTC${target.endOffset}`,
-    );
-    assert.ok(period.events.length > 0);
-    assert.ok(
-      period.events.every(
-        (event) =>
-          event.utcMs >= target.startUtc &&
-          event.utcMs <= target.startUtc + target.hours * 3_600_000,
-      ),
-    );
+test('罗睺停逆与同一星历的独立六阶速度参考收敛', async () => {
+  const namespace = AstronomyEngine as unknown as Record<string, unknown>;
+  const astronomy = (Reflect.get(namespace, 'default') ?? AstronomyEngine) as typeof AstronomyEngine;
+  const result = await calculate('qizheng', { question: '问题', birth, flow: { kind: 'year', year: 2024 }, periodEvents: true });
+  const wrap = (value: number) => ((value + 540) % 360) - 180;
+  const node = (timestamp: number, stepSeconds: number) => {
+    const time = astronomy.MakeTime(new Date(timestamp)), step = stepSeconds / 86_400, center = astronomy.GeoMoon(time);
+    const samples = [-3, -2, -1, 1, 2, 3].map((offset) => astronomy.GeoMoon(time.AddDays(offset * step)));
+    const velocity = (axis: 'x' | 'y' | 'z') => (45 * (samples[3][axis] - samples[2][axis]) - 9 * (samples[4][axis] - samples[1][axis]) + samples[5][axis] - samples[0][axis]) / (60 * step);
+    const vx = velocity('x'), vy = velocity('y'), vz = velocity('z');
+    const momentum = new astronomy.Vector(center.y * vz - center.z * vy, center.z * vx - center.x * vz, center.x * vy - center.y * vx, time);
+    const vector = astronomy.RotateVector(astronomy.Rotation_EQJ_ECT(time), momentum);
+    return ((Math.atan2(vector.x, -vector.y) * 180 / Math.PI + 360) % 360);
+  };
+  const speed = (timestamp: number, step: number) => wrap(node(timestamp + 60_000, step) - node(timestamp - 60_000, step));
+  for (const [left, right, direction] of [[Date.UTC(2024, 3, 5, 12), Date.UTC(2024, 3, 5, 20), '顺行'], [Date.UTC(2024, 8, 11, 2), Date.UTC(2024, 8, 11, 9), '逆行'], [Date.UTC(2024, 9, 10, 12), Date.UTC(2024, 9, 10, 23), '顺行']] as const) {
+    const matches = result.data.flowing.period.events.filter((event: any) => event.kind === '停逆' && event.movingStar === '罗睺(火余)' && event.utcTimestamp > left && event.utcTimestamp < right);
+    assert.equal(matches.length, 1); assert.equal(matches[0].stationDirection, direction);
+    for (const step of [3600, 7200, 14400]) {
+      let a = left, b = right, first = speed(a, step);
+      for (let i = 0; i < 32; i++) { const mid = (a + b) / 2, value = speed(mid, step); if (Math.sign(value) === Math.sign(first)) { a = mid; first = value; } else b = mid; }
+      assert.ok(Math.abs(matches[0].utcTimestamp - (a + b) / 2) < 10_000);
+    }
   }
 });
 
-test('圣地亚哥午夜跳时日从首个真实时刻扫描至次日零时', () => {
-  const result = generateQizheng({
-    year: 1990,
-    month: 6,
-    day: 15,
-    hour: 10,
-    minute: 30,
-    latitude: -33.4489,
-    longitude: -70.6693,
-    timeZoneId: 'America/Santiago',
-    flowYear: 2024,
-    flowMonth: 9,
-    flowDay: 8,
-  });
-  const period = result.flowingStars?.periodEvents;
-  assert.ok(period);
-  assert.equal(period.mode, 'daily');
-  assert.equal(period.startDateTime, '2024-09-08 01:00 UTC-03:00');
-  assert.equal(period.endDateTime, '2024-09-09 00:00 UTC-03:00');
-  const startUtc = Date.UTC(2024, 8, 8, 4);
-  const endUtc = Date.UTC(2024, 8, 9, 3);
-  assert.ok(period.events.every((event) => event.utcMs >= startUtc && event.utcMs < endUtc));
-});
-
-test('阿皮亚跳过下一名义日时流日扫描至下一个真实民用日', () => {
-  const input = {
-    year: 1990,
-    month: 6,
-    day: 15,
-    hour: 10,
-    minute: 30,
-    latitude: -13.8333,
-    longitude: -171.75,
-    timeZoneId: 'Pacific/Apia',
-    flowYear: 2011,
-    flowMonth: 12,
-    flowDay: 29,
-  } as const;
-  const period = generateQizheng(input).flowingStars?.periodEvents;
-  assert.ok(period);
-  assert.equal(period.mode, 'daily');
-  assert.equal(period.startDateTime, '2011-12-29 00:00 UTC-10:00');
-  assert.equal(period.endDateTime, '2011-12-31 00:00 UTC+14:00');
-  const startUtc = Date.parse('2011-12-29T10:00:00.000Z');
-  const endUtc = Date.parse('2011-12-30T10:00:00.000Z');
-  assert.ok(period.events.length > 0);
-  assert.ok(period.events.every((event) => event.utcMs >= startUtc && event.utcMs < endUtc));
-  assert.throws(() => generateQizheng({ ...input, flowDay: 30 }), /整日不存在|不存在/);
+test('周期区间、夏令时、提示词明细及原盘重算', async () => {
+  const person = { ...birth, year: 1990, month: 1, day: 15, timezone: -5, timeZoneId: 'America/New_York', latitude: 40.7, longitude: -74 };
+  for (const [date, hours] of [[10, 23], [11, 24]] as const) {
+    const result = await calculate('qizheng', { question: '问题', birth: person, flow: { kind: 'day', year: 2024, month: 3, day: date }, periodEvents: true });
+    assert.equal(result.data.flowing.period.endUtcMs - result.data.flowing.period.startUtcMs, hours * hour);
+    assert.ok(result.data.flowing.period.events.every((item: any) => item.utcTimestamp >= result.data.flowing.period.startUtcMs && item.utcTimestamp < result.data.flowing.period.endUtcMs));
+  }
+  const fall = await calculate('qizheng', { question: '问题', birth: person, flow: { kind: 'day', year: 2024, month: 11, day: 3 }, periodEvents: true });
+  assert.equal(fall.data.flowing.period.endUtcMs - fall.data.flowing.period.startUtcMs, 25 * hour);
+  const march = await calculate('qizheng', { question: '问题', birth: person, flow: { kind: 'month', year: 2024, month: 3 }, periodEvents: true });
+  assert.deepEqual([...new Set<number>(march.data.flowing.period.events.map((event: any) => event.timezone))].sort((a, b) => a - b), [-5, -4]);
+  const apia = { ...birth, latitude: -13.8, longitude: -171.75, timezone: undefined, timeZoneId: 'Pacific/Apia' };
+  const skipped = await calculate('qizheng', { question: '问题', birth: apia, flow: { kind: 'day', year: 2011, month: 12, day: 29 }, periodEvents: true });
+  assert.equal(skipped.data.flowing.period.endUtcMs - skipped.data.flowing.period.startUtcMs, 24 * hour);
+  const input = { question: '问题', birth, flow: { kind: 'year', year: 2026 }, periodEvents: true };
+  const result = await calculate('qizheng', input), saved = JSON.parse(JSON.stringify(result));
+  assert.ok(result.data.flowing.period.events.length > 20);
+  assert.match(result.prompt.text, /其余\d+项见结构化结果/);
+  const full = await reprompt({ method: 'qizheng', result: saved, question: '全部', prompt: { eventDetail: 'full' } });
+  assert.ok(full.prompt.text.includes(result.data.flowing.period.events.at(-1).text));
+  const altered = structuredClone(saved); altered.data.flowing.period.events[0].movingStar = '伪造';
+  await assert.rejects(() => reprompt({ method: 'qizheng', result: altered, question: '问题' }), /不一致/);
+  await assert.rejects(() => calculate('qizheng', { question: '问题', birth, periodEvents: true }));
+  await assert.rejects(() => calculate('qizheng', { question: '问题', birth, flow: { kind: 'year', year: 2026 }, prompt: { eventDetail: 'full' } }), /启用周期扫描/);
 });

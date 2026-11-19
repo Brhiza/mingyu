@@ -1,25 +1,14 @@
-import path from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@core': path.resolve(__dirname, 'packages/core/src'),
-    },
-  },
+  publicDir: false,
+  define: { __MINGYU_BROWSER_ASSETS__: 'false', __MINGYU_WORKER_ASSETS__: 'false' },
+  ssr: { target: 'node', noExternal: true },
   build: {
-    ssr: 'mcp/src/server.ts',
-    outDir: 'packages/mcp/dist',
-    emptyOutDir: true,
-    target: 'node18',
-    rollupOptions: {
-      output: {
-        entryFileNames: 'server.js',
-      },
-    },
-  },
-  ssr: {
-    noExternal: true,
+    ssr: 'src/mcp-stdio.ts',
+    outDir: 'dist-mcp',
+    target: 'node20',
+    manifest: true,
+    rollupOptions: { output: { entryFileNames: 'server.mjs', chunkFileNames: 'chunks/[name]-[hash].mjs' } },
   },
 });

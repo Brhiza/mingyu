@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mingyu": {
+      "type": "streamableHttp",
+      "url": "https://aov.cc/mcp?mode=router"
+    }
+  }
+}

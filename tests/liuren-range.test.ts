@@ -1,265 +1,96 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  calculateSolarTermsForYear,
-  getDivinationTime,
-  reverseBaziDates,
-  TimeManager,
-} from 'mingyu-core/calendar';
-import { formatLiurenJudgmentFacts } from 'mingyu-core/prompt';
-import { defaultDraft } from '../src/components/DivinationPanel/constants';
-import { resolveBaziReverseCandidate, type BaziReverseSource } from '../src/lib/bazi-reverse-input';
-import {
-  formatLiurenRangeFacts,
-  formatLiurenRangeInterval,
-  generateLiurenRange,
-} from '../src/lib/divination/liuren-range';
-import { generateDivinationSession, type DivinationDraft } from '../src/lib/divination/engine';
+import { SolarTerm } from 'tyme4ts';
+import { calculate, reprompt } from '../src/core';
+import { getDivinationTime, getMonthLeaderByZhongqi, getSolarTermName } from '../src/systems/calendar';
+import { trueSolarTime } from '../src/systems/astronomy/true-solar';
+import { generateLiurenRange } from '../src/systems/liuren';
+import worker from '../src/worker';
 
-function beijingTimestamp(text: string) {
-  return Date.parse(`${text.replace(' ', 'T')}+08:00`);
-}
+const currentTime = '2025-01-01T00:00:00Z';
+const rain = { start: '2024-02-19T03:00:00Z', end: '2024-02-19T05:00:00Z' };
 
-function beijingText(timestamp: number) {
-  const parts = TimeManager.getWallClockParts(new Date(timestamp), 480);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
-}
-
-function makeSource(startText: string, endText: string): BaziReverseSource {
-  const startTimestamp = beijingTimestamp(startText);
-  const endTimestamp = beijingTimestamp(endText);
-  return {
-    pillars: getDivinationTime(new Date(startTimestamp), 480).ganzhi,
-    intervalStart: startText,
-    intervalEnd: endText,
-    startTimestamp,
-    endTimestamp,
-    endExclusive: true,
-    timezone: 'Asia/Shanghai',
-    offsetHours: 8,
-  };
-}
-
-const RAIN_WATER_SOURCE = makeSource('2024-02-19 11:00:00', '2024-02-19 13:00:00');
-const STABLE_TWO_HOUR_SOURCE = makeSource('2024-02-19 09:00:00', '2024-02-19 11:00:00');
-
-function buildPillarsDraft(source: BaziReverseSource): DivinationDraft {
-  return {
-    ...defaultDraft,
-    method: 'liuren',
-    question: '合成大六壬时间范围验证',
-    divinationTimeMode: 'pillars',
-    customDivinationDate: source.intervalStart.slice(0, 10),
-    customDivinationTime: source.intervalStart.slice(11),
-    divinationReverseSource: source,
-    divinationTimeStandard: 'beijing',
-  };
-}
-
-test('公共节气证据与统一占卜时间入口共同确认雨水整秒边界', () => {
-  const rainWater = calculateSolarTermsForYear(2024).find((item) => item.name === '雨水');
-  assert.ok(rainWater);
-  const boundary = beijingTimestamp('2024-02-19 12:13:12');
-  assert.equal(rainWater.utcTimestamp, boundary);
-  assert.deepEqual(TimeManager.getWallClockParts(new Date(boundary), 480), {
-    year: 2024,
-    month: 2,
-    day: 19,
-    hour: 12,
-    minute: 13,
-    second: 12,
-  });
-  assert.equal(getDivinationTime(new Date(boundary - 1_000), 480).timeInfo.jieQi, '立春');
-  assert.equal(getDivinationTime(new Date(boundary), 480).timeInfo.jieQi, '雨水');
-});
-
-test('2024雨水11至13点按整秒月将切成两套大六壬课', () => {
-  const range = generateLiurenRange({
-    source: RAIN_WATER_SOURCE,
-    representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp!),
-  });
-
-  assert.equal(range.status, 'conditional');
-  assert.deepEqual(
-    range.branches.map(({ startTimestamp, endTimestamp, data }) => [
-      startTimestamp,
-      endTimestamp,
-      data.monthLeader,
-    ]),
-    [
-      [RAIN_WATER_SOURCE.startTimestamp, beijingTimestamp('2024-02-19 12:13:12'), '子'],
-      [beijingTimestamp('2024-02-19 12:13:12'), RAIN_WATER_SOURCE.endTimestamp, '亥'],
-    ],
-  );
-  assert.deepEqual(
-    range.branches.map(({ data }) => data.threeTransmissions.map((item) => item.branch)),
-    [
-      ['未', '丑', '未'],
-      ['午', '亥', '辰'],
-    ],
-  );
-
-  const facts = formatLiurenRangeFacts(range);
-  assert.match(facts, /分支1：/u);
-  assert.match(facts, /分支2：/u);
-  for (const branch of range.branches) {
-    const { data } = branch;
-    assert.equal(data.fourLessons.length, 4);
-    assert.equal(data.threeTransmissions.length, 3);
-    assert.ok(data.lessonSummary);
-    assert.ok(data.transmissionSummary);
-    for (const lesson of data.fourLessons) {
-      assert.ok(facts.includes(`${lesson.name}${lesson.upper}临${lesson.lower}`));
+test('全年二十四节气按实际交节秒分段，分支课盘等于独立单盘', async () => {
+  for (let index = 0; index < 24; index++) {
+    const t = SolarTerm.fromIndex(2024, index).getJulianDay().getSolarTime();
+    const instant = Date.UTC(t.getYear(), t.getMonth() - 1, t.getDay(), t.getHour() - 8, t.getMinute(), t.getSecond());
+    const range = { start: new Date(instant - 1000).toISOString(), end: new Date(instant + 1000).toISOString() };
+    const settings = index % 2 ? { timeStandard: 'true-solar' as const, longitude: 75 } : {};
+    const result = await calculate('liuren', { question: '问题', currentTime, range, liuren: settings });
+    const data = result.data as any;
+    assert.equal(data.branches.length, 2, String(index));
+    assert.equal(data.branches[0].endTimestamp, instant);
+    for (const branch of data.branches) {
+      const single = await calculate('liuren', { question: '问题', currentTime, divinationTime: new Date(branch.startTimestamp).toISOString(), liuren: settings });
+      assert.deepEqual(branch.data, single.data);
     }
-    for (const transmission of data.threeTransmissions) {
-      assert.ok(facts.includes(`${transmission.stage}${transmission.branch}乘${transmission.god}`));
-    }
-    for (const evidence of data.focusEvidence ?? []) {
-      assert.ok(facts.includes(evidence.target));
-      for (const item of evidence.evidence) assert.ok(facts.includes(item));
-    }
-    for (const evidence of data.timingEvidence ?? []) {
-      if (evidence.startsWith('未给出目标期限时')) {
-        assert.match(facts, /以问题期限、三传先后和现实触发条件核对应期/);
-      } else {
-        assert.ok(facts.includes(evidence));
-      }
-    }
-    assert.ok(facts.includes(data.lessonSummary));
-    assert.ok(facts.includes(data.transmissionSummary));
-    const judgmentFacts = formatLiurenJudgmentFacts(data);
-    assert.ok(judgmentFacts.some((item) => item.startsWith('取传说明：')));
-    assert.ok(judgmentFacts.some((item) => item.startsWith('取传条件：')));
-    assert.equal(
-      judgmentFacts.some((item) => item.startsWith('课体条件：')),
-      Boolean(data.guaTiFacts?.length),
-    );
-    assert.ok(judgmentFacts.some((item) => item.startsWith('课传反证：')));
-    for (const judgmentFact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true }))
-      assert.ok(facts.includes(judgmentFact));
   }
 });
 
-test('真实四柱反推的23点至次日1点范围保持同一六壬课', () => {
-  const startText = '2024-02-04 23:00:00';
-  const endText = '2024-02-05 01:00:00';
-  const startTimestamp = beijingTimestamp(startText);
-  const targetPillars = getDivinationTime(new Date(startTimestamp), 480).ganzhi;
-  const candidate = reverseBaziDates({
-    pillars: targetPillars,
-    startYear: 2024,
-    endYear: 2024,
-  }).candidates.find((item) => item.start.text === startText && item.end.text === endText);
-  assert.ok(candidate, '23点至次日1点应由真实四柱反推返回候选区间');
-  const selection = resolveBaziReverseCandidate(candidate);
-  assert.ok(selection);
-  assert.deepEqual(selection.source.pillars, targetPillars);
-
-  const range = generateLiurenRange({
-    source: selection.source,
-    representativeDate: new Date(selection.source.startTimestamp!),
-  });
-  assert.equal(range.source.startTimestamp, candidate.startTimestamp);
-  assert.equal(range.source.endTimestamp, candidate.endTimestamp);
-  const firstBranch = range.branches[0];
-  const lastBranch = range.branches.at(-1);
-  assert.ok(firstBranch);
-  assert.ok(lastBranch);
-  const actualBoundaries = [
-    firstBranch.startTimestamp,
-    ...range.branches.map((branch) => branch.endTimestamp),
+test('两小时范围逐秒覆盖北京时间和真太阳时的日时、节气与月将', async () => {
+  const cases = [
+    { start: rain.start, settings: {} },
+    { start: rain.start, settings: { timeStandard: 'true-solar' as const, longitude: 116.4 } },
+    { start: '2024-02-04T15:00:00Z', settings: { timeStandard: 'true-solar' as const, longitude: 75 } },
+    { start: '2024-12-21T09:00:00Z', settings: { timeStandard: 'true-solar' as const, longitude: 180 } },
   ];
-  assert.deepEqual(actualBoundaries, [candidate.startTimestamp, candidate.endTimestamp]);
-  assert.equal(range.status, 'stable');
-  for (const branch of range.branches) {
-    assert.ok(branch.endTimestamp > branch.startTimestamp);
-    assert.ok(branch.endTimestamp - branch.startTimestamp <= 2 * 60 * 60 * 1000);
-    assert.deepEqual(branch.data.ganzhi, targetPillars);
-  }
-});
-
-test('未跨节气与时辰边界的完整两小时范围合并为稳定一课', () => {
-  const range = generateLiurenRange({
-    source: STABLE_TWO_HOUR_SOURCE,
-    representativeDate: new Date(STABLE_TWO_HOUR_SOURCE.startTimestamp!),
-  });
-
-  assert.equal(range.status, 'stable');
-  assert.equal(range.branches.length, 1);
-  assert.deepEqual(
-    [range.branches[0]?.startTimestamp, range.branches[0]?.endTimestamp],
-    [STABLE_TWO_HOUR_SOURCE.startTimestamp, STABLE_TWO_HOUR_SOURCE.endTimestamp],
-  );
-  assert.equal(range.branches[0]?.data.monthLeader, '子');
-});
-
-test('大六壬范围坚持半开秒级边界与完整来源校验', () => {
-  assert.equal(
-    formatLiurenRangeInterval(RAIN_WATER_SOURCE.startTimestamp!, RAIN_WATER_SOURCE.endTimestamp!),
-    '北京时间 2024-02-19 11:00:00 至 2024-02-19 13:00:00（起点含、终点不含）',
-  );
-  assert.equal(beijingText(RAIN_WATER_SOURCE.startTimestamp!), '2024-02-19 11:00:00');
-
-  assert.throws(
-    () =>
-      generateLiurenRange({
-        source: {
-          ...RAIN_WATER_SOURCE,
-          intervalEnd: '2024-02-19 13:01:00',
-          endTimestamp: beijingTimestamp('2024-02-19 13:01:00'),
-        },
-        representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp!),
-      }),
-    /两小时上限/u,
-  );
-  assert.throws(
-    () =>
-      generateLiurenRange({
-        source: RAIN_WATER_SOURCE,
-        representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp! + 1_000),
-      }),
-    /代表时间必须等于四柱候选区间起点/u,
-  );
-});
-
-test('引擎条件提示词按每个六壬分支保留四课三传和判断事实', async () => {
-  const session = await generateDivinationSession(buildPillarsDraft(RAIN_WATER_SOURCE));
-  assert.equal(session.liurenRange?.status, 'conditional');
-  assert.equal(session.liurenRange?.branches.length, 2);
-  assert.doesNotMatch(session.prompt, /【当前时间】/u);
-  assert.match(session.prompt, /候选时间范围内各分段的大六壬课盘/u);
-  assert.match(session.prompt, /各时间段的月将、四课、三传与时令判断事实/u);
-  assert.equal((session.prompt.match(/\n\n【任务】\n/gu) ?? []).length, 1);
-  assert.equal((session.prompt.match(/\n\n【问题】\n/gu) ?? []).length, 1);
-
-  for (const branch of session.liurenRange?.branches ?? []) {
-    const { data } = branch;
-    assert.ok(data.lessonSummary);
-    assert.ok(data.transmissionSummary);
-    assert.ok(session.prompt.includes(`课情：${data.lessonSummary}`));
-    assert.ok(session.prompt.includes(`传情：${data.transmissionSummary}`));
-    for (const lesson of data.fourLessons) {
-      assert.ok(session.prompt.includes(`${lesson.name}${lesson.upper}临${lesson.lower}`));
-    }
-    for (const transmission of data.threeTransmissions) {
-      assert.ok(
-        session.prompt.includes(`${transmission.stage}${transmission.branch}乘${transmission.god}`),
-      );
-    }
-    for (const judgmentFact of formatLiurenJudgmentFacts(data, { chartFactsIncluded: true })) {
-      assert.ok(session.prompt.includes(judgmentFact));
+  for (const { start, settings } of cases) {
+    const from = Date.parse(start), end = from + 7_200_000;
+    const range = await generateLiurenRange({ start, end: new Date(end).toISOString() }, settings);
+    assert.equal(range.branches[0].startTimestamp, from);
+    assert.equal(range.branches.at(-1)?.endTimestamp, end);
+    for (let i = 1; i < range.branches.length; i++) assert.equal(range.branches[i - 1].endTimestamp, range.branches[i].startTimestamp);
+    for (let timestamp = from; timestamp < end; timestamp += 1000) {
+      const branch = range.branches.find((item) => item.startTimestamp <= timestamp && timestamp < item.endTimestamp)!;
+      const actual = getDivinationTime(new Date(timestamp)).ganzhi;
+      const corrected = settings.timeStandard === 'true-solar' ? getDivinationTime(new Date(trueSolarTime(new Date(timestamp), settings.longitude).effectiveTimestamp)).ganzhi : actual;
+      assert.deepEqual(branch.data.ganzhi, { ...corrected, year: actual.year, month: actual.month }, `${start}/${timestamp}`);
+      assert.equal(branch.data.monthLeader, getMonthLeaderByZhongqi(timestamp));
+      assert.ok(branch.data.lessonSummary?.includes(getSolarTermName(timestamp)));
     }
   }
 });
 
-test('旧文本来源仍走单一代表课，不误启用六壬范围字段', async () => {
-  const oldSource: BaziReverseSource = {
-    pillars: RAIN_WATER_SOURCE.pillars,
-    intervalStart: RAIN_WATER_SOURCE.intervalStart,
-    intervalEnd: RAIN_WATER_SOURCE.intervalEnd,
-  };
-  const session = await generateDivinationSession(buildPillarsDraft(oldSource));
-  assert.equal(session.liurenRange, undefined);
-  assert.match(session.prompt, /当前盘面采用区间起点作为代表时刻/u);
+test('范围追问复用所有分支，校验四柱、边界、时间口径及课盘', async () => {
+  const settings = { timeStandard: 'true-solar', longitude: 116.4 };
+  const saved = JSON.parse(JSON.stringify(await calculate('liuren', { question: '问题', currentTime, range: rain, liuren: settings })));
+  assert.equal(saved.data.kind, 'range');
+  assert.ok(saved.data.branches.length > 1);
+  for (const branch of saved.data.branches) {
+    assert.equal('evidence' in branch.data.evidenceAnalysis, false);
+    assert.equal('promptText' in branch.data.evidenceAnalysis, false);
+    assert.equal(branch.data.evidenceAnalysis.platePositionFacts.length, 12);
+    assert.equal(branch.data.evidenceAnalysis.transmissions.length, 3);
+  }
+  assert.match(saved.prompt.text, /该分支起点的代表时刻/);
+  saved.data.branches[0].data.evidenceAnalysis = { fake: '伪造' };
+  const next = await reprompt({ method: 'liuren', result: saved, question: '继续问' });
+  assert.match(next.prompt.text, /继续问/);
+  assert.doesNotMatch(next.prompt.text, /伪造/);
+  for (const mutate of [
+    (data: any) => { data.branches[0].endTimestamp += 1000; },
+    (data: any) => { data.branches[0].data.fourLessons[0].upper = '伪造'; },
+    (data: any) => { data.branches[0].data.timeContext.longitude = 0; },
+    (data: any) => { data.source.endExclusive = false; },
+  ]) {
+    const bad = structuredClone(saved); mutate(bad.data);
+    await assert.rejects(() => reprompt({ method: 'liuren', result: bad, question: '追问' }));
+  }
+  const pillars = getDivinationTime(new Date(rain.start)).ganzhi;
+  await assert.rejects(() => calculate('liuren', { question: '问题', range: { ...rain, pillars: { ...pillars, hour: '甲子' } } }));
+  await assert.rejects(() => calculate('liuren', { question: '问题', range: rain, divinationTime: rain.start }));
+  await assert.rejects(() => calculate('liuren', { question: '问题', range: { ...rain, end: '2024-02-19T05:00:01Z' } }));
+  await assert.rejects(() => calculate('liuren', { question: '问题', range: { ...rain, start: '2024-02-19T03:00:00.500Z' } }));
+  await assert.rejects(() => calculate('liuren', { question: '问题', range: rain, liuren: { timeStandard: 'true-solar' } }));
+});
+
+test('Worker HTTP 和 MCP 可计算范围并基于原区间追问', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'liuren' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(body) }), env);
+  const input = { question: '问题', currentTime, range: rain, liuren: { timeStandard: 'true-solar', longitude: 116.4 } };
+  const response = await send('/api/calculate', { method: 'liuren', input });
+  assert.equal(response.status, 200); const saved = await response.json();
+  const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'liuren', arguments: input } });
+  assert.deepEqual((await mcp.json()).result.structuredContent.data, saved.data);
+  assert.equal((await send('/api/prompt', { method: 'liuren', result: saved, question: '追问' })).status, 200);
 });

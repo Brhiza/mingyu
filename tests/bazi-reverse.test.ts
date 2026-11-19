@@ -1,174 +1,126 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSolarTermEvidence } from '../packages/core/src/calendar/solar-term-evidence';
-import {
-  reverseBaziDates,
-  type BaziReversePillars,
-} from '../packages/core/src/calendar/bazi-reverse';
-import { getGanZhiFromDate } from '../packages/core/src/ganzhi';
-import { reverseBaziDates as reverseBaziDatesFromCalendar } from 'mingyu-core/calendar';
-import { reverseBaziDates as reverseBaziDatesFromSubpath } from 'mingyu-core/calendar/bazi-reverse';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { SolarTerm } from 'tyme4ts';
+import { calculate, reprompt } from '../src/core';
+import { createServer } from '../src/mcp';
+import { searchBaziDates } from '../src/systems/bazi-reverse';
+import { getDivinationTime } from '../src/systems/calendar';
+import { createUtcTimestamp } from '../src/systems/huangji/civil-time';
+import worker from '../src/worker';
 
-function at(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute = 0,
-  second = 0,
-): {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-} {
-  return { year, month, day, hour, minute, second };
-}
+const positions = ['year', 'month', 'day', 'hour'] as const;
+const known = { year: '甲辰', month: '丙寅', day: '戊戌', hour: '庚申' };
+const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
-function pillarsAt(input: ReturnType<typeof at>): BaziReversePillars {
-  return getGanZhiFromDate(
-    new Date(
-      Date.UTC(input.year, input.month - 1, input.day, input.hour - 8, input.minute, input.second),
-    ),
-  );
-}
-
-function textOf(time: ReturnType<typeof at>): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${time.year}-${pad(time.month)}-${pad(time.day)} ${pad(time.hour)}:${pad(time.minute)}:${pad(time.second)}`;
-}
-
-function chinaPartsFromUtcTimestamp(timestamp: number): ReturnType<typeof at> {
-  const time = new Date(timestamp + 8 * 60 * 60 * 1000);
-  return at(
-    time.getUTCFullYear(),
-    time.getUTCMonth() + 1,
-    time.getUTCDate(),
-    time.getUTCHours(),
-    time.getUTCMinutes(),
-    time.getUTCSeconds(),
-  );
-}
-
-test('八字反推从核心主入口和子路径导出同一算法，并返回完整子时区间', () => {
-  assert.equal(reverseBaziDatesFromCalendar, reverseBaziDatesFromSubpath);
-  const pillars: BaziReversePillars = {
-    year: '甲辰',
-    month: '丙寅',
-    day: '己亥',
-    hour: '甲子',
-  };
-  const result = reverseBaziDatesFromSubpath({ pillars, startYear: 2024, endYear: 2024 });
-
-  assert.equal(result.policy.timezone, 'Asia/Shanghai');
-  assert.equal(result.policy.month, '节气月');
-  assert.equal(result.policy.dayChange, '子时23点换日');
-  assert.equal(result.candidateCount, result.candidates.length);
-  assert.ok(result.candidates.length >= 1);
-
-  const candidate = result.candidates.find((item) => item.start.text === '2024-02-04 23:00:00');
-  assert.ok(candidate);
-  assert.equal(candidate.end.text, '2024-02-05 01:00:00');
-  assert.equal(candidate.endExclusive, true);
-  assert.deepEqual(pillarsAt(at(2024, 2, 4, 23)), pillars);
-  assert.deepEqual(pillarsAt(at(2024, 2, 5, 0, 59, 59)), pillars);
-  assert.notDeepEqual(pillarsAt(at(2024, 2, 5, 1)), pillars);
-  assert.equal(candidate.startBoundary.reason, '子时换日');
-  assert.equal(candidate.endBoundary.reason, '时辰交接');
+test('跨年代、四季及时辰生成的四柱能够找到原始时刻', () => {
+  for (const year of [1900, 1901, 1949, 1964, 1990, 2000, 2024, 2099, 2100]) for (const month of [1, 2, 3, 6, 9, 12]) for (const hour of [0, 12, 23]) {
+    const instant = createUtcTimestamp(year, month - 1, 15, hour - 8), pillars = getDivinationTime(new Date(instant)).ganzhi;
+    const result = searchBaziDates({ pillars, startYear: year, endYear: year });
+    assert.ok(result.candidates.some((candidate) => candidate.startTimestamp <= instant && instant < candidate.endTimestamp), `${year}/${month}/${hour}`);
+  }
 });
 
-test('八字反推支持按游标分批返回且候选总数保持稳定', () => {
-  const pillars = pillarsAt(at(2024, 2, 4, 23));
-  const first = reverseBaziDates({
-    pillars,
-    startYear: 1900,
-    endYear: 2100,
-    startIndex: 0,
-    limit: 2,
-  });
-  assert.equal(first.candidates.length, 2);
-  assert.equal(first.batch?.startIndex, 0);
-  assert.equal(first.batch?.limit, 2);
-  assert.equal(first.batch?.returned, 2);
-  assert.equal(first.batch?.total, first.candidateCount);
-  assert.ok(first.batch?.next);
-
-  const second = reverseBaziDates({
-    pillars,
-    startYear: 1900,
-    endYear: 2100,
-    ...first.batch!.next!,
-  });
-  assert.equal(second.batch?.startIndex, 2);
-  assert.equal(second.candidates.length, 1);
-  assert.equal(second.batch?.returned, 1);
-  assert.equal(second.batch?.next, undefined);
-  assert.notEqual(first.candidates[0]?.startTimestamp, second.candidates[0]?.startTimestamp);
-  assert.equal(second.candidateCount, first.candidateCount);
+test('交节前后与公历年度边界的原始时刻不会从反推结果丢失', () => {
+  for (const year of [1900, 1964, 2024, 2100]) for (let offset = 0; offset < 12; offset++) {
+    const t = SolarTerm.fromIndex(year, 3).next(offset * 2).getJulianDay().getSolarTime();
+    const instant = createUtcTimestamp(t.getYear(), t.getMonth() - 1, t.getDay(), t.getHour() - 8, t.getMinute(), t.getSecond());
+    for (const delta of [-1000, 0]) {
+      const timestamp = instant + delta, civilYear = new Date(timestamp + 8 * 3_600_000).getUTCFullYear();
+      if (civilYear < 1900 || civilYear > 2100) continue;
+      const pillars = getDivinationTime(new Date(timestamp)).ganzhi;
+      assert.ok(searchBaziDates({ pillars, startYear: civilYear, endYear: civilYear }).candidates.some((item) => item.startTimestamp <= timestamp && timestamp < item.endTimestamp));
+    }
+  }
+  const result = searchBaziDates({ pillars: known, startYear: 1900, endYear: 2100 });
+  assert.equal(result.candidateCount, 3);
+  assert.ok(result.candidates.some((item) => item.start === '2024-02-04T16:27:07+08:00' && item.startBoundary === '节气交接'));
 });
 
-test('八字反推分批参数边界明确拒绝', () => {
-  const pillars = pillarsAt(at(2024, 2, 4, 23));
-  assert.throws(() => reverseBaziDates({ pillars, startIndex: 1 }), /startIndex.*limit/);
-  assert.throws(() => reverseBaziDates({ pillars, limit: 101 }), /limit需为 1-100/);
+test('候选区间逐秒符合四柱，可直接用于姓名分析与起名', async () => {
+  const reverse = await calculate('bazi-reverse', { pillars: known, startYear: 1900, endYear: 2100 });
+  assert.equal(reverse.data.candidates.length, 3);
+  for (const candidate of reverse.data.candidates) {
+    assert.ok(candidate.endTimestamp - candidate.startTimestamp <= 7_200_000);
+    for (let instant = candidate.startTimestamp; instant < candidate.endTimestamp; instant += 1000) assert.deepEqual(getDivinationTime(new Date(instant)).ganzhi, known);
+    assert.ok(reverse.prompt.text.includes(JSON.stringify(candidate.birthRange)));
+    const name = await calculate('chinese-name', { fullName: '张知远', birthRange: candidate.birthRange, question: '问题' });
+    const naming = await calculate('chinese-naming', { surname: '张', birthRange: candidate.birthRange, question: '问题', limit: 3 });
+    assert.deepEqual(name.data.birthContext, naming.data.birthContext);
+    assert.ok(name.data.birthContext!.segments.every((item) => item.pillars.every((value, index) => value === known[positions[index]])));
+    assert.match(name.prompt.text, /四柱来源/);
+  }
 });
 
-test('节气交接秒级边界会切换月柱并返回真实起止时间', () => {
-  const termEvidence = calculateSolarTermEvidence(2024, 3);
-  const term = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp);
-  const pillars = pillarsAt(term);
-  const result = reverseBaziDates({ pillars, startYear: 2024, endYear: 2024 });
-  const termText = textOf(term);
-  const candidate = result.candidates.find((item) => item.start.text === termText);
-
-  assert.ok(candidate);
-  assert.equal(candidate.startBoundary.reason, '节气交接');
-  assert.notDeepEqual(
-    pillarsAt(chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000)),
-    pillars,
-  );
+test('非法柱与五虎遁、五鼠遁矛盾明确拒绝，保存结果可追问并核验', async () => {
+  for (const input of [
+    { pillars: { ...known, year: '甲丑' }, startYear: 2024, endYear: 2024 },
+    { pillars: { ...known, month: '甲子' }, startYear: 2024, endYear: 2024 },
+    { pillars: { ...known, hour: '丙子' }, startYear: 2024, endYear: 2024 },
+    { pillars: known, startYear: 2025, endYear: 2024 }, { pillars: known, startYear: 0, endYear: 2024 },
+  ]) await assert.rejects(() => calculate('bazi-reverse', input));
+  const result = await calculate('bazi-reverse', { pillars: known, startYear: 2024, endYear: 2024 });
+  const next = await reprompt({ method: 'bazi-reverse', result, question: '继续说明' });
+  assert.match(next.prompt.text, /继续说明/);
+  const bad = plain(result); bad.data.candidates[0].end = '伪造';
+  await assert.rejects(() => reprompt({ method: 'bazi-reverse', result: bad, question: '问题' }), /不一致/);
 });
 
-test('查询首年一月会保留上一年节气年，并正确裁剪前夜子时', () => {
-  const pillars = pillarsAt(at(2024, 1, 1, 0));
-  const result = reverseBaziDates({ pillars, startYear: 2024, endYear: 2024 });
-  const candidate = result.candidates.find((item) => item.start.text === '2024-01-01 00:00:00');
-
-  assert.ok(candidate);
-  assert.equal(candidate.startBoundary.reason, '查询范围开始');
-  assert.equal(candidate.end.text, '2024-01-01 01:00:00');
+test('HTTP 与 MCP 返回同一反推结果、提示词及追问', async () => {
+  const input = { pillars: known, startYear: 2024, endYear: 2024, currentTime: '2025-01-01T00:00:00Z' };
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'bazi-reverse' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', body: JSON.stringify(body) }), env);
+  const response = await send('/api/calculate', { method: 'bazi-reverse', input }); assert.equal(response.status, 200);
+  const result = await response.json(); assert.equal((await send('/api/prompt', { method: 'bazi-reverse', result, question: '追问' })).status, 200);
+  const [ct, st] = InMemoryTransport.createLinkedPair(), server = createServer(['bazi-reverse']), client = new Client({ name: 'reverse-test', version: '1' });
+  await Promise.all([server.connect(st), client.connect(ct)]);
+  try {
+    const mcp = await client.callTool({ name: 'bazi-reverse', arguments: input });
+    assert.deepEqual(mcp.structuredContent?.data, result.data);
+    const follow = await client.callTool({ name: 'reprompt', arguments: { method: 'bazi-reverse', result: mcp.structuredContent, question: '追问' } });
+    assert.equal(follow.isError, undefined);
+  } finally { await client.close(); await server.close(); }
 });
 
-test('交节落在时辰前段时，交节前的短区间不会因只取时辰中点而漏掉', () => {
-  const termEvidence = calculateSolarTermEvidence(2025, 9);
-  const termTime = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp);
-  const beforeTerm = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000);
-  const pillars = pillarsAt(beforeTerm);
-  const result = reverseBaziDates({ pillars, startYear: 2025, endYear: 2025 });
-  const candidate = result.candidates.find((item) => item.start.text === '2025-05-05 13:00:00');
+test('四柱反推支持真太阳时经度反推与 1986–1991 中国夏令时标注', async () => {
+  const solarReverse = await calculate('bazi-reverse', { pillars: known, startYear: 2024, endYear: 2024, longitude: 104.06 });
+  assert.equal(solarReverse.data.candidates.length, 1);
+  const candidate = solarReverse.data.candidates[0];
+  assert.equal(candidate.birthRange.timeStandard, 'true-solar');
+  assert.equal(candidate.birthRange.longitude, 104.06);
+  const baziFromReverse = await calculate('bazi', { birthRange: candidate.birthRange, question: '核对真太阳时反推' });
+  assert.ok(baziFromReverse.data.unknown!.segments.every((seg) => positions.every((pos) => seg.pillars[pos].ganZhi === known[pos])));
 
-  assert.ok(candidate);
-  assert.equal(candidate.end.text, textOf(termTime));
-  assert.equal(candidate.endBoundary.reason, '节气交接');
+  const dstPillars = getDivinationTime(new Date(createUtcTimestamp(1988, 5, 15, 4))).ganzhi;
+  const dstReverse = await calculate('bazi-reverse', { pillars: dstPillars, startYear: 1988, endYear: 1988, applyChinaDst: true });
+  assert.ok(dstReverse.data.candidates.some((c) => c.chinaDst?.inDst === true));
+  assert.match(dstReverse.prompt.text, /夏令时民用钟表/);
 });
 
-test('四柱格式和年份范围错误会明确拒绝', () => {
-  assert.throws(
-    () =>
-      reverseBaziDates({
-        pillars: { year: '甲子', month: '丙寅', day: '不存在', hour: '庚申' },
-      }),
-    /日柱.*六十甲子/,
-  );
-  assert.throws(
-    () =>
-      reverseBaziDates({
-        pillars: { year: '甲子', month: '丙寅', day: '戊戌', hour: '庚申' },
-        startYear: 2025,
-        endYear: 2024,
-      }),
-    /开始年份不能晚于结束年份/,
-  );
+test('支持按历史朝代年份范围（公元 1 年至 2099 年）反推四柱', async () => {
+  const dynasties = [
+    { label: '现代', startYear: 1912, endYear: 2099, expectedMin: 1 },
+    { label: '清朝', startYear: 1644, endYear: 1911, expectedMin: 1 },
+    { label: '明朝', startYear: 1368, endYear: 1643, expectedMin: 1 },
+    { label: '元朝', startYear: 1271, endYear: 1367, expectedMin: 0 },
+    { label: '宋朝~五代十国', startYear: 908, endYear: 1279, expectedMin: 1 },
+    { label: '唐朝', startYear: 618, endYear: 907, expectedMin: 1 },
+    { label: '晋~南北朝~隋朝', startYear: 265, endYear: 617, expectedMin: 1 },
+    { label: '汉朝~三国', startYear: 1, endYear: 280, expectedMin: 1 },
+  ];
+  for (const dynasty of dynasties) {
+    const res = await calculate('bazi-reverse', { pillars: known, startYear: dynasty.startYear, endYear: dynasty.endYear });
+    assert.ok(res.data.candidateCount >= dynasty.expectedMin, dynasty.label);
+    for (const candidate of res.data.candidates) {
+      const year = Number(candidate.start.slice(0, 4));
+      assert.ok(year >= dynasty.startYear && year <= dynasty.endYear, `${dynasty.label}: ${candidate.start}`);
+    }
+  }
+  const jan1 = await calculate('bazi-reverse', { pillars: { year: '庚申', month: '己丑', day: '乙酉', hour: '丙子' }, startYear: 1, endYear: 1 });
+  assert.equal(jan1.data.candidateCount, 1);
+  assert.equal(jan1.data.candidates[0].start, '0001-01-08T23:00:00+08:00');
+  const oct1582 = await calculate('bazi-reverse', { pillars: { year: '壬午', month: '庚戌', day: '甲戌', hour: '庚午' }, startYear: 1582, endYear: 1582 });
+  assert.equal(oct1582.data.candidateCount, 1);
+  assert.equal(oct1582.data.candidates[0].start, '1582-10-15T11:00:00+08:00');
 });

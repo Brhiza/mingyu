@@ -1,0 +1,458 @@
+/**
+ * 命语 V2 · 现代东方极简设计系统 (Modern Oriental Minimalist Design Tokens)
+ * 亮色：素宣 (#f6f3ec) · 朱砂 (#b83b2b) · 松烟 (#1c1917)
+ * 暗色：玄夜 (#111110) · 泥金 (#c9a461) · 朱砂 (#d95d48)
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 字体体系 */
+  --font-sans:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    sans-serif;
+  --font-serif:
+    'Songti SC',
+    'STSong',
+    'Noto Serif SC',
+    'Source Han Serif SC',
+    'SimSun',
+    serif;
+  --font-mono:
+    'SFMono-Regular',
+    ui-monospace,
+    'Cascadia Mono',
+    'Menlo',
+    monospace;
+
+  /* 墨色文字层级（松烟浓墨 → 石青灰） */
+  --text-strong: #1c1917;
+  --text-primary: #292524;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
+  --text-soft: #a39c93;
+  --danger-text: #b42318;
+  --success-text: #266847;
+
+  /* 默认东方主色：朱砂印红 (Cinnabar) */
+  --accent: #b83b2b;
+  --accent-strong: #9e2f20;
+  --accent-deep: #7a2115;
+  --accent-soft: rgba(184, 59, 43, 0.09);
+  --accent-soft-strong: rgba(184, 59, 43, 0.16);
+  --accent-surface: rgba(250, 241, 238, 0.94);
+  --accent-surface-solid: #faf1ee;
+  --accent-contrast: #fcfaf5;
+
+  /* 东方辅色：泥金与琥珀点缀 */
+  --secondary: #9c7a44;
+  --secondary-strong: #7d5f31;
+  --secondary-soft: rgba(156, 122, 68, 0.12);
+  --secondary-soft-strong: rgba(156, 122, 68, 0.2);
+  --highlight-soft: rgba(201, 164, 97, 0.18);
+
+  /* 宣纸与素帛表面层级 */
+  --surface-page: #f6f3ec;
+  --surface-page-end: #efeae0;
+  --surface-base: #fcfaf5;
+  --surface-base-rgb: 252 250 245;
+  --surface-panel: rgba(252, 250, 245, 0.92);
+  --surface-elevated: rgba(253, 252, 248, 0.97);
+  --surface-elevated-strong: rgba(254, 253, 250, 0.99);
+  --surface-soft: rgba(243, 238, 229, 0.95);
+  --surface-soft-solid: #f3eee5;
+  --surface-muted: rgba(235, 229, 218, 0.96);
+  --surface-muted-solid: #ebe5da;
+  --surface-overlay: rgba(252, 250, 245, 0.9);
+
+  /* 墨线与边框 */
+  --border-soft: rgba(120, 108, 92, 0.16);
+  --border-strong: rgba(100, 88, 72, 0.26);
+  --border-contrast: rgba(158, 47, 32, 0.28);
+
+  /* 交互状态表面 */
+  --state-idle-surface: color-mix(in srgb, var(--surface-muted) 45%, var(--surface-base));
+  --state-hover-surface: color-mix(in srgb, var(--text-muted) 7%, var(--surface-base));
+  --state-selected-surface: color-mix(in srgb, var(--accent-strong) 12%, var(--surface-base));
+  --state-selected-surface-strong: color-mix(in srgb, var(--accent-strong) 17%, var(--surface-base));
+  --state-selected-text: var(--accent-deep);
+
+  /* 五行标准东方色阶（木·竹青、火·丹朱、土·赭石、金·赤金、水·玄青） */
+  --wuxing-mu: #2d7a53;
+  --wuxing-huo: #c43c29;
+  --wuxing-tu: #96662c;
+  --wuxing-jin: #8c6d2e;
+  --wuxing-shui: #285e82;
+
+  /* 阴影与圆角尺度 */
+  /* 命录 (Minglu Wiki) 兼容语义变量 & Tailwind/shadcn 标准语义令牌 */
+  --color-bg-base: var(--surface-page);
+  --color-bg-elevated: var(--surface-elevated);
+  --color-bg-card: var(--surface-base);
+  --color-text-base: var(--text-primary);
+  --color-border-subtle: var(--border-soft);
+
+  --background: var(--surface-page);
+  --foreground: var(--text-strong);
+  --card: var(--surface-base);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-elevated-strong);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-contrast);
+  --muted: var(--surface-soft);
+  --muted-foreground: var(--text-muted);
+  --destructive: var(--danger-text);
+  --border: var(--border-soft);
+  --ring: var(--accent);
+  --ws-canvas: 1120px;
+
+  /* 阴影与圆角尺度（克制、温润、无浮夸光晕） */
+  --shadow-lg: 0 20px 52px rgba(28, 25, 23, 0.07);
+  --shadow-md: 0 12px 28px rgba(28, 25, 23, 0.05);
+  --shadow-card: 0 6px 22px rgba(28, 25, 23, 0.04);
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.07);
+  --backdrop-scrim: rgba(24, 21, 18, 0.46);
+  --radius-page-card: 12px;
+  --radius-control: 8px;
+  --radius-compact: 6px;
+  --radius-pill: 999px;
+
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 12% 0%, var(--accent-soft), transparent 36%),
+    radial-gradient(circle at 88% 0%, var(--secondary-soft), transparent 34%),
+    linear-gradient(180deg, var(--surface-page) 0%, var(--surface-page-end) 100%);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* ─── 暗色模式：玄夜 · 泥金 · 朱砂 ─── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --text-strong: #f5f1ea;
+  --text-primary: #e4ded4;
+  --text-secondary: #b5ada2;
+  --text-muted: #8a8278;
+  --text-soft: #686159;
+  --danger-text: #f98072;
+  --success-text: #6cd49f;
+
+  --accent: #d95d48;
+  --accent-strong: #c84b36;
+  --accent-deep: #f2a394;
+  --accent-soft: rgba(217, 93, 72, 0.15);
+  --accent-soft-strong: rgba(217, 93, 72, 0.24);
+  --accent-surface: rgba(52, 26, 22, 0.9);
+  --accent-surface-solid: #341a16;
+  --accent-contrast: #fcfaf5;
+
+  --secondary: #c9a461;
+  --secondary-strong: #dcc088;
+  --secondary-soft: rgba(201, 164, 97, 0.16);
+  --secondary-soft-strong: rgba(201, 164, 97, 0.24);
+  --highlight-soft: rgba(120, 92, 48, 0.36);
+
+  --surface-page: #111110;
+  --surface-page-end: #171614;
+  --surface-base: #191816;
+  --surface-base-rgb: 25 24 22;
+  --surface-panel: rgba(25, 24, 22, 0.88);
+  --surface-elevated: rgba(31, 29, 27, 0.95);
+  --surface-elevated-strong: rgba(36, 34, 31, 0.98);
+  --surface-soft: rgba(38, 36, 32, 0.94);
+  --surface-soft-solid: #262420;
+  --surface-muted: rgba(46, 43, 39, 0.94);
+  --surface-muted-solid: #2e2b27;
+  --surface-overlay: rgba(20, 19, 17, 0.92);
+
+  --border-soft: rgba(185, 173, 156, 0.16);
+  --border-strong: rgba(205, 192, 174, 0.26);
+  --border-contrast: rgba(217, 93, 72, 0.34);
+
+  --wuxing-mu: #68c996;
+  --wuxing-huo: #f28270;
+  --wuxing-tu: #deb373;
+  --wuxing-jin: #ebd08d;
+  --wuxing-shui: #72b4de;
+
+  --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.24);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.48);
+  --backdrop-scrim: rgba(10, 9, 8, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --text-strong: #f5f1ea;
+    --text-primary: #e4ded4;
+    --text-secondary: #b5ada2;
+    --text-muted: #8a8278;
+    --text-soft: #686159;
+    --danger-text: #f98072;
+    --success-text: #6cd49f;
+
+    --accent: #d95d48;
+    --accent-strong: #c84b36;
+    --accent-deep: #f2a394;
+    --accent-soft: rgba(217, 93, 72, 0.15);
+    --accent-soft-strong: rgba(217, 93, 72, 0.24);
+    --accent-surface: rgba(52, 26, 22, 0.9);
+    --accent-surface-solid: #341a16;
+    --accent-contrast: #fcfaf5;
+
+    --secondary: #c9a461;
+    --secondary-strong: #dcc088;
+    --secondary-soft: rgba(201, 164, 97, 0.16);
+    --secondary-soft-strong: rgba(201, 164, 97, 0.24);
+    --highlight-soft: rgba(120, 92, 48, 0.36);
+
+    --surface-page: #111110;
+    --surface-page-end: #171614;
+    --surface-base: #191816;
+    --surface-base-rgb: 25 24 22;
+    --surface-panel: rgba(25, 24, 22, 0.88);
+    --surface-elevated: rgba(31, 29, 27, 0.95);
+    --surface-elevated-strong: rgba(36, 34, 31, 0.98);
+    --surface-soft: rgba(38, 36, 32, 0.94);
+    --surface-soft-solid: #262420;
+    --surface-muted: rgba(46, 43, 39, 0.94);
+    --surface-muted-solid: #2e2b27;
+    --surface-overlay: rgba(20, 19, 17, 0.92);
+
+    --border-soft: rgba(185, 173, 156, 0.16);
+    --border-strong: rgba(205, 192, 174, 0.26);
+    --border-contrast: rgba(217, 93, 72, 0.34);
+
+    --wuxing-mu: #68c996;
+    --wuxing-huo: #f28270;
+    --wuxing-tu: #deb373;
+    --wuxing-jin: #ebd08d;
+    --wuxing-shui: #72b4de;
+
+    --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.42);
+    --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.24);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.48);
+    --backdrop-scrim: rgba(10, 9, 8, 0.7);
+  }
+}
+
+/* ─── 东方五色主题变体 (cinnabar 默认 / violet / indigo / jade / amber) ─── */
+
+/* 紫檀 · 沉香 */
+:root[data-accent-theme='violet'] {
+  --accent: #6e4d75;
+  --accent-strong: #5b3d62;
+  --accent-deep: #432b49;
+  --accent-soft: rgba(110, 77, 117, 0.11);
+  --accent-soft-strong: rgba(110, 77, 117, 0.18);
+  --accent-surface: rgba(244, 239, 246, 0.93);
+  --accent-surface-solid: #f4eff6;
+  --secondary: #9980a3;
+  --secondary-strong: #81668c;
+  --secondary-soft: rgba(153, 128, 163, 0.15);
+  --secondary-soft-strong: rgba(153, 128, 163, 0.22);
+  --highlight-soft: rgba(224, 213, 230, 0.3);
+  --border-contrast: rgba(91, 61, 98, 0.26);
+}
+
+/* 青黛 · 远山 */
+:root[data-accent-theme='indigo'] {
+  --accent: #355c7d;
+  --accent-strong: #284b68;
+  --accent-deep: #1d384f;
+  --accent-soft: rgba(53, 92, 125, 0.11);
+  --accent-soft-strong: rgba(53, 92, 125, 0.18);
+  --accent-surface: rgba(236, 242, 246, 0.93);
+  --accent-surface-solid: #ecf2f6;
+  --secondary: #6c8ea8;
+  --secondary-strong: #557894;
+  --secondary-soft: rgba(108, 142, 168, 0.15);
+  --secondary-soft-strong: rgba(108, 142, 168, 0.22);
+  --highlight-soft: rgba(207, 222, 233, 0.3);
+  --border-contrast: rgba(40, 75, 104, 0.26);
+}
+
+/* 竹青 · 苍翠 */
+:root[data-accent-theme='jade'] {
+  --accent: #2e6b56;
+  --accent-strong: #235946;
+  --accent-deep: #194334;
+  --accent-soft: rgba(46, 107, 86, 0.11);
+  --accent-soft-strong: rgba(46, 107, 86, 0.18);
+  --accent-surface: rgba(235, 244, 240, 0.93);
+  --accent-surface-solid: #ebf4f0;
+  --secondary: #6d9986;
+  --secondary-strong: #56826f;
+  --secondary-soft: rgba(109, 153, 134, 0.15);
+  --secondary-soft-strong: rgba(109, 153, 134, 0.22);
+  --highlight-soft: rgba(208, 229, 219, 0.32);
+  --border-contrast: rgba(35, 89, 70, 0.26);
+}
+
+/* 琥珀 · 泥金 */
+:root[data-accent-theme='amber'] {
+  --accent: #9a6324;
+  --accent-strong: #835118;
+  --accent-deep: #633c10;
+  --accent-soft: rgba(154, 99, 36, 0.11);
+  --accent-soft-strong: rgba(154, 99, 36, 0.18);
+  --accent-surface: rgba(248, 241, 230, 0.93);
+  --accent-surface-solid: #f8f1e6;
+  --secondary: #b88f54;
+  --secondary-strong: #9e763d;
+  --secondary-soft: rgba(184, 143, 84, 0.16);
+  --secondary-soft-strong: rgba(184, 143, 84, 0.23);
+  --highlight-soft: rgba(238, 219, 187, 0.32);
+  --border-contrast: rgba(131, 81, 24, 0.26);
+}
+
+/* 暗色模式下的东方五色变体 */
+:root[data-theme='dark'][data-accent-theme='violet'] {
+  --accent: #b394bd;
+  --accent-strong: #a27fad;
+  --accent-deep: #d6c0de;
+  --accent-soft: rgba(162, 127, 173, 0.16);
+  --accent-soft-strong: rgba(162, 127, 173, 0.24);
+  --accent-surface: rgba(45, 34, 49, 0.9);
+  --accent-surface-solid: #2d2231;
+  --secondary: #bfa3c9;
+  --secondary-strong: #d1bad9;
+  --secondary-soft: rgba(191, 163, 201, 0.18);
+  --secondary-soft-strong: rgba(191, 163, 201, 0.26);
+  --highlight-soft: rgba(78, 58, 86, 0.4);
+  --border-contrast: rgba(162, 127, 173, 0.34);
+}
+
+:root[data-theme='dark'][data-accent-theme='indigo'] {
+  --accent: #7da6c8;
+  --accent-strong: #6b96ba;
+  --accent-deep: #aecae0;
+  --accent-soft: rgba(107, 150, 186, 0.16);
+  --accent-soft-strong: rgba(107, 150, 186, 0.24);
+  --accent-surface: rgba(28, 43, 56, 0.9);
+  --accent-surface-solid: #1c2b38;
+  --secondary: #96b4cc;
+  --secondary-strong: #b1c9dc;
+  --secondary-soft: rgba(150, 180, 204, 0.18);
+  --secondary-soft-strong: rgba(150, 180, 204, 0.26);
+  --highlight-soft: rgba(48, 72, 92, 0.4);
+  --border-contrast: rgba(107, 150, 186, 0.34);
+}
+
+:root[data-theme='dark'][data-accent-theme='jade'] {
+  --accent: #6eb89f;
+  --accent-strong: #5ca88e;
+  --accent-deep: #a3d6c4;
+  --accent-soft: rgba(92, 168, 142, 0.16);
+  --accent-soft-strong: rgba(92, 168, 142, 0.24);
+  --accent-surface: rgba(26, 48, 40, 0.9);
+  --accent-surface-solid: #1a3028;
+  --secondary: #92c2ae;
+  --secondary-strong: #add4c4;
+  --secondary-soft: rgba(146, 194, 174, 0.18);
+  --secondary-soft-strong: rgba(146, 194, 174, 0.26);
+  --highlight-soft: rgba(46, 78, 66, 0.4);
+  --border-contrast: rgba(92, 168, 142, 0.34);
+}
+
+:root[data-theme='dark'][data-accent-theme='amber'] {
+  --accent: #d3a05e;
+  --accent-strong: #c48f4b;
+  --accent-deep: #ebd0a9;
+  --accent-soft: rgba(196, 143, 75, 0.16);
+  --accent-soft-strong: rgba(196, 143, 75, 0.24);
+  --accent-surface: rgba(54, 41, 26, 0.9);
+  --accent-surface-solid: #36291a;
+  --secondary: #d1b27e;
+  --secondary-strong: #e2c798;
+  --secondary-soft: rgba(209, 178, 126, 0.18);
+  --secondary-soft-strong: rgba(209, 178, 126, 0.26);
+  --highlight-soft: rgba(86, 65, 38, 0.4);
+  --border-contrast: rgba(196, 143, 75, 0.34);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light'])[data-accent-theme='violet'] {
+    --accent: #b394bd;
+    --accent-strong: #a27fad;
+    --accent-deep: #d6c0de;
+    --accent-soft: rgba(162, 127, 173, 0.16);
+    --accent-soft-strong: rgba(162, 127, 173, 0.24);
+    --accent-surface: rgba(45, 34, 49, 0.9);
+    --accent-surface-solid: #2d2231;
+    --secondary: #bfa3c9;
+    --secondary-strong: #d1bad9;
+    --secondary-soft: rgba(191, 163, 201, 0.18);
+    --secondary-soft-strong: rgba(191, 163, 201, 0.26);
+    --highlight-soft: rgba(78, 58, 86, 0.4);
+    --border-contrast: rgba(162, 127, 173, 0.34);
+  }
+
+  :root:not([data-theme='light'])[data-accent-theme='indigo'] {
+    --accent: #7da6c8;
+    --accent-strong: #6b96ba;
+    --accent-deep: #aecae0;
+    --accent-soft: rgba(107, 150, 186, 0.16);
+    --accent-soft-strong: rgba(107, 150, 186, 0.24);
+    --accent-surface: rgba(28, 43, 56, 0.9);
+    --accent-surface-solid: #1c2b38;
+    --secondary: #96b4cc;
+    --secondary-strong: #b1c9dc;
+    --secondary-soft: rgba(150, 180, 204, 0.18);
+    --secondary-soft-strong: rgba(150, 180, 204, 0.26);
+    --highlight-soft: rgba(48, 72, 92, 0.4);
+    --border-contrast: rgba(107, 150, 186, 0.34);
+  }
+
+  :root:not([data-theme='light'])[data-accent-theme='jade'] {
+    --accent: #6eb89f;
+    --accent-strong: #5ca88e;
+    --accent-deep: #a3d6c4;
+    --accent-soft: rgba(92, 168, 142, 0.16);
+    --accent-soft-strong: rgba(92, 168, 142, 0.24);
+    --accent-surface: rgba(26, 48, 40, 0.9);
+    --accent-surface-solid: #1a3028;
+    --secondary: #92c2ae;
+    --secondary-strong: #add4c4;
+    --secondary-soft: rgba(146, 194, 174, 0.18);
+    --secondary-soft-strong: rgba(146, 194, 174, 0.26);
+    --highlight-soft: rgba(46, 78, 66, 0.4);
+    --border-contrast: rgba(92, 168, 142, 0.34);
+  }
+
+  :root:not([data-theme='light'])[data-accent-theme='amber'] {
+    --accent: #d3a05e;
+    --accent-strong: #c48f4b;
+    --accent-deep: #ebd0a9;
+    --accent-soft: rgba(196, 143, 75, 0.16);
+    --accent-soft-strong: rgba(196, 143, 75, 0.24);
+    --accent-surface: rgba(54, 41, 26, 0.9);
+    --accent-surface-solid: #36291a;
+    --secondary: #d1b27e;
+    --secondary-strong: #e2c798;
+    --secondary-soft: rgba(209, 178, 126, 0.18);
+    --secondary-soft-strong: rgba(209, 178, 126, 0.26);
+    --highlight-soft: rgba(86, 65, 38, 0.4);
+    --border-contrast: rgba(196, 143, 75, 0.34);
+  }
+}
+
+/* 五行标准东方色阶 */
+.wuxing-mu { color: var(--wuxing-mu); }
+.wuxing-huo { color: var(--wuxing-huo); }
+.wuxing-tu { color: var(--wuxing-tu); }
+.wuxing-jin { color: var(--wuxing-jin); }
+.wuxing-shui { color: var(--wuxing-shui); }

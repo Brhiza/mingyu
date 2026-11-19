@@ -1,279 +1,156 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateSolarTermEvidence, getDivinationTime } from 'mingyu-core/calendar';
-import type { QimenScope } from 'mingyu-core/types';
-import type { BaziReverseSource } from '../src/lib/bazi-reverse-input';
-import {
-  formatQimenRangeContext,
-  formatQimenRangeFacts,
-  formatQimenRangeInterval,
-  formatQimenRangeMoonPhase,
-  generateQimenRange,
-  isQimenRangeSource,
-} from '../src/lib/divination/qimen-range';
+import { calculate, reprompt } from '../src/core';
+import { getDivinationTime } from '../src/systems/calendar';
+import { calculateSolarTermEvidence } from '../src/systems/astronomy/solar-term-evidence';
+import { trueSolarTime } from '../src/systems/astronomy/true-solar';
+import { generateQimenRange } from '../src/systems/qimen/range';
+import worker from '../src/worker';
 
-const RAIN_WATER_SOURCE: BaziReverseSource = {
-  pillars: { year: '甲辰', month: '丙寅', day: '癸丑', hour: '戊午' },
-  intervalStart: '2024-02-19 11:00:00',
-  intervalEnd: '2024-02-19 13:00:00',
-  startTimestamp: Date.parse('2024-02-19T11:00:00+08:00'),
-  endTimestamp: Date.parse('2024-02-19T13:00:00+08:00'),
-  endExclusive: true,
-  timezone: 'Asia/Shanghai',
-  offsetHours: 8,
-};
+const rain = { start: '2024-02-19T03:00:00Z', end: '2024-02-19T05:00:00Z' };
+const currentTime = '2025-01-01T00:00:00Z';
 
-function beijingTimestamp(text: string) {
-  return Date.parse(`${text.replace(' ', 'T')}+08:00`);
-}
-
-function sourceFor(startText: string, endText: string): BaziReverseSource {
-  const startTimestamp = beijingTimestamp(startText);
-  const endTimestamp = beijingTimestamp(endText);
-  return {
-    pillars: getDivinationTime(new Date(startTimestamp), 480).ganzhi,
-    intervalStart: startText,
-    intervalEnd: endText,
-    startTimestamp,
-    endTimestamp,
-    endExclusive: true,
-    timezone: 'Asia/Shanghai',
-    offsetHours: 8,
-  };
-}
-
-function rangeFor(
-  source: BaziReverseSource,
-  options: {
-    method?: 'zhuanpan' | 'feipan';
-    scope?: QimenScope;
-    juMethod?: 'chaibu' | 'zhirun';
-  } = {},
-) {
-  return generateQimenRange({
-    source,
-    representativeDate: new Date(source.startTimestamp as number),
-    ...options,
-  });
-}
-
-test('雨水交节秒切开时家和日家并保留两端四柱', () => {
-  for (const scope of ['hour', 'day'] as const) {
-    const range = rangeFor(RAIN_WATER_SOURCE, { scope, juMethod: 'chaibu' });
-    assert.equal(range.status, 'conditional');
-    assert.equal(range.branches.length, 2);
-    assert.deepEqual(
-      range.branches.map(({ data }) => [data.timeInfo.solarTerm, data.juShu]),
-      [
-        ['立春', 8],
-        ['雨水', 9],
-      ],
-    );
-    assert.deepEqual(
-      range.branches.map(({ data }) => data.ganzhi),
-      [RAIN_WATER_SOURCE.pillars, RAIN_WATER_SOURCE.pillars],
-    );
-    assert.deepEqual(
-      [range.branches[0]?.endTimestamp, range.branches[1]?.startTimestamp],
-      [beijingTimestamp('2024-02-19 12:13:12'), beijingTimestamp('2024-02-19 12:13:12')],
-    );
+test('全年所有交节、五日和十日边界正确切分', async () => {
+  for (let index = 0; index < 24; index++) for (const day of [0, 5, 10]) {
+    const timestamp = calculateSolarTermEvidence(2024, index).utcTimestamp + day * 86_400_000;
+    const range = await generateQimenRange({ start: new Date(timestamp - 1000).toISOString(), end: new Date(timestamp + 1000).toISOString() }, { scope: 'hour', method: 'feipan', juMethod: 'zhirun' });
+    assert.equal(range.branches.length, 2, `${index}/${day}`);
+    assert.equal(range.branches[0].endTimestamp, timestamp);
   }
 });
 
-test('雨水中气也切开月家和年家节令背景', () => {
-  for (const scope of ['month', 'year'] as const) {
-    const range = rangeFor(RAIN_WATER_SOURCE, { scope });
-    assert.equal(range.status, 'conditional');
-    assert.equal(range.branches.length, 2);
-    assert.deepEqual(
-      range.branches.map(({ data }) => data.timeInfo.solarTerm),
-      ['立春', '雨水'],
-    );
-    assert.deepEqual(
-      range.branches.map(({ data }) => data.ganzhi),
-      [RAIN_WATER_SOURCE.pillars, RAIN_WATER_SOURCE.pillars],
-    );
+test('交节秒按半开区间切分四种层级，分支保持完整盘面及月相采样', async () => {
+  for (const scope of ['hour', 'day', 'month', 'year']) {
+    const result = await calculate('qimen', { question: '事业', currentTime, range: rain, qimen: { scope, method: 'feipan' } });
+    const data = result.data as any;
+    assert.equal(data.kind, 'range');
+    assert.equal(data.status, 'conditional');
+    assert.equal(data.branches.length, 2);
+    assert.deepEqual(data.branches.map((branch: any) => branch.data.timeInfo.solarTerm), ['立春', '雨水']);
+    assert.equal(data.branches[0].endTimestamp, Date.parse('2024-02-19T04:13:12Z'));
+    assert.equal(data.branches[1].startTimestamp, data.branches[0].endTimestamp);
+    assert.equal(data.branches[0].moonPhaseEvidence.start.utcTimestamp, Date.parse(rain.start));
+    assert.equal(data.branches[1].moonPhaseEvidence.end.utcTimestamp, Date.parse(rain.end) - 1000);
+    assert.match(result.prompt.text, /分支 1/);
+    assert.match(result.prompt.text, /分支 2/);
+    assert.match(result.prompt.text, /起点含、终点不含/);
+    if (scope === 'hour' || scope === 'day') assert.match(result.prompt.text, /月相连续变化/);
   }
 });
 
-test('年家和月家范围合并短周期分支并保留节气与正式定局事实', () => {
-  const phaseBoundary = calculateSolarTermEvidence(2024, 3).utcTimestamp + 5 * 86_400_000;
-  const beijingText = (timestamp: number) =>
-    new Date(timestamp + 8 * 3_600_000).toISOString().slice(0, 19).replace('T', ' ');
-  const source = sourceFor(beijingText(phaseBoundary - 1_000), beijingText(phaseBoundary + 1_000));
-
-  for (const scope of ['month', 'year'] as const) {
-    const range = rangeFor(source, { scope });
-    assert.equal(range.status, 'stable');
-    assert.equal(range.branches.length, 1);
-    assert.deepEqual(
-      [range.branches[0]?.startTimestamp, range.branches[0]?.endTimestamp],
-      [source.startTimestamp, source.endTimestamp],
-    );
+test('稳定时段合并，午夜、时辰及节气五日阶段在边界切分', async () => {
+  async function run(start: string, end: string, scope = 'hour') {
+    return (await calculate('qimen', { question: '问题', currentTime, range: { start, end }, qimen: { scope } })).data as any;
   }
-
-  const termRange = rangeFor(RAIN_WATER_SOURCE, { scope: 'month' });
-  assert.equal(termRange.branches.length, 2);
-  assert.deepEqual(
-    termRange.branches.map(({ data }) => data.timeInfo.solarTerm),
-    ['立春', '雨水'],
-  );
-  for (const range of [termRange, rangeFor(RAIN_WATER_SOURCE, { scope: 'year' })]) {
-    const facts = formatQimenRangeFacts(range);
-    const context = formatQimenRangeContext(range);
-
-    assert.match(facts, /正式定局依据：干支年甲辰/u);
-    assert.match(facts, /雨水/u);
-    assert.doesNotMatch(facts, /交节后自然日阶段|月相|建除|节气五行|日干.{0,8}被耗/u);
-    assert.equal(formatQimenRangeMoonPhase(range.branches[0]!), '');
-    assert.match(context, /实际节气交接/u);
-    assert.doesNotMatch(context, /节令阶段|月相/u);
-  }
+  const stable = await run('2024-02-19T01:00:00Z', '2024-02-19T03:00:00Z');
+  assert.equal(stable.status, 'stable');
+  assert.equal(stable.branches.length, 1);
+  const midnight = await run('2024-02-04T15:00:00Z', '2024-02-04T17:00:00Z');
+  assert.deepEqual(midnight.branches.map((branch: any) => branch.endTimestamp), [Date.parse('2024-02-04T16:00:00Z'), Date.parse('2024-02-04T17:00:00Z')]);
+  const hour = await run('2024-02-19T02:59:59Z', '2024-02-19T03:00:01Z');
+  assert.equal(hour.branches.length, 2);
+  assert.notEqual(hour.branches[0].data.ganzhi.hour, hour.branches[1].data.ganzhi.hour);
+  const phase = calculateSolarTermEvidence(2024, 3).utcTimestamp + 5 * 86_400_000;
+  const from = new Date(phase - 1000).toISOString(), to = new Date(phase + 1000).toISOString();
+  const phased = await run(from, to);
+  assert.deepEqual(phased.branches.map((branch: any) => branch.data.seasonality.jieQiPhase.phase), ['上元', '中元']);
+  const monthly = await run(from, to, 'month');
+  assert.equal(monthly.status, 'stable');
+  const upper = await run('2200-01-20T07:17:07Z', '2200-01-20T07:17:09Z');
+  assert.equal(upper.branches[0].endTimestamp, Date.parse('2200-01-20T07:17:08Z'));
 });
 
-test('同一离散盘面范围合并为稳定分支并保留月相起止采样', () => {
-  const source = sourceFor('2024-02-19 09:00:00', '2024-02-19 11:00:00');
-  const range = rangeFor(source, { scope: 'hour', method: 'zhuanpan' });
-
-  assert.equal(range.status, 'stable');
-  assert.equal(range.branches.length, 1);
-  assert.deepEqual(
-    [range.branches[0]?.startTimestamp, range.branches[0]?.endTimestamp],
-    [source.startTimestamp, source.endTimestamp],
-  );
-  const branch = range.branches[0];
-  assert.ok(branch);
-  assert.equal(branch.moonPhaseEvidence.start.utcTimestamp, source.startTimestamp);
-  assert.equal(branch.moonPhaseEvidence.end.utcTimestamp, source.endTimestamp! - 1_000);
-  assert.match(formatQimenRangeMoonPhase(branch), /起点参照：北京时间2024-02-19 09:00:00/u);
-  assert.match(formatQimenRangeMoonPhase(branch), /终点前一秒参照：北京时间2024-02-19 10:59:59/u);
-  assert.match(formatQimenRangeMoonPhase(branch), /照明\d+\.\d+%.*日月黄经差\d+\.\d+°/u);
-});
-
-test('民用午夜边界重新核对日期级节令事实', () => {
-  const source = sourceFor('2024-02-04 23:00:00', '2024-02-05 01:00:00');
-  const range = rangeFor(source, { scope: 'hour' });
-
-  assert.equal(range.status, 'conditional');
-  assert.deepEqual(
-    [range.branches[0]?.startTimestamp, ...range.branches.map((branch) => branch.endTimestamp)],
-    [source.startTimestamp, beijingTimestamp('2024-02-05 00:00:00'), source.endTimestamp],
-  );
-  for (const branch of range.branches) {
-    assert.deepEqual(branch.data.ganzhi, source.pillars);
+test('可选四柱、区间限制与复用时篡改校验', async () => {
+  const pillars = getDivinationTime(new Date(rain.start)).ganzhi;
+  const result = await calculate('qimen', { question: '问题', currentTime, range: { ...rain, pillars } });
+  const saved = JSON.parse(JSON.stringify(result));
+  saved.data.branches[0].data.evidenceAnalysis.palaceFacts[0].promptText = '伪造证据';
+  const next = await reprompt({ method: 'qimen', result: saved, question: '继续问' });
+  assert.match(next.prompt.text, /继续问/);
+  assert.doesNotMatch(next.prompt.text, /伪造证据/);
+  for (const mutate of [
+    (d: any) => { d.branches[0].data.zhiFu = '伪造值符'; },
+    (d: any) => { d.branches[0].endTimestamp += 1000; },
+    (d: any) => { d.branches[1].moonPhaseEvidence.end.illuminationPercent = -1; },
+    (d: any) => { d.source.endExclusive = false; },
+  ]) {
+    const altered = structuredClone(saved); mutate(altered.data);
+    await assert.rejects(() => reprompt({ method: 'qimen', result: altered, question: '继续问' }));
   }
+  await assert.rejects(() => calculate('qimen', { question: '问题', range: { ...rain, pillars: { ...pillars, hour: '甲子' } } }));
+  await assert.rejects(() => calculate('qimen', { question: '问题', range: { ...rain, end: '2024-02-19T05:00:01Z' } }));
+  await assert.rejects(() => calculate('qimen', { question: '问题', range: { ...rain, start: '2024-02-19T03:00:00.500Z' } }));
+  await assert.rejects(() => calculate('qimen', { question: '问题', range: rain, divinationTime: rain.start }));
+  await assert.rejects(() => calculate('qimen', { question: '问题', range: rain, qimen: { timeStandard: 'true-solar' } }));
 });
 
-test('节气后五日和十日阶段边界按整秒切分', () => {
+test('Worker HTTP 和 MCP 接收范围并可基于原区间追问', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'qimen' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(body) }), env);
+  const input = { question: '问题', currentTime, range: rain, qimen: { method: 'feipan', scope: 'hour' } };
+  const response = await send('/api/calculate', { method: 'qimen', input });
+  assert.equal(response.status, 200);
+  const saved = await response.json();
+  const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'qimen', arguments: input } });
+  assert.equal(mcp.status, 200);
+  assert.deepEqual((await mcp.json()).result.structuredContent.data, saved.data);
+  assert.equal((await send('/api/prompt', { method: 'qimen', result: saved, question: '继续问' })).status, 200);
+});
+
+test('真太阳时范围逐秒覆盖修正时辰与日界，并保留真实交节', async () => {
   const cases = [
-    {
-      start: '2024-02-24 12:13:11',
-      end: '2024-02-24 12:13:13',
-      phases: ['上元', '中元'],
-    },
-    {
-      start: '2024-02-29 12:13:11',
-      end: '2024-02-29 12:13:13',
-      phases: ['中元', '下元'],
-    },
-  ] as const;
-
-  for (const { start, end, phases } of cases) {
-    const range = rangeFor(sourceFor(start, end), { scope: 'hour' });
-    assert.equal(range.branches.length, 2);
-    assert.deepEqual(
-      range.branches.map(({ data }) => data.seasonality?.jieQiPhase.phase),
-      phases,
-    );
+    { start: '2024-02-19T03:00:00Z', longitude: 116.4 },
+    { start: '2024-02-04T15:00:00Z', longitude: 120 },
+    { start: '2024-06-20T14:00:00Z', longitude: -180 },
+    { start: '2024-12-21T09:00:00Z', longitude: 180 },
+    { start: '2025-01-01T00:00:00Z', longitude: -73.9 },
+  ];
+  for (const { start, longitude } of cases) {
+    const from = Date.parse(start), end = from + 2 * 3_600_000;
+    const input = { question: '问题', currentTime, range: { start, end: new Date(end).toISOString() }, qimen: { timeStandard: 'true-solar', longitude } };
+    const result = await calculate('qimen', input);
+    const data = result.data as any;
+    assert.match(result.prompt.text, /真太阳时/);
+    for (const branch of data.branches) {
+      const single = await calculate('qimen', { question: '问题', currentTime, divinationTime: new Date(branch.startTimestamp).toISOString(), qimen: input.qimen });
+      assert.deepEqual(branch.data, single.data);
+      assert.equal(branch.moonPhaseEvidence.start.utcTimestamp, branch.startTimestamp);
+      assert.equal(branch.moonPhaseEvidence.end.utcTimestamp, branch.endTimestamp - 1000);
+    }
+    // Independent second-by-second check of all four pillars catches misplaced or missing cuts.
+    for (let t = from; t < end; t += 1000) {
+      const branch = data.branches.find((item: any) => item.startTimestamp <= t && t < item.endTimestamp);
+      assert.ok(branch, `${start}/${longitude}/${t}`);
+      const corrected = getDivinationTime(new Date(trueSolarTime(new Date(t), longitude).effectiveTimestamp)).ganzhi;
+      const actual = getDivinationTime(new Date(t)).ganzhi;
+      assert.deepEqual(branch.data.ganzhi, { ...corrected, year: actual.year, month: actual.month }, `${start}/${longitude}/${t}`);
+    }
+  }
+  const result = await calculate('qimen', { question: '问题', currentTime, range: rain, qimen: { timeStandard: 'true-solar', longitude: 116.4 } });
+  const branches = (result.data as any).branches;
+  assert.deepEqual(branches.map((item: any) => item.startTimestamp), [Date.parse(rain.start), Date.parse('2024-02-19T03:28:17Z'), Date.parse('2024-02-19T04:13:12Z')]);
+  const saved = JSON.parse(JSON.stringify(result));
+  assert.match((await reprompt({ method: 'qimen', result: saved, question: '继续问' })).prompt.text, /继续问/);
+  saved.data.branches[1].data.timeContext.longitude = 0;
+  await assert.rejects(() => reprompt({ method: 'qimen', result: saved, question: '继续问' }));
+  for (const scope of ['hour', 'day', 'month', 'year']) for (const method of ['zhuanpan', 'feipan']) {
+    const scoped = await calculate('qimen', { question: '问题', currentTime, range: rain, qimen: { scope, method, timeStandard: 'true-solar', longitude: 116.4 } });
+    for (const branch of (scoped.data as any).branches) {
+      const single = await calculate('qimen', { question: '问题', currentTime, divinationTime: new Date(branch.startTimestamp).toISOString(), qimen: { scope, method, timeStandard: 'true-solar', longitude: 116.4 } });
+      assert.deepEqual(branch.data, single.data);
+    }
   }
 });
 
-test('排盘方法、级别和定局方法透传到每个分支', () => {
-  const source = sourceFor('2024-02-19 09:00:00', '2024-02-19 11:00:00');
-  const range = rangeFor(source, { method: 'feipan', scope: 'day', juMethod: 'zhirun' });
-
-  assert.equal(range.branches.length, 1);
-  assert.equal(range.branches[0]?.data.method, 'feipan');
-  assert.equal(range.branches[0]?.data.scope, 'day');
-  assert.equal(range.branches[0]?.data.juMethod, 'zhirun');
-});
-
-test('一月的自然日阶段纳入上一年冬至后十日边界', () => {
-  const boundary = calculateSolarTermEvidence(2024, 0).utcTimestamp + 10 * 86_400_000;
-  const beijingText = (timestamp: number) =>
-    new Date(timestamp + 8 * 3_600_000).toISOString().slice(0, 19).replace('T', ' ');
-  assert.ok(beijingText(boundary).startsWith('2024-01-01 '));
-  const range = rangeFor(sourceFor(beijingText(boundary - 1_000), beijingText(boundary + 1_000)));
-  assert.deepEqual(
-    range.branches.map(({ data }) => data.seasonality?.jieQiPhase.phase),
-    ['中元', '下元'],
-  );
-  assert.equal(range.branches[0]?.endTimestamp, boundary);
-  assert.equal(range.branches[1]?.startTimestamp, boundary);
-});
-
-test('范围格式化保留分支、月相参照和北京时间半开语义', () => {
-  const range = rangeFor(RAIN_WATER_SOURCE, { scope: 'hour' });
-  assert.equal(
-    formatQimenRangeInterval(RAIN_WATER_SOURCE.startTimestamp!, RAIN_WATER_SOURCE.endTimestamp!),
-    '北京时间 2024-02-19 11:00:00 至 2024-02-19 13:00:00（起点含、终点不含）',
-  );
-  const facts = formatQimenRangeFacts(range);
-  assert.match(facts, /分支1：北京时间 2024-02-19 11:00:00 至 2024-02-19 12:13:12/u);
-  assert.match(facts, /分支2：北京时间 2024-02-19 12:13:12 至 2024-02-19 13:00:00/u);
-  assert.match(facts, /交节后自然日阶段：/u);
-  assert.match(facts, /月相参照（起止采样）/u);
-  assert.match(formatQimenRangeContext(range), /各段起点与终点前一秒参照/u);
-});
-
-test('范围来源坚持完整机器边界、文本一致和两小时上限', () => {
-  assert.equal(isQimenRangeSource(RAIN_WATER_SOURCE), true);
-  const oldSource: BaziReverseSource = {
-    pillars: RAIN_WATER_SOURCE.pillars,
-    intervalStart: RAIN_WATER_SOURCE.intervalStart,
-    intervalEnd: RAIN_WATER_SOURCE.intervalEnd,
-  };
-  assert.equal(isQimenRangeSource(oldSource), false);
-  assert.throws(() => rangeFor(oldSource), /完整的北京时间半开机器区间/u);
-  assert.throws(
-    () => rangeFor({ ...RAIN_WATER_SOURCE, intervalEnd: '2024-02-19 13:00:01' }),
-    /文本边界与时间戳不一致/u,
-  );
-  assert.throws(
-    () =>
-      rangeFor({
-        ...RAIN_WATER_SOURCE,
-        intervalEnd: '2024-02-19 13:01:00',
-        endTimestamp: beijingTimestamp('2024-02-19 13:01:00'),
-      }),
-    /两小时上限/u,
-  );
-  assert.throws(
-    () =>
-      generateQimenRange({
-        source: RAIN_WATER_SOURCE,
-        representativeDate: new Date(RAIN_WATER_SOURCE.startTimestamp! + 1_000),
-      }),
-    /代表时间必须等于四柱候选区间起点/u,
-  );
-});
-
-test('起止端点的四柱必须始终与反推来源一致', () => {
-  assert.throws(
-    () =>
-      rangeFor({
-        ...RAIN_WATER_SOURCE,
-        pillars: { ...RAIN_WATER_SOURCE.pillars, hour: '甲子' },
-      }),
-    /起点的干支与四柱候选来源不一致/u,
-  );
-  assert.throws(
-    () =>
-      rangeFor({
-        ...RAIN_WATER_SOURCE,
-        startTimestamp: RAIN_WATER_SOURCE.startTimestamp! + 500,
-        intervalStart: '2024-02-19 11:00:00',
-      }),
-    /完整的北京时间半开机器区间/u,
-  );
+test('Worker HTTP 和 MCP 使用相同的真太阳时范围盘与追问', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'qimen' };
+  const send = (path: string, body: unknown) => worker.fetch(new Request(`https://local${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(body) }), env);
+  const input = { question: '问题', currentTime, range: rain, qimen: { timeStandard: 'true-solar', longitude: 116.4 } };
+  const response = await send('/api/calculate', { method: 'qimen', input });
+  assert.equal(response.status, 200);
+  const saved = await response.json();
+  const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'qimen', arguments: input } });
+  assert.equal(mcp.status, 200);
+  assert.deepEqual((await mcp.json()).result.structuredContent.data, saved.data);
+  assert.equal((await send('/api/prompt', { method: 'qimen', result: saved, question: '继续问' })).status, 200);
 });

@@ -1,0 +1,17 @@
+{
+  "source": "2026-11-15 工作区旧核心运行结果；迁移回归基线，不代表独立校对后的术数权威答案",
+  "baziPillars": ["庚午", "辛巳", "庚辰", "癸未"],
+  "liuyao": { "originalName": "泽水困", "changedName": "水泽节", "yaos": [6, 7, 8, 9, 7, 8] },
+  "tarot": [
+    { "id": 46, "name": "圣杯十", "position": "过去", "reversed": false },
+    { "id": 30, "name": "权杖八", "position": "现在", "reversed": true },
+    { "id": 43, "name": "圣杯七", "position": "未来", "reversed": false }
+  ],
+  "xiaoliuren": { "common": "小吉", "duoneng": "空亡" },
+  "qimen": { "juShu": 7, "isYangDun": true, "zhiFu": "天任", "zhiShi": "生门" },
+  "lenormand": [
+    { "id": 28, "name": "男士", "position": "起因" },
+    { "id": 4, "name": "房子", "position": "现状" },
+    { "id": 12, "name": "鸟", "position": "走向" }
+  ]
+}
