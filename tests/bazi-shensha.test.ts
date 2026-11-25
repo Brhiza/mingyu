@@ -448,20 +448,44 @@ test('天德合在落地支的月份也应能正确命中', () => {
   assert.ok(!result.hour.includes('天德合'));
 });
 
-test('元辰对阳男阴女应取年支相冲之前一位，不应取后一位', () => {
+test('元辰对阳男阴女应取年支相冲之前一位（顺数7位），阴男阳女取冲后一位（顺数5位）', () => {
   const calculator = new ShenShaCalculator();
-  const result = calculator.calculateAllShenSha(
+  // 甲子阳男：子冲午，冲前一位为未，不应为巳
+  const yangMale = calculator.calculateAllShenSha(
     [
       ['甲', '子'],
       ['丙', '寅'],
-      ['庚', '午'],
-      ['丁', '巳'],
+      ['己', '巳'],
+      ['辛', '未'],
     ],
     'male',
   );
+  assert.ok(yangMale.hour.includes('元辰'));
+  assert.ok(!yangMale.day.includes('元辰'));
 
-  assert.ok(result.hour.includes('元辰'));
-  assert.ok(!result.month.includes('元辰'));
+  // 庚辰阳男：辰冲戌，冲前一位为亥，时支酉不应为元辰
+  const gengChenMale = calculator.calculateAllShenSha(
+    [
+      ['庚', '辰'],
+      ['戊', '寅'],
+      ['乙', '丑'],
+      ['乙', '酉'],
+    ],
+    'male',
+  );
+  assert.ok(!gengChenMale.hour.includes('元辰'));
+
+  // 庚辰阳女：辰冲戌，冲后一位为酉
+  const gengChenFemale = calculator.calculateAllShenSha(
+    [
+      ['庚', '辰'],
+      ['戊', '寅'],
+      ['乙', '丑'],
+      ['乙', '酉'],
+    ],
+    'female',
+  );
+  assert.ok(gengChenFemale.hour.includes('元辰'));
 });
 
 test('童子煞应只按日支或时支查，不应把年柱月柱也算进去', () => {
@@ -3234,7 +3258,7 @@ test('五行精纪点头杀与无形鬼应按日时固定干支旁证取用', ()
         ['甲', '子'],
         ['乙', '丑'],
         ['戊', '寅'],
-        ['癸', '巳'],
+        ['辛', '未'],
       ],
       'male',
     );

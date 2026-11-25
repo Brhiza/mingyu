@@ -705,7 +705,8 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   });
   const annualPalace = (offset: number) => cdz[(zhiIdx(nianZhi) + offset + 12) % 12] === zhi;
   const nianGanIsYang = ctg.indexOf(nianGan) % 2 === 0;
-  const yuanChenOffset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 5 : 7;
+  // 阳男阴女取年支对冲前一位（顺数7位），阴男阳女取对冲后一位（顺数5位）
+  const yuanChenOffset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 7 : 5;
   const yuanChenBranch = cdz[(zhiIdx(nianZhi) + yuanChenOffset + 12) % 12];
   const hasYuanChen = baziArray.some((pillar) => pillar[1] === yuanChenBranch);
   const chiXiaoMonthBranch = cdz[(zhiIdx(nianZhi) + 2) % 12];
