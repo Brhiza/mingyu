@@ -40,6 +40,226 @@ const roles = {
 } as const;
 const schools = { sanhe: '三合：结合两盘同支宫位及各自三方四正核对。', feixing: '飞星：分别核对两人本命宫干四化，并按来源宫干将化星定位到对方本命盘；跨盘定位不等于本盘自化。', sihua: '四化：区分来源方的生年四化与对方同名星曜的实际落宫。', zhongzhou: '中州：兼看双方对宫借星、夹宫与双星组合的跨盘呼应。' } as const;
 const stars = (palace: Natal['palaces'][number]) => [...palace.majorStars, ...palace.minorStars, ...palace.adjectiveStars];
+const AUSPICIOUS_RELIEF_STARS = new Set(['禄存', '左辅', '右弼', '天魁', '天钺', '文昌', '文曲']);
+const SELF_KEY_PALACES = new Set(['命', '夫妻', '财帛', '官禄', '福德', '田宅']);
+const RELATION_FOCUS_PALACES: Record<keyof typeof roles, string[]> = {
+  marriage: ['命', '夫妻', '福德'],
+  career: ['命', '官禄', '财帛', '交友'],
+  friendship: ['命', '交友', '福德'],
+  children: ['命', '子女', '田宅'],
+  parents: ['命', '父母', '田宅'],
+  siblings: ['命', '兄弟', '田宅'],
+};
+
+function normalizeZiweiPalaceName(name: string): string {
+  const bare = name.endsWith('宫') ? name.slice(0, -1) : name;
+  return bare === '仆役' ? '交友' : bare;
+}
+
+export interface ZiweiSynastryJiModulation {
+  direction: 'person1->person2' | 'person2->person1';
+  sourceType: '宫干飞忌' | '生年化忌';
+  sourcePalace: string;
+  star: string;
+  targetPalace: string;
+  targetBranch: string;
+  targetBody: boolean;
+  status: '有缓解' | '无明解';
+  reliefFactors: string[];
+}
+
+export interface ZiweiSynastryFlyingBalance {
+  relationship: keyof typeof roles;
+  luPattern: '双向互禄' | '单向付出（第一人→第二人）' | '单向付出（第二人→第一人）' | '未见核心宫位互禄';
+  p1ToP2Lu: string[];
+  p2ToP1Lu: string[];
+  jiModulations: ZiweiSynastryJiModulation[];
+  coreOverlays: string[];
+}
+
+export function buildZiweiSynastryFlyingBalance(
+  first: Natal,
+  second: Natal,
+  relationship: keyof typeof roles,
+  crossFlyingInput?: ReturnType<typeof locateCrossFlying>,
+  crossMutagensInput?: ReturnType<typeof compatibility>['crossMutagens'],
+): ZiweiSynastryFlyingBalance {
+  const crossFlying = crossFlyingInput ?? locateCrossFlying(first, second);
+  const crossMutagens = crossMutagensInput ?? compatibility(first, second).crossMutagens;
+  const focusSet = new Set(RELATION_FOCUS_PALACES[relationship] ?? ['命', '夫妻']);
+  const targetKeySet = new Set([...SELF_KEY_PALACES, ...focusSet]);
+  const natals: Record<PersonId, Natal> = { person1: first, person2: second };
+
+  const isSourceFocus = (palaceName: string, person: PersonId) => {
+    const norm = normalizeZiweiPalaceName(palaceName);
+    if (focusSet.has(norm)) return true;
+    const palace = natals[person].palaces.find((p) => normalizeZiweiPalaceName(p.name) === norm);
+    return Boolean(palace?.isBodyPalace);
+  };
+
+  const isTargetKey = (palaceName: string, isBody: boolean) =>
+    isBody || targetKeySet.has(normalizeZiweiPalaceName(palaceName));
+
+  // 1. 双向飞禄与生年化禄统计（核心来源宫 -> 对方关键宫）
+  const p1ToP2Lu: string[] = [];
+  const p2ToP1Lu: string[] = [];
+
+  for (const path of crossFlying.paths) {
+    if (path.mutagen !== '禄') continue;
+    if (!isSourceFocus(path.sourcePalace, path.sourcePerson) || !isTargetKey(path.targetPalace, path.targetBody)) continue;
+    const label = `${path.sourcePalace}飞禄(${path.star})→${path.targetPalace}${path.targetBody ? '(身)' : ''}`;
+    if (path.sourcePerson === 'person1') p1ToP2Lu.push(label);
+    else p2ToP1Lu.push(label);
+  }
+  for (const item of crossMutagens) {
+    if (item.mutagen !== '禄') continue;
+    if (!isTargetKey(item.targetPalace, item.targetBody)) continue;
+    const label = `生年化禄(${item.star})入${item.targetPalace}${item.targetBody ? '(身)' : ''}`;
+    if (item.sourcePerson === 'person1') p1ToP2Lu.push(label);
+    else p2ToP1Lu.push(label);
+  }
+
+  const luPattern: ZiweiSynastryFlyingBalance['luPattern'] =
+    p1ToP2Lu.length > 0 && p2ToP1Lu.length > 0
+      ? '双向互禄'
+      : p1ToP2Lu.length > 0
+        ? '单向付出（第一人→第二人）'
+        : p2ToP1Lu.length > 0
+          ? '单向付出（第二人→第一人）'
+          : '未见核心宫位互禄';
+
+  // 2. 飞忌/生年忌落入关键宫位时的缓解核查（飞禄/飞科/本命吉星吉化）
+  const findTargetPalaceRelief = (targetPerson: PersonId, targetPalaceName: string, targetBranch: string): string[] => {
+    const factors: string[] = [];
+    const targetNorm = normalizeZiweiPalaceName(targetPalaceName);
+
+    // 跨盘飞禄/飞科落入同一目标宫位
+    for (const p of crossFlying.paths) {
+      if (
+        p.targetPerson === targetPerson &&
+        (p.mutagen === '禄' || p.mutagen === '科') &&
+        p.targetBranch === targetBranch &&
+        isSourceFocus(p.sourcePalace, p.sourcePerson)
+      ) {
+        factors.push(`对方${p.sourcePalace}飞${p.mutagen}(${p.star})同宫缓解`);
+      }
+    }
+    // 跨盘生年化禄/化科落入同一目标宫位
+    for (const m of crossMutagens) {
+      if (
+        m.targetPerson === targetPerson &&
+        (m.mutagen === '禄' || m.mutagen === '科') &&
+        m.targetEarthlyBranch === targetBranch
+      ) {
+        factors.push(`对方生年化${m.mutagen}(${m.star})同宫缓解`);
+      }
+    }
+    // 目标宫位本命吉星/吉化
+    const palace = natals[targetPerson].palaces.find(
+      (p) => p.earthlyBranch === targetBranch || normalizeZiweiPalaceName(p.name) === targetNorm,
+    );
+    if (palace) {
+      const allStars = stars(palace);
+      const natalGoodMutagens = allStars
+        .filter((s) => s.mutagen === '禄' || s.mutagen === '权' || s.mutagen === '科')
+        .map((s) => `本命${s.name}化${s.mutagen}`);
+      const natalGoodStars = allStars
+        .filter((s) => AUSPICIOUS_RELIEF_STARS.has(s.name))
+        .map((s) => `本命${s.name}`);
+      factors.push(...natalGoodMutagens, ...natalGoodStars);
+    }
+
+    return [...new Set(factors)];
+  };
+
+  const jiModulations: ZiweiSynastryJiModulation[] = [];
+  const seenJi = new Set<string>();
+
+  for (const path of crossFlying.paths) {
+    if (path.mutagen !== '忌') continue;
+    if (!isSourceFocus(path.sourcePalace, path.sourcePerson) || !isTargetKey(path.targetPalace, path.targetBody)) continue;
+    const key = `fly:${path.sourcePerson}:${path.sourcePalace}:${path.star}:${path.targetBranch}`;
+    if (seenJi.has(key)) continue;
+    seenJi.add(key);
+    const reliefFactors = findTargetPalaceRelief(path.targetPerson, path.targetPalace, path.targetBranch);
+    jiModulations.push({
+      direction: path.sourcePerson === 'person1' ? 'person1->person2' : 'person2->person1',
+      sourceType: '宫干飞忌',
+      sourcePalace: path.sourcePalace,
+      star: path.star,
+      targetPalace: path.targetPalace,
+      targetBranch: path.targetBranch,
+      targetBody: path.targetBody,
+      status: reliefFactors.length > 0 ? '有缓解' : '无明解',
+      reliefFactors,
+    });
+  }
+
+  for (const item of crossMutagens) {
+    if (item.mutagen !== '忌') continue;
+    if (!isTargetKey(item.targetPalace, item.targetBody)) continue;
+    const key = `birth:${item.sourcePerson}:${item.star}:${item.targetEarthlyBranch}`;
+    if (seenJi.has(key)) continue;
+    seenJi.add(key);
+    const reliefFactors = findTargetPalaceRelief(item.targetPerson, item.targetPalace, item.targetEarthlyBranch);
+    jiModulations.push({
+      direction: item.sourcePerson === 'person1' ? 'person1->person2' : 'person2->person1',
+      sourceType: '生年化忌',
+      sourcePalace: item.sourcePalace,
+      star: item.star,
+      targetPalace: item.targetPalace,
+      targetBranch: item.targetEarthlyBranch,
+      targetBody: item.targetBody,
+      status: reliefFactors.length > 0 ? '有缓解' : '无明解',
+      reliefFactors,
+    });
+  }
+
+  // 3. 关系核心宫位同支叠合呼应
+  const byBranchSecond = new Map(second.palaces.map((p) => [p.earthlyBranch, p]));
+  const coreOverlays: string[] = [];
+  for (const p1 of first.palaces) {
+    const p2 = byBranchSecond.get(p1.earthlyBranch);
+    if (!p2) continue;
+    const hit1 = focusSet.has(normalizeZiweiPalaceName(p1.name)) || p1.isBodyPalace;
+    const hit2 = focusSet.has(normalizeZiweiPalaceName(p2.name)) || p2.isBodyPalace;
+    if (!hit1 && !hit2) continue;
+    const s1 = p1.majorStars.map((s) => s.name).join('、') || '空宫';
+    const s2 = p2.majorStars.map((s) => s.name).join('、') || '空宫';
+    coreOverlays.push(
+      `第一人${p1.name}${p1.isBodyPalace ? '(身)' : ''}（${s1}）叠第二人${p2.name}${p2.isBodyPalace ? '(身)' : ''}（${s2}）于${p1.earthlyBranch}宫`,
+    );
+  }
+
+  return {
+    relationship,
+    luPattern,
+    p1ToP2Lu,
+    p2ToP1Lu,
+    jiModulations,
+    coreOverlays,
+  };
+}
+
+function formatZiweiSynastryFlyingBalance(balance: ZiweiSynastryFlyingBalance, people: Record<PersonId, string>): string {
+  const replaceNames = (text: string) =>
+    text.replace(/第一人/g, people.person1).replace(/第二人/g, people.person2);
+  const luLine = `- 互禄与付出方向：${replaceNames(balance.luPattern)}；${people.person1}→${people.person2}：${balance.p1ToP2Lu.slice(0, 4).join('、') || '无核心宫位飞禄'}；${people.person2}→${people.person1}：${balance.p2ToP1Lu.slice(0, 4).join('、') || '无核心宫位飞禄'}。`;
+
+  const jiLines = balance.jiModulations.length
+    ? balance.jiModulations.slice(0, 8).map((item) => {
+        const from = item.direction === 'person1->person2' ? people.person1 : people.person2;
+        const to = item.direction === 'person1->person2' ? people.person2 : people.person1;
+        const relief = item.reliefFactors.length
+          ? `［${item.status}：${item.reliefFactors.slice(0, 4).join('、')}］`
+          : `［${item.status}：未见同宫飞禄/飞科或本命吉星吉化缓冲］`;
+        return `${from}${item.sourcePalace}${item.sourceType}(${item.star})→${to}${item.targetPalace}${item.targetBody ? '(身)' : ''}(${item.targetBranch})${relief}`;
+      })
+    : ['未检出核心宫位飞忌或生年化忌直入对方关键宫位'];
+
+  const overlayLine = `- 核心宫位叠合：${balance.coreOverlays.slice(0, 6).map(replaceNames).join('；') || '无'}。`;
+  return [luLine, `- 飞忌冲击与缓解制衡：${jiLines.join('；')}。`, overlayLine].join('\n');
+}
 
 function direction(from: PersonId, to: PersonId, source: Natal, target: Natal) {
   const byBranch = new Map(target.palaces.map((palace) => [palace.earthlyBranch, palace]));
@@ -135,8 +355,27 @@ async function calculateData(input: Source) {
   const first = await person(source.person1), second = await person(source.person2);
   const shouldCompare = input.compareCandidates ?? (!!input.comparisonPage || !first.chosen || !second.chosen);
   if (!shouldCompare && (!first.chosen || !second.chosen)) throw new Error('不比较全部候选时，须为出生时间不确定者指定候选。');
-  const selected = first.chosen && second.chosen ? { person1Index: first.chosen.index, person2Index: second.chosen.index, natal: { person1: first.chosen.chart.natal, person2: second.chosen.chart.natal }, evidence: { ...compatibility(first.chosen.chart.natal, second.chosen.chart.natal),
-    ...(input.prompt?.schools?.includes('feixing') ? { crossFlying: locateCrossFlying(first.chosen.chart.natal, second.chosen.chart.natal) } : {}) } } : null;
+  const selected = first.chosen && second.chosen ? (() => {
+    const baseEvidence = compatibility(first.chosen.chart.natal, second.chosen.chart.natal);
+    const crossFlyingAll = locateCrossFlying(first.chosen.chart.natal, second.chosen.chart.natal);
+    const flyingBalance = buildZiweiSynastryFlyingBalance(
+      first.chosen.chart.natal,
+      second.chosen.chart.natal,
+      source.relationship,
+      crossFlyingAll,
+      baseEvidence.crossMutagens,
+    );
+    return {
+      person1Index: first.chosen.index,
+      person2Index: second.chosen.index,
+      natal: { person1: first.chosen.chart.natal, person2: second.chosen.chart.natal },
+      evidence: {
+        ...baseEvidence,
+        flyingBalance,
+        ...(input.prompt?.schools?.includes('feixing') ? { crossFlying: crossFlyingAll } : {}),
+      },
+    };
+  })() : null;
   const horoscopeComparison = selected && input.referenceTime ? {
     referenceTime: input.referenceTime,
     person1: buildPersonHoroscope(first.chosen!.chart),
@@ -252,10 +491,15 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     : data.input.syncYears
       ? '【多年大限与流年同步】\n尚未选定双方出生候选；选定双方候选后可查看。'
       : '';
-  const text = [`【紫微双人合盘】\n${people.person1}与${people.person2}；双方候选区间及摘要见结构化结果，选定双盘时包含各自本命盘。`, chosen, crossFlying, horoscopeText, syncText, comparing,
+  const flyingBalanceText = selected
+    ? `【双向飞化与宫位制衡关系】\n${formatZiweiSynastryFlyingBalance(selected.evidence.flyingBalance, people)}`
+    : '';
+  const g1 = data.input.person1.gender === 'male' ? '（男）' : data.input.person1.gender === 'female' ? '（女）' : '';
+  const g2 = data.input.person2.gender === 'male' ? '（男）' : data.input.person2.gender === 'female' ? '（女）' : '';
+  const text = [`【紫微双人合盘】\n${people.person1}${g1}与${people.person2}${g2}；双方候选区间及摘要见结构化结果，选定双盘时包含各自本命盘。`, chosen, flyingBalanceText, crossFlying, horoscopeText, syncText, comparing,
     schoolText ? `【解读口径】\n${schoolText}` : '', classics,
     situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
-    `【${task.label}任务】\n${task.task} 区分盘面定位、传统取象和现实资料；资料不足时明确待核。`,
+    `【${task.label}任务】\n${task.task} 区分盘面定位、传统取象和现实资料；资料缺项时按已列双盘事实作条件说明。`,
     `【限制】\n${data.limitation}\n同支宫位与跨盘四化不代表关系结果；未命中也不代表有利或不利。`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }

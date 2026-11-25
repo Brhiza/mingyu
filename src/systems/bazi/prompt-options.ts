@@ -17,7 +17,7 @@ export const baziTopics: Record<Topic, { label: string; focus: string; task: str
   marriage: { label: '婚恋', focus: '日支及相关十神、已列合冲刑害', task: '结合双方实际相处方式讨论婚恋主题，不推断对方意图。' },
   relationship: { label: '关系', focus: '日支及相关十神、已列合冲刑害', task: '结合已知互动、需求和边界讨论关系问题。' },
   'relationship-push': { label: '关系推进', focus: '日支、相关十神和已列合冲', task: '讨论沟通、节奏、双方意愿与需要核实的条件。' },
-  'relationship-decision': { label: '关系去留', focus: '日支与实际列出的关系结构', task: '比较不同选择的现实条件、边界与待核实信息。' },
+  'relationship-decision': { label: '关系去留', focus: '日支与实际列出的关系结构', task: '比较不同选择的现实条件、边界与需补充确认的现实信息。' },
   'reconciliation-decision': { label: '复合判断', focus: '日支及已列合冲刑害', task: '围绕分歧原因、双方意愿与实际改变分析，不预设复合结果。' },
   children: { label: '子女', focus: '时柱、食伤及相关十神', task: '结合亲子关系和已知家庭情况讨论；时柱不确定时分别说明候选差异。' },
   family: { label: '家庭与六亲', focus: '年柱、月柱、时柱、六亲十神及柱间关系', task: '结合家庭成员的实际互动与居住情况分析。' },
@@ -36,9 +36,9 @@ export const baziTopics: Record<Topic, { label: string; focus: string; task: str
 export const baziSchoolIds = ['ziping', 'mangpai', 'xinpai', 'tiaohou', 'geju'] as const;
 type School = typeof baziSchoolIds[number];
 export const baziSchools: Record<School, { label: string; task: string }> = {
-  ziping: { label: '子平派', task: '从月令、透干、根气及已列关系入手；旺衰、化气和普通格局成败仅按所列条件模型判断，其他特殊格、完整成败与用神另列待核。' },
+  ziping: { label: '子平派', task: '从月令、透干、根气、格局成败与用神权衡入手，结合所列模型结论说明主次依据与岁运切换条件。' },
   mangpai: { label: '盲派', task: '从四柱宾主宫位、体用十神与柱间合冲穿墓库做功路径切入；仅把所列关系视为做功依据，做功效率与反制需结合岁运核实。' },
-  xinpai: { label: '新派', task: '从月令、五行紧贴作用、旬空落支与天干虚实（百神论）观察原局与岁运层级；扶抑喜忌尚未计算时明确待核。' },
+  xinpai: { label: '新派', task: '从月令、五行紧贴作用、旬空落支与天干虚实（百神论）观察原局与岁运层级，并对照扶抑喜忌给出明确作用方向。' },
   tiaohou: { label: '调候派', task: '以《穷通宝鉴》寒暖燥湿为先，优先核对月令节气气候与调候用神是否透藏得力。' },
   geju: { label: '古法格局派', task: '以《子平真诠》月令立格、司权透干及相神救应为主线，区分顺用逆用与成败制化。' },
 };
@@ -48,5 +48,5 @@ export function baziPromptTask(options: { topic?: Topic; schools?: School[] } | 
   const schools = [...new Set(options?.schools ?? [])].map((id) => `${baziSchools[id].label}：${baziSchools[id].task}`);
   return [`【主题：${topic.label}】\n核对重点：${topic.focus}。${topic.task}`,
     schools.length ? `【解读口径】\n${schools.join('\n')}\n不同口径各自说明依据和差异。` : '',
-    '只使用本次列出的盘面和时间层级；资料不足的项目标为待核，不虚构结果。'].filter(Boolean).join('\n\n');
+    '只使用本次列出的盘面和时间层级；资料不足的项目明确说明前提与边界，不虚构结果。'].filter(Boolean).join('\n\n');
 }

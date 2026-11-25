@@ -154,16 +154,30 @@ export function getNineStarByIndex(index: number) {
   };
 }
 
-/** 值日九星（冬至后顺行、夏至后逆行）。 */
-export function getSolarDayNineStar(solarDay: SolarDay) {
+function getSolarDayNineStarAnchors(solarDay: SolarDay) {
   const year = solarDay.getYear();
   const anchorFor = (termYear: number, index: number) => {
     const termDay = SolarTerm.fromIndex(termYear, index).getSolarDay();
     return termDay.next(stepsCloseToJiazi(termDay.getLunarDay().getSixtyCycle().getIndex()));
   };
-  const winter = anchorFor(year, 0);
-  const summer = anchorFor(year, 12);
-  const nextWinter = anchorFor(year + 1, 0);
+  return {
+    winter: anchorFor(year, 0),
+    summer: anchorFor(year, 12),
+    nextWinter: anchorFor(year + 1, 0),
+  };
+}
+
+/** 值日九星是否处于阳遁顺行期（冬至前后最近甲子日起顺行，夏至前后最近甲子日起逆行）。 */
+export function isSolarDayNineStarYangDun(solarDay: SolarDay): boolean {
+  const { winter, summer, nextWinter } = getSolarDayNineStarAnchors(solarDay);
+  if (solarDay.isBefore(winter)) return false;
+  if (solarDay.isBefore(summer)) return true;
+  return !solarDay.isBefore(nextWinter);
+}
+
+/** 值日九星（冬至后顺行、夏至后逆行）。 */
+export function getSolarDayNineStar(solarDay: SolarDay) {
+  const { winter, summer, nextWinter } = getSolarDayNineStarAnchors(solarDay);
   if (solarDay.isBefore(winter)) return getNineStarByIndex(winter.subtract(solarDay) - 1);
   if (solarDay.isBefore(summer)) return getNineStarByIndex(solarDay.subtract(winter));
   return getNineStarByIndex(solarDay.isBefore(nextWinter) ? nextWinter.subtract(solarDay) - 1 : solarDay.subtract(nextWinter));

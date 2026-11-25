@@ -62,7 +62,7 @@ function calculateData(source: Source) {
       })),
     };
   }));
-  return { input, periodYears: uniqueYears, periodBoundary: uniqueYears.length > 1 ? '待核' as const : '已核定' as const, measurement, flow, charts,
+  return { input, periodYears: uniqueYears, periodBoundary: uniqueYears.length > 1 ? '交界双候选' as const : '已核定' as const, measurement, flow, charts,
     limitation: '本预览按所列运期与山向排盘；城门只计算盘面旺星到位，未核实实地可用性；不包含形峦或住宅合参。传统格局不单独证明现实结果。' };
 }
 type Data = ReturnType<typeof calculateData>;
@@ -89,48 +89,24 @@ const doubleStarNotes: Record<string, string> = {
   '89': '八九相生（婚喜庆典）', '98': '九八辅弼（添丁进财）',
   '59': '五九相聚（火生五黄毒煞）', '95': '九五相聚（廉贞烈火顽疾）',
 };
+const auspiciousDoubleKeys = new Set(['14', '41', '16', '61', '68', '86', '89', '98']);
+const inauspiciousDoubleKeys = new Set(['23', '32', '25', '52', '37', '73', '67', '76', '79', '97', '59', '95']);
 function starTimeliness(star: number, yun: number): string {
   if (star === yun) return '旺';
   const next1 = (yun % 9) + 1;
+  const next2 = ((yun + 1) % 9) + 1;
   const prev1 = ((yun - 2 + 9) % 9) + 1;
-  if (star === next1 || (yun === 8 && star === 9) || (yun === 9 && star === 2)) return '生';
-  if (star === prev1) return '退';
+  if (star === next1 && star !== 5) return '生';
+  if (star === next2 && star !== 5) return '进气';
+  if (star === prev1 && star !== 5) return '退';
   if (star === 5) return '五黄煞';
   if (star === 2) return '二黑病';
   return '失令';
 }
 function analyzeSpecialXuanKong(chart: Data['charts'][number]): string[] {
   const notes: string[] = [];
-  const yun = chart.period.yun;
-  const centerPalace = chart.palaces.find((p) => p.earth === 5);
-  if (centerPalace && centerPalace.water === yun) {
-    notes.push(`向首当令${yun}星入中「令星入囚」（财气受困，宜于向首或零神方见动水引通）`);
-  }
-  if (centerPalace && centerPalace.mountain === yun) {
-    notes.push(`坐山当令${yun}星入中「山方令星入囚」（丁气受制）`);
-  }
-  const shanHeShi = chart.palaces.every((p) => p.period + p.mountain === 10);
-  const xiangHeShi = chart.palaces.every((p) => p.period + p.water === 10);
   const shanXiangHeShi = chart.palaces.every((p) => p.mountain + p.water === 10);
-  if (shanHeShi) notes.push('全盘「运山合十」（丁星通气）');
-  if (xiangHeShi) notes.push('全盘「运向合十」（财星通气）');
-  if (shanXiangHeShi) notes.push('全盘「山向合十」（山水通气）');
-  const isParentSanBan = chart.palaces.every((p) => {
-    const s = [p.period, p.mountain, p.water].sort((a, b) => a - b).join('');
-    return s === '147' || s === '258' || s === '369';
-  });
-  const isLianZhuSanBan = chart.palaces.every((p) => {
-    const s = [p.period, p.mountain, p.water].sort((a, b) => a - b).join('');
-    return ['123', '234', '345', '456', '567', '678', '789', '189', '129'].includes(s);
-  });
-  if (isParentSanBan) notes.push('全盘「父母三般卦」（一四七、二五八、三六九三元通气）');
-  if (isLianZhuSanBan) notes.push('全盘「连珠三般卦」（宫宫三数连珠）');
-  const shanFuYin = chart.palaces.every((p) => p.mountain === p.earth);
-  const xiangFuYin = chart.palaces.every((p) => p.water === p.earth);
-  const shanFanYin = chart.palaces.every((p) => p.mountain + p.earth === 10);
-  const xiangFanYin = chart.palaces.every((p) => p.water + p.earth === 10);
-  if (shanFuYin || xiangFuYin) notes.push(`「${shanFuYin ? '山盘' : ''}${xiangFuYin ? '向盘' : ''}伏吟」`);
-  if (shanFanYin || xiangFanYin) notes.push(`「${shanFanYin ? '山盘' : ''}${xiangFanYin ? '向盘' : ''}反吟」（忌形峦冲射）`);
+  if (shanXiangHeShi) notes.push('山向合十（夫妇合十·山水通气）');
   return notes;
 }
 const YEAR_STAR_TAGS: Record<number, string> = {
@@ -142,8 +118,81 @@ const YEAR_STAR_TAGS: Record<number, string> = {
   6: '六白武曲',
   7: '七赤破军',
   8: '八白财星',
-  9: '九紫当旺',
+  9: '九紫喜庆',
 };
+
+function buildXuankongPatternRelations(data: Data): string {
+  const lines: string[] = [];
+  for (const [index, chart] of data.charts.entries()) {
+    const yun = chart.period.yun;
+    const prefix = data.charts.length > 1 ? `候选盘${index + 1}（${chart.period.yun}运${chart.sitMountain}山${chart.facingMountain}向）` : `${chart.period.yun}运${chart.sitMountain}山${chart.facingMountain}向`;
+    const activeGates = chart.castleGate.candidates.filter((c) => c.status === '旺星到位').map((c) => `${c.role}${c.mountain}方（${c.gongName}宫，到星${c.arrivalStar}）`);
+    const formationRule: Record<string, string> = {
+      旺山旺向: '当令山星到坐、向星到向，丁财双旺，忌坐空向实',
+      上山下水: '当令山星到向、向星到坐，丁财失位，须借形峦倒骑龙或合十/三般卦/城门救应',
+      双星到向: '当令山向双星齐聚向首，旺财而坐山丁气偏弱，宜向首见水背后有靠',
+      双星到坐: '当令山向双星齐聚坐山，旺丁而向首财气偏弱，宜借零神方或城门引水催财',
+    };
+    lines.push(
+      `${prefix}格局定位：${chart.formation}（${formationRule[chart.formation] ?? '替卦变局，按各宫当令星核验'}）；可用城门：${activeGates.join('、') || '盘面无可用城门'}。`,
+    );
+
+    const thriving: string[] = [];
+    const shaZones: string[] = [];
+    const remedyHints = new Set<string>();
+    for (const p of chart.palaces) {
+      const mTime = starTimeliness(p.mountain, yun);
+      const wTime = starTimeliness(p.water, yun);
+      const pairKey = `${p.mountain}${p.water}`;
+      const hasFive = p.mountain === 5 || p.water === 5 || p.yearStar === 5;
+      const hasTwo = p.mountain === 2 || p.water === 2 || p.yearStar === 2;
+      const isGoodTime = (t: string) => t === '旺' || t === '生' || t === '进气';
+
+      if ((isGoodTime(mTime) || isGoodTime(wTime) || auspiciousDoubleKeys.has(pairKey)) && !hasFive && !(hasTwo && yun !== 9)) {
+        const tags: string[] = [];
+        if (isGoodTime(mTime)) tags.push(`山${p.mountain}${mTime}`);
+        if (isGoodTime(wTime)) tags.push(`向${p.water}${wTime}`);
+        if (auspiciousDoubleKeys.has(pairKey)) tags.push(doubleStarNotes[pairKey]);
+        thriving.push(`${p.direction}${p.name}宫（${tags.join('、')}）`);
+      }
+
+      const risks: string[] = [];
+      if (p.mountain === 5 && yun !== 5) risks.push('山星五黄');
+      if (p.water === 5 && yun !== 5) risks.push('向星五黄');
+      if (p.yearStar === 5) risks.push('流年五黄叠临');
+      if (p.mountain === 2 && yun !== 2) risks.push(yun === 9 ? '山星二黑（九运进气仍防病符余气）' : '山星二黑');
+      if (p.water === 2 && yun !== 2) risks.push(yun === 9 ? '向星二黑（九运进气仍防病符余气）' : '向星二黑');
+      if (p.yearStar === 2) risks.push('流年二黑叠临');
+      if (inauspiciousDoubleKeys.has(pairKey)) risks.push(doubleStarNotes[pairKey]);
+
+      if (risks.length) {
+        shaZones.push(`${p.direction}${p.name}宫（${risks.join('、')}）`);
+        if (hasFive || hasTwo) remedyHints.add('五黄/二黑属土煞：宜金泄耗（金属器物/铜铃/白色静置），忌红黄火土与动土修造');
+        if (pairKey === '23' || pairKey === '32') remedyHints.add('二三斗牛煞（木克土）：宜火通关（暖光/红色点缀泄木生土）');
+        if (pairKey === '37' || pairKey === '73' || pairKey === '67' || pairKey === '76') remedyHints.add('三七穿途/六七交剑（金木相战或金刃相交）：宜水通关（静水/黑蓝色泄金生木）');
+        if (pairKey === '79' || pairKey === '97') remedyHints.add('七九火煞（火克金）：宜土通关（陶瓷/米黄色泄火生金）');
+      }
+    }
+
+    lines.push(`${prefix}旺生吉位：${thriving.join('、') || '无纯净旺生吉位'}。`);
+    lines.push(`${prefix}五黄二黑与凶煞位：${shaZones.join('、') || '无显著五黄二黑及凶双星'}。`);
+    if (remedyHints.size) {
+      lines.push(`${prefix}五行通关化解路径：${[...remedyHints].join('；')}。`);
+    }
+
+    const comboNames = [...chart.combinations.map((c) => c.name), ...analyzeSpecialXuanKong(chart)];
+    if (comboNames.length) {
+      const rescues = comboNames.filter((n) => /合十|三般卦|打劫/.test(n));
+      const constraints = comboNames.filter((n) => /伏吟|反吟|入囚/.test(n));
+      if (rescues.length || constraints.length) {
+        lines.push(
+          `${prefix}特殊格局制衡：${rescues.length ? `解救增益格局［${rescues.join('、')}］` : ''}${rescues.length && constraints.length ? '；' : ''}${constraints.length ? `受制风险格局［${constraints.join('、')}］` : ''}。`,
+        );
+      }
+    }
+  }
+  return lines.join('\n');
+}
 
 function render(data: Data, question: string, options?: Input['prompt']) {
   const charts = data.charts.map((chart) => {
@@ -172,11 +221,12 @@ function render(data: Data, question: string, options?: Input['prompt']) {
       chart.palaces.flatMap((p) => [p.period, p.mountain, p.water, p.yearStar, p.monthStar, p.dayStar, p.hourStar].filter((n): n is number => typeof n === 'number')),
     )))
     : '';
-  const text = [`【玄空飞星】\n${measurement}\n运期${data.periodBoundary === '待核' ? '跨立春交运边界，保留多个候选' : '按所给精度确定'}；共${data.charts.length}盘。`,
+  const text = [`【玄空飞星】\n${measurement}\n运期${data.periodBoundary === '交界双候选' ? '跨立春交运边界，保留多个候选' : '按所给精度确定'}；共${data.charts.length}盘。`,
     data.flow
       ? `【流年流月${data.flow.day ? '流日' : ''}${data.flow.hour ? '流时' : ''}】\n年${data.flow.year.year}，中宫${data.flow.year.centerStar}${data.flow.month ? `；${data.flow.month.rule} 月支${data.flow.month.monthBranch}，中宫${data.flow.month.centerStar}` : '；年星以所指定立春节气年计算。'}${data.flow.day ? `；流日${data.flow.day.direction}，中宫${data.flow.day.centerStar}` : ''}${data.flow.hour ? `；流时（${data.flow.hour.date.hour}时）${data.flow.hour.direction}，中宫${data.flow.hour.centerStar}` : ''}`
       : '【流年流月】\n未指定流年或日期，不附加流年飞星。',
     `【候选盘】\n${charts.join('\n\n')}`,
+    `【方位格局与理气制衡关系】\n${buildXuankongPatternRelations(data)}`,
     formatSchoolAlgorithmSection(evaluateXuankongSchoolAlgorithms(data, options?.schools)),
     schools,
     classics,

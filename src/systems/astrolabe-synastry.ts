@@ -199,6 +199,79 @@ async function calculateData(source: Source, context?: RuntimeContext) {
       ...new Set([...person1.limitations.filter((v) => v.includes('坐标') || v.includes('改用')), ...person2.limitations.filter((v) => v.includes('坐标') || v.includes('改用'))])] };
 }
 type Data = Awaited<ReturnType<typeof calculateData>>;
+function buildSynastryPatternRelations(data: Data, label1: string, label2: string): string {
+  const coreIds = new Set(['sun', 'moon', 'mercury', 'venus', 'mars', 'asc', 'desc', 'mc', 'ic']);
+  const pressureIds = new Set(['saturn', 'mars', 'pluto', 'uranus', 'neptune']);
+  const conjunctions = data.aspects.filter((a) => a.type === 'conjunction');
+  const softAspects = data.aspects.filter((a) => a.type === 'trine' || a.type === 'sextile');
+  const hardAspects = data.aspects.filter((a) => a.type === 'square' || a.type === 'opposition');
+  const lines: string[] = [];
+
+  lines.push(
+    `跨盘相位总览：当前返回 ${data.aspects.length} 条相位中，合相（能量聚焦）${conjunctions.length} 条、和谐相位（拱/六合吸引力）${softAspects.length} 条、困难相位（刑/冲磨合点）${hardAspects.length} 条。`,
+  );
+
+  // 1. 和谐吸引力与核心合相
+  const attractive = [...conjunctions, ...softAspects]
+    .filter((a) => coreIds.has(a.person1Point) || coreIds.has(a.person2Point))
+    .sort((a, b) => {
+      const aBoth = (coreIds.has(a.person1Point) && coreIds.has(a.person2Point)) ? 1 : 0;
+      const bBoth = (coreIds.has(b.person1Point) && coreIds.has(b.person2Point)) ? 1 : 0;
+      return bBoth - aBoth || a.orbRatio - b.orbRatio;
+    })
+    .slice(0, 6);
+  lines.push(
+    `和谐相位吸引力与共振轴：${attractive.map((a) => `${label1}${a.person1Name}${a.label}${label2}${a.person2Name}（偏差${a.deviation.toFixed(2)}°）`).join('；') || '所选点位中未见核心星体/四轴的和谐或合相共振'}。`,
+  );
+
+  // 2. 困难相位磨合点与缓冲制衡
+  const receptionMap = new Set<string>();
+  for (const r of data.receptions) {
+    receptionMap.add(`${r.person1Point}:${r.person2Point}`);
+  }
+  const frictions = hardAspects
+    .filter((a) => coreIds.has(a.person1Point) || coreIds.has(a.person2Point))
+    .sort((a, b) => {
+      const aPress = (pressureIds.has(a.person1Point) || pressureIds.has(a.person2Point)) ? 1 : 0;
+      const bPress = (pressureIds.has(b.person1Point) || pressureIds.has(b.person2Point)) ? 1 : 0;
+      return bPress - aPress || a.orbRatio - b.orbRatio;
+    })
+    .slice(0, 6);
+  if (frictions.length) {
+    const frictionNotes = frictions.map((a) => {
+      const hasRec = receptionMap.has(`${a.person1Point}:${a.person2Point}`);
+      const p1Soft = softAspects.find((s) => s.person1Point === a.person1Point && s.person2Point !== a.person2Point);
+      const p2Soft = softAspects.find((s) => s.person2Point === a.person2Point && s.person1Point !== a.person1Point);
+      const buffers = [
+        hasRec ? '有传统接纳/互溶缓和' : '',
+        p1Soft ? `${label1}${a.person1Name}另与${label2}${p1Soft.person2Name}成${p1Soft.label}出口` : '',
+        p2Soft ? `${label2}${a.person2Name}另与${label1}${p2Soft.person1Name}成${p2Soft.label}出口` : '',
+      ].filter(Boolean);
+      return `${label1}${a.person1Name}${a.label}${label2}${a.person2Name}（偏差${a.deviation.toFixed(2)}°${buffers.length ? `；缓冲：${buffers.join('，')}` : '；无直接跨盘和谐出口或接纳缓冲'}）`;
+    });
+    lines.push(`困难相位磨合点与缓冲：${frictionNotes.join('；')}。`);
+  } else {
+    lines.push('困难相位磨合点与缓冲：当前返回相位中未见核心星体/四轴的刑相或冲相。');
+  }
+
+  // 3. 双方十大星体元素互补与同频制衡
+  const e1 = data.charts.person1.distributions.elements;
+  const e2 = data.charts.person2.distributions.elements;
+  const complements: string[] = [];
+  const resonances: string[] = [];
+  for (let i = 0; i < e1.length; i++) {
+    const c1 = e1[i].members.length, c2 = e2[i].members.length, elem = e1[i].label;
+    if (c1 >= 3 && c2 >= 3) resonances.push(`${elem}象同频（${label1} ${c1}星 / ${label2} ${c2}星）`);
+    else if (c1 <= 1 && c2 >= 3) complements.push(`${label1}${elem}象薄弱（${c1}星）由${label2}${elem}象（${c2}星）互补`);
+    else if (c2 <= 1 && c1 >= 3) complements.push(`${label2}${elem}象薄弱（${c2}星）由${label1}${elem}象（${c1}星）互补`);
+  }
+  lines.push(
+    `双方元素制衡：${[...resonances, ...complements].join('；') || '双方四元素分布均较平缓，无极端同频或单边互补'}。`,
+  );
+
+  return lines.join('\n');
+}
+
 function render(data: Data, question: string, options?: Input['prompt']) {
   const name1 = data.input.person1.name?.trim() || '第一人', name2 = data.input.person2.name?.trim() || '第二人';
   const label1 = name1 === name2 ? `第一人${name1}` : name1, label2 = name1 === name2 ? `第二人${name2}` : name2;
@@ -258,11 +331,14 @@ function render(data: Data, question: string, options?: Input['prompt']) {
       ].join('\n')
     : '';
   const situationLines = buildMethodSituationDigest('astrolabe-synastry', data, question);
-  const text = [`【西洋星盘双人合盘】\n${label1} UTC ${data.charts.person1.basis.utcDateTime}，${data.charts.person1.basis.houseSystem} 宫位；${label2} UTC ${data.charts.person2.basis.utcDateTime}，${data.charts.person2.basis.houseSystem} 宫位。`,
+  const g1 = data.input.person1.gender === 'male' ? '（男）' : data.input.person1.gender === 'female' ? '（女）' : '';
+  const g2 = data.input.person2.gender === 'male' ? '（男）' : data.input.person2.gender === 'female' ? '（女）' : '';
+  const text = [`【西洋星盘双人合盘】\n${label1}${g1} UTC ${data.charts.person1.basis.utcDateTime}，${data.charts.person1.basis.houseSystem} 宫位；${label2}${g2} UTC ${data.charts.person2.basis.utcDateTime}，${data.charts.person2.basis.houseSystem} 宫位。`,
     `【双方本命计算点】\n${label1}：${natal(data.charts.person1)}\n${label2}：${natal(data.charts.person2)}`,
     `【跨盘相位】\n${aspects || '未命中所选主要相位。'}\n共命中 ${data.counts.matchedAspects} 条，返回 ${data.counts.returnedAspects} 条。`,
     `【双向落宫】\n${data.settings.includeHouseOverlays ? overlays || '没有可用落宫。' : '未启用。'}`,
     `【传统接纳与互溶】\n${receptions || '所选计算点未见守护互溶或伴随相位的入庙、曜升接纳。'}`,
+    `【相位格局与能量制衡关系】\n${buildSynastryPatternRelations(data, label1, label2)}`,
     compositeText,
     transitText,
     syncText,

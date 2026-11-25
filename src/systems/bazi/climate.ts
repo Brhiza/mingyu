@@ -15,7 +15,7 @@ function matchesKnown(values: string[] | undefined, value: string | undefined) {
 }
 /** 条件候选与参考用途分开记录，协调结果另见调候条件层。 */
 export function buildClimateCandidates(pillars: Pillars, strength: ReturnType<typeof buildDayMasterStrength>, pattern: ReturnType<typeof summarizePattern>, currentJieqi?: string) {
-  if (pattern.source !== '普通月令取格候选') return { applicability: '特殊格暂不套用普通调候' as const, currentJieqi: currentJieqi ?? null, candidates: [], limitation: '特殊格按当前口径不套用普通调候规则；化神顺势及其他调候需另核。' };
+  if (pattern.source !== '普通月令取格候选') return { applicability: '特殊格暂不套用普通调候' as const, currentJieqi: currentJieqi ?? null, candidates: [], limitation: '特殊格以顺从旺势为先，不直接套用普通扶抑调候；寒暖需求在不逆破格势前提下配合，见用神权衡层。' };
   const visibleStemSources = positions.map((pillar) => ({ pillar, stem: pillars[pillar].gan }));
   const hiddenStemSources = positions.map((pillar) => ({ pillar, branch: pillars[pillar].zhi, stems: pillars[pillar].hiddenStems.map((item) => item.stem) }));
   const wuxingCounts: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
@@ -38,5 +38,5 @@ export function buildClimateCandidates(pillars: Pillars, strength: ReturnType<ty
 }
 
 export function summarizeClimate(value: ReturnType<typeof buildClimateCandidates>) {
-  return `${value.applicability}；节气${value.currentJieqi ?? '待核'}；${value.candidates.map((item) => `${item.label}（${item.status}）`).join('、') || '未列候选'}；最终用神仍待综合`;
+  return `${value.applicability}；节气${value.currentJieqi ?? '按月令当季论'}；${value.candidates.map((item) => `${item.label}（${item.status}）`).join('、') || '未列候选'}；最终用神见用神裁定层`;
 }

@@ -104,29 +104,151 @@ function calculateData(source: Source) {
     limitation: '八星与数理为民俗取象；号码频次不证明现实效果、个人经历或事件结果。数理资料和古籍来源仍需独立核验。' };
 }
 type Data = ReturnType<typeof calculateData>;
+
+export interface MagneticRemedyLink {
+  startIndex: number;
+  endIndex: number;
+  pattern: string;
+  spans: string;
+  effect: string;
+}
+
+export interface MagneticUnrescuedRiskSegment {
+  startIndex: number;
+  endIndex: number;
+  length: number;
+  stars: string[];
+  spans: string[];
+  tailReason: string;
+}
+
+export interface MagneticChainRelations {
+  totalPairs: number;
+  supportiveCount: number;
+  steadyCount: number;
+  challengingCount: number;
+  supportiveRatio: number;
+  steadyRatio: number;
+  challengingRatio: number;
+  remedyLinks: MagneticRemedyLink[];
+  unrescuedRiskSegments: MagneticUnrescuedRiskSegment[];
+}
+
+export function analyzeMagneticChainRelations(data: Data): MagneticChainRelations {
+  const pairs = data.energyPairs;
+  const totalPairs = data.magneticSummary.pairCount;
+  const supportiveCount = data.magneticSummary.supportiveCount;
+  const steadyCount = data.magneticSummary.steadyCount;
+  const challengingCount = data.magneticSummary.challengingCount;
+  const pct = (count: number) => (totalPairs > 0 ? Math.round((count / totalPairs) * 1000) / 10 : 0);
+
+  const remedyLinks: MagneticRemedyLink[] = [];
+  for (let i = 0; i < pairs.length - 1; i++) {
+    const cur = pairs[i];
+    const next = pairs[i + 1];
+    const afterNext = pairs[i + 2];
+    if (cur.name === '绝命' && next.name === '天医') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '绝命→天医', spans: `${cur.span}→${next.span}`, effect: '天医承接绝命，化决断投入为成果资源' });
+    } else if (cur.name === '绝命' && next.name === '生气') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '绝命→生气', spans: `${cur.span}→${next.span}`, effect: '生气缓和绝命起伏，转入外部协作机会' });
+    } else if (cur.name === '五鬼' && next.name === '生气' && (afterNext?.name === '天医' || afterNext?.name === '延年')) {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 3, pattern: `五鬼→生气→${afterNext.name}`, spans: `${cur.span}→${next.span}→${afterNext.span}`, effect: `生气通关五鬼变动并落位${afterNext.name}` });
+    } else if (cur.name === '五鬼' && next.name === '生气') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '五鬼→生气', spans: `${cur.span}→${next.span}`, effect: '生气疏导五鬼变动，转为灵活机会' });
+    } else if (cur.name === '五鬼' && next.name === '天医') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '五鬼→天医', spans: `${cur.span}→${next.span}`, effect: '天医承接五鬼思维变化，转为实际成果' });
+    } else if (cur.name === '五鬼' && next.name === '延年') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '五鬼→延年', spans: `${cur.span}→${next.span}`, effect: '延年定力约束五鬼起伏，强化执行落地' });
+    } else if (cur.name === '六煞' && next.name === '延年') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '六煞→延年', spans: `${cur.span}→${next.span}`, effect: '延年责任定力收束六煞人际情绪' });
+    } else if (cur.name === '六煞' && next.name === '生气') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '六煞→生气', spans: `${cur.span}→${next.span}`, effect: '生气开放气场缓和六煞情绪牵绊' });
+    } else if (cur.name === '祸害' && next.name === '生气') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '祸害→生气', spans: `${cur.span}→${next.span}`, effect: '生气缓和祸害口舌压力，转为协商沟通' });
+    } else if (cur.name === '祸害' && next.name === '延年') {
+      remedyLinks.push({ startIndex: i + 1, endIndex: i + 2, pattern: '祸害→延年', spans: `${cur.span}→${next.span}`, effect: '延年专业执行收束祸害表达消耗' });
+    }
+  }
+
+  const unrescuedRiskSegments: MagneticUnrescuedRiskSegment[] = [];
+  let idx = 0;
+  while (idx < pairs.length) {
+    if (pairs[idx].nature !== '考验') {
+      idx++;
+      continue;
+    }
+    const start = idx;
+    while (idx < pairs.length && pairs[idx].nature === '考验') idx++;
+    const end = idx - 1;
+    const length = end - start + 1;
+    if (length >= 2) {
+      const nextAfter = pairs[end + 1];
+      if (!nextAfter || nextAfter.nature !== '助益') {
+        unrescuedRiskSegments.push({
+          startIndex: start + 1,
+          endIndex: end + 1,
+          length,
+          stars: pairs.slice(start, end + 1).map((item) => item.name),
+          spans: pairs.slice(start, end + 1).map((item) => item.span),
+          tailReason: nextAfter
+            ? `后接${nextAfter.name}（${nextAfter.nature}），无助益星直接衔接`
+            : '落于序列末尾，无助益星衔接',
+        });
+      }
+    }
+  }
+
+  return {
+    totalPairs,
+    supportiveCount,
+    steadyCount,
+    challengingCount,
+    supportiveRatio: pct(supportiveCount),
+    steadyRatio: pct(steadyCount),
+    challengingRatio: pct(challengingCount),
+    remedyLinks,
+    unrescuedRiskSegments,
+  };
+}
+
+export function formatMagneticChainRelations(data: Data): string {
+  const rel = analyzeMagneticChainRelations(data);
+  if (rel.totalPairs === 0) {
+    return '有效卦数不足，未形成磁场衔接与制化关系。';
+  }
+  const lines: string[] = [
+    `星性占比：共 ${rel.totalPairs} 组；助益星（天医/生气/延年）${rel.supportiveCount} 组（${rel.supportiveRatio}%）、守成星（伏位）${rel.steadyCount} 组（${rel.steadyRatio}%）、考验星（绝命/五鬼/六煞/祸害）${rel.challengingCount} 组（${rel.challengingRatio}%）。`,
+  ];
+  if (rel.remedyLinks.length > 0) {
+    lines.push(
+      `制化衔接链：${rel.remedyLinks
+        .map((item) => `第${item.startIndex}→${item.endIndex}组（${item.spans}）「${item.pattern}」（${item.effect}）`)
+        .join('；')}。`,
+    );
+  } else {
+    lines.push('制化衔接链：未检出「绝命→天医/生气」「五鬼→生气/天医/延年」「六煞→延年/生气」「祸害→生气/延年」等传统凶转吉制化衔接。');
+  }
+  if (rel.unrescuedRiskSegments.length > 0) {
+    lines.push(
+      `连续考验无吉星衔接风险段：${rel.unrescuedRiskSegments
+        .map((seg) => `第${seg.startIndex}–${seg.endIndex}组（${seg.spans.join('→')}：${seg.stars.join('→')}，连续${seg.length}组考验星，${seg.tailReason}）`)
+        .join('；')}。`,
+    );
+  } else {
+    lines.push('连续考验无吉星衔接风险段：未检出连续 2 组及以上考验星且无助益星衔接的风险段。');
+  }
+  return lines.join('\n');
+}
+
 function buildMagneticFlowSummary(data: Data): string {
   if (!data.energyPairs.length) return '';
   const first = data.energyPairs[0];
   const last = data.energyPairs.at(-1)!;
   const endsWithZero = data.energySequence.endsWith('0');
-  const remedies: string[] = [];
-  for (let i = 0; i < data.energyPairs.length - 1; i++) {
-    const cur = data.energyPairs[i].name;
-    const next = data.energyPairs[i + 1].name;
-    const afterNext = data.energyPairs[i + 2]?.name;
-    if (cur === '绝命' && next === '天医') remedies.push(`第${i + 1}→${i + 2}组「绝命→天医」（天医制绝命，化冲动投入为成果资源）`);
-    if (cur === '六煞' && next === '延年') remedies.push(`第${i + 1}→${i + 2}组「六煞→延年」（延年制六煞，以责任定力收束人际情绪）`);
-    if (cur === '五鬼' && next === '生气' && (afterNext === '天医' || afterNext === '延年')) {
-      remedies.push(`第${i + 1}→${i + 3}组「五鬼→生气→${afterNext}」（生气通化五鬼之变）`);
-    }
-    if (cur === '祸害' && (next === '生气' || next === '延年' || next === '伏位')) {
-      remedies.push(`第${i + 1}→${i + 2}组「祸害→${next}」（缓和口舌消耗）`);
-    }
-  }
   const tailNote = endsWithZero
     ? `尾数以 0 收口（夹数口径视为尾位隐藏/空散），末组八星为${last.name}（${last.nature}）`
     : `尾组收口落在「${last.span}」${last.name}（${last.nature}，主${last.keywords.join('、')}）`;
-  return `起首八星：「${first.span}」${first.name}（${first.nature}）；${tailNote}；整体配比：助益${data.magneticSummary.supportiveCount}组、守成${data.magneticSummary.steadyCount}组、考验${data.magneticSummary.challengingCount}组。${remedies.length ? `\n相邻制化关系：${remedies.join('；')}。` : ''}`;
+  return `起首八星：「${first.span}」${first.name}（${first.nature}）；${tailNote}；整体配比：助益${data.magneticSummary.supportiveCount}组、守成${data.magneticSummary.steadyCount}组、考验${data.magneticSummary.challengingCount}组。`;
 }
 function render(data: Data, question: string, options: Input['prompt']) {
   const seenStars = new Set<string>();
@@ -138,9 +260,11 @@ function render(data: Data, question: string, options: Input['prompt']) {
     return `${index + 1}. ${spanLabel}：${item.name}（${item.nature}）；序列第${item.start + 1}至${item.end + 1}位，原字「${item.sourceText}」；${item.trigramEvidence.explanation}${item.modifiers.length ? `夹数${item.modifiers.map((modifier) => `${modifier.digit}${modifier.effect}`).join('、')}；` : ''}${desc}`;
   });
   const flowSummary = buildMagneticFlowSummary(data);
+  const chainRelationsText = formatMagneticChainRelations(data);
   const task = data.input.purpose === 'phone' ? '结合日常联系与号码辨识讨论。' : data.input.purpose === 'plate' ? '结合实际出行、辨识和审美讨论；驾驶安全以交通规则和实际情况为准。' : '结合用户说明的实际用途讨论。';
   const text = [`【号码资料】\n类型：${labels[data.input.purpose]}；原文：${data.input.value}；归一：${data.normalized}；参与序列：${data.alphanumeric}。\n字母换算：${data.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、') || '无'}；展开序列：${data.energySequence}。${data.excludedCharacters.length ? `\n未参与计算的标记：${data.excludedCharacters.join('、')}。` : ''}`,
     `【八星配对】\n${pairs.join('\n') || '有效卦数不足，未形成八星配对。'}\n分布：${data.magneticDistribution.map((item) => `${item.name}${item.count}组`).join('、') || '无'}；连续段：${data.magneticSegments.map((item) => `${item.name}${item.span}（${item.pairCount}组）`).join(' → ') || '无'}。${flowSummary ? `\n${flowSummary}` : ''}`,
+    `【磁场衔接与制化关系】\n${chainRelationsText}`,
     `【0与5】\n${data.modifiers.map((item) => `序列第${item.position + 1}位：${item.digit}，${item.meaning}`).join('\n') || '无'}`,
     `【数理取数】\n${data.formula}\n主数${data.primaryIndex}：${data.primaryNumerology.poem}（${data.primaryNumerology.level}），${data.primaryNumerology.keywords}；数值和取数${data.sumIndex}：${data.sumNumerology.poem}（${data.sumNumerology.level}），${data.sumNumerology.keywords}。`,
     `【传统依据】\n${data.tradition.title}；${data.tradition.sourceUrl}\n${data.tradition.scope}\n${data.tradition.numberMapping}\n${data.tradition.conversion}`,

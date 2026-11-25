@@ -71,9 +71,9 @@ export const birthHandlers = {
   'bazi': async ({ request, data, promptOptions }) => {
     requireSavedInput(data, '八字预览结果缺少原始出生资料。');
     const saved = inputSchemas['bazi'].parse({ ...data.input, question: request.question, prompt: promptOptions });
-    const { birth, birthRange, gender, referenceTime, timelineYear, rules, prompt: options } = saved;
+    const { birth, birthRange, gender, referenceTime, timelineYear, dailyRange, rules, prompt: options } = saved;
     const module = await import('../systems/bazi');
-    return await module.promptForBaziIndependent(data, { birth, birthRange, gender, referenceTime, timelineYear, rules }, request.question, options);
+    return await module.promptForBaziIndependent(data, { birth, birthRange, gender, referenceTime, timelineYear, dailyRange, rules }, request.question, options);
   },
   'qimen-lifetime': async ({ request, data, currentTime, promptOptions }) => {
     requireSavedInput(data, '奇门终身局结果缺少原始出生资料。');

@@ -59,7 +59,7 @@ export function checkSpecialHourConditions(hour: string, day: string) {
   const index = cyclePosition(hour), hourStem = hour[0], dayStem = day[0];
   const tombs: Record<string, [number, string]> = {
     乙未: [2, '三奇日时干入墓'], 丙戌: [6, '三奇日时干入墓'], 丁丑: [8, '三奇日时干入墓'],
-    戊辰: [4, '时干入墓'], 壬辰: [4, '时干入墓'], 己未: [2, '时干入墓'], 癸未: [2, '时干入墓'], 辛丑: [8, '时干入墓'],
+    戊戌: [6, '时干入墓'], 壬辰: [4, '时干入墓'], 己丑: [8, '时干入墓'], 癸未: [2, '时干入墓'], 辛丑: [8, '时干入墓'],
   };
   const isLiuJiaHour = index % 10 === 0, isLiuGuiHour = index % 10 === 9;
   const tomb = tombs[hour], isShiGanRuMu = Boolean(tomb);

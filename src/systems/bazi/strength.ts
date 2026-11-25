@@ -27,6 +27,8 @@ function clashesFor(pillars: Pillars, position: PillarName) {
     .map((other) => ({ position: other, branch: pillars[other].zhi }));
 }
 
+const seasonRank: Record<string, number> = { 旺: 4, 相: 3, 休: 2, 囚: 1, 死: 0 };
+
 /** 共享根与受冲裁定；稳定性与当前模型可参与性分别记录。 */
 export function collectAdjudicatedRoots(pillars: Pillars, element: string) {
   const month = pillars.month.branchElement;
@@ -42,7 +44,19 @@ export function collectAdjudicatedRoots(pillars: Pillars, element: string) {
         const opponent = pillars[source.position].branchElement;
         return opponent !== element && ['囚', '死'].includes(seasonalState(month, opponent));
       });
-      const clashStatus = stable ? '未受冲' : storageClash ? '库土本气同类冲动' : weakClash ? '得令本气受失令异类冲' : '受冲待核';
+      let clashStatus: string;
+      if (stable) clashStatus = '未受冲';
+      else if (storageClash) clashStatus = '库土本气同类冲动';
+      else if (weakClash) clashStatus = '得令本气受失令异类冲';
+      else {
+        const selfRank = seasonRank[seasonalState(month, element)] ?? 2;
+        const maxOppRank = Math.max(...clashSources.map((source) => seasonRank[seasonalState(month, pillars[source.position].branchElement)] ?? 2));
+        clashStatus = selfRank > maxOppRank
+          ? '受冲减力（旺冲衰，余气犹存）'
+          : selfRank < maxOppRank
+            ? '受冲减力（衰逢旺冲，根气大损）'
+            : '受冲减力（势均互损）';
+      }
       return [{ position, branch: pillar.zhi, stem, hiddenIndex, hiddenRole: (['本气', '中气', '余气'] as const)[hiddenIndex],
         source: (principal ? 'branch-main-qi' : 'hidden-qi') as Source, stable, actionable: stable || storageClash || weakClash, clashStatus, clashSources }];
     });
@@ -114,8 +128,8 @@ export function buildDayMasterStrength(pillars: Pillars, commanderStem: string) 
   const tendencies = [monthTendency, rootTendency, structureTendency];
   const up = tendencies.filter((item) => item === '扶身').length, down = tendencies.filter((item) => item === '制身').length;
   let status = '中和';
-  if (monthTendency === '扶身' && strongRoot && structureTendency === '扶身' && !activeConstraint.length && !constraint.some((item) => item.source === 'visible-stem') && !constrainingFormations) status = '极强';
-  else if (!hasRoot && monthTendency !== '扶身' && !support.length && !supportingFormations) status = '极弱';
+  if (monthTendency === '扶身' && strongRoot && structureTendency === '扶身' && directConstraint === 0 && !constraint.some((item) => item.source === 'visible-stem') && !constrainingFormations) status = '极强';
+  else if (!hasRoot && monthTendency !== '扶身' && directSupport === 0 && !support.some((item) => item.source === 'visible-stem') && !supportingFormations) status = '极弱';
   else if (!hasRoot && monthTendency !== '扶身') status = '身弱';
   else if (up >= 2 && down === 0 && (strongRoot || activeSupport.length >= 2)) status = '身强';
   else if (up > down) status = '偏强';
@@ -123,5 +137,5 @@ export function buildDayMasterStrength(pillars: Pillars, commanderStem: string) 
   else if (down > up) status = '偏弱';
   return { status, dayMaster: pillars.day.gan, element: day, month: { branch: pillars.month.zhi, season, commanderStem, commanderEffect },
     tendencies: { month: monthTendency, root: rootTendency, structure: structureTendency }, hasRoot, strongRoot, roots, support, constraint, formations,
-    limitation: '此为所列条件下的旺衰模型；受冲不等于无根，成势条件满足不等于合化成立。特殊格、调候、喜忌和用神须另核。' };
+    limitation: '此为所列条件下的旺衰模型；受冲按旺衰对比判为减力或激旺，成势支局仍须结合合化、格局与用神层综合裁定。' };
 }

@@ -45,6 +45,8 @@ function normalizeBaziPayload(raw: unknown): unknown {
         pillars: rec.pillars,
         shensha: rec.shensha,
       },
+      ...(rec.fortune ? { fortune: rec.fortune } : {}),
+      ...(rec.located ? { located: rec.located } : {}),
     };
   }
   return raw;
@@ -420,6 +422,71 @@ export async function renderVisualBoard(
         }
         headerShell.append(wrap);
       }
+      const fc = asRecord(compat?.fortuneComparison);
+      if (fc) {
+        const fcP1 = asRecord(fc.person1);
+        const fcP2 = asRecord(fc.person2);
+        const p1Dy = asRecord(fcP1?.dayun);
+        const p2Dy = asRecord(fcP2?.dayun);
+        const p1Yr = asRecord(fcP1?.yearTendency);
+        const p2Yr = asRecord(fcP2?.yearTendency);
+        const crossDy = asArray(fc.crossDayunRelations)
+          .map((r) => asString(asRecord(r)?.name))
+          .filter(Boolean)
+          .join('、');
+        const fcMeta = createMetaGrid([
+          ['参考岁运流年', [asString(fc.sharedYear) ? `${asString(fc.sharedYear)}年` : '', asString(fc.sharedMonth) ? `${asString(fc.sharedMonth)}月` : ''].filter(Boolean).join(' · ') || undefined],
+          [
+            `${p1Name}大运/流年`,
+            `${p1Dy ? `${asString(p1Dy.ganZhi) ?? ''}（${asString(p1Dy.stemTendency) ?? ''}）` : asString(fcP1?.stage) ?? '—'} · 流年${asString(p1Yr?.stemTendency) ?? '—'}`,
+          ],
+          [
+            `${p2Name}大运/流年`,
+            `${p2Dy ? `${asString(p2Dy.ganZhi) ?? ''}（${asString(p2Dy.stemTendency) ?? ''}）` : asString(fcP2?.stage) ?? '—'} · 流年${asString(p2Yr?.stemTendency) ?? '—'}`,
+          ],
+          ['双方大运交互', crossDy || '大运干支无明显刑冲合害'],
+        ]);
+        if (fcMeta) headerShell.append(fcMeta);
+      }
+
+      const annualSync = asRecord(compat?.annualSync);
+      const syncYearsList = asArray(annualSync?.years)
+        .map(asRecord)
+        .filter((x): x is UnknownRecord => Boolean(x));
+      if (syncYearsList.length > 0) {
+        const syncSec = el('div', 'lr-section');
+        syncSec.append(
+          el(
+            'h4',
+            'lr-section-title',
+            `多年大运流年同步（${asNumber(annualSync?.startYear) ?? ''}–${asNumber(annualSync?.endYear) ?? ''}）`,
+          ),
+        );
+        const syncGrid = el('div', 'al-hours-grid is-wide');
+        for (const yr of syncYearsList) {
+          const yP1 = asRecord(yr.person1);
+          const yP2 = asRecord(yr.person2);
+          const card = el('div', 'al-hour-card');
+          const top = el('div', 'al-hour-top');
+          top.append(
+            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} ${asString(yr.yearGanZhi) ?? ''}年`),
+            el('span', 'wb-badge wb-badge-neutral', asString(yr.syncAssessment) ?? ''),
+          );
+          card.append(top);
+          const p1Spouse = asArray(yP1?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
+          const p2Spouse = asArray(yP2?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
+          card.append(
+            el(
+              'div',
+              'al-hour-range',
+              `${p1Name}：运${asString(yP1?.dayun) ?? '—'}(${asString(yP1?.yearTendency) ?? '—'}${p1Spouse ? `·日支${p1Spouse}` : ''}) ｜ ${p2Name}：运${asString(yP2?.dayun) ?? '—'}(${asString(yP2?.yearTendency) ?? '—'}${p2Spouse ? `·日支${p2Spouse}` : ''})`,
+            ),
+          );
+          syncGrid.append(card);
+        }
+        syncSec.append(syncGrid);
+        headerShell.append(syncSec);
+      }
       tempHost.append(headerShell);
 
       const p1Host = document.createElement('div');
@@ -515,6 +582,66 @@ export async function renderVisualBoard(
         ovSec.append(ovGrid);
         headerShell.append(ovSec);
       }
+
+      const hc = asRecord(dataRec?.horoscopeComparison);
+      if (hc) {
+        const hcP1 = asRecord(hc.person1);
+        const hcP2 = asRecord(hc.person2);
+        const formatHoroscope = (h: UnknownRecord | undefined): string => {
+          const dec = asRecord(h?.decadal);
+          const yr = asRecord(h?.yearly);
+          const decStr = dec
+            ? `大限 ${asString(dec.heavenlyStem) ?? ''}${asString(dec.earthlyBranch) ?? ''}(${asString(dec.natalPalace) ?? ''})`
+            : '';
+          const yrStr = yr
+            ? `流年 ${asString(yr.heavenlyStem) ?? ''}${asString(yr.earthlyBranch) ?? ''}(${asString(yr.natalPalace) ?? ''})`
+            : '';
+          return [decStr, yrStr].filter(Boolean).join(' · ') || '—';
+        };
+        const hcMeta = createMetaGrid([
+          [`${p1Name}大限流年`, formatHoroscope(hcP1)],
+          [`${p2Name}大限流年`, formatHoroscope(hcP2)],
+        ]);
+        if (hcMeta) headerShell.append(hcMeta);
+      }
+
+      const zwAnnualSync = asRecord(dataRec?.annualSync);
+      const zwSyncYears = asArray(zwAnnualSync?.years)
+        .map(asRecord)
+        .filter((x): x is UnknownRecord => Boolean(x));
+      if (zwSyncYears.length > 0) {
+        const syncSec = el('div', 'lr-section');
+        syncSec.append(
+          el(
+            'h4',
+            'lr-section-title',
+            `多年大限与流年同步（${asNumber(zwAnnualSync?.startYear) ?? ''}–${asNumber(zwAnnualSync?.endYear) ?? ''}）`,
+          ),
+        );
+        const syncGrid = el('div', 'al-hours-grid is-wide');
+        for (const yr of zwSyncYears) {
+          const yP1 = asRecord(yr.person1);
+          const yP2 = asRecord(yr.person2);
+          const overlap = asRecord(yr.yearlyOverlap);
+          const card = el('div', 'al-hour-card');
+          const top = el('div', 'al-hour-top');
+          top.append(
+            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
+            ...(overlap?.sameBranch ? [el('span', 'wb-badge wb-badge-accent', '流年同支')] : []),
+          );
+          card.append(top);
+          card.append(
+            el(
+              'div',
+              'al-hour-range',
+              `${p1Name}：限${asString(yP1?.decadal) ?? '—'} · 年${asString(yP1?.yearly) ?? '—'} ｜ ${p2Name}：限${asString(yP2?.decadal) ?? '—'} · 年${asString(yP2?.yearly) ?? '—'}`,
+            ),
+          );
+          syncGrid.append(card);
+        }
+        syncSec.append(syncGrid);
+        headerShell.append(syncSec);
+      }
       tempHost.append(headerShell);
 
       const p1Data = charts?.person1 ?? selectedNatal?.person1;
@@ -607,6 +734,66 @@ export async function renderVisualBoard(
         ['主要落宫叠入', ovText || undefined],
       ]);
       if (synMeta) headerShell.append(synMeta);
+
+      const transits = asRecord(dataRec?.transits);
+      if (transits) {
+        const formatTransits = (arr: unknown): string =>
+          asArray(arr)
+            .map(asRecord)
+            .filter((x): x is UnknownRecord => Boolean(x))
+            .slice(0, 5)
+            .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
+            .join(' · ') || '暂无显著外行星行运相位';
+        const trMeta = createMetaGrid([
+          [`${p1Name}行运引动`, formatTransits(transits.toPerson1)],
+          [`${p2Name}行运引动`, formatTransits(transits.toPerson2)],
+        ]);
+        if (trMeta) headerShell.append(trMeta);
+      }
+
+      const astroAnnualSync = asRecord(dataRec?.annualSync);
+      const astroSyncYears = asArray(astroAnnualSync?.years)
+        .map(asRecord)
+        .filter((x): x is UnknownRecord => Boolean(x));
+      if (astroSyncYears.length > 0) {
+        const syncSec = el('div', 'lr-section');
+        syncSec.append(
+          el(
+            'h4',
+            'lr-section-title',
+            `多年外行星行运同步（${asNumber(astroAnnualSync?.startYear) ?? ''}–${asNumber(astroAnnualSync?.endYear) ?? ''}）`,
+          ),
+        );
+        const syncGrid = el('div', 'al-hours-grid is-wide');
+        for (const yr of astroSyncYears) {
+          const shared = asArray(yr.sharedBodies).map(asString).filter(Boolean).join('、');
+          const t1 = asArray(yr.toPerson1)
+            .map(asRecord)
+            .filter((x): x is UnknownRecord => Boolean(x))
+            .slice(0, 3)
+            .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
+            .join('、');
+          const t2 = asArray(yr.toPerson2)
+            .map(asRecord)
+            .filter((x): x is UnknownRecord => Boolean(x))
+            .slice(0, 3)
+            .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
+            .join('、');
+          const card = el('div', 'al-hour-card');
+          const top = el('div', 'al-hour-top');
+          top.append(
+            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
+            ...(shared ? [el('span', 'wb-badge wb-badge-accent', `共引：${shared}`)] : []),
+          );
+          card.append(top);
+          card.append(
+            el('div', 'al-hour-range', `${p1Name}：${t1 || '无'} ｜ ${p2Name}：${t2 || '无'}`),
+          );
+          syncGrid.append(card);
+        }
+        syncSec.append(syncGrid);
+        headerShell.append(syncSec);
+      }
       tempHost.append(headerShell);
 
       if (composite && asArray(composite.points).length > 0 && asArray(composite.houses).length > 0) {

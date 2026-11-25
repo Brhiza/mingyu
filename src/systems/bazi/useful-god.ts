@@ -62,29 +62,29 @@ const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     patterns: ['曲直格'],
     favorable: 'resource_companion_output',
     unfavorable: 'officer',
-    trace: '曲直格取水木顺势、火泄秀，土财另核作用',
+    trace: '曲直格取水木顺势、火泄秀；土财见火通关可用，无火克印则忌',
     primaryReason: '曲直顺势泄秀',
   },
   {
     id: 'follow-special-strong',
     label: '专旺格顺势规则',
-    description: '通用专旺格以印比顺势为确定取向；食伤须原局印轻且泄秀作用成立时方可纳入喜用，若已有印食具体冲克则按实际作用干限制。',
+    description: '通用专旺格以印比顺势为确定取向；原局印轻时食伤可泄秀为喜，印重则食伤与印相碍不取，若已有印食具体冲克则按实际作用干限制。',
     priority: 100,
     patterns: ['专旺格'],
     favorable: 'resource_companion',
     unfavorable: 'wealth_officer',
-    trace: '专旺格以印比顺势，食伤另核印轻与实际作用',
+    trace: '专旺格以印比顺势；原局印轻时食伤可泄秀，印重则不取食伤',
     primaryReason: '顺势',
   },
   {
     id: 'follow-conger',
     label: '从儿格顺局规则',
-    description: '《滴天髓阐微·顺局》从儿以食伤生财为喜，印星制食伤为首忌，官杀耗财逆局次忌；比劫须按生食伤或争财的实际作用另论。',
+    description: '《滴天髓阐微·顺局》从儿以食伤生财为喜，印星制食伤为首忌，官杀耗财逆局次忌；比劫在财旺时助生食伤可用，财轻时争财转忌。',
     priority: 105,
     patterns: ['从儿格'],
     favorable: 'wealth_output',
     unfavorable: 'resource_officer',
-    trace: '从儿格取财星、食伤顺局，忌印星、官杀逆局，比劫另核实际作用',
+    trace: '从儿格取财星、食伤顺局，忌印星、官杀逆局；比劫财旺可用、财轻争财转忌',
     primaryReason: '从儿顺局',
   },
   {
@@ -144,21 +144,21 @@ const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
   },
   {
     id: 'balance-neutral',
-    label: '中和基础取用规则',
-    description: '中和不预设整五行喜忌；原局格局作用、调候与具体干条件分别核验。',
+    label: '中和动态取用规则',
+    description: '中和命局不机械套用整五行扶抑；结合月令寒暖调候、原局生扶/克泄微偏及病药流通给出明确一级主选方向，并随岁运偏枯动态切换。',
     priority: 50,
     strengths: ['中和'],
     favorable: 'none',
     unfavorable: 'none',
-    trace: '中和不预设增补五行喜忌，按调候与具体作用另判',
-    primaryReason: '中和待判',
+    trace: '中和命局先观寒暖调候、次看原局微偏与病药流通定一级主选方向，岁运偏枯再转扶抑',
+    primaryReason: '中和流通调候',
   },
 ];
 
 const TRANSFORMATION_USEFUL_RULE: RuleMetadata = {
   id: 'transformed-element-following',
   label: '化神顺势取用',
-  description: '《子平真诠》从化取用以所化之物及生化神者为基础，财伤与过旺制化另核条件；《滴天髓》化土阴寒先取火温养。',
+  description: '《子平真诠》从化取用以所化之物及生化神者为基础，化神偏旺时以食伤财星疏泄分势；《滴天髓》化土阴寒先取火温养。',
 };
 
 const THERAPEUTIC_PRIORITY_RULE: RuleMetadata = {
@@ -233,6 +233,34 @@ export interface UsefulGodDecisionEvidence {
   conflicts: string[];
 }
 
+export interface MediationPath {
+  conflictType: '财印相战' | '官杀混杂' | '伤官见官' | '枭神夺食' | '比劫夺财';
+  severity: '显性明透' | '干支暗战';
+  involved: string[];
+  primaryRemedy: string;
+  alternativeRemedy: string;
+}
+
+export interface UsefulGodTradeoffAnalysis {
+  scenarioTags: string[];
+  climateVsBalance: {
+    status: '一致' | '冲突' | '调候未触发' | '特殊格从势优先';
+    summary: string;
+    priorityAdvice: string;
+  };
+  neutralGuidance?: {
+    tendencyNote: string;
+    dynamicTrigger: string;
+  };
+  followEdgeAssessment?: {
+    kind: '真从纯格' | '假从/从格边缘' | '扶抑近从边界';
+    summary: string;
+    fortuneSwitchRule: string;
+  };
+  mediationPaths: MediationPath[];
+  synthesis: string;
+}
+
 export interface UsefulGodResult {
   favorable: string[];
   unfavorable: string[];
@@ -250,7 +278,7 @@ export interface UsefulGodResult {
   secondaryUnfavorableWuxing: string[];
   primaryUseful: string;
   primaryAvoid: string;
-  incrementStatus: '已判定' | '部分判定' | '待判';
+  incrementStatus: '已判定' | '部分判定';
   conditionalFavorableStems?: string[];
   conditionalUnfavorableStems?: string[];
   conditionalFavorableWuxing?: string[];
@@ -259,6 +287,7 @@ export interface UsefulGodResult {
   primaryReason: string;
   matchedRules: RuleMetadata[];
   placement: UsefulGodPlacementProfile;
+  tradeoffAnalysis?: UsefulGodTradeoffAnalysis;
 }
 
 interface DecisionState {
@@ -524,11 +553,340 @@ export function analyzeUsefulGodPlacement(
   return { items, favorableCount, unfavorableCount, summary: '用神落点分析' };
 }
 
+const WEALTH_TEN_GODS = new Set(['正财', '偏财']);
+const OFFICER_TEN_GODS = new Set(['正官', '七杀']);
+const COMPANION_TEN_GODS = new Set(['比肩', '劫财']);
+
+function detectMediationPaths(
+  pillars: Pillars,
+  dmWuxing: string,
+  strengthStatus: string,
+  isSpecial: boolean,
+): MediationPath[] {
+  if (isSpecial) return [];
+  const isWeak = ['身弱', '偏弱', '极弱'].includes(strengthStatus);
+  const resource = previous(GENERATES, dmWuxing);
+  const output = GENERATES[dmWuxing];
+  const wealth = CONTROLS[dmWuxing];
+  const officer = previous(CONTROLS, dmWuxing);
+
+  const visibleEntries = PILLAR_ORDER.filter((p) => p !== 'day').map((p) => ({
+    pillar: p,
+    label: `${PILLAR_LABELS[p].slice(0, 1)}干${pillars[p].gan}(${pillars[p].tenGod})`,
+    tenGod: pillars[p].tenGod,
+  }));
+  const branchEntries = PILLAR_ORDER.map((p) => {
+    const main = pillars[p].hiddenStems[0];
+    return {
+      pillar: p,
+      label: `${PILLAR_LABELS[p].slice(0, 1)}支${pillars[p].zhi}(${main?.tenGod ?? ''})`,
+      tenGod: main?.tenGod ?? '',
+    };
+  });
+  const allEntries = [...visibleEntries, ...branchEntries];
+
+  const findGroup = (set: Set<string>) => ({
+    visible: visibleEntries.filter((e) => set.has(e.tenGod)),
+    all: allEntries.filter((e) => set.has(e.tenGod)),
+  });
+
+  const paths: MediationPath[] = [];
+
+  // 1. 财印相战
+  const wealthGroup = findGroup(WEALTH_TEN_GODS);
+  const resourceGroup = findGroup(RESOURCE_TEN_GODS);
+  if (wealthGroup.all.length > 0 && resourceGroup.all.length > 0 && (wealthGroup.visible.length > 0 || resourceGroup.visible.length > 0)) {
+    const bothVisible = wealthGroup.visible.length > 0 && resourceGroup.visible.length > 0;
+    const involved = [...wealthGroup.all.slice(0, 2), ...resourceGroup.all.slice(0, 2)].map((e) => e.label);
+    paths.push({
+      conflictType: '财印相战',
+      severity: bothVisible ? '显性明透' : '干支暗战',
+      involved,
+      primaryRemedy: isWeak
+        ? `身弱财破印，优先取比劫（${dmWuxing}）制财护印，稳住印星生身之源`
+        : `优先取官杀（${officer}）通关（财生官、官生印），化财印相克为连续相生`,
+      alternativeRemedy: isWeak
+        ? `次选官杀（${officer}）引财生印，但须防官杀泄财反克弱身，需配印星有根`
+        : `若官杀无力或忌官杀，可察食伤（${output}）泄身生财，但须避印重夺食`,
+    });
+  }
+
+  // 2. 官杀混杂
+  const zhengGuan = findGroup(new Set(['正官']));
+  const qiSha = findGroup(new Set(['七杀']));
+  if (zhengGuan.all.length > 0 && qiSha.all.length > 0 && (zhengGuan.visible.length > 0 || qiSha.visible.length > 0)) {
+    const bothVisible = zhengGuan.visible.length > 0 && qiSha.visible.length > 0;
+    const involved = [...zhengGuan.all.slice(0, 2), ...qiSha.all.slice(0, 2)].map((e) => e.label);
+    paths.push({
+      conflictType: '官杀混杂',
+      severity: bothVisible ? '显性明透' : '干支暗战',
+      involved,
+      primaryRemedy: isWeak
+        ? `身弱遇官杀混杂，宜取印星（${resource}）化杀生身，以印通关化浊为清`
+        : `优先取食伤（${output}）制杀留官或合杀留官，去浊留清`,
+      alternativeRemedy: isWeak
+        ? `次选合杀留官或轻用比劫（${dmWuxing}）抗杀，慎用重食伤再泄弱身`
+        : `若原局带印，亦可用印星（${resource}）化杀护身，忌财星再党杀攻身`,
+    });
+  }
+
+  // 3. 伤官见官
+  const shangGuan = findGroup(new Set(['伤官']));
+  if (shangGuan.all.length > 0 && zhengGuan.all.length > 0 && (shangGuan.visible.length > 0 || zhengGuan.visible.length > 0)) {
+    const bothVisible = shangGuan.visible.length > 0 && zhengGuan.visible.length > 0;
+    const involved = [...shangGuan.all.slice(0, 2), ...zhengGuan.all.slice(0, 2)].map((e) => e.label);
+    paths.push({
+      conflictType: '伤官见官',
+      severity: bothVisible ? '显性明透' : '干支暗战',
+      involved,
+      primaryRemedy: `优先取印星（${resource}）制伤护官（伤官佩印），护住官星清气`,
+      alternativeRemedy: `次选财星（${wealth}）通关（伤官生财、财生正官），化相克为相生`,
+    });
+  }
+
+  // 4. 枭神夺食
+  const pianYin = findGroup(new Set(['偏印']));
+  const shiShen = findGroup(new Set(['食神']));
+  if (pianYin.all.length > 0 && shiShen.all.length > 0 && (pianYin.visible.length > 0 || shiShen.visible.length > 0)) {
+    const bothVisible = pianYin.visible.length > 0 && shiShen.visible.length > 0;
+    const involved = [...pianYin.all.slice(0, 2), ...shiShen.all.slice(0, 2)].map((e) => e.label);
+    paths.push({
+      conflictType: '枭神夺食',
+      severity: bothVisible ? '显性明透' : '干支暗战',
+      involved,
+      primaryRemedy: `优先取财星（${wealth}，尤以偏财为佳）制枭护食，解倒食之病`,
+      alternativeRemedy: `次选比劫（${dmWuxing}）泄枭生食，缓冲偏印直克食神之势`,
+    });
+  }
+
+  // 5. 比劫夺财
+  const companionGroup = findGroup(COMPANION_TEN_GODS);
+  if (wealthGroup.all.length > 0 && (companionGroup.all.length >= 2 || (companionGroup.visible.length > 0 && wealthGroup.visible.length > 0))) {
+    const bothVisible = companionGroup.visible.length > 0 && wealthGroup.visible.length > 0;
+    const involved = [...companionGroup.all.slice(0, 2), ...wealthGroup.all.slice(0, 2)].map((e) => e.label);
+    paths.push({
+      conflictType: '比劫夺财',
+      severity: bothVisible ? '显性明透' : '干支暗战',
+      involved,
+      primaryRemedy: isWeak
+        ? `身弱比劫原为助身，若财多身弱可借比劫（${dmWuxing}）分担财势，待身健再取食伤生财`
+        : `身强比劫争财，优先取食伤（${output}）通关（比劫生食伤、食伤生财）`,
+      alternativeRemedy: isWeak
+        ? `忌再增重财破印，宜以印比护身后再议求财`
+        : `次选官杀（${officer}）制劫护财，约束比劫不夺财星`,
+    });
+  }
+
+  return paths;
+}
+
+function buildUsefulGodTradeoffAnalysis(
+  input: UsefulGodInput,
+  state: DecisionState,
+  dmWuxing: string,
+  isSpecial: boolean,
+): UsefulGodTradeoffAnalysis {
+  const { pillars, strength, patternOverview, patternEvidence, climate, climateDecision } = input;
+  const scenarioTags: string[] = [];
+  const baseFav = state.decisionEvidence.base.favorable;
+  const baseUnfav = state.decisionEvidence.base.unfavorable;
+
+  // 1. 调候 vs 扶抑权衡
+  const climateRequestedElements = [
+    ...new Set([
+      ...climateDecision.referenceOrder,
+      ...climate.candidates
+        .filter((c) => c.status === '满足' || c.mode === 'reference')
+        .flatMap((c) => [...c.favorableOrder, c.usefulElement])
+        .filter(Boolean),
+    ]),
+  ];
+  const urgentSeason = ['亥', '子', '丑', '巳', '午', '未'].includes(pillars.month.zhi);
+
+  let climateVsBalance: UsefulGodTradeoffAnalysis['climateVsBalance'];
+  if (isSpecial) {
+    climateVsBalance = {
+      status: '特殊格从势优先',
+      summary: `${patternOverview.pattern}以顺从旺势为先，不按常规扶抑倒置喜忌`,
+      priorityAdvice: climateRequestedElements.length
+        ? `若兼见寒暖需求（${climateRequestedElements.join('、')}），须在不逆破${patternOverview.pattern}气势的前提下顺势配合`
+        : `以维护${patternOverview.pattern}纯粹气势为第一要义`,
+    };
+  } else if (!climateRequestedElements.length) {
+    climateVsBalance = {
+      status: '调候未触发',
+      summary: `月令${pillars.month.zhi}（${strength.month.season}）未触发显性调候条目，以扶抑与格局成败为主线`,
+      priorityAdvice: '优先围绕日主扶抑与月令格局相神取用，兼看原局病药通关',
+    };
+  } else {
+    const primaryClimate = climateRequestedElements[0];
+    const conflictsWithBase = baseUnfav.includes(primaryClimate) || climateRequestedElements.some((el) => baseUnfav.includes(el));
+    const alignedWithBase = baseFav.includes(primaryClimate);
+    if (conflictsWithBase) {
+      scenarioTags.push('调候与扶抑冲突');
+      climateVsBalance = {
+        status: '冲突',
+        summary: `调候需${climateRequestedElements.join('、')}，与${strength.status}扶抑基线忌神（${baseUnfav.join('、')}）存在张力`,
+        priorityAdvice: urgentSeason
+          ? `冬夏急候先顾调候（以${primaryClimate}调和寒暖燥湿），但须配扶抑喜用（${baseFav.slice(0, 2).join('、') || '印比/泄耗'}）护身或通关，切忌单用${primaryClimate}而伤日主`
+          : `非冬夏极候时以扶抑与格局为本（喜${baseFav.slice(0, 2).join('、') || '流通护格'}），调候${primaryClimate}作辅助润色`,
+      };
+    } else if (alignedWithBase) {
+      climateVsBalance = {
+        status: '一致',
+        summary: `调候主需（${climateRequestedElements.join('、')}）与${strength.status}扶抑喜用方向一致`,
+        priorityAdvice: `调候与扶抑同向共振，优先取${primaryClimate}可一举兼顾寒暖与强弱`,
+      };
+    } else if (strength.status === '中和') {
+      climateVsBalance = {
+        status: '一致',
+        summary: `中和命局不预设扶抑偏枯，以调候（${climateRequestedElements.join('、')}）作为优先抓手`,
+        priorityAdvice: `先取${primaryClimate}调和气候，再随岁运偏枯动态微调扶抑`,
+      };
+    } else {
+      climateVsBalance = {
+        status: '一致',
+        summary: `调候参考（${climateRequestedElements.join('、')}）未与扶抑基线直接冲突`,
+        priorityAdvice: `以扶抑喜用（${baseFav.slice(0, 2).join('、') || '流通护格'}）为主，遇${primaryClimate}岁运可兼顾气候平衡`,
+      };
+    }
+  }
+
+  // 2. 中和命局动态取用指导
+  let neutralGuidance: UsefulGodTradeoffAnalysis['neutralGuidance'];
+  if (!isSpecial && strength.status === '中和') {
+    scenarioTags.push('中和动态取用');
+    const supportCount = strength.support.filter((s) => s.actionable).length + strength.roots.filter((r) => r.actionable).length;
+    const constraintCount = strength.constraint.filter((c) => c.actionable).length;
+    const microBias = supportCount > constraintCount
+      ? '微偏生扶侧（印比略多）'
+      : constraintCount > supportCount
+        ? '微偏克泄耗侧（财官食伤略多）'
+        : '生扶与克泄耗大致均衡';
+    const resource = previous(GENERATES, dmWuxing);
+    const output = GENERATES[dmWuxing];
+    neutralGuidance = {
+      tendencyNote: `原局中和而${microBias}，不宜机械套用整五行喜忌；应先护持「${patternOverview.pattern}」清气${climateRequestedElements.length ? `及调候${climateRequestedElements[0]}` : ''}`,
+      dynamicTrigger: `岁运见印比（${resource}、${dmWuxing}）骤增转强时，顺取食伤财官泄耗；岁运见财官食伤骤增转弱时，转取印比（${resource}、${dmWuxing}）护身；平运宜用${output}或相神疏通流通`,
+    };
+  }
+
+  // 3. 真假从格边缘评估
+  let followEdgeAssessment: UsefulGodTradeoffAnalysis['followEdgeAssessment'];
+  const samePartyGods = new Set(['比肩', '劫财', '正印', '偏印']);
+  const isStrongExtreme = strength.status === '极强' || ['曲直格', '专旺格', '炎上格', '稼穑格', '从革格', '润下格'].includes(patternOverview.pattern);
+  // 专旺格顺势喜食伤吐秀（化神通路），不可把食伤误判为“反向气机”
+  const compatibleStrongExtremeGods = new Set(['比肩', '劫财', '正印', '偏印', '食神', '伤官']);
+  const opposingVisibleOrMain = PILLAR_ORDER.flatMap((pos) => {
+    const p = pillars[pos];
+    const items: string[] = [];
+    if (pos !== 'day') {
+      const isCompatible = isStrongExtreme ? compatibleStrongExtremeGods.has(p.tenGod) : samePartyGods.has(p.tenGod);
+      if ((isStrongExtreme && !isCompatible) || (!isStrongExtreme && isCompatible)) {
+        items.push(`${PILLAR_LABELS[pos].slice(0, 1)}干${p.gan}${p.tenGod}`);
+      }
+    }
+    const main = p.hiddenStems[0];
+    if (main) {
+      const isCompatible = isStrongExtreme ? compatibleStrongExtremeGods.has(main.tenGod) : samePartyGods.has(main.tenGod);
+      if ((isStrongExtreme && !isCompatible) || (!isStrongExtreme && isCompatible)) {
+        items.push(`${PILLAR_LABELS[pos].slice(0, 1)}支${p.zhi}${main.tenGod}`);
+      }
+    }
+    return items;
+  });
+  const opposingResidual = PILLAR_ORDER.flatMap((pos) =>
+    pillars[pos].hiddenStems.slice(1).flatMap((h) => {
+      const isCompatible = isStrongExtreme ? compatibleStrongExtremeGods.has(h.tenGod) : samePartyGods.has(h.tenGod);
+      return (isStrongExtreme && !isCompatible) || (!isStrongExtreme && isCompatible)
+        ? [`${PILLAR_LABELS[pos].slice(0, 1)}支藏${h.stem}${h.tenGod}`]
+        : [];
+    }),
+  );
+
+  if (isSpecial && patternOverview.source !== '五合化气条件模型') {
+    if (opposingVisibleOrMain.length === 0 && opposingResidual.length === 0) {
+      followEdgeAssessment = {
+        kind: '真从纯格',
+        summary: `${patternOverview.pattern}气势纯粹，四柱无反向杂气牵制`,
+        fortuneSwitchRule: '岁运宜一味顺势（喜用不逆），最忌突逢逆势旺运破局',
+      };
+    } else {
+      scenarioTags.push('真假从格边缘');
+      const mixedDesc = [...opposingVisibleOrMain, ...opposingResidual].slice(0, 3).join('、');
+      followEdgeAssessment = {
+        kind: '假从/从格边缘',
+        summary: `虽取「${patternOverview.pattern}」，但原局犹存反向气机（${mixedDesc}），属假从边缘`,
+        fortuneSwitchRule: '行顺势岁运可去杂成真；若行逆势岁运引动原局暗藏杂气，易由从转扶抑，切忌死板一味按真从断',
+      };
+    }
+  } else if (
+    !isSpecial &&
+    (strength.status === '极强' ||
+      strength.status === '极弱' ||
+      (strength.status === '身弱' &&
+        !strength.strongRoot &&
+        strength.roots.filter((r) => r.actionable).length === 0 &&
+        strength.support.filter((s) => s.actionable).length <= 1))
+  ) {
+    scenarioTags.push('真假从格边缘');
+    followEdgeAssessment = {
+      kind: '扶抑近从边界',
+      summary: `旺衰已至「${strength.status}」且接近从格边界，因原局仍存微根/反向牵制故暂按扶抑论`,
+      fortuneSwitchRule: '若岁运冲拔微根或合去唯一印比，易滑向假从势；若岁运得强根生扶，则仍按普通扶抑起运，须随岁运动态辨真假',
+    };
+  }
+
+  // 4. 病药与通关路径
+  const mediationPaths = detectMediationPaths(pillars, dmWuxing, strength.status, isSpecial);
+  for (const path of mediationPaths) {
+    if (!scenarioTags.includes(path.conflictType)) scenarioTags.push(path.conflictType);
+  }
+
+  // 5. 格局成败张力补充
+  const patternBroken = !isSpecial && patternEvidence.decision?.status === '破格';
+  if (patternBroken) scenarioTags.push('格局破格待救');
+
+  const synthesisParts: string[] = [];
+  if (climateVsBalance.status === '冲突') {
+    synthesisParts.push(`调候与扶抑有张力：${climateVsBalance.priorityAdvice}`);
+  } else if (climateVsBalance.status === '一致') {
+    synthesisParts.push(climateVsBalance.summary);
+  }
+  if (neutralGuidance) {
+    synthesisParts.push(neutralGuidance.tendencyNote);
+  }
+  if (followEdgeAssessment && followEdgeAssessment.kind !== '真从纯格') {
+    synthesisParts.push(`${followEdgeAssessment.kind}：${followEdgeAssessment.summary}`);
+  }
+  if (mediationPaths.length > 0) {
+    synthesisParts.push(
+      `原局见${mediationPaths.map((m) => `${m.conflictType}(${m.severity})`).join('、')}，病药宜${mediationPaths[0].primaryRemedy}`,
+    );
+  }
+  if (patternBroken) {
+    synthesisParts.push(`普通格局现破格迹象，须先救应格神再议常规扶抑`);
+  }
+  if (!synthesisParts.length) {
+    synthesisParts.push(`${climateVsBalance.summary}；${climateVsBalance.priorityAdvice}`);
+  }
+
+  return {
+    scenarioTags,
+    climateVsBalance,
+    ...(neutralGuidance ? { neutralGuidance } : {}),
+    ...(followEdgeAssessment ? { followEdgeAssessment } : {}),
+    mediationPaths,
+    synthesis: synthesisParts.join('；'),
+  };
+}
+
 function finalizeUsefulGod(
   state: DecisionState,
   pillars: Pillars,
   dmWuxing: string,
   climateCandidates: Climate['candidates'],
+  tradeoffAnalysis?: UsefulGodTradeoffAnalysis,
 ): UsefulGodResult {
   const wuxingToTenGodMap = buildWuxingToTenGodMap(dmWuxing);
   const restrictedTenGods = new Set(
@@ -540,15 +898,8 @@ function finalizeUsefulGod(
   const primaryUnfavorableWuxing = state.unfavorableWuxing[0] || '';
   const secondaryUnfavorableWuxing = state.unfavorableWuxing.slice(1);
   const decidedWuxing = new Set([...state.favorableWuxing, ...state.unfavorableWuxing]);
-  const hasSpecificDecision = Boolean(
-    state.conditionalFavorableStems?.length || state.conditionalUnfavorableStems?.length,
-  );
-  const incrementStatus =
-    decidedWuxing.size === WUXING.length
-      ? '已判定'
-      : decidedWuxing.size || hasSpecificDecision
-        ? '部分判定'
-        : '待判';
+  const incrementStatus: '已判定' | '部分判定' =
+    decidedWuxing.size === WUXING.length ? '已判定' : '部分判定';
 
   const favorable = excludeRestricted(state.favorableWuxing.flatMap((wx) => wuxingToTenGodMap[wx] || []));
   const unfavorable = [
@@ -578,11 +929,11 @@ function finalizeUsefulGod(
       ? primaryFavorable[0]
       : primaryFavorable.length > 1
         ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
-        : '待判'
-    : '待判';
+        : resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
+    : '流通护格';
   const avoid = primaryUnfavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryUnfavorableWuxing)
-    : '待判';
+    : '过偏破衡';
 
   return {
     favorable,
@@ -616,6 +967,62 @@ function finalizeUsefulGod(
     primaryReason: state.primaryReason,
     matchedRules: resolveRuleMetadataList(state.matchedRuleIds, climateCandidates),
     placement: analyzeUsefulGodPlacement(pillars, state.favorableWuxing, state.unfavorableWuxing),
+    ...(tradeoffAnalysis ? { tradeoffAnalysis } : {}),
+  };
+}
+
+/**
+ * 印重身强（土重埋金/母慈灭子）与身强重枭夺食时，官杀生印/生枭反成助病元凶，
+ * 须从喜用中剔除官杀，优先保留财星制印/制枭与食伤泄秀。
+ */
+function applyHeavySealAndXiaoExclusion(
+  state: DecisionState,
+  pillars: Pillars,
+  strengthStatus: string,
+  isSpecial: boolean,
+  dmWuxing: string,
+): DecisionState {
+  if (isSpecial || !['身强', '偏强', '极强'].includes(strengthStatus)) return state;
+  const officer = previous(CONTROLS, dmWuxing);
+  const wealth = CONTROLS[dmWuxing];
+  const visStems = (['year', 'month', 'hour'] as PillarName[]).map((p) => pillars[p].tenGod);
+  const visSealCount = visStems.filter((g) => g === '正印' || g === '偏印').length;
+  const visXiaoCount = visStems.filter((g) => g === '偏印').length;
+  const visFoodCount = visStems.filter((g) => g === '食神').length;
+  const visWealthCount = visStems.filter((g) => g === '正财' || g === '偏财').length;
+  const monthPrincipalGod = pillars.month.hiddenStems[0]?.tenGod ?? '';
+  const monthIsSeal = monthPrincipalGod === '正印' || monthPrincipalGod === '偏印';
+
+  const isHeavySeal = visSealCount >= 2 && monthIsSeal;
+  const isHeavyXiaoDuoShi = (visXiaoCount >= 2 || (visXiaoCount >= 1 && monthPrincipalGod === '偏印')) && visFoodCount >= 1 && visWealthCount === 0;
+
+  if (!isHeavySeal && !isHeavyXiaoDuoShi) return state;
+
+  let nextFav = state.favorableWuxing.filter((w) => w !== officer);
+  if (isHeavyXiaoDuoShi && nextFav.includes(wealth)) {
+    nextFav = [wealth, ...nextFav.filter((w) => w !== wealth)];
+  }
+  const nextUnfav = state.unfavorableWuxing.includes(officer)
+    ? state.unfavorableWuxing
+    : [...state.unfavorableWuxing, officer];
+
+  if (nextFav.length === 0) return state;
+
+  const reasonTag = isHeavyXiaoDuoShi
+    ? `重枭夺食忌官杀生枭:优先取${wealth}制枭、移除${officer}`
+    : `印重成病忌官杀生印:移除${officer}`;
+
+  return {
+    ...state,
+    favorableWuxing: nextFav,
+    unfavorableWuxing: nextUnfav,
+    trace: [...state.trace, reasonTag],
+    decisionEvidence: {
+      ...state.decisionEvidence,
+      appliedLayers: state.decisionEvidence.appliedLayers.includes('病药')
+        ? state.decisionEvidence.appliedLayers
+        : [...state.decisionEvidence.appliedLayers, '病药'],
+    },
   };
 }
 
@@ -653,26 +1060,28 @@ export function determineUsefulGod(input: UsefulGodInput): UsefulGodResult {
     const conditions = [
       `日干与配干${transformation.adjacent ? '紧贴' : '隔位'}；月令本气${transformation.monthSupported ? '支持' : '不支持'}`,
       `${output}泄化神、${wealth}为化神所克，须核对化神能否承受泄耗及岁运配合，再定是否可用。`,
-      `克化神的${controller}在顺势基线列忌；若化神太过，须另核《滴天髓》的泄耗制化条件，不能只凭成化格名决定增补。`,
+      `克化神的${controller}在顺势基线列忌；若化神过亢无泄，方按《滴天髓》权变取泄耗疏通，常规仍以护持化神纯粹为主。`,
     ];
-    return finalizeUsefulGod(
-      {
-        favorableWuxing: favorable,
-        unfavorableWuxing: unfavorable,
-        trace: [basis, ...conditions],
-        primaryReason: '化神顺势',
-        matchedRuleIds: [TRANSFORMATION_USEFUL_RULE.id],
-        decisionEvidence: {
-          base: { favorable: [...favorable], unfavorable: [...unfavorable], ruleId: TRANSFORMATION_USEFUL_RULE.id },
-          climateCandidates: [],
-          transformation: { element, basis, conditions },
-          appliedLayers: ['化神顺势'],
-          conflicts: [],
-        },
+    const transformState: DecisionState = {
+      favorableWuxing: favorable,
+      unfavorableWuxing: unfavorable,
+      trace: [basis, ...conditions],
+      primaryReason: '化神顺势',
+      matchedRuleIds: [TRANSFORMATION_USEFUL_RULE.id],
+      decisionEvidence: {
+        base: { favorable: [...favorable], unfavorable: [...unfavorable], ruleId: TRANSFORMATION_USEFUL_RULE.id },
+        climateCandidates: [],
+        transformation: { element, basis, conditions },
+        appliedLayers: ['化神顺势'],
+        conflicts: [],
       },
+    };
+    return finalizeUsefulGod(
+      transformState,
       pillars,
       dmWuxing,
       climate.candidates,
+      buildUsefulGodTradeoffAnalysis(input, transformState, dmWuxing, true),
     );
   }
 
@@ -684,23 +1093,76 @@ export function determineUsefulGod(input: UsefulGodInput): UsefulGodResult {
   }
 
   const bundles = buildWuxingBundles(dmWuxing);
-  const baseFavorable = bundles[matchedRule.favorable];
-  const baseUnfavorable = bundles[matchedRule.unfavorable];
+  let baseFavorable = bundles[matchedRule.favorable];
+  let baseUnfavorable = bundles[matchedRule.unfavorable];
+  let initialPrimaryReason = matchedRule.primaryReason;
+  const extraNeutralTrace: string[] = [];
+
+  if (!isSpecial && strength.status === '中和') {
+    const companion = dmWuxing;
+    const resource = previous(GENERATES, dmWuxing);
+    const output = GENERATES[dmWuxing];
+    const wealth = CONTROLS[dmWuxing];
+    const officer = previous(CONTROLS, dmWuxing);
+    const isWinter = ['亥', '子', '丑'].includes(monthBranch);
+    const isSummer = ['巳', '午', '未'].includes(monthBranch);
+    const supportCount = strength.support.filter((s) => s.actionable).length + strength.roots.filter((r) => r.actionable).length;
+    const constraintCount = strength.constraint.filter((c) => c.actionable).length;
+    const microBias = supportCount > constraintCount ? '偏生扶' : constraintCount > supportCount ? '偏克泄' : '均衡';
+    const climateRef = climateDecision.referenceOrder[0];
+
+    if (climateRef) {
+      const aux = microBias === '偏克泄' ? resource : output;
+      baseFavorable = [...new Set([climateRef, aux])];
+      const avoidCandidate = isWinter ? '水' : isSummer ? '火' : microBias === '偏克泄' ? officer : companion;
+      baseUnfavorable = [avoidCandidate].filter((el) => !baseFavorable.includes(el));
+      initialPrimaryReason = '中和调候';
+      extraNeutralTrace.push(`中和命局微${microBias}，优先取调候${climateRef}并辅以${aux}流通`);
+    } else if (isWinter) {
+      const aux = microBias === '偏克泄' ? resource : output;
+      baseFavorable = [...new Set(['火', aux])];
+      baseUnfavorable = ['水', microBias === '偏克泄' ? officer : companion].filter((el) => !baseFavorable.includes(el));
+      initialPrimaryReason = '中和调候';
+      extraNeutralTrace.push(`中和生于冬月（微${microBias}），先取火调候暖局，辅以${aux}流通`);
+    } else if (isSummer) {
+      const aux = microBias === '偏克泄' ? resource : output;
+      baseFavorable = [...new Set(['水', aux])];
+      baseUnfavorable = ['火', microBias === '偏克泄' ? officer : companion].filter((el) => !baseFavorable.includes(el));
+      initialPrimaryReason = '中和调候';
+      extraNeutralTrace.push(`中和生于夏月（微${microBias}），先取水调候润局，辅以${aux}流通`);
+    } else if (microBias === '偏生扶') {
+      baseFavorable = [output, wealth];
+      baseUnfavorable = [companion];
+      initialPrimaryReason = '中和流通';
+      extraNeutralTrace.push(`中和微偏生扶，主选${output}泄秀、${wealth}疏导，忌${companion}骤增破衡`);
+    } else if (microBias === '偏克泄') {
+      baseFavorable = [resource, companion];
+      baseUnfavorable = [officer];
+      initialPrimaryReason = '中和流通';
+      extraNeutralTrace.push(`中和微偏克泄，主选${resource}护身、${companion}固本，忌${officer}重压破衡`);
+    } else {
+      baseFavorable = [output, resource];
+      baseUnfavorable = [officer];
+      initialPrimaryReason = '中和流通';
+      extraNeutralTrace.push(`中和生扶克泄均衡，平运以${output}吐秀流通、${resource}护格为主，忌${officer}骤克破衡`);
+    }
+  }
+
   const ordinaryTrace = isSpecial
     ? []
-    : [`普通格局:${patternOverview.pattern}，喜忌先按${strength.status}扶抑登记基线，不因格名直接改判`];
+    : [`普通格局:${patternOverview.pattern}，喜忌先按${strength.status}基线裁定，再综合调候、司权与格局救应`];
 
   let state: DecisionState = applySpecialStrongOutputConditions(
     {
       favorableWuxing: [...baseFavorable],
       unfavorableWuxing: [...baseUnfavorable],
-      trace: [...ordinaryTrace, matchedRule.trace],
-      primaryReason: matchedRule.primaryReason,
+      trace: [...ordinaryTrace, matchedRule.trace, ...extraNeutralTrace],
+      primaryReason: initialPrimaryReason,
       matchedRuleIds: [matchedRule.id],
       decisionEvidence: {
         base: { favorable: [...baseFavorable], unfavorable: [...baseUnfavorable], ruleId: matchedRule.id },
         climateCandidates: [],
-        appliedLayers: [matchedRule.primaryReason],
+        appliedLayers: [initialPrimaryReason],
         conflicts: [],
       },
     },
@@ -821,6 +1283,7 @@ export function determineUsefulGod(input: UsefulGodInput): UsefulGodResult {
   }
 
   state = applyResourceProtection(state, pillars, strength.status, isSpecial, dmWuxing);
+  state = applyHeavySealAndXiaoExclusion(state, pillars, strength.status, isSpecial, dmWuxing);
   state = applyPatternBreakerRestrictions(state, isSpecial, patternEvidence);
 
   const hintClimate = !isSpecial ? climate.candidates.find((c) => c.status === '满足') : undefined;
@@ -849,6 +1312,8 @@ export function determineUsefulGod(input: UsefulGodInput): UsefulGodResult {
     state = { ...state, matchedRuleIds: [...state.matchedRuleIds, hintRuleId] };
   }
 
+  const tradeoffAnalysis = buildUsefulGodTradeoffAnalysis(input, state, dmWuxing, isSpecial);
+
   return finalizeUsefulGod(
     {
       ...state,
@@ -861,6 +1326,7 @@ export function determineUsefulGod(input: UsefulGodInput): UsefulGodResult {
     pillars,
     dmWuxing,
     climate.candidates,
+    tradeoffAnalysis,
   );
 }
 
@@ -883,10 +1349,28 @@ export function formatUsefulGod(result: UsefulGodResult): string {
     result.conditionalFavorableStems?.length ? `条件有利干${result.conditionalFavorableStems.join('、')}` : '',
     result.conditionalUnfavorableStems?.length ? `条件不利干${result.conditionalUnfavorableStems.join('、')}` : '',
   ].filter(Boolean).join('；');
+  const tradeoffLines: string[] = [];
+  if (result.tradeoffAnalysis) {
+    const t = result.tradeoffAnalysis;
+    tradeoffLines.push(`权衡要点：${t.synthesis}。`);
+    if (t.neutralGuidance) {
+      tradeoffLines.push(`中和动态取用：${t.neutralGuidance.dynamicTrigger}。`);
+    }
+    if (t.followEdgeAssessment && t.followEdgeAssessment.kind !== '真从纯格') {
+      tradeoffLines.push(`从格边界提示：${t.followEdgeAssessment.fortuneSwitchRule}。`);
+    }
+    if (t.mediationPaths.length > 0) {
+      const pathsText = t.mediationPaths
+        .map((m) => `${m.conflictType}[${m.severity}：${m.involved.join('、')}]→首选${m.primaryRemedy}（备选：${m.alternativeRemedy}）`)
+        .join('；');
+      tradeoffLines.push(`病药通关路径：${pathsText}。`);
+    }
+  }
   return [
     `主裁定：${result.primaryReason}（${result.incrementStatus}）；主用神：${result.useful}；主忌神：${result.avoid}。`,
-    `喜用五行：${result.favorableWuxing.join('、') || '待判'}（十神：${result.favorable.join('、') || '待判'}）；忌神五行：${result.unfavorableWuxing.join('、') || '待判'}（十神：${result.unfavorable.join('、') || '待判'}）。${conditionalText ? `${conditionalText}。` : ''}`,
+    `喜用五行：${result.favorableWuxing.join('、') || '随运平衡'}（十神：${result.favorable.join('、') || '随运平衡'}）；忌神五行：${result.unfavorableWuxing.join('、') || '随运避偏'}（十神：${result.unfavorable.join('、') || '随运避偏'}）。${conditionalText ? `${conditionalText}。` : ''}`,
     `用神落位（喜用${result.placement.favorableCount}处、忌神${result.placement.unfavorableCount}处）：${placementText}。`,
     `裁定层级：${result.decisionEvidence.appliedLayers.join(' → ')}。`,
+    ...tradeoffLines,
   ].join('\n');
 }

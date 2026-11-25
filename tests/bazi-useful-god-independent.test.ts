@@ -50,7 +50,7 @@ function runDetermine(
   });
 }
 
-test('普通身强、身弱与中和分别裁定扶抑用神与待判状态', () => {
+test('普通身强、身弱与中和分别裁定扶抑用神与中和流通调候方向', () => {
   const names = { year: '甲寅', month: '丙寅', day: '甲寅', hour: '丁卯' };
   const strong = runDetermine(names, '甲', {
     strengthStatus: '身强',
@@ -77,10 +77,24 @@ test('普通身强、身弱与中和分别裁定扶抑用神与待判状态', ()
     strengthStatus: '中和',
     patternOverview: { pattern: '比肩格', source: '普通月令取格候选', limitation: '' },
   });
-  assert.deepEqual(neutral.favorableWuxing, []);
-  assert.deepEqual(neutral.unfavorableWuxing, []);
-  assert.equal(neutral.incrementStatus, '待判');
-  assert.equal(neutral.useful, '待判');
+  assert.ok(neutral.favorableWuxing.length > 0);
+  assert.equal(neutral.incrementStatus, '部分判定');
+  assert.equal(neutral.primaryReason, '中和调候');
+  assert.equal(neutral.useful, '食伤');
+  assert.ok(neutral.tradeoffAnalysis?.neutralGuidance?.dynamicTrigger);
+
+  // 冬月中和命局优先取火暖局调候
+  const winterNeutral = runDetermine(
+    { year: '戊戌', month: '癸亥', day: '丙午', hour: '己丑' },
+    '壬',
+    {
+      strengthStatus: '中和',
+      patternOverview: { pattern: '正官格', source: '普通月令取格候选', limitation: '' },
+    },
+  );
+  assert.ok(winterNeutral.favorableWuxing.length > 0);
+  assert.equal(winterNeutral.incrementStatus, '部分判定');
+  assert.match(winterNeutral.primaryReason, /中和调候|调候/);
 });
 
 test('特殊格局与成化化气分别按顺势规则裁定用神', () => {
@@ -113,6 +127,7 @@ test('特殊格局与成化化气分别按顺势规则裁定用神', () => {
         partnerPosition: 'hour',
         element: '土',
         status: '成化',
+        verdictReason: '化气真纯成格',
         adjacent: false,
         monthSupported: false,
         formations: [],

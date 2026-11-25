@@ -112,7 +112,7 @@ export function getQimenJuShu(
   for (let i = 0; i < segments; i++) {
     const nextStart: SolarDay = start.next(15);
     const nextTerm = activeTerm.next(1);
-    const nextIntercalary: boolean = !intercalary && ['芒种', '大雪'].includes(activeTerm.getName()) && dayDiff(nextStart, termDay(nextTerm, offsetMinutes, timeZoneId)) >= 8;
+    const nextIntercalary: boolean = !intercalary && ['芒种', '大雪'].includes(activeTerm.getName()) && dayDiff(nextStart, termDay(nextTerm, offsetMinutes, timeZoneId)) >= 9;
     start = nextStart;
     if (!nextIntercalary) activeTerm = nextTerm;
     intercalary = nextIntercalary;

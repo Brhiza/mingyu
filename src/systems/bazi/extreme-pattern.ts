@@ -44,7 +44,7 @@ export function buildExtremePattern(pillars: Pillars, strength: Strength, comman
   const subPattern = directCategories.length !== 1 ? '从势格' : directCategories[0] === '财' ? '从财格' : directCategories[0] === '官杀' ? '从杀格' : '从势格';
   return { kind, pattern: kind === '专旺' ? '专旺格' : subPattern, status: blockers.length ? '存在反证' : '条件成立', strength: strength.status, commanderStem, commanderGod,
     direct, residual, samePositions, oppositePositions, sameFormations, oppositeFormations, directCategories, blockers,
-    limitation: '这是按指定旺衰、司权、明干本气及中余气条件得到的模型结果；其他流派可能不同，格局成败、调候和用神仍须另核。' };
+    limitation: '这是按指定旺衰、司权、明干本气及中余气条件得到的模型结果；未成立时归回普通正格，综合调候与用神见用神裁定层。' };
 }
 
 type Extreme = NonNullable<ReturnType<typeof buildExtremePattern>>;

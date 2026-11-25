@@ -47,7 +47,7 @@ export function buildPatternEvidence(pillars: Pillars, pattern: ReturnType<typeo
 }
 
 export function formatPatternEvidence(data: ReturnType<typeof buildPatternEvidence>) {
-  const visible = data.visible.map((item) => `${labels[item.position]}${item.stem}${item.tenGod}（${item.rootType}${item.monthControlled ? `，受月支本气${item.controller}克` : ''}${item.harmony.length ? '，存在合绊' : ''}，${item.effective ? '可用' : '受限待核'}）`);
+  const visible = data.visible.map((item) => `${labels[item.position]}${item.stem}${item.tenGod}（${item.rootType}${item.monthControlled ? `，受月支本气${item.controller}克` : ''}${item.harmony.length ? '，存在合绊' : ''}，${item.effective ? '可用' : item.harmony.length ? '合绊受阻' : item.monthControlled ? '受月令克制减力' : '无可用强根'}）`);
   const gate = data.monthGate ? `${data.monthGate.target}月令条件${data.monthGate.status}；月支藏干${data.monthGate.monthHiddenStems.join('、') || '无'}；司权${data.monthGate.commanderStem}${data.monthGate.commanderGod}${data.monthGate.commanderMatches ? '符合' : '不符'}。` : data.decision ? `${data.decision.target}月令条件${data.decision.monthGate}。` : '当前格局不适用普通格神月令门槛。';
   const paths = data.paths.map((path) => `${path.label}：${path.status}${path.pairs.length ? `（${path.pairs.map(({ source, via, target }) => `${labels[source.position]}${source.stem}→${via ? `${labels[via.position]}${via.stem}→` : ''}${labels[target.position]}${target.stem}`).join('、')}）` : `（${path.reason}）`}`);
   const decision = data.decision ? `普通格局条件模型：${data.decision.status}（${data.decision.reason}）；格神条件${data.decision.targetCondition}${data.decision.wealthBearing ? `；身承财条件${data.decision.wealthBearing}` : ''}。${data.decision.breakers.map((item) => `${item.label}：${item.status}，救应${item.repairStatus}`).join('；')}\n` : '';

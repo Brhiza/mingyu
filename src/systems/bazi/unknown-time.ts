@@ -18,6 +18,7 @@ import { buildUsefulStrategy } from './useful-strategy';
 import { determineUsefulGod } from './useful-god';
 import { buildPatternEvidence } from './pattern-evidence';
 import { calculateBaziShensha } from './shensha';
+import { resolveBaziRules } from '../defaults';
 import { civilDayHour } from './civil-day-hour';
 
 export interface UnknownBaziBirth {
@@ -136,7 +137,8 @@ export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?:
       const climateDecision = resolveClimate(climate.candidates, usefulBaseline);
       const usefulStrategy = buildUsefulStrategy(pillars, strength, patternOverview, state.monthCommander.stem, climateDecision);
       const usefulGod = determineUsefulGod({ pillars, strength, patternOverview, transformation, patternEvidence, climate, climateDecision, monthCommander: state.monthCommander });
-      segments.push({ startTimestamp: segmentStart, endTimestamp: boundary, endExclusive: true, timezone: state.offset, localStart: state.local, pillars, natalFacts: buildNatalFacts(pillars, state.monthCommander.stem), shensha: calculateBaziShensha(pillars, gender), strength, ordinaryPattern, transformation, quzhi, conger, extreme, patternOverview, patternEvidence, usefulBaseline, climate, climateDecision, usefulStrategy, usefulGod, monthCommander: state.monthCommander });
+      const defaultRules = resolveBaziRules();
+      segments.push({ startTimestamp: segmentStart, endTimestamp: boundary, endExclusive: true, timezone: state.offset, localStart: state.local, pillars, natalFacts: buildNatalFacts(pillars, state.monthCommander.stem), shensha: calculateBaziShensha(pillars, gender, undefined, { yangRenMode: defaultRules.yangRenMode, kongWangMode: defaultRules.kongWangMode, shenshaBaseMode: defaultRules.shenshaBaseMode, xueTangMode: defaultRules.xueTangMode, tianYiMode: defaultRules.tianYiMode, hongYanMode: defaultRules.hongYanMode, tongZiMode: defaultRules.tongZiMode }), strength, ordinaryPattern, transformation, quzhi, conger, extreme, patternOverview, patternEvidence, usefulBaseline, climate, climateDecision, usefulStrategy, usefulGod, monthCommander: state.monthCommander });
     }
     else excludedSeconds += (boundary - segmentStart) / 1000;
   };

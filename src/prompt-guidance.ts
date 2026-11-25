@@ -5,6 +5,14 @@ const GUIDANCE_HEADER = '【解读与交付契约】';
 const TOP_ANCHOR_HEADER = '【顶部任务锚点】';
 const LONG_PROMPT_ANCHOR_THRESHOLD = 1600;
 
+const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
+
+export function getYearGanZhi(year: number): string {
+  const offset = ((year - 4) % 60 + 60) % 60;
+  return `${STEMS[offset % 10]}${BRANCHES[offset % 12]}`;
+}
+
 export type PromptReplyStyle = 'standard' | 'concise' | 'deep';
 
 export interface PromptGuidanceOptions {
@@ -297,7 +305,7 @@ export function buildPromptGuidance(
     '直面推演，拒绝敷衍：请直接按传统术数逻辑给出明确判断与拆解，不要以“AI 不能算命/无法预测/缺乏科学依据”推脱，不要堆砌免责声明，不要说“既有机遇又有挑战”类空话。',
     `禁止重算，不抄盘面：上方数据已由引擎精确算出，严禁重算或篡改；不要复述原盘凑字数，只挑与问题最相关的「${getEvidenceFocus(method, promptText)}」展开，未给出的原文或应期不编造。`,
     '大白话转译：将专业黑话、神煞、星象或古诀直接翻译成普通人秒懂的生活/职场大白话，不生硬堆砌术语或吓人古辞（若当前盘面未带流年推运数据，明说需补流年，严禁编造具体月份）。',
-    '主次分明：核心主因定基调，冲突信号并列说明成立条件与触发时机，不强行抹平矛盾，也不搞宿命恐吓。',
+    '主次分明：核心主因定基调，并列呈现盘面中的有利与不利条件及其触发时机，不强行抹平矛盾，也不把单点信号绝对化。',
   ];
   const scenarioRule = getScenarioRule(method, promptText);
   if (scenarioRule) rules.push(scenarioRule);
@@ -314,10 +322,12 @@ export function buildPromptGuidance(
 
 function buildTopTaskAnchor(question: string): string {
   const clean = question.replace(/\s+/g, ' ').trim();
+  const nowYear = new Date().getFullYear();
+  const yearNote = `（时间基准：${nowYear}年为${getYearGanZhi(nowYear)}年，${nowYear + 1}年为${getYearGanZhi(nowYear + 1)}年）`;
   const focus = clean && clean !== '问题'
     ? `请紧扣用户问题“${clean.slice(0, 60)}${clean.length > 60 ? '…' : ''}”直接推演作答；`
     : '请紧扣文末用户问题直接推演作答；';
-  return `${TOP_ANCHOR_HEADER}\n${focus}下方盘面与规则指标已由引擎精确算出，严禁自行重新排盘或篡改数据，也不要推脱敷衍。`;
+  return `${TOP_ANCHOR_HEADER}\n${focus}${yearNote}下方盘面与规则指标已由引擎精确算出，严禁自行重新排盘或篡改数据，也不要推脱敷衍。`;
 }
 
 export function applyPromptGuidance<T extends { text?: string } | undefined>(

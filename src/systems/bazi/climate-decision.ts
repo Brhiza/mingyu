@@ -70,9 +70,9 @@ export function resolveClimate(candidates: Candidate[], baseline: Baseline) {
 
 export function formatClimateDecision(value: ReturnType<typeof resolveClimate>, candidates: Candidate[]) {
   const labels = (ids: string[]) => ids.map((id) => candidates.find((candidate) => candidate.id === id)?.label ?? id).join('、') || '无';
-  return `参考顺序：${value.referenceOrder.join('、') || '无'}；选中规则：${labels(value.selected)}；实际采用：${labels(value.applied)}；同权限冲突：${labels(value.conflicts)}。\n条件层有利方向：${value.favorable.join('、') || '待判'}；不利方向：${value.unfavorable.join('、') || '待判'}；条件有利干：${value.conditionalFavorableStems.join('、') || '无'}；条件不利干：${value.conditionalUnfavorableStems.join('、') || '无'}。\n${value.issues.map((issue) => `${issue.id}：${issue.reason}`).join('；')}${value.issues.length ? '。' : ''}${value.limitation}`;
+  return `参考顺序：${value.referenceOrder.join('、') || '无'}；选中规则：${labels(value.selected)}；实际采用：${labels(value.applied)}；同权限冲突：${labels(value.conflicts)}。\n条件层有利方向：${value.favorable.join('、') || '随运平衡'}；不利方向：${value.unfavorable.join('、') || '随运避偏'}；条件有利干：${value.conditionalFavorableStems.join('、') || '无'}；条件不利干：${value.conditionalUnfavorableStems.join('、') || '无'}。\n${value.issues.map((issue) => `${issue.id}：${issue.reason}`).join('；')}${value.issues.length ? '。' : ''}${value.limitation}`;
 }
 
 export function summarizeClimateDecision(value: ReturnType<typeof resolveClimate>) {
-  return `调候条件层有利${value.favorable.join('、') || '待判'}、不利${value.unfavorable.join('、') || '待判'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}、不利干${value.conditionalUnfavorableStems.join('、') || '无'}；冲突${value.conflicts.join('、') || '无'}；非最终用神`;
+  return `调候条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}、不利干${value.conditionalUnfavorableStems.join('、') || '无'}；冲突${value.conflicts.join('、') || '无'}；非最终用神`;
 }

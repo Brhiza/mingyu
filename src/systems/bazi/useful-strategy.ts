@@ -24,10 +24,14 @@ export function buildUsefulStrategy(pillars: Pillars, strength: ReturnType<typeo
   const therapeuticApplied = therapeuticCandidate !== null && favorable.includes(therapeuticCandidate);
   if (therapeuticApplied) favorable = [therapeuticCandidate!, ...favorable.filter((item) => item !== therapeuticCandidate)];
   const resource = Object.keys(generates).find((element) => generates[element] === dayElement)!;
-  const disease = special ? { status: '不适用', reason: '特殊格按成格及顺势条件另核' } : !strong && !weak ? { status: '不适用', reason: '中和须结合格局制化和寒暖另核' } : {
-    status: '候选', direction: strong ? '身强泄化' : '身弱生扶', element: strong ? generates[dayElement] : resource,
-    reason: strong ? '核对食伤是否有根承泄、是否影响官杀与格局' : '核对印星根气及受财克制，并与比劫扶身比较',
-  };
+  const disease = special
+    ? { status: '不适用', reason: '特殊格以顺从旺势为主线，不套用常规扶抑病药' }
+    : !strong && !weak
+      ? { status: '候选', direction: '中和流通', element: favorable[0] ?? generates[dayElement], reason: '中和命局以疏通流通、调候寒暖及护持格局清纯为先，岁运偏枯再转扶抑' }
+      : {
+          status: '候选', direction: strong ? '身强泄化' : '身弱生扶', element: strong ? generates[dayElement] : resource,
+          reason: strong ? '核对食伤是否有根承泄、是否影响官杀与格局' : '核对印星根气及受财克制，并与比劫扶身比较',
+        };
   const observed = positions.flatMap((position) => [
     { position, type: '天干' as const, value: pillars[position].gan, element: pillars[position].stemElement },
     { position, type: '地支本气' as const, value: pillars[position].zhi, element: pillars[position].branchElement },
@@ -50,9 +54,9 @@ export function formatUsefulStrategy(value: ReturnType<typeof buildUsefulStrateg
   const bridgesText = value.bridges.length
     ? `${value.bridges.map((item) => `${item.elements.join('、')}候选${item.bridge}`).join('；')}（须核对相克两端月令、根气与位置是否实际相战，再核通关神能否承接）`
     : '未见';
-  return `司权${value.commander.stem}${value.commander.element}${value.commander.applied ? '参与排序' : '未调整排序'}；土月疏泄${value.therapeutic.candidate ? `${value.therapeutic.candidate}（${value.therapeutic.applied ? '参与排序' : '未在当前有利方向中'}）` : '未命中'}。\n条件层方向：有利${value.favorable.join('、') || '待判'}，不利${value.unfavorable.join('、') || '待判'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}，条件不利干${value.conditionalUnfavorableStems.join('、') || '无'}。\n病药：${disease}。\n通关候选：${bridgesText}。${value.limitation}`;
+  return `司权${value.commander.stem}${value.commander.element}${value.commander.applied ? '参与排序' : '未调整排序'}；土月疏泄${value.therapeutic.candidate ? `${value.therapeutic.candidate}（${value.therapeutic.applied ? '参与排序' : '未在当前有利方向中'}）` : '未命中'}。\n条件层方向：有利${value.favorable.join('、') || '随运平衡'}，不利${value.unfavorable.join('、') || '随运避偏'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}，条件不利干${value.conditionalUnfavorableStems.join('、') || '无'}。\n病药：${disease}。\n通关候选：${bridgesText}。${value.limitation}`;
 }
 
 export function summarizeUsefulStrategy(value: ReturnType<typeof buildUsefulStrategy>) {
-  return `条件层有利${value.favorable.join('、') || '待判'}、不利${value.unfavorable.join('、') || '待判'}；病药${value.disease.status === '候选' ? `候选${value.disease.element}` : '不适用'}；通关${value.bridges.map((item) => `${item.elements.join('、')}候选${item.bridge}`).join('、') || '未见候选'}；非最终用神`;
+  return `条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；病药${value.disease.status === '候选' ? `候选${value.disease.element}` : '不适用'}；通关${value.bridges.map((item) => `${item.elements.join('、')}候选${item.bridge}`).join('、') || '未见候选'}；非最终用神`;
 }

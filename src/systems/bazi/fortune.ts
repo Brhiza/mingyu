@@ -5,6 +5,7 @@ import { buildPillarFact, type BaziRules, type calculateBaziPillars } from './pi
 import { getMonthCommanderAt } from './season';
 import { buildFortuneEvidence } from './fortune-evidence';
 import { calculateFortuneShensha } from './fortune-shensha';
+import type { BaziShenshaOptions } from './shensha';
 
 type Chart = Awaited<ReturnType<typeof calculateBaziPillars>>;
 
@@ -52,7 +53,7 @@ export function calculateBaziFortune(chart: Chart, gender: 'male' | 'female', fo
 type Fortune = ReturnType<typeof calculateBaziFortune>;
 
 /** 依给定瞬时定位大运和北京时间流年、流月、流日、流时；不合成年份级事件结论。 */
-export function locateBaziFortune(chart: Chart, fortune: Fortune, timestamp: number) {
+export function locateBaziFortune(chart: Chart, fortune: Fortune, timestamp: number, shenshaOptions?: BaziShenshaOptions) {
   if (!Number.isSafeInteger(timestamp) || timestamp % 1000 !== 0 || !Number.isFinite(new Date(timestamp).getTime())) throw new Error('岁运参考时刻须为整秒有效瞬时。');
   if (chart.basis.precision !== 'exact' || chart.basis.utcTimestamp !== fortune.birthTimestamp) throw new Error('岁运与本命出生瞬时不一致。');
   if (timestamp < fortune.birthTimestamp) throw new Error('岁运参考时刻不能早于出生。');
@@ -62,7 +63,10 @@ export function locateBaziFortune(chart: Chart, fortune: Fortune, timestamp: num
   const p = getDivinationTime(new Date(timestamp)), civil = chinaParts(timestamp), master = chart.pillars.day.gan;
   const yearGanZhi = p.ganzhi.year, civilYearGanZhi = getYearSixtyCycle(civil.year);
   const flowYear = civilYearGanZhi === yearGanZhi ? civil.year : civil.year - 1;
-  const nominalAge = Math.max(1, flowYear - chinaParts(fortune.birthTimestamp).year + 1);
+  const birthCivilYear = chinaParts(fortune.birthTimestamp).year;
+  const birthYearGanZhi = chart.pillars.year.ganZhi;
+  const birthFlowYear = getYearSixtyCycle(birthCivilYear) === birthYearGanZhi ? birthCivilYear : birthCivilYear - 1;
+  const nominalAge = Math.max(1, flowYear - birthFlowYear + 1);
   const smallCycle = stepSixtyCycle(chart.pillars.hour.ganZhi, fortune.direction === 'forward' ? nominalAge : -nominalAge);
   const year = buildPillarFact(p.ganzhi.year, master), month = buildPillarFact(p.ganzhi.month, master);
   const day = buildPillarFact(p.ganzhi.day, master), hour = buildPillarFact(p.ganzhi.hour, master);
@@ -71,7 +75,7 @@ export function locateBaziFortune(chart: Chart, fortune: Fortune, timestamp: num
     ...([{ id: 'year' as const, pillar: year }, { id: 'month' as const, pillar: month }, { id: 'day' as const, pillar: day }, { id: 'hour' as const, pillar: hour }].map((layer) => ({ ...layer, ganZhi: layer.pillar.ganZhi }))),
   ];
   return { timestamp, timezone: 'UTC+08:00' as const, cycle: cycle ?? null, inChildhood: Boolean(inChildhood), flowYear,
-    year, month, day, hour, evidence: buildFortuneEvidence(chart.pillars, active), shensha: calculateFortuneShensha(chart.pillars, active, fortune.gender),
+    year, month, day, hour, evidence: buildFortuneEvidence(chart.pillars, active), shensha: calculateFortuneShensha(chart.pillars, active, fortune.gender, shenshaOptions),
     smallFortune: { nominalAge, pillar: buildPillarFact(smallCycle, master) }, monthCommander: getMonthCommanderAt(timestamp),
     limitation: '流年按立春、流月按交节定位；流日与流时按北京时间计算。小运按本命时柱与所列虚岁顺逆推算。' };
 }

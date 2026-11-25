@@ -97,20 +97,23 @@ export function getMeihuaTiYongSeasonEvaluation(
   switch (relation) {
     case '用克体':
       if (isTiStrong && !isYongStrong) {
-        return `主卦用克体，${seasonContext}；体旺用衰，克体条件较轻`;
+        return `主卦用克体，${seasonContext}；体旺用衰，体卦足以抗克，克体阻力较轻`;
       }
       if (!isTiStrong && isYongStrong) {
-        return `主卦用克体，${seasonContext}；用旺体衰，克体条件较重`;
+        return `主卦用克体，${seasonContext}；用旺体衰，克体阻力较重`;
       }
-      return `主卦用克体，${seasonContext}`;
+      if (isTiStrong && isYongStrong) {
+        return `主卦用克体，${seasonContext}；体用皆旺，克抗相持`;
+      }
+      return `主卦用克体，${seasonContext}；体用皆休囚死，克制与抗衡均偏弱`;
     case '体克用':
       return `主卦体克用，${seasonContext}；体卦${isTiStrong ? '旺相，制用条件较强' : '休囚死，制用条件较弱'}`;
     case '用生体':
       return `主卦用生体，${seasonContext}；用卦${isYongStrong ? '旺相，生体条件较强' : '休囚死，生体条件较弱'}`;
     case '体生用':
-      return `主卦体生用，${seasonContext}；体卦向用卦泄气`;
+      return `主卦体生用，${seasonContext}；体卦${isTiStrong ? '旺相，虽有泄气尚可承泄' : '休囚死，再逢泄气消耗偏重'}`;
     case '比和':
-      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}`;
+      return `体用同五行，比和相应；${seasonContext}${isTiStrong ? '，气势充实' : '，气势偏弱'}`;
     default:
       return `主卦体用关系未定，${seasonContext}`;
   }
@@ -144,21 +147,26 @@ export function evaluateMeihuaTimelineTrend(params: {
   const interYongRelation = getInterRelationToOriginalTi('用互', interYongElement, tiElement);
   const endRelation = getTiYongRelation(changedYongElement, changedTiElement);
 
-  // 1. 初阶段（主卦用对体）
-  const startFavorable = startRelation === '用生体' || startRelation === '比和';
+  // 1. 初阶段（主卦用对体）：用生体、比和、体克用属偏顺/可成；用克体、体生用属受制/泄气
+  const startFavorable =
+    startRelation === '用生体' || startRelation === '比和' || startRelation === '体克用';
   const startDifficult = startRelation === '用克体' || startRelation === '体生用';
 
   // 2. 中阶段（互卦对原体）
   const interRelations = [interTiRelation, interYongRelation];
   const midFavorable = interRelations.every(
-    (relation) => relation.includes('生原体') || relation.includes('与原体比和'),
+    (relation) =>
+      relation.includes('生原体') ||
+      relation.includes('与原体比和') ||
+      relation.startsWith('原体克'),
   );
   const midDifficult = interRelations.some(
     (relation) => relation.includes('克原体') || relation.startsWith('原体生'),
   );
 
   // 3. 终阶段（变卦用对变后体）
-  const endFavorable = endRelation === '用生体' || endRelation === '比和';
+  const endFavorable =
+    endRelation === '用生体' || endRelation === '比和' || endRelation === '体克用';
   const endDifficult = endRelation === '用克体' || endRelation === '体生用';
   const summary = `主卦用/体：${startRelation}；互卦：${interTiRelation}、${interYongRelation}；变卦用/体：${endRelation}`;
 

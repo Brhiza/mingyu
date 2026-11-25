@@ -62,11 +62,23 @@ test('自研玄空下卦与替卦排盘覆盖全部九运二十四山且格局�
   assert.equal(eightWeiChou.formation, '旺山旺向');
   assert.deepEqual(eightWeiChou.arrival, { shanToMountain: true, xiangToFacing: true });
 
-  const yangDay = dayFlyingStar(2024, 12, 25);
+  // 2024 冬至为 12-21，最近甲子日为 12-26；12-25 仍在阴遁逆行期，12-26 起转阳遁顺飞
+  const preJiaziWinter = dayFlyingStar(2024, 12, 25);
+  assert.equal(preJiaziWinter.direction, '逆飞');
+  assert.equal(preJiaziWinter.centerStar, 1);
+  const yangDay = dayFlyingStar(2024, 12, 26);
   assert.equal(yangDay.direction, '顺飞');
+  assert.equal(yangDay.centerStar, 1);
   assert.equal(yangDay.plate.length, 9);
-  const yinDay = dayFlyingStar(2024, 6, 25);
+  const yangDayNext = dayFlyingStar(2024, 12, 27);
+  assert.equal(yangDayNext.direction, '顺飞');
+  assert.equal(yangDayNext.centerStar, 2);
+  // 2024 夏至为 6-21，最近甲子日为 6-29；6-25 仍在阳遁顺飞，6-29 起转阴遁逆飞
+  const preJiaziSummer = dayFlyingStar(2024, 6, 25);
+  assert.equal(preJiaziSummer.direction, '顺飞');
+  const yinDay = dayFlyingStar(2024, 6, 29);
   assert.equal(yinDay.direction, '逆飞');
+  assert.equal(yinDay.centerStar, 9);
   const yangHour = hourFlyingStar(2024, 12, 25, 10);
   assert.equal(yangHour.direction, '顺飞');
   const yinHour = hourFlyingStar(2024, 6, 25, 10);

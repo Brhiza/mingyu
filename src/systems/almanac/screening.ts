@@ -3,7 +3,7 @@ import { getBranchWuxing, getStemWuxing } from '../ganzhi-foundation';
 
 type Participant = Awaited<ReturnType<typeof participantProfile>>;
 type Match = { support: string[]; caution: string[]; restriction: string | null };
-type Reason = { source: '事项忌项' | '通用限制' | '参与人关系' | '四离四绝' | '交节' | '事项未明确列宜' | '时段限制'; text: string; strength: '明确限制' | '待核条件' };
+type Reason = { source: '事项忌项' | '通用限制' | '参与人关系' | '四离四绝' | '交节' | '事项未明确列宜' | '时段限制'; text: string; strength: '明确限制' | '条件提示' };
 
 /** 本次已迁移依据的初筛，结果不等于完整择日结论。 */
 export function screenAlmanac(match: Match, branch: string, participants: Participant[], options: { scope: 'day' | 'hour'; special?: string[]; boundary?: string; noUsableHours?: boolean }) {
@@ -11,9 +11,9 @@ export function screenAlmanac(match: Match, branch: string, participants: Partic
   if (match.caution.length) reasons.push({ source: '事项忌项', text: `原始忌项命中：${match.caution.join('、')}`, strength: '明确限制' });
   if (match.restriction) reasons.push({ source: '通用限制', text: match.restriction, strength: '明确限制' });
   for (const text of options.special ?? []) reasons.push({ source: '四离四绝', text, strength: '明确限制' });
-  if (options.boundary) reasons.push({ source: '交节', text: options.boundary, strength: '待核条件' });
-  if (options.scope === 'day' && !match.support.length) reasons.push({ source: '事项未明确列宜', text: '原始宜项未命中当前事项，需核对具体活动', strength: '待核条件' });
-  if (options.noUsableHours) reasons.push({ source: '时段限制', text: '所选时间范围内未筛出没有明确限制的时辰', strength: '待核条件' });
+  if (options.boundary) reasons.push({ source: '交节', text: options.boundary, strength: '条件提示' });
+  if (options.scope === 'day' && !match.support.length) reasons.push({ source: '事项未明确列宜', text: '原始宜项未命中当前事项，结合具体活动场景酌情取用', strength: '条件提示' });
+  if (options.noUsableHours) reasons.push({ source: '时段限制', text: '所选时间范围内未筛出没有明确限制的时辰', strength: '条件提示' });
   for (const person of participants) {
     const record = person.relationsByBranch.find((item) => item.candidateBranch === branch);
     if (!record) throw new Error('参与人关系缺少候选地支。');
@@ -22,7 +22,7 @@ export function screenAlmanac(match: Match, branch: string, participants: Partic
     const common = union.filter((item) => conflictSets.every((set) => set.has(item)));
     const conditional = union.filter((item) => !common.includes(item));
     if (common.length) reasons.push({ source: '参与人关系', text: `${person.name}：候选${options.scope === 'day' ? '日' : '时'}支${branch}与${common.join('、')}`, strength: '明确限制' });
-    if (conditional.length) reasons.push({ source: '参与人关系', text: `${person.name}：出生时段未定时，候选${options.scope === 'day' ? '日' : '时'}支${branch}可能与${conditional.join('、')}；核对候选区间`, strength: '待核条件' });
+    if (conditional.length) reasons.push({ source: '参与人关系', text: `${person.name}：出生时段未定时，候选${options.scope === 'day' ? '日' : '时'}支${branch}可能与${conditional.join('、')}（仅部分出生候选触发）`, strength: '条件提示' });
   }
   return { status: reasons.some((reason) => reason.strength === '明确限制') ? '有明确限制' as const : reasons.length ? '需要核对' as const : '未见已列限制' as const,
     reasons, limitation: '仅按已列规则初筛，不等于完整择日、现实适宜或成功率。' };

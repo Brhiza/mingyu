@@ -28,6 +28,56 @@ function calculateData(source: Source) {
     limitation: '八宅仅列传统命卦、宅卦与八方对应，不包含玄空飞星、形峦、建筑安全或现实结果判断。' };
 }
 type Data = ReturnType<typeof calculateData>;
+function buildBazhaiPatternRelations(data: Data): string {
+  const lines: string[] = [];
+  const scopes = data.housePalaces.length
+    ? data.housePalaces.map((p) => ({ scope: `${p.sitMountain}山${p.houseGua}宅`, items: p.starPalaces }))
+    : data.mingPalaces.map((p) => ({ scope: `${p.year === null ? '指定' : `${p.year}年`}命卦${p.gua}`, items: p.starPalaces }));
+  const luckyLabels = new Set(['生气', '延年', '天医', '伏位']);
+
+  for (const entry of scopes) {
+    const luckyStrong = entry.items
+      .filter((x) => luckyLabels.has(x.label) && (x.relation === '宫生星' || x.relation === '星与宫比和'))
+      .map((x) => `${x.direction}（${x.label}${x.starElement}/${x.gua}宫${x.palaceElement}·${x.relation}）`);
+    const luckyChecked = entry.items
+      .filter((x) => luckyLabels.has(x.label) && (x.relation === '宫克星' || x.relation === '星克宫'))
+      .map((x) => `${x.direction}（${x.label}${x.starElement}/${x.gua}宫${x.palaceElement}·${x.relation}）`);
+    const badChecked = entry.items
+      .filter((x) => !luckyLabels.has(x.label) && x.relation === '宫克星')
+      .map((x) => `${x.direction}（${x.label}${x.starElement}/${x.gua}宫${x.palaceElement}·宫克星受制）`);
+    const badBoosted = entry.items
+      .filter((x) => !luckyLabels.has(x.label) && (x.relation === '宫生星' || x.relation === '星与宫比和'))
+      .map((x) => `${x.direction}（${x.label}${x.starElement}/${x.gua}宫${x.palaceElement}·${x.relation}增凶）`);
+    lines.push(
+      `${entry.scope}星宫制衡：吉星得势（${luckyStrong.join('、') || '无'}）；吉星受泄克（${luckyChecked.join('、') || '无'}）；凶星受宫克制（${badChecked.join('、') || '无'}）；凶星得生比增力（${badBoosted.join('、') || '无'}）。`,
+    );
+  }
+
+  for (const item of data.comparisons) {
+    const bothGood = item.directions
+      .filter((d) => d.mingLuck === '吉' && d.houseLuck === '吉')
+      .map((d) => `${d.direction}（命${d.ming}/宅${d.house}）`);
+    const bothBad = item.directions
+      .filter((d) => d.mingLuck === '凶' && d.houseLuck === '凶')
+      .map((d) => `${d.direction}（命${d.ming}/宅${d.house}）`);
+    const mingGoodHouseBad = item.directions
+      .filter((d) => d.mingLuck === '吉' && d.houseLuck === '凶')
+      .map((d) => `${d.direction}（命${d.ming}/宅${d.house}）`);
+    const houseGoodMingBad = item.directions
+      .filter((d) => d.mingLuck === '凶' && d.houseLuck === '吉')
+      .map((d) => `${d.direction}（宅${d.house}/命${d.ming}）`);
+    const prefix = `命卦${item.mingGua}（${item.mingGroup}）配${item.sitMountain}山${item.houseGua}宅（${item.houseGroup}·${item.match}）`;
+    if (item.match === '同组') {
+      lines.push(`${prefix}：人宅同吉方 ${bothGood.join('、')}；人宅同凶压制方 ${bothBad.join('、')}。`);
+    } else {
+      lines.push(
+        `${prefix}：人吉宅凶冲突方 ${mingGoodHouseBad.join('、')}（仅宜个人床头/书桌朝向，忌作全宅大门纳气）；宅吉人凶冲突方 ${houseGoodMingBad.join('、')}（宜作外局大门/客厅纳气，避作命主主卧）。`,
+      );
+    }
+  }
+  return lines.join('\n');
+}
+
 function render(data: Data, question: string, options?: Input['prompt']) {
   const people = data.mingPalaces.map((person) => `${person.year === null ? '指定命卦' : `命卦年份${person.year}`}：${person.gua}；${person.palaces.map((p) => `${p.direction}${p.label}（${p.luck}）`).join('、')}`);
   const comparisons = data.comparisons.map((item) => `命卦${item.mingGua}与${item.sitMountain}山${item.houseGua}宅：${item.match}；${item.directions.map((p) => `${p.direction}命${p.ming}、宅${p.house}`).join('；')}`);
@@ -58,6 +108,7 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     `【命宅逐方对照】\n${comparisons.join('\n') || '缺少住宅方向，未计算命宅对照。'}`,
     `【星宫生克】\n伏位取左辅木。\n${starPalaces.map((p) => `${p.scope}：${p.items.map((x) => `${x.direction}${x.gua}宫${x.palaceElement}，${x.label}${x.star}${x.starElement}，${x.relation}`).join('；')}`).join('\n')}`,
     `【八方六亲归宫与门主灶布局指引】\n${starGuidanceLines.join('\n')}${sanYaoAdvice.length ? `\n${sanYaoAdvice.join('\n')}` : ''}`,
+    `【方位格局与理气制衡关系】\n${buildBazhaiPatternRelations(data)}`,
     formatSchoolAlgorithmSection(evaluateBazhaiSchoolAlgorithms(data, options?.schools)),
     schools,
     classics,

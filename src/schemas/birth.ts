@@ -67,6 +67,25 @@ export const qizhengRangeInput = z.object({
   .refine((input) => input.flow?.kind !== 'day' || input.flow.timezone === undefined || !!input.birth.timeZoneId, '流曜 timezone 仅用于选择 IANA 时区回拨时刻。')
   .describe('七政四余出生范围：逐秒分页比较本命和指定时点流曜，终点不含，最多两小时。');
 
+const ymdString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式须为 YYYY-MM-DD。');
+
+export const dailyRangeSchema = z.union([
+  z.object({
+    startDate: ymdString.describe('流日起始日期（YYYY-MM-DD）。'),
+    endDate: ymdString.describe('流日结束日期（YYYY-MM-DD），单次最多 31 天。'),
+  }).strict(),
+  z.object({
+    preset: z.literal('week'),
+    anchorDate: ymdString.optional().describe('整周流日起始日（YYYY-MM-DD，省略时默认从今天起算7天）。'),
+  }).strict(),
+  z.object({
+    preset: z.literal('month'),
+    year: z.number().int().min(1900).max(2100).optional().describe('整月流日年份（省略时取 anchorDate 或当前年）。'),
+    month: z.number().int().min(1).max(12).optional().describe('整月流日月份 1–12（省略时取 anchorDate 或当前月）。'),
+    anchorDate: ymdString.optional().describe('整月流日锚定日期（YYYY-MM-DD）。'),
+  }).strict(),
+]).describe('可选手动流日区间：支持自定义 1–31 天（startDate/endDate）、整周 7 天（preset: week）或整月 28–31 天（preset: month）。');
+
 const ziweiTopics = z.enum(['life', 'destiny', 'relationship', 'relationship-push', 'relationship-decision', 'children', 'career-wealth', 'job-change', 'startup-partnership', 'investment-partnership', 'recent', 'family', 'home-move', 'settle-relocate', 'social', 'emotion', 'health', 'study', 'study-advance', 'exam-landing', 'reconciliation-decision', 'growth', 'talent', 'chat']);
 const ziweiSchools = uniqueArray(z.array(z.enum(['sanhe', 'feixing', 'sihua', 'zhongzhou'])).max(4), '解读流派不得重复。');
 
@@ -76,6 +95,7 @@ export const ziweiIndependentInput = z.object({
   gender: z.enum(['male', 'female']),
   referenceTime: isoTime.optional().describe('运限参考瞬时；按出生地时区转换为当地日期与时辰。'),
   includeTimeline: z.boolean().optional().describe('是否附带十二大限时间线；默认 false。'),
+  dailyRange: dailyRangeSchema.optional(),
   rules: z.object({
     algorithm: z.enum(['default', 'zhongzhou', 'beipai']).optional().describe('安星流派：default 为通行全书版，zhongzhou 为中州派，beipai 为北派飞星精简。'),
     mutagenSchool: z.enum(['default', 'zhongzhou', 'quanshu', 'tianfu']).optional().describe('四化口诀流派：default 为通行/飞星主流，zhongzhou 为中州派（庚阳武同相），quanshu 为《全书》古法，tianfu 为天府化科派。'),
@@ -217,6 +237,7 @@ export const baziIndependentInput = z.object({
   gender: z.enum(['male', 'female']).optional().describe('提供精确出生时分秒及性别时计算大运；元辰神煞需提供性别。'),
   referenceTime: isoTime.optional().describe('整秒运限参考时刻；须有性别与精确出生时间。'),
   timelineYear: z.number().int().min(1900).max(2199).optional().describe('可选按立春年查询一年的流月与大运；须提供性别和精确出生时间。'),
+  dailyRange: dailyRangeSchema.optional(),
   rules: z.object({
     yearBoundary: z.enum(['lichun', 'lunar-new-year', 'dongzhi']).optional().describe('年柱换年口径：默认 lichun（立春换年）；lunar-new-year 为正月初一；dongzhi 为冬至换年。'),
     ziHourMode: z.enum(['23:00', 'split-zi']).optional().describe('早晚子时换日口径：默认 23:00（23点换次日日柱）；split-zi 为分早晚子时（23–24点晚子保留当日日柱，时干按五鼠遁）。'),
@@ -228,6 +249,11 @@ export const baziIndependentInput = z.object({
     kongWangMode: z.enum(['day', 'day-and-year']).optional().describe('旬空查法：默认 day（仅以日柱查旬空）；day-and-year 为年日互换兼查年柱旬空。'),
     fortuneRule: z.enum(['exact-3days', 'round-day']).optional().describe('大运起运折算口径：默认 exact-3days（按交节时差精确到分秒折算）；round-day 为按整日取整折算（三日一年，不计余时）。'),
     yangRenMode: z.enum(['all-stems', 'yang-only', 'all-stems-guandai']).optional().describe('羊刃查法口径：默认 all-stems（十干皆按阳顺阴逆帝旺位取刃）；yang-only 为子平正统五阳干有刃、五阴干无刃；all-stems-guandai 为五阴干顺取冠带位（辰未戌丑）。'),
+    shenshaBaseMode: z.enum(['year-and-day', 'day-only', 'year-only']).optional().describe('神煞起例基准柱：默认 year-and-day（年柱与日柱同查贵人及三合神煞）；day-only 为子平重日主（仅以日柱查）；year-only 为古法重年命（仅以年柱查）。'),
+    xueTangMode: z.enum(['nayin', 'stem-changsheng', 'zheng-xuetang', 'nayin-and-stem']).optional().describe('学堂与词馆查法：默认 nayin（按年柱纳音五行查长生/临官地支）；stem-changsheng 为十天干十二长生查法（含丁酉学堂）；zheng-xuetang 为《三命通会》正学堂/正词馆（干支同见、纳音同五行）；nayin-and-stem 为纳音与天干长生双查。'),
+    tianYiMode: z.enum(['standard', 'classical-geng-yinwu']).optional().describe('天乙贵人口诀：默认 standard（甲戊庚牛羊、六辛逢马虎）；classical-geng-yinwu 为古诀（甲戊兼牛羊、庚辛逢马虎）。'),
+    hongYanMode: z.enum(['standard', 'yi-shen', 'year-and-day']).optional().describe('红艳煞查法：默认 standard（甲乙皆午，仅查日干）；yi-shen 为古诀甲午乙申（仅查日干）；year-and-day 为按主流表年干日干同查。'),
+    tongZiMode: z.enum(['standard', 'hour-only', 'strict-both']).optional().describe('童子煞查法：默认 standard（季节与年柱纳音口诀合并查日支与时支）；hour-only 为古法仅查时支；strict-both 为须季节与纳音口诀同中（真童子）。'),
     commanderMode: z.enum(['standard', 'yuanhai']).optional().describe('月令人元司令分野表：默认 standard（通会/滴天髓折中表）；yuanhai 为《渊海子平·详论节气歌》古法（四孟月 7/5/18）。'),
     earthRule: z.enum(['follow-fire', 'follow-water', 'independent']).optional().describe('十二长生土行寄生口径：默认 follow-fire（火土同宫）；follow-water 为水土同宫（戊申己卯）；independent 为土独立顺行。'),
   }).strict().optional(),
@@ -236,7 +262,7 @@ export const baziIndependentInput = z.object({
 }).strict().refine((value) => !!value.birth !== !!value.birthRange, '出生资料与出生范围必须且只能提供一种')
   .refine((value) => !value.referenceTime || (value.gender !== undefined && value.birth?.clock.kind === 'exact' && Date.parse(value.referenceTime) % 1000 === 0), '指定岁运时刻需要性别、精确出生时分秒和整秒参考时刻')
   .refine((value) => value.timelineYear === undefined || (value.gender !== undefined && value.birth?.clock.kind === 'exact'), '查询流月时间线需要性别和精确出生时分秒')
-  .describe('八字排盘：birth 与 birthRange 必须且只能提供一种；支持四柱、十神、旺衰格局、调候用神裁定、大运流年流月与 55 项本命神煞（出生范围不计算精确起运及岁运）。');
+  .describe('八字排盘：birth 与 birthRange 必须且只能提供一种；支持四柱、十神、旺衰格局、调候用神裁定、大运流年流月与 56 项本命神煞（出生范围不计算精确起运及岁运）。');
 
 const baziIndependentPerson = baziBirth.safeExtend({
   name: z.string().trim().min(1).max(100).optional(),

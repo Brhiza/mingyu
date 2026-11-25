@@ -93,7 +93,7 @@ export function resolveLeapMonthOffset(
   if (!lunar.isLeap) return 0;
   if (leapMonthMode === 'same') return 0;
   if (leapMonthMode === 'next') return 1;
-  return lunar.lunarDay > 15 && timeIndex !== 12 ? 1 : 0;
+  return lunar.lunarDay > 15 ? 1 : 0;
 }
 
 export function getStemBranchSet(

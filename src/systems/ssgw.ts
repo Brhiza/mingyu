@@ -43,7 +43,7 @@ function evidence(data: Data) {
     supplementary: { story: data.story, interpretations: { ...data.details } },
     limitations: [
       '签诗是本次签面原文；典故和分类解读是辅助材料，不能与签诗混为一谈。',
-      '签谱版本、典故和解说的历史来源尚待核验，不能将所有材料都当作古籍原文。',
+      '签谱版本、典故和解说多有后世流变与民间传抄，宜作为传统意象参考而非单一古籍原典。',
       '签文象征及吉凶分类不能证明现实事件必然发生；结论需结合问题和现实条件。',
     ],
   };

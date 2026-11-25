@@ -15,6 +15,17 @@ import {
   type SynastryRelationship,
 } from '../systems/focus-presets';
 import { parseQuestionContext } from '../systems/question-context';
+import { inferFortuneScope } from '../router-model/fortune-scope';
+import {
+  PROMPT_FRAMEWORKS,
+  type FrameworkId,
+} from '../router-model/frameworks';
+import {
+  analyzeUserQuery,
+  formatFrameworkPromptBlock,
+  generateChartFollowUps,
+  inspectQuestionQuality,
+} from '../router-model/local-agent';
 import {
   formatCaseSummary,
   toV2BirthPayload,
@@ -251,27 +262,95 @@ export function buildPersonalChartPayload(
   }
 }
 
+export type SyncYearsPreset = 'none' | 'next3' | 'next5' | 'around5' | 'next10';
+
+export function resolveSyncYearsRange(
+  preset: SyncYearsPreset,
+  baseYear: number,
+): { startYear: number; endYear: number } | null {
+  if (preset === 'none') return null;
+  const clampYear = (y: number) => Math.min(2100, Math.max(1900, Math.trunc(y)));
+  let startYear = baseYear;
+  let endYear = baseYear;
+  if (preset === 'next3') {
+    endYear = baseYear + 2;
+  } else if (preset === 'next5') {
+    endYear = baseYear + 4;
+  } else if (preset === 'around5') {
+    startYear = baseYear - 2;
+    endYear = baseYear + 2;
+  } else if (preset === 'next10') {
+    endYear = baseYear + 9;
+  }
+  startYear = clampYear(startYear);
+  endYear = clampYear(endYear);
+  if (endYear < startYear) endYear = startYear;
+  if (endYear - startYear > 9) endYear = startYear + 9;
+  return { startYear, endYear };
+}
+
+export function inferCompatibilityFlowFromQuestion(
+  question: string,
+  baseYear = new Date().getFullYear(),
+): { flowYear: number | null; syncYears: { startYear: number; endYear: number } | null } {
+  const scope = inferFortuneScope(question, baseYear);
+  const clampYear = (y: number) => Math.min(2100, Math.max(1900, Math.trunc(y)));
+  const normalizeSpan = (years: number[]): { startYear: number; endYear: number } | null => {
+    const sorted = [...new Set(years.map(clampYear))].sort((a, b) => a - b);
+    if (sorted.length === 0) return null;
+    const startYear = sorted[0]!;
+    const endYear = Math.min(sorted[sorted.length - 1]!, startYear + 9);
+    return { startYear, endYear };
+  };
+
+  if (scope.explicitYears.length === 1) {
+    return { flowYear: clampYear(scope.explicitYears[0]!), syncYears: null };
+  }
+  if (scope.explicitYears.length >= 2) {
+    const span = normalizeSpan(scope.explicitYears);
+    return { flowYear: span?.startYear ?? null, syncYears: span };
+  }
+  if ((scope.focus === 'medium-term' || scope.focus === 'lifetime') && scope.years.length >= 2) {
+    const span = normalizeSpan(scope.years);
+    return { flowYear: null, syncYears: span };
+  }
+  return { flowYear: null, syncYears: null };
+}
+
 export function buildCompatibilityChartPayload(
   person1: PersonalCase,
   person2: PersonalCase,
   tabId: CompatibilityChartTabId,
   questionText?: string,
-  options?: { relationship?: SynastryRelationship },
+  options?: {
+    relationship?: SynastryRelationship;
+    flowYear?: number | null;
+    syncYears?: { startYear: number; endYear: number } | null;
+  },
 ): Record<string, unknown> {
   const question = questionText?.trim() || '请合参双方命盘的契合度、相处模式与磨合建议。';
   const relationship = options?.relationship ?? 'marriage';
   const p1Known = person1.timeIndex !== 'unknown';
   const p2Known = person2.timeIndex !== 'unknown';
+  const p1Exact = p1Known && !person1.reverseSource;
+  const p2Exact = p2Known && !person2.reverseSource;
+  const inferred = inferCompatibilityFlowFromQuestion(question);
+  const flowYear = options?.flowYear ?? inferred.flowYear;
+  const flowRefIso = flowYear ? `${flowYear}-06-15T12:00:00+08:00` : wholeSecondIsoNow();
+  const syncYears = options?.syncYears ?? inferred.syncYears;
 
   if (tabId === 'astrolabe-synastry') {
     return {
       question,
       person1: toV2BirthPayload(person1, { method: 'astrolabe-synastry' }),
       person2: toV2BirthPayload(person2, { method: 'astrolabe-synastry' }),
+      ...(flowYear ? { referenceTime: flowRefIso } : {}),
+      ...(syncYears ? { syncYears } : {}),
     };
   }
 
   if (tabId === 'ziwei-synastry') {
+    const canSync = p1Exact && p2Exact;
     return {
       question,
       person1: {
@@ -291,7 +370,8 @@ export function buildCompatibilityChartPayload(
         }),
       },
       relationship,
-      referenceTime: wholeSecondIsoNow(),
+      referenceTime: flowRefIso,
+      ...(canSync && syncYears ? { syncYears } : {}),
     };
   }
 
@@ -303,6 +383,13 @@ export function buildCompatibilityChartPayload(
     method: 'bazi-synastry',
     forcePreciseBirthPlace: p2Known,
   });
+  const canBaziFortune =
+    p1Exact &&
+    p2Exact &&
+    b1.clock.kind === 'exact' &&
+    b2.clock.kind === 'exact' &&
+    Boolean(person1.gender) &&
+    Boolean(person2.gender);
   return {
     question,
     person1: {
@@ -316,6 +403,12 @@ export function buildCompatibilityChartPayload(
       gender: person2.gender,
     },
     relationship,
+    ...(canBaziFortune
+      ? {
+          referenceTime: flowRefIso,
+          ...(syncYears ? { syncYears } : {}),
+        }
+      : {}),
   };
 }
 
@@ -533,15 +626,152 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   let bazhaiSitMountain = '子';
   let selectedFlowYear: number | null = null;
+  let selectedSyncYearsPreset: SyncYearsPreset = 'none';
   const flowCurrentYear = new Date().getFullYear();
 
   const chartInteractiveBar = document.createElement('div');
   chartInteractiveBar.className = 'workspace-ui-inline-controls v2-chart-interactive-bar';
   chartInteractiveBar.hidden = true;
 
+  function renderFlowYearControls(labelText: string, defaultLabel: string) {
+    const wrap = document.createElement('div');
+    wrap.className = 'workspace-ui-inline-field';
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = labelText;
+
+    const select = document.createElement('select');
+    select.className = 'workspace-ui-control is-compact';
+    select.setAttribute('aria-label', '选择推运年份');
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = defaultLabel;
+    if (selectedFlowYear === null) defaultOpt.selected = true;
+    select.appendChild(defaultOpt);
+
+    const minY = Math.min(flowCurrentYear - 10, selectedFlowYear ?? flowCurrentYear);
+    const maxY = Math.max(flowCurrentYear + 15, selectedFlowYear ?? flowCurrentYear);
+    for (let y = minY; y <= maxY; y += 1) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = `${y} 年`;
+      if (selectedFlowYear === y) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    const stepYear = (delta: number) => {
+      const base = selectedFlowYear ?? flowCurrentYear;
+      const next = Math.min(2100, Math.max(1900, base + delta));
+      selectedFlowYear = next;
+      void loadAndRenderActiveTab();
+    };
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'workspace-ui-button is-secondary is-small';
+    prevBtn.textContent = '← 上一年';
+    prevBtn.addEventListener('click', () => stepYear(-1));
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'workspace-ui-button is-secondary is-small';
+    nextBtn.textContent = '下一年 →';
+    nextBtn.addEventListener('click', () => stepYear(1));
+
+    select.addEventListener('change', () => {
+      selectedFlowYear = select.value ? Number(select.value) : null;
+      void loadAndRenderActiveTab();
+    });
+
+    wrap.append(labelSpan, prevBtn, select, nextBtn);
+    chartInteractiveBar.appendChild(wrap);
+  }
+
+  function renderSyncYearsControls(method: Method) {
+    const baseYear = selectedFlowYear ?? flowCurrentYear;
+    const fmt = (preset: SyncYearsPreset, title: string) => {
+      const r = resolveSyncYearsRange(preset, baseYear);
+      return r ? `${title}（${r.startYear}–${r.endYear}）` : title;
+    };
+    const wrap = document.createElement('label');
+    wrap.className = 'workspace-ui-inline-field';
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = method === 'astrolabe-synastry' ? '多年行运同步' : '多年流年同步';
+
+    const select = document.createElement('select');
+    select.className = 'workspace-ui-control is-compact';
+    select.setAttribute('aria-label', '选择多年流年同步范围');
+
+    const presets: Array<{ value: SyncYearsPreset; label: string }> = [
+      { value: 'none', label: '不开启' },
+      { value: 'next3', label: fmt('next3', '未来 3 年') },
+      { value: 'next5', label: fmt('next5', '未来 5 年') },
+      { value: 'around5', label: fmt('around5', '前后 5 年') },
+      { value: 'next10', label: fmt('next10', '未来 10 年') },
+    ];
+    for (const p of presets) {
+      const opt = document.createElement('option');
+      opt.value = p.value;
+      opt.textContent = p.label;
+      if (selectedSyncYearsPreset === p.value) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    select.addEventListener('change', () => {
+      selectedSyncYearsPreset = (select.value || 'none') as SyncYearsPreset;
+      void loadAndRenderActiveTab();
+    });
+
+    wrap.append(labelSpan, select);
+    chartInteractiveBar.appendChild(wrap);
+  }
+
   function syncInteractiveControlsBar(method: Method) {
     chartInteractiveBar.replaceChildren();
     const person = currentCtx?.person;
+
+    if (currentCtx?.mode === 'compatibility') {
+      const partner = currentCtx.partner;
+      if (!person || !partner || !isCompatibilityChartMethod(method)) {
+        chartInteractiveBar.hidden = true;
+        return;
+      }
+      const p1Exact = person.timeIndex !== 'unknown' && !person.reverseSource;
+      const p2Exact = partner.timeIndex !== 'unknown' && !partner.reverseSource;
+
+      if (method === 'bazi-synastry') {
+        const canBaziFortune = p1Exact && p2Exact && Boolean(person.gender) && Boolean(partner.gender);
+        if (!canBaziFortune) {
+          const hint = document.createElement('span');
+          hint.className = 'workspace-ui-inline-hint';
+          hint.textContent = '双方均提供精确出生时辰与性别后，可选择大运流年与多年同步合参';
+          chartInteractiveBar.appendChild(hint);
+          chartInteractiveBar.hidden = false;
+          return;
+        }
+        renderFlowYearControls('流年参考年份', `当前默认（${flowCurrentYear} 年）`);
+        renderSyncYearsControls(method);
+        chartInteractiveBar.hidden = false;
+        return;
+      }
+
+      if (method === 'ziwei-synastry') {
+        renderFlowYearControls('流年参考年份', `当前默认（${flowCurrentYear} 年）`);
+        if (p1Exact && p2Exact) {
+          renderSyncYearsControls(method);
+        }
+        chartInteractiveBar.hidden = false;
+        return;
+      }
+
+      if (method === 'astrolabe-synastry') {
+        renderFlowYearControls('流年行运切片', '仅看本命合盘');
+        renderSyncYearsControls(method);
+        chartInteractiveBar.hidden = false;
+        return;
+      }
+    }
+
     if (currentCtx?.mode !== 'personal' || !person) {
       chartInteractiveBar.hidden = true;
       return;
@@ -585,59 +815,11 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       return;
     }
 
-    const wrap = document.createElement('div');
-    wrap.className = 'workspace-ui-inline-field';
-    const labelSpan = document.createElement('span');
-    labelSpan.textContent =
-      method === 'astrolabe' || method === 'qizheng' ? '流年推运切片' : '流年参考年份';
-
-    const select = document.createElement('select');
-    select.className = 'workspace-ui-control is-compact';
-    select.setAttribute('aria-label', '选择推运年份');
-
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = '';
-    defaultOpt.textContent =
-      method === 'astrolabe' || method === 'qizheng'
-        ? '仅看本命盘'
-        : `当前默认（${flowCurrentYear} 年）`;
-    if (selectedFlowYear === null) defaultOpt.selected = true;
-    select.appendChild(defaultOpt);
-
-    for (let y = flowCurrentYear - 10; y <= flowCurrentYear + 15; y += 1) {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = `${y} 年`;
-      if (selectedFlowYear === y) opt.selected = true;
-      select.appendChild(opt);
-    }
-
-    const stepYear = (delta: number) => {
-      const base = selectedFlowYear ?? flowCurrentYear;
-      const next = Math.min(2100, Math.max(1900, base + delta));
-      selectedFlowYear = next;
-      void loadAndRenderActiveTab();
-    };
-
-    const prevBtn = document.createElement('button');
-    prevBtn.type = 'button';
-    prevBtn.className = 'workspace-ui-button is-secondary is-small';
-    prevBtn.textContent = '← 上一年';
-    prevBtn.addEventListener('click', () => stepYear(-1));
-
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'workspace-ui-button is-secondary is-small';
-    nextBtn.textContent = '下一年 →';
-    nextBtn.addEventListener('click', () => stepYear(1));
-
-    select.addEventListener('change', () => {
-      selectedFlowYear = select.value ? Number(select.value) : null;
-      void loadAndRenderActiveTab();
-    });
-
-    wrap.append(labelSpan, prevBtn, select, nextBtn);
-    chartInteractiveBar.appendChild(wrap);
+    const isSlice = method === 'astrolabe' || method === 'qizheng';
+    renderFlowYearControls(
+      isSlice ? '流年推运切片' : '流年参考年份',
+      isSlice ? '仅看本命盘' : `当前默认（${flowCurrentYear} 年）`,
+    );
     chartInteractiveBar.hidden = false;
   }
 
@@ -698,22 +880,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     text: string,
     supp: SupplementaryInfoValues,
   ): 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' {
-    const combined = `${text} ${supp.lifeStageContext} ${supp.subjectRole}`;
-    if (/(感情|婚姻|婚恋|复合|正缘|分手|恋爱|伴侣|对象|暧昧|单身|已婚)/.test(combined)) {
-      return 'ganqing';
-    }
-    if (/(工作|事业|职场|跳槽|升职|求职|面试|创业|合作|老板|同事|考公|换工)/.test(combined)) {
-      return 'shiye';
-    }
-    if (/(财|钱|投资|赚钱|生意|股票|基金|借款|欠款|买卖|收入|收益)/.test(combined)) {
-      return 'caifu';
-    }
-    if (
-      method === 'liuyao' &&
-      /(健康|生病|疾病|手术|身体|平安|家宅|搬家|风水|失物)/.test(combined)
-    ) {
-      return 'guaishen';
-    }
+    const combined = `${text} ${supp.lifeStageContext} ${supp.subjectRole}`.trim();
+    const topic = parseQuestionContext(combined).inferredTopic;
+    if (topic === 'ganqing' || topic === 'shiye' || topic === 'caifu') return topic;
+    if (method === 'liuyao' && (topic === 'guaishen' || topic === 'lost')) return 'guaishen';
     return 'general';
   }
 
@@ -1150,17 +1320,212 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   });
   questionFieldLabel.append(questionFieldTitle, questionTextarea);
 
+  let selectedFrameworkId: FrameworkId | 'auto' | 'none' = 'auto';
+  let latestBasePromptText = '';
+
+  function parseCaseYear(raw: string | number | undefined): number | undefined {
+    if (raw === undefined) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 1900 && n <= 2100 ? Math.trunc(n) : undefined;
+  }
+
+  function resolveEffectiveFrameworkId(method: Method): FrameworkId | null {
+    if (selectedFrameworkId === 'none') return null;
+    if (selectedFrameworkId !== 'auto') return selectedFrameworkId;
+    const analysis = analyzeUserQuery(questionDraft || currentCtx?.question || '', {
+      method,
+      referenceYear: flowCurrentYear,
+      birthYear: parseCaseYear(currentCtx?.person?.year),
+      partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
+    });
+    return analysis.recommendedFramework.id;
+  }
+
+  function applyLocalFrameworkToPrompt(rawPromptText: string, method: Method): string {
+    if (!rawPromptText.trim()) return rawPromptText;
+    const fwId = resolveEffectiveFrameworkId(method);
+    if (!fwId) return rawPromptText;
+    if (rawPromptText.includes('【指定解读框架：')) return rawPromptText;
+    const block = formatFrameworkPromptBlock(fwId);
+    return block ? `${rawPromptText.trimEnd()}\n\n${block}` : rawPromptText;
+  }
+
+  const localAgentBar = document.createElement('div');
+  localAgentBar.className = 'workspace-local-agent-bar';
+
+  const frameworkRow = document.createElement('label');
+  frameworkRow.className = 'workspace-local-agent-framework-row';
+  const frameworkLabel = document.createElement('span');
+  frameworkLabel.textContent = '本地小模型 · 解读框架';
+  const frameworkSelect = document.createElement('select');
+  frameworkSelect.className = 'workspace-ui-control is-compact';
+  frameworkSelect.setAttribute('aria-label', '选择本地推荐解读框架');
+  const autoFwOpt = document.createElement('option');
+  autoFwOpt.value = 'auto';
+  autoFwOpt.textContent = '自动匹配最佳框架';
+  const noneFwOpt = document.createElement('option');
+  noneFwOpt.value = 'none';
+  noneFwOpt.textContent = '不附加结构框架';
+  frameworkSelect.append(autoFwOpt, noneFwOpt);
+  for (const fw of Object.values(PROMPT_FRAMEWORKS)) {
+    const opt = document.createElement('option');
+    opt.value = fw.id;
+    opt.textContent = fw.name;
+    frameworkSelect.appendChild(opt);
+  }
+  frameworkRow.append(frameworkLabel, frameworkSelect);
+
+  const qualityHintBox = document.createElement('div');
+  qualityHintBox.className = 'workspace-local-agent-quality';
+  qualityHintBox.hidden = true;
+
+  const followUpsBox = document.createElement('div');
+  followUpsBox.className = 'workspace-local-agent-followups';
+  followUpsBox.hidden = true;
+
+  localAgentBar.append(frameworkRow, qualityHintBox, followUpsBox);
+
+  function refreshLocalAgentQualityAndFramework() {
+    const method = currentCtx?.activeMethod ?? 'bazi';
+    const autoId = analyzeUserQuery(questionDraft || currentCtx?.question || '', {
+      method,
+      referenceYear: flowCurrentYear,
+      birthYear: parseCaseYear(currentCtx?.person?.year),
+      partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
+    }).recommendedFramework.id;
+    const autoName = PROMPT_FRAMEWORKS[autoId]?.name ?? '综合框架';
+    autoFwOpt.textContent = `自动匹配（${autoName}）`;
+    frameworkSelect.value = selectedFrameworkId;
+
+    const quality = inspectQuestionQuality(questionDraft, {
+      mode: currentCtx?.mode ?? 'personal',
+      relationship: compatRelationship,
+      hasLifeStage: Boolean(supplementary.lifeStageContext),
+      hasTimeHorizon: Boolean(supplementary.timeHorizon),
+    });
+    qualityHintBox.replaceChildren();
+    if (quality.quickFixes.length === 0) {
+      qualityHintBox.hidden = true;
+      return;
+    }
+    if (quality.hint) {
+      const hintEl = document.createElement('div');
+      hintEl.className = 'workspace-local-agent-hint';
+      hintEl.textContent = quality.hint;
+      qualityHintBox.appendChild(hintEl);
+    }
+    const pills = document.createElement('div');
+    pills.className = 'workspace-prompt-focus-pills';
+    for (const fix of quality.quickFixes) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'workspace-prompt-focus-pill';
+      btn.textContent = fix.label;
+      btn.addEventListener('click', () => {
+        const cur = questionDraft.trim();
+        questionDraft = cur ? `${cur}；${fix.appendText}` : fix.appendText;
+        questionTextarea.value = questionDraft;
+        if (fix.patch?.lifeStageContext) {
+          supplementary = { ...supplementary, lifeStageContext: fix.patch.lifeStageContext };
+        }
+        if (fix.patch?.timeHorizon) {
+          supplementary = { ...supplementary, timeHorizon: fix.patch.timeHorizon };
+        }
+        syncSupplementaryBtnLabel();
+        syncContextExtractBar();
+        refreshLocalAgentQualityAndFramework();
+        void applyCustomQuestionFromInput();
+      });
+      pills.appendChild(btn);
+    }
+    qualityHintBox.appendChild(pills);
+    qualityHintBox.hidden = false;
+  }
+
+  function refreshLocalAgentFollowUps(
+    method: Method,
+    result: { data?: unknown; summary?: unknown } | null,
+  ) {
+    followUpsBox.replaceChildren();
+    const suggestions = generateChartFollowUps(method, result, {
+      relationship: compatRelationship,
+      currentYear: flowCurrentYear,
+    });
+    if (suggestions.length === 0) {
+      followUpsBox.hidden = true;
+      return;
+    }
+    const head = document.createElement('div');
+    head.className = 'workspace-local-agent-hint';
+    head.textContent = '✨ 基于当前盘面 · 本地智能追问（点击即更新提示词）';
+    const pills = document.createElement('div');
+    pills.className = 'workspace-prompt-focus-pills';
+    for (const item of suggestions) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'workspace-prompt-focus-pill is-agent-followup';
+      btn.textContent = item.label;
+      btn.title = item.reason;
+      btn.addEventListener('click', () => {
+        questionDraft = item.question;
+        questionTextarea.value = item.question;
+        lastAppliedQuestion = item.question;
+        divinationCurrentQuestionStrong.textContent = item.question;
+        syncQuickFocusPills();
+        refreshLocalAgentQualityAndFramework();
+
+        const needsChartRecalc =
+          (typeof item.targetYear === 'number' && selectedFlowYear !== item.targetYear) ||
+          (item.syncYearsPreset && selectedSyncYearsPreset !== item.syncYearsPreset);
+        if (typeof item.targetYear === 'number') {
+          selectedFlowYear = item.targetYear;
+        }
+        if (item.syncYearsPreset) {
+          selectedSyncYearsPreset = item.syncYearsPreset;
+        }
+        if (needsChartRecalc && currentCtx?.mode !== 'divination') {
+          void loadAndRenderActiveTab();
+        } else {
+          void regeneratePromptForQuestion();
+        }
+      });
+      pills.appendChild(btn);
+    }
+    followUpsBox.append(head, pills);
+    followUpsBox.hidden = false;
+  }
+
+  frameworkSelect.addEventListener('change', () => {
+    selectedFrameworkId = (frameworkSelect.value || 'auto') as FrameworkId | 'auto' | 'none';
+    const method = currentCtx?.activeMethod ?? 'bazi';
+    if (latestBasePromptText) {
+      const nextText = applyLocalFrameworkToPrompt(latestBasePromptText, method);
+      promptWorkbenchPre.textContent = nextText;
+      deliveryPreviewPre.textContent = nextText;
+      syncPromptPreviewMeta(nextText);
+      if (latestResult) {
+        latestResult = { ...latestResult, prompt: { text: nextText } };
+        onActiveResultChange?.(method, latestPayload, latestResult);
+      }
+    }
+  });
+
+  questionTextarea.addEventListener('input', () => {
+    refreshLocalAgentQualityAndFramework();
+  });
+
   async function applyCustomQuestionFromInput() {
     const trimmed = questionDraft.trim();
     lastAppliedQuestion = trimmed;
     divinationCurrentQuestionStrong.textContent =
       trimmed || (methodLabels[currentCtx?.activeMethod ?? 'bazi'] ?? '综合排盘分析');
+    refreshLocalAgentQualityAndFramework();
     await regeneratePromptForQuestion();
   }
 
   const questionComposerBox = document.createElement('div');
   questionComposerBox.className = 'workspace-question-composer-box';
-  questionComposerBox.append(divinationCurrentQuestion, questionFieldLabel);
+  questionComposerBox.append(divinationCurrentQuestion, questionFieldLabel, localAgentBar);
 
   // 3A. 提示词模式面板
   const promptDeliverySection = document.createElement('section');
@@ -1850,32 +2215,28 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   }
 
   function stripAppendixFromQuestion(raw: string): string {
-    return raw
-      .replace(/\n*【(?:求测背景|求测人|现状与已知前提|期望目标与现实限制|补充背景|当前情况|当前状态|已知事实|期望结果|现实限制)】[\s\S]*$/u, '')
-      .trim();
+    return parseQuestionContext(raw).cleanQuestion;
   }
 
   function hydrateSupplementaryFromQuestion(raw: string): Partial<SupplementaryInfoValues> {
+    const parsed = parseQuestionContext(raw);
     const out: Partial<SupplementaryInfoValues> = {};
-    const readTag = (label: string) => {
-      const m = new RegExp(`${label}[：:]\\s*([^｜|\\n]+)`, 'u').exec(raw);
-      return m?.[1]?.trim();
-    };
-    const g = readTag('性别');
-    if (g === '男' || g === '女') out.gender = g;
-    const by = readTag('出生年')?.replace(/[^\d]/g, '').slice(0, 4);
-    if (by && by.length === 4) out.birthYear = by;
-    const sr = readTag('所问对象');
-    if (sr && ['自己', '伴侣对象', '家人长辈', '子女晚辈', '职场合作方'].includes(sr)) {
-      out.subjectRole = sr as SupplementaryInfoValues['subjectRole'];
+    if (parsed.gender === '男' || parsed.gender === '女') out.gender = parsed.gender;
+    if (parsed.birthYear) out.birthYear = String(parsed.birthYear);
+    if (
+      parsed.subjectRole &&
+      ['自己', '伴侣对象', '家人长辈', '子女晚辈', '职场合作方'].includes(parsed.subjectRole)
+    ) {
+      out.subjectRole = parsed.subjectRole as SupplementaryInfoValues['subjectRole'];
     }
-    const lc = readTag('当前处境');
-    if (lc) {
-      out.lifeStageContext = lc;
+    if (parsed.lifeStageContext) {
+      out.lifeStageContext = parsed.lifeStageContext;
     }
-    const th = readTag('关注周期');
-    if (th && ['近期几天', '一三个月', '半年一年', '长期走向'].includes(th)) {
-      out.timeHorizon = th as SupplementaryInfoValues['timeHorizon'];
+    if (
+      parsed.timeHorizon &&
+      ['近期几天', '一三个月', '半年一年', '长期走向'].includes(parsed.timeHorizon)
+    ) {
+      out.timeHorizon = parsed.timeHorizon as SupplementaryInfoValues['timeHorizon'];
     }
     return out;
   }
@@ -1936,10 +2297,12 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         const cleanPromptText = distillPromptForUser(repromptRes.prompt?.text ?? '', {
           includeClassics,
         });
+        latestBasePromptText = cleanPromptText;
+        const enrichedPromptText = applyLocalFrameworkToPrompt(cleanPromptText, method);
         const updatedResult = {
           ...latestResult,
           currentTime: resultCurrentTime,
-          prompt: cleanPromptText ? { text: cleanPromptText } : repromptRes.prompt,
+          prompt: enrichedPromptText ? { text: enrichedPromptText } : repromptRes.prompt,
         };
         const nextPayload = applyExplicitClassicsOption(method, {
           ...latestPayload,
@@ -1950,6 +2313,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         promptWorkbenchPre.textContent = updatedResult.prompt?.text ?? '';
         deliveryPreviewPre.textContent = updatedResult.prompt?.text ?? '';
         syncPromptPreviewMeta(updatedResult.prompt?.text ?? '');
+        refreshLocalAgentQualityAndFramework();
         if (lastHasReport) {
           renderReportView(reportContainer, updatedResult, { method, question: q });
         }
@@ -1978,7 +2342,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   ) {
     latestPayload = payload;
 
-    const promptText = distillPromptForUser(result.prompt?.text ?? '', { includeClassics });
+    const basePromptText = distillPromptForUser(result.prompt?.text ?? '', { includeClassics });
+    latestBasePromptText = basePromptText;
+    const promptText = applyLocalFrameworkToPrompt(basePromptText, method);
     const displayResult =
       result.prompt && promptText !== result.prompt.text
         ? { ...result, prompt: { text: promptText } }
@@ -1987,6 +2353,8 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     promptWorkbenchPre.textContent = promptText;
     deliveryPreviewPre.textContent = promptText;
     syncPromptPreviewMeta(promptText);
+    refreshLocalAgentQualityAndFramework();
+    refreshLocalAgentFollowUps(method, result);
     workbenchCopyBtn.disabled = !promptText;
     deliveryCopyBtn.disabled = !promptText;
 
@@ -2071,7 +2439,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       currentCtx.person,
       currentCtx.partner,
       currentCtx.question,
-    )}::${method}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::rel:${compatRelationship}`;
+    )}::${method}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
 
     const cached = resultCache.get(sig);
     if (cached) {
@@ -2106,7 +2474,14 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
           currentCtx.partner,
           method,
           activeQuestion,
-          { relationship: compatRelationship },
+          {
+            relationship: compatRelationship,
+            flowYear: selectedFlowYear,
+            syncYears: resolveSyncYearsRange(
+              selectedSyncYearsPreset,
+              selectedFlowYear ?? flowCurrentYear,
+            ),
+          },
         );
       } else {
         rawPayload = {
@@ -2140,6 +2515,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   async function openWithContext(ctx: ResultPageContext) {
     currentCtx = { ...ctx };
     selectedFlowYear = null;
+    selectedSyncYearsPreset = 'none';
+    selectedFrameworkId = 'auto';
+    latestBasePromptText = '';
+    followUpsBox.hidden = true;
     mobileAssistantOpen = false;
     onMobileAssistantToggle?.(false);
     supplementary = { ...DEFAULT_SUPPLEMENTARY_VALUES };
@@ -2190,6 +2569,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     lastAppliedQuestion = questionDraft;
     questionTextarea.value = questionDraft;
     rebuildQuickFocusPills();
+    refreshLocalAgentQualityAndFramework();
 
     renderTabsBar();
     syncLayoutAndMode();
@@ -2200,7 +2580,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         ctx.person,
         ctx.partner,
         ctx.question,
-      )}::${ctx.activeMethod}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::rel:${compatRelationship}`;
+      )}::${ctx.activeMethod}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
       resultCache.set(sig, { payload: ctx.initialPayload, result: ctx.initialResult });
       const token = ++computeToken;
       await renderResultToPanes(ctx.activeMethod, ctx.initialPayload, ctx.initialResult, token);

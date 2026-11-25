@@ -1111,8 +1111,8 @@ function buildFuyinBranches(initial: string, yiKeUpper: string, sanKeUpper: stri
   }
 
   let final = getPunishment(middle);
-  // 中传再次自刑，末传取冲神；否则按三刑推进。
-  if (final === middle) {
+  // 中传再次自刑，或子卯互刑回传初传（杜传），末传不再论刑而改取中传之冲。
+  if (final === middle || final === initial) {
     const opposite = GANZHI_RELATION_TABLES.LIUCHONG_MAP[middle];
     if (!opposite) {
       throw new Error(`地支 ${middle} 的六冲映射缺失。`);

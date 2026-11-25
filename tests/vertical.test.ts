@@ -123,6 +123,123 @@ test('逐张抽牌只提交牌面并正确标记交互来源', async () => {
   await assert.rejects(() => calculate('tarot', { question: '问题', tarot: { selectionMode: 'interactive' } }));
 });
 
+test('塔罗洗牌阶段确定正逆位，支持现实手感（默认约30%）、对半（50%）与仅正位（0%）及全局设置注入', async () => {
+  const { createShuffledTarotDeck } = await import('../src/interactive');
+  const { applyGlobalRulesToPayload, DEFAULT_GLOBAL_RULES, saveGlobalRules } = await import('../src/web-settings');
+
+  // 1. upright-only：连续抽 100 组三牌阵，全部为正位
+  for (let i = 0; i < 100; i++) {
+    const res = await calculate('tarot', { question: '测试', currentTime: time, tarot: { spread: 'three', reversalMode: 'upright-only' } });
+    assert.equal(res.data.draw.reversalMode, 'upright-only');
+    assert.ok(res.data.cards.every((c) => !c.reversed));
+  }
+
+  // 2. realistic（默认）约 30% vs balanced 约 50%
+  const sampleReversalRatio = async (reversalMode?: 'realistic' | 'balanced') => {
+    let rev = 0, total = 0;
+    for (let i = 0; i < 400; i++) {
+      const res = await calculate('tarot', { question: '测试', currentTime: time, tarot: { spread: 'celtic', ...(reversalMode ? { reversalMode } : {}) } });
+      if (!reversalMode) assert.equal(res.data.draw.reversalMode, 'realistic');
+      for (const c of res.data.cards) { total++; if (c.reversed) rev++; }
+    }
+    return rev / total;
+  };
+  const defaultRatio = await sampleReversalRatio();
+  const balancedRatio = await sampleReversalRatio('balanced');
+  assert.ok(defaultRatio > 0.24 && defaultRatio < 0.36, `默认 realistic 逆位率应接近 30%，实际 ${(defaultRatio * 100).toFixed(1)}%`);
+  assert.ok(balancedRatio > 0.44 && balancedRatio < 0.56, `balanced 逆位率应接近 50%，实际 ${(balancedRatio * 100).toFixed(1)}%`);
+
+  // 3. 预洗牌在洗牌阶段即锁定每张牌正逆位，逐张抽牌与预洗牌完全一致
+  const preDeck = await createShuffledTarotDeck({ reversalMode: 'realistic' });
+  assert.equal(preDeck.length, 78);
+  const picked: Array<{ id: number; name: string; position: string; reversed?: boolean }> = [];
+  for (let i = 0; i < 3; i++) {
+    const next = await drawNext('tarot', 'three', picked, undefined, { preShuffledDeck: preDeck });
+    assert.equal(next.card.id, preDeck[i].id);
+    assert.equal(next.card.reversed, preDeck[i].reversed);
+    picked.push(next.card);
+  }
+
+  // 4. 全局设置注入 tarot.reversalMode
+  const storage = new Map<string, string>();
+  const prevStorage = (globalThis as { localStorage?: unknown }).localStorage;
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => storage.get(k) ?? null,
+    setItem: (k: string, v: string) => { storage.set(k, v); },
+    removeItem: (k: string) => { storage.delete(k); },
+  };
+  try {
+    saveGlobalRules({ ...DEFAULT_GLOBAL_RULES, casting: { ...DEFAULT_GLOBAL_RULES.casting, tarotReversalMode: 'upright-only' } });
+    const injected = applyGlobalRulesToPayload('tarot', { question: '测试', tarot: { spread: 'three' } }, false) as { tarot?: { reversalMode?: string } };
+    assert.equal(injected.tarot?.reversalMode, 'upright-only');
+    // 若调用方已显式指定 reversalMode，不覆盖
+    const explicit = applyGlobalRulesToPayload('tarot', { question: '测试', tarot: { spread: 'three', reversalMode: 'balanced' } }, false) as { tarot?: { reversalMode?: string } };
+    assert.equal(explicit.tarot?.reversalMode, 'balanced');
+  } finally {
+    if (prevStorage === undefined) delete (globalThis as { localStorage?: unknown }).localStorage;
+    else (globalThis as { localStorage?: unknown }).localStorage = prevStorage;
+  }
+});
+
+test('各命理体系提示词在提供性别等额外参数时明确带入，未提供时不冗余输出', async () => {
+  const birth = { year: 1990, month: 5, day: 15, clock: { kind: 'exact' as const, hour: 10, minute: 30, second: 0 }, timezone: 8 };
+  const astroBirth = { year: 1990, month: 5, day: 15, hour: 10, minute: 30, second: 0, latitude: 39.9, longitude: 116.4, timezone: 8 };
+
+  const baziWith = await calculate('bazi', { birth, gender: 'female', question: '感情' });
+  assert.match(baziWith.prompt.text, /性别：坤造（女）/);
+  const baziWithout = await calculate('bazi', { birth, question: '感情' });
+  assert.doesNotMatch(baziWithout.prompt.text, /性别：/);
+
+  const baziUnknown = await calculate('bazi', { birth: { ...birth, clock: { kind: 'unknown' as const } }, gender: 'male', question: '事业' });
+  assert.match(baziUnknown.prompt.text, /性别：乾造（男）/);
+
+  const baziSyn = await calculate('bazi-synastry', {
+    person1: { ...birth, name: '小红', gender: 'female' },
+    person2: { ...birth, year: 1989, name: '小明', gender: 'male' },
+    question: '合婚',
+  });
+  assert.match(baziSyn.prompt.text, /小红：性别坤造（女）/);
+  assert.match(baziSyn.prompt.text, /小明：性别乾造（男）/);
+
+  const ziweiRes = await calculate('ziwei', { birth, gender: 'female', question: '感情' });
+  assert.match(ziweiRes.prompt.text, /性别：女/);
+
+  const ziweiSyn = await calculate('ziwei-synastry', {
+    person1: { birth, name: '小红', gender: 'female' },
+    person2: { birth: { ...birth, year: 1989 }, name: '小明', gender: 'male' },
+    question: '合婚',
+  });
+  assert.match(ziweiSyn.prompt.text, /小红（女）与小明（男）/);
+
+  const bz = await calculate('bazi-ziwei', { birth, gender: 'female', question: '感情' });
+  assert.match(bz.prompt.text, /性别：坤造（女）/);
+
+  const qz = await calculate('qizheng', { birth: astroBirth, gender: 'female', flow: { kind: 'year', year: 2026 }, question: '流年' });
+  assert.match(qz.prompt.text, /性别：女/);
+
+  const ql = await calculate('qimen-lifetime', { birth: { year: 1990, month: 5, day: 15, hour: 10, minute: 30, second: 0, timezone: 8 }, name: '张三', gender: 'female', question: '运势' });
+  assert.match(ql.prompt.text, /称谓：张三；性别：女/);
+
+  const ml = await calculate('minglu', { birth, gender: 'male', question: '综合' });
+  assert.match(ml.prompt.text, /性别：乾造（男）/);
+
+  const astroWith = await calculate('astrolabe', { birth: { ...astroBirth, name: '李四', gender: 'female', locationName: '北京' }, question: '性格' });
+  assert.match(astroWith.prompt.text, /称谓：李四；性别：女；出生地：北京/);
+  const astroWithout = await calculate('astrolabe', { birth: astroBirth, question: '性格' });
+  assert.doesNotMatch(astroWithout.prompt.text, /性别：/);
+
+  const astroSyn = await calculate('astrolabe-synastry', {
+    person1: { ...astroBirth, name: '小红', gender: 'female' },
+    person2: { ...astroBirth, year: 1989, name: '小明', gender: 'male' },
+    question: '合盘',
+  });
+  assert.match(astroSyn.prompt.text, /小红（女）/);
+  assert.match(astroSyn.prompt.text, /小明（男）/);
+
+  const tarotUpright = await calculate('tarot', { question: '测试', currentTime: time, tarot: { spread: 'three', reversalMode: 'upright-only' } });
+  assert.match(tarotUpright.prompt.text, /洗牌模式：仅正位（未启用逆位）/);
+});
+
 test('雷诺曼 8 种牌阵、手工和交互输入可用于生成提示词', async () => {
   const expected = { single: 1, three: 3, five: 5, relationship: 5, decision: 6, nine: 9, element: 4, grandTableau: 36 };
   for (const [spread, count] of Object.entries(expected)) {

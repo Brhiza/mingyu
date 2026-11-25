@@ -82,6 +82,7 @@ import { DomSlot } from './components/DomSlot';
 import { FortunePage } from './components/FortunePage';
 import { HomeHistoryCard, HistoryPage } from './components/HistoryPanel';
 import { HomePage } from './components/HomePage';
+import type { LocalAgentApplyPayload } from './components/LocalAgentBar';
 import { PortalModals } from './components/PortalModals';
 import { SettingsModal } from './components/SettingsModal';
 import { TimeReversePage } from './components/TimeReversePage';
@@ -1174,7 +1175,11 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     return candidates[Math.floor(Math.random() * candidates.length)]!;
   };
 
-  const quickExecuteHomeTile = async (itemId: string, customQuestion?: string) => {
+  const quickExecuteHomeTile = async (
+    itemId: string,
+    customQuestion?: string,
+    castNumbers?: number[],
+  ) => {
     const targetId = itemId === 'random-divination' ? pickRandomHomeCastId() : itemId;
     if (!targetId) return;
 
@@ -1261,10 +1266,28 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       rawPayload = { question: q, liuyao: { method: 'coins' }, prompt: { liuyaoTemplate: 'general' } };
     } else if (targetId === 'meihua') {
       calcMethod = 'meihua';
-      rawPayload = { question: q, meihua: { method: 'time' } };
+      const positiveNums = (castNumbers ?? []).filter((n) => Number.isInteger(n) && n > 0);
+      if (positiveNums.length >= 2) {
+        const combined = Number.parseInt(positiveNums.map(String).join(''), 10);
+        rawPayload = {
+          question: q,
+          meihua: { method: 'number', number: Number.isFinite(combined) && combined > 0 ? combined : positiveNums[0] },
+        };
+      } else {
+        rawPayload = { question: q, meihua: { method: 'time' } };
+      }
     } else if (targetId === 'xiaoliuren') {
       calcMethod = 'xiaoliuren';
-      rawPayload = { question: q, xiaoliuren: { rule: 'common' } };
+      const positiveNums = (castNumbers ?? []).filter((n) => Number.isInteger(n) && n > 0);
+      rawPayload = {
+        question: q,
+        xiaoliuren: {
+          rule: 'common',
+          ...(positiveNums.length >= 3
+            ? { numbers: [positiveNums[0]!, positiveNums[1]!, positiveNums[2]!] }
+            : {}),
+        },
+      };
     } else if (targetId === 'jinkoujue') {
       calcMethod = 'jinkoujue';
       rawPayload = {
@@ -1417,6 +1440,218 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     openHomeTileWorkbench(id);
   };
 
+  const pendingChartQuestionRef = React.useRef<string>('');
+
+  const handleApplyLocalAgentRecommendation = async (payload: LocalAgentApplyPayload) => {
+    const qText = payload.query.trim();
+    pendingChartQuestionRef.current = qText;
+    const toPersonalCasePatch = (
+      profile: LocalAgentApplyPayload['profiles'][number],
+      base: Partial<PersonalCase>,
+      defaultName: string,
+    ): PersonalCase => {
+      const nowIso = new Date().toISOString();
+      return {
+        ...seededPerson,
+        ...base,
+        id: base.id || `temp-${Date.now()}`,
+        isTemporary: true,
+        name: profile.name || defaultName,
+        gender: profile.gender ?? base.gender ?? 'male',
+        calendar: profile.calendarType,
+        dateType: profile.calendarType,
+        isLeapMonth: Boolean(profile.isLeapMonth),
+        year: String(profile.year),
+        month: String(profile.month),
+        day: String(profile.day),
+        timeIndex: profile.timeIndex,
+        birthHour: profile.hour !== undefined ? String(profile.hour) : '',
+        birthMinute: profile.hour !== undefined ? String(profile.minute ?? 0) : '',
+        birthSecond: profile.hour !== undefined ? String(profile.second ?? 0) : '',
+        ...(profile.birthPlace
+          ? {
+              birthPlace: profile.birthPlace,
+              latitude: profile.latitude ?? base.latitude,
+              longitude: profile.longitude ?? base.longitude,
+              ...(profile.timezone !== undefined ? { timezone: profile.timezone } : {}),
+              ...(profile.timeZoneId ? { timeZoneId: profile.timeZoneId } : {}),
+              useTrueSolarTime: true,
+            }
+          : {}),
+        updatedAt: nowIso,
+      };
+    };
+
+    let firstCase: PersonalCase | null = null;
+    let secondCase: PersonalCase | null = null;
+    if (payload.profiles.length >= 1) {
+      setActiveCaseId(null);
+      firstCase = toPersonalCasePatch(payload.profiles[0]!, seededPerson, '命主一');
+      saveTemporaryCase(firstCase);
+    }
+    if (payload.profiles.length >= 2) {
+      secondCase = toPersonalCasePatch(
+        payload.profiles[1]!,
+        partnerSeed ?? seededPerson,
+        '命主二',
+      );
+      setPartnerSeed(secondCase);
+    }
+    const rel = payload.relationship ?? compatRelationship;
+    if (payload.relationship) {
+      setCompatRelationship(payload.relationship);
+    }
+
+    const method = payload.method;
+
+    // 1. 双人合盘：已提取双方生辰 -> 直接出合盘结果与提示词；不足两人 -> 跳表单补齐
+    if (isCompatibilityChartMethod(method) || payload.profiles.length >= 2) {
+      const targetCompatMethod: CompatibilityChartTabId = isCompatibilityChartMethod(method)
+        ? method
+        : 'bazi-synastry';
+      setCompatibilityMethod(targetCompatMethod);
+      const needsExactTime = targetCompatMethod === 'astrolabe-synastry';
+      const canDirectRun =
+        Boolean(firstCase && secondCase) &&
+        (!needsExactTime ||
+          (firstCase!.timeIndex !== 'unknown' && secondCase!.timeIndex !== 'unknown'));
+
+      if (canDirectRun && firstCase && secondCase) {
+        pendingChartQuestionRef.current = '';
+        const compatPayload = buildCompatibilityChartPayload(
+          firstCase,
+          secondCase,
+          targetCompatMethod,
+          qText,
+          { relationship: rel },
+        );
+        const savedCompat = upsertCompatibilityRecord(firstCase, secondCase, {
+          method: targetCompatMethod,
+          question: qText,
+          inputJson: JSON.stringify(compatPayload),
+        });
+        navigateToRoute('result', {
+          featureId: 'compatibility',
+          method: targetCompatMethod,
+          domain: 'personal-chart',
+          resultRef: {
+            mode: 'compatibility',
+            recordId: savedCompat.id,
+          },
+        });
+        await openResult({
+          mode: 'compatibility',
+          activeMethod: targetCompatMethod,
+          person: firstCase,
+          partner: secondCase,
+          compatibilityRelationship: rel,
+          ...(qText ? { question: qText } : {}),
+        });
+        return;
+      }
+
+      navigateToRoute('chart-input', {
+        featureId: 'compatibility',
+        method: targetCompatMethod,
+        domain: 'personal-chart',
+      });
+      return;
+    }
+
+    // 2. 单人命盘：已提取生辰且满足时辰要求 -> 直接出盘面结果与提示词；缺生辰 -> 跳表单补齐
+    if (isPersonalChartMethod(method)) {
+      setPreferredPersonalChartTab(method);
+      const needsExactTime = method === 'astrolabe' || method === 'qizheng' || method === 'minglu';
+      const canDirectRun =
+        Boolean(firstCase) && (!needsExactTime || firstCase!.timeIndex !== 'unknown');
+
+      if (canDirectRun && firstCase) {
+        pendingChartQuestionRef.current = '';
+        navigateToRoute('result', {
+          featureId: method,
+          method,
+          domain: 'personal-chart',
+          resultRef: { mode: 'personal' },
+        });
+        await openResult({
+          mode: 'personal',
+          activeMethod: method,
+          person: firstCase,
+          ...(qText ? { question: qText } : {}),
+        });
+        return;
+      }
+
+      navigateToRoute('chart-input', {
+        featureId: method,
+        method,
+        domain: 'personal-chart',
+      });
+      return;
+    }
+
+    // 3. 数字能量：已提取手机号/车牌号 -> 直接出测算结果
+    if (method === 'number-energy' && payload.structured.numberEnergy) {
+      const val = payload.structured.numberEnergy;
+      setNumVal(val);
+      const purpose = /^1[3-9]\d{9}$/.test(val)
+        ? 'phone'
+        : /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼]/.test(val)
+          ? 'plate'
+          : 'general';
+      await executeDivination('number-energy', {
+        value: val,
+        purpose,
+        question: qText || '请分析这组号码的八星磁场分布与数理吉凶。',
+      });
+      return;
+    }
+
+    // 4. 姓名评测：已提取目标姓名 -> 直接出评测结果
+    if (method === 'chinese-name' && payload.structured.targetName) {
+      await executeDivination('chinese-name', {
+        fullName: payload.structured.targetName,
+        question: qText || `请综合评测姓名「${payload.structured.targetName}」的音形义与数理吉凶。`,
+      });
+      return;
+    }
+
+    // 5. 即时占卜（六爻/梅花/奇门/六壬/小六壬/金口诀/塔罗/雷诺曼/灵签/诸葛/太乙）-> 直接本地起卦直出结果
+    const directDivinationMethods = new Set<string>([
+      'liuyao',
+      'meihua',
+      'qimen',
+      'liuren',
+      'jinkoujue',
+      'xiaoliuren',
+      'tarot',
+      'lenormand',
+      'ssgw',
+      'zhuge',
+      'taiyi',
+    ]);
+    if (directDivinationMethods.has(method)) {
+      await quickExecuteHomeTile(method, qText, payload.structured.castNumbers);
+      return;
+    }
+
+    // 6. 其他需要专用参数的工具（如玄空飞星/择吉/起名）-> 跳对应表单页并自动带入问题
+    openHomeTileWorkbench(method);
+
+    if (qText && typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const input = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+          '.workspace-divination-page textarea.workspace-ui-control, .workspace-divination-page input[placeholder*="问"], .workspace-divination-page textarea[placeholder*="问"]',
+        );
+        if (input && !input.value.trim()) {
+          input.value = qText;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, 60);
+    }
+  };
+
   const handleToggleDrawerDock = () => {
     setDrawerPinned((prev) => {
       const next = !prev;
@@ -1425,7 +1660,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     });
   };
 
-  const executeDivination = async (method: DivinationFormMethod, rawPayload: Record<string, unknown>) => {
+  const executeDivination = async (method: Method, rawPayload: Record<string, unknown>) => {
     const payload = applyGlobalRulesToPayload(method, rawPayload, method !== 'random-divination') as Record<
       string,
       unknown
@@ -1513,18 +1748,20 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     }
     setChartError(null);
     const persisted = ws.persistIfRequested();
+    const initialQuestion = pendingChartQuestionRef.current.trim();
+    pendingChartQuestionRef.current = '';
 
     if (isCompatibilityMode && persisted.partner) {
       const payload = buildCompatibilityChartPayload(
         persisted.self,
         persisted.partner,
         compatibilityMethod,
-        '',
+        initialQuestion,
         { relationship: compatRelationship },
       );
       const savedCompat = upsertCompatibilityRecord(persisted.self, persisted.partner, {
         method: compatibilityMethod,
-        question: '',
+        question: initialQuestion,
         inputJson: JSON.stringify(payload),
       });
       navigateToRoute('result', {
@@ -1542,6 +1779,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
         person: persisted.self,
         partner: persisted.partner,
         compatibilityRelationship: compatRelationship,
+        ...(initialQuestion ? { question: initialQuestion } : {}),
       });
       return;
     }
@@ -1562,6 +1800,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       mode: 'personal',
       activeMethod: tab,
       person: persisted.self,
+      ...(initialQuestion ? { question: initialQuestion } : {}),
     });
   };
 
@@ -2226,6 +2465,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                 onOpenCustomShortcutTarget={openCustomShortcutTarget}
                 onToggleHomeItem={handleToggleHomeItem}
                 onResetHomeCustomization={handleResetHomeCustomization}
+                onApplyLocalAgentRecommendation={handleApplyLocalAgentRecommendation}
               />
             ) : null}
 

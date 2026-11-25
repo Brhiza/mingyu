@@ -18,6 +18,118 @@ type Data = {
   evidenceAnalysis: ReturnType<typeof analyze>;
 };
 
+const LENORMAND_POSITIVE_IDS = new Set([2, 4, 9, 16, 17, 18, 24, 25, 30, 31, 33, 34]);
+const LENORMAND_CHALLENGING_IDS = new Set([6, 7, 8, 10, 11, 14, 21, 23, 36]);
+
+type LenormandValence = '顺畅' | '中性' | '阻滞';
+
+function cardValence(id: number): LenormandValence {
+  if (LENORMAND_POSITIVE_IDS.has(id)) return '顺畅';
+  if (LENORMAND_CHALLENGING_IDS.has(id)) return '阻滞';
+  return '中性';
+}
+
+function pairEchoLabel(v1: LenormandValence, v2: LenormandValence): string {
+  if (v1 === '顺畅' && v2 === '顺畅') return '同向增益';
+  if (v1 === '阻滞' && v2 === '阻滞') return '阻力叠加';
+  if (v1 === '顺畅' && v2 === '阻滞') return '先顺后阻（顺逆对冲）';
+  if (v1 === '阻滞' && v2 === '顺畅') return '先阻后顺（逆转趋畅）';
+  if (v1 === '顺畅' || v2 === '顺畅') return '媒介引动增益';
+  if (v1 === '阻滞' || v2 === '阻滞') return '媒介引动警示';
+  return '中性并置';
+}
+
+export function analyzeLenormandRelations(spreadType: Spread, cards: Card[], combinations: Combination[]) {
+  const positiveCount = cards.filter((c) => cardValence(c.id) === '顺畅').length;
+  const challengingCount = cards.filter((c) => cardValence(c.id) === '阻滞').length;
+  const neutralCount = cards.length - positiveCount - challengingCount;
+  const valenceTilt =
+    positiveCount > challengingCount
+      ? '顺畅占优'
+      : challengingCount > positiveCount
+        ? '阻滞偏重'
+        : positiveCount === 0 && challengingCount === 0
+          ? '全为中性媒介'
+          : '顺逆均衡';
+
+  const cardByName = new Map(cards.map((c) => [c.name, c]));
+
+  let indicatorSummary: string;
+  if (spreadType === 'single') {
+    indicatorSummary = `核心指示牌：「${cards[0].position}」${cards[0].name}（${cardValence(cards[0].id)}）`;
+  } else if (spreadType === 'three') {
+    indicatorSummary = `核心指示牌：中心「${cards[1].position}」${cards[1].name}（${cardValence(cards[1].id)}），左承「${cards[0].position}」${cards[0].name}（${cardValence(cards[0].id)}）、右启「${cards[2].position}」${cards[2].name}（${cardValence(cards[2].id)}）`;
+  } else if (spreadType === 'five' || spreadType === 'relationship') {
+    indicatorSummary = `核心指示牌：中心「${cards[2].position}」${cards[2].name}（${cardValence(cards[2].id)}）`;
+  } else if (spreadType === 'nine') {
+    indicatorSummary = `核心指示牌：九宫中心「${cards[4].position}」${cards[4].name}（${cardValence(cards[4].id)}）`;
+  } else if (spreadType === 'decision') {
+    const aEcho = pairEchoLabel(cardValence(cards[1].id), cardValence(cards[2].id));
+    const bEcho = pairEchoLabel(cardValence(cards[3].id), cardValence(cards[4].id));
+    indicatorSummary = `核心指示牌：起手「${cards[0].position}」${cards[0].name}（${cardValence(cards[0].id)}）、终局「${cards[5].position}」${cards[5].name}（${cardValence(cards[5].id)}）；分支A（${cards[1].name}→${cards[2].name}：${aEcho}） vs 分支B（${cards[3].name}→${cards[4].name}：${bEcho}）`;
+  } else if (spreadType === 'grandTableau') {
+    const personNotes = cards
+      .map((card, index) => ({ card, houseIndex: index + 1 }))
+      .filter(({ card }) => card.name === '男士' || card.name === '女士')
+      .map(({ card, houseIndex }) => {
+        const neighbors = cards.filter(
+          (other) => other.id !== card.id && Math.abs(other.row! - card.row!) <= 1 && Math.abs(other.column! - card.column!) <= 1,
+        );
+        const nPos = neighbors.filter((n) => cardValence(n.id) === '顺畅').length;
+        const nNeg = neighbors.filter((n) => cardValence(n.id) === '阻滞').length;
+        return `${card.name}落第${houseIndex}宫（${card.house}宫），近身 ${neighbors.length} 牌（顺畅 ${nPos}、阻滞 ${nNeg}）`;
+      });
+    const homeCount = cards.filter((c) => c.name === c.house).length;
+    indicatorSummary = `核心人物指示牌：${personNotes.join('；')}；归宫牌 ${homeCount} 张`;
+  } else {
+    indicatorSummary = `四元素牌位：${cards.map((c) => `${c.position}·${c.name}（${cardValence(c.id)}）`).join('、')}`;
+  }
+
+  const echoCounts = new Map<string, number>();
+  const pairSummaries: string[] = [];
+  for (const combo of combinations) {
+    const c1 = cardByName.get(combo.card1);
+    const c2 = cardByName.get(combo.card2);
+    if (!c1 || !c2) continue;
+    const echo = pairEchoLabel(cardValence(c1.id), cardValence(c2.id));
+    echoCounts.set(echo, (echoCounts.get(echo) ?? 0) + 1);
+    if (pairSummaries.length < 6) {
+      pairSummaries.push(`${combo.card1}+${combo.card2}（${combo.source}·${echo}）`);
+    }
+  }
+  const fixedCount = combinations.filter((c) => c.source === '固定组合').length;
+  const echoStats = [...echoCounts.entries()].map(([k, v]) => `${k} ${v} 组`).join('、');
+
+  const mirrorEchoes: string[] = [];
+  if (spreadType === 'three') {
+    mirrorEchoes.push(`首尾镜像：${cards[0].name}↔${cards[2].name}（${pairEchoLabel(cardValence(cards[0].id), cardValence(cards[2].id))}）`);
+  } else if (spreadType === 'five' || spreadType === 'relationship') {
+    mirrorEchoes.push(
+      `外层镜像：${cards[0].name}↔${cards[4].name}（${pairEchoLabel(cardValence(cards[0].id), cardValence(cards[4].id))}）`,
+      `内层镜像：${cards[1].name}↔${cards[3].name}（${pairEchoLabel(cardValence(cards[1].id), cardValence(cards[3].id))}）`,
+    );
+  }
+
+  const lines = [
+    `顺逆极性分布：顺畅 ${positiveCount} 张、中性 ${neutralCount} 张、阻滞 ${challengingCount} 张（${valenceTilt}）。`,
+    `${indicatorSummary}。`,
+    combinations.length
+      ? `相邻牌组顺逆呼应：共 ${combinations.length} 组（固定组合 ${fixedCount} 组），分布：${echoStats}；代表组合：${pairSummaries.join('；')}。`
+      : '相邻牌组顺逆呼应：单牌阵无相邻组合。',
+    ...(mirrorEchoes.length ? [`镜像呼应：${mirrorEchoes.join('；')}。`] : []),
+  ];
+
+  return {
+    positiveCount,
+    neutralCount,
+    challengingCount,
+    valenceTilt,
+    fixedCount,
+    mirrorEchoes,
+    text: lines.join('\n'),
+  };
+}
+
 const directional = new Set(['骑士+心', '月亮+太阳', '星星+月亮', '锚+星星', '船+鹳']);
 const fixed = reference.fixed as Record<string, { raw: string; conditioned: string }>;
 
@@ -162,7 +274,7 @@ export function promptForLenormand(value: unknown, question: string, options: In
   const schools = formatSchoolGuidance(options?.schools, reference.schools, {
     multiNote: '多口径合参：分别依据各口径判断，再比较共同点、分歧与对应牌面依据。',
   });
-  const cardText = cards.map((card) => `${card.position}：${card.name}（#${card.id}）；关键词：${card.keywords.join('、')}；核心牌义：${card.meaning}${card.house ? `；落第${card.id}宫（${card.house}宫）` : ''}${card.row ? `；第${card.row}排第${card.column}列` : ''}`).join('\n');
+  const cardText = cards.map((card, index) => `${card.position}：${card.name}（#${card.id}）；关键词：${card.keywords.join('、')}；核心牌义：${card.meaning}${card.house ? `；落第${index + 1}宫（${card.house}宫）` : ''}${card.row ? `；第${card.row}排第${card.column}列` : ''}`).join('\n');
   const mirrorHints = data.spreadType === 'three'
     ? `中心焦点牌：${cards[1].position}${cards[1].name}；首尾镜像对读：${cards[0].position}${cards[0].name} ↔ ${cards[2].position}${cards[2].name}。`
     : data.spreadType === 'five' || data.spreadType === 'relationship'
@@ -176,6 +288,7 @@ export function promptForLenormand(value: unknown, question: string, options: In
     '【传统依据】\n雷诺曼以牌序、邻牌关系、固定组合、中心焦点与镜像布局为主要资料；象征取义须与现实资料区分。',
     `【提示词参考时间】\n${now}`,
     `【占卜资料】\n占法：雷诺曼；牌阵：${spread.name}；共 ${cards.length} 张。\n${cardText}${mirrorHints ? `\n${mirrorHints}` : ''}`,
+    `【牌阵结构与牌间呼应关系】\n${analyzeLenormandRelations(data.spreadType, cards, combinations).text}`,
     evidence.layout.length ? `【布局关系】\n${evidence.layout.map((item) => item.detail).join('\n')}` : '',
     combinationText ? `【牌面组合】\n${combinationText}` : '',
     selection ? `【解读选择】\n${selection.section}` : '',

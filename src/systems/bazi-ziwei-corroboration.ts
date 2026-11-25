@@ -5,6 +5,12 @@
  * 2. 天乙贵人与左辅、右弼、天魁、天钺吉曜同参（外力提携与顺遂条件）。
  */
 
+import { buildPatternRelations } from './bazi/pattern-relations';
+import type { BaziPillar } from './bazi/pillars';
+import type { buildDayMasterStrength } from './bazi/strength';
+import type { UsefulGodResult } from './bazi/useful-god';
+import { analyzeZiweiPatternRelations, type ZiweiPattern, type ZiweiPatternPalace } from './ziwei-patterns';
+
 export type CorroborationConditionStatus = '满足' | '不满足' | '资料不足';
 
 export interface CorroborationCondition {
@@ -61,21 +67,38 @@ export interface GuiRenCorroborationResult {
   ziweiCheckStatus: 'checked' | 'origin-missing';
 }
 
+export interface CrossSystemSignalPair {
+  topic: string;
+  baziSignal: string;
+  ziweiSignal: string;
+  condition: string;
+}
+
+export interface CrossSystemBalanceResult {
+  dataStatus: '双盘格局资料完整' | '部分格局资料缺项';
+  resonances: CrossSystemSignalPair[];
+  tensions: CrossSystemSignalPair[];
+}
+
 export interface BaziZiweiCorroborationResult {
   shaYao: ShaYaoCorroborationResult;
   guiRen: GuiRenCorroborationResult;
+  crossSystemBalance: CrossSystemBalanceResult;
   corroborationPoints: string[];
   summary: string;
 }
 
 export interface BaziCorroborationInput {
-  pillars: Record<BaziPillarKey, { zhi: string }>;
+  pillars: Record<BaziPillarKey, { zhi: string } & Partial<BaziPillar>>;
   shensha?: {
     entries?: ReadonlyArray<{ name: string; position: BaziPillarKey; branch?: string }>;
   } | null;
-  strength?: {
+  strength?: ({
     status?: string;
-  } | null;
+  } & Partial<ReturnType<typeof buildDayMasterStrength>>) | null;
+  patternOverview?: { pattern: string; source: string } | null;
+  ordinaryPattern?: { candidate: string } | null;
+  usefulGod?: UsefulGodResult | null;
   isThreePillars?: boolean;
 }
 
@@ -90,6 +113,7 @@ export interface ZiweiCorroborationStar {
 export interface ZiweiCorroborationPalace {
   index: number;
   name: string;
+  earthlyBranch?: string;
   isBodyPalace: boolean;
   majorStars: readonly ZiweiCorroborationStar[];
   minorStars: readonly ZiweiCorroborationStar[];
@@ -110,6 +134,7 @@ export interface ZiweiCorroborationScopeLayer {
 export interface ZiweiCorroborationInput {
   natal?: {
     palaces?: readonly ZiweiCorroborationPalace[];
+    patterns?: readonly ZiweiPattern[];
   } | null;
   reference?: {
     localDateTime: string;
@@ -377,7 +402,7 @@ function buildTimingCondition(
     key: 'timing.period',
     status: hits.length ? '满足' : allPalacesLocated ? '不满足' : '资料不足',
     detail: hits.length
-      ? `紫微运限定位：${hits.join('；')}。${allPalacesLocated ? '' : '部分运限落宫未定位，其他目标星曜引动仍待核对。'}这些是紫微单盘引动事实，双盘同一时间窗口仍需核对八字岁运。`
+      ? `紫微运限定位：${hits.join('；')}。${allPalacesLocated ? '' : '部分运限落宫未在当前层级展开，已先就定位宫位与四化星曜落点裁定。'}这些是紫微单盘引动事实，双盘同一时间窗口并参八字岁运。`
       : allPalacesLocated
         ? `已核对${layerEntries.map(([scopeKey, layer]) => `${SCOPE_LABELS[scopeKey] ?? layer.name}（${dateLabel}）`).join('、')}，目标星未命中所列运限宫位或四化。`
         : '已列紫微运限日期，但部分落宫未定位，无法完整核对本命目标星曜的运限引动。',
@@ -566,6 +591,218 @@ export function evaluateGuiRenCorroboration(
   };
 }
 
+const KEY_MUTAGEN_PALACES = new Set(['命', '夫妻', '财帛', '官禄', '福德']);
+
+function hasFullBaziPatternData(bazi: BaziCorroborationInput): bazi is BaziCorroborationInput & {
+  pillars: Record<BaziPillarKey, BaziPillar>;
+  strength: ReturnType<typeof buildDayMasterStrength>;
+  patternOverview: { pattern: string; source: string };
+  ordinaryPattern: { candidate: string };
+  usefulGod: UsefulGodResult;
+} {
+  return Boolean(
+    bazi.patternOverview &&
+      bazi.ordinaryPattern &&
+      bazi.usefulGod &&
+      bazi.strength?.status &&
+      bazi.strength?.tendencies &&
+      PILLAR_ORDER.every(
+        (k) =>
+          typeof bazi.pillars[k]?.gan === 'string' &&
+          typeof bazi.pillars[k]?.tenGod === 'string' &&
+          Array.isArray(bazi.pillars[k]?.hiddenStems),
+      ),
+  );
+}
+
+function hasFullZiweiPatternData(ziwei: ZiweiCorroborationInput): ziwei is ZiweiCorroborationInput & {
+  natal: {
+    palaces: readonly ZiweiPatternPalace[];
+    patterns: readonly ZiweiPattern[];
+  };
+} {
+  return Boolean(
+    hasCompleteZiweiOrigin(ziwei) &&
+      Array.isArray(ziwei.natal?.patterns) &&
+      ziwei.natal?.palaces?.every((p) => typeof p.earthlyBranch === 'string' && p.earthlyBranch.length > 0),
+  );
+}
+
+/** 评估八字与紫微双盘在格局、喜忌/四化与关键风险上的同向共振与分歧制衡。 */
+export function evaluateCrossSystemBalance(
+  bazi: BaziCorroborationInput,
+  ziwei: ZiweiCorroborationInput,
+  shaYao: ShaYaoCorroborationResult,
+  guiRen: GuiRenCorroborationResult,
+): CrossSystemBalanceResult {
+  const resonances: CrossSystemSignalPair[] = [];
+  const tensions: CrossSystemSignalPair[] = [];
+
+  const baziReady = hasFullBaziPatternData(bazi);
+  const ziweiReady = hasFullZiweiPatternData(ziwei);
+
+  if (baziReady && ziweiReady) {
+    const bzRel = buildPatternRelations({
+      pillars: bazi.pillars,
+      strength: bazi.strength,
+      patternOverview: bazi.patternOverview,
+      ordinaryPattern: bazi.ordinaryPattern,
+      usefulGod: bazi.usefulGod,
+    });
+    const zwRel = analyzeZiweiPatternRelations(ziwei.natal.palaces, ziwei.natal.patterns);
+    const zwAuspicious = ziwei.natal.patterns.filter((p) => p.kind === 'auspicious');
+    const zwInauspicious = ziwei.natal.patterns.filter((p) => p.kind === 'inauspicious');
+
+    const bzUnrescued = bzRel.conflictChains.filter((c) => c.rescueStatus !== '原局明透已救');
+    const bzHasSynergy = bzRel.synergies.length > 0;
+    const bzClean = bzUnrescued.length === 0;
+    const zwHasSynergy = zwRel.synergies.length > 0 || (zwAuspicious.length > 0 && zwRel.damagedAuspicious.length === 0);
+    const zwUnrescued = zwRel.inauspiciousRescues.filter((r) => r.status === '原局无明救');
+    const zwHasDamage = zwRel.damagedAuspicious.length > 0 || zwUnrescued.length > 0;
+
+    // 1. 格局增力与破损的同向共振 / 分歧张力
+    if ((bzHasSynergy || bzClean) && zwHasSynergy && !zwHasDamage) {
+      resonances.push({
+        topic: '格局清纯与协同增力',
+        baziSignal: bzHasSynergy
+          ? `${bzRel.primaryPattern}兼见${bzRel.synergies.slice(0, 2).map((s) => s.name).join('、')}`
+          : `${bzRel.primaryPattern}清纯无破格病灶`,
+        ziweiSignal: zwRel.synergies.length
+          ? zwRel.synergies[0]
+          : `命中吉格${zwAuspicious.slice(0, 2).map((p) => p.name).join('、')}且未见煞忌破格`,
+        condition: '双盘格局均具正向结构基础，行运/大限不犯忌神或煞忌冲破时易形成同向助力',
+      });
+    } else if (bzUnrescued.length > 0 && zwHasDamage) {
+      resonances.push({
+        topic: '破格风险与承压同向共振',
+        baziSignal: bzUnrescued
+          .slice(0, 2)
+          .map((c) => `${c.conflict}（${c.rescueStatus}）`)
+          .join('；'),
+        ziweiSignal: [
+          ...zwRel.damagedAuspicious.slice(0, 1).map((d) => `${d.patternName}成中有破（${d.breakers.slice(0, 2).join('、')}）`),
+          ...zwUnrescued.slice(0, 1).map((r) => `${r.targetName}原局无明救`),
+        ].join('；'),
+        condition: `双盘均显原局结构阻力：八字须待岁运补「${bzUnrescued[0].remedyNeeded}」，紫微须待大限流年逢禄权科或辅弼救应`,
+      });
+    } else if ((bzHasSynergy || bzClean) && zwHasDamage) {
+      tensions.push({
+        topic: '格局成败张力（八字清纯 vs 紫微受破）',
+        baziSignal: bzHasSynergy
+          ? `${bzRel.primaryPattern}兼${bzRel.synergies[0].name}`
+          : `${bzRel.primaryPattern}未见明显破格病灶`,
+        ziweiSignal: [
+          ...zwRel.damagedAuspicious.slice(0, 1).map((d) => `${d.patternName}受破（${d.breakers.slice(0, 2).join('、')}）`),
+          ...zwUnrescued.slice(0, 1).map((r) => `${r.targetName}无明救`),
+        ].join('；'),
+        condition: '八字顺行喜用岁运时可发挥格局框架，但紫微受破宫位对应的领域须防煞忌叠冲引动波动',
+      });
+    } else if (bzUnrescued.length > 0 && zwHasSynergy && !zwHasDamage) {
+      tensions.push({
+        topic: '格局成败张力（八字带病 vs 紫微成格）',
+        baziSignal: bzUnrescued
+          .slice(0, 2)
+          .map((c) => `${c.conflict}（${c.rescueStatus}）`)
+          .join('；'),
+        ziweiSignal: zwRel.synergies.length
+          ? zwRel.synergies[0]
+          : `吉格${zwAuspicious.slice(0, 2).map((p) => p.name).join('、')}未受破`,
+        condition: `紫微星曜架构具备成格条件，但八字原局病灶须待行运见「${bzUnrescued[0].remedyNeeded}」方能与紫微吉格同频落地`,
+      });
+    }
+
+    // 2. 生年四化落宫与八字喜忌/病药的交叉共振或张力
+    const keyLu: string[] = [];
+    const keyJi: string[] = [];
+    for (const palace of ziwei.natal.palaces) {
+      const norm = normalizeOriginPalaceName(palace.name);
+      if (!KEY_MUTAGEN_PALACES.has(norm) && !palace.isBodyPalace) continue;
+      for (const star of [...palace.majorStars, ...palace.minorStars]) {
+        if (star.mutagen === '禄') keyLu.push(`${palace.name}${palace.isBodyPalace ? '(身)' : ''}${star.name}化禄`);
+        if (star.mutagen === '忌') keyJi.push(`${palace.name}${palace.isBodyPalace ? '(身)' : ''}${star.name}化忌`);
+      }
+    }
+    if (keyJi.length > 0 && bzUnrescued.length > 0 && !resonances.some((r) => r.topic === '破格风险与承压同向共振')) {
+      resonances.push({
+        topic: '关键宫位化忌与八字病灶同向提示',
+        baziSignal: bzUnrescued.slice(0, 2).map((c) => `${c.conflict}（${c.rescueStatus}）`).join('；'),
+        ziweiSignal: `关键宫生年化忌：${keyJi.join('、')}`,
+        condition: '双盘均指向关键环节存在消耗或卡点，八字以制病补药为先，紫微以化忌宫位避忌守成为宜',
+      });
+    } else if (keyJi.length > 0 && bzClean && bazi.usefulGod.incrementStatus !== '部分判定') {
+      tensions.push({
+        topic: '八字喜用清纯与紫微关键宫化忌张力',
+        baziSignal: `用神裁定主用${bazi.usefulGod.useful}（喜${bazi.usefulGod.favorableWuxing.join('、') || '中和'}），原局无未救破格`,
+        ziweiSignal: `关键宫见生年化忌：${keyJi.join('、')}`,
+        condition: '八字整体骨架平稳，但紫微生年化忌所落宫位仍为主观执念或局部损耗点，行运叠忌时触发',
+      });
+    } else if (keyLu.length > 0 && bzUnrescued.length > 0) {
+      tensions.push({
+        topic: '紫微关键宫化禄与八字病灶制衡',
+        baziSignal: bzUnrescued.slice(0, 1).map((c) => `${c.conflict}（${c.rescueStatus}）`).join(''),
+        ziweiSignal: `关键宫见生年化禄：${keyLu.join('、')}`,
+        condition: '紫微化禄宫位提供资源/人缘缓冲，但放大成效仍以八字岁运解病补药为前提',
+      });
+    }
+
+    // 3. 动静强弱张力（八字强弱 vs 紫微命宫空宫/落陷/杀破狼）
+    const soulPalace = ziwei.natal.palaces.find((p) => normalizeOriginPalaceName(p.name) === '命');
+    const soulEmpty = Boolean(soulPalace && soulPalace.majorStars.length === 0);
+    const soulFallen = Boolean(soulPalace?.majorStars.some((s) => s.brightness === '陷'));
+    const hasShaPoLang = zwRel.synergies.some((s) => s.includes('杀破狼')) || zwInauspicious.some((p) => p.name.includes('杀破狼'));
+    const bzStrong = isStrongDayMasterStatus(bazi.strength.status);
+    const bzWeak = bazi.strength.status === '身弱' || bazi.strength.status === '偏弱' || bazi.strength.status === '极弱';
+
+    if (bzStrong && (soulEmpty || soulFallen)) {
+      tensions.push({
+        topic: '强弱动静张力（八字身强 vs 紫微命宫空/陷）',
+        baziSignal: `日主${bazi.strength.status}，具备主动承压与向外发力条件`,
+        ziweiSignal: soulEmpty ? '命宫无主星（须借对宫迁移主星发挥）' : '命宫主星见落陷',
+        condition: '八字底气足而紫微命宫须借外势或大限扶助，宜借外部平台/迁移机遇落力',
+      });
+    } else if (bzWeak && hasShaPoLang) {
+      tensions.push({
+        topic: '强弱动静张力（八字身弱 vs 紫微杀破狼动局）',
+        baziSignal: `日主${bazi.strength.status}，原局承压带宽有限`,
+        ziweiSignal: '命宫三方成杀破狼变动架构',
+        condition: '紫微变动冲劲强而八字喜印比生扶，推进变革须以八字印比岁运或稳健资源兜底为前提',
+      });
+    }
+  }
+
+  // 4. 纳入既有的煞曜与贵人双盘同参结果
+  if (shaYao.isHarmonized) {
+    resonances.push({
+      topic: '煞曜权柄同向共振',
+      baziSignal: `身强（${shaYao.baziDayMasterStrength}）兼羊刃（${formatBaziEvidence(shaYao.baziYangRenPositions)}）`,
+      ziweiSignal: formatZiweiEvidence(shaYao.ziweiShaEvidence),
+      condition: '须满足煞曜不落陷、不化忌且得运限引动，方作刚健决断之用',
+    });
+  } else if (shaYao.hasBaziYangRen && shaYao.ziweiShaEvidence.length > 0 && !shaYao.isHarmonized) {
+    tensions.push({
+      topic: '煞曜同见但承压条件不足',
+      baziSignal: `羊刃（${formatBaziEvidence(shaYao.baziYangRenPositions)}）而日主状态为${shaYao.baziDayMasterStrength}`,
+      ziweiSignal: formatZiweiEvidence(shaYao.ziweiShaEvidence),
+      condition: '日主未达身强，双盘刚烈信号易转为内耗或冲动阻力，须见印比护身或吉化制煞',
+    });
+  }
+
+  if (guiRen.isDoubleBlessed) {
+    resonances.push({
+      topic: '贵人助力同向共振',
+      baziSignal: `天乙贵人（${formatBaziEvidence(guiRen.baziTianYiPositions)}）`,
+      ziweiSignal: formatZiweiEvidence(guiRen.ziweiGuiEvidence),
+      condition: '双盘贵人星均在位，遇运限宫位或四化引动时易显外部协作与助力',
+    });
+  }
+
+  return {
+    dataStatus: baziReady && ziweiReady ? '双盘格局资料完整' : '部分格局资料缺项',
+    resonances,
+    tensions,
+  };
+}
+
 /** 跨体系合参综合互证。 */
 export function evaluateBaziZiweiCorroboration(
   bazi: BaziCorroborationInput,
@@ -573,9 +810,11 @@ export function evaluateBaziZiweiCorroboration(
 ): BaziZiweiCorroborationResult {
   const shaYao = evaluateShaYaoCorroboration(bazi, ziwei);
   const guiRen = evaluateGuiRenCorroboration(bazi, ziwei);
+  const crossSystemBalance = evaluateCrossSystemBalance(bazi, ziwei, shaYao, guiRen);
   return {
     shaYao,
     guiRen,
+    crossSystemBalance,
     corroborationPoints: [shaYao.judgment, guiRen.judgment],
     summary: `八字紫微互证：${shaYao.judgment}；${guiRen.judgment}`,
   };
@@ -587,4 +826,20 @@ export function formatCorroborationSection(result: BaziZiweiCorroborationResult)
     `煞曜同参（羊刃/擎羊陀罗火铃）：${result.shaYao.judgment}`,
     `贵人同参（天乙贵人/辅弼魁钺）：${result.guiRen.judgment}`,
   ].join('\n');
+}
+
+/** 格式化为结构化的【跨体系同向共振与分歧制衡】段落。 */
+export function formatCrossSystemBalanceSection(result: BaziZiweiCorroborationResult): string {
+  const bal = result.crossSystemBalance;
+  const resonanceLines = bal.resonances.length
+    ? bal.resonances.map(
+        (item) => `- ［同向共振·${item.topic}］八字：${item.baziSignal}｜紫微：${item.ziweiSignal}｜成立条件：${item.condition}。`,
+      )
+    : ['- ［同向共振］两盘未检出显著同向叠加信号，以各自单盘主线独立参看。'];
+  const tensionLines = bal.tensions.length
+    ? bal.tensions.map(
+        (item) => `- ［分歧制衡·${item.topic}］八字：${item.baziSignal}｜紫微：${item.ziweiSignal}｜制衡条件：${item.condition}。`,
+      )
+    : ['- ［分歧制衡］两盘格局与强弱未检出显著结构张力。'];
+  return [`资料状态：${bal.dataStatus}`, ...resonanceLines, ...tensionLines].join('\n');
 }

@@ -1,13 +1,15 @@
 import type { z } from 'zod';
 import type { ziweiIndependentInput } from '../schema';
 import { sameJsonValue } from '../json-value';
-import { resolveBirthClock, correctBirthClock, lunarDateDiscrepancy } from './birth-time';
+import { chinaDstAdvisory, resolveBirthClock, correctBirthClock, lunarDateDiscrepancy } from './birth-time';
 import { createTimezoneOffsetReader, getCivilDateTimeAtFixedOffset, createUtcTimestamp } from './huangji/civil-time';
 import { buildScopePalaceFlying, formatFeixingHighlights, formatNatalFlying, formatScopeFlying, formatScopeFlyingHighlights, formatScopeMutagens, locateScopeMutagens } from './ziwei-flying';
-import { detectZiweiPatterns, formatZiweiPatterns } from './ziwei-patterns';
+import { detectZiweiPatterns, formatZiweiPatternRelations, formatZiweiPatterns } from './ziwei-patterns';
 import { dedupeExcerpts, formatClassicExcerpts, selectZiweiClassics } from './classics';
 import { evaluateZiweiSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from './ganzhi-foundation';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS, getSixtyCycleName, getYearMonthGanZhi, getYearSixtyCycle } from './ganzhi-foundation';
+import { inferFortuneScope } from '../router-model/fortune-scope';
+import { formatZiweiDailyRangeBlock, resolveDailyRange } from './daily-range';
 import {
   buildZiweiAstrolabe,
   buildZiweiHoroscope,
@@ -31,7 +33,7 @@ export function collectZiweiMajorStars(
 }
 
 type Input = z.infer<typeof ziweiIndependentInput>;
-type Source = Pick<Input, 'birth' | 'gender' | 'referenceTime' | 'includeTimeline' | 'rules' | 'prompt'>;
+type Source = Pick<Input, 'birth' | 'gender' | 'referenceTime' | 'includeTimeline' | 'dailyRange' | 'rules' | 'prompt'>;
 type Options = Input['prompt'];
 const dateString = (parts: { year: number; month: number; day: number }) => `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 const timeIndex = (hour: number) => hour === 23 ? 12 : Math.floor((hour + 1) / 2);
@@ -99,8 +101,9 @@ async function calculateExactData(source: Source) {
   const { birth } = source;
   if (birth.clock.kind !== 'exact') throw new Error('独立紫微预览需要精确出生时分秒。');
   const clock = { year: birth.year, month: birth.month, day: birth.day, ...birth.clock, calendar: birth.calendar, leapMonth: birth.leapMonth,
-    timezone: birth.timezone, timeZoneId: birth.timeZoneId, timeStandard: birth.timeStandard, longitude: birth.longitude };
+    timezone: birth.timezone, timeZoneId: birth.timeZoneId, applyChinaDst: birth.applyChinaDst, timeStandard: birth.timeStandard, longitude: birth.longitude };
   const resolved = resolveBirthClock(clock), corrected = await correctBirthClock(clock, resolved);
+  const chinaDstWarning = chinaDstAdvisory(clock);
   const wall = getCivilDateTimeAtFixedOffset(new Date(corrected.timestamp), resolved.timezone);
   const rules = normalizeZiweiRules(source.rules);
   const originalIndex = timeIndex(wall.hour);
@@ -222,9 +225,13 @@ async function calculateExactData(source: Source) {
       palaceName: palace.name,
       mutagens: getMutagensByStem(palace.heavenlyStem as HeavenlyStem, rules.mutagenSchool),
     })) : undefined;
-  return { input: { birth, gender: source.gender, ...(source.referenceTime ? { referenceTime: source.referenceTime } : {}), ...(source.includeTimeline !== undefined ? { includeTimeline: source.includeTimeline } : {}), ...(source.rules ? { rules: source.rules } : {}), ...(source.prompt ? { prompt: source.prompt } : {}) },
-    basis: { utcDateTime: resolved.utcDateTime, localDateTime: resolved.localDateTime, timezone: resolved.timezone, correctedLocalDateTime: `${dateString(wall)}T${String(wall.hour).padStart(2, '0')}:${String(wall.minute).padStart(2, '0')}:${String(wall.second).padStart(2, '0')}`, timeIndex: originalIndex, effectiveDate: dateString(effectiveDate), effectiveTimeIndex: effectiveIndex, trueSolarCorrection: corrected.correction ?? null, rules }, natal, reference,
+  const dailyRange = source.dailyRange
+    ? resolveDailyRange(source.dailyRange, source.referenceTime ? Date.parse(source.referenceTime) : undefined)
+    : undefined;
+  return { input: { birth, gender: source.gender, ...(source.referenceTime ? { referenceTime: source.referenceTime } : {}), ...(source.includeTimeline !== undefined ? { includeTimeline: source.includeTimeline } : {}), ...(source.dailyRange ? { dailyRange: source.dailyRange } : {}), ...(source.rules ? { rules: source.rules } : {}), ...(source.prompt ? { prompt: source.prompt } : {}) },
+    basis: { utcDateTime: resolved.utcDateTime, localDateTime: resolved.localDateTime, timezone: resolved.timezone, ...('usedChinaDstCorrection' in resolved && resolved.usedChinaDstCorrection ? { usedChinaDstCorrection: true } : {}), ...(chinaDstWarning ? { chinaDstWarning } : {}), correctedLocalDateTime: `${dateString(wall)}T${String(wall.hour).padStart(2, '0')}:${String(wall.minute).padStart(2, '0')}:${String(wall.second).padStart(2, '0')}`, timeIndex: originalIndex, effectiveDate: dateString(effectiveDate), effectiveTimeIndex: effectiveIndex, trueSolarCorrection: corrected.correction ?? null, rules }, natal, reference,
     ...(decadalTimeline ? { decadalTimeline } : {}),
+    ...(dailyRange ? { dailyRange } : {}),
     limitations: [
       ...(source.includeTimeline
         ? ['已开启十二大限、当前大限十年流年、流年十二流月时间线与运限十二宫逐宫飞化结构。']
@@ -232,7 +239,7 @@ async function calculateExactData(source: Source) {
       '运限四化仅定位该层化星的本命与动态宫位，不直接证明现实事件应期。',
       rules.ageDivide === 'birthday' ? '运限年龄按公历出生日换岁（birthday 口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。' : '运限年龄使用农历自然年换岁（normal 口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。',
       rules.yearDivide === 'exact' || rules.horoscopeDivide === 'exact' ? '农历与干支历法基于统一历法引擎计算，exact 口径按精确交节瞬时分界；重大边界仍建议核对出生记录。' : '农历与干支历法基于统一历法引擎计算，normal 口径按农历正月初一/初一换年换月分界。',
-      ...new Set([lunarDateDiscrepancy(effectiveDate), reference?.lunarDateWarning].filter((item): item is string => !!item))], };
+      ...new Set([lunarDateDiscrepancy(effectiveDate), reference?.lunarDateWarning, chinaDstWarning].filter((item): item is string => !!item))], };
 }
 export type ZiweiExactData = Awaited<ReturnType<typeof calculateExactData>>;
 type ExactData = ZiweiExactData;
@@ -255,9 +262,100 @@ export async function calculateZiweiIndependentData(source: Source) {
     bodyBranch: [...new Set(candidates.map((item) => item.chart.natal.bodyBranch))],
     fiveElementsClass: [...new Set(candidates.map((item) => item.chart.natal.fiveElementsClass))],
   };
-  return { input: { birth: source.birth, gender: source.gender, ...(source.referenceTime ? { referenceTime: source.referenceTime } : {}), ...(source.includeTimeline !== undefined ? { includeTimeline: source.includeTimeline } : {}), ...(source.rules ? { rules: source.rules } : {}), ...(source.prompt ? { prompt: source.prompt } : {}) },
+  return { input: { birth: source.birth, gender: source.gender, ...(source.referenceTime ? { referenceTime: source.referenceTime } : {}), ...(source.includeTimeline !== undefined ? { includeTimeline: source.includeTimeline } : {}), ...(source.dailyRange ? { dailyRange: source.dailyRange } : {}), ...(source.rules ? { rules: source.rules } : {}), ...(source.prompt ? { prompt: source.prompt } : {}) },
     unknown: { source: range.source, possible, candidates, limitation: '每段首秒为计算样本，不能视为确定出生瞬时；全部候选应结合出生记录核定。' } };
 }
+const BEIJING_OFFSET_MS = 8 * 3_600_000;
+const BASE_DAY_UTC = Date.UTC(2000, 0, 1); // 2000-01-01 = 戊午 (index 54)
+
+function getGregorianDayGanZhi(year: number, month: number, day: number): string {
+  const diffDays = Math.round((Date.UTC(year, month - 1, day) - BASE_DAY_UTC) / 86_400_000);
+  return getSixtyCycleName(54 + diffDays);
+}
+
+function getGregorianMidMonthGanZhi(year: number, month: number): string {
+  return month === 1 ? getYearMonthGanZhi(year - 1, 11) : getYearMonthGanZhi(year, month - 2);
+}
+
+function buildCompactZiweiFortuneBlock(data: ExactData, question: string, includeDecadal: boolean): string {
+  const palaces = data.natal.palaces;
+  if (!palaces.length || !palaces.every((p) => Array.isArray(p.decadal?.range) && p.decadal.range.length === 2)) {
+    return '';
+  }
+  const refTs = data.reference ? data.reference.utcTimestamp : Date.now();
+  const parsedRefYear = data.reference ? Number(data.reference.localDateTime.slice(0, 4)) : NaN;
+  const rawRefYear = Number.isInteger(parsedRefYear) && parsedRefYear >= 1900 && parsedRefYear <= 2100
+    ? parsedRefYear
+    : new Date(refTs + BEIJING_OFFSET_MS).getUTCFullYear();
+  const refYearlyGz = data.reference ? `${data.reference.layers.yearly.heavenlyStem}${data.reference.layers.yearly.earthlyBranch}` : '';
+  const refYear = refYearlyGz && getYearSixtyCycle(rawRefYear) !== refYearlyGz && getYearSixtyCycle(rawRefYear - 1) === refYearlyGz
+    ? rawRefYear - 1
+    : rawRefYear;
+  const birthYear = Number(data.basis.effectiveDate.slice(0, 4));
+  const currentNominalAge = typeof data.reference?.layers.age.nominalAge === 'number'
+    ? data.reference.layers.age.nominalAge
+    : Number.isFinite(birthYear)
+      ? refYear - birthYear + 1
+      : NaN;
+
+  const lines: string[] = [];
+  if (includeDecadal) {
+    const decadalLine = [...palaces]
+      .sort((a, b) => a.decadal.range[0] - b.decadal.range[0])
+      .slice(0, 8)
+      .map((p) => {
+        const [start, end] = p.decadal.range;
+        const isCurrent = Number.isFinite(currentNominalAge) && currentNominalAge >= start && currentNominalAge <= end;
+        return `${p.name}${p.heavenlyStem}${p.earthlyBranch}(${start}-${end}${isCurrent ? '·当前' : ''})`;
+      })
+      .join('｜');
+    lines.push(`大限：${decadalLine}`);
+  }
+
+  const fortuneScope = inferFortuneScope(question, refYear, refTs, Number.isFinite(birthYear) ? birthYear : undefined);
+  const yearlyLine = fortuneScope.years.map((year) => {
+    const ganZhi = getYearSixtyCycle(year);
+    const stem = ganZhi[0] as HeavenlyStem;
+    const branch = ganZhi[1];
+    const targetPalace = palaces.find((p) => p.earthlyBranch === branch);
+    const mutagens = getMutagensByStem(stem, data.basis.rules.mutagenSchool);
+    const lu = mutagens[0] ?? '';
+    const ji = mutagens[3] ?? '';
+    const sihua = lu && ji ? `·禄${lu}/忌${ji}` : '';
+    const palacePart = targetPalace ? `落${targetPalace.name}${branch}` : `落${branch}宫`;
+    return `${year}${ganZhi}(${palacePart}${sihua})`;
+  }).join('｜');
+  lines.push(`流年：${yearlyLine}`);
+
+  const subParts: string[] = [];
+  if (fortuneScope.months.length > 0) {
+    subParts.push(
+      `参考流月：${fortuneScope.months.map((m) => `${m.year}/${m.month}月${getGregorianMidMonthGanZhi(m.year, m.month)}`).join('｜')}`,
+    );
+  }
+  if (fortuneScope.dates.length > 0) {
+    const dayTokens = fortuneScope.dates.map((d) => `${d.month}/${d.day}${getGregorianDayGanZhi(d.year, d.month, d.day)}`);
+    if (dayTokens.length > 8) {
+      if (subParts.length > 0) {
+        lines.push(subParts.join('；'));
+        subParts.length = 0;
+      }
+      const rows: string[] = [];
+      for (let i = 0; i < dayTokens.length; i += 8) {
+        rows.push(dayTokens.slice(i, i + 8).join('｜'));
+      }
+      lines.push(`参考流日（共${dayTokens.length}天）：\n${rows.join('\n')}`);
+    } else {
+      subParts.push(`参考流日：${dayTokens.join('｜')}`);
+    }
+  }
+  if (subParts.length > 0) {
+    lines.push(subParts.join('；'));
+  }
+
+  return `【运限动态与流年四化（压平精要）】\n${lines.join('\n')}`;
+}
+
 type Data = Awaited<ReturnType<typeof calculateZiweiIndependentData>>;
 function renderExact(data: ExactData, question: string, options?: Options) {
   const scope = options?.scope ?? (data.reference ? 'full' : 'origin');
@@ -303,11 +401,16 @@ function renderExact(data: ExactData, question: string, options?: Options) {
       : '',
   ].filter(Boolean).join('\n\n');
   const topic = options?.topic ?? 'life';
-  const text = [`【紫微斗数】\n出生瞬时 ${data.basis.utcDateTime}，出生地钟表 ${data.basis.localDateTime}，排盘钟表 ${data.basis.correctedLocalDateTime}；安星日 ${data.basis.effectiveDate}、时辰索引 ${data.basis.effectiveTimeIndex}。\n命宫${data.natal.soulBranch}，身宫${data.natal.bodyBranch}，命主${data.natal.soul}，身主${data.natal.body}，${data.natal.fiveElementsClass}；${data.natal.chineseDate}。\n命宫三方四正（命/财/官/迁）：${sanFangSummary}。`,
+  const genderLabel = data.input.gender === 'male' ? '男' : data.input.gender === 'female' ? '女' : '';
+  const text = [`【紫微斗数】\n${genderLabel ? `性别：${genderLabel}；` : ''}出生瞬时 ${data.basis.utcDateTime}，出生地钟表 ${data.basis.localDateTime}，排盘钟表 ${data.basis.correctedLocalDateTime}；安星日 ${data.basis.effectiveDate}、时辰索引 ${data.basis.effectiveTimeIndex}。\n命宫${data.natal.soulBranch}，身宫${data.natal.bodyBranch}，命主${data.natal.soul}，身主${data.natal.body}，${data.natal.fiveElementsClass}；${data.natal.chineseDate}。\n命宫三方四正（命/财/官/迁）：${sanFangSummary}。`,
     `【计算口径】\n${formatZiweiRulesSummary(data.basis.rules)}。`,
     `【本命十二宫】\n${palaceText}`, `【本命宫干四化】\n${flyingText}`,
     feixingHighlights ? `【飞星关键脉络（离心自化/对宫/集禄集忌）】\n${feixingHighlights}` : '',
-    `【本命格局】\n${formatZiweiPatterns(data.natal.patterns)}`, timelineText, flowText ? `【运限】\n参考当地 ${data.reference!.localDateTime}（UTC${data.reference!.timezone >= 0 ? '+' : ''}${data.reference!.timezone}）；${flowText}` : '',
+    `【本命格局】\n${formatZiweiPatterns(data.natal.patterns)}`,
+    `【格局叠合与成败制衡关系】\n${formatZiweiPatternRelations(data.natal.palaces, data.natal.patterns)}`,
+    buildCompactZiweiFortuneBlock(data, question, scope === 'origin' || scope === 'full' || scope === 'decadal'),
+    data.dailyRange ? formatZiweiDailyRangeBlock(data.dailyRange, data.natal.palaces) : '',
+    timelineText, flowText ? `【运限】\n参考当地 ${data.reference!.localDateTime}（UTC${data.reference!.timezone >= 0 ? '+' : ''}${data.reference!.timezone}）；${flowText}` : '',
     flyingByScope ? `【运限宫名映射说明】\n以下将本命物理宫的宫干四化按所选运限宫名重新标注；沿用本命宫干及本命化星，未另起运限宫干，也不计算流曜或跨层飞化。\n\n${flyingByScope}` : '',
     `【主题】\n${topicLabels[topic]}；优先核对${topicFocus[topic]}。根据盘中列出的实际宫位和星曜回答，列出依据、不同解释及需要现实核验的条件，不虚构未计算的格局或飞化。`,
     formatSchoolAlgorithmSection(evaluateZiweiSchoolAlgorithms(data, options?.schools)),
@@ -335,12 +438,13 @@ function render(data: Data, question: string, options?: Options) {
   const rows = unknown.candidates.map((candidate, index) => {
     const chart = candidate.chart, natal = chart.natal;
     const palaces = natal.palaces.map((p) => `${p.name}${p.earthlyBranch}：${p.majorStars.map((star) => `${star.name}${star.mutagen ? `化${star.mutagen}` : ''}`).join('、') || '无主星'}`).join('；');
-    const flows = levels.map((level) => { const item = chart.reference!.layers[level]; return `${scopeLabels[level]}${item.heavenlyStem}${item.earthlyBranch}，${natal.palaces[item.index]?.name ?? '宫位待核'}，${formatScopeMutagens(item.mutagenPlacements)}`; }).join('；');
+    const flows = levels.map((level) => { const item = chart.reference!.layers[level]; return `${scopeLabels[level]}${item.heavenlyStem}${item.earthlyBranch}，${natal.palaces[item.index]?.name ?? `第${item.index + 1}宫`}，${formatScopeMutagens(item.mutagenPlacements)}`; }).join('；');
     return `候选 ${index}：UTC ${new Date(candidate.startTimestamp).toISOString()} 至 ${new Date(candidate.endTimestamp).toISOString()}（不含终点），当地 UTC${candidate.timezone >= 0 ? '+' : ''}${candidate.timezone}；命宫${natal.soulBranch}、身宫${natal.bodyBranch}、${natal.fiveElementsClass}。\n${palaces}${flows ? `\n运限：${flows}` : ''}`;
   });
   const topic = options?.topic ?? 'life', schoolText = options?.schools?.map((school) => schoolTasks[school]).join('\n');
   const rules = unknown.candidates[0].chart.basis.rules;
-  const text = [`【紫微出生时段候选】\n当地日 ${unknown.source.solarDate}；${unknown.source.shichen ? `指定民用时辰索引 ${unknown.source.shichen.index}（${unknown.source.shichen.startHour}:00 至 ${unknown.source.shichen.endHour}:00，不含终点）` : '出生时辰未知'}；${'timeZoneId' in unknown.source ? `时区 ${unknown.source.timeZoneId}` : `时区 UTC${unknown.source.timezone}`}；${'requiredTimezone' in unknown.source ? `只保留 UTC${unknown.source.requiredTimezone}；` : ''}排除 ${unknown.source.excludedSeconds} 秒；共 ${unknown.candidates.length} 个连续候选。${unknown.limitation}`,
+  const genderLabel = data.input.gender === 'male' ? '男' : data.input.gender === 'female' ? '女' : '';
+  const text = [`【紫微出生时段候选】\n${genderLabel ? `性别：${genderLabel}；` : ''}当地日 ${unknown.source.solarDate}；${unknown.source.shichen ? `指定民用时辰索引 ${unknown.source.shichen.index}（${unknown.source.shichen.startHour}:00 至 ${unknown.source.shichen.endHour}:00，不含终点）` : '出生时辰未知'}；${'timeZoneId' in unknown.source ? `时区 ${unknown.source.timeZoneId}` : `时区 UTC${unknown.source.timezone}`}；${'requiredTimezone' in unknown.source ? `只保留 UTC${unknown.source.requiredTimezone}；` : ''}排除 ${unknown.source.excludedSeconds} 秒；共 ${unknown.candidates.length} 个连续候选。${unknown.limitation}`,
     `【计算口径】\n${formatZiweiRulesSummary(rules)}；${data.input.birth.timeStandard === 'true-solar' ? `按经度 ${data.input.birth.longitude}° 校正真太阳时` : '采用当地民用时间'}。`,
     `【候选取值】\n命宫：${unknown.possible.soulBranch.join('、')}；身宫：${unknown.possible.bodyBranch.join('、')}；五行局：${unknown.possible.fiveElementsClass.join('、')}。`,
     `【候选盘】\n${rows.join('\n\n')}\n主星以外的完整星曜与各层运限见结构化结果；可按 candidateIndex 选择一个候选生成详细提示词。`,

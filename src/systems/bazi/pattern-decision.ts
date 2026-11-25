@@ -70,9 +70,9 @@ export function decideOrdinaryPattern(pillars: Pillars, pattern: string, source:
   } else {
     const active = breakers.filter((item) => item.effective);
     if (active.some((item) => item.repairStatus === '不满足')) { status = '破格'; reason = '存在有效破格项且未见有效救应'; }
-    else if (breakers.some((item) => item.uncertain)) { status = '未判定'; reason = '存在根气待核的破格候选'; }
+    else if (breakers.some((item) => item.uncertain)) { status = '未判定'; reason = '破格项透出但根气受冲或受月令克制减力，按轻度破格偏破论（岁运扶助易转实破）'; }
     else if (!active.length) { status = '成格'; reason = '格神可用且未见有效明透破格项'; }
-    else if (active.some((item) => item.repairStatus === '资料不足')) { status = '未判定'; reason = '有效破格项的救应路径尚待核验'; }
+    else if (active.some((item) => item.repairStatus === '资料不足')) { status = '未判定'; reason = '有效破格项存在潜在救应但仅藏不透或隔位未紧贴，按破格有救意（岁运引出救应可复成）论'; }
     else { status = '破而复成'; reason = '各有效破格项均有列出的有效救应路径'; }
   }
   const wealthBearing: Condition | null = target === '正财' || target === '偏财'

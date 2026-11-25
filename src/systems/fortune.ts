@@ -342,9 +342,9 @@ async function computeFortune(
         favorableWuxing: commonFav,
         unfavorableWuxing: commonUnfav,
         natalPillars: {
-          year: commonYear || '待核',
-          month: commonMonth || '待核',
-          day: commonDay || '待核',
+          year: commonYear || '多候选交界',
+          month: commonMonth || '多候选交界',
+          day: commonDay || '多候选交界',
           hour: baziData.unknown.common.hour ?? '未知时辰',
         },
         dayunGanZhi: null,
@@ -387,7 +387,7 @@ async function computeFortune(
             items.map((x) => ({ mutagen: x.mutagen, star: x.star, targetPalace: x.natalPalace }));
           ziweiSummary = {
             natalMingPalace: zwData.natal.soulBranch,
-            yearlyPalace: layers.yearly?.palaceNames?.[0] ?? zwData.natal.palaces[layers.yearly.index]?.name,
+            yearlyPalace: zwData.natal.palaces[layers.yearly.index]?.name,
             yearlyMutagens: mapMutagens(layers.yearly.mutagenPlacements),
             monthlyPalace: zwData.natal.palaces[layers.monthly.index]?.name,
             monthlyMutagens: mapMutagens(layers.monthly.mutagenPlacements),
@@ -591,7 +591,7 @@ function buildSectionsAndPrompt(
   const personalMd = baziSummary
     ? [
         `- **八字主干**：四柱 ${baziSummary.natalPillars.year} / ${baziSummary.natalPillars.month} / ${baziSummary.natalPillars.day} / ${baziSummary.natalPillars.hour}；日主 ${baziSummary.dayMaster}${baziSummary.dayMasterElement}（${baziSummary.strengthStatus}，${baziSummary.pattern}）`,
-        `- **喜忌方向**：${baziSummary.useful}；喜用五行 ${baziSummary.favorableWuxing.join('、') || '待核'}；忌神五行 ${baziSummary.unfavorableWuxing.join('、') || '待核'}`,
+        `- **喜忌方向**：${baziSummary.useful}；喜用五行 ${baziSummary.favorableWuxing.join('、') || '中和随运调衡'}；忌神五行 ${baziSummary.unfavorableWuxing.join('、') || '随岁运偏颇防忌'}`,
         `- **流运层**：${flowLayerParts.join(' · ')}`,
         ...(baziSummary.interactions.length ? [`- **干支互动**：${baziSummary.interactions.slice(0, detailMode === 'full' ? 12 : 5).join('；')}`] : []),
         ...(baziSummary.shenshaHits.length ? [`- **岁运神煞**：${baziSummary.shenshaHits.join('、')}`] : []),

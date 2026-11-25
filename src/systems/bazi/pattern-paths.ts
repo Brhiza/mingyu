@@ -34,7 +34,7 @@ export function buildPatternPaths(pillars: Pillars, pattern: string, source: str
     const result = (status: Status, reason: string, pairs: Pair[] = []): Path => ({ key, label, status, reason, pairs });
     if (!a.exists || !b.exists) return result('不满足', `缺少${!a.exists ? '来源' : '作用对象'}`);
     if ((!a.items.length || !b.items.length) && !a.failed && !b.failed) return result('资料不足', '存在仅藏不透的作用端');
-    if (!a.rooted.length || !b.rooted.length) return result(a.failed || b.failed ? '不满足' : '资料不足', '作用端缺少可用根气或受月令制约待核');
+    if (!a.rooted.length || !b.rooted.length) return result(a.failed || b.failed ? '不满足' : '资料不足', '作用端缺少可用根气或受月令本气克制减力');
     if (!a.available.length || !b.available.length) return result('不满足', '作用端被合绊阻断');
     const pairs = a.available.flatMap((left) => b.available.filter((right) => Math.abs(positions.indexOf(left.position) - positions.indexOf(right.position)) === 1)
       .map((right) => ({ source: endpoint(left), target: endpoint(right) })));

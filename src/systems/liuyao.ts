@@ -1,9 +1,13 @@
 import type { z } from 'zod';
 import { castLiuyao, castYarrow } from './liuyao/cast';
-import { generateLiuyaoChart } from './liuyao/chart';
+import {
+  classifyLiuyaoVoidStatus,
+  evaluateLiuyaoMonthBreakStatus,
+  generateLiuyaoChart,
+} from './liuyao/chart';
 import { analyzeLiuyaoEvidence } from './liuyao/evidence';
 import type { LiuyaoData } from './liuyao/types';
-import { EARTHLY_BRANCHES, getBranchIndex, isChong, isHe, isKe, isSheng, isXing } from './calendar';
+import { EARTHLY_BRANCHES, getBranchIndex, getBranchWuxing, isChong, isHe, isKe, isSheng, isXing } from './calendar';
 import type { liuyaoInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
@@ -129,6 +133,257 @@ function buildLiuyaoGuaShenAndShenshaSummary(data: LiuyaoData): string {
     .join('\n');
 }
 
+export function buildLiuyaoPatternRelations(data: LiuyaoData, evidence: Evidence): string {
+  const monthBranch = data.ganzhi.month[1] ?? '';
+  const dayBranch = data.ganzhi.day[1] ?? '';
+  const monthElem = monthBranch ? getBranchWuxing(monthBranch) : '';
+  const dayElem = dayBranch ? getBranchWuxing(dayBranch) : '';
+
+  const movingYaos = data.yaosDetail.filter((y) => y.isChanging);
+  const hiddenMoveYaos = data.yaosDetail.filter((y) => !y.isChanging && y.isHiddenMove);
+  const activeYaos = [...movingYaos, ...hiddenMoveYaos];
+
+  // 1. 主线格局与世应关系
+  const motionPattern = data.specialPattern
+    ? data.specialPattern
+    : movingYaos.length === 1
+      ? `独发（第${movingYaos[0].position}爻${movingYaos[0].sixRelative}${movingYaos[0].najiaDizhi}发动）`
+      : `多动（共${movingYaos.length}爻明动：${movingYaos.map((y) => `第${y.position}爻${y.sixRelative}${y.najiaDizhi}`).join('、')}）`;
+  const structureTags: string[] = [motionPattern];
+  if (hiddenMoveYaos.length) {
+    structureTags.push(
+      `暗动${hiddenMoveYaos.map((y) => `第${y.position}爻${y.sixRelative}${y.najiaDizhi}`).join('、')}`,
+    );
+  }
+  if (data.hexagramRelations?.transition) {
+    structureTags.push(data.hexagramRelations.transition);
+  } else {
+    if (data.hexagramRelations?.original) structureTags.push(`主卦${data.hexagramRelations.original}`);
+    if (data.hexagramRelations?.changed) structureTags.push(`变卦${data.hexagramRelations.changed}`);
+  }
+  if (data.fanfuRelations?.labels?.length) {
+    structureTags.push(data.fanfuRelations.labels.join('、'));
+  }
+  if (data.sanheWithDay) structureTags.push(`日合${data.sanheWithDay.group}`);
+  if (data.sanheWithMonth) structureTags.push(`月合${data.sanheWithMonth.group}`);
+
+  const shiYao = data.yaosDetail.find((y) => y.isWorld);
+  const yingYao = data.yaosDetail.find((y) => y.isResponse);
+  let shiYingText = '';
+  if (shiYao && yingYao) {
+    const rel =
+      shiYao.wuxing === yingYao.wuxing
+        ? '世应比和'
+        : isSheng(shiYao.wuxing, yingYao.wuxing)
+          ? '世生应'
+          : isSheng(yingYao.wuxing, shiYao.wuxing)
+            ? '应生世'
+            : isKe(shiYao.wuxing, yingYao.wuxing)
+              ? '世克应'
+              : '应克世';
+    const branchTags = [
+      isHe(shiYao.najiaDizhi, yingYao.najiaDizhi) ? '六合' : '',
+      isChong(shiYao.najiaDizhi, yingYao.najiaDizhi) ? '六冲' : '',
+      isXing(shiYao.najiaDizhi, yingYao.najiaDizhi) ? '相刑' : '',
+    ].filter(Boolean);
+    shiYingText = `世爻（第${shiYao.position}爻${shiYao.sixRelative}${shiYao.najiaDizhi}${shiYao.wuxing}）与应爻（第${yingYao.position}爻${yingYao.sixRelative}${yingYao.najiaDizhi}${yingYao.wuxing}）呈${rel}${branchTags.length ? `兼${branchTags.join('、')}` : ''}`;
+  }
+  const mainPatternLine = `- 主线格局与世应：${structureTags.join('；')}${shiYingText ? `；${shiYingText}` : ''}。`;
+
+  // 确定核对主轴：选定用神优先，否则以世爻为主轴
+  const selectedCandidate = evidence.selectionFact.selectedCandidateKey
+    ? evidence.candidates.find((c) => c.key === evidence.selectionFact.selectedCandidateKey)
+    : undefined;
+  const targetVisibleYaos = selectedCandidate
+    ? selectedCandidate.references
+        .filter((r) => r.source === '本卦')
+        .map((r) => data.yaosDetail.find((y) => y.position === r.position))
+        .filter((y): y is NonNullable<typeof y> => Boolean(y))
+    : shiYao
+      ? [shiYao]
+      : [];
+  const targetHiddenSpirits = selectedCandidate
+    ? selectedCandidate.references
+        .filter((r) => r.source === '伏神')
+        .map((r) =>
+          (data.hiddenSpirits ?? []).find(
+            (h) => h.position === r.position && h.sixRelative === r.sixRelative,
+          ),
+        )
+        .filter((h): h is NonNullable<typeof h> => Boolean(h))
+    : [];
+  const targetLabel = selectedCandidate
+    ? `用神${selectedCandidate.label}`
+    : shiYao
+      ? `世爻第${shiYao.position}爻${shiYao.sixRelative}${shiYao.najiaDizhi}`
+      : '主轴爻';
+  const targetElem =
+    targetVisibleYaos[0]?.wuxing ?? targetHiddenSpirits[0]?.wuxing ?? shiYao?.wuxing ?? '';
+
+  const supportChain: string[] = [];
+  const resistanceChain: string[] = [];
+  const rescueConditions: string[] = [];
+
+  // 2. 逐个核对主轴明爻的成事链与阻力链
+  for (const yao of targetVisibleYaos) {
+    const tag = `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}${yao.wuxing}`;
+    const yaoSupports: string[] = [];
+    const yaoResists: string[] = [];
+
+    if (yao.seasonState === '旺' || yao.seasonState === '相') yaoSupports.push(`月令${yao.seasonState}`);
+    else if (yao.seasonState) yaoResists.push(`月令${yao.seasonState}`);
+
+    if (yao.najiaDizhi === monthBranch) yaoSupports.push('值月建');
+    else if (monthElem && isSheng(monthElem, yao.wuxing)) yaoSupports.push(`月建${monthBranch}生扶`);
+    else if (monthElem && isKe(monthElem, yao.wuxing)) yaoResists.push(`月建${monthBranch}克制`);
+
+    if (yao.najiaDizhi === dayBranch) yaoSupports.push('值日辰');
+    else if (dayElem && isSheng(dayElem, yao.wuxing)) yaoSupports.push(`日辰${dayBranch}生扶`);
+    else if (dayElem && isKe(dayElem, yao.wuxing)) yaoResists.push(`日辰${dayBranch}克制`);
+
+    if (isHe(yao.najiaDizhi, monthBranch)) yaoSupports.push('合月建');
+    if (isHe(yao.najiaDizhi, dayBranch)) yaoSupports.push('合日辰');
+
+    if (yao.isChanging) {
+      const rels = yao.changeRelations ?? [];
+      if (yao.changeDirection === '化进神') yaoSupports.push('发动化进神');
+      if (rels.includes('回头生')) yaoSupports.push('化回头生');
+      if (yao.changedLifeStage === '长生' || yao.changedLifeStage === '帝旺') {
+        yaoSupports.push(`化${yao.changedLifeStage}`);
+      }
+      if (rels.includes('回头克')) yaoResists.push('化回头克');
+      if (rels.includes('回头冲')) yaoResists.push('化回头冲');
+      if (yao.changeDirection === '化退神') yaoResists.push('化退神');
+      if (yao.isHuaMu) yaoResists.push('动而化墓');
+      if (yao.changedLifeStage === '绝') yaoResists.push('动而化绝');
+      if (rels.includes('化空') || yao.changedYao?.isVoid) yaoResists.push('化空');
+    }
+
+    if (yao.isMonthBreak) {
+      yaoResists.push('月破');
+      const mb = evaluateLiuyaoMonthBreakStatus({ yao, dayBranch, activeYaos });
+      rescueConditions.push(`${tag}月破：${mb.condition}`);
+    }
+    if (yao.isDayBreak) yaoResists.push('日破');
+    if (yao.isRiMu) yaoResists.push('入日墓');
+    if (yao.isDongMu) yaoResists.push('入动墓');
+    if (yao.isVoid) {
+      const va = classifyLiuyaoVoidStatus({ yao, monthBranch, dayBranch, activeYaos });
+      yaoResists.push(`旬空（${va.status}）`);
+      rescueConditions.push(`${tag}${va.status}（${va.reasons.join('、')}）：${va.condition}`);
+    }
+
+    if (yaoSupports.length) supportChain.push(`${tag}得${yaoSupports.join('、')}`);
+    if (yaoResists.length) resistanceChain.push(`${tag}见${yaoResists.join('、')}`);
+  }
+
+  // 3. 核对伏神飞伏生克与出伏条件
+  for (const hidden of targetHiddenSpirits) {
+    const hTag = `伏神第${hidden.position}爻${hidden.sixRelative}${hidden.najiaDizhi}${hidden.wuxing}`;
+    const fTag = `飞神${hidden.underYao.sixRelative}${hidden.underYao.najiaDizhi}${hidden.underYao.wuxing}`;
+    if (isSheng(hidden.underYao.wuxing, hidden.wuxing)) {
+      supportChain.push(`${hTag}得${fTag}飞神生伏`);
+    } else if (isKe(hidden.underYao.wuxing, hidden.wuxing)) {
+      resistanceChain.push(`${hTag}受${fTag}飞神克伏`);
+    } else if (isSheng(hidden.wuxing, hidden.underYao.wuxing)) {
+      resistanceChain.push(`${hTag}生${fTag}泄气`);
+    } else if (isKe(hidden.wuxing, hidden.underYao.wuxing)) {
+      supportChain.push(`${hTag}克${fTag}（伏克飞为出暴）`);
+    }
+    if (monthElem && (isSheng(monthElem, hidden.wuxing) || monthElem === hidden.wuxing)) {
+      supportChain.push(`${hTag}得月建${monthBranch}生扶`);
+    }
+    if (dayElem && (isSheng(dayElem, hidden.wuxing) || dayElem === hidden.wuxing)) {
+      supportChain.push(`${hTag}得日辰${dayBranch}生扶`);
+    }
+    const flyingLine = data.yaosDetail.find((y) => y.position === hidden.position);
+    const emergeHints: string[] = [];
+    if (flyingLine?.isVoid) emergeHints.push('飞神旬空');
+    if (flyingLine?.isMonthBreak) emergeHints.push('飞神月破');
+    if (flyingLine?.isDayBreak || flyingLine?.isDayClash) emergeHints.push('飞神受日冲');
+    if (hidden.isVoid) {
+      resistanceChain.push(`${hTag}逢旬空`);
+      emergeHints.push('伏神待出空');
+    }
+    rescueConditions.push(
+      `${hTag}伏藏于${fTag}下${emergeHints.length ? `（现见${emergeHints.join('、')}）` : ''}：出伏须待飞神受冲克/空破或伏神得月日旺相生扶透出`,
+    );
+  }
+
+  // 4. 核对卦中明动/暗动爻（原神/忌神/仇神）对主轴的作用与通关/自损救应
+  if (targetElem) {
+    const activeYuanShen = activeYaos.filter(
+      (y) => !targetVisibleYaos.some((t) => t.position === y.position) && isSheng(y.wuxing, targetElem),
+    );
+    const activeJiShen = activeYaos.filter(
+      (y) => !targetVisibleYaos.some((t) => t.position === y.position) && isKe(y.wuxing, targetElem),
+    );
+
+    for (const ys of activeYuanShen) {
+      const mode = ys.isChanging ? '明动' : '暗动';
+      const selfImpair =
+        ys.isMonthBreak ||
+        ys.isVoid ||
+        ys.changeRelations?.includes('回头克') ||
+        ys.changeDirection === '化退神';
+      supportChain.push(
+        `原神第${ys.position}爻${ys.sixRelative}${ys.najiaDizhi}${ys.wuxing}${mode}生扶${targetLabel}${selfImpair ? '（但原神自身带空破/退克，生力打折）' : ''}`,
+      );
+    }
+
+    for (const js of activeJiShen) {
+      const mode = js.isChanging ? '明动' : '暗动';
+      const jsRels = js.changeRelations ?? [];
+      const selfImpairTags = [
+        jsRels.includes('回头克') ? '化回头克' : '',
+        js.changeDirection === '化退神' ? '化退神' : '',
+        jsRels.includes('化空') || js.changedYao?.isVoid ? '化空' : '',
+        js.changedLifeStage === '绝' ? '化绝' : '',
+        js.isMonthBreak ? '月破' : '',
+        js.isVoid ? '自身旬空' : '',
+      ].filter(Boolean);
+      resistanceChain.push(
+        `忌神第${js.position}爻${js.sixRelative}${js.najiaDizhi}${js.wuxing}${mode}克制${targetLabel}`,
+      );
+      if (selfImpairTags.length) {
+        rescueConditions.push(
+          `忌神第${js.position}爻${js.sixRelative}${js.najiaDizhi}虽动但见${selfImpairTags.join('、')}，克制${targetLabel}之力受限`,
+        );
+      }
+    }
+
+    // 贪生忘克 / 原神通关：忌神动克用神，且原神同动（忌神五行必生原神五行）
+    if (activeJiShen.length > 0 && activeYuanShen.length > 0) {
+      const jsList = activeJiShen.map((y) => `第${y.position}爻${y.sixRelative}${y.najiaDizhi}${y.wuxing}`).join('、');
+      const ysList = activeYuanShen.map((y) => `第${y.position}爻${y.sixRelative}${y.najiaDizhi}${y.wuxing}`).join('、');
+      rescueConditions.push(
+        `贪生忘克通关：忌神${jsList}发动，但原神${ysList}同动通关，形成“忌神生原神→原神生${targetLabel}”转化链`,
+      );
+    }
+  }
+
+  // 非主轴动爻若落旬空也提示虚实
+  for (const yao of activeYaos) {
+    if (yao.isVoid && !targetVisibleYaos.some((t) => t.position === yao.position)) {
+      const va = classifyLiuyaoVoidStatus({ yao, monthBranch, dayBranch, activeYaos });
+      rescueConditions.push(
+        `动爻第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}逢${va.status}（${va.reasons.join('、')}）：${va.condition}`,
+      );
+    }
+  }
+
+  if (activeYaos.length === 0) {
+    rescueConditions.push('静卦无明动与暗动爻，生克制衡以月建、日辰、世应及伏神条件为主');
+  }
+
+  return [
+    mainPatternLine,
+    `- 成事链（生扶与助力，主轴=${targetLabel}）：${supportChain.length ? supportChain.join('；') : '未见明显月日生扶或动变助益'}。`,
+    `- 阻力链（克制与损耗，主轴=${targetLabel}）：${resistanceChain.length ? resistanceChain.join('；') : '未见明显忌神动克或空破退克阻力'}。`,
+    `- 救应与转化条件：${rescueConditions.length ? rescueConditions.join('；') : '无特殊空破伏藏救应触发，按常规月日旺衰与动变直断'}。`,
+  ].join('\n');
+}
+
 export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question: string, options: Options, now: string, timeLabel = '起卦') {
   const selection = resolvePromptSelection('liuyao', options);
   const parsed = parseQuestionContext(question);
@@ -173,6 +428,7 @@ export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question
     `【卦盘】\n主卦：${data.originalName}；变卦：${data.changedName}；互卦：${data.interName}；卦宫：${data.palace.name}（${data.palace.wuxing}），${data.palaceStage}。\n干支：${[data.ganzhi.year, data.ganzhi.month, data.ganzhi.day, data.ganzhi.hour].join(' ')}；旬空：${data.voidBranches.join('、')}；六爻值（初至上）：${data.yaoArray.join('、')}。\n${buildLiuyaoGuaShenAndShenshaSummary(data)}`,
     `【逐爻与伏神】\n${evidence.lineFacts.map((item) => item.promptText).join('\n')}${evidence.hiddenSpiritFacts.length ? `\n伏神：${evidence.hiddenSpiritFacts.map((item) => item.promptText).join('；')}` : '\n伏神：无已记录伏神。'}`,
     `【用神与作用链】\n${parsed.liuyaoRelativeReason ? `${parsed.liuyaoRelativeReason}\n` : ''}${evidence.selectionFact.promptText}\n${evidence.candidates.map((item) => item.promptText).join('\n')}${evidence.godChain.length ? `\n${evidence.godChain.map((item) => item.promptText).join('；')}` : ''}`,
+    `【卦象组合与生克制衡关系】\n${buildLiuyaoPatternRelations(data, evidence)}`,
     evidence.structureFacts.length ? `【卦内结构】\n${evidence.structureFacts.map((item) => item.promptText).join('；')}` : '',
     evidence.counterEvidenceFacts.length ? `【反证条件】\n${evidence.counterEvidenceFacts.map((item) => item.promptText).join('；')}` : '',
     evidence.timingFacts.length ? `【应期条件】\n${evidence.timingFacts.map((item) => item.promptText).join('；')}` : '',

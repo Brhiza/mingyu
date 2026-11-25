@@ -155,7 +155,7 @@ test('出生范围的年、月、日和指定瞬时流曜与逐秒单盘一致�
       const independent = await calculate('qizheng', { question: input.question, birth: { ...birth, second: birth.second + i }, gender: 'female', flow });
       assert.deepEqual(chart.flowing, independent.data.flowing);
       assert.deepEqual(chart.timeLords, independent.data.timeLords);
-      assert.equal(chart.flowing.stars.length, 11); assert.equal(chart.timeLords.majorLimitStatus, '命度与交限待核定');
+      assert.equal(chart.flowing.stars.length, 11); assert.equal(chart.timeLords.majorLimitStatus, '按洞微百岁定式推算');
       const transit = chart.flowing.transits[0];
       assert.equal(result.data.branches[i].metrics[`flowing.transits.${transit.star1}.${transit.star2}.${transit.type}.orb`].first, transit.orb);
     }

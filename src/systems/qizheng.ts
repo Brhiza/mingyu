@@ -3,7 +3,8 @@ import type { qizhengInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { resolveQizhengOptions } from './defaults';
 import { correctBirthClock, resolveBirthClock } from './birth-time';
-import { getTwentyEightStarSevenStar } from './ganzhi-foundation';
+import { getTwentyEightStarSevenStar, getYearSixtyCycle } from './ganzhi-foundation';
+import { inferFortuneScope } from '../router-model/fortune-scope';
 import { getCivilDateTimeAtFixedOffset } from './huangji/civil-time';
 import { mansionBoundaries, locateMansion } from './qizheng/mansions';
 import { ascendantLongitude, positionsAt, skyAt } from './qizheng/positions';
@@ -106,7 +107,7 @@ export async function calculateQizhengData(source: Source, context?: { solarIllu
   const shensha = qizhengShensha(timestamp, resolved.timezone), enNan = qizhengEnNan({ daylight: illumination.daylight, mingZhu: masters[signs[mingGong]], stars, aspects: relations });
   const flowTime = input.flow ? resolveFlowTime(input.flow, birth) : null;
   const limits = flowTime && input.gender ? timeLords({ gender: input.gender, birthYear: birth.year, flowYear: flowTime.flowYear, birthTimestamp: timestamp, flowTimestamp: flowTime.timestamp, palaces: twelvePalaces }) : null;
-  const flowing = flowTime ? (() => { const result = starsAt(flowTime.timestamp, twelvePalaces, positionsAt(flowTime.timestamp, source.options));
+  const flowing = flowTime ? (() => { const result = starsAt(flowTime.timestamp, twelvePalaces, positionsAt(flowTime.timestamp, resolvedOptions));
     const period = input.periodEvents && input.flow ? scanPeriodEvents({ ...resolveFlowWindow(input.flow, birth, flowTime), timezone: birth.timezone ?? flowTime.timezone, timeZoneId: birth.timeZoneId, natalStars: stars, palaces: twelvePalaces }, context?.periodSamples) : null;
     return { time: flowTime, mansionBoundaries: result.boundaries, stars: result.stars,
       transits: sortAspects(result.stars.flatMap((first) => stars.flatMap((second) => matchAspect(first, second, true)))), period,
@@ -139,6 +140,157 @@ const tenStemHuaYao: Record<string, readonly [string, string, string, string, st
 };
 const huaYaoLabels = ['天禄（爵禄主）', '天暗（暗昧耗）', '天福（福德救）', '天耗（破耗散）', '天荫（庇荫贵）', '天贵（清贵显）', '天刑（刑煞克）', '天印（权印信）', '天囚（羁绊困）', '天权（威权柄）'] as const;
 
+const starShortToElement: Record<string, string> = {
+  日: '火', 月: '水', 水: '水', 金: '金', 火: '火', 木: '木', 土: '土',
+  太阳: '火', 太阴: '水', 水星: '水', 金星: '金', 火星: '火', 木星: '木', 土星: '土',
+  紫炁: '木', 紫气: '木', 月孛: '水', 罗睺: '火', 计都: '土',
+};
+const qizhengWeakPalaces: Record<string, string> = {
+  日: '子辰', 月: '卯丑', 水: '寅亥', 金: '卯戌', 火: '辰酉', 木: '巳申', 土: '午未',
+};
+const elementSheng: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+const elementKe: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+
+function buildQizhengPatternRelations(data: Data): string {
+  const starByCanonical = new Map<string, Star>();
+  const canonicalName = (raw: string) => raw.replace(/[（(].*$/, '').trim();
+  const aliasToFull: Record<string, string> = {
+    太阳: '太阳', 太阴: '太阴', 水星: '辰星(水)', 金星: '太白(金)', 火星: '荧惑(火)', 木星: '岁星(木)', 土星: '镇星(土)',
+    紫炁: '紫炁(木余)', 紫气: '紫炁(木余)', 月孛: '月孛(水余)', 罗睺: '罗睺(火余)', 计都: '计都(土余)',
+  };
+  for (const s of data.stars) {
+    starByCanonical.set(s.name, s);
+    starByCanonical.set(canonicalName(s.name), s);
+  }
+  const resolveStar = (name: string): Star | undefined => starByCanonical.get(aliasToFull[name] ?? name) ?? starByCanonical.get(name);
+
+  const starState = (s: Star): { strong: boolean; weak: boolean; label: string } => {
+    const isStrong = /庙|旺|喜|乐/.test(s.dignity);
+    const isFall = Boolean(s.key && qizhengWeakPalaces[s.key]?.includes(s.signBranch));
+    const tags: string[] = [];
+    if (isStrong) tags.push(s.dignity);
+    else if (isFall) tags.push('失陷');
+    else tags.push(s.dignity === '—' ? '余奴' : '平');
+    if (s.retrograde) tags.push('逆行');
+    return { strong: isStrong && !s.retrograde, weak: isFall || Boolean(s.retrograde), label: tags.join('·') };
+  };
+
+  const palaceRelation = (idxA: number, idxB: number): string | null => {
+    const diff = Math.abs(idxA - idxB);
+    const dist = Math.min(diff, 12 - diff);
+    if (dist === 0) return '同宫';
+    if (dist === 4) return '三方';
+    if (dist === 6) return '对照';
+    if (dist === 3) return '四正';
+    return null;
+  };
+
+  const aspectBetween = (s1: Star, s2: Star) =>
+    data.aspects.find((a) => (a.star1 === s1.name && a.star2 === s2.name) || (a.star1 === s2.name && a.star2 === s1.name));
+
+  const lines: string[] = [];
+  const mingStar = resolveStar(starShortToFull[data.mingZhu] ?? data.mingZhu);
+  const duStar = resolveStar(starShortToFull[data.mingDu.duZhu] ?? data.mingDu.duZhu);
+
+  // 1. 命宫主与命度主协同
+  if (mingStar && duStar) {
+    const mingElem = starShortToElement[data.mingZhu] ?? data.enNan.mingElement;
+    const duElem = starShortToElement[data.mingDu.duZhu] ?? '';
+    const mSt = starState(mingStar);
+    const dSt = starState(duStar);
+    const rel = mingStar.name === duStar.name
+      ? '命主与度主同星（气脉归一）'
+      : mingElem === duElem
+        ? '命主与度主五行比和'
+        : elementSheng[duElem] === mingElem
+          ? '度主生命主（得度相扶）'
+          : elementSheng[mingElem] === duElem
+            ? '命主生度主（气泄于度）'
+            : elementKe[duElem] === mingElem
+              ? '度主克命主（内耗受制）'
+              : '命主克度主（以主制用）';
+    const asp = mingStar.name === duStar.name ? null : aspectBetween(mingStar, duStar);
+    lines.push(
+      `命主与度主协同：命主${mingStar.name}（${mingStar.palace}·${mSt.label}）、度主${duStar.name}（${duStar.palace}·${dSt.label}），${rel}${asp ? `，且成${asp.type}吊照` : ''}。`,
+    );
+  }
+
+  // 2. 恩星与用星得位助益
+  const enObjs = data.enNan.enStars.map(resolveStar).filter((s): s is Star => Boolean(s));
+  const yongObjs = data.enNan.yongStars.map(resolveStar).filter((s): s is Star => Boolean(s));
+  const nanObjs = data.enNan.nanStars.map(resolveStar).filter((s): s is Star => Boolean(s));
+  const chouObjs = data.enNan.chouStars.map(resolveStar).filter((s): s is Star => Boolean(s));
+
+  const describeSupport = (role: string, list: Star[]) =>
+    list.map((s) => {
+      const st = starState(s);
+      const toMingGong = palaceRelation(s.signIndex, data.mingGong);
+      const toMingStar = mingStar && mingStar.name !== s.name ? aspectBetween(s, mingStar) : null;
+      const links = [toMingGong ? `${toMingGong}照命宫` : '', toMingStar ? `${toMingStar.type}命主` : ''].filter(Boolean);
+      const power = st.strong ? '得位有力' : st.weak ? '失陷/逆行减力' : '中平';
+      return `${role}${s.name}（${s.palace}·${st.label}·${power}${links.length ? `；${links.join('、')}` : ''}）`;
+    });
+
+  lines.push(`恩星助益：${describeSupport('恩', enObjs).join('；') || '无'}。`);
+  lines.push(`用星生发：${describeSupport('用', yongObjs).join('；') || '无'}。`);
+
+  // 3. 难星与仇星克制及同宫/三方解救链
+  const threats: string[] = [];
+  for (const nan of nanObjs) {
+    const st = starState(nan);
+    const toMingGong = palaceRelation(nan.signIndex, data.mingGong);
+    const toMingStar = mingStar ? aspectBetween(nan, mingStar) : null;
+    if (!toMingGong && !toMingStar) continue;
+
+    // 检查同宫/三方/对照解救：恩星通关化难生主、用星制难护主
+    const enRescues = enObjs.flatMap((en) => {
+      const relToNan = palaceRelation(en.signIndex, nan.signIndex);
+      const relToMing = palaceRelation(en.signIndex, data.mingGong);
+      const aspToNan = aspectBetween(en, nan);
+      const enSt = starState(en);
+      if (relToNan === '同宫' || relToNan === '三方' || aspToNan?.type === '同宫' || aspToNan?.type === '三方' || relToMing === '同宫' || relToMing === '三方') {
+        const tag = relToNan === '同宫' ? '同宫化难' : relToNan === '三方' ? '三方化难' : '照命解救';
+        return [`恩星${en.name}（${enSt.label}·${tag}）`];
+      }
+      return [];
+    });
+    const yongChecks = yongObjs.flatMap((yong) => {
+      const relToNan = palaceRelation(yong.signIndex, nan.signIndex);
+      const aspToNan = aspectBetween(yong, nan);
+      const ySt = starState(yong);
+      if (relToNan === '同宫' || relToNan === '三方' || relToNan === '对照' || aspToNan) {
+        const tag = relToNan === '同宫' ? '同宫制难' : relToNan === '三方' ? '三方制难' : '吊照制难';
+        return [`用星${yong.name}（${ySt.label}·${tag}）`];
+      }
+      return [];
+    });
+    const hitTags = [toMingGong ? `${toMingGong}克命宫` : '', toMingStar ? `${toMingStar.type}克命主` : ''].filter(Boolean).join('、');
+    const rescueText = [...enRescues, ...yongChecks].join('、') || '无同宫/三方恩用明救，难星克制直接';
+    threats.push(`难星${nan.name}（${nan.palace}·${st.label}，${hitTags}）→解救：${rescueText}`);
+  }
+
+  for (const chou of chouObjs) {
+    const st = starState(chou);
+    const hitEns = enObjs
+      .map((en) => {
+        const rel = palaceRelation(chou.signIndex, en.signIndex);
+        const asp = aspectBetween(chou, en);
+        return (rel === '同宫' || rel === '对照' || rel === '四正' || asp) ? `${en.name}（${asp?.type ?? rel}）` : null;
+      })
+      .filter((x): x is string => Boolean(x));
+    const toMingGong = palaceRelation(chou.signIndex, data.mingGong);
+    if (!hitEns.length && toMingGong !== '同宫' && toMingGong !== '对照') continue;
+    const mingCheck = mingStar && (palaceRelation(mingStar.signIndex, chou.signIndex) === '同宫' || palaceRelation(mingStar.signIndex, chou.signIndex) === '三方' || aspectBetween(mingStar, chou))
+      ? `命主${mingStar.name}可制仇`
+      : '';
+    const hitDesc = [hitEns.length ? `伤恩星${hitEns.join('、')}` : '', toMingGong === '同宫' || toMingGong === '对照' ? `${toMingGong}临命` : ''].filter(Boolean).join('、');
+    threats.push(`仇星${chou.name}（${chou.palace}·${st.label}，${hitDesc}）→制衡：${mingCheck || '须防恩星受克减力'}`);
+  }
+
+  lines.push(`难仇克制与解救链：${threats.join('；') || '难星与仇星未与命宫、命主或恩星形成直接同宫/三方/四正/对照冲克'}。`);
+  return lines.join('\n');
+}
+
 function buildQizhengCoreRulersAndHuaYao(data: Data): string {
   const starByName = Object.fromEntries(data.stars.map((s) => [s.name, s]));
   const mingStarName = starShortToFull[data.mingZhu] ?? data.mingZhu;
@@ -170,6 +322,75 @@ function buildQizhengCoreRulersAndHuaYao(data: Data): string {
   return [threeMastersLine, palaceRulersLine, huaLine].filter(Boolean).join('\n');
 }
 
+const shortMasterToEnNanName: Record<string, string> = {
+  日: '太阳', 月: '太阴', 水: '水星', 金: '金星', 火: '火星', 木: '木星', 土: '土星',
+};
+const dongweiStandardPalaceYears: Record<string, number> = {
+  命宫: 15, 相貌: 10, 福德: 11, 官禄: 15, 迁移: 8, 疾厄: 7, 妻妾: 11, 奴仆: 4.5, 男女: 4.5, 田宅: 4.5, 兄弟: 5, 财帛: 5,
+};
+
+function buildQizhengCompactFortune(
+  data: Data,
+  question: string,
+  flowing: Data['flowing'],
+  limits: Data['timeLords'],
+): string {
+  const birthYear = data.input.birth.year;
+  const refYear = flowing?.time.flowYear;
+  const refTs = flowing?.time.timestamp;
+  const fScope = inferFortuneScope(question, refYear, refTs, birthYear);
+
+  let targetYears = fScope.years.filter((y) => y >= birthYear);
+  if (!targetYears.length) targetYears = [Math.max(fScope.referenceYear, birthYear)];
+  while (targetYears.length < 3) targetYears.push(targetYears[targetYears.length - 1] + 1);
+  if (targetYears.length > 5) targetYears = targetYears.slice(0, 5);
+
+  const enNanRole = (shortMaster: string): string => {
+    if (shortMaster === data.mingZhu) return '命主';
+    const canonical = shortMasterToEnNanName[shortMaster] ?? shortMaster;
+    if (data.enNan.enStars.includes(canonical)) return '恩';
+    if (data.enNan.yongStars.includes(canonical)) return '用';
+    if (data.enNan.chouStars.includes(canonical)) return '仇';
+    if (data.enNan.nanStars.includes(canonical)) return '难';
+    return '比';
+  };
+
+  let line1: string;
+  if (limits) {
+    const active = limits.dongweiStandard.activeLimit;
+    const dwMaster = masters[active.signBranch];
+    line1 = `洞微大限：${limits.nominalAge}虚岁行${active.signBranch}宫${active.palace}（${active.startAge}–${active.endAge}岁·主星${dwMaster}[${enNanRole(dwMaster)}]）｜流年太岁${limits.annualBranch}入${limits.annualPalace.palace}`;
+  } else {
+    const refNominalAge = Math.max(1, fScope.referenceYear - birthYear + 1);
+    let cursor = 1;
+    const stdLimits = Array.from({ length: 12 }, (_, step) => {
+      const p = data.twelvePalaces[(12 - step) % 12];
+      const span = dongweiStandardPalaceYears[p.palace] ?? 10;
+      const startAge = cursor;
+      const endAge = cursor + span;
+      cursor = endAge;
+      return { ...p, startAge, endAge };
+    });
+    const totalSpan = cursor - 1;
+    const cycleAge = ((refNominalAge - 1) % totalSpan) + 1;
+    const active = stdLimits.find((item) => cycleAge >= item.startAge && cycleAge < item.endAge) ?? stdLimits.at(-1)!;
+    const dwMaster = masters[active.signBranch];
+    line1 = `洞微大限：${refNominalAge}虚岁行${active.signBranch}宫${active.palace}（${active.startAge}–${active.endAge}岁·主星${dwMaster}[${enNanRole(dwMaster)}]·常法定式）｜命主${data.mingZhu}(${data.enNan.mingElement})`;
+  }
+
+  const yearEntries = targetYears.map((y) => {
+    const gz = getYearSixtyCycle(y);
+    const nominalAge = y - birthYear + 1;
+    const minor = data.twelvePalaces[((nominalAge - 1) % 12 + 12) % 12];
+    const masterShort = masters[minor.signBranch];
+    const role = enNanRole(masterShort);
+    const curTag = y === fScope.referenceYear ? '·当前' : '';
+    return `${y}${gz}(${nominalAge}虚岁·小限${minor.signBranch}${minor.palace}·主星${masterShort}[${role}]${curTag})`;
+  });
+  const line2 = `流年小限：${yearEntries.join('｜')}`;
+  return `${line1}\n${line2}`;
+}
+
 export function renderQizhengData(data: Data, question: string, options: Input['prompt']) {
   const topic = options?.topicId ?? 'general', subtopics = topics.subtopics as Record<string, { id: string; label: string }[]>;
   const subtopic = options?.subtopicId ? subtopics[topic]?.find((item) => item.id === options.subtopicId) : undefined;
@@ -183,7 +404,7 @@ export function renderQizhengData(data: Data, question: string, options: Input['
   const relationLines = data.aspects.map((aspect) => `${aspect.star1}与${aspect.star2}${aspect.type}（夹角${aspect.actualAngle}°、偏差${aspect.orb}°、${aspect.closeness}）`);
   const flowing = scope !== 'natal' ? data.flowing : null, limits = scope !== 'natal' ? data.timeLords : null;
   const flowText = flowing ? `【流曜取样】\n当地${flowing.time.localDateTime}（UTC${flowing.time.timezone >= 0 ? '+' : ''}${flowing.time.timezone}），瞬时${flowing.time.utcDateTime}。${flowing.time.note}\n${flowing.stars.map((star) => `流曜${star.name}：${star.xiu}宿${star.xiuDegree.toFixed(4)}°，入本命${star.signBranch}宫${star.palace}，${star.dignity}`).join('；')}\n【流曜与本命吊照】\n${flowing.transits.map((item) => `${item.star1}与${item.star2}${item.type}（夹角${item.actualAngle}°、偏差${item.orb}°、${item.closeness}）`).join('；') || '未命中所列相位。'}\n${flowing.limitation}` : '';
-  const limitText = limits ? `【行限】\n${limits.ageNote}\n小限${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；流年太岁${limits.annualBranch}入${limits.annualPalace.palace}。\n洞微宫序：${limits.majorPalaceYears.map((item) => `${item.signBranch}宫${item.palace}${item.years === null ? '年数待核' : `${item.years}年`}`).join('；')}。\n洞微百岁定式参考（命宫15年起）：当前虚岁${limits.nominalAge}对应${limits.dongweiStandard.activeLimit.signBranch}宫${limits.dongweiStandard.activeLimit.palace}（${limits.dongweiStandard.activeLimit.startAge}–${limits.dongweiStandard.activeLimit.endAge}岁）。${limits.limitation}` : flowing ? '【行限】\n未提供性别，不计算小限或洞微年分。' : '';
+  const limitText = limits ? `【行限】\n${limits.ageNote}\n小限${limits.currentMinorLimit.signBranch}宫${limits.currentMinorLimit.palace}；流年太岁${limits.annualBranch}入${limits.annualPalace.palace}。\n洞微宫序：${limits.majorPalaceYears.map((item) => `${item.signBranch}宫${item.palace}${item.years === null ? '15年（常法基准）' : `${item.years}年`}`).join('；')}。\n洞微百岁定式参考（命宫15年起）：当前虚岁${limits.nominalAge}对应${limits.dongweiStandard.activeLimit.signBranch}宫${limits.dongweiStandard.activeLimit.palace}（${limits.dongweiStandard.activeLimit.startAge}–${limits.dongweiStandard.activeLimit.endAge}岁）。${limits.limitation}` : flowing ? '【行限】\n未提供性别，不计算小限或洞微年分。' : '';
   const period = flowing?.period;
   const eventItems = period ? options?.eventDetail === 'full' ? period.events : period.events.slice(0, 20) : [];
   const eventText = period ? `【流曜周期事件】\nUTC ${new Date(period.startUtcMs).toISOString()} 至 ${new Date(period.endUtcMs).toISOString()}（终点不含）。扫描流曜：${period.movingStars.join('、')}；本命：${period.natalStars.join('、')}；相位：${period.aspectTypes.join('、')}。共${period.events.length}项，提示词列出${eventItems.length}项${eventItems.length < period.events.length ? `，其余${period.events.length - eventItems.length}项见结构化结果` : ''}。\n事件聚集：${period.windows.map((window) => `${new Date(window.startUtcMs).toISOString()}至${new Date(window.endUtcMs).toISOString()}（${window.count}项：${window.kinds.map((kind) => `${kind.kind}${kind.count}项`).join('、')}）`).join('；') || '未形成多个事件的聚集窗口'}。\n${eventItems.map((event) => event.text).join('\n') || '所列范围未见事件。'}\n${period.limitation}` : '';
@@ -196,12 +417,15 @@ export function renderQizhengData(data: Data, question: string, options: Input['
     return `${name}${palace.signBranch}宫：${stars.join('、') || '无所列星曜'}`;
   });
   const subtask = options?.subtopicId ? focus.subtopics?.[options.subtopicId] : undefined;
-  const text = [`【七政四余本命】\n出生瞬时${data.basis.utcDateTime}；时区 UTC${data.basis.timezone >= 0 ? '+' : ''}${data.basis.timezone}；宫位取${data.basis.palaceTimeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n命宫${signs[data.mingGong]}，身宫${signs[data.mingGong === data.shenGong ? data.shenGong : data.shenGong]}，命主${data.mingZhu}；${data.mingDu.method}度：${data.mingDu.xiu}宿${data.mingDu.xiuDegree.toFixed(2)}°（度主${data.mingDu.duZhu}）。\n${buildQizhengCoreRulersAndHuaYao(data)}`,
+  const genderLabel = data.input.gender === 'male' ? '男' : data.input.gender === 'female' ? '女' : '';
+  const text = [`【七政四余本命】\n${genderLabel ? `性别：${genderLabel}；` : ''}出生瞬时${data.basis.utcDateTime}；时区 UTC${data.basis.timezone >= 0 ? '+' : ''}${data.basis.timezone}；宫位取${data.basis.palaceTimeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n命宫${signs[data.mingGong]}，身宫${signs[data.shenGong]}，命主${data.mingZhu}；${data.mingDu.method}度：${data.mingDu.xiu}宿${data.mingDu.xiuDegree.toFixed(2)}°（度主${data.mingDu.duZhu}）。\n${buildQizhengCoreRulersAndHuaYao(data)}`,
     `【十一星】\n${starLines.join('\n')}`,
     options?.includeStarMeanings ? renderQizhengStarMeanings(data.stars) : '',
     `【吊照】\n${relationLines.join('；') || '未命中所列相位。'}`,
     `【神煞】\n节气年${data.shensha.basis.yearGanZhi}、出生地民用日${data.shensha.basis.dayGanZhi}：${data.shensha.stars.map((star) => `${star.name}${star.value}`).join('、')}。${data.shensha.limitation}`,
     `【恩难仇用】\n${enNan.sect}（${enNan.sectSummary}），命主${enNan.mingZhu}${enNan.mingZhu === enNan.mingElement ? '' : `（五行${enNan.mingElement}）`}；恩${enNan.enStars.join('、')}，难${enNan.nanStars.join('、')}，仇${enNan.chouStars.join('、')}，用${enNan.yongStars.join('、')}。\n${enNan.interactions.map((item) => `${item.role}${item.star}与命主形成${item.aspect}吊照`).join('；') || '命主未见所列恩难交会。'}\n${enNan.limitation}`,
+    `【恩用仇难与星曜制衡关系】\n${buildQizhengPatternRelations(data)}`,
+    `【行限与流年小限（压平精要）】\n${buildQizhengCompactFortune(data, question, flowing, limits)}`,
     flowText,
     limitText,
     eventText,

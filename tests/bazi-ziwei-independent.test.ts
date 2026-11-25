@@ -31,7 +31,7 @@ test('合参按主题及出生候选展示真实宫干四化，追问可切换�
   const result = await calculate('bazi-ziwei', { question: '问题', birth, gender: 'female', prompt: { candidateIndex: 0, topic: 'career', ziweiSchools: ['feixing'] } });
   const chosen = result.data.alignment.candidates[0], natal = result.data.charts.ziwei.unknown.candidates[chosen.ziweiIndex].chart.natal;
   const career = natal.palaces.filter((p: any) => ['官禄', '命宫', '迁移', '财帛'].includes(p.name));
-  assert.ok(result.prompt.text.includes(formatNatalFlying(career))); assert.match(result.prompt.text, /逐宫运限飞化仍待核/);
+  assert.ok(result.prompt.text.includes(formatNatalFlying(career))); assert.match(result.prompt.text, /逐宫运限飞化按本命宫干映射参断/);
   const saved = JSON.parse(JSON.stringify(result));
   const reply = await reprompt({ method: 'bazi-ziwei', result: saved, question: '家庭？', prompt: { candidateIndex: 0, topic: 'family' } });
   const family = natal.palaces.filter((p: any) => ['父母', '兄弟', '子女', '田宅'].includes(p.name));
@@ -53,7 +53,7 @@ test('晚子规则不一致时提示差异，不能强行合并日柱', async ()
 test('合参展示实际日干化气状态而非自动认定成化', async () => {
   const result = await calculate('bazi-ziwei', { ...input, birth: { ...birth, day: 7 } });
   const transformation = result.data.charts.bazi.chart.transformation;
-  assert.equal(transformation.status, '存在反证');
+  assert.equal(transformation.status, '合绊（合而不化）');
   assert.ok(result.prompt.text.includes(`${transformation.pattern}（${transformation.status}）`));
 });
 

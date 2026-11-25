@@ -193,3 +193,28 @@ test('resolveBirthClock 保持默认行为不变并支持可选 applyChinaDst', 
     resolveBirthClock({ ...baseInput, timezone: 9, applyChinaDst: true }),
   );
 });
+
+test('八字与紫微主流程支持 applyChinaDst 且未开启时对 1986–1991 夏令时出生给出提醒', async () => {
+  const { calculate } = await import('../src/core');
+  const baseBirth = {
+    year: 1988, month: 7, day: 1,
+    clock: { kind: 'exact' as const, hour: 1, minute: 30, second: 0 },
+    timezone: 8,
+  };
+  const baziNoDst = await calculate('bazi', { birth: baseBirth, gender: 'male', question: '事业' });
+  assert.match(baziNoDst.data.chart!.basis.chinaDstWarning ?? '', /1986–1991/);
+  assert.match(baziNoDst.prompt.text, /1986–1991 年中国大陆历史夏令时/);
+  const baziWithDst = await calculate('bazi', { birth: { ...baseBirth, applyChinaDst: true }, gender: 'male', question: '事业' });
+  assert.equal(baziWithDst.data.chart!.basis.usedChinaDstCorrection, true);
+  assert.equal(baziWithDst.data.chart!.basis.chinaDstWarning, undefined);
+  // 01:30 丑时减 1 小时为 00:30 子时
+  assert.equal(baziNoDst.data.chart!.pillars.hour.zhi, '丑');
+  assert.equal(baziWithDst.data.chart!.pillars.hour.zhi, '子');
+
+  const ziweiNoDst = await calculate('ziwei', { birth: baseBirth, gender: 'male', question: '事业' });
+  assert.ok(ziweiNoDst.data.limitations.some((line: string) => line.includes('1986–1991')));
+  const ziweiWithDst = await calculate('ziwei', { birth: { ...baseBirth, applyChinaDst: true }, gender: 'male', question: '事业' });
+  assert.equal(ziweiWithDst.data.basis.usedChinaDstCorrection, true);
+  assert.equal(ziweiWithDst.data.basis.timeIndex, 0);
+  assert.ok(!ziweiWithDst.data.limitations.some((line: string) => line.includes('1986–1991')));
+});

@@ -3,7 +3,7 @@ import type { jinkoujueInput } from '../schema';
 import type { JinkoujueData } from './jinkoujue/types';
 import { generateJinkoujue } from './jinkoujue/chart';
 import { analyzeJinkoujueEvidence } from './jinkoujue/evidence';
-import { EARTHLY_BRANCHES, getBranchIndex, isChong, isHe, isXing } from './calendar';
+import { EARTHLY_BRANCHES, getBranchIndex, isChong, isHe, isKe, isSheng, isXing } from './calendar';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateJinkoujueSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
@@ -31,6 +31,116 @@ const JINKOU_TIANMA_MAP: Record<string, string> = {
 const JINKOU_LUSHEN_MAP: Record<string, string> = {
   甲: '寅', 乙: '卯', 丙: '巳', 戊: '巳', 丁: '午', 己: '午', 庚: '申', 辛: '酉', 壬: '亥', 癸: '子',
 };
+
+type VerticalLinkKind = '上生下' | '下生上' | '上克下' | '下克上' | '比和';
+
+function classifyVerticalLink(upperElement: string, lowerElement: string): VerticalLinkKind {
+  if (upperElement === lowerElement) return '比和';
+  if (isSheng(upperElement, lowerElement)) return '上生下';
+  if (isSheng(lowerElement, upperElement)) return '下生上';
+  if (isKe(upperElement, lowerElement)) return '上克下';
+  return '下克上';
+}
+
+export function analyzeJinkoujueRelations(data: JinkoujueData) {
+  const { renYuan, guiShen, jiangShen, diFen } = data.positions;
+  const verticalPairs = [
+    { upper: renYuan, lower: guiShen },
+    { upper: guiShen, lower: jiangShen },
+    { upper: jiangShen, lower: diFen },
+  ].map(({ upper, lower }) => {
+    const kind = classifyVerticalLink(upper.element, lower.element);
+    return {
+      upper: upper.name,
+      lower: lower.name,
+      upperElement: upper.element,
+      lowerElement: lower.element,
+      kind,
+      label: `${upper.name}（${upper.element}）↔${lower.name}（${lower.element}）：${kind}`,
+    };
+  });
+
+  const shengCount = verticalPairs.filter((p) => p.kind === '上生下' || p.kind === '下生上').length;
+  const keCount = verticalPairs.filter((p) => p.kind === '上克下' || p.kind === '下克上').length;
+  const biCount = verticalPairs.filter((p) => p.kind === '比和').length;
+  let chainPattern: string;
+  if (verticalPairs.every((p) => p.kind === '上生下')) chainPattern = '上生下连环递生（外客气势直达内主）';
+  else if (verticalPairs.every((p) => p.kind === '下生上')) chainPattern = '下生上连环递生（内主气势递推外客）';
+  else if (biCount === 3) chainPattern = '四位同气比和';
+  else if (keCount === 3) chainPattern = '三段连环克战';
+  else if (keCount === 0) chainPattern = `顺生流通（生${shengCount}段、比和${biCount}段，无相邻克战）`;
+  else if (shengCount === 0) chainPattern = `克战偏重（克${keCount}段${biCount ? `、比和${biCount}段` : ''}，无相邻相生）`;
+  else chainPattern = `生克交错（生${shengCount}段、克${keCount}段${biCount ? `、比和${biCount}段` : ''}）`;
+
+  const hostGuestRelation = classifyVerticalLink(renYuan.element, diFen.element);
+  const hostGuestText =
+    hostGuestRelation === '上克下'
+      ? `人元（客，${renYuan.element}）克地分（主，${diFen.element}），客制主（妻动）`
+      : hostGuestRelation === '下克上'
+        ? `地分（主，${diFen.element}）克人元（客，${renYuan.element}），主制客（鬼动）`
+        : hostGuestRelation === '上生下'
+          ? `人元（客，${renYuan.element}）生地分（主，${diFen.element}），客生主（子孙动）`
+          : hostGuestRelation === '下生上'
+            ? `地分（主，${diFen.element}）生人元（客，${renYuan.element}），主生客（父母动）`
+            : `人元（客，${renYuan.element}）与地分（主，${diFen.element}）比和（兄弟动）`;
+
+  const middlePositions = [guiShen, jiangShen];
+  const assistGuest = middlePositions
+    .filter((p) => p.element === renYuan.element || isSheng(p.element, renYuan.element))
+    .map((p) => `${p.name}（${p.element}${p.element === renYuan.element ? '比和' : '生'}）`);
+  const restrainGuest = middlePositions
+    .filter((p) => isKe(p.element, renYuan.element))
+    .map((p) => `${p.name}（${p.element}克）`);
+  const assistHost = middlePositions
+    .filter((p) => p.element === diFen.element || isSheng(p.element, diFen.element))
+    .map((p) => `${p.name}（${p.element}${p.element === diFen.element ? '比和' : '生'}）`);
+  const restrainHost = middlePositions
+    .filter((p) => isKe(p.element, diFen.element))
+    .map((p) => `${p.name}（${p.element}克）`);
+
+  const allPositions = [renYuan, guiShen, jiangShen, diFen];
+  const usePos = allPositions.find((p) => p.name === data.yinYangUse.usePosition) ?? jiangShen;
+  const others = allPositions.filter((p) => p.name !== usePos.name);
+  const useSupporters = others
+    .filter((p) => p.element === usePos.element || isSheng(p.element, usePos.element))
+    .map((p) => `${p.name}（${p.element}${p.element === usePos.element ? '比和' : '生扶'}）`);
+  const useRestrainers = others
+    .filter((p) => isKe(p.element, usePos.element))
+    .map((p) => `${p.name}（${p.element}克制）`);
+  const useStrong = usePos.seasonState === '旺' || usePos.seasonState === '相';
+  const voidCondition = usePos.isVoid
+    ? useStrong
+      ? `用爻${usePos.name}（${usePos.branch}）落日旬空，但月令${usePos.seasonState}（旺相假空，待出空填实）`
+      : `用爻${usePos.name}（${usePos.branch}）落日旬空且月令${usePos.seasonState}（休囚落空，受制偏重）`
+    : `用爻${usePos.name}不空，月令${usePos.seasonState}（${useStrong ? '得令旺相' : '失令休囚'}）`;
+  const otherVoids = others.filter((p) => p.isVoid).map((p) => `${p.name}（${p.branch}）`);
+  const useMovements = data.movements
+    .filter((m) => m.from === usePos.name || m.to === usePos.name)
+    .map((m) => `${m.name}（${m.trigger}）`);
+
+  const lines = [
+    `上下递生与克战链：${chainPattern}；逐段：${verticalPairs.map((p) => p.label).join('；')}。`,
+    `主客体用制衡：${hostGuestText}；神将偏向——助客：${assistGuest.join('、') || '无'}，克客：${restrainGuest.join('、') || '无'}；助主：${assistHost.join('、') || '无'}，克主：${restrainHost.join('、') || '无'}。`,
+    `用爻旺衰与空亡受制：${voidCondition}${otherVoids.length ? `；其余落空位：${otherVoids.join('、')}` : '；四位其余不空'}；课内生扶用爻：${useSupporters.join('、') || '无'}；克制用爻：${useRestrainers.join('、') || '无'}${useMovements.length ? `；涉入动爻：${useMovements.join('、')}` : ''}。`,
+  ];
+
+  return {
+    verticalPairs,
+    chainPattern,
+    hostGuestRelation,
+    assistGuest,
+    restrainGuest,
+    assistHost,
+    restrainHost,
+    usePosition: usePos.name,
+    useStrong,
+    useIsVoid: usePos.isVoid,
+    useSupporters,
+    useRestrainers,
+    otherVoids,
+    text: lines.join('\n'),
+  };
+}
 
 function buildJinkoujueExtendedNotes(data: JinkoujueData): string {
   const { renYuan, guiShen, jiangShen, diFen } = data.positions;
@@ -132,6 +242,7 @@ function buildPrompt(data: Result, question: string, options: Input['prompt'], n
     `【起课与发用】\n${evidence.calculationFact.promptText}`,
     `【四位】\n${evidence.positions.map((item) => item.promptText.replace(/（按[^）]+）/gu, '').replace(/；不空$/u, '')).join('｜')}`,
     `【四位关系】\n生克：${evidence.relations.map((item) => item.promptText).join('；')}\n${buildJinkoujueExtendedNotes(data)}`,
+    `【四位生克与主客制衡关系】\n${analyzeJinkoujueRelations(data).text}`,
     `【五动三动】\n${evidence.movementFacts.map((item) => item.promptText).join('；') || '未触发已列五动或三动。'}`,
     evidence.focusFacts.length ? `【发用焦点】\n${evidence.focusFacts.filter((item) => item.level === '主证').map((item) => item.promptText).join('；')}` : '',
     evidence.counterEvidenceFacts.length ? `【反证】\n${evidence.counterEvidenceFacts.map((item) => item.promptText.replace('，力量条件偏弱', '')).join('；')}` : '',

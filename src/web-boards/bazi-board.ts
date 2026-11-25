@@ -124,6 +124,7 @@ const UNLUCKY_SHENSHA = new Set([
   '亡神',
   '劫煞',
   '灾煞',
+  '岁煞',
   '孤辰',
   '寡宿',
   '丧门',

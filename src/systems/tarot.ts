@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { tarotInput } from '../schema';
 import reference from './tarot-data.json';
 import { randomContext } from './random';
+import { resolveTarotReversalMode, TAROT_REVERSAL_RATES, type TarotReversalMode } from './defaults';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateTarotSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
 
@@ -10,7 +11,7 @@ type Spread = keyof typeof reference.spreads;
 type Card = { id: number; name: string; position: string; reversed: boolean; keywords: string[]; element: string; archetype: string };
 type Data = {
   spreadType: Spread; spreadName: string; cards: Card[]; timestamp: number;
-  draw: { deckSize: number; method: string; order: { index: number; position: string; cardId: number; cardName: string; orientation: string }[] };
+  draw: { deckSize: number; method: string; reversalMode?: TarotReversalMode; order: { index: number; position: string; cardId: number; cardName: string; orientation: string }[] };
   evidenceAnalysis: {
     cards: { position: string; name: string; orientation: string; keywords: string[]; element: string; archetype: string }[];
     adjacent: { first: string; second: string; elements: string[]; relation: string }[];
@@ -30,6 +31,90 @@ function elementRelation(first: Card, second: Card) {
   if ((pair.has('火') && pair.has('风')) || (pair.has('水') && pair.has('土'))) return '相互助长';
   if ((pair.has('火') && pair.has('水')) || (pair.has('风') && pair.has('土'))) return '相互制约';
   return '中性并置';
+}
+
+const MINOR_ELEMENTS = ['火', '水', '风', '土'] as const;
+
+export function analyzeTarotRelations(cards: Card[]) {
+  const total = cards.length;
+  const elementCounts: Record<string, number> = { 火: 0, 水: 0, 风: 0, 土: 0, 大阿卡纳: 0 };
+  for (const card of cards) {
+    const el = elementName(card);
+    elementCounts[el] = (elementCounts[el] ?? 0) + 1;
+  }
+
+  const minorCounts = MINOR_ELEMENTS.map((el) => ({ el, count: elementCounts[el] }));
+  const maxMinor = Math.max(...minorCounts.map((item) => item.count));
+  const dominantElements = maxMinor > 0 ? minorCounts.filter((item) => item.count === maxMinor).map((item) => item.el) : [];
+  const missingElements = minorCounts.filter((item) => item.count === 0).map((item) => item.el);
+  const elementSummary =
+    maxMinor === 0
+      ? `全为大阿卡纳（${total} 张），无小阿卡纳四元素分布`
+      : `四元素分布：火 ${elementCounts['火']}、水 ${elementCounts['水']}、风 ${elementCounts['风']}、土 ${elementCounts['土']}；主导：${dominantElements.join('/')}（各 ${maxMinor} 张）；缺失：${missingElements.length ? missingElements.join('、') : '四元素俱全'}`;
+
+  const majorCards = cards.filter((c) => c.id <= 22);
+  const courtCards = cards.filter((c) => /侍从|骑士|王后|国王/u.test(c.name));
+  const pipCount = total - majorCards.length - courtCards.length;
+  const majorRatio = total > 0 ? Math.round((majorCards.length / total) * 100) : 0;
+  const majorSummary = `大阿卡纳 ${majorCards.length}/${total} 张（${majorRatio}%${majorCards.length ? `，落位：${majorCards.map((c) => `${c.position}·${c.name}`).join('、')}` : ''}）；宫廷牌 ${courtCards.length} 张；数字牌 ${pipCount} 张`;
+
+  const reversedCards = cards.filter((c) => c.reversed);
+  const uprightCount = total - reversedCards.length;
+  const reversedRatio = total > 0 ? Math.round((reversedCards.length / total) * 100) : 0;
+  let orientationSwitches = 0;
+  for (let i = 1; i < total; i += 1) {
+    if (cards[i].reversed !== cards[i - 1].reversed) orientationSwitches += 1;
+  }
+  const tensionSummary =
+    reversedCards.length === 0
+      ? `全正位（${total}/${total} 张），能量外显直行`
+      : reversedCards.length === total
+        ? `全逆位（${total}/${total} 张），整体内化或受阻张力集中`
+        : `正位 ${uprightCount} 张、逆位 ${reversedCards.length} 张（逆位占 ${reversedRatio}%），相邻正逆切换 ${orientationSwitches} 次；逆位落位：${reversedCards.map((c) => `${c.position}·${c.name}`).join('、')}`;
+
+  const adjacentCounts = new Map<string, number>();
+  for (let i = 1; i < total; i += 1) {
+    const rel = elementRelation(cards[i - 1], cards[i]);
+    adjacentCounts.set(rel, (adjacentCounts.get(rel) ?? 0) + 1);
+  }
+  const adjacentSummary = [...adjacentCounts.entries()].map(([rel, cnt]) => `${rel} ${cnt} 组`).join('、');
+
+  let arcSummary: string;
+  if (total <= 1) {
+    const only = cards[0];
+    arcSummary = `单牌聚焦：「${only.position}」${only.name}（${only.reversed ? '逆位' : '正位'}，${elementName(only)}）`;
+  } else {
+    const first = cards[0];
+    const last = cards[total - 1];
+    const shift =
+      !first.reversed && !last.reversed
+        ? '正位起手→正位收束'
+        : first.reversed && last.reversed
+          ? '逆位起手→逆位收束'
+          : first.reversed && !last.reversed
+            ? '逆位起手→正位转明'
+            : '正位起手→逆位转收';
+    arcSummary = `首尾演变：「${first.position}」${first.name}（${first.reversed ? '逆位' : '正位'}·${elementName(first)}）→「${last.position}」${last.name}（${last.reversed ? '逆位' : '正位'}·${elementName(last)}），首尾元素关系：${elementRelation(first, last)}，正逆转向：${shift}${adjacentSummary ? `；相邻呼应统计：${adjacentSummary}` : ''}`;
+  }
+
+  const lines = [
+    `元素分布与失衡：${elementSummary}。`,
+    `牌阶与大阿卡纳占比：${majorSummary}。`,
+    `正逆位张力：${tensionSummary}。`,
+    `${arcSummary}。`,
+  ];
+
+  return {
+    elementCounts,
+    dominantElements,
+    missingElements,
+    majorCount: majorCards.length,
+    majorRatio,
+    reversedCount: reversedCards.length,
+    reversedRatio,
+    orientationSwitches,
+    text: lines.join('\n'),
+  };
 }
 
 function analyze(cards: Card[]) {
@@ -57,6 +142,7 @@ export function calculateTarot(input: Input, now: string, randomSource?: () => n
   const candidateDeck = isMajorOnly
     ? reference.cards.filter((entry) => entry.number <= 22)
     : reference.cards;
+  const reversalMode: TarotReversalMode = resolveTarotReversalMode(input.tarot?.reversalMode);
   const manual = input.tarot?.manualCards;
   const cards: Card[] = [];
   let drawMethod: string;
@@ -70,24 +156,39 @@ export function calculateTarot(input: Input, now: string, randomSource?: () => n
       cards.push({ id: card.number, name: card.name, position: spread.positions[index], reversed: item.reversed, keywords: [...card.keywords], element: card.element, archetype: card.archetype });
     }
   } else {
+    const reversalNote = reversalMode === 'upright-only'
+      ? '仅正位'
+      : reversalMode === 'balanced'
+        ? '对半 50% 逆位'
+        : '现实洗牌约 30% 逆位';
     drawMethod = isMajorOnly
-      ? '22张大阿卡纳洗牌后依牌位顺序取顶牌'
-      : 'Fisher-Yates 洗牌后依牌位顺序取顶牌';
+      ? `22张大阿卡纳洗牌定正逆位（${reversalNote}）后依牌位顺序取顶牌`
+      : `Fisher-Yates 洗牌定正逆位（${reversalNote}）后依牌位顺序取顶牌`;
     const random = randomContext(randomSource);
-    const shuffled = [...candidateDeck];
+    const reversalRate = TAROT_REVERSAL_RATES[reversalMode];
+    // 洗牌阶段同步确定整副牌的正逆位，再打乱整副牌堆并依牌位顺序取顶牌
+    const shuffled = candidateDeck.map((card) => ({
+      card,
+      reversed: reversalRate > 0 ? random.sample() < reversalRate : false,
+    }));
     for (let index = shuffled.length - 1; index > 0; index--) {
       const target = random.integer(index + 1);
       [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
     }
     for (let index = 0; index < spread.cardCount; index++) {
-      const card = shuffled[index];
-      cards.push({ id: card.number, name: card.name, position: spread.positions[index], reversed: random.sample() < 0.5, keywords: [...card.keywords], element: card.element, archetype: card.archetype });
+      const { card, reversed } = shuffled[index];
+      cards.push({ id: card.number, name: card.name, position: spread.positions[index], reversed, keywords: [...card.keywords], element: card.element, archetype: card.archetype });
     }
   }
   const evidenceAnalysis = analyze(cards);
   const data: Data = {
     spreadType, spreadName: spread.name, cards, timestamp: new Date(now).getTime(),
-    draw: { deckSize: candidateDeck.length, method: drawMethod, order: cards.map((card, index) => ({ index: index + 1, position: card.position, cardId: card.id, cardName: card.name, orientation: card.reversed ? '逆位' : '正位' })) },
+    draw: {
+      deckSize: candidateDeck.length,
+      method: drawMethod,
+      ...(!manual ? { reversalMode } : {}),
+      order: cards.map((card, index) => ({ index: index + 1, position: card.position, cardId: card.id, cardName: card.name, orientation: card.reversed ? '逆位' : '正位' })),
+    },
     evidenceAnalysis,
   };
   const summary = {
@@ -128,10 +229,18 @@ export function promptForTarot(value: unknown, question: string, options: Input[
   const schools = formatSchoolGuidance(options?.schools, reference.schools, {
     multiNote: '多口径合参：分别依据各口径判断，再比较共同点、分歧与对应牌面依据。',
   });
+  const reversalModeLabel = data.draw?.reversalMode === 'upright-only'
+    ? '；洗牌模式：仅正位（未启用逆位）'
+    : data.draw?.reversalMode === 'balanced'
+      ? '；洗牌模式：经典对半（50% 逆位）'
+      : data.draw?.reversalMode === 'realistic'
+        ? '；洗牌模式：现实洗牌手感（约 30% 逆位）'
+        : '';
   const sections = [
     '【传统依据】\n按牌阵位置、正逆位、牌组层次、元素与牌序解读；逆位需结合问题和相邻牌面。',
     `【提示词参考时间】\n${now}`,
-    `【占卜资料】\n占法：塔罗；牌阵：${data.spreadName}；共 ${data.cards.length} 张。\n牌阵结构统计：${structureSummary}\n${cards}`,
+    `【占卜资料】\n占法：塔罗；牌阵：${data.spreadName}；共 ${data.cards.length} 张${reversalModeLabel}。\n牌阵结构统计：${structureSummary}\n${cards}`,
+    `【牌阵结构与牌间呼应关系】\n${analyzeTarotRelations(data.cards).text}`,
     interactions || reversalNotes ? `【相邻牌元素与逆位结构】\n${[interactions, themes ? `重复牌面主题：${themes}` : '', reversalNotes].filter(Boolean).join('\n')}\n元素关系仅为传统取象，正逆位不改变元素关系。` : '',
     selection ? `【解读选择】\n${selection.section}` : '',
     formatSchoolAlgorithmSection(evaluateTarotSchoolAlgorithms(data, options?.schools)),

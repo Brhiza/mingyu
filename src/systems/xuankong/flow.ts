@@ -1,5 +1,5 @@
 import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
-import { getSolarDayNineStar } from '../almanac/rules';
+import { getSolarDayNineStar, isSolarDayNineStarYangDun } from '../almanac/rules';
 import { getBranchIndex, getMonthNineStar, getYearNineStar, getYearSixtyCycle } from '../ganzhi-foundation';
 import { resolveCivilTime } from '../huangji/civil-time';
 import { flyStars } from './foundation';
@@ -45,12 +45,12 @@ function isYangDunSolarDay(solarDay: SolarDay): boolean {
   return !solarDay.isBefore(nextDongZhi) || (!solarDay.isBefore(prevDongZhi) && solarDay.isBefore(xiaZhi));
 }
 
-/** 流日紫白九星（冬至后阳遁顺飞，夏至后阴遁逆飞）。 */
+/** 流日紫白九星（与值日九星统一以冬至/夏至前后最近甲子日分阳遁顺飞、阴遁逆飞）。 */
 export function dayFlyingStar(year: number, month: number, day: number) {
   if (!Number.isInteger(year) || year < 1900 || year > 2100) throw new Error('流日年份须在 1900 至 2100 之间。');
   resolveCivilTime({ year, month, day, hour: 12, minute: 0, second: 0, timezone: 8 });
   const solarDay = SolarDay.fromYmd(year, month, day);
-  const isYangDun = isYangDunSolarDay(solarDay);
+  const isYangDun = isSolarDayNineStarYangDun(solarDay);
   const nine = getSolarDayNineStar(solarDay);
   const centerStar = ['一', '二', '三', '四', '五', '六', '七', '八', '九'].indexOf(nine.name) + 1;
   const direction = isYangDun ? '顺飞' as const : '逆飞' as const;
@@ -60,7 +60,7 @@ export function dayFlyingStar(year: number, month: number, day: number) {
     starName: starNames[centerStar - 1],
     direction,
     plate: flyStars(centerStar, direction),
-    rule: `按${isYangDun ? '冬至后阳遁顺飞' : '夏至后阴遁逆飞'}起流日紫白。`,
+    rule: `按${isYangDun ? '冬至前后最近甲子日阳遁顺飞' : '夏至前后最近甲子日阴遁逆飞'}起流日紫白。`,
   };
 }
 

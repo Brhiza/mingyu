@@ -656,6 +656,23 @@ export function SettingsModal({
                       </label>
 
                       <label className="grid gap-1 text-xs font-semibold text-[var(--text-secondary)]">
+                        <span>塔罗牌正逆位概率</span>
+                        <Select
+                          value={rulesDraft.casting.tarotReversalMode}
+                          onChange={(e) =>
+                            updateCastingRule(
+                              'tarotReversalMode',
+                              e.target.value as GlobalRulesSettings['casting']['tarotReversalMode'],
+                            )
+                          }
+                        >
+                          <option value="realistic">现实洗牌手感（约 30% 逆位，默认）</option>
+                          <option value="balanced">经典对半（50% 逆位）</option>
+                          <option value="upright-only">仅看正位（0% 逆位）</option>
+                        </Select>
+                      </label>
+
+                      <label className="grid gap-1 text-xs font-semibold text-[var(--text-secondary)]">
                         <span>雷诺曼默认抽牌</span>
                         <Select
                           value={rulesDraft.casting.lenormandDefaultDrawMode}

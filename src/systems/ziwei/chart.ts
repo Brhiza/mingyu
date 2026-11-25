@@ -327,12 +327,12 @@ export function buildZiweiHoroscope(
   const birthLeapAddition = resolveLeapMonthOffset(
     birthLunar,
     0,
-    astrolabe.rules.leapMonthMode === 'same' ? 'split-15' : astrolabe.rules.leapMonthMode,
+    astrolabe.rules.leapMonthMode,
   );
   const targetLeapAddition = resolveLeapMonthOffset(
     targetLunar,
     timeIdx,
-    astrolabe.rules.leapMonthMode === 'same' ? 'split-15' : astrolabe.rules.leapMonthMode,
+    astrolabe.rules.leapMonthMode,
   );
   const birthHourBranchIdx = EARTHLY_BRANCHES.indexOf(astrolabe.rawDates.chineseDate.hourly[1]);
   const monthlyIndex = fixIndex(

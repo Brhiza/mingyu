@@ -217,6 +217,17 @@ test('传统典籍核验（大六壬）：伏吟、反吟与九宗门贼克取�
   const zeike = await calculate('liuren', { question: '贼克', divinationTime: '2025-01-01T00:00:00Z' });
   assert.equal(zeike.data.transmissionRule, '元首法');
   assert.equal(zeike.data.threeTransmissions.length, 3);
+
+  // 伏吟子卯互刑（杜传格）：丁卯/己卯/辛卯日伏吟，初传卯→中传子→末传不回刑卯而取子之冲午
+  const { buildHeavenlyPlate, getDayStemResidence } = await import('../src/systems/liuren/plate');
+  const { buildFourLessons, resolveInitialTransmission } = await import('../src/systems/liuren/lessons');
+  const fuyinPlate = buildHeavenlyPlate({ monthLeader: '子', divinationBranch: '子', noblemanBranch: '丑', dayNight: '昼占' });
+  for (const dayStem of ['丁', '己', '辛']) {
+    const res = getDayStemResidence(dayStem);
+    const lessons = buildFourLessons({ heavenlyPlate: fuyinPlate, dayStem, dayBranch: '卯', dayStemResidence: res, xunKong: [] });
+    const trans = resolveInitialTransmission(lessons, { dayStem, dayBranch: '卯', dayStemResidence: res, hourStem: '甲', hourBranch: '子', heavenlyPlate: fuyinPlate });
+    assert.deepEqual(trans.branches, ['卯', '子', '午'], `${dayStem}卯日伏吟应为卯子午`);
+  }
 });
 
 test('传统典籍核验（六爻）：六冲卦、六合卦、动爻化回头克/生及应期线索', async () => {

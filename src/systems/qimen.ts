@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { sameJsonValue } from '../json-value';
 import { computeQimen } from './qimen/compute';
 import { analyzeQimenEvidence, buildQimenStarDoorStateSummary, getQimenActiveSpecialConditionText } from './qimen/evidence';
+import { formatQimenPatternRelations } from './qimen/patterns';
 import type { QimenData } from './qimen/types';
 import type { qimenInput } from '../schema';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
@@ -81,6 +82,7 @@ function buildPrompt(data: QimenData, question: string, options: Options, now: s
   const concisePatterns = data.patternTags?.length
     ? [`全局格局标签：${data.patternTags.join('、')}`]
     : [];
+  const patternRelationsText = formatQimenPatternRelations(data);
   const filteredCounters = evidence.counterEvidenceFacts
     .map((item) => item.promptText)
     .filter((text) => !/同宫，宜防阻力、口舌或反复。$/u.test(text));
@@ -105,6 +107,7 @@ function buildPrompt(data: QimenData, question: string, options: Options, now: s
     data.seasonality?.lunarDateWarning ? `【历法差异】\n${data.seasonality.lunarDateWarning}` : '',
     `【九宫】\n${evidence.palaceFacts.map((item) => item.promptText).join('\n')}${starDoorStateLine ? `\n${starDoorStateLine}` : ''}`,
     concisePatterns.length ? `【盘面格局】\n${concisePatterns.join('\n')}` : '',
+    `【格局叠加与吉凶制衡关系】\n${patternRelationsText}`,
     evidence.relations.length ? `【候选宫间关系】\n${evidence.relations.map((item) => item.promptText).join('；')}` : '',
     filteredCounters.length ? `【反证】\n${filteredCounters.join('；')}` : '',
     evidence.timingFacts.length ? `【应期条件】\n${evidence.timingFacts.map((item) => item.promptText).join('；')}` : '',

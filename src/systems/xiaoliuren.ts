@@ -68,6 +68,116 @@ function describeWuxingRelation(aEl: string, bEl: string, aName: string, bName: 
   if (wuxingKe[bEl] === aEl) return `${bName}（${bEl}）克制${aName}（${aEl}）`;
   return `${aName}（${aEl}）与${bName}（${bEl}）相参`;
 }
+type XiaoliurenValence = '吉' | '迟滞' | '凶阻';
+
+function palaceValence(name: PalaceName): XiaoliurenValence {
+  if (name === '大安' || name === '速喜' || name === '小吉') return '吉';
+  if (name === '留连') return '迟滞';
+  return '凶阻';
+}
+
+function classifyDirectedElementRelation(fromEl: string, toEl: string): '生' | '被生' | '克' | '被克' | '比和' {
+  if (fromEl === toEl) return '比和';
+  if (wuxingSheng[fromEl] === toEl) return '生';
+  if (wuxingSheng[toEl] === fromEl) return '被生';
+  if (wuxingKe[fromEl] === toEl) return '克';
+  return '被克';
+}
+
+export function analyzeXiaoliurenRelations(params: {
+  month: PalaceName;
+  day: PalaceName;
+  hour: PalaceName;
+  hourBranch: string;
+}) {
+  const mMeta = palaceMeta[params.month];
+  const dMeta = palaceMeta[params.day];
+  const hMeta = palaceMeta[params.hour];
+  const hourBranchElement = branchElements[params.hourBranch] ?? '水';
+
+  const mVal = palaceValence(params.month);
+  const dVal = palaceValence(params.day);
+  const hVal = palaceValence(params.hour);
+
+  let trend: string;
+  if (mVal === '吉' && dVal === '吉' && hVal === '吉') trend = '全程顺畅';
+  else if (mVal === '吉' && dVal !== '吉' && hVal === '吉') trend = '中段波折、末宫复通';
+  else if (mVal !== '吉' && hVal === '吉') trend = '先阻后通';
+  else if (mVal === '吉' && hVal !== '吉') trend = '先顺后阻';
+  else if (mVal !== '吉' && dVal === '吉' && hVal !== '吉') trend = '中段暂缓、末宫再阻';
+  else trend = '全程偏阻';
+
+  const repeats: string[] = [];
+  if (params.month === params.day && params.day === params.hour) repeats.push(`三宫同落${params.month}（同象叠重）`);
+  else {
+    if (params.month === params.day) repeats.push(`初/中同落${params.month}`);
+    if (params.day === params.hour) repeats.push(`中/末同落${params.day}`);
+    if (params.month === params.hour) repeats.push(`初/末同落${params.month}`);
+  }
+
+  const yangCount = [mMeta, dMeta, hMeta].filter((m) => m.yinYang === '阳').length;
+  const yinYangBalance =
+    yangCount === 3 ? '三宫纯阳' : yangCount === 0 ? '三宫纯阴' : yangCount === 2 ? '两阳一阴' : '两阴一阳';
+
+  const r1 = classifyDirectedElementRelation(mMeta.element, dMeta.element);
+  const r2 = classifyDirectedElementRelation(dMeta.element, hMeta.element);
+  const monthToDay = describeWuxingRelation(mMeta.element, dMeta.element, `初宫${params.month}`, `中宫${params.day}`);
+  const dayToHour = describeWuxingRelation(dMeta.element, hMeta.element, `中宫${params.day}`, `末宫${params.hour}`);
+  const monthToHour = describeWuxingRelation(mMeta.element, hMeta.element, `初宫${params.month}`, `末宫${params.hour}`);
+
+  let chainFlow: string;
+  if (r1 === '生' && r2 === '生') chainFlow = '连环递生（初生中、中生末，气势贯通）';
+  else if (r1 === '被生' && r2 === '被生') chainFlow = '逆向递生（末生中、中生初，反哺回流）';
+  else if (r1 === '比和' && r2 === '比和') chainFlow = '三宫五行同气比和';
+  else if ((r1 === '克' || r1 === '被克') && (r2 === '克' || r2 === '被克')) chainFlow = '连环克战（初、中、末两段皆见相克）';
+  else if ((r1 === '克' || r1 === '被克') && (r2 === '生' || r2 === '被生' || r2 === '比和')) chainFlow = '前克后和（中宫转化后趋于生扶/比和）';
+  else if ((r1 === '生' || r1 === '被生' || r1 === '比和') && (r2 === '克' || r2 === '被克')) chainFlow = '前和后克（末段转入相克制衡）';
+  else chainFlow = '生比交替（无直接相克）';
+
+  const tiYongCode =
+    hMeta.element === hourBranchElement
+      ? '体用比和'
+      : wuxingSheng[hourBranchElement] === hMeta.element
+        ? '用生体'
+        : wuxingSheng[hMeta.element] === hourBranchElement
+          ? '体生用'
+          : wuxingKe[hMeta.element] === hourBranchElement
+            ? '体克用'
+            : '用克体';
+  const tiYongDetail = describeTiYong(hMeta.element, hourBranchElement, params.hour, params.hourBranch);
+
+  const innerSupporters: string[] = [];
+  const innerRestrainers: string[] = [];
+  for (const [label, el] of [
+    [`初宫${params.month}`, mMeta.element],
+    [`中宫${params.day}`, dMeta.element],
+  ] as const) {
+    if (el === hMeta.element || wuxingSheng[el] === hMeta.element) {
+      innerSupporters.push(`${label}（${el}${el === hMeta.element ? '比和' : '生'}）`);
+    } else if (wuxingKe[el] === hMeta.element) {
+      innerRestrainers.push(`${label}（${el}克）`);
+    }
+  }
+
+  const lines = [
+    `三宫递进走势：初宫${params.month}（${mVal}）→中宫${params.day}（${dVal}）→末宫${params.hour}（${hVal}），走势定性：${trend}；阴阳配比：${yinYangBalance}${repeats.length ? `；重宫：${repeats.join('、')}` : ''}。`,
+    `三宫五行传递：${chainFlow}；初→中：${monthToDay}；中→末：${dayToHour}；初↔末照应：${monthToHour}。`,
+    `体用制衡：${tiYongCode}（${tiYongDetail}）；初/中宫对末宫（体）生扶：${innerSupporters.join('、') || '无'}；克制：${innerRestrainers.join('、') || '无'}。`,
+  ];
+
+  return {
+    trend,
+    yinYangBalance,
+    repeats,
+    chainFlow,
+    monthToHour,
+    tiYongCode,
+    innerSupporters,
+    innerRestrainers,
+    text: lines.join('\n'),
+  };
+}
+
 function describeTiYong(tiEl: string, yongEl: string, tiName: string, hourBranch: string): string {
   const yongLabel = `时支${hourBranch}（${yongEl}）`;
   if (tiEl === yongEl) return `时宫${tiName}（${tiEl}）与${yongLabel}比和，气势相扶`;
@@ -261,11 +371,19 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
     : '';
   const hDetail = data.evidenceAnalysis.palaceDetails.hour;
   const sanGong = data.evidenceAnalysis.sanGongAnalysis;
+  const relations = analyzeXiaoliurenRelations({
+    month: data.evidenceAnalysis.palaceDetails.month.name,
+    day: data.evidenceAnalysis.palaceDetails.day.name,
+    hour: data.evidenceAnalysis.palaceDetails.hour.name,
+    hourBranch: data.ganzhi.hour.slice(-1),
+  });
+  const methodNote = data.numbers ? `起课方式：三数起课（${data.numbers.join('、')}）；` : '';
   const sections = [
     `【传统依据】\n按${data.ruleLabel}的月、日、时逐宫顺数；时宫是本次主占得宫，兼看月日时三宫（起因→过程→落点）生克与时支体用关系。`,
     `【时间】\n起课：${new Date(data.timestamp).toISOString()}；提示词时间：${now}；历法时区 UTC+08:00。`,
-    `【占卜资料】\n农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}；干支：${Object.values(data.ganzhi).join(' ')}。\n月宫（初/起因）：${data.sequence.month.name}（${data.evidenceAnalysis.palaceDetails.month.deity}、${data.evidenceAnalysis.palaceDetails.month.element}）；日宫（中/过程）：${data.sequence.day.name}（${data.evidenceAnalysis.palaceDetails.day.deity}、${data.evidenceAnalysis.palaceDetails.day.element}）；时宫（末/主占）：${data.primary.name}（${hDetail.deity}、${hDetail.direction}、${hDetail.yinYang}${hDetail.element}、成数 ${hDetail.numbers.join('/')}）。\n占得宫歌诀：${data.primary.verse}\n历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}。`,
+    `【占卜资料】\n${methodNote}农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}；干支：${Object.values(data.ganzhi).join(' ')}。\n月宫（初/起因）：${data.sequence.month.name}（${data.evidenceAnalysis.palaceDetails.month.deity}、${data.evidenceAnalysis.palaceDetails.month.element}）；日宫（中/过程）：${data.sequence.day.name}（${data.evidenceAnalysis.palaceDetails.day.deity}、${data.evidenceAnalysis.palaceDetails.day.element}）；时宫（末/主占）：${data.primary.name}（${hDetail.deity}、${hDetail.direction}、${hDetail.yinYang}${hDetail.element}、成数 ${hDetail.numbers.join('/')}）。\n占得宫歌诀：${data.primary.verse}\n历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}。`,
     `【三宫与体用生克】\n${sanGong.combinationSummary}\n体用关系：${sanGong.tiYongRelation}。`,
+    `【三宫递进与体用制衡关系】\n${relations.text}`,
     beijingLunarDateDiscrepancy(data.timestamp) ? `【历法差异】\n${beijingLunarDateDiscrepancy(data.timestamp)}` : '',
     selection ? `【解读选择】\n${selection.section}` : '',
     formatSchoolAlgorithmSection(evaluateXiaoliurenSchoolAlgorithms(data, options?.schools)),

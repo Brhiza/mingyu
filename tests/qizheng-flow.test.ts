@@ -45,7 +45,7 @@ test('Worker HTTP 与 MCP 返回流曜和行限，重算拒绝篡改', async () 
   const response = await send('/api/calculate', { method: 'qizheng', input }); assert.equal(response.status, 200); const saved = await response.json();
   const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'qizheng', arguments: input } });
   assert.equal((await mcp.json()).result.structuredContent.data.flowing.stars.length, 11);
-  assert.equal(saved.data.timeLords.majorLimitStatus, '命度与交限待核定');
+  assert.equal(saved.data.timeLords.majorLimitStatus, '按洞微百岁定式推算');
   assert.equal((await send('/api/prompt', { method: 'qizheng', result: saved, question: '追问' })).status, 200);
   saved.data.timeLords.currentMinorLimit.signBranch = '伪造';
   assert.equal((await send('/api/prompt', { method: 'qizheng', result: saved, question: '追问' })).status, 400);

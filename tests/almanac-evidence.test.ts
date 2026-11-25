@@ -12,7 +12,7 @@ test('初筛保留明确和条件限制，不将缺少证据视为适宜', async
   const result = await calculate('almanac', { question: '问题', topic: 'move', startDate: '2024-02-03', endDate: '2024-02-04', participants: [{ name: '甲', birth: { year: 2024, month: 2, day: 4, clock: { kind: 'unknown' }, timezone: 8 } }] });
   const conditional = screenAlmanac(empty, '子', result.data.participants, { scope: 'hour' });
   assert.equal(conditional.status, '需要核对');
-  assert.equal(conditional.reasons.find((reason) => reason.source === '参与人关系')?.strength, '待核条件');
+  assert.equal(conditional.reasons.find((reason) => reason.source === '参与人关系')?.strength, '条件提示');
   assert.equal(result.data.days[0].screening.reasons.some((reason: any) => reason.source === '四离四绝'), true);
   assert.equal(result.data.days[1].screening.reasons.some((reason: any) => reason.source === '交节'), true);
   assert.match(result.prompt.text, /逐时状态须与当日状态一并核对/);

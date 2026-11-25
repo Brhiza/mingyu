@@ -25,7 +25,7 @@ export function participantBranchConflicts(candidate: string, target: string) {
 export async function participantProfile(person: Participant, index: number, options?: { includeBaziMatch?: boolean }) {
   const { clock, ...birth } = person.birth;
   let variants: Variant[], basis: { precision: string; excludedSeconds: number; utcTimestamp?: number };
-  let baziUsefulGod: { dayMaster: string; dayMasterElement: string; incrementStatus: '已判定' | '部分判定' | '待判'; favorable: string[]; primaryUnfavorable: string[]; unfavorable: string[]; climateReferenceOrder: string[] } | undefined;
+  let baziUsefulGod: { dayMaster: string; dayMasterElement: string; incrementStatus: string; favorable: string[]; primaryUnfavorable: string[]; unfavorable: string[]; climateReferenceOrder: string[] } | undefined;
   let baziUsefulGodNote: string | undefined;
   if (clock.kind === 'exact') {
     const chart = await calculateBaziPillars({ ...birth, clock }, person.gender);

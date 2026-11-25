@@ -83,7 +83,7 @@ test('五合化气的依据进入提示词，保存追问校验反证与根气',
   const result = await calculate('bazi', source);
   const transformation = result.data.chart.transformation;
   assert.equal(transformation.pattern, '丁壬化木格');
-  assert.equal(transformation.status, '存在反证');
+  assert.equal(transformation.status, '合绊（合而不化）');
   assert.match(result.prompt.text, /【日干五合化气】/);
   assert.ok(result.prompt.text.includes(transformation.pattern));
   assert.ok(result.prompt.text.includes(transformation.blockers[0]));

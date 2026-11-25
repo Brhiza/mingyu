@@ -1,4 +1,4 @@
-import { drawNext } from '../interactive';
+import { createShuffledTarotDeck, drawNext, type ShuffledTarotCard } from '../interactive';
 import { methodLabels, type Method } from '../schema';
 import { loadGlobalRules } from '../web-settings';
 import { mountains, mountainTrigram } from '../systems/compass';
@@ -486,7 +486,13 @@ export function renderDivinationForm(options: DivinationFormOptions): void {
   let tarotSpreadId = 'three';
   let tarotCategoryId: 'common' | 'love' | 'career' | 'deep' = 'common';
   let tarotDrawMode: 'interactive' | 'random' | 'manual' = globalPrefs.casting.tarotDefaultDrawMode;
+  let tarotReversalMode: 'realistic' | 'balanced' | 'upright-only' = (() => {
+    const initialMode = (initialPayload.tarot as { reversalMode?: string } | undefined)?.reversalMode;
+    if (initialMode === 'realistic' || initialMode === 'balanced' || initialMode === 'upright-only') return initialMode;
+    return globalPrefs.casting.tarotReversalMode;
+  })();
   let tarotDrawnCards: DrawnCardItem[] = [];
+  let tarotShuffledDeck: ShuffledTarotCard[] | null = null;
   let isDrawingInteractiveCard = false;
   let lenormandSpreadId = 'three';
   let lenormandDrawMode: 'interactive' | 'random' | 'manual' =
@@ -738,6 +744,8 @@ export function renderDivinationForm(options: DivinationFormOptions): void {
             reversed: Boolean(c.reversed),
           }));
           tarotObj.selectionMode = tarotDrawMode;
+        } else if (tarotDrawMode === 'random') {
+          tarotObj.reversalMode = tarotReversalMode;
         }
         return { question, tarot: tarotObj };
       }
@@ -1551,6 +1559,7 @@ export function renderDivinationForm(options: DivinationFormOptions): void {
             if (isTarot) {
               tarotDrawMode = next;
               tarotDrawnCards = [];
+              tarotShuffledDeck = null;
             } else {
               lenormandDrawMode = next;
               lenormandDrawnCards = [];
@@ -1577,11 +1586,37 @@ export function renderDivinationForm(options: DivinationFormOptions): void {
             (nextScope) => {
               tarotDeckScope = nextScope;
               tarotDrawnCards = [];
+              tarotShuffledDeck = null;
               render();
             },
           ),
         );
         leftCol.appendChild(deckField);
+
+        if (tarotDrawMode !== 'manual') {
+          const revField = document.createElement('div');
+          revField.className = 'workspace-ui-field';
+          const revLabel = document.createElement('label');
+          revLabel.textContent = '洗牌正逆位';
+          revField.append(
+            revLabel,
+            createSegmented(
+              tarotReversalMode,
+              [
+                { id: 'realistic', label: '现实 30%' },
+                { id: 'balanced', label: '对半 50%' },
+                { id: 'upright-only', label: '仅正位' },
+              ],
+              (nextRev) => {
+                tarotReversalMode = nextRev;
+                tarotDrawnCards = [];
+                tarotShuffledDeck = null;
+                render();
+              },
+            ),
+          );
+          leftCol.appendChild(revField);
+        }
       }
 
       // 左栏：牌阵下拉选择（精简掉 20+ 平铺按钮，下拉按分类归档一目了然）
@@ -1688,12 +1723,24 @@ export function renderDivinationForm(options: DivinationFormOptions): void {
             if (isDrawingInteractiveCard || drawn.length >= currentSpread.cardCount) return;
             isDrawingInteractiveCard = true;
             try {
+              if (isTarot && (!tarotShuffledDeck || drawn.length === 0)) {
+                tarotShuffledDeck = await createShuffledTarotDeck({
+                  majorOnly: tarotDeckScope === 'major',
+                  reversalMode: tarotReversalMode,
+                });
+              }
               const next = await drawNext(
                 isTarot ? 'tarot' : 'lenormand',
                 currentSpread.id,
                 drawn,
                 undefined,
-                isTarot && tarotDeckScope === 'major' ? { majorOnly: true } : undefined,
+                isTarot
+                  ? {
+                      majorOnly: tarotDeckScope === 'major',
+                      reversalMode: tarotReversalMode,
+                      preShuffledDeck: tarotShuffledDeck ?? undefined,
+                    }
+                  : undefined,
               );
               if (isTarot) {
                 tarotDrawnCards = [...tarotDrawnCards, next.card];

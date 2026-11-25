@@ -12,6 +12,7 @@ import { natalAspectRules } from './astrology/natal-aspects';
 import { natalEvidence } from './astrology/natal-evidence';
 import { formatClassicExcerpts, type ClassicExcerpt } from './classics';
 import { evaluateAstrolabeSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { inferFortuneScope } from '../router-model/fortune-scope';
 
 const WESTERN_ASTROLOGY_CLASSICS: readonly ClassicExcerpt[] = [
   {
@@ -162,8 +163,8 @@ function formatPointDignityAndSolar(point: Data['points'][number], sunLon: numbe
   if (point.retrograde) tags.push('逆行');
   if (domicileSigns[point.id]?.includes(point.signIndex)) tags.push('入庙');
   if (exaltationSigns[point.id] === point.signIndex) tags.push('曜升');
-  if (detrimentSigns[point.id]?.includes(point.signIndex)) tags.push('落陷');
-  if (fallSigns[point.id] === point.signIndex) tags.push('失势');
+  if (detrimentSigns[point.id]?.includes(point.signIndex)) tags.push('失势');
+  if (fallSigns[point.id] === point.signIndex) tags.push('落陷');
   if (['mercury', 'venus', 'mars', 'jupiter', 'saturn'].includes(point.id)) {
     const raw = Math.abs(point.longitude - sunLon);
     const dist = Math.min(raw, 360 - raw);
@@ -203,6 +204,192 @@ function buildNatalMutualReceptions(data: Data): string[] {
   return results;
 }
 
+function buildAstrolabePatternRelations(data: Data): string {
+  const names = Object.fromEntries(data.points.map((p) => [p.id, p.name]));
+  const byId = Object.fromEntries(data.points.map((p) => [p.id, p]));
+  const mainSet = new Set(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']);
+  const mainAspects = data.aspects.filter((a) => mainSet.has(a.first) && mainSet.has(a.second));
+  const softTypes = new Set(['trine', 'sextile']);
+  const hardTypes = new Set(['square', 'opposition']);
+  const lines: string[] = [];
+
+  const softOutletsOf = (bodyId: string, exclude: Set<string>) =>
+    mainAspects
+      .filter((a) => softTypes.has(a.type) && (a.first === bodyId || a.second === bodyId))
+      .map((a) => {
+        const other = a.first === bodyId ? a.second : a.first;
+        return exclude.has(other) ? null : `${names[other]}（${a.name}，偏差${a.deviation.toFixed(2)}°）`;
+      })
+      .filter((item): item is string => Boolean(item));
+
+  const hardStimuliOf = (bodyId: string, exclude: Set<string>) =>
+    mainAspects
+      .filter((a) => hardTypes.has(a.type) && (a.first === bodyId || a.second === bodyId))
+      .map((a) => {
+        const other = a.first === bodyId ? a.second : a.first;
+        return exclude.has(other) ? null : `${names[other]}（${a.name}）`;
+      })
+      .filter((item): item is string => Boolean(item));
+
+  const hasReceptionBetween = (aId: string, bId: string) => {
+    const a = byId[aId], b = byId[bId];
+    if (!a || !b) return null;
+    const aReceivesB = domicileSigns[aId]?.includes(b.signIndex) || exaltationSigns[aId] === b.signIndex;
+    const bReceivesA = domicileSigns[bId]?.includes(a.signIndex) || exaltationSigns[bId] === a.signIndex;
+    if (aReceivesB && bReceivesA) return '双方互溶缓冲';
+    if (aReceivesB) return `${a.name}接纳${b.name}`;
+    if (bReceivesA) return `${b.name}接纳${a.name}`;
+    return null;
+  };
+
+  // 1. 相位格局的张力与出口
+  const geometricPatterns = data.patterns.filter((p) => !['stellium_sign', 'stellium_house'].includes(p.type));
+  if (geometricPatterns.length) {
+    const patNotes = geometricPatterns.map((pattern) => {
+      const memberIds = new Set(pattern.members.map((m) => m.id));
+      const memberText = pattern.members.map((m) => m.name).join('、');
+      if (pattern.type === 't_square' && pattern.apex) {
+        const outlets = softOutletsOf(pattern.apex.id, memberIds);
+        return `T字刑（${memberText}）：顶点压力集中于${pattern.apex.name}（第${byId[pattern.apex.id]?.house ?? '?'}宫），外部和谐相位出口：${outlets.join('、') || '无外部拱/六合出口，压力须直接由顶点宫位转化'}`;
+      }
+      if (pattern.type === 'grand_cross') {
+        const outlets = pattern.members.flatMap((m) => softOutletsOf(m.id, memberIds).map((o) => `${m.name}→${o}`));
+        return `大十字（${memberText}）：四方双冲四刑高张力结构，外部和谐相位出口：${outlets.slice(0, 6).join('、') || '无外部拱/六合出口'}`;
+      }
+      if (pattern.type === 'yod' && pattern.apex) {
+        const outlets = softOutletsOf(pattern.apex.id, memberIds);
+        return `上帝之指（${memberText}）：双梅花相聚焦于顶点${pattern.apex.name}（第${byId[pattern.apex.id]?.house ?? '?'}宫），顶点外部和谐出口：${outlets.join('、') || '无外部拱/六合出口'}`;
+      }
+      if (pattern.type === 'kite') {
+        const opp = pattern.aspects.find((a) => a.type === 'opposition');
+        const axisText = opp ? `对冲中轴${names[opp.first]}–${names[opp.second]}` : '对冲中轴';
+        return `风筝（${memberText}）：大三角流畅能量经由${axisText}与双六合聚焦定向释放`;
+      }
+      if (pattern.type === 'grand_trine') {
+        const stimuli = pattern.members.flatMap((m) => hardStimuliOf(m.id, memberIds).map((s) => `${m.name}→${s}`));
+        return `大三角（${memberText}）：内部三拱能量流畅循环，外部刑冲驱动点：${stimuli.slice(0, 6).join('、') || '无外部刑冲刺激（易趋于惯性舒适区）'}`;
+      }
+      if (pattern.type === 'mystic_rectangle') {
+        return `神秘矩形（${memberText}）：双对冲张力由外围双拱双六合包络转化为可落地整合结构`;
+      }
+      return `${pattern.label}（${memberText}）`;
+    });
+    lines.push(`相位格局制衡：${patNotes.join('；')}。`);
+  } else {
+    lines.push('相位格局制衡：十大星体未成大三角/T字刑/大十字/风筝/上帝之指/神秘矩形等复合几何格局。');
+  }
+
+  // 2. 核心困难相位（刑/冲）的第三方调解与接纳缓冲
+  const personalIds = new Set(['sun', 'moon', 'mercury', 'venus', 'mars']);
+  const hardAspects = mainAspects
+    .filter((a) => hardTypes.has(a.type))
+    .sort((a, b) => {
+      const aPers = (personalIds.has(a.first) ? 1 : 0) + (personalIds.has(a.second) ? 1 : 0);
+      const bPers = (personalIds.has(b.first) ? 1 : 0) + (personalIds.has(b.second) ? 1 : 0);
+      return bPers - aPers || a.deviation - b.deviation;
+    })
+    .slice(0, 6);
+
+  if (hardAspects.length) {
+    const hardNotes = hardAspects.map((ha) => {
+      const mediators = [...mainSet].filter((cid) => {
+        if (cid === ha.first || cid === ha.second) return false;
+        const softToFirst = mainAspects.some((a) => softTypes.has(a.type) && ((a.first === cid && a.second === ha.first) || (a.second === cid && a.first === ha.first)));
+        const softToSecond = mainAspects.some((a) => softTypes.has(a.type) && ((a.first === cid && a.second === ha.second) || (a.second === cid && a.first === ha.second)));
+        return softToFirst && softToSecond;
+      });
+      const rec = hasReceptionBetween(ha.first, ha.second);
+      const excludePair = new Set([ha.first, ha.second]);
+      const singleOutlets = mediators.length
+        ? []
+        : [...softOutletsOf(ha.first, excludePair).slice(0, 1).map((o) => `${names[ha.first]}→${o}`), ...softOutletsOf(ha.second, excludePair).slice(0, 1).map((o) => `${names[ha.second]}→${o}`)];
+      const bufferText = [
+        mediators.length ? `第三方调解星（拱/六合双联）：${mediators.map((id) => names[id]).join('、')}` : '',
+        rec ?? '',
+        !mediators.length && singleOutlets.length ? `单边和谐出口：${singleOutlets.join('、')}` : '',
+      ].filter(Boolean).join('；') || '无直接和谐出口或接纳缓冲';
+      return `${names[ha.first]}${ha.name}${names[ha.second]}（偏差${ha.deviation.toFixed(2)}°）→${bufferText}`;
+    });
+    lines.push(`核心困难相位与出口：${hardNotes.join('；')}。`);
+  } else {
+    lines.push('核心困难相位与出口：十大星体间未见容许度内的刑相或冲相。');
+  }
+
+  // 3. 元素与模式失衡及宫位补位
+  const elemHouseMap: Record<string, number[]> = { 火: [1, 5, 9], 土: [2, 6, 10], 风: [3, 7, 11], 水: [4, 8, 12] };
+  const dominantElems = data.distributions.elements.filter((e) => e.members.length >= 4);
+  const weakElems = data.distributions.elements.filter((e) => e.members.length <= 1);
+  const elemParts: string[] = [];
+  if (dominantElems.length) {
+    elemParts.push(`主导元素：${dominantElems.map((e) => `${e.label}（${e.members.length}星：${e.members.map((m) => m.name).join('、')}）`).join('；')}`);
+  }
+  if (weakElems.length) {
+    const weakText = weakElems.map((e) => {
+      const compHouses = elemHouseMap[e.label];
+      const compStars = data.points
+        .filter((p) => mainSet.has(p.id) && compHouses.includes(p.house))
+        .map((p) => `${p.name}（第${p.house}宫）`);
+      return `${e.label}（${e.members.length}星${e.members.length ? `：${e.members[0].name}` : ''}；同元素对应${compHouses.join('/')}宫落星补位：${compStars.join('、') || '无'}）`;
+    });
+    elemParts.push(`缺失/薄弱元素：${weakText.join('；')}`);
+  }
+  const dominantModes = data.distributions.modalities.filter((m) => m.members.length >= 5);
+  const missingModes = data.distributions.modalities.filter((m) => m.members.length === 0);
+  if (dominantModes.length) elemParts.push(`主导模式：${dominantModes.map((m) => `${m.label}（${m.members.length}星）`).join('、')}`);
+  if (missingModes.length) elemParts.push(`缺失模式：${missingModes.map((m) => `${m.label}（0星）`).join('、')}`);
+  lines.push(`元素与模式制衡：${elemParts.join('；') || '四元素与三模式分布相对均衡，无极端缺失或过载'}。`);
+
+  return lines.join('\n');
+}
+
+function buildAstrolabeCompactProfection(data: Data, question: string): string {
+  const birthYear = data.input.birth.year;
+  const parsedRefTs = data.flow?.reference.utcDateTime ? Date.parse(data.flow.reference.utcDateTime) : Number.NaN;
+  const refTs = Number.isFinite(parsedRefTs) ? parsedRefTs : undefined;
+  const refYear = refTs !== undefined ? new Date(refTs + 8 * 3_600_000).getUTCFullYear() : undefined;
+  const scope = inferFortuneScope(question, refYear, refTs, birthYear);
+
+  let targetYears = scope.years.filter((y) => y >= birthYear);
+  if (!targetYears.length) targetYears = [Math.max(scope.referenceYear, birthYear)];
+  while (targetYears.length < 3) targetYears.push(targetYears[targetYears.length - 1] + 1);
+  if (targetYears.length > 5) targetYears = targetYears.slice(0, 5);
+
+  const profectFor = (year: number) => {
+    const age = year - birthYear;
+    const houseNum = (age % 12) + 1;
+    const houseObj = data.houses[houseNum - 1];
+    const ruler = classicalRulers[houseObj.signIndex];
+    return { year, age, houseNum, sign: houseObj.sign, ruler };
+  };
+
+  const entries = targetYears.map(profectFor);
+  const chainLine = `小限年运：${entries
+    .map((e) => `${e.year}(${e.age}岁·${e.houseNum}宫${e.sign}·年主${e.ruler.name}${e.year === scope.referenceYear ? '·当前' : ''})`)
+    .join('｜')}`;
+
+  const focus = entries.find((e) => e.year === scope.referenceYear) ?? entries[0];
+  const sunLon = data.points.find((p) => p.id === 'sun')?.longitude ?? 0;
+  const rulerPt = data.points.find((p) => p.id === focus.ruler.id);
+  const rulerDignity = rulerPt ? formatPointDignityAndSolar(rulerPt, sunLon).replace(/^（|）$/g, '') : '';
+  const rulerState = rulerPt
+    ? `${focus.ruler.name}(本命${rulerPt.sign}第${rulerPt.house}宫${rulerDignity ? `·${rulerDignity}` : ''})`
+    : focus.ruler.name;
+
+  let flowNote = '未附行运快照，仅按本命小限年主定位';
+  if (data.flow?.transit) {
+    const topAspects = [...data.flow.transit.aspects]
+      .sort((a, b) => a.deviation - b.deviation)
+      .slice(0, 2)
+      .map((a) => `${a.movingName}${a.label}本命${a.natalName}(${a.deviation.toFixed(1)}°)`);
+    flowNote = topAspects.length ? `行运焦点：${topAspects.join('、')}` : '行运快照已附（无紧密主相位）';
+  } else if (data.flow) {
+    flowNote = '推运快照见下方明细';
+  }
+
+  const detailLine = `当前年主：${rulerState}，引动${focus.houseNum}宫${houseDomains[focus.houseNum - 1]}；${flowNote}`;
+  return `${chainLine}\n${detailLine}`;
+}
+
 export function renderAstrolabeIndependentData(data: Data, question: string, options?: Input['prompt'], renderOptions?: { includePeriod?: boolean }) {
   const sunLon = data.points.find((p) => p.id === 'sun')?.longitude ?? 0;
   const location = (item: { name: string; sign: string; degreeInSign: number; house: number }) => `${item.name}${item.sign}${item.degreeInSign.toFixed(2)}°，第${item.house}宫`;
@@ -231,13 +418,20 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
     return [`【推运参考】\n${flow.reference.kind}，UTC ${flow.reference.utcDateTime}${flow.reference.localDateTime ? `，当地 ${flow.reference.localDateTime}` : ''}。`, transit, returns, secondary, arc, period, `【推运限制】\n${flow.limitations.join('\n')}`].filter(Boolean).join('\n\n');
   })() : '';
   const pointItems = [...data.points.map(pointLocation), ...data.derived.map(location)];
-  const text = [`【西洋星盘本命】\n出生 UTC ${data.basis.utcDateTime}；${data.basis.houseSystem} 宫位制；${data.basis.dayChart ? '昼盘' : '夜盘'}。`,
+  const birthMeta = [
+    data.input.birth.name?.trim() ? `称谓：${data.input.birth.name.trim()}` : '',
+    data.input.birth.gender === 'male' ? '性别：男' : data.input.birth.gender === 'female' ? '性别：女' : '',
+    data.input.birth.locationName?.trim() ? `出生地：${data.input.birth.locationName.trim()}` : '',
+  ].filter(Boolean);
+  const text = [`【西洋星盘本命】\n${birthMeta.length ? `${birthMeta.join('；')}；` : ''}出生 UTC ${data.basis.utcDateTime}；${data.basis.houseSystem} 宫位制；${data.basis.dayChart ? '昼盘' : '夜盘'}。`,
     `【星体与计算点】\n${pointItems.join('；')}`,
     `【四轴与宫首】\n${data.angles.map(location).join('；')}\n${data.houses.map((item) => `${item.house}宫${item.sign}${item.degreeInSign.toFixed(2)}°`).join('；')}`,
     `【十二宫宫主星与飞宫】\n${houseRulerText}`,
     `【本命相位】\n${aspectText || '未发现符合阈值的相位。'}`,
     `【十大星体分布】\n元素：${distribution(data.distributions.elements)}\n模式：${distribution(data.distributions.modalities)}\n逆行：${data.distributions.retrograde.map((item) => item.name).join('、') || '无'}`, 
     `【十大星体格局】\n${patternText || '按当前相位及星群规则未发现格局。'}`,
+    `【相位格局与能量制衡关系】\n${buildAstrolabePatternRelations(data)}`,
+    `【小限与年运窗口（压平精要）】\n${buildAstrolabeCompactProfection(data, question)}`,
     flowText,
     formatSchoolAlgorithmSection(evaluateAstrolabeSchoolAlgorithms(data, options?.schools)),
     schools ? `【解读口径】\n${schools}` : '', options?.topic ? `【关注主题】\n${topicLabels[options.topic]}` : '',

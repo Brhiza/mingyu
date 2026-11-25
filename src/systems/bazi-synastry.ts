@@ -67,14 +67,18 @@ async function buildData(input: Source) {
     if (birth.clock.kind === 'exact') {
       const baseChart = await calculateBaziPillars({ ...birth, clock: birth.clock }, gender);
       const chart = { ...baseChart, usefulGod: determineUsefulGod(baseChart), candidate: null };
-      return { chart, exactChart: chart, gender, variants: [{ index: null, pillars: chart.pillars }], candidates: [] };
+      const fortune = gender ? calculateBaziFortune(chart, gender) : null;
+      const located = source.referenceTime && fortune
+        ? locateBaziFortune(chart, fortune, Date.parse(source.referenceTime))
+        : null;
+      return { chart, exactChart: chart, fortune, located, gender, variants: [{ index: null, pillars: chart.pillars }], candidates: [] };
     }
     const { clock, ...day } = birth;
     const range = await calculateUnknownBaziTime({ ...day, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, gender);
     const candidates = range.segments.map((item, index) => ({ index, startTimestamp: item.startTimestamp, endTimestamp: item.endTimestamp, endExclusive: true as const, timezone: item.timezone,
       pillars: Object.fromEntries(positions.map((position) => [position, item.pillars[position].ganZhi])), monthCommander: item.monthCommander.stem }));
     const variants = range.segments.map((item, index) => ({ index, pillars: item.pillars }));
-    if (candidateIndex === undefined) return { chart: null, exactChart: null, gender, variants, candidates };
+    if (candidateIndex === undefined) return { chart: null, exactChart: null, fortune: null, located: null, gender, variants, candidates };
     if (!range.segments[candidateIndex]) throw new Error(`出生时段候选索引超出范围：共有 ${range.segments.length} 个候选。`);
     const segment = range.segments[candidateIndex], total = range.segments.length;
     const chart = { input: birth, basis: { precision: 'candidate' as const, localDateTime: formatCivilDateTime(segment.localStart), timezone: segment.timezone,
@@ -83,18 +87,15 @@ async function buildData(input: Source) {
       candidate: { index: candidateIndex, total, nextIndex: candidateIndex + 1 < total ? candidateIndex + 1 : null,
         startTimestamp: segment.startTimestamp, endTimestamp: segment.endTimestamp, endExclusive: true as const, source: range.source,
         candidates } };
-    return { chart, exactChart: null, gender, variants, candidates };
+    return { chart, exactChart: null, fortune: null, located: null, gender, variants, candidates };
   };
   const [first, second] = await Promise.all([calculatePerson(source.person1), calculatePerson(source.person2)]);
   const person1 = first.chart, person2 = second.chart;
   if (!person1 || !person2) return { input: source, charts: { person1, person2 }, candidates: { person1: first.candidates, person2: second.candidates }, compatibility: null,
     candidateComparison: aggregateBaziCompatibility(first.variants, second.variants, source.comparisonPage) };
-  const fortuneComparison = source.referenceTime && first.exactChart && second.exactChart && first.gender && second.gender ? (() => {
-    const refTs = Date.parse(source.referenceTime!);
-    const f1 = calculateBaziFortune(first.exactChart, first.gender);
-    const f2 = calculateBaziFortune(second.exactChart, second.gender);
-    const loc1 = locateBaziFortune(first.exactChart, f1, refTs);
-    const loc2 = locateBaziFortune(second.exactChart, f2, refTs);
+  const fortuneComparison = source.referenceTime && first.exactChart && second.exactChart && first.fortune && second.fortune && first.located && second.located ? (() => {
+    const loc1 = first.located;
+    const loc2 = second.located;
     const classifyGanZhi = (ganZhi: string, ug: typeof person1.usefulGod) => {
       const stemEl = stemElementOf(ganZhi[0]);
       const stemFav = ug.favorableWuxing.includes(stemEl) ? '喜用' : ug.unfavorableWuxing.includes(stemEl) ? '忌神' : '中性';
@@ -120,9 +121,9 @@ async function buildData(input: Source) {
       crossDayunRelations,
     };
   })() : undefined;
-  const annualSync = source.syncYears && first.exactChart && second.exactChart && first.gender && second.gender ? (() => {
-    const f1 = calculateBaziFortune(first.exactChart, first.gender);
-    const f2 = calculateBaziFortune(second.exactChart, second.gender);
+  const annualSync = source.syncYears && first.exactChart && second.exactChart && first.fortune && second.fortune ? (() => {
+    const f1 = first.fortune;
+    const f2 = second.fortune;
     const evaluateTendency = (ganZhi: string, ug: typeof person1.usefulGod) => {
       const stemEl = stemElementOf(ganZhi[0]);
       if (ug.favorableWuxing.includes(stemEl)) return '喜用' as const;
@@ -164,16 +165,246 @@ async function buildData(input: Source) {
       limitation: '流年同步按公历年中立春后干支与双方原局日支、天干喜忌比对，不含流月逐日细节，不代表必然现实事件。',
     };
   })() : undefined;
-  return { input: source, charts: { person1, person2 }, compatibility: { ...buildBaziCompatibility(person1.pillars, person2.pillars), directionCoverage: {
-    person1FromPerson2: buildDirectionCoverage(person1.usefulStrategy, person2.pillars), person2FromPerson1: buildDirectionCoverage(person2.usefulStrategy, person1.pillars),
-  }, finalUsefulGodCoverage: {
-    person1FromPerson2: buildUsefulGodCoverage(person1.usefulGod, person2.pillars), person2FromPerson1: buildUsefulGodCoverage(person2.usefulGod, person1.pillars),
-  }, spousePalaceDeep: evaluateSpousePalaceDeep(person1.pillars, person2.pillars),
-  usefulGodComplementarity: evaluateUsefulGodComplementarity(person1.usefulGod, person1.pillars, person2.usefulGod, person2.pillars),
-  ...(fortuneComparison ? { fortuneComparison } : {}),
-  ...(annualSync ? { annualSync } : {}) },
+  const baseCompatibility = buildBaziCompatibility(person1.pillars, person2.pillars);
+  const directionCoverage = {
+    person1FromPerson2: buildDirectionCoverage(person1.usefulStrategy, person2.pillars),
+    person2FromPerson1: buildDirectionCoverage(person2.usefulStrategy, person1.pillars),
+  };
+  const finalUsefulGodCoverage = {
+    person1FromPerson2: buildUsefulGodCoverage(person1.usefulGod, person2.pillars),
+    person2FromPerson1: buildUsefulGodCoverage(person2.usefulGod, person1.pillars),
+  };
+  const spousePalaceDeep = evaluateSpousePalaceDeep(person1.pillars, person2.pillars);
+  const usefulGodComplementarity = evaluateUsefulGodComplementarity(person1.usefulGod, person1.pillars, person2.usefulGod, person2.pillars);
+  const synastryBalance = buildBaziSynastryBalance({
+    person1,
+    person2,
+    comparisons: baseCompatibility.comparisons,
+    combinations: baseCompatibility.combinations,
+    spousePalaceDeep,
+    usefulGodComplementarity,
+  });
+  const p1Chart = first.fortune ? { ...person1, fortune: first.fortune, ...(first.located ? { located: first.located } : {}) } : person1;
+  const p2Chart = second.fortune ? { ...person2, fortune: second.fortune, ...(second.located ? { located: second.located } : {}) } : person2;
+  return { input: source, charts: { person1: p1Chart, person2: p2Chart }, compatibility: { ...baseCompatibility, directionCoverage, finalUsefulGodCoverage, spousePalaceDeep, usefulGodComplementarity, synastryBalance,
+    ...(fortuneComparison ? { fortuneComparison } : {}),
+    ...(annualSync ? { annualSync } : {}) },
     ...(source.compareCandidates ? { candidateComparison: aggregateBaziCompatibility(first.variants, second.variants, source.comparisonPage) } : {}) };
 }
+type BaseCompatibility = ReturnType<typeof buildBaziCompatibility>;
+type SpousePalaceDeep = ReturnType<typeof evaluateSpousePalaceDeep>;
+type UsefulGodComp = ReturnType<typeof evaluateUsefulGodComplementarity>;
+type ChartLike = {
+  pillars: Record<PillarName, { gan: string; zhi: string; ganZhi: string; stemElement: string; branchElement: string }>;
+  usefulGod: ReturnType<typeof determineUsefulGod>;
+};
+
+export interface BaziSynastryBalanceResult {
+  usefulDirection: '双向互补' | '单向补益（第一人补第二人）' | '单向补益（第二人补第一人）' | '未见有效互补' | '用神未完整裁定';
+  usefulSummary: string;
+  usefulTensions: string[];
+  dayPillarPattern: '天地德合' | '天克地冲' | '合中有冲（外合内冲）' | '克中有合（外克内合）' | '日柱合和' | '日柱冲刑害' | '日柱平和';
+  dayPillarRelations: string[];
+  monthPillarRelations: string[];
+  crossPillarModulations: string[];
+  harmonyCount: number;
+  clashHarmCount: number;
+  overallBalanceTag: '合多于冲' | '冲刑多于合' | '合冲并见' | '干支平和';
+}
+
+function collectElementCounts(pillars: ChartLike['pillars'], targets: readonly string[]): Array<{ element: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const el of targets) counts.set(el, 0);
+  for (const pos of positions) {
+    const p = pillars[pos];
+    if (counts.has(p.stemElement)) counts.set(p.stemElement, (counts.get(p.stemElement) ?? 0) + 1);
+    if (counts.has(p.branchElement)) counts.set(p.branchElement, (counts.get(p.branchElement) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([element, count]) => ({ element, count }));
+}
+
+export function buildBaziSynastryBalance(input: {
+  person1: ChartLike;
+  person2: ChartLike;
+  comparisons: BaseCompatibility['comparisons'];
+  combinations: BaseCompatibility['combinations'];
+  spousePalaceDeep: SpousePalaceDeep;
+  usefulGodComplementarity: UsefulGodComp;
+}): BaziSynastryBalanceResult {
+  const { person1, person2, comparisons, combinations, spousePalaceDeep, usefulGodComplementarity } = input;
+  const p1Fav = person1.usefulGod.favorableWuxing ?? [];
+  const p2Fav = person2.usefulGod.favorableWuxing ?? [];
+  const p1Avoid = person1.usefulGod.unfavorableWuxing ?? [];
+  const p2Avoid = person2.usefulGod.unfavorableWuxing ?? [];
+
+  const p1FavInP2 = collectElementCounts(person2.pillars, p1Fav);
+  const p2FavInP1 = collectElementCounts(person1.pillars, p2Fav);
+  const p1Got = usefulGodComplementarity.person1CoveredByPerson2Count;
+  const p2Got = usefulGodComplementarity.person2CoveredByPerson1Count;
+  const p1AvoidGot = usefulGodComplementarity.person1AvoidCountInPerson2;
+  const p2AvoidGot = usefulGodComplementarity.person2AvoidCountInPerson1;
+
+  let usefulDirection: BaziSynastryBalanceResult['usefulDirection'];
+  if (usefulGodComplementarity.dataStatus !== '完整') {
+    usefulDirection = '用神未完整裁定';
+  } else if (p1Got > 0 && p2Got > 0) {
+    usefulDirection = '双向互补';
+  } else if (p2Got > 0 && p1Got === 0) {
+    usefulDirection = '单向补益（第一人补第二人）';
+  } else if (p1Got > 0 && p2Got === 0) {
+    usefulDirection = '单向补益（第二人补第一人）';
+  } else {
+    usefulDirection = '未见有效互补';
+  }
+
+  const fmtHits = (items: Array<{ element: string; count: number }>) =>
+    items.filter((x) => x.count > 0).map((x) => `${x.element}${x.count}处`).join('、') || '无主气命中';
+
+  const usefulSummary =
+    usefulDirection === '用神未完整裁定'
+      ? `用神数据状态「${usefulGodComplementarity.dataStatus}」，待补齐后核定单向/双向互补`
+      : `${usefulDirection}：第一人喜用（${p1Fav.join('、')}）得第二人主气补益［${fmtHits(p1FavInP2)}］（兼带第一人忌神${p1AvoidGot}处）；第二人喜用（${p2Fav.join('、')}）得第一人主气补益［${fmtHits(p2FavInP1)}］（兼带第二人忌神${p2AvoidGot}处）`;
+
+  const usefulTensions: string[] = [];
+  const p1FavVsP2Avoid = p1Fav.filter((el) => p2Avoid.includes(el));
+  const p2FavVsP1Avoid = p2Fav.filter((el) => p1Avoid.includes(el));
+  if (p1FavVsP2Avoid.length) {
+    usefulTensions.push(`喜忌对冲：第一人喜用「${p1FavVsP2Avoid.join('、')}」为第二人忌神（同环境/流年旺${p1FavVsP2Avoid.join('、')}时一顺一压）`);
+  }
+  if (p2FavVsP1Avoid.length) {
+    usefulTensions.push(`喜忌对冲：第二人喜用「${p2FavVsP1Avoid.join('、')}」为第一人忌神（同环境/流年旺${p2FavVsP1Avoid.join('、')}时一顺一压）`);
+  }
+  if (usefulGodComplementarity.dataStatus === '完整' && p1AvoidGot > p1Got) {
+    usefulTensions.push(`补喜兼带忌：第二人盘中第一人忌神（${p1AvoidGot}处）多于喜用（${p1Got}处），助力与压力并存`);
+  }
+  if (usefulGodComplementarity.dataStatus === '完整' && p2AvoidGot > p2Got) {
+    usefulTensions.push(`补喜兼带忌：第一人盘中第二人忌神（${p2AvoidGot}处）多于喜用（${p2Got}处），助力与压力并存`);
+  }
+
+  const dayPair = comparisons.find((pair) => pair.person1Pillar === 'day' && pair.person2Pillar === 'day');
+  const monthPair = comparisons.find((pair) => pair.person1Pillar === 'month' && pair.person2Pillar === 'month');
+  const dayRels = (dayPair?.relations ?? []).map((r) => (r.subtype ? `${r.name}（${r.subtype}）` : r.name));
+  const monthRels = (monthPair?.relations ?? []).map((r) => (r.subtype ? `${r.name}（${r.subtype}）` : r.name));
+
+  const dayHasStemHe = dayRels.some((r) => r.includes('天干五合'));
+  const dayHasStemChongOrKe = spousePalaceDeep.stemRelation === '天干冲' || spousePalaceDeep.stemRelation === '相克';
+  const dayHasBranchHe = dayRels.some((r) => r.includes('地支六合'));
+  const dayHasBranchClash = dayRels.some((r) => r.includes('地支六冲') || r.includes('地支相刑') || r.includes('地支六害'));
+
+  let dayPillarPattern: BaziSynastryBalanceResult['dayPillarPattern'];
+  if (spousePalaceDeep.isTianDeHe) dayPillarPattern = '天地德合';
+  else if (spousePalaceDeep.isTianKeDiChong) dayPillarPattern = '天克地冲';
+  else if (dayHasStemHe && dayHasBranchClash) dayPillarPattern = '合中有冲（外合内冲）';
+  else if (dayHasStemChongOrKe && dayHasBranchHe) dayPillarPattern = '克中有合（外克内合）';
+  else if (dayHasStemHe || dayHasBranchHe) dayPillarPattern = '日柱合和';
+  else if (dayHasBranchClash) dayPillarPattern = '日柱冲刑害';
+  else dayPillarPattern = '日柱平和';
+
+  const crossPillarModulations: string[] = [];
+  const d1Zhi = person1.pillars.day.zhi;
+  const d2Zhi = person2.pillars.day.zhi;
+
+  // 检查“冲中有合”：双方日支相冲/刑/害时，是否有别柱六合或跨盘三合三会涉及日支以缓冲
+  if (dayHasBranchClash) {
+    const relievingPairs = comparisons.filter(
+      (pair) =>
+        !(pair.person1Pillar === 'day' && pair.person2Pillar === 'day') &&
+        (pair.person1Pillar === 'day' || pair.person2Pillar === 'day') &&
+        pair.relations.some((r) => r.name === '地支六合'),
+    );
+    const relievingGroups = combinations.filter((group) =>
+      group.members.some((m) => m.sources.some((s) => s.pillar === 'day')),
+    );
+    const buffers: string[] = [
+      ...relievingPairs.map((pair) => `第一人${labels[pair.person1Pillar]}${pair.person1GanZhi}与第二人${labels[pair.person2Pillar]}${pair.person2GanZhi}地支六合`),
+      ...relievingGroups.map((g) => `跨盘${g.members.map((m) => m.branch).join('')}${g.name}${g.element}`),
+    ];
+    if (buffers.length) {
+      crossPillarModulations.push(`冲中有合（贪合减冲）：日支${d1Zhi}/${d2Zhi}虽见冲刑害，但别柱见${buffers.slice(0, 2).join('、')}，形成合解缓冲条件`);
+    } else {
+      crossPillarModulations.push(`日支${d1Zhi}/${d2Zhi}冲刑害无别柱六合或跨盘合局直接化解，须待岁运合支调和`);
+    }
+  }
+
+  // 检查“合中有冲”：双方日支六合或天地德合时，别柱是否冲刑日支
+  if (dayHasBranchHe || dayHasStemHe) {
+    const disruptingPairs = comparisons.filter(
+      (pair) =>
+        !(pair.person1Pillar === 'day' && pair.person2Pillar === 'day') &&
+        (pair.person1Pillar === 'day' || pair.person2Pillar === 'day') &&
+        pair.relations.some((r) => r.name === '地支六冲' || r.name === '地支相刑' || r.name === '地支六害'),
+    );
+    if (disruptingPairs.length) {
+      const items = disruptingPairs
+        .slice(0, 2)
+        .map((pair) => `第一人${labels[pair.person1Pillar]}${pair.person1GanZhi}与第二人${labels[pair.person2Pillar]}${pair.person2GanZhi}（${pair.relations.filter((r) => /冲|刑|害/.test(r.name)).map((r) => r.name).join('、')}）`);
+      crossPillarModulations.push(`合中有冲（别柱牵制）：日柱虽见合和，但别柱${items.join('；')}对日支构成冲刑害牵制`);
+    }
+  }
+
+  // 检查月柱（提纲）制衡
+  const monthHasHe = monthRels.some((r) => r.includes('合'));
+  const monthHasClash = monthRels.some((r) => /冲|刑|害/.test(r));
+  if (monthHasHe && dayHasBranchClash) {
+    crossPillarModulations.push(`月柱相合（${monthRels.join('、')}）缓冲日柱冲刑：现实大方向与原生节奏具相容基础`);
+  } else if (monthHasClash && (dayHasBranchHe || dayHasStemHe)) {
+    crossPillarModulations.push(`日柱相合而月柱冲刑（${monthRels.join('、')}）：近距离相吸但原生节奏/背景存在磨合张力`);
+  } else if (monthHasClash) {
+    crossPillarModulations.push(`双方月柱（提纲）见${monthRels.join('、')}：原生节奏与处事惯性易有摩擦`);
+  } else if (monthHasHe) {
+    crossPillarModulations.push(`双方月柱（提纲）见${monthRels.join('、')}：原生环境与节奏基调相合`);
+  }
+
+  let harmonyCount = combinations.length;
+  let clashHarmCount = 0;
+  for (const pair of comparisons) {
+    for (const rel of pair.relations) {
+      if (rel.name === '天干五合' || rel.name === '地支六合') harmonyCount++;
+      else if (rel.name === '天干相冲' || rel.name === '地支六冲' || rel.name === '地支相刑' || rel.name === '地支六害') clashHarmCount++;
+    }
+  }
+
+  const overallBalanceTag: BaziSynastryBalanceResult['overallBalanceTag'] =
+    harmonyCount === 0 && clashHarmCount === 0
+      ? '干支平和'
+      : harmonyCount > clashHarmCount && clashHarmCount > 0
+        ? '合多于冲'
+        : clashHarmCount > harmonyCount && harmonyCount > 0
+          ? '冲刑多于合'
+          : harmonyCount > 0 && clashHarmCount === 0
+            ? '合多于冲'
+            : clashHarmCount > 0 && harmonyCount === 0
+              ? '冲刑多于合'
+              : '合冲并见';
+
+  return {
+    usefulDirection,
+    usefulSummary,
+    usefulTensions,
+    dayPillarPattern,
+    dayPillarRelations: dayRels,
+    monthPillarRelations: monthRels,
+    crossPillarModulations,
+    harmonyCount,
+    clashHarmCount,
+    overallBalanceTag,
+  };
+}
+
+function formatBaziSynastryBalance(balance: BaziSynastryBalanceResult, persons: { person1: string; person2: string }): string {
+  const replaceNames = (text: string) =>
+    text.replace(/第一人/g, persons.person1).replace(/第二人/g, persons.person2);
+  const lines = [
+    `- 喜用互补方向：${replaceNames(balance.usefulSummary)}。`,
+    ...(balance.usefulTensions.length
+      ? [`- 喜忌张力条件：${balance.usefulTensions.map(replaceNames).join('；')}。`]
+      : ['- 喜忌张力条件：未见显著喜忌对冲或忌重于喜失衡。']),
+    `- 日柱与月柱互动：日柱呈「${balance.dayPillarPattern}」（${balance.dayPillarRelations.join('、') || '无直接刑冲合害'}）；月柱（提纲）为「${balance.monthPillarRelations.join('、') || '无直接刑冲合害'}」。`,
+    `- 干支合冲制衡：全盘跨柱合类（五合/六合/跨盘三合三会）${balance.harmonyCount} 处 vs 冲刑害类 ${balance.clashHarmCount} 处（${balance.overallBalanceTag}）${balance.crossPillarModulations.length ? `；${balance.crossPillarModulations.map(replaceNames).join('；')}` : ''}。`,
+  ];
+  return lines.join('\n');
+}
+
 type Data = Awaited<ReturnType<typeof buildData>>;
 function formatComparison(comparison: NonNullable<Data['candidateComparison']>, persons: { person1: string; person2: string }, full: boolean) {
   const factText = (item: typeof comparison.common[number]) => {
@@ -228,7 +459,8 @@ function render(data: Data, question: string, options: Input['prompt']) {
       chart.conger?.route ? `从儿${chart.conger.route}（${chart.conger.status}）` : isFull ? '从儿未命中' : '',
       chart.conger?.competingWealth ? `从财优先${chart.conger.competingWealth}` : isFull ? '从财优先未命中' : '',
     ].filter(Boolean);
-    return `${persons[id]}：${birth}；时区${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}；日时依据${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n${pillars.join('；')}；月令司权${chart.monthCommander.stem}；日主${chart.pillars.day.gan}${chart.pillars.day.stemElement}；旺衰模型${chart.strength.status}（月令${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}）；普通取格候选${chart.ordinaryPattern.candidate}（${chart.ordinaryPattern.source}）；${specialParts.length ? `${specialParts.join('；')}；` : ''}已核算路线优先${chart.patternOverview.pattern}；取用基础取向：有利${chart.usefulBaseline.favorable.join('、') || '待判'}，不利${chart.usefulBaseline.unfavorable.join('、') || '待判'}（非最终喜忌）；${summarizeClimate(chart.climate)}。\n通根：${chart.natalFacts.roots.map((root) => `${labels[root.position]}${root.stem}${root.status}`).join('、')}。`;
+    const genderLabel = data.input[id].gender === 'male' ? '乾造（男）' : data.input[id].gender === 'female' ? '坤造（女）' : '';
+    return `${persons[id]}：${genderLabel ? `性别${genderLabel}；` : ''}${birth}；时区${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}；日时依据${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n${pillars.join('；')}；月令司权${chart.monthCommander.stem}；日主${chart.pillars.day.gan}${chart.pillars.day.stemElement}；旺衰模型${chart.strength.status}（月令${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}）；普通取格候选${chart.ordinaryPattern.candidate}（${chart.ordinaryPattern.source}）；${specialParts.length ? `${specialParts.join('；')}；` : ''}已核算路线优先${chart.patternOverview.pattern}；取用基础取向：有利${chart.usefulBaseline.favorable.join('、') || '待判'}，不利${chart.usefulBaseline.unfavorable.join('、') || '待判'}（非最终喜忌）；${summarizeClimate(chart.climate)}。\n通根：${chart.natalFacts.roots.map((root) => `${labels[root.position]}${root.stem}${root.status}`).join('、')}。`;
   };
   const dm = compatibility.dayMasterRelation;
   const nayinAndSpousePalaceSummary = (() => {
@@ -285,6 +517,7 @@ function render(data: Data, question: string, options: Input['prompt']) {
     `【双方取用条件候选】\n${persons.person1}：${summarizeUsefulStrategy(charts.person1.usefulStrategy)}\n${persons.person2}：${summarizeUsefulStrategy(charts.person2.usefulStrategy)}`,
     `【双方条件候选与对方盘面】\n${persons.person1}的条件候选在${persons.person2}盘中：${formatDirectionCoverage(compatibility.directionCoverage.person1FromPerson2)}\n${persons.person2}的条件候选在${persons.person1}盘中：${formatDirectionCoverage(compatibility.directionCoverage.person2FromPerson1)}`,
     `【双方用神裁定与跨盘覆盖】\n互补等级：${compatibility.usefulGodComplementarity.level}（${compatibility.usefulGodComplementarity.judgment}）\n${persons.person1}用神在${persons.person2}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person1FromPerson2)}\n${persons.person2}用神在${persons.person1}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person2FromPerson1)}`,
+    `【双盘喜忌互补与干支制衡关系】\n${formatBaziSynastryBalance(compatibility.synastryBalance, persons)}`,
     `【双方格局透干条件】\n${persons.person1}：${formatPatternEvidence(charts.person1.patternEvidence)}\n${persons.person2}：${formatPatternEvidence(charts.person2.patternEvidence)}`,
     `【双方日主】\n${persons.person1}日主${dm.person1Stem}${dm.person1Element}对${persons.person2}日主${dm.person2Stem}${dm.person2Element}：${dm.person1ToPerson2}；反向：${dm.person2ToPerson1}。对方日干相对各自日主分别为${dm.person2AsPerson1TenGod}、${dm.person1AsPerson2TenGod}。\n${nayinAndSpousePalaceSummary}`,
     `【跨柱关系】\n${relations.join('；') || '未命中所列跨柱关系。'}`,

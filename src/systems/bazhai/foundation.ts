@@ -64,7 +64,7 @@ export function birthYearCandidates(input: { year: number; month?: number; day?:
   if ((input.month === undefined) !== (input.day === undefined) || (input.clock && input.month === undefined)) throw new Error('出生月日须同时提供，出生时刻须提供完整日期。');
   if (input.month === undefined || input.day === undefined) {
     if (input.timezone !== undefined || input.timeZoneId !== undefined) throw new Error('仅有年份时不接受时区设置。');
-    return { years: [input.year - 1, input.year], status: '待核' as const, rule: '未提供出生月日，列出立春前后年份候选。' };
+    return { years: [input.year - 1, input.year], status: '交界双候选' as const, rule: '未提供出生月日，列出立春前后年份候选。' };
   }
   const term = SolarTerm.fromIndex(input.year, 3).getJulianDay().getSolarTime();
   const boundary = createUtcTimestamp(term.getYear(), term.getMonth() - 1, term.getDay(), term.getHour() - 8, term.getMinute(), term.getSecond());
@@ -84,5 +84,5 @@ export function birthYearCandidates(input: { year: number; month?: number; day?:
   }
   if (dayEnd === undefined || dayEnd <= dayStart) throw new Error('无法确定出生当地日的完整范围。');
   const years = dayStart < boundary && dayEnd > boundary ? [input.year - 1, input.year] : [dayEnd <= boundary ? input.year - 1 : input.year];
-  return { years, status: years.length > 1 ? '待核' as const : '已核定' as const, boundary, rule: '按当地公历日与立春瞬时比较；跨立春时保留两种候选。' };
+  return { years, status: years.length > 1 ? '交界双候选' as const : '已核定' as const, boundary, rule: '按当地公历日与立春瞬时比较；跨立春时保留两种候选。' };
 }

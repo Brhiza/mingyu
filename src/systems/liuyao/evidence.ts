@@ -1043,8 +1043,8 @@ export function analyzeLiuyaoEvidence(data: LiuyaoChart, options: LiuyaoEvidence
                     (candidate) =>
                       `${candidate.label}见${candidate.references.map(formatYao).join('、')}`,
                   )
-                  .join('；')}；主用神取用仍待核实`
-              : '本卦与伏神未见本次候选对应爻；主用神取用待核实'
+                  .join('；')}；主用神未显，改以世应及现有辅证爻并参裁定`
+              : '本卦与伏神均未见本次候选对应爻，改以世应、动变与月日旺衰综合裁定'
           }；世应与动变作为现有盘面线索保留`,
     sources: ['候选顺序、匹配状态与逐爻引用核验'],
     limitation: SELECTION_FACT_LIMITATION,
@@ -1220,29 +1220,122 @@ function buildLiuyaoSchoolAlgorithms(
   data: LiuyaoChart,
   lineFacts: readonly LiuyaoLineFact[],
   hiddenSpiritFacts: readonly LiuyaoHiddenSpiritFact[],
+  selectedCandidate: LiuyaoUsefulGodCandidate | null,
+  monthBranch: string,
+  dayBranch: string,
   schools: readonly LiuyaoSchoolId[] | undefined,
 ): LiuyaoSchoolAlgorithmEvaluation[] {
   const uniqueSchools = [...new Set(schools ?? [])];
   if (!uniqueSchools.length) return [];
+
+  const worldLine = lineFacts.find((l) => l.roles.includes('世爻'));
+  const responseLine = lineFacts.find((l) => l.roles.includes('应爻'));
+  const focusPos = selectedCandidate?.references.find((r) => r.source === '本卦')?.position ?? worldLine?.position;
+  const focusLine = lineFacts.find((l) => l.position === focusPos) ?? worldLine;
+  const focusLabel = selectedCandidate?.references.some((r) => r.source === '本卦')
+    ? `主用神${selectedCandidate.label}`
+    : '世爻';
+
+  const describeMonthDay = (line: LiuyaoLineFact | undefined, title: string): string => {
+    if (!line) return `${title}未定位`;
+    const mTags = [line.monthState.seasonState, ...line.monthState.relations].filter(Boolean).join('、') || '平势';
+    const dTags = line.dayState.relations.join('、') || '无特殊生克冲合';
+    return `${title}（第${line.position}爻${line.sixRelative}${line.najia.branch}${line.najia.wuxing}）：月建${monthBranch}[${mTags}]，日辰${dayBranch}[${dTags}]${line.isVoid ? '，逢旬空' : ''}`;
+  };
+
   return uniqueSchools.map((school) => {
     if (school === 'zengshanbuyi') {
       const findings: string[] = [];
+      findings.push(describeMonthDay(focusLine, focusLabel));
+      if (responseLine && responseLine.position !== focusLine?.position) {
+        findings.push(describeMonthDay(responseLine, '应爻'));
+      }
+
+      // 动爻与变爻回头生克、化进退神
+      const usefulMoves: string[] = [];
+      const harmedMoves: string[] = [];
+      for (const yao of data.yaosDetail) {
+        if (!yao.isChanging) continue;
+        const rels = yao.changeRelations ?? [];
+        const isGoodMove = yao.changeDirection === '化进神' || rels.includes('回头生') || rels.includes('比和');
+        const isBadMove = yao.changeDirection === '化退神'
+          || rels.some((r) => ['化破', '化空', '回头克', '回头冲', '化墓'].includes(r));
+        const tags = [yao.changeDirection, ...rels].filter(Boolean).join('、') || '动变平势';
+        const desc = `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}动变（${tags}）`;
+        if (isBadMove) harmedMoves.push(desc);
+        else if (isGoodMove) usefulMoves.push(desc);
+        else usefulMoves.push(desc);
+      }
+      if (usefulMoves.length) findings.push(`动变有用/进生：${usefulMoves.join('；')}`);
+      if (harmedMoves.length) findings.push(`动变退克/受制：${harmedMoves.join('；')}`);
+
+      // 暗动、日破与旬空真假判别
+      const specialStates: string[] = [];
+      const timingHints: string[] = [];
       for (const yao of data.yaosDetail) {
         if (!yao.isChanging && yao.isMonthBreak && yao.isDayClash) {
-          findings.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}月破又逢日冲，依《增删卜易》仍作日破不起用，不作暗动`);
+          specialStates.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}月破又逢日冲，依《增删卜易》定作日破不起用，不作暗动`);
         } else if (yao.isHiddenMove) {
-          findings.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}具暗动资格`);
+          specialStates.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}旺相逢日冲具暗动资格，可即刻生克他爻`);
+          timingHints.push(`暗动${yao.najiaDizhi}主事态速动或当日/逢合日应`);
+        } else if (!yao.isChanging && yao.isDayBreak) {
+          specialStates.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}休囚逢日冲作日破，目下失力`);
         }
-        if (yao.isChanging && (yao.changeDirection === '化退神' || yao.changeRelations?.some((r) => ['化破', '化空', '回头克', '回头冲'].includes(r)))) {
-          findings.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}动变见${[yao.changeDirection, ...(yao.changeRelations ?? [])].filter(Boolean).join('、')}`);
+        const lf = lineFacts.find((l) => l.position === yao.position);
+        if (lf?.isVoid) {
+          const isFakeVoid = yao.isChanging
+            || yao.seasonState === '旺'
+            || yao.seasonState === '相'
+            || yao.isDayClash
+            || lf.dayState.relations.some((r) => r.includes('生') || r.includes('扶') || r.includes('冲'));
+          if (isFakeVoid && !yao.isMonthBreak) {
+            specialStates.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}属假空（旺相或动冲得助），出空填实即有用`);
+            timingHints.push(`${yao.najiaDizhi}旬空待出空、填实或冲实之日应验`);
+          } else {
+            specialStates.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}休囚破损又逢旬空，偏近真空难即成`);
+          }
         }
       }
-      if (!findings.length) findings.push('本盘未见静爻破而逢冲或动变退破特殊冲突');
+      if (specialStates.length) findings.push(`暗动/日破/旬空辨析：${specialStates.slice(0, 4).join('；')}`);
+
+      // 综合吉凶倾向与应期裁定
+      const focusStrong = Boolean(
+        focusLine
+        && (focusLine.monthState.seasonState === '旺'
+          || focusLine.monthState.seasonState === '相'
+          || focusLine.dayState.relations.some((r) => r.includes('生') || r.includes('扶') || r.includes('合'))),
+      );
+      const focusBroken = Boolean(
+        focusLine
+        && (focusLine.monthState.relations.includes('月破')
+          || focusLine.dayState.relations.includes('日破')
+          || focusLine.constraints.some((c) => c.includes('回头克') || c.includes('化退'))),
+      );
+      const verdict = focusBroken
+        ? `吉凶倾向：${focusLabel}逢破或受动变回头克退，阻力偏重、难速成，宜守避防损或待合破旺时再图`
+        : focusStrong && !focusLine?.isVoid
+          ? `吉凶倾向：${focusLabel}得月日生扶且无破空拖累，根基扎实，整体偏吉可成`
+          : focusStrong && focusLine?.isVoid
+            ? `吉凶倾向：${focusLabel}旺相逢假空，属先虚后实之象，出空填实后可成`
+            : harmedMoves.length > usefulMoves.length
+              ? `吉凶倾向：盘面动变多见退破受制，推进易生折损，宜收紧预期稳步核验`
+              : `吉凶倾向：${focusLabel}旺衰持平，宜凭动爻指向与世应协调稳健推进`;
+      if (!timingHints.length) {
+        if (focusLine?.monthState.relations.includes('月破')) {
+          timingHints.push(`月破之爻须待出月、填实或逢合之日缓解`);
+        } else if (usefulMoves.length) {
+          timingHints.push(`以发动有用之爻值日、逢合或冲开羁绊之时为应期`);
+        } else {
+          timingHints.push(`静卦或平势以${focusLabel}（${focusLine?.najia.branch ?? ''}）值日、逢生扶之期应验`);
+        }
+      }
+      findings.push(`${verdict}；应期条件：${[...new Set(timingHints)].slice(0, 3).join('；')}`);
+
       return {
         school,
         label: '增删卜易口径',
-        guaShenRule: '不拘月卦身（不作核心用神或反证依据）',
-        dayClashRule: '静爻月破虽逢日冲仍作日破；暗动须月令旺相或旬空冲起',
+        guaShenRule: '不拘月卦身（专以用神、世应、月日与动变生克定成败）',
+        dayClashRule: '静爻月破逢日冲仍作日破；暗动须旺相或旬空冲起，并严辨真空假空与化进退神',
         findings,
       };
     }
@@ -1250,7 +1343,7 @@ function buildLiuyaoSchoolAlgorithms(
       const findings: string[] = [];
       const gs = data.guaShen;
       if (!gs || typeof gs.position !== 'number') {
-        findings.push(`月卦身${gs?.branch ?? ''}伏藏未上主卦，依《卜筮正宗》主事体尚缺依托或未显`);
+        findings.push(`月卦身${gs?.branch ?? ''}伏藏未上主卦，依《卜筮正宗》主事体尚缺依托或关键条件未显`);
       } else {
         const yao = data.yaosDetail.find((item) => item.position === gs.position);
         const gsVoid = data.voidBranches.includes(gs.branch) ? '逢旬空' : '';
@@ -1260,8 +1353,9 @@ function buildLiuyaoSchoolAlgorithms(
           yao?.isMonthBreak ? '月破' : '',
           yao?.isDayBreak ? '日破' : '',
         ].filter(Boolean);
-        findings.push(`月卦身${gs.branch}（${gs.sixRelative}）落第${gs.position}爻${gsFlags.length ? `［${gsFlags.join('、')}］` : ''}`);
+        findings.push(`月卦身${gs.branch}（${gs.sixRelative}）落第${gs.position}爻${gsFlags.length ? `［${gsFlags.join('、')}］` : '（未见空破）'}`);
       }
+      findings.push(describeMonthDay(worldLine, '世爻'));
       for (const hs of hiddenSpiritFacts) {
         findings.push(hs.promptText);
       }
@@ -1274,10 +1368,13 @@ function buildLiuyaoSchoolAlgorithms(
       };
     }
     // huozhulin
-    const findings: string[] = [`卦属${data.palace.name}（${data.palaceStage}）`];
+    const findings: string[] = [
+      `卦属${data.palace.name}（${data.palaceStage}）`,
+      describeMonthDay(focusLine, focusLabel),
+    ];
     for (const yao of data.yaosDetail) {
       if (!yao.isChanging && yao.isDayBreak) {
-        findings.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}休囚逢日冲（增删法作日破，古法需结合神煞细辨冲散或微动）`);
+        findings.push(`第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}休囚逢日冲（增删法作日破，古法结合神煞与旺衰细辨冲散或微动）`);
       }
     }
     if (data.guaShen) {
@@ -1293,7 +1390,15 @@ function buildLiuyaoSchoolAlgorithms(
   });
 }
 
-  const schoolAlgorithms = buildLiuyaoSchoolAlgorithms(data, lineFacts, hiddenSpiritFacts, options.schools);
+  const schoolAlgorithms = buildLiuyaoSchoolAlgorithms(
+    data,
+    lineFacts,
+    hiddenSpiritFacts,
+    selectedCandidate,
+    monthBranch,
+    dayBranch,
+    options.schools,
+  );
   return {
     key: 'liuyao:evidence' as const, status: '已计算' as const, topic, monthBranch, dayBranch,
     candidates, selectedCandidate, godChain, traditionalSymbols, structureFacts, lineCoverageFact,

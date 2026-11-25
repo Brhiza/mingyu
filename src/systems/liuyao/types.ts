@@ -28,7 +28,7 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isVoid: boolean;
   /** 是否与日辰相冲；结合动静、月破、月令旺相和旬空冲起区分暗动、日破或动爻受冲。 */
   isDayClash?: boolean;
-  /** 静爻受日冲而未具暗动资格；暗动另核月破、月令旺相或旬空冲起，动爻受冲读取 isDayClash。 */
+  /** 静爻受日冲而未具暗动资格；暗动需综合月破、月令旺相或旬空冲起判定，动爻受冲读取 isDayClash。 */
   isDayBreak?: boolean;
   isMonthBreak?: boolean;
   /** 非月破静爻受日冲，且月令旺相或旬空冲起；旬空身份仍保留。 */

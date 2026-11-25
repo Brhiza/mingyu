@@ -21,7 +21,7 @@ const LIUREN_LU_MAP: Record<string, string> = {
   甲: '寅', 乙: '卯', 丙: '巳', 戊: '巳', 丁: '午', 己: '午', 庚: '申', 辛: '酉', 壬: '亥', 癸: '子',
 };
 const LIUREN_DE_MAP: Record<string, string> = {
-  甲: '寅', 乙: '申', 丙: '巳', 戊: '巳', 丁: '亥', 己: '亥', 庚: '申', 辛: '巳', 壬: '亥', 癸: '巳',
+  甲: '寅', 乙: '申', 丙: '巳', 戊: '巳', 丁: '亥', 己: '寅', 庚: '申', 辛: '巳', 壬: '亥', 癸: '巳',
 };
 const LIUREN_YIMA_MAP: Record<string, string> = {
   申: '寅', 子: '寅', 辰: '寅',
@@ -91,6 +91,183 @@ function buildLiurenGanZhiAndKeyAnchors(data: LiurenData): string {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+function describeLiurenElementPair(fromElem: string, toElem: string): '生' | '被生' | '克' | '被克' | '比和' {
+  if (fromElem === toElem) return '比和';
+  if (isSheng(fromElem, toElem)) return '生';
+  if (isSheng(toElem, fromElem)) return '被生';
+  if (isKe(fromElem, toElem)) return '克';
+  return '被克';
+}
+
+function isLiurenSeasonStrong(state: string | undefined): boolean {
+  return state === '旺' || state === '相';
+}
+
+export function buildLiurenPatternRelations(data: LiurenData): string {
+  const dayStem = data.ganzhi.day[0] ?? '';
+  const dayBranch = data.ganzhi.day[1] ?? '';
+  const monthBranch = data.ganzhi.month[1] ?? '';
+  const stemElem = getStemWuxing(dayStem);
+  const branchElem = getBranchWuxing(dayBranch);
+
+  // 1. 课体与干支体用格局
+  const ganZhiPattern =
+    stemElem === branchElem
+      ? '干支比和'
+      : isSheng(stemElem, branchElem)
+        ? '干生支'
+        : isSheng(branchElem, stemElem)
+          ? '支生干'
+          : isKe(stemElem, branchElem)
+            ? '干克支'
+            : '支克干';
+  const l1 = data.fourLessons[0];
+  const l3 = data.fourLessons[2];
+  let upperPattern = '';
+  if (l1 && l3) {
+    const u1 = getBranchWuxing(l1.upper);
+    const u3 = getBranchWuxing(l3.upper);
+    const rel =
+      u1 === u3
+        ? '干上支上比和'
+        : isSheng(u1, u3)
+          ? '干上生支上'
+          : isSheng(u3, u1)
+            ? '支上生干上'
+            : isKe(u1, u3)
+              ? '干上克支上'
+              : '支上克干上';
+    const extra = [
+      isHe(l1.upper, l3.upper) ? '六合' : '',
+      isChong(l1.upper, l3.upper) ? '六冲' : '',
+      isXing(l1.upper, l3.upper) ? '相刑' : '',
+    ].filter(Boolean);
+    upperPattern = `；干上${l1.upper}与支上${l3.upper}呈${rel}${extra.length ? `兼${extra.join('、')}` : ''}`;
+  }
+  const guaTiText = data.guaTi?.length ? `，兼见课体：${data.guaTi.join('、')}` : '';
+  const patternLine = `- 课体与干支体用格局：${data.transmissionRule}（传式：${data.transmissionPattern}）${guaTiText}；日干支呈${ganZhiPattern}${upperPattern}。`;
+
+  // 2. 三传阶段演变与生克链
+  const [chu, zhong, mo] = data.threeTransmissions;
+  const elemOf = (t: LiurenData['threeTransmissions'][number] | undefined) =>
+    t ? (t.wuxing ?? getBranchWuxing(t.branch)) : '';
+  const chuElem = elemOf(chu);
+  const zhongElem = elemOf(zhong);
+  const moElem = elemOf(mo);
+
+  const stageTokens = data.threeTransmissions.map(
+    (t) => `${t.stage}${t.branch}${elemOf(t)}（月令${t.seasonState ?? '未知'}${t.isVoid ? '、旬空' : ''}，乘${t.god}）`,
+  );
+  const chuToZhong = chuElem && zhongElem ? describeLiurenElementPair(chuElem, zhongElem) : '比和';
+  const zhongToMo = zhongElem && moElem ? describeLiurenElementPair(zhongElem, moElem) : '比和';
+
+  const formatStepRel = (a: string, b: string, rel: ReturnType<typeof describeLiurenElementPair>) => {
+    if (rel === '生') return `${a}生${b}`;
+    if (rel === '被生') return `${b}生${a}`;
+    if (rel === '克') return `${a}克${b}`;
+    if (rel === '被克') return `${b}克${a}`;
+    return `${a}${b}比和`;
+  };
+  const chainRelText =
+    chu && zhong && mo
+      ? `${formatStepRel('初传', '中传', chuToZhong)}、${formatStepRel('中传', '末传', zhongToMo)}`
+      : '';
+
+  const chuStrong = isLiurenSeasonStrong(chu?.seasonState) && !chu?.isVoid;
+  const zhongStrong = isLiurenSeasonStrong(zhong?.seasonState) && !zhong?.isVoid;
+  const moStrong = isLiurenSeasonStrong(mo?.seasonState) && !mo?.isVoid;
+  const chuHelpsGan = chuElem ? isSheng(chuElem, stemElem) || chuElem === stemElem : false;
+  const chuHarmsGan = chuElem ? isKe(chuElem, stemElem) : false;
+  const moHelpsGan = moElem ? isSheng(moElem, stemElem) || moElem === stemElem : false;
+  const moHarmsGan = moElem ? isKe(moElem, stemElem) : false;
+
+  const isForwardFlow =
+    (chuToZhong === '生' || chuToZhong === '比和') &&
+    (zhongToMo === '生' || zhongToMo === '比和');
+
+  let evolutionLabel: string;
+  if (chu?.isVoid && mo?.isVoid) {
+    evolutionLabel = '空亡待填（初末俱空，发端与归宿均待出空填实）';
+  } else if (chu?.isVoid && (zhongStrong || moStrong)) {
+    evolutionLabel = '空亡待填兼先阻后通（初传落空，中末传旺相不空接续）';
+  } else if (mo?.isVoid && chuStrong) {
+    evolutionLabel = '先顺后折兼空亡待填（初传旺实而末传落空，尾段虚浮待填）';
+  } else if (chu?.isVoid || zhong?.isVoid || mo?.isVoid) {
+    const voidStages = data.threeTransmissions.filter((t) => t.isVoid).map((t) => t.stage).join('、');
+    evolutionLabel = `空亡待填（${voidStages}逢旬空，须待出空或冲实）`;
+  } else if (isForwardFlow && chuStrong && moStrong && !moHarmsGan) {
+    evolutionLabel = '顺生递进（三传生比相续且月令旺相不空）';
+  } else if ((!chuStrong || chuHarmsGan) && (moStrong || moHelpsGan || zhongToMo === '生')) {
+    evolutionLabel = '先阻后通（初段受制或休囚，中末段转旺或得生扶归结）';
+  } else if ((chuStrong || chuHelpsGan) && (!moStrong || moHarmsGan || zhongToMo === '被克')) {
+    evolutionLabel = '先顺后折（初段起势有力，末段转休囚、受克或克干）';
+  } else if (data.transmissionPattern === '伏吟') {
+    evolutionLabel = '伏吟滞缓（天地盘同位，三传以刑冲推进，节奏迟滞）';
+  } else if (data.transmissionPattern === '反吟') {
+    evolutionLabel = '反吟往复（天地盘对冲，进退反复）';
+  } else {
+    evolutionLabel = '递传互制（三传旺衰与生克交错，须按阶段分段核验）';
+  }
+
+  const evolutionLine = `- 三传阶段演变与生克链：${stageTokens.join(' → ')}；生克走向：${chainRelText}；阶段定性：${evolutionLabel}。`;
+
+  // 3. 关键制衡因子（三传空衰救应 + 日禄/日德/驿马受冲克空破）
+  const factors: string[] = [];
+
+  if (chu && (chu.isVoid || !isLiurenSeasonStrong(chu.seasonState))) {
+    const rescuers = [zhong, mo]
+      .filter((t): t is NonNullable<typeof t> => Boolean(t))
+      .filter((t) => {
+        const te = elemOf(t);
+        return (
+          !t.isVoid &&
+          isLiurenSeasonStrong(t.seasonState) &&
+          (isSheng(te, chuElem) || isSheng(te, stemElem) || te === stemElem)
+        );
+      });
+    if (rescuers.length) {
+      factors.push(
+        `初传${chu.branch}${chu.isVoid ? '落空' : `月令${chu.seasonState}`}，但${rescuers.map((t) => `${t.stage}${t.branch}（月令${t.seasonState}）`).join('、')}旺相不空形成救应`,
+      );
+    } else if (!moStrong) {
+      factors.push(
+        `初传${chu.branch}${chu.isVoid ? '落空' : `月令${chu.seasonState}`}且末传${mo?.branch ?? ''}亦无旺相实气救应，推进阻力偏重`,
+      );
+    }
+  }
+
+  const anchorSpecs: Array<{ label: string; branch: string | undefined }> = [
+    { label: '日禄', branch: LIUREN_LU_MAP[dayStem] },
+    { label: '日德', branch: LIUREN_DE_MAP[dayStem] },
+    { label: '驿马', branch: LIUREN_YIMA_MAP[dayBranch] },
+  ];
+  for (const spec of anchorSpecs) {
+    if (!spec.branch) continue;
+    const plateItem = data.heavenlyPlate.find((p) => p.branch === spec.branch);
+    const inLessons = data.fourLessons.filter((l) => l.upper === spec.branch).map((l) => l.name);
+    const inTrans = data.threeTransmissions.filter((t) => t.branch === spec.branch).map((t) => t.stage);
+    const placements = [...inLessons, ...inTrans];
+    const issues: string[] = [];
+    if (data.xunKong?.includes(spec.branch)) issues.push('落旬空');
+    if (monthBranch && isChong(spec.branch, monthBranch)) issues.push('逢月破');
+    if (dayBranch && isChong(spec.branch, dayBranch)) issues.push('受日冲');
+    if (plateItem) {
+      const upperElem = getBranchWuxing(plateItem.branch);
+      const underElem = getBranchWuxing(plateItem.under);
+      if (isKe(underElem, upperElem)) issues.push(`临地盘${plateItem.under}受下贼克`);
+    }
+    if (placements.length || issues.length) {
+      const posText = placements.length ? `入${placements.join('/')}` : '未入课传';
+      const statusText = issues.length ? `见${issues.join('、')}` : '不空不破且无下贼';
+      factors.push(`${spec.label}${spec.branch}（${posText}，${statusText}）`);
+    }
+  }
+
+  const factorsLine = `- 关键制衡因子：${factors.length ? factors.join('；') : '三传无空亡破损，禄德马未见明显冲克空亡'}。`;
+
+  return [patternLine, evolutionLine, factorsLine].join('\n');
 } 
 
 async function generateLiuren(date: Date, longitude?: number, guiRenTable?: LiurenGuiRenTable): Promise<LiurenResult> {
@@ -178,6 +355,7 @@ function buildPrompt(data: LiurenResult, question: string, options: Input['promp
     `【天地盘】\n${plateCompact}`,
     `【四课取传】\n${evidence.lessons.map((item) => item.promptText).join('；')}\n${buildLiurenGanZhiAndKeyAnchors(data)}\n${evidence.transmissionRuleFact.promptText}${showAdjudicationTrace ? `\n${evidence.ordinaryTransmissionAdjudicationFact.promptText}` : ''}`,
     `【三传与推进】\n${evidence.transmissions.map((item) => item.promptText).join('\n')}`,
+    `【课传组合与干支制衡关系】\n${buildLiurenPatternRelations(data)}`,
     evidence.counterEvidenceFacts.length ? `【反证】\n${evidence.counterEvidenceFacts.map((item) => item.promptText).join('；')}` : '',
     timingCompact.length ? `【应期条件】\n${timingCompact.join('；')}` : '',
     evidence.focusFacts.length ? `【类神焦点】\n${evidence.focusFacts.map((item) => item.promptText).join('\n')}` : '',

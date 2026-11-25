@@ -80,6 +80,163 @@ function isMonthBreak(branch: string, monthBranch: string): boolean {
   return isLiuchong(branch, monthBranch);
 }
 
+export interface LiuyaoVoidAssessment {
+  status: '假空' | '真空';
+  reasons: string[];
+  condition: string;
+}
+
+/**
+ * 依据《增删卜易·旬空章》判定旬空爻为“假空”或“真空”：
+ * - 假空：月令旺相、值月建/日辰、得月日生扶、本爻明动/暗动（且未化回头克/化绝）、日冲冲实（非月破）、或得卦中明动/暗动爻生扶。
+ * - 真空：月破兼空，或月令休囚死且无月日及动爻生扶、静而不动（或发动化回头克/化绝/化空/化退）兼受克制。
+ */
+export function classifyLiuyaoVoidStatus(params: {
+  yao: Pick<
+    LiuyaoData['yaosDetail'][number],
+    | 'position'
+    | 'najiaDizhi'
+    | 'wuxing'
+    | 'isChanging'
+    | 'isHiddenMove'
+    | 'isMonthBreak'
+    | 'isDayClash'
+    | 'seasonState'
+    | 'changeRelations'
+    | 'changeDirection'
+    | 'changedLifeStage'
+  >;
+  monthBranch: string;
+  dayBranch: string;
+  activeYaos?: ReadonlyArray<Pick<LiuyaoData['yaosDetail'][number], 'position' | 'wuxing' | 'isChanging' | 'isHiddenMove'>>;
+}): LiuyaoVoidAssessment {
+  const { yao, monthBranch, dayBranch, activeYaos = [] } = params;
+  const monthElem = getBranchWuxing(monthBranch);
+  const dayElem = getBranchWuxing(dayBranch);
+  const season = yao.seasonState ?? getSeasonState(yao.wuxing, monthBranch);
+  const changeRels = yao.changeRelations ?? [];
+  const severeChangeLoss =
+    changeRels.includes('回头克') ||
+    yao.changedLifeStage === '绝' ||
+    yao.changeDirection === '化退神';
+
+  const falseVoidReasons: string[] = [];
+  const trueVoidReasons: string[] = [];
+
+  if (yao.isMonthBreak) {
+    trueVoidReasons.push('月破兼空');
+  }
+  if (season === '旺' || season === '相') {
+    falseVoidReasons.push(`月令${season}`);
+  } else {
+    trueVoidReasons.push(`月令${season}`);
+  }
+  if (yao.najiaDizhi === monthBranch) falseVoidReasons.push('值月建');
+  if (yao.najiaDizhi === dayBranch) falseVoidReasons.push('值日辰');
+  if (isSheng(monthElem, yao.wuxing)) falseVoidReasons.push('月建生扶');
+  if (isSheng(dayElem, yao.wuxing)) falseVoidReasons.push('日辰生扶');
+  if (yao.isHiddenMove) falseVoidReasons.push('日冲冲空为实');
+  if (yao.isChanging && !severeChangeLoss) falseVoidReasons.push('明动不为空');
+  if (yao.isChanging && severeChangeLoss) {
+    trueVoidReasons.push(
+      changeRels.includes('回头克')
+        ? '动而化回头克'
+        : yao.changedLifeStage === '绝'
+          ? '动而化绝'
+          : '动而化退神',
+    );
+  }
+  const hasActiveSupport = activeYaos.some(
+    (other) =>
+      other.position !== yao.position &&
+      (other.isChanging || other.isHiddenMove) &&
+      isSheng(other.wuxing, yao.wuxing),
+  );
+  if (hasActiveSupport) falseVoidReasons.push('卦中动爻生扶');
+
+  const hasActiveKe = activeYaos.some(
+    (other) =>
+      other.position !== yao.position &&
+      (other.isChanging || other.isHiddenMove) &&
+      isKe(other.wuxing, yao.wuxing),
+  );
+  if (hasActiveKe) trueVoidReasons.push('受动爻克制');
+  if (isKe(dayElem, yao.wuxing)) trueVoidReasons.push('受日辰克制');
+
+  // 月破兼空且无值日/日生/动生救应，或休囚死无任何旺相/生扶/动起条件，定为真空
+  const isTrueVoid =
+    (yao.isMonthBreak &&
+      yao.najiaDizhi !== dayBranch &&
+      !isSheng(dayElem, yao.wuxing) &&
+      !hasActiveSupport) ||
+    falseVoidReasons.length === 0;
+
+  if (isTrueVoid) {
+    return {
+      status: '真空',
+      reasons: trueVoidReasons.length ? trueVoidReasons : ['休囚无生扶且静空'],
+      condition: '真空无气，须待出空且得旺相值令或有力生扶之期',
+    };
+  }
+  return {
+    status: '假空',
+    reasons: falseVoidReasons,
+    condition: '假空不空，待出空、值日或冲空填实之际起用',
+  };
+}
+
+export interface LiuyaoMonthBreakAssessment {
+  hasRescue: boolean;
+  reasons: string[];
+  condition: string;
+}
+
+/**
+ * 依据《增删卜易·月破章》判定月破爻是否存在日建/动变救应条件。
+ */
+export function evaluateLiuyaoMonthBreakStatus(params: {
+  yao: Pick<
+    LiuyaoData['yaosDetail'][number],
+    | 'position'
+    | 'najiaDizhi'
+    | 'wuxing'
+    | 'isChanging'
+    | 'changeRelations'
+    | 'changeDirection'
+  >;
+  dayBranch: string;
+  activeYaos?: ReadonlyArray<Pick<LiuyaoData['yaosDetail'][number], 'position' | 'wuxing' | 'isChanging' | 'isHiddenMove'>>;
+}): LiuyaoMonthBreakAssessment {
+  const { yao, dayBranch, activeYaos = [] } = params;
+  const dayElem = getBranchWuxing(dayBranch);
+  const reasons: string[] = [];
+
+  if (yao.najiaDizhi === dayBranch) reasons.push('值日辰（破而逢日不破）');
+  if (isLiuhe(yao.najiaDizhi, dayBranch)) reasons.push('得日辰六合解破');
+  if (isSheng(dayElem, yao.wuxing)) reasons.push('得日辰生扶');
+  if (yao.isChanging && (yao.changeRelations?.includes('回头生') || yao.changeDirection === '化进神')) {
+    reasons.push(yao.changeDirection === '化进神' ? '发动化进神' : '发动化回头生');
+  }
+  if (
+    activeYaos.some(
+      (other) =>
+        other.position !== yao.position &&
+        (other.isChanging || other.isHiddenMove) &&
+        isSheng(other.wuxing, yao.wuxing),
+    )
+  ) {
+    reasons.push('得卦中动爻生扶');
+  }
+
+  return {
+    hasRescue: reasons.length > 0,
+    reasons,
+    condition: reasons.length
+      ? `月破有救（${reasons.join('、')}），待出月填实或逢值/合之期起用`
+      : '月破且无直接日动生合救应，须待出月补破',
+  };
+}
+
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
 export type LiuyaoFanFuScope = '内卦' | '外卦' | '内外';
 export type LiuyaoFanFuKind = '卦反吟' | '爻反吟' | '伏吟';
@@ -804,7 +961,10 @@ export function generateLiuyaoChart(
       changeRelations,
       // 新增长支关系检测
       isSanxing: isSanxing(info.dizhi, dayBranch) || isSanxing(info.dizhi, monthBranch),
-      sanxingType: getSanxingType(info.dizhi) || undefined,
+      sanxingType:
+        isSanxing(info.dizhi, dayBranch) || isSanxing(info.dizhi, monthBranch)
+          ? getSanxingType(info.dizhi) || undefined
+          : undefined,
       isLiuhe: isLiuhe(info.dizhi, dayBranch) || isLiuhe(info.dizhi, monthBranch),
       liuhePartner: isLiuhe(info.dizhi, dayBranch)
         ? dayBranch

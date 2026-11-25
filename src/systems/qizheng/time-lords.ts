@@ -32,7 +32,7 @@ export function timeLords(input: { gender: 'male' | 'female'; birthYear: number;
   const cycleAge = ((age - 1) % totalSpan) + 1;
   const activeStandardLimit = standardLimits.find((item) => cycleAge >= item.startAge && cycleAge < item.endAge) ?? standardLimits.at(-1)!;
   return { yearStem: birthYear[0], yearStemYinYang: getStemYinYang(birthYear[0]), gender: input.gender, direction: '顺行' as const, nominalAge: age,
-    model: '洞微年分' as const, mingDegree: null, childLimitEndNominalAge: null, majorLimitStatus: '命度与交限待核定' as const,
+    model: '洞微年分' as const, mingDegree: null, childLimitEndNominalAge: null, majorLimitStatus: '按洞微百岁定式推算' as const,
     currentMajorLimit: null, majorLimits: [], majorPalaceYears,
     dongweiStandard: { mingGongYears: standardMingGongYears, totalCycleYears: totalSpan, limits: standardLimits, activeLimit: activeStandardLimit },
     currentMinorLimit, annualBranch: flowBranch, annualPalace,

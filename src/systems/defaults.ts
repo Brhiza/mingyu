@@ -23,6 +23,11 @@ export const UNIVERSAL_DEFAULTS = {
     kongWangMode: 'day' as const,
     fortuneRule: 'exact-3days' as const,
     yangRenMode: 'all-stems' as const,
+    shenshaBaseMode: 'year-and-day' as const,
+    xueTangMode: 'nayin' as const,
+    tianYiMode: 'standard' as const,
+    hongYanMode: 'standard' as const,
+    tongZiMode: 'standard' as const,
     commanderMode: 'standard' as const,
     earthRule: 'follow-fire' as EarthRule,
   },
@@ -54,7 +59,19 @@ export const UNIVERSAL_DEFAULTS = {
   xiaoliuren: {
     ziHourMode: '00:00' as const,
   },
+  tarot: {
+    reversalMode: 'realistic' as const,
+  },
 } as const;
+
+export type TarotReversalMode = 'realistic' | 'balanced' | 'upright-only';
+
+/** 塔罗洗牌正逆位概率：realistic 贴近现实洗牌手感（约 30%），balanced 经典对半（50%），upright-only 仅看正位（0%）。 */
+export const TAROT_REVERSAL_RATES: Record<TarotReversalMode, number> = {
+  realistic: 0.3,
+  balanced: 0.5,
+  'upright-only': 0,
+};
 
 export function resolveBaziRules(rules?: BaziRules) {
   return {
@@ -68,6 +85,11 @@ export function resolveBaziRules(rules?: BaziRules) {
     kongWangMode: rules?.kongWangMode ?? UNIVERSAL_DEFAULTS.bazi.kongWangMode,
     fortuneRule: rules?.fortuneRule ?? UNIVERSAL_DEFAULTS.bazi.fortuneRule,
     yangRenMode: rules?.yangRenMode ?? UNIVERSAL_DEFAULTS.bazi.yangRenMode,
+    shenshaBaseMode: rules?.shenshaBaseMode ?? UNIVERSAL_DEFAULTS.bazi.shenshaBaseMode,
+    xueTangMode: rules?.xueTangMode ?? UNIVERSAL_DEFAULTS.bazi.xueTangMode,
+    tianYiMode: rules?.tianYiMode ?? UNIVERSAL_DEFAULTS.bazi.tianYiMode,
+    hongYanMode: rules?.hongYanMode ?? UNIVERSAL_DEFAULTS.bazi.hongYanMode,
+    tongZiMode: rules?.tongZiMode ?? UNIVERSAL_DEFAULTS.bazi.tongZiMode,
     commanderMode: rules?.commanderMode ?? UNIVERSAL_DEFAULTS.bazi.commanderMode,
     earthRule: rules?.earthRule ?? UNIVERSAL_DEFAULTS.bazi.earthRule,
   };
@@ -108,4 +130,8 @@ export function resolveLiuyaoZiHourMode(mode?: '23:00' | '00:00'): '23:00' | '00
 
 export function resolveXiaoliurenZiHourMode(mode?: '00:00' | '23:00'): '00:00' | '23:00' {
   return mode ?? UNIVERSAL_DEFAULTS.xiaoliuren.ziHourMode;
+}
+
+export function resolveTarotReversalMode(mode?: TarotReversalMode): TarotReversalMode {
+  return mode ?? UNIVERSAL_DEFAULTS.tarot.reversalMode;
 }

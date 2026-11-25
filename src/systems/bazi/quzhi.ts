@@ -30,7 +30,7 @@ export function buildQuzhi(pillars: Pillars) {
   ];
   return { pattern: '曲直格', route, method, status: blockers.length ? '存在反证' : '条件成立', dayStem: pillars.day.gan, monthBranch: pillars.month.zhi, members: memberFacts,
     visibleMetal, hiddenMetal, externalClashes, visibleOutput, visibleWealth, blockers,
-    limitation: '按所列传统路线和严格金制口径判断；火土透出仅记为泄秀和财星事实，未判断作用成败。不同流派口径可能不同，用神及其他特殊格仍须另核。' };
+    limitation: '按所列传统路线和严格金制口径裁定；火土透出分别记为泄秀与财星条件，破格则归回普通正格，综合取用见用神裁定层。' };
 }
 
 type Quzhi = NonNullable<ReturnType<typeof buildQuzhi>>;

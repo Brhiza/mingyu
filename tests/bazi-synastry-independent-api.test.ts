@@ -54,7 +54,7 @@ test('保存后追问重算核对双盘及跨盘证据，精确时间和时区�
 test('双人合盘保留各自日干化气及其状态', async () => {
   const result = await calculate('bazi-synastry', { ...base, person1: { ...person1, day: 7 } });
   const transformation = result.data.charts.person1.transformation;
-  assert.equal(transformation.status, '存在反证');
+  assert.equal(transformation.status, '合绊（合而不化）');
   assert.ok(result.prompt.text.includes(`${transformation.pattern}（${transformation.status}）`));
 });
 

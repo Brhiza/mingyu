@@ -4,6 +4,9 @@ import type { CharacterShardLoader } from '../character-data';
 import { sameJsonValue } from '../json-value';
 import { characterMetadata, searchOrderedMetadata, type CharacterDetail } from './characters';
 import { birthFacts, birthForNaming, evaluateStrokeScore, nameCharacterFacts, nameFacts, nameStructure, namingDetails, namingPreferences, namingPromptSelection } from './naming-foundation';
+import surnameReadings from '../data/characters/surname-readings.json';
+
+const surnameReadingMap = surnameReadings as Record<string, string>;
 
 type Input = z.infer<typeof chineseNamingInput>;
 type Source = Omit<Input, 'question' | 'currentTime'>;
@@ -32,13 +35,17 @@ function basePinyin(pinyin?: string): string {
   return first.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function homophonePenalty(a: CharacterDetail, b: CharacterDetail): number {
-  const pa = a.pinyin?.split(/[,，、/\s]+/)[0] ?? '';
-  const pb = b.pinyin?.split(/[,，、/\s]+/)[0] ?? '';
+export function evaluateNamingHomophonePenalty(aPinyin?: string, bPinyin?: string): number {
+  const pa = aPinyin?.split(/[,，、/\s]+/)[0] ?? '';
+  const pb = bPinyin?.split(/[,，、/\s]+/)[0] ?? '';
   if (pa && pb && pa === pb) return -50;
   const ba = basePinyin(pa);
   const bb = basePinyin(pb);
   return ba && bb && ba === bb ? -30 : 0;
+}
+
+function homophonePenalty(a: CharacterDetail, b: CharacterDetail, aOverride?: string): number {
+  return evaluateNamingHomophonePenalty(aOverride ?? a.pinyin, b.pinyin);
 }
 
 function scoreCharacter(
@@ -95,6 +102,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
   const surnameMetas = surnameChars.map((char) => characterMetadata(char)!);
   const surnameStrokes = surnameMetas.map((item) => item.kangxiStrokes);
   const lastSurnameMeta = surnameMetas.at(-1)!;
+  const lastSurnameReading = surnameMetas.length === 1 ? surnameReadingMap[lastSurnameMeta.simplified] : undefined;
   const birthContext = await birthForNaming(input.birth, input.birthRange), preference = namingPreferences(input.preferredElements, birthContext);
   const genderPoolSet = new Set([...pools[gender]]), generalPoolSet = new Set([...pools.general]), curatedSet = new Set([...genderPoolSet, ...generalPoolSet]);
   const candidateMap = new Map<string, { char: string; meta: CharacterDetail; score: number; order: number }>();
@@ -131,7 +139,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
     for (const char of generation ? [generation] : pool) {
       const meta = generation ? genMeta! : entryByChar.get(char)!.meta;
       const charScore = generation ? 0 : entryByChar.get(char)!.score;
-      const score = evaluateStrokeScore(surnameStrokes, [meta.kangxiStrokes]) * 2 + charScore + homophonePenalty(lastSurnameMeta, meta);
+      const score = evaluateStrokeScore(surnameStrokes, [meta.kangxiStrokes]) * 2 + charScore + homophonePenalty(lastSurnameMeta, meta, lastSurnameReading);
       scoredNames.push({ given: char, score, order: pairOrder++ });
     }
   } else if (generation) {
@@ -141,7 +149,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
       const firstMeta = isSecond ? entry.meta : genMeta!, secondMeta = isSecond ? genMeta! : entry.meta;
       const structureBonus = firstMeta.structure && secondMeta.structure && firstMeta.structure !== secondMeta.structure ? 6 : 0;
       const score = evaluateStrokeScore(surnameStrokes, [firstMeta.kangxiStrokes, secondMeta.kangxiStrokes]) * 2
-        + entry.score + structureBonus + homophonePenalty(firstMeta, secondMeta) + homophonePenalty(lastSurnameMeta, firstMeta);
+        + entry.score + structureBonus + homophonePenalty(firstMeta, secondMeta) + homophonePenalty(lastSurnameMeta, firstMeta, lastSurnameReading);
       scoredNames.push({ given: isSecond ? `${char}${generation}` : `${generation}${char}`, score, order: pairOrder++ });
     }
   } else {
@@ -150,7 +158,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
         if (canonical(first.char) === canonical(second.char)) continue;
         const structureBonus = first.meta.structure && second.meta.structure && first.meta.structure !== second.meta.structure ? 6 : 0;
         const score = evaluateStrokeScore(surnameStrokes, [first.meta.kangxiStrokes, second.meta.kangxiStrokes]) * 2
-          + first.score + second.score + structureBonus + homophonePenalty(first.meta, second.meta) + homophonePenalty(lastSurnameMeta, first.meta);
+          + first.score + second.score + structureBonus + homophonePenalty(first.meta, second.meta) + homophonePenalty(lastSurnameMeta, first.meta, lastSurnameReading);
         scoredNames.push({ given: first.char + second.char, score, order: pairOrder++ });
       }
     }
@@ -175,6 +183,108 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
   return { input, birthContext, preference, unavailablePreferredCharacters, selectedCharacters: pool, candidates };
 }
 type Data = Awaited<ReturnType<typeof dataFor>>;
+
+function detectToneCat(pinyin?: string): '平' | '仄' | '待考' {
+  if (!pinyin) return '待考';
+  const first = pinyin.split(/[,，、/\s]+/)[0] ?? '';
+  if (/[āēīōūǖáéíóúǘ]/u.test(first)) return '平';
+  if (/[ǎěǐǒǔǚàèìòùǜ]/u.test(first)) return '仄';
+  return '待考';
+}
+
+export function analyzeChineseNamingRelations(data: Data) {
+  const total = data.candidates.length;
+  if (!total) {
+    return {
+      smoothSancaiCount: 0,
+      homophoneConflictCount: 0,
+      favorableHitCount: 0,
+      avoidConflictCount: 0,
+      text: '当前约束下未生成候选，暂无三才喜忌制衡统计。',
+    };
+  }
+
+  const stableUnfavorable = data.birthContext
+    ? data.birthContext.segments[0].unfavorable.filter((el) =>
+        data.birthContext!.segments.every((seg) => seg.unfavorable.includes(el)),
+      )
+    : [];
+  const usefulAvoid = data.birthContext
+    ? data.birthContext.segments[0].usefulGod.unfavorable.filter((el) =>
+        data.birthContext!.segments.every((seg) => seg.usefulGod.unfavorable.includes(el)),
+      )
+    : [];
+  const avoidElements = [...new Set([...stableUnfavorable, ...usefulAvoid])];
+  const favorableAll = [...new Set([...data.preference.stable, ...(data.birthContext?.stableUsefulGod ?? [])])];
+
+  let smoothSancaiCount = 0;
+  let balancedToneCount = 0;
+  let homophoneConflictCount = 0;
+  let variedStructureCount = 0;
+  let favorableHitCount = 0;
+  let avoidConflictCount = 0;
+  const topLines: string[] = [];
+
+  for (const [index, candidate] of data.candidates.entries()) {
+    const { analysis } = candidate;
+    const [tr, rd] = analysis.sancaiEvidence.relations;
+    const isSmooth = tr.relation !== '克' && tr.relation !== '被克' && rd.relation !== '克' && rd.relation !== '被克';
+    if (isSmooth) smoothSancaiCount += 1;
+
+    const readings = analysis.chars.map((c) =>
+      'surnameReading' in c && typeof c.surnameReading === 'string' ? c.surnameReading : c.pinyin ?? '',
+    );
+    const tones = readings.map(detectToneCat);
+    const toneBalanced = tones.includes('平') && tones.includes('仄');
+    if (toneBalanced) balancedToneCount += 1;
+
+    let hasHomophone = false;
+    for (let i = 1; i < readings.length; i += 1) {
+      if (evaluateNamingHomophonePenalty(readings[i - 1], readings[i]) < 0) {
+        hasHomophone = true;
+        break;
+      }
+    }
+    if (hasHomophone) homophoneConflictCount += 1;
+
+    const structures = new Set(analysis.chars.map((c) => c.structure).filter(Boolean));
+    if (structures.size > 1) variedStructureCount += 1;
+
+    const givenChars = analysis.chars.filter((c) => !c.isSurname);
+    const favHits = givenChars.filter((c) => c.wuxing && favorableAll.includes(c.wuxing)).map((c) => `${c.char}(${c.wuxing})`);
+    const avoidHits = givenChars.filter((c) => c.wuxing && avoidElements.includes(c.wuxing)).map((c) => `${c.char}(${c.wuxing})`);
+    if (favHits.length) favorableHitCount += 1;
+    if (avoidHits.length) avoidConflictCount += 1;
+
+    if (index < 3) {
+      const sancaiTag = isSmooth ? `${analysis.sancaiEvidence.combo}顺通` : `${analysis.sancaiEvidence.combo}含克`;
+      const soundTag = `${toneBalanced ? '平仄错落' : '平仄单一'}/${hasHomophone ? '含近同音' : '无谐音冲突'}`;
+      const wxTag =
+        favorableAll.length || avoidElements.length
+          ? `补喜:${favHits.join('、') || '无'}｜涉忌:${avoidHits.join('、') || '无'}`
+          : `名五行:${givenChars.map((c) => c.wuxing ?? '待考').join('/')}`;
+      topLines.push(`${candidate.fullName}：${sancaiTag}｜${soundTag}｜${wxTag}`);
+    }
+  }
+
+  const lines = [
+    `三才流通统计：共 ${total} 个候选，三才顺生/比和无克 ${smoothSancaiCount}/${total} 个，含相克 ${total - smoothSancaiCount}/${total} 个。`,
+    `音形义与谐音检查：平仄错落 ${balancedToneCount}/${total} 个；字形结构错落 ${variedStructureCount}/${total} 个；相邻同音/近音冲突 ${homophoneConflictCount}/${total} 个${homophoneConflictCount === 0 ? '（均无相邻同音/近音冲突）' : ''}。`,
+    favorableAll.length || avoidElements.length
+      ? `喜忌五行制衡：命中喜用（${favorableAll.join('、') || '无'}）候选 ${favorableHitCount}/${total} 个；涉共同忌神（${avoidElements.join('、') || '无'}）候选 ${avoidConflictCount}/${total} 个。`
+      : `喜忌五行制衡：未指定喜用或出生资料，按三才五格与音形义排序。`,
+    `前列候选制衡速览：${topLines.join('；')}。`,
+  ];
+
+  return {
+    smoothSancaiCount,
+    homophoneConflictCount,
+    favorableHitCount,
+    avoidConflictCount,
+    text: lines.join('\n'),
+  };
+}
+
 function render(data: Data, question: string, options: Input['prompt']) {
   const forbiddenForms = [...new Set(han(data.input.forbiddenCharacters).flatMap((char) => {
     const item = characterMetadata(char);
@@ -184,10 +294,12 @@ function render(data: Data, question: string, options: Input['prompt']) {
   const position = data.input.generationPosition === 'second' ? '名字末字' : '名字首字';
   const characters = new Map<string, Parameters<typeof nameCharacterFacts>[0]>();
   for (const candidate of data.candidates) for (const item of candidate.analysis.chars) characters.set(`${item.isSurname}:${item.char}`, item);
+  const relations = analyzeChineseNamingRelations(data);
   const text = [`【起名条件】\n姓氏${data.input.surname}；字数${data.input.givenNameLength ?? 2}；取向${gender}；偏好字${data.input.preferredCharacters || '未指定'}；忌用字${data.input.forbiddenCharacters || '未指定'}；辈分字${data.input.generationCharacter || '未指定'}${data.input.generationCharacter ? `（${position}）` : ''}。\n候选字池：${data.selectedCharacters.join('、')}。`,
     data.unavailablePreferredCharacters.length ? `【未收录偏好字】\n${data.unavailablePreferredCharacters.join('、')}未收录，未参与候选生成。` : '',
     forbiddenForms.length ? `【避讳字形】\n对应简繁字形均回避：${forbiddenForms.join('、')}。` : '',
     `【出生与五行参考】\n五行方向来源：${data.preference.source}。\n${birthFacts(data.birthContext)}`,
+    `【音形义与三才喜忌制衡关系】\n${relations.text}`,
     `【候选用字】\n${[...characters.values()].map(nameCharacterFacts).join('\n') || '当前没有候选用字。'}`,
     `【候选姓名】\n${data.candidates.map((candidate, index) => `${index + 1}. ${candidate.fullName}\n${nameFacts(candidate.analysis, false)}`).join('\n\n') || '当前约束下没有形成候选。'}`,
     '【传统语境】\n《左传·桓公六年》记载命名五法；五格三才是后世姓名学数理取象。字库、数理和文献资料仍需独立校勘。',

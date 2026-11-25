@@ -6,8 +6,8 @@ export const doorElements: Record<string, string> = { 休门: '水', 生门: '�
 export const branchPalaces: Record<string, number> = { 子: 1, 丑: 8, 寅: 8, 卯: 3, 辰: 4, 巳: 4, 午: 9, 未: 2, 申: 2, 酉: 7, 戌: 6, 亥: 6 };
 export const stemTombs: Record<string, { branch: string; palace: number }> = {
   乙: { branch: '未', palace: 2 }, 丙: { branch: '戌', palace: 6 }, 丁: { branch: '丑', palace: 8 },
-  戊: { branch: '戌', palace: 6 }, 己: { branch: '辰', palace: 4 }, 庚: { branch: '未', palace: 2 },
-  辛: { branch: '丑', palace: 8 }, 壬: { branch: '辰', palace: 4 }, 癸: { branch: '辰', palace: 4 },
+  戊: { branch: '戌', palace: 6 }, 己: { branch: '丑', palace: 8 }, 庚: { branch: '丑', palace: 8 },
+  辛: { branch: '丑', palace: 8 }, 壬: { branch: '辰', palace: 4 }, 癸: { branch: '未', palace: 2 },
 };
 
 export function hasTianPanStar(palace: TianPanPalace, star: string) {

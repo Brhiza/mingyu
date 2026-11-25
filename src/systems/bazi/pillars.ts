@@ -1,7 +1,7 @@
 import { SolarTime } from 'tyme4ts';
 import { getCivilDateTimeAtFixedOffset } from '../huangji/civil-time';
 import { getDivinationTime, getMonthLeaderByZhongqi, getSolarTermName } from '../calendar';
-import { correctBirthClock, resolveBirthClock } from '../birth-time';
+import { chinaDstAdvisory, correctBirthClock, resolveBirthClock } from '../birth-time';
 import {
   type EarthRule,
   getBranchIndex,
@@ -35,7 +35,16 @@ import { buildClimateCandidates } from './climate';
 import { resolveClimate } from './climate-decision';
 import { buildUsefulStrategy } from './useful-strategy';
 import { buildPatternEvidence } from './pattern-evidence';
-import { calculateBaziShensha, type BaziYangRenMode } from './shensha';
+import {
+  calculateBaziShensha,
+  type BaziHongYanMode,
+  type BaziKongWangMode,
+  type BaziShenshaBaseMode,
+  type BaziTianYiMode,
+  type BaziTongZiMode,
+  type BaziXueTangMode,
+  type BaziYangRenMode,
+} from './shensha';
 
 export interface BaziBirth {
   year: number; month: number; day: number;
@@ -44,6 +53,7 @@ export interface BaziBirth {
   clock: { kind: 'exact'; hour: number; minute: number; second: number } | { kind: 'shichen'; index: number };
   timezone?: number;
   timeZoneId?: string;
+  applyChinaDst?: boolean;
   timeStandard?: 'civil' | 'true-solar';
   longitude?: number;
 }
@@ -64,9 +74,14 @@ export interface BaziRules {
   patternMode?: BaziPatternMode;
   includeExtraPalaces?: boolean;
   mingGongMethod?: 'traditional' | 'solar-position';
-  kongWangMode?: 'day' | 'day-and-year';
+  kongWangMode?: BaziKongWangMode;
   fortuneRule?: 'exact-3days' | 'round-day';
   yangRenMode?: BaziYangRenMode;
+  shenshaBaseMode?: BaziShenshaBaseMode;
+  xueTangMode?: BaziXueTangMode;
+  tianYiMode?: BaziTianYiMode;
+  hongYanMode?: BaziHongYanMode;
+  tongZiMode?: BaziTongZiMode;
   commanderMode?: BaziCommanderMode;
   earthRule?: EarthRule;
 }
@@ -187,8 +202,9 @@ export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | '
     if (!Number.isInteger(birth.clock.index) || !timePeriods[birth.clock.index]) throw new Error('出生时辰索引须在 0 至 12 之间。');
     [hour, minute] = timePeriods[birth.clock.index]; second = 0;
   }
-  const clock = { year: birth.year, month: birth.month, day: birth.day, hour, minute, second, calendar: birth.calendar, leapMonth: birth.leapMonth, timezone: birth.timezone, timeZoneId: birth.timeZoneId, timeStandard: birth.timeStandard, longitude: birth.longitude };
+  const clock = { year: birth.year, month: birth.month, day: birth.day, hour, minute, second, calendar: birth.calendar, leapMonth: birth.leapMonth, timezone: birth.timezone, timeZoneId: birth.timeZoneId, applyChinaDst: birth.applyChinaDst, timeStandard: birth.timeStandard, longitude: birth.longitude };
   const resolved = resolveBirthClock(clock);
+  const chinaDstWarning = chinaDstAdvisory(clock);
   const offsetMinutes = resolved.timezone * 60;
   const { timestamp: corrected, correction: trueSolar } = await correctBirthClock(clock, resolved);
   const resolvedRules = resolveBaziRules(rules);
@@ -220,13 +236,24 @@ export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | '
   return {
     input: birth,
     basis: { precision: birth.clock.kind, localDateTime: resolved.localDateTime, utcTimestamp: resolved.utcTimestamp, timezone: resolved.timezone,
-      ...(birth.timeZoneId ? { timeZoneId: birth.timeZoneId } : {}), timeStandard: birth.timeStandard ?? 'civil',
+      ...(birth.timeZoneId ? { timeZoneId: birth.timeZoneId } : {}),
+      ...('usedChinaDstCorrection' in resolved && resolved.usedChinaDstCorrection ? { usedChinaDstCorrection: true } : {}),
+      ...(chinaDstWarning ? { chinaDstWarning } : {}),
+      timeStandard: birth.timeStandard ?? 'civil',
       calculationClock: getCivilDateTimeAtFixedOffset(new Date(corrected), resolved.timezone), ...(trueSolar ? { trueSolar } : {}),
       ...(birth.clock.kind === 'shichen' ? { limitation: '时辰按区间中点作为示例；区间内可能跨节气、司权或换日，不能据此断言全部时刻相同。' } : {}) },
     pillars,
     ...(extraPalaces ? { extraPalaces } : {}),
     natalFacts: buildNatalFacts(pillars, monthCommander.stem),
-    shensha: calculateBaziShensha(pillars, gender, undefined, rules?.yangRenMode ? { yangRenMode: rules.yangRenMode } : undefined),
+    shensha: calculateBaziShensha(pillars, gender, undefined, {
+      yangRenMode: resolvedRules.yangRenMode,
+      kongWangMode: resolvedRules.kongWangMode,
+      shenshaBaseMode: resolvedRules.shenshaBaseMode,
+      xueTangMode: resolvedRules.xueTangMode,
+      tianYiMode: resolvedRules.tianYiMode,
+      hongYanMode: resolvedRules.hongYanMode,
+      tongZiMode: resolvedRules.tongZiMode,
+    }),
     strength,
     ordinaryPattern, transformation, quzhi, conger, extreme, patternEvidence: buildPatternEvidence(pillars, patternOverview, monthCommander.stem, strength.status),
     patternOverview,

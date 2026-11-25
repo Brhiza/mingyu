@@ -45,7 +45,7 @@ export function buildCongEr(pillars: Pillars, strength: Strength, commanderStem:
   const route = outputFormation ? (outputFormation.name === '三合局' ? '三合食伤成气' : '三会食伤成气')
     : output(principal.month.tenGod) ? '月建食伤当权'
       : output(principal.day.tenGod) && rootedOutput.length >= 2 ? '食伤并透坐支同气' : null;
-  if (!route) return wealthAllPrincipal ? { route: null, status: '未命中从儿结构', outputElement, wealthElement, competingWealth: '四支本气皆财', wealthConditions, blockers: [], limitation: '按所列顺局和从财条件模型；其他格局及取用须另核。' } : null;
+  if (!route) return wealthAllPrincipal ? { route: null, status: '未命中从儿结构', outputElement, wealthElement, competingWealth: '四支本气皆财', wealthConditions, blockers: [], limitation: '按所列顺局和从财条件模型裁定；综合调候与最终取用见用神裁定层。' } : null;
   const outputRoots = roots(outputElement), wealthRoots = structuralRoots(wealthElement), actionableWealthRoots = roots(wealthElement);
   const wealthFlow = visibleWealth.length > 0 || Boolean(wealthFormation) || actionableWealthRoots.length > 0;
   const resolutions: string[] = [];
@@ -91,10 +91,13 @@ export function buildCongEr(pillars: Pillars, strength: Strength, commanderStem:
   });
   const monthResource = resource(principal.month.tenGod), monthOfficer = officer(principal.month.tenGod);
   const monthResourceResolved = monthResource && isRescued('month', principal.month.stem);
+  const dayBranchClashed = positions.some((p) => p !== 'day' && branchesClash(pillars[p].zhi, pillars.day.zhi));
+  const daySeatPrincipalResource = resource(principal.day.tenGod) && !dayBranchClashed;
   const structuralBlockers = [
-    ...(!wealthFlow ? [wealthRoots.length ? '结构藏财根气受冲待核，未见可用财气承接食伤' : '未见财星明透、财局或结构藏财承接食伤'] : []),
+    ...(!wealthFlow ? [wealthRoots.length ? '结构藏财根气受冲减力，承接食伤力度不足' : '未见财星明透、财局或结构藏财承接食伤'] : []),
     ...activeResources.map((item) => `${labels[item.position]}${item.stem}${item.tenGod}明透有根，对食伤形成制约`),
     ...(monthResource && !monthResourceResolved ? [`月支本气${principal.month.stem}${principal.month.tenGod}当权，生身制食伤`] : []),
+    ...(daySeatPrincipalResource ? [`日支坐${pillars.day.zhi}藏${principal.day.stem}${principal.day.tenGod}贴身本气印根且未遭六冲，日主有倚不轻易从儿`] : []),
     ...hiddenResourceClashes.map((item) => `${labels[item.position]}${item.branch}藏${item.stem}${item.tenGod}直接冲${labels[item.target]}${item.targetBranch}食伤`),
     ...activeOfficers.map((item) => `${labels[item.position]}${item.stem}${item.tenGod}明透有根，财气转官杀并与食伤交战`),
     ...(monthOfficer ? [`月支本气${principal.month.stem}${principal.month.tenGod}当权，财气转向官杀`] : []),
@@ -104,7 +107,7 @@ export function buildCongEr(pillars: Pillars, strength: Strength, commanderStem:
   const blockers = [...new Set([...structuralBlockers, ...(wealthEndpoint ? ['财星明透有根并归日时，按从财优先'] : [])])];
   return { route, status: blockers.length ? '存在反证' : '条件成立', outputElement, wealthElement, commanderStem, competingWealth, wealthConditions, visibleOutput, rootedOutput, visibleWealth, outputFormation: outputFormation ?? null, wealthFormation: wealthFormation ?? null,
     outputRoots, wealthRoots, wealthFlow, activeResources, activeOfficers, hiddenResourceClashes, monthResource, monthResourceResolved, monthOfficer, resolutions, blockers,
-    limitation: '按所列从儿、财星承接及从财优先条件判断；局部合化与财制印只按列明的限定规则处理，其他格局、调候和用神须另核。' };
+    limitation: '按所列从儿、财星承接及从财优先条件裁定；局部合化与财制印按列明规则执行，未成立时归回普通正格，综合调候与用神见用神裁定层。' };
 }
 
 const posText = (items: Array<{ position: PillarName; stem: string }>) => items.map((item) => `${labels[item.position]}${item.stem}`).join('、') || '未见';

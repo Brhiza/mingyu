@@ -977,7 +977,7 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
   {
     id: 'huo-ling-jia-ming',
     name: '火铃夹命',
-    kind: 'neutral',
+    kind: 'inauspicious',
     description: '火星、铃星分居命宫相邻两宫。',
     source: `${VOL_THREE}·火星铃星`,
     quote: '火铃夹命为败局，如命安寅申，火星在丑，铃星在卯。吉多尚可。',
@@ -1153,7 +1153,7 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
         const trines = getTrinePalaces(context, target);
         const greed = findStarPalace(trines, '贪狼');
         const fire = findStarPalace(trines, '火星');
-        const forbidden = trines.flatMap((palace) =>
+        const forbidden = [target, ...trines].flatMap((palace) =>
           getMatchedStarNames(palace, ['擎羊', '陀罗', '铃星']),
         );
         if (greed && fire && forbidden.length === 0) {
@@ -1279,4 +1279,283 @@ export function formatZiweiPatterns(patterns: readonly ZiweiPattern[]): string {
         `${pattern.name}（${kindLabels[pattern.kind]}）：${pattern.conditions.join('；')}［${pattern.palaces.join('、')}］`,
     )
     .join('\n');
+}
+
+export interface ZiweiPatternDamagedItem {
+  patternId: string;
+  patternName: string;
+  status: '成中有破';
+  breakers: string[];
+}
+
+export interface ZiweiPatternRescueItem {
+  targetName: string;
+  sourceKind: '凶格' | '落陷格';
+  status: '有救可转' | '略有缓解（救应偏弱）' | '原局无明救';
+  rescues: string[];
+}
+
+export interface ZiweiPatternRelations {
+  synergies: string[];
+  damagedAuspicious: ZiweiPatternDamagedItem[];
+  inauspiciousRescues: ZiweiPatternRescueItem[];
+}
+
+const FIRE_GREED_IDS = new Set(['tan-huo-xiang-feng', 'huo-gui']);
+const BREAKING_STARS = ['地空', '地劫', '擎羊', '陀罗', '火星', '铃星'] as const;
+const RESCUE_AUX_STARS = ['禄存', '左辅', '右弼', '天魁', '天钺'] as const;
+
+function collectPalaceMutagens(palace: ZiweiPatternPalace, mutagens: readonly string[]): string[] {
+  return getBirthMutagenStars(palace, mutagens).map(
+    (star) => `${palace.name}${star.name}化${star.mutagen}`,
+  );
+}
+
+function collectSurroundedItems(
+  palaces: readonly ZiweiPatternPalace[],
+  starNames: readonly string[],
+): string[] {
+  const out: string[] = [];
+  for (const palace of palaces) {
+    for (const name of starNames) {
+      if (hasStar(palace, name)) out.push(`${palace.name}${name}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * 基于本命十二宫与实际命中格局，客观计算格局叠合、成中有破与凶格救应链。
+ */
+export function analyzeZiweiPatternRelations(
+  palaces: readonly ZiweiPatternPalace[],
+  patterns: readonly ZiweiPattern[],
+): ZiweiPatternRelations {
+  assertValidPalaces(palaces);
+  const soulPalace = palaces.find((palace) => normalizePalaceName(palace.name) === '命')!;
+  const context: PatternContext = {
+    palaces,
+    palaceByIndex: new Map(palaces.map((palace) => [palace.index, palace])),
+    soulPalace,
+  };
+  const palaceByNormName = new Map(
+    palaces.map((palace) => [normalizePalaceName(palace.name), palace]),
+  );
+  const surrounded = getSurroundedPalaces(context, soulPalace);
+  const auspicious = patterns.filter((item) => item.kind === 'auspicious');
+  const inauspicious = patterns.filter((item) => item.kind === 'inauspicious');
+
+  // 1. 吉格叠加协同
+  const synergies: string[] = [];
+  if (auspicious.length >= 2) {
+    synergies.push(`多吉格并见：${auspicious.map((item) => item.name).join(' + ')}`);
+  }
+
+  const luCunItems = collectSurroundedItems(surrounded, ['禄存']);
+  const huaLuItems = surrounded.flatMap((palace) => collectPalaceMutagens(palace, ['禄']));
+  const huaQuanItems = surrounded.flatMap((palace) => collectPalaceMutagens(palace, ['权']));
+  const huaKeItems = surrounded.flatMap((palace) => collectPalaceMutagens(palace, ['科']));
+  const fuBiItems = collectSurroundedItems(surrounded, ['左辅', '右弼']);
+  const changQuItems = collectSurroundedItems(surrounded, ['文昌', '文曲']);
+  const kuiYueItems = collectSurroundedItems(surrounded, ['天魁', '天钺']);
+
+  const boosterTags: string[] = [];
+  if (luCunItems.length > 0 && huaLuItems.length > 0) {
+    boosterTags.push(`双禄会照（${[...luCunItems, ...huaLuItems].join('、')}）`);
+  }
+  if (
+    findStarPalace(surrounded, '左辅') &&
+    findStarPalace(surrounded, '右弼')
+  ) {
+    boosterTags.push(`辅弼齐会（${fuBiItems.join('、')}）`);
+  }
+  if (
+    findStarPalace(surrounded, '文昌') &&
+    findStarPalace(surrounded, '文曲')
+  ) {
+    boosterTags.push(`昌曲齐会（${changQuItems.join('、')}）`);
+  }
+  if (
+    findStarPalace(surrounded, '天魁') &&
+    findStarPalace(surrounded, '天钺')
+  ) {
+    boosterTags.push(`魁钺齐会（${kuiYueItems.join('、')}）`);
+  }
+  const sanQiItems = [...huaLuItems, ...huaQuanItems, ...huaKeItems];
+  const sanQiKinds = [huaLuItems.length > 0, huaQuanItems.length > 0, huaKeItems.length > 0].filter(Boolean).length;
+  if (sanQiKinds === 3) {
+    boosterTags.push(`三奇加会（${sanQiItems.join('、')}）`);
+  } else if (sanQiKinds === 2) {
+    boosterTags.push(`双吉化会照（${sanQiItems.join('、')}）`);
+  }
+
+  const hasShaPoLang =
+    !!findStarPalace(surrounded, '七杀') &&
+    !!findStarPalace(surrounded, '破军') &&
+    !!findStarPalace(surrounded, '贪狼');
+  const fireGreedPatterns = patterns.filter((item) => FIRE_GREED_IDS.has(item.id));
+  const coreBoostForAggressive = [...luCunItems, ...huaLuItems, ...huaQuanItems, ...fuBiItems];
+
+  if (fireGreedPatterns.length > 0 && coreBoostForAggressive.length > 0) {
+    synergies.push(
+      `${fireGreedPatterns.map((item) => item.name).join('、')}叠见${coreBoostForAggressive.join('、')}，爆发力与承接力协同增强`,
+    );
+  }
+  if (hasShaPoLang && coreBoostForAggressive.length > 0) {
+    synergies.push(
+      `命宫三方四正成杀破狼架构并叠见${coreBoostForAggressive.join('、')}，动局得禄权辅弼增力`,
+    );
+  }
+  if (auspicious.length > 0 && boosterTags.length > 0) {
+    synergies.push(`命宫三方四正协同增力：${boosterTags.join('；')}`);
+  }
+
+  // 2. 吉格受破警示（成中有破）
+  const damagedAuspicious: ZiweiPatternDamagedItem[] = [];
+  const flankChecks: Array<{ stars: [string, string]; label: string }> = [
+    { stars: ['地空', '地劫'], label: '空劫夹命' },
+    { stars: ['擎羊', '陀罗'], label: '羊陀夹命' },
+    { stars: ['火星', '铃星'], label: '火铃夹命' },
+  ];
+  const soulFlankBreakers: string[] = [];
+  for (const check of flankChecks) {
+    const flanks = getFlankingMatch(context, soulPalace, check.stars[0], check.stars[1]);
+    if (flanks) {
+      soulFlankBreakers.push(
+        `邻宫${check.label}（${flanks.map((p) => p.name).join('、')}）`,
+      );
+    }
+  }
+
+  for (const pattern of auspicious) {
+    const patternPalaces = uniquePalaces(
+      pattern.palaces
+        .map((name) => palaceByNormName.get(normalizePalaceName(name)))
+        .filter((palace): palace is ZiweiPatternPalace => !!palace),
+    );
+    const excludeFire = FIRE_GREED_IDS.has(pattern.id);
+    const breakers: string[] = [];
+
+    for (const palace of patternPalaces) {
+      const malefics = getMatchedStarNames(palace, BREAKING_STARS).filter(
+        (name) => !(excludeFire && name === '火星'),
+      );
+      const jiStars = getBirthMutagenStars(palace, ['忌']).map((s) => `${s.name}化忌`);
+      const items = [...malefics, ...jiStars];
+      if (items.length > 0) {
+        breakers.push(`${palace.name}同宫见${items.join('、')}`);
+      }
+    }
+
+    const involvesSoul = patternPalaces.some((palace) => palace.index === soulPalace.index);
+    if (involvesSoul && soulFlankBreakers.length > 0) {
+      breakers.push(...soulFlankBreakers);
+    }
+
+    if (breakers.length > 0) {
+      damagedAuspicious.push({
+        patternId: pattern.id,
+        patternName: pattern.name,
+        status: '成中有破',
+        breakers: [...new Set(breakers)],
+      });
+    }
+  }
+
+  // 3. 凶格/落陷格救应链
+  const rescueCandidates = [
+    ...huaLuItems,
+    ...huaQuanItems,
+    ...huaKeItems,
+    ...collectSurroundedItems(surrounded, RESCUE_AUX_STARS),
+  ];
+  const hasGoodMutagen = huaLuItems.length > 0 || huaQuanItems.length > 0 || huaKeItems.length > 0;
+  const rescueStatus: ZiweiPatternRescueItem['status'] =
+    rescueCandidates.length === 0
+      ? '原局无明救'
+      : rescueCandidates.length >= 2 && (hasGoodMutagen || fuBiItems.length >= 2 || luCunItems.length > 0)
+        ? '有救可转'
+        : rescueCandidates.length >= 2
+          ? '有救可转'
+          : '略有缓解（救应偏弱）';
+
+  const inauspiciousRescues: ZiweiPatternRescueItem[] = [];
+  for (const pattern of inauspicious) {
+    inauspiciousRescues.push({
+      targetName: pattern.name,
+      sourceKind: '凶格',
+      status: rescueStatus,
+      rescues: rescueCandidates,
+    });
+  }
+
+  // 补充核查：日月反背（未已被日月藏辉覆盖时）及命宫主星落陷
+  const hasSunMoonReversePattern = inauspicious.some((item) => item.id === 'ri-yue-cang-hui');
+  const sunInXu = surrounded.find((p) => p.earthlyBranch === '戌' && hasStar(p, '太阳'));
+  const moonInChen = surrounded.find((p) => p.earthlyBranch === '辰' && hasStar(p, '太阴'));
+  if (!hasSunMoonReversePattern && sunInXu && moonInChen) {
+    inauspiciousRescues.push({
+      targetName: '日月反背（太阳在戌、太阴在辰）',
+      sourceKind: '落陷格',
+      status: rescueStatus,
+      rescues: rescueCandidates,
+    });
+  }
+
+  const fallenSoulMajors = soulPalace.majorStars
+    .filter((star) => star.brightness === '陷')
+    .map((star) => star.name);
+  if (fallenSoulMajors.length > 0) {
+    inauspiciousRescues.push({
+      targetName: `命宫主星落陷（${fallenSoulMajors.join('、')}）`,
+      sourceKind: '落陷格',
+      status: rescueStatus,
+      rescues: rescueCandidates,
+    });
+  }
+
+  return {
+    synergies,
+    damagedAuspicious,
+    inauspiciousRescues,
+  };
+}
+
+/**
+ * 将紫微格局叠合与成败制衡关系格式化为客观结构化提示词区块。
+ */
+export function formatZiweiPatternRelations(
+  palaces: readonly ZiweiPatternPalace[],
+  patterns: readonly ZiweiPattern[],
+): string {
+  const relations = analyzeZiweiPatternRelations(palaces, patterns);
+  const lines: string[] = [];
+
+  if (relations.synergies.length > 0) {
+    lines.push(`吉格叠加协同：${relations.synergies.join('；')}。`);
+  } else {
+    lines.push('吉格叠加协同：原局未见多吉格并见或三方四正双禄/辅弼/三奇叠合增力。');
+  }
+
+  if (relations.damagedAuspicious.length > 0) {
+    const items = relations.damagedAuspicious.map(
+      (item) => `${item.patternName}［${item.status}：${item.breakers.join('，')}］`,
+    );
+    lines.push(`吉格受破警示：${items.join('；')}。`);
+  } else if (patterns.some((item) => item.kind === 'auspicious')) {
+    lines.push('吉格受破警示：已命中吉格未见同宫煞忌空劫或命宫煞夹破格。');
+  }
+
+  if (relations.inauspiciousRescues.length > 0) {
+    const items = relations.inauspiciousRescues.map((item) =>
+      item.rescues.length > 0
+        ? `${item.targetName}（${item.sourceKind}）→ ${item.status}［三方四正见${item.rescues.join('、')}］`
+        : `${item.targetName}（${item.sourceKind}）→ ${item.status}［三方四正未见化禄/权/科、禄存及辅弼魁钺］`,
+    );
+    lines.push(`凶格/落陷格救应链：${items.join('；')}。`);
+  } else {
+    lines.push('凶格/落陷格救应链：未命中凶格，且命宫主星无落陷。');
+  }
+
+  return lines.join('\n');
 }

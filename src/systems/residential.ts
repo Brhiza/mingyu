@@ -58,8 +58,8 @@ function buildAgreements(params: {
   if (bazhaiData && xuanData) {
     const xuankongBoundarySensitive = (xuanData.measurement?.candidates.length ?? 0) > 1;
     const houseBoundarySensitive = measurement?.stability === '宅卦不稳定';
-    const birthBoundarySensitive = bazhaiData.birth?.status === '待核';
-    const periodBoundarySensitive = xuanData.periodBoundary === '待核';
+    const birthBoundarySensitive = bazhaiData.birth?.status === '交界双候选';
+    const periodBoundarySensitive = xuanData.periodBoundary === '交界双候选';
     const firstChart = xuanData.charts[0];
     const periodLabel = `${periodBoundarySensitive ? '暂按' : ''}${firstChart.period.yuan}${firstChart.period.yun}运（${firstChart.period.startYear}–${firstChart.period.endYear}）`;
     const formationSummary = [...new Set(xuanData.charts.map((chart) => chart.formation))].join(' / ');
@@ -111,7 +111,7 @@ function buildAdvice(params: {
   const advice: string[] = [];
   if (xuanData) {
     const firstChart = xuanData.charts[0];
-    const periodBoundarySensitive = xuanData.periodBoundary === '待核';
+    const periodBoundarySensitive = xuanData.periodBoundary === '交界双候选';
     const xuankongBoundarySensitive = (xuanData.measurement?.candidates.length ?? 0) > 1;
     const formationSummary = [...new Set(xuanData.charts.map((chart) => chart.formation))].join(' / ');
     advice.push(
@@ -119,7 +119,7 @@ function buildAdvice(params: {
     );
   }
   if (bazhaiData) {
-    const birthBoundarySensitive = bazhaiData.birth?.status === '待核';
+    const birthBoundarySensitive = bazhaiData.birth?.status === '交界双候选';
     const candidateMatches = new Set(bazhaiData.comparisons.map((item) => item.match));
     const matchText = bazhaiData.comparisons.length
       ? candidateMatches.size > 1
@@ -212,6 +212,105 @@ function calculateData(source: Source) {
     limitations: ['两套体系分别保留规则与证据，不生成综合吉凶总分。', '未提供建造或起运年份时不排玄空；形峦、实地状况和完整专业规则未涵盖。'] }, bazhaiResult, xuanResult };
 }
 type Calculation = ReturnType<typeof calculateData>;
+const BAZHAI_LUCKY = new Set(['生气', '延年', '天医', '伏位']);
+const XK_SHA_PAIRS: Record<string, string> = {
+  '25': '二五交加', '52': '五二交加', '59': '五九毒煞', '95': '九五毒煞',
+  '23': '二三斗牛煞', '32': '三二斗牛煞', '37': '三七穿途', '73': '七三穿途',
+  '67': '六七交剑煞', '76': '七六交剑煞', '79': '七九火煞', '97': '九七火煞',
+};
+
+function isXkGoodStar(star: number, yun: number): boolean {
+  const next1 = (yun % 9) + 1;
+  const next2 = ((yun + 1) % 9) + 1;
+  return star === yun || (star === next1 && star !== 5) || (star === next2 && star !== 5);
+}
+
+function buildResidentialPatternRelations(data: Calculation['data']): string {
+  if (!data.links.length) {
+    return '缺少居住人命卦、住宅坐向或建造年份之一，暂仅具备单层结果，待补齐双层资料后可输出八宅×玄空叠合制衡关系。';
+  }
+  const lines: string[] = [];
+  for (const link of data.links) {
+    const yun = link.yun;
+    const header = `命卦${link.mingGua}${link.personYear === null ? '' : `（${link.personYear}年）`} × ${link.sitMountain}山${link.houseGua}宅（八宅${link.mingHouseMatch}｜玄空${yun}运${link.xuanFormation}）`;
+    const stackedGood: string[] = [];
+    const conflicts: string[] = [];
+    const fiveTwoSuppressions: string[] = [];
+    const remedies = new Set<string>();
+
+    for (const d of link.directions) {
+      const mingLucky = BAZHAI_LUCKY.has(d.ming);
+      const houseLucky = BAZHAI_LUCKY.has(d.house);
+      const anyBazhaiLucky = mingLucky || houseLucky;
+      const bothBazhaiLucky = mingLucky && houseLucky;
+      const anyBazhaiBad = !mingLucky || !houseLucky;
+      const xkGood = isXkGoodStar(d.shanStar, yun) || isXkGoodStar(d.xiangStar, yun);
+      const pairKey = `${d.shanStar}${d.xiangStar}`;
+      const shaPair = XK_SHA_PAIRS[pairKey];
+      const hasFive = (d.shanStar === 5 && yun !== 5) || (d.xiangStar === 5 && yun !== 5) || d.yearStar === 5;
+      const hasTwo = (d.shanStar === 2 && yun !== 2) || (d.xiangStar === 2 && yun !== 2) || d.yearStar === 2;
+      const hasHardSha = hasFive || (hasTwo && yun !== 9) || Boolean(shaPair);
+
+      if (anyBazhaiLucky && xkGood && !hasHardSha) {
+        const bazhaiTag = bothBazhaiLucky ? `命${d.ming}/宅${d.house}双吉` : mingLucky ? `命${d.ming}吉（宅${d.house}）` : `宅${d.house}吉（命${d.ming}）`;
+        const xkTags = [
+          isXkGoodStar(d.shanStar, yun) ? `山${d.shanStar}` : '',
+          isXkGoodStar(d.xiangStar, yun) ? `向${d.xiangStar}` : '',
+        ].filter(Boolean).join('+');
+        stackedGood.push(`${d.direction}方（${bazhaiTag}＋玄空${xkTags}当令旺生）`);
+      }
+
+      if (anyBazhaiLucky && hasHardSha) {
+        const shaReasons = [
+          hasFive ? '五黄煞' : '',
+          hasTwo && yun !== 9 ? '二黑病符' : '',
+          shaPair ?? '',
+        ].filter(Boolean).join('、');
+        conflicts.push(`${d.direction}方［八宅吉（命${d.ming}/宅${d.house}）受玄空${shaReasons}压制］：须先化煞再启用`);
+      } else if (!anyBazhaiLucky && xkGood) {
+        const xkTags = [
+          isXkGoodStar(d.shanStar, yun) ? `山${d.shanStar}` : '',
+          isXkGoodStar(d.xiangStar, yun) ? `向${d.xiangStar}` : '',
+        ].filter(Boolean).join('+');
+        conflicts.push(`${d.direction}方［玄空${xkTags}旺生但八宅命${d.ming}/宅${d.house}双凶］：宜动静分层（可作通明纳气，避作命主长期卧床）`);
+      } else if (anyBazhaiLucky && anyBazhaiBad && xkGood && !hasHardSha) {
+        conflicts.push(`${d.direction}方［人宅异组冲突：命${d.ming}/宅${d.house}，玄空山${d.shanStar}向${d.xiangStar}旺生］：外局从宅、床桌从命`);
+      }
+
+      if (hasFive || hasTwo) {
+        const starsText = [
+          d.shanStar === 5 && yun !== 5 ? '山五黄' : '',
+          d.xiangStar === 5 && yun !== 5 ? '向五黄' : '',
+          d.yearStar === 5 ? '年五黄' : '',
+          d.shanStar === 2 && yun !== 2 ? `山二黑${yun === 9 ? '(进气防病气)' : ''}` : '',
+          d.xiangStar === 2 && yun !== 2 ? `向二黑${yun === 9 ? '(进气防病气)' : ''}` : '',
+          d.yearStar === 2 ? '年二黑' : '',
+        ].filter(Boolean).join('+');
+        const bazhaiState = !mingLucky && !houseLucky
+          ? `叠八宅双凶（命${d.ming}/宅${d.house}）凶上加凶，宜静压设储物/卫浴、忌动土`
+          : anyBazhaiLucky
+            ? `压制八宅吉位（命${d.ming}/宅${d.house}），先以金泄土化煞再使用`
+            : `命${d.ming}/宅${d.house}，宜静置减动`;
+        const extraCombo = (pairKey === '25' || pairKey === '52' || pairKey === '59' || pairKey === '95') ? `［${XK_SHA_PAIRS[pairKey]}高危］` : '';
+        fiveTwoSuppressions.push(`${d.direction}方（${starsText}${extraCombo}；${bazhaiState}）`);
+        remedies.add('五黄/二黑土煞化解：以金属器物/铜铃/素白金气泄耗土煞，严忌红黄火土色、明火及动土修造');
+      }
+      if (pairKey === '23' || pairKey === '32') remedies.add('二三斗牛煞化解：以暖光/红色火气通关泄木生土');
+      if (pairKey === '37' || pairKey === '73' || pairKey === '67' || pairKey === '76') remedies.add('三七/六七金木相战化解：以静水/黑蓝色水气通关泄金');
+      if (pairKey === '79' || pairKey === '97') remedies.add('七九火煞化解：以陶瓷/米黄色土气通关泄火生金');
+    }
+
+    lines.push(`${header}`);
+    lines.push(`- 同向叠加吉位：${stackedGood.join('；') || '无八宅与玄空同向纯净吉位'}。`);
+    lines.push(`- 冲突争议位：${conflicts.join('；') || '未见显著跨体系冲突位'}。`);
+    lines.push(`- 五黄二黑压制位：${fiveTwoSuppressions.join('；') || '八方未见非当运五黄二黑落宫'}。`);
+    if (remedies.size) {
+      lines.push(`- 化解路径：${[...remedies].join('；')}。`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function render(result: Calculation, question: string, options?: Input['prompt']) {
   const { data, bazhaiResult, xuanResult } = result;
   const palaceText = data.housePalaces.map((house) => `${house.sitMountain}山${house.houseGua}宅：${house.starPalaces.map((p) => `${p.direction}${p.gua}宫${p.palaceElement}，${p.label}${p.star}${p.starElement}，${p.relation}`).join('；')}（伏位取左辅木）`);
@@ -238,6 +337,7 @@ function render(result: Calculation, question: string, options?: Input['prompt']
     bazhaiResult ? bazhaiResult.prompt.text.split(/【(?:任务与限制|限制与任务|问题)】/u)[0].trim() : `【八宅宅卦】\n${palaceText.join('\n') || '缺少住宅坐向，未计算宅卦。'}\n未提供居住人命卦，不计算命宅适配。`,
     xuanResult ? xuanResult.prompt.text.split(/【(?:任务与限制|限制与任务|问题)】/u)[0].trim() : `【玄空】\n${data.input.construction ? '缺少住宅坐向，未排盘。' : '未提供建造或起运年份，未排盘。'}`,
     `【同一坐山的分层对照】\n${links.join('\n') || '缺少居住人资料、住宅坐向或建造年份，无法同时列出两层对照。'}`,
+    `【方位格局与理气制衡关系】\n${buildResidentialPatternRelations(data)}`,
     `【合参要点】\n${data.agreements.map((item) => `[${item.level}] ${item.title}：${item.detail}`).join('\n')}`,
     `【勘察建议】\n${data.advice.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
     schools,

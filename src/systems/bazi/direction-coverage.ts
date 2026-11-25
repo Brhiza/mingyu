@@ -25,7 +25,7 @@ export function buildDirectionCoverage(beneficiary: Strategy, provider: Pillars)
   const stems = (values: string[]) => unique(values).map((stem) => ({ stem, sources: sources.filter((source) => source.layer !== '地支' && source.value === stem) }));
   const favorable = elements(beneficiary.favorable), unfavorable = elements(beneficiary.unfavorable);
   const favorableStems = stems(beneficiary.conditionalFavorableStems), unfavorableStems = stems(beneficiary.conditionalUnfavorableStems);
-  return { status: favorable.length || unfavorable.length || favorableStems.length || unfavorableStems.length ? '条件候选' as const : '待判' as const,
+  return { status: favorable.length || unfavorable.length || favorableStems.length || unfavorableStems.length ? '条件候选' as const : '均衡无偏' as const,
     favorable, unfavorable, favorableStems, unfavorableStems,
     limitation: '仅核对对方四柱天干、地支和藏干中是否出现当前取用条件候选；不等同最终喜忌，不判断作用、强弱、互补或关系结果。' };
 }
@@ -34,7 +34,7 @@ export function formatDirectionCoverage(value: ReturnType<typeof buildDirectionC
   const shortLayer: Record<string, string> = { 天干: '干', 地支: '支', 藏干: '藏' };
   const shortPillar: Record<PillarName, string> = { year: '年', month: '月', day: '日', hour: '时' };
   const sources = (items: Array<{ pillar: PillarName; layer: string; value: string }>) => items.map((item) => `${shortPillar[item.pillar]}${shortLayer[item.layer] ?? item.layer}${item.value}`).join('、') || '未出现';
-  const elements = (items: typeof value.favorable) => items.map((item) => `${item.element}（${sources(item.sources)}）`).join('；') || '待判';
+  const elements = (items: typeof value.favorable) => items.map((item) => `${item.element}（${sources(item.sources)}）`).join('；') || '随运平衡';
   const stems = (items: typeof value.favorableStems) => items.map((item) => `${item.stem}（${sources(item.sources)}）`).join('；');
   const stemParts = [
     value.favorableStems.length ? `条件有利干：${stems(value.favorableStems)}` : '',
@@ -131,17 +131,17 @@ export function evaluateUsefulGodComplementarity(
   const p2Fav = person2Useful.favorableWuxing ?? [];
   const p1Avoid = person1Useful.unfavorableWuxing ?? [];
   const p2Avoid = person2Useful.unfavorableWuxing ?? [];
-  const p1Pending = person1Useful.incrementStatus === '待判' || person1Useful.incrementStatus === '部分判定';
-  const p2Pending = person2Useful.incrementStatus === '待判' || person2Useful.incrementStatus === '部分判定';
+  const p1Partial = person1Useful.incrementStatus === '部分判定';
+  const p2Partial = person2Useful.incrementStatus === '部分判定';
   const p1CoveredByPerson2Count = countPillarMainElements(person2Pillars, p1Fav);
   const p2CoveredByPerson1Count = countPillarMainElements(person1Pillars, p2Fav);
   const person1AvoidCountInPerson2 = countPillarMainElements(person2Pillars, p1Avoid);
   const person2AvoidCountInPerson1 = countPillarMainElements(person1Pillars, p2Avoid);
 
-  const dataStatus = p1Pending && p2Pending ? '双方待判' as const
-    : p1Pending || p2Pending ? '一方待判' as const
-    : !p1Fav.length && !p2Fav.length ? '双方缺失' as const
+  const dataStatus = !p1Fav.length && !p2Fav.length ? '双方缺失' as const
     : !p1Fav.length || !p2Fav.length ? '一方缺失' as const
+    : p1Partial && p2Partial ? '双方部分判定' as const
+    : p1Partial || p2Partial ? '一方部分判定' as const
     : '完整' as const;
 
   let level: '双向喜用覆盖' | '单向喜用覆盖' | '未见喜用覆盖' | '资料不足';

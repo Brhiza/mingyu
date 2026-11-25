@@ -126,6 +126,7 @@ export const tarotInput = z.object({
   tarot: z.object({
     spread: z.enum(['single', 'three', 'love', 'career', 'decision', 'celtic', 'chakra', 'year', 'mindBodySpirit', 'horseshoe', 'holyTriangle', 'universal', 'fourElements', 'hexagram', 'relationship', 'wealth', 'problemSolving', 'twelveHouses']).optional(),
     deckScope: z.enum(['all', 'major']).optional().describe('牌组范围：默认 all（78张全牌）；major 为仅使用 22 张大阿卡纳。'),
+    reversalMode: z.enum(['realistic', 'balanced', 'upright-only']).optional().describe('洗牌正逆位模式：默认 realistic（约 30% 逆位，贴近现实洗牌手感）；balanced（经典对半 50%）；upright-only（仅正位，0% 逆位）。'),
     manualCards: z.array(z.object({ id: z.number().int().min(1).max(78), reversed: z.boolean() }).strict()).optional().describe('按牌位顺序提供已选择的牌号 1–78 和正逆位；也可由交互界面逐张选择后提交。'),
     selectionMode: z.enum(['manual', 'interactive']).optional().describe('选择牌面时记录来自手工录入还是界面逐张抽取；不传牌面时省略。'),
   }).strict().refine((value) => !value.selectionMode || !!value.manualCards, '指定选牌方式时必须提供牌面').optional(),

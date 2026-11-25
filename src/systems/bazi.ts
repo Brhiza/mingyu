@@ -6,7 +6,7 @@ import { calculateBaziPillars, type PillarName } from './bazi/pillars';
 import { calculateBaziFortune, locateBaziFortune } from './bazi/fortune';
 import { calculateBaziTimeRange, calculateUnknownBaziTime } from './bazi/unknown-time';
 import { baziPromptTask } from './bazi/prompt-options';
-import { evaluateBaziSchoolAlgorithms } from './bazi/school-algorithms';
+import { buildSchoolConsensusSummary, evaluateBaziSchoolAlgorithms } from './bazi/school-algorithms';
 import { formatSchoolAlgorithmSection } from './school-algorithms';
 import { buildFortuneEvidence } from './bazi/fortune-evidence';
 import { stemElementOf } from './bazi/natal-facts';
@@ -20,13 +20,16 @@ import { formatClimateDecision, summarizeClimateDecision } from './bazi/climate-
 import { formatUsefulStrategy, summarizeUsefulStrategy } from './bazi/useful-strategy';
 import { determineUsefulGod, formatUsefulGod } from './bazi/useful-god';
 import { formatPatternEvidence } from './bazi/pattern-evidence';
+import { buildPatternRelations, formatPatternRelations } from './bazi/pattern-relations';
+import { buildCompactFortuneDynamics, formatCompactFortuneDynamics } from './bazi/fortune-compact';
+import { formatBaziDailyRangeBlock, resolveDailyRange } from './daily-range';
 import { formatFortuneShensha } from './bazi/fortune-shensha';
 import { formatBaziShensha, formatBaziShenshaHits, partitionBaziShensha } from './bazi/shensha';
 import { dedupeExcerpts, formatClassicExcerpts, selectBaziClassics } from './classics';
 import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof baziIndependentInput>;
-type Source = Pick<Input, 'birth' | 'birthRange' | 'gender' | 'referenceTime' | 'timelineYear' | 'rules'>;
+type Source = Pick<Input, 'birth' | 'birthRange' | 'gender' | 'referenceTime' | 'timelineYear' | 'dailyRange' | 'rules'>;
 type Options = Input['prompt'];
 const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
 const labels: Record<string, string> = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' };
@@ -46,6 +49,11 @@ function formatRuleSummary(rules: Input['rules']) {
     `旬空=${resolved.kongWangMode}`,
     `起运=${resolved.fortuneRule}`,
     ...(rules?.yangRenMode ? [`羊刃=${rules.yangRenMode}`] : []),
+    ...(rules?.shenshaBaseMode ? [`神煞基准=${rules.shenshaBaseMode}`] : []),
+    ...(rules?.xueTangMode ? [`学堂=${rules.xueTangMode}`] : []),
+    ...(rules?.tianYiMode ? [`天乙=${rules.tianYiMode}`] : []),
+    ...(rules?.hongYanMode ? [`红艳=${rules.hongYanMode}`] : []),
+    ...(rules?.tongZiMode ? [`童子=${rules.tongZiMode}`] : []),
     ...(rules?.commanderMode ? [`司令=${rules.commanderMode}`] : []),
     ...(rules?.earthRule ? [`土行长生=${rules.earthRule}`] : []),
   ].join('，');
@@ -58,6 +66,7 @@ export async function calculateBaziIndependentData(input: Source) {
     ...(input.gender ? { gender: input.gender } : {}),
     ...(input.referenceTime ? { referenceTime: input.referenceTime } : {}),
     ...(input.timelineYear !== undefined ? { timelineYear: input.timelineYear } : {}),
+    ...(input.dailyRange ? { dailyRange: input.dailyRange } : {}),
     ...(input.rules ? { rules: input.rules } : {}),
   };
   if (source.birthRange) {
@@ -74,9 +83,21 @@ export async function calculateBaziIndependentData(input: Source) {
   const baseChart = await calculateBaziPillars({ ...source.birth, clock: source.birth.clock }, source.gender, source.rules);
   const chart = { ...baseChart, usefulGod: determineUsefulGod(baseChart) };
   const fortune = source.gender && source.birth.clock.kind === 'exact' ? calculateBaziFortune(chart, source.gender, source.rules?.fortuneRule) : null;
-  const located = source.referenceTime && fortune ? locateBaziFortune(chart, fortune, Date.parse(source.referenceTime)) : null;
+  const resolvedRules = resolveBaziRules(source.rules);
+  const located = source.referenceTime && fortune
+    ? locateBaziFortune(chart, fortune, Date.parse(source.referenceTime), {
+        yangRenMode: resolvedRules.yangRenMode,
+        kongWangMode: resolvedRules.kongWangMode,
+        shenshaBaseMode: resolvedRules.shenshaBaseMode,
+        xueTangMode: resolvedRules.xueTangMode,
+        tianYiMode: resolvedRules.tianYiMode,
+        hongYanMode: resolvedRules.hongYanMode,
+        tongZiMode: resolvedRules.tongZiMode,
+      })
+    : null;
   const timeline = source.timelineYear !== undefined && fortune ? (await import('./bazi/fortune-timeline')).calculateFortuneYear(chart, fortune, source.timelineYear) : undefined;
-  return { input: source, chart, unknown: null, fortune, located, ...(timeline ? { timeline } : {}) };
+  const dailyRange = source.dailyRange ? resolveDailyRange(source.dailyRange, source.referenceTime ? Date.parse(source.referenceTime) : undefined) : undefined;
+  return { input: source, chart, unknown: null, fortune, located, ...(timeline ? { timeline } : {}), ...(dailyRange ? { dailyRange } : {}) };
 }
 type Data = Awaited<ReturnType<typeof calculateBaziIndependentData>>;
 
@@ -95,7 +116,7 @@ async function render(data: Data, question: string, options: Options) {
       const pillarText = positions.map((position) => `${labels[position]}${segment.pillars[position].ganZhi}`).join('、');
       const relations = options?.detailMode === 'full' ? `；原局关系：${segment.natalFacts.relations.map((item) => `${item.positions.map((position) => labels[position]).join('、')}${item.name}${item.element ?? ''}`).join('、') || '未命中所列关系'}；调候说明：${segment.climate.candidates.map((item) => `${item.label}${climateDetail(item.id)}`).join('；') || '无'}` : '';
       const stemConditions = `格神月令${segment.patternEvidence.monthGate?.status ?? segment.patternEvidence.decision?.monthGate ?? '不适用'}；普通格局条件模型${segment.patternEvidence.decision?.status ?? '不适用'}；可参与透干${segment.patternEvidence.visible.filter((item) => item.effective).map((item) => `${labels[item.position]}${item.stem}${item.tenGod}`).join('、') || '无'}`;
-      return `${index + 1}｜${iso(segment.startTimestamp)} 至 ${iso(segment.endTimestamp)}（终点不含）；当地 UTC${segment.timezone >= 0 ? '+' : ''}${segment.timezone}；${pillarText}；神煞${formatBaziShenshaHits(shensha.differences[index], options?.detailMode === 'full', '无额外命中')}；司权${segment.monthCommander.stem}；旺衰模型${segment.strength.status}；普通取格候选${segment.ordinaryPattern.candidate}；化气${segment.transformation ? `${segment.transformation.pattern}（${segment.transformation.status}）` : '未见日干配合'}；曲直${segment.quzhi ? `${segment.quzhi.route}（${segment.quzhi.status}）` : '未命中'}；从儿${segment.conger?.route ? `${segment.conger.route}（${segment.conger.status}）` : '未命中'}；从财优先${segment.conger?.competingWealth ?? '未命中'}；已核算路线优先${segment.patternOverview.pattern}；${stemConditions}；基础有利方向${segment.usefulBaseline.favorable.join('、') || '待判'}、不利方向${segment.usefulBaseline.unfavorable.join('、') || '待判'}；${summarizeClimate(segment.climate)}；${summarizeClimateDecision(segment.climateDecision)}；${summarizeUsefulStrategy(segment.usefulStrategy)}；用神裁定${segment.usefulGod.incrementStatus}（主用${segment.usefulGod.useful}、喜${segment.usefulGod.favorableWuxing.join('、') || '待判'}、忌${segment.usefulGod.unfavorableWuxing.join('、') || '待判'}）${relations}`;
+      return `${index + 1}｜${iso(segment.startTimestamp)} 至 ${iso(segment.endTimestamp)}（终点不含）；当地 UTC${segment.timezone >= 0 ? '+' : ''}${segment.timezone}；${pillarText}；神煞${formatBaziShenshaHits(shensha.differences[index], options?.detailMode === 'full', '无额外命中')}；司权${segment.monthCommander.stem}；旺衰模型${segment.strength.status}；普通取格候选${segment.ordinaryPattern.candidate}；化气${segment.transformation ? `${segment.transformation.pattern}（${segment.transformation.status}）` : '未见日干配合'}；曲直${segment.quzhi ? `${segment.quzhi.route}（${segment.quzhi.status}）` : '未命中'}；从儿${segment.conger?.route ? `${segment.conger.route}（${segment.conger.status}）` : '未命中'}；从财优先${segment.conger?.competingWealth ?? '未命中'}；已核算路线优先${segment.patternOverview.pattern}；${stemConditions}；基础有利方向${segment.usefulBaseline.favorable.join('、') || '随运平衡'}、不利方向${segment.usefulBaseline.unfavorable.join('、') || '随运避偏'}；${summarizeClimate(segment.climate)}；${summarizeClimateDecision(segment.climateDecision)}；${summarizeUsefulStrategy(segment.usefulStrategy)}；用神裁定${segment.usefulGod.incrementStatus}（主用${segment.usefulGod.useful}、喜${segment.usefulGod.favorableWuxing.join('、') || '随运平衡'}、忌${segment.usefulGod.unfavorableWuxing.join('、') || '随运避偏'}）${relations}`;
     });
     const common = positions.map((position) => `${labels[position]}：${unknown.common[position] ?? `不确定（${unknown.possible[position].join('、')}）`}`).join('；');
     const shichen = unknown.source.shichen, range = data.input.birthRange;
@@ -105,7 +126,8 @@ async function render(data: Data, question: string, options: Options) {
           '典籍片段',
         )
       : '';
-    const text = [`【八字出生时段】\n${range ? '指定出生范围；' : `当地公历日 ${unknown.source.solarDate}；${shichen ? `选择当地民用钟表 ${String(shichen.startHour).padStart(2, '0')}:00 至 ${String(shichen.endHour).padStart(2, '0')}:00（终点不含）；` : '时辰未知；'}`}日时依据：${unknown.input.timeStandard === 'true-solar' ? `真太阳时，经度 ${unknown.input.longitude}°` : '当地民用时间'}；${range ? '所选范围覆盖的' : '当地日覆盖的'}真实瞬时范围 ${iso(unknown.source.startTimestamp)} 至 ${iso(unknown.source.endTimestamp)}（终点不含）；所选范围或偏移以外排除 ${unknown.source.excludedSeconds} 秒。${range?.pillars ? '四柱来源已核对所有分段。' : ''}`,
+    const genderLabel = data.input.gender === 'male' ? '乾造（男）' : data.input.gender === 'female' ? '坤造（女）' : '';
+    const text = [`【八字出生时段】\n${genderLabel ? `性别：${genderLabel}；` : ''}${range ? '指定出生范围；' : `当地公历日 ${unknown.source.solarDate}；${shichen ? `选择当地民用钟表 ${String(shichen.startHour).padStart(2, '0')}:00 至 ${String(shichen.endHour).padStart(2, '0')}:00（终点不含）；` : '时辰未知；'}`}日时依据：${unknown.input.timeStandard === 'true-solar' ? `真太阳时，经度 ${unknown.input.longitude}°` : '当地民用时间'}；${range ? '所选范围覆盖的' : '当地日覆盖的'}真实瞬时范围 ${iso(unknown.source.startTimestamp)} 至 ${iso(unknown.source.endTimestamp)}（终点不含）；所选范围或偏移以外排除 ${unknown.source.excludedSeconds} 秒。${range?.pillars ? '四柱来源已核对所有分段。' : ''}`,
       `【稳定与候选】\n${common}；月令司权：${unknown.commonMonthCommander ?? `不确定（${unknown.possibleMonthCommanders.join('、')}）`}；旺衰模型：${unknown.commonStrength ?? `不确定（${unknown.possibleStrengths.join('、')}）`}；普通取格候选：${unknown.commonOrdinaryPattern ?? `不确定（${unknown.possibleOrdinaryPatterns.join('、')}）`}。`,
       `【各候选共同的神煞】\n${formatBaziShenshaHits(shensha.common, options?.detailMode === 'full', '没有共同命中项')}\n【候选时段：神煞仅列与共同项的差异】\n${segments.join('\n')}\n${options?.detailMode === 'full' ? `${unknown.segments[0].shensha.rule}\n` : ''}${unknown.segments[0].shensha.limitation}`,
       classics,
@@ -191,14 +213,41 @@ async function render(data: Data, question: string, options: Options) {
     return [...grouped.entries()].map(([src, targets]) => `${src}与${targets.join('、')}`);
   })();
   const formations = evidence?.formations.map((item) => `${item.branches.join('')} ${item.name}${item.element}；参与：${item.participants.map((p) => `${layerLabels[p.layer]}${p.branch}`).join('、')}；补全来源：${item.triggers.map((p) => `${layerLabels[p.layer]}${p.branch}`).join('、')}`);
-  const fortuneShenshaText = located && scopeIndex >= 0 ? formatFortuneShensha(located.shensha, activeLayers.map((layer) => layer.id), options?.detailMode === 'full') : '';
-  const fortuneSection = scope !== 'full' ? '' : fortune ? `【大运】\n${fortune.rule}\n${fortune.direction === 'forward' ? '顺行' : '逆行'}；起运 ${iso(fortune.firstTimestamp)}；年龄 ${fortune.startAge.years}年${fortune.startAge.months}月${fortune.startAge.days}日${fortune.startAge.hours}小时${fortune.startAge.minutes}分。\n${options?.detailMode === 'full' ? cycles!.join('\n') : [cycles!.slice(0, 4).join('；'), cycles!.slice(4, 8).join('；'), cycles!.slice(8, 12).join('；')].filter(Boolean).join('\n')}` : '【大运】\n未计算：需要明确出生时分秒及性别。';
+  const isFull = options?.detailMode === 'full';
+  const stripTrailing = (text: string, suffix?: string) => {
+    if (!suffix) return text;
+    return text.endsWith(suffix) ? text.slice(0, -suffix.length).trimEnd() : text.replace(suffix, '').trimEnd();
+  };
+  const fortuneShenshaText = located && scopeIndex >= 0
+    ? (() => {
+        const raw = formatFortuneShensha(located.shensha, activeLayers.map((layer) => layer.id), isFull);
+        if (isFull) return raw;
+        return stripTrailing(stripTrailing(raw, located.shensha.limitation), located.shensha.rule);
+      })()
+    : '';
+  const patternRelations = buildPatternRelations({ pillars: chart.pillars, strength: chart.strength, patternOverview: chart.patternOverview, ordinaryPattern: chart.ordinaryPattern, usefulGod: chart.usefulGod });
+  const fortuneSection = scope !== 'full'
+    ? ''
+    : fortune
+      ? isFull
+        ? `【大运】\n${fortune.rule}\n${fortune.direction === 'forward' ? '顺行' : '逆行'}；起运 ${iso(fortune.firstTimestamp)}；年龄 ${fortune.startAge.years}年${fortune.startAge.months}月${fortune.startAge.days}日${fortune.startAge.hours}小时${fortune.startAge.minutes}分。\n${cycles!.join('\n')}`
+        : `【大运】\n${fortune.direction === 'forward' ? '顺行' : '逆行'}；起运 ${new Date(fortune.firstTimestamp + 8 * 3_600_000).getUTCFullYear()}年（${fortune.startAge.years}年${fortune.startAge.months}月${fortune.startAge.days}日）。\n${[cycles!.slice(0, 4).join('；'), cycles!.slice(4, 8).join('；'), cycles!.slice(8, 12).join('；')].filter(Boolean).join('\n')}`
+      : '【大运】\n未计算：需要明确出生时分秒及性别。';
+  const compactFortuneSection = scope === 'full' && fortune
+    ? `【岁运动态与格局引动（压平精要）】\n${formatCompactFortuneDynamics(buildCompactFortuneDynamics({
+        chart,
+        fortune,
+        patternRelations,
+        question,
+        ...(located ? { referenceTime: located.timestamp, referenceYear: located.flowYear } : data.input.referenceTime ? { referenceTime: data.input.referenceTime } : {}),
+      }))}`
+    : '';
   const timelineSection = scope === 'full' && 'timeline' in data && data.timeline ? `【${data.timeline.year}立春年流月时间线】\n${data.timeline.segments.map((item) => {
     const relations = item.evidence.comparisons.filter((pair) => pair.relations.length).map((pair) => `${layerLabels[pair.source]}${pair.sourceGanZhi}与${layerLabels[pair.target]}${pair.targetGanZhi}：${pair.relations.map((relation) => relation.name).join('、')}`);
     const formations = item.evidence.formations.map((item) => `${item.branches.join('')}${item.name}${item.element}（${item.participants.map((p) => `${layerLabels[p.layer]}${p.branch}`).join('、')}）`);
     return `${iso(item.startTimestamp)} 至 ${iso(item.endTimestamp)}（终点不含）：${item.jie.name}节令，${item.cycle ? `大运${item.cycle.ganZhi}` : '童限'}，流年${item.year.ganZhi}、流月${item.month.ganZhi}；${relations.join('；') || '未命中所列干支关系'}${formations.length ? `；${formations.join('；')}` : ''}`;
   }).join('\n')}\n${data.timeline.limitation}` : '';
-  const selectedSection = scopeIndex < 0 ? '' : located && evidence ? `【指定时刻岁运】\n参考时刻 ${iso(located.timestamp)}；${located.inChildhood ? '童限，尚无大运；' : ''}${activeLayers.map((layer) => `${layerLabels[layer.id]}${layer.ganZhi}`).join('、') || '当前没有所选岁运层级'}${located.cycle ? `；大运区间 ${iso(located.cycle.startTimestamp)} 至 ${iso(located.cycle.endTimestamp)}（终点不含）` : ''}${scopeIndex >= 1 ? `；小运${located.smallFortune.pillar.ganZhi}（虚岁${located.smallFortune.nominalAge}）` : ''}。岁运按北京时间和真实参考时刻定位，所列关系只针对该时点。\n${comparisons!.join('\n') || '未命中所列层级关系。'}\n${formations!.join('\n') || '未由所列岁运补全三合三会。'}\n${evidence.limitation}` : '【指定时刻岁运】\n未提供可计算的参考时刻，不得虚构流年、流月、流日或流时。';
+  const selectedSection = scopeIndex < 0 ? '' : located && evidence ? `【指定时刻岁运】\n参考时刻 ${iso(located.timestamp)}；${located.inChildhood ? '童限，尚无大运；' : ''}${activeLayers.map((layer) => `${layerLabels[layer.id]}${layer.ganZhi}`).join('、') || '当前没有所选岁运层级'}${located.cycle ? (isFull ? `；大运区间 ${iso(located.cycle.startTimestamp)} 至 ${iso(located.cycle.endTimestamp)}（终点不含）` : `；大运${new Date(located.cycle.startTimestamp + 8 * 3_600_000).getUTCFullYear()}–${new Date(located.cycle.endTimestamp + 8 * 3_600_000).getUTCFullYear()}年`) : ''}${scopeIndex >= 1 ? `；小运${located.smallFortune.pillar.ganZhi}（虚岁${located.smallFortune.nominalAge}）` : ''}。${isFull ? '岁运按北京时间和真实参考时刻定位，所列关系只针对该时点。' : ''}\n${comparisons!.join('\n') || '未命中所列层级关系。'}\n${formations!.join('\n') || '未由所列岁运补全三合三会。'}${isFull ? `\n${evidence.limitation}` : ''}` : '【指定时刻岁运】\n未提供可计算的参考时刻，不得虚构流年、流月、流日或流时。';
   const extraPalacesSection = chart.extraPalaces
     ? `【辅助宫位（命宫/身宫/胎元/胎息）】\n${([
         ['命宫', chart.extraPalaces.mingGong],
@@ -211,34 +260,51 @@ async function render(data: Data, question: string, options: Options) {
     ? `\n旬空查法（年日互换）：日柱旬空 ${chart.pillars.day.voidBranches.join('、')}；年柱旬空 ${chart.pillars.year.voidBranches.join('、')}。`
     : '';
   const digestLines = buildMethodSituationDigest('bazi', data, question);
+  const patternEvidenceText = isFull
+    ? formatPatternEvidence(chart.patternEvidence)
+    : stripTrailing(formatPatternEvidence(chart.patternEvidence), chart.patternEvidence.limitation);
+  const usefulBaselineText = isFull
+    ? formatUsefulBaseline(chart.usefulBaseline)
+    : `${stripTrailing(formatUsefulBaseline(chart.usefulBaseline), chart.usefulBaseline.limitation)}（并非最终用神或喜忌）。`;
+  const usefulStrategyText = isFull
+    ? formatUsefulStrategy(chart.usefulStrategy)
+    : stripTrailing(formatUsefulStrategy(chart.usefulStrategy), chart.usefulStrategy.limitation);
+  const genderLabel = data.input.gender === 'male' ? '乾造（男）' : data.input.gender === 'female' ? '坤造（女）' : '';
   const sections = [
-    `【八字命盘】\n出生当地钟表：${chart.basis.localDateTime}；真实出生瞬时：${iso(chart.basis.utcTimestamp)}；时区：${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}；日时依据：${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '当地民用时间'}；排盘口径：${formatRuleSummary(data.input.rules)}。${'limitation' in chart.basis ? chart.basis.limitation : ''}`,
+    `【八字命盘】\n${genderLabel ? `性别：${genderLabel}；` : ''}出生当地钟表：${chart.basis.localDateTime}；真实出生瞬时：${iso(chart.basis.utcTimestamp)}；时区：${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}${chart.basis.usedChinaDstCorrection ? '（已减 1 小时校正中国历史夏令时）' : ''}；日时依据：${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '当地民用时间'}；排盘口径：${formatRuleSummary(data.input.rules)}。${'limitation' in chart.basis ? chart.basis.limitation : ''}${chart.basis.chinaDstWarning ? `\n⚠️ ${chart.basis.chinaDstWarning}` : ''}`,
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
-    `【四柱】\n${pillars.join('\n')}${kongWangLine}\n月支${chart.monthCommander.branch}，分日司权${chart.monthCommander.stem}；范围 ${iso(chart.monthCommander.startTimestamp)} 至 ${iso(chart.monthCommander.endTimestamp)}（终点不含）。${chart.monthCommander.rule}`,
+    `【四柱】\n${pillars.join('\n')}${kongWangLine}\n月支${chart.monthCommander.branch}，分日司权${chart.monthCommander.stem}${isFull ? `；范围 ${iso(chart.monthCommander.startTimestamp)} 至 ${iso(chart.monthCommander.endTimestamp)}（终点不含）。${chart.monthCommander.rule}` : '。'}`,
     extraPalacesSection,
-    `【本命神煞（${chart.shensha.included.length}项）】\n${options?.detailMode === 'full' ? formatBaziShensha(chart.shensha) : `${formatBaziShenshaHits(chart.shensha, false)}\n${chart.shensha.limitation}`}`,
-    `【本命结构】\n${relations.length ? relations.join('；') : '未命中所列干支关系。'}\n${facts.limitation}`,
+    `【本命神煞（${chart.shensha.included.length}项）】\n${isFull ? formatBaziShensha(chart.shensha) : `${formatBaziShenshaHits(chart.shensha, false)}${chart.shensha.unavailable.length ? '\n元辰因未提供性别未计算。' : ''}`}`,
+    `【本命结构】\n${relations.length ? relations.join('；') : '未命中所列干支关系。'}${isFull ? `\n${facts.limitation}` : ''}`,
     `【通根与月令透干】\n${rootAndExposure.join('\n')}`,
-    `【日主旺衰条件模型】\n${chart.strength.status}；月令${chart.strength.month.season}、司权${chart.strength.month.commanderStem}${chart.strength.month.commanderEffect}；月令与司权${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}。\n日主根气：${chart.strength.roots.map((root) => `${labels[root.position]}${root.branch}藏${root.stem}（${root.hiddenRole}，${root.clashStatus}；${root.actionable ? '参与结构' : '待核'}）`).join('、') || '未见同气根'}。\n扶身来源：${chart.strength.support.map((item) => `${labels[item.position]}${item.value}${item.effect}${item.actionable ? '' : '（待核）'}`).join('、') || '无'}；克泄耗来源：${chart.strength.constraint.map((item) => `${labels[item.position]}${item.value}${item.effect}${item.actionable ? '' : '（待核）'}`).join('、') || '无'}。\n${chart.strength.formations.map((item) => `${item.members}${item.name}${item.element}：月令${item.monthState}，${item.established ? '满足模型成势条件' : '不满足模型成势条件'}`).join('；') || '未见完整三合三会。'}\n${chart.strength.limitation}`,
-    `【普通月令取格候选】\n${chart.ordinaryPattern.candidate}；依据${chart.ordinaryPattern.source}（${chart.ordinaryPattern.selectedStem}）。月支本气${chart.ordinaryPattern.monthPrincipal.stem}${chart.ordinaryPattern.monthPrincipal.tenGod}，本气候选${chart.ordinaryPattern.monthPrincipal.pattern}；分日司权${chart.ordinaryPattern.commander.stem}${chart.ordinaryPattern.commander.tenGod}，${chart.ordinaryPattern.commander.positions.length ? `透于${chart.ordinaryPattern.commander.positions.map((position) => labels[position]).join('、')}` : '未透年、月、时干'}。\n月支藏干：${chart.ordinaryPattern.monthHiddenStems.map((item) => `${item.stem}${item.tenGod}（${item.positions.length ? `透于${item.positions.map((position) => labels[position]).join('、')}` : '未透年、月、时干'}）`).join('、')}。\n${chart.ordinaryPattern.limitation}`,
-    chart.transformation || options?.detailMode === 'full' ? `【日干五合化气】\n${formatTransformation(chart.transformation)}` : '',
-    chart.quzhi || options?.detailMode === 'full' ? `【曲直格条件】\n${formatQuzhi(chart.quzhi)}` : '',
-    chart.conger?.route || chart.conger?.competingWealth || options?.detailMode === 'full' ? `【从儿与从财条件】\n${formatCongEr(chart.conger)}` : '',
-    chart.extreme?.candidate || options?.detailMode === 'full' ? `【专旺与通用从格条件】\n${formatExtremePattern(chart.extreme)}` : '',
-    `【已迁移路线的格局排序】\n${chart.patternOverview.pattern}（${chart.patternOverview.source}）。${chart.patternOverview.limitation}`,
-    `【格局透干与根气条件】\n${formatPatternEvidence(chart.patternEvidence)}`,
-    `【取用基础取向】\n${formatUsefulBaseline(chart.usefulBaseline)}`,
-    `【调候条件候选】\n节气${chart.climate.currentJieqi ?? '待核'}；${chart.climate.applicability}。\n${chart.climate.candidates.map((item) => `${item.label}（${item.status}，${item.mode}）：${item.hint}${item.missingInputs.length ? `；缺少${item.missingInputs.join('、')}` : ''}${climateDetail(item.id)}`).join('\n') || '未命中可列候选。'}\n${chart.climate.limitation}`,
-    `【调候条件协调】\n${options?.detailMode === 'full' ? formatClimateDecision(chart.climateDecision, chart.climate.candidates) : summarizeClimateDecision(chart.climateDecision)}`,
-    `【司权、病药与通关候选】\n${formatUsefulStrategy(chart.usefulStrategy)}`,
+    `【日主旺衰条件模型】\n${chart.strength.status}；月令${chart.strength.month.season}、司权${chart.strength.month.commanderStem}${chart.strength.month.commanderEffect}；月令与司权${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}。\n日主根气：${chart.strength.roots.map((root) => `${labels[root.position]}${root.branch}藏${root.stem}（${root.hiddenRole}，${root.clashStatus}；${root.actionable ? '参与结构' : '受冲减力'}）`).join('、') || '未见同气根'}。\n扶身来源：${chart.strength.support.map((item) => `${labels[item.position]}${item.value}${item.effect}${item.actionable ? '' : '（受冲减力）'}`).join('、') || '无'}；克泄耗来源：${chart.strength.constraint.map((item) => `${labels[item.position]}${item.value}${item.effect}${item.actionable ? '' : '（受冲减力）'}`).join('、') || '无'}。\n${chart.strength.formations.map((item) => `${item.members}${item.name}${item.element}：月令${item.monthState}，${item.established ? '满足模型成势条件' : '不满足模型成势条件'}`).join('；') || '未见完整三合三会。'}${isFull ? `\n${chart.strength.limitation}` : ''}`,
+    `【普通月令取格候选】\n${chart.ordinaryPattern.candidate}；依据${chart.ordinaryPattern.source}（${chart.ordinaryPattern.selectedStem}）。月支本气${chart.ordinaryPattern.monthPrincipal.stem}${chart.ordinaryPattern.monthPrincipal.tenGod}，本气候选${chart.ordinaryPattern.monthPrincipal.pattern}；分日司权${chart.ordinaryPattern.commander.stem}${chart.ordinaryPattern.commander.tenGod}，${chart.ordinaryPattern.commander.positions.length ? `透于${chart.ordinaryPattern.commander.positions.map((position) => labels[position]).join('、')}` : '未透年、月、时干'}。\n月支藏干：${chart.ordinaryPattern.monthHiddenStems.map((item) => `${item.stem}${item.tenGod}（${item.positions.length ? `透于${item.positions.map((position) => labels[position]).join('、')}` : '未透年、月、时干'}）`).join('、')}。${isFull ? `\n${chart.ordinaryPattern.limitation}` : ''}`,
+    chart.transformation || isFull ? `【日干五合化气】\n${formatTransformation(chart.transformation)}` : '',
+    chart.quzhi || isFull ? `【曲直格条件】\n${formatQuzhi(chart.quzhi)}` : '',
+    chart.conger?.route || chart.conger?.competingWealth || isFull ? `【从儿与从财条件】\n${formatCongEr(chart.conger)}` : '',
+    chart.extreme?.candidate || isFull ? `【专旺与通用从格条件】\n${formatExtremePattern(chart.extreme)}` : '',
+    `【已迁移路线的格局排序】\n${chart.patternOverview.pattern}（${chart.patternOverview.source}）。${isFull ? chart.patternOverview.limitation : ''}`,
+    `【格局组合与互制关系】\n${formatPatternRelations(patternRelations)}`,
+    `【格局透干与根气条件】\n${patternEvidenceText}`,
+    `【取用基础取向】\n${usefulBaselineText}`,
+    `【调候条件候选】\n节气${chart.climate.currentJieqi ?? '按月令当季论'}；${chart.climate.applicability}。\n${chart.climate.candidates.map((item) => `${item.label}（${item.status}，${item.mode}）：${item.hint}${item.missingInputs.length ? `；缺少${item.missingInputs.join('、')}` : ''}${climateDetail(item.id)}`).join('\n') || '未命中可列候选。'}${isFull ? `\n${chart.climate.limitation}` : ''}`,
+    `【调候条件协调】\n${isFull ? formatClimateDecision(chart.climateDecision, chart.climate.candidates) : summarizeClimateDecision(chart.climateDecision)}`,
+    `【司权、病药与通关候选】\n${usefulStrategyText}`,
     `【用神裁定与落位】\n${formatUsefulGod(chart.usefulGod)}`,
-    `【十神分布】\n${distribution.join('；') || '无可用透藏记录。'}\n${wuxingSummary}\n日干作为参照，不计作透出的比肩；数量不等于力量。`,
+    `【十神分布】\n${distribution.join('；') || '无可用透藏记录。'}\n${wuxingSummary}${isFull ? '\n日干作为参照，不计作透出的比肩；数量不等于力量。' : ''}`,
     fortuneSection,
+    compactFortuneSection,
+    'dailyRange' in data && data.dailyRange ? formatBaziDailyRangeBlock(data.dailyRange, chart.pillars) : '',
     timelineSection,
     selectedSection,
     fortuneShenshaText ? `【岁运神煞】\n${fortuneShenshaText}` : '',
     options?.includeClassics ? formatClassicExcerpts(selectBaziClassics(chart.pillars.day.gan, chart.ordinaryPattern.candidate, chart.pillars.month.zhi), '典籍片段') : '',
-    formatSchoolAlgorithmSection(evaluateBaziSchoolAlgorithms(chart, options?.schools)),
+    (() => {
+      const schoolEvals = evaluateBaziSchoolAlgorithms(chart, options?.schools);
+      const consensus = buildSchoolConsensusSummary(schoolEvals);
+      return formatSchoolAlgorithmSection(schoolEvals, consensus.formattedText);
+    })(),
     baziPromptTask(options),
     '【任务】\n结合用户问题，区分盘面事实、传统取象与条件性推论；指出必要的反证和资料不足。旺衰、化气、曲直、从儿和普通格局成败均为上述有限条件模型；其他特殊格、完整格局成败、最终用神和具体事件应期尚未计算，不得将其当成已经算出的结论。双人合盘需另用 bazi-synastry，仍有专业分析缺口。',
     `【问题】\n${question}`,

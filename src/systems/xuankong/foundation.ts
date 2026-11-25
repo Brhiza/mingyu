@@ -49,7 +49,7 @@ export function flyStars(center: number, direction: Direction) {
   return result;
 }
 
-/** 按 1864 年一运的二十年周期；交运首年只给年份时保留待核标记。 */
+/** 按 1864 年一运的二十年周期；交运首年只给年份时保留交界双候选标记。 */
 export function resolvePeriod(year: number) {
   if (!Number.isInteger(year) || year < 1800 || year > 2200) {
     throw new Error('建造或起运年份须在 1800 至 2200 之间。');

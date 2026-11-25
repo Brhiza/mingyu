@@ -34,6 +34,11 @@ export interface GlobalRulesSettings {
     includeExtraPalaces: boolean;
     mingGongMethod: 'traditional' | 'solar-position';
     yangRenMode: 'all-stems' | 'yang-only' | 'all-stems-guandai';
+    shenshaBaseMode: 'year-and-day' | 'day-only' | 'year-only';
+    xueTangMode: 'nayin' | 'stem-changsheng' | 'zheng-xuetang' | 'nayin-and-stem';
+    tianYiMode: 'standard' | 'classical-geng-yinwu';
+    hongYanMode: 'standard' | 'yi-shen' | 'year-and-day';
+    tongZiMode: 'standard' | 'hour-only' | 'strict-both';
     commanderMode: 'standard' | 'yuanhai';
   };
   ziwei: {
@@ -106,6 +111,7 @@ export interface GlobalRulesSettings {
     meihuaDefaultMethod: 'time' | 'number' | 'character' | 'sound' | 'direction';
     jinkoujueDefaultMethod: 'time' | 'branch' | 'number' | 'random';
     tarotDefaultDrawMode: 'interactive' | 'random' | 'manual';
+    tarotReversalMode: 'realistic' | 'balanced' | 'upright-only';
     tarotDeck: TarotDeckId;
     lenormandDefaultDrawMode: 'interactive' | 'random' | 'manual';
     ssgwDefaultMode: 'interactive' | 'random' | 'manual';
@@ -127,6 +133,11 @@ export const DEFAULT_GLOBAL_RULES: GlobalRulesSettings = {
     includeExtraPalaces: true,
     mingGongMethod: 'traditional',
     yangRenMode: 'all-stems',
+    shenshaBaseMode: 'year-and-day',
+    xueTangMode: 'nayin',
+    tianYiMode: 'standard',
+    hongYanMode: 'standard',
+    tongZiMode: 'standard',
     commanderMode: 'standard',
   },
   ziwei: {
@@ -187,6 +198,7 @@ export const DEFAULT_GLOBAL_RULES: GlobalRulesSettings = {
     meihuaDefaultMethod: 'time',
     jinkoujueDefaultMethod: 'time',
     tarotDefaultDrawMode: 'random',
+    tarotReversalMode: 'realistic',
     tarotDeck: 'danjie-leopard',
     lenormandDefaultDrawMode: 'random',
     ssgwDefaultMode: 'interactive',
@@ -321,6 +333,30 @@ export const GLOBAL_RULE_SECTIONS: GlobalRuleSectionDescriptor[] = [
         ],
       },
       {
+        kind: 'select', id: 'gs-bazi-shenshaBaseMode', group: 'bazi', key: 'shenshaBaseMode', label: '神煞起例基准（贵人/三合类）',
+        options: [
+          { value: 'year-and-day', label: '年柱与日柱同查（默认·最主流）' },
+          { value: 'day-only', label: '子平重日主：仅以日柱查' },
+          { value: 'year-only', label: '古法重年命：仅以年柱查' },
+        ],
+      },
+      {
+        kind: 'select', id: 'gs-bazi-xueTangMode', group: 'bazi', key: 'xueTangMode', label: '学堂 / 词馆查法',
+        options: [
+          { value: 'nayin', label: '年柱纳音五行查地支（默认·最主流）' },
+          { value: 'stem-changsheng', label: '十天干十二长生查法（含丁酉学堂）' },
+          { value: 'zheng-xuetang', label: '《三命通会》正学堂/正词馆（干支同见）' },
+          { value: 'nayin-and-stem', label: '纳音 + 天干长生双查' },
+        ],
+      },
+      {
+        kind: 'select', id: 'gs-bazi-tianYiMode', group: 'bazi', key: 'tianYiMode', label: '天乙贵人口诀',
+        options: [
+          { value: 'standard', label: '通行口诀：甲戊庚牛羊、六辛逢马虎（默认）' },
+          { value: 'classical-geng-yinwu', label: '古诀：甲戊兼牛羊、庚辛逢马虎' },
+        ],
+      },
+      {
         kind: 'select', id: 'gs-bazi-yangRenMode', group: 'bazi', key: 'yangRenMode', label: '羊刃神煞查法',
         options: [
           { value: 'all-stems', label: '阴阳十干皆取帝旺刃（默认）' },
@@ -333,6 +369,22 @@ export const GLOBAL_RULE_SECTIONS: GlobalRuleSectionDescriptor[] = [
         options: [
           { value: 'day', label: '仅以日柱查旬空（默认）' },
           { value: 'day-and-year', label: '日柱兼查年柱旬空' },
+        ],
+      },
+      {
+        kind: 'select', id: 'gs-bazi-hongYanMode', group: 'bazi', key: 'hongYanMode', label: '红艳煞查法',
+        options: [
+          { value: 'standard', label: '主流口诀：甲乙皆午，仅查日干（默认）' },
+          { value: 'yi-shen', label: '古诀分取：甲午乙申，仅查日干' },
+          { value: 'year-and-day', label: '年干日干同查（主流表）' },
+        ],
+      },
+      {
+        kind: 'select', id: 'gs-bazi-tongZiMode', group: 'bazi', key: 'tongZiMode', label: '童子煞查法',
+        options: [
+          { value: 'standard', label: '季节+纳音合并查日支与时支（默认）' },
+          { value: 'hour-only', label: '古法仅查时支' },
+          { value: 'strict-both', label: '真童子：季节与纳音口诀须同中' },
         ],
       },
       {
@@ -635,7 +687,10 @@ export function applyGlobalRulesToPayload(method: Method, payload: unknown, supp
     supportsIncludeClassics
     && !NON_CLASSICS_METHODS.has(method)
     && (settings.prompt.includeClassics || settings.prompt.includeClassics !== DEFAULT_GLOBAL_RULES.prompt.includeClassics);
-  if (countNonDefaultRules(settings) === 0 && !needsClassicsInjection) return payload;
+  const needsTarotReversalInjection =
+    method === 'tarot'
+    && settings.casting.tarotReversalMode !== DEFAULT_GLOBAL_RULES.casting.tarotReversalMode;
+  if (countNonDefaultRules(settings) === 0 && !needsClassicsInjection && !needsTarotReversalInjection) return payload;
 
   const next: Record<string, unknown> = { ...payload };
   let changed = false;
@@ -758,6 +813,14 @@ export function applyGlobalRulesToPayload(method: Method, payload: unknown, supp
     const diff = collectDiff(settings.astro, DEFAULT_GLOBAL_RULES.astro);
     if (Object.keys(diff).length) {
       mergeNested(next, 'options', diff);
+      changed = true;
+    }
+  }
+
+  if (needsTarotReversalInjection) {
+    const existingTarot = isPlainObject(next.tarot) ? next.tarot : {};
+    if (existingTarot.manualCards === undefined && existingTarot.reversalMode === undefined) {
+      mergeNested(next, 'tarot', { reversalMode: settings.casting.tarotReversalMode });
       changed = true;
     }
   }

@@ -185,11 +185,11 @@ export interface QimenPalaceRelationEvidence {
   from: string;
   to: string;
   relation: string;
-  status: '已归类' | '待核验';
+  status: '已归类' | '未归类';
   meaning: string;
   promptText: string;
   sources: string[];
-  limitation: '宫间关系只按候选宫五行陈述比和、生、克或待核验状态；不证明现实中的支持、阻碍、人物关系、方位吉凶、事件结果或成功概率';
+  limitation: '宫间关系只按候选宫五行陈述比和、生、克或未归类状态；不证明现实中的支持、阻碍、人物关系、方位吉凶、事件结果或成功概率';
 }
 
 export interface QimenPatternEvidenceFact {
@@ -323,7 +323,7 @@ const CALCULATION_FACT_LIMITATION =
 const RULE_SOURCE_LIMITATION =
   '规则来源只标明当前结构化字段采用的传统模型与计算路径，不等于现代实证验证、现实因果关系、吉凶保证或结果概率' as const;
 const RELATION_FACT_LIMITATION =
-  '宫间关系只按候选宫五行陈述比和、生、克或待核验状态；不证明现实中的支持、阻碍、人物关系、方位吉凶、事件结果或成功概率' as const;
+  '宫间关系只按候选宫五行陈述比和、生、克或未归类状态；不证明现实中的支持、阻碍、人物关系、方位吉凶、事件结果或成功概率' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示候选宫命中空亡、特殊条件、风险洞察或格局限制；不得把单项限制直接写成现实失败、灾祸、人物恶意或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -554,9 +554,9 @@ function describeRelation(from: QimenJiuGongGe, to: QimenJiuGongGe) {
     };
   }
   return {
-    relation: '关系待核验',
-    status: '待核验' as const,
-    meaning: `${from.name}与${to.name}的宫间关系未能归类`,
+    relation: '五行平势',
+    status: '未归类' as const,
+    meaning: `${from.name}与${to.name}未形成显性生克，按各自宫内星门神仪直断`,
   };
 }
 

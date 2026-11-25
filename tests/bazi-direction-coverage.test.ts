@@ -27,7 +27,7 @@ test('条件层按双方五行与具体天干分别核对，保留全部柱位�
   assert.deepEqual(value.favorableStems[0].sources.map((item) => [item.pillar, item.layer, item.value]), [['year', '天干', '甲'], ['month', '藏干', '甲']]);
   assert.deepEqual(value.favorableStems[1].sources, []);
   assert.deepEqual(value.unfavorableStems[0].sources.map((item) => item.value), ['乙', '乙']);
-  assert.equal(buildDirectionCoverage(strategy({}), pillars).status, '待判');
+  assert.equal(buildDirectionCoverage(strategy({}), pillars).status, '均衡无偏');
   assert.match(value.limitation, /不等同最终喜忌/);
 });
 

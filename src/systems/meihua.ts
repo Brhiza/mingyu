@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { generateMeihuaChart } from './meihua/chart';
 import { analyzeMeihuaEvidence } from './meihua/evidence';
 import { findHexagramByTrigrams } from './meihua/hexagram';
+import { isKe, isSheng } from './calendar';
 import type { meihuaInput } from '../schema';
 import type { MeihuaSettings } from './meihua/types';
 import { sameJsonValue } from '../json-value';
@@ -77,6 +78,89 @@ function buildMeihuaExtendedImagery(data: MeihuaData): string {
   return lines.join('\n');
 }
 
+type MeihuaRelationTone = 'support' | 'control' | 'drain';
+
+function classifyMeihuaToTi(otherElem: string, tiElem: string): { label: string; tone: MeihuaRelationTone } {
+  if (otherElem === tiElem) return { label: '比和', tone: 'support' };
+  if (isSheng(otherElem, tiElem)) return { label: '生体', tone: 'support' };
+  if (isKe(tiElem, otherElem)) return { label: '体克', tone: 'control' };
+  if (isKe(otherElem, tiElem)) return { label: '克体', tone: 'drain' };
+  return { label: '体生泄气', tone: 'drain' };
+}
+
+export function buildMeihuaPatternRelations(data: MeihuaData): string {
+  const tiElem = data.tiGua.element;
+  const startRel = classifyMeihuaToTi(data.yongGua.element, tiElem);
+  const interTiRel = classifyMeihuaToTi(data.interTiGua.element, tiElem);
+  const interYongRel = classifyMeihuaToTi(data.interYongGua.element, tiElem);
+  const endRel = classifyMeihuaToTi(data.changedYongGua.element, data.changedTiGua.element);
+
+  const startOk = startRel.tone !== 'drain';
+  const endOk = endRel.tone !== 'drain';
+  const midHasDrain = interTiRel.tone === 'drain' || interYongRel.tone === 'drain';
+  const midAllOk = !midHasDrain;
+
+  let trajectory: '全程顺势' | '先顺后阻' | '先阻后通' | '全程受制' | '波动拉锯';
+  if (startOk && midAllOk && endOk) {
+    trajectory = '全程顺势';
+  } else if (startOk && !endOk) {
+    trajectory = '先顺后阻';
+  } else if (!startOk && endOk) {
+    trajectory = '先阻后通';
+  } else if (!startOk && midHasDrain && !endOk) {
+    trajectory = '全程受制';
+  } else {
+    trajectory = '波动拉锯';
+  }
+
+  const stageLine = `- 三阶段体用轨迹：本卦${data.tiGua.name}（体/${tiElem}）与${data.yongGua.name}（用/${data.yongGua.element}）为${data.analysis.tiYongRelation} → 互卦体互${data.interTiGua.name}（${data.interTiGua.element}，${data.analysis.inter1Relation}）、用互${data.interYongGua.name}（${data.interYongGua.element}，${data.analysis.inter2Relation}） → 变卦${data.changedTiGua.name}（体/${data.changedTiGua.element}）与${data.changedYongGua.name}（用/${data.changedYongGua.element}）为${data.analysis.changedTiYongRelation}；走势定性：${trajectory}。`;
+
+  // 党众统计（主用、体互、用互、变用四位对体卦）
+  const partySlots = [
+    { role: '主用', gua: data.yongGua, rel: startRel },
+    { role: '体互', gua: data.interTiGua, rel: interTiRel },
+    { role: '用互', gua: data.interYongGua, rel: interYongRel },
+    { role: '变用', gua: data.changedYongGua, rel: endRel },
+  ];
+  const supportParty = partySlots.filter((s) => s.rel.tone === 'support');
+  const drainParty = partySlots.filter((s) => s.rel.tone === 'drain');
+  const controlParty = partySlots.filter((s) => s.rel.tone === 'control');
+  const fmtSlots = (items: typeof partySlots) =>
+    items.length ? items.map((s) => `${s.role}${s.gua.name}${s.gua.element}(${s.rel.label})`).join('、') : '无';
+
+  const partyBalance =
+    supportParty.length > drainParty.length
+      ? `体党占优（助体${supportParty.length}位 vs 克泄${drainParty.length}位）`
+      : drainParty.length > supportParty.length
+        ? `克泄党众偏重（克泄${drainParty.length}位 vs 助体${supportParty.length}位）`
+        : `体党与克泄势均（助体${supportParty.length}位 vs 克泄${drainParty.length}位）`;
+  const partyLine = `- 体用党众对比：${partyBalance}；助体党［${fmtSlots(supportParty)}］，克泄党［${fmtSlots(drainParty)}］${controlParty.length ? `，体克耗力［${fmtSlots(controlParty)}］` : ''}。`;
+
+  // 月令旺衰与体用制衡
+  const tiSeason = data.analysis.tiSeasonState;
+  const yongSeason = data.analysis.yongSeasonState;
+  const tiStrong = tiSeason === '旺' || tiSeason === '相';
+  const yongStrong = yongSeason === '旺' || yongSeason === '相';
+  const hasInterOrChangedDrain = midHasDrain || !endOk;
+
+  let seasonBalance: string;
+  if (tiStrong && (startRel.tone === 'drain' || hasInterOrChangedDrain)) {
+    seasonBalance = `体卦${data.tiGua.name}${tiElem}月令${tiSeason}（旺相），虽遇${startRel.tone === 'drain' ? '主卦' : ''}${hasInterOrChangedDrain ? '互变' : ''}克泄，但体旺足以抗克/承泄${!yongStrong && startRel.tone === 'drain' ? '，且用卦月令休囚死，克体之力偏轻' : ''}`;
+  } else if (!tiStrong && (startRel.tone === 'drain' || hasInterOrChangedDrain)) {
+    seasonBalance = `体卦${data.tiGua.name}${tiElem}月令${tiSeason}（休囚死），又遇${startRel.tone === 'drain' ? '主卦' : ''}${hasInterOrChangedDrain ? '互变' : ''}克泄，阻力与消耗明显加剧${yongStrong ? '，用卦月令旺相更增压力' : ''}`;
+  } else if (tiStrong && supportParty.length >= 2) {
+    seasonBalance = `体卦${data.tiGua.name}${tiElem}月令${tiSeason}（旺相），且互变多见生扶比和，体气充实、推力顺畅`;
+  } else if (!tiStrong && supportParty.length >= 2) {
+    seasonBalance = `体卦${data.tiGua.name}${tiElem}月令${tiSeason}（休囚死），但互变多见生扶比和可补体气，须待体卦旺相之期发力`;
+  } else {
+    seasonBalance = `体卦${data.tiGua.name}${tiElem}月令${tiSeason}、用卦${data.yongGua.name}${data.yongGua.element}月令${yongSeason}；${data.analysis.tiYongSeasonEvaluation}`;
+  }
+
+  const seasonLine = `- 月令旺衰与体用制衡：月建${data.analysis.monthBranch}（${data.analysis.monthElement}）；${seasonBalance}。`;
+
+  return [stageLine, partyLine, seasonLine].join('\n');
+}
+
 async function buildPrompt(data: MeihuaData, evidence: Evidence, question: string, options: Options, now: string) {
   const selection = resolvePromptSelection('meihua', options);
   const schools = formatSchoolGuidance(options?.schools, reference.schools, {
@@ -104,6 +188,7 @@ async function buildPrompt(data: MeihuaData, evidence: Evidence, question: strin
     beijingLunarDateDiscrepancy(data.timestamp) ? `【历法差异】\n${beijingLunarDateDiscrepancy(data.timestamp)}` : '',
     `【取数与卦象】\n${evidence.calculationFact.promptText}\n${evidence.hexagramStructureFacts.map((item) => item.promptText).join('；')}\n逐爻：${evidence.yaoStructureFacts.map((item) => item.promptText).join('；')}`,
     `【体用与阶段】\n${evidence.stages.map((item) => item.promptText).join('\n')}\n演变：${evidence.transitionFacts.map((item) => item.promptText).join('；')}\n${buildMeihuaExtendedImagery(data)}`,
+    `【体用阶段演变与制衡关系】\n${buildMeihuaPatternRelations(data)}`,
     evidence.counterEvidenceFacts.length ? `【反证】\n${evidence.counterEvidenceFacts.map((item) => item.promptText).join('；')}` : '',
     evidence.timingFacts.length ? `【应期条件】\n${evidence.timingFacts.map((item) => item.promptText).join('；')}` : '',
     evidence.traditionalFacts.length ? `【卦爻辞辅助资料】\n${evidence.traditionalFacts.map((item) => `${item.promptText}${item.originalText && !item.promptText.includes(item.originalText) ? `；原文：${item.originalText}` : ''}`).join('；')}` : '',

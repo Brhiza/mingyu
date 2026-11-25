@@ -1,10 +1,10 @@
 import type { BaziPillar, PillarName } from './pillars';
-import { calculateBaziShensha } from './shensha';
+import { calculateBaziShensha, type BaziShenshaOptions } from './shensha';
 
 type Pillars = Record<PillarName, BaziPillar>;
 type Layer = { id: 'dayun' | 'year' | 'month' | 'day' | 'hour'; pillar: BaziPillar };
 const included = ['天乙贵人', '太极贵人', '文昌贵人', '福星贵人', '国印贵人', '金舆', '天厨贵人', '禄神', '羊刃', '飞刃', '流霞',
-  '驿马', '桃花', '将星', '华盖', '亡神', '劫煞', '灾煞', '红鸾', '天喜', '孤辰', '寡宿', '丧门', '吊客', '披麻',
+  '驿马', '桃花', '将星', '华盖', '亡神', '劫煞', '灾煞', '岁煞', '红鸾', '天喜', '孤辰', '寡宿', '丧门', '吊客', '披麻',
   '天德贵人', '天德合', '月德贵人', '月德合', '天医', '血刃', '空亡', '学堂', '词馆', '德秀贵人', '红艳煞', '勾绞煞', '天罗地网', '元辰'] as const;
 const supported = new Set<string>(included);
 
@@ -12,9 +12,9 @@ const supported = new Set<string>(included);
  * 这些查法的起例仅使用本命年、月、日柱及性别。逐一将岁运柱作为目标复用同一规则，
  * 只取列明的逐柱命中，丢弃本命时柱专用与整局规则；输出只列实际岁运层级。
  */
-export function calculateFortuneShensha(pillars: Pillars, active: Layer[], gender: 'male' | 'female') {
+export function calculateFortuneShensha(pillars: Pillars, active: Layer[], gender: 'male' | 'female', options?: BaziShenshaOptions) {
   const layers = active.map(({ id, pillar }) => {
-    const checked = calculateBaziShensha(pillars, gender, pillar);
+    const checked = calculateBaziShensha(pillars, gender, pillar, options);
     const entries = checked.entries.filter((entry) => entry.position === 'hour' && supported.has(entry.name)).map(({ position: _position, ...entry }) => entry);
     return { id, ganZhi: pillar.ganZhi, entries };
   });

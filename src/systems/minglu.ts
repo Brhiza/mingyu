@@ -6,6 +6,7 @@ import { getOppositeSeasonBranch } from './ganzhi-foundation';
 import { astrolabeIndependent } from './astrolabe';
 import { bazhai } from './bazhai';
 import { baziIndependent } from './bazi';
+import { buildPatternRelations, formatPatternRelations } from './bazi/pattern-relations';
 import { qizheng } from './qizheng';
 import { qimenLifetime } from './qimen-lifetime';
 import { collectZiweiMajorStars, ziweiIndependent } from './ziwei';
@@ -46,8 +47,19 @@ function buildSections(
     });
     return detailMode === 'full' ? blocks.join('\n\n') : blocks.slice(0, 4).join('\n\n');
   };
+  const baziBase = clip(baziData.prompt.text, 'bazi');
+  const baziChart = baziData.data.chart;
+  const baziPatternBlock = detailMode !== 'full' && baziChart && !baziBase.includes('【格局组合与互制关系】')
+    ? `【格局组合与互制关系】\n${formatPatternRelations(buildPatternRelations({
+        pillars: baziChart.pillars,
+        strength: baziChart.strength,
+        patternOverview: baziChart.patternOverview,
+        ordinaryPattern: baziChart.ordinaryPattern,
+        usefulGod: baziChart.usefulGod,
+      }))}`
+    : '';
   const sections: Array<{ id: string; title: string; markdown: string }> = [
-    { id: 'bazi', title: '一、八字资料', markdown: clip(baziData.prompt.text, 'bazi') },
+    { id: 'bazi', title: '一、八字资料', markdown: baziPatternBlock ? `${baziBase}\n\n${baziPatternBlock}` : baziBase },
   ];
   if (ziweiData) sections.push({ id: 'ziwei', title: '二、紫微斗数资料', markdown: clip(ziweiData.prompt.text, 'ziwei') });
   if (astrolabeData) sections.push({ id: 'astrolabe', title: '三、西洋星盘资料', markdown: clip(astrolabeData.prompt.text, 'astrolabe') });
@@ -266,7 +278,7 @@ function buildCrossSynthesis(
       label: '情感与合作结构',
       baziFocus: baziChart
         ? `日支夫妻宫${baziChart.pillars.day.zhi}（藏${baziChart.pillars.day.hiddenStems.map((h) => `${h.stem}${h.tenGod}`).join('、')}）`
-        : `日支候选：${computed.baziResult.data.unknown?.possible.day.map((gz) => gz[1]).join('、') ?? '待核'}`,
+        : `日支候选：${computed.baziResult.data.unknown?.possible.day.map((gz) => gz[1]).join('、') ?? '跨日界多候选'}`,
       ziweiFocus: ziweiExact
         ? `夫妻宫（${ziweiExact.natal.palaces.find((p) => p.name === '夫妻')?.majorStars.map((s) => s.name).join('、') || '借对宫'}）、福德宫（${ziweiExact.natal.palaces.find((p) => p.name === '福德')?.majorStars.map((s) => s.name).join('、') || '借对宫'}）`
         : null,
@@ -387,7 +399,7 @@ function renderMinglu(
       })()
     : undefined;
   const promptText = [
-    `【命录综合资料（V2 聚合）】\n主题：${topicLabels[topic]}；详略：${detailMode === 'full' ? '完整' : '精简'}。\n本命录直接复用现有独立排盘内核，不生成旧版加权评分，也不将跨体系并行展示当作互相证明。`,
+    `【命录综合资料（V2 聚合）】\n${source.gender === 'male' ? '性别：乾造（男）；' : source.gender === 'female' ? '性别：坤造（女）；' : ''}主题：${topicLabels[topic]}；详略：${detailMode === 'full' ? '完整' : '精简'}。\n本命录直接复用现有独立排盘内核，不生成旧版加权评分，也不将跨体系并行展示当作互相证明。`,
     ...(southernHemisphereNote ? [`【南半球节令对照说明】\n${southernHemisphereNote}`] : []),
     synthesisText,
     ...sections.map((section) => `【${section.title}】\n${section.markdown}`),

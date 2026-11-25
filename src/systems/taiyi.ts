@@ -43,6 +43,108 @@ function describeCountDetail(label: string, count: number, nature?: string): str
   return `${label}${count}：${parity}、${lengthType}${nature ? `、${nature}` : ''}${threePowers.length ? `，${threePowers.join('，')}` : ''}`;
 }
 
+function countThreePowersTag(count: number): string {
+  const missing: string[] = [];
+  if (count < 10) missing.push('无天');
+  if (count % 10 >= 1 && count % 10 < 5) missing.push('无地');
+  if (count % 10 === 0) missing.push('无人');
+  return missing.length ? missing.join('、') : '三才俱足';
+}
+
+export function analyzeTaiyiRelations(result: ReturnType<typeof generateTaiyi>) {
+  const { lordCount, guestCount, setCount } = result;
+  const diff = lordCount - guestCount;
+  const countCompare =
+    diff > 0
+      ? `主算（${lordCount}）多于客算（${guestCount}），主方算力领先 +${diff}`
+      : diff < 0
+        ? `客算（${guestCount}）多于主算（${lordCount}），客方算力领先 +${-diff}`
+        : `主客算相等（同为 ${lordCount}），双方算力持平`;
+  const setCompare =
+    setCount === lordCount && setCount === guestCount
+      ? `定算${setCount}与主客同数`
+      : setCount === lordCount
+        ? `定算${setCount}与主算同数`
+        : setCount === guestCount
+          ? `定算${setCount}与客算同数`
+          : setCount > Math.max(lordCount, guestCount)
+            ? `定算${setCount}高于主客双方`
+            : setCount < Math.min(lordCount, guestCount)
+              ? `定算${setCount}低于主客双方`
+              : `定算${setCount}介于主客之间`;
+  const countProfiles = [
+    `主算${lordCount}（${lordCount >= 11 ? '长算' : '短算'}/${lordCount % 2 === 1 ? '阳' : '阴'}/${countThreePowersTag(lordCount)}）`,
+    `客算${guestCount}（${guestCount >= 11 ? '长算' : '短算'}/${guestCount % 2 === 1 ? '阳' : '阴'}/${countThreePowersTag(guestCount)}）`,
+    `定算${setCount}（${setCount >= 11 ? '长算' : '短算'}/${setCount % 2 === 1 ? '阳' : '阴'}/${countThreePowersTag(setCount)}）`,
+  ];
+
+  const generals: Array<{ name: string; palace: number; side: '主' | '客' | '定' }> = [
+    { name: '主大将', palace: result.lordGeneral, side: '主' },
+    { name: '主参将', palace: result.lordAssistant, side: '主' },
+    { name: '客大将', palace: result.guestGeneral, side: '客' },
+    { name: '客参将', palace: result.guestAssistant, side: '客' },
+    { name: '定大将', palace: result.setGeneral, side: '定' },
+    { name: '定参将', palace: result.setAssistant, side: '定' },
+  ];
+  const centerTrapped = generals.filter((g) => g.palace === 5).map((g) => g.name);
+
+  const { threeGates, fiveGenerals, yinYangHarmony } = result.conditions;
+  const patterns: string[] = [];
+  if (fiveGenerals.shiJiRelationToTaiyi === '同宫') {
+    patterns.push(`掩（始击${result.shiJiPosition}与太乙${result.taiyiPosition}同临第${result.taiyiPalace}宫）`);
+  } else if (fiveGenerals.shiJiRelationToTaiyi === '击') {
+    patterns.push(`击（始击${result.shiJiPosition}邻击太乙${result.taiyiPosition}）`);
+  } else if (fiveGenerals.shiJiRelationToTaiyi === '格') {
+    patterns.push(`格（始击${result.shiJiPosition}对宫格太乙${result.taiyiPosition}）`);
+  }
+
+  if (fiveGenerals.wenChangRelationToTaiyi === '同宫') {
+    patterns.push(`囚（文昌${result.wenChangPosition}与太乙${result.taiyiPosition}同临第${result.taiyiPalace}宫）`);
+  } else if (fiveGenerals.wenChangRelationToTaiyi === '迫') {
+    patterns.push(`迫（文昌${result.wenChangPosition}邻迫太乙${result.taiyiPosition}）`);
+  } else if (fiveGenerals.wenChangRelationToTaiyi === '格') {
+    patterns.push(`对（文昌${result.wenChangPosition}对宫对太乙${result.taiyiPosition}）`);
+  }
+
+  for (const rel of fiveGenerals.relations) {
+    if (rel.kind === '主客同宫关') {
+      patterns.push(`关（${rel.left}与${rel.right}同临第${rel.leftPalace}宫）`);
+    } else if (rel.kind === '客目/客将格' && rel.left !== '始击') {
+      patterns.push(`格（${rel.left}第${rel.leftPalace}宫格太乙第${rel.rightPalace}宫）`);
+    }
+  }
+
+  const gateSummary = `${threeGates.status}（直门${threeGates.directGate}；${threeGates.roles
+    .map((r) => `${r.role}临${r.gate ?? '中宫'}`)
+    .join('、')}${threeGates.blockedRoles.length ? `；受阻：${threeGates.blockedRoles.join('、')}` : ''}）`;
+  const harmonyMatched = yinYangHarmony.pairFacts.filter((p) => p.matched).map((p) => p.role);
+  const harmonyUnmatched = yinYangHarmony.pairFacts.filter((p) => !p.matched).map((p) => p.role);
+  const elementFact = fiveGenerals.hostGuestElementRelation;
+  const elementNote = elementFact.complete
+    ? `二目五行与日纳音：${elementFact.relation}（${elementFact.dayNayinSummary}）`
+    : `二目五行：文昌${elementFact.hostPosition}（${elementFact.hostElement ?? '待考'}）、始击${elementFact.guestPosition}（${elementFact.guestElement ?? '待考'}）`;
+
+  const lines = [
+    `主客算力对比：${countCompare}；${setCompare}；结构：${countProfiles.join('；')}。`,
+    `将神落宫与中宫状态：主大将${result.lordGeneral}宫/主参将${result.lordAssistant}宫，客大将${result.guestGeneral}宫/客参将${result.guestAssistant}宫，定大将${result.setGeneral}宫/定参将${result.setAssistant}宫；五将状态：${fiveGenerals.launched ? '五将已发' : '五将受阻未发'}；入中五宫：${centerTrapped.length ? `${centerTrapped.join('、')}落中宫受制` : '六将均未入中五宫'}。`,
+    `格象叠加：${patterns.length ? `命中 ${patterns.length} 项——${patterns.join('；')}` : '未见掩、囚、迫、击、关、格、对'}。`,
+    `受迫与助势条件：三门${gateSummary}；阴阳和——相和：${harmonyMatched.join('、') || '无'}，不和：${harmonyUnmatched.join('、') || '无'}；${elementNote}。`,
+  ];
+
+  return {
+    diff,
+    countCompare,
+    setCompare,
+    centerTrapped,
+    patterns,
+    fiveGeneralsLaunched: fiveGenerals.launched,
+    threeGatesStatus: threeGates.status,
+    harmonyMatched,
+    harmonyUnmatched,
+    text: lines.join('\n'),
+  };
+}
+
 function buildTaiyiExtendedAnalysis(result: ReturnType<typeof generateTaiyi>): string {
   const fourKeyGods = [
     `太乙临${result.taiyiPosition}宫${TAIYI_16_GOD_MEANINGS[result.taiyiPosition] ?? ''}`,
@@ -81,15 +183,14 @@ function buildPrompt(result: ReturnType<typeof generateTaiyi>, question: string,
   const schoolText = formatSchoolGuidance(options?.schools, reference.schools);
   const classics = options?.includeClassics ? reference.classics.map((item) => `《${item.book}》·${item.chapter}：${item.summary}\n适用条件：${item.application}`).join('\n') : '';
   const evidence = result.evidenceAnalysis!;
-  const counterSummary = evidence.counterEvidenceFacts.map((c) => c.promptText).join(' ');
   const activeTaiyiGenerals = [
     '太乙',
     '文昌',
     '始击',
     ...(result.lordGeneral ? ['主将'] : []),
     ...(result.guestGeneral ? ['客将'] : []),
-    ...(counterSummary.includes('主参') ? ['主参'] : []),
-    ...(counterSummary.includes('客参') ? ['客参'] : []),
+    ...(result.lordAssistant === 5 || result.lordAssistant === result.taiyiPalace ? ['主参'] : []),
+    ...(result.guestAssistant === 5 || result.guestAssistant === result.taiyiPalace ? ['客参'] : []),
     '计神',
   ];
   const classicExcerpts = options?.includeClassics
@@ -99,6 +200,7 @@ function buildPrompt(result: ReturnType<typeof generateTaiyi>, question: string,
     correction ? `【时间】\n经度 ${correction.longitude}°；经度修正 ${correction.longitudeCorrectionMinutes.toFixed(3)} 分钟，均时差 ${correction.equationOfTimeMinutes.toFixed(3)} 分钟；日时按真太阳时钟表，节气、年月及阴阳遁按实际起局时刻。提示词时间：${now}。` : `【时间】\n提示词时间：${now}。`,
     result.prompt,
     buildTaiyiExtendedAnalysis(result),
+    `【主客算与将神制衡关系】\n${analyzeTaiyiRelations(result).text}`,
     `【模型口径】\n${result.model.precision}`,
     `【计算与条件】\n${evidence.calculationSteps
       .filter((item) => !['taiyi:calculation:three-gates', 'taiyi:calculation:five-generals', 'taiyi:calculation:yinyang-harmony'].includes(item.key))

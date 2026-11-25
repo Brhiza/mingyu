@@ -111,3 +111,12 @@ test('六十干支、九局和阴阳遁的转飞盘均有九个不同宫位', ()
   }
   assert.throws(() => arrangeJiuGongGe(true, 0, '天蓬', '休门', { hour: '甲子' }));
 });
+
+test('奇门置闰法按主流满九日门槛：2015 大雪超神 8 天不置闰，2016 芒种超神 10 天闰芒种', async () => {
+  const { getQimenJuShu } = await import('../src/systems/qimen/jushu');
+  const dec2015 = getQimenJuShu({ year: 2015, month: 12, day: 15, hour: 12, minute: 0, second: 0 }, 'zhirun');
+  assert.equal(dec2015.isZhiRun, false);
+  const jun2016 = getQimenJuShu({ year: 2016, month: 6, day: 12, hour: 12, minute: 0, second: 0 }, 'zhirun');
+  assert.equal(jun2016.isZhiRun, true);
+  assert.equal(jun2016.jieQi, '芒种');
+});

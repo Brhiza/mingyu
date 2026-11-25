@@ -42,6 +42,7 @@ import {
   type HomeCustomizationState,
 } from '../workspace-catalog';
 import { AgentChatPanel, type AgentChatPanelProps } from './AgentChatPanel';
+import { LocalAgentBar, type LocalAgentApplyPayload } from './LocalAgentBar';
 
 export interface HomePageProps {
   homeInstantTimeStandard: 'beijing' | 'true-solar';
@@ -64,6 +65,7 @@ export interface HomePageProps {
   onOpenCustomShortcutTarget: (shortcutId: string) => void;
   onToggleHomeItem: (section: keyof HomeCustomizationState, id: string) => void;
   onResetHomeCustomization: () => void;
+  onApplyLocalAgentRecommendation?: (payload: LocalAgentApplyPayload) => void | Promise<void>;
 }
 
 type HomePickerMode = 'instantCast' | 'chart' | 'cards' | null;
@@ -152,6 +154,7 @@ export function HomePage({
   onOpenCustomShortcutTarget,
   onToggleHomeItem,
   onResetHomeCustomization,
+  onApplyLocalAgentRecommendation,
 }: HomePageProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [pickerMode, setPickerMode] = React.useState<HomePickerMode>(null);
@@ -717,6 +720,10 @@ export function HomePage({
                 rightSlot={editControls}
               />
             </div>
+
+            {onApplyLocalAgentRecommendation ? (
+              <LocalAgentBar onApplyRecommendation={onApplyLocalAgentRecommendation} />
+            ) : null}
 
         {/* 1. 顶部 7:5 错落主区：左「即时起卦」，右统一「命盘排盘」整合卡片 */}
         <section

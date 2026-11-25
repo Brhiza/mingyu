@@ -28,7 +28,7 @@ test('下卦盘与流年流月叠宫进入结果', async () => {
 test('交运年与测量跨界保留所有候选，具体日期核定运期', async () => {
   const boundary = { question: '问题', construction: { year: 2024 }, orientation: { kind: 'degree', reading: 'sit', degree: 22.5, northReference: 'true', uncertaintyDegrees: 1 } };
   const result = await calculate('xuankong', boundary);
-  assert.equal(result.data.periodBoundary, '待核'); assert.equal(result.data.charts.length, 4);
+  assert.equal(result.data.periodBoundary, '交界双候选'); assert.equal(result.data.charts.length, 4);
   assert.deepEqual([...new Set(result.data.charts.map((x: any) => x.period.yun))], [8, 9]);
   assert.deepEqual([...new Set(result.data.charts.map((x: any) => x.sitMountain))], ['癸', '丑']);
   for (const [day, expected] of [[3, [8]], [4, [8, 9]], [5, [9]]] as const) {

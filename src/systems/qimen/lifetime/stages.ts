@@ -78,7 +78,7 @@ function supportAndConstraints(chart: QimenData, number: number) {
   else if (door === '景门') support.push('临景门，传统门象涉及文书、呈现与声誉议题');
   if (['值符', '太阴', '六合', '九天', '九地'].includes(god)) support.push(`临${god}，传统神象对应助力与协同线索`);
   else if (['白虎', '螣蛇', '玄武'].includes(god)) constraints.push(`临${god}，传统神象涉及阻力或变动议题`);
-  if (chart.voidPalaces?.some((p) => p.palace === number)) constraints.push('宫逢旬空，该宫议题有待核对的兑现条件与时间');
+  if (chart.voidPalaces?.some((p) => p.palace === number)) constraints.push('宫逢旬空，该宫议题须待出空、填实或冲实之期方能兑现');
   if (chart.horseStar?.palace === number) support.push('临驿马星，传统取象涉及移动与变化');
   for (const pattern of chart.classicPatterns ?? []) if (pattern.palaces.includes(number)) {
     if (pattern.type === 'good') support.push(`成吉格「${pattern.name}」：${pattern.summary}`);

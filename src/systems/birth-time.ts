@@ -92,6 +92,22 @@ export function beijingLunarDateDiscrepancy(timestamp: number) {
   return lunarDateDiscrepancy(getCivilDateTimeAtFixedOffset(new Date(timestamp), 8));
 }
 
+export const chinaDstAdvisoryText = '出生时刻落于 1986–1991 年中国大陆历史夏令时区间（当前未启用 applyChinaDst 且未使用 Asia/Shanghai 时区）；若出生记录为当时夏令时钟表，实际标准北京时间应减 1 小时，可能影响时柱、起运或命宫，请核对后开启 applyChinaDst 或指定 timeZoneId: "Asia/Shanghai"。';
+
+/** 当东八区民用钟表落入 1986–1991 中国历史夏令时且未启用夏令时校正时返回提示。 */
+export function chinaDstAdvisory(
+  birth: Pick<BirthClock, 'year' | 'month' | 'day' | 'hour' | 'minute' | 'calendar' | 'leapMonth' | 'timezone' | 'timeZoneId' | 'applyChinaDst'>,
+): string | undefined {
+  if (birth.applyChinaDst || birth.timeZoneId) return undefined;
+  if (birth.timezone !== undefined && birth.timezone !== 8) return undefined;
+  let year = birth.year, month = birth.month, day = birth.day;
+  if (birth.calendar === 'lunar') {
+    ({ year, month, day } = lunarToCivilDate(birth.year, birth.month, birth.day, birth.leapMonth));
+  }
+  const dst = checkChinaDst(year, month, day, birth.hour, birth.minute);
+  return dst.inDst ? chinaDstAdvisoryText : undefined;
+}
+
 /** 农历日期按当前历表转为公历；存在已知一日分歧时要求明确公历。 */
 export function lunarToCivilDate(year: number, month: number, day: number, leapMonth?: boolean) {
   if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error('农历月份须在 1 至 12 之间。');

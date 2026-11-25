@@ -50,5 +50,5 @@ export function summarizePattern(ordinary: ReturnType<typeof buildOrdinaryPatter
   const choice = patternMode === 'main-qi-first'
     ? { pattern: ordinary.monthPrincipal.pattern, source: '普通月令取格候选' }
     : (specialChoice ?? { pattern: ordinary.candidate, source: '普通月令取格候选' });
-  return { ...choice, ...(patternMode !== 'standard' ? { mode: patternMode } : {}), limitation: '仅按已实现的化气、曲直、从儿、从财、专旺与通用从格和普通月令路线排序；格局成败、调候、用神与其他传统口径仍待核验。' };
+  return { ...choice, ...(patternMode !== 'standard' ? { mode: patternMode } : {}), limitation: '按化气、曲直、从儿、从财、专旺、通用从格与普通月令路线完成一级排序；格局成败与最终用神见格局裁定与用神层。' };
 }

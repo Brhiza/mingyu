@@ -44,6 +44,7 @@ export const baziBirth = z.object({
   ]),
   calendar: z.enum(['solar', 'lunar']).optional(), leapMonth: z.boolean().optional(),
   timezone: z.number().min(-12).max(14).optional(), timeZoneId: z.string().trim().min(1).max(100).optional(),
+  applyChinaDst: z.boolean().optional().describe('是否对 1986–1991 年中国历史夏令时期间的东八区钟表时间减 1 小时校正；与 timeZoneId 互斥。'),
   timeStandard: z.enum(['civil', 'true-solar']).optional(), longitude: z.number().min(-180).max(180).optional(),
 }).strict().refine((value) => value.timeStandard === 'true-solar' ? value.longitude !== undefined : value.longitude === undefined, '真太阳时须提供经度；民用时间不接受经度');
 

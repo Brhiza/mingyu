@@ -1,5 +1,5 @@
-import type { QimenJiuGongGe } from './types';
-import { isKe } from '../calendar';
+import type { QimenData, QimenJiuGongGe } from './types';
+import { isKe, isSheng } from '../calendar';
 import { doorPalaces, getDoorElement, getOppositePalace, getTianPanStemForStar, getTianPanStems, hasTianPanStar, hasTianPanStem, palaceStars, stemTombs } from './palace';
 
 const qiNames: Record<string, string> = { 乙: '乙奇（日奇）', 丙: '丙奇（月奇）', 丁: '丁奇（星奇）' };
@@ -29,7 +29,11 @@ export function getQimenPatternTags({ zhiFu, zhiShi, zhiShiLandingPalace, jiuGon
   if (!palaceStars.includes(zhiFu)) throw new Error(`值符星 "${zhiFu}" 无法识别。`);
   const placements = palaceStars.map((star, index) => {
     const palace = jiuGongGe.find((item) => hasTianPanStar(item, star));
-    return { home: star === '天禽' && palace?.tianPan.companionStar === star ? 2 : index + 1, landing: palace?.gong };
+    const companionHostHome =
+      star === '天禽' && palace?.tianPan.companionStar === star
+        ? palaceStars.indexOf(palace.tianPan.star) + 1
+        : 0;
+    return { home: companionHostHome > 0 ? companionHostHome : index + 1, landing: palace?.gong };
   });
   if (placements.every((item) => item.landing === item.home)) tags.push('星伏吟');
   else if (placements.every((item) => item.landing === (getOppositePalace(item.home) ?? item.home))) tags.push('星反吟');
@@ -101,4 +105,231 @@ export function buildPalaceInsights({ jiuGongGe, zhiFu, zhiShi, patternTags }: {
     if (good.length) result.push({ gong, name, level: '有利', summary: `${good.join('、')}同宫，可作为推进、求助或争取资源的优先方位。` });
   }
   return result;
+}
+
+export interface QimenDamagedGoodPalace {
+  gong: number;
+  palaceName: string;
+  goodPatterns: string[];
+  negativeFactors: string[];
+  verdict: '吉格逢空（待填实/冲空）' | '吉格折损' | '吉格折损/反凶';
+}
+
+export interface QimenBadRescuePalace {
+  gong: number;
+  palaceName: string;
+  badPatterns: string[];
+  rescueFactors: string[];
+  hasRescue: boolean;
+}
+
+export interface QimenPatternRelations {
+  damagedGoodPalaces: QimenDamagedGoodPalace[];
+  badRescuePalaces: QimenBadRescuePalace[];
+  globalConstraints: string[];
+}
+
+const QIMEN_HARM_DOORS = new Set(['死门', '惊门', '伤门', '杜门']);
+const QIMEN_TOP_GOOD_PATTERNS = new Set(['青龙返首', '飞鸟跌穴']);
+const QIMEN_PASSIVE_GOOD_NAMES = new Set(['宫生门', '门生宫']);
+const QIMEN_SAN_QI = new Set(['乙', '丙', '丁']);
+
+function uniqueStrings(items: readonly string[]): string[] {
+  return [...new Set(items.filter(Boolean))];
+}
+
+/**
+ * 逐宫及全局计算奇门格局叠加与吉凶制衡关系（吉格折损/反凶、凶格救应/通关、全局约束）。
+ */
+export function analyzeQimenPatternRelations(data: QimenData): QimenPatternRelations {
+  const voidGongSet = new Set((data.voidPalaces ?? []).map((item) => item.palace));
+  const classicPatterns = data.classicPatterns ?? [];
+  const patternTags = data.patternTags ?? [];
+
+  const damagedGoodPalaces: QimenDamagedGoodPalace[] = [];
+  const badRescuePalaces: QimenBadRescuePalace[] = [];
+
+  for (const palace of data.jiuGongGe) {
+    if (palace.gong === 5) continue;
+    const { gong, name, renPan, shenPan } = palace;
+    const door = renPan.door;
+    const doorEl = door ? getDoorElement(door) : '';
+    const palaceClassic = classicPatterns.filter((item) => item.palaces.includes(gong));
+
+    // 1. 收集本宫吉格（排除单纯的宫生门/门生宫，后者作为救应因子）
+    const goodNames: string[] = [];
+    for (const item of palaceClassic) {
+      if (item.type === 'good' && !QIMEN_PASSIVE_GOOD_NAMES.has(item.name)) {
+        goodNames.push(item.name);
+      }
+    }
+    for (const tag of patternTags) {
+      if (
+        (tag.startsWith('三奇得（') ||
+          tag.startsWith('三奇得使（') ||
+          tag.startsWith('宝鉴三奇得使（') ||
+          tag.startsWith('三奇游六仪（')) &&
+        tag.includes(`于${name}`)
+      ) {
+        const prefix = tag.split('（')[0];
+        if (!goodNames.some((n) => n.includes(prefix) || prefix.includes(n))) {
+          goodNames.push(prefix);
+        }
+      }
+    }
+    const goodPatterns = uniqueStrings(goodNames);
+
+    // 2. 收集本宫负面因子
+    const negativeFactors: string[] = [];
+    const jixingItems = palaceClassic.filter((item) => item.type === 'bad' && item.name.endsWith('击刑'));
+    for (const item of jixingItems) negativeFactors.push(item.name);
+    for (const tag of patternTags) {
+      if (tag.startsWith('击刑（') && tag.includes(`落${name}`) && jixingItems.length === 0) {
+        negativeFactors.push('击刑');
+      }
+    }
+    const isMenPo = Boolean(door && doorEl && isKe(doorEl, palace.element));
+    if (isMenPo) negativeFactors.push(`门迫（${door}克${name}）`);
+
+    const rumuItems = palaceClassic.filter((item) => item.type === 'bad' && item.name.endsWith('入墓'));
+    for (const item of rumuItems) negativeFactors.push(item.name);
+    for (const tag of patternTags) {
+      if (tag.startsWith('入墓（') && tag.includes(`落${name}`) && rumuItems.length === 0) {
+        negativeFactors.push('入墓');
+      }
+    }
+    const isVoid = voidGongSet.has(gong);
+    if (isVoid) negativeFactors.push('空亡（待冲空/填实）');
+    if (door && QIMEN_HARM_DOORS.has(door)) negativeFactors.push(`凶门${door}`);
+
+    const otherBadClassics = palaceClassic.filter(
+      (item) =>
+        item.type === 'bad' &&
+        item.name !== '门迫' &&
+        !item.name.endsWith('击刑') &&
+        !item.name.endsWith('入墓'),
+    );
+    for (const item of otherBadClassics) negativeFactors.push(item.name);
+    const uniqueNegatives = uniqueStrings(negativeFactors);
+
+    if (goodPatterns.length > 0 && uniqueNegatives.length > 0) {
+      const onlyVoid = uniqueNegatives.length === 1 && isVoid;
+      const hasSevereConflict =
+        jixingItems.length > 0 ||
+        isMenPo ||
+        rumuItems.length > 0 ||
+        (door && QIMEN_HARM_DOORS.has(door)) ||
+        otherBadClassics.length > 0;
+      const hasTopGood = goodPatterns.some((n) => QIMEN_TOP_GOOD_PATTERNS.has(n));
+      const verdict: QimenDamagedGoodPalace['verdict'] = onlyVoid
+        ? '吉格逢空（待填实/冲空）'
+        : hasTopGood && hasSevereConflict
+          ? '吉格折损/反凶'
+          : '吉格折损';
+      damagedGoodPalaces.push({
+        gong,
+        palaceName: name,
+        goodPatterns,
+        negativeFactors: uniqueNegatives,
+        verdict,
+      });
+    }
+
+    // 3. 收集本宫凶象并检查救应/通关因子
+    const badNames: string[] = [];
+    for (const item of palaceClassic) {
+      if (item.type === 'bad') badNames.push(item.name);
+    }
+    if (isMenPo && !badNames.includes('门迫')) badNames.push('门迫');
+    const badPatterns = uniqueStrings(badNames);
+
+    if (badPatterns.length > 0) {
+      const rescueFactors: string[] = [];
+      if (door && goodDoors.has(door)) rescueFactors.push(`吉门${door}`);
+      const sanQiInPalace = getTianPanStems(palace).filter((stem) => QIMEN_SAN_QI.has(stem));
+      for (const qi of sanQiInPalace) rescueFactors.push(`天盘${qi}奇`);
+      if (door && doorEl && isSheng(palace.element, doorEl)) rescueFactors.push(`宫生门（${name}生${door}）`);
+      if (shenPan.god === '值符' || hasTianPanStar(palace, data.zhiFu)) {
+        rescueFactors.push(shenPan.god === '值符' ? '值符神护持' : `值符星${data.zhiFu}护持`);
+      }
+      const uniqueRescues = uniqueStrings(rescueFactors);
+      badRescuePalaces.push({
+        gong,
+        palaceName: name,
+        badPatterns,
+        rescueFactors: uniqueRescues,
+        hasRescue: uniqueRescues.length > 0,
+      });
+    }
+  }
+
+  // 4. 全局约束检查
+  const globalConstraints: string[] = [];
+  if (data.specialConditions?.isWuBuYuShi) {
+    globalConstraints.push('五不遇时：时干克日干，全盘吉格均受全局压制，谋事易阻滞反复');
+  }
+  const fuyinTags = patternTags.filter((tag) => tag === '星伏吟' || tag === '门伏吟');
+  if (fuyinTags.length > 0) {
+    globalConstraints.push(`${fuyinTags.join('、')}：全盘吉格发动迟缓、停滞难进，利守不利急攻`);
+  }
+  const fanyinTags = patternTags.filter((tag) => tag === '星反吟' || tag === '门反吟');
+  if (fanyinTags.length > 0) {
+    globalConstraints.push(`${fanyinTags.join('、')}：全盘吉格易成败反复、多变难稳`);
+  }
+  if (data.specialConditions?.isShiGanRuMu) {
+    globalConstraints.push('时干入墓：时局整体气机收敛受困，全盘吉格力量打折');
+  }
+  if (data.specialConditions?.isRiGanRuMu) {
+    globalConstraints.push('日干入墓：日局整体气机受困，全盘吉格力量打折');
+  }
+
+  return {
+    damagedGoodPalaces,
+    badRescuePalaces,
+    globalConstraints,
+  };
+}
+
+/**
+ * 将奇门格局叠加与吉凶制衡关系格式化为客观结构化提示词文本。
+ */
+export function formatQimenPatternRelations(data: QimenData): string {
+  const relations = analyzeQimenPatternRelations(data);
+  const lines: string[] = [];
+
+  if (relations.damagedGoodPalaces.length > 0) {
+    const items = relations.damagedGoodPalaces.map(
+      (item) =>
+        `${item.palaceName}［${item.verdict}：吉格(${item.goodPatterns.join('、')})同宫遇(${item.negativeFactors.join('、')})］`,
+    );
+    lines.push(`吉格折损/反凶检查：${items.join('；')}。`);
+  } else {
+    lines.push('吉格折损/反凶检查：当前各宫吉格未检出同宫击刑、门迫、入墓、空亡或凶门冲突。');
+  }
+
+  if (relations.badRescuePalaces.length > 0) {
+    const rescued = relations.badRescuePalaces
+      .filter((item) => item.hasRescue)
+      .map(
+        (item) =>
+          `${item.palaceName}［凶象(${item.badPatterns.join('、')})得(${item.rescueFactors.join('、')})救应/通关］`,
+      );
+    const unrescued = relations.badRescuePalaces
+      .filter((item) => !item.hasRescue)
+      .map(
+        (item) =>
+          `${item.palaceName}［凶象(${item.badPatterns.join('、')})无吉门/三奇/宫生门/值符明救］`,
+      );
+    lines.push(`凶格救应/通关检查：${[...rescued, ...unrescued].join('；')}。`);
+  } else {
+    lines.push('凶格救应/通关检查：当前九宫未检出同宫凶格或门迫。');
+  }
+
+  if (relations.globalConstraints.length > 0) {
+    lines.push(`全局约束：${relations.globalConstraints.join('；')}。`);
+  } else {
+    lines.push('全局约束：未命中五不遇时、伏吟、反吟或干支入墓全局制约。');
+  }
+
+  return lines.join('\n');
 }
