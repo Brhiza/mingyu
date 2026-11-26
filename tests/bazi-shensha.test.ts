@@ -488,6 +488,24 @@ test('元辰对阳男阴女应取年支相冲之前一位（顺数7位），阴�
   assert.ok(gengChenFemale.hour.includes('元辰'));
 });
 
+test('乙丑年元辰男取午、女取申，同时排除另一支', () => {
+  const calculator = new ShenShaCalculator();
+  const pillars: Parameters<typeof calculator.calculateAllShenSha>[0] = [
+    ['乙', '丑'],
+    ['癸', '未'],
+    ['甲', '午'],
+    ['壬', '申'],
+  ];
+
+  const male = calculator.calculateAllShenSha(pillars, 'male');
+  const female = calculator.calculateAllShenSha(pillars, 'female');
+
+  assert.ok(male.day.includes('元辰'));
+  assert.ok(!male.hour.includes('元辰'));
+  assert.ok(!female.day.includes('元辰'));
+  assert.ok(female.hour.includes('元辰'));
+});
+
 test('童子煞应只按日支或时支查，不应把年柱月柱也算进去', () => {
   const result = getZiChenGengWuDingYouResult();
 
@@ -3258,7 +3276,7 @@ test('五行精纪点头杀与无形鬼应按日时固定干支旁证取用', ()
         ['甲', '子'],
         ['乙', '丑'],
         ['戊', '寅'],
-        ['辛', '未'],
+        ['己', '未'],
       ],
       'male',
     );
@@ -3267,7 +3285,7 @@ test('五行精纪点头杀与无形鬼应按日时固定干支旁证取用', ()
         ['甲', '子'],
         ['乙', '丑'],
         ['戊', '寅'],
-        ['庚', '申'],
+        ['丁', '巳'],
       ],
       'male',
     );
