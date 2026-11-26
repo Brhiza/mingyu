@@ -29,7 +29,7 @@ test('指定范围逐段覆盖交节、换日、夏令时和真太阳时，并�
     const offsetAt = birthRange.timeZoneId ? createTimezoneOffsetReader(birthRange.timeZoneId) : () => birthRange.timezone ?? 8;
     for (const [index, segment] of segments.entries()) {
       if (index) assert.equal(segments[index - 1].endTimestamp, segment.startTimestamp);
-      assert.equal(segment.shensha.included.length, 56);
+      assert.equal(segment.shensha.included.length, 71);
       for (const timestamp of new Set([segment.startTimestamp, segment.endTimestamp - 1000, segment.startTimestamp + Math.floor((segment.endTimestamp - segment.startTimestamp) / 2000) * 1000])) {
         const offset = offsetAt(timestamp), local = getCivilDateTimeAtFixedOffset(new Date(timestamp), offset);
         const exact = await calculateBaziPillars({ year: local.year, month: local.month, day: local.day, clock: { kind: 'exact', hour: local.hour, minute: local.minute, second: local.second }, timezone: offset,

@@ -4,6 +4,7 @@ import reference from './lenormand-data.json';
 import { randomContext } from './random';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateLenormandSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof lenormandInput>;
 type Spread = keyof typeof reference.spreads;
@@ -284,8 +285,10 @@ export function promptForLenormand(value: unknown, question: string, options: In
   const combinationText = combinations.map((item) => item.source === '固定组合'
     ? `${item.position1}${item.card1} + ${item.position2}${item.card2}（${item.relation}）：传统固定组合，关注${item.conditioned}。`
     : `${item.position1}${item.card1} + ${item.position2}${item.card2}（${item.relation}）：联读${cardByName.get(item.card1)!.keywords.slice(0, 2).join('、')}与${cardByName.get(item.card2)!.keywords.slice(0, 2).join('、')}，不视为固定组合。`).join('\n');
+  const digestLines = buildMethodSituationDigest('lenormand', { cards, combinations }, question);
   const sections = [
     '【传统依据】\n雷诺曼以牌序、邻牌关系、固定组合、中心焦点与镜像布局为主要资料；象征取义须与现实资料区分。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【提示词参考时间】\n${now}`,
     `【占卜资料】\n占法：雷诺曼；牌阵：${spread.name}；共 ${cards.length} 张。\n${cardText}${mirrorHints ? `\n${mirrorHints}` : ''}`,
     `【牌阵结构与牌间呼应关系】\n${analyzeLenormandRelations(data.spreadType, cards, combinations).text}`,
@@ -295,7 +298,7 @@ export function promptForLenormand(value: unknown, question: string, options: In
     formatSchoolAlgorithmSection(evaluateLenormandSchoolAlgorithms({ spreadType: data.spreadType, cards }, combinations.length, options?.schools)),
     schools,
     options?.includeClassics ? '【传统资料】\n采用 Petit Lenormand 的牌面、牌位和组合资料；不同牌组的图像与解释可能有差异。' : '',
-    `【任务】\n围绕问题按实际牌位、顺序、相邻关系和布局解读；区分固定组合与一般联读。${selection ? `\n${selection.task}` : ''}\n结合现实资料说明成立条件、相反线索和资料不足；不要把象征直接当作已发生的事件或人物意图。`,
+    `【任务】\n围绕问题按实际牌位、顺序、相邻关系和布局解读；区分固定组合与一般联读。${selection ? `\n${selection.task}` : ''}\n结合现实条件说明成立依据、相反线索与前提边界；不要把象征直接当作已发生的事件或人物意图。`,
     `【问题】\n${question}`,
   ].filter(Boolean);
   const user = sections.join('\n\n');

@@ -701,8 +701,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const guestGateRole =
     conditions.threeGates.roles.find((role) => !role.usedForThreeGate)?.gate ?? '门位未定';
   const gateSummary = [
-    `门将阴阳和：${conditionSummary}`,
-    '主门具按太乙与文昌（主目）是否临开、休、生门判定',
+    `门将阴阳和：${conditionSummary.replace(/。$/u, '')}`,
+    '主门具（太乙、文昌未落开休生反为阻吉之限，实际门位见后）',
     `主门位：${mainGateRoles}`,
     `始击（客目）门位单列：${guestGateRole}。`,
   ].join('；');

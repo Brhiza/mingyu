@@ -21,7 +21,8 @@ test('独立双盘覆盖六种关系、双向十神及流派任务', async () =>
     assert.match(result.prompt.text, /互补等级：/);
     assert.doesNotMatch(result.prompt.text, /喜忌覆盖及双方岁运未计算/);
     for (const chart of Object.values(result.data.charts) as any[]) assert.ok(result.prompt.text.includes(`旺衰模型${chart.strength.status}`));
-    assert.match(result.prompt.text, /非最终喜忌/);
+    assert.match(result.prompt.text, /【局势要点】/);
+    assert.match(result.prompt.text, /【双方用神裁定与跨盘覆盖】/);
     assert.match(result.prompt.text, /【双方取用条件候选】/);
     for (const chart of Object.values(result.data.charts) as any[]) assert.ok(result.prompt.text.includes(`普通取格候选${chart.ordinaryPattern.candidate}`));
     for (const text of [`【${label}任务】`, '【双向十神】', '【跨柱关系】', '【资料缺口】', '子平派', '盲派', '双方如何相处？']) assert.ok(result.prompt.text.includes(text), text);

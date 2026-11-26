@@ -4,6 +4,7 @@ import { sameJsonValue } from '../json-value';
 import { bazhaiPalaces } from './bazhai/palaces';
 import { trigrams } from './trigrams';
 import numerology from './number-numerology.json';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof numberEnergyInput>;
 type Source = Pick<Input, 'value' | 'purpose' | 'prompt'>;
@@ -262,7 +263,10 @@ function render(data: Data, question: string, options: Input['prompt']) {
   const flowSummary = buildMagneticFlowSummary(data);
   const chainRelationsText = formatMagneticChainRelations(data);
   const task = data.input.purpose === 'phone' ? '结合日常联系与号码辨识讨论。' : data.input.purpose === 'plate' ? '结合实际出行、辨识和审美讨论；驾驶安全以交通规则和实际情况为准。' : '结合用户说明的实际用途讨论。';
-  const text = [`【号码资料】\n类型：${labels[data.input.purpose]}；原文：${data.input.value}；归一：${data.normalized}；参与序列：${data.alphanumeric}。\n字母换算：${data.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、') || '无'}；展开序列：${data.energySequence}。${data.excludedCharacters.length ? `\n未参与计算的标记：${data.excludedCharacters.join('、')}。` : ''}`,
+  const digestLines = buildMethodSituationDigest('number-energy', data, question);
+  const text = [
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
+    `【号码资料】\n类型：${labels[data.input.purpose]}；原文：${data.input.value}；归一：${data.normalized}；参与序列：${data.alphanumeric}。\n字母换算：${data.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、') || '无'}；展开序列：${data.energySequence}。${data.excludedCharacters.length ? `\n未参与计算的标记：${data.excludedCharacters.join('、')}。` : ''}`,
     `【八星配对】\n${pairs.join('\n') || '有效卦数不足，未形成八星配对。'}\n分布：${data.magneticDistribution.map((item) => `${item.name}${item.count}组`).join('、') || '无'}；连续段：${data.magneticSegments.map((item) => `${item.name}${item.span}（${item.pairCount}组）`).join(' → ') || '无'}。${flowSummary ? `\n${flowSummary}` : ''}`,
     `【磁场衔接与制化关系】\n${chainRelationsText}`,
     `【0与5】\n${data.modifiers.map((item) => `序列第${item.position + 1}位：${item.digit}，${item.meaning}`).join('\n') || '无'}`,

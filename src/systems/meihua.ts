@@ -198,7 +198,7 @@ async function buildPrompt(data: MeihuaData, evidence: Evidence, question: strin
     classics ? `【经典依据】\n${classics}` : '',
     zhouyi ? `【周易彖象资料】\n${zhouyi}` : '',
     classicExcerpts,
-    `【任务】\n围绕问题复核起卦取数、主互变、动爻、体用和月令；分别说明支持、反证、成立条件与资料不足。${selection ? `\n${selection.task}` : ''}\n阶段关系与卦爻辞属于传统取象，应期仅讨论已记录的触发条件，不换算唯一日期或成功率。`,
+    `【任务】\n围绕问题复核起卦取数、主互变、动爻、体用和月令；分别说明支持、反证、成立条件与边界限制。${selection ? `\n${selection.task}` : ''}`,
     `【问题】\n${question}`,
   ].filter(Boolean);
   const user = sections.join('\n\n');

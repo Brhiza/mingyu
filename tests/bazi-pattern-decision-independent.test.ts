@@ -11,8 +11,8 @@ test('财格救应成立后仍须检查身承财；特殊格不套用普通模�
   assert.equal(strong.breakers[0].label, '比劫夺财');
   assert.equal(strong.breakers[0].repairStatus, '满足');
   const weak = buildPatternEvidence(pillars, pattern, '戊', '身弱').decision!;
-  assert.equal(weak.status, '未判定');
+  assert.equal(weak.status, '格成待扶承财');
   assert.equal(weak.wealthBearing, '不满足');
-  assert.match(weak.reason, /有限格神结构为破而复成/);
+  assert.match(weak.reason, /须岁运比印扶身承财/);
   assert.equal(buildPatternEvidence(pillars, { ...pattern, source: '从财优先条件模型' }, '戊', '身弱').decision, null);
 });

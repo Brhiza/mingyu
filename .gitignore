@@ -13,6 +13,7 @@ dist-cli/
 .dev.vars*
 output/
 *.log
+training-data/
 
 # 本地代理与编辑器杂项
 .local/

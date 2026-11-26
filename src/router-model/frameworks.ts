@@ -3,6 +3,8 @@
  * 用于在前端本地提前锁定“回答结构框架 + 主题看盘侧重点”，大幅减轻下游大模型负担并防跑偏。
  */
 
+import { AUTO_SKIP_FRAMEWORK_METHODS } from '../method-registry';
+import { parseQuestionContext } from '../systems/question-context';
 import {
   DIVINATION_METHODS,
   normalizeQuery,
@@ -490,6 +492,28 @@ export function detectDomain(rawQuery: string, primaryMethod: MethodId): Detecte
     label: def.label,
     focusPoints,
   };
+}
+
+/**
+ * 面向提示词自动装配的框架过滤器：
+ * 1. 纯典籍/历法/字典查询与区间考时类，已有专属精准交付契约，不硬套算命框架；
+ * 2. 命盘类单点主题短问（例如只问“事业如何？”）不强行套用包含感情/性格的全景模板，避免把 AI 带跑题。
+ */
+export function resolveAutoFrameworkForPrompt(
+  method: MethodId,
+  query: string,
+  recommendedId: FrameworkId,
+): FrameworkId | null {
+  if (AUTO_SKIP_FRAMEWORK_METHODS.has(method)) return null;
+  if (recommendedId === 'natal-panorama') {
+    const q = normalizeQuery(query);
+    const wantsPanorama = /(综合|全盘|全景|整体|一生|性格|天赋|大运|路线图|命格|格局|总览|命录)/.test(q);
+    const parsed = parseQuestionContext(query);
+    if (parsed.inferredTopic !== 'general' && !wantsPanorama) {
+      return null;
+    }
+  }
+  return recommendedId;
 }
 
 export function selectPromptFramework(

@@ -4,6 +4,7 @@ import type { almanacInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, type SchoolGuidanceEntry } from '../prompt-selection';
 import { evaluateAlmanacSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, selectAlmanacClassics } from './classics';
 import { participantProfile } from './almanac/participants';
 import { classifyAlmanacGodSource, collectFolkTabooGods, getAlmanacSolarDayGods } from './almanac/gods';
@@ -215,7 +216,9 @@ function render(data: Data, question: string, options: Input['prompt']) {
     `慎用日期（${rec.cautionDays.length}天）：${rec.cautionDays.slice(0, 5).map((d) => `${d.date}${d.majorTabooGods.length ? `（犯${d.majorTabooGods.join('、')}）` : ''}`).join('、') || '无'}`,
     rec.rule,
   ].join('\n');
+  const digestLines = buildMethodSituationDigest('almanac', data, question);
   const text = [`【黄历择日基础资料】\n事项：${data.topicLabel}${data.input.customKeyword ? `（${data.input.customKeyword}）` : ''}；匹配关键词：${data.keywords.join('、')}。计算范围：${data.input.startDate}至${data.input.endDate}；${pageText}提示词列出${selected.length}天${requested ? `，其余${data.days.length - selected.length}天未列入` : data.page ? '（本页全部日期）' : '（全部日期）'}。周末偏好：${{ any: '不限', prefer: '优先周末', avoid: '避开周末' }[data.preferences.weekendPreference]}；时段偏好：${data.preferences.timePreferences.map((value) => ({ 'work-hours': '工作时间', morning: '上午优先', afternoon: '下午优先' })[value]).join('、') || '不限'}。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     recommendationText,
     ...(mode === 'compact' ? [`【简版说明】\n保留所选全部日期和每个时辰的初筛状态及偏好标记；未展开时辰宜忌、限制原因和传统历注，不能据此断定时辰适宜。须与当日初筛一并核对，不得推测未列原因。北京时间时段：${selected[0].hours.map((hour) => `${hour.name}${hour.range}`).join('、')}。可用 prompt.dates 选择日期，或以 prompt.detailMode=full 展开完整提示词；完整资料见结构化结果。`] : []),
     `【逐日及时辰】\n${days.join('\n')}`,

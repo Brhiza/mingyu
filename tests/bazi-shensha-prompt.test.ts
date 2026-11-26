@@ -43,10 +43,10 @@ test('八字双盘分别展示双方实际神煞，缺性别时标明元辰未�
   const result = await calculate('bazi-synastry', input);
   for (const [person, id] of [['甲', 'person1'], ['乙', 'person2']] as const) {
     const facts = result.data.charts[id].shensha;
-    assert.equal(facts.included.length, 54);
+    assert.equal(facts.included.length, 69);
     assert.ok(result.prompt.text.includes(`${person}：${formatBaziShenshaHits(facts, true)}`));
   }
-  assert.match(result.prompt.text, /元辰因未提供性别未计算/);
+  assert.match(result.prompt.text, /元辰、铁扫帚因未提供性别未计算/);
   const reply = await reprompt({ method: 'bazi-synastry', result, question: '工作合作？', prompt: { detailMode: 'full' } });
   assert.ok(reply.prompt.text.includes(formatBaziShenshaHits(result.data.charts.person1.shensha, true)));
   const altered = structuredClone(result); altered.data.charts.person1.shensha.entries.pop();
@@ -60,21 +60,21 @@ test('八字双盘的性别独立填写，未提供者不推测且不影响四�
   const mixed = await calculate('bazi-synastry', input);
   assert.deepEqual(mixed.data.charts.person1.pillars, base.data.charts.person1.pillars);
   assert.deepEqual(mixed.data.charts.person2.pillars, base.data.charts.person2.pillars);
-  assert.equal(mixed.data.charts.person1.shensha.included.length, 56);
+  assert.equal(mixed.data.charts.person1.shensha.included.length, 71);
   assert.deepEqual(mixed.data.charts.person1.shensha.unavailable, []);
-  assert.equal(mixed.data.charts.person2.shensha.included.length, 54);
-  assert.deepEqual(mixed.data.charts.person2.shensha.unavailable.map((item) => item.name), ['元辰']);
-  assert.match(mixed.prompt.text, /甲：仅列56项本命神煞/);
-  assert.match(mixed.prompt.text, /乙：仅列54项本命神煞（元辰因未提供性别未计算）/);
+  assert.equal(mixed.data.charts.person2.shensha.included.length, 69);
+  assert.deepEqual(mixed.data.charts.person2.shensha.unavailable.map((item) => item.name), ['元辰', '铁扫帚']);
+  assert.match(mixed.prompt.text, /甲：仅列71项本命神煞/);
+  assert.match(mixed.prompt.text, /乙：仅列69项本命神煞（元辰、铁扫帚因未提供性别未计算）/);
   const reply = await reprompt({ method: 'bazi-synastry', result: mixed, question: '继续' });
-  assert.match(reply.prompt.text, /甲：仅列56项本命神煞/);
-  assert.match(reply.prompt.text, /乙：仅列54项本命神煞/);
+  assert.match(reply.prompt.text, /甲：仅列71项本命神煞/);
+  assert.match(reply.prompt.text, /乙：仅列69项本命神煞/);
   const sensitive = await calculate('bazi-synastry', { ...input, person1: { ...person1, gender: 'female', clock: { kind: 'exact', hour: 21, minute: 0, second: 0 } } });
   const altered = structuredClone(sensitive); altered.data.input.person1.gender = 'male';
   await assert.rejects(() => reprompt({ method: 'bazi-synastry', result: altered, question: '继续' }), /不一致/);
   const uncertain = await calculate('bazi-synastry', { ...input, person1: { ...person1, gender: 'female', clock: { kind: 'shichen', index: 8 }, candidateIndex: 0 }, person2: { ...person2, gender: 'male' } });
-  assert.equal(uncertain.data.charts.person1.shensha.included.length, 56);
-  assert.equal(uncertain.data.charts.person2.shensha.included.length, 56);
+  assert.equal(uncertain.data.charts.person1.shensha.included.length, 71);
+  assert.equal(uncertain.data.charts.person2.shensha.included.length, 71);
   const first = uncertain.data.charts.person1;
   assert.deepEqual(first.shensha, calculateBaziShensha(first.pillars, 'female'));
 });
@@ -118,6 +118,6 @@ test('双盘提示词通过 HTTP 和远程 MCP 使用相同性别与神煞事实
   assert.equal(mcp.status, 200); const second: any = await mcp.json();
   assert.equal(first.prompt.text, second.result.structuredContent.prompt.text);
   assert.match(first.prompt.text, /双方本命神煞/);
-  assert.equal(first.data.charts.person1.shensha.included.length, 56);
-  assert.equal(first.data.charts.person2.shensha.included.length, 54);
+  assert.equal(first.data.charts.person1.shensha.included.length, 71);
+  assert.equal(first.data.charts.person2.shensha.included.length, 69);
 });

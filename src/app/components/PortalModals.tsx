@@ -5,7 +5,7 @@ import {
   findCascadeDistrictByPlace,
   getBirthPlaceCascadeIndex,
   type CascadeDistrictOption,
-} from '../../v2-ui/birth-place-modal';
+} from '../../v2-ui/birth-place-index';
 import {
   DEFAULT_SUPPLEMENTARY_VALUES,
   INSPIRATION_CATEGORIES,

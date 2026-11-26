@@ -26,13 +26,78 @@ export type AgentApiMessage =
 
 export interface StreamAgentCallbacks {
   onText?: (text: string) => void;
+  onReasoning?: (text: string) => void;
   onToolCallDelta?: (toolCalls: AgentToolCall[]) => void;
 }
 
 export interface StreamAgentTurnResult {
   content: string;
+  reasoning?: string;
   toolCalls: AgentToolCall[];
   finishReason: string;
+}
+
+/**
+ * 状态机：从流式文本中无损分离内嵌的 `<think>...</think>` 思考段，
+ * 避免半截标签闪烁并统一转发给 onReasoning。
+ */
+export function createThinkTagSplitter(
+  onContent: (text: string) => void,
+  onReasoning: (text: string) => void,
+) {
+  const OPEN = '<think>';
+  const CLOSE = '</think>';
+  let inThink = false;
+  let pending = '';
+
+  const flushSafe = (isFinal: boolean) => {
+    while (pending.length > 0) {
+      const target = inThink ? CLOSE : OPEN;
+      const idx = pending.indexOf(target);
+      if (idx !== -1) {
+        const before = pending.slice(0, idx);
+        if (before) (inThink ? onReasoning : onContent)(before);
+        pending = pending.slice(idx + target.length);
+        inThink = !inThink;
+        continue;
+      }
+      if (!isFinal) {
+        // 保留可能是标签前缀的末尾字符，待下一个分片确认
+        let keep = 0;
+        const maxCheck = Math.min(pending.length, target.length - 1);
+        for (let len = maxCheck; len >= 1; len--) {
+          if (target.startsWith(pending.slice(pending.length - len))) {
+            keep = len;
+            break;
+          }
+        }
+        const safe = pending.slice(0, pending.length - keep);
+        if (safe) (inThink ? onReasoning : onContent)(safe);
+        pending = pending.slice(pending.length - keep);
+        break;
+      }
+      (inThink ? onReasoning : onContent)(pending);
+      pending = '';
+    }
+  };
+
+  return {
+    push(chunk: string) {
+      if (!chunk) return;
+      pending += chunk;
+      flushSafe(false);
+    },
+    end() {
+      flushSafe(true);
+    },
+  };
+}
+
+function extractReasoningText(obj: Record<string, unknown> | undefined): string {
+  if (!obj) return '';
+  if (typeof obj.reasoning_content === 'string' && obj.reasoning_content) return obj.reasoning_content;
+  if (typeof obj.reasoning === 'string' && obj.reasoning) return obj.reasoning;
+  return '';
 }
 
 function endpoint(baseUrl: string, path: string) {
@@ -58,7 +123,14 @@ export async function listModels(config: Pick<AiConfig, 'baseUrl' | 'apiKey'>, f
 }
 
 /** Browser-to-provider stream; the caller owns credentials and conversation state. */
-export async function streamChat(config: AiConfig, messages: readonly AiMessage[], onText: (text: string) => void, signal?: AbortSignal, fetcher: typeof fetch = fetch) {
+export async function streamChat(
+  config: AiConfig,
+  messages: readonly AiMessage[],
+  onText: (text: string) => void,
+  signal?: AbortSignal,
+  fetcher: typeof fetch = fetch,
+  onReasoning?: (text: string) => void,
+) {
   if (!config.model.trim()) throw new Error('请填写模型名称。');
   if (!messages.length || messages.some((message) => !['system', 'user', 'assistant'].includes(message.role) || typeof message.content !== 'string' || !message.content.trim())) throw new Error('对话消息不能为空。');
   const response = await fetcher(endpoint(config.baseUrl, 'chat/completions'), {
@@ -70,17 +142,37 @@ export async function streamChat(config: AiConfig, messages: readonly AiMessage[
   if (!response.body) throw new Error('模型服务未返回流式内容。');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '', dataLines: string[] = [], content = '', finishReason: string | null = null, done = false;
+  let buffer = '', dataLines: string[] = [], content = '', reasoning = '', finishReason: string | null = null, done = false;
+
+  const emitContent = (text: string) => {
+    content += text;
+    onText(text);
+  };
+  const emitReasoning = (text: string) => {
+    reasoning += text;
+    onReasoning?.(text);
+  };
+  const splitter = createThinkTagSplitter(emitContent, emitReasoning);
 
   const event = () => {
     if (!dataLines.length) return;
     const data = dataLines.join('\n'); dataLines = [];
     if (data === '[DONE]') { done = true; return; }
-    let parsed: { choices?: Array<{ delta?: { content?: unknown }; finish_reason?: unknown }>; error?: unknown };
+    let parsed: {
+      choices?: Array<{
+        delta?: { content?: unknown; reasoning_content?: unknown; reasoning?: unknown };
+        finish_reason?: unknown;
+      }>;
+      error?: unknown;
+    };
     try { parsed = JSON.parse(data); } catch { throw new Error('模型返回了无法解析的流式数据。'); }
     if (!parsed || typeof parsed !== 'object' || parsed.error) throw new Error('模型流返回错误。');
     const choice = parsed.choices?.[0];
-    if (typeof choice?.delta?.content === 'string' && choice.delta.content) { content += choice.delta.content; onText(choice.delta.content); }
+    const rChunk = extractReasoningText(choice?.delta as Record<string, unknown> | undefined);
+    if (rChunk) emitReasoning(rChunk);
+    if (typeof choice?.delta?.content === 'string' && choice.delta.content) {
+      splitter.push(choice.delta.content);
+    }
     if (typeof choice?.finish_reason === 'string') finishReason = choice.finish_reason;
   };
   const line = (value: string) => {
@@ -106,9 +198,14 @@ export async function streamChat(config: AiConfig, messages: readonly AiMessage[
       buffer += decoder.decode(chunk.value, { stream: true });
       drain(false);
     }
+    splitter.end();
     if (!done && !finishReason) throw new Error('模型流提前中断，已保留收到的内容。');
     if (!content) throw new Error('模型未返回文本内容。');
-    return { content, finishReason: finishReason ?? 'stop' };
+    return {
+      content,
+      ...(reasoning ? { reasoning } : {}),
+      finishReason: finishReason ?? 'stop',
+    };
   } finally {
     await reader.cancel().catch(() => undefined);
     reader.releaseLock();
@@ -172,9 +269,31 @@ export async function streamAgentCompletion(
     if (json?.error) {
       throw new Error(typeof json.error.message === 'string' ? json.error.message : '模型返回错误。');
     }
-    const msg = json.choices?.[0]?.message;
-    const content = typeof msg?.content === 'string' ? msg.content : '';
-    if (content) callbacks.onText?.(content);
+    const msg = json.choices?.[0]?.message as
+      | {
+          content?: unknown;
+          reasoning_content?: unknown;
+          reasoning?: unknown;
+          tool_calls?: Array<{ id?: unknown; type?: unknown; function?: { name?: unknown; arguments?: unknown } }>;
+        }
+      | undefined;
+    let content = '';
+    let reasoning = extractReasoningText(msg as Record<string, unknown> | undefined);
+    if (reasoning) callbacks.onReasoning?.(reasoning);
+    const nonStreamSplitter = createThinkTagSplitter(
+      (t) => {
+        content += t;
+        callbacks.onText?.(t);
+      },
+      (r) => {
+        reasoning += r;
+        callbacks.onReasoning?.(r);
+      },
+    );
+    if (typeof msg?.content === 'string' && msg.content) {
+      nonStreamSplitter.push(msg.content);
+      nonStreamSplitter.end();
+    }
     const toolCalls: AgentToolCall[] = Array.isArray(msg?.tool_calls)
       ? msg.tool_calls.map((tc, idx) => ({
           id: typeof tc.id === 'string' && tc.id ? tc.id : `call_${idx + 1}`,
@@ -193,7 +312,7 @@ export async function streamAgentCompletion(
           ? 'tool_calls'
           : 'stop';
     if (!content && !toolCalls.length) throw new Error('模型未返回文本或工具调用。');
-    return { content, toolCalls, finishReason };
+    return { content, ...(reasoning ? { reasoning } : {}), toolCalls, finishReason };
   }
 
   const reader = response.body.getReader();
@@ -201,9 +320,21 @@ export async function streamAgentCompletion(
   let buffer = '';
   let dataLines: string[] = [];
   let content = '';
+  let reasoning = '';
   let finishReason: string | null = null;
   let done = false;
   const toolCallMap = new Map<number, AgentToolCall>();
+
+  const agentSplitter = createThinkTagSplitter(
+    (t) => {
+      content += t;
+      callbacks.onText?.(t);
+    },
+    (r) => {
+      reasoning += r;
+      callbacks.onReasoning?.(r);
+    },
+  );
 
   const snapshotToolCalls = (): AgentToolCall[] =>
     [...toolCallMap.entries()]
@@ -254,9 +385,13 @@ export async function streamAgentCompletion(
       throw new Error(`模型流返回错误${msg}。`);
     }
     const choice = parsed.choices?.[0];
+    const rChunk = extractReasoningText(choice?.delta as Record<string, unknown> | undefined);
+    if (rChunk) {
+      reasoning += rChunk;
+      callbacks.onReasoning?.(rChunk);
+    }
     if (typeof choice?.delta?.content === 'string' && choice.delta.content) {
-      content += choice.delta.content;
-      callbacks.onText?.(choice.delta.content);
+      agentSplitter.push(choice.delta.content);
     }
     if (Array.isArray(choice?.delta?.tool_calls)) {
       let changed = false;
@@ -319,11 +454,13 @@ export async function streamAgentCompletion(
       buffer += decoder.decode(chunk.value, { stream: true });
       drain(false);
     }
+    agentSplitter.end();
     const toolCalls = snapshotToolCalls();
     if (!done && !finishReason) throw new Error('模型流提前中断，已保留收到的内容。');
     if (!content && !toolCalls.length) throw new Error('模型未返回文本或工具调用。');
     return {
       content,
+      ...(reasoning ? { reasoning } : {}),
       toolCalls,
       finishReason: finishReason ?? (toolCalls.length ? 'tool_calls' : 'stop'),
     };

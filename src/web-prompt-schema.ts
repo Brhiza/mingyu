@@ -48,6 +48,18 @@ export const schoolOptionLabels: Record<string, string> = {
   yangzhaisanyao: '《阳宅三要》（重门主灶三要生克）',
   shenshi: '沈氏玄空（重山向挨星格局）',
   wuchang: '无常派玄空（重下卦替卦与城门诀）',
+  hecan: '八宅玄空合参（重人宅与宅运叠合取舍）',
+  yuanhui: '元会运世（重宏观周期与会运卦统辖）',
+  guaqi: '值年卦气（重当年值年卦与六爻气运）',
+  keti: '课体格局（重九宗门课体与传统定式）',
+  bifafu: '《毕法赋》（重干支克应与经典赋文比照）',
+  leishen: '类神聚焦（重所问事项类神乘将与落宫）',
+  tiyong: '体用生克（重主互变体用旺衰与生克）',
+  xiangshu: '卦象物象（重八卦类象与外应推演）',
+  yaoci: '动爻辞参断（重《周易》本变卦辞与动爻辞）',
+  huozhulin: '《火珠林》（重纳甲六亲与传统占断体系）',
+  bushizhengzong: '《卜筮正宗》（重用神旺衰与黄金策脉络）',
+  zengshanbuyi: '《增删卜易》（重月日动变实占与进退神）',
 };
 
 // Presentation only: the calculation and API continue to use the original schema and IDs.
@@ -74,11 +86,13 @@ export function promptFormSchema(method: Method, raw: unknown, value: Record<str
       description: choices.length ? properties.subtopicId.description : '当前主题没有可选子主题；请先选择其他主题，或移除此项。',
     };
   }
-  if (properties.schools) {
-    properties.schools = {
-      ...properties.schools,
-      optionLabels: { ...(properties.schools.optionLabels ?? {}), ...schoolOptionLabels },
-    };
+  for (const key of ['schools', 'baziSchools', 'ziweiSchools'] as const) {
+    if (properties[key]) {
+      properties[key] = {
+        ...properties[key],
+        optionLabels: { ...(properties[key].optionLabels ?? {}), ...schoolOptionLabels },
+      };
+    }
   }
   return { ...schema, properties };
 }

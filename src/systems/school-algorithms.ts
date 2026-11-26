@@ -1,3 +1,5 @@
+import { BRANCH_WUXING, KE_MAP, SHENG_MAP, STEM_WUXING } from './ganzhi-foundation';
+
 export interface SchoolStructuredVerdict {
   stance: string;
   primaryFocus: string;
@@ -37,8 +39,8 @@ export function formatSchoolAlgorithmSection(
   return `【流派算法口径核验】\n${body}${consensusBlock}`;
 }
 
-const WUXING_GENERATE: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const WUXING_CONTROL: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const WUXING_GENERATE: Record<string, string> = SHENG_MAP;
+const WUXING_CONTROL: Record<string, string> = KE_MAP;
 
 function compareWuxing(subject: string, object: string): '比和' | '主生客' | '客生主' | '主克客' | '客克主' | '未明' {
   if (!subject || !object) return '未明';
@@ -54,15 +56,8 @@ const TRIGRAM_ELEMENT: Record<string, string> = {
   乾: '金', 兑: '金', 离: '火', 震: '木', 巽: '木', 坎: '水', 艮: '土', 坤: '土',
 };
 
-const BRANCH_ELEMENT: Record<string, string> = {
-  子: '水', 丑: '土', 寅: '木', 卯: '木', 辰: '土', 巳: '火',
-  午: '火', 未: '土', 申: '金', 酉: '金', 戌: '土', 亥: '水',
-};
-
-const STEM_ELEMENT: Record<string, string> = {
-  甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土',
-  己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
-};
+const BRANCH_ELEMENT: Record<string, string> = BRANCH_WUXING;
+const STEM_ELEMENT: Record<string, string> = STEM_WUXING;
 
 const LIU_HE_PAIRS = new Set(['子丑', '丑子', '寅亥', '亥寅', '卯戌', '戌卯', '辰酉', '酉辰', '巳申', '申巳', '午未', '未午']);
 const LIU_CHONG_PAIRS = new Set(['子午', '午子', '丑未', '未丑', '寅申', '申寅', '卯酉', '酉卯', '辰戌', '戌辰', '巳亥', '亥巳']);

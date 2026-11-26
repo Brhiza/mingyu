@@ -1,7 +1,31 @@
 import { LunarDay, SolarDay } from 'tyme4ts';
 import { methodLabels, type Method } from '../schema';
-import { resolveLocationCoordinates, searchLocations } from '../systems/location';
+import type { LocationEntry } from '../systems/location';
 import { migrateV1StorageData } from './v1-migration';
+
+type LocationResolverModule = {
+  resolveLocationCoordinates: (province: string, city?: string, district?: string) => LocationEntry | null;
+  searchLocations: (query: string, limit?: number) => LocationEntry[];
+};
+
+let loadedLocationModule: LocationResolverModule | null = null;
+let locationLoadPromise: Promise<LocationResolverModule | null> | null = null;
+
+export function ensureCaseLocationResolverLoaded(): Promise<LocationResolverModule | null> {
+  if (loadedLocationModule) return Promise.resolve(loadedLocationModule);
+  if (!locationLoadPromise) {
+    locationLoadPromise = import('../systems/location')
+      .then((mod) => {
+        loadedLocationModule = {
+          resolveLocationCoordinates: mod.resolveLocationCoordinates,
+          searchLocations: mod.searchLocations,
+        };
+        return loadedLocationModule;
+      })
+      .catch(() => null);
+  }
+  return locationLoadPromise;
+}
 
 export const CASES_STORE_EVENT = 'mingyu:v2:cases-store';
 export const HISTORY_RECORDS_EVENT = 'mingyu:history-records';
@@ -337,19 +361,23 @@ function enrichPlaceCoordinates(draft: Partial<PersonalCase>): {
 
   const placeText = draft.birthPlace?.trim() ?? '';
   if (placeText && (longitude === undefined || latitude === undefined || !provinceName)) {
-    const parts = placeText.split(/[\s/]+/).filter(Boolean);
-    const resolved =
-      resolveLocationCoordinates(parts[0] ?? '', parts[1], parts[2]) ??
-      searchLocations(placeText, 1)[0] ??
-      null;
-    if (resolved) {
-      if (longitude === undefined) longitude = resolved.longitude;
-      if (latitude === undefined && resolved.latitude !== undefined) latitude = resolved.latitude;
-      if (timezone === undefined && resolved.timezone !== undefined) timezone = resolved.timezone;
-      if (!timeZoneId && resolved.timeZoneId) timeZoneId = resolved.timeZoneId;
-      if (!provinceName) provinceName = resolved.province ?? (resolved.level === 'overseas' ? '海外城市' : '');
-      if (!cityName) cityName = resolved.city ?? (resolved.level === 'overseas' ? resolved.country : '');
-      if (!districtName) districtName = resolved.district ?? resolved.name;
+    if (!loadedLocationModule) {
+      void ensureCaseLocationResolverLoaded();
+    } else {
+      const parts = placeText.split(/[\s/]+/).filter(Boolean);
+      const resolved =
+        loadedLocationModule.resolveLocationCoordinates(parts[0] ?? '', parts[1], parts[2]) ??
+        loadedLocationModule.searchLocations(placeText, 1)[0] ??
+        null;
+      if (resolved) {
+        if (longitude === undefined) longitude = resolved.longitude;
+        if (latitude === undefined && resolved.latitude !== undefined) latitude = resolved.latitude;
+        if (timezone === undefined && resolved.timezone !== undefined) timezone = resolved.timezone;
+        if (!timeZoneId && resolved.timeZoneId) timeZoneId = resolved.timeZoneId;
+        if (!provinceName) provinceName = resolved.province ?? (resolved.level === 'overseas' ? '海外城市' : '');
+        if (!cityName) cityName = resolved.city ?? (resolved.level === 'overseas' ? resolved.country : '');
+        if (!districtName) districtName = resolved.district ?? resolved.name;
+      }
     }
   }
 

@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { calculate, reprompt, type Method } from '../core';
-import { inputSchemas, methodLabels } from '../schema';
+import { NON_CLASSICS_METHODS } from '../method-registry';
+import { methodLabels } from '../schema';
 import { isWebAiEnabled } from '../web-ai';
 import { clearVisualBoard, renderVisualBoard } from '../web-boards';
 import { clearReportView, extractReportSections, renderReportView } from '../web-report';
@@ -15,11 +15,12 @@ import {
   type SynastryRelationship,
 } from '../systems/focus-presets';
 import { parseQuestionContext } from '../systems/question-context';
-import { inferFortuneScope } from '../router-model/fortune-scope';
 import {
   PROMPT_FRAMEWORKS,
+  resolveAutoFrameworkForPrompt,
   type FrameworkId,
 } from '../router-model/frameworks';
+import { mergeFrameworkIntoPrompt } from '../prompt-guidance';
 import {
   analyzeUserQuery,
   formatFrameworkPromptBlock,
@@ -28,7 +29,6 @@ import {
 } from '../router-model/local-agent';
 import {
   formatCaseSummary,
-  toV2BirthPayload,
   type PersonalCase,
 } from './cases-store';
 import { downloadChartShareImage } from './chart-share';
@@ -40,376 +40,38 @@ import {
   openSupplementaryInfoModal,
   type SupplementaryInfoValues,
 } from './inspiration-modals';
-import { distillPromptForUser } from './prompt-distiller';
+import { distillPromptForAgent, distillPromptForUser } from '../prompt-profile';
 
-export type PersonalChartTabId =
-  | 'bazi'
-  | 'ziwei'
-  | 'bazi-ziwei'
-  | 'qimen-lifetime'
-  | 'astrolabe'
-  | 'qizheng'
-  | 'bazhai'
-  | 'minglu';
+import {
+  COMPATIBILITY_CHART_TABS,
+  PERSONAL_CHART_TABS,
+  buildCompatibilityChartPayload,
+  buildPersonalChartPayload,
+  inferCompatibilityFlowFromQuestion,
+  isCompatibilityChartMethod,
+  isPersonalChartMethod,
+  resolveSyncYearsRange,
+  type CompatibilityChartTabId,
+  type PersonalChartTabId,
+  type SyncYearsPreset,
+} from './chart-payloads';
 
-export type CompatibilityChartTabId =
-  | 'bazi-synastry'
-  | 'ziwei-synastry'
-  | 'astrolabe-synastry';
-
-export const PERSONAL_CHART_TABS: ReadonlyArray<{
-  id: PersonalChartTabId;
-  label: string;
-  shortLabel: string;
-}> = [
-  { id: 'bazi', label: '八字', shortLabel: '八字' },
-  { id: 'ziwei', label: '紫微斗数', shortLabel: '紫微' },
-  { id: 'bazi-ziwei', label: '八字紫微合参', shortLabel: '合参' },
-  { id: 'qimen-lifetime', label: '奇门终身局', shortLabel: '奇门' },
-  { id: 'astrolabe', label: '西洋星盘', shortLabel: '星盘' },
-  { id: 'qizheng', label: '七政四余', shortLabel: '七政' },
-  { id: 'bazhai', label: '八宅命卦', shortLabel: '八宅' },
-];
-
-export const COMPATIBILITY_CHART_TABS: ReadonlyArray<{
-  id: CompatibilityChartTabId;
-  label: string;
-  shortLabel: string;
-}> = [
-  { id: 'bazi-synastry', label: '八字合盘', shortLabel: '八字合盘' },
-  { id: 'ziwei-synastry', label: '紫微合盘', shortLabel: '紫微合盘' },
-  { id: 'astrolabe-synastry', label: '西洋星盘合盘', shortLabel: '星盘合盘' },
-];
-
-export function isPersonalChartMethod(method: string): method is PersonalChartTabId {
-  return method === 'minglu' || PERSONAL_CHART_TABS.some((item) => item.id === method);
-}
-
-export function isCompatibilityChartMethod(method: string): method is CompatibilityChartTabId {
-  return COMPATIBILITY_CHART_TABS.some((item) => item.id === method);
-}
-
-const jsonSchemaCache = new Map<Method, { properties?: Record<string, unknown> }>();
+export {
+  COMPATIBILITY_CHART_TABS,
+  PERSONAL_CHART_TABS,
+  buildCompatibilityChartPayload,
+  buildPersonalChartPayload,
+  inferCompatibilityFlowFromQuestion,
+  isCompatibilityChartMethod,
+  isPersonalChartMethod,
+  resolveSyncYearsRange,
+  type CompatibilityChartTabId,
+  type PersonalChartTabId,
+  type SyncYearsPreset,
+};
 
 function supportsClassicalReferences(method: Method): boolean {
-  let cached = jsonSchemaCache.get(method);
-  if (!cached) {
-    cached = z.toJSONSchema(inputSchemas[method]) as { properties?: Record<string, unknown> };
-    jsonSchemaCache.set(method, cached);
-  }
-  const promptProps = (
-    cached.properties?.prompt as { properties?: Record<string, unknown> } | undefined
-  )?.properties;
-  return Boolean(promptProps && 'includeClassics' in promptProps);
-}
-
-function wholeSecondIsoNow(): string {
-  return new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace('.000Z', 'Z');
-}
-
-function toIsoBeijingRangeEndpoint(value: string): string {
-  const trimmed = value.trim();
-  const match = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/.exec(trimmed);
-  return match ? `${match[1]}T${match[2]}+08:00` : trimmed;
-}
-
-/**
- * 根据当前 PersonalCase 与目标盘面 Tab 构建 V2 calculate() 输入参数。
- */
-export function buildPersonalChartPayload(
-  person: PersonalCase,
-  tabId: PersonalChartTabId,
-  questionText?: string,
-  options?: {
-    bazhaiSitMountain?: string;
-    flowYear?: number | null;
-  },
-): Record<string, unknown> {
-  const question = questionText?.trim() || '请综合分析此命盘的核心结构、优势短板与阶段运势。';
-  const hasKnownTime = person.timeIndex !== 'unknown';
-  const refIso = wholeSecondIsoNow();
-  const flowYear =
-    typeof options?.flowYear === 'number' && Number.isInteger(options.flowYear)
-      ? options.flowYear
-      : null;
-  const flowRefIso = flowYear ? `${flowYear}-06-15T12:00:00+08:00` : refIso;
-  const sitMountain =
-    options?.bazhaiSitMountain && mountains.includes(options.bazhaiSitMountain)
-      ? options.bazhaiSitMountain
-      : '子';
-
-  switch (tabId) {
-    case 'bazi': {
-      if (person.reverseSource) {
-        return {
-          question,
-          birthRange: {
-            start: toIsoBeijingRangeEndpoint(person.reverseSource.intervalStart),
-            end: toIsoBeijingRangeEndpoint(person.reverseSource.intervalEnd),
-            timezone: 8,
-            pillars: person.reverseSource.pillars,
-          },
-          gender: person.gender,
-        };
-      }
-      const birth = toV2BirthPayload(person, {
-        method: 'bazi',
-        forcePreciseBirthPlace: hasKnownTime,
-      });
-      return {
-        question,
-        birth,
-        gender: person.gender,
-        ...(birth.clock.kind === 'exact'
-          ? {
-              referenceTime: flowRefIso,
-              ...(flowYear ? { timelineYear: flowYear } : {}),
-            }
-          : {}),
-      };
-    }
-    case 'ziwei': {
-      const birth = toV2BirthPayload(person, {
-        method: 'ziwei',
-        forcePreciseBirthPlace: hasKnownTime,
-      });
-      return {
-        question,
-        birth,
-        gender: person.gender,
-        referenceTime: flowRefIso,
-      };
-    }
-    case 'bazi-ziwei': {
-      const birth = toV2BirthPayload(person, {
-        method: 'bazi-ziwei',
-        forcePreciseBirthPlace: hasKnownTime,
-      });
-      return {
-        question,
-        birth,
-        gender: person.gender,
-        ...(birth.clock.kind === 'exact' ? { referenceTime: flowRefIso } : {}),
-      };
-    }
-    case 'qimen-lifetime': {
-      const birth = toV2BirthPayload(person, { method: 'qimen-lifetime' });
-      return {
-        question,
-        birth,
-        gender: person.gender,
-        stagePolicy: { model: 'decadalGanzhi' },
-      };
-    }
-    case 'astrolabe': {
-      const birth = toV2BirthPayload(person, { method: 'astrolabe' });
-      return {
-        question,
-        birth,
-        ...(flowYear ? { flow: { reference: { kind: 'year', year: flowYear } } } : {}),
-      };
-    }
-    case 'qizheng': {
-      const birth = toV2BirthPayload(person, { method: 'qizheng' });
-      return {
-        question,
-        birth,
-        ...(flowYear
-          ? {
-              gender: person.gender,
-              flow: { kind: 'year', year: flowYear },
-            }
-          : {}),
-      };
-    }
-    case 'bazhai': {
-      const year = Math.trunc(Number(person.year) || 1990);
-      const month = Math.min(12, Math.max(1, Math.trunc(Number(person.month) || 1)));
-      const day = Math.min(31, Math.max(1, Math.trunc(Number(person.day) || 1)));
-      return {
-        question,
-        person: {
-          kind: 'birth',
-          year,
-          month,
-          day,
-          gender: person.gender,
-          timezone: 8,
-        },
-        house: {
-          kind: 'mountain',
-          sitMountain,
-        },
-      };
-    }
-    case 'minglu': {
-      const birth = toV2BirthPayload(person, {
-        method: 'minglu',
-        forcePreciseBirthPlace: hasKnownTime,
-      });
-      return {
-        question,
-        birth,
-        gender: person.gender,
-        ...(birth.clock.kind === 'exact' ? { referenceTime: refIso } : {}),
-        location: {
-          latitude: person.latitude ?? 39.9042,
-          longitude: person.longitude ?? 116.4074,
-          ...(person.birthPlace ? { locationName: person.birthPlace } : {}),
-        },
-      };
-    }
-  }
-}
-
-export type SyncYearsPreset = 'none' | 'next3' | 'next5' | 'around5' | 'next10';
-
-export function resolveSyncYearsRange(
-  preset: SyncYearsPreset,
-  baseYear: number,
-): { startYear: number; endYear: number } | null {
-  if (preset === 'none') return null;
-  const clampYear = (y: number) => Math.min(2100, Math.max(1900, Math.trunc(y)));
-  let startYear = baseYear;
-  let endYear = baseYear;
-  if (preset === 'next3') {
-    endYear = baseYear + 2;
-  } else if (preset === 'next5') {
-    endYear = baseYear + 4;
-  } else if (preset === 'around5') {
-    startYear = baseYear - 2;
-    endYear = baseYear + 2;
-  } else if (preset === 'next10') {
-    endYear = baseYear + 9;
-  }
-  startYear = clampYear(startYear);
-  endYear = clampYear(endYear);
-  if (endYear < startYear) endYear = startYear;
-  if (endYear - startYear > 9) endYear = startYear + 9;
-  return { startYear, endYear };
-}
-
-export function inferCompatibilityFlowFromQuestion(
-  question: string,
-  baseYear = new Date().getFullYear(),
-): { flowYear: number | null; syncYears: { startYear: number; endYear: number } | null } {
-  const scope = inferFortuneScope(question, baseYear);
-  const clampYear = (y: number) => Math.min(2100, Math.max(1900, Math.trunc(y)));
-  const normalizeSpan = (years: number[]): { startYear: number; endYear: number } | null => {
-    const sorted = [...new Set(years.map(clampYear))].sort((a, b) => a - b);
-    if (sorted.length === 0) return null;
-    const startYear = sorted[0]!;
-    const endYear = Math.min(sorted[sorted.length - 1]!, startYear + 9);
-    return { startYear, endYear };
-  };
-
-  if (scope.explicitYears.length === 1) {
-    return { flowYear: clampYear(scope.explicitYears[0]!), syncYears: null };
-  }
-  if (scope.explicitYears.length >= 2) {
-    const span = normalizeSpan(scope.explicitYears);
-    return { flowYear: span?.startYear ?? null, syncYears: span };
-  }
-  if ((scope.focus === 'medium-term' || scope.focus === 'lifetime') && scope.years.length >= 2) {
-    const span = normalizeSpan(scope.years);
-    return { flowYear: null, syncYears: span };
-  }
-  return { flowYear: null, syncYears: null };
-}
-
-export function buildCompatibilityChartPayload(
-  person1: PersonalCase,
-  person2: PersonalCase,
-  tabId: CompatibilityChartTabId,
-  questionText?: string,
-  options?: {
-    relationship?: SynastryRelationship;
-    flowYear?: number | null;
-    syncYears?: { startYear: number; endYear: number } | null;
-  },
-): Record<string, unknown> {
-  const question = questionText?.trim() || '请合参双方命盘的契合度、相处模式与磨合建议。';
-  const relationship = options?.relationship ?? 'marriage';
-  const p1Known = person1.timeIndex !== 'unknown';
-  const p2Known = person2.timeIndex !== 'unknown';
-  const p1Exact = p1Known && !person1.reverseSource;
-  const p2Exact = p2Known && !person2.reverseSource;
-  const inferred = inferCompatibilityFlowFromQuestion(question);
-  const flowYear = options?.flowYear ?? inferred.flowYear;
-  const flowRefIso = flowYear ? `${flowYear}-06-15T12:00:00+08:00` : wholeSecondIsoNow();
-  const syncYears = options?.syncYears ?? inferred.syncYears;
-
-  if (tabId === 'astrolabe-synastry') {
-    return {
-      question,
-      person1: toV2BirthPayload(person1, { method: 'astrolabe-synastry' }),
-      person2: toV2BirthPayload(person2, { method: 'astrolabe-synastry' }),
-      ...(flowYear ? { referenceTime: flowRefIso } : {}),
-      ...(syncYears ? { syncYears } : {}),
-    };
-  }
-
-  if (tabId === 'ziwei-synastry') {
-    const canSync = p1Exact && p2Exact;
-    return {
-      question,
-      person1: {
-        name: person1.name || '命主一',
-        gender: person1.gender,
-        birth: toV2BirthPayload(person1, {
-          method: 'ziwei-synastry',
-          forcePreciseBirthPlace: p1Known,
-        }),
-      },
-      person2: {
-        name: person2.name || '命主二',
-        gender: person2.gender,
-        birth: toV2BirthPayload(person2, {
-          method: 'ziwei-synastry',
-          forcePreciseBirthPlace: p2Known,
-        }),
-      },
-      relationship,
-      referenceTime: flowRefIso,
-      ...(canSync && syncYears ? { syncYears } : {}),
-    };
-  }
-
-  const b1 = toV2BirthPayload(person1, {
-    method: 'bazi-synastry',
-    forcePreciseBirthPlace: p1Known,
-  });
-  const b2 = toV2BirthPayload(person2, {
-    method: 'bazi-synastry',
-    forcePreciseBirthPlace: p2Known,
-  });
-  const canBaziFortune =
-    p1Exact &&
-    p2Exact &&
-    b1.clock.kind === 'exact' &&
-    b2.clock.kind === 'exact' &&
-    Boolean(person1.gender) &&
-    Boolean(person2.gender);
-  return {
-    question,
-    person1: {
-      ...b1,
-      name: person1.name || '命主一',
-      gender: person1.gender,
-    },
-    person2: {
-      ...b2,
-      name: person2.name || '命主二',
-      gender: person2.gender,
-    },
-    relationship,
-    ...(canBaziFortune
-      ? {
-          referenceTime: flowRefIso,
-          ...(syncYears ? { syncYears } : {}),
-        }
-      : {}),
-  };
+  return !NON_CLASSICS_METHODS.has(method);
 }
 
 export interface ResultPageContext {
@@ -435,7 +97,12 @@ export interface ResultPageOptions {
   onActiveResultChange?: (
     method: Method,
     payload: Record<string, unknown>,
-    result: { summary?: unknown; prompt?: { text: string }; data?: unknown },
+    result: {
+      summary?: unknown;
+      prompt?: { text: string };
+      data?: unknown;
+      followUps?: Array<{ label: string; question: string; reason?: string }>;
+    },
   ) => void;
   onMobileAssistantToggle?: (isOpen: boolean) => void;
 }
@@ -471,6 +138,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   let currentCtx: ResultPageContext | null = null;
   let includeClassics = loadGlobalRules().prompt.includeClassics;
+  type PromptDensityTier = 'brief' | 'standard' | 'deep';
+  let promptDensityTier: PromptDensityTier = includeClassics ? 'deep' : 'standard';
+  let latestRawPromptText = '';
+  let latestFollowUps: Array<{ label: string; question: string; reason?: string }> = [];
   let compatRelationship: SynastryRelationship = 'marriage';
   let questionDraft = '';
   let lastAppliedQuestion = '';
@@ -744,7 +415,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         if (!canBaziFortune) {
           const hint = document.createElement('span');
           hint.className = 'workspace-ui-inline-hint';
-          hint.textContent = '双方均提供精确出生时辰与性别后，可选择大运流年与多年同步合参';
+          hint.textContent = '需双方精确时辰与性别';
           chartInteractiveBar.appendChild(hint);
           chartInteractiveBar.hidden = false;
           return;
@@ -1145,7 +816,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   supplementaryBtn.addEventListener('click', () => {
     openSupplementaryInfoModal({
       values: { ...supplementary },
-      description: '补充事件经过、已知前提与现实限制，留空部分不会写入提示词。',
+      description: '选填，留空不写入',
       onSave: (next) => {
         supplementary = {
           ...supplementary,
@@ -1332,13 +1003,14 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   function resolveEffectiveFrameworkId(method: Method): FrameworkId | null {
     if (selectedFrameworkId === 'none') return null;
     if (selectedFrameworkId !== 'auto') return selectedFrameworkId;
-    const analysis = analyzeUserQuery(questionDraft || currentCtx?.question || '', {
+    const activeQ = questionDraft || currentCtx?.question || '';
+    const analysis = analyzeUserQuery(activeQ, {
       method,
       referenceYear: flowCurrentYear,
       birthYear: parseCaseYear(currentCtx?.person?.year),
       partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
     });
-    return analysis.recommendedFramework.id;
+    return resolveAutoFrameworkForPrompt(method, activeQ, analysis.recommendedFramework.id);
   }
 
   function applyLocalFrameworkToPrompt(rawPromptText: string, method: Method): string {
@@ -1347,7 +1019,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     if (!fwId) return rawPromptText;
     if (rawPromptText.includes('【指定解读框架：')) return rawPromptText;
     const block = formatFrameworkPromptBlock(fwId);
-    return block ? `${rawPromptText.trimEnd()}\n\n${block}` : rawPromptText;
+    return block ? mergeFrameworkIntoPrompt(rawPromptText, block) : rawPromptText;
   }
 
   const localAgentBar = document.createElement('div');
@@ -1356,7 +1028,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   const frameworkRow = document.createElement('label');
   frameworkRow.className = 'workspace-local-agent-framework-row';
   const frameworkLabel = document.createElement('span');
-  frameworkLabel.textContent = '本地小模型 · 解读框架';
+  frameworkLabel.textContent = '解读框架';
   const frameworkSelect = document.createElement('select');
   frameworkSelect.className = 'workspace-ui-control is-compact';
   frameworkSelect.setAttribute('aria-label', '选择本地推荐解读框架');
@@ -1387,13 +1059,15 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   function refreshLocalAgentQualityAndFramework() {
     const method = currentCtx?.activeMethod ?? 'bazi';
-    const autoId = analyzeUserQuery(questionDraft || currentCtx?.question || '', {
+    const activeQ = questionDraft || currentCtx?.question || '';
+    const rawAutoId = analyzeUserQuery(activeQ, {
       method,
       referenceYear: flowCurrentYear,
       birthYear: parseCaseYear(currentCtx?.person?.year),
       partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
     }).recommendedFramework.id;
-    const autoName = PROMPT_FRAMEWORKS[autoId]?.name ?? '综合框架';
+    const autoId = resolveAutoFrameworkForPrompt(method, activeQ, rawAutoId);
+    const autoName = autoId ? (PROMPT_FRAMEWORKS[autoId]?.name ?? '综合框架') : '精准聚焦（免冗余框架）';
     autoFwOpt.textContent = `自动匹配（${autoName}）`;
     frameworkSelect.value = selectedFrameworkId;
 
@@ -1408,12 +1082,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       qualityHintBox.hidden = true;
       return;
     }
-    if (quality.hint) {
-      const hintEl = document.createElement('div');
-      hintEl.className = 'workspace-local-agent-hint';
-      hintEl.textContent = quality.hint;
-      qualityHintBox.appendChild(hintEl);
-    }
+    const hintEl = document.createElement('div');
+    hintEl.className = 'workspace-local-agent-hint';
+    hintEl.textContent = '追加内容';
+    qualityHintBox.appendChild(hintEl);
     const pills = document.createElement('div');
     pills.className = 'workspace-prompt-focus-pills';
     for (const fix of quality.quickFixes) {
@@ -1447,52 +1119,20 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     result: { data?: unknown; summary?: unknown } | null,
   ) {
     followUpsBox.replaceChildren();
+    followUpsBox.hidden = true;
     const suggestions = generateChartFollowUps(method, result, {
       relationship: compatRelationship,
       currentYear: flowCurrentYear,
     });
-    if (suggestions.length === 0) {
-      followUpsBox.hidden = true;
-      return;
-    }
-    const head = document.createElement('div');
-    head.className = 'workspace-local-agent-hint';
-    head.textContent = '✨ 基于当前盘面 · 本地智能追问（点击即更新提示词）';
-    const pills = document.createElement('div');
-    pills.className = 'workspace-prompt-focus-pills';
-    for (const item of suggestions) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'workspace-prompt-focus-pill is-agent-followup';
-      btn.textContent = item.label;
-      btn.title = item.reason;
-      btn.addEventListener('click', () => {
-        questionDraft = item.question;
-        questionTextarea.value = item.question;
-        lastAppliedQuestion = item.question;
-        divinationCurrentQuestionStrong.textContent = item.question;
-        syncQuickFocusPills();
-        refreshLocalAgentQualityAndFramework();
-
-        const needsChartRecalc =
-          (typeof item.targetYear === 'number' && selectedFlowYear !== item.targetYear) ||
-          (item.syncYearsPreset && selectedSyncYearsPreset !== item.syncYearsPreset);
-        if (typeof item.targetYear === 'number') {
-          selectedFlowYear = item.targetYear;
-        }
-        if (item.syncYearsPreset) {
-          selectedSyncYearsPreset = item.syncYearsPreset;
-        }
-        if (needsChartRecalc && currentCtx?.mode !== 'divination') {
-          void loadAndRenderActiveTab();
-        } else {
-          void regeneratePromptForQuestion();
-        }
-      });
-      pills.appendChild(btn);
-    }
-    followUpsBox.append(head, pills);
-    followUpsBox.hidden = false;
+    // 本地模式不展示「推荐追问」（仅保留上方「追加内容」补全提示词）；
+    // 追问胶囊仅透传给在线 AI 解读面板，在首轮 AI 解读完成后展示。
+    latestFollowUps = isWebAiEnabled()
+      ? suggestions.map((item) => ({
+          label: item.label,
+          question: item.question,
+          reason: item.reason,
+        }))
+      : [];
   }
 
   frameworkSelect.addEventListener('change', () => {
@@ -1549,6 +1189,92 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   const promptHeroCopyHost = document.createElement('div');
   promptHeroCopyHost.className = 'workspace-prompt-hero-card';
 
+  // 提示词详略三档快捷切换（精简 / 标准 / 含古籍），单行紧凑排布
+  const promptTierBar = document.createElement('div');
+  promptTierBar.className = 'workspace-prompt-quick-focus is-inline';
+  const promptTierLabel = document.createElement('div');
+  promptTierLabel.className = 'workspace-prompt-quick-focus-label';
+  promptTierLabel.textContent = '详略';
+  const promptTierPills = document.createElement('div');
+  promptTierPills.className = 'workspace-prompt-focus-pills';
+  const PROMPT_TIER_ITEMS: ReadonlyArray<{ id: PromptDensityTier; label: string; hint: string }> = [
+    { id: 'brief', label: '精简', hint: '压缩次要细节，约省 35% token' },
+    { id: 'standard', label: '标准', hint: '平衡完整盘面与字数' },
+    { id: 'deep', label: '含古籍', hint: '附带经典古籍原文依据' },
+  ];
+  const promptTierBtns = new Map<PromptDensityTier, HTMLButtonElement>();
+
+  function estimatePromptTokens(text: string): number {
+    if (!text) return 0;
+    let cjk = 0;
+    let other = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code >= 0x4e00 && code <= 0x9fff) cjk += 1;
+      else other += 1;
+    }
+    return Math.max(10, Math.round((cjk * 0.68 + other * 0.32) / 10) * 10);
+  }
+
+  function formatPromptForTier(rawText: string, tier: PromptDensityTier): string {
+    if (!rawText) return '';
+    if (tier === 'brief') return distillPromptForAgent(rawText);
+    return distillPromptForUser(rawText, { includeClassics: tier === 'deep' });
+  }
+
+  function syncPromptTierButtons() {
+    const hasClassics = supportsClassicalReferences(currentCtx?.activeMethod ?? 'bazi');
+    for (const [id, btn] of promptTierBtns.entries()) {
+      btn.classList.toggle('is-active', promptDensityTier === id);
+      btn.setAttribute('aria-pressed', promptDensityTier === id ? 'true' : 'false');
+      if (id === 'deep') {
+        btn.textContent = hasClassics ? '含古籍' : '全量';
+      }
+    }
+  }
+
+  for (const item of PROMPT_TIER_ITEMS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'workspace-prompt-focus-pill';
+    btn.textContent = item.label;
+    btn.title = item.hint;
+    btn.addEventListener('click', () => {
+      if (promptDensityTier === item.id) return;
+      const method = currentCtx?.activeMethod ?? 'bazi';
+      const hasClassics = supportsClassicalReferences(method);
+      const wantClassics = item.id === 'deep' && hasClassics;
+      promptDensityTier = item.id;
+      syncPromptTierButtons();
+      if (wantClassics && !includeClassics) {
+        includeClassics = true;
+        classicsCheckbox.checked = true;
+        void regeneratePromptForQuestion();
+        return;
+      }
+      if (!wantClassics && includeClassics && item.id !== 'deep') {
+        includeClassics = false;
+        classicsCheckbox.checked = false;
+      }
+      if (latestRawPromptText) {
+        const base = formatPromptForTier(latestRawPromptText, promptDensityTier);
+        latestBasePromptText = base;
+        const nextText = applyLocalFrameworkToPrompt(base, method);
+        promptWorkbenchPre.textContent = nextText;
+        deliveryPreviewPre.textContent = nextText;
+        syncPromptPreviewMeta(nextText);
+        if (latestResult) {
+          latestResult = { ...latestResult, prompt: { text: nextText } };
+          onActiveResultChange?.(method, latestPayload, { ...latestResult, followUps: latestFollowUps });
+        }
+      }
+    });
+    promptTierBtns.set(item.id, btn);
+    promptTierPills.appendChild(btn);
+  }
+  promptTierBar.append(promptTierLabel, promptTierPills);
+  syncPromptTierButtons();
+
   const quickFocusWrap = document.createElement('div');
   quickFocusWrap.className = 'workspace-prompt-quick-focus';
   const quickFocusLabel = document.createElement('div');
@@ -1579,17 +1305,15 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   const deliveryPreviewSummary = document.createElement('summary');
   deliveryPreviewSummary.className = 'workspace-prompt-preview-summary';
   const deliveryPreviewTitle = document.createElement('span');
-  deliveryPreviewTitle.textContent = '查看完整提示词';
+  deliveryPreviewTitle.textContent = '提示词原文';
   const deliveryPreviewMeta = document.createElement('small');
   deliveryPreviewSummary.append(deliveryPreviewTitle, deliveryPreviewMeta);
   function syncPromptPreviewMeta(text: string) {
     const len = text.length;
-    const suffix = supportsClassicalReferences(currentCtx?.activeMethod ?? 'bazi') && includeClassics
-      ? ' · 含经典依据'
-      : '';
-    const metaLabel = len > 0 ? `约 ${len} 字${suffix}` : '';
+    const tokens = estimatePromptTokens(text);
+    const metaLabel = len > 0 ? `${len} 字 · ~${tokens} tok` : '';
     deliveryPreviewMeta.textContent = metaLabel;
-    promptCardMetaPill.textContent = metaLabel || '准备就绪';
+    promptCardMetaPill.textContent = metaLabel || '就绪';
   }
   const deliveryPreviewBody = document.createElement('div');
   deliveryPreviewBody.className = 'workspace-prompt-preview-body';
@@ -1601,6 +1325,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   promptDeliverySection.append(
     promptCardHead,
     promptHeroCopyHost,
+    promptTierBar,
     quickFocusWrap,
     customDrawerDetails,
     deliveryPreviewDetails,
@@ -2274,7 +1999,12 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       const resultCurrentTime = latestResult.currentTime ?? new Date().toISOString();
       try {
         const inferredTpl = inferTemplateFromContext(method, baseQ, supplementary);
+        const existingPromptOpts =
+          latestResult.promptOptions && typeof latestResult.promptOptions === 'object' && !Array.isArray(latestResult.promptOptions)
+            ? (latestResult.promptOptions as Record<string, unknown>)
+            : {};
         const promptObj: Record<string, unknown> = {
+          ...existingPromptOpts,
           ...(hasClassics ? { includeClassics } : {}),
           ...(method === 'liuyao' ? { liuyaoTemplate: inferredTpl } : {}),
           ...(method === 'liuren'
@@ -2294,9 +2024,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         };
         const repromptRes = await reprompt(repromptReq);
         if (token !== computeToken) return;
-        const cleanPromptText = distillPromptForUser(repromptRes.prompt?.text ?? '', {
-          includeClassics,
-        });
+        const rawPrompt = repromptRes.prompt?.text ?? '';
+        latestRawPromptText = rawPrompt;
+        const cleanPromptText = formatPromptForTier(rawPrompt, promptDensityTier);
         latestBasePromptText = cleanPromptText;
         const enrichedPromptText = applyLocalFrameworkToPrompt(cleanPromptText, method);
         const updatedResult = {
@@ -2312,12 +2042,13 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         latestResult = updatedResult;
         promptWorkbenchPre.textContent = updatedResult.prompt?.text ?? '';
         deliveryPreviewPre.textContent = updatedResult.prompt?.text ?? '';
+        syncPromptTierButtons();
         syncPromptPreviewMeta(updatedResult.prompt?.text ?? '');
         refreshLocalAgentQualityAndFramework();
         if (lastHasReport) {
           renderReportView(reportContainer, updatedResult, { method, question: q });
         }
-        onActiveResultChange?.(method, nextPayload, updatedResult);
+        onActiveResultChange?.(method, nextPayload, { ...updatedResult, followUps: latestFollowUps });
         return;
       } catch {
         // 占卜盘禁止回退重算以免覆盖原本随机抽得的卦象/牌阵
@@ -2342,7 +2073,12 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   ) {
     latestPayload = payload;
 
-    const basePromptText = distillPromptForUser(result.prompt?.text ?? '', { includeClassics });
+    const rawPrompt = (result.prompt?.text ?? '').replace(
+      /\n*【问题】\n未指定具体问题\s*$/u,
+      '',
+    );
+    latestRawPromptText = rawPrompt;
+    const basePromptText = formatPromptForTier(rawPrompt, promptDensityTier);
     latestBasePromptText = basePromptText;
     const promptText = applyLocalFrameworkToPrompt(basePromptText, method);
     const displayResult =
@@ -2352,6 +2088,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     latestResult = displayResult;
     promptWorkbenchPre.textContent = promptText;
     deliveryPreviewPre.textContent = promptText;
+    syncPromptTierButtons();
     syncPromptPreviewMeta(promptText);
     refreshLocalAgentQualityAndFramework();
     refreshLocalAgentFollowUps(method, result);
@@ -2361,6 +2098,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     const payloadQ =
       typeof payload.question === 'string' ? payload.question.trim() : '';
     const defaultBoilerplateQuestions = new Set([
+      '未指定具体问题',
+      '请综合解析当前盘面重点与应对建议。',
+      '请解析当前时刻的即时盘象与重点提示。',
       '这件事接下来的走向如何，我当下该如何应对？',
       '请筛选近期适合办理此事的黄道吉日与吉时。',
       '这套住宅的坐向格局与居住人是否相合，布局上需要注意什么？',
@@ -2425,7 +2165,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
     loadingBanner.hidden = true;
     applyChartViewMode(method);
-    onActiveResultChange?.(method, payload, result);
+    onActiveResultChange?.(method, payload, { ...displayResult, followUps: latestFollowUps });
   }
 
   async function loadAndRenderActiveTab() {
@@ -2536,6 +2276,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     deliveryPreviewPre.textContent = '';
     syncPromptPreviewMeta('');
     const autoDefaultQuestions = new Set([
+      '未指定具体问题',
+      '请综合解析当前盘面重点与应对建议。',
+      '请解析当前时刻的即时盘象与重点提示。',
       '这件事接下来的走向如何，我当下该如何应对？',
       '请筛选近期适合办理此事的黄道吉日与吉时。',
       '这套住宅的坐向格局与居住人是否相合，布局上需要注意什么？',

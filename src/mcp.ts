@@ -3,6 +3,8 @@ import { calculate, inputSchemas, reprompt, repromptInput, type Method } from '.
 import { getPromptCatalog } from './catalog';
 import { z } from 'zod';
 import { createRepromptInput, methodIds, methodLabels } from './schema';
+import { METHOD_CATEGORY_GROUPS } from './method-registry';
+import { normalizeAgentToolInput } from './tool-input-normalizer';
 import type { RuntimeContext } from './runtime-context';
 import { resolveRepromptPayload, toCompactResult, type CompactableCalculationResult } from './compact';
 
@@ -11,15 +13,6 @@ export type McpServerMode = 'full' | 'router';
 export interface CreateMcpServerOptions {
   mode?: McpServerMode;
 }
-
-const METHOD_CATEGORY_GROUPS: ReadonlyArray<{ id: string; label: string; methods: readonly Method[] }> = [
-  { id: 'mingli', label: '命理合参', methods: ['bazi', 'bazi-synastry', 'bazi-ziwei', 'bazi-reverse', 'minglu', 'instant'] },
-  { id: 'ziwei-astro', label: '紫微星象', methods: ['ziwei', 'ziwei-synastry', 'qizheng', 'qizheng-range', 'astrolabe', 'astrolabe-range', 'astrolabe-synastry'] },
-  { id: 'qimen-liuren', label: '奇门六壬', methods: ['qimen', 'qimen-lifetime', 'liuren', 'jinkoujue', 'xiaoliuren', 'taiyi'] },
-  { id: 'divination', label: '占卜灵签', methods: ['liuyao', 'meihua', 'tarot', 'lenormand', 'random-divination', 'ssgw', 'zhuge', 'number-energy'] },
-  { id: 'fengshui', label: '风水择日', methods: ['bazhai', 'xuankong', 'residential', 'almanac', 'calendar'] },
-  { id: 'name-classics', label: '姓名典籍', methods: ['chinese-name', 'chinese-naming', 'zhouyi', 'character-query', 'wuyun-liuqi', 'huangji-jingshi'] },
-];
 
 export function enabledMethods(value: string | undefined): Method[] {
   const configured = value?.split(',').map((part) => part.trim()).filter(Boolean);
@@ -125,7 +118,8 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
     }).strict(),
   }, async ({ method, input, responseMode }) => {
     try {
-      const fullResult = await calculate(method, input, runtime) as CompactableCalculationResult;
+      const normalized = normalizeAgentToolInput(method, input);
+      const fullResult = await calculate(method, normalized, runtime) as CompactableCalculationResult;
       const mode = responseMode ?? 'compact';
       const output = mode === 'compact' ? await toCompactResult(fullResult) : fullResult;
       return { content: [{ type: 'text' as const, text: JSON.stringify(output) }], structuredContent: output };

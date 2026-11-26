@@ -39,7 +39,7 @@ test('minglu 聚合八字、紫微、西洋星盘与八宅并生成分节 Markdo
   assert.match(result.prompt.text, /【跨体系同题合参对照/);
   assert.match(result.prompt.text, /【盘面命中核心术语释义/);
   assert.match(result.prompt.text, /事业与职业路径/);
-  assert.match(result.prompt.text, /不生成旧版加权评分/);
+  assert.match(result.prompt.text, /【局势要点】/);
 
   const followed = await reprompt({
     method: 'minglu',

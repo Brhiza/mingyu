@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { applyPromptGuidance } from './prompt-guidance';
+import { applyPromptProfileToPrompt, resolveEffectivePromptProfile } from './prompt-profile';
 import { inputSchemas, methodIds, type Method } from './schema';
 import type { RuntimeContext } from './runtime-context';
 
@@ -54,6 +55,19 @@ const calculators = {
 
 type Calculation = Awaited<ReturnType<(typeof calculators)[Method]>>;
 
+function extractGuidanceReferenceTime(input: Record<string, unknown>, currentTime: string): string {
+  if (typeof input.referenceTime === 'string' && input.referenceTime.trim()) return input.referenceTime;
+  for (const key of ['target', 'flow', 'calendar', 'wuyun'] as const) {
+    const obj = input[key];
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const rec = obj as Record<string, unknown>;
+      if (typeof rec.at === 'string' && rec.at.trim()) return rec.at;
+      if (typeof rec.year === 'number' && Number.isFinite(rec.year)) return String(rec.year);
+    }
+  }
+  return currentTime;
+}
+
 export async function calculate(method: Method, value: unknown, context?: RuntimeContext) {
   if (!methodIds.includes(method)) throw new Error(`暂不支持术数：${method}`);
   const input = inputSchemas[method].parse(value);
@@ -63,15 +77,44 @@ export async function calculate(method: Method, value: unknown, context?: Runtim
   const calculator = calculators[method] as (value: typeof input, now: string, context?: RuntimeContext) => Promise<Calculation>;
   const result = await calculator(input, currentTime, context);
   const question = 'question' in input && typeof input.question === 'string' ? input.question : '';
+  const guidanceMethod: Method =
+    method === 'random-divination'
+    && 'data' in result
+    && result.data
+    && typeof result.data === 'object'
+    && 'selectedMethod' in result.data
+    && typeof (result.data as { selectedMethod?: unknown }).selectedMethod === 'string'
+      ? ((result.data as { selectedMethod: Method }).selectedMethod)
+      : method;
+  const anchorRef = extractGuidanceReferenceTime(input as Record<string, unknown>, currentTime);
+  const rawPromptInput = 'prompt' in input ? input.prompt : undefined;
+  const promptProfile = resolveEffectivePromptProfile(
+    rawPromptInput,
+    context?.promptProfile,
+  );
+  const includeClassics = Boolean(
+    rawPromptInput
+    && typeof rawPromptInput === 'object'
+    && !Array.isArray(rawPromptInput)
+    && (rawPromptInput as { includeClassics?: unknown }).includeClassics === true,
+  );
+  const skipGuidance = promptProfile === 'agent' || promptProfile === 'ultra-compact';
   const enriched =
     'prompt' in result && result.prompt && typeof result.prompt === 'object'
       ? {
           ...result,
-          prompt: applyPromptGuidance(
-            method,
-            result.prompt as { text?: string },
-            question,
-            context?.promptGuidance,
+          prompt: applyPromptProfileToPrompt(
+            skipGuidance
+              ? (result.prompt as { text?: string })
+              : applyPromptGuidance(
+                  guidanceMethod,
+                  result.prompt as { text?: string },
+                  question,
+                  context?.promptGuidance,
+                  anchorRef,
+                ),
+            promptProfile,
+            { includeClassics },
           ),
         }
       : result;

@@ -149,9 +149,9 @@ test('ageDivide: birthday 在公历生日前虚岁减 1 并重算大小限，生
   assert.equal(birthdayBefore.data.reference?.layers.age.index, normalAge12.data.reference?.layers.age.index);
   assert.equal(birthdayBefore.data.reference?.layers.decadal.index, normalAge12.data.reference?.layers.decadal.index);
   assert.deepEqual(birthdayBefore.data.reference?.layers.decadal.stars, normalAge12.data.reference?.layers.decadal.stars);
-  assert.ok(birthdayBefore.data.limitations.some((line: string) => line.includes('birthday 口径')));
+  assert.ok(birthdayBefore.data.limitations.some((line: string) => line.includes('按生辰换岁口径')));
   assert.match(birthdayBefore.prompt.text, /虚岁12/);
-  assert.match(birthdayBefore.prompt.text, /年龄分界birthday/);
+  assert.match(birthdayBefore.prompt.text, /年龄分界=按生辰/);
 
   assert.equal(birthdayOnDay.data.reference?.layers.age.nominalAge, 13);
   assert.equal(birthdayOnDay.data.reference?.layers.age.index, normalBefore.data.reference?.layers.age.index);

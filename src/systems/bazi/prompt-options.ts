@@ -48,5 +48,5 @@ export function baziPromptTask(options: { topic?: Topic; schools?: School[] } | 
   const schools = [...new Set(options?.schools ?? [])].map((id) => `${baziSchools[id].label}：${baziSchools[id].task}`);
   return [`【主题：${topic.label}】\n核对重点：${topic.focus}。${topic.task}`,
     schools.length ? `【解读口径】\n${schools.join('\n')}\n不同口径各自说明依据和差异。` : '',
-    '只使用本次列出的盘面和时间层级；资料不足的项目明确说明前提与边界，不虚构结果。'].filter(Boolean).join('\n\n');
+    '只使用本次列出的盘面和时间层级；未列前提或限定的项目明示边界，不虚构结果。'].filter(Boolean).join('\n\n');
 }

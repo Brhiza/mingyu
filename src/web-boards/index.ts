@@ -10,6 +10,13 @@ import {
 } from './dom';
 
 const renderTokens = new WeakMap<HTMLElement, number>();
+let boardsCssPromise: Promise<unknown> | null = null;
+function ensureBoardsCssLoaded(): Promise<unknown> {
+  if (!boardsCssPromise) {
+    boardsCssPromise = import('./boards.css');
+  }
+  return boardsCssPromise;
+}
 
 export function clearVisualBoard(container: HTMLElement): void {
   renderTokens.set(container, (renderTokens.get(container) ?? 0) + 1);
@@ -264,6 +271,7 @@ export async function renderVisualBoard(
   value: unknown,
 ): Promise<boolean> {
   const token = (renderTokens.get(container) ?? 0) + 1;
+  await ensureBoardsCssLoaded();
   renderTokens.set(container, token);
 
   const { effectiveMethod, data } = resolvePayload(method, value);

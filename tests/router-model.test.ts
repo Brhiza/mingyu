@@ -8,6 +8,14 @@ import {
   recommendMethods,
   type MethodId,
 } from '../src/router-model/index.ts';
+import { extractSubstantiveQuestion } from '../src/router-model/features.ts';
+import {
+  DEFAULT_BROWSER_DISABLED_ROUTER_METHODS,
+  DEFAULT_LOCAL_ROUTER_SETTINGS,
+  EXCLUDED_ROUTER_METHODS,
+  ROUTER_METHOD_CATALOG,
+  loadLocalRouterSettings,
+} from '../src/router-model/local-preferences.ts';
 
 test('metadata covers all 39 canonical methods, 8 prompt frameworks, and 10 domains', () => {
   assert.equal(CANONICAL_METHODS.length, 39);
@@ -382,4 +390,325 @@ test('wild inputs: multi-intent compound queries cover both primary and secondar
     liuyaoAndBazi.recommendations.some((r) => r.method === 'bazi'),
     `Expected Top-3 to also include bazi, got ${liuyaoAndBazi.recommendations.map((r) => r.method).join(', ')}`,
   );
+});
+
+test('explicit divination verbs (起一卦/抽一签/抽张牌) override today/fortune keywords cleanly', () => {
+  for (const q of [
+    '帮我起一卦，看看今天的事业运怎么样',
+    '帮我起一卦，看看今天的事业运势怎么样',
+    '帮我起一卦，看看今天运势',
+    '帮我卜一卦今天运势',
+    '帮我算一卦，看看今天的事业运怎么样',
+  ]) {
+    const res = recommendMethods({ query: q });
+    assert.equal(
+      res.recommendations[0].method,
+      'liuyao',
+      `「${q}」应优先路由到起卦(liuyao)，实际得到 ${res.recommendations[0].method}`,
+    );
+  }
+
+  assert.equal(recommendMethods({ query: '帮我抽一签看看今天运势' }).recommendations[0].method, 'ssgw');
+  assert.equal(recommendMethods({ query: '帮我抽张牌看看今天运势' }).recommendations[0].method, 'tarot');
+  // 未说起卦/抽签/抽牌的纯今日运势问题仍正常路由到 fortune
+  assert.equal(recommendMethods({ query: '帮我看看今日运势' }).recommendations[0].method, 'fortune');
+});
+
+test('extractSubstantiveQuestion drops pure casting commands and preserves actual user questions', () => {
+  for (const pureCmd of [
+    '帮我起一卦六爻',
+    '起一卦六爻',
+    '帮我起一卦',
+    '起个奇门遁甲',
+    '帮我抽张塔罗牌',
+    '求一签',
+    '帮我排个八字',
+    '随机起一卦吧',
+  ]) {
+    assert.equal(
+      extractSubstantiveQuestion(pureCmd),
+      '',
+      `纯指令「${pureCmd}」不应被当作问题填进问题框`,
+    );
+  }
+
+  assert.equal(
+    extractSubstantiveQuestion('帮我起一卦六爻，看看今天的事业运怎么样'),
+    '看看今天的事业运怎么样',
+  );
+  assert.equal(extractSubstantiveQuestion('明天面试能不能过？'), '明天面试能不能过？');
+});
+
+test('user preferredChart and preferredDivination steer generic verbs and birthdates without overriding explicit mentions', () => {
+  // 1. 起卦默认设为大六壬：泛说「起一卦」走大六壬，明确说「六爻」仍走六爻
+  assert.equal(
+    recommendMethods({
+      query: '帮我起一卦，看看今天的事业运怎么样',
+      preferredDivination: 'liuren',
+    }).recommendations[0].method,
+    'liuren',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '帮我起一卦六爻',
+      preferredDivination: 'liuren',
+    }).recommendations[0].method,
+    'liuyao',
+  );
+
+  // 2. 懂行说「起一课」未设偏好时默认走大六壬
+  assert.equal(
+    recommendMethods({ query: '帮我起一课看看今天工作顺不顺' }).recommendations[0].method,
+    'liuren',
+  );
+
+  // 3. 排盘默认设为紫微斗数：泛说「排个盘」或直接贴生辰走紫微，明确说「八字」仍走八字
+  assert.equal(
+    recommendMethods({
+      query: '帮我排个盘',
+      preferredChart: 'ziwei',
+    }).recommendations[0].method,
+    'ziwei',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '1990-05-15 14:30',
+      preferredChart: 'ziwei',
+    }).recommendations[0].method,
+    'ziwei',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '1990-05-15 14:30 帮我排个八字',
+      preferredChart: 'ziwei',
+    }).recommendations[0].method,
+    'bazi',
+  );
+
+  // 4. 偏好权重绝不误伤专项领域（手机号、择日、风水）
+  assert.equal(
+    recommendMethods({
+      query: '13800138000',
+      preferredChart: 'ziwei',
+      preferredDivination: 'liuren',
+    }).recommendations[0].method,
+    'number-energy',
+  );
+});
+
+test('disabledMethods strictly excludes fortune or any user-disabled category from routing', () => {
+  const withoutFortune = recommendMethods({
+    query: '帮我看看今日运势和今天事业运怎么样',
+    disabledMethods: ['fortune'],
+  });
+  assert.ok(
+    withoutFortune.recommendations.every((r) => r.method !== 'fortune'),
+    `禁用 fortune 后不应出现在 Top-3：${withoutFortune.recommendations.map((r) => r.method).join(',')}`,
+  );
+
+  const withoutWesternCards = recommendMethods({
+    query: '不知道生辰，看看对方心里怎么想我的',
+    disabledMethods: ['fortune', 'tarot', 'lenormand'],
+  });
+  assert.ok(
+    withoutWesternCards.recommendations.every((r) => r.method !== 'tarot' && r.method !== 'lenormand'),
+    `禁用塔罗雷诺曼后不应出现在 Top-3：${withoutWesternCards.recommendations.map((r) => r.method).join(',')}`,
+  );
+});
+
+test('default browser router settings leave preferred chart/divination unrestricted and trim niche/utility routes', () => {
+  assert.equal(DEFAULT_LOCAL_ROUTER_SETTINGS.preferredChart, null);
+  assert.equal(DEFAULT_LOCAL_ROUTER_SETTINGS.preferredDivination, null);
+  assert.equal(DEFAULT_LOCAL_ROUTER_SETTINGS.traditionPref, 'any');
+
+  const disabled = new Set(DEFAULT_BROWSER_DISABLED_ROUTER_METHODS);
+  // 常用主流与专项工具应默认开启（30/35）
+  for (const keep of [
+    'bazi',
+    'ziwei',
+    'astrolabe',
+    'minglu',
+    'qimen-lifetime',
+    'liuyao',
+    'meihua',
+    'qimen',
+    'liuren',
+    'jinkoujue',
+    'xiaoliuren',
+    'tarot',
+    'ssgw',
+    'almanac',
+    'bazhai',
+    'xuankong',
+    'residential',
+    'calendar',
+    'number-energy',
+    'zhouyi',
+    'character-query',
+    'bazi-reverse',
+  ] as MethodId[]) {
+    assert.equal(disabled.has(keep), false, `${keep} 应默认启用`);
+  }
+  // 仅运势、极冷门宏观周期与诸葛神数默认关闭自动路由（5 项）
+  for (const off of [
+    'fortune',
+    'wuyun-liuqi',
+    'huangji-jingshi',
+    'taiyi',
+    'zhuge',
+  ] as MethodId[]) {
+    assert.equal(disabled.has(off), true, `${off} 应默认关闭自动路由`);
+  }
+  assert.equal(disabled.size, 5);
+
+  // 关闭只拦截自动联想；用户明确点名时照样可以路由到
+  assert.equal(
+    recommendMethods({
+      query: '帮我用太乙神数看看今年宏观大势',
+      disabledMethods: [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS],
+    }).recommendations[0].method,
+    'taiyi',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '用诸葛神数帮我测一测',
+      disabledMethods: [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS],
+    }).recommendations[0].method,
+    'zhuge',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '帮我看下日运',
+      disabledMethods: [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS],
+    }).recommendations[0].method,
+    'fortune',
+  );
+  assert.equal(
+    recommendMethods({
+      query: '用小六壬快测一下钥匙在哪',
+      disabledMethods: ['xiaoliuren'],
+    }).recommendations[0].method,
+    'xiaoliuren',
+  );
+  // 未点名运势时，默认关闭的运势不会被误触发
+  const implicitToday = recommendMethods({
+    query: '帮我看看今天的事业运怎么样',
+    disabledMethods: [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS],
+  });
+  assert.ok(
+    implicitToday.recommendations.every((r) => !disabled.has(r.method)),
+    `未点名时不应命中默认关闭项：${implicitToday.recommendations.map((r) => r.method).join(',')}`,
+  );
+
+  // 随机起卦与即时起盘已永久移出路由目录与推荐结果
+  const catalogIds = new Set(ROUTER_METHOD_CATALOG.flatMap((c) => c.items.map((i) => i.id)));
+  for (const removed of EXCLUDED_ROUTER_METHODS) {
+    assert.equal(catalogIds.has(removed), false, `${removed} 不应再出现在路由设置目录`);
+  }
+  for (const q of ['帮我随机起一卦', '按现在时间即时起盘看走势']) {
+    const res = recommendMethods({ query: q, disabledMethods: [] });
+    assert.ok(
+      res.recommendations.every((r) => !EXCLUDED_ROUTER_METHODS.includes(r.method)),
+      `「${q}」不应路由到已移除项：${res.recommendations.map((r) => r.method).join(',')}`,
+    );
+  }
+
+  // 在默认浏览器禁用集合下，日常提问仍能稳定落到主流术数且不出现已禁项
+  for (const q of [
+    '帮我看看今天的事业运怎么样',
+    '帮我起一卦看看明天面试顺不顺',
+    '求个指引最近很迷茫',
+  ]) {
+    const res = recommendMethods({
+      query: q,
+      disabledMethods: [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS],
+    });
+    assert.equal(res.recommendations.length, 3);
+    assert.ok(
+      res.recommendations.every((r) => !disabled.has(r.method)),
+      `「${q}」命中了默认禁用项：${res.recommendations.map((r) => r.method).join(',')}`,
+    );
+  }
+});
+
+test('loadLocalRouterSettings returns default disabledMethods initially and persists explicit choices', () => {
+  const store = new Map<string, string>();
+  const globalObj = globalThis as { window?: unknown };
+  const hasOwnWindow = Object.prototype.hasOwnProperty.call(globalObj, 'window');
+  const prevWindow = globalObj.window;
+
+  globalObj.window = {
+    localStorage: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    },
+  };
+
+  try {
+    const initial = loadLocalRouterSettings();
+    assert.deepEqual(initial.disabledMethods, [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS]);
+    assert.equal(initial.disabledMethods.includes('ssgw'), false);
+    assert.equal(initial.disabledMethods.includes('qimen-lifetime'), false);
+
+    const customDisabled = ['taiyi', 'zhuge', 'fortune'] as const;
+    store.set(
+      'mingyu.v2.router.settings',
+      JSON.stringify({ disabledMethods: customDisabled }),
+    );
+    const loaded = loadLocalRouterSettings();
+    assert.deepEqual(loaded.disabledMethods, [...customDisabled]);
+  } finally {
+    if (hasOwnWindow) {
+      globalObj.window = prevWindow;
+    } else {
+      delete globalObj.window;
+    }
+  }
+});
+
+test('qimen-lifetime is suppressed under explicit divination and unknown birth time unless explicitly requested', () => {
+  const disabledMethods = [...DEFAULT_BROWSER_DISABLED_ROUTER_METHODS];
+
+  const divinationRes = recommendMethods({
+    query: '帮我起一卦看看一生事业走势',
+    disabledMethods,
+  });
+  assert.notEqual(
+    divinationRes.recommendations[0].method,
+    'qimen-lifetime',
+    `明确起卦时不应首选奇门终身局：${divinationRes.recommendations.map((r) => r.method).join(',')}`,
+  );
+
+  const unknownLongTerm = recommendMethods({
+    query: '不知道几点生的，想看一辈子事业方位和发展',
+    birthTimeStatus: 'unknown',
+    disabledMethods,
+  });
+  assert.notEqual(
+    unknownLongTerm.recommendations[0].method,
+    'qimen-lifetime',
+    `未知出生时辰看长期发展时不应首选奇门终身局：${unknownLongTerm.recommendations.map((r) => r.method).join(',')}`,
+  );
+
+  const unknownShortTerm = recommendMethods({
+    query: '不知道几点生的，看看明天面试顺不顺',
+    birthTimeStatus: 'unknown',
+    disabledMethods,
+  });
+  assert.notEqual(
+    unknownShortTerm.recommendations[0].method,
+    'qimen-lifetime',
+    `未知出生时辰问短期事件时不应首选奇门终身局：${unknownShortTerm.recommendations.map((r) => r.method).join(',')}`,
+  );
+
+  const explicitLifetime = recommendMethods({
+    query: '帮我排个奇门终身局看看一生事业方位',
+    disabledMethods,
+  });
+  assert.equal(explicitLifetime.recommendations[0].method, 'qimen-lifetime');
 });

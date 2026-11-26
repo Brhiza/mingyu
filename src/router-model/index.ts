@@ -3,7 +3,7 @@
  *
  * 特性：
  * - 纯 TypeScript、零 Node 专属依赖，可在浏览器 / Cloudflare Worker / Node 任意环境 1~3ms 运行
- * - 稀疏 TF-IDF (1/2/3-gram + 语义信号 + 前置选项交互特征) + int16 量化线性分类器 + 前置先验融合层
+ * - 稀疏 TF-IDF (1/2/3-gram + 语义信号 + 前置选项交互特征) + int8 量化线性分类器 + 前置先验融合层 + 本机习惯偏好微调
  * - 同步输出 Top-3 术数推荐 + 细分主题领域与看盘侧重点 + 8 大提示词解读框架（可直接传给 customFramework）
  */
 
@@ -17,6 +17,8 @@ import {
   METHOD_LABELS,
   QUICK_METHODS,
   WESTERN_CARDS_METHODS,
+  detectExplicitChartIntent,
+  detectExplicitDivinationIntent,
   detectExplicitMethod,
   detectLongTermNatalIntent,
   detectSecondaryIntentMethods,
@@ -46,6 +48,15 @@ import {
   type FortuneScope,
   type FortuneScopeFocus,
 } from './fortune-scope';
+import {
+  EXCLUDED_ROUTER_METHODS,
+  getLocalRouterMethodBonus,
+  loadLocalRouterDefaults,
+  loadLocalRouterPreferences,
+  loadLocalRouterSettings,
+  recordLocalRouterMethodChoice,
+  resetLocalRouterPreferences,
+} from './local-preferences';
 
 export {
   CANONICAL_METHODS,
@@ -53,6 +64,9 @@ export {
   METHOD_LABELS,
   PROMPT_FRAMEWORKS,
   inferFortuneScope,
+  loadLocalRouterPreferences,
+  recordLocalRouterMethodChoice,
+  resetLocalRouterPreferences,
   type BirthTimeStatus,
   type DepthPref,
   type DetectedDomainResult,
@@ -93,7 +107,8 @@ interface WeightsArtifact {
   idf: readonly number[];
   bias: readonly number[];
   weightScale: number;
-  weightsInt16Base64: string;
+  weightsInt8Base64?: string;
+  weightsInt16Base64?: string;
 }
 
 interface DecodedModel {
@@ -102,12 +117,23 @@ interface DecodedModel {
   vocabIndex: Map<string, number>;
   idf: Float32Array;
   bias: Float32Array;
-  weights: Int16Array;
+  weights: Int8Array | Int16Array;
   invScale: number;
   numClasses: number;
 }
 
 let cachedModel: DecodedModel | null = null;
+
+function decodeBase64ToInt8Array(b64: string): Int8Array {
+  const binary = atob(b64);
+  const len = binary.length;
+  const out = new Int8Array(len);
+  for (let i = 0; i < len; i++) {
+    const u = binary.charCodeAt(i);
+    out[i] = u >= 128 ? u - 256 : u;
+  }
+  return out;
+}
 
 function decodeBase64ToInt16Array(b64: string): Int16Array {
   const binary = atob(b64);
@@ -138,7 +164,9 @@ function getModel(): DecodedModel {
 
   const idf = Float32Array.from(raw.idf);
   const bias = Float32Array.from(raw.bias);
-  const weights = decodeBase64ToInt16Array(raw.weightsInt16Base64);
+  const weights = raw.weightsInt8Base64
+    ? decodeBase64ToInt8Array(raw.weightsInt8Base64)
+    : decodeBase64ToInt16Array(raw.weightsInt16Base64 ?? '');
 
   cachedModel = {
     methods,
@@ -329,8 +357,9 @@ export function recommendMethods(input: RouterInput): RouterResult {
   const model = getModel();
 
   const query = (input.query || '').trim();
+  const storedSettings = loadLocalRouterSettings();
   const bt: BirthTimeStatus = input.birthTimeStatus ?? 'not_provided';
-  const trad: TraditionPref = input.traditionPref ?? 'any';
+  const trad: TraditionPref = input.traditionPref ?? storedSettings.traditionPref;
   const depth: DepthPref = input.depthPref ?? 'standard';
   const hasManualCast = Boolean(input.hasManualCast);
   const hasHouseFacing = Boolean(input.hasHouseFacing);
@@ -385,11 +414,51 @@ export function recommendMethods(input: RouterInput): RouterResult {
 
   // 3. Prior fusion & guardrail layer
   const qNorm = normalizeQuery(query);
-  const explicitMethod = detectExplicitMethod(query);
+  const excludedSet = new Set<MethodId>(EXCLUDED_ROUTER_METHODS);
+  const rawExplicitMethod = detectExplicitMethod(query);
+  const explicitMethod =
+    rawExplicitMethod && !excludedSet.has(rawExplicitMethod) ? rawExplicitMethod : null;
+  const explicitDivination = explicitMethod ? null : detectExplicitDivinationIntent(query);
+  const explicitChart = explicitMethod || explicitDivination ? false : detectExplicitChartIntent(query);
   const wildKind = detectWildStructuredInput(query);
   const isLongTerm = detectLongTermNatalIntent(qNorm);
   const isShortTerm = detectShortTermEventIntent(qNorm);
   const isTwoPerson = detectTwoPersonIntent(qNorm);
+  const storedDefaults = loadLocalRouterDefaults();
+  const prefWeightMode = storedSettings.preferenceWeight;
+  const disabledSet = new Set<MethodId>([
+    ...EXCLUDED_ROUTER_METHODS,
+    ...(input.disabledMethods !== undefined
+      ? input.disabledMethods
+      : storedSettings.disabledMethods),
+  ]);
+  // 关闭只拦截“自动联想路由”；用户明确点名某个术数时仍允许路由到该术数
+  if (explicitMethod) {
+    disabledSet.delete(explicitMethod);
+    if (explicitMethod === 'astrolabe' && (bt === 'range' || bt === 'unknown')) {
+      disabledSet.delete('astrolabe-range');
+    } else if (explicitMethod === 'qizheng' && (bt === 'range' || bt === 'unknown')) {
+      disabledSet.delete('qizheng-range');
+    }
+  }
+  const rawPreferredChart =
+    input.preferredChart !== undefined
+      ? input.preferredChart
+      : prefWeightMode === 'off'
+        ? null
+        : storedDefaults.preferredChart;
+  const rawPreferredDivination =
+    input.preferredDivination !== undefined
+      ? input.preferredDivination
+      : prefWeightMode === 'off'
+        ? null
+        : storedDefaults.preferredDivination;
+  const preferredChart =
+    rawPreferredChart && !disabledSet.has(rawPreferredChart) ? rawPreferredChart : null;
+  const preferredDivination =
+    rawPreferredDivination && !disabledSet.has(rawPreferredDivination)
+      ? rawPreferredDivination
+      : null;
 
   const addBonus = (m: MethodId, delta: number) => {
     const idx = model.methodToIdx.get(m);
@@ -435,7 +504,15 @@ export function recommendMethods(input: RouterInput): RouterResult {
         }
         break;
       case 'pure_birthdate':
-        if (trad === 'western_cards') {
+        if (preferredChart && trad === 'any') {
+          const resolved =
+            preferredChart === 'astrolabe' && (bt === 'range' || bt === 'unknown')
+              ? 'astrolabe-range'
+              : preferredChart === 'qizheng' && (bt === 'range' || bt === 'unknown')
+                ? 'qizheng-range'
+                : preferredChart;
+          addBonus(resolved, 3.2);
+        } else if (trad === 'western_cards') {
           addBonus(bt === 'range' || bt === 'unknown' ? 'astrolabe-range' : 'astrolabe', 2.6);
           addBonus('bazi', 0.8);
           addBonus('ziwei', 0.7);
@@ -459,6 +536,60 @@ export function recommendMethods(input: RouterInput): RouterResult {
       addBonus('qizheng', 0.4);
     } else {
       addBonus(explicitMethod, 2.2);
+      if (DIVINATION_METHODS.has(explicitMethod) && explicitMethod !== 'fortune') {
+        addBonus('fortune', -1.6);
+      }
+    }
+  } else if (explicitDivination) {
+    // User explicitly asked to cast a divination (e.g. 起一卦/起一课/摇一卦/抽一签/抽张牌/占卜)
+    // Suppress birth-based fortune / natal charts even if the query mentions "今天运势/事业运"
+    addBonus('fortune', -2.6);
+    addBonus('bazi', -1.2);
+    addBonus('ziwei', -1.2);
+    addBonus('bazi-ziwei', -1.2);
+    addBonus('astrolabe', -1.2);
+    addBonus('qizheng', -1.2);
+    addBonus('minglu', -1.2);
+    addBonus('qimen-lifetime', -1.2);
+    if (explicitDivination === 'hexagram') {
+      const targetDiv = preferredDivination ?? 'liuyao';
+      addBonus(targetDiv, preferredDivination ? 3.2 : 2.2);
+      if (!preferredDivination) {
+        addBonus('meihua', 1.3);
+      }
+    } else if (explicitDivination === 'lesson') {
+      const targetLesson = preferredDivination ?? 'liuren';
+      addBonus(targetLesson, preferredDivination ? 3.2 : 2.35);
+      if (!preferredDivination) {
+        addBonus('jinkoujue', 0.6);
+      }
+    } else if (explicitDivination === 'lots') {
+      addBonus('ssgw', 2.2);
+      addBonus('zhuge', 0.8);
+    } else if (explicitDivination === 'cards') {
+      const targetCard =
+        preferredDivination === 'lenormand' ? 'lenormand' : 'tarot';
+      addBonus(targetCard, 2.35);
+      addBonus(targetCard === 'tarot' ? 'lenormand' : 'tarot', 0.8);
+    } else {
+      const targetGen = preferredDivination ?? 'liuyao';
+      addBonus(targetGen, preferredDivination ? 2.8 : 1.6);
+      if (!preferredDivination) {
+        addBonus('meihua', 1.2);
+        addBonus('qimen', 0.7);
+      }
+    }
+  } else if (explicitChart) {
+    const targetChart = preferredChart ?? 'bazi';
+    const resolvedChart =
+      targetChart === 'astrolabe' && (bt === 'range' || bt === 'unknown')
+        ? 'astrolabe-range'
+        : targetChart === 'qizheng' && (bt === 'range' || bt === 'unknown')
+          ? 'qizheng-range'
+          : targetChart;
+    addBonus(resolvedChart, preferredChart ? 3.0 : 2.1);
+    if (!preferredChart) {
+      addBonus('ziwei', 0.8);
     }
   }
 
@@ -494,6 +625,7 @@ export function recommendMethods(input: RouterInput): RouterResult {
       addBonus('astrolabe', -0.9);
       addBonus('qizheng', -0.9);
       addBonus('minglu', -0.7);
+      addBonus('qimen-lifetime', -0.9);
       if (isTwoPerson) {
         addBonus('bazi-synastry', 0.8);
         addBonus('ziwei-synastry', 0.6);
@@ -505,6 +637,7 @@ export function recommendMethods(input: RouterInput): RouterResult {
       addBonus('astrolabe', -1.0);
       addBonus('qizheng', -1.0);
       addBonus('minglu', -1.0);
+      addBonus('qimen-lifetime', -1.0);
     }
   }
 
@@ -526,17 +659,76 @@ export function recommendMethods(input: RouterInput): RouterResult {
     addBonus('bazhai', 0.3);
   }
 
+  // 3g. Explicit user default chart/divination weighting + gentle local usage affinity
+  // (only when no explicit method, explicit action verb, or wild structured input was given)
+  if (!explicitMethod && !explicitDivination && !explicitChart && !wildKind) {
+    const NATAL_FAMILY = new Set<MethodId>([
+      'bazi',
+      'ziwei',
+      'bazi-ziwei',
+      'astrolabe',
+      'qizheng',
+      'minglu',
+      'qimen-lifetime',
+    ]);
+    // Inspect current pre-preference leader to keep preference weighting strictly within family
+    let topIdx = 0;
+    for (let c = 1; c < C; c++) {
+      if (logits[c] > logits[topIdx]) topIdx = c;
+    }
+    const preTopMethod = model.methods[topIdx];
+    const familyBoost =
+      prefWeightMode === 'strong' ? 1.15 : prefWeightMode === 'off' ? 0 : 0.42;
+
+    if (
+      familyBoost > 0 &&
+      preferredDivination &&
+      (DIVINATION_METHODS.has(preTopMethod) || (isShortTerm && !isLongTerm))
+    ) {
+      addBonus(preferredDivination, familyBoost);
+    }
+    if (
+      familyBoost > 0 &&
+      preferredChart &&
+      (NATAL_FAMILY.has(preTopMethod) || (isLongTerm && !isShortTerm && !isTwoPerson))
+    ) {
+      addBonus(preferredChart, familyBoost);
+    }
+
+    if (storedSettings.learnFromHistory) {
+      for (const m of model.methods) {
+        const prefBonus = getLocalRouterMethodBonus(m);
+        if (prefBonus > 0) addBonus(m, prefBonus);
+      }
+    }
+  }
+
+  // 3h. Hard-filter user-disabled router methods (e.g. fortune disabled by default in web UI)
+  if (disabledSet.size > 0 && disabledSet.size < C) {
+    for (const m of disabledSet) {
+      const idx = model.methodToIdx.get(m);
+      if (idx !== undefined) logits[idx] = -1e9;
+    }
+  }
+
   // 4. Softmax & Top-3 selection (with multi-intent secondary coverage)
   const probs = softmax(logits);
-  const ranked = Array.from({ length: C }, (_, idx) => ({
+  const allRanked = Array.from({ length: C }, (_, idx) => ({
     method: model.methods[idx],
     prob: probs[idx],
   }));
+  const filteredRanked =
+    disabledSet.size > 0 && disabledSet.size < C
+      ? allRanked.filter((item) => !disabledSet.has(item.method))
+      : allRanked;
+  const ranked = filteredRanked.length > 0 ? filteredRanked : allRanked;
   ranked.sort((a, b) => b.prob - a.prob);
   const top3 = ranked.slice(0, 3);
 
   const primaryMethod = top3[0].method;
-  const secondaryIntentMethods = detectSecondaryIntentMethods(query, primaryMethod);
+  const secondaryIntentMethods = detectSecondaryIntentMethods(query, primaryMethod).filter(
+    (m) => !disabledSet.has(m),
+  );
   const injectedSecondary = new Set<MethodId>();
   if (secondaryIntentMethods.length > 0 && !wildKind) {
     const firstSec = secondaryIntentMethods[0];

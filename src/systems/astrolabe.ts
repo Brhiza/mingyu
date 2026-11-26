@@ -10,9 +10,12 @@ import { houseAt } from './astrology/geometry';
 import { astroEventLabels, astroEventDirections, astroEclipseLabels } from './astrology/event-labels';
 import { natalAspectRules } from './astrology/natal-aspects';
 import { natalEvidence } from './astrology/natal-evidence';
+import { calculateFirdaria } from './astrology/firdaria';
+import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, type ClassicExcerpt } from './classics';
 import { evaluateAstrolabeSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
 import { inferFortuneScope } from '../router-model/fortune-scope';
+import { formatAstroHouseSystem } from './prompt-format';
 
 const WESTERN_ASTROLOGY_CLASSICS: readonly ClassicExcerpt[] = [
   {
@@ -125,8 +128,8 @@ export async function calculateAstrolabeIndependentData(source: Source, context?
     '出生时间范围需使用 astrolabe-range，不能把精确出生单盘视为整个范围。',
     '本命相位按十一种类型与固定容许度计算；格局仅使用十大星体，同座或同宫星群不要求相互合相。',
     '元素、模式与格局是盘面统计和几何事实，不代表人格强弱或现实结果。',
-    ...(input.options?.includeAsteroids ? [] : ['默认未计算谷神、智神、婚神和灶神；启用 includeAsteroids 可加入。']),
-    ...(chart.houseSystem !== chart.houseSystemRequested ? [`所选 ${chart.houseSystemRequested} 宫位制在该纬度不可用，已改用 ${chart.houseSystem}。`] : []),
+    ...(input.options?.includeAsteroids ? [] : ['默认未计算谷神、智神、婚神和灶神；如需查看可在小行星选项中开启。']),
+    ...(chart.houseSystem !== chart.houseSystemRequested ? [`所选${formatAstroHouseSystem(chart.houseSystemRequested)}宫位制在该纬度不可用，已改用${formatAstroHouseSystem(chart.houseSystem)}。`] : []),
     ...(!birth.coordinateAccuracy || birth.coordinateAccuracy !== 'user-provided' ? ['出生地坐标精度未经确认或为近似值，宫位和四轴可能发生变化。'] : []),
   ];
   const natal = { input, basis: { utcDateTime: new Date(resolved.utcTimestamp).toISOString(), timezone: resolved.timezone, julianDay: jd,
@@ -415,7 +418,9 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
     const allPeriodEvents = flow.period?.events ?? [];
     const shownPeriodEvents = options?.eventDetail === 'summary' ? allPeriodEvents.slice(0, 20) : allPeriodEvents;
     const period = flow.period && renderOptions?.includePeriod !== false ? `【周期事件】\nUTC ${flow.period.page.start} 至 ${flow.period.page.end}（不含终点）；${flow.period.page.nextCursor ? `后续游标 ${flow.period.page.nextCursor}` : '本次范围已扫描完毕'}；共 ${allPeriodEvents.length} 项，列出 ${shownPeriodEvents.length} 项。\n${shownPeriodEvents.map((e) => `${e.localDateTime} UTC${e.timezone >= 0 ? '+' : ''}${e.timezone} ${astroEventLabels[e.kind]} ${e.movingName ?? ''}${e.targetName ? `→${e.kind === 'transit_aspect' ? '本命' : ''}${e.targetName}` : ''}${e.aspectName ?? ''}${e.sign ? `进入${e.sign}` : ''}${e.house ? `进入第${e.house}宫` : ''}${e.direction ? `（${astroEventDirections[e.direction] ?? e.direction}）` : ''}${e.phase ?? ''}${e.eclipse ? astroEclipseLabels[e.eclipse] ?? e.eclipse : ''}${e.touches?.length ? `；触及本命${e.touches.map((t) => `${t.pointName}${t.aspect}（偏差${t.deviation.toFixed(2)}°）`).join('、')}` : ''}`).join('\n') || '本页无所选事件。'}\n${flow.period.limitations.join('\n')}` : '';
-    return [`【推运参考】\n${flow.reference.kind}，UTC ${flow.reference.utcDateTime}${flow.reference.localDateTime ? `，当地 ${flow.reference.localDateTime}` : ''}。`, transit, returns, secondary, arc, period, `【推运限制】\n${flow.limitations.join('\n')}`].filter(Boolean).join('\n\n');
+    const firdaria = calculateFirdaria(data.basis.utcDateTime, flow.reference.utcDateTime, data.basis.dayChart);
+    const firdariaText = firdaria ? `【古典法达星限（Firdaria）】\n${firdaria.summaryText}。` : '';
+    return [`【推运参考】\n${flow.reference.kind}，UTC ${flow.reference.utcDateTime}${flow.reference.localDateTime ? `，当地 ${flow.reference.localDateTime}` : ''}。`, firdariaText, transit, returns, secondary, arc, period, `【推运限制】\n${flow.limitations.join('\n')}`].filter(Boolean).join('\n\n');
   })() : '';
   const pointItems = [...data.points.map(pointLocation), ...data.derived.map(location)];
   const birthMeta = [
@@ -423,7 +428,9 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
     data.input.birth.gender === 'male' ? '性别：男' : data.input.birth.gender === 'female' ? '性别：女' : '',
     data.input.birth.locationName?.trim() ? `出生地：${data.input.birth.locationName.trim()}` : '',
   ].filter(Boolean);
-  const text = [`【西洋星盘本命】\n${birthMeta.length ? `${birthMeta.join('；')}；` : ''}出生 UTC ${data.basis.utcDateTime}；${data.basis.houseSystem} 宫位制；${data.basis.dayChart ? '昼盘' : '夜盘'}。`,
+  const digestLines = buildMethodSituationDigest('astrolabe', data, question);
+  const text = [`【西洋星盘本命】\n${birthMeta.length ? `${birthMeta.join('；')}；` : ''}出生 UTC ${data.basis.utcDateTime}；${formatAstroHouseSystem(data.basis.houseSystem)}宫位制；${data.basis.dayChart ? '昼盘' : '夜盘'}。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【星体与计算点】\n${pointItems.join('；')}`,
     `【四轴与宫首】\n${data.angles.map(location).join('；')}\n${data.houses.map((item) => `${item.house}宫${item.sign}${item.degreeInSign.toFixed(2)}°`).join('；')}`,
     `【十二宫宫主星与飞宫】\n${houseRulerText}`,

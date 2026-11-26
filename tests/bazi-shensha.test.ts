@@ -16,7 +16,7 @@ test('本命神煞记录起例及命中柱，年支和日支可共同作为依�
   });
   assert.deepEqual(result.entries.find((entry) => entry.position === 'hour' && entry.name === '天乙贵人')?.basis,
     [{ pillar: 'day', kind: '干', value: '丙', target: '亥' }]);
-  assert.match(result.limitation, /仅列55项/);
+  assert.match(result.limitation, /仅列69项/);
 });
 
 test('天德查天干或地支时保留实际命中位置，福星贵人不混入年支福星', () => {
@@ -35,13 +35,16 @@ test('天德查天干或地支时保留实际命中位置，福星贵人不混�
 test('整局神煞按真实四柱顺序记录；未提供性别不猜测元辰', () => {
   const ordered = buildPillarFacts({ year: '甲子', month: '戊寅', day: '庚辰', hour: '己亥' });
   const noGender = calculateBaziShensha(ordered);
-  assert.equal(noGender.included.length, 55);
-  assert.deepEqual(noGender.unavailable, [{ name: '元辰', reason: '该查法需要性别，未提供时不推测。' }]);
+  assert.equal(noGender.included.length, 69);
+  assert.deepEqual(noGender.unavailable, [
+    { name: '元辰', reason: '该查法需要性别，未提供时不推测。' },
+    { name: '铁扫帚', reason: '该查法需要性别，未提供时不推测。' },
+  ]);
   assert.deepEqual(noGender.global.find((item) => item.name === '三奇贵人')?.basis.map((item) => item.pillar), ['year', 'month', 'day']);
   const genderPillars = buildPillarFacts({ year: '甲子', month: '己巳', day: '庚午', hour: '癸未' });
   const male = calculateBaziShensha(genderPillars, 'male');
   const female = calculateBaziShensha(genderPillars, 'female');
-  assert.equal(male.included.length, 56); assert.deepEqual(male.unavailable, []);
+  assert.equal(male.included.length, 71); assert.deepEqual(male.unavailable, []);
   // 阳男（甲子）冲前一辰为未；阳女冲后一辰为巳
   assert.equal(male.entries.find((item) => item.name === '元辰')?.target, '未');
   assert.equal(female.entries.find((item) => item.name === '元辰')?.target, '巳');
@@ -73,18 +76,18 @@ test('精确和未知时辰可查看神煞并追问，HTTP 与 MCP 返回相同�
   const birth = { year: 1990, month: 5, day: 15, clock: { kind: 'exact', hour: 14, minute: 30, second: 0 }, timezone: 8 };
   const input = { birth, gender: 'female', question: '事业如何？' };
   const result = await calculate('bazi', input);
-  assert.match(result.prompt.text, /本命神煞（56项）/);
-  assert.equal(result.data.chart!.shensha.included.length, 56);
+  assert.match(result.prompt.text, /本命神煞（71项）/);
+  assert.equal(result.data.chart!.shensha.included.length, 71);
   const follow = await reprompt({ method: 'bazi', result, question: '继续问' });
-  assert.match(follow.prompt.text, /本命神煞（56项）/);
+  assert.match(follow.prompt.text, /本命神煞（71项）/);
   const altered = structuredClone(result); altered.data.chart!.shensha.entries.pop();
   await assert.rejects(() => reprompt({ method: 'bazi', result: altered, question: '继续问' }), /不一致/);
   const uncertain = await calculate('bazi', { ...input, birth: { ...birth, clock: { kind: 'unknown' } } });
-  assert.ok(uncertain.data.unknown!.segments.every((segment) => segment.shensha.included.length === 56));
-  assert.match(uncertain.prompt.text, /仅列56项本命神煞/);
+  assert.ok(uncertain.data.unknown!.segments.every((segment) => segment.shensha.included.length === 71));
+  assert.match(uncertain.prompt.text, /仅列71项本命神煞/);
   const withoutGender = await calculate('bazi', { birth, question: '问题' });
-  assert.deepEqual(withoutGender.data.chart!.shensha.unavailable.map((item) => item.name), ['元辰']);
-  assert.match(withoutGender.prompt.text, /元辰因未提供性别未计算/);
+  assert.deepEqual(withoutGender.data.chart!.shensha.unavailable.map((item) => item.name), ['元辰', '铁扫帚']);
+  assert.match(withoutGender.prompt.text, /元辰、铁扫帚因未提供性别未计算/);
   const first = uncertain.data.unknown!.segments[0];
   assert.deepEqual(first.shensha, calculateBaziShensha(first.pillars, 'female'));
   const env = { ASSETS: { fetch: async () => new Response('asset') }, ENABLED_METHODS: 'bazi' };
@@ -199,9 +202,9 @@ test('多流派神煞口径：学堂词馆（含丁酉学堂）、起例基准�
     rules: { xueTangMode: 'stem-changsheng', tianYiMode: 'classical-geng-yinwu', shenshaBaseMode: 'day-only' },
     question: '测试多流派神煞',
   });
-  assert.match(e2e.prompt.text, /学堂=stem-changsheng/);
-  assert.match(e2e.prompt.text, /天乙=classical-geng-yinwu/);
-  assert.match(e2e.prompt.text, /神煞基准=day-only/);
+  assert.match(e2e.prompt.text, /学堂=天干长生/);
+  assert.match(e2e.prompt.text, /天乙=古诀甲戊丑未庚辛寅午/);
+  assert.match(e2e.prompt.text, /神煞基准=仅查日支/);
   // 1990-05-15 为庚辰日，庚干长生在巳，月柱为辛巳 -> stem-changsheng 下月支巳必中天干学堂
   assert.ok(e2e.data.chart!.shensha.entries.some((e) => e.name === '学堂' && e.position === 'month' && e.basis.some((b) => b.kind === '干' && b.value === '庚')));
   // 2026 丙午流年，classical-geng-yinwu 下庚日见午必中岁运天乙贵人
@@ -222,4 +225,60 @@ test('多流派神煞口径：学堂词馆（含丁酉学堂）、起例基准�
       `${item.year}年${item.month}月应命中岁煞`,
     );
   }
+});
+
+test('新增 15 项高实用神煞：暗禄、天官贵人双流派、日德日贵、进神、六厄、太岁十二神、铁扫帚与隔角煞', async () => {
+  // 1. 暗禄（甲日禄寅合亥）、日德（甲寅日）、隔角煞（日支寅隔一位见时支辰）
+  const p1 = buildPillarFacts({ year: '庚申', month: '丁亥', day: '甲寅', hour: '戊辰' });
+  const r1 = calculateBaziShensha(p1, 'male');
+  assert.ok(r1.entries.some((e) => e.name === '暗禄' && e.position === 'month' && e.branch === '亥'));
+  assert.ok(r1.entries.some((e) => e.name === '日德' && e.position === 'day' && e.target === '甲寅'));
+  assert.ok(r1.entries.some((e) => e.name === '隔角煞' && e.position === 'hour' && e.branch === '辰'));
+
+  // 2. 日贵（丁酉日）、进神（己卯时）
+  const p2 = buildPillarFacts({ year: '甲子', month: '丙寅', day: '丁酉', hour: '己卯' });
+  const r2 = calculateBaziShensha(p2, 'male');
+  assert.ok(r2.entries.some((e) => e.name === '日贵' && e.position === 'day' && e.target === '丁酉'));
+  assert.ok(r2.entries.some((e) => e.name === '进神' && e.position === 'hour' && e.target === '己卯'));
+  // 甲子年（申子辰）见卯为六厄，见寅(正月)男命犯铁扫帚
+  assert.ok(r2.entries.some((e) => e.name === '六厄' && e.position === 'hour' && e.branch === '卯'));
+  assert.ok(r2.entries.some((e) => e.name === '铁扫帚' && e.position === 'month' && e.branch === '寅'));
+  // 同盘女命正月寅不犯铁扫帚，十二月丑才犯铁扫帚
+  const r2Female = calculateBaziShensha(p2, 'female');
+  assert.equal(r2Female.entries.some((e) => e.name === '铁扫帚'), false);
+  const r2FemaleHit = calculateBaziShensha(buildPillarFacts({ year: '甲子', month: '丁丑', day: '丁酉', hour: '己卯' }), 'female');
+  assert.ok(r2FemaleHit.entries.some((e) => e.name === '铁扫帚' && e.position === 'month' && e.branch === '丑'));
+
+  // 3. 天官贵人双流派：丁干标准版见寅、五行精纪别本见酉
+  const tgStd = calculateBaziShensha(p2, 'male', undefined, { shenshaBaseMode: 'day-only', tianGuanMode: 'standard' });
+  const tgJingji = calculateBaziShensha(p2, 'male', undefined, { shenshaBaseMode: 'day-only', tianGuanMode: 'jingji-variant' });
+  assert.deepEqual(tgStd.entries.filter((e) => e.name === '天官贵人').map((e) => e.branch), ['寅']);
+  assert.deepEqual(tgJingji.entries.filter((e) => e.name === '天官贵人').map((e) => e.branch), ['酉']);
+
+  // 4. 太岁十二神（子年基准：+4辰官符、+6午岁破、+7未龙德/紫微、+8申白虎、+9酉福德、+11亥病符）
+  const pTaisuiA = buildPillarFacts({ year: '甲子', month: '戊辰', day: '庚午', hour: '癸未' });
+  const rTaisuiA = calculateBaziShensha(pTaisuiA, 'male');
+  assert.ok(rTaisuiA.entries.some((e) => e.name === '官符' && e.position === 'month' && e.branch === '辰'));
+  assert.ok(rTaisuiA.entries.some((e) => e.name === '岁破' && e.position === 'day' && e.branch === '午'));
+  assert.ok(rTaisuiA.entries.some((e) => e.name === '龙德' && e.position === 'hour' && e.branch === '未'));
+  assert.ok(rTaisuiA.entries.some((e) => e.name === '紫微' && e.position === 'hour' && e.branch === '未'));
+
+  const pTaisuiB = buildPillarFacts({ year: '甲子', month: '壬申', day: '癸酉', hour: '癸亥' });
+  const rTaisuiB = calculateBaziShensha(pTaisuiB, 'male');
+  assert.ok(rTaisuiB.entries.some((e) => e.name === '白虎' && e.position === 'month' && e.branch === '申'));
+  assert.ok(rTaisuiB.entries.some((e) => e.name === '福德' && e.position === 'day' && e.branch === '酉'));
+  assert.ok(rTaisuiB.entries.some((e) => e.name === '病符' && e.position === 'hour' && e.branch === '亥'));
+
+  // 5. 岁运同步验证：1990庚午年(年支午，2026丙午不冲；改查2020庚子流年则子午冲命中岁破！)
+  const birth = { year: 1990, month: 5, day: 15, clock: { kind: 'exact' as const, hour: 14, minute: 30, second: 0 }, timezone: 8 };
+  const flow = await calculate('bazi', {
+    birth,
+    gender: 'female',
+    referenceTime: '2020-06-15T04:00:00Z',
+    rules: { tianGuanMode: 'jingji-variant' },
+    question: '测试新增神煞岁运同步',
+  });
+  assert.match(flow.prompt.text, /天官=京氏变例/);
+  const yearLayer = flow.data.located!.shensha.layers.find((l) => l.id === 'year');
+  assert.ok(yearLayer?.entries.some((e) => e.name === '岁破' && e.target === '子'));
 });

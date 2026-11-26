@@ -219,8 +219,17 @@ try {
     240,
   );
 
-  // 5. 工具箱：干支天文历（含 5 项天文时间尺度）与周易经文
+  // 5. 统一首页输入框 + 展开「更多工具」进入工具箱：干支天文历（含 5 项天文时间尺度）与周易经文
   assert.equal(await clickByText('.workspace-topbar-tab', '首页'), true);
+  await waitFor(
+    "Boolean(document.querySelector('textarea[aria-label=\"输入想问的事\"]'))",
+    '统一首页居中提问输入框未渲染',
+  );
+  assert.equal(await clickByText('button', '更多工具'), true);
+  await waitFor(
+    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('择吉万年历')))",
+    '点击更多工具后快捷卡片未展开',
+  );
   assert.equal(await clickByText('button', '择吉万年历'), true);
   await waitFor("Boolean(document.querySelector('[aria-label=\"实用工具模块\"]'))", '工具页主切换栏未出现');
   assert.equal(await clickByText('[aria-label="实用工具模块"] button', '干支天文历'), true);

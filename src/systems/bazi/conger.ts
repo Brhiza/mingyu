@@ -1,3 +1,4 @@
+import { KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import { branchesClash, seasonalState, stemElementOf } from './natal-facts';
 import { collectTraditionalRoots, type buildDayMasterStrength } from './strength';
@@ -6,8 +7,8 @@ type Pillars = Record<PillarName, BaziPillar>;
 type Strength = ReturnType<typeof buildDayMasterStrength>;
 const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
 const labels: Record<PillarName, string> = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' };
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const generates: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 const pair: Record<string, string> = { 甲: '己', 己: '甲', 乙: '庚', 庚: '乙', 丙: '辛', 辛: '丙', 丁: '壬', 壬: '丁', 戊: '癸', 癸: '戊' };
 const stemClash: Record<string, string> = { 甲: '庚', 庚: '甲', 乙: '辛', 辛: '乙', 丙: '壬', 壬: '丙', 丁: '癸', 癸: '丁' };
 const resource = (god: string) => god === '正印' || god === '偏印';

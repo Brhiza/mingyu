@@ -246,6 +246,16 @@ export const KE_MAP: Record<Wuxing, Wuxing> = {
   木: '土', 土: '水', 水: '火', 火: '金', 金: '木',
 };
 
+/** 生我者（印星五行反查表） */
+export const SHENG_BY_MAP: Record<Wuxing, Wuxing> = {
+  木: '水', 火: '木', 土: '火', 金: '土', 水: '金',
+};
+
+/** 克我者（官杀五行反查表） */
+export const KE_BY_MAP: Record<Wuxing, Wuxing> = {
+  木: '金', 火: '水', 土: '木', 金: '火', 水: '土',
+};
+
 function assertStem(stem: string): HeavenlyStem {
   if (!Object.hasOwn(STEM_WUXING, stem)) throw new Error(`天干无效：${stem}`);
   return stem as HeavenlyStem;

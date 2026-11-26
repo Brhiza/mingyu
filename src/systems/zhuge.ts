@@ -6,6 +6,7 @@ import { randomContext } from './random';
 import strokeData from './zhuge-strokes.json';
 import signData from './zhuge-signs.json';
 import coinEntries from './kongming-data.json';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof zhugeInput>;
 const strokesByCharacter: Record<string, number> = strokeData;
@@ -107,8 +108,10 @@ function buildSignPrompt(data: SignData, question: string, options: Input['promp
     data.mode === 'numbers'
       ? '【资料口径】\n以本次三数字取数和签诗为主，原项目的摘要及解说为辅助；签谱版本和资料出处尚待独立核验。'
       : '【资料口径】\n以本次三字取数和签诗为主，原项目的摘要及解说为辅助；字形笔画口径、签谱版本和资料出处尚待独立核验。';
+  const digestLines = buildMethodSituationDigest('zhuge', data, question);
   const user = [
     basisNote,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【时间】\n提示词时间：${now}。`,
     castHeader,
     `【签诗】\n${data.sign.poem}`,

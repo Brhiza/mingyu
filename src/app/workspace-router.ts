@@ -6,7 +6,7 @@ import {
   isPersonalChartMethod,
   type CompatibilityChartTabId,
   type PersonalChartTabId,
-} from '../v2-ui/result-page';
+} from '../v2-ui/chart-payloads';
 import {
   DIVINATION_FLAT_ITEMS,
   HOME_NICHE_DIVINATION_ITEMS,

@@ -101,6 +101,9 @@ export function buildLiurenLifeYearSection(
 }
 
 interface QimenGongLike {
+  gong?: number;
+  name?: string;
+  element?: string;
   palaceNumber?: number;
   palaceName?: string;
   diZhi?: string[];
@@ -110,21 +113,65 @@ interface QimenGongLike {
   jiuXing?: { star?: string };
   shenPan?: { god?: string };
   horse?: boolean;
+  isVoid?: boolean;
   isEmpty?: boolean;
 }
 
+const QIMEN_GONG_ELEMENT: Record<number, string> = {
+  1: '水', 2: '土', 3: '木', 4: '木', 5: '土', 6: '金', 7: '金', 8: '土', 9: '火',
+};
+const QIMEN_OPPOSITE_GONG: Record<number, number> = {
+  1: 9, 9: 1, 2: 8, 8: 2, 3: 7, 7: 3, 4: 6, 6: 4,
+};
+
+function describeQimenPalacePair(aLabel: string, a: QimenGongLike, bLabel: string, b: QimenGongLike): string {
+  const numA = a.gong ?? a.palaceNumber ?? 0;
+  const numB = b.gong ?? b.palaceNumber ?? 0;
+  if (!numA || !numB) return '';
+  if (numA === numB) return `${aLabel}与${bLabel}同落${numA}宫（紧贴联动）`;
+  const elA = a.element ?? QIMEN_GONG_ELEMENT[numA] ?? '';
+  const elB = b.element ?? QIMEN_GONG_ELEMENT[numB] ?? '';
+  const opp = QIMEN_OPPOSITE_GONG[numA] === numB ? '兼对宫相冲' : '';
+  const rel =
+    elA === elB
+      ? `${aLabel}(${elA})与${bLabel}(${elB})比和`
+      : isSheng(elA, elB)
+        ? `${aLabel}(${elA})生${bLabel}(${elB})（主主动付出或事顺）`
+        : isSheng(elB, elA)
+          ? `${bLabel}(${elB})生${aLabel}(${elA})（事来就我、得助）`
+          : isKe(elA, elB)
+            ? `${aLabel}(${elA})克${bLabel}(${elB})（主可掌控但须费力）`
+            : `${bLabel}(${elB})克${aLabel}(${elA})（外境/事体施压受阻）`;
+  return `${rel}${opp}`;
+}
+
 /**
- * 按用户问题与当前背景自动定位奇门遁甲「事项核心用神」落宫及其十干克应。
+ * 按用户问题与当前背景自动定位奇门遁甲「日干主位 + 时干事体 + 事项核心用神」落宫及其宫间生克链。
  */
 export function buildQimenMatterFocusSection(
   question: string,
   gongs: readonly QimenGongLike[],
   voidBranches: readonly string[] = [],
   zhiFu?: string,
+  ganzhi?: { day?: string; hour?: string },
 ): string {
   const ctx = parseQuestionContext(question);
   const intent = ctx.qimenMatterIntent;
-  if (!intent && !ctx.gender && !ctx.subjectRole) return '';
+
+  const findByStem = (stem: string | undefined) => {
+    if (!stem) return undefined;
+    const effective = stem === '甲' ? zhiFu : stem;
+    return gongs.find(
+      (g) =>
+        (g.gong ?? g.palaceNumber) !== 5 &&
+        (g.tianPan?.stem === effective || g.tianPan?.companionStem === effective || (stem === '甲' && g.jiuXing?.star === zhiFu)),
+    );
+  };
+
+  const dayStem = ganzhi?.day?.[0];
+  const hourStem = ganzhi?.hour?.[0];
+  const dayGong = findByStem(dayStem);
+  const hourGong = findByStem(hourStem);
 
   const targets: Array<{ label: string; test: (g: QimenGongLike) => boolean }> = [];
   if (intent === 'wealth') {
@@ -149,17 +196,13 @@ export function buildQimenMatterFocusSection(
     targets.push({ label: '出行主门（开门）', test: (g) => g.renPan?.door?.includes('开') ?? false });
   }
 
-  if (targets.length === 0) return '';
-
-  const lines: string[] = [];
-  for (const t of targets) {
-    const gong = gongs.find(t.test);
-    if (!gong) continue;
+  const formatGongLine = (label: string, gong: QimenGongLike) => {
     const tStem = gong.tianPan?.stem ?? '';
     const dStem = gong.diPan?.stem ?? '';
     const pair = tStem && dStem ? `${tStem}+${dStem}` : '';
     const patternHit = pair ? selectQimenClassics({ stemPairs: [pair] })[0] : undefined;
     const isVoid =
+      gong.isVoid ||
       gong.isEmpty ||
       (gong.diZhi?.some((z) => voidBranches.includes(z)) ?? false);
     const tags = [
@@ -173,9 +216,35 @@ export function buildQimenMatterFocusSection(
     ]
       .filter(Boolean)
       .join(' · ');
-    const palaceNum = gong.palaceNumber ? `落${gong.palaceNumber}宫` : '落宫';
-    const palaceName = gong.palaceName ? `（${gong.palaceName}）` : '';
-    lines.push(`- ${t.label}${palaceNum}${palaceName}：${tags}`);
+    const num = gong.gong ?? gong.palaceNumber;
+    const pName = gong.name ?? gong.palaceName;
+    const palaceDesc = pName ? `落${pName}` : num ? `落${num}宫` : '落宫';
+    return `- ${label}${palaceDesc}：${tags}`;
+  };
+
+  const lines: string[] = [];
+  if (dayGong && dayStem) lines.push(formatGongLine(`求测人/日干（${dayStem}）`, dayGong));
+  if (hourGong && hourStem) lines.push(formatGongLine(`事体/时干（${hourStem}）`, hourGong));
+
+  const matchedMatterGongs: Array<{ label: string; gong: QimenGongLike }> = [];
+  for (const t of targets) {
+    const gong = gongs.find(t.test);
+    if (!gong) continue;
+    matchedMatterGongs.push({ label: t.label, gong });
+    lines.push(formatGongLine(t.label, gong));
+  }
+
+  const pairNotes: string[] = [];
+  if (dayGong && hourGong) {
+    const r = describeQimenPalacePair('日干宫', dayGong, '时干宫', hourGong);
+    if (r) pairNotes.push(r);
+  }
+  if (dayGong && matchedMatterGongs[0]) {
+    const r = describeQimenPalacePair('日干宫', dayGong, matchedMatterGongs[0].label.split('（')[0]!, matchedMatterGongs[0].gong);
+    if (r) pairNotes.push(r);
+  }
+  if (pairNotes.length) {
+    lines.push(`- 主客与用神生克链：${pairNotes.join('；')}。`);
   }
 
   if (!lines.length) return '';
@@ -243,6 +312,11 @@ function summarizeBaziPatternBalanceLine(chart: Record<string, unknown> | undefi
   if (rel.synergies.length) {
     parts.push(`格局协同：${rel.synergies.slice(0, 2).map((s) => s.name).join('、')}`);
   }
+  if (rel.specialPatterns.length) {
+    parts.push(
+      `兼带外象：${rel.specialPatterns.slice(0, 2).map((sp) => `${sp.name}[${sp.status}]`).join('、')}`,
+    );
+  }
   if (rel.conflictChains.length) {
     parts.push(
       `病药制衡：${rel.conflictChains.slice(0, 2).map((c) => `${c.conflict}（${c.rescueStatus}）`).join('；')}`,
@@ -306,6 +380,24 @@ export function buildMethodSituationDigest(
     }
     const baziBalanceLine = summarizeBaziPatternBalanceLine(chart);
     if (baziBalanceLine) lines.push(baziBalanceLine);
+    const usefulGod = chart?.usefulGod as {
+      favorableWuxing?: string[];
+      unfavorableWuxing?: string[];
+      primaryUsefulGod?: { wuxing?: string; role?: string } | string;
+    } | undefined;
+    if (usefulGod?.favorableWuxing?.length || usefulGod?.unfavorableWuxing?.length) {
+      const fav = usefulGod.favorableWuxing?.join('、') || '待结合岁运';
+      const unfav = usefulGod.unfavorableWuxing?.join('、') || '无';
+      const located = bazi.located as {
+        cycle?: { ganZhi?: string };
+        year?: { ganZhi?: string };
+      } | undefined;
+      const flowTag =
+        located?.cycle?.ganZhi || located?.year?.ganZhi
+          ? `；当前岁运：${[located.cycle?.ganZhi ? `大运${located.cycle.ganZhi}` : '', located.year?.ganZhi ? `流年${located.year.ganZhi}` : ''].filter(Boolean).join(' / ')}`
+          : '';
+      lines.push(`用神喜忌：喜用[${fav}]、忌避[${unfav}]${flowTag}。`);
+    }
     if (qiongtong) {
       lines.push(
         `调候参用：《穷通宝鉴》提示${qiongtong.season}，优先参看 ${qiongtong.preferredGods}（${qiongtong.advice}）。`,
@@ -340,17 +432,33 @@ export function buildMethodSituationDigest(
       soulBranch?: string;
       bodyBranch?: string;
       fiveElementsClass?: string;
-      palaces?: readonly ZiweiPatternPalace[];
+      palaces?: readonly (ZiweiPatternPalace & {
+        flyingTransformations?: readonly { mutagen: string; star: string; targetName: string; relation: string }[];
+      })[];
       patterns?: readonly ZiweiPattern[];
     } | undefined;
     if (!natal) return lines;
     const patNames = (natal.patterns ?? []).slice(0, 3).map((p) => p.name);
+    const ming = natal.palaces?.find((p) => p.name === '命宫');
+    const mingStars = ming?.majorStars?.length
+      ? ming.majorStars.map((s) => `${s.name}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、')
+      : ming
+        ? `空宫借对宫${natal.palaces?.[(ming.index + 6) % 12]?.majorStars?.map((s) => s.name).join('、') || '无'}`
+        : '';
     lines.push(
-      `命盘骨架：命宫${natal.soulBranch ?? ''}、身宫${natal.bodyBranch ?? ''}（${natal.fiveElementsClass ?? ''}）${patNames.length ? `，命中格局：${patNames.join('、')}` : ''}。`,
+      `命盘骨架：命宫${natal.soulBranch ?? ''}${mingStars ? `（${mingStars}）` : ''}、身宫${natal.bodyBranch ?? ''}（${natal.fiveElementsClass ?? ''}）${patNames.length ? `；命中格局：${patNames.join('、')}` : ''}。`,
     );
     const zwParts = summarizeZiweiPatternBalanceLines(natal as unknown as Record<string, unknown>);
     if (zwParts.length) {
       lines.push(`格局制衡：${zwParts.join('｜')}。`);
+    }
+    const refLayers = (rec.reference as { layers?: { decadal?: { heavenlyStem?: string; earthlyBranch?: string; nominalAge?: number }; yearly?: { heavenlyStem?: string; earthlyBranch?: string; nominalAge?: number } } } | undefined)?.layers;
+    if (refLayers?.decadal || refLayers?.yearly) {
+      const flowParts = [
+        refLayers.decadal ? `大限${refLayers.decadal.heavenlyStem ?? ''}${refLayers.decadal.earthlyBranch ?? ''}` : '',
+        refLayers.yearly ? `流年${refLayers.yearly.heavenlyStem ?? ''}${refLayers.yearly.earthlyBranch ?? ''}${refLayers.yearly.nominalAge ? `(${refLayers.yearly.nominalAge}虚岁)` : ''}` : '',
+      ].filter(Boolean);
+      if (flowParts.length) lines.push(`当前运限：${flowParts.join(' / ')}。`);
     }
     return lines;
   }
@@ -501,10 +609,17 @@ export function buildMethodSituationDigest(
 
   if (method === 'qimen') {
     const dun = rec.isYangDun ? `阳遁${rec.juShu ?? ''}局` : `阴遁${rec.juShu ?? ''}局`;
-    const tags = Array.isArray(rec.patternTags) ? (rec.patternTags as string[]) : [];
+    const rawTags = Array.isArray(rec.patternTags) ? (rec.patternTags as string[]) : [];
+    const simplifyQimenTag = (tag: string) =>
+      tag
+        .replace(/^三奇得（/, '三奇得吉门（')
+        .replace(/（[^（）]*（[^）]*）[^）]*）/gu, '')
+        .replace(/^([^（]+)（([^）]+)）$/u, '$1·$2')
+        .trim();
+    const tags = [...new Set(rawTags.map(simplifyQimenTag).filter(Boolean))];
     const ev = rec.evidenceAnalysis as { timingFacts?: Array<{ promptText?: string }> } | undefined;
     lines.push(
-      `局势总览：${dun}，值符 ${String(rec.zhiFu ?? '')}、值使 ${String(rec.zhiShi ?? '')}${tags.length ? `（${tags.slice(0, 3).join('、')}）` : ''}。`,
+      `局势总览：${dun}，值符 ${String(rec.zhiFu ?? '')}、值使 ${String(rec.zhiShi ?? '')}${tags.length ? `；要点：${tags.slice(0, 3).join('、')}` : ''}。`,
     );
     if (Array.isArray(rec.jiuGongGe)) {
       const qmRel = analyzeQimenPatternRelations(rec as unknown as QimenData);
@@ -617,12 +732,14 @@ export function buildMethodSituationDigest(
     const dm = compat.dayMasterRelation;
     if (dm?.person1Stem && dm?.person2Stem) {
       lines.push(
-        `【${relLabel}】日主互动：${p1Name}（${dm.person1Stem}）与 ${p2Name}（${dm.person2Stem}）${dm.person1ToPerson2 ?? ''}，互为${dm.person2AsPerson1TenGod ?? '—'} / ${dm.person1AsPerson2TenGod ?? '—'}。`,
+        `合盘场景（${relLabel}）｜日主互动：${p1Name}（${dm.person1Stem}）与 ${p2Name}（${dm.person2Stem}）${dm.person1ToPerson2 ?? ''}，互为${dm.person2AsPerson1TenGod ?? '—'} / ${dm.person1AsPerson2TenGod ?? '—'}。`,
       );
     }
     if (compat.usefulGodComplementarity?.level) {
+      const replaceNames = (text: string) => text.replace(/第一人/g, p1Name).replace(/第二人/g, p2Name);
+      const j = replaceNames(compat.usefulGodComplementarity.judgment ?? '').replace(/。$/u, '');
       lines.push(
-        `喜用互补：${compat.usefulGodComplementarity.level}（${compat.usefulGodComplementarity.judgment ?? ''}）。`,
+        `喜用互补：${compat.usefulGodComplementarity.level}${j ? `（${j}）` : ''}。`,
       );
     }
     if (rel === 'marriage' && compat.spousePalaceDeep?.judgment) {
@@ -698,7 +815,7 @@ export function buildMethodSituationDigest(
     const n2 = selected.natal?.person2;
     if (n1 && n2) {
       lines.push(
-        `【${relLabel}】命盘底色：${p1Name} 命宫${n1.soulBranch ?? ''}（${n1.fiveElementsClass ?? ''}），${p2Name} 命宫${n2.soulBranch ?? ''}（${n2.fiveElementsClass ?? ''}）。`,
+        `合盘场景（${relLabel}）｜命盘底色：${p1Name} 命宫${n1.soulBranch ?? ''}（${n1.fiveElementsClass ?? ''}），${p2Name} 命宫${n2.soulBranch ?? ''}（${n2.fiveElementsClass ?? ''}）。`,
       );
     }
     if (overlays.length) {
@@ -733,12 +850,17 @@ export function buildMethodSituationDigest(
       ? (rec.aspects as Array<{ person1Name?: string; person2Name?: string; label?: string; deviation?: number }>)
       : [];
     const receptions = Array.isArray(rec.receptions) ? rec.receptions : [];
-    const topAspects = aspects
-      .slice(0, 3)
-      .map((a) => `${p1Name}${a.person1Name ?? ''}与${p2Name}${a.person2Name ?? ''}${a.label ?? ''}`)
+    const PERSONAL_STAR_OR_ANGLE = new Set(['太阳', '月亮', '水星', '金星', '火星', '木星', '土星', '上升', '中天', '下降', '天底']);
+    const isPersonal = (name?: string) => Boolean(name && PERSONAL_STAR_OR_ANGLE.has(name));
+    const personalAspects = [...aspects]
+      .filter((a) => isPersonal(a.person1Name) || isPersonal(a.person2Name))
+      .sort((a, b) => (a.deviation ?? 99) - (b.deviation ?? 99));
+    const chosenSynAspects = (personalAspects.length >= 3 ? personalAspects : [...aspects].sort((a, b) => (a.deviation ?? 99) - (b.deviation ?? 99))).slice(0, 3);
+    const topAspects = chosenSynAspects
+      .map((a) => `${p1Name}${a.person1Name ?? ''}与${p2Name}${a.person2Name ?? ''}${a.label ?? ''}${typeof a.deviation === 'number' ? `(${a.deviation.toFixed(1)}°)` : ''}`)
       .join('；');
     lines.push(
-      `【${relLabel}】星盘互动：共命中 ${aspects.length} 条主要跨盘相位${topAspects ? `（紧密相位：${topAspects}）` : ''}。`,
+      `合盘场景（${relLabel}）｜星盘互动：共命中 ${aspects.length} 条主要跨盘相位${topAspects ? `（紧密个人相位：${topAspects}）` : ''}。`,
     );
     lines.push(
       receptions.length
@@ -766,7 +888,7 @@ export function buildMethodSituationDigest(
     return lines;
   }
 
-  if (method === 'residential' || method === 'bazhai' || method === 'xuankong') {
+  if (method === 'residential') {
     const agreements = Array.isArray(rec.agreements)
       ? (rec.agreements as Array<{ level?: string; title?: string; detail?: string }>)
       : [];
@@ -797,22 +919,449 @@ export function buildMethodSituationDigest(
     return lines;
   }
 
-  if (method === 'tarot' || method === 'lenormand') {
+  if (method === 'tarot') {
     const cards = Array.isArray(rec.cards)
-      ? (rec.cards as Array<{ positionName?: string; name?: string; orientation?: string }>)
+      ? (rec.cards as Array<{ position?: string; positionName?: string; name?: string; reversed?: boolean; orientation?: string; element?: string; id?: number }>)
       : [];
     if (cards.length) {
+      const majorCount = cards.filter((c) => typeof c.id === 'number' && c.id <= 22).length;
+      const revCount = cards.filter((c) => c.reversed || c.orientation === 'reversed').length;
+      const elemCounts = new Map<string, number>();
+      for (const c of cards) {
+        if (c.element) {
+          const shortEl = c.element.replace(/（[^）]*）/gu, '').trim() || c.element;
+          elemCounts.set(shortEl, (elemCounts.get(shortEl) ?? 0) + 1);
+        }
+      }
+      const elemSummary = [...elemCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([el, cnt]) => `${el}${cnt}`)
+        .join('/');
       lines.push(
-        `牌阵核心落象：${cards.slice(0, 3).map((c) => `${c.positionName ? `${c.positionName}·` : ''}${c.name ?? ''}${c.orientation === 'reversed' ? '（逆位）' : ''}`).join('，')}。`,
+        `牌阵落象：${cards.slice(0, 4).map((c) => `${(c.position ?? c.positionName) ? `${c.position ?? c.positionName}·` : ''}${c.name ?? ''}${(c.reversed || c.orientation === 'reversed') ? '(逆)' : ''}`).join('，')}。`,
+      );
+      lines.push(
+        `能量结构：大阿卡纳 ${majorCount}/${cards.length}、逆位 ${revCount}/${cards.length}${elemSummary ? `；元素分布 ${elemSummary}` : ''}。`,
       );
     }
     return lines;
   }
 
+  if (method === 'lenormand') {
+    const cards = Array.isArray(rec.cards)
+      ? (rec.cards as Array<{ position?: string; positionName?: string; name?: string }>)
+      : [];
+    const combos = Array.isArray(rec.combinations)
+      ? (rec.combinations as Array<{ source?: string; card1?: string; card2?: string; conditioned?: string }>)
+      : [];
+    if (cards.length) {
+      const center = cards.length >= 3 ? cards[Math.floor(cards.length / 2)] : cards[0];
+      lines.push(
+        `牌序主线：${cards.slice(0, 5).map((c) => `${c.name ?? ''}`).join(' → ')}${center?.name ? `（中心焦点：${center.name}）` : ''}。`,
+      );
+      const fixed = combos.filter((c) => c.source === '固定组合').slice(0, 2);
+      if (fixed.length) {
+        lines.push(
+          `固定组合：${fixed.map((f) => `${f.card1}+${f.card2}（${f.conditioned ?? ''}）`).join('；')}。`,
+        );
+      }
+    }
+    return lines;
+  }
+
+  if (method === 'astrolabe') {
+    const basis = rec.basis as { dayChart?: boolean; houseSystem?: string } | undefined;
+    const angles = Array.isArray(rec.angles)
+      ? (rec.angles as Array<{ id?: string; name?: string; sign?: string; degreeInSign?: number }>)
+      : [];
+    const points = Array.isArray(rec.points)
+      ? (rec.points as Array<{ id?: string; name?: string; sign?: string; house?: number; retrograde?: boolean }>)
+      : [];
+    const aspects = Array.isArray(rec.aspects)
+      ? (rec.aspects as Array<{ first?: string; second?: string; name?: string; deviation?: number }>)
+      : [];
+    const asc = angles.find((a) => a.id === 'asc' || a.name?.includes('上升'));
+    const sun = points.find((p) => p.id === 'sun');
+    const moon = points.find((p) => p.id === 'moon');
+    const nameMap = Object.fromEntries(points.map((p) => [p.id ?? '', p.name ?? '']));
+    lines.push(
+      `本命骨架：${basis?.dayChart ? '昼盘' : '夜盘'}，${asc ? `上升${asc.sign}` : ''}${sun ? `、太阳${sun.sign}${sun.house}宫` : ''}${moon ? `、月亮${moon.sign}${moon.house}宫` : ''}。`,
+    );
+    const CORE_ASTRO_BODIES = new Set([
+      'sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'asc', 'mc',
+    ]);
+    const MAJOR_ASTRO_ASPECTS = new Set(['合相', '冲相', '刑相', '拱相', '六合']);
+    const validAspects = [...aspects]
+      .filter((a) => typeof a.deviation === 'number')
+      .sort((a, b) => (a.deviation ?? 99) - (b.deviation ?? 99));
+    const preferredAspects = validAspects.filter(
+      (a) =>
+        MAJOR_ASTRO_ASPECTS.has(a.name ?? '') &&
+        CORE_ASTRO_BODIES.has(a.first ?? '') &&
+        CORE_ASTRO_BODIES.has(a.second ?? ''),
+    );
+    const fallbackMajor = validAspects.filter((a) => MAJOR_ASTRO_ASPECTS.has(a.name ?? ''));
+    const tightAspects = (
+      preferredAspects.length >= 2
+        ? [...preferredAspects, ...fallbackMajor.filter((x) => !preferredAspects.includes(x))]
+        : fallbackMajor.length > 0
+          ? fallbackMajor
+          : validAspects
+    ).slice(0, 4);
+    if (tightAspects.length) {
+      lines.push(
+        `最紧核心相位：${tightAspects.map((a) => `${nameMap[a.first ?? ''] ?? a.first}${a.name ?? ''}${nameMap[a.second ?? ''] ?? a.second}(${(a.deviation ?? 0).toFixed(1)}°)`).join('；')}。`,
+      );
+    }
+    const flow = rec.flow as { transit?: { aspects?: Array<{ movingName?: string; natalName?: string; label?: string; deviation?: number }> } } | undefined;
+    const tightTransit = [...(flow?.transit?.aspects ?? [])]
+      .sort((a, b) => (a.deviation ?? 99) - (b.deviation ?? 99))
+      .slice(0, 2);
+    if (tightTransit.length) {
+      lines.push(
+        `当前行运触发：${tightTransit.map((t) => `行运${t.movingName}${t.label}本命${t.natalName}(${(t.deviation ?? 0).toFixed(1)}°)`).join('；')}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'qizheng') {
+    const mingDu = rec.mingDu as { xiu?: string; duZhu?: string } | undefined;
+    const enNan = rec.enNan as {
+      mingZhu?: string;
+      enStars?: string[];
+      nanStars?: string[];
+      interactions?: Array<{ role?: string; star?: string; aspect?: string }>;
+    } | undefined;
+    const aspects = Array.isArray(rec.aspects)
+      ? (rec.aspects as Array<{ star1?: string; star2?: string; type?: string; orb?: number }>)
+      : [];
+    lines.push(
+      `命度骨架：命主${String(rec.mingZhu ?? enNan?.mingZhu ?? '')}、命度${mingDu?.xiu ?? ''}宿（度主${mingDu?.duZhu ?? ''}）${enNan ? `；恩星[${(enNan.enStars ?? []).join('、')}]、难星[${(enNan.nanStars ?? []).join('、')}]` : ''}。`,
+    );
+    if (enNan?.interactions?.length) {
+      lines.push(
+        `恩难交会：${enNan.interactions.slice(0, 3).map((i) => `${i.role}${i.star}${i.aspect}命主`).join('；')}。`,
+      );
+    }
+    const isLuoJiPair = (s1?: string, s2?: string) => {
+      if (!s1 || !s2) return false;
+      return (
+        (s1.startsWith('罗睺') && s2.startsWith('计都')) ||
+        (s1.startsWith('计都') && s2.startsWith('罗睺'))
+      );
+    };
+    const tight = [...aspects]
+      .filter((a) => typeof a.orb === 'number' && !isLuoJiPair(a.star1, a.star2))
+      .sort((a, b) => (a.orb ?? 99) - (b.orb ?? 99))
+      .slice(0, 3);
+    if (tight.length) {
+      lines.push(
+        `最紧本命吊照：${tight.map((a) => `${a.star1}${a.type}${a.star2}(${(a.orb ?? 0).toFixed(1)}°)`).join('；')}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'xiaoliuren') {
+    const seq = rec.sequence as { month?: { name?: string }; day?: { name?: string } } | undefined;
+    const primary = rec.primary as { name?: string } | undefined;
+    const ev = rec.evidenceAnalysis as { sanGongAnalysis?: { combinationSummary?: string; tiYongRelation?: string } } | undefined;
+    if (primary?.name) {
+      lines.push(
+        `三宫落点：${seq?.month?.name ?? ''} → ${seq?.day?.name ?? ''} → 主占「${primary.name}」。`,
+      );
+    }
+    if (ev?.sanGongAnalysis?.tiYongRelation) {
+      lines.push(`体用定性：${ev.sanGongAnalysis.tiYongRelation}。`);
+    }
+    return lines;
+  }
+
+  if (method === 'jinkoujue') {
+    const pos = rec.positions as {
+      renYuan?: { stem?: string; element?: string };
+      guiShen?: { god?: string; branch?: string; element?: string };
+      jiangShen?: { god?: string; branch?: string; element?: string };
+      diFen?: { branch?: string; element?: string };
+    } | undefined;
+    const yyUse = rec.yinYangUse as { usePosition?: string } | undefined;
+    const ev = rec.evidenceAnalysis as {
+      counterEvidenceFacts?: Array<{ promptText?: string }>;
+    } | undefined;
+    const moves = Array.isArray(rec.movements)
+      ? (rec.movements as Array<{ name?: string }>).map((m) => m.name).filter(Boolean)
+      : [];
+    if (pos?.renYuan && pos?.guiShen && pos?.jiangShen && pos?.diFen) {
+      lines.push(
+        `四位与发用：人元${pos.renYuan.stem ?? ''} / 贵神${pos.guiShen.god ?? ''}(${pos.guiShen.branch ?? ''}) / 将神${pos.jiangShen.god ?? ''}(${pos.jiangShen.branch ?? ''}) / 地分${pos.diFen.branch ?? ''}${yyUse?.usePosition ? `；以${yyUse.usePosition}发用` : ''}。`,
+      );
+    }
+    if (moves.length) {
+      lines.push(`触发动象：${moves.join('、')}。`);
+    }
+    if (ev?.counterEvidenceFacts?.[0]?.promptText) {
+      lines.push(`反证提醒：${ev.counterEvidenceFacts[0].promptText.replace('，力量条件偏弱', '')}`);
+    }
+    return lines;
+  }
+
+  if (method === 'taiyi') {
+    const yy = typeof rec.yinYang === 'string' ? rec.yinYang : '';
+    const ju = rec.bureau ?? rec.juNumber ?? rec.ju;
+    const pos = typeof rec.taiyiPosition === 'string' ? rec.taiyiPosition : '';
+    const host = rec.lordCount ?? rec.hostCount ?? rec.zhuSuan;
+    const guest = rec.guestCount ?? rec.keSuan;
+    const fixed = rec.setCount ?? rec.fixedCount ?? rec.dingSuan;
+    const summaryParts = [
+      ju !== undefined ? `${yy}${ju}局${pos ? `（太乙落${pos}）` : ''}` : '',
+      host !== undefined ? `主算${host}` : '',
+      guest !== undefined ? `客算${guest}` : '',
+      fixed !== undefined ? `定算${fixed}` : '',
+    ].filter(Boolean);
+    if (summaryParts.length) {
+      const bias =
+        typeof host === 'number' && typeof guest === 'number'
+          ? host > guest
+            ? '（主算大于客算，偏利主方守成）'
+            : guest > host
+              ? '（客算大于主算，偏利客方主动）'
+              : '（主客算平，势均力敌）'
+          : '';
+      lines.push(`主客定局：${summaryParts.join('、')}${bias}。`);
+    }
+    return lines;
+  }
+
+  if (method === 'bazhai') {
+    const comps = Array.isArray(rec.comparisons)
+      ? (rec.comparisons as Array<{ mingGua?: string; sitMountain?: string; houseGua?: string; match?: string; directions?: Array<{ direction?: string; ming?: string; mingLuck?: string }> }>)
+      : [];
+    const mingPalaces = Array.isArray(rec.mingPalaces)
+      ? (rec.mingPalaces as Array<{ gua?: string; palaces?: Array<{ direction?: string; label?: string; luck?: string }> }>)
+      : [];
+    if (comps[0]) {
+      const c = comps[0];
+      const goodDirs = (c.directions ?? []).filter((d) => d.mingLuck === '吉').map((d) => `${d.direction}(${d.ming})`).join('、');
+      lines.push(`命宅主线：命卦${c.mingGua}配${c.sitMountain}山${c.houseGua}宅（${c.match}）${goodDirs ? `；命卦四吉方：${goodDirs}` : ''}。`);
+    } else if (mingPalaces[0]) {
+      const mp = mingPalaces[0];
+      const goodDirs = (mp.palaces ?? []).filter((d) => d.luck === '吉').map((d) => `${d.direction}(${d.label})`).join('、');
+      lines.push(`命卦主线：${mp.gua}命${goodDirs ? `；四吉方：${goodDirs}` : ''}。`);
+    }
+    return lines;
+  }
+
+  if (method === 'xuankong') {
+    const charts = Array.isArray(rec.charts)
+      ? (rec.charts as Array<{ period?: { yuan?: string; yun?: number }; sitMountain?: string; facingMountain?: string; formation?: string; combinations?: Array<{ name?: string }> }>)
+      : [];
+    if (charts[0]) {
+      const c = charts[0];
+      const combos = (c.combinations ?? []).slice(0, 3).map((x) => x.name).filter(Boolean);
+      lines.push(
+        `飞星主线：${c.period?.yuan ?? ''}${c.period?.yun ?? ''}运 ${c.sitMountain ?? ''}山${c.facingMountain ?? ''}向（${c.formation ?? ''}）${combos.length ? `；关键组合：${combos.join('、')}` : ''}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'almanac') {
+    const recObj = rec.recommendations as {
+      preferredDays?: Array<{ date?: string; weekday?: string; dayOfficer?: string; bestHours?: Array<{ name?: string }> }>;
+      secondaryDays?: Array<{ date?: string }>;
+      cautionDays?: Array<{ date?: string }>;
+    } | undefined;
+    if (recObj) {
+      const pref = recObj.preferredDays ?? [];
+      const top = pref.slice(0, 3).map((d) => `${d.date}(${d.dayOfficer}日${d.bestHours?.[0]?.name ? `·${d.bestHours[0].name}` : ''})`).join('；');
+      lines.push(
+        `择吉筛选：优选 ${pref.length} 天、次选 ${(recObj.secondaryDays ?? []).length} 天、慎用 ${(recObj.cautionDays ?? []).length} 天${top ? `；首选：${top}` : ''}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'chinese-name') {
+    const analysis = rec.analysis as { surname?: string; given?: string; sancaiEvidence?: { combo?: string } } | undefined;
+    const relations = rec.relations as { sancaiFlow?: string; toneSummary?: string; homophones?: string[]; charFavorableHits?: string[]; charAvoidHits?: string[] } | undefined;
+    if (analysis) {
+      lines.push(
+        `姓名骨架：「${analysis.surname ?? ''}${analysis.given ?? ''}」三才${analysis.sancaiEvidence?.combo ?? ''}${relations?.sancaiFlow ? `（${relations.sancaiFlow}）` : ''}${relations?.toneSummary ? `；平仄：${relations.toneSummary}` : ''}。`,
+      );
+      if (relations) {
+        lines.push(
+          `核查要点：谐音${relations.homophones?.length ? `见${relations.homophones.join('、')}` : '无冲突'}${relations.charFavorableHits?.length ? `；补喜用：${relations.charFavorableHits.join('、')}` : ''}${relations.charAvoidHits?.length ? `；涉忌神：${relations.charAvoidHits.join('、')}` : ''}。`,
+        );
+      }
+    }
+    return lines;
+  }
+
+  if (method === 'chinese-naming') {
+    const cands = Array.isArray(rec.candidates)
+      ? (rec.candidates as Array<{ fullName?: string }>)
+      : [];
+    const rel = rec.relations as { smoothSancaiCount?: number; favorableHitCount?: number } | undefined;
+    if (cands.length) {
+      lines.push(
+        `起名速览：共生成 ${cands.length} 组候选（三才顺生 ${rel?.smoothSancaiCount ?? 0} 组），前列推荐：${cands.slice(0, 4).map((c) => c.fullName).join('、')}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'number-energy') {
+    const summary = rec.magneticSummary as { supportiveCount?: number; steadyCount?: number; challengingCount?: number } | undefined;
+    const pairs = Array.isArray(rec.energyPairs)
+      ? (rec.energyPairs as Array<{ span?: string; name?: string; nature?: string }>)
+      : [];
+    const prim = rec.primaryNumerology as { level?: string } | undefined;
+    if (pairs.length) {
+      const first = pairs[0];
+      const last = pairs.at(-1);
+      lines.push(
+        `磁场主线：起首「${first?.span ?? ''}」${first?.name ?? ''} → 收口「${last?.span ?? ''}」${last?.name ?? ''}（助益${summary?.supportiveCount ?? 0}/守成${summary?.steadyCount ?? 0}/考验${summary?.challengingCount ?? 0}；主数${String(rec.primaryIndex ?? '')}${prim?.level ? `·${prim.level}` : ''}）。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'wuyun-liuqi') {
+    const mov = rec.annualMovement as { name?: string; element?: string; excess?: string } | undefined;
+    const sitian = rec.sitian as { name?: string } | undefined;
+    const zaiquan = rec.zaiquan as { name?: string } | undefined;
+    if (mov?.name || sitian?.name) {
+      lines.push(
+        `年度运气骨架：岁运${mov?.name ?? ''}（${mov?.element ?? ''}${mov?.excess ?? ''}），上半年${sitian?.name ?? ''}司天，下半年${zaiquan?.name ?? ''}在泉。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'huangji-jingshi') {
+    const fc = rec.forecast as {
+      hexagrams?: {
+        annual?: { name?: string; ganzhi?: string };
+        decade?: { hexagram?: { name?: string } };
+        sixtyYear?: { hexagram?: { name?: string } };
+        yun?: { hexagram?: { name?: string } };
+      };
+    } | undefined;
+    const pos = rec.position as {
+      hui?: { indexInYuan?: number };
+      yun?: { indexInYuan?: number };
+      shi?: { indexInYuan?: number };
+    } | undefined;
+    const h = fc?.hexagrams;
+    if (h?.annual?.name) {
+      lines.push(
+        `周期主线：值年卦「${h.annual.name}${h.annual.ganzhi ? `·${h.annual.ganzhi}` : ''}」${h.decade?.hexagram?.name ? `、十年卦「${h.decade.hexagram.name}」` : ''}${h.sixtyYear?.hexagram?.name ? `、六十年统卦「${h.sixtyYear.hexagram.name}」` : ''}${h.yun?.hexagram?.name ? `、运卦「${h.yun.hexagram.name}」` : ''}。`,
+      );
+    } else if (pos?.hui || pos?.yun || pos?.shi) {
+      lines.push(
+        `周期坐标：第${pos.hui?.indexInYuan ?? '?'}会、第${pos.yun?.indexInYuan ?? '?'}运、第${pos.shi?.indexInYuan ?? '?'}世。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'minglu') {
+    const baziObj = rec.bazi as { chart?: { pillars?: Record<string, { gan?: string; zhi?: string }>; strength?: { status?: string }; patternOverview?: { pattern?: string }; usefulGod?: { favorableWuxing?: string[]; unfavorableWuxing?: string[] } } } | undefined;
+    const ziweiObj = rec.ziwei as { natal?: { soulBranch?: string; fiveElementsClass?: string; palaces?: Array<{ name?: string; majorStars?: Array<{ name?: string }> }> } } | undefined;
+    const astroObj = rec.astrolabe as { points?: Array<{ id?: string; sign?: string; house?: number }>; angles?: Array<{ id?: string; sign?: string }> } | undefined;
+    const crossRes = rec.crossResonance as { resonances?: string[]; divergences?: string[] } | undefined;
+    const bz = baziObj?.chart;
+    if (bz?.pillars?.day?.gan && bz.pillars.month?.zhi) {
+      const fav = bz.usefulGod?.favorableWuxing?.join('、') || '';
+      lines.push(
+        `八字骨架：${bz.pillars.day.gan}日主生于${bz.pillars.month.zhi}月（${bz.strength?.status ?? ''}），主格「${bz.patternOverview?.pattern ?? ''}」${fav ? `，喜用[${fav}]` : ''}。`,
+      );
+    }
+    if (ziweiObj?.natal?.soulBranch) {
+      const mingStars = ziweiObj.natal.palaces?.find((p) => p.name === '命宫')?.majorStars?.map((s) => s.name).join('、') || '借对宫';
+      lines.push(
+        `紫微与星盘：紫微命宫${ziweiObj.natal.soulBranch}（${mingStars}·${ziweiObj.natal.fiveElementsClass ?? ''}）${astroObj?.points ? `；星盘上升${astroObj.angles?.find((a) => a.id === 'asc')?.sign ?? ''}、太阳${astroObj.points.find((p) => p.id === 'sun')?.sign ?? ''}、月亮${astroObj.points.find((p) => p.id === 'moon')?.sign ?? ''}` : ''}。`,
+      );
+    }
+    if (crossRes && ((crossRes.resonances?.length ?? 0) > 0 || (crossRes.divergences?.length ?? 0) > 0)) {
+      lines.push(
+        `跨盘核验：检出 ${crossRes.resonances?.length ?? 0} 项强共振信号、${crossRes.divergences?.length ?? 0} 项跨盘张力。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'bazi-reverse') {
+    const inp = rec.input as { pillars?: { year?: string; month?: string; day?: string; hour?: string }; startYear?: number; endYear?: number } | undefined;
+    const cands = Array.isArray(rec.candidates) ? (rec.candidates as Array<{ start?: string; end?: string }>) : [];
+    const pillarStr = inp?.pillars ? [inp.pillars.year, inp.pillars.month, inp.pillars.day, inp.pillars.hour].filter(Boolean).join(' ') : '';
+    lines.push(
+      `反推主线：四柱「${pillarStr}」在 ${inp?.startYear ?? ''}–${inp?.endYear ?? ''} 年间共命中 ${cands.length} 个候选时段。`,
+    );
+    if (cands.length) {
+      lines.push(
+        `时间窗口：首段起于 ${cands[0].start ?? ''}；末段止于 ${cands.at(-1)?.end ?? ''}。`,
+      );
+    }
+    return lines;
+  }
+
+  if (method === 'instant') {
+    const basis = rec.basis as { localDateTime?: string; timezone?: number } | undefined;
+    const bazi = rec.bazi as { pillars?: Record<string, { ganZhi?: string }>; patternOverview?: { pattern?: string } } | undefined;
+    const ziwei = rec.ziwei as { soulBranch?: string; fiveElementsClass?: string } | undefined;
+    const astro = rec.astrolabe as { points?: Array<{ id?: string; sign?: string }>; angles?: Array<{ id?: string; sign?: string }> } | undefined;
+    const qz = rec.qizheng as { mingGong?: string; mingZhu?: string } | undefined;
+    const parts: string[] = [];
+    if (bazi?.pillars) {
+      parts.push(`即时四柱 ${['year', 'month', 'day', 'hour'].map((k) => bazi.pillars?.[k]?.ganZhi ?? '').join(' ')}（${bazi.patternOverview?.pattern ?? ''}）`);
+    }
+    if (ziwei?.soulBranch) {
+      parts.push(`即时紫微命宫${ziwei.soulBranch}（${ziwei.fiveElementsClass ?? ''}）`);
+    }
+    if (astro?.points) {
+      parts.push(`即时星盘太阳${astro.points.find((p) => p.id === 'sun')?.sign ?? ''}、月亮${astro.points.find((p) => p.id === 'moon')?.sign ?? ''}`);
+    }
+    if (qz?.mingGong) {
+      parts.push(`即时七政命宫${qz.mingGong}（命主${qz.mingZhu ?? ''}）`);
+    }
+    if (parts.length || basis?.localDateTime) {
+      lines.push(`即时盘骨架：${basis?.localDateTime ?? ''}｜${parts.join('；') || '已按所选时刻起盘'}。`);
+    }
+    return lines;
+  }
+
+  if (method === 'qizheng-range' || method === 'astrolabe-range') {
+    const range = rec.range as { totalSeconds?: number; startIndex?: number; endIndex?: number } | undefined;
+    const branches = Array.isArray(rec.branches) ? (rec.branches as Array<{ startIndex?: number; endIndex?: number; first?: Record<string, unknown> }>) : [];
+    const total = range?.totalSeconds ?? 0;
+    const statusLabel = branches.length <= 1 ? '全区间盘面骨架稳定无跳宫切换' : `共分化为 ${branches.length} 个阶段分支`;
+    lines.push(`出生范围概览：覆盖 ${total} 秒（本页第 ${range?.startIndex ?? 0}–${Math.max(0, (range?.endIndex ?? 1) - 1)} 秒），${statusLabel}。`);
+    if (branches.length >= 2) {
+      lines.push('核对要点：严禁私自选盘，须对照各分支命宫/宫位切换与共同稳定特征。');
+    }
+    return lines;
+  }
+
   if (method === 'ssgw') {
-    const lot = rec.lot as { title?: string; level?: string; summary?: string } | undefined;
-    if (lot?.title) {
-      lines.push(`灵签签意：${lot.title}${lot.level ? `（${lot.level}）` : ''}${lot.summary ? ` — ${lot.summary}` : ''}`);
+    const title = typeof rec.title === 'string' ? rec.title : (rec.lot as { title?: string } | undefined)?.title;
+    const num = typeof rec.number === 'number' ? rec.number : undefined;
+    const core = (rec.details as Record<string, string> | undefined)?.['此签核心'];
+    if (title) {
+      const cleanTitle = title.trim();
+      const prefix = num && !/^第.+签/u.test(cleanTitle) ? `第${num}签 ` : '';
+      lines.push(`灵签主线：${prefix}${cleanTitle}${core ? `（${core}）` : ''}。`);
+    }
+    return lines;
+  }
+
+  if (method === 'zhuge') {
+    const sign = rec.sign as { poem?: string } | undefined;
+    const num = typeof rec.number === 'number' ? rec.number : undefined;
+    const summary = typeof rec.sourceSummary === 'string' ? rec.sourceSummary : '';
+    if (sign?.poem || summary) {
+      lines.push(`神数主线：${num ? `第${num}签` : '诸葛神数'}${summary ? `（${summary}）` : ''}。`);
     }
     return lines;
   }

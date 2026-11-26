@@ -3,6 +3,7 @@ import { getSplitSolarPillars } from './calendar';
 import type { z } from 'zod';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateXiaoliurenSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, selectXiaoliurenClassics } from './classics';
 import { beijingLunarDateDiscrepancy } from './birth-time';
 import { resolveXiaoliurenZiHourMode } from './defaults';
@@ -322,7 +323,6 @@ function createData(instant: Date, rule: Rule, settings?: NonNullable<Input['xia
           `${dayBoundary}，${leapMonthRule}；此为本次采用的规则。`,
           '通行掌诀与《多能鄙事》起日口径不同，不能混用。',
           '歌诀与三宫体用生克为传统分类模型，应结合问题选取句义，不能直接当作现实必然事件。',
-          '传统署名及成书年代不作为已证实的版本归属。',
           ...(beijingLunarDateDiscrepancy(instant.getTime()) ? [beijingLunarDateDiscrepancy(instant.getTime())!] : []),
         ],
         interpretationOrder: ['确认问题和起课口径', '复核月日时三宫顺数与体用生克', '以时宫六神、方位、成数及歌诀对应问题', '列出条件与限制'],
@@ -378,8 +378,10 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
     hourBranch: data.ganzhi.hour.slice(-1),
   });
   const methodNote = data.numbers ? `起课方式：三数起课（${data.numbers.join('、')}）；` : '';
+  const digestLines = buildMethodSituationDigest('xiaoliuren', data, question);
   const sections = [
     `【传统依据】\n按${data.ruleLabel}的月、日、时逐宫顺数；时宫是本次主占得宫，兼看月日时三宫（起因→过程→落点）生克与时支体用关系。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【时间】\n起课：${new Date(data.timestamp).toISOString()}；提示词时间：${now}；历法时区 UTC+08:00。`,
     `【占卜资料】\n${methodNote}农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}；干支：${Object.values(data.ganzhi).join(' ')}。\n月宫（初/起因）：${data.sequence.month.name}（${data.evidenceAnalysis.palaceDetails.month.deity}、${data.evidenceAnalysis.palaceDetails.month.element}）；日宫（中/过程）：${data.sequence.day.name}（${data.evidenceAnalysis.palaceDetails.day.deity}、${data.evidenceAnalysis.palaceDetails.day.element}）；时宫（末/主占）：${data.primary.name}（${hDetail.deity}、${hDetail.direction}、${hDetail.yinYang}${hDetail.element}、成数 ${hDetail.numbers.join('/')}）。\n占得宫歌诀：${data.primary.verse}\n历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}。`,
     `【三宫与体用生克】\n${sanGong.combinationSummary}\n体用关系：${sanGong.tiYongRelation}。`,
@@ -390,7 +392,7 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
     schools,
     options?.includeClassics ? '【经典依据】\n《多能鄙事》卷八·小六壬课时记载了月下起日、日上起时的六宫递推；应结合本次选择的口径。' : '',
     classicExcerpts,
-    `【任务】\n围绕问题，以时宫及其歌诀为主，结合顺数过程解释传统取象；区分现实事实、成立条件和资料不足，不把歌诀直接当作确定事件。${selection ? `\n${selection.task}` : ''}`,
+    `【任务】\n围绕问题，以时宫及其歌诀为主，结合顺数过程解释传统取象；区分现实事实、成立条件与适用边界，不把歌诀直接当作确定事件。${selection ? `\n${selection.task}` : ''}`,
     `【问题】\n${question}`,
   ].filter(Boolean);
   const user = sections.join('\n\n');

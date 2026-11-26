@@ -4,6 +4,7 @@ import type { ssgwInput } from '../schema';
 import { resolvePromptSelection } from '../prompt-selection';
 import { randomContext } from './random';
 import signData from './ssgw-data.json';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof ssgwInput>;
 type Sign = { id: number; title: string; qianwen: string; story: string; details: Record<string, string> };
@@ -65,8 +66,10 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
     .filter(([key, value]) => !(key === '核心寓意' && coreMeaning && value.trim() === coreMeaning))
     .map(([key, value]) => `${key}：${value}`)
     .join('；');
+  const digestLines = buildMethodSituationDigest('ssgw', data, question);
   const sections = [
     '【资料口径】\n以本次签诗为主证，典故和分类解说为辅；签谱版本和典故来源尚待独立核验，现代解说不等同于古籍原文。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【时间】\n求签：${new Date(data.timestamp).toISOString()}；历法时区 UTC+08:00；干支：${Object.values(data.ganzhi).join(' ')}；提示词时间：${now}。`,
     `【签面】\n第${data.number}签：${data.title}\n签诗：${data.poem}`,
     story ? `【典故辅助资料】\n${story}` : '',

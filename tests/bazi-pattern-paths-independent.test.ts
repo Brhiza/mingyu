@@ -9,7 +9,7 @@ test('特殊格不自动套用普通制化路径，提示词保留成败未裁�
   const pillars = buildPillarFacts({ year: '壬申', month: '癸丑', day: '甲午', hour: '癸酉' });
   const value = buildPatternEvidence(pillars, { pattern: '从财格', source: '从财优先条件模型', limitation: '' }, '己');
   assert.deepEqual(value.paths, []);
-  assert.match(formatPatternEvidence(value), /最终用神尚未裁定/);
+  assert.match(formatPatternEvidence(value), /终局喜忌并见用神层/);
 });
 
 test('印化杀须由同一柱位的印星承接，成立时保留中间干', () => {

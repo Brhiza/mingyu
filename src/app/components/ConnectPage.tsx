@@ -1,29 +1,14 @@
 import * as React from 'react';
 import {
-  Bot,
   Check,
-  ChevronDown,
   Copy,
   Download,
   ExternalLink,
   KeyRound,
-  MessageSquareText,
   PlugZap,
-  RefreshCw,
 } from 'lucide-react';
-import { listModels } from '../../ai';
 import type { Method } from '../../schema';
-import {
-  AI_PROVIDER_PRESETS,
-  ensureChatModeDefaultOnSave,
-  isChatModeEnabled,
-  isWebAiConfigured,
-  isWebAiEnabled,
-  readWebAiConfig,
-  setChatModeEnabled,
-  setWebAiEnabled,
-  writeWebAiConfig,
-} from '../../web-ai';
+import { isWebAiEnabled } from '../../web-ai';
 import { webExamples } from '../../web-examples';
 import {
   Badge,
@@ -32,9 +17,9 @@ import {
   Input,
   PageHeader,
   SegmentedTabs,
-  Switch,
 } from '../../components/ui';
 import { cn } from '../../lib/utils';
+import { WebAiConfigForm } from './WebAiConfigForm';
 
 type IntegrationTabId = 'mcp' | 'rest' | 'skill';
 type RemoteMcpClientKey = 'claude' | 'cursor' | 'windsurf' | 'generic';
@@ -61,21 +46,6 @@ const ENDPOINTS: ReadonlyArray<{ method: 'GET' | 'POST'; path: string; summary: 
   { method: 'POST', path: '/api/prompt', summary: '基于原盘重新生成追问' },
   { method: 'GET', path: '/api/schema', summary: '查询入参 JSON Schema' },
 ];
-
-function formatWebAiConnectionError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : '';
-  const lower = raw.toLowerCase();
-  if (lower.includes('failed to fetch') || lower.includes('load failed') || lower.includes('networkerror')) {
-    return '浏览器无法直连该接口：常见原因是该服务商限制了网页直接访问（跨域拦截）或网络不可达。可尝试支持浏览器直连的接口，或直接使用结果页「复制提示词」免配置解读。';
-  }
-  if (raw.includes('401') || raw.includes('403')) {
-    return `认证失败（${raw}）：请检查 API 密钥是否填写正确、是否已过期或账户余额不足。`;
-  }
-  if (raw.includes('404')) {
-    return `接口路径不存在（${raw}）：请确认接口地址是否完整（多数 OpenAI 兼容接口需要以 /v1 结尾）。`;
-  }
-  return raw || '获取失败，请检查接口地址、密钥或网络连通性。';
-}
 
 function getOrigin(): string {
   if (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') {
@@ -138,80 +108,12 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
   const skillZipUrl = `${origin}/downloads/mingyu-skill.zip`;
   const configs = React.useMemo(() => buildMcpClientConfigs(origin), [origin]);
 
-  // Web AI state
   const [webAiEnabled, setWebAiEnabledState] = React.useState(() => isWebAiEnabled());
-  const [chatModeEnabled, setChatModeEnabledState] = React.useState(() => isChatModeEnabled());
-  const savedInit = React.useMemo(() => readWebAiConfig(), []);
-  const [baseUrl, setBaseUrl] = React.useState(savedInit.baseUrl);
-  const [apiKey, setApiKey] = React.useState(savedInit.apiKey ?? '');
-  const [model, setModel] = React.useState(savedInit.model);
-  const [modelHint, setModelHint] = React.useState('输入或选择模型名称');
-  const [availableModels, setAvailableModels] = React.useState<string[]>([]);
-  const [modelMenuOpen, setModelMenuOpen] = React.useState(false);
-  const [modelFilterActive, setModelFilterActive] = React.useState(false);
-  const modelPickerRef = React.useRef<HTMLDivElement | null>(null);
-  const [fetchingModels, setFetchingModels] = React.useState(false);
-  const [webAiMsg, setWebAiMsg] = React.useState('');
-  const [webAiMsgTone, setWebAiMsgTone] = React.useState<'muted' | 'good' | 'warn'>('muted');
-  const [webAiSaved, setWebAiSaved] = React.useState(false);
-
   React.useEffect(() => {
-    const sync = () => {
-      setWebAiEnabledState(isWebAiEnabled());
-      setChatModeEnabledState(isChatModeEnabled());
-    };
+    const sync = () => setWebAiEnabledState(isWebAiEnabled());
     window.addEventListener('mingyu:web-ai-changed', sync);
     return () => window.removeEventListener('mingyu:web-ai-changed', sync);
   }, []);
-
-  const handleSaveWebAi = () => {
-    const cleanUrl = baseUrl.trim();
-    const cleanModel = model.trim();
-    if (!cleanUrl) {
-      setWebAiSaved(false);
-      setWebAiMsgTone('warn');
-      setWebAiMsg('请先选择预设或填写接口地址');
-      return;
-    }
-    if (!cleanModel) {
-      setWebAiSaved(false);
-      setWebAiMsgTone('warn');
-      setWebAiMsg('请先填写或选择模型名称');
-      return;
-    }
-    setBaseUrl(cleanUrl);
-    setModel(cleanModel);
-    writeWebAiConfig({ baseUrl: cleanUrl, apiKey, model: cleanModel });
-    setWebAiEnabled(true);
-    setWebAiEnabledState(true);
-    const activeChatMode = ensureChatModeDefaultOnSave();
-    setChatModeEnabledState(activeChatMode);
-    setWebAiSaved(true);
-    setWebAiMsgTone('good');
-    setWebAiMsg(
-      activeChatMode
-        ? '已保存配置并默认开启「对话模式」，首页已切换为居中对话框'
-        : '已保存配置，可直接在排盘与占卜结果页开启「AI 对话」',
-    );
-  };
-
-  React.useEffect(() => {
-    if (!modelMenuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
-        setModelMenuOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setModelMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [modelMenuOpen]);
 
   // External client integration tab
   const [integrationTab, setIntegrationTab] = React.useState<IntegrationTabId>('mcp');
@@ -324,42 +226,6 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
     setProbing(false);
   };
 
-  const handleFetchModels = async () => {
-    setFetchingModels(true);
-    setWebAiSaved(false);
-    setWebAiMsgTone('muted');
-    setWebAiMsg('获取中…');
-    try {
-      const models = await listModels({ baseUrl, apiKey }, fetch);
-      setAvailableModels(models);
-      setModelFilterActive(false);
-      if (models.length && !model.trim()) {
-        setModel(models[0]);
-        writeWebAiConfig({ model: models[0] });
-      }
-      if (models.length > 1) {
-        setModelMenuOpen(true);
-      }
-      setWebAiMsgTone(models.length ? 'good' : 'muted');
-      setWebAiMsg(
-        models.length
-          ? `已获取 ${models.length} 个模型，选择后点击「保存配置」即可`
-          : '已连通，请手动填写模型名后点击「保存配置」',
-      );
-    } catch (err) {
-      setWebAiMsgTone('warn');
-      setWebAiMsg(formatWebAiConnectionError(err));
-    } finally {
-      setFetchingModels(false);
-    }
-  };
-
-  const normalizedCurUrl = baseUrl.trim().replace(/\/+$/, '');
-  const trimmedModelQuery = model.trim().toLowerCase();
-  const displayedModels =
-    modelFilterActive && trimmedModelQuery
-      ? availableModels.filter((m) => m.toLowerCase().includes(trimmedModelQuery))
-      : availableModels;
   const apiDocsAgentPrompt = `阅读以下命语 REST API 文档并帮我完成接口接入：\n${apiDocsMdUrl}`;
   const skillAgentPrompt = `从 ${skillZipUrl} 下载并解压到 Agent 技能目录，按其中 SKILL.md 使用 node scripts/mingyu.mjs 本地执行排盘与占卜。`;
 
@@ -433,278 +299,7 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
           webAiEnabled && 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-soft))]',
         )}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex size-8 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-              <Bot className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <h2 className="m-0 font-sans text-[15.5px] font-extrabold text-[var(--text-strong)]">
-              网页内 AI 对话
-            </h2>
-          </div>
-
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-1.5 text-xs font-bold text-[var(--text-strong)]">
-            <Switch
-              checked={webAiEnabled}
-              onCheckedChange={(checked) => {
-                setWebAiEnabled(checked);
-                setWebAiEnabledState(checked);
-              }}
-            />
-            <span>{webAiEnabled ? '已开启' : '未开启'}</span>
-          </label>
-        </div>
-
-        {webAiEnabled ? (
-          <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 border-t border-[var(--border-soft)] pt-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              {AI_PROVIDER_PRESETS.map((preset) => (
-                <Button
-                  key={preset.id}
-                  variant={normalizedCurUrl === preset.baseUrl ? 'pillActive' : 'pill'}
-                  size="xs"
-                  onClick={() => {
-                    setBaseUrl(preset.baseUrl);
-                    setModelHint(preset.modelHint);
-                    setWebAiSaved(false);
-                    writeWebAiConfig({ baseUrl: preset.baseUrl });
-                  }}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
-
-            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-3">
-              <label className="grid min-w-0 gap-1 text-xs font-semibold text-[var(--text-secondary)]">
-                <span>接口地址</span>
-                <Input
-                  type="url"
-                  value={baseUrl}
-                  placeholder="https://api.deepseek.com/v1"
-                  onChange={(e) => {
-                    setBaseUrl(e.target.value);
-                    setWebAiSaved(false);
-                    writeWebAiConfig({ baseUrl: e.target.value });
-                  }}
-                />
-              </label>
-
-              <label className="grid min-w-0 gap-1 text-xs font-semibold text-[var(--text-secondary)]">
-                <span>API 密钥</span>
-                <Input
-                  type="password"
-                  autoComplete="off"
-                  value={apiKey}
-                  placeholder="仅保存于当前浏览器"
-                  onChange={(e) => {
-                    setApiKey(e.target.value);
-                    setWebAiSaved(false);
-                    writeWebAiConfig({ apiKey: e.target.value });
-                  }}
-                />
-              </label>
-
-              <div ref={modelPickerRef} className="relative grid min-w-0 gap-1 text-xs font-semibold text-[var(--text-secondary)]">
-                <label htmlFor="connect-webai-model-input" className="m-0">
-                  模型名称
-                </label>
-                <div className="relative min-w-0">
-                  <Input
-                    id="connect-webai-model-input"
-                    type="text"
-                    autoComplete="off"
-                    value={model}
-                    placeholder={modelHint}
-                    className={cn(availableModels.length > 0 && 'pr-9')}
-                    onFocus={() => {
-                      if (availableModels.length > 0) {
-                        setModelFilterActive(false);
-                        setModelMenuOpen(true);
-                      }
-                    }}
-                    onClick={() => {
-                      if (availableModels.length > 0) {
-                        setModelFilterActive(false);
-                        setModelMenuOpen(true);
-                      }
-                    }}
-                    onChange={(e) => {
-                      const nextVal = e.target.value;
-                      setModel(nextVal);
-                      setWebAiSaved(false);
-                      writeWebAiConfig({ model: nextVal });
-                      if (availableModels.length > 0) {
-                        setModelFilterActive(true);
-                        setModelMenuOpen(true);
-                      }
-                    }}
-                  />
-                  {availableModels.length > 0 ? (
-                    <button
-                      type="button"
-                      aria-label={modelMenuOpen ? '收起模型列表' : '展开全部可选模型'}
-                      aria-expanded={modelMenuOpen}
-                      onClick={() => {
-                        setModelFilterActive(false);
-                        setModelMenuOpen((prev) => !prev);
-                      }}
-                      className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border-0 bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-strong)] cursor-pointer"
-                    >
-                      <ChevronDown
-                        className={cn('h-4 w-4 transition-transform duration-150', modelMenuOpen && 'rotate-180')}
-                        aria-hidden="true"
-                      />
-                    </button>
-                  ) : null}
-                </div>
-
-                {modelMenuOpen && availableModels.length > 0 ? (
-                  <div
-                    role="listbox"
-                    aria-label="可选模型列表"
-                    className="absolute left-0 right-0 top-[calc(100%+4px)] z-40 max-h-60 overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-1 shadow-[0_10px_28px_rgba(32,24,16,0.14)]"
-                  >
-                    {modelFilterActive && displayedModels.length < availableModels.length ? (
-                      <button
-                        type="button"
-                        onClick={() => setModelFilterActive(false)}
-                        className="mb-1 flex w-full items-center justify-between rounded-lg border-0 bg-[var(--surface-soft)] px-2.5 py-1.5 text-left text-[11px] font-semibold text-[var(--accent-strong)] cursor-pointer hover:bg-[var(--state-hover-surface)]"
-                      >
-                        <span>已按输入筛选 · 点击查看全部</span>
-                        <span>共 {availableModels.length} 个</span>
-                      </button>
-                    ) : null}
-
-                    {displayedModels.length > 0 ? (
-                      displayedModels.map((m) => {
-                        const isSelected = model === m;
-                        return (
-                          <button
-                            key={m}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => {
-                              setModel(m);
-                              setWebAiSaved(false);
-                              writeWebAiConfig({ model: m });
-                              setModelFilterActive(false);
-                              setModelMenuOpen(false);
-                            }}
-                            className={cn(
-                              'flex min-h-[36px] w-full items-center justify-between gap-2 rounded-lg border-0 px-2.5 py-1.5 text-left font-mono text-xs transition-colors cursor-pointer',
-                              isSelected
-                                ? 'bg-[var(--state-selected-surface)] font-bold text-[var(--state-selected-text)]'
-                                : 'bg-transparent font-medium text-[var(--text-primary)] hover:bg-[var(--state-hover-surface)]',
-                            )}
-                          >
-                            <span className="min-w-0 truncate">{m}</span>
-                            {isSelected ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModelFilterActive(false);
-                          setModelMenuOpen(false);
-                        }}
-                        className="flex min-h-[36px] w-full items-center justify-between rounded-lg border-0 bg-transparent px-2.5 py-1.5 text-left text-xs text-[var(--text-muted)] cursor-pointer hover:bg-[var(--state-hover-surface)]"
-                      >
-                        <span className="truncate">使用自定义名称：{model}</span>
-                      </button>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={fetchingModels}
-                  onClick={() => void handleFetchModels()}
-                >
-                  <RefreshCw className={cn('h-3.5 w-3.5', fetchingModels && 'animate-spin')} />
-                  <span>获取模型列表</span>
-                </Button>
-                {webAiMsg ? (
-                  <span
-                    role="status"
-                    className={cn(
-                      'text-xs font-medium',
-                      webAiMsgTone === 'good'
-                        ? 'text-[var(--state-selected-text)]'
-                        : webAiMsgTone === 'warn'
-                          ? 'text-[var(--danger-text)]'
-                          : 'text-[var(--text-muted)]',
-                    )}
-                  >
-                    {webAiMsg}
-                  </span>
-                ) : null}
-              </div>
-
-              <Button
-                variant="primary"
-                size="sm"
-                className="shrink-0"
-                onClick={handleSaveWebAi}
-              >
-                {webAiSaved ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
-                <span>{webAiSaved ? '已保存' : '保存配置'}</span>
-              </Button>
-            </div>
-
-            {/* 对话模式开关（填写网页 API 后默认开启） */}
-            <div className="mt-1 flex flex-col gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3.5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                  <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--state-selected-surface)] text-[var(--accent-strong)]">
-                    <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-[13.5px] font-extrabold text-[var(--text-strong)]">
-                        首页对话模式
-                      </strong>
-                      <Badge variant={chatModeEnabled ? 'good' : 'outline'} className="text-[10.5px]">
-                        {chatModeEnabled ? '已开启' : '已关闭'}
-                      </Badge>
-                    </div>
-                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                      开启后在首页上方显示对话输入区，对话记录统一收入历史记录。
-                    </p>
-                  </div>
-                </div>
-
-                <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] px-2.5 py-1.5 text-xs font-bold text-[var(--text-strong)]">
-                  <Switch
-                    aria-label="切换对话模式"
-                    checked={chatModeEnabled}
-                    onCheckedChange={(checked) => {
-                      setChatModeEnabled(checked);
-                      setChatModeEnabledState(checked);
-                    }}
-                  />
-                  <span>{chatModeEnabled ? '开启' : '关闭'}</span>
-                </label>
-              </div>
-
-              {chatModeEnabled && isWebAiConfigured({ baseUrl, apiKey, model }) && onNavigateHome ? (
-                <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] pt-2.5">
-                  <Button variant="secondary" size="xs" onClick={onNavigateHome}>
-                    <span>回到首页</span>
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+        <WebAiConfigForm onNavigateHome={onNavigateHome} />
       </Card>
 
       {/* 2. 外部 AI 客户端接入（单一统一切换卡：远程 MCP / REST 接口 / Agent Skill） */}

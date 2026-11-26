@@ -30,13 +30,6 @@ body.has-workspace-dialog {
   overscroll-behavior: none;
 }
 
-.route-loading {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
 @keyframes skeleton-shimmer {
   0% {
     background-position: 100% 50%;
@@ -58,43 +51,6 @@ body.has-workspace-dialog {
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
-.route-loading-skeleton {
-  width: min(960px, 100%);
-  padding: 28px;
-  border-radius: var(--radius-page-card);
-  border: 1px solid var(--border-soft);
-  background: var(--surface-overlay);
-  box-shadow: var(--shadow-lg);
-  display: grid;
-  gap: 14px;
-}
-
-.route-loading-skeleton-title {
-  width: min(320px, 52%);
-  height: 20px;
-}
-
-.route-loading-skeleton-line {
-  width: min(560px, 88%);
-  height: 14px;
-}
-
-.route-loading-skeleton-line-short {
-  width: min(420px, 70%);
-}
-
-.route-loading-skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 8px;
-}
-
-.route-loading-skeleton-card {
-  height: 180px;
-  border-radius: var(--radius-page-card);
 }
 
 button,
@@ -139,43 +95,9 @@ select {
   line-height: 1.05;
 }
 
-.hero-text {
-  max-width: 760px;
-  margin: 14px 0 0;
-  color: var(--text-secondary);
-  font-size: 16px;
-}
-
-.workspace-grid {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 18px;
-}
-
-.workspace-grid > * {
-  min-width: 0;
-}
-
 /* AI 解析页：大屏优先把空间留给对话和历史侧栏 */
-.workspace-grid-ai {
-  max-width: 1520px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 20px;
-}
-
-.workspace-grid-ai > * {
-  min-width: 0;
-}
 
 /* AI 模式左右卡片等高，并随桌面视口高度弹性伸展 */
-.workspace-grid-ai > section.panel {
-  min-height: 600px;
-  height: calc(100dvh - 150px);
-}
 
 .divination-ai-card .panel-ai-chat {
   min-height: 420px;
@@ -206,20 +128,6 @@ select {
   max-width: 1520px;
 }
 
-.page-shell-ai-workspace .tab-strip,
-.page-shell-ai-workspace .result-tab-stage.is-ai-wide,
-.page-shell-ai-workspace .workspace-grid-ai {
-  width: 100%;
-  max-width: none;
-  margin-right: 0;
-  margin-left: 0;
-}
-
-.page-shell-ai-workspace .tab-strip {
-  justify-content: flex-start;
-  text-align: left;
-}
-
 .result-tab-pane {
   grid-area: 1 / 1;
   width: 100%;
@@ -248,121 +156,3 @@ select {
   box-shadow: none;
   backdrop-filter: none;
 }
-
-.result-dual-layout {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.result-showcase-card {
-  display: grid;
-  gap: 16px;
-  padding: 4px 0 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-.result-showcase-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.result-showcase-head h2 {
-  margin: 2px 0 0;
-  font-size: 26px;
-  line-height: 1.12;
-  color: var(--accent-deep);
-}
-
-.result-section-kicker {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-strong);
-  font-weight: 700;
-}
-
-.result-chip-row,
-.result-chip-stack,
-.result-tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.result-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.result-chip-highlight,
-.result-soft-tag-strong {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.result-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  padding: 1px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: var(--border-soft);
-}
-
-.result-summary-grid-bazi {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.result-stat-card {
-  padding: 11px 12px;
-  border: 0;
-  border-radius: 0;
-  background: var(--surface-muted);
-  display: grid;
-  gap: 3px;
-}
-
-.result-stat-card-accent {
-  background: linear-gradient(135deg, var(--accent-soft), var(--secondary-soft));
-}
-
-.result-stat-card span,
-.result-side-head p,
-.result-meta-lines span,
-.wuxing-bar-label,
-.fortune-focus-card span,
-.fortune-item span,
-.ziwei-star-block span {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.result-stat-card strong,
-.fortune-focus-card strong,
-.fortune-item strong,
-.ziwei-star-block strong {
-  font-size: 17px;
-  color: var(--text-strong);
-}
-
-.result-stat-card small,
-.fortune-focus-card small,
-.fortune-item small {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-

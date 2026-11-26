@@ -1,3 +1,11 @@
+import {
+  BRANCH_WUXING,
+  KE_BY_MAP,
+  KE_MAP,
+  SHENG_BY_MAP,
+  SHENG_MAP,
+  STEM_WUXING,
+} from '../ganzhi-foundation';
 import type { PillarName } from './pillars';
 import type { baziSchoolIds } from './prompt-options';
 import type { SchoolAlgorithmEvaluation, SchoolStructuredVerdict } from '../school-algorithms';
@@ -20,18 +28,12 @@ const tombBranches = new Set(['辰', '戌', '丑', '未']);
 const tombElementLabel: Record<string, string> = { 辰: '水库', 戌: '火库', 丑: '金库', 未: '木库' };
 const tombClashPartner: Record<string, string> = { 辰: '戌', 戌: '辰', 丑: '未', 未: '丑' };
 
-const STEM_ELEMENT: Record<string, string> = {
-  甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土',
-  己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
-};
-const BRANCH_ELEMENT: Record<string, string> = {
-  子: '水', 丑: '土', 寅: '木', 卯: '木', 辰: '土', 巳: '火',
-  午: '火', 未: '土', 申: '金', 酉: '金', 戌: '土', 亥: '水',
-};
-const WUXING_GENERATE: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const WUXING_GENERATED_BY: Record<string, string> = { 木: '水', 火: '木', 土: '火', 金: '土', 水: '金' };
-const WUXING_CONTROL: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
-const WUXING_CONTROLLED_BY: Record<string, string> = { 木: '金', 火: '水', 土: '木', 金: '火', 水: '土' };
+const STEM_ELEMENT: Record<string, string> = STEM_WUXING;
+const BRANCH_ELEMENT: Record<string, string> = BRANCH_WUXING;
+const WUXING_GENERATE: Record<string, string> = SHENG_MAP;
+const WUXING_GENERATED_BY: Record<string, string> = SHENG_BY_MAP;
+const WUXING_CONTROL: Record<string, string> = KE_MAP;
+const WUXING_CONTROLLED_BY: Record<string, string> = KE_BY_MAP;
 
 function clampScore(value: number, min = 10, max = 98): number {
   return Math.max(min, Math.min(max, Math.round(value)));

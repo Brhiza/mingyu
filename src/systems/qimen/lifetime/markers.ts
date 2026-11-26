@@ -1,4 +1,5 @@
 import type { QimenData, QimenJiuGongGe } from '../types';
+import { STEM_WUXING } from '../../ganzhi-foundation';
 import { getDunJiaStem } from '../layout';
 import { branchPalaces, hasTianPanStar } from '../palace';
 
@@ -58,7 +59,7 @@ export function extractPersonalMarkers(chart: QimenData): PersonalMarker[] {
   return markers;
 }
 
-const stemElements: Record<string, string> = { 甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水' };
+const stemElements: Record<string, string> = STEM_WUXING;
 const elements = ['木', '火', '土', '金', '水'];
 type Relative = '父母' | '子息' | '兄弟' | '官鬼' | '妻财';
 function sixRelative(subject: string, target: string): Relative {

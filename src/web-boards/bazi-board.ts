@@ -1,7 +1,6 @@
 import { SolarTime } from 'tyme4ts';
 import { buildPillarFact } from '../systems/bazi/pillars';
 import { getYearMonthList, getYearSixtyCycle } from '../systems/ganzhi-foundation';
-import './boards.css';
 import { createTermPanel, el, getWuxing, unwrapBoardData } from './shared';
 
 interface BaziHiddenStem {
@@ -90,6 +89,7 @@ type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
 const LUCKY_SHENSHA = new Set([
   '天乙贵人',
+  '天官贵人',
   '太极贵人',
   '文昌贵人',
   '福星贵人',
@@ -97,6 +97,7 @@ const LUCKY_SHENSHA = new Set([
   '金舆',
   '天厨贵人',
   '禄神',
+  '暗禄',
   '天德贵人',
   '天德合',
   '月德贵人',
@@ -108,12 +109,18 @@ const LUCKY_SHENSHA = new Set([
   '红艳煞',
   '红鸾',
   '天喜',
+  '龙德',
+  '紫微',
+  '福德',
   '天赦日',
   '三奇贵人',
   '拱禄',
   '将星',
   '十灵日',
   '六秀日',
+  '日德',
+  '日贵',
+  '进神',
   '金神',
 ]);
 
@@ -125,15 +132,22 @@ const UNLUCKY_SHENSHA = new Set([
   '劫煞',
   '灾煞',
   '岁煞',
+  '六厄',
   '孤辰',
   '寡宿',
   '丧门',
+  '官符',
+  '岁破',
+  '白虎',
   '吊客',
+  '病符',
   '披麻',
   '血刃',
   '勾绞煞',
   '天罗地网',
   '童子煞',
+  '隔角煞',
+  '铁扫帚',
   '阴差阳错',
   '孤鸾煞',
   '九丑',

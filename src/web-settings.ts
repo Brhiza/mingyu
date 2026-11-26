@@ -1,4 +1,5 @@
 import { setDefaultPromptGuidanceProvider, type PromptReplyStyle } from './prompt-guidance';
+import { NON_CLASSICS_METHODS } from './method-registry';
 import type { Method } from './schema';
 
 const STORAGE_KEY = 'mingyu:global-rules:v1';
@@ -37,6 +38,7 @@ export interface GlobalRulesSettings {
     shenshaBaseMode: 'year-and-day' | 'day-only' | 'year-only';
     xueTangMode: 'nayin' | 'stem-changsheng' | 'zheng-xuetang' | 'nayin-and-stem';
     tianYiMode: 'standard' | 'classical-geng-yinwu';
+    tianGuanMode: 'standard' | 'jingji-variant';
     hongYanMode: 'standard' | 'yi-shen' | 'year-and-day';
     tongZiMode: 'standard' | 'hour-only' | 'strict-both';
     commanderMode: 'standard' | 'yuanhai';
@@ -136,6 +138,7 @@ export const DEFAULT_GLOBAL_RULES: GlobalRulesSettings = {
     shenshaBaseMode: 'year-and-day',
     xueTangMode: 'nayin',
     tianYiMode: 'standard',
+    tianGuanMode: 'standard',
     hongYanMode: 'standard',
     tongZiMode: 'standard',
     commanderMode: 'standard',
@@ -354,6 +357,13 @@ export const GLOBAL_RULE_SECTIONS: GlobalRuleSectionDescriptor[] = [
         options: [
           { value: 'standard', label: '通行口诀：甲戊庚牛羊、六辛逢马虎（默认）' },
           { value: 'classical-geng-yinwu', label: '古诀：甲戊兼牛羊、庚辛逢马虎' },
+        ],
+      },
+      {
+        kind: 'select', id: 'gs-bazi-tianGuanMode', group: 'bazi', key: 'tianGuanMode', label: '天官贵人口诀',
+        options: [
+          { value: 'standard', label: '《三命通会》五虎遁正官位（默认）' },
+          { value: 'jingji-variant', label: '《五行精纪》别本口诀（丁酉戊丑）' },
         ],
       },
       {
@@ -664,17 +674,6 @@ function mergeNested(target: Record<string, unknown>, key: string, additions: Re
   const existing = isPlainObject(target[key]) ? target[key] : {};
   target[key] = { ...additions, ...existing };
 }
-
-const NON_CLASSICS_METHODS: ReadonlySet<Method> = new Set([
-  'random-divination',
-  'chinese-name',
-  'chinese-naming',
-  'number-energy',
-  'instant',
-  'calendar',
-  'bazi-reverse',
-  'zhouyi',
-]);
 
 /**
  * 将用户改动过的非默认流派规则自动注入对应术数的请求载荷。

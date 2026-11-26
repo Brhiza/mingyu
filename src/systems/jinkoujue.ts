@@ -10,7 +10,7 @@ import { evaluateJinkoujueSchoolAlgorithms, formatSchoolAlgorithmSection } from 
 import { formatClassicExcerpts, selectJinkoujueClassics } from './classics';
 import reference from './jinkoujue-reference.json';
 import { assertRangePillars, parseDivinationRange, partitionDivinationRange } from './divination-range';
-import { buildLiurenLifeYearSection } from './situation-digest';
+import { buildLiurenLifeYearSection, buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof jinkoujueInput>;
 
@@ -233,8 +233,10 @@ function buildPrompt(data: Result, question: string, options: Input['prompt'], n
     ],
     data.xunKong,
   );
+  const digestLines = buildMethodSituationDigest('jinkoujue', data, question);
   const user = [
     '【传统依据】\n按地分、月将、贵神与五子元遁建立四位，依阴阳次第确定发用，再结合五动三动、月令与旬空辨析。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     lifeYearSection,
     data.timeContext
       ? `【时间】\n实际起课：${new Date(data.timeContext.referenceTimestamp).toISOString()}；真太阳时钟表：${new Date(data.timestamp + 8 * 3_600_000).toISOString().slice(0, 19)}（北京时间钟表口径）；经度 ${data.timeContext.longitude}°，经度修正 ${data.timeContext.longitudeCorrectionMinutes.toFixed(3)} 分钟，均时差 ${data.timeContext.equationOfTimeMinutes.toFixed(3)} 分钟。节气、年月及月将依据实际起课时刻，日时依据真太阳时；提示词时间：${now}。`

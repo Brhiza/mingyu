@@ -1,3 +1,4 @@
+import { KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import { seasonalState, stemElementOf } from './natal-facts';
 import { collectTraditionalRoots, type buildDayMasterStrength } from './strength';
@@ -10,8 +11,8 @@ const rules = [
   { pair: ['丙', '辛'], element: '水', jealous: '丁' }, { pair: ['丁', '壬'], element: '木', jealous: '丙' },
   { pair: ['戊', '癸'], element: '火', jealous: '己' },
 ] as const;
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const generates: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 const stemClash: Record<string, string> = { 甲: '庚', 庚: '甲', 乙: '辛', 辛: '乙', 丙: '壬', 壬: '丙', 丁: '癸', 癸: '丁' };
 const roots = collectTraditionalRoots;
 

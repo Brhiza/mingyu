@@ -112,24 +112,21 @@ test('八字默认精简模式无损去重瘦身，保留全部核心标题与�
   const compact = await calculate('bazi', input);
   const full = await calculate('bazi', { ...input, prompt: { detailMode: 'full' } });
 
-  // 默认模式应显著短于完整模式（瘦身超 10%，且无损保留全部标题与盘面事实）
-  assert.ok(compact.prompt.text.length < full.prompt.text.length * 0.75, `默认模式(${compact.prompt.text.length})应显著短于完整模式(${full.prompt.text.length})`);
-  assert.ok(compact.prompt.text.length < 4950, `默认八字提示词应完成 10%–20% 瘦身（当前 ${compact.prompt.text.length} 字）`);
+  // 默认模式应显著短于完整模式（源头去冗余后更紧凑，同时完整模式保留全部审计中间段）
+  assert.ok(compact.prompt.text.length < full.prompt.text.length * 0.65, `默认模式(${compact.prompt.text.length})应显著短于完整模式(${full.prompt.text.length})`);
+  assert.ok(compact.prompt.text.length < 4400, `默认八字提示词应源头瘦身（当前 ${compact.prompt.text.length} 字）`);
 
   for (const heading of [
     '【八字命盘】',
+    '【局势要点】',
     '【四柱】',
-    '【本命神煞（56项）】',
+    '【本命神煞（71项）】',
     '【本命结构】',
-    '【通根与月令透干】',
     '【日主旺衰条件模型】',
     '【普通月令取格候选】',
-    '【已迁移路线的格局排序】',
     '【格局组合与互制关系】',
     '【格局透干与根气条件】',
-    '【取用基础取向】',
     '【调候条件候选】',
-    '【调候条件协调】',
     '【司权、病药与通关候选】',
     '【用神裁定与落位】',
     '【十神分布】',
@@ -139,6 +136,10 @@ test('八字默认精简模式无损去重瘦身，保留全部核心标题与�
     '【岁运神煞】',
   ]) {
     assert.ok(compact.prompt.text.includes(heading), `默认模式缺少标题 ${heading}`);
+  }
+  for (const auditHeading of ['【通根与月令透干】', '【已迁移路线的格局排序】', '【取用基础取向】', '【调候条件协调】']) {
+    assert.equal(compact.prompt.text.includes(auditHeading), false, `默认模式应源头省去冗余中间段：${auditHeading}`);
+    assert.equal(full.prompt.text.includes(auditHeading), true, `完整模式应保留审计中间段：${auditHeading}`);
   }
 
   // 默认模式已去除中段重复的冗长 limitation 套话

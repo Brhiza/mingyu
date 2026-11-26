@@ -3,7 +3,8 @@ import type { ziweiIndependentInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { chinaDstAdvisory, resolveBirthClock, correctBirthClock, lunarDateDiscrepancy } from './birth-time';
 import { createTimezoneOffsetReader, getCivilDateTimeAtFixedOffset, createUtcTimestamp } from './huangji/civil-time';
-import { buildScopePalaceFlying, formatFeixingHighlights, formatNatalFlying, formatScopeFlying, formatScopeFlyingHighlights, formatScopeMutagens, locateScopeMutagens } from './ziwei-flying';
+import { buildScopePalaceFlying, buildThreeTierMutagenOverlay, buildZiweiStructureHighlights, formatFeixingHighlights, formatNatalFlying, formatScopeFlying, formatScopeFlyingHighlights, formatScopeMutagens, formatThreeTierMutagenOverlay, locateScopeMutagens } from './ziwei-flying';
+import { buildMethodSituationDigest } from './situation-digest';
 import { detectZiweiPatterns, formatZiweiPatternRelations, formatZiweiPatterns } from './ziwei-patterns';
 import { dedupeExcerpts, formatClassicExcerpts, selectZiweiClassics } from './classics';
 import { evaluateZiweiSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
@@ -21,6 +22,16 @@ import {
   type ZiweiEngineRules,
   type ZiweiStar,
 } from './ziwei/index';
+
+export function formatZiweiStarLabel(
+  star: { name: string; brightness?: string; mutagen?: string },
+  opts?: { parenBrightness?: boolean },
+): string {
+  const rawBright = star.brightness ?? '';
+  const bright = rawBright === '不' ? '不得' : rawBright;
+  const brightPart = bright ? (opts?.parenBrightness ? `(${bright})` : bright) : '';
+  return `${star.name}${brightPart}${star.mutagen ? `·化${star.mutagen}` : ''}`;
+}
 
 /** Collect major star names from 命宫/身宫, falling back to all natal palaces if empty. */
 export function collectZiweiMajorStars(
@@ -86,6 +97,19 @@ const leapLabels: Record<ZiweiEngineRules['leapMonthMode'], string> = {
   next: '闰月按次月处理',
 };
 
+const yearDivideLabels: Record<ZiweiEngineRules['yearDivide'], string> = {
+  normal: '农历年',
+  exact: '立春',
+};
+const horoscopeDivideLabels: Record<ZiweiEngineRules['horoscopeDivide'], string> = {
+  normal: '农历年',
+  exact: '立春',
+};
+const dayDivideLabels: Record<ZiweiEngineRules['dayDivide'], string> = {
+  forward: '归次日',
+  current: '归当日',
+};
+
 function formatZiweiRulesSummary(rules: ZiweiEngineRules): string {
   return [
     `${algorithmLabels[rules.algorithm]}安星`,
@@ -93,7 +117,7 @@ function formatZiweiRulesSummary(rules: ZiweiEngineRules): string {
     ...(rules.plateType !== 'heaven' ? [plateLabels[rules.plateType]] : []),
     ...(rules.tianmaMode !== 'year' ? ['月马'] : []),
     leapLabels[rules.leapMonthMode],
-    `年分界${rules.yearDivide}，运限分界${rules.horoscopeDivide}，晚子日界${rules.dayDivide}${rules.ageDivide === 'birthday' ? '，年龄分界birthday' : ''}`,
+    `年分界=${yearDivideLabels[rules.yearDivide] ?? rules.yearDivide}，运限分界=${horoscopeDivideLabels[rules.horoscopeDivide] ?? rules.horoscopeDivide}，晚子日界=${dayDivideLabels[rules.dayDivide] ?? rules.dayDivide}${rules.ageDivide === 'birthday' ? '，年龄分界=按生辰' : ''}`,
   ].join('；');
 }
 
@@ -237,8 +261,8 @@ async function calculateExactData(source: Source) {
         ? ['已开启十二大限、当前大限十年流年、流年十二流月时间线与运限十二宫逐宫飞化结构。']
         : ['默认仅展开指定参考瞬时运限四化定位；如需十二大限、十年流年与十二流月时间线，可传入 includeTimeline: true。']),
       '运限四化仅定位该层化星的本命与动态宫位，不直接证明现实事件应期。',
-      rules.ageDivide === 'birthday' ? '运限年龄按公历出生日换岁（birthday 口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。' : '运限年龄使用农历自然年换岁（normal 口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。',
-      rules.yearDivide === 'exact' || rules.horoscopeDivide === 'exact' ? '农历与干支历法基于统一历法引擎计算，exact 口径按精确交节瞬时分界；重大边界仍建议核对出生记录。' : '农历与干支历法基于统一历法引擎计算，normal 口径按农历正月初一/初一换年换月分界。',
+      rules.ageDivide === 'birthday' ? '运限年龄按公历出生日换岁（按生辰换岁口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。' : '运限年龄使用农历自然年换岁（农历年换岁口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。',
+      rules.yearDivide === 'exact' || rules.horoscopeDivide === 'exact' ? '农历与干支历法基于统一历法引擎计算，按精确交节瞬时分界；重大边界仍建议核对出生记录。' : '农历与干支历法基于统一历法引擎计算，按农历正月初一换年换月分界。',
       ...new Set([lunarDateDiscrepancy(effectiveDate), reference?.lunarDateWarning, chinaDstWarning].filter((item): item is string => !!item))], };
 }
 export type ZiweiExactData = Awaited<ReturnType<typeof calculateExactData>>;
@@ -365,10 +389,10 @@ function renderExact(data: ExactData, question: string, options?: Options) {
   const palaceText = palaces.map((p) => {
     const opposite = palaces[(p.index + 6) % 12];
     const majorStr = p.majorStars.length
-      ? p.majorStars.map((s) => `${s.name}${s.brightness ?? ''}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、')
-      : `无（空宫，借对宫${opposite.name}${opposite.earthlyBranch}：${opposite.majorStars.map((s) => `${s.name}${s.brightness ?? ''}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、') || '无主星'}）`;
+      ? p.majorStars.map((s) => formatZiweiStarLabel(s)).join('、')
+      : `无（空宫，借对宫${opposite.name}${opposite.earthlyBranch}：${opposite.majorStars.map((s) => formatZiweiStarLabel(s)).join('、') || '无主星'}）`;
     const rings = [p.changsheng12 ? `长生${p.changsheng12}` : '', p.boshi12 ? `博士${p.boshi12}` : '', p.suiqian12 ? `岁前${p.suiqian12}` : '', p.jiangqian12 ? `将前${p.jiangqian12}` : ''].filter(Boolean).join('、');
-    return `${p.name}（${p.heavenlyStem}${p.earthlyBranch}${p.isBodyPalace ? '，身宫' : ''}）：主星${majorStr}；辅星${p.minorStars.map((s) => `${s.name}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、') || '无'}；杂曜${p.adjectiveStars.map((s) => s.name).join('、') || '无'}${rings ? `；四圈［${rings}］` : ''}；大限${p.decadal.range.join('–')}岁`;
+    return `${p.name}（${p.heavenlyStem}${p.earthlyBranch}${p.isBodyPalace ? '，身宫' : ''}）：主星${majorStr}；辅星${p.minorStars.map((s) => `${s.name}${s.mutagen ? `·化${s.mutagen}` : ''}`).join('、') || '无'}；杂曜${p.adjectiveStars.map((s) => s.name).join('、') || '无'}${rings ? `；四圈［${rings}］` : ''}；大限${p.decadal.range.join('–')}岁`;
   }).join('\n');
   const mingPalace = palaces.find((p) => p.name === '命宫')!;
   const sanFangIndices = [mingPalace.index, (mingPalace.index + 4) % 12, (mingPalace.index + 8) % 12, (mingPalace.index + 6) % 12];
@@ -377,13 +401,22 @@ function renderExact(data: ExactData, question: string, options?: Options) {
     const opp = palaces[(idx + 6) % 12];
     const majors = p.majorStars.length ? p.majorStars : opp.majorStars;
     const tag = p.majorStars.length ? '' : '（借对宫）';
-    return `${p.name}${p.earthlyBranch}${tag}［${majors.map((s) => `${s.name}${s.brightness ?? ''}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、') || '无'}］`;
+    return `${p.name}${p.earthlyBranch}${tag}［${majors.map((s) => formatZiweiStarLabel(s)).join('、') || '无'}］`;
   }).join(' + ');
   const flyingText = formatNatalFlying(data.natal.palaces);
   const feixingHighlights = options?.schools?.includes('feixing') ? formatFeixingHighlights(data.natal.palaces) : '';
   const flowText = selected.map((key) => { const layer = data.reference!.layers[key];
     return `${scopeLabels[key]}：${layer.heavenlyStem}${layer.earthlyBranch}，宫位索引${layer.index}${layer.nominalAge === undefined ? '' : `，虚岁${layer.nominalAge}`}；四化禄权科忌依序为${layer.mutagen.join('、')}；${formatScopeMutagens(layer.mutagenPlacements)}；十二宫序${layer.palaceNames.join('、')}；流曜${layer.stars?.map((stars, index) => stars.length ? `${data.natal.palaces[index].earthlyBranch}宫${stars.map((s) => s.name).join('、')}` : '').filter(Boolean).join('；') || '未列'}。`;
   }).join('\n');
+  const threeTierOverlayText = data.reference?.layers
+    ? formatThreeTierMutagenOverlay(
+        buildThreeTierMutagenOverlay(
+          data.natal.palaces,
+          selected.includes('decadal') ? data.reference.layers.decadal.mutagenPlacements : undefined,
+          selected.includes('yearly') ? data.reference.layers.yearly.mutagenPlacements : undefined,
+        ),
+      )
+    : '';
   const flyingByScope = options?.schools?.includes('feixing') ? selected.map((key) => {
     const layer = data.reference!.layers[key];
     const keyCollisions = formatScopeFlyingHighlights(data.natal.palaces, scopeLabels[key], layer.palaceNames);
@@ -402,15 +435,20 @@ function renderExact(data: ExactData, question: string, options?: Options) {
   ].filter(Boolean).join('\n\n');
   const topic = options?.topic ?? 'life';
   const genderLabel = data.input.gender === 'male' ? '男' : data.input.gender === 'female' ? '女' : '';
+  const digestLines = buildMethodSituationDigest('ziwei', data, question);
+  const structureHighlights = buildZiweiStructureHighlights(data.natal.palaces);
   const text = [`【紫微斗数】\n${genderLabel ? `性别：${genderLabel}；` : ''}出生瞬时 ${data.basis.utcDateTime}，出生地钟表 ${data.basis.localDateTime}，排盘钟表 ${data.basis.correctedLocalDateTime}；安星日 ${data.basis.effectiveDate}、时辰索引 ${data.basis.effectiveTimeIndex}。\n命宫${data.natal.soulBranch}，身宫${data.natal.bodyBranch}，命主${data.natal.soul}，身主${data.natal.body}，${data.natal.fiveElementsClass}；${data.natal.chineseDate}。\n命宫三方四正（命/财/官/迁）：${sanFangSummary}。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【计算口径】\n${formatZiweiRulesSummary(data.basis.rules)}。`,
     `【本命十二宫】\n${palaceText}`, `【本命宫干四化】\n${flyingText}`,
+    structureHighlights ? `【空宫借星、夹宫与核心自化核验】\n${structureHighlights}` : '',
     feixingHighlights ? `【飞星关键脉络（离心自化/对宫/集禄集忌）】\n${feixingHighlights}` : '',
     `【本命格局】\n${formatZiweiPatterns(data.natal.patterns)}`,
     `【格局叠合与成败制衡关系】\n${formatZiweiPatternRelations(data.natal.palaces, data.natal.patterns)}`,
     buildCompactZiweiFortuneBlock(data, question, scope === 'origin' || scope === 'full' || scope === 'decadal'),
     data.dailyRange ? formatZiweiDailyRangeBlock(data.dailyRange, data.natal.palaces) : '',
     timelineText, flowText ? `【运限】\n参考当地 ${data.reference!.localDateTime}（UTC${data.reference!.timezone >= 0 ? '+' : ''}${data.reference!.timezone}）；${flowText}` : '',
+    threeTierOverlayText ? `【三代四化叠宫引动（本命×大限×流年）】\n${threeTierOverlayText}` : '',
     flyingByScope ? `【运限宫名映射说明】\n以下将本命物理宫的宫干四化按所选运限宫名重新标注；沿用本命宫干及本命化星，未另起运限宫干，也不计算流曜或跨层飞化。\n\n${flyingByScope}` : '',
     `【主题】\n${topicLabels[topic]}；优先核对${topicFocus[topic]}。根据盘中列出的实际宫位和星曜回答，列出依据、不同解释及需要现实核验的条件，不虚构未计算的格局或飞化。`,
     formatSchoolAlgorithmSection(evaluateZiweiSchoolAlgorithms(data, options?.schools)),

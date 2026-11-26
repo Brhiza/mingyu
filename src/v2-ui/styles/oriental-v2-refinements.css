@@ -4,8 +4,7 @@
  */
 
 /* 1. 东方印章标识（侧边栏与首页朱砂印） */
-.workspace-brand-seal,
-.workspace-home-seal {
+.workspace-brand-seal {
   font-family: var(--font-serif);
   background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
   border: 1px solid rgba(255, 255, 255, 0.26);
@@ -15,89 +14,50 @@
   letter-spacing: 0.02em;
 }
 
-.workspace-brand strong,
-.workspace-home-header h1,
-.traditional-board-head h3,
-.ziwei-traditional-head h3,
-.bazi-pillars-head h3 {
+.workspace-brand strong {
   font-family: var(--font-serif);
   letter-spacing: 0.03em;
 }
 
 /* 2. 干支与核心命盘字形宋楷化，提升传统盘面辨识度与书卷气 */
-.bazi-ganzhi-symbol,
-.main-char,
-.ziwei-grid-cell-title,
-.traditional-liuyao-hexagram-title,
-.traditional-qimen-palace-name,
-.liuren-branch-char {
+.bazi-ganzhi-symbol {
   font-family: var(--font-serif);
 }
 
 /* 3. 五行标准东方色阶统一绑定 */
-.bazi-wuxing-label[data-wuxing='木'],
 .wuxing-mu {
   color: var(--wuxing-mu);
 }
 
-.bazi-wuxing-label[data-wuxing='火'],
 .wuxing-huo {
   color: var(--wuxing-huo);
 }
 
-.bazi-wuxing-label[data-wuxing='土'],
 .wuxing-tu {
   color: var(--wuxing-tu);
 }
 
-.bazi-wuxing-label[data-wuxing='金'],
 .wuxing-jin {
   color: var(--wuxing-jin);
 }
 
-.bazi-wuxing-label[data-wuxing='水'],
 .wuxing-shui {
   color: var(--wuxing-shui);
 }
 
 /* 4. 工作台与卡片宣纸质感精修 */
-.workspace-sidebar {
-  background: color-mix(in srgb, var(--surface-elevated-strong) 92%, var(--surface-page));
-  backdrop-filter: blur(12px);
-}
 
 .panel,
-.workspace-ui-surface,
-.bazi-pillars-card,
-.ziwei-traditional-shell,
-.traditional-board {
+.workspace-ui-surface {
   border-color: var(--border-soft);
   box-shadow: var(--shadow-card);
 }
 
-.workspace-home-composer,
-.workspace-home-card {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-}
-
 /* 5. 命录 (Minglu Wiki) 书卷排印与暗黑/宣纸主题统一 */
-.minglu-wiki-wrapper {
-  background-color: var(--surface-page);
-  color: var(--text-primary);
-}
 
-.minglu-wiki-toolbar,
-.minglu-wiki-sidebar,
 .minglu-section-card {
   background: var(--surface-base);
   border-color: var(--border-soft);
-}
-
-.minglu-toolbar-title,
-.minglu-section-title {
-  font-family: var(--font-serif);
-  color: var(--text-strong);
 }
 
 /* 6. 个人命录 · 小白全景档案 高辨识度切换按钮 (.workspace-result-minglu-btn) */
@@ -138,11 +98,3 @@
   padding: 10px 18px;
   font-size: 0.92rem;
 }
-
-.workspace-drawer-minglu-btn {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
-  font-weight: 600;
-}
-
-

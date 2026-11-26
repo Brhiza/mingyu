@@ -17,8 +17,6 @@ import {
   getPersonalCaseById,
   loadCompatibilityRecords,
   loadDivinationRecords,
-  loadPersonalCases,
-  onCasesStoreChange,
   saveDivinationRecord,
   saveTemporaryCase,
   setActiveCaseId,
@@ -30,28 +28,22 @@ import {
   type DivinationRecord,
   type PersonalCase,
 } from '../v2-ui/cases-store';
-import { renderCalendarPage, renderCultureToolsPage } from '../v2-ui/culture-and-calendar';
-import {
-  isDivinationFormMethod,
-  renderDivinationForm,
-  type DivinationFormMethod,
-} from '../v2-ui/divination-forms';
-import {
-  createPersonFormWorkspace,
-  type PersonFormWorkspaceController,
-  type PersonRole,
+import type {
+  PersonFormWorkspaceController,
+  PersonRole,
 } from '../v2-ui/person-form';
 import { type TimeReverseKnownInfo } from '../v2-ui/time-reverse';
 import {
   PERSONAL_CHART_TABS,
   buildCompatibilityChartPayload,
-  createResultPageController,
   isCompatibilityChartMethod,
+  isDivinationFormMethod,
   isPersonalChartMethod,
   type CompatibilityChartTabId,
+  type DivinationFormMethod,
   type PersonalChartTabId,
-  type ResultPageController,
-} from '../v2-ui/result-page';
+} from '../v2-ui/chart-payloads';
+import type { ResultPageController } from '../v2-ui/result-page';
 import {
   applyGlobalRulesToPayload,
   loadGlobalRules,
@@ -60,34 +52,50 @@ import {
 } from '../web-settings';
 import {
   createEmptyAgentSession,
-  loadActiveAgentSessionId,
-  loadAgentSessions,
-  restoreToolTraceResult,
-  runAgentTurn,
-  saveActiveAgentSessionId,
-  saveAgentSessions,
-  type AgentChatMessage,
   type AgentChatSession,
   type AgentToolTrace,
-} from '../web-agent';
+} from '../web-agent-storage';
 import { isChatAgentActive, isWebAiEnabled } from '../web-ai';
+import { recordLocalRouterMethodChoice } from '../router-model/local-preferences';
+import type { MethodId as RouterMethodId } from '../router-model/features';
+import { useAgentChat } from './hooks/useAgentChat';
+import { useCasesStore } from './hooks/useCasesStore';
 import { Button, Card, Input, PageHeader, SegmentedTabs, SubPillBar } from '../components/ui';
 import { cn } from '../lib/utils';
-import { BirthRangeScanPanel } from './components/BirthRangeScanPanel';
-import { CaseEditorModal } from './components/CaseEditorModal';
 import { CasesDrawer, type CaseFillTarget } from './components/CasesDrawer';
-import { ChatPage } from './components/ChatPage';
-import { ConnectPage } from './components/ConnectPage';
 import { DomSlot } from './components/DomSlot';
-import { FortunePage } from './components/FortunePage';
 import { HomeHistoryCard, HistoryPage } from './components/HistoryPanel';
 import { HomePage } from './components/HomePage';
 import type { LocalAgentApplyPayload } from './components/LocalAgentBar';
-import { PortalModals } from './components/PortalModals';
-import { SettingsModal } from './components/SettingsModal';
-import { TimeReversePage } from './components/TimeReversePage';
-import { TutorialModal } from './components/TutorialModal';
-import { ZhouyiLookupPanel } from './components/ZhouyiLookupPanel';
+import { PortalModalsHost } from './components/PortalModalsHost';
+
+const CaseEditorModal = React.lazy(() =>
+  import('./components/CaseEditorModal').then((m) => ({ default: m.CaseEditorModal })),
+);
+const BirthRangeScanPanel = React.lazy(() =>
+  import('./components/BirthRangeScanPanel').then((m) => ({ default: m.BirthRangeScanPanel })),
+);
+const ChatPage = React.lazy(() =>
+  import('./components/ChatPage').then((m) => ({ default: m.ChatPage })),
+);
+const ConnectPage = React.lazy(() =>
+  import('./components/ConnectPage').then((m) => ({ default: m.ConnectPage })),
+);
+const FortunePage = React.lazy(() =>
+  import('./components/FortunePage').then((m) => ({ default: m.FortunePage })),
+);
+const SettingsModal = React.lazy(() =>
+  import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+);
+const TimeReversePage = React.lazy(() =>
+  import('./components/TimeReversePage').then((m) => ({ default: m.TimeReversePage })),
+);
+const TutorialModal = React.lazy(() =>
+  import('./components/TutorialModal').then((m) => ({ default: m.TutorialModal })),
+);
+const ZhouyiLookupPanel = React.lazy(() =>
+  import('./components/ZhouyiLookupPanel').then((m) => ({ default: m.ZhouyiLookupPanel })),
+);
 import {
   DIVINATION_FLAT_ITEMS,
   HOME_INSTANT_CAST_CATALOG,
@@ -133,7 +141,10 @@ import {
 } from './workspace-router';
 
 export interface WorkspaceAppBridge {
-  setAiPrompt: (prompt: { text: string }) => void;
+  setAiPrompt: (prompt: {
+    text: string;
+    followUps?: Array<{ label: string; question: string; reason?: string }>;
+  }) => void;
   clearReading: () => void;
 }
 
@@ -229,25 +240,13 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
   );
 
   // Store revision for cases / history sync
-  const [storeRevision, setStoreRevision] = React.useState(0);
-  React.useEffect(() => {
-    return onCasesStoreChange(() => setStoreRevision((n) => n + 1));
-  }, []);
-
-  const personalCases = React.useMemo(() => {
-    void storeRevision;
-    return loadPersonalCases();
-  }, [storeRevision]);
-
-  const divinationRecords = React.useMemo(() => {
-    void storeRevision;
-    return loadDivinationRecords();
-  }, [storeRevision]);
-
-  const compatibilityRecords = React.useMemo(() => {
-    void storeRevision;
-    return loadCompatibilityRecords();
-  }, [storeRevision]);
+  const {
+    storeRevision,
+    setStoreRevision,
+    personalCases,
+    divinationRecords,
+    compatibilityRecords,
+  } = useCasesStore();
 
   // Drawers & Modals state
   const [drawerTab, setDrawerTab] = React.useState<'cases' | null>(null);
@@ -272,6 +271,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
 
   // Form states
   const [chartError, setChartError] = React.useState<string | null>(null);
+  const [personFormReady, setPersonFormReady] = React.useState(false);
   const [numPurpose, setNumPurpose] = React.useState<'phone' | 'plate' | 'general'>('phone');
   const [numVal, setNumVal] = React.useState('');
   const [numError, setNumError] = React.useState<string | null>(null);
@@ -298,55 +298,29 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     };
   }, []);
 
-  const [agentSessions, setAgentSessions] = React.useState<AgentChatSession[]>(() => {
-    const loaded = loadAgentSessions();
-    if (loaded.some((s) => s.messages.length === 0)) return loaded;
-    return [createEmptyAgentSession(getActiveCaseId()), ...loaded];
-  });
-  const [activeAgentSessionId, setActiveAgentSessionId] = React.useState<string>(() => {
-    const loaded = loadAgentSessions();
-    if (
-      initialLocation.chatSessionId &&
-      loaded.some((s) => s.id === initialLocation.chatSessionId)
-    ) {
-      return initialLocation.chatSessionId;
-    }
-    const emptySession = loaded.find((s) => s.messages.length === 0);
-    return emptySession?.id ?? '';
+  const {
+    agentSessions,
+    setAgentSessions,
+    activeAgentSessionId,
+    setActiveAgentSessionId,
+    activeAgentSession,
+    agentRunning,
+    agentStatusText,
+    agentSessionsRef,
+    agentRunningRef,
+    handleAgentSelectAttachedCase,
+    handleAgentNewChat,
+    handleAgentSelectSession,
+    handleAgentDeleteSession,
+    handleAgentStop,
+    handleAgentSendMessage,
+  } = useAgentChat({
+    initialChatSessionId: initialLocation.chatSessionId,
+    activeRoute,
+    activeDomainHint,
+    personalCases,
   });
   const [homeVisitRevision, setHomeVisitRevision] = React.useState(0);
-  const [agentRunning, setAgentRunning] = React.useState(false);
-  const [agentStatusText, setAgentStatusText] = React.useState('');
-  const agentAbortRef = React.useRef<AbortController | null>(null);
-  const agentSessionsRef = React.useRef(agentSessions);
-  agentSessionsRef.current = agentSessions;
-
-  const activeAgentSession = React.useMemo(() => {
-    return (
-      agentSessions.find((s) => s.id === activeAgentSessionId) ??
-      agentSessions.find((s) => s.messages.length === 0) ??
-      agentSessions[0]
-    );
-  }, [agentSessions, activeAgentSessionId]);
-
-  React.useEffect(() => {
-    if (activeAgentSession && activeAgentSession.id !== activeAgentSessionId) {
-      setActiveAgentSessionId(activeAgentSession.id);
-    }
-  }, [activeAgentSession, activeAgentSessionId]);
-
-  React.useEffect(() => {
-    if (activeAgentSession?.id) {
-      saveActiveAgentSessionId(activeAgentSession.id);
-    }
-  }, [activeAgentSession?.id]);
-
-  // Persist sessions when not actively streaming tokens
-  React.useEffect(() => {
-    if (!agentRunning) {
-      saveAgentSessions(agentSessions);
-    }
-  }, [agentSessions, agentRunning]);
 
   // Refs for DOM-mounted domain engines
   const resultStageRef = React.useRef<HTMLDivElement>(null);
@@ -429,9 +403,6 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     }
     return '占卜起卦';
   };
-
-  const agentRunningRef = React.useRef(agentRunning);
-  agentRunningRef.current = agentRunning;
 
   const activeResultMetaRef = React.useRef<{
     mode: ResultMode;
@@ -680,9 +651,37 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
 
   const lastAiMethodRef = React.useRef<Method | null>(null);
 
+  const resultControllerPromiseRef = React.useRef<Promise<ResultPageController | null> | null>(null);
+
+  const ensureResultController = React.useCallback(async (): Promise<ResultPageController | null> => {
+    if (resultControllerRef.current) return resultControllerRef.current;
+    const resultHost = resultStageRef.current;
+    if (!resultHost) return null;
+    if (!resultControllerPromiseRef.current) {
+      resultControllerPromiseRef.current = import('../v2-ui/result-page')
+        .then(({ createResultPageController }) => {
+          if (!resultControllerRef.current && resultStageRef.current) {
+            resultControllerRef.current = createResultPageController({
+              container: resultStageRef.current,
+              sharedAiPane,
+              onBackToForm: (m) => callbacksRef.current.onBackToForm(m),
+              onOpenSwitchPerson: () => callbacksRef.current.onOpenSwitchPerson(),
+              onActiveResultChange: (m, p, r) => callbacksRef.current.onActiveResultChange(m, p, r),
+              onMobileAssistantToggle: (open) => callbacksRef.current.onMobileAssistantToggle(open),
+            });
+          }
+          return resultControllerRef.current;
+        })
+        .finally(() => {
+          resultControllerPromiseRef.current = null;
+        });
+    }
+    return resultControllerPromiseRef.current;
+  }, [sharedAiPane]);
+
   const openResult = React.useCallback(
     async (ctx: Parameters<ResultPageController['openWithContext']>[0]) => {
-      const ctrl = resultControllerRef.current;
+      const ctrl = await ensureResultController();
       if (!ctrl) return;
       lastAiMethodRef.current = ctx.activeMethod;
       lastResultContextRef.current = {
@@ -703,7 +702,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       await ctrl.openWithContext(ctx);
       ensureAiPaneDockedForResult();
     },
-    [bridge, ensureAiPaneDockedForResult],
+    [bridge, ensureAiPaneDockedForResult, ensureResultController],
   );
 
   const restoreResultFromLocation = React.useCallback(
@@ -842,7 +841,12 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     onActiveResultChange: (
       method: Method,
       payload: Record<string, unknown>,
-      res: { summary?: unknown; prompt?: { text: string }; data?: unknown },
+      res: {
+        summary?: unknown;
+        prompt?: { text: string };
+        data?: unknown;
+        followUps?: Array<{ label: string; question: string; reason?: string }>;
+      },
     ) => void;
     onMobileAssistantToggle: (open: boolean) => void;
   }>({
@@ -909,12 +913,16 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     },
     onActiveResultChange: (method, payload, res) => {
       setActiveMethod(method);
+      recordLocalRouterMethodChoice(method as RouterMethodId);
       if (lastAiMethodRef.current !== null && lastAiMethodRef.current !== method) {
         bridge.clearReading();
       }
       lastAiMethodRef.current = method;
       if (res.prompt?.text) {
-        bridge.setAiPrompt({ text: res.prompt.text });
+        bridge.setAiPrompt({
+          text: res.prompt.text,
+          ...(Array.isArray(res.followUps) ? { followUps: res.followUps } : {}),
+        });
       }
       if (
         isPersonalChartMethod(method) &&
@@ -966,19 +974,8 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
 
   const didInitialRouteSyncRef = React.useRef(false);
 
-  // Mount ResultController once cleanly & restore initial URL route if needed
+  // Sync initial canonical URL & restore initial /result route lazily if needed
   React.useEffect(() => {
-    const resultHost = resultStageRef.current;
-    if (resultHost && !resultControllerRef.current) {
-      resultControllerRef.current = createResultPageController({
-        container: resultHost,
-        sharedAiPane,
-        onBackToForm: (m) => callbacksRef.current.onBackToForm(m),
-        onOpenSwitchPerson: () => callbacksRef.current.onOpenSwitchPerson(),
-        onActiveResultChange: (m, p, r) => callbacksRef.current.onActiveResultChange(m, p, r),
-        onMobileAssistantToggle: (open) => callbacksRef.current.onMobileAssistantToggle(open),
-      });
-    }
     if (!didInitialRouteSyncRef.current) {
       didInitialRouteSyncRef.current = true;
       if (typeof window !== 'undefined') {
@@ -991,7 +988,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
         void restoreResultFromLocation(initialLocation);
       }
     }
-  }, [sharedAiPane, initialLocation, restoreResultFromLocation]);
+  }, [initialLocation, restoreResultFromLocation]);
 
   // 同步浏览器标题
   React.useEffect(() => {
@@ -1228,7 +1225,8 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       return;
     }
 
-    const q = customQuestion?.trim() || '请综合解析当前盘面重点与应对建议。';
+    const userQ = customQuestion?.trim() ?? '';
+    const q = userQ || '未指定具体问题';
     let calcMethod: Method = 'liuren';
     let rawPayload: Record<string, unknown> = { question: q };
 
@@ -1333,7 +1331,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     const savedDiv = saveDivinationRecord({
       type: 'divination',
       method: calcMethod,
-      question: q,
+      question: userQ,
       caseId: null,
       inputJson: JSON.stringify(payload),
       result: res,
@@ -1351,7 +1349,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     await openResult({
       mode: 'divination',
       activeMethod: calcMethod,
-      question: q,
+      ...(userQ ? { question: userQ } : {}),
       initialPayload: payload,
       initialResult: res,
     });
@@ -1362,7 +1360,8 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     overrideChoice?: 'bazi' | 'ziwei' | 'astrolabe' | 'qimen' | 'liuren' | 'qizheng',
   ) => {
     const choice = overrideChoice ?? homeInstantChoice;
-    const q = customQuestion?.trim() || '请解析当前时刻的即时盘象与重点提示。';
+    const userQ = customQuestion?.trim() ?? '';
+    const q = userQ || '未指定具体问题';
     const { method, payload } = buildInstantPayload(
       choice,
       homeInstantTimeStandard,
@@ -1379,7 +1378,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     const savedInstant = saveDivinationRecord({
       type: 'instant',
       method: finalMethod,
-      question: q,
+      question: userQ,
       ...(isDirectInstant
         ? {}
         : { instantType: choice as 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' }),
@@ -1399,7 +1398,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     await openResult({
       mode: 'divination',
       activeMethod: finalMethod,
-      question: q,
+      ...(userQ ? { question: userQ } : {}),
       initialPayload: payload,
       initialResult: res,
     });
@@ -1484,18 +1483,33 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
 
     let firstCase: PersonalCase | null = null;
     let secondCase: PersonalCase | null = null;
-    if (payload.profiles.length >= 1) {
+    const attachedCase = payload.attachedCaseId ? getPersonalCaseById(payload.attachedCaseId) : null;
+    if (payload.profiles.length >= 2) {
       setActiveCaseId(null);
       firstCase = toPersonalCasePatch(payload.profiles[0]!, seededPerson, '命主一');
       saveTemporaryCase(firstCase);
-    }
-    if (payload.profiles.length >= 2) {
       secondCase = toPersonalCasePatch(
         payload.profiles[1]!,
         partnerSeed ?? seededPerson,
         '命主二',
       );
       setPartnerSeed(secondCase);
+    } else if (payload.profiles.length === 1) {
+      if (attachedCase && isCompatibilityChartMethod(payload.method)) {
+        firstCase = attachedCase;
+        secondCase = toPersonalCasePatch(
+          payload.profiles[0]!,
+          partnerSeed ?? seededPerson,
+          '命主二',
+        );
+        setPartnerSeed(secondCase);
+      } else {
+        setActiveCaseId(null);
+        firstCase = toPersonalCasePatch(payload.profiles[0]!, seededPerson, '命主一');
+        saveTemporaryCase(firstCase);
+      }
+    } else if (attachedCase) {
+      firstCase = attachedCase;
     }
     const rel = payload.relationship ?? compatRelationship;
     if (payload.relationship) {
@@ -1616,7 +1630,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       return;
     }
 
-    // 5. 即时占卜（六爻/梅花/奇门/六壬/小六壬/金口诀/塔罗/雷诺曼/灵签/诸葛/太乙）-> 直接本地起卦直出结果
+    // 5. 即时占卜（六爻/梅花/奇门/六壬/小六壬/金口诀/塔罗/雷诺曼/灵签/诸葛/太乙/随机起卦）-> 直接本地起卦直出结果
     const directDivinationMethods = new Set<string>([
       'liuyao',
       'meihua',
@@ -1629,6 +1643,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
       'ssgw',
       'zhuge',
       'taiyi',
+      'random-divination',
     ]);
     if (directDivinationMethods.has(method)) {
       await quickExecuteHomeTile(method, qText, payload.structured.castNumbers);
@@ -1917,200 +1932,8 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
     return activePerson;
   }, [activeRoute, storeRevision]);
 
-  const handleAgentSelectAttachedCase = (caseId: string | null) => {
-    if (!activeAgentSession) return;
-    setAgentSessions((prev) =>
-      prev.map((s) => (s.id === activeAgentSession.id ? { ...s, attachedCaseId: caseId } : s)),
-    );
-  };
-
-  const handleAgentNewChat = () => {
-    if (agentRunning) return;
-    const fresh = createEmptyAgentSession(activeAgentSession?.attachedCaseId ?? getActiveCaseId());
-    setAgentSessions((prev) => [fresh, ...prev]);
-    setActiveAgentSessionId(fresh.id);
-    if (activeRoute === 'chat' && typeof window !== 'undefined') {
-      const nextUrl = buildWorkspaceUrl({
-        route: 'chat',
-        domainHint: activeDomainHint,
-        chatSessionId: fresh.id,
-      });
-      window.history.replaceState(null, '', nextUrl);
-    }
-  };
-
-  const handleAgentSelectSession = (id: string) => {
-    if (agentRunning && id !== activeAgentSession?.id) {
-      agentAbortRef.current?.abort();
-    }
-    setActiveAgentSessionId(id);
-    if (activeRoute === 'chat' && typeof window !== 'undefined') {
-      const nextUrl = buildWorkspaceUrl({
-        route: 'chat',
-        domainHint: activeDomainHint,
-        chatSessionId: id,
-      });
-      window.history.replaceState(null, '', nextUrl);
-    }
-  };
-
-  const handleAgentDeleteSession = (id: string) => {
-    if (agentRunning && id === activeAgentSession?.id) return;
-    setAgentSessions((prev) => {
-      const filtered = prev.filter((s) => s.id !== id);
-      if (filtered.length > 0) {
-        if (id === activeAgentSession?.id) {
-          setActiveAgentSessionId(filtered[0].id);
-        }
-        return filtered;
-      }
-      const fresh = createEmptyAgentSession(getActiveCaseId());
-      setActiveAgentSessionId(fresh.id);
-      return [fresh];
-    });
-  };
-
-  const handleAgentStop = () => {
-    agentAbortRef.current?.abort();
-  };
-
-  const handleAgentSendMessage = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || agentRunning || !activeAgentSession) return;
-
-    const sessionId = activeAgentSession.id;
-    const attachedCase =
-      personalCases.find((c) => c.id === activeAgentSession.attachedCaseId) ?? null;
-    const nowIso = new Date().toISOString();
-    const userMsg: AgentChatMessage = {
-      id: `u_${Date.now().toString(36)}`,
-      role: 'user',
-      content: trimmed,
-      createdAt: nowIso,
-      ...(attachedCase ? { attachedCaseName: attachedCase.name } : {}),
-    };
-    const assistantMsgId = `a_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    const assistantPlaceholder: AgentChatMessage = {
-      id: assistantMsgId,
-      role: 'assistant',
-      content: '',
-      createdAt: nowIso,
-      toolTraces: [],
-      status: 'streaming',
-    };
-
-    const nextTitle =
-      activeAgentSession.messages.length === 0
-        ? trimmed.slice(0, 18) + (trimmed.length > 18 ? '…' : '')
-        : activeAgentSession.title;
-
-    setAgentSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionId
-          ? {
-              ...s,
-              title: nextTitle,
-              updatedAt: nowIso,
-              messages: [...s.messages, userMsg, assistantPlaceholder],
-            }
-          : s,
-      ),
-    );
-
-    const abortController = new AbortController();
-    agentAbortRef.current = abortController;
-    setAgentRunning(true);
-    setAgentStatusText('正在思考并选择合适工具…');
-
-    const priorApiHistory = activeAgentSession.apiHistory;
-
-    void runAgentTurn({
-      userText: trimmed,
-      priorApiHistory,
-      attachedCase,
-      signal: abortController.signal,
-      callbacks: {
-        onAssistantUpdate: ({ content, toolTraces, statusText }) => {
-          if (statusText) setAgentStatusText(statusText);
-          setAgentSessions((prev) =>
-            prev.map((s) =>
-              s.id === sessionId
-                ? {
-                    ...s,
-                    messages: s.messages.map((m) =>
-                      m.id === assistantMsgId ? { ...m, content, toolTraces } : m,
-                    ),
-                  }
-                : s,
-            ),
-          );
-        },
-      },
-    })
-      .then((res) => {
-        setAgentSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionId
-              ? {
-                  ...s,
-                  updatedAt: new Date().toISOString(),
-                  apiHistory: res.nextApiHistory,
-                  messages: s.messages.map((m) =>
-                    m.id === assistantMsgId
-                      ? {
-                          ...m,
-                          content: res.finalContent,
-                          toolTraces: res.toolTraces,
-                          status: 'done',
-                        }
-                      : m,
-                  ),
-                }
-              : s,
-          ),
-        );
-      })
-      .catch((err) => {
-        const isAborted =
-          abortController.signal.aborted ||
-          (err instanceof DOMException && err.name === 'AbortError');
-        const msgText = isAborted
-          ? undefined
-          : err instanceof TypeError
-            ? '无法连接模型服务，请检查接口地址、网络或跨域设置。'
-            : err instanceof Error
-              ? err.message
-              : '模型请求失败。';
-        setAgentSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionId
-              ? {
-                  ...s,
-                  updatedAt: new Date().toISOString(),
-                  messages: s.messages.map((m) =>
-                    m.id === assistantMsgId
-                      ? {
-                          ...m,
-                          status: isAborted ? 'stopped' : 'error',
-                          ...(msgText ? { errorMessage: msgText } : {}),
-                        }
-                      : m,
-                  ),
-                }
-              : s,
-          ),
-        );
-      })
-      .finally(() => {
-        if (agentAbortRef.current === abortController) {
-          agentAbortRef.current = null;
-          setAgentRunning(false);
-          setAgentStatusText('');
-        }
-      });
-  };
-
   const handleOpenVisualResultFromAgent = async (trace: AgentToolTrace) => {
+    const { restoreToolTraceResult } = await import('../web-agent');
     const restored = await restoreToolTraceResult(trace);
     if (!restored) return;
     const targetMethod = restored.method;
@@ -2297,7 +2120,6 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
             </span>
             <span className="workspace-topbar-brand-copy">
               <strong>命语</strong>
-              <small>东方术数与星占工作台</small>
             </span>
           </button>
 
@@ -2410,6 +2232,13 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
           )}
         >
           <div className="workspace-page">
+            <React.Suspense
+              fallback={
+                <div className="workspace-ui-card p-6 text-sm text-[var(--text-muted)]">
+                  正在加载页面模块…
+                </div>
+              }
+            >
             {/* 首页 */}
             {activeRoute === 'home' ? (
               <HomePage
@@ -2417,6 +2246,13 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                 homeInstantPlace={homeInstantPlace}
                 homeCustomization={homeCustomization}
                 caseCount={personalCases.length}
+                cases={personalCases}
+                attachedCaseId={activeAgentSession?.attachedCaseId ?? getActiveCaseId()}
+                onSelectAttachedCase={(caseId) => {
+                  handleAgentSelectAttachedCase(caseId);
+                  setActiveCaseId(caseId);
+                  setStoreRevision((v) => v + 1);
+                }}
                 birthPlaceModal={sharedPlaceModal}
                 chatModeActive={chatModeActive}
                 homeVisitRevision={homeVisitRevision}
@@ -2554,53 +2390,64 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                   <DomSlot
                     deps={[isCompatibilityMode, preferredPersonalChartTab]}
                     mount={(container) => {
-                      const ws = createPersonFormWorkspace({
-                        mode: isCompatibilityMode ? 'compatibility' : 'single',
-                        method: isCompatibilityMode ? 'bazi-synastry' : preferredPersonalChartTab,
-                        initialSelf: seededPerson,
-                        ...(partnerSeed ? { initialPartner: partnerSeed } : {}),
-                        defaultSaveToCase: true,
-                        onRequestCasePicker: (role, applyCase) => {
-                          setDrawerFillTarget(isCompatibilityMode ? { role, applyCase } : null);
-                          setDrawerTab('cases');
-                        },
-                        onOpenTimeReverse: (person, role) => {
-                          if (role === 'self' && person.isTemporary) {
-                            saveTemporaryCase(person);
-                          } else if (role === 'partner') {
-                            setPartnerSeed(person);
-                          }
-                          setTimeReverseContext({ person, role });
-                          navigateToRoute('time-reverse', { domain: 'personal-chart' });
-                        },
-                        onOpenRangeScan: (person, role) => {
-                          if (role === 'self' && person.isTemporary) {
-                            saveTemporaryCase(person);
-                          }
-                          const targetRangeMethod =
-                            preferredPersonalChartTab === 'qizheng' ? 'qizheng-range' : 'astrolabe-range';
-                          setRangeScanContext({ person, method: targetRangeMethod });
-                          navigateToRoute('chart-input', {
-                            featureId: 'range',
-                            method: targetRangeMethod,
-                            domain: 'personal-chart',
-                          });
-                        },
-                        onChange: (state) => {
-                          if (state.self.isTemporary) {
-                            saveTemporaryCase(state.self);
-                          }
-                          if (state.partner) {
-                            setPartnerSeed(state.partner);
-                          }
-                        },
+                      let disposed = false;
+                      let ws: PersonFormWorkspaceController | null = null;
+                      setPersonFormReady(false);
+                      void import('../v2-ui/person-form').then(({ createPersonFormWorkspace }) => {
+                        if (disposed) return;
+                        ws = createPersonFormWorkspace({
+                          mode: isCompatibilityMode ? 'compatibility' : 'single',
+                          method: isCompatibilityMode ? 'bazi-synastry' : preferredPersonalChartTab,
+                          initialSelf: seededPerson,
+                          ...(partnerSeed ? { initialPartner: partnerSeed } : {}),
+                          defaultSaveToCase: true,
+                          onRequestCasePicker: (role, applyCase) => {
+                            setDrawerFillTarget(isCompatibilityMode ? { role, applyCase } : null);
+                            setDrawerTab('cases');
+                          },
+                          onOpenTimeReverse: (person, role) => {
+                            if (role === 'self' && person.isTemporary) {
+                              saveTemporaryCase(person);
+                            } else if (role === 'partner') {
+                              setPartnerSeed(person);
+                            }
+                            setTimeReverseContext({ person, role });
+                            navigateToRoute('time-reverse', { domain: 'personal-chart' });
+                          },
+                          onOpenRangeScan: (person, role) => {
+                            if (role === 'self' && person.isTemporary) {
+                              saveTemporaryCase(person);
+                            }
+                            const targetRangeMethod =
+                              preferredPersonalChartTab === 'qizheng' ? 'qizheng-range' : 'astrolabe-range';
+                            setRangeScanContext({ person, method: targetRangeMethod });
+                            navigateToRoute('chart-input', {
+                              featureId: 'range',
+                              method: targetRangeMethod,
+                              domain: 'personal-chart',
+                            });
+                          },
+                          onChange: (state) => {
+                            if (state.self.isTemporary) {
+                              saveTemporaryCase(state.self);
+                            }
+                            if (state.partner) {
+                              setPartnerSeed(state.partner);
+                            }
+                          },
+                        });
+                        personWorkspaceRef.current = ws;
+                        container.replaceChildren(ws.element);
+                        setPersonFormReady(true);
                       });
-                      personWorkspaceRef.current = ws;
-                      container.replaceChildren(ws.element);
                       return () => {
-                        ws.destroy();
-                        if (personWorkspaceRef.current === ws) {
-                          personWorkspaceRef.current = null;
+                        disposed = true;
+                        setPersonFormReady(false);
+                        if (ws) {
+                          ws.destroy();
+                          if (personWorkspaceRef.current === ws) {
+                            personWorkspaceRef.current = null;
+                          }
                         }
                       };
                     }}
@@ -2632,13 +2479,19 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                     ) : null}
                     {chartError ? <div className="workspace-ui-form-error">{chartError}</div> : null}
                     <div className="workspace-ui-form-actions is-sticky-mobile">
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        onClick={() => void handleChartSubmit()}
-                      >
-                        {isCompatibilityMode ? '开始合盘' : '开始排盘'}
-                      </Button>
+                      {personFormReady ? (
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          onClick={() => void handleChartSubmit()}
+                        >
+                          {isCompatibilityMode ? '开始合盘' : '开始排盘'}
+                        </Button>
+                      ) : (
+                        <Button variant="primary" size="lg" disabled>
+                          正在加载生辰表单…
+                        </Button>
+                      )}
                     </div>
                   </section>
                 </>
@@ -2696,22 +2549,29 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
               <DomSlot
                 deps={[activeDivMethod]}
                 mount={(container) => {
+                  let cancelled = false;
                   divinationLatestPayloadRef.current = {};
-                  renderDivinationForm({
-                    container,
-                    method: activeDivMethod,
-                    showSubmitButton: true,
-                    onChange: (next) => {
-                      divinationLatestPayloadRef.current = next;
-                    },
-                    onSubmit: (submitted) => {
-                      void executeDivination(
-                        activeDivMethod,
-                        submitted ?? divinationLatestPayloadRef.current,
-                      );
-                    },
+                  container.textContent = '正在加载起卦表单…';
+                  void import('../v2-ui/divination-forms').then(({ renderDivinationForm }) => {
+                    if (cancelled) return;
+                    container.replaceChildren();
+                    renderDivinationForm({
+                      container,
+                      method: activeDivMethod,
+                      showSubmitButton: true,
+                      onChange: (next) => {
+                        divinationLatestPayloadRef.current = next;
+                      },
+                      onSubmit: (submitted) => {
+                        void executeDivination(
+                          activeDivMethod,
+                          submitted ?? divinationLatestPayloadRef.current,
+                        );
+                      },
+                    });
                   });
                   return () => {
+                    cancelled = true;
                     container.replaceChildren();
                   };
                 }}
@@ -2790,12 +2650,21 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                       className="workspace-culture-page w-full min-w-0"
                       deps={[currentNameCharSubTab]}
                       mount={(container) => {
-                        renderCultureToolsPage({
-                          container,
-                          initialMethod: currentNameCharSubTab,
-                          hideHeader: true,
+                        let cancelled = false;
+                        container.textContent = '正在加载字理工具…';
+                        void import('../v2-ui/culture-and-calendar').then(({ renderCultureToolsPage }) => {
+                          if (cancelled) return;
+                          container.replaceChildren();
+                          renderCultureToolsPage({
+                            container,
+                            initialMethod: currentNameCharSubTab,
+                            hideHeader: true,
+                          });
                         });
-                        return () => container.replaceChildren();
+                        return () => {
+                          cancelled = true;
+                          container.replaceChildren();
+                        };
                       }}
                     />
                   )}
@@ -2807,12 +2676,21 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                   className="workspace-culture-page w-full min-w-0"
                   deps={['calendar']}
                   mount={(container) => {
-                    renderCalendarPage({
-                      container,
-                      initialMethod: 'calendar',
-                      hideHeader: true,
+                    let cancelled = false;
+                    container.textContent = '正在加载万年历…';
+                    void import('../v2-ui/culture-and-calendar').then(({ renderCalendarPage }) => {
+                      if (cancelled) return;
+                      container.replaceChildren();
+                      renderCalendarPage({
+                        container,
+                        initialMethod: 'calendar',
+                        hideHeader: true,
+                      });
                     });
-                    return () => container.replaceChildren();
+                    return () => {
+                      cancelled = true;
+                      container.replaceChildren();
+                    };
                   }}
                 />
               ) : null}
@@ -2862,23 +2740,30 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
                 <DomSlot
                   deps={[currentUtilityMainTab]}
                   mount={(container) => {
+                    let cancelled = false;
                     const target: DivinationFormMethod = currentUtilityMainTab;
                     divinationLatestPayloadRef.current = {};
-                    renderDivinationForm({
-                      container,
-                      method: target,
-                      showSubmitButton: true,
-                      onChange: (next) => {
-                        divinationLatestPayloadRef.current = next;
-                      },
-                      onSubmit: (submitted) => {
-                        void executeDivination(
-                          target,
-                          submitted ?? divinationLatestPayloadRef.current,
-                        );
-                      },
+                    container.textContent = '正在加载工具表单…';
+                    void import('../v2-ui/divination-forms').then(({ renderDivinationForm }) => {
+                      if (cancelled) return;
+                      container.replaceChildren();
+                      renderDivinationForm({
+                        container,
+                        method: target,
+                        showSubmitButton: true,
+                        onChange: (next) => {
+                          divinationLatestPayloadRef.current = next;
+                        },
+                        onSubmit: (submitted) => {
+                          void executeDivination(
+                            target,
+                            submitted ?? divinationLatestPayloadRef.current,
+                          );
+                        },
+                      });
                     });
                     return () => {
+                      cancelled = true;
                       container.replaceChildren();
                     };
                   }}
@@ -2959,6 +2844,7 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
 
           {/* 全宽结果页 */}
           <div ref={resultStageRef} hidden={activeRoute !== 'result'} className="w-full min-w-0" />
+            </React.Suspense>
         </div>
         </main>
 
@@ -3122,59 +3008,69 @@ export function WorkspaceApp({ bridge, sharedAiPane }: WorkspaceAppProps) {
         ))}
       </nav>
 
-      {/* 7. 个人档案新建 / 编辑弹窗 */}
-      <CaseEditorModal
-        open={caseEditorState.open}
-        editingCase={caseEditorState.editingCase}
-        birthPlaceModal={sharedPlaceModal}
-        onClose={() => setCaseEditorState({ open: false, editingCase: null })}
-        onSaved={(saved) => {
-          setStoreRevision((n) => n + 1);
-          setFortuneFocusCaseId(saved.id);
-          if (activeRoute === 'chart-input' && personWorkspaceRef.current) {
-            personWorkspaceRef.current.selfCard.setPerson(saved);
-          } else if (activeRoute === 'result') {
-            void resultControllerRef.current?.refreshForActiveCase(saved);
-          }
-        }}
-      />
+      {/* 7. 个人档案新建 / 编辑弹窗（按需懒加载） */}
+      <React.Suspense fallback={null}>
+        {caseEditorState.open ? (
+          <CaseEditorModal
+            open={caseEditorState.open}
+            editingCase={caseEditorState.editingCase}
+            birthPlaceModal={sharedPlaceModal}
+            onClose={() => setCaseEditorState({ open: false, editingCase: null })}
+            onSaved={(saved) => {
+              setStoreRevision((n) => n + 1);
+              setFortuneFocusCaseId(saved.id);
+              if (activeRoute === 'chart-input' && personWorkspaceRef.current) {
+                personWorkspaceRef.current.selfCard.setPerson(saved);
+              } else if (activeRoute === 'result') {
+                void resultControllerRef.current?.refreshForActiveCase(saved);
+              }
+            }}
+          />
+        ) : null}
+      </React.Suspense>
 
-      {/* 8. 工作台与术数设置弹窗 */}
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        preferences={preferences}
-        homePinActionMode={homePinActionMode}
-        birthPlaceModal={sharedPlaceModal}
-        onHomePinActionModeChange={handleHomePinActionChange}
-        onSaveAll={(nextPrefs, nextRules) => {
-          const savedPrefs = saveWorkspacePreferences(nextPrefs);
-          saveGlobalRules(nextRules);
-          setPreferences(savedPrefs);
-          setPreferredPersonalChartTab(savedPrefs.defaultChartFeature);
-          setHomeDivinationFeature(savedPrefs.defaultDivinationFeature);
-          setCurrentDivinationMethod(savedPrefs.defaultDivinationFeature);
-          setHomeInstantTimeStandard(nextRules.time.defaultTimeStandard);
-          setHomeInstantPlace({
-            displayName: nextRules.time.defaultPlaceDisplayName,
-            longitude: nextRules.time.defaultPlaceLongitude,
-            latitude: nextRules.time.defaultPlaceLatitude,
-          });
-        }}
-        onOpenAiConnect={() => navigateToRoute('connect', { domain: 'connect' })}
-      />
+      {/* 8. 工作台与术数设置弹窗（按需懒加载） */}
+      <React.Suspense fallback={null}>
+        {settingsOpen ? (
+          <SettingsModal
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            preferences={preferences}
+            homePinActionMode={homePinActionMode}
+            birthPlaceModal={sharedPlaceModal}
+            onHomePinActionModeChange={handleHomePinActionChange}
+            onSaveAll={(nextPrefs, nextRules) => {
+              const savedPrefs = saveWorkspacePreferences(nextPrefs);
+              saveGlobalRules(nextRules);
+              setPreferences(savedPrefs);
+              setPreferredPersonalChartTab(savedPrefs.defaultChartFeature);
+              setHomeDivinationFeature(savedPrefs.defaultDivinationFeature);
+              setCurrentDivinationMethod(savedPrefs.defaultDivinationFeature);
+              setHomeInstantTimeStandard(nextRules.time.defaultTimeStandard);
+              setHomeInstantPlace({
+                displayName: nextRules.time.defaultPlaceDisplayName,
+                longitude: nextRules.time.defaultPlaceLongitude,
+                latitude: nextRules.time.defaultPlaceLatitude,
+              });
+            }}
+            onOpenAiConnect={() => navigateToRoute('connect', { domain: 'connect' })}
+          />
+        ) : null}
 
-      <TutorialModal
-        open={tutorialOpen}
-        onOpenChange={setTutorialOpen}
-        onOpenConnect={() => {
-          setTutorialOpen(false);
-          navigateToRoute('connect', { domain: 'connect' });
-        }}
-      />
+        {tutorialOpen ? (
+          <TutorialModal
+            open={tutorialOpen}
+            onOpenChange={setTutorialOpen}
+            onOpenConnect={() => {
+              setTutorialOpen(false);
+              navigateToRoute('connect', { domain: 'connect' });
+            }}
+          />
+        ) : null}
+      </React.Suspense>
 
-      {/* 9. 共享 Radix 弹窗宿主（出生地点 / 问题灵感 / 补充背景） */}
-      <PortalModals />
+      {/* 9. 共享 Radix 弹窗宿主（按需懒加载：出生地点 / 问题灵感 / 补充背景 / 术语词典） */}
+      <PortalModalsHost />
     </div>
   );
 }

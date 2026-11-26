@@ -1,8 +1,11 @@
 import type { Method } from '../core';
-import type { DivinationFormMethod } from '../v2-ui/divination-forms';
 import type { CultureToolTabId } from '../v2-ui/culture-and-calendar';
-import { PERSONAL_CHART_TABS, type PersonalChartTabId } from '../v2-ui/result-page';
-import { isDivinationFormMethod } from '../v2-ui/divination-forms';
+import {
+  PERSONAL_CHART_TABS,
+  isDivinationFormMethod,
+  type DivinationFormMethod,
+  type PersonalChartTabId,
+} from '../v2-ui/chart-payloads';
 import { applyGlobalRulesToPayload, loadGlobalRules } from '../web-settings';
 
 export type WorkspaceRouteId =
@@ -29,7 +32,6 @@ export type TopDomainId =
 
 export type WorkspaceThemeId = 'blossom' | 'jade' | 'indigo' | 'amber' | 'violet';
 export type HomeModeId = 'divination' | 'chart' | 'instant';
-export type HomeLayoutMode = 'tiled' | 'favorites' | 'minimal';
 export type HomePinActionMode = 'direct' | 'workbench';
 
 export type DivinationCenterMethod = DivinationFormMethod | 'number-energy';
@@ -173,7 +175,6 @@ export const HOME_ALL_TILES: ReadonlyArray<HomeTileItem> = [
 ];
 
 const WORKSPACE_PREFERENCES_STORAGE_KEY = 'mingyu_workspace_preferences_v5';
-const HOME_LAYOUT_STORAGE_KEY = 'mingyu.v2.homeLayoutMode';
 const HOME_PINS_STORAGE_KEY = 'mingyu.v2.pinnedHomeItems';
 const HOME_PIN_ACTION_STORAGE_KEY = 'mingyu.v2.homePinActionMode';
 const DEFAULT_HOME_PINS = ['liuren', 'tarot', 'liuyao', 'qimen', 'meihua', 'almanac'];
@@ -191,15 +192,7 @@ export function readWorkspacePreferences(): WorkspacePreferences {
   try {
     const raw = localStorage.getItem(WORKSPACE_PREFERENCES_STORAGE_KEY);
     if (!raw) {
-      const legacyTheme = localStorage.getItem('mingyu.v2.accentTheme');
-      const mappedTheme: WorkspaceThemeId =
-        legacyTheme === 'jade' ||
-        legacyTheme === 'indigo' ||
-        legacyTheme === 'amber' ||
-        legacyTheme === 'violet'
-          ? legacyTheme
-          : 'blossom';
-      return { ...DEFAULT_WORKSPACE_PREFERENCES, theme: mappedTheme };
+      return { ...DEFAULT_WORKSPACE_PREFERENCES };
     }
     const parsed = JSON.parse(raw) as Partial<WorkspacePreferences>;
     const theme: WorkspaceThemeId =
@@ -215,14 +208,10 @@ export function readWorkspacePreferences(): WorkspacePreferences {
       PERSONAL_CHART_TABS.some((item) => item.id === parsed.defaultChartFeature)
         ? (parsed.defaultChartFeature as PersonalChartTabId)
         : 'bazi';
-    const rawDefaultDivination =
-      (parsed.defaultDivinationFeature as string | undefined) === 'kongming'
-        ? 'zhuge'
-        : parsed.defaultDivinationFeature;
     const defaultDivinationFeature: DivinationFormMethod =
-      typeof rawDefaultDivination === 'string' &&
-      isDivinationFormMethod(rawDefaultDivination)
-        ? rawDefaultDivination
+      typeof parsed.defaultDivinationFeature === 'string' &&
+      isDivinationFormMethod(parsed.defaultDivinationFeature)
+        ? parsed.defaultDivinationFeature
         : 'liuyao';
     const defaultInstantType =
       parsed.defaultInstantType &&
@@ -244,7 +233,6 @@ export function readWorkspacePreferences(): WorkspacePreferences {
 export function saveWorkspacePreferences(next: WorkspacePreferences): WorkspacePreferences {
   try {
     localStorage.setItem(WORKSPACE_PREFERENCES_STORAGE_KEY, JSON.stringify(next));
-    localStorage.setItem('mingyu.v2.accentTheme', next.theme);
   } catch {}
   applyWorkspaceTheme(next.theme);
   return next;
@@ -277,20 +265,6 @@ export function initSavedDisplayThemeMode(): void {
     if (saved === 'dark' || saved === 'light') {
       document.documentElement.setAttribute('data-theme', saved);
     }
-  } catch {}
-}
-
-export function readHomeLayoutMode(): HomeLayoutMode {
-  try {
-    const saved = window.localStorage.getItem(HOME_LAYOUT_STORAGE_KEY);
-    if (saved === 'tiled' || saved === 'favorites' || saved === 'minimal') return saved;
-  } catch {}
-  return 'tiled';
-}
-
-export function saveHomeLayoutMode(next: HomeLayoutMode): void {
-  try {
-    window.localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, next);
   } catch {}
 }
 
@@ -367,7 +341,7 @@ export interface HomeInstantCastOption {
   id: string;
   mark: string;
   label: string;
-  group: '常用占卜' | '专项与即时';
+  group: '常用占卜' | '宏观周期';
 }
 
 export const HOME_INSTANT_CAST_CATALOG: ReadonlyArray<HomeInstantCastOption> = [
@@ -382,13 +356,8 @@ export const HOME_INSTANT_CAST_CATALOG: ReadonlyArray<HomeInstantCastOption> = [
   { id: 'ssgw', mark: '签', label: '三山灵签', group: '常用占卜' },
   { id: 'zhuge', mark: '诸', label: '诸葛神数', group: '常用占卜' },
   { id: 'taiyi', mark: '乙', label: '太乙神数', group: '常用占卜' },
-  { id: 'random-divination', mark: '随', label: '随机起卦', group: '常用占卜' },
-  { id: 'instant-bazi', mark: '八', label: '八字即时', group: '专项与即时' },
-  { id: 'instant-ziwei', mark: '紫', label: '紫微即时', group: '专项与即时' },
-  { id: 'instant-astrolabe', mark: '星', label: '星盘即时', group: '专项与即时' },
-  { id: 'instant-qizheng', mark: '政', label: '七政即时', group: '专项与即时' },
-  { id: 'huangji-jingshi', mark: '皇', label: '皇极经世', group: '专项与即时' },
-  { id: 'wuyun-liuqi', mark: '运', label: '五运六气', group: '专项与即时' },
+  { id: 'huangji-jingshi', mark: '皇', label: '皇极经世', group: '宏观周期' },
+  { id: 'wuyun-liuqi', mark: '运', label: '五运六气', group: '宏观周期' },
 ];
 
 export interface HomeChartEntryOption {
@@ -436,7 +405,6 @@ export const DEFAULT_HOME_INSTANT_CAST_IDS: ReadonlyArray<string> = [
   'ssgw',
   'zhuge',
   'taiyi',
-  'random-divination',
 ];
 
 export const DEFAULT_HOME_CHART_ENTRY_IDS: ReadonlyArray<string> = ['single', 'compat', 'cases'];
@@ -476,29 +444,8 @@ export function createDefaultHomeCustomization(): HomeCustomizationState {
   };
 }
 
-const HOME_CUSTOM_CARDS_STORAGE_KEY = 'mingyu.v2.homeCustomCards';
 const HOME_CUSTOMIZATION_STORAGE_KEY = 'mingyu.v2.homeCustomization';
 const DRAWER_PINNED_STORAGE_KEY = 'mingyu.v2.drawerPinned';
-
-export function readHomeCustomCards(): string[] {
-  try {
-    const raw = window.localStorage.getItem(HOME_CUSTOM_CARDS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const validIds = new Set(CUSTOM_SHORTCUT_CATALOG.map((c) => c.id));
-        return parsed.filter((x): x is string => typeof x === 'string' && validIds.has(x));
-      }
-    }
-  } catch {}
-  return [];
-}
-
-export function saveHomeCustomCards(next: string[]): void {
-  try {
-    window.localStorage.setItem(HOME_CUSTOM_CARDS_STORAGE_KEY, JSON.stringify(next));
-  } catch {}
-}
 
 function filterValidUniqueIds(raw: unknown, validIds: Set<string>): string[] | null {
   if (!Array.isArray(raw)) return null;
@@ -533,14 +480,6 @@ export function readHomeCustomization(): HomeCustomizationState {
         cardIds: filterValidUniqueIds(parsed.cardIds, validCard) ?? defaults.cardIds,
       };
     }
-    const legacyCards = readHomeCustomCards();
-    if (legacyCards.length > 0) {
-      const merged = [...defaults.cardIds];
-      for (const id of legacyCards) {
-        if (!merged.includes(id)) merged.push(id);
-      }
-      return { ...defaults, cardIds: merged };
-    }
   } catch {}
   return defaults;
 }
@@ -554,7 +493,6 @@ export function saveHomeCustomization(next: HomeCustomizationState): void {
 export function resetHomeCustomization(): HomeCustomizationState {
   const defaults = createDefaultHomeCustomization();
   saveHomeCustomization(defaults);
-  saveHomeCustomCards([]);
   return defaults;
 }
 

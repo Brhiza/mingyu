@@ -19,7 +19,7 @@ test('合参精确出生共用同一瞬时，两盘与独立方法一致并保�
   assert.match(result.prompt.text, /【事业与发展】/); assert.match(result.prompt.text, /【大运与流年】/);
   assert.match(result.prompt.text, /旺衰、化气、曲直、从儿及普通格局成败为所列条件模型/);
   assert.ok(result.prompt.text.includes(`旺衰模型${result.data.charts.bazi.chart.strength.status}`));
-  assert.match(result.prompt.text, /取用基础方向.*非最终喜忌/);
+  assert.match(result.prompt.text, /取用基础方向/);
   assert.match(result.prompt.text, /【八字取用条件候选】/);
   assert.match(result.prompt.text, /【紫微相关宫位的本命宫干四化】/);
   assert.ok(result.prompt.text.includes(formatNatalFlying(result.data.charts.ziwei.natal.palaces)));

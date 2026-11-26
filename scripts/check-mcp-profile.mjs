@@ -34,7 +34,7 @@ try {
     assert.equal(result.isError, undefined, `${method}: ${JSON.stringify(result.content)}`);
     assert.equal(result.structuredContent?.method, method);
     assert.ok(result.structuredContent?.prompt?.text, `${method} 缺少提示词`);
-    if (method === 'bazi-synastry') assert.match(result.structuredContent.prompt.text, /【双方本命神煞】[\s\S]*元辰因未提供性别未计算/);
+    if (method === 'bazi-synastry') assert.match(result.structuredContent.prompt.text, /【双方本命神煞】[\s\S]*元辰、铁扫帚因未提供性别未计算/);
     if (method === 'bazi-ziwei') assert.match(result.structuredContent.prompt.text, /【八字本命神煞】/);
     const follow = await client.callTool({ name: 'reprompt', arguments: { method, result: result.structuredContent, question: '继续问' } });
     assert.equal(follow.isError, undefined, `${method} 追问: ${JSON.stringify(follow.content)}`);
@@ -74,8 +74,8 @@ try {
   }
   const dualGender = await client.callTool({ name: 'bazi-synastry', arguments: { ...methodExamples['bazi-synastry'], person1: { ...methodExamples['bazi-synastry'].person1, gender: 'female' } } });
   assert.equal(dualGender.isError, undefined, JSON.stringify(dualGender.content));
-  assert.equal(dualGender.structuredContent.data.charts.person1.shensha.included.length, 55);
-  assert.equal(dualGender.structuredContent.data.charts.person2.shensha.included.length, 54);
+  assert.equal(dualGender.structuredContent.data.charts.person1.shensha.included.length, 71);
+  assert.equal(dualGender.structuredContent.data.charts.person2.shensha.included.length, 69);
   const baziShensha = await client.callTool({ name: 'bazi', arguments: methodExamples['bazi'] });
   const baziTimeline = await client.callTool({ name: 'bazi', arguments: { ...methodExamples.bazi, timelineYear: 2024 } });
   assert.equal(baziTimeline.isError, undefined, JSON.stringify(baziTimeline.content));
@@ -84,10 +84,10 @@ try {
   assert.equal(timelineFollow.isError, undefined, JSON.stringify(timelineFollow.content));
   assert.match(timelineFollow.structuredContent.prompt.text, /2024立春年流月时间线/);
   assert.equal(baziShensha.isError, undefined, JSON.stringify(baziShensha.content));
-  assert.equal(baziShensha.structuredContent.data.chart.shensha.included.length, 55);
-  assert.match(baziShensha.structuredContent.prompt.text, /本命神煞（55项）/);
-  assert.equal(baziShensha.structuredContent.data.located.shensha.included.length, 39);
-  assert.match(baziShensha.structuredContent.prompt.text, /【岁运神煞】[\s\S]*不替换本命年柱/);
+  assert.equal(baziShensha.structuredContent.data.chart.shensha.included.length, 71);
+  assert.match(baziShensha.structuredContent.prompt.text, /本命神煞（71项）/);
+  assert.equal(baziShensha.structuredContent.data.located.shensha.included.length, 50);
+  assert.match(baziShensha.structuredContent.prompt.text, /【岁运神煞】[\s\S]*流年丙午/);
   const returnLocation = { latitude: 40.7128, longitude: -74.006 };
   const relocated = await client.callTool({ name: 'astrolabe', arguments: { ...methodExamples['astrolabe'], flow: { reference: { kind: 'year', year: 2025 }, techniques: ['solar-return'], solarReturnLocation: returnLocation } } });
   assert.equal(relocated.isError, undefined, JSON.stringify(relocated.content));

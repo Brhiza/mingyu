@@ -10,6 +10,7 @@ import { civilYearToSerial, formatHuangjiCivilYear } from './huangji/standard';
 import hexagrams from './huangji-hexagrams.json';
 import reference from './huangji-reference.json';
 import { assertRangePillars, parseDivinationRange, partitionDivinationRange } from './divination-range';
+import { buildMethodSituationDigest } from './situation-digest';
 import { getDivinationTime } from './calendar';
 
 type Input = z.infer<typeof huangjiInput>;
@@ -125,8 +126,10 @@ function buildPrompt(chart: Chart, question: string, options: Input['prompt'], n
       `资料来源：${sixDay.sources.map((item) => `${item.title}：${item.scope}`).join('；')}`,
     ].join('\n');
   })();
+  const digestLines = buildMethodSituationDigest('huangji-jingshi', chart, question);
   const user = [
     '【传统依据】\n按一元十二会、一会三十运、一运十二世、一世三十年的周期定位；通行公元年另依先天圆图推值年卦。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【时间】\n提示词时间：${now}。`,
     `【周期资料】\n${cycle}`,
     annual ? `【值年卦及层级】\n${annual}` : '【资料限制】\n自定义纪元只计算周期坐标，没有通行值年卦，不得虚构卦象。',

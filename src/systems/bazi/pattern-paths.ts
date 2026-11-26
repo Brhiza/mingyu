@@ -5,7 +5,7 @@ type Pillars = Record<PillarName, BaziPillar>;
 type Endpoint = { position: PillarName; stem: string; tenGod: string; rooted: boolean; actionable: boolean; monthControlled: boolean; effective: boolean };
 type Node = Pick<Endpoint, 'position' | 'stem' | 'tenGod'>;
 type Pair = { source: Node; target: Node; via?: Node };
-type Status = '满足' | '不满足' | '资料不足';
+type Status = '满足' | '不满足' | '暗藏待透' | '遥隔力缓' | '根浅受制';
 type Path = { key: string; label: string; status: Status; reason: string; pairs: Pair[] };
 const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
 const seal = ['正印', '偏印'], wealth = ['正财', '偏财'], companion = ['比肩', '劫财'], output = ['食神', '伤官'], officer = ['正官', '七杀'];
@@ -33,18 +33,20 @@ export function buildPatternPaths(pillars: Pillars, pattern: string, source: str
     const a = group(from), b = group(to);
     const result = (status: Status, reason: string, pairs: Pair[] = []): Path => ({ key, label, status, reason, pairs });
     if (!a.exists || !b.exists) return result('不满足', `缺少${!a.exists ? '来源' : '作用对象'}`);
-    if ((!a.items.length || !b.items.length) && !a.failed && !b.failed) return result('资料不足', '存在仅藏不透的作用端');
-    if (!a.rooted.length || !b.rooted.length) return result(a.failed || b.failed ? '不满足' : '资料不足', '作用端缺少可用根气或受月令本气克制减力');
+    if ((!a.items.length || !b.items.length) && !a.failed && !b.failed) return result('暗藏待透', '存在仅藏不透的作用端');
+    if (!a.rooted.length || !b.rooted.length) return result(a.failed || b.failed ? '不满足' : '根浅受制', '作用端缺少可用根气或受月令本气克制减力');
     if (!a.available.length || !b.available.length) return result('不满足', '作用端被合绊阻断');
     const pairs = a.available.flatMap((left) => b.available.filter((right) => Math.abs(positions.indexOf(left.position) - positions.indexOf(right.position)) === 1)
       .map((right) => ({ source: endpoint(left), target: endpoint(right) })));
-    return pairs.length ? result('满足', '两端透干、有可用根气、紧贴且未被合绊阻断', pairs) : result('资料不足', '两端可用但未见紧贴柱位');
+    return pairs.length ? result('满足', '两端透干、有可用根气、紧贴且未被合绊阻断', pairs) : result('遥隔力缓', '两端可用但未见紧贴柱位');
   };
   const chain = (key: string, label: string, first: Path, second: Path): Path => {
     const pairs = first.pairs.flatMap((a) => second.pairs.filter((b) => a.target.position === b.source.position && a.target.stem === b.source.stem)
       .map((b) => ({ source: a.source, via: a.target, target: b.target })));
+    const weakOrder: Status[] = ['根浅受制', '暗藏待透', '遥隔力缓'];
+    const weakStatus = weakOrder.find((s) => first.status === s || second.status === s);
     const status: Status = first.status === '不满足' || second.status === '不满足' ? '不满足'
-      : first.status === '资料不足' || second.status === '资料不足' ? '资料不足' : pairs.length ? '满足' : '不满足';
+      : weakStatus ?? (pairs.length ? '满足' : '不满足');
     return { key, label, status, reason: `${first.label}：${first.status}；${second.label}：${second.status}${status === '不满足' && first.status === '满足' && second.status === '满足' ? '；两段未由同一柱位的中间干承接' : ''}`, pairs: status === '满足' ? pairs : [] };
   };
   if (name.includes('正官')) return [
@@ -57,12 +59,18 @@ export function buildPatternPaths(pillars: Pillars, pattern: string, source: str
     return [a, b, chain('比劫泄秀生财', '比劫→食伤→财', a, b), path('官杀护财', '官杀制比护财', officer, companion)];
   }
   if (name.includes('正印') || name.includes('偏印')) return hasVisible(wealth) ? [path('比劫护印', '比劫制财存印', companion, wealth)] : [];
-  if (name.includes('食神')) return hasVisible(['偏印']) ? [path('财制偏印', '财星制枭护食', wealth, ['偏印'])] : [];
+  if (name.includes('食神')) return [
+    ...(hasVisible(['偏印']) ? [path('财制偏印', '财星制枭护食', wealth, ['偏印'])] : []),
+    ...(hasVisible(wealth) ? [path('食神生财', '食神泄秀生财', ['食神'], wealth)] : []),
+  ];
   if (name.includes('七杀')) {
     const a = path('七杀生印', '七杀生印', ['七杀'], seal), b = path('印生身', '印星生身', seal, ['日主']);
     return [path('食神制杀', '食神制七杀', ['食神'], ['七杀']), a, b, chain('印化杀', '七杀→印→身', a, b)];
   }
-  if (name.includes('伤官')) return hasVisible(['正官']) ? [path('印配伤官', '印星配伤官制伤', seal, ['伤官'])] : [];
+  if (name.includes('伤官')) return [
+    ...(hasVisible(['正官']) ? [path('印配伤官', '印星配伤官制伤', seal, ['伤官'])] : []),
+    ...(hasVisible(wealth) ? [path('伤官生财', '伤官泄秀生财', ['伤官'], wealth)] : []),
+  ];
   if (['建禄', '月刃', '劫财', '比肩'].some((key) => name.includes(key))) return [
     path('官杀制比劫', '官杀制身', officer, ['日主']), path('食伤泄秀', '日主生食伤泄秀', ['日主'], output), path('财星承禄劫', '日主克财承载', ['日主'], wealth),
   ];

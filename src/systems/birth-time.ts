@@ -92,7 +92,7 @@ export function beijingLunarDateDiscrepancy(timestamp: number) {
   return lunarDateDiscrepancy(getCivilDateTimeAtFixedOffset(new Date(timestamp), 8));
 }
 
-export const chinaDstAdvisoryText = '出生时刻落于 1986–1991 年中国大陆历史夏令时区间（当前未启用 applyChinaDst 且未使用 Asia/Shanghai 时区）；若出生记录为当时夏令时钟表，实际标准北京时间应减 1 小时，可能影响时柱、起运或命宫，请核对后开启 applyChinaDst 或指定 timeZoneId: "Asia/Shanghai"。';
+export const chinaDstAdvisoryText = '出生时刻落于 1986–1991 年中国大陆历史夏令时区间（当前未启用夏令时校正）；若出生记录为当时夏令时钟表，实际标准北京时间应减 1 小时，可能影响时柱、起运或命宫，请核对后在设置中开启历史夏令时校正或选择中国标准时区。';
 
 /** 当东八区民用钟表落入 1986–1991 中国历史夏令时且未启用夏令时校正时返回提示。 */
 export function chinaDstAdvisory(

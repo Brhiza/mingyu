@@ -74,6 +74,9 @@ export interface RouterInput {
   depthPref?: DepthPref;
   hasManualCast?: boolean;
   hasHouseFacing?: boolean;
+  preferredChart?: MethodId | null;
+  preferredDivination?: MethodId | null;
+  disabledMethods?: readonly MethodId[];
 }
 
 export const METHOD_LABELS: Record<MethodId, string> = {
@@ -417,6 +420,33 @@ export function detectTwoPersonIntent(q: string): boolean {
   );
 }
 
+export type ExplicitDivinationIntent = 'hexagram' | 'lesson' | 'lots' | 'cards' | 'general';
+
+export function detectExplicitDivinationIntent(rawQuery: string): ExplicitDivinationIntent | null {
+  const q = normalizeQuery(rawQuery);
+  if (/(抽[一两个支张根]?签|求[一两个支张根]?签|抽签|求签|摇签|解签)/.test(q) && !/诸葛/.test(q)) {
+    return 'lots';
+  }
+  if (/(抽[一两三几张副]?牌|翻[一两三几张]?牌|占卜牌)/.test(q) && !/雷诺曼/.test(q)) {
+    return 'cards';
+  }
+  if (/(起[一个]?课|起课|排[一个]?课)/.test(q)) {
+    return 'lesson';
+  }
+  if (/(起[一个]?卦|摇[一个]?卦|算[一个]?卦|卜[一个]?卦|占[一个]?卦|排[一个]?卦|打[一个]?卦|求[一个]?卦|起卦|摇卦|卜卦|占卦)/.test(q)) {
+    return 'hexagram';
+  }
+  if (/(占卜一下|帮我占卜|来一[次场个]占卜|排一?局)/.test(q)) {
+    return 'general';
+  }
+  return null;
+}
+
+export function detectExplicitChartIntent(rawQuery: string): boolean {
+  const q = normalizeQuery(rawQuery);
+  return /(排[一个]?命?盘|起[一个]?命盘|算[一个]?命|看[一下个]?命盘|排个盘)/.test(q);
+}
+
 export function detectExplicitMethod(rawQuery: string): MethodId | null {
   const q = normalizeQuery(rawQuery);
 
@@ -454,7 +484,7 @@ export function detectExplicitMethod(rawQuery: string): MethodId | null {
   if (/(八字合婚|八字合盘|八字双人合盘|双方八字|合个八字|合一下.*八字|八字合不合)/.test(q)) {
     return 'bazi-synastry';
   }
-  if (/(三山国王|灵签|抽支.*签|求一支.*签|求签|解签)/.test(q) && !/诸葛/.test(q)) {
+  if (/(三山国王|灵签|抽[一两支张个]?签|求[一两支张个]?签|抽签|求签|解签)/.test(q) && !/诸葛/.test(q)) {
     return 'ssgw';
   }
   if (/(诸葛神数|诸葛亮神数|三十二课|384签)/.test(q)) {
@@ -523,10 +553,54 @@ export function detectExplicitMethod(rawQuery: string): MethodId | null {
   if (/(紫微斗数|紫微命盘|紫微盘|用紫微|夫妻宫.*官禄宫|杀破狼|机月同梁)/.test(q)) {
     return 'ziwei';
   }
+  if (/(排[一个]?八字|算[一个]?八字|看[一下个]?八字|用八字|八字排盘|八字命盘)/.test(q) && !/合盘|合婚|反推|紫微/.test(q)) {
+    return 'bazi';
+  }
   if (/(汉字查询|康熙字典|几画.*五行|五行.*几画|单查.*字|查一下.*[“"「].*[”"」].*字)/.test(q)) {
     return 'character-query';
   }
+  if (
+    /(?:(?<![今明昨当每])日运(?!势)|(?<![本上下当每])月运(?!势)|(?<![今明去流当每])年运(?!势)|流运运势|大众运势|运势总览|打开运势|看运势页|运势页)/.test(
+      q,
+    ) &&
+    !detectExplicitDivinationIntent(rawQuery)
+  ) {
+    return 'fortune';
+  }
   return null;
+}
+
+const PURE_INVOCATION_CHUNK_RE =
+  /^(?:请|麻烦|帮我|给我|替我|我想|我要|能不能|可以|顺便|随便|随手|随机|直接|先|再|来|用|使用|做个|做一个|起个|起一个|起一|摇个|摇一个|摇一|算个|算一个|算一|卜个|卜一个|卜一|占个|占一个|占一|排个|排一个|排一|抽个|抽一个|抽一支|抽支|抽张|抽一张|抽一|求个|求一个|求一支|求支|求一|测个|测一个|测一|看个|看一个|查个|查一个|起卦|摇卦|卜卦|占卦|占卜|起课|排盘|合盘|合婚|抽签|求签|抽牌|翻牌|六爻|梅花易数|梅花卦|梅花|奇门遁甲|奇门终身局|奇门终身盘|奇门时盘|奇门|大六壬|小六壬|六壬|金口诀|塔罗牌|塔罗|雷诺曼|三山国王|灵签|诸葛神数|诸葛|太乙神数|太乙|八字紫微|八字合婚|八字合盘|八字|紫微斗数|紫微合盘|紫微|西洋星盘|星盘|七政四余|七政|果老星宗|个人命录|命录|八宅|玄空飞星|玄空|阳宅风水|风水|黄历|择日|老黄历|周易|易经|数字能量|皇极经世|五运六气|四柱反推|盘|局|卦|课|签|牌|一下|下|吧|呢|啊|呀|哦|了|的|\s|[，,。！!？?、；;：:~～—\-])+$/;
+
+/**
+ * 识别用户是否真的提出了“具体问题”，还是仅仅发出“起卦/排盘指令”。
+ * - 例如「帮我起一卦六爻」「排个奇门」「抽张塔罗」→ 返回空字符串 ''（不代填假问题）。
+ * - 例如「帮我起一卦六爻，看看今天事业运」→ 保留实质提问内容「看看今天事业运」。
+ */
+export function extractSubstantiveQuestion(rawQuery: string): string {
+  const trimmed = rawQuery.trim();
+  if (!trimmed) return '';
+  if (PURE_INVOCATION_CHUNK_RE.test(trimmed)) return '';
+
+  // 若句子按标点分成多段，剥离前面纯起卦/排盘指令段（保留后面真正的问事内容）
+  const segments = trimmed
+    .split(/([，,。！!？?；;：:\n]+)/)
+    .reduce<string[]>((acc, part, idx) => {
+      if (idx % 2 === 0) acc.push(part);
+      else if (acc.length > 0) acc[acc.length - 1] += part;
+      return acc;
+    }, [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (segments.length > 1) {
+    const kept = segments.filter((seg) => !PURE_INVOCATION_CHUNK_RE.test(seg));
+    if (kept.length === 0) return '';
+    return kept.join('').replace(/^[，,。！!？?、；;：:\s]+/, '').trim();
+  }
+
+  return trimmed;
 }
 
 /**

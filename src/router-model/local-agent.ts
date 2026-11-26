@@ -634,7 +634,31 @@ export async function runLocalAgentPlan(
       : undefined);
 
   // 动态按需加载权重和推理引擎，避免打入首屏主包
-  const { METHOD_LABELS, recommendMethods } = await import('./index');
+  const [
+    { METHOD_LABELS, recommendMethods },
+    { detectExplicitDivinationIntent },
+    { EXCLUDED_ROUTER_METHODS, loadLocalRouterDefaults, loadLocalRouterDisabledMethods },
+  ] = await Promise.all([
+    import('./index'),
+    import('./features'),
+    import('./local-preferences'),
+  ]);
+  const storedDefaults = loadLocalRouterDefaults();
+  const preferredChart =
+    options?.preferredChart !== undefined ? options.preferredChart : storedDefaults.preferredChart;
+  const preferredDivination =
+    options?.preferredDivination !== undefined
+      ? options.preferredDivination
+      : storedDefaults.preferredDivination;
+  const disabledMethods = [
+    ...new Set<MethodId>([
+      ...EXCLUDED_ROUTER_METHODS,
+      ...(options?.disabledMethods !== undefined
+        ? options.disabledMethods
+        : loadLocalRouterDisabledMethods()),
+    ]),
+  ];
+  const disabledSet = new Set<MethodId>(disabledMethods);
   const routingInputQuery =
     extracted.profiles.length > 0 && extracted.question
       ? `${extracted.profiles.map((p) => p.summary).join('；')}。${extracted.question}`
@@ -645,6 +669,9 @@ export async function runLocalAgentPlan(
     birthTimeStatus: inferredBirthTimeStatus,
     depthPref: options?.depthPref,
     traditionPref: options?.traditionPref,
+    preferredChart,
+    preferredDivination,
+    disabledMethods,
   });
 
   const promoteMethod = (
@@ -676,8 +703,8 @@ export async function runLocalAgentPlan(
     recommendations = recommendations.filter((r) => r.method !== 'bazi-reverse');
   }
 
-  // 纠偏 2：用户明确点名了某个术数（如「紫微斗数」「西洋星盘」「六爻」「塔罗」），100% 尊重
-  if (st.explicitMethod) {
+  // 纠偏 2：用户明确点名了某个术数（如「紫微斗数」「西洋星盘」「六爻」「塔罗」「太乙神数」），即使在自动路由中关闭，点名时仍 100% 尊重（已永久移除项除外）
+  if (st.explicitMethod && !EXCLUDED_ROUTER_METHODS.includes(st.explicitMethod)) {
     recommendations = promoteMethod(
       recommendations,
       st.explicitMethod,
@@ -688,41 +715,53 @@ export async function runLocalAgentPlan(
   else if (extracted.profiles.length >= 2) {
     const first = recommendations[0]?.method;
     if (first !== 'bazi-synastry' && first !== 'ziwei-synastry' && first !== 'astrolabe-synastry') {
-      recommendations = promoteMethod(
-        recommendations,
-        'bazi-synastry',
-        '已识别双方完整生辰资料，优先使用八字双人合盘对比契合度与大运流年。',
-      );
+      const targetSynastry = (
+        ['bazi-synastry', 'ziwei-synastry', 'astrolabe-synastry'] as MethodId[]
+      ).find((m) => !disabledSet.has(m));
+      if (targetSynastry) {
+        recommendations = promoteMethod(
+          recommendations,
+          targetSynastry,
+          `已识别双方完整生辰资料，优先使用「${METHOD_LABELS[targetSynastry] ?? targetSynastry}」对比契合度与流年。`,
+        );
+      }
     }
   }
   // 纠偏 4：提取出手机号 / 车牌号且无生辰信息，优先数字能量
-  else if (st.numberEnergy && extracted.profiles.length === 0) {
+  else if (st.numberEnergy && extracted.profiles.length === 0 && !disabledSet.has('number-energy')) {
     recommendations = promoteMethod(
       recommendations,
       'number-energy',
       `已识别号码「${st.numberEnergy}」，直接进入数字能量磁场推演。`,
     );
   }
-  // 纠偏 5：提取出单人明确生辰且未问起名/测名，优先单人命盘
+  // 纠偏 5：提取出单人明确生辰且未问起名/测名/明确起卦占卜，优先用户设定的默认排盘（未设则尊重命盘排序）
   else if (
     extracted.profiles.length === 1 &&
     !extracted.isTwoPerson &&
+    !detectExplicitDivinationIntent(cleanQuery) &&
     !/(?:四柱反推|反推日期|起名|取名|测名|改名)/.test(effectiveQuestion)
   ) {
     const first = recommendations[0]?.method;
-    const isNatal =
-      first === 'bazi' ||
-      first === 'ziwei' ||
-      first === 'bazi-ziwei' ||
-      first === 'astrolabe' ||
-      first === 'qizheng' ||
-      first === 'minglu' ||
-      first === 'qimen-lifetime';
-    if (!isNatal) {
+    const natalCandidates: MethodId[] = [
+      'bazi',
+      'ziwei',
+      'bazi-ziwei',
+      'astrolabe',
+      'qizheng',
+      'minglu',
+      'qimen-lifetime',
+    ];
+    const isNatal = first !== undefined && natalCandidates.includes(first);
+    const activePreferredChart =
+      preferredChart && !disabledSet.has(preferredChart) ? preferredChart : null;
+    const targetNatal =
+      activePreferredChart ?? natalCandidates.find((m) => !disabledSet.has(m)) ?? null;
+    if (targetNatal && (!isNatal || (activePreferredChart && first !== activePreferredChart))) {
       recommendations = promoteMethod(
         recommendations,
-        'bazi',
-        '已提供完整个人生辰资料，优先使用八字排盘结合大运流年系统分析。',
+        targetNatal,
+        `已识别完整生辰资料，优先使用「${METHOD_LABELS[targetNatal] ?? targetNatal}」。`,
       );
     }
   }

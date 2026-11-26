@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   streamAgentCompletion,
   type AgentApiMessage,
@@ -6,7 +5,6 @@ import {
   type AgentToolDefinition,
   type AiConfig,
 } from './ai';
-import { getPromptCatalog } from './catalog';
 import { resolveRepromptPayload, toCompactResult, unpackRepromptToken, type CompactableCalculationResult } from './compact';
 import { calculate, inputSchemas, reprompt, repromptInput, type Method } from './core';
 import { methodIds, methodLabels } from './schema';
@@ -18,76 +16,52 @@ import {
   type PersonalCase,
 } from './v2-ui/cases-store';
 import {
+  buildCompatibilityChartPayload,
   buildPersonalChartPayload,
+  isCompatibilityChartMethod,
   isPersonalChartMethod,
+  type CompatibilityChartTabId,
   type PersonalChartTabId,
-} from './v2-ui/result-page';
+} from './v2-ui/chart-payloads';
 import { readWebAiConfig } from './web-ai';
-import { webExamples } from './web-examples';
 import { formatInputError } from './input-error';
 import { applyGlobalRulesToPayload, loadGlobalRules } from './web-settings';
+import { normalizeAgentToolInput, normalizeRelationshipValue } from './tool-input-normalizer';
+import type { SynastryRelationship } from './systems/focus-presets';
 
-export const AGENT_SESSIONS_STORAGE_KEY = 'mingyu.v2.agent.sessions';
-export const AGENT_ACTIVE_SESSION_KEY = 'mingyu.v2.agent.activeSessionId';
-const MAX_STORED_SESSIONS = 25;
+import {
+  AGENT_ACTIVE_SESSION_KEY,
+  AGENT_SESSIONS_STORAGE_KEY,
+  createEmptyAgentSession,
+  loadActiveAgentSessionId,
+  loadAgentSessions,
+  saveActiveAgentSessionId,
+  saveAgentSessions,
+  type AgentChatMessage,
+  type AgentChatSession,
+  type AgentResultSummary,
+  type AgentToolTrace,
+} from './web-agent-storage';
+
+export {
+  AGENT_ACTIVE_SESSION_KEY,
+  AGENT_SESSIONS_STORAGE_KEY,
+  createEmptyAgentSession,
+  loadActiveAgentSessionId,
+  loadAgentSessions,
+  saveActiveAgentSessionId,
+  saveAgentSessions,
+  type AgentChatMessage,
+  type AgentChatSession,
+  type AgentResultSummary,
+  type AgentToolTrace,
+};
+
+import { METHOD_CATEGORY_GROUPS } from './method-registry';
+
 const MAX_TOOL_ROUNDS = 8;
 
-export const AGENT_METHOD_CATEGORIES: ReadonlyArray<{
-  id: string;
-  label: string;
-  methods: readonly Method[];
-}> = [
-  { id: 'mingli', label: '命理合参', methods: ['bazi', 'bazi-synastry', 'bazi-ziwei', 'bazi-reverse', 'minglu', 'fortune', 'instant'] },
-  { id: 'ziwei-astro', label: '紫微星象', methods: ['ziwei', 'ziwei-synastry', 'qizheng', 'qizheng-range', 'astrolabe', 'astrolabe-range', 'astrolabe-synastry'] },
-  { id: 'qimen-liuren', label: '奇门六壬', methods: ['qimen', 'qimen-lifetime', 'liuren', 'jinkoujue', 'xiaoliuren', 'taiyi'] },
-  { id: 'divination', label: '占卜灵签', methods: ['liuyao', 'meihua', 'tarot', 'lenormand', 'random-divination', 'ssgw', 'zhuge', 'number-energy'] },
-  { id: 'fengshui', label: '风水择日', methods: ['bazhai', 'xuankong', 'residential', 'almanac', 'calendar'] },
-  { id: 'name-classics', label: '姓名典籍', methods: ['chinese-name', 'chinese-naming', 'zhouyi', 'character-query', 'wuyun-liuqi', 'huangji-jingshi'] },
-];
-
-export interface AgentResultSummary {
-  title?: string;
-  tags?: string[];
-  lines?: string[];
-}
-
-export interface AgentToolTrace {
-  id: string;
-  name: string;
-  label: string;
-  status: 'running' | 'success' | 'error';
-  argsText: string;
-  method?: Method;
-  methodLabel?: string;
-  question?: string;
-  summary?: AgentResultSummary;
-  repromptToken?: string;
-  payload?: Record<string, unknown>;
-  fullResult?: unknown;
-  outputPreview?: string;
-  errorMessage?: string;
-}
-
-export interface AgentChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
-  attachedCaseName?: string;
-  toolTraces?: AgentToolTrace[];
-  status?: 'streaming' | 'done' | 'stopped' | 'error';
-  errorMessage?: string;
-}
-
-export interface AgentChatSession {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  attachedCaseId: string | null;
-  messages: AgentChatMessage[];
-  apiHistory: AgentApiMessage[];
-}
+export const AGENT_METHOD_CATEGORIES = METHOD_CATEGORY_GROUPS;
 
 export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
@@ -140,7 +114,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           },
           input: {
             type: 'object',
-            description: '传给该术数方法的 JSON 参数对象，通常含 question（想问的问题）及该术数所需字段',
+            description: '传给该术数方法的 JSON 参数对象，通常含 question 及该术数所需字段。个人命盘可直接传 caseId 自动填入档案；双人合盘可直接传 caseId、partnerCaseId 与 relationship（如 marriage/career）自动填入双人档案。',
             additionalProperties: true,
           },
         },
@@ -206,81 +180,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     },
   },
 ];
-
-function makeId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function createEmptyAgentSession(attachedCaseId: string | null = null): AgentChatSession {
-  const now = new Date().toISOString();
-  return {
-    id: makeId('chat'),
-    title: '新算命对话',
-    createdAt: now,
-    updatedAt: now,
-    attachedCaseId,
-    messages: [],
-    apiHistory: [],
-  };
-}
-
-function sanitizeTraceForStorage(trace: AgentToolTrace): AgentToolTrace {
-  const { fullResult: _drop, ...rest } = trace;
-  return rest;
-}
-
-export function loadAgentSessions(): AgentChatSession[] {
-  try {
-    const raw = window.localStorage.getItem(AGENT_SESSIONS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is AgentChatSession =>
-        Boolean(item) &&
-        typeof item === 'object' &&
-        typeof (item as AgentChatSession).id === 'string' &&
-        Array.isArray((item as AgentChatSession).messages) &&
-        Array.isArray((item as AgentChatSession).apiHistory),
-    );
-  } catch {
-    return [];
-  }
-}
-
-export function saveAgentSessions(sessions: readonly AgentChatSession[]): void {
-  const trimmed = sessions.slice(0, MAX_STORED_SESSIONS).map((session) => ({
-    ...session,
-    messages: session.messages.map((msg) => ({
-      ...msg,
-      ...(msg.status === 'streaming' ? { status: 'stopped' as const } : {}),
-      ...(msg.toolTraces ? { toolTraces: msg.toolTraces.map(sanitizeTraceForStorage) } : {}),
-    })),
-  }));
-
-  for (let limit = trimmed.length; limit >= 1; limit--) {
-    try {
-      window.localStorage.setItem(AGENT_SESSIONS_STORAGE_KEY, JSON.stringify(trimmed.slice(0, limit)));
-      return;
-    } catch {
-      // Storage quota exceeded: prune oldest sessions and retry
-    }
-  }
-}
-
-export function loadActiveAgentSessionId(): string | null {
-  try {
-    return window.localStorage.getItem(AGENT_ACTIVE_SESSION_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function saveActiveAgentSessionId(id: string): void {
-  try {
-    window.localStorage.setItem(AGENT_ACTIVE_SESSION_KEY, id);
-  } catch {}
-}
 
 function summarizeCaseForAgent(record: PersonalCase, activeId: string | null, method?: string) {
   const timeOption =
@@ -371,18 +270,6 @@ function buildResultSummary(raw: unknown): AgentResultSummary | undefined {
     : undefined;
   if (!title && !tags?.length && !lines?.length) return undefined;
   return { title, tags, lines };
-}
-
-function resolveSupportsIncludeClassics(method: Method): boolean {
-  try {
-    const schema = z.toJSONSchema(inputSchemas[method]) as {
-      properties?: { prompt?: { properties?: Record<string, unknown> } };
-    };
-    const promptProps = schema.properties?.prompt?.properties;
-    return Boolean(promptProps && 'includeClassics' in promptProps);
-  } catch {
-    return false;
-  }
 }
 
 export async function restoreToolTraceResult(trace: AgentToolTrace): Promise<{
@@ -493,6 +380,11 @@ async function executeAgentToolCall(
           },
         };
       }
+      const [{ z }, { webExamples }, { getPromptCatalog }] = await Promise.all([
+        import('zod'),
+        import('./web-examples'),
+        import('./catalog'),
+      ]);
       const out = {
         method,
         label: methodLabels[method],
@@ -572,17 +464,65 @@ async function executeAgentToolCall(
       }
       const rawInput =
         parsedArgs.input && typeof parsedArgs.input === 'object' && !Array.isArray(parsedArgs.input)
-          ? (parsedArgs.input as Record<string, unknown>)
+          ? ({ ...(parsedArgs.input as Record<string, unknown>) })
           : {};
-      const supportsClassics = resolveSupportsIncludeClassics(method);
+
+      // G1 快捷档案代填：允许大模型直接传 caseId（单人命盘）或 caseId + partnerCaseId（双人合盘）
+      const rules = loadGlobalRules();
+      let resolvedInput: Record<string, unknown> = rawInput;
+      const caseIdArg = typeof rawInput.caseId === 'string' ? rawInput.caseId.trim() : '';
+      const partnerCaseIdArg = typeof rawInput.partnerCaseId === 'string' ? rawInput.partnerCaseId.trim() : '';
+      if (caseIdArg) {
+        const storedCases = loadPersonalCases();
+        const primaryCase = storedCases.find((c) => c.id === caseIdArg);
+        const partnerCase = partnerCaseIdArg ? storedCases.find((c) => c.id === partnerCaseIdArg) : undefined;
+        const { caseId: _c1, partnerCaseId: _c2, ...extraOverrides } = rawInput;
+        const questionText = typeof rawInput.question === 'string' ? rawInput.question : undefined;
+        if (primaryCase && partnerCase && isCompatibilityChartMethod(method)) {
+          const relRaw = normalizeRelationshipValue(rawInput.relationship);
+          const rel = (
+            ['marriage', 'career', 'friendship', 'parents', 'children', 'siblings'].includes(String(relRaw))
+              ? relRaw
+              : 'marriage'
+          ) as SynastryRelationship;
+          const built = buildCompatibilityChartPayload(
+            primaryCase,
+            partnerCase,
+            method as CompatibilityChartTabId,
+            questionText,
+            { relationship: rel },
+          );
+          resolvedInput = { ...built, ...extraOverrides };
+        } else if (primaryCase && isPersonalChartMethod(method)) {
+          const built = buildPersonalChartPayload(
+            primaryCase,
+            method as PersonalChartTabId,
+            questionText,
+          );
+          resolvedInput = { ...built, ...extraOverrides };
+        } else {
+          resolvedInput = extraOverrides;
+        }
+      }
+
+      // G1 宽松入参自动归一化：自动纠偏性别中文、日期字符串、东方/星占结构错位与缺失默认时区坐标
+      const normalizedInput = normalizeAgentToolInput(method, resolvedInput, {
+        defaultLongitude: rules.time.defaultPlaceLongitude,
+        defaultLatitude: rules.time.defaultPlaceLatitude,
+        defaultTimezone: 8,
+      });
+
+      // 对话式 Agent 通道不默认强塞上千字古籍原文（避免吃爆多轮上下文），由核心管线按 agent 档位源头直出
       const appliedPayload = applyGlobalRulesToPayload(
         method,
-        rawInput,
-        supportsClassics,
+        normalizedInput,
+        false,
       ) as Record<string, unknown>;
 
       try {
-        const fullResult = (await calculate(method, appliedPayload)) as CompactableCalculationResult;
+        const fullResult = (await calculate(method, appliedPayload, {
+          promptProfile: 'agent',
+        })) as CompactableCalculationResult;
         const compact = await toCompactResult(fullResult);
         const summary = buildResultSummary(compact);
         const question =
@@ -613,6 +553,7 @@ async function executeAgentToolCall(
         };
       } catch (err) {
         const formatted = formatInputError(err);
+        const { webExamples } = await import('./web-examples');
         return {
           contentForModel: JSON.stringify({
             error: formatted,
@@ -634,7 +575,7 @@ async function executeAgentToolCall(
     if (name === 'reprompt') {
       const { payload } = await resolveRepromptPayload(parsedArgs);
       const parsed = repromptInput.parse(payload);
-      const res = await reprompt(parsed);
+      const res = await reprompt(parsed, { promptProfile: 'agent' });
       const method = parsed.method;
       return {
         contentForModel: JSON.stringify({
@@ -692,7 +633,8 @@ function buildAgentSystemPrompt(attachedCase: PersonalCase | null): string {
     '   - 实用类：almanac（择吉万年历）、residential/bazhai/xuankong（风水）、chinese-name（姓名分析）、chinese-naming（起名方案）、character-query（汉字字典）、number-energy（数字能量）、zhouyi（周易经文查询）、calendar（节气月相历法）。',
     '3. 在不熟悉某个工具的具体入参结构时，先调用 get_method_schema（它会返回 example 和 schema），再调用 calculate。若 calculate 返回参数错误，请对照返回的 exampleInput 修正参数后重试。',
     '4. 同一盘面/卦象在多轮对话中继续追问不同方向时，优先用上次 calculate 返回的 repromptToken 调用 reprompt，不要重新起卦或重抽牌，除非用户明确要求重新占卜。',
-    '5. 拿到工具返回的 summary 与 promptText 后，严格基于其中的真实排盘结果与证据进行解读：结论清晰、分点有条理、用大白话解释专业术语，并在最后给出务实温和的参考建议。',
+    '5. 拿到工具返回的 summary 与 promptText 后，严格基于其中的真实排盘结果与证据直接推演作答：严禁重算或篡改盘面，不要以“AI 不能算命”推脱敷衍，也不要复述原盘凑字数；遇多候选时辰/区间严禁私自选盘，须先说明共同点与差异点再引导考时；全程用通俗大白话解释专业术语，结论清晰、主次分明，并给出务实可落地的建议。',
+    '6. 仅当用户主动要求引用古籍原文或深度典籍考据时，再在 calculate/reprompt 的 prompt 参数中传 includeClassics: true，常规对话无需默认携带大段古文。',
   ];
 
   if (attachedCase) {
@@ -708,9 +650,83 @@ function buildAgentSystemPrompt(attachedCase: PersonalCase | null): string {
   return lines.join('\n');
 }
 
+/**
+ * G4 上下文滑动窗口折叠：保留最近 keepRecentToolMessages 条 tool 消息的完整 promptText，
+ * 较早轮次的 calculate / reprompt 工具返回值压缩为 summary + repromptToken，显著降低长对话 Token 占用。
+ */
+export function compressApiHistoryToolOutputs(
+  history: readonly AgentApiMessage[],
+  keepRecentToolMessages = 2,
+): AgentApiMessage[] {
+  const toolIndices: number[] = [];
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === 'tool') toolIndices.push(i);
+  }
+  if (toolIndices.length <= keepRecentToolMessages) return [...history];
+  const keepSet = new Set(toolIndices.slice(-keepRecentToolMessages));
+
+  return history.map((msg, idx) => {
+    if (msg.role !== 'tool' || keepSet.has(idx)) return msg;
+    if (msg.content.length < 480) return msg;
+    try {
+      const parsed = JSON.parse(msg.content) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== 'object' || typeof parsed.promptText !== 'string') {
+        return msg;
+      }
+      const compactObj = {
+        ...(parsed.method ? { method: parsed.method } : {}),
+        ...(parsed.label ? { label: parsed.label } : {}),
+        ...(parsed.summary ? { summary: parsed.summary } : {}),
+        ...(parsed.repromptToken ? { repromptToken: parsed.repromptToken } : {}),
+        compressedHistoryNote:
+          '该早期轮次的完整盘面正文已自动折叠以节省上下文；若需基于原盘追问，请直接用 repromptToken 调用 reprompt。',
+      };
+      return { ...msg, content: JSON.stringify(compactObj) };
+    } catch {
+      return msg;
+    }
+  });
+}
+
+async function buildLocalRouterHintForAgent(
+  userText: string,
+  attachedCase: PersonalCase | null,
+): Promise<string> {
+  try {
+    const { runLocalAgentPlan } = await import('./router-model/local-agent');
+    const plan = await runLocalAgentPlan(userText);
+    const top2 = plan.routing.recommendations.slice(0, 2);
+    if (!top2.length) return '';
+    const lines: string[] = ['', '【端侧本地预判参考（1ms 零成本提速，仅供快速选工具）】'];
+    lines.push(
+      `推荐候选术数：${top2
+        .map((r) => `${r.method}（${r.label}，置信度 ${(r.confidence * 100).toFixed(0)}%）`)
+        .join('；')}`,
+    );
+    lines.push(
+      `识别主题：${plan.analysis.domain.label}；推荐回答结构：${plan.analysis.recommendedFramework.name}`,
+    );
+    if (plan.analysis.extractedBirth.isTwoPerson) {
+      lines.push('检测到双人合盘诉求：若双方档案均已保存，可直接传 caseId + partnerCaseId 调用对应合盘工具。');
+    }
+    if (plan.analysis.fortuneScope.explicitYears.length > 0) {
+      lines.push(`关注年份：${plan.analysis.fortuneScope.explicitYears.join('、')} 年`);
+    }
+    if (attachedCase) {
+      lines.push(
+        `当前已附加档案「${attachedCase.name || '当前档案'}」（caseId: "${attachedCase.id}"），调用单人命盘工具时可直接传 input: { caseId: "${attachedCase.id}", question: "..." } 一步直达 calculate，无需重复查询档案或 schema。`,
+      );
+    }
+    return lines.join('\n');
+  } catch {
+    return '';
+  }
+}
+
 export interface RunAgentTurnCallbacks {
   onAssistantUpdate: (patch: {
     content: string;
+    reasoning?: string;
     toolTraces: AgentToolTrace[];
     statusText?: string;
   }) => void;
@@ -718,6 +734,7 @@ export interface RunAgentTurnCallbacks {
 
 export interface RunAgentTurnResult {
   finalContent: string;
+  finalReasoning?: string;
   toolTraces: AgentToolTrace[];
   nextApiHistory: AgentApiMessage[];
   finishReason: string;
@@ -732,13 +749,16 @@ export async function runAgentTurn(params: {
   callbacks: RunAgentTurnCallbacks;
 }): Promise<RunAgentTurnResult> {
   const cfg = params.config ?? readWebAiConfig();
-  const systemPrompt = buildAgentSystemPrompt(params.attachedCase);
+  const baseSystemPrompt = buildAgentSystemPrompt(params.attachedCase);
+  const localRouterHint = await buildLocalRouterHintForAgent(params.userText, params.attachedCase);
+  const systemPrompt = localRouterHint ? `${baseSystemPrompt}\n${localRouterHint}` : baseSystemPrompt;
   const workingHistory: AgentApiMessage[] = [
-    ...params.priorApiHistory,
+    ...compressApiHistoryToolOutputs(params.priorApiHistory, 2),
     { role: 'user', content: params.userText },
   ];
 
   let latestContent = '';
+  let latestReasoning = '';
   const allTraces: AgentToolTrace[] = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -748,6 +768,7 @@ export async function runAgentTurn(params: {
 
     params.callbacks.onAssistantUpdate({
       content: latestContent,
+      ...(latestReasoning ? { reasoning: latestReasoning } : {}),
       toolTraces: [...allTraces],
       statusText: round === 0 ? '正在思考并选择合适工具…' : '正在整理排盘结果并继续推演…',
     });
@@ -761,6 +782,15 @@ export async function runAgentTurn(params: {
       [{ role: 'system', content: systemPrompt }, ...workingHistory],
       AGENT_TOOLS,
       {
+        onReasoning: (rChunk) => {
+          latestReasoning += rChunk;
+          params.callbacks.onAssistantUpdate({
+            content: latestContent,
+            reasoning: latestReasoning,
+            toolTraces: [...allTraces],
+            statusText: '模型正在深度思考…',
+          });
+        },
         onText: (chunk) => {
           roundText += chunk;
           const prefix =
@@ -770,6 +800,7 @@ export async function runAgentTurn(params: {
           latestContent = `${prefix}${roundText}`;
           params.callbacks.onAssistantUpdate({
             content: latestContent,
+            ...(latestReasoning ? { reasoning: latestReasoning } : {}),
             toolTraces: [...allTraces],
             statusText: '正在生成回复…',
           });
@@ -795,6 +826,7 @@ export async function runAgentTurn(params: {
           allTraces.splice(roundStartTraceIndex, allTraces.length - roundStartTraceIndex, ...previewTraces);
           params.callbacks.onAssistantUpdate({
             content: latestContent,
+            ...(latestReasoning ? { reasoning: latestReasoning } : {}),
             toolTraces: [...allTraces],
             statusText: previewTraces[0]?.label ?? '正在准备调用工具…',
           });
@@ -810,8 +842,9 @@ export async function runAgentTurn(params: {
       });
       return {
         finalContent: latestContent || turn.content,
+        ...(latestReasoning ? { finalReasoning: latestReasoning } : {}),
         toolTraces: allTraces,
-        nextApiHistory: workingHistory,
+        nextApiHistory: compressApiHistoryToolOutputs(workingHistory, 2),
         finishReason: turn.finishReason,
       };
     }

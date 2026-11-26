@@ -127,6 +127,7 @@ const errorFieldLabels: Record<string, string> = {
   shenshaBaseMode: '神煞起例基准柱',
   xueTangMode: '学堂词馆查法',
   tianYiMode: '天乙贵人口诀',
+  tianGuanMode: '天官贵人口诀',
   hongYanMode: '红艳煞查法',
   tongZiMode: '童子煞查法',
   commanderMode: '月令司令分野表',

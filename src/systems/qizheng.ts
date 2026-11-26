@@ -19,6 +19,7 @@ import { renderQizhengStarMeanings } from './qizheng/star-meanings';
 import topics from './qizheng/prompt-topics.json';
 import { formatSchoolGuidance, type SchoolGuidanceEntry } from '../prompt-selection';
 import { evaluateQizhengSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, selectQizhengClassics } from './classics';
 
 export const QIZHENG_ELEVEN_STARS = ['太阳', '太阴', '木星', '火星', '土星', '金星', '水星', '紫气', '月孛', '罗睺', '计都'] as const;
@@ -418,7 +419,9 @@ export function renderQizhengData(data: Data, question: string, options: Input['
   });
   const subtask = options?.subtopicId ? focus.subtopics?.[options.subtopicId] : undefined;
   const genderLabel = data.input.gender === 'male' ? '男' : data.input.gender === 'female' ? '女' : '';
+  const digestLines = buildMethodSituationDigest('qizheng', data, question);
   const text = [`【七政四余本命】\n${genderLabel ? `性别：${genderLabel}；` : ''}出生瞬时${data.basis.utcDateTime}；时区 UTC${data.basis.timezone >= 0 ? '+' : ''}${data.basis.timezone}；宫位取${data.basis.palaceTimeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n命宫${signs[data.mingGong]}，身宫${signs[data.shenGong]}，命主${data.mingZhu}；${data.mingDu.method}度：${data.mingDu.xiu}宿${data.mingDu.xiuDegree.toFixed(2)}°（度主${data.mingDu.duZhu}）。\n${buildQizhengCoreRulersAndHuaYao(data)}`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【十一星】\n${starLines.join('\n')}`,
     options?.includeStarMeanings ? renderQizhengStarMeanings(data.stars) : '',
     `【吊照】\n${relationLines.join('；') || '未命中所列相位。'}`,
@@ -429,7 +432,7 @@ export function renderQizhengData(data: Data, question: string, options: Input['
     flowText,
     limitText,
     eventText,
-    `【出生时天文背景】\n太阳视高度${data.sky.sunAltitudeDegrees.toFixed(2)}°（${crossingText}）；${data.moonPhase.eightPhaseName}${data.moonPhase.waxing ? '盈' : '亏'}，月相角${data.moonPhase.phaseAngleDegrees.toFixed(2)}°，月面照明约${(data.moonPhase.illuminationFraction * 100).toFixed(1)}%，近似月龄${data.moonPhase.approximateMoonAgeDays.toFixed(2)}日。\n前一四正${data.moonPhase.previous.name}：UTC ${new Date(data.moonPhase.previous.utcTimestamp).toISOString()}；${data.moonPhase.current ? `当前四正${data.moonPhase.current.name}；` : ''}下一四正${data.moonPhase.next.name}：UTC ${new Date(data.moonPhase.next.utcTimestamp).toISOString()}。`,
+    `【出生时天文背景】\n太阳视高度${data.sky.sunAltitudeDegrees.toFixed(2)}°（${crossingText}）；${data.moonPhase.eightPhaseName}${data.moonPhase.waxing ? '盈' : '亏'}，月相角${data.moonPhase.phaseAngleDegrees.toFixed(2)}°，月面照明约${(data.moonPhase.illuminationFraction * 100).toFixed(1)}%，朔望月龄${data.moonPhase.approximateMoonAgeDays.toFixed(2)}日。\n前一四正${data.moonPhase.previous.name}：UTC ${new Date(data.moonPhase.previous.utcTimestamp).toISOString()}；${data.moonPhase.current ? `当前四正${data.moonPhase.current.name}；` : ''}下一四正${data.moonPhase.next.name}：UTC ${new Date(data.moonPhase.next.utcTimestamp).toISOString()}。`,
     formatSchoolAlgorithmSection(evaluateQizhengSchoolAlgorithms({ ...data, enNan }, options?.schools)),
     formatSchoolGuidance(options?.schools, qizhengSchools),
     options?.includeClassics
@@ -445,7 +448,7 @@ export function renderQizhengData(data: Data, question: string, options: Input['
           '典籍片段',
         )
       : '',
-    `【主题与任务】\n主题：${labels[topic]}${subtopic ? `（${subtopic.label}）` : ''}；范围：${scope === 'natal' ? '本命' : '本命与指定流曜时点'}。\n${focusPalaces.length ? `建议优先核对：${focusPalaces.join('；')}。` : '建议结合问题核对全部宫位。'}\n${focus.task}${subtask ? ` ${subtask}` : ''}${topic === 'timing' && !flowing ? ' 当前未选择流曜资料，不能据此判断具体时机。' : ''}\n结合所列星宿、宫位与吊照解释传统取象，分开事实与推论，说明反证及资料不足。`,
+    `【主题与任务】\n主题：${labels[topic]}${subtopic ? `（${subtopic.label}）` : ''}；范围：${scope === 'natal' ? '本命' : '本命与指定流曜时点'}。\n${focusPalaces.length ? `建议优先核对：${focusPalaces.join('；')}。` : '建议结合问题核对全部宫位。'}\n${focus.task}${subtask ? ` ${subtask}` : ''}${topic === 'timing' && !flowing ? ' 当前未选择流曜资料，不能据此判断具体时机。' : ''}\n结合所列星宿、宫位与吊照解释传统取象，分开事实与推论，说明反证与触发边界。`,
     `【限制】\n${data.limitations.join('\n')}\n${data.mansionModel.limitation}`,
     `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };

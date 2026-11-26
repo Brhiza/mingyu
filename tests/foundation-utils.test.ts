@@ -68,12 +68,6 @@ import {
   stepSixtyCycle,
   tallyWuxing,
 } from '../src/systems/ganzhi-foundation';
-import {
-  expandCharVariants,
-  normalizeChineseText,
-  toSimplifiedChar,
-  toTraditionalVariants,
-} from '../src/systems/text-variants';
 
 test('六十甲子、纳音五行与六旬空亡', () => {
   assert.equal(SIXTY_CYCLE.length, 60);
@@ -185,46 +179,6 @@ test('calendar.ts 保持原有导出兼容', () => {
   assert.equal(calendar.isSheng('木', '火'), true);
   assert.equal(calendar.isKe('木', '土'), true);
   assert.equal(calendar.getSeasonState('火', '寅'), '相');
-});
-
-test('通用简繁与异体字工具', () => {
-  const cases: Array<[string, string, string[]]> = [
-    ['干', '干', ['干', '乾', '幹']],
-    ['里', '里', ['里', '裏', '裡']],
-    ['钟', '钟', ['钟', '鐘', '鍾']],
-    ['发', '发', ['发', '發', '髮']],
-    ['台', '台', ['台', '臺', '檯', '颱']],
-    ['后', '后', ['后', '後']],
-    ['面', '面', ['面', '麵']],
-    ['松', '松', ['松', '鬆']],
-    ['历', '历', ['历', '曆', '歷']],
-    ['云', '云', ['云', '雲']],
-    ['余', '余', ['余', '餘']],
-  ];
-
-  for (const [simp, expectedSimp, expectedGroup] of cases) {
-    assert.equal(toSimplifiedChar(simp), expectedSimp);
-    for (const variant of expectedGroup) {
-      assert.equal(toSimplifiedChar(variant), expectedSimp, `${variant} -> ${expectedSimp}`);
-      const expanded = expandCharVariants(variant);
-      for (const member of expectedGroup) {
-        assert.ok(expanded.includes(member), `${variant} 展开应包含 ${member}`);
-      }
-    }
-    const trads = toTraditionalVariants(simp);
-    for (const member of expectedGroup) {
-      assert.ok(trads.includes(member), `${simp} 的繁体/异体应包含 ${member}`);
-    }
-  }
-
-  assert.equal(toSimplifiedChar('國'), '国');
-  assert.ok(toTraditionalVariants('国').includes('國'));
-  assert.equal(normalizeChineseText('　乾坤萬裡，發財鬆弛！ '), '干坤万里，发财松弛！');
-  assert.equal(
-    normalizeChineseText('  雲 端　餘 韻！ ', { stripWhitespace: true, stripPunctuation: true }),
-    '云端余韵',
-  );
-  assert.equal(normalizeChineseText('  乾坤 ', { form: 'preserve' }), '乾坤');
 });
 
 test('自研十神、二十八宿七曜、年/月九星及八字起运与历表基线一致', () => {
@@ -357,7 +311,7 @@ test('自研四柱算子在跨世纪立春秒级边界与黄历神煞溯源、20
     rules: { earthRule: 'follow-water' },
   });
   assert.equal(baziWater.data.chart.pillars.day.lifeStage, getLifeStage(baziWater.data.chart.pillars.day.gan, baziWater.data.chart.pillars.day.zhi, { earthRule: 'follow-water' }));
-  assert.match(baziWater.prompt.text, /土行长生=follow-water/);
+  assert.match(baziWater.prompt.text, /土行长生=土随水行/);
   assert.doesNotMatch(baziDefault.prompt.text, /土行长生=/);
 
   // 黄历神煞出处分类与 2097-08-07 近午夜朔日提示

@@ -286,7 +286,9 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData) {
     noblemanRule: data.calculation.noblemanRule,
     noblemanDirection: data.calculation.noblemanDirection,
     guiShenRule: data.calculation.guiShenRule,
-    yinYangUseRule: `${data.yinYangUse.pattern}：${data.yinYangUse.rule}`,
+    yinYangUseRule: data.yinYangUse.rule.startsWith(data.yinYangUse.pattern)
+      ? data.yinYangUse.rule
+      : `${data.yinYangUse.pattern}：${data.yinYangUse.rule}`,
     promptText: [
       `起课方式${data.calculation.methodLabel}`,
       data.calculation.diFenNote,
@@ -295,7 +297,9 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData) {
       data.calculation.noblemanRule,
       data.calculation.guiShenRule,
       data.calculation.yuanDunRule,
-      `${data.yinYangUse.pattern}，${data.yinYangUse.rule}`,
+      data.yinYangUse.rule.startsWith(data.yinYangUse.pattern)
+        ? data.yinYangUse.rule
+        : `${data.yinYangUse.pattern}，${data.yinYangUse.rule}`,
     ]
       .map((item) => item.replace(/。$/u, ''))
       .join('；'),

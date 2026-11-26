@@ -1,3 +1,4 @@
+import { KE_MAP, SHENG_MAP } from './ganzhi-foundation';
 import type { z } from 'zod';
 import type { chineseNameInput } from '../schema';
 import type { CharacterDetail } from './characters';
@@ -11,8 +12,8 @@ import surnameReadings from '../data/characters/surname-readings.json';
 type Birth = z.infer<typeof chineseNameInput>['birth'];
 type BirthRange = z.infer<typeof chineseNameInput>['birthRange'];
 const elements = ['水', '木', '木', '火', '火', '土', '土', '金', '金', '水'];
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const generates: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 const numeral = [...numerology, shuli81];
 const sancai = sancaiData as Record<string, { combo: string; tian_ren: string; ren_di: string; level: string; text: string }>;
 const surnames = surnameReadings as Record<string, string>;

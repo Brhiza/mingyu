@@ -4,6 +4,7 @@ import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, type SchoolGuidanceEntry } from '../prompt-selection';
 import { formatClassicExcerpts, selectXuankongClassics } from './classics';
 import { evaluateXuankongSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { measureSitDirection, mountainTrigram } from './compass';
 import { birthYearCandidates } from './bazhai/foundation';
 import { resolveXuankongMode } from './defaults';
@@ -148,12 +149,13 @@ function buildXuankongPatternRelations(data: Data): string {
       const hasTwo = p.mountain === 2 || p.water === 2 || p.yearStar === 2;
       const isGoodTime = (t: string) => t === '旺' || t === '生' || t === '进气';
 
+      const gongLabel = p.direction === '中' && p.name === '中' ? '中宫' : `${p.direction}${p.name}宫`;
       if ((isGoodTime(mTime) || isGoodTime(wTime) || auspiciousDoubleKeys.has(pairKey)) && !hasFive && !(hasTwo && yun !== 9)) {
         const tags: string[] = [];
         if (isGoodTime(mTime)) tags.push(`山${p.mountain}${mTime}`);
         if (isGoodTime(wTime)) tags.push(`向${p.water}${wTime}`);
         if (auspiciousDoubleKeys.has(pairKey)) tags.push(doubleStarNotes[pairKey]);
-        thriving.push(`${p.direction}${p.name}宫（${tags.join('、')}）`);
+        thriving.push(`${gongLabel}（${tags.join('、')}）`);
       }
 
       const risks: string[] = [];
@@ -166,7 +168,7 @@ function buildXuankongPatternRelations(data: Data): string {
       if (inauspiciousDoubleKeys.has(pairKey)) risks.push(doubleStarNotes[pairKey]);
 
       if (risks.length) {
-        shaZones.push(`${p.direction}${p.name}宫（${risks.join('、')}）`);
+        shaZones.push(`${gongLabel}（${risks.join('、')}）`);
         if (hasFive || hasTwo) remedyHints.add('五黄/二黑属土煞：宜金泄耗（金属器物/铜铃/白色静置），忌红黄火土与动土修造');
         if (pairKey === '23' || pairKey === '32') remedyHints.add('二三斗牛煞（木克土）：宜火通关（暖光/红色点缀泄木生土）');
         if (pairKey === '37' || pairKey === '73' || pairKey === '67' || pairKey === '76') remedyHints.add('三七穿途/六七交剑（金木相战或金刃相交）：宜水通关（静水/黑蓝色泄金生木）');
@@ -205,12 +207,13 @@ function render(data: Data, question: string, options?: Input['prompt']) {
       ...(chart.replacement ? [`替星：山${chart.replacement.mountain.originalCenterStar}→${chart.replacement.mountain.replacementStar}（${chart.replacement.mountain.referenceMountain}、${chart.replacement.mountain.direction}）；向${chart.replacement.facing.originalCenterStar}→${chart.replacement.facing.replacementStar}（${chart.replacement.facing.referenceMountain}、${chart.replacement.facing.direction}）。`] : []),
       `城门盘面：${chart.castleGate.candidates.map((c) => `${c.role}${c.mountain}方（${c.gongName}宫），运星${c.yunStar}${c.flyDirection}，到星${c.arrivalStar}，${c.status}`).join('；')}。${chart.castleGate.limitation}`,
       ...chart.palaces.map((p) => {
+        const dirLabel = p.direction === '中' && p.name === '中' ? '中宫' : `${p.direction}${p.name}`;
         const pairKey = `${p.mountain}${p.water}`;
         const note = doubleStarNotes[pairKey] ? `［${doubleStarNotes[pairKey]}］` : '';
         const yearLabel = p.yearStar
           ? `、年${p.yearStar}${YEAR_STAR_TAGS[p.yearStar] ? `(${YEAR_STAR_TAGS[p.yearStar]})` : ''}`
           : '';
-        return `${p.direction}${p.name}（${p.earth}宫）：运${p.period}、山${p.mountain}（${starTimeliness(p.mountain, yun)}）、向${p.water}（${starTimeliness(p.water, yun)}）${yearLabel}${p.monthStar ? `、月${p.monthStar}` : ''}${p.dayStar ? `、日${p.dayStar}` : ''}${p.hourStar ? `、时${p.hourStar}` : ''}${note}`;
+        return `${dirLabel}（${p.earth}宫）：运${p.period}、山${p.mountain}（${starTimeliness(p.mountain, yun)}）、向${p.water}（${starTimeliness(p.water, yun)}）${yearLabel}${p.monthStar ? `、月${p.monthStar}` : ''}${p.dayStar ? `、日${p.dayStar}` : ''}${p.hourStar ? `、时${p.hourStar}` : ''}${note}`;
       }),
       `组合：${[...chart.combinations.map((item) => item.name), ...specialNotes].join('、') || '未命中已列组合'}。`].join('\n');
   });
@@ -221,7 +224,9 @@ function render(data: Data, question: string, options?: Input['prompt']) {
       chart.palaces.flatMap((p) => [p.period, p.mountain, p.water, p.yearStar, p.monthStar, p.dayStar, p.hourStar].filter((n): n is number => typeof n === 'number')),
     )))
     : '';
+  const digestLines = buildMethodSituationDigest('xuankong', data, question);
   const text = [`【玄空飞星】\n${measurement}\n运期${data.periodBoundary === '交界双候选' ? '跨立春交运边界，保留多个候选' : '按所给精度确定'}；共${data.charts.length}盘。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     data.flow
       ? `【流年流月${data.flow.day ? '流日' : ''}${data.flow.hour ? '流时' : ''}】\n年${data.flow.year.year}，中宫${data.flow.year.centerStar}${data.flow.month ? `；${data.flow.month.rule} 月支${data.flow.month.monthBranch}，中宫${data.flow.month.centerStar}` : '；年星以所指定立春节气年计算。'}${data.flow.day ? `；流日${data.flow.day.direction}，中宫${data.flow.day.centerStar}` : ''}${data.flow.hour ? `；流时（${data.flow.hour.date.hour}时）${data.flow.hour.direction}，中宫${data.flow.hour.centerStar}` : ''}`
       : '【流年流月】\n未指定流年或日期，不附加流年飞星。',

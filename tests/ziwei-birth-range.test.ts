@@ -90,7 +90,8 @@ test('真太阳时跨午夜及晚子交界，current 和 forward 口径都不遗
     const days = [...new Set(result.data.unknown.candidates.map((item: any) => item.chart.basis.correctedLocalDateTime.slice(0, 10)))];
     assert.deepEqual(days, ['1990-05-14', '1990-05-15']);
     assert.equal(result.data.unknown.candidates.reduce((sum: number, item: any) => sum + item.endTimestamp - item.startTimestamp, 0), 24 * 3600_000);
-    assert.match(result.prompt.text, /真太阳时/); assert.match(result.prompt.text, new RegExp(`晚子日界${dayDivide}`));
+    const dayDivideLabel = dayDivide === 'current' ? '归当日' : '归次日';
+    assert.match(result.prompt.text, /真太阳时/); assert.match(result.prompt.text, new RegExp(`晚子日界=${dayDivideLabel}`));
   }
 });
 

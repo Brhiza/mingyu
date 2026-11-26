@@ -5,6 +5,7 @@ import { randomContext } from './random';
 import { resolveTarotReversalMode, TAROT_REVERSAL_RATES, type TarotReversalMode } from './defaults';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateTarotSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof tarotInput>;
 type Spread = keyof typeof reference.spreads;
@@ -236,17 +237,19 @@ export function promptForTarot(value: unknown, question: string, options: Input[
       : data.draw?.reversalMode === 'realistic'
         ? '；洗牌模式：现实洗牌手感（约 30% 逆位）'
         : '';
+  const digestLines = buildMethodSituationDigest('tarot', data, question);
   const sections = [
     '【传统依据】\n按牌阵位置、正逆位、牌组层次、元素与牌序解读；逆位需结合问题和相邻牌面。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【提示词参考时间】\n${now}`,
     `【占卜资料】\n占法：塔罗；牌阵：${data.spreadName}；共 ${data.cards.length} 张${reversalModeLabel}。\n牌阵结构统计：${structureSummary}\n${cards}`,
     `【牌阵结构与牌间呼应关系】\n${analyzeTarotRelations(data.cards).text}`,
-    interactions || reversalNotes ? `【相邻牌元素与逆位结构】\n${[interactions, themes ? `重复牌面主题：${themes}` : '', reversalNotes].filter(Boolean).join('\n')}\n元素关系仅为传统取象，正逆位不改变元素关系。` : '',
+    interactions || reversalNotes ? `【相邻牌元素与逆位结构】\n${[interactions, themes ? `重复牌面主题：${themes}` : '', reversalNotes].filter(Boolean).join('\n')}` : '',
     selection ? `【解读选择】\n${selection.section}` : '',
     formatSchoolAlgorithmSection(evaluateTarotSchoolAlgorithms(data, options?.schools)),
     schools,
     options?.includeClassics ? '【传统资料】\n以 Rider-Waite-Smith 体系的牌面、牌位和正逆位资料为依据。' : '',
-    `【任务】\n围绕问题逐牌核对牌位、牌名、正逆位、关键词和元素，结合可观察的现实条件。\n解读主线：${framework.mainLine}\n牌位联动：${framework.connections}\n结论重点：${framework.conclusion}${selection ? `\n${selection.task}` : ''}\n分别说明支持、张力、可能分支与资料不足；不要将象征直接当作确定事件。`,
+    `【任务】\n围绕问题逐牌核对牌位、牌名、正逆位、关键词和元素，结合可观察的现实条件。\n解读主线：${framework.mainLine}\n牌位联动：${framework.connections}\n结论重点：${framework.conclusion}${selection ? `\n${selection.task}` : ''}\n分别说明支持、张力、可能分支与现实前提边界；不要将象征直接当作确定事件。`,
     `【问题】\n${question}`,
   ].filter(Boolean);
   const user = sections.join('\n\n');

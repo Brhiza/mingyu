@@ -252,6 +252,7 @@ export const baziIndependentInput = z.object({
     shenshaBaseMode: z.enum(['year-and-day', 'day-only', 'year-only']).optional().describe('神煞起例基准柱：默认 year-and-day（年柱与日柱同查贵人及三合神煞）；day-only 为子平重日主（仅以日柱查）；year-only 为古法重年命（仅以年柱查）。'),
     xueTangMode: z.enum(['nayin', 'stem-changsheng', 'zheng-xuetang', 'nayin-and-stem']).optional().describe('学堂与词馆查法：默认 nayin（按年柱纳音五行查长生/临官地支）；stem-changsheng 为十天干十二长生查法（含丁酉学堂）；zheng-xuetang 为《三命通会》正学堂/正词馆（干支同见、纳音同五行）；nayin-and-stem 为纳音与天干长生双查。'),
     tianYiMode: z.enum(['standard', 'classical-geng-yinwu']).optional().describe('天乙贵人口诀：默认 standard（甲戊庚牛羊、六辛逢马虎）；classical-geng-yinwu 为古诀（甲戊兼牛羊、庚辛逢马虎）。'),
+    tianGuanMode: z.enum(['standard', 'jingji-variant']).optional().describe('天官贵人口诀：默认 standard（《三命通会》五虎遁正官位：丁寅戊卯己戌）；jingji-variant 为《五行精纪》别本口诀（丁酉戊丑己戌）。'),
     hongYanMode: z.enum(['standard', 'yi-shen', 'year-and-day']).optional().describe('红艳煞查法：默认 standard（甲乙皆午，仅查日干）；yi-shen 为古诀甲午乙申（仅查日干）；year-and-day 为按主流表年干日干同查。'),
     tongZiMode: z.enum(['standard', 'hour-only', 'strict-both']).optional().describe('童子煞查法：默认 standard（季节与年柱纳音口诀合并查日支与时支）；hour-only 为古法仅查时支；strict-both 为须季节与纳音口诀同中（真童子）。'),
     commanderMode: z.enum(['standard', 'yuanhai']).optional().describe('月令人元司令分野表：默认 standard（通会/滴天髓折中表）；yuanhai 为《渊海子平·详论节气歌》古法（四孟月 7/5/18）。'),
@@ -262,7 +263,7 @@ export const baziIndependentInput = z.object({
 }).strict().refine((value) => !!value.birth !== !!value.birthRange, '出生资料与出生范围必须且只能提供一种')
   .refine((value) => !value.referenceTime || (value.gender !== undefined && value.birth?.clock.kind === 'exact' && Date.parse(value.referenceTime) % 1000 === 0), '指定岁运时刻需要性别、精确出生时分秒和整秒参考时刻')
   .refine((value) => value.timelineYear === undefined || (value.gender !== undefined && value.birth?.clock.kind === 'exact'), '查询流月时间线需要性别和精确出生时分秒')
-  .describe('八字排盘：birth 与 birthRange 必须且只能提供一种；支持四柱、十神、旺衰格局、调候用神裁定、大运流年流月与 56 项本命神煞（出生范围不计算精确起运及岁运）。');
+  .describe('八字排盘：birth 与 birthRange 必须且只能提供一种；支持四柱、十神、旺衰格局、调候用神裁定、大运流年流月与 71 项本命神煞（出生范围不计算精确起运及岁运）。');
 
 const baziIndependentPerson = baziBirth.safeExtend({
   name: z.string().trim().min(1).max(100).optional(),
@@ -322,7 +323,7 @@ export const mingluInput = z.object({
   .refine((value) => !!value.birth !== !!value.birthRange, '出生资料与出生范围必须且只能提供一种')
   .refine((value) => !value.referenceTime || (value.gender !== undefined && value.birth?.clock.kind === 'exact' && Date.parse(value.referenceTime) % 1000 === 0), '指定岁运时刻需要性别、精确出生时分秒和整秒参考时刻')
   .refine((value) => value.timelineYear === undefined || (value.gender !== undefined && value.birth?.clock.kind === 'exact'), '查询流月时间线需要性别和精确出生时分秒')
-  .describe('命录综合资料：以八字为基础，按实际资料按需聚合紫微、西洋星盘与八宅命卦，生成分节 Markdown 与提示词；不生成旧版加权评分。');
+  .describe('命录综合资料：以八字为基础，按实际资料按需聚合紫微、西洋星盘与八宅命卦，生成分节 Markdown 与提示词。');
 
 export const fortuneInput = z.object({
   ...base,

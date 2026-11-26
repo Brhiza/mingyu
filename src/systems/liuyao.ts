@@ -376,12 +376,53 @@ export function buildLiuyaoPatternRelations(data: LiuyaoData, evidence: Evidence
     rescueConditions.push('静卦无明动与暗动爻，生克制衡以月建、日辰、世应及伏神条件为主');
   }
 
+  // 确定性应期地支候选窗（逢空填冲、月破逢合、合处逢冲、发动逢值/逢合、伏神冲飞）
+  const CHONG_BRANCH: Record<string, string> = {
+    子: '午', 午: '子', 丑: '未', 未: '丑', 寅: '申', 申: '寅',
+    卯: '酉', 酉: '卯', 辰: '戌', 戌: '辰', 巳: '亥', 亥: '巳',
+  };
+  const HE_BRANCH: Record<string, string> = {
+    子: '丑', 丑: '子', 寅: '亥', 亥: '寅', 卯: '戌', 戌: '卯',
+    辰: '酉', 酉: '辰', 巳: '申', 申: '巳', 午: '未', 未: '午',
+  };
+  const yingQiHints: string[] = [];
+  for (const yao of targetVisibleYaos.slice(0, 2)) {
+    const z = yao.najiaDizhi;
+    const chongZ = CHONG_BRANCH[z];
+    const heZ = HE_BRANCH[z];
+    if (data.voidBranches.includes(z)) {
+      yingQiHints.push(`用神/主轴${z}逢空→待${z}（填实）或${chongZ}（冲空）月/日`);
+    } else if (monthBranch && isChong(z, monthBranch)) {
+      yingQiHints.push(`用神/主轴${z}月破→待${heZ}（合破）或${z}（出月填实）月/日`);
+    } else if (isHe(z, dayBranch) || isHe(z, monthBranch)) {
+      yingQiHints.push(`用神/主轴${z}逢合→待${chongZ}（合处逢冲）月/日引动`);
+    } else if (yao.isChanging) {
+      yingQiHints.push(`用神/主轴${z}发动→重点看${z}（逢值）或${heZ}（逢合）月/日`);
+    } else {
+      yingQiHints.push(`用神/主轴${z}静守→重点看${z}（值日/月）或${chongZ}（逢冲动起）`);
+    }
+  }
+  for (const h of targetHiddenSpirits.slice(0, 1)) {
+    const fly = data.yaosDetail.find((y) => y.position === h.position);
+    const chongFly = fly ? CHONG_BRANCH[fly.najiaDizhi] : '';
+    yingQiHints.push(
+      `伏神${h.sixRelative}${h.najiaDizhi}→待${h.najiaDizhi}（值日透出）${chongFly ? `或${chongFly}（冲开飞神${fly?.najiaDizhi}）` : ''}月/日`,
+    );
+  }
+  if (!yingQiHints.length && movingYaos.length === 1) {
+    const m = movingYaos[0];
+    yingQiHints.push(`独发第${m.position}爻${m.najiaDizhi}→看${m.najiaDizhi}（逢值）或${HE_BRANCH[m.najiaDizhi]}（逢合）月/日`);
+  }
+
   return [
     mainPatternLine,
     `- 成事链（生扶与助力，主轴=${targetLabel}）：${supportChain.length ? supportChain.join('；') : '未见明显月日生扶或动变助益'}。`,
     `- 阻力链（克制与损耗，主轴=${targetLabel}）：${resistanceChain.length ? resistanceChain.join('；') : '未见明显忌神动克或空破退克阻力'}。`,
     `- 救应与转化条件：${rescueConditions.length ? rescueConditions.join('；') : '无特殊空破伏藏救应触发，按常规月日旺衰与动变直断'}。`,
-  ].join('\n');
+    yingQiHints.length ? `- 应期地支候选窗：${yingQiHints.join('；')}。` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question: string, options: Options, now: string, timeLabel = '起卦') {

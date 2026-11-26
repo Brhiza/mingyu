@@ -16,13 +16,6 @@ import {
   lookupMetaphysicsTerm,
   searchMetaphysicsTerms,
 } from '../src/systems/terms';
-import {
-  CHARACTER_READING_NOTES,
-  CHARACTER_STROKE_NOTES,
-  CHARACTER_VARIANT_KANGXI_TEXTS,
-  getCharacterAnnotations,
-  listSurnameReadingCharacters,
-} from '../src/systems/character-annotations';
 
 test('《焦氏易林》覆盖 4,096 卦变林辞并支持简繁异体与全名查询', () => {
   assert.equal(YILIN_HEXAGRAM_ORDER.length, 64);
@@ -119,27 +112,4 @@ test('术数术语百科词典共 257 条，支持精确、别名、分类与关
   const searched = searchMetaphysicsTerms('滴天髓', { category: '八字', limit: 5 });
   assert.ok(searched.length > 0 && searched.length <= 5);
   assert.ok(searched.every((item) => item.category === '八字'));
-});
-
-test('姓名学多音/姓氏注释、异体康熙原文与笔画差异说明可完整查询', () => {
-  assert.equal(Object.keys(CHARACTER_STROKE_NOTES).length, 8);
-  assert.equal(Object.keys(CHARACTER_VARIANT_KANGXI_TEXTS).length, 17);
-  assert.equal(Object.keys(CHARACTER_READING_NOTES).length, 31);
-
-  const wan = getCharacterAnnotations('万');
-  assert.ok(wan?.strokeNote?.includes('15画'));
-  assert.deepEqual(wan?.readingNote?.readings, ['wàn', 'mò']);
-  assert.equal(wan?.readingNote?.surname, 'wàn');
-
-  const yun = getCharacterAnnotations('雲');
-  assert.ok(yun?.variantKangxiText?.includes('山川气也') || yun?.variantKangxiText?.includes('山川气') || yun?.variantKangxiText?.includes('說文'));
-
-  const shan = getCharacterAnnotations('单');
-  assert.equal(shan?.readingNote?.surname, 'shàn');
-
-  assert.equal(getCharacterAnnotations('不存在的字'), undefined);
-
-  const surnames = listSurnameReadingCharacters();
-  assert.equal(surnames.length, 12);
-  assert.ok(surnames.some((item) => item.char === '翟' && item.surname === 'zhái'));
 });

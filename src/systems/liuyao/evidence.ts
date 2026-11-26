@@ -540,7 +540,7 @@ function buildLineFacts(
       movingRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
       yao.dayLifeStage && ['长生', '帝旺', '墓', '绝'].includes(yao.dayLifeStage)
-        ? `日辰生旺墓绝${yao.dayLifeStage}`
+        ? `日辰生旺墓绝：${yao.dayLifeStage}`
         : '',
       effectiveMovingLifeStages?.length
         ? `动爻生旺墓绝${effectiveMovingLifeStages.map((item) => `第${item.position}爻${item.branch}${item.stage}`).join('、')}`

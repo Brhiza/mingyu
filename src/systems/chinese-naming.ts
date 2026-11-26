@@ -4,6 +4,7 @@ import type { CharacterShardLoader } from '../character-data';
 import { sameJsonValue } from '../json-value';
 import { characterMetadata, searchOrderedMetadata, type CharacterDetail } from './characters';
 import { birthFacts, birthForNaming, evaluateStrokeScore, nameCharacterFacts, nameFacts, nameStructure, namingDetails, namingPreferences, namingPromptSelection } from './naming-foundation';
+import { buildMethodSituationDigest } from './situation-digest';
 import surnameReadings from '../data/characters/surname-readings.json';
 
 const surnameReadingMap = surnameReadings as Record<string, string>;
@@ -22,6 +23,7 @@ const UNSUITABLE_CHARS = new Set([
   ...'一二三四五六七八九十零百千万亿了么吗呢啊吧哦呀哇哪嘛啥死亡病杀凶鬼尸丧哭泪苦痛穷贫贱丑恶毒癌瘤粪尿屎屁猪狗贼盗砍刀刁狱囚灾祸刑罪',
   ...'肮脏臭肥胖瘦肺肝肠胃肾脾胆胰脑骨肉皮筋肪股肩臀腿脚趾甲疮脓痰血唾涕洞坑坟墓穴笆笼牢',
   ...'傻蠢笨呆痴癫狂聋哑瞎跛秃癞妖魔怪蛇虫鼠蚁蛆蝇蚊蝎毒煞孽',
+  ...'恐惧恨怒愁悲哀忧怨妒忌荒废残破败亏陷困厄窘霉烂朽腐枯萎僵葬棺骗诈奸邪暴虐狠刺割斩剁拷罚贬斥骂侮辱耻羞卑劣庸俗陋浊污垢渣昏暗盲瘸瘫痪瘟疫疟痢腥臊',
 ]);
 const GOOD_STRUCTURES = new Set(['左右', '上下', '独体', '左上包围', '左下包围']);
 const COMPLEX_STRUCTURES = new Set(['全包围', '穿插']);
@@ -295,7 +297,10 @@ function render(data: Data, question: string, options: Input['prompt']) {
   const characters = new Map<string, Parameters<typeof nameCharacterFacts>[0]>();
   for (const candidate of data.candidates) for (const item of candidate.analysis.chars) characters.set(`${item.isSurname}:${item.char}`, item);
   const relations = analyzeChineseNamingRelations(data);
-  const text = [`【起名条件】\n姓氏${data.input.surname}；字数${data.input.givenNameLength ?? 2}；取向${gender}；偏好字${data.input.preferredCharacters || '未指定'}；忌用字${data.input.forbiddenCharacters || '未指定'}；辈分字${data.input.generationCharacter || '未指定'}${data.input.generationCharacter ? `（${position}）` : ''}。\n候选字池：${data.selectedCharacters.join('、')}。`,
+  const digestLines = buildMethodSituationDigest('chinese-naming', { ...data, relations }, question);
+  const text = [
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
+    `【起名条件】\n姓氏${data.input.surname}；字数${data.input.givenNameLength ?? 2}；取向${gender}；偏好字${data.input.preferredCharacters || '未指定'}；忌用字${data.input.forbiddenCharacters || '未指定'}；辈分字${data.input.generationCharacter || '未指定'}${data.input.generationCharacter ? `（${position}）` : ''}。\n候选字池：${data.selectedCharacters.join('、')}。`,
     data.unavailablePreferredCharacters.length ? `【未收录偏好字】\n${data.unavailablePreferredCharacters.join('、')}未收录，未参与候选生成。` : '',
     forbiddenForms.length ? `【避讳字形】\n对应简繁字形均回避：${forbiddenForms.join('、')}。` : '',
     `【出生与五行参考】\n五行方向来源：${data.preference.source}。\n${birthFacts(data.birthContext)}`,

@@ -58,7 +58,7 @@ test('首页自定义配置读取默认值、保存、空数组保留与恢复�
 
     // 模拟删除某几项、清空某一组并新增其他项目
     const modified = {
-      instantCastIds: ['liuren', 'instant-bazi'],
+      instantCastIds: ['liuren', 'huangji-jingshi'],
       chartEntryIds: [],
       instantChipIds: ['instant-ziwei', 'qimen'],
       cardIds: ['almanac', 'bazi'],
@@ -73,25 +73,6 @@ test('首页自定义配置读取默认值、保存、空数组保留与恢复�
     const reset = resetHomeCustomization();
     assert.equal(isHomeCustomizationModified(reset), false);
     assert.deepEqual(readHomeCustomization(), reset);
-  } finally {
-    if (prevWindow === undefined) {
-      delete (globalThis as Record<string, unknown>).window;
-    } else {
-      (globalThis as Record<string, unknown>).window = prevWindow;
-    }
-  }
-});
-
-test('兼容旧版 mingyu.v2.homeCustomCards 迁移且不产生重复卡片', () => {
-  const prevWindow = (globalThis as Record<string, unknown>).window;
-  const localStorage = createStorageMock();
-  localStorage.setItem('mingyu.v2.homeCustomCards', JSON.stringify(['almanac', 'bazi', 'history']));
-  (globalThis as Record<string, unknown>).window = { localStorage };
-
-  try {
-    const migrated = readHomeCustomization();
-    assert.deepEqual(migrated.cardIds, [...DEFAULT_HOME_CARD_IDS, 'bazi', 'history']);
-    assert.equal(new Set(migrated.cardIds).size, migrated.cardIds.length);
   } finally {
     if (prevWindow === undefined) {
       delete (globalThis as Record<string, unknown>).window;

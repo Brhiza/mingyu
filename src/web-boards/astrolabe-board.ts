@@ -1,4 +1,3 @@
-import './boards.css';
 import { el, svgEl, unwrapBoardData } from './shared';
 
 interface AstrolabePoint {

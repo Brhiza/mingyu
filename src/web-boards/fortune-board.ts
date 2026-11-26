@@ -1,4 +1,3 @@
-import './boards.css';
 import { asArray, asNumber, asRecord, asString, createBoardHeader, createMetaGrid, el } from './dom';
 
 export function renderFortuneBoard(shell: HTMLElement, raw: unknown): boolean {

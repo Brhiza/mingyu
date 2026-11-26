@@ -109,14 +109,14 @@ test('独立八字 API 渲染辅助宫位与排盘口径，追问保留 rules �
   assert.equal(result.data.chart.pillars.hour.ganZhi, '丙子');
   assert.ok(result.data.chart.extraPalaces);
   assert.match(result.prompt.text, /【辅助宫位（命宫\/身宫\/胎元\/胎息）】/);
-  assert.match(result.prompt.text, /排盘口径：.*子时=split-zi，晚子时干=current-day.*旬空=day-and-year，起运=round-day/);
+  assert.match(result.prompt.text, /排盘口径：.*子时=早晚子分日，晚子时干=当日干.*旬空=年日互换，起运=三天折一年（取整）/);
   assert.match(result.prompt.text, /日柱旬空 .*；年柱旬空 /);
   assert.equal(result.data.fortune.startAge.hours, 0);
   assert.equal(result.data.fortune.startAge.minutes, 0);
 
   const next = await reprompt({ method: 'bazi', result, question: '命宫怎么看？' });
   assert.match(next.prompt.text, /【辅助宫位（命宫\/身宫\/胎元\/胎息）】/);
-  assert.match(next.prompt.text, /子时=split-zi，晚子时干=current-day.*旬空=day-and-year，起运=round-day/);
+  assert.match(next.prompt.text, /子时=早晚子分日，晚子时干=当日干.*旬空=年日互换，起运=三天折一年（取整）/);
   assert.match(next.prompt.text, /日柱旬空 .*；年柱旬空 /);
 
   const tamperedPalace = structuredClone(result);

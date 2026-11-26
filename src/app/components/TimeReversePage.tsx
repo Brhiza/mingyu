@@ -449,49 +449,40 @@ export function TimeReversePage({
       <PageHeader
         title="时辰逆推"
         badgeText={role === 'partner' ? '命主二' : '生时校正'}
-        subtitle="所有选项都非必填，像做填空题一样挑记得住的填，填完即可生成逆推提示词或让 AI 直接帮你推算。"
         rightSlot={
           <Button variant="secondary" size="sm" onClick={onBackToChartInput}>
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>返回排盘输入</span>
+            <span>返回排盘</span>
           </Button>
         }
       />
 
       {/* 顶部线索统计条 */}
-      <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-[var(--surface-soft)]">
+      <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-[var(--surface-soft)]">
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--text-secondary)]">
-          <Sparkles className="h-4 w-4 text-[var(--accent-strong)]" aria-hidden="true" />
-          <span>
-            当前已填写 <strong className="text-[var(--text-strong)]">{filledCount}</strong> 项线索
-          </span>
-          <span className="text-xs text-[var(--text-muted)]">
-            · 全程非必填，想不起的空着就好
+          <Sparkles className="h-4 w-4 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
+          <span className="whitespace-nowrap">
+            已填 <strong className="text-[var(--text-strong)]">{filledCount}</strong> 项线索（均非必填）
           </span>
           {hasDate ? (
-            <span className="rounded-full bg-[var(--state-selected-surface)] px-2 py-0.5 text-[11.5px] font-bold text-[var(--state-selected-text)]">
-              已识别出生日期，将自动附上十二时辰盘面对照
+            <span className="whitespace-nowrap rounded-full bg-[var(--state-selected-surface)] px-2 py-0.5 text-[11.5px] font-bold text-[var(--state-selected-text)]">
+              已附十二时辰对照
             </span>
           ) : null}
         </div>
         {filledCount > 0 ? (
           <Button variant="ghost" size="xs" onClick={handleReset}>
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>清空重写</span>
+            <span>清空</span>
           </Button>
         ) : null}
       </Card>
 
       {/* 一、已知出生线索（全部非必填） */}
-      <Card className="grid gap-4 p-4 sm:p-5">
-        <div className="grid gap-1">
-          <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
-            一、已知出生线索（有模糊印象也能填）
-          </h2>
-          <p className="m-0 text-xs text-[var(--text-muted)]">
-            只知道大概年份、大概天亮还是天黑，或者完全没日期只填性格事件，都可以正常推算。
-          </p>
-        </div>
+      <Card className="grid gap-3.5 p-4 sm:p-5">
+        <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
+          一、出生线索
+        </h2>
 
         {/* 填空 1：基本资料 */}
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
@@ -666,15 +657,10 @@ export function TimeReversePage({
       </Card>
 
       {/* 二、外貌体貌、体质与性格底色 */}
-      <Card className="grid gap-4 p-4 sm:p-5">
-        <div className="grid gap-1">
-          <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
-            二、外貌特征、体质与性格底色（填空题）
-          </h2>
-          <p className="m-0 text-xs text-[var(--text-muted)]">
-            不同时辰对应的命宫主星与时柱十神，会在外貌气质、体质强弱和内外性格反差上留下很明显的线索。
-          </p>
-        </div>
+      <Card className="grid gap-3.5 p-4 sm:p-5">
+        <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
+          二、外貌、体质与性格
+        </h2>
 
         {/* 体型与外貌 */}
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
@@ -799,15 +785,10 @@ export function TimeReversePage({
       </Card>
 
       {/* 三、已经发生的事情 · 人生重大节点 */}
-      <Card className="grid gap-4 p-4 sm:p-5">
-        <div className="grid gap-1">
-          <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
-            三、已经发生的事情 · 人生重大节点（核心校验线索）
-          </h2>
-          <p className="m-0 text-xs text-[var(--text-muted)]">
-            重大事件发生的「年份或大概年龄」最容易对上大运流年，挑你印象最深的几道题填即可，不记得年份写“十几岁 / 二十多岁”也可以。
-          </p>
-        </div>
+      <Card className="grid gap-3.5 p-4 sm:p-5">
+        <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
+          三、人生重大节点
+        </h2>
 
         {/* 1. 学业与考学 */}
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
@@ -1460,9 +1441,6 @@ export function TimeReversePage({
             {/* Tab 2: 提示词原文预览 */}
             {!webAiEnabled || outputTab === 'prompt' ? (
               <div className="grid gap-2">
-                <p className="m-0 text-xs text-[var(--text-muted)]">
-                  复制下方完整提示词，可直接粘贴到你常用的 AI 助手（如 DeepSeek、豆包、Kimi、ChatGPT、Claude）中继续对话定盘。
-                </p>
                 <pre className="m-0 max-h-[420px] overflow-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5 font-sans text-[13px] leading-[1.65] whitespace-pre-wrap break-words text-[var(--text-primary)]">
                   {generatedPrompt}
                 </pre>
@@ -1472,16 +1450,9 @@ export function TimeReversePage({
 
           {/* 六、十二时辰候选速览与一键回填排盘 */}
           <Card className="grid gap-3 p-4 sm:p-5">
-            <div className="grid gap-1">
-              <h3 className="m-0 text-[14.5px] font-bold text-[var(--text-strong)]">
-                推算出可能时辰后，点这里直接回填去排盘
-              </h3>
-              <p className="m-0 text-xs text-[var(--text-muted)]">
-                {candidatesResult && candidatesResult.candidates.length > 0
-                  ? `已为你算出 ${candidatesResult.calendarNote} 各候选时辰对应命盘；点任意一项即可带回排盘页。`
-                  : '选定一个最符合的时辰，将自动回填到出生资料中。'}
-              </p>
-            </div>
+            <h3 className="m-0 text-[14.5px] font-bold text-[var(--text-strong)]">
+              选择候选时辰回填排盘
+            </h3>
 
             {candidatesResult && candidatesResult.candidates.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-2">

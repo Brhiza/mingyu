@@ -14,10 +14,18 @@ import {
 } from 'lucide-react';
 import type { PersonalCase } from '../../v2-ui/cases-store';
 import type { AgentChatSession, AgentToolTrace } from '../../web-agent';
-import { isWebAiConfigured, readWebAiConfig } from '../../web-ai';
+import {
+  activateWebAiProfile,
+  getActiveWebAiProfileId,
+  isWebAiConfigured,
+  loadWebAiProfiles,
+  readWebAiConfig,
+  type AiConfigProfile,
+} from '../../web-ai';
 import { Button } from '../../components/ui';
 import { cn } from '../../lib/utils';
 import { AgentMarkdown } from './AgentMarkdown';
+import { AgentMiniBoard } from './AgentMiniBoard';
 
 export interface AgentChatPanelProps {
   variant: 'home-hero' | 'full-page';
@@ -41,9 +49,17 @@ function ToolTraceCard({
   trace: AgentToolTrace;
   onOpenVisualResult: (trace: AgentToolTrace) => void;
 }) {
+  const [miniOpen, setMiniOpen] = React.useState(true);
   const canOpenBoard =
     trace.status === 'success' &&
     Boolean(trace.method && (trace.fullResult || trace.repromptToken || trace.payload));
+  const hasMiniPreview =
+    trace.status === 'success' &&
+    Boolean(
+      trace.fullResult ||
+        (trace.summary?.tags && trace.summary.tags.length > 0) ||
+        (trace.summary?.lines && trace.summary.lines.length > 0),
+    );
 
   return (
     <div
@@ -74,19 +90,32 @@ function ToolTraceCard({
           </span>
         </div>
 
-        {canOpenBoard ? (
-          <Button
-            variant="secondary"
-            size="xs"
-            className="h-6 gap-1 px-2 text-[11px]"
-            onClick={() => onOpenVisualResult(trace)}
-          >
-            <Eye className="h-3 w-3" />
-            <span>查看盘面</span>
-            <ArrowUpRight className="h-3 w-3" />
-          </Button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {hasMiniPreview ? (
+            <button
+              type="button"
+              onClick={() => setMiniOpen((prev) => !prev)}
+              className="whitespace-nowrap rounded-md border-0 bg-transparent px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-strong)] cursor-pointer"
+            >
+              {miniOpen ? '收起简盘' : '展开简盘'}
+            </button>
+          ) : null}
+          {canOpenBoard ? (
+            <Button
+              variant="secondary"
+              size="xs"
+              className="h-6 gap-1 px-2 text-[11px]"
+              onClick={() => onOpenVisualResult(trace)}
+            >
+              <Eye className="h-3 w-3" />
+              <span>查看盘面</span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      {hasMiniPreview && miniOpen ? <AgentMiniBoard trace={trace} /> : null}
 
       {trace.errorMessage ? (
         <div className="mt-1 text-[11px] text-[var(--danger-text)]">{trace.errorMessage}</div>
@@ -111,7 +140,18 @@ export function AgentChatPanel({
 }: AgentChatPanelProps) {
   const [draft, setDraft] = React.useState('');
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
+  const [profiles, setProfiles] = React.useState<AiConfigProfile[]>(() => loadWebAiProfiles());
+  const [activeProfileId, setActiveProfileId] = React.useState<string | null>(() => getActiveWebAiProfileId());
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const sync = () => {
+      setProfiles(loadWebAiProfiles());
+      setActiveProfileId(getActiveWebAiProfileId());
+    };
+    window.addEventListener('mingyu:web-ai-changed', sync);
+    return () => window.removeEventListener('mingyu:web-ai-changed', sync);
+  }, []);
 
   const aiConfig = readWebAiConfig();
   const configured = isWebAiConfigured(aiConfig);
@@ -191,6 +231,24 @@ export function AgentChatPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
+            {profiles.length >= 2 ? (
+              <select
+                aria-label="切换模型配置"
+                value={activeProfileId ?? ''}
+                disabled={isRunning}
+                onChange={(e) => {
+                  const hit = activateWebAiProfile(e.target.value);
+                  if (hit) setActiveProfileId(hit.id);
+                }}
+                className="max-w-[140px] rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)]"
+              >
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             {hasMessages ? (
               <Button
                 variant="ghost"
@@ -250,6 +308,20 @@ export function AgentChatPanel({
                         />
                       ))}
                     </div>
+                  ) : null}
+
+                  {msg.reasoning ? (
+                    <details
+                      className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+                      open={msg.status === 'streaming' && !msg.content}
+                    >
+                      <summary className="cursor-pointer select-none font-semibold text-[var(--text-secondary)]">
+                        {msg.status === 'streaming' && !msg.content ? '思考中…' : '思考过程'}
+                      </summary>
+                      <div className="mt-1.5 whitespace-pre-wrap leading-relaxed text-[12px] text-[var(--text-muted)]">
+                        {msg.reasoning}
+                      </div>
+                    </details>
                   ) : null}
 
                   {msg.content ? (

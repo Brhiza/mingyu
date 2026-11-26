@@ -7,6 +7,7 @@ import {
   el,
   type UnknownRecord,
 } from './dom';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS, KE_MAP, SHENG_MAP } from '../systems/ganzhi-foundation';
 import { createTermTrigger, getWuxing, type Wuxing } from './shared';
 
 const RING_BRANCHES: Array<{ branch: string; col: number; row: number }> = [
@@ -24,11 +25,10 @@ const RING_BRANCHES: Array<{ branch: string; col: number; row: number }> = [
   { branch: '辰', col: 1, row: 2 },
 ];
 
-const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
-const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
+const STEMS = HEAVENLY_STEMS;
+const BRANCHES = EARTHLY_BRANCHES;
 
-const GEN_MAP: Record<Wuxing, Wuxing> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const KE_MAP: Record<Wuxing, Wuxing> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const GEN_MAP: Record<Wuxing, Wuxing> = SHENG_MAP;
 
 function getSixRelativeFromElements(dayEl: Wuxing | undefined, targetEl: Wuxing | undefined): string {
   if (!dayEl || !targetEl) return '';

@@ -496,9 +496,10 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     : '';
   const g1 = data.input.person1.gender === 'male' ? '（男）' : data.input.person1.gender === 'female' ? '（女）' : '';
   const g2 = data.input.person2.gender === 'male' ? '（男）' : data.input.person2.gender === 'female' ? '（女）' : '';
-  const text = [`【紫微双人合盘】\n${people.person1}${g1}与${people.person2}${g2}；双方候选区间及摘要见结构化结果，选定双盘时包含各自本命盘。`, chosen, flyingBalanceText, crossFlying, horoscopeText, syncText, comparing,
-    schoolText ? `【解读口径】\n${schoolText}` : '', classics,
+  const text = [`【紫微双人合盘】\n${people.person1}${g1}与${people.person2}${g2}；双方候选区间及摘要见结构化结果，选定双盘时包含各自本命盘。`,
     situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
+    chosen, flyingBalanceText, crossFlying, horoscopeText, syncText, comparing,
+    schoolText ? `【解读口径】\n${schoolText}` : '', classics,
     `【${task.label}任务】\n${task.task} 区分盘面定位、传统取象和现实资料；资料缺项时按已列双盘事实作条件说明。`,
     `【限制】\n${data.limitation}\n同支宫位与跨盘四化不代表关系结果；未命中也不代表有利或不利。`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };

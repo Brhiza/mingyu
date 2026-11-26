@@ -1,13 +1,6 @@
-import { initAiChat } from './web-ai';
 import { mountWorkspaceReactApp } from './app/mount';
 
-const { paneElement, clearReading, setAiPrompt } = initAiChat();
-
-mountWorkspaceReactApp({
-  sharedAiPane: paneElement,
-  setAiPrompt,
-  clearReading,
-});
+mountWorkspaceReactApp();
 
 const isProd = (import.meta as ImportMeta & { env?: { PROD?: boolean } }).env?.PROD;
 

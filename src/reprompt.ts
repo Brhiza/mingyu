@@ -1,4 +1,5 @@
 import { applyPromptGuidance } from './prompt-guidance';
+import { applyPromptProfileToPrompt, resolveEffectivePromptProfile } from './prompt-profile';
 import { repromptInput, type Method } from './schema';
 import type { RuntimeContext } from './runtime-context';
 import { referenceHandlers } from './reprompt/reference';
@@ -19,11 +20,40 @@ export async function reprompt(value: unknown, context?: RuntimeContext) {
     request.method === 'random-divination' && typeof data.selectedMethod === 'string'
       ? (data.selectedMethod as Method)
       : request.method;
-  const prompt = applyPromptGuidance(
-    guidanceMethod,
-    rawPrompt,
-    request.question,
-    context?.promptGuidance,
+  const savedInput = data.input && typeof data.input === 'object' && !Array.isArray(data.input)
+    ? (data.input as Record<string, unknown>)
+    : undefined;
+  const anchorRef =
+    (typeof savedInput?.referenceTime === 'string' && savedInput.referenceTime.trim()
+      ? savedInput.referenceTime
+      : undefined)
+    ?? (savedInput?.flow && typeof savedInput.flow === 'object' && typeof (savedInput.flow as { year?: unknown }).year === 'number'
+      ? String((savedInput.flow as { year: number }).year)
+      : undefined)
+    ?? (savedInput?.target && typeof savedInput.target === 'object' && typeof (savedInput.target as { year?: unknown }).year === 'number'
+      ? String((savedInput.target as { year: number }).year)
+      : undefined)
+    ?? currentTime;
+  const promptProfile = resolveEffectivePromptProfile(promptOptions, context?.promptProfile);
+  const includeClassics = Boolean(
+    promptOptions
+    && typeof promptOptions === 'object'
+    && !Array.isArray(promptOptions)
+    && (promptOptions as { includeClassics?: unknown }).includeClassics === true,
+  );
+  const skipGuidance = promptProfile === 'agent' || promptProfile === 'ultra-compact';
+  const prompt = applyPromptProfileToPrompt(
+    skipGuidance
+      ? rawPrompt
+      : applyPromptGuidance(
+          guidanceMethod,
+          rawPrompt,
+          request.question,
+          context?.promptGuidance,
+          anchorRef,
+        ),
+    promptProfile,
+    { includeClassics },
   );
   return { version: '2.0.0', method: request.method, currentTime, source: 'caller-supplied-result', prompt };
 }

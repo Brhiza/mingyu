@@ -12,7 +12,7 @@ test('时区、高纬降级、真太阳时和出生信息边界', async () => {
   const solar = await calculate('astrolabe', { ...input, options: undefined, birth: { ...birth, useTrueSolarTime: true } });
   assert.deepEqual(solar.data.points, baseline.data.points); assert.ok(solar.data.basis.trueSolarTimeCorrection);
   const polar = await calculate('astrolabe', { ...input, options: undefined, birth: { ...birth, latitude: 80 } });
-  assert.equal(polar.data.basis.houseSystem, 'whole_sign'); assert.match(polar.prompt.text, /改用 whole_sign/);
+  assert.equal(polar.data.basis.houseSystem, 'whole_sign'); assert.match(polar.prompt.text, /已改用整宫/);
   const ny = { ...birth, year: 2024, month: 7, day: 15, hour: 12, minute: 0, timezone: undefined, timeZoneId: 'America/New_York' };
   const result = await calculate('astrolabe', { ...input, options: undefined, birth: ny });
   assert.equal(result.data.basis.utcDateTime, '2024-07-15T16:00:00.000Z');

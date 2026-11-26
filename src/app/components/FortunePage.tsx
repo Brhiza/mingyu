@@ -18,9 +18,9 @@ import { streamChat, type AiMessage } from '../../ai';
 import { calculate } from '../../core';
 import type { FortuneScope } from '../../systems/fortune/types';
 import { toV2BirthPayload, type PersonalCase } from '../../v2-ui/cases-store';
-import { distillPromptForUser } from '../../v2-ui/prompt-distiller';
+import { distillPromptForUser, splitPromptIntoSystemAndUser } from '../../prompt-profile';
 import { isWebAiConfigured, isWebAiEnabled, readWebAiConfig } from '../../web-ai';
-import { applyGlobalRulesToPayload } from '../../web-settings';
+import { applyGlobalRulesToPayload, loadGlobalRules } from '../../web-settings';
 import {
   Badge,
   Button,
@@ -453,7 +453,8 @@ export function FortunePage({
       };
       if (token !== calcTokenRef.current) return;
       setFortuneData(res.data);
-      const cleanPrompt = distillPromptForUser(res.prompt?.text ?? '', { includeClassics: false });
+      const includeClassics = loadGlobalRules().prompt.includeClassics;
+      const cleanPrompt = distillPromptForUser(res.prompt?.text ?? '', { includeClassics });
       setPromptText(cleanPrompt || res.prompt?.text || '');
     } catch (err) {
       if (token !== calcTokenRef.current) return;
@@ -595,12 +596,21 @@ export function FortunePage({
     removeSavedFortuneReport(reportKey);
   };
 
+  const buildInitialFortuneMessages = (withTimestamp: boolean): AiMessage[] => {
+    const split = splitPromptIntoSystemAndUser(promptText);
+    const msgs: AiMessage[] = [];
+    if (split.system) msgs.push({ role: 'system', content: split.system });
+    msgs.push({
+      role: 'user',
+      content: split.user,
+      ...(withTimestamp ? { submittedAt: new Date().toISOString() } : {}),
+    });
+    return msgs;
+  };
+
   const handleGenerateAiReport = () => {
     if (!promptText) return;
-    const apiMessages: AiMessage[] = [
-      { role: 'user', content: promptText, submittedAt: new Date().toISOString() },
-    ];
-    void runAiStream(apiMessages, []);
+    void runAiStream(buildInitialFortuneMessages(true), []);
   };
 
   const handleSendFollowup = () => {
@@ -609,7 +619,7 @@ export function FortunePage({
     setFollowupDraft('');
     const nextVisible = [...aiMessages, { role: 'user' as const, content: q }];
     const apiMessages: AiMessage[] = [
-      { role: 'user', content: promptText },
+      ...buildInitialFortuneMessages(false),
       ...aiMessages.map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: q, submittedAt: new Date().toISOString() },
     ];

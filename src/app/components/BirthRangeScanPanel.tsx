@@ -151,16 +151,11 @@ export function BirthRangeScanPanel({
 
   return (
     <Card className="grid gap-3.5 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="m-0 flex items-center gap-2 text-base font-bold text-[var(--text-strong)]">
-            <Compass className="h-4 w-4 text-[var(--accent)]" />
-            <span>不确定具体分秒 · 区间边界排查</span>
-          </h3>
-          <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-            适合排星盘或七政时只记得大概几分钟的生时区间，按秒排查上升星座/宫位或命度在哪一秒发生切换（后台线程执行）。
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="m-0 flex items-center gap-2 whitespace-nowrap text-base font-bold text-[var(--text-strong)]">
+          <Compass className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+          <span>生时区间边界扫描</span>
+        </h3>
         {onBack ? (
           <Button type="button" variant="secondary" size="sm" onClick={onBack}>
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />

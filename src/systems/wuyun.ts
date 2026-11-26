@@ -6,6 +6,7 @@ import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selectio
 import { evaluateWuyunSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
 import { formatClassicExcerpts, selectWuyunClassics } from './classics';
 import reference from './wuyun-reference.json';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof wuyunInput>;
 type Result = ReturnType<typeof calculateWuyunLiuqi>;
@@ -91,8 +92,10 @@ function buildPrompt(result: Result, question: string, options: Input['prompt'],
         '典籍片段',
       )
     : '';
+  const digestLines = buildMethodSituationDigest('wuyun-liuqi', result, question);
   const user = [
     '【传统依据】\n按年干支定岁运、司天在泉及五步主客运、六步主客气；区分传统交司日期与现代节气参考时刻。',
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【时间】\n提示词时间：${now}。`,
     `【年度运气资料】\n${formatWuyunLiuqiFacts(result)}`,
     buildWuyunPathomechanismDetails(result),
@@ -102,7 +105,7 @@ function buildPrompt(result: Result, question: string, options: Input['prompt'],
     schoolText,
     classics ? `【经典依据】\n${classics}` : '',
     classicExcerpts,
-    `【任务】\n结合所问事项说明岁运、司天在泉与各阶段主客关系，标明传统口径、交司条件和资料不足。${selection ? `\n${selection.task}` : ''}\n年度传统模型不能推断个人诊断、疾病风险或治疗方案；病候与治则材料仅作传统文献背景。`,
+    `【任务】\n结合所问事项说明岁运、司天在泉与各阶段主客关系，标明传统口径、交司条件与适用边界。${selection ? `\n${selection.task}` : ''}\n年度传统模型不能推断个人诊断、疾病风险或治疗方案；病候与治则材料仅作传统文献背景。`,
     `【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');
   return { text: user };

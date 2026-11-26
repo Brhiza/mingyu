@@ -192,9 +192,11 @@ function render(data: Data, question: string, options: Options, now: string) {
       )
     : '';
   const localClock = new Date(data.baseChart.timestamp + data.basis.timezone * 3_600_000).toISOString().slice(0, 19);
+  const digest = buildMethodSituationDigest('qimen-lifetime', data, question);
   const sections = [
     data.birthRange ? `【出生时间范围】\n完整范围：${new Date(data.birthRange.startTimestamp).toISOString()} 至 ${new Date(data.birthRange.endTimestamp).toISOString()}（起点含、终点不含）。本次仅计算第 ${data.birthRange.index + 1} 个候选秒，共 ${data.birthRange.totalSamples} 个；候选实际时刻：${new Date(data.birthRange.timestamp).toISOString()}。${data.birthRange.nextIndex === null ? '已到最后一个候选秒。' : `下一候选索引：${data.birthRange.nextIndex}。`} 每个候选秒可能产生不同盘面和交运时刻，不把本次结果当作整个出生区间的确定结论。` : '',
     `【奇门终身局基础盘】\n${data.input.name ? `称谓：${data.input.name}；` : ''}${data.input.gender === 'male' ? '性别：男；' : data.input.gender === 'female' ? '性别：女；' : ''}出生当地公历钟表：${data.basis.localDateTime}；时区：${data.basis.timeZoneId ?? `UTC${data.basis.timezone >= 0 ? '+' : ''}${data.basis.timezone}`}；真实出生瞬时：${new Date(data.basis.birthTimestamp).toISOString()}。${data.basis.timeStandard === 'true-solar' ? `真太阳时钟表：${localClock}；经度：${data.basis.longitude}°；相对当地民用时间修正：${data.basis.totalCorrectionMinutes?.toFixed(3)} 分钟。` : '日时按当地民用时间。'} 年月与交节按真实瞬时；提示词时间：${now}。`,
+    digest.length ? `【局势要点】\n${digest.join('\n')}` : '',
     data.baseChart.seasonality?.lunarDateWarning ? `【历法差异】\n${data.baseChart.seasonality.lunarDateWarning}` : '',
     `【起局与规则】\n${evidence.calculationEvidenceFacts.map((fact) => fact.promptText).join('；')}${setupRuleLine ? `\n${setupRuleLine}` : ''}`,
     `【九宫】\n${evidence.palaceFacts.map((fact) => fact.promptText).join('\n')}${starDoorStateLine ? `\n${starDoorStateLine}` : ''}`,
@@ -208,10 +210,6 @@ function render(data: Data, question: string, options: Options, now: string) {
     buildCompactQimenFortuneBlock(data, stages, question, now),
     data.input.periodRange && scope !== 'natal' ? `【动态时间事实】\n扫描当地公历日 ${data.input.periodRange.startDate} 至 ${data.input.periodRange.endDate}（含两端）；流年按立春准确分界，月建按交节瞬时定位，日支仅为日期级关系。${selectedStage ? '仅列与所选阶段相交的事实。' : ''}\n${dynamicText.length ? dynamicText.join('\n\n') : '所选范围内没有匹配的动态事实。'}` : '',
     schools.length ? `【解读口径】\n${schools.join('\n')}` : '', classics.length ? `【经典资料摘要】\n${classics.join('\n')}` : '', classicExcerpts,
-    (() => {
-      const digest = buildMethodSituationDigest('qimen-lifetime', data, question);
-      return digest.length ? `【局势要点】\n${digest.join('\n')}` : '';
-    })(),
     `【任务】\n围绕问题，先说明本命盘、标记和候选宫的实际依据；${stages.length ? '结合给出的阶段区间分别分析支持、制约与触发兑现条件，' : ''}区分盘面事实、传统取象和条件性推论。阶段分界不保证具体事件；${dynamicText.length ? '动态事实仅限所列立春分界、相冲月建和本命空马日支，不得虚构其他流月流日盘。' : '尚未提供适用的动态流年、流月或流日扫描，不得虚构其结果。'}`,
     `【问题】\n${question}`,
   ].filter(Boolean);

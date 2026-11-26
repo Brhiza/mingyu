@@ -1,17 +1,26 @@
 import type { Method } from './schema';
+import {
+  ASTROLOGY_METHODS,
+  BAZI_METHODS,
+  CARD_SIGN_METHODS,
+  FENGSHUI_METHODS,
+  MACRO_LUCK_METHODS,
+  MULTI_NATAL_METHODS,
+  NAMING_METHODS,
+  QIZHENG_METHODS,
+  RANGE_COMPARE_METHODS,
+  REFERENCE_LOOKUP_METHODS,
+  SYNASTRY_METHODS,
+  TRADITIONAL_DIVINATION_METHODS,
+  WESTERN_ASTRO_METHODS,
+  ZIWEI_METHODS,
+} from './method-registry';
+import { getYearSixtyCycle } from './systems/ganzhi-foundation';
 import { parseQuestionContext, type QuestionTopic } from './systems/question-context';
 
 const GUIDANCE_HEADER = '【解读与交付契约】';
 const TOP_ANCHOR_HEADER = '【顶部任务锚点】';
 const LONG_PROMPT_ANCHOR_THRESHOLD = 1600;
-
-const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
-const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
-
-export function getYearGanZhi(year: number): string {
-  const offset = ((year - 4) % 60 + 60) % 60;
-  return `${STEMS[offset % 10]}${BRANCHES[offset % 12]}`;
-}
 
 export type PromptReplyStyle = 'standard' | 'concise' | 'deep';
 
@@ -29,37 +38,6 @@ let defaultGuidanceProvider: PromptGuidanceProvider | null = null;
 export function setDefaultPromptGuidanceProvider(provider: PromptGuidanceProvider | null): void {
   defaultGuidanceProvider = provider;
 }
-
-const BAZI_METHODS = new Set<Method>(['bazi', 'bazi-synastry']);
-const ZIWEI_METHODS = new Set<Method>(['ziwei', 'ziwei-synastry']);
-const MULTI_NATAL_METHODS = new Set<Method>(['bazi-ziwei', 'minglu', 'fortune']);
-const ASTROLOGY_METHODS = new Set<Method>([
-  'astrolabe',
-  'astrolabe-synastry',
-  'astrolabe-range',
-  'qizheng',
-  'qizheng-range',
-]);
-const SYNASTRY_METHODS = new Set<Method>([
-  'bazi-synastry',
-  'ziwei-synastry',
-  'astrolabe-synastry',
-]);
-const TRADITIONAL_DIVINATION_METHODS = new Set<Method>([
-  'liuyao',
-  'meihua',
-  'qimen',
-  'liuren',
-  'jinkoujue',
-  'xiaoliuren',
-  'taiyi',
-]);
-const CARD_SIGN_METHODS = new Set<Method>(['tarot', 'lenormand', 'ssgw', 'zhuge']);
-const FENGSHUI_METHODS = new Set<Method>(['bazhai', 'xuankong', 'residential']);
-const NAMING_METHODS = new Set<Method>(['chinese-name', 'chinese-naming']);
-const REFERENCE_LOOKUP_METHODS = new Set<Method>(['calendar', 'zhouyi', 'character-query']);
-const RANGE_COMPARE_METHODS = new Set<Method>(['astrolabe-range', 'qizheng-range', 'bazi-reverse']);
-const MACRO_LUCK_METHODS = new Set<Method>(['wuyun-liuqi', 'huangji-jingshi']);
 
 function detectInstantKind(promptText: string): 'astro' | 'ziwei' | 'bazi' | 'mixed' {
   if (/西洋星盘|七政四余/.test(promptText)) return 'astro';
@@ -149,7 +127,7 @@ function getScenarioRule(method: Method, promptText: string): string {
   return '';
 }
 
-function getTopicFocusRule(method: Method, topic: QuestionTopic): string {
+function getTopicFocusRule(method: Method, topic: QuestionTopic, promptText = ''): string {
   if (
     topic === 'general'
     || NAMING_METHODS.has(method)
@@ -162,14 +140,21 @@ function getTopicFocusRule(method: Method, topic: QuestionTopic): string {
     return '';
   }
 
-  const isNatalOrAstro =
-    BAZI_METHODS.has(method)
-    || ZIWEI_METHODS.has(method)
-    || MULTI_NATAL_METHODS.has(method)
-    || ASTROLOGY_METHODS.has(method)
-    || method === 'qimen-lifetime'
-    || method === 'instant';
-  const isCardOrNumber = CARD_SIGN_METHODS.has(method) || method === 'number-energy';
+  const effectiveMethod: Method =
+    method === 'instant'
+      ? (() => {
+          const kind = detectInstantKind(promptText);
+          if (kind === 'ziwei') return 'ziwei';
+          if (kind === 'bazi') return 'bazi';
+          if (kind === 'astro') return /七政四余/.test(promptText) ? 'qizheng' : 'astrolabe';
+          return 'bazi-ziwei';
+        })()
+      : method;
+
+  const isCardOrNumber =
+    CARD_SIGN_METHODS.has(effectiveMethod)
+    || effectiveMethod === 'number-energy'
+    || (effectiveMethod === 'random-divination' && detectRandomDivinationKind(promptText) === 'card-sign');
 
   if (isCardOrNumber) {
     switch (topic) {
@@ -181,46 +166,239 @@ function getTopicFocusRule(method: Method, topic: QuestionTopic): string {
         return '感情焦点：聚焦双方真实沟通状态、情感需求与关系卡点，给温和可行的破冰或相处建议。';
       case 'academic':
         return '学业考试焦点：聚焦备考状态、心态调节与临场发挥关键。';
+      case 'house':
+        return '家宅置业焦点：落到居住舒心度、搬迁置业节奏与现实预算边界上，给出务实提醒。';
+      case 'guaishen':
+        return '身心焦点：聚焦近期情绪压力、精力消耗与作息调养节奏（仅作生活调适参考，不替代就医）。';
+      case 'travel':
+        return '出行焦点：聚焦行程节奏、沟通协调与途中备选预案提醒。';
+      case 'lost':
+        return '寻物线索焦点：结合牌面/签意中的环境特征给出具体排查方向。';
+      case 'litigation':
+        return '是非沟通焦点：聚焦双方立场、核心分歧与稳妥应对策略。';
       default:
         return '';
     }
   }
 
-  if (isNatalOrAstro) {
+  // 1. 八字体系（绝不混入紫微/西洋占星宫位词）
+  if (BAZI_METHODS.has(effectiveMethod)) {
     switch (topic) {
       case 'shiye':
-        return '事业焦点：紧扣官杀/印食伤、官禄宫、星盘十宫或事业用神，明确指出适配方向、关键发力窗口与主要阻力。';
+        return '事业焦点：紧扣月令格局、官杀/印星/食伤配置与岁运引动，明确适配方向、发力窗口与主要阻力。';
       case 'caifu':
-        return '财运焦点：紧扣财星根气、财帛/田宅/福德、星盘二八宫，明确区分稳健积累、阶段机会与破耗风险。';
+        return '财运焦点：紧扣正偏财星根气、食伤生财、财库开合与比劫分合，区分稳健积累、阶段机会与破耗风险。';
       case 'ganqing':
-        return '感情焦点：紧扣夫妻宫、配偶星、星盘七宫或跨盘互动，直指相处模式、核心矛盾与改善关键，避免宿命恐吓。';
+        return '感情焦点：紧扣日支夫妻宫、配偶星（男看财星、女看官杀）、合冲刑害或双盘喜忌互补，直指相处模式与改善关键，避免宿命恐吓。';
       case 'academic':
-        return '学业考试焦点：紧扣印星/文昌或学业宫位与岁运引动，直指备考节奏与发挥关键。';
+        return '学业考试焦点：紧扣印星、食伤吐秀、文昌与考年岁运引动，直指备考节奏与发挥关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣印星、财库、日支及岁运冲合动静，区分置业/搬迁时机与资金承压边界。';
       case 'guaishen':
-        return '身心焦点：聚焦五行偏枯或疾厄宫象意，给出作息与生活节律调养提醒。';
+        return '身心焦点：聚焦五行偏枯、寒暖燥湿失衡与刑冲刃杀象意，给出作息与节律调养提醒（不替代医学诊疗）。';
       case 'travel':
-        return '出行焦点：结合驿马、迁移宫与方位象意，提示行程顺逆与注意事项。';
+        return '出行焦点：结合驿马、四柱冲动与岁运方位象意，提示变动顺逆与注意事项。';
+      case 'litigation':
+        return '是非纠纷焦点：紧扣官杀刑冲、伤官见官与三刑六害岁运，提示合同边界与避险节点。';
       default:
         return '';
     }
   }
 
-  // 三式与传统占卜（不混入八字/星盘宫位词）
+  // 2. 紫微斗数体系（绝不混入八字十神/西洋十宫）
+  if (ZIWEI_METHODS.has(effectiveMethod)) {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：紧扣官禄宫、迁移宫、命宫三方四正及四化飞入，明确适配路径、发力运限与阻力点。';
+      case 'caifu':
+        return '财运焦点：紧扣财帛宫、田宅宫（积蓄不动产）、兄弟宫（现金流）及禄忌流向，区分稳健积累与破耗风险。';
+      case 'ganqing':
+        return '感情焦点：紧扣夫妻宫、福德宫及跨盘生年/飞星四化，直指相处模式、核心矛盾与改善关键，避免宿命恐吓。';
+      case 'academic':
+        return '学业考试焦点：紧扣文昌文曲、化科落宫、官禄与命迁互动，直指备考节奏与发挥关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣田宅宫星曜、禄忌引动及流年叠宫，分析置业搬迁时机与居家稳固度。';
+      case 'guaishen':
+        return '身心焦点：聚焦疾厄宫与福德宫煞忌冲照象意，给出作息、情绪与节律调养提醒（不替代医学诊疗）。';
+      case 'travel':
+        return '出行焦点：结合迁移宫、天马星及流运引动，提示外派、出行或换城市的顺逆节点。';
+      default:
+        return '';
+    }
+  }
+
+  // 3. 西洋星盘体系（绝不混入中式十神/夫妻宫）
+  if (WESTERN_ASTRO_METHODS.has(effectiveMethod)) {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：紧扣第十宫（MC 天顶）、第六宫、土星/木星相位与事业行运，明确适配方向与推进窗口。';
+      case 'caifu':
+        return '财运焦点：紧扣第二宫、第八宫、金星/木星相位及土星约束，区分主业积累、合作偏财与风险边界。';
+      case 'ganqing':
+        return '感情焦点：紧扣第七宫、金星、月亮、火星及跨盘相位/互溶，直指互动模式、需求差异与磨合建议。';
+      case 'academic':
+        return '学业考试焦点：紧扣第三宫、第九宫、水星状态与相关行运，直指学习节奏与临场发挥关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣第四宫（IC 天底）、月亮与相关行运，分析居住变动、家庭安顿与置业节奏。';
+      case 'guaishen':
+        return '身心焦点：聚焦第六宫、第十二宫及紧张相位压力源，给出作息与情绪减压提醒（不替代医学诊疗）。';
+      case 'travel':
+        return '出行焦点：结合第九宫、第三宫及木星/水星行运，提示远行、外派或迁移的顺逆节点。';
+      default:
+        return '';
+    }
+  }
+
+  // 4. 七政四余体系
+  if (QIZHENG_METHODS.has(effectiveMethod)) {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：紧扣官禄宫、命度主、十干化禄化科与行限流曜，明确适配方向与发力节点。';
+      case 'caifu':
+        return '财运焦点：紧扣财帛宫、田宅宫、恩用星助益与难仇克制，区分稳健聚财与破耗风险。';
+      case 'ganqing':
+        return '感情焦点：紧扣妻妾宫、日月金星庙旺与吊照互动，直指相处模式与改善关键。';
+      case 'academic':
+        return '学业考试焦点：紧扣官禄宫、命宫、科名与文星吊照，直指备考节奏与发挥关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣田宅宫与恩难流曜引动，评估置业搬迁时机与居住安稳度。';
+      case 'guaishen':
+        return '身心焦点：聚焦疾厄宫与难仇星克制象意，给出作息节律调养提醒（不替代医学诊疗）。';
+      default:
+        return '';
+    }
+  }
+
+  // 5. 多体系合参（星平合参/命录/运势）
+  if (MULTI_NATAL_METHODS.has(effectiveMethod)) {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：跨盘对照事业核心宫位/十神/行运的同向共振与分歧，明确适配方向、发力窗口与阻力。';
+      case 'caifu':
+        return '财运焦点：跨盘对照财源、积蓄与破耗风险的共振点，给出稳健积累与避险边界。';
+      case 'ganqing':
+        return '感情焦点：跨盘对照关系宫位与互动信号，直指相处模式、核心矛盾与改善关键。';
+      case 'academic':
+        return '学业考试焦点：跨盘对照文昌/印星/化科与阶段流运，直指备考节奏与发挥关键。';
+      case 'house':
+        return '家宅置业焦点：跨盘对照田宅/印财与方位时机，分析搬迁置业节奏与现实边界。';
+      case 'guaishen':
+        return '身心焦点：跨盘对照体质偏枯、疾厄与压力节点，给出作息与情绪调养提醒（不替代医学诊疗）。';
+      case 'travel':
+        return '出行焦点：结合迁移/驿马与当期流运，提示出行与变动的顺逆节点。';
+      default:
+        return '';
+    }
+  }
+
+  // 6. 奇门遁甲与奇门终身局（只用奇门术语）
+  if (effectiveMethod === 'qimen' || effectiveMethod === 'qimen-lifetime') {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：紧扣开门、值符、年命/日干落宫生克与门星神格局，说明推进顺逆与合作阻力。';
+      case 'caifu':
+        return '财运焦点：紧扣生门、甲子戊（资本）、日干与生门生克，区分真实收益与垫资破耗风险。';
+      case 'ganqing':
+        return '感情焦点：紧扣六合、乙奇与庚金落宫生克及门星神互动，直指双方态度与相处卡点。';
+      case 'academic':
+        return '学业考试焦点：紧扣景门、天辅星、值符与日干生克，直指备考状态与临场发挥关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣生门（房屋）、值符、日干落宫生克与方位吉凶，分析居住与置业利弊。';
+      case 'guaishen':
+        return '身心焦点：紧扣天芮星、天心星与乙奇生克落宫，仅作传统节律与就医配合参考（不替代专业诊疗）。';
+      case 'travel':
+        return '出行焦点：紧扣目标方位落宫、马星、开门/景门与白虎九天吉凶，提示行程顺逆。';
+      case 'lost':
+        return '失物/寻人焦点：紧扣用神落宫、方位、空亡伏吟与马星线索，给出具体排查方向。';
+      case 'litigation':
+        return '诉讼纠纷焦点：紧扣值符、开门、惊门、白虎与主客落宫生克，直指双方强弱与策略。';
+      default:
+        return '';
+    }
+  }
+
+  // 7. 六爻纳甲（只用六爻术语）
+  if (effectiveMethod === 'liuyao') {
+    switch (topic) {
+      case 'shiye':
+        return '事业焦点：紧扣官鬼爻、父母爻、世应生克与动变旺衰，说明推进顺逆、阻力与发力重点。';
+      case 'caifu':
+        return '财运焦点：紧扣妻财爻旺衰、子孙爻（财源）及兄弟爻是否动而劫财，区分真财与虚耗风险。';
+      case 'ganqing':
+        return '感情焦点：紧扣世应生合冲克、财官用神动变与空破，直指双方态度与关系契机。';
+      case 'academic':
+        return '学业考试焦点：紧扣父母爻（文书成绩）、官鬼爻与世爻旺衰，直指备考与临场关键。';
+      case 'house':
+        return '家宅置业焦点：紧扣父母爻、二爻宅位、世应与六神动变，分析居住安稳度与置业利弊。';
+      case 'guaishen':
+        return '身心焦点：紧扣官鬼爻、子孙爻与世爻元气旺衰，仅作传统状态参考（不适请及时就医）。';
+      case 'travel':
+        return '出行焦点：紧扣世应、父母爻与动变空破，提示行程平顺度与阻滞节点。';
+      case 'lost':
+        return '失物/寻人焦点：紧扣用神落宫方位、伏藏/入墓/空亡与动变线索，给出具体排查方向。';
+      case 'litigation':
+        return '诉讼纠纷焦点：紧扣世应强弱、官鬼爻、父母爻（证据文书）与朱雀白虎，直指胜算关键。';
+      default:
+        return '';
+    }
+  }
+
+  // 8. 大六壬与金口诀（只用壬学/四位术语）
+  if (effectiveMethod === 'liuren' || effectiveMethod === 'jinkoujue') {
+    const core = effectiveMethod === 'liuren' ? '四课三传、类神与天将' : '四位生克、发用与五动三动';
+    switch (topic) {
+      case 'shiye':
+        return `事业焦点：紧扣${core}与官鬼/贵人状态，说明推进节奏、贵人助力与合作阻力。`;
+      case 'caifu':
+        return `财运焦点：紧扣${core}与财爻/青龙/玄武信号，区分真实收益与虚耗防骗风险。`;
+      case 'ganqing':
+        return `感情焦点：紧扣${core}与日辰/六合/主客互动，直指双方真实态度与沟通卡点。`;
+      case 'academic':
+        return `学业考试焦点：紧扣${core}与父母文书/朱雀/贵人，直指备考与临场发挥关键。`;
+      case 'house':
+        return `家宅置业焦点：紧扣${core}与宅支/人宅生克，分析居住环境与置业取舍。`;
+      case 'guaishen':
+        return `身心焦点：紧扣${core}与官鬼/白虎生克，仅作传统节律参考（身体不适请及时就医）。`;
+      case 'travel':
+        return `出行焦点：紧扣${core}与驿马/行程动静，提示途中顺逆与延误信号。`;
+      case 'lost':
+        return `失物/寻人焦点：紧扣${core}指向的方位、藏伏与动静线索，给出具体排查方向。`;
+      case 'litigation':
+        return `诉讼纠纷焦点：紧扣${core}与主客强弱、朱雀/玄武/贵人，直指双方态势与化解点。`;
+      default:
+        return '';
+    }
+  }
+
+  // 9. 梅花易数 / 小六壬 / 太乙神数 / 兜底传统占卜（不串入奇门/八字词）
+  const fallbackCore =
+    effectiveMethod === 'meihua'
+      ? '体用生克、主互变卦象与动爻辞'
+      : effectiveMethod === 'xiaoliuren'
+        ? '月日时三宫递进与体用生克'
+        : effectiveMethod === 'taiyi'
+          ? '主客定算、三门五将与十六神职司'
+          : '盘面主轴、生克强弱与动静变化';
+
   switch (topic) {
     case 'shiye':
-      return '事业焦点：紧扣用神、开门/官鬼/行年或动变趋势，说明推进顺逆、合作阻力与发力重点。';
+      return `事业焦点：紧扣${fallbackCore}，说明推进顺逆、合作阻力与发力重点。`;
     case 'caifu':
-      return '财运焦点：紧扣财爻/生门/甲子戊或生克趋势，区分真实收益与虚高画饼、垫资风险。';
+      return `财运焦点：紧扣${fallbackCore}，区分稳妥收益与冲动破耗风险。`;
     case 'ganqing':
-      return '感情焦点：紧扣世应/六合/用神动变，直指双方态度、沟通卡点与改善契机。';
+      return `感情焦点：紧扣${fallbackCore}，直指双方互动节奏、核心卡点与改善契机。`;
     case 'academic':
-      return '学业考试焦点：紧扣父母爻/文书景门/天辅星，直指备考状态与临场关键。';
+      return `学业考试焦点：紧扣${fallbackCore}，直指备考状态与临场发挥关键。`;
+    case 'house':
+      return `家宅置业焦点：紧扣${fallbackCore}，评估居住安稳度与搬迁置业节奏。`;
+    case 'guaishen':
+      return `身心焦点：紧扣${fallbackCore}，提示精力与作息调节重点（不适请及时就医）。`;
     case 'travel':
-      return '出行焦点：结合驿马、门星神或体用动静，提示行程顺逆与需留意的节点。';
+      return `出行焦点：紧扣${fallbackCore}，提示行程顺逆与途中需留意的节点。`;
     case 'lost':
-      return '失物/寻人焦点：紧扣用神落宫、方位、藏伏与动静线索，给出最具体的排查方向。';
+      return `失物/寻人焦点：紧扣${fallbackCore}与方位物象线索，给出具体排查方向。`;
     case 'litigation':
-      return '诉讼纠纷焦点：紧扣世应/主客与生克强弱，直指双方优劣势与胜算关键点。';
+      return `诉讼纠纷焦点：紧扣${fallbackCore}与主客强弱，直指双方优劣势与应对重点。`;
     default:
       return '';
   }
@@ -309,7 +487,7 @@ export function buildPromptGuidance(
   ];
   const scenarioRule = getScenarioRule(method, promptText);
   if (scenarioRule) rules.push(scenarioRule);
-  const topicRule = getTopicFocusRule(method, topic);
+  const topicRule = getTopicFocusRule(method, topic, promptText);
   if (topicRule) rules.push(topicRule);
   rules.push(getReplyStructureRule(method, resolved.replyStyle, promptText));
 
@@ -320,14 +498,50 @@ export function buildPromptGuidance(
   return sections.join('\n\n');
 }
 
-function buildTopTaskAnchor(question: string): string {
+function resolveAnchorYear(referenceTime?: string): number {
+  if (referenceTime) {
+    const trimmed = referenceTime.trim();
+    if (/^\d{4}$/.test(trimmed)) {
+      const y = Number(trimmed);
+      if (y >= 1900 && y <= 2200) return y;
+    }
+    const parsed = Date.parse(trimmed);
+    if (Number.isFinite(parsed)) {
+      const y = new Date(parsed + 8 * 3_600_000).getUTCFullYear();
+      if (y >= 1900 && y <= 2200) return y;
+    }
+  }
+  return new Date().getFullYear();
+}
+
+function buildTopTaskAnchor(question: string, anchorYear?: number): string {
   const clean = question.replace(/\s+/g, ' ').trim();
-  const nowYear = new Date().getFullYear();
-  const yearNote = `（时间基准：${nowYear}年为${getYearGanZhi(nowYear)}年，${nowYear + 1}年为${getYearGanZhi(nowYear + 1)}年）`;
+  const baseYear = anchorYear ?? new Date().getFullYear();
+  const yearNote = `（时间基准：${baseYear}年为${getYearSixtyCycle(baseYear)}年，${baseYear + 1}年为${getYearSixtyCycle(baseYear + 1)}年）`;
   const focus = clean && clean !== '问题'
     ? `请紧扣用户问题“${clean.slice(0, 60)}${clean.length > 60 ? '…' : ''}”直接推演作答；`
     : '请紧扣文末用户问题直接推演作答；';
   return `${TOP_ANCHOR_HEADER}\n${focus}${yearNote}下方盘面与规则指标已由引擎精确算出，严禁自行重新排盘或篡改数据，也不要推脱敷衍。`;
+}
+
+/**
+ * 将本地推荐解读框架与已有提示词无冲突融合：
+ * 若存在【解读与交付契约】中的默认“输出格式”条目，将其替换为指向该框架的衔接语，
+ * 避免同一份提示词末尾并排出现两套互相矛盾的四步输出模板。
+ */
+export function mergeFrameworkIntoPrompt(promptText: string, frameworkBlock: string): string {
+  if (!promptText.trim() || !frameworkBlock.trim()) return promptText;
+  if (promptText.includes('【指定解读框架：')) return promptText;
+  let next = promptText.trimEnd();
+  // 若已有【AI 报告输出规范】（如运势页），与外部指定框架二选一，避免三套格式并存
+  next = next.replace(/\n{2,}【AI 报告输出规范】[\s\S]*?(?=\n{2,}【|$)/u, '');
+  if (next.includes(GUIDANCE_HEADER)) {
+    next = next.replace(
+      /^(\d+\.\s*)输出格式(?:（[^）]+）)?[：:][^\n]+$/mu,
+      '$1输出格式：严格按下方【指定解读框架】分步结构输出，保持通俗直白、有据可依。',
+    );
+  }
+  return `${next}\n\n${frameworkBlock.trim()}`;
 }
 
 export function applyPromptGuidance<T extends { text?: string } | undefined>(
@@ -335,6 +549,7 @@ export function applyPromptGuidance<T extends { text?: string } | undefined>(
   prompt: T,
   question = '',
   options?: PromptGuidanceOptions,
+  referenceTime?: string,
 ): T {
   if (!prompt || typeof prompt.text !== 'string' || !prompt.text.trim()) return prompt;
   const resolved = resolveGuidanceOptions(options);
@@ -345,7 +560,7 @@ export function applyPromptGuidance<T extends { text?: string } | undefined>(
     && text.length >= LONG_PROMPT_ANCHOR_THRESHOLD
     && !text.includes(TOP_ANCHOR_HEADER)
   ) {
-    text = `${buildTopTaskAnchor(question)}\n\n${text}`;
+    text = `${buildTopTaskAnchor(question, resolveAnchorYear(referenceTime))}\n\n${text}`;
   }
 
   if (!text.includes(GUIDANCE_HEADER)) {

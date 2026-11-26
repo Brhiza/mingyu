@@ -1,11 +1,11 @@
-import { getLifeStage } from '../ganzhi-foundation';
+import { getLifeStage, KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import { branchFormationGroups, branchesClash, seasonalState, stemElementOf } from './natal-facts';
 
 const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
 const elements = ['木', '火', '土', '金', '水'] as const;
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const generates: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 type Pillars = Record<PillarName, BaziPillar>;
 type Effect = '助身' | '生身' | '泄身' | '耗身' | '克身';
 type Tendency = '扶身' | '制身' | '相持';

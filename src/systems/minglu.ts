@@ -12,6 +12,8 @@ import { qimenLifetime } from './qimen-lifetime';
 import { collectZiweiMajorStars, ziweiIndependent } from './ziwei';
 import { evaluateBaziZiweiCorroboration, formatCorroborationSection } from './bazi-ziwei-corroboration';
 import { selectMingluGlossary } from './minglu-glossary';
+import { buildMingluCrossResonanceSummary } from './minglu-resonance';
+import { buildMethodSituationDigest } from './situation-digest';
 import { dedupeExcerpts, formatClassicExcerpts, selectBaziClassics, selectBazhaiClassics, selectZiweiClassics } from './classics';
 
 type Input = z.infer<typeof mingluInput>;
@@ -38,13 +40,21 @@ function buildSections(
   detailMode: 'compact' | 'full',
 ) {
   const clip = (text: string, systemId: string) => {
+    const remapSubHeader = (block: string) => {
+      if (systemId === 'bazi') return block.replace(/^【八字命盘】/u, '【八字命盘概况】');
+      if (systemId === 'ziwei') return block.replace(/^【紫微斗数】/u, '【紫微命盘概况】');
+      if (systemId === 'astrolabe') return block.replace(/^【西洋星盘本命】/u, '【西洋星盘概况】');
+      if (systemId === 'qizheng') return block.replace(/^【七政四余本命】/u, '【七政四余概况】');
+      if (systemId === 'qimen-lifetime') return block.replace(/^【奇门终身局基础盘】/u, '【奇门终身局概况】');
+      return block;
+    };
     const blocks = text.split('\n\n').filter((block) => {
-      if (/^【(?:任务|限制与任务|限制|问题)】/u.test(block)) return false;
+      if (/^【(?:局势要点|任务|限制与任务|限制|问题)】/u.test(block)) return false;
       if (systemId === 'bazhai' && /未提供住宅坐山|缺少住宅方向/u.test(block)) return false;
       if (detailMode !== 'full' && systemId === 'ziwei' && (block.startsWith('【本命宫干四化】') || block.startsWith('【计算口径】'))) return false;
       if (detailMode !== 'full' && systemId === 'bazhai' && block.startsWith('【八方六亲归宫与门主灶布局指引】')) return false;
       return true;
-    });
+    }).map(remapSubHeader);
     return detailMode === 'full' ? blocks.join('\n\n') : blocks.slice(0, 4).join('\n\n');
   };
   const baziBase = clip(baziData.prompt.text, 'bazi');
@@ -348,6 +358,12 @@ function renderMinglu(
   );
   const crossSynthesis = buildCrossSynthesis(computed, topic);
   const matchedGlossary = collectMatchedGlossary(computed);
+  const crossResonance = buildMingluCrossResonanceSummary({
+    bazi: computed.baziResult.data,
+    ziwei: computed.ziweiResult?.data,
+    astrolabe: computed.astrolabeResult?.data,
+    qizheng: computed.qizhengResult?.data,
+  });
   const synthesisText = [
     `【跨体系同题合参对照（${crossSynthesis.topicLabel}）】`,
     ...crossSynthesis.dimensions.map((dim) => [
@@ -360,6 +376,7 @@ function renderMinglu(
       ...(dim.bazhaiFocus ? [`  - 八宅命卦：${dim.bazhaiFocus}`] : []),
     ].join('\n')),
     ...(crossSynthesis.baziZiweiCorroboration ? [formatCorroborationSection(crossSynthesis.baziZiweiCorroboration)] : []),
+    ...(crossResonance.formattedText ? [crossResonance.formattedText] : []),
   ].join('\n');
   const glossaryText = detailMode === 'full' && matchedGlossary.length
     ? `【盘面命中核心术语释义（共 ${matchedGlossary.length} 条）】\n${matchedGlossary.map((g) => `- **${g.term}**（${g.category}）：${g.shortDesc}${g.classicSource ? ` ${g.classicSource}` : ''}`).join('\n')}`
@@ -398,14 +415,21 @@ function renderMinglu(
         return `出生地位于南半球（纬度 ${source.location.latitude}°）：八字主盘仍按全球统一节气（太阳黄经）起${monthBranch ? `${monthBranch}月` : '月令'}；若按南半球寒暖季节反推调候派参看，对应季节月令约为${mirrorBranch ? `${mirrorBranch}月` : '对冲六合节令'}，仅作流派对照附注。`;
       })()
     : undefined;
+  const digestLines = buildMethodSituationDigest('minglu', {
+    bazi: computed.baziResult.data,
+    ziwei: computed.ziweiResult?.data ?? null,
+    astrolabe: computed.astrolabeResult?.data ?? null,
+    crossResonance,
+  }, question);
   const promptText = [
-    `【命录综合资料（V2 聚合）】\n${source.gender === 'male' ? '性别：乾造（男）；' : source.gender === 'female' ? '性别：坤造（女）；' : ''}主题：${topicLabels[topic]}；详略：${detailMode === 'full' ? '完整' : '精简'}。\n本命录直接复用现有独立排盘内核，不生成旧版加权评分，也不将跨体系并行展示当作互相证明。`,
+    `【命录综合资料（V2 聚合）】\n${source.gender === 'male' ? '性别：乾造（男）；' : source.gender === 'female' ? '性别：坤造（女）；' : ''}主题：${topicLabels[topic]}；详略：${detailMode === 'full' ? '完整' : '精简'}。`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     ...(southernHemisphereNote ? [`【南半球节令对照说明】\n${southernHemisphereNote}`] : []),
     synthesisText,
     ...sections.map((section) => `【${section.title}】\n${section.markdown}`),
     glossaryText,
     classics,
-    `【任务】\n围绕「${topicLabels[topic]}」分开陈述各已计算体系的盘面依据、成立条件与资料缺口；未计算项目不得凭空补造。\n【问题】\n${question}`,
+    `【任务】\n围绕「${topicLabels[topic]}」分开陈述各已计算体系的盘面依据、成立条件与资料缺口；未计算项目不得凭空补造。\n\n【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');
   return {
     data: {

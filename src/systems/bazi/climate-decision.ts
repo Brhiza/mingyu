@@ -74,5 +74,5 @@ export function formatClimateDecision(value: ReturnType<typeof resolveClimate>, 
 }
 
 export function summarizeClimateDecision(value: ReturnType<typeof resolveClimate>) {
-  return `调候条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}、不利干${value.conditionalUnfavorableStems.join('、') || '无'}；冲突${value.conflicts.join('、') || '无'}；非最终用神`;
+  return `调候条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；条件有利干${value.conditionalFavorableStems.join('、') || '无'}、不利干${value.conditionalUnfavorableStems.join('、') || '无'}；冲突${value.conflicts.join('、') || '无'}`;
 }

@@ -183,7 +183,7 @@ function HistoryListRows({
         </span>
         <strong className="text-sm font-bold text-[var(--text-strong)]">暂无推演记录</strong>
         <p className="m-0 max-w-[260px] text-xs leading-relaxed text-[var(--text-muted)]">
-          起卦、即时起盘或合盘后，记录会自动保存在这里
+          排盘、起卦或合盘后，记录会自动保存在这里
         </p>
       </div>
     );

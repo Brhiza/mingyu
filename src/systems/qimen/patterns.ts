@@ -47,7 +47,7 @@ export function getQimenPatternTags({ zhiFu, zhiShi, zhiShiLandingPalace, jiuGon
     if (stemTombs[activeStem]?.palace === palace.gong) tags.push(`入墓（${label}${activeStem}落${palace.name}）`);
   }
   for (const palace of jiuGongGe.filter((item) => goodDoors.has(item.renPan.door))) {
-    for (const stem of getTianPanStems(palace).filter((item) => qiNames[item])) tags.push(`三奇得（${qiNames[stem]}合${palace.renPan.door}于${palace.name}）`);
+    for (const stem of getTianPanStems(palace).filter((item) => qiNames[item])) tags.push(`三奇得吉门（${qiNames[stem]}合${palace.renPan.door}于${palace.name}）`);
   }
   if (goodDoors.has(zhiShi)) {
     const palace = jiuGongGe.find((item) => item.renPan.door === zhiShi && qiNames[item.diPan.stem]);
@@ -79,7 +79,7 @@ export function buildPatternDetails(tags: string[]) {
     const summary = exact[tag] ?? (tag.startsWith('门迫') ? '门克宫，该宫事项易受压制，行动阻力偏大。'
       : tag.startsWith('击刑') ? `${label}落击刑位，主压力、掣肘或规章束缚，宜谨慎行事。`
       : tag.startsWith('入墓') ? `${label}入墓宫，主能量被困、事情停滞或难以施展，宜等待时机或寻求突破。`
-      : tag.startsWith('三奇得（') ? '三奇与开休生吉门同宫，主该宫方位得奇门会合之助，可借助该方位推进事项。'
+      : tag.startsWith('三奇得吉门（') || tag.startsWith('三奇得（') ? '三奇与开休生吉门同宫，主该宫方位得奇门会合之助，可借助该方位推进事项。'
       : tag.startsWith('符使同宫') ? '值符与值使同宫，力量高度集中，专注之事易出成果，但也需注意过于偏执。'
       : tag.startsWith('宝鉴三奇得使') ? '值使吉门加临三奇，关键入口与关键资源重合，谋事更有利。'
       : tag.startsWith('三奇得使') ? '三奇加特定六甲旬首所遁六仪，得使相助，所谋之事有贵人暗助，宜主动把握。'
@@ -165,7 +165,8 @@ export function analyzeQimenPatternRelations(data: QimenData): QimenPatternRelat
     }
     for (const tag of patternTags) {
       if (
-        (tag.startsWith('三奇得（') ||
+        (tag.startsWith('三奇得吉门（') ||
+        tag.startsWith('三奇得（') ||
           tag.startsWith('三奇得使（') ||
           tag.startsWith('宝鉴三奇得使（') ||
           tag.startsWith('三奇游六仪（')) &&

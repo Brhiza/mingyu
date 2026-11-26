@@ -26,10 +26,10 @@ export function buildOrdinaryPattern(pillars: Pillars, commanderStem: string) {
   if (lu[day] === branch) { pattern = '建禄格'; source = '月支禄位'; selectedStem = principal.stem; }
   else if (blade[day] === branch) { pattern = '月刃格'; source = '月支刃位'; selectedStem = principal.stem; }
   else if (principal.tenGod === '劫财') { pattern = '劫财格'; source = '月支本气'; selectedStem = principal.stem; }
-  else if (exposures(commanderStem).length) { pattern = patternFor(commanderGod); source = '司权透干'; selectedStem = commanderStem; }
-  else if (commanderGod === '比肩' || commanderGod === '劫财') { pattern = `${commanderGod}格`; source = '司权'; selectedStem = commanderStem; }
+  else if (exposures(commanderStem).length && commanderGod !== '比肩' && commanderGod !== '劫财') { pattern = patternFor(commanderGod); source = '司权透干'; selectedStem = commanderStem; }
   else if (prioritized) { pattern = `${isStorage && prioritized.stem !== commanderStem ? '杂气' : ''}${prioritized.tenGod}格`; source = '月支藏干透干'; selectedStem = prioritized.stem; }
-  else { pattern = patternFor(commanderGod); source = '司权'; selectedStem = commanderStem; }
+  else if (commanderGod !== '比肩' && commanderGod !== '劫财') { pattern = patternFor(commanderGod); source = '司权'; selectedStem = commanderStem; }
+  else { pattern = patternFor(principal.tenGod); source = '月支本气'; selectedStem = principal.stem; }
   return { candidate: pattern, source, selectedStem, dayMaster: day, monthBranch: branch,
     monthPrincipal: { stem: principal.stem, tenGod: principal.tenGod, pattern: patternFor(principal.tenGod) },
     commander: { stem: commanderStem, tenGod: commanderGod, isMonthHidden: hidden.some((item) => item.stem === commanderStem), positions: exposures(commanderStem), pattern: patternFor(commanderGod) },

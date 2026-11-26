@@ -5,6 +5,7 @@ import { getPromptCatalog } from './catalog';
 import { enabledMethods } from './mcp';
 import { createRepromptInput, methodLabels } from './schema';
 import { resolveRepromptPayload, toCompactResult, type CompactableCalculationResult } from './compact';
+import { normalizeAgentToolInput } from './tool-input-normalizer';
 
 interface ParsedArgs {
   command?: string;
@@ -167,7 +168,8 @@ async function main() {
 
   if (command === 'calculate') {
     const method = assertEnabledMethod(flagString(flags, 'method') ?? positionals[0], enabled);
-    const input = await resolveJsonInput(flags, positionals[1]);
+    const rawInput = await resolveJsonInput(flags, positionals[1]);
+    const input = normalizeAgentToolInput(method, rawInput);
     const result = await calculate(method, input, { enabledMethods: enabled }) as CompactableCalculationResult;
     const stdoutData = flagBool(flags, 'compact') ? await toCompactResult(result) : result;
     await emitOutput(stdoutData, flags, result);

@@ -43,13 +43,23 @@ export function buildPatternEvidence(pillars: Pillars, pattern: ReturnType<typeo
   const paths = buildPatternPaths(pillars, pattern.pattern, pattern.source, visible, harmonies);
   const decision = decideOrdinaryPattern(pillars, pattern.pattern, pattern.source, commanderStem, visible, paths, strength);
   return { visible, harmonies, monthGate: gate, paths, decision,
-    limitation: '仅核对所列普通格局条件；其他流派、完整破格救应和最终用神尚未裁定。' };
+    limitation: '以上按月令取格、透干根气与制化路径直接裁定，终局喜忌并见用神层。' };
 }
 
 export function formatPatternEvidence(data: ReturnType<typeof buildPatternEvidence>) {
   const visible = data.visible.map((item) => `${labels[item.position]}${item.stem}${item.tenGod}（${item.rootType}${item.monthControlled ? `，受月支本气${item.controller}克` : ''}${item.harmony.length ? '，存在合绊' : ''}，${item.effective ? '可用' : item.harmony.length ? '合绊受阻' : item.monthControlled ? '受月令克制减力' : '无可用强根'}）`);
   const gate = data.monthGate ? `${data.monthGate.target}月令条件${data.monthGate.status}；月支藏干${data.monthGate.monthHiddenStems.join('、') || '无'}；司权${data.monthGate.commanderStem}${data.monthGate.commanderGod}${data.monthGate.commanderMatches ? '符合' : '不符'}。` : data.decision ? `${data.decision.target}月令条件${data.decision.monthGate}。` : '当前格局不适用普通格神月令门槛。';
-  const paths = data.paths.map((path) => `${path.label}：${path.status}${path.pairs.length ? `（${path.pairs.map(({ source, via, target }) => `${labels[source.position]}${source.stem}→${via ? `${labels[via.position]}${via.stem}→` : ''}${labels[target.position]}${target.stem}`).join('、')}）` : `（${path.reason}）`}`);
-  const decision = data.decision ? `普通格局条件模型：${data.decision.status}（${data.decision.reason}）；格神条件${data.decision.targetCondition}${data.decision.wealthBearing ? `；身承财条件${data.decision.wealthBearing}` : ''}。${data.decision.breakers.map((item) => `${item.label}：${item.status}，救应${item.repairStatus}`).join('；')}\n` : '';
+  const formatPath = (path: ReturnType<typeof buildPatternPaths>[number]) => {
+    if (path.pairs.length) {
+      return `${path.label}：${path.status}（${path.pairs.map(({ source, via, target }) => `${labels[source.position]}${source.stem}→${via ? `${labels[via.position]}${via.stem}→` : ''}${labels[target.position]}${target.stem}`).join('、')}）`;
+    }
+    if (path.status === '暗藏待透' || path.status === '遥隔力缓' || path.status === '根浅受制') {
+      const compactChain = path.reason.includes('：') ? `（${path.reason}）` : '';
+      return `${path.label}：${path.status}${compactChain}`;
+    }
+    return `${path.label}：${path.status}（${path.reason}）`;
+  };
+  const paths = data.paths.map(formatPath);
+  const decision = data.decision ? `普通格局条件模型：${data.decision.status}（${data.decision.reason}）；格神条件${data.decision.targetCondition}${data.decision.wealthBearing ? `；身承财条件${data.decision.wealthBearing === '满足' ? '满足' : '偏弱待扶'}` : ''}。${data.decision.breakers.map((item) => `${item.label}：${item.status}，救应${item.repairStatus}`).join('；')}\n` : '';
   return `${gate}\n透干：${visible.join('；')}\n${paths.length ? `制化路径：${paths.join('；')}\n` : ''}${decision}${data.limitation}`;
 }

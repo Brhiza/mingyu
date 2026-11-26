@@ -1,3 +1,4 @@
+import { KE_MAP, SHENG_MAP, WUXING } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import { collectTraditionalRoots, type buildDayMasterStrength } from './strength';
 import type { summarizePattern } from './pattern';
@@ -15,11 +16,10 @@ type PatternEvidence = ReturnType<typeof buildPatternEvidence>;
 type Climate = ReturnType<typeof buildClimateCandidates>;
 type ClimateDecision = ReturnType<typeof resolveClimate>;
 
-const WUXING = ['木', '火', '土', '金', '水'] as const;
 const PILLAR_ORDER: PillarName[] = ['year', 'month', 'day', 'hour'];
 const PILLAR_LABELS: Record<PillarName, string> = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' };
-const GENERATES: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const CONTROLS: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const GENERATES: Record<string, string> = SHENG_MAP;
+const CONTROLS: Record<string, string> = KE_MAP;
 const previous = (map: Record<string, string>, element: string) => Object.keys(map).find((k) => map[k] === element) || '';
 
 const RESOURCE_TEN_GODS = new Set(['正印', '偏印']);

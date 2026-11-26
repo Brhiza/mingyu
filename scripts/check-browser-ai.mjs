@@ -191,10 +191,16 @@ try {
 
   // 1. 打开「接入 AI」页验证配置界面并开启站内 AI
   assert.equal(await clickByText('.workspace-topbar-tab', '接入 AI'), true);
-  await waitFor("Boolean(document.querySelector('input[type=\"url\"]'))", '接入 AI 页面未打开');
+  await waitFor("Boolean(document.querySelector('[role=\"switch\"]'))", '接入 AI 页面未打开');
+  await evaluate("document.querySelector('[role=\"switch\"]')?.click()");
+  await waitFor("Boolean(document.querySelector('input[type=\"url\"]'))", '站内 AI 接口配置表单未展开');
 
   // 进入命盘排盘结果页（sharedAiPane 会自动挂载至结果页右侧）
   assert.equal(await clickByText('.workspace-topbar-tab', '命盘排盘'), true);
+  await waitFor(
+    "Boolean([...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === '开始排盘'))",
+    '命盘输入表单未就绪',
+  );
   assert.equal(await clickByText('button', '开始排盘'), true);
   await waitFor("Boolean(document.querySelector('#ai-list'))", '结果页共享 AI 面板未挂载');
 

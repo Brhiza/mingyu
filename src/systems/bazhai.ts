@@ -4,6 +4,7 @@ import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, type SchoolGuidanceEntry } from '../prompt-selection';
 import { formatClassicExcerpts, selectBazhaiClassics } from './classics';
 import { evaluateBazhaiSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { mountains, mountainTrigram, measureSitDirection } from './compass';
 import { bazhaiPalaces, bazhaiStarGuidance, birthYearCandidates, compareMingHouse, guaGroup, mingGuaForYear, starPalaceRelations, trigramProfiles } from './bazhai/foundation';
 
@@ -82,7 +83,13 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   const people = data.mingPalaces.map((person) => `${person.year === null ? '指定命卦' : `命卦年份${person.year}`}：${person.gua}；${person.palaces.map((p) => `${p.direction}${p.label}（${p.luck}）`).join('、')}`);
   const comparisons = data.comparisons.map((item) => `命卦${item.mingGua}与${item.sitMountain}山${item.houseGua}宅：${item.match}；${item.directions.map((p) => `${p.direction}命${p.ming}、宅${p.house}`).join('；')}`);
   const starPalaces = data.housePalaces.length ? data.housePalaces.map((p) => ({ scope: `${p.sitMountain}山${p.houseGua}宅`, items: p.starPalaces })) : data.mingPalaces.map((p) => ({ scope: `${p.year === null ? '指定' : `${p.year}年`}命卦${p.gua}`, items: p.starPalaces }));
-  const measurement = data.measurement ? `读数${data.measurement.input.degree}°（${data.measurement.reading === 'sit' ? '坐山' : '大门朝屋内'}）；基准${data.measurement.input.northReference}；修正后${data.measurement.correctedDegree}°；误差±${data.measurement.input.uncertaintyDegrees}°；${data.measurement.stability}。${data.measurement.warnings.join('；')}` : data.houses.length ? '按用户指定坐山。' : '未提供住宅坐山，无法比较命宅。';
+  const northRefLabel: Record<string, string> = {
+    true: '真北基准',
+    false: '磁北基准',
+    magnetic: '磁北基准',
+    unspecified: '未指定北向基准',
+  };
+  const measurement = data.measurement ? `读数${data.measurement.input.degree}°（${data.measurement.reading === 'sit' ? '坐山' : '大门朝屋内'}）；${northRefLabel[String(data.measurement.input.northReference)] ?? `基准${data.measurement.input.northReference}`}；修正后${data.measurement.correctedDegree}°；误差±${data.measurement.input.uncertaintyDegrees}°；${data.measurement.stability}。${data.measurement.warnings.join('；')}` : data.houses.length ? '按用户指定坐山。' : '未提供住宅坐山，无法比较命宅。';
   const schools = formatSchoolGuidance(options?.schools, schoolGuidance);
   const classics = options?.includeClassics
     ? formatClassicExcerpts(selectBazhaiClassics([
@@ -103,7 +110,9 @@ function render(data: Data, question: string, options?: Input['prompt']) {
       ? `命卦${item.mingGua}与${item.sitMountain}山${item.houseGua}宅同属${item.mingGroup}：门、主（主卧）、灶向皆宜取 ${mingGood} 四吉方；厨卫镇压宜置 ${houseBad} 四凶方。`
       : `命卦${item.mingGua}（${item.mingGroup}）与${item.sitMountain}山${item.houseGua}宅（${item.houseGroup}）异组：按《八宅明镜》《阳宅三要》分层法，外事（大门/客厅纳气）宜顺宅卦四吉（${houseGood}），内事（个人床位/书桌/灶口朝向）宜顺命卦四吉（${mingGood}）。`;
   });
+  const digestLines = buildMethodSituationDigest('bazhai', data, question);
   const text = [`【八宅】\n${data.birth?.rule ?? '直接使用用户指定命卦。'}\n${people.join('\n')}`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【住宅测量】\n${measurement}\n${data.houses.map((house) => `${house.sitMountain}山${house.facingMountain}向，${house.houseGua}宅`).join('；') || '未提供住宅方向。'}`,
     `【命宅逐方对照】\n${comparisons.join('\n') || '缺少住宅方向，未计算命宅对照。'}`,
     `【星宫生克】\n伏位取左辅木。\n${starPalaces.map((p) => `${p.scope}：${p.items.map((x) => `${x.direction}${x.gua}宫${x.palaceElement}，${x.label}${x.star}${x.starElement}，${x.relation}`).join('；')}`).join('\n')}`,

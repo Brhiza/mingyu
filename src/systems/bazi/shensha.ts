@@ -8,9 +8,12 @@ const branches = '子丑寅卯辰巳午未申酉戌亥';
 const stems = '甲乙丙丁戊己庚辛壬癸';
 const tianyi: Record<string, string> = { 甲: '丑未', 戊: '丑未', 庚: '丑未', 乙: '子申', 己: '子申', 丙: '亥酉', 丁: '亥酉', 壬: '卯巳', 癸: '卯巳', 辛: '寅午' };
 const tianyiClassicalGeng: Record<string, string> = { ...tianyi, 庚: '寅午' };
+const tianguan: Record<string, string> = { 甲: '未', 乙: '辰', 丙: '巳', 丁: '寅', 戊: '卯', 己: '戌', 庚: '亥', 辛: '申', 壬: '酉', 癸: '午' };
+const tianguanJingji: Record<string, string> = { 甲: '未', 乙: '辰', 丙: '巳', 丁: '酉', 戊: '丑', 己: '戌', 庚: '亥', 辛: '申', 壬: '酉', 癸: '午' };
 const taiji: Record<string, string> = { 甲: '子午', 乙: '子午', 丙: '卯酉', 丁: '卯酉', 戊: '辰戌丑未', 己: '辰戌丑未', 庚: '寅亥', 辛: '寅亥', 壬: '巳申', 癸: '巳申' };
 const wenchang: Record<string, string> = { 甲: '巳', 乙: '午', 丙: '申', 丁: '酉', 戊: '申', 己: '酉', 庚: '亥', 辛: '子', 壬: '寅', 癸: '卯' };
 const lu: Record<string, string> = { 甲: '寅', 乙: '卯', 丙: '巳', 丁: '午', 戊: '巳', 己: '午', 庚: '申', 辛: '酉', 壬: '亥', 癸: '子' };
+const anlu: Record<string, string> = { 甲: '亥', 乙: '戌', 丙: '申', 丁: '未', 戊: '申', 己: '未', 庚: '巳', 辛: '辰', 壬: '寅', 癸: '丑' };
 const fuxing: Record<string, string> = { 甲: '寅子', 丙: '寅子', 乙: '卯丑', 癸: '卯丑', 戊: '申', 己: '未', 丁: '亥', 庚: '午', 辛: '巳', 壬: '辰' };
 const guoyin: Record<string, string> = { 甲: '戌', 乙: '亥', 丙: '丑', 丁: '寅', 戊: '丑', 己: '寅', 庚: '辰', 辛: '巳', 壬: '未', 癸: '申' };
 const jinyu: Record<string, string> = { 甲: '辰', 乙: '巳', 丙: '未', 丁: '申', 戊: '未', 己: '申', 庚: '戌', 辛: '亥', 壬: '丑', 癸: '寅' };
@@ -21,24 +24,26 @@ const tiande: Record<string, string> = { 寅: '丁', 卯: '申', 辰: '壬', 巳
 const tiandehe: Record<string, string> = { 寅: '壬', 卯: '巳', 辰: '丁', 巳: '丙', 午: '寅', 未: '己', 申: '戊', 酉: '亥', 戌: '辛', 亥: '庚', 子: '申', 丑: '乙' };
 const combinations: Record<string, string> = { 甲: '己', 乙: '庚', 丙: '辛', 丁: '壬', 戊: '癸', 己: '甲', 庚: '乙', 辛: '丙', 壬: '丁', 癸: '戊' };
 const trines = [
-  { members: '申子辰', yima: '寅', taohua: '酉', jiangxing: '子', huagai: '辰', wangshen: '亥', jiesha: '巳', zaisha: '午', suisha: '未', yuede: '壬' },
-  { members: '亥卯未', yima: '巳', taohua: '子', jiangxing: '卯', huagai: '未', wangshen: '寅', jiesha: '申', zaisha: '酉', suisha: '戌', yuede: '甲' },
-  { members: '寅午戌', yima: '申', taohua: '卯', jiangxing: '午', huagai: '戌', wangshen: '巳', jiesha: '亥', zaisha: '子', suisha: '丑', yuede: '丙' },
-  { members: '巳酉丑', yima: '亥', taohua: '午', jiangxing: '酉', huagai: '丑', wangshen: '申', jiesha: '寅', zaisha: '卯', suisha: '辰', yuede: '庚' },
+  { members: '申子辰', yima: '寅', taohua: '酉', jiangxing: '子', huagai: '辰', wangshen: '亥', jiesha: '巳', zaisha: '午', suisha: '未', liue: '卯', tiesaoMale: '寅', tiesaoFemale: '丑', yuede: '壬' },
+  { members: '亥卯未', yima: '巳', taohua: '子', jiangxing: '卯', huagai: '未', wangshen: '寅', jiesha: '申', zaisha: '酉', suisha: '戌', liue: '午', tiesaoMale: '卯', tiesaoFemale: '酉', yuede: '甲' },
+  { members: '寅午戌', yima: '申', taohua: '卯', jiangxing: '午', huagai: '戌', wangshen: '巳', jiesha: '亥', zaisha: '子', suisha: '丑', liue: '酉', tiesaoMale: '巳', tiesaoFemale: '申', yuede: '丙' },
+  { members: '巳酉丑', yima: '亥', taohua: '午', jiangxing: '酉', huagai: '丑', wangshen: '申', jiesha: '寅', zaisha: '卯', suisha: '辰', liue: '子', tiesaoMale: '未', tiesaoFemale: '戌', yuede: '庚' },
 ] as const;
 const dayRules = {
   魁罡: '庚辰 壬辰 戊戌 庚戌', 阴差阳错: '丙子 丁丑 戊寅 辛卯 壬辰 癸巳 丙午 丁未 戊申 辛酉 壬戌 癸亥',
   孤鸾煞: '甲寅 乙巳 丙午 丁巳 戊午 戊申 辛亥 壬子', 十灵日: '甲辰 乙亥 丙辰 丁酉 戊午 庚寅 庚戌 辛亥 壬寅 癸未',
   六秀日: '丙午 丁未 戊子 戊午 己丑 己未', 八专: '甲寅 乙卯 丁未 戊戌 己未 庚申 辛酉 癸丑',
   九丑: '丁酉 戊子 戊午 己卯 己酉 辛卯 辛酉 壬子 壬午', 十恶大败: '甲辰 乙巳 丙申 丁亥 戊戌 己丑 庚辰 辛巳 壬申 癸亥',
+  日德: '甲寅 丙辰 戊辰 庚辰 壬戌', 日贵: '丁酉 丁亥 癸卯 癸巳',
 } as const;
 const seasonalRules = {
   天赦日: ['戊寅', '甲午', '戊申', '甲子'], 四废日: ['庚申 辛酉', '壬子 癸亥', '甲寅 乙卯', '丙午 丁巳'],
   天转: ['乙卯', '丙午', '辛酉', '壬子'], 地转: ['辛卯', '戊午', '癸酉', '丙子'],
 } as const;
-const names = ['天乙贵人', '太极贵人', '文昌贵人', '福星贵人', '国印贵人', '金舆', '天厨贵人', '禄神', '羊刃', '飞刃', '流霞',
-  '驿马', '桃花', '将星', '华盖', '亡神', '劫煞', '灾煞', '岁煞', '红鸾', '天喜', '孤辰', '寡宿', '丧门', '吊客', '披麻',
-  '天德贵人', '天德合', '月德贵人', '月德合', '天医', '血刃', '空亡', '学堂', '词馆', '德秀贵人', '红艳煞', '勾绞煞', '天罗地网', '童子煞', ...Object.keys(dayRules), ...Object.keys(seasonalRules), '金神', '三奇贵人', '拱禄', '元辰'] as const;
+const names = ['天乙贵人', '天官贵人', '太极贵人', '文昌贵人', '福星贵人', '国印贵人', '金舆', '天厨贵人', '禄神', '暗禄', '羊刃', '飞刃', '流霞',
+  '驿马', '桃花', '将星', '华盖', '亡神', '劫煞', '灾煞', '岁煞', '六厄', '红鸾', '天喜', '孤辰', '寡宿',
+  '丧门', '官符', '岁破', '龙德', '紫微', '白虎', '福德', '吊客', '病符', '披麻',
+  '天德贵人', '天德合', '月德贵人', '月德合', '天医', '血刃', '空亡', '学堂', '词馆', '德秀贵人', '红艳煞', '勾绞煞', '天罗地网', '童子煞', '隔角煞', ...Object.keys(dayRules), ...Object.keys(seasonalRules), '金神', '进神', '三奇贵人', '拱禄', '元辰', '铁扫帚'] as const;
 
 type Name = typeof names[number];
 export type BaziYangRenMode = 'all-stems' | 'yang-only' | 'all-stems-guandai';
@@ -46,6 +51,7 @@ export type BaziKongWangMode = 'day' | 'day-and-year';
 export type BaziShenshaBaseMode = 'year-and-day' | 'day-only' | 'year-only';
 export type BaziXueTangMode = 'nayin' | 'stem-changsheng' | 'zheng-xuetang' | 'nayin-and-stem';
 export type BaziTianYiMode = 'standard' | 'classical-geng-yinwu';
+export type BaziTianGuanMode = 'standard' | 'jingji-variant';
 export type BaziHongYanMode = 'standard' | 'yi-shen' | 'year-and-day';
 export type BaziTongZiMode = 'standard' | 'hour-only' | 'strict-both';
 
@@ -67,6 +73,7 @@ export interface BaziShenshaOptions {
   shenshaBaseMode?: BaziShenshaBaseMode;
   xueTangMode?: BaziXueTangMode;
   tianYiMode?: BaziTianYiMode;
+  tianGuanMode?: BaziTianGuanMode;
   hongYanMode?: BaziHongYanMode;
   tongZiMode?: BaziTongZiMode;
 }
@@ -92,9 +99,11 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
       : ['year', 'day'];
   const xueTangMode = options?.xueTangMode ?? 'nayin';
   const tianYiMode = options?.tianYiMode ?? 'standard';
+  const tianGuanMode = options?.tianGuanMode ?? 'standard';
   const hongYanMode = options?.hongYanMode ?? 'standard';
   const tongZiMode = options?.tongZiMode ?? 'standard';
   const tianYiTable = tianYiMode === 'classical-geng-yinwu' ? tianyiClassicalGeng : tianyi;
+  const tianGuanTable = tianGuanMode === 'jingji-variant' ? tianguanJingji : tianguan;
   const offset = (branch: string, amount: number) => branches[(branches.indexOf(branch) + amount + 12) % 12];
   const group = (branch: string) => {
     const value = trines.find((item) => item.members.includes(branch));
@@ -113,8 +122,9 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
     const byBranch = (key: 'yima' | 'taohua' | 'jiangxing' | 'huagai' | 'wangshen' | 'jiesha', excludeSelf = false): Basis[] => basePillars.flatMap((pillar) => (!excludeSelf || pillar !== position) && group(pillars[pillar].zhi)[key] === branch ? [{ pillar, kind: '支' as const, value: pillars[pillar].zhi, target: branch }] : []);
     const yearBranch = (target: string, excludeYear = false): Basis[] => (!excludeYear || position !== 'year') && target === branch ? [{ pillar: 'year', kind: '支', value: pillars.year.zhi, target }] : [];
     const monthBranch = (target: string, targetKind: '干' | '支' | '柱'): Basis[] => (targetKind === '干' ? gan : targetKind === '支' ? branch : ganZhi) === target ? [{ pillar: 'month', kind: '支', value: pillars.month.zhi, target }] : [];
-    for (const [name, table] of [['天乙贵人', tianYiTable], ['太极贵人', taiji], ['文昌贵人', wenchang], ['福星贵人', fuxing], ['国印贵人', guoyin], ['金舆', jinyu], ['天厨贵人', tianchu]] as const) add(name, '支', byStem(table));
+    for (const [name, table] of [['天乙贵人', tianYiTable], ['天官贵人', tianGuanTable], ['太极贵人', taiji], ['文昌贵人', wenchang], ['福星贵人', fuxing], ['国印贵人', guoyin], ['金舆', jinyu], ['天厨贵人', tianchu]] as const) add(name, '支', byStem(table));
     add('禄神', '支', dayStem(lu[pillars.day.gan]));
+    add('暗禄', '支', dayStem(anlu[pillars.day.gan]));
     if (wang) {
       add('羊刃', '支', dayStem(wang));
       add('飞刃', '支', dayStem(offset(wang, 6)));
@@ -123,12 +133,22 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
     for (const [name, key, exclude] of [['驿马', 'yima', false], ['桃花', 'taohua', false], ['将星', 'jiangxing', true], ['华盖', 'huagai', true], ['亡神', 'wangshen', false], ['劫煞', 'jiesha', false]] as const) add(name, '支', byBranch(key, exclude));
     add('灾煞', '支', yearBranch(group(pillars.year.zhi).zaisha, true));
     add('岁煞', '支', yearBranch(group(pillars.year.zhi).suisha, true));
+    add('六厄', '支', yearBranch(group(pillars.year.zhi).liue, true));
     const y = branches.indexOf(pillars.year.zhi);
     add('红鸾', '支', yearBranch(branches[(3 - y + 12) % 12], true)); add('天喜', '支', yearBranch(branches[(9 - y + 12) % 12], true));
     const seasons = ['亥子丑', '寅卯辰', '巳午未', '申酉戌'];
     const yearSeason = seasons.findIndex((value) => value.includes(pillars.year.zhi));
     add('孤辰', '支', yearBranch(['寅', '巳', '申', '亥'][yearSeason])); add('寡宿', '支', yearBranch(['戌', '丑', '辰', '未'][yearSeason]));
-    add('丧门', '支', yearBranch(offset(pillars.year.zhi, 2))); add('吊客', '支', yearBranch(offset(pillars.year.zhi, -2))); add('披麻', '支', yearBranch(offset(pillars.year.zhi, -3)));
+    add('丧门', '支', yearBranch(offset(pillars.year.zhi, 2)));
+    add('官符', '支', yearBranch(offset(pillars.year.zhi, 4), true));
+    add('岁破', '支', yearBranch(offset(pillars.year.zhi, 6), true));
+    add('龙德', '支', yearBranch(offset(pillars.year.zhi, 7), true));
+    add('紫微', '支', yearBranch(offset(pillars.year.zhi, 7), true));
+    add('白虎', '支', yearBranch(offset(pillars.year.zhi, 8), true));
+    add('福德', '支', yearBranch(offset(pillars.year.zhi, 9), true));
+    add('吊客', '支', yearBranch(offset(pillars.year.zhi, -2)));
+    add('病符', '支', yearBranch(offset(pillars.year.zhi, -1), true));
+    add('披麻', '支', yearBranch(offset(pillars.year.zhi, -3)));
     for (const [name, target] of [['天德贵人', tiande[pillars.month.zhi]], ['天德合', tiandehe[pillars.month.zhi]], ['月德贵人', group(pillars.month.zhi).yuede], ['月德合', combinations[group(pillars.month.zhi).yuede]]] as const) {
       const kind = stems.includes(target) ? '干' as const : '支' as const;
       add(name, kind, monthBranch(target, kind));
@@ -167,6 +187,13 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
       // 阳男阴女冲前一辰（顺数七位），阴男阳女冲后一辰（顺数五位）
       const direction = (yangYear && gender === 'male') || (!yangYear && gender === 'female') ? 7 : 5;
       add('元辰', '支', yearBranch(offset(pillars.year.zhi, direction)));
+      if (!target && position === 'month') {
+        const tiesaoTarget = gender === 'male' ? group(pillars.year.zhi).tiesaoMale : group(pillars.year.zhi).tiesaoFemale;
+        add('铁扫帚', '支', yearBranch(tiesaoTarget, true));
+      }
+    }
+    if (!target && position === 'hour' && offset(pillars.day.zhi, 2) === branch) {
+      add('隔角煞', '支', [{ pillar: 'day', kind: '支', value: pillars.day.zhi, target: branch }]);
     }
     const net: Record<string, string> = { 戌: '亥', 亥: '戌', 辰: '巳', 巳: '辰' };
     add('天罗地网', '支', basePillars.flatMap((pillar) => pillar !== position && net[pillars[pillar].zhi] === branch ? [{ pillar, kind: '支' as const, value: pillars[pillar].zhi, target: branch }] : []));
@@ -187,6 +214,7 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
       for (const [name, list] of Object.entries(seasonalRules)) if (list[season].split(' ').includes(ganZhi)) add(name, '柱', monthBranch(ganZhi, '柱'));
     }
     if ((position === 'day' || position === 'hour') && ['乙丑', '己巳', '癸酉'].includes(ganZhi)) add('金神', '柱', [{ pillar: position, kind: '柱', value: ganZhi, target: ganZhi }]);
+    if (!target && (position === 'day' || position === 'hour') && ['甲子', '甲午', '己卯', '己酉'].includes(ganZhi)) add('进神', '柱', [{ pillar: position, kind: '柱', value: ganZhi, target: ganZhi }]);
   }
   const global: Array<{ name: '三奇贵人' | '拱禄'; basis: Basis[] }> = [];
   if (!target) {
@@ -201,8 +229,14 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
     const pairs = ['癸亥 癸丑', '癸丑 癸亥', '丁巳 丁未', '己未 己巳', '戊辰 戊午'];
     if (pairs.includes(`${pillars.day.ganZhi} ${pillars.hour.ganZhi}`)) global.push({ name: '拱禄', basis: (['day', 'hour'] as const).map((pillar) => ({ pillar, kind: '柱', value: pillars[pillar].ganZhi, target: pillars[pillar].ganZhi })) });
   }
-  const included = gender ? [...names] : names.filter((name) => name !== '元辰');
-  const unavailable = gender ? [] : [{ name: '元辰', reason: '该查法需要性别，未提供时不推测。' }];
+  const genderDependent = new Set<Name>(['元辰', '铁扫帚']);
+  const included = gender ? [...names] : names.filter((name) => !genderDependent.has(name));
+  const unavailable = gender
+    ? []
+    : [
+        { name: '元辰', reason: '该查法需要性别，未提供时不推测。' },
+        { name: '铁扫帚', reason: '该查法需要性别，未提供时不推测。' },
+      ];
   const yangRenRuleText = yangRenMode === 'yang-only'
     ? '羊刃仅取五阳干（阴干不取羊刃飞刃）'
     : yangRenMode === 'all-stems-guandai'
@@ -216,13 +250,14 @@ export function calculateBaziShensha(pillars: Pillars, gender?: 'male' | 'female
   else if (xueTangMode === 'zheng-xuetang') extraRuleParts.push('学堂词馆按《三命通会》正学堂/正词馆干支同见查');
   else if (xueTangMode === 'nayin-and-stem') extraRuleParts.push('学堂词馆兼查年柱纳音与十天干长生');
   if (tianYiMode === 'classical-geng-yinwu') extraRuleParts.push('天乙贵人采用古诀甲戊丑未、庚辛寅午');
+  if (tianGuanMode === 'jingji-variant') extraRuleParts.push('天官贵人采用《五行精纪》别本口诀（丁酉戊丑）');
   if (hongYanMode === 'yi-shen') extraRuleParts.push('红艳煞采用古诀甲午乙申');
   else if (hongYanMode === 'year-and-day') extraRuleParts.push('红艳煞年干日干同查');
   if (tongZiMode === 'hour-only') extraRuleParts.push('童子煞仅查时支');
   else if (tongZiMode === 'strict-both') extraRuleParts.push('童子煞须季节与年纳音口诀同中');
   const extraRuleSuffix = extraRuleParts.length ? `；${extraRuleParts.join('；')}` : '';
-  return { included, unavailable, entries, global, rule: `按列出的年干、日干、年支、日支、月支、年纳音或日柱查找；三奇与拱禄单列为整局组合；将星华盖排除相同起例柱，红鸾天喜及灾煞岁煞排除年柱，${yangRenRuleText}；${kongWangRuleText}${extraRuleSuffix}；元辰按年干阴阳及性别查年支顺数五位或七位。`,
-    limitation: `仅列${included.length}项本命神煞${gender ? '' : '（元辰因未提供性别未计算）'}，不含其他流派口径或岁运神煞；神煞为传统旁证，不可单凭命中推断现实结果。` };
+  return { included, unavailable, entries, global, rule: `按列出的年干、日干、年支、日支、月支、年纳音或日柱查找；三奇与拱禄单列为整局组合；将星华盖排除相同起例柱，红鸾天喜、灾煞岁煞、六厄及太岁十二神排除年柱，${yangRenRuleText}；${kongWangRuleText}${extraRuleSuffix}；元辰按年干阴阳及性别查年支顺数五位或七位，铁扫帚按年支三合及性别查月支。`,
+    limitation: `仅列${included.length}项本命神煞${gender ? '' : '（元辰、铁扫帚因未提供性别未计算）'}，不含其他流派口径或岁运神煞；神煞为传统旁证，不可单凭命中推断现实结果。` };
 }
 export function formatBaziShenshaHits(value: ReturnType<typeof calculateBaziShensha>, includeBasis = false, emptyText = '所列查法均未命中。') {
   const labels: Record<PillarName, string> = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' };

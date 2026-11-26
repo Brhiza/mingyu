@@ -1,3 +1,4 @@
+import { SHENG_MAP } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import type { buildDayMasterStrength } from './strength';
 import type { summarizePattern } from './pattern';
@@ -6,7 +7,7 @@ import { stemElementOf } from './natal-facts';
 
 type Pillars = Record<PillarName, BaziPillar>;
 const positions: PillarName[] = ['year', 'month', 'day', 'hour'];
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+const generates: Record<string, string> = SHENG_MAP;
 const bridges = [
   { elements: ['水', '火'], bridge: '木' }, { elements: ['木', '金'], bridge: '水' },
   { elements: ['木', '土'], bridge: '火' }, { elements: ['土', '水'], bridge: '金' }, { elements: ['金', '火'], bridge: '土' },
@@ -58,5 +59,5 @@ export function formatUsefulStrategy(value: ReturnType<typeof buildUsefulStrateg
 }
 
 export function summarizeUsefulStrategy(value: ReturnType<typeof buildUsefulStrategy>) {
-  return `条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；病药${value.disease.status === '候选' ? `候选${value.disease.element}` : '不适用'}；通关${value.bridges.map((item) => `${item.elements.join('、')}候选${item.bridge}`).join('、') || '未见候选'}；非最终用神`;
+  return `条件层有利${value.favorable.join('、') || '随运平衡'}、不利${value.unfavorable.join('、') || '随运避偏'}；病药${value.disease.status === '候选' ? `候选${value.disease.element}` : '不适用'}；通关${value.bridges.map((item) => `${item.elements.join('、')}候选${item.bridge}`).join('、') || '未见候选'}`;
 }

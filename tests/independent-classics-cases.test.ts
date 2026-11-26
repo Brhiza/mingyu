@@ -114,7 +114,7 @@ test('传统典籍核验（八字）：经典正格与从格的四柱、格局�
     [zc.pillars.year.ganZhi, zc.pillars.month.ganZhi, zc.pillars.day.ganZhi, zc.pillars.hour.ganZhi],
     ['庚午', '辛巳', '庚辰', '辛巳'],
   );
-  assert.equal(zc.ordinaryPattern.candidate, '比肩格');
+  assert.equal(zc.ordinaryPattern.candidate, '七杀格');
   assert.deepEqual(zc.usefulGod.favorableWuxing, ['水', '木', '火']);
   assert.equal(zhengGe.data.fortune.direction, 'forward');
 

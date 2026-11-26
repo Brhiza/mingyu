@@ -3,6 +3,9 @@ import type { instantInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { createTimezoneOffsetReader, formatCivilDateTime, getCivilDateTimeAtFixedOffset, createUtcTimestamp } from './huangji/civil-time';
 import { formatNatalFlying } from './ziwei-flying';
+import { formatZiweiStarLabel } from './ziwei';
+import { buildMethodSituationDigest } from './situation-digest';
+import { formatAstroHouseSystem } from './prompt-format';
 import { formatPatternEvidence } from './bazi/pattern-evidence';
 import { formatUsefulStrategy } from './bazi/useful-strategy';
 import { correctBirthClock, lunarDateDiscrepancy, resolveBirthClock } from './birth-time';
@@ -148,8 +151,8 @@ function render(data: Data, question: string) {
   const ziweiOmitted = data.ziwei?.omitted.length ? `\n排除男女不同的星曜：${data.ziwei.omitted.map((p) => `${p.palace}${p.stars.join('、')}`).join('；')}` : '';
   const ziwei = data.ziwei ? `五行局：${data.ziwei.fiveElementsClass}；命主：${data.ziwei.soul}；身主：${data.ziwei.body}；命宫：${data.ziwei.soulBranch}；身宫：${data.ziwei.bodyBranch}\n${data.ziwei.palaces.map((p, idx, arr) => {
     const opp = arr[(idx + 6) % 12];
-    const emptyNote = p.majorStars.length === 0 && opp && opp.majorStars.length > 0 ? `［空宫，借对宫${opp.name}${opp.majorStars.map((s) => `${s.name}${s.brightness ? `(${s.brightness})` : ''}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、')}］` : p.majorStars.length === 0 ? '［空宫］' : '';
-    return `${p.name}${p.heavenlyStem}${p.earthlyBranch}${emptyNote}：${[...p.majorStars, ...p.minorStars, ...p.adjectiveStars].map((s) => `${s.name}${s.brightness ? `(${s.brightness})` : ''}${s.mutagen ? `化${s.mutagen}` : ''}`).join('、') || '无所列星曜'}`;
+    const emptyNote = p.majorStars.length === 0 && opp && opp.majorStars.length > 0 ? `［空宫，借对宫${opp.name}${opp.majorStars.map((s) => formatZiweiStarLabel(s, { parenBrightness: true })).join('、')}］` : p.majorStars.length === 0 ? '［空宫］' : '';
+    return `${p.name}${p.heavenlyStem}${p.earthlyBranch}${emptyNote}：${[...p.majorStars, ...p.minorStars, ...p.adjectiveStars].map((s) => formatZiweiStarLabel(s, { parenBrightness: true })).join('、') || '无所列星曜'}`;
   }).join('\n')}\n【本命宫干四化】\n${formatNatalFlying(data.ziwei.palaces)}${ziweiOmitted}` : '';
   const baziEvidence = data.bazi ? `月令司权${data.bazi.monthCommander.stem}；旺衰条件${data.bazi.strength.status}；普通取格候选${data.bazi.ordinaryPattern.candidate}；已核算路线${data.bazi.patternOverview.pattern}。\n柱间关系：${data.bazi.natalFacts.relations.map((item) => `${item.positions.map((pos) => pNames[pos]).join('、')}${item.values.join('、')}${item.name}${item.element ?? ''}`).join('；') || '未命中所列关系'}。\n${formatPatternEvidence(data.bazi.patternEvidence)}\n${formatUsefulStrategy(data.bazi.usefulStrategy)}` : '';
   const astro = data.astrolabe ? (() => {
@@ -162,7 +165,7 @@ function render(data: Data, question: string) {
     const houses = chart.houses.map((p) => `${p.house}宫${p.sign}${p.degreeInSign.toFixed(2)}°`).join('；');
     const aspects = chart.aspects.map((a) => `${names[a.first]}与${names[a.second]}${a.name}，偏差${a.deviation.toFixed(2)}°`).join('；') || '未命中所列相位';
     const patterns = chart.patterns.map((p) => `${p.label}（${p.members.map((m) => m.name).join('、')}）`).join('；') || '未见所列格局';
-    return `${points}\n宫位制${chart.basis.houseSystem}：${houses}\n相位：${aspects}\n星体格局：${patterns}\n星历警告：${chart.warnings.length ? JSON.stringify(chart.warnings) : '无'}。${chart.limitations.join('；')}`;
+    return `${points}\n${formatAstroHouseSystem(chart.basis.houseSystem)}宫位制：${houses}\n相位：${aspects}\n星体格局：${patterns}\n星历警告：${chart.warnings.length ? JSON.stringify(chart.warnings) : '无'}。${chart.limitations.join('；')}`;
   })() : '';
   const qizheng = data.qizheng ? `${data.qizheng.stars.map((s) => `${s.name} 黄经${s.longitude.toFixed(4)}° ${s.xiu}宿${s.xiuDegree.toFixed(4)}° ${s.palace} ${s.dignity}${'retrograde' in s && s.retrograde ? ' 逆行' : ''}`).join('\n')}\n十二宫：${data.qizheng.twelvePalaces.map((p) => `${p.palace}${p.signBranch}`).join('、')}\n吊照：${data.qizheng.aspects.map((a) => `${a.star1}与${a.star2}${a.type}（偏差${a.orb}°）`).join('；') || '未命中所列相位'}\n神煞：${data.qizheng.shensha.stars.map((s) => `${s.name}${s.value}`).join('、')}。\n恩难仇用：${data.qizheng.enNan.sect}，命宫主宰星${data.qizheng.enNan.mingZhu}；恩${data.qizheng.enNan.enStars.join('、')}、难${data.qizheng.enNan.nanStars.join('、')}、仇${data.qizheng.enNan.chouStars.join('、')}、用${data.qizheng.enNan.yongStars.join('、')}。\n月相：${data.qizheng.moonPhase.eightPhaseName}，照明约${(data.qizheng.moonPhase.illuminationFraction * 100).toFixed(1)}%；太阳高度${data.qizheng.illumination.sun.geometricAltitudeDegrees.toFixed(2)}°。\n${data.qizheng.mansionModel.limitation}` : '';
   const solarUse = {
@@ -172,7 +175,9 @@ function render(data: Data, question: string) {
     astrolabe: '西洋星盘仍按真实瞬时计算，真太阳时仅作参考。',
     qizheng: '真太阳时用于命身宫时辰，星位仍按真实瞬时计算。',
   }[data.input.type];
+  const digestLines = buildMethodSituationDigest('instant', data, question);
   const text = [`【${labels[data.input.type]}即时盘】\n起盘 UTC ${data.basis.utcDateTime}；${data.basis.clockSource === 'beijing' ? '北京时间' : '观测地民用时间'} ${data.basis.localDateTime} UTC${data.basis.timezone >= 0 ? '+' : ''}${data.basis.timezone}。${data.basis.trueSolarDateTime ? `真太阳时钟表 ${data.basis.trueSolarDateTime}；${solarUse}` : ''}`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     pillars ? `【即时四柱】\n${pillars}\n【四柱条件证据】\n${baziEvidence}` : '', ziwei ? `【即时紫微】\n${ziwei}` : '', astro ? `【即时星位】\n${astro}` : '', qizheng ? `【即时七政星位】\n${qizheng}` : '',
     `【任务与限制】\n${data.limitation} 根据所列即时盘面与问题解释，区分事实与推论，不虚构未提供的个人资料。`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };

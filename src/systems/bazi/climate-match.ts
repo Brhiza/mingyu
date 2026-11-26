@@ -1,3 +1,4 @@
+import { KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import { stemElementOf } from './natal-facts';
 import type { PillarName } from './pillars';
 
@@ -11,8 +12,8 @@ export interface ClimateContext {
 }
 export type ClimateRule = Record<string, any> & { id: string };
 const order: Position[] = ['year', 'month', 'day', 'hour'];
-const produces: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const produces: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 const metadata = new Set(['id', 'label', 'description', 'priority', 'usefulWuxing', 'favorableOrder', 'hint', 'policy', 'recommendationStems', 'traceHints']);
 const elementsCategory = (day: string, element: string) => {
   const own = stemElementOf(day);

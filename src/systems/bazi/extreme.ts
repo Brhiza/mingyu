@@ -56,6 +56,17 @@ export function buildExtremePattern(pillars: Pillars, strength: ReturnType<typeo
   const categories = [...new Set(categoryFacts.map((item) => item.category))];
   const cmdCategory = category(commanderGod);
   const fakeCandidate = cmdCategory === '官杀' ? '假从杀格' : cmdCategory === '财' ? '假从财格' : cmdCategory === '食伤' ? '假从儿格' : '假从势格';
+  const SPECIALIZED_ZHUANWANG_NAMES: Record<string, string> = {
+    木: '曲直格',
+    火: '炎上格',
+    土: '稼穑格',
+    金: '从革格',
+    水: '润下格',
+  };
+  const specializedName =
+    strong && !(brokenSealFakeFollow && !eligible)
+      ? SPECIALIZED_ZHUANWANG_NAMES[pillars.day.stemElement]
+      : undefined;
   const candidate = brokenSealFakeFollow && !eligible
     ? fakeCandidate
     : strong ? '专旺格' : categories.length === 1 && categories[0] === '财' ? '从财格' : categories.length === 1 && categories[0] === '官杀' ? '从杀格' : '从势格';
@@ -67,7 +78,7 @@ export function buildExtremePattern(pillars: Pillars, strength: ReturnType<typeo
   const fakeFollowHint = brokenSealFakeFollow && !eligible && soleBranchPos
     ? `原局天干无印比，唯一微弱印根（${names[soleBranchPos]}${pillars[soleBranchPos].zhi}）遭日支${pillars.day.zhi}直接六冲受破，其余三柱全为财官杀食伤成势，具${fakeCandidate}候选之象；岁运顺从旺势可论假从，见印比扶身则返正格`
     : undefined;
-  return { candidate, status, strengthStatus: strength.status, commanderStem, commanderGod, commanderSatisfied, competingStructure,
+  return { candidate, ...(specializedName ? { specializedName } : {}), status, strengthStatus: strength.status, commanderStem, commanderGod, commanderSatisfied, competingStructure,
     direct, residual, sameFormations, oppositeFormations, opposingDirect, opposingResidual, residualPositions, forceSatisfied, pure, categoryFacts, categories,
     ...(fakeFollowHint ? { fakeFollowHint } : {}),
     limitation: '按当前极强极弱及明干、本气、中余气和成势条件模型裁定；未成立时归回普通正格，综合调候与用神见用神裁定层。' };
@@ -77,5 +88,6 @@ export function formatExtremePattern(value: ReturnType<typeof buildExtremePatter
   if (!value) return '未进入极强或极弱条件。';
   const facts = (items: typeof value.direct) => items.map((item) => `${names[item.position]}${item.source}${item.stem}${item.tenGod}`).join('、') || '无';
   const hintLine = value.fakeFollowHint ? `\n假从提示：${value.fakeFollowHint}。` : '';
-  return `${value.candidate}：${value.status}；旺衰${value.strengthStatus}，司权${value.commanderStem}${value.commanderGod}（${value.commanderSatisfied ? '符合' : '不符合'}）；其他特殊结构${value.competingStructure ? '存在，不能按本路线取格' : '未命中所列冲突'}。\n明干与本气：${facts(value.direct)}；中余气：${facts(value.residual)}。\n反向明干本气：${facts(value.opposingDirect)}；反向中余气：${facts(value.opposingResidual)}；成势支局：${[...value.sameFormations, ...value.oppositeFormations].map((item) => `${item.members}${item.name}${item.element}`).join('、') || '无'}；结构条件${value.forceSatisfied ? '满足' : '不满足'}。\n异党类别：${value.categories.join('、') || '无'}。${hintLine}${value.limitation}`;
+  const displayName = value.specializedName ? `${value.candidate}（${value.specializedName}）` : value.candidate;
+  return `${displayName}：${value.status}；旺衰${value.strengthStatus}，司权${value.commanderStem}${value.commanderGod}（${value.commanderSatisfied ? '符合' : '不符合'}）；其他特殊结构${value.competingStructure ? '存在，不能按本路线取格' : '未命中所列冲突'}。\n明干与本气：${facts(value.direct)}；中余气：${facts(value.residual)}。\n反向明干本气：${facts(value.opposingDirect)}；反向中余气：${facts(value.opposingResidual)}；成势支局：${[...value.sameFormations, ...value.oppositeFormations].map((item) => `${item.members}${item.name}${item.element}`).join('、') || '无'}；结构条件${value.forceSatisfied ? '满足' : '不满足'}。\n异党类别：${value.categories.join('、') || '无'}。${hintLine}${value.limitation}`;
 }

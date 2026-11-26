@@ -3,6 +3,7 @@ import type { chineseNameInput } from '../schema';
 import type { CharacterShardLoader } from '../character-data';
 import { sameJsonValue } from '../json-value';
 import { birthFacts, birthForNaming, nameFacts, nameStructure, namingDetails, namingPreferences, namingPromptSelection, splitSurname } from './naming-foundation';
+import { buildMethodSituationDigest } from './situation-digest';
 
 type Input = z.infer<typeof chineseNameInput>;
 type Source = Omit<Input, 'question' | 'currentTime'>;
@@ -137,7 +138,10 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
 type Data = Awaited<ReturnType<typeof dataFor>>;
 function render(data: Data, question: string, options: Input['prompt']) {
   const relations = analyzeChineseNameRelations(data.analysis, data.preference, data.birthContext);
-  const text = [`【姓名资料与计算】\n${nameFacts(data.analysis)}`, `【音形义与三才喜忌制衡关系】\n${relations.text}`, `【出生与五行参考】\n五行方向来源：${data.preference.source}。\n${birthFacts(data.birthContext)}`,
+  const digestLines = buildMethodSituationDigest('chinese-name', { ...data, relations }, question);
+  const text = [
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
+    `【姓名资料与计算】\n${nameFacts(data.analysis)}`, `【音形义与三才喜忌制衡关系】\n${relations.text}`, `【出生与五行参考】\n五行方向来源：${data.preference.source}。\n${birthFacts(data.birthContext)}`,
     '【传统语境】\n《左传·桓公六年》记载命名五法；五格三才为后世姓名学数理取象，两者并非同一套规则。字库和资料来源仍需独立校勘。',
     namingPromptSelection(options, 'name-analysis'), '【任务】\n根据实际姓名、字义、读音、字形、五格三才和已列出生资料回答问题。分开说明字义与姓名学取象，具体读音以本人及家族用法为准；不要把数理或条件模型写成现实必然结果，不要虚构未提供的出生资料。', `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };

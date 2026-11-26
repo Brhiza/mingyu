@@ -6,6 +6,7 @@ import { resolveBirthClock } from './birth-time';
 import { createTimezoneOffsetReader, getCivilDateTimeAtFixedOffset } from './huangji/civil-time';
 import { calculateAstrolabeIndependentData, formatAstrolabeClassics, renderAstrolabeIndependentData } from './astrolabe';
 import { astroEventLabels, astroEventDirections, astroEclipseLabels } from './astrology/event-labels';
+import { buildMethodSituationDigest } from './situation-digest';
 
 export type AstrolabeRangeInput = z.infer<typeof astrolabeRangeInput>;
 type Input = AstrolabeRangeInput;
@@ -122,12 +123,23 @@ export function renderAstrolabeRange(data: AstrolabeRangeData, question: string,
   const chosen = options ?? data.input.prompt;
   const classics = formatAstrolabeClassics(chosen?.includeClassics);
   const branchOptions = chosen?.includeClassics ? { ...chosen, includeClassics: false } : chosen;
+  const seenHeaders = new Set<string>();
+  const dedupeBlockHeader = (block: string, branchIndex: number): string => {
+    const m = /^【([^】\n]+)】/u.exec(block.trim());
+    if (!m) return block;
+    const h = m[0];
+    if (!seenHeaders.has(h)) {
+      seenHeaders.add(h);
+      return block.trim();
+    }
+    return `【分支 ${branchIndex + 1} · ${m[1]}】${block.trim().slice(h.length)}`;
+  };
   const branches = data.branches.map((branch, index) => {
     const selected = Object.entries(branch.metrics).filter(([key]) => /^points\.(asc|mc|desc|ic|sun|moon)\.longitude$/.test(key) || /^flow\.(solarReturn\.\d+\.timestamp|solarArc\.arcDegrees|secondary\.progressedTimestamp)$/.test(key));
     const metrics = selected.map(([key, v]) => `${key}: ${v.min} 至 ${v.max}${v.circularPeriod ? `（圆周 ${v.circularPeriod}）` : ''}`).join('\n');
     const period = branch.first.flow?.period, occurrences = period ? astrolabePeriodOccurrences(period.events) : [];
     const shown = chosen?.eventDetail === 'full' ? occurrences : occurrences.slice(0, 20);
-    const eventText = period ? `\n【周期事件出生范围】\nUTC ${period.page.start} 至 ${period.page.end}（不含终点）；${period.page.nextCursor ? `下一周期页 cursor=${period.page.nextCursor}` : '该周期没有下一页'}。共 ${occurrences.length} 项，列出 ${shown.length} 项；时刻是该分支出生秒采样的最早至最晚 UTC。\n${shown.map(({ identity, sequence, event }) => {
+    const eventRaw = period ? `【周期事件出生范围】\nUTC ${period.page.start} 至 ${period.page.end}（不含终点）；${period.page.nextCursor ? `下一周期页 cursor=${period.page.nextCursor}` : '该周期没有下一页'}。共 ${occurrences.length} 项，列出 ${shown.length} 项；时刻是该分支出生秒采样的最早至最晚 UTC。\n${shown.map(({ identity, sequence, event }) => {
       const metric = branch.metrics[`flow.period.events.${identity}.utcTimestamp`];
       if (!metric) throw new Error('周期事件缺少时间范围。');
       const details = [event.movingName, event.targetName ? `${event.kind === 'transit_aspect' ? '本命' : ''}${event.targetName}` : undefined, event.aspectName, event.sign, event.house ? `第${event.house}宫` : undefined, event.direction ? astroEventDirections[event.direction] ?? event.direction : undefined, event.phase, event.eclipse ? astroEclipseLabels[event.eclipse] ?? event.eclipse : undefined].filter(Boolean).join(' ');
@@ -138,9 +150,22 @@ export function renderAstrolabeRange(data: AstrolabeRangeData, question: string,
       }).join('、');
       return `${astroEventLabels[event.kind]} ${details}（同类第${sequence + 1}次）：${new Date(metric.min).toISOString()} 至 ${new Date(metric.max).toISOString()}${touches ? `；${touches}` : ''}`;
     }).join('\n') || '本页无所选事件。'}\n${period.limitations.join('\n')}` : '';
-    return `【${data.range.complete ? '区间' : '本页'}分支 ${index + 1}】\n第 ${branch.startIndex} 至 ${branch.endIndex - 1} 秒；下列为首秒盘，实际范围见指标。\n${renderAstrolabeIndependentData(branch.first, question, branchOptions, { includePeriod: false }).text}\n【连续指标】\n${metrics}\n完整指标见结构化结果。${eventText}`;
+    const rawBranchBlocks = renderAstrolabeIndependentData(branch.first, question, branchOptions, { includePeriod: false }).text
+      .split(/\n{2,}(?=【[^】\n]+】)/u)
+      .filter((b) => !b.trim().startsWith('【局势要点】'))
+      .map((b) => dedupeBlockHeader(b, index));
+    const metricsBlock = dedupeBlockHeader(`【连续指标】\n${metrics}\n完整指标见结构化结果。`, index);
+    const eventBlock = eventRaw ? dedupeBlockHeader(eventRaw, index) : '';
+    return [
+      `【${data.range.complete ? '区间' : '本页'}分支 ${index + 1}】\n第 ${branch.startIndex} 至 ${branch.endIndex - 1} 秒；下列为首秒盘，实际范围见指标。`,
+      ...rawBranchBlocks,
+      metricsBlock,
+      eventBlock,
+    ].filter(Boolean).join('\n\n');
   });
-  const text = [header, classics, ...branches].filter(Boolean).join('\n\n');
+  const digestLines = buildMethodSituationDigest('astrolabe-range', data, question);
+  const digestBlock = digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '';
+  const text = [header, digestBlock, classics, ...branches].filter(Boolean).join('\n\n');
   return { text };
 }
 export async function astrolabeRange(input: Input, context?: RuntimeContext) {

@@ -460,7 +460,7 @@ function render(data: Data, question: string, options: Input['prompt']) {
       chart.conger?.competingWealth ? `从财优先${chart.conger.competingWealth}` : isFull ? '从财优先未命中' : '',
     ].filter(Boolean);
     const genderLabel = data.input[id].gender === 'male' ? '乾造（男）' : data.input[id].gender === 'female' ? '坤造（女）' : '';
-    return `${persons[id]}：${genderLabel ? `性别${genderLabel}；` : ''}${birth}；时区${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}；日时依据${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n${pillars.join('；')}；月令司权${chart.monthCommander.stem}；日主${chart.pillars.day.gan}${chart.pillars.day.stemElement}；旺衰模型${chart.strength.status}（月令${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}）；普通取格候选${chart.ordinaryPattern.candidate}（${chart.ordinaryPattern.source}）；${specialParts.length ? `${specialParts.join('；')}；` : ''}已核算路线优先${chart.patternOverview.pattern}；取用基础取向：有利${chart.usefulBaseline.favorable.join('、') || '待判'}，不利${chart.usefulBaseline.unfavorable.join('、') || '待判'}（非最终喜忌）；${summarizeClimate(chart.climate)}。\n通根：${chart.natalFacts.roots.map((root) => `${labels[root.position]}${root.stem}${root.status}`).join('、')}。`;
+    return `${persons[id]}：${genderLabel ? `性别${genderLabel}；` : ''}${birth}；时区${chart.basis.timeZoneId ?? `UTC${chart.basis.timezone >= 0 ? '+' : ''}${chart.basis.timezone}`}；日时依据${chart.basis.timeStandard === 'true-solar' ? '真太阳时' : '民用时间'}。\n${pillars.join('；')}；月令司权${chart.monthCommander.stem}；日主${chart.pillars.day.gan}${chart.pillars.day.stemElement}；旺衰模型${chart.strength.status}（月令${chart.strength.tendencies.month}、根气${chart.strength.tendencies.root}、结构${chart.strength.tendencies.structure}）；普通取格候选${chart.ordinaryPattern.candidate}（${chart.ordinaryPattern.source}）；${specialParts.length ? `${specialParts.join('；')}；` : ''}已核算路线优先${chart.patternOverview.pattern}；取用基础取向：有利${chart.usefulBaseline.favorable.join('、') || '待判'}，不利${chart.usefulBaseline.unfavorable.join('、') || '待判'}；${summarizeClimate(chart.climate)}。\n通根：${chart.natalFacts.roots.map((root) => `${labels[root.position]}${root.stem}${root.status}`).join('、')}。`;
   };
   const dm = compatibility.dayMasterRelation;
   const nayinAndSpousePalaceSummary = (() => {
@@ -514,9 +514,10 @@ function render(data: Data, question: string, options: Input['prompt']) {
   ].join('\n') : '';
   const text = [
     `【八字双盘合盘】\n${chartText('person1')}\n${chartText('person2')}`,
+    situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
     `【双方取用条件候选】\n${persons.person1}：${summarizeUsefulStrategy(charts.person1.usefulStrategy)}\n${persons.person2}：${summarizeUsefulStrategy(charts.person2.usefulStrategy)}`,
     `【双方条件候选与对方盘面】\n${persons.person1}的条件候选在${persons.person2}盘中：${formatDirectionCoverage(compatibility.directionCoverage.person1FromPerson2)}\n${persons.person2}的条件候选在${persons.person1}盘中：${formatDirectionCoverage(compatibility.directionCoverage.person2FromPerson1)}`,
-    `【双方用神裁定与跨盘覆盖】\n互补等级：${compatibility.usefulGodComplementarity.level}（${compatibility.usefulGodComplementarity.judgment}）\n${persons.person1}用神在${persons.person2}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person1FromPerson2)}\n${persons.person2}用神在${persons.person1}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person2FromPerson1)}`,
+    `【双方用神裁定与跨盘覆盖】\n互补等级：${compatibility.usefulGodComplementarity.level}（${compatibility.usefulGodComplementarity.judgment.replace(/第一人/g, persons.person1).replace(/第二人/g, persons.person2)}）\n${persons.person1}用神在${persons.person2}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person1FromPerson2)}\n${persons.person2}用神在${persons.person1}盘中：${formatUsefulGodCoverage(compatibility.finalUsefulGodCoverage.person2FromPerson1)}`,
     `【双盘喜忌互补与干支制衡关系】\n${formatBaziSynastryBalance(compatibility.synastryBalance, persons)}`,
     `【双方格局透干条件】\n${persons.person1}：${formatPatternEvidence(charts.person1.patternEvidence)}\n${persons.person2}：${formatPatternEvidence(charts.person2.patternEvidence)}`,
     `【双方日主】\n${persons.person1}日主${dm.person1Stem}${dm.person1Element}对${persons.person2}日主${dm.person2Stem}${dm.person2Element}：${dm.person1ToPerson2}；反向：${dm.person2ToPerson1}。对方日干相对各自日主分别为${dm.person2AsPerson1TenGod}、${dm.person1AsPerson2TenGod}。\n${nayinAndSpousePalaceSummary}`,
@@ -527,10 +528,9 @@ function render(data: Data, question: string, options: Input['prompt']) {
     syncText,
     comparison ? formatComparison(comparison, persons, options?.detailMode === 'full') : '',
     `【双方本命神煞】\n${persons.person1}：${formatBaziShenshaHits(charts.person1.shensha, options?.detailMode === 'full')}\n${persons.person2}：${formatBaziShenshaHits(charts.person2.shensha, options?.detailMode === 'full')}\n${options?.detailMode === 'full' ? `${charts.person1.shensha.rule}\n` : ''}${persons.person1}：${charts.person1.shensha.limitation}\n${persons.person2}：${charts.person2.shensha.limitation}`,
-    `【资料缺口】\n旺衰、化气、曲直、从儿、普通格局成败及用神裁定采用所列条件模型；${fc ? '双方大运与流年已按参考时刻比较。' : '未提供 referenceTime 时未展开双方动态岁运对比。'}${charts.person1.candidate || charts.person2.candidate ? comparison ? '所选盘面的逐项关系仅适用于当前组合；全部候选比较见上。' : '当前仅分析所选候选组合，不代表其他时段组合。' : ''}${compatibility.limitation}`,
+    `【资料缺口】\n旺衰、化气、曲直、从儿、普通格局成败及用神裁定采用所列条件模型；${fc ? '双方大运与流年已按参考时刻比较。' : '未提供参考时刻时未展开双方动态岁运对比。'}${charts.person1.candidate || charts.person2.candidate ? comparison ? '所选盘面的逐项关系仅适用于当前组合；全部候选比较见上。' : '当前仅分析所选候选组合，不代表其他时段组合。' : ''}${compatibility.limitation}`,
     schools.length ? `【解读口径】\n${schools.join('\n')}` : '',
     classics,
-    situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
     `【${task.label}任务】\n${task.focus}\n${task.task} 区分双方盘面事实、传统取象和现实信息；对缺失资料标注待核。`,
     `【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');

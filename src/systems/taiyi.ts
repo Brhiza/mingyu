@@ -4,6 +4,7 @@ import { generateTaiyi } from './taiyi/chart';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateTaiyiSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
+import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, selectTaiyiClassics } from './classics';
 import reference from './taiyi-reference.json';
 import { assertRangePillars, parseDivinationRange, partitionDivinationRange } from './divination-range';
@@ -196,7 +197,9 @@ function buildPrompt(result: ReturnType<typeof generateTaiyi>, question: string,
   const classicExcerpts = options?.includeClassics
     ? formatClassicExcerpts(selectTaiyiClassics(activeTaiyiGenerals), '典籍片段')
     : '';
+  const digestLines = buildMethodSituationDigest('taiyi', result, question);
   const user = [
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     correction ? `【时间】\n经度 ${correction.longitude}°；经度修正 ${correction.longitudeCorrectionMinutes.toFixed(3)} 分钟，均时差 ${correction.equationOfTimeMinutes.toFixed(3)} 分钟；日时按真太阳时钟表，节气、年月及阴阳遁按实际起局时刻。提示词时间：${now}。` : `【时间】\n提示词时间：${now}。`,
     result.prompt,
     buildTaiyiExtendedAnalysis(result),
@@ -219,7 +222,7 @@ function buildPrompt(result: ReturnType<typeof generateTaiyi>, question: string,
     schoolText,
     classics ? `【经典依据】\n${classics}` : '',
     classicExcerpts,
-    `【任务】\n依据本计积数、主客定算、宫位及门将条件回应问题，分别说明支持、反证、成立条件和资料不足。${selection ? `\n${selection.task}` : ''}\n传统模型和条件不能直接证明现实胜负、成功率或唯一应期。`,
+    `【任务】\n依据本计积数、主客定算、宫位及门将条件回应问题，分别说明支持、反证、成立条件与适用边界。${selection ? `\n${selection.task}` : ''}\n传统模型和条件不能直接证明现实胜负、成功率或唯一应期。`,
     `【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');
   return { text: user };

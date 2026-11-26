@@ -1,4 +1,3 @@
-import './boards.css';
 import { createMobileDetailSheet, createTermPanel, el, svgEl, unwrapBoardData } from './shared';
 
 interface ZiweiStar {

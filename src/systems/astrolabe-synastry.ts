@@ -7,6 +7,7 @@ import { houseAt } from './astrology/geometry';
 import { parseQuestionContext } from './question-context';
 import { buildMethodSituationDigest } from './situation-digest';
 import type { SynastryRelationship } from './focus-presets';
+import { formatAstroHouseSystem } from './prompt-format';
 
 type Input = z.infer<typeof astrolabeSynastryIndependentInput>;
 type Source = Pick<Input, 'person1' | 'person2' | 'referenceTime' | 'syncYears' | 'options' | 'prompt'>;
@@ -192,10 +193,10 @@ async function calculateData(source: Source, context?: RuntimeContext) {
     aspects, overlays, receptions, ...(composite ? { composite } : {}), ...(transits ? { transits } : {}), ...(annualSync ? { annualSync } : {}), counts: { selectedPoints1: p1.length, selectedPoints2: p2.length, evaluatedPairs: p1.length * p2.length,
       matchedAspects: matched.length, returnedAspects: aspects.length, omittedAspects: matched.length - aspects.length, overlays: overlays.length },
     limitations: [
-      transits ? '双人行运仅比较参考时刻流年星体对双方本命点的几何相位（容许度 3°），不直接断言事件结果。' : '未提供 referenceTime 时仅比较静态本命与组合中点盘，不计算动态行运。',
+      transits ? '双人行运仅比较参考时刻流年星体对双方本命点的几何相位（容许度 3°），不直接断言事件结果。' : '未提供参考时刻时仅比较静态本命与组合中点盘，不计算动态行运。',
       '跨盘相位使用黄经最小夹角；落宫使用宫主十二宫头区间；组合中点盘采用最短圆弧黄经中点与中点上升等宫制。',
       '守护互溶只判定不同古典七政交换入庙；单向接纳须伴随已命中相位，按入庙或曜升判断，基于全部命中相位而非截断列表。',
-      ...(matched.length > limit ? [`跨盘相位共 ${matched.length} 条，仅返回前 ${limit} 条，可提高 maxAspects（最多 200）。`] : []),
+      ...(matched.length > limit ? [`跨盘相位共 ${matched.length} 条，仅返回前 ${limit} 条（当前相位上限为 ${limit}，最高可设 200）。`] : []),
       ...new Set([...person1.limitations.filter((v) => v.includes('坐标') || v.includes('改用')), ...person2.limitations.filter((v) => v.includes('坐标') || v.includes('改用'))])] };
 }
 type Data = Awaited<ReturnType<typeof calculateData>>;
@@ -291,7 +292,7 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   const transitText = data.transits
     ? `【双人行运合参（Transit）】\n参考时刻：${data.transits.referenceTime}（容许度 ${data.transits.transitOrb}°）\n流年对${label1}本命：${data.transits.toPerson1.map((t) => `流年${t.transitName}${t.label}本命${t.natalName}（偏差${t.deviation.toFixed(2)}°）`).join('；') || '无紧密相位'}\n流年对${label2}本命：${data.transits.toPerson2.map((t) => `流年${t.transitName}${t.label}本命${t.natalName}（偏差${t.deviation.toFixed(2)}°）`).join('；') || '无紧密相位'}`
     : '';
-  const schools = options?.schools?.map((school) => ({ modern: '现代占星：结合双方本命位置、组合中点盘和跨盘相位讨论互动。', traditional: '传统占星：核对已列守护互溶及伴随相位的接纳。', hellenistic: '希腊古典：兼顾双方昼夜盘阵营与本命定位星互溶互动。', timing: data.transits ? '时机：结合已列双人流年行运相位讨论阶段议题。' : '时机：本次未提供 referenceTime 计算动态运限，不推断具体应期。' })[school]).join('\n');
+  const schools = options?.schools?.map((school) => ({ modern: '现代占星：结合双方本命位置、组合中点盘和跨盘相位讨论互动。', traditional: '传统占星：核对已列守护互溶及伴随相位的接纳。', hellenistic: '希腊古典：兼顾双方昼夜盘阵营与本命定位星互溶互动。', timing: data.transits ? '时机：结合已列双人流年行运相位讨论阶段议题。' : '时机：本次未提供参考时刻计算动态运限，不推断具体应期。' })[school]).join('\n');
   const natal = (chart: Chart) => selectedPoints(chart, data.settings.points).map((point) => `${point.name}${point.sign}${point.degreeInSign.toFixed(2)}°，第${point.house}宫`).join('；');
   const astroScenarioMap: Record<SynastryRelationship, { label: string; focus: string }> = {
     marriage: {
@@ -333,7 +334,8 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   const situationLines = buildMethodSituationDigest('astrolabe-synastry', data, question);
   const g1 = data.input.person1.gender === 'male' ? '（男）' : data.input.person1.gender === 'female' ? '（女）' : '';
   const g2 = data.input.person2.gender === 'male' ? '（男）' : data.input.person2.gender === 'female' ? '（女）' : '';
-  const text = [`【西洋星盘双人合盘】\n${label1}${g1} UTC ${data.charts.person1.basis.utcDateTime}，${data.charts.person1.basis.houseSystem} 宫位；${label2}${g2} UTC ${data.charts.person2.basis.utcDateTime}，${data.charts.person2.basis.houseSystem} 宫位。`,
+  const text = [`【西洋星盘双人合盘】\n${label1}${g1} UTC ${data.charts.person1.basis.utcDateTime}，${formatAstroHouseSystem(data.charts.person1.basis.houseSystem)}宫位；${label2}${g2} UTC ${data.charts.person2.basis.utcDateTime}，${formatAstroHouseSystem(data.charts.person2.basis.houseSystem)}宫位。`,
+    situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
     `【双方本命计算点】\n${label1}：${natal(data.charts.person1)}\n${label2}：${natal(data.charts.person2)}`,
     `【跨盘相位】\n${aspects || '未命中所选主要相位。'}\n共命中 ${data.counts.matchedAspects} 条，返回 ${data.counts.returnedAspects} 条。`,
     `【双向落宫】\n${data.settings.includeHouseOverlays ? overlays || '没有可用落宫。' : '未启用。'}`,
@@ -343,7 +345,6 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     transitText,
     syncText,
     schools ? `【流派】\n${schools}` : '', formatAstrolabeClassics(options?.includeClassics),
-    situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
     `【${scenario.label}任务】\n${scenario.focus} 结合双方位置、跨盘相位和落宫回答问题；区分几何事实与占星解释，不按数量打匹配分，也不推断对方意图。`,
     `【限制】\n${data.limitations.join('\n')}${data.charts.person1.warnings.length || data.charts.person2.warnings.length ? `\n${label1}星历警告：${data.charts.person1.warnings.length ? JSON.stringify(data.charts.person1.warnings) : '无'}；${label2}星历警告：${data.charts.person2.warnings.length ? JSON.stringify(data.charts.person2.warnings) : '无'}` : ''}`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };

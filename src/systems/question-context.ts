@@ -5,6 +5,7 @@ export type QuestionTopic =
   | 'ganqing'
   | 'shiye'
   | 'caifu'
+  | 'house'
   | 'guaishen'
   | 'academic'
   | 'travel'
@@ -85,7 +86,7 @@ export function parseQuestionContext(rawQuestion = ''): ParsedQuestionContext {
     liuyaoCategory = 'travel';
     qimenMatterIntent = 'travel';
   } else if (/(家宅|搬家|乔迁|装修|买房|阳宅|居住|房子)/.test(semantic)) {
-    inferredTopic = 'guaishen';
+    inferredTopic = 'house';
     liuyaoCategory = 'house';
   } else if (/(健康|生病|疾病|看病|身体|手术|体检|医|康复)/.test(semantic)) {
     inferredTopic = 'guaishen';

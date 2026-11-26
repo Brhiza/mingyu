@@ -44,7 +44,7 @@ function buildPrompt(result: ReturnType<typeof query>, question: string, now: st
   const user = [
     `【时间】\n提示词时间：${now}。`,
     `【固定版本资料表】\n${JSON.stringify(result, null, 2)}`,
-    '【任务】\n依据所给资料表回答问题，保留原表标记、来源版本和资料限制；对未提供的历史对应关系或数值明确说明资料不足。',
+    '【任务】\n依据所给资料表回答问题，保留原表标记、来源版本和资料限制；未列历史对应或数值不作补造。',
     `【问题】\n${question}`,
   ].join('\n\n');
   return { text: user };

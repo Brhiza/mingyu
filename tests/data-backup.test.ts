@@ -34,7 +34,7 @@ test('本地数据备份默认排除 AI 密钥等敏感字段，保留档案、�
   const storage = createMemoryStorage({
     'mingyu.v2.personal.cases': JSON.stringify([{ id: 'c1', name: '张三' }]),
     'mingyu.v2.history.records': JSON.stringify([{ id: 'h1', method: 'liuyao' }]),
-    'mingyu.v2.theme': 'dark',
+    'mingyu-theme-mode': 'dark',
     'mingyu.v2.ai.apiKey': 'sk-secret-do-not-export',
     'mingyu.v2.ai.baseUrl': 'https://api.example.com/v1',
   });
@@ -43,7 +43,7 @@ test('本地数据备份默认排除 AI 密钥等敏感字段，保留档案、�
   assert.equal(backup.format, BACKUP_FORMAT_TAG);
   assert.ok('mingyu.v2.personal.cases' in backup.items);
   assert.ok('mingyu.v2.history.records' in backup.items);
-  assert.equal(backup.items['mingyu.v2.theme'], 'dark');
+  assert.equal(backup.items['mingyu-theme-mode'], 'dark');
   assert.equal('mingyu.v2.ai.apiKey' in backup.items, false);
   assert.equal('mingyu.v2.ai.baseUrl' in backup.items, false);
 });
@@ -55,7 +55,7 @@ test('导入备份支持按 ID 合并去重，不覆盖已有档案且忽略未�
       { id: 'c2', name: '李四' },
     ]),
     'mingyu.v2.compatibility.records': JSON.stringify([{ id: 'cmp1', name: '合盘甲' }]),
-    'mingyu.v2.theme': 'dark',
+    'mingyu-theme-mode': 'dark',
   });
   const backup = buildLocalDataBackup(source);
   backup.items['mingyu.v2.ai.apiKey'] = 'sk-injected';

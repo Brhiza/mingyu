@@ -10,6 +10,7 @@ import { createQizhengMoonPhaseCalculator } from './qizheng/moon-phase';
 import { createPeriodSampleCache } from './qizheng/period-events';
 import { resolveFlowTime } from './qizheng/flow-time';
 import { renderQizhengStarMeanings } from './qizheng/star-meanings';
+import { buildMethodSituationDigest } from './situation-digest';
 
 export type QizhengRangeInput = z.infer<typeof qizhengRangeInput>;
 type Input = QizhengRangeInput;
@@ -114,14 +115,94 @@ export function renderQizhengRange(data: Data, question: string, options?: Input
   const branchOptions = chosen && (chosen.includeStarMeanings || chosen.includeClassics)
     ? { ...chosen, includeStarMeanings: false, includeClassics: false }
     : chosen;
+  const TAIL_HEADERS = new Set(['【主题与任务】', '【限制】', '【问题】']);
+  const SKIP_BRANCH_HEADERS = new Set(['【局势要点】']);
+  const splitSections = (raw: string) =>
+    raw.split(/\n{2,}(?=【[^】\n]+】)/u).map((block) => {
+      const m = /^(【[^】\n]+】)/u.exec(block.trim());
+      return { header: m?.[1] ?? '', block: block.trim() };
+    });
+
+  let sharedTailBlocks: string[] = [];
+  let baseSectionsByHeader = new Map<string, string>();
+  const seenBranchHeaders = new Set<string>();
+
+  const dedupeHeaderInBlock = (block: string, branchIndex: number): string => {
+    const m = /^【([^】\n]+)】/u.exec(block);
+    if (!m) return block;
+    const fullHeader = m[0];
+    if (!seenBranchHeaders.has(fullHeader)) {
+      seenBranchHeaders.add(fullHeader);
+      return block;
+    }
+    return `【分支 ${branchIndex + 1} · ${m[1]}】${block.slice(fullHeader.length)}`;
+  };
+
   const texts = data.branches.map((branch, index) => {
     const events = chosen?.scope === 'natal' ? [] : qizhengPeriodEventOccurrences(branch.first.flowing?.period?.events ?? []);
     const selected = chosen?.eventDetail === 'full' ? events : events.slice(0, 20);
-    const ranges = selected.length ? `\n【周期事件出生范围】\n共 ${events.length} 项，列出 ${selected.length} 项；事件时刻为分支内出生秒采样的最小至最大 UTC。\n${selected.map(({ identity, event }) => {
+    const rangeRaw = selected.length ? `【周期事件出生范围】\n共 ${events.length} 项，列出 ${selected.length} 项；事件时刻为分支内出生秒采样的最小至最大 UTC。\n${selected.map(({ identity, event }) => {
       const metric = branch.metrics[`period.events.${identity}.utcTimestamp`], occurrence = Number(identity.slice(identity.lastIndexOf('#') + 1)) + 1;
       return `${event.kind} ${event.movingStar}${event.targetStar ? ` → ${event.targetStar}` : ''}${event.aspectType ? ` ${event.aspectType}` : ''}${event.aspectDirection ? ` ${event.aspectDirection}` : ''}${event.stationDirection ? ` ${event.stationDirection}` : ''}${event.signBranch ? ` ${event.signBranch}宫${event.palace ?? ''}` : ''}（同类第${occurrence}次）：${new Date(metric.min).toISOString()} 至 ${new Date(metric.max).toISOString()}`;
     }).join('\n')}` : '';
-    return `【${data.range.complete ? '区间' : '本页'}分支 ${index + 1}】\n第 ${branch.startIndex} 至 ${branch.endIndex - 1} 秒；以下仅为该分支首秒盘面，连续指标范围见结构化结果。\n${renderQizhengData(branch.first, question, branchOptions).text}${ranges}`;
+    const ranges = rangeRaw ? `\n\n${dedupeHeaderInBlock(rangeRaw, index)}` : '';
+
+    const rendered = renderQizhengData(branch.first, question, branchOptions).text;
+    const parts = splitSections(rendered);
+    const bodyParts = parts.filter((p) => !TAIL_HEADERS.has(p.header) && !SKIP_BRANCH_HEADERS.has(p.header));
+    if (index === 0) {
+      sharedTailBlocks = parts.filter((p) => TAIL_HEADERS.has(p.header)).map((p) => p.block);
+      baseSectionsByHeader = new Map(bodyParts.map((p) => [p.header, p.block]));
+      const dedupedBody = bodyParts.map((p) => dedupeHeaderInBlock(p.block, index));
+      return `【${data.range.complete ? '区间' : '本页'}分支 1】\n第 ${branch.startIndex} 至 ${branch.endIndex - 1} 秒；以下仅为该分支首秒盘面，连续指标范围见结构化结果。\n\n${dedupedBody.join('\n\n')}${ranges}`;
+    }
+
+    const normalizeNumericMicroDiff = (s: string) =>
+      s.replace(/\d+(?:\.\d+)?°/g, '°').replace(/\s+/g, ' ').trim();
+
+    const sameHeaders: string[] = [];
+    const diffBlocks: string[] = [];
+    for (const part of bodyParts) {
+      const baseBlock = part.header ? baseSectionsByHeader.get(part.header) : undefined;
+      if (part.header && baseBlock) {
+        if (baseBlock === part.block) {
+          sameHeaders.push(part.header.slice(1, -1));
+          continue;
+        }
+        // 【吊照】仅黄经夹角/偏差秒级微动、星曜相位与紧密度完全一致时折叠去重
+        if (part.header === '【吊照】' && normalizeNumericMicroDiff(baseBlock) === normalizeNumericMicroDiff(part.block)) {
+          sameHeaders.push('吊照（仅度数微动）');
+          continue;
+        }
+        // 【十一星】仅列宿宫/庙旺/顺逆发生变化的星曜，其余星曜折叠
+        if (part.header === '【十一星】') {
+          const baseLines = baseBlock.split('\n').slice(1);
+          const curLines = part.block.split('\n').slice(1);
+          const changed = curLines.filter((line, i) => normalizeNumericMicroDiff(line) !== normalizeNumericMicroDiff(baseLines[i] ?? ''));
+          if (changed.length === 0) {
+            sameHeaders.push('十一星（仅黄经微动）');
+          } else {
+            diffBlocks.push(dedupeHeaderInBlock(`【十一星（仅列变化项）】\n${changed.join('\n')}\n其余 ${curLines.length - changed.length} 颗星曜宿宫与分支 1 一致（仅黄经微动）。`, index));
+          }
+          continue;
+        }
+        // 【七政四余本命】逐行对比，折叠与分支 1 完全相同的行
+        if (part.header === '【七政四余本命】') {
+          const baseLineSet = new Set(baseBlock.split('\n').slice(1));
+          const changedLines = part.block.split('\n').slice(1).filter((line) => !baseLineSet.has(line));
+          if (changedLines.length > 0 && changedLines.length < part.block.split('\n').length - 1) {
+            diffBlocks.push(dedupeHeaderInBlock(`【七政四余本命（与分支 1 差异项）】\n${changedLines.join('\n')}`, index));
+            continue;
+          }
+        }
+      }
+      diffBlocks.push(dedupeHeaderInBlock(part.block, index));
+    }
+    const sameNote = sameHeaders.length
+      ? `与分支 1 完全相同的段落（略去重复）：${sameHeaders.join('、')}。`
+      : '';
+    const detailBody = [sameNote, ...diffBlocks].filter(Boolean).join('\n\n');
+    return `【${data.range.complete ? '区间' : '本页'}分支 ${index + 1}】\n第 ${branch.startIndex} 至 ${branch.endIndex - 1} 秒；以下仅为该分支首秒盘面（与分支 1 相同项已折叠），连续指标范围见结构化结果。\n\n${detailBody}${ranges}`;
   });
   const diffSummary = data.branches.length > 1
     ? `【分支差异速览】\n${data.branches.map((branch, idx) => {
@@ -130,7 +211,9 @@ export function renderQizhengRange(data: Data, question: string, options?: Input
         return `分支 ${idx + 1}（第 ${branch.startIndex}–${branch.endIndex - 1} 秒）：命宫${f.mingGong}、身宫${f.shenGong}、命主${f.mingZhu}、度主${f.mingDu.duZhu}${moon ? `、月亮在${moon.signBranch}宫${moon.palace}` : ''}`;
       }).join('\n')}`
     : '';
-  const text = [header, diffSummary, meanings, classics, ...texts].filter(Boolean).join('\n\n');
+  const digestLines = buildMethodSituationDigest('qizheng-range', data, question);
+  const digestBlock = digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '';
+  const text = [header, digestBlock, diffSummary, meanings, classics, ...texts, ...sharedTailBlocks].filter(Boolean).join('\n\n');
   return { text };
 }
 export async function qizhengRange(input: Input) {

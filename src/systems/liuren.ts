@@ -12,6 +12,7 @@ import { evaluateLiurenSchoolAlgorithms, formatSchoolAlgorithmSection } from './
 import { formatClassicExcerpts, selectLiurenClassics } from './classics';
 import reference from './liuren-reference.json';
 import { buildLiurenLifeYearSection, buildMethodSituationDigest } from './situation-digest';
+import { parseQuestionContext } from './question-context';
 import { assertRangePillars, parseDivinationRange, partitionDivinationRange } from './divination-range';
 
 type Input = z.infer<typeof liurenInput>;
@@ -267,7 +268,22 @@ export function buildLiurenPatternRelations(data: LiurenData): string {
 
   const factorsLine = `- 关键制衡因子：${factors.length ? factors.join('；') : '三传无空亡破损，禄德马未见明显冲克空亡'}。`;
 
-  return [patternLine, evolutionLine, factorsLine].join('\n');
+  const CHONG_BRANCH: Record<string, string> = {
+    子: '午', 午: '子', 丑: '未', 未: '丑', 寅: '申', 申: '寅',
+    卯: '酉', 酉: '卯', 辰: '戌', 戌: '辰', 巳: '亥', 亥: '巳',
+  };
+  const yingQiParts: string[] = [];
+  if (chu?.isVoid) yingQiParts.push(`初传${chu.branch}空亡→待${chu.branch}（填实）或${CHONG_BRANCH[chu.branch]}（冲空）`);
+  else if (chu) yingQiParts.push(`发端看初传${chu.branch}值/合之期`);
+  if (mo?.isVoid) yingQiParts.push(`末传${mo.branch}空亡→归宿待${mo.branch}出空填实`);
+  else if (mo && mo.branch !== chu?.branch) yingQiParts.push(`收尾归宿看末传${mo.branch}`);
+  const yimaBranch = LIUREN_YIMA_MAP[dayBranch];
+  if (yimaBranch && data.threeTransmissions.some((t) => t.branch === yimaBranch)) {
+    yingQiParts.push(`驿马${yimaBranch}入传，应期偏快`);
+  }
+  const yingQiLine = yingQiParts.length ? `- 应期地支候选窗：${yingQiParts.join('；')}。` : '';
+
+  return [patternLine, evolutionLine, factorsLine, yingQiLine].filter(Boolean).join('\n');
 } 
 
 async function generateLiuren(date: Date, longitude?: number, guiRenTable?: LiurenGuiRenTable): Promise<LiurenResult> {
@@ -275,6 +291,41 @@ async function generateLiuren(date: Date, longitude?: number, guiRenTable?: Liur
   const chart = generateLiurenChart(correction ? new Date(correction.effectiveTimestamp) : date, correction ? date : undefined, { guiRenTable });
   if (correction) chart.timeContext = { standard: 'true-solar', longitude: correction.longitude, referenceTimestamp: date.getTime(), longitudeCorrectionMinutes: correction.longitudeCorrectionMinutes, equationOfTimeMinutes: correction.equationOfTimeMinutes, totalCorrectionMinutes: correction.totalCorrectionMinutes };
   return { ...chart, evidenceAnalysis: analyzeLiurenEvidence(chart) };
+}
+
+const LIUREN_TOPIC_CLASS_GODS: Record<
+  string,
+  { label: string; generals: readonly string[]; tip: string }
+> = {
+  caifu: { label: '求财投资', generals: ['青龙', '太常'], tip: '重看妻财爻、青龙所乘及日干支生财旺衰' },
+  shiye: { label: '事业职场', generals: ['青龙', '太常', '贵人'], tip: '重看官鬼爻、太常/贵人与驿马动向' },
+  ganqing: { label: '感情婚恋', generals: ['六合', '天后'], tip: '重看干支生合刑冲、六合（媒介）与天后（女方）' },
+  guaishen: { label: '健康疾厄', generals: ['白虎', '腾蛇'], tip: '重看白虎鬼爻、天医及子孙救神是否入传' },
+  lost: { label: '失物寻人', generals: ['玄武', '六合'], tip: '重看玄武落宫方向与妻财爻是否空亡/被克' },
+  travel: { label: '出行迁移', generals: ['青龙', '白虎'], tip: '重看干上神、驿马与初末传顺逆阻滞' },
+  litigation: { label: '官非纠纷', generals: ['朱雀', '勾陈', '贵人'], tip: '重看朱雀文书、勾陈争执与贵人偏向（生干/生支）' },
+  house: { label: '家宅安居', generals: ['太常', '六合'], tip: '重看支上神（宅）与干上神（人）的生克关系' },
+  academic: { label: '考试学业', generals: ['朱雀', '贵人', '青龙'], tip: '重看父母印绶、朱雀文书与贵人扶持' },
+};
+
+function buildLiurenQuestionClassGodLine(question: string, data: LiurenResult): string {
+  const ctx = parseQuestionContext(question);
+  const spec = LIUREN_TOPIC_CLASS_GODS[ctx.inferredTopic];
+  if (!spec) return '';
+  const hits: string[] = [];
+  for (const general of spec.generals) {
+    const inTrans = data.threeTransmissions.find((t) => t.god === general);
+    if (inTrans) {
+      hits.push(`${general}乘${inTrans.branch}入${inTrans.stage}${inTrans.isVoid ? '（旬空）' : ''}`);
+      continue;
+    }
+    const inPlate = data.heavenlyPlate.find((p) => p.god === general);
+    if (inPlate) {
+      hits.push(`${general}乘${inPlate.branch}临地盘${inPlate.under}${data.xunKong?.includes(inPlate.branch) ? '（旬空）' : ''}`);
+    }
+  }
+  if (!hits.length) return '';
+  return `- 问事类神自动定位（${spec.label}）：${hits.join('；')}（${spec.tip}）。`;
 }
 
 function buildPrompt(data: LiurenResult, question: string, options: Input['prompt'], now: string) {
@@ -355,7 +406,7 @@ function buildPrompt(data: LiurenResult, question: string, options: Input['promp
     `【天地盘】\n${plateCompact}`,
     `【四课取传】\n${evidence.lessons.map((item) => item.promptText).join('；')}\n${buildLiurenGanZhiAndKeyAnchors(data)}\n${evidence.transmissionRuleFact.promptText}${showAdjudicationTrace ? `\n${evidence.ordinaryTransmissionAdjudicationFact.promptText}` : ''}`,
     `【三传与推进】\n${evidence.transmissions.map((item) => item.promptText).join('\n')}`,
-    `【课传组合与干支制衡关系】\n${buildLiurenPatternRelations(data)}`,
+    `【课传组合与干支制衡关系】\n${[buildLiurenPatternRelations(data), buildLiurenQuestionClassGodLine(question, data)].filter(Boolean).join('\n')}`,
     evidence.counterEvidenceFacts.length ? `【反证】\n${evidence.counterEvidenceFacts.map((item) => item.promptText).join('；')}` : '',
     timingCompact.length ? `【应期条件】\n${timingCompact.join('；')}` : '',
     evidence.focusFacts.length ? `【类神焦点】\n${evidence.focusFacts.map((item) => item.promptText).join('\n')}` : '',
@@ -367,7 +418,7 @@ function buildPrompt(data: LiurenResult, question: string, options: Input['promp
     schoolAlgorithmsText,
     classics ? `【经典依据】\n${classics}` : '',
     classicExcerpts,
-    `【任务】\n围绕问题核对天地盘、四课发用和三传推进，依据选定模板定位事项类神；列出支持、反证、成立条件与资料不足。${selection ? `\n${selection.task}` : ''}\n应期、课体及神煞只作条件性传统取象，不换算唯一日期或事件保证。`,
+    `【任务】\n围绕问题核对天地盘、四课发用和三传推进，依据选定模板定位事项类神；列出支持、反证、成立条件与边界限制。${selection ? `\n${selection.task}` : ''}\n应期、课体及神煞只作条件性传统取象，不换算唯一日期或事件保证。`,
     `【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');
   return { text: user };

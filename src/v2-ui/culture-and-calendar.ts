@@ -1,4 +1,7 @@
 import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
+if (typeof document !== 'undefined') {
+  void import('./styles/GanzhiCalendarPanel.css');
+}
 import { calculate, type Method } from '../core';
 import { getAlmanacSolarDayGods } from '../systems/almanac/gods';
 import { getSolarYmdHmsPillars } from '../systems/calendar';
@@ -1686,7 +1689,10 @@ export function createAstroCalendarWidget(
     onChange?.('calendar', buildCalendarPayload());
   }
 
+  let calcSeq = 0;
+
   async function runCalendarCalculation() {
+    const seq = ++calcSeq;
     const payload = buildCalendarPayload();
     emitChange();
     const loading = document.createElement('p');
@@ -1697,9 +1703,11 @@ export function createAstroCalendarWidget(
       const res = (await calculate('calendar', payload)) as {
         data?: { result?: Record<string, unknown> };
       };
+      if (seq !== calcSeq) return;
       onResult?.('calendar', payload, res);
       renderCalendarResultCard(res.data?.result);
     } catch (err) {
+      if (seq !== calcSeq) return;
       const errEl = document.createElement('div');
       errEl.className = 'workspace-ui-form-error';
       const rawMsg = err instanceof Error ? err.message.trim() : '';

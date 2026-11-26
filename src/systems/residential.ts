@@ -331,21 +331,35 @@ function render(result: Calculation, question: string, options?: Input['prompt']
       ),
     ]))
     : '';
+  const stripSubNoise = (raw: string, stripRelations: boolean) => {
+    let cleaned = raw
+      .split(/【(?:任务与限制|限制与任务|问题)】/u)[0]
+      .replace(/\n{2,}【局势要点】[\s\S]*?(?=\n{2,}【|$)/gu, '');
+    if (stripRelations) {
+      cleaned = cleaned.replace(/\n{2,}【方位格局与理气制衡关系】[\s\S]*?(?=\n{2,}【|$)/gu, '');
+    }
+    return cleaned.trim();
+  };
+  const hasBothLayers = Boolean(bazhaiResult && xuanResult);
+  const bazhaiSection = bazhaiResult
+    ? stripSubNoise(bazhaiResult.prompt.text, hasBothLayers)
+    : `【八宅宅卦】\n${palaceText.join('\n') || '缺少住宅坐向，未计算宅卦。'}\n未提供居住人命卦，不计算命宅适配。`;
+  const xuanSection = xuanResult
+    ? stripSubNoise(xuanResult.prompt.text, hasBothLayers)
+    : `【玄空】\n${data.input.construction ? '缺少住宅坐向，未排盘。' : '未提供建造或起运年份，未排盘。'}`;
+  const digest = buildMethodSituationDigest('residential', data, question);
   const text = [
     '【阳宅风水】\n八宅与玄空分开计算，仅按相同坐山连接；多个候选须分别分析。',
+    digest.length ? `【局势要点】\n${digest.join('\n')}` : '',
     directionInput,
-    bazhaiResult ? bazhaiResult.prompt.text.split(/【(?:任务与限制|限制与任务|问题)】/u)[0].trim() : `【八宅宅卦】\n${palaceText.join('\n') || '缺少住宅坐向，未计算宅卦。'}\n未提供居住人命卦，不计算命宅适配。`,
-    xuanResult ? xuanResult.prompt.text.split(/【(?:任务与限制|限制与任务|问题)】/u)[0].trim() : `【玄空】\n${data.input.construction ? '缺少住宅坐向，未排盘。' : '未提供建造或起运年份，未排盘。'}`,
+    bazhaiSection,
+    xuanSection,
     `【同一坐山的分层对照】\n${links.join('\n') || '缺少居住人资料、住宅坐向或建造年份，无法同时列出两层对照。'}`,
     `【方位格局与理气制衡关系】\n${buildResidentialPatternRelations(data)}`,
     `【合参要点】\n${data.agreements.map((item) => `[${item.level}] ${item.title}：${item.detail}`).join('\n')}`,
     `【勘察建议】\n${data.advice.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
     schools,
     classics,
-    (() => {
-      const digest = buildMethodSituationDigest('residential', data, question);
-      return digest.length ? `【局势要点】\n${digest.join('\n')}` : '';
-    })(),
     `【限制与任务】\n${data.limitations.join('\n')} 结合问题和实际布局分别解释两套资料，不将一套判断直接替换为另一套。`,
     `【问题】\n${question}`,
   ].filter(Boolean).join('\n\n');

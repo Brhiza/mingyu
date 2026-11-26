@@ -239,8 +239,19 @@ function resolvePlaceFromText(explicitPlace: string | undefined, fallbackSegment
     '泉州', '扬州', '烟台', '洛阳', '南通', '桂林', '香港', '台北', '新加坡', '东京',
     '首尔', '悉尼', '墨尔本', '伦敦', '巴黎', '纽约', '洛杉矶', '旧金山', '多伦多', '温哥华',
   ];
+  const DESTINATION_PREFIX_RE = /(?:去|到|往|搬到|搬去|飞|飞往|留在|定居|调去|调到|外派|出差|旅游|逛|考去|考到|工作在|上班在|想回|回)$/;
+  const DESTINATION_SUFFIX_RE = /^(?:发展|定居|出差|旅游|玩|买房|工作|上学|读书|留学|面试|跳槽|分公司|落户|打拼|闯荡)/;
   for (const name of quickCities) {
-    if (fallbackSegment.includes(name)) {
+    let searchFrom = 0;
+    while (searchFrom < fallbackSegment.length) {
+      const idx = fallbackSegment.indexOf(name, searchFrom);
+      if (idx === -1) break;
+      searchFrom = idx + name.length;
+      const prefix = fallbackSegment.slice(Math.max(0, idx - 4), idx);
+      const suffix = fallbackSegment.slice(idx + name.length, idx + name.length + 4);
+      if (DESTINATION_PREFIX_RE.test(prefix) || DESTINATION_SUFFIX_RE.test(suffix)) {
+        continue;
+      }
       const hits = searchLocations(name, 3);
       if (hits.length > 0) {
         return { birthPlace: hits[0]!.displayName, entry: hits[0] };
@@ -361,10 +372,12 @@ function detectTime(segment: string): {
   }
 
   // 5. 明确模糊时段词兜底（无具体钟点时定位代表时辰）
-  if (/(?:半夜|深夜|子夜|凌晨)/.test(segment)) return { hour: 0, minute: 0, second: 0, timeIndex: 0 };
-  if (/(?:大清早|清晨|拂晓|天亮)/.test(segment)) return { hour: 6, minute: 0, second: 0, timeIndex: 3 };
+  if (/(?:半夜|深夜|子夜|午夜前后|凌晨)/.test(segment)) return { hour: 0, minute: 0, second: 0, timeIndex: 0 };
+  if (/(?:大清早|清晨|拂晓|天刚亮|蒙蒙亮|天亮)/.test(segment)) return { hour: 6, minute: 0, second: 0, timeIndex: 3 };
+  if (/(?:早饭前后|吃完早饭|早上上班)/.test(segment)) return { hour: 8, minute: 0, second: 0, timeIndex: 4 };
   if (/(?:正午|大中午|中午)/.test(segment)) return { hour: 12, minute: 0, second: 0, timeIndex: 6 };
-  if (/(?:傍晚|黄昏|日落)/.test(segment)) return { hour: 18, minute: 0, second: 0, timeIndex: 9 };
+  if (/(?:傍晚|黄昏|日落|快天黑)/.test(segment)) return { hour: 18, minute: 0, second: 0, timeIndex: 9 };
+  if (/(?:晚饭后|吃完晚饭|刚入夜|夜里)/.test(segment)) return { hour: 20, minute: 0, second: 0, timeIndex: 10 };
 
   return { timeIndex: 'unknown' };
 }

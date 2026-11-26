@@ -20,50 +20,17 @@ import {
   type CoinThrow,
 } from './manual-cast-studio';
 
-export type DivinationFormMethod =
-  | 'liuyao'
-  | 'meihua'
-  | 'qimen'
-  | 'liuren'
-  | 'jinkoujue'
-  | 'taiyi'
-  | 'xiaoliuren'
-  | 'huangji-jingshi'
-  | 'wuyun-liuqi'
-  | 'tarot'
-  | 'lenormand'
-  | 'ssgw'
-  | 'zhuge'
-  | 'random-divination'
-  | 'almanac'
-  | 'bazhai'
-  | 'xuankong'
-  | 'residential';
+import {
+  DIVINATION_FORM_METHODS,
+  isDivinationFormMethod,
+  type DivinationFormMethod,
+} from './chart-payloads';
 
-export const DIVINATION_FORM_METHODS: readonly DivinationFormMethod[] = [
-  'liuyao',
-  'meihua',
-  'qimen',
-  'liuren',
-  'jinkoujue',
-  'taiyi',
-  'xiaoliuren',
-  'huangji-jingshi',
-  'wuyun-liuqi',
-  'tarot',
-  'lenormand',
-  'ssgw',
-  'zhuge',
-  'random-divination',
-  'almanac',
-  'bazhai',
-  'xuankong',
-  'residential',
-];
-
-export function isDivinationFormMethod(method: string): method is DivinationFormMethod {
-  return (DIVINATION_FORM_METHODS as readonly string[]).includes(method);
-}
+export {
+  DIVINATION_FORM_METHODS,
+  isDivinationFormMethod,
+  type DivinationFormMethod,
+};
 
 export interface DivinationFormOptions {
   container: HTMLElement;

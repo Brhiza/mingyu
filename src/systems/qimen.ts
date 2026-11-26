@@ -53,6 +53,75 @@ async function canonicalChart(data: QimenData) {
   return expected;
 }
 
+const QIMEN_INNER_YANG = new Set([1, 8, 3, 4]);
+const QIMEN_INNER_YIN = new Set([9, 2, 7, 6]);
+const QIMEN_SIX_PUNISHMENTS: ReadonlyArray<{ stem: string; gong: number; label: string }> = [
+  { stem: '戊', gong: 3, label: '甲子戊落震3宫击刑（子卯刑）' },
+  { stem: '己', gong: 2, label: '甲戌己落坤2宫击刑（戌未刑）' },
+  { stem: '庚', gong: 8, label: '甲申庚落艮8宫击刑（申寅刑）' },
+  { stem: '辛', gong: 9, label: '甲午辛落离9宫自刑（午午自刑）' },
+  { stem: '壬', gong: 4, label: '甲辰壬落巽4宫自刑（辰辰自刑）' },
+  { stem: '癸', gong: 4, label: '甲寅癸落巽4宫击刑（寅巳刑）' },
+];
+const QIMEN_TOMB_PALACES: Record<string, number> = {
+  乙: 6, 丙: 6, 戊: 6, 丁: 8, 己: 8, 庚: 8, 辛: 4, 壬: 4, 癸: 2,
+};
+
+function buildQimenInnerOuterAndFourHarmsSummary(data: QimenData): string {
+  const innerSet = data.isYangDun ? QIMEN_INNER_YANG : QIMEN_INNER_YIN;
+  const isInner = (gong: number) => innerSet.has(gong);
+  const zhiFuPalace = data.jiuGongGe.find((p) => p.tianPan.star === data.zhiFu);
+  const zhiShiPalace = data.jiuGongGe.find((p) => p.renPan.door === data.zhiShi);
+
+  const scopeParts: string[] = [];
+  if (zhiFuPalace && zhiFuPalace.gong !== 5) {
+    scopeParts.push(`值符${data.zhiFu}落${zhiFuPalace.name}（${isInner(zhiFuPalace.gong) ? '内盘·主近主快' : '外盘·主远主慢'}）`);
+  }
+  if (zhiShiPalace && zhiShiPalace.gong !== 5) {
+    scopeParts.push(`值使${data.zhiShi}落${zhiShiPalace.name}（${isInner(zhiShiPalace.gong) ? '内盘·主近主快' : '外盘·主远主慢'}）`);
+  }
+  let paceHint = '';
+  if (zhiFuPalace && zhiShiPalace && zhiFuPalace.gong !== 5 && zhiShiPalace.gong !== 5) {
+    const fIn = isInner(zhiFuPalace.gong);
+    const sIn = isInner(zhiShiPalace.gong);
+    paceHint = fIn && sIn ? '（符使俱在内盘，事偏近、应期偏快）' : !fIn && !sIn ? '（符使俱在外盘，事偏远、宜防拉长周期）' : '（符使一内一外，主过程有缓急转折或异地联动）';
+  }
+
+  const harms: string[] = [];
+  const voidSet = new Set((data.voidPalaces ?? []).map((v) => v.palace));
+  for (const p of data.jiuGongGe) {
+    if (p.gong === 5) continue;
+    const tags: string[] = [];
+    const stem = p.tianPan.stem;
+    const pun = QIMEN_SIX_PUNISHMENTS.find((x) => x.stem === stem && x.gong === p.gong);
+    if (pun) tags.push('击刑');
+    if (stem && QIMEN_TOMB_PALACES[stem] === p.gong) tags.push(`天盘${stem}入墓`);
+    if (voidSet.has(p.gong)) tags.push('旬空');
+    if (p.renPan.door && p.element) {
+      const doorEl =
+        p.renPan.door === '休门' ? '水'
+          : p.renPan.door === '生门' || p.renPan.door === '死门' ? '土'
+            : p.renPan.door === '伤门' || p.renPan.door === '杜门' ? '木'
+              : p.renPan.door === '景门' ? '火' : '金';
+      const doorKePalace =
+        (doorEl === '木' && p.element === '土') ||
+        (doorEl === '土' && p.element === '水') ||
+        (doorEl === '水' && p.element === '火') ||
+        (doorEl === '火' && p.element === '金') ||
+        (doorEl === '金' && p.element === '木');
+      if (doorKePalace) tags.push(`${p.renPan.door}门迫`);
+    }
+    if (tags.length) harms.push(`${p.name}（${tags.join('＋')}）`);
+  }
+
+  return [
+    scopeParts.length ? `- 内外盘与节奏：${scopeParts.join('；')}${paceHint}。` : '',
+    harms.length ? `- 九宫四害分级核查（门迫/击刑/入墓/旬空）：${harms.join('；')}。` : '- 九宫四害核查：未见明显门迫/击刑/入墓叠加宫。',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function buildPrompt(data: QimenData, question: string, options: Options, now: string) {
   const evidence = data.evidenceAnalysis ?? analyzeQimenEvidence(data);
   const selection = resolvePromptSelection('qimen', { ...options, scope: options?.scope ?? scopes[data.scope!] });
@@ -82,7 +151,12 @@ function buildPrompt(data: QimenData, question: string, options: Options, now: s
   const concisePatterns = data.patternTags?.length
     ? [`全局格局标签：${data.patternTags.join('、')}`]
     : [];
-  const patternRelationsText = formatQimenPatternRelations(data);
+  const patternRelationsText = [
+    formatQimenPatternRelations(data),
+    buildQimenInnerOuterAndFourHarmsSummary(data),
+  ]
+    .filter(Boolean)
+    .join('\n');
   const filteredCounters = evidence.counterEvidenceFacts
     .map((item) => item.promptText)
     .filter((text) => !/同宫，宜防阻力、口舌或反复。$/u.test(text));
@@ -92,6 +166,7 @@ function buildPrompt(data: QimenData, question: string, options: Options, now: s
     data.jiuGongGe,
     data.voidBranches,
     data.zhiFu,
+    data.ganzhi,
   );
   const digestLines = buildMethodSituationDigest('qimen', data, question);
   const sections = [
@@ -117,7 +192,7 @@ function buildPrompt(data: QimenData, question: string, options: Options, now: s
     schoolAlgorithmsText,
     classics ? `【经典依据】\n${classics}` : '',
     classicExcerpts,
-    `【任务】\n围绕问题先明确主体、事项用神和主客身份，逐宫核验门星神、天地盘干、空亡马星及命中格局；列出支持、反证、成立条件与现实核验点。${selection ? `\n${selection.task}` : ''}\n候选宫与格局是盘内传统取象，应期和方位须结合现实条件，不据此保证事件、日期或路线安全。`,
+    `【任务】\n围绕问题先明确主体、事项用神和主客身份，逐宫核验门星神、天地盘干、空亡马星及命中格局；列出支持、反证、成立条件与现实核验点。${selection ? `\n${selection.task}` : ''}`,
     `【问题】\n${question}`,
   ].filter(Boolean);
   const user = sections.join('\n\n');

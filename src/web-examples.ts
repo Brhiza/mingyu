@@ -17,7 +17,7 @@ export const webExamples: Record<Method, Record<string, unknown>> = {
   ziwei: { question: '事业如何？', birth: { year: 1990, month: 5, day: 15, clock: { kind: 'exact', hour: 14, minute: 30, second: 0 }, timezone: 8 }, gender: 'female', referenceTime: '2025-01-01T00:00:00Z', prompt: { scope: 'yearly', topic: 'career-wealth' } },
   'astrolabe-range': { question: '出生范围有哪些变化？', birth: { year: 2024, month: 2, day: 19, hour: 11, minute: 24, second: 48, latitude: 39.9, longitude: 116.4, timezone: 8 }, range: { start: '2024-02-19T11:24:48+08:00', end: '2024-02-19T11:24:52+08:00' } },
   astrolabe: { birth: { year: 1990, month: 5, day: 15, hour: 14, minute: 30, latitude: 39.9, longitude: 116.4, timezone: 8 }, question: '事业如何？', prompt: { topic: 'career' } },
-  'astrolabe-synastry': { person1: { year: 1990, month: 5, day: 15, hour: 14, minute: 30, latitude: 39.9, longitude: 116.4, timezone: 8 }, person2: { year: 1992, month: 8, day: 12, hour: 9, minute: 0, latitude: 31.2, longitude: 121.5, timezone: 8 }, question: '双方如何相处？' },
+  'astrolabe-synastry': { person1: { name: '甲', year: 1990, month: 5, day: 15, hour: 14, minute: 30, latitude: 39.9, longitude: 116.4, timezone: 8 }, person2: { name: '乙', year: 1992, month: 8, day: 12, hour: 9, minute: 0, latitude: 31.2, longitude: 121.5, timezone: 8 }, question: '双方如何相处？' },
   liuyao: { question: '工作如何？', liuyao: { method: 'coins' } },
   liuren: { question: '工作如何？', prompt: { liurenTemplate: 'shiye' } },
   jinkoujue: { question: '工作如何？', jinkoujue: { method: 'time' } },

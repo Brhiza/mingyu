@@ -1,4 +1,7 @@
 import { calculate } from '../calculate';
+if (typeof document !== 'undefined') {
+  void import('./styles/BaziReverseInput.css');
+}
 import type { Method } from '../schema';
 import {
   BRANCH_WUXING,
@@ -1141,7 +1144,7 @@ export function createPersonFormCard(options: PersonFormCardOptions = {}): Perso
           notifyChange();
         });
         const tstSpan = document.createElement('span');
-        tstSpan.textContent = '使用真太阳时（需精准时分和出生地）';
+        tstSpan.textContent = '真太阳时';
         tstLabel.append(tstCheckbox, tstSpan);
         tstRow.appendChild(tstLabel);
         body.appendChild(tstRow);

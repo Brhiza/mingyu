@@ -1,11 +1,12 @@
+import { KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import type { BaziPillar, PillarName } from './pillars';
 import type { buildDayMasterStrength } from './strength';
 import type { summarizePattern } from './pattern';
 import type { buildTransformation } from './transformation';
 
 type Pillars = Record<PillarName, BaziPillar>;
-const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const generates: Record<string, string> = SHENG_MAP;
+const controls: Record<string, string> = KE_MAP;
 const previous = (map: Record<string, string>, element: string) => Object.keys(map).find((item) => map[item] === element)!;
 
 /** 扶抑及已判特殊格的基础取向，不作为调候制化后的最终用神。 */

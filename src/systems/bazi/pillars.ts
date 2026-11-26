@@ -40,6 +40,7 @@ import {
   type BaziHongYanMode,
   type BaziKongWangMode,
   type BaziShenshaBaseMode,
+  type BaziTianGuanMode,
   type BaziTianYiMode,
   type BaziTongZiMode,
   type BaziXueTangMode,
@@ -80,6 +81,7 @@ export interface BaziRules {
   shenshaBaseMode?: BaziShenshaBaseMode;
   xueTangMode?: BaziXueTangMode;
   tianYiMode?: BaziTianYiMode;
+  tianGuanMode?: BaziTianGuanMode;
   hongYanMode?: BaziHongYanMode;
   tongZiMode?: BaziTongZiMode;
   commanderMode?: BaziCommanderMode;
@@ -251,6 +253,7 @@ export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | '
       shenshaBaseMode: resolvedRules.shenshaBaseMode,
       xueTangMode: resolvedRules.xueTangMode,
       tianYiMode: resolvedRules.tianYiMode,
+      tianGuanMode: resolvedRules.tianGuanMode,
       hongYanMode: resolvedRules.hongYanMode,
       tongZiMode: resolvedRules.tongZiMode,
     }),

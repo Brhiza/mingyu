@@ -1,6 +1,7 @@
 // Only internally generated, or canonically regenerated and checked, charts reach this formatter.
 import type { QimenData, QimenJiuGongGe } from './types';
 import { getBranchWuxing, getSeasonState, isKe, isSheng } from '../calendar';
+import { KE_MAP, SHENG_MAP } from '../ganzhi-foundation';
 import { getDunJiaStem } from './layout';
 import { formatTianPanStars, formatTianPanStems, hasTianPanStar, hasTianPanStem } from './palace';
 
@@ -352,7 +353,7 @@ function getBasicPatternTone(tag: string): QimenPatternEvidenceFact['traditional
     return '风险';
   }
   if (
-    ['三奇得（', '宝鉴三奇得使', '符使同宫', '三奇得使', '三奇游六仪'].some((prefix) =>
+    ['三奇得吉门（', '三奇得（', '宝鉴三奇得使', '符使同宫', '三奇得使', '三奇游六仪'].some((prefix) =>
       tag.startsWith(prefix),
     )
   ) {
@@ -388,7 +389,7 @@ export function formatQimenClassicPatternSummary(name: string, summary: string):
 }
 
 export function formatQimenPatternBasis(item: QimenPatternEvidenceFact): string {
-  if (item.kind === '基础格局' && /^三奇得（/u.test(item.name)) return item.name;
+  if (item.kind === '基础格局' && /^三奇得(?:吉门)?（/u.test(item.name)) return item.name;
   const clauses = formatQimenClassicPatternSummary(item.name, item.promptText)
     .split(/[，；。]/u)
     .map((clause) => clause.trim())
@@ -514,8 +515,8 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
   }));
 }
 
-const GENERATING: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-const CONTROLLING: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+const GENERATING: Record<string, string> = SHENG_MAP;
+const CONTROLLING: Record<string, string> = KE_MAP;
 
 function describeRelation(from: QimenJiuGongGe, to: QimenJiuGongGe) {
   if (from.element === to.element) {
@@ -1202,7 +1203,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       use: null,
       candidateSources: [...item.sources],
       reasons: item.sources.map((source) => `候选来源：${source}`),
-      promptText: `${item.direction}${item.name}来自${item.sources.join('、')}；这只是候选宫方向；方位仅在现实路线、安全和事项用神均匹配时采用`,
+      promptText: `${item.direction}${item.name}（${item.sources.join('、')}）`,
       sources: ['候选宫方向字段', '值符、值使、当前排盘范围主动干、盘面洞察与经典格局候选来源'],
       limitation: DIRECTION_FACT_LIMITATION,
     })),

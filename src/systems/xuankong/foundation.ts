@@ -15,11 +15,11 @@ const PALACE_DEFS: ReadonlyArray<{
   col: 0 | 1 | 2;
 }> = [
   { key: 'xun', name: '巽', direction: '东南', earth: 4, row: 0, col: 0 },
-  { key: 'li', name: '離', direction: '南', earth: 9, row: 0, col: 1 },
+  { key: 'li', name: '离', direction: '南', earth: 9, row: 0, col: 1 },
   { key: 'kun', name: '坤', direction: '西南', earth: 2, row: 0, col: 2 },
   { key: 'zhen', name: '震', direction: '东', earth: 3, row: 1, col: 0 },
   { key: 'center', name: '中', direction: '中', earth: 5, row: 1, col: 1 },
-  { key: 'dui', name: '兌', direction: '西', earth: 7, row: 1, col: 2 },
+  { key: 'dui', name: '兑', direction: '西', earth: 7, row: 1, col: 2 },
   { key: 'gen', name: '艮', direction: '东北', earth: 8, row: 2, col: 0 },
   { key: 'kan', name: '坎', direction: '北', earth: 1, row: 2, col: 1 },
   { key: 'qian', name: '乾', direction: '西北', earth: 6, row: 2, col: 2 },

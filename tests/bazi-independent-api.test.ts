@@ -8,24 +8,28 @@ const input = { question: '事业如何？', currentTime: '2025-01-01T00:00:00Z'
 test('独立八字预览输出四柱、司权、大运、岁运事实与条件限制', async () => {
   const result = await calculate('bazi', input);
   assert.equal(result.data.chart.pillars.day.ganZhi, '庚辰');
+  assert.match(result.prompt.text, /【局势要点】/);
   assert.match(result.prompt.text, /【日主旺衰条件模型】/);
-  assert.match(result.prompt.text, /【取用基础取向】/);
   assert.match(result.prompt.text, /【调候条件候选】/);
   assert.match(result.prompt.text, /【司权、病药与通关候选】/);
+  assert.match(result.prompt.text, /【格局组合与互制关系】/);
   assert.match(result.prompt.text, /【格局透干与根气条件】/);
-  assert.match(result.prompt.text, /并非最终用神或喜忌/);
   assert.match(result.prompt.text, /双人合盘需另用 bazi-synastry/);
-  assert.match(result.prompt.text, /最终用神和具体事件应期尚未计算/);
+  assert.match(result.prompt.text, /【用神裁定与落位】/);
+  assert.match(result.prompt.text, /具体应期日期与现实结果，不得将其当成已经算出的结论/);
   assert.match(result.prompt.text, /【普通月令取格候选】/);
   assert.ok(result.prompt.text.includes(result.data.chart.ordinaryPattern.candidate));
   assert.ok(result.prompt.text.includes(result.data.chart.strength.status));
   assert.ok(result.data.chart.strength.roots.every((root: any) => typeof root.actionable === 'boolean'));
   assert.equal(result.data.fortune.cycles.length, 12);
   assert.equal(result.data.located.year.ganZhi, '丙午');
-  for (const section of ['【四柱】', '【本命结构】', '【通根与月令透干】', '【十神分布】', '【大运】', '【指定时刻岁运】', '事业如何？', '不得将其当成已经算出的结论']) assert.ok(result.prompt.text.includes(section), section);
+  for (const section of ['【四柱】', '【本命结构】', '【十神分布】', '【大运】', '【指定时刻岁运】', '事业如何？', '不得将其当成已经算出的结论']) assert.ok(result.prompt.text.includes(section), section);
   assert.ok(result.prompt.text.includes(`日柱：${result.data.chart.pillars.day.ganZhi}`));
   const full = await calculate('bazi', { ...input, prompt: { detailMode: 'full' } });
   assert.match(full.prompt.text, /未命中所列关系/);
+  for (const auditSection of ['【通根与月令透干】', '【已迁移路线的格局排序】', '【取用基础取向】', '【调候条件协调】', '并非最终用神或喜忌']) {
+    assert.ok(full.prompt.text.includes(auditSection), auditSection);
+  }
   if (full.data.chart.climate.candidates.length) assert.match(full.prompt.text, /说明：/);
 });
 

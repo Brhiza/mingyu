@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { renderMarkdownContent } from '../../web-report';
+import { renderMarkdownContent } from '../../markdown-renderer';
 import { cn } from '../../lib/utils';
 
 export interface AgentMarkdownProps {

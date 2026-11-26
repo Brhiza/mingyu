@@ -7,6 +7,7 @@
  * 3. 格局、调候与旺衰扶抑之间的层级优先级关系
  */
 import type { BaziPillar, PillarName } from './pillars';
+import { detectBaziSpecialPatterns, type SpecialPatternMatch } from './special-patterns';
 import type { buildDayMasterStrength } from './strength';
 import type { UsefulGodResult } from './useful-god';
 
@@ -39,6 +40,7 @@ export interface PatternRelationsResult {
   primarySource: string;
   synergies: PatternSynergy[];
   conflictChains: PatternConflictChain[];
+  specialPatterns: SpecialPatternMatch[];
   layerPriority: string;
 }
 
@@ -281,16 +283,22 @@ export function buildPatternRelations(input: {
     }
   }
 
+  const specialPatterns = detectBaziSpecialPatterns(pillars, strength);
+
   return {
     primaryPattern: mainPat,
     primarySource: patternOverview.source,
     synergies,
     conflictChains,
+    specialPatterns,
     layerPriority,
   };
 }
 
-export function formatPatternRelations(res: PatternRelationsResult): string {
+export function formatPatternRelations(
+  res: PatternRelationsResult,
+  options?: { compact?: boolean },
+): string {
   const lines: string[] = [
     `主格定位：${res.primaryPattern}（来源：${res.primarySource}）`,
     `层级优先级：${res.layerPriority}`,
@@ -304,6 +312,17 @@ export function formatPatternRelations(res: PatternRelationsResult): string {
     );
   } else {
     lines.push('格局协同与兼带关系：以单一主格清纯运作，未见显著兼格叠加。');
+  }
+  if (res.specialPatterns.length > 0) {
+    const formattedSpecials = res.specialPatterns.map((m) => {
+      const broken = m.breakingFactors.length
+        ? `，破格：${m.breakingFactors.join('、')}`
+        : '';
+      return options?.compact
+        ? `${m.name}（${m.status}${broken}）`
+        : `${m.name}（${m.status}；${m.basis}${broken}；要点：${m.guidance}）`;
+    });
+    lines.push(`兼带外象与特格核验：${formattedSpecials.join('；')}。`);
   }
   if (res.conflictChains.length > 0) {
     lines.push(

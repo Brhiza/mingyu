@@ -23,6 +23,7 @@ import { calculateWuyunLiuqi, formatWuyunLiuqiFacts } from './wuyun/index';
 import { collectZiweiMajorStars, ziweiIndependent } from './ziwei';
 import { buildFortuneOverview } from './fortune/scoring';
 import { buildDailyHoursTimeline, buildMonthlyTimeline, buildYearlyMonthsTimeline } from './fortune/timeline';
+import { buildMethodSituationDigest } from './situation-digest';
 import type {
   DailyHourSlice,
   FortuneCalendarContext,
@@ -132,7 +133,7 @@ function buildCalendarContext(year: number, month: number, day: number): Fortune
     dayOfficer: getDayDuty(monthBranch, dayBranch),
     twelveStar: getDayTwelveStar(monthBranch, dayBranch),
     twentyEightStar: getDayTwentyEightStar(utcDay, dayBranch).name,
-    nineStar: getSolarDayNineStar(solarDay).name,
+    nineStar: getSolarDayNineStar(solarDay).fullName,
     clash: `冲${branchRel.oppositeBranch}，煞${branchRel.ominous}`,
     recommends,
     avoids,
@@ -670,21 +671,23 @@ function buildSectionsAndPrompt(
         ? `【基准月份与节气历法】\n目标月份：${computed.targetLabel}（月运）\n流年/流月：${calendar.ganzhi.year}年 · ${calendar.ganzhi.month}月（${calendar.nayin.month}）\n本月节气：${computed.timeline.solarTerms?.map((s) => `${s.name}（${s.date} ${s.time}）`).join('、') || calendar.solarTerm}\n全月统计：优选 ${computed.timeline.days?.filter((d) => d.rating === '优选').length ?? 0} 天 · 平稳 ${computed.timeline.days?.filter((d) => d.rating === '平稳').length ?? 0} 天 · 慎用 ${computed.timeline.days?.filter((d) => d.rating === '慎用').length ?? 0} 天`
         : `【基准年份与岁运历法】\n目标年份：${computed.targetLabel}（年运）\n流年干支：${calendar.ganzhi.year}年（${calendar.nayin.year}）${computed.wuyunSummary ? `\n五运六气：${computed.wuyunSummary}` : ''}\n全年流月分布：旺月 ${computed.timeline.months?.filter((m) => m.trend === '旺').length ?? 0} 个 · 平稳 ${computed.timeline.months?.filter((m) => m.trend === '平').length ?? 0} 个 · 谨慎 ${computed.timeline.months?.filter((m) => m.trend === '谨').length ?? 0} 个`;
 
+  const digestLines = buildMethodSituationDigest('fortune', computed, question);
   const promptBlocks = [
     `【运势定制任务 · ${scopeTitle}】\n分析主体：${subjectLabel}\n关注主题：${TOPIC_LABELS[topic]}\n详略要求：${detailMode === 'full' ? '深度详尽版' : '精炼实用版'}`,
+    digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     promptCalendarBlock,
     computed.mode === 'personalized'
       ? `【个人定制盘面事实】\n${personalMd}`
       : `【通用气场与宜忌】\n${personalMd}`,
     computed.wuyunFacts && detailMode === 'full' ? `【五运六气背景】\n${computed.wuyunFacts}` : '',
-    `【本地算法初筛概览（仅作规律参考，AI 需结合以下事实深入拆解）】\n${overview.headline}\n五维趋势：${overview.dimensions.map((d) => `${d.label}${d.score}分(${d.trend})`).join('；')}\n关键命中因子：\n${factorsMd}`,
+    `【多维综合评分与关键因子】\n${overview.headline}\n五维趋势：${overview.dimensions.map((d) => `${d.label}${d.score}分(${d.trend})`).join('；')}\n关键命中因子：\n${factorsMd}`,
     `【时间轴切片】\n${timelineMd}`,
     `【开运与避坑参考】\n宜：${overview.actionGuide.suitable.join('、')}\n忌：${overview.actionGuide.caution.join('、')}\n参考元素：五行${overview.actionGuide.luckyElements.wuxing.join('、')}｜色系${overview.actionGuide.luckyElements.colors.join('、')}｜方位${overview.actionGuide.luckyElements.directions.join('、')}`,
     computed.omitted.length
       ? `【资料边界提醒】\n${computed.omitted.map((o) => `- ${o.system}：${o.reason}`).join('\n')}`
       : '',
     classicsText,
-    `【AI 报告输出规范】\n请扮演温和、专业、通俗易懂的命理与生活节奏顾问，严格基于上述已算出的数据（禁止虚构未列出的宫位、星曜或具体现实事件），为用户撰写一份结构清晰的「${scopeTitle}定制运势报告」：\n1. **核心定调**：用大白话一句话点明${computed.scope === 'daily' ? '今天' : computed.scope === 'monthly' ? '这个月' : '这一年'}的主旋律与关键机遇/卡点。\n2. **${TOPIC_LABELS[topic]}重点拆解**（并简要兼顾事业、财运、感情、身心四维）：说明为什么会有这样的倾向（用通俗语言解释“喜用/十神/四化/相位/建除”等实际依据）。\n3. **关键时间节点**：点出${computed.scope === 'daily' ? '最适合办正事的吉时与需避开的时段' : computed.scope === 'monthly' ? '本月重点节气转折、优选吉日与慎用日' : '全年节奏较好的旺月与需要稳住的转折月份'}。\n4. **可执行行动清单**：给出 3 条具体落地建议 + 2 条避坑提醒 + 日常开运小贴士。`,
+    `【AI 报告输出规范】\n按以下 4 节输出「${scopeTitle}定制运势报告」：\n1. 核心定调：一句话点明${computed.scope === 'daily' ? '今日' : computed.scope === 'monthly' ? '本月' : '全年'}主旋律。\n2. ${TOPIC_LABELS[topic]}重点拆解（兼顾事业、财运、感情、身心）：结合喜用/十神/四化/相位/建除说明依据。\n3. 关键时间节点：点出${computed.scope === 'daily' ? '优选吉时与避开时段' : computed.scope === 'monthly' ? '节气转折、优选日与慎用日' : '旺月与转折月'}。\n4. 行动清单：3 条落地建议 + 2 条避坑提醒 + 日常开运提示。`,
     `【用户具体问题】\n${question}`,
   ];
 
