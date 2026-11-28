@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { calculate, inputSchemas, reprompt, repromptInput, type Method } from './core';
 import { getPromptCatalog } from './catalog';
 import { z } from 'zod';
-import { createRepromptInput, methodIds, methodLabels } from './schema';
+import { createRepromptInput, methodEnglishLabels, methodIds, methodLabels } from './schema';
 import { METHOD_CATEGORY_GROUPS } from './method-registry';
 import { normalizeAgentToolInput } from './tool-input-normalizer';
 import type { RuntimeContext } from './runtime-context';
@@ -32,7 +32,7 @@ function formatErrorResponse(error: unknown, fallback: string) {
 function registerFullTools(server: McpServer, enabled: readonly Method[], runtime: RuntimeContext & { enabledMethods: readonly Method[] }) {
   for (const method of enabled) {
     server.registerTool(method, {
-      description: `${inputSchemas[method].description ?? methodLabels[method]} 返回结构化结果与 AI 提示词。`,
+      description: `${methodEnglishLabels[method]} (${methodLabels[method]}). ${inputSchemas[method].description ?? ''} Returns structured chart data & AI prompt (supports optional outputLanguage).`,
       inputSchema: inputSchemas[method],
     }, async (args: unknown) => {
       try {
@@ -45,7 +45,7 @@ function registerFullTools(server: McpServer, enabled: readonly Method[], runtim
   }
   if (enabled.length) {
     server.registerTool('reprompt', {
-      description: '使用先前结果和新问题生成提示词，不重新起卦或抽牌。提示词参考时间默认是本次调用时间，可用 currentTime 指定；不改变原盘时间。省略 prompt 时沿用结果中保存的选项，传空对象可恢复默认。盘面由调用方提供。',
+      description: 'Generate a follow-up AI prompt from a prior result or repromptToken without re-casting. Supports optional outputLanguage override. / 基于先前结果与新问题生成追问提示词（不重新起卦或抽牌），支持指定 outputLanguage。',
       inputSchema: createRepromptInput(enabled),
     }, async (args: unknown) => {
       try {
@@ -59,7 +59,7 @@ function registerFullTools(server: McpServer, enabled: readonly Method[], runtim
       }
     });
     server.registerTool('prompt_catalog', {
-      description: '查询已启用术数的提示词主题、子主题、范围和流派选项。',
+      description: 'Inspect prompt topics, subtopics, scopes, and school options for enabled methods. / 查询已启用术数的提示词主题、子主题、范围与流派选项。',
       inputSchema: z.object({ method: z.enum(enabled).optional() }).strict(),
     }, async ({ method }) => {
       if (method && !enabled.includes(method)) return formatErrorResponse(new Error('术数不存在或未启用'), '术数不存在');
@@ -74,7 +74,7 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
   const enabledSet = new Set(enabled);
 
   server.registerTool('list_methods', {
-    description: '列出当前服务开放的术数方法标识、中文名称与分类；在调用 get_method_schema 或 calculate 前可先按分类浏览。',
+    description: 'List all 39 Eastern/Western metaphysics methods by category (with English/Chinese labels) before calling get_method_schema or calculate. / 列出开放术数方法标识、中英文名称与分类。',
     inputSchema: z.object({
       category: z.enum(['mingli', 'ziwei-astro', 'qimen-liuren', 'divination', 'fengshui', 'name-classics']).optional(),
     }).strict(),
@@ -84,9 +84,15 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
       .map((group) => ({
         id: group.id,
         label: group.label,
+        labelEn: group.labelEn,
         methods: group.methods
           .filter((id) => enabledSet.has(id))
-          .map((id) => ({ id, label: methodLabels[id], description: inputSchemas[id].description ?? methodLabels[id] })),
+          .map((id) => ({
+            id,
+            label: methodLabels[id],
+            labelEn: methodEnglishLabels[id],
+            description: inputSchemas[id].description ?? methodLabels[id],
+          })),
       }))
       .filter((group) => group.methods.length > 0);
     const result = { count: enabled.length, categories: groups };
@@ -94,7 +100,7 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
   });
 
   server.registerTool('get_method_schema', {
-    description: '按需获取单个术数方法的输入参数 JSON Schema 与提示词选项（主题、流派、范围），避免一次性加载全部方法定义。',
+    description: 'Fetch the input JSON Schema and prompt options for a single method on demand. / 按需获取单个术数方法的输入 Schema 与提示词选项。',
     inputSchema: z.object({
       method: z.enum(enabled),
     }).strict(),
@@ -102,6 +108,7 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
     const result = {
       method,
       label: methodLabels[method],
+      labelEn: methodEnglishLabels[method],
       description: inputSchemas[method].description ?? methodLabels[method],
       inputSchema: z.toJSONSchema(inputSchemas[method]),
       promptCatalog: getPromptCatalog([method])[method] ?? null,
@@ -110,15 +117,19 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
   });
 
   server.registerTool('calculate', {
-    description: '执行指定术数排盘或占卜计算。默认 responseMode 为 compact：返回摘要、可直接交付的 prompt.text 以及用于后续无损追问的紧凑 repromptToken，显著减少上下文 Token 占用；仅在需要原始结构化盘面树时传 responseMode: "full"。',
+    description: 'Run calculation and build AI prompt (BaZi, Zi Wei, Qi Men, Astrology, Tarot, Feng Shui, etc.). Defaults to responseMode:"compact" returning summary, prompt.text & repromptToken. Pass outputLanguage (e.g. "en","zh-TW","ja","ko","vi") for non-Simplified-Chinese output. / 执行排盘计算，默认 compact 返回省流结果与 repromptToken。',
     inputSchema: z.object({
       method: z.enum(enabled),
       input: z.record(z.string(), z.unknown()),
       responseMode: z.enum(['compact', 'full']).optional(),
+      outputLanguage: z.string().trim().min(1).max(64).optional(),
     }).strict(),
-  }, async ({ method, input, responseMode }) => {
+  }, async ({ method, input, responseMode, outputLanguage }) => {
     try {
-      const normalized = normalizeAgentToolInput(method, input);
+      const mergedInput = outputLanguage && input.outputLanguage === undefined
+        ? { ...input, outputLanguage }
+        : input;
+      const normalized = normalizeAgentToolInput(method, mergedInput);
       const fullResult = await calculate(method, normalized, runtime) as CompactableCalculationResult;
       const mode = responseMode ?? 'compact';
       const output = mode === 'compact' ? await toCompactResult(fullResult) : fullResult;
@@ -129,7 +140,7 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
   });
 
   server.registerTool('reprompt', {
-    description: '基于已有计算结果继续追问并生成新提示词（不重新起卦或抽牌）。优先直接传入上次 compact 模式返回的 repromptToken 与新 question；也可传完整 result 对象。',
+    description: 'Generate follow-up prompt without re-casting; pass prior repromptToken (or result) and new question, plus optional outputLanguage. / 基于已有结果或 repromptToken 继续追问。',
     inputSchema: z.object({
       repromptToken: z.string().min(1).optional(),
       method: z.enum(enabled).optional(),
@@ -137,6 +148,7 @@ function registerRouterTools(server: McpServer, enabled: readonly Method[], runt
       question: z.string().min(1).max(2000),
       prompt: z.unknown().optional(),
       currentTime: z.string().optional(),
+      outputLanguage: z.string().trim().min(1).max(64).optional(),
     }).strict(),
   }, async (args) => {
     try {

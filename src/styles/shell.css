@@ -1,0 +1,951 @@
+/*
+ * 布局壳层与导航体系：唯一 1120px 画布基准、桌面端顶栏、右侧历史与抽屉、分栏独立滚动锁定
+ */
+
+:root {
+  --ws-canvas: 1120px;
+  --workspace-canvas-wide: 1240px;
+  --workspace-canvas-mid: 1120px;
+  --workspace-canvas-form: 760px;
+  --workspace-radius-card: 16px;
+  --workspace-radius-control: 10px;
+  --workspace-card-pad: 16px;
+}
+
+.workspace-shell {
+  --workspace-case-tabbar-height: 50px;
+  min-height: 100dvh;
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+
+.workspace-main {
+  min-width: 0;
+  width: 100%;
+  margin-left: 0;
+}
+
+.workspace-page {
+  min-width: 0;
+  padding: 20px 24px 36px;
+}
+
+.workspace-page > div {
+  width: 100%;
+  min-width: 0;
+}
+
+.workspace-main.is-home .workspace-page > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.workspace-home-page {
+  width: min(var(--ws-canvas), 100%);
+  max-width: min(var(--ws-canvas), 100%);
+  min-height: 0;
+  margin-inline: auto;
+}
+
+/* ─── 统一页面画布宽度：顶栏、页头、表单页、排盘结果页左/右共线 ─── */
+#v2-workspace-root .workspace-topbar-inner,
+#v2-workspace-root .workspace-focused-page,
+#v2-workspace-root .workspace-input-page,
+#v2-workspace-root .workspace-divination-page,
+#v2-workspace-root .workspace-result-navigation,
+#v2-workspace-root .workspace-result-page-shell,
+#v2-workspace-root .workspace-divination-result-page {
+  width: min(var(--ws-canvas), 100%);
+  max-width: min(var(--ws-canvas), 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+#v2-workspace-root .workspace-focused-page.workspace-calendar-page,
+#v2-workspace-root .culture-tools-page {
+  width: min(var(--ws-canvas), 100%);
+  max-width: min(var(--ws-canvas), 100%);
+  margin-inline: auto;
+  justify-self: center;
+}
+
+#v2-workspace-root .workspace-focused-page > .workspace-ui-page,
+#v2-workspace-root .workspace-input-page .workspace-ui-page,
+#v2-workspace-root .workspace-divination-page .divination-form-card,
+#v2-workspace-root .workspace-culture-page > .culture-tools-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+  box-sizing: border-box;
+}
+
+#v2-workspace-root .workspace-focused-page.workspace-culture-page > .culture-tools-page {
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+#v2-workspace-root .workspace-culture-page .workspace-ui-page-header {
+  display: none;
+}
+
+#v2-workspace-root .ganzhi-calendar-surface,
+#v2-workspace-root .workspace-calendar-page > .workspace-ui-form-surface {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ─── 桌面端顶栏 (.workspace-topbar) ─── */
+.workspace-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  height: 58px;
+  flex: 0 0 58px;
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(16px, 3vw, 36px);
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-elevated-strong) 94%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-topbar-inner {
+  width: min(var(--workspace-canvas-wide), 100%);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workspace-topbar-brand {
+  flex: 0 0 auto;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  transition: background-color 150ms ease;
+}
+
+.workspace-topbar-brand:hover {
+  background: var(--state-hover-surface);
+}
+
+.workspace-topbar-brand .workspace-brand-seal {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 14.5px;
+}
+
+.workspace-topbar-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.workspace-topbar-brand-copy strong {
+  font-size: 15.5px;
+  line-height: 1.15;
+  color: var(--text-strong);
+  letter-spacing: 0.02em;
+}
+
+.workspace-topbar-brand-copy small {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.1;
+}
+
+.workspace-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+}
+
+.workspace-topbar-tab {
+  position: relative;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.workspace-topbar-tab:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.workspace-topbar-tab:active {
+  transform: scale(0.98);
+}
+
+.workspace-topbar-tab.is-active {
+  color: var(--state-selected-text);
+  font-weight: 800;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.workspace-topbar-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2.5px;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: ws-tab-indicator-in var(--motion-base) var(--ease-enter) backwards;
+}
+
+.workspace-topbar-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-topbar-action-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.workspace-topbar-action-btn:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.workspace-topbar-action-btn:active {
+  transform: scale(0.975);
+}
+
+.workspace-topbar-action-btn.is-active {
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+}
+
+.workspace-mobile-header {
+  display: none;
+}
+
+/* ─── 顶栏全局档案切换器 (.global-case-switcher) ─── */
+.global-case-switcher {
+  position: relative;
+}
+
+.global-case-trigger.is-open,
+.global-case-trigger.has-active-case {
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.global-case-avatar-mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.global-case-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1200;
+  width: min(300px, calc(100vw - 20px));
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated-strong);
+  box-shadow: 0 16px 40px rgba(28, 22, 38, 0.16);
+  overflow: hidden;
+  transform-origin: top right;
+  animation: ws-popover-in var(--motion-fast) var(--ease-enter) backwards;
+}
+
+.global-case-menu-head {
+  padding: 11px 13px 9px;
+  border-bottom: 1px solid var(--border-soft);
+  display: grid;
+  gap: 2px;
+}
+
+.global-case-menu-head strong {
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.global-case-menu-head small {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.global-case-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 8px 2px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.global-case-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.global-case-list {
+  max-height: min(320px, 55dvh);
+  overflow-y: auto;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+
+.global-case-item {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.global-case-item:hover {
+  background: var(--state-hover-surface);
+}
+
+.global-case-item.is-selected {
+  background: var(--state-selected-surface);
+}
+
+.global-case-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.global-case-avatar.is-none {
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.global-case-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.global-case-copy strong,
+.global-case-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-case-copy strong {
+  font-size: 12.5px;
+  color: var(--text-strong);
+}
+
+.global-case-copy small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.global-case-empty {
+  margin: 0;
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.global-case-footer {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  padding: 10px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.global-case-footer:hover {
+  background: var(--state-hover-surface);
+}
+
+/* ─── 今日运势轻通栏（桌面编辑感通栏 / 移动端贴顶条默认隐藏） ─── */
+.home-desktop-fortune-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-soft) 36%, var(--surface-elevated-strong)),
+    var(--surface-elevated-strong) 44%
+  );
+  box-shadow: 0 2px 10px rgba(24, 18, 32, 0.04);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.mobile-home-fortune-strip {
+  display: none;
+}
+
+/* ─── 标准化页头与子药丸条 ─── */
+.workspace-ui-page-header {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 14px;
+  padding: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ws-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ws-page-title,
+.workspace-ui-page-header h1 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: clamp(21px, 2vw, 25px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text-strong);
+}
+
+.ws-page-tabs {
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+
+.ws-page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ws-sub-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: -4px 0 14px;
+  padding: 0;
+}
+
+.workspace-divination-page {
+  display: block;
+}
+
+.workspace-divination-page > .ws-page-header + .divination-form-card,
+.workspace-divination-page > .ws-sub-pills + .divination-form-card {
+  margin-top: 0;
+}
+
+.workspace-input-page {
+  gap: 12px;
+}
+
+.workspace-input-page.is-narrow,
+.workspace-focused-page.workspace-divination-page:not(.is-timing-domain) {
+  display: grid;
+  gap: 14px;
+}
+
+/* ─── 右侧抽屉面板 (.workspace-right-drawer) ─── */
+.workspace-right-drawer {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(460px, calc(100vw - 24px));
+  z-index: 1500;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated-strong);
+  box-shadow: -12px 0 48px rgba(30, 20, 35, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-right-drawer-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.workspace-right-drawer-close:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.workspace-drawer-new-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.workspace-drawer-flat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-base);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.workspace-drawer-flat-row:hover {
+  border-color: var(--border-contrast);
+  background: var(--surface-elevated);
+}
+
+.workspace-drawer-flat-row.is-pinned {
+  border-color: color-mix(in srgb, var(--accent-strong) 40%, var(--border-soft));
+}
+
+/* ─── 结果页顶栏、主控台与分栏底座 ─── */
+.workspace-result-navigation {
+  position: sticky;
+  z-index: 25;
+  top: var(--workspace-case-tabbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  margin: -8px auto 8px;
+  padding: 8px 0;
+  background: color-mix(in srgb, var(--surface-page) 96%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.workspace-result-ai-fab {
+  display: none;
+}
+
+.divination-result-workspace {
+  display: grid;
+  gap: 12px;
+}
+
+.divination-result-stage {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.divination-result-board-pane,
+.divination-result-assistant-pane {
+  min-width: 0;
+}
+
+.divination-result-workspace .divination-ai-card {
+  display: block;
+}
+
+@media (min-width: 680px) {
+  .workspace-shell.has-topbar-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .workspace-shell.has-topbar-layout > .workspace-body-split {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .workspace-shell.has-topbar-layout .workspace-body-split > .workspace-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    margin-left: 0;
+    width: auto;
+  }
+
+  .workspace-mobile-header,
+  .workspace-mobile-bottombar {
+    display: none;
+  }
+
+  .workspace-result-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .workspace-result-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+
+  .fengshui-compass-group-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .workspace-result-person-badge:not([hidden]) ~ .workspace-result-switch-case-btn,
+  .workspace-result-switch-case-btn.is-redundant-with-badge {
+    display: none;
+  }
+
+  .workspace-shell.is-chat-view,
+  .workspace-shell.has-topbar-layout.is-chat-view {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workspace-shell.is-chat-view > .workspace-body-split {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: stretch;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-chat-view .workspace-main {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-chat-view .workspace-main > .workspace-page {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px 16px 14px;
+  }
+}
+
+/* 桌面宽屏 (>= 1024px) 结果页与对话页：锁定视口高度，左右双栏独立滚动，消除外层滚动与右侧嵌套滚动 */
+@media (min-width: 1024px) {
+  .workspace-shell.is-result-view,
+  .workspace-shell.has-topbar-layout.is-result-view {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .workspace-shell.is-result-view > .workspace-body-split {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: stretch;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-result-view .workspace-main.is-result {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-result-view .workspace-main.is-result > .workspace-page {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px 20px 0;
+  }
+
+  .workspace-shell.is-chat-view .workspace-main > .workspace-page {
+    padding: 14px 24px 16px;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-stage-host:not([hidden]) {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-page-shell:not([hidden]),
+  .workspace-shell.is-result-view .workspace-divination-result-page:not([hidden]) {
+    width: min(var(--workspace-canvas-wide), 100%);
+    max-width: min(var(--workspace-canvas-wide), 100%);
+    margin-inline: auto;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-navigation {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    top: auto;
+  }
+
+  .workspace-shell.is-result-view .workspace-divination-result-page > .divination-panel-shell,
+  .workspace-shell.is-result-view .divination-result-workspace {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .workspace-shell.is-result-view .result-tab-stage.workspace-result-split,
+  .workspace-shell.is-result-view .divination-result-workspace.is-split .divination-result-stage {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+    align-items: stretch;
+    overflow: hidden;
+    gap: 14px;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-split > .result-tab-pane {
+    height: 100%;
+    min-height: 0;
+    grid-area: auto;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-split > .result-tab-pane.is-inactive {
+    display: none;
+  }
+
+  .workspace-shell.is-result-view .result-tab-stage.workspace-result-split.is-minglu-stage {
+    width: min(1160px, 100%);
+    margin-inline: auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-shell.is-result-view .workspace-result-split > .workspace-result-chart-pane,
+  .workspace-shell.is-result-view .divination-result-stage > .divination-result-board-pane {
+    position: static;
+    grid-column: 1;
+    container-type: inline-size;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding-bottom: 24px;
+    padding-right: 4px;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-split > .workspace-result-assistant-pane,
+  .workspace-shell.is-result-view .workspace-result-split > .workspace-result-assistant-pane.is-prompt-mode,
+  .workspace-shell.is-result-view .workspace-result-split > .workspace-result-assistant-pane.is-ai-mode,
+  .workspace-shell.is-result-view .divination-result-stage > .divination-result-assistant-pane,
+  .workspace-shell.is-result-view .divination-result-stage > .divination-result-assistant-pane.is-prompt-mode,
+  .workspace-shell.is-result-view .divination-result-stage > .divination-result-assistant-pane.is-ai-mode {
+    position: static;
+    top: auto;
+    grid-column: 2;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding-bottom: 24px;
+    padding-right: 4px;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .single-panel-shell,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-prompt-layout,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-prompt-layout.is-workbench,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-prompt-delivery,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-ai-layout,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .divination-ai-card,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .divination-ai-card > .panel-ai-chat {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-prompt-preview-body,
+  .workspace-shell.is-result-view .workspace-result-assistant-pane .workspace-prompt-preview-body > pre {
+    max-height: none;
+    overflow: visible;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .workspace-shell.is-result-view .workspace-ai-layout #ai-output {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .workspace-shell.is-result-view .result-tab-stage.workspace-result-split:not(.is-minglu-stage):not(.is-hecan-stage),
+  .workspace-shell.is-result-view .divination-result-workspace.is-split .divination-result-stage {
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 396px);
+    gap: 16px;
+  }
+
+  .workspace-shell.is-result-view .result-tab-stage.workspace-result-split.is-hecan-stage {
+    grid-template-columns: minmax(280px, 336px) minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .workspace-divination-page.is-almanac .almanac-form-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  .workspace-divination-page.is-almanac .almanac-form-section {
+    grid-column: 1 / -1;
+  }
+
+  .workspace-divination-page.is-almanac .almanac-form-section:first-child {
+    padding-top: 2px;
+    border-top: 0;
+  }
+
+  .workspace-divination-page.is-almanac .almanac-date-section {
+    grid-column: auto;
+  }
+}

@@ -3,30 +3,32 @@ import {
   Bot,
   Check,
   ChevronDown,
-  MessageSquareText,
   PlugZap,
+  Plus,
   RefreshCw,
+  X,
 } from 'lucide-react';
+import { BUILTIN_AI_HINT } from '../../brand-config';
 import { listModels } from '../../ai';
 import {
   AI_PROVIDER_PRESETS,
   activateWebAiProfile,
   deleteWebAiProfile,
   diagnoseWebAiConnection,
-  ensureChatModeDefaultOnSave,
+  fetchBuiltinAiStatus,
   getActiveWebAiProfileId,
-  isChatModeEnabled,
-  isWebAiConfigured,
+  getWebAiMode,
   isWebAiEnabled,
   loadWebAiProfiles,
   readWebAiConfig,
   saveWebAiProfile,
-  setChatModeEnabled,
   setWebAiEnabled,
+  setWebAiMode,
   writeWebAiConfig,
   type AiConfigProfile,
+  type WebAiMode,
 } from '../../web-ai';
-import { Badge, Button, Input, Switch } from '../../components/ui';
+import { Button, Input, Switch } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 function formatWebAiConnectionError(err: unknown): string {
@@ -52,8 +54,14 @@ export interface WebAiConfigFormProps {
 
 export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfigFormProps) {
   const [webAiEnabled, setWebAiEnabledState] = React.useState(() => isWebAiEnabled());
-  const [chatModeEnabled, setChatModeEnabledState] = React.useState(() => isChatModeEnabled());
-  const savedInit = React.useMemo(() => readWebAiConfig(), []);
+  const [aiMode, setAiMode] = React.useState<WebAiMode>(() => getWebAiMode());
+  const [builtinStatus, setBuiltinStatus] = React.useState<{ builtinEnabled: boolean; model?: string }>({
+    builtinEnabled: false,
+  });
+  const savedInit = React.useMemo(() => {
+    const raw = readWebAiConfig();
+    return raw.baseUrl === 'builtin://site' ? { baseUrl: '', apiKey: '', model: '' } : raw;
+  }, []);
   const [baseUrl, setBaseUrl] = React.useState(savedInit.baseUrl);
   const [apiKey, setApiKey] = React.useState(savedInit.apiKey ?? '');
   const [model, setModel] = React.useState(savedInit.model);
@@ -74,15 +82,22 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
   const modelInputId = React.useId();
 
   React.useEffect(() => {
+    if (!BUILTIN_AI_HINT && getWebAiMode() !== 'builtin') return;
+    void fetchBuiltinAiStatus().then(setBuiltinStatus);
+  }, []);
+
+  React.useEffect(() => {
     const sync = () => {
       setWebAiEnabledState(isWebAiEnabled());
-      setChatModeEnabledState(isChatModeEnabled());
+      setAiMode(getWebAiMode());
       setProfiles(loadWebAiProfiles());
       setActiveProfileId(getActiveWebAiProfileId());
       const cfg = readWebAiConfig();
-      setBaseUrl(cfg.baseUrl);
-      setApiKey(cfg.apiKey ?? '');
-      setModel(cfg.model);
+      if (cfg.baseUrl !== 'builtin://site') {
+        setBaseUrl(cfg.baseUrl);
+        setApiKey(cfg.apiKey ?? '');
+        setModel(cfg.model);
+      }
     };
     window.addEventListener('mingyu:web-ai-changed', sync);
     return () => window.removeEventListener('mingyu:web-ai-changed', sync);
@@ -133,8 +148,6 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
     setActiveProfileId(savedProfile.id);
     setWebAiEnabled(true);
     setWebAiEnabledState(true);
-    const activeChatMode = ensureChatModeDefaultOnSave();
-    setChatModeEnabledState(activeChatMode);
     setWebAiSaved(true);
     setWebAiMsgTone('good');
     setWebAiMsg(
@@ -223,6 +236,45 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
 
       {webAiEnabled ? (
         <div className="grid min-w-0 grid-cols-1 gap-3 border-t border-[var(--border-soft)] pt-3">
+          {builtinStatus.builtinEnabled ? (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-base)] px-2.5 py-2">
+              <Button
+                variant={aiMode === 'builtin' ? 'pillActive' : 'pill'}
+                size="xs"
+                onClick={() => {
+                  setWebAiMode('builtin');
+                  setAiMode('builtin');
+                  setWebAiMsgTone('good');
+                  setWebAiMsg(
+                    builtinStatus.model
+                      ? `已切换站内内置 AI（${builtinStatus.model}）`
+                      : '已切换站内内置 AI（免配置 Key）',
+                  );
+                }}
+              >
+                站内内置 AI（免 Key）
+              </Button>
+              <Button
+                variant={aiMode === 'custom' ? 'pillActive' : 'pill'}
+                size="xs"
+                onClick={() => {
+                  setWebAiMode('custom');
+                  setAiMode('custom');
+                }}
+              >
+                自定义模型接口
+              </Button>
+            </div>
+          ) : null}
+
+          {aiMode === 'builtin' && builtinStatus.builtinEnabled ? (
+            <p className="m-0 text-xs text-[var(--text-secondary)]">
+              {builtinStatus.model
+                ? `当前使用站内内置模型：${builtinStatus.model}`
+                : '当前使用站内内置模型服务'}
+            </p>
+          ) : (
+          <>
           {profiles.length > 0 ? (
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-base)] px-2.5 py-2">
               <span className="whitespace-nowrap text-[11.5px] font-bold text-[var(--text-muted)]">
@@ -264,16 +316,17 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
                           setApiKey(nextCfg.apiKey ?? '');
                           setModel(nextCfg.model);
                         }}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border-0 bg-transparent text-[11px] text-[var(--text-muted)] hover:bg-[var(--state-hover-surface)] hover:text-[var(--danger-text)] cursor-pointer"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border-0 bg-transparent text-[var(--text-muted)] hover:bg-[var(--state-hover-surface)] hover:text-[var(--danger-text)] cursor-pointer"
                       >
-                        ×
+                        <X className="h-3 w-3" aria-hidden="true" />
                       </button>
                     ) : null}
                   </span>
                 );
               })}
               <Button variant="ghost" size="xs" onClick={() => handleSaveWebAi(true)}>
-                + 新方案
+                <Plus className="h-3 w-3" aria-hidden="true" />
+                <span>新方案</span>
               </Button>
             </div>
           ) : null}
@@ -462,7 +515,7 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
                 onClick={() => void handleTestWebAiConnection()}
               >
                 <PlugZap className="h-3.5 w-3.5" />
-                <span>{testingConn ? '检测中…' : '测试连通性'}</span>
+                <span>{testingConn ? '测试中…' : '测试连通'}</span>
               </Button>
             </div>
 
@@ -492,34 +545,8 @@ export function WebAiConfigForm({ compact = false, onNavigateHome }: WebAiConfig
               {webAiMsg}
             </p>
           ) : null}
-
-          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-base)] px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              <MessageSquareText className="h-4 w-4 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
-              <strong className="whitespace-nowrap text-xs font-extrabold text-[var(--text-strong)]">
-                首页对话模式
-              </strong>
-              <Badge variant={chatModeEnabled ? 'good' : 'outline'} className="whitespace-nowrap text-[10.5px]">
-                {chatModeEnabled ? '已开启' : '已关闭'}
-              </Badge>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {!compact && chatModeEnabled && isWebAiConfigured({ baseUrl, apiKey, model }) && onNavigateHome ? (
-                <Button variant="secondary" size="xs" onClick={onNavigateHome}>
-                  回到首页
-                </Button>
-              ) : null}
-              <Switch
-                aria-label="切换对话模式"
-                checked={chatModeEnabled}
-                onCheckedChange={(checked) => {
-                  setChatModeEnabled(checked);
-                  setChatModeEnabledState(checked);
-                }}
-              />
-            </div>
-          </div>
+          </>
+          )}
         </div>
       ) : null}
     </div>

@@ -15,7 +15,11 @@ import { buildMethodSituationDigest } from './situation-digest';
 import { formatClassicExcerpts, type ClassicExcerpt } from './classics';
 import { evaluateAstrolabeSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
 import { inferFortuneScope } from '../router-model/fortune-scope';
-import { formatAstroHouseSystem } from './prompt-format';
+import {
+  formatAstroChartWarnings,
+  formatAstroHouseSystem,
+  formatAstroReferenceKind,
+} from './prompt-format';
 
 const WESTERN_ASTROLOGY_CLASSICS: readonly ClassicExcerpt[] = [
   {
@@ -125,7 +129,7 @@ export async function calculateAstrolabeIndependentData(source: Source, context?
   const houses = chart.cusps.map((lon, index) => ({ house: index + 1, ...position(lon) }));
   const limitations = [
     ...(source.flow ? [] : ['未提供推运参考时间，当前只计算本命盘。']),
-    '出生时间范围需使用 astrolabe-range，不能把精确出生单盘视为整个范围。',
+    '出生时间范围需使用西洋星盘出生范围，不能把精确出生单盘视为整个范围。',
     '本命相位按十一种类型与固定容许度计算；格局仅使用十大星体，同座或同宫星群不要求相互合相。',
     '元素、模式与格局是盘面统计和几何事实，不代表人格强弱或现实结果。',
     ...(input.options?.includeAsteroids ? [] : ['默认未计算谷神、智神、婚神和灶神；如需查看可在小行星选项中开启。']),
@@ -172,7 +176,7 @@ function formatPointDignityAndSolar(point: Data['points'][number], sunLon: numbe
     const raw = Math.abs(point.longitude - sunLon);
     const dist = Math.min(raw, 360 - raw);
     if (dist <= 0.2833) tags.push('日核（Cazimi）');
-    else if (dist <= 8.5) tags.push('焦伤（Combust）');
+    else if (dist <= 8.5) tags.push('焦伤');
     else if (dist <= 17) tags.push('日光下');
   }
   return tags.length ? `（${tags.join('、')}）` : '';
@@ -407,20 +411,20 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
   ];
   const patternText = patternLines.join('\n');
   const houseRulerText = buildHouseRulerLines(data);
-  const schools = options?.schools?.map((school) => ({ modern: '现代占星：结合星体、星座、宫位和相位讨论心理与生活议题。', traditional: '传统占星：结合昼夜盘与已列尊贵状态，不补造未计算的主星规则。', hellenistic: '希腊古典：结合昼夜星体阵营（Sect）、整宫主星及福点等阿拉伯点定位论断。', timing: data.flow ? '时机：依据已列参考瞬时推运，不能将快照当作整个周期。' : '时机：本盘未计算运限，不能据此断定具体时间。' })[school]).join('\n');
+  const schools = options?.schools?.map((school) => ({ modern: '现代占星：结合星体、星座、宫位和相位讨论心理与生活议题。', traditional: '传统占星：结合昼夜盘与已列尊贵状态，不补造未计算的主星规则。', hellenistic: '希腊古典：结合昼夜星体阵营、整宫主星及福点等阿拉伯点定位论断。', timing: data.flow ? '时机：依据已列参考瞬时推运，不能将快照当作整个周期。' : '时机：本盘未计算运限，不能据此断定具体时间。' })[school]).join('\n');
   const flowText = data.flow ? (() => {
     const flow = data.flow;
     const formatAspects = (items: Array<{ movingName: string; natalName: string; label: string; deviation: number }>, target = '本命') => items.map((item) => `${item.movingName}与${target}${item.natalName}${item.label}（偏差${item.deviation.toFixed(2)}°）`).join('；') || '无符合当前容许度的相位';
     const transit = flow.transit ? `【行运快照】\n${flow.transit.points.map((p) => `${p.name}黄经${p.longitude.toFixed(2)}°，落本命第${p.natalHouse}宫${p.retrograde ? '，逆行' : ''}`).join('；')}\n${formatAspects(flow.transit.aspects)}` : '';
     const secondary = flow.secondary ? flow.secondary.status === 'calculated' ? `【次限】\n推进瞬时 ${flow.secondary.progressedUtcDateTime}；${flow.secondary.points.map((p) => `${p.name}${p.longitude.toFixed(2)}°`).join('；')}\n${formatAspects(flow.secondary.aspects)}` : `【次限】\n${flow.secondary.reason}` : '';
     const arc = flow.solarArc ? flow.solarArc.status === 'calculated' ? `【太阳弧】\n推进弧${flow.solarArc.arcDegrees.toFixed(4)}°；${flow.solarArc.points.map((p) => `${p.name}${p.longitude.toFixed(2)}°`).join('；')}\n${formatAspects(flow.solarArc.aspects)}` : `【太阳弧】\n${flow.solarArc.reason}` : '';
-    const returns = flow.solarReturn ? flow.solarReturn.status === 'calculated' ? `【太阳返照】\n当前周期起点 ${flow.solarReturn.previousUtcDateTime ?? '出生时点附近未找到上一返照'}，下次 ${flow.solarReturn.nextUtcDateTime ?? '未找到'}；地点为${flow.solarReturn.location.meaning}（纬度${flow.solarReturn.location.latitude}°，经度${flow.solarReturn.location.longitude}°）。\n${flow.solarReturn.charts.map((c) => `返照 ${c.utcDateTime}：${c.houseSystem} 宫位；${c.points.map((p) => `${p.name}${p.longitude.toFixed(2)}°第${p.house}宫`).join('；')}\n四轴：${c.angles.map((p) => `${p.name}${p.longitude.toFixed(2)}°`).join('；')}\n盘内主要相位：${formatAspects(c.internalAspects, '')}\n返照对本命：${formatAspects(c.natalAspects)}${c.warnings.length ? `；星历警告${JSON.stringify(c.warnings)}` : ''}`).join('\n')}` : `【太阳返照】\n${flow.solarReturn.reason}` : '';
+    const returns = flow.solarReturn ? flow.solarReturn.status === 'calculated' ? `【太阳返照】\n当前周期起点 ${flow.solarReturn.previousUtcDateTime ?? '出生时点附近未找到上一返照'}，下次 ${flow.solarReturn.nextUtcDateTime ?? '未找到'}；地点为${flow.solarReturn.location.meaning}（纬度${flow.solarReturn.location.latitude}°，经度${flow.solarReturn.location.longitude}°）。\n${flow.solarReturn.charts.map((c) => { const w = formatAstroChartWarnings(c.warnings); return `返照 ${c.utcDateTime}：${formatAstroHouseSystem(c.houseSystem)}宫位；${c.points.map((p) => `${p.name}${p.longitude.toFixed(2)}°第${p.house}宫`).join('；')}\n四轴：${c.angles.map((p) => `${p.name}${p.longitude.toFixed(2)}°`).join('；')}\n盘内主要相位：${formatAspects(c.internalAspects, '')}\n返照对本命：${formatAspects(c.natalAspects)}${w.length ? `；星历提醒：${w.join('；')}` : ''}`; }).join('\n')}` : `【太阳返照】\n${flow.solarReturn.reason}` : '';
     const allPeriodEvents = flow.period?.events ?? [];
     const shownPeriodEvents = options?.eventDetail === 'summary' ? allPeriodEvents.slice(0, 20) : allPeriodEvents;
     const period = flow.period && renderOptions?.includePeriod !== false ? `【周期事件】\nUTC ${flow.period.page.start} 至 ${flow.period.page.end}（不含终点）；${flow.period.page.nextCursor ? `后续游标 ${flow.period.page.nextCursor}` : '本次范围已扫描完毕'}；共 ${allPeriodEvents.length} 项，列出 ${shownPeriodEvents.length} 项。\n${shownPeriodEvents.map((e) => `${e.localDateTime} UTC${e.timezone >= 0 ? '+' : ''}${e.timezone} ${astroEventLabels[e.kind]} ${e.movingName ?? ''}${e.targetName ? `→${e.kind === 'transit_aspect' ? '本命' : ''}${e.targetName}` : ''}${e.aspectName ?? ''}${e.sign ? `进入${e.sign}` : ''}${e.house ? `进入第${e.house}宫` : ''}${e.direction ? `（${astroEventDirections[e.direction] ?? e.direction}）` : ''}${e.phase ?? ''}${e.eclipse ? astroEclipseLabels[e.eclipse] ?? e.eclipse : ''}${e.touches?.length ? `；触及本命${e.touches.map((t) => `${t.pointName}${t.aspect}（偏差${t.deviation.toFixed(2)}°）`).join('、')}` : ''}`).join('\n') || '本页无所选事件。'}\n${flow.period.limitations.join('\n')}` : '';
     const firdaria = calculateFirdaria(data.basis.utcDateTime, flow.reference.utcDateTime, data.basis.dayChart);
-    const firdariaText = firdaria ? `【古典法达星限（Firdaria）】\n${firdaria.summaryText}。` : '';
-    return [`【推运参考】\n${flow.reference.kind}，UTC ${flow.reference.utcDateTime}${flow.reference.localDateTime ? `，当地 ${flow.reference.localDateTime}` : ''}。`, firdariaText, transit, returns, secondary, arc, period, `【推运限制】\n${flow.limitations.join('\n')}`].filter(Boolean).join('\n\n');
+    const firdariaText = firdaria ? `【古典法达星限】\n${firdaria.summaryText}。` : '';
+    return [`【推运参考】\n${formatAstroReferenceKind(flow.reference.kind)}，UTC ${flow.reference.utcDateTime}${flow.reference.localDateTime ? `，当地 ${flow.reference.localDateTime}` : ''}。`, firdariaText, transit, returns, secondary, arc, period, `【推运限制】\n${flow.limitations.join('\n')}`].filter(Boolean).join('\n\n');
   })() : '';
   const pointItems = [...data.points.map(pointLocation), ...data.derived.map(location)];
   const birthMeta = [
@@ -429,6 +433,7 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
     data.input.birth.locationName?.trim() ? `出生地：${data.input.birth.locationName.trim()}` : '',
   ].filter(Boolean);
   const digestLines = buildMethodSituationDigest('astrolabe', data, question);
+  const natalWarnings = formatAstroChartWarnings(data.warnings);
   const text = [`【西洋星盘本命】\n${birthMeta.length ? `${birthMeta.join('；')}；` : ''}出生 UTC ${data.basis.utcDateTime}；${formatAstroHouseSystem(data.basis.houseSystem)}宫位制；${data.basis.dayChart ? '昼盘' : '夜盘'}。`,
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【星体与计算点】\n${pointItems.join('；')}`,
@@ -444,13 +449,13 @@ export function renderAstrolabeIndependentData(data: Data, question: string, opt
     schools ? `【解读口径】\n${schools}` : '', options?.topic ? `【关注主题】\n${topicLabels[options.topic]}` : '',
     formatAstrolabeClassics(options?.includeClassics),
     `【任务】\n依据列出的盘面解释问题，区分计算事实与占星诠释；对缺失资料明确说明，不虚构未提供的动态运限。`,
-    `【限制】\n${data.limitations.join('\n')}${data.warnings.length ? `\n星历警告：${JSON.stringify(data.warnings)}` : ''}`,
+    `【限制】\n${data.limitations.join('\n')}${natalWarnings.length ? `\n星历提醒：${natalWarnings.join('；')}` : ''}`,
     `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }
 export async function astrolabeIndependent(input: Input, context?: RuntimeContext) {
   const data = await calculateAstrolabeIndependentData(input, context);
-  return { data, summary: { title: '西洋星盘本命盘', lines: [`${data.basis.houseSystem} 宫位制`, `${data.points.length} 个星体与计算点，${data.aspects.length} 个相位`] }, prompt: renderAstrolabeIndependentData(data, input.question, input.prompt) };
+  return { data, summary: { title: '西洋星盘本命盘', lines: [`${formatAstroHouseSystem(data.basis.houseSystem)}宫位制`, `${data.points.length} 个星体与计算点，${data.aspects.length} 个相位`] }, prompt: renderAstrolabeIndependentData(data, input.question, input.prompt) };
 }
 export async function promptForSavedAstrolabeIndependent(data: unknown, source: Source, question: string, options?: Input['prompt'], context?: RuntimeContext) {
   const expected = await calculateAstrolabeIndependentData(source, context);

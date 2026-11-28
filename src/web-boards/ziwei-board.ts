@@ -1,3 +1,4 @@
+import { createBoardDetailBar, createBoardModalTrigger } from './dom';
 import { createMobileDetailSheet, createTermPanel, el, svgEl, unwrapBoardData } from './shared';
 
 interface ZiweiStar {
@@ -306,7 +307,6 @@ export function renderZiweiBoard(container: HTMLElement, value: unknown): boolea
     );
   }
   head.append(titleGroup);
-  head.append(el('span', { className: 'board-hint', text: '点击任意宫位查看三方四正、星曜与飞星四化' }));
   shell.append(head);
 
   // 运限盘层切换条（仅当存在 reference.layers 时展示）
@@ -443,18 +443,18 @@ export function renderZiweiBoard(container: HTMLElement, value: unknown): boolea
     }
 
     const centerMeta = el('div', { className: 'ziwei-center-meta' });
-    const metaItems: Array<[string, string | undefined]> = [
-      ['阳历', natal.solarDate],
-      ['农历', natal.lunarDate],
-      ['四柱', natal.chineseDate],
-      ['时辰', natal.time ? `${natal.time}${natal.timeRange ? ` (${natal.timeRange})` : ''}` : undefined],
+    const metaItems: Array<{ key: 'solar' | 'lunar' | 'chinese' | 'time'; label: string; val: string | undefined }> = [
+      { key: 'solar', label: '阳历', val: natal.solarDate },
+      { key: 'lunar', label: '农历', val: natal.lunarDate },
+      { key: 'chinese', label: '四柱', val: natal.chineseDate },
+      { key: 'time', label: '时辰', val: natal.time ? `${natal.time}${natal.timeRange ? ` (${natal.timeRange})` : ''}` : undefined },
     ];
-    for (const [label, val] of metaItems) {
-      if (!val) continue;
-      const row = el('div', { className: 'ziwei-center-row' });
+    for (const item of metaItems) {
+      if (!item.val) continue;
+      const row = el('div', { className: 'ziwei-center-row', dataset: { metaKey: item.key } });
       row.append(
-        el('span', { className: 'ziwei-center-label', text: label }),
-        el('strong', { className: 'ziwei-center-val', text: val }),
+        el('span', { className: 'ziwei-center-label', text: item.label }),
+        el('strong', { className: 'ziwei-center-val', text: item.val }),
       );
       centerMeta.append(row);
     }
@@ -796,49 +796,79 @@ export function renderZiweiBoard(container: HTMLElement, value: unknown): boolea
     }
   }
 
-  rebuildGridPalaces();
-  boardWrap.append(svgOverlay, grid);
-  shell.append(boardWrap, detailSheet.element);
-
-  // 展现本命四化总览 & 经典格局
-  const siHuaEntries: string[] = [];
+  const mutOrder: Record<string, number> = { 禄: 0, 权: 1, 科: 2, 忌: 3 };
+  const natalMutagenEntries: Array<{ mutagen: string; starName: string; palaceName: string; palaceIndex: number }> = [];
   for (const pal of natal.palaces) {
-    for (const s of [...(pal.majorStars ?? []), ...(pal.minorStars ?? [])]) {
+    for (const s of [...(pal.majorStars ?? []), ...(pal.minorStars ?? []), ...(pal.adjectiveStars ?? [])]) {
       if (s.mutagen) {
-        siHuaEntries.push(`${s.name}化${s.mutagen}（${pal.name}）`);
+        natalMutagenEntries.push({
+          mutagen: s.mutagen,
+          starName: s.name,
+          palaceName: pal.name,
+          palaceIndex: pal.index,
+        });
       }
     }
   }
-  if (siHuaEntries.length > 0) {
-    const refSec = el('div', { className: 'ziwei-patterns-card' });
-    refSec.append(el('h4', { className: 'ziwei-patterns-title', text: '本命四化总览' }));
-    const chips = el('div', { className: 'wb-chip-wrap' });
-    for (const sh of siHuaEntries) {
-      chips.append(el('span', { className: 'wb-badge wb-badge-warn', text: sh }));
-    }
-    refSec.append(chips);
-    shell.append(refSec);
-  }
-  if (natal.patterns?.length) {
-    const patSec = el('div', { className: 'ziwei-patterns-card' });
-    patSec.append(el('h4', { className: 'ziwei-patterns-title', text: `命盘经典格局（${natal.patterns.length}项）` }));
-    const patList = el('div', { className: 'ziwei-patterns-list' });
-    for (const pat of natal.patterns) {
-      const card = el('div', { className: 'ziwei-pattern-item' });
-      card.append(
-        el('strong', {
-          className: `ziwei-pattern-name ${pat.kind === 'auspicious' ? 'is-good' : ''}`.trim(),
-          text: pat.name ?? '格局',
+  natalMutagenEntries.sort((a, b) => (mutOrder[a.mutagen] ?? 9) - (mutOrder[b.mutagen] ?? 9));
+  let mutBar: HTMLElement | undefined;
+  if (natalMutagenEntries.length > 0) {
+    mutBar = el('div', { className: 'ziwei-natal-mutagens', ariaLabel: '生年四化总览' });
+    mutBar.append(el('span', { className: 'ziwei-natal-mutagens-label', text: '生年四化' }));
+    const mutList = el('div', { className: 'ziwei-natal-mutagens-list' });
+    for (const entry of natalMutagenEntries) {
+      mutList.append(
+        el('button', {
+          type: 'button',
+          className: 'ziwei-natal-mutagen-btn',
+          text: `${entry.mutagen} ${entry.starName}·${entry.palaceName}`,
+          dataset: { mutagen: entry.mutagen },
+          onClick: () => {
+            selectedIndex = entry.palaceIndex;
+            renderSelectedState();
+            detailSheet.open();
+          },
         }),
       );
-      if (pat.description) card.append(el('p', { className: 'ziwei-pattern-desc', text: pat.description }));
-      if (pat.source || pat.quote) {
-        card.append(el('small', { className: 'ziwei-pattern-quote', text: `${pat.source ? `${pat.source}：` : ''}${pat.quote ?? ''}` }));
-      }
-      patList.append(card);
     }
-    patSec.append(patList);
-    shell.append(patSec);
+    mutBar.append(mutList);
+  }
+
+  rebuildGridPalaces();
+  boardWrap.append(svgOverlay, grid);
+  shell.append(boardWrap);
+  if (mutBar) shell.append(mutBar);
+  shell.append(detailSheet.element);
+
+  // 经典格局收拢至弹窗，主盘面只保留十二宫核心视图
+  if (natal.patterns?.length) {
+    const patternsList = natal.patterns;
+    const zwBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '命盘经典格局',
+        '紫微命盘经典格局',
+        () => {
+          const patList = el('div', { className: 'ziwei-patterns-list' });
+          for (const pat of patternsList) {
+            const card = el('div', { className: 'ziwei-pattern-item' });
+            card.append(
+              el('strong', {
+                className: `ziwei-pattern-name ${pat.kind === 'auspicious' ? 'is-good' : ''}`.trim(),
+                text: pat.name ?? '格局',
+              }),
+            );
+            if (pat.description) card.append(el('p', { className: 'ziwei-pattern-desc', text: pat.description }));
+            if (pat.source || pat.quote) {
+              card.append(el('small', { className: 'ziwei-pattern-quote', text: `${pat.source ? `${pat.source}：` : ''}${pat.quote ?? ''}` }));
+            }
+            patList.append(card);
+          }
+          return patList;
+        },
+        `${patternsList.length}项`,
+      ),
+    ]);
+    if (zwBar) shell.append(zwBar);
   }
 
   shell.append(termPanel.element);

@@ -206,7 +206,10 @@ function render(data: Data, question: string) {
   const text = [`【四柱反推】\n年、月、日、时：${keys.map((key) => data.input.pillars[key]).join(' ')}；公历年份 ${data.input.startYear}–${data.input.endYear}（含两端）${data.input.longitude !== undefined ? `；真太阳时经度 ${data.input.longitude}°` : ''}${data.input.applyChinaDst ? '；含中国历史夏令时标注' : ''}。`,
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
     `【四柱盘面结构】\n${pillarLines}\n原局干支关系：${relationLine}。`,
-    `【候选范围】\n${data.candidates.map((item, index) => `${index + 1}. ${item.start} 至 ${item.end}（起点含、终点不含）；开始：${item.startBoundary}；结束：${item.endBoundary}。${item.chinaDst?.inDst ? `\n夏令时民用钟表：${item.chinaDst.dstWallStart} 至 ${item.chinaDst.dstWallEnd}（${item.chinaDst.note}）` : ''}\n用于八字、姓名分析或起名的出生范围：${JSON.stringify(item.birthRange)}`).join('\n') || '所查年份没有符合四柱的候选。'}`,
+    `【候选范围】\n${data.candidates.map((item, index) => {
+      const rangeSummary = `${item.start.replace('T', ' ')} 至 ${item.end.replace('T', ' ')}（东八区，四柱 ${keys.map((k) => data.input.pillars[k]).join(' ')}${item.birthRange.timeStandard === 'true-solar' && item.birthRange.longitude !== undefined ? `，真太阳时经度 ${item.birthRange.longitude}°` : ''}）`;
+      return `${index + 1}. ${item.start} 至 ${item.end}（起点含、终点不含）；开始：${item.startBoundary}；结束：${item.endBoundary}。${item.chinaDst?.inDst ? `\n夏令时民用钟表：${item.chinaDst.dstWallStart} 至 ${item.chinaDst.dstWallEnd}（${item.chinaDst.note}）` : ''}\n用于八字、姓名分析或起名的出生范围：${rangeSummary}`;
+    }).join('\n') || '所查年份没有符合四柱的候选。'}`,
     `【口径】\n标准北京时间 UTC+8，节气月，23点换日${data.input.longitude !== undefined ? `，日时按经度 ${data.input.longitude}° 真太阳时反推` : ''}。${data.limitation}`, `【问题】\n${question}`].join('\n\n');
   return { text };
 }

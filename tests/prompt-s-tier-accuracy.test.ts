@@ -4,6 +4,7 @@ import { calculate } from '../src/core';
 import { methodIds } from '../src/schema';
 import { webExamples } from '../src/web-examples';
 import { distillPromptForUser } from '../src/prompt-profile';
+import { formatAstroChartWarnings } from '../src/systems/prompt-format';
 
 const PURE_LOOKUP_METHODS = new Set(['calendar', 'zhouyi', 'character-query']);
 
@@ -41,6 +42,11 @@ const RAW_FORBIDDEN_LITERALS = [
   '【本地算法初筛概览',
   '第一人',
   '第二人',
+  '[object Object]',
+  'points.sun.longitude',
+  'includeTimeline',
+  '（满足，reference）',
+  'Combust',
 ];
 
 const RAW_FORBIDDEN_REGEXPS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
@@ -53,6 +59,7 @@ const RAW_FORBIDDEN_REGEXPS: ReadonlyArray<{ label: string; pattern: RegExp }> =
   { label: 'forward', pattern: /\bforward\b/i },
   { label: 'decadalGanzhi', pattern: /\bdecadalGanzhi\b/i },
   { label: 'movingCount', pattern: /\bmovingCount\b/i },
+  { label: '裸JSON键', pattern: /"(?:start|pillars|birthRange)":|"kind":\s*"delta_t_uncertain"/ },
   { label: '空括号', pattern: /\(\)|（）/ },
 ];
 
@@ -60,7 +67,22 @@ test('底层源头直出 S 级守卫（不经精炼器）：39 术数原始输�
   for (const method of methodIds) {
     const res = (await calculate(method, webExamples[method], {
       promptGuidance: { enableContract: true, replyStyle: 'standard', topTaskAnchor: true },
-    })) as { prompt: { text: string } };
+    })) as {
+      summary?: { title?: string; tags?: string[]; lines?: string[] };
+      prompt: { text: string };
+    };
+
+    const summaryTexts = [
+      res.summary?.title ?? '',
+      ...(res.summary?.tags ?? []),
+      ...(res.summary?.lines ?? []),
+    ].filter(Boolean);
+    for (const sText of summaryTexts) {
+      assert.equal(sText.includes('[object Object]'), false, `${method} summary 不得包含 [object Object]`);
+      assert.equal(/\bplacidus\b/i.test(sText), false, `${method} summary 不得漏出英文 placidus`);
+      assert.equal(/\b(?:sound-rhythm|animal-plant|historical-era)\b/.test(sText), false, `${method} summary 不得漏出英文表名`);
+      assert.equal(/"(?:start|pillars|kind)":/.test(sText), false, `${method} summary 不得漏出裸 JSON`);
+    }
 
     for (const variant of [
       { label: '原始直出', text: res.prompt.text },
@@ -156,4 +178,15 @@ test('核心底层数据模型与算法语义准确性专项核验', async () =>
 
   const mlRes = (await calculate('minglu', webExamples.minglu)) as { prompt: { text: string } };
   assert.equal(mlRes.prompt.text.includes('财官发力与风控结构 · 跨盘张力'), false);
+
+  // 7. 星历警告对象数组应转为纯中文提醒，不输出 [object Object] 或 JSON
+  const formattedWarnings = formatAstroChartWarnings([
+    { kind: 'outside_validated_range', body: 'chiron', validated: { from: 1800, to: 2100 }, text: 'raw english' },
+    { kind: 'delta_t_uncertain', sigmaSeconds: 12.5, angleSmearDeg: 0.05, moonSmearArcmin: 0.1, text: 'raw english' },
+  ]);
+  assert.equal(formattedWarnings.length, 2);
+  assert.match(formattedWarnings[0]!, /「凯龙星」超出星历校验年代范围（1800–2100年）/);
+  assert.match(formattedWarnings[1]!, /地球自转时差（ΔT）存在约 12.5 秒不确定度/);
+  assert.equal(formattedWarnings.join('\n').includes('[object Object]'), false);
+  assert.equal(formattedWarnings.join('\n').includes('"kind"'), false);
 });

@@ -1,16 +1,53 @@
-import yilinData from '../../data/yilin.json';
-import zhouyiTexts from '../../data/zhouyi/texts.json';
+import type { StaticDatasetLoader } from '../../static-data';
+import { loadStaticDataset } from '../static-data-loader';
 import type { ClassicExcerpt } from './types';
 
-export const YILIN_HEXAGRAM_ORDER: readonly string[] = yilinData.hexagrams;
+interface YilinDataset {
+  hexagrams: readonly string[];
+  entries: readonly string[];
+}
+
+export const YILIN_HEXAGRAM_ORDER: readonly string[] = [
+  '乾', '坤', '屯', '蒙', '需', '訟', '師', '比',
+  '小畜', '履', '泰', '否', '同人', '大有', '謙', '豫',
+  '隨', '蠱', '臨', '觀', '噬嗑', '賁', '剝', '復',
+  '无妄', '大畜', '頤', '大過', '坎', '離', '咸', '恒',
+  '遯', '大壯', '晉', '明夷', '家人', '睽', '蹇', '解',
+  '損', '益', '夬', '姤', '萃', '升', '困', '井',
+  '革', '鼎', '震', '艮', '漸', '歸妹', '豐', '旅',
+  '巽', '兌', '渙', '節', '中孚', '小過', '既濟', '未濟',
+];
 
 const HEXAGRAM_INDEX = new Map<string, number>(
-  yilinData.hexagrams.map((name, index) => [name, index]),
+  YILIN_HEXAGRAM_ORDER.map((name, index) => [name, index]),
 );
 
-const FULL_NAME_TO_SHORT = new Map<string, string>(
-  zhouyiTexts.map((item) => [item.name, item.shortName]),
-);
+const FULL_NAME_TO_SHORT = new Map<string, string>([
+  ['乾为天', '乾'], ['坤为地', '坤'], ['水雷屯', '屯'], ['山水蒙', '蒙'],
+  ['水天需', '需'], ['天水讼', '讼'], ['地水师', '师'], ['水地比', '比'],
+  ['风天小畜', '小畜'], ['天泽履', '履'], ['地天泰', '泰'], ['天地否', '否'],
+  ['天火同人', '同人'], ['火天大有', '大有'], ['地山谦', '谦'], ['雷地豫', '豫'],
+  ['泽雷随', '随'], ['山风蛊', '蛊'], ['地泽临', '临'], ['风地观', '观'],
+  ['火雷噬嗑', '噬嗑'], ['山火贲', '贲'], ['山地剥', '剥'], ['地雷复', '复'],
+  ['天雷无妄', '无妄'], ['山天大畜', '大畜'], ['山雷颐', '颐'], ['泽风大过', '大过'],
+  ['坎为水', '坎'], ['离为火', '离'], ['泽山咸', '咸'], ['雷风恒', '恒'],
+  ['天山遁', '遁'], ['雷天大壮', '大壮'], ['火地晋', '晋'], ['地火明夷', '明夷'],
+  ['风火家人', '家人'], ['火泽睽', '睽'], ['水山蹇', '蹇'], ['雷水解', '解'],
+  ['山泽损', '损'], ['风雷益', '益'], ['泽天夬', '夬'], ['天风姤', '姤'],
+  ['泽地萃', '萃'], ['地风升', '升'], ['泽水困', '困'], ['水风井', '井'],
+  ['泽火革', '革'], ['火风鼎', '鼎'], ['震为雷', '震'], ['艮为山', '艮'],
+  ['风山渐', '渐'], ['雷泽归妹', '归妹'], ['雷火丰', '丰'], ['火山旅', '旅'],
+  ['巽为风', '巽'], ['兑为泽', '兑'], ['风水涣', '涣'], ['水泽节', '节'],
+  ['风泽中孚', '中孚'], ['雷山小过', '小过'], ['水火既济', '既济'], ['火水未济', '未济'],
+]);
+
+let loadedYilinEntries: readonly string[] | null = null;
+
+/** 按需加载《焦氏易林》4,096 条林辞索引，避免将 425 KB 数据直接打入主包或 Worker。 */
+export async function ensureYilinLoaded(load?: StaticDatasetLoader): Promise<void> {
+  const data = await loadStaticDataset<YilinDataset>('yilin', load);
+  loadedYilinEntries = data.entries;
+}
 
 const HEXAGRAM_ALIASES: Record<string, string> = {
   㢲: '巽',
@@ -80,7 +117,10 @@ export function getYilinEntry(baseHexagram: string, targetHexagram: string): Yil
   const targetIdx = HEXAGRAM_INDEX.get(target);
   if (baseIdx === undefined || targetIdx === undefined) return undefined;
 
-  const text = yilinData.entries[baseIdx * yilinData.hexagrams.length + targetIdx];
+  if (!loadedYilinEntries) {
+    throw new Error('《焦氏易林》资料尚未加载。');
+  }
+  const text = loadedYilinEntries[baseIdx * YILIN_HEXAGRAM_ORDER.length + targetIdx];
   if (text === undefined) return undefined;
 
   return {

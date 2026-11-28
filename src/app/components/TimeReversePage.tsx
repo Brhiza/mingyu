@@ -2,24 +2,17 @@ import * as React from 'react';
 import {
   ArrowLeft,
   Bot,
-  Check,
-  Copy,
   MapPin,
-  Plus,
   RotateCcw,
-  Send,
   Sparkles,
-  Square,
-  Trash2,
 } from 'lucide-react';
 import { streamChat, type AiMessage } from '../../ai';
 import type { BirthPlaceModalController } from '../../v2-ui/birth-place-modal';
 import {
-  BIRTH_TIME_OPTIONS,
   clampNumericField,
   type PersonalCase,
 } from '../../v2-ui/cases-store';
-import type { PersonRole } from '../../v2-ui/person-form';
+import type { PersonRole } from './person/person-form-helpers';
 import {
   buildTimeReversePrompt,
   computeTimeReverseCandidates,
@@ -35,9 +28,11 @@ import {
   type TimeReverseProfileInfo,
 } from '../../v2-ui/time-reverse';
 import { isWebAiEnabled, readWebAiConfig } from '../../web-ai';
-import { renderMarkdownContent } from '../../web-report';
-import { Button, Card, PageHeader, SegmentedTabs } from '../../components/ui';
+import { Button, Card, Checkbox, PageHeader } from '../../components/ui';
 import { cn } from '../../lib/utils';
+import { ChipSuggestions, ClozeBlank } from './time-reverse/TimeReverseClozeParts';
+import { TimeReverseMilestonesSection } from './time-reverse/TimeReverseMilestonesSection';
+import { TimeReverseResultPanel } from './time-reverse/TimeReverseResultPanel';
 
 export interface TimeReversePageProps {
   initialPerson: Partial<PersonalCase>;
@@ -49,112 +44,6 @@ export interface TimeReversePageProps {
     known: TimeReverseKnownInfo,
     openResultDirectly: boolean,
   ) => void;
-}
-
-function toggleChipIntoText(current: string, chip: string): string {
-  const trimmed = current.trim();
-  if (!trimmed) return chip;
-  const parts = trimmed.split(/[、，,]/).map((s) => s.trim()).filter(Boolean);
-  if (parts.includes(chip)) {
-    return parts.filter((p) => p !== chip).join('、');
-  }
-  return `${trimmed}、${chip}`;
-}
-
-function MarkdownMessage({ content }: { content: string }) {
-  const ref = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.replaceChildren();
-    renderMarkdownContent(el, content);
-  }, [content]);
-  return <div ref={ref} className="ai-message-body markdown-body" />;
-}
-
-interface ClozeBlankProps {
-  value: string;
-  onChange: (next: string) => void;
-  placeholder: string;
-  widthClass?: string;
-  ariaLabel: string;
-  inputMode?: 'text' | 'numeric';
-}
-
-function ClozeBlank({
-  value,
-  onChange,
-  placeholder,
-  widthClass = 'min-w-[140px] sm:min-w-[180px]',
-  ariaLabel,
-  inputMode = 'text',
-}: ClozeBlankProps) {
-  return (
-    <input
-      type="text"
-      inputMode={inputMode}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      aria-label={ariaLabel}
-      className={cn(
-        'time-reverse-blank mx-1 my-0.5 inline-block h-8 max-w-full rounded-lg border border-dashed border-[var(--border-contrast)] bg-[var(--surface-elevated-strong)] px-2.5 text-[13.5px] font-semibold text-[var(--text-strong)] placeholder:font-normal placeholder:text-[var(--text-muted)] focus:border-solid focus:border-[var(--accent-strong)] focus:bg-[var(--surface-base)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-surface)] transition-colors',
-        widthClass,
-      )}
-    />
-  );
-}
-
-function ChipSuggestions({
-  chips,
-  value,
-  onSelect,
-  mode = 'toggle',
-}: {
-  chips: readonly string[];
-  value: string;
-  onSelect: (nextValue: string) => void;
-  mode?: 'toggle' | 'replace';
-}) {
-  const activeParts = React.useMemo(
-    () =>
-      value
-        .split(/[、，,]/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [value],
-  );
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <span className="text-[11.5px] font-medium text-[var(--text-muted)]">快捷填入：</span>
-      {chips.map((chip) => {
-        const isActive =
-          mode === 'replace' ? value.trim() === chip : activeParts.includes(chip);
-        return (
-          <button
-            key={chip}
-            type="button"
-            onClick={() => {
-              if (mode === 'replace') {
-                onSelect(isActive ? '' : chip);
-              } else {
-                onSelect(toggleChipIntoText(value, chip));
-              }
-            }}
-            className={cn(
-              'rounded-full border px-2.5 py-0.5 text-[12px] transition-colors cursor-pointer',
-              isActive
-                ? 'border-[var(--accent-strong)] bg-[var(--state-selected-surface)] font-bold text-[var(--state-selected-text)]'
-                : 'border-[var(--border-soft)] bg-[var(--surface-soft)] font-medium text-[var(--text-secondary)] hover:border-[var(--border-contrast)] hover:text-[var(--text-strong)]',
-            )}
-          >
-            {chip}
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 export function TimeReversePage({
@@ -450,7 +339,12 @@ export function TimeReversePage({
         title="时辰逆推"
         badgeText={role === 'partner' ? '命主二' : '生时校正'}
         rightSlot={
-          <Button variant="secondary" size="sm" onClick={onBackToChartInput}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ws-desktop-only-action hidden min-[680px]:inline-flex"
+            onClick={onBackToChartInput}
+          >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             <span>返回排盘</span>
           </Button>
@@ -462,7 +356,7 @@ export function TimeReversePage({
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--text-secondary)]">
           <Sparkles className="h-4 w-4 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
           <span className="whitespace-nowrap">
-            已填 <strong className="text-[var(--text-strong)]">{filledCount}</strong> 项线索（均非必填）
+            已填 <strong className="text-[var(--text-strong)]">{filledCount}</strong> 项线索
           </span>
           {hasDate ? (
             <span className="whitespace-nowrap rounded-full bg-[var(--state-selected-surface)] px-2 py-0.5 text-[11.5px] font-bold text-[var(--state-selected-text)]">
@@ -540,16 +434,14 @@ export function TimeReversePage({
               ))}
             </span>
             {draft.known.calendar === 'lunar' ? (
-              <label className="mx-1 inline-flex items-center gap-1 text-xs text-[var(--text-secondary)] cursor-pointer align-middle">
-                <input
-                  type="checkbox"
-                  checked={draft.known.isLeapMonth}
-                  onChange={(e) => updateKnown({ isLeapMonth: e.target.checked })}
-                />
-                <span>闰月</span>
-              </label>
+              <Checkbox
+                className="mx-1 align-middle"
+                checked={draft.known.isLeapMonth}
+                label="闰月"
+                onChange={(e) => updateKnown({ isLeapMonth: e.target.checked })}
+              />
             ) : null}
-            <span>出生在</span>
+            <span className="whitespace-nowrap">出生在</span>
             <ClozeBlank
               value={draft.known.year}
               onChange={(v) => updateKnown({ year: clampNumericField('year', v) })}
@@ -590,9 +482,8 @@ export function TimeReversePage({
               className="mx-1 inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-base)] px-2 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-contrast)] hover:text-[var(--text-strong)] cursor-pointer align-middle"
             >
               <MapPin className="h-3 w-3" aria-hidden="true" />
-              <span>选城市</span>
+              <span>选择城市</span>
             </button>
-            <span>。</span>
           </div>
         </div>
 
@@ -785,411 +676,18 @@ export function TimeReversePage({
       </Card>
 
       {/* 三、已经发生的事情 · 人生重大节点 */}
-      <Card className="grid gap-3.5 p-4 sm:p-5">
-        <h2 className="m-0 text-[15px] font-bold text-[var(--text-strong)]">
-          三、人生重大节点
-        </h2>
-
-        {/* 1. 学业与考学 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">1. 学业与考学转折</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>我大约在</span>
-            <ClozeBlank
-              value={draft.milestones.studyWhen}
-              onChange={(v) => updateMilestones({ studyWhen: v })}
-              placeholder="如 2016年 或 18岁"
-              widthClass="min-w-[130px]"
-              ariaLabel="学业转折年份"
-            />
-            <span>经历过一次印象很深的学业/考试转折，结果是</span>
-            <ClozeBlank
-              value={draft.milestones.studyResult}
-              onChange={(v) => updateMilestones({ studyResult: v })}
-              placeholder="超常发挥 / 失常 / 考研上岸"
-              widthClass="min-w-[175px]"
-              ariaLabel="学业转折结果"
-            />
-            <span>；我最高学历或擅长方向偏向</span>
-            <ClozeBlank
-              value={draft.milestones.studyMajor}
-              onChange={(v) => updateMilestones({ studyMajor: v })}
-              placeholder="理工 / 文史 / 经管 / 艺术"
-              widthClass="min-w-[160px]"
-              ariaLabel="专业方向"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.studyResult}
-            value={draft.milestones.studyResult}
-            onSelect={(v) => updateMilestones({ studyResult: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.studyMajor}
-            value={draft.milestones.studyMajor}
-            onSelect={(v) => updateMilestones({ studyMajor: v })}
-          />
-        </div>
-
-        {/* 2. 职业与事业变动 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">2. 职业起步与重大变动</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>我大概在</span>
-            <ClozeBlank
-              value={draft.milestones.careerStartWhen}
-              onChange={(v) => updateMilestones({ careerStartWhen: v })}
-              placeholder="如 2019年"
-              widthClass="min-w-[110px]"
-              ariaLabel="开始工作年份"
-            />
-            <span>开始正式工作；在</span>
-            <ClozeBlank
-              value={draft.milestones.careerChangeWhen}
-              onChange={(v) => updateMilestones({ careerChangeWhen: v })}
-              placeholder="如 2023年"
-              widthClass="min-w-[110px]"
-              ariaLabel="职场变动年份"
-            />
-            <span>经历过一次明显变动：</span>
-            <ClozeBlank
-              value={draft.milestones.careerChangeEvent}
-              onChange={(v) => updateMilestones({ careerChangeEvent: v })}
-              placeholder="升职 / 跳槽 / 创业 / 被裁"
-              widthClass="min-w-[165px]"
-              ariaLabel="职场变动事件"
-            />
-            <span>，目前或做得最久的行业偏向</span>
-            <ClozeBlank
-              value={draft.milestones.careerField}
-              onChange={(v) => updateMilestones({ careerField: v })}
-              placeholder="体制内 / 互联网 / 销售 / 自由职业"
-              widthClass="min-w-[180px]"
-              ariaLabel="从事行业"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.careerChangeEvent}
-            value={draft.milestones.careerChangeEvent}
-            onSelect={(v) => updateMilestones({ careerChangeEvent: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.careerField}
-            value={draft.milestones.careerField}
-            onSelect={(v) => updateMilestones({ careerField: v })}
-          />
-        </div>
-
-        {/* 3. 感情与婚姻 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">3. 感情经历与婚姻状态</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>我大约在</span>
-            <ClozeBlank
-              value={draft.milestones.loveWhen}
-              onChange={(v) => updateMilestones({ loveWhen: v })}
-              placeholder="如 2018年 或 22岁"
-              widthClass="min-w-[130px]"
-              ariaLabel="重要恋情年份"
-            />
-            <span>遇到过印象很深的一段感情；在</span>
-            <ClozeBlank
-              value={draft.milestones.marriageWhen}
-              onChange={(v) => updateMilestones({ marriageWhen: v })}
-              placeholder="年份（单身可不填）"
-              widthClass="min-w-[130px]"
-              ariaLabel="婚恋节点年份"
-            />
-            <span>经历了</span>
-            <ClozeBlank
-              value={draft.milestones.marriageStatus}
-              onChange={(v) => updateMilestones({ marriageStatus: v })}
-              placeholder="领证结婚 / 重大分手 / 至今单身"
-              widthClass="min-w-[180px]"
-              ariaLabel="婚恋状态"
-            />
-            <span>。另一半给我的感觉通常是</span>
-            <ClozeBlank
-              value={draft.milestones.partnerTraits}
-              onChange={(v) => updateMilestones({ partnerTraits: v })}
-              placeholder="脾气较急 / 很照顾人 / 聚少离多"
-              widthClass="min-w-[180px]"
-              ariaLabel="伴侣特征"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.marriageStatus}
-            value={draft.milestones.marriageStatus}
-            onSelect={(v) => updateMilestones({ marriageStatus: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.partnerTraits}
-            value={draft.milestones.partnerTraits}
-            onSelect={(v) => updateMilestones({ partnerTraits: v })}
-          />
-        </div>
-
-        {/* 4. 财运起伏与买房置业 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">4. 财运起伏与买房置业</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>进账最顺的一年大概在</span>
-            <ClozeBlank
-              value={draft.milestones.wealthGoodWhen}
-              onChange={(v) => updateMilestones({ wealthGoodWhen: v })}
-              placeholder="如 2021年"
-              widthClass="min-w-[100px]"
-              ariaLabel="顺财年份"
-            />
-            <span>，因为</span>
-            <ClozeBlank
-              value={draft.milestones.wealthGoodReason}
-              onChange={(v) => updateMilestones({ wealthGoodReason: v })}
-              placeholder="奖金大涨 / 副业爆单 / 投资赚钱"
-              widthClass="min-w-[180px]"
-              ariaLabel="顺财原因"
-            />
-            <span>；而明显破财或经济压力最大的一年是</span>
-            <ClozeBlank
-              value={draft.milestones.wealthBadWhen}
-              onChange={(v) => updateMilestones({ wealthBadWhen: v })}
-              placeholder="如 2024年"
-              widthClass="min-w-[100px]"
-              ariaLabel="破财年份"
-            />
-            <span>，原因是</span>
-            <ClozeBlank
-              value={draft.milestones.wealthBadReason}
-              onChange={(v) => updateMilestones({ wealthBadReason: v })}
-              placeholder="投资被套 / 被骗 / 生意亏损"
-              widthClass="min-w-[180px]"
-              ariaLabel="破财原因"
-            />
-            <span>。另外我在</span>
-            <ClozeBlank
-              value={draft.milestones.propertyWhen}
-              onChange={(v) => updateMilestones({ propertyWhen: v })}
-              placeholder="年份"
-              widthClass="min-w-[90px]"
-              ariaLabel="置业年份"
-            />
-            <span>有过</span>
-            <ClozeBlank
-              value={draft.milestones.propertyEvent}
-              onChange={(v) => updateMilestones({ propertyEvent: v })}
-              placeholder="买房 / 买车 / 长途搬家"
-              widthClass="min-w-[150px]"
-              ariaLabel="置业事件"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.wealthGoodReason}
-            value={draft.milestones.wealthGoodReason}
-            onSelect={(v) => updateMilestones({ wealthGoodReason: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.wealthBadReason}
-            value={draft.milestones.wealthBadReason}
-            onSelect={(v) => updateMilestones({ wealthBadReason: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.propertyEvent}
-            value={draft.milestones.propertyEvent}
-            onSelect={(v) => updateMilestones({ propertyEvent: v })}
-          />
-        </div>
-
-        {/* 5. 健康、伤病与突发意外 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">5. 健康、伤病或至亲变故</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>我自己或至亲在</span>
-            <ClozeBlank
-              value={draft.milestones.healthWhen}
-              onChange={(v) => updateMilestones({ healthWhen: v })}
-              placeholder="年份或年龄"
-              widthClass="min-w-[115px]"
-              ariaLabel="健康意外年份"
-            />
-            <span>遇到过一次较担心的状况（</span>
-            <ClozeBlank
-              value={draft.milestones.healthType}
-              onChange={(v) => updateMilestones({ healthType: v })}
-              placeholder="住院手术 / 骨折 / 车祸 / 至亲变故"
-              widthClass="min-w-[180px]"
-              ariaLabel="健康意外类型"
-            />
-            <span>），大概情况是</span>
-            <ClozeBlank
-              value={draft.milestones.healthDetail}
-              onChange={(v) => updateMilestones({ healthDetail: v })}
-              placeholder="简述部位或经过（可选）"
-              widthClass="min-w-[180px]"
-              ariaLabel="健康意外详情"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.healthType}
-            value={draft.milestones.healthType}
-            onSelect={(v) => updateMilestones({ healthType: v })}
-          />
-        </div>
-
-        {/* 6. 离乡变动、贵人与是非 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">6. 离乡方向、贵人或是非纠纷</div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>我大约在</span>
-            <ClozeBlank
-              value={draft.milestones.moveWhen}
-              onChange={(v) => updateMilestones({ moveWhen: v })}
-              placeholder="年份"
-              widthClass="min-w-[95px]"
-              ariaLabel="离乡年份"
-            />
-            <span>离开老家去外地求学/工作，前往的方向大致在老家的</span>
-            <ClozeBlank
-              value={draft.milestones.moveDirection}
-              onChange={(v) => updateMilestones({ moveDirection: v })}
-              placeholder="南方 / 北方 / 沿海 / 海外"
-              widthClass="min-w-[155px]"
-              ariaLabel="离乡方向"
-            />
-            <span>；我在</span>
-            <ClozeBlank
-              value={draft.milestones.helperWhen}
-              onChange={(v) => updateMilestones({ helperWhen: v })}
-              placeholder="年份"
-              widthClass="min-w-[90px]"
-              ariaLabel="遇贵人年份"
-            />
-            <span>遇到过特别拉我一把的贵人；在</span>
-            <ClozeBlank
-              value={draft.milestones.disputeWhen}
-              onChange={(v) => updateMilestones({ disputeWhen: v })}
-              placeholder="年份"
-              widthClass="min-w-[90px]"
-              ariaLabel="遇是非年份"
-            />
-            <span>遭遇过</span>
-            <ClozeBlank
-              value={draft.milestones.disputeType}
-              onChange={(v) => updateMilestones({ disputeType: v })}
-              placeholder="合同纠纷 / 口舌是非 / 被背刺"
-              widthClass="min-w-[175px]"
-              ariaLabel="是非纠纷类型"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.moveDirection}
-            value={draft.milestones.moveDirection}
-            onSelect={(v) => updateMilestones({ moveDirection: v })}
-          />
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.disputeType}
-            value={draft.milestones.disputeType}
-            onSelect={(v) => updateMilestones({ disputeType: v })}
-          />
-        </div>
-
-        {/* 7. 近两三年真实体感 */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-          <div className="mb-1 text-xs font-bold text-[var(--accent-strong)]">
-            7. 近两三年真实体感（流年最容易精准校准）
-          </div>
-          <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-            <span>回想最近两三年（如 2024–2026 年），我整体感受最深的变化主要是</span>
-            <ClozeBlank
-              value={draft.milestones.recentTrend}
-              onChange={(v) => updateMilestones({ recentTrend: v })}
-              placeholder="事业卡顿 / 感情波动 / 财运起伏"
-              widthClass="min-w-[190px]"
-              ariaLabel="近两三年主线感受"
-            />
-            <span>，具体发生的一件典型事是：</span>
-            <ClozeBlank
-              value={draft.milestones.recentEvent}
-              onChange={(v) => updateMilestones({ recentEvent: v })}
-              placeholder="用一句话写件记得住的事"
-              widthClass="min-w-[210px] sm:min-w-[260px]"
-              ariaLabel="近两三年典型事件"
-            />
-            <span>。</span>
-          </div>
-          <ChipSuggestions
-            chips={TIME_REVERSE_CHIPS.recentTrend}
-            value={draft.milestones.recentTrend}
-            onSelect={(v) => updateMilestones({ recentTrend: v })}
-          />
-        </div>
-
-        {/* 8. 自由追加大事记 */}
-        {draft.milestones.customMilestones.map((item, idx) => (
-          <div
-            key={item.id}
-            className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5"
-          >
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-[var(--text-secondary)]">
-                补充大事记 #{idx + 1}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleRemoveCustomMilestone(item.id)}
-                className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger-text)] cursor-pointer bg-transparent border-0"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>删除</span>
-              </button>
-            </div>
-            <div className="text-[14px] leading-[2.2] text-[var(--text-primary)]">
-              <span>大约在</span>
-              <ClozeBlank
-                value={item.when}
-                onChange={(v) => handleUpdateCustomMilestone(item.id, { when: v })}
-                placeholder="年份或年龄"
-                widthClass="min-w-[110px]"
-                ariaLabel={`补充大事记${idx + 1}时间`}
-              />
-              <span>，发生了</span>
-              <ClozeBlank
-                value={item.event}
-                onChange={(v) => handleUpdateCustomMilestone(item.id, { event: v })}
-                placeholder="具体事情"
-                widthClass="min-w-[180px]"
-                ariaLabel={`补充大事记${idx + 1}事件`}
-              />
-              <span>，对我的影响是</span>
-              <ClozeBlank
-                value={item.impact}
-                onChange={(v) => handleUpdateCustomMilestone(item.id, { impact: v })}
-                placeholder="结果或感受（可选）"
-                widthClass="min-w-[170px]"
-                ariaLabel={`补充大事记${idx + 1}影响`}
-              />
-              <span>。</span>
-            </div>
-          </div>
-        ))}
-
-        <div>
-          <Button variant="outline" size="sm" onClick={handleAddCustomMilestone}>
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>再加一条记忆深刻的大事</span>
-          </Button>
-        </div>
-      </Card>
+      <TimeReverseMilestonesSection
+        draft={draft}
+        onUpdateMilestones={updateMilestones}
+        onAddCustomMilestone={handleAddCustomMilestone}
+        onUpdateCustomMilestone={handleUpdateCustomMilestone}
+        onRemoveCustomMilestone={handleRemoveCustomMilestone}
+      />
 
       {/* 四、补充问题 & 生成按钮 */}
       <Card className="grid gap-3.5 p-4 sm:p-5">
         <label className="grid gap-1.5 text-xs font-bold text-[var(--text-strong)]">
-          <span>四、还有想补充给 AI 的话（非必填）</span>
+          <span>四、补充说明</span>
           <textarea
             rows={2}
             value={draft.extraNote}
@@ -1215,8 +713,8 @@ export function TimeReversePage({
                 <Bot className="h-4 w-4" aria-hidden="true" />
                 <span>
                   {isComputing
-                    ? '正在准备十二时辰对照…'
-                    : '生成线索并开始 AI 逆推分析'}
+                    ? '推演中…'
+                    : 'AI 逆推时辰'}
                 </span>
               </Button>
               <Button
@@ -1226,7 +724,7 @@ export function TimeReversePage({
                 onClick={() => void handleGenerateOnly()}
               >
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
-                <span>仅生成逆推提示词</span>
+                <span>生成提示词</span>
               </Button>
             </>
           ) : (
@@ -1240,10 +738,8 @@ export function TimeReversePage({
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               <span>
                 {isComputing
-                  ? '正在匹配十二时辰盘面…'
-                  : hasDate
-                    ? '生成逆推提示词（含十二时辰对照）'
-                    : '生成时辰逆推提示词'}
+                  ? '生成中…'
+                  : '生成提示词'}
               </span>
             </Button>
           )}
@@ -1252,268 +748,32 @@ export function TimeReversePage({
 
       {/* 五、输出结果：提示词 / AI 解读 + 候选时辰回填 */}
       {generatedPrompt ? (
-        <div ref={outputSectionRef} className="grid gap-3">
-          <Card className="grid gap-3.5 p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[var(--border-soft)] pb-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {webAiEnabled ? (
-                  <SegmentedTabs
-                    value={outputTab}
-                    onValueChange={(next) => setOutputTab(next)}
-                    ariaLabel="逆推输出方式切换"
-                    options={[
-                      { id: 'ai', label: 'AI 解读' },
-                      { id: 'prompt', label: '提示词' },
-                    ]}
-                  />
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <strong className="text-[14px] text-[var(--text-strong)]">
-                      时辰逆推提示词已就绪
-                    </strong>
-                    <button
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('mingyu:navigate-connect'))}
-                      className="workspace-assistant-ai-link"
-                    >
-                      去开启网页 AI 直连解读 →
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-muted)]">
-                  约 {generatedPrompt.length} 字
-                </span>
-                <Button variant="secondary" size="sm" onClick={() => void handleCopyPrompt()}>
-                  {copiedPrompt ? (
-                    <Check className="h-3.5 w-3.5 text-[var(--success-text)]" aria-hidden="true" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  <span>{copiedPrompt ? '已复制提示词' : '复制提示词'}</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Tab 1: AI 解读面板 */}
-            {webAiEnabled && outputTab === 'ai' ? (
-              <div className="grid gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={cn(
-                        'h-2 w-2 rounded-full shrink-0',
-                        aiConfigured ? 'bg-[var(--success-text)]' : 'bg-[var(--accent-strong)]',
-                      )}
-                      aria-hidden="true"
-                    />
-                    <span className="truncate text-xs font-bold text-[var(--text-strong)]">
-                      {aiConfigured
-                        ? `当前模型：${aiConfig.model.trim()}`
-                        : '尚未填写接口地址或模型'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() =>
-                        window.dispatchEvent(new CustomEvent('mingyu:navigate-connect'))
-                      }
-                    >
-                      配置接口
-                    </Button>
-                    {isStreaming ? (
-                      <Button
-                        variant="destructive"
-                        size="xs"
-                        onClick={() => abortRef.current?.abort()}
-                      >
-                        <Square className="h-3 w-3" aria-hidden="true" />
-                        <span>停止生成</span>
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        size="xs"
-                        disabled={!aiConfigured || isComputing}
-                        onClick={() => void handleStartAiFromPrompt()}
-                      >
-                        <Bot className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>{visibleMessages.length > 0 ? '重新逆推' : '开始 AI 逆推'}</span>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {aiStatus ? (
-                  <p role="status" className="m-0 text-xs text-[var(--text-muted)]">
-                    {aiStatus}
-                  </p>
-                ) : null}
-
-                {visibleMessages.length > 0 || streamingContent ? (
-                  <div className="grid gap-3 max-h-[560px] overflow-y-auto pr-1">
-                    {visibleMessages.map((msg, idx) => (
-                      <article
-                        key={idx}
-                        className={cn(
-                          'rounded-xl border p-3.5',
-                          msg.role === 'user'
-                            ? 'ml-auto max-w-[88%] border-[color-mix(in_srgb,var(--accent-strong)_24%,var(--border-soft))] bg-[var(--state-selected-surface)]'
-                            : 'border-[var(--border-soft)] bg-[var(--surface-elevated-strong)]',
-                        )}
-                      >
-                        <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-                          <span className="font-bold text-[var(--text-strong)]">
-                            {msg.role === 'assistant' ? 'AI 时辰逆推' : '补充回答'}
-                          </span>
-                          {msg.role === 'assistant' ? (
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyAssistant(idx, msg.content)}
-                              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-soft)] bg-[var(--surface-base)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-strong)] cursor-pointer"
-                            >
-                              {copiedMsgIdx === idx ? '已复制' : '复制'}
-                            </button>
-                          ) : null}
-                        </div>
-                        {msg.role === 'assistant' ? (
-                          <MarkdownMessage content={msg.content} />
-                        ) : (
-                          <p className="m-0 whitespace-pre-wrap text-[13.5px] leading-relaxed text-[var(--text-strong)]">
-                            {msg.content}
-                          </p>
-                        )}
-                      </article>
-                    ))}
-
-                    {streamingContent ? (
-                      <article className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5">
-                        <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-                          <span className="font-bold text-[var(--text-strong)]">AI 时辰逆推</span>
-                          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--accent-strong)]">
-                            推演中…
-                          </span>
-                        </div>
-                        <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--text-primary)]">
-                          {streamingContent}
-                        </div>
-                      </article>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {/* 追问框：方便回答 AI 提出的定盘校验问题 */}
-                {visibleMessages.length > 0 && !isStreaming ? (
-                  <div className="grid gap-2 border-t border-[var(--border-soft)] pt-3">
-                    <textarea
-                      rows={2}
-                      value={followupDraft}
-                      onChange={(e) => setFollowupDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                          e.preventDefault();
-                          void handleSendFollowup();
-                        }
-                      }}
-                      placeholder="回答 AI 的验证问题，或继续补充某个年份发生的事（Enter 发送，Shift+Enter 换行）…"
-                      className="workspace-ui-control w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-base)] p-3 text-[13.5px] text-[var(--text-primary)]"
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={!followupDraft.trim() || isStreaming}
-                        onClick={() => void handleSendFollowup()}
-                      >
-                        <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>继续核对</span>
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* Tab 2: 提示词原文预览 */}
-            {!webAiEnabled || outputTab === 'prompt' ? (
-              <div className="grid gap-2">
-                <pre className="m-0 max-h-[420px] overflow-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3.5 font-sans text-[13px] leading-[1.65] whitespace-pre-wrap break-words text-[var(--text-primary)]">
-                  {generatedPrompt}
-                </pre>
-              </div>
-            ) : null}
-          </Card>
-
-          {/* 六、十二时辰候选速览与一键回填排盘 */}
-          <Card className="grid gap-3 p-4 sm:p-5">
-            <h3 className="m-0 text-[14.5px] font-bold text-[var(--text-strong)]">
-              选择候选时辰回填排盘
-            </h3>
-
-            {candidatesResult && candidatesResult.candidates.length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {candidatesResult.candidates.map((cand, idx) => (
-                  <div
-                    key={`${cand.shichenIndex}_${idx}`}
-                    className="flex flex-col justify-between gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-3"
-                  >
-                    <div className="grid gap-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-[13.5px] text-[var(--text-strong)]">
-                          {cand.shichenLabel}（{cand.timeWindow}）
-                        </strong>
-                        <span className="rounded-md bg-[var(--surface-soft)] px-1.5 py-0.5 text-[11.5px] font-bold text-[var(--accent-strong)]">
-                          {cand.hourPillar}时
-                        </span>
-                      </div>
-                      <div className="text-xs text-[var(--text-secondary)]">
-                        {cand.baziNote}
-                      </div>
-                      {cand.ziweiNote ? (
-                        <div className="text-xs text-[var(--text-muted)]">
-                          紫微：{cand.ziweiNote}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => onApplyShichen(cand.shichenIndex, draft.known, false)}
-                      >
-                        回填到排盘页
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        onClick={() => onApplyShichen(cand.shichenIndex, draft.known, true)}
-                      >
-                        直接看此命盘 →
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {BIRTH_TIME_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.index}
-                    type="button"
-                    onClick={() => onApplyShichen(opt.index, draft.known, false)}
-                    className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)] transition-colors cursor-pointer"
-                  >
-                    {opt.label}（{opt.range}）
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
+        <TimeReverseResultPanel
+          outputSectionRef={outputSectionRef}
+          generatedPrompt={generatedPrompt}
+          webAiEnabled={webAiEnabled}
+          outputTab={outputTab}
+          onChangeOutputTab={(next) => setOutputTab(next)}
+          copiedPrompt={copiedPrompt}
+          onCopyPrompt={() => void handleCopyPrompt()}
+          aiConfigured={aiConfigured}
+          aiModelName={aiConfig.model.trim()}
+          isStreaming={isStreaming}
+          isComputing={isComputing}
+          aiStatus={aiStatus}
+          visibleMessages={visibleMessages}
+          streamingContent={streamingContent}
+          copiedMsgIdx={copiedMsgIdx}
+          followupDraft={followupDraft}
+          onChangeFollowupDraft={setFollowupDraft}
+          onStopStreaming={() => abortRef.current?.abort()}
+          onStartAiFromPrompt={() => void handleStartAiFromPrompt()}
+          onCopyAssistant={(idx, content) => void handleCopyAssistant(idx, content)}
+          onSendFollowup={() => void handleSendFollowup()}
+          candidatesResult={candidatesResult}
+          draftKnown={draft.known}
+          onApplyShichen={onApplyShichen}
+        />
       ) : null}
     </div>
   );

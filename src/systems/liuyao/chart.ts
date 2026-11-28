@@ -1,5 +1,6 @@
 // 六爻排盘：起卦结果和历法是输入，证据由调用方独立生成。
 import type { LiuyaoData } from './types';
+import { trueSolarTime } from '../astronomy/true-solar';
 import { resolveLiuyaoZiHourMode } from '../defaults';
 import { getDivinationTime, getVoidBranches } from '../calendar';
 import { castLiuyao } from './cast';
@@ -802,14 +803,32 @@ export function generateLiuyaoChart(
   cast: ReturnType<typeof castLiuyao>,
   timezoneOffsetMinutes = 480,
   ziHourMode: LiuyaoZiHourMode = resolveLiuyaoZiHourMode(),
+  timeOptions?: { timeStandard?: 'beijing' | 'true-solar'; longitude?: number },
 ): LiuyaoChart {
   if (ziHourMode !== '23:00' && ziHourMode !== '00:00') {
     throw new Error(`未知的早晚子时换日口径：${String(ziHourMode)}`);
   }
-  const { ganzhi: rawGanzhi, timestamp } = getDivinationTime(date, timezoneOffsetMinutes);
-  const local = new Date(timestamp + timezoneOffsetMinutes * 60_000);
+  const useTrueSolar =
+    timeOptions?.timeStandard === 'true-solar' && timeOptions.longitude !== undefined;
+  const correction = useTrueSolar ? trueSolarTime(date, timeOptions.longitude!) : undefined;
+  const effectiveDate = correction ? new Date(correction.effectiveTimestamp) : date;
+  const actualDiv = getDivinationTime(date, timezoneOffsetMinutes);
+  const { ganzhi: rawEffectiveGanzhi, timestamp: effectiveTimestamp } = getDivinationTime(
+    effectiveDate,
+    timezoneOffsetMinutes,
+  );
+  const local = new Date(effectiveTimestamp + timezoneOffsetMinutes * 60_000);
+  const rawGanzhi = correction
+    ? {
+        year: actualDiv.ganzhi.year,
+        month: actualDiv.ganzhi.month,
+        day: rawEffectiveGanzhi.day,
+        hour: rawEffectiveGanzhi.hour,
+      }
+    : actualDiv.ganzhi;
+  const timestamp = actualDiv.timestamp;
   const ganzhi = ziHourMode === '00:00' && local.getUTCHours() === 23
-    ? { ...rawGanzhi, day: getDivinationTime(new Date(timestamp - 2 * 3_600_000), timezoneOffsetMinutes).ganzhi.day }
+    ? { ...rawGanzhi, day: getDivinationTime(new Date(effectiveTimestamp - 2 * 3_600_000), timezoneOffsetMinutes).ganzhi.day }
     : rawGanzhi;
   const resolvedGeneration = cast;
   const rawYaos = cast.yaos;
@@ -1060,6 +1079,18 @@ export function generateLiuyaoChart(
     timestamp,
     timezoneOffsetMinutes,
     ...(ziHourMode === '00:00' ? { ziHourMode } : {}),
+    ...(correction
+      ? {
+          timeContext: {
+            standard: 'true-solar' as const,
+            longitude: correction.longitude,
+            referenceTimestamp: timestamp,
+            longitudeCorrectionMinutes: correction.longitudeCorrectionMinutes,
+            equationOfTimeMinutes: correction.equationOfTimeMinutes,
+            totalCorrectionMinutes: correction.totalCorrectionMinutes,
+          },
+        }
+      : {}),
   };
   return result as LiuyaoChart;
 }

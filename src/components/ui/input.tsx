@@ -15,21 +15,22 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
 );
 Input.displayName = 'Input';
 
-export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, children, ...props }, ref) => (
-    <select
-      ref={ref}
-      className={cn(
-        'h-9 w-full min-w-0 truncate rounded-lg border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] pl-2.5 pr-7 text-[13px] text-[var(--text-strong)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:opacity-50',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  ),
-);
-Select.displayName = 'Select';
+export { Select, type SelectChangeEvent, type SelectOptionItem, type SelectProps } from './select';
+
+export const Textarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => (
+  <textarea
+    ref={ref}
+    className={cn(
+      'min-h-[84px] w-full min-w-0 resize-y rounded-lg border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] px-3 py-2 text-[13px] leading-[1.45] text-[var(--text-strong)] placeholder:text-[var(--text-soft)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:opacity-50',
+      className,
+    )}
+    {...props}
+  />
+));
+Textarea.displayName = 'Textarea';
 
 export const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (

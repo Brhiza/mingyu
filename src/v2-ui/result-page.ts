@@ -1,10 +1,26 @@
-import { calculate, reprompt, type Method } from '../core';
+import { methodLabels, type Method } from '../method-meta';
+import {
+  preloadCalculateEngine,
+  runCalculateInBackground,
+  runRepromptInBackground,
+} from '../workers/calc-runner';
+import {
+  EXTERNAL_AI_JUMP_CHANGED_EVENT,
+  getVisibleExternalAiClients,
+  launchExternalAiClient,
+  loadExternalAiQuickJumpSettings,
+  sharePromptViaSystem,
+} from '../external-ai-share';
 import { NON_CLASSICS_METHODS } from '../method-registry';
-import { methodLabels } from '../schema';
 import { isWebAiEnabled } from '../web-ai';
-import { clearVisualBoard, renderVisualBoard } from '../web-boards';
+import {
+  clearVisualBoard,
+  preloadBoardCommonCss,
+  preloadVisualBoardAssets,
+  renderVisualBoard,
+} from '../web-boards';
+import { createBoardDetailBar, createBoardModalTrigger } from '../web-boards/dom';
 import { clearReportView, extractReportSections, renderReportView } from '../web-report';
-import { mountains, mountainTrigram } from '../systems/compass';
 import { applyGlobalRulesToPayload, loadGlobalRules } from '../web-settings';
 import {
   getSynastryRelationshipOption,
@@ -16,31 +32,27 @@ import {
 } from '../systems/focus-presets';
 import { parseQuestionContext } from '../systems/question-context';
 import {
-  PROMPT_FRAMEWORKS,
   resolveAutoFrameworkForPrompt,
   type FrameworkId,
 } from '../router-model/frameworks';
 import { mergeFrameworkIntoPrompt } from '../prompt-guidance';
 import {
-  analyzeUserQuery,
   formatFrameworkPromptBlock,
   generateChartFollowUps,
-  inspectQuestionQuality,
-} from '../router-model/local-agent';
+  recommendFrameworkForMethod,
+} from '../router-model/chart-assistant';
 import {
   formatCaseSummary,
   type PersonalCase,
 } from './cases-store';
-import { downloadChartShareImage } from './chart-share';
+import { createCustomSelect } from './custom-select';
 import {
-  countSupplementaryTextFields,
   DEFAULT_SUPPLEMENTARY_VALUES,
   formatSupplementaryAppendix,
   openQuestionInspirationModal,
-  openSupplementaryInfoModal,
   type SupplementaryInfoValues,
 } from './inspiration-modals';
-import { distillPromptForAgent, distillPromptForUser } from '../prompt-profile';
+import { distillPromptForBrief, distillPromptForUser } from '../prompt-profile';
 
 import {
   COMPATIBILITY_CHART_TABS,
@@ -55,6 +67,19 @@ import {
   type PersonalChartTabId,
   type SyncYearsPreset,
 } from './chart-payloads';
+import {
+  DEFAULT_HECAN_SYSTEMS,
+  HECAN_SYSTEMS,
+  getAvailableHecanSystems,
+  getHecanSystemAvailability,
+  readSavedHecanSystems,
+  saveHecanSystems,
+  toggleHecanSystem,
+  type HecanComputedEntry,
+  type HecanOmittedEntry,
+  type HecanSystemId,
+  type MultiHecanData,
+} from './multi-hecan-meta';
 
 export {
   COMPATIBILITY_CHART_TABS,
@@ -72,6 +97,18 @@ export {
 
 function supportsClassicalReferences(method: Method): boolean {
   return !NON_CLASSICS_METHODS.has(method);
+}
+
+/** 仅对真正附带传统古籍摘录（而非 1 行来源/牌组声明）的术数开放「含古籍」第三档按钮。 */
+const METHODS_WITHOUT_CLASSICS_TIER = new Set<Method>([
+  'tarot',
+  'lenormand',
+  'ssgw',
+  'zhuge',
+]);
+
+function supportsUiClassicsTier(method: Method): boolean {
+  return supportsClassicalReferences(method) && !METHODS_WITHOUT_CLASSICS_TIER.has(method);
 }
 
 export interface ResultPageContext {
@@ -94,6 +131,7 @@ export interface ResultPageOptions {
   sharedAiPane: HTMLElement | null;
   onBackToForm: (method: Method) => void;
   onOpenSwitchPerson?: () => void;
+  onActiveMethodChange?: (method: Method) => void;
   onActiveResultChange?: (
     method: Method,
     payload: Record<string, unknown>,
@@ -109,6 +147,7 @@ export interface ResultPageOptions {
 
 export interface ResultPageController {
   openWithContext: (ctx: ResultPageContext) => Promise<void>;
+  prepareForTransition: (mode?: 'personal' | 'compatibility' | 'divination', method?: Method) => void;
   refreshForActiveCase: (person: PersonalCase) => Promise<void>;
   setMobileAssistantOpen: (open: boolean) => void;
   isMobileAssistantOpen: () => boolean;
@@ -117,21 +156,61 @@ export interface ResultPageController {
 function createCopyIconSvg(): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '15');
+  svg.setAttribute('height', '15');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
   svg.innerHTML =
     '<rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>';
   return svg;
 }
 
+let resultCssPromise: Promise<unknown> | null = null;
+function ensureResultCssLoaded(): Promise<unknown> {
+  if (typeof document === 'undefined') return Promise.resolve();
+  if (!resultCssPromise) {
+    resultCssPromise = Promise.all([
+      import('../styles/result-workbench.css'),
+      import('../styles/bazi-classics.css'),
+    ]);
+  }
+  return resultCssPromise;
+}
+
+export function preloadResultPageStyles(): void {
+  void ensureResultCssLoaded().catch(() => {});
+}
+
+export function preloadResultWorkspace(
+  method?: Method,
+  opts?: { skipCalculator?: boolean },
+): void {
+  preloadResultPageStyles();
+  if (method) {
+    if (!opts?.skipCalculator) {
+      preloadCalculateEngine(method);
+    }
+    preloadVisualBoardAssets(method);
+  } else {
+    preloadBoardCommonCss();
+  }
+}
+
 /**
  * 创建 100% 对齐 V1 `ResultPage/index.tsx` 与 `DivinationResult.tsx` 的双栏结果页工作台控制器。
  */
 export function createResultPageController(options: ResultPageOptions): ResultPageController {
+  void ensureResultCssLoaded();
   const {
     container,
     sharedAiPane,
     onBackToForm,
     onOpenSwitchPerson,
+    onActiveMethodChange,
     onActiveResultChange,
     onMobileAssistantToggle,
   } = options;
@@ -156,6 +235,27 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     promptOptions?: unknown;
   } | null = null;
 
+  let selectedHecanSystems: HecanSystemId[] = readSavedHecanSystems();
+  const hecanSystemCache = new Map<string, HecanComputedEntry>();
+  let latestHecanComputedMap: Partial<Record<HecanSystemId, HecanComputedEntry>> = {};
+  let latestHecanOmitted: HecanOmittedEntry[] = [];
+  let latestHecanIncludeClassics = includeClassics;
+  let hecanComputing = false;
+
+  function isPersonalHecanMode(method = currentCtx?.activeMethod): boolean {
+    return currentCtx?.mode === 'personal' && method === 'bazi-ziwei';
+  }
+
+  function getHecanDisplayLabel(): string {
+    const names = selectedHecanSystems
+      .map((id) => HECAN_SYSTEMS.find((s) => s.id === id)?.shortLabel)
+      .filter((x): x is string => Boolean(x));
+    if (names.length > 0 && names.length <= 3) {
+      return `${names.join('·')}合参`;
+    }
+    return names.length > 3 ? `多术数合参（${names.length}项）` : '多术数合参';
+  }
+
   const resultCache = new Map<
     string,
     {
@@ -178,23 +278,22 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     return `${p1}${p2}|q:${question ?? ''}|${classicsKey}`;
   }
 
-  // 确保 container 在 .workspace-main.is-result > .workspace-page 内可占满高度，同时不破坏 [hidden]
-  container.style.height = '100%';
-  container.style.minHeight = '0';
-
   let mobileAssistantOpen = false;
-  const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 819;
-  const isPhoneAppViewport = () => typeof window !== 'undefined' && window.innerWidth <= 679;
+  const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth <= 1023;
 
   function syncParentMainClass() {
     const mainEl = container.closest('.workspace-main');
     if (!mainEl) return;
     const isVisible = !container.hidden;
     const isMinglu = currentCtx?.mode !== 'divination' && currentCtx?.activeMethod === 'minglu';
+    const isHecan = isPersonalHecanMode();
     const isAssistantImmersive =
-      isVisible && isMobileViewport() && mobileAssistantOpen && !isMinglu;
+      isVisible && isMobileViewport() && mobileAssistantOpen && !isMinglu && !isHecan;
+    const hasMobileDock = isVisible && isMobileViewport() && !isMinglu && !isHecan;
     mainEl.classList.toggle('is-result', isVisible);
     mainEl.classList.toggle('is-result-assistant', isAssistantImmersive);
+    mainEl.classList.toggle('is-result-ai-stage', isAssistantImmersive && isWebAiEnabled());
+    mainEl.classList.toggle('has-mobile-dock', hasMobileDock);
   }
 
   const visibilityObserver = new MutationObserver(() => {
@@ -211,40 +310,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   let lastHasBoard = false;
   let lastHasReport = false;
-
-  const chartModuleSwitcher = document.createElement('div');
-  chartModuleSwitcher.className = 'v2-chart-module-switcher';
-  chartModuleSwitcher.setAttribute('role', 'tablist');
-  chartModuleSwitcher.setAttribute('aria-label', '八字排盘与个人命录切换');
-
-  const baziTabBtn = document.createElement('button');
-  baziTabBtn.type = 'button';
-  baziTabBtn.role = 'tab';
-  baziTabBtn.className = 'v2-chart-module-pill is-active';
-  baziTabBtn.textContent = '四柱专业排盘';
-  baziTabBtn.addEventListener('click', () => {
-    if (!currentCtx || currentCtx.activeMethod === 'bazi') return;
-    currentCtx.activeMethod = 'bazi';
-    lastTechnicalTab = 'bazi';
-    renderTabsBar();
-    syncLayoutAndMode();
-    void loadAndRenderActiveTab();
-  });
-
-  const mingluSubTabBtn = document.createElement('button');
-  mingluSubTabBtn.type = 'button';
-  mingluSubTabBtn.role = 'tab';
-  mingluSubTabBtn.className = 'v2-chart-module-pill';
-  mingluSubTabBtn.textContent = '个人命录';
-  mingluSubTabBtn.addEventListener('click', () => {
-    if (!currentCtx || currentCtx.activeMethod === 'minglu') return;
-    currentCtx.activeMethod = 'minglu';
-    renderTabsBar();
-    syncLayoutAndMode();
-    void loadAndRenderActiveTab();
-  });
-
-  chartModuleSwitcher.append(baziTabBtn, mingluSubTabBtn);
+  let latestReportContext: { result: unknown; method: Method; question: string } | null = null;
 
   const v2BoardStack = document.createElement('div');
   v2BoardStack.className = 'v2-board-stack-body';
@@ -255,12 +321,14 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   loadingBanner.setAttribute('role', 'status');
   loadingBanner.setAttribute('aria-label', '正在排盘');
 
-  function showLoadingSkeleton(labelText = '正在排盘计算…') {
+  function showLoadingSkeleton(labelText = '正在排盘计算') {
     loadingBanner.className = 'workspace-ui-surface workspace-result-skeleton';
+    loadingBanner.setAttribute('aria-label', labelText);
+    loadingBanner.setAttribute('aria-busy', 'true');
     loadingBanner.innerHTML = `
       <div class="skeleton-head">
         <span class="skeleton-block is-title"></span>
-        <span class="skeleton-label">${labelText}</span>
+        <span class="skeleton-block is-pill"></span>
       </div>
       <div class="skeleton-grid">
         <span class="skeleton-card"></span>
@@ -268,6 +336,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         <span class="skeleton-card"></span>
         <span class="skeleton-card"></span>
       </div>
+      <div class="skeleton-block is-board"></div>
       <div class="skeleton-lines">
         <span class="skeleton-block is-line"></span>
         <span class="skeleton-block is-line is-short"></span>
@@ -295,7 +364,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   reportContainer.className = 'v2-report-section-body';
   reportDetails.append(reportHeading, reportContainer);
 
-  let bazhaiSitMountain = '子';
   let selectedFlowYear: number | null = null;
   let selectedSyncYearsPreset: SyncYearsPreset = 'none';
   const flowCurrentYear = new Date().getFullYear();
@@ -306,28 +374,17 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   function renderFlowYearControls(labelText: string, defaultLabel: string) {
     const wrap = document.createElement('div');
-    wrap.className = 'workspace-ui-inline-field';
+    wrap.className = 'workspace-ui-inline-field is-flow-year-field';
     const labelSpan = document.createElement('span');
     labelSpan.textContent = labelText;
 
-    const select = document.createElement('select');
-    select.className = 'workspace-ui-control is-compact';
-    select.setAttribute('aria-label', '选择推运年份');
-
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = '';
-    defaultOpt.textContent = defaultLabel;
-    if (selectedFlowYear === null) defaultOpt.selected = true;
-    select.appendChild(defaultOpt);
-
     const minY = Math.min(flowCurrentYear - 10, selectedFlowYear ?? flowCurrentYear);
     const maxY = Math.max(flowCurrentYear + 15, selectedFlowYear ?? flowCurrentYear);
+    const flowYearOptions: Array<{ value: string; label: string }> = [
+      { value: '', label: defaultLabel },
+    ];
     for (let y = minY; y <= maxY; y += 1) {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = `${y} 年`;
-      if (selectedFlowYear === y) opt.selected = true;
-      select.appendChild(opt);
+      flowYearOptions.push({ value: String(y), label: `${y} 年` });
     }
 
     const stepYear = (delta: number) => {
@@ -339,22 +396,30 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
     const prevBtn = document.createElement('button');
     prevBtn.type = 'button';
-    prevBtn.className = 'workspace-ui-button is-secondary is-small';
-    prevBtn.textContent = '← 上一年';
+    prevBtn.className = 'workspace-ui-button is-secondary is-small v2-flow-step-btn';
+    prevBtn.setAttribute('aria-label', '上一年');
+    prevBtn.innerHTML = '<span class="v2-flow-step-full">← 上一年</span><span class="v2-flow-step-short" aria-hidden="true">‹</span>';
     prevBtn.addEventListener('click', () => stepYear(-1));
 
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
-    nextBtn.className = 'workspace-ui-button is-secondary is-small';
-    nextBtn.textContent = '下一年 →';
+    nextBtn.className = 'workspace-ui-button is-secondary is-small v2-flow-step-btn';
+    nextBtn.setAttribute('aria-label', '下一年');
+    nextBtn.innerHTML = '<span class="v2-flow-step-full">下一年 →</span><span class="v2-flow-step-short" aria-hidden="true">›</span>';
     nextBtn.addEventListener('click', () => stepYear(1));
 
-    select.addEventListener('change', () => {
-      selectedFlowYear = select.value ? Number(select.value) : null;
-      void loadAndRenderActiveTab();
+    const selectEl = createCustomSelect({
+      ariaLabel: '选择推运年份',
+      variant: 'compact',
+      value: selectedFlowYear === null ? '' : String(selectedFlowYear),
+      options: flowYearOptions,
+      onChange: (val) => {
+        selectedFlowYear = val ? Number(val) : null;
+        void loadAndRenderActiveTab();
+      },
     });
 
-    wrap.append(labelSpan, prevBtn, select, nextBtn);
+    wrap.append(labelSpan, prevBtn, selectEl, nextBtn);
     chartInteractiveBar.appendChild(wrap);
   }
 
@@ -364,14 +429,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       const r = resolveSyncYearsRange(preset, baseYear);
       return r ? `${title}（${r.startYear}–${r.endYear}）` : title;
     };
-    const wrap = document.createElement('label');
+    const wrap = document.createElement('div');
     wrap.className = 'workspace-ui-inline-field';
     const labelSpan = document.createElement('span');
     labelSpan.textContent = method === 'astrolabe-synastry' ? '多年行运同步' : '多年流年同步';
-
-    const select = document.createElement('select');
-    select.className = 'workspace-ui-control is-compact';
-    select.setAttribute('aria-label', '选择多年流年同步范围');
 
     const presets: Array<{ value: SyncYearsPreset; label: string }> = [
       { value: 'none', label: '不开启' },
@@ -380,20 +441,19 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       { value: 'around5', label: fmt('around5', '前后 5 年') },
       { value: 'next10', label: fmt('next10', '未来 10 年') },
     ];
-    for (const p of presets) {
-      const opt = document.createElement('option');
-      opt.value = p.value;
-      opt.textContent = p.label;
-      if (selectedSyncYearsPreset === p.value) opt.selected = true;
-      select.appendChild(opt);
-    }
 
-    select.addEventListener('change', () => {
-      selectedSyncYearsPreset = (select.value || 'none') as SyncYearsPreset;
-      void loadAndRenderActiveTab();
+    const selectEl = createCustomSelect({
+      ariaLabel: '选择多年流年同步范围',
+      variant: 'compact',
+      value: selectedSyncYearsPreset,
+      options: presets,
+      onChange: (val) => {
+        selectedSyncYearsPreset = (val || 'none') as SyncYearsPreset;
+        void loadAndRenderActiveTab();
+      },
     });
 
-    wrap.append(labelSpan, select);
+    wrap.append(labelSpan, selectEl);
     chartInteractiveBar.appendChild(wrap);
   }
 
@@ -448,38 +508,24 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       return;
     }
 
-    if (method === 'bazhai') {
-      const label = document.createElement('label');
-      label.className = 'workspace-ui-inline-field';
-      const titleSpan = document.createElement('span');
-      titleSpan.textContent = '宅屋坐山（二十四山）';
-      const select = document.createElement('select');
-      select.className = 'workspace-ui-control is-compact';
-      select.setAttribute('aria-label', '选择宅屋坐山');
-      for (const m of mountains) {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = `${m}山 · ${mountainTrigram(m)}宅`;
-        if (m === bazhaiSitMountain) opt.selected = true;
-        select.appendChild(opt);
+    if (method === 'bazi-ziwei') {
+      const canHecanFlow =
+        person.timeIndex !== 'unknown' &&
+        !person.reverseSource &&
+        selectedHecanSystems.some(
+          (id) => id === 'bazi' || id === 'ziwei' || id === 'astrolabe' || id === 'qizheng',
+        );
+      if (canHecanFlow) {
+        renderFlowYearControls('流年参考年份', `当前默认（${flowCurrentYear} 年）`);
       }
-      select.addEventListener('change', () => {
-        bazhaiSitMountain = select.value || '子';
-        void loadAndRenderActiveTab();
-      });
-      label.append(titleSpan, select);
-      chartInteractiveBar.appendChild(label);
-      chartInteractiveBar.hidden = false;
+      chartInteractiveBar.hidden = chartInteractiveBar.childElementCount === 0;
       return;
     }
 
     const canSwitchFlow =
       method === 'ziwei' ||
       method === 'astrolabe' ||
-      method === 'qizheng' ||
-      ((method === 'bazi' || method === 'bazi-ziwei') &&
-        person.timeIndex !== 'unknown' &&
-        !person.reverseSource);
+      method === 'qizheng';
 
     if (!canSwitchFlow) {
       chartInteractiveBar.hidden = true;
@@ -494,24 +540,365 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     chartInteractiveBar.hidden = false;
   }
 
-  function applyChartViewMode(method: Method) {
-    const isPersonalMode = currentCtx?.mode === 'personal';
-    const isBaziOrMinglu = isPersonalMode && (method === 'bazi' || method === 'minglu');
-    const isMinglu = method === 'minglu';
+  function renderHecanConfigPanel(person: PersonalCase, data?: MultiHecanData | null) {
+    const availableIds = getAvailableHecanSystems(person);
+    const allAvailableSelected =
+      availableIds.length > 0 && availableIds.every((id) => selectedHecanSystems.includes(id));
 
-    chartModuleSwitcher.hidden = !isBaziOrMinglu;
-    baziTabBtn.classList.toggle('is-active', method === 'bazi');
-    baziTabBtn.setAttribute('aria-selected', String(method === 'bazi'));
-    mingluSubTabBtn.classList.toggle('is-active', isMinglu);
-    mingluSubTabBtn.setAttribute('aria-selected', String(isMinglu));
+    const panel = document.createElement('section');
+    panel.className = 'workspace-ui-surface hecan-config-panel';
+    panel.setAttribute('aria-label', '合参术数选择');
+
+    const head = document.createElement('div');
+    head.className = 'hecan-config-head';
+
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'hecan-config-title-group';
+    const titleEl = document.createElement('h3');
+    titleEl.textContent = '合参术数';
+    const countPill = document.createElement('span');
+    countPill.className = 'hecan-count-pill';
+    const activeSelectedCount = selectedHecanSystems.filter((id) => availableIds.includes(id)).length;
+    countPill.textContent = hecanComputing
+      ? '计算中…'
+      : `已选 ${activeSelectedCount}/${availableIds.length}`;
+    titleGroup.append(titleEl, countPill);
+
+    const headActions = document.createElement('div');
+    headActions.className = 'hecan-config-actions';
+
+    if (!allAvailableSelected && availableIds.length > 0) {
+      const selectAllBtn = document.createElement('button');
+      selectAllBtn.type = 'button';
+      selectAllBtn.className = 'workspace-ui-button is-secondary is-small hecan-select-all-btn';
+      selectAllBtn.textContent = '全选';
+      selectAllBtn.addEventListener('click', () => {
+        selectedHecanSystems = saveHecanSystems(availableIds);
+        syncInteractiveControlsBar('bazi-ziwei');
+        void loadAndRenderActiveTab();
+      });
+      headActions.appendChild(selectAllBtn);
+    } else if (availableIds.length > 2) {
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'workspace-ui-button is-secondary is-small hecan-select-all-btn';
+      resetBtn.textContent = '恢复默认';
+      resetBtn.addEventListener('click', () => {
+        selectedHecanSystems = saveHecanSystems(DEFAULT_HECAN_SYSTEMS);
+        syncInteractiveControlsBar('bazi-ziwei');
+        void loadAndRenderActiveTab();
+      });
+      headActions.appendChild(resetBtn);
+    }
+
+    head.append(titleGroup, headActions);
+    panel.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'hecan-system-grid';
+    grid.setAttribute('role', 'group');
+    grid.setAttribute('aria-label', '选择参与合参的术数');
+
+    for (const sys of HECAN_SYSTEMS) {
+      const avail = getHecanSystemAvailability(person, sys.id);
+      const isSelected = selectedHecanSystems.includes(sys.id);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.setAttribute('role', 'checkbox');
+      chip.setAttribute('aria-checked', String(isSelected && avail.available));
+      chip.className = `hecan-system-chip${isSelected && avail.available ? ' is-selected' : ''}${
+        !avail.available ? ' is-disabled' : ''
+      }`;
+      chip.disabled = !avail.available;
+      if (!avail.available && avail.reason) {
+        chip.title = avail.reason;
+      }
+
+      const checkBox = document.createElement('span');
+      checkBox.className = 'hecan-system-check';
+      checkBox.setAttribute('aria-hidden', 'true');
+      if (isSelected && avail.available) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '11');
+        svg.setAttribute('height', '11');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2.8');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M20 6 9 17l-5-5');
+        svg.appendChild(path);
+        checkBox.appendChild(svg);
+      }
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'hecan-system-label';
+      labelSpan.textContent = sys.label;
+
+      chip.append(checkBox, labelSpan);
+
+      if (!avail.available && avail.reason) {
+        const tag = document.createElement('span');
+        tag.className = 'hecan-system-unavail-tag';
+        tag.textContent = avail.reason;
+        chip.appendChild(tag);
+      } else {
+        chip.addEventListener('click', () => {
+          const next = toggleHecanSystem(selectedHecanSystems, sys.id);
+          if (
+            next.length === selectedHecanSystems.length &&
+            next.every((v, i) => v === selectedHecanSystems[i])
+          ) {
+            return;
+          }
+          selectedHecanSystems = saveHecanSystems(next);
+          syncInteractiveControlsBar('bazi-ziwei');
+          void loadAndRenderActiveTab();
+        });
+      }
+
+      grid.appendChild(chip);
+    }
+
+    panel.appendChild(grid);
+
+    const anchorsList = document.createElement('div');
+    anchorsList.className = 'hecan-anchors-list';
+    const omittedMap = new Map((data?.omitted ?? []).map((item) => [item.id, item.reason]));
+
+    for (const sysId of selectedHecanSystems) {
+      const meta = HECAN_SYSTEMS.find((s) => s.id === sysId);
+      if (!meta) continue;
+      const row = document.createElement('div');
+      const omittedReason = omittedMap.get(sysId);
+      const anchorText = data?.anchors?.[sysId];
+      row.className = `hecan-anchor-row${omittedReason ? ' is-omitted' : ''}`;
+
+      const lbl = document.createElement('span');
+      lbl.className = 'hecan-anchor-label';
+      lbl.textContent = meta.shortLabel;
+
+      const val = document.createElement('span');
+      val.className = 'hecan-anchor-text';
+      if (omittedReason) {
+        val.textContent = omittedReason;
+      } else if (anchorText) {
+        val.textContent = anchorText;
+      } else if (hecanComputing) {
+        val.textContent = '排盘计算中…';
+      } else {
+        val.textContent = '已就绪';
+      }
+
+      row.append(lbl, val);
+      anchorsList.appendChild(row);
+    }
+
+    if (anchorsList.childElementCount > 0) {
+      panel.appendChild(anchorsList);
+    }
+
+    const badgeItems: Array<{ text: string; tone: 'good' | 'warn' | 'neutral' }> = [];
+    if (data?.corroboration) {
+      if (data.corroboration.shaYao.isHarmonized) {
+        badgeItems.push({ text: '煞刃相济', tone: 'good' });
+      }
+      if (data.corroboration.guiRen.isDoubleBlessed) {
+        badgeItems.push({ text: '贵星并见', tone: 'good' });
+      }
+    }
+    if (data?.crossResonance) {
+      if (data.crossResonance.resonances.length > 0) {
+        badgeItems.push({
+          text: `强共振 ${data.crossResonance.resonances.length} 项`,
+          tone: 'good',
+        });
+      }
+      if (data.crossResonance.divergences.length > 0) {
+        badgeItems.push({
+          text: `张力核验 ${data.crossResonance.divergences.length} 项`,
+          tone: 'warn',
+        });
+      }
+    }
+
+    if (badgeItems.length > 0) {
+      const resBar = document.createElement('div');
+      resBar.className = 'hecan-resonance-bar';
+      for (const item of badgeItems) {
+        const badge = document.createElement('span');
+        badge.className = `hecan-resonance-chip is-${item.tone}`;
+        badge.textContent = item.text;
+        resBar.appendChild(badge);
+      }
+      panel.appendChild(resBar);
+    }
+
+    const resCount = (data?.crossResonance?.resonances.length ?? 0) + (data?.crossResonance?.divergences.length ?? 0);
+    const balCount =
+      (data?.corroboration?.crossSystemBalance.resonances.length ?? 0) +
+      (data?.corroboration?.crossSystemBalance.tensions.length ?? 0);
+    if (data?.corroboration || resCount > 0) {
+      const hcBar = createBoardDetailBar([
+        createBoardModalTrigger(
+          '合参共振与互证详析',
+          '跨体系共振、分歧与十维主题对照',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (data?.crossResonance && (data.crossResonance.resonances.length > 0 || data.crossResonance.divergences.length > 0)) {
+              const sec = document.createElement('div');
+              sec.className = 'lr-section';
+              const h4 = document.createElement('h4');
+              h4.className = 'lr-section-title';
+              h4.textContent = `跨盘强共振与分歧核验（${resCount} 项）`;
+              const list = document.createElement('div');
+              list.className = 'wb-computed-list';
+              for (const line of data.crossResonance.resonances) {
+                const card = document.createElement('div');
+                card.className = 'wb-computed-item is-good';
+                const strong = document.createElement('strong');
+                strong.className = 'wb-computed-title';
+                strong.textContent = '强共振信号';
+                const p = document.createElement('p');
+                p.className = 'wb-computed-desc';
+                p.textContent = line;
+                card.append(strong, p);
+                list.append(card);
+              }
+              for (const line of data.crossResonance.divergences) {
+                const card = document.createElement('div');
+                card.className = 'wb-computed-item is-bad';
+                const strong = document.createElement('strong');
+                strong.className = 'wb-computed-title';
+                strong.textContent = '张力核验信号';
+                const p = document.createElement('p');
+                p.className = 'wb-computed-desc';
+                p.textContent = line;
+                card.append(strong, p);
+                list.append(card);
+              }
+              sec.append(h4, list);
+              frag.append(sec);
+            }
+            if (data?.corroboration) {
+              const c = data.corroboration;
+              const sumNote = document.createElement('p');
+              sumNote.className = 'wb-note-box';
+              sumNote.textContent = `煞曜互证：${c.shaYao.judgment}；贵人互证：${c.guiRen.judgment}`;
+              frag.append(sumNote);
+              if (balCount > 0) {
+                const sec = document.createElement('div');
+                sec.className = 'lr-section';
+                const h4 = document.createElement('h4');
+                h4.className = 'lr-section-title';
+                h4.textContent = `八字 × 紫微互证细项（${balCount} 项）`;
+                const list = document.createElement('div');
+                list.className = 'wb-computed-list';
+                for (const item of c.crossSystemBalance.resonances) {
+                  const card = document.createElement('div');
+                  card.className = 'wb-computed-item is-good';
+                  const strong = document.createElement('strong');
+                  strong.className = 'wb-computed-title';
+                  strong.textContent = `同向 · ${item.topic}`;
+                  const p = document.createElement('p');
+                  p.className = 'wb-computed-desc';
+                  p.textContent = `八字：${item.baziSignal} ｜ 紫微：${item.ziweiSignal}`;
+                  card.append(strong, p);
+                  list.append(card);
+                }
+                for (const item of c.crossSystemBalance.tensions) {
+                  const card = document.createElement('div');
+                  card.className = 'wb-computed-item is-bad';
+                  const strong = document.createElement('strong');
+                  strong.className = 'wb-computed-title';
+                  strong.textContent = `张力 · ${item.topic}`;
+                  const p = document.createElement('p');
+                  p.className = 'wb-computed-desc';
+                  p.textContent = `八字：${item.baziSignal} ｜ 紫微：${item.ziweiSignal}`;
+                  card.append(strong, p);
+                  list.append(card);
+                }
+                sec.append(h4, list);
+                frag.append(sec);
+              }
+            }
+            return frag;
+          },
+          resCount + balCount > 0 ? `${resCount + balCount}项` : undefined,
+        ),
+      ]);
+      if (hcBar) panel.appendChild(hcBar);
+    }
+
+    boardContainer.replaceChildren(panel);
+    boardContainer.hidden = false;
+  }
+
+  function attachReportModalTrigger() {
+    for (const stale of Array.from(boardContainer.querySelectorAll<HTMLElement>('[data-report-modal-trigger="1"]'))) {
+      const parentBar = stale.parentElement;
+      stale.remove();
+      if (parentBar?.classList.contains('wb-detail-actions-bar') && parentBar.childElementCount === 0) {
+        parentBar.remove();
+      }
+    }
+    const method = currentCtx?.activeMethod;
+    if (!method || !lastHasBoard || !lastHasReport || method === 'minglu' || isPersonalHecanMode(method)) {
+      return;
+    }
+    const ctx = latestReportContext;
+    if (!ctx) return;
+    const sections = extractReportSections(ctx.result);
+    const btn = createBoardModalTrigger(
+      '详细报告与依据',
+      '详细报告与推演依据',
+      () => {
+        const host = document.createElement('div');
+        host.className = 'wb-modal-report-host';
+        if (latestReportContext) {
+          renderReportView(host, latestReportContext.result, {
+            method: latestReportContext.method,
+            question: latestReportContext.question,
+          });
+        }
+        return host;
+      },
+      sections && sections.length > 0 ? `${sections.length}节` : undefined,
+    );
+    btn.dataset.reportModalTrigger = '1';
+
+    const bars = boardContainer.querySelectorAll<HTMLElement>('.wb-detail-actions-bar');
+    const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined;
+    if (lastBar) {
+      lastBar.append(btn);
+      return;
+    }
+    const bar = createBoardDetailBar([btn]);
+    if (!bar) return;
+    const singleChild =
+      boardContainer.childElementCount === 1 && boardContainer.firstElementChild instanceof HTMLElement
+        ? boardContainer.firstElementChild
+        : undefined;
+    if (singleChild && !singleChild.classList.contains('wb-classics-card')) {
+      singleChild.append(bar);
+    } else {
+      boardContainer.append(bar);
+    }
+  }
+
+  function applyChartViewMode(method: Method) {
+    const isMinglu = method === 'minglu';
+    const isHecan = isPersonalHecanMode(method);
 
     syncInteractiveControlsBar(method);
     boardContainer.hidden = !lastHasBoard;
-    reportDetails.hidden = isMinglu || !lastHasReport;
+    reportDetails.hidden = isMinglu || isHecan || !lastHasReport || lastHasBoard;
   }
 
   v2BoardStack.append(loadingBanner, boardContainer, reportDetails);
-  chartGridSingle.append(chartModuleSwitcher, chartInteractiveBar, v2BoardStack);
+  chartGridSingle.append(chartInteractiveBar, v2BoardStack);
 
   // =========================================================================
   // 3. 共享右侧解读与提示词工作台节点（以解读为主，单一复制按钮，东方素宣卡片设计）
@@ -569,28 +956,23 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     getValue: () => T,
     onChangeVal: (next: T) => void | boolean,
   ): HTMLElement {
-    const wrap = document.createElement('label');
+    const wrap = document.createElement('div');
     wrap.className = 'context-inline-field';
     const span = document.createElement('span');
     span.textContent = labelText;
-    const select = document.createElement('select');
-    select.className = 'context-inline-select';
-    select.setAttribute('aria-label', labelText);
-    for (const opt of options) {
-      const el = document.createElement('option');
-      el.value = opt.value;
-      el.textContent = opt.label;
-      select.appendChild(el);
-    }
-    select.value = getValue();
-    select.addEventListener('change', () => {
-      const shouldRegenerate = onChangeVal(select.value as T);
-      syncSupplementaryBtnLabel();
-      if (shouldRegenerate !== false) {
-        void regeneratePromptForQuestion();
-      }
+    const selectEl = createCustomSelect({
+      ariaLabel: labelText,
+      variant: 'inline',
+      value: getValue(),
+      options,
+      onChange: (next) => {
+        const shouldRegenerate = onChangeVal(next as T);
+        if (shouldRegenerate !== false) {
+          void regeneratePromptForQuestion();
+        }
+      },
     });
-    wrap.append(span, select);
+    wrap.append(span, selectEl);
     return wrap;
   }
 
@@ -641,7 +1023,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
           if (supplementary.gender === opt.val) return;
           supplementary = { ...supplementary, gender: opt.val };
           syncContextExtractBar();
-          syncSupplementaryBtnLabel();
           void regeneratePromptForQuestion();
         });
         genderSeg.appendChild(btn);
@@ -670,7 +1051,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
           if (clean.length === 0 || clean.length === 4) {
             lastSyncedYear = clean;
             supplementary = { ...supplementary, birthYear: clean };
-            syncSupplementaryBtnLabel();
             void regeneratePromptForQuestion();
           }
         };
@@ -803,67 +1183,35 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     });
   });
 
-  const supplementaryBtn = document.createElement('button');
-  supplementaryBtn.type = 'button';
-  supplementaryBtn.className =
-    'workspace-ui-button is-secondary is-small workspace-supplementary-trigger';
-  function syncSupplementaryBtnLabel() {
-    const cnt = countSupplementaryTextFields(supplementary);
-    supplementaryBtn.textContent = cnt > 0 ? `详细背景 · ${cnt}项` : '＋ 详细背景';
-    supplementaryBtn.classList.toggle('is-active', cnt > 0);
-  }
-  syncSupplementaryBtnLabel();
-  supplementaryBtn.addEventListener('click', () => {
-    openSupplementaryInfoModal({
-      values: { ...supplementary },
-      description: '选填，留空不写入',
-      onSave: (next) => {
-        supplementary = {
-          ...supplementary,
-          ...next,
-        };
-        syncSupplementaryBtnLabel();
-        void regeneratePromptForQuestion();
-      },
-    });
-  });
-
-  const classicsToggleLabel = document.createElement('label');
-  classicsToggleLabel.className = 'workspace-ui-checkbox';
-  const classicsCheckbox = document.createElement('input');
-  classicsCheckbox.type = 'checkbox';
-  classicsCheckbox.checked = includeClassics;
-  const classicsText = document.createElement('span');
-  classicsText.textContent = '附经典依据';
-  classicsToggleLabel.append(classicsCheckbox, classicsText);
-
-  function handleClassicsToggle(nextChecked: boolean) {
-    includeClassics = nextChecked;
-    classicsCheckbox.checked = nextChecked;
-    void regeneratePromptForQuestion();
-  }
-
-  classicsCheckbox.addEventListener('change', () => {
-    handleClassicsToggle(classicsCheckbox.checked);
-  });
-
-  composerToolbar.append(inspirationBtn, supplementaryBtn, classicsToggleLabel);
+  composerToolbar.append(inspirationBtn);
 
   // 提示词复制辅助函数（全页唯一复制按钮）
   async function copyActivePrompt(triggerBtn?: HTMLButtonElement, labelEl?: HTMLElement) {
     const text =
       latestResult?.prompt?.text ??
       deliveryPreviewPre.textContent ??
-      promptWorkbenchPre.textContent ??
       '';
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('mingyu:toast', {
+            detail: {
+              id: `copy-${Date.now()}`,
+              message: '已复制提示词',
+              tone: 'success',
+              durationMs: 2000,
+            },
+          }),
+        );
+      }
       if (labelEl) {
+        const origLabel = labelEl.dataset.defaultText || '复制提示词';
         labelEl.textContent = '✓ 已复制';
         triggerBtn?.classList.add('is-copied');
         setTimeout(() => {
-          labelEl.textContent = '复制提示词';
+          labelEl.textContent = origLabel;
           triggerBtn?.classList.remove('is-copied');
         }, 2000);
       } else if (triggerBtn) {
@@ -885,6 +1233,101 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   deliveryCopyBtn.addEventListener('click', () =>
     copyActivePrompt(deliveryCopyBtn, deliveryCopyBtnText),
   );
+
+  // 快捷唤起外部 AI（豆包 / DeepSeek / 系统分享）
+  function createShareActionIcon(kind: 'send' | 'share'): SVGSVGElement {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    if (kind === 'send') {
+      const p1 = document.createElementNS(svgNS, 'path');
+      p1.setAttribute('d', 'm22 2-7 20-4-9-9-4Z');
+      const p2 = document.createElementNS(svgNS, 'path');
+      p2.setAttribute('d', 'M22 2 11 13');
+      svg.append(p1, p2);
+    } else {
+      const c1 = document.createElementNS(svgNS, 'circle');
+      c1.setAttribute('cx', '18');
+      c1.setAttribute('cy', '5');
+      c1.setAttribute('r', '3');
+      const c2 = document.createElementNS(svgNS, 'circle');
+      c2.setAttribute('cx', '6');
+      c2.setAttribute('cy', '12');
+      c2.setAttribute('r', '3');
+      const c3 = document.createElementNS(svgNS, 'circle');
+      c3.setAttribute('cx', '18');
+      c3.setAttribute('cy', '19');
+      c3.setAttribute('r', '3');
+      const l1 = document.createElementNS(svgNS, 'line');
+      l1.setAttribute('x1', '8.59');
+      l1.setAttribute('y1', '13.51');
+      l1.setAttribute('x2', '15.42');
+      l1.setAttribute('y2', '17.49');
+      const l2 = document.createElementNS(svgNS, 'line');
+      l2.setAttribute('x1', '15.41');
+      l2.setAttribute('y1', '6.51');
+      l2.setAttribute('x2', '8.59');
+      l2.setAttribute('y2', '10.49');
+      svg.append(c1, c2, c3, l1, l2);
+    }
+    return svg;
+  }
+
+  const externalShareBar = document.createElement('div');
+  externalShareBar.className = 'workspace-external-share-bar';
+  const resolveShareText = () =>
+    (latestResult?.prompt?.text ?? deliveryPreviewPre.textContent ?? '').trim();
+
+  function renderExternalShareButtons() {
+    externalShareBar.replaceChildren();
+    const settings = loadExternalAiQuickJumpSettings();
+    if (!settings.enabled) {
+      externalShareBar.hidden = true;
+      return;
+    }
+    const visibleClients = getVisibleExternalAiClients(settings);
+    for (const client of visibleClients) {
+      const shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.className = 'workspace-ui-button is-secondary is-small';
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = client.label;
+      shareBtn.append(createShareActionIcon('send'), labelSpan);
+      shareBtn.addEventListener('click', async () => {
+        const text = resolveShareText();
+        if (!text) return;
+        const { copied } = await launchExternalAiClient(client, text);
+        if (copied) {
+          labelSpan.textContent = '已复制';
+          setTimeout(() => {
+            labelSpan.textContent = client.label;
+          }, 1800);
+        }
+      });
+      externalShareBar.appendChild(shareBtn);
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      const nativeShareBtn = document.createElement('button');
+      nativeShareBtn.type = 'button';
+      nativeShareBtn.className = 'workspace-ui-button is-secondary is-small';
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = '分享';
+      nativeShareBtn.append(createShareActionIcon('share'), labelSpan);
+      nativeShareBtn.addEventListener('click', async () => {
+        const text = resolveShareText();
+        if (!text) return;
+        await sharePromptViaSystem(text);
+      });
+      externalShareBar.appendChild(nativeShareBtn);
+    }
+    externalShareBar.hidden = externalShareBar.childElementCount === 0;
+  }
+
+  renderExternalShareButtons();
+  if (typeof window !== 'undefined') {
+    window.addEventListener(EXTERNAL_AI_JUMP_CHANGED_EVENT, renderExternalShareButtons);
+  }
 
   // Quick Focus Presets（按板块与断事场景动态切换，AI 解读与提示词共用）
   let activeFocusPresets: ReadonlyArray<QuickFocusPreset> = resolveFocusPresetsForContext('personal', 'bazi');
@@ -991,9 +1434,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   });
   questionFieldLabel.append(questionFieldTitle, questionTextarea);
 
-  let selectedFrameworkId: FrameworkId | 'auto' | 'none' = 'auto';
-  let latestBasePromptText = '';
-
   function parseCaseYear(raw: string | number | undefined): number | undefined {
     if (raw === undefined) return undefined;
     const n = Number(raw);
@@ -1001,20 +1441,18 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   }
 
   function resolveEffectiveFrameworkId(method: Method): FrameworkId | null {
-    if (selectedFrameworkId === 'none') return null;
-    if (selectedFrameworkId !== 'auto') return selectedFrameworkId;
     const activeQ = questionDraft || currentCtx?.question || '';
-    const analysis = analyzeUserQuery(activeQ, {
-      method,
-      referenceYear: flowCurrentYear,
-      birthYear: parseCaseYear(currentCtx?.person?.year),
-      partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
-    });
-    return resolveAutoFrameworkForPrompt(method, activeQ, analysis.recommendedFramework.id);
+    const recommendedId = recommendFrameworkForMethod(activeQ, method);
+    const resolved = resolveAutoFrameworkForPrompt(method, activeQ, recommendedId);
+    if (isPersonalHecanMode(method) && resolved === 'natal-panorama') {
+      return null;
+    }
+    return resolved;
   }
 
   function applyLocalFrameworkToPrompt(rawPromptText: string, method: Method): string {
     if (!rawPromptText.trim()) return rawPromptText;
+    if (promptDensityTier === 'brief') return rawPromptText;
     const fwId = resolveEffectiveFrameworkId(method);
     if (!fwId) return rawPromptText;
     if (rawPromptText.includes('【指定解读框架：')) return rawPromptText;
@@ -1022,109 +1460,14 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     return block ? mergeFrameworkIntoPrompt(rawPromptText, block) : rawPromptText;
   }
 
-  const localAgentBar = document.createElement('div');
-  localAgentBar.className = 'workspace-local-agent-bar';
-
-  const frameworkRow = document.createElement('label');
-  frameworkRow.className = 'workspace-local-agent-framework-row';
-  const frameworkLabel = document.createElement('span');
-  frameworkLabel.textContent = '解读框架';
-  const frameworkSelect = document.createElement('select');
-  frameworkSelect.className = 'workspace-ui-control is-compact';
-  frameworkSelect.setAttribute('aria-label', '选择本地推荐解读框架');
-  const autoFwOpt = document.createElement('option');
-  autoFwOpt.value = 'auto';
-  autoFwOpt.textContent = '自动匹配最佳框架';
-  const noneFwOpt = document.createElement('option');
-  noneFwOpt.value = 'none';
-  noneFwOpt.textContent = '不附加结构框架';
-  frameworkSelect.append(autoFwOpt, noneFwOpt);
-  for (const fw of Object.values(PROMPT_FRAMEWORKS)) {
-    const opt = document.createElement('option');
-    opt.value = fw.id;
-    opt.textContent = fw.name;
-    frameworkSelect.appendChild(opt);
-  }
-  frameworkRow.append(frameworkLabel, frameworkSelect);
-
-  const qualityHintBox = document.createElement('div');
-  qualityHintBox.className = 'workspace-local-agent-quality';
-  qualityHintBox.hidden = true;
-
-  const followUpsBox = document.createElement('div');
-  followUpsBox.className = 'workspace-local-agent-followups';
-  followUpsBox.hidden = true;
-
-  localAgentBar.append(frameworkRow, qualityHintBox, followUpsBox);
-
-  function refreshLocalAgentQualityAndFramework() {
-    const method = currentCtx?.activeMethod ?? 'bazi';
-    const activeQ = questionDraft || currentCtx?.question || '';
-    const rawAutoId = analyzeUserQuery(activeQ, {
-      method,
-      referenceYear: flowCurrentYear,
-      birthYear: parseCaseYear(currentCtx?.person?.year),
-      partnerBirthYear: parseCaseYear(currentCtx?.partner?.year),
-    }).recommendedFramework.id;
-    const autoId = resolveAutoFrameworkForPrompt(method, activeQ, rawAutoId);
-    const autoName = autoId ? (PROMPT_FRAMEWORKS[autoId]?.name ?? '综合框架') : '精准聚焦（免冗余框架）';
-    autoFwOpt.textContent = `自动匹配（${autoName}）`;
-    frameworkSelect.value = selectedFrameworkId;
-
-    const quality = inspectQuestionQuality(questionDraft, {
-      mode: currentCtx?.mode ?? 'personal',
-      relationship: compatRelationship,
-      hasLifeStage: Boolean(supplementary.lifeStageContext),
-      hasTimeHorizon: Boolean(supplementary.timeHorizon),
-    });
-    qualityHintBox.replaceChildren();
-    if (quality.quickFixes.length === 0) {
-      qualityHintBox.hidden = true;
-      return;
-    }
-    const hintEl = document.createElement('div');
-    hintEl.className = 'workspace-local-agent-hint';
-    hintEl.textContent = '追加内容';
-    qualityHintBox.appendChild(hintEl);
-    const pills = document.createElement('div');
-    pills.className = 'workspace-prompt-focus-pills';
-    for (const fix of quality.quickFixes) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'workspace-prompt-focus-pill';
-      btn.textContent = fix.label;
-      btn.addEventListener('click', () => {
-        const cur = questionDraft.trim();
-        questionDraft = cur ? `${cur}；${fix.appendText}` : fix.appendText;
-        questionTextarea.value = questionDraft;
-        if (fix.patch?.lifeStageContext) {
-          supplementary = { ...supplementary, lifeStageContext: fix.patch.lifeStageContext };
-        }
-        if (fix.patch?.timeHorizon) {
-          supplementary = { ...supplementary, timeHorizon: fix.patch.timeHorizon };
-        }
-        syncSupplementaryBtnLabel();
-        syncContextExtractBar();
-        refreshLocalAgentQualityAndFramework();
-        void applyCustomQuestionFromInput();
-      });
-      pills.appendChild(btn);
-    }
-    qualityHintBox.appendChild(pills);
-    qualityHintBox.hidden = false;
-  }
-
   function refreshLocalAgentFollowUps(
     method: Method,
     result: { data?: unknown; summary?: unknown } | null,
   ) {
-    followUpsBox.replaceChildren();
-    followUpsBox.hidden = true;
     const suggestions = generateChartFollowUps(method, result, {
       relationship: compatRelationship,
       currentYear: flowCurrentYear,
     });
-    // 本地模式不展示「推荐追问」（仅保留上方「追加内容」补全提示词）；
     // 追问胶囊仅透传给在线 AI 解读面板，在首轮 AI 解读完成后展示。
     latestFollowUps = isWebAiEnabled()
       ? suggestions.map((item) => ({
@@ -1135,37 +1478,17 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       : [];
   }
 
-  frameworkSelect.addEventListener('change', () => {
-    selectedFrameworkId = (frameworkSelect.value || 'auto') as FrameworkId | 'auto' | 'none';
-    const method = currentCtx?.activeMethod ?? 'bazi';
-    if (latestBasePromptText) {
-      const nextText = applyLocalFrameworkToPrompt(latestBasePromptText, method);
-      promptWorkbenchPre.textContent = nextText;
-      deliveryPreviewPre.textContent = nextText;
-      syncPromptPreviewMeta(nextText);
-      if (latestResult) {
-        latestResult = { ...latestResult, prompt: { text: nextText } };
-        onActiveResultChange?.(method, latestPayload, latestResult);
-      }
-    }
-  });
-
-  questionTextarea.addEventListener('input', () => {
-    refreshLocalAgentQualityAndFramework();
-  });
-
   async function applyCustomQuestionFromInput() {
     const trimmed = questionDraft.trim();
     lastAppliedQuestion = trimmed;
     divinationCurrentQuestionStrong.textContent =
       trimmed || (methodLabels[currentCtx?.activeMethod ?? 'bazi'] ?? '综合排盘分析');
-    refreshLocalAgentQualityAndFramework();
     await regeneratePromptForQuestion();
   }
 
   const questionComposerBox = document.createElement('div');
   questionComposerBox.className = 'workspace-question-composer-box';
-  questionComposerBox.append(divinationCurrentQuestion, questionFieldLabel, localAgentBar);
+  questionComposerBox.append(divinationCurrentQuestion, questionFieldLabel);
 
   // 3A. 提示词模式面板
   const promptDeliverySection = document.createElement('section');
@@ -1198,7 +1521,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   const promptTierPills = document.createElement('div');
   promptTierPills.className = 'workspace-prompt-focus-pills';
   const PROMPT_TIER_ITEMS: ReadonlyArray<{ id: PromptDensityTier; label: string; hint: string }> = [
-    { id: 'brief', label: '精简', hint: '压缩次要细节，约省 35% token' },
+    { id: 'brief', label: '精简', hint: '仅保留核心盘面事实，约省 45%~60% 字数' },
     { id: 'standard', label: '标准', hint: '平衡完整盘面与字数' },
     { id: 'deep', label: '含古籍', hint: '附带经典古籍原文依据' },
   ];
@@ -1218,18 +1541,23 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   function formatPromptForTier(rawText: string, tier: PromptDensityTier): string {
     if (!rawText) return '';
-    if (tier === 'brief') return distillPromptForAgent(rawText);
+    if (tier === 'brief') return distillPromptForBrief(rawText);
     return distillPromptForUser(rawText, { includeClassics: tier === 'deep' });
   }
 
   function syncPromptTierButtons() {
-    const hasClassics = supportsClassicalReferences(currentCtx?.activeMethod ?? 'bazi');
+    const hasClassics = supportsUiClassicsTier(currentCtx?.activeMethod ?? 'bazi');
+    if (!hasClassics && promptDensityTier === 'deep') {
+      promptDensityTier = 'standard';
+    }
     for (const [id, btn] of promptTierBtns.entries()) {
-      btn.classList.toggle('is-active', promptDensityTier === id);
-      btn.setAttribute('aria-pressed', promptDensityTier === id ? 'true' : 'false');
       if (id === 'deep') {
-        btn.textContent = hasClassics ? '含古籍' : '全量';
+        btn.hidden = !hasClassics;
+        btn.textContent = '含古籍';
       }
+      const isActive = promptDensityTier === id;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     }
   }
 
@@ -1242,25 +1570,21 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     btn.addEventListener('click', () => {
       if (promptDensityTier === item.id) return;
       const method = currentCtx?.activeMethod ?? 'bazi';
-      const hasClassics = supportsClassicalReferences(method);
+      const hasClassics = supportsUiClassicsTier(method);
       const wantClassics = item.id === 'deep' && hasClassics;
       promptDensityTier = item.id;
       syncPromptTierButtons();
       if (wantClassics && !includeClassics) {
         includeClassics = true;
-        classicsCheckbox.checked = true;
         void regeneratePromptForQuestion();
         return;
       }
       if (!wantClassics && includeClassics && item.id !== 'deep') {
         includeClassics = false;
-        classicsCheckbox.checked = false;
       }
       if (latestRawPromptText) {
         const base = formatPromptForTier(latestRawPromptText, promptDensityTier);
-        latestBasePromptText = base;
         const nextText = applyLocalFrameworkToPrompt(base, method);
-        promptWorkbenchPre.textContent = nextText;
         deliveryPreviewPre.textContent = nextText;
         syncPromptPreviewMeta(nextText);
         if (latestResult) {
@@ -1331,16 +1655,8 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     deliveryPreviewDetails,
   );
 
-  // 保留隐藏的旧引用节点以兼容内部状态更新
   const promptWorkbenchLayout = document.createElement('div');
   promptWorkbenchLayout.className = 'workspace-prompt-layout is-workbench';
-  const promptWorkbenchPreview = document.createElement('div');
-  promptWorkbenchPreview.className = 'workspace-prompt-workbench-preview';
-  promptWorkbenchPreview.hidden = true;
-  const promptWorkbenchPre = document.createElement('pre');
-  const workbenchCopyBtn = document.createElement('button');
-  workbenchCopyBtn.type = 'button';
-
   promptWorkbenchLayout.append(promptDeliverySection);
 
   // 3C. AI 在线解读单一工作台（启用 AI 时展示：以解读为主，复制提示词顺带放置于顶栏）
@@ -1411,41 +1727,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   chartTabsHost.className = 'workspace-ui-tabs';
   chartTabsHost.setAttribute('aria-label', '结果内容');
 
-  let lastTechnicalTab: PersonalChartTabId = 'bazi';
-
-  const mingluDossierBtn = document.createElement('button');
-  mingluDossierBtn.type = 'button';
-  mingluDossierBtn.className = 'workspace-result-minglu-btn';
-  mingluDossierBtn.hidden = true;
-  mingluDossierBtn.addEventListener('click', () => {
-    if (!currentCtx || currentCtx.mode !== 'personal') return;
-    if (currentCtx.activeMethod === 'minglu') {
-      currentCtx.activeMethod = lastTechnicalTab;
-    } else {
-      if (isPersonalChartMethod(currentCtx.activeMethod)) {
-        lastTechnicalTab = currentCtx.activeMethod;
-      }
-      currentCtx.activeMethod = 'minglu';
-    }
-    renderTabsBar();
-    syncLayoutAndMode();
-    void loadAndRenderActiveTab();
-  });
-
-  const returnToChartBtn = document.createElement('button');
-  returnToChartBtn.type = 'button';
-  returnToChartBtn.className =
-    'workspace-ui-button is-secondary is-small workspace-result-return-chart-btn';
-  returnToChartBtn.textContent = '返回专业盘面';
-  returnToChartBtn.hidden = true;
-  returnToChartBtn.addEventListener('click', () => {
-    if (!currentCtx || currentCtx.mode !== 'personal') return;
-    currentCtx.activeMethod = lastTechnicalTab;
-    renderTabsBar();
-    syncLayoutAndMode();
-    void loadAndRenderActiveTab();
-  });
-
   const personSummaryBadge = document.createElement('button');
   personSummaryBadge.type = 'button';
   personSummaryBadge.className = 'workspace-result-person-badge';
@@ -1473,73 +1754,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     }
   });
 
-  async function handleExportShareImage(triggerBtn: HTMLButtonElement, redactPrivacy = false) {
-    if (!currentCtx || !latestResult) return;
-    const prevText = triggerBtn.textContent;
-    triggerBtn.disabled = true;
-    triggerBtn.textContent = '生成中…';
-    try {
-      const method = currentCtx.activeMethod;
-      const summaryObj =
-        latestResult.summary && typeof latestResult.summary === 'object'
-          ? (latestResult.summary as { title?: string; lines?: unknown[] })
-          : undefined;
-      const lines = Array.isArray(summaryObj?.lines)
-        ? summaryObj.lines.filter((line): line is string => typeof line === 'string' && line.trim().length > 0)
-        : [];
-      const cleanMethodLabel = (methodLabels[method] ?? method)
-        .replace(/（(?:基础)?预览）/g, '')
-        .replace('住宅风水', '阳宅风水');
-      const title =
-        currentCtx.person?.name?.trim() ||
-        summaryObj?.title?.trim() ||
-        cleanMethodLabel;
-      const personRecord = currentCtx.person;
-      const partnerRecord = currentCtx.partner;
-      const subtitle =
-        personRecord && partnerRecord
-          ? `${personRecord.name || '命主一'} & ${partnerRecord.name || '命主二'}`
-          : personRecord
-            ? formatCaseSummary(personRecord)
-            : undefined;
-      await downloadChartShareImage({
-        title,
-        subtitle,
-        methodLabel: cleanMethodLabel,
-        question:
-          questionDraft.trim() ||
-          (typeof latestPayload.question === 'string' ? latestPayload.question.trim() : undefined),
-        tags: [
-          selectedFlowYear ? `${selectedFlowYear} 流年` : '',
-          method === 'bazhai' ? `${bazhaiSitMountain}山${mountainTrigram(bazhaiSitMountain)}宅` : '',
-        ].filter(Boolean),
-        lines: lines.length ? lines : ['排盘结果已在右侧面板生成，欢迎结合提示词深入解读。'],
-        excerptText: latestResult.prompt?.text,
-        redactPrivacy,
-      });
-    } finally {
-      triggerBtn.disabled = false;
-      triggerBtn.textContent = prevText || (redactPrivacy ? '脱敏长图' : '导出长图');
-    }
-  }
-
-  const chartShareBtn = document.createElement('button');
-  chartShareBtn.type = 'button';
-  chartShareBtn.className = 'workspace-ui-button is-secondary is-small workspace-result-share-btn';
-  chartShareBtn.textContent = '导出长图';
-  chartShareBtn.addEventListener('click', () => {
-    void handleExportShareImage(chartShareBtn, false);
-  });
-
-  const chartRedactedShareBtn = document.createElement('button');
-  chartRedactedShareBtn.type = 'button';
-  chartRedactedShareBtn.className = 'workspace-ui-button is-ghost is-small workspace-result-share-redacted-btn';
-  chartRedactedShareBtn.textContent = '脱敏长图';
-  chartRedactedShareBtn.title = '隐藏真实生辰、姓名和出生地点后导出长图，方便安全分享';
-  chartRedactedShareBtn.addEventListener('click', () => {
-    void handleExportShareImage(chartRedactedShareBtn, true);
-  });
-
   const chartBackBtn = document.createElement('button');
   chartBackBtn.type = 'button';
   chartBackBtn.className = 'workspace-ui-button is-ghost is-small workspace-result-back-btn';
@@ -1551,12 +1765,8 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   const chartNavActions = document.createElement('div');
   chartNavActions.className = 'workspace-result-nav-actions';
   chartNavActions.append(
-    mingluDossierBtn,
-    returnToChartBtn,
     personSummaryBadge,
     switchCaseBtn,
-    chartShareBtn,
-    chartRedactedShareBtn,
     chartBackBtn,
   );
 
@@ -1612,13 +1822,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   const divinationHeadActions = document.createElement('div');
   divinationHeadActions.className = 'divination-result-actions';
-  const divinationShareBtn = document.createElement('button');
-  divinationShareBtn.type = 'button';
-  divinationShareBtn.className = 'workspace-ui-button is-ghost is-small';
-  divinationShareBtn.textContent = '导出长图';
-  divinationShareBtn.addEventListener('click', () => {
-    void handleExportShareImage(divinationShareBtn);
-  });
   const divinationRestartBtn = document.createElement('button');
   divinationRestartBtn.type = 'button';
   divinationRestartBtn.className = 'workspace-ui-button is-secondary is-small';
@@ -1626,7 +1829,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   divinationRestartBtn.addEventListener('click', () => {
     onBackToForm(currentCtx?.activeMethod ?? 'liuyao');
   });
-  divinationHeadActions.append(divinationShareBtn, divinationRestartBtn);
+  divinationHeadActions.append(divinationRestartBtn);
   divinationPanelHead.append(divinationPanelTitle, divinationHeadActions);
 
   const divinationBoardBodySlot = document.createElement('div');
@@ -1656,6 +1859,47 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     setMobileAssistantOpen(true);
   });
 
+  // 手机端结果页专属底部快捷操作栏（替代原主导航栏与悬浮按钮：左切盘面/提示词，右一键复制提示词）
+  const mobileResultDock = document.createElement('div');
+  mobileResultDock.className = 'workspace-result-mobile-dock';
+  mobileResultDock.hidden = true;
+
+  const dockSeg = document.createElement('div');
+  dockSeg.className = 'workspace-result-mobile-dock-seg';
+  dockSeg.setAttribute('role', 'tablist');
+  dockSeg.setAttribute('aria-label', '盘面与提示词切换');
+
+  const dockBoardBtn = document.createElement('button');
+  dockBoardBtn.type = 'button';
+  dockBoardBtn.role = 'tab';
+  dockBoardBtn.className = 'workspace-result-mobile-dock-tab is-active';
+  dockBoardBtn.textContent = '盘面';
+  dockBoardBtn.setAttribute('aria-selected', 'true');
+  dockBoardBtn.addEventListener('click', () => setMobileAssistantOpen(false));
+
+  const dockPromptBtn = document.createElement('button');
+  dockPromptBtn.type = 'button';
+  dockPromptBtn.role = 'tab';
+  dockPromptBtn.className = 'workspace-result-mobile-dock-tab';
+  dockPromptBtn.textContent = '提示词';
+  dockPromptBtn.setAttribute('aria-selected', 'false');
+  dockPromptBtn.addEventListener('click', () => setMobileAssistantOpen(true));
+
+  dockSeg.append(dockBoardBtn, dockPromptBtn);
+
+  const dockCopyBtn = document.createElement('button');
+  dockCopyBtn.type = 'button';
+  dockCopyBtn.className = 'workspace-result-mobile-dock-copy';
+  const dockCopyLabel = document.createElement('span');
+  dockCopyLabel.dataset.defaultText = '复制提示词';
+  dockCopyLabel.textContent = '复制提示词';
+  dockCopyBtn.append(createCopyIconSvg(), dockCopyLabel);
+  dockCopyBtn.addEventListener('click', () => {
+    void copyActivePrompt(dockCopyBtn, dockCopyLabel);
+  });
+
+  mobileResultDock.append(dockSeg, dockCopyBtn);
+
   const foldableAssistantBackBar = document.createElement('div');
   foldableAssistantBackBar.className = 'foldable-assistant-back-bar';
   foldableAssistantBackBar.hidden = true;
@@ -1668,7 +1912,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   });
   foldableAssistantBackBar.appendChild(foldableAssistantBackBtn);
 
-  container.replaceChildren(chartShell, divinationPageWrap, mobileAiFabBtn);
+  container.replaceChildren(chartShell, divinationPageWrap, mobileAiFabBtn, mobileResultDock);
 
   // =========================================================================
   // 6. 布局、模式与共享组件挂载同步
@@ -1676,24 +1920,26 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   function syncLayoutAndMode() {
     const isDivination = currentCtx?.mode === 'divination';
     const activeMethod = currentCtx?.activeMethod ?? 'bazi';
-    const hasClassicsOption = supportsClassicalReferences(activeMethod);
     const mobileMode = isMobileViewport();
-    const phoneMode = isPhoneAppViewport();
+    const phoneMode = mobileMode && window.innerWidth <= 679;
     const isAi = isWebAiEnabled();
     const isMinglu = !isDivination && currentCtx?.activeMethod === 'minglu';
-    const showAssistantOnlyMobile = mobileMode && mobileAssistantOpen && !isMinglu;
-    foldableAssistantBackBar.hidden = !(showAssistantOnlyMobile && !phoneMode);
+    const isHecan = isPersonalHecanMode(activeMethod);
+    const showAssistantOnlyMobile = mobileMode && mobileAssistantOpen && !isMinglu && !isHecan;
+    foldableAssistantBackBar.hidden = true;
 
-    classicsToggleLabel.hidden = !hasClassicsOption;
-    composerToolbar.classList.toggle('is-single', !hasClassicsOption);
     syncContextExtractBar();
 
     // 单一「复制提示词」按钮与共享编辑组件按当前模式无缝挂载，无需切换子页
+    externalShareBar.classList.toggle('is-inline', isAi);
     if (isAi) {
       deliveryCopyBtn.className =
         'workspace-ui-button is-secondary is-small workspace-assistant-copy-btn';
       if (!aiHeaderCopyHost.contains(deliveryCopyBtn)) {
         aiHeaderCopyHost.appendChild(deliveryCopyBtn);
+      }
+      if (!aiHeaderCopyHost.contains(externalShareBar)) {
+        aiHeaderCopyHost.appendChild(externalShareBar);
       }
       if (!composerToolbarHostAi.contains(composerToolbar)) {
         composerToolbarHostAi.appendChild(composerToolbar);
@@ -1709,6 +1955,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         'workspace-ui-button is-primary is-medium workspace-prompt-delivery-button is-hero-copy';
       if (!promptHeroCopyHost.contains(deliveryCopyBtn)) {
         promptHeroCopyHost.appendChild(deliveryCopyBtn);
+      }
+      if (!promptHeroCopyHost.contains(externalShareBar)) {
+        promptHeroCopyHost.appendChild(externalShareBar);
       }
       if (!composerToolbarHostPrompt.contains(composerToolbar)) {
         composerToolbarHostPrompt.appendChild(composerToolbar);
@@ -1744,16 +1993,16 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       }
 
       promptDeliverySection.hidden = false;
-      promptWorkbenchPreview.hidden = true;
       promptWorkbenchLayout.hidden = isAi;
       aiAnswerWorkbench.hidden = !isAi;
 
       chartShell.classList.toggle('is-mobile-ai-immersive', showAssistantOnlyMobile && isAi);
       chartNavBar.hidden = showAssistantOnlyMobile;
       chartStage.className = showAssistantOnlyMobile
-        ? 'result-tab-stage workspace-result-split workspace-result-assistant-stage'
+        ? `result-tab-stage workspace-result-split workspace-result-assistant-stage ${isAi ? 'is-ai-stage' : 'is-prompt-stage'}`
         : 'result-tab-stage workspace-result-split';
       chartStage.classList.toggle('is-minglu-stage', Boolean(isMinglu));
+      chartStage.classList.toggle('is-hecan-stage', Boolean(isHecan));
 
       chartLeftPane.className = showAssistantOnlyMobile
         ? 'result-tab-pane workspace-result-chart-pane is-inactive'
@@ -1764,7 +2013,11 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       if (!chartRightPane.contains(foldableAssistantBackBar)) {
         chartRightPane.prepend(foldableAssistantBackBar);
       }
-      const rightInactiveOnMobile = mobileMode ? !showAssistantOnlyMobile || Boolean(isMinglu) : false;
+      const rightInactiveOnMobile = isHecan
+        ? false
+        : mobileMode
+          ? !showAssistantOnlyMobile || Boolean(isMinglu)
+          : false;
       chartRightPane.className = `result-tab-pane workspace-result-assistant-pane ${
         isAi ? 'is-ai-mode' : 'is-prompt-mode'
       } ${rightInactiveOnMobile ? 'is-inactive' : 'is-active'}`;
@@ -1803,14 +2056,13 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         divinationAssistantPane.prepend(foldableAssistantBackBar);
       }
       promptDeliverySection.hidden = false;
-      promptWorkbenchPreview.hidden = true;
       promptWorkbenchLayout.hidden = isAi;
       divinationAiCard.hidden = !isAi;
       aiAnswerWorkbench.hidden = !isAi;
 
       divinationPageWrap.classList.toggle('is-mobile-ai-immersive', showAssistantOnlyMobile && isAi);
       divinationStage.className = showAssistantOnlyMobile
-        ? 'divination-result-stage workspace-result-assistant-stage'
+        ? `divination-result-stage workspace-result-assistant-stage ${isAi ? 'is-ai-stage' : 'is-prompt-stage'}`
         : 'divination-result-stage';
       divinationWorkspace.className = 'divination-result-workspace is-split';
       divinationBoardPane.className = showAssistantOnlyMobile
@@ -1826,18 +2078,25 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       divinationAssistantPane.setAttribute('aria-hidden', String(divRightInactive));
     }
 
-    mobileAiFabSpan.textContent = isAi ? 'AI' : '提示词';
-    mobileAiFabSpan.className = isAi ? '' : 'is-prompt';
-    mobileAiFabBtn.setAttribute('aria-label', isAi ? '打开 AI 解读' : '打开专属 AI 提示词');
-    mobileAiFabBtn.title = isAi ? 'AI 解读' : 'AI 提示词';
-    mobileAiFabBtn.hidden = !mobileMode || showAssistantOnlyMobile || Boolean(isMinglu);
+    const showDock = mobileMode && !isMinglu && !isHecan;
+    mobileResultDock.hidden = !showDock;
+    if (showDock) {
+      dockBoardBtn.classList.toggle('is-active', !showAssistantOnlyMobile);
+      dockBoardBtn.setAttribute('aria-selected', String(!showAssistantOnlyMobile));
+      dockPromptBtn.textContent = isAi ? 'AI 解读' : '提示词';
+      dockPromptBtn.classList.toggle('is-active', showAssistantOnlyMobile);
+      dockPromptBtn.setAttribute('aria-selected', String(showAssistantOnlyMobile));
+    }
+
+    mobileAiFabBtn.hidden = true;
 
     syncParentMainClass();
   }
 
   function setMobileAssistantOpen(open: boolean) {
     const isMinglu = currentCtx?.mode !== 'divination' && currentCtx?.activeMethod === 'minglu';
-    const nextOpen = Boolean(open && isMobileViewport() && !isMinglu);
+    const isHecan = isPersonalHecanMode();
+    const nextOpen = Boolean(open && isMobileViewport() && !isMinglu && !isHecan);
     mobileAssistantOpen = nextOpen;
     syncLayoutAndMode();
     if (nextOpen && typeof window !== 'undefined') {
@@ -1846,42 +2105,110 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     onMobileAssistantToggle?.(nextOpen);
   }
 
+  function setPersonSummaryBadgeContent(kind: 'user' | 'users', text: string) {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '13');
+    svg.setAttribute('height', '13');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.style.flexShrink = '0';
+
+    const paths =
+      kind === 'users'
+        ? [
+            'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+            'M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8', // wait use circle/path cleanly below
+          ]
+        : [];
+    if (kind === 'user') {
+      const p = document.createElementNS(svgNS, 'path');
+      p.setAttribute('d', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2');
+      const c = document.createElementNS(svgNS, 'circle');
+      c.setAttribute('cx', '12');
+      c.setAttribute('cy', '7');
+      c.setAttribute('r', '4');
+      svg.append(p, c);
+    } else {
+      const p1 = document.createElementNS(svgNS, 'path');
+      p1.setAttribute('d', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2');
+      const c1 = document.createElementNS(svgNS, 'circle');
+      c1.setAttribute('cx', '9');
+      c1.setAttribute('cy', '7');
+      c1.setAttribute('r', '4');
+      const p2 = document.createElementNS(svgNS, 'path');
+      p2.setAttribute('d', 'M22 21v-2a4 4 0 0 0-3-3.87');
+      const p3 = document.createElementNS(svgNS, 'path');
+      p3.setAttribute('d', 'M16 3.13a4 4 0 0 1 0 7.75');
+      svg.append(p1, c1, p2, p3);
+    }
+    void paths;
+
+    const label = document.createElement('span');
+    label.textContent = text;
+    personSummaryBadge.style.display = 'inline-flex';
+    personSummaryBadge.style.alignItems = 'center';
+    personSummaryBadge.style.gap = '5px';
+    personSummaryBadge.replaceChildren(svg, label);
+  }
+
+  function scrollActiveResultTabIntoView() {
+    if (typeof requestAnimationFrame === 'undefined') return;
+    requestAnimationFrame(() => {
+      const activeBtn = chartTabsHost.querySelector<HTMLElement>('.workspace-ui-tab.is-active');
+      if (activeBtn && chartTabsHost.scrollWidth > chartTabsHost.clientWidth) {
+        chartTabsHost.scrollLeft = Math.max(
+          0,
+          activeBtn.offsetLeft - chartTabsHost.clientWidth / 2 + activeBtn.clientWidth / 2,
+        );
+      }
+    });
+  }
+
   function renderTabsBar() {
     chartTabsHost.replaceChildren();
     if (!currentCtx) return;
 
     if (currentCtx.mode === 'personal') {
-      if (
-        currentCtx.activeMethod !== 'minglu' &&
-        isPersonalChartMethod(currentCtx.activeMethod)
-      ) {
-        lastTechnicalTab = currentCtx.activeMethod;
-      }
-      mingluDossierBtn.hidden = true;
-      returnToChartBtn.hidden = true;
-
       chartBackBtn.textContent = '← 修改生辰';
       switchCaseBtn.hidden = !onOpenSwitchPerson;
       if (currentCtx.person) {
         personSummaryBadge.hidden = false;
-        personSummaryBadge.textContent = `👤 ${currentCtx.person.name || '临时排盘'} · ${formatCaseSummary(currentCtx.person)} ▾`;
+        setPersonSummaryBadgeContent(
+          'user',
+          `${currentCtx.person.name || '临时排盘'} · ${formatCaseSummary(currentCtx.person)} ▾`,
+        );
         switchCaseBtn.classList.add('is-redundant-with-badge');
       } else {
         personSummaryBadge.hidden = true;
         switchCaseBtn.classList.remove('is-redundant-with-badge');
       }
+      const preloadTab = (tabId: Method) => {
+        if (tabId === 'bazi-ziwei') {
+          void import('./multi-hecan').catch(() => {});
+        }
+        preloadResultWorkspace(tabId);
+      };
       for (const tab of PERSONAL_CHART_TABS) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        const active =
-          currentCtx.activeMethod === tab.id ||
-          (currentCtx.activeMethod === 'minglu' && tab.id === 'bazi');
+        const active = currentCtx.activeMethod === tab.id;
         btn.className = `workspace-ui-tab ${active ? 'is-active' : ''}`.trim();
         btn.textContent = tab.shortLabel;
+        btn.addEventListener('pointerenter', () => preloadTab(tab.id));
+        btn.addEventListener('pointerdown', () => preloadTab(tab.id));
         btn.addEventListener('click', () => {
           if (!currentCtx || currentCtx.activeMethod === tab.id) return;
-          lastTechnicalTab = tab.id;
           currentCtx.activeMethod = tab.id;
+          onActiveMethodChange?.(tab.id);
+          divinationCurrentQuestionStrong.textContent =
+            questionDraft.trim() ||
+            (isPersonalHecanMode(tab.id) ? getHecanDisplayLabel() : (methodLabels[tab.id] ?? '综合排盘分析'));
           renderTabsBar();
           syncLayoutAndMode();
           syncContextExtractBar();
@@ -1890,25 +2217,35 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         });
         chartTabsHost.appendChild(btn);
       }
+      scrollActiveResultTabIntoView();
       return;
     }
 
     if (currentCtx.mode === 'compatibility') {
-      mingluDossierBtn.hidden = true;
-      returnToChartBtn.hidden = true;
       chartBackBtn.textContent = '← 修改合盘资料';
       switchCaseBtn.hidden = true;
       personSummaryBadge.hidden = false;
-      personSummaryBadge.textContent = `👥 ${currentCtx.person?.name || '命主一'} & ${currentCtx.partner?.name || '命主二'}`;
+      setPersonSummaryBadgeContent(
+        'users',
+        `${currentCtx.person?.name || '命主一'} & ${currentCtx.partner?.name || '命主二'}`,
+      );
+      const preloadCompatTab = (tabId: Method) => {
+        preloadResultWorkspace(tabId);
+      };
       for (const tab of COMPATIBILITY_CHART_TABS) {
         const btn = document.createElement('button');
         btn.type = 'button';
         const active = currentCtx.activeMethod === tab.id;
         btn.className = `workspace-ui-tab ${active ? 'is-active' : ''}`.trim();
         btn.textContent = tab.shortLabel;
+        btn.addEventListener('pointerenter', () => preloadCompatTab(tab.id));
+        btn.addEventListener('pointerdown', () => preloadCompatTab(tab.id));
         btn.addEventListener('click', () => {
           if (!currentCtx || currentCtx.activeMethod === tab.id) return;
           currentCtx.activeMethod = tab.id;
+          onActiveMethodChange?.(tab.id);
+          divinationCurrentQuestionStrong.textContent =
+            questionDraft.trim() || (methodLabels[tab.id] ?? '合盘分析');
           renderTabsBar();
           syncLayoutAndMode();
           syncContextExtractBar();
@@ -1917,6 +2254,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         });
         chartTabsHost.appendChild(btn);
       }
+      scrollActiveResultTabIntoView();
       return;
     }
   }
@@ -1967,10 +2305,13 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   }
 
   function buildComposedQuestion(method: Method): string {
+    const fallbackQuestion = isPersonalHecanMode(method)
+      ? '请综合已选术数，提炼跨体系共振主线、分歧要点与阶段建议。'
+      : (methodLabels[method] ?? '综合排盘分析');
     const base =
       questionDraft.trim() ||
       stripAppendixFromQuestion(currentCtx?.question ?? '') ||
-      (methodLabels[method] ?? '综合排盘分析');
+      fallbackQuestion;
     const suppValues =
       currentCtx?.mode === 'compatibility'
         ? {
@@ -1982,6 +2323,65 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     return suppAppendix ? `${base}\n\n${suppAppendix}` : base;
   }
 
+  function syncResultPromptDisplay(
+    method: Method,
+    payload: Record<string, unknown>,
+    result: {
+      currentTime?: string;
+      summary?: unknown;
+      prompt?: { text: string };
+      data?: unknown;
+      promptOptions?: unknown;
+    },
+  ) {
+    latestPayload = payload;
+    const rawPrompt = (result.prompt?.text ?? '').replace(
+      /\n*【问题】\n未指定具体问题\s*$/u,
+      '',
+    );
+    latestRawPromptText = rawPrompt;
+    const basePromptText = formatPromptForTier(rawPrompt, promptDensityTier);
+    const promptText = applyLocalFrameworkToPrompt(basePromptText, method);
+    const displayResult =
+      result.prompt && promptText !== result.prompt.text
+        ? { ...result, prompt: { text: promptText } }
+        : result;
+    latestResult = displayResult;
+    deliveryPreviewPre.textContent = promptText;
+    syncPromptTierButtons();
+    syncPromptPreviewMeta(promptText);
+    refreshLocalAgentFollowUps(method, result);
+    deliveryCopyBtn.disabled = !promptText;
+    dockCopyBtn.disabled = !promptText;
+
+    const payloadQ =
+      typeof payload.question === 'string' ? payload.question.trim() : '';
+    const defaultBoilerplateQuestions = new Set([
+      '未指定具体问题',
+      '请综合解析当前盘面重点与应对建议。',
+      '请解析当前时刻的即时盘象与重点提示。',
+      '这件事接下来的走向如何，我当下该如何应对？',
+      '请筛选近期适合办理此事的黄道吉日与吉时。',
+      '这套住宅的坐向格局与居住人是否相合，布局上需要注意什么？',
+      '这一年的五运六气气候节律与日常调养重点是什么？',
+      '这一阶段的元会运世值年卦象与大势主线如何理解？',
+      '请分析这组号码的八星磁场分布与数理吉凶。',
+    ]);
+    const ctxQ = currentCtx?.question?.trim() ?? '';
+    const fallbackTitle = isPersonalHecanMode(method)
+      ? getHecanDisplayLabel()
+      : (methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '').replace('住宅风水', '阳宅风水');
+    const resolvedQuestion =
+      questionDraft.trim() ||
+      (payloadQ && !defaultBoilerplateQuestions.has(payloadQ) ? payloadQ : '') ||
+      (ctxQ && !defaultBoilerplateQuestions.has(ctxQ) ? ctxQ : '') ||
+      (currentCtx?.person
+        ? `${currentCtx.person.name || '当前命盘'} · ${formatCaseSummary(currentCtx.person)}`
+        : `${fallbackTitle}综合解析`);
+    divinationCurrentQuestionStrong.textContent = resolvedQuestion;
+    return displayResult;
+  }
+
   async function regeneratePromptForQuestion() {
     if (!currentCtx) return;
     const method = currentCtx.activeMethod;
@@ -1991,7 +2391,37 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       currentCtx.question = q;
     }
     divinationCurrentQuestionStrong.textContent =
-      baseQ || (methodLabels[method] ?? '综合排盘分析');
+      baseQ || (isPersonalHecanMode(method) ? getHecanDisplayLabel() : (methodLabels[method] ?? '综合排盘分析'));
+
+    if (
+      isPersonalHecanMode(method) &&
+      currentCtx.person &&
+      Object.keys(latestHecanComputedMap).length > 0
+    ) {
+      if (latestHecanIncludeClassics !== includeClassics) {
+        await loadAndRenderActiveTab();
+        return;
+      }
+      const { assembleMultiHecanResult } = await import('./multi-hecan');
+      const assembled = assembleMultiHecanResult({
+        person: currentCtx.person,
+        selectedSystems: selectedHecanSystems,
+        computedMap: latestHecanComputedMap,
+        omitted: latestHecanOmitted,
+        question: q,
+        options: {
+          flowYear: selectedFlowYear,
+          includeClassics,
+        },
+      });
+      const nextPayload = applyExplicitClassicsOption(method, {
+        ...latestPayload,
+        ...(q ? { question: q } : {}),
+      });
+      const displayResult = syncResultPromptDisplay(method, nextPayload, assembled);
+      onActiveResultChange?.(method, nextPayload, { ...displayResult, followUps: latestFollowUps });
+      return;
+    }
 
     if (latestResult?.data && method !== 'minglu') {
       const token = ++computeToken;
@@ -2022,12 +2452,11 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
           },
           ...(Object.keys(promptObj).length > 0 ? { prompt: promptObj } : {}),
         };
-        const repromptRes = await reprompt(repromptReq);
+        const repromptRes = await runRepromptInBackground<{ prompt?: { text: string } }>(repromptReq);
         if (token !== computeToken) return;
         const rawPrompt = repromptRes.prompt?.text ?? '';
         latestRawPromptText = rawPrompt;
         const cleanPromptText = formatPromptForTier(rawPrompt, promptDensityTier);
-        latestBasePromptText = cleanPromptText;
         const enrichedPromptText = applyLocalFrameworkToPrompt(cleanPromptText, method);
         const updatedResult = {
           ...latestResult,
@@ -2040,13 +2469,15 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
         });
         latestPayload = nextPayload;
         latestResult = updatedResult;
-        promptWorkbenchPre.textContent = updatedResult.prompt?.text ?? '';
         deliveryPreviewPre.textContent = updatedResult.prompt?.text ?? '';
         syncPromptTierButtons();
         syncPromptPreviewMeta(updatedResult.prompt?.text ?? '');
-        refreshLocalAgentQualityAndFramework();
         if (lastHasReport) {
-          renderReportView(reportContainer, updatedResult, { method, question: q });
+          latestReportContext = { result: updatedResult, method, question: q };
+          if (!lastHasBoard) {
+            renderReportView(reportContainer, updatedResult, { method, question: q });
+          }
+          attachReportModalTrigger();
         }
         onActiveResultChange?.(method, nextPayload, { ...updatedResult, followUps: latestFollowUps });
         return;
@@ -2071,58 +2502,13 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     },
     token: number,
   ) {
-    latestPayload = payload;
-
-    const rawPrompt = (result.prompt?.text ?? '').replace(
-      /\n*【问题】\n未指定具体问题\s*$/u,
-      '',
-    );
-    latestRawPromptText = rawPrompt;
-    const basePromptText = formatPromptForTier(rawPrompt, promptDensityTier);
-    latestBasePromptText = basePromptText;
-    const promptText = applyLocalFrameworkToPrompt(basePromptText, method);
-    const displayResult =
-      result.prompt && promptText !== result.prompt.text
-        ? { ...result, prompt: { text: promptText } }
-        : result;
-    latestResult = displayResult;
-    promptWorkbenchPre.textContent = promptText;
-    deliveryPreviewPre.textContent = promptText;
-    syncPromptTierButtons();
-    syncPromptPreviewMeta(promptText);
-    refreshLocalAgentQualityAndFramework();
-    refreshLocalAgentFollowUps(method, result);
-    workbenchCopyBtn.disabled = !promptText;
-    deliveryCopyBtn.disabled = !promptText;
-
-    const payloadQ =
-      typeof payload.question === 'string' ? payload.question.trim() : '';
-    const defaultBoilerplateQuestions = new Set([
-      '未指定具体问题',
-      '请综合解析当前盘面重点与应对建议。',
-      '请解析当前时刻的即时盘象与重点提示。',
-      '这件事接下来的走向如何，我当下该如何应对？',
-      '请筛选近期适合办理此事的黄道吉日与吉时。',
-      '这套住宅的坐向格局与居住人是否相合，布局上需要注意什么？',
-      '这一年的五运六气气候节律与日常调养重点是什么？',
-      '这一阶段的元会运世值年卦象与大势主线如何理解？',
-      '请分析这组号码的八星磁场分布与数理吉凶。',
-    ]);
-    const ctxQ = currentCtx?.question?.trim() ?? '';
-    const resolvedQuestion =
-      questionDraft.trim() ||
-      (payloadQ && !defaultBoilerplateQuestions.has(payloadQ) ? payloadQ : '') ||
-      (ctxQ && !defaultBoilerplateQuestions.has(ctxQ) ? ctxQ : '') ||
-      (currentCtx?.person
-        ? `${currentCtx.person.name || '当前命盘'} · ${formatCaseSummary(currentCtx.person)}`
-        : `${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '').replace('住宅风水', '阳宅风水')}综合解析`);
-    divinationCurrentQuestionStrong.textContent = resolvedQuestion;
+    const displayResult = syncResultPromptDisplay(method, payload, result);
 
     // 渲染新盘前先隐藏上下容器并保留骨架屏，避免底部报告先于顶部排盘露面
     boardContainer.hidden = true;
     reportDetails.hidden = true;
     if (loadingBanner.hidden) {
-      showLoadingSkeleton(`正在排盘「${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '')}」…`);
+      showLoadingSkeleton(`正在排盘「${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '')}」`);
     }
 
     const renderedBoard = await renderVisualBoard(boardContainer, method, result);
@@ -2154,32 +2540,152 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       (Boolean(realSections && realSections.length > 0) || hasDigestMethod || !renderedBoard);
     const composedQ = buildComposedQuestion(method);
 
-    if (hasMeaningfulReport && renderReportView(reportContainer, result, { method, question: composedQ })) {
+    const probeReportHost = renderedBoard ? document.createElement('div') : reportContainer;
+    if (hasMeaningfulReport && renderReportView(probeReportHost, result, { method, question: composedQ })) {
       lastHasReport = true;
-      const isCompactMobile = typeof window !== 'undefined' && window.innerWidth <= 819;
-      reportDetails.open = !renderedBoard || !isCompactMobile;
+      latestReportContext = { result, method, question: composedQ };
+      if (renderedBoard) {
+        clearReportView(reportContainer);
+      } else {
+        reportDetails.open = true;
+      }
     } else {
       clearReportView(reportContainer);
       lastHasReport = false;
+      latestReportContext = null;
     }
+    attachReportModalTrigger();
 
     loadingBanner.hidden = true;
+    loadingBanner.removeAttribute('aria-busy');
     applyChartViewMode(method);
     onActiveResultChange?.(method, payload, { ...displayResult, followUps: latestFollowUps });
+  }
+
+  function prepareForTransition(
+    mode?: 'personal' | 'compatibility' | 'divination',
+    method?: Method,
+  ) {
+    computeToken += 1;
+    boardContainer.hidden = true;
+    reportDetails.hidden = true;
+    chartInteractiveBar.hidden = true;
+    clearVisualBoard(boardContainer);
+    clearReportView(reportContainer);
+    lastHasBoard = false;
+    lastHasReport = false;
+    latestReportContext = null;
+
+    if (mode === 'divination') {
+      chartShell.hidden = true;
+      divinationPageWrap.hidden = false;
+      if (!divinationBoardBodySlot.contains(chartGridSingle)) {
+        divinationBoardBodySlot.appendChild(chartGridSingle);
+      }
+      if (method) {
+        divinationPanelTitle.textContent = (methodLabels[method] ?? '占卜结果')
+          .replace(/（(?:基础)?预览）/g, '')
+          .replace('住宅风水', '阳宅风水');
+      }
+    } else if (mode === 'personal' || mode === 'compatibility') {
+      chartShell.hidden = false;
+      divinationPageWrap.hidden = true;
+      if (!chartResultSection.contains(chartGridSingle)) {
+        chartResultSection.appendChild(chartGridSingle);
+      }
+    }
+
+    const label = method
+      ? `正在排盘「${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '')}」`
+      : '正在排盘计算';
+    showLoadingSkeleton(label);
   }
 
   async function loadAndRenderActiveTab() {
     if (!currentCtx) return;
     const token = ++computeToken;
     const method = currentCtx.activeMethod;
-    chartModuleSwitcher.hidden =
-      currentCtx.mode !== 'personal' || (method !== 'bazi' && method !== 'minglu');
     const rulesSig = JSON.stringify(loadGlobalRules());
+
+    if (isPersonalHecanMode(method) && currentCtx.person) {
+      hecanComputing = true;
+      clearReportView(reportContainer);
+      reportDetails.hidden = true;
+      loadingBanner.hidden = true;
+      loadingBanner.removeAttribute('aria-busy');
+      lastHasBoard = true;
+      lastHasReport = false;
+      latestReportContext = null;
+      const prevHecanData =
+        latestResult?.data &&
+        typeof latestResult.data === 'object' &&
+        (latestResult.data as { kind?: unknown }).kind === 'multi-hecan'
+          ? (latestResult.data as MultiHecanData)
+          : null;
+      renderHecanConfigPanel(currentCtx.person, prevHecanData);
+      applyChartViewMode(method);
+
+      try {
+        const activeQuestion = buildComposedQuestion(method);
+        const { runMultiHecan } = await import('./multi-hecan');
+        const { result: hecanRes, computedMap, omitted } = await runMultiHecan({
+          person: currentCtx.person,
+          selectedSystems: selectedHecanSystems,
+          question: activeQuestion,
+          options: {
+            flowYear: selectedFlowYear,
+            includeClassics,
+            cache: hecanSystemCache,
+            rulesSig,
+            applyGlobalRules: true,
+          },
+        });
+        if (token !== computeToken) return;
+        hecanComputing = false;
+        latestHecanComputedMap = computedMap;
+        latestHecanOmitted = omitted;
+        latestHecanIncludeClassics = includeClassics;
+
+        const hecanPayload: Record<string, unknown> = {
+          question: activeQuestion,
+          selectedSystems: selectedHecanSystems,
+          ...(selectedFlowYear ? { flowYear: selectedFlowYear } : {}),
+          prompt: { includeClassics },
+        };
+        const displayResult = syncResultPromptDisplay(method, hecanPayload, hecanRes);
+        renderHecanConfigPanel(currentCtx.person, hecanRes.data);
+        lastHasBoard = true;
+        lastHasReport = false;
+        loadingBanner.hidden = true;
+        loadingBanner.removeAttribute('aria-busy');
+        applyChartViewMode(method);
+        onActiveResultChange?.(method, hecanPayload, {
+          ...displayResult,
+          followUps: latestFollowUps,
+        });
+      } catch (err) {
+        if (token !== computeToken) return;
+        hecanComputing = false;
+        showLoadingError(err instanceof Error ? err.message : '请检查出生资料是否完整');
+      }
+      return;
+    }
+
     const sig = `${getCaseSignature(
       currentCtx.person,
       currentCtx.partner,
       currentCtx.question,
-    )}::${method}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
+    )}::${method}::${rulesSig}::cls:${includeClassics ? 1 : 0}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
+
+    boardContainer.hidden = true;
+    reportDetails.hidden = true;
+    chartInteractiveBar.hidden = true;
+    clearVisualBoard(boardContainer);
+    clearReportView(reportContainer);
+    lastHasBoard = false;
+    lastHasReport = false;
+    latestReportContext = null;
+    showLoadingSkeleton(`正在排盘计算「${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '')}」`);
 
     const cached = resultCache.get(sig);
     if (cached) {
@@ -2187,20 +2693,14 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       return;
     }
 
-    boardContainer.hidden = true;
-    reportDetails.hidden = true;
-    showLoadingSkeleton(`正在排盘计算「${(methodLabels[method] ?? method).replace(/（(?:基础)?预览）/g, '')}」…`);
-    clearVisualBoard(boardContainer);
-    clearReportView(reportContainer);
-    lastHasBoard = false;
-    lastHasReport = false;
+    // 与后端/引擎计算并发预加载盘面渲染器、域 CSS 与经典卡片，减少等待链路
+    preloadVisualBoardAssets(method);
 
     try {
       const activeQuestion = buildComposedQuestion(method);
       let rawPayload: Record<string, unknown>;
       if (currentCtx.mode === 'personal' && currentCtx.person && isPersonalChartMethod(method)) {
         rawPayload = buildPersonalChartPayload(currentCtx.person, method, activeQuestion, {
-          bazhaiSitMountain,
           flowYear: selectedFlowYear,
         });
       } else if (
@@ -2238,7 +2738,9 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       ) as Record<string, unknown>;
       const payload = applyExplicitClassicsOption(method, withGlobalRules);
 
-      const res = (await calculate(method, payload)) as {
+      const res = (await runCalculateInBackground(method, payload, {
+        promptGuidance: loadGlobalRules().prompt,
+      })) as {
         summary?: unknown;
         prompt?: { text: string };
         data?: unknown;
@@ -2253,16 +2755,16 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   }
 
   async function openWithContext(ctx: ResultPageContext) {
+    prepareForTransition(ctx.mode, ctx.activeMethod);
     currentCtx = { ...ctx };
+    if (ctx.mode === 'personal' && ctx.activeMethod === 'bazi-ziwei') {
+      selectedHecanSystems = readSavedHecanSystems();
+    }
     selectedFlowYear = null;
     selectedSyncYearsPreset = 'none';
-    selectedFrameworkId = 'auto';
-    latestBasePromptText = '';
-    followUpsBox.hidden = true;
     mobileAssistantOpen = false;
     onMobileAssistantToggle?.(false);
     supplementary = { ...DEFAULT_SUPPLEMENTARY_VALUES };
-    syncSupplementaryBtnLabel();
     const initialPromptOpts = ctx.initialPayload?.prompt as
       | { includeClassics?: boolean; liuyaoTemplate?: string; liurenTemplate?: string }
       | undefined;
@@ -2270,9 +2772,10 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       typeof initialPromptOpts?.includeClassics === 'boolean'
         ? initialPromptOpts.includeClassics
         : loadGlobalRules().prompt.includeClassics;
-    classicsCheckbox.checked = includeClassics;
+    const activeTiMethod = currentCtx?.activeMethod ?? 'bazi';
+    promptDensityTier = includeClassics && supportsUiClassicsTier(activeTiMethod) ? 'deep' : 'standard';
+    syncPromptTierButtons();
     syncContextExtractBar();
-    promptWorkbenchPre.textContent = '';
     deliveryPreviewPre.textContent = '';
     syncPromptPreviewMeta('');
     const autoDefaultQuestions = new Set([
@@ -2304,7 +2807,6 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     const hydrated = hydrateSupplementaryFromQuestion(rawCtxQ);
     if (Object.keys(hydrated).length > 0) {
       supplementary = { ...supplementary, ...hydrated };
-      syncSupplementaryBtnLabel();
     }
     syncContextExtractBar();
     const cleanRawCtxQ = stripAppendixFromQuestion(rawCtxQ);
@@ -2312,18 +2814,25 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
     lastAppliedQuestion = questionDraft;
     questionTextarea.value = questionDraft;
     rebuildQuickFocusPills();
-    refreshLocalAgentQualityAndFramework();
 
     renderTabsBar();
     syncLayoutAndMode();
 
-    if (ctx.initialResult && ctx.initialPayload) {
+    const canUseInitialHecan =
+      ctx.activeMethod !== 'bazi-ziwei' ||
+      ctx.mode !== 'personal' ||
+      Boolean(
+        ctx.initialResult?.data &&
+          typeof ctx.initialResult.data === 'object' &&
+          (ctx.initialResult.data as { kind?: unknown }).kind === 'multi-hecan',
+      );
+    if (ctx.initialResult && ctx.initialPayload && canUseInitialHecan) {
       const rulesSig = JSON.stringify(loadGlobalRules());
       const sig = `${getCaseSignature(
         ctx.person,
         ctx.partner,
         ctx.question,
-      )}::${ctx.activeMethod}::${rulesSig}::cls:${includeClassics ? 1 : 0}::mount:${bazhaiSitMountain}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
+      )}::${ctx.activeMethod}::${rulesSig}::cls:${includeClassics ? 1 : 0}::flow:${selectedFlowYear ?? 'default'}::sync:${selectedSyncYearsPreset}::rel:${compatRelationship}`;
       resultCache.set(sig, { payload: ctx.initialPayload, result: ctx.initialResult });
       const token = ++computeToken;
       await renderResultToPanes(ctx.activeMethod, ctx.initialPayload, ctx.initialResult, token);
@@ -2336,6 +2845,8 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('mingyu:global-rules-changed', () => {
       includeClassics = loadGlobalRules().prompt.includeClassics;
+      promptDensityTier = includeClassics ? 'deep' : 'standard';
+      syncPromptTierButtons();
       if (currentCtx && (currentCtx.mode === 'personal' || currentCtx.mode === 'compatibility')) {
         void loadAndRenderActiveTab();
       }
@@ -2344,12 +2855,13 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
       syncLayoutAndMode();
     });
     if (typeof window.matchMedia === 'function') {
-      const mql = window.matchMedia('(max-width: 819px)');
+      const mql = window.matchMedia('(max-width: 1023px)');
       const phoneMql = window.matchMedia('(max-width: 679px)');
       const handleViewportChange = () => {
         syncLayoutAndMode();
         const isMinglu = currentCtx?.mode !== 'divination' && currentCtx?.activeMethod === 'minglu';
-        onMobileAssistantToggle?.(mobileAssistantOpen && isMobileViewport() && !isMinglu);
+        const isHecan = isPersonalHecanMode();
+        onMobileAssistantToggle?.(mobileAssistantOpen && isMobileViewport() && !isMinglu && !isHecan);
       };
       mql.addEventListener('change', handleViewportChange);
       phoneMql.addEventListener('change', handleViewportChange);
@@ -2366,6 +2878,7 @@ export function createResultPageController(options: ResultPageOptions): ResultPa
 
   return {
     openWithContext,
+    prepareForTransition,
     refreshForActiveCase,
     setMobileAssistantOpen,
     isMobileAssistantOpen: () => mobileAssistantOpen,

@@ -47,7 +47,7 @@ test('西洋双盘支持最短圆弧组合中点盘与双人流年行运合参',
   assert.equal(result.data.composite.points.length, 18);
   assert.ok(result.data.transits);
   assert.equal(result.data.transits.referenceTime, '2026-06-15T12:00:00Z');
-  assert.match(result.prompt.text, /【组合中点盘（Composite）】/);
+  assert.match(result.prompt.text, /【组合中点盘】/);
   assert.match(result.prompt.text, /【双人行运合参（Transit）】/);
   const noComposite = await calculate('astrolabe-synastry', { ...input, options: { includeComposite: false } });
   assert.equal(noComposite.data.composite, undefined);

@@ -93,6 +93,6 @@ export async function calculateAstrolabeFlow(flow: Flow, birth: Input['birth'], 
     '次限采用回归年 365.2425 日换算一岁一日；太阳弧采用推进太阳与本命太阳黄经之差。',
     flow.solarReturnLocation ? '太阳返照宫位按指定地点计算；年、月、日参考时点仍按出生地时区定位。' : '太阳返照宫位按出生地计算；可指定返照地点经纬度。',
     ...(period ? [] : ['未启用周期事件扫描。']),
-    '出生时间范围比较需使用 astrolabe-range；传统推运不能保证现实事件。',
+    '出生时间范围比较需使用西洋星盘出生范围；传统推运不能保证现实事件。',
   ] };
 }

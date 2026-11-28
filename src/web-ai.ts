@@ -1,5 +1,4 @@
-import { listModels, type AiConfig } from './ai';
-import { migrateV1StorageData } from './v2-ui/v1-migration';
+import { BUILTIN_AI_BASE_URL, listModels, type AiConfig } from './ai';
 
 export interface AiProviderPreset {
   id: string;
@@ -37,17 +36,49 @@ export const AI_PROVIDER_PRESETS: readonly AiProviderPreset[] = [
 
 export const WEB_AI_STORAGE_KEYS = {
   enabled: 'mingyu.v2.ai.webEnabled',
+  mode: 'mingyu.v2.ai.mode',
   baseUrl: 'mingyu.v2.ai.baseUrl',
   apiKey: 'mingyu.v2.ai.apiKey',
   model: 'mingyu.v2.ai.model',
-  chatMode: 'mingyu.v2.ai.chatMode',
   profiles: 'mingyu.v2.ai.profiles',
   activeProfileId: 'mingyu.v2.ai.activeProfileId',
 } as const;
 
+export type WebAiMode = 'custom' | 'builtin';
+
+export function getWebAiMode(): WebAiMode {
+  try {
+    return window.localStorage.getItem(WEB_AI_STORAGE_KEYS.mode) === 'builtin' ? 'builtin' : 'custom';
+  } catch {
+    return 'custom';
+  }
+}
+
+export function setWebAiMode(mode: WebAiMode): void {
+  try {
+    window.localStorage.setItem(WEB_AI_STORAGE_KEYS.mode, mode);
+  } catch {}
+  notifyWebAiChanged();
+}
+
+export async function fetchBuiltinAiStatus(
+  fetcher: typeof fetch = fetch,
+): Promise<{ builtinEnabled: boolean; model?: string }> {
+  try {
+    const res = await fetcher('/api/ai/status', { cache: 'no-store' });
+    if (!res.ok) return { builtinEnabled: false };
+    const data = (await res.json()) as { builtinEnabled?: unknown; model?: unknown };
+    return {
+      builtinEnabled: data.builtinEnabled === true,
+      ...(typeof data.model === 'string' && data.model.trim() ? { model: data.model.trim() } : {}),
+    };
+  } catch {
+    return { builtinEnabled: false };
+  }
+}
+
 export function isWebAiEnabled(): boolean {
   try {
-    migrateV1StorageData();
     return window.localStorage.getItem(WEB_AI_STORAGE_KEYS.enabled) === 'true';
   } catch {
     return false;
@@ -55,44 +86,12 @@ export function isWebAiEnabled(): boolean {
 }
 
 export function isWebAiConfigured(cfg: AiConfig = readWebAiConfig()): boolean {
+  if (getWebAiMode() === 'builtin') return true;
   return Boolean(cfg.baseUrl.trim() && cfg.model.trim());
 }
 
-export function getChatModeOverride(): 'true' | 'false' | null {
-  try {
-    const val = window.localStorage.getItem(WEB_AI_STORAGE_KEYS.chatMode);
-    if (val === 'true' || val === 'false') return val;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function isChatModeEnabled(): boolean {
-  const override = getChatModeOverride();
-  if (override === 'false') return false;
-  if (override === 'true') return true;
-  return isWebAiEnabled() && isWebAiConfigured();
-}
-
 export function isChatAgentActive(): boolean {
-  return isWebAiEnabled() && isChatModeEnabled();
-}
-
-export function setChatModeEnabled(enabled: boolean): void {
-  try {
-    window.localStorage.setItem(WEB_AI_STORAGE_KEYS.chatMode, enabled ? 'true' : 'false');
-  } catch {}
-  notifyWebAiChanged();
-}
-
-export function ensureChatModeDefaultOnSave(): boolean {
-  const override = getChatModeOverride();
-  if (override === null && isWebAiEnabled() && isWebAiConfigured()) {
-    setChatModeEnabled(true);
-    return true;
-  }
-  return isChatModeEnabled();
+  return isWebAiEnabled() && isWebAiConfigured();
 }
 
 export function notifyWebAiChanged() {
@@ -110,7 +109,13 @@ export function setWebAiEnabled(enabled: boolean): void {
 
 export function readWebAiConfig(): AiConfig {
   try {
-    migrateV1StorageData();
+    if (getWebAiMode() === 'builtin') {
+      return {
+        baseUrl: BUILTIN_AI_BASE_URL,
+        apiKey: '',
+        model: 'builtin',
+      };
+    }
     return {
       baseUrl: window.localStorage.getItem(WEB_AI_STORAGE_KEYS.baseUrl) ?? '',
       apiKey: window.localStorage.getItem(WEB_AI_STORAGE_KEYS.apiKey) ?? '',
@@ -163,7 +168,6 @@ function persistWebAiProfiles(profiles: AiConfigProfile[], activeId: string | nu
 
 export function loadWebAiProfiles(): AiConfigProfile[] {
   try {
-    migrateV1StorageData();
     const raw = window.localStorage.getItem(WEB_AI_STORAGE_KEYS.profiles);
     if (raw) {
       const parsed = JSON.parse(raw) as unknown;

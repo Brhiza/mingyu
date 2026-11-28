@@ -18,6 +18,7 @@ export { selectXiaoliurenClassics } from './xiaoliuren';
 export { selectZiweiClassics } from './ziwei';
 export {
   YILIN_HEXAGRAM_ORDER,
+  ensureYilinLoaded,
   getYilinEntry,
   normalizeYilinHexagramName,
   queryYilinEntry,

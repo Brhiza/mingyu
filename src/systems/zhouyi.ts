@@ -1,12 +1,13 @@
 import type { z } from 'zod';
 import type { zhouyiInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
-import { allHexagrams, allWings, findHexagram, searchWings, source, sourceUrl, type Hexagram, type WingSearchParams } from './zhouyi-text';
+import { ensureZhouyiTextsLoaded, ensureZhouyiWingsLoaded, findHexagram, getAllHexagrams, getAllWings, searchWings, source, sourceUrl, type Hexagram, type WingSearchParams } from './zhouyi-text';
 
 type Input = z.infer<typeof zhouyiInput>;
 type Query = Input['query'];
 
-export { allWings };
+export { getAllWings };
 export function searchZhouyiWings(params: WingSearchParams = {}) {
   return searchWings(params);
 }
@@ -37,7 +38,7 @@ function calculate(query: Query) {
     });
     return { input: { query }, result: { kind: 'wings' as const, ...wingsResult }, source };
   }
-  const entries = allHexagrams.flatMap((item) => {
+  const entries = getAllHexagrams().flatMap((item) => {
     const matches = fields(item).flatMap(({ field, text }) => {
       const index = text.indexOf(query.text);
       return index < 0 ? [] : [{ field, excerpt: `${index > 20 ? '…' : ''}${text.slice(Math.max(0, index - 20), Math.min(text.length, index + query.text.length + 20))}${index + query.text.length + 20 < text.length ? '…' : ''}` }];
@@ -95,7 +96,12 @@ function render(data: Data, question: string) {
     '【任务】\n根据所列经文回答，区分原文与解释，不补造未提供的篇章或现实事实。', `【问题】\n${question}`].join('\n\n');
   return { text };
 }
-export function zhouyi(input: Input) {
+export async function zhouyi(input: Input, context?: RuntimeContext) {
+  if (input.query.kind === 'wings') {
+    await ensureZhouyiWingsLoaded(context?.staticDataset);
+  } else {
+    await ensureZhouyiTextsLoaded(context?.staticDataset);
+  }
   const data = calculate(input.query), question = input.question?.trim() || '请解释这些周易经文。';
   const summaryLine =
     data.result.kind === 'hexagram'
@@ -105,7 +111,12 @@ export function zhouyi(input: Input) {
         : `匹配 ${data.result.total} 卦`;
   return { data, summary: { title: '周易经文查询', lines: [summaryLine] }, prompt: render(data, question) };
 }
-export function promptForZhouyi(value: unknown, input: Input, question: string) {
+export async function promptForZhouyi(value: unknown, input: Input, question: string, context?: RuntimeContext) {
+  if (input.query.kind === 'wings') {
+    await ensureZhouyiWingsLoaded(context?.staticDataset);
+  } else {
+    await ensureZhouyiTextsLoaded(context?.staticDataset);
+  }
   const expected = calculate(input.query);
   if (!sameJsonValue(value, expected)) throw new Error('周易资料与保存的查询不一致。');
   return render(expected, question);

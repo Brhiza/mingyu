@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { ArrowUpRight, Clock, Trash2 } from 'lucide-react';
-import type { Method } from '../../core';
-import { methodLabels } from '../../schema';
+import { ArrowUpRight, Clock, History, Trash2 } from 'lucide-react';
+import { methodLabels, type Method } from '../../method-meta';
 import type { CompatibilityRecord, DivinationRecord } from '../../v2-ui/cases-store';
 import type { AgentChatSession } from '../../web-agent';
 import { Badge, Button, Card, Input, PageHeader } from '../../components/ui';
@@ -178,13 +177,13 @@ function HistoryListRows({
           compact ? 'flex-1 min-h-[220px] px-4 py-8' : 'px-6 py-12',
         )}
       >
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--state-selected-surface)] font-serif text-lg font-bold text-[var(--accent-strong)]">
-          史
+        <span
+          aria-hidden="true"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--state-selected-surface)] text-[var(--accent-strong)]"
+        >
+          <History className="h-5 w-5" aria-hidden="true" />
         </span>
         <strong className="text-sm font-bold text-[var(--text-strong)]">暂无推演记录</strong>
-        <p className="m-0 max-w-[260px] text-xs leading-relaxed text-[var(--text-muted)]">
-          排盘、起卦或合盘后，记录会自动保存在这里
-        </p>
       </div>
     );
   }
@@ -199,24 +198,22 @@ function HistoryListRows({
           <button
             type="button"
             onClick={() => onSelect(item)}
-            className="flex min-w-0 flex-1 flex-col items-start gap-1 overflow-hidden border-0 bg-transparent p-0 text-left cursor-pointer"
+            className="flex min-w-0 flex-1 flex-col items-start gap-1.5 overflow-hidden border-0 bg-transparent p-0 text-left cursor-pointer"
           >
-            <div className="flex w-full min-w-0 items-center gap-1.5">
+            <strong className="w-full text-[13.5px] font-bold leading-snug text-[var(--text-strong)] line-clamp-2 sm:line-clamp-1">
+              {item.title}
+            </strong>
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-[var(--text-muted)]">
               <Badge
                 variant={
                   item.kind === 'compatibility' || item.kind === 'chat' ? 'accent' : 'outline'
                 }
-                className="shrink-0 px-2 py-0.5 text-[11px]"
+                className="shrink-0 px-1.5 py-0 text-[10.5px]"
               >
                 {item.badgeText}
               </Badge>
-              <strong className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--text-strong)]">
-                {item.title}
-              </strong>
-            </div>
-            <div className="flex w-full min-w-0 items-center gap-2 text-[11.5px] text-[var(--text-muted)]">
-              {item.subtitle ? <span className="min-w-0 truncate">{item.subtitle}</span> : null}
-              <time className="shrink-0 font-mono text-[11px]">
+              {item.subtitle ? <span className="min-w-0 flex-1 truncate">{item.subtitle}</span> : null}
+              <time className="shrink-0 font-mono text-[10.5px]">
                 {formatUpdatedAt(item.updatedAt)}
               </time>
             </div>
@@ -225,12 +222,12 @@ function HistoryListRows({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 text-[var(--danger-text)] hover:bg-[color-mix(in_srgb,var(--danger-text)_10%,transparent)]"
+            className="h-9 w-9 shrink-0 text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--danger-text)_10%,transparent)] hover:text-[var(--danger-text)]"
             title="删除记录"
             aria-label="删除记录"
             onClick={() => onAskDelete(item)}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         </article>
       ))}
@@ -303,7 +300,7 @@ export function HomeHistoryCard({
           />
 
           <div
-            className="flex flex-wrap items-center gap-1"
+            className="flex flex-nowrap items-center gap-1"
             role="tablist"
             aria-label="记录筛选"
           >
@@ -317,7 +314,7 @@ export function HomeHistoryCard({
                   aria-selected={active}
                   onClick={() => setFilter(opt.id)}
                   className={cn(
-                    'h-6.5 shrink-0 rounded-full border px-1.5 text-[10.5px] whitespace-nowrap cursor-pointer transition-colors',
+                    'h-7 flex-1 min-w-0 inline-flex items-center justify-center rounded-full border px-1.5 text-[11px] whitespace-nowrap cursor-pointer transition-colors',
                     active
                       ? 'border-[var(--accent-strong)] bg-[var(--state-selected-surface-strong)] font-bold text-[var(--state-selected-text)]'
                       : 'border-[var(--border-soft)] bg-[var(--surface-soft)] font-medium text-[var(--text-secondary)] hover:text-[var(--text-strong)]',
@@ -330,7 +327,7 @@ export function HomeHistoryCard({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3.5">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3.5">
           <HistoryListRows
             items={items}
             compact
@@ -396,7 +393,7 @@ export function HistoryPage({
       <PageHeader
         title="历史记录"
         rightSlot={
-          <Badge variant="outline" className="hidden sm:inline-flex">
+          <Badge variant="outline" className="ws-desktop-only-action hidden min-[680px]:inline-flex">
             共 {items.length} 条
           </Badge>
         }
@@ -439,7 +436,7 @@ export function HistoryPage({
               placeholder="搜索历史记录..."
               className="flex-1 min-w-0"
             />
-            <span className="shrink-0 text-[12px] text-[var(--text-muted)] sm:hidden">
+            <span className="shrink-0 text-[12px] text-[var(--text-muted)] min-[680px]:hidden">
               {items.length} 条
             </span>
           </div>

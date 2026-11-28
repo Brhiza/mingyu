@@ -21,7 +21,9 @@ export const liuyaoInput = z.object({
     }).strict()).length(6).optional().describe('调用方提供六次三钱结果；不提供时由程序模拟。'),
     timezoneOffsetMinutes: z.number().int().min(-720).max(840).optional().describe('民用时区偏移分钟数；默认 480。'),
     ziHourMode: z.enum(['23:00', '00:00']).optional().describe('早晚子时换日口径：默认 23:00（23点换日柱）；00:00 为0点换日柱。'),
-  }).strict().optional(),
+    timeStandard: z.enum(['beijing', 'true-solar']).optional().describe('默认北京时间；true-solar 以经度校正日时，年月仍按实际瞬时。'),
+    longitude: z.number().min(-180).max(180).optional().describe('真太阳时必填，经度东正西负。'),
+  }).strict().refine((value) => value.timeStandard === 'true-solar' ? value.longitude !== undefined : value.longitude === undefined, '真太阳时必须提供经度；北京时间不接受经度').optional(),
   prompt: z.object({
     ...divinationPrompt,
     liuyaoTemplate: z.enum(['general', 'ganqing', 'shiye', 'caifu', 'guaishen']).optional(),
@@ -150,7 +152,9 @@ export const xiaoliurenInput = z.object({
     ziHourMode: z.enum(['00:00', '23:00']).optional().describe('晚子时（23:00–24:00）换日口径：默认 00:00（民用零点换日）；23:00 为晚子时换入次日农历日期。'),
     leapMonthMode: z.enum(['same', 'next', 'split-15']).optional().describe('农历闰月折算口径：默认 same（闰月沿用同名月序）；next 为按下一月算；split-15 为前十五日按本月、十五日后按下月。'),
     numbers: z.tuple([z.number().int().positive(), z.number().int().positive(), z.number().int().positive()]).optional().describe('三数起课法：提供三个正整数直接起月宫、日宫、时宫。'),
-  }).strict().optional(),
+    timeStandard: z.enum(['beijing', 'true-solar']).optional().describe('默认北京时间；true-solar 以经度校正日时、农历日与时辰。'),
+    longitude: z.number().min(-180).max(180).optional().describe('真太阳时必填，经度东正西负。'),
+  }).strict().refine((value) => value.timeStandard === 'true-solar' ? value.longitude !== undefined : value.longitude === undefined, '真太阳时必须提供经度；北京时间不接受经度').optional(),
   prompt: z.object({ ...divinationPrompt, schools: z.array(z.enum(['shunshu', 'gongjue', 'daoliu'])).max(3).optional() }).strict().optional(),
 }).strict().describe('小六壬占问：按指定或当前时刻（或三数活起）起课，支持通行或多能鄙事口径、晚子时换日与闰月折算。');
 
@@ -203,7 +207,9 @@ export const meihuaInput = z.object({
     characterLeftStrokes: z.number().int().positive().optional(), characterRightStrokes: z.number().int().positive().optional(),
     direction: z.enum(['northwest', 'west', 'south', 'east', 'southeast', 'north', 'northeast', 'southwest']).optional(),
     objectType: z.enum(['heaven', 'lake', 'fire', 'thunder', 'wind', 'water', 'mountain', 'earth']).optional(),
-  }).strict().optional(),
+    timeStandard: z.enum(['beijing', 'true-solar']).optional().describe('默认北京时间；true-solar 以经度校正日时、农历日与时辰取数，年月仍按实际瞬时。'),
+    longitude: z.number().min(-180).max(180).optional().describe('真太阳时必填，经度东正西负。'),
+  }).strict().refine((value) => value.timeStandard === 'true-solar' ? value.longitude !== undefined : value.longitude === undefined, '真太阳时必须提供经度；北京时间不接受经度').optional(),
   prompt: z.object({ ...divinationPrompt, schools: z.array(z.enum(['tiyong', 'xiangshu', 'yaoci'])).max(3).optional() }).strict().optional(),
 }).strict().describe('梅花易数占问：按时间、数字、声音、文字、方位物象或随机方式起卦。');
 

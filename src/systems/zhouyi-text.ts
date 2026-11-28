@@ -1,6 +1,6 @@
-import texts from '../data/zhouyi/texts.json';
-import wings from '../data/zhouyi/wings.json';
+import type { StaticDatasetLoader } from '../static-data';
 import type { ClassicExcerpt } from './classics/types';
+import { loadStaticDataset } from './static-data-loader';
 
 export type Hexagram = { id: number; name: string; shortName: string; upper: string; lower: string; palace: string; guaCi: string; tuanCi: string; daXiang: string;
   wenYan?: string; yongCi?: string; yaos: Array<{ position: number; positionName: string; yaoCi: string; xiaoXiang: string; explanation?: string }>; sourceRevision: number };
@@ -17,13 +17,42 @@ export const source = {
   license: 'CC BY-SA 4.0；古典原文本身属公版', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
   note: '转录使用简体字形，卦辞和爻辞去掉段末句号；卦名与卦序沿用项目资料，未对不同古籍底本进行异文校勘。',
 };
-export const allHexagrams: readonly Hexagram[] = texts;
-export const allWings: readonly ZhouyiWingEntry[] = wings;
+
+let loadedHexagrams: readonly Hexagram[] | null = null;
+let loadedWings: readonly ZhouyiWingEntry[] | null = null;
+
+export async function ensureZhouyiTextsLoaded(load?: StaticDatasetLoader): Promise<readonly Hexagram[]> {
+  const data = await loadStaticDataset<Hexagram[]>('zhouyi-texts', load);
+  loadedHexagrams = data;
+  return data;
+}
+
+export async function ensureZhouyiWingsLoaded(load?: StaticDatasetLoader): Promise<readonly ZhouyiWingEntry[]> {
+  const data = await loadStaticDataset<ZhouyiWingEntry[]>('zhouyi-wings', load);
+  loadedWings = data;
+  return data;
+}
+
+export async function ensureZhouyiLoaded(load?: StaticDatasetLoader): Promise<void> {
+  await Promise.all([ensureZhouyiTextsLoaded(load), ensureZhouyiWingsLoaded(load)]);
+}
+
+export function getAllHexagrams(): readonly Hexagram[] {
+  if (!loadedHexagrams) throw new Error('周易经文资料尚未加载。');
+  return loadedHexagrams;
+}
+
+export function getAllWings(): readonly ZhouyiWingEntry[] {
+  if (!loadedWings) throw new Error('周易十翼资料尚未加载。');
+  return loadedWings;
+}
+
 export function sourceUrl(hexagram: Hexagram) { return `https://zh.wikisource.org/w/index.php?oldid=${hexagram.sourceRevision}`; }
 export function findHexagram(value: number | string) {
-  if (typeof value === 'number') return allHexagrams.find((item) => item.id === value);
+  const hexagrams = getAllHexagrams();
+  if (typeof value === 'number') return hexagrams.find((item) => item.id === value);
   const name = value.trim().replace(/卦$/u, '').replace(/遯/g, '遁');
-  return allHexagrams.find((item) => item.name === name || item.shortName === name);
+  return hexagrams.find((item) => item.name === name || item.shortName === name);
 }
 
 /** 仅按实际动爻提供原文，不将静爻伪称为动爻。 */
@@ -90,12 +119,13 @@ export interface WingSearchParams {
 
 /** 按篇名、章节、八卦名或关键词检索《周易》十翼原文。 */
 export function searchWings(params: WingSearchParams = {}) {
+  const wings = getAllWings();
   const wingTargets = normalizeWingFilter(params.wing);
   const chapterQuery = params.chapter?.trim();
   const trigramQuery = normalizeTrigram(params.trigram);
   const textQuery = params.text?.trim();
 
-  const matched = allWings.flatMap((entry) => {
+  const matched = wings.flatMap((entry) => {
     if (wingTargets && !wingTargets.includes(entry.wing)) return [];
     if (chapterQuery && !entry.chapter.includes(chapterQuery) && !entry.title.includes(chapterQuery)) return [];
     if (trigramQuery && !entry.trigrams?.includes(trigramQuery) && !entry.text.includes(trigramQuery)) return [];
@@ -119,8 +149,9 @@ export function searchWings(params: WingSearchParams = {}) {
 }
 
 function extractShuoguaTrigramQuote(trigram: string): string | null {
-  const virtueEntry = allWings.find((w) => w.id === 'shuogua-7');
-  const imageryEntry = allWings.find((w) => w.id === 'shuogua-11');
+  const wings = getAllWings();
+  const virtueEntry = wings.find((w) => w.id === 'shuogua-7');
+  const imageryEntry = wings.find((w) => w.id === 'shuogua-11');
   const virtue = virtueEntry?.text
     .split(/[；。]/u)
     .map((s) => s.trim())
@@ -170,7 +201,7 @@ export function selectZhouyiWingClassics({
   }
 
   if (orig?.id === 1 || changed?.id === 1) {
-    const qianWenyan = allWings.find((w) => w.id === 'wenyan-qian');
+    const qianWenyan = getAllWings().find((w) => w.id === 'wenyan-qian');
     const firstParagraph = qianWenyan?.text.split('\n')[0];
     if (firstParagraph) {
       results.push({
@@ -184,7 +215,7 @@ export function selectZhouyiWingClassics({
   }
 
   if (orig?.id === 2 || changed?.id === 2) {
-    const kunWenyan = allWings.find((w) => w.id === 'wenyan-kun');
+    const kunWenyan = getAllWings().find((w) => w.id === 'wenyan-kun');
     const firstParagraph = kunWenyan?.text.split('\n')[0];
     if (firstParagraph) {
       results.push({

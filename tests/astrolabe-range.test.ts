@@ -131,7 +131,7 @@ test('出生秒逐一重算周期事件并汇总每项时间范围，两个游�
   const source = { ...input, range: { ...input.range, end: '2024-03-20T11:06:24+08:00', pageSize: 1 }, flow: { reference: { kind: 'year', year: 2025 }, techniques: ['transit'], period }, prompt: { eventDetail: 'full' } };
   const fetchPage = async (value: any) => (await calculate('astrolabe-range', value)).data;
   const collection = await collectAstrolabeRange(source, fetchPage), data = collection.data;
-  assert.equal(data.range.complete, true); assert.match(collection.prompt.text, /周期事件出生范围/); assert.match(collection.prompt.text, /下一周期页 cursor=/);
+  assert.equal(data.range.complete, true); assert.match(collection.prompt.text, /周期事件出生范围/); assert.match(collection.prompt.text, /下一周期页游标：/);
   const sampleCharts = [];
   for (let i = 0; i < 4; i++) {
     const timestamp = Date.parse(source.range.start) + i * 1000;

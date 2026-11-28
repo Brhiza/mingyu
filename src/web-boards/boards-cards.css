@@ -1,0 +1,1293 @@
+/* 牌阵与签诗样式：塔罗、雷诺曼、三山国王灵签、诸葛神数 */
+@layer components.base, components.responsive;
+@layer components.base {
+  .cb-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 10px;
+  }
+
+  .cb-card {
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-control);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cb-card.is-reversed {
+    border-color: rgba(180, 35, 24, 0.24);
+    background: var(--accent-soft);
+  }
+
+  .cb-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .cb-card-pos {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .cb-card-num {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .cb-tarot-emblem {
+    color: var(--accent);
+    transition: transform 0.2s ease;
+  }
+
+  .cb-tarot-emblem.is-reversed {
+    transform: rotate(180deg);
+    color: var(--danger-text);
+  }
+
+  .cb-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .cb-card-name {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    color: var(--text-strong);
+  }
+
+  .cb-card-sub,
+  .cb-card-meaning {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+
+  .cb-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .cb-kw-pill {
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .cb-combo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+  }
+
+  .cb-combo-item {
+    margin: 0;
+    font-size: 0.83rem;
+    color: var(--text-primary);
+  }
+
+  .cb-combo-pair {
+    color: var(--text-strong);
+  }
+
+  .cb-sign-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cb-sign-poem {
+    padding: 12px 14px;
+    border-radius: var(--radius-control);
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    text-align: center;
+  }
+
+  .cb-sign-poem-line {
+    margin: 4px 0;
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    letter-spacing: 0.04em;
+  }
+
+  .cb-coin-row,
+  .cb-zhuge-chars {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .cb-coin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    font-size: 0.95rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-base);
+    overflow: hidden;
+  }
+
+  .cb-coin-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .cb-coin.is-yang {
+    color: var(--accent-strong);
+    border-color: var(--border-contrast);
+  }
+
+  .cb-zhuge-char {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: var(--radius-control);
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+  }
+
+  .cb-zhuge-glyph {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    color: var(--text-strong);
+  }
+
+  .cb-zhuge-stroke {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .cb-elem-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cb-elem-pill {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .cb-elem-pill.is-el-major {
+    background: var(--accent-soft);
+    border-color: var(--border-contrast);
+    color: var(--accent-strong);
+  }
+
+  .cb-elem-pill.is-el-火 {
+    color: var(--wuxing-huo);
+    border-color: color-mix(in srgb, var(--wuxing-huo) 35%, transparent);
+  }
+
+  .cb-elem-pill.is-el-水 {
+    color: var(--wuxing-shui);
+    border-color: color-mix(in srgb, var(--wuxing-shui) 35%, transparent);
+  }
+
+  .cb-elem-pill.is-el-风 {
+    color: var(--wuxing-mu);
+    border-color: color-mix(in srgb, var(--wuxing-mu) 35%, transparent);
+  }
+
+  .cb-elem-pill.is-el-土 {
+    color: var(--wuxing-tu);
+    border-color: color-mix(in srgb, var(--wuxing-tu) 35%, transparent);
+  }
+
+  .cb-tarot-spread-table {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .cb-tarot-slot-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated);
+    min-width: 0;
+  }
+
+  .cb-tarot-slot-card.is-center-focus {
+    border-color: var(--border-contrast);
+    box-shadow: 0 4px 14px rgba(180, 120, 40, 0.12);
+  }
+
+  .cb-tarot-slot-card.is-home-house {
+    border-color: var(--accent);
+  }
+
+  .cb-tarot-slot-card.is-crossing {
+    border-style: dashed;
+    border-color: var(--border-contrast);
+  }
+
+  .cb-tarot-slot-card.is-chakra-slot {
+    border-left: 4px solid var(--chakra-accent, var(--accent));
+  }
+
+  .cb-slot-pos-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border-soft);
+  }
+
+  .cb-slot-pos-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .cb-slot-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .cb-slot-hint,
+  .cb-slot-el,
+  .cb-card-coord {
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .cb-slot-right-tags {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .cb-slot-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  .cb-tarot-view-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .cb-tarot-view-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    margin-left: auto;
+  }
+
+  .cb-tarot-view-btn {
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+
+  .cb-tarot-view-btn.is-active {
+    background: var(--accent-strong);
+    color: var(--accent-contrast, #fff);
+  }
+
+  .cb-tarot-spatial-wrap {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cb-tarot-spatial-board {
+    --spread-card-width: 102px;
+    --spread-item-width: 138px;
+    position: relative;
+    width: 100%;
+    height: min(600px, 64dvh);
+    margin-inline: auto;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background:
+      radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-soft) 34%, transparent), transparent 72%),
+      var(--surface-elevated);
+  }
+
+  .cb-tarot-spatial-board.spread-single,
+  .cb-tarot-spatial-board.spread-three,
+  .cb-tarot-spatial-board.spread-mindBodySpirit,
+  .cb-tarot-spatial-board.spread-holyTriangle {
+    height: min(440px, 52dvh);
+  }
+
+  .cb-tarot-spatial-board.spread-celtic,
+  .cb-tarot-spatial-board.spread-year,
+  .cb-tarot-spatial-board.spread-twelveHouses {
+    height: min(640px, 68dvh);
+  }
+
+  .cb-tarot-spatial-board.is-small-spread {
+    --spread-card-width: 142px;
+    --spread-item-width: 184px;
+  }
+
+  .cb-tarot-spatial-board.is-medium-spread {
+    --spread-card-width: 96px;
+    --spread-item-width: 132px;
+  }
+
+  .cb-tarot-spatial-board.is-dense {
+    --spread-card-width: 66px;
+    --spread-item-width: 98px;
+  }
+
+  .cb-spatial-card {
+    position: absolute;
+    left: var(--spread-x);
+    top: var(--spread-y);
+    transform: translate(-50%, -50%);
+    width: var(--spread-item-width);
+    border: 0;
+    background: transparent;
+    padding: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  .cb-tarot-spatial-board.is-dealing .cb-spatial-card {
+    animation: cb-tarot-deal 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--deal-index, 0) * 60ms);
+  }
+
+  .cb-spatial-pos {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    margin-bottom: 4px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cb-spatial-pos i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-style: normal;
+    font-size: 0.62rem;
+    font-weight: 800;
+    flex: 0 0 auto;
+  }
+
+  .cb-spatial-face-frame {
+    width: var(--spread-card-width);
+    transform: rotate(var(--spread-rotation, 0deg));
+    transition: transform 200ms ease, filter 200ms ease;
+  }
+
+  .cb-spatial-card:hover .cb-spatial-face-frame {
+    filter: brightness(1.03);
+  }
+
+  .cb-spatial-name {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    line-height: 1.25;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cb-spatial-ori {
+    margin-top: 3px;
+    border-radius: 999px;
+    padding: 1px 6px;
+    font-size: 0.62rem;
+    font-weight: 700;
+  }
+
+  .cb-spatial-ori.is-upright {
+    background: color-mix(in srgb, var(--success-text) 12%, transparent);
+    color: var(--success-text);
+  }
+
+  .cb-spatial-ori.is-reversed {
+    background: color-mix(in srgb, var(--secondary) 14%, transparent);
+    color: var(--secondary-strong);
+  }
+
+  .cb-tarot-spatial-board.is-dense .cb-spatial-name,
+  .cb-tarot-spatial-board.is-dense .cb-spatial-ori {
+    display: none;
+  }
+
+  .cb-spatial-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 8px;
+  }
+
+  .cb-spatial-legend-item {
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    background: var(--surface-elevated);
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .cb-spatial-legend-item:hover {
+    border-color: var(--accent);
+  }
+
+  .cb-spatial-legend-pos {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .cb-spatial-legend-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.8rem;
+    color: var(--text-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cb-lenormand-gt-grid {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .cb-gt-cell {
+    appearance: none;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--surface-base);
+    padding: 6px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    text-align: center;
+    min-width: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .cb-gt-cell:hover {
+    border-color: var(--border-strong);
+    background: var(--state-hover-surface);
+  }
+
+  .cb-gt-cell.is-home {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent-soft) 50%, var(--surface-base));
+  }
+
+  .cb-gt-cell.is-person {
+    border-color: #b91c1c;
+    background: rgba(185, 28, 28, 0.08);
+  }
+
+  .cb-gt-cell.is-near-person {
+    border-style: dashed;
+    border-color: var(--border-contrast);
+  }
+
+  .cb-gt-cell.is-selected {
+    border-width: 2px;
+    border-color: var(--accent-strong);
+    box-shadow: 0 2px 8px rgba(180, 120, 40, 0.18);
+  }
+
+  .cb-gt-house {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .cb-gt-card-name {
+    font-size: 0.78rem;
+    color: var(--text-strong);
+    font-family: var(--font-serif);
+  }
+
+  .cb-gt-card-id {
+    font-size: 0.64rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .cb-gt-detail {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cb-combo-item.is-fixed {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-base));
+    border: 1px solid var(--border-contrast);
+  }
+
+  .cb-combo-cond {
+    color: var(--accent-strong);
+    font-size: 0.76rem;
+  }
+
+  .wb-info-modal-body .cb-combo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .wb-info-modal-body .cb-combo-item {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+
+  .ssgw-slip-board {
+    --ssgw-serif: 'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', Georgia, serif;
+    gap: 16px;
+  }
+
+  .ssgw-slip-paper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px 24px 18px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-strong));
+    background:
+      radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--secondary) 12%, transparent), transparent 60%),
+      var(--surface-elevated-strong);
+    box-shadow:
+      inset 0 0 0 5px var(--surface-elevated-strong),
+      inset 0 0 0 6px color-mix(in srgb, var(--accent) 26%, var(--secondary)),
+      var(--shadow-card);
+  }
+
+  .ssgw-slip-paper.is-tone-low {
+    border-color: color-mix(in srgb, var(--secondary) 36%, var(--border-strong));
+    box-shadow:
+      inset 0 0 0 5px var(--surface-elevated-strong),
+      inset 0 0 0 6px color-mix(in srgb, var(--secondary) 34%, var(--border-strong)),
+      var(--shadow-card);
+  }
+
+  .ssgw-slip-corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    color: color-mix(in srgb, var(--accent-strong) 48%, var(--secondary));
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .ssgw-slip-corner.is-tl { top: 11px; left: 11px; }
+
+  .ssgw-slip-corner.is-tr { top: 11px; right: 11px; transform: scaleX(-1); }
+
+  .ssgw-slip-corner.is-bl { bottom: 11px; left: 11px; transform: scaleY(-1); }
+
+  .ssgw-slip-corner.is-br { bottom: 11px; right: 11px; transform: scale(-1); }
+
+  .ssgw-slip-plaque {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 14px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-soft));
+  }
+
+  .ssgw-slip-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ssgw-slip-emblem {
+    width: 32px;
+    height: 22px;
+    color: var(--accent-strong);
+    flex-shrink: 0;
+  }
+
+  .ssgw-slip-brand-meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  .ssgw-slip-temple {
+    font-family: var(--ssgw-serif);
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    letter-spacing: 0.14em;
+  }
+
+  .ssgw-slip-luck-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .ssgw-grade-seal {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 2px;
+    border-radius: 5px;
+    border: 2px solid var(--accent-strong);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-base));
+    color: var(--accent-strong);
+    font-family: var(--ssgw-serif);
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 0.12em;
+    transform: rotate(-5deg);
+    flex-shrink: 0;
+  }
+
+  .ssgw-grade-seal.is-tone-mid {
+    border-color: var(--secondary-strong);
+    background: var(--secondary-soft);
+    color: var(--secondary-strong);
+  }
+
+  .ssgw-grade-seal.is-tone-peace {
+    border-color: var(--wuxing-mu);
+    background: color-mix(in srgb, var(--wuxing-mu) 11%, transparent);
+    color: var(--wuxing-mu);
+  }
+
+  .ssgw-grade-seal.is-tone-low {
+    border-color: var(--text-secondary);
+    background: color-mix(in srgb, var(--text-secondary) 10%, transparent);
+    color: var(--text-strong);
+  }
+
+  .ssgw-slip-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+  }
+
+  .ssgw-slip-art {
+    width: 122px;
+    aspect-ratio: 2 / 3;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--secondary) 38%, var(--border-soft));
+    background: var(--surface-soft);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ssgw-slip-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ssgw-slip-scroll {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .ssgw-slip-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 12px;
+  }
+
+  .ssgw-slip-lot-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-family: var(--ssgw-serif);
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  .ssgw-slip-poetic-title {
+    margin: 0;
+    font-family: var(--ssgw-serif);
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  .ssgw-poem-vertical {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: stretch;
+    justify-content: center;
+    padding: 16px 14px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-soft));
+    background: color-mix(in srgb, var(--surface-soft) 58%, var(--surface-base));
+  }
+
+  .ssgw-poem-col {
+    margin: 0;
+    padding: calc(2px + 0.2em) 16px 2px;
+    min-height: 148px;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-family: var(--ssgw-serif);
+    font-size: 1.14rem;
+    font-weight: 600;
+    line-height: 1.6;
+    letter-spacing: 0.2em;
+    color: var(--text-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ssgw-poem-col + .ssgw-poem-col {
+    border-right: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-soft));
+  }
+
+  .ssgw-slip-colophon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    padding: 10px 14px 2px;
+    border-top: 1px dashed color-mix(in srgb, var(--secondary) 32%, var(--border-soft));
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .ssgw-colophon-ganzhi {
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
+  }
+
+  .ssgw-colophon-method {
+    padding: 1px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+  }
+
+  .ssgw-core-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    border-left: 3px solid var(--accent-strong);
+    border-radius: 0 8px 8px 0;
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-soft));
+  }
+
+  .ssgw-core-tag {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+    background: var(--surface-base);
+    color: var(--accent-strong);
+    font-family: var(--ssgw-serif);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-top: 1px;
+  }
+
+  .ssgw-core-text {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--text-strong);
+    font-weight: 500;
+  }
+
+  .ssgw-ledger {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .ssgw-ledger-row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 4px;
+  }
+
+  .ssgw-ledger-row + .ssgw-ledger-row {
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .ssgw-ledger-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font-family: var(--ssgw-serif);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .ssgw-ledger-val {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  .ssgw-yiji-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ssgw-yiji-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  .ssgw-yiji-badge {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-family: var(--ssgw-serif);
+    font-size: 0.76rem;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .ssgw-yiji-item.is-yi .ssgw-yiji-badge {
+    background: color-mix(in srgb, var(--wuxing-mu) 16%, transparent);
+    color: var(--wuxing-mu);
+    border: 1px solid color-mix(in srgb, var(--wuxing-mu) 35%, transparent);
+  }
+
+  .ssgw-yiji-item.is-ji .ssgw-yiji-badge {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .ssgw-yiji-text {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+  }
+
+  .ssgw-modal-verse-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ssgw-modal-verse-item {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  .ssgw-modal-verse-line {
+    display: block;
+    font-family: var(--ssgw-serif);
+    font-size: 0.9rem;
+    color: var(--accent-strong);
+    margin-bottom: 3px;
+  }
+
+  .ssgw-modal-verse-gloss {
+    margin: 0;
+    font-size: 0.83rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+  }
+
+  .zg-slip-coins,
+  .zg-slip-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .zg-slip-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 72px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--secondary) 36%, var(--border-soft));
+    background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface-base));
+  }
+
+  .zg-slip-glyph {
+    font-family: var(--ssgw-serif);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .zg-slip-sub {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .zg-slip-poem {
+    width: min(100%, 440px);
+    padding: 14px 18px;
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--border-soft));
+    background: color-mix(in srgb, var(--surface-soft) 58%, var(--surface-base));
+  }
+
+  .zg-slip-poem .cb-sign-poem-line {
+    font-family: var(--ssgw-serif);
+    font-size: 1.08rem;
+    letter-spacing: 0.08em;
+  }
+
+  @keyframes cb-tarot-deal {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -44%) scale(0.88);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+}
+@layer components.responsive {
+  @media (min-width: 760px) {
+    .cb-spread-single,
+    .cb-lenormand-spread-single {
+      grid-template-columns: minmax(220px, 320px);
+      justify-content: center;
+    }
+
+    .cb-spread-three,
+    .cb-spread-mindBodySpirit,
+    .cb-lenormand-spread-three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cb-spread-holyTriangle {
+      grid-template-columns: repeat(2, minmax(180px, 260px));
+      grid-template-areas:
+        'top top'
+        'left right';
+      justify-content: center;
+    }
+
+    .cb-spread-holyTriangle > :first-child {
+      max-width: 280px;
+      justify-self: center;
+      width: 100%;
+    }
+
+    .cb-spread-love,
+    .cb-spread-fourElements {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        '. top .'
+        'left center right'
+        '. bottom .';
+    }
+
+    .cb-spread-decision,
+    .cb-lenormand-spread-decision {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        '. advice .'
+        'a2 . b2'
+        'a1 base b1';
+    }
+
+    .cb-spread-relationship {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        'you1 core other1'
+        'you2 outcome other2';
+    }
+
+    .cb-spread-career {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cb-spread-chakra {
+      grid-template-columns: minmax(240px, 420px);
+      justify-content: center;
+    }
+
+    .cb-spread-horseshoe {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        'h1 . . h7'
+        'h2 . . h6'
+        'h3 h4 h5 .';
+    }
+
+    .cb-spread-hexagram {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        '. s1 .'
+        's6 core s2'
+        's5 . s3'
+        '. s4 .';
+    }
+
+    .cb-spread-celtic {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        '. p3 . p10'
+        'p5 p1 p6 p9'
+        '. p2 . p8'
+        '. p4 . p7';
+    }
+
+    .cb-spread-year,
+    .cb-spread-twelveHouses {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .cb-lenormand-spread-element {
+      grid-template-columns: repeat(2, minmax(180px, 280px));
+      justify-content: center;
+    }
+
+    .cb-lenormand-spread-five {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        '. l4 .'
+        'l1 l3 l5'
+        '. l2 .';
+    }
+
+    .cb-lenormand-spread-relationship {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        '. hidden .'
+        'you bond other'
+        '. outcome .';
+    }
+
+    .cb-lenormand-spread-nine {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .cb-tarot-spatial-board.is-small-spread {
+      --spread-card-width: 96px;
+      --spread-item-width: 112px;
+    }
+
+    .cb-tarot-spatial-board.is-medium-spread {
+      --spread-card-width: 68px;
+      --spread-item-width: 86px;
+    }
+
+    .cb-tarot-spatial-board.is-dense {
+      --spread-card-width: 52px;
+      --spread-item-width: 72px;
+    }
+
+    .cb-tarot-spatial-board.spread-three,
+    .cb-tarot-spatial-board.spread-mindBodySpirit {
+      height: 310px;
+    }
+
+    .cb-tarot-spatial-board.spread-celtic .cb-spatial-card:nth-child(1) .cb-spatial-pos {
+      transform: translate(-55%, -20px);
+    }
+
+    .cb-tarot-spatial-board.spread-celtic .cb-spatial-card:nth-child(2) .cb-spatial-pos {
+      transform: translate(55%, -20px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cb-tarot-spatial-board.is-dealing .cb-spatial-card {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .cb-lenormand-gt-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .ssgw-slip-paper {
+      padding: 18px 16px 14px;
+    }
+
+    .ssgw-slip-body {
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ssgw-slip-poetic-title {
+      font-size: 1.04rem;
+    }
+
+    .ssgw-poem-vertical {
+      padding: 12px 8px;
+      width: 100%;
+    }
+
+    .ssgw-poem-col {
+      padding: calc(2px + 0.14em) 10px 2px;
+      min-height: 128px;
+      font-size: 1.02rem;
+      letter-spacing: 0.14em;
+    }
+
+    .ssgw-yiji-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

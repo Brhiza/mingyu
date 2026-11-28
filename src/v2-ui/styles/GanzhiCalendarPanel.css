@@ -34,9 +34,11 @@
 }
 
 .ganzhi-calendar-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 32px;
   padding-inline: 8px;
-  font-size: 20px;
   line-height: 1;
 }
 
@@ -474,6 +476,46 @@
 }
 
 .ganzhi-hour-item span,
+.ganzhi-cell-mobile-sub,
+.ganzhi-cell-dot {
+  display: none;
+}
+
+.ganzhi-detail-more {
+  display: grid;
+  gap: 12px;
+}
+
+.ganzhi-detail-more-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-base);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ganzhi-detail-more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ganzhi-detail-more-summary:hover {
+  border-color: var(--border-contrast);
+  color: var(--accent-strong);
+}
+
+.ganzhi-detail-more-body {
+  display: grid;
+  gap: 14px;
+}
+
 .ganzhi-hour-item small {
   color: var(--text-muted);
   font-size: 9px;
@@ -490,66 +532,143 @@
   }
 }
 
-@media (max-width: 480px) {
-  .ganzhi-cell-fortune {
-    display: block;
-  }
-
-  .ganzhi-cell-fortune::before {
-    content: '';
-  }
-
+@media (max-width: 679px) {
   .ganzhi-calendar-surface {
-    padding: 9px;
+    gap: 10px;
+    padding: 4px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
+  .ganzhi-calendar-toolbar {
+    gap: 8px;
+  }
+
+  .ganzhi-calendar-month-picker {
+    min-width: 108px;
+    font-size: 16px;
+  }
+
+  .ganzhi-legend-note {
+    display: none !important;
+  }
+
+  .ganzhi-calendar-week-row {
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+
+  .ganzhi-calendar-grid {
+    gap: 2px;
+  }
+
+  /* 移动端日历 App 风格：无繁杂外框，圆圈标选中日，单行农历/节气副标 + 黄道点 */
   .ganzhi-calendar-cell {
-    min-height: 76px;
-    padding: 5px 4px;
-    border-radius: 7px;
+    min-height: 54px;
+    justify-items: center;
+    align-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    text-align: center;
+  }
+
+  .ganzhi-calendar-cell.is-selected {
+    border: 0;
+    box-shadow: none;
+    background: var(--accent-soft);
+  }
+
+  .ganzhi-calendar-cell.is-outside {
+    opacity: 0.34;
+  }
+
+  .ganzhi-cell-topline {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .ganzhi-cell-topline em,
+  .ganzhi-cell-lunar,
+  .ganzhi-cell-ganzhi,
+  .ganzhi-cell-god,
+  .ganzhi-cell-term,
+  .ganzhi-month-terms {
+    display: none;
   }
 
   .ganzhi-cell-topline strong {
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    font-size: 14.5px;
+    font-weight: 750;
+    color: var(--text-strong);
   }
 
-  .ganzhi-cell-lunar,
-  .ganzhi-cell-ganzhi {
+  .ganzhi-calendar-cell.is-today .ganzhi-cell-topline strong {
+    background: var(--accent-soft-strong);
+    color: var(--accent-deep);
+  }
+
+  .ganzhi-calendar-cell.is-selected .ganzhi-cell-topline strong {
+    background: var(--accent-strong);
+    color: var(--accent-contrast);
+  }
+
+  .ganzhi-cell-mobile-sub {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 10px;
+    line-height: 1.15;
+    color: var(--text-muted);
   }
 
-  .ganzhi-cell-god,
-  .ganzhi-cell-term {
-    font-size: 9px;
+  .ganzhi-cell-mobile-sub.is-term {
+    font-weight: 750;
+    color: var(--accent-strong);
+  }
+
+  .ganzhi-cell-dot {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .ganzhi-cell-dot.is-huangdao {
+    background: #c48a2c;
   }
 
   .ganzhi-calendar-detail {
-    padding: 11px;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .ganzhi-detail-header h2 {
+    font-size: 17px;
+  }
+
+  .ganzhi-recommend-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 350px) {
-  .ganzhi-calendar-toolbar {
-    align-items: flex-start;
-  }
-
   .ganzhi-calendar-month-picker {
-    min-width: 102px;
-    font-size: 16px;
-  }
-
-  .ganzhi-calendar-cell {
-    min-height: 70px;
-    padding-inline: 3px;
-  }
-
-  .ganzhi-cell-lunar {
-    font-size: 9px;
-  }
-
-  .ganzhi-cell-god,
-  .ganzhi-cell-term {
-    font-size: 8px;
+    min-width: 96px;
+    font-size: 15px;
   }
 
   .ganzhi-hour-grid {

@@ -11,6 +11,7 @@ export type MethodCategoryId =
 export interface MethodCategoryGroup {
   id: MethodCategoryId;
   label: string;
+  labelEn: string;
   methods: readonly Method[];
 }
 
@@ -22,31 +23,37 @@ export const METHOD_CATEGORY_GROUPS: readonly MethodCategoryGroup[] = [
   {
     id: 'mingli',
     label: '命理合参',
+    labelEn: 'BaZi & Natal Destiny',
     methods: ['bazi', 'bazi-synastry', 'bazi-ziwei', 'bazi-reverse', 'minglu', 'fortune', 'instant'],
   },
   {
     id: 'ziwei-astro',
     label: '紫微星象',
+    labelEn: 'Zi Wei Dou Shu & Astrology',
     methods: ['ziwei', 'ziwei-synastry', 'qizheng', 'qizheng-range', 'astrolabe', 'astrolabe-range', 'astrolabe-synastry'],
   },
   {
     id: 'qimen-liuren',
     label: '奇门六壬',
+    labelEn: 'Qi Men, Liu Ren & Three Styles',
     methods: ['qimen', 'qimen-lifetime', 'liuren', 'jinkoujue', 'xiaoliuren', 'taiyi'],
   },
   {
     id: 'divination',
     label: '占卜灵签',
+    labelEn: 'I Ching, Tarot & Divination',
     methods: ['liuyao', 'meihua', 'tarot', 'lenormand', 'random-divination', 'ssgw', 'zhuge', 'number-energy'],
   },
   {
     id: 'fengshui',
     label: '风水择日',
+    labelEn: 'Feng Shui & Date Selection',
     methods: ['bazhai', 'xuankong', 'residential', 'almanac', 'calendar'],
   },
   {
     id: 'name-classics',
     label: '姓名典籍',
+    labelEn: 'Chinese Naming & Classics',
     methods: ['chinese-name', 'chinese-naming', 'zhouyi', 'character-query', 'wuyun-liuqi', 'huangji-jingshi'],
   },
 ];

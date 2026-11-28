@@ -2,12 +2,12 @@ import type { z } from 'zod';
 import type { characterQueryInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { lookupCharacters, searchCharacters } from './characters';
-import type { CharacterShardLoader } from '../character-data';
+import type { CharacterIndexLoader, CharacterShardLoader } from '../character-data';
 
 type Input = z.infer<typeof characterQueryInput>;
-async function dataFor(query: Input['query'], loadShard?: CharacterShardLoader) {
-  if (query.kind === 'text') return { query, result: await lookupCharacters(query.text, query.includeReferences ?? true, loadShard) };
-  return { query, result: await searchCharacters(query, loadShard) };
+async function dataFor(query: Input['query'], loadShard?: CharacterShardLoader, loadIndex?: CharacterIndexLoader) {
+  if (query.kind === 'text') return { query, result: await lookupCharacters(query.text, query.includeReferences ?? true, loadShard, loadIndex) };
+  return { query, result: await searchCharacters(query, loadShard, loadIndex) };
 }
 type Data = Awaited<ReturnType<typeof dataFor>>;
 function render(data: Data, question: string) {
@@ -22,13 +22,19 @@ function render(data: Data, question: string) {
   const text = [`【汉字资料】\n${section}\n${entries}`, '【任务】\n结合实际资料说明字形、读音、字义及姓名使用；区分字书原文与推测，姓名学五行和笔画为传统取象。原有字库和来源尚待独立校勘，缺失原文不可补造。', `【问题】\n${question}`].join('\n\n');
   return { text };
 }
-export async function characterQuery(input: Input, loadShard?: CharacterShardLoader) {
-  const data = await dataFor(input.query, loadShard);
+export async function characterQuery(input: Input, loadShard?: CharacterShardLoader, loadIndex?: CharacterIndexLoader) {
+  const data = await dataFor(input.query, loadShard, loadIndex);
   const count = 'characters' in data.result ? data.result.characters.length : data.result.items.length;
   return { data, summary: { title: '汉字查询', lines: [`本次返回 ${count} 字`] }, prompt: render(data, input.question) };
 }
-export async function promptForSavedCharacterQuery(data: unknown, query: Input['query'], question: string, loadShard?: CharacterShardLoader) {
-  const expected = await dataFor(query, loadShard);
+export async function promptForSavedCharacterQuery(
+  data: unknown,
+  query: Input['query'],
+  question: string,
+  loadShard?: CharacterShardLoader,
+  loadIndex?: CharacterIndexLoader,
+) {
+  const expected = await dataFor(query, loadShard, loadIndex);
   if (!sameJsonValue(data, expected)) throw new Error('汉字查询结果与输入不一致。');
   return render(expected, question);
 }

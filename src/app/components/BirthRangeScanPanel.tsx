@@ -182,17 +182,17 @@ export function BirthRangeScanPanel({
           <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
         </label>
         <label className="grid gap-1.5 text-xs font-bold text-[var(--text-strong)]">
-          <span>起始时刻（HH:MM:SS）</span>
+          <span>起始时刻</span>
           <Input value={startTime} onChange={(e) => setStartTime(e.target.value)} placeholder="14:00:00" />
         </label>
         <label className="grid gap-1.5 text-xs font-bold text-[var(--text-strong)]">
-          <span>结束时刻（HH:MM:SS，不含）</span>
+          <span>结束时刻</span>
           <Input value={endTime} onChange={(e) => setEndTime(e.target.value)} placeholder="14:05:00" />
         </label>
       </div>
 
       <div className="grid gap-1.5 text-xs font-bold text-[var(--text-strong)]">
-        <span>出生地点（用于宫位与真太阳时计算）</span>
+        <span>出生地点</span>
         <button
           type="button"
           className="flex h-10 w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--border-soft)] bg-[var(--surface-input)] px-3 text-left text-sm font-normal text-[var(--text-strong)]"
@@ -214,7 +214,7 @@ export function BirthRangeScanPanel({
               {placeDisplay}（东经 {longitude.toFixed(2)}°，北纬 {latitude.toFixed(2)}°）
             </span>
           </span>
-          <span className="text-xs text-[var(--accent)]">修改</span>
+          <span className="text-xs text-[var(--accent)]">更换</span>
         </button>
       </div>
 
@@ -233,12 +233,12 @@ export function BirthRangeScanPanel({
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" size="lg" onClick={() => void handleScan()} disabled={running}>
           <Play className="h-4 w-4" />
-          <span>{running ? '正在后台逐秒推演…' : '开始逐秒范围扫描'}</span>
+          <span>{running ? '扫描中…' : '开始扫描'}</span>
         </Button>
         {running ? (
           <Button variant="secondary" size="lg" onClick={() => abortRef.current?.abort()}>
             <Square className="h-4 w-4" />
-            <span>停止扫描</span>
+            <span>停止</span>
           </Button>
         ) : null}
       </div>

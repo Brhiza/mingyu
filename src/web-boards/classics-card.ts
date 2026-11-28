@@ -1,4 +1,4 @@
-import { asArray, asNumber, asRecord, asString, el, type UnknownRecord } from './dom';
+import { asArray, asNumber, asRecord, asString, createBoardModalTrigger, el, type UnknownRecord } from './dom';
 import type { ClassicExcerpt } from '../systems/classics/types';
 
 function cleanConditionText(raw?: string): string | undefined {
@@ -10,45 +10,28 @@ function cleanConditionText(raw?: string): string | undefined {
   return trimmed;
 }
 
-function buildClassicsBlock(
-  title: string,
+interface ClassicsMatchData {
+  title: string;
+  excerpts: readonly ClassicExcerpt[];
+  zhouyiLines: readonly string[];
+}
+
+function buildClassicsInnerNodes(
   excerpts: readonly ClassicExcerpt[],
   zhouyiLines: readonly string[] = [],
-): HTMLElement | null {
-  if (excerpts.length === 0 && zhouyiLines.length === 0) return null;
-
-  const card = el('section', 'board-card wb-classics-card');
-  card.setAttribute('aria-label', title);
-
-  const head = el('div', 'board-head wb-classics-head');
-  const titleGroup = el('div', 'board-title-group');
-  titleGroup.append(el('h3', 'board-title', title));
-  const totalCount = excerpts.length + zhouyiLines.length;
-  titleGroup.append(el('span', 'board-subtitle', `结合当前盘面自动匹配 ${totalCount} 条典籍古义参考`));
-  head.append(titleGroup);
-
-  const books = [...new Set(excerpts.map((item) => `《${item.book}》`))];
-  if (zhouyiLines.length > 0 && !books.includes('《周易》')) {
-    books.unshift('《周易》');
-  }
-  const chips = el('div', 'board-chips');
-  for (const book of books.slice(0, 4)) {
-    chips.append(el('span', 'board-chip is-accent', book));
-  }
-  head.append(chips);
-  card.append(head);
-
+): DocumentFragment {
+  const frag = document.createDocumentFragment();
   if (zhouyiLines.length > 0) {
     const zhouyiBox = el('div', 'wb-classics-zhouyi');
     for (const line of zhouyiLines) {
       zhouyiBox.append(el('p', 'wb-classics-zhouyi-line', line));
     }
-    card.append(zhouyiBox);
+    frag.append(zhouyiBox);
   }
 
   if (excerpts.length > 0) {
     const grid = el('div', 'wb-classics-grid');
-    for (const item of excerpts.slice(0, 6)) {
+    for (const item of excerpts.slice(0, 8)) {
       const box = el('article', 'wb-classics-item');
       const top = el('div', 'wb-classics-item-top');
       const sourceText = item.chapter ? `《${item.book}·${item.chapter}》` : `《${item.book}》`;
@@ -67,16 +50,47 @@ function buildClassicsBlock(
       }
       grid.append(box);
     }
-    card.append(grid);
+    frag.append(grid);
   }
+  return frag;
+}
+
+function buildClassicsBlock(
+  title: string,
+  excerpts: readonly ClassicExcerpt[],
+  zhouyiLines: readonly string[] = [],
+): HTMLElement | null {
+  if (excerpts.length === 0 && zhouyiLines.length === 0) return null;
+
+  const card = el('section', 'board-card wb-classics-card');
+  card.setAttribute('aria-label', title);
+
+  const head = el('div', 'board-head wb-classics-head');
+  const titleGroup = el('div', 'board-title-group');
+  titleGroup.append(el('h3', 'board-title', title));
+  const totalCount = excerpts.length + zhouyiLines.length;
+  head.append(titleGroup);
+
+  const books = [...new Set(excerpts.map((item) => `《${item.book}》`))];
+  if (zhouyiLines.length > 0 && !books.includes('《周易》')) {
+    books.unshift('《周易》');
+  }
+  const chips = el('div', 'board-chips');
+  chips.append(el('span', 'board-chip', `${totalCount} 条`));
+  for (const book of books.slice(0, 4)) {
+    chips.append(el('span', 'board-chip is-accent', book));
+  }
+  head.append(chips);
+  card.append(head);
+  card.append(buildClassicsInnerNodes(excerpts, zhouyiLines));
 
   return card;
 }
 
-export async function buildBoardClassicsCard(
+async function resolveBoardClassicsData(
   method: string,
   data: unknown,
-): Promise<HTMLElement | null> {
+): Promise<ClassicsMatchData | null> {
   const rec = asRecord(data);
   if (!rec) return null;
 
@@ -84,7 +98,12 @@ export async function buildBoardClassicsCard(
     switch (method) {
       case 'bazi':
       case 'bazi-ziwei': {
-        const chart = asRecord(rec.bazi ? asRecord(rec.bazi)?.chart : rec.chart) ?? rec;
+        const chartsRec = asRecord(rec.charts);
+        const chart =
+          asRecord(asRecord(chartsRec?.bazi)?.chart) ??
+          asRecord(asRecord(rec.bazi)?.chart) ??
+          asRecord(rec.chart) ??
+          rec;
         const pillars = asRecord(chart.pillars);
         const dayStem = asString(asRecord(pillars?.day)?.gan) ?? '';
         const monthBranch = asString(asRecord(pillars?.month)?.zhi);
@@ -93,7 +112,7 @@ export async function buildBoardClassicsCard(
         if (!dayStem && !patternName) return null;
         const { selectBaziClassics } = await import('../systems/classics/bazi');
         const excerpts = selectBaziClassics(dayStem, patternName, monthBranch);
-        return buildClassicsBlock('经典古籍参断（八字）', excerpts);
+        return { title: '经典古籍参断（八字）', excerpts, zhouyiLines: [] };
       }
       case 'ziwei': {
         const natal = asRecord(rec.natal) ?? asRecord(asRecord(rec.chart)?.natal) ?? rec;
@@ -112,7 +131,7 @@ export async function buildBoardClassicsCard(
         ];
         const { selectZiweiClassics } = await import('../systems/classics/ziwei');
         const excerpts = selectZiweiClassics(starNames, 6);
-        return buildClassicsBlock('经典古籍参断（紫微斗数）', excerpts);
+        return { title: '经典古籍参断（紫微斗数）', excerpts, zhouyiLines: [] };
       }
       case 'liuyao': {
         const originalName = asString(rec.originalName) ?? '';
@@ -136,8 +155,12 @@ export async function buildBoardClassicsCard(
           .map((s) => asString(asRecord(s)?.promptText) ?? '')
           .join(' ');
         const topic = asString(ev?.topic);
-        const { selectLiuyaoClassics } = await import('../systems/classics/liuyao');
-        const { findHexagram } = await import('../systems/zhouyi-text');
+        const [{ selectLiuyaoClassics }, { ensureYilinLoaded }, { ensureZhouyiLoaded, findHexagram }] = await Promise.all([
+          import('../systems/classics/liuyao'),
+          import('../systems/classics/yilin'),
+          import('../systems/zhouyi-text'),
+        ]);
+        await Promise.all([ensureZhouyiLoaded(), ensureYilinLoaded()]);
         const zhouyiLines: string[] = [];
         const orig = originalName ? findHexagram(originalName) : undefined;
         const chg = changedName ? findHexagram(changedName) : undefined;
@@ -162,7 +185,7 @@ export async function buildBoardClassicsCard(
           originalHexagram: originalName || undefined,
           changedHexagram: changedName || undefined,
         });
-        return buildClassicsBlock('《周易》经文与古籍断诀', excerpts, zhouyiLines);
+        return { title: '《周易》经文与古籍断诀', excerpts, zhouyiLines };
       }
       case 'meihua': {
         const originalName = asString(rec.originalName) ?? '';
@@ -171,8 +194,12 @@ export async function buildBoardClassicsCard(
         const tiName = asString(asRecord(rec.tiGua)?.name) ?? '';
         const yongName = asString(asRecord(rec.yongGua)?.name) ?? '';
         const relation = asString(asRecord(rec.analysis)?.tiYongRaw) ?? '';
-        const { selectMeihuaClassics } = await import('../systems/classics/meihua');
-        const { findHexagram } = await import('../systems/zhouyi-text');
+        const [{ selectMeihuaClassics }, { ensureYilinLoaded }, { ensureZhouyiLoaded, findHexagram }] = await Promise.all([
+          import('../systems/classics/meihua'),
+          import('../systems/classics/yilin'),
+          import('../systems/zhouyi-text'),
+        ]);
+        await Promise.all([ensureZhouyiLoaded(), ensureYilinLoaded()]);
         const zhouyiLines: string[] = [];
         const orig = originalName ? findHexagram(originalName) : undefined;
         const chg = changedName ? findHexagram(changedName) : undefined;
@@ -192,7 +219,7 @@ export async function buildBoardClassicsCard(
           originalHexagram: originalName || undefined,
           changedHexagram: changedName || undefined,
         });
-        return buildClassicsBlock('《周易》卦爻辞与梅花古诀', excerpts, zhouyiLines);
+        return { title: '《周易》卦爻辞与梅花古诀', excerpts, zhouyiLines };
       }
       case 'qimen':
       case 'qimen-lifetime': {
@@ -215,7 +242,7 @@ export async function buildBoardClassicsCard(
           deities,
           stemPairs,
         });
-        return buildClassicsBlock('奇门经典古籍参考', excerpts);
+        return { title: '奇门经典古籍参考', excerpts, zhouyiLines: [] };
       }
       case 'liuren': {
         const transmissions = asArray(rec.threeTransmissions)
@@ -239,7 +266,7 @@ export async function buildBoardClassicsCard(
           generals,
           lessonPatterns,
         });
-        return buildClassicsBlock('《大六壬指南》典籍参考', excerpts);
+        return { title: '《大六壬指南》典籍参考', excerpts, zhouyiLines: [] };
       }
       case 'jinkoujue': {
         const movements = asArray(rec.movements)
@@ -247,12 +274,12 @@ export async function buildBoardClassicsCard(
           .filter((x): x is string => Boolean(x));
         const { selectJinkoujueClassics } = await import('../systems/classics/jinkoujue');
         const excerpts = selectJinkoujueClassics({ movements });
-        return buildClassicsBlock('金口诀经典古诀参考', excerpts);
+        return { title: '金口诀经典古诀参考', excerpts, zhouyiLines: [] };
       }
       case 'xiaoliuren': {
         const pName = asString(asRecord(rec.primary)?.name) ?? '';
         const { selectXiaoliurenClassics } = await import('../systems/classics/xiaoliuren');
-        return buildClassicsBlock('小六壬掌诀古义', selectXiaoliurenClassics(pName));
+        return { title: '小六壬掌诀古义', excerpts: selectXiaoliurenClassics(pName), zhouyiLines: [] };
       }
       case 'taiyi': {
         const chart = asRecord(rec.chart) ?? rec;
@@ -262,15 +289,16 @@ export async function buildBoardClassicsCard(
         if (asString(chart.shiJiPosition) ?? asNumber(chart.shiJiPalace) !== undefined) tags.push('始击');
         if (asNumber(chart.lordGeneral) !== undefined) tags.push('主大将');
         if (asNumber(chart.guestGeneral) !== undefined) tags.push('客大将');
-        return buildClassicsBlock('太乙神数古籍参考', selectTaiyiClassics(tags));
+        return { title: '太乙神数古籍参考', excerpts: selectTaiyiClassics(tags), zhouyiLines: [] };
       }
       case 'huangji':
       case 'huangji-jingshi': {
         const { selectHuangjiClassics } = await import('../systems/classics/huangji');
-        return buildClassicsBlock(
-          '《皇极经世》元会运世古义',
-          selectHuangjiClassics(['元', '会', '运', '世']),
-        );
+        return {
+          title: '《皇极经世》元会运世古义',
+          excerpts: selectHuangjiClassics(['元', '会', '运', '世']),
+          zhouyiLines: [],
+        };
       }
       case 'wuyun-liuqi': {
         const chart = asRecord(rec.chart) ?? rec;
@@ -280,7 +308,7 @@ export async function buildBoardClassicsCard(
           asString(asRecord(chart.sitian)?.name),
           asString(asRecord(chart.zaiquan)?.name),
         ].filter((x): x is string => Boolean(x));
-        return buildClassicsBlock('五运六气经典参考', selectWuyunClassics(factors));
+        return { title: '五运六气经典参考', excerpts: selectWuyunClassics(factors), zhouyiLines: [] };
       }
       case 'bazhai': {
         const starList = asArray(asRecord(asArray(rec.mingPalaces)[0])?.starPalaces)
@@ -291,20 +319,25 @@ export async function buildBoardClassicsCard(
           ...starList.map((s) => asString(s.star)),
         ].filter((x): x is string => Boolean(x));
         const { selectBazhaiClassics } = await import('../systems/classics/fengshui');
-        return buildClassicsBlock('八宅明镜古籍参考', selectBazhaiClassics(stars));
+        return { title: '八宅明镜古籍参考', excerpts: selectBazhaiClassics(stars), zhouyiLines: [] };
       }
       case 'xuankong': {
         const firstChart = asRecord(asArray(rec.charts)[0]) ?? asRecord(rec.chart) ?? rec;
         const grid = asArray(firstChart.palaces)
           .map(asRecord)
           .filter((x): x is UnknownRecord => Boolean(x))
-          .flatMap((p) => [asNumber(p.mountainStar), asNumber(p.facingStar), asNumber(p.timeStar)])
+          .flatMap((p) => [
+            asNumber(p.mountain) ?? asNumber(p.mountainStar),
+            asNumber(p.water) ?? asNumber(p.facingStar),
+            asNumber(p.period) ?? asNumber(p.timeStar),
+          ])
           .filter((n): n is number => typeof n === 'number');
         const { selectXuankongClassics } = await import('../systems/classics/fengshui');
-        return buildClassicsBlock(
-          '玄空飞星古籍参考',
-          selectXuankongClassics([...new Set(grid)].slice(0, 5)),
-        );
+        return {
+          title: '玄空飞星古籍参考',
+          excerpts: selectXuankongClassics([...new Set(grid)].slice(0, 5)),
+          zhouyiLines: [],
+        };
       }
       case 'qizheng': {
         const { selectQizhengClassics } = await import('../systems/classics/qizheng');
@@ -322,17 +355,18 @@ export async function buildBoardClassicsCard(
           ...chartStars,
           '太阳', '太阴', '木星', '火星', '土星', '金星', '水星', '紫炁', '月孛', '罗睺', '计都',
         ].filter((x): x is string => Boolean(x));
-        return buildClassicsBlock(
-          '《果老星宗》古籍参考',
-          selectQizhengClassics(orderedStars),
-        );
+        return { title: '《果老星宗》古籍参考', excerpts: selectQizhengClassics(orderedStars), zhouyiLines: [] };
       }
       case 'almanac': {
         const officers = asArray(rec.days)
           .map((d) => asString(asRecord(d)?.dayOfficer) ?? asString(asRecord(d)?.jianchu))
           .filter((x): x is string => Boolean(x));
         const { selectAlmanacClassics } = await import('../systems/classics/almanac');
-        return buildClassicsBlock('《协纪辨方书》建除古义', selectAlmanacClassics([...new Set(officers)].slice(0, 4)));
+        return {
+          title: '《协纪辨方书》建除古义',
+          excerpts: selectAlmanacClassics([...new Set(officers)].slice(0, 4)),
+          zhouyiLines: [],
+        };
       }
       default:
         return null;
@@ -340,4 +374,29 @@ export async function buildBoardClassicsCard(
   } catch {
     return null;
   }
+}
+
+export async function buildBoardClassicsCard(
+  method: string,
+  data: unknown,
+): Promise<HTMLElement | null> {
+  const matched = await resolveBoardClassicsData(method, data);
+  if (!matched) return null;
+  return buildClassicsBlock(matched.title, matched.excerpts, matched.zhouyiLines);
+}
+
+export async function buildBoardClassicsTrigger(
+  method: string,
+  data: unknown,
+): Promise<HTMLButtonElement | null> {
+  const matched = await resolveBoardClassicsData(method, data);
+  if (!matched) return null;
+  const totalCount = matched.excerpts.length + matched.zhouyiLines.length;
+  if (totalCount === 0) return null;
+  return createBoardModalTrigger(
+    '经典古籍参断',
+    matched.title,
+    () => buildClassicsInnerNodes(matched.excerpts, matched.zhouyiLines),
+    `${totalCount}条`,
+  );
 }

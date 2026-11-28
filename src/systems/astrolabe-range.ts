@@ -6,6 +6,7 @@ import { resolveBirthClock } from './birth-time';
 import { createTimezoneOffsetReader, getCivilDateTimeAtFixedOffset } from './huangji/civil-time';
 import { calculateAstrolabeIndependentData, formatAstrolabeClassics, renderAstrolabeIndependentData } from './astrolabe';
 import { astroEventLabels, astroEventDirections, astroEclipseLabels } from './astrology/event-labels';
+import { ASTRO_BODY_LABELS } from './prompt-format';
 import { buildMethodSituationDigest } from './situation-digest';
 
 export type AstrolabeRangeInput = z.infer<typeof astrolabeRangeInput>;
@@ -117,8 +118,27 @@ export async function calculateAstrolabeRangeData(input: Input, context?: Runtim
     limitation: `逐秒仅计算本页；邻页相同指纹的边界分支可合并。首末盘为实际候选秒，不代表确定出生时刻；连续指标为逐秒采样最小值和最大值，圆周值按顺序展开，可能超出 0–360。${input.flow?.period ? '周期事件仅覆盖所选事件类型、星体与当前周期页；事件时刻范围来自各出生秒的采样。' : '未启用出生范围的周期事件扫描。'}` };
 }
 export type AstrolabeRangeData = Awaited<ReturnType<typeof calculateAstrolabeRangeData>>;
+function formatAstrolabeRangeMetricLine(key: string, v: AstrolabeRangeMetric): string {
+  const ptMatch = /^points\.(asc|mc|desc|ic|sun|moon)\.longitude$/.exec(key);
+  if (ptMatch) {
+    const label = `${ASTRO_BODY_LABELS[ptMatch[1]] ?? ptMatch[1]}黄经`;
+    return `${label}：${v.min.toFixed(4)}° 至 ${v.max.toFixed(4)}°${v.circularPeriod ? `（圆周 ${v.circularPeriod}°）` : ''}`;
+  }
+  if (key === 'flow.solarArc.arcDegrees') {
+    return `太阳弧推进度数：${v.min.toFixed(4)}° 至 ${v.max.toFixed(4)}°`;
+  }
+  if (key === 'flow.secondary.progressedTimestamp') {
+    return `次限推进时刻：${new Date(v.min).toISOString()} 至 ${new Date(v.max).toISOString()}`;
+  }
+  const srMatch = /^flow\.solarReturn\.(\d+)\.timestamp$/.exec(key);
+  if (srMatch) {
+    return `第 ${Number(srMatch[1]) + 1} 次太阳返照时刻：${new Date(v.min).toISOString()} 至 ${new Date(v.max).toISOString()}`;
+  }
+  return `${key}：${v.min} 至 ${v.max}${v.circularPeriod ? `（圆周 ${v.circularPeriod}）` : ''}`;
+}
+
 export function renderAstrolabeRange(data: AstrolabeRangeData, question: string, options?: Input['prompt']) {
-  const page = data.range.complete ? '已覆盖整个区间。' : `本页第 ${data.range.startIndex} 至 ${data.range.endIndex - 1} 秒。${data.range.nextCursor === null ? '没有下一页。' : `下一页 cursor=${data.range.nextCursor}；本页不能代表整个区间。`}`;
+  const page = data.range.complete ? '已覆盖整个区间。' : `本页第 ${data.range.startIndex} 至 ${data.range.endIndex - 1} 秒。${data.range.nextCursor === null ? '没有下一页。' : `下一页游标：${data.range.nextCursor}；本页不能代表整个区间。`}`;
   const header = `【西洋星盘出生范围】\nUTC ${data.range.startUtc} 至 ${data.range.endUtc}（不含终点），共 ${data.range.totalSeconds} 秒；${page}\n${data.limitation}`;
   const chosen = options ?? data.input.prompt;
   const classics = formatAstrolabeClassics(chosen?.includeClassics);
@@ -136,10 +156,10 @@ export function renderAstrolabeRange(data: AstrolabeRangeData, question: string,
   };
   const branches = data.branches.map((branch, index) => {
     const selected = Object.entries(branch.metrics).filter(([key]) => /^points\.(asc|mc|desc|ic|sun|moon)\.longitude$/.test(key) || /^flow\.(solarReturn\.\d+\.timestamp|solarArc\.arcDegrees|secondary\.progressedTimestamp)$/.test(key));
-    const metrics = selected.map(([key, v]) => `${key}: ${v.min} 至 ${v.max}${v.circularPeriod ? `（圆周 ${v.circularPeriod}）` : ''}`).join('\n');
+    const metrics = selected.map(([key, v]) => formatAstrolabeRangeMetricLine(key, v)).join('\n');
     const period = branch.first.flow?.period, occurrences = period ? astrolabePeriodOccurrences(period.events) : [];
     const shown = chosen?.eventDetail === 'full' ? occurrences : occurrences.slice(0, 20);
-    const eventRaw = period ? `【周期事件出生范围】\nUTC ${period.page.start} 至 ${period.page.end}（不含终点）；${period.page.nextCursor ? `下一周期页 cursor=${period.page.nextCursor}` : '该周期没有下一页'}。共 ${occurrences.length} 项，列出 ${shown.length} 项；时刻是该分支出生秒采样的最早至最晚 UTC。\n${shown.map(({ identity, sequence, event }) => {
+    const eventRaw = period ? `【周期事件出生范围】\nUTC ${period.page.start} 至 ${period.page.end}（不含终点）；${period.page.nextCursor ? `下一周期页游标：${period.page.nextCursor}` : '该周期没有下一页'}。共 ${occurrences.length} 项，列出 ${shown.length} 项；时刻是该分支出生秒采样的最早至最晚 UTC。\n${shown.map(({ identity, sequence, event }) => {
       const metric = branch.metrics[`flow.period.events.${identity}.utcTimestamp`];
       if (!metric) throw new Error('周期事件缺少时间范围。');
       const details = [event.movingName, event.targetName ? `${event.kind === 'transit_aspect' ? '本命' : ''}${event.targetName}` : undefined, event.aspectName, event.sign, event.house ? `第${event.house}宫` : undefined, event.direction ? astroEventDirections[event.direction] ?? event.direction : undefined, event.phase, event.eclipse ? astroEclipseLabels[event.eclipse] ?? event.eclipse : undefined].filter(Boolean).join(' ');

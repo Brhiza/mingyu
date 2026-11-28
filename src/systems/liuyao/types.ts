@@ -210,5 +210,13 @@ export interface LiuyaoData extends BaseHexagramData {
     sixRelative: string;
     position: number;
   } | null;
+  timeContext?: {
+    standard: 'true-solar';
+    longitude: number;
+    referenceTimestamp: number;
+    longitudeCorrectionMinutes: number;
+    equationOfTimeMinutes: number;
+    totalCorrectionMinutes: number;
+  };
 }
 

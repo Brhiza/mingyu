@@ -9,9 +9,10 @@ import { analyzeLiuyaoEvidence } from './liuyao/evidence';
 import type { LiuyaoData } from './liuyao/types';
 import { EARTHLY_BRANCHES, getBranchIndex, getBranchWuxing, isChong, isHe, isKe, isSheng, isXing } from './calendar';
 import type { liuyaoInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
-import { formatClassicExcerpts, selectLiuyaoClassics } from './classics';
+import { ensureYilinLoaded, formatClassicExcerpts, selectLiuyaoClassics } from './classics';
 import reference from './liuyao-reference.json';
 import { parseQuestionContext } from './question-context';
 import { buildMethodSituationDigest } from './situation-digest';
@@ -425,7 +426,7 @@ export function buildLiuyaoPatternRelations(data: LiuyaoData, evidence: Evidence
     .join('\n');
 }
 
-export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question: string, options: Options, now: string, timeLabel = '起卦') {
+export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question: string, options: Options, now: string, timeLabel = '起卦', context?: RuntimeContext) {
   const selection = resolvePromptSelection('liuyao', options);
   const parsed = parseQuestionContext(question);
   const template = options?.liuyaoTemplate ?? (parsed.inferredTopic === 'ganqing' || parsed.inferredTopic === 'shiye' || parsed.inferredTopic === 'caifu' || parsed.inferredTopic === 'guaishen' ? parsed.inferredTopic : 'general');
@@ -435,7 +436,15 @@ export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question
   const classics = options?.includeClassics
     ? reference.classics.map((item) => `《${item.book}》·${item.chapter}：${item.summary}\n适用条件：${item.application}`).join('\n')
     : '';
-  const zhouyi = options?.includeClassics ? (await import('./zhouyi-text')).hexagramClassics(data.originalName, data.changedName!, data.changingYaos.filter((line) => line.isChanging).map((line) => line.position)) : '';
+  let zhouyi = '';
+  if (options?.includeClassics) {
+    const zhouyiMod = await import('./zhouyi-text');
+    await Promise.all([
+      zhouyiMod.ensureZhouyiLoaded(context?.staticDataset),
+      ensureYilinLoaded(context?.staticDataset),
+    ]);
+    zhouyi = zhouyiMod.hexagramClassics(data.originalName, data.changedName!, data.changingYaos.filter((line) => line.isChanging).map((line) => line.position));
+  }
   const actualChangeTypes: string[] = data.yaosDetail
     .filter((y) => y.isChanging)
     .flatMap((y) => [y.changeDirection, ...(y.changeRelations ?? [])])
@@ -461,10 +470,13 @@ export async function buildPrompt(data: LiuyaoData, evidence: Evidence, question
   const schoolAlgorithmsText = evidence.schoolAlgorithms?.length
     ? `【流派算法口径核验】\n${evidence.schoolAlgorithms.map((item) => `${item.label}：卦身口径＝${item.guaShenRule}；日冲口径＝${item.dayClashRule}；本盘核验：${item.findings.join('；')}。`).join('\n')}`
     : '';
+  const timeDesc = data.timeContext
+    ? `真太阳时（经度 ${data.timeContext.longitude}°，总修正 ${data.timeContext.totalCorrectionMinutes.toFixed(1)} 分钟）`
+    : `时区偏移：UTC${(data.timezoneOffsetMinutes ?? 480) >= 0 ? '+' : '-'}${String(Math.floor(Math.abs(data.timezoneOffsetMinutes ?? 480) / 60)).padStart(2, '0')}:${String(Math.abs(data.timezoneOffsetMinutes ?? 480) % 60).padStart(2, '0')}`;
   const sections = [
     '【传统依据】\n依八宫纳甲、六亲世应、月日旺衰与动变取证；用神须结合实际所问事项。',
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
-    `【时间】\n${timeLabel}：${new Date(data.timestamp).toISOString()}；时区偏移：UTC${(data.timezoneOffsetMinutes ?? 480) >= 0 ? '+' : '-'}${String(Math.floor(Math.abs(data.timezoneOffsetMinutes ?? 480) / 60)).padStart(2, '0')}:${String(Math.abs(data.timezoneOffsetMinutes ?? 480) % 60).padStart(2, '0')}；提示词时间：${now}。`,
+    `【时间】\n${timeLabel}：${new Date(data.timestamp).toISOString()}；${timeDesc}；提示词时间：${now}。`,
     `【起卦方式】\n${evidence.generationFact.promptText}`,
     `【卦盘】\n主卦：${data.originalName}；变卦：${data.changedName}；互卦：${data.interName}；卦宫：${data.palace.name}（${data.palace.wuxing}），${data.palaceStage}。\n干支：${[data.ganzhi.year, data.ganzhi.month, data.ganzhi.day, data.ganzhi.hour].join(' ')}；旬空：${data.voidBranches.join('、')}；六爻值（初至上）：${data.yaoArray.join('、')}。\n${buildLiuyaoGuaShenAndShenshaSummary(data)}`,
     `【逐爻与伏神】\n${evidence.lineFacts.map((item) => item.promptText).join('\n')}${evidence.hiddenSpiritFacts.length ? `\n伏神：${evidence.hiddenSpiritFacts.map((item) => item.promptText).join('；')}` : '\n伏神：无已记录伏神。'}`,
@@ -516,17 +528,37 @@ export function reconstruct(data: LiuyaoData & { evidenceAnalysis?: unknown }) {
   if (data.ziHourMode !== undefined && data.ziHourMode !== '23:00' && data.ziHourMode !== '00:00') {
     throw new Error('六爻结果的早晚子时换日口径无效。');
   }
-  const chart = generateLiuyaoChart(new Date(data.timestamp), cast, data.timezoneOffsetMinutes, data.ziHourMode);
+  const timeCtx = data.timeContext;
+  if (
+    timeCtx &&
+    (timeCtx.standard !== 'true-solar' ||
+      !Number.isFinite(timeCtx.longitude) ||
+      timeCtx.longitude < -180 ||
+      timeCtx.longitude > 180)
+  ) {
+    throw new Error('六爻结果的真太阳时经度无效。');
+  }
+  const chart = generateLiuyaoChart(
+    new Date(data.timestamp),
+    cast,
+    data.timezoneOffsetMinutes,
+    data.ziHourMode,
+    timeCtx ? { timeStandard: 'true-solar', longitude: timeCtx.longitude } : undefined,
+  );
   const { evidenceAnalysis: _cached, ...saved } = data;
   if (!sameJsonValue(saved, chart)) throw new Error('六爻卦盘与起卦记录不一致。');
   return { chart, cast };
 }
 
-export async function liuyao(input: Input, now: string) {
-  if (input.range) return (await import('./liuyao-range')).calculateLiuyaoRange(input, now);
+export async function liuyao(input: Input, now: string, context?: RuntimeContext) {
+  if (input.range) return (await import('./liuyao-range')).calculateLiuyaoRange(input, now, context);
   const date = new Date(input.divinationTime ?? now);
   const cast = castLiuyao(date.getTime(), input.liuyao);
-  const data = generateLiuyaoChart(date, cast, input.liuyao?.timezoneOffsetMinutes, input.liuyao?.ziHourMode);
+  const timeOptions =
+    input.liuyao?.timeStandard === 'true-solar' && input.liuyao.longitude !== undefined
+      ? { timeStandard: 'true-solar' as const, longitude: input.liuyao.longitude }
+      : undefined;
+  const data = generateLiuyaoChart(date, cast, input.liuyao?.timezoneOffsetMinutes, input.liuyao?.ziHourMode, timeOptions);
   const parsed = parseQuestionContext(input.question);
   const hasExplicitBackground = input.question.includes('【求测背景】');
   const topic =
@@ -544,10 +576,10 @@ export async function liuyao(input: Input, now: string) {
     tags: [`主卦：${data.originalName}`, `变卦：${data.changedName}`, `互卦：${data.interName}`],
     lines: [evidenceAnalysis.selectionFact.promptText, ...evidenceAnalysis.structureFacts.map((item) => item.promptText)],
   };
-  return { data: { ...data, evidenceAnalysis }, summary, prompt: await buildPrompt(data, evidenceAnalysis, input.question, input.prompt, now) };
+  return { data: { ...data, evidenceAnalysis }, summary, prompt: await buildPrompt(data, evidenceAnalysis, input.question, input.prompt, now, '起卦', context) };
 }
 
-export function promptForLiuyao(value: unknown, question: string, options: Options, now: string) {
+export function promptForLiuyao(value: unknown, question: string, options: Options, now: string, context?: RuntimeContext) {
   const { chart } = reconstruct((value && typeof value === 'object' ? value : {}) as LiuyaoData & { evidenceAnalysis?: unknown });
   const parsed = parseQuestionContext(question);
   const hasExplicitBackground = question.includes('【求测背景】');
@@ -566,5 +598,7 @@ export function promptForLiuyao(value: unknown, question: string, options: Optio
     question,
     options,
     now,
+    '起卦',
+    context,
   );
 }

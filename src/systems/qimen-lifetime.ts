@@ -206,7 +206,9 @@ function render(data: Data, question: string, options: Options, now: string) {
     filteredCounters.length ? `【反证】\n${filteredCounters.join('；')}` : '',
     `【个人标记】\n${data.personalMarkers.map((marker) => `${marker.palaceName}：${marker.traditionalSignificance}`).join('\n')}`,
     topicText.length ? `【人生主题候选宫】\n${topicText.join('\n')}` : '',
-    stages.length ? `【阶段运限】\n模型：${stageModelNames[data.basis.stagePolicy.model] ?? data.basis.stagePolicy.model}；${data.basis.decadalLuck ? `${data.basis.decadalLuck.rule}\n${data.basis.decadalLuck.mapping}` : '阶段为所选模型的时间划分。'}\n${stageText.join(isFullDetail ? '\n\n' : '\n')}${stageLimitations.length ? `\n${stageLimitations.join('\n')}` : ''}` : '',
+    stages.length
+      ? `【阶段运限】\n模型：${stageModelNames[data.basis.stagePolicy.model] ?? data.basis.stagePolicy.model}${isFullDetail ? `；${data.basis.decadalLuck ? `${data.basis.decadalLuck.rule}\n${data.basis.decadalLuck.mapping}` : '阶段为所选模型的时间划分。'}\n${stageText.join('\n\n')}${stageLimitations.length ? `\n${stageLimitations.join('\n')}` : ''}` : `${data.basis.decadalLuck ? '（八字交节起运）' : ''}\n${stageText.join('\n')}`}`
+      : '',
     buildCompactQimenFortuneBlock(data, stages, question, now),
     data.input.periodRange && scope !== 'natal' ? `【动态时间事实】\n扫描当地公历日 ${data.input.periodRange.startDate} 至 ${data.input.periodRange.endDate}（含两端）；流年按立春准确分界，月建按交节瞬时定位，日支仅为日期级关系。${selectedStage ? '仅列与所选阶段相交的事实。' : ''}\n${dynamicText.length ? dynamicText.join('\n\n') : '所选范围内没有匹配的动态事实。'}` : '',
     schools.length ? `【解读口径】\n${schools.join('\n')}` : '', classics.length ? `【经典资料摘要】\n${classics.join('\n')}` : '', classicExcerpts,
@@ -217,10 +219,21 @@ function render(data: Data, question: string, options: Options, now: string) {
   return { text };
 }
 
+const STAGE_MODEL_NAMES: Record<string, string> = {
+  decadalGanzhi: '十年大运干支',
+  pillarFourLimits: '四柱四限',
+  palaceWalk: '九宫游年',
+  fushiAlternating: '符使交替',
+};
+
 export async function qimenLifetime(input: Input, now: string) {
   const { birth, birthRange, name, gender, method, juMethod, topics, stagePolicy, periodRange } = input;
   const data = await calculateLifetime({ birth, birthRange, name, gender, method, juMethod, topics, stagePolicy, periodRange });
-  const summary = { title: '奇门终身局', tags: [`${data.baseChart.isYangDun ? '阳遁' : '阴遁'}${data.baseChart.juShu}局`, `${data.stages.length} 个阶段`], lines: [`出生时刻：${data.basis.localDateTime}`, ...(data.birthRange ? [`出生范围候选：第 ${data.birthRange.index + 1}/${data.birthRange.totalSamples} 个整秒`] : []), `阶段模型：${data.basis.stagePolicy.model}`, periodRange ? `动态范围：${periodRange.startDate} 至 ${periodRange.endDate}` : '可选指定动态扫描日期范围。', ...(data.baseChart.seasonality?.lunarDateWarning ? [data.baseChart.seasonality.lunarDateWarning] : [])] };
+  const birthTimeLabel = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.basis.localDateTime)
+    ? data.basis.localDateTime.replace('T', ' ').slice(0, 16)
+    : data.basis.localDateTime;
+  const modelLabel = STAGE_MODEL_NAMES[data.basis.stagePolicy.model] ?? data.basis.stagePolicy.model;
+  const summary = { title: '奇门终身局', tags: [`${data.baseChart.isYangDun ? '阳遁' : '阴遁'}${data.baseChart.juShu}局`, `${data.stages.length} 个阶段`], lines: [`出生时刻：${birthTimeLabel}`, ...(data.birthRange ? [`出生范围候选：第 ${data.birthRange.index + 1}/${data.birthRange.totalSamples} 个整秒`] : []), `阶段模型：${modelLabel}`, periodRange ? `动态范围：${periodRange.startDate} 至 ${periodRange.endDate}` : '可选指定动态扫描日期范围。', ...(data.baseChart.seasonality?.lunarDateWarning ? [data.baseChart.seasonality.lunarDateWarning] : [])] };
   return { data, summary, prompt: render(data, input.question, input.prompt, now) };
 }
 

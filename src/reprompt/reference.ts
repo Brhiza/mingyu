@@ -7,20 +7,20 @@ const chineseName: RepromptHandler = async ({ request, data, promptOptions, cont
     const saved = inputSchemas['chinese-name'].parse({ ...data.input, question: request.question });
     const { question: _question, currentTime: _time, ...source } = saved;
     const options = inputSchemas['chinese-name'].shape.prompt.parse(promptOptions);
-    return await (await import('../systems/chinese-name')).promptForSavedChineseName(data, source, request.question, options, context?.characterShard);
+    return await (await import('../systems/chinese-name')).promptForSavedChineseName(data, source, request.question, options, context?.characterShard, context?.characterIndex, context?.staticDataset);
   }
   const saved = inputSchemas['chinese-naming'].parse({ ...data.input, question: request.question });
   const { question: _question, currentTime: _time, ...source } = saved;
   const options = inputSchemas['chinese-naming'].shape.prompt.parse(promptOptions);
-  return await (await import('../systems/chinese-naming')).promptForSavedChineseNaming(data, source, request.question, options, context?.characterShard);
+  return await (await import('../systems/chinese-naming')).promptForSavedChineseNaming(data, source, request.question, options, context?.characterShard, context?.characterIndex, context?.staticDataset);
 };
 
 export const referenceHandlers = {
-  'zhouyi': async ({ request, data, promptOptions }) => {
+  'zhouyi': async ({ request, data, promptOptions, context }) => {
     requireSavedInput(data, '周易结果缺少查询资料。');
     rejectPromptOptions(promptOptions, '周易经文查询不支持提示词选项。');
     const saved = inputSchemas.zhouyi.parse(data.input);
-    return (await import('../systems/zhouyi')).promptForZhouyi(data, saved, request.question);
+    return (await import('../systems/zhouyi')).promptForZhouyi(data, saved, request.question, context);
   },
   'calendar': async ({ request, data, promptOptions }) => {
     requireSavedInput(data, '历法结果缺少输入资料。');
@@ -39,7 +39,7 @@ export const referenceHandlers = {
   'character-query': async ({ request, data, promptOptions, context }) => {
     const saved = inputSchemas['character-query'].parse({ query: data.query, question: request.question });
     rejectPromptOptions(promptOptions, '汉字查询不支持提示词选项。');
-    return await (await import('../systems/character-query')).promptForSavedCharacterQuery(data, saved.query, request.question, context?.characterShard);
+    return await (await import('../systems/character-query')).promptForSavedCharacterQuery(data, saved.query, request.question, context?.characterShard, context?.characterIndex);
   },
   'number-energy': async ({ request, data, promptOptions }) => {
     requireSavedInput(data, '数字能量结果缺少号码资料。');
@@ -47,18 +47,18 @@ export const referenceHandlers = {
     const options = inputSchemas['number-energy'].shape.prompt.parse(promptOptions);
     return (await import('../systems/number-energy')).promptForSavedNumberEnergy(data, saved, request.question, options);
   },
-  'instant': async ({ request, data, promptOptions }) => {
+  'instant': async ({ request, data, promptOptions, context }) => {
     requireSavedInput(data, '即时盘缺少起盘资料。');
     rejectPromptOptions(promptOptions, '即时盘不支持提示词选项。');
     const saved = inputSchemas.instant.parse({ ...data.input, question: request.question });
-    return await (await import('../systems/instant')).promptForSavedInstant(data, saved, request.question);
+    return await (await import('../systems/instant')).promptForSavedInstant(data, saved, request.question, context);
   },
-  'almanac': async ({ request, data, promptOptions }) => {
+  'almanac': async ({ request, data, promptOptions, context }) => {
     requireSavedInput(data, '黄历结果缺少原始资料。');
     const saved = inputSchemas.almanac.parse({ ...data.input, question: request.question });
     const options = inputSchemas.almanac.shape.prompt.parse(promptOptions);
     const module = await import('../systems/almanac');
-    return await module.promptForSavedAlmanac(data, saved, request.question, options);
+    return await module.promptForSavedAlmanac(data, saved, request.question, options, context);
   },
   'huangji-jingshi': async ({ request, data, currentTime, promptOptions }) => {
     if (data.kind === 'range') {

@@ -1,3 +1,4 @@
+import { ENABLE_CUSTOM_EDITION } from './brand-config';
 import { setDefaultPromptGuidanceProvider, type PromptReplyStyle } from './prompt-guidance';
 import { NON_CLASSICS_METHODS } from './method-registry';
 import type { Method } from './schema';
@@ -5,6 +6,7 @@ import type { Method } from './schema';
 const STORAGE_KEY = 'mingyu:global-rules:v1';
 
 export type TarotDeckId =
+  | 'skin'
   | 'danjie-leopard'
   | 'doubao'
   | 'pleasant-goat'
@@ -16,6 +18,7 @@ export const TAROT_DECK_OPTIONS: ReadonlyArray<{
   label: string;
   desc: string;
 }> = [
+  { id: 'skin', label: '跟随当前皮肤', desc: '优先使用所选主题皮肤自带牌面' },
   { id: 'danjie-leopard', label: '蛋姐的豹（默认）', desc: '手绘奇幻豹系套牌' },
   { id: 'doubao', label: '豆包塔罗', desc: '细腻绘本插画风套牌' },
   { id: 'pleasant-goat', label: '喜羊羊与灰太狼', desc: '青青草原主题套牌' },
@@ -202,7 +205,7 @@ export const DEFAULT_GLOBAL_RULES: GlobalRulesSettings = {
     jinkoujueDefaultMethod: 'time',
     tarotDefaultDrawMode: 'random',
     tarotReversalMode: 'realistic',
-    tarotDeck: 'danjie-leopard',
+    tarotDeck: ENABLE_CUSTOM_EDITION ? 'skin' : 'danjie-leopard',
     lenormandDefaultDrawMode: 'random',
     ssgwDefaultMode: 'interactive',
     kongmingDefaultMode: 'random',
@@ -462,14 +465,14 @@ export const GLOBAL_RULE_SECTIONS: GlobalRuleSectionDescriptor[] = [
         kind: 'select', id: 'gs-qizheng-mingGongMethod', group: 'qizheng', key: 'mingGongMethod', label: '七政立命宫与命度',
         options: [
           { value: 'mao-palace', label: '太阳加生时顺数至卯安命（默认）' },
-          { value: 'ascendant', label: '出生地地平真上升点（ASC）立命' },
+          { value: 'ascendant', label: '出生地地平真上升点立命' },
         ],
       },
       {
         kind: 'select', id: 'gs-qizheng-nodeModel', group: 'qizheng', key: 'nodeModel', label: '七政罗睺/计都交点模型',
         options: [
           { value: 'true', label: '天文真月交点（默认）' },
-          { value: 'mean', label: 'Moshier 平均月交点' },
+          { value: 'mean', label: '莫希尔平均月交点' },
         ],
       },
       {
@@ -519,18 +522,18 @@ export const GLOBAL_RULE_SECTIONS: GlobalRuleSectionDescriptor[] = [
       {
         kind: 'select', id: 'gs-astro-houseSystem', group: 'astro', key: 'houseSystem', label: '西洋星盘宫位制',
         options: [
-          { value: 'placidus', label: '普拉西德制（Placidus，默认）' },
-          { value: 'whole_sign', label: '整宫制（Whole Sign）' },
-          { value: 'equal', label: '等宫制（Equal）' },
-          { value: 'koch', label: '科赫制（Koch）' },
-          { value: 'porphyry', label: '波菲利制（Porphyry）' },
-          { value: 'regiomontanus', label: '雷吉奥蒙塔努斯制（Regiomontanus）' },
-          { value: 'campanus', label: '坎帕努斯制（Campanus）' },
-          { value: 'alcabitius', label: '阿尔卡比特制（Alcabitius）' },
-          { value: 'morinus', label: '莫里努斯制（Morinus）' },
-          { value: 'meridian', label: '子午圈制（Meridian）' },
-          { value: 'polich_page', label: '波利希-佩奇制 / 顶点制（Polich-Page）' },
-          { value: 'vehlow', label: '维洛等宫制（Vehlow）' },
+          { value: 'placidus', label: '普拉西德制（默认）' },
+          { value: 'whole_sign', label: '整宫制' },
+          { value: 'equal', label: '等宫制' },
+          { value: 'koch', label: '科赫制' },
+          { value: 'porphyry', label: '波菲利制' },
+          { value: 'regiomontanus', label: '雷吉奥蒙塔努斯制' },
+          { value: 'campanus', label: '坎帕努斯制' },
+          { value: 'alcabitius', label: '阿尔卡比特制' },
+          { value: 'morinus', label: '莫里努斯制' },
+          { value: 'meridian', label: '子午圈制' },
+          { value: 'polich_page', label: '波利希-佩奇制（顶点制）' },
+          { value: 'vehlow', label: '维洛等宫制' },
         ],
       },
     ],
@@ -617,7 +620,7 @@ export function loadGlobalRules(): GlobalRulesSettings {
       casting: (() => {
         const merged = mergeGroup(DEFAULT_GLOBAL_RULES.casting, parsed.casting);
         if (!TAROT_DECK_OPTIONS.some((d) => d.id === merged.tarotDeck)) {
-          merged.tarotDeck = 'danjie-leopard';
+          merged.tarotDeck = ENABLE_CUSTOM_EDITION ? 'skin' : 'danjie-leopard';
         }
         return merged;
       })(),

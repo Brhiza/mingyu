@@ -48,7 +48,7 @@ function BaziMiniBoard({ data }: { data: Record<string, unknown> }) {
             >
               <span className="text-[10px] text-[var(--text-muted)]">{label}</span>
               <span className="text-[10px] font-semibold text-[var(--accent-strong)]">{tenGod}</span>
-              <span className="mt-0.5 font-serif text-[15px] font-bold tracking-wider text-[var(--text-strong)]">
+              <span className="mt-0.5 text-[15px] font-bold tracking-wider text-[var(--text-strong)]">
                 {gan}
                 {zhi}
               </span>

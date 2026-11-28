@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate, reprompt } from '../src/core';
-import { allWings, searchZhouyiWings } from '../src/systems/zhouyi';
-import { selectLiuyaoClassics, selectMeihuaClassics } from '../src/systems/classics';
+import { getAllWings, searchZhouyiWings } from '../src/systems/zhouyi';
+import { ensureZhouyiLoaded } from '../src/systems/zhouyi-text';
+import { ensureYilinLoaded, selectLiuyaoClassics, selectMeihuaClassics } from '../src/systems/classics';
 
 const currentTime = '2025-01-01T00:00:00Z';
 
 test('十翼原文收录完整：文言、系辞上下、说卦、序卦、杂卦均可检索', async () => {
+  await ensureZhouyiLoaded();
+  const allWings = getAllWings();
   assert.equal(allWings.filter((w) => w.wing === '文言传').length, 2);
   assert.equal(allWings.filter((w) => w.wing === '系辞上传').length, 12);
   assert.equal(allWings.filter((w) => w.wing === '系辞下传').length, 12);
@@ -57,6 +60,7 @@ test('十翼原文收录完整：文言、系辞上下、说卦、序卦、杂�
 });
 
 test('梅花与六爻在开启 includeClassics 时附带《说卦传》及《文言》《系辞》片段', async () => {
+  await Promise.all([ensureZhouyiLoaded(), ensureYilinLoaded()]);
   const meihuaDirect = selectMeihuaClassics({
     trigrams: ['乾', '兑'],
     relation: '体克用',

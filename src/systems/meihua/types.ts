@@ -33,6 +33,8 @@ export interface MeihuaCalculation {
   timeZhiIndex?: number;
   /** 起卦时采用的民用时区偏移，用于从时间戳复核取数。 */
   timezoneOffsetMinutes?: number;
+  timeStandard?: 'true-solar';
+  longitude?: number;
   upperTrigramIndex?: number;
   lowerTrigramIndex?: number;
   movingYaoIndex?: number;

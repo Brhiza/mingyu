@@ -24,7 +24,9 @@
     "check:browser-form": "node scripts/check-browser-form.mjs",
     "check:browser-ai": "node scripts/check-browser-ai.mjs",
     "check:clean-build": "node scripts/check-clean-build.mjs",
+    "check:all": "node scripts/check-all.mjs",
     "data:character-version": "node scripts/character-version.mjs --write",
+    "data:static-version": "node scripts/static-data-version.mjs --write",
     "mcp": "node dist-mcp/server.mjs",
     "qizheng-range": "node --import tsx scripts/qizheng-range.ts",
     "astrolabe-range": "node --import tsx scripts/astrolabe-range.ts"
@@ -33,7 +35,6 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "@radix-ui/react-dialog": "^1.3.1",
     "@radix-ui/react-switch": "^1.4.1",
-    "@radix-ui/react-tabs": "^1.2.1",
     "astronomy-engine": "2.1.19",
     "caelus": "0.24.1",
     "class-variance-authority": "^0.7.1",

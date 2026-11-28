@@ -1,0 +1,379 @@
+@layer components.base {
+  .fengshui-workbench {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .fs-profile-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
+  .fs-profile-chip:hover {
+    border-color: var(--accent);
+    color: var(--text-strong);
+  }
+
+  .fs-profile-chip.is-active {
+    border-color: var(--accent);
+    background: var(--state-selected-surface);
+    color: var(--state-selected-text);
+  }
+
+  /* 引导步骤条 */
+  .fs-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .fs-step-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
+  .fs-step-pill:hover {
+    border-color: var(--accent);
+    color: var(--text-strong);
+  }
+
+  .fs-step-pill.is-done {
+    color: var(--success-text);
+    border-color: color-mix(in srgb, var(--success-text) 35%, var(--border-soft));
+  }
+
+  .fs-step-pill.is-active {
+    border-color: var(--accent-strong);
+    background: var(--state-selected-surface);
+    color: var(--state-selected-text);
+  }
+
+  /* 第 1 步双栏：左示意图 + 右控件 */
+  .fs-wizard-step1-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.25fr);
+    gap: 16px;
+    align-items: center;
+  }
+
+  .fs-orientation-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 大白话 8 方向按钮组 */
+  .fs-simple-dir-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .fs-simple-dir-btn {
+    min-height: 36px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-strong);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
+  .fs-simple-dir-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .fs-simple-dir-btn.is-active {
+    border-color: var(--accent-strong);
+    background: var(--state-selected-surface);
+    color: var(--state-selected-text);
+  }
+
+  /* 第 3 步免传图 3×3 房间点选网格 */
+  .fs-room-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .fs-room-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    min-height: 80px;
+    padding: 9px 10px;
+    border-radius: 11px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .fs-room-cell:hover {
+    border-color: var(--accent);
+  }
+
+  .fs-room-cell.is-center {
+    background: color-mix(in srgb, var(--accent-soft) 24%, var(--surface-elevated-strong));
+  }
+
+  .fs-room-cell.is-selected {
+    border-color: var(--accent-strong);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  /* 4 张日常房间建议卡 */
+  .fs-plain-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* 专业九宫总盘 */
+  .fs-board-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.95fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .fs-nine-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .fs-palace-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    min-height: 112px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .fs-palace-cell:hover {
+    border-color: var(--accent);
+  }
+
+  .fs-palace-cell.is-good {
+    background: color-mix(in srgb, var(--success-text) 6%, var(--surface-elevated-strong));
+  }
+
+  .fs-palace-cell.is-warn {
+    background: color-mix(in srgb, var(--danger-text) 6%, var(--surface-elevated-strong));
+  }
+
+  .fs-palace-cell.is-center {
+    background: color-mix(in srgb, var(--accent-soft) 32%, var(--surface-elevated-strong));
+  }
+
+  .fs-palace-cell.is-selected {
+    border-color: var(--accent-strong);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .fs-palace-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .fs-palace-stars {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .fs-star-pair {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-strong);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fs-star-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fs-bazhai-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .fs-mini-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .fs-mini-tag.is-good {
+    background: color-mix(in srgb, var(--success-text) 13%, var(--surface-base));
+    color: var(--success-text);
+  }
+
+  .fs-mini-tag.is-warn {
+    background: color-mix(in srgb, var(--danger-text) 12%, var(--surface-base));
+    color: var(--danger-text);
+  }
+
+  .fs-mini-tag.is-neutral {
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+  }
+
+  /* 户型图叠盘弹窗 */
+  .fs-floor-stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    touch-action: none;
+  }
+
+  .fs-marker-pin {
+    position: absolute;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1.5px solid #fff;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: translate(-50%, -50%);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .fs-marker-pin.is-good {
+    background: #1b6e4a;
+  }
+
+  .fs-marker-pin.is-flat {
+    background: #5b5360;
+  }
+
+  .fs-marker-pin.is-warn {
+    background: #a93226;
+  }
+
+  /* 全家分房 & 流月条 */
+  .fs-resident-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 10px;
+  }
+
+  .fs-month-strip {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .fs-month-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border-radius: 9px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+
+  .fs-month-btn.is-active {
+    border-color: var(--accent);
+    background: var(--state-selected-surface);
+    color: var(--state-selected-text);
+  }
+
+  @media (max-width: 960px) {
+    .fs-wizard-step1-grid,
+    .fs-board-split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 679px) {
+    .fs-plain-cards-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .fs-room-cell {
+      min-height: 68px;
+      padding: 7px 6px;
+    }
+
+    .fs-palace-cell {
+      min-height: 94px;
+      padding: 7px 7px;
+    }
+
+    .fs-star-pair {
+      font-size: 14px;
+    }
+
+    .fs-month-strip {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+}

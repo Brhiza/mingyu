@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { StaticDatasetLoader } from '../../static-data';
 import type { almanacInput } from '../../schema';
 import { calculateBaziPillars } from '../bazi/pillars';
 import { calculateUnknownBaziTime } from '../bazi/unknown-time';
@@ -22,13 +23,13 @@ export function participantBranchConflicts(candidate: string, target: string) {
   ];
 }
 
-export async function participantProfile(person: Participant, index: number, options?: { includeBaziMatch?: boolean }) {
+export async function participantProfile(person: Participant, index: number, options?: { includeBaziMatch?: boolean; staticDataset?: StaticDatasetLoader }) {
   const { clock, ...birth } = person.birth;
   let variants: Variant[], basis: { precision: string; excludedSeconds: number; utcTimestamp?: number };
   let baziUsefulGod: { dayMaster: string; dayMasterElement: string; incrementStatus: string; favorable: string[]; primaryUnfavorable: string[]; unfavorable: string[]; climateReferenceOrder: string[] } | undefined;
   let baziUsefulGodNote: string | undefined;
   if (clock.kind === 'exact') {
-    const chart = await calculateBaziPillars({ ...birth, clock }, person.gender);
+    const chart = await calculateBaziPillars({ ...birth, clock }, person.gender, undefined, options?.staticDataset);
     variants = [{ yearBranch: chart.pillars.year.zhi, dayBranch: chart.pillars.day.zhi, intervals: [] }];
     basis = { precision: '精确时刻', excludedSeconds: 0, utcTimestamp: chart.basis.utcTimestamp };
     if (options?.includeBaziMatch) {
@@ -44,7 +45,7 @@ export async function participantProfile(person: Participant, index: number, opt
       };
     }
   } else {
-    const result = await calculateUnknownBaziTime({ ...birth, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, person.gender);
+    const result = await calculateUnknownBaziTime({ ...birth, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, person.gender, options?.staticDataset);
     variants = [];
     for (const segment of result.segments) {
       const yearBranch = segment.pillars.year.zhi, dayBranch = segment.pillars.day.zhi;

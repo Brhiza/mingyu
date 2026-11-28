@@ -25,8 +25,8 @@ test('minglu 支持 include.all 全量六体系综合与自定义组合及追问
   assert.ok(data.qimenLifetime, '应包含奇门终身局结果');
   assert.match(fullRes.prompt.text, /五、七政四余资料/);
   assert.match(fullRes.prompt.text, /六、奇门终身局资料/);
-  assert.match(fullRes.prompt.text, /七政四余：/);
-  assert.match(fullRes.prompt.text, /奇门终身局：/);
+  assert.match(fullRes.prompt.text, /七政四余：命宫.+?宫（命主.+?，度主.+?）/);
+  assert.match(fullRes.prompt.text, /奇门终身局：[阴阳]遁\d+局（值符[^、]+、值使[^）]+）/);
 
   const reprompted = await reprompt({
     method: 'minglu',

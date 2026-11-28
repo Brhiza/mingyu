@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { calendarExamples, methodExamples } from './method-examples.mjs';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { characterVersion } from './character-version.mjs';
 import { asteroidAssets } from './asteroid-version.mjs';
+import { staticDataAssets, staticDataSpecs } from './static-data-version.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), 'mingyu-worker-profile-'));
@@ -15,24 +16,80 @@ try {
   const manifest = JSON.parse(await readFile(join(root, 'dist-independent/.vite/manifest.json'), 'utf8'));
   const webSources = Object.keys(manifest);
   assert.ok(!webSources.some((path) => path.includes('legacy-') || path.includes('tests/legacy/') || path.includes('packages/core/')), '精简网页不得引用旧核心');
-  assert.ok(!webSources.some((path) => /src\/data\/characters\/(definitions|references)-\d\d\.json$/.test(path)), '网页和 Worker 应共用静态字库，不重复打包字义和原文');
+  assert.ok(!webSources.some((path) => /src\/data\/characters\/(?:index|search-order|(?:definitions|references)-\d\d)\.json$/.test(path)), '网页和 Worker 应共用静态字库，不重复打包索引、字义和原文');
   assert.ok(!webSources.some((path) => /src\/systems\/astrology\/data\/(ceres|pallas|juno|vesta)_cheb\.js$/.test(path)), '网页和 Worker 应共用小行星星历，不重复打包脚本');
+  for (const spec of staticDataSpecs) {
+    assert.ok(!webSources.includes(spec.relativePath), `网页主包不应静态打入静态典籍：${spec.relativePath}`);
+  }
+  const builtAssetFiles = await readdir(join(root, 'dist-independent/assets'));
+  const calcWorkerFile = builtAssetFiles.find((name) => /^calc\.worker-.*\.js$/.test(name));
+  const rangeWorkerFile = builtAssetFiles.find((name) => /^range\.worker-.*\.js$/.test(name));
+  assert.equal(calcWorkerFile, undefined, `常规算盘已回迁主线程按需加载，不应再生成 calc.worker：${calcWorkerFile}`);
+  assert.ok(rangeWorkerFile, '独立网页缺少 range.worker 构建产物');
+  const rangeWorkerStat = await stat(join(root, 'dist-independent/assets', rangeWorkerFile));
+  assert.ok(rangeWorkerStat.size < 100 * 1024, `range.worker 入口体积过大（应已拆分为按需导入）：${rangeWorkerStat.size} B`);
+  const entryStaticImports = Array.isArray(manifest['index.html']?.imports) ? manifest['index.html'].imports : [];
+  assert.ok(
+    !entryStaticImports.some((imp) => /(?:^|[_/])(?:calculate|reprompt)-/.test(imp)),
+    `首屏入口不应静态打入 calculate/reprompt：${entryStaticImports.join(', ')}`,
+  );
+  for (const chunkBase of ['huangji-tables', 'zhuge', 'ssgw', 'pillars']) {
+    const matched = builtAssetFiles.filter((name) => name.startsWith(`${chunkBase}-`) && name.endsWith('.js'));
+    assert.equal(matched.length, 1, `构建目录中 ${chunkBase} 应仅有 1 份按需分片，不应主包/Worker 重复打包（当前：${matched.join(', ')}）`);
+  }
   const moduleNames = { calendar: 'calendar-tool', 'wuyun-liuqi': 'wuyun', 'huangji-jingshi': 'huangji-chart' };
   for (const method of Object.keys(methodExamples)) {
     const name = moduleNames[method] ?? method;
-    assert.ok(webSources.includes(`src/systems/${name}.ts`) || Object.values(manifest).some((entry) => entry.name === name && entry.isDynamicEntry), `精简网页缺少 ${method}`);
+    assert.ok(
+      builtAssetFiles.some((file) => file.startsWith(`${name}-`) && file.endsWith('.js')),
+      `独立网页缺少 ${method} (${name}) 按需分片`,
+    );
   }
-  assert.ok(webSources.includes('src/systems/huangji-tables.ts'), '精简网页缺少皇极资料表');
-  assert.ok(manifest['src/systems/qimen.ts'].dynamicImports?.includes('src/systems/astronomy/true-solar.ts'), '真太阳时计算应按需加载');
   const build = execFileSync(join(root, 'node_modules/.bin/wrangler'), ['deploy', '--dry-run', '--outdir', output, '--metafile', join(output, 'meta.json')], { cwd: root, encoding: 'utf8' });
   console.log(build.trim());
+  const uploadMatch = /Total Upload:\s*([\d.]+)\s*KiB/.exec(build);
+  if (uploadMatch) {
+    const uploadKiB = Number(uploadMatch[1]);
+    assert.ok(uploadKiB < 4600, `Worker 上传总体积超出红线（${uploadKiB} KiB >= 4600 KiB）`);
+  }
+  const headersContent = await readFile(join(root, 'dist-independent/_headers'), 'utf8');
+  assert.ok(headersContent.includes('/assets/*') && headersContent.includes('immutable'), 'dist-independent/_headers 缺少 /assets/* immutable 缓存头');
+  assert.ok(headersContent.includes('/static-data/*') && headersContent.includes('immutable'), 'dist-independent/_headers 缺少 /static-data/* immutable 缓存头');
+
+  const collectStaticManifestDeps = (entryKey, seen = new Set()) => {
+    if (!entryKey || seen.has(entryKey)) return seen;
+    seen.add(entryKey);
+    const entry = manifest[entryKey];
+    if (!entry) return seen;
+    for (const imp of entry.imports || []) {
+      collectStaticManifestDeps(imp, seen);
+    }
+    return seen;
+  };
+  const resultPageDeps = [...collectStaticManifestDeps('src/v2-ui/result-page.ts')];
+  for (const forbidden of ['vendor-zod', 'location', 'local-agent', 'multi-hecan', 'situation-digest']) {
+    assert.ok(
+      !resultPageDeps.some((dep) => dep.includes(forbidden) || String(manifest[dep]?.file || '').includes(forbidden)),
+      `result-page.ts 不应静态依赖 ${forbidden}：${resultPageDeps.join(', ')}`,
+    );
+  }
+  const fortuneDeps = [...collectStaticManifestDeps('src/systems/fortune.ts')];
+  for (const forbidden of ['vendor-zod', 'situation-digest', 'astrolabe', 'bazi', 'ziwei']) {
+    assert.ok(
+      !fortuneDeps.some((dep) => dep.includes(forbidden) || String(manifest[dep]?.file || '').includes(forbidden)),
+      `fortune.ts 不应静态依赖 ${forbidden}：${fortuneDeps.join(', ')}`,
+    );
+  }
   const metadata = JSON.parse(await readFile(join(output, 'meta.json'), 'utf8'));
   const workerOutput = Object.entries(metadata.outputs).find(([name]) => name.endsWith('/worker.js'))?.[1];
   assert.ok(workerOutput, '缺少 Worker 构建产物');
   const legacy = Object.keys(workerOutput.inputs).filter((path) => path.includes('packages/core/') || path.includes('src/legacy-') || path.includes('tests/legacy/'));
   assert.deepEqual(legacy, [], '独立术数 Worker 不得引用旧核心');
-  assert.ok(!Object.keys(workerOutput.inputs).some((path) => /src\/data\/characters\/(definitions|references)-\d\d\.json$/.test(path)), '字义和字典原文不应打入 Worker');
+  assert.ok(!Object.keys(workerOutput.inputs).some((path) => /src\/data\/characters\/(?:index|search-order|(?:definitions|references)-\d\d)\.json$/.test(path)), '字库索引、字义和字典原文不应打入 Worker');
   assert.ok(!Object.keys(workerOutput.inputs).some((path) => /src\/systems\/astrology\/data\/(ceres|pallas|juno|vesta)_cheb\.js$/.test(path)), '四颗小行星星历不应打入 Worker');
+  for (const spec of staticDataSpecs) {
+    assert.ok(!Object.keys(workerOutput.inputs).some((path) => path.endsWith(spec.relativePath)), `静态典籍资源不应打入 Worker：${spec.relativePath}`);
+  }
   const asteroidDirectory = join(root, 'src/systems/astrology/data');
   const asteroids = asteroidAssets(asteroidDirectory);
   const asteroidVersion = JSON.parse(await readFile(join(asteroidDirectory, 'version.json'), 'utf8')).version;
@@ -40,8 +97,17 @@ try {
   for (const [name, contents] of Object.entries(asteroids.assets)) {
     assert.equal(await readFile(join(root, 'dist-independent/asteroid-data', asteroidVersion, name), 'utf8'), contents, `星历资源不一致：${name}`);
   }
+  const staticAssetsBundle = staticDataAssets(root);
+  const staticDataVersion = JSON.parse(await readFile(join(root, 'src/data/static-data-version.json'), 'utf8')).version;
+  assert.equal(staticAssetsBundle.version, staticDataVersion, '静态典籍资源版本与内容不一致');
+  for (const [name, contents] of Object.entries(staticAssetsBundle.files)) {
+    assert.deepEqual(await readFile(join(root, 'dist-independent/static-data', staticDataVersion, name)), contents, `静态典籍资源不一致：${name}`);
+  }
   const { version: dictionaryVersion } = JSON.parse(await readFile(join(root, 'src/data/characters/version.json'), 'utf8'));
   assert.equal(characterVersion(join(root, 'src/data/characters')), dictionaryVersion, '字库版本与内容不一致');
+  for (const name of ['index.json', 'search-order.json']) {
+    assert.deepEqual(await readFile(join(root, 'dist-independent/character-data', dictionaryVersion, name)), await readFile(join(root, 'src/data/characters', name)), `静态字库索引不一致：${name}`);
+  }
   for (const kind of ['definitions', 'references']) for (let shard = 0; shard < 32; shard++) {
     const name = `${kind}-${String(shard).padStart(2, '0')}.json`;
     assert.deepEqual(await readFile(join(root, 'dist-independent/character-data', dictionaryVersion, name)), await readFile(join(root, 'src/data/characters', name)), `静态字库分片不一致：${name}`);
@@ -50,6 +116,7 @@ try {
   const worker = (await import(pathToFileURL(join(output, 'worker.js')).href)).default;
   let missingAsteroid = false;
   const asteroidRequests = [];
+  const staticFileSet = new Set(Object.keys(staticAssetsBundle.files));
   const env = { ASSETS: { fetch: async (request) => {
     const path = new URL(request.url).pathname;
     if (path.startsWith(`/asteroid-data/${asteroidVersion}/`)) {
@@ -57,7 +124,12 @@ try {
       if (missingAsteroid) return new Response('missing', { status: 404 });
       return new Response(await readFile(join(root, 'dist-independent', path)), { headers: { 'content-type': 'application/json' } });
     }
-    if (new RegExp(`^/character-data/${dictionaryVersion}/(definitions|references)-\\d\\d\\.json$`).test(path)) {
+    if (path.startsWith(`/static-data/${staticDataVersion}/`)) {
+      const fileName = path.slice(`/static-data/${staticDataVersion}/`.length);
+      if (!staticFileSet.has(fileName)) return new Response('missing', { status: 404 });
+      return new Response(await readFile(join(root, 'dist-independent', path)), { headers: { 'content-type': 'application/json' } });
+    }
+    if (new RegExp(`^/character-data/${dictionaryVersion}/(?:index|search-order|(?:definitions|references)-\\d\\d)\\.json$`).test(path)) {
       return new Response(await readFile(join(root, 'dist-independent', path)), { headers: { 'content-type': 'application/json' } });
     }
     return new Response('asset');
@@ -172,6 +244,10 @@ try {
     const follow = await request('/api/prompt', { method, result: result.json, question: '继续问', prompt: { includeClassics: true } });
     assert.equal(follow.status, 200); assert.match(follow.json.prompt.text, /经文来源/);
   }
+  const missingStaticWorker = (await import(`${pathToFileURL(join(output, 'worker.js')).href}?missing-static`)).default;
+  const missingStaticRes = await request('/api/calculate', { method: 'zhuge', input: methodExamples.zhuge }, { ASSETS: { fetch: async () => new Response('not found', { status: 404 }) } }, missingStaticWorker);
+  assert.equal(missingStaticRes.status, 400);
+  assert.match(missingStaticRes.json.error, /静态典籍资源缺失或无效/);
   const missingDictionary = await request('/api/calculate', { method: 'character-query', input: methodExamples['character-query'] }, { ASSETS: { fetch: async () => new Response('not found', { status: 404 }) } });
   assert.equal(missingDictionary.status, 400);
   assert.match(missingDictionary.json.error, /字库资源缺失或无效/);
@@ -183,7 +259,7 @@ try {
   const measuredEnv = { ASSETS: { fetch: async (request) => { dictionaryReads++; return env.ASSETS.fetch(request); } } };
   const manyNames = await request('/api/calculate', { method: 'chinese-naming', input: { surname: '张', limit: 50, question: '问题' } }, measuredEnv);
   assert.equal(manyNames.status, 200); assert.equal(manyNames.json.data.candidates.length, 50);
-  assert.ok(dictionaryReads <= 32, `姓名候选应批量读取字库，实际读取 ${dictionaryReads} 次`);
+  assert.ok(dictionaryReads <= 34, `姓名候选应批量读取字库（含 2 个索引文件与最多 32 个分片），实际读取 ${dictionaryReads} 次`);
   const namingBirth = { year: 1990, month: 5, day: 15, clock: { kind: 'unknown' }, timeZoneId: 'America/New_York', timeStandard: 'true-solar', longitude: -74 };
   const namingRange = await request('/api/calculate', { method: 'chinese-name', input: { fullName: '张知远', birth: namingBirth, question: '问题' } });
   assert.equal(namingRange.status, 200); assert.ok(namingRange.json.data.birthContext.segments.length > 1);

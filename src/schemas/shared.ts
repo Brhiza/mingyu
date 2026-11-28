@@ -10,7 +10,14 @@ export function uniqueArray<T extends z.ZodTypeAny>(schema: z.ZodArray<T>, messa
 
 export const question = z.string().max(2000).optional();
 export const requiredQuestion = z.string().trim().min(1).max(2000);
-export const base = { question, currentTime: isoTime.optional() };
+export const outputLanguage = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .optional()
+  .describe('Optional AI reading output language (e.g. "en", "zh-TW", "ja", "ko", "vi", or any language tag/name). Defaults to Simplified Chinese (zh-CN). / 可选 AI 解读输出语言，支持任意语言标签或名称，省略默认简体中文。');
+export const base = { question, currentTime: isoTime.optional(), outputLanguage };
 export const safeInteger = z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER);
 
 export const calendarClock = z.object({

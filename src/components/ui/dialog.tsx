@@ -29,6 +29,10 @@ export const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+function isSelectMenuTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('[data-ui-select-menu="true"]'));
+}
+
 export const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
@@ -44,6 +48,8 @@ export const DialogContent = React.forwardRef<
       layer = 'base',
       onEscapeKeyDown,
       onInteractOutside,
+      onPointerDownOutside,
+      onFocusOutside,
       ...props
     },
     ref,
@@ -52,7 +58,7 @@ export const DialogContent = React.forwardRef<
       <div
         aria-hidden="true"
         className={cn(
-          'fixed inset-0 bg-[var(--backdrop-scrim)] backdrop-blur-[3px]',
+          'ws-fade-in fixed inset-0 bg-[var(--backdrop-scrim)] backdrop-blur-[3px]',
           layer === 'nested' ? 'z-[1700]' : 'z-[1600]',
         )}
       />
@@ -65,9 +71,29 @@ export const DialogContent = React.forwardRef<
         <DialogPrimitive.Content
           ref={ref}
           onEscapeKeyDown={onEscapeKeyDown}
-          onInteractOutside={onInteractOutside}
+          onPointerDownOutside={(e) => {
+            if (isSelectMenuTarget(e.target)) {
+              e.preventDefault();
+              return;
+            }
+            onPointerDownOutside?.(e);
+          }}
+          onFocusOutside={(e) => {
+            if (isSelectMenuTarget(e.target)) {
+              e.preventDefault();
+              return;
+            }
+            onFocusOutside?.(e);
+          }}
+          onInteractOutside={(e) => {
+            if (isSelectMenuTarget(e.target)) {
+              e.preventDefault();
+              return;
+            }
+            onInteractOutside?.(e);
+          }}
           className={cn(
-            'relative flex max-h-[90dvh] w-full max-w-[740px] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-base)] text-[var(--text-primary)] shadow-[var(--shadow-lg)] focus:outline-none',
+            'ws-dialog-in relative flex max-h-[90dvh] w-full max-w-[740px] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-base)] text-[var(--text-primary)] shadow-[var(--shadow-lg)] focus:outline-none',
             className,
           )}
           {...props}

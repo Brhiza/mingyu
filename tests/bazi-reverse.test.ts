@@ -44,7 +44,8 @@ test('候选区间逐秒符合四柱，可直接用于姓名分析与起名', as
   for (const candidate of reverse.data.candidates) {
     assert.ok(candidate.endTimestamp - candidate.startTimestamp <= 7_200_000);
     for (let instant = candidate.startTimestamp; instant < candidate.endTimestamp; instant += 1000) assert.deepEqual(getDivinationTime(new Date(instant)).ganzhi, known);
-    assert.ok(reverse.prompt.text.includes(JSON.stringify(candidate.birthRange)));
+    assert.ok(reverse.prompt.text.includes(candidate.start.replace('T', ' ')));
+    assert.doesNotMatch(reverse.prompt.text, /"birthRange"|"pillars":/);
     const name = await calculate('chinese-name', { fullName: '张知远', birthRange: candidate.birthRange, question: '问题' });
     const naming = await calculate('chinese-naming', { surname: '张', birthRange: candidate.birthRange, question: '问题', limit: 3 });
     assert.deepEqual(name.data.birthContext, naming.data.birthContext);

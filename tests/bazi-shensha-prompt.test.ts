@@ -91,7 +91,9 @@ test('八字双盘选择出生候选时只展示该候选的神煞', async () =>
 
 test('八字紫微合参按精确盘或出生时间交集使用对应神煞', async () => {
   const exact = await calculate('bazi-ziwei', { birth, gender: 'female', question: '问题' });
-  assert.ok(exact.prompt.text.includes(formatBaziShensha(exact.data.charts.bazi.chart!.shensha)));
+  assert.ok(exact.prompt.text.includes(formatBaziShenshaHits(exact.data.charts.bazi.chart!.shensha, false)));
+  const exactPro = await calculate('bazi-ziwei', { birth, gender: 'female', question: '问题', prompt: { detailLevel: 'professional' } });
+  assert.ok(exactPro.prompt.text.includes(formatBaziShensha(exactPro.data.charts.bazi.chart!.shensha)));
   const uncertainInput = { birth: { year: 2024, month: 2, day: 4, clock: { kind: 'shichen', index: 8 }, timezone: 8 }, gender: 'female', question: '问题' };
   const all = await calculate('bazi-ziwei', uncertainInput);
   assert.equal(all.data.alignment.kind, 'candidates');
@@ -104,7 +106,9 @@ test('八字紫微合参按精确盘或出生时间交集使用对应神煞', as
   const index = all.data.alignment.candidates.length - 1;
   const reply = await reprompt({ method: 'bazi-ziwei', result: all, question: '继续', prompt: { candidateIndex: index } });
   const selected = all.data.charts.bazi.unknown!.segments[chosen.baziIndex].shensha;
-  assert.ok(reply.prompt.text.includes(formatBaziShensha(selected)));
+  assert.ok(reply.prompt.text.includes(formatBaziShenshaHits(selected, false)));
+  const replyPro = await reprompt({ method: 'bazi-ziwei', result: all, question: '继续', prompt: { candidateIndex: index, detailLevel: 'professional' } });
+  assert.ok(replyPro.prompt.text.includes(formatBaziShensha(selected)));
   assert.match(reply.prompt.text, /该区间并非确定出生时刻/);
 });
 

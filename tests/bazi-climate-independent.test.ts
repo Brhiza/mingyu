@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPillarFacts } from '../src/systems/bazi/pillars';
 import { buildDayMasterStrength } from '../src/systems/bazi/strength';
-import { buildClimateCandidates } from '../src/systems/bazi/climate';
+import { buildClimateCandidates, ensureClimateRulesLoaded } from '../src/systems/bazi/climate';
 import { assessClimateRule } from '../src/systems/bazi/climate-match';
 import rules from '../src/systems/bazi/climate-rules.json';
+
+await ensureClimateRulesLoaded();
 
 const pattern = { pattern: '正官格', source: '普通月令取格候选', limitation: '' };
 

@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import { SolarTime } from 'tyme4ts';
 import type { liuyaoInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { getSolarTermName } from './calendar';
 import { getCivilDateTimeAtFixedOffset } from './huangji/civil-time';
@@ -66,14 +67,14 @@ async function generate(range: Range, settings: Settings, options: Input['prompt
 }
 type Result = Awaited<ReturnType<typeof generate>>;
 
-async function render(result: Result, question: string, options: Input['prompt'], now: string) {
+async function render(result: Result, question: string, options: Input['prompt'], now: string, context?: RuntimeContext) {
   const format = (time: number) => new Date(time).toISOString();
   const method = result.branches[0].data.generation?.method;
   const origin = method === 'time' ? '时间起卦以整个范围的起点取数一次；起点只是取数代表，不代表已确定实际起卦时刻。' : '本次只起一卦，所有时间分支共用同一卦象及起卦记录。';
   const sections = await Promise.all(result.branches.map(async (branch, index) => {
     const { solar, lunar, solarTerm } = branch.background;
     const evidence = branch.data.evidenceAnalysis;
-    return `【分支 ${index + 1}】\n${format(branch.startTimestamp)} 至 ${format(branch.endTimestamp)}（起点含、终点不含）；盘面时间为该分支的代表时刻。\n历法背景：公历 ${solar.year}-${solar.month}-${solar.day}；农历 ${lunar.year} 年${lunar.monthName}${lunar.dayName}；节气 ${solarTerm}。${branch.background.lunarDateWarning ? `\n${branch.background.lunarDateWarning}` : ''}\n${(await buildPrompt(branch.data, evidence, question, options, now, '分支代表时刻')).text}`;
+    return `【分支 ${index + 1}】\n${format(branch.startTimestamp)} 至 ${format(branch.endTimestamp)}（起点含、终点不含）；盘面时间为该分支的代表时刻。\n历法背景：公历 ${solar.year}-${solar.month}-${solar.day}；农历 ${lunar.year} 年${lunar.monthName}${lunar.dayName}；节气 ${solarTerm}。${branch.background.lunarDateWarning ? `\n${branch.background.lunarDateWarning}` : ''}\n${(await buildPrompt(branch.data, evidence, question, options, now, '分支代表时刻', context)).text}`;
   }));
   const text = [`【起卦时间范围】\n${format(result.source.startTimestamp)} 至 ${format(result.source.endTimestamp)}（起点含、终点不含）；时区偏移 ${result.source.timezoneOffsetMinutes} 分钟。${origin}`, ...sections,
     '【范围解读要求】\n分别说明各分支的共同点与差异，不能假定具体时刻或给候选分支赋予概率。'].join('\n\n');
@@ -84,15 +85,15 @@ function withoutEvidence(result: Result) {
   return { ...result, branches: result.branches.map((branch) => { const { evidenceAnalysis: _evidence, ...data } = branch.data; return { ...branch, data }; }) };
 }
 
-export async function calculateLiuyaoRange(input: Input, now: string) {
+export async function calculateLiuyaoRange(input: Input, now: string, context?: RuntimeContext) {
   if (!input.range) throw new Error('六爻范围缺少起止时间。');
   const data = await generate(input.range, input.liuyao ?? {}, input.prompt);
   const warnings = [...new Set(data.branches.map((branch) => branch.background.lunarDateWarning).filter((w): w is string => Boolean(w)))];
   return { data, summary: { title: '六爻范围起卦', tags: [`${data.branches.length} 个时间分支`, `主卦：${data.branches[0].data.originalName}`], lines: warnings },
-    prompt: await render(data, input.question, input.prompt, now) };
+    prompt: await render(data, input.question, input.prompt, now, context) };
 }
 
-export async function promptForLiuyaoRange(value: unknown, input: Input, now: string) {
+export async function promptForLiuyaoRange(value: unknown, input: Input, now: string, context?: RuntimeContext) {
   if (!value || typeof value !== 'object' || !input.range) throw new Error('六爻范围结果缺少有效区间。');
   const saved = value as Result;
   if (saved.kind !== 'range' || !Array.isArray(saved.branches) || !saved.branches.length) throw new Error('六爻范围结果缺少分支。');
@@ -101,5 +102,5 @@ export async function promptForLiuyaoRange(value: unknown, input: Input, now: st
   if (first.timestamp !== Date.parse(input.range.start)) throw new Error('六爻范围起卦代表时间与范围不一致。');
   const expected = await generate(input.range, input.liuyao ?? {}, input.prompt, cast);
   if (!sameJsonValue(withoutEvidence(saved), withoutEvidence(expected))) throw new Error('六爻范围结果与起卦记录或时间分支不一致。');
-  return render(expected, input.question, input.prompt, now);
+  return render(expected, input.question, input.prompt, now, context);
 }

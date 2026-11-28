@@ -20,6 +20,7 @@ import {
   getYearSixtyCycle,
   stepSixtyCycle,
 } from '../ganzhi-foundation';
+import type { StaticDatasetLoader } from '../../static-data';
 import { resolveBaziRules } from '../defaults';
 import { civilDayHour } from './civil-day-hour';
 import { getMonthCommanderAt, type BaziCommanderMode } from './season';
@@ -31,7 +32,7 @@ import { buildQuzhi } from './quzhi';
 import { buildCongEr } from './conger';
 import { buildExtremePattern } from './extreme';
 import { buildUsefulBaseline } from './useful-baseline';
-import { buildClimateCandidates } from './climate';
+import { buildClimateCandidates, ensureClimateRulesLoaded } from './climate';
 import { resolveClimate } from './climate-decision';
 import { buildUsefulStrategy } from './useful-strategy';
 import { buildPatternEvidence } from './pattern-evidence';
@@ -194,7 +195,7 @@ export function buildPillarFacts(names: PillarNames, earthRule?: EarthRule): Rec
 }
 
 /** 年月由实际瞬时对应的东八区节气确定，日时由当地钟表或真太阳时确定；支持可选排盘口径。 */
-export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | 'female', rules?: BaziRules) {
+export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | 'female', rules?: BaziRules, staticDataset?: StaticDatasetLoader) {
   if (!Number.isInteger(birth.year) || birth.year < 1900 || birth.year > 2100) throw new Error('出生年份须在 1900 至 2100 之间。');
   if (!birth.clock || !['exact', 'shichen'].includes(birth.clock.kind)) throw new Error('须提供明确时分秒或时辰。');
   if (birth.clock.kind === 'shichen' && birth.timeStandard === 'true-solar') throw new Error('真太阳时须提供精确出生时分秒。');
@@ -230,7 +231,8 @@ export async function calculateBaziPillars(birth: BaziBirth, gender?: 'male' | '
   const extreme = buildExtremePattern(pillars, strength, monthCommander.stem, quzhi, conger);
   const patternOverview = summarizePattern(ordinaryPattern, transformation, quzhi, conger, extreme, resolvedRules.patternMode);
   const usefulBaseline = buildUsefulBaseline(pillars, strength, patternOverview, transformation);
-  const climate = buildClimateCandidates(pillars, strength, patternOverview, getSolarTermName(termTimestamp));
+  const climateRules = await ensureClimateRulesLoaded(staticDataset);
+  const climate = buildClimateCandidates(pillars, strength, patternOverview, getSolarTermName(termTimestamp), climateRules);
   const climateDecision = resolveClimate(climate.candidates, usefulBaseline);
   const extraPalaces = !resolvedRules.includeExtraPalaces
     ? undefined

@@ -4,6 +4,7 @@ import {
   openTermModalSession,
   type TermModalFallback,
 } from '../app/modal-bus';
+import { createBoardSvgIcon } from './dom';
 
 export type Wuxing = '木' | '火' | '土' | '金' | '水';
 
@@ -242,10 +243,10 @@ export function createMobileDetailSheet(
   const closeBtn = el('button', {
     type: 'button',
     className: 'wb-detail-close',
-    text: '✕',
     ariaLabel: options?.closeLabel ?? '关闭宫位详情',
     onClick: () => close(),
   });
+  closeBtn.append(createBoardSvgIcon('M18 6 6 18M6 6l12 12', 16));
 
   const bar = el(
     'div',

@@ -2,8 +2,9 @@ import { KE_MAP, SHENG_MAP } from './ganzhi-foundation';
 import type { z } from 'zod';
 import type { chineseNameInput } from '../schema';
 import type { CharacterDetail } from './characters';
-import type { CharacterShardLoader } from '../character-data';
-import { characterDetails, characterMetadata } from './characters';
+import type { CharacterIndexLoader, CharacterShardLoader } from '../character-data';
+import type { StaticDatasetLoader } from '../static-data';
+import { characterDetails } from './characters';
 import numerology from './number-numerology.json';
 import shuli81 from '../data/characters/shuli-81.json';
 import sancaiData from '../data/characters/sancai.json';
@@ -43,12 +44,20 @@ const compoundReadings: Record<string, string[]> = {
 export const COMPOUND_SURNAMES = Object.keys(compoundReadings) as readonly string[];
 const compoundSurnameSet = new Set<string>(COMPOUND_SURNAMES);
 
+const COMPOUND_SURNAME_TRAD_TO_SIMP: Record<string, string> = {
+  歐: '欧', 陽: '阳', 馬: '马', 東: '东', 獨: '独', 宮: '宫', 萬: '万', 聞: '闻',
+  諸: '诸', 遲: '迟', 連: '连', 臺: '台', 檯: '台', 孫: '孙', 鐘: '钟', 鍾: '钟',
+  離: '离', 長: '长', 鮮: '鲜', 閭: '闾', 車: '车', 顓: '颛', 駟: '驷', 樂: '乐',
+  穀: '谷', 夾: '夹', 軒: '轩', 轅: '辕', 門: '门', 戶: '户', 儀: '仪', 堅: '坚',
+  貫: '贯', 榮: '荣', 書: '书', 達: '达', 師: '师', 單: '单',
+};
+
 /** Split a Chinese full name into surname and given name, auto-detecting compound surnames when length is omitted. */
 export function splitSurname(fullName: string, explicitLength?: 1 | 2) {
   const chars = [...fullName.trim()];
   let surnameLength: 1 | 2 = explicitLength ?? 1;
   if (explicitLength === undefined && chars.length >= 3) {
-    const prefix = chars.slice(0, 2).map((char) => characterMetadata(char)?.simplified ?? char).join('');
+    const prefix = chars.slice(0, 2).map((char) => COMPOUND_SURNAME_TRAD_TO_SIMP[char] ?? char).join('');
     if (compoundSurnameSet.has(prefix)) surnameLength = 2;
   }
   return {
@@ -77,12 +86,12 @@ export function evaluateStrokeScore(s: readonly number[], g: readonly number[]):
   return sancaiScore * 3 + gridScore(ren) * 2 + gridScore(di) * 2 + gridScore(zong) * 2 + gridScore(wai);
 }
 
-export async function birthForNaming(birth: Birth, range?: BirthRange) {
+export async function birthForNaming(birth: Birth, range?: BirthRange, staticDataset?: StaticDatasetLoader) {
   if (!birth && !range) return null;
   if (birth && range) throw new Error('出生资料与出生范围不能同时提供。');
   const data = range ? { chart: null, unknown: await (await import('./bazi/unknown-time')).calculateBaziTimeRange({
     startTimestamp: Date.parse(range.start), endTimestamp: Date.parse(range.end), timezone: range.timezone, timeZoneId: range.timeZoneId, timeStandard: range.timeStandard, longitude: range.longitude,
-  }) } : await (await import('./bazi')).calculateBaziIndependentData({ birth: birth! });
+  }, undefined, staticDataset) } : await (await import('./bazi')).calculateBaziIndependentData({ birth: birth! }, staticDataset ? { staticDataset } : undefined);
   const positions = ['year', 'month', 'day', 'hour'] as const;
   const describe = (chart: Pick<NonNullable<typeof data.chart>, 'pillars' | 'strength' | 'patternOverview' | 'usefulBaseline' | 'usefulGod'>) => ({
     pillars: positions.map((key) => chart.pillars[key].ganZhi), strength: chart.strength.status,
@@ -118,8 +127,12 @@ export function namingPreferences(explicit: string[] | undefined, birth: Awaited
       : { stable: [], conditional: [], source: '未指定' };
 }
 
-export async function namingDetails(chars: string[], loadShard?: CharacterShardLoader) {
-  const map = await characterDetails(chars, loadShard);
+export async function namingDetails(
+  chars: string[],
+  loadShard?: CharacterShardLoader,
+  loadIndex?: CharacterIndexLoader,
+) {
+  const map = await characterDetails(chars, loadShard, loadIndex);
   const missing = chars.filter((char) => !map[char]);
   if (missing.length) throw new Error(`姓名用字暂未收录在字典中：${[...new Set(missing)].join('、')}。`);
   return map as Record<string, CharacterDetail>;

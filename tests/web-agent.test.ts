@@ -8,12 +8,8 @@ import {
   type AgentToolTrace,
 } from '../src/web-agent';
 import {
-  ensureChatModeDefaultOnSave,
   isChatAgentActive,
-  isChatModeEnabled,
-  setChatModeEnabled,
   setWebAiEnabled,
-  WEB_AI_STORAGE_KEYS,
   writeWebAiConfig,
 } from '../src/web-ai';
 
@@ -139,31 +135,23 @@ test('streamAgentCompletion 正确拼接分块 SSE tool_calls 并支持 JSON 回
   assert.equal(jsonResult.toolCalls.length, 0);
 });
 
-test('填写并保存网页 API 后默认开启对话模式，且可手动关闭', () => {
+test('开启网页 AI 并配置接口与模型后自动激活站内对话，关闭后自动回退本地模型', () => {
   const env = installMockWindow();
   try {
-    assert.equal(isChatModeEnabled(), false);
     assert.equal(isChatAgentActive(), false);
 
     setWebAiEnabled(true);
-    assert.equal(isChatModeEnabled(), false);
+    assert.equal(isChatAgentActive(), false);
 
     writeWebAiConfig({
       baseUrl: 'https://api.deepseek.com/v1',
       apiKey: 'test',
       model: 'deepseek-chat',
     });
-    assert.equal(isChatModeEnabled(), true);
     assert.equal(isChatAgentActive(), true);
 
-    const active = ensureChatModeDefaultOnSave();
-    assert.equal(active, true);
-    assert.equal(env.localStorage.getItem(WEB_AI_STORAGE_KEYS.chatMode), 'true');
-
-    setChatModeEnabled(false);
-    assert.equal(isChatModeEnabled(), false);
+    setWebAiEnabled(false);
     assert.equal(isChatAgentActive(), false);
-    assert.equal(ensureChatModeDefaultOnSave(), false);
   } finally {
     env.restore();
   }

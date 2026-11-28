@@ -1,11 +1,13 @@
 import type { z } from 'zod';
 import type { instantInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
+import type { StaticDatasetLoader } from '../static-data';
 import { sameJsonValue } from '../json-value';
 import { createTimezoneOffsetReader, formatCivilDateTime, getCivilDateTimeAtFixedOffset, createUtcTimestamp } from './huangji/civil-time';
 import { formatNatalFlying } from './ziwei-flying';
 import { formatZiweiStarLabel } from './ziwei';
 import { buildMethodSituationDigest } from './situation-digest';
-import { formatAstroHouseSystem } from './prompt-format';
+import { formatAstroChartWarnings, formatAstroHouseSystem } from './prompt-format';
 import { formatPatternEvidence } from './bazi/pattern-evidence';
 import { formatUsefulStrategy } from './bazi/useful-strategy';
 import { correctBirthClock, lunarDateDiscrepancy, resolveBirthClock } from './birth-time';
@@ -15,7 +17,7 @@ type Input = z.infer<typeof instantInput>;
 type Source = Pick<Input, 'type' | 'at' | 'timeStandard' | 'observer' | 'ziweiAlgorithm'>;
 const labels = { bazi: '八字', ziwei: '紫微', 'bazi-ziwei': '八字紫微', astrolabe: '西洋星盘', qizheng: '七政四余' } as const;
 
-async function calculateData(source: Source, currentTime: string) {
+async function calculateData(source: Source, currentTime: string, context?: RuntimeContext) {
   const timestamp = source.at ? Date.parse(source.at) : Math.floor(Date.parse(currentTime) / 1000) * 1000;
   const at = new Date(timestamp).toISOString(), observer = source.observer, standard = source.timeStandard ?? 'beijing';
   const useObserverClock = standard === 'true-solar' || source.type === 'astrolabe' || source.type === 'qizheng';
@@ -30,7 +32,7 @@ async function calculateData(source: Source, currentTime: string) {
     ...(standard === 'true-solar' ? { timeStandard: 'true-solar' as const, longitude: observer!.longitude } : {}) };
   let bazi: Awaited<ReturnType<typeof neutralBazi>> | undefined, ziwei: Awaited<ReturnType<typeof neutralZiwei>> | undefined;
   let astrolabe: Awaited<ReturnType<typeof neutralAstrolabe>> | undefined, qizheng: Awaited<ReturnType<typeof neutralQizheng>> | undefined;
-  if (source.type === 'bazi' || source.type === 'bazi-ziwei') bazi = await neutralBazi(birth);
+  if (source.type === 'bazi' || source.type === 'bazi-ziwei') bazi = await neutralBazi(birth, context?.staticDataset);
   if (source.type === 'ziwei' || source.type === 'bazi-ziwei') ziwei = await neutralZiwei(birth, source.ziweiAlgorithm);
   if (source.type === 'astrolabe' || source.type === 'qizheng') {
     const location = { ...wall, ...zone, longitude: observer!.longitude, latitude: observer!.latitude! };
@@ -51,9 +53,9 @@ async function calculateData(source: Source, currentTime: string) {
 }
 
 type Birth = { year: number; month: number; day: number; clock: { kind: 'exact'; hour: number; minute: number; second: number }; timezone: number; timeZoneId?: string; timeStandard?: 'true-solar'; longitude?: number };
-async function neutralBazi(birth: Birth) {
+async function neutralBazi(birth: Birth, staticDataset?: StaticDatasetLoader) {
   const { calculateBaziPillars } = await import('./bazi/pillars');
-  const chart = await calculateBaziPillars(birth);
+  const chart = await calculateBaziPillars(birth, undefined, undefined, staticDataset);
   return { pillars: chart.pillars, monthCommander: chart.monthCommander, natalFacts: chart.natalFacts, strength: chart.strength,
     ordinaryPattern: chart.ordinaryPattern, transformation: chart.transformation, quzhi: chart.quzhi, conger: chart.conger, extreme: chart.extreme,
     patternOverview: chart.patternOverview, patternEvidence: chart.patternEvidence, usefulBaseline: chart.usefulBaseline, climate: chart.climate, climateDecision: chart.climateDecision, usefulStrategy: chart.usefulStrategy,
@@ -165,7 +167,8 @@ function render(data: Data, question: string) {
     const houses = chart.houses.map((p) => `${p.house}宫${p.sign}${p.degreeInSign.toFixed(2)}°`).join('；');
     const aspects = chart.aspects.map((a) => `${names[a.first]}与${names[a.second]}${a.name}，偏差${a.deviation.toFixed(2)}°`).join('；') || '未命中所列相位';
     const patterns = chart.patterns.map((p) => `${p.label}（${p.members.map((m) => m.name).join('、')}）`).join('；') || '未见所列格局';
-    return `${points}\n${formatAstroHouseSystem(chart.basis.houseSystem)}宫位制：${houses}\n相位：${aspects}\n星体格局：${patterns}\n星历警告：${chart.warnings.length ? JSON.stringify(chart.warnings) : '无'}。${chart.limitations.join('；')}`;
+    const warnings = formatAstroChartWarnings(chart.warnings);
+    return `${points}\n${formatAstroHouseSystem(chart.basis.houseSystem)}宫位制：${houses}\n相位：${aspects}\n星体格局：${patterns}\n星历提醒：${warnings.length ? warnings.join('；') : '无'}。${chart.limitations.join('；')}`;
   })() : '';
   const qizheng = data.qizheng ? `${data.qizheng.stars.map((s) => `${s.name} 黄经${s.longitude.toFixed(4)}° ${s.xiu}宿${s.xiuDegree.toFixed(4)}° ${s.palace} ${s.dignity}${'retrograde' in s && s.retrograde ? ' 逆行' : ''}`).join('\n')}\n十二宫：${data.qizheng.twelvePalaces.map((p) => `${p.palace}${p.signBranch}`).join('、')}\n吊照：${data.qizheng.aspects.map((a) => `${a.star1}与${a.star2}${a.type}（偏差${a.orb}°）`).join('；') || '未命中所列相位'}\n神煞：${data.qizheng.shensha.stars.map((s) => `${s.name}${s.value}`).join('、')}。\n恩难仇用：${data.qizheng.enNan.sect}，命宫主宰星${data.qizheng.enNan.mingZhu}；恩${data.qizheng.enNan.enStars.join('、')}、难${data.qizheng.enNan.nanStars.join('、')}、仇${data.qizheng.enNan.chouStars.join('、')}、用${data.qizheng.enNan.yongStars.join('、')}。\n月相：${data.qizheng.moonPhase.eightPhaseName}，照明约${(data.qizheng.moonPhase.illuminationFraction * 100).toFixed(1)}%；太阳高度${data.qizheng.illumination.sun.geometricAltitudeDegrees.toFixed(2)}°。\n${data.qizheng.mansionModel.limitation}` : '';
   const solarUse = {
@@ -182,13 +185,14 @@ function render(data: Data, question: string) {
     `【任务与限制】\n${data.limitation} 根据所列即时盘面与问题解释，区分事实与推论，不虚构未提供的个人资料。`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }
-export async function instant(input: Input, currentTime: string) {
-  const data = await calculateData(input, currentTime);
-  return { data, summary: { title: `${labels[input.type]}即时盘`, lines: [data.basis.utcDateTime, '即时盘不代表个人出生盘'] }, prompt: render(data, input.question) };
+export async function instant(input: Input, currentTime: string, context?: RuntimeContext) {
+  const data = await calculateData(input, currentTime, context);
+  const timeLabel = `${data.basis.clockSource === 'beijing' ? '北京时间' : '当地时间'} ${data.basis.localDateTime.replace('T', ' ')}`;
+  return { data, summary: { title: `${labels[input.type]}即时盘`, lines: [timeLabel, '即时盘不代表个人出生盘'] }, prompt: render(data, input.question) };
 }
-export async function promptForSavedInstant(data: unknown, source: Source, question: string) {
+export async function promptForSavedInstant(data: unknown, source: Source, question: string, context?: RuntimeContext) {
   if (!source.at) throw new Error('即时盘结果缺少原始起盘时刻。');
-  const expected = await calculateData(source, source.at);
+  const expected = await calculateData(source, source.at, context);
   if (!sameJsonValue(data, expected, 1e-9)) throw new Error('即时盘与起盘时刻或观测资料不一致。');
   return render(expected, question);
 }

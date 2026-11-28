@@ -1,6 +1,11 @@
-const STATIC_CACHE = 'mingyu-v2-static-v1';
-const RUNTIME_CACHE = 'mingyu-v2-runtime-v1';
-const NAVIGATION_CACHE = 'mingyu-v2-nav-v1';
+const RAW_VERSION = '__MINGYU_SW_VERSION__';
+const CACHE_VERSION = RAW_VERSION.startsWith('__') ? 'dev' : RAW_VERSION;
+
+const STATIC_CACHE = `mingyu-v2-static-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `mingyu-v2-runtime-${CACHE_VERSION}`;
+const NAVIGATION_CACHE = `mingyu-v2-nav-${CACHE_VERSION}`;
+const ACTIVE_CACHES = new Set([STATIC_CACHE, RUNTIME_CACHE, NAVIGATION_CACHE]);
+
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -10,6 +15,15 @@ const APP_SHELL = [
   '/pwa-192x192.png',
   '/pwa-512x512.png',
 ];
+
+function isImmutablePath(pathname) {
+  return (
+    pathname.startsWith('/assets/') ||
+    pathname.startsWith('/character-data/') ||
+    pathname.startsWith('/asteroid-data/') ||
+    pathname.startsWith('/static-data/')
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -23,11 +37,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter(
-            (key) =>
-              (key.startsWith('mingyu-v2-static-') && key !== STATIC_CACHE) ||
-              (key.startsWith('mingyu-v2-nav-') && key !== NAVIGATION_CACHE),
-          )
+          .filter((key) => key.startsWith('mingyu-v2-') && !ACTIVE_CACHES.has(key))
           .map((key) => caches.delete(key)),
       ),
     ),
@@ -62,11 +72,9 @@ self.addEventListener('fetch', (event) => {
     request.destination === 'font' ||
     request.destination === 'manifest' ||
     request.destination === 'worker' ||
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.startsWith('/character-data/') ||
-    url.pathname.startsWith('/asteroid-data/')
+    isImmutablePath(url.pathname)
   ) {
-    event.respondWith(handleAsset(request));
+    event.respondWith(handleAsset(request, event));
   }
 });
 
@@ -89,7 +97,19 @@ async function handleNavigation(request) {
   }
 }
 
-async function handleAsset(request) {
+async function fetchAndCacheRuntime(request, runtime) {
+  const response = await fetch(request);
+  if (
+    response.ok &&
+    !response.headers.get('content-type')?.includes('text/html') &&
+    runtime
+  ) {
+    await runtime.put(request, response.clone()).catch(() => undefined);
+  }
+  return response;
+}
+
+async function handleAsset(request, event) {
   const pathname = new URL(request.url).pathname;
   const isShell = APP_SHELL.includes(pathname);
   if (isShell) {
@@ -109,17 +129,15 @@ async function handleAsset(request) {
   }
 
   const runtime = await caches.open(RUNTIME_CACHE).catch(() => null);
-  if (runtime) {
-    const cached = await runtime.match(request);
-    if (cached) return cached;
+  const cached = runtime ? await runtime.match(request) : null;
+  if (cached) {
+    if (!isImmutablePath(pathname)) {
+      const refresh = fetchAndCacheRuntime(request, runtime).catch(() => undefined);
+      if (event && typeof event.waitUntil === 'function') {
+        event.waitUntil(refresh);
+      }
+    }
+    return cached;
   }
-  const response = await fetch(request);
-  if (
-    response.ok &&
-    !response.headers.get('content-type')?.includes('text/html') &&
-    runtime
-  ) {
-    await runtime.put(request, response.clone()).catch(() => undefined);
-  }
-  return response;
+  return fetchAndCacheRuntime(request, runtime);
 }

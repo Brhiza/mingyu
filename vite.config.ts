@@ -1,20 +1,24 @@
 import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { characterVersion } from './scripts/character-version.mjs';
 import { asteroidAssets } from './scripts/asteroid-version.mjs';
+import { staticDataAssets } from './scripts/static-data-version.mjs';
 import { generateApiDocsHtml, generateApiDocsMarkdown } from './scripts/generate-api-docs';
 import { generateOpenApiDocument } from './scripts/generate-openapi';
 import { buildSkillZipBuffer } from './scripts/build-skill-package.mjs';
+import { resolveBrandConfig } from './src/brand-config';
 
 interface VersionedAssetSpec {
   name: string;
   urlPrefix: string;
   outputPrefix: string;
   directory: string;
+  versionFile?: string;
   mismatchMessage: string;
   filePattern: RegExp;
   loadAssets: (directory: string) => { version: string; files: Record<string, string | Buffer> };
@@ -22,7 +26,8 @@ interface VersionedAssetSpec {
 
 function versionedJsonAssetsPlugin(spec: VersionedAssetSpec): Plugin {
   const verify = () => {
-    const { version } = JSON.parse(readFileSync(join(spec.directory, 'version.json'), 'utf8')) as { version: string };
+    const versionFile = spec.versionFile ?? join(spec.directory, 'version.json');
+    const { version } = JSON.parse(readFileSync(versionFile, 'utf8')) as { version: string };
     const loaded = spec.loadAssets(spec.directory);
     if (!/^[a-f0-9]{64}$/.test(version) || loaded.version !== version) {
       throw new Error(spec.mismatchMessage);
@@ -62,12 +67,12 @@ const characterAssets = versionedJsonAssetsPlugin({
   outputPrefix: 'character-data',
   directory: fileURLToPath(new URL('./src/data/characters/', import.meta.url)),
   mismatchMessage: '字库版本与内容不一致；运行 pnpm data:character-version 更新。',
-  filePattern: /(?:definitions|references)-(?:0\d|[12]\d|3[01])\.json/,
+  filePattern: /(?:index|search-order|(?:definitions|references)-(?:0\d|[12]\d|3[01]))\.json/,
   loadAssets: (directory) => ({
     version: characterVersion(directory),
     files: Object.fromEntries(
       readdirSync(directory)
-        .filter((file) => /^(definitions|references)-\d\d\.json$/.test(file))
+        .filter((file) => /^(?:index|search-order|(?:definitions|references)-\d\d)\.json$/.test(file))
         .map((file) => [file, readFileSync(join(directory, file))]),
     ),
   }),
@@ -84,6 +89,17 @@ const asteroidData = versionedJsonAssetsPlugin({
     const { version, assets } = asteroidAssets(directory);
     return { version, files: assets as Record<string, string> };
   },
+});
+
+const staticDataPlugin = versionedJsonAssetsPlugin({
+  name: 'static-data-assets',
+  urlPrefix: '/static-data/',
+  outputPrefix: 'static-data',
+  directory: fileURLToPath(new URL('.', import.meta.url)),
+  versionFile: fileURLToPath(new URL('./src/data/static-data-version.json', import.meta.url)),
+  mismatchMessage: '静态典籍资源版本与内容不一致；运行 pnpm data:static-version 更新。',
+  filePattern: /(?:yilin|zhuge-signs|ssgw-data|bazi-climate-rules|bazi-climate-details|zhouyi-texts|zhouyi-wings)\.json/,
+  loadAssets: (rootDir) => staticDataAssets(rootDir),
 });
 
 function aiConnectArtifactsPlugin(): Plugin {
@@ -150,8 +166,78 @@ function aiConnectArtifactsPlugin(): Plugin {
   };
 }
 
+function swVersionStampPlugin(): Plugin {
+  const rootDir = dirname(fileURLToPath(import.meta.url));
+  return {
+    name: 'mingyu-sw-version-stamp',
+    writeBundle(outputOptions) {
+      const outDir = outputOptions.dir ?? join(rootDir, 'dist-independent');
+      const swPath = join(outDir, 'sw.js');
+      const swSource = readFileSync(swPath, 'utf8');
+      if (!swSource.includes('__MINGYU_SW_VERSION__')) return;
+      const hash = createHash('sha256');
+      for (const file of [
+        join(outDir, 'index.html'),
+        join(rootDir, 'src/data/characters/version.json'),
+        join(rootDir, 'src/data/static-data-version.json'),
+        join(rootDir, 'src/systems/astrology/data/version.json'),
+      ]) {
+        hash.update(readFileSync(file));
+      }
+      const version = hash.digest('hex').slice(0, 8);
+      writeFileSync(swPath, swSource.replace('__MINGYU_SW_VERSION__', version), 'utf8');
+    },
+  };
+}
+
+function brandConfigHtmlPlugin(): Plugin {
+  const brand = resolveBrandConfig();
+  const defaultSlogan = '观四时之命，译数术之语';
+  return {
+    name: 'mingyu-brand-config',
+    transformIndexHtml(html) {
+      let next = html.replace(/<title>[^<]*<\/title>/, `<title>${brand.appName}</title>`);
+      if (brand.appSlogan && brand.appSlogan !== defaultSlogan) {
+        next = next.replace(defaultSlogan, brand.appSlogan);
+      } else if (brand.appName !== '命语' && !brand.appSlogan) {
+        next = next.replace(`${defaultSlogan}。`, '');
+      }
+      return next;
+    },
+    writeBundle(outputOptions) {
+      if (
+        brand.appName === '命语' &&
+        brand.appFullName === '命语' &&
+        brand.appSlogan === defaultSlogan
+      ) {
+        return;
+      }
+      const outDir = outputOptions.dir ?? join(dirname(fileURLToPath(import.meta.url)), 'dist-independent');
+      const manifestPath = join(outDir, 'manifest.webmanifest');
+      try {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
+        manifest.name = brand.appFullName;
+        manifest.short_name = brand.appName;
+        if (brand.appSlogan) {
+          manifest.description = `${brand.appSlogan}。`;
+        }
+        writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+      } catch {}
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), characterAssets, asteroidData, aiConnectArtifactsPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    brandConfigHtmlPlugin(),
+    characterAssets,
+    asteroidData,
+    staticDataPlugin,
+    aiConnectArtifactsPlugin(),
+    swVersionStampPlugin(),
+  ],
   define: { __MINGYU_BROWSER_ASSETS__: 'true', __MINGYU_WORKER_ASSETS__: 'false' },
   worker: { format: 'es' },
   build: {

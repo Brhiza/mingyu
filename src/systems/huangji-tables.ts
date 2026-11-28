@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { huangjiInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import tables from './huangji-table-data.json';
+import { formatHuangjiTableLabel } from './prompt-format';
 
 type Input = z.infer<typeof huangjiInput>;
 type Settings = Extract<Input['huangji'], { mode: 'reference' }>;
@@ -40,10 +41,59 @@ function query(settings: Settings) {
   };
 }
 
+function formatHuangjiReferenceText(result: ReturnType<typeof query>): string {
+  const sourcesList = Array.isArray(result.source) ? result.source : [result.source];
+  const sourceLines = sourcesList.map(
+    (s) => `${s.title}（${s.edition}，修订版 ${s.revision}）`,
+  );
+  const lines: string[] = [
+    `表名：${result.title}（${formatHuangjiTableLabel(result.table)}）`,
+    `资料出处：${sourceLines.join('；')}`,
+  ];
+
+  if ('bodyCounts' in result) {
+    const bodyCounts = result.bodyCounts as {
+      heavenlyBody?: number;
+      earthlyBody?: number;
+      heavenlyUseSound?: number;
+      earthlyUseTone?: number;
+    };
+    lines.push(
+      `体用数目：天体 ${bodyCounts.heavenlyBody ?? '—'}、地体 ${bodyCounts.earthlyBody ?? '—'}、天用声 ${bodyCounts.heavenlyUseSound ?? '—'}、地用音 ${bodyCounts.earthlyUseTone ?? '—'}`,
+      `四声分类：${result.soundCategories.join('、')}；四音分类：${result.toneCategories.join('、')}`,
+      `图数：${result.diagramCounts.map((d) => `${d.name} ${d.value}（${d.formula}）`).join('；')}`,
+      `四象配属：${result.pairings.map((p) => `${p.image}（${p.sound}/${p.tone}·${p.element}）`).join('；')}`,
+      `原表规则：\n${result.rules.map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
+    );
+  } else if ('counts' in result) {
+    lines.push(
+      `动植物数目：\n${result.counts.map((c) => `- ${c.name}：${c.value}（${c.formula}）`).join('\n')}`,
+    );
+  } else if ('rows' in result) {
+    lines.push(`经辰序号：${result.shiIndex}（${result.branch}）`);
+    if (result.sourceBranchNote) {
+      lines.push(`校注：${result.sourceBranchNote}`);
+    }
+    if (result.namedEntries.length) {
+      lines.push(
+        `历史纪年条目：\n${result.namedEntries.map((e) => `- 第${e.rowIndex}格 ${e.ganzhi}（${e.label}）：${e.sourceText}`).join('\n')}`,
+      );
+    }
+    lines.push(
+      `经辰三十世全表：\n${result.rows.map((r) => `${r.rowIndex}. ${r.ganzhi}${r.historicalLabel ? `（${r.historicalLabel}）` : ''}：${r.sourceText}`).join('\n')}`,
+    );
+  }
+
+  if (result.limitations.length) {
+    lines.push(`资料限制：${result.limitations.join('；')}`);
+  }
+  return lines.join('\n');
+}
+
 function buildPrompt(result: ReturnType<typeof query>, question: string, now: string) {
   const user = [
     `【时间】\n提示词时间：${now}。`,
-    `【固定版本资料表】\n${JSON.stringify(result, null, 2)}`,
+    `【固定版本资料表】\n${formatHuangjiReferenceText(result)}`,
     '【任务】\n依据所给资料表回答问题，保留原表标记、来源版本和资料限制；未列历史对应或数值不作补造。',
     `【问题】\n${question}`,
   ].join('\n\n');
@@ -54,7 +104,7 @@ export function huangjiReference(input: ReferenceInput, now: string) {
   const result = query(input.huangji);
   return {
     data: { input: input.huangji, reference: result },
-    summary: { title: result.title, tags: [result.table, ...(input.huangji.table === 'historical-era' ? [`经辰${input.huangji.shiIndex}`] : [])], lines: result.limitations },
+    summary: { title: result.title, tags: [formatHuangjiTableLabel(result.table), ...(input.huangji.table === 'historical-era' ? [`经辰${input.huangji.shiIndex}`] : [])], lines: result.limitations },
     prompt: buildPrompt(result, input.question, now),
   };
 }

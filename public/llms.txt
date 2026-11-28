@@ -1,30 +1,41 @@
-# 命语（Mingyu）
+# 命语 V2（Mingyu V2）
 
-命语提供算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日和真太阳时换算，以及可交给 AI 解读的自包含提示词。排盘结果由确定性代码计算；AI 只负责解读，不参与或改写排盘。
+Deterministic calculation & AI-prompt engine for **39 Eastern and Western metaphysics & calendar methods** (BaZi / Four Pillars, Zi Wei Dou Shu, Western Astrology, Qi Zheng Si Yu, Qi Men Dun Jia, Da Liu Ren, I Ching / Liu Yao, Tarot, Lenormand, Feng Shui, Chinese Almanac, Naming & Classical Texts). Code handles all astronomical, calendar, and classical rule calculations deterministically; AI only interprets the verified chart and evidence.
 
-## 日常请求识别
+Supports **any AI output language** via optional `outputLanguage` (`en`, `zh-TW`, `ja`, `ko`, `vi`, or any language tag/name; defaults to Simplified Chinese `zh-CN`).
 
-- “算命、看命、看整体运势”：优先使用八字紫微合参。
-- “看今年运势、事业运、财运、桃花运”：使用八字紫微合参并选择对应年份和主题。
-- “合婚、看两个人合不合”：使用八字合盘、紫微合盘或西占双盘。
-- “占卜能不能成、该不该做”：普通一事一问优先六爻，涉及方向和行动时机优先奇门。
-- “用玄学分析”：根据出生资料、具体问题或日期范围，在命理排盘、占卜和择日中选择入口。
-- “抽牌、求签”：使用塔罗、雷诺曼或三山国王灵签。
-- “选好日子、黄道吉日”：使用黄历择日。
-- “看住宅风水”：使用住宅风水合参。
+命语提供 39 项东方与西洋术数排盘、天文历法推算、典籍检索、考时分支展开及可直接交给任意大模型解读的自包含提示词工作台。排盘与规则证据均由确定性代码计算；AI 只负责解读，不参与或改写排盘。
 
-## 官方入口
+## Quick Method Routing / 日常请求识别
 
-- 网站：https://aov.cc
-- API 能力清单：https://aov.cc/api/v1/manifest
-- OpenAPI：https://aov.cc/api/v1/openapi.json
-- 公共基础能力：https://aov.cc/api/v1/foundation/capabilities
-- Agent 发现元数据：https://aov.cc/.well-known/aov-mingyu-api.json
-- 在线 Remote MCP：https://aov.cc/mcp（Streamable HTTP；在线黄历单次最多7天、奇门终身局动态扫描单次最多10年）
-- Agent Skill：https://aov.cc/skills/mingyu/SKILL.md
-- npm 核心包：https://www.npmjs.com/package/mingyu-core
-- 源代码：https://github.com/Brhiza/mingyu
+- **Natal destiny / Life chart / Overall fortune** (“算命、看命、看整体运势”): `bazi` (BaZi Four Pillars), `ziwei` (Zi Wei Dou Shu), `bazi-ziwei` (Cross-reading), `astrolabe` (Western Astrology), or `minglu` (Comprehensive Dossier).
+- **Annual / Monthly / Daily fortune** (“看今年运势、流年/流月/流日”): `fortune` or `bazi` / `ziwei` with `referenceTime` and topic.
+- **Compatibility / Synastry** (“合婚、合盘、看两个人合不合”): `bazi-synastry`, `ziwei-synastry`, or `astrolabe-synastry`.
+- **Event divination & timing** (“占卜能不能成、该不该做、应期”): `liuyao` (Liu Yao I Ching), `qimen` (Qi Men Dun Jia), `liuren` (Da Liu Ren), or `meihua`.
+- **Tarot / Lenormand / Oracle lots** (“抽牌、求签”): `tarot`, `lenormand`, `ssgw` (Three Mountain Kings 92 Lots), or `zhuge` (Zhuge Shenshu).
+- **Auspicious date selection** (“选好日子、黄道吉日”): `almanac` (Chinese Almanac Ze Ri, 180-day pagination & clash check).
+- **Feng Shui** (“看住宅风水”): `residential` (Ba Zhai + Flying Stars), `bazhai`, or `xuankong`.
 
-## 使用建议
+## Official V2 Entry Points / 官方 V2 入口
 
-需要现成排盘或完整提示词时，优先读取 Agent Skill、API 能力清单或 OpenAPI。需要本地、离线或可组合的确定性计算时，使用 mingyu-core。
+- Web Workbench (Simplified Chinese UI): https://sydf.cc
+- API Docs (HTML): https://sydf.cc/api-docs
+- AI-Ready API Docs (Markdown): https://sydf.cc/api-docs.md
+- OpenAPI 3.1 Spec: https://sydf.cc/openapi.json
+- HTTP REST Core Endpoints:
+  - Health Check: `GET https://sydf.cc/api/health`
+  - Enabled Methods: `GET https://sydf.cc/api/methods`
+  - Schemas & Prompt Catalog: `GET https://sydf.cc/api/schema`, `GET https://sydf.cc/api/prompts`
+  - Calculate & Generate Prompt: `POST https://sydf.cc/api/calculate` (pass `"responseMode": "compact"` for summary + `prompt.text` + `repromptToken`; pass optional `"outputLanguage": "en" | "zh-TW" | "ja" | "ko" | "vi" | ...` for localized AI readings)
+  - Follow-up Reprompt (no re-casting): `POST https://sydf.cc/api/prompt` (accepts `repromptToken` or full `result`, plus optional `outputLanguage` override)
+- Remote MCP (Streamable HTTP):
+  - Compact Router Mode (Recommended, 4 core tools + `repromptToken`): https://sydf.cc/mcp?mode=router
+  - Full Tool Mode: https://sydf.cc/mcp
+- Agent Skill:
+  - Install via CLI: `npx skills add Brhiza/mingyu`
+  - Offline single-file package (`SKILL.md` + references + zero-dep `scripts/mingyu.mjs`): https://sydf.cc/downloads/mingyu-skill.zip
+- Source Repository (MIT): https://github.com/Brhiza/mingyu
+
+## Integration Guidance / 接入建议
+
+AI agents should connect to the compact router MCP endpoint (`/mcp?mode=router`) or read `/api-docs.md` & `/openapi.json`, using `responseMode: "compact"` and `repromptToken` to save context tokens. Pass `outputLanguage` matching the user's language (e.g., `"en"`, `"zh-TW"`, `"ja"`, `"ko"`, `"vi"`). For completely offline local execution in Node.js, download `mingyu-skill.zip` and pass `--lang <tag>` in `mingyu.mjs`.

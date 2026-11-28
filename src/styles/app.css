@@ -1,0 +1,17 @@
+/**
+ * 命语 V2 统一样式入口 (Layered Architecture)
+ * 严格遵循 CSS Cascade Layers：tokens -> base -> components -> Tailwind utilities
+ * 保证新组件工具类与老领域样式互不踩踏，消除源码顺序与 !important 冲突。
+ */
+@import './tailwind.css';
+@import './tokens.css';
+@import './base.css' layer(base);
+@import './primitives.css' layer(components.base);
+@import './shell.css' layer(components.base);
+@import './pages.css' layer(components.base);
+@import './responsive.css' layer(components.responsive);
+
+/* [hidden] 属性始终保持最高显示开关语义，不受局部 display 规则影响 */
+[hidden] {
+  display: none !important;
+}

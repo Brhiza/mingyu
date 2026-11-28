@@ -66,7 +66,7 @@ test('诸葛神数五枚铜钱覆盖全部三十二课、支持随机/手工与�
 
   let index = 0;
   const samples = [0.9, 0.1, 0.9, 0.1, 0.9];
-  const rand = calculateZhuge({ ...base, zhuge: { method: 'coins' } }, currentTime, () => samples[index++]);
+  const rand = await calculateZhuge({ ...base, zhuge: { method: 'coins' } }, currentTime, () => samples[index++]);
   assert.equal(rand.data.mode, 'coins');
   assert.equal(rand.data.symbol, '●○●○●');
   assert.equal(rand.data.draw.method, 'random');

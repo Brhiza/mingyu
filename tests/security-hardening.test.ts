@@ -24,10 +24,19 @@ test('Worker 对超大请求体返回 413 并为 API 响应附带安全头', asy
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   }
 
-  const methodsResponse = await worker.fetch(new Request('https://example.com/api/methods'), env);
-  assert.equal(methodsResponse.status, 200);
-  assert.equal(methodsResponse.headers.get('cache-control'), 'no-store');
-  assert.equal(methodsResponse.headers.get('x-content-type-options'), 'nosniff');
+  for (const path of ['/api/health', '/api/methods', '/api/schema?method=zhuge', '/api/prompts?method=zhuge']) {
+    const publicResponse = await worker.fetch(new Request(`https://example.com${path}`), env);
+    assert.equal(publicResponse.status, 200, path);
+    assert.equal(publicResponse.headers.get('cache-control'), 'public, max-age=300, s-maxage=3600', path);
+    assert.equal(publicResponse.headers.get('x-content-type-options'), 'nosniff', path);
+
+    const privateResponse = await worker.fetch(
+      new Request(`https://example.com${path}`, { headers: { authorization: 'Bearer private-token' } }),
+      { ...env, ACCESS_TOKEN: 'private-token' },
+    );
+    assert.equal(privateResponse.status, 200, path);
+    assert.equal(privateResponse.headers.get('cache-control'), 'no-store', path);
+  }
 
   const staticResponse = await worker.fetch(new Request('https://example.com/'), {
     ...env,

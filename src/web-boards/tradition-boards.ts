@@ -3,7 +3,9 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   type UnknownRecord,
@@ -133,14 +135,6 @@ function renderBazhai(container: HTMLElement, data: UnknownRecord): boolean {
 
   const measurement = asRecord(data.measurement);
   const measWarnings = asArray(measurement?.warnings).map(asString).filter(Boolean);
-  const meta = createMetaGrid([
-    ['坐山向首', house ? `坐${asString(house.sitMountain) ?? ''}向${asString(house.facingMountain) ?? ''}` : undefined],
-    ['测量度数', measurement && asNumber(measurement.correctedDegree) !== undefined ? `${asNumber(measurement.correctedDegree)}°（${asString(measurement.stability) ?? ''}）` : undefined],
-    ['命卦所属', mingGua ? `${mingGua}卦 · ${mingGroup}` : undefined],
-    ['宅命关系', match || undefined],
-    ['压线/罗盘提示', measWarnings.length > 0 ? measWarnings.join('；') : undefined],
-  ]);
-  if (meta) container.append(meta);
 
   const bodyHost = el('div', 'bz-host');
   if (comparisons.length > 1) {
@@ -162,6 +156,26 @@ function renderBazhai(container: HTMLElement, data: UnknownRecord): boolean {
   }
   renderBazhaiComparisonBody(bodyHost, comp, person, house, mingPalaces[0]);
   container.append(bodyHost);
+
+  const measDeg = measurement ? asNumber(measurement.correctedDegree) : undefined;
+  if (measDeg !== undefined || measWarnings.length > 0) {
+    const bzBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '罗盘度数与校验',
+        '八宅坐向测量度数与压线校验',
+        () =>
+          createMetaGrid([
+            ['坐山向首', house ? `坐${asString(house.sitMountain) ?? ''}向${asString(house.facingMountain) ?? ''}` : undefined],
+            ['测量度数', measDeg !== undefined ? `${measDeg}°（${asString(measurement?.stability) ?? ''}）` : undefined],
+            ['命卦所属', mingGua ? `${mingGua}卦 · ${mingGroup}` : undefined],
+            ['宅命关系', match || undefined],
+            ['压线/罗盘提示', measWarnings.length > 0 ? measWarnings.join('；') : undefined],
+          ]) ?? el('div'),
+        measWarnings.length > 0 ? `${measWarnings.length}项` : undefined,
+      ),
+    ]);
+    if (bzBar) container.append(bzBar);
+  }
 
   return true;
 }
@@ -203,13 +217,6 @@ function renderAlmanacDay(host: HTMLElement, day: UnknownRecord) {
     if (dirStrip.childElementCount > 0) host.append(dirStrip);
   }
 
-  if (pengzu && (asString(pengzu.stem) || asString(pengzu.branch))) {
-    const pz = el('div', 'wb-note-box');
-    pz.append(el('strong', undefined, '彭祖百忌：'));
-    pz.append(`${asString(pengzu.stem) ?? ''}；${asString(pengzu.branch) ?? ''}`);
-    host.append(pz);
-  }
-
   const recommends = asArray(day.recommends).map(asString).filter((x): x is string => Boolean(x));
   const avoids = asArray(day.avoids).map(asString).filter((x): x is string => Boolean(x));
   if (recommends.length > 0 || avoids.length > 0) {
@@ -217,7 +224,7 @@ function renderAlmanacDay(host: HTMLElement, day: UnknownRecord) {
     const yiBox = el('div', 'al-yj-box is-yi');
     yiBox.append(el('div', 'al-yj-title', `宜（${recommends.length}）`));
     const yiWrap = el('div', 'wb-chip-wrap');
-    for (const r of recommends.slice(0, 18)) {
+    for (const r of recommends.slice(0, 12)) {
       yiWrap.append(el('span', 'wb-badge wb-badge-good', r));
     }
     yiBox.append(yiWrap);
@@ -225,7 +232,7 @@ function renderAlmanacDay(host: HTMLElement, day: UnknownRecord) {
     const jiBox = el('div', 'al-yj-box is-ji');
     jiBox.append(el('div', 'al-yj-title', `忌（${avoids.length}）`));
     const jiWrap = el('div', 'wb-chip-wrap');
-    for (const a of avoids.slice(0, 18)) {
+    for (const a of avoids.slice(0, 12)) {
       jiWrap.append(el('span', 'wb-badge wb-badge-warn', a));
     }
     jiBox.append(jiWrap);
@@ -258,6 +265,44 @@ function renderAlmanacDay(host: HTMLElement, day: UnknownRecord) {
     }
     sec.append(hGrid);
     host.append(sec);
+  }
+
+  const hasPengzu = Boolean(pengzu && (asString(pengzu.stem) || asString(pengzu.branch)));
+  if (hasPengzu || recommends.length > 12 || avoids.length > 12) {
+    const alBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '彭祖百忌与完整宜忌',
+        `${asString(day.date) ?? '当日'} 彭祖百忌与完整宜忌明细`,
+        () => {
+          const frag = document.createDocumentFragment();
+          if (hasPengzu && pengzu) {
+            const pz = el('div', 'wb-note-box');
+            pz.append(el('strong', undefined, '彭祖百忌：'));
+            pz.append([asString(pengzu.stem), asString(pengzu.branch)].filter(Boolean).join('；'));
+            frag.append(pz);
+          }
+          if (recommends.length > 0) {
+            const rSec = el('div', 'lr-section');
+            rSec.append(el('h4', 'lr-section-title', `当日全部宜事（${recommends.length}）`));
+            const wrap = el('div', 'wb-chip-wrap');
+            for (const r of recommends) wrap.append(el('span', 'wb-badge wb-badge-good', r));
+            rSec.append(wrap);
+            frag.append(rSec);
+          }
+          if (avoids.length > 0) {
+            const aSec = el('div', 'lr-section');
+            aSec.append(el('h4', 'lr-section-title', `当日全部忌事（${avoids.length}）`));
+            const wrap = el('div', 'wb-chip-wrap');
+            for (const a of avoids) wrap.append(el('span', 'wb-badge wb-badge-warn', a));
+            aSec.append(wrap);
+            frag.append(aSec);
+          }
+          return frag;
+        },
+        `${recommends.length + avoids.length}项`,
+      ),
+    ]);
+    if (alBar) host.append(alBar);
   }
 }
 
@@ -366,6 +411,19 @@ function renderNameAnalysisBody(host: HTMLElement, analysis: UnknownRecord) {
   const preferredEls = asArray(analysis.preferredElements).map(asString).filter(Boolean);
   const elMatches = asArray(analysis.elementMatches).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
 
+  const scPos = asArray(sancaiEv?.positions)
+    .map(asRecord)
+    .filter((x): x is UnknownRecord => Boolean(x))
+    .map((p) => asString(p.explanation))
+    .filter(Boolean)
+    .join('；');
+  const scRels = asArray(sancaiEv?.relations)
+    .map(asRecord)
+    .filter((x): x is UnknownRecord => Boolean(x))
+    .map((r) => asString(r.explanation))
+    .filter(Boolean)
+    .join('；');
+
   if (sancai) {
     const scCard = el('div', 'nm-sancai-card');
     const scHead = el('div', 'nm-sancai-head');
@@ -384,23 +442,8 @@ function renderNameAnalysisBody(host: HTMLElement, analysis: UnknownRecord) {
     scCard.append(scHead);
     if (asString(sancai.text)) scCard.append(el('p', 'nm-sancai-text', asString(sancai.text)));
 
-    const scPos = asArray(sancaiEv?.positions)
-      .map(asRecord)
-      .filter((x): x is UnknownRecord => Boolean(x))
-      .map((p) => asString(p.explanation))
-      .filter(Boolean)
-      .join('；');
-    const scRels = asArray(sancaiEv?.relations)
-      .map(asRecord)
-      .filter((x): x is UnknownRecord => Boolean(x))
-      .map((r) => asString(r.explanation))
-      .filter(Boolean)
-      .join('；');
-
     const extraMeta = createMetaGrid([
-      ['成功运（天→人）', successLuck],
-      ['基础运（人→地）', foundationLuck],
-      ['三才数理推导', [scPos, scRels].filter(Boolean).join(' ｜ ') || undefined],
+      ['成功运 / 基础运', [successLuck, foundationLuck].filter(Boolean).join(' ｜ ') || undefined],
       ['音律平仄', tonePattern ? `${asString(tonePattern.pattern) ?? ''}（${asString(tonePattern.rhythm) ?? ''}）` : undefined],
       [
         '喜用五行补益',
@@ -413,6 +456,7 @@ function renderNameAnalysisBody(host: HTMLElement, analysis: UnknownRecord) {
     host.append(scCard);
   }
 
+  const gridNotes: Array<{ title: string; expr?: string; text: string }> = [];
   if (grids) {
     const gridDefs: Array<[string, string]> = [
       ['tian', '天格'],
@@ -439,18 +483,16 @@ function renderNameAnalysisBody(host: HTMLElement, analysis: UnknownRecord) {
       const wxEl = el('span', 'nm-grid-wx', wx ?? '');
       if (wx) wxEl.dataset.wuxing = wx;
       mid.append(wxEl);
-      if (asString(deriv?.expression)) {
-        mid.append(el('span', 'nm-grid-expr', asString(deriv?.expression)));
-      }
       card.append(mid);
 
       if (asString(g.poem)) card.append(el('div', 'nm-grid-poem', asString(g.poem)));
       if (asString(g.keywords)) card.append(el('div', 'nm-grid-kw', asString(g.keywords)));
       if (asString(g.text)) {
-        const det = el('details', 'wb-details nm-grid-details');
-        det.append(el('summary', 'wb-details-summary', '81数理详注'));
-        det.append(el('p', 'nm-grid-text', asString(g.text)));
-        card.append(det);
+        gridNotes.push({
+          title: `${title}（第${asNumber(g.num) ?? ''}数 · ${asString(g.role) ?? ''} · ${lv}）`,
+          expr: asString(deriv?.expression),
+          text: asString(g.text)!,
+        });
       }
       gWrap.append(card);
     }
@@ -485,6 +527,37 @@ function renderNameAnalysisBody(host: HTMLElement, analysis: UnknownRecord) {
       cGrid.append(card);
     }
     host.append(cGrid);
+  }
+
+  if (scPos || scRels || gridNotes.length > 0) {
+    const nmBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '五格数理推演与详注',
+        '三才数理推演依据与 81 数理详注',
+        () => {
+          const frag = document.createDocumentFragment();
+          const scMeta = createMetaGrid([
+            ['三才数理推导', [scPos, scRels].filter(Boolean).join(' ｜ ') || undefined],
+            ['成功运（天→人）', successLuck],
+            ['基础运（人→地）', foundationLuck],
+          ]);
+          if (scMeta) frag.append(scMeta);
+          if (gridNotes.length > 0) {
+            const list = el('div', 'wb-computed-list');
+            for (const item of gridNotes) {
+              const card = el('div', 'wb-computed-item');
+              card.append(el('strong', 'wb-computed-title', `${item.title}${item.expr ? ` · ${item.expr}` : ''}`));
+              card.append(el('p', 'wb-computed-desc', item.text));
+              list.append(card);
+            }
+            frag.append(list);
+          }
+          return frag;
+        },
+        gridNotes.length > 0 ? `${gridNotes.length}格` : undefined,
+      ),
+    ]);
+    if (nmBar) host.append(nmBar);
   }
 }
 
@@ -560,6 +633,7 @@ function renderCharacterQuery(container: HTMLElement, data: UnknownRecord): bool
     ),
   );
 
+  const kangxiList: Array<{ ch: string; volume: string; text: string }> = [];
   const list = el('div', 'cq-list');
   for (const item of chars) {
     const detail = asRecord(item.detail) ?? item;
@@ -596,14 +670,38 @@ function renderCharacterQuery(container: HTMLElement, data: UnknownRecord): bool
     }
 
     if (asString(detail.kangxiText)) {
-      const details = el('details', 'wb-details');
-      details.append(el('summary', 'wb-details-summary', '康熙字典原文'));
-      details.append(el('p', 'cq-kangxi-text', asString(detail.kangxiText)));
-      card.append(details);
+      kangxiList.push({
+        ch,
+        volume: asString(detail.kangxiVolume) ? `${asString(detail.kangxiVolume)} ${asString(detail.kangxiSection) ?? ''}`.trim() : '',
+        text: asString(detail.kangxiText)!,
+      });
     }
     list.append(card);
   }
   container.append(list);
+
+  if (kangxiList.length > 0) {
+    const cqBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '康熙字典原文',
+        `康熙字典原典释义（${kangxiList.map((k) => k.ch).join('')}）`,
+        () => {
+          const frag = document.createDocumentFragment();
+          const itemsWrap = el('div', 'wb-computed-list');
+          for (const k of kangxiList) {
+            const box = el('div', 'wb-computed-item');
+            box.append(el('strong', 'wb-computed-title', `「${k.ch}」${k.volume ? ` · ${k.volume}` : ''}`));
+            box.append(el('p', 'cq-kangxi-text wb-computed-desc', k.text));
+            itemsWrap.append(box);
+          }
+          frag.append(itemsWrap);
+          return frag;
+        },
+        `${kangxiList.length}字`,
+      ),
+    ]);
+    if (cqBar) container.append(cqBar);
+  }
   return true;
 }
 
@@ -674,19 +772,12 @@ function renderXiaoliuren(container: HTMLElement, data: UnknownRecord): boolean 
 
   const meta = createMetaGrid([
     [
-      '三传起课步数',
-      monthP && dayP && hourP
-        ? `月落「${asString(monthP.name) ?? ''}」(${asNumber(calc?.monthCount) ?? '—'}步) → 日落「${asString(dayP.name) ?? ''}」(${asNumber(calc?.dayCount) ?? '—'}步) → 时落「${asString(hourP.name) ?? ''}」(${asNumber(calc?.hourCount) ?? '—'}步)`
-        : undefined,
-    ],
-    [
       '主宫神兽与方位',
       primaryName
         ? `${primaryName}（${XLR_PALACE_META[primaryName]?.finger ?? ''}${hourDetail ? ` · ${asString(hourDetail.deity) ?? ''} · ${asString(hourDetail.element) ?? ''} · ${asString(hourDetail.direction) ?? ''} · 数${asArray(hourDetail.numbers).join('/')}` : ''}）`
         : undefined,
     ],
     ['三宫递推生克', [asString(sanGong?.monthToDay), asString(sanGong?.dayToHour), asString(sanGong?.tiYongRelation)].filter(Boolean).join('；') || asString(sanGong?.combinationSummary)],
-    ['换日与闰月口径', [asString(calc?.dayBoundary), asString(calc?.leapMonthRule)].filter(Boolean).join(' · ') || undefined],
   ]);
   if (meta) container.append(meta);
 
@@ -754,6 +845,26 @@ function renderXiaoliuren(container: HTMLElement, data: UnknownRecord): boolean 
   }
   palmSec.append(grid);
   container.append(palmSec);
+
+  const stepStr =
+    monthP && dayP && hourP
+      ? `月落「${asString(monthP.name) ?? ''}」(${asNumber(calc?.monthCount) ?? '—'}步) → 日落「${asString(dayP.name) ?? ''}」(${asNumber(calc?.dayCount) ?? '—'}步) → 时落「${asString(hourP.name) ?? ''}」(${asNumber(calc?.hourCount) ?? '—'}步)`
+      : undefined;
+  const ruleStr = [asString(calc?.dayBoundary), asString(calc?.leapMonthRule)].filter(Boolean).join(' · ') || undefined;
+  if (stepStr || ruleStr) {
+    const xlrBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '起课步数与历法口径',
+        '小六壬起课步数推导与换日闰月口径',
+        () =>
+          createMetaGrid([
+            ['三传起课步数', stepStr],
+            ['换日与闰月口径', ruleStr],
+          ]) ?? el('div'),
+      ),
+    ]);
+    if (xlrBar) container.append(xlrBar);
+  }
 
   return true;
 }
@@ -926,38 +1037,51 @@ function renderWuyunLiuqi(container: HTMLElement, data: UnknownRecord): boolean 
     .map(asRecord)
     .filter((x): x is UnknownRecord => Boolean(x))
     .filter((x) => x.matched === true);
-  if (conformityFacts.length > 0) {
-    const cfWrap = el('div', 'wb-computed-list');
-    for (const cf of conformityFacts) {
-      const card = el('div', 'wb-computed-item is-good');
-      card.append(el('strong', 'wb-computed-title', `运气同化 · ${asString(cf.name) ?? ''}`));
-      if (asString(cf.rule)) card.append(el('p', 'wb-computed-desc', asString(cf.rule)));
-      if (asString(cf.basis)) card.append(el('small', 'wb-computed-quote', asString(cf.basis)));
-      cfWrap.append(card);
-    }
-    container.append(cfWrap);
-  }
-
   const patho = asRecord(chart.pathomechanism);
-  if (patho) {
-    const classRef = asRecord(patho.classicalReference);
-    const pBox = el('div', 'wb-note-box');
-    pBox.append(
-      el(
-        'strong',
-        undefined,
-        `病机与治则文献参考（${asString(patho.movementRegime) ?? ''} · ${asString(patho.pingQiType) ?? ''}）：`,
+  if (conformityFacts.length > 0 || patho) {
+    const wyBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '同化依据与病机文献',
+        '五运六气同化依据与病机治则文献参考',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (conformityFacts.length > 0) {
+            const cfWrap = el('div', 'wb-computed-list');
+            for (const cf of conformityFacts) {
+              const card = el('div', 'wb-computed-item is-good');
+              card.append(el('strong', 'wb-computed-title', `运气同化 · ${asString(cf.name) ?? ''}`));
+              if (asString(cf.rule)) card.append(el('p', 'wb-computed-desc', asString(cf.rule)));
+              if (asString(cf.basis)) card.append(el('small', 'wb-computed-quote', asString(cf.basis)));
+              cfWrap.append(card);
+            }
+            frag.append(cfWrap);
+          }
+          if (patho) {
+            const classRef = asRecord(patho.classicalReference);
+            const pBox = el('div', 'wb-note-box');
+            pBox.append(
+              el(
+                'strong',
+                undefined,
+                `病机与治则文献参考（${asString(patho.movementRegime) ?? ''} · ${asString(patho.pingQiType) ?? ''}）：`,
+              ),
+            );
+            const parts = [
+              asString(patho.affectedZangFu),
+              asString(patho.climaticPathology) ? `候象：${asString(patho.climaticPathology)}` : '',
+              asString(patho.treatmentGuideline) ? `治则：${asString(patho.treatmentGuideline)}` : '',
+              asString(patho.summary),
+              classRef && asString(classRef.source) ? `典据：${asString(classRef.source)}` : '',
+            ].filter(Boolean);
+            pBox.append(parts.join('；'));
+            frag.append(pBox);
+          }
+          return frag;
+        },
+        conformityFacts.length > 0 ? `${conformityFacts.length}项` : undefined,
       ),
-    );
-    const parts = [
-      asString(patho.affectedZangFu),
-      asString(patho.climaticPathology) ? `候象：${asString(patho.climaticPathology)}` : '',
-      asString(patho.treatmentGuideline) ? `治则：${asString(patho.treatmentGuideline)}` : '',
-      asString(patho.summary),
-      classRef && asString(classRef.source) ? `典据：${asString(classRef.source)}` : '',
-    ].filter(Boolean);
-    pBox.append(parts.join('；'));
-    container.append(pBox);
+    ]);
+    if (wyBar) container.append(wyBar);
   }
 
   return true;
@@ -1043,37 +1167,8 @@ function renderNumberEnergy(container: HTMLElement, data: UnknownRecord): boolea
   ]);
   if (meta) container.append(meta);
 
-  if (asString(primaryNum?.text) || asString(sumNum?.text)) {
-    const numNote = el('div', 'wb-note-box');
-    if (asString(primaryNum?.text)) {
-      numNote.append(el('strong', undefined, `主数${primaryIndex ?? ''}详注：`), document.createTextNode(asString(primaryNum?.text)!));
-    }
-    if (asString(sumNum?.text) && sumIndex !== primaryIndex) {
-      if (asString(primaryNum?.text)) numNote.append(el('br'));
-      numNote.append(el('strong', undefined, `总和数${sumIndex ?? ''}详注：`), document.createTextNode(asString(sumNum?.text)!));
-    }
-    container.append(numNote);
-  }
-
-  if (modifiers.length > 0) {
-    const modSec = el('div', 'lr-section');
-    modSec.append(el('h4', 'lr-section-title', `0 / 5 夹杂与显隐调节（${modifiers.length} 处）`));
-    const list = el('div', 'wb-computed-list');
-    for (const m of modifiers) {
-      const card = el('div', 'wb-computed-item');
-      card.append(
-        el(
-          'strong',
-          'wb-computed-title',
-          `数字 ${asNumber(m.digit) ?? ''}（第${asNumber(m.position) ?? ''}位 · ${asString(m.placement) ?? ''} · ${asString(m.effect) ?? ''}）`,
-        ),
-      );
-      if (asString(m.meaning)) card.append(el('p', 'wb-computed-desc', asString(m.meaning)));
-      list.append(card);
-    }
-    modSec.append(list);
-    container.append(modSec);
-  }
+  const hasPrimaryText = Boolean(asString(primaryNum?.text));
+  const hasSumText = Boolean(asString(sumNum?.text) && sumIndex !== primaryIndex);
 
   const dist = asArray(data.magneticDistribution)
     .map(asRecord)
@@ -1145,6 +1240,51 @@ function renderNumberEnergy(container: HTMLElement, data: UnknownRecord): boolea
     }
     sec.append(sGrid);
     container.append(sec);
+  }
+
+  if (hasPrimaryText || hasSumText || modifiers.length > 0) {
+    const neBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '数理详注与调节依据',
+        '81数理详注与 0/5 夹杂显隐调节依据',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (hasPrimaryText || hasSumText) {
+            const numNote = el('div', 'wb-note-box');
+            if (hasPrimaryText) {
+              numNote.append(el('strong', undefined, `主数${primaryIndex ?? ''}详注：`), document.createTextNode(asString(primaryNum?.text)!));
+            }
+            if (hasSumText) {
+              if (hasPrimaryText) numNote.append(el('br'));
+              numNote.append(el('strong', undefined, `总和数${sumIndex ?? ''}详注：`), document.createTextNode(asString(sumNum?.text)!));
+            }
+            frag.append(numNote);
+          }
+          if (modifiers.length > 0) {
+            const modSec = el('div', 'lr-section');
+            modSec.append(el('h4', 'lr-section-title', `0 / 5 夹杂与显隐调节（${modifiers.length} 处）`));
+            const list = el('div', 'wb-computed-list');
+            for (const m of modifiers) {
+              const card = el('div', 'wb-computed-item');
+              card.append(
+                el(
+                  'strong',
+                  'wb-computed-title',
+                  `数字 ${asNumber(m.digit) ?? ''}（第${asNumber(m.position) ?? ''}位 · ${asString(m.placement) ?? ''} · ${asString(m.effect) ?? ''}）`,
+                ),
+              );
+              if (asString(m.meaning)) card.append(el('p', 'wb-computed-desc', asString(m.meaning)));
+              list.append(card);
+            }
+            modSec.append(list);
+            frag.append(modSec);
+          }
+          return frag;
+        },
+        modifiers.length > 0 ? `${modifiers.length}处` : undefined,
+      ),
+    ]);
+    if (neBar) container.append(neBar);
   }
 
   return true;

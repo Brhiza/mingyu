@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import worker from '../src/worker';
 import { parseWorkspaceLocation } from '../src/app/workspace-router';
 import { resolveLegacyWebRedirect } from '../src/v1-sunset';
@@ -11,7 +13,8 @@ const DEFAULTS = {
 
 test('V1 老网页链接自动映射到 V2 规范路由', () => {
   assert.equal(parseWorkspaceLocation('/records', '', DEFAULTS).canonicalPath, '/history');
-  assert.equal(parseWorkspaceLocation('/cases', '', DEFAULTS).canonicalPath, '/chart');
+  assert.equal(parseWorkspaceLocation('/cases', '', DEFAULTS).canonicalPath, '/cases');
+  assert.equal(resolveLegacyWebRedirect('/cases'), null);
   assert.equal(parseWorkspaceLocation('/calendar', '', DEFAULTS).canonicalPath, '/utilities/calendar');
   assert.equal(parseWorkspaceLocation('/culture-tools', '', DEFAULTS).canonicalPath, '/utilities/chinese-name');
   assert.equal(parseWorkspaceLocation('/tutorial', '', DEFAULTS).canonicalPath, '/');
@@ -40,4 +43,15 @@ test('V1 旧接口 /api/v1/* 与 /sse 返回 410 Gone 与 V2 迁移指引', asyn
   const sseBody = (await sseRes.json()) as { error: string; migration: { mcp: string } };
   assert.match(sseBody.error, /SSE/);
   assert.equal(sseBody.migration.mcp, '/mcp?mode=router');
+});
+
+test('public/llms.txt 仅暴露有效 V2 入口且不包含已下线 V1 链接', () => {
+  const llms = readFileSync(join(process.cwd(), 'public', 'llms.txt'), 'utf8');
+  assert.doesNotMatch(llms, /\/api\/v1\//);
+  assert.doesNotMatch(llms, /\.well-known\/aov-mingyu-api\.json/);
+  assert.doesNotMatch(llms, /mingyu-core/);
+  assert.match(llms, /\/api-docs\.md/);
+  assert.match(llms, /\/openapi\.json/);
+  assert.match(llms, /\/mcp\?mode=router/);
+  assert.match(llms, /\/downloads\/mingyu-skill\.zip/);
 });

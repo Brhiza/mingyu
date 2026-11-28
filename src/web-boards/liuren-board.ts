@@ -2,7 +2,9 @@ import {
   asArray,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   type UnknownRecord,
@@ -187,7 +189,7 @@ function renderDaLiuren(container: HTMLElement, data: UnknownRecord): boolean {
 
   if (fourLessons.length > 0) {
     const lessonSec = el('section', 'lr-matrix-sec');
-    lessonSec.append(el('span', 'lr-matrix-title', '四课（一课干阳 · 三课支阳）'));
+    lessonSec.append(el('span', 'lr-matrix-title', '四课'));
     const cols = el('div', 'lr-matrix-cols lr-lessons-cols');
     for (const lesson of fourLessons) {
       const lName = asString(lesson.name) ?? '课';
@@ -207,7 +209,7 @@ function renderDaLiuren(container: HTMLElement, data: UnknownRecord): boolean {
 
   if (threeTrans.length > 0) {
     const transSec = el('section', 'lr-matrix-sec');
-    transSec.append(el('span', 'lr-matrix-title', '三传（遁干 · 六亲 · 天将 · 旺衰）'));
+    transSec.append(el('span', 'lr-matrix-title', '三传'));
     const cols = el('div', 'lr-matrix-cols lr-trans-cols');
     for (const item of threeTrans) {
       const br = asString(item.branch) ?? '—';
@@ -243,84 +245,6 @@ function renderDaLiuren(container: HTMLElement, data: UnknownRecord): boolean {
   if (matrix.childElementCount > 0) scriptPanel.append(matrix);
   container.append(scriptPanel);
 
-  if (asString(data.transmissionSummary)) {
-    container.append(el('p', 'wb-note-box', asString(data.transmissionSummary)));
-  }
-
-  // 主辅证焦点（focusEvidence）与天将属性（tianJiangProps）
-  const focusEv = asArray(data.focusEvidence).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (focusEv.length > 0) {
-    const fSec = el('div', 'lr-section');
-    fSec.append(el('h4', 'lr-section-title', '主辅传课焦距线索'));
-    const list = el('div', 'wb-computed-list');
-    for (const f of focusEv) {
-      const card = el('div', `wb-computed-item ${asString(f.level) === '主证' ? 'is-good' : ''}`.trim());
-      card.append(
-        el('strong', 'wb-computed-title', `${asString(f.level) ?? ''} · ${asString(f.target) ?? ''}（${asString(f.role) ?? ''}）`),
-      );
-      const evLines = asArray(f.evidence).map(asString).filter(Boolean).join('；');
-      if (evLines) card.append(el('p', 'wb-computed-desc', evLines));
-      list.append(card);
-    }
-    fSec.append(list);
-    container.append(fSec);
-  }
-
-  const tjProps = asRecord(data.tianJiangProps);
-  if (tjProps && Object.keys(tjProps).length > 0) {
-    const tjSec = el('div', 'lr-section');
-    tjSec.append(el('h4', 'lr-section-title', '三传乘将神性'));
-    const list = el('div', 'wb-computed-list');
-    for (const [name, val] of Object.entries(tjProps)) {
-      const rec = asRecord(val);
-      if (!rec) continue;
-      const card = el('div', 'wb-computed-item');
-      card.append(
-        el(
-          'strong',
-          'wb-computed-title',
-          `${name}（${asString(rec.wuxing) ?? ''}${asString(rec.yinYang) ?? ''} · ${asString(rec.category) ?? ''}）`,
-        ),
-      );
-      if (asString(rec.description)) card.append(el('p', 'wb-computed-desc', asString(rec.description)));
-      list.append(card);
-    }
-    tjSec.append(list);
-    container.append(tjSec);
-  }
-
-  // 课体与典籍依据
-  const guaTiFacts = asArray(data.guaTiFacts).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (guaTiFacts.length > 0) {
-    const gtSec = el('div', 'lr-section');
-    gtSec.append(el('h4', 'lr-section-title', `课体与典籍依据（${guaTiFacts.length}）`));
-    const gtList = el('div', 'wb-computed-list');
-    for (const gt of guaTiFacts.slice(0, 6)) {
-      const card = el('div', 'wb-computed-item');
-      const conds = asArray(gt.matchedConditions).map(asString).filter(Boolean).join('；');
-      const quote = asString(gt.sourceQuote);
-      const srcTitle = asString(gt.sourceTitle);
-      const gtName = asString(gt.name) ?? '课体';
-      const gtTitle = `${gtName}${asString(gt.category) ? ` · ${asString(gt.category)}` : ''}`;
-      card.append(
-        createTermTrigger(gtTitle, gtName, 'wb-computed-title', {
-          title: gtTitle,
-          category: '大六壬课体',
-          subtitle: asString(gt.category),
-          detail: conds || undefined,
-          classicRef: srcTitle || quote ? `${srcTitle ? `《${srcTitle.replace(/[《》]/g, '')}》：` : ''}${quote ?? ''}` : undefined,
-        }),
-      );
-      if (conds) card.append(el('p', 'wb-computed-desc', conds));
-      if (quote || srcTitle) {
-        card.append(el('small', 'wb-computed-quote', `${srcTitle ? `《${srcTitle.replace(/[《》]/g, '')}》：` : ''}${quote ?? ''}`));
-      }
-      gtList.append(card);
-    }
-    gtSec.append(gtList);
-    container.append(gtSec);
-  }
-
   const shenSha = asArray(data.shenShaSummary).map(asString).filter((x): x is string => Boolean(x));
   if (shenSha.length > 0) {
     const ssSec = el('div', 'lr-section');
@@ -339,12 +263,18 @@ function renderDaLiuren(container: HTMLElement, data: UnknownRecord): boolean {
     container.append(ssSec);
   }
 
+  // 发用取传依据、课体典籍与神将详析收拢至弹窗
+  const transmissionSummary = asString(data.transmissionSummary);
+  const focusEv = asArray(data.focusEvidence).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+  const tjProps = asRecord(data.tianJiangProps);
+  const guaTiFacts = asArray(data.guaTiFacts).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
   const classicalRules = asArray(data.classicalRules).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
   const timingEvidence = asArray(data.timingEvidence).map(asString).filter(Boolean);
   const adj = asRecord(data.ordinaryTransmissionAdjudication);
+  const tjCount = tjProps ? Object.keys(tjProps).length : 0;
   const lrExtraPairs: Array<[string, string | undefined]> = [];
   if (timingEvidence.length > 0) {
-    lrExtraPairs.push(['应期与旺衰线索', timingEvidence.slice(0, 3).join(' · ')]);
+    lrExtraPairs.push(['应期与旺衰线索', timingEvidence.join(' · ')]);
   }
   if (adj) {
     const adjStr = asString(adj.summary) ?? [asString(adj.verdict), asString(adj.reason)].filter(Boolean).join(' · ');
@@ -354,14 +284,90 @@ function renderDaLiuren(container: HTMLElement, data: UnknownRecord): boolean {
     lrExtraPairs.push([
       '传统法则提示',
       classicalRules
-        .slice(0, 4)
         .map((r) => asString(r.summary) ?? asString(r.title) ?? asString(r.name))
         .filter(Boolean)
         .join('；'),
     ]);
   }
-  const lrExtraMeta = createMetaGrid(lrExtraPairs);
-  if (lrExtraMeta) container.append(lrExtraMeta);
+
+  if (transmissionSummary || focusEv.length > 0 || tjCount > 0 || guaTiFacts.length > 0 || lrExtraPairs.length > 0) {
+    const totalCount = focusEv.length + guaTiFacts.length;
+    const lrBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '取传依据与课体详析',
+        '大六壬取传依据与课体详析',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (transmissionSummary) {
+            frag.append(el('p', 'wb-note-box', transmissionSummary));
+          }
+          if (focusEv.length > 0) {
+            const fSec = el('div', 'lr-section');
+            fSec.append(el('h4', 'lr-section-title', '主辅传课线索'));
+            const list = el('div', 'wb-computed-list');
+            for (const f of focusEv) {
+              const card = el('div', `wb-computed-item ${asString(f.level) === '主证' ? 'is-good' : ''}`.trim());
+              card.append(
+                el('strong', 'wb-computed-title', `${asString(f.level) ?? ''} · ${asString(f.target) ?? ''}（${asString(f.role) ?? ''}）`),
+              );
+              const evLines = asArray(f.evidence).map(asString).filter(Boolean).join('；');
+              if (evLines) card.append(el('p', 'wb-computed-desc', evLines));
+              list.append(card);
+            }
+            fSec.append(list);
+            frag.append(fSec);
+          }
+          if (guaTiFacts.length > 0) {
+            const gtSec = el('div', 'lr-section');
+            gtSec.append(el('h4', 'lr-section-title', `课体与典籍依据（${guaTiFacts.length}）`));
+            const gtList = el('div', 'wb-computed-list');
+            for (const gt of guaTiFacts) {
+              const card = el('div', 'wb-computed-item');
+              const conds = asArray(gt.matchedConditions).map(asString).filter(Boolean).join('；');
+              const quote = asString(gt.sourceQuote);
+              const srcTitle = asString(gt.sourceTitle);
+              const gtName = asString(gt.name) ?? '课体';
+              const gtTitle = `${gtName}${asString(gt.category) ? ` · ${asString(gt.category)}` : ''}`;
+              card.append(el('strong', 'wb-computed-title', gtTitle));
+              if (conds) card.append(el('p', 'wb-computed-desc', conds));
+              if (quote || srcTitle) {
+                card.append(el('small', 'wb-computed-quote', `${srcTitle ? `《${srcTitle.replace(/[《》]/g, '')}》：` : ''}${quote ?? ''}`));
+              }
+              gtList.append(card);
+            }
+            gtSec.append(gtList);
+            frag.append(gtSec);
+          }
+          if (tjProps && tjCount > 0) {
+            const tjSec = el('div', 'lr-section');
+            tjSec.append(el('h4', 'lr-section-title', '三传乘将神性'));
+            const list = el('div', 'wb-computed-list');
+            for (const [name, val] of Object.entries(tjProps)) {
+              const rec = asRecord(val);
+              if (!rec) continue;
+              const card = el('div', 'wb-computed-item');
+              card.append(
+                el(
+                  'strong',
+                  'wb-computed-title',
+                  `${name}（${asString(rec.wuxing) ?? ''}${asString(rec.yinYang) ?? ''} · ${asString(rec.category) ?? ''}）`,
+                ),
+              );
+              if (asString(rec.description)) card.append(el('p', 'wb-computed-desc', asString(rec.description)));
+              list.append(card);
+            }
+            tjSec.append(list);
+            frag.append(tjSec);
+          }
+          const extraMeta = createMetaGrid(lrExtraPairs);
+          if (extraMeta) frag.append(extraMeta);
+          return frag;
+        },
+        totalCount > 0 ? `${totalCount}项` : undefined,
+      ),
+    ]);
+    if (lrBar) container.append(lrBar);
+  }
 
   return true;
 }
@@ -396,7 +402,6 @@ function renderJinkoujue(container: HTMLElement, data: UnknownRecord): boolean {
     ['贵人', asString(data.noblemanBranch)],
     ['地分', asString(data.diFenBranch)],
     ['旬空', xunKong.length > 0 ? xunKong.join('、') : '无'],
-    ['遁干 / 贵神规则', [asString(calc?.yuanDunRule), asString(calc?.noblemanDirection)].filter(Boolean).join(' · ') || undefined],
   ]);
   if (meta) container.append(meta);
 
@@ -487,33 +492,45 @@ function renderJinkoujue(container: HTMLElement, data: UnknownRecord): boolean {
     if (relGrid) container.append(relGrid);
   }
 
-  if (asString(data.mainLine)) {
-    container.append(el('p', 'wb-note-box', asString(data.mainLine)));
-  }
-
+  const mainLineText = asString(data.mainLine);
   const focusList = asArray(data.focusEvidence).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (focusList.length > 0) {
-    const fSec = el('div', 'lr-section');
-    fSec.append(el('h4', 'lr-section-title', '四位用爻与象意脉络'));
-    const list = el('div', 'wb-computed-list');
-    for (const f of focusList) {
-      const card = el('div', `wb-computed-item ${asString(f.level) === '主证' ? 'is-good' : ''}`.trim());
-      card.append(
-        el('strong', 'wb-computed-title', `${asString(f.level) ?? ''} · ${asString(f.target) ?? ''}`),
-      );
-      const desc = [asString(f.role), ...asArray(f.evidence).map(asString)].filter(Boolean).join('；');
-      if (desc) card.append(el('p', 'wb-computed-desc', desc));
-      list.append(card);
-    }
-    fSec.append(list);
-    container.append(fSec);
-  }
-
-  const jkExtra = createMetaGrid([
-    ['比和合断诗诀', asString(data.bihePoem)],
+  const dunRuleText = [asString(calc?.yuanDunRule), asString(calc?.noblemanDirection)].filter(Boolean).join(' · ') || undefined;
+  const jkRulesMetaPairs: Array<[string, string | undefined]> = [
+    ['遁干 / 贵神规则', dunRuleText],
     ['排课口径', asString(yinYangUse?.rule)],
-  ]);
-  if (jkExtra) container.append(jkExtra);
+    ['比和合断诗诀', asString(data.bihePoem)],
+  ];
+  const hasJkModal = Boolean(mainLineText || focusList.length > 0 || jkRulesMetaPairs.some((p) => Boolean(p[1])));
+  if (hasJkModal) {
+    const jkBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '排课口径与断法线索',
+        '金口诀排课口径与断法线索',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (mainLineText) frag.append(el('p', 'wb-note-box', mainLineText));
+          if (focusList.length > 0) {
+            const list = el('div', 'wb-computed-list');
+            for (const f of focusList) {
+              const card = el('div', `wb-computed-item ${asString(f.level) === '主证' ? 'is-good' : ''}`.trim());
+              card.append(
+                el('strong', 'wb-computed-title', `${asString(f.level) ?? ''} · ${asString(f.target) ?? ''}`),
+              );
+              const desc = [asString(f.role), ...asArray(f.evidence).map(asString)].filter(Boolean).join('；');
+              if (desc) card.append(el('p', 'wb-computed-desc', desc));
+              list.append(card);
+            }
+            frag.append(list);
+          }
+          const jkExtra = createMetaGrid(jkRulesMetaPairs);
+          if (jkExtra) frag.append(jkExtra);
+          return frag;
+        },
+        focusList.length > 0 ? `${focusList.length}项` : undefined,
+      ),
+    ]);
+    if (jkBar) container.append(jkBar);
+  }
 
   return true;
 }

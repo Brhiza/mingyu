@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate, reprompt } from '../src/core';
-import { allHexagrams } from '../src/systems/zhouyi-text';
+import { ensureZhouyiTextsLoaded, getAllHexagrams } from '../src/systems/zhouyi-text';
 import hexagrams from '../src/systems/huangji-hexagrams.json';
 import worker from '../src/worker';
 
@@ -24,6 +24,8 @@ test('原文检索按卦分页，保留命中字段及可追溯版本', async ()
 });
 
 test('六爻 64 卦与 384 种动爻只引用实际卦象和动爻原文', async () => {
+  await ensureZhouyiTextsLoaded();
+  const allHexagrams = getAllHexagrams();
   for (const item of hexagrams) for (let line = 1; line <= 6; line++) {
     const code = item.binarySymbol.slice(3) + item.binarySymbol.slice(0, 3);
     const yaos = [...code].map((bit, index) => index + 1 === line ? bit === '1' ? 9 : 6 : bit === '1' ? 7 : 8);
@@ -46,6 +48,8 @@ test('六爻 64 卦与 384 种动爻只引用实际卦象和动爻原文', async
 });
 
 test('梅花与六爻时间范围的经典资料跟随保存的卦与动爻', async () => {
+  await ensureZhouyiTextsLoaded();
+  const allHexagrams = getAllHexagrams();
   const meihua: any = await calculate('meihua', { question: '问题', currentTime, meihua: { method: 'number', number: 123 }, prompt: { includeClassics: true } });
   const text = allHexagrams.find((item) => item.name === meihua.data.originalName)!;
   assert.ok(meihua.prompt.text.includes(text.yaos[meihua.data.movingYao.position - 1].xiaoXiang));

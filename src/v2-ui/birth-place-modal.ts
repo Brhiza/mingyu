@@ -1,3 +1,4 @@
+import type { LocationEntry } from '../systems/location';
 import {
   closePlaceModalSession,
   isPlaceModalSessionOpen,
@@ -70,4 +71,33 @@ export function openBirthPlaceModal(options: BirthPlaceModalOptions): BirthPlace
   const controller = createBirthPlaceModal(options);
   controller.open();
   return controller;
+}
+
+/**
+ * 打开三列省市区县地点选择弹窗（观测地/风水/天文等场景，回调转换为 LocationEntry）。
+ */
+export function openPlacePickerModal(options: {
+  title?: string;
+  currentDisplayName?: string;
+  onSelect: (entry: LocationEntry) => void;
+}): void {
+  openBirthPlaceModal({
+    purpose: 'observer',
+    initialPlace: options.currentDisplayName,
+    onConfirm: (selection) => {
+      options.onSelect({
+        name: selection.districtName,
+        displayName: selection.displayName,
+        level: selection.isOverseas ? 'overseas' : 'district',
+        country: selection.isOverseas ? selection.cityName : '中国',
+        province: selection.provinceName,
+        city: selection.cityName,
+        district: selection.districtName,
+        longitude: selection.longitude,
+        latitude: selection.latitude,
+        ...(selection.timezone !== undefined ? { timezone: selection.timezone } : {}),
+        ...(selection.timeZoneId ? { timeZoneId: selection.timeZoneId } : {}),
+      });
+    },
+  });
 }

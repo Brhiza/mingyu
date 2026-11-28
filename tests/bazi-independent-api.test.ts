@@ -14,7 +14,7 @@ test('独立八字预览输出四柱、司权、大运、岁运事实与条件�
   assert.match(result.prompt.text, /【司权、病药与通关候选】/);
   assert.match(result.prompt.text, /【格局组合与互制关系】/);
   assert.match(result.prompt.text, /【格局透干与根气条件】/);
-  assert.match(result.prompt.text, /双人合盘需另用 bazi-synastry/);
+  assert.match(result.prompt.text, /双人合盘需另用八字合盘/);
   assert.match(result.prompt.text, /【用神裁定与落位】/);
   assert.match(result.prompt.text, /具体应期日期与现实结果，不得将其当成已经算出的结论/);
   assert.match(result.prompt.text, /【普通月令取格候选】/);

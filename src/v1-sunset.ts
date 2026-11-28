@@ -13,7 +13,6 @@
 const EXACT_LEGACY_WEB_REDIRECTS: Readonly<Record<string, string>> = {
   '/home': '/',
   '/records': '/history',
-  '/cases': '/chart',
   '/calendar': '/utilities/calendar',
   '/culture-tools': '/utilities/chinese-name',
   '/tutorial': '/',

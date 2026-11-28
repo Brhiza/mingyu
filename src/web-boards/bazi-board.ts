@@ -1,6 +1,15 @@
 import { SolarTime } from 'tyme4ts';
-import { buildPillarFact } from '../systems/bazi/pillars';
-import { getYearMonthList, getYearSixtyCycle } from '../systems/ganzhi-foundation';
+import { comparePillars } from '../systems/bazi/natal-facts';
+import {
+  getCurrentSolarTermMonthIndex,
+  getFlowDayHours,
+  getFlowMonthDays,
+  getFlowMonthStartMeta,
+  getShichenIndexForBeijingHour,
+} from '../systems/bazi/flow-calendar';
+import { buildPillarFact, type BaziPillar } from '../systems/bazi/pillars';
+import { EARTHLY_BRANCHES, getYearMonthList, getYearSixtyCycle } from '../systems/ganzhi-foundation';
+import { createBoardDetailBar, createBoardModalTrigger } from './dom';
 import { createTermPanel, el, getWuxing, unwrapBoardData } from './shared';
 
 interface BaziHiddenStem {
@@ -62,6 +71,7 @@ interface BaziChartPayload {
     cycles?: BaziFortuneCycle[];
   };
   located?: {
+    timestamp?: number;
     flowYear?: number;
     inChildhood?: boolean;
     cycle?: BaziFortuneCycle;
@@ -70,6 +80,20 @@ interface BaziChartPayload {
     day?: BaziPillarData;
     hour?: BaziPillarData;
     smallFortune?: { nominalAge?: number; pillar?: BaziPillarData };
+    monthCommander?: {
+      stem?: string;
+      branch?: string;
+      previousJie?: { name?: string };
+      nextJie?: { name?: string };
+      rule?: string;
+    };
+    shensha?: {
+      layers?: Array<{
+        id: string;
+        ganZhi: string;
+        entries?: Array<{ name: string; target?: string; targetKind?: string }>;
+      }>;
+    };
     evidence?: {
       comparisons?: Array<{
         source?: string;
@@ -77,6 +101,13 @@ interface BaziChartPayload {
         target?: string;
         targetGanZhi?: string;
         relations?: Array<{ name?: string; values?: string[]; subtype?: string }>;
+      }>;
+      formations?: Array<{
+        name?: string;
+        element?: string;
+        branches?: string[];
+        participants?: Array<{ layer?: string; branch?: string }>;
+        triggers?: Array<{ layer?: string; branch?: string }>;
       }>;
     };
   } | null;
@@ -208,6 +239,63 @@ function formatYear(timestamp: number): string {
   return String(date.getUTCFullYear());
 }
 
+const FORTUNE_LAYER_LABELS: Record<string, string> = {
+  dayun: '大运',
+  cycle: '大运',
+  decade: '大运',
+  year: '流年',
+  month: '流月',
+  day: '流日',
+  hour: '流时',
+  smallFortune: '小运',
+  'small-fortune': '小运',
+  'natal-year': '年柱',
+  'natal-month': '月柱',
+  'natal-day': '日柱',
+  'natal-hour': '时柱',
+};
+
+const TEN_GOD_ABBR_MAP: Record<string, string> = {
+  比肩: '比',
+  劫财: '劫',
+  食神: '食',
+  伤官: '伤',
+  正财: '财',
+  偏财: '才',
+  正官: '官',
+  七杀: '杀',
+  正印: '印',
+  偏印: '枭',
+};
+
+function formatTenGodAbbr(god?: string): string {
+  if (!god) return '';
+  return TEN_GOD_ABBR_MAP[god] ?? god;
+}
+
+function formatFortuneLayerLabel(id?: string): string {
+  if (!id) return '';
+  return FORTUNE_LAYER_LABELS[id] ?? id;
+}
+
+function toComparablePillar(p: BaziPillarData): BaziPillar {
+  return {
+    ganZhi: p.ganZhi,
+    gan: p.gan,
+    zhi: p.zhi,
+    stemElement: p.stemElement ?? getWuxing(p.gan) ?? '',
+    branchElement: p.branchElement ?? getWuxing(p.zhi) ?? '',
+    stemYinYang: '阳',
+    branchYinYang: '阳',
+    tenGod: p.tenGod ?? '',
+    hiddenStems: p.hiddenStems ?? [],
+    naYin: p.naYin ?? '',
+    voidBranches: p.voidBranches ?? [],
+    lifeStage: p.lifeStage ?? '',
+    selfLifeStage: p.selfLifeStage ?? '',
+  };
+}
+
 function groupShenshaByPosition(entries: BaziShenshaEntry[] | undefined): Record<PillarKey, string[]> {
   const map: Record<PillarKey, string[]> = { year: [], month: [], day: [], hour: [] };
   if (!entries?.length) return map;
@@ -229,6 +317,12 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
   }
 
   const { chart, fortune } = payload;
+  const located = payload.located;
+  const annualPillar = located?.year ?? payload.timeline?.year;
+  const activeCycleIndex = located?.cycle?.index;
+  const startYears = fortune?.startAge?.years ?? 0;
+  const cyclesList = fortune?.cycles ?? [];
+
   const columns: Array<{ key: PillarKey; label: string; caption?: string; pillar: BaziPillarData; isDay?: boolean }> = [
     { key: 'year', label: '年柱', pillar: chart.pillars.year },
     { key: 'month', label: '月柱', pillar: chart.pillars.month },
@@ -284,18 +378,35 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
       }),
     );
   }
-  metaChips.append(el('span', { className: 'board-hint', text: '点击干支、十神、神煞查看百科释义' }));
+  const firstCycleTs = fortune?.cycles?.[0]?.startTimestamp;
+  if (firstCycleTs) {
+    const dt = new Date(firstCycleTs + 8 * 3600_000);
+    const yyyy = dt.getUTCFullYear();
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getUTCDate()).padStart(2, '0');
+    metaChips.append(
+      el('span', {
+        className: 'board-chip',
+        text: `交运 ${yyyy}-${mm}-${dd}`,
+      }),
+    );
+  }
   head.append(metaChips);
   shell.append(head);
 
-  // 命主农历 / 生肖 / 星座 / 当令节气总览条
+  const rawStrengthForHeader = ((chart as unknown as Record<string, unknown>).strength ?? undefined) as
+    | { month?: { commanderStem?: string } }
+    | undefined;
+  const commanderStem = rawStrengthForHeader?.month?.commanderStem;
+
+  // 命主农历 / 生肖 / 星座 / 当令节气 / 人元司令总览条
   const inputGender =
     ((payload as unknown as Record<string, unknown>).input as { gender?: string } | undefined)?.gender ??
     ((chart as unknown as Record<string, unknown>).input as { gender?: string } | undefined)?.gender;
   const localMatch = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/.exec(
     chart.basis?.localDateTime ?? '',
   );
-  if (localMatch || inputGender) {
+  if (localMatch || inputGender || commanderStem) {
     const metaBar = el('div', { className: 'bazi-person-meta-bar' });
     if (inputGender === 'male' || inputGender === 'female') {
       metaBar.append(
@@ -330,181 +441,455 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
         // 忽略边界时间换算异常
       }
     }
+    if (commanderStem) {
+      metaBar.append(el('span', { className: 'bazi-meta-pill', text: `人元司令 · ${commanderStem}` }));
+    }
     if (metaBar.childElementCount > 0) {
       shell.append(metaBar);
     }
   }
 
-  // V1 精致四柱纵向网格表
-  const visibleStems = new Set(columns.map((c) => c.pillar.gan).filter(Boolean));
-  const tableWrap = el('div', { className: 'bazi-table-wrap' });
-  const table = el('div', { className: 'bazi-pillars-table', role: 'table', ariaLabel: '四柱八字表' });
+  // 四柱 + 岁运并列纵向网格表
+  const nowTs = Date.now();
+  const currentBeijingDate = new Date(nowTs + 8 * 3600_000);
+  const currentBeijingYear = currentBeijingDate.getUTCFullYear();
+  const currentBeijingMonthNum = currentBeijingDate.getUTCMonth() + 1;
+  const currentBeijingDayNum = currentBeijingDate.getUTCDate();
+  const currentYmdKey = `${currentBeijingYear}-${String(currentBeijingMonthNum).padStart(2, '0')}-${String(currentBeijingDayNum).padStart(2, '0')}`;
+  const currentShichenIdx = getShichenIndexForBeijingHour(currentBeijingDate.getUTCHours());
+  const { flowYear: todayFlowYear, monthIndex: todaySolarMonthIdx } =
+    getCurrentSolarTermMonthIndex(currentBeijingDate);
 
-  // 表头行
-  table.append(el('div', { className: 'bazi-pillars-cell is-label is-head', text: '四柱' }));
-  for (const col of columns) {
-    const headCell = el('div', {
-      className: `bazi-pillars-cell is-head ${col.isDay ? 'is-day-master' : ''}`.trim(),
-    });
-    headCell.append(el('span', { text: col.label }));
-    if (col.caption) {
-      headCell.append(el('small', { text: col.caption }));
+  const birthYearFromBasis = chart.basis?.utcTimestamp
+    ? new Date(chart.basis.utcTimestamp + 8 * 3600_000).getUTCFullYear()
+    : undefined;
+  const getCycleStartYear = (c: BaziFortuneCycle) =>
+    new Date(c.startTimestamp + 8 * 3600_000).getUTCFullYear();
+  const defaultCycleIdx = Math.max(
+    0,
+    cyclesList.findIndex((c) =>
+      activeCycleIndex !== undefined
+        ? c.index === activeCycleIndex
+        : c.startTimestamp <= nowTs && nowTs < c.endTimestamp,
+    ),
+  );
+  let selectedCycleIdx = defaultCycleIdx;
+  const defaultStartYear = cyclesList[defaultCycleIdx]
+    ? getCycleStartYear(cyclesList[defaultCycleIdx])
+    : (located?.flowYear ?? todayFlowYear);
+  let selectedYear =
+    located?.flowYear ??
+    (todayFlowYear >= defaultStartYear && todayFlowYear < defaultStartYear + 10
+      ? todayFlowYear
+      : defaultStartYear);
+  const initialMonthsList = getYearMonthList(selectedYear);
+  const locatedMonthIdx =
+    located?.month?.ganZhi ? initialMonthsList.indexOf(located.month.ganZhi) : -1;
+  let selectedMonthIdx = locatedMonthIdx >= 0 ? locatedMonthIdx : todaySolarMonthIdx;
+
+  const locatedYmdKey = (() => {
+    if (!located?.timestamp) return '';
+    const d = new Date(located.timestamp + 8 * 3600_000);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  })();
+  let selectedDayKey = locatedYmdKey || currentYmdKey;
+  let selectedHourIdx = (() => {
+    if (located?.hour?.zhi) {
+      const idx = EARTHLY_BRANCHES.indexOf(located.hour.zhi as (typeof EARTHLY_BRANCHES)[number]);
+      if (idx >= 0) return idx;
     }
-    table.append(headCell);
+    return currentShichenIdx;
+  })();
+
+  const resolveActiveDayAndHour = () => {
+    const daysList = selectedYear ? getFlowMonthDays(selectedYear, selectedMonthIdx) : [];
+    let activeDay = daysList.find((d) => d.key === selectedDayKey);
+    if (!activeDay) {
+      activeDay = daysList.find((d) => d.key === currentYmdKey) ?? daysList[0];
+      if (activeDay) selectedDayKey = activeDay.key;
+    }
+    const hoursList = activeDay?.ganZhi ? getFlowDayHours(activeDay.ganZhi) : [];
+    const safeHourIdx =
+      selectedHourIdx >= 0 && selectedHourIdx < hoursList.length ? selectedHourIdx : 0;
+    selectedHourIdx = safeHourIdx;
+    const activeHour = hoursList[safeHourIdx];
+    return { daysList, activeDay, hoursList, activeHour };
+  };
+
+  const hasFortuneColumnsAvailable = Boolean(
+    cyclesList.length > 0 || annualPillar?.ganZhi || located?.month?.ganZhi,
+  );
+  let showFortuneColumns = hasFortuneColumnsAvailable;
+
+  const visibleStems = new Set(columns.map((c) => c.pillar.gan).filter(Boolean));
+  const modeBar = el('div', { className: 'bazi-table-mode-bar' });
+  const modeHint = el('span', { className: 'bazi-table-mode-hint' });
+  const modeToggleGroup = el('div', { className: 'bazi-table-mode-pills', role: 'group', ariaLabel: '盘面显示列切换' });
+  const modeWithFortuneBtn = el('button', { type: 'button', className: 'bazi-table-mode-btn', text: '含岁运' });
+  const modeNatalOnlyBtn = el('button', { type: 'button', className: 'bazi-table-mode-btn', text: '仅四柱' });
+  if (hasFortuneColumnsAvailable) {
+    modeToggleGroup.append(modeWithFortuneBtn, modeNatalOnlyBtn);
+    modeBar.append(modeHint, modeToggleGroup);
+    shell.append(modeBar);
   }
 
-  // 命式主格（天干十神 → 超大宋楷干支 → 地支十神）
-  table.append(el('div', { className: 'bazi-pillars-cell is-label is-pillar-label', text: '命式' }));
-  for (const col of columns) {
-    const ganTenGod = col.pillar.tenGod ?? (col.isDay ? '日主' : '—');
-    const zhiTenGod = col.pillar.hiddenStems?.[0]?.tenGod ?? '—';
-    const ganWx = col.pillar.stemElement ?? getWuxing(col.pillar.gan);
-    const zhiWx = col.pillar.branchElement ?? getWuxing(col.pillar.zhi);
+  const tableWrap = el('div', { className: 'bazi-table-wrap' });
+  const fortuneShenshaLayers = located?.shensha?.layers ?? [];
 
-    const pillarBox = el('div', { className: 'bazi-pillar-value' });
-    pillarBox.append(
-      termButton(ganTenGod, ganTenGod, openTerm, { className: 'bazi-pillar-tengod' }),
-      el(
-        'div',
-        { className: 'bazi-pillar-ganzhi' },
-        termButton(col.pillar.gan, col.pillar.gan, openTerm, {
-          className: 'bazi-ganzhi-symbol',
-          wuxing: ganWx,
-        }),
-        termButton(col.pillar.zhi, col.pillar.zhi, openTerm, {
-          className: 'bazi-ganzhi-symbol',
-          wuxing: zhiWx,
-        }),
-      ),
-      termButton(zhiTenGod, zhiTenGod, openTerm, { className: 'bazi-pillar-tengod is-branch-god' }),
-    );
+  type DisplayColumn = {
+    key: string;
+    label: string;
+    caption?: string;
+    pillar: BaziPillarData;
+    isDay?: boolean;
+    isFortune?: boolean;
+    isFortuneStart?: boolean;
+    shensha: string[];
+  };
 
-    table.append(
-      el(
-        'div',
-        { className: `bazi-pillars-cell is-pillar ${col.isDay ? 'is-day-master' : ''}`.trim() },
-        pillarBox,
-      ),
-    );
-  }
+  const renderPillarsTable = () => {
+    const displayColumns: DisplayColumn[] = columns.map((col) => ({
+      ...col,
+      shensha: shenshaByPos[col.key] ?? [],
+    }));
 
-  // 藏干行（天干五行色 + 十神小字）
-  table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '藏干' }));
-  for (const col of columns) {
-    const hidden = col.pillar.hiddenStems ?? [];
-    const cell = el('div', {
-      className: `bazi-pillars-cell is-hidden-stems ${col.isDay ? 'is-day-master' : ''}`.trim(),
-    });
-    if (!hidden.length) {
-      cell.append(el('span', { className: 'bazi-shensha-empty', text: '无' }));
-    } else {
-      const list = el('div', { className: 'bazi-hidden-stem-list' });
-      for (const item of hidden) {
-        const wx = getWuxing(item.stem);
-        const row = el('div', { className: 'bazi-hidden-item' });
-        row.append(
-          termButton(item.stem, item.stem, openTerm, { className: 'bazi-hidden-stem', wuxing: wx }),
-          termButton(item.tenGod, item.tenGod, openTerm, { className: 'bazi-hidden-god' }),
+    if (showFortuneColumns && hasFortuneColumnsAvailable) {
+      const dmGan = chart.pillars.day?.gan ?? '';
+      const activeCycle = cyclesList[selectedCycleIdx];
+      const fortuneCols: Array<{
+        key: string;
+        label: string;
+        caption?: string;
+        pillar?: BaziPillarData;
+        shensha: string[];
+      }> = [];
+
+      const cyclePillar =
+        activeCycle?.pillar ??
+        (activeCycle?.ganZhi && dmGan
+          ? (buildPillarFact(activeCycle.ganZhi, dmGan) as BaziPillarData)
+          : located?.cycle?.pillar);
+      if (cyclePillar?.ganZhi) {
+        const cycleMatchLayer = fortuneShenshaLayers.find(
+          (l) => (l.id === 'dayun' || l.id === 'cycle') && l.ganZhi === cyclePillar.ganZhi,
         );
-        if (visibleStems.has(item.stem)) {
+        const ageCaption = activeCycle ? `${startYears + selectedCycleIdx * 10}岁` : undefined;
+        fortuneCols.push({
+          key: 'dayun',
+          label: '大运',
+          caption: ageCaption,
+          pillar: cyclePillar,
+          shensha: (cycleMatchLayer?.entries ?? []).map((e) => e.name).slice(0, 6),
+        });
+      }
+
+      const yearGanZhi = selectedYear ? getYearSixtyCycle(selectedYear) : (annualPillar?.ganZhi ?? '');
+      const yearPillar: BaziPillarData | undefined =
+        yearGanZhi && located?.year?.ganZhi === yearGanZhi && located?.flowYear === selectedYear
+          ? located.year
+          : yearGanZhi && dmGan
+            ? (buildPillarFact(yearGanZhi, dmGan) as BaziPillarData)
+            : isPillar(annualPillar)
+              ? annualPillar
+              : undefined;
+      if (yearPillar?.ganZhi) {
+        const yearMatchLayer = fortuneShenshaLayers.find(
+          (l) => l.id === 'year' && l.ganZhi === yearPillar.ganZhi,
+        );
+        fortuneCols.push({
+          key: 'liunian',
+          label: '流年',
+          caption: selectedYear ? `${selectedYear}年` : undefined,
+          pillar: yearPillar,
+          shensha: (yearMatchLayer?.entries ?? []).map((e) => e.name).slice(0, 6),
+        });
+      }
+
+      const monthList = selectedYear ? getYearMonthList(selectedYear) : [];
+      const monthGanZhi = monthList[selectedMonthIdx] ?? located?.month?.ganZhi ?? '';
+      const monthPillar =
+        monthGanZhi && located?.month?.ganZhi === monthGanZhi && located?.flowYear === selectedYear
+          ? located.month
+          : monthGanZhi && dmGan
+            ? (buildPillarFact(monthGanZhi, dmGan) as BaziPillarData)
+            : undefined;
+      if (monthPillar?.ganZhi) {
+        const monthMatchLayer = fortuneShenshaLayers.find(
+          (l) => l.id === 'month' && l.ganZhi === monthPillar.ganZhi,
+        );
+        fortuneCols.push({
+          key: 'liuyue',
+          label: '流月',
+          caption: `${monthGanZhi[1] ?? monthPillar.zhi}月`,
+          pillar: monthPillar,
+          shensha: (monthMatchLayer?.entries ?? []).map((e) => e.name).slice(0, 6),
+        });
+      }
+
+      const { activeDay, activeHour } = resolveActiveDayAndHour();
+      const dayPillar: BaziPillarData | undefined =
+        activeDay?.ganZhi && located?.day?.ganZhi === activeDay.ganZhi && locatedYmdKey === activeDay.key
+          ? located.day
+          : activeDay?.ganZhi && dmGan
+            ? (buildPillarFact(activeDay.ganZhi, dmGan) as BaziPillarData)
+            : located?.day;
+      if (dayPillar?.ganZhi) {
+        const dayMatchLayer = fortuneShenshaLayers.find(
+          (l) => l.id === 'day' && l.ganZhi === dayPillar.ganZhi,
+        );
+        fortuneCols.push({
+          key: 'liuri',
+          label: '流日',
+          caption: activeDay?.shortDate,
+          pillar: dayPillar,
+          shensha: (dayMatchLayer?.entries ?? []).map((e) => e.name).slice(0, 6),
+        });
+      }
+
+      const hourPillar: BaziPillarData | undefined =
+        activeHour?.ganZhi &&
+        located?.hour?.ganZhi === activeHour.ganZhi &&
+        locatedYmdKey === activeDay?.key
+          ? located.hour
+          : activeHour?.ganZhi && dmGan
+            ? (buildPillarFact(activeHour.ganZhi, dmGan) as BaziPillarData)
+            : located?.hour;
+      if (hourPillar?.ganZhi) {
+        const hourMatchLayer = fortuneShenshaLayers.find(
+          (l) => l.id === 'hour' && l.ganZhi === hourPillar.ganZhi,
+        );
+        fortuneCols.push({
+          key: 'liushi',
+          label: '流时',
+          caption: activeHour?.label ?? `${hourPillar.zhi}时`,
+          pillar: hourPillar,
+          shensha: (hourMatchLayer?.entries ?? []).map((e) => e.name).slice(0, 6),
+        });
+      }
+
+      fortuneCols.forEach((fc, idx) => {
+        if (!fc.pillar) return;
+        displayColumns.push({
+          key: fc.key,
+          label: fc.label,
+          caption: fc.caption,
+          pillar: fc.pillar,
+          isFortune: true,
+          isFortuneStart: idx === 0,
+          shensha: fc.shensha,
+        });
+      });
+    }
+
+    if (hasFortuneColumnsAvailable) {
+      const hasAddedFortune = displayColumns.length > 4;
+      modeHint.textContent = hasAddedFortune ? '四柱与岁运' : '原局四柱';
+      modeWithFortuneBtn.classList.toggle('is-active', showFortuneColumns);
+      modeWithFortuneBtn.setAttribute('aria-pressed', String(showFortuneColumns));
+      modeNatalOnlyBtn.classList.toggle('is-active', !showFortuneColumns);
+      modeNatalOnlyBtn.setAttribute('aria-pressed', String(!showFortuneColumns));
+    }
+
+    const table = el('div', {
+      className: `bazi-pillars-table${displayColumns.length > 4 ? ' has-fortune-cols' : ''}`,
+      role: 'table',
+      ariaLabel: displayColumns.length > 4 ? '四柱与岁运并列命表' : '四柱八字表',
+    });
+    table.style.setProperty('--bazi-col-count', String(displayColumns.length));
+    table.style.setProperty('--bazi-display-column-count', String(displayColumns.length));
+
+    const colToneClass = (col: DisplayColumn) =>
+      `${col.isDay ? ' is-day-master' : ''}${col.isFortune ? ' is-fortune-col' : ''}${col.isFortuneStart ? ' is-fortune-start' : ''}`;
+
+    // 表头行（所有列均维持两行等高结构，确保主标题水平基线严格对齐）
+    table.append(el('div', { className: 'bazi-pillars-cell is-label is-head', text: displayColumns.length > 4 ? '四柱/运' : '四柱' }));
+    for (const col of displayColumns) {
+      const headCell = el('div', {
+        className: `bazi-pillars-cell is-head${colToneClass(col)}`.trim(),
+      });
+      headCell.append(
+        el('span', { className: 'bazi-head-title', text: col.label }),
+        el('small', {
+          className: col.caption ? 'bazi-head-sub' : 'bazi-head-sub is-empty',
+          text: col.caption ?? '\u00A0',
+        }),
+      );
+      table.append(headCell);
+    }
+
+    // 命式主格（天干十神 → 超大宋楷干支 → 地支十神）
+    table.append(el('div', { className: 'bazi-pillars-cell is-label is-pillar-label', text: '命式' }));
+    for (const col of displayColumns) {
+      const ganTenGod = col.pillar.tenGod ?? (col.isDay ? '日主' : '—');
+      const zhiTenGod = col.pillar.hiddenStems?.[0]?.tenGod ?? '—';
+      const ganWx = col.pillar.stemElement ?? getWuxing(col.pillar.gan);
+      const zhiWx = col.pillar.branchElement ?? getWuxing(col.pillar.zhi);
+
+      const pillarBox = el('div', { className: 'bazi-pillar-value' });
+      pillarBox.append(
+        termButton(ganTenGod, ganTenGod, openTerm, { className: 'bazi-pillar-tengod' }),
+        el(
+          'div',
+          { className: 'bazi-pillar-ganzhi' },
+          termButton(col.pillar.gan, col.pillar.gan, openTerm, {
+            className: 'bazi-ganzhi-symbol',
+            wuxing: ganWx,
+          }),
+          termButton(col.pillar.zhi, col.pillar.zhi, openTerm, {
+            className: 'bazi-ganzhi-symbol',
+            wuxing: zhiWx,
+          }),
+        ),
+        termButton(zhiTenGod, zhiTenGod, openTerm, { className: 'bazi-pillar-tengod is-branch-god' }),
+      );
+
+      table.append(
+        el(
+          'div',
+          { className: `bazi-pillars-cell is-pillar${colToneClass(col)}`.trim() },
+          pillarBox,
+        ),
+      );
+    }
+
+    // 藏干行（天干五行色 + 十神小字）
+    table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '藏干' }));
+    for (const col of displayColumns) {
+      const hidden = col.pillar.hiddenStems ?? [];
+      const cell = el('div', {
+        className: `bazi-pillars-cell is-hidden-stems${colToneClass(col)}`.trim(),
+      });
+      if (!hidden.length) {
+        cell.append(el('span', { className: 'bazi-shensha-empty', text: '无' }));
+      } else {
+        const hasAnyRevealed = hidden.some((item) => visibleStems.has(item.stem));
+        const list = el('div', {
+          className: hasAnyRevealed ? 'bazi-hidden-stem-list has-revealed' : 'bazi-hidden-stem-list',
+        });
+        for (const item of hidden) {
+          const wx = getWuxing(item.stem);
+          const row = el('div', { className: 'bazi-hidden-item' });
           row.append(
-            el('span', {
-              className: 'bazi-stem-revealed',
-              text: '透',
-              title: `${item.stem}已透出至天干`,
+            termButton(item.stem, item.stem, openTerm, { className: 'bazi-hidden-stem', wuxing: wx }),
+            termButton(item.tenGod, item.tenGod, openTerm, { className: 'bazi-hidden-god' }),
+          );
+          if (visibleStems.has(item.stem)) {
+            row.append(
+              el('span', {
+                className: 'bazi-stem-revealed',
+                text: '透',
+                title: `${item.stem}已透出至原局天干`,
+              }),
+            );
+          }
+          list.append(row);
+        }
+        cell.append(list);
+      }
+      table.append(cell);
+    }
+
+    // 纳音
+    table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '纳音' }));
+    for (const col of displayColumns) {
+      table.append(
+        el(
+          'div',
+          { className: `bazi-pillars-cell${colToneClass(col)}`.trim() },
+          termButton(col.pillar.naYin ?? '—', col.pillar.naYin ?? '', openTerm, { className: 'bazi-meta-btn' }),
+        ),
+      );
+    }
+
+    // 自坐
+    table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '自坐' }));
+    for (const col of displayColumns) {
+      const selfStage = col.pillar.selfLifeStage ?? '—';
+      table.append(
+        el(
+          'div',
+          { className: `bazi-pillars-cell${colToneClass(col)}`.trim() },
+          termButton(selfStage, selfStage === '—' ? '' : selfStage, openTerm, { className: 'bazi-meta-btn' }),
+        ),
+      );
+    }
+
+    // 星运（十二长生）
+    table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '星运' }));
+    for (const col of displayColumns) {
+      const stage = col.pillar.lifeStage ?? '—';
+      table.append(
+        el(
+          'div',
+          { className: `bazi-pillars-cell${colToneClass(col)}`.trim() },
+          termButton(stage, stage === '—' ? '十二长生' : stage, openTerm, { className: 'bazi-meta-btn' }),
+        ),
+      );
+    }
+
+    // 空亡（旬空，并标明是否落入日柱主空）
+    const dayVoidSet = new Set(chart.pillars.day.voidBranches ?? []);
+    table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '空亡' }));
+    for (const col of displayColumns) {
+      const voids = col.pillar.voidBranches?.length ? col.pillar.voidBranches.join('') : '无';
+      const isHitDayVoid = !col.isDay && dayVoidSet.has(col.pillar.zhi);
+      const cell = el('div', {
+        className: `bazi-pillars-cell is-multiline${colToneClass(col)}`.trim(),
+      });
+      cell.append(termButton(voids, '旬空', openTerm, { className: 'bazi-meta-btn' }));
+      if (isHitDayVoid) {
+        cell.append(el('span', { className: 'bazi-void-hit-badge', text: '日空', title: `${col.label}地支${col.pillar.zhi}落入日柱旬空` }));
+      }
+      table.append(cell);
+    }
+
+    // 神煞徽章行
+    table.append(el('div', { className: 'bazi-pillars-cell is-label is-shensha-label', text: '神煞' }));
+    for (const col of displayColumns) {
+      const items = col.shensha;
+      const cell = el('div', {
+        className: `bazi-pillars-cell is-shensha${colToneClass(col)}`.trim(),
+      });
+      if (!items.length) {
+        cell.append(el('span', { className: 'bazi-shensha-empty', text: col.isFortune ? '—' : '无' }));
+      } else {
+        const list = el('div', { className: 'bazi-shensha-list' });
+        for (const item of items) {
+          const tone = getShenshaTone(item);
+          list.append(
+            el('button', {
+              type: 'button',
+              className: `bazi-shensha-tag ${tone}`,
+              text: item,
+              title: `点击查看「${item}」释义`,
+              onClick: () => openTerm(item),
             }),
           );
         }
-        list.append(row);
+        cell.append(list);
       }
-      cell.append(list);
+      table.append(cell);
     }
-    table.append(cell);
-  }
 
-  // 纳音
-  table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '纳音' }));
-  for (const col of columns) {
-    table.append(
-      el(
-        'div',
-        { className: `bazi-pillars-cell ${col.isDay ? 'is-day-master' : ''}`.trim() },
-        termButton(col.pillar.naYin ?? '—', col.pillar.naYin ?? '', openTerm, { className: 'bazi-meta-btn' }),
-      ),
-    );
-  }
+    tableWrap.replaceChildren(table);
+  };
 
-  // 自坐
-  table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '自坐' }));
-  for (const col of columns) {
-    const selfStage = col.pillar.selfLifeStage ?? '—';
-    table.append(
-      el(
-        'div',
-        { className: `bazi-pillars-cell ${col.isDay ? 'is-day-master' : ''}`.trim() },
-        termButton(selfStage, selfStage === '—' ? '' : selfStage, openTerm, { className: 'bazi-meta-btn' }),
-      ),
-    );
-  }
-
-  // 星运（十二长生）
-  table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '星运' }));
-  for (const col of columns) {
-    const stage = col.pillar.lifeStage ?? '—';
-    table.append(
-      el(
-        'div',
-        { className: `bazi-pillars-cell ${col.isDay ? 'is-day-master' : ''}`.trim() },
-        termButton(stage, stage === '—' ? '十二长生' : stage, openTerm, { className: 'bazi-meta-btn' }),
-      ),
-    );
-  }
-
-  // 空亡（旬空，并标明是否落入日柱主空）
-  const dayVoidSet = new Set(chart.pillars.day.voidBranches ?? []);
-  table.append(el('div', { className: 'bazi-pillars-cell is-label', text: '空亡' }));
-  for (const col of columns) {
-    const voids = col.pillar.voidBranches?.length ? col.pillar.voidBranches.join('') : '无';
-    const isHitDayVoid = !col.isDay && dayVoidSet.has(col.pillar.zhi);
-    const cell = el('div', {
-      className: `bazi-pillars-cell is-multiline ${col.isDay ? 'is-day-master' : ''}`.trim(),
-    });
-    cell.append(termButton(voids, '旬空', openTerm, { className: 'bazi-meta-btn' }));
-    if (isHitDayVoid) {
-      cell.append(el('span', { className: 'bazi-void-hit-badge', text: '日空', title: `${col.label}地支${col.pillar.zhi}落入日柱旬空` }));
-    }
-    table.append(cell);
-  }
-
-  // 神煞徽章行
-  table.append(el('div', { className: 'bazi-pillars-cell is-label is-shensha-label', text: '神煞' }));
-  for (const col of columns) {
-    const items = shenshaByPos[col.key];
-    const cell = el('div', {
-      className: `bazi-pillars-cell is-shensha ${col.isDay ? 'is-day-master' : ''}`.trim(),
-    });
-    if (!items.length) {
-      cell.append(el('span', { className: 'bazi-shensha-empty', text: '无' }));
-    } else {
-      const list = el('div', { className: 'bazi-shensha-list' });
-      for (const item of items) {
-        const tone = getShenshaTone(item);
-        list.append(
-          el('button', {
-            type: 'button',
-            className: `bazi-shensha-tag ${tone}`,
-            text: item,
-            title: `点击查看「${item}」释义`,
-            onClick: () => openTerm(item),
-          }),
-        );
+  if (hasFortuneColumnsAvailable) {
+    modeWithFortuneBtn.addEventListener('click', () => {
+      if (!showFortuneColumns) {
+        showFortuneColumns = true;
+        renderPillarsTable();
       }
-      cell.append(list);
-    }
-    table.append(cell);
+    });
+    modeNatalOnlyBtn.addEventListener('click', () => {
+      if (showFortuneColumns) {
+        showFortuneColumns = false;
+        renderPillarsTable();
+      }
+    });
   }
 
-  tableWrap.append(table);
+  renderPillarsTable();
   shell.append(tableWrap);
 
   // 命局结构与引擎测算提要（身强身弱 / 核心格局 / 喜用调候 / 三垣 / 合冲刑害）
@@ -569,7 +954,382 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
     | { relations?: Array<{ name?: string; element?: string; values?: string[] }> }
     | undefined;
 
-  // 四垣附柱条（胎元 / 命宫 / 身宫 / 胎息）
+  // 时月东方风格五层岁运联动选择器（大运 / 流年 / 流月 / 流日 / 流时），紧贴主表下方
+  const relationsWrap = el('div', { className: 'bazi-relations-stack' });
+  const natalColumns: Array<{ key: PillarKey; label: string; pillar: BaziPillar }> = [
+    { key: 'year', label: '年柱', pillar: toComparablePillar(chart.pillars.year) },
+    { key: 'month', label: '月柱', pillar: toComparablePillar(chart.pillars.month) },
+    { key: 'day', label: '日柱', pillar: toComparablePillar(chart.pillars.day) },
+    { key: 'hour', label: '时柱', pillar: toComparablePillar(chart.pillars.hour) },
+  ];
+
+  const renderRelationsSection = () => {
+    relationsWrap.replaceChildren();
+    const rels = natalFacts?.relations ?? [];
+    if (rels.length > 0) {
+      const relBar = el('div', { className: 'bz-relations-bar' });
+      relBar.append(el('span', { className: 'bz-relations-label', text: '合冲关系' }));
+      const relChips = el('div', { className: 'bz-relations-chips' });
+      for (const rel of rels) {
+        const vals = rel.values?.join('') ?? '';
+        const txt = `${rel.name ?? ''}${vals ? ` ${vals}` : ''}${rel.element ? `(${rel.element})` : ''}`.trim();
+        if (txt) relChips.append(el('span', { className: 'board-chip', text: txt }));
+      }
+      relBar.append(relChips);
+      relationsWrap.append(relBar);
+    }
+
+    const dmGan = chart.pillars.day?.gan ?? '';
+    const activeCycle = cyclesList[selectedCycleIdx];
+    const activeCyclePillar =
+      activeCycle?.pillar ??
+      (activeCycle?.ganZhi && dmGan ? (buildPillarFact(activeCycle.ganZhi, dmGan) as BaziPillarData) : undefined);
+    const activeYearGz = selectedYear ? getYearSixtyCycle(selectedYear) : (annualPillar?.ganZhi ?? '');
+    const activeYearPillar =
+      activeYearGz && located?.year?.ganZhi === activeYearGz && located?.flowYear === selectedYear
+        ? located.year
+        : activeYearGz && dmGan
+          ? (buildPillarFact(activeYearGz, dmGan) as BaziPillarData)
+          : isPillar(annualPillar)
+            ? annualPillar
+            : undefined;
+
+    const fortuneChips: Array<{ text: string; accent?: boolean }> = [];
+    const seenTexts = new Set<string>();
+    const pushChip = (text: string, accent = false) => {
+      if (!text || seenTexts.has(text)) return;
+      seenTexts.add(text);
+      fortuneChips.push({ text, accent });
+    };
+
+    if (located?.flowYear === selectedYear) {
+      for (const fm of located.evidence?.formations ?? []) {
+        const branchStr = fm.branches?.join('') ?? '';
+        const triggerNames = (fm.triggers ?? [])
+          .map((t) => formatFortuneLayerLabel(t.layer))
+          .filter(Boolean)
+          .join('/');
+        pushChip(
+          `${fm.name ?? '成局'}${fm.element ? `(${fm.element})` : ''}${branchStr ? ` ${branchStr}` : ''}${triggerNames ? ` · ${triggerNames}引动` : ''}`,
+          true,
+        );
+      }
+    }
+
+    const activeSources: Array<{ label: string; pillar: BaziPillarData | undefined }> = [
+      { label: activeCyclePillar ? `大运${activeCyclePillar.ganZhi}` : '', pillar: activeCyclePillar },
+      { label: activeYearPillar ? `${selectedYear ? `${selectedYear}流年` : '流年'}${activeYearPillar.ganZhi}` : '', pillar: activeYearPillar },
+    ];
+    for (const src of activeSources) {
+      if (!src.pillar?.ganZhi || !src.label) continue;
+      const cmp = toComparablePillar(src.pillar);
+      for (const nat of natalColumns) {
+        const hitRels = comparePillars(cmp, nat.pillar);
+        if (hitRels.length > 0) {
+          const names = hitRels.map((r) => `${r.name}${r.subtype ? `(${r.subtype})` : ''}`).join('·');
+          pushChip(`${src.label} ↔ ${nat.label}${nat.pillar.ganZhi}：${names}`);
+        }
+      }
+    }
+
+    if (fortuneChips.length > 0) {
+      const compBox = el('div', { className: 'bz-relations-bar' });
+      compBox.append(el('span', { className: 'bz-relations-label', text: '岁运引动' }));
+      const chips = el('div', { className: 'bz-relations-chips' });
+      for (const item of fortuneChips) {
+        chips.append(el('span', { className: item.accent ? 'board-chip is-accent' : 'board-chip', text: item.text }));
+      }
+      compBox.append(chips);
+      relationsWrap.append(compBox);
+    }
+
+    relationsWrap.hidden = relationsWrap.childElementCount === 0;
+  };
+
+  if (cyclesList.length > 0 || annualPillar) {
+    const fortuneCard = el('section', { className: 'bazi-fortune-card', ariaLabel: '岁运联动选择' });
+    const secHead = el('div', { className: 'bazi-dayun-head' });
+    const secTitleWrap = el('div', { className: 'bazi-dayun-head-left' });
+    secTitleWrap.append(el('div', { className: 'bazi-dayun-title', text: '岁运' }));
+    const subParts: string[] = [];
+    if (fortune?.startAge) subParts.push(`${startYears}岁起运`);
+    if (located?.smallFortune?.pillar?.ganZhi) {
+      subParts.push(
+        `小运 ${located.smallFortune.pillar.ganZhi}${located.smallFortune.nominalAge ? `(${located.smallFortune.nominalAge}岁)` : ''}`,
+      );
+    }
+    if (subParts.length > 0) {
+      secTitleWrap.append(el('span', { className: 'bazi-dayun-sub', text: subParts.join(' · ') }));
+    }
+    secHead.append(secTitleWrap);
+
+    const fortuneGrid = el('div', { className: 'bazi-fortune-grid' });
+    const stripScrollCache = new Map<string, number>();
+
+    const buildFortuneGz = (ganZhi: string, dmGan: string, overrideGanGod?: string) => {
+      const gan = ganZhi.slice(0, 1);
+      const zhi = ganZhi.slice(1, 2);
+      const fact =
+        dmGan && gan && zhi
+          ? buildPillarFact(ganZhi, dmGan as Parameters<typeof buildPillarFact>[1])
+          : undefined;
+      const ganGod = formatTenGodAbbr(overrideGanGod || fact?.tenGod);
+      const zhiGod = formatTenGodAbbr(fact?.hiddenStems?.[0]?.tenGod);
+
+      const gzWrap = el('div', { className: 'bazi-fortune-gz' });
+      const topPair = el('div', { className: 'bazi-fortune-pair' });
+      topPair.append(
+        el('span', {
+          className: 'bazi-fortune-char',
+          text: gan || '—',
+          dataset: gan ? { wuxing: fact?.stemElement ?? getWuxing(gan) } : undefined,
+        }),
+      );
+      if (ganGod) topPair.append(el('small', { className: 'bazi-fortune-god', text: ganGod }));
+
+      const botPair = el('div', { className: 'bazi-fortune-pair' });
+      botPair.append(
+        el('span', {
+          className: 'bazi-fortune-char',
+          text: zhi || '',
+          dataset: zhi ? { wuxing: fact?.branchElement ?? getWuxing(zhi) } : undefined,
+        }),
+      );
+      if (zhiGod) botPair.append(el('small', { className: 'bazi-fortune-god', text: zhiGod }));
+
+      gzWrap.append(topPair, botPair);
+      return gzWrap;
+    };
+
+    const renderFortuneSelector = (recenterRows?: Set<string>) => {
+      fortuneGrid.querySelectorAll<HTMLElement>('.bazi-fortune-strip').forEach((node) => {
+        const key = node.dataset.rowKey;
+        if (key) stripScrollCache.set(key, node.scrollLeft);
+      });
+      fortuneGrid.replaceChildren();
+      const dmGan = chart.pillars.day?.gan ?? '';
+      const stripsToSync: Array<{ rowKey: string; strip: HTMLElement }> = [];
+
+      const appendRow = (rowKey: string, title: string, strip: HTMLElement) => {
+        strip.dataset.rowKey = rowKey;
+        const row = el('div', { className: 'bazi-fortune-row' });
+        row.append(el('div', { className: 'bazi-fortune-row-title', text: title }), strip);
+        fortuneGrid.append(row);
+        stripsToSync.push({ rowKey, strip });
+      };
+
+      // 1. 大运行（仅列大运，不混入重复流年卡）
+      if (cyclesList.length > 0) {
+        const cycleStrip = el('div', { className: 'bazi-fortune-strip' });
+        for (const [idx, cycle] of cyclesList.entries()) {
+          const ganZhi = cycle.pillar?.ganZhi ?? cycle.ganZhi;
+          const ageStart = startYears + idx * 10;
+          const startYearText = formatYear(cycle.startTimestamp);
+          const isCurrent = activeCycleIndex !== undefined && cycle.index === activeCycleIndex;
+          const isSelected = idx === selectedCycleIdx;
+          const btn = el('button', {
+            type: 'button',
+            className: `bazi-fortune-item${isSelected ? ' is-selected' : ''}${isCurrent ? ' is-today' : ''}`,
+            onClick: () => {
+              selectedCycleIdx = idx;
+              const cycStart = getCycleStartYear(cycle);
+              selectedYear =
+                todayFlowYear >= cycStart && todayFlowYear < cycStart + 10 ? todayFlowYear : cycStart;
+              renderPillarsTable();
+              renderRelationsSection();
+              renderFortuneSelector(new Set(['year', 'month', 'day', 'hour']));
+            },
+          });
+          btn.append(
+            el('div', { className: 'bazi-fortune-top', text: startYearText }),
+            el('div', { className: 'bazi-fortune-sub', text: `${ageStart}岁` }),
+            buildFortuneGz(ganZhi, dmGan, cycle.pillar?.tenGod),
+          );
+          cycleStrip.append(btn);
+        }
+        appendRow('dayun', '大运', cycleStrip);
+      }
+
+      // 2. 流年行
+      const activeCycle = cyclesList[selectedCycleIdx];
+      const years = activeCycle
+        ? Array.from({ length: 10 }, (_, idx) => {
+            const yr = getCycleStartYear(activeCycle) + idx;
+            const ageNum = birthYearFromBasis
+              ? Math.max(1, yr - birthYearFromBasis + 1)
+              : startYears + selectedCycleIdx * 10 + idx;
+            return { year: yr, age: ageNum, ganZhi: getYearSixtyCycle(yr) };
+          })
+        : selectedYear
+          ? [{ year: selectedYear, age: birthYearFromBasis ? Math.max(1, selectedYear - birthYearFromBasis + 1) : 1, ganZhi: getYearSixtyCycle(selectedYear) }]
+          : [];
+      if (years.length > 0) {
+        if (!years.some((item) => item.year === selectedYear)) {
+          selectedYear = years[0]!.year;
+        }
+        const yearStrip = el('div', { className: 'bazi-fortune-strip' });
+        for (const item of years) {
+          const isSelected = item.year === selectedYear;
+          const isToday = item.year === currentBeijingYear;
+          const btn = el('button', {
+            type: 'button',
+            className: `bazi-fortune-item${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`,
+            onClick: () => {
+              selectedYear = item.year;
+              renderPillarsTable();
+              renderRelationsSection();
+              renderFortuneSelector(new Set(['month', 'day', 'hour']));
+            },
+          });
+          btn.append(
+            el('div', { className: 'bazi-fortune-top', text: String(item.year) }),
+            el('div', { className: 'bazi-fortune-sub', text: `${item.age}岁` }),
+            buildFortuneGz(item.ganZhi, dmGan),
+          );
+          yearStrip.append(btn);
+        }
+        appendRow('year', '流年', yearStrip);
+      }
+
+      // 3. 流月行（含交节名称与公历日期，对齐时月东方）
+      const months = getYearMonthList(selectedYear).map((ganZhi, idx) => {
+        const meta = getFlowMonthStartMeta(selectedYear, idx);
+        return {
+          index: idx,
+          label: `${ganZhi[1]}月`,
+          sub: `${meta.termName} ${meta.shortDate}`,
+          ganZhi,
+        };
+      });
+      if (selectedMonthIdx < 0 || selectedMonthIdx >= months.length) selectedMonthIdx = 0;
+      const monthStrip = el('div', { className: 'bazi-fortune-strip' });
+      for (const m of months) {
+        const isSelected = m.index === selectedMonthIdx;
+        const isTodayMonth = selectedYear === todayFlowYear && m.index === todaySolarMonthIdx;
+        const btn = el('button', {
+          type: 'button',
+          className: `bazi-fortune-item${isSelected ? ' is-selected' : ''}${isTodayMonth ? ' is-today' : ''}`,
+          onClick: () => {
+            selectedMonthIdx = m.index;
+            renderPillarsTable();
+            renderRelationsSection();
+            renderFortuneSelector(new Set(['day', 'hour']));
+          },
+        });
+        btn.append(
+          el('div', { className: 'bazi-fortune-top', text: m.label }),
+          el('div', { className: 'bazi-fortune-sub', text: m.sub }),
+          buildFortuneGz(m.ganZhi, dmGan),
+        );
+        monthStrip.append(btn);
+      }
+      appendRow('month', '流月', monthStrip);
+
+      // 4. 流日行（公历日期 + 农历日标签）
+      const { daysList, activeDay, hoursList, activeHour } = resolveActiveDayAndHour();
+      if (daysList.length > 0) {
+        const dayStrip = el('div', { className: 'bazi-fortune-strip' });
+        for (const d of daysList) {
+          const isSelected = d.key === activeDay?.key;
+          const isToday = d.key === currentYmdKey;
+          const btn = el('button', {
+            type: 'button',
+            className: `bazi-fortune-item${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}`,
+            onClick: () => {
+              selectedDayKey = d.key;
+              renderPillarsTable();
+              renderRelationsSection();
+              renderFortuneSelector(new Set(['hour']));
+            },
+          });
+          btn.append(
+            el('div', { className: 'bazi-fortune-top', text: d.shortDate }),
+            el('div', { className: 'bazi-fortune-sub', text: d.lunarLabel }),
+            buildFortuneGz(d.ganZhi, dmGan),
+          );
+          dayStrip.append(btn);
+        }
+        appendRow('day', '流日', dayStrip);
+      }
+
+      // 5. 流时行
+      if (hoursList.length > 0) {
+        const hourStrip = el('div', { className: 'bazi-fortune-strip' });
+        for (const h of hoursList) {
+          const isSelected = h.index === activeHour?.index;
+          const isNowHour = activeDay?.key === currentYmdKey && h.index === currentShichenIdx;
+          const btn = el('button', {
+            type: 'button',
+            className: `bazi-fortune-item${isSelected ? ' is-selected' : ''}${isNowHour ? ' is-today' : ''}`,
+            onClick: () => {
+              selectedHourIdx = h.index;
+              renderPillarsTable();
+              renderRelationsSection();
+              renderFortuneSelector(new Set());
+            },
+          });
+          btn.append(
+            el('div', { className: 'bazi-fortune-top', text: h.label }),
+            el('div', { className: 'bazi-fortune-sub', text: h.range }),
+            buildFortuneGz(h.ganZhi, dmGan),
+          );
+          hourStrip.append(btn);
+        }
+        appendRow('hour', '流时', hourStrip);
+      }
+
+      requestAnimationFrame(() => {
+        for (const { rowKey, strip } of stripsToSync) {
+          const shouldCenter = !recenterRows || recenterRows.has(rowKey);
+          if (shouldCenter) {
+            const activeItem = strip.querySelector<HTMLElement>('.bazi-fortune-item.is-selected');
+            if (activeItem) {
+              strip.scrollLeft = Math.max(
+                0,
+                activeItem.offsetLeft - strip.clientWidth / 2 + activeItem.clientWidth / 2,
+              );
+              continue;
+            }
+          }
+          const prevLeft = stripScrollCache.get(rowKey);
+          if (prevLeft !== undefined) strip.scrollLeft = prevLeft;
+        }
+      });
+    };
+
+    if (cyclesList.length > 0) {
+      const todayBtn = el('button', {
+        type: 'button',
+        className: 'bazi-dayun-today-btn',
+        text: '今',
+        title: '回到今日流运',
+        ariaLabel: '回到今日流运',
+        onClick: () => {
+          selectedCycleIdx = defaultCycleIdx;
+          const cyc = cyclesList[selectedCycleIdx];
+          const cycStart = cyc ? getCycleStartYear(cyc) : todayFlowYear;
+          selectedYear =
+            todayFlowYear >= cycStart && todayFlowYear < cycStart + 10 ? todayFlowYear : cycStart;
+          selectedMonthIdx = todaySolarMonthIdx;
+          selectedDayKey = currentYmdKey;
+          selectedHourIdx = currentShichenIdx;
+          renderPillarsTable();
+          renderRelationsSection();
+          renderFortuneSelector(new Set(['dayun', 'year', 'month', 'day', 'hour']));
+        },
+      });
+      secHead.append(todayBtn);
+    }
+
+    fortuneCard.append(secHead, fortuneGrid);
+    renderFortuneSelector(new Set(['dayun', 'year', 'month', 'day', 'hour']));
+    shell.append(fortuneCard);
+  }
+
+  renderRelationsSection();
+  shell.append(relationsWrap);
+
+  // 四垣附柱条（稍后放置于五行分布下方，保持主体与岁运紧贴）
   const extraList: Array<[string, BaziPillarData | undefined]> = [
     ['胎元', extraPalaces?.taiYuan],
     ['命宫', extraPalaces?.mingGong],
@@ -577,8 +1337,8 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
     ['胎息', extraPalaces?.taiXi],
   ];
   const validExtras = extraList.filter((item): item is [string, BaziPillarData] => Boolean(item[1]?.ganZhi));
-  if (validExtras.length > 0) {
-    const epStrip = el('div', { className: 'bazi-extra-pillars' });
+  const epStrip = validExtras.length > 0 ? el('div', { className: 'bazi-extra-pillars' }) : undefined;
+  if (epStrip) {
     for (const [epLabel, ep] of validExtras) {
       const card = el('div', { className: 'bazi-ep-card' });
       const headRow = el('div', { className: 'bazi-ep-head' });
@@ -596,7 +1356,6 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
       card.append(headRow, gzRow, foot);
       epStrip.append(card);
     }
-    shell.append(epStrip);
   }
 
   const insightGrid = el('div', { className: 'bz-computed-grid' });
@@ -690,27 +1449,13 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
   const strongest = (['木', '火', '土', '金', '水'] as const).reduce((a, b) =>
     wxCounts[b] > wxCounts[a] ? b : a,
   );
-  appendInsightCell(
-    '原局五行统计',
-    wxSummary,
-    `${strongest}较旺（${wxCounts[strongest]}）${lacking.length ? ` · 缺${lacking.join('、')}` : ' · 五行俱全'}`,
-  );
+  const wxOverviewText = `${strongest}旺(${wxCounts[strongest]})${lacking.length ? ` · 缺${lacking.join('、')}` : ' · 五行俱全'}`;
 
   if (insightGrid.childElementCount > 0) {
     shell.append(insightGrid);
   }
 
-  if (fullUsefulGod?.matchedRules?.length) {
-    const ruleStrip = el('div', { className: 'bazi-rules-strip' });
-    for (const r of fullUsefulGod.matchedRules) {
-      if (!r.label && !r.description) continue;
-      const item = el('div', { className: 'bazi-rule-pill' });
-      if (r.label) item.append(el('strong', { text: `${r.label}：` }));
-      if (r.description) item.append(el('span', { text: r.description }));
-      ruleStrip.append(item);
-    }
-    if (ruleStrip.childElementCount > 0) shell.append(ruleStrip);
-  }
+  const matchedRulesList = fullUsefulGod?.matchedRules?.filter((r) => r.label || r.description) ?? [];
 
   // 五行力量分布可视化彩条（含地支藏干本/中/余气权重）与十神格局频次
   const FIVE_ELEMENTS = ['木', '火', '土', '金', '水'] as const;
@@ -752,8 +1497,9 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
     .filter(([, n]) => n > 0)
     .map(([k, n]) => `${k}×${n}`)
     .join(' · ');
-  if (godText) {
-    wxHead.append(el('span', { className: 'bazi-wuxing-bars-sub', text: `十神结构：${godText}` }));
+  const wxSubText = [wxOverviewText, godText ? `十神：${godText}` : ''].filter(Boolean).join(' · ');
+  if (wxSubText) {
+    wxHead.append(el('span', { className: 'bazi-wuxing-bars-sub', text: wxSubText }));
   }
   wxSection.append(wxHead);
   const wxGrid = el('div', { className: 'bazi-wuxing-bar-grid' });
@@ -775,8 +1521,9 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
   }
   wxSection.append(wxGrid);
   shell.append(wxSection);
+  if (epStrip) shell.append(epStrip);
 
-  // 日主根气与生助/克泄来源拆解
+  // 日主根气与生助/克泄来源 + 取用规则拆解（收拢至弹窗，主盘面只留核心结果）
   const fullStrength = rawChart.strength as
     | {
         roots?: Array<{ branch?: string; stem?: string; hiddenRole?: string; clashStatus?: string }>;
@@ -784,400 +1531,116 @@ export function renderBaziBoard(container: HTMLElement, value: unknown): boolean
         constraint?: Array<{ value?: string; effect?: string }>;
       }
     | undefined;
-  if (fullStrength?.roots?.length || fullStrength?.support?.length || fullStrength?.constraint?.length) {
-    const breakdown = el('div', { className: 'bazi-strength-breakdown' });
-    const addLine = (label: string, valueText: string) => {
-      const row = el('div', { className: 'bazi-strength-row' });
-      row.append(
-        el('span', { className: 'bazi-strength-k', text: label }),
-        el('span', { className: 'bazi-strength-v', text: valueText }),
-      );
-      breakdown.append(row);
-    };
-    const rootText = fullStrength.roots?.length
-      ? fullStrength.roots
-          .map((r) => `${r.branch ?? ''}藏${r.stem ?? ''}(${r.hiddenRole ?? '根'}·${r.clashStatus ?? '未受冲'})`)
-          .join('、')
-      : '四柱地支无通根（虚浮无根）';
-    addLine('日主根气', rootText);
-    if (fullStrength.support?.length) {
-      addLine(
-        '生助来源',
-        fullStrength.support.map((s) => `${s.value ?? ''}(${s.effect ?? '扶身'})`).join(' · '),
-      );
-    }
-    if (fullStrength.constraint?.length) {
-      addLine(
-        '克泄耗源',
-        fullStrength.constraint
-          .slice(0, 5)
-          .map((c) => `${c.value ?? ''}(${c.effect ?? '制身'})`)
-          .join(' · '),
-      );
-    }
-    shell.append(breakdown);
-  }
-
-  const rels = natalFacts?.relations ?? [];
-  if (rels.length > 0) {
-    const relBar = el('div', { className: 'bz-relations-bar' });
-    relBar.append(el('span', { className: 'bz-relations-label', text: '合冲关系' }));
-    const relChips = el('div', { className: 'bz-relations-chips' });
-    for (const rel of rels.slice(0, 10)) {
-      const vals = rel.values?.join('') ?? '';
-      const txt = `${rel.name ?? ''}${vals ? ` ${vals}` : ''}${rel.element ? `(${rel.element})` : ''}`.trim();
-      if (txt) {
-        relChips.append(el('span', { className: 'board-chip', text: txt }));
-      }
-    }
-    relBar.append(relChips);
-    shell.append(relBar);
-  }
-
-  // 下方精致大运 / 流年 / 当前流运四柱与合冲排盘
-  const located = payload.located;
-  const annualPillar = located?.year ?? payload.timeline?.year;
-  const activeCycleIndex = located?.cycle?.index;
-  const startYears = fortune?.startAge?.years ?? 0;
-
-  if (fortune?.cycles?.length || annualPillar) {
-    const dayunSection = el('div', { className: 'bazi-dayun-section' });
-    const secHead = el('div', { className: 'bazi-dayun-head' });
-    const secTitleWrap = el('div', { className: 'bazi-dayun-head-left' });
-    secTitleWrap.append(el('div', { className: 'bazi-dayun-title', text: '大运与流年排盘' }));
-    if (fortune?.startAge) {
-      secTitleWrap.append(
-        el('span', {
-          className: 'bazi-dayun-sub',
-          text: `${startYears}岁起运 · 每十年一运${located?.flowYear ? ` · 当前${located.flowYear}年` : ''}`,
-        }),
-      );
-    }
-    secHead.append(secTitleWrap);
-
-    const cyclesList = (fortune?.cycles ?? []).slice(0, 10);
-    const nowTs = Date.now();
-    const currentBeijingYear = new Date(nowTs + 8 * 3600_000).getUTCFullYear();
-    const currentBeijingMonth = new Date(nowTs + 8 * 3600_000).getUTCMonth(); // 0..11 approx
-    const birthYearFromBasis = chart.basis?.utcTimestamp
-      ? new Date(chart.basis.utcTimestamp + 8 * 3600_000).getUTCFullYear()
+  const hasStrengthBasis = Boolean(
+    fullStrength?.roots?.length || fullStrength?.support?.length || fullStrength?.constraint?.length,
+  );
+  const strengthBasisTrigger =
+    hasStrengthBasis || matchedRulesList.length > 0
+      ? createBoardModalTrigger(
+          '根气与取用依据',
+          '日主根气与喜用取法依据',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (matchedRulesList.length > 0) {
+              const ruleStrip = el('div', { className: 'bazi-rules-strip' });
+              for (const r of matchedRulesList) {
+                const item = el('div', { className: 'bazi-rule-pill' });
+                if (r.label) item.append(el('strong', { text: `${r.label}：` }));
+                if (r.description) item.append(el('span', { text: r.description }));
+                ruleStrip.append(item);
+              }
+              frag.append(ruleStrip);
+            }
+            if (hasStrengthBasis && fullStrength) {
+              const breakdown = el('div', { className: 'bazi-strength-breakdown' });
+              const addLine = (label: string, valueText: string) => {
+                const row = el('div', { className: 'bazi-strength-row' });
+                row.append(
+                  el('span', { className: 'bazi-strength-k', text: label }),
+                  el('span', { className: 'bazi-strength-v', text: valueText }),
+                );
+                breakdown.append(row);
+              };
+              const rootText = fullStrength.roots?.length
+                ? fullStrength.roots
+                    .map((r) => `${r.branch ?? ''}藏${r.stem ?? ''}(${r.hiddenRole ?? '根'}·${r.clashStatus ?? '未受冲'})`)
+                    .join('、')
+                : '四柱地支无通根（虚浮无根）';
+              addLine('日主根气', rootText);
+              if (fullStrength.support?.length) {
+                addLine(
+                  '生助来源',
+                  fullStrength.support.map((s) => `${s.value ?? ''}(${s.effect ?? '扶身'})`).join(' · '),
+                );
+              }
+              if (fullStrength.constraint?.length) {
+                addLine(
+                  '克泄耗源',
+                  fullStrength.constraint
+                    .map((c) => `${c.value ?? ''}(${c.effect ?? '制身'})`)
+                    .join(' · '),
+                );
+              }
+              frag.append(breakdown);
+            }
+            return frag;
+          },
+          matchedRulesList.length > 0 ? `${matchedRulesList.length}条` : undefined,
+        )
       : undefined;
-    const defaultCycleIdx = Math.max(
-      0,
-      cyclesList.findIndex((c) => activeCycleIndex !== undefined ? c.index === activeCycleIndex : c.startTimestamp <= nowTs && nowTs < c.endTimestamp),
-    );
-    let selectedCycleIdx = defaultCycleIdx;
-    const getCycleStartYear = (c: BaziFortuneCycle) =>
-      new Date(c.startTimestamp + 8 * 3600_000).getUTCFullYear();
-    const defaultStartYear = cyclesList[defaultCycleIdx]
-      ? getCycleStartYear(cyclesList[defaultCycleIdx])
-      : currentBeijingYear;
-    let selectedYear =
-      currentBeijingYear >= defaultStartYear && currentBeijingYear < defaultStartYear + 10
-        ? currentBeijingYear
-        : defaultStartYear;
-    // 立春年起首月为寅月（公历约2月）
-    let selectedMonthIdx = Math.max(0, Math.min(11, (currentBeijingMonth + 11) % 12));
 
-    const strip = el('div', { className: 'bazi-dayun-strip' });
-    const cycleDetailBox = el('div', { className: 'bazi-dayun-detail' });
-    const annualMonthBox = el('div', { className: 'bazi-annual-month-explorer' });
-    const cycleCards: HTMLElement[] = [];
-
-    const renderCycleDetail = (title: string, p: BaziPillarData | undefined, extraText?: string) => {
-      cycleDetailBox.replaceChildren();
-      if (!p) {
-        cycleDetailBox.hidden = true;
-        return;
-      }
-      cycleDetailBox.hidden = false;
-      const headLine = el('div', { className: 'bazi-dayun-detail-head' });
-      headLine.append(el('strong', { text: `${title} · ${p.ganZhi}` }));
-      if (p.tenGod) headLine.append(el('span', { className: 'board-chip is-accent', text: p.tenGod }));
-      if (p.naYin) headLine.append(el('span', { className: 'board-chip', text: p.naYin }));
-      if (p.lifeStage) headLine.append(el('span', { className: 'board-chip', text: `星运 ${p.lifeStage}` }));
-      if (p.selfLifeStage) headLine.append(el('span', { className: 'board-chip', text: `自坐 ${p.selfLifeStage}` }));
-      if (p.voidBranches?.length) headLine.append(el('span', { className: 'board-chip', text: `空 ${p.voidBranches.join('')}` }));
-      cycleDetailBox.append(headLine);
-      if (p.hiddenStems?.length) {
-        const hsText = p.hiddenStems.map((h) => `${h.stem}(${h.tenGod})`).join(' · ');
-        cycleDetailBox.append(el('div', { className: 'bazi-dayun-detail-sub', text: `地支藏干：${hsText}` }));
-      }
-      if (extraText) {
-        cycleDetailBox.append(el('div', { className: 'bazi-dayun-detail-sub', text: extraText }));
-      }
-    };
-
-    const renderAnnualMonthExplorer = () => {
-      annualMonthBox.replaceChildren();
-      const activeCycle = cyclesList[selectedCycleIdx];
-      if (!activeCycle) {
-        annualMonthBox.hidden = true;
-        return;
-      }
-      annualMonthBox.hidden = false;
-      const cycleStartYr = getCycleStartYear(activeCycle);
-      const years = Array.from({ length: 10 }, (_, idx) => {
-        const yr = cycleStartYr + idx;
-        const gz = getYearSixtyCycle(yr);
-        const ageNum = birthYearFromBasis ? Math.max(1, yr - birthYearFromBasis + 1) : startYears + selectedCycleIdx * 10 + idx;
-        return { year: yr, age: ageNum, ganZhi: gz };
-      });
-      if (!years.some((item) => item.year === selectedYear)) {
-        selectedYear = years[0]!.year;
-      }
-
-      const yearRow = el('div', { className: 'bazi-explorer-row' });
-      yearRow.append(el('span', { className: 'bazi-explorer-label', text: '流年' }));
-      const yearChips = el('div', { className: 'bazi-explorer-strip' });
-      for (const item of years) {
-        const isCurrentYear = item.year === currentBeijingYear;
-        const dmGan = chart.pillars.day?.gan;
-        const fact = dmGan ? buildPillarFact(item.ganZhi, dmGan as Parameters<typeof buildPillarFact>[1]) : undefined;
-        const btn = el('button', {
-          type: 'button',
-          className: `bazi-explorer-chip${item.year === selectedYear ? ' is-selected' : ''}${isCurrentYear ? ' is-today' : ''}`,
-          onClick: () => {
-            selectedYear = item.year;
-            renderAnnualMonthExplorer();
-          },
-        });
-        btn.append(
-          el('span', { className: 'bazi-exp-meta', text: `${item.year} · ${item.age}岁` }),
-          el('strong', {
-            className: 'bazi-exp-gz',
-            text: item.ganZhi,
-            dataset: { wuxing: fact ? getWuxing(fact.gan) : getWuxing(item.ganZhi[0]) },
-          }),
-          el('span', { className: 'bazi-exp-god', text: fact?.tenGod ?? '' }),
-        );
-        yearChips.append(btn);
-      }
-      yearRow.append(yearChips);
-
-      const months = getYearMonthList(selectedYear).map((ganZhi, idx) => ({
-        index: idx,
-        label: `${ganZhi[1]}月`,
-        ganZhi,
-      }));
-      if (selectedMonthIdx < 0 || selectedMonthIdx >= months.length) selectedMonthIdx = 0;
-
-      const monthRow = el('div', { className: 'bazi-explorer-row' });
-      monthRow.append(el('span', { className: 'bazi-explorer-label', text: `${selectedYear}流月` }));
-      const monthChips = el('div', { className: 'bazi-explorer-strip' });
-      for (const m of months) {
-        const dmGan = chart.pillars.day?.gan;
-        const fact = dmGan ? buildPillarFact(m.ganZhi, dmGan as Parameters<typeof buildPillarFact>[1]) : undefined;
-        const btn = el('button', {
-          type: 'button',
-          className: `bazi-explorer-chip${m.index === selectedMonthIdx ? ' is-selected' : ''}`,
-          onClick: () => {
-            selectedMonthIdx = m.index;
-            renderAnnualMonthExplorer();
-          },
-        });
-        btn.append(
-          el('span', { className: 'bazi-exp-meta', text: m.label }),
-          el('strong', {
-            className: 'bazi-exp-gz',
-            text: m.ganZhi,
-            dataset: { wuxing: fact ? getWuxing(fact.gan) : getWuxing(m.ganZhi[0]) },
-          }),
-          el('span', { className: 'bazi-exp-god', text: fact?.tenGod ?? '' }),
-        );
-        monthChips.append(btn);
-      }
-      monthRow.append(monthChips);
-
-      annualMonthBox.append(yearRow, monthRow);
-    };
-
-    if (cyclesList.length > 0) {
-      const todayBtn = el('button', {
-        type: 'button',
-        className: 'bazi-dayun-today-btn',
-        text: '今',
-        title: '回到今年今月',
-        ariaLabel: '回到今年今月',
-        onClick: () => {
-          selectedCycleIdx = defaultCycleIdx;
-          const cyc = cyclesList[selectedCycleIdx];
-          const cycStart = cyc ? getCycleStartYear(cyc) : currentBeijingYear;
-          selectedYear =
-            currentBeijingYear >= cycStart && currentBeijingYear < cycStart + 10
-              ? currentBeijingYear
-              : cycStart;
-          selectedMonthIdx = Math.max(0, Math.min(11, (currentBeijingMonth + 11) % 12));
-          cycleCards.forEach((c) => c.classList.remove('is-selected'));
-          const offset = annualPillar?.gan && annualPillar?.zhi ? 1 : 0;
-          const targetCard = cycleCards[selectedCycleIdx + offset];
-          targetCard?.classList.add('is-selected');
-          if (cyc?.pillar) {
-            renderCycleDetail(
-              `当前大运 · ${startYears + selectedCycleIdx * 10}岁 · ${formatYear(cyc.startTimestamp)}–${formatYear(cyc.endTimestamp)}`,
-              cyc.pillar,
-            );
+  // 岁运神煞与流月司令弹窗触发器
+  const fortuneLayersWithEntries = (located?.shensha?.layers ?? []).filter((l) => (l.entries?.length ?? 0) > 0);
+  const mcInfo = located?.monthCommander;
+  const hasFortuneModal = fortuneLayersWithEntries.length > 0 || Boolean(mcInfo?.stem);
+  const fortuneShenshaCount = fortuneLayersWithEntries.reduce((sum, l) => sum + (l.entries?.length ?? 0), 0);
+  const fortuneShenshaTrigger = hasFortuneModal
+    ? createBoardModalTrigger(
+        '岁运神煞与司令',
+        '岁运神煞与流月司令',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (mcInfo?.stem) {
+            const noteText = [
+              `流月人元司令：${mcInfo.stem}干用事`,
+              mcInfo.branch ? `（${mcInfo.branch}月）` : '',
+              mcInfo.previousJie?.name ? ` · ${mcInfo.previousJie.name}交节` : '',
+              mcInfo.nextJie?.name ? `至${mcInfo.nextJie.name}` : '',
+            ].join('');
+            frag.append(el('p', { className: 'wb-note-box', text: noteText }));
           }
-          renderAnnualMonthExplorer();
+          if (fortuneLayersWithEntries.length > 0) {
+            const list = el('div', { className: 'wb-computed-list' });
+            for (const layer of fortuneLayersWithEntries) {
+              const card = el('div', { className: 'wb-computed-item' });
+              card.append(
+                el('strong', {
+                  className: 'wb-computed-title',
+                  text: `${formatFortuneLayerLabel(layer.id)} · ${layer.ganZhi}`,
+                }),
+              );
+              const chipWrap = el('div', { className: 'bazi-dayun-detail-chips' });
+              for (const entry of layer.entries ?? []) {
+                chipWrap.append(
+                  el('span', {
+                    className: `bazi-shensha-tag ${getShenshaTone(entry.name)}`,
+                    text: entry.target ? `${entry.name}(${entry.target})` : entry.name,
+                  }),
+                );
+              }
+              card.append(chipWrap);
+              list.append(card);
+            }
+            frag.append(list);
+          }
+          return frag;
         },
-      });
-      secHead.append(todayBtn);
-    }
-    dayunSection.append(secHead);
+        fortuneShenshaCount > 0 ? `${fortuneShenshaCount}项` : undefined,
+      )
+    : undefined;
 
-    if (annualPillar?.gan && annualPillar?.zhi) {
-      const aCard = el('button', {
-        type: 'button',
-        className: 'bazi-dayun-card is-annual',
-        onClick: () => {
-          cycleCards.forEach((c) => c.classList.remove('is-selected'));
-          aCard.classList.add('is-selected');
-          renderCycleDetail(
-            located?.flowYear ? `${located.flowYear}流年` : '当前流年',
-            annualPillar as BaziPillarData,
-          );
-        },
-      });
-      aCard.append(
-        el('div', { className: 'bazi-dayun-years', text: located?.flowYear ? `${located.flowYear}流年` : '当前流年' }),
-        el(
-          'div',
-          { className: 'bazi-dayun-ganzhi' },
-          el('span', { className: 'bazi-dayun-char', text: annualPillar.gan, dataset: { wuxing: getWuxing(annualPillar.gan) } }),
-          el('span', { className: 'bazi-dayun-char', text: annualPillar.zhi, dataset: { wuxing: getWuxing(annualPillar.zhi) } }),
-        ),
-        el('span', { className: 'bazi-dayun-god', text: annualPillar.tenGod ?? '流年' }),
-      );
-      if ('naYin' in annualPillar && typeof annualPillar.naYin === 'string' && annualPillar.naYin) {
-        aCard.append(el('div', { className: 'bazi-dayun-nayin', text: annualPillar.naYin }));
-      }
-      cycleCards.push(aCard);
-      strip.append(aCard);
-    }
-
-    for (const [idx, cycle] of cyclesList.entries()) {
-      const gan = cycle.pillar?.gan ?? cycle.ganZhi.slice(0, 1);
-      const zhi = cycle.pillar?.zhi ?? cycle.ganZhi.slice(1, 2);
-      const ganWx = cycle.pillar?.stemElement ?? getWuxing(gan);
-      const zhiWx = cycle.pillar?.branchElement ?? getWuxing(zhi);
-      const tenGod = cycle.pillar?.tenGod ?? '';
-      const zhiTenGod = cycle.pillar?.hiddenStems?.[0]?.tenGod ?? '';
-      const ageStart = startYears + idx * 10;
-      const yearSpan = `${formatYear(cycle.startTimestamp)}–${formatYear(cycle.endTimestamp)}`;
-      const isCurrent = activeCycleIndex !== undefined && cycle.index === activeCycleIndex;
-
-      const card = el('button', {
-        type: 'button',
-        className: `bazi-dayun-card${isCurrent ? ' is-current' : ''}`,
-        onClick: () => {
-          cycleCards.forEach((c) => c.classList.remove('is-selected'));
-          card.classList.add('is-selected');
-          selectedCycleIdx = idx;
-          selectedYear = getCycleStartYear(cycle);
-          renderCycleDetail(
-            `第${idx + 1}步大运 · ${ageStart}岁 · ${yearSpan}`,
-            cycle.pillar ?? { ganZhi: cycle.ganZhi, gan, zhi, tenGod },
-          );
-          renderAnnualMonthExplorer();
-        },
-      });
-      card.append(
-        el('div', { className: 'bazi-dayun-age', text: `${ageStart}岁${isCurrent ? ' · 当运' : ''}` }),
-        el('div', { className: 'bazi-dayun-years', text: yearSpan }),
-        el(
-          'div',
-          { className: 'bazi-dayun-ganzhi' },
-          el('span', { className: 'bazi-dayun-char', text: gan, dataset: { wuxing: ganWx } }),
-          el('span', { className: 'bazi-dayun-char', text: zhi, dataset: { wuxing: zhiWx } }),
-        ),
-        el('span', {
-          className: 'bazi-dayun-god',
-          text: [tenGod, zhiTenGod].filter(Boolean).join('/') || '—',
-        }),
-      );
-      if (cycle.pillar?.naYin || cycle.pillar?.lifeStage) {
-        card.append(
-          el('div', {
-            className: 'bazi-dayun-nayin',
-            text: [cycle.pillar.naYin, cycle.pillar.lifeStage].filter(Boolean).join(' · '),
-          }),
-        );
-      }
-      cycleCards.push(card);
-      strip.append(card);
-    }
-
-    dayunSection.append(strip, cycleDetailBox, annualMonthBox);
-
-    // 默认选中当前大运或流年
-    const defaultCycle = (fortune?.cycles ?? []).find((c) => c.index === activeCycleIndex);
-    if (defaultCycle?.pillar) {
-      const idx = (fortune?.cycles ?? []).indexOf(defaultCycle);
-      renderCycleDetail(
-        `当前大运 · ${startYears + Math.max(0, idx) * 10}岁 · ${formatYear(defaultCycle.startTimestamp)}–${formatYear(defaultCycle.endTimestamp)}`,
-        defaultCycle.pillar,
-      );
-    } else if (annualPillar) {
-      renderCycleDetail(
-        located?.flowYear ? `${located.flowYear}流年` : '当前流年',
-        annualPillar as BaziPillarData,
-      );
-    }
-    renderAnnualMonthExplorer();
-
-    // 若有完整 located 岁运流月流日流时与引动关系，渲染联动条
-    if (located && (located.month || located.day || located.smallFortune)) {
-      const flowStrip = el('div', { className: 'bazi-flow-pillars' });
-      const flowItems: Array<[string, BaziPillarData | undefined]> = [
-        ['当前大运', located.cycle?.pillar],
-        [located.flowYear ? `${located.flowYear}流年` : '流年', located.year],
-        [located.smallFortune?.nominalAge ? `小运 ${located.smallFortune.nominalAge}岁` : '小运', located.smallFortune?.pillar],
-        ['流月', located.month],
-        ['流日', located.day],
-        ['流时', located.hour],
-      ];
-      for (const [fLabel, fp] of flowItems) {
-        if (!fp?.ganZhi) continue;
-        const fCard = el('div', { className: 'bazi-flow-card' });
-        fCard.append(
-          el('span', { className: 'bazi-flow-label', text: fLabel }),
-          el('strong', {
-            className: 'bazi-flow-gz',
-            text: fp.ganZhi,
-            dataset: { wuxing: fp.stemElement ?? getWuxing(fp.gan) },
-          }),
-          el('span', { className: 'bazi-flow-god', text: [fp.tenGod, fp.lifeStage].filter(Boolean).join(' · ') || '—' }),
-        );
-        flowStrip.append(fCard);
-      }
-      if (flowStrip.childElementCount > 0) dayunSection.append(flowStrip);
-
-      const activeComps = (located.evidence?.comparisons ?? []).filter((c) => (c.relations?.length ?? 0) > 0);
-      if (activeComps.length > 0) {
-        const compBox = el('div', { className: 'bz-relations-bar' });
-        compBox.append(el('span', { className: 'bz-relations-label', text: '岁运引动' }));
-        const chips = el('div', { className: 'bz-relations-chips' });
-        const posLabelMap: Record<string, string> = {
-          dayun: '大运',
-          year: '流年',
-          month: '流月',
-          'natal-year': '年柱',
-          'natal-month': '月柱',
-          'natal-day': '日柱',
-          'natal-hour': '时柱',
-        };
-        for (const comp of activeComps.slice(0, 8)) {
-          const relNames = (comp.relations ?? []).map((r) => `${r.name ?? ''}${r.subtype ? `(${r.subtype})` : ''}`).join('·');
-          const txt = `${posLabelMap[comp.source ?? ''] ?? comp.source ?? ''}${comp.sourceGanZhi ?? ''} ↔ ${posLabelMap[comp.target ?? ''] ?? comp.target ?? ''}${comp.targetGanZhi ?? ''}：${relNames}`;
-          chips.append(el('span', { className: 'board-chip', text: txt }));
-        }
-        compBox.append(chips);
-        dayunSection.append(compBox);
-      }
-    }
-
-    shell.append(dayunSection);
-  }
+  const finalDetailBar = createBoardDetailBar([strengthBasisTrigger, fortuneShenshaTrigger]);
+  if (finalDetailBar) shell.append(finalDetailBar);
 
   shell.append(termPanel.element);
 

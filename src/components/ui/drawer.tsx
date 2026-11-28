@@ -6,16 +6,41 @@ import { cn } from '../../lib/utils';
 export const Drawer = DialogPrimitive.Root;
 export const DrawerClose = DialogPrimitive.Close;
 
+function isSelectMenuTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('[data-ui-select-menu="true"]'));
+}
+
 export const DrawerContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInteractOutside, onPointerDownOutside, onFocusOutside, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-[1490] bg-[rgba(24,18,12,0.08)]" />
+    <DialogPrimitive.Overlay className="ws-fade-in fixed inset-0 z-[1490] bg-[rgba(24,18,12,0.28)] backdrop-blur-[1px]" />
     <DialogPrimitive.Content
       ref={ref}
+      onPointerDownOutside={(e) => {
+        if (isSelectMenuTarget(e.target)) {
+          e.preventDefault();
+          return;
+        }
+        onPointerDownOutside?.(e);
+      }}
+      onFocusOutside={(e) => {
+        if (isSelectMenuTarget(e.target)) {
+          e.preventDefault();
+          return;
+        }
+        onFocusOutside?.(e);
+      }}
+      onInteractOutside={(e) => {
+        if (isSelectMenuTarget(e.target)) {
+          e.preventDefault();
+          return;
+        }
+        onInteractOutside?.(e);
+      }}
       className={cn(
-        'fixed top-3 right-3 bottom-3 z-[1500] flex w-[min(420px,calc(100vw-24px))] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-primary)] shadow-[var(--shadow-lg)] focus:outline-none max-sm:top-2 max-sm:right-2 max-sm:bottom-2 max-sm:left-2 max-sm:w-auto',
+        'ws-drawer-in fixed top-3 right-3 bottom-3 z-[1500] flex w-[min(420px,calc(100vw-24px))] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-primary)] shadow-[var(--shadow-lg)] focus:outline-none max-sm:top-2 max-sm:right-2 max-sm:bottom-2 max-sm:left-2 max-sm:w-auto',
         className,
       )}
       {...props}
@@ -34,7 +59,7 @@ export function DockedSidePanel({
   return (
     <aside
       className={cn(
-        'fixed top-[calc(var(--topbar-height,60px)+20px)] right-4 z-[1200] flex max-h-[calc(100vh-100px)] w-[308px] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-primary)] shadow-[0_2px_12px_rgba(32,24,16,0.04)]',
+        'ws-drawer-in fixed top-[74px] right-4 z-[1200] flex max-h-[calc(100dvh-90px)] w-[320px] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-primary)] shadow-[0_2px_12px_rgba(32,24,16,0.04)]',
         className,
       )}
       {...props}

@@ -5,16 +5,17 @@ import {
   type AgentToolDefinition,
   type AiConfig,
 } from './ai';
+import { warnDev } from './lib/dev-log';
 import { resolveRepromptPayload, toCompactResult, unpackRepromptToken, type CompactableCalculationResult } from './compact';
-import { calculate, inputSchemas, reprompt, repromptInput, type Method } from './core';
-import { methodIds, methodLabels } from './schema';
+import { inputSchemas, methodIds, methodLabels, repromptInput, type Method } from './schema';
+import { runCalculateInBackground, runRepromptInBackground } from './workers/calc-runner';
 import {
   BIRTH_TIME_OPTIONS,
   getActiveCaseId,
   loadPersonalCases,
-  toV2BirthPayload,
   type PersonalCase,
 } from './v2-ui/cases-store';
+import { toV2BirthPayload } from './v2-ui/case-birth';
 import {
   buildCompatibilityChartPayload,
   buildPersonalChartPayload,
@@ -217,11 +218,15 @@ function summarizeCaseForAgent(record: PersonalCase, activeId: string | null, me
             }
           : {}),
       };
-    } catch {}
+    } catch (err) {
+      warnDev('web-agent', '构建运势建议入参失败', err);
+    }
   } else if (method && isPersonalChartMethod(method)) {
     try {
       suggestedInput = buildPersonalChartPayload(record, method as PersonalChartTabId);
-    } catch {}
+    } catch (err) {
+      warnDev('web-agent', '构建排盘建议入参失败', err);
+    }
   }
 
   return {
@@ -293,7 +298,7 @@ export async function restoreToolTraceResult(trace: AgentToolTrace): Promise<{
       trace.question?.trim() ||
       (typeof payload.question === 'string' && payload.question.trim()) ||
       '请综合解读当前盘面重点。';
-    const reprompted = await reprompt({
+    const reprompted = await runRepromptInBackground<{ prompt: { text: string } }>({
       method: unpacked.method as Method,
       result: unpacked,
       question,
@@ -310,7 +315,9 @@ export async function restoreToolTraceResult(trace: AgentToolTrace): Promise<{
     };
   }
   if (Object.keys(payload).length > 0) {
-    const recalculated = await calculate(method, payload);
+    const recalculated = await runCalculateInBackground(method, payload, {
+      promptGuidance: loadGlobalRules().prompt,
+    });
     return {
       method,
       payload,
@@ -520,7 +527,8 @@ async function executeAgentToolCall(
       ) as Record<string, unknown>;
 
       try {
-        const fullResult = (await calculate(method, appliedPayload, {
+        const fullResult = (await runCalculateInBackground(method, appliedPayload, {
+          promptGuidance: rules.prompt,
           promptProfile: 'agent',
         })) as CompactableCalculationResult;
         const compact = await toCompactResult(fullResult);
@@ -575,7 +583,10 @@ async function executeAgentToolCall(
     if (name === 'reprompt') {
       const { payload } = await resolveRepromptPayload(parsedArgs);
       const parsed = repromptInput.parse(payload);
-      const res = await reprompt(parsed, { promptProfile: 'agent' });
+      const res = await runRepromptInBackground<{ currentTime: string; prompt: { text: string } }>(
+        parsed,
+        { promptProfile: 'agent' },
+      );
       const method = parsed.method;
       return {
         contentForModel: JSON.stringify({
@@ -718,7 +729,8 @@ async function buildLocalRouterHintForAgent(
       );
     }
     return lines.join('\n');
-  } catch {
+  } catch (err) {
+    warnDev('web-agent', '本地路由预判失败，跳过提示', err);
     return '';
   }
 }
@@ -861,7 +873,9 @@ export async function runAgentTurn(params: {
       let argsObj: Record<string, unknown> = {};
       try {
         argsObj = tc.function.arguments ? (JSON.parse(tc.function.arguments) as Record<string, unknown>) : {};
-      } catch {}
+      } catch (err) {
+        warnDev('web-agent', `解析工具 ${tc.function.name} 参数 JSON 失败`, err);
+      }
       return {
         id: tc.id || `call_${round}_${idx}`,
         name: tc.function.name,

@@ -70,7 +70,7 @@ test('A4 西洋星盘古典法达星限（Firdaria）昼夜盘顺序与副限准
   assert.equal(nightAge35.majorStartAge, 32);
   assert.equal(nightAge35.majorEndAge, 39);
 
-  // 端到端西洋星盘推运包含【古典法达星限（Firdaria）】
+  // 端到端西洋星盘推运包含【古典法达星限】
   const astroRes = await calculate('astrolabe', {
     question: '看看2026年运势重点',
     birth: {
@@ -86,7 +86,7 @@ test('A4 西洋星盘古典法达星限（Firdaria）昼夜盘顺序与副限准
     },
     flow: { reference: { kind: 'year', year: 2026 } },
   });
-  assert.ok(astroRes.prompt.text.includes('【古典法达星限（Firdaria）】'));
+  assert.ok(astroRes.prompt.text.includes('【古典法达星限】'));
 });
 
 test('R2 端侧生辰提取：准确分离问事目的地城市与出生地点，避免误把想去上海当成生在上海', () => {

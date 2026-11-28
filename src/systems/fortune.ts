@@ -13,17 +13,11 @@ import {
   getDayTwentyEightStar,
   getSolarDayNineStar,
 } from './almanac/rules';
-import { astrolabeIndependent } from './astrolabe';
-import { baziIndependent } from './bazi';
-import { dedupeExcerpts, formatClassicExcerpts, selectAlmanacClassics, selectBaziClassics, selectWuyunClassics, selectZiweiClassics } from './classics';
 import { getSolarYmdHmsPillars } from './calendar';
 import { getNayin, getTenStar, isLiuchong, isLiuhe, isLiuhai, isSanxing } from './ganzhi-foundation';
 import { chinaParts, chinaTimestamp } from './luck';
-import { calculateWuyunLiuqi, formatWuyunLiuqiFacts } from './wuyun/index';
-import { collectZiweiMajorStars, ziweiIndependent } from './ziwei';
 import { buildFortuneOverview } from './fortune/scoring';
 import { buildDailyHoursTimeline, buildMonthlyTimeline, buildYearlyMonthsTimeline } from './fortune/timeline';
-import { buildMethodSituationDigest } from './situation-digest';
 import type {
   DailyHourSlice,
   FortuneCalendarContext,
@@ -174,15 +168,20 @@ async function computeFortune(
   const scope: FortuneScope = source.scope ?? 'daily';
   const target = resolveTargetDate(scope, source.target, effectiveTimeIso);
   const calendar = buildCalendarContext(target.year, target.month, target.day);
-  const wuyunResult = scope === 'yearly' ? calculateWuyunLiuqi({ year: target.year }) : null;
-  const wuyunSummary = wuyunResult
-    ? `${wuyunResult.input.yearGanZhi}年岁运「${wuyunResult.annualMovement.element}${wuyunResult.annualMovement.strength}」，司天「${wuyunResult.sitian.name}」，在泉「${wuyunResult.zaiquan.name}」`
-    : null;
+  let wuyunAnnualRelationKind: string | null = null;
+  let wuyunSummary: string | null = null;
+  let wuyunFacts: string | null = null;
+  if (scope === 'yearly') {
+    const { calculateWuyunLiuqi, formatWuyunLiuqiFacts } = await import('./wuyun/index');
+    const wuyunResult = calculateWuyunLiuqi({ year: target.year });
+    wuyunAnnualRelationKind = wuyunResult.annualRelation.kind ?? null;
+    wuyunSummary = `${wuyunResult.input.yearGanZhi}年岁运「${wuyunResult.annualMovement.element}${wuyunResult.annualMovement.strength}」，司天「${wuyunResult.sitian.name}」，在泉「${wuyunResult.zaiquan.name}」`;
+    wuyunFacts = formatWuyunLiuqiFacts(wuyunResult);
+  }
 
   const hasCase = Boolean(source.birth || source.birthRange);
   const omitted: Array<{ system: string; reason: string }> = [];
 
-  let baziData: Awaited<ReturnType<typeof baziIndependent>>['data'] | null = null;
   let baziSummary: PersonalBaziSummary | null = null;
   let ziweiSummary: PersonalZiweiSummary | null = null;
   let ziweiMonthlyTimeline:
@@ -219,159 +218,173 @@ async function computeFortune(
       }
     }
 
-    const baziRes = await baziIndependent({
-      question,
-      ...(source.birth ? { birth: source.birth } : {}),
-      ...(source.birthRange ? { birthRange: source.birthRange } : {}),
-      ...(source.gender ? { gender: source.gender } : {}),
-      ...(useReferenceTime ? { referenceTime: target.anchorIso } : {}),
-      ...(useReferenceTime && scope === 'yearly' && target.year >= 1900 && target.year <= 2199
-        ? { timelineYear: target.year }
-        : {}),
-    });
-    baziData = baziRes.data;
+    const baziTask = (async () => {
+      const { baziIndependent } = await import('./bazi');
+      const baziRes = await baziIndependent({
+        question,
+        ...(source.birth ? { birth: source.birth } : {}),
+        ...(source.birthRange ? { birthRange: source.birthRange } : {}),
+        ...(source.gender ? { gender: source.gender } : {}),
+        ...(useReferenceTime ? { referenceTime: target.anchorIso } : {}),
+        ...(useReferenceTime && scope === 'yearly' && target.year >= 1900 && target.year <= 2199
+          ? { timelineYear: target.year }
+          : {}),
+      }, context);
+      const baziData = baziRes.data;
 
-    if (baziData.chart && baziData.located) {
-      const chart = baziData.chart;
-      const loc = baziData.located;
-      const interactions: string[] = [];
-      for (const pair of loc.evidence.comparisons) {
-        if (!pair.relations.length) continue;
-        const src = `${LAYER_LABELS[pair.source] ?? pair.source}${pair.sourceGanZhi}`;
-        const dst = `${LAYER_LABELS[pair.target] ?? pair.target}${pair.targetGanZhi}`;
-        interactions.push(`${src}与${dst}：${pair.relations.map((r) => r.name).join('、')}`);
-      }
-      for (const f of loc.evidence.formations) {
-        interactions.push(`构成${f.branches.join('')}${f.name}${f.element}`);
-      }
-      const shenshaHits: string[] = [
-        ...new Set(
-          loc.shensha.layers.flatMap((layer) =>
-            layer.entries.map((entry) => entry.name),
+      if (baziData.chart && baziData.located) {
+        const chart = baziData.chart;
+        const loc = baziData.located;
+        const interactions: string[] = [];
+        for (const pair of loc.evidence.comparisons) {
+          if (!pair.relations.length) continue;
+          const src = `${LAYER_LABELS[pair.source] ?? pair.source}${pair.sourceGanZhi}`;
+          const dst = `${LAYER_LABELS[pair.target] ?? pair.target}${pair.targetGanZhi}`;
+          interactions.push(`${src}与${dst}：${pair.relations.map((r) => r.name).join('、')}`);
+        }
+        for (const f of loc.evidence.formations) {
+          interactions.push(`构成${f.branches.join('')}${f.name}${f.element}`);
+        }
+        const shenshaHits: string[] = [
+          ...new Set(
+            loc.shensha.layers.flatMap((layer) =>
+              layer.entries.map((entry) => entry.name),
+            ),
           ),
-        ),
-      ];
-      baziSummary = {
-        dayMaster: chart.pillars.day.gan,
-        dayMasterElement: chart.pillars.day.stemElement,
-        strengthStatus: chart.strength.status,
-        pattern: chart.patternOverview.pattern,
-        useful: chart.usefulGod.useful,
-        favorableWuxing: [...chart.usefulGod.favorableWuxing],
-        unfavorableWuxing: [...chart.usefulGod.unfavorableWuxing],
-        natalPillars: {
-          year: chart.pillars.year.ganZhi,
-          month: chart.pillars.month.ganZhi,
-          day: chart.pillars.day.ganZhi,
-          hour: chart.pillars.hour.ganZhi,
-        },
-        dayunGanZhi: loc.cycle?.ganZhi ?? null,
-        flowYearGanZhi: loc.year.ganZhi,
-        flowMonthGanZhi: loc.month.ganZhi,
-        flowDayGanZhi: loc.day.ganZhi,
-        flowTenGods: {
-          ...(loc.cycle ? { dayun: loc.cycle.pillar.tenGod } : {}),
-          year: loc.year.tenGod,
-          month: loc.month.tenGod,
-          day: loc.day.tenGod,
-        },
-        interactions,
-        shenshaHits,
-      };
-    } else if (baziData.chart) {
-      const chart = baziData.chart;
-      const interactions = [
-        ...summarizeBranchRelation('流年', calendar.ganzhi.year, '日柱', chart.pillars.day.ganZhi),
-        ...summarizeBranchRelation('流月', calendar.ganzhi.month, '日柱', chart.pillars.day.ganZhi),
-        ...summarizeBranchRelation('流日', calendar.ganzhi.day, '日柱', chart.pillars.day.ganZhi),
-      ];
-      baziSummary = {
-        dayMaster: chart.pillars.day.gan,
-        dayMasterElement: chart.pillars.day.stemElement,
-        strengthStatus: chart.strength.status,
-        pattern: chart.patternOverview.pattern,
-        useful: chart.usefulGod.useful,
-        favorableWuxing: [...chart.usefulGod.favorableWuxing],
-        unfavorableWuxing: [...chart.usefulGod.unfavorableWuxing],
-        natalPillars: {
-          year: chart.pillars.year.ganZhi,
-          month: chart.pillars.month.ganZhi,
-          day: chart.pillars.day.ganZhi,
-          hour: chart.pillars.hour.ganZhi,
-        },
-        dayunGanZhi: null,
-        flowYearGanZhi: calendar.ganzhi.year,
-        flowMonthGanZhi: calendar.ganzhi.month,
-        flowDayGanZhi: calendar.ganzhi.day,
-        flowTenGods: {
-          year: getTenStar(chart.pillars.day.gan, calendar.ganzhi.year[0] ?? '甲'),
-          month: getTenStar(chart.pillars.day.gan, calendar.ganzhi.month[0] ?? '甲'),
-          day: getTenStar(chart.pillars.day.gan, calendar.ganzhi.day[0] ?? '甲'),
-        },
-        interactions,
-        shenshaHits: [],
-        precisionNote: '未提供性别或参考时刻早于出生，未计算精确大运与岁运神煞。',
-      };
-    } else if (baziData.unknown) {
-      const seg = baziData.unknown.segments[0];
-      const commonYear = baziData.unknown.common.year ?? seg?.pillars.year.ganZhi ?? '';
-      const commonMonth = baziData.unknown.common.month ?? seg?.pillars.month.ganZhi ?? '';
-      const commonDay = baziData.unknown.common.day ?? seg?.pillars.day.ganZhi ?? '';
-      const dayGan = commonDay[0] ?? seg?.pillars.day.gan ?? '甲';
-      const commonFav = baziData.unknown.segments.length
-        ? seg.usefulGod.favorableWuxing.filter((wx) =>
-            baziData!.unknown!.segments.every((item) => item.usefulGod.favorableWuxing.includes(wx)),
-          )
-        : [];
-      const commonUnfav = baziData.unknown.segments.length
-        ? seg.usefulGod.unfavorableWuxing.filter((wx) =>
-            baziData!.unknown!.segments.every((item) => item.usefulGod.unfavorableWuxing.includes(wx)),
-          )
-        : [];
-      const interactions = [
-        ...(commonDay ? summarizeBranchRelation('流日', calendar.ganzhi.day, '日柱', commonDay) : []),
-        ...(commonYear ? summarizeBranchRelation('流日', calendar.ganzhi.day, '年柱', commonYear) : []),
-        ...(commonDay ? summarizeBranchRelation('流月', calendar.ganzhi.month, '日柱', commonDay) : []),
-        ...(commonDay ? summarizeBranchRelation('流年', calendar.ganzhi.year, '日柱', commonDay) : []),
-      ];
-      baziSummary = {
-        dayMaster: dayGan,
-        dayMasterElement: seg?.pillars.day.stemElement ?? '',
-        strengthStatus: baziData.unknown.commonStrength ?? '时辰未定（按多候选参考）',
-        pattern: baziData.unknown.commonOrdinaryPattern ?? '时辰未定',
-        useful: commonFav.length ? `各候选共同喜${commonFav.join('、')}` : '因出生时辰未定，喜用随候选时段变化',
-        favorableWuxing: commonFav,
-        unfavorableWuxing: commonUnfav,
-        natalPillars: {
-          year: commonYear || '多候选交界',
-          month: commonMonth || '多候选交界',
-          day: commonDay || '多候选交界',
-          hour: baziData.unknown.common.hour ?? '未知时辰',
-        },
-        dayunGanZhi: null,
-        flowYearGanZhi: calendar.ganzhi.year,
-        flowMonthGanZhi: calendar.ganzhi.month,
-        flowDayGanZhi: calendar.ganzhi.day,
-        flowTenGods: {
-          year: getTenStar(dayGan, calendar.ganzhi.year[0] ?? '甲'),
-          month: getTenStar(dayGan, calendar.ganzhi.month[0] ?? '甲'),
-          day: getTenStar(dayGan, calendar.ganzhi.day[0] ?? '甲'),
-        },
-        interactions,
-        shenshaHits: [],
-        precisionNote: `当前档案共有 ${baziData.unknown.segments.length} 个可能时辰分段，已提取年/月/日柱稳定事实与共同喜用推演；补充精确时辰可解锁大运与紫微星盘精准定位。`,
-      };
-    }
+        ];
+        return {
+          dayMaster: chart.pillars.day.gan,
+          dayMasterElement: chart.pillars.day.stemElement,
+          strengthStatus: chart.strength.status,
+          pattern: chart.patternOverview.pattern,
+          useful: chart.usefulGod.useful,
+          favorableWuxing: [...chart.usefulGod.favorableWuxing],
+          unfavorableWuxing: [...chart.usefulGod.unfavorableWuxing],
+          natalPillars: {
+            year: chart.pillars.year.ganZhi,
+            month: chart.pillars.month.ganZhi,
+            day: chart.pillars.day.ganZhi,
+            hour: chart.pillars.hour.ganZhi,
+          },
+          dayunGanZhi: loc.cycle?.ganZhi ?? null,
+          flowYearGanZhi: loc.year.ganZhi,
+          flowMonthGanZhi: loc.month.ganZhi,
+          flowDayGanZhi: loc.day.ganZhi,
+          flowTenGods: {
+            ...(loc.cycle ? { dayun: loc.cycle.pillar.tenGod } : {}),
+            year: loc.year.tenGod,
+            month: loc.month.tenGod,
+            day: loc.day.tenGod,
+          },
+          interactions,
+          shenshaHits,
+        } satisfies PersonalBaziSummary;
+      }
+      if (baziData.chart) {
+        const chart = baziData.chart;
+        const interactions = [
+          ...summarizeBranchRelation('流年', calendar.ganzhi.year, '日柱', chart.pillars.day.ganZhi),
+          ...summarizeBranchRelation('流月', calendar.ganzhi.month, '日柱', chart.pillars.day.ganZhi),
+          ...summarizeBranchRelation('流日', calendar.ganzhi.day, '日柱', chart.pillars.day.ganZhi),
+        ];
+        return {
+          dayMaster: chart.pillars.day.gan,
+          dayMasterElement: chart.pillars.day.stemElement,
+          strengthStatus: chart.strength.status,
+          pattern: chart.patternOverview.pattern,
+          useful: chart.usefulGod.useful,
+          favorableWuxing: [...chart.usefulGod.favorableWuxing],
+          unfavorableWuxing: [...chart.usefulGod.unfavorableWuxing],
+          natalPillars: {
+            year: chart.pillars.year.ganZhi,
+            month: chart.pillars.month.ganZhi,
+            day: chart.pillars.day.ganZhi,
+            hour: chart.pillars.hour.ganZhi,
+          },
+          dayunGanZhi: null,
+          flowYearGanZhi: calendar.ganzhi.year,
+          flowMonthGanZhi: calendar.ganzhi.month,
+          flowDayGanZhi: calendar.ganzhi.day,
+          flowTenGods: {
+            year: getTenStar(chart.pillars.day.gan, calendar.ganzhi.year[0] ?? '甲'),
+            month: getTenStar(chart.pillars.day.gan, calendar.ganzhi.month[0] ?? '甲'),
+            day: getTenStar(chart.pillars.day.gan, calendar.ganzhi.day[0] ?? '甲'),
+          },
+          interactions,
+          shenshaHits: [],
+          precisionNote: '未提供性别或参考时刻早于出生，未计算精确大运与岁运神煞。',
+        } satisfies PersonalBaziSummary;
+      }
+      if (baziData.unknown) {
+        const seg = baziData.unknown.segments[0];
+        const commonYear = baziData.unknown.common.year ?? seg?.pillars.year.ganZhi ?? '';
+        const commonMonth = baziData.unknown.common.month ?? seg?.pillars.month.ganZhi ?? '';
+        const commonDay = baziData.unknown.common.day ?? seg?.pillars.day.ganZhi ?? '';
+        const dayGan = commonDay[0] ?? seg?.pillars.day.gan ?? '甲';
+        const commonFav = baziData.unknown.segments.length
+          ? seg.usefulGod.favorableWuxing.filter((wx) =>
+              baziData.unknown!.segments.every((item) => item.usefulGod.favorableWuxing.includes(wx)),
+            )
+          : [];
+        const commonUnfav = baziData.unknown.segments.length
+          ? seg.usefulGod.unfavorableWuxing.filter((wx) =>
+              baziData.unknown!.segments.every((item) => item.usefulGod.unfavorableWuxing.includes(wx)),
+            )
+          : [];
+        const interactions = [
+          ...(commonDay ? summarizeBranchRelation('流日', calendar.ganzhi.day, '日柱', commonDay) : []),
+          ...(commonYear ? summarizeBranchRelation('流日', calendar.ganzhi.day, '年柱', commonYear) : []),
+          ...(commonDay ? summarizeBranchRelation('流月', calendar.ganzhi.month, '日柱', commonDay) : []),
+          ...(commonDay ? summarizeBranchRelation('流年', calendar.ganzhi.year, '日柱', commonDay) : []),
+        ];
+        return {
+          dayMaster: dayGan,
+          dayMasterElement: seg?.pillars.day.stemElement ?? '',
+          strengthStatus: baziData.unknown.commonStrength ?? '时辰未定（按多候选参考）',
+          pattern: baziData.unknown.commonOrdinaryPattern ?? '时辰未定',
+          useful: commonFav.length ? `各候选共同喜${commonFav.join('、')}` : '因出生时辰未定，喜用随候选时段变化',
+          favorableWuxing: commonFav,
+          unfavorableWuxing: commonUnfav,
+          natalPillars: {
+            year: commonYear || '多候选交界',
+            month: commonMonth || '多候选交界',
+            day: commonDay || '多候选交界',
+            hour: baziData.unknown.common.hour ?? '未知时辰',
+          },
+          dayunGanZhi: null,
+          flowYearGanZhi: calendar.ganzhi.year,
+          flowMonthGanZhi: calendar.ganzhi.month,
+          flowDayGanZhi: calendar.ganzhi.day,
+          flowTenGods: {
+            year: getTenStar(dayGan, calendar.ganzhi.year[0] ?? '甲'),
+            month: getTenStar(dayGan, calendar.ganzhi.month[0] ?? '甲'),
+            day: getTenStar(dayGan, calendar.ganzhi.day[0] ?? '甲'),
+          },
+          interactions,
+          shenshaHits: [],
+          precisionNote: `当前档案共有 ${baziData.unknown.segments.length} 个可能时辰分段，已提取年/月/日柱稳定事实与共同喜用推演；补充精确时辰可解锁大运与紫微星盘精准定位。`,
+        } satisfies PersonalBaziSummary;
+      }
+      return null;
+    })();
 
-    // 2. 紫微流运（需 birth + gender）
-    if (!source.birth) {
-      omitted.push({ system: '紫微流运', reason: '仅提供出生范围时未组装紫微流运盘。' });
-    } else if (!source.gender) {
-      omitted.push({ system: '紫微流运', reason: '未提供性别，无法排定紫微大限与流运。' });
-    } else if (!useReferenceTime && source.birth.clock.kind === 'exact') {
-      omitted.push({ system: '紫微流运', reason: '目标运势日期早于出生日期。' });
-    } else {
+    const ziweiTask = (async (): Promise<{
+      summary: PersonalZiweiSummary | null;
+      majorStars: string[];
+      monthlyTimeline?: typeof ziweiMonthlyTimeline;
+      omittedReason?: string;
+    }> => {
+      if (!source.birth) {
+        return { summary: null, majorStars: [], omittedReason: '仅提供出生范围时未组装紫微流运盘。' };
+      }
+      if (!source.gender) {
+        return { summary: null, majorStars: [], omittedReason: '未提供性别，无法排定紫微大限与流运。' };
+      }
+      if (!useReferenceTime && source.birth.clock.kind === 'exact') {
+        return { summary: null, majorStars: [], omittedReason: '目标运势日期早于出生日期。' };
+      }
       try {
+        const { collectZiweiMajorStars, ziweiIndependent } = await import('./ziwei');
         const zwRes = await ziweiIndependent({
           question,
           birth: source.birth,
@@ -382,39 +395,48 @@ async function computeFortune(
         });
         const zwData = zwRes.data;
         if (!('unknown' in zwData) && zwData.reference) {
-          ziweiMajorStars = collectZiweiMajorStars(zwData.natal.palaces);
+          const majorStars = collectZiweiMajorStars(zwData.natal.palaces);
           const layers = zwData.reference.layers;
           const mapMutagens = (items: ReadonlyArray<{ mutagen: string; star: string; natalPalace: string }>) =>
             items.map((x) => ({ mutagen: x.mutagen, star: x.star, targetPalace: x.natalPalace }));
-          ziweiSummary = {
-            natalMingPalace: zwData.natal.soulBranch,
-            yearlyPalace: zwData.natal.palaces[layers.yearly.index]?.name,
-            yearlyMutagens: mapMutagens(layers.yearly.mutagenPlacements),
-            monthlyPalace: zwData.natal.palaces[layers.monthly.index]?.name,
-            monthlyMutagens: mapMutagens(layers.monthly.mutagenPlacements),
-            dailyPalace: zwData.natal.palaces[layers.daily.index]?.name,
-            dailyMutagens: mapMutagens(layers.daily.mutagenPlacements),
+          return {
+            summary: {
+              natalMingPalace: zwData.natal.soulBranch,
+              yearlyPalace: zwData.natal.palaces[layers.yearly.index]?.name,
+              yearlyMutagens: mapMutagens(layers.yearly.mutagenPlacements),
+              monthlyPalace: zwData.natal.palaces[layers.monthly.index]?.name,
+              monthlyMutagens: mapMutagens(layers.monthly.mutagenPlacements),
+              dailyPalace: zwData.natal.palaces[layers.daily.index]?.name,
+              dailyMutagens: mapMutagens(layers.daily.mutagenPlacements),
+            },
+            majorStars,
+            monthlyTimeline: zwData.reference.monthlyTimeline,
           };
-          ziweiMonthlyTimeline = zwData.reference.monthlyTimeline;
-        } else {
-          omitted.push({ system: '紫微流运', reason: '出生时辰未精确到时分秒，紫微流年/流月/流日宫位需先定盘时辰。' });
         }
+        return { summary: null, majorStars: [], omittedReason: '出生时辰未精确到时分秒，紫微流年/流月/流日宫位需先定盘时辰。' };
       } catch (err) {
-        omitted.push({ system: '紫微流运', reason: err instanceof Error ? err.message : '紫微流运暂不可用。' });
+        return { summary: null, majorStars: [], omittedReason: err instanceof Error ? err.message : '紫微流运暂不可用。' };
       }
-    }
+    })();
 
-    // 3. 西洋星盘行运（需精确公历 + 经纬度 + 时区）
-    if (!source.birth || source.birth.clock.kind !== 'exact') {
-      omitted.push({ system: '西洋星盘行运', reason: '需要精确出生时分秒才可计算流年/流日行运相位。' });
-    } else if (source.birth.calendar === 'lunar') {
-      omitted.push({ system: '西洋星盘行运', reason: '当前仅支持公历出生直接计算西洋星盘行运。' });
-    } else if (!source.location) {
-      omitted.push({ system: '西洋星盘行运', reason: '未提供出生地经纬度，无法定位行运落宫与四轴相位。' });
-    } else if (source.birth.timezone === undefined && !source.birth.timeZoneId) {
-      omitted.push({ system: '西洋星盘行运', reason: '缺少时区配置，无法定位西洋星盘行运。' });
-    } else {
+    const astroTask = (async (): Promise<{
+      summary: PersonalAstrolabeSummary | null;
+      omittedReason?: string;
+    }> => {
+      if (!source.birth || source.birth.clock.kind !== 'exact') {
+        return { summary: null, omittedReason: '需要精确出生时分秒才可计算流年/流日行运相位。' };
+      }
+      if (source.birth.calendar === 'lunar') {
+        return { summary: null, omittedReason: '当前仅支持公历出生直接计算西洋星盘行运。' };
+      }
+      if (!source.location) {
+        return { summary: null, omittedReason: '未提供出生地经纬度，无法定位行运落宫与四轴相位。' };
+      }
+      if (source.birth.timezone === undefined && !source.birth.timeZoneId) {
+        return { summary: null, omittedReason: '缺少时区配置，无法定位西洋星盘行运。' };
+      }
       try {
+        const { astrolabeIndependent } = await import('./astrolabe');
         const flowRef =
           scope === 'daily'
             ? ({ kind: 'day', year: target.year, month: target.month, day: target.day } as const)
@@ -450,28 +472,43 @@ async function computeFortune(
         const moonSign = aData.points.find((p) => p.id === 'moon')?.sign ?? '';
         const ascSign = aData.angles.find((a) => a.id === 'asc')?.sign ?? '';
         const aspects = aData.flow?.transit?.aspects ?? [];
-        astrolabeSummary = {
-          sunSign,
-          moonSign,
-          ascSign,
-          topAspects: aspects.slice(0, 6).map((a) => ({
-            movingName: a.movingName,
-            aspectLabel: a.label,
-            natalName: a.natalName,
-            strength: Math.round(a.strength),
-            phase: a.phase,
-          })),
-          ...(aData.flow?.solarReturn && aData.flow.solarReturn.status === 'calculated' && aData.flow.solarReturn.charts[0]
-            ? {
-                solarReturnHighlights: aData.flow.solarReturn.charts[0].natalAspects
-                  .slice(0, 4)
-                  .map((x) => `返照${x.movingName}${x.label}本命${x.natalName}`),
-              }
-            : {}),
+        return {
+          summary: {
+            sunSign,
+            moonSign,
+            ascSign,
+            topAspects: aspects.slice(0, 6).map((a) => ({
+              movingName: a.movingName,
+              aspectLabel: a.label,
+              natalName: a.natalName,
+              strength: Math.round(a.strength),
+              phase: a.phase,
+            })),
+            ...(aData.flow?.solarReturn && aData.flow.solarReturn.status === 'calculated' && aData.flow.solarReturn.charts[0]
+              ? {
+                  solarReturnHighlights: aData.flow.solarReturn.charts[0].natalAspects
+                    .slice(0, 4)
+                    .map((x) => `返照${x.movingName}${x.label}本命${x.natalName}`),
+                }
+              : {}),
+          },
         };
       } catch (err) {
-        omitted.push({ system: '西洋星盘行运', reason: err instanceof Error ? err.message : '西洋行运暂不可用。' });
+        return { summary: null, omittedReason: err instanceof Error ? err.message : '西洋行运暂不可用。' };
       }
+    })();
+
+    const [baziOutcome, ziweiOutcome, astroOutcome] = await Promise.all([baziTask, ziweiTask, astroTask]);
+    baziSummary = baziOutcome;
+    ziweiSummary = ziweiOutcome.summary;
+    ziweiMajorStars = ziweiOutcome.majorStars;
+    ziweiMonthlyTimeline = ziweiOutcome.monthlyTimeline;
+    if (ziweiOutcome.omittedReason) {
+      omitted.push({ system: '紫微流运', reason: ziweiOutcome.omittedReason });
+    }
+    astrolabeSummary = astroOutcome.summary;
+    if (astroOutcome.omittedReason) {
+      omitted.push({ system: '西洋星盘行运', reason: astroOutcome.omittedReason });
     }
   }
 
@@ -495,7 +532,7 @@ async function computeFortune(
     ziwei: ziweiSummary,
     astrolabe: astrolabeSummary,
     wuyunSummary,
-    wuyunRelation: wuyunResult?.annualRelation.kind ?? null,
+    wuyunRelation: wuyunAnnualRelationKind,
     hours: dailyHours,
     monthlyDays: monthlyTimeline?.days,
     yearlyMonths,
@@ -514,7 +551,7 @@ async function computeFortune(
     caseName: source.caseName ?? null,
     calendar,
     wuyunSummary,
-    wuyunFacts: wuyunResult ? formatWuyunLiuqiFacts(wuyunResult) : null,
+    wuyunFacts,
     baziSummary,
     ziweiSummary,
     ziweiMajorStars,
@@ -531,13 +568,10 @@ async function computeFortune(
 
 type ComputedFortune = Awaited<ReturnType<typeof computeFortune>>;
 
-function buildSectionsAndPrompt(
+function buildFortuneSections(
   computed: ComputedFortune,
-  question: string,
-  options?: Input['prompt'],
+  detailMode: 'compact' | 'full' = 'compact',
 ) {
-  const topic: FortuneTopic = options?.topic ?? 'general';
-  const detailMode = options?.detailMode ?? 'compact';
   const { overview, calendar, baziSummary, ziweiSummary, astrolabeSummary } = computed;
   const scopeTitle = `${computed.targetLabel}${computed.scopeLabel}`;
   const subjectLabel = computed.mode === 'personalized'
@@ -652,17 +686,53 @@ function buildSectionsAndPrompt(
     { id: 'timeline', title: computed.scope === 'daily' ? '四、当日时辰节律' : computed.scope === 'monthly' ? '四、本月优选与留意日期' : '四、全年十二流月走势', markdown: timelineMd },
   ];
 
-  const classicsText = options?.includeClassics
-    ? (() => {
-        const excerpts = [
-          ...(computed.scope === 'daily' ? selectAlmanacClassics([calendar.dayOfficer]) : []),
-          ...(baziSummary ? selectBaziClassics(baziSummary.dayMaster, baziSummary.pattern) : []),
-          ...(computed.ziweiMajorStars.length ? selectZiweiClassics(computed.ziweiMajorStars) : []),
-          ...(computed.scope === 'yearly' && computed.wuyunSummary ? selectWuyunClassics([]) : []),
-        ];
-        return excerpts.length ? formatClassicExcerpts(dedupeExcerpts(excerpts), '典籍依据参考') : '';
-      })()
-    : '';
+  return {
+    scopeTitle,
+    subjectLabel,
+    factorsMd,
+    personalMd,
+    timelineMd,
+    data: {
+      ...computed,
+      sections,
+      markdown: sections.map((s) => `## ${s.title}\n\n${s.markdown}`).join('\n\n'),
+    },
+  };
+}
+
+async function buildSectionsAndPrompt(
+  computed: ComputedFortune,
+  question: string,
+  options?: Input['prompt'],
+) {
+  const topic: FortuneTopic = options?.topic ?? 'general';
+  const detailMode = options?.detailMode ?? 'compact';
+  const { overview, calendar, baziSummary } = computed;
+  const rendered = buildFortuneSections(computed, detailMode);
+  const { scopeTitle, subjectLabel, factorsMd, personalMd, timelineMd, data } = rendered;
+
+  const [classicsText, { buildMethodSituationDigest }] = await Promise.all([
+    options?.includeClassics
+      ? (async () => {
+          const {
+            dedupeExcerpts,
+            formatClassicExcerpts,
+            selectAlmanacClassics,
+            selectBaziClassics,
+            selectWuyunClassics,
+            selectZiweiClassics,
+          } = await import('./classics');
+          const excerpts = [
+            ...(computed.scope === 'daily' ? selectAlmanacClassics([calendar.dayOfficer]) : []),
+            ...(baziSummary ? selectBaziClassics(baziSummary.dayMaster, baziSummary.pattern) : []),
+            ...(computed.ziweiMajorStars.length ? selectZiweiClassics(computed.ziweiMajorStars) : []),
+            ...(computed.scope === 'yearly' && computed.wuyunSummary ? selectWuyunClassics([]) : []),
+          ];
+          return excerpts.length ? formatClassicExcerpts(dedupeExcerpts(excerpts), '典籍依据参考') : '';
+        })()
+      : Promise.resolve(''),
+    import('./situation-digest'),
+  ]);
 
   const promptCalendarBlock =
     computed.scope === 'daily'
@@ -692,20 +762,28 @@ function buildSectionsAndPrompt(
   ];
 
   return {
-    data: {
-      ...computed,
-      sections,
-      markdown: sections.map((s) => `## ${s.title}\n\n${s.markdown}`).join('\n\n'),
-    },
+    data,
     prompt: { text: promptBlocks.filter(Boolean).join('\n\n') },
   };
+}
+
+/** 仅供前端首页与运势卡片轻量直算结构化盘面数据，跳过全量 Zod Schema 与大型 AI 摘要构建。 */
+export async function fortuneDataOnly(
+  source: FortuneSource,
+  question: string,
+  currentTime?: string,
+  context?: RuntimeContext,
+) {
+  const effectiveTime = currentTime ?? new Date().toISOString();
+  const computed = await computeFortune(source, question, effectiveTime, context);
+  return buildFortuneSections(computed, 'compact').data;
 }
 
 export async function fortune(input: Input, context?: RuntimeContext) {
   const { question, currentTime, prompt: options, ...source } = input;
   const effectiveTime = currentTime ?? new Date().toISOString();
   const computed = await computeFortune(source, question, effectiveTime, context);
-  const rendered = buildSectionsAndPrompt(computed, question, options);
+  const rendered = await buildSectionsAndPrompt(computed, question, options);
   const tags = [
     computed.scopeLabel,
     computed.mode === 'personalized' ? `案例：${computed.caseName || '已选档案'}` : '通用运势',
@@ -740,7 +818,7 @@ export async function promptForSavedFortune(
   const savedInput = (saved.input && typeof saved.input === 'object' ? saved.input : source) as FortuneSource;
   const effectiveTime = currentTime ?? new Date().toISOString();
   const computed = await computeFortune(savedInput, question, effectiveTime, context);
-  const expected = buildSectionsAndPrompt(computed, question, options);
+  const expected = await buildSectionsAndPrompt(computed, question, options);
   if (
     !sameJsonValue(saved.scope, expected.data.scope) ||
     !sameJsonValue(saved.targetLabel, expected.data.targetLabel) ||

@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import { getPromptCatalog } from '../src/catalog';
-import { inputSchemas, methodIds, methodLabels, type Method } from '../src/schema';
+import { METHOD_CATEGORY_GROUPS } from '../src/method-registry';
+import { inputSchemas, methodEnglishLabels, methodIds, methodLabels, type Method } from '../src/schema';
 import { calendarExamples, methodExamples } from './method-examples.mjs';
 
 type JsonSchemaNode = Record<string, unknown>;
-
-interface MethodCategoryGroup {
-  id: string;
-  label: string;
-  methods: Method[];
-}
 
 interface FieldRow {
   path: string;
@@ -17,39 +12,6 @@ interface FieldRow {
   required: boolean;
   description: string;
 }
-
-const METHOD_CATEGORY_GROUPS: readonly MethodCategoryGroup[] = [
-  {
-    id: 'mingli',
-    label: '命理合参',
-    methods: ['bazi', 'bazi-synastry', 'bazi-ziwei', 'bazi-reverse', 'minglu', 'fortune', 'instant'],
-  },
-  {
-    id: 'ziwei-astro',
-    label: '紫微星象',
-    methods: ['ziwei', 'ziwei-synastry', 'qizheng', 'qizheng-range', 'astrolabe', 'astrolabe-range', 'astrolabe-synastry'],
-  },
-  {
-    id: 'qimen-liuren',
-    label: '奇门六壬',
-    methods: ['qimen', 'qimen-lifetime', 'liuren', 'jinkoujue', 'xiaoliuren', 'taiyi'],
-  },
-  {
-    id: 'divination',
-    label: '占卜灵签',
-    methods: ['liuyao', 'meihua', 'tarot', 'lenormand', 'random-divination', 'ssgw', 'zhuge', 'number-energy'],
-  },
-  {
-    id: 'fengshui',
-    label: '风水择日',
-    methods: ['bazhai', 'xuankong', 'residential', 'almanac', 'calendar'],
-  },
-  {
-    id: 'name-classics',
-    label: '姓名典籍',
-    methods: ['chinese-name', 'chinese-naming', 'zhouyi', 'character-query', 'wuyun-liuqi', 'huangji-jingshi'],
-  },
-];
 
 function escapeHtml(text: string): string {
   return text
@@ -200,14 +162,22 @@ export function generateApiDocsMarkdown(baseUrl = 'https://your-mingyu-domain.ex
   const catalog = getPromptCatalog(methodIds) as Record<string, unknown>;
   const lines: string[] = [];
 
-  lines.push('# 命语 V2 HTTP REST API 完整接入文档');
+  lines.push('# 命语 V2 HTTP REST API 完整接入文档 / Mingyu V2 HTTP REST API Guide');
   lines.push('');
   lines.push(`> 本文档由当前服务真实的 Schema、提示词目录与可用示例自动生成，覆盖全部 ${methodIds.length} 种术数方法，供开发者与 AI Agent 直接阅读和接入。`);
+  lines.push('');
+  lines.push('## Quickstart for Global Developers & AI Agents (English)');
+  lines.push('');
+  lines.push(`- **Base URL**: \`${baseUrl}\` (replace with your deployed origin, or \`http://127.0.0.1:18788\` locally).`);
+  lines.push(`- **Compact Router MCP (Recommended for AI Agents)**: \`${baseUrl}/mcp?mode=router\` (4 tools: \`list_methods\`, \`get_method_schema\`, \`calculate\`, \`reprompt\` — ~97% smaller context footprint than full mode).`);
+  lines.push('- **Multilingual AI Output (`outputLanguage`)**: Pass optional `"outputLanguage"` in `POST /api/calculate`, `POST /api/prompt`, or MCP `calculate` / `reprompt` (supports `"en"`, `"zh-TW"`, `"ja"`, `"ko"`, `"vi"`, or any language tag/name; defaults to Simplified Chinese `zh-CN`). Deterministic chart `data` stays unchanged while `prompt.text` enforces mainstream metaphysics terminology for that language.');
+  lines.push('- **Low-Token Follow-ups**: Send `"responseMode": "compact"` in `POST /api/calculate` to receive `summary`, `prompt.text`, and `repromptToken`, then pass `{ "repromptToken": "...", "question": "..." }` to `POST /api/prompt` without re-casting.');
   lines.push('');
   lines.push(`- **服务基础地址（示例）**：\`${baseUrl}\`（接入时请替换为实际部署域名，例如本地开发通常为 \`http://127.0.0.1:18788\`）`);
   lines.push('- **数据格式与跨域**：全接口使用 `application/json; charset=utf-8`，支持标准浏览器跨域（CORS 与 `OPTIONS` 预检）。');
   lines.push('- **OpenAPI 3.1 规范**：`/openapi.json`（可直接导入 Dify、Coze、FastGPT、n8n、Swagger）。');
   lines.push('- **MCP 极简路由模式**：`/mcp?mode=router` 仅注册 4 个核心工具（`list_methods` / `get_method_schema` / `calculate` / `reprompt`），比全量 42 个工具节省约 97% 上下文 Token。');
+  lines.push('- **多语言输出（`outputLanguage`）**：在 `/api/calculate`、`/api/prompt` 或 MCP 中传入可选 `outputLanguage`（如 `"en"`、`"zh-TW"`、`"ja"`、`"ko"`、`"vi"` 或任意语种），即可让 AI 按对应语言与国际主流术数术语解读，原盘结构化 `data` 保持不变。');
   lines.push('- **访问令牌（可选）**：若服务端配置了 `ACCESS_TOKEN` 环境变量，所有 `/api/*` 与 `/mcp` 请求须附带请求头 `Authorization: Bearer <你的令牌>`；未配置时公开访问。');
   lines.push('- **请求体上限**：单次请求体最大 1 MiB（1,048,576 字节）。');
   lines.push('');
@@ -221,8 +191,8 @@ export function generateApiDocsMarkdown(baseUrl = 'https://your-mingyu-domain.ex
   lines.push('| `GET` | `/api/methods` | 查询当前服务开放的所有术数方法 ID | 无 |');
   lines.push('| `GET` | `/api/schema` | 获取所有（或指定）术数的输入 JSON Schema 与追问 Schema | 可选 `?method=bazi`（不传则返回全部） |');
   lines.push('| `GET` | `/api/prompts` | 获取所有（或指定）术数的提示词主题、流派与范围选项 | 可选 `?method=bazi` |');
-  lines.push('| `POST` | `/api/calculate` | 执行排盘/占卜计算；可选 `responseMode: "compact"` 仅返摘要与追问令牌 | `{ "method": "方法名", "input": { ... }, "responseMode"?: "full" | "compact" }` |');
-  lines.push('| `POST` | `/api/prompt` | 基于 `repromptToken` 或完整 `result` 生成追问提示词（免重排） | `{ "repromptToken": "...", "question": "新问题" }` 或完整 `result` |');
+  lines.push('| `POST` | `/api/calculate` | 执行排盘/占卜计算；可选 `responseMode: "compact"` 与 `outputLanguage` | `{ "method": "方法名", "input": { ... }, "responseMode"?: "full" | "compact", "outputLanguage"?: "en" }` |');
+  lines.push('| `POST` | `/api/prompt` | 基于 `repromptToken` 或完整 `result` 生成追问提示词（免重排，支持 `outputLanguage`） | `{ "repromptToken": "...", "question": "新问题", "outputLanguage"?: "en" }` |');
   lines.push('| `GET` | `/openapi.json` | 导出标准 OpenAPI 3.1 规范文件（静态资产） | 无 |');
   lines.push('');
   lines.push('## 二、标准接入三步走（AI 与后端必读）');
@@ -249,7 +219,7 @@ export function generateApiDocsMarkdown(baseUrl = 'https://your-mingyu-domain.ex
   lines.push('');
 
   for (const group of METHOD_CATEGORY_GROUPS) {
-    lines.push(`### 分类：${group.label}`);
+    lines.push(`### 分类：${group.label} / ${group.labelEn}`);
     lines.push('');
     for (const method of group.methods) {
       const schema = z.toJSONSchema(inputSchemas[method]) as JsonSchemaNode;
@@ -257,7 +227,7 @@ export function generateApiDocsMarkdown(baseUrl = 'https://your-mingyu-domain.ex
       const fields = collectFields(schema);
       const examplePayload = { method, input: methodExamples[method] };
 
-      lines.push(`#### \`${method}\` · ${methodLabels[method]}`);
+      lines.push(`#### \`${method}\` · ${methodLabels[method]} / ${methodEnglishLabels[method]}`);
       lines.push('');
       lines.push(`- **用途说明**：${desc}`);
       lines.push(`- **提示词选项（\`prompt\`）**：${formatPromptCatalogSummary(catalog[method])}`);
@@ -383,10 +353,10 @@ export function generateApiDocsHtml(): string {
     const links = group.methods
       .map(
         (m) =>
-          `<a class="doc-nav-item" href="#method-${m}" data-search-target="${escapeHtml(`${m} ${methodLabels[m]}`)}"><code>${m}</code><span>${escapeHtml(methodLabels[m])}</span></a>`,
+          `<a class="doc-nav-item" href="#method-${m}" data-search-target="${escapeHtml(`${m} ${methodLabels[m]} ${methodEnglishLabels[m]}`)}"><code>${m}</code><span>${escapeHtml(methodLabels[m])}</span></a>`,
       )
       .join('');
-    return `<div class="doc-nav-group"><div class="doc-nav-group-title">${escapeHtml(group.label)}</div>${links}</div>`;
+    return `<div class="doc-nav-group"><div class="doc-nav-group-title">${escapeHtml(group.label)} · ${escapeHtml(group.labelEn)}</div>${links}</div>`;
   }).join('');
 
   const methodsHtml = METHOD_CATEGORY_GROUPS.map((group) => {
@@ -414,11 +384,11 @@ export function generateApiDocsHtml(): string {
             : '';
 
         return `
-<article class="method-card" id="method-${method}" data-method-card data-search="${escapeHtml(`${method} ${methodLabels[method]} ${desc}`.toLowerCase())}">
+<article class="method-card" id="method-${method}" data-method-card data-search="${escapeHtml(`${method} ${methodLabels[method]} ${methodEnglishLabels[method]} ${desc}`.toLowerCase())}">
   <div class="method-head">
     <div class="method-title-row">
       <code class="method-id">${method}</code>
-      <h3>${escapeHtml(methodLabels[method])}</h3>
+      <h3>${escapeHtml(methodLabels[method])} / ${escapeHtml(methodEnglishLabels[method])}</h3>
       <span class="cat-badge">${escapeHtml(group.label)}</span>
     </div>
     <p class="method-desc">${escapeHtml(desc)}</p>
@@ -440,7 +410,7 @@ export function generateApiDocsHtml(): string {
       })
       .join('');
 
-    return `<section class="category-section" id="cat-${group.id}"><h2 class="section-heading">${escapeHtml(group.label)}</h2>${cards}</section>`;
+    return `<section class="category-section" id="cat-${group.id}"><h2 class="section-heading">${escapeHtml(group.label)} · ${escapeHtml(group.labelEn)}</h2>${cards}</section>`;
   }).join('');
 
   return `<!doctype html>
@@ -649,8 +619,8 @@ export function generateApiDocsHtml(): string {
 
     <main class="content">
       <section class="hero" id="overview">
-        <h1>命语 V2 HTTP REST API 接口文档</h1>
-        <p>无状态 JSON 协议，覆盖全部 ${methodIds.length} 种传统术数与历法典籍工具。人类开发者可直接查阅下方字段与示例；使用 AI Agent 接入时，直接把下方提示词复制发给 AI 即可。</p>
+        <h1>命语 V2 HTTP REST API 接口文档 / Mingyu V2 API Guide</h1>
+        <p>无状态 JSON 协议，覆盖全部 ${methodIds.length} 种传统术数与历法典籍工具（支持 <code>outputLanguage</code> 输出任意语言解读）。人类开发者可直接查阅下方字段与示例；使用 AI Agent 接入时，直接把下方提示词复制发给 AI 即可。</p>
         <div class="ai-banner">
           <div class="ai-banner-head">
             <strong>给 AI Agent 的一键接入指令（含 Markdown 文档直链）</strong>
@@ -671,8 +641,8 @@ export function generateApiDocsHtml(): string {
               <tr><td><code>GET</code></td><td><code>/api/methods</code></td><td>获取当前开放的所有术数方法 ID</td><td>无</td></tr>
               <tr><td><code>GET</code></td><td><code>/api/schema</code></td><td>获取输入参数 JSON Schema 与追问 Schema</td><td>可选 <code>?method=bazi</code></td></tr>
               <tr><td><code>GET</code></td><td><code>/api/prompts</code></td><td>获取提示词主题、流派与范围选项</td><td>可选 <code>?method=bazi</code></td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/calculate</code></td><td>执行排盘；支持 <code>responseMode: "compact"</code> 仅返摘要与追问令牌</td><td><code>{ "method": "bazi", "input": { ... }, "responseMode": "compact" }</code></td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/prompt</code></td><td>基于 <code>repromptToken</code> 或完整 <code>result</code> 追问，不重排</td><td><code>{ "repromptToken": "...", "question": "新问题" }</code></td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/calculate</code></td><td>执行排盘；支持 <code>responseMode: "compact"</code> 与可选 <code>outputLanguage</code></td><td><code>{ "method": "bazi", "input": { ... }, "responseMode": "compact", "outputLanguage"?: "en" }</code></td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/prompt</code></td><td>基于 <code>repromptToken</code> 或完整 <code>result</code> 追问，不重排（支持 <code>outputLanguage</code>）</td><td><code>{ "repromptToken": "...", "question": "新问题", "outputLanguage"?: "en" }</code></td></tr>
               <tr><td><code>GET</code></td><td><code>/openapi.json</code></td><td>标准 OpenAPI 3.1 规范（支持 Dify/Coze/FastGPT 直接导入）</td><td>无</td></tr>
               <tr><td><code>POST</code></td><td><code>/mcp?mode=router</code></td><td>极简 4 工具远程 MCP 模式（节省约 97% 工具定义上下文）</td><td>Streamable HTTP</td></tr>
             </tbody>

@@ -1,8 +1,3 @@
-import { collectAstrolabeRange } from '../astrolabe-range-client';
-import { collectQizhengRange } from '../qizheng-range-client';
-import { astrolabeRange } from '../systems/astrolabe-range';
-import { qizhengRange } from '../systems/qizheng-range';
-
 export interface RangeWorkerRequest {
   id: number;
   kind: 'astrolabe-range' | 'qizheng-range';
@@ -27,10 +22,20 @@ ctx.onmessage = async (event: MessageEvent<RangeWorkerRequest>) => {
     },
   };
   try {
-    const collected =
-      kind === 'astrolabe-range'
-        ? await collectAstrolabeRange(payload, async (page) => (await astrolabeRange(page)).data, options)
-        : await collectQizhengRange(payload, async (page) => (await qizhengRange(page)).data, options);
+    let collected: unknown;
+    if (kind === 'astrolabe-range') {
+      const [{ collectAstrolabeRange }, { astrolabeRange }] = await Promise.all([
+        import('../astrolabe-range-client'),
+        import('../systems/astrolabe-range'),
+      ]);
+      collected = await collectAstrolabeRange(payload, async (page) => (await astrolabeRange(page)).data, options);
+    } else {
+      const [{ collectQizhengRange }, { qizhengRange }] = await Promise.all([
+        import('../qizheng-range-client'),
+        import('../systems/qizheng-range'),
+      ]);
+      collected = await collectQizhengRange(payload, async (page) => (await qizhengRange(page)).data, options);
+    }
     ctx.postMessage({ id, type: 'result', result: collected });
   } catch (err) {
     ctx.postMessage({

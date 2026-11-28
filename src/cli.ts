@@ -103,19 +103,19 @@ function assertEnabledMethod(value: string | undefined, enabled: readonly Method
 
 function printHelp() {
   const text = [
-    '命语 V2 本地命令行工具 (mingyu.mjs)',
+    '命语 V2 本地命令行工具 / Mingyu V2 Standalone CLI (mingyu.mjs)',
     '',
-    '用法:',
+    '用法 / Usage:',
     '  node mingyu.mjs methods',
     '  node mingyu.mjs schema [method]',
     '  node mingyu.mjs prompts [method]',
-    '  node mingyu.mjs calculate <method> [--input <json> | --input-file <path>] [--output <path>] [--compact] [--pretty]',
-    '  node mingyu.mjs reprompt [method] (--result-file <path> | --token <token> | --token-file <path>) --question <text> [--prompt <json>] [--current-time <iso>] [--output <path>] [--pretty]',
+    '  node mingyu.mjs calculate <method> [--input <json> | --input-file <path>] [--lang <tag>] [--output <path>] [--compact] [--pretty]',
+    '  node mingyu.mjs reprompt [method] (--result-file <path> | --token <token> | --token-file <path>) --question <text> [--lang <tag>] [--prompt <json>] [--current-time <iso>] [--output <path>] [--pretty]',
     '',
-    '说明:',
-    '  - calculate 传入 --compact 时，标准输出仅打印摘要、prompt.text 与 repromptToken（省 Token），同时 --output 仍保存完整盘面文件。',
-    '  - calculate 与 reprompt 均支持通过管道（stdin）直接传入 JSON。',
-    '  - 可通过环境变量 ENABLED_METHODS=bazi,liuyao 限制开放的方法。',
+    '说明 / Notes:',
+    '  - --lang <tag> (或 --output-language <tag>)：可选指定 AI 解读输出语言（如 en、zh-TW、ja、ko、vi 或任意语言）；省略默认简体中文。',
+    '  - calculate 传入 --compact 时，仅打印摘要、prompt.text 与 repromptToken（省 Token），--output 仍保存完整盘面文件。',
+    '  - calculate 与 reprompt 均支持通过管道（stdin）直接传入 JSON；可用 ENABLED_METHODS 环境变量限制开放方法。',
   ].join('\n');
   process.stdout.write(`${text}\n`);
 }
@@ -169,7 +169,12 @@ async function main() {
   if (command === 'calculate') {
     const method = assertEnabledMethod(flagString(flags, 'method') ?? positionals[0], enabled);
     const rawInput = await resolveJsonInput(flags, positionals[1]);
-    const input = normalizeAgentToolInput(method, rawInput);
+    const langFlag = flagString(flags, 'lang') ?? flagString(flags, 'output-language');
+    const mergedRaw =
+      langFlag && rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) && !('outputLanguage' in rawInput)
+        ? { ...(rawInput as Record<string, unknown>), outputLanguage: langFlag }
+        : rawInput;
+    const input = normalizeAgentToolInput(method, mergedRaw);
     const result = await calculate(method, input, { enabledMethods: enabled }) as CompactableCalculationResult;
     const stdoutData = flagBool(flags, 'compact') ? await toCompactResult(result) : result;
     await emitOutput(stdoutData, flags, result);
@@ -181,6 +186,7 @@ async function main() {
     const resultInline = flagString(flags, 'result');
     const tokenInline = flagString(flags, 'token');
     const tokenFile = flagString(flags, 'token-file');
+    const langFlag = flagString(flags, 'lang') ?? flagString(flags, 'output-language');
     let rawPayload: unknown;
 
     if (tokenInline || tokenFile) {
@@ -197,6 +203,7 @@ async function main() {
         ...(flagString(flags, 'method') ?? positionals[0] ? { method: flagString(flags, 'method') ?? positionals[0] } : {}),
         ...(promptRaw !== undefined ? { prompt: JSON.parse(promptRaw) } : {}),
         ...(currentTime !== undefined ? { currentTime } : {}),
+        ...(langFlag ? { outputLanguage: langFlag } : {}),
       };
     } else if (resultFile || resultInline) {
       const savedResult = resultFile
@@ -219,9 +226,14 @@ async function main() {
         question,
         ...(promptRaw !== undefined ? { prompt: JSON.parse(promptRaw) } : {}),
         ...(currentTime !== undefined ? { currentTime } : {}),
+        ...(langFlag ? { outputLanguage: langFlag } : {}),
       };
     } else {
-      rawPayload = await resolveJsonInput(flags, positionals[0]);
+      const parsedPayload = await resolveJsonInput(flags, positionals[0]);
+      rawPayload =
+        langFlag && parsedPayload && typeof parsedPayload === 'object' && !Array.isArray(parsedPayload) && !('outputLanguage' in parsedPayload)
+          ? { ...(parsedPayload as Record<string, unknown>), outputLanguage: langFlag }
+          : parsedPayload;
     }
 
     const { payload } = await resolveRepromptPayload(rawPayload);

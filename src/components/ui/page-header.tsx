@@ -36,11 +36,11 @@ export function PageHeader<T extends string = string>({
   return (
     <header
       className={cn(
-        'ws-page-header workspace-ui-page-header flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2.5 sm:gap-y-3 border-0 bg-transparent p-0 mb-3.5',
+        'ws-page-header workspace-ui-page-header flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2.5 sm:gap-y-3 border-0 bg-transparent p-0 mb-2 min-[680px]:mb-3',
         className,
       )}
     >
-      <div className="ws-page-header-title-block order-1 grid min-w-0 flex-1 gap-1">
+      <div className="ws-page-header-title-block order-1 hidden min-[680px]:grid min-w-0 flex-1 gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="ws-page-title m-0 whitespace-nowrap font-sans text-[20px] sm:text-[clamp(21px,2vw,25px)] font-extrabold leading-tight tracking-[-0.02em] text-[var(--text-strong)]">
             {title}
@@ -85,6 +85,7 @@ export interface SubPillBarProps<T extends string = string> {
   items: ReadonlyArray<TabOption<T>>;
   onValueChange: (value: T) => void;
   ariaLabel: string;
+  tone?: 'primary' | 'secondary';
   className?: string;
 }
 
@@ -93,14 +94,33 @@ export function SubPillBar<T extends string = string>({
   items,
   onValueChange,
   ariaLabel,
+  tone = 'primary',
   className,
 }: SubPillBarProps<T>) {
+  const isSecondary = tone === 'secondary';
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+    const activeBtn = el.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!activeBtn) return;
+    el.scrollLeft = Math.max(
+      0,
+      activeBtn.offsetLeft - el.clientWidth / 2 + activeBtn.clientWidth / 2,
+    );
+  }, [value, items.length]);
+
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        'ws-sub-pills -mt-1 mb-3 flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mb-3.5 md:flex-wrap md:overflow-visible md:pb-0',
+        'ws-sub-pills flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible md:pb-0',
+        isSecondary
+          ? 'mt-0 mb-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-1 w-fit max-w-full'
+          : '-mt-1 mb-3 md:mb-3.5',
         className,
       )}
     >
@@ -114,10 +134,20 @@ export function SubPillBar<T extends string = string>({
             aria-selected={active}
             onClick={() => onValueChange(item.id)}
             className={cn(
-              'workspace-tier2-method-pill h-8 px-3.5 rounded-full border font-sans text-[12.5px] whitespace-nowrap cursor-pointer transition-colors duration-150',
-              active
-                ? 'is-active border-[var(--accent-strong)] bg-[var(--state-selected-surface-strong)] text-[var(--state-selected-text)] font-extrabold'
-                : 'border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-secondary)] font-semibold hover:border-[var(--border-contrast)] hover:text-[var(--text-strong)]',
+              'workspace-tier2-method-pill whitespace-nowrap cursor-pointer transition-colors duration-150',
+              isSecondary
+                ? cn(
+                    'h-7 px-3 rounded-lg border-0 font-sans text-[12px]',
+                    active
+                      ? 'is-active bg-[var(--surface-elevated-strong)] text-[var(--accent-strong)] font-extrabold shadow-xs'
+                      : 'bg-transparent text-[var(--text-muted)] font-semibold hover:text-[var(--text-strong)]',
+                  )
+                : cn(
+                    'h-8 px-3.5 rounded-full border font-sans text-[12.5px]',
+                    active
+                      ? 'is-active border-[var(--accent-strong)] bg-[var(--state-selected-surface-strong)] text-[var(--state-selected-text)] font-extrabold'
+                      : 'border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] text-[var(--text-secondary)] font-semibold hover:border-[var(--border-contrast)] hover:text-[var(--text-strong)]',
+                  ),
             )}
           >
             {item.label}

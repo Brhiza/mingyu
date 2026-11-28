@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { BookOpen, Copy, Search, Sparkles } from 'lucide-react';
-import { calculate } from '../../core';
+import { BookOpen, Check, Copy, Search, Sparkles } from 'lucide-react';
+import { runCalculateInBackground } from '../../workers/calc-runner';
 import { Button, Card, Input, SegmentedTabs, Select } from '../../components/ui';
 
 type ZhouyiMode = 'hexagram' | 'search' | 'wings';
@@ -65,7 +65,7 @@ export function ZhouyiLookupPanel({ onOpenInResult }: ZhouyiLookupPanelProps) {
         question: question.trim() || '请解读这段《周易》原文。',
         query,
       };
-      const res = (await calculate('zhouyi', payload)) as typeof result;
+      const res = (await runCalculateInBackground('zhouyi', payload)) as typeof result;
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : '检索失败，请检查输入内容。');
@@ -194,7 +194,7 @@ export function ZhouyiLookupPanel({ onOpenInResult }: ZhouyiLookupPanelProps) {
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" size="md" onClick={() => void runQuery()} disabled={loading}>
             <Search className="h-4 w-4" />
-            <span>{loading ? '正在检索…' : '查询《周易》原文'}</span>
+            <span>{loading ? '查询中…' : '查询经文'}</span>
           </Button>
           {promptText ? (
             <Button
@@ -208,8 +208,8 @@ export function ZhouyiLookupPanel({ onOpenInResult }: ZhouyiLookupPanelProps) {
                 } catch {}
               }}
             >
-              <Copy className="h-4 w-4" />
-              <span>{copied ? '✓ 已复制提示词' : '复制 AI 解读提示词'}</span>
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span>{copied ? '已复制' : '复制提示词'}</span>
             </Button>
           ) : null}
           {result && onOpenInResult ? (
@@ -219,7 +219,7 @@ export function ZhouyiLookupPanel({ onOpenInResult }: ZhouyiLookupPanelProps) {
               onClick={() => onOpenInResult({ question, query: result }, result)}
             >
               <Sparkles className="h-4 w-4" />
-              <span>送入工作台深度解读</span>
+              <span>深度解读</span>
             </Button>
           ) : null}
         </div>

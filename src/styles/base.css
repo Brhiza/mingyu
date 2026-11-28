@@ -1,0 +1,351 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  color: var(--text-primary);
+  background: transparent;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+body.has-workspace-dialog {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+}
+
+.full-width-label {
+  display: grid;
+  width: 100%;
+}
+
+.btn-primary {
+  background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-color: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-deep);
+  color: var(--accent-contrast);
+}
+
+/* ─── 基础容器卡片 ─── */
+.page-shell {
+  min-height: 100vh;
+  padding: 24px 16px 36px;
+}
+
+.workspace-shell .page-shell {
+  width: 100%;
+  min-height: auto;
+  padding: 0;
+}
+
+.hero-card,
+.panel {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-lg);
+}
+
+.hero-card {
+  max-width: 1200px;
+  margin: 0 auto 24px;
+  padding: 28px;
+  border-radius: var(--radius-page-card);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent-strong);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-card h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.05;
+}
+
+.panel {
+  border-radius: var(--radius-page-card);
+  padding: 24px;
+  min-width: 0;
+  border-color: var(--border-soft);
+  box-shadow: var(--shadow-card);
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+.panel-head h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.panel-head p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.panel-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-page-card);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-card);
+}
+
+.single-panel-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.result-tab-stage {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+}
+
+.result-tab-stage.is-ai-wide {
+  max-width: 1520px;
+}
+
+.result-tab-pane {
+  grid-area: 1 / 1;
+  width: 100%;
+  min-width: 0;
+  transition: opacity 0.18s ease;
+}
+
+.result-tab-pane.is-active {
+  visibility: visible;
+  opacity: 1;
+  z-index: 1;
+}
+
+.result-tab-pane.is-inactive {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.panel.result-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* ─── 现代东方骨架屏微光与黄历双线书页边框 ─── */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.skeleton-block {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 0%,
+    var(--surface-elevated-strong) 50%,
+    var(--surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes ws-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.ws-skeleton-block {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-soft) 25%,
+    color-mix(in srgb, var(--surface-muted) 68%, var(--surface-base)) 50%,
+    var(--surface-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: ws-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── 全局克制动效关键帧 ─── */
+@keyframes ws-view-enter {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes ws-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ws-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ws-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ws-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ws-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ws-tab-indicator-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ws-skeleton-block {
+    animation: none;
+    background: var(--surface-soft);
+  }
+}
+
+.almanac-folio {
+  border: 1.5px solid var(--border-contrast);
+  box-shadow:
+    inset 0 0 0 4px var(--surface-base),
+    inset 0 0 0 5px color-mix(in srgb, var(--border-contrast) 45%, transparent),
+    var(--shadow-card);
+}

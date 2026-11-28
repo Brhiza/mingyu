@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { baziIndependentInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { resolveBaziRules } from './defaults';
 import { calculateBaziPillars, type PillarName } from './bazi/pillars';
@@ -27,6 +28,8 @@ import { formatFortuneShensha } from './bazi/fortune-shensha';
 import { formatBaziShensha, formatBaziShenshaHits, partitionBaziShensha } from './bazi/shensha';
 import { dedupeExcerpts, formatClassicExcerpts, selectBaziClassics } from './classics';
 import { buildMethodSituationDigest } from './situation-digest';
+import { formatBaziClimateMode } from './prompt-format';
+import { loadStaticDataset } from './static-data-loader';
 
 type Input = z.infer<typeof baziIndependentInput>;
 type Source = Pick<Input, 'birth' | 'birthRange' | 'gender' | 'referenceTime' | 'timelineYear' | 'dailyRange' | 'rules'>;
@@ -97,7 +100,7 @@ function formatRuleSummary(rules: Input['rules']) {
   ].join('，');
 }
 
-export async function calculateBaziIndependentData(input: Source) {
+export async function calculateBaziIndependentData(input: Source, context?: RuntimeContext) {
   const source = {
     ...(input.birth ? { birth: input.birth } : {}),
     ...(input.birthRange ? { birthRange: input.birthRange } : {}),
@@ -109,16 +112,16 @@ export async function calculateBaziIndependentData(input: Source) {
   };
   if (source.birthRange) {
     const { start, end, pillars, ...settings } = source.birthRange;
-    const unknown = await calculateBaziTimeRange({ ...settings, startTimestamp: Date.parse(start), endTimestamp: Date.parse(end) }, source.gender);
+    const unknown = await calculateBaziTimeRange({ ...settings, startTimestamp: Date.parse(start), endTimestamp: Date.parse(end) }, source.gender, context?.staticDataset);
     if (pillars && unknown.segments.some((segment) => positions.some((position) => segment.pillars[position].ganZhi !== pillars[position]))) throw new Error('出生范围内的干支与所给四柱来源不一致。');
     return { input: source, chart: null, unknown, fortune: null, located: null };
   }
   if (!source.birth) throw new Error('缺少出生资料或出生范围。');
   if (source.birth.clock.kind !== 'exact') {
     const { clock, ...birth } = source.birth;
-    return { input: source, chart: null, unknown: await calculateUnknownBaziTime({ ...birth, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, source.gender), fortune: null, located: null };
+    return { input: source, chart: null, unknown: await calculateUnknownBaziTime({ ...birth, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, source.gender, context?.staticDataset), fortune: null, located: null };
   }
-  const baseChart = await calculateBaziPillars({ ...source.birth, clock: source.birth.clock }, source.gender, source.rules);
+  const baseChart = await calculateBaziPillars({ ...source.birth, clock: source.birth.clock }, source.gender, source.rules, context?.staticDataset);
   const chart = { ...baseChart, usefulGod: determineUsefulGod(baseChart) };
   const fortune = source.gender && source.birth.clock.kind === 'exact' ? calculateBaziFortune(chart, source.gender, source.rules?.fortuneRule) : null;
   const resolvedRules = resolveBaziRules(source.rules);
@@ -140,9 +143,12 @@ export async function calculateBaziIndependentData(input: Source) {
 }
 type Data = Awaited<ReturnType<typeof calculateBaziIndependentData>>;
 
-async function render(data: Data, question: string, options: Options) {
+async function render(data: Data, question: string, options: Options, context?: RuntimeContext) {
   const scope = options?.scope ?? 'full';
-  const details: Record<string, { description: string; traceHints?: string[] }> | null = options?.detailMode === 'full' ? (await import('./bazi/climate-details.json')).default : null;
+  const details: Record<string, { description: string; traceHints?: string[] }> | null =
+    options?.detailMode === 'full'
+      ? await loadStaticDataset<Record<string, { description: string; traceHints?: string[] }>>('bazi-climate-details', context?.staticDataset)
+      : null;
   const climateDetail = (id: string) => {
     const item = details?.[id];
     return item ? `；说明：${item.description}${item.traceHints?.length ? `；提示：${item.traceHints.join('、')}` : ''}` : '';
@@ -329,7 +335,7 @@ async function render(data: Data, question: string, options: Options) {
     `【格局组合与互制关系】\n${formatPatternRelations(patternRelations, { compact: !isFull })}`,
     `【格局透干与根气条件】\n${patternEvidenceText}`,
     isFull ? `【取用基础取向】\n${usefulBaselineText}` : '',
-    `【调候条件候选】\n节气${chart.climate.currentJieqi ?? '按月令当季论'}；${chart.climate.applicability}。\n${chart.climate.candidates.map((item) => `${item.label}（${item.status}，${item.mode}）：${item.hint}${item.missingInputs.length ? `；缺少${item.missingInputs.join('、')}` : ''}${climateDetail(item.id)}`).join('\n') || '未命中可列候选。'}${isFull ? `\n${chart.climate.limitation}` : ''}`,
+    `【调候条件候选】\n节气${chart.climate.currentJieqi ?? '按月令当季论'}；${chart.climate.applicability}。\n${chart.climate.candidates.map((item) => `${item.label}（${item.status}，${formatBaziClimateMode(item.mode)}）：${item.hint}${item.missingInputs.length ? `；缺少${item.missingInputs.join('、')}` : ''}${climateDetail(item.id)}`).join('\n') || '未命中可列候选。'}${isFull ? `\n${chart.climate.limitation}` : ''}`,
     isFull ? `【调候条件协调】\n${formatClimateDecision(chart.climateDecision, chart.climate.candidates)}` : '',
     `【司权、病药与通关候选】\n${usefulStrategyText}`,
     `【用神裁定与落位】\n${formatUsefulGod(chart.usefulGod)}`,
@@ -347,24 +353,24 @@ async function render(data: Data, question: string, options: Options) {
       return formatSchoolAlgorithmSection(schoolEvals, consensus.formattedText);
     })(),
     baziPromptTask(options),
-    '【任务】\n结合用户问题与上述旺衰、格局成败、兼带外象、调候用神及岁运引动综合推演，区分盘面事实、传统取象与条件性推论，指出必要的反证与资料缺口；未在盘面直接给出的具体应期日期与现实结果，不得将其当成已经算出的结论。双人合盘需另用 bazi-synastry。',
+    '【任务】\n结合用户问题与上述旺衰、格局成败、兼带外象、调候用神及岁运引动综合推演，区分盘面事实、传统取象与条件性推论，指出必要的反证与资料缺口；未在盘面直接给出的具体应期日期与现实结果，不得将其当成已经算出的结论。双人合盘需另用八字合盘。',
     `【问题】\n${question}`,
   ];
   const text = sections.filter(Boolean).join('\n\n');
   return { text };
 }
 
-export async function baziIndependent(input: Input) {
-  const data = await calculateBaziIndependentData(input);
+export async function baziIndependent(input: Input, context?: RuntimeContext) {
+  const data = await calculateBaziIndependentData(input, context);
   if (!data.chart) return { data, summary: { title: '八字出生时段', tags: [data.input.birthRange ? '指定出生范围' : data.unknown!.source.shichen ? '指定时辰' : '未知时辰', `${data.unknown!.segments.length} 个候选时段`],
-    lines: ['候选时段不能当作已确定的出生时间。', '未计算精确起运。'] }, prompt: await render(data, input.question, input.prompt) };
+    lines: ['候选时段不能当作已确定的出生时间。', '未计算精确起运。'] }, prompt: await render(data, input.question, input.prompt, context) };
   return { data, summary: { title: '八字命盘', tags: positions.map((position) => data.chart.pillars[position].ganZhi),
     lines: [data.chart.basis.precision === 'shichen' ? '时辰使用中点，不能代表整个时段。' : '已按明确出生时分秒排盘。', data.fortune ? '已计算十二步大运。' : '未计算大运。', data.located ? '已定位指定时刻岁运。' : '未指定岁运时刻。'] },
-    prompt: await render(data, input.question, input.prompt) };
+    prompt: await render(data, input.question, input.prompt, context) };
 }
 
-export async function promptForBaziIndependent(data: unknown, input: Source, question: string, options: Options) {
-  const expected = await calculateBaziIndependentData(input);
+export async function promptForBaziIndependent(data: unknown, input: Source, question: string, options: Options, context?: RuntimeContext) {
+  const expected = await calculateBaziIndependentData(input, context);
   if (!sameJsonValue(data, expected)) throw new Error('八字预览结果与出生资料或岁运时刻不一致。');
-  return render(expected, question, options);
+  return render(expected, question, options, context);
 }

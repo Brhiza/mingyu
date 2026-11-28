@@ -259,7 +259,7 @@ async function calculateExactData(source: Source) {
     limitations: [
       ...(source.includeTimeline
         ? ['已开启十二大限、当前大限十年流年、流年十二流月时间线与运限十二宫逐宫飞化结构。']
-        : ['默认仅展开指定参考瞬时运限四化定位；如需十二大限、十年流年与十二流月时间线，可传入 includeTimeline: true。']),
+        : ['默认仅展开指定参考瞬时运限四化定位；如需十二大限、十年流年与十二流月时间线，可在排盘设置中开启完整运限时间线。']),
       '运限四化仅定位该层化星的本命与动态宫位，不直接证明现实事件应期。',
       rules.ageDivide === 'birthday' ? '运限年龄按公历出生日换岁（按生辰换岁口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。' : '运限年龄使用农历自然年换岁（农历年换岁口径），超过 120 岁按小限 12 岁、大限 120 岁循环续行；排盘与飞化结果按自研紫微引擎与本命宫干规则计算。',
       rules.yearDivide === 'exact' || rules.horoscopeDivide === 'exact' ? '农历与干支历法基于统一历法引擎计算，按精确交节瞬时分界；重大边界仍建议核对出生记录。' : '农历与干支历法基于统一历法引擎计算，按农历正月初一换年换月分界。',
@@ -405,8 +405,12 @@ function renderExact(data: ExactData, question: string, options?: Options) {
   }).join(' + ');
   const flyingText = formatNatalFlying(data.natal.palaces);
   const feixingHighlights = options?.schools?.includes('feixing') ? formatFeixingHighlights(data.natal.palaces) : '';
-  const flowText = selected.map((key) => { const layer = data.reference!.layers[key];
-    return `${scopeLabels[key]}：${layer.heavenlyStem}${layer.earthlyBranch}，宫位索引${layer.index}${layer.nominalAge === undefined ? '' : `，虚岁${layer.nominalAge}`}；四化禄权科忌依序为${layer.mutagen.join('、')}；${formatScopeMutagens(layer.mutagenPlacements)}；十二宫序${layer.palaceNames.join('、')}；流曜${layer.stars?.map((stars, index) => stars.length ? `${data.natal.palaces[index].earthlyBranch}宫${stars.map((s) => s.name).join('、')}` : '').filter(Boolean).join('；') || '未列'}。`;
+  const isDetailedFlow = Boolean(data.input.includeTimeline || options?.schools?.includes('zhongzhou'));
+  const flowText = selected.map((key) => {
+    const layer = data.reference!.layers[key];
+    const core = `${scopeLabels[key]}：${layer.heavenlyStem}${layer.earthlyBranch}，宫位索引${layer.index}${layer.nominalAge === undefined ? '' : `，虚岁${layer.nominalAge}`}；四化禄权科忌依序为${layer.mutagen.join('、')}；${formatScopeMutagens(layer.mutagenPlacements)}`;
+    if (!isDetailedFlow) return `${core}。`;
+    return `${core}；十二宫序${layer.palaceNames.join('、')}；流曜${layer.stars?.map((stars, index) => stars.length ? `${data.natal.palaces[index].earthlyBranch}宫${stars.map((s) => s.name).join('、')}` : '').filter(Boolean).join('；') || '未列'}。`;
   }).join('\n');
   const threeTierOverlayText = data.reference?.layers
     ? formatThreeTierMutagenOverlay(

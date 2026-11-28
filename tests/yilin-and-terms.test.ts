@@ -3,12 +3,14 @@ import test from 'node:test';
 import { calculate } from '../src/core';
 import {
   YILIN_HEXAGRAM_ORDER,
+  ensureYilinLoaded,
   getYilinEntry,
   normalizeYilinHexagramName,
   queryYilinEntry,
   selectLiuyaoClassics,
   selectMeihuaClassics,
 } from '../src/systems/classics';
+import { ensureZhouyiLoaded } from '../src/systems/zhouyi-text';
 import {
   METAPHYSICS_TERMS,
   TERM_CATEGORIES,
@@ -17,7 +19,8 @@ import {
   searchMetaphysicsTerms,
 } from '../src/systems/terms';
 
-test('《焦氏易林》覆盖 4,096 卦变林辞并支持简繁异体与全名查询', () => {
+test('《焦氏易林》覆盖 4,096 卦变林辞并支持简繁异体与全名查询', async () => {
+  await ensureYilinLoaded();
   assert.equal(YILIN_HEXAGRAM_ORDER.length, 64);
 
   let nonEmptyCount = 0;
@@ -48,6 +51,7 @@ test('《焦氏易林》覆盖 4,096 卦变林辞并支持简繁异体与全名�
 });
 
 test('梅花与六爻仅在开启 includeClassics 时附带《焦氏易林》片段，默认输出不变', async () => {
+  await Promise.all([ensureYilinLoaded(), ensureZhouyiLoaded()]);
   const meihuaDirect = selectMeihuaClassics({
     trigrams: ['乾'],
     relation: '体用比和',

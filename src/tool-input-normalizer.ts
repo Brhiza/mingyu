@@ -319,10 +319,20 @@ export function normalizeAgentToolInput(
   if (!isPlainRecord(rawInput)) return {};
   const next: Record<string, unknown> = { ...rawInput };
 
-  // 1. 通用顶层字段：question / gender / relationship / referenceTime
+  // 1. 通用顶层字段：question / gender / relationship / referenceTime / outputLanguage
   if (typeof next.question !== 'string' || !next.question.trim()) {
     next.question = '请结合盘面核心结构与当前重点给出清晰分析与建议。';
   }
+  if (next.outputLanguage === undefined) {
+    const alias = typeof next.lang === 'string' && next.lang.trim()
+      ? next.lang.trim()
+      : typeof next.language === 'string' && next.language.trim()
+        ? next.language.trim()
+        : undefined;
+    if (alias) next.outputLanguage = alias;
+  }
+  delete next.lang;
+  delete next.language;
   if ('gender' in next) {
     next.gender = normalizeGenderValue(next.gender);
   }

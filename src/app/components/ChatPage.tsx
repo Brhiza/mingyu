@@ -19,6 +19,7 @@ export interface ChatPageProps {
   cases: readonly PersonalCase[];
   isRunning: boolean;
   statusText: string;
+  brandSeal?: React.ReactNode;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onNewChat: () => void;
@@ -51,6 +52,7 @@ export function ChatPage({
   cases,
   isRunning,
   statusText,
+  brandSeal,
   onSelectSession,
   onDeleteSession,
   onNewChat,
@@ -70,7 +72,7 @@ export function ChatPage({
   );
 
   const renderSessionList = (onPicked?: () => void) => (
-    <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain p-2.5">
       {sessions.map((item) => {
         const isActive = item.id === activeSession.id;
         return (
@@ -121,7 +123,7 @@ export function ChatPage({
   );
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-var(--topbar-height,60px)-36px)] min-h-[520px] w-full max-w-[var(--ws-canvas,1120px)] flex-col gap-3 max-[979px]:h-[calc(100dvh-146px-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] max-[979px]:min-h-[380px]">
+    <div className="mx-auto flex h-[calc(var(--mobile-visual-height,100dvh)-64px-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] min-h-[220px] w-full max-w-[var(--ws-canvas,1120px)] flex-col gap-3 min-[680px]:h-full min-[680px]:min-h-0 min-[680px]:flex-1">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {onBack ? (
@@ -166,7 +168,7 @@ export function ChatPage({
         {sidebarOpen ? (
           <aside
             aria-label="历史对话列表"
-            className="hidden w-[240px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] shadow-[0_2px_12px_rgba(32,24,16,0.035)] lg:flex"
+            className="hidden w-[268px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] shadow-[0_2px_12px_rgba(32,24,16,0.035)] lg:flex"
           >
             <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-3.5 py-2.5">
               <strong className="text-xs font-extrabold text-[var(--text-strong)]">
@@ -187,6 +189,7 @@ export function ChatPage({
             cases={cases}
             isRunning={isRunning}
             statusText={statusText}
+            brandSeal={brandSeal}
             onSendMessage={onSendMessage}
             onStop={onStop}
             onNewChat={onNewChat}

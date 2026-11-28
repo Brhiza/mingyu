@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { baziZiweiIndependentInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { calculateBaziIndependentData } from './bazi';
 import { calculateZiweiIndependentData, collectZiweiMajorStars, formatZiweiStarLabel } from './ziwei';
@@ -35,10 +36,10 @@ type Position = 'year' | 'month' | 'day' | 'hour';
 const labels: Record<Position, string> = { year: '年', month: '月', day: '日', hour: '时' };
 const ziweiSchools = { sanhe: '三合：核对命身宫与三方四正所列星曜及吉煞成败。', feixing: '飞星：核对本命宫干化星、落宫与离心/向心自化，以及已列运限四化落点（逐宫运限飞化按本命宫干映射参断）。', sihua: '四化：分别核对生年和所列运限的四化及我宫/他宫归属。', zhongzhou: '中州：核对对宫借星、双星组合、邻宫夹辅与运限流曜。' } as const;
 
-async function calculateData(input: Source) {
+async function calculateData(input: Source, context?: RuntimeContext) {
   const source = { birth: input.birth, gender: input.gender, ...(input.referenceTime ? { referenceTime: input.referenceTime } : {}), ...(input.ziweiRules ? { ziweiRules: input.ziweiRules } : {}), ...(input.prompt ? { prompt: input.prompt } : {}) };
   const exact = source.birth.clock.kind === 'exact';
-  const bazi = await calculateBaziIndependentData({ birth: source.birth, gender: source.gender, ...(exact && source.referenceTime ? { referenceTime: source.referenceTime } : {}) });
+  const bazi = await calculateBaziIndependentData({ birth: source.birth, gender: source.gender, ...(exact && source.referenceTime ? { referenceTime: source.referenceTime } : {}) }, context);
   const ziwei = await calculateZiweiIndependentData({ birth: source.birth, gender: source.gender, referenceTime: source.referenceTime, rules: source.ziweiRules });
   let alignment: { kind: 'exact'; timestamp: number } | { kind: 'candidates'; source: unknown; candidates: Array<{ startTimestamp: number; endTimestamp: number; endExclusive: true; timezone: number; baziIndex: number; ziweiIndex: number }> };
   if (bazi.chart && !('unknown' in ziwei)) {
@@ -138,9 +139,13 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   const zwSchools = options?.ziweiSchools?.map((school) => ziweiSchools[school]).join('\n');
   const useful = data.alignment.kind === 'exact' ? `${summarizeUsefulStrategy(view().usefulStrategy)}\n${formatUsefulGod(view().usefulGod)}` : selected !== undefined ? `${summarizeUsefulStrategy(view(selected).usefulStrategy)}\n${formatUsefulGod(view(selected).usefulGod)}` : data.alignment.candidates.map((_, index) => `候选 ${index}：${summarizeUsefulStrategy(view(index).usefulStrategy)}；用神裁定${view(index).usefulGod.incrementStatus}（主用${view(index).usefulGod.useful}、喜${view(index).usefulGod.favorableWuxing.join('、') || '中和随运调衡'}、忌${view(index).usefulGod.unfavorableWuxing.join('、') || '随岁运偏颇防忌'}）`).join('\n');
   const patternEvidence = data.alignment.kind === 'exact' ? formatPatternEvidence(view().patternEvidence) : selected !== undefined ? formatPatternEvidence(view(selected).patternEvidence) : '格局透干根气按各出生候选分别保存在结构化结果；选择候选后可展开。';
+  const formatShenshaCompact = (s: ReturnType<typeof view>['shensha']) =>
+    detail === 'professional'
+      ? formatBaziShensha(s)
+      : `${formatBaziShenshaHits(s, false)}${s.unavailable.length ? `\n${s.unavailable.map((item) => item.name).join('、')}因未提供性别未计算。` : ''}`;
   let shensha: string;
-  if (data.alignment.kind === 'exact') shensha = formatBaziShensha(view().shensha);
-  else if (selected !== undefined) shensha = formatBaziShensha(view(selected).shensha);
+  if (data.alignment.kind === 'exact') shensha = formatShenshaCompact(view().shensha);
+  else if (selected !== undefined) shensha = formatShenshaCompact(view(selected).shensha);
   else {
     const parts = partitionBaziShensha(data.alignment.candidates.map((_, index) => view(index).shensha));
     const withBasis = detail === 'professional';
@@ -206,12 +211,12 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   ].filter(Boolean).join('\n\n');
   return { text };
 }
-export async function baziZiweiIndependent(input: Input) {
-  const data = await calculateData(input);
+export async function baziZiweiIndependent(input: Input, context?: RuntimeContext) {
+  const data = await calculateData(input, context);
   return { data, summary: { title: '八字紫微合参', lines: [data.alignment.kind === 'exact' ? '两盘共用精确出生瞬时' : `出生时间交集：${data.alignment.candidates.length} 段`, `主题：${themes.length} 项`] }, prompt: render(data, input.question, input.prompt) };
 }
-export async function promptForSavedBaziZiweiIndependent(data: unknown, source: Source, question: string, options?: Input['prompt']) {
-  const expected = await calculateData(source);
+export async function promptForSavedBaziZiweiIndependent(data: unknown, source: Source, question: string, options?: Input['prompt'], context?: RuntimeContext) {
+  const expected = await calculateData(source, context);
   if (!sameJsonValue(data, expected, 1e-9)) throw new Error('八字紫微合参与出生资料不一致。');
   return render(expected, question, options ?? source.prompt);
 }

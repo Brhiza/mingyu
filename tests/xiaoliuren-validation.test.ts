@@ -23,3 +23,17 @@ test('复用小六壬盘面时按起课时间和口径核对历法及宫位', as
   assert.match(prompt.prompt.text, /新问题/);
   assert.doesNotMatch(prompt.prompt.text, /伪造/);
 });
+
+test('小六壬支持真太阳时经度校正与防篡改校验', async () => {
+  const iso = '2025-05-01T15:30:00Z';
+  const beijing = await calculate('xiaoliuren', { question: '寻人', currentTime: iso, xiaoliuren: { rule: 'common', timeStandard: 'beijing' } });
+  const kashgar = await calculate('xiaoliuren', { question: '寻人', currentTime: iso, xiaoliuren: { rule: 'common', timeStandard: 'true-solar', longitude: 76 } });
+  assert.equal(kashgar.data.timeContext?.standard, 'true-solar');
+  assert.notEqual(kashgar.data.hourLabel, beijing.data.hourLabel);
+  const next = await reprompt({ method: 'xiaoliuren', result: kashgar, question: '再问方位' });
+  assert.match(next.prompt.text, /真太阳时/);
+  const tampered = structuredClone(kashgar);
+  tampered.data.timeContext!.longitude = 120;
+  await assert.rejects(() => reprompt({ method: 'xiaoliuren', result: tampered, question: '篡改经度' }));
+  await assert.rejects(() => calculate('xiaoliuren', { question: '缺经度', currentTime: iso, xiaoliuren: { timeStandard: 'true-solar' } }));
+});

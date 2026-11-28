@@ -1,6 +1,5 @@
 import type { Method } from '../schema';
 import type { BirthPlaceModalOptions } from '../v2-ui/birth-place-modal';
-import type { SupplementaryInfoValues } from '../v2-ui/inspiration-modals';
 
 export interface PlaceModalSession {
   key: number;
@@ -12,13 +11,6 @@ export interface InspirationModalSession {
   method?: Method;
   selectedQuestion?: string;
   onSelect: (question: string) => void;
-}
-
-export interface SupplementaryModalSession {
-  key: number;
-  values?: Partial<SupplementaryInfoValues>;
-  description?: string;
-  onSave: (values: SupplementaryInfoValues) => void;
 }
 
 export interface TermModalFallback {
@@ -42,7 +34,6 @@ export interface TermModalSession {
 interface ModalBusSnapshot {
   place: PlaceModalSession | null;
   inspiration: InspirationModalSession | null;
-  supplementary: SupplementaryModalSession | null;
   term: TermModalSession | null;
 }
 
@@ -50,7 +41,6 @@ let seq = 0;
 let snapshot: ModalBusSnapshot = {
   place: null,
   inspiration: null,
-  supplementary: null,
   term: null,
 };
 
@@ -101,20 +91,6 @@ export function openQuestionInspirationSession(
 export function closeQuestionInspirationSession(): void {
   if (!snapshot.inspiration) return;
   snapshot = { ...snapshot, inspiration: null };
-  notify();
-}
-
-export function openSupplementaryInfoSession(
-  params: Omit<SupplementaryModalSession, 'key'>,
-): void {
-  const key = ++seq;
-  snapshot = { ...snapshot, supplementary: { key, ...params } };
-  notify();
-}
-
-export function closeSupplementaryInfoSession(): void {
-  if (!snapshot.supplementary) return;
-  snapshot = { ...snapshot, supplementary: null };
   notify();
 }
 

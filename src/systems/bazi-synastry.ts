@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { baziSynastryIndependentInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { calculateBaziPillars, type PillarName } from './bazi/pillars';
 import { calculateBaziFortune, locateBaziFortune } from './bazi/fortune';
@@ -56,7 +57,7 @@ const relationTasks = {
   },
 } as const;
 
-async function buildData(input: Source) {
+async function buildData(input: Source, context?: RuntimeContext) {
   const unselected = [input.person1, input.person2].some((person) => person.clock.kind !== 'exact' && person.candidateIndex === undefined);
   const source = { person1: input.person1, person2: input.person2, relationship: input.relationship ?? 'marriage' as const,
     ...(input.referenceTime ? { referenceTime: input.referenceTime } : {}),
@@ -65,7 +66,7 @@ async function buildData(input: Source) {
   const calculatePerson = async (person: Input['person1']) => {
     const { name: _name, candidateIndex, gender, ...birth } = person;
     if (birth.clock.kind === 'exact') {
-      const baseChart = await calculateBaziPillars({ ...birth, clock: birth.clock }, gender);
+      const baseChart = await calculateBaziPillars({ ...birth, clock: birth.clock }, gender, undefined, context?.staticDataset);
       const chart = { ...baseChart, usefulGod: determineUsefulGod(baseChart), candidate: null };
       const fortune = gender ? calculateBaziFortune(chart, gender) : null;
       const located = source.referenceTime && fortune
@@ -74,7 +75,7 @@ async function buildData(input: Source) {
       return { chart, exactChart: chart, fortune, located, gender, variants: [{ index: null, pillars: chart.pillars }], candidates: [] };
     }
     const { clock, ...day } = birth;
-    const range = await calculateUnknownBaziTime({ ...day, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, gender);
+    const range = await calculateUnknownBaziTime({ ...day, ...(clock.kind === 'shichen' ? { shichenIndex: clock.index } : {}) }, gender, context?.staticDataset);
     const candidates = range.segments.map((item, index) => ({ index, startTimestamp: item.startTimestamp, endTimestamp: item.endTimestamp, endExclusive: true as const, timezone: item.timezone,
       pillars: Object.fromEntries(positions.map((position) => [position, item.pillars[position].ganZhi])), monthCommander: item.monthCommander.stem }));
     const variants = range.segments.map((item, index) => ({ index, pillars: item.pillars }));
@@ -536,14 +537,14 @@ function render(data: Data, question: string, options: Input['prompt']) {
   ].filter(Boolean).join('\n\n');
   return { text };
 }
-export async function baziSynastryIndependent(input: Input) {
-  const data = await buildData(input);
+export async function baziSynastryIndependent(input: Input, context?: RuntimeContext) {
+  const data = await buildData(input, context);
   return { data, summary: { title: '八字双人合盘', lines: data.compatibility && data.charts.person1 && data.charts.person2
     ? [`第一人日柱：${data.charts.person1.pillars.day.ganZhi}`, `第二人日柱：${data.charts.person2.pillars.day.ganZhi}`]
     : [`双方出生候选共 ${data.candidateComparison!.total} 组`, '尚未选定完整双盘。'] }, prompt: render(data, input.question, input.prompt) };
 }
-export async function promptForSavedBaziSynastryIndependent(data: unknown, input: Source, question: string, options: Input['prompt']) {
-  const expected = await buildData(input);
+export async function promptForSavedBaziSynastryIndependent(data: unknown, input: Source, question: string, options: Input['prompt'], context?: RuntimeContext) {
+  const expected = await buildData(input, context);
   if (!sameJsonValue(data, expected)) throw new Error('八字双盘结果与双方出生资料不一致。');
   return render(expected, question, options);
 }

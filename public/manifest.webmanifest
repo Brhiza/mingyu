@@ -1,7 +1,7 @@
 {
-  "name": "命语 · 东方数术排盘工作台",
+  "name": "命语",
   "short_name": "命语",
-  "description": "免费开源的在线算命、占卜排盘与 AI 解读提示词工具。",
+  "description": "观四时之命，译数术之语。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

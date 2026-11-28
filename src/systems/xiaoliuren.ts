@@ -1,4 +1,5 @@
 import { SolarTime } from 'tyme4ts';
+import { trueSolarTime } from './astronomy/true-solar';
 import { getSplitSolarPillars } from './calendar';
 import type { z } from 'zod';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
@@ -29,6 +30,14 @@ type Data = {
   ganzhi: { year: string; month: string; day: string; hour: string };
   calculation: { lunarMonth: number; lunarDay: number; hourNumber: number; monthCount: number; dayCount: number; hourCount: number; monthPalaceIndex: number; dayPalaceIndex: number; hourPalaceIndex: number; dayBoundary: string; leapMonthRule: string };
   sequence: { month: Palace; day: Palace; hour: Palace }; primary: Palace; palaceOrder: Palace[];
+  timeContext?: {
+    standard: 'true-solar';
+    longitude: number;
+    referenceTimestamp: number;
+    longitudeCorrectionMinutes: number;
+    equationOfTimeMinutes: number;
+    totalCorrectionMinutes: number;
+  };
   evidenceAnalysis: {
     source: string; steps: { stage: string; count: number; index: number; palace: string; role: string }[];
     palaceDetails: {
@@ -218,21 +227,26 @@ function createData(instant: Date, rule: Rule, settings?: NonNullable<Input['xia
   const ziHourMode = resolveXiaoliurenZiHourMode(settings?.ziHourMode);
   const leapMonthMode = settings?.leapMonthMode ?? 'same';
   const numbers = settings?.numbers;
-  const wall = new Date(instant.getTime() + 8 * 60 * 60 * 1000);
+  const useTrueSolar =
+    settings?.timeStandard === 'true-solar' && settings.longitude !== undefined;
+  const correction = useTrueSolar ? trueSolarTime(instant, settings.longitude!) : undefined;
+  const effectiveInstant = correction ? new Date(correction.effectiveTimestamp) : instant;
+  const actualWall = new Date(instant.getTime() + 8 * 60 * 60 * 1000);
+  const wall = new Date(effectiveInstant.getTime() + 8 * 60 * 60 * 1000);
   const hour = wall.getUTCHours();
-  const lunarDateWall = ziHourMode === '23:00' && hour === 23 ? new Date(instant.getTime() + 9 * 60 * 60 * 1000) : wall;
+  const lunarDateWall = ziHourMode === '23:00' && hour === 23 ? new Date(effectiveInstant.getTime() + 9 * 60 * 60 * 1000) : wall;
   const solar = SolarTime.fromYmdHms(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), hour, wall.getUTCMinutes(), 0);
   const lunarDateSolar = SolarTime.fromYmdHms(lunarDateWall.getUTCFullYear(), lunarDateWall.getUTCMonth() + 1, lunarDateWall.getUTCDate(), ziHourMode === '23:00' && hour === 23 ? 0 : hour, wall.getUTCMinutes(), 0);
-  const termSolar = SolarTime.fromYmdHms(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), hour, wall.getUTCMinutes(), wall.getUTCSeconds());
+  const termSolar = SolarTime.fromYmdHms(actualWall.getUTCFullYear(), actualWall.getUTCMonth() + 1, actualWall.getUTCDate(), actualWall.getUTCHours(), actualWall.getUTCMinutes(), actualWall.getUTCSeconds());
   const lunar = lunarDateSolar.getLunarHour().getLunarDay();
   const pillars = getSplitSolarPillars(
     {
-      year: wall.getUTCFullYear(),
-      month: wall.getUTCMonth() + 1,
-      day: wall.getUTCDate(),
-      hour,
-      minute: wall.getUTCMinutes(),
-      second: wall.getUTCSeconds(),
+      year: actualWall.getUTCFullYear(),
+      month: actualWall.getUTCMonth() + 1,
+      day: actualWall.getUTCDate(),
+      hour: actualWall.getUTCHours(),
+      minute: actualWall.getUTCMinutes(),
+      second: actualWall.getUTCSeconds(),
     },
     {
       year: wall.getUTCFullYear(),
@@ -257,7 +271,8 @@ function createData(instant: Date, rule: Rule, settings?: NonNullable<Input['xia
   const monthCount = numbers ? numbers[0] : effectiveMonth;
   const dayCount = numbers ? numbers[0] + numbers[1] - 1 + offset : effectiveMonth + lunarDay - 1 + offset;
   const hourCount = numbers ? numbers[0] + numbers[1] + numbers[2] - 2 + offset : effectiveMonth + lunarDay + hourNumber - 2 + offset;
-  const dayBoundary = ziHourMode === '23:00' ? '东八区晚子时（23:00）换日' : '东八区民用日零点换日';
+  const dayBoundaryPrefix = correction ? `真太阳时（经度 ${correction.longitude.toFixed(2)}°）· ` : '';
+  const dayBoundary = `${dayBoundaryPrefix}${ziHourMode === '23:00' ? '东八区晚子时（23:00）换日' : '东八区民用日零点换日'}`;
   const leapMonthRule = leapMonthMode === 'next'
     ? '闰月按下一月序顺推'
     : leapMonthMode === 'split-15'
@@ -288,6 +303,18 @@ function createData(instant: Date, rule: Rule, settings?: NonNullable<Input['xia
     },
     primary: palace(calculation.hourPalaceIndex, rule),
     palaceOrder: names.map((_, index) => palace(index, rule)),
+    ...(correction
+      ? {
+          timeContext: {
+            standard: 'true-solar' as const,
+            longitude: correction.longitude,
+            referenceTimestamp: instant.getTime(),
+            longitudeCorrectionMinutes: correction.longitudeCorrectionMinutes,
+            equationOfTimeMinutes: correction.equationOfTimeMinutes,
+            totalCorrectionMinutes: correction.totalCorrectionMinutes,
+          },
+        }
+      : {}),
     evidenceAnalysis: (() => {
       const mName = names[calculation.monthPalaceIndex];
       const dName = names[calculation.dayPalaceIndex];
@@ -354,9 +381,15 @@ export function promptForXiaoliuren(value: unknown, question: string, options: I
     ...(data.ziHourMode ? { ziHourMode: data.ziHourMode } : {}),
     ...(data.leapMonthMode ? { leapMonthMode: data.leapMonthMode } : {}),
     ...(data.numbers ? { numbers: data.numbers } : {}),
+    ...(data.timeContext?.standard === 'true-solar' && typeof data.timeContext.longitude === 'number'
+      ? { timeStandard: 'true-solar' as const, longitude: data.timeContext.longitude }
+      : {}),
   });
   const fields = ['ruleLabel', 'method', 'methodLabel', 'lunarMonth', 'lunarDay', 'isLeapMonth', 'hourIndex', 'hourLabel', 'ganzhi', 'calculation', 'sequence', 'primary', 'palaceOrder'] as const;
   for (const field of fields) if (!sameJsonValue(data[field], canonical[field])) throw new Error(`小六壬盘面 ${field} 与起课时间或口径不一致。`);
+  if (!sameJsonValue(data.timeContext ?? null, canonical.timeContext ?? null)) {
+    throw new Error('小六壬盘面真太阳时口径与起课时间不一致。');
+  }
   return buildPrompt(canonical, question, options, now);
 }
 
@@ -382,7 +415,7 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
   const sections = [
     `【传统依据】\n按${data.ruleLabel}的月、日、时逐宫顺数；时宫是本次主占得宫，兼看月日时三宫（起因→过程→落点）生克与时支体用关系。`,
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
-    `【时间】\n起课：${new Date(data.timestamp).toISOString()}；提示词时间：${now}；历法时区 UTC+08:00。`,
+    `【时间】\n起课：${new Date(data.timestamp).toISOString()}；提示词时间：${now}；${data.timeContext ? `真太阳时（经度 ${data.timeContext.longitude}°，修正 ${data.timeContext.totalCorrectionMinutes.toFixed(1)} 分钟）` : '历法时区 UTC+08:00'}。`,
     `【占卜资料】\n${methodNote}农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}；干支：${Object.values(data.ganzhi).join(' ')}。\n月宫（初/起因）：${data.sequence.month.name}（${data.evidenceAnalysis.palaceDetails.month.deity}、${data.evidenceAnalysis.palaceDetails.month.element}）；日宫（中/过程）：${data.sequence.day.name}（${data.evidenceAnalysis.palaceDetails.day.deity}、${data.evidenceAnalysis.palaceDetails.day.element}）；时宫（末/主占）：${data.primary.name}（${hDetail.deity}、${hDetail.direction}、${hDetail.yinYang}${hDetail.element}、成数 ${hDetail.numbers.join('/')}）。\n占得宫歌诀：${data.primary.verse}\n历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}。`,
     `【三宫与体用生克】\n${sanGong.combinationSummary}\n体用关系：${sanGong.tiYongRelation}。`,
     `【三宫递进与体用制衡关系】\n${relations.text}`,

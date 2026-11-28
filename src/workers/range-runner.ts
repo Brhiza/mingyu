@@ -67,6 +67,9 @@ export async function runRangeScanInBackground(
   return runOnMainThread();
 
   async function runOnMainThread(): Promise<unknown> {
+    if (typeof __MINGYU_BROWSER_ASSETS__ !== 'undefined' && __MINGYU_BROWSER_ASSETS__) {
+      throw new Error('当前浏览器不支持后台计算线程，请刷新或更换现代浏览器重试。');
+    }
     const progressOptions = {
       signal: options.signal,
       onProgress: options.onProgress,

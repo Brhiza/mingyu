@@ -3,13 +3,16 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   svgEl,
   type UnknownRecord,
 } from './dom';
 import { createMobileDetailSheet } from './shared';
+import { formatHuangjiTableLabel } from '../systems/prompt-format';
 
 const TAIYI_NINE_GRID: Array<{ palace: number; gua: string; sym: string; dir: string }> = [
   { palace: 9, gua: '巽', sym: '☴', dir: '东南' },
@@ -113,8 +116,6 @@ function renderTaiyi(container: HTMLElement, data: UnknownRecord): boolean {
     .join(' · ');
 
   const meta = createMetaGrid([
-    [accLabel, accVal !== undefined ? String(accVal) : undefined],
-    ['入纪元', entryYears !== undefined ? `${entryYears}年` : undefined],
     [
       '主算 / 客算 / 定算',
       [
@@ -315,10 +316,6 @@ function renderTaiyi(container: HTMLElement, data: UnknownRecord): boolean {
     container.append(relWrap);
   }
 
-  if (tacticGuidance) {
-    container.append(el('p', 'wb-note-box', tacticGuidance));
-  }
-
   const ev = asRecord(chart.evidenceAnalysis);
   const primaryFacts = asArray(ev?.primaryFacts).map(asString).filter((x): x is string => Boolean(x));
   const counterEv = asArray(ev?.counterEvidence).map(asString).filter((x): x is string => Boolean(x));
@@ -326,27 +323,47 @@ function renderTaiyi(container: HTMLElement, data: UnknownRecord): boolean {
     .map((j) => (typeof j === 'string' ? j : asString(asRecord(j)?.summary) ?? asString(asRecord(j)?.text)))
     .filter((x): x is string => Boolean(x));
 
-  if (judgments.length > 0 || primaryFacts.length > 0) {
-    const jSec = el('div', 'lr-section');
-    jSec.append(el('h4', 'lr-section-title', '太乙格局断语与核验要点'));
-    const list = el('div', 'wb-computed-list');
-    for (const txt of judgments.slice(0, 6)) {
-      const card = el('div', 'wb-computed-item');
-      card.append(el('p', 'wb-computed-desc', txt));
-      list.append(card);
-    }
-    for (const pf of primaryFacts.slice(0, 4)) {
-      const card = el('div', 'wb-computed-item is-good');
-      card.append(el('p', 'wb-computed-desc', pf));
-      list.append(card);
-    }
-    for (const ce of counterEv.slice(0, 3)) {
-      const card = el('div', 'wb-computed-item is-bad');
-      card.append(el('p', 'wb-computed-desc', `限制：${ce}`));
-      list.append(card);
-    }
-    jSec.append(list);
-    container.append(jSec);
+  if (accVal !== undefined || entryYears !== undefined || tacticGuidance || judgments.length > 0 || primaryFacts.length > 0 || counterEv.length > 0) {
+    const tyCount = judgments.length + primaryFacts.length + counterEv.length;
+    const tyBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '积数推演与断语核验',
+        '太乙积数推演与格局断语',
+        () => {
+          const frag = document.createDocumentFragment();
+          const calcMeta = createMetaGrid([
+            [accLabel, accVal !== undefined ? String(accVal) : undefined],
+            ['入纪元', entryYears !== undefined ? `${entryYears}年` : undefined],
+          ]);
+          if (calcMeta) frag.append(calcMeta);
+          if (tacticGuidance) {
+            frag.append(el('p', 'wb-note-box', tacticGuidance));
+          }
+          if (tyCount > 0) {
+            const list = el('div', 'wb-computed-list');
+            for (const txt of judgments) {
+              const card = el('div', 'wb-computed-item');
+              card.append(el('p', 'wb-computed-desc', txt));
+              list.append(card);
+            }
+            for (const pf of primaryFacts) {
+              const card = el('div', 'wb-computed-item is-good');
+              card.append(el('p', 'wb-computed-desc', pf));
+              list.append(card);
+            }
+            for (const ce of counterEv) {
+              const card = el('div', 'wb-computed-item is-bad');
+              card.append(el('p', 'wb-computed-desc', `限制：${ce}`));
+              list.append(card);
+            }
+            frag.append(list);
+          }
+          return frag;
+        },
+        tyCount > 0 ? `${tyCount}项` : undefined,
+      ),
+    ]);
+    if (tyBar) container.append(tyBar);
   }
 
   return true;
@@ -390,13 +407,15 @@ function appendHexCard(
 
 function renderHuangjiReference(container: HTMLElement, ref: UnknownRecord): boolean {
   const title = asString(ref.title) ?? '皇极经世参考表';
+  const tableKey = asString(ref.table) ?? '';
+  const tableLabel = formatHuangjiTableLabel(tableKey) || '参考表';
   const shiIdx = asNumber(ref.shiIndex);
   const branch = asString(ref.branch);
   container.append(
     createBoardHeader(
       title,
       shiIdx !== undefined ? `经辰 ${shiIdx} · ${branch ?? ''}` : undefined,
-      [{ text: asString(ref.table) ?? '参考表', tone: 'accent' }],
+      [{ text: tableLabel, tone: 'accent' }],
     ),
   );
   const rows = asArray(ref.rows).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
@@ -417,6 +436,58 @@ function renderHuangjiReference(container: HTMLElement, ref: UnknownRecord): boo
     container.append(list);
     return true;
   }
+
+  if (tableKey === 'sound-rhythm') {
+    const bodyCounts = asRecord(ref.bodyCounts);
+    const soundCats = asArray(ref.soundCategories).map(asString).filter(Boolean);
+    const toneCats = asArray(ref.toneCategories).map(asString).filter(Boolean);
+    const meta = createMetaGrid([
+      [
+        '体用总目',
+        bodyCounts
+          ? `天体 ${asNumber(bodyCounts.heavenlyBody) ?? '—'} · 地体 ${asNumber(bodyCounts.earthlyBody) ?? '—'} · 天用声 ${asNumber(bodyCounts.heavenlyUseSound) ?? '—'} · 地用音 ${asNumber(bodyCounts.earthlyUseTone) ?? '—'}`
+          : undefined,
+      ],
+      ['四声分类', soundCats.join(' · ') || undefined],
+      ['四音分类', toneCats.join(' · ') || undefined],
+    ]);
+    if (meta) container.append(meta);
+
+    const diagrams = asArray(ref.diagramCounts).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+    const rules = asArray(ref.rules).map(asString).filter((x): x is string => Boolean(x));
+    const list = el('div', 'wb-computed-list');
+    for (const d of diagrams) {
+      const card = el('div', 'wb-computed-item');
+      card.append(el('strong', 'wb-computed-title', `${asString(d.name) ?? ''}：${asNumber(d.value) ?? ''}`));
+      if (asString(d.formula)) card.append(el('p', 'wb-computed-desc', `推算：${asString(d.formula)}`));
+      list.append(card);
+    }
+    for (const rule of rules) {
+      const card = el('div', 'wb-computed-item');
+      card.append(el('p', 'wb-computed-desc', rule));
+      list.append(card);
+    }
+    if (list.childElementCount > 0 || meta) {
+      if (list.childElementCount > 0) container.append(list);
+      return true;
+    }
+  }
+
+  if (tableKey === 'animal-plant') {
+    const counts = asArray(ref.counts).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+    if (counts.length > 0) {
+      const list = el('div', 'wb-computed-list');
+      for (const c of counts) {
+        const card = el('div', 'wb-computed-item');
+        card.append(el('strong', 'wb-computed-title', `${asString(c.name) ?? ''}：${asNumber(c.value) ?? ''}`));
+        if (asString(c.formula)) card.append(el('p', 'wb-computed-desc', `推算：${asString(c.formula)}`));
+        list.append(card);
+      }
+      container.append(list);
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -544,13 +615,29 @@ function renderHuangji(container: HTMLElement, data: UnknownRecord): boolean {
   const interpOrder = asArray(reading?.interpretationOrder).map(asString).filter(Boolean).join(' → ');
   const hjMeta = createMetaGrid([
     ['值年重点', asString(reading?.annualFocus)],
-    ['世运背景', asString(reading?.cycleContext)],
-    ['参断次序', interpOrder || undefined],
   ]);
   if (hjMeta) container.append(hjMeta);
 
-  if (asString(eraTrend?.summary)) {
-    container.append(el('p', 'wb-note-box', asString(eraTrend?.summary)));
+  const cycleCtx = asString(reading?.cycleContext);
+  const eraSummary = asString(eraTrend?.summary);
+  if (cycleCtx || interpOrder || eraSummary) {
+    const hjBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '世运脉络与参断次序',
+        '皇极经世世运背景与参断次序',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (eraSummary) frag.append(el('p', 'wb-note-box', eraSummary));
+          const detailMeta = createMetaGrid([
+            ['世运背景', cycleCtx],
+            ['参断次序', interpOrder || undefined],
+          ]);
+          if (detailMeta) frag.append(detailMeta);
+          return frag;
+        },
+      ),
+    ]);
+    if (hjBar) container.append(hjBar);
   }
 
   return true;

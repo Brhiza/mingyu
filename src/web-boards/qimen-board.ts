@@ -3,7 +3,9 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   type UnknownRecord,
@@ -363,11 +365,35 @@ function renderQimen(container: HTMLElement, data: UnknownRecord): boolean {
   const goodDirsList = asArray(dirs?.goodDirections).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
   const avoidDirsList = asArray(dirs?.avoidDirections).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
 
+  const hourStem = (asString(ganzhi?.hour) ?? '').slice(0, 1);
+  const hourBranch = (asString(ganzhi?.hour) ?? '').slice(1, 2);
+  const xunShou =
+    asString(timeInfo?.xunShou) ??
+    asString(data.xunShou) ??
+    (() => {
+      if (!hourStem || !hourBranch) return undefined;
+      const stems = '甲乙丙丁戊己庚辛壬癸';
+      const branches = '子丑寅卯辰巳午未申酉戌亥';
+      const sIdx = stems.indexOf(hourStem);
+      const bIdx = branches.indexOf(hourBranch);
+      if (sIdx < 0 || bIdx < 0) return undefined;
+      const headB = branches[(bIdx - sIdx + 12) % 12];
+      const yiMap: Record<string, string> = { 子: '戊', 戌: '己', 申: '庚', 午: '辛', 辰: '壬', 寅: '癸' };
+      return headB ? `甲${headB}${yiMap[headB] ?? ''}` : undefined;
+    })();
+  const plateMethod = asString(data.method) === 'feipan' ? '飞盘' : asString(data.method) === 'zhuanpan' ? '转盘' : undefined;
+  const rawJuMethod = asString(timeInfo?.juMethod) ?? asString(data.juMethod);
+  const juMethodLabel =
+    rawJuMethod === 'zhirun' ? '置闰' : rawJuMethod === 'maoshan' ? '茅山' : rawJuMethod === 'chaibu' ? '拆补' : undefined;
+  const setupModeLabel = [plateMethod, juMethodLabel].filter(Boolean).join('·');
+
   const title = `${isYang ? '阳遁' : '阴遁'}${juShu ?? ''}局 · 奇门九宫`;
   const subtitleParts = [
     asString(timeInfo?.solarTerm),
     asString(timeInfo?.epoch),
     asString(timeInfo?.fuTou) ? `符头${asString(timeInfo?.fuTou)}` : undefined,
+    xunShou ? `旬首${xunShou}` : undefined,
+    setupModeLabel || undefined,
     ganzhi ? `${asString(ganzhi.year) ?? ''} ${asString(ganzhi.month) ?? ''} ${asString(ganzhi.day) ?? ''} ${asString(ganzhi.hour) ?? ''}`.trim() : undefined,
   ].filter(Boolean);
 
@@ -487,40 +513,13 @@ function renderQimen(container: HTMLElement, data: UnknownRecord): boolean {
   container.append(grid, legend, detailSheet.element);
   selectPalace(defaultGong);
 
-  // 展示引擎已计算出的局象特征与十干克应经典格局
+  // 局象特征、十干克应格局与星门神仪组合收纳进弹窗，主界面保持清爽
   const patternDetails = asArray(data.patternDetails).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
   const specialCond = asRecord(data.specialConditions);
-
-  if (patternDetails.length > 0 || classicPatterns.length > 0 || asString(specialCond?.description)) {
-    const patSec = el('div', 'lr-section qm-patterns-section');
-    patSec.append(el('h4', 'lr-section-title', '局象特征与十干克应格局'));
-
-    if (asString(specialCond?.description)) {
-      patSec.append(el('p', 'wb-note-box', asString(specialCond?.description)));
-    }
-
-    if (patternDetails.length > 0 || classicPatterns.length > 0) {
-      const list = el('div', 'wb-computed-list');
-      for (const pd of patternDetails.slice(0, 6)) {
-        const card = el('div', 'wb-computed-item');
-        card.append(el('strong', 'wb-computed-title', asString(pd.tag) ?? '局象'));
-        if (asString(pd.summary)) card.append(el('p', 'wb-computed-desc', asString(pd.summary)));
-        list.append(card);
-      }
-      for (const cp of classicPatterns.slice(0, 8)) {
-        const tp = asString(cp.type);
-        const card = el('div', `wb-computed-item ${tp === 'good' ? 'is-good' : tp === 'bad' ? 'is-bad' : ''}`.trim());
-        card.append(el('strong', 'wb-computed-title', asString(cp.name) ?? '十干格局'));
-        if (asString(cp.summary)) card.append(el('p', 'wb-computed-desc', asString(cp.summary)));
-        list.append(card);
-      }
-      patSec.append(list);
-    }
-    container.append(patSec);
-  }
-
-  // 补充展示应期、方位吉凶、月令旺相与星门组合
   const patternCombos = asArray(data.patternCombos).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+  const specialCondDesc = asString(specialCond?.description);
+  const totalPatternCount = patternDetails.length + classicPatterns.length + patternCombos.length;
+
   const yingQi = asRecord(data.yingQi);
   const seasonality = asRecord(data.seasonality);
 
@@ -561,18 +560,52 @@ function renderQimen(container: HTMLElement, data: UnknownRecord): boolean {
     if (goodDirs) extraPairs.push(['吉利方位', goodDirs]);
     if (badDirs) extraPairs.push(['忌避方位', badDirs]);
   }
-  if (patternCombos.length > 0) {
-    extraPairs.push([
-      '星门神仪组合',
-      patternCombos
-        .slice(0, 6)
-        .map((c) => asString(c.name) ?? asString(c.summary))
-        .filter(Boolean)
-        .join('；'),
-    ]);
-  }
   const extraMeta = createMetaGrid(extraPairs);
   if (extraMeta) container.append(extraMeta);
+
+  const qimenPatternTrigger =
+    totalPatternCount > 0 || specialCondDesc
+      ? createBoardModalTrigger(
+          '局象与十干格局',
+          '奇门局象与十干克应格局',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (specialCondDesc) {
+              frag.append(el('p', 'wb-note-box', specialCondDesc));
+            }
+            if (patternDetails.length > 0 || classicPatterns.length > 0) {
+              const list = el('div', 'wb-computed-list');
+              for (const pd of patternDetails) {
+                const card = el('div', 'wb-computed-item');
+                card.append(el('strong', 'wb-computed-title', asString(pd.tag) ?? '局象'));
+                if (asString(pd.summary)) card.append(el('p', 'wb-computed-desc', asString(pd.summary)));
+                list.append(card);
+              }
+              for (const cp of classicPatterns) {
+                const tp = asString(cp.type);
+                const card = el('div', `wb-computed-item ${tp === 'good' ? 'is-good' : tp === 'bad' ? 'is-bad' : ''}`.trim());
+                card.append(el('strong', 'wb-computed-title', asString(cp.name) ?? '十干格局'));
+                if (asString(cp.summary)) card.append(el('p', 'wb-computed-desc', asString(cp.summary)));
+                list.append(card);
+              }
+              frag.append(list);
+            }
+            if (patternCombos.length > 0) {
+              const comboMeta = createMetaGrid([
+                [
+                  '星门神仪组合',
+                  patternCombos.map((c) => asString(c.name) ?? asString(c.summary)).filter(Boolean).join('；'),
+                ],
+              ]);
+              if (comboMeta) frag.append(comboMeta);
+            }
+            return frag;
+          },
+          totalPatternCount > 0 ? `${totalPatternCount}项` : undefined,
+        )
+      : undefined;
+  const qmBar = createBoardDetailBar([qimenPatternTrigger]);
+  if (qmBar) container.append(qmBar);
 
   return true;
 }
@@ -780,19 +813,68 @@ function renderXuankong(container: HTMLElement, data: UnknownRecord): boolean {
   const arrivalText = arrival
     ? `山星${arrival.shanToMountain ? '到山' : '未到山'} · 向星${arrival.xiangToFacing ? '到向' : '未到向'}`
     : undefined;
-  const comboText = combinations
-    .slice(0, 6)
-    .map((c) => `${asString(c.name) ?? ''}${asString(c.note) ? `（${asString(c.note)}）` : ''}`)
-    .filter(Boolean)
-    .join('；');
 
   const xkMeta = createMetaGrid([
     ['宅局与替卦', [formation, mode, chart.replacementApplied ? '已用替卦' : '下卦顺逆'].filter(Boolean).join(' · ') || undefined],
     ['到山到向', arrivalText],
-    ['城门诀推演', cgText],
-    ['全盘挨星格局', comboText || '常规山向飞布（无单宫反伏吟或合十）'],
   ]);
   if (xkMeta) container.append(xkMeta);
+
+  if (cgCandidates.length > 0 || combinations.length > 0) {
+    const xkBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '城门诀与挨星格局',
+        '玄空城门诀与全盘挨星格局详析',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (cgCandidates.length > 0) {
+            const sec = el('div', 'lr-section');
+            sec.append(el('h4', 'lr-section-title', '城门诀推演'));
+            const list = el('div', 'wb-computed-list');
+            for (const c of cgCandidates) {
+              const card = el('div', `wb-computed-item ${asString(c.status)?.includes('可用') ? 'is-good' : ''}`.trim());
+              card.append(
+                el(
+                  'strong',
+                  'wb-computed-title',
+                  `${asString(c.role) ?? '城门'}：${asString(c.mountain) ?? ''}（${asString(c.gongName) ?? ''}宫）`,
+                ),
+              );
+              card.append(
+                el(
+                  'p',
+                  'wb-computed-desc',
+                  `运星${asNumber(c.yunStar) ?? ''}${asString(c.flyDirection) ?? ''} → 到星${asNumber(c.arrivalStar) ?? ''}，${asString(c.status) ?? ''}`,
+                ),
+              );
+              list.append(card);
+            }
+            sec.append(list);
+            frag.append(sec);
+          }
+          if (combinations.length > 0) {
+            const sec = el('div', 'lr-section');
+            sec.append(el('h4', 'lr-section-title', `全盘挨星格局（共 ${combinations.length} 项）`));
+            const list = el('div', 'wb-computed-list');
+            for (const c of combinations) {
+              const card = el(
+                'div',
+                `wb-computed-item ${asString(c.kind) === 'auspicious' ? 'is-good' : 'is-bad'}`,
+              );
+              card.append(el('strong', 'wb-computed-title', asString(c.name) ?? '挨星格局'));
+              if (asString(c.note)) card.append(el('p', 'wb-computed-desc', asString(c.note)));
+              list.append(card);
+            }
+            sec.append(list);
+            frag.append(sec);
+          }
+          return frag;
+        },
+        cgCandidates.length + combinations.length > 0 ? `${cgCandidates.length + combinations.length}项` : undefined,
+      ),
+    ]);
+    if (xkBar) container.append(xkBar);
+  }
 
   return true;
 }
@@ -1104,12 +1186,60 @@ export function renderResidentialBoard(container: HTMLElement, data: UnknownReco
         ? `山星${xkArrival.shanToMountain ? '到山' : '未到山'} · 向星${xkArrival.xiangToFacing ? '到向' : '未到向'}`
         : undefined,
     ],
-    ['城门诀', cgText],
-    ['挨星格局', xkCombs.length > 0 ? xkCombs.slice(0, 5).map((c) => asString(c.name)).filter(Boolean).join('、') : undefined],
-    ['八宅玄空同参', agreeText || undefined],
   ];
   const extraMeta = createMetaGrid(extraPairs);
   if (extraMeta) container.append(extraMeta);
+
+  const rsBasisCount = cgCandidates.length + xkCombs.length + agreements.length;
+  if (rsBasisCount > 0) {
+    const rsBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '城门诀与合参依据',
+        '阳宅城门诀、挨星格局与八宅玄空同参依据',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (agreements.length > 0) {
+            const sec = el('div', 'lr-section');
+            sec.append(el('h4', 'lr-section-title', `八宅玄空同参要点（${agreements.length} 项）`));
+            const list = el('div', 'wb-computed-list');
+            for (const a of agreements) {
+              const card = el('div', 'wb-computed-item');
+              const title = asString(a.title) ?? asString(a.direction) ?? '同参';
+              const desc = asString(a.detail) ?? asString(a.summary);
+              card.append(el('strong', 'wb-computed-title', title));
+              if (desc) card.append(el('p', 'wb-computed-desc', desc));
+              list.append(card);
+            }
+            sec.append(list);
+            frag.append(sec);
+          }
+          if (cgCandidates.length > 0) {
+            const metaGrid = createMetaGrid([['城门诀推演', cgText]]);
+            if (metaGrid) frag.append(metaGrid);
+          }
+          if (xkCombs.length > 0) {
+            const sec = el('div', 'lr-section');
+            sec.append(el('h4', 'lr-section-title', `全盘挨星格局（${xkCombs.length} 项）`));
+            const list = el('div', 'wb-computed-list');
+            for (const c of xkCombs) {
+              const card = el(
+                'div',
+                `wb-computed-item ${asString(c.kind) === 'auspicious' ? 'is-good' : 'is-bad'}`,
+              );
+              card.append(el('strong', 'wb-computed-title', asString(c.name) ?? '挨星格局'));
+              if (asString(c.note)) card.append(el('p', 'wb-computed-desc', asString(c.note)));
+              list.append(card);
+            }
+            sec.append(list);
+            frag.append(sec);
+          }
+          return frag;
+        },
+        `${rsBasisCount}项`,
+      ),
+    ]);
+    if (rsBar) container.append(rsBar);
+  }
 
   return true;
 }

@@ -19,8 +19,8 @@ const errorFieldLabels: Record<string, string> = {
   name: '称呼',
   calendar: '历法',
   leapMonth: '闰月',
-  timezone: 'UTC 时区偏移（小时）',
-  timeZoneId: 'IANA 时区',
+  timezone: '时区偏移（小时）',
+  timeZoneId: '地区时区名称',
   longitude: '经度（东正西负）',
   latitude: '纬度（北正南负）',
   referenceTime: '参考时刻（含时区）',
@@ -243,6 +243,7 @@ export function formatInputError(error: unknown): string {
           minimum?: number;
           maximum?: number;
           inclusive?: boolean;
+          keys?: string[];
         }) => {
           const field = issue.path?.length
             ? issue.path
@@ -257,6 +258,11 @@ export function formatInputError(error: unknown): string {
             array: '列表',
             object: '完整资料',
           };
+          const translateIssueMessage = (rawMsg?: string): string => {
+            if (!rawMsg) return '输入无效，请检查填写内容。';
+            if (/[\u4e00-\u9fff]/.test(rawMsg)) return rawMsg;
+            return '输入内容格式或取值不符合要求，请检查后重试。';
+          };
           const message =
             issue.code === 'invalid_type'
               ? `请填写有效的${typeNames[issue.expected ?? ''] ?? '资料'}。`
@@ -266,12 +272,23 @@ export function formatInputError(error: unknown): string {
                   ? `数值或长度${issue.inclusive === false ? '必须小于' : '不能大于'} ${issue.maximum}。`
                   : issue.code === 'invalid_format'
                     ? '格式不正确，请检查输入。'
-                    : (issue.message ?? '输入无效');
+                    : issue.code === 'invalid_value'
+                      ? '所选取值不在支持范围内，请重新选择。'
+                      : issue.code === 'unrecognized_keys'
+                        ? `包含未识别的字段${Array.isArray(issue.keys) && issue.keys.length ? `（${issue.keys.map((k) => errorFieldLabels[k] ?? k).join('、')}）` : ''}，请检查输入。`
+                        : issue.code === 'invalid_union'
+                          ? '填写的数据结构不完整或格式不匹配，请检查输入。'
+                          : translateIssueMessage(issue.message);
           return `${field}：${message}`;
         },
       )
       .join('\n');
   }
-  if (error instanceof SyntaxError) return '高级参数不是有效的 JSON，请先检查格式。';
-  return error instanceof Error ? error.message : '计算失败';
+  if (error instanceof SyntaxError) return '参数格式有误，请检查输入内容。';
+  if (error instanceof Error) {
+    const msg = error.message.trim();
+    if (msg && /[\u4e00-\u9fff]/.test(msg)) return msg;
+    return '排盘参数有误或计算未完成，请检查输入资料。';
+  }
+  return '计算失败';
 }

@@ -1,6 +1,14 @@
 import { el } from './dom';
 import tarotData from '../systems/tarot-data.json';
 import lenormandData from '../systems/lenormand-data.json';
+import {
+  getActiveSkinThemeFromDocument,
+  getAssetOrigin,
+  getSkinCardBackUrl,
+  getSkinLenormandCardUrl,
+  getSkinTarotCardUrl,
+  resolveRemoteAssetUrl,
+} from '../remote-assets';
 import { loadGlobalRules, type TarotDeckId } from '../web-settings';
 
 const TAROT_NAME_TO_INDEX = new Map<string, number>(
@@ -11,10 +19,30 @@ const LENORMAND_NAME_TO_ID = new Map<string, number>(
   lenormandData.cards.map((card) => [card.name, card.id]),
 );
 
-const SHARED_CARD_BACK_URL = '/card-decks/lenormand/danjie-leopard/back.webp';
+export function getSharedCardBackUrl(): string {
+  const skin = getActiveSkinThemeFromDocument();
+  if (skin && getAssetOrigin()) {
+    return getSkinCardBackUrl(skin) ?? SHARED_CARD_BACK_URL;
+  }
+  return SHARED_CARD_BACK_URL;
+}
+export const SHARED_CARD_BACK_URL = '/cards/lenormand/back.webp';
 
-function getActiveTarotDeck(): TarotDeckId {
+export function getActiveTarotDeck(): TarotDeckId {
   return loadGlobalRules().casting.tarotDeck;
+}
+
+export function getTarotCardImageUrl(
+  card: Pick<TarotCardFaceInput, 'id' | 'name'>,
+  deckId: TarotDeckId = getActiveTarotDeck(),
+): string {
+  return buildTarotImageUrl(deckId, resolveTarotAssetIndex(card));
+}
+
+export function getLenormandCardImageUrl(
+  card: Pick<LenormandCardFaceInput, 'id' | 'name'>,
+): string {
+  return buildLenormandImageUrl(resolveLenormandAssetId(card));
 }
 
 function resolveTarotAssetIndex(card: TarotCardFaceInput): number {
@@ -33,12 +61,38 @@ function resolveLenormandAssetId(card: LenormandCardFaceInput): number {
   return typeof byName === 'number' ? byName : 1;
 }
 
+function buildDefaultTarotImageUrl(assetIndex: number): string {
+  return `/cards/tarot/${String(assetIndex).padStart(3, '0')}.webp`;
+}
+
+function buildDefaultLenormandImageUrl(id: number): string {
+  return `/cards/lenormand/${String(id).padStart(3, '0')}.webp`;
+}
+
 function buildTarotImageUrl(deckId: TarotDeckId, assetIndex: number): string {
-  return `/card-decks/tarot/${deckId}/${String(assetIndex).padStart(3, '0')}.webp`;
+  if (deckId === 'skin') {
+    const skin = getActiveSkinThemeFromDocument();
+    if (skin) {
+      const skinUrl = getSkinTarotCardUrl(skin, assetIndex);
+      if (skinUrl) return skinUrl;
+    }
+    return buildDefaultTarotImageUrl(assetIndex);
+  }
+  if (deckId === 'danjie-leopard') {
+    return buildDefaultTarotImageUrl(assetIndex);
+  }
+  return resolveRemoteAssetUrl(
+    `/card-decks/tarot/${deckId}/${String(assetIndex).padStart(3, '0')}.webp`,
+  );
 }
 
 function buildLenormandImageUrl(id: number): string {
-  return `/card-decks/lenormand/danjie-leopard/${String(id).padStart(3, '0')}.webp`;
+  const skin = getActiveSkinThemeFromDocument();
+  if (skin) {
+    const skinUrl = getSkinLenormandCardUrl(skin, id);
+    if (skinUrl) return skinUrl;
+  }
+  return buildDefaultLenormandImageUrl(id);
 }
 
 function resolveCardMaxWidth(size: 'sm' | 'md' | 'lg' = 'md'): string {
@@ -65,18 +119,34 @@ function createCardFaceRoot(className: string, maxW: string): HTMLElement {
 }
 
 let deckChangeListenerAttached = false;
+function syncRenderedDeckArtwork(): void {
+  const nextDeck = getActiveTarotDeck();
+  document
+    .querySelectorAll<HTMLImageElement>('img.tarot-art-deck-img[data-tarot-index]')
+    .forEach((img) => {
+      const idx = Number(img.dataset.tarotIndex ?? '0');
+      delete img.dataset.fallbackApplied;
+      img.src = buildTarotImageUrl(nextDeck, Number.isInteger(idx) ? idx : 0);
+    });
+  document
+    .querySelectorAll<HTMLImageElement>('img.lenormand-art-deck-img[data-lenormand-id]')
+    .forEach((img) => {
+      const id = Number(img.dataset.lenormandId ?? '1');
+      delete img.dataset.fallbackApplied;
+      img.src = buildLenormandImageUrl(Number.isInteger(id) ? id : 1);
+    });
+  const backUrl = getSharedCardBackUrl();
+  document.querySelectorAll<HTMLImageElement>('img.tarot-back-deck-img').forEach((img) => {
+    delete img.dataset.fallbackApplied;
+    img.src = backUrl;
+  });
+}
+
 function ensureDeckChangeListener(): void {
   if (deckChangeListenerAttached || typeof window === 'undefined') return;
   deckChangeListenerAttached = true;
-  window.addEventListener('mingyu:global-rules-changed', () => {
-    const nextDeck = getActiveTarotDeck();
-    document
-      .querySelectorAll<HTMLImageElement>('img.tarot-art-deck-img[data-tarot-index]')
-      .forEach((img) => {
-        const idx = Number(img.dataset.tarotIndex ?? '0');
-        img.src = buildTarotImageUrl(nextDeck, Number.isInteger(idx) ? idx : 0);
-      });
-  });
+  window.addEventListener('mingyu:global-rules-changed', syncRenderedDeckArtwork);
+  window.addEventListener('mingyu:theme-changed', syncRenderedDeckArtwork);
 }
 
 export interface TarotCardFaceInput {
@@ -145,6 +215,21 @@ export function createTarotCardFace(
     `transform: ${reversed ? 'rotate(180deg)' : 'none'}`,
     'transition: transform 0.3s ease',
   ].join('; ');
+  img.addEventListener('error', () => {
+    const fallbackUrl = buildDefaultTarotImageUrl(assetIndex);
+    if (!img.dataset.fallbackApplied && img.src !== fallbackUrl) {
+      img.dataset.fallbackApplied = '1';
+      img.src = fallbackUrl;
+      return;
+    }
+    img.remove();
+    const fallback = el('div', 'tarot-card-text-fallback');
+    fallback.style.cssText =
+      'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-soft);color:var(--text-strong);gap:6px;';
+    fallback.appendChild(el('strong', '', card.name || '塔罗牌'));
+    fallback.appendChild(el('span', '', reversed ? '逆位' : '正位'));
+    root.appendChild(fallback);
+  });
 
   root.appendChild(img);
   return root;
@@ -189,7 +274,7 @@ export function createTarotCardBack(options?: TarotCardBackOptions): HTMLElement
   const img = document.createElement('img');
   img.className = 'tarot-back-deck-img';
   img.dataset.deckTheme = deckTheme;
-  img.src = SHARED_CARD_BACK_URL;
+  img.src = getSharedCardBackUrl();
   img.alt = options?.label
     ? `${options.label}牌背`
     : deckTheme === 'lenormand'
@@ -198,6 +283,14 @@ export function createTarotCardBack(options?: TarotCardBackOptions): HTMLElement
   img.loading = 'lazy';
   img.draggable = false;
   img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
+  img.addEventListener('error', () => {
+    img.remove();
+    const fallback = el('div', 'tarot-back-text-fallback');
+    fallback.style.cssText =
+      'width:100%;height:100%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);border-radius:11px;background:var(--accent-surface);color:var(--accent-deep);font-size:12px;font-weight:700;';
+    fallback.textContent = deckTheme === 'lenormand' ? '雷诺曼' : '塔罗';
+    root.insertBefore(fallback, root.firstChild);
+  });
   root.appendChild(img);
 
   if (options?.label || options?.sublabel) {
@@ -235,6 +328,7 @@ export function createLenormandCardFace(
   const maxW = resolveCardMaxWidth(size);
   const assetId = resolveLenormandAssetId(card);
 
+  ensureDeckChangeListener();
   const root = createCardFaceRoot(
     `lenormand-art-card is-size-${size}${card.isHomeHouse ? ' is-home-house' : ''}`,
     maxW,
@@ -253,6 +347,21 @@ export function createLenormandCardFace(
     'object-fit: contain',
     'display: block',
   ].join('; ');
+  img.addEventListener('error', () => {
+    const fallbackUrl = buildDefaultLenormandImageUrl(assetId);
+    if (!img.dataset.fallbackApplied && img.src !== fallbackUrl) {
+      img.dataset.fallbackApplied = '1';
+      img.src = fallbackUrl;
+      return;
+    }
+    img.remove();
+    const fallback = el('div', 'lenormand-card-text-fallback');
+    fallback.style.cssText =
+      'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-soft);color:var(--text-strong);gap:4px;';
+    fallback.appendChild(el('strong', '', card.name || '雷诺曼'));
+    fallback.appendChild(el('span', '', `#${assetId}`));
+    root.appendChild(fallback);
+  });
 
   root.appendChild(img);
   return root;

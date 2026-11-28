@@ -72,6 +72,7 @@ export interface CompactableCalculationResult {
   summary?: unknown;
   prompt: { text: string };
   promptOptions?: unknown;
+  outputLanguage?: string;
 }
 
 /** 将完整排盘结果无状态压缩为紧凑追问令牌（供精简模式跨轮传递，免去大体积 JSON 回传）。 */
@@ -82,6 +83,7 @@ export async function packRepromptToken(result: CompactableCalculationResult): P
     currentTime: result.currentTime,
     data: result.data,
     ...(result.promptOptions !== undefined ? { promptOptions: result.promptOptions } : {}),
+    ...(result.outputLanguage !== undefined ? { outputLanguage: result.outputLanguage } : {}),
   };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const compressed = await deflateBytes(bytes);
@@ -95,6 +97,7 @@ export async function unpackRepromptToken(token: string): Promise<{
   currentTime: string;
   data: Record<string, unknown>;
   promptOptions?: unknown;
+  outputLanguage?: string;
 }> {
   if (typeof token !== 'string' || !token.startsWith(TOKEN_PREFIX)) {
     throw new Error('无效的追问令牌格式。');
@@ -121,6 +124,7 @@ export async function unpackRepromptToken(token: string): Promise<{
     currentTime: string;
     data: Record<string, unknown>;
     promptOptions?: unknown;
+    outputLanguage?: string;
   };
 }
 
@@ -134,6 +138,7 @@ export async function toCompactResult(result: CompactableCalculationResult) {
     ...(result.summary !== undefined ? { summary: result.summary } : {}),
     prompt: result.prompt,
     ...(result.promptOptions !== undefined ? { promptOptions: result.promptOptions } : {}),
+    ...(result.outputLanguage !== undefined ? { outputLanguage: result.outputLanguage } : {}),
     repromptToken,
   };
 }

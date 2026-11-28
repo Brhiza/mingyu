@@ -1,0 +1,2799 @@
+/* 命理本命盘样式：八字、紫微、西洋星盘、七政四余、命录 */
+@layer components.base, components.responsive;
+@layer components.base {
+  .board-view,
+  .bazi-fortune-section {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .bazi-table-mode-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .bazi-table-mode-hint {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .bazi-table-mode-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  .bazi-table-mode-btn {
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+
+  .bazi-table-mode-btn.is-active {
+    background: var(--accent-strong);
+    color: var(--accent-contrast, #fff);
+  }
+
+  .bazi-table-wrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .bazi-pillars-table {
+    display: grid;
+    grid-template-columns: minmax(42px, 50px) repeat(var(--bazi-col-count, 4), minmax(64px, 1fr));
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--border-soft);
+    gap: 1px;
+    overflow: clip;
+  }
+
+  .bazi-pillars-table.has-fortune-cols {
+    min-width: calc(46px + var(--bazi-col-count, 7) * 66px);
+  }
+
+  .bazi-pillars-cell {
+    min-height: 38px;
+    padding: 7px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: var(--surface-elevated);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    min-width: 0;
+  }
+
+  .bazi-pillars-cell.is-head,
+  .bazi-pillars-cell.is-label {
+    background: var(--surface-soft);
+    color: var(--text-strong);
+    font-weight: 700;
+  }
+
+  .bazi-pillars-cell.is-head {
+    display: grid;
+    grid-template-rows: 1.25em 1.05em;
+    align-content: center;
+    justify-items: center;
+    align-items: center;
+    gap: 2px;
+    min-height: 44px;
+    font-size: 0.84rem;
+    line-height: 1.2;
+  }
+
+  .bazi-pillars-cell.is-head.is-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bazi-pillars-cell.is-head > .bazi-head-title {
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .bazi-pillars-cell.is-head > small,
+  .bazi-pillars-cell.is-head > .bazi-head-sub {
+    color: var(--accent-strong);
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1;
+    min-height: 1em;
+    white-space: nowrap;
+  }
+
+  .bazi-pillars-cell.is-head > .bazi-head-sub.is-empty {
+    visibility: hidden;
+  }
+
+  .bazi-pillars-cell.is-label {
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+
+  .bazi-pillars-cell.is-day-master {
+    background: color-mix(in srgb, var(--accent-soft) 65%, var(--surface-elevated));
+  }
+
+  .bazi-pillars-cell.is-head.is-day-master {
+    background: color-mix(in srgb, var(--accent-soft-strong) 70%, var(--surface-soft));
+  }
+
+  .bazi-pillars-cell.is-fortune-col {
+    background: color-mix(in srgb, var(--surface-soft) 56%, var(--surface-elevated));
+  }
+
+  .bazi-pillars-cell.is-head.is-fortune-col {
+    background: color-mix(in srgb, var(--accent-soft) 32%, var(--surface-soft));
+  }
+
+  .bazi-pillars-cell.is-fortune-start {
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 45%, var(--border-strong));
+  }
+
+  .bazi-pillars-cell.is-pillar {
+    min-height: 126px;
+    padding-block: 10px;
+  }
+
+  .bazi-pillar-value {
+    display: grid;
+    width: 100%;
+    justify-items: center;
+    gap: 6px;
+  }
+
+  .bazi-pillar-tengod {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.1;
+    padding: 2px 6px;
+  }
+
+  .bazi-pillar-tengod.is-branch-god {
+    color: var(--text-muted);
+  }
+
+  .bazi-pillar-ganzhi {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+  }
+
+  .bazi-ganzhi-symbol {
+    font-family: var(--font-serif);
+    font-size: 1.72rem;
+    font-weight: 700;
+    line-height: 1.08;
+    padding: 2px 8px;
+  }
+
+  .bazi-pillars-cell.is-hidden-stems {
+    min-height: 62px;
+    align-items: flex-start;
+    padding-block: 8px;
+  }
+
+  .bazi-hidden-stem-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .bazi-hidden-item {
+    display: grid;
+    grid-template-columns: 1.25em 2.55em;
+    align-items: center;
+    justify-items: center;
+    column-gap: 2px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .bazi-hidden-stem-list.has-revealed .bazi-hidden-item {
+    grid-template-columns: 1.25em 2.55em 15px;
+  }
+
+  .bazi-hidden-stem {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: 0.84rem;
+    padding: 1px 0;
+    text-align: center;
+  }
+
+  .bazi-hidden-god {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    padding: 1px 0;
+    text-align: center;
+  }
+
+  .bazi-stem-revealed {
+    display: inline-grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 0;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--accent-strong) 13%, transparent);
+    color: var(--accent-strong);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    justify-self: center;
+  }
+
+  .bazi-pillars-cell.is-multiline {
+    flex-direction: column;
+    gap: 2px;
+    white-space: pre-line;
+    line-height: 1.35;
+  }
+
+  .bazi-meta-btn {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    padding: 2px 5px;
+  }
+
+  .bazi-cell-muted,
+  .bazi-shensha-empty {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .bazi-pillars-cell.is-shensha {
+    min-height: 68px;
+    padding: 8px 4px;
+    align-items: flex-start;
+  }
+
+  .bazi-shensha-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .bazi-shensha-tag {
+    --bazi-shensha-tone: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--bazi-shensha-tone) 26%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--bazi-shensha-tone) 9%, transparent);
+    color: var(--bazi-shensha-tone);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+
+  .bazi-shensha-tag:hover {
+    border-color: color-mix(in srgb, var(--bazi-shensha-tone) 55%, transparent);
+  }
+
+  .bazi-shensha-tag.is-lucky {
+    --bazi-shensha-tone: var(--wuxing-mu);
+  }
+
+  .bazi-shensha-tag.is-unlucky {
+    --bazi-shensha-tone: var(--wuxing-huo);
+  }
+
+  .bazi-shensha-tag.is-neutral {
+    --bazi-shensha-tone: var(--secondary-strong);
+  }
+
+  .bazi-dayun-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .bazi-dayun-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .bazi-dayun-sub {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .ziwei-board-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background:
+      radial-gradient(circle at top left, var(--secondary-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--accent-soft), transparent 28%),
+      linear-gradient(180deg, var(--surface-elevated-strong), var(--surface-elevated));
+    overflow: hidden;
+  }
+
+  .ziwei-relation-svg {
+    position: absolute;
+    inset: 10px;
+    width: calc(100% - 20px);
+    height: calc(100% - 20px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .ziwei-relation-triangle {
+    fill: color-mix(in srgb, var(--accent) 5%, transparent);
+    stroke: color-mix(in srgb, var(--accent) 56%, transparent);
+    stroke-width: 1.35;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .ziwei-relation-opposite {
+    stroke: color-mix(in srgb, var(--secondary-strong) 55%, transparent);
+    stroke-width: 1.25;
+    stroke-dasharray: 4 4;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .ziwei-relation-dot {
+    fill: var(--surface-elevated-strong);
+    stroke: var(--accent);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .ziwei-grid {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(146px, auto));
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ziwei-center {
+    grid-column: 2 / 4;
+    grid-row: 2 / 4;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 55%, transparent), color-mix(in srgb, var(--highlight-soft) 65%, transparent)),
+      var(--surface-elevated-strong);
+    border: 1px solid var(--border-contrast);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    position: relative;
+    z-index: 3;
+    min-width: 0;
+  }
+
+  .ziwei-center-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ziwei-center-title {
+    font-family: var(--font-serif);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .ziwei-center-class {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+  }
+
+  .ziwei-center-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .ziwei-center-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    min-width: 0;
+  }
+
+  .ziwei-center-label {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .ziwei-center-val {
+    color: var(--text-strong);
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+
+  .ziwei-center-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .ziwei-center-chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .ziwei-center-focus {
+    border-top: 1px solid var(--border-soft);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .ziwei-center-focus-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .ziwei-center-focus-name {
+    font-family: var(--font-serif);
+    font-size: 0.98rem;
+    color: var(--accent-strong);
+  }
+
+  .ziwei-center-focus-stars {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .ziwei-center-relations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ziwei-rel-chip {
+    font-size: 0.72rem;
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    color: var(--text-secondary);
+  }
+
+  .ziwei-palace {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 8px 8px 7px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    position: relative;
+    z-index: 3;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .ziwei-palace:hover {
+    border-color: var(--border-strong);
+    background: var(--state-hover-surface);
+  }
+
+  .ziwei-palace.is-opposite {
+    border-color: color-mix(in srgb, var(--secondary) 50%, transparent);
+    background: color-mix(in srgb, var(--secondary-soft) 65%, var(--surface-elevated));
+  }
+
+  .ziwei-palace.is-sanfang {
+    border-color: var(--secondary);
+    background: var(--secondary-soft);
+  }
+
+  .ziwei-palace.is-selected {
+    border-color: var(--accent);
+    background: var(--state-selected-surface);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .ziwei-palace-top {
+    min-height: 20px;
+  }
+
+  .ziwei-palace-mid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .ziwei-star-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+    align-items: center;
+  }
+
+  .ziwei-star {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .ziwei-star.is-clickable {
+    background: transparent;
+    border: none;
+    padding: 1px 3px;
+    border-radius: 4px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .ziwei-star.is-clickable:hover {
+    background: var(--state-hover-surface);
+  }
+
+  .ziwei-star.is-major .ziwei-star-name {
+    color: var(--accent-strong);
+    font-weight: 700;
+    font-size: 0.84rem;
+  }
+
+  .ziwei-star.is-minor .ziwei-star-name {
+    color: var(--text-primary);
+    font-size: 0.74rem;
+  }
+
+  .ziwei-star.is-adj .ziwei-star-name {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+
+  .ziwei-star-bright {
+    font-size: 0.64rem;
+    color: var(--text-muted);
+    margin-left: 1px;
+    font-weight: 500;
+  }
+
+  .ziwei-star-bright.is-high {
+    color: var(--secondary-strong);
+    font-weight: 700;
+  }
+
+  .ziwei-mutagen-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    margin-left: 2px;
+    border-radius: 3px;
+    font-size: 0.64rem;
+    line-height: 1;
+    font-weight: 700;
+    background: var(--accent-soft-strong);
+    color: var(--accent-deep);
+  }
+
+  .ziwei-mutagen-badge.is-self {
+    border: 1px dashed currentColor;
+    background: transparent;
+  }
+
+  .ziwei-mutagen-badge[data-mutagen='禄'] {
+    background: color-mix(in srgb, var(--wuxing-mu) 16%, transparent);
+    color: var(--wuxing-mu);
+  }
+
+  .ziwei-mutagen-badge[data-mutagen='权'] {
+    background: color-mix(in srgb, var(--wuxing-shui) 16%, transparent);
+    color: var(--wuxing-shui);
+  }
+
+  .ziwei-mutagen-badge[data-mutagen='科'] {
+    background: color-mix(in srgb, #7e22ce 14%, transparent);
+    color: #7e22ce;
+  }
+
+  .ziwei-mutagen-badge[data-mutagen='忌'] {
+    background: color-mix(in srgb, var(--danger-text) 16%, transparent);
+    color: var(--danger-text);
+  }
+
+  .ziwei-mutagen-badge.is-self[data-mutagen='禄'],
+  .ziwei-mutagen-badge.is-self[data-mutagen='权'],
+  .ziwei-mutagen-badge.is-self[data-mutagen='科'],
+  .ziwei-mutagen-badge.is-self[data-mutagen='忌'] {
+    background: transparent;
+  }
+
+  .ziwei-natal-mutagens {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  .ziwei-natal-mutagens-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .ziwei-natal-mutagens-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 6px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ziwei-natal-mutagen-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+    color: var(--text-strong);
+    font-size: 0.73rem;
+    font-weight: 700;
+    line-height: 1.35;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.14s ease, transform 0.12s ease;
+  }
+
+  .ziwei-natal-mutagen-btn:hover {
+    border-color: var(--border-strong);
+  }
+
+  .ziwei-natal-mutagen-btn[data-mutagen='禄'] {
+    background: color-mix(in srgb, var(--wuxing-mu) 14%, var(--surface-base));
+    border-color: color-mix(in srgb, var(--wuxing-mu) 32%, transparent);
+    color: var(--wuxing-mu);
+  }
+
+  .ziwei-natal-mutagen-btn[data-mutagen='权'] {
+    background: color-mix(in srgb, var(--wuxing-shui) 14%, var(--surface-base));
+    border-color: color-mix(in srgb, var(--wuxing-shui) 32%, transparent);
+    color: var(--wuxing-shui);
+  }
+
+  .ziwei-natal-mutagen-btn[data-mutagen='科'] {
+    background: color-mix(in srgb, #7e22ce 12%, var(--surface-base));
+    border-color: color-mix(in srgb, #7e22ce 30%, transparent);
+    color: #7e22ce;
+  }
+
+  .ziwei-natal-mutagen-btn[data-mutagen='忌'] {
+    background: color-mix(in srgb, var(--danger-text) 13%, var(--surface-base));
+    border-color: color-mix(in srgb, var(--danger-text) 30%, transparent);
+    color: var(--danger-text);
+  }
+
+  .ziwei-empty-major {
+    font-size: 0.72rem;
+    color: var(--text-soft);
+  }
+
+  .ziwei-palace-foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .ziwei-palace-foot-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .ziwei-palace-gz {
+    font-family: var(--font-serif);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    line-height: 1.1;
+  }
+
+  .ziwei-palace-decadal {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.1;
+  }
+
+  .ziwei-palace-foot-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .ziwei-palace-name {
+    font-family: var(--font-serif);
+    font-size: 0.86rem;
+    color: var(--text-strong);
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .ziwei-palace-seal {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border: 1.5px solid var(--accent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--accent-soft) 75%, transparent);
+  }
+
+  .ziwei-palace-seal .ziwei-palace-name {
+    color: var(--accent-strong);
+  }
+
+  .ziwei-seal-tag {
+    font-size: 0.62rem;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 2px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-weight: 700;
+  }
+
+  .ziwei-palace-origin-tag {
+    font-size: 0.62rem;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--secondary-soft);
+    color: var(--secondary-strong);
+    font-weight: 700;
+  }
+
+  .ziwei-detail-card {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-control);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ziwei-detail-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 12px;
+  }
+
+  .ziwei-detail-title {
+    font-family: var(--font-serif);
+    font-size: 0.98rem;
+    color: var(--text-strong);
+  }
+
+  .ziwei-detail-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .ziwei-detail-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 14px;
+  }
+
+  .ziwei-detail-group,
+  .ziwei-detail-fly {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ziwei-detail-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    align-self: flex-start;
+    padding-left: 0;
+  }
+
+  .ziwei-detail-stars,
+  .ziwei-fly-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ziwei-detail-empty {
+    font-size: 0.8rem;
+    color: var(--text-soft);
+  }
+
+  .ziwei-detail-meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .ziwei-detail-badge {
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .ziwei-fly-item {
+    font-size: 0.76rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-compact);
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .astrolabe-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: center;
+  }
+
+  .astrolabe-svg-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  .astrolabe-svg {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    display: block;
+  }
+
+  .astrolabe-ring-outer {
+    fill: var(--surface-base);
+    stroke: var(--border-strong);
+    stroke-width: 1.4;
+  }
+
+  .astrolabe-ring-inner {
+    fill: var(--surface-soft);
+    stroke: var(--border-strong);
+    stroke-width: 1;
+  }
+
+  .astrolabe-ring-core {
+    fill: var(--surface-base);
+    stroke: var(--border-soft);
+    stroke-width: 1;
+  }
+
+  .astrolabe-zodiac-line {
+    stroke: var(--border-soft);
+    stroke-width: 0.8;
+  }
+
+  .astrolabe-zodiac-label {
+    font-size: 8.5px;
+    fill: var(--text-secondary);
+    text-anchor: middle;
+    font-weight: 600;
+  }
+
+  .astrolabe-house-line {
+    stroke: var(--border-strong);
+    stroke-width: 0.7;
+    stroke-dasharray: 2 2;
+  }
+
+  .astrolabe-house-line.is-angle {
+    stroke: var(--accent);
+    stroke-width: 1.2;
+    stroke-dasharray: none;
+  }
+
+  .astrolabe-house-num {
+    font-size: 7.5px;
+    fill: var(--text-muted);
+    text-anchor: middle;
+  }
+
+  .astrolabe-aspect-line {
+    stroke: var(--border-strong);
+    stroke-width: 0.75;
+    opacity: 0.65;
+  }
+
+  .astrolabe-aspect-line.is-tense {
+    stroke: var(--accent);
+    opacity: 0.78;
+  }
+
+  .astrolabe-aspect-line.is-harmonious {
+    stroke: var(--wuxing-shui);
+    opacity: 0.78;
+  }
+
+  .astrolabe-planet-dot {
+    fill: var(--surface-elevated-strong);
+    stroke: var(--secondary);
+    stroke-width: 1.1;
+  }
+
+  .astrolabe-planet-marker.is-fortune .astrolabe-planet-dot {
+    stroke: var(--accent);
+    fill: var(--accent-surface-solid);
+  }
+
+  .astrolabe-planet-label {
+    font-size: 8.5px;
+    fill: var(--text-strong);
+    text-anchor: middle;
+    font-weight: 600;
+  }
+
+  .astrolabe-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .astrolabe-angles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .astrolabe-angle-chip {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-control);
+    padding: 6px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+  }
+
+  .astrolabe-angle-name {
+    color: var(--text-muted);
+  }
+
+  .astrolabe-angle-pos {
+    color: var(--text-strong);
+  }
+
+  .astrolabe-planet-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+    gap: 6px;
+  }
+
+  .astrolabe-planet-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) 86px 34px 16px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: var(--radius-compact);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    font-size: 0.8rem;
+  }
+
+  .astrolabe-planet-row.is-fortune {
+    border-color: var(--border-contrast);
+    background: var(--accent-soft);
+  }
+
+  .astrolabe-row-glyph {
+    width: 18px;
+    text-align: center;
+    color: var(--secondary-strong);
+  }
+
+  .astrolabe-row-name {
+    font-weight: 600;
+    color: var(--text-strong);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .astrolabe-row-pos {
+    margin-left: 0;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+  }
+
+  .astrolabe-row-house {
+    text-align: right;
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+  }
+
+  .astrolabe-row-rx {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+
+  .qz-main-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 276px) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .qz-wheel-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .qz-svg {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    display: block;
+  }
+
+  .qz-ring-outer,
+  .qz-ring-mid,
+  .qz-ring-inner,
+  .qz-ring-core {
+    fill: none;
+    stroke: var(--border-strong);
+    stroke-width: 1.2;
+  }
+
+  .qz-ring-core {
+    fill: var(--surface-soft);
+  }
+
+  .qz-spoke {
+    stroke: var(--border-soft);
+    stroke-width: 1;
+  }
+
+  .qz-branch-text {
+    font-size: 13px;
+    font-weight: 700;
+    fill: var(--text-strong);
+  }
+
+  .qz-branch-text.is-ming {
+    fill: var(--accent-strong);
+  }
+
+  .qz-palace-text {
+    font-size: 11px;
+    fill: var(--text-secondary);
+  }
+
+  .qz-palace-text.is-ming,
+  .qz-palace-text.is-shen {
+    fill: var(--accent-strong);
+    font-weight: 700;
+  }
+
+  .qz-star-dot {
+    fill: var(--accent-strong);
+  }
+
+  .qz-star-text {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--text-primary);
+  }
+
+  .qz-star-text.is-retro {
+    fill: var(--danger-text);
+  }
+
+  .qz-core-title {
+    font-size: 13px;
+    font-weight: 700;
+    fill: var(--text-strong);
+  }
+
+  .qz-core-sub {
+    font-size: 11px;
+    fill: var(--text-muted);
+  }
+
+  .qz-table-wrap {
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .qz-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  .qz-table th,
+  .qz-table td {
+    text-align: left;
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap;
+  }
+
+  .qz-table th {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .qz-td-star {
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .qz-td-mono {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+  }
+
+  .qz-role-good {
+    color: var(--success-text);
+    font-weight: 600;
+  }
+
+  .qz-role-warn {
+    color: var(--danger-text);
+    font-weight: 600;
+  }
+
+  .bz-eight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .bz-cell {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-control);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .bz-cell.is-center {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-style: dashed;
+  }
+
+  .bz-cell.is-good {
+    border-color: rgba(38, 104, 71, 0.35);
+  }
+
+  .bz-cell.is-warn {
+    border-color: rgba(180, 35, 24, 0.3);
+  }
+
+  .bz-cell-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+  }
+
+  .bz-dir {
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .bz-star,
+  .bz-rel {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .bz-cell-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bz-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bz-row-k {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .bz-center-title {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--text-strong);
+  }
+
+  .bz-center-sub {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+
+  .minglu-dossier-header {
+    background: linear-gradient(135deg, var(--surface-elevated), var(--accent-soft));
+    border-color: var(--border-strong);
+  }
+
+  .minglu-dossier-header-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .minglu-dossier-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .minglu-dossier-eyebrow {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--accent-strong);
+    letter-spacing: 0.04em;
+  }
+
+  .minglu-dossier-title {
+    font-size: 1.24rem;
+  }
+
+  .minglu-dossier-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .minglu-copy-report-btn {
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--accent-strong);
+    background: var(--surface-elevated);
+    color: var(--accent-strong);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .minglu-copy-report-btn:hover {
+    background: var(--accent-strong);
+    color: #fff;
+  }
+
+  .minglu-toc-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-page-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .minglu-toc-pill {
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .minglu-toc-pill:hover {
+    border-color: var(--accent-strong);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .minglu-archetype-banner {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .minglu-archetype-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .minglu-archetype-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .minglu-archetype-sub {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+
+  .minglu-archetype-headline {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: 1.32rem;
+    font-weight: 800;
+    color: var(--text-strong);
+  }
+
+  .minglu-archetype-desc {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--text-primary);
+  }
+
+  .minglu-plain-callout {
+    background: var(--surface-soft);
+    border-left: 3px solid var(--accent-strong);
+    border-radius: var(--radius-compact);
+    padding: 11px 14px;
+    font-size: 0.86rem;
+    line-height: 1.65;
+    color: var(--text-primary);
+  }
+
+  .minglu-dual-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .minglu-guide-subcard,
+  .minglu-pillar-story-card,
+  .minglu-wuxing-card,
+  .minglu-cycle-card,
+  .minglu-shensha-card,
+  .minglu-ziwei-card,
+  .minglu-cross-card,
+  .minglu-bazhai-card,
+  .minglu-glossary-card {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-control);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .minglu-subcard-title,
+  .minglu-subblock-title,
+  .minglu-cross-title {
+    margin: 4px 0 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .minglu-bullet-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+  }
+
+  .minglu-pillars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+  }
+
+  .minglu-pillar-card-top,
+  .minglu-wuxing-card-top,
+  .minglu-cycle-top,
+  .minglu-shensha-top,
+  .minglu-ziwei-card-top,
+  .minglu-bazhai-top,
+  .minglu-glossary-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .minglu-pillar-act {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+  }
+
+  .minglu-pillar-age {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .minglu-pillar-main-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .minglu-pillar-gz {
+    font-family: var(--font-serif);
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text-strong);
+  }
+
+  .minglu-pillar-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .minglu-pillar-hidden {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  .minglu-pillar-desc,
+  .minglu-cycle-desc,
+  .minglu-shensha-desc,
+  .minglu-ziwei-desc,
+  .minglu-bazhai-desc,
+  .minglu-glossary-desc {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.58;
+    color: var(--text-primary);
+  }
+
+  .minglu-wuxing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+  }
+
+  .minglu-wuxing-card.is-favorable,
+  .minglu-cycle-card.is-current,
+  .minglu-shensha-card.is-lucky {
+    border-color: var(--accent-strong);
+  }
+
+  .minglu-wuxing-name,
+  .minglu-cycle-gz,
+  .minglu-shensha-name,
+  .minglu-ziwei-title,
+  .minglu-glossary-term {
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .minglu-wuxing-detail,
+  .minglu-cycle-years,
+  .minglu-ziwei-minors,
+  .minglu-glossary-source {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+
+  .minglu-cycles-grid,
+  .minglu-shensha-grid,
+  .minglu-ziwei-grid,
+  .minglu-cross-grid,
+  .minglu-bazhai-grid,
+  .minglu-glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+  }
+
+  .minglu-shensha-chips,
+  .minglu-glossary-term-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .minglu-ziwei-stars {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--accent-strong);
+  }
+
+  .minglu-glossary-pinyin {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .wb-meta-grid.qz-meta-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .bazi-void-hit-badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    background: rgba(217, 119, 6, 0.14);
+    color: #b45309;
+  }
+
+  .bazi-extra-pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .bazi-ep-card {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .bazi-ep-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+  }
+
+  .bazi-ep-label {
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  .bazi-ep-god {
+    font-size: 0.68rem;
+    color: var(--accent-strong);
+  }
+
+  .bazi-ep-gz {
+    display: flex;
+    gap: 4px;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .bazi-ep-foot {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+
+  .bazi-rules-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bazi-rule-pill {
+    font-size: 0.76rem;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+  }
+
+  .bazi-dayun-detail-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .ziwei-layer-tabs {
+    margin-bottom: 2px;
+  }
+
+  .ziwei-star-bright.is-mid {
+    color: var(--wuxing-mu);
+  }
+
+  .ziwei-star-bright.is-low {
+    color: var(--text-muted);
+    opacity: 0.82;
+  }
+
+  .ziwei-mutagen-badge.is-scope {
+    border: 1px dashed currentColor;
+    font-weight: 700;
+  }
+
+  .ziwei-center-scope-mutagens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .ziwei-palace-foot-gzrow {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .ziwei-palace-changsheng,
+  .ziwei-palace-boshi {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+  }
+
+  .ziwei-scope-palace-badge {
+    font-size: 0.64rem;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+
+  .ziwei-scope-palace-badge.is-scope-ming {
+    background: rgba(185, 28, 28, 0.14);
+    color: #b91c1c;
+  }
+
+  .ziwei-palace.is-scope-ming {
+    box-shadow: inset 0 0 0 1.5px rgba(185, 28, 28, 0.45);
+  }
+
+  .ziwei-star-row.is-scope-stars .ziwei-star-name {
+    color: var(--accent-strong);
+  }
+
+  .astrolabe-degree-tick {
+    stroke: var(--border-soft);
+    stroke-width: 0.7;
+  }
+
+  .astrolabe-axis-tag {
+    font-size: 7.5px;
+    font-weight: 800;
+    fill: var(--accent-strong);
+    text-anchor: middle;
+  }
+
+  .astrolabe-zodiac-label.is-el-fire {
+    fill: var(--wuxing-huo);
+  }
+
+  .astrolabe-zodiac-label.is-el-water {
+    fill: var(--wuxing-shui);
+  }
+
+  .astrolabe-zodiac-label.is-el-air {
+    fill: var(--wuxing-mu);
+  }
+
+  .astrolabe-zodiac-label.is-el-earth {
+    fill: var(--wuxing-tu);
+  }
+
+  .astrolabe-planet-tick {
+    stroke: var(--border-strong);
+    stroke-width: 0.7;
+    stroke-dasharray: 1.5 1.5;
+  }
+
+  .astrolabe-planet-marker {
+    cursor: pointer;
+  }
+
+  .astrolabe-planet-marker.is-active .astrolabe-planet-dot {
+    stroke: var(--accent-strong);
+    stroke-width: 2;
+  }
+
+  .astrolabe-aspect-line.is-highlighted {
+    stroke-width: 1.7;
+    opacity: 1;
+  }
+
+  .astrolabe-aspect-line.is-dimmed {
+    opacity: 0.15;
+  }
+
+  .astrolabe-planet-row {
+    appearance: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .astrolabe-planet-row.is-active {
+    border-color: var(--accent-strong);
+    background: var(--accent-soft);
+  }
+
+  .qz-ring-mansion {
+    fill: none;
+    stroke: var(--border-strong);
+    stroke-width: 1.3;
+  }
+
+  .qz-mansion-spoke {
+    stroke: var(--border-soft);
+    stroke-width: 0.7;
+  }
+
+  .qz-mansion-text {
+    font-size: 9px;
+    font-weight: 700;
+    fill: var(--text-secondary);
+  }
+
+  .qz-mansion-text.is-quad-east {
+    fill: var(--wuxing-mu);
+  }
+
+  .qz-mansion-text.is-quad-north {
+    fill: var(--wuxing-shui);
+  }
+
+  .qz-mansion-text.is-quad-west {
+    fill: var(--wuxing-jin);
+  }
+
+  .qz-mansion-text.is-quad-south {
+    fill: var(--wuxing-huo);
+  }
+
+  .qz-mingdu-ray {
+    stroke: var(--accent);
+    stroke-width: 1.1;
+    stroke-dasharray: 3 2;
+    opacity: 0.7;
+  }
+
+  .qz-star-dot.is-en,
+  .qz-star-text.is-en {
+    fill: #15803d;
+  }
+
+  .qz-star-dot.is-nan,
+  .qz-star-text.is-nan {
+    fill: #b91c1c;
+  }
+
+  .qz-star-dot.is-yong,
+  .qz-star-text.is-yong {
+    fill: var(--accent-strong);
+  }
+
+  .qz-star-dot.is-chou,
+  .qz-star-text.is-chou {
+    fill: #6d28d9;
+  }
+
+  .bazi-dayun-head-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .bazi-dayun-today-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid var(--accent-border, var(--border-strong));
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.14s ease, background-color 0.14s ease;
+  }
+
+  .bazi-dayun-today-btn:hover {
+    background: var(--accent);
+    color: var(--on-accent, #fff);
+  }
+
+  .bazi-fortune-card {
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .bazi-fortune-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .bazi-fortune-row {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .bazi-fortune-row-title {
+    width: 24px;
+    flex: 0 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding-right: 6px;
+    margin-right: 8px;
+    border-right: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .bazi-fortune-strip {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    padding: 1px 0;
+  }
+
+  .bazi-fortune-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bazi-fortune-item {
+    appearance: none;
+    flex: 0 0 60px;
+    min-width: 56px;
+    padding: 5px 4px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: background-color 0.14s ease, border-color 0.14s ease;
+  }
+
+  .bazi-fortune-item:hover {
+    background: var(--state-hover-surface, var(--surface-soft));
+  }
+
+  .bazi-fortune-item.is-selected {
+    background: var(--state-selected-surface-strong, var(--accent-soft));
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .bazi-fortune-item.is-today:not(.is-selected) {
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  .bazi-fortune-top {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .bazi-fortune-sub {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .bazi-fortune-gz {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    margin-top: 2px;
+  }
+
+  .bazi-fortune-pair {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 2px;
+    line-height: 1.1;
+  }
+
+  .bazi-fortune-char {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .bazi-fortune-god {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+
+  .bazi-relations-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .wb-info-modal-body .wb-computed-list,
+  .wb-info-modal-body .ziwei-patterns-list,
+  .wb-info-modal-body .astro-pat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .wb-info-modal-body .wb-computed-item,
+  .wb-info-modal-body .ziwei-pattern-item,
+  .wb-info-modal-body .astro-pat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  .wb-info-modal-body .wb-computed-title,
+  .wb-info-modal-body .ziwei-pattern-name,
+  .wb-info-modal-body .astro-pat-label {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .wb-info-modal-body .wb-computed-item.is-good .wb-computed-title,
+  .wb-info-modal-body .ziwei-pattern-name.is-good {
+    color: #2b7a53;
+  }
+
+  .wb-info-modal-body .wb-computed-desc,
+  .wb-info-modal-body .ziwei-pattern-desc,
+  .wb-info-modal-body .astro-pat-detail {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+  }
+
+  .wb-info-modal-body .wb-computed-quote,
+  .wb-info-modal-body .ziwei-pattern-quote {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+
+  .wb-info-modal-body .bazi-rules-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .wb-info-modal-body .bazi-rule-pill {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+  }
+
+  .wb-info-modal-body .bazi-strength-breakdown {
+    margin-top: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    display: grid;
+    gap: 8px;
+  }
+
+  .wb-info-modal-body .bazi-strength-row {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+}
+@layer components.responsive {
+  @media (max-width: 899px) {
+    .bazi-pillars-table {
+      grid-template-columns: 38px repeat(var(--bazi-col-count, 4), minmax(0, 1fr));
+    }
+
+    .bazi-pillars-table.has-fortune-cols {
+      grid-template-columns: 40px repeat(var(--bazi-col-count, 4), minmax(64px, 1fr));
+      min-width: calc(40px + var(--bazi-col-count, 7) * 64px);
+    }
+
+    .bazi-pillars-table.has-fortune-cols .bazi-pillars-cell.is-label {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      box-shadow: 1px 0 0 var(--border-soft);
+    }
+
+    .bazi-pillars-cell {
+      padding: 5px 3px;
+      font-size: 0.76rem;
+    }
+
+    .bazi-pillars-cell.is-pillar {
+      min-height: 108px;
+      padding-block: 7px;
+    }
+
+    .bazi-ganzhi-symbol {
+      font-size: 1.42rem;
+      padding: 1px 4px;
+    }
+
+    .bazi-shensha-tag {
+      font-size: 0.62rem;
+      padding: 1px 4px;
+    }
+
+    /* 紫微移动端：保证 4×4 方盘 390px 宽精致可读、0 横向溢出，点击宫位弹出底部详情抽屉 */
+    .ziwei-board-wrap {
+      padding: 6px;
+      border-radius: 12px;
+    }
+
+    .ziwei-relation-svg {
+      inset: 6px;
+      width: calc(100% - 12px);
+      height: calc(100% - 12px);
+      z-index: 1;
+      opacity: 0.34;
+    }
+
+    .ziwei-palace,
+    .ziwei-center {
+      z-index: 2;
+    }
+
+    .ziwei-board-shell > .board-head {
+      display: none;
+    }
+
+    .ziwei-board-wrap {
+      padding: 5px;
+      border-radius: 12px;
+    }
+
+    .ziwei-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: repeat(4, minmax(92px, auto));
+      gap: 3px;
+    }
+
+    .ziwei-palace {
+      padding: 4px 3px;
+      gap: 2px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .ziwei-palace-foot {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1px;
+      margin-top: auto;
+    }
+
+    .ziwei-palace-foot-left {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 2px;
+    }
+
+    .ziwei-palace-foot-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+    }
+
+    .ziwei-palace-changsheng,
+    .ziwei-palace-boshi {
+      display: none;
+    }
+
+    .ziwei-star {
+      flex-wrap: wrap;
+      max-width: 100%;
+      white-space: normal;
+      line-height: 1.15;
+      gap: 1px 2px;
+    }
+
+    .ziwei-star.is-major .ziwei-star-name {
+      font-size: 0.72rem;
+    }
+
+    .ziwei-star-bright,
+    .ziwei-mutagen-badge {
+      font-size: 0.56rem;
+      min-width: 11px;
+      height: 12px;
+      padding: 0 2px;
+      margin-left: 1px;
+    }
+
+    .ziwei-palace-name {
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    .ziwei-palace-seal {
+      padding: 1px 3px;
+      gap: 2px;
+    }
+
+    .ziwei-seal-tag {
+      font-size: 0.54rem;
+      padding: 1px 2px;
+    }
+
+    .ziwei-palace-gz {
+      font-size: 0.6rem;
+      white-space: nowrap;
+    }
+
+    .ziwei-palace-decadal {
+      font-size: 0.54rem;
+      white-space: nowrap;
+    }
+
+    .ziwei-star-row.is-adj {
+      display: none;
+    }
+
+    .ziwei-star-row.is-minor {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1px 3px;
+    }
+
+    .ziwei-star.is-minor .ziwei-star-name {
+      font-size: 0.58rem;
+      opacity: 0.92;
+    }
+
+    .ziwei-center {
+      padding: 6px;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .ziwei-center-head {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 3px;
+    }
+
+    .ziwei-center-title {
+      font-size: 0.74rem;
+    }
+
+    .ziwei-center-class {
+      font-size: 0.62rem;
+      padding: 1px 5px;
+    }
+
+    .ziwei-center-meta {
+      grid-template-columns: 1fr;
+      gap: 2px;
+    }
+
+    .ziwei-center-row[data-meta-key='solar'],
+    .ziwei-center-row[data-meta-key='time'] {
+      display: none;
+    }
+
+    .ziwei-center-row {
+      font-size: 0.64rem;
+    }
+
+    .ziwei-center-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
+    .ziwei-center-chips .board-chip {
+      font-size: 0.56rem;
+      padding: 1px 4px;
+      line-height: 1.25;
+    }
+
+    .ziwei-center-focus {
+      display: none;
+    }
+
+    .bazi-board-shell > .board-head {
+      gap: 4px;
+    }
+
+    .bazi-board-shell > .board-head .board-title {
+      display: none;
+    }
+
+    .bazi-board-shell > .board-head .board-subtitle {
+      font-size: 0.72rem;
+    }
+
+    .astrolabe-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 679px) {
+    .bazi-person-meta-bar {
+      margin-bottom: 4px;
+      gap: 4px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .bazi-pillars-cell.is-hidden-stems {
+      padding-inline: 2px;
+    }
+
+    .bazi-hidden-stem-list {
+      gap: 3px;
+    }
+
+    .bazi-hidden-item {
+      grid-template-columns: 1.2em 2.45em;
+      column-gap: 1px;
+      white-space: nowrap;
+    }
+
+    .bazi-hidden-stem-list.has-revealed .bazi-hidden-item {
+      grid-template-columns: 1.2em 2.45em 13px;
+    }
+
+    .bazi-hidden-stem {
+      font-size: 0.74rem;
+      padding: 0;
+    }
+
+    .bazi-hidden-god {
+      font-size: 0.64rem;
+      padding: 0;
+    }
+
+    .bazi-stem-revealed {
+      width: 12px;
+      height: 12px;
+      margin-left: 0;
+      font-size: 8.5px;
+    }
+
+    .bazi-shensha-tag {
+      min-width: 52px;
+      padding: 2px 5px;
+      font-size: 0.66rem;
+    }
+  }
+
+  @media (max-width: 379px) {
+    .bazi-pillars-table {
+      grid-template-columns: 32px repeat(var(--bazi-col-count, 4), minmax(0, 1fr));
+    }
+
+    .bazi-pillars-table.has-fortune-cols {
+      grid-template-columns: 36px repeat(var(--bazi-col-count, 4), minmax(58px, 1fr));
+      min-width: 446px;
+    }
+
+    .bazi-pillars-cell {
+      padding: 4px 2px;
+      font-size: 0.72rem;
+    }
+
+    .bazi-pillars-cell.is-pillar {
+      min-height: 98px;
+      padding-block: 6px;
+    }
+
+    .bazi-ganzhi-symbol {
+      font-size: 1.32rem;
+      padding: 1px 2px;
+    }
+
+    .bazi-hidden-item {
+      grid-template-columns: 1.15em 2.4em;
+      column-gap: 1px;
+      white-space: nowrap;
+    }
+
+    .bazi-hidden-stem-list.has-revealed .bazi-hidden-item {
+      grid-template-columns: 1.15em 2.4em 12px;
+    }
+
+    .bazi-hidden-stem {
+      font-size: 0.68rem;
+      padding: 0;
+    }
+
+    .bazi-hidden-god {
+      font-size: 0.58rem;
+      padding: 0;
+    }
+
+    .bazi-stem-revealed {
+      width: 11px;
+      height: 11px;
+      margin-left: 0;
+      font-size: 8px;
+    }
+
+    .bazi-shensha-tag {
+      min-width: 46px;
+      padding: 1.5px 4px;
+      font-size: 0.62rem;
+    }
+
+    .ziwei-board-wrap {
+      padding: 4px;
+    }
+
+    .ziwei-grid {
+      gap: 2px;
+    }
+
+    .ziwei-palace {
+      padding: 3px 2px;
+    }
+
+    .ziwei-star.is-major .ziwei-star-name {
+      font-size: 0.62rem;
+    }
+
+    .ziwei-star.is-minor .ziwei-star-name {
+      font-size: 0.5rem;
+    }
+
+    .ziwei-center-chips .board-chip {
+      font-size: 0.5rem;
+      padding: 0 3px;
+    }
+
+    .bazi-ep-gz {
+      font-size: 0.88rem;
+    }
+  }
+
+  @media (max-width: 679px) {
+    .ziwei-layer-tabs {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      gap: 5px;
+      padding-right: 18px;
+      padding-bottom: 2px;
+      -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+      mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+    }
+
+    .ziwei-layer-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .ziwei-layer-tabs .wb-tab {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+    }
+  }
+
+  @media (max-width: 1160px) {
+    .qz-main-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (min-width: 980px) {
+    .minglu-pillars-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .minglu-wuxing-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .minglu-cycles-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 680px) and (max-width: 979px) {
+    .minglu-pillars-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 679px) {
+    .wb-meta-grid.qz-meta-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .minglu-dossier-header {
+      padding: 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+    }
+
+    .minglu-toc-bar {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      gap: 6px;
+      padding: 6px 20px 6px 2px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+      mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+    }
+
+    .minglu-toc-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .minglu-toc-pill {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      padding: 5px 11px;
+      font-size: 0.78rem;
+    }
+
+    .minglu-guide-subcard,
+    .minglu-pillar-story-card,
+    .minglu-wuxing-card,
+    .minglu-cycle-card,
+    .minglu-shensha-card,
+    .minglu-ziwei-card,
+    .minglu-cross-card,
+    .minglu-bazhai-card,
+    .minglu-glossary-card {
+      padding: 11px 12px;
+      gap: 6px;
+    }
+
+    .minglu-pillars-grid,
+    .minglu-wuxing-grid,
+    .minglu-cycles-grid,
+    .minglu-shensha-grid,
+    .minglu-ziwei-grid,
+    .minglu-cross-grid,
+    .minglu-bazhai-grid,
+    .minglu-glossary-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .minglu-wuxing-card-top .board-chip {
+      white-space: nowrap;
+    }
+
+    .wb-tabs.ziwei-layer-tabs {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      overflow-x: auto !important;
+      scrollbar-width: none;
+      gap: 5px;
+      padding-bottom: 2px;
+      padding-right: 22px;
+      -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+      mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+    }
+
+    .wb-tabs.ziwei-layer-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .wb-tabs.ziwei-layer-tabs .wb-tab {
+      flex: 0 0 auto !important;
+      white-space: nowrap !important;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+    }
+
+    .bazi-fortune-card {
+      padding: 8px;
+      gap: 6px;
+    }
+
+    .bazi-fortune-row-title {
+      width: 22px;
+      flex-basis: 22px;
+      padding-right: 5px;
+      margin-right: 6px;
+      font-size: 0.68rem;
+    }
+
+    .bazi-fortune-item {
+      flex: 0 0 54px;
+      min-width: 52px;
+      padding: 4px 3px;
+    }
+
+    .bazi-fortune-char {
+      font-size: 0.94rem;
+    }
+
+    .bazi-extra-pillars {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .bazi-ep-card {
+      padding: 5px 3px;
+      gap: 2px;
+      border-radius: 8px;
+    }
+
+    .bazi-ep-head {
+      gap: 3px;
+      font-size: 0.66rem;
+    }
+
+    .bazi-ep-god {
+      font-size: 0.6rem;
+    }
+
+    .bazi-ep-gz {
+      font-size: 0.96rem;
+    }
+
+    .bazi-ep-foot {
+      font-size: 0.6rem;
+      text-align: center;
+    }
+
+    .bz-computed-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .bz-computed-card {
+      padding: 7px 9px;
+      border-radius: 9px;
+    }
+
+    .bz-computed-value {
+      font-size: 0.88rem;
+    }
+
+    .bz-computed-sub {
+      font-size: 0.68rem;
+    }
+
+    .bazi-wuxing-bars {
+      padding: 8px 10px;
+      gap: 6px;
+      margin-top: 6px;
+      border-radius: 10px;
+    }
+
+    .bazi-strength-breakdown {
+      padding: 7px 10px;
+      gap: 4px;
+      margin-top: 6px;
+      border-radius: 10px;
+    }
+
+    .bz-relations-bar {
+      padding: 7px 10px;
+      gap: 5px;
+      margin-top: 6px;
+      border-radius: 10px;
+    }
+
+    .qz-table th,
+    .qz-table td {
+      padding: 5px 4px;
+      font-size: 0.74rem;
+    }
+
+    .astrolabe-planet-row {
+      padding: 4px 6px;
+      font-size: 0.76rem;
+    }
+
+    .ziwei-natal-mutagens {
+      padding: 5px 7px;
+      gap: 4px 6px;
+    }
+
+    .ziwei-natal-mutagens-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      width: 100%;
+    }
+
+    .ziwei-natal-mutagen-btn {
+      justify-content: center;
+      font-size: 0.68rem;
+      padding: 2px 5px;
+    }
+  }
+}

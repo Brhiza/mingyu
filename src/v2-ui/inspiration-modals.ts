@@ -1,7 +1,4 @@
-import {
-  openQuestionInspirationSession,
-  openSupplementaryInfoSession,
-} from '../app/modal-bus';
+import { openQuestionInspirationSession } from '../app/modal-bus';
 import { type Method } from '../schema';
 
 export type QuestionInspirationFilter = {
@@ -434,35 +431,6 @@ export function openQuestionInspirationModal(options: {
   openQuestionInspirationSession(options);
 }
 
-export function countSupplementaryTextFields(values: Partial<SupplementaryInfoValues>): number {
-  const keys: Array<keyof SupplementaryInfoValues> = [
-    'userSupplement',
-    'currentSituation',
-    'currentState',
-    'knownFacts',
-    'desiredOutcome',
-    'constraints',
-  ];
-  return keys.reduce((acc, key) => acc + (values[key]?.trim() ? 1 : 0), 0);
-}
-
-export function countSupplementaryFields(values: Partial<SupplementaryInfoValues>): number {
-  const keys: Array<keyof SupplementaryInfoValues> = [
-    'gender',
-    'birthYear',
-    'subjectRole',
-    'lifeStageContext',
-    'timeHorizon',
-    'userSupplement',
-    'currentSituation',
-    'currentState',
-    'knownFacts',
-    'desiredOutcome',
-    'constraints',
-  ];
-  return keys.reduce((acc, key) => acc + (values[key]?.trim() ? 1 : 0), 0);
-}
-
 export function formatSupplementaryAppendix(values: Partial<SupplementaryInfoValues>): string {
   const parts: string[] = [];
   const personMeta = [
@@ -483,12 +451,4 @@ export function formatSupplementaryAppendix(values: Partial<SupplementaryInfoVal
   if (values.desiredOutcome?.trim()) parts.push(`【期望结果】${values.desiredOutcome.trim()}`);
   if (values.constraints?.trim()) parts.push(`【期望目标与现实限制】${values.constraints.trim()}`);
   return parts.join('\n');
-}
-
-export function openSupplementaryInfoModal(options: {
-  values: SupplementaryInfoValues;
-  description?: string;
-  onSave: (nextValues: SupplementaryInfoValues) => void;
-}): void {
-  openSupplementaryInfoSession(options);
 }

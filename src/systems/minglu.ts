@@ -95,7 +95,7 @@ async function computeMinglu(source: MingluSource, question: string, context?: R
     ...(source.gender ? { gender: source.gender } : {}),
     ...(source.referenceTime ? { referenceTime: source.referenceTime } : {}),
     ...(source.timelineYear !== undefined ? { timelineYear: source.timelineYear } : {}),
-  });
+  }, context);
 
   let ziweiResult: Awaited<ReturnType<typeof ziweiIndependent>> | null = null;
   if (source.include?.ziwei === false) {
@@ -235,8 +235,8 @@ function buildCrossSynthesis(
   const ziweiExact = ziweiData && !('unknown' in ziweiData) ? ziweiData : null;
   const astroData = computed.astrolabeResult?.data ?? null;
   const bazhaiData = computed.bazhaiResult?.data ?? null;
-  const qizhengData = computed.qizhengResult?.data as any ?? null;
-  const qimenData = computed.qimenLifetimeResult?.data as any ?? null;
+  const qizhengData = computed.qizhengResult?.data ?? null;
+  const qimenData = computed.qimenLifetimeResult?.data ?? null;
 
   const baziZiweiCorroboration = baziChart && ziweiExact
     ? evaluateBaziZiweiCorroboration(baziChart, ziweiExact)
@@ -255,11 +255,11 @@ function buildCrossSynthesis(
       astrolabeFocus: astroData
         ? `太阳${astroData.points.find((p) => p.id === 'sun')?.sign ?? ''}、月亮${astroData.points.find((p) => p.id === 'moon')?.sign ?? ''}、上升${astroData.angles.find((a) => a.id === 'asc')?.sign ?? ''}；四元素分布${astroData.distributions.elements.map((e) => `${e.label}${e.members.length}`).join('/')}`
         : null,
-      qizhengFocus: qizhengData?.natal?.mingGong
-        ? `命宫${qizhengData.natal.mingGong.sign ?? ''}（度主${qizhengData.natal.mingGong.degreeLord ?? qizhengData.natal.mingGong.lord ?? ''}）`
-        : qizhengData ? '七政本命盘已计算' : null,
+      qizhengFocus: qizhengData
+        ? `命宫${qizhengData.twelvePalaces.find((p) => p.palace === '命宫')?.signBranch ?? ''}宫（命主${qizhengData.mingZhu}，度主${qizhengData.mingDu.duZhu}）`
+        : null,
       qimenFocus: qimenData?.baseChart
-        ? `${qimenData.baseChart.isYangDun ? '阳遁' : '阴遁'}${qimenData.baseChart.juShu}局（值符${qimenData.baseChart.zhiFu?.star ?? ''}、值使${qimenData.baseChart.zhiShi?.door ?? ''}）`
+        ? `${qimenData.baseChart.isYangDun ? '阳遁' : '阴遁'}${qimenData.baseChart.juShu}局（值符${qimenData.baseChart.zhiFu}、值使${qimenData.baseChart.zhiShi}）`
         : null,
       bazhaiFocus: bazhaiData
         ? `命卦${bazhaiData.mingPalaces.map((m) => `${m.gua}卦`).join(' / ')}`
@@ -275,7 +275,7 @@ function buildCrossSynthesis(
         ? `官禄宫（${ziweiExact.natal.palaces.find((p) => p.name === '官禄')?.majorStars.map((s) => s.name).join('、') || '借对宫'}）、财帛宫（${ziweiExact.natal.palaces.find((p) => p.name === '财帛')?.majorStars.map((s) => s.name).join('、') || '借对宫'}）`
         : null,
       astrolabeFocus: astroData
-        ? `天顶MC${astroData.angles.find((a) => a.id === 'mc')?.sign ?? ''}；第10宫星体：${astroData.points.filter((p) => p.house === 10).map((p) => p.name).join('、') || '无'}；第2宫星体：${astroData.points.filter((p) => p.house === 2).map((p) => p.name).join('、') || '无'}`
+        ? `天顶${astroData.angles.find((a) => a.id === 'mc')?.sign ?? ''}；第10宫星体：${astroData.points.filter((p) => p.house === 10).map((p) => p.name).join('、') || '无'}；第2宫星体：${astroData.points.filter((p) => p.house === 2).map((p) => p.name).join('、') || '无'}`
         : null,
       qizhengFocus: qizhengData ? '参考七政官禄宫/财帛宫星曜躔度与恩难' : null,
       qimenFocus: qimenData?.stages ? `终身局分 ${qimenData.stages.length} 个阶段（详见奇门终身局分节）` : null,

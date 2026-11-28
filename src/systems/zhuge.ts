@@ -2,14 +2,27 @@ import type { z } from 'zod';
 import type { zhugeInput } from '../schema';
 import { sameJsonValue } from '../json-value';
 import { resolvePromptSelection } from '../prompt-selection';
+import type { StaticDatasetLoader } from '../static-data';
 import { randomContext } from './random';
 import strokeData from './zhuge-strokes.json';
-import signData from './zhuge-signs.json';
 import coinEntries from './kongming-data.json';
 import { buildMethodSituationDigest } from './situation-digest';
+import { loadStaticDataset } from './static-data-loader';
 
 type Input = z.infer<typeof zhugeInput>;
 const strokesByCharacter: Record<string, number> = strokeData;
+interface ZhugeSignEntry {
+  number: number;
+  poem: string;
+  summary: string;
+  interpretation: {
+    quote: string;
+    imageMeaning: string;
+    interpretation: string;
+    condition: string;
+    classicalImage?: string;
+  };
+}
 type CoinEntry = (typeof coinEntries)[number];
 type CoinData = CoinEntry & {
   mode: 'coins';
@@ -17,10 +30,10 @@ type CoinData = CoinEntry & {
   draw: { method: 'random' | 'manual' };
 };
 
-function buildSignFromDigits(digits: number[]) {
+function buildSignFromDigits(digits: number[], signs: readonly ZhugeSignEntry[]) {
   const rawNumber = digits[0]! * 100 + digits[1]! * 10 + digits[2]!;
   const number = rawNumber % 384 || 384;
-  const sign = signData[number - 1];
+  const sign = signs[number - 1];
   if (!sign || sign.number !== number || !sign.interpretation) {
     throw new Error('签谱资料不完整。');
   }
@@ -33,7 +46,7 @@ function buildSignFromDigits(digits: number[]) {
   };
 }
 
-function makeTextData(text: string) {
+function makeTextData(text: string, signs: readonly ZhugeSignEntry[]) {
   const chars = [...text.trim()];
   if (chars.length !== 3) throw new Error('诸葛神数汉字取签需输入恰好三个汉字。');
   const strokes = chars.map((character) => {
@@ -49,11 +62,11 @@ function makeTextData(text: string) {
     chars,
     strokes,
     digits,
-    ...buildSignFromDigits(digits),
+    ...buildSignFromDigits(digits, signs),
   };
 }
 
-function makeNumbersData(numbers: readonly [number, number, number]) {
+function makeNumbersData(numbers: readonly [number, number, number], signs: readonly ZhugeSignEntry[]) {
   if (numbers.length !== 3 || numbers.some((n) => !Number.isInteger(n) || n < 0)) {
     throw new Error('诸葛神数数字取签需提供三个非负整数。');
   }
@@ -63,7 +76,7 @@ function makeNumbersData(numbers: readonly [number, number, number]) {
     mode: 'numbers' as const,
     numbers: normalized,
     digits,
-    ...buildSignFromDigits(digits),
+    ...buildSignFromDigits(digits, signs),
   };
 }
 
@@ -163,7 +176,12 @@ function buildCoinsPrompt(data: CoinData, question: string, options: Input['prom
   return { text: user };
 }
 
-export function calculateZhuge(input: Input, now: string, source?: () => number) {
+export async function calculateZhuge(
+  input: Input,
+  now: string,
+  source?: () => number,
+  staticDataset?: StaticDatasetLoader,
+) {
   const mode =
     input.zhuge.method ??
     (input.zhuge.pattern !== undefined
@@ -192,8 +210,10 @@ export function calculateZhuge(input: Input, now: string, source?: () => number)
     };
   }
 
+  const signs = await loadStaticDataset<ZhugeSignEntry[]>('zhuge-signs', staticDataset);
+
   if (mode === 'numbers') {
-    const data = makeNumbersData(input.zhuge.numbers!);
+    const data = makeNumbersData(input.zhuge.numbers!, signs);
     return {
       data,
       summary: {
@@ -205,7 +225,7 @@ export function calculateZhuge(input: Input, now: string, source?: () => number)
     };
   }
 
-  const data = makeTextData(input.zhuge.text!);
+  const data = makeTextData(input.zhuge.text!, signs);
   return {
     data,
     summary: {
@@ -217,7 +237,13 @@ export function calculateZhuge(input: Input, now: string, source?: () => number)
   };
 }
 
-export function promptForZhuge(value: unknown, question: string, options: Input['prompt'], now: string) {
+export async function promptForZhuge(
+  value: unknown,
+  question: string,
+  options: Input['prompt'],
+  now: string,
+  staticDataset?: StaticDatasetLoader,
+) {
   const raw = (value && typeof value === 'object' ? value : undefined) as
     | {
         mode?: unknown;
@@ -244,6 +270,8 @@ export function promptForZhuge(value: unknown, question: string, options: Input[
     return buildCoinsPrompt(expected, question, options, now);
   }
 
+  const signs = await loadStaticDataset<ZhugeSignEntry[]>('zhuge-signs', staticDataset);
+
   if (raw.mode === 'numbers' || Array.isArray(raw.numbers)) {
     if (!Array.isArray(raw.numbers) || raw.numbers.length !== 3) {
       throw new Error('诸葛神数数字取签结果缺少三组数字。');
@@ -252,7 +280,7 @@ export function promptForZhuge(value: unknown, question: string, options: Input[
       number,
       number,
       number,
-    ]);
+    ], signs);
     if (!sameJsonValue(raw, expected)) {
       throw new Error('取数或签面与输入的数字不一致。');
     }
@@ -262,7 +290,7 @@ export function promptForZhuge(value: unknown, question: string, options: Input[
   if (typeof raw.text !== 'string') {
     throw new Error('诸葛神数结果缺少有效取数或卦象资料。');
   }
-  const expected = makeTextData(raw.text);
+  const expected = makeTextData(raw.text, signs);
   if (!sameJsonValue(raw, expected)) {
     throw new Error('笔画、取数或签面与输入的三字不一致。');
   }

@@ -4,12 +4,13 @@ import { analyzeMeihuaEvidence } from './meihua/evidence';
 import { findHexagramByTrigrams } from './meihua/hexagram';
 import { isKe, isSheng } from './calendar';
 import type { meihuaInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import type { MeihuaSettings } from './meihua/types';
 import { sameJsonValue } from '../json-value';
 import { beijingLunarDateDiscrepancy } from './birth-time';
 import { formatSchoolGuidance, resolvePromptSelection } from '../prompt-selection';
 import { evaluateMeihuaSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
-import { formatClassicExcerpts, selectMeihuaClassics } from './classics';
+import { ensureYilinLoaded, formatClassicExcerpts, selectMeihuaClassics } from './classics';
 import reference from './meihua-reference.json';
 import { buildMethodSituationDigest } from './situation-digest';
 
@@ -161,14 +162,22 @@ export function buildMeihuaPatternRelations(data: MeihuaData): string {
   return [stageLine, partyLine, seasonLine].join('\n');
 }
 
-async function buildPrompt(data: MeihuaData, evidence: Evidence, question: string, options: Options, now: string) {
+async function buildPrompt(data: MeihuaData, evidence: Evidence, question: string, options: Options, now: string, context?: RuntimeContext) {
   const selection = resolvePromptSelection('meihua', options);
   const schools = formatSchoolGuidance(options?.schools, reference.schools, {
     multiNote: '多口径合参：分别依据各口径分析，再比较共同点、分歧及其对应盘面依据。',
   });
   const schoolAlgorithmsText = formatSchoolAlgorithmSection(evaluateMeihuaSchoolAlgorithms(data, options?.schools));
   const classics = options?.includeClassics ? reference.classics.map((item) => `《${item.book}》·${item.chapter}：${item.summary}\n适用条件：${item.application}`).join('\n') : '';
-  const zhouyi = options?.includeClassics ? (await import('./zhouyi-text')).hexagramClassics(data.originalName, data.changedName, [data.movingYao.position]) : '';
+  let zhouyi = '';
+  if (options?.includeClassics) {
+    const zhouyiMod = await import('./zhouyi-text');
+    await Promise.all([
+      zhouyiMod.ensureZhouyiLoaded(context?.staticDataset),
+      ensureYilinLoaded(context?.staticDataset),
+    ]);
+    zhouyi = zhouyiMod.hexagramClassics(data.originalName, data.changedName, [data.movingYao.position]);
+  }
   const classicExcerpts = options?.includeClassics
     ? formatClassicExcerpts(
         selectMeihuaClassics({
@@ -180,11 +189,21 @@ async function buildPrompt(data: MeihuaData, evidence: Evidence, question: strin
         '典籍片段',
       )
     : '';
+  const timeContext = (data as MeihuaData & {
+    timeContext?: {
+      standard: 'true-solar';
+      longitude: number;
+      totalCorrectionMinutes: number;
+    };
+  }).timeContext;
+  const timeStandardNote = timeContext
+    ? `真太阳时（经度 ${timeContext.longitude}°，总修正 ${timeContext.totalCorrectionMinutes.toFixed(1)} 分钟）；`
+    : '';
   const digestLines = buildMethodSituationDigest('meihua', { ...data, evidenceAnalysis: evidence }, question);
   const sections = [
     '【传统依据】\n依取数、动爻与体用确定主卦、互卦和变卦；逐阶段考察五行生克及月令旺衰。',
     digestLines.length ? `【局势要点】\n${digestLines.join('\n')}` : '',
-    `【时间】\n起卦：${new Date(data.timestamp).toISOString()}；提示词时间：${now}；干支：${Object.values(data.ganzhi).join(' ')}。`,
+    `【时间】\n起卦：${new Date(data.timestamp).toISOString()}；${timeStandardNote}提示词时间：${now}；干支：${Object.values(data.ganzhi).join(' ')}。`,
     beijingLunarDateDiscrepancy(data.timestamp) ? `【历法差异】\n${beijingLunarDateDiscrepancy(data.timestamp)}` : '',
     `【取数与卦象】\n${evidence.calculationFact.promptText}\n${evidence.hexagramStructureFacts.map((item) => item.promptText).join('；')}\n逐爻：${evidence.yaoStructureFacts.map((item) => item.promptText).join('；')}`,
     `【体用与阶段】\n${evidence.stages.map((item) => item.promptText).join('\n')}\n演变：${evidence.transitionFacts.map((item) => item.promptText).join('；')}\n${buildMeihuaExtendedImagery(data)}`,
@@ -225,6 +244,9 @@ function reconstruct(data: MeihuaData & { evidenceAnalysis?: unknown }): MeihuaD
     ...(c.characterRightStrokes === undefined ? {} : { characterRightStrokes: c.characterRightStrokes }),
     ...(c.direction === undefined ? {} : { direction: c.direction }),
     ...(c.objectType === undefined ? {} : { objectType: c.objectType }),
+    ...(c.timeStandard === 'true-solar' && typeof c.longitude === 'number'
+      ? { timeStandard: 'true-solar' as const, longitude: c.longitude }
+      : {}),
   };
   const savedRandom = settings.method === 'random' ? {
     upperTrigramIndex: c.upperTrigramIndex!, lowerTrigramIndex: c.lowerTrigramIndex!, movingYaoIndex: c.movingYaoIndex!,
@@ -235,17 +257,17 @@ function reconstruct(data: MeihuaData & { evidenceAnalysis?: unknown }): MeihuaD
   return rebuilt;
 }
 
-export async function meihua(input: Input, now: string) {
+export async function meihua(input: Input, now: string, context?: RuntimeContext) {
   const data = generateMeihuaChart(new Date(input.divinationTime ?? now), input.meihua);
   const evidenceAnalysis = analyzeMeihuaEvidence(data);
   return {
     data: { ...data, evidenceAnalysis },
     summary: { title: '梅花易数起卦结果', tags: [`主卦：${data.originalName}`, `互卦：${data.interName}`, `变卦：${data.changedName}`], lines: [...evidenceAnalysis.stages.map((item) => item.promptText), ...(beijingLunarDateDiscrepancy(data.timestamp) ? [beijingLunarDateDiscrepancy(data.timestamp)!] : [])] },
-    prompt: await buildPrompt(data, evidenceAnalysis, input.question, input.prompt, now),
+    prompt: await buildPrompt(data, evidenceAnalysis, input.question, input.prompt, now, context),
   };
 }
 
-export function promptForMeihua(value: unknown, question: string, options: Options, now: string) {
+export function promptForMeihua(value: unknown, question: string, options: Options, now: string, context?: RuntimeContext) {
   const rebuilt = reconstruct((value && typeof value === 'object' ? value : {}) as MeihuaData);
-  return buildPrompt(rebuilt, analyzeMeihuaEvidence(rebuilt), question, options, now);
+  return buildPrompt(rebuilt, analyzeMeihuaEvidence(rebuilt), question, options, now, context);
 }

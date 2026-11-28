@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { APP_NAME } from '../../brand-config';
 import { listModels, streamChat, type AiConfig, type AiMessage } from '../../ai';
 import { splitPromptIntoSystemAndUser } from '../../prompt-profile';
 import {
@@ -10,6 +11,7 @@ import {
   writeWebAiConfig,
   type AiConfigProfile,
 } from '../../web-ai';
+import { Select } from '../../components/ui';
 import { AgentMarkdown } from './AgentMarkdown';
 
 export interface SingleChartFollowUpItem {
@@ -98,7 +100,7 @@ function buildMarkdownExport(
 ): string {
   const now = new Date().toLocaleString('zh-CN', { hour12: false });
   const lines: string[] = [
-    '# 命语 · AI 盘面解读报告',
+    `# ${APP_NAME} · AI 盘面解读报告`,
     '',
     `- 导出时间：${now}`,
     ...(modelName.trim() ? [`- 解读模型：${modelName.trim()}`] : []),
@@ -576,11 +578,11 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
             </div>
             <div className="flex items-center gap-1.5">
               {profiles.length >= 2 ? (
-                <select
+                <Select
                   aria-label="切换模型配置"
+                  size="sm"
                   value={activeProfileId ?? ''}
-                  onChange={(e) => {
-                    const nextId = e.target.value;
+                  onValueChange={(nextId) => {
                     const hit = activateWebAiProfile(nextId);
                     if (hit) {
                       setActiveProfileId(hit.id);
@@ -590,21 +592,21 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
                       setStatus(`已切换至方案「${hit.name}」。`);
                     }
                   }}
-                  className="max-w-[140px] rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)]"
+                  className="w-auto max-w-[148px] text-[11px] font-semibold"
                 >
                   {profiles.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : null}
               <button
                 type="button"
                 className="workspace-ui-button is-ghost is-small ai-chat-config-link"
                 onClick={() => window.dispatchEvent(new CustomEvent('mingyu:navigate-connect'))}
               >
-                配置接口
+                配置 AI
               </button>
             </div>
           </div>
@@ -691,7 +693,7 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
                 disabled={isListingModels}
                 onClick={() => void handleListModels()}
               >
-                获取模型列表
+                获取模型
               </button>
             </div>
           </div>
@@ -704,7 +706,7 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
               disabled={!hasOriginalPrompt || isStreaming}
               onClick={handleStart}
             >
-              {hasConversation ? '重新解读' : '开始 AI 解读'}
+              {hasConversation ? '重新解读' : 'AI 解读'}
             </button>
             <button
               id="ai-stop"
@@ -712,7 +714,7 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
               disabled={!isStreaming}
               onClick={() => streamAbortRef.current?.abort()}
             >
-              停止生成
+              停止
             </button>
             {hasConversation && !isStreaming ? (
               <>
@@ -743,7 +745,7 @@ export const SingleChartAiPanel = React.forwardRef<SingleChartAiHandle, object>(
                     setStatus('已清空本盘解读记录。');
                   }}
                 >
-                  清空记录
+                  清空
                 </button>
               </>
             ) : null}

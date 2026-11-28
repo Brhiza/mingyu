@@ -39,21 +39,21 @@ export const divinationHandlers = {
     const input = inputSchemas.taiyi.parse({ taiyi: data.input, question: request.question, prompt: promptOptions });
     return await module.promptForTaiyi(data, input, currentTime);
   },
-  'liuyao': async ({ request, data, currentTime, promptOptions }) => {
+  'liuyao': async ({ request, data, currentTime, promptOptions, context }) => {
     const module = await import('../systems/liuyao');
     const options = inputSchemas.liuyao.shape.prompt.parse(promptOptions);
     if (data.kind === 'range') {
       requireSavedInput(data, '六爻范围结果缺少原始输入。');
       const original = data.input;
       const input = inputSchemas.liuyao.parse({ range: original.range, liuyao: original.liuyao, question: request.question, prompt: options });
-      return await (await import('../systems/liuyao-range')).promptForLiuyaoRange(data, input, currentTime);
+      return await (await import('../systems/liuyao-range')).promptForLiuyaoRange(data, input, currentTime, context);
     }
-    return await module.promptForLiuyao(data, request.question, options, currentTime);
+    return await module.promptForLiuyao(data, request.question, options, currentTime, context);
   },
-  'meihua': async ({ request, data, currentTime, promptOptions }) => {
+  'meihua': async ({ request, data, currentTime, promptOptions, context }) => {
     const module = await import('../systems/meihua');
     const options = inputSchemas.meihua.shape.prompt.parse(promptOptions);
-    return await module.promptForMeihua(data, request.question, options, currentTime);
+    return await module.promptForMeihua(data, request.question, options, currentTime, context);
   },
   'liuren': async ({ request, data, currentTime, promptOptions }) => {
     const module = await import('../systems/liuren');
@@ -100,15 +100,15 @@ export const divinationHandlers = {
     const options = inputSchemas.lenormand.shape.prompt.parse(promptOptions);
     return module.promptForLenormand(data, request.question, options, currentTime);
   },
-  'ssgw': async ({ request, data, currentTime, promptOptions }) => {
+  'ssgw': async ({ request, data, currentTime, promptOptions, context }) => {
     if (typeof data.number !== 'number') throw new Error('结果缺少必要盘面资料。');
     const module = await import('../systems/ssgw');
     const options = inputSchemas.ssgw.shape.prompt.parse(promptOptions);
-    return module.promptForSsgw(data, request.question, options, currentTime);
+    return await module.promptForSsgw(data, request.question, options, currentTime, context?.staticDataset);
   },
-  'zhuge': async ({ request, data, currentTime, promptOptions }) => {
+  'zhuge': async ({ request, data, currentTime, promptOptions, context }) => {
     const module = await import('../systems/zhuge');
     const options = inputSchemas.zhuge.shape.prompt.parse(promptOptions);
-    return module.promptForZhuge(data, request.question, options, currentTime);
+    return await module.promptForZhuge(data, request.question, options, currentTime, context?.staticDataset);
   },
 } satisfies Partial<Record<Method, RepromptHandler>>;

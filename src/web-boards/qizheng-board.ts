@@ -3,7 +3,9 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   svgEl,
@@ -61,6 +63,7 @@ function buildQizhengWheel(
   );
 
   // Outer Layer: 28 Mansions (二十八宿精确刻度环)
+  const mansionEntries: Array<{ lon: number; width: number; name: string; labelLon: number }> = [];
   for (const m of mansionBoundaries) {
     const lon = asNumber(m.longitude);
     const width = asNumber(m.widthDegrees);
@@ -69,10 +72,28 @@ function buildQizhengWheel(
     const [x1, y1] = polarToXY(cx, cy, rOuter, lon);
     const [x2, y2] = polarToXY(cx, cy, rMansionOuter, lon);
     svg.append(svgEl('line', { x1: x1.toFixed(1), y1: y1.toFixed(1), x2: x2.toFixed(1), y2: y2.toFixed(1), class: 'qz-mansion-spoke' }));
+    mansionEntries.push({ lon, width, name, labelLon: (lon + width / 2) % 360 });
+  }
 
-    const midLon = (lon + width / 2) % 360;
-    const [mx, my] = polarToXY(cx, cy, (rOuter + rMansionOuter) / 2, midLon);
-    const quad = MANSION_QUADRANT[name] ?? 'east';
+  mansionEntries.sort((a, b) => a.labelLon - b.labelLon);
+  const minSep = 7.2;
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let i = 0; i < mansionEntries.length; i += 1) {
+      const nextIdx = (i + 1) % mansionEntries.length;
+      const cur = mansionEntries[i]!;
+      const nxt = mansionEntries[nextIdx]!;
+      const diff = (nxt.labelLon - cur.labelLon + 360) % 360;
+      if (diff < minSep) {
+        const push = (minSep - diff) / 2;
+        cur.labelLon = (cur.labelLon - push + 360) % 360;
+        nxt.labelLon = (nxt.labelLon + push) % 360;
+      }
+    }
+  }
+
+  for (const entry of mansionEntries) {
+    const [mx, my] = polarToXY(cx, cy, (rOuter + rMansionOuter) / 2, entry.labelLon);
+    const quad = MANSION_QUADRANT[entry.name] ?? 'east';
     const label = svgEl('text', {
       x: mx.toFixed(1),
       y: my.toFixed(1),
@@ -80,7 +101,7 @@ function buildQizhengWheel(
       'text-anchor': 'middle',
       'dominant-baseline': 'central',
     });
-    label.textContent = name;
+    label.textContent = entry.name;
     svg.append(label);
   }
 
@@ -311,71 +332,124 @@ export function renderQizhengBoard(container: HTMLElement, _method: string, rawD
     .map(asRecord)
     .filter((x): x is UnknownRecord => Boolean(x));
   const sunriseText = sunCrossings
-    .map((c) => `${asString(c.direction) === 'rise' ? '日出' : '日没'} ${asString(c.localDateTime)?.slice(11, 16) ?? ''}`)
+    .map((c) => {
+      const dir = asString(c.direction);
+      const label = dir === 'rise' || dir === '上行' ? '日出' : '日没';
+      return `${label} ${asString(c.localDateTime)?.slice(11, 16) ?? ''}`;
+    })
     .filter(Boolean)
     .join(' · ');
 
-  if (enNan || mingDu) {
-    const enNanMeta = createMetaGrid([
-      ['恩星', Array.from(enSet).join('、') || '无'],
-      ['难星', Array.from(nanSet).join('、') || '无'],
-      ['用星', Array.from(yongSet).join('、') || '无'],
-      ['仇星', Array.from(chouSet).join('、') || '无'],
-      [
-        '立命宿度',
-        mingDu
-          ? `${asString(mingDu.method) ?? '命度'}：${asString(mingDu.signBranch) ?? ''}宫 ${asString(mingDu.xiu) ?? ''}宿${asNumber(mingDu.xiuDegree)?.toFixed(2) ?? ''}°（度主 ${asString(mingDu.duZhu) ?? ''}）`
-          : undefined,
-      ],
-      [
-        '天文昼夜',
-        illumination
-          ? `${illumination.daylight === true ? '昼生' : '夜生'}${sunriseText ? ` · ${sunriseText}` : ''}`
-          : undefined,
-      ],
-    ]);
-    if (enNanMeta) container.append(enNanMeta);
-  }
-
   const shensha = asRecord(data.shensha);
   const shenshaStars = asArray(shensha?.stars).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (shenshaStars.length > 0) {
-    const sec = el('div', 'lr-section');
-    sec.append(el('h4', 'lr-section-title', '神煞'));
-    const wrap = el('div', 'wb-chip-wrap');
-    for (const st of shenshaStars) {
-      const n = asString(st.name) ?? '';
-      const v = asString(st.value) ?? '';
-      if (n) wrap.append(el('span', 'wb-badge wb-badge-neutral', `${n}：${v}`));
-    }
-    sec.append(wrap);
-    container.append(sec);
-  }
-
-  // 天星相位表
   const qzAspects = asArray(data.aspects).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (qzAspects.length > 0) {
-    const sec = el('div', 'lr-section');
-    sec.append(el('h4', 'lr-section-title', `天星相位（共 ${qzAspects.length} 条）`));
-    const wrap = el('div', 'wb-chip-wrap');
-    for (const asp of qzAspects.slice(0, 14)) {
-      const s1 = asString(asp.star1) ?? '';
-      const s2 = asString(asp.star2) ?? '';
-      const tp = asString(asp.type) ?? '';
-      const orb = asNumber(asp.orb);
-      const cls = asString(asp.closeness);
-      const txt = `${s1} ${tp} ${s2}${orb !== undefined ? ` (${orb.toFixed(1)}°` : ''}${cls ? ` · ${cls})` : orb !== undefined ? ')' : ''}`;
-      wrap.append(el('span', `wb-badge ${cls === '紧密' ? 'wb-badge-accent' : 'wb-badge-neutral'}`, txt));
-    }
-    sec.append(wrap);
-    container.append(sec);
-  }
-
-  // 月相细象与流年行限
   const timeLords = asRecord(data.timeLords);
   const flowing = asRecord(data.flowing);
   const illumFrac = asNumber(moonPhase?.illuminationFraction);
-  const qzExtra = createMetaGrid([
+
+  if (enNan || mingDu || timeLords || flowing) {
+    const enNanMeta = createMetaGrid([
+      ['恩用仇难', [
+        Array.from(enSet).length ? `恩:${Array.from(enSet).join('、')}` : '',
+        Array.from(yongSet).length ? `用:${Array.from(yongSet).join('、')}` : '',
+        Array.from(chouSet).length ? `仇:${Array.from(chouSet).join('、')}` : '',
+        Array.from(nanSet).length ? `难:${Array.from(nanSet).join('、')}` : '',
+      ].filter(Boolean).join(' · ') || '无'],
+      [
+        '立命宿度',
+        mingDu
+          ? `${asString(mingDu.signBranch) ?? ''}宫 ${asString(mingDu.xiu) ?? ''}宿${asNumber(mingDu.xiuDegree)?.toFixed(2) ?? ''}°（度主 ${asString(mingDu.duZhu) ?? ''}）`
+          : undefined,
+      ],
+      [
+        '童限 / 主限',
+        timeLords
+          ? [
+              asString(timeLords.currentStage) ?? asString(timeLords.summary),
+              asString(timeLords.lord) ? `主星 ${asString(timeLords.lord)}` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : undefined,
+      ],
+      [
+        '流年小限与太岁',
+        flowing
+          ? [
+              asString(flowing.yearBranch) ? `太岁${asString(flowing.yearBranch)}` : '',
+              asString(flowing.xiaoXian) ? `小限${asString(flowing.xiaoXian)}` : '',
+              asString(flowing.summary),
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : undefined,
+      ],
+    ]);
+    if (enNanMeta) {
+      enNanMeta.classList.add('qz-meta-grid');
+      container.append(enNanMeta);
+    }
+  }
+
+  const shenshaAspectCount = shenshaStars.length + qzAspects.length;
+  const shenshaAspectTrigger =
+    shenshaAspectCount > 0
+      ? createBoardModalTrigger(
+          '神煞与天星相位',
+          '七政神煞与天星相位明细',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (shenshaStars.length > 0) {
+              const sec = el('div', 'lr-section');
+              sec.append(el('h4', 'lr-section-title', `星盘神煞（共 ${shenshaStars.length} 项）`));
+              const wrap = el('div', 'wb-chip-wrap');
+              for (const st of shenshaStars) {
+                const n = asString(st.name) ?? '';
+                const v = asString(st.value) ?? '';
+                if (n) wrap.append(el('span', 'wb-badge wb-badge-neutral', `${n}：${v}`));
+              }
+              sec.append(wrap);
+              frag.append(sec);
+            }
+            if (qzAspects.length > 0) {
+              const sec = el('div', 'lr-section');
+              sec.append(el('h4', 'lr-section-title', `天星相位（共 ${qzAspects.length} 条）`));
+              const wrap = el('div', 'wb-chip-wrap');
+              for (const asp of qzAspects) {
+                const s1 = asString(asp.star1) ?? '';
+                const s2 = asString(asp.star2) ?? '';
+                const tp = asString(asp.type) ?? '';
+                const orb = asNumber(asp.orb);
+                const cls = asString(asp.closeness);
+                const txt = `${s1} ${tp} ${s2}${orb !== undefined ? ` (${orb.toFixed(1)}°` : ''}${cls ? ` · ${cls})` : orb !== undefined ? ')' : ''}`;
+                wrap.append(el('span', `wb-badge ${cls === '紧密' ? 'wb-badge-accent' : 'wb-badge-neutral'}`, txt));
+              }
+              sec.append(wrap);
+              frag.append(sec);
+            }
+            return frag;
+          },
+          `${shenshaAspectCount}项`,
+        )
+      : undefined;
+
+  const astroBasisPairs: Array<[string, string | undefined]> = [
+    ['恩星', Array.from(enSet).join('、') || '无'],
+    ['难星', Array.from(nanSet).join('、') || '无'],
+    ['用星', Array.from(yongSet).join('、') || '无'],
+    ['仇星', Array.from(chouSet).join('、') || '无'],
+    [
+      '立命口径',
+      mingDu
+        ? `${asString(mingDu.method) ?? '命度'}：${asString(mingDu.signBranch) ?? ''}宫 ${asString(mingDu.xiu) ?? ''}宿${asNumber(mingDu.xiuDegree)?.toFixed(2) ?? ''}°`
+        : undefined,
+    ],
+    [
+      '天文昼夜',
+      illumination
+        ? `${illumination.daylight === true ? '昼生' : '夜生'}${sunriseText ? ` · ${sunriseText}` : ''}`
+        : undefined,
+    ],
     [
       '月相节律',
       moonPhase
@@ -390,31 +464,17 @@ export function renderQizhengBoard(container: HTMLElement, _method: string, rawD
             .join(' · ')
         : undefined,
     ],
-    [
-      '童限 / 主限',
-      timeLords
-        ? [
-            asString(timeLords.currentStage) ?? asString(timeLords.summary),
-            asString(timeLords.lord) ? `主星 ${asString(timeLords.lord)}` : '',
-          ]
-            .filter(Boolean)
-            .join(' · ')
-        : undefined,
-    ],
-    [
-      '流年小限与太岁',
-      flowing
-        ? [
-            asString(flowing.yearBranch) ? `太岁${asString(flowing.yearBranch)}` : '',
-            asString(flowing.xiaoXian) ? `小限${asString(flowing.xiaoXian)}` : '',
-            asString(flowing.summary),
-          ]
-            .filter(Boolean)
-            .join(' · ')
-        : undefined,
-    ],
-  ]);
-  if (qzExtra) container.append(qzExtra);
+  ];
+  const astroBasisTrigger = astroBasisPairs.some((p) => Boolean(p[1]))
+    ? createBoardModalTrigger(
+        '昼夜月相与宿度依据',
+        '七政四余天文昼夜、月相与恩用仇难依据',
+        () => createMetaGrid(astroBasisPairs) ?? el('div'),
+      )
+    : undefined;
+
+  const qzBar = createBoardDetailBar([shenshaAspectTrigger, astroBasisTrigger]);
+  if (qzBar) container.append(qzBar);
 
   return true;
 }

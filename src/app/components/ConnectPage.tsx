@@ -7,6 +7,7 @@ import {
   KeyRound,
   PlugZap,
 } from 'lucide-react';
+import { APP_NAME, APP_ORIGIN } from '../../brand-config';
 import type { Method } from '../../schema';
 import { isWebAiEnabled } from '../../web-ai';
 import { webExamples } from '../../web-examples';
@@ -17,6 +18,7 @@ import {
   Input,
   PageHeader,
   SegmentedTabs,
+  toast,
 } from '../../components/ui';
 import { cn } from '../../lib/utils';
 import { WebAiConfigForm } from './WebAiConfigForm';
@@ -51,7 +53,7 @@ function getOrigin(): string {
   if (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') {
     return window.location.origin;
   }
-  return 'https://aov.cc';
+  return APP_ORIGIN;
 }
 
 function parseMcpInitializeResponse(raw: string, contentType: string): unknown {
@@ -68,7 +70,7 @@ function parseMcpInitializeResponse(raw: string, contentType: string): unknown {
 }
 
 function buildMcpClientConfigs(origin: string): Record<RemoteMcpClientKey, string> {
-  const mcpUrl = `${origin}/mcp`;
+  const mcpUrl = `${origin}/mcp?mode=router`;
   return {
     claude: JSON.stringify(
       { mcpServers: { mingyu: { command: 'npx', args: ['-y', 'mcp-remote', mcpUrl] } } },
@@ -102,7 +104,7 @@ export interface ConnectPageProps {
 
 export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
   const origin = React.useMemo(() => getOrigin(), []);
-  const mcpUrl = `${origin}/mcp`;
+  const mcpUrl = `${origin}/mcp?mode=router`;
   const apiDocsUrl = `${origin}/api-docs`;
   const apiDocsMdUrl = `${origin}/api-docs.md`;
   const skillZipUrl = `${origin}/downloads/mingyu-skill.zip`;
@@ -133,18 +135,17 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
   const [selectedMethod, setSelectedMethod] = React.useState<Method>('bazi');
   const [apiCodeMode, setApiCodeMode] = React.useState<'curl' | 'json'>('curl');
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
-  const [copyToast, setCopyToast] = React.useState<string | null>(null);
 
   const handleCopy = async (id: string, label: string, content: string) => {
     try {
       await navigator.clipboard.writeText(content);
       setCopiedId(id);
-      setCopyToast(`已复制：${label}`);
+      toast.success(`已复制：${label}`);
       window.setTimeout(() => {
         setCopiedId((cur) => (cur === id ? null : cur));
       }, 1800);
     } catch {
-      setCopyToast(`无法自动复制「${label}」，请手动复制。`);
+      toast.error(`无法自动复制「${label}」，请手动复制。`);
     }
   };
 
@@ -226,7 +227,7 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
     setProbing(false);
   };
 
-  const apiDocsAgentPrompt = `阅读以下命语 REST API 文档并帮我完成接口接入：\n${apiDocsMdUrl}`;
+  const apiDocsAgentPrompt = `阅读以下${APP_NAME} REST API 文档并帮我完成接口接入：\n${apiDocsMdUrl}`;
   const skillAgentPrompt = `从 ${skillZipUrl} 下载并解压到 Agent 技能目录，按其中 SKILL.md 使用 node scripts/mingyu.mjs 本地执行排盘与占卜。`;
 
   const curlCmd = React.useMemo(() => {
@@ -257,7 +258,7 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
             </Button>
             <Button variant="primary" size="sm" disabled={probing} onClick={() => void runProbe()}>
               <PlugZap className="h-3.5 w-3.5" />
-              <span>{probing ? '检测中…' : '连通自检'}</span>
+              <span>{probing ? '测试中…' : '测试连通'}</span>
             </Button>
           </div>
         }
@@ -281,15 +282,6 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
             </pre>
           ) : null}
         </Card>
-      ) : null}
-
-      {copyToast ? (
-        <div
-          role="status"
-          className="rounded-xl border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[var(--state-selected-surface)] px-4 py-2 text-xs font-semibold text-[var(--state-selected-text)]"
-        >
-          {copyToast}
-        </div>
       ) : null}
 
       {/* 1. 网页内 AI 对话 */}
@@ -320,6 +312,12 @@ export function ConnectPage({ onNavigateHome }: ConnectPageProps = {}) {
             ]}
           />
         </div>
+
+        {integrationTab === 'mcp' || integrationTab === 'rest' ? (
+          <p className="m-0 text-xs text-[var(--text-muted)]">
+            公开接口供轻度试用，高频请使用离线 Agent Skill 或自部署。
+          </p>
+        ) : null}
 
         {/* 2.1 远程 MCP */}
         {integrationTab === 'mcp' ? (

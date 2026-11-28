@@ -103,3 +103,15 @@ test('Worker 的 HTTP 和 MCP 使用相同梅花盘面与提示词', async () =>
   assert.equal(mcp.status, 200);
   assert.equal((await mcp.json()).result.structuredContent.data.originalName, result.data.originalName);
 });
+
+test('梅花易数支持真太阳时经度校正与追问复算', async () => {
+  const iso = '2025-05-01T15:30:00Z';
+  const beijing = await calculate('meihua', { question: '合作前景', currentTime: iso, meihua: { method: 'time', timeStandard: 'beijing' } });
+  const kashgar = await calculate('meihua', { question: '合作前景', currentTime: iso, meihua: { method: 'time', timeStandard: 'true-solar', longitude: 76 } });
+  assert.notEqual(kashgar.data.ganzhi.hour, beijing.data.ganzhi.hour);
+  assert.equal(kashgar.data.calculation.timeStandard, 'true-solar');
+  const next = await reprompt({ method: 'meihua', result: JSON.parse(JSON.stringify(kashgar)), question: '继续问' });
+  assert.match(next.prompt.text, /真太阳时/);
+  await assert.rejects(() => calculate('meihua', { question: '缺经度', currentTime: iso, meihua: { method: 'time', timeStandard: 'true-solar' } }));
+  await assert.rejects(() => calculate('meihua', { question: '多经度', currentTime: iso, meihua: { method: 'time', timeStandard: 'beijing', longitude: 116 } }));
+});

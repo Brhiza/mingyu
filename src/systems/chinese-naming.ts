@@ -1,8 +1,9 @@
 import type { z } from 'zod';
 import type { chineseNamingInput } from '../schema';
-import type { CharacterShardLoader } from '../character-data';
+import type { CharacterIndexLoader, CharacterShardLoader } from '../character-data';
+import type { StaticDatasetLoader } from '../static-data';
 import { sameJsonValue } from '../json-value';
-import { characterMetadata, searchOrderedMetadata, type CharacterDetail } from './characters';
+import { loadCharacterDictionary, type CharacterDetail, type CharacterDictionary } from './characters';
 import { birthFacts, birthForNaming, evaluateStrokeScore, nameCharacterFacts, nameFacts, nameStructure, namingDetails, namingPreferences, namingPromptSelection } from './naming-foundation';
 import { buildMethodSituationDigest } from './situation-digest';
 import surnameReadings from '../data/characters/surname-readings.json';
@@ -17,7 +18,7 @@ const pools = {
   general: '安宁嘉瑞清和知远明轩景行言希思齐书言亦辰予墨乐川星野云舟望舒怀瑾若水之恒以沫允和卓然修远闻溪',
 } as const;
 const han = (text?: string) => [...new Set([...(text ?? '')].filter((char) => /\p{Script=Han}/u.test(char)))];
-const canonical = (char: string) => characterMetadata(char)?.simplified ?? char;
+const canonicalFromDict = (dict: CharacterDictionary) => (char: string) => dict.metadata(char)?.simplified ?? char;
 
 const UNSUITABLE_CHARS = new Set([
   ...'一二三四五六七八九十零百千万亿了么吗呢啊吧哦呀哇哪嘛啥死亡病杀凶鬼尸丧哭泪苦痛穷贫贱丑恶毒癌瘤粪尿屎屁猪狗贼盗砍刀刁狱囚灾祸刑罪',
@@ -87,30 +88,32 @@ function scoreCharacter(
   return score;
 }
 
-async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
+async function dataFor(input: Source, loadShard?: CharacterShardLoader, loadIndex?: CharacterIndexLoader, staticDataset?: StaticDatasetLoader) {
+  const dict = await loadCharacterDictionary(loadIndex);
+  const canonical = canonicalFromDict(dict);
   const surname = input.surname.trim(), surnameChars = [...surname], length = input.givenNameLength ?? 2, gender = input.gender ?? 'general', limit = input.limit ?? 20;
   if (surnameChars.length < 1 || surnameChars.length > 2 || surnameChars.some((char) => !/\p{Script=Han}/u.test(char))) throw new Error('姓氏需为一至二个汉字。');
-  const missing = surnameChars.filter((char) => !characterMetadata(char));
+  const missing = surnameChars.filter((char) => !dict.metadata(char));
   if (missing.length) throw new Error(`姓氏用字暂未收录在字典中：${[...new Set(missing)].join('、')}。`);
   const generation = input.generationCharacter?.trim() || undefined;
   if (generation && ([...generation].length !== 1 || !/\p{Script=Han}/u.test(generation))) throw new Error('辈分字只能填写一个汉字。');
   if (!generation && input.generationPosition) throw new Error('指定辈分字位置时须提供辈分字。');
   if (generation && length === 1 && input.generationPosition === 'second') throw new Error('单字名不能指定辈分字为第二字。');
-  if (generation && !characterMetadata(generation)) throw new Error('辈分字暂未收录在字典中。');
+  if (generation && !dict.metadata(generation)) throw new Error('辈分字暂未收录在字典中。');
   const forbidden = new Set(han(input.forbiddenCharacters).map(canonical));
   if (generation && forbidden.has(canonical(generation))) throw new Error('辈分字不能同时设为忌用字。');
   const preferred = han(input.preferredCharacters).filter((char) => !forbidden.has(canonical(char))), preferredSet = new Set(preferred);
-  const unavailablePreferredCharacters = preferred.filter((char) => !characterMetadata(char));
-  const surnameMetas = surnameChars.map((char) => characterMetadata(char)!);
+  const unavailablePreferredCharacters = preferred.filter((char) => !dict.metadata(char));
+  const surnameMetas = surnameChars.map((char) => dict.metadata(char)!);
   const surnameStrokes = surnameMetas.map((item) => item.kangxiStrokes);
   const lastSurnameMeta = surnameMetas.at(-1)!;
   const lastSurnameReading = surnameMetas.length === 1 ? surnameReadingMap[lastSurnameMeta.simplified] : undefined;
-  const birthContext = await birthForNaming(input.birth, input.birthRange), preference = namingPreferences(input.preferredElements, birthContext);
+  const birthContext = await birthForNaming(input.birth, input.birthRange, staticDataset), preference = namingPreferences(input.preferredElements, birthContext);
   const genderPoolSet = new Set([...pools[gender]]), generalPoolSet = new Set([...pools.general]), curatedSet = new Set([...genderPoolSet, ...generalPoolSet]);
   const candidateMap = new Map<string, { char: string; meta: CharacterDetail; score: number; order: number }>();
   let orderCounter = 0;
   const consider = (rawChar: string, fromLibrary: boolean) => {
-    const meta = characterMetadata(rawChar);
+    const meta = dict.metadata(rawChar);
     if (!meta) return;
     const key = canonical(rawChar);
     if (forbidden.has(key)) return;
@@ -125,7 +128,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
   };
   for (const char of preferred) consider(char, false);
   for (const char of [...pools[gender], ...pools.general]) consider(char, false);
-  for (const meta of searchOrderedMetadata()) consider(meta.char, true);
+  for (const meta of dict.searchOrdered()) consider(meta.char, true);
 
   const rankedChars = [...candidateMap.values()].sort((a, b) => b.score - a.score || a.order - b.order);
   const selectedEntries = rankedChars.slice(0, length === 2 ? 48 : 80);
@@ -133,7 +136,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
   if (!pool.length) throw new Error('当前用字条件没有可用候选字。');
 
   const entryByChar = new Map(selectedEntries.map((entry) => [entry.char, entry]));
-  const genMeta = generation ? characterMetadata(generation)! : null;
+  const genMeta = generation ? dict.metadata(generation)! : null;
   const scoredNames: Array<{ given: string; score: number; order: number }> = [];
   let pairOrder = 0;
 
@@ -176,7 +179,7 @@ async function dataFor(input: Source, loadShard?: CharacterShardLoader) {
     firstCounts.set(first, (firstCounts.get(first) ?? 0) + 1);
     if (names.length >= limit) break;
   }
-  const details = await namingDetails([...new Set([...surname, ...names.join('')])], loadShard);
+  const details = await namingDetails([...new Set([...surname, ...names.join('')])], loadShard, loadIndex);
   const candidates = names.map((given) => {
     const analysis = nameStructure(surname, given, details, preference.stable, preference.conditional);
     return { fullName: surname + given, givenName: given, analysis, selectionEvidence: { preferredCharacters: [...given].filter((char) => preferredSet.has(char)), generationCharacter: generation ?? null,
@@ -287,9 +290,9 @@ export function analyzeChineseNamingRelations(data: Data) {
   };
 }
 
-function render(data: Data, question: string, options: Input['prompt']) {
+function render(data: Data, question: string, options: Input['prompt'], dict: CharacterDictionary) {
   const forbiddenForms = [...new Set(han(data.input.forbiddenCharacters).flatMap((char) => {
-    const item = characterMetadata(char);
+    const item = dict.metadata(char);
     return item ? [item.simplified, item.traditional] : [char];
   }))];
   const gender = { general: '通用', male: '男', female: '女' }[data.input.gender ?? 'general'];
@@ -311,12 +314,21 @@ function render(data: Data, question: string, options: Input['prompt']) {
     namingPromptSelection(options, 'naming'), '【任务】\n比较候选的字义、音律、字形、谐音、日常辨识和所列三才五格；严格遵守忌用字与辈分字。出生条件模型仅供参考，不当作最终喜用或现实必然结果；若提出新组合须标明并说明选字依据。', `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }
-export async function chineseNaming(input: Input, loadShard?: CharacterShardLoader) {
-  const { question, currentTime: _time, ...source } = input, data = await dataFor(source, loadShard);
-  return { data, summary: { title: '中文起名', lines: [`姓氏：${source.surname}`, `${data.candidates.length} 个候选`] }, prompt: render(data, question, input.prompt) };
+export async function chineseNaming(input: Input, loadShard?: CharacterShardLoader, loadIndex?: CharacterIndexLoader, staticDataset?: StaticDatasetLoader) {
+  const { question, currentTime: _time, ...source } = input;
+  const [data, dict] = await Promise.all([dataFor(source, loadShard, loadIndex, staticDataset), loadCharacterDictionary(loadIndex)]);
+  return { data, summary: { title: '中文起名', lines: [`姓氏：${source.surname}`, `${data.candidates.length} 个候选`] }, prompt: render(data, question, input.prompt, dict) };
 }
-export async function promptForSavedChineseNaming(data: unknown, source: Source, question: string, options: Input['prompt'], loadShard?: CharacterShardLoader) {
-  const expected = await dataFor(source, loadShard);
+export async function promptForSavedChineseNaming(
+  data: unknown,
+  source: Source,
+  question: string,
+  options: Input['prompt'],
+  loadShard?: CharacterShardLoader,
+  loadIndex?: CharacterIndexLoader,
+  staticDataset?: StaticDatasetLoader,
+) {
+  const [expected, dict] = await Promise.all([dataFor(source, loadShard, loadIndex, staticDataset), loadCharacterDictionary(loadIndex)]);
   if (!sameJsonValue(data, expected)) throw new Error('起名结果与输入不一致。');
-  return render(expected, question, options ?? source.prompt);
+  return render(expected, question, options ?? source.prompt, dict);
 }

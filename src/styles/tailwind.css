@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@layer components.base, components.responsive;
 
 @theme inline {
   --color-background: var(--surface-page);

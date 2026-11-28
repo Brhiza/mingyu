@@ -1,16 +1,18 @@
+import { APP_NAME } from '../brand-config';
 import type { FortuneScope } from '../systems/fortune/types';
-import { methodIds, methodLabels, type Method } from '../schema';
+import { methodIds, methodLabels, type Method } from '../method-meta';
 import { resolveLegacyWebRedirect } from '../v1-sunset';
 import {
   isCompatibilityChartMethod,
   isPersonalChartMethod,
   type CompatibilityChartTabId,
   type PersonalChartTabId,
-} from '../v2-ui/chart-payloads';
+} from '../v2-ui/chart-tabs';
 import {
   DIVINATION_FLAT_ITEMS,
   HOME_NICHE_DIVINATION_ITEMS,
   NAME_CHAR_SUB_TABS,
+  type AlmanacSubTabId,
   type DivinationCenterMethod,
   type NameCharSubTabId,
   type TopDomainId,
@@ -35,6 +37,7 @@ export interface ParsedWorkspaceLocation {
   method: Method;
   fortuneScope?: FortuneScope;
   utilityMainTab?: UtilityMainTabId;
+  almanacSubTab?: AlmanacSubTabId;
   nameCharSubTab?: NameCharSubTabId;
   divinationMethod?: DivinationCenterMethod;
   compatibilityMethod?: CompatibilityChartTabId;
@@ -51,6 +54,7 @@ export interface WorkspaceUrlBuildInput {
   method?: Method;
   fortuneScope?: FortuneScope;
   utilityMainTab?: UtilityMainTabId;
+  almanacSubTab?: AlmanacSubTabId;
   nameCharSubTab?: NameCharSubTabId;
   chatSessionId?: string;
   resultRef?: WorkspaceResultRef;
@@ -81,8 +85,7 @@ export interface StoredResultSnapshot {
 }
 
 export const UTILITY_SINGLE_PAGE_TITLES: Record<UtilityMainTabId, string> = {
-  almanac: '择吉万年历',
-  calendar: '干支天文历',
+  almanac: '万年历',
   residential: '阳宅风水',
   'name-char': '汉字经籍',
   'number-energy': '数字能量',
@@ -107,8 +110,11 @@ const VALID_DOMAINS = new Set<TopDomainId>([
   'chat',
   'personal-chart',
   'divination',
+  'tools',
   'utilities',
   'history',
+  'cases',
+  'me',
   'connect',
 ]);
 
@@ -174,8 +180,14 @@ export function buildWorkspaceUrl(input: WorkspaceUrlBuildInput): string {
       return `/divination/${target}`;
     }
 
+    case 'tools':
+      return '/tools';
+
     case 'utilities': {
       const mainTab = input.utilityMainTab ?? 'almanac';
+      if (mainTab === 'almanac') {
+        return input.almanacSubTab === 'calendar' ? '/utilities/calendar' : '/utilities/almanac';
+      }
       if (mainTab === 'name-char') {
         const sub = input.nameCharSubTab ?? 'chinese-name';
         return `/utilities/${VALID_NAME_CHAR_TABS.has(sub) ? sub : 'chinese-name'}`;
@@ -185,6 +197,12 @@ export function buildWorkspaceUrl(input: WorkspaceUrlBuildInput): string {
 
     case 'history':
       return '/history';
+
+    case 'cases':
+      return '/cases';
+
+    case 'me':
+      return '/me';
 
     case 'connect':
       return '/connect';
@@ -337,6 +355,7 @@ export function parseWorkspaceLocation(
         featureId: 'almanac',
         method: 'almanac',
         utilityMainTab: 'almanac',
+        almanacSubTab: 'almanac',
         canonicalPath: '/utilities/almanac',
       };
     }
@@ -364,6 +383,26 @@ export function parseWorkspaceLocation(
     };
   }
 
+  if (head === 'tools') {
+    return {
+      route: 'tools',
+      domainHint: 'tools',
+      featureId: 'tools',
+      method: defaultChart,
+      canonicalPath: '/tools',
+    };
+  }
+
+  if (head === 'me') {
+    return {
+      route: 'me',
+      domainHint: 'me',
+      featureId: 'me',
+      method: defaultChart,
+      canonicalPath: '/me',
+    };
+  }
+
   if (head === 'utilities') {
     const rawSub = segments[1] ?? 'almanac';
     if (rawSub === 'name-char') {
@@ -375,7 +414,7 @@ export function parseWorkspaceLocation(
         route: 'utilities',
         domainHint: 'utilities',
         featureId: subTab,
-        method: subTab,
+        method: subTab === 'terms' ? 'character-query' : subTab,
         utilityMainTab: 'name-char',
         nameCharSubTab: subTab,
         canonicalPath: `/utilities/${subTab}`,
@@ -387,7 +426,7 @@ export function parseWorkspaceLocation(
         route: 'utilities',
         domainHint: 'utilities',
         featureId: subTab,
-        method: subTab,
+        method: subTab === 'terms' ? 'character-query' : subTab,
         utilityMainTab: 'name-char',
         nameCharSubTab: subTab,
         canonicalPath: `/utilities/${subTab}`,
@@ -399,7 +438,8 @@ export function parseWorkspaceLocation(
         domainHint: 'utilities',
         featureId: 'calendar',
         method: 'calendar',
-        utilityMainTab: 'calendar',
+        utilityMainTab: 'almanac',
+        almanacSubTab: 'calendar',
         canonicalPath: '/utilities/calendar',
       };
     }
@@ -429,6 +469,7 @@ export function parseWorkspaceLocation(
       featureId: 'almanac',
       method: 'almanac',
       utilityMainTab: 'almanac',
+      almanacSubTab: 'almanac',
       canonicalPath: '/utilities/almanac',
     };
   }
@@ -440,6 +481,16 @@ export function parseWorkspaceLocation(
       featureId: 'history',
       method: defaultChart,
       canonicalPath: '/history',
+    };
+  }
+
+  if (head === 'cases') {
+    return {
+      route: 'cases',
+      domainHint: 'cases',
+      featureId: 'cases',
+      method: defaultChart,
+      canonicalPath: '/cases',
     };
   }
 
@@ -519,6 +570,7 @@ export function parseWorkspaceLocation(
       method === 'number-energy' ||
       method === 'almanac' ||
       method === 'residential' ||
+      method === 'bazhai' ||
       method === 'xuankong' ||
       method === 'calendar'
     ) {
@@ -549,7 +601,7 @@ export function parseWorkspaceLocation(
       featureId,
       method,
       ...(isCompatibilityChartMethod(method) ? { compatibilityMethod: method } : {}),
-      ...(mode === 'personal' && isPersonalChartMethod(method) && method !== 'minglu'
+      ...(mode === 'personal' && isPersonalChartMethod(method)
         ? { personalChartTab: method }
         : {}),
       resultRef,
@@ -583,6 +635,7 @@ export function resolveResultFallbackTarget(input: {
   method?: Method;
   domain?: TopDomainId;
   utilityMainTab?: UtilityMainTabId;
+  almanacSubTab?: AlmanacSubTabId;
   nameCharSubTab?: NameCharSubTabId;
 } {
   const { method, mode, featureId, domainHint } = input;
@@ -618,7 +671,8 @@ export function resolveResultFallbackTarget(input: {
       featureId: 'calendar',
       method: 'calendar',
       domain: 'utilities',
-      utilityMainTab: 'calendar',
+      utilityMainTab: 'almanac',
+      almanacSubTab: 'calendar',
     };
   }
   if (method === 'almanac') {
@@ -628,12 +682,13 @@ export function resolveResultFallbackTarget(input: {
       method: 'almanac',
       domain: 'utilities',
       utilityMainTab: 'almanac',
+      almanacSubTab: 'almanac',
     };
   }
   if (
     method === 'residential' ||
     method === 'xuankong' ||
-    (method === 'bazhai' && domainHint === 'utilities')
+    method === 'bazhai'
   ) {
     return {
       route: 'utilities',
@@ -653,7 +708,7 @@ export function resolveResultFallbackTarget(input: {
     };
   }
   if (isPersonalChartMethod(method) && mode !== 'divination') {
-    const tab = method === 'minglu' ? 'bazi' : method;
+    const tab = method;
     return {
       route: 'chart-input',
       featureId: tab,
@@ -684,7 +739,7 @@ export function resolveWorkspaceDocumentTitle(input: {
   currentUtilityMainTab: UtilityMainTabId;
   currentNameCharSubTab: NameCharSubTabId;
 }): string {
-  const brand = '命语';
+  const brand = APP_NAME;
   if (input.route === 'home') {
     return brand;
   }
@@ -698,7 +753,10 @@ export function resolveWorkspaceDocumentTitle(input: {
     return `${scopeTitle} · ${brand}`;
   }
   if (input.route === 'chat') return `AI 对话 · ${brand}`;
+  if (input.route === 'tools') return `工具箱 · ${brand}`;
+  if (input.route === 'me') return `我的 · ${brand}`;
   if (input.route === 'history') return `历史记录 · ${brand}`;
+  if (input.route === 'cases') return `个人档案 · ${brand}`;
   if (input.route === 'connect') return `接入 AI · ${brand}`;
   if (input.route === 'time-reverse') return `时辰逆推 · ${brand}`;
   if (input.route === 'chart-input') {
@@ -726,7 +784,10 @@ export function resolveWorkspaceDocumentTitle(input: {
     return `${UTILITY_SINGLE_PAGE_TITLES[input.currentUtilityMainTab]} · ${brand}`;
   }
   if (input.route === 'divination-input') {
-    const label = (methodLabels as Record<string, string>)[input.activeMethod] ?? '占卜起卦';
+    const label =
+      String(input.activeMethod) === 'shiyue-oracle'
+        ? '时月神谕'
+        : ((methodLabels as Record<string, string>)[input.activeMethod] ?? '占卜起卦');
     return `${label} · ${brand}`;
   }
   if (input.route === 'result') {

@@ -539,12 +539,6 @@ export function buildFortuneOverview(input: ScoringInput): FortuneOverview {
 
   const scopeZh = scope === 'daily' ? '今日' : scope === 'monthly' ? '本月' : '本年';
   const activeGz = scope === 'daily' ? calendar.ganzhi.day : scope === 'monthly' ? calendar.ganzhi.month : calendar.ganzhi.year;
-  const generalScopeTag =
-    scope === 'daily'
-      ? `${calendar.dayOfficer} / ${calendar.twelveStar}`
-      : scope === 'monthly'
-        ? `${calendar.solarTerm}月令`
-        : `${calendar.nayin.year}${wuyunRelation ? ` · 运气${wuyunRelation}` : ''}`;
 
   const dimensions: FortuneDimension[] = [
     {
@@ -632,6 +626,14 @@ export function buildFortuneOverview(input: ScoringInput): FortuneOverview {
         ? ['避开慎用日敲定重大合同或大额开支', '注意节气前后作息与情绪波动']
         : ['忌盲目透支体力或高杠杆冒进', '留意转折流月做好预案留白'];
 
+  const dailyTopRec = calendar.recommends.filter((x) => x !== '诸事不宜').slice(0, 2).join('、');
+  const dailyTopAvoid = calendar.avoids.filter((x) => x !== '余事勿取').slice(0, 1).join('、');
+  const dailyActionPart = dailyTopRec
+    ? `宜${dailyTopRec}${dailyTopAvoid ? `，忌${dailyTopAvoid}` : ''}`
+    : dailyTopAvoid
+      ? `诸事宜缓，忌${dailyTopAvoid}`
+      : '宜顺势稳行，从容安排日常节奏';
+
   const headline = bazi
     ? `「${activeGz}${scope === 'daily' ? '日' : scope === 'monthly' ? '月' : '年'} · ${activeTenGod}主事」${scopeZh}综合评级${overallTier}（${overallScore}分）— ${
         overallScore >= 75
@@ -640,7 +642,11 @@ export function buildFortuneOverview(input: ScoringInput): FortuneOverview {
             ? '走势整体平稳可控，稳扎稳打更容易出成果'
             : '存在冲克或忌神牵绊，重在守稳边界、留出余地'
       }`
-    : `「${activeGz}${scope === 'daily' ? '日' : scope === 'monthly' ? '月' : '年'} · ${generalScopeTag}」${scopeZh}通用趋势${overallTier}（${overallScore}分）— 建议参考以下五维趋势与行动指引安排节奏`;
+    : scope === 'daily'
+      ? `${activeGz}日 · ${calendar.dayOfficer}值令，${dailyActionPart}`
+      : scope === 'monthly'
+        ? `${activeGz}月 · ${calendar.solarTerm}月令，顺时推进核心事务、留意节气交替节奏`
+        : `${activeGz}年 · ${calendar.nayin.year}${wuyunRelation ? `（运气${wuyunRelation}）` : ''}，把握流年主线稳步布局`;
 
   return {
     overallScore,

@@ -1,6 +1,6 @@
 import { LunarDay, SolarDay } from 'tyme4ts';
-import { calculate } from '../core';
-import { applyGlobalRulesToPayload } from '../web-settings';
+import { applyGlobalRulesToPayload, loadGlobalRules } from '../web-settings';
+import { runCalculateInBackground } from '../workers/calc-runner';
 import {
   BIRTH_TIME_OPTIONS,
   getTimeIndexFromClock,
@@ -291,7 +291,9 @@ export async function computeTimeReverseCandidates(
       },
       false,
     );
-    const baziRes = (await calculate('bazi', baziRawPayload)) as {
+    const baziRes = (await runCalculateInBackground('bazi', baziRawPayload, {
+      promptGuidance: loadGlobalRules().prompt,
+    })) as {
       data?: {
         unknown?: {
           source?: { solarDate?: string };
@@ -350,7 +352,9 @@ export async function computeTimeReverseCandidates(
         },
         false,
       );
-      const ziweiRes = (await calculate('ziwei', ziweiRawPayload)) as {
+      const ziweiRes = (await runCalculateInBackground('ziwei', ziweiRawPayload, {
+        promptGuidance: loadGlobalRules().prompt,
+      })) as {
         data?: { unknown?: { candidates?: ZiweiCand[] } };
       };
       ziweiCandidates = ziweiRes.data?.unknown?.candidates ?? [];

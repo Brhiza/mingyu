@@ -1,6 +1,7 @@
 import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
 import type { z } from 'zod';
 import type { almanacInput } from '../schema';
+import type { RuntimeContext } from '../runtime-context';
 import { sameJsonValue } from '../json-value';
 import { formatSchoolGuidance, type SchoolGuidanceEntry } from '../prompt-selection';
 import { evaluateAlmanacSchoolAlgorithms, formatSchoolAlgorithmSection } from './school-algorithms';
@@ -49,7 +50,7 @@ function match(recommends: string[], avoids: string[], keywords: readonly string
   const restriction = general.includes('诸事不宜') ? '诸事不宜' : general.some((item) => /[余馀]事勿取/.test(item)) && support.length === 0 ? '余事勿取，事项未列明宜项' : null;
   return { support, caution, restriction };
 }
-async function calculateData(source: Source) {
+async function calculateData(source: Source, context?: RuntimeContext) {
   const input = { topic: source.topic, ...(source.customKeyword !== undefined ? { customKeyword: source.customKeyword } : {}), startDate: source.startDate, endDate: source.endDate, ...(source.page ? { page: source.page } : {}), ...(source.participants ? { participants: source.participants } : {}), ...(source.includeBaziMatch !== undefined ? { includeBaziMatch: source.includeBaziMatch } : {}), ...(source.includeMoonPhase !== undefined ? { includeMoonPhase: source.includeMoonPhase } : {}), ...(source.weekendPreference ? { weekendPreference: source.weekendPreference } : {}), ...(source.timePreferences ? { timePreferences: source.timePreferences } : {}), ...(source.prompt ? { prompt: source.prompt } : {}) };
   const start = Date.parse(`${input.startDate}T00:00:00Z`), end = Date.parse(`${input.endDate}T00:00:00Z`);
   const startYear = Number(input.startDate.slice(0, 4)), endYear = Number(input.endDate.slice(0, 4));
@@ -60,7 +61,7 @@ async function calculateData(source: Source) {
   if (offset >= total) throw new Error('黄历分页偏移超出原始日期范围。');
   const count = Math.min(limit, total - offset);
   const page = input.page ? { offset, limit, total, nextOffset: offset + count < total ? offset + count : null } : undefined;
-  const participants = await Promise.all((input.participants ?? []).map((person, index) => participantProfile(person, index, { includeBaziMatch: input.includeBaziMatch })));
+  const participants = await Promise.all((input.participants ?? []).map((person, index) => participantProfile(person, index, { includeBaziMatch: input.includeBaziMatch, staticDataset: context?.staticDataset })));
   const topic = topics[input.topic], keywords = input.topic === 'custom' ? [input.customKeyword!] : [...topic.keywords];
   const timePreferences = input.timePreferences ?? [], weekendPreference = input.weekendPreference ?? 'any';
   const fourTerminations = new Map<string, string>();
@@ -230,13 +231,13 @@ function render(data: Data, question: string, options: Input['prompt']) {
     `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }
-export async function almanac(input: Input) {
-  const data = await calculateData(input);
+export async function almanac(input: Input, context?: RuntimeContext) {
+  const data = await calculateData(input, context);
   const lunarWarnings = [...new Set(data.days.map((day) => day.lunarDateWarning).filter((w): w is string => Boolean(w)))];
   return { data, summary: { title: '黄历择日', lines: [`事项：${data.topicLabel}`, data.page ? `本页：${data.days.length} / ${data.page.total} 天；${data.page.nextOffset === null ? '最后一页' : `下一页偏移 ${data.page.nextOffset}`}` : `日期：${data.days.length} 天`, `参与人：${data.participants.length} 位`, ...lunarWarnings] }, prompt: render(data, input.question, input.prompt) };
 }
-export async function promptForSavedAlmanac(data: unknown, source: Source, question: string, options?: Input['prompt']) {
-  const expected = await calculateData(source);
+export async function promptForSavedAlmanac(data: unknown, source: Source, question: string, options?: Input['prompt'], context?: RuntimeContext) {
+  const expected = await calculateData(source, context);
   if (!sameJsonValue(data, expected)) throw new Error('黄历结果与原始资料不一致。');
   return render(expected, question, options ?? source.prompt);
 }

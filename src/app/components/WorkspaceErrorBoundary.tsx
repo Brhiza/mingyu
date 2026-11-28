@@ -51,6 +51,12 @@ export class WorkspaceErrorBoundary extends React.Component<
       return this.props.children;
     }
 
+    const rawMessage = this.state.message;
+    const hasChinese = /[\u4e00-\u9fff]/.test(rawMessage);
+    const friendlyMessage = hasChinese
+      ? rawMessage
+      : '页面运行遇到异常，请点击下方按钮重试或刷新页面。';
+
     return (
       <div
         role="alert"
@@ -86,7 +92,7 @@ export class WorkspaceErrorBoundary extends React.Component<
               color: 'var(--text-secondary, #6b5d4d)',
             }}
           >
-            您的本地个人档案、历史记录和设置均已安全保存在浏览器中，不会丢失。您可以点击下方按钮恢复页面。
+            本地档案与记录未受影响，请重试或刷新。
           </p>
           <div
             style={{
@@ -99,7 +105,17 @@ export class WorkspaceErrorBoundary extends React.Component<
               wordBreak: 'break-word',
             }}
           >
-            错误摘要：{this.state.message}
+            <div>错误摘要：{friendlyMessage}</div>
+            {!hasChinese && rawMessage ? (
+              <details style={{ marginTop: '8px' }}>
+                <summary style={{ cursor: 'pointer', fontSize: '11px', opacity: 0.8 }}>
+                  查看排查详情
+                </summary>
+                <div style={{ marginTop: '6px', fontFamily: 'monospace', fontSize: '11px' }}>
+                  {rawMessage}
+                </div>
+              </details>
+            ) : null}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
             <button
@@ -116,7 +132,7 @@ export class WorkspaceErrorBoundary extends React.Component<
                 cursor: 'pointer',
               }}
             >
-              重新加载当前视图
+              重试
             </button>
             <button
               type="button"
@@ -148,7 +164,7 @@ export class WorkspaceErrorBoundary extends React.Component<
                 cursor: 'pointer',
               }}
             >
-              刷新整个页面
+              刷新页面
             </button>
           </div>
         </div>

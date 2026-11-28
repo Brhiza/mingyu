@@ -1,0 +1,1000 @@
+/*
+ * 传统盘面与典籍细节层：八字四柱/五行力量/命局计算卡、紫微宫格/详情卡、六壬/奇门交互、可点击术语
+ */
+@layer components.base, components.responsive;
+
+@layer components.base {
+  /* ─── 五行标准东方色阶 ─── */
+  .wuxing-mu {
+    color: var(--wuxing-mu);
+  }
+
+  .wuxing-huo {
+    color: var(--wuxing-huo);
+  }
+
+  .wuxing-tu {
+    color: var(--wuxing-tu);
+  }
+
+  .wuxing-jin {
+    color: var(--wuxing-jin);
+  }
+
+  .wuxing-shui {
+    color: var(--wuxing-shui);
+  }
+
+  /* ─── 八字四柱基础盘面 ─── */
+  .bazi-pillars-table {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 72px repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .bazi-pillars-cell {
+    min-height: 46px;
+    padding: 8px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: var(--surface-elevated);
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  .bazi-pillars-cell.is-head,
+  .bazi-pillars-cell.is-label {
+    background: var(--surface-soft);
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .bazi-pillars-cell.is-multiline {
+    white-space: pre-line;
+    line-height: 1.4;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .bazi-pillars-cell.is-day-master {
+    background: var(--accent-soft);
+  }
+
+  .bazi-ganzhi-symbol {
+    font-family: var(--font-serif);
+    color: var(--text-strong);
+    line-height: 1;
+  }
+
+  .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .bazi-pillars-cell.is-shensha {
+    min-height: 72px;
+    padding: 8px 5px;
+    align-items: flex-start;
+  }
+
+  .bazi-shensha-list {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .bazi-shensha-tag {
+    --bazi-shensha-tone: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--bazi-shensha-tone) 24%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--bazi-shensha-tone) 9%, transparent);
+    color: var(--bazi-shensha-tone);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .bazi-shensha-tag.is-lucky {
+    --bazi-shensha-tone: #15803d;
+  }
+
+  .bazi-shensha-tag.is-unlucky {
+    --bazi-shensha-tone: #b91c1c;
+  }
+
+  .bazi-shensha-tag.is-neutral {
+    --bazi-shensha-tone: #a16207;
+  }
+
+  .bazi-shensha-empty {
+    color: var(--text-muted);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .bazi-shensha-tag.is-lucky {
+      --bazi-shensha-tone: #86efac;
+    }
+
+    .bazi-shensha-tag.is-unlucky {
+      --bazi-shensha-tone: #fca5a5;
+    }
+
+    .bazi-shensha-tag.is-neutral {
+      --bazi-shensha-tone: #fcd34d;
+    }
+  }
+
+  .wuxing-bars {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .wuxing-bar-track {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    overflow: hidden;
+  }
+
+  .wuxing-bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent-strong), var(--secondary-strong));
+  }
+
+  .fortune-timeline {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .fortune-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: var(--border-strong);
+  }
+
+  /* ─── 八字信息升级（农历生肖 / 透干 / 五行力量 / 根气拆解） ─── */
+  .bazi-person-meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .bazi-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft, rgba(139, 109, 92, 0.05));
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .bazi-meta-pill.is-gender {
+    border-color: color-mix(in srgb, var(--accent-strong) 30%, transparent);
+    background: var(--state-selected-surface-soft, rgba(169, 43, 35, 0.08));
+    color: var(--accent-strong);
+    font-weight: 750;
+  }
+
+  .bazi-stem-revealed {
+    display: inline-grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 2px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--accent-strong) 13%, transparent);
+    color: var(--accent-strong);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .bazi-wuxing-bars {
+    margin-top: 10px;
+    padding: 11px 13px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft, rgba(139, 109, 92, 0.04));
+    display: grid;
+    gap: 9px;
+  }
+
+  .bazi-wuxing-bars-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .bazi-wuxing-bars-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--text-strong);
+  }
+
+  .bazi-wuxing-bars-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .bazi-wuxing-bar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .bazi-wuxing-bar-item {
+    display: grid;
+    gap: 4px;
+  }
+
+  .bazi-wuxing-bar-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px;
+    font-size: 11.5px;
+  }
+
+  .bazi-wuxing-bar-name {
+    font-weight: 800;
+  }
+
+  .bazi-wuxing-bar-pct {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .bazi-wuxing-bar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(139, 109, 92, 0.14);
+    overflow: hidden;
+  }
+
+  .bazi-wuxing-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.86;
+  }
+
+  .bazi-strength-breakdown {
+    margin-top: 10px;
+    padding: 10px 13px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+    display: grid;
+    gap: 5px;
+  }
+
+  .bazi-strength-row {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 8px;
+    align-items: baseline;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .bazi-strength-k {
+    font-weight: 750;
+    color: var(--text-muted);
+  }
+
+  .bazi-strength-v {
+    color: var(--text-strong);
+  }
+
+  /* ─── 紫微盘面与命录 ─── */
+  .ziwei-relation-triangle {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+    stroke: currentColor;
+    stroke-width: 1.25;
+    stroke-dasharray: 4 6;
+    stroke-linecap: round;
+    opacity: 0.32;
+  }
+
+  .ziwei-detail-card {
+    margin-top: 0;
+    padding: 14px 0 0;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--border-soft);
+    background: transparent;
+    display: grid;
+    gap: 12px;
+  }
+
+  .ziwei-detail-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .ziwei-detail-head h4 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 18px;
+  }
+
+  .minglu-section-card {
+    background: var(--surface-base);
+    border-color: var(--border-soft);
+  }
+
+  /* ─── 新增结构化命局洞察、刑冲合会与星盘/紫微格局卡 ─── */
+  .bz-computed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  @media (min-width: 720px) {
+    .bz-computed-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .bz-computed-card {
+    display: grid;
+    gap: 4px;
+    padding: 11px 13px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+  }
+
+  .bz-computed-label {
+    font-size: 11.5px;
+    font-weight: 750;
+    color: var(--text-muted);
+  }
+
+  .bz-computed-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent-strong);
+  }
+
+  .bz-computed-sub {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .bz-relations-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding: 10px 13px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+  }
+
+  .bz-relations-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .bz-relations-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .astro-extra-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .astro-extra-card,
+  .ziwei-patterns-card {
+    display: grid;
+    gap: 10px;
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+    align-content: start;
+  }
+
+  .ziwei-patterns-card {
+    margin-top: 12px;
+  }
+
+  .astro-extra-title,
+  .ziwei-patterns-title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--text-strong);
+  }
+
+  .astro-dist-list,
+  .astro-pat-list,
+  .astro-aspect-list,
+  .ziwei-patterns-list,
+  .wb-computed-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .astro-dist-row,
+  .astro-aspect-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: var(--surface-elevated);
+    font-size: 12.5px;
+  }
+
+  .astro-aspect-row.is-tense {
+    border-left: 3px solid var(--accent-strong);
+  }
+
+  .astro-aspect-row.is-harm {
+    border-left: 3px solid #2b7a53;
+  }
+
+  .astro-dist-k,
+  .astro-aspect-pair {
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .astro-dist-v,
+  .astro-aspect-orb {
+    color: var(--text-secondary);
+    text-align: right;
+  }
+
+  .astro-pat-item,
+  .ziwei-pattern-item,
+  .wb-computed-item {
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated);
+  }
+
+  .astro-pat-label,
+  .ziwei-pattern-name,
+  .wb-computed-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--accent-strong);
+  }
+
+  .ziwei-pattern-name.is-good,
+  .wb-computed-item.is-good .wb-computed-title {
+    color: #2b7a53;
+  }
+
+  .astro-pat-detail,
+  .ziwei-pattern-desc,
+  .wb-computed-desc {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .ziwei-pattern-quote,
+  .wb-computed-quote {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  .astro-house-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .astro-house-cell {
+    display: grid;
+    gap: 2px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: var(--surface-elevated);
+  }
+
+  .astro-house-idx {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .astro-house-sign {
+    font-size: 12.5px;
+    color: var(--text-strong);
+  }
+
+  .wb-computed-item.is-good {
+    border-color: rgba(22, 163, 74, 0.35);
+    background: rgba(240, 253, 244, 0.55);
+  }
+
+  .wb-computed-item.is-bad {
+    border-color: rgba(220, 38, 38, 0.32);
+    background: rgba(254, 242, 242, 0.55);
+  }
+
+  /* ─── 古籍经典参断卡 (.wb-classics-card) ─── */
+  .wb-classics-card {
+    margin-top: 12px;
+  }
+
+  .wb-classics-zhouyi {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft, rgba(139, 109, 92, 0.05));
+  }
+
+  .wb-classics-zhouyi-line {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-strong);
+  }
+
+  .wb-classics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .wb-classics-item {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+    padding: 11px 13px;
+    border-radius: 11px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+  }
+
+  .wb-classics-item-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .wb-classics-book {
+    font-size: 11.5px;
+    font-weight: 750;
+    color: var(--accent-strong);
+  }
+
+  .wb-classics-cond {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--surface-soft, rgba(139, 109, 92, 0.09));
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .wb-classics-title {
+    font-size: 13px;
+    color: var(--text-strong);
+  }
+
+  .wb-classics-quote {
+    margin: 0;
+    padding-left: 8px;
+    border-left: 2px solid color-mix(in srgb, var(--accent-strong) 45%, transparent);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-strong);
+    font-weight: 600;
+  }
+
+  .wb-classics-exp {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+
+  /* ─── 六壬 / 奇门 / 术语交互增强 ─── */
+  .liuren-board {
+    --chart-surface: var(--surface-base);
+    --chart-surface-muted: var(--surface-muted);
+    --chart-border: var(--border-soft);
+    --chart-border-strong: var(--border-contrast);
+    --chart-accent: var(--accent-strong);
+    --chart-accent-soft: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-base));
+    font-family: inherit;
+    gap: 12px;
+    margin-top: 0;
+    padding: 14px;
+    border-color: var(--chart-border);
+    border-radius: 12px;
+    background: var(--surface-elevated);
+    box-shadow: none;
+  }
+
+  .is-shensha-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12.5px;
+  }
+
+  .is-clickable-term {
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      filter 0.15s ease,
+      box-shadow 0.15s ease,
+      color 0.15s ease;
+    text-decoration: underline dotted transparent;
+    user-select: none;
+  }
+
+  .is-clickable-term:hover {
+    color: var(--chart-accent);
+    text-decoration-color: var(--chart-accent);
+    transform: translateY(-1px);
+    filter: brightness(0.92);
+  }
+
+  .is-clickable-term:active {
+    transform: translateY(0);
+  }
+
+  .term-pinyin {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    letter-spacing: 0.5px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .legend-item .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  .legend-item .dot.is-zhifu-shi {
+    background: #059669;
+  }
+
+  .legend-item .dot.is-rumu {
+    background: #ea580c;
+  }
+
+  .legend-item .dot.is-jixing {
+    background: #9333ea;
+  }
+
+  .legend-item .dot.is-menpo {
+    background: #dc2626;
+  }
+
+  .legend-item .dot.is-xingmu {
+    background: #0284c7;
+  }
+
+  .legend-item .dot.is-void {
+    border: 1px solid #d97706;
+    background: transparent;
+  }
+
+  .legend-item .dot.is-horse {
+    background: #059669;
+  }
+
+  .pattern-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  @keyframes yongshenPulse {
+    0%,
+    100% {
+      box-shadow:
+        inset 0 0 6px rgba(186, 38, 73, 0.1),
+        0 0 6px rgba(186, 38, 73, 0.2);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 14px rgba(186, 38, 73, 0.25),
+        0 0 12px rgba(186, 38, 73, 0.4);
+    }
+  }
+}
+
+@layer components.responsive {
+  @media (max-width: 720px) {
+    .wb-classics-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .bazi-wuxing-bar-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 679px) {
+    .liuren-board {
+      padding: 0;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .liuren-board {
+      gap: 8px;
+    }
+
+    .bazi-pillars-table {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      min-width: 0;
+      margin-top: 2px;
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      box-shadow: none;
+    }
+
+    .ziwei-detail-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      background: var(--surface-base);
+      padding: 8px 10px;
+      box-shadow: none;
+      margin: 0;
+    }
+  }
+
+  @media (max-width: 640px), (max-width: 900px) and (max-height: 520px) {
+    .ziwei-detail-head,
+    .ziwei-detail-head > div {
+      min-width: 0;
+    }
+
+    .ziwei-detail-head {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .ziwei-detail-head h4 {
+      font-size: 16px;
+    }
+
+    .ziwei-detail-card {
+      margin-top: 8px;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+
+    .bazi-pillars-table {
+      margin-top: 6px;
+      grid-template-columns: minmax(28px, 44px) repeat(
+          var(--bazi-display-column-count, var(--bazi-col-count, 4)),
+          minmax(0, 1fr)
+        );
+      border-radius: 10px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .bazi-pillars-table.has-fortune-cols {
+      grid-template-columns: 42px repeat(
+          var(--bazi-display-column-count, var(--bazi-col-count, 7)),
+          minmax(62px, 1fr)
+        );
+      min-width: 480px;
+    }
+
+    .bazi-pillars-table.has-fortune-cols .bazi-pillars-cell.is-label {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      box-shadow: 1px 0 0 var(--border-soft);
+    }
+
+    .bazi-pillars-cell {
+      min-height: 38px;
+      padding: 5px 4px;
+      font-size: 12px;
+    }
+
+    .bazi-pillars-cell.is-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .bazi-pillars-cell.is-head {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .bazi-pillars-cell.is-multiline {
+      line-height: 1.35;
+    }
+
+    .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
+      font-size: 17px;
+      font-weight: 750;
+    }
+
+    .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
+      font-size: 16px;
+      font-weight: 750;
+    }
+
+    .bazi-pillars-cell.is-hidden-stems {
+      padding-inline: 2px;
+    }
+
+    .bazi-hidden-item {
+      white-space: nowrap;
+      gap: 1px;
+    }
+
+    .bazi-hidden-stem-list strong,
+    .bazi-hidden-stem {
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      padding: 0 1px;
+    }
+
+    .bazi-hidden-stem-list small,
+    .bazi-hidden-god,
+    .bazi-pillar-tengod {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      padding: 0 1px;
+    }
+
+    .bazi-stem-revealed {
+      width: 12px;
+      height: 12px;
+      margin-left: 1px;
+      font-size: 8.5px;
+    }
+
+    .bazi-shensha-tag {
+      min-height: 20px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+
+    .wuxing-bars {
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .fortune-timeline {
+      gap: 8px;
+      margin-top: 8px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .bazi-pillars-table {
+      grid-template-columns: minmax(26px, 36px) repeat(
+          var(--bazi-display-column-count, var(--bazi-col-count, 4)),
+          minmax(0, 1fr)
+        );
+      width: 100%;
+      min-width: 0;
+    }
+
+    .bazi-pillars-table.has-fortune-cols {
+      grid-template-columns: 38px repeat(
+          var(--bazi-display-column-count, var(--bazi-col-count, 7)),
+          minmax(58px, 1fr)
+        );
+      min-width: 448px;
+    }
+
+    .bazi-pillars-cell {
+      font-size: 10px;
+      padding: 4px 2px;
+    }
+
+    .bazi-pillars-cell.is-multiline {
+      line-height: 1.25;
+    }
+
+    .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
+      font-size: 14px;
+    }
+
+    .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
+      font-size: 13px;
+    }
+
+    .fortune-timeline::before {
+      left: 6px;
+    }
+  }
+}

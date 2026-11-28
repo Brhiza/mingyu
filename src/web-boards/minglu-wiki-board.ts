@@ -399,31 +399,31 @@ function buildCopyMarkdown(
   glossaryLines: string[],
 ): string {
   const parts: string[] = [
-    '# 📖 命录 · 个人命理全息白话档案',
+    '# 命录',
     `> 四柱八字：${pillarSummary}`,
     `> 核心坐标：日主${dayGan}${dayWuxing}（${strengthStatus}） · 格局【${patternName}】 · 喜用神【${usefulGodStr}（${favorableWuxingStr}）】`,
     '',
-    '## 💡 一、小白一分钟导读',
+    '## 一、命局总览',
     `- **命格核心原型**：${archetypeInfo.archetype}`,
     `- **自然意象**：${archetypeInfo.nature}`,
-    `- **旺衰与喜用白话解**：${strengthPlain}`,
-    `- **核心天赋与职场发力点**：${archetypeInfo.talents.join('；')}。${archetypeInfo.advice}`,
+    `- **旺衰与喜用**：${strengthPlain}`,
+    `- **天赋与事业方向**：${archetypeInfo.talents.join('；')}。${archetypeInfo.advice}`,
     '',
-    '## 🌳 二、人生四部曲：四柱八字与“根苗花果”',
+    '## 二、四柱命盘',
     ...pillarLines.map((l) => `- ${l}`),
   ];
 
   if (shenshaLines.length > 0) {
-    parts.push('', '## ✨ 三、命盘神煞白话解读', ...shenshaLines.map((l) => `- ${l}`));
+    parts.push('', '## 三、吉神凶煞', ...shenshaLines.map((l) => `- ${l}`));
   }
   if (ziweiLines.length > 0) {
-    parts.push('', '## 🌌 四、紫微斗数核心宫位全景', ...ziweiLines.map((l) => `- ${l}`));
+    parts.push('', '## 四、紫微十二宫', ...ziweiLines.map((l) => `- ${l}`));
   }
   if (crossLines.length > 0) {
-    parts.push('', '## 🧭 五、跨体系生命主题与八宅吉方', ...crossLines.map((l) => `- ${l}`));
+    parts.push('', '## 五、星盘与八宅吉方', ...crossLines.map((l) => `- ${l}`));
   }
   if (glossaryLines.length > 0) {
-    parts.push('', '## 📚 六、命盘专属名词白话词典', ...glossaryLines.map((l) => `- ${l}`));
+    parts.push('', '## 六、术语释义', ...glossaryLines.map((l) => `- ${l}`));
   }
   return parts.join('\n');
 }
@@ -507,8 +507,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
 
   const titleWrap = el('div', { className: 'minglu-dossier-title-wrap' });
   titleWrap.append(
-    el('div', { className: 'minglu-dossier-eyebrow', text: '个人命理全景白话档案 · 零基础一页读懂' }),
-    el('h2', { className: 'minglu-dossier-title board-title', text: '📖 命录 · 个人命理全息白话档案' }),
+    el('h2', { className: 'minglu-dossier-title board-title', text: '命录' }),
   );
 
   const subtitleRow = el('div', { className: 'minglu-dossier-badges' });
@@ -528,7 +527,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   const copyBtn = el('button', {
     type: 'button',
     className: 'minglu-copy-report-btn',
-    text: '📋 复制完整命录报告',
+    text: '复制命录',
     onClick: async () => {
       const md = buildCopyMarkdown(
         dayGan,
@@ -548,12 +547,12 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
       );
       try {
         await navigator.clipboard.writeText(md);
-        copyBtn.textContent = '✅ 已复制完整命录报告';
+        copyBtn.textContent = '已复制';
         setTimeout(() => {
-          copyBtn.textContent = '📋 复制完整命录报告';
+          copyBtn.textContent = '复制命录';
         }, 2000);
       } catch {
-        copyBtn.textContent = '请手动选择文本复制';
+        copyBtn.textContent = '复制失败';
       }
     },
   });
@@ -574,19 +573,19 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     .filter((x): x is UnknownRecord => Boolean(x));
 
   const tocItems: Array<{ id: string; label: string }> = [
-    { id: 'minglu-sec-guide', label: '💡 小白一分钟导读' },
-    { id: 'minglu-sec-pillars', label: '🌳 四柱与根苗花果' },
-    { id: 'minglu-sec-wuxing', label: '⚖️ 五行与喜用指南' },
-    { id: 'minglu-sec-shensha', label: '✨ 吉神与凶煞白话解' },
+    { id: 'minglu-sec-guide', label: '命局总览' },
+    { id: 'minglu-sec-pillars', label: '四柱命盘' },
+    { id: 'minglu-sec-wuxing', label: '五行大运' },
+    { id: 'minglu-sec-shensha', label: '吉神凶煞' },
   ];
   if (hasZiwei) {
-    tocItems.push({ id: 'minglu-sec-ziwei', label: '🌌 紫微十二宫全景' });
+    tocItems.push({ id: 'minglu-sec-ziwei', label: '紫微十二宫' });
   }
   if (hasCrossOrBazhai) {
-    tocItems.push({ id: 'minglu-sec-cross', label: '🧭 星盘与八宅吉方' });
+    tocItems.push({ id: 'minglu-sec-cross', label: '星盘八宅' });
   }
   if (glossaryList.length > 0) {
-    tocItems.push({ id: 'minglu-sec-glossary', label: '📚 命盘专属名词词典' });
+    tocItems.push({ id: 'minglu-sec-glossary', label: '术语释义' });
   }
 
   const tocBar = el('nav', {
@@ -621,11 +620,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   guideTitleGrp.append(
     el('h3', {
       className: 'board-title',
-      text: '💡 小白入门导读 · 一分钟极速读懂你的命理全景',
-    }),
-    el('span', {
-      className: 'board-subtitle',
-      text: '跳过晦涩古文，用自然万物意象直接看懂你的性格底色、天赋优势与开运方向',
+      text: '命局总览',
     }),
   );
   guideHead.append(guideTitleGrp);
@@ -646,7 +641,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
 
   const strengthPlainBox = el('div', { className: 'minglu-plain-callout' });
   strengthPlainBox.append(
-    el('strong', { text: '🔍 身强身弱与喜用神大白话解读：' }),
+    el('strong', { text: '身强身弱与喜用神大白话解读：' }),
     el('span', { text: strengthPlain }),
   );
   secGuide.append(strengthPlainBox);
@@ -656,7 +651,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   // 左卡：核心天赋与职场发力点
   const talentCard = el('div', { className: 'minglu-guide-subcard' });
   talentCard.append(
-    el('h5', { className: 'minglu-subcard-title', text: '🎯 你的核心天赋与职场发力点' }),
+    el('h5', { className: 'minglu-subcard-title', text: '你的核心天赋与职场发力点' }),
   );
   const talentList = el('ul', { className: 'minglu-bullet-list' });
   for (const t of archetypeInfo.talents) {
@@ -668,7 +663,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   // 右卡：日常生活习惯与调和建议
   const habitCard = el('div', { className: 'minglu-guide-subcard' });
   habitCard.append(
-    el('h5', { className: 'minglu-subcard-title', text: '🌿 日常生活习惯与调和建议' }),
+    el('h5', { className: 'minglu-subcard-title', text: '日常生活习惯与调和建议' }),
   );
   const habitList = el('ul', { className: 'minglu-bullet-list' });
   for (const h of habitTips) {
@@ -690,11 +685,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   pillarsTitleGrp.append(
     el('h3', {
       className: 'board-title',
-      text: '🌳 人生四部曲：四柱八字与“根苗花果”生命节律',
-    }),
-    el('span', {
-      className: 'board-subtitle',
-      text: '古人把人生比作一棵树：年柱为根、月柱为苗、日柱为花、时柱为果，对应人生四个阶段',
+      text: '四柱命盘',
     }),
   );
   pillarsHead.append(pillarsTitleGrp);
@@ -770,11 +761,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   const wxHead = el('div', { className: 'board-head' });
   const wxTitleGrp = el('div', { className: 'board-title-group' });
   wxTitleGrp.append(
-    el('h3', { className: 'board-title', text: '⚖️ 五行能量分布、格局与大运十年节奏' }),
-    el('span', {
-      className: 'board-subtitle',
-      text: '原局八字好比你的原厂车型，而十年一步的“大运”则是你人生不同阶段行驶的道路气候',
-    }),
+    el('h3', { className: 'board-title', text: '五行格局与大运' }),
   );
   wxHead.append(wxTitleGrp);
   secWuxing.append(wxHead);
@@ -830,19 +817,23 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
         text: isFav ? '喜用加分' : isAvoid ? '注意节制' : '平和协调',
       }),
     );
+    const visiblePart =
+      item.visible > 0
+        ? `明字 ${item.visible} 处（${item.labels.join('')}）`
+        : '明字 0 处';
     const countText =
       item.visible === 0 && item.hidden === 0
         ? '明字 0 · 藏干 0（原局偏缺，日常可多补充）'
-        : `明字 ${item.visible} 处（${item.labels.join('')}）· 藏干 ${item.hidden} 处`;
+        : `${visiblePart} · 藏干 ${item.hidden} 处`;
     wxCard.append(top, el('div', { className: 'minglu-wuxing-detail', text: countText }));
     wxBarGrid.append(wxCard);
   }
   secWuxing.append(wxBarGrid);
 
-  // 格局与喜忌一句话总结条
+  // 格局与喜忌总结条
   const patternSummaryBar = el('div', { className: 'minglu-plain-callout' });
   patternSummaryBar.append(
-    el('strong', { text: `📌 格局与用神速记：` }),
+    el('strong', { text: `格局与用神：` }),
     el('span', {
       text: `本命格局为【${patternName}】，首取【${usefulGodName}（喜${favWuxingStr}）】为调和关键；日常行事注意规避【${avoidGodName}（忌${unfavWuxingList.join('、') || '过度失衡'}）】带来的急躁或内耗。`,
     }),
@@ -858,7 +849,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     const startAgeYears = asNumber(asRecord(fortuneRec?.startAge)?.years) ?? 1;
     const fortuneSubhead = el('h4', {
       className: 'minglu-subblock-title',
-      text: `🛤️ 你的十年大运人生阶梯（约 ${startAgeYears} 岁起运）`,
+      text: `十年大运（约 ${startAgeYears} 岁起运）`,
     });
     secWuxing.append(fortuneSubhead);
 
@@ -918,11 +909,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
   const ssHead = el('div', { className: 'board-head' });
   const ssTitleGrp = el('div', { className: 'board-title-group' });
   ssTitleGrp.append(
-    el('h3', { className: 'board-title', text: '✨ 你的命盘吉神与凶煞白话解读' }),
-    el('span', {
-      className: 'board-subtitle',
-      text: '神煞是古人总结的人生彩蛋与风险路标：吉神代表潜在贵人与天赋，凶煞则是提醒你留意的性格棱角',
-    }),
+    el('h3', { className: 'board-title', text: '吉神凶煞' }),
   );
   ssHead.append(ssTitleGrp);
   secShensha.append(ssHead);
@@ -1004,12 +991,12 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     const fiveClass = asString(ziweiNatal.fiveElementsClass) ?? '';
     const soulStar = asString(ziweiNatal.soul) ?? '';
     const bodyStar = asString(ziweiNatal.body) ?? '';
+    const zwSubMeta = [fiveClass, soulStar ? `命主${soulStar}` : '', bodyStar ? `身主${bodyStar}` : '']
+      .filter(Boolean)
+      .join(' · ');
     zwTitleGrp.append(
-      el('h3', { className: 'board-title', text: '🌌 紫微斗数十二宫与人生核心领域全景' }),
-      el('span', {
-        className: 'board-subtitle',
-        text: `紫微斗数将人生划分为十二个房间（宫位），直观展现你在事业、财富、感情与内心的具体表现${fiveClass ? ` · ${fiveClass}` : ''}${soulStar ? ` · 命主${soulStar}` : ''}${bodyStar ? ` · 身主${bodyStar}` : ''}`,
-      }),
+      el('h3', { className: 'board-title', text: '紫微十二宫' }),
+      ...(zwSubMeta ? [el('span', { className: 'board-subtitle', text: zwSubMeta })] : []),
     );
     zwHead.append(zwTitleGrp);
     secZiwei.append(zwHead);
@@ -1029,10 +1016,12 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     }
     const bodyPalace = palaces.find((p) => Boolean(p.isBodyPalace));
     if (bodyPalace) {
+      const bodyName = asString(bodyPalace.name) ?? '';
+      const bodyPalaceLabel = bodyName.endsWith('宫') ? bodyName : `${bodyName}宫`;
       selectedPalaces.splice(1, 0, {
         palace: bodyPalace,
         customHeader: {
-          title: `身宫（寄于${asString(bodyPalace.name) ?? ''}宫）· 后天着力点`,
+          title: `身宫（寄于${bodyPalaceLabel}）· 后天着力点`,
           meaning: ZIWEI_PALACE_PLAIN['身宫']!.meaning,
         },
       });
@@ -1067,7 +1056,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
 
       const headerInfo = customHeader ??
         ZIWEI_PALACE_PLAIN[pName] ?? {
-          title: `${pName}宫`,
+          title: pName.endsWith('宫') ? pName : `${pName}宫`,
           meaning: '反映该人生领域的星曜配置与能量重心。',
         };
       const starsDisplay =
@@ -1112,11 +1101,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     const crossHead = el('div', { className: 'board-head' });
     const crossTitleGrp = el('div', { className: 'board-title-group' });
     crossTitleGrp.append(
-      el('h3', { className: 'board-title', text: '🧭 西洋星盘三大核心主题与八宅吉利方位' }),
-      el('span', {
-        className: 'board-subtitle',
-        text: '从中西跨体系视角综合对照你的本命心性、事业财富通道，以及最适合你的日常办公与居住吉方',
-      }),
+      el('h3', { className: 'board-title', text: '星盘与八宅' }),
     );
     crossHead.append(crossTitleGrp);
     secCross.append(crossHead);
@@ -1131,7 +1116,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
       for (const d of dims) {
         const label = asString(d.label) ?? '核心维度';
         const dCard = el('div', { className: 'minglu-cross-card' });
-        dCard.append(el('h4', { className: 'minglu-cross-title', text: `📌 ${label}` }));
+        dCard.append(el('h4', { className: 'minglu-cross-title', text: label }));
         const list = el('ul', { className: 'minglu-bullet-list' });
         const baziF = asString(d.baziFocus);
         const ziweiF = asString(d.ziweiFocus);
@@ -1170,7 +1155,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
         secCross.append(
           el('h4', {
             className: 'minglu-subblock-title',
-            text: `🏠 你的本命卦【${guaName}卦】四大吉利方位指南`,
+            text: `${guaName}卦四吉方`,
           }),
         );
         const bzGrid = el('div', { className: 'minglu-bazhai-grid' });
@@ -1205,11 +1190,7 @@ export function renderMingluWikiBoard(container: HTMLElement, value: unknown): b
     glTitleGrp.append(
       el('h3', {
         className: 'board-title',
-        text: `📚 你的命盘专属名词白话小词典（共命中 ${glossaryList.length} 项）`,
-      }),
-      el('span', {
-        className: 'board-subtitle',
-        text: '自动提取你命盘里出现的专业名词并翻译成大白话，零基础也能轻松查明白',
+        text: `术语释义（${glossaryList.length} 项）`,
       }),
     );
     glHead.append(glTitleGrp);

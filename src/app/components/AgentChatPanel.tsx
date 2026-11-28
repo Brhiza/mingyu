@@ -4,13 +4,18 @@ import {
   ArrowUpRight,
   Bot,
   Check,
+  ChevronDown,
   Copy,
   Eye,
+  LayoutGrid,
   Loader2,
   MessageSquarePlus,
   Settings2,
+  Sparkles,
   Square,
   UserCheck,
+  UserRoundX,
+  X,
 } from 'lucide-react';
 import type { PersonalCase } from '../../v2-ui/cases-store';
 import type { AgentChatSession, AgentToolTrace } from '../../web-agent';
@@ -22,10 +27,33 @@ import {
   readWebAiConfig,
   type AiConfigProfile,
 } from '../../web-ai';
-import { Button } from '../../components/ui';
+import type {
+  ExtractedBirthProfile,
+  ExtractedStructuredInputs,
+} from '../../router-model/birth-extractor';
+import type { MethodId } from '../../router-model/index';
+import type { SynastryRelationship } from '../../systems/focus-presets';
+import { Button, Select } from '../../components/ui';
 import { cn } from '../../lib/utils';
+import { useMobileViewportKeyboard } from '../hooks/useMobileViewportKeyboard';
 import { AgentMarkdown } from './AgentMarkdown';
 import { AgentMiniBoard } from './AgentMiniBoard';
+
+export interface LocalAgentApplyPayload {
+  method: MethodId;
+  query: string;
+  profiles: ExtractedBirthProfile[];
+  isTwoPerson: boolean;
+  relationship?: SynastryRelationship;
+  structured: ExtractedStructuredInputs;
+  attachedCaseId?: string | null;
+}
+
+const COMPAT_METHODS = new Set<MethodId>([
+  'bazi-synastry',
+  'ziwei-synastry',
+  'astrolabe-synastry',
+]);
 
 export interface AgentChatPanelProps {
   variant: 'home-hero' | 'full-page';
@@ -33,6 +61,8 @@ export interface AgentChatPanelProps {
   cases: readonly PersonalCase[];
   isRunning: boolean;
   statusText: string;
+  onlineAiActive?: boolean;
+  brandSeal?: React.ReactNode;
   onSendMessage: (text: string) => void;
   onStop: () => void;
   onNewChat: () => void;
@@ -40,6 +70,9 @@ export interface AgentChatPanelProps {
   onOpenConnect: () => void;
   onOpenFullChat?: () => void;
   onOpenVisualResult: (trace: AgentToolTrace) => void;
+  onOpenMobileTools?: () => void;
+  onApplyLocalAgentRecommendation?: (payload: LocalAgentApplyPayload) => void | Promise<void>;
+  focusKey?: number;
 }
 
 function ToolTraceCard({
@@ -77,12 +110,18 @@ function ToolTraceCard({
           {trace.status === 'running' ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--accent-strong)]" />
           ) : trace.status === 'error' ? (
-            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--danger-text)] text-[10px] font-bold text-white">
-              !
+            <span
+              aria-hidden="true"
+              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--danger-text)] text-white"
+            >
+              <X className="h-2.5 w-2.5" strokeWidth={3} />
             </span>
           ) : (
-            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--accent-strong)] text-[10px] font-bold text-white">
-              ✓
+            <span
+              aria-hidden="true"
+              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--accent-strong)] text-white"
+            >
+              <Check className="h-2.5 w-2.5" strokeWidth={3} />
             </span>
           )}
           <span className="truncate font-semibold text-[var(--text-strong)]">
@@ -124,25 +163,198 @@ function ToolTraceCard({
   );
 }
 
+function ComposerCasePicker({
+  cases,
+  attachedCaseId,
+  onSelect,
+}: {
+  cases: readonly PersonalCase[];
+  attachedCaseId: string | null | undefined;
+  onSelect: (caseId: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [openUp, setOpenUp] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+
+  const activeCase = React.useMemo(
+    () => (attachedCaseId ? cases.find((c) => c.id === attachedCaseId) ?? null : null),
+    [attachedCaseId, cases],
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && triggerRef.current && typeof window !== 'undefined') {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      setOpenUp(viewportHeight - rect.bottom < 220 && rect.top > 180);
+    }
+    setOpen((prev) => !prev);
+  };
+
+  return (
+    <div ref={rootRef} className="relative inline-flex">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="关联命造档案"
+        onClick={handleToggle}
+        className={cn(
+          'inline-flex h-7 min-[680px]:h-8 items-center justify-center gap-1.5 rounded-full border px-2.5 text-[12px] font-semibold leading-none transition-colors cursor-pointer active:scale-[0.98]',
+          activeCase
+            ? 'border-[color-mix(in_srgb,var(--accent)_32%,var(--border-soft))] bg-[var(--state-selected-surface)] text-[var(--state-selected-text)]'
+            : 'border-[var(--border-soft)] bg-[var(--surface-soft)] text-[var(--text-strong)] hover:border-[var(--border-contrast)] hover:bg-[var(--state-hover-surface)]',
+        )}
+      >
+        <UserCheck className="h-3.5 w-3.5 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
+        <span className="max-w-[92px] min-[680px]:max-w-[120px] truncate leading-none">
+          {activeCase ? activeCase.name : '不选档案'}
+        </span>
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 shrink-0 text-[var(--text-muted)] transition-transform duration-150',
+            open && 'rotate-180',
+          )}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open ? (
+        <div
+          role="listbox"
+          aria-label="关联命造档案列表"
+          className={cn(
+            'ws-popover-in absolute left-0 z-[1100] w-[220px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-1.5 shadow-[0_14px_36px_rgba(28,22,38,0.16)]',
+            openUp
+              ? 'bottom-[calc(100%+6px)] origin-bottom-left'
+              : 'top-[calc(100%+6px)] origin-top-left',
+          )}
+        >
+          <div className="grid max-h-[220px] gap-0.5 overflow-y-auto">
+            <button
+              type="button"
+              role="option"
+              aria-selected={!activeCase}
+              onClick={() => {
+                setOpen(false);
+                onSelect(null);
+              }}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg border-0 px-2.5 py-2 text-left cursor-pointer transition-colors',
+                !activeCase
+                  ? 'bg-[var(--state-selected-surface)] text-[var(--state-selected-text)]'
+                  : 'bg-transparent text-[var(--text-primary)] hover:bg-[var(--state-hover-surface)]',
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--surface-soft)] text-[var(--text-muted)]"
+              >
+                <UserRoundX className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1 grid gap-0.5">
+                <strong className="truncate text-[12px] font-bold">不选档案</strong>
+              </span>
+              {!activeCase ? (
+                <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
+              ) : null}
+            </button>
+
+            {cases.map((c) => {
+              const selected = activeCase?.id === c.id;
+              const displayName = c.name?.trim() || '未命名';
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => {
+                    setOpen(false);
+                    onSelect(c.id);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg border-0 px-2.5 py-2 text-left cursor-pointer transition-colors',
+                    selected
+                      ? 'bg-[var(--state-selected-surface)] text-[var(--state-selected-text)]'
+                      : 'bg-transparent text-[var(--text-primary)] hover:bg-[var(--state-hover-surface)]',
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--accent-soft)] text-[11px] font-extrabold text-[var(--accent-strong)]"
+                  >
+                    {displayName.slice(0, 1)}
+                  </span>
+                  <span className="min-w-0 flex-1 grid gap-0.5">
+                    <strong className="truncate text-[12px] font-bold">{displayName}</strong>
+                    {c.birthText ? (
+                      <small className="truncate text-[10.5px] font-normal text-[var(--text-muted)]">
+                        {c.birthText}
+                      </small>
+                    ) : null}
+                  </span>
+                  {selected ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AgentChatPanel({
   variant,
   session,
   cases,
   isRunning,
   statusText,
+  onlineAiActive = true,
+  brandSeal,
   onSendMessage,
   onStop,
   onNewChat,
   onSelectAttachedCase,
   onOpenConnect,
-  onOpenFullChat,
   onOpenVisualResult,
+  onOpenMobileTools,
+  onApplyLocalAgentRecommendation,
+  focusKey = 0,
 }: AgentChatPanelProps) {
   const [draft, setDraft] = React.useState('');
+  const [isLocalRouting, setIsLocalRouting] = React.useState(false);
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
   const [profiles, setProfiles] = React.useState<AiConfigProfile[]>(() => loadWebAiProfiles());
   const [activeProfileId, setActiveProfileId] = React.useState<string | null>(() => getActiveWebAiProfileId());
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [composerFocused, setComposerFocused] = React.useState(false);
+  const { isMobileViewport, visualBottomY, keyboardOpen } =
+    useMobileViewportKeyboard(composerFocused);
 
   React.useEffect(() => {
     const sync = () => {
@@ -155,6 +367,11 @@ export function AgentChatPanel({
 
   const aiConfig = readWebAiConfig();
   const configured = isWebAiConfigured(aiConfig);
+  const isHomeHero = variant === 'home-hero';
+  const useLocalRouter =
+    isHomeHero && !onlineAiActive && Boolean(onApplyLocalAgentRecommendation);
+  const hasMessages = (!isHomeHero || Boolean(onlineAiActive)) && session.messages.length > 0;
+  const canInteract = useLocalRouter || configured;
 
   React.useEffect(() => {
     setDraft('');
@@ -166,9 +383,45 @@ export function AgentChatPanel({
     el.scrollTop = el.scrollHeight;
   }, [session.messages, statusText]);
 
-  const handleSubmit = (textOverride?: string) => {
+  const handleSubmit = async (textOverride?: string) => {
     const content = (textOverride ?? draft).trim();
-    if (!content || isRunning || !configured) return;
+    if (!content) return;
+    if (useLocalRouter) {
+      if (isLocalRouting || !onApplyLocalAgentRecommendation) return;
+      setIsLocalRouting(true);
+      try {
+        const [{ runLocalAgentPlan }, { extractSubstantiveQuestion }] = await Promise.all([
+          import('../../router-model/local-agent'),
+          import('../../router-model/features'),
+        ]);
+        const plan = await runLocalAgentPlan(content);
+        const extracted = plan.analysis.extractedBirth;
+        const topMethod = plan.routing.recommendations[0]?.method ?? 'bazi';
+        const resolvedMethod: MethodId =
+          extracted.profiles.length >= 2 && !COMPAT_METHODS.has(topMethod)
+            ? 'bazi-synastry'
+            : topMethod;
+
+        if (!textOverride) setDraft('');
+        if (composerRef.current) {
+          composerRef.current.style.height = '';
+        }
+        await onApplyLocalAgentRecommendation({
+          method: resolvedMethod,
+          query: extractSubstantiveQuestion(plan.query),
+          profiles: extracted.profiles,
+          isTwoPerson: extracted.isTwoPerson,
+          relationship: extracted.relationship,
+          structured: extracted.structured,
+          attachedCaseId: session.attachedCaseId,
+        });
+      } finally {
+        setIsLocalRouting(false);
+      }
+      return;
+    }
+
+    if (isRunning || !configured) return;
     if (!textOverride) setDraft('');
     onSendMessage(content);
   };
@@ -183,9 +436,26 @@ export function AgentChatPanel({
     } catch {}
   };
 
-  const isHomeHero = variant === 'home-hero';
-  const hasMessages = session.messages.length > 0;
   const prevMsgCountRef = React.useRef(session.messages.length);
+  const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+  React.useEffect(() => {
+    if (isMobileViewport || !isHomeHero || !canInteract || isRunning || isLocalRouting) return;
+    const id = window.requestAnimationFrame(() => {
+      composerRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [isMobileViewport, isHomeHero, canInteract, isRunning, isLocalRouting, focusKey]);
+
+  React.useEffect(() => {
+    if (!isHomeHero || hasMessages || !isMobileViewport || !keyboardOpen) return;
+    const rafId = window.requestAnimationFrame(() => {
+      if (window.scrollY > 0) {
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isHomeHero, hasMessages, isMobileViewport, keyboardOpen]);
 
   React.useEffect(() => {
     const prevCount = prevMsgCountRef.current;
@@ -201,21 +471,27 @@ export function AgentChatPanel({
     <section
       aria-label={isHomeHero ? 'AI 对话' : '对话详情'}
       className={cn(
-        'mx-auto flex w-full max-w-[780px] flex-col',
+        'mx-auto flex w-full min-w-0 max-w-[780px] flex-col',
         isHomeHero
           ? hasMessages
-            ? 'gap-3 py-1 min-[680px]:py-3'
-            : 'gap-3.5 pt-4 pb-2 min-[680px]:gap-5 min-[680px]:pt-9 min-[680px]:pb-4'
+            ? 'gap-3 py-1 min-[680px]:h-full min-[680px]:min-h-0 min-[680px]:flex-1 min-[680px]:py-1'
+            : 'gap-0 pt-2 pb-1 min-[680px]:gap-3 min-[680px]:pt-2 min-[680px]:pb-1'
           : 'h-full min-h-0 flex-1 gap-2',
       )}
     >
       {/* 会话顶部轻量条：空态居中问候，对话中或全屏态居左标题 */}
       {isHomeHero && !hasMessages ? (
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-[var(--accent-strong)] text-white shadow-[0_6px_18px_rgba(184,59,43,0.18)]">
-            <Bot className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <h1 className="m-0 font-sans text-[21px] min-[680px]:text-[26px] font-extrabold tracking-[-0.02em] text-[var(--text-strong)]">
+          {brandSeal ?? (
+            <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-[var(--accent-strong)] text-[var(--accent-contrast)] shadow-[0_6px_18px_var(--accent-soft-strong)]">
+              {useLocalRouter ? (
+                <Sparkles className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Bot className="h-5 w-5" aria-hidden="true" />
+              )}
+            </span>
+          )}
+          <h1 className="m-0 pl-[0.42em] font-sans text-[21px] min-[680px]:text-[26px] font-extrabold tracking-[-0.02em] text-[var(--text-strong)]">
             今天想问什么？
           </h1>
         </div>
@@ -232,22 +508,23 @@ export function AgentChatPanel({
 
           <div className="flex flex-wrap items-center gap-1.5">
             {profiles.length >= 2 ? (
-              <select
+              <Select
                 aria-label="切换模型配置"
+                size="sm"
                 value={activeProfileId ?? ''}
                 disabled={isRunning}
-                onChange={(e) => {
-                  const hit = activateWebAiProfile(e.target.value);
+                onValueChange={(nextId) => {
+                  const hit = activateWebAiProfile(nextId);
                   if (hit) setActiveProfileId(hit.id);
                 }}
-                className="max-w-[140px] rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)]"
+                className="w-auto max-w-[148px] text-[11px] font-semibold"
               >
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : null}
             {hasMessages ? (
               <Button
@@ -272,16 +549,17 @@ export function AgentChatPanel({
           className={cn(
             'flex flex-col gap-5 px-1 py-2',
             isHomeHero
-              ? 'min-[680px]:max-h-[460px] min-[680px]:min-h-[120px] min-[680px]:overflow-y-auto scroll-mb-40'
-              : 'min-h-0 flex-1 overflow-y-auto',
+              ? 'min-[680px]:max-h-[460px] min-[680px]:min-h-[120px] min-[680px]:overflow-y-auto min-[820px]:max-h-none min-[820px]:min-h-0 min-[820px]:flex-1 min-[820px]:overscroll-contain scroll-mb-40'
+              : 'min-h-0 flex-1 overflow-y-auto overscroll-contain',
           )}
         >
           {!hasMessages && !isHomeHero ? (
             <div className="my-auto flex flex-col items-center justify-center gap-2 py-8 text-center">
-              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-                <Bot className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <p className="m-0 text-sm font-bold text-[var(--text-strong)]">今天想问什么？</p>
+              {brandSeal ?? (
+                <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                  <Bot className="h-5 w-5" aria-hidden="true" />
+                </span>
+              )}
             </div>
           ) : (
             session.messages.map((msg) => {
@@ -382,65 +660,109 @@ export function AgentChatPanel({
         </div>
       ) : null}
 
-      {/* 输入卡片：桌面端居中流式排布，移动端首页贴靠底部导航栏上方便于单手输入 */}
+      {/* 输入卡片：桌面端居中流式排布，移动端用 visualBottomY 紧贴软键盘顶部消除底端空隙 */}
       <div
         data-testid={isHomeHero ? 'home-ai-composer-dock' : 'full-ai-composer-dock'}
+        style={
+          isMobileViewport && isHomeHero
+            ? keyboardOpen
+              ? {
+                  top: `${visualBottomY}px`,
+                  bottom: 'auto',
+                  transform: 'translate3d(0, -100%, 0)',
+                }
+              : {
+                  bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))',
+                }
+            : undefined
+        }
         className={cn(
           isHomeHero &&
-            'fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom,0px))] z-40 px-2.5 pt-2.5 pb-2 bg-gradient-to-t from-[var(--surface-base)] via-[var(--surface-base)]/95 to-transparent min-[680px]:static min-[680px]:inset-auto min-[680px]:z-auto min-[680px]:bg-none min-[680px]:p-0',
+            cn(
+              'fixed inset-x-0 z-40 px-3 bg-gradient-to-t from-[var(--surface-base)] via-[var(--surface-base)]/95 to-transparent min-[680px]:static min-[680px]:inset-auto min-[680px]:z-auto min-[680px]:bg-none min-[680px]:p-0',
+              isMobileViewport && keyboardOpen ? 'py-1.5' : 'pt-2 pb-2.5',
+            ),
         )}
       >
         <div
           className={cn(
-            'mx-auto w-full max-w-[780px] rounded-2xl min-[680px]:rounded-3xl border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-2.5 min-[680px]:p-4 transition-colors focus-within:border-[var(--accent)]',
+            'mx-auto w-full max-w-[780px] border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] transition-colors focus-within:border-[var(--accent)]',
             isHomeHero
-              ? 'shadow-[0_8px_28px_rgba(32,24,16,0.10)] min-[680px]:shadow-[0_6px_26px_rgba(32,24,16,0.06)]'
-              : 'shadow-[0_6px_26px_rgba(32,24,16,0.06)]',
+              ? 'rounded-[24px] px-4 pt-3.5 pb-2.5 shadow-[0_6px_24px_rgba(32,24,16,0.09)] min-[680px]:rounded-3xl min-[680px]:p-4 min-[680px]:shadow-[0_6px_26px_rgba(32,24,16,0.06)]'
+              : 'rounded-2xl min-[680px]:rounded-3xl p-2.5 min-[680px]:p-4 shadow-[0_6px_26px_rgba(32,24,16,0.06)]',
           )}
         >
           <textarea
+            ref={composerRef}
             rows={2}
             value={draft}
-            disabled={!configured}
-            placeholder={configured ? '输入想问的事…' : '请先在「接入 AI」配置模型后使用'}
-            onChange={(e) => setDraft(e.target.value)}
+            disabled={useLocalRouter ? isLocalRouting : !configured}
+            placeholder={
+              useLocalRouter
+                ? '输入想问的事，或贴入生辰…'
+                : configured
+                  ? '输入想问的事…'
+                  : '请先在「接入 AI」配置模型后使用'
+            }
+            aria-label="输入想问的事"
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              if (isHomeHero && typeof window !== 'undefined' && window.innerWidth < 680) {
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 144)}px`;
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
-                handleSubmit();
+                if (composerRef.current) composerRef.current.style.height = '';
+                void handleSubmit();
               }
             }}
             className={cn(
-              'w-full resize-none border-0 bg-transparent px-1 text-[14.5px] leading-relaxed text-[var(--text-strong)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
-              isHomeHero && !hasMessages ? 'min-h-[44px] min-[680px]:min-h-[78px]' : 'min-h-[40px]',
+              'w-full resize-none border-0 bg-transparent px-0 text-[var(--text-strong)] placeholder:text-[var(--text-muted)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+              isHomeHero
+                ? isMobileViewport && keyboardOpen
+                  ? 'min-h-[44px] max-h-[144px] text-[16px] leading-[1.45] min-[680px]:min-h-[78px] min-[680px]:max-h-none min-[680px]:text-[14.5px] min-[680px]:leading-relaxed'
+                  : !hasMessages
+                    ? 'min-h-[56px] max-h-[144px] text-[16px] leading-[1.5] min-[680px]:min-h-[78px] min-[680px]:max-h-none min-[680px]:text-[14.5px] min-[680px]:leading-relaxed'
+                    : 'min-h-[56px] max-h-[144px] text-[16px] leading-[1.5] min-[680px]:min-h-[40px] min-[680px]:max-h-none min-[680px]:text-[14.5px] min-[680px]:leading-relaxed'
+                : 'min-h-[40px] text-[14.5px] leading-relaxed',
             )}
           />
 
-          <div className="mt-1 min-[680px]:mt-2 flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div
+            className={cn(
+              'flex flex-wrap items-center justify-between gap-2',
+              isHomeHero ? 'mt-2 pt-0.5' : 'mt-1 min-[680px]:mt-2 pt-1',
+            )}
+          >
             <div className="flex flex-wrap items-center gap-1.5">
               {cases.length > 0 ? (
-                <label className="inline-flex items-center gap-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--text-secondary)]">
-                  <UserCheck className="h-3.5 w-3.5 text-[var(--accent-strong)]" aria-hidden="true" />
-                  <select
-                    aria-label="关联命造档案"
-                    value={session.attachedCaseId ?? ''}
-                    onChange={(e) => onSelectAttachedCase(e.target.value || null)}
-                    className="max-w-[96px] min-[680px]:max-w-[116px] cursor-pointer border-0 bg-transparent text-[11.5px] font-semibold text-[var(--text-strong)] outline-none"
-                  >
-                    <option value="">不限档案</option>
-                    {cases.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <ComposerCasePicker
+                  cases={cases}
+                  attachedCaseId={session.attachedCaseId}
+                  onSelect={onSelectAttachedCase}
+                />
               ) : null}
 
-              {!configured ? (
+              {isHomeHero && onOpenMobileTools ? (
+                <button
+                  type="button"
+                  onClick={onOpenMobileTools}
+                  className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface-elevated)] px-2.5 text-[12px] font-medium leading-none text-[var(--text-secondary)] cursor-pointer transition-colors hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-[var(--accent-strong)]" aria-hidden="true" />
+                  <span>更多工具</span>
+                </button>
+              ) : null}
+
+              {!configured && !useLocalRouter ? (
                 <Button variant="secondary" size="xs" className="rounded-full" onClick={onOpenConnect}>
                   <Settings2 className="h-3.5 w-3.5" />
-                  <span>配置模型</span>
+                  <span>配置 AI</span>
                 </Button>
               ) : null}
 
@@ -453,21 +775,47 @@ export function AgentChatPanel({
 
             <div className="flex shrink-0 items-center gap-2">
               {isRunning ? (
-                <Button variant="secondary" size="sm" className="rounded-full" onClick={onStop}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={cn(
+                    'rounded-full',
+                    isHomeHero && 'size-8 p-0 min-[680px]:h-8 min-[680px]:w-auto min-[680px]:px-3',
+                  )}
+                  onClick={onStop}
+                >
                   <Square className="h-3.5 w-3.5" />
-                  <span>停止</span>
+                  <span className={cn(isHomeHero && 'hidden min-[680px]:inline')}>停止</span>
                 </Button>
               ) : null}
               <Button
                 variant="primary"
                 size="sm"
-                className="rounded-full px-3.5"
+                className={cn(
+                  'rounded-full',
+                  isHomeHero
+                    ? 'size-8 shrink-0 p-0 min-[680px]:h-8 min-[680px]:w-auto min-[680px]:px-3.5'
+                    : 'px-3.5',
+                )}
                 aria-label="发送"
-                disabled={!configured || isRunning || !draft.trim()}
-                onClick={() => handleSubmit()}
+                disabled={
+                  useLocalRouter
+                    ? isLocalRouting || !draft.trim()
+                    : !configured || isRunning || !draft.trim()
+                }
+                onClick={() => {
+                  if (composerRef.current) composerRef.current.style.height = '';
+                  void handleSubmit();
+                }}
               >
-                <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                <span>发送</span>
+                {isLocalRouting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                )}
+                <span className={cn(isHomeHero && 'hidden min-[680px]:inline')}>
+                  {isLocalRouting ? '生成中' : '发送'}
+                </span>
               </Button>
             </div>
           </div>

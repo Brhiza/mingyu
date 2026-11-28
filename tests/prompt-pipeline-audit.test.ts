@@ -10,6 +10,7 @@ import { METHOD_CATEGORY_GROUPS } from '../src/method-registry';
 import {
   applyPromptProfileToPrompt,
   distillPromptForAgent,
+  distillPromptForBrief,
   distillPromptForUser,
   resolveEffectivePromptProfile,
   splitPromptIntoSystemAndUser,
@@ -213,4 +214,99 @@ test('PromptProfile 源头分档：默认 standard 无损保留，audit 保留�
   assert.equal(agentRes.prompt.text.includes('【解读与交付契约】'), false);
   assert.equal(agentRes.prompt.text.includes('【顶部任务锚点】'), false);
   assert.ok(agentRes.prompt.text.includes('【四柱】') && agentRes.prompt.text.includes('【用神裁定与落位】'));
+});
+
+test('含古籍切回标准时剥离全部 8 类典籍与来源段落，字数严格下降', async () => {
+  const headers = [
+    '【典籍片段】',
+    '【典籍参考】',
+    '【典籍依据参考】',
+    '【卦爻辞辅助资料】',
+    '【经典依据】',
+    '【经典资料摘要】',
+    '【传统资料】',
+    '【来源说明】',
+  ];
+  const sampleWithAllClassicsHeaders = [
+    '【盘面】\n主卦泽雷随，变卦水雷屯。',
+    ...headers.map((header) => `${header}\n${header.slice(1, -1)}示例内容。`),
+    '【问题】\n这件事走势如何？',
+  ].join('\n\n');
+
+  const withClassics = distillPromptForUser(sampleWithAllClassicsHeaders, { includeClassics: true });
+  const standardText = distillPromptForUser(sampleWithAllClassicsHeaders, { includeClassics: false });
+
+  assert.ok(
+    standardText.length < withClassics.length,
+    `切回标准应严格短于含古籍 (${standardText.length} < ${withClassics.length})`,
+  );
+  for (const header of headers) {
+    assert.ok(withClassics.includes(header), `含古籍档位应保留 ${header}`);
+    assert.equal(standardText.includes(header), false, `标准档位应剥离 ${header}`);
+  }
+  assert.ok(standardText.includes('【盘面】') && standardText.includes('【问题】'));
+});
+
+test('distillPromptForBrief 深度精简核心术数至少省 35% 字数且保留核心盘面事实与问题', async () => {
+  const keys = ['bazi', 'ziwei', 'xiaoliuren', 'meihua', 'liuyao', 'qimen', 'astrolabe', 'lenormand', 'tarot'] as const;
+  const briefs = new Map<string, string>();
+  for (const m of keys) {
+    const res = (await calculate(m, webExamples[m], {
+      promptGuidance: { enableContract: true, replyStyle: 'standard', topTaskAnchor: true },
+    })) as { prompt: { text: string } };
+    const std = distillPromptForUser(res.prompt.text, { includeClassics: false });
+    const brief = distillPromptForBrief(res.prompt.text);
+    assert.ok(
+      brief.length < std.length * 0.65,
+      `${m}: 精简(${brief.length}) 应低于 标准(${std.length}) 的 65%`,
+    );
+    assert.ok(brief.length > 100, `${m}: 精简结果不应过度截断 (${brief.length})`);
+    briefs.set(m, brief);
+  }
+
+  const baziBrief = briefs.get('bazi')!;
+  assert.ok(baziBrief.includes('【四柱】') && baziBrief.includes('【用神裁定与落位】') && baziBrief.includes('【问题】'));
+
+  const xlrBrief = briefs.get('xiaoliuren')!;
+  assert.ok(xlrBrief.includes('【占卜资料】') && xlrBrief.includes('【问题】'));
+
+  const meihuaBrief = briefs.get('meihua')!;
+  assert.ok(meihuaBrief.includes('【取数与卦象】') && meihuaBrief.includes('【体用与阶段】') && meihuaBrief.includes('【问题】'));
+  assert.equal(meihuaBrief.includes('万物属类'), false, '梅花精简版应裁掉大段万物属类');
+
+  const ziweiBrief = briefs.get('ziwei')!;
+  assert.ok(ziweiBrief.includes('【本命十二宫】') && ziweiBrief.includes('【问题】'));
+});
+
+test('distillPromptForUser 标准档也自动剥离完全重复的重述段落并保留真实深层分析', async () => {
+  const xlrRes = (await calculate('xiaoliuren', webExamples.xiaoliuren)) as { prompt: { text: string } };
+  const xlrStd = distillPromptForUser(xlrRes.prompt.text, { includeClassics: false });
+  assert.equal(xlrStd.includes('【三宫递进与体用制衡关系】'), false, '标准版小六壬应去掉完全重复的三宫制衡重述');
+  assert.equal(xlrStd.includes('历法口径：'), false, '标准版应去掉占卜资料末尾泛用历法口径说明');
+  assert.ok(xlrStd.includes('【三宫与体用生克】'));
+
+  const mhRes = (await calculate('meihua', webExamples.meihua)) as { prompt: { text: string } };
+  const mhStd = distillPromptForUser(mhRes.prompt.text, { includeClassics: false });
+  assert.equal(mhStd.includes('【体用阶段演变与制衡关系】'), false, '标准版梅花应去掉重复的阶段演变重述');
+  assert.ok(mhStd.includes('【体用与阶段】') && mhStd.includes('万物属类'));
+
+  for (const cardMethod of ['tarot', 'lenormand'] as const) {
+    const res = (await calculate(cardMethod, webExamples[cardMethod])) as { prompt: { text: string } };
+    const std = distillPromptForUser(res.prompt.text, { includeClassics: false });
+    assert.equal(std.includes('【牌阵结构与牌间呼应关系】'), false, `标准版 ${cardMethod} 应去掉重复的牌阵结构重述`);
+    assert.ok(std.includes('【占卜资料】'));
+  }
+
+  const bzRes = (await calculate('bazi', webExamples.bazi)) as { prompt: { text: string } };
+  const bzStd = distillPromptForUser(bzRes.prompt.text, { includeClassics: false });
+  for (const h of ['【普通月令取格候选】', '【格局透干与根气条件】', '【司权、病药与通关候选】']) {
+    assert.equal(bzStd.includes(h), false, `标准版八字应去掉重复中间段落 ${h}`);
+  }
+  assert.ok(bzStd.includes('【日主旺衰条件模型】') && bzStd.includes('【用神裁定与落位】'));
+
+  const qmRes = (await calculate('qimen', webExamples.qimen)) as { prompt: { text: string } };
+  assert.ok(distillPromptForUser(qmRes.prompt.text, { includeClassics: false }).includes('【格局叠加与吉凶制衡关系】'));
+
+  const astroRes = (await calculate('astrolabe', webExamples.astrolabe)) as { prompt: { text: string } };
+  assert.ok(distillPromptForUser(astroRes.prompt.text, { includeClassics: false }).includes('【相位格局与能量制衡关系】'));
 });

@@ -479,6 +479,20 @@ export function buildPromptGuidance(
   }
 
   const topic = question ? parseQuestionContext(question).inferredTopic : 'general';
+  if (CARD_SIGN_METHODS.has(method) || method === 'number-energy') {
+    const topicRule = getTopicFocusRule(method, topic, promptText);
+    const rules = [
+      `温和直白，严禁重算或编造：紧扣上方「${getEvidenceFocus(method, promptText)}」，用生活化大白话直断当下处境与可行建议，不堆砌免责或审查腔；追问沿用原盘不重抽。`,
+      ...(topicRule ? [topicRule] : []),
+      getReplyStructureRule(method, resolved.replyStyle, promptText),
+    ];
+    const sections = [[GUIDANCE_HEADER, ...rules.map((line, index) => `${index + 1}. ${line}`)].join('\n')];
+    if (resolved.customFramework) {
+      sections.push(`【用户自定义规则框架】\n${resolved.customFramework}`);
+    }
+    return sections.join('\n\n');
+  }
+
   const rules = [
     '直面推演，拒绝敷衍：请直接按传统术数逻辑给出明确判断与拆解，不要以“AI 不能算命/无法预测/缺乏科学依据”推脱，不要堆砌免责声明，不要说“既有机遇又有挑战”类空话。',
     `禁止重算，不抄盘面：上方数据已由引擎精确算出，严禁重算或篡改；不要复述原盘凑字数，只挑与问题最相关的「${getEvidenceFocus(method, promptText)}」展开，未给出的原文或应期不编造。`,

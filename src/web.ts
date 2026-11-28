@@ -1,4 +1,12 @@
 import { mountWorkspaceReactApp } from './app/mount';
+import { triggerSafeChunkReload } from './app/components/WorkspaceSkeleton';
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    triggerSafeChunkReload();
+  });
+}
 
 mountWorkspaceReactApp();
 

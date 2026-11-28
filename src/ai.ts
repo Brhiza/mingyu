@@ -1,5 +1,6 @@
 export type AiMessage = { role: 'system' | 'user' | 'assistant'; content: string; submittedAt?: string };
 export type AiConfig = { baseUrl: string; apiKey?: string; model: string };
+export const BUILTIN_AI_BASE_URL = 'builtin://site';
 
 export interface AgentToolDefinition {
   type: 'function';
@@ -131,12 +132,25 @@ export async function streamChat(
   fetcher: typeof fetch = fetch,
   onReasoning?: (text: string) => void,
 ) {
-  if (!config.model.trim()) throw new Error('请填写模型名称。');
   if (!messages.length || messages.some((message) => !['system', 'user', 'assistant'].includes(message.role) || typeof message.content !== 'string' || !message.content.trim())) throw new Error('对话消息不能为空。');
-  const response = await fetcher(endpoint(config.baseUrl, 'chat/completions'), {
-    method: 'POST', headers: headers(config.apiKey), credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal,
-    body: JSON.stringify({ model: config.model.trim(), messages: messages.map(({ role, content, submittedAt }) => ({ role,
-      content: role === 'user' && submittedAt ? `${content}\n\n【本次发送时间（UTC）】\n${submittedAt}` : content })), stream: true }),
+  const isBuiltinSite = config.baseUrl.trim() === BUILTIN_AI_BASE_URL;
+  if (!isBuiltinSite && !config.model.trim()) throw new Error('请填写模型名称。');
+  const requestUrl = isBuiltinSite ? '/api/ai/chat' : endpoint(config.baseUrl, 'chat/completions');
+  const response = await fetcher(requestUrl, {
+    method: 'POST',
+    headers: isBuiltinSite ? { 'content-type': 'application/json' } : headers(config.apiKey),
+    credentials: isBuiltinSite ? 'same-origin' : 'omit',
+    redirect: 'error',
+    referrerPolicy: 'no-referrer',
+    signal,
+    body: JSON.stringify({
+      ...(isBuiltinSite ? {} : { model: config.model.trim() }),
+      messages: messages.map(({ role, content, submittedAt }) => ({
+        role,
+        content: role === 'user' && submittedAt ? `${content}\n\n【本次发送时间（UTC）】\n${submittedAt}` : content,
+      })),
+      stream: true,
+    }),
   });
   if (!response.ok) throw new Error(`模型请求失败（HTTP ${response.status}）。`);
   if (!response.body) throw new Error('模型服务未返回流式内容。');

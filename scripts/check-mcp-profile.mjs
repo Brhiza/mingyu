@@ -13,8 +13,12 @@ const manifest = JSON.parse(await readFile(join(root, 'dist-mcp/.vite/manifest.j
 const sources = Object.keys(manifest);
 assert.ok(!sources.some((path) => path.includes('legacy-') || path.includes('tests/legacy/') || path.includes('packages/core/')), '独立 MCP 不得引用旧核心');
 const dictionaryModules = sources.filter((path) => path.startsWith('src/data/characters/'));
-const expectedDictionaryModules = ['definitions', 'references'].flatMap((kind) => Array.from({ length: 32 }, (_, shard) => `src/data/characters/${kind}-${String(shard).padStart(2, '0')}.json`));
-assert.deepEqual(dictionaryModules.sort(), expectedDictionaryModules.sort(), '独立 MCP 应只按需打包 64 个字库分片');
+const expectedDictionaryModules = [
+  'src/data/characters/index.json',
+  'src/data/characters/search-order.json',
+  ...['definitions', 'references'].flatMap((kind) => Array.from({ length: 32 }, (_, shard) => `src/data/characters/${kind}-${String(shard).padStart(2, '0')}.json`)),
+];
+assert.deepEqual(dictionaryModules.sort(), expectedDictionaryModules.sort(), '独立 MCP 应只按需打包 2 个字库索引与 64 个字库分片');
 
 const scratch = await mkdtemp(join(tmpdir(), 'mingyu-mcp-standalone-'));
 let client;

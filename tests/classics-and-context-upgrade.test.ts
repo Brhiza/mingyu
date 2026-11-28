@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate, reprompt } from '../src/core';
 import {
+  ensureYilinLoaded,
   getBaziQiongtongAdvice,
   selectBaziClassics,
   selectLiuyaoClassics,
   selectQimenClassics,
   selectYilinClassic,
 } from '../src/systems/classics';
+import { ensureZhouyiLoaded } from '../src/systems/zhouyi-text';
 import { parseQuestionContext } from '../src/systems/question-context';
 import { buildMethodSituationDigest } from '../src/systems/situation-digest';
 import { resolveFocusPresetsForContext } from '../src/systems/focus-presets';
@@ -21,7 +23,8 @@ test('奇门十干克应支持紧凑双字干组合并命中对应克应条文',
   assert.match(joined, /青龙返首|飞鸟跌穴/);
 });
 
-test('六爻经典检索按动爻化象与《黄金策》分类精准匹配，不再全量倾倒', () => {
+test('六爻经典检索按动爻化象与《黄金策》分类精准匹配，不再全量倾倒', async () => {
+  await Promise.all([ensureZhouyiLoaded(), ensureYilinLoaded()]);
   const excerpts = selectLiuyaoClassics({
     category: 'marriage',
     changeTypes: ['化进神'],
@@ -53,7 +56,8 @@ test('八字古籍覆盖 120 格《穷通宝鉴》与从格/专旺格', () => {
   assert.match(joined, /从财格/);
 });
 
-test('《焦氏易林》附带通俗吉凶导读', () => {
+test('《焦氏易林》附带通俗吉凶导读', async () => {
+  await ensureYilinLoaded();
   const excerpt = selectYilinClassic({ baseHexagram: '乾', targetHexagram: '坤' });
   assert.ok(excerpt);
   assert.equal(excerpt.book, '焦氏易林');

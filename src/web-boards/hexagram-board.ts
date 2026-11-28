@@ -3,7 +3,9 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   svgEl,
@@ -176,13 +178,7 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
   const mainTrigrams = getTrigramsFromLines(mainLines);
   const changedTrigrams = hasChanged ? getTrigramsFromLines(changedLines) : undefined;
 
-  const subtitle = [
-    palaceText && palaceStage ? `${palaceText} · ${palaceStage}` : palaceText || palaceStage,
-    genMethod,
-    ganzhi ? `${asString(ganzhi.year) ?? ''} ${monthGz} ${dayGz} ${asString(ganzhi.hour) ?? ''}`.trim() : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const subtitle = genMethod || undefined;
 
   container.append(
     createBoardHeader(
@@ -395,6 +391,7 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
       hTag.title = `伏神：${asString(hidden.sixRelative) ?? ''} ${hDz}${hWx}`;
       hiddenCell.append(hTag);
     } else {
+      hiddenCell.classList.add('is-empty');
       hiddenCell.textContent = '—';
     }
     row.append(hiddenCell);
@@ -450,30 +447,32 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
     if (hasChanged) {
       const changedObj = asRecord(yao.changedYao);
       const changedIsYang = isChanging ? !isYang : isYang;
-      const changedCell = el('div', 'hx-yao-changed');
+      const changedCell = el('div', `hx-yao-changed${isChanging ? '' : ' is-static'}`);
       changedCell.append(createYaoSvg(changedIsYang, isChanging, true));
+      const changedMeta = el('div', 'hx-changed-meta');
       if (changedObj) {
         const cRel = asString(changedObj.liuqin) ?? asString(yao.sixRelative) ?? '';
         const cDz = asString(changedObj.dizhi) ?? '';
         const cWx = asString(changedObj.wuxing) ?? '';
         const cStem = changedStems[pos - 1] ?? '';
-        const cText = el('span', 'hx-changed-text', `${shortRelative(cRel)} ${cStem}${cDz}${cWx}`.trim());
+        const cText = el('span', 'hx-changed-text', `${cRel} ${cStem}${cDz}${cWx}`.trim());
         if (cWx) cText.dataset.wuxing = cWx;
-        changedCell.append(cText);
+        changedMeta.append(cText);
         const dir = asString(yao.changeDirection);
-        if (dir) changedCell.append(el('span', 'hx-tag is-dir', dir.replace('神', '')));
+        if (dir) changedMeta.append(el('span', 'hx-tag is-dir', dir.replace('神', '')));
         for (const cr of asArray(yao.changeRelations).map(asString).slice(0, 2)) {
           if (!cr) continue;
           const isGoodRel = cr.includes('生') || cr.includes('合');
-          changedCell.append(el('span', `hx-tag ${isGoodRel ? 'is-he' : 'is-mu'}`, cr));
+          changedMeta.append(el('span', `hx-tag ${isGoodRel ? 'is-he' : 'is-mu'}`, cr));
         }
         if (changedObj.isVoid === true && !asArray(yao.changeRelations).includes('化空')) {
-          changedCell.append(el('span', 'hx-tag is-void', '空'));
+          changedMeta.append(el('span', 'hx-tag is-void', '空'));
         }
         if (yao.isHuaMu === true && !asArray(yao.changeRelations).includes('化墓')) {
-          changedCell.append(el('span', 'hx-tag is-mu', '化墓'));
+          changedMeta.append(el('span', 'hx-tag is-mu', '化墓'));
         }
       }
+      changedCell.append(changedMeta);
       row.append(changedCell);
     }
 
@@ -488,24 +487,7 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
   const defaultWorldPos = yaosRaw.find((y) => y.isWorld === true)?.position;
   selectYao(asNumber(defaultWorldPos) ?? 1);
 
-  // 用神候选主辅轴（evidenceAnalysis.candidates）
-  const candidates = asArray(ev?.candidates).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (candidates.length > 0) {
-    const candSec = el('div', 'lr-section');
-    candSec.append(el('h4', 'lr-section-title', '用神取用与世应线索'));
-    const list = el('div', 'wb-computed-list');
-    for (const c of candidates.slice(0, 4)) {
-      const card = el('div', 'wb-computed-item');
-      card.append(el('strong', 'wb-computed-title', `${asString(c.label) ?? '候选'}${asNumber(c.position) ? `（第${asNumber(c.position)}爻）` : ''}`));
-      if (asString(c.promptText)) card.append(el('p', 'wb-computed-desc', asString(c.promptText)));
-      else if (asString(c.reason)) card.append(el('p', 'wb-computed-desc', asString(c.reason)));
-      list.append(card);
-    }
-    candSec.append(list);
-    container.append(candSec);
-  }
-
-  // 显示发动机已算出的六爻合冲刑害、特殊格局与用神线索
+  // 卦象本体与三合三刑结构保留在主盘面
   const extraPairs: Array<[string, string | undefined]> = [];
   if (data.isChaotic === true && asString(data.chaoticReason)) {
     extraPairs.push(['乱动提示', asString(data.chaoticReason)]);
@@ -549,6 +531,20 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
   if (structLabels.length > 0) {
     extraPairs.push(['整卦与反伏结构', structLabels.join(' · ')]);
   }
+
+  const origGuaCi =
+    asString(asRecord(data.originalHexagram)?.guaCi) ?? asString(data.guaCi);
+  const changedGuaCi = asString(asRecord(data.changedHexagram)?.guaCi);
+  if (origGuaCi) extraPairs.unshift(['本卦卦辞', origGuaCi]);
+  if (changedGuaCi && changedGuaCi !== origGuaCi) {
+    extraPairs.splice(origGuaCi ? 1 : 0, 0, ['变卦卦辞', changedGuaCi]);
+  }
+
+  const extraMeta = createMetaGrid(extraPairs);
+  if (extraMeta) container.append(extraMeta);
+
+  // 用神取用与旺衰推演线索收拢至弹窗
+  const candidates = asArray(ev?.candidates).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
   const selFact = asString(asRecord(ev?.selectionFact)?.promptText) ?? asString(ev?.selectionFact);
   const timingSummary = asString(asRecord(ev?.timingSummaryFact)?.promptText) ?? asString(ev?.timingSummaryFact);
   const counterFacts = asArray(ev?.counterEvidenceFacts)
@@ -559,13 +555,46 @@ function renderLiuyao(container: HTMLElement, data: UnknownRecord): boolean {
     .map((x) => asString(asRecord(x)?.promptText) ?? asString(x))
     .filter(Boolean)
     .join('；');
-  if (selFact) extraPairs.push(['用神取法线索', selFact]);
-  if (timingSummary) extraPairs.push(['月日衰旺线索', timingSummary]);
-  if (timingFacts) extraPairs.push(['旺相休囚详察', timingFacts]);
-  if (counterFacts) extraPairs.push(['反证与牵制因素', counterFacts]);
-
-  const extraMeta = createMetaGrid(extraPairs);
-  if (extraMeta) container.append(extraMeta);
+  const evidencePairs: Array<[string, string | undefined]> = [
+    ['用神取法线索', selFact],
+    ['月日衰旺线索', timingSummary],
+    ['旺相休囚详察', timingFacts || undefined],
+    ['反证与牵制因素', counterFacts || undefined],
+  ];
+  const hasEvidenceMeta = evidencePairs.some((p) => Boolean(p[1]));
+  if (candidates.length > 0 || hasEvidenceMeta) {
+    const liuyaoBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '用神取法与断法线索',
+        '用神取法与旺衰详察',
+        () => {
+          const frag = document.createDocumentFragment();
+          if (candidates.length > 0) {
+            const list = el('div', 'wb-computed-list');
+            for (const c of candidates) {
+              const card = el('div', 'wb-computed-item');
+              card.append(
+                el(
+                  'strong',
+                  'wb-computed-title',
+                  `${asString(c.label) ?? '候选'}${asNumber(c.position) ? `（第${asNumber(c.position)}爻）` : ''}`,
+                ),
+              );
+              if (asString(c.promptText)) card.append(el('p', 'wb-computed-desc', asString(c.promptText)));
+              else if (asString(c.reason)) card.append(el('p', 'wb-computed-desc', asString(c.reason)));
+              list.append(card);
+            }
+            frag.append(list);
+          }
+          const evMeta = createMetaGrid(evidencePairs);
+          if (evMeta) frag.append(evMeta);
+          return frag;
+        },
+        candidates.length > 0 ? `${candidates.length}项` : undefined,
+      ),
+    ]);
+    if (liuyaoBar) container.append(liuyaoBar);
+  }
 
   return true;
 }
@@ -643,18 +672,18 @@ function renderMeihuaCard(
       lineRow.append(el('span', `hx-mh-half-tag ${lowerRole === '体' ? 'is-ti' : 'is-yong'}`, lowerRole));
     } else if (roleTag) {
       lineRow.append(el('span', 'hx-mh-half-spacer', ''));
+    } else {
+      lineRow.append(el('span', 'hx-mh-half-spacer', ''));
     }
-    if (isMoving) {
-      lineRow.append(el('span', 'hx-change-mark', isYang ? '○' : '×'));
-    }
+    lineRow.append(
+      isMoving
+        ? el('span', 'hx-change-mark', isYang ? '○' : '×')
+        : el('span', 'hx-mh-move-spacer', ''),
+    );
     linesWrap.append(lineRow);
   }
   card.append(linesWrap);
 
-  const desc = asString(hex.description);
-  if (desc) {
-    card.append(el('p', 'hx-mh-desc', desc));
-  }
   return card;
 }
 
@@ -713,9 +742,9 @@ function renderMeihua(container: HTMLElement, data: UnknownRecord): boolean {
   // 体用生克关系三格
   const relBox = el('div', 'hx-mh-rel-grid');
   const relItems: Array<[string, string, string?]> = [
-    ['主卦体用（起始）', tiYongRel || '—', tiSeason && yongSeason ? `体${tiSeason} · 用${yongSeason}` : undefined],
-    ['互卦体用（过程）', [inter1Rel, inter2Rel].filter(Boolean).join(' · ') || '—'],
-    ['变卦体用（归宿）', changedRel || '—', seasonEval],
+    ['主卦体用', tiYongRel || '—', tiSeason && yongSeason ? `体${tiSeason} · 用${yongSeason}` : undefined],
+    ['互卦体用', [inter1Rel, inter2Rel].filter(Boolean).join(' · ') || '—'],
+    ['变卦体用', changedRel || '—'],
   ];
   for (const [label, value, sub] of relItems) {
     const cell = el('div', 'hx-mh-rel-card');
@@ -734,6 +763,7 @@ function renderMeihua(container: HTMLElement, data: UnknownRecord): boolean {
     .filter(Boolean)
     .join('；');
   const yingQiList = asArray(analysis?.yingQi).map(asString).filter(Boolean).join('；');
+  const mainGuaCi = asString(mainHex.guaCi);
   const mainYaoCi = asArray(mainHex.yaoCi).map(asString);
   const movingYaoCi =
     asString(moving?.yaoCi) ??
@@ -744,13 +774,36 @@ function renderMeihua(container: HTMLElement, data: UnknownRecord): boolean {
     .filter(Boolean)
     .join(' → ');
   const meta = createMetaGrid([
+    ['本卦卦辞', mainGuaCi],
     ['动爻辞', movingYaoCi],
-    ['起卦算式', calcSteps || asString(calcFact?.promptText)],
     ['趋势研判', asString(trend?.summary)],
-    ['梅花三段演进', evStages || (tradFacts ? [asString(tradFacts.beginSummary), asString(tradFacts.middleSummary), asString(tradFacts.endSummary)].filter(Boolean).join(' → ') : undefined)],
-    ['应期推衍线索', yingQiList || undefined],
   ]);
   if (meta) container.append(meta);
+
+  const formulaText = calcSteps || asString(calcFact?.promptText);
+  const stagesText =
+    evStages ||
+    (tradFacts
+      ? [asString(tradFacts.beginSummary), asString(tradFacts.middleSummary), asString(tradFacts.endSummary)]
+          .filter(Boolean)
+          .join(' → ')
+      : undefined);
+  const modalPairs: Array<[string, string | undefined]> = [
+    ['起卦算式', formulaText],
+    ['体用旺衰详评', seasonEval],
+    ['梅花三段演进', stagesText],
+    ['应期推衍线索', yingQiList || undefined],
+  ];
+  if (modalPairs.some((p) => Boolean(p[1]))) {
+    const mhBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '起卦算式与推演',
+        '梅花起卦算式与推演详情',
+        () => createMetaGrid(modalPairs) ?? el('div'),
+      ),
+    ]);
+    if (mhBar) container.append(mhBar);
+  }
   return true;
 }
 

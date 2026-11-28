@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const temporary = await mkdtemp(join(tmpdir(), 'mingyu-clean-build-'));
-const files = ['src', 'public', 'scripts', 'docs', 'skills', 'examples', 'index.html', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+const files = ['src', 'public', 'scripts', 'docs', 'skills', 'examples', 'README.md', 'index.html', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
   'tsconfig.json', 'vite.config.ts', 'vite.mcp.config.ts', 'vite.cli.config.ts', 'wrangler.jsonc'];
 async function checkDev() {
   const socket = createServer();
@@ -42,7 +42,13 @@ async function checkDev() {
     assert.equal((await fetch(asteroidUrl, { method: 'HEAD' })).status, 200);
     assert.equal((await fetch(`${origin}/asteroid-data/${'0'.repeat(64)}/ceres.json`)).status, 404);
     assert.equal((await fetch(`${origin}/asteroid-data/${asteroidVersion}/unknown.json`)).status, 404);
-    console.log('干净目录检查通过：开发网页与按需字库');
+    const staticVersion = JSON.parse(await readFile(join(temporary, 'src/data/static-data-version.json'), 'utf8')).version;
+    const yilinUrl = `${origin}/static-data/${staticVersion}/yilin.json`;
+    const yilinAsset = await fetch(yilinUrl);
+    assert.equal(yilinAsset.status, 200); assert.match(yilinAsset.headers.get('content-type'), /application\/json/);
+    assert.equal((await yilinAsset.json()).hexagrams.length, 64);
+    assert.equal((await fetch(`${origin}/static-data/${'0'.repeat(64)}/yilin.json`)).status, 404);
+    console.log('干净目录检查通过：开发网页、按需字库与静态典籍');
   } finally {
     if (server.exitCode === null) {
       const stopped = new Promise((resolve) => server.once('exit', resolve));

@@ -7,16 +7,14 @@ import {
   type CascadeDistrictOption,
 } from '../../v2-ui/birth-place-index';
 import {
-  DEFAULT_SUPPLEMENTARY_VALUES,
   INSPIRATION_CATEGORIES,
   INSPIRATION_LIBRARY,
   getSpecialInspirationForMethod,
   type InspirationCategoryId,
   type QuestionInspirationSection,
-  type SupplementaryInfoValues,
 } from '../../v2-ui/inspiration-modals';
 import { lookupMetaphysicsTerm } from '../../systems/terms';
-import { findHexagram, sourceUrl as zhouyiSourceUrl } from '../../systems/zhouyi-text';
+import type { Hexagram } from '../../systems/zhouyi-text';
 import {
   Badge,
   Button,
@@ -32,13 +30,11 @@ import { cn } from '../../lib/utils';
 import {
   closePlaceModalSession,
   closeQuestionInspirationSession,
-  closeSupplementaryInfoSession,
   closeTermModalSession,
   getModalBusSnapshot,
   subscribeModalBus,
   type InspirationModalSession,
   type PlaceModalSession,
-  type SupplementaryModalSession,
   type TermModalSession,
 } from '../modal-bus';
 
@@ -150,7 +146,7 @@ function BirthPlaceDialog({ session }: { session: PlaceModalSession | null }) {
             <div className="max-h-[320px] overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2">
               {filteredResults.length === 0 ? (
                 <div className="py-10 text-center text-xs text-[var(--text-muted)]">
-                  未找到匹配地区，请更换城市或区县关键词。
+                  未找到匹配地区
                 </div>
               ) : (
                 <div className="grid gap-1">
@@ -286,7 +282,7 @@ function BirthPlaceDialog({ session }: { session: PlaceModalSession | null }) {
             disabled={!draftDistrictId}
             onClick={handleConfirm}
           >
-            确认选择
+            确定
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -346,7 +342,6 @@ function QuestionInspirationDialog({ session }: { session: InspirationModalSessi
             <Sparkles className="h-4 w-4 text-[var(--accent-strong)]" />
             <span>问题灵感</span>
           </DialogTitle>
-          <DialogDescription>按领域浏览常见问法，点击后自动写入当前提示词问题</DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-5 py-4">
@@ -373,7 +368,7 @@ function QuestionInspirationDialog({ session }: { session: InspirationModalSessi
 
           {matchedSections.length === 0 ? (
             <div className="py-10 text-center text-xs text-[var(--text-muted)]">
-              没有找到匹配的问题，请换个搜索词或切换主题分类。
+              没有找到匹配的问题
             </div>
           ) : (
             <div className="grid gap-4">
@@ -417,114 +412,8 @@ function QuestionInspirationDialog({ session }: { session: InspirationModalSessi
   );
 }
 
-const SUPPLEMENTARY_TEXT_FIELDS: ReadonlyArray<{
-  key: 'userSupplement' | 'constraints';
-  label: string;
-  placeholder: string;
-}> = [
-  {
-    key: 'userSupplement',
-    label: '现状与已知前提',
-    placeholder: '简述当前事件经过、已确定的客观事实或各方态度…',
-  },
-  {
-    key: 'constraints',
-    label: '期望目标与现实限制',
-    placeholder: '说明想优先达成的目标，或时间期限、资金、地域等现实约束…',
-  },
-];
-
-function SupplementaryInfoDialog({ session }: { session: SupplementaryModalSession | null }) {
-  const [draft, setDraft] = React.useState<SupplementaryInfoValues>(DEFAULT_SUPPLEMENTARY_VALUES);
-
-  React.useEffect(() => {
-    if (!session) return;
-    const vals = session.values ?? {};
-    const mergedUser = [
-      vals.userSupplement,
-      vals.currentSituation,
-      vals.currentState,
-      vals.knownFacts,
-    ]
-      .filter((s) => s?.trim())
-      .join('\n');
-    const mergedConstraints = [vals.desiredOutcome, vals.constraints]
-      .filter((s) => s?.trim())
-      .join('\n');
-    setDraft({
-      ...DEFAULT_SUPPLEMENTARY_VALUES,
-      ...vals,
-      userSupplement: mergedUser,
-      currentSituation: '',
-      currentState: '',
-      knownFacts: '',
-      desiredOutcome: '',
-      constraints: mergedConstraints,
-    });
-  }, [session]);
-
-  return (
-    <Dialog
-      open={Boolean(session)}
-      onOpenChange={(open) => {
-        if (!open) closeSupplementaryInfoSession();
-      }}
-    >
-      <DialogContent layer="nested" className="max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>详细背景补充</DialogTitle>
-          <DialogDescription>
-            {session?.description ??
-              '补充事件经过、已知客观前提与现实限制，留空部分不会写入提示词。'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            session?.onSave(draft);
-            closeSupplementaryInfoSession();
-          }}
-          className="grid min-h-0 flex-1 grid-cols-1 gap-3.5 overflow-y-auto px-5 py-4"
-        >
-          {SUPPLEMENTARY_TEXT_FIELDS.map((field) => (
-            <label
-              key={field.key}
-              className="grid gap-1.5 text-xs font-bold text-[var(--text-secondary)]"
-            >
-              <span>{field.label}</span>
-              <textarea
-                rows={3}
-                value={draft[field.key]}
-                placeholder={field.placeholder}
-                onChange={(e) =>
-                  setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
-                }
-                className="w-full min-w-0 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-elevated-strong)] p-2.5 text-[13px] font-normal text-[var(--text-strong)] placeholder:text-[var(--text-soft)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)]"
-              />
-            </label>
-          ))}
-
-          <DialogFooter className="-mx-5 -mb-4 mt-1 px-5 py-3">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => closeSupplementaryInfoSession()}
-            >
-              取消
-            </Button>
-            <Button type="submit" variant="primary" size="md">
-              保存补充
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function TermDetailDialog({ session }: { session: TermModalSession | null }) {
-  const resolved = React.useMemo(() => {
+  const baseResolved = React.useMemo(() => {
     if (!session) return null;
     const cleaned = session.query.trim();
     const term = lookupMetaphysicsTerm(cleaned);
@@ -534,9 +423,62 @@ function TermDetailDialog({ session }: { session: TermModalSession | null }) {
       cleaned.endsWith('卦') ||
       stripped.length >= 2 ||
       !term;
-    const hexagram = shouldLookupHex ? findHexagram(cleaned) : undefined;
-    return { cleaned, term, hexagram, fallback: session.fallback };
+    return { cleaned, term, shouldLookupHex, fallback: session.fallback };
   }, [session]);
+
+  const [hexLookup, setHexLookup] = React.useState<{
+    query: string;
+    hexagram?: Hexagram;
+    sourceUrl?: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (!baseResolved?.shouldLookupHex) {
+      setHexLookup(null);
+      return;
+    }
+    let cancelled = false;
+    const targetQuery = baseResolved.cleaned;
+    void (async () => {
+      try {
+        const mod = await import('../../systems/zhouyi-text');
+        await mod.ensureZhouyiTextsLoaded();
+        if (cancelled) return;
+        const matched = mod.findHexagram(targetQuery);
+        setHexLookup({
+          query: targetQuery,
+          hexagram: matched,
+          sourceUrl: matched ? mod.sourceUrl(matched) : undefined,
+        });
+      } catch {
+        if (!cancelled) {
+          setHexLookup({ query: targetQuery });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [baseResolved]);
+
+  const resolved = React.useMemo(() => {
+    if (!baseResolved) return null;
+    const hexagram =
+      baseResolved.shouldLookupHex && hexLookup?.query === baseResolved.cleaned
+        ? hexLookup.hexagram
+        : undefined;
+    const sourceUrl =
+      baseResolved.shouldLookupHex && hexLookup?.query === baseResolved.cleaned
+        ? hexLookup.sourceUrl
+        : undefined;
+    return {
+      cleaned: baseResolved.cleaned,
+      term: baseResolved.term,
+      hexagram,
+      hexagramSourceUrl: sourceUrl,
+      fallback: baseResolved.fallback,
+    };
+  }, [baseResolved, hexLookup]);
 
   const title =
     resolved?.term?.term ??
@@ -684,7 +626,7 @@ function TermDetailDialog({ session }: { session: TermModalSession | null }) {
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-[var(--text-muted)]">
                 <span>维基文库校订版《周易》经文（仅作当前卦象参考）</span>
                 <a
-                  href={zhouyiSourceUrl(resolved.hexagram)}
+                  href={resolved.hexagramSourceUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="underline hover:text-[var(--accent-strong)]"
@@ -759,7 +701,6 @@ export function PortalModals() {
     <>
       <BirthPlaceDialog session={snap.place} />
       <QuestionInspirationDialog session={snap.inspiration} />
-      <SupplementaryInfoDialog session={snap.supplementary} />
       <TermDetailDialog session={snap.term} />
     </>
   );

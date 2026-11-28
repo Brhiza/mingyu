@@ -1,3 +1,4 @@
+import { applyOutputLanguageToPrompt, normalizeOutputLanguage } from './output-language';
 import { applyPromptGuidance } from './prompt-guidance';
 import { applyPromptProfileToPrompt, resolveEffectivePromptProfile } from './prompt-profile';
 import { repromptInput, type Method } from './schema';
@@ -42,18 +43,32 @@ export async function reprompt(value: unknown, context?: RuntimeContext) {
     && (promptOptions as { includeClassics?: unknown }).includeClassics === true,
   );
   const skipGuidance = promptProfile === 'agent' || promptProfile === 'ultra-compact';
-  const prompt = applyPromptProfileToPrompt(
-    skipGuidance
-      ? rawPrompt
-      : applyPromptGuidance(
-          guidanceMethod,
-          rawPrompt,
-          request.question,
-          context?.promptGuidance,
-          anchorRef,
-        ),
-    promptProfile,
-    { includeClassics },
+  const effectiveOutputLanguage = normalizeOutputLanguage(
+    request.outputLanguage !== undefined ? request.outputLanguage : request.result.outputLanguage,
   );
-  return { version: '2.0.0', method: request.method, currentTime, source: 'caller-supplied-result', prompt };
+  const prompt = applyOutputLanguageToPrompt(
+    applyPromptProfileToPrompt(
+      skipGuidance
+        ? rawPrompt
+        : applyPromptGuidance(
+            guidanceMethod,
+            rawPrompt,
+            request.question,
+            context?.promptGuidance,
+            anchorRef,
+          ),
+      promptProfile,
+      { includeClassics },
+    ),
+    effectiveOutputLanguage,
+    guidanceMethod,
+  );
+  return {
+    version: '2.0.0',
+    method: request.method,
+    currentTime,
+    source: 'caller-supplied-result',
+    prompt,
+    ...(effectiveOutputLanguage ? { outputLanguage: effectiveOutputLanguage } : {}),
+  };
 }

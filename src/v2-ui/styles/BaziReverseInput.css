@@ -19,7 +19,6 @@
 }
 
 .bazi-reverse-input-intro p,
-.bazi-reverse-input-note,
 .bazi-reverse-input-empty {
   margin: 0;
   color: var(--text-muted);

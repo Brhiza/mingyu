@@ -1,4 +1,5 @@
 import { SolarTime } from 'tyme4ts';
+import type { StaticDatasetLoader } from '../../static-data';
 import { lunarToCivilDate } from '../birth-time';
 import { getDivinationTime } from '../calendar';
 import { createTimezoneOffsetReader, createUtcTimestamp, getCivilDateTimeAtFixedOffset, resolveCivilDayStart, type CivilDateTimeParts } from '../huangji/civil-time';
@@ -12,7 +13,7 @@ import { buildQuzhi } from './quzhi';
 import { buildCongEr } from './conger';
 import { buildExtremePattern } from './extreme';
 import { buildUsefulBaseline } from './useful-baseline';
-import { buildClimateCandidates } from './climate';
+import { buildClimateCandidates, ensureClimateRulesLoaded } from './climate';
 import { resolveClimate } from './climate-decision';
 import { buildUsefulStrategy } from './useful-strategy';
 import { determineUsefulGod } from './useful-god';
@@ -35,7 +36,7 @@ const keys = ['year', 'month', 'day', 'hour'] as const;
 const dateKey = (p: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'>) => `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
 
 /** 未知时辰：以实际瞬时逐段覆盖出生当地日，不以某个代表时刻伪装确定四柱。 */
-export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?: 'male' | 'female') {
+export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?: 'male' | 'female', staticDataset?: StaticDatasetLoader) {
   if (!Number.isInteger(birth.year) || birth.year < 1900 || birth.year > 2100) throw new Error('出生年份须在 1900 至 2100 之间。');
   if (birth.shichenIndex !== undefined && (!Number.isInteger(birth.shichenIndex) || birth.shichenIndex < 0 || birth.shichenIndex > 12)) throw new Error('出生时辰索引须在 0 至 12 之间。');
   if (!['solar', 'lunar'].includes(birth.calendar ?? 'solar')) throw new Error('出生历法须为公历或农历。');
@@ -73,6 +74,7 @@ export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?:
     if (!Number.isInteger(offset * 60) || offset < -12 || offset > 14) throw new Error('当前八字排盘仅支持整分钟 UTC 偏移。');
     return offset;
   };
+  const climateRules = await ensureClimateRulesLoaded(staticDataset);
   const solarTime = birth.timeStandard === 'true-solar' ? (await import('../astronomy/true-solar')).trueSolarTime : undefined;
   let cachedCommander: ReturnType<typeof getMonthCommanderAt> | undefined;
   const commanderAt = (timestamp: number) => {
@@ -133,7 +135,7 @@ export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?:
       const patternOverview = summarizePattern(ordinaryPattern, transformation, quzhi, conger, extreme);
       const patternEvidence = buildPatternEvidence(pillars, patternOverview, state.monthCommander.stem, strength.status);
       const usefulBaseline = buildUsefulBaseline(pillars, strength, patternOverview, transformation);
-      const climate = buildClimateCandidates(pillars, strength, patternOverview, state.currentJieqi);
+      const climate = buildClimateCandidates(pillars, strength, patternOverview, state.currentJieqi, climateRules);
       const climateDecision = resolveClimate(climate.candidates, usefulBaseline);
       const usefulStrategy = buildUsefulStrategy(pillars, strength, patternOverview, state.monthCommander.stem, climateDecision);
       const usefulGod = determineUsefulGod({ pillars, strength, patternOverview, transformation, patternEvidence, climate, climateDecision, monthCommander: state.monthCommander });
@@ -168,7 +170,7 @@ export async function calculateUnknownBaziTime(birth: UnknownBaziBirth, gender?:
 }
 
 /** 出生整秒范围复用未知时辰分段规则，允许跨当地日与夏令时。 */
-export async function calculateBaziTimeRange(input: { startTimestamp: number; endTimestamp: number; timezone?: number; timeZoneId?: string; timeStandard?: 'civil' | 'true-solar'; longitude?: number }, gender?: 'male' | 'female') {
+export async function calculateBaziTimeRange(input: { startTimestamp: number; endTimestamp: number; timezone?: number; timeZoneId?: string; timeStandard?: 'civil' | 'true-solar'; longitude?: number }, gender?: 'male' | 'female', staticDataset?: StaticDatasetLoader) {
   if (!Number.isSafeInteger(input.startTimestamp) || !Number.isSafeInteger(input.endTimestamp) || input.startTimestamp % 1000 !== 0 || input.endTimestamp % 1000 !== 0 || input.endTimestamp <= input.startTimestamp || input.endTimestamp - input.startTimestamp > 7_200_000) throw new Error('出生范围须为整秒、起点在前且不超过两小时的半开区间。');
   if (input.timeZoneId !== undefined && input.timezone !== undefined) throw new Error('出生范围只能选择固定偏移或 IANA 时区。');
   const offsetAt = input.timeZoneId ? createTimezoneOffsetReader(input.timeZoneId) : () => input.timezone ?? 8;
@@ -179,5 +181,5 @@ export async function calculateBaziTimeRange(input: { startTimestamp: number; en
   return calculateUnknownBaziTime({ year: local.year, month: local.month, day: local.day,
     ...(input.timeZoneId !== undefined ? { timeZoneId: input.timeZoneId } : input.timezone !== undefined ? { timezone: input.timezone } : {}),
     ...(input.timeStandard !== undefined ? { timeStandard: input.timeStandard } : {}), ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
-    range: { startTimestamp: input.startTimestamp, endTimestamp: input.endTimestamp } }, gender);
+    range: { startTimestamp: input.startTimestamp, endTimestamp: input.endTimestamp } }, gender, staticDataset);
 }

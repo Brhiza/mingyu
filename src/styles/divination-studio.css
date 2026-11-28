@@ -1,0 +1,4727 @@
+/*
+ * 占卜起卦台、星盘环图、塔罗/雷诺曼牌桌、摇卦/灵签/蓍草与择吉万年历表单层
+ */
+@layer components.base, components.responsive;
+
+@layer components.base {
+  /* ─── 占卜起卦工作台与外框 ─── */
+  .divination-panel-shell {
+    display: grid;
+    gap: 8px;
+  }
+
+  .divination-workspace-shell,
+  .divination-workspace-shell.is-input-only,
+  .divination-form-panel {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .divination-solar-place-panel,
+  .ssgw-manual-panel,
+  .almanac-form {
+    min-width: 0;
+  }
+
+  .divination-form-card {
+    display: grid;
+    gap: 14px;
+  }
+
+  .workspace-divination-page .divination-form-card {
+    border-radius: 16px;
+    padding: 20px 24px;
+    background: linear-gradient(
+      135deg,
+      var(--surface-elevated-strong) 0%,
+      var(--surface-elevated-strong) 62%,
+      color-mix(in srgb, var(--accent-soft) 28%, var(--surface-base)) 100%
+    );
+    box-shadow: 0 2px 12px rgba(32, 24, 16, 0.035);
+  }
+
+  .divination-flow-workbench {
+    display: grid;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .divination-workbench-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .divination-workbench-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .liuyao-studio-left-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .divination-time-panel {
+    margin-top: -4px;
+  }
+
+  .manual-entry-panel {
+    margin-top: -4px;
+    gap: 10px;
+    background: color-mix(in srgb, var(--surface-muted) 56%, transparent);
+  }
+
+  .divination-extra-panel {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    background: var(--surface-muted);
+  }
+
+  /* 扁平去嵌套：主表单内子面板不重复白卡套白卡 */
+  .divination-form-card .workspace-ui-notice {
+    border: 0;
+    box-shadow: none;
+    background: var(--surface-soft);
+    border-radius: 8px;
+    padding: 9px 12px;
+  }
+
+  .divination-form-card .manual-lot-ritual,
+  .divination-form-card .fengshui-compass-workbench {
+    border: 0;
+    box-shadow: none;
+    background: var(--surface-soft);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .divination-form-card .divination-extra-panel:not(.manual-entry-panel):not(.fengshui-compass-workbench),
+  .divination-form-card .divination-time-panel {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .divination-form-card .divination-time-panel {
+    padding-top: 10px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .divination-form-card .manual-entry-panel:not(.ssgw-manual-panel):not(.fengshui-compass-workbench) {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .divination-form-card .culture-coin-entry {
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    padding: 8px 10px;
+  }
+
+  .divination-flow-workbench > .workspace-ui-form-actions {
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+    justify-content: flex-end;
+  }
+
+  .divination-flow-workbench > .workspace-ui-form-actions .workspace-ui-button.is-primary {
+    margin: 0;
+    width: auto;
+    min-width: 184px;
+    min-height: 42px;
+    padding-inline: 28px;
+    border-radius: 12px;
+  }
+
+  /* ─── 方位罗盘与提示预览 ─── */
+  .metaphysics-direction-preview {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-contrast);
+    border-radius: var(--radius-control);
+    background: var(--accent-surface);
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .metaphysics-direction-preview strong {
+    color: var(--text-strong);
+    font-size: 15px;
+  }
+
+  .metaphysics-direction-preview.is-warning {
+    border-color: rgba(185, 28, 28, 0.4);
+    background: rgba(185, 28, 28, 0.08);
+  }
+
+  .metaphysics-direction-preview.is-warning strong {
+    color: #b91c1c;
+    font-size: 13px;
+  }
+
+  /* ─── 占卜卡片大网格选择器 ─── */
+  .divination-card-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (min-width: 340px) {
+    .divination-card-selector-grid.is-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 640px) {
+    .divination-card-selector-grid {
+      gap: 12px;
+    }
+    .divination-card-selector-grid.is-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .divination-card-selector-grid.is-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .divination-card-selector-grid.is-cols-auto {
+      grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+    }
+  }
+
+  .divination-card-option {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 98px;
+    min-width: 0;
+    padding: 15px 17px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+    box-shadow: 0 2px 10px rgba(32, 24, 16, 0.03);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .divination-card-option:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 48%, var(--border-soft));
+    background: var(--surface-panel);
+    box-shadow: 0 8px 22px rgba(32, 24, 16, 0.06);
+  }
+
+  .divination-card-option.is-active {
+    border-color: color-mix(in srgb, var(--accent) 72%, var(--border-soft));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--state-selected-surface) 78%, var(--surface-elevated-strong)),
+      var(--surface-elevated-strong)
+    );
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .divination-card-option-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .divination-card-option-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    font-weight: 700;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .divination-card-option-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .divination-card-option-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-muted);
+    opacity: 0.55;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .divination-card-option:hover .divination-card-option-indicator {
+    opacity: 1;
+    color: var(--accent-strong);
+    transform: translate(1px, -1px);
+  }
+
+  .divination-card-option.is-active .divination-card-option-indicator {
+    opacity: 1;
+    color: var(--accent-strong);
+    transform: none;
+  }
+
+  .divination-card-option.is-active .divination-card-option-mark {
+    background: var(--accent-strong);
+    color: #fff;
+  }
+
+  .divination-card-option-label {
+    display: block;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .divination-card-option.is-active .divination-card-option-label {
+    color: var(--accent-strong);
+  }
+
+  .workspace-divination-page .workspace-ui-choice,
+  .workspace-divination-page .cast-trigram-card {
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+    transition:
+      transform 0.15s ease,
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .workspace-divination-page .workspace-ui-choice.is-active,
+  .workspace-divination-page .cast-trigram-card.is-active {
+    border-color: color-mix(in srgb, var(--accent) 72%, var(--border-soft));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--state-selected-surface) 82%, var(--surface-elevated-strong)),
+      var(--surface-elevated-strong)
+    );
+  }
+
+  /* ─── 手工起卦 / 摇卦 / 抽签 / 蓍草 ─── */
+  .manual-orientation-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 3px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface-elevated) 58%, transparent);
+  }
+
+  .manual-orientation-switch button {
+    min-height: 34px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .manual-orientation-switch button.is-active {
+    background: var(--state-selected-surface-strong);
+    color: var(--state-selected-text);
+    box-shadow: none;
+  }
+
+  .manual-entry-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--text-strong);
+  }
+
+  .manual-entry-head span {
+    flex: 0 0 auto;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .interactive-draw-session {
+    display: grid;
+    gap: 10px;
+  }
+
+  .liuyao-reveal-stack {
+    display: grid;
+    gap: 5px;
+    width: min(100%, 520px);
+    margin-inline: auto;
+  }
+
+  .liuyao-reveal-row {
+    display: grid;
+    grid-template-columns: 42px minmax(120px, 1fr) minmax(112px, 1.1fr);
+    align-items: center;
+    min-height: 34px;
+    gap: 12px;
+    color: var(--text-soft);
+  }
+
+  .liuyao-reveal-row.is-filled {
+    color: var(--text-secondary);
+  }
+
+  .liuyao-reveal-row.is-latest {
+    animation: liuyao-line-reveal 220ms ease-out;
+  }
+
+  .liuyao-reveal-label,
+  .liuyao-reveal-value {
+    font-size: 13px;
+  }
+
+  .liuyao-reveal-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .liuyao-reveal-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: 0;
+    height: 14px;
+    border-block: 1px dashed var(--border-soft);
+  }
+
+  .liuyao-reveal-line i {
+    display: block;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--text-strong);
+  }
+
+  .liuyao-reveal-line.is-yang i {
+    width: 100%;
+  }
+
+  .liuyao-reveal-line.is-yin i {
+    flex: 1 1 0;
+  }
+
+  .liuyao-reveal-line.is-filled {
+    border-color: transparent;
+  }
+
+  .liuyao-reveal-line.is-moving i {
+    background: var(--accent-strong);
+  }
+
+  .liuyao-shake-button,
+  .interactive-draw-button {
+    flex: 1 1 180px;
+    min-height: 44px;
+  }
+
+  .divination-form-card .liuyao-shake-button,
+  .divination-form-card .interactive-draw-button {
+    flex: 1 1 130px;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .manual-record-item.is-revealed {
+    animation: liuyao-line-reveal 220ms ease-out;
+  }
+
+  .manual-session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .manual-session-actions .manual-reset-button {
+    flex: 0 0 auto;
+    min-width: 112px;
+    border: 1px solid var(--border-contrast);
+    background: color-mix(in srgb, var(--surface-elevated-strong) 58%, transparent);
+    color: var(--text-secondary);
+    box-shadow: none;
+  }
+
+  .manual-session-actions .manual-reset-button:hover {
+    border-color: var(--accent-strong);
+    background: color-mix(in srgb, var(--accent-surface) 54%, transparent);
+    color: var(--text-strong);
+  }
+
+  .manual-session-actions .manual-reset-button:only-child {
+    margin-left: auto;
+  }
+
+  .manual-record-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px;
+  }
+
+  .manual-record-item {
+    display: grid;
+    align-content: center;
+    min-width: 0;
+    gap: 2px;
+    min-height: 48px;
+    padding: 7px 10px;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--surface-elevated) 52%, transparent);
+    font-size: 13px;
+  }
+
+  .manual-record-item span {
+    overflow: hidden;
+    color: var(--text-soft);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .manual-record-item strong {
+    overflow: hidden;
+    color: var(--text-strong);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ssgw-number-field {
+    width: min(100%, 240px);
+  }
+
+  @keyframes liuyao-line-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .manual-studio-panel {
+    display: grid;
+    gap: 12px;
+  }
+
+  .manual-progress-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent-soft, #f3e4d0) 80%, transparent);
+    color: var(--accent-strong);
+  }
+
+  .manual-coin-tray {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    width: 100%;
+    min-height: 158px;
+    padding: 16px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background:
+      radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 58%),
+      var(--surface-soft);
+    font: inherit;
+    color: inherit;
+    transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .manual-coin-tray.is-tappable {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .manual-coin-tray.is-tappable:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 46%, var(--border-strong));
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 11%, transparent);
+  }
+
+  .manual-coin-tray.is-tappable:active {
+    transform: scale(0.988);
+  }
+
+  .manual-coin-tray.is-complete {
+    border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+    background:
+      radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-soft) 84%, transparent), transparent 62%),
+      var(--surface-soft);
+  }
+
+  .manual-bronze-coin {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    padding: 6px 4px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    transition: transform 0.28s ease, box-shadow 0.25s ease;
+    box-shadow: 0 4px 10px rgba(72, 46, 18, 0.16), inset 0 1px 2px rgba(255, 248, 220, 0.65);
+  }
+
+  .manual-bronze-coin.is-front {
+    background: radial-gradient(circle at 32% 28%, #f6df98, #c9973b 70%, #9b6c1e);
+    color: #422608;
+    border: 2px solid #8a5c14;
+  }
+
+  .manual-bronze-coin.is-back {
+    background: radial-gradient(circle at 32% 28%, #dfcca0, #a38856 72%, #745d36);
+    color: #312512;
+    border: 2px solid #6b532e;
+  }
+
+  .manual-bronze-coin.is-spinning {
+    animation: coinSpinFlip 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes coinSpinFlip {
+    0% {
+      transform: translateY(-16px) rotateY(0deg) scale(0.84) rotate(0deg);
+      opacity: 0.45;
+    }
+    45% {
+      transform: translateY(4px) rotateY(210deg) scale(1.1) rotate(var(--coin-rot, 0deg));
+      opacity: 1;
+    }
+    74% {
+      transform: translateY(calc(var(--coin-dy, 0px) - 5px)) rotateY(330deg) scale(1.03) rotate(var(--coin-rot, 0deg));
+    }
+    100% {
+      transform: translateY(var(--coin-dy, 0px)) rotateY(360deg) scale(1) rotate(var(--coin-rot, 0deg));
+      opacity: 1;
+    }
+  }
+
+  .manual-coin-rim {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 1px solid rgba(90, 56, 12, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    pointer-events: none;
+  }
+
+  .manual-coin-hole {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    background: var(--surface-card, #fffdf8);
+    border: 1px solid rgba(90, 56, 12, 0.48);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .manual-coin-label {
+    position: relative;
+    font-size: 11px;
+    font-style: normal;
+    line-height: 1;
+    margin: 0;
+  }
+
+  .manual-coin-val {
+    position: relative;
+    font-size: 10px;
+    line-height: 1;
+    margin: 0;
+    opacity: 0.9;
+  }
+
+  .manual-shell-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .manual-shell-aura {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
+    transform: translate(-50%, -58%) scale(0.86);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.22s ease;
+  }
+
+  .manual-shell-stage.is-holding .manual-shell-aura,
+  .manual-shell-stage.is-shaking .manual-shell-aura {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.14);
+    animation: shellAuraPulse 0.75s ease-in-out infinite;
+  }
+
+  @keyframes shellAuraPulse {
+    0%, 100% { transform: translate(-50%, -58%) scale(1.04); opacity: 0.45; }
+    50% { transform: translate(-50%, -58%) scale(1.24); opacity: 0.85; }
+  }
+
+  .manual-coin-tray.is-holding {
+    border-color: var(--accent-strong);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .manual-shell-img {
+    position: relative;
+    z-index: 1;
+    width: 110px;
+    height: 118px;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 16px rgba(92, 58, 20, 0.22));
+  }
+
+  .manual-shell-stage.is-shaking .manual-shell-img {
+    animation: manual-shell-shake 0.34s ease-in-out infinite;
+  }
+
+  .manual-shell-stage.is-holding .manual-shell-img {
+    animation: manual-shell-shake 0.22s ease-in-out infinite;
+  }
+
+  @keyframes manual-shell-shake {
+    0%, 100% { transform: rotate(-4deg) translateX(-2px); }
+    35% { transform: rotate(5deg) translateX(3px); }
+    70% { transform: rotate(-2deg) translateX(1px); }
+  }
+
+  .manual-shell-caption {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .manual-coin-result-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .manual-coin-result-grid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .manual-bronze-coin.is-photo {
+    position: relative;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    border-radius: 50%;
+    transform: translateY(var(--coin-dy, 0px)) rotate(var(--coin-rot, 0deg));
+  }
+
+  .manual-coin-face-chip {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    z-index: 3;
+    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+    background: color-mix(in srgb, var(--surface-elevated-strong) 94%, transparent);
+    color: var(--text-secondary);
+    font-style: normal;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    box-shadow: 0 2px 6px rgba(24, 18, 14, 0.14);
+    pointer-events: none;
+  }
+
+  .manual-bronze-coin.is-front .manual-coin-face-chip {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent-strong);
+  }
+
+  .manual-bronze-coin.is-photo .manual-coin-rim {
+    position: relative;
+    z-index: 1;
+    transition: opacity 0.14s ease;
+  }
+
+  .manual-bronze-coin.is-photo.is-photo-loaded .manual-coin-rim {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .manual-bronze-coin-img {
+    position: absolute;
+    inset: 1px;
+    z-index: 2;
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.14s ease;
+    filter: drop-shadow(0 4px 7px rgba(72, 46, 18, 0.22));
+  }
+
+  .manual-bronze-coin.is-photo.is-photo-loaded .manual-bronze-coin-img {
+    opacity: 1;
+  }
+
+  .manual-coin-result-caption {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 12.5px;
+  }
+
+  .manual-coin-result-caption strong {
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+
+  .manual-coin-result-caption span {
+    color: var(--text-muted);
+  }
+
+  .manual-yao-pill-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .manual-yao-pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card, #fff);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .manual-yao-pill:hover {
+    border-color: var(--accent-strong);
+    color: var(--accent-strong);
+  }
+
+  .manual-yao-pill.is-active {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .manual-yao-pill.is-active.is-moving {
+    background: #b45309;
+    border-color: #b45309;
+  }
+
+  .manual-lot-ritual {
+    display: grid;
+    gap: 12px;
+  }
+
+  .manual-lot-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 14px;
+    background: radial-gradient(circle at top, rgba(196, 152, 74, 0.14), rgba(160, 120, 60, 0.03));
+    border: 1px dashed rgba(176, 134, 68, 0.35);
+    text-align: center;
+  }
+
+  .manual-lot-video-wrap {
+    width: min(260px, 100%);
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .manual-lot-video {
+    display: block;
+    width: 240px;
+    max-width: 100%;
+    height: 220px;
+    object-fit: contain;
+  }
+
+  .manual-lot-video-wrap.is-shaking .manual-lot-video {
+    animation: sign-video-pulse 0.42s ease-in-out infinite alternate;
+  }
+
+  @keyframes sign-video-pulse {
+    from { transform: rotate(-1.5deg) scale(1); }
+    to { transform: rotate(1.5deg) scale(1.03); }
+  }
+
+  .manual-lot-shake-caption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .manual-lot-shake-caption strong {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .manual-lot-shake-caption small {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .manual-lot-drawn-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 10px;
+    width: 100%;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .manual-lot-kicker {
+    color: var(--accent-strong);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+  }
+
+  .manual-lot-big-num {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--text-muted);
+  }
+
+  .manual-lot-big-num strong {
+    color: var(--accent-strong);
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-family: var(--font-sans);
+  }
+
+  .manual-lot-big-num small {
+    font-size: 13px;
+  }
+
+  .manual-cup-heading {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-strong);
+    margin-top: 4px;
+  }
+
+  .manual-bei-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 124px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .manual-bei-cup {
+    margin: 0;
+    width: 38%;
+    max-width: 130px;
+    text-align: center;
+  }
+
+  .manual-bei-cup:first-child {
+    transform: translateX(14px);
+  }
+
+  .manual-bei-cup:nth-child(2) {
+    transform: translateX(-14px);
+  }
+
+  .manual-bei-cup img {
+    height: 98px;
+    max-width: 100%;
+    object-fit: contain;
+    transition: transform 0.25s ease;
+    filter: drop-shadow(0 6px 10px rgba(72, 46, 18, 0.18));
+  }
+
+  .manual-bei-cup:nth-child(2) img {
+    transform: rotate(-2deg) scale(1.16);
+  }
+
+  .manual-bei-stage.is-throwing .manual-bei-cup img {
+    animation: cup-throw-arc 0.44s ease-in-out;
+  }
+
+  .manual-bei-stage.is-throwing .manual-bei-cup:nth-child(2) img {
+    animation-delay: 0.04s;
+  }
+
+  @keyframes cup-throw-arc {
+    0% { transform: translateY(0) rotate(0); }
+    45% { transform: translateY(-34px) rotate(150deg); }
+    100% { transform: translateY(0) rotate(360deg); }
+  }
+
+  .manual-bei-history {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .manual-bei-history span {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .manual-bei-history span.is-sacred {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .cast-trigram-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  @media (max-width: 599px) {
+    .cast-trigram-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .cast-trigram-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card, #fff);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .cast-trigram-card:hover {
+    border-color: var(--accent-strong);
+  }
+
+  .cast-trigram-card.is-active {
+    background: color-mix(in srgb, var(--accent-soft, #f3e4d0) 70%, #fff);
+    border-color: var(--accent-strong);
+    color: var(--accent-strong);
+    box-shadow: 0 2px 6px rgba(139, 92, 32, 0.12);
+  }
+
+  .cast-trigram-glyph {
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .cast-trigram-card strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .manual-yarrow-tray {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(164, 134, 88, 0.08), rgba(140, 108, 62, 0.03));
+    border: 1px dashed rgba(162, 128, 72, 0.32);
+  }
+
+  .manual-yarrow-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .manual-yarrow-bundles {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .manual-yarrow-stalk {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 44px;
+    border-radius: 7px;
+    border: 1px solid rgba(162, 128, 72, 0.28);
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(164, 134, 88, 0.12) 0px,
+      rgba(164, 134, 88, 0.12) 2px,
+      transparent 2px,
+      transparent 5px
+    );
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 700;
+    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+  }
+
+  .manual-yarrow-stalk.is-next {
+    border-color: var(--accent-border, var(--border-strong));
+    color: var(--accent-strong);
+    transform: translateY(-2px);
+  }
+
+  .manual-yarrow-stalk.is-done {
+    border-color: var(--accent-strong);
+    background: linear-gradient(180deg, rgba(184, 136, 62, 0.24), rgba(154, 106, 38, 0.14));
+    color: var(--accent-strong);
+  }
+
+  /* ─── 彩绘塔罗与雷诺曼牌桌 / 弧形扇形牌堆 ─── */
+  .cb-tarot-spread-table {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .cb-tarot-slot-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--surface-base);
+    border: 1px solid var(--border-soft);
+    text-align: center;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .cb-tarot-slot-card:hover {
+    border-color: var(--border-contrast);
+    box-shadow: 0 8px 22px rgba(45, 28, 35, 0.06);
+  }
+
+  .tarot-art-card,
+  .lenormand-art-card {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    transition: transform 200ms ease, filter 200ms ease;
+  }
+
+  .tarot-art-card:hover,
+  .lenormand-art-card:hover {
+    transform: translateY(-3px);
+    filter: drop-shadow(0 14px 24px rgba(35, 22, 18, 0.22));
+  }
+
+  .tarot-art-card-back {
+    border-radius: 11px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-strong));
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--accent-soft) 72%, var(--surface-elevated)),
+      color-mix(in srgb, var(--secondary-soft) 52%, var(--surface-soft))
+    );
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .tarot-art-card-back.is-clickable:hover {
+    transform: translateY(-4px);
+  }
+
+  .tarot-spread-preview-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--surface-soft, rgba(139, 109, 92, 0.05));
+    border: 1px dashed var(--border-soft);
+  }
+
+  .tarot-slot-drawn-caption {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-strong);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .card-back-active-pill {
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    transform: translateX(-50%);
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-strong) 92%, #1a1020);
+    color: var(--accent-contrast);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(15, 10, 22, 0.28);
+    pointer-events: none;
+  }
+
+  .tarot-arc-fan-panel {
+    width: 100%;
+    margin: 6px 0 2px;
+    padding: 12px 10px 14px;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 50% 68%, color-mix(in srgb, var(--accent-soft) 52%, transparent), transparent 68%),
+      var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .tarot-arc-fan-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-inline: 2px;
+  }
+
+  .tarot-arc-fan-hint {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+  }
+
+  .card-shuffle-orbit {
+    position: relative;
+    height: 148px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-shuffle-flying {
+    position: absolute;
+    width: 66px;
+    height: 99px;
+    animation: cardShuffleOrbit 0.56s ease-in-out both;
+    animation-delay: calc(var(--shuffle-idx, 0) * 55ms);
+  }
+
+  @keyframes cardShuffleOrbit {
+    0% {
+      transform: translateX(0) rotate(0deg) scale(0.95);
+    }
+    35% {
+      transform: translateX(calc((var(--shuffle-idx, 2) - 2) * 34px)) translateY(-10px) rotate(calc((var(--shuffle-idx, 2) - 2) * 14deg)) scale(1.03);
+    }
+    70% {
+      transform: translateX(calc((2 - var(--shuffle-idx, 2)) * 22px)) translateY(4px) rotate(calc((2 - var(--shuffle-idx, 2)) * 8deg));
+    }
+    100% {
+      transform: translateX(0) rotate(0deg) scale(1);
+    }
+  }
+
+  .card-deck-rail-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tarot-arc-fan-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    scrollbar-width: none;
+    mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  }
+
+  .tarot-arc-fan-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card-deck-nudge {
+    position: absolute;
+    top: 50%;
+    z-index: 28;
+    width: 28px;
+    height: 28px;
+    transform: translateY(-50%);
+    display: none;
+    place-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: color-mix(in srgb, var(--surface-elevated-strong) 92%, transparent);
+    color: var(--text-strong);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .card-deck-nudge:hover {
+    border-color: var(--accent);
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+  }
+
+  .card-deck-nudge.is-prev { left: 4px; }
+  .card-deck-nudge.is-next { right: 4px; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .card-deck-nudge {
+      display: inline-grid;
+    }
+  }
+
+  .tarot-arc-fan-track {
+    display: inline-flex;
+    align-items: flex-end;
+    margin-inline: auto;
+    width: max-content;
+    padding: 20px 44px 22px;
+    min-height: 156px;
+  }
+
+  .tarot-arc-fan-track.is-blooming .tarot-arc-fan-card:not(.is-picked) {
+    animation: fanCardBloom 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--fan-delay, 0ms);
+  }
+
+  @keyframes fanCardBloom {
+    from {
+      opacity: 0;
+      transform: translateY(18px) rotate(0deg) scale(0.86);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(var(--fan-drop, 0px)) rotate(var(--fan-angle, 0deg)) scale(1);
+    }
+  }
+
+  .tarot-arc-fan-card {
+    flex: 0 0 70px;
+    width: 70px;
+    height: 106px;
+    margin-left: -30px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transform: translateY(var(--fan-drop, 0px)) rotate(var(--fan-angle, 0deg));
+    transform-origin: 50% 130%;
+    transition: transform 0.22s ease-out, filter 0.18s ease, opacity 0.22s ease;
+  }
+
+  .tarot-arc-fan-card:first-child {
+    margin-left: 0;
+  }
+
+  .tarot-arc-fan-card:hover:not(.is-picked),
+  .tarot-arc-fan-card:focus-visible:not(.is-picked) {
+    transform: translateY(calc(var(--fan-drop, 0px) - 16px)) rotate(0deg) scale(1.06);
+    z-index: 40;
+    filter: brightness(1.05);
+    outline: none;
+  }
+
+  .tarot-arc-fan-card.is-picked {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(calc(var(--fan-drop, 0px) - 34px)) rotate(0deg) scale(0.84);
+  }
+
+  .card-deck-swipe-tip {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+  }
+
+  .shiyue-question-field {
+    flex: 1 1 220px;
+    min-width: 180px;
+  }
+
+  .shiyue-question-field input {
+    width: 100%;
+    min-height: 36px;
+    font-size: 13px;
+  }
+
+  .shiyue-results-panel {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-elevated-strong);
+  }
+
+  .shiyue-results-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .shiyue-results-head strong {
+    font-size: 14px;
+    color: var(--text-strong);
+  }
+
+  .shiyue-results-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .shiyue-results-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .shiyue-result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+  }
+
+  /* ─── 择吉万年历表单 ─── */
+  .almanac-form-flow {
+    display: grid;
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .almanac-form-section {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .almanac-form-section:first-child {
+    padding-top: 2px;
+    border-top: 0;
+  }
+
+  .almanac-form-section:last-child {
+    padding-bottom: 2px;
+  }
+
+  .almanac-form-section-head,
+  .almanac-participant-actions,
+  .almanac-quick-ranges {
+    display: flex;
+    align-items: center;
+  }
+
+  .almanac-form-section-head {
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .almanac-form-section-head > div:first-child {
+    display: grid;
+    gap: 3px;
+  }
+
+  .almanac-form-section-head strong {
+    color: var(--text-strong);
+    font-size: 14px;
+  }
+
+  .almanac-form-section-head > button {
+    min-height: 30px;
+    padding: 4px 9px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--state-idle-surface);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .almanac-form-section-head > button:hover {
+    background: var(--state-hover-surface);
+    color: var(--text-strong);
+  }
+
+  .almanac-form-section-head > button.is-active {
+    background: var(--state-selected-surface);
+    color: var(--state-selected-text);
+  }
+
+  .almanac-form-section-head span,
+  .almanac-participant-empty {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .almanac-calendar-section > .almanac-form-section-head > small {
+    color: var(--accent-deep);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .almanac-calendar-section .ganzhi-calendar-page {
+    margin-inline: -4px;
+  }
+
+  .almanac-calendar-section .workspace-calendar-page > .workspace-ui-form-surface {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 4px 0 0;
+  }
+
+  .almanac-calendar-section .ganzhi-calendar-surface {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .almanac-topic-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .almanac-topic-grid button,
+  .almanac-quick-ranges button {
+    border: 0;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .almanac-topic-grid button {
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--state-idle-surface);
+    font-size: 13px;
+  }
+
+  .almanac-topic-grid button:hover,
+  .almanac-common-options button:hover {
+    background: var(--state-hover-surface);
+    color: var(--text-strong);
+  }
+
+  .almanac-topic-grid button.is-active,
+  .almanac-common-options button.is-active {
+    background: var(--state-selected-surface-strong);
+    color: var(--state-selected-text);
+    font-weight: 750;
+  }
+
+  .almanac-quick-ranges {
+    gap: 3px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--surface-muted);
+  }
+
+  .almanac-quick-ranges button {
+    min-height: 28px;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 11px;
+  }
+
+  .almanac-quick-ranges button:hover {
+    background: var(--surface-elevated);
+    color: var(--text-strong);
+  }
+
+  .almanac-date-fields {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+    align-items: end;
+    gap: 12px;
+    width: min(100%, 640px);
+  }
+
+  .almanac-date-fields > span {
+    padding-bottom: 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .almanac-common-options {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .almanac-common-options > span {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .almanac-common-options > div + span {
+    margin-left: 12px;
+  }
+
+  .almanac-common-options > div {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .almanac-common-options button {
+    min-height: 30px;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--state-idle-surface);
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .almanac-participant-actions {
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .almanac-participant-list {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: var(--surface-elevated);
+  }
+
+  .almanac-participant-item + .almanac-participant-item {
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .almanac-participant-item > summary {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    padding: 7px 11px;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .almanac-participant-item > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .almanac-participant-item[open] > summary {
+    background: var(--surface-muted);
+  }
+
+  .almanac-participant-index {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: var(--accent-surface);
+    color: var(--accent-deep);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .almanac-participant-summary {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .almanac-participant-summary strong {
+    overflow: hidden;
+    color: var(--text-strong);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .almanac-participant-summary small {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .almanac-participant-edit {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .almanac-participant-editor {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-top: 1px solid var(--border-soft);
+    background: var(--surface-muted);
+  }
+
+  .almanac-participant-remove {
+    justify-self: end;
+    min-height: 28px;
+    padding: 3px 7px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .almanac-participant-remove:hover {
+    color: var(--danger-text);
+  }
+
+  .almanac-participant-empty {
+    margin: 0;
+    padding: 8px 0 2px;
+  }
+
+  .almanac-astro-panel {
+    display: grid;
+    gap: 12px;
+  }
+
+  .almanac-astro-panel .workspace-ui-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 4px;
+  }
+
+  .almanac-astro-panel .workspace-ui-tab {
+    font-size: 12.5px;
+    padding: 0 11px;
+  }
+
+  .calendar-ganzhi-collapsible {
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    background: var(--surface-elevated);
+    overflow: hidden;
+  }
+
+  .calendar-ganzhi-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 750;
+    color: var(--text-strong);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+
+  .calendar-ganzhi-summary::after {
+    content: '展开';
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .calendar-ganzhi-collapsible[open] > .calendar-ganzhi-summary::after {
+    content: '收起';
+  }
+
+  .calendar-ganzhi-body {
+    padding: 0 12px 12px;
+  }
+
+  /* ─── 三山国王灵签求签仪式台 ─── */
+  .workspace-divination-page.is-ssgw-page .divination-form-card {
+    padding: 18px 20px;
+  }
+
+  .ssgw-sanctuary {
+    --ssgw-serif: 'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', Georgia, serif;
+    display: grid;
+    gap: 14px;
+  }
+
+  .ssgw-sanctuary-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 14px;
+  }
+
+  .ssgw-brand-text {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .ssgw-brand-text strong {
+    font-family: var(--ssgw-serif);
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text-strong);
+    letter-spacing: 0.06em;
+  }
+
+  .ssgw-brand-text span {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .ssgw-mode-switch {
+    min-width: 0;
+  }
+
+  .ssgw-ritual-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ssgw-ritual-steps li {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .ssgw-ritual-steps li i {
+    font-style: normal;
+    font-family: var(--ssgw-serif);
+    font-size: 11.5px;
+    font-weight: 700;
+    width: 19px;
+    height: 19px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  }
+
+  .ssgw-ritual-steps li.is-done {
+    color: var(--accent-strong);
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-base));
+  }
+
+  .ssgw-ritual-steps li.is-done i {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent-strong);
+  }
+
+  .ssgw-ritual-steps li.is-current {
+    color: var(--accent-deep);
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 85%, var(--surface-base));
+    font-weight: 700;
+  }
+
+  .ssgw-ritual-steps li.is-current i {
+    background: var(--accent-strong);
+    color: var(--accent-contrast);
+  }
+
+  /* 坛面主体（双线木刻边框 + 三山国王神龛圣像） */
+  .ssgw-altar-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 20px 22px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border-strong));
+    background:
+      radial-gradient(circle at 50% 85%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 62%),
+      var(--surface-base);
+    box-shadow:
+      inset 0 0 0 4px var(--surface-base),
+      inset 0 0 0 5px color-mix(in srgb, var(--secondary) 30%, transparent),
+      var(--shadow-card);
+    overflow: hidden;
+    gap: 16px;
+  }
+
+  .ssgw-altar-stage.is-confirmed {
+    border-color: color-mix(in srgb, var(--accent) 52%, var(--border-strong));
+    background:
+      radial-gradient(circle at 50% 80%, color-mix(in srgb, var(--secondary) 16%, transparent), transparent 64%),
+      var(--surface-base);
+  }
+
+  .ssgw-corner-ornament {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    color: color-mix(in srgb, var(--accent-strong) 48%, var(--secondary));
+    pointer-events: none;
+    opacity: 0.78;
+    z-index: 2;
+  }
+
+  .ssgw-corner-ornament.is-tl { top: 10px; left: 10px; }
+  .ssgw-corner-ornament.is-tr { top: 10px; right: 10px; transform: scaleX(-1); }
+  .ssgw-corner-ornament.is-bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+  .ssgw-corner-ornament.is-br { bottom: 10px; right: 10px; transform: scale(-1); }
+
+  /* 三山国王神龛圣像横幅 */
+  .ssgw-shrine-banner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--secondary) 46%, var(--border-strong));
+    background: color-mix(in srgb, var(--surface-muted) 75%, #24160e);
+    box-shadow: 0 8px 22px rgba(32, 18, 10, 0.14);
+    overflow: hidden;
+  }
+
+  .ssgw-shrine-banner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(24, 12, 8, 0.04) 0%,
+      transparent 70%,
+      color-mix(in srgb, var(--surface-base) 26%, rgba(28, 16, 10, 0.2)) 100%
+    );
+    pointer-events: none;
+  }
+
+  .ssgw-shrine-img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .ssgw-altar-body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* 阶段1 & 机选：直接突出 fortune-shake.webm 签筒动画 */
+  .ssgw-cylinder-stage,
+  .ssgw-random-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .ssgw-cylinder-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 248px;
+    height: 224px;
+    margin-top: -10px;
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    background: radial-gradient(
+      ellipse at 50% 62%,
+      color-mix(in srgb, var(--secondary) 16%, transparent),
+      transparent 70%
+    );
+    cursor: pointer;
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+
+  .ssgw-cylinder-trigger:hover:not(:disabled):not(.is-still) {
+    transform: translateY(-3px);
+    filter: drop-shadow(0 10px 20px color-mix(in srgb, var(--accent) 16%, transparent));
+  }
+
+  .ssgw-cylinder-trigger.is-still {
+    cursor: default;
+    height: 204px;
+  }
+
+  .ssgw-cylinder-idle-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.16s ease;
+    pointer-events: none;
+  }
+
+  .ssgw-cylinder-video {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    display: block;
+    width: 240px;
+    max-width: 100%;
+    height: 220px;
+    object-fit: contain;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+  }
+
+  .ssgw-cylinder-trigger.is-still .ssgw-cylinder-video {
+    height: 200px;
+  }
+
+  .ssgw-cylinder-trigger.is-shaking .ssgw-cylinder-video {
+    animation: sign-video-pulse 0.36s ease-in-out infinite alternate;
+  }
+
+  .ssgw-fallback-cylinder {
+    width: 138px;
+    height: 172px;
+    color: var(--secondary-strong);
+  }
+
+  .ssgw-fallback-cylinder.is-shaking {
+    animation: sign-video-pulse 0.36s ease-in-out infinite alternate;
+  }
+
+  .ssgw-svg-lot-tip {
+    color: var(--accent-strong);
+  }
+
+  .ssgw-svg-lot-heads {
+    fill: var(--accent);
+  }
+
+  .ssgw-svg-cylinder-body {
+    fill: color-mix(in srgb, var(--accent-strong) 18%, var(--surface-muted));
+    stroke: var(--secondary-strong);
+  }
+
+  .ssgw-svg-cylinder-rim {
+    fill: color-mix(in srgb, var(--secondary) 24%, var(--surface-base));
+    stroke: var(--secondary-strong);
+  }
+
+  .ssgw-svg-cylinder-plaque {
+    fill: var(--surface-base);
+    stroke: var(--accent-strong);
+  }
+
+  .ssgw-svg-cylinder-char {
+    fill: var(--accent-strong);
+    font-family: var(--ssgw-serif);
+  }
+
+  .ssgw-stage-caption strong {
+    font-family: var(--ssgw-serif);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-strong);
+    letter-spacing: 0.1em;
+  }
+
+  .ssgw-altar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .ssgw-altar-actions .workspace-ui-button {
+    min-width: 136px;
+    min-height: 40px;
+    border-radius: 10px;
+  }
+
+  .ssgw-primary-action {
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+
+  /* 阶段2/3：落签铭牌 + 实物圣杯供案 */
+  .ssgw-drawn-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+
+  .ssgw-lot-plaque-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .ssgw-lot-plaque {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 184px;
+    padding: 10px 22px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-soft));
+    background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-soft));
+    animation: ssgw-plaque-reveal 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .ssgw-lot-plaque.is-confirmed {
+    border-color: color-mix(in srgb, var(--accent) 56%, var(--border-strong));
+    background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-elevated));
+  }
+
+  @keyframes ssgw-plaque-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .ssgw-lot-plaque-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--accent-strong);
+  }
+
+  .ssgw-lot-plaque-cn {
+    font-family: var(--ssgw-serif);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    color: var(--text-strong);
+  }
+
+  .ssgw-lot-plaque-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* 朱砂确认方印 */
+  .ssgw-confirmed-stamp {
+    position: absolute;
+    left: calc(100% + 14px);
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 2px;
+    border-radius: 5px;
+    border: 2px solid var(--accent-strong);
+    background: color-mix(in srgb, var(--surface-base) 92%, transparent);
+    color: var(--accent-strong);
+    font-family: var(--ssgw-serif);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 0.08em;
+    transform: translateY(-50%) rotate(-10deg);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 18%, transparent);
+    animation: ssgw-stamp-hit 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes ssgw-stamp-hit {
+    from {
+      opacity: 0;
+      transform: translateY(-50%) rotate(-16deg) scale(1.38);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50%) rotate(-10deg) scale(1);
+    }
+  }
+
+  /* 圣杯木案 */
+  .ssgw-cup-altar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .ssgw-cup-cushion {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 204px;
+    height: 126px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px dashed color-mix(in srgb, var(--secondary) 48%, transparent);
+    background:
+      radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--secondary) 14%, transparent), color-mix(in srgb, var(--surface-soft) 72%, transparent));
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .ssgw-cup-cushion:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-style: solid;
+    border-color: var(--accent);
+  }
+
+  .ssgw-cup-cushion:disabled {
+    cursor: default;
+  }
+
+  .ssgw-cup-altar.is-confirmed .ssgw-cup-cushion {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--secondary));
+    box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .ssgw-cup-altar.is-awaiting .ssgw-cup-pair {
+    opacity: 0.72;
+    filter: saturate(0.86);
+  }
+
+  .ssgw-cup-pair {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    width: 100%;
+  }
+
+  .ssgw-bei-cup {
+    margin: 0;
+    width: 68px;
+    height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .ssgw-bei-cup img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 10px rgba(72, 46, 18, 0.22));
+  }
+
+  .ssgw-bei-cup.is-yang img {
+    transform: translateX(-11%);
+  }
+
+  .ssgw-bei-cup.is-yin img {
+    transform: translateX(10%) scale(1.12);
+  }
+
+  .ssgw-fallback-cup {
+    width: 74px;
+    height: 46px;
+    color: var(--accent-strong);
+  }
+
+  .ssgw-fallback-cup-shape {
+    fill: color-mix(in srgb, var(--accent) 78%, #6d2116);
+    stroke: color-mix(in srgb, var(--secondary) 70%, #4b150c);
+  }
+
+  .ssgw-cup-altar.is-throwing .ssgw-bei-cup.is-left {
+    animation: ssgw-cup-toss-a 0.42s ease-in-out;
+  }
+
+  .ssgw-cup-altar.is-throwing .ssgw-bei-cup.is-right {
+    animation: ssgw-cup-toss-b 0.42s ease-in-out 0.04s;
+  }
+
+  @keyframes ssgw-cup-toss-a {
+    0% { transform: translateY(0) rotate(0); }
+    45% { transform: translateY(-30px) rotate(160deg); }
+    100% { transform: translateY(0) rotate(360deg); }
+  }
+
+  @keyframes ssgw-cup-toss-b {
+    0% { transform: translateY(0) rotate(0); }
+    45% { transform: translateY(-34px) rotate(-170deg); }
+    100% { transform: translateY(0) rotate(-360deg); }
+  }
+
+  .ssgw-cup-altar.is-yin .ssgw-cup-cushion {
+    border-style: solid;
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--surface-muted) 86%, transparent);
+  }
+
+  .ssgw-cup-status {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-strong);
+    text-align: center;
+  }
+
+  .ssgw-cup-status.is-sacred {
+    color: var(--accent-strong);
+  }
+
+  .ssgw-cup-status.is-laugh,
+  .ssgw-cup-status.is-retry {
+    color: var(--secondary-strong);
+  }
+
+  .ssgw-cup-status.is-yin {
+    color: var(--text-secondary);
+  }
+
+  .ssgw-bei-records {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .ssgw-bei-records span {
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .ssgw-bei-records span.is-sacred {
+    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .ssgw-bei-records span.is-laugh {
+    border-color: color-mix(in srgb, var(--secondary) 42%, transparent);
+    background: var(--secondary-soft);
+    color: var(--secondary-strong);
+  }
+
+  .ssgw-bei-records span.is-yin {
+    border-color: var(--border-strong);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+  }
+
+  /* 自录签号面板 */
+  .ssgw-manual-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(100%, 300px);
+  }
+
+  .ssgw-manual-lot-preview {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    min-height: 32px;
+  }
+
+  .ssgw-manual-lot-preview strong {
+    font-family: var(--ssgw-serif);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .ssgw-manual-lot-preview strong.is-filled {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent-strong);
+    letter-spacing: 0.08em;
+  }
+
+  .ssgw-manual-lot-preview span {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  .ssgw-manual-input-wrap {
+    width: 100%;
+    text-align: center;
+    justify-items: center;
+  }
+
+  .ssgw-manual-input-wrap > span {
+    text-align: center;
+  }
+
+  .ssgw-manual-number-input {
+    font-family: var(--ssgw-serif);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .ssgw-manual-quick-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .ssgw-mini-btn {
+    min-height: 32px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .ssgw-mini-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+  }
+}
+
+@layer components.responsive {
+  @media (max-width: 720px) {
+    .almanac-form-section {
+      gap: 10px;
+      padding: 14px 0;
+    }
+
+    .almanac-form-section-head {
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .almanac-topic-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .almanac-topic-grid button {
+      min-height: 36px;
+      padding: 6px 8px;
+      font-size: 12.5px;
+      text-align: center;
+    }
+
+    .almanac-date-section .almanac-form-section-head {
+      align-items: center;
+    }
+
+    .almanac-quick-ranges {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .almanac-quick-ranges::-webkit-scrollbar {
+      display: none;
+    }
+
+    .almanac-quick-ranges button {
+      min-height: 30px;
+      padding-inline: 8px;
+      white-space: nowrap;
+    }
+
+    .almanac-date-fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .almanac-date-fields > span {
+      display: none;
+    }
+
+    .almanac-participant-actions {
+      align-items: stretch;
+      flex-direction: column;
+      min-width: 118px;
+    }
+
+    .almanac-participant-actions .workspace-ui-button {
+      width: 100%;
+    }
+
+    .almanac-participant-item > summary {
+      min-height: 58px;
+    }
+
+    .almanac-participant-editor .form-row-flex {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .almanac-participant-editor .form-row-flex.has-third-item {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 679px) {
+    #v2-workspace-root .divination-flow-workbench > .workspace-ui-form-actions {
+      padding-top: 12px;
+      justify-content: center;
+    }
+
+    #v2-workspace-root .divination-flow-workbench > .workspace-ui-form-actions .workspace-ui-button.is-primary {
+      width: 100%;
+      max-width: none;
+      margin-inline: auto;
+      justify-content: center;
+    }
+
+    .almanac-common-options {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px 10px;
+    }
+
+    .almanac-common-options > span {
+      margin-left: 0;
+    }
+
+    .almanac-common-options > div {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .almanac-common-options > div button {
+      width: 100%;
+      text-align: center;
+    }
+
+    .fengshui-compass-group-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px), (max-width: 900px) and (max-height: 520px) {
+    .liuyao-reveal-row {
+      grid-template-columns: 34px minmax(88px, 0.8fr) minmax(130px, 1.2fr);
+      gap: 8px;
+    }
+
+    .liuyao-reveal-value {
+      overflow: visible;
+      line-height: 1.35;
+      text-overflow: clip;
+      white-space: normal;
+    }
+
+    .manual-record-list {
+      grid-template-columns: 1fr;
+    }
+
+    .manual-session-actions .manual-reset-button {
+      width: auto;
+      min-height: 44px;
+      padding-inline: 14px;
+    }
+
+    #v2-workspace-root .divination-card-option {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+
+    #v2-workspace-root .divination-card-option-top {
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    #v2-workspace-root .divination-card-option-mark {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    #v2-workspace-root .divination-card-option-icon {
+      width: 13px;
+      height: 13px;
+    }
+
+    #v2-workspace-root .divination-card-option-indicator {
+      display: none;
+    }
+
+    #v2-workspace-root .divination-card-option-label {
+      font-size: 12.5px;
+    }
+
+    #v2-workspace-root .divination-form-card .fengshui-compass-workbench {
+      padding: 10px 8px;
+      border-radius: 10px;
+    }
+
+    #v2-workspace-root .liuyao-reveal-stack .liuyao-reveal-row {
+      grid-template-columns: 32px minmax(42px, 1fr) auto;
+      gap: 6px;
+    }
+
+    #v2-workspace-root .liuyao-reveal-stack .manual-yao-pill-group {
+      flex-wrap: nowrap;
+      gap: 3px;
+    }
+
+    #v2-workspace-root .liuyao-reveal-stack .manual-yao-pill {
+      padding: 4px 6px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 600px) {
+    #v2-workspace-root .workspace-ui-form-row.fengshui-xuan-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .almanac-date-section .almanac-form-section-head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .almanac-quick-ranges {
+      align-self: stretch;
+    }
+
+    .almanac-quick-ranges button {
+      flex: 1 1 0;
+    }
+
+    .almanac-form-section-head:has(.almanac-participant-actions) {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .almanac-participant-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .workspace-divination-page.is-ssgw-page .divination-form-card {
+      padding: 14px;
+    }
+
+    .ssgw-sanctuary-head {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .ssgw-brand-text {
+      justify-content: center;
+    }
+
+    .ssgw-altar-stage {
+      padding: 26px 16px 18px;
+      gap: 14px;
+    }
+
+    .ssgw-cylinder-trigger {
+      width: 210px;
+      height: 192px;
+      margin-top: -6px;
+    }
+
+    .ssgw-cylinder-video {
+      width: 204px;
+      height: 188px;
+    }
+
+    .ssgw-lot-plaque {
+      min-width: 152px;
+      padding: 8px 16px;
+    }
+
+    .ssgw-lot-plaque-cn {
+      font-size: 22px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ssgw-cylinder-trigger.is-shaking .ssgw-cylinder-video,
+    .ssgw-fallback-cylinder.is-shaking,
+    .ssgw-lot-plaque,
+    .ssgw-confirmed-stamp,
+    .ssgw-cup-altar.is-throwing .ssgw-bei-cup.is-left,
+    .ssgw-cup-altar.is-throwing .ssgw-bei-cup.is-right {
+      animation: none;
+    }
+  }
+}
+
+@layer components.base {
+  /* ─── 消除外层白底套娃框（仪式台与直出真盘自成画布） ─── */
+  #v2-workspace-root .workspace-divination-page .divination-form-card.is-studio-surface,
+#v2-workspace-root .workspace-divination-page .divination-form-card.is-live-chart-surface {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#v2-workspace-root .workspace-divination-page .divination-form-card.is-studio-surface .divination-flow-workbench {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+  gap: 0;
+}
+
+/* ─── 统一单行紧凑时间栏 ─── */
+.unified-time-block {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  width: 100%;
+}
+
+.live-chart-controls .unified-time-block {
+  width: auto;
+  justify-items: start;
+}
+
+.unified-time-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+}
+
+.live-chart-controls .unified-time-controls {
+  justify-content: flex-start;
+}
+
+.utb-clock-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.utb-now-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.utb-now-chip.is-static {
+  cursor: default;
+}
+
+.utb-now-chip svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.72;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+
+.utb-now-chip:not(.is-static):hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.utb-now-chip:not(.is-static):hover svg {
+  opacity: 1;
+}
+
+.utb-now-chip:not(.is-static):active svg {
+  transform: rotate(90deg);
+}
+
+.unified-place-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border-soft));
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.unified-place-pill em {
+  font-style: normal;
+  color: var(--accent-strong);
+}
+
+.unified-place-pill:hover {
+  border-color: var(--accent);
+}
+
+/* ─── 直出真盘工作台（奇门 / 六壬 / 太乙 / 皇极 / 五运） ─── */
+.live-chart-workbench {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.live-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.live-chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.live-chart-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-soft);
+  flex-shrink: 0;
+}
+
+.live-chart-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.live-chart-submit-btn {
+  min-height: 36px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.live-chart-year-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-chart-year-input {
+  width: 78px;
+  min-height: 34px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.live-chart-board-stage {
+  position: relative;
+  min-height: 220px;
+  transition: opacity 0.16s ease;
+}
+
+.live-chart-board-stage.is-loading {
+  opacity: 0.78;
+}
+
+.live-chart-board-host {
+  min-width: 0;
+}
+
+.live-chart-loader {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-soft));
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-soft) 45%, transparent), transparent 65%),
+    var(--surface-soft);
+}
+
+.live-chart-loader-rings {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+}
+
+.live-chart-ring-outer,
+.live-chart-ring-inner,
+.live-chart-ring-core {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.live-chart-ring-outer {
+  inset: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-top-color: var(--accent-strong);
+  border-right-color: var(--secondary);
+  animation: liveChartSpin 1.15s linear infinite;
+}
+
+.live-chart-ring-inner {
+  inset: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--secondary) 22%, transparent);
+  border-bottom-color: var(--accent);
+  animation: liveChartSpinReverse 1.65s linear infinite;
+}
+
+.live-chart-ring-core {
+  width: 10px;
+  height: 10px;
+  background: var(--accent-strong);
+  opacity: 0.72;
+  animation: liveChartPulse 1.3s ease-in-out infinite;
+}
+
+.live-chart-refresh-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--surface-elevated-strong) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  animation: liveChartSpin 0.85s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes liveChartSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes liveChartSpinReverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes liveChartPulse {
+  0%,
+  100% {
+    transform: scale(0.78);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.9;
+  }
+}
+
+.live-chart-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ─── 全站交互仪式坛底座（小六壬 / 梅花 / 金口诀 / 诸葛 / 六爻） ─── */
+.ritual-sanctuary {
+  --ritual-serif: 'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', Georgia, serif;
+  display: grid;
+  gap: 10px;
+}
+
+.ritual-sanctuary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding-inline: 2px;
+}
+
+.ritual-sanctuary-head.is-right-only {
+  justify-content: flex-end;
+}
+
+.ritual-brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ritual-step-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.liuyao-seal-banner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 9px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-base));
+  animation: liuyao-line-reveal 0.26s ease-out;
+}
+
+.liuyao-seal-stamp {
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1.5px solid var(--accent-strong);
+  color: var(--accent-strong);
+  font-family: var(--ritual-serif);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.liuyao-seal-name {
+  font-family: var(--ritual-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.liuyao-seal-palace {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ritual-brand-text strong {
+  font-family: var(--ritual-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: 0.06em;
+}
+
+.ritual-brand-text span {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.ritual-head-right {
+  min-width: 0;
+}
+
+.ritual-stage-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 26px 22px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 64%),
+    var(--surface-elevated-strong);
+  box-shadow:
+    inset 0 0 0 3px var(--surface-base),
+    inset 0 0 0 4px color-mix(in srgb, var(--secondary) 14%, transparent),
+    var(--shadow-card);
+  overflow: hidden;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.ritual-stage-frame.is-complete {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 66%),
+    var(--surface-elevated-strong);
+  box-shadow:
+    inset 0 0 0 3px var(--surface-base),
+    inset 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent),
+    0 10px 28px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.ritual-step-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+}
+
+.ritual-step-pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-soft) 80%, transparent);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.ritual-step-pill.is-done {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface-base));
+  color: var(--accent-strong);
+}
+
+.ritual-step-pill.is-current {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+.ritual-corner-ornament {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--accent-strong) 44%, var(--secondary));
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.ritual-corner-ornament.is-tl { top: 9px; left: 9px; }
+.ritual-corner-ornament.is-tr { top: 9px; right: 9px; transform: scaleX(-1); }
+.ritual-corner-ornament.is-bl { bottom: 9px; left: 9px; transform: scaleY(-1); }
+.ritual-corner-ornament.is-br { bottom: 9px; right: 9px; transform: scale(-1); }
+
+.ritual-stage-body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.ritual-stage-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border-soft) 70%, transparent);
+}
+
+.ritual-primary-btn {
+  min-width: 176px;
+  min-height: 40px;
+  padding-inline: 24px;
+  border-radius: 10px;
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* ─── 塔罗与雷诺曼统一仪式台 ─── */
+.card-studio-config-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+}
+
+.card-studio-config-select {
+  min-width: 190px;
+  flex: 1 1 220px;
+}
+
+.card-studio-config-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-studio-step-bar {
+  justify-content: center;
+}
+
+.card-studio-step-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.card-studio-table {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.tarot-preview-cards-row,
+.tarot-interactive-spread-row,
+.tarot-manual-preview-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 118px));
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.card-studio-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.card-studio-slot-pos {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.card-studio-reveal-face {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  animation: cardFlipReveal 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cardFlipReveal {
+  from {
+    opacity: 0;
+    transform: rotateY(-65deg) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+.card-studio-overflow-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.card-studio-manual-wrap {
+  width: min(100%, 640px);
+}
+
+.ritual-center-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 480px);
+}
+
+.ritual-center-block.is-wide {
+  width: min(100%, 560px);
+}
+
+.ritual-time-wrap {
+  width: 100%;
+}
+
+.ritual-single-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 240px);
+  text-align: center;
+}
+
+.ritual-single-field.is-wide {
+  width: min(100%, 320px);
+}
+
+.ritual-single-field > span,
+.ritual-num-slot > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ritual-serif-input {
+  font-family: var(--ritual-serif);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.ritual-quick-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ritual-mini-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.ritual-mini-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.ritual-subtle-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ─── 六爻紧凑模式栏与双区布局 ─── */
+.divination-card-selector-grid.is-compact-ribbon {
+  display: inline-grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 4px;
+  width: auto;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 11px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option:hover {
+  transform: none;
+  background: var(--surface-base);
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option.is-active {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: var(--surface-elevated-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option-top {
+  width: auto;
+  gap: 0;
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option-indicator {
+  display: none;
+}
+
+.divination-card-selector-grid.is-compact-ribbon .divination-card-option-label {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.liuyao-ritual-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.liuyao-ritual-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.liuyao-ritual-single {
+  width: min(100%, 480px);
+  display: grid;
+  gap: 10px;
+}
+
+/* ─── 小六壬：桌面左右黄金双栏 + 书卷断语区 ─── */
+.xlr-workbench {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(260px, 0.92fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.xlr-palm-altar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.xlr-palm-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 82px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-soft) 58%, var(--surface-base));
+  text-align: center;
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.xlr-palm-node strong {
+  font-family: var(--ritual-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: 0.08em;
+}
+
+.xlr-palm-node small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.xlr-palm-node.is-hit {
+  border-color: color-mix(in srgb, var(--secondary) 52%, transparent);
+  background: color-mix(in srgb, var(--secondary-soft) 55%, var(--surface-base));
+}
+
+.xlr-palm-node.is-primary {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-base));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.xlr-palm-node.is-primary strong {
+  color: var(--accent-strong);
+}
+
+.xlr-palm-markers {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.xlr-detail-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.xlr-live-result {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+}
+
+.xlr-live-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+
+.xlr-live-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+.xlr-live-trace {
+  font-family: var(--ritual-serif);
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.xlr-live-basis {
+  color: var(--text-muted);
+}
+
+.xlr-live-verse {
+  margin: 0;
+  font-family: var(--ritual-serif);
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.xlr-control-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.xlr-control-pane .unified-time-block {
+  justify-items: start;
+}
+
+.xlr-control-pane .unified-time-controls {
+  justify-content: flex-start;
+}
+
+.xlr-three-nums-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(68px, 102px));
+  gap: 10px;
+  justify-content: center;
+}
+
+.ritual-num-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+/* ─── 梅花易数：通透三卦卡与物象双栏 ─── */
+.mh-live-preview {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 10px;
+}
+
+.mh-live-preview.is-compact {
+  width: 100%;
+}
+
+.mh-live-triad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.mh-live-hex {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.mh-live-hex.is-main {
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface-base));
+}
+
+.mh-live-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mh-live-sym {
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--text-strong);
+}
+
+.mh-live-hex strong {
+  font-family: var(--ritual-serif);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.mh-live-arrow {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.mh-live-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mh-live-meta strong {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.mh-direction-split {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 22px;
+}
+
+.mh-direction-right {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.mh-compass-rose {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  gap: 7px;
+  width: 100%;
+}
+
+.mh-compass-cell,
+.mh-compass-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 62px;
+  padding: 6px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.mh-compass-cell {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.mh-compass-cell:hover {
+  border-color: var(--accent);
+}
+
+.mh-compass-cell.is-active {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 80%, var(--surface-base));
+  color: var(--accent-strong);
+}
+
+.mh-cell-glyph {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.mh-compass-cell strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mh-compass-center {
+  border: 1px solid color-mix(in srgb, var(--secondary) 45%, transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--secondary-soft) 68%, transparent), var(--surface-base));
+  color: var(--accent-strong);
+}
+
+.mh-compass-center span {
+  font-size: 19px;
+  letter-spacing: 0.08em;
+}
+
+.mh-compass-center small {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.mh-object-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  width: 100%;
+}
+
+.mh-object-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 4px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.mh-object-chip span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mh-object-chip.is-active {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 80%, var(--surface-base));
+  color: var(--accent-strong);
+}
+
+/* ─── 金口诀：实时四位神课与十二地分双栏 ─── */
+.jkj-branch-split {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.jkj-branch-right {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+.jkj-branch-right .unified-time-block {
+  justify-items: start;
+}
+
+.jkj-branch-right .unified-time-controls {
+  justify-content: flex-start;
+}
+
+.jkj-live-wrap {
+  width: min(100%, 480px);
+  display: grid;
+  gap: 8px;
+}
+
+.jkj-branch-right .jkj-live-wrap {
+  width: 100%;
+}
+
+.jkj-live-pillars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.jkj-live-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 11px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  text-align: center;
+}
+
+.jkj-live-card.is-yong {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-base));
+}
+
+.jkj-live-pos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.jkj-live-pos em {
+  font-style: normal;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.jkj-live-card strong {
+  font-family: var(--ritual-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.jkj-live-card small {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.jkj-live-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.jkj-live-meta strong {
+  color: var(--accent-strong);
+}
+
+.jkj-branch-wheel {
+  position: relative;
+  width: 236px;
+  height: 236px;
+  margin-inline: auto;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--secondary) 44%, transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--secondary-soft) 45%, transparent), transparent 72%);
+}
+
+.jkj-wheel-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-base));
+}
+
+.jkj-wheel-center strong {
+  font-family: var(--ritual-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.jkj-wheel-center small {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.jkj-branch-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated-strong);
+  color: var(--text-secondary);
+  font-family: var(--ritual-serif);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.jkj-branch-node:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.jkj-branch-node.is-active {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+/* ─── 诸葛神数：五枚实体铜钱盘与宣纸田字格 ─── */
+.zg-coin-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.zg-coin-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.zg-coin-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.zg-coin-btn:hover .zg-coin-disc {
+  transform: translateY(-2px);
+}
+
+.zg-coin-disc img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 10px rgba(72, 46, 18, 0.2));
+}
+
+.zg-coin-fallback {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--secondary-strong);
+  background: var(--surface-soft);
+  font-style: normal;
+  font-family: var(--ritual-serif);
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.zg-coin-btn small {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.zg-coin-btn.is-yang small {
+  color: var(--accent-strong);
+}
+
+.zg-coin-tray.is-tossing .zg-coin-btn:nth-child(1) .zg-coin-disc { animation: coinSpinFlip 0.36s ease-out; }
+.zg-coin-tray.is-tossing .zg-coin-btn:nth-child(2) .zg-coin-disc { animation: coinSpinFlip 0.36s ease-out 0.04s; }
+.zg-coin-tray.is-tossing .zg-coin-btn:nth-child(3) .zg-coin-disc { animation: coinSpinFlip 0.36s ease-out 0.08s; }
+.zg-coin-tray.is-tossing .zg-coin-btn:nth-child(4) .zg-coin-disc { animation: coinSpinFlip 0.36s ease-out 0.12s; }
+.zg-coin-tray.is-tossing .zg-coin-btn:nth-child(5) .zg-coin-disc { animation: coinSpinFlip 0.36s ease-out 0.16s; }
+
+.zg-pattern-pill {
+  padding: 4px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+  font-size: 15px;
+  letter-spacing: 0.24em;
+  color: var(--accent-strong);
+}
+
+.zg-hanzi-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.zg-hanzi-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.zg-hanzi-cell > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.zg-tianzige {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  border-radius: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  background: var(--surface-elevated-strong);
+}
+
+.zg-tianzige::before,
+.zg-tianzige::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.22;
+}
+
+.zg-tianzige::before {
+  left: 50%;
+  top: 6px;
+  bottom: 6px;
+  border-left: 1px dashed var(--accent-strong);
+}
+
+.zg-tianzige::after {
+  top: 50%;
+  left: 6px;
+  right: 6px;
+  border-top: 1px dashed var(--accent-strong);
+}
+
+.zg-tianzige input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-family: var(--ritual-serif);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-strong);
+  outline: none;
+}
+
+/* ─── 四十九策大衍分二竹策 / 梅花听声青铜磬 / 书写格 / 司南指针 / 小六壬跳步 ─── */
+.yarrow-mat-stalks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5px;
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 4px;
+}
+
+.yarrow-single-reed {
+  flex: 1 1 3px;
+  max-width: 5px;
+  min-width: 2px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--secondary) 74%, #c29b52),
+    color-mix(in srgb, var(--accent-strong) 42%, #7d5721)
+  );
+  cursor: default;
+  transition: transform 0.2s ease, margin 0.24s ease, filter 0.16s ease;
+}
+
+.yarrow-mat-stalks.is-interactive .yarrow-single-reed {
+  cursor: pointer;
+}
+
+.yarrow-mat-stalks.is-interactive .yarrow-single-reed:hover {
+  transform: translateY(-5px);
+  filter: brightness(1.16);
+}
+
+.yarrow-single-reed.is-split-gap {
+  margin-left: 16px;
+}
+
+.yarrow-single-reed.is-right-half {
+  transform: translateX(3px);
+}
+
+.xlr-palm-node.is-stepping {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 84%, var(--surface-base));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+  transform: translateY(-3px) scale(1.03);
+}
+
+.mh-sound-block {
+  gap: 12px;
+}
+
+.mh-sound-gong {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 110px;
+  height: 110px;
+  padding: 8px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--secondary-strong) 54%, var(--accent));
+  background: radial-gradient(
+    circle at 38% 32%,
+    color-mix(in srgb, var(--accent-soft) 72%, #fff8eb),
+    color-mix(in srgb, var(--secondary-soft) 82%, var(--surface-soft))
+  );
+  box-shadow:
+    inset 0 0 0 5px color-mix(in srgb, var(--surface-base) 56%, transparent),
+    0 8px 20px color-mix(in srgb, var(--accent) 14%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.mh-sound-gong:hover {
+  transform: scale(1.03);
+}
+
+.mh-sound-gong:active {
+  transform: scale(0.95);
+}
+
+.mh-sound-gong-count {
+  font-family: var(--ritual-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent-strong);
+}
+
+.mh-sound-gong small {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mh-sound-ripple {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-strong);
+  pointer-events: none;
+  animation: gongRippleWave 0.6s ease-out forwards;
+}
+
+@keyframes gongRippleWave {
+  from {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.42);
+  }
+}
+
+.mh-sound-inline-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mh-sound-input {
+  width: 84px;
+  min-height: 34px;
+}
+
+.mh-char-scroll-box {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 42%, var(--border-strong));
+  background: var(--surface-elevated-strong);
+  padding: 4px;
+}
+
+.mh-char-scroll-box::before,
+.mh-char-scroll-box::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.16;
+}
+
+.mh-char-scroll-box::before {
+  left: 50%;
+  top: 6px;
+  bottom: 6px;
+  border-left: 1px dashed var(--accent-strong);
+}
+
+.mh-char-scroll-box::after {
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  border-top: 1px dashed var(--accent-strong);
+}
+
+.mh-char-scroll-box input {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mh-compass-center {
+  position: relative;
+}
+
+.mh-compass-needle {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 2px;
+  background: var(--accent-strong);
+  transform-origin: 50% 37px;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+}
+
+@layer components.responsive {
+@media (max-width: 740px) {
+  .xlr-workbench,
+  .mh-direction-split,
+  .jkj-branch-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .xlr-live-result {
+    text-align: center;
+    padding-bottom: 10px;
+  }
+
+  .xlr-live-head {
+    justify-content: center;
+  }
+
+  .xlr-control-pane,
+  .xlr-control-pane .unified-time-block,
+  .jkj-branch-right .unified-time-block {
+    align-items: center;
+    justify-items: center;
+  }
+
+  .xlr-control-pane .unified-time-controls,
+  .jkj-branch-right .unified-time-controls {
+    justify-content: center;
+  }
+
+  .divination-card-selector-grid.is-compact-ribbon {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .liuyao-ritual-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .live-chart-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .live-chart-divider {
+    display: none;
+  }
+
+  .live-chart-controls {
+    flex: none;
+    width: 100%;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .live-chart-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .live-chart-submit-btn {
+    width: 100%;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 679px) {
+  .ritual-sanctuary-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ritual-brand-text {
+    justify-content: center;
+  }
+
+  .ritual-head-right .workspace-ui-tabs {
+    width: 100%;
+    display: flex;
+  }
+
+  .ritual-head-right .workspace-ui-tab {
+    flex: 1 1 0;
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+
+  .ritual-corner-ornament {
+    width: 12px;
+    height: 12px;
+    opacity: 0.32;
+  }
+
+  .ritual-stage-frame {
+    padding: 14px 12px 14px;
+    border-radius: 14px;
+    gap: 12px;
+  }
+
+  .ritual-stage-body {
+    gap: 12px;
+  }
+
+  .ritual-step-pill {
+    padding: 2px 7px;
+    font-size: 10.5px;
+  }
+
+  .manual-coin-tray {
+    min-height: 118px;
+    padding: 10px 8px;
+    border-radius: 12px;
+  }
+
+  .manual-shell-img {
+    width: 82px;
+    height: 88px;
+  }
+
+  .manual-bronze-coin.is-photo {
+    width: 60px;
+    height: 60px;
+  }
+
+  .manual-bronze-coin-img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .liuyao-reveal-stack {
+    gap: 5px;
+  }
+
+  .liuyao-reveal-row {
+    min-height: 26px;
+    padding: 3px 8px;
+  }
+
+  .ssgw-shrine-banner {
+    max-width: 100%;
+    max-height: none;
+  }
+
+  .ssgw-shrine-img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .ssgw-cylinder-trigger {
+    width: 176px;
+    height: 152px;
+    margin-top: -4px;
+  }
+
+  .ssgw-cylinder-video {
+    width: 170px;
+    height: 148px;
+  }
+
+  .ssgw-cup-cushion {
+    width: 184px;
+    height: 108px;
+  }
+
+  .card-studio-config-bar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .card-studio-config-select {
+    flex-basis: 100%;
+  }
+
+  .card-studio-config-pills {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tarot-preview-cards-row,
+  .tarot-interactive-spread-row,
+  .tarot-manual-preview-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tarot-arc-fan-panel {
+    width: 100%;
+    margin: 4px 0 0;
+    padding: 10px 6px 12px;
+  }
+
+  .tarot-arc-fan-hint {
+    font-size: 11.5px;
+  }
+
+  .tarot-arc-fan-track {
+    min-height: 118px;
+    padding: 16px 38px 18px;
+  }
+
+  .tarot-arc-fan-card {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 84px;
+    margin-left: -24px;
+  }
+
+  .live-chart-controls .unified-time-block,
+  .live-chart-controls .unified-time-controls {
+    justify-items: center;
+    justify-content: center;
+  }
+
+  .mh-live-triad {
+    gap: 6px;
+  }
+
+  .mh-live-hex {
+    padding: 8px 6px;
+  }
+
+  .jkj-live-pillars {
+    gap: 5px;
+  }
+
+  .jkj-live-card {
+    padding: 8px 3px;
+  }
+
+  .jkj-live-card strong {
+    font-size: 14.5px;
+  }
+
+  .jkj-live-card small {
+    font-size: 10px;
+  }
+
+  .jkj-branch-wheel {
+    width: 224px;
+    height: 224px;
+  }
+
+  .mh-object-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .mh-object-chip {
+    padding: 6px 2px;
+    font-size: 10.5px;
+  }
+
+  .zg-coin-tray {
+    gap: 10px;
+  }
+
+  .zg-coin-disc {
+    width: 52px;
+    height: 52px;
+  }
+
+  .zg-coin-disc img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .zg-tianzige {
+    width: 64px;
+    height: 64px;
+  }
+
+  .yarrow-mat-stalks {
+    gap: 2px;
+  }
+
+  .yarrow-single-reed {
+    min-width: 2px;
+    height: 34px;
+  }
+
+  .mh-sound-gong {
+    width: 92px;
+    height: 92px;
+  }
+
+  .mh-sound-gong-count {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zg-coin-tray.is-tossing .zg-coin-disc {
+    animation: none;
+  }
+}
+}

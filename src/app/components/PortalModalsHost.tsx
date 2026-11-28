@@ -12,14 +12,14 @@ const LazyPortalModals = React.lazy(() =>
 export function PortalModalsHost() {
   const [everOpened, setEverOpened] = React.useState(() => {
     const snap = getModalBusSnapshot();
-    return Boolean(snap.place || snap.inspiration || snap.supplementary || snap.term);
+    return Boolean(snap.place || snap.inspiration || snap.term);
   });
 
   React.useEffect(() => {
     if (everOpened) return;
     return subscribeModalBus(() => {
       const snap = getModalBusSnapshot();
-      if (snap.place || snap.inspiration || snap.supplementary || snap.term) {
+      if (snap.place || snap.inspiration || snap.term) {
         setEverOpened(true);
       }
     });

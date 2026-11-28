@@ -1,99 +1,32 @@
+import { LunarDay } from 'tyme4ts';
 import { mountains } from '../systems/compass';
 import type { SynastryRelationship } from '../systems/focus-presets';
 import { inferFortuneScope } from '../router-model/fortune-scope';
-import { toV2BirthPayload, type PersonalCase } from './cases-store';
+import { toV2BirthPayload } from './case-birth';
+import type { PersonalCase } from './cases-store';
+import {
+  COMPATIBILITY_CHART_TABS,
+  DIVINATION_FORM_METHODS,
+  PERSONAL_CHART_TABS,
+  isCompatibilityChartMethod,
+  isDivinationFormMethod,
+  isPersonalChartMethod,
+  type CompatibilityChartTabId,
+  type DivinationFormMethod,
+  type PersonalChartTabId,
+} from './chart-tabs';
 
-export type PersonalChartTabId =
-  | 'bazi'
-  | 'ziwei'
-  | 'bazi-ziwei'
-  | 'qimen-lifetime'
-  | 'astrolabe'
-  | 'qizheng'
-  | 'bazhai'
-  | 'minglu';
-
-export type CompatibilityChartTabId =
-  | 'bazi-synastry'
-  | 'ziwei-synastry'
-  | 'astrolabe-synastry';
-
-export type DivinationFormMethod =
-  | 'liuyao'
-  | 'meihua'
-  | 'qimen'
-  | 'liuren'
-  | 'jinkoujue'
-  | 'taiyi'
-  | 'xiaoliuren'
-  | 'huangji-jingshi'
-  | 'wuyun-liuqi'
-  | 'tarot'
-  | 'lenormand'
-  | 'ssgw'
-  | 'zhuge'
-  | 'random-divination'
-  | 'almanac'
-  | 'bazhai'
-  | 'xuankong'
-  | 'residential';
-
-export const DIVINATION_FORM_METHODS: readonly DivinationFormMethod[] = [
-  'liuyao',
-  'meihua',
-  'qimen',
-  'liuren',
-  'jinkoujue',
-  'taiyi',
-  'xiaoliuren',
-  'huangji-jingshi',
-  'wuyun-liuqi',
-  'tarot',
-  'lenormand',
-  'ssgw',
-  'zhuge',
-  'random-divination',
-  'almanac',
-  'bazhai',
-  'xuankong',
-  'residential',
-];
-
-export function isDivinationFormMethod(method: string): method is DivinationFormMethod {
-  return (DIVINATION_FORM_METHODS as readonly string[]).includes(method);
-}
-
-export const PERSONAL_CHART_TABS: ReadonlyArray<{
-  id: PersonalChartTabId;
-  label: string;
-  shortLabel: string;
-}> = [
-  { id: 'bazi', label: '八字', shortLabel: '八字' },
-  { id: 'ziwei', label: '紫微斗数', shortLabel: '紫微' },
-  { id: 'bazi-ziwei', label: '八字紫微合参', shortLabel: '合参' },
-  { id: 'qimen-lifetime', label: '奇门终身局', shortLabel: '奇门' },
-  { id: 'astrolabe', label: '西洋星盘', shortLabel: '星盘' },
-  { id: 'qizheng', label: '七政四余', shortLabel: '七政' },
-  { id: 'bazhai', label: '八宅命卦', shortLabel: '八宅' },
-];
-
-export const COMPATIBILITY_CHART_TABS: ReadonlyArray<{
-  id: CompatibilityChartTabId;
-  label: string;
-  shortLabel: string;
-}> = [
-  { id: 'bazi-synastry', label: '八字合盘', shortLabel: '八字合盘' },
-  { id: 'ziwei-synastry', label: '紫微合盘', shortLabel: '紫微合盘' },
-  { id: 'astrolabe-synastry', label: '西洋星盘合盘', shortLabel: '星盘合盘' },
-];
-
-export function isPersonalChartMethod(method: string): method is PersonalChartTabId {
-  return method === 'minglu' || PERSONAL_CHART_TABS.some((item) => item.id === method);
-}
-
-export function isCompatibilityChartMethod(method: string): method is CompatibilityChartTabId {
-  return COMPATIBILITY_CHART_TABS.some((item) => item.id === method);
-}
+export {
+  COMPATIBILITY_CHART_TABS,
+  DIVINATION_FORM_METHODS,
+  PERSONAL_CHART_TABS,
+  isCompatibilityChartMethod,
+  isDivinationFormMethod,
+  isPersonalChartMethod,
+  type CompatibilityChartTabId,
+  type DivinationFormMethod,
+  type PersonalChartTabId,
+};
 
 function wholeSecondIsoNow(): string {
   return new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace('.000Z', 'Z');
@@ -110,7 +43,7 @@ function toIsoBeijingRangeEndpoint(value: string): string {
  */
 export function buildPersonalChartPayload(
   person: PersonalCase,
-  tabId: PersonalChartTabId,
+  tabId: PersonalChartTabId | 'bazhai',
   questionText?: string,
   options?: {
     bazhaiSitMountain?: string;
@@ -215,9 +148,27 @@ export function buildPersonalChartPayload(
       };
     }
     case 'bazhai': {
-      const year = Math.trunc(Number(person.year) || 1990);
-      const month = Math.min(12, Math.max(1, Math.trunc(Number(person.month) || 1)));
-      const day = Math.min(31, Math.max(1, Math.trunc(Number(person.day) || 1)));
+      const rawYear = Math.trunc(Number(person.year) || 1990);
+      const rawMonth = Math.min(12, Math.max(1, Math.trunc(Number(person.month) || 1)));
+      const rawDay = Math.min(31, Math.max(1, Math.trunc(Number(person.day) || 1)));
+      let year = rawYear;
+      let month = rawMonth;
+      let day = rawDay;
+      const isLunar = (person.calendar ?? person.dateType) === 'lunar';
+      if (isLunar) {
+        try {
+          const solar = LunarDay.fromYmd(
+            rawYear,
+            person.isLeapMonth ? -rawMonth : rawMonth,
+            rawDay,
+          ).getSolarDay();
+          year = solar.getYear();
+          month = solar.getMonth();
+          day = solar.getDay();
+        } catch {
+          // 转换失败时回退原始年月日
+        }
+      }
       return {
         question,
         person: {

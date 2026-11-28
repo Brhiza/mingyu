@@ -117,7 +117,7 @@ export const METHOD_LABELS: Record<MethodId, string> = {
   astrolabe: '西洋星盘',
   'astrolabe-synastry': '西洋星盘合盘',
   'astrolabe-range': '西洋星盘出生范围',
-  minglu: '个人命录',
+  minglu: '命录',
   fortune: '流运运势',
 };
 

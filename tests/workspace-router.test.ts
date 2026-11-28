@@ -36,6 +36,9 @@ describe('workspace-router', () => {
       { input: '/utilities/name-char', expectedRoute: 'utilities', expectedCanonical: '/utilities/chinese-name' },
       { input: '/utilities/zhouyi', expectedRoute: 'utilities', expectedCanonical: '/utilities/zhouyi' },
       { input: '/history', expectedRoute: 'history', expectedCanonical: '/history' },
+      { input: '/cases', expectedRoute: 'cases', expectedCanonical: '/cases' },
+      { input: '/tools', expectedRoute: 'tools', expectedCanonical: '/tools' },
+      { input: '/me', expectedRoute: 'me', expectedCanonical: '/me' },
       { input: '/connect', expectedRoute: 'connect', expectedCanonical: '/connect' },
       { input: '/chat?session=abc123&from=history', expectedRoute: 'chat', expectedCanonical: '/chat?session=abc123&from=history' },
       { input: '/unknown/foo/bar', expectedRoute: 'home', expectedCanonical: '/' },
@@ -50,6 +53,10 @@ describe('workspace-router', () => {
   });
 
   it('区分专项数术的首页归属与常规占卜归属', () => {
+    const utilCalendar = parseWorkspaceLocation('/utilities/calendar', '', defaults);
+    assert.equal(utilCalendar.utilityMainTab, 'almanac');
+    assert.equal(utilCalendar.almanacSubTab, 'calendar');
+
     const taiyi = parseWorkspaceLocation('/divination/taiyi', '', defaults);
     assert.equal(taiyi.domainHint, 'home');
     assert.equal(taiyi.method, 'taiyi');
@@ -119,6 +126,9 @@ describe('workspace-router', () => {
       resolveResultFallbackTarget({ method: 'zhouyi', mode: 'divination' }).utilityMainTab,
       'name-char',
     );
+    const calendarFallback = resolveResultFallbackTarget({ method: 'calendar', mode: 'divination' });
+    assert.equal(calendarFallback.utilityMainTab, 'almanac');
+    assert.equal(calendarFallback.almanacSubTab, 'calendar');
   });
 
   it('根据当前路由生成清晰可读的页面标题', () => {
@@ -166,6 +176,39 @@ describe('workspace-router', () => {
         currentNameCharSubTab: 'zhouyi',
       }),
       '周易经文 · 命语',
+    );
+    assert.equal(
+      resolveWorkspaceDocumentTitle({
+        route: 'utilities',
+        activeDomain: 'utilities',
+        activeFeatureId: 'almanac',
+        activeMethod: 'almanac',
+        currentUtilityMainTab: 'almanac',
+        currentNameCharSubTab: 'chinese-name',
+      }),
+      '万年历 · 命语',
+    );
+    assert.equal(
+      resolveWorkspaceDocumentTitle({
+        route: 'tools',
+        activeDomain: 'tools',
+        activeFeatureId: 'tools',
+        activeMethod: 'bazi',
+        currentUtilityMainTab: 'almanac',
+        currentNameCharSubTab: 'chinese-name',
+      }),
+      '工具箱 · 命语',
+    );
+    assert.equal(
+      resolveWorkspaceDocumentTitle({
+        route: 'me',
+        activeDomain: 'me',
+        activeFeatureId: 'me',
+        activeMethod: 'bazi',
+        currentUtilityMainTab: 'almanac',
+        currentNameCharSubTab: 'chinese-name',
+      }),
+      '我的 · 命语',
     );
   });
 });

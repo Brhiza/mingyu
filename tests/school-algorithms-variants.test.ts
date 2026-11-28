@@ -4,7 +4,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculate } from '../src/core';
-import { redactSharePayload } from '../src/v2-ui/chart-share';
 import { promptFormSchema } from '../src/web-prompt-schema';
 import { formatCaseLifeEventsForPrompt, normalizeCaseLifeEvents } from '../src/v2-ui/cases-store';
 
@@ -143,20 +142,7 @@ test('占卜、择日、七政与五运六气多流派（含新增流派）输�
   assert.match(almanacRes.prompt.text, /民间通书民俗口径/);
 });
 
-test('长图隐私脱敏、流派中文大白话标签与案例人生大事记格式化', () => {
-  const redacted = redactSharePayload({
-    title: '张三',
-    subtitle: '1990-05-15 北京',
-    methodLabel: '八字排盘',
-    lines: ['出生当地钟表：1990-05-15T14:30:00', '四柱：庚午 辛巳 庚辰 癸未'],
-    excerptText: '【八字命盘】\n出生当地钟表：1990-05-15T14:30:00；真实出生瞬时：1990-05-15T06:30:00.000Z；经度 116.4°\n年柱：庚午',
-  });
-  assert.equal(redacted.title, '八字排盘（已脱敏）');
-  assert.equal(redacted.subtitle, '生辰与出生地点已隐私脱敏');
-  assert.ok(!redacted.excerptText!.includes('1990-05-15'));
-  assert.ok(!redacted.excerptText!.includes('116.4°'));
-  assert.match(redacted.excerptText!, /年柱：庚午/);
-
+test('流派中文大白话标签与案例人生大事记格式化', () => {
   const schemaOut = promptFormSchema('bazi', { type: 'object', properties: { schools: { type: 'array' } } }, {}) as {
     properties: { schools: { optionLabels?: Record<string, string> } };
   };

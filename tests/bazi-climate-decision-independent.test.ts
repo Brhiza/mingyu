@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPillarFacts } from '../src/systems/bazi/pillars';
 import { buildDayMasterStrength } from '../src/systems/bazi/strength';
-import { buildClimateCandidates } from '../src/systems/bazi/climate';
+import { buildClimateCandidates, ensureClimateRulesLoaded } from '../src/systems/bazi/climate';
+
+await ensureClimateRulesLoaded();
 import { resolveClimate } from '../src/systems/bazi/climate-decision';
 import { buildUsefulBaseline } from '../src/systems/bazi/useful-baseline';
 

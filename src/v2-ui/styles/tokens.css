@@ -1,4 +1,0 @@
-/**
- * 唯一设计令牌来源：直接复用 src/styles/tokens.css，杜绝两份令牌各自修改导致的不一致。
- */
-@import '../../styles/tokens.css';

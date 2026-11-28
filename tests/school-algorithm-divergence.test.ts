@@ -10,7 +10,9 @@ import { buildQuzhi } from '../src/systems/bazi/quzhi';
 import { buildCongEr } from '../src/systems/bazi/conger';
 import { buildExtremePattern } from '../src/systems/bazi/extreme';
 import { buildUsefulBaseline } from '../src/systems/bazi/useful-baseline';
-import { buildClimateCandidates } from '../src/systems/bazi/climate';
+import { buildClimateCandidates, ensureClimateRulesLoaded } from '../src/systems/bazi/climate';
+
+await ensureClimateRulesLoaded();
 import { resolveClimate } from '../src/systems/bazi/climate-decision';
 import { buildPatternEvidence } from '../src/systems/bazi/pattern-evidence';
 import { determineUsefulGod } from '../src/systems/bazi/useful-god';

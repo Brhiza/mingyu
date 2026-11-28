@@ -1,4 +1,6 @@
+import { createBoardDetailBar, createBoardModalTrigger } from './dom';
 import { el, svgEl, unwrapBoardData } from './shared';
+import { formatAstroChartWarnings } from '../systems/prompt-format';
 
 interface AstrolabePoint {
   id: string;
@@ -53,18 +55,18 @@ interface AstrolabePayload {
 }
 
 const ZODIAC_SIGNS = [
-  { name: '白羊', symbol: '♈', element: 'fire' },
-  { name: '金牛', symbol: '♉', element: 'earth' },
-  { name: '双子', symbol: '♊', element: 'air' },
-  { name: '巨蟹', symbol: '♋', element: 'water' },
-  { name: '狮子', symbol: '♌', element: 'fire' },
-  { name: '处女', symbol: '♍', element: 'earth' },
-  { name: '天秤', symbol: '♎', element: 'air' },
-  { name: '天蝎', symbol: '♏', element: 'water' },
-  { name: '射手', symbol: '♐', element: 'fire' },
-  { name: '摩羯', symbol: '♑', element: 'earth' },
-  { name: '水瓶', symbol: '♒', element: 'air' },
-  { name: '双鱼', symbol: '♓', element: 'water' },
+  { name: '白羊', symbol: '♈\uFE0E', element: 'fire' },
+  { name: '金牛', symbol: '♉\uFE0E', element: 'earth' },
+  { name: '双子', symbol: '♊\uFE0E', element: 'air' },
+  { name: '巨蟹', symbol: '♋\uFE0E', element: 'water' },
+  { name: '狮子', symbol: '♌\uFE0E', element: 'fire' },
+  { name: '处女', symbol: '♍\uFE0E', element: 'earth' },
+  { name: '天秤', symbol: '♎\uFE0E', element: 'air' },
+  { name: '天蝎', symbol: '♏\uFE0E', element: 'water' },
+  { name: '射手', symbol: '♐\uFE0E', element: 'fire' },
+  { name: '摩羯', symbol: '♑\uFE0E', element: 'earth' },
+  { name: '水瓶', symbol: '♒\uFE0E', element: 'air' },
+  { name: '双鱼', symbol: '♓\uFE0E', element: 'water' },
 ] as const;
 
 const ROMAN_HOUSES = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'] as const;
@@ -153,7 +155,9 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
     ...(southNode ? [southNode] : []),
     ...(fortune ? [fortune] : []),
   ];
-  const pointById = new Map<string, AstrolabePoint>(visiblePoints.map((p) => [p.id, p]));
+  const pointById = new Map<string, AstrolabePoint>(
+    [...data.points, ...(data.derived ?? [])].map((p) => [p.id, p]),
+  );
 
   const sortedHouses = [...data.houses].sort((a, b) => a.house - b.house);
   const ascAngle = data.angles?.find((a) => a.id === 'ascendant' || a.name.includes('上升'));
@@ -281,13 +285,13 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
     );
   }
 
-  // ASC / DSC / MC / IC 四轴外标
+  // 上升 / 下降 / 天顶 / 天底四轴外标
   const axisBadges: Array<{ label: string; lon: number }> = [
-    { label: 'ASC', lon: ascLongitude },
-    { label: 'DSC', lon: (ascLongitude + 180) % 360 },
+    { label: '上升', lon: ascLongitude },
+    { label: '下降', lon: (ascLongitude + 180) % 360 },
   ];
   if (mcAngle) {
-    axisBadges.push({ label: 'MC', lon: mcAngle.longitude }, { label: 'IC', lon: (mcAngle.longitude + 180) % 360 });
+    axisBadges.push({ label: '天顶', lon: mcAngle.longitude }, { label: '天底', lon: (mcAngle.longitude + 180) % 360 });
   }
   for (const ax of axisBadges) {
     const pt = toWheelPoint(ax.lon, ascLongitude, R_OUTER + 12, CX, CY);
@@ -570,7 +574,7 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
       const rulerHint = rulerPt ? ` · 主${rulerPt.name.slice(0, 1)}飞${rulerPt.house}宫` : '';
       const cell = el('div', { className: 'astro-house-cell' });
       cell.append(
-        el('span', { className: 'astro-house-idx', text: `${ROMAN_HOUSES[h.house - 1] ?? h.house}宫` }),
+        el('span', { className: 'astro-house-idx', text: `第${h.house}宫` }),
         el('strong', { className: 'astro-house-sign', text: `${h.sign} ${h.degreeInSign.toFixed(1)}°${rulerHint}` }),
       );
       hGrid.append(cell);
@@ -578,6 +582,16 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
     houseCard.append(hGrid);
     astroDetailGrid.append(houseCard);
   }
+
+  const EXTRA_POINT_NAMES: Record<string, string> = {
+    true_lilith: '真莉莉丝',
+    mean_lilith: '平莉莉丝',
+    chiron: '凯龙星',
+    true_node: '北交点',
+    mean_node: '平均北交',
+    south_node: '南交点',
+    fortune: '福点',
+  };
 
   if (allAspects.length > 0) {
     const aspCard = el('div', { className: 'astro-extra-card' });
@@ -589,12 +603,14 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
       const secondId = a.second ?? (typeof aRec.point2 === 'string' ? aRec.point2 : '');
       const p1Name =
         pointById.get(firstId)?.name ??
-        (typeof aRec.point1Name === 'string' ? aRec.point1Name : firstId) ??
-        '—';
+        (typeof aRec.point1Name === 'string' ? aRec.point1Name : undefined) ??
+        EXTRA_POINT_NAMES[firstId] ??
+        (firstId || '—');
       const p2Name =
         pointById.get(secondId)?.name ??
-        (typeof aRec.point2Name === 'string' ? aRec.point2Name : secondId) ??
-        '—';
+        (typeof aRec.point2Name === 'string' ? aRec.point2Name : undefined) ??
+        EXTRA_POINT_NAMES[secondId] ??
+        (secondId || '—');
       const aspLabel =
         a.name ?? (typeof aRec.label === 'string' ? aRec.label : '') ?? '相位';
       const isTense = TENSE_ASPECTS.has(a.type);
@@ -615,35 +631,43 @@ export function renderAstrolabeBoard(container: HTMLElement, value: unknown): bo
 
   if (astroDetailGrid.childElementCount > 0) shell.append(astroDetailGrid);
 
-  // 虚点衍生与校验提示
+  // 虚点衍生与校验提示收拢至弹窗
   const extraDerived = data.derived ?? [];
-  const warnings = (rawAstro.warnings as string[] | undefined) ?? [];
+  const warnings = formatAstroChartWarnings(
+    Array.isArray(rawAstro.warnings) ? (rawAstro.warnings as unknown[]) : undefined,
+  );
   if (extraDerived.length > 0 || warnings.length > 0) {
-    const extrasCard = el('div', { className: 'astro-extra-card' });
-    extrasCard.style.marginTop = '12px';
-    extrasCard.append(el('h4', { className: 'astro-extra-title', text: '虚点交点与星盘校验提示' }));
-    const list = el('div', { className: 'astro-pat-list' });
-    for (const d of extraDerived) {
-      const row = el('div', { className: 'astro-pat-item' });
-      row.append(
-        el('strong', { className: 'astro-pat-label', text: d.name }),
-        el('span', {
-          className: 'astro-pat-detail',
-          text: `${d.sign} ${d.degreeInSign.toFixed(1)}°${d.house ? ` · 第${d.house}宫` : ''}`,
-        }),
-      );
-      list.append(row);
-    }
-    for (const w of warnings.slice(0, 4)) {
-      const row = el('div', { className: 'astro-pat-item' });
-      row.append(
-        el('strong', { className: 'astro-pat-label', text: '提示' }),
-        el('span', { className: 'astro-pat-detail', text: w }),
-      );
-      list.append(row);
-    }
-    extrasCard.append(list);
-    shell.append(extrasCard);
+    const astroBar = createBoardDetailBar([
+      createBoardModalTrigger(
+        '虚点与盘面校验',
+        '虚点交点与星盘校验提示',
+        () => {
+          const list = el('div', { className: 'astro-pat-list' });
+          for (const d of extraDerived) {
+            const row = el('div', { className: 'astro-pat-item' });
+            row.append(
+              el('strong', { className: 'astro-pat-label', text: d.name }),
+              el('span', {
+                className: 'astro-pat-detail',
+                text: `${d.sign} ${d.degreeInSign.toFixed(1)}°${d.house ? ` · 第${d.house}宫` : ''}`,
+              }),
+            );
+            list.append(row);
+          }
+          for (const w of warnings) {
+            const row = el('div', { className: 'astro-pat-item' });
+            row.append(
+              el('strong', { className: 'astro-pat-label', text: '校验' }),
+              el('span', { className: 'astro-pat-detail', text: w }),
+            );
+            list.append(row);
+          }
+          return list;
+        },
+        `${extraDerived.length + warnings.length}项`,
+      ),
+    ]);
+    if (astroBar) shell.append(astroBar);
   }
 
   container.hidden = false;

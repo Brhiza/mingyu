@@ -167,6 +167,33 @@ const CHINESE_NATAL_FOCUS_PRESETS: ReadonlyArray<QuickFocusPreset> = [
   },
 ];
 
+const MULTI_HECAN_FOCUS_PRESETS: ReadonlyArray<QuickFocusPreset> = [
+  {
+    label: '综合合参',
+    prompt: '请综合本次已选术数，提炼跨体系共振主线、核心格局优劣与关键应对方向。',
+  },
+  {
+    label: '事业路径',
+    prompt: '请跨盘对照事业定位、发力优势、职场/创业适配路径与潜在阻力。',
+  },
+  {
+    label: '财富守攻',
+    prompt: '请跨盘对照生财方式、资源积累节奏、守财短板与投资风控边界。',
+  },
+  {
+    label: '感情关系',
+    prompt: '请跨盘对照亲密关系模式、择偶/相处重点、情感磨合卡点与改善建议。',
+  },
+  {
+    label: '流年节奏',
+    prompt: '请结合当前与未来一年的岁运/行运节奏，指出关键机会窗口与防守节点。',
+  },
+  {
+    label: '共振与分歧',
+    prompt: '请重点对比本次已选术数之间的强共振共识与矛盾分歧，说明现实中该如何核验取舍。',
+  },
+];
+
 const WESTERN_ASTRO_FOCUS_PRESETS: ReadonlyArray<QuickFocusPreset> = [
   {
     label: '综合详批',
@@ -317,6 +344,7 @@ export function resolveFocusPresetsForContext(
   if (NAME_NUMBER_METHODS.has(method)) return NAME_NUMBER_FOCUS_PRESETS;
   if (CARD_LOT_METHODS.has(method)) return CARD_LOT_FOCUS_PRESETS;
   if (WESTERN_METHODS.has(method)) return WESTERN_ASTRO_FOCUS_PRESETS;
+  if (method === 'bazi-ziwei') return MULTI_HECAN_FOCUS_PRESETS;
   if (mode === 'divination') return TRADITIONAL_DIVINATION_FOCUS_PRESETS;
   return CHINESE_NATAL_FOCUS_PRESETS;
 }

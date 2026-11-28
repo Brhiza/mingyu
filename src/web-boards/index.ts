@@ -3,19 +3,157 @@ import {
   asNumber,
   asRecord,
   asString,
+  createBoardDetailBar,
   createBoardHeader,
+  createBoardModalTrigger,
   createMetaGrid,
   el,
   type UnknownRecord,
 } from './dom';
+import { warnDev } from '../lib/dev-log';
+import { formatClockLike } from '../systems/prompt-format';
 
 const renderTokens = new WeakMap<HTMLElement, number>();
-let boardsCssPromise: Promise<unknown> | null = null;
-function ensureBoardsCssLoaded(): Promise<unknown> {
-  if (!boardsCssPromise) {
-    boardsCssPromise = import('./boards.css');
+type BoardCssDomain = 'natal' | 'cards' | 'traditional';
+let boardsCommonCssPromise: Promise<unknown> | null = null;
+const boardDomainCssCache = new Map<BoardCssDomain, Promise<unknown>>();
+
+function domainsForBoard(effectiveMethod: string, dataRec?: UnknownRecord): BoardCssDomain[] {
+  switch (effectiveMethod) {
+    case 'bazi':
+    case 'ziwei':
+    case 'minglu':
+    case 'bazi-synastry':
+    case 'ziwei-synastry':
+    case 'astrolabe':
+    case 'astrolabe-synastry':
+    case 'qizheng':
+    case 'instant':
+      return ['natal'];
+    case 'bazi-ziwei': {
+      const domains: BoardCssDomain[] = ['natal'];
+      if (dataRec?.kind === 'multi-hecan') {
+        const computed = asArray(dataRec.computedSystems).map(asString).filter(Boolean);
+        const charts = asRecord(dataRec.charts);
+        if (computed.includes('qimen-lifetime') || Boolean(charts?.['qimen-lifetime'])) {
+          domains.push('traditional');
+        }
+      }
+      return domains;
+    }
+    case 'tarot':
+    case 'lenormand':
+    case 'ssgw':
+    case 'zhuge':
+      return ['cards'];
+    case 'fortune':
+      return [];
+    default:
+      return ['traditional'];
   }
-  return boardsCssPromise;
+}
+
+function loadBoardDomainCss(domain: BoardCssDomain): Promise<unknown> {
+  let pending = boardDomainCssCache.get(domain);
+  if (!pending) {
+    pending =
+      domain === 'natal'
+        ? import('./boards-natal.css')
+        : domain === 'cards'
+          ? import('./boards-cards.css')
+          : import('./boards-traditional.css');
+    boardDomainCssCache.set(domain, pending);
+  }
+  return pending;
+}
+
+function ensureBoardsCssLoaded(effectiveMethod: string, dataRec?: UnknownRecord): Promise<unknown> {
+  if (typeof document === 'undefined') return Promise.resolve();
+  if (!boardsCommonCssPromise) {
+    boardsCommonCssPromise = import('./boards-common.css');
+  }
+  const domains = domainsForBoard(effectiveMethod, dataRec);
+  return Promise.all([boardsCommonCssPromise, ...domains.map(loadBoardDomainCss)]);
+}
+
+function loadBoardModulesForMethod(method: string): Promise<unknown> {
+  switch (method) {
+    case 'bazi':
+    case 'bazi-synastry':
+      return import('./bazi-board');
+    case 'ziwei':
+    case 'ziwei-synastry':
+      return import('./ziwei-board');
+    case 'bazi-ziwei':
+      return Promise.all([import('./bazi-board'), import('./ziwei-board')]);
+    case 'minglu':
+      return Promise.all([import('./minglu-wiki-board'), import('./bazi-board')]);
+    case 'astrolabe':
+    case 'astrolabe-synastry':
+      return import('./astrolabe-board');
+    case 'qimen':
+    case 'qimen-lifetime':
+      return import('./qimen-board');
+    case 'liuyao':
+    case 'meihua':
+      return import('./hexagram-board');
+    case 'tarot':
+    case 'lenormand':
+    case 'ssgw':
+    case 'zhuge':
+      return import('./cards-board');
+    case 'liuren':
+    case 'jinkoujue':
+      return import('./liuren-board');
+    case 'taiyi':
+    case 'huangji-jingshi':
+      return import('./taiyi-board');
+    case 'qizheng':
+      return import('./qizheng-board');
+    case 'fortune':
+      return import('./fortune-board');
+    case 'instant':
+      return Promise.all([
+        import('./bazi-board'),
+        import('./ziwei-board'),
+        import('./astrolabe-board'),
+        import('./qizheng-board'),
+      ]);
+    case 'almanac':
+    case 'bazhai':
+    case 'xuankong':
+    case 'residential':
+    case 'calendar':
+    case 'zhouyi':
+    case 'character-query':
+    case 'xiaoliuren':
+    case 'wuyun-liuqi':
+    case 'number-energy':
+      return import('./tradition-boards');
+    default:
+      return Promise.resolve();
+  }
+}
+
+export function preloadBoardCommonCss(): void {
+  if (typeof document === 'undefined') return;
+  if (!boardsCommonCssPromise) {
+    boardsCommonCssPromise = import('./boards-common.css');
+  }
+  void boardsCommonCssPromise.catch((err) => {
+    warnDev('web-boards', '预加载盘面公共样式失败', err);
+  });
+}
+
+export function preloadVisualBoardAssets(method: string): void {
+  if (typeof document === 'undefined') return;
+  void Promise.all([
+    ensureBoardsCssLoaded(method),
+    loadBoardModulesForMethod(method),
+    method !== 'minglu' ? import('./classics-card') : Promise.resolve(),
+  ]).catch((err) => {
+    warnDev('web-boards', `预加载盘面资源失败（${method}）`, err);
+  });
 }
 
 export function clearVisualBoard(container: HTMLElement): void {
@@ -46,9 +184,10 @@ function normalizeBaziPayload(raw: unknown): unknown {
   if (!rec) return raw;
   if ('chart' in rec && rec.chart) return rec;
   if ('pillars' in rec && rec.pillars) {
+    const clockText = formatClockLike(rec.calculationClock);
     return {
       chart: {
-        basis: rec.basis ?? (rec.calculationClock ? { localDateTime: String(rec.calculationClock) } : undefined),
+        basis: rec.basis ?? (clockText ? { localDateTime: clockText } : undefined),
         pillars: rec.pillars,
         shensha: rec.shensha,
       },
@@ -77,16 +216,34 @@ function extractSummaryInfo(value: unknown): { title?: string; tags: string[]; l
   };
 }
 
+const CANONICAL_BZ_THEMES: ReadonlyArray<{ label: string; pillars: string[]; palaces: string[] }> = [
+  { label: '命局总纲', pillars: ['year', 'month', 'day', 'hour'], palaces: ['命宫', '福德', '迁移'] },
+  { label: '性情与能力', pillars: ['month', 'day', 'hour'], palaces: ['命宫', '福德'] },
+  { label: '事业与发展', pillars: ['month', 'day', 'hour'], palaces: ['官禄', '命宫', '迁移', '财帛'] },
+  { label: '财帛与资源', pillars: ['month', 'day', 'hour'], palaces: ['财帛', '田宅', '官禄'] },
+  { label: '感情与关系', pillars: ['day', 'hour'], palaces: ['夫妻', '福德', '命宫'] },
+  { label: '家庭与六亲', pillars: ['year', 'month', 'day', 'hour'], palaces: ['父母', '兄弟', '子女', '田宅'] },
+  { label: '身心与健康', pillars: ['month', 'day', 'hour'], palaces: ['疾厄', '福德', '命宫'] },
+  { label: '迁移与环境', pillars: ['year', 'month', 'day'], palaces: ['迁移', '田宅', '官禄'] },
+  { label: '内在状态', pillars: ['month', 'day', 'hour'], palaces: ['福德', '命宫'] },
+  { label: '大运与流年', pillars: ['year', 'month', 'day', 'hour'], palaces: ['命宫', '官禄', '财帛'] },
+];
+
 function renderBaziZiweiCorroborationCard(dataRec: UnknownRecord): HTMLElement | null {
   const corr = asRecord(dataRec.corroboration);
-  const themes = asArray(dataRec.themes).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
-  if (!corr && themes.length === 0) return null;
+  const rawThemes = asArray(dataRec.themes).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+  if (!corr && rawThemes.length === 0) return null;
+
+  const themes = rawThemes.length > 0 ? rawThemes : CANONICAL_BZ_THEMES;
+  const shaYao = asRecord(corr?.shaYao);
+  const guiRen = asRecord(corr?.guiRen);
+  const crossBal = asRecord(corr?.crossSystemBalance);
+  const resonances = asArray(crossBal?.resonances).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
+  const tensions = asArray(crossBal?.tensions).map(asRecord).filter((x): x is UnknownRecord => Boolean(x));
 
   const shell = el('section', 'wb-shell');
   shell.setAttribute('aria-label', '八字与紫微斗数合参互证摘要');
 
-  const shaYao = asRecord(corr?.shaYao);
-  const guiRen = asRecord(corr?.guiRen);
   const badges: Array<{ text: string; tone?: 'accent' | 'neutral' | 'good' | 'warn' }> = [
     { text: '星平合参', tone: 'accent' },
   ];
@@ -106,7 +263,7 @@ function renderBaziZiweiCorroborationCard(dataRec: UnknownRecord): HTMLElement |
   shell.append(
     createBoardHeader(
       '八字 · 紫微斗数双盘合参互证',
-      asString(corr?.summary) ?? '双盘星神交会、煞刃相济与十维生命主题合参',
+      asString(corr?.summary) || undefined,
       badges,
     ),
   );
@@ -117,37 +274,96 @@ function renderBaziZiweiCorroborationCard(dataRec: UnknownRecord): HTMLElement |
   ]);
   if (meta) shell.append(meta);
 
-  if (themes.length > 0) {
-    const tSec = el('div', 'lr-section');
-    tSec.append(el('h4', 'lr-section-title', `十维生命主题合参对照（${themes.length} 维）`));
-    const tGrid = el('div', 'al-hours-grid');
-    const pillarNames: Record<string, string> = { year: '年', month: '月', day: '日', hour: '时' };
-    for (const th of themes) {
-      const card = el('div', 'al-hour-card');
-      const pillars = asArray(th.pillars).map((p) => pillarNames[asString(p) ?? ''] ?? asString(p)).filter(Boolean).join('/');
-      const palaces = asArray(th.palaces).map(asString).filter(Boolean).join('·');
-      card.append(el('strong', 'al-hour-name', asString(th.label) ?? '主题'));
-      card.append(el('div', 'al-hour-range', `八字：${pillars || '全盘'} ｜ 紫微：${palaces || '—'}`));
-      tGrid.append(card);
-    }
-    tSec.append(tGrid);
-    shell.append(tSec);
-  }
-
   const shownJudgments = new Set(
     [asString(shaYao?.judgment), asString(guiRen?.judgment)].filter((v): v is string => Boolean(v)),
   );
   const points = asArray(corr?.corroborationPoints)
     .map(asString)
     .filter((x): x is string => typeof x === 'string' && x.length > 0 && !shownJudgments.has(x));
-  if (points.length > 0) {
-    const note = el('div', 'wb-note-box');
-    note.append(el('strong', undefined, '跨体系互证要点：'));
-    note.append(points.join('；'));
-    shell.append(note);
+
+  if (themes.length > 0 || points.length > 0 || resonances.length > 0 || tensions.length > 0) {
+    const pillarNames: Record<string, string> = { year: '年', month: '月', day: '日', hour: '时' };
+    const trigger = createBoardModalTrigger(
+      '十维主题对照与互证要点',
+      '八字紫微十维生命主题与互证要点',
+      () => {
+        const frag = document.createDocumentFragment();
+        if (points.length > 0) {
+          const note = el('div', 'wb-note-box');
+          note.append(el('strong', undefined, '跨体系互证要点：'));
+          note.append(points.join('；'));
+          frag.append(note);
+        }
+        if (resonances.length > 0 || tensions.length > 0) {
+          const rSec = el('div', 'lr-section');
+          rSec.append(el('h4', 'lr-section-title', `同向共振与制衡张力（${resonances.length + tensions.length} 项）`));
+          const list = el('div', 'wb-computed-list');
+          for (const res of resonances) {
+            const card = el('div', 'wb-computed-item is-good');
+            card.append(el('strong', 'wb-computed-title', `同向 · ${asString(res.topic) ?? ''}`));
+            card.append(el('p', 'wb-computed-desc', `八字：${asString(res.baziSignal) ?? '—'} ｜ 紫微：${asString(res.ziweiSignal) ?? '—'}`));
+            if (asString(res.condition)) card.append(el('small', 'wb-computed-quote', asString(res.condition)));
+            list.append(card);
+          }
+          for (const ten of tensions) {
+            const card = el('div', 'wb-computed-item is-bad');
+            card.append(el('strong', 'wb-computed-title', `张力 · ${asString(ten.topic) ?? ''}`));
+            card.append(el('p', 'wb-computed-desc', `八字：${asString(ten.baziSignal) ?? '—'} ｜ 紫微：${asString(ten.ziweiSignal) ?? '—'}`));
+            if (asString(ten.condition)) card.append(el('small', 'wb-computed-quote', asString(ten.condition)));
+            list.append(card);
+          }
+          rSec.append(list);
+          frag.append(rSec);
+        }
+        if (themes.length > 0) {
+          const tSec = el('div', 'lr-section');
+          tSec.append(el('h4', 'lr-section-title', `十维生命主题对照（${themes.length} 维）`));
+          const tGrid = el('div', 'al-hours-grid');
+          for (const th of themes) {
+            const card = el('div', 'al-hour-card');
+            const pillars = ('pillars' in th ? asArray(th.pillars) : [])
+              .map((p) => pillarNames[asString(p) ?? ''] ?? asString(p))
+              .filter(Boolean)
+              .join('/');
+            const palaces = ('palaces' in th ? asArray(th.palaces) : []).map(asString).filter(Boolean).join('·');
+            const labelText = 'label' in th ? asString(th.label) : undefined;
+            card.append(el('strong', 'al-hour-name', labelText ?? '主题'));
+            card.append(el('div', 'al-hour-range', `八字：${pillars || '全盘'} ｜ 紫微：${palaces || '—'}`));
+            tGrid.append(card);
+          }
+          tSec.append(tGrid);
+          frag.append(tSec);
+        }
+        return frag;
+      },
+      `${themes.length}维`,
+    );
+    const bar = createBoardDetailBar([trigger]);
+    if (bar) shell.append(bar);
   }
 
   return shell;
+}
+
+function appendBoardTriggerButton(host: HTMLElement, btn: HTMLElement | undefined | null) {
+  if (!btn) return;
+  const bars = host.querySelectorAll<HTMLElement>('.wb-detail-actions-bar');
+  const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined;
+  if (lastBar) {
+    lastBar.append(btn);
+    return;
+  }
+  const bar = createBoardDetailBar([btn]);
+  if (!bar) return;
+  const singleChild =
+    host.childElementCount === 1 && host.firstElementChild instanceof HTMLElement
+      ? host.firstElementChild
+      : undefined;
+  if (singleChild && !singleChild.classList.contains('wb-classics-card')) {
+    singleChild.append(bar);
+  } else {
+    host.append(bar);
+  }
 }
 
 function appendQimenLifetimeExtras(shell: HTMLElement, dataRec: UnknownRecord) {
@@ -168,59 +384,18 @@ function appendQimenLifetimeExtras(shell: HTMLElement, dataRec: UnknownRecord) {
     const ageStr = startAge
       ? `${asNumber(startAge.years) ?? 0}岁${asNumber(startAge.months) ? `${asNumber(startAge.months)}月` : ''}${asNumber(startAge.days) ? `${asNumber(startAge.days)}天` : ''}`
       : undefined;
+    const rawDir = asString(decadalLuck.direction);
+    const dirLabel = rawDir === 'forward' ? '顺行大运' : rawDir === 'backward' ? '逆行大运' : rawDir;
+    const rawStartDt = asString(decadalLuck.startDateTime);
+    const startDtLabel =
+      rawStartDt && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(rawStartDt)
+        ? rawStartDt.replace('T', ' ').slice(0, 16)
+        : rawStartDt;
     const luckMeta = createMetaGrid([
-      ['终身大限顺逆', asString(decadalLuck.direction)],
-      ['起运岁数 / 时间', [ageStr, asString(decadalLuck.startDateTime)].filter(Boolean).join(' · ') || undefined],
-      ['行限口径', [asString(decadalLuck.rule), asString(decadalLuck.mapping)].filter(Boolean).join(' · ') || undefined],
+      ['终身大限顺逆', dirLabel],
+      ['起运岁数 / 时间', [ageStr, startDtLabel].filter(Boolean).join(' · ') || undefined],
     ]);
     if (luckMeta) shell.append(luckMeta);
-  }
-
-  if (markers.length > 0) {
-    const sec = el('div', 'lr-section');
-    sec.append(el('h4', 'lr-section-title', `终身局个人标记（共 ${markers.length} 项）`));
-    const mGrid = el('div', 'al-hours-grid');
-    for (const m of markers) {
-      const card = el('div', 'al-hour-card is-good');
-      const top = el('div', 'al-hour-top');
-      top.append(el('strong', 'al-hour-name', `${asString(m.value) ?? ''} · ${asString(m.palaceName) ?? ''}`));
-      const layerRaw = asString(m.layer);
-      if (layerRaw) {
-        const layerLabelMap: Record<string, string> = {
-          tianPan: '天盘干',
-          diPan: '地盘干',
-          baseGong: '本命落宫',
-          anGan: '暗干',
-          zhiFu: '值符',
-          zhiShi: '值使',
-        };
-        top.append(el('span', 'wb-badge wb-badge-accent', layerLabelMap[layerRaw] ?? layerRaw));
-      }
-      card.append(top);
-      if (asString(m.traditionalSignificance)) {
-        card.append(el('div', 'al-hour-range', asString(m.traditionalSignificance)));
-      }
-      mGrid.append(card);
-    }
-    sec.append(mGrid);
-    shell.append(sec);
-  }
-
-  if (topicCands.length > 0) {
-    const tSec = el('div', 'lr-section');
-    tSec.append(el('h4', 'lr-section-title', `事项用神落宫（${topicCands.length} 类）`));
-    const tWrap = el('div', 'wb-chip-wrap');
-    for (const tc of topicCands) {
-      const label = asString(tc.label) ?? asString(tc.topic) ?? '';
-      const palaces = asArray(tc.palaces)
-        .map((p) => asString(asRecord(p)?.name) ?? asString(p))
-        .filter(Boolean)
-        .join('·');
-      const txt = [label, palaces, asString(tc.basis)].filter(Boolean).join('：');
-      if (txt) tWrap.append(el('span', 'wb-badge wb-badge-neutral', txt));
-    }
-    tSec.append(tWrap);
-    shell.append(tSec);
   }
 
   if (stages.length > 0) {
@@ -263,6 +438,81 @@ function appendQimenLifetimeExtras(shell: HTMLElement, dataRec: UnknownRecord) {
     sec.append(sGrid);
     shell.append(sec);
   }
+
+  const ruleText = [asString(decadalLuck?.rule), asString(decadalLuck?.mapping)].filter(Boolean).join(' · ');
+  if (markers.length > 0 || topicCands.length > 0 || ruleText) {
+    const layerLabelMap: Record<string, string> = {
+      tianPan: '天盘干',
+      diPan: '地盘干',
+      renPan: '人盘门',
+      baseGong: '本命落宫',
+      anGan: '暗干',
+      zhiFu: '值符',
+      zhiShi: '值使',
+    };
+    const topicLabelMap: Record<string, string> = {
+      career: '事业官禄',
+      wealth: '资产财帛',
+      marriage: '婚恋配偶',
+      health: '身体疾厄',
+      academic: '学业进修',
+      relocation: '居所差旅',
+      family: '原生家庭',
+      children: '晚辈后嗣',
+      partnership: '合伙合作',
+    };
+    const trigger = createBoardModalTrigger(
+      '个人标记与用神落宫',
+      '终身局个人标记、用神落宫与行限口径',
+      () => {
+        const frag = document.createDocumentFragment();
+        if (ruleText) {
+          frag.append(el('p', 'wb-note-box', `行限口径：${ruleText}`));
+        }
+        if (markers.length > 0) {
+          const sec = el('div', 'lr-section');
+          sec.append(el('h4', 'lr-section-title', `终身局个人标记（共 ${markers.length} 项）`));
+          const mGrid = el('div', 'al-hours-grid');
+          for (const m of markers) {
+            const card = el('div', 'al-hour-card is-good');
+            const top = el('div', 'al-hour-top');
+            top.append(el('strong', 'al-hour-name', `${asString(m.value) ?? ''} · ${asString(m.palaceName) ?? ''}`));
+            const layerRaw = asString(m.layer);
+            if (layerRaw) {
+              top.append(el('span', 'wb-badge wb-badge-accent', layerLabelMap[layerRaw] ?? layerRaw));
+            }
+            card.append(top);
+            if (asString(m.traditionalSignificance)) {
+              card.append(el('div', 'al-hour-range', asString(m.traditionalSignificance)));
+            }
+            mGrid.append(card);
+          }
+          sec.append(mGrid);
+          frag.append(sec);
+        }
+        if (topicCands.length > 0) {
+          const tSec = el('div', 'lr-section');
+          tSec.append(el('h4', 'lr-section-title', `事项用神落宫（${topicCands.length} 类）`));
+          const tWrap = el('div', 'wb-chip-wrap');
+          for (const tc of topicCands) {
+            const topicKey = asString(tc.topic) ?? '';
+            const label = asString(tc.topicName) ?? asString(tc.label) ?? (topicLabelMap[topicKey] ?? topicKey);
+            const palaces = asArray(tc.palaces)
+              .map((p) => asString(asRecord(p)?.name) ?? asString(p))
+              .filter(Boolean)
+              .join('·');
+            const txt = [label, palaces, asString(tc.basis)].filter(Boolean).join('：');
+            if (txt) tWrap.append(el('span', 'wb-badge wb-badge-neutral', txt));
+          }
+          tSec.append(tWrap);
+          frag.append(tSec);
+        }
+        return frag;
+      },
+      markers.length + topicCands.length > 0 ? `${markers.length + topicCands.length}项` : undefined,
+    );
+    appendBoardTriggerButton(shell, trigger);
+  }
 }
 
 export async function renderVisualBoard(
@@ -271,7 +521,6 @@ export async function renderVisualBoard(
   value: unknown,
 ): Promise<boolean> {
   const token = (renderTokens.get(container) ?? 0) + 1;
-  await ensureBoardsCssLoaded();
   renderTokens.set(container, token);
 
   const { effectiveMethod, data } = resolvePayload(method, value);
@@ -281,6 +530,13 @@ export async function renderVisualBoard(
   }
 
   const dataRec = asRecord(data);
+  const [cssResult, , classicsModule] = await Promise.all([
+    ensureBoardsCssLoaded(effectiveMethod, dataRec),
+    loadBoardModulesForMethod(effectiveMethod),
+    effectiveMethod !== 'minglu' ? import('./classics-card') : Promise.resolve(null),
+  ]);
+  void cssResult;
+  if (renderTokens.get(container) !== token) return false;
   let rendered = false;
   const tempHost = document.createElement('div');
 
@@ -411,25 +667,6 @@ export async function renderVisualBoard(
       ]);
       if (meta) headerShell.append(meta);
 
-      if (activeComps.length > 0) {
-        const wrap = el('div', 'wb-chip-wrap');
-        for (const cp of activeComps.slice(0, 10)) {
-          const p1p = pillarShort[asString(cp.person1Pillar) ?? ''] ?? asString(cp.person1Pillar) ?? '';
-          const p2p = pillarShort[asString(cp.person2Pillar) ?? ''] ?? asString(cp.person2Pillar) ?? '';
-          const rels = asArray(cp.relations)
-            .map((r) => asString(asRecord(r)?.name))
-            .filter(Boolean)
-            .join('·');
-          wrap.append(
-            el(
-              'span',
-              'wb-badge wb-badge-neutral',
-              `${p1Name}${p1p}(${asString(cp.person1GanZhi) ?? ''}) ↔ ${p2Name}${p2p}(${asString(cp.person2GanZhi) ?? ''})：${rels}`,
-            ),
-          );
-        }
-        headerShell.append(wrap);
-      }
       const fc = asRecord(compat?.fortuneComparison);
       if (fc) {
         const fcP1 = asRecord(fc.person1);
@@ -461,39 +698,74 @@ export async function renderVisualBoard(
       const syncYearsList = asArray(annualSync?.years)
         .map(asRecord)
         .filter((x): x is UnknownRecord => Boolean(x));
-      if (syncYearsList.length > 0) {
-        const syncSec = el('div', 'lr-section');
-        syncSec.append(
-          el(
-            'h4',
-            'lr-section-title',
-            `多年大运流年同步（${asNumber(annualSync?.startYear) ?? ''}–${asNumber(annualSync?.endYear) ?? ''}）`,
-          ),
+      if (activeComps.length > 0 || syncYearsList.length > 0) {
+        const bzSynTrigger = createBoardModalTrigger(
+          '跨盘引动与多年同步',
+          '八字双人跨盘干支引动与多年同步',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (activeComps.length > 0) {
+              const cSec = el('div', 'lr-section');
+              cSec.append(el('h4', 'lr-section-title', `跨盘干支引动（${activeComps.length} 处）`));
+              const wrap = el('div', 'wb-chip-wrap');
+              for (const cp of activeComps) {
+                const p1p = pillarShort[asString(cp.person1Pillar) ?? ''] ?? asString(cp.person1Pillar) ?? '';
+                const p2p = pillarShort[asString(cp.person2Pillar) ?? ''] ?? asString(cp.person2Pillar) ?? '';
+                const rels = asArray(cp.relations)
+                  .map((r) => asString(asRecord(r)?.name))
+                  .filter(Boolean)
+                  .join('·');
+                wrap.append(
+                  el(
+                    'span',
+                    'wb-badge wb-badge-neutral',
+                    `${p1Name}${p1p}(${asString(cp.person1GanZhi) ?? ''}) ↔ ${p2Name}${p2p}(${asString(cp.person2GanZhi) ?? ''})：${rels}`,
+                  ),
+                );
+              }
+              cSec.append(wrap);
+              frag.append(cSec);
+            }
+            if (syncYearsList.length > 0) {
+              const syncSec = el('div', 'lr-section');
+              syncSec.append(
+                el(
+                  'h4',
+                  'lr-section-title',
+                  `多年大运流年同步（${asNumber(annualSync?.startYear) ?? ''}–${asNumber(annualSync?.endYear) ?? ''}）`,
+                ),
+              );
+              const syncGrid = el('div', 'al-hours-grid');
+              for (const yr of syncYearsList) {
+                const yP1 = asRecord(yr.person1);
+                const yP2 = asRecord(yr.person2);
+                const card = el('div', 'al-hour-card');
+                const top = el('div', 'al-hour-top');
+                top.append(
+                  el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} ${asString(yr.yearGanZhi) ?? ''}年`),
+                  el('span', 'wb-badge wb-badge-neutral', asString(yr.syncAssessment) ?? ''),
+                );
+                card.append(top);
+                const p1Spouse = asArray(yP1?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
+                const p2Spouse = asArray(yP2?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
+                card.append(
+                  el(
+                    'div',
+                    'al-hour-range',
+                    `${p1Name}：运${asString(yP1?.dayun) ?? '—'}(${asString(yP1?.yearTendency) ?? '—'}${p1Spouse ? `·日支${p1Spouse}` : ''}) ｜ ${p2Name}：运${asString(yP2?.dayun) ?? '—'}(${asString(yP2?.yearTendency) ?? '—'}${p2Spouse ? `·日支${p2Spouse}` : ''})`,
+                  ),
+                );
+                syncGrid.append(card);
+              }
+              syncSec.append(syncGrid);
+              frag.append(syncSec);
+            }
+            return frag;
+          },
+          activeComps.length > 0 ? `${activeComps.length}处` : `${syncYearsList.length}年`,
         );
-        const syncGrid = el('div', 'al-hours-grid is-wide');
-        for (const yr of syncYearsList) {
-          const yP1 = asRecord(yr.person1);
-          const yP2 = asRecord(yr.person2);
-          const card = el('div', 'al-hour-card');
-          const top = el('div', 'al-hour-top');
-          top.append(
-            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} ${asString(yr.yearGanZhi) ?? ''}年`),
-            el('span', 'wb-badge wb-badge-neutral', asString(yr.syncAssessment) ?? ''),
-          );
-          card.append(top);
-          const p1Spouse = asArray(yP1?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
-          const p2Spouse = asArray(yP2?.spousePalaceRelations).map(asString).filter(Boolean).join('、');
-          card.append(
-            el(
-              'div',
-              'al-hour-range',
-              `${p1Name}：运${asString(yP1?.dayun) ?? '—'}(${asString(yP1?.yearTendency) ?? '—'}${p1Spouse ? `·日支${p1Spouse}` : ''}) ｜ ${p2Name}：运${asString(yP2?.dayun) ?? '—'}(${asString(yP2?.yearTendency) ?? '—'}${p2Spouse ? `·日支${p2Spouse}` : ''})`,
-            ),
-          );
-          syncGrid.append(card);
-        }
-        syncSec.append(syncGrid);
-        headerShell.append(syncSec);
+        const bar = createBoardDetailBar([bzSynTrigger]);
+        if (bar) headerShell.append(bar);
       }
       tempHost.append(headerShell);
 
@@ -561,36 +833,7 @@ export async function renderVisualBoard(
         headerShell.append(wrap);
       }
 
-      const keyPalaces = new Set(['命宫', '夫妻', '财帛', '官禄', '福德']);
-      const keyOverlays = overlays.filter(
-        (ov) =>
-          asString(ov.sourcePerson) === 'person1' &&
-          (keyPalaces.has(asString(ov.sourcePalace) ?? '') || keyPalaces.has(asString(ov.targetPalace) ?? '')),
-      );
-      if (keyOverlays.length > 0) {
-        const ovSec = el('div', 'lr-section');
-        ovSec.append(el('h4', 'lr-section-title', '核心宫位同支叠宫对照'));
-        const ovGrid = el('div', 'al-hours-grid is-wide');
-        for (const ov of keyOverlays.slice(0, 6)) {
-          const card = el('div', 'al-hour-card');
-          const top = el('div', 'al-hour-top');
-          top.append(
-            el(
-              'strong',
-              'al-hour-name',
-              `${asString(ov.earthlyBranch) ?? ''}宫：${p1Name}${asString(ov.sourcePalace) ?? ''} ↔ ${p2Name}${asString(ov.targetPalace) ?? ''}`,
-            ),
-          );
-          card.append(top);
-          const sStars = asArray(ov.sourceMajorStars).map(asString).filter(Boolean).join('·') || '无主星';
-          const tStars = asArray(ov.targetMajorStars).map(asString).filter(Boolean).join('·') || '无主星';
-          card.append(el('div', 'al-hour-range', `${p1Name}：${sStars} ｜ ${p2Name}：${tStars}`));
-          ovGrid.append(card);
-        }
-        ovSec.append(ovGrid);
-        headerShell.append(ovSec);
-      }
-
+      const p1Overlays = overlays.filter((ov) => asString(ov.sourcePerson) === 'person1');
       const hc = asRecord(dataRec?.horoscopeComparison);
       if (hc) {
         const hcP1 = asRecord(hc.person1);
@@ -617,38 +860,74 @@ export async function renderVisualBoard(
       const zwSyncYears = asArray(zwAnnualSync?.years)
         .map(asRecord)
         .filter((x): x is UnknownRecord => Boolean(x));
-      if (zwSyncYears.length > 0) {
-        const syncSec = el('div', 'lr-section');
-        syncSec.append(
-          el(
-            'h4',
-            'lr-section-title',
-            `多年大限与流年同步（${asNumber(zwAnnualSync?.startYear) ?? ''}–${asNumber(zwAnnualSync?.endYear) ?? ''}）`,
-          ),
+      if (p1Overlays.length > 0 || zwSyncYears.length > 0) {
+        const zwSynTrigger = createBoardModalTrigger(
+          '同支叠宫与流年同步',
+          '紫微合盘同支叠宫对照与流年同步',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (p1Overlays.length > 0) {
+              const ovSec = el('div', 'lr-section');
+              ovSec.append(el('h4', 'lr-section-title', `同支叠宫对照（共 ${p1Overlays.length} 宫）`));
+              const ovGrid = el('div', 'al-hours-grid');
+              for (const ov of p1Overlays) {
+                const card = el('div', 'al-hour-card');
+                const top = el('div', 'al-hour-top');
+                top.append(
+                  el(
+                    'strong',
+                    'al-hour-name',
+                    `${asString(ov.earthlyBranch) ?? ''}宫：${p1Name}${asString(ov.sourcePalace) ?? ''} ↔ ${p2Name}${asString(ov.targetPalace) ?? ''}`,
+                  ),
+                );
+                card.append(top);
+                const sStars = asArray(ov.sourceMajorStars).map(asString).filter(Boolean).join('·') || '无主星';
+                const tStars = asArray(ov.targetMajorStars).map(asString).filter(Boolean).join('·') || '无主星';
+                card.append(el('div', 'al-hour-range', `${p1Name}：${sStars} ｜ ${p2Name}：${tStars}`));
+                ovGrid.append(card);
+              }
+              ovSec.append(ovGrid);
+              frag.append(ovSec);
+            }
+            if (zwSyncYears.length > 0) {
+              const syncSec = el('div', 'lr-section');
+              syncSec.append(
+                el(
+                  'h4',
+                  'lr-section-title',
+                  `多年大限与流年同步（${asNumber(zwAnnualSync?.startYear) ?? ''}–${asNumber(zwAnnualSync?.endYear) ?? ''}）`,
+                ),
+              );
+              const syncGrid = el('div', 'al-hours-grid');
+              for (const yr of zwSyncYears) {
+                const yP1 = asRecord(yr.person1);
+                const yP2 = asRecord(yr.person2);
+                const overlap = asRecord(yr.yearlyOverlap);
+                const card = el('div', 'al-hour-card');
+                const top = el('div', 'al-hour-top');
+                top.append(
+                  el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
+                  ...(overlap?.sameBranch ? [el('span', 'wb-badge wb-badge-accent', '流年同支')] : []),
+                );
+                card.append(top);
+                card.append(
+                  el(
+                    'div',
+                    'al-hour-range',
+                    `${p1Name}：限${asString(yP1?.decadal) ?? '—'} · 年${asString(yP1?.yearly) ?? '—'} ｜ ${p2Name}：限${asString(yP2?.decadal) ?? '—'} · 年${asString(yP2?.yearly) ?? '—'}`,
+                  ),
+                );
+                syncGrid.append(card);
+              }
+              syncSec.append(syncGrid);
+              frag.append(syncSec);
+            }
+            return frag;
+          },
+          p1Overlays.length > 0 ? `${p1Overlays.length}宫` : undefined,
         );
-        const syncGrid = el('div', 'al-hours-grid is-wide');
-        for (const yr of zwSyncYears) {
-          const yP1 = asRecord(yr.person1);
-          const yP2 = asRecord(yr.person2);
-          const overlap = asRecord(yr.yearlyOverlap);
-          const card = el('div', 'al-hour-card');
-          const top = el('div', 'al-hour-top');
-          top.append(
-            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
-            ...(overlap?.sameBranch ? [el('span', 'wb-badge wb-badge-accent', '流年同支')] : []),
-          );
-          card.append(top);
-          card.append(
-            el(
-              'div',
-              'al-hour-range',
-              `${p1Name}：限${asString(yP1?.decadal) ?? '—'} · 年${asString(yP1?.yearly) ?? '—'} ｜ ${p2Name}：限${asString(yP2?.decadal) ?? '—'} · 年${asString(yP2?.yearly) ?? '—'}`,
-            ),
-          );
-          syncGrid.append(card);
-        }
-        syncSec.append(syncGrid);
-        headerShell.append(syncSec);
+        const bar = createBoardDetailBar([zwSynTrigger]);
+        if (bar) headerShell.append(bar);
       }
       tempHost.append(headerShell);
 
@@ -706,7 +985,7 @@ export async function renderVisualBoard(
 
       if (aspects.length > 0) {
         const wrap = el('div', 'wb-chip-wrap');
-        for (const asp of aspects.slice(0, 10)) {
+        for (const asp of aspects.slice(0, 6)) {
           const label = asString(asp.label) ?? '';
           const isHarmony = label === '拱相' || label === '六合' || label === '合相';
           wrap.append(
@@ -763,44 +1042,91 @@ export async function renderVisualBoard(
       const astroSyncYears = asArray(astroAnnualSync?.years)
         .map(asRecord)
         .filter((x): x is UnknownRecord => Boolean(x));
-      if (astroSyncYears.length > 0) {
-        const syncSec = el('div', 'lr-section');
-        syncSec.append(
-          el(
-            'h4',
-            'lr-section-title',
-            `多年外行星行运同步（${asNumber(astroAnnualSync?.startYear) ?? ''}–${asNumber(astroAnnualSync?.endYear) ?? ''}）`,
-          ),
+      if (aspects.length > 6 || overlays.length > 8 || astroSyncYears.length > 0) {
+        const astroSynTrigger = createBoardModalTrigger(
+          '完整相位、落宫与多年同步',
+          '星盘合盘全量相位、叠宫与多年行运同步',
+          () => {
+            const frag = document.createDocumentFragment();
+            if (aspects.length > 0) {
+              const aSec = el('div', 'lr-section');
+              aSec.append(el('h4', 'lr-section-title', `全部跨盘相位（共 ${aspects.length} 条）`));
+              const wrap = el('div', 'wb-chip-wrap');
+              for (const asp of aspects) {
+                const label = asString(asp.label) ?? '';
+                const isHarmony = label === '拱相' || label === '六合' || label === '合相';
+                wrap.append(
+                  el(
+                    'span',
+                    `wb-badge ${isHarmony ? 'wb-badge-good' : 'wb-badge-warn'}`,
+                    `${p1Name}${asString(asp.person1Name) ?? ''} ${label} ${p2Name}${asString(asp.person2Name) ?? ''}`,
+                  ),
+                );
+              }
+              aSec.append(wrap);
+              frag.append(aSec);
+            }
+            if (overlays.length > 0) {
+              const oSec = el('div', 'lr-section');
+              oSec.append(el('h4', 'lr-section-title', `全部落宫叠入（共 ${overlays.length} 条）`));
+              const wrap = el('div', 'wb-chip-wrap');
+              for (const o of overlays) {
+                wrap.append(
+                  el(
+                    'span',
+                    'wb-badge wb-badge-neutral',
+                    `${asString(o.visitor) === 'person1' ? p1Name : p2Name}${asString(o.pointName) ?? ''} → ${asString(o.owner) === 'person1' ? p1Name : p2Name}第${asNumber(o.house) ?? ''}宫`,
+                  ),
+                );
+              }
+              oSec.append(wrap);
+              frag.append(oSec);
+            }
+            if (astroSyncYears.length > 0) {
+              const syncSec = el('div', 'lr-section');
+              syncSec.append(
+                el(
+                  'h4',
+                  'lr-section-title',
+                  `多年外行星行运同步（${asNumber(astroAnnualSync?.startYear) ?? ''}–${asNumber(astroAnnualSync?.endYear) ?? ''}）`,
+                ),
+              );
+              const syncGrid = el('div', 'al-hours-grid');
+              for (const yr of astroSyncYears) {
+                const shared = asArray(yr.sharedBodies).map(asString).filter(Boolean).join('、');
+                const t1 = asArray(yr.toPerson1)
+                  .map(asRecord)
+                  .filter((x): x is UnknownRecord => Boolean(x))
+                  .slice(0, 3)
+                  .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
+                  .join('、');
+                const t2 = asArray(yr.toPerson2)
+                  .map(asRecord)
+                  .filter((x): x is UnknownRecord => Boolean(x))
+                  .slice(0, 3)
+                  .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
+                  .join('、');
+                const card = el('div', 'al-hour-card');
+                const top = el('div', 'al-hour-top');
+                top.append(
+                  el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
+                  ...(shared ? [el('span', 'wb-badge wb-badge-accent', `共引：${shared}`)] : []),
+                );
+                card.append(top);
+                card.append(
+                  el('div', 'al-hour-range', `${p1Name}：${t1 || '无'} ｜ ${p2Name}：${t2 || '无'}`),
+                );
+                syncGrid.append(card);
+              }
+              syncSec.append(syncGrid);
+              frag.append(syncSec);
+            }
+            return frag;
+          },
+          `${aspects.length}相`,
         );
-        const syncGrid = el('div', 'al-hours-grid is-wide');
-        for (const yr of astroSyncYears) {
-          const shared = asArray(yr.sharedBodies).map(asString).filter(Boolean).join('、');
-          const t1 = asArray(yr.toPerson1)
-            .map(asRecord)
-            .filter((x): x is UnknownRecord => Boolean(x))
-            .slice(0, 3)
-            .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
-            .join('、');
-          const t2 = asArray(yr.toPerson2)
-            .map(asRecord)
-            .filter((x): x is UnknownRecord => Boolean(x))
-            .slice(0, 3)
-            .map((t) => `${asString(t.transitName) ?? ''}${asString(t.label) ?? ''}${asString(t.natalName) ?? ''}`)
-            .join('、');
-          const card = el('div', 'al-hour-card');
-          const top = el('div', 'al-hour-top');
-          top.append(
-            el('strong', 'al-hour-name', `${asNumber(yr.year) ?? ''} 年`),
-            ...(shared ? [el('span', 'wb-badge wb-badge-accent', `共引：${shared}`)] : []),
-          );
-          card.append(top);
-          card.append(
-            el('div', 'al-hour-range', `${p1Name}：${t1 || '无'} ｜ ${p2Name}：${t2 || '无'}`),
-          );
-          syncGrid.append(card);
-        }
-        syncSec.append(syncGrid);
-        headerShell.append(syncSec);
+        const bar = createBoardDetailBar([astroSynTrigger]);
+        if (bar) headerShell.append(bar);
       }
       tempHost.append(headerShell);
 
@@ -996,14 +1322,14 @@ export async function renderVisualBoard(
     return false;
   }
 
-  // 直接在盘面下方按需附加匹配古籍经典参断卡（非命录页、无网络耗时）
+  // 将经典古籍参断收拢至统一底部弹窗按钮栏（非命录页）
   if (effectiveMethod !== 'minglu') {
-    const { buildBoardClassicsCard } = await import('./classics-card');
+    const { buildBoardClassicsTrigger } = await import('./classics-card');
     if (renderTokens.get(container) !== token) return false;
-    const classicsCard = await buildBoardClassicsCard(effectiveMethod, data);
+    const classicsBtn = await buildBoardClassicsTrigger(effectiveMethod, data);
     if (renderTokens.get(container) !== token) return false;
-    if (classicsCard) {
-      tempHost.append(classicsCard);
+    if (classicsBtn) {
+      appendBoardTriggerButton(tempHost, classicsBtn);
     }
   }
 

@@ -2,13 +2,13 @@ import { getSplitSolarPillars } from './calendar';
 import type { z } from 'zod';
 import type { ssgwInput } from '../schema';
 import { resolvePromptSelection } from '../prompt-selection';
+import type { StaticDatasetLoader } from '../static-data';
 import { randomContext } from './random';
-import signData from './ssgw-data.json';
 import { buildMethodSituationDigest } from './situation-digest';
+import { loadStaticDataset } from './static-data-loader';
 
 type Input = z.infer<typeof ssgwInput>;
 type Sign = { id: number; title: string; qianwen: string; story: string; details: Record<string, string> };
-const signs = signData as unknown as Sign[];
 type Data = {
   number: number; title: string; poem: string; story: string; details: Record<string, string>;
   timestamp: number; ganzhi: { year: string; month: string; day: string; hour: string };
@@ -29,10 +29,10 @@ function timeFacts(timestamp: number) {
   );
 }
 
-function makeData(sign: Sign, timestamp: number, method: 'random' | 'manual'): Data {
+function makeData(sign: Sign, poolSize: number, timestamp: number, method: 'random' | 'manual'): Data {
   return {
     number: sign.id, title: sign.title, poem: sign.qianwen, story: sign.story, details: { ...sign.details },
-    timestamp, ganzhi: timeFacts(timestamp), draw: { method, poolSize: signs.length, selectedNumber: sign.id },
+    timestamp, ganzhi: timeFacts(timestamp), draw: { method, poolSize, selectedNumber: sign.id },
   };
 }
 
@@ -83,12 +83,18 @@ function buildPrompt(data: Data, question: string, options: Input['prompt'], now
   return { text: user };
 }
 
-export function calculateSsgw(input: Input, now: string, source?: () => number) {
+export async function calculateSsgw(
+  input: Input,
+  now: string,
+  source?: () => number,
+  staticDataset?: StaticDatasetLoader,
+) {
+  const signs = await loadStaticDataset<Sign[]>('ssgw-data', staticDataset);
   const method = input.ssgw?.method ?? 'random';
   const index = method === 'manual' ? input.ssgw!.number! - 1 : randomContext(source).integer(signs.length);
   const sign = signs[index];
   if (!sign) throw new Error('签号不在签谱中。');
-  const data = makeData(sign, new Date(input.divinationTime ?? now).getTime(), method);
+  const data = makeData(sign, signs.length, new Date(input.divinationTime ?? now).getTime(), method);
   const analysis = evidence(data);
   return {
     data: { ...data, evidenceAnalysis: analysis },
@@ -97,12 +103,19 @@ export function calculateSsgw(input: Input, now: string, source?: () => number) 
   };
 }
 
-export function promptForSsgw(value: unknown, question: string, options: Input['prompt'], now: string) {
+export async function promptForSsgw(
+  value: unknown,
+  question: string,
+  options: Input['prompt'],
+  now: string,
+  staticDataset?: StaticDatasetLoader,
+) {
+  const signs = await loadStaticDataset<Sign[]>('ssgw-data', staticDataset);
   const data = (value && typeof value === 'object' ? value : undefined) as Data | undefined;
   if (!data || !Number.isInteger(data.number) || typeof data.timestamp !== 'number' || !Number.isFinite(data.timestamp) || !['random', 'manual'].includes(data.draw?.method)) throw new Error('灵签结果缺少有效签号或求签方式。');
   const sign = signs.find((item) => item.id === data.number);
   if (!sign) throw new Error('签号不在签谱中。');
-  const canonical = makeData(sign, data.timestamp, data.draw.method);
+  const canonical = makeData(sign, signs.length, data.timestamp, data.draw.method);
   const details = data.details;
   if (data.title !== canonical.title || data.poem !== canonical.poem || data.story !== canonical.story ||
       !details || Object.keys(details).length !== Object.keys(canonical.details).length ||

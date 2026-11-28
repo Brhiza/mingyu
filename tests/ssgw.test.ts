@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate, reprompt } from '../src/core';
 import { calculateSsgw } from '../src/systems/ssgw';
+import { rollShengbeiResult } from '../src/app/components/divination/ManualCastStudio';
 import catalog from '../src/prompt-catalog.json';
 import worker from '../src/worker';
 
@@ -30,8 +31,8 @@ test('92 支签均有可引用的签文与分类解说', async () => {
 });
 
 test('随机、指定签号与求签时间保持实际结果，不暴露随机轨迹', async () => {
-  const first = calculateSsgw({ question: '问题', ssgw: { method: 'random' } }, currentTime, () => 0);
-  const last = calculateSsgw({ question: '问题', ssgw: { method: 'random' } }, currentTime, () => 0.999);
+  const first = await calculateSsgw({ question: '问题', ssgw: { method: 'random' } }, currentTime, () => 0);
+  const last = await calculateSsgw({ question: '问题', ssgw: { method: 'random' } }, currentTime, () => 0.999);
   assert.equal(first.data.number, 1); assert.equal(last.data.number, 92);
   for (const instant of [currentTime, '2024-02-04T08:20:00Z', '2024-02-04T08:30:00Z', '2025-02-28T15:00:00Z', '2025-02-28T16:00:00Z']) {
     const result = await calculate('ssgw', { ...input, currentTime: instant });
@@ -85,4 +86,31 @@ test('Worker HTTP 与 MCP 调用共享灵签实现', async () => {
   const mcp = await send('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'ssgw', arguments: input } });
   assert.equal(mcp.status, 200);
   assert.equal((await mcp.json()).result.structuredContent.data.number, 1);
+});
+
+test('掷圣杯按双杯独立正反概率分布（50% 圣杯、25% 笑杯、25% 阴杯）', () => {
+  const fromSeq = (seq: number[]) => {
+    let i = 0;
+    return rollShengbeiResult(() => seq[i++]!);
+  };
+
+  const sacredA = fromSeq([0.1, 0.9]);
+  assert.equal(sacredA.kind, 'sacred');
+  assert.equal(sacredA.ok, true);
+  assert.deepEqual(sacredA.pair, ['yang', 'yin']);
+
+  const sacredB = fromSeq([0.9, 0.1]);
+  assert.equal(sacredB.kind, 'sacred');
+  assert.equal(sacredB.ok, true);
+  assert.deepEqual(sacredB.pair, ['yin', 'yang']);
+
+  const laugh = fromSeq([0.1, 0.1]);
+  assert.equal(laugh.kind, 'laugh');
+  assert.equal(laugh.ok, false);
+  assert.deepEqual(laugh.pair, ['yang', 'yang']);
+
+  const yin = fromSeq([0.9, 0.9]);
+  assert.equal(yin.kind, 'yin');
+  assert.equal(yin.ok, false);
+  assert.deepEqual(yin.pair, ['yin', 'yin']);
 });

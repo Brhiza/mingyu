@@ -1,6 +1,7 @@
 // 梅花起卦计算，证据层仍由过渡适配器调用旧实现。
 import { SolarTime } from 'tyme4ts';
 import type { MeihuaSettings } from './types';
+import { trueSolarTime } from '../astronomy/true-solar';
 import { getDivinationTime, getSolarTermName, getBranchWuxing, getSeasonState, isSheng, isKe } from '../calendar';
 import { trigrams } from './trigrams';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './hexagram';
@@ -209,8 +210,23 @@ export function evaluateMeihuaTimelineTrend(params: {
 
 // savedRandom is only for rebuilding a previously drawn chart, never a public input.
 export function generateMeihuaChart(date: Date, settings?: MeihuaSettings, savedRandom?: { upperTrigramIndex: number; lowerTrigramIndex: number; movingYaoIndex: number }) {
-  const { ganzhi, timestamp } = getDivinationTime(date);
-  const wall = new Date(timestamp + 8 * 3_600_000);
+  const actualDiv = getDivinationTime(date);
+  const timestamp = actualDiv.timestamp;
+  const useTrueSolar =
+    settings?.timeStandard === 'true-solar' && settings.longitude !== undefined;
+  const correction = useTrueSolar ? trueSolarTime(date, settings.longitude!) : undefined;
+  const effectiveDiv = correction
+    ? getDivinationTime(new Date(correction.effectiveTimestamp))
+    : actualDiv;
+  const ganzhi = correction
+    ? {
+        year: actualDiv.ganzhi.year,
+        month: actualDiv.ganzhi.month,
+        day: effectiveDiv.ganzhi.day,
+        hour: effectiveDiv.ganzhi.hour,
+      }
+    : actualDiv.ganzhi;
+  const wall = new Date(effectiveDiv.timestamp + 8 * 3_600_000);
   const lunarDay = SolarTime.fromYmdHms(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), wall.getUTCHours(), wall.getUTCMinutes(), 0).getLunarHour().getLunarDay();
   const lunar = { yearInChinese: lunarDay.toString().split('年')[0] + '年', monthNumber: Math.abs(lunarDay.getMonth()), dayNumber: lunarDay.getDay() };
   const timeInfo = { jieQi: getSolarTermName(timestamp) };
@@ -248,6 +264,10 @@ export function generateMeihuaChart(date: Date, settings?: MeihuaSettings, saved
 
   const { upperTrigramIndex, lowerTrigramIndex, movingYaoIndex, calculation } = methodResult;
   calculation.timezoneOffsetMinutes = 480;
+  if (correction) {
+    calculation.timeStandard = 'true-solar';
+    calculation.longitude = correction.longitude;
+  }
 
   // 3. 确定主卦、互卦、变卦
   const upperTrigram = trigrams[upperTrigramIndex];
@@ -465,6 +485,18 @@ export function generateMeihuaChart(date: Date, settings?: MeihuaSettings, saved
 
     ganzhi,
     timestamp,
+    ...(correction
+      ? {
+          timeContext: {
+            standard: 'true-solar' as const,
+            longitude: correction.longitude,
+            referenceTimestamp: timestamp,
+            longitudeCorrectionMinutes: correction.longitudeCorrectionMinutes,
+            equationOfTimeMinutes: correction.equationOfTimeMinutes,
+            totalCorrectionMinutes: correction.totalCorrectionMinutes,
+          },
+        }
+      : {}),
     yaosDetail,
     calculation,
   };

@@ -33,7 +33,7 @@ export const ROUTER_METHOD_CATALOG: readonly RouterMethodCategory[] = [
       { id: 'bazi-ziwei', label: '八字紫微合参' },
       { id: 'astrolabe', label: '西洋星盘', linkedIds: ['astrolabe-range'] },
       { id: 'qizheng', label: '七政四余', linkedIds: ['qizheng-range'] },
-      { id: 'minglu', label: '个人命录' },
+      { id: 'minglu', label: '命录' },
       { id: 'qimen-lifetime', label: '奇门终身局' },
       { id: 'bazi-synastry', label: '八字合盘' },
       { id: 'ziwei-synastry', label: '紫微合盘' },

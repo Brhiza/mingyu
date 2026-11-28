@@ -16,10 +16,8 @@ export const BACKUP_SCALAR_KEYS = [
   'mingyu-theme-mode',
   'mingyu:global-rules:v1',
   'mingyu_workspace_preferences_v5',
-  'mingyu.v2.pinnedHomeItems',
-  'mingyu.v2.homePinActionMode',
-  'mingyu.v2.homeCustomization',
   'mingyu.v2.drawerPinned',
+  'mingyu.v2.externalAiJump.v1',
 ] as const;
 
 const ALLOWED_BACKUP_KEYS = new Set<string>([...BACKUP_ARRAY_KEYS, ...BACKUP_SCALAR_KEYS]);

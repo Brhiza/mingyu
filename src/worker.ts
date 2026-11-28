@@ -5,8 +5,15 @@ import { createServer, enabledMethods, type McpServerMode } from './mcp';
 import { getPromptCatalog } from './catalog';
 import { createRepromptInput } from './schema';
 import type { RuntimeContext } from './runtime-context';
-import { characterDataVersion, parseCharacterShard } from './character-data';
+import {
+  characterDataVersion,
+  parseCharacterIndex,
+  parseCharacterSearchOrder,
+  parseCharacterShard,
+  type CharacterIndexData,
+} from './character-data';
 import { asteroidDataVersion, parseAsteroidData } from './asteroid-data';
+import { parseStaticDataset, staticDataVersion } from './static-data';
 import { resolveRepromptPayload, toCompactResult, type CompactableCalculationResult } from './compact';
 import { buildLegacyApiGonePayload, isLegacyApiPath } from './v1-sunset';
 
@@ -16,10 +23,22 @@ interface Env {
   ACCESS_TOKEN?: string;
   CORS_ORIGIN?: string;
   MINGYU_MCP_MODE?: string;
+  AI_BUILTIN_ENABLED?: string;
+  AI_API_KEY?: string;
+  AI_BASE_URL?: string;
+  AI_API_TYPE?: string;
+  AI_MODEL?: string;
+  AI_SYSTEM_PROMPT?: string;
+  AI_TRUSTED_ORIGINS?: string;
 }
 
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
 const API_HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
+const PUBLIC_READONLY_CACHE_CONTROL = 'public, max-age=300, s-maxage=3600';
+
+function readonlyCacheHeaders(env: Env): HeadersInit | undefined {
+  return env.ACCESS_TOKEN !== undefined ? undefined : { 'cache-control': PUBLIC_READONLY_CACHE_CONTROL };
+}
 
 function corsHeaders(env: Env): Record<string, string> {
   const origin = env.CORS_ORIGIN?.trim() || '*';
@@ -135,6 +154,28 @@ function resolveMcpMode(url: URL, env: Env): McpServerMode {
   return env.MINGYU_MCP_MODE === 'router' ? 'router' : 'full';
 }
 
+function isOriginAllowedForBuiltinAi(request: Request, env: Env): boolean {
+  const configured = env.AI_TRUSTED_ORIGINS?.trim();
+  if (!configured) return true;
+  const origin = request.headers.get('origin')?.trim();
+  if (!origin) return true;
+  const patterns = configured.split(',').map((s) => s.trim()).filter(Boolean);
+  for (const pattern of patterns) {
+    if (pattern === '*' || pattern === origin) return true;
+    if (pattern.startsWith('https://*.')) {
+      const suffix = pattern.slice('https://*'.length);
+      if (origin.startsWith('https://') && origin.endsWith(suffix)) return true;
+    }
+  }
+  return false;
+}
+
+function resolveBuiltinChatUrl(baseUrl: string, apiType: string): string {
+  const clean = (baseUrl || 'https://api.deepseek.com/v1').trim().replace(/\/+$/, '');
+  const path = apiType === 'responses' ? 'responses' : apiType === 'anthropic' ? 'messages' : 'chat/completions';
+  return clean.endsWith(`/${path}`) ? clean : `${clean}/${path}`;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -156,6 +197,8 @@ export default {
     }
 
     const asteroidRequests = new Map<string, Promise<unknown>>();
+    const staticDatasetRequests = new Map<string, Promise<unknown>>();
+    let characterIndexRequest: Promise<CharacterIndexData> | undefined;
     const context: RuntimeContext = { asteroidData: (name) => {
       let request = asteroidRequests.get(name);
       if (!request) {
@@ -166,10 +209,30 @@ export default {
         asteroidRequests.set(name, request);
       }
       return request;
+    }, staticDataset: (name) => {
+      let pending = staticDatasetRequests.get(name);
+      if (!pending) {
+        pending = (async () => {
+          const response = await env.ASSETS.fetch(new Request(`https://mingyu-assets.invalid/static-data/${staticDataVersion}/${name}.json`));
+          return parseStaticDataset(response, name);
+        })();
+        staticDatasetRequests.set(name, pending);
+      }
+      return pending;
     }, characterShard: async (kind, shard) => {
       const name = `${kind}-${String(shard).padStart(2, '0')}.json`;
       const response = await env.ASSETS.fetch(new Request(`https://mingyu-assets.invalid/character-data/${characterDataVersion}/${name}`));
       return parseCharacterShard(response);
+    }, characterIndex: async () => {
+      if (!characterIndexRequest) {
+        characterIndexRequest = Promise.all([
+          env.ASSETS.fetch(new Request(`https://mingyu-assets.invalid/character-data/${characterDataVersion}/index.json`)).then(parseCharacterIndex),
+          env.ASSETS.fetch(new Request(`https://mingyu-assets.invalid/character-data/${characterDataVersion}/search-order.json`)).then(parseCharacterSearchOrder),
+        ]).then(([index, searchOrder]) => ({ index, searchOrder }));
+      }
+      const active = characterIndexRequest;
+      try { return await active; }
+      catch (error) { if (characterIndexRequest === active) characterIndexRequest = undefined; throw error; }
     } };
 
     const rejection = await authorize(request, env.ACCESS_TOKEN, env);
@@ -180,22 +243,121 @@ export default {
     catch (error) { return apiJson({ error: error instanceof Error ? error.message : '服务配置错误' }, 500, env); }
 
     if (url.pathname === '/api/health' && request.method === 'GET') {
-      return apiJson({ status: 'ok', version: '2.0.0', methodsCount: enabled.length }, 200, env);
+      return apiJson({ status: 'ok', version: '2.0.0', methodsCount: enabled.length }, 200, env, readonlyCacheHeaders(env));
     }
-    if (url.pathname === '/api/methods' && request.method === 'GET') return apiJson({ methods: enabled }, 200, env);
+    if (url.pathname === '/api/ai/status' && request.method === 'GET') {
+      const builtinEnabled =
+        env.AI_BUILTIN_ENABLED?.trim().toLowerCase() === 'true' && Boolean(env.AI_API_KEY?.trim());
+      return apiJson(
+        {
+          builtinEnabled,
+          ...(builtinEnabled && env.AI_MODEL?.trim() ? { model: env.AI_MODEL.trim() } : {}),
+        },
+        200,
+        env,
+      );
+    }
+    if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
+      const builtinEnabled =
+        env.AI_BUILTIN_ENABLED?.trim().toLowerCase() === 'true' && Boolean(env.AI_API_KEY?.trim());
+      if (!builtinEnabled) {
+        return apiJson(
+          { error: '站内内置 AI 未开启，请在设置中配置自己的模型接口或使用复制提示词。' },
+          403,
+          env,
+        );
+      }
+      if (!isOriginAllowedForBuiltinAi(request, env)) {
+        return apiJson({ error: '当前来源未被允许调用站内内置 AI。' }, 403, env);
+      }
+      try {
+        const body = (await readJsonBody(request)) as { messages?: unknown };
+        const rawMessages = Array.isArray(body?.messages) ? body.messages : [];
+        const messages = rawMessages
+          .filter(
+            (m): m is { role: 'system' | 'user' | 'assistant'; content: string } =>
+              Boolean(m) &&
+              typeof m === 'object' &&
+              ['system', 'user', 'assistant'].includes(String((m as { role?: unknown }).role)) &&
+              typeof (m as { content?: unknown }).content === 'string' &&
+              Boolean((m as { content: string }).content.trim()),
+          )
+          .slice(-32);
+        if (messages.length === 0) {
+          return apiJson({ error: '对话消息不能为空。' }, 400, env);
+        }
+        const apiType = env.AI_API_TYPE?.trim().toLowerCase() || 'chat';
+        const upstreamUrl = resolveBuiltinChatUrl(env.AI_BASE_URL ?? '', apiType);
+        const model = env.AI_MODEL?.trim() || 'deepseek-chat';
+        const systemPrefix = env.AI_SYSTEM_PROMPT?.trim();
+        const outboundMessages = systemPrefix
+          ? [{ role: 'system', content: systemPrefix }, ...messages]
+          : messages;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90_000);
+        try {
+          const upstream = await fetch(upstreamUrl, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              authorization: `Bearer ${env.AI_API_KEY!.trim()}`,
+            },
+            body: JSON.stringify({ model, messages: outboundMessages, stream: true }),
+            signal: controller.signal,
+          });
+          if (!upstream.ok || !upstream.body) {
+            return apiJson({ error: `内置 AI 上游返回异常（HTTP ${upstream.status}）。` }, 502, env);
+          }
+          return withCors(
+            new Response(upstream.body, {
+              status: 200,
+              headers: {
+                'content-type': upstream.headers.get('content-type') || 'text/event-stream; charset=utf-8',
+                'cache-control': 'no-store',
+              },
+            }),
+            env,
+          );
+        } finally {
+          clearTimeout(timeout);
+        }
+      } catch (error) {
+        if (error instanceof PayloadTooLargeError) return apiJson({ error: error.message }, 413, env);
+        return apiJson({ error: error instanceof Error ? error.message : '内置 AI 请求失败' }, 400, env);
+      }
+    }
+    if (url.pathname === '/api/methods' && request.method === 'GET') {
+      return apiJson({ methods: enabled }, 200, env, readonlyCacheHeaders(env));
+    }
     if ((url.pathname === '/api/prompts' || url.pathname === '/api/schema') && request.method === 'GET') {
       const selected = selectedMethods(url, enabled);
       if (!selected) return apiJson({ error: '术数不存在、未启用或参数重复' }, 400, env);
-      if (url.pathname === '/api/prompts') return apiJson({ methods: getPromptCatalog(selected) }, 200, env);
-      return apiJson({ methods: Object.fromEntries(selected.map((method) => [method, methodSchema(method)])), reprompt: z.toJSONSchema(createRepromptInput(selected)) }, 200, env);
+      if (url.pathname === '/api/prompts') {
+        return apiJson({ methods: getPromptCatalog(selected) }, 200, env, readonlyCacheHeaders(env));
+      }
+      return apiJson(
+        { methods: Object.fromEntries(selected.map((method) => [method, methodSchema(method)])), reprompt: z.toJSONSchema(createRepromptInput(selected)) },
+        200,
+        env,
+        readonlyCacheHeaders(env),
+      );
     }
     if (url.pathname === '/api/calculate' && request.method === 'POST') {
       try {
-        const body = await readJsonBody(request) as { method?: unknown; input?: unknown; responseMode?: unknown };
+        const body = await readJsonBody(request) as { method?: unknown; input?: unknown; responseMode?: unknown; outputLanguage?: unknown };
         if (typeof body?.method !== 'string' || !enabled.includes(body.method as Method)) {
           return apiJson({ error: '术数不存在或未启用' }, 400, env);
         }
-        const fullResult = await calculate(body.method as Method, body.input, { ...context, enabledMethods: enabled }) as CompactableCalculationResult;
+        const effectiveInput =
+          typeof body.outputLanguage === 'string'
+          && body.input
+          && typeof body.input === 'object'
+          && !Array.isArray(body.input)
+          && !('outputLanguage' in body.input)
+            ? { ...(body.input as Record<string, unknown>), outputLanguage: body.outputLanguage }
+            : body.input;
+        const fullResult = await calculate(body.method as Method, effectiveInput, { ...context, enabledMethods: enabled }) as CompactableCalculationResult;
         const output = body.responseMode === 'compact' ? await toCompactResult(fullResult) : fullResult;
         return apiJson(output, 200, env);
       } catch (error) {

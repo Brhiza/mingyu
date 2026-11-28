@@ -1,4 +1,5 @@
 import { ASTRO_HOUSE_SYSTEM_LABELS } from './systems/prompt-format';
+import { OUTPUT_LANGUAGE_HEADER } from './output-language';
 
 function formatIsoToBeijing(iso: string, includeSeconds = false): string {
   const parsed = Date.parse(iso);
@@ -112,7 +113,7 @@ function cleanBodyNoise(header: string, body: string, includeClassics: boolean):
   out = out.replace(/规则（(满足|不满足)）[：:]/g, '（$1）：');
   out = out.replace(/timeZoneId\s*[：:]\s*"?Asia\/Shanghai"?/gi, '中国标准时区');
   out = out.replace(/\bAsia\/Shanghai\b/g, '中国标准时区');
-  out = out.replace(/双人合盘需另用\s*bazi-synastry[，,]?\s*仍有专业分析缺口。?/gi, '');
+  out = out.replace(/双人合盘需另用\s*(?:bazi-synastry|八字合盘)[，,]?\s*(?:仍有专业分析缺口。?)?/gi, '');
   out = out.replace(/mode[：:]\s*[a-z-]+/gi, '');
   out = translateAstroHouseSystems(out);
   out = out.replace(/星历警告[：:]\s*\[([^\]]*)\]/g, (_m, inner: string) => {
@@ -199,6 +200,8 @@ function cleanBodyNoise(header: string, body: string, includeClassics: boolean):
   // 大运时间精简到日期
   if (header === '【大运】') {
     out = out.replace(/(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}(?::\d{2})?/g, '$1');
+  } else if (header === '【占卜资料】') {
+    out = out.replace(/^历法口径：[^\n]*\n?/gm, '');
   }
 
   out = out.replace(/节气[^；\n]+；\s*普通格调候候选。?\n?/g, '');
@@ -217,7 +220,6 @@ const ALWAYS_DROP_HEADERS = new Set([
   '【限制与任务】',
   '【解读选择】',
   '【阳宅风水】',
-  '【固定版本资料表】',
   '【主题：综合】',
   '【任务】',
 ]);
@@ -242,7 +244,17 @@ const BAZI_REDUNDANT_INTERMEDIATE_HEADERS = new Set([
   '【取用基础取向】',
   '【调候条件协调】',
   '【通根与月令透干】',
+  '【普通月令取格候选】',
+  '【格局透干与根气条件】',
+  '【司权、病药与通关候选】',
 ]);
+
+function isStandardDuplicateSynthesisHeader(header: string, headerSet: ReadonlySet<string>): boolean {
+  if (header === '【三宫递进与体用制衡关系】' && headerSet.has('【三宫与体用生克】')) return true;
+  if (header === '【体用阶段演变与制衡关系】' && headerSet.has('【体用与阶段】')) return true;
+  if (header === '【牌阵结构与牌间呼应关系】' && headerSet.has('【占卜资料】')) return true;
+  return false;
+}
 
 /** Agent 对话模式下需剥离的单轮复制专用指令头（由 Agent 自身 systemPrompt 统一承接） */
 const AGENT_STRIP_HEADERS = new Set([
@@ -250,6 +262,98 @@ const AGENT_STRIP_HEADERS = new Set([
   '【解读与交付契约】',
   '【AI 报告输出规范】',
 ]);
+
+/** 未启用「含古籍」档位时需剥离的典籍依据段落 */
+const CLASSICS_DROP_HEADERS = new Set([
+  '【典籍片段】',
+  '【典籍参考】',
+  '【典籍依据参考】',
+  '【卦爻辞辅助资料】',
+  '【经典依据】',
+  '【经典资料摘要】',
+  '【传统资料】',
+  '【来源说明】',
+]);
+
+/** 「精简」档位剥离的次要推导、重复制衡阐述与长段明细标题 */
+const BRIEF_DROP_HEADERS = new Set([
+  // 重复跨层制衡重述
+  '【三宫递进与体用制衡关系】',
+  '【体用阶段演变与制衡关系】',
+  '【卦象组合与生克制衡关系】',
+  '【格局叠加与吉凶制衡关系】',
+  '【格局叠合与成败制衡关系】',
+  '【牌阵结构与牌间呼应关系】',
+  '【方位格局与理气制衡关系】',
+  '【相位格局与能量制衡关系】',
+  '【恩用仇难与星曜制衡关系】',
+  '【音形义与三才喜忌制衡关系】',
+  // 八字次要规则推导与神煞枚举
+  '【辅助宫位（命宫/身宫/胎元/胎息）】',
+  '【岁运神煞】',
+  '【双方本命神煞】',
+  '【日主旺衰条件模型】',
+  '【普通月令取格候选】',
+  '【格局透干与根气条件】',
+  '【调候条件候选】',
+  '【司权、病药与通关候选】',
+  '【八字取用条件候选】',
+  '【十神分布】',
+  '【四柱条件证据】',
+  // 紫微 / 星盘 / 七政 / 奇门 / 占卜 / 风水 / 运势次要段落
+  '【本命宫干四化】',
+  '【双方各自本命宫干四化】',
+  '【十二宫宫主星与飞宫】',
+  '【十大星体分布】',
+  '【组合中点盘】',
+  '【吊照】',
+  '【反证】',
+  '【反证条件】',
+  '【节令背景】',
+  '【候选宫间关系】',
+  '【方位条件】',
+  '【问题范围】',
+  '【相邻牌元素与逆位结构】',
+  '【分类解说辅助资料】',
+  '【八方六亲归宫与门主灶布局指引】',
+  '【人生主题候选宫】',
+  '【基准时间与历法数据】',
+  '【开运与避坑参考】',
+  '【关注主题】',
+  '【主题】',
+]);
+
+function isBriefDroppedHeader(header: string, headerSet: ReadonlySet<string>): boolean {
+  if (BRIEF_DROP_HEADERS.has(header) || header.startsWith('【本命神煞')) return true;
+  if (header === '【运限】' && headerSet.has('【运限动态与流年四化（压平精要）】')) return true;
+  return false;
+}
+
+function trimBodyForBrief(header: string, body: string): string {
+  let out = body;
+  if (header === '【体用与阶段】') {
+    out = out.replace(/\n?《梅花易数·万物属类》本局涉卦类象：[\s\S]*$/, '');
+    out = out.replace(/^旁通与反观：[^\n]*\n?/gm, '');
+  } else if (header === '【指定时刻岁运】') {
+    const kept = out
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !line.startsWith('未由所列岁运补全') && !/^(?:流月|流日|流时)/.test(line));
+    out = (kept.length > 0 ? kept.slice(0, 3) : out.split('\n').slice(0, 3)).join('\n');
+  } else if (header === '【用神裁定与落位】') {
+    out = out.replace(/^用神落位（[^\n]*\n?/gm, '');
+  } else if (header === '【占卜资料】') {
+    out = out.replace(/[；;]\s*洗牌模式：[^。\n]*/g, '');
+    out = out.replace(/^牌阵结构统计：[^\n]*\n?/gm, '');
+  } else if (header === '【牌面组合】') {
+    out = out
+      .split('\n')
+      .filter((line) => line.trim() && !line.trim().endsWith('不视为固定组合。'))
+      .join('\n');
+  }
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
 
 const HEADER_REMAP: Record<string, string> = {
   '【八字命盘】': '【命主资料】',
@@ -288,8 +392,8 @@ function splitPromptBlocks(rawText: string): Array<{ header: string; body: strin
 
 export interface DistillPromptOptions {
   includeClassics?: boolean;
-  /** 'user' 面向普通用户复制/单盘直连；'agent' 面向多轮对话 Agent（额外剥离单轮契约与锚点） */
-  mode?: 'user' | 'agent';
+  /** 'user' 面向普通用户复制/单盘直连；'agent' 面向多轮对话 Agent（额外剥离单轮契约与锚点）；'brief' 极简核心事实卡 */
+  mode?: 'user' | 'agent' | 'brief';
   /** 是否在保留全部盘面事实前提下折叠八字等高重复中间推导段（默认 true） */
   dedupeRedundantSections?: boolean;
 }
@@ -301,11 +405,12 @@ export function distillPromptForUser(
   if (!rawText || !rawText.trim()) return '';
   const includeClassics = Boolean(options?.includeClassics);
   const mode = options?.mode ?? 'user';
+  const isCompactMode = mode === 'agent' || mode === 'brief';
   const dedupeRedundant = options?.dedupeRedundantSections ?? true;
 
   const parsedBlocks = splitPromptBlocks(rawText);
   const headerSet = new Set(parsedBlocks.map((b) => b.header).filter(Boolean));
-  const hasContract = headerSet.has('【解读与交付契约】') || mode === 'agent';
+  const hasContract = headerSet.has('【解读与交付契约】') || isCompactMode;
   const hasBaziSummaryCore =
     headerSet.has('【用神裁定与落位】') && headerSet.has('【格局组合与互制关系】');
   const hasCompactDayun = headerSet.has('【岁运动态与格局引动（压平精要）】');
@@ -320,9 +425,14 @@ export function distillPromptForUser(
     }
 
     if (ALWAYS_DROP_HEADERS.has(rawHeader)) continue;
-    if (mode === 'agent' && AGENT_STRIP_HEADERS.has(rawHeader)) continue;
+    if (!includeClassics && CLASSICS_DROP_HEADERS.has(rawHeader)) continue;
+    if (isCompactMode && AGENT_STRIP_HEADERS.has(rawHeader)) continue;
+    if (mode === 'brief' && isBriefDroppedHeader(rawHeader, headerSet)) continue;
     if (hasContract && CONTRACT_REDUNDANT_HEADERS.has(rawHeader)) continue;
     if (dedupeRedundant && hasBaziSummaryCore && BAZI_REDUNDANT_INTERMEDIATE_HEADERS.has(rawHeader)) {
+      continue;
+    }
+    if (dedupeRedundant && isStandardDuplicateSynthesisHeader(rawHeader, headerSet)) {
       continue;
     }
 
@@ -347,6 +457,10 @@ export function distillPromptForUser(
     } else {
       body = cleanBodyNoise(rawHeader, body, includeClassics);
       if (!body) continue;
+      if (mode === 'brief') {
+        body = trimBodyForBrief(rawHeader, body);
+        if (!body) continue;
+      }
       if (dedupeRedundant && rawHeader === '【大运】' && hasCompactDayun) {
         // 压平精要已含完整大运干支、年龄与喜忌引动，【大运】仅保留顺逆与起运岁数首行，避免重复罗列全部大运
         const firstLine = body.split('\n')[0]?.trim();
@@ -375,10 +489,20 @@ export function distillPromptForAgent(
   });
 }
 
+/** 面向提示词「精简」档位及超紧凑接口的高压缩核心事实精炼器（省约 45%–60% 字数）。 */
+export function distillPromptForBrief(rawText: string): string {
+  return distillPromptForUser(rawText, {
+    includeClassics: false,
+    mode: 'brief',
+    dedupeRedundantSections: true,
+  });
+}
+
 const SYSTEM_ROLE_HEADERS = new Set([
   '【解读与交付契约】',
   '【用户自定义规则框架】',
   '【AI 报告输出规范】',
+  OUTPUT_LANGUAGE_HEADER,
 ]);
 
 /**
@@ -477,7 +601,9 @@ export function applyPromptProfileToPrompt<T extends { text?: string }>(
   if (profile === 'audit') return prompt;
   const includeClassics = Boolean(options?.includeClassics);
   let nextText: string;
-  if (profile === 'agent' || profile === 'ultra-compact') {
+  if (profile === 'ultra-compact') {
+    nextText = distillPromptForBrief(prompt.text);
+  } else if (profile === 'agent') {
     nextText = distillPromptForAgent(prompt.text, { includeClassics });
   } else if (profile === 'user') {
     nextText = distillPromptForUser(prompt.text, { includeClassics });

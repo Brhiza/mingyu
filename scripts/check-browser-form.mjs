@@ -86,6 +86,10 @@ try {
           msg.params?.exceptionDetails?.text ??
           'Unknown exception',
       );
+    } else if (msg.method === 'Runtime.consoleAPICalled' && msg.params?.type === 'error') {
+      runtimeErrors.push(
+        msg.params.args?.map((a) => a.value ?? a.description).join(' ') || 'console.error',
+      );
     }
     if (msg.id && calls.has(msg.id)) {
       const call = calls.get(msg.id);
@@ -139,12 +143,7 @@ try {
   assert.equal(headCheck.hasManifest, true, '缺少 manifest 声明');
   assert.equal(headCheck.hasFavicon, true, '缺少站点图标声明');
 
-  // 2. 使用指南弹窗验证
-  assert.equal(await clickByText('.workspace-topbar-action-btn', '使用指南'), true);
-  await waitFor("Boolean(document.querySelector('#tutorial-modal-title'))", '使用指南弹窗未打开');
-  assert.equal(await clickByText('[role="dialog"] button', '我知道了'), true);
-
-  // 3. 个人命盘全流程（八字 -> 八宅二十四山 -> 流年年份切换 -> 导出长图）
+  // 2. 个人命盘全流程（八字 -> 流年年份切换；确认八宅已移出个人命盘标签栏）
   assert.equal(await clickByText('.workspace-topbar-tab', '命盘排盘'), true);
   await waitFor(
     "Boolean([...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === '开始排盘'))",
@@ -156,20 +155,14 @@ try {
     '八字结果盘面未渲染',
   );
 
-  // 切换八宅并测试二十四山坐山选择
-  assert.equal(await clickByText('.workspace-result-navigation button', '八宅'), true);
-  await waitFor("Boolean(document.querySelector('select[aria-label=\"选择宅屋坐山\"]'))", '八宅坐山选择器未出现');
-  await evaluate(`(() => {
-    const sel = document.querySelector('select[aria-label="选择宅屋坐山"]');
-    sel.value = '卯';
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  const hasBazhaiInPersonalNav = await evaluate(`(() => {
+    return [...document.querySelectorAll('.workspace-result-navigation button')].some((b) =>
+      b.textContent?.trim().includes('八宅'),
+    );
   })()`);
-  await waitFor(
-    "(document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').includes('卯')",
-    '切换八宅坐山后未重算卯山盘面',
-  );
+  assert.equal(hasBazhaiInPersonalNav, false, '八宅不应再出现在个人命盘结果导航栏中');
 
-  // 切回八字并切换流年年份
+  // 切换流年年份
   assert.equal(await clickByText('.workspace-result-navigation button', '八字'), true);
   await waitFor("Boolean(document.querySelector('select[aria-label=\"选择推运年份\"]'))", '流年年份选择器未出现');
   await evaluate(`(() => {
@@ -181,16 +174,6 @@ try {
     "(document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').includes('2028')",
     '切换流年年份后未更新 2028 岁运',
   );
-
-  // 验证长图导出按钮可正常触发 Canvas 导出
-  await evaluate(`(() => {
-    window.__shareClicked = false;
-    HTMLAnchorElement.prototype.click = function () {
-      if (String(this.download || '').endsWith('.png')) window.__shareClicked = true;
-    };
-  })()`);
-  assert.equal(await clickByText('.workspace-result-share-btn', '导出长图'), true);
-  await waitFor('window.__shareClicked === true', '长图导出未触发 PNG 下载');
 
   // 3b. 双人合盘：合盘场景切换与分析侧重点联动验证
   assert.equal(await clickByText('.workspace-topbar-tab', '命盘排盘'), true);
@@ -209,48 +192,195 @@ try {
   // 4. 出生范围扫描（直达 /chart/range 并验证 Web Worker 异步扫描）
   await send('Page.navigate', { url: new URL('/chart/range', pageUrl).toString() });
   await waitFor(
-    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('开始逐秒范围扫描')))",
+    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('开始扫描')))",
     '出生范围扫描表单未就绪',
   );
-  assert.equal(await clickByText('button', '开始逐秒范围扫描'), true);
+  assert.equal(await clickByText('button', '开始扫描'), true);
   await waitFor(
     "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').length > 40)",
     '出生范围扫描结果未打开',
     240,
   );
 
-  // 5. 统一首页输入框 + 展开「更多工具」进入工具箱：干支天文历（含 5 项天文时间尺度）与周易经文
-  assert.equal(await clickByText('.workspace-topbar-tab', '首页'), true);
+  // 5. 统一首页输入框 + 桌面直接展开的独立工具页面：万年历（含天文历法 5 项时间尺度）与周易经文
+  const openStandaloneUtility = async (cardLabel) => {
+    await pause(120);
+    assert.equal(await clickByText('.workspace-topbar-tab', '首页'), true);
+    await waitFor("location.pathname === '/'", '切换回首页超时');
+    await waitFor(
+      `Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('${cardLabel}')))`,
+      `首页入口「${cardLabel}」未渲染`,
+    );
+    assert.equal(await clickByText('button', cardLabel), true);
+  };
+
+  await openStandaloneUtility('万年历');
+  await waitFor("Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('天文历法')))", '天文历法入口按钮未加载');
+  assert.equal(await clickByText('button', '天文历法'), true);
+  await waitFor("Boolean(document.querySelector('[role=\"dialog\"] .workspace-calendar-page .almanac-astro-panel'))", '天文历法弹窗未加载');
+  assert.equal(await clickByText('[role="dialog"] .workspace-calendar-page .almanac-astro-panel button', '天文时间尺度'), true);
   await waitFor(
-    "Boolean(document.querySelector('textarea[aria-label=\"输入想问的事\"]'))",
-    '统一首页居中提问输入框未渲染',
-  );
-  assert.equal(await clickByText('button', '更多工具'), true);
-  await waitFor(
-    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('择吉万年历')))",
-    '点击更多工具后快捷卡片未展开',
-  );
-  assert.equal(await clickByText('button', '择吉万年历'), true);
-  await waitFor("Boolean(document.querySelector('[aria-label=\"实用工具模块\"]'))", '工具页主切换栏未出现');
-  assert.equal(await clickByText('[aria-label="实用工具模块"] button', '干支天文历'), true);
-  await waitFor("Boolean(document.querySelector('.workspace-calendar-page .almanac-astro-panel'))", '干支天文历页面未加载');
-  assert.equal(await clickByText('.workspace-calendar-page .almanac-astro-panel button', '天文时间尺度'), true);
-  await waitFor(
-    "(document.querySelector('.workspace-calendar-page .almanac-astro-panel')?.textContent ?? '').includes('JD_TT')",
+    "(() => { const t = document.querySelector('[role=\"dialog\"] .workspace-calendar-page .almanac-astro-panel')?.textContent ?? ''; return t.includes('JD_TT') || t.includes('近似地球力学时'); })()",
     '天文时间尺度计算结果未展示',
   );
+  assert.equal(
+    await evaluate(`(() => { const btn = document.querySelector('[role="dialog"] [aria-label="关闭窗口"]'); if (!btn) return false; btn.click(); return true; })()`),
+    true,
+    '未能关闭天文历法弹窗',
+  );
+  await waitFor(
+    "location.pathname === '/utilities/almanac' && Boolean(document.querySelector('.almanac-topic-grid'))",
+    '关闭天文历法弹窗后未回到万年历页面',
+  );
 
-  assert.equal(await clickByText('[aria-label="实用工具模块"] button', '汉字经籍'), true);
+  await openStandaloneUtility('汉字经籍');
   await waitFor("Boolean(document.querySelector('[aria-label=\"汉字经籍子模块\"]'))", '汉字经籍子模块未加载');
   assert.equal(await clickByText('[aria-label="汉字经籍子模块"] button', '周易经文'), true);
   await waitFor(
-    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('查询《周易》原文')))",
+    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('查询经文')))",
     '周易经文检索界面未就绪',
   );
-  assert.equal(await clickByText('button', '查询《周易》原文'), true);
+  assert.equal(await clickByText('button', '查询经文'), true);
   await waitFor(
     "(document.body.innerText ?? '').includes('大哉乾元')",
     '周易经文检索结果未显示《彖传》经文',
+  );
+
+  // 6. 已纯 React 化的关键交互模块端到端回归：新建档案、六爻、塔罗、择吉万年历、阳宅风水、汉字字典
+  const openUtilitiesTab = openStandaloneUtility;
+
+  // 6a. CaseEditorModal 新建与保存个人档案
+  assert.equal(await clickByText('.workspace-topbar-tab', '命盘排盘'), true);
+  await waitFor("Boolean(document.querySelector('.person-form-workspace'))", '命盘工作区未加载');
+  await evaluate("window.dispatchEvent(new CustomEvent('mingyu:open-case-picker'))");
+  await waitFor(
+    "Boolean([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('新建档案')))",
+    '个人档案抽屉未打开',
+  );
+  assert.equal(await clickByText('button', '新建档案'), true);
+  await waitFor(
+    "Boolean([...document.querySelectorAll('[role=\"dialog\"] button')].some((b) => b.textContent?.includes('保存档案')))",
+    '新建档案弹窗未打开',
+  );
+  await evaluate(`(() => {
+    const dlg = [...document.querySelectorAll('[role="dialog"]')].find((node) =>
+      node.textContent?.includes('保存档案'),
+    );
+    const nameInput = dlg?.querySelector('input[placeholder*="姓名"], input[type="text"]');
+    if (!nameInput) throw new Error('未找到档案姓名输入框');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(nameInput, '自动化测试命例');
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  assert.equal(await clickByText('[role="dialog"] button', '保存档案'), true);
+  await waitFor(
+    "!([...document.querySelectorAll('[role=\"dialog\"] button')].some((b) => b.textContent?.includes('保存档案')))",
+    '新建档案弹窗未关闭',
+  );
+  await waitFor(
+    "(document.body.textContent ?? '').includes('自动化测试命例')",
+    '新建的个人档案未出现在列表中',
+  );
+  await evaluate(`(() => {
+    const closeBtn = document.querySelector('[aria-label="关闭"], [aria-label="关闭面板"]');
+    if (closeBtn) closeBtn.click();
+  })()`);
+
+  // 6b. 六爻连摇六次并起卦
+  assert.equal(await clickByText('.workspace-topbar-tab', '占卜起卦'), true);
+  await waitFor("Boolean(document.querySelector('.divination-card-selector-grid'))", '占卜输入页未加载');
+  assert.equal(await clickByText('button', '一键连摇六爻'), true);
+  await waitFor("(document.body.textContent ?? '').includes('6 / 6')", '六爻未完成 6 爻连摇');
+  assert.equal(await clickByText('button', '开始占卜'), true);
+  await waitFor(
+    "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').length > 40)",
+    '六爻占卜结果未生成',
+  );
+
+  // 6c. 塔罗牌阵抽牌与起卦
+  assert.equal(await clickByText('.workspace-topbar-tab', '占卜起卦'), true);
+  await waitFor("Boolean(document.querySelector('.divination-card-selector-grid'))", '返回占卜页面失败');
+  assert.equal(await clickByText('button', '塔罗占卜'), true);
+  await waitFor(
+    "Boolean(document.querySelector('.tarot-spread-preview-table, .interactive-draw-session'))",
+    '塔罗工作台未渲染',
+  );
+  assert.equal(await clickByText('button', '开始占卜'), true);
+  await waitFor(
+    "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').length > 40)",
+    '塔罗占卜结果未生成',
+  );
+
+  // 6d. 万年历择日提交
+  await openUtilitiesTab('万年历');
+  await waitFor("Boolean(document.querySelector('.almanac-topic-grid'))", '择吉事项选择器未加载');
+  assert.equal(await clickByText('button', '开始择日'), true);
+  await waitFor(
+    "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').length > 40)",
+    '择吉日历结果未生成',
+  );
+
+  // 6e. 阳宅风水引导式体检：第1步朝向示意图与指南针角度 -> 第2步年份居住人 -> 第3步房间点选 -> 体检报告与户型图弹窗 -> AI 深度解读
+  await openUtilitiesTab('阳宅风水');
+  await waitFor(
+    "Boolean(document.querySelector('[data-testid=\"fengshui-workbench\"] .fs-orientation-diagram'))",
+    '阳宅风水引导第1步朝向示意图未渲染',
+  );
+  await evaluate(`(() => {
+    const inp = document.querySelector('[data-testid="fengshui-workbench"] input[aria-label="指南针角度"]');
+    if (!inp) throw new Error('指南针角度输入框缺失');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(inp, '270');
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor(
+    "(document.querySelector('.fs-orientation-diagram')?.textContent ?? '').includes('坐东朝西')",
+    '输入 270° 后示意图未联动为坐东朝西',
+  );
+  assert.equal(await clickByText('button', '下一步'), true);
+  await waitFor("Boolean(document.body.textContent?.includes('谁来住这套房'))", '第2步未渲染');
+  assert.equal(await clickByText('button', '下一步'), true);
+  await waitFor("Boolean(document.querySelector('.fs-room-grid'))", '第3步房间网格未渲染');
+  assert.equal(await clickByText('.fs-room-grid button', '正南'), true);
+  assert.equal(await clickByText('button', '生成报告'), true);
+  await waitFor(
+    "Boolean(document.body.textContent?.includes('你家房间位置诊断') && document.querySelector('.fs-plain-cards-grid'))",
+    '住宅体检报告未渲染',
+  );
+  assert.equal(await clickByText('button', '户型图叠罗盘'), true);
+  await waitFor("Boolean(document.querySelector('[role=\"dialog\"][aria-label=\"户型图叠罗盘\"]'))", '户型图弹窗未打开');
+  await evaluate(`(() => {
+    const btn = document.querySelector('[role="dialog"] [aria-label="关闭窗口"]');
+    if (btn) btn.click();
+  })()`);
+  assert.equal(await clickByText('button', 'AI 解读'), true);
+  await waitFor(
+    "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').length > 40)",
+    '阳宅风水结果未生成',
+  );
+
+  // 6f. 汉字字典查询
+  await openUtilitiesTab('汉字经籍');
+  await waitFor("Boolean(document.querySelector('[aria-label=\"汉字经籍子模块\"]'))", '汉字经籍子模块未加载');
+  assert.equal(await clickByText('[aria-label="汉字经籍子模块"] button', '汉字字典'), true);
+  await waitFor("Boolean(document.querySelector('.workspace-culture-page input'))", '汉字字典输入框未就绪');
+  await evaluate(`(() => {
+    const inp = document.querySelector('.workspace-culture-page input[type="text"], .workspace-culture-page input:not([type])');
+    if (!inp) throw new Error('汉字字典输入框缺失');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(inp, '易');
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await evaluate(`(() => {
+    const btn = document.querySelector('.workspace-culture-page button[type="submit"], .workspace-culture-page .workspace-ui-button.is-primary');
+    if (!btn) throw new Error('汉字字典提交按钮缺失');
+    btn.click();
+  })()`);
+  await waitFor(
+    "Boolean(document.querySelector('.workspace-result-page-shell:not([hidden])') && (document.querySelector('.workspace-prompt-preview-body pre')?.textContent ?? '').includes('易'))",
+    '汉字字典查询结果未显示「易」字内容',
   );
 
   if (process.env.MINGYU_BROWSER_SCREENSHOT) {

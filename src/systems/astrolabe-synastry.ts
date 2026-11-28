@@ -7,7 +7,7 @@ import { houseAt } from './astrology/geometry';
 import { parseQuestionContext } from './question-context';
 import { buildMethodSituationDigest } from './situation-digest';
 import type { SynastryRelationship } from './focus-presets';
-import { formatAstroHouseSystem } from './prompt-format';
+import { formatAstroChartWarnings, formatAstroHouseSystem } from './prompt-format';
 
 type Input = z.infer<typeof astrolabeSynastryIndependentInput>;
 type Source = Pick<Input, 'person1' | 'person2' | 'referenceTime' | 'syncYears' | 'options' | 'prompt'>;
@@ -287,7 +287,7 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     ? `${label1}${r.person1Name}落${r.sign1}，${label2}${r.person2Name}落${r.sign2}：守护互溶`
     : `${r.receiver === 'person1' ? label1 + r.person1Name : label2 + r.person2Name}以${r.dignity?.join('、')}接纳${r.receiver === 'person1' ? label2 + r.person2Name : label1 + r.person1Name}，伴随${r.aspect}`).join('\n');
   const compositeText = data.composite
-    ? `【组合中点盘（Composite）】\n中点上升：${data.composite.ascendant.sign}${data.composite.ascendant.degreeInSign.toFixed(2)}°（${data.composite.model}）\n中点星位：${data.composite.points.map((pt) => `${pt.name}${pt.sign}${pt.degreeInSign.toFixed(2)}°（第${pt.house}宫）`).join('；')}\n组合盘内部相位（前 ${data.composite.aspects.length}/${data.composite.totalAspects} 条）：\n${data.composite.aspects.map((a) => `${a.point1Name}与${a.point2Name}${a.label}（偏差${a.deviation.toFixed(3)}°）`).join('；') || '无命中相位'}`
+    ? `【组合中点盘】\n中点上升：${data.composite.ascendant.sign}${data.composite.ascendant.degreeInSign.toFixed(2)}°（${data.composite.model}）\n中点星位：${data.composite.points.map((pt) => `${pt.name}${pt.sign}${pt.degreeInSign.toFixed(2)}°（第${pt.house}宫）`).join('；')}\n组合盘内部相位（前 ${data.composite.aspects.length}/${data.composite.totalAspects} 条）：\n${data.composite.aspects.map((a) => `${a.point1Name}与${a.point2Name}${a.label}（偏差${a.deviation.toFixed(3)}°）`).join('；') || '无命中相位'}`
     : '';
   const transitText = data.transits
     ? `【双人行运合参（Transit）】\n参考时刻：${data.transits.referenceTime}（容许度 ${data.transits.transitOrb}°）\n流年对${label1}本命：${data.transits.toPerson1.map((t) => `流年${t.transitName}${t.label}本命${t.natalName}（偏差${t.deviation.toFixed(2)}°）`).join('；') || '无紧密相位'}\n流年对${label2}本命：${data.transits.toPerson2.map((t) => `流年${t.transitName}${t.label}本命${t.natalName}（偏差${t.deviation.toFixed(2)}°）`).join('；') || '无紧密相位'}`
@@ -334,6 +334,8 @@ function render(data: Data, question: string, options?: Input['prompt']) {
   const situationLines = buildMethodSituationDigest('astrolabe-synastry', data, question);
   const g1 = data.input.person1.gender === 'male' ? '（男）' : data.input.person1.gender === 'female' ? '（女）' : '';
   const g2 = data.input.person2.gender === 'male' ? '（男）' : data.input.person2.gender === 'female' ? '（女）' : '';
+  const w1 = formatAstroChartWarnings(data.charts.person1.warnings);
+  const w2 = formatAstroChartWarnings(data.charts.person2.warnings);
   const text = [`【西洋星盘双人合盘】\n${label1}${g1} UTC ${data.charts.person1.basis.utcDateTime}，${formatAstroHouseSystem(data.charts.person1.basis.houseSystem)}宫位；${label2}${g2} UTC ${data.charts.person2.basis.utcDateTime}，${formatAstroHouseSystem(data.charts.person2.basis.houseSystem)}宫位。`,
     situationLines.length ? `【局势要点】\n${situationLines.join('\n')}` : '',
     `【双方本命计算点】\n${label1}：${natal(data.charts.person1)}\n${label2}：${natal(data.charts.person2)}`,
@@ -346,7 +348,7 @@ function render(data: Data, question: string, options?: Input['prompt']) {
     syncText,
     schools ? `【流派】\n${schools}` : '', formatAstrolabeClassics(options?.includeClassics),
     `【${scenario.label}任务】\n${scenario.focus} 结合双方位置、跨盘相位和落宫回答问题；区分几何事实与占星解释，不按数量打匹配分，也不推断对方意图。`,
-    `【限制】\n${data.limitations.join('\n')}${data.charts.person1.warnings.length || data.charts.person2.warnings.length ? `\n${label1}星历警告：${data.charts.person1.warnings.length ? JSON.stringify(data.charts.person1.warnings) : '无'}；${label2}星历警告：${data.charts.person2.warnings.length ? JSON.stringify(data.charts.person2.warnings) : '无'}` : ''}`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
+    `【限制】\n${data.limitations.join('\n')}${w1.length || w2.length ? `\n${label1}星历提醒：${w1.length ? w1.join('；') : '无'}；${label2}星历提醒：${w2.length ? w2.join('；') : '无'}` : ''}`, `【问题】\n${question}`].filter(Boolean).join('\n\n');
   return { text };
 }
 export async function astrolabeSynastryIndependent(input: Input, context?: RuntimeContext) {
