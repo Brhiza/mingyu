@@ -1,10 +1,10 @@
 ---
 name: mingyu
 license: MIT
-description: 使用命语 V2（本地离线引擎、远程 MCP 或 HTTP 服务）进行 39 项术数排盘、天文历法推算、典籍查询、考时校准与可溯源解读；支持原盘免重排追问。传统文化视角，不构成专业建议。
+description: Deterministic calculation & AI-prompt workbench for 39 Eastern/Western metaphysics systems (BaZi, Zi Wei Dou Shu, Qi Men Dun Jia, Da Liu Ren, I Ching / Liu Yao, Western Astrology, Tarot, Feng Shui, Almanac) via offline CLI, remote MCP, or HTTP API. Supports optional outputLanguage ("en", "zh-TW", "ja", "ko", "vi", or any language) and lossless repromptToken follow-ups. / 使用命语 V2 进行 39 项术数排盘、历法推算与可溯源解读，支持原盘免重排追问与任意输出语言。
 metadata:
   author: Brhiza
-  homepage: https://aov.cc
+  homepage: https://sydf.cc
   repository: https://github.com/Brhiza/mingyu
 ---
 
@@ -12,7 +12,7 @@ metadata:
 
 用户要求使用命语排盘、查典或解读时，按以下优先级接入：
 1. **本地离线脚本优先**：检查技能目录下是否存在 `scripts/mingyu.mjs` 且环境支持 Node.js；若存在，优先通过命令行本地执行 `node scripts/mingyu.mjs`（完全离线、不消耗远程额度）。
-2. **远程 MCP / HTTP 服务**：若无本地脚本，使用本技能包自带 `.mcp.json` 自举的远程 MCP（默认精简路由模式 `https://aov.cc/mcp?mode=router`），或用户已配置/指定的 V2 MCP / HTTP 服务。
+2. **远程 MCP / HTTP 服务**：若无本地脚本，使用本技能包自带 `.mcp.json` 自举的远程 MCP（默认精简路由模式 `https://sydf.cc/mcp?mode=router`），或用户已配置/指定的 V2 MCP / HTTP 服务。
 
 开始前先确认实际开放的方法与入参：
 - 本地脚本：`node scripts/mingyu.mjs methods`、`node scripts/mingyu.mjs schema <方法名>`、`node scripts/mingyu.mjs prompts [方法名]`
@@ -45,12 +45,12 @@ metadata:
 ## 计算、追问与交付
 
 首次计算：
-- 本地脚本：`node scripts/mingyu.mjs calculate <方法名> --input '<JSON>' --output result.json --compact`（保存完整盘面到 `result.json`，同时控制台只输出精简摘要与 `prompt.text`，节省上下文；复杂 JSON 可写入文件后传 `--input-file <路径>`）。
-- 远程 MCP / HTTP API：优先使用精简路由模式 `/mcp?mode=router` 或在 `POST /api/calculate` 传入 `{ "method": "方法名", "input": { ... }, "responseMode": "compact" }`，获取 `prompt.text` 与 `repromptToken`。
+- 本地脚本：`node scripts/mingyu.mjs calculate <方法名> --input '<JSON>' --output result.json --compact`（保存完整盘面到 `result.json`，同时控制台只输出精简摘要与 `prompt.text`，节省上下文；复杂 JSON 可写入文件后传 `--input-file <路径>`；非简体中文需求加 `--lang en` / `--lang zh-TW` / `--lang ja` / `--lang ko` / `--lang vi`）。
+- 远程 MCP / HTTP API：优先使用精简路由模式 `/mcp?mode=router` 或在 `POST /api/calculate` 传入 `{ "method": "方法名", "input": { ... }, "responseMode": "compact" }`（非简体中文需求传 `"outputLanguage": "en"` 等任意语言标签），获取 `prompt.text` 与 `repromptToken`。
 
 完整保存返回结果（或 `repromptToken`）；**随机抽牌、起卦或求签只进行一次**，事件类工具不自动重试。围绕同一盘面的新问题追问不要重新抽取：
-- 本地脚本：`node scripts/mingyu.mjs reprompt <方法名> --result-file result.json --question "新问题"`（或使用 `--token "<repromptToken>"`）。
-- 远程 MCP / HTTP API：调用 MCP `reprompt` 或 `POST /api/prompt`，传入 `{ "repromptToken": "...", "question": "新问题" }` 或 `{ "method": "方法名", "result": 上次完整结果, "question": "新问题" }`。
+- 本地脚本：`node scripts/mingyu.mjs reprompt <方法名> --result-file result.json --question "新问题"`（或使用 `--token "<repromptToken>"`，可附加 `--lang <tag>` 切换语言）。
+- 远程 MCP / HTTP API：调用 MCP `reprompt` 或 `POST /api/prompt`，传入 `{ "repromptToken": "...", "question": "新问题" }` 或 `{ "method": "方法名", "result": 上次完整结果, "question": "新问题" }`（省略 `outputLanguage` 时自动沿用首次计算语言）。
 
 追问默认以本次调用时间作为提示词参考；需要其他参考时间时显式传带时区的 `currentTime`，原盘时间不会改变。结果保存了首次计算的提示词选项；省略 `prompt` 时沿用，传新对象整体替换，传 `{}` 恢复默认。结果及选项由调用方提供，来源无法由服务证明。
 

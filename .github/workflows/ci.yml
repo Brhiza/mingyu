@@ -38,6 +38,9 @@ jobs:
       - name: Build standalone MCP bundle
         run: pnpm build:mcp
 
+      - name: Build standalone CLI bundle
+        run: pnpm build:cli
+
       - name: Verify Worker & MCP profiles
         run: |
           pnpm check:worker-profile

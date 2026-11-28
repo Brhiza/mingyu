@@ -5,11 +5,11 @@
 ## 1. 本地脚本 vs 远程 MCP 选择异常
 
 - **报错找不到 `scripts/mingyu.mjs` 或 `node` 不可用**：
-  - 正常现象（例如通过 `npx skills add` 安装的纯远程 Skill 不含离线 JS）。自动回退使用 `.mcp.json` 自举的远程 MCP（`https://aov.cc/mcp?mode=router`）或用户指定的 HTTP 服务。
+  - 正常现象（例如通过 `npx skills add` 安装的纯远程 Skill 不含离线 JS）。自动回退使用 `.mcp.json` 自举的远程 MCP（`https://sydf.cc/mcp?mode=router`）或用户指定的 HTTP 服务。
 - **本地执行报错语法或 API 不支持**：
   - 本地独立脚本需要 Node.js 20+（推荐 22.12+）；若本机 Node 版本过低，改用远程 MCP 端点。
 - **远程 MCP 连接超时或鉴权失败 (401/403)**：
-  - 检查是否连向私有部署且需要 `Authorization: Bearer <ACCESS_TOKEN>`；若公共端点 `https://aov.cc/mcp?mode=router` 临时不可达，提醒用户稍后重试或切换离线包 `mingyu-skill.zip`，**不要用模型心算冒充排盘结果**。
+  - 检查是否连向私有部署且需要 `Authorization: Bearer <ACCESS_TOKEN>`；若公共端点 `https://sydf.cc/mcp?mode=router` 临时不可达，提醒用户稍后重试或切换离线包 `mingyu-skill.zip`，**不要用模型心算冒充排盘结果**。
 
 ## 2. 参数校验失败 (400 / Schema Error)
 
